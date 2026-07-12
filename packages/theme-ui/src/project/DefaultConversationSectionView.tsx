@@ -1,0 +1,65 @@
+import { cn } from "@vetta/ui";
+import type { JSX, ReactNode } from "react";
+
+export interface DefaultConversationSectionViewLabels {
+	more: string;
+	newSession: string;
+}
+
+export interface DefaultConversationSectionViewProps {
+	className?: string;
+	filterSelect: ReactNode;
+	labels: DefaultConversationSectionViewLabels;
+	list: ReactNode;
+	onListScrollRef: (el: HTMLDivElement | null) => void;
+	onMoreClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
+	onNewSession?: () => void;
+	onOpenContextMenu: (event: React.MouseEvent) => void;
+	showNewSession: boolean;
+}
+
+export function DefaultConversationSectionView({
+	className,
+	filterSelect,
+	labels,
+	list,
+	onListScrollRef,
+	onMoreClick,
+	onNewSession,
+	onOpenContextMenu,
+	showNewSession,
+}: DefaultConversationSectionViewProps): JSX.Element {
+	return (
+		<div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", className)}>
+			<div
+				className="group -mx-1.5 flex shrink-0 items-center justify-between pb-1 pl-2 pr-1 pt-1"
+				onContextMenu={onOpenContextMenu}
+			>
+				<div className="flex min-w-0 items-center gap-0.5">{filterSelect}</div>
+				<div className="flex items-center">
+					<button
+						type="button"
+						title={labels.more}
+						onClick={onMoreClick}
+						className="flex items-center justify-center rounded-md p-1.5 text-foreground opacity-0 transition-opacity hover:bg-accent group-hover:opacity-60 group-hover:hover:opacity-100"
+					>
+						<span className="icon-[solar--menu-dots-linear] h-4 w-4" />
+					</button>
+					{showNewSession && onNewSession && (
+						<button
+							type="button"
+							title={labels.newSession}
+							onClick={onNewSession}
+							className="flex items-center justify-center rounded-md p-1.5 text-foreground opacity-0 transition-opacity hover:bg-accent group-hover:opacity-60 group-hover:hover:opacity-100"
+						>
+							<span className="icon-[solar--add-square-outline] h-4 w-4" />
+						</button>
+					)}
+				</div>
+			</div>
+			<div ref={onListScrollRef} className="min-h-0 flex-1 overflow-y-auto no-scrollbar">
+				{list}
+			</div>
+		</div>
+	);
+}

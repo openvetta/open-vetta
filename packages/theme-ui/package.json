@@ -65,6 +65,10 @@
 			"types": "./src/overlays/index.ts",
 			"import": "./src/overlays/index.ts"
 		},
+		"./project": {
+			"types": "./src/project/index.ts",
+			"import": "./src/project/index.ts"
+		},
 		"./settings": {
 			"types": "./src/settings/index.ts",
 			"import": "./src/settings/index.ts"
@@ -99,12 +103,14 @@
 		"motion": "^12.0.0",
 		"react": "^19.0.0",
 		"react-markdown": "^10.0.0",
+		"react-virtuoso": "^4.0.0",
 		"remark-gfm": "^4.0.0",
 		"shiki": ">=3.0.0"
 	},
 	"peerDependenciesMeta": {
 		"canvas-confetti": { "optional": true },
 		"react-markdown": { "optional": true },
+		"react-virtuoso": { "optional": true },
 		"remark-gfm": { "optional": true },
 		"shiki": { "optional": true }
 	},
@@ -114,6 +120,7 @@
 		"canvas-confetti": "^1.9.4",
 		"motion": "^12.23.12",
 		"react-markdown": "^10.1.0",
+		"react-virtuoso": "^4.18.5",
 		"remark-gfm": "^4.0.1",
 		"shiki": "^4.0.2",
 		"typescript": "^5.9.2"

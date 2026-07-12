@@ -7,15 +7,15 @@
     "kind": "host_primitive_hold",
     "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
+  "packages/desktop-app/src/renderer/domains/batch-tasks/components/BatchProjectDialogView.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
   "packages/desktop-app/src/renderer/domains/batch-tasks/components/batch-project-form/BatchProjectFoldersField.tsx": {
     "kind": "host_primitive_hold",
     "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
   "packages/desktop-app/src/renderer/domains/batch-tasks/components/batch-task-list/BatchTaskActionButtons.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/batch-tasks/components/BatchProjectDialogView.tsx": {
     "kind": "host_primitive_hold",
     "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
@@ -31,15 +31,11 @@
     "kind": "host_primitive_hold",
     "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
-  "packages/desktop-app/src/renderer/domains/flowing/components/flow-graph/node-detail-dialog.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  "packages/desktop-app/src/renderer/domains/flowing-chat/components/ChatMessageList.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
   },
   "packages/desktop-app/src/renderer/domains/flowing/components/FlowingSendDialogView.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/flowing/components/WorkflowCompleteDialogView.tsx": {
     "kind": "host_primitive_hold",
     "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
@@ -47,21 +43,21 @@
     "kind": "host_primitive_hold",
     "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
-  "packages/desktop-app/src/renderer/domains/plugins/components/PluginActivityTabPanel.tsx": {
-    "kind": "non_goal",
-    "reason": "plugin private host shell / i18n runtime; out of default themable UI"
+  "packages/desktop-app/src/renderer/domains/flowing/components/WorkflowCompleteDialogView.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
-  "packages/desktop-app/src/renderer/domains/plugins/components/PluginGlobalSlotHost.tsx": {
-    "kind": "non_goal",
-    "reason": "plugin private host shell / i18n runtime; out of default themable UI"
+  "packages/desktop-app/src/renderer/domains/flowing/components/flow-graph/index.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
   },
-  "packages/desktop-app/src/renderer/domains/plugins/components/PluginTurnCardHost.tsx": {
-    "kind": "non_goal",
-    "reason": "plugin private host shell / i18n runtime; out of default themable UI"
+  "packages/desktop-app/src/renderer/domains/flowing/components/flow-graph/node-detail-dialog.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
-  "packages/desktop-app/src/renderer/domains/plugins/runtime/plugin-i18n.tsx": {
-    "kind": "non_goal",
-    "reason": "plugin private host shell / i18n runtime; out of default themable UI"
+  "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeBaseListPageView.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
   },
   "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeBasePageView.tsx": {
     "kind": "host_primitive_hold",
@@ -87,9 +83,37 @@
     "kind": "host_primitive_hold",
     "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
+  "packages/desktop-app/src/renderer/domains/plugins/components/PluginActivityTabPanel.tsx": {
+    "kind": "non_goal",
+    "reason": "plugin private host shell / i18n runtime; out of default themable UI"
+  },
+  "packages/desktop-app/src/renderer/domains/plugins/components/PluginGlobalSlotHost.tsx": {
+    "kind": "non_goal",
+    "reason": "plugin private host shell / i18n runtime; out of default themable UI"
+  },
+  "packages/desktop-app/src/renderer/domains/plugins/components/PluginTurnCardHost.tsx": {
+    "kind": "non_goal",
+    "reason": "plugin private host shell / i18n runtime; out of default themable UI"
+  },
+  "packages/desktop-app/src/renderer/domains/plugins/runtime/plugin-i18n.tsx": {
+    "kind": "non_goal",
+    "reason": "plugin private host shell / i18n runtime; out of default themable UI"
+  },
   "packages/desktop-app/src/renderer/domains/project/components/sidebar/filters/FilterSelectPopover.tsx": {
     "kind": "host_primitive_hold",
     "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/project/components/sidebar/filters/SidebarFilterSelectView.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/project/components/sidebar/message-center/ChatMessageList.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/domains/project/components/sidebar/message-center/FlowingMessageList.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
   },
   "packages/desktop-app/src/renderer/domains/project/components/sidebar/message-center/MessageCenterDialog.tsx": {
     "kind": "host_primitive_hold",
@@ -99,9 +123,17 @@
     "kind": "host_primitive_hold",
     "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
+  "packages/desktop-app/src/renderer/domains/project/components/sidebar/message-center/NotificationMessageList.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
   "packages/desktop-app/src/renderer/domains/project/components/sidebar/settings-menu/SettingsMenuPopover.tsx": {
     "kind": "host_primitive_hold",
     "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/scheduler/components/AutomationPageView.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
   },
   "packages/desktop-app/src/renderer/domains/scheduler/components/SchedulerTaskFieldsView.tsx": {
     "kind": "host_primitive_hold",
@@ -203,6 +235,14 @@
     "kind": "host_primitive_hold",
     "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
+  "packages/desktop-app/src/renderer/domains/settings/components/SettingsContent.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/domains/settings/components/SettingsSidebar.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
   "packages/desktop-app/src/renderer/domains/settings/components/ShortcutRecorder.tsx": {
     "kind": "host_primitive_hold",
     "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
@@ -227,6 +267,10 @@
     "kind": "host_primitive_hold",
     "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
+  "packages/desktop-app/src/renderer/domains/settings/components/shared.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
   "packages/desktop-app/src/renderer/domains/skills/components/PluginsPanelView.tsx": {
     "kind": "host_primitive_hold",
     "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
@@ -247,6 +291,22 @@
     "kind": "host_primitive_hold",
     "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
+  "packages/desktop-app/src/renderer/root-layout/RootGlobalOverlays.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/root-layout/RootLayoutView.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/GenericActionApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/GenericActionApprovalView.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
   "packages/desktop-app/src/renderer/shared/action-approval/appearance/AppearanceApprovalDrawerView.tsx": {
     "kind": "host_primitive_hold",
     "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
@@ -255,9 +315,9 @@
     "kind": "host_primitive_hold",
     "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
-  "packages/desktop-app/src/renderer/shared/action-approval/GenericActionApprovalView.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/DomainManageApprovals.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
   },
   "packages/desktop-app/src/renderer/shared/action-approval/manage/ManageActionApprovalFrameView.tsx": {
     "kind": "host_primitive_hold",
@@ -275,51 +335,23 @@
     "kind": "host_primitive_hold",
     "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
-  "packages/desktop-app/src/renderer/shared/components/KnowledgeHowItWorksDialog.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/flowing/components/flow-graph/index.tsx": {
-    "kind": "permanent_desktop",
-    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
-  },
-  "packages/desktop-app/src/renderer/domains/flowing-chat/components/ChatMessageList.tsx": {
-    "kind": "permanent_desktop",
-    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/SettingsContent.tsx": {
-    "kind": "permanent_desktop",
-    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/SettingsSidebar.tsx": {
-    "kind": "permanent_desktop",
-    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/shared.tsx": {
-    "kind": "permanent_desktop",
-    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
-  },
-  "packages/desktop-app/src/renderer/root-layout/RootGlobalOverlays.tsx": {
-    "kind": "permanent_desktop",
-    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/GenericActionApproval.tsx": {
-    "kind": "permanent_desktop",
-    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/DomainManageApprovals.tsx": {
-    "kind": "permanent_desktop",
-    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
-  },
   "packages/desktop-app/src/renderer/shared/components/BotAvatar.tsx": {
     "kind": "permanent_desktop",
     "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
   },
-  "packages/desktop-app/src/renderer/shared/components/provider-icon/index.tsx": {
+  "packages/desktop-app/src/renderer/shared/components/KnowledgeHowItWorksDialog.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/shared/components/TitleBar/TitleBar.tsx": {
     "kind": "permanent_desktop",
     "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
   },
-  "packages/desktop-app/src/renderer/shared/components/TitleBar/TitleBar.tsx": {
+  "packages/desktop-app/src/renderer/shared/components/UserAvatar.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/components/provider-icon/index.tsx": {
     "kind": "permanent_desktop",
     "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
   },
@@ -332,34 +364,6 @@
     "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
   },
   "packages/desktop-app/src/renderer/shared/components/ui/time-picker.tsx": {
-    "kind": "permanent_desktop",
-    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
-  },
-  "packages/desktop-app/src/renderer/shared/components/UserAvatar.tsx": {
-    "kind": "permanent_desktop",
-    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
-  },
-  "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeBaseListPageView.tsx": {
-    "kind": "permanent_desktop",
-    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
-  },
-  "packages/desktop-app/src/renderer/domains/project/components/sidebar/message-center/ChatMessageList.tsx": {
-    "kind": "permanent_desktop",
-    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
-  },
-  "packages/desktop-app/src/renderer/domains/project/components/sidebar/message-center/FlowingMessageList.tsx": {
-    "kind": "permanent_desktop",
-    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
-  },
-  "packages/desktop-app/src/renderer/domains/project/components/sidebar/message-center/NotificationMessageList.tsx": {
-    "kind": "permanent_desktop",
-    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
-  },
-  "packages/desktop-app/src/renderer/domains/scheduler/components/AutomationPageView.tsx": {
-    "kind": "permanent_desktop",
-    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
-  },
-  "packages/desktop-app/src/renderer/root-layout/RootLayoutView.tsx": {
     "kind": "permanent_desktop",
     "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
   },
