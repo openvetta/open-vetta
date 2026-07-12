@@ -68,6 +68,12 @@ export type {
 } from "./NavigationOpenApprovalView";
 export { NavigationOpenApprovalView } from "./NavigationOpenApprovalView";
 export type {
+	SchedulerActionApprovalDialogViewDetail,
+	SchedulerActionApprovalDialogViewLabels,
+	SchedulerActionApprovalDialogViewProps,
+} from "./SchedulerActionApprovalDialogView";
+export { SchedulerActionApprovalDialogView } from "./SchedulerActionApprovalDialogView";
+export type {
 	SchedulerEditApprovalDrawerViewLabels,
 	SchedulerEditApprovalDrawerViewProps,
 } from "./SchedulerEditApprovalDrawerView";

@@ -69,6 +69,7 @@
 | 40 | Pet/PresetProvider/McpServerList 脱 hold | done | [40-hold-wave-pet-preset-mcp.md](./40-hold-wave-pet-preset-mcp.md) |
 | 41 | Login/BuiltinMcp/WorkflowBind/AgentExp 脱 hold | done | [41-hold-wave-login-mcp-flowing.md](./41-hold-wave-login-mcp-flowing.md) |
 | 42 | WorkflowComplete + MessageCenterDialog 脱 hold | done | [42-hold-wave-complete-messagecenter.md](./42-hold-wave-complete-messagecenter.md) |
+| 43 | Team/Automation/Import/SchedulerApproval 脱 hold | done | [43-hold-wave-team-automation-import.md](./43-hold-wave-team-automation-import.md) |
 | 99 | 最终审计与暂缓清单 | done | [99-final-audit.md](./99-final-audit.md) |
 
 ## 闭合门禁（验收用）
