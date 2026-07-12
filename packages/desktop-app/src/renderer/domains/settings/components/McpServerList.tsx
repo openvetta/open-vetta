@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button } from "@shared/components/ui/button";
-import { SegmentedControl } from "@shared/components/ui/segmented-control";
+import { SettingSection } from "@vetta/theme-ui/settings";
+import { SegmentedControl } from "@vetta/theme-ui/shared";
+import { Button } from "@vetta/ui";
 import { BuiltinMcpSection } from "./BuiltinMcpSection";
 import { McpServerForm } from "./McpServerForm";
 import { McpServerRow } from "./McpServerRow";
@@ -10,7 +11,6 @@ import {
 	RemoteMcpRefreshButton,
 	useRemoteMcpSectionModel,
 } from "./RemoteMcpSection";
-import { SettingSection } from "./shared";
 import { SETTINGS_SECTION } from "../registry";
 import type { McpSettingsModel } from "./useMcpSettingsModel";
 
