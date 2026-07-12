@@ -16,6 +16,7 @@ export * from "./knowledge";
 export * from "./layout";
 export * from "./overlays";
 export * from "./project";
+export * from "./scheduler";
 export * from "./settings";
 export * from "./shared";
 export * from "./sidebar";
