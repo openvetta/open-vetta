@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button } from "./ui/button";
-import { Dialog, DialogContent } from "./ui/dialog";
+import { Button } from "@shared/components/ui/button";
+import { Dialog, DialogContent } from "@shared/components/ui/dialog";
 
 interface NewProjectDialogProps {
 	onConfirm: (name: string) => void;

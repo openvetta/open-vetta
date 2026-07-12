@@ -1,4 +1,4 @@
-import { Textarea } from "@shared/components/ui/textarea";
+import { BatchProjectArtifactFieldView } from "@vetta/theme-ui/batch-tasks";
 import { useTranslation } from "react-i18next";
 import { compactLines } from "../../utils/batchProjectFormData";
 
@@ -10,20 +10,16 @@ export function BatchProjectArtifactField({
 	onChange: (patterns: string[]) => void;
 }): JSX.Element {
 	const { t } = useTranslation("batch-tasks");
-
 	return (
-		<div>
-			<label className="mb-2 flex items-center justify-between text-sm font-medium text-foreground">
-				<span>{t("form.artifact")}</span>
-				<span className="text-xs font-normal text-muted-foreground/60">{t("form.optional")}</span>
-			</label>
-			<Textarea
-				value={value}
-				onChange={(event) => onChange(compactLines(event.target.value.split(/\r?\n/)))}
-				className="min-h-[72px] text-sm"
-				placeholder={t("form.artifactPlaceholder")}
-			/>
-			<p className="mt-2 text-xs text-muted-foreground/60">{t("form.artifactHint")}</p>
-		</div>
+		<BatchProjectArtifactFieldView
+			value={value}
+			onChange={(next) => onChange(compactLines(next.split(/\r?\n/)))}
+			labels={{
+				title: t("form.artifact"),
+				optional: t("form.optional"),
+				placeholder: t("form.artifactPlaceholder"),
+				hint: t("form.artifactHint"),
+			}}
+		/>
 	);
 }

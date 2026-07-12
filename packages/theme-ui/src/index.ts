@@ -1,6 +1,7 @@
 export * from "./app";
 import "./registry";
 
+export * from "./action-approval";
 export * from "./activity";
 export * from "./app-shell";
 export * from "./appearance";

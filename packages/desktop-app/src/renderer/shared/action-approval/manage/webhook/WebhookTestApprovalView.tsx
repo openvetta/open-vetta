@@ -1,31 +1,19 @@
-import {
-	ApprovalImpactCard,
-	ApprovalRawFallback,
-	ApprovalTargetCard,
-} from "../ApprovalParts";
+import { WebhookTestApprovalView as ThemeView } from "@vetta/theme-ui/action-approval";
+import { useTranslation } from "react-i18next";
 import { ManageActionApprovalFrameView } from "../ManageActionApprovalFrameView";
 import type { WebhookTestApprovalModel } from "./useWebhookTestApprovalModel";
 
 export function WebhookTestApprovalView(model: WebhookTestApprovalModel): JSX.Element {
-	const { frame, input, rawInput, target, impactTitle, impactDescription } = model;
+	const { t } = useTranslation("common");
 	return (
-		<ManageActionApprovalFrameView {...frame}>
-			{input ? (
-				<>
-					<ApprovalTargetCard
-						icon="icon-[mdi--webhook]"
-						title={target.title}
-						subtitle={target.subtitle}
-					/>
-					<ApprovalImpactCard
-						icon="icon-[mdi--test-tube]"
-						title={impactTitle}
-						description={impactDescription}
-					/>
-				</>
-			) : (
-				<ApprovalRawFallback input={rawInput} />
-			)}
-		</ManageActionApprovalFrameView>
+		<ThemeView
+			Frame={ManageActionApprovalFrameView}
+			{...model}
+			rawFallbackLabels={{
+				unreadableRequest: t("actionApproval.unreadableRequest"),
+				showTechnicalDetails: t("actionApproval.showTechnicalDetails"),
+				hideTechnicalDetails: t("actionApproval.hideTechnicalDetails"),
+			}}
+		/>
 	);
 }
