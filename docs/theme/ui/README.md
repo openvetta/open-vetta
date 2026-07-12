@@ -36,17 +36,32 @@
 | 07 | skeptic pure leaves 补迁 | done | [07-skeptic-pure-leaves.md](./07-skeptic-pure-leaves.md) |
 | 08 | skeptic2 pure leaves | done | [08-skeptic2-pure-leaves.md](./08-skeptic2-pure-leaves.md) |
 | 09 | 机械库存门禁 + 菜单/消息中心 soft 叶子 | done | [09-inventory-gate.md](./09-inventory-gate.md) |
+| 10 | 严格 must_split 门禁 + TodoTabPanel | done | [10-strict-gate-todotab.md](./10-strict-gate-todotab.md) |
 | 99 | 最终审计与暂缓清单 | done | [99-final-audit.md](./99-final-audit.md) |
 
 ## 闭合门禁（验收用）
 
 ```bash
-bun packages/theme-ui/scripts/eligible-inventory.mjs   # exit 0 才算 eligible 闭合
+bun packages/theme-ui/scripts/eligible-inventory.mjs   # exit 0 才算闭合
 bun packages/theme-ui/scripts/verify-purity.mjs
 bun run check
 ```
 
-- 未迁路径必须出现在 [`deferrals.json`](./deferrals.json)（逐文件 unlock）
+**done 条件（严格）：**
+
+- `must_split_open == 0`（渲染+业务态混在同一组件、默认/会主题化 UI 必须先拆 model+view）
+- `must_migrate_open == 0`（已纯 props 的 view 须迁 theme-ui，或合法 defer）
+- `must_host_hold_open == 0`（依赖宿主 Dialog 等原语的 props view 须登记 `host_primitive_hold`）
+- `bad_deferrals == 0`（**禁止**「等拆 model / pending split」类 deferral）
+
+**边界（不要误扩）：**
+
+1. Connected 容器、`useXxxModel`、atoms、IPC **永留 desktop**；「拆完」≠ 容器进组件库
+2. 必须拆 vs 可延后：默认 UI / 会主题化且混态 → 必须；onboarding/pet/quickpanel/plugin 私有、纯服务、一次性壳 → non_goal / permanent
+3. 依赖 host Dialog 的 view：props 化后可 `host_primitive_hold`，**不要**假迁把 Dialog 硬拖进 theme-ui
+4. 样式/行为零 diff；验收看默认路径行为
+5. deferrals 仅允许：`permanent_desktop` | `host_primitive_hold` | `non_goal`
+
 - 父组件 deferred **不**自动覆盖子文件
 
 

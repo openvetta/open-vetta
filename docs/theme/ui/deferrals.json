@@ -1,834 +1,350 @@
 {
-  "packages/desktop-app/src/renderer/domains/chat/components/MessageCards.tsx": {
-    "status": "deferred",
-    "unlock": "Chat shell or multi-host composition; continue slice-then-migrate"
-  },
-  "packages/desktop-app/src/renderer/domains/chat/components/chat-page/ChatPageView.tsx": {
-    "status": "deferred",
-    "unlock": "Shell/assembler: composes host containers/models/slots; not a standalone themeable leaf"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/scheduler/SchedulerExecutionApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/SubscriptionCards.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/updater/UpdaterCancelApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/general/GeneralSetWorkspaceApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/ApprovalParts.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/KnowledgeBaseSettingsView.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/ModelsSettingsView.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/projects/ProjectsRenameApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/shared/theme/ThemeColorOverrideBridge.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeBasePageView.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeContentsPanel.tsx": {
-    "status": "deferred",
-    "unlock": "Eligible presentation leaf pending split/migrate; not required for theme registry first wave"
-  },
-  "packages/desktop-app/src/renderer/shared/components/ModelSelect/ModelSelect.tsx": {
-    "status": "deferred",
-    "unlock": "Eligible presentation leaf pending split/migrate; not required for theme registry first wave"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/models/ModelsRemoveProviderApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/scheduler/SchedulerDeleteApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/AccountSettings.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/domains/project/components/sidebar/message-center/MessageCenterDialog.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/project/components/sidebar/message-center/MessageCenterContent.tsx": {
-    "status": "deferred",
-    "unlock": "Connected container / Popover host; children leaves migrate separately"
-  },
-  "packages/desktop-app/src/renderer/domains/project/components/sidebar/Sidebar.tsx": {
-    "status": "deferred",
-    "unlock": "Shell/assembler: composes host containers/models/slots; not a standalone themeable leaf"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/mcp/McpSetEnabledApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/general/GeneralSetNotificationsApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/AgentSettingsView.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/shared/theme/runtime/ThemeErrorBoundary.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/domains/skills/components/PluginsPanel.tsx": {
-    "status": "deferred",
-    "unlock": "Eligible presentation leaf pending split/migrate; not required for theme registry first wave"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/SettingsSidebar.tsx": {
-    "status": "deferred",
-    "unlock": "Shell/assembler: composes host containers/models/slots; not a standalone themeable leaf"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/AgentSettings.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/knowledge/KnowledgeRetryFailedApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/batch-tasks/components/batch-project-form/BatchProjectFoldersField.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/batch-tasks/components/batch-project-form/BatchProjectArtifactField.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/PresetProviderModelsList.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/domains/project/components/sidebar/add-project/AddProjectMenuTrigger.tsx": {
-    "status": "deferred",
-    "unlock": "Connected container / Popover host; children leaves migrate separately"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/KnowledgeBaseSettings.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/webhook/WebhookCreateApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/chat/components/InputBar.tsx": {
-    "status": "deferred",
-    "unlock": "Shell/assembler: composes host containers/models/slots; not a standalone themeable leaf"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/TeamList.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/scheduler/SchedulerEditApprovalDrawerView.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/models/ModelsSetDefaultApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/root-layout/RootGlobalOverlays.tsx": {
-    "status": "deferred",
-    "unlock": "Eligible presentation leaf pending split/migrate; not required for theme registry first wave"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/McpServerForm.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/EnvironmentSettings.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/agent/AgentSetExperimentalApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/chat/components/message-list/MessageListFooter.tsx": {
-    "status": "deferred",
-    "unlock": "Eligible presentation leaf pending split/migrate; not required for theme registry first wave"
-  },
-  "packages/desktop-app/src/renderer/domains/flowing-chat/components/ChatComposer.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/domains/chat/components/chat-view/ChatHeaderActionsView.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/McpSettings.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeList.tsx": {
-    "status": "deferred",
-    "unlock": "Knowledge domain composition still coupled to unsplit list/grid/dialog children"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/WebhookSettingsView.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/TeamSettings.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/ModelsModelForm.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/project/components/sidebar/settings-menu/SettingsMenu.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/ImFeishuDialog.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/ModelsProviderForm.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/batch-tasks/components/batch-project-form/BatchProjectNotificationField.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgePendingFilesDialog.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/McpSettingsView.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/SettingsContent.tsx": {
-    "status": "deferred",
-    "unlock": "Shell/assembler: composes host containers/models/slots; not a standalone themeable leaf"
-  },
-  "packages/desktop-app/src/renderer/domains/project/components/sidebar/message-center/MessageCenter.tsx": {
-    "status": "deferred",
-    "unlock": "Connected container / Popover host; children leaves migrate separately"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/ai-assist/SettingsAiAssistDialog.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/ModelsSettings.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/knowledge/KnowledgeSetProcessingApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/skills/components/SkillsPage.tsx": {
-    "status": "deferred",
-    "unlock": "Eligible presentation leaf pending split/migrate; not required for theme registry first wave"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/AccountSettingsView.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/chat/components/chat-view/DefaultChatView.tsx": {
-    "status": "deferred",
-    "unlock": "Chat shell or multi-host composition; continue slice-then-migrate"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/general/GeneralSetExecutionModeApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/project/components/sidebar/add-project/AddProjectMenuPopover.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/ModelsProviderRow.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/TeamDialogs.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/ImBridgeSettingsView.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeViewShared.tsx": {
-    "status": "deferred",
-    "unlock": "Knowledge domain composition still coupled to unsplit list/grid/dialog children"
-  },
-  "packages/desktop-app/src/renderer/domains/project/components/sidebar/message-center/MessageCenterTrigger.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/scheduler/components/AutomationPage.tsx": {
-    "status": "deferred",
-    "unlock": "Eligible presentation leaf pending split/migrate; not required for theme registry first wave"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/ImBridgeSettings.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/ShortcutsSettingsView.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/ArchivedProjectsSettings.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/McpServerRow.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/TeamSettingsView.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/QuickPanelSettingsSection.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/domains/activity-panel/components/ChatTabPanel.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/domains/chat/components/message-list/MessageActions.tsx": {
-    "status": "deferred",
-    "unlock": "Chat shell or multi-host composition; continue slice-then-migrate"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/McpServerList.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/batch-tasks/components/BatchProjectDialogView.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/PresetProviderRow.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/GeneralSettingsView.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/PresetProvidersSectionView.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/project/components/sidebar/filters/FilterSelectPopover.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/flowing/components/WorkflowCompleteDialogView.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/skills/components/SkillsPageView.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/projects/ProjectsCreateApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeGrid.tsx": {
-    "status": "deferred",
-    "unlock": "Knowledge domain composition still coupled to unsplit list/grid/dialog children"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/PluginsSettingsView.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/updater/UpdaterDownloadApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/mcp/McpRemoveApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/im/ImSetAgentModelApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/skills/SkillsUninstallApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/AppearanceSettings.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/domains/chat/components/MessageList.tsx": {
-    "status": "deferred",
-    "unlock": "Shell/assembler: composes host containers/models/slots; not a standalone themeable leaf"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/WebhookSettings.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/knowledge/KnowledgeRenameApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/flowing/components/flow-graph/index.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/shared/components/NewProjectDialog.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/GeneralSettings.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/domains/project/components/sidebar/settings-menu/SettingsMenuPopover.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/knowledge/KnowledgeCreateApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/flowing-chat/components/ChatMembersBar.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/PetSettingsView.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/projects/ProjectsRemoveApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/activity-panel/components/activity-panel/ActivityPanelView.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/projects/ProjectsArchiveApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/AppshotSettings.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/SettingsPageView.tsx": {
-    "status": "deferred",
-    "unlock": "Shell/assembler: composes host containers/models/slots; not a standalone themeable leaf"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/SubscriptionCardsView.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/im/ImRestartApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/flowing/components/flow-graph/user-node.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/GenericActionApprovalView.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/AchievementNavigationButton.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/scheduler/SchedulerCreateApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/projects/ProjectsUnarchiveApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/im/ImSetEnabledApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/ShortcutRecorder.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/shared.tsx": {
-    "status": "deferred",
-    "unlock": "Shell/assembler: composes host containers/models/slots; not a standalone themeable leaf"
-  },
-  "packages/desktop-app/src/renderer/domains/batch-tasks/components/batch-task-list/BatchTaskActionButtons.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/appearance/AppearanceSetLanguageApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/scheduler/SchedulerActionApprovalDialogView.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/scheduler/components/SchedulerTaskFieldsView.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeSourcePicker.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/activity-panel/components/ActivityPanel.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeBaseListPage.tsx": {
-    "status": "deferred",
-    "unlock": "Eligible presentation leaf pending split/migrate; not required for theme registry first wave"
-  },
-  "packages/desktop-app/src/renderer/domains/scheduler/components/ExecutionHistory.tsx": {
-    "status": "deferred",
-    "unlock": "Eligible presentation leaf pending split/migrate; not required for theme registry first wave"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/navigation/NavigationOpenApprovalView.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/WebhookEditorDialog.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/shared/components/provider-icon/index.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/McpJsonEditor.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/shared/components/KnowledgeHowItWorksDialog.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/updater/UpdaterInstallApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/shared/components/ui/time-picker.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/PermissionsSettings.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/domains/chat/components/blocks/ThinkingBlock.tsx": {
-    "status": "deferred",
-    "unlock": "Chat shell or multi-host composition; continue slice-then-migrate"
-  },
-  "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeRenameDialog.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/batch-tasks/components/BatchProjectFormFieldsView.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/knowledge/KnowledgeAddFilesApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/chat/components/ChatPage.tsx": {
-    "status": "deferred",
-    "unlock": "Shell/assembler: composes host containers/models/slots; not a standalone themeable leaf"
-  },
-  "packages/desktop-app/src/renderer/domains/chat/components/input-bar/InputBarView.tsx": {
-    "status": "deferred",
-    "unlock": "Chat shell or multi-host composition; continue slice-then-migrate"
-  },
-  "packages/desktop-app/src/renderer/domains/project/components/sidebar/SidebarBottomBar.tsx": {
-    "status": "deferred",
-    "unlock": "Eligible presentation leaf pending split/migrate; not required for theme registry first wave"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/PetSettings.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/domains/skills/components/SkillCard.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/updater/UpdaterCheckApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/skills/components/PluginsPanelView.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/ai-assist/SettingsAiAssist.tsx": {
-    "status": "deferred",
-    "unlock": "Eligible presentation leaf pending split/migrate; not required for theme registry first wave"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/AchievementPromotionDialog.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/App.tsx": {
-    "status": "deferred",
-    "unlock": "Shell/assembler: composes host containers/models/slots; not a standalone themeable leaf"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/EnvironmentSettingsView.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
+  "packages/desktop-app/src/renderer/domains/activity-panel/components/PluginTabPicker.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
   "packages/desktop-app/src/renderer/domains/auth/components/LoginDialogView.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
-  "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeContextMenu.tsx": {
-    "status": "deferred",
-    "unlock": "Knowledge domain composition still coupled to unsplit list/grid/dialog children"
+  "packages/desktop-app/src/renderer/domains/batch-tasks/components/batch-project-form/BatchProjectFoldersField.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
-  "packages/desktop-app/src/renderer/domains/chat/components/new-session/NewSessionHero.tsx": {
-    "status": "deferred",
-    "unlock": "Chat shell or multi-host composition; continue slice-then-migrate"
+  "packages/desktop-app/src/renderer/domains/batch-tasks/components/batch-task-list/BatchTaskActionButtons.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
-  "packages/desktop-app/src/renderer/shared/components/TitleBar/TitleBar.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
+  "packages/desktop-app/src/renderer/domains/batch-tasks/components/BatchProjectDialogView.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
-  "packages/desktop-app/src/renderer/domains/skills/components/SkillDetailDialog.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/project/components/sidebar/add-project/AddProjectMenu.tsx": {
-    "status": "deferred",
-    "unlock": "Connected container / Popover host; children leaves migrate separately"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/ai-assist/SettingsAiAssistButton.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/PetBubbleStylePreview.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/domains/activity-panel/components/PluginTabPicker.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/AchievementPromotionBadge3D.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/shared/components/UserAvatar.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/PluginsSettings.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/domains/flowing/components/FlowingSendDialogView.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/skills/SkillsSetEnabledApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeImportDialog.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/activity-panel/components/previews/HtmlPreview.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/DomainManageApprovals.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/knowledge/KnowledgeDeleteEntryApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/chat/components/new-session/GuidingWords.tsx": {
-    "status": "deferred",
-    "unlock": "Chat shell or multi-host composition; continue slice-then-migrate"
-  },
-  "packages/desktop-app/src/renderer/domains/chat/components/model-selector/ModelSelectorView.tsx": {
-    "status": "deferred",
-    "unlock": "Chat shell or multi-host composition; continue slice-then-migrate"
-  },
-  "packages/desktop-app/src/renderer/shared/components/ui/segmented-control.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/knowledge/KnowledgeDeleteApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/BuiltinMcpSection.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/chat/components/InputActionBarView.tsx": {
-    "status": "deferred",
-    "unlock": "Chat shell or multi-host composition; continue slice-then-migrate"
-  },
-  "packages/desktop-app/src/renderer/domains/chat/components/InputActionBar.tsx": {
-    "status": "deferred",
-    "unlock": "Chat shell or multi-host composition; continue slice-then-migrate"
-  },
-  "packages/desktop-app/src/renderer/domains/flowing-chat/components/ChatMessageList.tsx": {
-    "status": "deferred",
-    "unlock": "Shell/assembler: composes host containers/models/slots; not a standalone themeable leaf"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/ManageActionApprovalFrameView.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/scheduler/SchedulerToggleApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/skills/components/PluginCard.tsx": {
-    "status": "deferred",
-    "unlock": "Eligible presentation leaf pending split/migrate; not required for theme registry first wave"
-  },
-  "packages/desktop-app/src/renderer/domains/chat/components/NewSessionPage.tsx": {
-    "status": "deferred",
-    "unlock": "Shell/assembler: composes host containers/models/slots; not a standalone themeable leaf"
+  "packages/desktop-app/src/renderer/domains/chat/components/chat-view/ChatHeaderActionsView.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
   "packages/desktop-app/src/renderer/domains/chat/components/execution-mode-selector/ExecutionModeSelectorView.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
-  },
-  "packages/desktop-app/src/renderer/domains/project/components/sidebar/DefaultSidebar.tsx": {
-    "status": "deferred",
-    "unlock": "Shell/assembler: composes host containers/models/slots; not a standalone themeable leaf"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/projects/ProjectsOpenApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/flowing/components/flow-graph/transfer-edge.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/updater/UpdaterDismissApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/shared/components/BotAvatar.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/domains/batch-tasks/components/BatchTasksPage.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
-  },
-  "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeContentsPanelView.tsx": {
-    "status": "deferred",
-    "unlock": "Knowledge domain composition still coupled to unsplit list/grid/dialog children"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/GenericActionApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/project/components/sidebar/projects/panel/ProjectGroupsSection.tsx": {
-    "status": "deferred",
-    "unlock": "Business data tree (atoms/IPC/virtual list); split model first"
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
   "packages/desktop-app/src/renderer/domains/flowing/components/flow-graph/node-detail-dialog.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
-  "packages/desktop-app/src/renderer/domains/settings/components/TokenActivityChartView.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
+  "packages/desktop-app/src/renderer/domains/flowing/components/FlowingSendDialogView.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
-  "packages/desktop-app/src/renderer/domains/batch-tasks/components/batch-project-form/BatchProjectNameField.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
+  "packages/desktop-app/src/renderer/domains/flowing/components/WorkflowCompleteDialogView.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeBasePageView.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
   "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeBreadcrumb.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
-  "packages/desktop-app/src/renderer/shared/action-approval/appearance/AppearanceApprovalDrawerView.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
+  "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeImportDialog.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgePendingFilesDialog.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeRenameDialog.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeSourcePicker.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/project/components/sidebar/filters/FilterSelectPopover.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/project/components/sidebar/message-center/MessageCenterDialog.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/project/components/sidebar/message-center/MessageCenterTrigger.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/project/components/sidebar/settings-menu/SettingsMenuPopover.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/scheduler/components/SchedulerTaskFieldsView.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/settings/ai-assist/SettingsAiAssistButton.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/settings/ai-assist/SettingsAiAssistDialog.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/settings/components/AccountSettingsView.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/settings/components/AchievementNavigationButton.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/settings/components/AchievementPromotionDialog.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/settings/components/AgentSettingsView.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
   "packages/desktop-app/src/renderer/domains/settings/components/ArchivedProjectsSettingsView.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
-  "packages/desktop-app/src/renderer/domains/project/components/sidebar/settings-menu/SettingsMenuTrigger.tsx": {
-    "status": "deferred",
-    "unlock": "Connected container / Popover host; children leaves migrate separately"
+  "packages/desktop-app/src/renderer/domains/settings/components/BuiltinMcpSection.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
-  "packages/desktop-app/src/renderer/shared/action-approval/batch-tasks/BatchTasksApprovalFrameView.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
+  "packages/desktop-app/src/renderer/domains/settings/components/GeneralSettingsView.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/settings/components/ImBridgeSettingsView.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/settings/components/ImChannelCard.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/settings/components/ImFeishuDialog.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/settings/components/ImLegacyImportBanner.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/settings/components/ImLogDrawer.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/settings/components/McpJsonEditor.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/settings/components/McpServerForm.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/settings/components/McpServerList.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/settings/components/McpServerRow.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/settings/components/ModelsModelForm.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/settings/components/ModelsProviderForm.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/settings/components/ModelsProviderRow.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
   "packages/desktop-app/src/renderer/domains/settings/components/ModelsProvidersSection.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
-  "packages/desktop-app/src/renderer/domains/skills/components/SkillTagGroup.tsx": {
-    "status": "deferred",
-    "unlock": "Eligible presentation leaf pending split/migrate; not required for theme registry first wave"
+  "packages/desktop-app/src/renderer/domains/settings/components/PresetProviderRow.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/knowledge/KnowledgeScanNowApproval.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover or form dialog; unlock after primitives in @vetta/ui"
+  "packages/desktop-app/src/renderer/domains/settings/components/PresetProvidersSectionView.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/settings/components/ShortcutRecorder.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/settings/components/ShortcutsSettingsView.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
   "packages/desktop-app/src/renderer/domains/settings/components/TeamDetail.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
-  "packages/desktop-app/src/renderer/shared/components/ui/tab-bar.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
+  "packages/desktop-app/src/renderer/domains/settings/components/TeamDialogs.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/settings/components/TeamSettingsView.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/settings/components/WebhookEditorDialog.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/skills/components/PluginsPanelView.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
   "packages/desktop-app/src/renderer/domains/skills/components/SceneCard.tsx": {
-    "status": "deferred",
-    "unlock": "Host Dialog/Drawer/Popover/Button dependency; unlock after @vetta/ui primitives"
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
-  "packages/desktop-app/src/renderer/domains/settings/components/ShortcutsSettings.tsx": {
-    "status": "deferred",
-    "unlock": "Domain page/section still bound to host models, SettingSection, or heavy business UI; unlock after IA primitives + model DTOs"
+  "packages/desktop-app/src/renderer/domains/skills/components/SkillCard.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
-  "packages/desktop-app/src/renderer/domains/project/components/sidebar/update/SidebarUpdateButton.tsx": {
-    "status": "deferred",
-    "unlock": "Eligible presentation leaf pending split/migrate; not required for theme registry first wave"
+  "packages/desktop-app/src/renderer/domains/skills/components/SkillDetailDialog.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/skills/components/SkillsPageView.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/appearance/AppearanceApprovalDrawerView.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/batch-tasks/BatchTasksApprovalFrameView.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/GenericActionApprovalView.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/ManageActionApprovalFrameView.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/navigation/NavigationOpenApprovalView.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/scheduler/SchedulerActionApprovalDialogView.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/scheduler/SchedulerEditApprovalDrawerView.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/shared/components/KnowledgeHowItWorksDialog.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/flowing/components/flow-graph/index.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/domains/flowing-chat/components/ChatMessageList.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/domains/settings/components/SettingsContent.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/domains/settings/components/SettingsSidebar.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/domains/settings/components/shared.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/root-layout/RootGlobalOverlays.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/GenericActionApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/DomainManageApprovals.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/components/BotAvatar.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/components/provider-icon/index.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/components/TitleBar/TitleBar.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/components/ui/segmented-control.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/components/ui/tab-bar.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/components/ui/time-picker.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/components/UserAvatar.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeBaseListPageView.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/domains/project/components/sidebar/message-center/ChatMessageList.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/domains/project/components/sidebar/message-center/FlowingMessageList.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/domains/project/components/sidebar/message-center/NotificationMessageList.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/domains/scheduler/components/AutomationPageView.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/root-layout/RootLayoutView.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/theme/pages/ThemePageRoute.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/theme/runtime/ThemeRuntimeProvider.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
   }
 }

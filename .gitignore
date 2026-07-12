@@ -62,3 +62,7 @@ spec/
 requirement/
 .agents/
 skills-lock.json
+
+terminals
+mcps
+agent-tools
