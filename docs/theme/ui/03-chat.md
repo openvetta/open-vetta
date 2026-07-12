@@ -2,33 +2,37 @@
 
 ## 状态
 
-**done**
+**done**（含 skeptic 补迁）
 
-## 本批迁入
+## 已迁入 `@vetta/theme-ui/chat`
 
-| 组件 | theme-ui | 说明 |
-|------|----------|------|
-| `AtPanelView` | `chat/AtPanelView.tsx` | 类型一并迁入；desktop re-export |
-| `SlashPanelView` | `chat/SlashPanelView.tsx` | skill 用最小 `SlashPanelSkillItem`；desktop adapter 映射 `SkillInfo` |
-| `DefaultGuidingWords` | `chat/DefaultGuidingWords.tsx` | 原 GuidingWordsView |
-
-## 暂缓
-
-| 组件 | 原因 |
+| 组件 | 说明 |
 |------|------|
-| `InputBarView` | 大体积 + QueueCard/TodoCard/Drawer 等 host 组合 |
-| `MessageListView` | atom + virtuoso 滚动模型 |
-| `ChatView` / `DefaultChatView` / `ChatPageView` | connected 子树 |
-| `ModelSelectorView` / `ExecutionModeSelectorView` | host UI + 业务 |
-| `QuestionPanelView` / tool-views | atom + i18n + 业务 |
-| `NewSessionPageView` | 组合 BotAvatar / host 卡片 |
-| `ChatHeaderActionsView` | host actions |
+| `AtPanelView` | @ 面板 view |
+| `SlashPanelView` | 斜杠面板 view（`SlashPanelSkillItem`） |
+| `DefaultGuidingWords` | 引导词 |
+| `SceneCard` | registry `chat.newSessionSceneCard` |
+| `SkillCard` | registry `chat.newSessionSkillCard` |
+| `DefaultSceneCarousel` | registry `chat.newSessionSceneCarousel` |
+| `DefaultSkillBadgeRow` | registry `chat.newSessionSkillBadgeRow` |
+| `InputBarToolbarButton` | 输入栏工具按钮（纯 props） |
+| `InputBarBackground` / NewSession 类型 | 既有 |
+
+## desktop 仍保留
+
+| 组件 | 角色 |
+|------|------|
+| `SceneCarousel` / `SkillBadgeRow` | connected：i18n + registry 入口 |
+| `NewSessionHero` / `NewSessionPageView` | BotAvatar + host 组合 |
+| `InputBarView` | QueueCard/TodoCard/Drawer 等 host 组合 |
+| `MessageListView` / `ChatView` | atom + virtuoso / connected 子树 |
+| `ModelSelectorView` 等 | host UI + 业务 |
 
 ## 布局/样式
 
-- At/Slash 面板 class 与 motion 与迁移前一致
-- GuidingWords 缓动常量内联到 theme-ui，数值不变
+- 卡片/轮播/工具按钮 class 与迁移前一致；`cn` → `@vetta/ui`
+- Scene/Skill carousel 文案仍由 desktop `t()` 注入
 
 ## check / commit
 
-本批后执行
+补迁后单独 `bun run check` + 子 Agent `/gitcommit`

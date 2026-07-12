@@ -2,39 +2,32 @@
 
 ## 状态
 
-**done**（本批无新增迁入代码；完成 eligible 扫描与显式暂缓）
+**done**（扫描 + 显式暂缓；**不含** chat/new-session 纯叶子——那些在 batch 03 / 补迁）
 
-## 扫描结论
+## 范围澄清
 
-对 `settings` / `batch-tasks` / `scheduler` / `skills` / `activity-panel` / 剩余 `*View.tsx` 再扫：
+本批只覆盖 **settings / batch-tasks / scheduler / skills 页 / activity 预览 / auth 浮层** 等。  
+chat 侧 `SceneCard` / `DefaultSceneCarousel` / `InputBarToolbarButton` 等 **不属于本批暂缓对象**，应在 chat 批次迁入（已在 03 补迁）。
+
+## 扫描结论（本批域）
 
 | 路径 | 阻塞 |
 |------|------|
-| 几乎全部 `settings/*View` | `SettingSection` / `SettingRow` / `SettingsAiAssist` / 域内 Dialog 编辑器 |
+| 几乎全部 `settings/*View` | `SettingSection` / `SettingRow` / `SettingsAiAssist` / 域内 Dialog |
 | `WebhookSettingsView` | 同上 + `WebhookEditorDialog` |
-| `EnvironmentSettingsView` | 同上 + model 类型绑在 desktop hook |
-| `BatchProjectFormFieldsView` | 组合多个仍含业务/host 字段子组件 |
-| `BatchTasksPageView` 等 | atom + i18n + app import |
-| `AutomationPageView` / `TaskListView` 等 scheduler | atom + i18n + host |
-| `SkillsPageView` / `PluginsPanelView` | i18n + host |
-| `LoginDialogView` | BotAvatar + Button + form |
-| 审批系 `*Approval*View` | Dialog/Drawer 原语 |
+| `EnvironmentSettingsView` | 同上 + model 绑 desktop hook |
+| `BatchProjectFormFieldsView` | 组合仍含业务的 field 子组件 |
+| scheduler / skills 页 View | atom / i18n / host |
+| 审批 `*Approval*View` | Dialog/Drawer 原语 |
+| `LoginDialogView` | BotAvatar + Button |
 | `CodePreview` | 需 `shiki` peer；非主题优先面 |
 
-**无**「仅 props + theme-sdk/ui/motion、且无 host 私有组件」的新增可迁项。
+## 解锁前提
 
-## 解锁后续迁移的前提
-
-1. 将 `button` / `dialog` / `drawer` / `popover` / `input` / `textarea` 等稳定迁入 `@vetta/ui`（或 theme-ui 可依赖的 design system）
-2. 将 `SettingSection`/`SettingRow` 等设置布局 primitive 公开为 props-driven API
-3. 各域继续把 model 类型与文案解析收敛到 desktop model，view 只收 DTO
-
-## 本批产出
-
-- 本文件暂缓清单
-- README 状态更新
-- 无 theme-ui 代码变更（避免为迁而迁、拖入 host 依赖）
+1. Dialog/Drawer/Popover/Button → `@vetta/ui`  
+2. SettingSection/Row 公开为 props-driven  
+3. 各域 model DTO 与 i18n 继续收敛到 desktop
 
 ## check / commit
 
-文档 + CHANGELOG 说明；`bun run check`；子 Agent `/gitcommit`
+文档批；见最终审计

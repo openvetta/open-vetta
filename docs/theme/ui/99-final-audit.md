@@ -14,7 +14,7 @@
 | app-shell | DefaultPageHeader 系、DefaultWindowControls、WindowControlButton |
 | sidebar | DefaultSidebar shell、Panel、Navigation、NavItem、TopBar、UpdateIcon、SessionStatusIcon、RunningPulseDot、ShowMoreSessionsButton |
 | overlays | KnowledgeDropOverlayView、UpdateRestartDialogView |
-| chat | InputBarBackground、NewSession types、AtPanelView、SlashPanelView、DefaultGuidingWords |
+| chat | InputBarBackground、NewSession types、AtPanelView、SlashPanelView、DefaultGuidingWords、SceneCard、SkillCard、DefaultSceneCarousel、DefaultSkillBadgeRow、InputBarToolbarButton |
 
 ## 仍在 desktop-app（符合设计边界）
 
