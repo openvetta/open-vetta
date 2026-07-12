@@ -1,25 +1,19 @@
-import { activeSessionAtom, getTodoItemsForSession, todoItemsBySessionAtom } from "@shared/store/atoms";
-import { TodoCard } from "@shared/components/TodoCard";
-import { useAtomValue } from "jotai";
-import { useMemo } from "react";
-import { useTranslation } from "react-i18next";
+import { TodoTabPanelView } from "@vetta/theme-ui/activity";
+import { useTodoTabPanelModel } from "../hooks/useTodoTabPanelModel";
 
 export function TodoTabPanel(): JSX.Element {
-	const { t } = useTranslation("chat");
-	const todoMap = useAtomValue(todoItemsBySessionAtom);
-	const activeSession = useAtomValue(activeSessionAtom);
-	const items = useMemo(
-		() => getTodoItemsForSession(todoMap, activeSession?.runtimeId ?? null),
-		[todoMap, activeSession?.runtimeId],
+	const model = useTodoTabPanelModel();
+	return (
+		<TodoTabPanelView
+			items={model.items}
+			emptyLabel={model.emptyLabel}
+			todoLabels={{
+				allDone: "全部完成",
+				pending: "待办",
+				viewMore: "查看更多",
+				collapse: "收起",
+				expandRemaining: (n) => `展开全部（还有 ${n} 项）`,
+			}}
+		/>
 	);
-
-	if (items.length === 0) {
-		return (
-			<div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
-				{t("activityPanel.todo.empty")}
-			</div>
-		);
-	}
-
-	return <TodoCard items={items} />;
 }
