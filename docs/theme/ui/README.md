@@ -50,7 +50,7 @@
 | 21 | Skeptic 门禁修复：真拆分 + 清 pure permanent 遮罩 | done | [21-skeptic-gate-fix.md](./21-skeptic-gate-fix.md) |
 | 22 | 清除假 host_primitive_hold + must_migrate 全清 | done | [22-fake-host-hold-purge.md](./22-fake-host-hold-purge.md) |
 | 23 | Residual map + 漏拆 FlowingMessageList + 门禁 host chrome | done | [23-residual-map.md](./23-residual-map.md) |
-| 24 | Phase γ 路线 + settings hold 首批 slot 迁 | done | [24-phase-gamma-path.md](./24-phase-gamma-path.md) |
+| 24 | Phase γ 路线 + settings hold slot 迁（两批） | done | [24-phase-gamma-path.md](./24-phase-gamma-path.md) |
 | 99 | 最终审计与暂缓清单 | done | [99-final-audit.md](./99-final-audit.md) |
 
 ## 闭合门禁（验收用）

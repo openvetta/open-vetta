@@ -36,6 +36,8 @@ export type { ImLegacyImportBannerViewProps } from "./ImLegacyImportBannerView";
 export { ImLegacyImportBannerView } from "./ImLegacyImportBannerView";
 export type { ImStatusBadgeStatus, ImStatusBadgeViewProps } from "./ImStatusBadgeView";
 export { ImStatusBadgeView } from "./ImStatusBadgeView";
+export type { McpJsonEditorViewProps } from "./McpJsonEditorView";
+export { McpJsonEditorView } from "./McpJsonEditorView";
 export type {
 	PermissionItemView,
 	PermissionStatusView,
@@ -51,6 +53,11 @@ export type {
 	PresetProviderModelsListViewProps,
 } from "./PresetProviderModelsListView";
 export { PresetProviderModelsListView } from "./PresetProviderModelsListView";
+export type {
+	PresetProvidersSectionViewLabels,
+	PresetProvidersSectionViewProps,
+} from "./PresetProvidersSectionView";
+export { PresetProvidersSectionView } from "./PresetProvidersSectionView";
 export type { SettingSectionMeta } from "./SettingChrome";
 export { SettingHeading, SettingRow, SettingSection } from "./SettingChrome";
 export type { SettingsAiAssistButtonViewProps } from "./SettingsAiAssistButtonView";
@@ -65,6 +72,8 @@ export type { SettingsPageShellViewProps } from "./SettingsPageShellView";
 export { SettingsPageShellView } from "./SettingsPageShellView";
 export type { SettingsSidebarTabItem, SettingsSidebarViewProps } from "./SettingsSidebarView";
 export { SettingsSidebarView } from "./SettingsSidebarView";
+export type { ShortcutActionRowView, ShortcutsSettingsViewProps } from "./ShortcutsSettingsView";
+export { ShortcutsSettingsView } from "./ShortcutsSettingsView";
 export type {
 	RemoteModel as SubscriptionRemoteModel,
 	SubscriptionCardsViewModel,
@@ -73,6 +82,8 @@ export type {
 export { SubscriptionCardsView } from "./SubscriptionCardsView";
 export type { TeamListItemView, TeamListViewProps } from "./TeamListView";
 export { TeamListView } from "./TeamListView";
+export type { TeamSettingsViewProps } from "./TeamSettingsView";
+export { TeamSettingsView } from "./TeamSettingsView";
 export type { TokenActivityChartViewProps } from "./TokenActivityChartView";
 export { TokenActivityChartView } from "./TokenActivityChartView";
 export * from "./token-activity";

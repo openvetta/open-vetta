@@ -2,7 +2,7 @@
 
 ## 状态
 
-**in_progress**（路线已定；首批 settings 叶子/列表已迁）
+**done**（路线已定；settings 首两批 slot 迁已提交 / 本批追加）
 
 ## 关于 Batch23 / FlowingMessageList
 
@@ -33,8 +33,12 @@
 | `ArchivedProjectsSettingsView` | 同名 View | 行操作 Button 经 `renderProjectActions` |
 | `ImLegacyImportBanner` | `ImLegacyImportBannerView` | actions slot |
 | `AchievementNavigationButton` | `AchievementNavigationButtonView` | `renderControl` 注入 host Button |
+| `McpJsonEditor` | `McpJsonEditorView` | saveControl slot |
+| `PresetProvidersSectionView` | 同名 | refreshControl + rows slots |
+| `TeamSettingsView` | 同名 | headerActions / body / dialogs slots |
+| `ShortcutsSettingsView` | 同名 | headerTrailing / recorder / quickPanel slots |
 
-仍 hold（desktop 仍 value import Button）：Archived / ImLegacy / AchievementNav 的 **container 文件**。  
+desktop 容器仍 value import Button 的路径 **继续 host_primitive_hold**。  
 `SettingsAiAssistButton` 已无 host Button → 从 deferrals 移除，inventory 归 migrated/adapter。
 
 ## hold 剩余
