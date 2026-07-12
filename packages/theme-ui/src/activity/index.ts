@@ -8,6 +8,8 @@ declare module "@vetta/theme-sdk" {
 
 export type { ActivityPanelFrameProps } from "./ActivityPanelFrame";
 export { ActivityPanelFrame } from "./ActivityPanelFrame";
+export type { ActivityPanelViewProps } from "./ActivityPanelView";
+export { ActivityPanelView } from "./ActivityPanelView";
 export type {
 	BackgroundTaskStatus,
 	BackgroundTasksTabPanelViewProps,
@@ -18,6 +20,8 @@ export type { BatchProgressTabPanelViewProps } from "./BatchProgressTabPanelView
 export { BatchProgressTabPanelView } from "./BatchProgressTabPanelView";
 export type { BrowserPanelLabels, BrowserPanelViewProps } from "./BrowserPanelView";
 export { BrowserPanelView } from "./BrowserPanelView";
+export type { ChatTabPanelViewProps } from "./ChatTabPanelView";
+export { ChatTabPanelView } from "./ChatTabPanelView";
 export type { CodePreviewProps } from "./CodePreview";
 export { CodePreview } from "./CodePreview";
 export type { DebugSubTab, DebugTabPanelViewProps } from "./DebugTabPanelView";

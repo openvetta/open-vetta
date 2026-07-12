@@ -1,9 +1,7 @@
-import type { Button } from "@shared/components/ui/button";
-type HostButton = typeof Button;
-export type { HostButton as _HostPrimitiveHoldButton };
 import type { SkillInfo } from "@preload/api";
 import { cn } from "@shared/lib/utils";
 import { useThemeComponent } from "@vetta/theme-sdk";
+import { NewSessionPageLayoutView } from "@vetta/theme-ui/chat";
 import { GuidingWords } from "./GuidingWords";
 import { NewSessionBackground } from "./NewSessionBackground";
 import { NewSessionHero } from "./NewSessionHero";
@@ -59,49 +57,47 @@ export function NewSessionPageView({
 	);
 
 	return (
-		<SessionDropZone
-			cwdOverride={cwd}
-			className={cn("relative flex h-full flex-1 flex-col overflow-hidden bg-background", className)}
-		>
-			<NewSessionBackground />
-			<ThemedNewSessionBackground />
-
-			{/* 整页垂直居中：单一滚动容器内 min-h-full + justify-center，内容始终居中
-			    （hero → 技能胶囊 → 输入框 → 引导词），无论窗口多大都在中间。
-			    InputBar 变高时整列变高、保持居中；内容超出视口则可滚动。整列与输入框同宽（max-w-2xl）。 */}
-			<div className="no-drag relative z-[1] flex flex-1 flex-col overflow-y-auto">
-				<div className="flex min-h-full w-full flex-col items-center justify-center px-6 py-6">
-					{renderHero && (
-						<NewSessionHero
-							avatarAutoplay={avatarAutoplay}
-							greetingTitle={greetingTitle}
-							mounted={mounted}
-							onSceneClick={onSceneClick}
-							sceneActions={sceneActions}
-							scenes={scenes}
-							selectedSkill={selectedSkill}
-							subtitle={subtitle}
-						/>
+		<NewSessionPageLayoutView
+			isShort={isShort}
+			background={<NewSessionBackground />}
+			themedBackground={<ThemedNewSessionBackground />}
+			dropZone={(children) => (
+				<SessionDropZone
+					cwdOverride={cwd}
+					className={cn(
+						"relative flex h-full flex-1 flex-col overflow-hidden bg-background",
+						className,
 					)}
-
-					{skillBadges.length > 0 && (
-						<div className="mx-auto w-full max-w-2xl px-2 sm:px-4">
-							<SkillBadgeRow skills={skillBadges} selected={selectedSkill} onSelect={onSelectSkill} />
-						</div>
-					)}
-
-					<div className="w-full">
-						<InputBar onSend={onSend} onAbort={onAbort} cwdOverride={cwd} />
-					</div>
-
-					{!isShort && guidingGroups.length > 0 && (
-						<div className="mx-auto w-full max-w-2xl px-2 sm:px-4">
-							<GuidingWords groups={guidingGroups} mounted={mounted} onPick={onGuidingWord} />
-						</div>
-					)}
-				</div>
-			</div>
-		</SessionDropZone>
+				>
+					{children}
+				</SessionDropZone>
+			)}
+			hero={
+				renderHero ? (
+					<NewSessionHero
+						avatarAutoplay={avatarAutoplay}
+						greetingTitle={greetingTitle}
+						mounted={mounted}
+						onSceneClick={onSceneClick}
+						sceneActions={sceneActions}
+						scenes={scenes}
+						selectedSkill={selectedSkill}
+						subtitle={subtitle}
+					/>
+				) : undefined
+			}
+			skillBadges={
+				skillBadges.length > 0 ? (
+					<SkillBadgeRow skills={skillBadges} selected={selectedSkill} onSelect={onSelectSkill} />
+				) : undefined
+			}
+			inputBar={<InputBar onSend={onSend} onAbort={onAbort} cwdOverride={cwd} />}
+			guidingWords={
+				guidingGroups.length > 0 ? (
+					<GuidingWords groups={guidingGroups} mounted={mounted} onPick={onGuidingWord} />
+				) : undefined
+			}
+		/>
 	);
 }
 

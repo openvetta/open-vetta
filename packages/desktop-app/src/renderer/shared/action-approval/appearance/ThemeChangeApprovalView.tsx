@@ -1,7 +1,5 @@
-import type { Button } from "../../components/ui/button";
-type HostButton = typeof Button;
-export type { HostButton as _HostPrimitiveHoldButton };
 import { useThemeComponent } from "@vetta/theme-sdk";
+import { ThemeChangeApprovalView as ThemeThemeChangeApprovalView } from "@vetta/theme-ui/action-approval";
 import { AppearanceActionPicker } from "./AppearanceActionPicker";
 import { AppearanceApprovalDrawerView } from "./AppearanceApprovalDrawerView";
 import type { ThemeChangeApprovalModel } from "./useThemeChangeApprovalModel";
@@ -13,8 +11,12 @@ export function ThemeChangeApprovalView(model: ThemeChangeApprovalModel): JSX.El
 	);
 
 	return (
-		<ThemedAppearanceApprovalDrawerView {...model.drawer}>
-			{model.hasInput ? (
+		<ThemeThemeChangeApprovalView
+			Drawer={ThemedAppearanceApprovalDrawerView}
+			drawerProps={model.drawer}
+			hasInput={model.hasInput}
+			rawInput={model.rawInput}
+			picker={
 				<AppearanceActionPicker
 					mode={model.mode}
 					themeId={model.themeId}
@@ -23,11 +25,7 @@ export function ThemeChangeApprovalView(model: ThemeChangeApprovalModel): JSX.El
 					onThemeChange={model.onThemeChange}
 					onCursorStyleChange={model.onCursorStyleChange}
 				/>
-			) : (
-				<pre className="max-h-[200px] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-border/50 bg-background/50 p-3 font-mono text-[11px] leading-5 text-foreground">
-					{JSON.stringify(model.rawInput, null, 2)}
-				</pre>
-			)}
-		</ThemedAppearanceApprovalDrawerView>
+			}
+		/>
 	);
 }

@@ -14,6 +14,9 @@
  * - null-only *View.tsx sibling does not count as view
  * - void View import alone does not count as usesView
  * - permanent_desktop cannot mask substantial pure presentation (→ must_migrate / must_host_hold)
+ * - hasHostUi only counts value imports / real JSX host usage — not `import type`
+ * - host_primitive_hold without real host value usage → bad_deferral
+ * - _HostPrimitiveHold* marker exports → bad_deferral
  */
 import { readdirSync, readFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -127,6 +130,39 @@ function usesRealView(text) {
 	return false;
 }
 
+const HOST_UI_PATH =
+	/components\/ui\/(dialog|drawer|popover|button|dropdown-menu|select|switch|textarea|input)/i;
+
+/**
+ * True only when host UI is used as a **value** (runtime) dependency.
+ * Does NOT count: `import type { Button } from ".../button"`, type re-exports, markers.
+ */
+function hasValueHostUi(text) {
+	// Strip block/line comments lightly
+	const raw = text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+	// Remove pure type imports entirely
+	const withoutTypeImports = raw.replace(/import\s+type\s+[\s\S]*?from\s+["'][^"']+["']\s*;?/g, "");
+	// Value import lines that reference host ui modules
+	const importLines = withoutTypeImports.match(/^\s*import\s+(?!type\b)[^;]+from\s+["'][^"']+["']\s*;?/gm) || [];
+	for (const line of importLines) {
+		if (HOST_UI_PATH.test(line)) return true;
+		if (/from\s+["']@?radix-ui\//.test(line) || /from\s+["']radix-ui["']/.test(line)) return true;
+	}
+	// JSX tags for common host primitives that are typically only from host ui when imported as value
+	// Require co-presence of a value import path somewhere (already checked) — fallback: explicit jsx + non-type import of Button etc.
+	// Multi-line import { \n Button \n } from ".../button"
+	const multi = withoutTypeImports.match(/import\s+(?!type\b)[\s\S]*?from\s+["'][^"']+["']/g) || [];
+	for (const block of multi) {
+		if (HOST_UI_PATH.test(block)) return true;
+		if (/from\s+["']@?radix-ui\//.test(block)) return true;
+	}
+	return false;
+}
+
+function hasFakeHostHoldMarker(text) {
+	return /_HostPrimitiveHold/.test(text);
+}
+
 function classify(abs, text, deferrals) {
 	const rel = toRel(abs);
 	const lines = text.split("\n").length;
@@ -140,9 +176,7 @@ function classify(abs, text, deferrals) {
 	const hasIpc = /window\.vetta/.test(text);
 	const hasRouter = /@tanstack\/react-router|useNavigate|useParams|useMatches\b/.test(text);
 	const hasI18n = /react-i18next|useTranslation/.test(text);
-	const hasHostUi =
-		/components\/ui\/(dialog|drawer|popover|button|dropdown-menu|select|switch|textarea|input)/i.test(text) ||
-		/from ["']radix-ui|@radix-ui/.test(text);
+	const hasHostUi = hasValueHostUi(text);
 	const hasExport = /export function|export const \w+\s*=|export class|export default function/.test(text);
 	const jsx = hasJsx(text);
 	const dataHeavy = hasAtom || hasIpc || hasRouter;
@@ -206,6 +240,10 @@ function classify(abs, text, deferrals) {
 
 	// Props view without data
 	if (jsx && !dataHeavy) {
+		// Fake type-only host-hold markers never qualify as host UI
+		if (hasFakeHostHoldMarker(text) && !hasHostUi) {
+			return { status: "must_migrate", rel, lines, soft: hasI18n ? "i18n" : "pure", reason: "fake-host-hold-marker" };
+		}
 		if (hasHostUi) {
 			if (d?.kind === "host_primitive_hold") {
 				return { status: "host_primitive_hold", rel, lines, reason: d.reason };
@@ -215,6 +253,10 @@ function classify(abs, text, deferrals) {
 				return { status: "permanent_desktop", rel, lines, reason: d.reason };
 			}
 			return { status: "must_host_hold", rel, lines };
+		}
+		// host_primitive_hold without real value host UI → must migrate (fake hold)
+		if (d?.kind === "host_primitive_hold") {
+			return { status: "must_migrate", rel, lines, soft: hasI18n ? "i18n" : "pure", reason: "invalid-host-hold" };
 		}
 		if (d?.kind === "permanent_desktop") {
 			// Only thin host shells may use permanent_desktop for pure files
@@ -258,10 +300,24 @@ for (const [p, d] of Object.entries(deferrals)) {
 		badDeferrals.push({ path: p, kind: d.kind, reason: d.reason });
 		continue;
 	}
-	// Flag permanent_desktop on substantial pure presentation files as bad
 	const abs = path.join(repoRoot, p);
-	if (d.kind === "permanent_desktop" && existsSync(abs) && abs.endsWith(".tsx")) {
-		const text = readFileSync(abs, "utf8");
+	if (!existsSync(abs) || !abs.endsWith(".tsx")) continue;
+	const text = readFileSync(abs, "utf8");
+	if (hasFakeHostHoldMarker(text)) {
+		badDeferrals.push({
+			path: p,
+			kind: d.kind,
+			reason: "fake _HostPrimitiveHold* marker / type-only Button gaming",
+		});
+	}
+	if (d.kind === "host_primitive_hold" && !hasValueHostUi(text)) {
+		badDeferrals.push({
+			path: p,
+			kind: d.kind,
+			reason: "host_primitive_hold without value import of host Dialog/Drawer/Popover/Button/Select/Switch",
+		});
+	}
+	if (d.kind === "permanent_desktop") {
 		const dataHeavy =
 			/useAtom|from ["']jotai|store\/atoms/.test(text) ||
 			/window\.vetta/.test(text) ||
@@ -271,7 +327,6 @@ for (const [p, d] of Object.entries(deferrals)) {
 		const classes = classNameCount(text);
 		const substantialUi = classes > 3 || (lines > 100 && classes >= 1);
 		if (jsx && !dataHeavy && substantialUi) {
-			// Substantial pure UI must migrate or host_hold — permanent_desktop is invalid even with shell wording
 			badDeferrals.push({
 				path: p,
 				kind: d.kind,

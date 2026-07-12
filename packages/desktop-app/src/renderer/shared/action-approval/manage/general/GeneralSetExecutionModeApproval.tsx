@@ -1,14 +1,13 @@
-import type { Button } from "../../../components/ui/button";
-type HostButton = typeof Button;
-export type { HostButton as _HostPrimitiveHoldButton };
 import { useState } from "react";
+import {
+	GeneralSetExecutionModeApprovalView,
+	type ExecutionModeOption,
+} from "@vetta/theme-ui/action-approval";
 import { type ActiveActionApproval, useActionApproval } from "../../useActionApproval";
 import { formatExecutionMode } from "../../approvalCopy";
-import { ApprovalFormField, ApprovalImpactCard, ApprovalRawFallback } from "../ApprovalParts";
 import { useManageApprovalFrame } from "../useManageApprovalShell";
-import { cn } from "../../../lib/utils";
 
-type ExecutionMode = "sandbox" | "full-access";
+type ExecutionMode = ExecutionModeOption;
 
 interface Input {
 	operation: "set-execution-mode";
@@ -40,68 +39,49 @@ function GeneralSetExecutionModeApprovalContent({ approval }: { approval: Active
 	const icon = "icon-[mdi--shield-lock-outline]";
 
 	return (
-		<Frame
-			presentation="drawer"
-			title={t("manageApproval.general.ops.set-execution-mode.title")}
-			summary={t("manageApproval.general.ops.set-execution-mode.summary")}
-			icon={icon}
-			badge={t("manageApproval.general.ops.set-execution-mode.badge")}
-			labels={frameLabels(request.permission, t("manageApproval.general.ops.set-execution-mode.confirm"))}
-			responding={responding}
-			countdown={approval.countdown.formatted}
-			error={error}
-			onReject={reject}
-			onApprove={() =>
-				input
-					? approve({
-							operation: "set-execution-mode",
-							mode,
-							approvalUi: input.approvalUi ?? "general.set-execution-mode",
-						})
-					: approve()
+		<GeneralSetExecutionModeApprovalView
+			Frame={Frame}
+			frame={{
+				presentation: "drawer",
+				title: t("manageApproval.general.ops.set-execution-mode.title"),
+				summary: t("manageApproval.general.ops.set-execution-mode.summary"),
+				icon,
+				badge: t("manageApproval.general.ops.set-execution-mode.badge"),
+				labels: frameLabels(request.permission, t("manageApproval.general.ops.set-execution-mode.confirm")),
+				responding,
+				countdown: approval.countdown.formatted,
+				error,
+				onReject: reject,
+				onApprove: () =>
+					input
+						? approve({
+								operation: "set-execution-mode",
+								mode,
+								approvalUi: input.approvalUi ?? "general.set-execution-mode",
+							})
+						: approve(),
+				canApprove: Boolean(input),
+			}}
+			hasInput={Boolean(input)}
+			rawInput={request.input}
+			rawFallbackLabels={{
+				unreadableRequest: t("actionApproval.unreadableRequest"),
+				showTechnicalDetails: t("actionApproval.showTechnicalDetails"),
+				hideTechnicalDetails: t("actionApproval.hideTechnicalDetails"),
+			}}
+			mode={mode}
+			modes={MODES}
+			modeLabel={(candidate) => formatExecutionMode(t, candidate)}
+			modeHint={(candidate) =>
+				candidate === "sandbox"
+					? t("manageApproval.general.executionModeSandboxHint")
+					: t("manageApproval.general.executionModeFullAccessHint")
 			}
-			canApprove={Boolean(input)}
-		>
-			{input ? (
-				<>
-					<ApprovalFormField id="execution-mode" label={t("manageApproval.fields.executionMode")}>
-						<div className="grid grid-cols-1 gap-2">
-							{MODES.map((candidate) => {
-								const active = mode === candidate;
-								return (
-									<button
-										key={candidate}
-										type="button"
-										onClick={() => setMode(candidate)}
-										className={cn(
-											"rounded-lg border px-3 py-2.5 text-left transition-colors",
-											active
-												? "border-primary/70 bg-primary/5 ring-1 ring-inset ring-primary/30"
-												: "border-border hover:border-primary/40 hover:bg-accent/40",
-										)}
-									>
-										<div className="text-[12px] font-medium text-foreground">
-											{formatExecutionMode(t, candidate)}
-										</div>
-										<div className="mt-0.5 text-[10px] text-muted-foreground">
-											{candidate === "sandbox"
-												? t("manageApproval.general.executionModeSandboxHint")
-												: t("manageApproval.general.executionModeFullAccessHint")}
-										</div>
-									</button>
-								);
-							})}
-						</div>
-					</ApprovalFormField>
-					<ApprovalImpactCard
-						icon={icon}
-						title={t("manageApproval.afterActionTitle")}
-						description={t("manageApproval.general.ops.set-execution-mode.impact")}
-					/>
-				</>
-			) : (
-				<ApprovalRawFallback input={request.input} />
-			)}
-		</Frame>
+			executionModeFieldLabel={t("manageApproval.fields.executionMode")}
+			impactTitle={t("manageApproval.afterActionTitle")}
+			impactDescription={t("manageApproval.general.ops.set-execution-mode.impact")}
+			icon={icon}
+			onModeChange={setMode}
+		/>
 	);
 }

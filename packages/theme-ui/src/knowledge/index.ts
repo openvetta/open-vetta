@@ -1,4 +1,6 @@
 export { getColoredFileIcon } from "./coloredFileIcons";
+export type { KnowledgeContentsPanelViewProps } from "./KnowledgeContentsPanelView";
+export { KnowledgeContentsPanelView } from "./KnowledgeContentsPanelView";
 export type {
 	KnowledgeContextMenuItem,
 	KnowledgeContextMenuViewProps,
