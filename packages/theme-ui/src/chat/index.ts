@@ -7,14 +7,18 @@ import type {
 	NewSessionSceneCarouselProps,
 	NewSessionSkillBadgeRowProps,
 } from "./NewSession";
+import type { SceneCard } from "./SceneCard";
+import type { SkillCard } from "./SkillCard";
 
 declare module "@vetta/theme-sdk" {
 	interface ThemeComponentRegistry {
 		readonly "chat.inputBarBackground"?: typeof InputBarBackground;
 		readonly "chat.newSessionGuidingWords"?: ComponentType<NewSessionGuidingWordsProps>;
 		readonly "chat.newSessionHero"?: ComponentType<NewSessionHeroProps>;
+		readonly "chat.newSessionSceneCard"?: typeof SceneCard;
 		readonly "chat.newSessionSceneCarousel"?: ComponentType<NewSessionSceneCarouselProps>;
 		readonly "chat.newSessionSkillBadgeRow"?: ComponentType<NewSessionSkillBadgeRowProps>;
+		readonly "chat.newSessionSkillCard"?: typeof SkillCard;
 	}
 }
 
@@ -26,8 +30,12 @@ export type {
 } from "./AtPanelView";
 export { AtPanelView } from "./AtPanelView";
 export { DefaultGuidingWords } from "./DefaultGuidingWords";
+export { DefaultSceneCarousel } from "./DefaultSceneCarousel";
+export { DefaultSkillBadgeRow } from "./DefaultSkillBadgeRow";
 export type { InputBarBackgroundProps } from "./InputBarBackground";
 export { InputBarBackground } from "./InputBarBackground";
+export type { InputBarToolbarButtonProps } from "./InputBarToolbarButton";
+export { InputBarToolbarButton } from "./InputBarToolbarButton";
 export type {
 	NewSessionGuidingWordsGroup,
 	NewSessionGuidingWordsProps,
@@ -42,6 +50,16 @@ export type {
 	NewSessionSkillItem,
 	NewSessionSkillSelection,
 } from "./NewSession";
+export type {
+	SceneCardActionState,
+	SceneCardClassNames,
+	SceneCardModel,
+	SceneCardProps,
+	SceneCardState,
+} from "./SceneCard";
+export { SceneCard } from "./SceneCard";
+export type { SkillCardClassNames, SkillCardModel, SkillCardProps } from "./SkillCard";
+export { SkillCard } from "./SkillCard";
 export type {
 	SlashPanelClassNames,
 	SlashPanelItemModel,
