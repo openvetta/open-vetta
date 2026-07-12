@@ -1,5 +1,5 @@
 {
-  "total": 82,
+  "total": 79,
   "byDomain": {
     "action-approval": [
       "packages/desktop-app/src/renderer/shared/action-approval/appearance/AppearanceApprovalDrawerView.tsx",
@@ -87,14 +87,11 @@
       "packages/desktop-app/src/renderer/domains/settings/components/PetSettingsView.tsx",
       "packages/desktop-app/src/renderer/domains/settings/components/PluginsSettingsView.tsx",
       "packages/desktop-app/src/renderer/domains/settings/components/PresetProviderRow.tsx",
-      "packages/desktop-app/src/renderer/domains/settings/components/PresetProvidersSectionView.tsx",
       "packages/desktop-app/src/renderer/domains/settings/components/RemoteMcpSection.tsx",
       "packages/desktop-app/src/renderer/domains/settings/components/RemoteMcpSectionView.tsx",
       "packages/desktop-app/src/renderer/domains/settings/components/ShortcutRecorder.tsx",
-      "packages/desktop-app/src/renderer/domains/settings/components/ShortcutsSettingsView.tsx",
       "packages/desktop-app/src/renderer/domains/settings/components/TeamDetail.tsx",
       "packages/desktop-app/src/renderer/domains/settings/components/TeamDialogs.tsx",
-      "packages/desktop-app/src/renderer/domains/settings/components/TeamSettingsView.tsx",
       "packages/desktop-app/src/renderer/domains/settings/components/WebhookEditorDialog.tsx",
       "packages/desktop-app/src/renderer/domains/settings/components/WebhookEndpointList.tsx",
       "packages/desktop-app/src/renderer/domains/settings/components/WechatBindDialogView.tsx"
@@ -435,11 +432,6 @@
       "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
     },
     {
-      "path": "packages/desktop-app/src/renderer/domains/settings/components/PresetProvidersSectionView.tsx",
-      "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
-    },
-    {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/RemoteMcpSection.tsx",
       "domain": "settings",
       "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
@@ -455,22 +447,12 @@
       "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
     },
     {
-      "path": "packages/desktop-app/src/renderer/domains/settings/components/ShortcutsSettingsView.tsx",
-      "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
-    },
-    {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/TeamDetail.tsx",
       "domain": "settings",
       "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/TeamDialogs.tsx",
-      "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
-    },
-    {
-      "path": "packages/desktop-app/src/renderer/domains/settings/components/TeamSettingsView.tsx",
       "domain": "settings",
       "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
     },

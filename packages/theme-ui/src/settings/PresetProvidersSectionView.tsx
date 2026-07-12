@@ -1,4 +1,6 @@
 import type { JSX, ReactNode } from "react";
+import { Button } from "@vetta/ui";
+import { cn } from "@vetta/ui";
 import { SettingSection, type SettingSectionMeta } from "./SettingChrome";
 
 export interface PresetProvidersSectionViewLabels {
@@ -6,6 +8,8 @@ export interface PresetProvidersSectionViewLabels {
 	readonly clickRetry: string;
 	readonly loading: string;
 	readonly noPresetProviders: string;
+	readonly refresh: string;
+	readonly refreshing: string;
 }
 
 export interface PresetProvidersSectionViewProps {
@@ -14,9 +18,7 @@ export interface PresetProvidersSectionViewProps {
 	readonly error: string | null;
 	readonly hasRows: boolean;
 	readonly loading: boolean;
-	/** Host refresh Button (title trailing). */
-	readonly refreshControl: ReactNode;
-	/** Host-rendered provider rows. */
+	readonly onReload: () => void;
 	readonly rows: ReactNode;
 }
 
@@ -26,7 +28,7 @@ export function PresetProvidersSectionView({
 	error,
 	hasRows,
 	loading,
-	refreshControl,
+	onReload,
 	rows,
 }: PresetProvidersSectionViewProps): JSX.Element {
 	return (
@@ -36,7 +38,10 @@ export function PresetProvidersSectionView({
 				title={
 					<div className="flex items-center justify-between">
 						<span>{labels.title}</span>
-						{refreshControl}
+						<Button variant="ghost" size="sm" onClick={onReload} disabled={loading}>
+							<span className={cn("icon-[mdi--refresh] h-3.5 w-3.5", loading && "animate-spin")} />
+							{loading ? labels.refreshing : labels.refresh}
+						</Button>
 					</div>
 				}
 			>

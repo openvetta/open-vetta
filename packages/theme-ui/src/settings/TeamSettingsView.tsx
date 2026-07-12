@@ -1,4 +1,5 @@
 import type { JSX, ReactNode } from "react";
+import { Button } from "@vetta/ui";
 import type { SettingSectionMeta } from "./SettingChrome";
 import { SettingHeading } from "./SettingChrome";
 
@@ -7,11 +8,9 @@ export interface TeamSettingsViewProps {
 	readonly loginRequiredLabel: string;
 	readonly description: string;
 	readonly section: SettingSectionMeta;
-	/** Host join/create Buttons. */
-	readonly headerActions: ReactNode;
-	/** Team list or detail body. */
+	readonly onJoinOpen: () => void;
+	readonly onCreateOpen: () => void;
 	readonly body: ReactNode;
-	/** Host create/join dialogs. */
 	readonly dialogs: ReactNode;
 }
 
@@ -20,7 +19,8 @@ export function TeamSettingsView({
 	loginRequiredLabel,
 	description,
 	section,
-	headerActions,
+	onJoinOpen,
+	onCreateOpen,
 	body,
 	dialogs,
 }: TeamSettingsViewProps): JSX.Element {
@@ -35,7 +35,14 @@ export function TeamSettingsView({
 					<SettingHeading section={section} className="text-[18px] font-bold" />
 					<p className="mt-1 text-[12px] text-muted-foreground">{description}</p>
 				</div>
-				<div className="flex gap-2">{headerActions}</div>
+				<div className="flex gap-2">
+					<Button variant="outline" size="sm" onClick={onJoinOpen}>
+						<span className="icon-[mdi--account-plus-outline] mr-1.5 h-3.5 w-3.5" />
+					</Button>
+					<Button size="sm" onClick={onCreateOpen}>
+						<span className="icon-[mdi--plus] mr-1.5 h-3.5 w-3.5" />
+					</Button>
+				</div>
 			</div>
 			{body}
 			{dialogs}

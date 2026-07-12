@@ -1,4 +1,3 @@
-import { Button } from "@shared/components/ui/button";
 import { TeamSettingsView as ThemeTeamSettingsView } from "@vetta/theme-ui/settings";
 import { SETTINGS_SECTION } from "../registry";
 import { CreateTeamDialog, JoinTeamDialog } from "./TeamDialogs";
@@ -13,16 +12,8 @@ export function TeamSettingsView({ model }: { model: TeamSettingsModel }): JSX.E
 			loginRequiredLabel={model.labels.loginRequired}
 			description={model.labels.description}
 			section={SETTINGS_SECTION["team-management"]}
-			headerActions={
-				<>
-					<Button variant="outline" size="sm" onClick={() => model.setJoinOpen(true)}>
-						<span className="icon-[mdi--account-plus-outline] mr-1.5 h-3.5 w-3.5" />
-					</Button>
-					<Button size="sm" onClick={() => model.setCreateOpen(true)}>
-						<span className="icon-[mdi--plus] mr-1.5 h-3.5 w-3.5" />
-					</Button>
-				</>
-			}
+			onJoinOpen={() => model.setJoinOpen(true)}
+			onCreateOpen={() => model.setCreateOpen(true)}
 			body={
 				model.selectedTeam ? (
 					<TeamDetail

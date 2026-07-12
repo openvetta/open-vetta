@@ -20,12 +20,15 @@ Batch 27 后原语在 `@vetta/ui`。本批将若干 settings 展示层迁入 the
 | ImLegacyImportBanner | Button 在 theme-ui |
 | AchievementNavigationButton | Button 在 theme-ui |
 | McpJsonEditor | Button 在 theme-ui |
+| PresetProvidersSectionView | Button 在 theme-ui |
+| TeamSettingsView | header Button 在 theme-ui |
+| ShortcutsSettingsView | reset Button 在 theme-ui |
 
 ## 计数
 
-- inventory `host_primitive_hold`：~82 → **79**（另有 export 清单下降）
-- settings 域 export：41 → **33**
+- inventory `host_primitive_hold` 持续下降（以 export / inventory 为准）
+- settings 域仍剩 Dialog/表单重 hold
 
 ## 剩余 settings hold
 
-Dialog/Drawer 重组件与复合表单（Account、Agent、Appearance、MCP form、IM Dialog…）下批继续。
+Dialog/Drawer 重组件与复合表单（Account、Agent、Appearance、MCP form、IM Dialog…）——布局可继续迁；Dialog 已可用 `@vetta/ui`。
