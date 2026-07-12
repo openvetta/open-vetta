@@ -28,7 +28,7 @@
 |----|------|------|------|
 | 00 | 台账与已迁入盘点 | done | [00-ledger.md](./00-ledger.md) |
 | 01 | sidebar 剩余 props-driven 叶子 / topBar shell | done | [01-sidebar-remainder.md](./01-sidebar-remainder.md) |
-| 02 | root / overlays 纯 View | pending | [02-overlays.md](./02-overlays.md) |
+| 02 | root / overlays 纯 View | done | [02-overlays.md](./02-overlays.md) |
 | 03 | chat props-driven views | pending | [03-chat.md](./03-chat.md) |
 | 04 | settings 与其它域已拆分 View | pending | [04-settings-and-others.md](./04-settings-and-others.md) |
 | 99 | 最终审计与暂缓清单 | pending | [99-final-audit.md](./99-final-audit.md) |

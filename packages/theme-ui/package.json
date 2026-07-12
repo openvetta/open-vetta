@@ -29,6 +29,10 @@
 			"types": "./src/layout/index.ts",
 			"import": "./src/layout/index.ts"
 		},
+		"./overlays": {
+			"types": "./src/overlays/index.ts",
+			"import": "./src/overlays/index.ts"
+		},
 		"./sidebar": {
 			"types": "./src/sidebar/index.ts",
 			"import": "./src/sidebar/index.ts"
