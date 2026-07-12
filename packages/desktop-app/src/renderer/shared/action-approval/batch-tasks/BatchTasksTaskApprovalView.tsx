@@ -1,10 +1,20 @@
-import { BatchTasksTaskApprovalView as ThemeBatchTasksTaskApprovalView } from "@vetta/theme-ui/action-approval";
+import { useThemeComponent } from "@vetta/theme-sdk";
+import {
+	BatchTasksApprovalFrameView,
+	BatchTasksTaskApprovalView as ThemeBatchTasksTaskApprovalView,
+} from "@vetta/theme-ui/action-approval";
 import type { BatchTasksTaskApprovalModel } from "./useBatchTasksTaskApprovalModel";
 
 export function BatchTasksTaskApprovalView(model: BatchTasksTaskApprovalModel): JSX.Element {
+	const ThemedBatchTasksApprovalFrameView = useThemeComponent(
+		"root.approval.batchTasksFrameView",
+		BatchTasksApprovalFrameView,
+	);
+
 	return (
 		<ThemeBatchTasksTaskApprovalView
 			frame={model.frame}
+			Frame={ThemedBatchTasksApprovalFrameView}
 			hasInput={model.hasInput}
 			taskName={model.taskName}
 			projectName={model.projectName}

@@ -1,8 +1,10 @@
-import type { JSX, ReactNode } from "react";
+import type { ComponentType, JSX, ReactNode } from "react";
 import { BatchTasksApprovalFrameView, type BatchTasksApprovalFrameViewProps } from "./BatchTasksApprovalFrameView";
 
 export interface BatchTasksTaskApprovalViewProps {
 	readonly frame: Omit<BatchTasksApprovalFrameViewProps, "children">;
+	/** Host may inject themed frame via useThemeComponent("root.approval.batchTasksFrameView"). */
+	readonly Frame?: ComponentType<BatchTasksApprovalFrameViewProps>;
 	readonly hasInput: boolean;
 	readonly taskName: string;
 	readonly projectName: string;
@@ -31,6 +33,7 @@ export interface BatchTasksTaskApprovalViewProps {
 
 export function BatchTasksTaskApprovalView({
 	frame,
+	Frame = BatchTasksApprovalFrameView,
 	hasInput,
 	taskName,
 	projectName,
@@ -56,7 +59,7 @@ export function BatchTasksTaskApprovalView({
 	resumeField,
 }: BatchTasksTaskApprovalViewProps): JSX.Element {
 	return (
-		<BatchTasksApprovalFrameView {...frame}>
+		<Frame {...frame}>
 			{hasInput && (
 				<>
 					<div className="rounded-lg border border-border/50 bg-background/50 p-3">
@@ -144,6 +147,6 @@ export function BatchTasksTaskApprovalView({
 					{JSON.stringify(rawInput, null, 2)}
 				</pre>
 			)}
-		</BatchTasksApprovalFrameView>
+		</Frame>
 	);
 }

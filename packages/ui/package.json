@@ -15,7 +15,8 @@
 		"check": "tsgo --noEmit -p tsconfig.json"
 	},
 	"peerDependencies": {
-		"react": "^19.0.0"
+		"react": "^19.0.0",
+		"react-dom": "^19.0.0"
 	},
 	"dependencies": {
 		"class-variance-authority": "^0.7.1",

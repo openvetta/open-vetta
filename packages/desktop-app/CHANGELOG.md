@@ -44,6 +44,10 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **@vetta/ui 六原语 class 可能未生成**：Button/Dialog/Drawer/Select/Switch/Popover 实现迁入 `packages/ui` 后，主应用 Tailwind 只扫描 theme-ui；在 `styles.css` 增加对 `ui/src` 的 `@source`。
+- **Dialog 弹窗几乎全屏宽**：`DialogContent` 默认 `max-w`/`sm:max-w-sm` 仅写在 `@vetta/ui`，未扫描时只剩 `w-full`；改为单一 `max-w-[min(24rem,calc(100%-2rem))]`，并在 `styles.css` 用 `@layer components` 对 `[data-slot=dialog-content]` 兜底宽度（调用方 `max-w-*` 仍可覆盖）。
+- **macOS 顶栏右侧多余 70px 空白**：`DefaultWindowControls` 在 Mac 上曾返回占位 div，挤压 PageHeader rightSlot；现改为 `null`，与迁移前「Mac 不挂载窗口按钮」一致。
+- **批量任务审批恢复主题 frame slot**：`BatchTasksTaskApprovalView` 经 `useThemeComponent("root.approval.batchTasksFrameView")` 注入 Frame，与 Execution/Project 审批一致，避免主题无法替换 frame。
 - **窗口控件最小化/最大化图标无颜色**：app-shell 迁入 `@vetta/theme-ui` 后，`icon-[mdi--window-*]` 仅出现在 theme-ui 源码中，desktop-app Tailwind 未扫描导致 iconify 类未生成（关闭按钮仍可用因其它处仍引用 `mdi--close`）。在 `styles.css` 增加对 `theme-ui/src` 的 `@source`。
 - **设置项 SettingRow 始终左右布局**：去掉 `@max-xl:flex-col` 等窄宽竖排逻辑；标题区可收缩，控件固定在右侧，不再上下堆叠。
 - **知识库「整理用哪个模型」标题被压成单字竖列**：该行右侧用 `flex-wrap` + `basis-full` 警告会撑满整行宽度，左侧 `min-w-0` 被挤到近乎 0。改为控件与警告纵向 `items-end` 排列，SettingRow 标题 `truncate`、右侧 `max-w` 上限。

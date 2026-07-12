@@ -5,11 +5,13 @@ import { cn } from "@vetta/ui";
 import { ThemeSurface } from "../appearance/ThemeSurface";
 import { WindowControlButton } from "./WindowControlButton";
 
-export function DefaultWindowControls({ className, classNames, model }: WindowControlsComponentProps): JSX.Element {
+export function DefaultWindowControls({ className, classNames, model }: WindowControlsComponentProps): JSX.Element | null {
 	const ThemeWindowControlButton = useThemeComponent("app.windowControlButton", WindowControlButton);
 
+	// macOS uses system traffic lights; do not reserve a 70px empty slot that
+	// would squeeze PageHeader rightSlot (matches pre-migration host behavior).
 	if (model.isMac) {
-		return <div className={cn("w-[70px]", className)} />;
+		return null;
 	}
 
 	return (
