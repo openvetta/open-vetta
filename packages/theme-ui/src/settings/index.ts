@@ -52,6 +52,12 @@ export type {
 export { ImChannelCardView } from "./ImChannelCardView";
 export type { ImLegacyImportBannerViewProps } from "./ImLegacyImportBannerView";
 export { ImLegacyImportBannerView } from "./ImLegacyImportBannerView";
+export type {
+	ImLogDrawerViewLabels,
+	ImLogDrawerViewProps,
+	ImLogEventView,
+} from "./ImLogDrawerView";
+export { ImLogDrawerView } from "./ImLogDrawerView";
 export type { ImStatusBadgeStatus, ImStatusBadgeViewProps } from "./ImStatusBadgeView";
 export { ImStatusBadgeView } from "./ImStatusBadgeView";
 export type { McpJsonEditorViewProps } from "./McpJsonEditorView";

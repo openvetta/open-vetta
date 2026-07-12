@@ -60,6 +60,7 @@
 | 31 | KnowledgeBreadcrumb + ChatHeaderActions 脱 hold | done | [31-kb-chat-hold.md](./31-kb-chat-hold.md) |
 | 32 | SceneCard + sidebar filter/trigger 脱 hold | done | [32-scene-sidebar-hold.md](./32-scene-sidebar-hold.md) |
 | 33 | hold 小组件迁 theme-ui（10 条） | done | [33-hold-wave-small.md](./33-hold-wave-small.md) |
+| 34 | hold 中等组件迁 theme-ui（4 条） | done | [34-hold-wave-medium.md](./34-hold-wave-medium.md) |
 | 99 | 最终审计与暂缓清单 | done | [99-final-audit.md](./99-final-audit.md) |
 
 ## 闭合门禁（验收用）

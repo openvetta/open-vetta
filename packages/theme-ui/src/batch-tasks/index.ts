@@ -4,6 +4,16 @@ export type {
 } from "./BatchProjectArtifactFieldView";
 export { BatchProjectArtifactFieldView } from "./BatchProjectArtifactFieldView";
 export type {
+	BatchProjectDialogViewLabels,
+	BatchProjectDialogViewProps,
+} from "./BatchProjectDialogView";
+export { BatchProjectDialogView } from "./BatchProjectDialogView";
+export type {
+	BatchProjectFoldersFieldViewLabels,
+	BatchProjectFoldersFieldViewProps,
+} from "./BatchProjectFoldersFieldView";
+export { BatchProjectFoldersFieldView } from "./BatchProjectFoldersFieldView";
+export type {
 	BatchProjectGroupTaskItem,
 	BatchProjectGroupViewProps,
 } from "./BatchProjectGroupView";
