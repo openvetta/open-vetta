@@ -10,6 +10,12 @@ export type {
 export { KnowledgeContextMenuView } from "./KnowledgeContextMenuView";
 export { KnowledgeFilesSkeleton } from "./KnowledgeFilesSkeleton";
 export { KnowledgeGridView } from "./KnowledgeGridView";
+export type {
+	KnowledgeHowItWorksDialogViewLabels,
+	KnowledgeHowItWorksDialogViewProps,
+	KnowledgeHowItWorksStepView,
+} from "./KnowledgeHowItWorksDialogView";
+export { KnowledgeHowItWorksDialogView } from "./KnowledgeHowItWorksDialogView";
 export { KnowledgeListView } from "./KnowledgeListView";
 export type {
 	KnowledgePendingFileRowView,
