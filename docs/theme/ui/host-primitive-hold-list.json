@@ -1,5 +1,5 @@
 {
-  "total": 79,
+  "total": 78,
   "byDomain": {
     "action-approval": [
       "packages/desktop-app/src/renderer/shared/action-approval/appearance/AppearanceApprovalDrawerView.tsx",
@@ -100,7 +100,6 @@
       "packages/desktop-app/src/renderer/domains/skills/components/PluginDetailSheet.tsx",
       "packages/desktop-app/src/renderer/domains/skills/components/PluginsPanelView.tsx",
       "packages/desktop-app/src/renderer/domains/skills/components/SceneCard.tsx",
-      "packages/desktop-app/src/renderer/domains/skills/components/SkillCard.tsx",
       "packages/desktop-app/src/renderer/domains/skills/components/SkillDetailDialog.tsx",
       "packages/desktop-app/src/renderer/domains/skills/components/SkillsPageView.tsx"
     ]
@@ -109,397 +108,392 @@
     {
       "path": "packages/desktop-app/src/renderer/shared/action-approval/appearance/AppearanceApprovalDrawerView.tsx",
       "domain": "action-approval",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/shared/action-approval/batch-tasks/BatchTasksApprovalFrameView.tsx",
       "domain": "action-approval",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/shared/action-approval/batch-tasks/BatchTasksProjectApprovalView.tsx",
       "domain": "action-approval",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/shared/action-approval/batch-tasks/BatchTasksTaskApprovalView.tsx",
       "domain": "action-approval",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/shared/action-approval/GenericActionApprovalView.tsx",
       "domain": "action-approval",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/shared/action-approval/manage/agent/AgentSetExperimentalApproval.tsx",
       "domain": "action-approval",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/shared/action-approval/manage/knowledge/KnowledgeSetProcessingApproval.tsx",
       "domain": "action-approval",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/shared/action-approval/manage/ManageActionApprovalFrameView.tsx",
       "domain": "action-approval",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/shared/action-approval/navigation/NavigationOpenApprovalView.tsx",
       "domain": "action-approval",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/shared/action-approval/scheduler/SchedulerActionApprovalDialogView.tsx",
       "domain": "action-approval",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/shared/action-approval/scheduler/SchedulerEditApprovalDrawerView.tsx",
       "domain": "action-approval",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/activity-panel/components/PluginTabPicker.tsx",
       "domain": "activity-panel",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/auth/components/LoginDialogView.tsx",
       "domain": "auth",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/batch-tasks/components/batch-project-form/BatchProjectFoldersField.tsx",
       "domain": "batch-tasks",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/batch-tasks/components/batch-task-list/BatchTaskActionButtons.tsx",
       "domain": "batch-tasks",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/batch-tasks/components/BatchProjectDialogView.tsx",
       "domain": "batch-tasks",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/chat/components/chat-view/ChatHeaderActionsView.tsx",
       "domain": "chat",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/chat/components/execution-mode-selector/ExecutionModeSelectorView.tsx",
       "domain": "chat",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/chat/components/model-selector/ModelSelectorView.tsx",
       "domain": "chat",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/chat/components/question-panel/QuestionPanelView.tsx",
       "domain": "chat",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/shared/components/KnowledgeHowItWorksDialog.tsx",
       "domain": "components",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/shared/components/ModelSelect/ModelSelect.tsx",
       "domain": "components",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/shared/components/NewProjectDialog.tsx",
       "domain": "components",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/flowing/components/flow-graph/node-detail-dialog.tsx",
       "domain": "flowing",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/flowing/components/FlowingSendDialogView.tsx",
       "domain": "flowing",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/flowing/components/WorkflowBindDialogView.tsx",
       "domain": "flowing",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/flowing/components/WorkflowCompleteDialogView.tsx",
       "domain": "flowing",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeBaseListPageView.tsx",
       "domain": "knowledge-base",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeBasePageView.tsx",
       "domain": "knowledge-base",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeBaseSwitcherView.tsx",
       "domain": "knowledge-base",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeBreadcrumb.tsx",
       "domain": "knowledge-base",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeImportDialog.tsx",
       "domain": "knowledge-base",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgePendingFilesDialog.tsx",
       "domain": "knowledge-base",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeRenameDialog.tsx",
       "domain": "knowledge-base",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeSourcePicker.tsx",
       "domain": "knowledge-base",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/project/components/sidebar/filters/FilterSelectPopover.tsx",
       "domain": "project",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/project/components/sidebar/filters/SidebarFilterSelectView.tsx",
       "domain": "project",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/project/components/sidebar/message-center/MessageCenterDialog.tsx",
       "domain": "project",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/project/components/sidebar/message-center/MessageCenterTrigger.tsx",
       "domain": "project",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/project/components/sidebar/settings-menu/SettingsMenuPopover.tsx",
       "domain": "project",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/scheduler/components/AutomationPageView.tsx",
       "domain": "scheduler",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/scheduler/components/SchedulerTaskFieldsView.tsx",
       "domain": "scheduler",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/scheduler/components/TaskFormDialogView.tsx",
       "domain": "scheduler",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/ai-assist/SettingsAiAssistDialog.tsx",
       "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/AccountSettingsView.tsx",
       "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/AchievementPromotionDialog.tsx",
       "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/AgentSettingsView.tsx",
       "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/AppearanceSettingsView.tsx",
       "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/BuiltinMcpSecretsDialogView.tsx",
       "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/BuiltinMcpSection.tsx",
       "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/ImBridgeSettingsView.tsx",
       "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/ImChannelCard.tsx",
       "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/ImFeishuDialog.tsx",
       "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/ImLogDrawer.tsx",
       "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/KnowledgeBaseSettingsView.tsx",
       "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/McpServerForm.tsx",
       "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/McpServerList.tsx",
       "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/McpServerRow.tsx",
       "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/ModelsModelForm.tsx",
       "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/ModelsProviderForm.tsx",
       "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/ModelsProviderRow.tsx",
       "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/ModelsProvidersSection.tsx",
       "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/PetSettingsView.tsx",
       "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/PluginsSettingsView.tsx",
       "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/PresetProviderRow.tsx",
       "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/RemoteMcpSection.tsx",
       "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/RemoteMcpSectionView.tsx",
       "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/ShortcutRecorder.tsx",
       "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/TeamDetail.tsx",
       "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/TeamDialogs.tsx",
       "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/WebhookEditorDialog.tsx",
       "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/WebhookEndpointList.tsx",
       "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/WechatBindDialogView.tsx",
       "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/skills/components/PluginDetailSheet.tsx",
       "domain": "skills",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/skills/components/PluginsPanelView.tsx",
       "domain": "skills",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/skills/components/SceneCard.tsx",
       "domain": "skills",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
-    },
-    {
-      "path": "packages/desktop-app/src/renderer/domains/skills/components/SkillCard.tsx",
-      "domain": "skills",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/skills/components/SkillDetailDialog.tsx",
       "domain": "skills",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/skills/components/SkillsPageView.tsx",
       "domain": "skills",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     }
   ]
 }

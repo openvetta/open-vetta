@@ -13,25 +13,26 @@
    - `bad_deferrals == 0`（禁止「等拆 model」类 deferral）
 2. `bun packages/theme-ui/scripts/verify-purity.mjs` → exit 0
 3. `bun run check` → exit 0
-4. 台账批次 00–25 有记录（含 residual / γ / δ）
+4. 台账批次 00–29 有记录（含 Goal A/B）
 
-## 门禁快照（Phase α–δ 后）
+## 门禁快照（Goal A 软完成 + Goal B 原语落地）
 
 ```json
 {
-  "migrated": 183,
+  "migrated": 187,
   "split_ok": 113,
   "must_split_open": 0,
   "must_migrate_open": 0,
   "must_host_hold_open": 0,
-  "host_primitive_hold": 82,
+  "host_primitive_hold": 78,
   "permanent_desktop": 97,
   "non_goal": 19,
   "bad_deferrals": 0
 }
 ```
 
-`host_primitive_hold≈82` 为**有意保留**（等 `@vetta/ui` 原语），见 `24-phase-gamma-path.md`。
+- **Goal B**：`@vetta/ui` 含 Button/Dialog/Drawer/Select/Switch/Popover  
+- **Goal A 软完成**：剩余 hold≈78 为 Dialog 重 / 真 value import；见 `29-goal-ab-soft-complete.md`
 
 ### 反作弊（batch 21 + batch 22）
 
