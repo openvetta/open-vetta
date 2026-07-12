@@ -8,3 +8,5 @@ declare module "@vetta/theme-sdk" {
 
 export type { ActivityPanelFrameProps } from "./ActivityPanelFrame";
 export { ActivityPanelFrame } from "./ActivityPanelFrame";
+export type { CodePreviewProps } from "./CodePreview";
+export { CodePreview } from "./CodePreview";

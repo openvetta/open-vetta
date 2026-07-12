@@ -169,7 +169,7 @@
     },
     "packages/desktop-app": {
       "name": "@vetta/desktop-app",
-      "version": "0.4.15",
+      "version": "0.4.25",
       "dependencies": {
         "@dagrejs/dagre": "^3.0.0",
         "@fontsource-variable/geist": "^5.2.8",
@@ -377,14 +377,23 @@
         "@vetta/ui": "workspace:*",
       },
       "devDependencies": {
+        "@types/canvas-confetti": "^1.9.0",
         "@types/react": "^19.1.1",
+        "canvas-confetti": "^1.9.4",
         "motion": "^12.23.12",
+        "shiki": "^4.0.2",
         "typescript": "^5.9.2",
       },
       "peerDependencies": {
+        "canvas-confetti": "^1.9.0",
         "motion": "^12.0.0",
         "react": "^19.0.0",
+        "shiki": ">=3.0.0",
       },
+      "optionalPeers": [
+        "canvas-confetti",
+        "shiki",
+      ],
     },
     "packages/themes/builtin/xianxia": {
       "name": "@vetta/theme-xianxia",
