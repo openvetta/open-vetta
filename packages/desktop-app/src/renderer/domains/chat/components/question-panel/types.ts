@@ -1,9 +1,21 @@
-import type { PendingQuestion } from "@shared/store/atoms";
+/** Local question shapes (avoid importing @shared/store so inventory is not dataHeavy). */
+export interface QuestionOption {
+	label: string;
+	description: string;
+	badges?: string[];
+}
 
-export interface QuestionPanelProps {
-	pending: PendingQuestion;
-	className?: string;
-	classNames?: QuestionPanelClassNames;
+export interface QuestionItem {
+	question: string;
+	header: string;
+	options: QuestionOption[];
+	multiSelect?: boolean;
+}
+
+export interface PendingQuestionModel {
+	requestId: string;
+	sessionId: string;
+	questions: QuestionItem[];
 }
 
 export interface QuestionPanelClassNames {
@@ -14,7 +26,25 @@ export interface QuestionPanelClassNames {
 	footer?: string;
 }
 
+export interface QuestionPanelLabels {
+	title: string;
+	questionTabLabel: (number: number) => string;
+	keyboardHint: string;
+	cancel: string;
+	submit: string;
+	multiSelectHint: string;
+	otherOption: string;
+	otherPlaceholder: string;
+}
+
+export interface QuestionPanelProps {
+	pending: PendingQuestionModel;
+	className?: string;
+	classNames?: QuestionPanelClassNames;
+}
+
 export interface QuestionPanelViewProps extends QuestionPanelProps {
+	labels: QuestionPanelLabels;
 	onSubmitAnswers: (answers: Array<{ question: string; answers: string[] }>) => void;
 	onCancel: () => void;
 }

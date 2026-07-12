@@ -1,10 +1,10 @@
+import { MessageListView as ThemeMessageListView, VirtuosoListContainer } from "@vetta/theme-ui/chat";
 import { forwardRef, useCallback, useMemo } from "react";
 import { Virtuoso } from "react-virtuoso";
-import type { ChatMessage } from "@shared/store/atoms";
 import { SuggestionBubbles } from "../SuggestionBubbles";
 import { MessageItem, ModelSwitchBoundary, ExportMessageList } from "./MessageItem";
 import { MessageListFooter } from "./MessageListFooter";
-import type { MessageListModel, MessageListProps } from "./types";
+import type { ChatMessage, MessageListModel, MessageListProps } from "./types";
 
 export { ExportMessageList };
 
@@ -40,15 +40,11 @@ export function MessageListView({
 		(index: number, message: ChatMessage) => (
 			<div
 				className={
-					index === messages.length - 1 && message.role === "user"
-						? "pb-9"
-						: "pb-5"
+					index === messages.length - 1 && message.role === "user" ? "pb-9" : "pb-5"
 				}
 			>
 				{modelSwitchLabels.has(message.id) && (
-					<ModelSwitchBoundary
-						label={modelSwitchLabels.get(message.id) as string}
-					/>
+					<ModelSwitchBoundary label={modelSwitchLabels.get(message.id) as string} />
 				)}
 				<MessageItem
 					message={message}
@@ -94,10 +90,7 @@ export function MessageListView({
 		() => (
 			<>
 				{onSend && <SuggestionBubbles onSend={onSend} />}
-				<MessageListFooter
-					isCompacting={isCompacting}
-					showWaiting={showWaiting}
-				/>
+				<MessageListFooter isCompacting={isCompacting} showWaiting={showWaiting} />
 			</>
 		),
 		[isCompacting, showWaiting, onSend],
@@ -108,47 +101,29 @@ export function MessageListView({
 	);
 
 	return (
-		<>
-			<style>{`
-				@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-				textarea::placeholder { color: var(--muted-foreground); opacity: 0.5; }
-				@keyframes context-ring-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-				@keyframes processing-shimmer { 0%, 100% { opacity: 0.58; } 50% { opacity: 1; } }
-				.processing-shimmer { color: var(--foreground); animation: processing-shimmer 1.6s ease-in-out infinite; will-change: opacity; }
-			`}</style>
-			<Virtuoso
-				ref={scroll.virtuosoRef}
-				scrollerRef={scroll.scrollerRef}
-				data={messages}
-				className="flex-1 pt-2"
-				style={VIRTUOSO_STYLE}
-				atBottomStateChange={scroll.onAtBottomChange}
-				atBottomThreshold={80}
-				overscan={isStreaming ? STREAMING_OVERSCAN : IDLE_OVERSCAN}
-				increaseViewportBy={
-					isStreaming
-						? STREAMING_INCREASE_VIEWPORT_BY
-						: IDLE_INCREASE_VIEWPORT_BY
-				}
-				defaultItemHeight={80}
-				components={components}
-				itemContent={itemContent}
-				initialTopMostItemIndex={messages.length > 0 ? messages.length - 1 : 0}
-			/>
-		</>
+		<ThemeMessageListView
+			virtuoso={
+				<Virtuoso
+					ref={scroll.virtuosoRef}
+					scrollerRef={scroll.scrollerRef}
+					data={messages}
+					className="flex-1 pt-2"
+					style={VIRTUOSO_STYLE}
+					atBottomStateChange={scroll.onAtBottomChange}
+					atBottomThreshold={80}
+					overscan={isStreaming ? STREAMING_OVERSCAN : IDLE_OVERSCAN}
+					increaseViewportBy={
+						isStreaming ? STREAMING_INCREASE_VIEWPORT_BY : IDLE_INCREASE_VIEWPORT_BY
+					}
+					defaultItemHeight={80}
+					components={components}
+					itemContent={itemContent}
+					initialTopMostItemIndex={messages.length > 0 ? messages.length - 1 : 0}
+				/>
+			}
+		/>
 	);
 }
 
-const VirtuosoListContainer = forwardRef<
-	HTMLDivElement,
-	React.HTMLAttributes<HTMLDivElement>
->(function VirtuosoListContainer(props, ref) {
-	return (
-		<div
-			{...props}
-			ref={ref}
-			className="mx-auto flex max-w-3xl flex-col overflow-hidden px-5 pb-5"
-			style={{ ...props.style }}
-		/>
-	);
-});
+// re-export for any external consumers that used the local container
+export const MessageListVirtuosoListContainer = VirtuosoListContainer;

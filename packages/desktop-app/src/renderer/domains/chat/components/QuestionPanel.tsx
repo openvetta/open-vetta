@@ -1,9 +1,18 @@
+import type { PendingQuestion } from "@shared/store/atoms";
 import { useThemeComponent } from "@vetta/theme-sdk";
 import { useQuestionPanelModel } from "../hooks/useQuestionPanelModel";
 import { QuestionPanelView } from "./question-panel/QuestionPanelView";
-import type { QuestionPanelProps } from "./question-panel/types";
+import type { QuestionPanelClassNames } from "./question-panel/types";
 
-export function QuestionPanel({ pending, className, classNames }: QuestionPanelProps): JSX.Element {
+export function QuestionPanel({
+	pending,
+	className,
+	classNames,
+}: {
+	pending: PendingQuestion;
+	className?: string;
+	classNames?: QuestionPanelClassNames;
+}): JSX.Element {
 	const model = useQuestionPanelModel(pending);
 	const ThemedQuestionPanelView = useThemeComponent("chat.questionPanelView", QuestionPanelView);
 
@@ -12,10 +21,11 @@ export function QuestionPanel({ pending, className, classNames }: QuestionPanelP
 			pending={pending}
 			className={className}
 			classNames={classNames}
+			labels={model.labels}
 			onSubmitAnswers={model.onSubmitAnswers}
 			onCancel={model.onCancel}
 		/>
 	);
 }
 
-export type { QuestionPanelProps, QuestionPanelViewProps } from "./question-panel/types";
+export type { QuestionPanelViewProps } from "./question-panel/types";

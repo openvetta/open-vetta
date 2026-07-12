@@ -1,11 +1,9 @@
-import { AnimatePresence, motion } from "motion/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
-import { ThemeSurface } from "@vetta/theme-ui/appearance";
 import { Button } from "@shared/components/ui/button";
 import { Input } from "@shared/components/ui/input";
-import type { QuestionItem } from "@shared/store/atoms";
-import type { QuestionPanelViewProps } from "./types";
+import { ThemeSurface } from "@vetta/theme-ui/appearance";
+import { AnimatePresence, motion } from "motion/react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { QuestionItem, QuestionPanelViewProps } from "./types";
 
 interface QState {
 	selected: string[];
@@ -38,10 +36,10 @@ export function QuestionPanelView({
 	pending,
 	className,
 	classNames,
+	labels,
 	onSubmitAnswers,
 	onCancel,
 }: QuestionPanelViewProps): JSX.Element {
-	const { t } = useTranslation(["chat", "common"]);
 	const questions = pending.questions;
 	const [states, setStates] = useState<QState[]>(() => questions.map(() => emptyState()));
 	const [active, setActive] = useState(0);
@@ -169,7 +167,11 @@ export function QuestionPanelView({
 	const single = questions.length === 1;
 
 	return (
-		<div className={["relative mx-auto w-full max-w-2xl px-2 pb-3 pt-1 sm:px-4 sm:pb-4", className, classNames?.root].filter(Boolean).join(" ")}>
+		<div
+			className={["relative mx-auto w-full max-w-2xl px-2 pb-3 pt-1 sm:px-4 sm:pb-4", className, classNames?.root]
+				.filter(Boolean)
+				.join(" ")}
+		>
 			<div
 				ref={containerRef}
 				tabIndex={-1}
@@ -185,7 +187,7 @@ export function QuestionPanelView({
 				<div className={["relative z-10 rounded-[inherit]", classNames?.content].filter(Boolean).join(" ")}>
 					<div className="mb-2 flex items-center gap-2 px-1">
 						<span className="icon-[solar--question-circle-linear] size-4 text-primary" />
-						<span className="text-sm font-medium text-foreground">{t("questionPanel.title")}</span>
+						<span className="text-sm font-medium text-foreground">{labels.title}</span>
 						{!single && (
 							<span className="text-xs text-muted-foreground">
 								{states.filter(isAnswered).length}/{questions.length}
@@ -209,7 +211,7 @@ export function QuestionPanelView({
 										}`}
 									>
 										<span className="max-w-[120px] truncate">
-											{q.header || t("questionPanel.questionTabLabel", { number: i + 1 })}
+											{q.header || labels.questionTabLabel(i + 1)}
 										</span>
 										{answered && <span className="icon-[solar--check-circle-bold] size-3 shrink-0 text-primary" />}
 										{isActive && (
@@ -225,7 +227,11 @@ export function QuestionPanelView({
 						</div>
 					)}
 
-					<div className={["relative max-h-[46vh] overflow-x-hidden overflow-y-auto", classNames?.body].filter(Boolean).join(" ")}>
+					<div
+						className={["relative max-h-[46vh] overflow-x-hidden overflow-y-auto", classNames?.body]
+							.filter(Boolean)
+							.join(" ")}
+					>
 						<AnimatePresence mode="wait" initial={false}>
 							<motion.div
 								key={activeIndex}
@@ -239,7 +245,12 @@ export function QuestionPanelView({
 									state={states[activeIndex]}
 									focused={focused}
 									showHeader={single}
-									onToggleOption={(label) => toggleOption(activeIndex, label, activeQuestion.multiSelect ?? false)}
+									multiSelectHint={labels.multiSelectHint}
+									otherOption={labels.otherOption}
+									otherPlaceholder={labels.otherPlaceholder}
+									onToggleOption={(label) =>
+										toggleOption(activeIndex, label, activeQuestion.multiSelect ?? false)
+									}
 									onFocusOption={setFocused}
 									onActivateOther={() => activateOther(activeIndex, activeQuestion.multiSelect ?? false)}
 									onOtherText={(text) => setOtherText(activeIndex, text)}
@@ -248,16 +259,20 @@ export function QuestionPanelView({
 						</AnimatePresence>
 					</div>
 
-					<div className={["mt-3 flex items-center justify-between gap-2", classNames?.footer].filter(Boolean).join(" ")}>
+					<div
+						className={["mt-3 flex items-center justify-between gap-2", classNames?.footer]
+							.filter(Boolean)
+							.join(" ")}
+					>
 						<span className="hidden px-1 text-[11px] text-muted-foreground/70 sm:inline">
-							{t("questionPanel.keyboardHint")}
+							{labels.keyboardHint}
 						</span>
 						<div className="flex items-center gap-2">
 							<Button variant="ghost" size="sm" onClick={cancel} disabled={submitting}>
-								{t("common:actions.cancel")}
+								{labels.cancel}
 							</Button>
 							<Button size="sm" onClick={submit} disabled={!allAnswered || submitting}>
-								{t("questionPanel.submitButton")}
+								{labels.submit}
 							</Button>
 						</div>
 					</div>
@@ -272,6 +287,9 @@ interface QuestionBodyProps {
 	state: QState;
 	focused: number;
 	showHeader: boolean;
+	multiSelectHint: string;
+	otherOption: string;
+	otherPlaceholder: string;
 	onToggleOption: (label: string) => void;
 	onFocusOption: (index: number) => void;
 	onActivateOther: () => void;
@@ -283,12 +301,14 @@ function QuestionBody({
 	state,
 	focused,
 	showHeader,
+	multiSelectHint,
+	otherOption,
+	otherPlaceholder,
 	onToggleOption,
 	onFocusOption,
 	onActivateOther,
 	onOtherText,
 }: QuestionBodyProps): JSX.Element {
-	const { t } = useTranslation("chat");
 	const multiSelect = question.multiSelect ?? false;
 	const otherIndex = question.options.length;
 
@@ -302,7 +322,7 @@ function QuestionBody({
 				)}
 				<span className="min-w-0 flex-1 text-sm leading-5 text-foreground">{question.question}</span>
 			</div>
-			{multiSelect && <p className="mb-1 px-1 text-xs text-muted-foreground">{t("questionPanel.multiSelectHint")}</p>}
+			{multiSelect && <p className="mb-1 px-1 text-xs text-muted-foreground">{multiSelectHint}</p>}
 
 			<div className="flex flex-col gap-1.5">
 				{question.options.map((opt, i) => {
@@ -336,7 +356,10 @@ function QuestionBody({
 								/>
 								<span className="text-sm font-medium text-foreground">{opt.label}</span>
 								{opt.badges?.map((badge) => (
-									<span key={badge} className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+									<span
+										key={badge}
+										className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary"
+									>
 										{badge}
 									</span>
 								))}
@@ -362,14 +385,14 @@ function QuestionBody({
 						className="flex items-center gap-2 text-left text-sm text-muted-foreground"
 					>
 						<span className="icon-[solar--pen-2-linear] size-3.5 shrink-0" />
-						{t("questionPanel.otherOption")}
+						{otherOption}
 					</button>
 					{state.otherActive && (
 						<Input
 							autoFocus
 							value={state.otherText}
 							onChange={(e) => onOtherText(e.target.value)}
-							placeholder={t("questionPanel.otherPlaceholder")}
+							placeholder={otherPlaceholder}
 							className="h-8"
 						/>
 					)}

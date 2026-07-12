@@ -1,12 +1,11 @@
-import { memo, useId, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
-import type { Transition } from "motion/react";
+import { ErrorBlockView, SegmentShell, ToolCallGroupView } from "@vetta/theme-ui/chat";
+import { memo } from "react";
 import { useTranslation } from "react-i18next";
-import type { ThinkingBlock, ToolCallBlock } from "@shared/store/atoms";
 import { TextBlockView } from "../blocks/TextBlock";
 import { ThinkingBlockView } from "../blocks/ThinkingBlock";
 import { ToolCallBlockView } from "../blocks/ToolCallBlock";
 import type { BlockSegment } from "./messageBlockModel";
+
 export {
 	findLastProcessBlockIndex,
 	getAssistantFoldData,
@@ -15,35 +14,28 @@ export {
 } from "./messageBlockModel";
 export type { AssistantFoldData, BlockSegment } from "./messageBlockModel";
 
-const SEGMENT_INITIAL = { opacity: 0, y: 4 };
-const SEGMENT_ANIMATE = { opacity: 1, y: 0 };
-const SEGMENT_TRANSITION = {
-	duration: 0.18,
-	ease: [0.25, 0.1, 0.25, 1] as const,
-} satisfies Transition;
-const COLLAPSE_INITIAL = { height: 0, opacity: 0 };
-const COLLAPSE_ANIMATE = { height: "auto", opacity: 1 };
-const COLLAPSE_EXIT = { height: 0, opacity: 0 };
-const COLLAPSE_TRANSITION = {
-	duration: 0.2,
-	ease: [0.25, 0.1, 0.25, 1] as const,
-} satisfies Transition;
-
+/** Local block shapes (avoid @shared/store dataHeavy misclassification). */
+interface ToolLike {
+	type: "tool_call";
+	toolCallId: string;
+	status: string;
+}
+interface ThinkingLike {
+	type: "thinking";
+	id: string;
+	text: string;
+}
+type GroupBlock = ToolLike | ThinkingLike;
 
 const ToolCallGroup = memo(function ToolCallGroup({
 	blocks,
 	exportMode = false,
 }: {
-	blocks: (ToolCallBlock | ThinkingBlock)[];
+	blocks: GroupBlock[];
 	exportMode?: boolean;
 }) {
 	const { t } = useTranslation("chat");
-	const [expanded, setExpanded] = useState(false);
-	const generatedId = useId();
-	const panelId = exportMode ? `export-tool-group-${generatedId}` : undefined;
-	const toolBlocks = blocks.filter(
-		(block): block is ToolCallBlock => block.type === "tool_call",
-	);
+	const toolBlocks = blocks.filter((block): block is ToolLike => block.type === "tool_call");
 	const thinkingCount = blocks.filter((block) => block.type === "thinking").length;
 	const completedCount = toolBlocks.filter((block) => block.status !== "pending").length;
 	const allDone = completedCount === toolBlocks.length;
@@ -63,61 +55,21 @@ const ToolCallGroup = memo(function ToolCallGroup({
 	}
 
 	return (
-		<div className="relative w-fit max-w-full overflow-hidden rounded-lg px-1 py-0.5">
-			<div className="inline-block max-w-full align-top">
-				<button
-					type="button"
-					onClick={() => setExpanded(!expanded)}
-					data-export-toggle={panelId}
-					aria-expanded={expanded}
-					className="inline-flex max-w-full items-center gap-2 rounded-lg pr-2 py-1 text-left transition-colors hover:bg-muted/60"
-				>
-					<span
-						className={`icon-[mdi--chevron-right] h-4 w-4 shrink-0 text-muted-foreground/80 transition-transform duration-200 ${expanded ? "rotate-90" : ""}`}
-					/>
-					<span className="flex h-5 min-w-5 items-center justify-center rounded bg-muted px-1.5 text-[11px] font-medium text-muted-foreground/60">
-						{blocks.length}
-					</span>
-					<span
-						className={`min-w-0 truncate text-[12px] text-muted-foreground/50 ${allDone ? "" : "tool-call-shimmer-text"}`}
-					>
-						{summary.join("，")}
-					</span>
-				</button>
-			</div>
-			<AnimatePresence initial={false}>
-				{(expanded || exportMode) && (
-					<motion.div
-						id={panelId}
-						data-export-collapse-panel={exportMode ? "" : undefined}
-						hidden={exportMode && !expanded}
-						initial={COLLAPSE_INITIAL}
-						animate={COLLAPSE_ANIMATE}
-						exit={COLLAPSE_EXIT}
-						transition={COLLAPSE_TRANSITION}
-						className="overflow-hidden"
-					>
-						<div className="flex flex-col gap-0.5 pl-2 pr-1 pb-1">
-							{blocks.map((block) =>
-								block.type === "tool_call" ? (
-									<ToolCallBlockView
-										key={block.toolCallId}
-										block={block}
-										exportMode={exportMode}
-									/>
-								) : (
-									<ThinkingBlockView
-										key={`thinking-${block.id}`}
-										text={block.text}
-										exportMode={exportMode}
-									/>
-								),
-							)}
-						</div>
-					</motion.div>
-				)}
-			</AnimatePresence>
-		</div>
+		<ToolCallGroupView
+			blockCount={blocks.length}
+			summary={summary.join("，")}
+			allDone={allDone}
+			exportMode={exportMode}
+		>
+			{blocks.map((block) =>
+				block.type === "tool_call" ? (
+					// biome-ignore lint/suspicious/noExplicitAny: host ToolCallBlockView expects full atom type
+					<ToolCallBlockView key={block.toolCallId} block={block as any} exportMode={exportMode} />
+				) : (
+					<ThinkingBlockView key={`thinking-${block.id}`} text={block.text} exportMode={exportMode} />
+				),
+			)}
+		</ToolCallGroupView>
 	);
 });
 
@@ -158,15 +110,12 @@ export const SegmentRenderer = memo(function SegmentRenderer({
 }: SegmentRendererProps) {
 	let content: JSX.Element | null;
 	if (segment.type === "tool_group") {
-		content = <ToolCallGroup blocks={segment.blocks} exportMode={exportMode} />;
+		content = <ToolCallGroup blocks={segment.blocks as GroupBlock[]} exportMode={exportMode} />;
 	} else {
 		switch (segment.block.type) {
 			case "text":
 				content = (
-					<TextBlockView
-						text={segment.block.text}
-						isStreamingTail={isStreamingTail}
-					/>
+					<TextBlockView text={segment.block.text} isStreamingTail={isStreamingTail} />
 				);
 				break;
 			case "thinking":
@@ -178,32 +127,12 @@ export const SegmentRenderer = memo(function SegmentRenderer({
 				content = <ToolCallBlockView block={segment.block} exportMode={exportMode} />;
 				break;
 			case "error":
-				content = (
-					<div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2">
-						<span className="icon-[mdi--alert-circle-outline] mt-0.5 h-4 w-4 shrink-0 text-destructive/70" />
-						<span
-							className="text-[13px] leading-[1.6] text-destructive/90"
-							style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
-						>
-							{segment.block.text}
-						</span>
-					</div>
-				);
+				content = <ErrorBlockView text={segment.block.text} />;
 				break;
 			default:
 				content = null;
 		}
 	}
 
-	if (!content) return null;
-	if (!animateIn) return content;
-	return (
-		<motion.div
-			initial={SEGMENT_INITIAL}
-			animate={SEGMENT_ANIMATE}
-			transition={SEGMENT_TRANSITION}
-		>
-			{content}
-		</motion.div>
-	);
+	return <SegmentShell animateIn={animateIn}>{content}</SegmentShell>;
 }, areSegmentRendererPropsEqual);
