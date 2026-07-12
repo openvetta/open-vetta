@@ -8,6 +8,7 @@ export function BatchTasksPage(): JSX.Element {
 		<BatchTasksPageView
 			dialogOpen={model.dialogOpen}
 			dialogProject={model.dialogProject}
+			labels={model.labels}
 			projects={model.projects}
 			stats={model.stats}
 			onCloseDialog={model.closeDialog}

@@ -1,7 +1,9 @@
 import type { BatchProject } from "@shared/store/atoms";
 import { batchProjectDialogOpenAtom, batchProjectsAtom, pageHeaderTitleHiddenAtom } from "@shared/store/atoms";
+import type { BatchTasksPageLabels, BatchTasksPageStatsView } from "@vetta/theme-ui/batch-tasks";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useBatchTasks } from "./useBatchTasks";
 
 export interface BatchTasksPageStats {
@@ -15,8 +17,9 @@ export interface BatchTasksPageStats {
 export interface BatchTasksPageModel {
 	dialogOpen: boolean;
 	dialogProject: BatchProject | null | undefined;
+	labels: BatchTasksPageLabels;
 	projects: BatchProject[];
-	stats: BatchTasksPageStats;
+	stats: BatchTasksPageStatsView;
 	closeDialog: () => void;
 	editProject: (project: BatchProject) => void;
 	newProject: () => void;
@@ -39,6 +42,7 @@ function computeStats(projects: BatchProject[]): BatchTasksPageStats {
 }
 
 export function useBatchTasksPageModel(): BatchTasksPageModel {
+	const { t } = useTranslation("batch-tasks");
 	const projects = useAtomValue(batchProjectsAtom);
 	const [dialogProject, setDialogProject] = useAtom(batchProjectDialogOpenAtom);
 	const setHeaderTitleHidden = useSetAtom(pageHeaderTitleHiddenAtom);
@@ -62,11 +66,33 @@ export function useBatchTasksPageModel(): BatchTasksPageModel {
 
 	const stats = useMemo(() => computeStats(projects), [projects]);
 
+	const labels = useMemo<BatchTasksPageLabels>(
+		() => ({
+			title: t("page.title"),
+			subtitle: t("page.subtitle"),
+			newProject: t("page.newProject"),
+			emptyTitle: t("empty.title"),
+			emptyDesc: t("empty.desc"),
+			emptyAction: t("empty.action"),
+			statsTotal: t("stats.total"),
+			statsRunning: t("stats.running"),
+			statsCompleted: t("stats.completed"),
+			statsFailed: t("stats.failed"),
+		}),
+		[t],
+	);
+
 	return {
 		dialogOpen,
 		dialogProject,
+		labels,
 		projects,
-		stats,
+		stats: {
+			total: stats.total,
+			running: stats.running,
+			completed: stats.completed,
+			failed: stats.failed,
+		},
 		closeDialog: () => {
 			setDialogOpen(false);
 			setDialogProject(undefined);

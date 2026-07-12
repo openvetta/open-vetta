@@ -1,6 +1,7 @@
 import { SkillPromptArea } from "@domains/chat/components/SkillPromptArea";
 import type { SelectedSkill } from "@shared/store/atoms";
-import { useTranslation } from "react-i18next";
+import { BatchProjectPromptFieldView } from "@vetta/theme-ui/batch-tasks";
+import { useBatchProjectPromptFieldModel } from "../../hooks/useBatchProjectPromptFieldModel";
 
 export function BatchProjectPromptField({
 	prompt,
@@ -15,16 +16,18 @@ export function BatchProjectPromptField({
 	onPromptChange: (prompt: string) => void;
 	onSkillChange: (skill: SelectedSkill | null) => void;
 }): JSX.Element {
-	const { t } = useTranslation("batch-tasks");
+	const model = useBatchProjectPromptFieldModel();
 
 	return (
-		<SkillPromptArea
-			prompt={prompt}
-			onPromptChange={onPromptChange}
-			skill={skill}
-			onSkillChange={onSkillChange}
-			placeholder={t("form.promptPlaceholder")}
-			minHeight={promptMinHeight}
-		/>
+		<BatchProjectPromptFieldView>
+			<SkillPromptArea
+				prompt={prompt}
+				onPromptChange={onPromptChange}
+				skill={skill}
+				onSkillChange={onSkillChange}
+				placeholder={model.placeholder}
+				minHeight={promptMinHeight}
+			/>
+		</BatchProjectPromptFieldView>
 	);
 }
