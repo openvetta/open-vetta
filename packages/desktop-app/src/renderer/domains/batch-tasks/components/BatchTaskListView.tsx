@@ -1,5 +1,6 @@
-import type { BatchProject } from "@shared/store/atoms";
 import type { BatchTaskListActions } from "../hooks/useBatchTaskListModel";
+import type { BatchProject } from "@shared/store/batch-tasks-atoms";
+import { BatchTaskListView as ThemeBatchTaskListView } from "@vetta/theme-ui/batch-tasks";
 import { BatchTaskProjectBlock } from "./batch-task-list/BatchTaskProjectBlock";
 
 interface BatchTaskListViewProps {
@@ -16,7 +17,7 @@ export function BatchTaskListView({
 	onEditProject,
 }: BatchTaskListViewProps): JSX.Element {
 	return (
-		<div className="flex flex-col gap-6">
+		<ThemeBatchTaskListView>
 			{projects.map((project) => (
 				<BatchTaskProjectBlock
 					key={project.id}
@@ -26,6 +27,6 @@ export function BatchTaskListView({
 					onEditProject={onEditProject}
 				/>
 			))}
-		</div>
+		</ThemeBatchTaskListView>
 	);
 }

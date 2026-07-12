@@ -17,6 +17,10 @@
 			"types": "./src/activity/index.ts",
 			"import": "./src/activity/index.ts"
 		},
+		"./batch-tasks": {
+			"types": "./src/batch-tasks/index.ts",
+			"import": "./src/batch-tasks/index.ts"
+		},
 		"./app": {
 			"types": "./src/app/index.ts",
 			"import": "./src/app/index.ts"

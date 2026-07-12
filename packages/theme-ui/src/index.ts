@@ -4,6 +4,7 @@ import "./registry";
 export * from "./activity";
 export * from "./app-shell";
 export * from "./appearance";
+export * from "./batch-tasks";
 export * from "./chat";
 export * from "./file-preview";
 export * from "./knowledge";
