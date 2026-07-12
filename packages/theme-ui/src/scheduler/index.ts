@@ -12,6 +12,11 @@ export type {
 } from "./HistoryDrawerView";
 export { HistoryDrawerView } from "./HistoryDrawerView";
 export type {
+	TaskFormDialogViewLabels,
+	TaskFormDialogViewProps,
+} from "./TaskFormDialogView";
+export { TaskFormDialogView } from "./TaskFormDialogView";
+export type {
 	TaskListItemView,
 	TaskListViewLabels,
 	TaskListViewProps,

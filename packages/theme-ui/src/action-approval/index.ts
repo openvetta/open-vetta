@@ -29,6 +29,11 @@ export {
 	ApprovalWarningCard,
 } from "./ApprovalParts";
 export type {
+	BatchTasksApprovalFrameViewLabels,
+	BatchTasksApprovalFrameViewProps,
+} from "./BatchTasksApprovalFrameView";
+export { BatchTasksApprovalFrameView } from "./BatchTasksApprovalFrameView";
+export type {
 	BatchTasksExecutionApprovalViewProps,
 	BatchTasksExecutionSelectedTask,
 	BatchTasksExecutionStatusCount,
@@ -39,6 +44,12 @@ export type {
 	GeneralSetExecutionModeApprovalViewProps,
 } from "./GeneralSetExecutionModeApprovalView";
 export { GeneralSetExecutionModeApprovalView } from "./GeneralSetExecutionModeApprovalView";
+export type {
+	GenericActionApprovalField,
+	GenericActionApprovalViewLabels,
+	GenericActionApprovalViewProps,
+} from "./GenericActionApprovalView";
+export { GenericActionApprovalView } from "./GenericActionApprovalView";
 export type {
 	ManageActionApprovalFrameLabels,
 	ManageActionApprovalFrameProps,

@@ -97,6 +97,6 @@ export function useExecutionModeSelectorModel(): ExecutionModeSelectorViewProps 
 		selectedOption,
 		options,
 		onOpenChange: setOpen,
-		onSelect: (nextMode) => void handleSelect(nextMode),
+		onSelect: (nextMode) => void handleSelect(nextMode as SessionExecutionMode),
 	};
 }
