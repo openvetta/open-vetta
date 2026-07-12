@@ -1,4 +1,5 @@
-import type { JSX, ReactNode } from "react";
+import type { JSX } from "react";
+import { Button } from "@vetta/ui";
 import type { SettingSectionMeta } from "./SettingChrome";
 import { SettingHeading } from "./SettingChrome";
 
@@ -9,8 +10,9 @@ export interface McpJsonEditorViewProps {
 	readonly jsonError: string | null;
 	readonly configPathHint: string;
 	readonly placeholder: string;
-	/** Host primary save Button. */
-	readonly saveControl: ReactNode;
+	readonly saveLabel: string;
+	readonly saving: boolean;
+	readonly onSave: () => void;
 }
 
 export function McpJsonEditorView({
@@ -20,13 +22,17 @@ export function McpJsonEditorView({
 	jsonError,
 	configPathHint,
 	placeholder,
-	saveControl,
+	saveLabel,
+	saving,
+	onSave,
 }: McpJsonEditorViewProps): JSX.Element {
 	return (
 		<div className="mb-6">
 			<div className="mb-3 flex items-center justify-between">
 				<SettingHeading section={section} />
-				{saveControl}
+				<Button variant="primary" size="sm" onClick={onSave} disabled={saving}>
+					{saveLabel}
+				</Button>
 			</div>
 			<div className="overflow-hidden rounded-xl border border-border bg-muted">
 				<textarea

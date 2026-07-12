@@ -54,6 +54,7 @@
 | 25 | Phase δ 验收台账 | done | [25-phase-delta-audit.md](./25-phase-delta-audit.md) |
 | 26 | Goal A/B 基线 | done | [26-goal-ab-baseline.md](./26-goal-ab-baseline.md) |
 | 27 | Goal B：Button/Dialog/Drawer/Select/Switch/Popover → @vetta/ui | done | [27-vetta-ui-primitives.md](./27-vetta-ui-primitives.md) |
+| 28 | settings hold 改引 @vetta/ui 脱 hold | done | [28-settings-hold-vetta-ui.md](./28-settings-hold-vetta-ui.md) |
 | 99 | 最终审计与暂缓清单 | done | [99-final-audit.md](./99-final-audit.md) |
 
 ## 闭合门禁（验收用）

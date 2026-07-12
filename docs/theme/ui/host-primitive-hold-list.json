@@ -1,5 +1,5 @@
 {
-  "total": 90,
+  "total": 82,
   "byDomain": {
     "action-approval": [
       "packages/desktop-app/src/renderer/shared/action-approval/appearance/AppearanceApprovalDrawerView.tsx",
@@ -67,23 +67,16 @@
     "settings": [
       "packages/desktop-app/src/renderer/domains/settings/ai-assist/SettingsAiAssistDialog.tsx",
       "packages/desktop-app/src/renderer/domains/settings/components/AccountSettingsView.tsx",
-      "packages/desktop-app/src/renderer/domains/settings/components/AchievementNavigationButton.tsx",
       "packages/desktop-app/src/renderer/domains/settings/components/AchievementPromotionDialog.tsx",
-      "packages/desktop-app/src/renderer/domains/settings/components/AchievementSettingsView.tsx",
       "packages/desktop-app/src/renderer/domains/settings/components/AgentSettingsView.tsx",
       "packages/desktop-app/src/renderer/domains/settings/components/AppearanceSettingsView.tsx",
-      "packages/desktop-app/src/renderer/domains/settings/components/AppshotSettingsView.tsx",
-      "packages/desktop-app/src/renderer/domains/settings/components/ArchivedProjectsSettingsView.tsx",
       "packages/desktop-app/src/renderer/domains/settings/components/BuiltinMcpSecretsDialogView.tsx",
       "packages/desktop-app/src/renderer/domains/settings/components/BuiltinMcpSection.tsx",
-      "packages/desktop-app/src/renderer/domains/settings/components/GeneralSettingsView.tsx",
       "packages/desktop-app/src/renderer/domains/settings/components/ImBridgeSettingsView.tsx",
       "packages/desktop-app/src/renderer/domains/settings/components/ImChannelCard.tsx",
       "packages/desktop-app/src/renderer/domains/settings/components/ImFeishuDialog.tsx",
-      "packages/desktop-app/src/renderer/domains/settings/components/ImLegacyImportBanner.tsx",
       "packages/desktop-app/src/renderer/domains/settings/components/ImLogDrawer.tsx",
       "packages/desktop-app/src/renderer/domains/settings/components/KnowledgeBaseSettingsView.tsx",
-      "packages/desktop-app/src/renderer/domains/settings/components/McpJsonEditor.tsx",
       "packages/desktop-app/src/renderer/domains/settings/components/McpServerForm.tsx",
       "packages/desktop-app/src/renderer/domains/settings/components/McpServerList.tsx",
       "packages/desktop-app/src/renderer/domains/settings/components/McpServerRow.tsx",
@@ -95,7 +88,6 @@
       "packages/desktop-app/src/renderer/domains/settings/components/PluginsSettingsView.tsx",
       "packages/desktop-app/src/renderer/domains/settings/components/PresetProviderRow.tsx",
       "packages/desktop-app/src/renderer/domains/settings/components/PresetProvidersSectionView.tsx",
-      "packages/desktop-app/src/renderer/domains/settings/components/QuickPanelSettingsSection.tsx",
       "packages/desktop-app/src/renderer/domains/settings/components/RemoteMcpSection.tsx",
       "packages/desktop-app/src/renderer/domains/settings/components/RemoteMcpSectionView.tsx",
       "packages/desktop-app/src/renderer/domains/settings/components/ShortcutRecorder.tsx",
@@ -343,19 +335,9 @@
       "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
     },
     {
-      "path": "packages/desktop-app/src/renderer/domains/settings/components/AchievementNavigationButton.tsx",
-      "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
-    },
-    {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/AchievementPromotionDialog.tsx",
       "domain": "settings",
       "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
-    },
-    {
-      "path": "packages/desktop-app/src/renderer/domains/settings/components/AchievementSettingsView.tsx",
-      "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/AgentSettingsView.tsx",
@@ -368,27 +350,12 @@
       "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
     },
     {
-      "path": "packages/desktop-app/src/renderer/domains/settings/components/AppshotSettingsView.tsx",
-      "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
-    },
-    {
-      "path": "packages/desktop-app/src/renderer/domains/settings/components/ArchivedProjectsSettingsView.tsx",
-      "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
-    },
-    {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/BuiltinMcpSecretsDialogView.tsx",
       "domain": "settings",
       "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/BuiltinMcpSection.tsx",
-      "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
-    },
-    {
-      "path": "packages/desktop-app/src/renderer/domains/settings/components/GeneralSettingsView.tsx",
       "domain": "settings",
       "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
     },
@@ -408,11 +375,6 @@
       "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
     },
     {
-      "path": "packages/desktop-app/src/renderer/domains/settings/components/ImLegacyImportBanner.tsx",
-      "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
-    },
-    {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/ImLogDrawer.tsx",
       "domain": "settings",
       "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
@@ -421,11 +383,6 @@
       "path": "packages/desktop-app/src/renderer/domains/settings/components/KnowledgeBaseSettingsView.tsx",
       "domain": "settings",
       "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
-    },
-    {
-      "path": "packages/desktop-app/src/renderer/domains/settings/components/McpJsonEditor.tsx",
-      "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/McpServerForm.tsx",
@@ -481,11 +438,6 @@
       "path": "packages/desktop-app/src/renderer/domains/settings/components/PresetProvidersSectionView.tsx",
       "domain": "settings",
       "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
-    },
-    {
-      "path": "packages/desktop-app/src/renderer/domains/settings/components/QuickPanelSettingsSection.tsx",
-      "domain": "settings",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/settings/components/RemoteMcpSection.tsx",

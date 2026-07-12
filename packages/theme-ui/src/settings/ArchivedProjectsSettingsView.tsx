@@ -1,4 +1,5 @@
-import type { JSX, ReactNode } from "react";
+import type { JSX } from "react";
+import { Button } from "@vetta/ui";
 import { SettingSection, type SettingSectionMeta } from "./SettingChrome";
 
 export interface ArchivedProjectRowView {
@@ -10,24 +11,24 @@ export interface ArchivedProjectsSettingsViewLabels {
 	readonly title: string;
 	readonly empty: string;
 	readonly sectionTitle: string;
+	readonly unarchive: string;
+	readonly deleteProject: string;
 }
 
 export interface ArchivedProjectsSettingsViewProps {
 	readonly labels: ArchivedProjectsSettingsViewLabels;
 	readonly projects: readonly ArchivedProjectRowView[];
 	readonly section: SettingSectionMeta;
-	/** Host injects action buttons (e.g. unarchive / delete) per row. */
-	readonly renderProjectActions: (project: ArchivedProjectRowView) => ReactNode;
+	readonly onUnarchive: (path: string) => void;
+	readonly onDelete: (path: string) => void;
 }
 
-/**
- * Props-only archived projects list. Host Button chrome stays in desktop via slots.
- */
 export function ArchivedProjectsSettingsView({
 	labels,
 	projects,
 	section,
-	renderProjectActions,
+	onUnarchive,
+	onDelete,
 }: ArchivedProjectsSettingsViewProps): JSX.Element {
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
@@ -50,7 +51,26 @@ export function ArchivedProjectsSettingsView({
 								<div className="text-[13px] font-medium text-foreground">{entry.name}</div>
 								<div className="mt-0.5 truncate text-[11px] text-muted-foreground">{entry.path}</div>
 							</div>
-							<div className="flex items-center gap-1">{renderProjectActions(entry)}</div>
+							<div className="flex items-center gap-1">
+								<Button
+									variant="ghost"
+									size="xs"
+									onClick={() => onUnarchive(entry.path)}
+									title={labels.unarchive}
+								>
+									<span className="icon-[mdi--archive-arrow-up-outline] h-3.5 w-3.5" />
+									{labels.unarchive}
+								</Button>
+								<Button
+									variant="ghost"
+									size="icon-xs"
+									onClick={() => onDelete(entry.path)}
+									title={labels.deleteProject}
+									className="text-muted-foreground hover:text-destructive"
+								>
+									<span className="icon-[mdi--delete-outline] h-3.5 w-3.5" />
+								</Button>
+							</div>
 						</div>
 					))}
 				</SettingSection>

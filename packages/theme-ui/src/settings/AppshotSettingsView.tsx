@@ -1,7 +1,13 @@
 import type { JSX, ReactNode } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@vetta/ui";
 import { SettingRow, SettingSection, type SettingSectionMeta } from "./SettingChrome";
 
 export type AppshotPermissionStatusView = "granted" | "denied" | "unknown";
+
+export interface AppshotSelectOptionView {
+	readonly value: string;
+	readonly label: string;
+}
 
 export interface AppshotSettingsViewLabels {
 	readonly title: string;
@@ -24,13 +30,14 @@ export interface AppshotSettingsViewLabels {
 
 export interface AppshotSettingsViewProps {
 	readonly labels: AppshotSettingsViewLabels;
-	/** Host Trans subtitle or plain node. */
 	readonly subtitle: ReactNode;
 	readonly gestureSection: SettingSectionMeta;
 	readonly permissionsSection: SettingSectionMeta;
 	readonly showKeyboardPreview: boolean;
 	readonly keyboardPreview: ReactNode;
-	readonly gestureControl: ReactNode;
+	readonly gestureValue: string;
+	readonly gestureOptions: readonly AppshotSelectOptionView[];
+	readonly onGestureChange: (value: string) => void;
 	readonly accessibilityStatus: AppshotPermissionStatusView;
 	readonly screenStatus: AppshotPermissionStatusView;
 	readonly onOpenOnboarding: () => void;
@@ -70,7 +77,9 @@ export function AppshotSettingsView({
 	permissionsSection,
 	showKeyboardPreview,
 	keyboardPreview,
-	gestureControl,
+	gestureValue,
+	gestureOptions,
+	onGestureChange,
 	accessibilityStatus,
 	screenStatus,
 	onOpenOnboarding,
@@ -87,7 +96,18 @@ export function AppshotSettingsView({
 
 			<SettingSection title={labels.sectionShortcut} section={gestureSection}>
 				<SettingRow title={labels.shortcutTitle} description={labels.shortcutDescription} border={false}>
-					{gestureControl}
+					<Select value={gestureValue} onValueChange={onGestureChange}>
+						<SelectTrigger size="sm" className="h-8 min-w-[150px] border-border/70 bg-background/50 text-[12px]">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							{gestureOptions.map((option) => (
+								<SelectItem key={option.value} value={option.value} className="text-[12px]">
+									{option.label}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
 				</SettingRow>
 			</SettingSection>
 

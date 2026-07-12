@@ -1,4 +1,3 @@
-import { Button } from "@shared/components/ui/button";
 import { McpJsonEditorView } from "@vetta/theme-ui/settings";
 import { useTranslation } from "react-i18next";
 import { SETTINGS_SECTION } from "../registry";
@@ -17,11 +16,9 @@ export function McpJsonEditor({ model }: { model: McpSettingsModel }): JSX.Eleme
 			jsonError={model.jsonError}
 			configPathHint={`${t("configFilePath")}: ~/.vetta/agent/mcp.json`}
 			placeholder='{ "mcpServers": {} }'
-			saveControl={
-				<Button variant="primary" size="sm" onClick={() => void model.onJsonSave()} disabled={model.saving}>
-					{model.saving ? t("saving") : t("save")}
-				</Button>
-			}
+			saveLabel={model.saving ? t("saving") : t("save")}
+			saving={model.saving}
+			onSave={() => void model.onJsonSave()}
 		/>
 	);
 }
