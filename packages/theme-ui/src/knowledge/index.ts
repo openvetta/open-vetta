@@ -1,4 +1,10 @@
 export { getColoredFileIcon } from "./coloredFileIcons";
+export type {
+	KnowledgeBaseSwitcherItemView,
+	KnowledgeBaseSwitcherViewLabels,
+	KnowledgeBaseSwitcherViewProps,
+} from "./KnowledgeBaseSwitcherView";
+export { KnowledgeBaseSwitcherView } from "./KnowledgeBaseSwitcherView";
 export type { KnowledgeBreadcrumbViewProps } from "./KnowledgeBreadcrumbView";
 export { KnowledgeBreadcrumbView } from "./KnowledgeBreadcrumbView";
 export type { KnowledgeContentsPanelViewProps } from "./KnowledgeContentsPanelView";

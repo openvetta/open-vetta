@@ -42,6 +42,12 @@ export {
 	AchievementTitle,
 } from "./achievements";
 export type {
+	BuiltinMcpSecretFieldView,
+	BuiltinMcpSecretsDialogViewLabels,
+	BuiltinMcpSecretsDialogViewProps,
+} from "./BuiltinMcpSecretsDialogView";
+export { BuiltinMcpSecretsDialogView } from "./BuiltinMcpSecretsDialogView";
+export type {
 	EnvironmentRuntimeKindView,
 	EnvironmentRuntimeStatusView,
 	EnvironmentSettingsViewLabels,
@@ -119,6 +125,11 @@ export type { SettingSectionMeta } from "./SettingChrome";
 export { SettingHeading, SettingRow, SettingSection } from "./SettingChrome";
 export type { SettingsAiAssistButtonViewProps } from "./SettingsAiAssistButtonView";
 export { SettingsAiAssistButtonView } from "./SettingsAiAssistButtonView";
+export type {
+	SettingsAiAssistDialogViewLabels,
+	SettingsAiAssistDialogViewProps,
+} from "./SettingsAiAssistDialogView";
+export { SettingsAiAssistDialogView } from "./SettingsAiAssistDialogView";
 export {
 	CheckboxField,
 	InputField,

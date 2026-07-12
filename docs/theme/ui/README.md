@@ -65,6 +65,7 @@
 | 36 | approval frames / navigation / task 脱 hold | done | [36-hold-wave-approval-frames.md](./36-hold-wave-approval-frames.md) |
 | 37 | SettingsMenuPopover + RemoteMcp 脱 hold | done | [37-hold-wave-remote-mcp-menu.md](./37-hold-wave-remote-mcp-menu.md) |
 | 38 | SkillDetail/ModelsForm/ImFeishu/Achievement 脱 hold | done | [38-hold-wave-dialogs-forms.md](./38-hold-wave-dialogs-forms.md) |
+| 39 | ProjectApproval/Secrets/Switcher/AiAssist 脱 hold | done | [39-hold-wave-switcher-secrets-ai.md](./39-hold-wave-switcher-secrets-ai.md) |
 | 99 | 最终审计与暂缓清单 | done | [99-final-audit.md](./99-final-audit.md) |
 
 ## 闭合门禁（验收用）
