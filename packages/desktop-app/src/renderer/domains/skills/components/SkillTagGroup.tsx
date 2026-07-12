@@ -1,3 +1,6 @@
+import type { Button } from "@shared/components/ui/button";
+type HostButton = typeof Button;
+export type { HostButton as _HostPrimitiveHoldButton };
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
 import type { ActionState, MergedSkill } from "../hooks/useSkillsPageModel";

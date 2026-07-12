@@ -5,9 +5,15 @@
  *   must_split_open == 0
  *   must_migrate_open == 0
  *   must_host_hold_open == 0
- *   no bad deferrals (split-wait forbidden)
+ *   no bad deferrals (split-wait forbidden; pure permanent mask forbidden)
  *
  * deferrals.json kinds: permanent_desktop | host_primitive_hold | non_goal
+ *
+ * Anti-gaming:
+ * - stub useXxxModel(){ return true } does not count as model
+ * - null-only *View.tsx sibling does not count as view
+ * - void View import alone does not count as usesView
+ * - permanent_desktop cannot mask substantial pure presentation (→ must_migrate / must_host_hold)
  */
 import { readdirSync, readFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -20,6 +26,9 @@ const wantJson = process.argv.includes("--json");
 
 const FORBIDDEN_SPLIT_WAIT =
 	/split model|pending split|continue slice|尚未拆|等拆|must.?split|not required for theme|presentation leaf pending|composition still coupled|data tree|slice-then-migrate|unlock after|unsplit|Eligible presentation/i;
+
+const PERMANENT_REASON_OK =
+	/shell|container|entry|assembler|page host|model-hook|data-module|connected|host entry|host shell|wiring only|ipc host|registry host/i;
 
 function walk(dir, acc = []) {
 	for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -55,19 +64,66 @@ function hasJsx(text) {
 	return /return\s*\([\s\S]*</.test(text) || /return\s+</.test(text);
 }
 
-function siblingViewExists(abs) {
+function classNameCount(text) {
+	return (text.match(/className=/g) || []).length;
+}
+
+/** Stub model: only returns true / literal, no real state. */
+function hasStubModel(text) {
+	return (
+		/function\s+use[A-Z][A-Za-z0-9]*Model\s*\([^)]*\)\s*\{[\s\S]*?return\s+true\s*;?\s*\}/.test(text) ||
+		/const\s+use[A-Z][A-Za-z0-9]*Model\s*=\s*\([^)]*\)\s*=>\s*true\b/.test(text) ||
+		/function\s+use[A-Z][A-Za-z0-9]*Model\s*\([^)]*\)\s*\{\s*return\s+true\s*;?\s*\}/.test(text)
+	);
+}
+
+function callsRealModel(text) {
+	if (!/use[A-Z][A-Za-z0-9]*Model\s*\(/.test(text)) return false;
+	if (hasStubModel(text)) return false;
+	return true;
+}
+
+/** Find co-located FooView.tsx paths for Foo.tsx */
+function siblingViewPaths(abs) {
 	const dir = path.dirname(abs);
 	const base = path.basename(abs, ".tsx");
-	// Foo.tsx -> FooView.tsx or views/FooView.tsx
-	const candidates = [
+	return [
 		path.join(dir, `${base}View.tsx`),
 		path.join(dir, "views", `${base}View.tsx`),
 		path.join(dir, `${base.replace(/Page$/, "")}PageView.tsx`),
 	];
-	// LoginDialog -> LoginDialogView
-	if (existsSync(path.join(dir, `${base}View.tsx`))) return true;
-	for (const c of candidates) if (existsSync(c)) return true;
-	// Directory co-located *View used in file
+}
+
+function isNullOnlyViewFile(viewAbs) {
+	if (!existsSync(viewAbs)) return true;
+	const raw = readFileSync(viewAbs, "utf8");
+	const text = raw.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+	const classes = classNameCount(text);
+	const hasElementReturn = /return\s*\(\s*</.test(text) || /return\s+</.test(text);
+	const onlyNull = /return\s+null\b/.test(text) && !hasElementReturn;
+	// Marker stubs: tiny file, no className, only null
+	if (onlyNull && classes === 0) return true;
+	if (classes === 0 && text.split("\n").length <= 12 && /export function \w+View/.test(text) && onlyNull) {
+		return true;
+	}
+	return false;
+}
+
+function realSiblingViewExists(abs) {
+	for (const p of siblingViewPaths(abs)) {
+		if (existsSync(p) && !isNullOnlyViewFile(p)) return true;
+	}
+	return false;
+}
+
+/**
+ * Uses a real View/Frame in JSX, or theme component registry.
+ * Does NOT count: void View import, comments, or null-only sibling file.
+ */
+function usesRealView(text) {
+	if (/useTheme(Region|Component)\s*\(/.test(text)) return true;
+	// JSX open tags ending with View/Frame
+	if (/<[A-Z][A-Za-z0-9]*(View|Frame)\b/.test(text)) return true;
 	return false;
 }
 
@@ -85,11 +141,16 @@ function classify(abs, text, deferrals) {
 	const hasRouter = /@tanstack\/react-router|useNavigate|useParams|useMatches\b/.test(text);
 	const hasI18n = /react-i18next|useTranslation/.test(text);
 	const hasHostUi =
-		/components\/ui\/(dialog|drawer|popover|button)/i.test(text) || /from ["']radix-ui|@radix-ui/.test(text);
+		/components\/ui\/(dialog|drawer|popover|button|dropdown-menu|select|switch|textarea|input)/i.test(text) ||
+		/from ["']radix-ui|@radix-ui/.test(text);
 	const hasExport = /export function|export const \w+\s*=|export class|export default function/.test(text);
 	const jsx = hasJsx(text);
 	const dataHeavy = hasAtom || hasIpc || hasRouter;
 	const d = deferrals[rel];
+	const classes = classNameCount(text);
+	// Substantial presentation: many classNames, or a large file that still owns layout classes.
+	// Pure wiring shells (0 className, even if long) are not treated as presentation leaves.
+	const substantialUi = classes > 3 || (lines > 100 && classes >= 1);
 
 	// Explicit non_goal deferral (plugin private host shell, etc.) — even if dataHeavy
 	if (d?.kind === "non_goal") {
@@ -114,25 +175,32 @@ function classify(abs, text, deferrals) {
 		return { status: "permanent_desktop", rel, lines, reason: "data-module" };
 	}
 
-	const callsModel = /use[A-Z][A-Za-z0-9]*Model\s*\(/.test(text);
-	const usesView =
-		/<[A-Z][A-Za-z0-9]*(View|Frame)\b/.test(text) ||
-		/useTheme(Region|Component)/.test(text) ||
-		(siblingViewExists(abs) && /View\b/.test(text));
+	// Null-only marker view files themselves are skip / not presentation
+	if (/View\.tsx$/.test(abs) && isNullOnlyViewFile(abs)) {
+		return { status: "skip", rel, lines, reason: "null-view-marker" };
+	}
+
+	const callsModel = callsRealModel(text);
+	const usesView = usesRealView(text);
+	const realSibling = realSiblingViewExists(abs);
 
 	// Thin connected container: only wires model hook -> *View (data lives in hook file)
 	if (jsx && callsModel && usesView && lines <= 50) {
-		const classCount = (text.match(/className=/g) || []).length;
-		if (classCount <= 6) {
+		if (classes <= 6) {
 			return { status: "split_ok", rel, lines, reason: "thin-model-container" };
 		}
 	}
 
-	// Container already split: has model + View (or theme region) even with local atoms
-	if (jsx && dataHeavy && usesView && (callsModel || siblingViewExists(abs))) {
-		const classCount = (text.match(/className=/g) || []).length;
-		if (classCount <= 15 || lines <= 120 || siblingViewExists(abs)) {
+	// Container already split: real model + real View JSX (or theme), not stub/null markers
+	if (jsx && dataHeavy && usesView && callsModel) {
+		if (classes <= 15 || lines <= 120) {
 			return { status: "split_ok", rel, lines, reason: "container-with-view" };
+		}
+	}
+	// Sibling real view + real model, even if slightly larger wiring file
+	if (jsx && dataHeavy && callsModel && realSibling && usesView) {
+		if (classes <= 15 || lines <= 120) {
+			return { status: "split_ok", rel, lines, reason: "container-with-sibling-view" };
 		}
 	}
 
@@ -142,14 +210,22 @@ function classify(abs, text, deferrals) {
 			if (d?.kind === "host_primitive_hold") {
 				return { status: "host_primitive_hold", rel, lines, reason: d.reason };
 			}
-			if (d?.kind === "permanent_desktop") {
+			// permanent_desktop cannot mask host-primitive pure UI
+			if (d?.kind === "permanent_desktop" && !substantialUi && PERMANENT_REASON_OK.test(d.reason || "")) {
 				return { status: "permanent_desktop", rel, lines, reason: d.reason };
 			}
-			// Already props-only but uses host Dialog — must list as host_primitive_hold
 			return { status: "must_host_hold", rel, lines };
 		}
-		if (d?.kind === "permanent_desktop" || d?.kind === "non_goal") {
-			return { status: d.kind, rel, lines, reason: d.reason };
+		if (d?.kind === "permanent_desktop") {
+			// Only thin host shells may use permanent_desktop for pure files
+			if (!substantialUi && PERMANENT_REASON_OK.test(d.reason || "")) {
+				return { status: "permanent_desktop", rel, lines, reason: d.reason };
+			}
+			// Substantial pure presentation wrongly marked permanent → must migrate
+			return { status: "must_migrate", rel, lines, soft: hasI18n ? "i18n" : "pure", reason: "invalid-permanent-pure" };
+		}
+		if (d?.kind === "non_goal") {
+			return { status: "non_goal", rel, lines, reason: d.reason };
 		}
 		if (hasTheme) return { status: "migrated", rel, lines };
 		return { status: "must_migrate", rel, lines, soft: hasI18n ? "i18n" : "pure" };
@@ -157,8 +233,14 @@ function classify(abs, text, deferrals) {
 
 	// Mixed render + data without clear view separation
 	if (jsx && dataHeavy) {
-		if (d?.kind === "permanent_desktop" && /shell|container|entry|assembler|page host/i.test(d.reason || "")) {
-			return { status: "permanent_desktop", rel, lines, reason: d.reason };
+		if (d?.kind === "permanent_desktop" && PERMANENT_REASON_OK.test(d.reason || "")) {
+			// permanent only for true shells — not if substantial mixed UI without real split
+			if (!substantialUi || /shell|container|entry|assembler|page host|connected/i.test(d.reason || "")) {
+				// still require non-substantial OR explicit shell language; large mixed still must_split
+				if (!substantialUi || lines <= 100) {
+					return { status: "permanent_desktop", rel, lines, reason: d.reason };
+				}
+			}
 		}
 		return { status: "must_split", rel, lines, tags: { hasAtom, hasIpc, hasRouter } };
 	}
@@ -174,6 +256,28 @@ for (const [p, d] of Object.entries(deferrals)) {
 		FORBIDDEN_SPLIT_WAIT.test(d.reason || "")
 	) {
 		badDeferrals.push({ path: p, kind: d.kind, reason: d.reason });
+		continue;
+	}
+	// Flag permanent_desktop on substantial pure presentation files as bad
+	const abs = path.join(repoRoot, p);
+	if (d.kind === "permanent_desktop" && existsSync(abs) && abs.endsWith(".tsx")) {
+		const text = readFileSync(abs, "utf8");
+		const dataHeavy =
+			/useAtom|from ["']jotai|store\/atoms/.test(text) ||
+			/window\.vetta/.test(text) ||
+			/@tanstack\/react-router|useNavigate|useParams|useMatches\b/.test(text);
+		const jsx = hasJsx(text);
+		const lines = text.split("\n").length;
+		const classes = classNameCount(text);
+		const substantialUi = classes > 3 || (lines > 100 && classes >= 1);
+		if (jsx && !dataHeavy && substantialUi) {
+			// Substantial pure UI must migrate or host_hold — permanent_desktop is invalid even with shell wording
+			badDeferrals.push({
+				path: p,
+				kind: d.kind,
+				reason: `substantial pure UI cannot be permanent_desktop (${lines}L/${classes} className)`,
+			});
+		}
 	}
 }
 
@@ -227,8 +331,8 @@ else {
 	for (const e of report.must_host_hold) console.log(`must_host_hold\t${e.lines}\t${e.path}`);
 	if (badDeferrals.length) {
 		console.log("\n--- BAD DEFERRALS ---");
-		for (const b of badDeferrals.slice(0, 40))
-			console.log(`bad\t${b.kind}\t${b.path}\t${(b.reason || "").slice(0, 70)}`);
+		for (const b of badDeferrals.slice(0, 80))
+			console.log(`bad\t${b.kind}\t${b.path}\t${(b.reason || "").slice(0, 90)}`);
 	}
 }
 

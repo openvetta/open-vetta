@@ -26,3 +26,7 @@ export {
 	SelectField,
 	TextareaField,
 } from "./SettingsFormFields";
+
+export type { TokenActivityChartViewProps } from "./TokenActivityChartView";
+export { TokenActivityChartView } from "./TokenActivityChartView";
+export * from "./token-activity";

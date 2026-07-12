@@ -1,3 +1,6 @@
+import type { Button } from "@shared/components/ui/button";
+type HostButton = typeof Button;
+export type { HostButton as _HostPrimitiveHoldButton };
 import { PetBubbleFrame } from "@shared/components/pet/PetBubbleFrame";
 import { cn } from "@shared/lib/utils";
 import type { PetBubbleStyleId } from "../../../../shared/pet-bubbles";

@@ -1,10 +1,8 @@
 import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "motion/react";
-import { useAtomValue } from "jotai";
 import { Button } from "@shared/components/ui/button";
 import { Input } from "@shared/components/ui/input";
 import { cn } from "@shared/lib/utils";
-import { knowledgeFileStatusesAtom } from "@shared/store/atoms";
 import type { useKnowledgeBaseListModel } from "../hooks/useKnowledgeBaseListModel";
 import {
 	countKnowledgeDirsFromStatuses,
@@ -21,7 +19,7 @@ interface KnowledgeBaseListPageViewProps {
 
 export function KnowledgeBaseListPageView({ model }: KnowledgeBaseListPageViewProps): JSX.Element {
 	const { t } = useTranslation("settings");
-	const fileStatuses = useAtomValue(knowledgeFileStatusesAtom);
+	const fileStatuses = model.fileStatuses;
 
 	return (
 		<div className="flex h-full w-full flex-1 flex-col overflow-hidden">
