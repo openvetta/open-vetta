@@ -38,6 +38,8 @@ export type { DrawerCardProps, DrawerTab } from "./DrawerCard";
 export { DrawerCard } from "./DrawerCard";
 export type { InputBarBackgroundProps } from "./InputBarBackground";
 export { InputBarBackground } from "./InputBarBackground";
+export type { InputBarCapsuleLabels, InputBarCapsuleProps } from "./InputBarCapsule";
+export { InputBarCapsule } from "./InputBarCapsule";
 export type { InputBarToolbarButtonProps } from "./InputBarToolbarButton";
 export { InputBarToolbarButton } from "./InputBarToolbarButton";
 export type {
@@ -54,6 +56,7 @@ export type {
 	NewSessionSkillItem,
 	NewSessionSkillSelection,
 } from "./NewSession";
+export { NewSessionBackground } from "./NewSessionBackground";
 export type {
 	SandboxPermissionCardLabels,
 	SandboxPermissionCardProps,

@@ -3,4 +3,4 @@ export {
 	InputField,
 	SelectField,
 	TextareaField,
-} from "@vetta/theme-ui/settings";
+} from "./SettingsFormFields";

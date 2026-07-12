@@ -11,10 +11,14 @@
 | layout | AppFrame, ResizeHandle, SidebarDock… |
 | appearance | ThemeSurface, frames |
 | app / app-shell | AppBackground, PageHeader*, WindowControls* |
-| sidebar | DefaultSidebar shell, Nav*, TopBar, empty/toolbar/settings leaves… |
-| chat | At/Slash panels, NewSession cards/carousel, SendButton, DrawerCard, TodoCard… |
+| sidebar | DefaultSidebar shell, Nav*, TopBar, empty/toolbar/settings leaves, ProjectsPanelSplitHandle… |
+| chat | At/Slash, NewSession cards/carousel/background, capsules, SendButton, DrawerCard, TodoCard… |
 | overlays | KnowledgeDrop, UpdateRestart |
 | activity | ActivityPanelFrame |
+| knowledge | KnowledgeFilesSkeleton |
+| skills | SkillToggleSwitch |
+| settings | SelectField/InputField/TextareaField/CheckboxField |
+| shared | MacKeyboardPreview, CodeBlockCopyButtonView |
 
 ## 显式暂缓（unlock 条件）
 

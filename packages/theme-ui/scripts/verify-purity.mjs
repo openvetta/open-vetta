@@ -26,11 +26,19 @@ const requiredExports = [
 	"DefaultSceneCarousel",
 	"DefaultSkillBadgeRow",
 	"InputBarToolbarButton",
+	"InputBarCapsule",
+	"NewSessionBackground",
 	"SendButton",
 	"DrawerCard",
 	"TodoCard",
 	"SandboxPermissionCard",
 	"ActivityPanelFrame",
+	"KnowledgeFilesSkeleton",
+	"SkillToggleSwitch",
+	"ProjectsPanelSplitHandle",
+	"SelectField",
+	"MacKeyboardPreview",
+	"CodeBlockCopyButtonView",
 ];
 
 const files = await walk(root);
@@ -42,11 +50,27 @@ for (const file of files) {
 	}
 }
 
-const chatIndex = await readFile(path.join(root, "chat/index.ts"), "utf8");
-const activityIndex = await readFile(path.join(root, "activity/index.ts"), "utf8");
+const indexFiles = {
+	chat: await readFile(path.join(root, "chat/index.ts"), "utf8"),
+	activity: await readFile(path.join(root, "activity/index.ts"), "utf8"),
+	knowledge: await readFile(path.join(root, "knowledge/index.ts"), "utf8"),
+	skills: await readFile(path.join(root, "skills/index.ts"), "utf8"),
+	sidebar: await readFile(path.join(root, "sidebar/index.ts"), "utf8"),
+	settings: await readFile(path.join(root, "settings/index.ts"), "utf8"),
+	shared: await readFile(path.join(root, "shared/index.ts"), "utf8"),
+};
+const exportHome = {
+	ActivityPanelFrame: "activity",
+	KnowledgeFilesSkeleton: "knowledge",
+	SkillToggleSwitch: "skills",
+	ProjectsPanelSplitHandle: "sidebar",
+	SelectField: "settings",
+	MacKeyboardPreview: "shared",
+	CodeBlockCopyButtonView: "shared",
+};
 const missing = requiredExports.filter((name) => {
-	const hay = name === "ActivityPanelFrame" ? activityIndex : chatIndex;
-	return !hay.includes(name);
+	const home = exportHome[name] ?? "chat";
+	return !indexFiles[home].includes(name);
 });
 
 if (violations.length > 0 || missing.length > 0) {

@@ -29,6 +29,10 @@
 			"types": "./src/chat/index.ts",
 			"import": "./src/chat/index.ts"
 		},
+		"./knowledge": {
+			"types": "./src/knowledge/index.ts",
+			"import": "./src/knowledge/index.ts"
+		},
 		"./layout": {
 			"types": "./src/layout/index.ts",
 			"import": "./src/layout/index.ts"
@@ -37,9 +41,21 @@
 			"types": "./src/overlays/index.ts",
 			"import": "./src/overlays/index.ts"
 		},
+		"./settings": {
+			"types": "./src/settings/index.ts",
+			"import": "./src/settings/index.ts"
+		},
+		"./shared": {
+			"types": "./src/shared/index.ts",
+			"import": "./src/shared/index.ts"
+		},
 		"./sidebar": {
 			"types": "./src/sidebar/index.ts",
 			"import": "./src/sidebar/index.ts"
+		},
+		"./skills": {
+			"types": "./src/skills/index.ts",
+			"import": "./src/skills/index.ts"
 		},
 		"./styles.css": "./src/styles.css"
 	},
