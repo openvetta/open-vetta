@@ -45,6 +45,11 @@ export type {
 export { EnvironmentSettingsView } from "./EnvironmentSettingsView";
 export type { GeneralSettingsViewLabels, GeneralSettingsViewProps } from "./GeneralSettingsView";
 export { GeneralSettingsView } from "./GeneralSettingsView";
+export type {
+	ImChannelCardViewLabels,
+	ImChannelCardViewProps,
+} from "./ImChannelCardView";
+export { ImChannelCardView } from "./ImChannelCardView";
 export type { ImLegacyImportBannerViewProps } from "./ImLegacyImportBannerView";
 export { ImLegacyImportBannerView } from "./ImLegacyImportBannerView";
 export type { ImStatusBadgeStatus, ImStatusBadgeViewProps } from "./ImStatusBadgeView";
@@ -95,6 +100,8 @@ export type { SettingsPageShellViewProps } from "./SettingsPageShellView";
 export { SettingsPageShellView } from "./SettingsPageShellView";
 export type { SettingsSidebarTabItem, SettingsSidebarViewProps } from "./SettingsSidebarView";
 export { SettingsSidebarView } from "./SettingsSidebarView";
+export type { ShortcutRecorderViewProps } from "./ShortcutRecorderView";
+export { ShortcutRecorderView } from "./ShortcutRecorderView";
 export type { ShortcutActionRowView, ShortcutsSettingsViewProps } from "./ShortcutsSettingsView";
 export { ShortcutsSettingsView } from "./ShortcutsSettingsView";
 export type {

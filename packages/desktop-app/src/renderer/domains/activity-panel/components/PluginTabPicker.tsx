@@ -1,33 +1,14 @@
-import { useState } from "react";
-import type { ReactNode } from "react";
-import { Popover, PopoverContent, PopoverTrigger } from "@shared/components/ui/popover";
-import { cn } from "@shared/lib/utils";
 import { useTranslation } from "react-i18next";
+import {
+	DEFAULT_PLUGIN_TAB_ICON,
+	PluginTabPickerView,
+	type HiddenTabEntryView,
+} from "@vetta/theme-ui/activity";
 
-export const DEFAULT_PLUGIN_TAB_ICON = "icon-[mdi--puzzle-outline]";
-
-function TabIcon({ icon, className }: { icon: ReactNode; className?: string }): JSX.Element {
-	if (typeof icon === "string") {
-		return <span className={cn(icon, "h-4 w-4 shrink-0", className)} />;
-	}
-	return (
-		<span
-			className={cn(
-				"flex h-4 w-4 shrink-0 items-center justify-center [&>svg]:h-full [&>svg]:w-full",
-				className,
-			)}
-		>
-			{icon}
-		</span>
-	);
-}
+export { DEFAULT_PLUGIN_TAB_ICON };
 
 /** "+"下拉中可恢复显示的已隐藏内置/动态 tab。 */
-export interface HiddenTabEntry {
-	key: string;
-	label: string;
-	icon?: ReactNode;
-}
+export type HiddenTabEntry = HiddenTabEntryView;
 
 interface PluginTabPickerProps {
 	/** 当前被隐藏、可点击恢复的 tab（内置/动态/插件统一） */
@@ -50,82 +31,19 @@ export function PluginTabPicker({
 	overflowTabs,
 	onSelectOverflow,
 }: PluginTabPickerProps): JSX.Element {
-	const [open, setOpen] = useState(false);
-	const hasOverflow = overflowTabs.length > 0;
 	const { t } = useTranslation("project");
 
 	return (
-		<Popover open={open} onOpenChange={setOpen}>
-			<PopoverTrigger asChild>
-				<button
-					type="button"
-					title={t("tabPicker.menu")}
-					className={cn(
-						"mb-1 mr-3 flex h-5 shrink-0 items-center justify-center gap-0.5 rounded-md px-1 text-muted-foreground transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100",
-						// 有收纳项时常显（用户需要入口取回）；否则跟随 tab 栏 hover 浮现
-						open || hasOverflow ? "opacity-100" : "opacity-0 group-hover/activity-tabs:opacity-100",
-					)}
-				>
-					{hasOverflow && (
-						<span className="text-[10px] font-semibold tabular-nums leading-none">
-							{overflowTabs.length}
-						</span>
-					)}
-					<span className="icon-[mdi--chevron-down] h-4 w-4" />
-				</button>
-			</PopoverTrigger>
-			<PopoverContent align="end" sideOffset={6} className="w-60 gap-0 p-1.5">
-				{overflowTabs.length > 0 && (
-					<>
-						<div className="px-2 pb-1.5 pt-1 text-[11px] font-medium text-muted-foreground">
-							{t("tabPicker.moreTabs")}
-						</div>
-						{overflowTabs.map((tab) => (
-							<button
-								key={tab.key}
-								type="button"
-								onClick={() => {
-									onSelectOverflow(tab.key);
-									setOpen(false);
-								}}
-								className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-muted"
-							>
-								<TabIcon
-									icon={tab.icon ?? DEFAULT_PLUGIN_TAB_ICON}
-									className="text-muted-foreground"
-								/>
-								<span className="min-w-0 flex-1 truncate text-[13px] leading-tight text-foreground">
-									{tab.label}
-								</span>
-							</button>
-						))}
-					</>
-				)}
-				{hiddenTabs.length > 0 && (
-					<>
-						<div className="px-2 pb-1.5 pt-1 text-[11px] font-medium text-muted-foreground">
-							{t("tabPicker.hiddenPanels")}
-						</div>
-						{hiddenTabs.map((tab) => (
-							<button
-								key={tab.key}
-								type="button"
-								onClick={() => onRestore(tab.key)}
-								className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-muted"
-							>
-								<TabIcon
-									icon={tab.icon ?? DEFAULT_PLUGIN_TAB_ICON}
-									className="text-muted-foreground"
-								/>
-								<span className="min-w-0 flex-1 truncate text-[13px] leading-tight text-foreground">
-									{tab.label}
-								</span>
-								<span className="icon-[mdi--plus] h-4 w-4 shrink-0 text-muted-foreground" />
-							</button>
-						))}
-					</>
-				)}
-			</PopoverContent>
-		</Popover>
+		<PluginTabPickerView
+			hiddenTabs={hiddenTabs}
+			onRestore={onRestore}
+			overflowTabs={overflowTabs}
+			onSelectOverflow={onSelectOverflow}
+			labels={{
+				menu: t("tabPicker.menu"),
+				moreTabs: t("tabPicker.moreTabs"),
+				hiddenPanels: t("tabPicker.hiddenPanels"),
+			}}
+		/>
 	);
 }

@@ -8,6 +8,11 @@ export type {
 	AppearanceThemePreview,
 } from "./AppearanceActionPickerView";
 export { AppearanceActionPickerView } from "./AppearanceActionPickerView";
+export type {
+	AppearanceApprovalDrawerViewLabels,
+	AppearanceApprovalDrawerViewProps,
+} from "./AppearanceApprovalDrawerView";
+export { AppearanceApprovalDrawerView } from "./AppearanceApprovalDrawerView";
 export type { AppearancePickerApprovalViewProps } from "./AppearancePickerApprovalView";
 export { AppearancePickerApprovalView } from "./AppearancePickerApprovalView";
 export type { ApprovalRawFallbackLabels } from "./ApprovalParts";

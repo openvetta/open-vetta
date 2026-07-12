@@ -11,8 +11,24 @@ export { KnowledgeContextMenuView } from "./KnowledgeContextMenuView";
 export { KnowledgeFilesSkeleton } from "./KnowledgeFilesSkeleton";
 export { KnowledgeGridView } from "./KnowledgeGridView";
 export { KnowledgeListView } from "./KnowledgeListView";
+export type {
+	KnowledgePendingFileRowView,
+	KnowledgePendingFilesDialogViewLabels,
+	KnowledgePendingFilesDialogViewProps,
+} from "./KnowledgePendingFilesDialogView";
+export { KnowledgePendingFilesDialogView } from "./KnowledgePendingFilesDialogView";
 export type { KnowledgeProcessingBadgeViewProps } from "./KnowledgeProcessingBadgeView";
 export { KnowledgeProcessingBadgeView } from "./KnowledgeProcessingBadgeView";
+export type {
+	KnowledgeRenameDialogViewLabels,
+	KnowledgeRenameDialogViewProps,
+} from "./KnowledgeRenameDialogView";
+export { KnowledgeRenameDialogView } from "./KnowledgeRenameDialogView";
+export type {
+	KnowledgeSourcePickerViewLabels,
+	KnowledgeSourcePickerViewProps,
+} from "./KnowledgeSourcePickerView";
+export { KnowledgeSourcePickerView } from "./KnowledgeSourcePickerView";
 export type {
 	KnowledgeProcessStatus,
 	KnowledgeViewLabels,

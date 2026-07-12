@@ -1,8 +1,14 @@
 import { useTranslation } from "react-i18next";
 import type { ImTransportStatus } from "@preload/api";
-import { Button } from "@shared/components/ui/button";
-import { cn } from "@shared/lib/utils";
-import { ImStatusBadge } from "./ImStatusBadge";
+import { ImChannelCardView, type ImStatusBadgeStatus } from "@vetta/theme-ui/settings";
+
+const STATUS_LABEL: Record<ImTransportStatus, string> = {
+	offline: "imbStatusOffline",
+	connecting: "imbStatusConnecting",
+	online: "imbStatusOnline",
+	error: "imbStatusError",
+	awaiting_bind: "imbStatusAwaitingBind",
+};
 
 export function ImChannelCard({
 	name,
@@ -29,48 +35,23 @@ export function ImChannelCard({
 	const effectiveStatus: ImTransportStatus = isActive ? transportStatus : "offline";
 
 	return (
-		<div
-			className={cn(
-				"flex flex-col gap-4 rounded-2xl border bg-muted p-5",
-				isActive ? "border-primary/60" : "border-border",
-			)}
-		>
-			<div className="flex items-start gap-3">
-				<span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-background">
-					<span className={cn(iconClass, "h-6 w-6")} />
-				</span>
-				<div className="min-w-0 flex-1">
-					<div className="flex items-center gap-1.5">
-						<div className="text-[15px] font-semibold text-foreground">{name}</div>
-						{isActive && (
-							<span className="inline-flex items-center rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">
-								{t("channelActive")}
-							</span>
-						)}
-					</div>
-					<div className="mt-0.5 truncate text-[12px] text-muted-foreground">{subtitle}</div>
-				</div>
-				{configured ? (
-					<ImStatusBadge status={effectiveStatus} />
-				) : (
-					<span className="inline-flex items-center rounded-full bg-muted-foreground/15 px-2 py-0.5 text-[11px] text-muted-foreground">
-						{t("channelNotAssociated")}
-					</span>
-				)}
-			</div>
-
-			<div className="flex gap-2">
-				{configured && onActivate && (
-					<Button variant="outline" onClick={onActivate} title={t("activateChannelTitle")}>
-						<span className="icon-[mdi--swap-horizontal] h-4 w-4" />
-						{t("activateChannel")}
-					</Button>
-				)}
-				<Button variant="outline" onClick={onAction} className="flex-1">
-					<span className="icon-[mdi--cog-outline] h-4 w-4" />
-					{actionLabel}
-				</Button>
-			</div>
-		</div>
+		<ImChannelCardView
+			name={name}
+			subtitle={subtitle}
+			iconClass={iconClass}
+			configured={configured}
+			isActive={isActive}
+			effectiveStatus={effectiveStatus as ImStatusBadgeStatus}
+			actionLabel={actionLabel}
+			onAction={onAction}
+			onActivate={onActivate}
+			labels={{
+				channelActive: t("channelActive"),
+				channelNotAssociated: t("channelNotAssociated"),
+				activateChannel: t("activateChannel"),
+				activateChannelTitle: t("activateChannelTitle"),
+				statusLabel: t(STATUS_LABEL[effectiveStatus] as "imbStatusOffline"),
+			}}
+		/>
 	);
 }
