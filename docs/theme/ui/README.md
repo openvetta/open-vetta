@@ -32,7 +32,8 @@
 | 03 | chat props-driven views | done | [03-chat.md](./03-chat.md) |
 | 04 | settings 与其它域已拆分 View | done（暂缓清单） | [04-settings-and-others.md](./04-settings-and-others.md) |
 | 05 | 多域 pure / 可拆 i18n 叶子 | done | [05-pure-leaves.md](./05-pure-leaves.md) |
-| 99 | 最终审计与暂缓清单 | superseded → 随 05+ 更新 | [99-final-audit.md](./99-final-audit.md) |
+| 06 | DrawerCard / TodoCard | done | [06-chat-drawer-todo.md](./06-chat-drawer-todo.md) |
+| 99 | 最终审计与暂缓清单 | living | [99-final-audit.md](./99-final-audit.md) |
 
 ## 每批流程（强制）
 
