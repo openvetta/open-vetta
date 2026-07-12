@@ -52,6 +52,11 @@ export { ImStatusBadgeView } from "./ImStatusBadgeView";
 export type { McpJsonEditorViewProps } from "./McpJsonEditorView";
 export { McpJsonEditorView } from "./McpJsonEditorView";
 export type {
+	ModelsProvidersSectionViewLabels,
+	ModelsProvidersSectionViewProps,
+} from "./ModelsProvidersSectionView";
+export { ModelsProvidersSectionView } from "./ModelsProvidersSectionView";
+export type {
 	PermissionItemView,
 	PermissionStatusView,
 	PermissionsSettingsViewLabels,
@@ -105,3 +110,9 @@ export { TeamSettingsView } from "./TeamSettingsView";
 export type { TokenActivityChartViewProps } from "./TokenActivityChartView";
 export { TokenActivityChartView } from "./TokenActivityChartView";
 export * from "./token-activity";
+export type {
+	WebhookEndpointListViewLabels,
+	WebhookEndpointListViewProps,
+	WebhookEndpointRowView,
+} from "./WebhookEndpointListView";
+export { WebhookEndpointListView } from "./WebhookEndpointListView";

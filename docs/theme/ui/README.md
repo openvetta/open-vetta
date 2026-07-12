@@ -56,6 +56,7 @@
 | 27 | Goal B：Button/Dialog/Drawer/Select/Switch/Popover → @vetta/ui | done | [27-vetta-ui-primitives.md](./27-vetta-ui-primitives.md) |
 | 28 | settings hold 改引 @vetta/ui 脱 hold | done | [28-settings-hold-vetta-ui.md](./28-settings-hold-vetta-ui.md) |
 | 29 | Goal A/B 软完成声明 + SkillCard | done | [29-goal-ab-soft-complete.md](./29-goal-ab-soft-complete.md) |
+| 30 | ModelsProviders + WebhookEndpointList 脱 hold | done | [30-settings-models-webhook.md](./30-settings-models-webhook.md) |
 | 99 | 最终审计与暂缓清单 | done | [99-final-audit.md](./99-final-audit.md) |
 
 ## 闭合门禁（验收用）
