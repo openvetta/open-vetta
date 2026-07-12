@@ -99,11 +99,24 @@ export { PermissionsSettingsView } from "./PermissionsSettingsView";
 export type { PetBubbleStylePreviewViewProps } from "./PetBubbleStylePreviewView";
 export { PetBubbleStylePreviewView } from "./PetBubbleStylePreviewView";
 export type {
+	PetBubbleStyleOptionView,
+	PetDecorationView,
+	PetSettingsViewLabels,
+	PetSettingsViewProps,
+} from "./PetSettingsView";
+export { PetSettingsView } from "./PetSettingsView";
+export type {
 	PresetProviderModelRowView,
 	PresetProviderModelsListViewLabels,
 	PresetProviderModelsListViewProps,
 } from "./PresetProviderModelsListView";
 export { PresetProviderModelsListView } from "./PresetProviderModelsListView";
+export type {
+	PresetProviderRowModelView,
+	PresetProviderRowViewLabels,
+	PresetProviderRowViewProps,
+} from "./PresetProviderRowView";
+export { PresetProviderRowView } from "./PresetProviderRowView";
 export type {
 	PresetProvidersSectionViewLabels,
 	PresetProvidersSectionViewProps,
