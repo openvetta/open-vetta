@@ -58,6 +58,7 @@
 | 29 | Goal A/B 软完成声明 + SkillCard | done | [29-goal-ab-soft-complete.md](./29-goal-ab-soft-complete.md) |
 | 30 | ModelsProviders + WebhookEndpointList 脱 hold | done | [30-settings-models-webhook.md](./30-settings-models-webhook.md) |
 | 31 | KnowledgeBreadcrumb + ChatHeaderActions 脱 hold | done | [31-kb-chat-hold.md](./31-kb-chat-hold.md) |
+| 32 | SceneCard + sidebar filter/trigger 脱 hold | done | [32-scene-sidebar-hold.md](./32-scene-sidebar-hold.md) |
 | 99 | 最终审计与暂缓清单 | done | [99-final-audit.md](./99-final-audit.md) |
 
 ## 闭合门禁（验收用）

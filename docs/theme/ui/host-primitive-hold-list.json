@@ -1,5 +1,5 @@
 {
-  "total": 72,
+  "total": 71,
   "byDomain": {
     "action-approval": [
       "packages/desktop-app/src/renderer/shared/action-approval/appearance/AppearanceApprovalDrawerView.tsx",
@@ -93,7 +93,6 @@
     "skills": [
       "packages/desktop-app/src/renderer/domains/skills/components/PluginDetailSheet.tsx",
       "packages/desktop-app/src/renderer/domains/skills/components/PluginsPanelView.tsx",
-      "packages/desktop-app/src/renderer/domains/skills/components/SceneCard.tsx",
       "packages/desktop-app/src/renderer/domains/skills/components/SkillDetailDialog.tsx",
       "packages/desktop-app/src/renderer/domains/skills/components/SkillsPageView.tsx"
     ]
@@ -441,11 +440,6 @@
     },
     {
       "path": "packages/desktop-app/src/renderer/domains/skills/components/PluginsPanelView.tsx",
-      "domain": "skills",
-      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
-    },
-    {
-      "path": "packages/desktop-app/src/renderer/domains/skills/components/SceneCard.tsx",
       "domain": "skills",
       "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },

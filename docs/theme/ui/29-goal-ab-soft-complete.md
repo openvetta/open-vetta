@@ -10,7 +10,7 @@
 |------|------|
 | **Goal B 硬落地** | `@vetta/ui` 已含 Button / Dialog / Drawer / Select / Switch / Popover；desktop `components/ui` re-export |
 | **Goal A 推进** | settings 多批 + SkillCard 等：布局进 theme-ui 且原语改引 `@vetta/ui`，从 hold 摘除 |
-| **软完成 hold** | 剩余 **`host_primitive_hold` ≈ 78**，均为 **value import** host 路径（或 Dialog 重组件），**非** type-only 假 hold |
+| **软完成 hold** | 剩余 **`host_primitive_hold` ≈ 71**（基线 ~90），均为 **value import** host 路径（或 Dialog 重组件），**非** type-only 假 hold |
 | 门禁 open | `must_split/migrate/host_hold/bad` 全 0 |
 | 假 hold 反作弊 | 无 `_HostPrimitiveHold` / type-only Button 标记 |
 
@@ -20,10 +20,10 @@
 
 | 域 | 约数 | unlock |
 |----|------|--------|
-| settings | ~30 | Dialog/表单布局继续迁到 theme-ui 并改用 `@vetta/ui` |
+| settings | ~28 | Dialog/表单布局继续迁到 theme-ui 并改用 `@vetta/ui` |
 | action-approval | 11 | 同上 |
-| knowledge-base | 8 | 同上 |
-| skills | ~5 | 同上（SkillCard 已脱） |
+| knowledge-base | ~7 | 同上 |
+| skills | ~4 | 同上（SkillCard/SceneCard 已脱） |
 | 其它 | … | 同上 |
 
 **unlock 文案**（deferrals 已统一）：
