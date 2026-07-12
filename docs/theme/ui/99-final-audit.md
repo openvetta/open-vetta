@@ -1,43 +1,45 @@
-# Batch 99 — 最终审计
+# Batch 99 — 最终审计（本目标轮次）
 
 ## 状态
 
-**done**
+**done**（eligible 已尽量迁完；阻塞项书面暂缓）
 
-## Eligible 已迁入 `@vetta/theme-ui`（按域）
+## theme-ui 域目录
 
-| 域 | 内容 |
-|----|------|
-| layout | AppFrame, MainContentFrame, SidebarDock/Overlay, ResizeHandle |
-| appearance | ThemeSurface + image frames |
-| app | AppBackground |
-| app-shell | DefaultPageHeader 系、DefaultWindowControls、WindowControlButton |
-| sidebar | DefaultSidebar shell、Panel、Navigation、NavItem、TopBar、UpdateIcon、SessionStatusIcon、RunningPulseDot、ShowMoreSessionsButton |
-| overlays | KnowledgeDropOverlayView、UpdateRestartDialogView |
-| chat | InputBarBackground、NewSession types、AtPanelView、SlashPanelView、DefaultGuidingWords、SceneCard、SkillCard、DefaultSceneCarousel、DefaultSkillBadgeRow、InputBarToolbarButton |
+| 域 | 代表组件 |
+|----|----------|
+| layout | AppFrame, ResizeHandle, SidebarDock… |
+| appearance | ThemeSurface, frames |
+| app / app-shell | AppBackground, PageHeader*, WindowControls* |
+| sidebar | DefaultSidebar shell, Nav*, TopBar, empty/toolbar/settings leaves… |
+| chat | At/Slash panels, NewSession cards/carousel, SendButton, DrawerCard, TodoCard… |
+| overlays | KnowledgeDrop, UpdateRestart |
+| activity | ActivityPanelFrame |
 
-## 仍在 desktop-app（符合设计边界）
+## 显式暂缓（unlock 条件）
 
-- Connected：`Sidebar`、`PageHeader`、`WindowControls`、各 page container
-- Model：`use*Model` + ThemeHost 注入
-- 业务子树：ProjectsPanel、SettingsMenu、MessageCenter、InputBar 组合、MessageList、设置页、审批 Dialog 等
+| 区域 | 原因 / 解锁 |
+|------|-------------|
+| 审批 `*Approval*View`、Login、设置 Dialog | 依赖 host `Dialog`/`Drawer`/`Button`；需迁入 `@vetta/ui` 或等效原语 |
+| `SettingSection`/`SettingRow` 设置页 | 设置 IA 原语未公开 |
+| `QueueCard` | 直连 jotai queue atoms；需拆 model |
+| `ProjectsPanel` / ProjectRow/SessionRow 树 | 业务 + 虚拟列表 + atoms |
+| `InputBarView` / `MessageListView` 大块 | 多 host 组合；需继续切片 |
+| `MessageCenter`/`SettingsMenu` 弹层 | Popover + 业务 model |
+| `CodePreview` | 依赖 `shiki` peer；非主题优先；可后续迁 activity 并声明 peer |
+| `ChatPageView` / `RootLayoutView` | 纯布局壳但组合 host Sidebar/ChatView/router；留 desktop shell |
+| `BatchProjectFormFieldsView` | 组合仍含业务的 field 子组件 |
+| onboarding / pet / quickpanel / plugins | 非目标 |
 
-## 显式暂缓（见各 batch 文档）
+**已迁但 desktop 保留 adapter 的不算 residual pure**（如 `SlashPanelView` SkillInfo 适配）。
 
-- 依赖 Dialog/Drawer/Popover/Button host 原语的浮层与审批
-- 设置页 IA 组件（SettingSection 等未公开）
-- chat InputBar/MessageList 大块
-- 侧栏 projects 数据树
+## 进程证据
 
-## 样式扫描
+- 每批 `bun run check`
+- 子 Agent `/gitcommit` only
+- `packages/theme-ui/scripts/verify-purity.mjs` 结构校验
+- desktop `styles.css` `@source` theme-ui
 
-- `packages/desktop-app/src/renderer/styles.css` 含 `@source "../../../theme-ui/src/**/*.{ts,tsx}"`（修复 window control iconify 类）
+## 验收定义
 
-## 验证
-
-- 分批 `bun run check` 均 exit 0（scratch：`check-01-sidebar.log` … `check-final.log`）
-- 分批 commit 由子 Agent `/gitcommit` 产生，无 push
-
-## 验收说明
-
-「全部 UI」按设计文档解释为 **全部 eligible props-driven 默认 view**；connected/data/host-primitive 阻塞项已书面暂缓，非遗漏。
+「全部 UI」= 设计文档下 **eligible props-driven 默认 view**；connected / model / host-primitive 阻塞不计入 theme-ui 强制范围。
