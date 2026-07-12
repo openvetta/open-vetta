@@ -24,6 +24,8 @@ declare module "@vetta/theme-sdk" {
 
 export type { ActionButtonBarItem, ActionButtonBarViewProps } from "./ActionButtonBarView";
 export { ActionButtonBarView } from "./ActionButtonBarView";
+export type { AppshotCardViewLabels, AppshotCardViewProps } from "./AppshotCardView";
+export { AppshotCardView } from "./AppshotCardView";
 export type {
 	AtPanelClassNames,
 	AtPanelEntryModel,
@@ -33,6 +35,10 @@ export type {
 export { AtPanelView } from "./AtPanelView";
 export type { BackgroundTasksBadgeViewProps } from "./BackgroundTasksBadgeView";
 export { BackgroundTasksBadgeView } from "./BackgroundTasksBadgeView";
+export type { ChatExportHostViewProps } from "./ChatExportHostView";
+export { ChatExportHostView } from "./ChatExportHostView";
+export type { ContextRingViewProps } from "./ContextRingView";
+export { CIRCUMFERENCE as CONTEXT_RING_CIRCUMFERENCE, ContextRingView } from "./ContextRingView";
 export type { CopyIconButtonLabels, CopyIconButtonProps } from "./CopyIconButton";
 export { CopyIconButton } from "./CopyIconButton";
 export { DefaultGuidingWords } from "./DefaultGuidingWords";
@@ -40,12 +46,27 @@ export { DefaultSceneCarousel } from "./DefaultSceneCarousel";
 export { DefaultSkillBadgeRow } from "./DefaultSkillBadgeRow";
 export type { DrawerCardProps, DrawerTab } from "./DrawerCard";
 export { DrawerCard } from "./DrawerCard";
+export type {
+	DiffLineKind,
+	DiffLineView,
+	DiffPreviewViewProps,
+	EditTextFallbackViewProps,
+} from "./EditDiffView";
+export { DiffPreviewView, EditTextFallbackView } from "./EditDiffView";
 export type { InputBarBackgroundProps } from "./InputBarBackground";
 export { InputBarBackground } from "./InputBarBackground";
 export type { InputBarCapsuleLabels, InputBarCapsuleProps } from "./InputBarCapsule";
 export { InputBarCapsule } from "./InputBarCapsule";
 export type { InputBarToolbarButtonProps } from "./InputBarToolbarButton";
 export { InputBarToolbarButton } from "./InputBarToolbarButton";
+export type {
+	KbFilterByTagsViewProps,
+	KbFilterPageItem,
+	KbListTagsViewProps,
+	KbTagItem,
+	KbWritePageViewProps,
+} from "./KnowledgeToolViews";
+export { KbFilterByTagsView, KbListTagsView, KbWritePageView } from "./KnowledgeToolViews";
 export type {
 	NewSessionGuidingWordsGroup,
 	NewSessionGuidingWordsProps,
@@ -63,6 +84,14 @@ export type {
 export { NewSessionBackground } from "./NewSessionBackground";
 export type { QueueCardItem, QueueCardViewLabels, QueueCardViewProps } from "./QueueCardView";
 export { QueueCardView } from "./QueueCardView";
+export type { ReadImageViewProps } from "./ReadImageView";
+export { ReadImageView } from "./ReadImageView";
+export type {
+	SandboxGrantsBadgeViewLabels,
+	SandboxGrantsBadgeViewProps,
+	SandboxGrantViewItem,
+} from "./SandboxGrantsBadgeView";
+export { SandboxGrantsBadgeView } from "./SandboxGrantsBadgeView";
 export type {
 	SandboxPermissionCardLabels,
 	SandboxPermissionCardProps,
