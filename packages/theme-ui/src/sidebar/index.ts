@@ -36,6 +36,12 @@ export type {
 export { ChatMessageListView, MESSAGE_CENTER_SPRING } from "./ChatMessageListView";
 export type { DefaultSidebarProps } from "./DefaultSidebar";
 export { DefaultSidebar } from "./DefaultSidebar";
+export type {
+	FlowingMessageListItemView,
+	FlowingMessageListLabels,
+	FlowingMessageListViewProps,
+} from "./FlowingMessageListView";
+export { FlowingMessageListView } from "./FlowingMessageListView";
 export type { MessageCenterEmptyStateProps } from "./MessageCenterEmptyState";
 export { MessageCenterEmptyState } from "./MessageCenterEmptyState";
 export type {

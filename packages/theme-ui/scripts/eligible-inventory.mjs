@@ -170,6 +170,16 @@ function classify(abs, text, deferrals) {
 	if (/\/onboarding\/|\/pet\/|\/quickpanel\//.test(rel)) {
 		return { status: "non_goal", rel, lines };
 	}
+	// Host design-system chrome (Dialog/Button implementations) — not business views.
+	// Migration target is @vetta/ui when primitives land, not theme-ui business domains.
+	if (/\/shared\/components\/ui\//.test(rel)) {
+		return {
+			status: "permanent_desktop",
+			rel,
+			lines,
+			reason: "host design-system primitive implementation (chrome); leave until @vetta/ui",
+		};
+	}
 
 	const hasTheme = /@vetta\/theme-ui/.test(text);
 	const hasAtom = /useAtom|from ["']jotai|store\/atoms/.test(text);
@@ -189,6 +199,15 @@ function classify(abs, text, deferrals) {
 	// Explicit non_goal deferral (plugin private host shell, etc.) — even if dataHeavy
 	if (d?.kind === "non_goal") {
 		return { status: "non_goal", rel, lines, reason: d.reason };
+	}
+	// Theme runtime / route shells are host infrastructure, not themable business views
+	if (/\/shared\/theme\/(runtime|pages)\//.test(rel)) {
+		return {
+			status: "permanent_desktop",
+			rel,
+			lines,
+			reason: "theme runtime/page host shell",
+		};
 	}
 
 	const isThinReexport =
