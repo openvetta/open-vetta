@@ -52,6 +52,8 @@
 | 23 | Residual map + 漏拆 FlowingMessageList + 门禁 host chrome | done | [23-residual-map.md](./23-residual-map.md) |
 | 24 | Phase γ 路线 + settings hold slot 迁 | done | [24-phase-gamma-path.md](./24-phase-gamma-path.md) |
 | 25 | Phase δ 验收台账 | done | [25-phase-delta-audit.md](./25-phase-delta-audit.md) |
+| 26 | Goal A/B 基线 | done | [26-goal-ab-baseline.md](./26-goal-ab-baseline.md) |
+| 27 | Goal B：Button/Dialog/Drawer/Select/Switch/Popover → @vetta/ui | done | [27-vetta-ui-primitives.md](./27-vetta-ui-primitives.md) |
 | 99 | 最终审计与暂缓清单 | done | [99-final-audit.md](./99-final-audit.md) |
 
 ## 闭合门禁（验收用）
