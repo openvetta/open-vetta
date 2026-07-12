@@ -5,6 +5,9 @@
 /* Scan official theme UI package so utilities / iconify classes in migrated
    components (e.g. window minimize/maximize icons) are generated. */
 @source "../../../theme-ui/src/**/*.{ts,tsx}";
+/* Host design-system primitives live in @vetta/ui; re-exports under
+   desktop-app no longer contain className literals for Tailwind to see. */
+@source "../../../ui/src/**/*.{ts,tsx}";
 
 @custom-variant dark (&:is([data-mode="dark"] *));
 
@@ -730,6 +733,18 @@ a {
 
 [data-slot="dialog-overlay"][data-state="closed"] {
 	animation: vetta-dialog-overlay-out 150ms ease-in;
+}
+
+/*
+  Safety net for DialogContent width after primitives moved to @vetta/ui.
+  Utility max-w-* / sm:max-w-* (utilities layer) still override this when present.
+  Without a cap, only w-full may apply and dialogs span nearly the full viewport.
+*/
+@layer components {
+	[data-slot="dialog-content"] {
+		width: 100%;
+		max-width: min(24rem, calc(100% - 2rem));
+	}
 }
 
 [data-slot="dialog-content"][data-state="open"] {

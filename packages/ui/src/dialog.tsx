@@ -53,7 +53,9 @@ function DialogContent({
 				data-slot="dialog-content"
 				onOpenAutoFocus={(e) => e.preventDefault()}
 				className={cn(
-					"fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] [transform:translate(-50%,-50%)] gap-4 rounded-xl border border-border bg-popover p-4 text-sm text-popover-foreground outline-none sm:max-w-sm",
+					// Single max-width (not max-w + sm:max-w-sm): avoids twMerge leaving
+					// sm:max-w-sm that overrides consumer max-w-lg at the sm breakpoint.
+					"fixed top-1/2 left-1/2 z-50 grid w-full max-w-[min(24rem,calc(100%-2rem))] [transform:translate(-50%,-50%)] gap-4 rounded-xl border border-border bg-popover p-4 text-sm text-popover-foreground outline-none",
 					className,
 				)}
 				{...props}
