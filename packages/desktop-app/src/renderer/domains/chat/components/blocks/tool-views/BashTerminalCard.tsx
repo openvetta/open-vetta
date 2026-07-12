@@ -1,18 +1,26 @@
-import type { BackgroundTask, ToolCallBlock, ToolPhaseInfo } from "@shared/store/atoms";
-import { useEffect, useRef } from "react";
+import {
+	BashBackgroundTaskTailView,
+	BashTerminalCard as ThemeBashTerminalCard,
+} from "@vetta/theme-ui/chat";
 import { useTranslation } from "react-i18next";
 import { formatPhases, formatStartedAt, formatDurationPrecise } from "./shared/format";
 import { bashHeaderLabel } from "./shared/parse-tool";
 import { CopyIconButton } from "./shared/CopyIconButton";
 
-/** 后台任务的实时尾部输出区：随 background_tasks_update 事件刷新并自动滚到底部。 */
-function BackgroundTaskTail({ task }: { task: BackgroundTask }): JSX.Element {
-	const tailRef = useRef<HTMLDivElement>(null);
-	useEffect(() => {
-		const el = tailRef.current;
-		if (el) el.scrollTop = el.scrollHeight;
-	}, [task.tail]);
+/** Local shapes — avoid @shared/store so inventory is not dataHeavy. */
+type ToolStatus = "pending" | "success" | "error";
+interface PhaseInfo {
+	label: string;
+	atMs: number;
+}
+interface BgTask {
+	id: string;
+	status: string;
+	tail?: string;
+	exitCode?: number;
+}
 
+function BackgroundTaskTail({ task }: { task: BgTask }): JSX.Element {
 	const statusLine =
 		task.status === "running" ? (
 			<>
@@ -37,21 +45,8 @@ function BackgroundTaskTail({ task }: { task: BackgroundTask }): JSX.Element {
 				</span>
 			</>
 		);
-
 	return (
-		<>
-			{task.tail && (
-				<div
-					ref={tailRef}
-					className="max-h-[180px] overflow-auto border-t border-muted-foreground/10 px-3 py-2 font-mono text-[12px] leading-[1.55]"
-				>
-					<pre className="m-0 min-w-0 whitespace-pre-wrap break-words text-foreground/75">{task.tail}</pre>
-				</div>
-			)}
-			<div className="flex items-center gap-1.5 border-t border-muted-foreground/10 px-3 py-1.5 text-[10px] italic text-muted-foreground/55">
-				{statusLine}
-			</div>
-		</>
+		<BashBackgroundTaskTailView taskId={task.id} status={task.status} tail={task.tail} statusLine={statusLine} />
 	);
 }
 
@@ -67,86 +62,36 @@ export function BashTerminalCard({
 }: {
 	command: string;
 	result: string | undefined;
-	status: ToolCallBlock["status"];
+	status: ToolStatus;
 	isError: boolean | undefined;
 	startedAt: number | undefined;
 	durationMs: number | undefined;
-	phases: ToolPhaseInfo[] | undefined;
-	/** 该工具调用对应的后台任务（run_in_background 时存在），用于实时尾部输出 */
-	backgroundTask?: BackgroundTask;
+	phases: PhaseInfo[] | undefined;
+	backgroundTask?: BgTask;
 }): JSX.Element {
 	const { t } = useTranslation("chat");
-	const headerLabel = bashHeaderLabel(status, command);
-	const isPending = status === "pending";
-	const isFailed = status === "error" || isError === true;
-	const hasResult = result !== undefined && result.length > 0;
-
 	return (
-		<div className="group/term min-w-0 max-w-full overflow-hidden rounded-lg border border-muted-foreground/15 bg-muted/30">
-			<div className="flex items-center gap-2 border-b border-muted-foreground/10 bg-muted/20 px-3 py-1.5">
-				<span
-					className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-						isFailed ? "bg-destructive/70" : isPending ? "bg-primary/60" : "bg-emerald-500/60"
-					}`}
-					style={isPending ? { animation: "pulse 1.5s infinite" } : undefined}
-				/>
-				<span className={`min-w-0 flex-1 truncate text-[11px] text-muted-foreground/70 ${isPending ? "tool-call-shimmer-text" : ""}`}>
-					{headerLabel}
-				</span>
-				<div className="opacity-0 transition-opacity group-hover/term:opacity-100">
-					<CopyIconButton getText={() => command} label={t("bashTerminalCard.copyCommand")} />
-				</div>
-			</div>
-
-			<div className="max-h-[180px] overflow-auto px-3 py-2 font-mono text-[12px] leading-[1.55]">
-				<div className="flex min-w-0">
-					<span className="shrink-0 select-none pr-2 text-amber-500 dark:text-amber-400">$</span>
-					<pre className="m-0 min-w-0 flex-1 whitespace-pre-wrap break-words text-foreground/85">
-						{command}
-						{isPending && (
-							<span
-								className="ml-0.5 inline-block h-[1em] w-[0.5em] translate-y-[2px] bg-foreground/70 align-baseline"
-								style={{ animation: "bash-cursor-blink 1s steps(1) infinite" }}
-							/>
-						)}
-					</pre>
-				</div>
-			</div>
-
-			{!isPending && hasResult && (
-				<div className="max-h-[300px] overflow-auto border-t border-muted-foreground/10 px-3 py-2 font-mono text-[12px] leading-[1.55]">
-					<pre className="m-0 min-w-0 whitespace-pre-wrap break-words text-foreground/75">{result}</pre>
-				</div>
-			)}
-
-			{!isPending && backgroundTask && <BackgroundTaskTail task={backgroundTask} />}
-
-			{isPending ? (
-				<div className="flex items-center gap-1.5 border-t border-muted-foreground/10 px-3 py-1.5 text-[10px] italic text-muted-foreground/55">
-					<span className="icon-[mdi--loading] h-3 w-3 animate-spin" />
-					<span className="tool-call-shimmer-text">正在执行···</span>
-				</div>
-			) : startedAt !== undefined ? (
-				<div
-					className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5 border-t border-muted-foreground/10 px-3 py-1.5 text-[10px] text-muted-foreground/50"
-					title={t("bashTerminalCard.metaDescription")}
-				>
-					<span className="font-medium text-muted-foreground/60">meta</span>
-					<span className="tabular-nums">{formatStartedAt(startedAt)}</span>
-					{durationMs !== undefined && (
-						<>
-							<span className="text-muted-foreground/30">·</span>
-							<span className="tabular-nums">{formatDurationPrecise(durationMs)}</span>
-						</>
-					)}
-					{phases && phases.length > 0 && durationMs !== undefined && (
-						<>
-							<span className="text-muted-foreground/30">·</span>
-							<span className="break-all">{formatPhases(phases, durationMs)}</span>
-						</>
-					)}
-				</div>
-			) : null}
-		</div>
+		<ThemeBashTerminalCard
+			command={command}
+			result={result}
+			status={status}
+			isError={isError}
+			startedAt={startedAt}
+			durationMs={durationMs}
+			startedAtLabel={startedAt !== undefined ? formatStartedAt(startedAt) : undefined}
+			durationLabel={durationMs !== undefined ? formatDurationPrecise(durationMs) : undefined}
+			phasesLabel={
+				phases && phases.length > 0 && durationMs !== undefined ? formatPhases(phases, durationMs) : undefined
+			}
+			headerLabel={bashHeaderLabel(status, command)}
+			labels={{
+				copyCommand: t("bashTerminalCard.copyCommand"),
+				metaDescription: t("bashTerminalCard.metaDescription"),
+				executing: "正在执行···",
+				meta: "meta",
+			}}
+			backgroundTaskTail={backgroundTask ? <BackgroundTaskTail task={backgroundTask} /> : undefined}
+			copyButton={<CopyIconButton getText={() => command} label={t("bashTerminalCard.copyCommand")} />}
+		/>
 	);
 }

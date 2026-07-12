@@ -27,6 +27,18 @@ export { ActionButtonBarView } from "./ActionButtonBarView";
 export type { AppshotCardViewLabels, AppshotCardViewProps } from "./AppshotCardView";
 export { AppshotCardView } from "./AppshotCardView";
 export type {
+	AskUserQuestionItem,
+	AskUserQuestionOption,
+	AskUserQuestionViewLabels,
+	AskUserQuestionViewProps,
+} from "./AskUserQuestionView";
+export { AskUserQuestionView } from "./AskUserQuestionView";
+export type {
+	AssistantMessageViewLabels,
+	AssistantMessageViewProps,
+} from "./AssistantMessageView";
+export { AssistantMessageView, StreamingIndicator } from "./AssistantMessageView";
+export type {
 	AtPanelClassNames,
 	AtPanelEntryModel,
 	AtPanelLabels,
@@ -35,6 +47,13 @@ export type {
 export { AtPanelView } from "./AtPanelView";
 export type { BackgroundTasksBadgeViewProps } from "./BackgroundTasksBadgeView";
 export { BackgroundTasksBadgeView } from "./BackgroundTasksBadgeView";
+export type {
+	BashBackgroundTaskView,
+	BashTerminalCardLabels,
+	BashTerminalCardProps,
+	BashTerminalStatus,
+} from "./BashTerminalCard";
+export { BashBackgroundTaskTailView, BashTerminalCard } from "./BashTerminalCard";
 export type { ChatExportHostViewProps } from "./ChatExportHostView";
 export { ChatExportHostView } from "./ChatExportHostView";
 export type { ContextRingViewProps } from "./ContextRingView";
@@ -53,6 +72,12 @@ export type {
 	EditTextFallbackViewProps,
 } from "./EditDiffView";
 export { DiffPreviewView, EditTextFallbackView } from "./EditDiffView";
+export type {
+	GuideBadgeSwiperViewLabels,
+	GuideBadgeSwiperViewProps,
+	GuideBadgeViewItem,
+} from "./GuideBadgeSwiperView";
+export { GuideBadgeSwiperView } from "./GuideBadgeSwiperView";
 export type { InputBarBackgroundProps } from "./InputBarBackground";
 export { InputBarBackground } from "./InputBarBackground";
 export type { InputBarCapsuleLabels, InputBarCapsuleProps } from "./InputBarCapsule";
@@ -67,6 +92,24 @@ export type {
 	KbWritePageViewProps,
 } from "./KnowledgeToolViews";
 export { KbFilterByTagsView, KbListTagsView, KbWritePageView } from "./KnowledgeToolViews";
+export type { SegmentShellProps, ToolCallGroupViewProps } from "./MessageBlockSegmentsView";
+export { ErrorBlockView, SegmentShell, ToolCallGroupView } from "./MessageBlockSegmentsView";
+export type { MessageCardsHostViewProps } from "./MessageCardsHostView";
+export { MessageCardsHostView } from "./MessageCardsHostView";
+export type {
+	CompactionBoundaryViewProps,
+	ExportMessageListViewProps,
+	MessageItemViewProps,
+	ModelSwitchBoundaryViewProps,
+} from "./MessageItemView";
+export {
+	CompactionBoundaryView,
+	ExportMessageListView,
+	MessageItemView,
+	ModelSwitchBoundaryView,
+} from "./MessageItemView";
+export type { MessageListViewProps } from "./MessageListView";
+export { MessageListView, VirtuosoListContainer } from "./MessageListView";
 export type {
 	NewSessionGuidingWordsGroup,
 	NewSessionGuidingWordsProps,
@@ -108,8 +151,21 @@ export type {
 export { SceneCard } from "./SceneCard";
 export type { SendButtonLabels, SendButtonProps } from "./SendButton";
 export { SendButton } from "./SendButton";
+export type {
+	SessionDropDragKind,
+	SessionDropZoneViewLabels,
+	SessionDropZoneViewProps,
+} from "./SessionDropZoneView";
+export { SessionDropZoneView } from "./SessionDropZoneView";
+export type { SessionViewerPageViewProps } from "./SessionViewerPageView";
+export { SessionViewerPageView } from "./SessionViewerPageView";
 export type { SkillCardClassNames, SkillCardModel, SkillCardProps } from "./SkillCard";
 export { SkillCard } from "./SkillCard";
+export type {
+	SkillPromptAreaViewLabels,
+	SkillPromptAreaViewProps,
+} from "./SkillPromptAreaView";
+export { SkillPromptAreaView } from "./SkillPromptAreaView";
 export type {
 	SlashPanelClassNames,
 	SlashPanelItemModel,
@@ -120,11 +176,25 @@ export type {
 export { SlashPanelView } from "./SlashPanelView";
 export type { SuggestionBubblesViewProps } from "./SuggestionBubblesView";
 export { SuggestionBubblesView } from "./SuggestionBubblesView";
+export type { TextBlockViewLabels, TextBlockViewProps } from "./TextBlockView";
+export { TextBlockView } from "./TextBlockView";
 export type { TextPreviewLabels, TextPreviewProps } from "./TextPreview";
 export { TextPreview } from "./TextPreview";
 export type { TodoCardItem, TodoCardLabels, TodoCardProps } from "./TodoCard";
 export { TodoCard } from "./TodoCard";
+export type { ToolCallBlockViewProps } from "./ToolCallBlockView";
+export { ToolCallBlockView } from "./ToolCallBlockView";
 export type { UsageBarViewProps } from "./UsageBarView";
 export { UsageBarView } from "./UsageBarView";
+export type {
+	UserMessageEntryState,
+	UserMessageViewLabels,
+	UserMessageViewProps,
+} from "./UserMessageView";
+export {
+	SettingsAssistBadgeView,
+	SkillBadgeView,
+	UserMessageView,
+} from "./UserMessageView";
 export type { WriteContentViewProps } from "./WriteContentView";
 export { WriteContentView } from "./WriteContentView";

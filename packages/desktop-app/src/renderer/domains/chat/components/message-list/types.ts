@@ -2,6 +2,8 @@ import type { ChatMessage } from "@shared/store/atoms";
 import type { MessageListScrollModel } from "../../hooks/useMessageListScrollModel";
 import type { AssistantFoldData, BlockSegment } from "./messageBlockModel";
 
+export type { ChatMessage };
+
 export interface MessageListProps {
 	messages: ChatMessage[];
 	isStreaming: boolean;

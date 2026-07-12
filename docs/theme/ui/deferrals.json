@@ -27,6 +27,10 @@
     "kind": "host_primitive_hold",
     "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
+  "packages/desktop-app/src/renderer/domains/chat/components/question-panel/QuestionPanelView.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
   "packages/desktop-app/src/renderer/domains/flowing/components/flow-graph/node-detail-dialog.tsx": {
     "kind": "host_primitive_hold",
     "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
