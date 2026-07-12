@@ -37,6 +37,22 @@
 			"types": "./src/file-preview/index.ts",
 			"import": "./src/file-preview/index.ts"
 		},
+		"./file-explorer": {
+			"types": "./src/file-explorer/index.ts",
+			"import": "./src/file-explorer/index.ts"
+		},
+		"./downloads": {
+			"types": "./src/downloads/index.ts",
+			"import": "./src/downloads/index.ts"
+		},
+		"./flowing": {
+			"types": "./src/flowing/index.ts",
+			"import": "./src/flowing/index.ts"
+		},
+		"./flowing-chat": {
+			"types": "./src/flowing-chat/index.ts",
+			"import": "./src/flowing-chat/index.ts"
+		},
 		"./knowledge": {
 			"types": "./src/knowledge/index.ts",
 			"import": "./src/knowledge/index.ts"

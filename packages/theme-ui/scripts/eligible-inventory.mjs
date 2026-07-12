@@ -91,6 +91,11 @@ function classify(abs, text, deferrals) {
 	const dataHeavy = hasAtom || hasIpc || hasRouter;
 	const d = deferrals[rel];
 
+	// Explicit non_goal deferral (plugin private host shell, etc.) — even if dataHeavy
+	if (d?.kind === "non_goal") {
+		return { status: "non_goal", rel, lines, reason: d.reason };
+	}
+
 	const isThinReexport =
 		hasTheme && lines <= 45 && !dataHeavy && (/^export \{/.test(text.trim()) || /from ["']@vetta\/theme-ui/.test(text));
 	const isAdapter =

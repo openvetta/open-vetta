@@ -42,6 +42,7 @@
 | 13 | batch-tasks 整域 must_split | done | [13-batch-tasks-split.md](./13-batch-tasks-split.md) |
 | 14 | activity 剩余 + chat 中小 must_split | done | [14-activity-remain-chat.md](./14-activity-remain-chat.md) |
 | 15 | chat 域剩余全部 must_split | done | [15-chat-remainder.md](./15-chat-remainder.md) |
+| 16 | file-explorer / file-preview / downloads / flowing / flowing-chat / plugins | done | [16-files-flowing-plugins.md](./16-files-flowing-plugins.md) |
 | 99 | 最终审计与暂缓清单 | done | [99-final-audit.md](./99-final-audit.md) |
 
 ## 闭合门禁（验收用）

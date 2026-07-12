@@ -43,6 +43,26 @@
     "kind": "host_primitive_hold",
     "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   },
+  "packages/desktop-app/src/renderer/domains/flowing/components/WorkflowBindDialogView.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/plugins/components/PluginActivityTabPanel.tsx": {
+    "kind": "non_goal",
+    "reason": "plugin private host shell / i18n runtime; out of default themable UI"
+  },
+  "packages/desktop-app/src/renderer/domains/plugins/components/PluginGlobalSlotHost.tsx": {
+    "kind": "non_goal",
+    "reason": "plugin private host shell / i18n runtime; out of default themable UI"
+  },
+  "packages/desktop-app/src/renderer/domains/plugins/components/PluginTurnCardHost.tsx": {
+    "kind": "non_goal",
+    "reason": "plugin private host shell / i18n runtime; out of default themable UI"
+  },
+  "packages/desktop-app/src/renderer/domains/plugins/runtime/plugin-i18n.tsx": {
+    "kind": "non_goal",
+    "reason": "plugin private host shell / i18n runtime; out of default themable UI"
+  },
   "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeBasePageView.tsx": {
     "kind": "host_primitive_hold",
     "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
