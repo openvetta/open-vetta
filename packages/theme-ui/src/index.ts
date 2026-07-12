@@ -5,6 +5,7 @@ export * from "./activity";
 export * from "./app-shell";
 export * from "./appearance";
 export * from "./chat";
+export * from "./file-preview";
 export * from "./knowledge";
 export * from "./layout";
 export * from "./overlays";

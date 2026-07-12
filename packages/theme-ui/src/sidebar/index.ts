@@ -20,6 +20,8 @@ export type {
 	SidebarProps,
 	SidebarRegionProps,
 } from "@vetta/theme-sdk/sidebar";
+export type { AddProjectMenuItemProps } from "./AddProjectMenuItem";
+export { AddProjectMenuItem } from "./AddProjectMenuItem";
 export type { DefaultSidebarProps } from "./DefaultSidebar";
 export { DefaultSidebar } from "./DefaultSidebar";
 export type { MessageCenterEmptyStateProps } from "./MessageCenterEmptyState";

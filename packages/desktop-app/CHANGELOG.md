@@ -16,6 +16,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **skeptic2 pure leaves 迁入 theme-ui**：成就 Title/Curtains/Confetti、AddProjectMenuItem、MultiplierTag、PreviewErrorBoundary、SyntaxHighlightedCode、CodePreview（shiki peer）；assets/i18n/clipboard 仍由 desktop adapter 注入。
 - **skeptic pure leaves 补迁 theme-ui**：`InputBarCapsule`、`NewSessionBackground`、`KnowledgeFilesSkeleton`、`SkillToggleSwitch`、`ProjectsPanelSplitHandle`、`SettingsFormFields`、`MacKeyboardPreview`、`CodeBlockCopyButton`（clipboard 状态仍在 desktop）。
 - **DrawerCard / TodoCard 迁入 `@vetta/theme-ui/chat`**：props-driven；Todo 文案经 desktop adapter 注入（保持原硬编码字符串，无新增 i18n key）。
 - **多域 pure 叶子迁入 theme-ui**：`SandboxPermissionCard`、`SendButton`、`CopyIconButton`、`TextPreview`、`SettingsMenuActionButton/Divider`、`MessageCenterEmptyState/ToolbarButton`、`ProjectsPanelEmptyState`、`ActivityPanelFrame`；i18n 经 desktop adapter 注入。

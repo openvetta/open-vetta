@@ -33,12 +33,20 @@ const requiredExports = [
 	"TodoCard",
 	"SandboxPermissionCard",
 	"ActivityPanelFrame",
+	"CodePreview",
 	"KnowledgeFilesSkeleton",
 	"SkillToggleSwitch",
 	"ProjectsPanelSplitHandle",
+	"AddProjectMenuItem",
 	"SelectField",
+	"AchievementTitle",
+	"AchievementCurtains",
+	"AchievementPromotionConfetti",
 	"MacKeyboardPreview",
 	"CodeBlockCopyButtonView",
+	"MultiplierTag",
+	"SyntaxHighlightedCode",
+	"PreviewErrorBoundary",
 ];
 
 const files = await walk(root);
@@ -58,15 +66,24 @@ const indexFiles = {
 	sidebar: await readFile(path.join(root, "sidebar/index.ts"), "utf8"),
 	settings: await readFile(path.join(root, "settings/index.ts"), "utf8"),
 	shared: await readFile(path.join(root, "shared/index.ts"), "utf8"),
+	"file-preview": await readFile(path.join(root, "file-preview/index.ts"), "utf8"),
 };
 const exportHome = {
 	ActivityPanelFrame: "activity",
+	CodePreview: "activity",
 	KnowledgeFilesSkeleton: "knowledge",
 	SkillToggleSwitch: "skills",
 	ProjectsPanelSplitHandle: "sidebar",
+	AddProjectMenuItem: "sidebar",
 	SelectField: "settings",
+	AchievementTitle: "settings",
+	AchievementCurtains: "settings",
+	AchievementPromotionConfetti: "settings",
 	MacKeyboardPreview: "shared",
 	CodeBlockCopyButtonView: "shared",
+	MultiplierTag: "shared",
+	SyntaxHighlightedCode: "shared",
+	PreviewErrorBoundary: "file-preview",
 };
 const missing = requiredExports.filter((name) => {
 	const home = exportHome[name] ?? "chat";

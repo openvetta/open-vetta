@@ -34,7 +34,8 @@
 | 05 | 多域 pure / 可拆 i18n 叶子 | done | [05-pure-leaves.md](./05-pure-leaves.md) |
 | 06 | DrawerCard / TodoCard | done | [06-chat-drawer-todo.md](./06-chat-drawer-todo.md) |
 | 07 | skeptic pure leaves 补迁 | done | [07-skeptic-pure-leaves.md](./07-skeptic-pure-leaves.md) |
-| 99 | 最终审计与暂缓清单 | living | [99-final-audit.md](./99-final-audit.md) |
+| 08 | skeptic2 pure leaves | done | [08-skeptic2-pure-leaves.md](./08-skeptic2-pure-leaves.md) |
+| 99 | 最终审计与暂缓清单 | done | [99-final-audit.md](./99-final-audit.md) |
 
 ## 每批流程（强制）
 
