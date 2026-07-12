@@ -4,6 +4,12 @@ export type {
 } from "./AchievementNavigationButtonView";
 export { AchievementNavigationButtonView } from "./AchievementNavigationButtonView";
 export type {
+	AppshotPermissionStatusView,
+	AppshotSettingsViewLabels,
+	AppshotSettingsViewProps,
+} from "./AppshotSettingsView";
+export { AppshotSettingsView } from "./AppshotSettingsView";
+export type {
 	ArchivedProjectRowView,
 	ArchivedProjectsSettingsViewLabels,
 	ArchivedProjectsSettingsViewProps,
@@ -32,6 +38,8 @@ export type {
 	EnvironmentSettingsViewProps,
 } from "./EnvironmentSettingsView";
 export { EnvironmentSettingsView } from "./EnvironmentSettingsView";
+export type { GeneralSettingsViewLabels, GeneralSettingsViewProps } from "./GeneralSettingsView";
+export { GeneralSettingsView } from "./GeneralSettingsView";
 export type { ImLegacyImportBannerViewProps } from "./ImLegacyImportBannerView";
 export { ImLegacyImportBannerView } from "./ImLegacyImportBannerView";
 export type { ImStatusBadgeStatus, ImStatusBadgeViewProps } from "./ImStatusBadgeView";
