@@ -40,6 +40,7 @@
 | 11 | activity-panel + chat 小 must_split | done | [11-activity-chat-small-split.md](./11-activity-chat-small-split.md) |
 | 12 | activity 中等面板 + chat/shared 徽章 | done | [12-activity-history-badges.md](./12-activity-history-badges.md) |
 | 13 | batch-tasks 整域 must_split | done | [13-batch-tasks-split.md](./13-batch-tasks-split.md) |
+| 14 | activity 剩余 + chat 中小 must_split | done | [14-activity-remain-chat.md](./14-activity-remain-chat.md) |
 | 99 | 最终审计与暂缓清单 | done | [99-final-audit.md](./99-final-audit.md) |
 
 ## 闭合门禁（验收用）

@@ -16,10 +16,23 @@ export type {
 export { BackgroundTasksTabPanelView } from "./BackgroundTasksTabPanelView";
 export type { BatchProgressTabPanelViewProps } from "./BatchProgressTabPanelView";
 export { BatchProgressTabPanelView } from "./BatchProgressTabPanelView";
+export type { BrowserPanelLabels, BrowserPanelViewProps } from "./BrowserPanelView";
+export { BrowserPanelView } from "./BrowserPanelView";
 export type { CodePreviewProps } from "./CodePreview";
 export { CodePreview } from "./CodePreview";
 export type { DebugSubTab, DebugTabPanelViewProps } from "./DebugTabPanelView";
 export { DebugTabPanelView } from "./DebugTabPanelView";
+export type { FileTabContentViewProps } from "./FileTabContentView";
+export { FileTabContentView } from "./FileTabContentView";
+export type {
+	JourneyFileItem,
+	JourneyPanelViewLabels,
+	JourneyPanelViewState,
+	JourneyStageViewItem,
+	JourneyTransferViewItem,
+	JourneyUserIdentity,
+} from "./JourneyPanelView";
+export { JourneyPanelView } from "./JourneyPanelView";
 export type {
 	KnowledgeHistoryPanelViewLabels,
 	KnowledgeHistoryPanelViewProps,
@@ -34,6 +47,14 @@ export type {
 	RequestHistorySubTabViewProps,
 } from "./RequestHistorySubTabView";
 export { RequestHistorySubTabView } from "./RequestHistorySubTabView";
+export type {
+	ScheduleExecutionTabPanelViewLabels,
+	ScheduleExecutionTabPanelViewProps,
+	ScheduleRecordItem,
+	ScheduleSummaryCardItem,
+	ScheduleTaskControlItem,
+} from "./ScheduleExecutionTabPanelView";
+export { ScheduleExecutionTabPanelView } from "./ScheduleExecutionTabPanelView";
 export type { TodoTabPanelViewProps } from "./TodoTabPanelView";
 export { TodoTabPanelView } from "./TodoTabPanelView";
 export type {
