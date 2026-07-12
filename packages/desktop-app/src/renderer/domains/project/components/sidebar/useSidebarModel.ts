@@ -8,7 +8,8 @@ import {
 } from "@shared/store/atoms";
 import { useMatches, useNavigate } from "@tanstack/react-router";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { NavIndicatorBounds, SidebarModel, SidebarNavItem, SidebarProps } from "./types";
 
 const MIN_WIDTH = 160;
@@ -62,6 +63,7 @@ export function useSidebarModel({
 	onCollapse,
 	floating = false,
 }: Pick<SidebarProps, "onCollapse" | "floating">): SidebarModel {
+	const { t } = useTranslation("project");
 	const filter = useAtomValue(sidebarFilterAtom);
 	const navigate = useNavigate();
 	const matches = useMatches();
@@ -116,26 +118,35 @@ export function useSidebarModel({
 	const [width, setWidth] = useAtom(sidebarWidthAtom);
 	const widthRef = useRef(width);
 	widthRef.current = width;
-	const navItems: SidebarNavItem[] = NAV_ITEMS.map((item) => {
-		if (item.type === "new-session") {
-			return {
-				key: item.type,
-				type: item.type,
-				labelKey: item.labelKey,
-				icon: item.icon,
-				active: false,
-				titleLabelKey: item.labelKey,
-			};
-		}
-		return {
-			key: item.path,
-			type: item.type,
-			path: item.path,
-			labelKey: item.labelKey,
-			icon: item.icon,
-			active: isRouteActive(item.path, currentPath),
-		};
-	});
+	// Resolve i18n in the model layer so theme-ui nav item stays props-driven.
+	const navItems: SidebarNavItem[] = useMemo(
+		() =>
+			NAV_ITEMS.map((item) => {
+				const label = t(item.labelKey);
+				if (item.type === "new-session") {
+					return {
+						key: item.type,
+						type: item.type,
+						label,
+						labelKey: item.labelKey,
+						icon: item.icon,
+						active: false,
+						title: label,
+						titleLabelKey: item.labelKey,
+					};
+				}
+				return {
+					key: item.path,
+					type: item.type,
+					path: item.path,
+					label,
+					labelKey: item.labelKey,
+					icon: item.icon,
+					active: isRouteActive(item.path, currentPath),
+				};
+			}),
+		[currentPath, t],
+	);
 	const activeNavIndex = navItems.findIndex((item) => item.active);
 
 	useLayoutEffect(() => {

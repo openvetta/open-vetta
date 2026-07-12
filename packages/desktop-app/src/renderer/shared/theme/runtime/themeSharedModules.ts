@@ -5,6 +5,8 @@ import * as themeSdkRouting from "@vetta/theme-sdk/routing";
 import * as themeSdkStorage from "@vetta/theme-sdk/storage";
 import * as themeSdkUsage from "@vetta/theme-sdk/usage";
 import * as themeUi from "@vetta/theme-ui";
+import * as themeUiAppShell from "@vetta/theme-ui/app-shell";
+import * as themeUiSidebar from "@vetta/theme-ui/sidebar";
 import * as vettaUi from "@vetta/ui";
 import * as MotionReact from "motion/react";
 import * as React from "react";
@@ -25,6 +27,8 @@ const sharedModules = {
 	"@vetta/theme-sdk/storage": { module: themeSdkStorage, version: "0.1.0" },
 	"@vetta/theme-sdk/usage": { module: themeSdkUsage, version: "0.1.0" },
 	"@vetta/theme-ui": { module: themeUi, version: "0.1.0" },
+	"@vetta/theme-ui/app-shell": { module: themeUiAppShell, version: "0.1.0" },
+	"@vetta/theme-ui/sidebar": { module: themeUiSidebar, version: "0.1.0" },
 	"@vetta/ui": { module: vettaUi, version: "0.1.0" },
 	"motion/react": { module: MotionReact, version: "12.23.12" },
 	react: { module: React, version: React.version },
