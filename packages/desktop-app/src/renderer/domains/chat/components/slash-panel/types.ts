@@ -1,4 +1,13 @@
 import type { SkillInfo } from "@preload/api";
+import type {
+	SlashPanelClassNames,
+	SlashPanelLabels,
+	SlashPanelSkillItem,
+	SlashPanelItemModel as ThemeSlashPanelItemModel,
+	SlashPanelViewProps as ThemeSlashPanelViewProps,
+} from "@vetta/theme-ui/chat";
+
+export type { SlashPanelClassNames, SlashPanelLabels, SlashPanelSkillItem };
 
 export interface SlashPanelProps {
 	open: boolean;
@@ -17,41 +26,14 @@ export interface SlashPanelProps {
 	classNames?: SlashPanelClassNames;
 }
 
-export interface SlashPanelClassNames {
-	root?: string;
-	content?: string;
-	header?: string;
-	list?: string;
-	item?: string;
-}
-
-export interface SlashPanelItemModel {
+/** Host keeps full SkillInfo; view only needs the render subset. */
+export interface SlashPanelItemModel extends Omit<ThemeSlashPanelItemModel, "skill"> {
 	skill: SkillInfo;
-	index: number;
-	active: boolean;
-	sourceLabel: string;
 }
 
-export interface SlashPanelLabels {
-	header: string;
-	resultCount: string;
-	emptyNoMatch: string;
-	emptyNoSkills: string;
-	scenesSection: string;
-	skillsSection: string;
-}
-
-export interface SlashPanelViewProps {
-	open: boolean;
-	placement: "top" | "bottom";
-	normalizedFilter: string;
+export interface SlashPanelViewProps
+	extends Omit<ThemeSlashPanelViewProps, "scenes" | "standardSkills" | "onSelectItem"> {
 	scenes: SlashPanelItemModel[];
 	standardSkills: SlashPanelItemModel[];
-	allItemsCount: number;
-	labels: SlashPanelLabels;
-	panelRef: React.RefObject<HTMLDivElement | null>;
-	className?: string;
-	classNames?: SlashPanelClassNames;
-	onHoverItem: (index: number) => void;
 	onSelectItem: (skill: SkillInfo) => void;
 }

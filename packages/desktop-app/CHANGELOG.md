@@ -16,6 +16,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **chat 纯 View 迁入 `@vetta/theme-ui/chat`**：`AtPanelView`、`SlashPanelView`（最小 skill 渲染形状）、`DefaultGuidingWords`；InputBar/MessageList 等大块暂缓。
 - **root overlays 纯 View 迁入 `@vetta/theme-ui/overlays`**：`KnowledgeDropOverlayView`、`UpdateRestartDialogView`；依赖 Dialog/Drawer 的审批/登录等浮层暂缓至 `@vetta/ui` 原语就绪。
 - **sidebar 剩余 props-driven 叶子迁入 `@vetta/theme-ui`**：`RunningPulseDot`、`SessionStatusIcon`、`SidebarUpdateIcon`、`ShowMoreSessionsButton`、`SidebarTopBar`（labels + brandTrailing slot）；desktop 保留 i18n 适配与 `SidebarUpdateButton` 等 connected 组装。
 - **app-shell / sidebar 默认 view 迁入 `@vetta/theme-ui`**：`DefaultPageHeader`、`PageHeader*` 叶子组件、`DefaultWindowControls`、`WindowControlButton`、`DefaultSidebar` shell、`SidebarPanel` / `SidebarNavigation` / `SidebarNavItemButton` 等 props-driven 实现迁至 `theme-ui`；desktop-app 保留 connected 容器（`PageHeader`、`WindowControls`、`Sidebar`）与 model hook。导航文案改在 `useSidebarModel` 解析。`@vetta/desktop-theme-ui/*` 继续 re-export 兼容主题包。

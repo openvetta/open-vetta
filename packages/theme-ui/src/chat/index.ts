@@ -18,6 +18,14 @@ declare module "@vetta/theme-sdk" {
 	}
 }
 
+export type {
+	AtPanelClassNames,
+	AtPanelEntryModel,
+	AtPanelLabels,
+	AtPanelViewProps,
+} from "./AtPanelView";
+export { AtPanelView } from "./AtPanelView";
+export { DefaultGuidingWords } from "./DefaultGuidingWords";
 export type { InputBarBackgroundProps } from "./InputBarBackground";
 export { InputBarBackground } from "./InputBarBackground";
 export type {
@@ -34,3 +42,11 @@ export type {
 	NewSessionSkillItem,
 	NewSessionSkillSelection,
 } from "./NewSession";
+export type {
+	SlashPanelClassNames,
+	SlashPanelItemModel,
+	SlashPanelLabels,
+	SlashPanelSkillItem,
+	SlashPanelViewProps,
+} from "./SlashPanelView";
+export { SlashPanelView } from "./SlashPanelView";
