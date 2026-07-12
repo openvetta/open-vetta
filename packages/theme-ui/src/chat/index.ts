@@ -22,6 +22,8 @@ declare module "@vetta/theme-sdk" {
 	}
 }
 
+export type { ActionButtonBarItem, ActionButtonBarViewProps } from "./ActionButtonBarView";
+export { ActionButtonBarView } from "./ActionButtonBarView";
 export type {
 	AtPanelClassNames,
 	AtPanelEntryModel,
@@ -87,3 +89,7 @@ export type { TextPreviewLabels, TextPreviewProps } from "./TextPreview";
 export { TextPreview } from "./TextPreview";
 export type { TodoCardItem, TodoCardLabels, TodoCardProps } from "./TodoCard";
 export { TodoCard } from "./TodoCard";
+export type { UsageBarViewProps } from "./UsageBarView";
+export { UsageBarView } from "./UsageBarView";
+export type { WriteContentViewProps } from "./WriteContentView";
+export { WriteContentView } from "./WriteContentView";
