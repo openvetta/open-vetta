@@ -1,17 +1,17 @@
 import { useMemo, useState } from "react";
-import { Switch } from "../../../components/ui/switch";
+import {
+	ApprovalImpactCard,
+	ApprovalSettingGroup,
+	ApprovalSettingRow,
+} from "@vetta/theme-ui/action-approval";
+import { Switch } from "@vetta/ui";
 import { type ActiveActionApproval, useActionApproval } from "../../useActionApproval";
 import {
 	experimentalFieldLabel,
 	isExperimentalFieldKey,
 	type ExperimentalFieldKey,
 } from "../../approvalCopy";
-import {
-	ApprovalImpactCard,
-	ApprovalRawFallback,
-	ApprovalSettingGroup,
-	ApprovalSettingRow,
-} from "../ApprovalParts";
+import { ApprovalRawFallback } from "../ApprovalParts";
 import { useManageApprovalFrame } from "../useManageApprovalShell";
 
 interface InputData {
