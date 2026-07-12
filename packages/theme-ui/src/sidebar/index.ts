@@ -52,6 +52,8 @@ export type {
 export { MessageCenterTabs } from "./MessageCenterTabs";
 export type { MessageCenterToolbarButtonProps } from "./MessageCenterToolbarButton";
 export { MessageCenterToolbarButton } from "./MessageCenterToolbarButton";
+export type { MessageCenterTriggerViewProps } from "./MessageCenterTriggerView";
+export { MessageCenterTriggerView } from "./MessageCenterTriggerView";
 export type {
 	NotificationMessageListItemView,
 	NotificationMessageListViewProps,
@@ -81,6 +83,11 @@ export type { SettingsMenuTriggerViewProps } from "./SettingsMenuTriggerView";
 export { SettingsMenuTriggerView } from "./SettingsMenuTriggerView";
 export type { ShowMoreSessionsButtonLabels, ShowMoreSessionsButtonProps } from "./ShowMoreSessionsButton";
 export { ShowMoreSessionsButton } from "./ShowMoreSessionsButton";
+export type {
+	SidebarFilterSelectOption,
+	SidebarFilterSelectViewProps,
+} from "./SidebarFilterSelectView";
+export { SidebarFilterSelectView } from "./SidebarFilterSelectView";
 export type { SidebarNavItemButtonProps } from "./SidebarNavItemButton";
 export { SidebarNavItemButton } from "./SidebarNavItemButton";
 export type { SidebarNavigationProps } from "./SidebarNavigation";

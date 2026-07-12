@@ -1,4 +1,4 @@
-import { Button } from "@shared/components/ui/button";
+import { ChatHeaderActionsView as ThemeChatHeaderActionsView } from "@vetta/theme-ui/chat";
 import { BackgroundTasksBadge } from "../BackgroundTasksBadge";
 import { SandboxGrantsBadge } from "../SandboxGrantsBadge";
 import type { ChatViewActions, ChatViewHeaderModel } from "./types";
@@ -10,54 +10,26 @@ interface ChatHeaderActionsViewProps {
 
 export function ChatHeaderActionsView({ actions, model }: ChatHeaderActionsViewProps): JSX.Element {
 	return (
-		<>
-			<BackgroundTasksBadge />
-			<SandboxGrantsBadge />
-			<Button
-				size="icon-xs"
-				variant="ghost"
-				title={model.exportTitle}
-				disabled={model.exportDisabled}
-				onClick={actions.openExport}
-			>
-				<span
-					className={
-						model.exporting
-							? "icon-[mdi--loading] animate-spin text-[14px]"
-							: "icon-[solar--square-share-line-linear] text-[14px]"
-					}
-				/>
-			</Button>
-			{model.isLastStage ? (
-				<Button
-					size="sm"
-					className="rounded-full bg-emerald-600 hover:bg-emerald-700"
-					onClick={actions.openWorkflowComplete}
-				>
-					<span className="icon-[solar--check-circle-linear] text-[14px]" />
-					<span>{model.completeLabel}</span>
-				</Button>
-			) : null}
-			<Button
-				size="icon-xs"
-				variant="ghost"
-				title={model.pinTitle}
-				onClick={actions.togglePin}
-				className={model.pinned ? "bg-accent text-foreground" : ""}
-			>
-				<span
-					className={`${model.pinned ? "icon-[solar--pin-bold]" : "icon-[solar--pin-linear]"} text-[14px]`}
-				/>
-			</Button>
-			<Button
-				size="icon-xs"
-				variant="ghost"
-				title={model.panelTitle}
-				onClick={actions.togglePanel}
-				className={model.panelOpen ? "bg-accent text-foreground" : ""}
-			>
-				<span className="icon-[solar--sidebar-minimalistic-linear] -scale-x-100 text-[14px]" />
-			</Button>
-		</>
+		<ThemeChatHeaderActionsView
+			badges={
+				<>
+					<BackgroundTasksBadge />
+					<SandboxGrantsBadge />
+				</>
+			}
+			exportTitle={model.exportTitle}
+			exportDisabled={model.exportDisabled}
+			exporting={model.exporting}
+			onOpenExport={actions.openExport}
+			isLastStage={model.isLastStage}
+			completeLabel={model.completeLabel}
+			onOpenWorkflowComplete={actions.openWorkflowComplete}
+			pinTitle={model.pinTitle}
+			pinned={model.pinned}
+			onTogglePin={actions.togglePin}
+			panelTitle={model.panelTitle}
+			panelOpen={model.panelOpen}
+			onTogglePanel={actions.togglePanel}
+		/>
 	);
 }

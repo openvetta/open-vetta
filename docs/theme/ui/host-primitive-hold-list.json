@@ -1,5 +1,5 @@
 {
-  "total": 76,
+  "total": 72,
   "byDomain": {
     "action-approval": [
       "packages/desktop-app/src/renderer/shared/action-approval/appearance/AppearanceApprovalDrawerView.tsx",
@@ -26,7 +26,6 @@
       "packages/desktop-app/src/renderer/domains/batch-tasks/components/BatchProjectDialogView.tsx"
     ],
     "chat": [
-      "packages/desktop-app/src/renderer/domains/chat/components/chat-view/ChatHeaderActionsView.tsx",
       "packages/desktop-app/src/renderer/domains/chat/components/execution-mode-selector/ExecutionModeSelectorView.tsx",
       "packages/desktop-app/src/renderer/domains/chat/components/model-selector/ModelSelectorView.tsx",
       "packages/desktop-app/src/renderer/domains/chat/components/question-panel/QuestionPanelView.tsx"
@@ -46,7 +45,6 @@
       "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeBaseListPageView.tsx",
       "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeBasePageView.tsx",
       "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeBaseSwitcherView.tsx",
-      "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeBreadcrumb.tsx",
       "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeImportDialog.tsx",
       "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgePendingFilesDialog.tsx",
       "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeRenameDialog.tsx",
@@ -54,9 +52,7 @@
     ],
     "project": [
       "packages/desktop-app/src/renderer/domains/project/components/sidebar/filters/FilterSelectPopover.tsx",
-      "packages/desktop-app/src/renderer/domains/project/components/sidebar/filters/SidebarFilterSelectView.tsx",
       "packages/desktop-app/src/renderer/domains/project/components/sidebar/message-center/MessageCenterDialog.tsx",
-      "packages/desktop-app/src/renderer/domains/project/components/sidebar/message-center/MessageCenterTrigger.tsx",
       "packages/desktop-app/src/renderer/domains/project/components/sidebar/settings-menu/SettingsMenuPopover.tsx"
     ],
     "scheduler": [
@@ -184,11 +180,6 @@
       "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
-      "path": "packages/desktop-app/src/renderer/domains/chat/components/chat-view/ChatHeaderActionsView.tsx",
-      "domain": "chat",
-      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
-    },
-    {
       "path": "packages/desktop-app/src/renderer/domains/chat/components/execution-mode-selector/ExecutionModeSelectorView.tsx",
       "domain": "chat",
       "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
@@ -254,11 +245,6 @@
       "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
-      "path": "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeBreadcrumb.tsx",
-      "domain": "knowledge-base",
-      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
-    },
-    {
       "path": "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeImportDialog.tsx",
       "domain": "knowledge-base",
       "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
@@ -284,17 +270,7 @@
       "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
     {
-      "path": "packages/desktop-app/src/renderer/domains/project/components/sidebar/filters/SidebarFilterSelectView.tsx",
-      "domain": "project",
-      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
-    },
-    {
       "path": "packages/desktop-app/src/renderer/domains/project/components/sidebar/message-center/MessageCenterDialog.tsx",
-      "domain": "project",
-      "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
-    },
-    {
-      "path": "packages/desktop-app/src/renderer/domains/project/components/sidebar/message-center/MessageCenterTrigger.tsx",
       "domain": "project",
       "reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
     },
