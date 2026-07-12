@@ -129,3 +129,9 @@ export type {
 	WebhookEndpointRowView,
 } from "./WebhookEndpointListView";
 export { WebhookEndpointListView } from "./WebhookEndpointListView";
+export type {
+	WechatBindDialogBodyKind,
+	WechatBindDialogViewLabels,
+	WechatBindDialogViewProps,
+} from "./WechatBindDialogView";
+export { WechatBindDialogView } from "./WechatBindDialogView";

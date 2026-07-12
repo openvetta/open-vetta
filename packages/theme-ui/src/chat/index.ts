@@ -75,6 +75,11 @@ export type {
 } from "./EditDiffView";
 export { DiffPreviewView, EditTextFallbackView } from "./EditDiffView";
 export type {
+	ExecutionModeOptionView,
+	ExecutionModeSelectorViewProps,
+} from "./ExecutionModeSelectorView";
+export { ExecutionModeSelectorView } from "./ExecutionModeSelectorView";
+export type {
 	GuideBadgeSwiperViewLabels,
 	GuideBadgeSwiperViewProps,
 	GuideBadgeViewItem,
