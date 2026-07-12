@@ -16,6 +16,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **theme-ui 迁移台账收尾**：`docs/theme/ui` 记录 settings/其它域扫描结果——剩余 View 依赖 SettingSection/Dialog 等 host 原语，显式暂缓；见 `04-settings-and-others.md` 与 `99-final-audit.md`。
 - **chat 纯 View 迁入 `@vetta/theme-ui/chat`**：`AtPanelView`、`SlashPanelView`（最小 skill 渲染形状）、`DefaultGuidingWords`；InputBar/MessageList 等大块暂缓。
 - **root overlays 纯 View 迁入 `@vetta/theme-ui/overlays`**：`KnowledgeDropOverlayView`、`UpdateRestartDialogView`；依赖 Dialog/Drawer 的审批/登录等浮层暂缓至 `@vetta/ui` 原语就绪。
 - **sidebar 剩余 props-driven 叶子迁入 `@vetta/theme-ui`**：`RunningPulseDot`、`SessionStatusIcon`、`SidebarUpdateIcon`、`ShowMoreSessionsButton`、`SidebarTopBar`（labels + brandTrailing slot）；desktop 保留 i18n 适配与 `SidebarUpdateButton` 等 connected 组装。
