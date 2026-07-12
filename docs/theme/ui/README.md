@@ -62,6 +62,7 @@
 | 33 | hold 小组件迁 theme-ui（10 条） | done | [33-hold-wave-small.md](./33-hold-wave-small.md) |
 | 34 | hold 中等组件迁 theme-ui（4 条） | done | [34-hold-wave-medium.md](./34-hold-wave-medium.md) |
 | 35 | approval/chat/scheduler/wechat 脱 hold | done | [35-hold-wave-approval-chat.md](./35-hold-wave-approval-chat.md) |
+| 36 | approval frames / navigation / task 脱 hold | done | [36-hold-wave-approval-frames.md](./36-hold-wave-approval-frames.md) |
 | 99 | 最终审计与暂缓清单 | done | [99-final-audit.md](./99-final-audit.md) |
 
 ## 闭合门禁（验收用）

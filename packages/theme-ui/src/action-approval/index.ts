@@ -39,6 +39,8 @@ export type {
 	BatchTasksExecutionStatusCount,
 } from "./BatchTasksExecutionApprovalView";
 export { BatchTasksExecutionApprovalView } from "./BatchTasksExecutionApprovalView";
+export type { BatchTasksTaskApprovalViewProps } from "./BatchTasksTaskApprovalView";
+export { BatchTasksTaskApprovalView } from "./BatchTasksTaskApprovalView";
 export type {
 	ExecutionModeOption,
 	GeneralSetExecutionModeApprovalViewProps,
@@ -54,6 +56,22 @@ export type {
 	ManageActionApprovalFrameLabels,
 	ManageActionApprovalFrameProps,
 } from "./ManageActionApprovalFrameTypes";
+export type {
+	ManageActionApprovalFrameViewLabels,
+	ManageActionApprovalFrameViewProps,
+} from "./ManageActionApprovalFrameView";
+export { ManageActionApprovalFrameView } from "./ManageActionApprovalFrameView";
+export type {
+	NavigationOpenApprovalField,
+	NavigationOpenApprovalViewLabels,
+	NavigationOpenApprovalViewProps,
+} from "./NavigationOpenApprovalView";
+export { NavigationOpenApprovalView } from "./NavigationOpenApprovalView";
+export type {
+	SchedulerEditApprovalDrawerViewLabels,
+	SchedulerEditApprovalDrawerViewProps,
+} from "./SchedulerEditApprovalDrawerView";
+export { SchedulerEditApprovalDrawerView } from "./SchedulerEditApprovalDrawerView";
 export type { SchedulerUpdateApprovalViewProps } from "./SchedulerUpdateApprovalView";
 export { SchedulerUpdateApprovalView } from "./SchedulerUpdateApprovalView";
 export type { ThemeChangeApprovalViewProps } from "./ThemeChangeApprovalView";
