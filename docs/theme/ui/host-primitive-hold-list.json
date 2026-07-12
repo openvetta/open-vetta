@@ -1,5 +1,5 @@
 {
-  "total": 91,
+  "total": 90,
   "byDomain": {
     "action-approval": [
       "packages/desktop-app/src/renderer/shared/action-approval/appearance/AppearanceApprovalDrawerView.tsx",
@@ -65,7 +65,6 @@
       "packages/desktop-app/src/renderer/domains/scheduler/components/TaskFormDialogView.tsx"
     ],
     "settings": [
-      "packages/desktop-app/src/renderer/domains/settings/ai-assist/SettingsAiAssistButton.tsx",
       "packages/desktop-app/src/renderer/domains/settings/ai-assist/SettingsAiAssistDialog.tsx",
       "packages/desktop-app/src/renderer/domains/settings/components/AccountSettingsView.tsx",
       "packages/desktop-app/src/renderer/domains/settings/components/AchievementNavigationButton.tsx",
@@ -331,11 +330,6 @@
     {
       "path": "packages/desktop-app/src/renderer/domains/scheduler/components/TaskFormDialogView.tsx",
       "domain": "scheduler",
-      "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
-    },
-    {
-      "path": "packages/desktop-app/src/renderer/domains/settings/ai-assist/SettingsAiAssistButton.tsx",
-      "domain": "settings",
       "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
     },
     {

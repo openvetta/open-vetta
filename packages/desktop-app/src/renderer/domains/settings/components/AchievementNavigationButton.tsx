@@ -1,5 +1,5 @@
 import { Button } from "@shared/components/ui/button";
-import { cn } from "@shared/lib/utils";
+import { AchievementNavigationButtonView } from "@vetta/theme-ui/settings";
 import { ACHIEVEMENT_UI_ASSETS } from "../achievement-ui-assets";
 
 interface AchievementNavigationButtonProps {
@@ -15,67 +15,26 @@ export function AchievementNavigationButton({
 	label,
 	onClick,
 }: AchievementNavigationButtonProps): JSX.Element {
-	const previous = direction === "previous";
-
 	return (
-		<Button
-			variant="ghost"
+		<AchievementNavigationButtonView
 			disabled={disabled}
-			aria-label={label}
-			title={label}
-			className={cn(
-				"absolute top-1/2 z-30 h-[120px] w-[60px] rounded-none border-0 bg-transparent p-0 hover:bg-transparent disabled:opacity-100",
-				previous ? "left-16" : "right-16",
-			)}
-			style={{
-				transform: "translateY(-50%)",
-				pointerEvents: "auto",
-				cursor: disabled ? "default" : "pointer",
-			}}
+			direction={direction}
+			label={label}
 			onClick={onClick}
-		>
-			<img
-				aria-hidden="true"
-				alt=""
-				draggable={false}
-				src={ACHIEVEMENT_UI_ASSETS.navigation.activeBackground}
-				className={cn(
-					"pointer-events-none absolute inset-0 h-full w-full object-contain transition-opacity duration-150",
-					disabled ? "opacity-0" : "opacity-100",
-				)}
-			/>
-			<img
-				aria-hidden="true"
-				alt=""
-				draggable={false}
-				src={ACHIEVEMENT_UI_ASSETS.navigation.disabledBackground}
-				className={cn(
-					"pointer-events-none absolute inset-0 h-full w-full object-contain transition-opacity duration-150",
-					disabled ? "opacity-100" : "opacity-0",
-				)}
-			/>
-			<img
-				aria-hidden="true"
-				alt=""
-				draggable={false}
-				src={ACHIEVEMENT_UI_ASSETS.navigation.activeArrow}
-				className={cn(
-					"pointer-events-none relative z-10 w-10 object-contain transition-opacity duration-150",
-					previous && "rotate-180",
-					disabled ? "opacity-0" : "opacity-100",
-				)}
-			/>
-			<img
-				aria-hidden="true"
-				alt=""
-				draggable={false}
-				src={ACHIEVEMENT_UI_ASSETS.navigation.disabledArrow}
-				className={cn(
-					"pointer-events-none absolute left-1/2 top-1/2 z-10 w-10 -translate-x-1/2 -translate-y-1/2 object-contain transition-opacity duration-150",
-					previous && "rotate-180",
-					disabled ? "opacity-100" : "opacity-0",
-				)}
-			/>
-		</Button>
+			assets={ACHIEVEMENT_UI_ASSETS.navigation}
+			renderControl={({ disabled: d, label: l, onClick: oc, className, style, children }) => (
+				<Button
+					variant="ghost"
+					disabled={d}
+					aria-label={l}
+					title={l}
+					className={className}
+					style={style}
+					onClick={oc}
+				>
+					{children}
+				</Button>
+			)}
+		/>
 	);
 }

@@ -2,7 +2,7 @@
 
 ## 状态
 
-**in_progress**（Phase α 盘点 + Phase β 首刀漏拆）
+**done**（Phase α 盘点 + Phase β 漏拆 + 门禁 host chrome；γ 见 [24-phase-gamma-path.md](./24-phase-gamma-path.md)）
 
 ## 为何 open=0 不是「全部迁完」
 
@@ -50,7 +50,7 @@
 | pet/*、onboarding/*、quickpanel/* | **non_goal** | 边界 2 可延后 |
 | plugins/* | **non_goal** | 已 defer |
 | ThemeRuntimeProvider、ThemePageRoute | **真壳** | theme 运行时，permanent |
-| **FlowingMessageList** | **漏拆** | 默认 UI 混态 → Phase β 已拆 |
+| **FlowingMessageList** | **漏拆→已修** | `useFlowingMessageListModel` + theme-ui View（**不撤回** Batch23） |
 
 ### pure 无 theme 且未 defer（survey 提示）
 

@@ -183,10 +183,6 @@
     "kind": "permanent_desktop",
     "reason": "Connected shell / host entry: AI assist button + dialog host assembler"
   },
-  "packages/desktop-app/src/renderer/domains/settings/ai-assist/SettingsAiAssistButton.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
-  },
   "packages/desktop-app/src/renderer/domains/settings/ai-assist/SettingsAiAssistDialog.tsx": {
     "kind": "host_primitive_hold",
     "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
