@@ -16,6 +16,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **project 域 must_split 清空并迁入 `@vetta/theme-ui/project`**：侧栏 Project/Session 行与列表、ContextMenu、ProjectsPanel、Schedule/BatchQueue 状态、ProjectDetailPage 等拆为 model + props-driven View；FilterSelect 保留 host Popover（`host_primitive_hold`）；DetailPage 以 slots 挂载 batch/flowing/activity/dialog。见 `docs/theme/ui/17-project-split.md`。
 - **theme-ui 迁移闭合门禁**：新增 `eligible-inventory.mjs` + `docs/theme/ui/deferrals.json` 逐路径 deferral；SettingsMenu 账号/下载/设置/主题/配额段与 MessageCenterTabs 迁入 props-driven view。
 - **skeptic2 pure leaves 迁入 theme-ui**：成就 Title/Curtains/Confetti、AddProjectMenuItem、MultiplierTag、PreviewErrorBoundary、SyntaxHighlightedCode、CodePreview（shiki peer）；assets/i18n/clipboard 仍由 desktop adapter 注入。
 - **skeptic pure leaves 补迁 theme-ui**：`InputBarCapsule`、`NewSessionBackground`、`KnowledgeFilesSkeleton`、`SkillToggleSwitch`、`ProjectsPanelSplitHandle`、`SettingsFormFields`、`MacKeyboardPreview`、`CodeBlockCopyButton`（clipboard 状态仍在 desktop）。

@@ -1,15 +1,15 @@
-import { useAtom } from "jotai";
-import { useCallback, useRef, useState } from "react";
 import {
 	clampSidebarProjectsSplitRatio,
 	persistSidebarProjectsSplitRatio,
 	sidebarProjectsSplitRatioAtom,
 } from "@shared/store/atoms";
-import { ProjectsPanelEmptyState } from "./ProjectsPanelEmptyState";
-import { ProjectGroupsSection } from "./ProjectGroupsSection";
+import { ProjectsPanelView } from "@vetta/theme-ui/project";
+import { useAtom } from "jotai";
+import { useCallback, useRef, useState } from "react";
 import { DefaultConversationSection } from "./DefaultConversationSection";
+import { ProjectGroupsSection } from "./ProjectGroupsSection";
+import { ProjectsPanelEmptyState } from "./ProjectsPanelEmptyState";
 import { ProjectsPanelMenus } from "./ProjectsPanelMenus";
-import { ProjectsPanelSplitHandle } from "./ProjectsPanelSplitHandle";
 import { useProjectsPanelModel } from "./useProjectsPanelModel";
 import type { ProjectsPanelProps } from "./types";
 
@@ -19,7 +19,6 @@ export function ProjectsPanel(props: ProjectsPanelProps): JSX.Element {
 	const splitRatioRef = useRef(splitRatio);
 	splitRatioRef.current = splitRatio;
 	const splitContainerRef = useRef<HTMLDivElement>(null);
-	// 用 state 而非 ref：scroll parent 挂载后触发子树重渲染，Virtuoso 才能拿到 customScrollParent。
 	const [projectsScrollEl, setProjectsScrollEl] = useState<HTMLDivElement | null>(null);
 
 	const showProjectsRegion =
@@ -32,7 +31,6 @@ export function ProjectsPanel(props: ProjectsPanelProps): JSX.Element {
 		(deltaY: number) => {
 			const container = splitContainerRef.current;
 			if (!container) return;
-			// 分隔条本身占高；比例只作用于上下两区剩余高度。
 			const contentHeight = container.clientHeight - 8;
 			if (contentHeight <= 0) return;
 			setSplitRatio((prev) => clampSidebarProjectsSplitRatio(prev + deltaY / contentHeight));
@@ -59,48 +57,20 @@ export function ProjectsPanel(props: ProjectsPanelProps): JSX.Element {
 		) : null;
 
 	return (
-		<div className="flex min-h-0 flex-1 flex-col overflow-hidden px-1.5 py-0.5">
-			{showEmpty && (
-				<div className="min-h-0 flex-1 overflow-y-auto no-scrollbar">
-					<ProjectsPanelEmptyState />
-				</div>
-			)}
-
-			{showSplit ? (
-				<div ref={splitContainerRef} className="flex min-h-0 flex-1 flex-col overflow-hidden">
-					<div
-						ref={setProjectsScrollEl}
-						className="min-h-0 overflow-y-auto no-scrollbar"
-						style={{ flex: `${splitRatio} 1 0%` }}
-					>
-						<ProjectGroupsSection model={model} scrollParent={projectsScrollEl} />
-					</div>
-					<ProjectsPanelSplitHandle
-						onResize={handleSplitResize}
-						onResizeEnd={handleSplitResizeEnd}
-					/>
-					{/* 外层只负责分区高度，header/列表滚动由 DefaultConversationSection 内部处理 */}
-					<div className="flex min-h-0 flex-col overflow-hidden" style={{ flex: `${1 - splitRatio} 1 0%` }}>
-						{defaultSection}
-					</div>
-				</div>
-			) : (
-				<>
-					{showProjectsRegion && (
-						<div
-							ref={setProjectsScrollEl}
-							className="min-h-0 flex-1 overflow-y-auto no-scrollbar"
-						>
-							<ProjectGroupsSection model={model} scrollParent={projectsScrollEl} />
-						</div>
-					)}
-					{showDefaultRegion && (
-						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{defaultSection}</div>
-					)}
-				</>
-			)}
-
-			<ProjectsPanelMenus model={model} />
-		</div>
+		<ProjectsPanelView
+			defaultSection={defaultSection}
+			emptyState={<ProjectsPanelEmptyState />}
+			menus={<ProjectsPanelMenus model={model} />}
+			onProjectsScrollRef={setProjectsScrollEl}
+			onSplitResize={handleSplitResize}
+			onSplitResizeEnd={handleSplitResizeEnd}
+			projectsSection={<ProjectGroupsSection model={model} scrollParent={projectsScrollEl} />}
+			showDefaultRegion={showDefaultRegion}
+			showEmpty={showEmpty}
+			showProjectsRegion={showProjectsRegion}
+			showSplit={showSplit}
+			splitContainerRef={splitContainerRef}
+			splitRatio={splitRatio}
+		/>
 	);
 }

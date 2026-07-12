@@ -1,0 +1,84 @@
+import { AnimatePresence, motion } from "motion/react";
+import type { JSX, ReactNode } from "react";
+import { Virtuoso } from "react-virtuoso";
+import { ShowMoreSessionsButton } from "../sidebar/ShowMoreSessionsButton";
+import {
+	VIRTUAL_SESSION_OVERSCAN,
+	VIRTUAL_SESSION_ROW_HEIGHT,
+} from "./types";
+
+export interface ProjectSessionsViewItem {
+	key: string;
+}
+
+export interface ProjectSessionsViewLabels {
+	collapse: string;
+	expand: string;
+}
+
+export interface ProjectSessionsViewProps<T extends ProjectSessionsViewItem> {
+	empty: ReactNode;
+	expanded: boolean;
+	hasMore: boolean;
+	labels: ProjectSessionsViewLabels;
+	onToggleShowAll: () => void;
+	/** Scroll parent for Virtuoso when showAll. */
+	scrollParent: HTMLElement | null;
+	sessions: readonly T[];
+	showAll: boolean;
+	renderSession: (session: T) => ReactNode;
+}
+
+export function ProjectSessionsView<T extends ProjectSessionsViewItem>({
+	empty,
+	expanded,
+	hasMore,
+	labels,
+	onToggleShowAll,
+	scrollParent,
+	sessions,
+	showAll,
+	renderSession,
+}: ProjectSessionsViewProps<T>): JSX.Element {
+	const useVirtual = showAll && sessions.length > 0 && scrollParent != null;
+
+	return (
+		<AnimatePresence initial={false}>
+			{expanded && (
+				<motion.div
+					key="sessions"
+					initial={{ height: 0, opacity: 0 }}
+					animate={{ height: "auto", opacity: 1 }}
+					exit={{ height: 0, opacity: 0 }}
+					transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
+					style={{ overflow: "hidden" }}
+				>
+					<div className="mt-px space-y-px">
+						{sessions.length === 0 ? (
+							empty
+						) : useVirtual ? (
+							<Virtuoso
+								customScrollParent={scrollParent}
+								data={sessions as T[]}
+								defaultItemHeight={VIRTUAL_SESSION_ROW_HEIGHT}
+								overscan={VIRTUAL_SESSION_OVERSCAN}
+								itemContent={(_, session) => (
+									<div className="pb-px">{renderSession(session)}</div>
+								)}
+							/>
+						) : (
+							sessions.map((session) => renderSession(session))
+						)}
+						{hasMore && (
+							<ShowMoreSessionsButton
+								labels={labels}
+								onClick={onToggleShowAll}
+								showAll={showAll}
+							/>
+						)}
+					</div>
+				</motion.div>
+			)}
+		</AnimatePresence>
+	);
+}
