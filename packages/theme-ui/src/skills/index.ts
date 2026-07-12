@@ -1,5 +1,7 @@
 export type { PluginCardViewModel, PluginCardViewProps } from "./PluginCardView";
 export { PluginCardView } from "./PluginCardView";
+export type { SceneCardViewLabels, SceneCardViewProps } from "./SceneCardView";
+export { SceneCardView } from "./SceneCardView";
 export type {
 	SkillCardSkillView,
 	SkillCardViewLabels,
