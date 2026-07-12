@@ -2,6 +2,10 @@
 @import "@vetta/theme-ui/styles.css";
 @plugin "@iconify/tailwind4";
 
+/* Scan official theme UI package so utilities / iconify classes in migrated
+   components (e.g. window minimize/maximize icons) are generated. */
+@source "../../../theme-ui/src/**/*.{ts,tsx}";
+
 @custom-variant dark (&:is([data-mode="dark"] *));
 
 /* ─── Dark mode (default) ─── */

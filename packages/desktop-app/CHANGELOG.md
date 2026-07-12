@@ -16,6 +16,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **app-shell / sidebar 默认 view 迁入 `@vetta/theme-ui`**：`DefaultPageHeader`、`PageHeader*` 叶子组件、`DefaultWindowControls`、`WindowControlButton`、`DefaultSidebar` shell、`SidebarPanel` / `SidebarNavigation` / `SidebarNavItemButton` 等 props-driven 实现迁至 `theme-ui`；desktop-app 保留 connected 容器（`PageHeader`、`WindowControls`、`Sidebar`）与 model hook。导航文案改在 `useSidebarModel` 解析。`@vetta/desktop-theme-ui/*` 继续 re-export 兼容主题包。
 - **重构并移除含糊的 `settings` App Action 域**：按设置页 IA 落域——界面语言在 `appearance.theme`（`set-language`）；工作区/通知/默认执行模式为 `general.query` / `general.manage`；Agent 实验开关为 `agent.query` / `agent.manage set-experimental`；知识库加工为 `knowledge.*`。审批 presentation 与 i18n 同步为 `general.*` / `agent.*`，不再注册 `settings.*`。
 - **UI 主题 `appearance.colorScheme` 联动显示模式**：激活声明了 `colorScheme: "light" | "dark"` 的主题时，host 通过既有 `setMode`（与设置页亮暗切换同一路径）同步显示模式。修仙主题声明 `light`，切入即亮色。
 - **设置页 AI 协助：用户气泡只显示意图 + 页面对应标签**：操作说明经 `metadata.settingsAssistInstruction` 以 `display:false` 注入；气泡上方展示固定文案徽章（如「MCP配置协助」「模型配置协助」），无悬停说明；`settingsAssistTabId` 随 metadata 持久化，历史回放经 `settings_assist_marker` 恢复。
@@ -32,6 +33,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **窗口控件最小化/最大化图标无颜色**：app-shell 迁入 `@vetta/theme-ui` 后，`icon-[mdi--window-*]` 仅出现在 theme-ui 源码中，desktop-app Tailwind 未扫描导致 iconify 类未生成（关闭按钮仍可用因其它处仍引用 `mdi--close`）。在 `styles.css` 增加对 `theme-ui/src` 的 `@source`。
 - **设置项 SettingRow 始终左右布局**：去掉 `@max-xl:flex-col` 等窄宽竖排逻辑；标题区可收缩，控件固定在右侧，不再上下堆叠。
 - **知识库「整理用哪个模型」标题被压成单字竖列**：该行右侧用 `flex-wrap` + `basis-full` 警告会撑满整行宽度，左侧 `min-w-0` 被挤到近乎 0。改为控件与警告纵向 `items-end` 排列，SettingRow 标题 `truncate`、右侧 `max-w` 上限。
 - **新会话首条消息前标题/侧栏误显示「未命名会话」**：`openSession` 后 listSessions 常先写入空 name + `(no messages)` 占位；用户发出首条 prompt 时 `ensureLocalSession` 因 path 已存在而跳过，且 `loadSessions` 只兜底 name 不兜底 firstMessage，乐观的用户文案被冲掉。现 `ensureLocalSession` 会在展示名仍为空时补齐 firstMessage，`loadSessions` 合并时同样保留可用的乐观 firstMessage，直至 auto-title 或磁盘真实 name 生效。

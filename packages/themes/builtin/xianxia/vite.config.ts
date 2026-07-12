@@ -26,6 +26,8 @@ export default defineConfig({
 				"@vetta/theme-sdk/storage": { singleton: true, import: false, requiredVersion: "*" },
 				"@vetta/theme-sdk/usage": { singleton: true, import: false, requiredVersion: "*" },
 				"@vetta/theme-ui": { singleton: true, import: false, requiredVersion: "*" },
+				"@vetta/theme-ui/app-shell": { singleton: true, import: false, requiredVersion: "*" },
+				"@vetta/theme-ui/sidebar": { singleton: true, import: false, requiredVersion: "*" },
 				"@vetta/ui": { singleton: true, import: false, requiredVersion: "*" },
 				"motion/react": { singleton: true, import: false, requiredVersion: "*" },
 				react: { singleton: true, import: false, requiredVersion: "*" },

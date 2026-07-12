@@ -1,15 +1,12 @@
-import type { SidebarNavItemButton } from "@domains/project/components/sidebar/SidebarNavItemButton";
-import type { SidebarNavigationProps } from "@domains/project/components/sidebar/SidebarNavigation";
+import type { SidebarNavItemButton, SidebarNavigationProps } from "@vetta/theme-ui/sidebar";
 import type { ComponentType } from "react";
 
-export type { SidebarNavItemButtonProps } from "@domains/project/components/sidebar/SidebarNavItemButton";
-export { SidebarNavItemButton } from "@domains/project/components/sidebar/SidebarNavItemButton";
-export type { SidebarNavigationProps } from "@domains/project/components/sidebar/SidebarNavigation";
-export { SidebarNavigation } from "@domains/project/components/sidebar/SidebarNavigation";
 export type {
 	NavIndicatorBounds,
 	SidebarNavItem,
-} from "@domains/project/components/sidebar/types";
+} from "@vetta/theme-sdk/sidebar";
+export type { SidebarNavItemButtonProps, SidebarNavigationProps } from "@vetta/theme-ui/sidebar";
+export { SidebarNavItemButton, SidebarNavigation } from "@vetta/theme-ui/sidebar";
 
 declare module "@vetta/theme-sdk" {
 	interface ThemeComponentRegistry {

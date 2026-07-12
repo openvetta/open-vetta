@@ -17,6 +17,10 @@
 			"types": "./src/app/index.ts",
 			"import": "./src/app/index.ts"
 		},
+		"./app-shell": {
+			"types": "./src/app-shell/index.ts",
+			"import": "./src/app-shell/index.ts"
+		},
 		"./chat": {
 			"types": "./src/chat/index.ts",
 			"import": "./src/chat/index.ts"
@@ -24,6 +28,10 @@
 		"./layout": {
 			"types": "./src/layout/index.ts",
 			"import": "./src/layout/index.ts"
+		},
+		"./sidebar": {
+			"types": "./src/sidebar/index.ts",
+			"import": "./src/sidebar/index.ts"
 		},
 		"./styles.css": "./src/styles.css"
 	},
