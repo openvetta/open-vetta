@@ -1,6 +1,6 @@
 import { BotAvatar } from "@shared/components/BotAvatar";
-import { Button } from "@shared/components/ui/button";
 import { ThemeSurface } from "@vetta/theme-ui/appearance";
+import { Button } from "@vetta/ui";
 import { AnimatePresence, motion } from "motion/react";
 import type { FormEvent } from "react";
 

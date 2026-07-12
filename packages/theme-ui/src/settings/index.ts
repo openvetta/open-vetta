@@ -48,6 +48,12 @@ export type {
 } from "./BuiltinMcpSecretsDialogView";
 export { BuiltinMcpSecretsDialogView } from "./BuiltinMcpSecretsDialogView";
 export type {
+	BuiltinMcpPresetRowView,
+	BuiltinMcpSectionViewLabels,
+	BuiltinMcpSectionViewProps,
+} from "./BuiltinMcpSectionView";
+export { BuiltinMcpSectionView } from "./BuiltinMcpSectionView";
+export type {
 	EnvironmentRuntimeKindView,
 	EnvironmentRuntimeStatusView,
 	EnvironmentSettingsViewLabels,

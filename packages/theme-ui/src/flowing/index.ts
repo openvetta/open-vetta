@@ -13,6 +13,13 @@ export type {
 } from "./UserNodeView";
 export { UserNodeView } from "./UserNodeView";
 export type {
+	WorkflowBindDialogViewLabels,
+	WorkflowBindDialogViewProps,
+	WorkflowBindItemView,
+	WorkflowBindStageView,
+} from "./WorkflowBindDialogView";
+export { WorkflowBindDialogView } from "./WorkflowBindDialogView";
+export type {
 	WorkflowProgressViewLabels,
 	WorkflowProgressViewProps,
 	WorkflowStageViewItem,
