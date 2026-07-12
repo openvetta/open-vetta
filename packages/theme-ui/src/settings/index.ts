@@ -1,4 +1,15 @@
 export type {
+	AchievementNavigationAssets,
+	AchievementNavigationButtonViewProps,
+} from "./AchievementNavigationButtonView";
+export { AchievementNavigationButtonView } from "./AchievementNavigationButtonView";
+export type {
+	ArchivedProjectRowView,
+	ArchivedProjectsSettingsViewLabels,
+	ArchivedProjectsSettingsViewProps,
+} from "./ArchivedProjectsSettingsView";
+export { ArchivedProjectsSettingsView } from "./ArchivedProjectsSettingsView";
+export type {
 	AchievementCurtainSideLayout,
 	AchievementCurtainsAssets,
 	AchievementCurtainsLayout,
@@ -21,6 +32,8 @@ export type {
 	EnvironmentSettingsViewProps,
 } from "./EnvironmentSettingsView";
 export { EnvironmentSettingsView } from "./EnvironmentSettingsView";
+export type { ImLegacyImportBannerViewProps } from "./ImLegacyImportBannerView";
+export { ImLegacyImportBannerView } from "./ImLegacyImportBannerView";
 export type { ImStatusBadgeStatus, ImStatusBadgeViewProps } from "./ImStatusBadgeView";
 export { ImStatusBadgeView } from "./ImStatusBadgeView";
 export type {
@@ -40,6 +53,8 @@ export type {
 export { PresetProviderModelsListView } from "./PresetProviderModelsListView";
 export type { SettingSectionMeta } from "./SettingChrome";
 export { SettingHeading, SettingRow, SettingSection } from "./SettingChrome";
+export type { SettingsAiAssistButtonViewProps } from "./SettingsAiAssistButtonView";
+export { SettingsAiAssistButtonView } from "./SettingsAiAssistButtonView";
 export {
 	CheckboxField,
 	InputField,
