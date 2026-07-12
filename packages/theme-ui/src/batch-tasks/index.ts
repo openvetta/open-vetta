@@ -1,8 +1,20 @@
 export type {
+	BatchProjectArtifactFieldViewLabels,
+	BatchProjectArtifactFieldViewProps,
+} from "./BatchProjectArtifactFieldView";
+export { BatchProjectArtifactFieldView } from "./BatchProjectArtifactFieldView";
+export type {
 	BatchProjectGroupTaskItem,
 	BatchProjectGroupViewProps,
 } from "./BatchProjectGroupView";
 export { BatchProjectGroupView } from "./BatchProjectGroupView";
+export type { BatchProjectNameFieldViewProps } from "./BatchProjectNameFieldView";
+export { BatchProjectNameFieldView } from "./BatchProjectNameFieldView";
+export type {
+	BatchProjectNotificationFieldViewLabels,
+	BatchProjectNotificationFieldViewProps,
+} from "./BatchProjectNotificationFieldView";
+export { BatchProjectNotificationFieldView } from "./BatchProjectNotificationFieldView";
 export type { BatchProjectPromptFieldViewProps } from "./BatchProjectPromptFieldView";
 export { BatchProjectPromptFieldView } from "./BatchProjectPromptFieldView";
 export type {

@@ -45,6 +45,7 @@
 | 16 | file-explorer / file-preview / downloads / flowing / flowing-chat / plugins | done | [16-files-flowing-plugins.md](./16-files-flowing-plugins.md) |
 | 17 | project 整域 must_split | done | [17-project-split.md](./17-project-split.md) |
 | 18 | 清空全部剩余 must_split（scheduler/settings/action-approval/shared） | done | [18-must-split-remainder.md](./18-must-split-remainder.md) |
+| 19 | 清空 must_migrate 第 1 大波（action-approval + shared + 小叶子） | done | [19-must-migrate-wave1.md](./19-must-migrate-wave1.md) |
 | 99 | 最终审计与暂缓清单 | done | [99-final-audit.md](./99-final-audit.md) |
 
 ## 闭合门禁（验收用）

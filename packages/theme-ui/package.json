@@ -13,10 +13,15 @@
 			"types": "./src/appearance/index.ts",
 			"import": "./src/appearance/index.ts"
 		},
+		"./action-approval": {
+			"types": "./src/action-approval/index.ts",
+			"import": "./src/action-approval/index.ts"
+		},
 		"./activity": {
 			"types": "./src/activity/index.ts",
 			"import": "./src/activity/index.ts"
 		},
+
 		"./batch-tasks": {
 			"types": "./src/batch-tasks/index.ts",
 			"import": "./src/batch-tasks/index.ts"

@@ -78,6 +78,12 @@ export type {
 	GuideBadgeViewItem,
 } from "./GuideBadgeSwiperView";
 export { GuideBadgeSwiperView } from "./GuideBadgeSwiperView";
+export type {
+	InputActionBarItemView,
+	InputActionBarViewModel,
+	InputActionBarViewProps,
+} from "./InputActionBarView";
+export { InputActionBarView } from "./InputActionBarView";
 export type { InputBarBackgroundProps } from "./InputBarBackground";
 export { InputBarBackground } from "./InputBarBackground";
 export type { InputBarCapsuleLabels, InputBarCapsuleProps } from "./InputBarCapsule";
@@ -92,6 +98,14 @@ export type {
 	KbWritePageViewProps,
 } from "./KnowledgeToolViews";
 export { KbFilterByTagsView, KbListTagsView, KbWritePageView } from "./KnowledgeToolViews";
+export type { CopyButtonLabels } from "./MessageActions";
+export {
+	CopyButton,
+	formatDuration,
+	formatRelativeTime,
+	formatTime,
+	RelativeTimeLabel,
+} from "./MessageActions";
 export type { SegmentShellProps, ToolCallGroupViewProps } from "./MessageBlockSegmentsView";
 export { ErrorBlockView, SegmentShell, ToolCallGroupView } from "./MessageBlockSegmentsView";
 export type { MessageCardsHostViewProps } from "./MessageCardsHostView";
@@ -180,6 +194,8 @@ export type { TextBlockViewLabels, TextBlockViewProps } from "./TextBlockView";
 export { TextBlockView } from "./TextBlockView";
 export type { TextPreviewLabels, TextPreviewProps } from "./TextPreview";
 export { TextPreview } from "./TextPreview";
+export type { ThinkingBlockViewLabels, ThinkingBlockViewProps } from "./ThinkingBlockView";
+export { ThinkingBlockView } from "./ThinkingBlockView";
 export type { TodoCardItem, TodoCardLabels, TodoCardProps } from "./TodoCard";
 export { TodoCard } from "./TodoCard";
 export type { ToolCallBlockViewProps } from "./ToolCallBlockView";

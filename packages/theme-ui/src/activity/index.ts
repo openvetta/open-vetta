@@ -25,6 +25,13 @@ export { DebugTabPanelView } from "./DebugTabPanelView";
 export type { FileTabContentViewProps } from "./FileTabContentView";
 export { FileTabContentView } from "./FileTabContentView";
 export type {
+	HtmlPreviewSegmentedControlProps,
+	HtmlPreviewSegmentItem,
+	HtmlPreviewViewLabels,
+	HtmlPreviewViewProps,
+} from "./HtmlPreviewView";
+export { HtmlPreviewView } from "./HtmlPreviewView";
+export type {
 	JourneyFileItem,
 	JourneyPanelViewLabels,
 	JourneyPanelViewState,

@@ -402,6 +402,229 @@
   "packages/desktop-app/src/renderer/domains/settings/components/WechatBindDialogView.tsx": {
     "kind": "host_primitive_hold",
     "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/agent/AgentSetExperimentalApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/appearance/AppearanceSetLanguageApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/general/GeneralSetExecutionModeApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/general/GeneralSetNotificationsApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/general/GeneralSetWorkspaceApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/im/ImRestartApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/im/ImSetAgentModelApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/im/ImSetEnabledApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/knowledge/KnowledgeAddFilesApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/knowledge/KnowledgeCreateApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/knowledge/KnowledgeDeleteApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/knowledge/KnowledgeDeleteEntryApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/knowledge/KnowledgeRenameApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/knowledge/KnowledgeRetryFailedApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/knowledge/KnowledgeScanNowApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/knowledge/KnowledgeSetProcessingApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/mcp/McpRemoveApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/mcp/McpSetEnabledApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/models/ModelsRemoveProviderApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/models/ModelsSetDefaultApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/plugins/PluginsInstallFromUrlApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/plugins/PluginsReloadApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/plugins/PluginsUninstallApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/projects/ProjectsArchiveApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/projects/ProjectsCreateApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/projects/ProjectsOpenApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/projects/ProjectsRemoveApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/projects/ProjectsRenameApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/projects/ProjectsUnarchiveApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/skills/SkillsSetEnabledApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/skills/SkillsUninstallApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/updater/UpdaterCancelApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/updater/UpdaterCheckApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/updater/UpdaterDismissApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/updater/UpdaterDownloadApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/updater/UpdaterInstallApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/manage/webhook/WebhookCreateApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/navigation/NavigationOpenApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/scheduler/SchedulerApprovalFields.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/scheduler/SchedulerCreateApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/scheduler/SchedulerDeleteApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/scheduler/SchedulerExecutionApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/action-approval/scheduler/SchedulerToggleApproval.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/components/ModelSelect/ModelSelect.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/domains/activity-panel/components/activity-panel/ActivityPanelView.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/domains/activity-panel/components/ChatTabPanel.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/domains/batch-tasks/components/BatchProjectFormFieldsView.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/domains/chat/components/chat-page/ChatPageView.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/domains/chat/components/chat-view/DefaultChatView.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/domains/chat/components/message-list/MessageListFooter.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/domains/chat/components/MessageCards.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/domains/chat/components/new-session/NewSessionPageView.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/domains/flowing/components/flow-graph/transfer-edge.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/domains/flowing/components/flow-graph/user-node.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/domains/flowing-chat/components/ChatComposer.tsx": {
+    "kind": "permanent_desktop",
+    "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/shared/components/NewProjectDialog.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   }
 }
-
