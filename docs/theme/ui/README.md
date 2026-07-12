@@ -35,7 +35,20 @@
 | 06 | DrawerCard / TodoCard | done | [06-chat-drawer-todo.md](./06-chat-drawer-todo.md) |
 | 07 | skeptic pure leaves 补迁 | done | [07-skeptic-pure-leaves.md](./07-skeptic-pure-leaves.md) |
 | 08 | skeptic2 pure leaves | done | [08-skeptic2-pure-leaves.md](./08-skeptic2-pure-leaves.md) |
+| 09 | 机械库存门禁 + 菜单/消息中心 soft 叶子 | done | [09-inventory-gate.md](./09-inventory-gate.md) |
 | 99 | 最终审计与暂缓清单 | done | [99-final-audit.md](./99-final-audit.md) |
+
+## 闭合门禁（验收用）
+
+```bash
+bun packages/theme-ui/scripts/eligible-inventory.mjs   # exit 0 才算 eligible 闭合
+bun packages/theme-ui/scripts/verify-purity.mjs
+bun run check
+```
+
+- 未迁路径必须出现在 [`deferrals.json`](./deferrals.json)（逐文件 unlock）
+- 父组件 deferred **不**自动覆盖子文件
+
 
 ## 每批流程（强制）
 

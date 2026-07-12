@@ -1,9 +1,8 @@
-import { motion, type Variants } from "motion/react";
+import type { Variants } from "motion/react";
+import { SettingsMenuQuotaSection as ThemeSettingsMenuQuotaSection } from "@vetta/theme-ui/sidebar";
 import { useTranslation } from "react-i18next";
-import { cn } from "@shared/lib/utils";
 import { formatResetCountdown } from "@shared/lib/subscription-format";
 import type { SettingsMenuModel } from "./types";
-import { SettingsMenuDivider } from "./SettingsMenuDivider";
 
 interface SettingsMenuQuotaSectionProps {
 	dividerVariants: Variants;
@@ -17,40 +16,15 @@ export function SettingsMenuQuotaSection({
 	model,
 }: SettingsMenuQuotaSectionProps): JSX.Element | null {
 	const { t } = useTranslation("settings");
-	const showQuota = Boolean(model.fiveHourResetAt);
-
-	if (!showQuota) return null;
+	if (!model.fiveHourResetAt) return null;
 
 	return (
-		<motion.div key="quota" variants={itemVariants}>
-			<motion.div variants={dividerVariants}>
-				<SettingsMenuDivider />
-			</motion.div>
-			<div className="mx-2 my-1.5 rounded-md bg-accent/50 px-2 py-1.5">
-				<div className="flex items-center justify-between">
-					<div className="flex items-center gap-1.5">
-						<span className="icon-[solar--hourglass-linear] h-3.5 w-3.5 text-muted-foreground" />
-						<span className="text-[11px] text-muted-foreground">{t("sidebar.fiveHourQuota")}</span>
-					</div>
-					<span
-						className={cn(
-							"text-[11px] font-semibold tabular-nums",
-							model.fiveHourRemainingPercent <= 0 ? "text-destructive" : "text-foreground",
-						)}
-					>
-						{model.fiveHourRemainingPercent}%
-					</span>
-				</div>
-				<div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-border">
-					<div
-						className="h-full rounded-full bg-primary/70 transition-all"
-						style={{ width: `${model.fiveHourRemainingPercent}%` }}
-					/>
-				</div>
-				<div className="mt-1 text-[10px] text-muted-foreground">
-					{formatResetCountdown(model.fiveHourResetAt ?? "", Date.now())}
-				</div>
-			</div>
-		</motion.div>
+		<ThemeSettingsMenuQuotaSection
+			dividerVariants={dividerVariants}
+			itemVariants={itemVariants}
+			fiveHourRemainingPercent={model.fiveHourRemainingPercent}
+			resetCountdown={formatResetCountdown(model.fiveHourResetAt, Date.now())}
+			quotaLabel={t("sidebar.fiveHourQuota")}
+		/>
 	);
 }

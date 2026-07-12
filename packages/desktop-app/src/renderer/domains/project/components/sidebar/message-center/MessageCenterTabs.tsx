@@ -1,6 +1,8 @@
+import {
+	MessageCenterTabs as ThemeMessageCenterTabs,
+	type MessageCenterTabId,
+} from "@vetta/theme-ui/sidebar";
 import { useTranslation } from "react-i18next";
-import { motion } from "motion/react";
-import { cn } from "@shared/lib/utils";
 import { MESSAGE_CENTER_SPRING, MESSAGE_CENTER_TABS, type MessageCenterTab } from "./types";
 
 export function MessageCenterTabs({
@@ -17,46 +19,19 @@ export function MessageCenterTabs({
 	onSelect: (tab: MessageCenterTab) => void;
 }): JSX.Element {
 	const { t } = useTranslation("message");
-
 	return (
-		<div className="flex gap-1 px-4 pb-3">
-			{MESSAGE_CENTER_TABS.map(({ value, icon }) => {
-				const isActive = activeTab === value;
-				const count =
-					value === "flowing" ? pendingCount : value === "chat" ? chatUnread : value === "notifications" ? notifUnread : 0;
-
-				return (
-					<button
-						key={value}
-						type="button"
-						onClick={() => onSelect(value)}
-						className={cn(
-							"relative flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors duration-150",
-							isActive ? "text-primary-foreground" : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-						)}
-					>
-						{isActive && (
-							<motion.span
-								layoutId="msgTabActive"
-								transition={MESSAGE_CENTER_SPRING}
-								className="absolute inset-0 -z-0 rounded-lg bg-primary shadow-sm"
-							/>
-						)}
-						<span className={cn(icon, "relative z-10 h-3.5 w-3.5")} />
-						<span className="relative z-10">{t(`tabs.${value}`)}</span>
-						{count > 0 && (
-							<span
-								className={cn(
-									"relative z-10 ml-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold",
-									isActive ? "bg-primary-foreground/25 text-primary-foreground" : "bg-primary text-primary-foreground",
-								)}
-							>
-								{count}
-							</span>
-						)}
-					</button>
-				);
-			})}
-		</div>
+		<ThemeMessageCenterTabs
+			tabs={MESSAGE_CENTER_TABS.map((tab) => ({
+				value: tab.value as MessageCenterTabId,
+				icon: tab.icon,
+				label: t(`tabs.${tab.value}`),
+			}))}
+			activeTab={activeTab as MessageCenterTabId}
+			chatUnread={chatUnread}
+			notifUnread={notifUnread}
+			pendingCount={pendingCount}
+			onSelect={(tab) => onSelect(tab as MessageCenterTab)}
+			spring={MESSAGE_CENTER_SPRING}
+		/>
 	);
 }
