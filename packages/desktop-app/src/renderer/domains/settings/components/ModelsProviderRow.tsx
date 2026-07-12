@@ -1,9 +1,13 @@
 import { useTranslation } from "react-i18next";
-import { Button } from "@shared/components/ui/button";
-import { cn } from "@shared/lib/utils";
+import { ModelsProviderFormView } from "@vetta/theme-ui/settings";
+import { Button, cn } from "@vetta/ui";
 import { ModelsModelForm } from "./ModelsModelForm";
 import { ModelsProviderForm } from "./ModelsProviderForm";
 import type { ModelsSettingsModel } from "./useModelsSettingsModel";
+
+export type ModelsProviderRowThemeViews = {
+	readonly providerForm: typeof ModelsProviderFormView;
+};
 
 export function ModelsProviderRow({
 	name,

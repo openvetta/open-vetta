@@ -1,4 +1,4 @@
-import { Button } from "@shared/components/ui/button";
+import { Button } from "@vetta/ui";
 import {
 	Dialog,
 	DialogContent,
@@ -6,8 +6,8 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-} from "@shared/components/ui/dialog";
-import { Textarea } from "@shared/components/ui/textarea";
+} from "@vetta/ui";
+
 import { cn } from "@shared/lib/utils";
 import type { ColleagueInfo } from "@shared/lib/api";
 import { ThemeSurface } from "@vetta/theme-ui/appearance";
@@ -210,11 +210,11 @@ export function FlowingSendDialogView({
 							{labels.message}
 							<span className="font-normal text-muted-foreground/50">{labels.messageOptional}</span>
 						</div>
-						<Textarea
+						<textarea
 							value={message}
 							onChange={(e) => onMessageChange(e.target.value)}
 							placeholder={labels.messagePlaceholder}
-							className="min-h-[4.5rem] resize-none text-xs"
+							className="flex field-sizing-content min-h-16 w-full min-h-[4.5rem] resize-none rounded-lg border border-input bg-transparent px-2.5 py-2 text-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
 						/>
 					</div>
 

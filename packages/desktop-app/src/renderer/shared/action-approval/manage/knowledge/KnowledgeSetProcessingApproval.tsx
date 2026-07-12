@@ -5,17 +5,17 @@ import {
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from "@shared/components/ui/select";
+} from "@vetta/ui";
 import { useMemo, useState } from "react";
-import { Switch } from "../../../components/ui/switch";
+import { Switch } from "@vetta/ui";
 import { type ActiveActionApproval, useActionApproval } from "../../useActionApproval";
 import { knowledgeBaseFieldLabel } from "../../approvalCopy";
 import {
 	ApprovalImpactCard,
-	ApprovalRawFallback,
 	ApprovalSettingGroup,
 	ApprovalSettingRow,
-} from "../ApprovalParts";
+} from "@vetta/theme-ui/action-approval";
+import { ApprovalRawFallback } from "../ApprovalParts";
 import { useManageApprovalFrame } from "../useManageApprovalShell";
 
 type KbData = {

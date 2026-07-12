@@ -15,24 +15,24 @@
 3. `bun run check` → exit 0
 4. 台账批次 00–29 有记录（含 Goal A/B）
 
-## 门禁快照（Goal A 软完成 + Goal B 原语落地）
+## 门禁快照（Batch 44 hold 清零）
 
 ```json
 {
-  "migrated": 187,
+  "migrated": 265,
   "split_ok": 113,
   "must_split_open": 0,
   "must_migrate_open": 0,
   "must_host_hold_open": 0,
-  "host_primitive_hold": 78,
+  "host_primitive_hold": 0,
   "permanent_desktop": 97,
   "non_goal": 19,
   "bad_deferrals": 0
 }
 ```
 
-- **Goal B**：`@vetta/ui` 含 Button/Dialog/Drawer/Select/Switch/Popover  
-- **Goal A 软完成**：剩余 hold≈78 为 Dialog 重 / 真 value import；见 `29-goal-ab-soft-complete.md`
+- **Goal B**：`@vetta/ui` 含 Button/Dialog/Drawer/Select/Switch/Popover/**DropdownMenu**
+- **Goal A 硬完成（hold=0）**：见 `44-hold-zero-closure.md`；容器/model 仍 permanent_desktop
 
 ### 反作弊（batch 21 + batch 22）
 

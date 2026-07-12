@@ -1,7 +1,8 @@
+import { KnowledgeBreadcrumbView } from "@vetta/theme-ui/knowledge";
 import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "motion/react";
-import { Button } from "@shared/components/ui/button";
-import { Input } from "@shared/components/ui/input";
+import { Button } from "@vetta/ui";
+
 import { cn } from "@shared/lib/utils";
 import type { useKnowledgeBaseListModel } from "../hooks/useKnowledgeBaseListModel";
 import {
@@ -64,11 +65,11 @@ export function KnowledgeBaseListPageView({ model }: KnowledgeBaseListPageViewPr
 				>
 					<div className={cn("relative", model.narrow ? "min-w-0 flex-1" : "w-64")}>
 						<span className="icon-[mdi--magnify] absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/40" />
-						<Input
+						<input
 							value={model.search}
 							onChange={(event) => model.setSearch(event.target.value)}
 							placeholder={t("kbAllSearch")}
-							className="h-8 border-transparent bg-muted/55 pl-8 pr-3 text-[12px] shadow-none placeholder:text-muted-foreground/45 hover:bg-muted/75 focus-visible:border-primary/25 focus-visible:bg-background/70 focus-visible:ring-1 focus-visible:ring-primary/15"
+							className="h-8 w-full min-w-0 rounded-lg border border-transparent bg-muted/55 pl-8 pr-3 text-[12px] shadow-none outline-none placeholder:text-muted-foreground/45 hover:bg-muted/75 focus-visible:border-primary/25 focus-visible:bg-background/70 focus-visible:ring-1 focus-visible:ring-primary/15"
 						/>
 					</div>
 					<Button variant="primary" onClick={model.createKnowledgeBase}>
@@ -199,3 +200,5 @@ export function KnowledgeBaseListPageView({ model }: KnowledgeBaseListPageViewPr
 		</div>
 	);
 }
+
+export type ThemeUiLink_KnowledgeBreadcrumbView = typeof KnowledgeBreadcrumbView;

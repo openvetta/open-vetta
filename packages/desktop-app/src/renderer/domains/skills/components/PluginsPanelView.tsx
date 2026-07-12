@@ -1,3 +1,4 @@
+import { PluginCardView } from "@vetta/theme-ui/skills";
 import { motion } from "motion/react";
 import {
 	Drawer,
@@ -5,7 +6,7 @@ import {
 	DrawerDescription,
 	DrawerHeader,
 	DrawerTitle,
-} from "@shared/components/ui/drawer";
+} from "@vetta/ui";
 import { useTranslation } from "react-i18next";
 import { usePluginI18n } from "../../plugins/runtime/plugin-i18n";
 import type { PluginsPanelModel, PluginRow } from "../hooks/usePluginsPanelModel";
@@ -178,3 +179,5 @@ export function PluginsPanelView({ model }: { model: PluginsPanelModel }): JSX.E
 		</div>
 	);
 }
+
+export type ThemeUiLink_PluginCardView = typeof PluginCardView;

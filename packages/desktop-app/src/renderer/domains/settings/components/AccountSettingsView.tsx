@@ -1,11 +1,20 @@
 import { UserAvatar } from "@shared/components/UserAvatar";
-import { Button } from "@shared/components/ui/button";
-import { Dialog, DialogContent, DialogTitle } from "@shared/components/ui/dialog";
+import {
+	SubscriptionCardsView,
+	TokenActivityChartView,
+} from "@vetta/theme-ui/settings";
+import { Button, Dialog, DialogContent, DialogTitle } from "@vetta/ui";
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { SubscriptionCards } from "./SubscriptionCards";
 import { TokenActivityChart } from "./TokenActivityChart";
 import type { AccountSettingsModel } from "./useAccountSettingsModel";
+
+/** Theme presentation linked for migration inventory (Views implemented in theme-ui). */
+export type AccountSettingsThemeViews = {
+	readonly cards: typeof SubscriptionCardsView;
+	readonly chart: typeof TokenActivityChartView;
+};
 
 export interface AccountSettingsViewProps {
 	model: AccountSettingsModel;

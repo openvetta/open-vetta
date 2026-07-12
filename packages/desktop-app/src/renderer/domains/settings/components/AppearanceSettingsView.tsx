@@ -1,12 +1,12 @@
 import { BotAvatar } from "@shared/components/BotAvatar";
-import { Popover, PopoverContent, PopoverTrigger } from "@shared/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@vetta/ui";
 import { cn } from "@shared/lib/utils";
 import type { CursorStyle } from "@shared/theme/cursor";
 import type { ThemeDef } from "@shared/theme/tokens";
 import { type MouseEvent, useState } from "react";
 import { SettingsAiAssist } from "../ai-assist";
 import { SETTINGS_SECTION } from "../registry";
-import { SettingHeading } from "./shared";
+import { SettingHeading } from "@vetta/theme-ui/settings";
 import type {
 	AppearanceCursorOption,
 	AppearanceLanguageOption,

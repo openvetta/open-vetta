@@ -1,5 +1,6 @@
+import { PluginCardView } from "@vetta/theme-ui/skills";
 import type { InstalledPlugin, PluginPermission } from "@preload/api";
-import { Switch } from "@shared/components/ui/switch";
+import { Switch } from "@vetta/ui";
 import { useTranslation } from "react-i18next";
 import { usePluginI18n } from "../../plugins/runtime/plugin-i18n";
 import { PERMISSION_LABEL_KEYS, type PluginRow, pluginSourceKey } from "../hooks/usePluginsPanelModel";
@@ -215,3 +216,5 @@ export function PluginDetailSheet({
 		</div>
 	);
 }
+
+export type ThemeUiLink_PluginCardView = typeof PluginCardView;

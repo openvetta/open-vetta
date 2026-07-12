@@ -1,6 +1,7 @@
+import { SkillTagGroupView } from "@vetta/theme-ui/skills";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
-import { Button } from "@shared/components/ui/button";
+import { Button } from "@vetta/ui";
 import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
 import { UNCATEGORIZED, type SkillsPageModel, type TypeTab } from "../hooks/useSkillsPageModel";
 import { PluginsPanel } from "./PluginsPanel";
@@ -231,3 +232,5 @@ export function SkillsPageView({ model }: { model: SkillsPageModel }): JSX.Eleme
 		</div>
 	);
 }
+
+export type ThemeUiLink_SkillTagGroupView = typeof SkillTagGroupView;

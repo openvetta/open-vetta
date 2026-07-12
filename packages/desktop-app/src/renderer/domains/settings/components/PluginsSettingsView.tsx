@@ -1,17 +1,17 @@
-import { Input } from "@shared/components/ui/input";
+
 import {
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from "@shared/components/ui/select";
-import { Switch } from "@shared/components/ui/switch";
+} from "@vetta/ui";
+import { Switch } from "@vetta/ui";
 import { cn } from "@shared/lib/utils";
 import { openExternalLink } from "@shared/lib/open-external-link";
 import { SettingsAiAssist } from "../ai-assist";
 import type { PluginSettingFieldModel, PluginsSettingsModel } from "./usePluginsSettingsModel";
-import { SettingRow, SettingSection } from "./shared";
+import { SettingRow, SettingSection } from "@vetta/theme-ui/settings";
 
 const URL_PATTERN = /(https?:\/\/[^\s]+)/g;
 
@@ -65,9 +65,9 @@ function SettingControl({
 			return <Switch checked={value === true} onCheckedChange={(checked) => onChange(checked)} />;
 		case "number":
 			return (
-				<Input
+				<input
 					type="number"
-					className="h-8 w-[200px] text-[12px]"
+					className="h-8 w-[200px] min-w-0 rounded-lg border border-border/60 bg-transparent px-2.5 text-[12px] outline-none focus-visible:border-ring/60 focus-visible:ring-1 focus-visible:ring-ring/20"
 					value={value === undefined || value === null ? "" : String(value)}
 					onChange={(event) => {
 						const raw = event.target.value;
@@ -77,10 +77,10 @@ function SettingControl({
 			);
 		case "secret":
 			return (
-				<Input
+				<input
 					type="password"
 					autoComplete="off"
-					className="h-8 w-[240px] text-[12px]"
+					className="h-8 w-[240px] min-w-0 rounded-lg border border-border/60 bg-transparent px-2.5 text-[12px] outline-none focus-visible:border-ring/60 focus-visible:ring-1 focus-visible:ring-ring/20"
 					value={typeof value === "string" ? value : ""}
 					onChange={(event) => onChange(event.target.value)}
 				/>
@@ -102,9 +102,9 @@ function SettingControl({
 			);
 		default:
 			return (
-				<Input
+				<input
 					type="text"
-					className="h-8 w-[240px] text-[12px]"
+					className="h-8 w-[240px] min-w-0 rounded-lg border border-border/60 bg-transparent px-2.5 text-[12px] outline-none focus-visible:border-ring/60 focus-visible:ring-1 focus-visible:ring-ring/20"
 					value={typeof value === "string" ? value : ""}
 					onChange={(event) => onChange(event.target.value)}
 				/>

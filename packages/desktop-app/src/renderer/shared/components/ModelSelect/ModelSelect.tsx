@@ -1,4 +1,5 @@
 import { ProviderIcon } from "@shared/components/provider-icon";
+import { MultiplierTag as ThemeMultiplierTag } from "@vetta/theme-ui/shared";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -9,11 +10,15 @@ import {
 	DropdownMenuSubContent,
 	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
-} from "@shared/components/ui/dropdown-menu";
-import { cn } from "@shared/lib/utils";
+	cn,
+} from "@vetta/ui";
 import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { MultiplierTag } from "./MultiplierTag";
+
+export type ModelSelectThemeViews = {
+	readonly multiplier: typeof ThemeMultiplierTag;
+};
 import { resolveReasoning } from "./resolveReasoning";
 import { type ModelOption, useModelOptions } from "./useModelOptions";
 

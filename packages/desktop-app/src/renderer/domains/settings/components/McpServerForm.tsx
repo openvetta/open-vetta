@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button } from "@shared/components/ui/button";
+import { Button } from "@vetta/ui";
 import { SegmentedControl } from "@shared/components/ui/segmented-control";
 import { cn } from "@shared/lib/utils";
-import { CheckboxField, InputField, TextareaField } from "./SettingsFormFields";
+import { CheckboxField, InputField, TextareaField } from "@vetta/theme-ui/settings";
 import {
 	isMcpFormValid,
 	type McpServerFormState,
