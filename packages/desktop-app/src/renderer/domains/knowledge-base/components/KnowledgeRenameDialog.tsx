@@ -1,14 +1,5 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button } from "@shared/components/ui/button";
-import {
-	Dialog,
-	DialogContent,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "@shared/components/ui/dialog";
-import { Input } from "@shared/components/ui/input";
+import { KnowledgeRenameDialogView } from "@vetta/theme-ui/knowledge";
 
 interface KnowledgeRenameDialogProps {
 	title: string;
@@ -25,34 +16,17 @@ export function KnowledgeRenameDialog({
 	onSubmit,
 }: KnowledgeRenameDialogProps): JSX.Element {
 	const { t } = useTranslation("common");
-	const [name, setName] = useState(initialName);
-	const trimmed = name.trim();
-	const canSubmit = trimmed.length > 0 && trimmed !== initialName && !/[\\/]/.test(trimmed);
 
 	return (
-		<Dialog open onOpenChange={(open) => !open && onClose()}>
-			<DialogContent className="sm:max-w-[420px]">
-				<DialogHeader>
-					<DialogTitle>{title}</DialogTitle>
-				</DialogHeader>
-				<Input
-					value={name}
-					onChange={(event) => setName(event.target.value)}
-					className="h-9 bg-background text-[12px]"
-					autoFocus
-					onKeyDown={(event) => {
-						if (event.key === "Enter" && canSubmit) onSubmit(trimmed);
-					}}
-				/>
-				<DialogFooter>
-					<Button variant="ghost" onClick={onClose}>
-						{t("actions.cancel")}
-					</Button>
-					<Button variant="primary" disabled={!canSubmit} onClick={() => onSubmit(trimmed)}>
-						{t("actions.confirm")}
-					</Button>
-				</DialogFooter>
-			</DialogContent>
-		</Dialog>
+		<KnowledgeRenameDialogView
+			title={title}
+			initialName={initialName}
+			onClose={onClose}
+			onSubmit={onSubmit}
+			labels={{
+				cancel: t("actions.cancel"),
+				confirm: t("actions.confirm"),
+			}}
+		/>
 	);
 }

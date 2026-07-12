@@ -19,6 +19,11 @@ export { DefaultSessionListView } from "./DefaultSessionListView";
 export type { DefaultSessionRowViewProps } from "./DefaultSessionRowView";
 export { DefaultSessionRowView } from "./DefaultSessionRowView";
 export type {
+	NewProjectDialogViewLabels,
+	NewProjectDialogViewProps,
+} from "./NewProjectDialogView";
+export { NewProjectDialogView } from "./NewProjectDialogView";
+export type {
 	ProjectContextMenuScope,
 	ProjectContextMenuViewLabels,
 	ProjectContextMenuViewProps,

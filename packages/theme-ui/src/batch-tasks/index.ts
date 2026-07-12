@@ -22,6 +22,14 @@ export type {
 	BatchProjectRuntimeFieldsViewProps,
 } from "./BatchProjectRuntimeFieldsView";
 export { BatchProjectRuntimeFieldsView } from "./BatchProjectRuntimeFieldsView";
+export type {
+	BatchTaskActionButtonViewProps,
+	BatchTaskOverlayActionButtonViewProps,
+} from "./BatchTaskActionButtonsView";
+export {
+	ActionButtonView,
+	OverlayActionButtonView,
+} from "./BatchTaskActionButtonsView";
 export type { BatchTaskCardViewProps } from "./BatchTaskCardView";
 export { BatchTaskCardView } from "./BatchTaskCardView";
 export type { BatchTaskGridViewProps } from "./BatchTaskGridView";
