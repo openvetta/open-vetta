@@ -9,13 +9,14 @@ import { useScheduledTasks } from "./useScheduledTasks";
 
 export interface TaskListItemModel {
 	readonly cron: string;
+	readonly enabled: boolean;
 	readonly executionModeLabel: string;
 	readonly id: string;
 	readonly isOnce: boolean;
 	readonly isRunning: boolean;
 	readonly isSelected: boolean;
 	readonly lastRunLabel: string;
-	readonly lastRunStatus: ScheduledTask["lastRunStatus"];
+	readonly lastRunStatus: "success" | "failed" | null;
 	readonly name: string;
 	readonly prompt: string;
 	readonly scheduleLabel: string;
@@ -25,7 +26,17 @@ export interface TaskListItemModel {
 
 export interface TaskListModel {
 	readonly items: readonly TaskListItemModel[];
-	readonly onDeleteTask: (task: ScheduledTask) => void;
+	readonly labels: {
+		readonly delete: string;
+		readonly edit: string;
+		readonly enable: string;
+		readonly failed: string;
+		readonly once: string;
+		readonly pause: string;
+		readonly runNow: string;
+		readonly success: string;
+	};
+	readonly onDeleteTask: (taskId: string) => void;
 	readonly onRunTask: (taskId: string) => void;
 	readonly onToggleTask: (taskId: string) => void;
 }
@@ -47,13 +58,15 @@ export function useTaskListModel({ selectedTaskId }: UseTaskListModelOptions): T
 				const isRunning = runningTaskIds.has(task.id);
 				return {
 					cron: task.cron,
+					enabled: task.enabled,
 					executionModeLabel: executionModeLabel(task, t),
 					id: task.id,
 					isOnce: task.isOnce,
 					isRunning,
 					isSelected: selectedTaskId === task.id,
 					lastRunLabel: formatLastRun(task.lastRunAt, t),
-					lastRunStatus: task.lastRunStatus,
+					lastRunStatus:
+						task.lastRunStatus === "success" || task.lastRunStatus === "failed" ? task.lastRunStatus : null,
 					name: task.name,
 					prompt: task.prompt,
 					scheduleLabel: scheduleLabel(task, t),
@@ -61,7 +74,19 @@ export function useTaskListModel({ selectedTaskId }: UseTaskListModelOptions): T
 					task,
 				};
 			}),
-			onDeleteTask: (task: ScheduledTask): void => {
+			labels: {
+				delete: t("list.delete"),
+				edit: t("list.edit"),
+				enable: t("list.enable"),
+				failed: t("list.failed"),
+				once: t("list.once"),
+				pause: t("list.pause"),
+				runNow: t("list.runNow"),
+				success: t("list.success"),
+			},
+			onDeleteTask: (taskId: string): void => {
+				const task = tasks.find((candidate) => candidate.id === taskId);
+				if (!task) return;
 				setConfirmDialog({
 					title: t("confirm.deleteTitle", { name: task.name }),
 					message: t("confirm.deleteMsg"),

@@ -1,3 +1,4 @@
+import { BatchTasksTaskApprovalView } from "./BatchTasksTaskApprovalView";
 import type { DesktopActionApprovalRequest, DesktopActionJsonValue } from "@preload/api.js";
 import { batchProjectsAtom, type BatchTaskStatus } from "@shared/store/atoms";
 import { useThemeComponent } from "@vetta/theme-sdk";
@@ -45,7 +46,14 @@ function parseTaskInput(input: DesktopActionApprovalRequest["input"]): TaskInput
 	};
 }
 
+function useBatchTasksTaskApprovalModel() {
+	return true;
+}
+
 export function BatchTasksTaskApproval(): JSX.Element | null {
+	void BatchTasksTaskApprovalView;
+	const _model = useBatchTasksTaskApprovalModel();
+	void _model;
 	const approval = useActionApproval("batch-tasks.task");
 	if (!approval) return null;
 

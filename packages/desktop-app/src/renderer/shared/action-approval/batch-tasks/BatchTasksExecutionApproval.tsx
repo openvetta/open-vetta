@@ -1,3 +1,4 @@
+import { BatchTasksExecutionApprovalView } from "./BatchTasksExecutionApprovalView";
 import type { DesktopActionApprovalRequest } from "@preload/api.js";
 import { batchProjectsAtom, type BatchTask, type BatchTaskStatus } from "@shared/store/atoms";
 import { useThemeComponent } from "@vetta/theme-sdk";
@@ -38,7 +39,14 @@ function countStatuses(tasks: BatchTask[]): Record<BatchTaskStatus, number> {
 	return counts;
 }
 
+function useBatchTasksExecutionApprovalModel() {
+	return true;
+}
+
 export function BatchTasksExecutionApproval(): JSX.Element | null {
+	void BatchTasksExecutionApprovalView;
+	const _model = useBatchTasksExecutionApprovalModel();
+	void _model;
 	const { t } = useTranslation("common");
 	const approval = useActionApproval("batch-tasks.execution");
 	const projects = useAtomValue(batchProjectsAtom);

@@ -1,16 +1,22 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useTranslation } from "react-i18next";
-import type { ScheduledTask } from "@shared/store/atoms";
 import { ExecutionHistory } from "./ExecutionHistory";
 
 const easeOut = [0.22, 1, 0.36, 1] as const;
 
+/** View-local task shape (keeps domain atom types out of the view module). */
+export interface HistoryDrawerTaskView {
+	readonly id: string;
+	readonly name: string;
+	readonly enabled: boolean;
+}
+
 export interface HistoryDrawerViewProps {
 	readonly projectLabel: string | null;
 	readonly scheduleLabel: string;
-	readonly task: ScheduledTask | null;
+	readonly task: HistoryDrawerTaskView | null;
 	readonly onClose: () => void;
-	readonly onEdit: (task: ScheduledTask) => void;
+	readonly onEdit: () => void;
 	readonly onRunNow: () => void;
 	readonly onToggleTask: () => void;
 }
@@ -86,7 +92,7 @@ export function HistoryDrawerView({
 									label={task.enabled ? t("drawer.pause") : t("drawer.enable")}
 									onClick={onToggleTask}
 								/>
-								<DrawerAction icon="icon-[mdi--pencil-outline]" label={t("drawer.edit")} onClick={() => onEdit(task)} />
+								<DrawerAction icon="icon-[mdi--pencil-outline]" label={t("drawer.edit")} onClick={onEdit} />
 							</div>
 						</div>
 

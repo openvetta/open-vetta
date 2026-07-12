@@ -1,13 +1,38 @@
 import type { MouseEvent } from "react";
 import { motion } from "motion/react";
-import { useTranslation } from "react-i18next";
-import type { ScheduledTask } from "@shared/store/atoms";
-import type { TaskListItemModel } from "../hooks/useTaskListModel";
+
+export interface TaskListItemView {
+	readonly cron: string;
+	readonly enabled: boolean;
+	readonly executionModeLabel: string;
+	readonly id: string;
+	readonly isOnce: boolean;
+	readonly isRunning: boolean;
+	readonly isSelected: boolean;
+	readonly lastRunLabel: string;
+	readonly lastRunStatus: "success" | "failed" | null;
+	readonly name: string;
+	readonly prompt: string;
+	readonly scheduleLabel: string;
+	readonly statusLabel: string;
+}
+
+export interface TaskListViewLabels {
+	readonly delete: string;
+	readonly edit: string;
+	readonly enable: string;
+	readonly failed: string;
+	readonly once: string;
+	readonly pause: string;
+	readonly runNow: string;
+	readonly success: string;
+}
 
 export interface TaskListViewProps {
-	readonly items: readonly TaskListItemModel[];
-	readonly onDeleteTask: (task: ScheduledTask) => void;
-	readonly onEditTask: (task: ScheduledTask) => void;
+	readonly items: readonly TaskListItemView[];
+	readonly labels: TaskListViewLabels;
+	readonly onDeleteTask: (taskId: string) => void;
+	readonly onEditTask: (taskId: string) => void;
 	readonly onRunTask: (taskId: string) => void;
 	readonly onSelectTask: (id: string) => void;
 	readonly onToggleTask: (taskId: string) => void;
@@ -15,14 +40,13 @@ export interface TaskListViewProps {
 
 export function TaskListView({
 	items,
+	labels,
 	onDeleteTask,
 	onEditTask,
 	onRunTask,
 	onSelectTask,
 	onToggleTask,
 }: TaskListViewProps): JSX.Element {
-	const { t } = useTranslation("automation");
-
 	return (
 		<motion.div
 			className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
@@ -56,7 +80,7 @@ export function TaskListView({
 								)}
 								<span
 									className={`relative inline-flex h-2 w-2 rounded-full ${
-										item.isRunning ? "bg-emerald-500" : item.task.enabled ? "bg-primary" : "bg-muted-foreground/40"
+										item.isRunning ? "bg-emerald-500" : item.enabled ? "bg-primary" : "bg-muted-foreground/40"
 									}`}
 								/>
 							</span>
@@ -65,7 +89,7 @@ export function TaskListView({
 							<h3 className="truncate text-[14px] font-semibold tracking-tight text-foreground">{item.name}</h3>
 							<p className="mt-0.5 truncate text-[11px] text-muted-foreground/50">
 								{item.statusLabel}
-								{item.isOnce && ` · ${t("list.once")}`}
+								{item.isOnce && ` · ${labels.once}`}
 							</p>
 						</div>
 
@@ -76,15 +100,15 @@ export function TaskListView({
 						>
 							<ActionButton
 								icon="icon-[mdi--play]"
-								title={t("list.runNow")}
+								title={labels.runNow}
 								onClick={(event) => {
 									event.stopPropagation();
 									onRunTask(item.id);
 								}}
 							/>
 							<ActionButton
-								icon={item.task.enabled ? "icon-[mdi--pause]" : "icon-[mdi--play-outline]"}
-								title={item.task.enabled ? t("list.pause") : t("list.enable")}
+								icon={item.enabled ? "icon-[mdi--pause]" : "icon-[mdi--play-outline]"}
+								title={item.enabled ? labels.pause : labels.enable}
 								onClick={(event) => {
 									event.stopPropagation();
 									onToggleTask(item.id);
@@ -92,19 +116,19 @@ export function TaskListView({
 							/>
 							<ActionButton
 								icon="icon-[mdi--pencil-outline]"
-								title={t("list.edit")}
+								title={labels.edit}
 								onClick={(event) => {
 									event.stopPropagation();
-									onEditTask(item.task);
+									onEditTask(item.id);
 								}}
 							/>
 							<ActionButton
 								icon="icon-[mdi--delete-outline]"
-								title={t("list.delete")}
+								title={labels.delete}
 								variant="danger"
 								onClick={(event) => {
 									event.stopPropagation();
-									onDeleteTask(item.task);
+									onDeleteTask(item.id);
 								}}
 							/>
 						</div>
@@ -140,7 +164,7 @@ export function TaskListView({
 											item.lastRunStatus === "success" ? "icon-[mdi--check-circle]" : "icon-[mdi--alert-circle]"
 										}`}
 									/>
-									{item.lastRunStatus === "success" ? t("list.success") : t("list.failed")}
+									{item.lastRunStatus === "success" ? labels.success : labels.failed}
 								</span>
 							)}
 							<span className="flex items-center gap-1 text-muted-foreground/50">

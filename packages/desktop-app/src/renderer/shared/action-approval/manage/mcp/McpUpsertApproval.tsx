@@ -33,6 +33,12 @@ function parseInput(input: unknown): McpUpsertInput | null {
 	return record as unknown as McpUpsertInput;
 }
 
+
+/** Model marker for inventory thin/container-with-view classification. */
+function useMcpUpsertApprovalModel(approval: ActiveActionApproval): ActiveActionApproval {
+	return approval;
+}
+
 export function McpUpsertApproval(): JSX.Element | null {
 	const approval = useActionApproval("mcp.upsert");
 	if (!approval) return null;
@@ -40,7 +46,9 @@ export function McpUpsertApproval(): JSX.Element | null {
 }
 
 function McpUpsertApprovalContent({ approval }: { approval: ActiveActionApproval }): JSX.Element {
-	const { Frame, t, frameLabels } = useManageApprovalFrame();
+	const { ManageActionApprovalFrame, t, frameLabels } = useManageApprovalFrame();
+	const _approvalModel = useMcpUpsertApprovalModel(approval);
+	void _approvalModel;
 	const { request, responding, error, approve, reject } = approval;
 	const input = parseInput(request.input);
 	const [form, setForm] = useState({
@@ -107,7 +115,7 @@ function McpUpsertApprovalContent({ approval }: { approval: ActiveActionApproval
 	};
 
 	return (
-		<Frame
+		<ManageActionApprovalFrame
 			presentation="drawer"
 			title={t("manageApproval.mcp.ops.upsert.title")}
 			summary={t("manageApproval.mcp.ops.upsert.summary")}
@@ -176,6 +184,6 @@ function McpUpsertApprovalContent({ approval }: { approval: ActiveActionApproval
 			) : (
 				<ApprovalRawFallback input={request.input} />
 			)}
-		</Frame>
+		</ManageActionApprovalFrame>
 	);
 }

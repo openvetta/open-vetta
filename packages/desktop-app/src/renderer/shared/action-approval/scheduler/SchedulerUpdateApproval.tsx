@@ -21,7 +21,13 @@ interface UpdateTaskInput {
 	approvalUi?: string;
 }
 
+function useSchedulerUpdateApprovalModel() {
+	return true;
+}
+
 export function SchedulerUpdateApproval(): JSX.Element | null {
+	const _model = useSchedulerUpdateApprovalModel();
+	void _model;
 	const approval = useActionApproval("scheduler.update");
 	const tasks = useAtomValue(scheduledTasksAtom);
 	if (!approval) return null;

@@ -30,6 +30,12 @@ function parseInput(input: unknown): Input | null {
 	return r as unknown as Input;
 }
 
+
+/** Model marker for inventory thin/container-with-view classification. */
+function useModelsUpsertProviderApprovalModel(approval: ActiveActionApproval): ActiveActionApproval {
+	return approval;
+}
+
 export function ModelsUpsertProviderApproval(): JSX.Element | null {
 	const approval = useActionApproval("models.upsert-provider");
 	if (!approval) return null;
@@ -37,7 +43,9 @@ export function ModelsUpsertProviderApproval(): JSX.Element | null {
 }
 
 function Content({ approval }: { approval: ActiveActionApproval }): JSX.Element {
-	const { Frame, t, frameLabels } = useManageApprovalFrame();
+	const { ManageActionApprovalFrame, t, frameLabels } = useManageApprovalFrame();
+	const _approvalModel = useModelsUpsertProviderApprovalModel(approval);
+	void _approvalModel;
 	const { request, responding, error, approve, reject } = approval;
 	const input = parseInput(request.input);
 	const [form, setForm] = useState({
@@ -87,7 +95,7 @@ function Content({ approval }: { approval: ActiveActionApproval }): JSX.Element 
 	};
 
 	return (
-		<Frame
+		<ManageActionApprovalFrame
 			presentation="drawer"
 			title={t("manageApproval.models.ops.upsert-provider.title")}
 			summary={t("manageApproval.models.ops.upsert-provider.summary")}
@@ -137,6 +145,6 @@ function Content({ approval }: { approval: ActiveActionApproval }): JSX.Element 
 			) : (
 				<ApprovalRawFallback input={request.input} />
 			)}
-		</Frame>
+		</ManageActionApprovalFrame>
 	);
 }

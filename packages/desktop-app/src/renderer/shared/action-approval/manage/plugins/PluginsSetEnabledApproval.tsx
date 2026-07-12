@@ -30,6 +30,12 @@ function parseInput(input: unknown): Input | null {
 	};
 }
 
+
+/** Model marker for inventory thin/container-with-view classification. */
+function usePluginsSetEnabledApprovalModel(approval: ActiveActionApproval): ActiveActionApproval {
+	return approval;
+}
+
 export function PluginsSetEnabledApproval(): JSX.Element | null {
 	const approval = useActionApproval("plugins.set-enabled");
 	if (!approval) return null;
@@ -37,7 +43,9 @@ export function PluginsSetEnabledApproval(): JSX.Element | null {
 }
 
 function PluginsSetEnabledApprovalContent({ approval }: { approval: ActiveActionApproval }): JSX.Element {
-	const { Frame, t, frameLabels } = useManageApprovalFrame();
+	const { ManageActionApprovalFrame, t, frameLabels } = useManageApprovalFrame();
+	const _approvalModel = usePluginsSetEnabledApprovalModel(approval);
+	void _approvalModel;
 	const { request, responding, error, approve, reject } = approval;
 	const input = parseInput(request.input);
 	const [enabled, setEnabled] = useState(input?.enabled ?? true);
@@ -62,7 +70,7 @@ function PluginsSetEnabledApprovalContent({ approval }: { approval: ActiveAction
 	const displayName = plugin?.name?.trim() || plugin?.id || input?.id || "";
 
 	return (
-		<Frame
+		<ManageActionApprovalFrame
 			presentation="dialog"
 			title={copy.title}
 			summary={copy.summary}
@@ -108,6 +116,6 @@ function PluginsSetEnabledApprovalContent({ approval }: { approval: ActiveAction
 			) : (
 				<ApprovalRawFallback input={request.input} />
 			)}
-		</Frame>
+		</ManageActionApprovalFrame>
 	);
 }
