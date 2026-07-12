@@ -90,6 +90,10 @@
 			"types": "./src/skills/index.ts",
 			"import": "./src/skills/index.ts"
 		},
+		"./scheduler": {
+			"types": "./src/scheduler/index.ts",
+			"import": "./src/scheduler/index.ts"
+		},
 		"./styles.css": "./src/styles.css"
 	},
 	"files": ["src"],

@@ -22,6 +22,13 @@ export type {
 } from "@vetta/theme-sdk/sidebar";
 export type { AddProjectMenuItemProps } from "./AddProjectMenuItem";
 export { AddProjectMenuItem } from "./AddProjectMenuItem";
+export type {
+	AddProjectMenuPopoverItem,
+	AddProjectMenuPopoverViewProps,
+} from "./AddProjectMenuPopoverView";
+export { AddProjectMenuPopoverView } from "./AddProjectMenuPopoverView";
+export type { AddProjectMenuTriggerViewProps } from "./AddProjectMenuTriggerView";
+export { AddProjectMenuTriggerView } from "./AddProjectMenuTriggerView";
 export type { DefaultSidebarProps } from "./DefaultSidebar";
 export { DefaultSidebar } from "./DefaultSidebar";
 export type { MessageCenterEmptyStateProps } from "./MessageCenterEmptyState";
