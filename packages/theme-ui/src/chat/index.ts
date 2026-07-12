@@ -111,6 +111,12 @@ export { ErrorBlockView, SegmentShell, ToolCallGroupView } from "./MessageBlockS
 export type { MessageCardsHostViewProps } from "./MessageCardsHostView";
 export { MessageCardsHostView } from "./MessageCardsHostView";
 export type {
+	MessageCardsTabItem,
+	MessageCardsViewLabels,
+	MessageCardsViewProps,
+} from "./MessageCardsView";
+export { MessageCardsView } from "./MessageCardsView";
+export type {
 	CompactionBoundaryViewProps,
 	ExportMessageListViewProps,
 	MessageItemViewProps,
@@ -122,6 +128,8 @@ export {
 	MessageItemView,
 	ModelSwitchBoundaryView,
 } from "./MessageItemView";
+export type { MessageListFooterViewProps } from "./MessageListFooterView";
+export { MessageListFooterView } from "./MessageListFooterView";
 export type { MessageListViewProps } from "./MessageListView";
 export { MessageListView, VirtuosoListContainer } from "./MessageListView";
 export type {
@@ -139,6 +147,8 @@ export type {
 	NewSessionSkillSelection,
 } from "./NewSession";
 export { NewSessionBackground } from "./NewSessionBackground";
+export type { NewSessionPageLayoutViewProps } from "./NewSessionPageLayoutView";
+export { NewSessionPageLayoutView } from "./NewSessionPageLayoutView";
 export type { QueueCardItem, QueueCardViewLabels, QueueCardViewProps } from "./QueueCardView";
 export { QueueCardView } from "./QueueCardView";
 export type { ReadImageViewProps } from "./ReadImageView";

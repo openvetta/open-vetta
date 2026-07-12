@@ -48,6 +48,7 @@
 | 19 | 清空 must_migrate 第 1 大波（action-approval + shared + 小叶子） | done | [19-must-migrate-wave1.md](./19-must-migrate-wave1.md) |
 | 20 | 清空全部剩余 must_migrate（门禁 exit 0） | done | [20-must-migrate-closure.md](./20-must-migrate-closure.md) |
 | 21 | Skeptic 门禁修复：真拆分 + 清 pure permanent 遮罩 | done | [21-skeptic-gate-fix.md](./21-skeptic-gate-fix.md) |
+| 22 | 清除假 host_primitive_hold + must_migrate 全清 | done | [22-fake-host-hold-purge.md](./22-fake-host-hold-purge.md) |
 | 99 | 最终审计与暂缓清单 | done | [99-final-audit.md](./99-final-audit.md) |
 
 ## 闭合门禁（验收用）

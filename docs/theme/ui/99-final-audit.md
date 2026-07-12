@@ -13,30 +13,33 @@
    - `bad_deferrals == 0`（禁止「等拆 model」类 deferral）
 2. `bun packages/theme-ui/scripts/verify-purity.mjs` → exit 0
 3. `bun run check` → exit 0
-4. 台账批次 00–20 有记录
+4. 台账批次 00–22 有记录
 
-## 门禁快照（Skeptic 修复后闭合）
+## 门禁快照（batch 22 假 hold 清除后）
 
 ```json
 {
-  "migrated": 149,
+  "migrated": 178,
   "split_ok": 114,
   "must_split_open": 0,
   "must_migrate_open": 0,
   "must_host_hold_open": 0,
-  "host_primitive_hold": 120,
+  "host_primitive_hold": 91,
   "permanent_desktop": 79,
   "non_goal": 19,
   "bad_deferrals": 0
 }
 ```
 
-### 反作弊（batch 21）
+### 反作弊（batch 21 + batch 22）
 
 - stub `useXxxModel(){ return true }` **不计** real model
 - null-only `*View.tsx` **不计** real view；`void View` import **不计** usesView
 - `permanent_desktop` **不得**遮罩 substantial pure presentation（→ bad_deferral / must_migrate）
-- 详见 [21-skeptic-gate-fix.md](./21-skeptic-gate-fix.md)
+- **hasHostUi 仅 value import**（`import { Button } from .../ui/button` 等或 radix）；`import type { Button }` **不计**
+- `_HostPrimitiveHold*` 假标记 → **bad_deferral**
+- `host_primitive_hold` 无真实 value host UI → **bad_deferral**
+- 详见 [21-skeptic-gate-fix.md](./21-skeptic-gate-fix.md)、[22-fake-host-hold-purge.md](./22-fake-host-hold-purge.md)
 
 ## 边界回顾
 
@@ -48,7 +51,7 @@
 
 ## 迁入概览
 
-见 README 批次表 00–20。theme-ui 域包括：layout / appearance / app-shell / sidebar / chat / overlays / activity / knowledge / skills / settings / shared / file-preview / batch-tasks / project / downloads / flowing / flowing-chat / file-explorer / scheduler / action-approval 等。
+见 README 批次表 00–22。theme-ui 域包括：layout / appearance / app-shell / sidebar / chat / overlays / activity / knowledge / skills / settings / shared / file-preview / batch-tasks / project / downloads / flowing / flowing-chat / file-explorer / scheduler / action-approval 等。
 
 ## deferrals 权威列表
 
@@ -57,7 +60,7 @@
 | kind | 含义 |
 |------|------|
 | `permanent_desktop` | connected shell / host entry / model 组装 |
-| `host_primitive_hold` | props view 仍依赖 host Dialog/Popover/Button 等 |
+| `host_primitive_hold` | props view **value import** host Dialog/Popover/Button/Select/Switch 等（type-only 无效） |
 | `non_goal` | onboarding / pet / quickpanel / plugin 私有等 |
 
 ## 验收命令

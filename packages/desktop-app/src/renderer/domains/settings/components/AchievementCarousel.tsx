@@ -1,17 +1,17 @@
-import type { Button } from "@shared/components/ui/button";
-type HostButton = typeof Button;
-export type { HostButton as _HostPrimitiveHoldButton };
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { AchievementUsageStats } from "@preload/api";
 import { cn } from "@shared/lib/utils";
+import {
+	AchievementCurtains,
+	AchievementTitle,
+} from "@vetta/theme-ui/settings";
 import type { Achievement } from "../achievements";
 import { ACHIEVEMENT_SCENE_LAYOUT } from "../achievement-scene-layout";
-import { AchievementCurtains } from "./AchievementCurtains";
+import { ACHIEVEMENT_UI_ASSETS } from "../achievement-ui-assets";
 import { AchievementDescriptionCard } from "./AchievementDescriptionCard";
 import { AchievementNavigationButton } from "./AchievementNavigationButton";
-import { AchievementTitle } from "./AchievementTitle";
 
 interface DragState {
 	pointerId: number;
@@ -221,14 +221,19 @@ export function AchievementCarousel({
 						borderColor: "#b9893f",
 					}}
 				/>
-				<AchievementCurtains />
+				<AchievementCurtains layout={ACHIEVEMENT_SCENE_LAYOUT.curtain} assets={ACHIEVEMENT_UI_ASSETS.curtain} />
 				<div className="relative z-10 px-4 pb-6 pt-3">
 					<motion.div
 						initial={reduceMotion ? false : { opacity: 0, y: -8 }}
 						animate={{ opacity: 1, y: 0 }}
 						transition={{ duration: 0.35, delay: 0.08, ease: "easeOut" }}
 					>
-						<AchievementTitle title={t("achievement.title")} />
+						<AchievementTitle
+							title={t("achievement.title")}
+							layout={ACHIEVEMENT_SCENE_LAYOUT.title}
+							titleImageUrl={ACHIEVEMENT_UI_ASSETS.title}
+							titleTextOffsetY={ACHIEVEMENT_SCENE_LAYOUT.titleTextOffsetY}
+						/>
 						<p
 							className="mt-1 text-center text-[12px]"
 							style={{ color: "#d7b7a2" }}

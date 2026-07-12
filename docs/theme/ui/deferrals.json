@@ -595,31 +595,11 @@
     "kind": "host_primitive_hold",
     "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
   },
-  "packages/desktop-app/src/renderer/shared/action-approval/appearance/AppearancePickerApprovalView.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/appearance/ThemeChangeApprovalView.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/batch-tasks/BatchTasksExecutionApprovalView.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
-  },
   "packages/desktop-app/src/renderer/shared/action-approval/batch-tasks/BatchTasksTaskApprovalView.tsx": {
     "kind": "host_primitive_hold",
     "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
   },
-  "packages/desktop-app/src/renderer/shared/action-approval/scheduler/SchedulerUpdateApprovalView.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
-  },
   "packages/desktop-app/src/renderer/shared/action-approval/manage/agent/AgentSetExperimentalApproval.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/shared/action-approval/manage/general/GeneralSetExecutionModeApproval.tsx": {
     "kind": "host_primitive_hold",
     "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
   },
@@ -659,107 +639,11 @@
     "kind": "host_primitive_hold",
     "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
   },
-  "packages/desktop-app/src/renderer/domains/settings/components/McpSettingsView.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/ModelsSettingsView.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/WebhookSettingsView.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/EnvironmentSettingsView.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/PermissionsSettingsView.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
-  },
   "packages/desktop-app/src/renderer/domains/skills/components/PluginDetailSheet.tsx": {
     "kind": "host_primitive_hold",
     "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
   },
-  "packages/desktop-app/src/renderer/domains/activity-panel/components/activity-panel/ActivityPanelView.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/activity-panel/components/ChatTabPanel.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/chat/components/message-list/MessageListFooter.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/chat/components/MessageCards.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/chat/components/new-session/NewSessionPageView.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeContentsPanelView.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/project/components/sidebar/settings-menu/SettingsMenuTrigger.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/skills/components/SkillTagGroup.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/PetBubbleStylePreview.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/TeamList.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
-  },
   "packages/desktop-app/src/renderer/domains/chat/components/model-selector/ModelSelectorView.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/project/components/sidebar/message-center/ChatMessageListView.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/project/components/sidebar/message-center/NotificationMessageListView.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/SettingsSidebar.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/shared.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/flowing/components/flow-graph/user-node.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/flowing-chat/components/ChatComposer.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/AchievementCarousel.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/AchievementPromotionBadge3D.tsx": {
-    "kind": "host_primitive_hold",
-    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
-  },
-  "packages/desktop-app/src/renderer/domains/settings/components/SubscriptionCardsView.tsx": {
     "kind": "host_primitive_hold",
     "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button/Select/Switch; keep in desktop until @vetta/ui"
   }
