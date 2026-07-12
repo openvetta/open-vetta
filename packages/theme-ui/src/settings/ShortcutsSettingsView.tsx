@@ -1,4 +1,5 @@
 import type { JSX, ReactNode } from "react";
+import { Button } from "@vetta/ui";
 import { SettingRow, SettingSection, type SettingSectionMeta } from "./SettingChrome";
 
 export interface ShortcutActionRowView {
@@ -13,16 +14,19 @@ export interface ShortcutsSettingsViewProps {
 	readonly resetAllLabel: string;
 	readonly shortcutHint: string;
 	readonly globalSection: SettingSectionMeta;
-	readonly headerTrailing: ReactNode;
+	readonly aiAssistSlot: ReactNode;
+	readonly onResetAll: () => void;
 	readonly shortcutActions: readonly ShortcutActionRowView[];
 	readonly quickPanelSection: ReactNode;
 }
 
 export function ShortcutsSettingsView({
 	title,
+	resetAllLabel,
 	shortcutHint,
 	globalSection,
-	headerTrailing,
+	aiAssistSlot,
+	onResetAll,
 	shortcutActions,
 	quickPanelSection,
 }: ShortcutsSettingsViewProps): JSX.Element {
@@ -30,7 +34,13 @@ export function ShortcutsSettingsView({
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
 			<div className="mb-6 flex flex-wrap items-center justify-between gap-3">
 				<h1 className="text-[20px] font-bold text-foreground">{title}</h1>
-				<div className="flex flex-wrap items-center gap-2">{headerTrailing}</div>
+				<div className="flex flex-wrap items-center gap-2">
+					{aiAssistSlot}
+					<Button variant="secondary" size="sm" onClick={onResetAll}>
+						<span className="icon-[mdi--restore] h-3.5 w-3.5" />
+						{resetAllLabel}
+					</Button>
+				</div>
 			</div>
 
 			<SettingSection section={globalSection}>
