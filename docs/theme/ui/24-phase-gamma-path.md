@@ -37,6 +37,8 @@
 | `PresetProvidersSectionView` | 同名 | refreshControl + rows slots |
 | `TeamSettingsView` | 同名 | headerActions / body / dialogs slots |
 | `ShortcutsSettingsView` | 同名 | headerTrailing / recorder / quickPanel slots |
+| `GeneralSettingsView` | 同名 | Select/Switch/UpdateChecker/export 控件 slot |
+| `AppshotSettingsView` | 同名 | gesture Select + keyboard preview + 权限区 |
 
 desktop 容器仍 value import Button 的路径 **继续 host_primitive_hold**。  
 `SettingsAiAssistButton` 已无 host Button → 从 deferrals 移除，inventory 归 migrated/adapter。
