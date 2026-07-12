@@ -4,6 +4,11 @@ export type {
 } from "./AchievementNavigationButtonView";
 export { AchievementNavigationButtonView } from "./AchievementNavigationButtonView";
 export type {
+	AchievementPromotionDialogViewLabels,
+	AchievementPromotionDialogViewProps,
+} from "./AchievementPromotionDialogView";
+export { AchievementPromotionDialogView } from "./AchievementPromotionDialogView";
+export type {
 	AchievementSetOptionView,
 	AchievementSettingsViewProps,
 } from "./AchievementSettingsView";
@@ -50,6 +55,11 @@ export type {
 	ImChannelCardViewProps,
 } from "./ImChannelCardView";
 export { ImChannelCardView } from "./ImChannelCardView";
+export type {
+	ImFeishuDialogViewLabels,
+	ImFeishuDialogViewProps,
+} from "./ImFeishuDialogView";
+export { ImFeishuDialogView } from "./ImFeishuDialogView";
 export type { ImLegacyImportBannerViewProps } from "./ImLegacyImportBannerView";
 export { ImLegacyImportBannerView } from "./ImLegacyImportBannerView";
 export type {
@@ -62,6 +72,12 @@ export type { ImStatusBadgeStatus, ImStatusBadgeViewProps } from "./ImStatusBadg
 export { ImStatusBadgeView } from "./ImStatusBadgeView";
 export type { McpJsonEditorViewProps } from "./McpJsonEditorView";
 export { McpJsonEditorView } from "./McpJsonEditorView";
+export type {
+	ModelsProviderFormStateView,
+	ModelsProviderFormViewLabels,
+	ModelsProviderFormViewProps,
+} from "./ModelsProviderFormView";
+export { ModelsProviderFormView } from "./ModelsProviderFormView";
 export type {
 	ModelsProvidersSectionViewLabels,
 	ModelsProvidersSectionViewProps,
