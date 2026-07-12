@@ -13,23 +13,25 @@
    - `bad_deferrals == 0`（禁止「等拆 model」类 deferral）
 2. `bun packages/theme-ui/scripts/verify-purity.mjs` → exit 0
 3. `bun run check` → exit 0
-4. 台账批次 00–22 有记录
+4. 台账批次 00–25 有记录（含 residual / γ / δ）
 
-## 门禁快照（batch 22 假 hold 清除后）
+## 门禁快照（Phase α–δ 后）
 
 ```json
 {
-  "migrated": 178,
-  "split_ok": 114,
+  "migrated": 183,
+  "split_ok": 113,
   "must_split_open": 0,
   "must_migrate_open": 0,
   "must_host_hold_open": 0,
-  "host_primitive_hold": 91,
-  "permanent_desktop": 79,
+  "host_primitive_hold": 82,
+  "permanent_desktop": 97,
   "non_goal": 19,
   "bad_deferrals": 0
 }
 ```
+
+`host_primitive_hold≈82` 为**有意保留**（等 `@vetta/ui` 原语），见 `24-phase-gamma-path.md`。
 
 ### 反作弊（batch 21 + batch 22）
 
