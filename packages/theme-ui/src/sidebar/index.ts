@@ -22,9 +22,18 @@ export type {
 } from "@vetta/theme-sdk/sidebar";
 export type { DefaultSidebarProps } from "./DefaultSidebar";
 export { DefaultSidebar } from "./DefaultSidebar";
+export type { MessageCenterEmptyStateProps } from "./MessageCenterEmptyState";
+export { MessageCenterEmptyState } from "./MessageCenterEmptyState";
+export type { MessageCenterToolbarButtonProps } from "./MessageCenterToolbarButton";
+export { MessageCenterToolbarButton } from "./MessageCenterToolbarButton";
+export type { ProjectsPanelEmptyStateLabels, ProjectsPanelEmptyStateProps } from "./ProjectsPanelEmptyState";
+export { ProjectsPanelEmptyState } from "./ProjectsPanelEmptyState";
 export { RunningPulseDot } from "./RunningPulseDot";
 export type { SessionStatusIconProps } from "./SessionStatusIcon";
 export { SessionStatusIcon } from "./SessionStatusIcon";
+export type { SettingsMenuActionButtonProps } from "./SettingsMenuActionButton";
+export { SettingsMenuActionButton } from "./SettingsMenuActionButton";
+export { SettingsMenuDivider } from "./SettingsMenuDivider";
 export type { ShowMoreSessionsButtonLabels, ShowMoreSessionsButtonProps } from "./ShowMoreSessionsButton";
 export { ShowMoreSessionsButton } from "./ShowMoreSessionsButton";
 export type { SidebarNavItemButtonProps } from "./SidebarNavItemButton";

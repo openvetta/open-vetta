@@ -29,6 +29,8 @@ export type {
 	AtPanelViewProps,
 } from "./AtPanelView";
 export { AtPanelView } from "./AtPanelView";
+export type { CopyIconButtonLabels, CopyIconButtonProps } from "./CopyIconButton";
+export { CopyIconButton } from "./CopyIconButton";
 export { DefaultGuidingWords } from "./DefaultGuidingWords";
 export { DefaultSceneCarousel } from "./DefaultSceneCarousel";
 export { DefaultSkillBadgeRow } from "./DefaultSkillBadgeRow";
@@ -51,6 +53,12 @@ export type {
 	NewSessionSkillSelection,
 } from "./NewSession";
 export type {
+	SandboxPermissionCardLabels,
+	SandboxPermissionCardProps,
+	SandboxPermissionRequestModel,
+} from "./SandboxPermissionCard";
+export { SandboxPermissionCard } from "./SandboxPermissionCard";
+export type {
 	SceneCardActionState,
 	SceneCardClassNames,
 	SceneCardModel,
@@ -58,6 +66,8 @@ export type {
 	SceneCardState,
 } from "./SceneCard";
 export { SceneCard } from "./SceneCard";
+export type { SendButtonLabels, SendButtonProps } from "./SendButton";
+export { SendButton } from "./SendButton";
 export type { SkillCardClassNames, SkillCardModel, SkillCardProps } from "./SkillCard";
 export { SkillCard } from "./SkillCard";
 export type {
@@ -68,3 +78,5 @@ export type {
 	SlashPanelViewProps,
 } from "./SlashPanelView";
 export { SlashPanelView } from "./SlashPanelView";
+export type { TextPreviewLabels, TextPreviewProps } from "./TextPreview";
+export { TextPreview } from "./TextPreview";

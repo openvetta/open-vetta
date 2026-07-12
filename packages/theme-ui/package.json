@@ -13,6 +13,10 @@
 			"types": "./src/appearance/index.ts",
 			"import": "./src/appearance/index.ts"
 		},
+		"./activity": {
+			"types": "./src/activity/index.ts",
+			"import": "./src/activity/index.ts"
+		},
 		"./app": {
 			"types": "./src/app/index.ts",
 			"import": "./src/app/index.ts"
