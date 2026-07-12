@@ -26,6 +26,12 @@ export type { DefaultSidebarProps } from "./DefaultSidebar";
 export { DefaultSidebar } from "./DefaultSidebar";
 export type { MessageCenterEmptyStateProps } from "./MessageCenterEmptyState";
 export { MessageCenterEmptyState } from "./MessageCenterEmptyState";
+export type {
+	MessageCenterTabId,
+	MessageCenterTabItem,
+	MessageCenterTabsProps,
+} from "./MessageCenterTabs";
+export { MessageCenterTabs } from "./MessageCenterTabs";
 export type { MessageCenterToolbarButtonProps } from "./MessageCenterToolbarButton";
 export { MessageCenterToolbarButton } from "./MessageCenterToolbarButton";
 export type { ProjectsPanelEmptyStateLabels, ProjectsPanelEmptyStateProps } from "./ProjectsPanelEmptyState";
@@ -35,9 +41,19 @@ export { ProjectsPanelSplitHandle } from "./ProjectsPanelSplitHandle";
 export { RunningPulseDot } from "./RunningPulseDot";
 export type { SessionStatusIconProps } from "./SessionStatusIcon";
 export { SessionStatusIcon } from "./SessionStatusIcon";
+export type { SettingsMenuAccountSectionProps } from "./SettingsMenuAccountSection";
+export { SettingsMenuAccountSection } from "./SettingsMenuAccountSection";
 export type { SettingsMenuActionButtonProps } from "./SettingsMenuActionButton";
 export { SettingsMenuActionButton } from "./SettingsMenuActionButton";
 export { SettingsMenuDivider } from "./SettingsMenuDivider";
+export type { SettingsMenuDownloadsItemProps } from "./SettingsMenuDownloadsItem";
+export { SettingsMenuDownloadsItem } from "./SettingsMenuDownloadsItem";
+export type { SettingsMenuQuotaSectionProps } from "./SettingsMenuQuotaSection";
+export { SettingsMenuQuotaSection } from "./SettingsMenuQuotaSection";
+export type { SettingsMenuSettingsItemProps } from "./SettingsMenuSettingsItem";
+export { SettingsMenuSettingsItem } from "./SettingsMenuSettingsItem";
+export type { SettingsMenuThemeOption, SettingsMenuThemeSectionProps } from "./SettingsMenuThemeSection";
+export { SettingsMenuThemeSection } from "./SettingsMenuThemeSection";
 export type { ShowMoreSessionsButtonLabels, ShowMoreSessionsButtonProps } from "./ShowMoreSessionsButton";
 export { ShowMoreSessionsButton } from "./ShowMoreSessionsButton";
 export type { SidebarNavItemButtonProps } from "./SidebarNavItemButton";

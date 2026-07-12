@@ -1,9 +1,9 @@
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
+import { SettingsMenuSettingsItem } from "@vetta/theme-ui/sidebar";
 import { PopoverContent } from "@shared/components/ui/popover";
 import type { SettingsMenuModel } from "./types";
 import { SettingsMenuAccountSection } from "./SettingsMenuAccountSection";
-import { SettingsMenuActionButton } from "./SettingsMenuActionButton";
 import { SettingsMenuDivider } from "./SettingsMenuDivider";
 import { SettingsMenuDownloadsItem } from "./SettingsMenuDownloadsItem";
 import { SettingsMenuQuotaSection } from "./SettingsMenuQuotaSection";
@@ -69,7 +69,7 @@ export function SettingsMenuPopover({ model }: SettingsMenuPopoverProps): JSX.El
 						<SettingsMenuDownloadsItem model={model} />
 					</motion.div>
 					<motion.div variants={itemVariants}>
-						<SettingsMenuSettingsItem model={model} />
+						<SettingsMenuSettingsItemHost model={model} />
 					</motion.div>
 				</motion.div>
 			</motion.div>
@@ -77,15 +77,9 @@ export function SettingsMenuPopover({ model }: SettingsMenuPopoverProps): JSX.El
 	);
 }
 
-function SettingsMenuSettingsItem({ model }: { model: SettingsMenuModel }): JSX.Element {
+function SettingsMenuSettingsItemHost({ model }: { model: SettingsMenuModel }): JSX.Element {
 	const { t } = useTranslation("settings");
-
 	return (
-		<SettingsMenuActionButton
-			icon="icon-[solar--settings-linear]"
-			onClick={model.actions.openSettings}
-		>
-			{t("sidebar.settings")}
-		</SettingsMenuActionButton>
+		<SettingsMenuSettingsItem label={t("sidebar.settings")} onOpenSettings={model.actions.openSettings} />
 	);
 }
