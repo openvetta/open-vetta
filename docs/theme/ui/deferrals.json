@@ -111,10 +111,6 @@
 		"kind": "permanent_desktop",
 		"reason": "Connected shell / host entry: maps projects panel model into ProjectGroup rows"
 	},
-	"packages/desktop-app/src/renderer/domains/project/components/sidebar/settings-menu/SettingsMenuPopover.tsx": {
-		"kind": "host_primitive_hold",
-		"reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
-	},
 	"packages/desktop-app/src/renderer/domains/project/components/sidebar/update/SidebarUpdateButton.tsx": {
 		"kind": "permanent_desktop",
 		"reason": "Connected shell / host entry: update button model wiring"
@@ -188,14 +184,6 @@
 		"reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
 	},
 	"packages/desktop-app/src/renderer/domains/settings/components/PresetProviderRow.tsx": {
-		"kind": "host_primitive_hold",
-		"reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
-	},
-	"packages/desktop-app/src/renderer/domains/settings/components/RemoteMcpSection.tsx": {
-		"kind": "host_primitive_hold",
-		"reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
-	},
-	"packages/desktop-app/src/renderer/domains/settings/components/RemoteMcpSectionView.tsx": {
 		"kind": "host_primitive_hold",
 		"reason": "Value-import host chrome path or Dialog-heavy view; unlock=use @vetta/ui primitives (landed Batch27) + move presentation to theme-ui"
 	},

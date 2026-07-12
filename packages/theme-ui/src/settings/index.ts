@@ -92,6 +92,13 @@ export type {
 	QuickPanelSettingsSectionViewProps,
 } from "./QuickPanelSettingsSectionView";
 export { QuickPanelSettingsSectionView } from "./QuickPanelSettingsSectionView";
+export type {
+	RemoteMcpSectionViewLabels,
+	RemoteMcpSectionViewModel,
+	RemoteMcpSectionViewProps,
+	RemoteMcpServerRowView,
+} from "./RemoteMcpSectionView";
+export { RemoteMcpSectionView } from "./RemoteMcpSectionView";
 export type { SettingSectionMeta } from "./SettingChrome";
 export { SettingHeading, SettingRow, SettingSection } from "./SettingChrome";
 export type { SettingsAiAssistButtonViewProps } from "./SettingsAiAssistButtonView";

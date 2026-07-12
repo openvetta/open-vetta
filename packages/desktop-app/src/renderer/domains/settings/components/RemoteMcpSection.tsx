@@ -1,8 +1,8 @@
 import type { MarketMcpServer } from "@shared/lib/api";
-import { Button } from "@shared/components/ui/button";
-import { cn } from "@shared/lib/utils";
+import { Button, cn } from "@vetta/ui";
+import { RemoteMcpSectionView } from "@vetta/theme-ui/settings";
 import { useTranslation } from "react-i18next";
-import { RemoteMcpSectionView } from "./RemoteMcpSectionView";
+import { SETTINGS_SECTION } from "../registry";
 import {
 	type RemoteMcpSectionModel,
 	useRemoteMcpSectionModel,
@@ -27,6 +27,25 @@ function useRemoteMcpLabels() {
 	};
 }
 
+function toThemeModel(model: RemoteMcpSectionModel) {
+	return {
+		items: model.items,
+		loading: model.loading,
+		error: model.error,
+		busy: model.busy,
+		load: model.load,
+		handleAction: async (
+			server: { name: string },
+			action: "add" | "remove",
+		): Promise<void> => {
+			const full =
+				model.items?.find((item) => item.name === server.name) ??
+				(server as MarketMcpServer);
+			await model.handleAction(full, action);
+		},
+	};
+}
+
 /** 完整区块：自持数据 + 标题行刷新 */
 export function RemoteMcpSection({
 	addedNames,
@@ -42,8 +61,9 @@ export function RemoteMcpSection({
 		<RemoteMcpSectionView
 			addedNames={addedNames}
 			labels={useRemoteMcpLabels()}
-			model={model}
+			model={toThemeModel(model)}
 			showHeader
+			remoteSection={SETTINGS_SECTION["mcp-remote-available"]}
 		/>
 	);
 }
@@ -61,8 +81,9 @@ export function RemoteMcpDiscoverList({
 			addedNames={addedNames}
 			discover
 			labels={useRemoteMcpLabels()}
-			model={model}
+			model={toThemeModel(model)}
 			showHeader={false}
+			remoteSection={SETTINGS_SECTION["mcp-remote-available"]}
 		/>
 	);
 }
