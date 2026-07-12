@@ -45,8 +45,10 @@
 	},
 	"files": ["src"],
 	"scripts": {
-		"check": "tsgo --noEmit -p tsconfig.json"
+		"check": "tsgo --noEmit -p tsconfig.json",
+		"verify:purity": "bun ./scripts/verify-purity.mjs"
 	},
+
 	"dependencies": {
 		"@vetta/theme-sdk": "workspace:*",
 		"@vetta/ui": "workspace:*"
