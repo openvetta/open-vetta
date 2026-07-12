@@ -38,6 +38,7 @@
 | 09 | 机械库存门禁 + 菜单/消息中心 soft 叶子 | done | [09-inventory-gate.md](./09-inventory-gate.md) |
 | 10 | 严格 must_split 门禁 + TodoTabPanel | done | [10-strict-gate-todotab.md](./10-strict-gate-todotab.md) |
 | 11 | activity-panel + chat 小 must_split | done | [11-activity-chat-small-split.md](./11-activity-chat-small-split.md) |
+| 12 | activity 中等面板 + chat/shared 徽章 | done | [12-activity-history-badges.md](./12-activity-history-badges.md) |
 | 99 | 最终审计与暂缓清单 | done | [99-final-audit.md](./99-final-audit.md) |
 
 ## 闭合门禁（验收用）

@@ -31,6 +31,8 @@ export type {
 	AtPanelViewProps,
 } from "./AtPanelView";
 export { AtPanelView } from "./AtPanelView";
+export type { BackgroundTasksBadgeViewProps } from "./BackgroundTasksBadgeView";
+export { BackgroundTasksBadgeView } from "./BackgroundTasksBadgeView";
 export type { CopyIconButtonLabels, CopyIconButtonProps } from "./CopyIconButton";
 export { CopyIconButton } from "./CopyIconButton";
 export { DefaultGuidingWords } from "./DefaultGuidingWords";
@@ -59,6 +61,8 @@ export type {
 	NewSessionSkillSelection,
 } from "./NewSession";
 export { NewSessionBackground } from "./NewSessionBackground";
+export type { QueueCardItem, QueueCardViewLabels, QueueCardViewProps } from "./QueueCardView";
+export { QueueCardView } from "./QueueCardView";
 export type {
 	SandboxPermissionCardLabels,
 	SandboxPermissionCardProps,
@@ -85,6 +89,8 @@ export type {
 	SlashPanelViewProps,
 } from "./SlashPanelView";
 export { SlashPanelView } from "./SlashPanelView";
+export type { SuggestionBubblesViewProps } from "./SuggestionBubblesView";
+export { SuggestionBubblesView } from "./SuggestionBubblesView";
 export type { TextPreviewLabels, TextPreviewProps } from "./TextPreview";
 export { TextPreview } from "./TextPreview";
 export type { TodoCardItem, TodoCardLabels, TodoCardProps } from "./TodoCard";
