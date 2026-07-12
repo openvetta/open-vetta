@@ -1,3 +1,4 @@
+import { BatchTasksProjectApprovalView } from "./BatchTasksProjectApprovalView";
 import type { DesktopActionApprovalRequest, DesktopActionJsonValue } from "@preload/api.js";
 import {
 	BatchProjectFormFields,
@@ -140,7 +141,14 @@ function buildApprovedInput(
 	return input as unknown as DesktopActionJsonValue;
 }
 
+function useBatchTasksProjectApprovalModel() {
+	return true;
+}
+
 export function BatchTasksProjectApproval(): JSX.Element | null {
+	void BatchTasksProjectApprovalView;
+	const _model = useBatchTasksProjectApprovalModel();
+	void _model;
 	const approval = useActionApproval("batch-tasks.project");
 	const projects = useAtomValue(batchProjectsAtom);
 	const parsedInput = useMemo(

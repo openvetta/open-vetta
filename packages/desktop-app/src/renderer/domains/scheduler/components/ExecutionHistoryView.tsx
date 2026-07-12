@@ -1,12 +1,13 @@
 import { useTranslation } from "react-i18next";
-import type { TaskExecutionRecord } from "@shared/store/atoms";
 import type { ExecutionHistoryRecordModel } from "../hooks/useExecutionHistoryModel";
+
+export type ExecutionHistoryStatus = ExecutionHistoryRecordModel["status"];
 
 export interface ExecutionHistoryViewProps {
 	readonly embedded?: boolean;
 	readonly isLoading: boolean;
 	readonly records: readonly ExecutionHistoryRecordModel[];
-	readonly onOpenRecord: (record: TaskExecutionRecord) => void;
+	readonly onOpenRecord: (record: ExecutionHistoryRecordModel["record"]) => void;
 	readonly onRefresh: () => void;
 }
 
@@ -113,8 +114,8 @@ function ExecutionHistoryHeader({
 	);
 }
 
-function StatusDot({ status }: { readonly status: TaskExecutionRecord["status"] }): JSX.Element {
-	const colors: Record<TaskExecutionRecord["status"], string> = {
+function StatusDot({ status }: { readonly status: ExecutionHistoryStatus }): JSX.Element {
+	const colors: Record<ExecutionHistoryStatus, string> = {
 		success: "bg-emerald-500",
 		failed: "bg-destructive",
 		running: "bg-primary",
@@ -134,10 +135,10 @@ function StatusBadge({
 	status,
 	label,
 }: {
-	readonly status: TaskExecutionRecord["status"];
+	readonly status: ExecutionHistoryStatus;
 	readonly label: string;
 }): JSX.Element {
-	const styles: Record<TaskExecutionRecord["status"], string> = {
+	const styles: Record<ExecutionHistoryStatus, string> = {
 		success: "text-emerald-400 bg-emerald-500/15",
 		failed: "text-destructive bg-destructive/10",
 		running: "text-primary bg-primary/10",

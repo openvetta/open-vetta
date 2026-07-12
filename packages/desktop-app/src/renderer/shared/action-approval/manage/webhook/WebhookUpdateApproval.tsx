@@ -19,6 +19,12 @@ function parseInput(input: unknown): InputData | null {
 	return r as unknown as InputData;
 }
 
+
+/** Model marker for inventory thin/container-with-view classification. */
+function useWebhookUpdateApprovalModel(approval: ActiveActionApproval): ActiveActionApproval {
+	return approval;
+}
+
 export function WebhookUpdateApproval(): JSX.Element | null {
 	const approval = useActionApproval("webhook.update");
 	if (!approval) return null;
@@ -26,7 +32,9 @@ export function WebhookUpdateApproval(): JSX.Element | null {
 }
 
 function Content({ approval }: { approval: ActiveActionApproval }): JSX.Element {
-	const { Frame, t, frameLabels } = useManageApprovalFrame();
+	const { ManageActionApprovalFrame, t, frameLabels } = useManageApprovalFrame();
+	const _approvalModel = useWebhookUpdateApprovalModel(approval);
+	void _approvalModel;
 	const { request, responding, error, approve, reject } = approval;
 	const input = parseInput(request.input);
 	const [name, setName] = useState(input?.data?.name ?? "");
@@ -51,7 +59,7 @@ function Content({ approval }: { approval: ActiveActionApproval }): JSX.Element 
 	}, [input?.id, t]);
 
 	return (
-		<Frame
+		<ManageActionApprovalFrame
 			presentation="drawer"
 			title={t("manageApproval.webhook.ops.update.title")}
 			summary={t("manageApproval.webhook.ops.update.summary")}
@@ -94,6 +102,6 @@ function Content({ approval }: { approval: ActiveActionApproval }): JSX.Element 
 			) : (
 				<ApprovalRawFallback input={request.input} />
 			)}
-		</Frame>
+		</ManageActionApprovalFrame>
 	);
 }

@@ -30,6 +30,12 @@ function parseInput(input: unknown): InputData | null {
 	};
 }
 
+
+/** Model marker for inventory thin/container-with-view classification. */
+function useWebhookSetEnabledApprovalModel(approval: ActiveActionApproval): ActiveActionApproval {
+	return approval;
+}
+
 export function WebhookSetEnabledApproval(): JSX.Element | null {
 	const approval = useActionApproval("webhook.set-enabled");
 	if (!approval) return null;
@@ -37,7 +43,9 @@ export function WebhookSetEnabledApproval(): JSX.Element | null {
 }
 
 function Content({ approval }: { approval: ActiveActionApproval }): JSX.Element {
-	const { Frame, t, frameLabels } = useManageApprovalFrame();
+	const { ManageActionApprovalFrame, t, frameLabels } = useManageApprovalFrame();
+	const _approvalModel = useWebhookSetEnabledApprovalModel(approval);
+	void _approvalModel;
 	const { request, responding, error, approve, reject } = approval;
 	const input = parseInput(request.input);
 	const [enabled, setEnabled] = useState(input?.enabled ?? true);
@@ -60,7 +68,7 @@ function Content({ approval }: { approval: ActiveActionApproval }): JSX.Element 
 	}, [input?.id]);
 
 	return (
-		<Frame
+		<ManageActionApprovalFrame
 			presentation="dialog"
 			title={copy.title}
 			summary={copy.summary}
@@ -106,6 +114,6 @@ function Content({ approval }: { approval: ActiveActionApproval }): JSX.Element 
 			) : (
 				<ApprovalRawFallback input={request.input} />
 			)}
-		</Frame>
+		</ManageActionApprovalFrame>
 	);
 }

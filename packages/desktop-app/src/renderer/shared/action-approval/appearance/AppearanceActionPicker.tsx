@@ -1,8 +1,10 @@
 import { type MouseEvent, type ReactNode } from "react";
-import type { CursorStyle, ThemeMode } from "@shared/store/atoms";
+import type { CursorStyle } from "@shared/theme/cursor";
 import { THEMES } from "@shared/theme/themes";
 import type { ThemeDef } from "@shared/theme/tokens";
 import { cn } from "@shared/lib/utils";
+
+type ThemeMode = "light" | "dark" | "auto";
 
 const MODES: { value: ThemeMode; label: string; icon: string; hint: string }[] = [
 	{ value: "light", label: "浅色", icon: "icon-[mdi--white-balance-sunny]", hint: "始终浅色" },

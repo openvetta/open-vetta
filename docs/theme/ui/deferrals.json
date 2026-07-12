@@ -374,5 +374,34 @@
   "packages/desktop-app/src/renderer/shared/theme/runtime/ThemeRuntimeProvider.tsx": {
     "kind": "permanent_desktop",
     "reason": "Page host / shell / connected assembler or shared chrome; stays desktop (boundary 1)"
+  },
+  "packages/desktop-app/src/renderer/domains/knowledge-base/components/KnowledgeBaseSwitcherView.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/scheduler/components/TaskFormDialogView.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/settings/components/AppearanceSettingsView.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/settings/components/BuiltinMcpSecretsDialogView.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/settings/components/RemoteMcpSection.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/settings/components/RemoteMcpSectionView.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
+  },
+  "packages/desktop-app/src/renderer/domains/settings/components/WechatBindDialogView.tsx": {
+    "kind": "host_primitive_hold",
+    "reason": "Props-driven or soft-pure UI still imports host Dialog/Drawer/Popover/Button; keep in desktop until @vetta/ui"
   }
 }
+

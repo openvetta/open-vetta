@@ -3,18 +3,25 @@ import {
 	Dialog,
 	DialogContent,
 } from "@shared/components/ui/dialog";
-import type { ScheduledTask } from "@shared/store/atoms";
-import { useTranslation } from "react-i18next";
 import {
 	SchedulerTaskFields,
 	type SchedulerTaskDraft,
 } from "./SchedulerTaskFields";
 
+export interface TaskFormDialogViewLabels {
+	readonly cancel: string;
+	readonly create: string;
+	readonly namePlaceholderEdit: string;
+	readonly namePlaceholderNew: string;
+	readonly save: string;
+}
+
 export interface TaskFormDialogViewProps {
 	readonly canSubmit: boolean;
 	readonly data: SchedulerTaskDraft;
+	readonly isEdit: boolean;
+	readonly labels: TaskFormDialogViewLabels;
 	readonly open: boolean;
-	readonly task: ScheduledTask | undefined;
 	readonly onChange: (value: SchedulerTaskDraft) => void;
 	readonly onClose: () => void;
 	readonly onSubmit: () => void;
@@ -23,14 +30,13 @@ export interface TaskFormDialogViewProps {
 export function TaskFormDialogView({
 	canSubmit,
 	data,
+	isEdit,
+	labels,
 	open,
-	task,
 	onChange,
 	onClose,
 	onSubmit,
 }: TaskFormDialogViewProps): JSX.Element {
-	const { t } = useTranslation("automation");
-
 	return (
 		<Dialog open={open} onOpenChange={(value) => !value && onClose()}>
 			<DialogContent
@@ -41,7 +47,7 @@ export function TaskFormDialogView({
 					<SchedulerTaskFields
 						value={data}
 						onChange={onChange}
-						namePlaceholder={task ? t("dialog.namePlaceholderEdit") : t("dialog.namePlaceholderNew")}
+						namePlaceholder={isEdit ? labels.namePlaceholderEdit : labels.namePlaceholderNew}
 						showWorkDirSelector={false}
 					/>
 				</div>
@@ -54,7 +60,7 @@ export function TaskFormDialogView({
 						className="h-9 rounded-lg px-3 text-[13px] text-muted-foreground hover:text-foreground"
 					>
 						<span className="icon-[mdi--close] h-4 w-4" />
-						<span>{t("dialog.cancel")}</span>
+						<span>{labels.cancel}</span>
 					</Button>
 					<Button
 						onClick={onSubmit}
@@ -62,7 +68,7 @@ export function TaskFormDialogView({
 						className="h-9 rounded-lg bg-primary px-4 text-[13px] text-primary-foreground hover:bg-primary/90"
 					>
 						<span className="icon-[mdi--check] h-4 w-4" />
-						<span>{task ? t("dialog.save") : t("dialog.create")}</span>
+						<span>{isEdit ? labels.save : labels.create}</span>
 					</Button>
 				</div>
 			</DialogContent>

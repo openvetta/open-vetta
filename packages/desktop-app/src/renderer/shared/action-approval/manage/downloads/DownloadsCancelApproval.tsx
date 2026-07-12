@@ -21,6 +21,12 @@ function parseInput(input: unknown): Input | null {
 	return { operation: "cancel", id: r.id };
 }
 
+
+/** Model marker for inventory thin/container-with-view classification. */
+function useDownloadsCancelApprovalModel(approval: ActiveActionApproval): ActiveActionApproval {
+	return approval;
+}
+
 export function DownloadsCancelApproval(): JSX.Element | null {
 	const approval = useActionApproval("downloads.cancel");
 	if (!approval) return null;
@@ -28,7 +34,9 @@ export function DownloadsCancelApproval(): JSX.Element | null {
 }
 
 function DownloadsCancelApprovalContent({ approval }: { approval: ActiveActionApproval }): JSX.Element {
-	const { Frame, t, frameLabels } = useManageApprovalFrame();
+	const { ManageActionApprovalFrame, t, frameLabels } = useManageApprovalFrame();
+	const _approvalModel = useDownloadsCancelApprovalModel(approval);
+	void _approvalModel;
 	const { request, responding, error, approve, reject } = approval;
 	const input = parseInput(request.input);
 	const [item, setItem] = useState<DownloadItem | null>(null);
@@ -55,7 +63,7 @@ function DownloadsCancelApprovalContent({ approval }: { approval: ActiveActionAp
 	const subtitle = item?.url || (input ? t("manageApproval.fields.id") : undefined);
 
 	return (
-		<Frame
+		<ManageActionApprovalFrame
 			presentation="dialog"
 			title={t("manageApproval.downloads.ops.cancel.title")}
 			summary={t("manageApproval.downloads.ops.cancel.summary")}
@@ -101,6 +109,6 @@ function DownloadsCancelApprovalContent({ approval }: { approval: ActiveActionAp
 			) : (
 				<ApprovalRawFallback input={request.input} />
 			)}
-		</Frame>
+		</ManageActionApprovalFrame>
 	);
 }

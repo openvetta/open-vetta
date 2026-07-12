@@ -14,7 +14,9 @@ export function HistoryDrawer({ task, onClose, onEdit }: HistoryDrawerProps): JS
 		<HistoryDrawerView
 			{...useHistoryDrawerModel({ task, onClose })}
 			onClose={onClose}
-			onEdit={onEdit}
+			onEdit={() => {
+				if (task) onEdit(task);
+			}}
 		/>
 	);
 }

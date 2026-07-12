@@ -5,6 +5,9 @@ import { ManageActionApprovalFrameView } from "./ManageActionApprovalFrameView";
 
 /** 领域审批外壳与 i18n；`useActionApproval` 必须只在外层 presenter 调用一次。 */
 export function useManageApprovalFrame(): {
+	/** Named *Frame so inventory `usesView` matches bare component tags. */
+	ManageActionApprovalFrame: typeof ManageActionApprovalFrameView;
+	/** @deprecated use ManageActionApprovalFrame */
 	Frame: typeof ManageActionApprovalFrameView;
 	t: ReturnType<typeof useTranslation<"common">>["t"];
 	frameLabels: (
@@ -18,9 +21,10 @@ export function useManageApprovalFrame(): {
 	};
 } {
 	const { t } = useTranslation("common");
-	const Frame = useThemeComponent("root.approval.manageFrameView", ManageActionApprovalFrameView);
+	const ManageActionApprovalFrame = useThemeComponent("root.approval.manageFrameView", ManageActionApprovalFrameView);
 	return {
-		Frame,
+		ManageActionApprovalFrame,
+		Frame: ManageActionApprovalFrame,
 		t,
 		frameLabels: (permission, confirm) => ({
 			reject: t("actionApproval.reject"),

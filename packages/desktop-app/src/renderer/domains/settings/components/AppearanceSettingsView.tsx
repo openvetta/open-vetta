@@ -1,7 +1,6 @@
 import { BotAvatar } from "@shared/components/BotAvatar";
 import { Popover, PopoverContent, PopoverTrigger } from "@shared/components/ui/popover";
 import { cn } from "@shared/lib/utils";
-import type { ThemeMode } from "@shared/store/atoms";
 import type { CursorStyle } from "@shared/theme/cursor";
 import type { ThemeDef } from "@shared/theme/tokens";
 import { type MouseEvent, useState } from "react";
@@ -11,9 +10,12 @@ import { SettingHeading } from "./shared";
 import type {
 	AppearanceCursorOption,
 	AppearanceLanguageOption,
+	AppearanceModeOption,
 	AppearanceSettingsModel,
 	AppearanceUiThemeOption,
 } from "./useAppearanceSettingsModel";
+
+type ThemeMode = AppearanceModeOption["value"];
 
 function LanguageSelect({
 	language,

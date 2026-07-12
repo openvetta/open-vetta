@@ -9,5 +9,19 @@ interface TaskListProps {
 }
 
 export function TaskList({ selectedTaskId, onSelectTask, onEditTask }: TaskListProps): JSX.Element {
-	return <TaskListView {...useTaskListModel({ selectedTaskId })} onSelectTask={onSelectTask} onEditTask={onEditTask} />;
+	const model = useTaskListModel({ selectedTaskId });
+	return (
+		<TaskListView
+			items={model.items}
+			labels={model.labels}
+			onDeleteTask={model.onDeleteTask}
+			onEditTask={(taskId) => {
+				const item = model.items.find((candidate) => candidate.id === taskId);
+				if (item) onEditTask(item.task);
+			}}
+			onRunTask={model.onRunTask}
+			onSelectTask={onSelectTask}
+			onToggleTask={model.onToggleTask}
+		/>
+	);
 }

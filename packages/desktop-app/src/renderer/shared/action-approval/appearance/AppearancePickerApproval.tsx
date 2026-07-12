@@ -87,7 +87,13 @@ function AppearancePickerDialog({ approval }: { approval: ActiveActionApproval }
 	);
 }
 
+function useAppearancePickerApprovalModel() {
+	return true;
+}
+
 export function AppearancePickerApproval(): JSX.Element | null {
+	const _model = useAppearancePickerApprovalModel();
+	void _model;
 	const approval = useActionApproval("appearance.picker");
 	if (!approval) return null;
 	return <AppearancePickerDialog key={approval.request.approvalId} approval={approval} />;

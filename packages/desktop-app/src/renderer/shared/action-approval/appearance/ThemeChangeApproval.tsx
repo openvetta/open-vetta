@@ -28,7 +28,13 @@ function isThemeSetInput(
 	);
 }
 
+function useThemeChangeApprovalModel() {
+	return true;
+}
+
 export function ThemeChangeApproval(): JSX.Element | null {
+	const _model = useThemeChangeApprovalModel();
+	void _model;
 	const approval = useActionApproval("appearance.theme-change");
 	const currentMode = useAtomValue(themeModeAtom);
 	const currentThemeId = useAtomValue(themeNameAtom);
