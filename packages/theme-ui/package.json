@@ -105,7 +105,8 @@
 
 	"dependencies": {
 		"@vetta/theme-sdk": "workspace:*",
-		"@vetta/ui": "workspace:*"
+		"@vetta/ui": "workspace:*",
+		"radix-ui": "^1.6.2"
 	},
 	"peerDependencies": {
 		"@xyflow/react": "^12.0.0",

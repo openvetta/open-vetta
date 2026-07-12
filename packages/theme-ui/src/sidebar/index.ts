@@ -42,6 +42,11 @@ export type {
 	FlowingMessageListViewProps,
 } from "./FlowingMessageListView";
 export { FlowingMessageListView } from "./FlowingMessageListView";
+export type { MessageCenterDialogViewProps } from "./MessageCenterDialogView";
+export {
+	MESSAGE_CENTER_DIALOG_SPRING,
+	MessageCenterDialogView,
+} from "./MessageCenterDialogView";
 export type { MessageCenterEmptyStateProps } from "./MessageCenterEmptyState";
 export { MessageCenterEmptyState } from "./MessageCenterEmptyState";
 export type {
