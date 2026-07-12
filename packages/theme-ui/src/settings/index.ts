@@ -4,6 +4,11 @@ export type {
 } from "./AchievementNavigationButtonView";
 export { AchievementNavigationButtonView } from "./AchievementNavigationButtonView";
 export type {
+	AchievementSetOptionView,
+	AchievementSettingsViewProps,
+} from "./AchievementSettingsView";
+export { AchievementSettingsView } from "./AchievementSettingsView";
+export type {
 	AppshotPermissionStatusView,
 	AppshotSettingsViewLabels,
 	AppshotSettingsViewProps,
@@ -66,6 +71,11 @@ export type {
 	PresetProvidersSectionViewProps,
 } from "./PresetProvidersSectionView";
 export { PresetProvidersSectionView } from "./PresetProvidersSectionView";
+export type {
+	QuickPanelOptionView,
+	QuickPanelSettingsSectionViewProps,
+} from "./QuickPanelSettingsSectionView";
+export { QuickPanelSettingsSectionView } from "./QuickPanelSettingsSectionView";
 export type { SettingSectionMeta } from "./SettingChrome";
 export { SettingHeading, SettingRow, SettingSection } from "./SettingChrome";
 export type { SettingsAiAssistButtonViewProps } from "./SettingsAiAssistButtonView";

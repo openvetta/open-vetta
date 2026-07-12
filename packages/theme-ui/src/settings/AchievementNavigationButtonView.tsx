@@ -1,4 +1,5 @@
-import type { CSSProperties, JSX, ReactNode } from "react";
+import type { JSX } from "react";
+import { Button } from "@vetta/ui";
 import { cn } from "@vetta/ui";
 
 export interface AchievementNavigationAssets {
@@ -14,44 +15,34 @@ export interface AchievementNavigationButtonViewProps {
 	readonly label: string;
 	readonly onClick: () => void;
 	readonly assets: AchievementNavigationAssets;
-	/**
-	 * Optional host control wrapper. When omitted, uses a native button with the same
-	 * layout classes (ghost chrome fully overridden by className).
-	 */
-	readonly renderControl?: (props: {
-		disabled: boolean;
-		label: string;
-		onClick: () => void;
-		className: string;
-		style: CSSProperties;
-		children: ReactNode;
-	}) => ReactNode;
 }
 
-/**
- * Achievement carousel prev/next control. Presentation assets + layout; optional host Button slot.
- */
 export function AchievementNavigationButtonView({
 	disabled,
 	direction,
 	label,
 	onClick,
 	assets,
-	renderControl,
 }: AchievementNavigationButtonViewProps): JSX.Element {
 	const previous = direction === "previous";
-	const className = cn(
-		"absolute top-1/2 z-30 h-[120px] w-[60px] rounded-none border-0 bg-transparent p-0 hover:bg-transparent disabled:opacity-100",
-		previous ? "left-16" : "right-16",
-	);
-	const style: CSSProperties = {
-		transform: "translateY(-50%)",
-		pointerEvents: "auto",
-		cursor: disabled ? "default" : "pointer",
-	};
 
-	const children = (
-		<>
+	return (
+		<Button
+			variant="ghost"
+			disabled={disabled}
+			aria-label={label}
+			title={label}
+			className={cn(
+				"absolute top-1/2 z-30 h-[120px] w-[60px] rounded-none border-0 bg-transparent p-0 hover:bg-transparent disabled:opacity-100",
+				previous ? "left-16" : "right-16",
+			)}
+			style={{
+				transform: "translateY(-50%)",
+				pointerEvents: "auto",
+				cursor: disabled ? "default" : "pointer",
+			}}
+			onClick={onClick}
+		>
 			<img
 				aria-hidden="true"
 				alt=""
@@ -94,24 +85,6 @@ export function AchievementNavigationButtonView({
 					disabled ? "opacity-100" : "opacity-0",
 				)}
 			/>
-		</>
-	);
-
-	if (renderControl) {
-		return <>{renderControl({ disabled, label, onClick, className, style, children })}</>;
-	}
-
-	return (
-		<button
-			type="button"
-			disabled={disabled}
-			aria-label={label}
-			title={label}
-			className={className}
-			style={style}
-			onClick={onClick}
-		>
-			{children}
-		</button>
+		</Button>
 	);
 }
