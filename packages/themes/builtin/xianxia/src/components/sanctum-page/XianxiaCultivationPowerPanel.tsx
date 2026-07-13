@@ -1,3 +1,4 @@
+import { NineSliceImageFrame } from "@vetta/theme-ui";
 import { cn } from "@vetta/ui";
 import { motion } from "motion/react";
 import type { JSX } from "react";
@@ -12,6 +13,11 @@ const cultivationDataSources = [
 	{ icon: "icon-[solar--magic-stick-3-bold]", label: "生成有效结果" },
 	{ icon: "icon-[solar--settings-bold]", label: "建立自动化" },
 ] as const;
+const cultivationPowerPanelDecoration = {
+	borderWidth: "2.5rem",
+	repeat: "stretch",
+	slice: 110,
+} as const;
 
 export function XianxiaCultivationPowerPanel({
 	cultivation,
@@ -19,14 +25,12 @@ export function XianxiaCultivationPowerPanel({
 	readonly cultivation: SanctumCultivationView;
 }): JSX.Element {
 	return (
-		<section className="relative aspect-[2172/724] min-h-[236px] w-full min-w-0 overflow-visible px-[31px] py-[17px] text-white">
-			<img
-				alt=""
-				aria-hidden="true"
-				className="absolute inset-0 h-full w-full object-fill drop-shadow-[0_0_10px_rgba(255,246,210,0.5)]"
-				src={sanctumPageAssets.cultivationPowerPanel}
-			/>
-			<div className="relative z-10 grid h-full min-w-0 grid-cols-[minmax(0,1fr)_9.5rem] gap-4 min-[1280px]:grid-cols-[minmax(0,1fr)_10.5rem] min-[1280px]:gap-6">
+		<NineSliceImageFrame
+			className="w-full min-w-0 overflow-visible text-white drop-shadow-[0_0_10px_rgba(255,246,210,0.5)]"
+			contentClassName="relative z-10 grid min-w-0 grid-cols-[minmax(0,1fr)_9.5rem] gap-4 px-[31px] py-[17px] min-[1280px]:grid-cols-[minmax(0,1fr)_10.5rem] min-[1280px]:gap-6"
+			decoration={cultivationPowerPanelDecoration}
+			imageUrl={sanctumPageAssets.cultivationPowerPanel}
+		>
 				<div className="flex min-w-0 flex-col">
 					<div className="flex items-center gap-3">
 						<span className="text-[18px] text-amber-100 drop-shadow-[0_0_5px_rgba(255,245,205,0.8)]">✧</span>
@@ -57,7 +61,7 @@ export function XianxiaCultivationPowerPanel({
 							数据来自真实使用行为
 						</p>
 					</div>
-					<div className="mt-auto grid min-h-[4.65rem] shrink-0 grid-cols-[1.1fr_repeat(3,1fr)] overflow-hidden rounded-[10px] border border-white/18 bg-slate-900/18">
+					<div className="mt-2 grid min-h-[4.65rem] shrink-0 grid-cols-[1.1fr_repeat(3,1fr)] overflow-hidden rounded-[10px] border border-white/18 bg-slate-900/18">
 						<div className="flex min-w-0 items-start px-3 pt-3 text-[15px] font-semibold tracking-[0.08em] text-slate-200/90 min-[1280px]:px-4 min-[1280px]:text-[17px]">
 							最近增长
 						</div>
@@ -93,7 +97,6 @@ export function XianxiaCultivationPowerPanel({
 						))}
 					</div>
 				</div>
-			</div>
-		</section>
+		</NineSliceImageFrame>
 	);
 }
