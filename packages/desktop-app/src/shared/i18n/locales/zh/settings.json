@@ -922,15 +922,25 @@
   "closeEdit": "收起",
   "editingServer": "编辑",
   "mcpStore": {
-    "installedEmpty": "还没有添加 MCP。可在下方「发现MCP」中选择。",
-    "discoverTitle": "发现MCP",
-    "discoverHint": "添加后会出现在上方列表。已添加的不会在这里重复显示。",
+    "installedEmpty": "还没有添加连接器。可到「发现」里选推荐或广场，或点右上角自定义。",
+    "mineTitle": "我的连接器",
+    "mineHint": "已添加的 MCP，可在此启用、配置或移除。",
+    "discoverTitle": "发现连接器",
+    "discoverHint": "浏览推荐与广场；已添加的会标出「已添加」，也可在「我的」中管理。",
+    "tabMine": "我的",
+    "tabDiscover": "发现",
     "tabRecommended": "推荐",
     "tabRemote": "远程",
+    "sectionRecommended": "推荐",
+    "sectionRecommendedHint": "常用内置 MCP，一键添加。",
+    "sectionMarketplace": "广场",
+    "sectionMarketplaceHint": "团队或官方目录中的远程 MCP。",
     "tabManual": "自定义",
+    "customConnector": "自定义连接器",
+    "customConnectorTitle": "添加自定义连接器",
     "manualHint": "填写你自己的 MCP 配置。多数情况使用「推荐」即可。",
-    "recommendedAllAdded": "推荐项都已添加，可在上方管理。",
-    "remoteAllAdded": "远程列表中的项都已添加，可在上方管理。"
+    "recommendedAllAdded": "推荐项都已添加，可在「我的」中管理。",
+    "remoteAllAdded": "广场中的项都已添加，可在「我的」中管理。"
   },
   "aiAssist": {
     "cta": "让Vetta帮您配置",
@@ -955,7 +965,7 @@
       "agent": "例如：选一个务实人设，并写一段自定义指令…"
     },
     "context": {
-      "mcp": "设置 → MCP 管理",
+      "mcp": "扩展 → 连接器",
       "models": "设置 → 模型配置",
       "knowledge": "设置 → 知识库设置",
       "im": "设置 → Claw",

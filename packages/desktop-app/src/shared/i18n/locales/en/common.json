@@ -749,7 +749,8 @@
 			"chat": "Chat",
 			"automation": "Automation",
 			"batch-tasks": "Batch tasks",
-			"skills": "Skills",
+			"skills": "Extensions",
+			"connectors": "Connectors",
 			"downloads": "Downloads",
 			"settings": "Settings"
 		}

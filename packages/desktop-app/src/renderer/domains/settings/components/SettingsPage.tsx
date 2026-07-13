@@ -9,7 +9,6 @@ import { EnvironmentSettings } from "./EnvironmentSettings";
 import { GeneralSettings } from "./GeneralSettings";
 import { ImBridgeSettings } from "./ImBridgeSettings";
 import { KnowledgeBaseSettings } from "./KnowledgeBaseSettings";
-import { McpSettings } from "./McpSettings";
 import { ModelsSettings } from "./ModelsSettings";
 import { PermissionsSettings } from "./PermissionsSettings";
 import { PetSettings } from "./PetSettings";
@@ -21,12 +20,12 @@ import { useSettingsPageModel } from "./useSettingsPageModel";
 import { WebhookSettings } from "./WebhookSettings";
 import "./settings-highlight.css";
 
-const SETTINGS_CONTENT: Record<SettingsTab, () => JSX.Element> = {
+/** MCP 已迁至扩展 → 连接器；`mcp` 保留在 SettingsTab 供 analytics / 旧链接重定向，此处不渲染。 */
+const SETTINGS_CONTENT: { [K in Exclude<SettingsTab, "mcp">]: () => JSX.Element } = {
 	general: GeneralSettings,
 	appearance: AppearanceSettings,
 	account: AccountSettings,
 	models: ModelsSettings,
-	mcp: McpSettings,
 	environment: EnvironmentSettings,
 	permissions: PermissionsSettings,
 	im: ImBridgeSettings,
@@ -44,7 +43,8 @@ const SETTINGS_CONTENT: Record<SettingsTab, () => JSX.Element> = {
 export function SettingsPage(): JSX.Element {
 	const model = useSettingsPageModel();
 	const contentSurface = useThemeSurface("settings.pageContent");
-	const Content = SETTINGS_CONTENT[model.activeTab];
+	const Content =
+		model.activeTab === "mcp" ? SETTINGS_CONTENT.general : SETTINGS_CONTENT[model.activeTab];
 
 	return (
 		<SettingsPageView

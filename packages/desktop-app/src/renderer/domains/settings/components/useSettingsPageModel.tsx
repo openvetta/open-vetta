@@ -70,10 +70,25 @@ export function useSettingsPageModel(): SettingsPageModel {
 	const navigationNonce = typeof search.nav === "string" ? search.nav : undefined;
 	const targetSection = sectionId ? findSettingsSection(sectionId) : undefined;
 
+	// MCP 已迁至扩展 → 连接器；旧 /settings/mcp 与 mcp-* section 深链重定向过去。
+	useEffect(() => {
+		if (rawTab === "mcp" || targetSection?.tab === "mcp") {
+			void navigate({
+				to: "/skills",
+				search: {
+					tab: "connector",
+					...(targetSection?.tab === "mcp" ? { section: targetSection.id } : {}),
+				},
+				replace: true,
+			});
+		}
+	}, [navigate, rawTab, targetSection]);
+
 	useEffect(() => {
 		if (!targetSection || targetSection.tab === activeTab || !validTabKeys.has(targetSection.tab)) {
 			return;
 		}
+		if (targetSection.tab === "mcp") return;
 		void navigate({
 			to: "/settings/$tab",
 			params: { tab: targetSection.tab },
