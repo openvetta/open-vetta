@@ -854,6 +854,22 @@ export class AgentSession {
 		return this._nav.navigateTree(targetId, options);
 	}
 
+	/**
+	 * Switch to another branch tip under the same session file (view sibling paths).
+	 * Does not put text in the editor.
+	 */
+	switchBranch(targetId: string): { leafId: string } {
+		return this._nav.switchBranch(targetId);
+	}
+
+	/**
+	 * Export a fork as a new session file without leaving the current session.
+	 * History is copied up to the parent of the selected user message.
+	 */
+	exportForkToNewFile(entryId: string): { path: string; text: string } {
+		return this._nav.exportForkToNewFile(entryId);
+	}
+
 	/** Get all user messages from session for fork selector. */
 	getUserMessagesForForking(): Array<{ entryId: string; text: string }> {
 		return this._nav.getUserMessagesForForking();

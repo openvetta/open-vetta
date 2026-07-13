@@ -1204,8 +1204,9 @@ export class SessionManager {
 
 	/**
 	 * Get all direct children of an entry.
+	 * Pass `null` to list root entries (parentId === null).
 	 */
-	getChildren(parentId: string): SessionEntry[] {
+	getChildren(parentId: string | null): SessionEntry[] {
 		const children: SessionEntry[] = [];
 		for (const entry of this.byId.values()) {
 			if (entry.parentId === parentId) {
@@ -1213,6 +1214,63 @@ export class SessionManager {
 			}
 		}
 		return children;
+	}
+
+	/**
+	 * Walk from entryId following the newest child at each step until a leaf.
+	 * Used when switching branches to show the tip of that subtree.
+	 */
+	resolveSubtreeTip(entryId: string): string {
+		if (!this.byId.has(entryId)) {
+			throw new Error(`Entry ${entryId} not found`);
+		}
+		let tipId = entryId;
+		for (;;) {
+			const children = this.getChildren(tipId).filter((e) => e.type !== "label");
+			if (children.length === 0) break;
+			children.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+			tipId = children[children.length - 1]!.id;
+		}
+		return tipId;
+	}
+
+	/**
+	 * Tip of a single user turn: the user message plus its assistant/tool/custom
+	 * descendants, but **not** the next user message (or anything under it).
+	 *
+	 * Used by desktop fork: forking a user bubble keeps that prompt and the AI
+	 * reply for this turn, without later conversation turns.
+	 */
+	resolveUserTurnTip(userEntryId: string): string {
+		const entry = this.byId.get(userEntryId);
+		if (!entry || entry.type !== "message" || entry.message.role !== "user") {
+			throw new Error(`Entry ${userEntryId} is not a user message`);
+		}
+		let tipId = userEntryId;
+		for (;;) {
+			const children = this.getChildren(tipId)
+				.filter((e) => e.type !== "label")
+				// Stop before the next user turn — do not walk into sibling/follow-up user messages.
+				.filter((e) => !(e.type === "message" && e.message.role === "user"))
+				.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+			if (children.length === 0) break;
+			tipId = children[children.length - 1]!.id;
+		}
+		return tipId;
+	}
+
+	/**
+	 * User-message siblings that share the same parent (for UI branch switchers).
+	 * Sorted by timestamp ascending.
+	 */
+	getUserMessageSiblings(entryId: string): SessionEntry[] {
+		const entry = this.byId.get(entryId);
+		if (!entry || entry.type !== "message" || entry.message.role !== "user") {
+			return [];
+		}
+		return this.getChildren(entry.parentId)
+			.filter((e) => e.type === "message" && e.message.role === "user")
+			.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 	}
 
 	/**
@@ -1384,19 +1442,20 @@ export class SessionManager {
 	}
 
 	/**
-	 * Create a new session file containing only the path from root to the specified leaf.
-	 * Useful for extracting a single conversation path from a branched session.
-	 * Returns the new session file path, or undefined if not persisting.
+	 * Build header + path entries for a branched session file without mutating this manager.
+	 * `leafId === null` produces an empty conversation (header only).
 	 */
-	createBranchedSession(leafId: string): string | undefined {
+	private _buildExportBranchContent(leafId: string | null): {
+		header: SessionHeader;
+		pathWithoutLabels: SessionEntry[];
+		labelEntries: LabelEntry[];
+		newSessionFile: string;
+	} {
 		const previousSessionFile = this.sessionFile;
-		const path = this.getBranch(leafId);
-		if (path.length === 0) {
+		const pathWithoutLabels = leafId === null ? [] : this.getBranch(leafId).filter((e) => e.type !== "label");
+		if (leafId !== null && pathWithoutLabels.length === 0) {
 			throw new Error(`Entry ${leafId} not found`);
 		}
-
-		// Filter out LabelEntry from path - we'll recreate them from the resolved map
-		const pathWithoutLabels = path.filter((e) => e.type !== "label");
 
 		const newSessionId = randomUUID();
 		const timestamp = new Date().toISOString();
@@ -1412,7 +1471,6 @@ export class SessionManager {
 			parentSession: this.persist ? previousSessionFile : undefined,
 		};
 
-		// Collect labels for entries in the path
 		const pathEntryIds = new Set(pathWithoutLabels.map((e) => e.id));
 		const labelsToWrite: Array<{ targetId: string; label: string }> = [];
 		for (const [targetId, label] of this.labelsById) {
@@ -1421,54 +1479,84 @@ export class SessionManager {
 			}
 		}
 
-		if (this.persist) {
-			appendFileSync(newSessionFile, `${JSON.stringify(header)}\n`);
-			for (const entry of pathWithoutLabels) {
-				appendFileSync(newSessionFile, `${JSON.stringify(entry)}\n`);
-			}
-			// Write fresh label entries at the end
-			const lastEntryId = pathWithoutLabels[pathWithoutLabels.length - 1]?.id || null;
-			let parentId = lastEntryId;
-			const labelEntries: LabelEntry[] = [];
-			for (const { targetId, label } of labelsToWrite) {
-				const labelEntry: LabelEntry = {
-					type: "label",
-					id: generateId(new Set(pathEntryIds)),
-					parentId,
-					timestamp: new Date().toISOString(),
-					targetId,
-					label,
-				};
-				appendFileSync(newSessionFile, `${JSON.stringify(labelEntry)}\n`);
-				pathEntryIds.add(labelEntry.id);
-				labelEntries.push(labelEntry);
-				parentId = labelEntry.id;
-			}
-			this.fileEntries = [header, ...pathWithoutLabels, ...labelEntries];
-			this.sessionId = newSessionId;
-			this.sessionFile = newSessionFile;
-			this.flushed = true;
-			this._buildIndex();
-			return newSessionFile;
-		}
-
-		// In-memory mode: replace current session with the path + labels
 		const labelEntries: LabelEntry[] = [];
 		let parentId = pathWithoutLabels[pathWithoutLabels.length - 1]?.id || null;
+		const usedIds = new Set(pathEntryIds);
 		for (const { targetId, label } of labelsToWrite) {
 			const labelEntry: LabelEntry = {
 				type: "label",
-				id: generateId(new Set([...pathEntryIds, ...labelEntries.map((e) => e.id)])),
+				id: generateId(usedIds),
 				parentId,
 				timestamp: new Date().toISOString(),
 				targetId,
 				label,
 			};
+			usedIds.add(labelEntry.id);
 			labelEntries.push(labelEntry);
 			parentId = labelEntry.id;
 		}
+
+		return { header, pathWithoutLabels, labelEntries, newSessionFile };
+	}
+
+	/**
+	 * Write a new session file containing only the path from root to leafId.
+	 * Does NOT switch this manager away from the current session (safe for desktop hosts).
+	 * `leafId === null` writes an empty session (header only).
+	 * Returns the new file path, or undefined if not persisting.
+	 */
+	exportBranchToNewFile(leafId: string | null): string | undefined {
+		if (!this.persist) return undefined;
+		if (!existsSync(this.getSessionDir())) {
+			mkdirSync(this.getSessionDir(), { recursive: true });
+		}
+		const { header, pathWithoutLabels, labelEntries, newSessionFile } = this._buildExportBranchContent(leafId);
+		appendFileSync(newSessionFile, `${JSON.stringify(header)}\n`);
+		for (const entry of pathWithoutLabels) {
+			appendFileSync(newSessionFile, `${JSON.stringify(entry)}\n`);
+		}
+		for (const entry of labelEntries) {
+			appendFileSync(newSessionFile, `${JSON.stringify(entry)}\n`);
+		}
+		return newSessionFile;
+	}
+
+	/**
+	 * Create a new session file containing only the path from root to the specified leaf,
+	 * and switch this manager to the new file (CLI /fork behavior).
+	 * Returns the new session file path, or undefined if not persisting.
+	 */
+	createBranchedSession(leafId: string): string | undefined {
+		const { header, pathWithoutLabels, labelEntries, newSessionFile } = this._buildExportBranchContent(leafId);
+
+		if (this.persist) {
+			if (!existsSync(this.getSessionDir())) {
+				mkdirSync(this.getSessionDir(), { recursive: true });
+			}
+			// Release lock on old file before switching
+			if (this.lockHandle) {
+				this.lockHandle.release();
+				this.lockHandle = undefined;
+			}
+			appendFileSync(newSessionFile, `${JSON.stringify(header)}\n`);
+			for (const entry of pathWithoutLabels) {
+				appendFileSync(newSessionFile, `${JSON.stringify(entry)}\n`);
+			}
+			for (const entry of labelEntries) {
+				appendFileSync(newSessionFile, `${JSON.stringify(entry)}\n`);
+			}
+			this.fileEntries = [header, ...pathWithoutLabels, ...labelEntries];
+			this.sessionId = header.id;
+			this.sessionFile = newSessionFile;
+			this.flushed = true;
+			this.headerOnDisk = true;
+			this._buildIndex();
+			this._acquireLockForCurrentFile();
+			return newSessionFile;
+		}
+
 		this.fileEntries = [header, ...pathWithoutLabels, ...labelEntries];
-		this.sessionId = newSessionId;
+		this.sessionId = header.id;
 		this._buildIndex();
 		return undefined;
 	}

@@ -563,13 +563,35 @@ export interface AssistantTurnTiming {
 	durationMs: number;
 }
 
+/** Sibling user-message versions under the same parent (for branch switch UI). */
+export interface HistoryMessageBranch {
+	/** entryIds of user-message siblings, oldest → newest */
+	siblings: string[];
+	/** Index of the current message within siblings */
+	index: number;
+}
+
 /**
  * A history entry for UI display. Includes messages AND compaction boundaries.
  * The UI uses this to render complete conversation history (even after compaction).
  */
 export type HistoryEntry =
-	| { type: "message"; message: Message }
-	| { type: "compaction"; summary: string; tokensBefore: number; timestamp: string }
+	| {
+			type: "message";
+			/** Session tree entry id (coding-agent). */
+			entryId?: string;
+			parentId?: string | null;
+			message: Message;
+			/** Present on user messages when multiple sibling versions exist (or always when known). */
+			branch?: HistoryMessageBranch;
+	  }
+	| {
+			type: "compaction";
+			entryId?: string;
+			summary: string;
+			tokensBefore: number;
+			timestamp: string;
+	  }
 	| { type: "assistant_turn_timing"; timing: AssistantTurnTiming; timestamp: string }
 	/**
 	 * Marker that the next user message was sent via Settings AI assist
@@ -630,6 +652,18 @@ export interface SessionFacade {
 	 * is IM-owned from the path (it lives under the IM conversation cwd).
 	 */
 	readSessionHistoryFromFile(path: string): { history: HistoryEntry[] };
+	/**
+	 * Prepare re-edit of a user message: set leaf to its parent and return text.
+	 * Caller should then prompt with (possibly edited) text to grow a new branch.
+	 */
+	navigateForEdit(sessionId: string, entryId: string): Promise<{ text: string; cancelled: boolean }>;
+	/** Switch current leaf to the tip of the subtree rooted at entryId (sibling branch). */
+	switchBranch(sessionId: string, entryId: string): Promise<{ leafId: string }>;
+	/**
+	 * Export a fork as a new session file without leaving the current session.
+	 * Copies history up to the parent of the selected user message.
+	 */
+	forkSession(sessionId: string, entryId: string): Promise<{ path: string; text: string }>;
 	listProjects(): Promise<ProjectInfo[]>;
 	listSessions(cwd: string, sessionDir?: string): Promise<SessionHistoryInfo[]>;
 	deleteSession(sessionPath: string): Promise<void>;

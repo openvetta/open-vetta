@@ -372,6 +372,28 @@
 			"copy": "Copy"
 		},
 		"editButton": "Edit",
+		"forkButton": "Fork to new session",
+		"branch": {
+			"prev": "Previous version",
+			"next": "Next version",
+			"position": "Version {{current}} of {{total}}"
+		},
+		"edit": {
+			"pendingHint": "Editing this message — send to create a new branch from here",
+			"overwriteDraftTitle": "Overwrite current draft?",
+			"overwriteDraftBody": "The input already has content. Editing a past message will replace your draft.",
+			"overwriteDraftConfirm": "Overwrite and edit"
+		},
+		"interrupt": {
+			"editTitle": "Interrupt this turn?",
+			"editBody": "Editing a past message will stop the reply in progress. Content already produced stays on the original branch.",
+			"switchTitle": "Interrupt this turn?",
+			"switchBody": "Switching branches will stop the reply in progress. Content already produced stays on the original branch.",
+			"forkTitle": "Interrupt this turn?",
+			"forkBody": "Forking to a new session will stop the reply in progress.",
+			"confirm": "Interrupt and continue",
+			"cancel": "Cancel"
+		},
 		"toolCallGroup": {
 			"completed": "{{count}} tool calls completed",
 			"inProgress": "{{completed}}/{{total}} tool calls",

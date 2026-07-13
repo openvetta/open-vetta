@@ -433,4 +433,44 @@ export class SessionNavigator {
 
 		return result;
 	}
+
+	/**
+	 * Switch leaf to the tip of the subtree rooted at targetId (same session file).
+	 * Unlike navigateTree on a user message, this does not prepare re-edit — it only
+	 * changes what history path the agent/UI sees.
+	 */
+	switchBranch(targetId: string): { leafId: string } {
+		const tipId = this.ctx.sessionManager.resolveSubtreeTip(targetId);
+		const oldLeafId = this.ctx.sessionManager.getLeafId();
+		if (tipId === oldLeafId) {
+			return { leafId: tipId };
+		}
+		this.ctx.sessionManager.branch(tipId);
+		const sessionContext = this.ctx.sessionManager.buildSessionContext();
+		this.ctx.agent.replaceMessages(sessionContext.messages);
+		return { leafId: tipId };
+	}
+
+	/**
+	 * Export a fork to a new session file without switching the current session.
+	 * Copies history through the selected user message **and that turn's assistant
+	 * reply** (tools included), but not later user turns.
+	 *
+	 * Desktop product: forking a user bubble keeps the Q&A pair for that turn.
+	 * (CLI `/fork` still uses createBranchedSession(parent) for re-edit semantics.)
+	 */
+	exportForkToNewFile(entryId: string): { path: string; text: string } {
+		const selectedEntry = this.ctx.sessionManager.getEntry(entryId);
+		if (!selectedEntry || selectedEntry.type !== "message" || selectedEntry.message.role !== "user") {
+			throw new Error("Invalid entry ID for forking");
+		}
+		const text = extractUserMessageText(selectedEntry.message.content);
+		// Leaf = end of this user turn (user + assistant/tool chain), not only the user node.
+		const turnTipId = this.ctx.sessionManager.resolveUserTurnTip(entryId);
+		const path = this.ctx.sessionManager.exportBranchToNewFile(turnTipId);
+		if (!path) {
+			throw new Error("Cannot export fork: session is not persisted");
+		}
+		return { path, text };
+	}
 }

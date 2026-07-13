@@ -19,6 +19,7 @@ export type {
 	BackgroundTasksUpdateEvent,
 	ErrorEvent,
 	HistoryEntry,
+	HistoryMessageBranch,
 	JsonSchema,
 	McpStatusEvent,
 	MessageDeltaEvent,

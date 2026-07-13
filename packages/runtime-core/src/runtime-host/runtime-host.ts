@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { rm } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 import { resolve as resolvePath } from "node:path";
 import type { ThinkingLevel } from "@vetta/agent-core";
 import type { Message } from "@vetta/ai";
 import {
 	type AgentSession,
+	type SessionEntry as CodingSessionEntry,
 	type CreateAgentSessionOptions,
 	createAgentSession,
 	createEditImageTool,
@@ -527,6 +528,17 @@ export class RuntimeHost implements SessionFacade {
 			handle.session.setThinkingLevel(request.reasoning);
 		}
 
+		// Session cwd (esp. desktop ADR-0007 per-session dirs) may have been deleted
+		// while the handle stayed open (clear-artifacts, manual cleanup). Heal before tools run.
+		const sessionCwd = handle.session.sessionManager.getCwd();
+		if (sessionCwd) {
+			try {
+				await mkdir(sessionCwd, { recursive: true });
+			} catch (err) {
+				console.warn(`[RuntimeHost.prompt] failed to ensure session cwd ${sessionCwd}:`, err);
+			}
+		}
+
 		let images = request.images;
 		let text = request.text;
 		if (images && images.length > 0) {
@@ -761,7 +773,9 @@ export class RuntimeHost implements SessionFacade {
 
 	getFullHistory(sessionId: string): HistoryEntry[] {
 		const handle = this.requireSession(sessionId);
-		return entriesToHistory(handle.session.getSessionBranch());
+		const sm = handle.session.sessionManager;
+		const branch = handle.session.getSessionBranch();
+		return entriesToHistory(branch, { allEntries: sm.getEntries() });
 	}
 
 	/**
@@ -773,7 +787,49 @@ export class RuntimeHost implements SessionFacade {
 	readSessionHistoryFromFile(path: string): { history: HistoryEntry[] } {
 		const fileEntries = loadEntriesFromFile(path);
 		const branch = branchFromFileEntries(fileEntries);
-		return { history: entriesToHistory(branch) };
+		const allEntries = fileEntries.filter((e): e is CodingSessionEntry => e.type !== "session");
+		return { history: entriesToHistory(branch, { allEntries }) };
+	}
+
+	/**
+	 * Prepare re-edit of a user message (leaf → parent). Returns extracted text.
+	 * Does not send a prompt; the host should prompt after the user edits.
+	 * Throws if entryId is missing from this session (stale pending edit after fork/switch).
+	 */
+	async navigateForEdit(sessionId: string, entryId: string): Promise<{ text: string; cancelled: boolean }> {
+		const handle = this.requireSession(sessionId);
+		if (handle.session.isStreaming || handle.session.isBashRunning) {
+			throw new Error("Cannot edit message while the session is streaming");
+		}
+		const entry = handle.session.sessionManager.getEntry(entryId);
+		if (!entry) {
+			throw new Error(`Entry ${entryId} not found`);
+		}
+		const result = await handle.session.navigateTree(entryId, { summarize: false });
+		if (result.cancelled) {
+			return { text: "", cancelled: true };
+		}
+		return { text: result.editorText ?? "", cancelled: false };
+	}
+
+	/** Switch leaf to the tip of another branch (same session file). */
+	async switchBranch(sessionId: string, entryId: string): Promise<{ leafId: string }> {
+		const handle = this.requireSession(sessionId);
+		if (handle.session.isStreaming || handle.session.isBashRunning) {
+			throw new Error("Cannot switch branch while the session is streaming");
+		}
+		return handle.session.switchBranch(entryId);
+	}
+
+	/**
+	 * Export a fork as a new session file without leaving the current session.
+	 */
+	async forkSession(sessionId: string, entryId: string): Promise<{ path: string; text: string }> {
+		const handle = this.requireSession(sessionId);
+		if (handle.session.isStreaming || handle.session.isBashRunning) {
+			throw new Error("Cannot fork while the session is streaming");
+		}
+		return handle.session.exportForkToNewFile(entryId);
 	}
 
 	async listProjects(): Promise<ProjectInfo[]> {

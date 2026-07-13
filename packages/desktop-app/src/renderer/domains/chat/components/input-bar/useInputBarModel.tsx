@@ -15,6 +15,7 @@ import {
 	inputValueAtom,
 	isStreamingAtom,
 	mentionedFilesAtom,
+	pendingMessageEditAtom,
 	pendingQuestionsAtom,
 	promptSuggestionsAtom,
 	sandboxPermissionDrawerAtom,
@@ -97,6 +98,7 @@ export function useInputBarModel({
 	const [mentionedFiles, setMentionedFiles] = useAtom(mentionedFilesAtom);
 	const [editImageAttachment, setEditImageAttachment] = useAtom(editImageAttachmentAtom);
 	const [appshotAttachment, setAppshotAttachment] = useAtom(appshotAttachmentAtom);
+	const [pendingMessageEdit, setPendingMessageEdit] = useAtom(pendingMessageEditAtom);
 	const focusInputRequest = useAtomValue(focusInputRequestAtom);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const [isFocused, setIsFocused] = useState(false);
@@ -128,7 +130,11 @@ export function useInputBarModel({
 		(inputValue.trim().length > 0 || attachedImages.length > 0 || Boolean(appshotAttachment));
 	const isEmpty = inputValue.trim().length === 0 && attachedImages.length === 0;
 	const hasCapsules =
-		Boolean(selectedSkill) || mentionedFiles.length > 0 || Boolean(editImageAttachment) || Boolean(appshotAttachment);
+		Boolean(selectedSkill) ||
+		mentionedFiles.length > 0 ||
+		Boolean(editImageAttachment) ||
+		Boolean(appshotAttachment) ||
+		Boolean(pendingMessageEdit);
 
 	// 分离图片文件与非图片文件，图片在附件区独立作为缩略图行展示
 	const imageFiles = useMemo(
@@ -537,6 +543,9 @@ export function useInputBarModel({
 		drawerItems,
 		drawerActiveTab,
 		hasEditImageAttachment: Boolean(editImageAttachment),
+		pendingMessageEdit: Boolean(pendingMessageEdit),
+		pendingEditHint: t("messageList.edit.pendingHint"),
+		cancelPendingEditLabel: t("messageList.interrupt.cancel"),
 		textareaRef,
 		labels: {
 			capsule: {
@@ -583,6 +592,13 @@ export function useInputBarModel({
 			handleSelectFiles,
 			handleSend,
 			handleAbort,
+			cancelPendingEdit: () => {
+				setPendingMessageEdit(null);
+				setInputValue("");
+				setSelectedSkill(null);
+				setMentionedFiles([]);
+				setAppshotAttachment(null);
+			},
 		},
 	};
 }

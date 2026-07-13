@@ -81,8 +81,33 @@ function isConversationSubCwd(cwd: string): boolean {
 	const abs = resolve(cwd);
 	const root = resolve(DEFAULT_CONVERSATION_CWD);
 	if (abs === root) return false;
-	const rel = relative(root, abs);
+	const rel = relative(root, abs).replace(/\\/g, "/");
 	return rel.length > 0 && !rel.startsWith("..") && !isAbsolute(rel) && !rel.includes("/");
+}
+
+/** ADR-0007 per-session dir name under conversation roots (UUID). */
+function isSessionArtifactDirName(name: string): boolean {
+	return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(name);
+}
+
+/** Wipe files/dirs inside dir but keep dir itself (for session cwd recovery). */
+async function clearDirectoryContents(dir: string): Promise<void> {
+	let entries: Dirent[];
+	try {
+		entries = await readdir(dir, { withFileTypes: true });
+	} catch {
+		return;
+	}
+	await Promise.all(entries.map((entry) => rm(join(dir, entry.name), { recursive: true, force: true })));
+}
+
+/**
+ * Ensure a session working directory exists on disk.
+ * Header may still point at a per-session subdir after「清空产物」deleted it.
+ */
+async function ensureSessionWorkingCwd(cwd: string | undefined): Promise<void> {
+	if (!cwd) return;
+	await mkdir(cwd, { recursive: true });
 }
 
 /**
@@ -176,6 +201,9 @@ const CHANNELS = {
 	NEXT_PROMPT_SUGGESTIONS: "vetta:session:next-prompt-suggestions",
 	DISPOSE: "vetta:session:dispose",
 	GET_FULL_HISTORY: "vetta:session:get-full-history",
+	NAVIGATE_FOR_EDIT: "vetta:session:navigate-for-edit",
+	SWITCH_BRANCH: "vetta:session:switch-branch",
+	FORK_SESSION: "vetta:session:fork-session",
 	GET_SESSION_PATH: "vetta:session:get-session-path",
 	SET_GLOBAL_THINKING: "vetta:session:set-global-thinking-level",
 	GET_GLOBAL_THINKING: "vetta:session:get-global-thinking-level",
@@ -672,6 +700,9 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		// ADR-0007: 「对话」项目下「新建」session 拿独立 cwd 子目录；
 		// 已有 session 不重 mkdir，直接沿用 header cwd。
 		const effectiveCwd = cwdFromExistingHeader ?? (await ensureConversationSubCwd(config?.cwd));
+		// Heal missing per-session dirs (e.g.「清空产物」删掉了 UUID 子目录，header 仍引用)。
+		// Without this, bash/read/write and FilesPanel fail with ENOENT after reopen or edit.
+		await ensureSessionWorkingCwd(effectiveCwd);
 		if (effectiveCwd && effectiveCwd !== config?.cwd) {
 			allowProjectRoot(effectiveCwd);
 		}
@@ -890,6 +921,24 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		return runtime.getFullHistory(sessionId);
 	});
 
+	ipcMain.handle(CHANNELS.NAVIGATE_FOR_EDIT, async (_event, sessionId: unknown, entryId: unknown) => {
+		assertNonEmptyString(sessionId, "sessionId");
+		assertNonEmptyString(entryId, "entryId");
+		return runtime.navigateForEdit(sessionId, entryId);
+	});
+
+	ipcMain.handle(CHANNELS.SWITCH_BRANCH, async (_event, sessionId: unknown, entryId: unknown) => {
+		assertNonEmptyString(sessionId, "sessionId");
+		assertNonEmptyString(entryId, "entryId");
+		return runtime.switchBranch(sessionId, entryId);
+	});
+
+	ipcMain.handle(CHANNELS.FORK_SESSION, async (_event, sessionId: unknown, entryId: unknown) => {
+		assertNonEmptyString(sessionId, "sessionId");
+		assertNonEmptyString(entryId, "entryId");
+		return runtime.forkSession(sessionId, entryId);
+	});
+
 	ipcMain.handle(CHANNELS.DELETE, async (_event, sessionPath: unknown) => {
 		assertNonEmptyString(sessionPath, "sessionPath");
 		// ADR-0007: 「对话」项目下的 session cwd 是独立子目录；删除 session 时
@@ -999,6 +1048,8 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 
 	ipcMain.handle(CHANNELS.CLEAR_DEFAULT_ARTIFACTS, async (_event, scope: unknown) => {
 		// 清空「对话」或 Claw cwd 下的产物文件（保留 .vetta 目录，会话不受影响）。
+		// ADR-0007：UUID 子目录 *就是* session 的运行 cwd，不能整目录删除——否则 header
+		// 仍指向该路径，重开/编辑后 bash、文件树全部 ENOENT。只清空目录内容并保留壳。
 		if (scope !== "conversation" && scope !== "claw") {
 			throw new Error("Invalid scope for clearDefaultArtifacts");
 		}
@@ -1013,7 +1064,14 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		await Promise.all(
 			entries
 				.filter((entry) => entry.name !== ".vetta")
-				.map((entry) => rm(join(targetCwd, entry.name), { recursive: true, force: true })),
+				.map(async (entry) => {
+					const full = join(targetCwd, entry.name);
+					if (entry.isDirectory() && isSessionArtifactDirName(entry.name)) {
+						await clearDirectoryContents(full);
+						return;
+					}
+					await rm(full, { recursive: true, force: true });
+				}),
 		);
 	});
 

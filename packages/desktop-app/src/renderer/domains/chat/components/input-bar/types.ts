@@ -103,6 +103,10 @@ export interface InputBarModel {
 	drawerItems: InputBarDrawerItem[];
 	drawerActiveTab: string | null;
 	hasEditImageAttachment: boolean;
+	/** Historical message re-edit pending (navigate on send). */
+	pendingMessageEdit: boolean;
+	pendingEditHint: string;
+	cancelPendingEditLabel: string;
 	textareaRef: RefObject<HTMLTextAreaElement | null>;
 	labels: InputBarLabels;
 	actions: {
@@ -127,6 +131,7 @@ export interface InputBarModel {
 		handleSelectFiles: () => Promise<void>;
 		handleSend: () => void;
 		handleAbort: () => void;
+		cancelPendingEdit: () => void;
 	};
 }
 
