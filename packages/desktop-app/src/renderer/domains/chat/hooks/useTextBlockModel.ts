@@ -10,7 +10,7 @@ import {
 } from "@shared/store/atoms";
 import type { TextBlockViewProps } from "@vetta/theme-ui/chat";
 import { useAtomValue, useSetAtom } from "jotai";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { getFileIcon } from "../../file-explorer/components/fileIcons";
 
@@ -58,12 +58,20 @@ export function useTextBlockModel(): TextBlockModel {
 
 	const getFileIconClass = useCallback((fileName: string) => getFileIcon(fileName, false, false), []);
 
-	return {
-		theme: theme === "dark" ? "dark" : "light",
-		labels: {
+	// labels 必须引用稳定：每次 render 新建对象会让 TextBlockView 的 components
+	// useMemo 失效，ReactMarkdown 把 p/a/code 等自定义节点当新型别整树 remount，
+	// .streaming-chunk 的 fade 动画在每个 delta 重播 → text block 高频闪烁。
+	const labels = useMemo(
+		() => ({
 			copy: t("copyButton.label"),
 			copied: t("copyButton.copied"),
-		},
+		}),
+		[t],
+	);
+
+	return {
+		theme: theme === "dark" ? "dark" : "light",
+		labels,
 		getFileIconClass,
 		onOpenFile,
 		onOpenUrl,

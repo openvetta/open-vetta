@@ -302,6 +302,10 @@ function CodeBlockShell({
 
 /**
  * Memo'd markdown renderer for chat text blocks. Host injects file/url handlers and theme.
+ *
+ * `components` 映射的函数引用必须在 streaming 期间保持稳定：React 把 components.p 等
+ * 当成元素类型；引用一变就会整树 remount，`.streaming-chunk` 的 CSS 入场动画对已有
+ * 文本整段重播，表现为 text block 高频闪烁。labels / 回调通过 ref 读取，不进 deps。
  */
 export const TextBlockView = memo(function TextBlockView({
 	text,
@@ -314,6 +318,15 @@ export const TextBlockView = memo(function TextBlockView({
 	onOpenUrl,
 }: TextBlockViewProps): JSX.Element {
 	const { displayText, animateChunks } = useStreamingDisplayText(text, isStreamingTail);
+
+	const labelsRef = useRef(labels);
+	const getFileIconClassRef = useRef(getFileIconClass);
+	const onOpenFileRef = useRef(onOpenFile);
+	const onOpenUrlRef = useRef(onOpenUrl);
+	labelsRef.current = labels;
+	getFileIconClassRef.current = getFileIconClass;
+	onOpenFileRef.current = onOpenFile;
+	onOpenUrlRef.current = onOpenUrl;
 
 	const components = useMemo<Components>(
 		() => ({
@@ -347,7 +360,9 @@ export const TextBlockView = memo(function TextBlockView({
 				if (isBlock) {
 					const lang = codeClassName?.replace("language-", "") ?? "";
 					const code = raw.replace(/\n$/, "");
-					return <CodeBlockShell lang={lang} code={code} theme={theme} labels={labels} />;
+					return (
+						<CodeBlockShell lang={lang} code={code} theme={theme} labels={labelsRef.current} />
+					);
 				}
 				return <code className="rounded bg-muted px-1 py-0.5 text-[12px] text-foreground">{children}</code>;
 			},
@@ -377,9 +392,11 @@ export const TextBlockView = memo(function TextBlockView({
 							type="button"
 							title={filePath}
 							className={cn(LINK_BADGE_CLASS, "cursor-pointer")}
-							onClick={() => onOpenFile(filePath)}
+							onClick={() => onOpenFileRef.current(filePath)}
 						>
-							<span className={cn(getFileIconClass(fileName), "h-3.5 w-3.5 shrink-0")} />
+							<span
+								className={cn(getFileIconClassRef.current(fileName), "h-3.5 w-3.5 shrink-0")}
+							/>
 							<span className="truncate">{children}</span>
 						</button>
 					);
@@ -392,7 +409,7 @@ export const TextBlockView = memo(function TextBlockView({
 							className={LINK_BADGE_CLASS}
 							onClick={(e) => {
 								e.preventDefault();
-								onOpenUrl(href);
+								onOpenUrlRef.current(href);
 							}}
 						>
 							<span className="icon-[mdi--web] h-3.5 w-3.5 shrink-0" />
@@ -414,7 +431,8 @@ export const TextBlockView = memo(function TextBlockView({
 			strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
 			em: ({ children }) => <em className="italic">{children}</em>,
 		}),
-		[theme, labels, getFileIconClass, onOpenFile, onOpenUrl],
+		// theme 进 deps：代码块高亮主题变化时需要换组件树。其余 host 注入值走 ref。
+		[theme],
 	);
 
 	return (
