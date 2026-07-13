@@ -1,6 +1,6 @@
 import type { Message, TextContent } from "@vetta/ai";
 import type { SessionEntry as CodingSessionEntry, CustomEntry, FileEntry } from "@vetta/coding-agent";
-import type { AssistantTurnTiming, HistoryEntry } from "../contracts.js";
+import type { AssistantTurnTiming, HistoryEntry, HistoryMessageBranch } from "../contracts.js";
 
 export const ASSISTANT_TURN_TIMING_TYPE = "vetta.assistant_turn_timing";
 
@@ -59,18 +59,131 @@ export function parseAssistantTurnTiming(entry: CustomEntry): AssistantTurnTimin
 	return { startedAt, endedAt, durationMs };
 }
 
+function isUserMessageEntry(
+	entry: CodingSessionEntry,
+): entry is CodingSessionEntry & { type: "message"; message: { role: "user" } } {
+	return entry.type === "message" && entry.message.role === "user";
+}
+
+/**
+ * Entries that sit between structural turns (assistant/user) and the next user
+ * message — skill expansion, model switches, etc. Skipping them finds the true
+ * branch-point parent used when re-editing a user message.
+ */
+function isTransparentTreeEntry(entry: CodingSessionEntry): boolean {
+	if (entry.type === "message") {
+		const role = entry.message.role;
+		// Only user/assistant/toolResult form structural conversation nodes.
+		return role !== "user" && role !== "assistant" && role !== "toolResult";
+	}
+	if (entry.type === "compaction") return false;
+	// custom / custom_message / model_change / thinking_level_change / label / tool_timing / branch_summary…
+	return true;
+}
+
+/**
+ * Walk up past transparent entries to the structural parent (assistant/user/compaction/null)
+ * that defines the "edit branch point" for a user message.
+ */
+function getEditBranchParentId(entry: CodingSessionEntry, byId: Map<string, CodingSessionEntry>): string | null {
+	let currentId = entry.parentId;
+	while (currentId) {
+		const parent = byId.get(currentId);
+		if (!parent) return currentId;
+		if (!isTransparentTreeEntry(parent)) {
+			return currentId;
+		}
+		currentId = parent.parentId;
+	}
+	return null;
+}
+
+function isAncestorOf(ancestorId: string, nodeId: string, byId: Map<string, CodingSessionEntry>): boolean {
+	let cur = byId.get(nodeId);
+	while (cur?.parentId) {
+		if (cur.parentId === ancestorId) return true;
+		cur = byId.get(cur.parentId);
+	}
+	return false;
+}
+
+/**
+ * User-message versions that can be switched with ‹ i/n ›.
+ *
+ * Direct parentId matching fails when skill/settings custom messages sit between
+ * the branch point and the user bubble. We group by structural edit-branch parent
+ * and keep only "root" user messages of each alternative (not descendants of another
+ * candidate).
+ */
+function buildUserBranch(
+	entry: CodingSessionEntry,
+	byId: Map<string, CodingSessionEntry>,
+	allUserEntries: CodingSessionEntry[],
+): HistoryMessageBranch | undefined {
+	if (!isUserMessageEntry(entry)) return undefined;
+
+	const branchParentId = getEditBranchParentId(entry, byId);
+	const candidates = allUserEntries.filter((u) => getEditBranchParentId(u, byId) === branchParentId);
+	if (candidates.length === 0) return undefined;
+
+	// Prefer direct same-parent siblings when available (fast path / no transparent nodes).
+	const directKey = entry.parentId;
+	const directSiblings = candidates.filter((u) => u.parentId === directKey);
+	const versions =
+		directSiblings.length > 1
+			? directSiblings
+			: candidates.filter(
+					(m) => !candidates.some((other) => other.id !== m.id && isAncestorOf(other.id, m.id, byId)),
+				);
+
+	versions.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+	const siblingIds = versions.map((v) => v.id);
+	const index = siblingIds.indexOf(entry.id);
+	if (index < 0) return undefined;
+	return { siblings: siblingIds, index };
+}
+
+export type EntriesToHistoryOptions = {
+	/**
+	 * Full session entries (or at least all user messages) for sibling detection.
+	 * When omitted, branch metadata is not attached.
+	 */
+	allEntries?: CodingSessionEntry[];
+};
+
 /** Translate a session branch (coding-agent entries) into host HistoryEntry[]. */
-export function entriesToHistory(branch: CodingSessionEntry[]): HistoryEntry[] {
+export function entriesToHistory(branch: CodingSessionEntry[], options?: EntriesToHistoryOptions): HistoryEntry[] {
+	const allEntries = options?.allEntries;
+	const byId = new Map<string, CodingSessionEntry>();
+	const allUserEntries: CodingSessionEntry[] = [];
+	if (allEntries) {
+		for (const e of allEntries) {
+			byId.set(e.id, e);
+			if (isUserMessageEntry(e)) allUserEntries.push(e);
+		}
+	}
+
 	const entries: HistoryEntry[] = [];
 	for (const entry of branch) {
 		if (entry.type === "message") {
 			const msg = entry.message;
 			if (msg.role === "user" || msg.role === "assistant" || msg.role === "toolResult") {
-				entries.push({ type: "message", message: msg as Message });
+				const historyEntry: HistoryEntry = {
+					type: "message",
+					entryId: entry.id,
+					parentId: entry.parentId,
+					message: msg as Message,
+				};
+				if (allEntries && msg.role === "user") {
+					const branchInfo = buildUserBranch(entry, byId, allUserEntries);
+					if (branchInfo) historyEntry.branch = branchInfo;
+				}
+				entries.push(historyEntry);
 			}
 		} else if (entry.type === "compaction") {
 			entries.push({
 				type: "compaction",
+				entryId: entry.id,
 				summary: entry.summary,
 				tokensBefore: entry.tokensBefore,
 				timestamp: entry.timestamp,

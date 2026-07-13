@@ -141,11 +141,28 @@ export interface ErrorBlock {
 
 export type ContentBlock = TextBlock | ThinkingBlock | ToolCallBlock | ToolResultBlock | ErrorBlock;
 
+/** Sibling user-message versions under the same parent (session tree). */
+export interface ChatMessageBranch {
+	/** Session entryIds of sibling user messages, oldest → newest */
+	siblings: string[];
+	/** Index of this message in siblings */
+	index: number;
+}
+
 export interface ChatMessage {
 	id: string;
 	role: "user" | "assistant" | "compaction";
 	/** Plain text for user messages; for assistant messages this is the concatenated text blocks */
 	text: string;
+	/**
+	 * Session tree entry id (coding-agent). Present for history-backed messages;
+	 * optimistic bubbles may omit until history reload.
+	 */
+	entryId?: string;
+	/** Session parent entry id (null for root). */
+	parentId?: string | null;
+	/** User-message sibling branch info for ‹ i/n › switcher. */
+	branch?: ChatMessageBranch;
 	/** Rich content blocks for assistant messages */
 	blocks?: ContentBlock[];
 	/** Attached images for user messages */
@@ -169,6 +186,14 @@ export interface ChatMessage {
 	 * 乐观发送与历史回放（settings_assist_marker）都会设置。
 	 */
 	settingsAssistTabId?: string;
+}
+
+/**
+ * Pending re-edit of a historical user message: input bar is filled, navigateForEdit
+ * runs on send (not on click) so cancel is free of backend side-effects.
+ */
+export interface PendingMessageEdit {
+	entryId: string;
 }
 
 export interface ActiveSession {
@@ -253,6 +278,9 @@ export interface MentionedFile {
 }
 
 export const chatMessagesAtom = atom<ChatMessage[]>([]);
+
+/** Pending historical message re-edit (navigateForEdit deferred until send). */
+export const pendingMessageEditAtom = atom<PendingMessageEdit | null>(null);
 
 export const inputValueAtom = atom<string>("");
 export const attachedImagesAtom = atom<AttachedImage[]>([]);

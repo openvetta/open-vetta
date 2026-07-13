@@ -372,6 +372,28 @@
 			"copy": "复制"
 		},
 		"editButton": "编辑",
+		"forkButton": "分叉为新会话",
+		"branch": {
+			"prev": "上一个版本",
+			"next": "下一个版本",
+			"position": "第 {{current}} / {{total}} 个版本"
+		},
+		"edit": {
+			"pendingHint": "正在编辑此消息，发送后将从此处创建新分支",
+			"overwriteDraftTitle": "覆盖当前输入？",
+			"overwriteDraftBody": "输入框中已有内容。继续编辑历史消息将覆盖当前草稿。",
+			"overwriteDraftConfirm": "覆盖并编辑"
+		},
+		"interrupt": {
+			"editTitle": "中断当前会话？",
+			"editBody": "编辑历史消息将停止正在生成的回复。已产生的内容会保留在原分支中。",
+			"switchTitle": "中断当前会话？",
+			"switchBody": "切换分支将停止正在生成的回复。已产生的内容会保留在原分支中。",
+			"forkTitle": "中断当前会话？",
+			"forkBody": "分叉为新会话将停止正在生成的回复。",
+			"confirm": "中断并继续",
+			"cancel": "取消"
+		},
 		"toolCallGroup": {
 			"completed": "{{count}} 个工具调用完成",
 			"inProgress": "{{completed}}/{{total}} 个工具调用",

@@ -69,6 +69,12 @@ export interface DesktopSessionApi {
 	getState(sessionId: string): Promise<SessionStateSnapshot>;
 	getMessages(sessionId: string): Promise<Message[]>;
 	getFullHistory(sessionId: string): Promise<HistoryEntry[]>;
+	/** Prepare re-edit: set leaf to parent of user entry; returns text. Call before prompt. */
+	navigateForEdit(sessionId: string, entryId: string): Promise<{ text: string; cancelled: boolean }>;
+	/** Switch leaf to tip of subtree at entryId (sibling branch view). */
+	switchBranch(sessionId: string, entryId: string): Promise<{ leafId: string }>;
+	/** Export fork as new session file; current session unchanged. */
+	forkSession(sessionId: string, entryId: string): Promise<{ path: string; text: string }>;
 	delete(sessionPath: string): Promise<void>;
 	rename(sessionPath: string, name: string): Promise<void>;
 	autoTitle(sessionId: string, userText: string, assistantText: string): Promise<string | null>;

@@ -382,7 +382,8 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatMessage[] {
 		if (entry.type === "compaction") {
 			pendingSettingsAssistTabId = undefined;
 			messages.push({
-				id: `hist-compact-${messages.length}`,
+				id: entry.entryId ?? `hist-compact-${messages.length}`,
+				entryId: entry.entryId,
 				role: "compaction",
 				text: entry.summary,
 				timestamp: new Date(entry.timestamp).getTime(),
@@ -447,8 +448,14 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatMessage[] {
 		if (m.role === "user") {
 			const text = extractText(m.content);
 			const parsedUser = parseUserPrefixes(text);
+			const entryId = entry.type === "message" ? entry.entryId : undefined;
+			const parentId = entry.type === "message" ? entry.parentId : undefined;
+			const branch = entry.type === "message" ? entry.branch : undefined;
 			const userMsg: ChatMessage = {
-				id: `hist-user-${messages.length}`,
+				id: entryId ?? `hist-user-${messages.length}`,
+				entryId,
+				parentId,
+				branch: branch ? { siblings: branch.siblings, index: branch.index } : undefined,
 				role: "user",
 				text,
 				// Only absolute (panel/system) prefixes; hand-typed @text stays in body.
@@ -462,7 +469,13 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatMessage[] {
 			messages.push(userMsg);
 		} else if (m.role === "assistant") {
 			pendingSettingsAssistTabId = undefined;
+			const entryId = entry.type === "message" ? entry.entryId : undefined;
 			const target = currentAssistant();
+			// Prefer first assistant entry id for the merged bubble when not set yet.
+			if (entryId && !target.entryId) {
+				target.entryId = entryId;
+				target.id = entryId;
+			}
 			const blocks = messageToBlocks(m.content);
 			for (const b of blocks) {
 				if (b.type === "tool_call") toolCallIndex.set(b.toolCallId, b);

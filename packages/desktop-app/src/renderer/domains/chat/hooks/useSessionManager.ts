@@ -36,6 +36,7 @@ import {
 	modelSupportsImagesAtom,
 	openSessionFnRef,
 	pendingEditImageIdAtom,
+	pendingMessageEditAtom,
 	pluginInputActionsAtom,
 	promptPredictingAtom,
 	promptSuggestionsAtom,
@@ -279,6 +280,7 @@ export function useSessionManager(): SessionManagerResult {
 			// Clear messages immediately so the user sees the switch take effect
 			// instead of staring at the old session while history loads.
 			setChatMessages([]);
+			getDefaultStore().set(pendingMessageEditAtom, null);
 			// 切会话先把激活工具集置未知（null）→ badge 回退显示，等 getState 回填真实集合。
 			setActiveToolNames(null);
 			// 场景同样置未知（null）→ 插件插槽 fail-closed 暂不显示，等 getState 回填后按场景显隐。
@@ -488,6 +490,32 @@ export function useSessionManager(): SessionManagerResult {
 							}
 							return prev;
 						});
+
+						// Reload full history so user bubbles get session entryId / branch siblings
+						// (optimistic messages use synthetic ids and cannot be edited until this).
+						void window.vetta.session
+							.getFullHistory(sessionId)
+							.then((history) => {
+								if (activeSessionRef.current?.runtimeId !== sessionId) return;
+								const mapped = fullHistoryToChat(history);
+								if (elapsed > 0) {
+									for (let i = mapped.length - 1; i >= 0; i--) {
+										if (mapped[i].role === "assistant") {
+											mapped[i] = {
+												...mapped[i],
+												startedAt: mapped[i].startedAt ?? startedAt,
+												endedAt: mapped[i].endedAt ?? endedAt,
+												durationSeconds: mapped[i].durationSeconds ?? elapsed,
+											};
+											break;
+										}
+									}
+								}
+								setChatMessages(mapped);
+							})
+							.catch((err) => {
+								console.warn("[useSessionManager] getFullHistory after agent_end failed", err);
+							});
 
 						// First-round auto title: trigger only on successful agent_end of
 						// a brand-new session, exactly once per sessionPath.
@@ -873,6 +901,60 @@ export function useSessionManager(): SessionManagerResult {
 				setMentionedFiles([]);
 				setAppshotAttachment(null);
 			}
+			// 历史消息重编辑：发送前 navigateForEdit（leaf → parent），再按新枝 prompt。
+			// 不得走 streaming 入队，否则 leaf 未回退会导致上下文错误。
+			const store = getDefaultStore();
+			const pendingEdit = store.get(pendingMessageEditAtom);
+			if (pendingEdit) {
+				if (store.get(isStreamingAtom)) {
+					await new Promise<void>((resolve) => {
+						let settled = false;
+						let unsubscribe: () => void = () => {};
+						const finish = (): void => {
+							if (settled) return;
+							settled = true;
+							unsubscribe();
+							clearTimeout(timer);
+							resolve();
+						};
+						const timer = setTimeout(finish, 8000);
+						unsubscribe = window.vetta.session.onRunningChanged((p) => {
+							if (p.sessionId === session.runtimeId && p.running === false) finish();
+						});
+						if (!store.get(isStreamingAtom)) {
+							finish();
+							return;
+						}
+						void window.vetta.session.abort(session.runtimeId).catch((err) => {
+							console.error("[useSessionManager.sendMessage] abort before edit failed:", err);
+						});
+					});
+				}
+				try {
+					const nav = await window.vetta.session.navigateForEdit(session.runtimeId, pendingEdit.entryId);
+					if (nav.cancelled) {
+						store.set(pendingMessageEditAtom, null);
+						return;
+					}
+					const history = await window.vetta.session.getFullHistory(session.runtimeId);
+					setChatMessages(fullHistoryToChat(history));
+					store.set(pendingMessageEditAtom, null);
+				} catch (err) {
+					const message = err instanceof Error ? err.message : String(err);
+					const notFound = /Entry .+ not found/i.test(message);
+					console.error("[useSessionManager.sendMessage] navigateForEdit failed:", err);
+					store.set(pendingMessageEditAtom, null);
+					if (notFound) {
+						// Stale pending edit (e.g. entry from a previous session after fork).
+						// Fall through as a normal append so the user is not blocked.
+						console.warn("[useSessionManager.sendMessage] stale pending edit cleared; sending as new message");
+					} else {
+						setChatMessages((prev) => appendError(prev, message));
+						return;
+					}
+				}
+			}
+
 			// streaming 期间发送 = 排队等下一轮：跳过「用户气泡 / 清产物列表 / 乐观侧边栏 /
 			// 清 todo」这些开启新一轮才该有的副作用，仅在下方组装好 promptReq 快照后入队。
 			// （输入框已在上方清空，符合「入队后清空输入框」语义。）

@@ -26,8 +26,13 @@ export type UserMessageEntryState = "static" | "hidden" | "enter";
 export interface UserMessageViewLabels {
 	expand: string;
 	edit: string;
+	fork: string;
 	skillBadge: string;
 	sceneBadge: string;
+	branchPrev: string;
+	branchNext: string;
+	branchPosition: string;
+	pendingEdit: string;
 }
 
 export interface UserMessageViewProps {
@@ -40,6 +45,13 @@ export interface UserMessageViewProps {
 	hasAppshot: boolean;
 	copyText: string;
 	isLastUserMessage: boolean;
+	/** True when message has a session entryId and can be re-edited. */
+	canEdit: boolean;
+	canSwitchBranch: boolean;
+	canFork: boolean;
+	isPendingEdit: boolean;
+	branchIndex: number;
+	branchTotal: number;
 	actionsVisible: boolean;
 	labels: UserMessageViewLabels;
 	appshot: ReactNode;
@@ -52,6 +64,9 @@ export interface UserMessageViewProps {
 	copyButton: ReactNode;
 	onEntryComplete?: () => void;
 	onEdit: () => void;
+	onFork: () => void;
+	onBranchPrev: () => void;
+	onBranchNext: () => void;
 	onActionsVisibleChange: (visible: boolean) => void;
 }
 
@@ -150,6 +165,9 @@ export function SettingsAssistBadgeView({ label }: { label: string }): JSX.Eleme
 	);
 }
 
+const actionBtnClass =
+	"inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground/45 transition-colors hover:bg-muted/60 hover:text-foreground disabled:pointer-events-none disabled:opacity-30";
+
 export function UserMessageView({
 	entryState,
 	displayText,
@@ -159,7 +177,12 @@ export function UserMessageView({
 	hasFileBadges,
 	hasAppshot,
 	copyText,
-	isLastUserMessage,
+	canEdit,
+	canSwitchBranch,
+	canFork,
+	isPendingEdit,
+	branchIndex,
+	branchTotal,
 	actionsVisible,
 	labels,
 	appshot,
@@ -171,6 +194,9 @@ export function UserMessageView({
 	copyButton,
 	onEntryComplete,
 	onEdit,
+	onFork,
+	onBranchPrev,
+	onBranchNext,
 	onActionsVisibleChange,
 }: UserMessageViewProps): JSX.Element {
 	const shouldAnimateIn = entryState === "enter";
@@ -182,6 +208,7 @@ export function UserMessageView({
 		!hasFileBadges &&
 		!hasImages &&
 		!hasAppshot;
+	const showActions = Boolean(copyText) || canEdit || canSwitchBranch || canFork;
 
 	return (
 		<motion.div
@@ -202,7 +229,9 @@ export function UserMessageView({
 				)}
 				{displayText && (
 					<div
-						className="min-w-0 max-w-full cursor-text rounded-2xl rounded-br-md bg-secondary px-3.5 py-2.5 text-[13px] leading-[1.6] text-foreground"
+						className={`min-w-0 max-w-full cursor-text rounded-2xl rounded-br-md bg-secondary px-3.5 py-2.5 text-[13px] leading-[1.6] text-foreground ${
+							isPendingEdit ? "ring-1 ring-primary/40" : ""
+						}`}
 						style={{ wordBreak: "break-word" }}
 					>
 						<UserMessageTextShell
@@ -225,27 +254,65 @@ export function UserMessageView({
 				{hasFileBadges && (
 					<div className="mt-1 flex flex-wrap justify-end gap-1">{fileBadges}</div>
 				)}
-				{copyText && (
+				{showActions && (
 					<div
 						className={`mt-1 flex h-6 items-center justify-end gap-1 whitespace-nowrap transition-opacity duration-150 ${
-							actionsVisible
+							actionsVisible || isPendingEdit || canSwitchBranch
 								? "pointer-events-auto opacity-100"
 								: "pointer-events-none opacity-0"
 						}`}
 					>
 						{relativeTime}
-						{isLastUserMessage && (
+						{canSwitchBranch && (
+							<span className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground/70">
+								<button
+									type="button"
+									onClick={onBranchPrev}
+									disabled={branchIndex <= 0}
+									title={labels.branchPrev}
+									aria-label={labels.branchPrev}
+									className={actionBtnClass}
+								>
+									<span className="icon-[solar--alt-arrow-left-linear] h-3.5 w-3.5" />
+								</button>
+								<span className="min-w-[2.5rem] text-center tabular-nums" title={labels.branchPosition}>
+									{branchIndex + 1}/{branchTotal}
+								</span>
+								<button
+									type="button"
+									onClick={onBranchNext}
+									disabled={branchIndex >= branchTotal - 1}
+									title={labels.branchNext}
+									aria-label={labels.branchNext}
+									className={actionBtnClass}
+								>
+									<span className="icon-[solar--alt-arrow-right-linear] h-3.5 w-3.5" />
+								</button>
+							</span>
+						)}
+						{canEdit && (
 							<button
 								type="button"
 								onClick={onEdit}
-								title={labels.edit}
+								title={isPendingEdit ? labels.pendingEdit : labels.edit}
 								aria-label={labels.edit}
-								className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground/45 transition-colors hover:bg-muted/60 hover:text-foreground"
+								className={`${actionBtnClass} ${isPendingEdit ? "text-primary" : ""}`}
 							>
 								<span className="icon-[solar--pen-2-linear] h-3.5 w-3.5" />
 							</button>
 						)}
-						{copyButton}
+						{canFork && (
+							<button
+								type="button"
+								onClick={onFork}
+								title={labels.fork}
+								aria-label={labels.fork}
+								className={actionBtnClass}
+							>
+								<span className="icon-[solar--branching-paths-up-linear] h-3.5 w-3.5" />
+							</button>
+						)}
+						{copyText ? copyButton : null}
 					</div>
 				)}
 			</div>

@@ -6,6 +6,13 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **对话消息编辑 / 分支切换 / 分叉会话**：任意已落盘的用户消息可编辑（解析 skill/@文件 回填底部输入框，发送时 `navigateForEdit` 从 parent 分叉）；同位置多版本显示 `‹ i/n ›` 切换分支；支持「分叉为新会话」导出独立 session。streaming 时切换/编辑/分叉会确认中断。History 透传 `entryId` 与 sibling 信息；Runtime/IPC 新增 `navigateForEdit` / `switchBranch` / `forkSession`。
+
+### Fixed
+
+- **编辑/续聊后 bash 与文件树 ENOENT（session cwd 丢失）**：`~/.vetta/conversation/<uuid>` 是 ADR-0007 的运行 cwd；「清空产物」曾整目录删除这些 UUID 夹，session header 仍引用 → 编辑后 agent 报 Working directory does not exist、`vetta:fs:read-dir` scandir 失败。清空产物改为只清空 UUID 目录内容并保留目录；`session:create` 与 `RuntimeHost.prompt` 在启动轮次前 `mkdir` 自愈缺失 cwd。
+- **Fork 保留被点击的用户消息及本轮 AI 回复**：分叉导出到该 user 回合 tip（user + assistant/工具链；此前只到 user 会丢 AI 气泡；再早只到 parent 会连 user 也丢）。打开新会话后清空 pending 编辑，避免对原 session 的 entryId 调用 `navigateForEdit` 报 Entry not found。
+- **分支箭头在 skill/隐藏 custom 插入后也能识别 sibling**：user 版本按「结构分支点」聚合（跳过 skill_expansion 等透明节点），不再只比直接 parentId。
 - **App Action：`shortcuts.*`（设置 → 快捷键整页）**：统一快捷键业务域——`shortcuts.query` / `shortcuts.manage` 覆盖全局应用快捷键绑定（`set-binding` / `reset-*`）与快捷面板呼出/发送后行为（`set-quick-panel-trigger` / `set-quick-panel-behavior`）。自定义绑定写入 `desktop-config.shortcuts.bindings`；面板相关仍用 `quickPanel` 配置字段供运行时复用，但不再注册独立 `quickpanel.*` Action。支持从旧 `localStorage(vetta-shortcuts)` 迁移；写操作走按 operation 的审批 UI。
 
 ### Changed

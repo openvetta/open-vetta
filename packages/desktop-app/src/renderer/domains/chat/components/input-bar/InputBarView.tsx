@@ -156,6 +156,18 @@ export function InputBarView({ model, className, classNames }: InputBarViewProps
 									className="overflow-hidden rounded-t-[inherit]"
 								>
 									<div className={["space-y-1.5 px-3 pt-3", classNames?.capsules].filter(Boolean).join(" ")}>
+										{model.pendingMessageEdit && (
+											<div className="flex items-center justify-between gap-2 rounded-md border border-primary/25 bg-primary/5 px-2.5 py-1.5 text-[11px] text-primary">
+												<span className="min-w-0 flex-1 leading-snug">{model.pendingEditHint}</span>
+												<button
+													type="button"
+													onClick={model.actions.cancelPendingEdit}
+													className="shrink-0 rounded px-1.5 py-0.5 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+												>
+													{model.cancelPendingEditLabel}
+												</button>
+											</div>
+										)}
 										{/* 附件第1行：Appshot 卡片 */}
 										<AnimatePresence initial={false}>
 											{model.appshotAttachment && (

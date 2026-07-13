@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+### Added
+
+- **会话树：`exportBranchToNewFile` / `resolveSubtreeTip` / `getUserMessageSiblings`**：导出分支为新 session 文件且不切换当前 manager（供桌面 host fork）；解析子树 tip 与 user sibling 列表，支撑同 session 内分支切换。
+- **`AgentSession.switchBranch` / `exportForkToNewFile`**：同文件切换 leaf 到目标子树 tip；fork 到新文件且保持当前会话不动。`exportForkToNewFile` 导出到该 user 回合 tip（含 user + 本轮 assistant/工具链，不含后续 user 轮）。
+- **`SessionManager.resolveUserTurnTip`**：从 user 消息向下只走非 user 子节点，得到本轮结束 tip。
+
 ### Removed
 
 - **移除「全局/周边模型」运行时 API 与配置字段**：`ModelRegistry.getPeripheralModel()` / `getPeripheralReasoningLevel()` 下线；`models.json` schema 不再包含 `peripheralModel*`。加载时剥离旧文件中的残留键，周边任务改由 runtime-core 自动选模。

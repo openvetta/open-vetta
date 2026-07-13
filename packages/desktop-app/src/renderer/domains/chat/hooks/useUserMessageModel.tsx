@@ -1,7 +1,15 @@
 import {
+	activeSessionAtom,
+	appshotAttachmentAtom,
 	chatMessagesAtom,
+	confirmDialogAtom,
 	filePreviewAtom,
 	inputValueAtom,
+	isStreamingAtom,
+	mentionedFilesAtom,
+	openSessionFnRef,
+	pendingMessageEditAtom,
+	selectedSkillAtom,
 	type ChatMessage,
 	type FilePreviewItem,
 } from "@shared/store/atoms";
@@ -12,10 +20,10 @@ import {
 	type UserMessageEntryState,
 	type UserMessageViewProps,
 } from "@vetta/theme-ui/chat";
-import { useSetAtom } from "jotai";
+import { getDefaultStore, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { parseUserPrefixes } from "../services/chat-service";
+import { fullHistoryToChat, parseUserPrefixes } from "../services/chat-service";
 import { AppshotCard, type AppshotCardData } from "../components/AppshotCard";
 import { TextBlockView } from "../components/blocks/TextBlock";
 import { CopyButton, RelativeTimeLabel } from "../components/message-list/MessageActions";
@@ -70,6 +78,70 @@ function getPreviewImageSrc(item: FilePreviewItem): string {
 	return "";
 }
 
+async function abortAndWait(runtimeId: string): Promise<void> {
+	const store = getDefaultStore();
+	if (!store.get(isStreamingAtom)) return;
+	await new Promise<void>((resolve) => {
+		let settled = false;
+		let unsubscribe: () => void = () => {};
+		const finish = (): void => {
+			if (settled) return;
+			settled = true;
+			unsubscribe();
+			clearTimeout(timer);
+			resolve();
+		};
+		const timer = setTimeout(finish, 8000);
+		unsubscribe = window.vetta.session.onRunningChanged((p) => {
+			if (p.sessionId === runtimeId && p.running === false) finish();
+		});
+		if (!store.get(isStreamingAtom)) {
+			finish();
+			return;
+		}
+		void window.vetta.session.abort(runtimeId).catch((err) => {
+			console.error("[useUserMessageModel] abort failed:", err);
+		});
+	});
+}
+
+async function reloadChatHistory(runtimeId: string): Promise<void> {
+	const history = await window.vetta.session.getFullHistory(runtimeId);
+	getDefaultStore().set(chatMessagesAtom, fullHistoryToChat(history));
+}
+
+function fillInputFromUserText(rawText: string): void {
+	const store = getDefaultStore();
+	const { skillName, skillType, files, body } = parseUserPrefixes(rawText);
+	store.set(inputValueAtom, body);
+	store.set(
+		selectedSkillAtom,
+		skillName ? { name: skillName, type: skillType ?? "skill" } : null,
+	);
+	// Appshot capsule needs full AppshotAttachment; on re-edit we re-attach the image path
+	// via mentionedFiles @prefix instead (sendMessage will include it).
+	store.set(appshotAttachmentAtom, null);
+	// Restore @attachments for re-send (workspace files + image-cache / appshot paths).
+	store.set(
+		mentionedFilesAtom,
+		files.map((path) => ({
+			path,
+			name: pathBasename(path),
+			isDirectory: false,
+		})),
+	);
+}
+
+function inputHasDraft(): boolean {
+	const store = getDefaultStore();
+	return (
+		store.get(inputValueAtom).trim().length > 0 ||
+		store.get(selectedSkillAtom) !== null ||
+		store.get(mentionedFilesAtom).length > 0 ||
+		store.get(appshotAttachmentAtom) !== null
+	);
+}
+
 export interface UserMessageModelInput {
 	entryState: UserMessageEntryState;
 	hasAssistantAfter?: boolean;
@@ -85,7 +157,6 @@ export type UserMessageModel = UserMessageViewProps;
 export function useUserMessageModel({
 	message,
 	entryState,
-	hasAssistantAfter = false,
 	isLastUserMessage = false,
 	isStreaming = false,
 	onAbortEdit,
@@ -122,39 +193,137 @@ export function useUserMessageModel({
 	const hasFileBadges = fileBadges.length > 0;
 	const copyText = displayText.trim();
 	const [actionsVisible, setActionsVisible] = useState(false);
-	const setInputValue = useSetAtom(inputValueAtom);
-	const setChatMessages = useSetAtom(chatMessagesAtom);
 	const setFilePreview = useSetAtom(filePreviewAtom);
+	const setConfirmDialog = useSetAtom(confirmDialogAtom);
+	const activeSession = useAtomValue(activeSessionAtom);
+	const pendingEdit = useAtomValue(pendingMessageEditAtom);
+
+	const canEdit = Boolean(message.entryId);
+	const branch = message.branch;
+	const canSwitchBranch = Boolean(branch && branch.siblings.length > 1 && message.entryId);
+	const isPendingEdit = Boolean(pendingEdit && message.entryId && pendingEdit.entryId === message.entryId);
+
+	const applyEditFill = useCallback(() => {
+		if (!message.entryId) return;
+		fillInputFromUserText(message.text);
+		getDefaultStore().set(pendingMessageEditAtom, { entryId: message.entryId });
+	}, [message.entryId, message.text]);
+
+	const runWithInterruptConfirm = useCallback(
+		(kind: "edit" | "switch" | "fork", action: () => void | Promise<void>) => {
+			const run = (): void => {
+				void (async () => {
+					const runtimeId = activeSession?.runtimeId;
+					if (isStreaming && runtimeId) {
+						onAbortEdit?.();
+						await abortAndWait(runtimeId);
+					}
+					await action();
+				})();
+			};
+			if (!isStreaming) {
+				run();
+				return;
+			}
+			setConfirmDialog({
+				title: t(
+					kind === "edit"
+						? "messageList.interrupt.editTitle"
+						: kind === "switch"
+							? "messageList.interrupt.switchTitle"
+							: "messageList.interrupt.forkTitle",
+				),
+				message: t(
+					kind === "edit"
+						? "messageList.interrupt.editBody"
+						: kind === "switch"
+							? "messageList.interrupt.switchBody"
+							: "messageList.interrupt.forkBody",
+				),
+				confirmLabel: t("messageList.interrupt.confirm"),
+				cancelLabel: t("messageList.interrupt.cancel"),
+				variant: "danger",
+				onConfirm: run,
+			});
+		},
+		[activeSession?.runtimeId, isStreaming, onAbortEdit, setConfirmDialog, t],
+	);
 
 	const handleEdit = useCallback(() => {
-		if (hasAssistantAfter) {
-			if (isStreaming) onAbortEdit?.();
-			setInputValue(message.text);
+		if (!message.entryId) return;
+		const startEdit = (): void => {
+			runWithInterruptConfirm("edit", () => {
+				applyEditFill();
+			});
+		};
+		if (inputHasDraft() && !isPendingEdit) {
+			setConfirmDialog({
+				title: t("messageList.edit.overwriteDraftTitle"),
+				message: t("messageList.edit.overwriteDraftBody"),
+				confirmLabel: t("messageList.edit.overwriteDraftConfirm"),
+				cancelLabel: t("messageList.interrupt.cancel"),
+				onConfirm: startEdit,
+			});
 			return;
 		}
-		if (isStreaming) {
-			onAbortEdit?.();
-			setChatMessages((prev) => {
-				const index = prev.findIndex((item) => item.id === message.id);
-				return index === -1 ? prev : prev.slice(0, index);
+		startEdit();
+	}, [applyEditFill, isPendingEdit, message.entryId, runWithInterruptConfirm, setConfirmDialog, t]);
+
+	const handleSwitchBranch = useCallback(
+		(direction: -1 | 1) => {
+			if (!branch || !message.entryId || !activeSession?.runtimeId) return;
+			const nextIndex = branch.index + direction;
+			if (nextIndex < 0 || nextIndex >= branch.siblings.length) return;
+			const targetId = branch.siblings[nextIndex];
+			if (!targetId || targetId === message.entryId) return;
+			// Cancel pending edit when switching branches
+			getDefaultStore().set(pendingMessageEditAtom, null);
+			runWithInterruptConfirm("switch", async () => {
+				const runtimeId = activeSession.runtimeId;
+				await window.vetta.session.switchBranch(runtimeId, targetId);
+				await reloadChatHistory(runtimeId);
 			});
-		}
-		setInputValue(message.text);
-	}, [
-		hasAssistantAfter,
-		isStreaming,
-		message.id,
-		message.text,
-		onAbortEdit,
-		setChatMessages,
-		setInputValue,
-	]);
+		},
+		[activeSession?.runtimeId, branch, message.entryId, runWithInterruptConfirm],
+	);
+
+	const handleFork = useCallback(() => {
+		if (!message.entryId || !activeSession?.runtimeId) return;
+		runWithInterruptConfirm("fork", async () => {
+			// Drop any in-progress re-edit before switching sessions — pending entryIds
+			// belong to the source session and would break navigateForEdit after open.
+			const store = getDefaultStore();
+			store.set(pendingMessageEditAtom, null);
+			store.set(inputValueAtom, "");
+			store.set(selectedSkillAtom, null);
+			store.set(mentionedFilesAtom, []);
+			store.set(appshotAttachmentAtom, null);
+
+			const runtimeId = activeSession.runtimeId;
+			const cwd = activeSession.cwd;
+			const { path } = await window.vetta.session.forkSession(runtimeId, message.entryId!);
+			const open = openSessionFnRef.current;
+			if (open) {
+				await open(cwd, path);
+			}
+			// Fork file includes the selected user message; leaf is that message.
+			// Do not set pendingMessageEdit — next send is a normal follow-up.
+			store.set(pendingMessageEditAtom, null);
+		});
+	}, [activeSession?.cwd, activeSession?.runtimeId, message.entryId, runWithInterruptConfirm]);
 
 	const labels = {
 		expand: t("messageList.userMessage.expand"),
 		edit: t("messageList.editButton"),
+		fork: t("messageList.forkButton"),
 		skillBadge: t("messageList.userMessage.skillBadge"),
 		sceneBadge: t("messageList.userMessage.sceneBadge"),
+		branchPrev: t("messageList.branch.prev"),
+		branchNext: t("messageList.branch.next"),
+		branchPosition: branch
+			? t("messageList.branch.position", { current: branch.index + 1, total: branch.siblings.length })
+			: "",
+		pendingEdit: t("messageList.edit.pendingHint"),
 	};
 
 	const settingsLabel = hasSettingsAssistBadge
@@ -229,6 +398,12 @@ export function useUserMessageModel({
 		hasAppshot: Boolean(appshotData),
 		copyText,
 		isLastUserMessage,
+		canEdit,
+		canSwitchBranch,
+		canFork: canEdit,
+		isPendingEdit,
+		branchIndex: branch?.index ?? 0,
+		branchTotal: branch?.siblings.length ?? 0,
 		actionsVisible,
 		labels,
 		appshot: appshotData ? <AppshotCard data={appshotData} /> : null,
@@ -245,6 +420,9 @@ export function useUserMessageModel({
 		copyButton: <CopyButton getText={() => copyText} />,
 		onEntryComplete,
 		onEdit: handleEdit,
+		onFork: handleFork,
+		onBranchPrev: () => handleSwitchBranch(-1),
+		onBranchNext: () => handleSwitchBranch(1),
 		onActionsVisibleChange: setActionsVisible,
 	};
 }
