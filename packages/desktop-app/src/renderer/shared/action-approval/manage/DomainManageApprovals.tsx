@@ -37,6 +37,13 @@ import {
 	ProjectsRenameApproval,
 	ProjectsUnarchiveApproval,
 } from "./projects";
+import {
+	ShortcutsResetAllBindingsApproval,
+	ShortcutsResetBindingApproval,
+	ShortcutsSetBindingApproval,
+	ShortcutsSetQuickPanelBehaviorApproval,
+	ShortcutsSetQuickPanelTriggerApproval,
+} from "./shortcuts";
 import { SkillsSetEnabledApproval, SkillsUninstallApproval } from "./skills";
 import {
 	UpdaterCancelApproval,
@@ -84,6 +91,12 @@ export function DomainManageApprovals(): JSX.Element {
 			<GeneralSetNotificationsApproval />
 			<GeneralSetExecutionModeApproval />
 			<GeneralSetWorkspaceApproval />
+
+			<ShortcutsSetBindingApproval />
+			<ShortcutsResetBindingApproval />
+			<ShortcutsResetAllBindingsApproval />
+			<ShortcutsSetQuickPanelTriggerApproval />
+			<ShortcutsSetQuickPanelBehaviorApproval />
 
 			<AgentSetExperimentalApproval />
 

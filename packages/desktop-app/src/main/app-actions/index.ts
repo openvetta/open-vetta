@@ -15,6 +15,7 @@ import { registerPluginsActions } from "./plugins/actions.js";
 import { registerProjectsActions } from "./projects/actions.js";
 import { AppActionRuntime } from "./runtime.js";
 import { registerSchedulerActions } from "./scheduler/actions.js";
+import { registerShortcutsActions } from "./shortcuts/actions.js";
 import { registerSkillsActions } from "./skills/actions.js";
 import type { ActionApprovalRequester } from "./types.js";
 import { registerUpdaterActions } from "./updater/actions.js";
@@ -41,6 +42,7 @@ export function createAppActionRuntime(
 	registerPluginsActions(register);
 	registerProjectsActions(register);
 	registerSchedulerActions(register, schedulerService);
+	registerShortcutsActions(register);
 	registerSkillsActions(register);
 	registerUpdaterActions(register);
 	registerWebhookActions(register);

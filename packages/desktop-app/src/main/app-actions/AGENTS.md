@@ -45,7 +45,7 @@ Agent 说明只暴露完成操作所需的信息，包括：
 在根目录 `index.ts` 的 `createAppActionRuntime` 中注册新领域。一个 Action 应围绕一致的权限和审批策略；如果查询、写入、执行控制的风险不同，应拆成多个 Action。
 
 当前已注册领域：
-`agent`、`appearance`、`navigation`、`batch-tasks`、`scheduler`、`models`、`mcp`、`skills`、`projects`、`general`、`knowledge`、`plugins`、`im`、`webhook`、`downloads`、`updater`。
+`agent`、`appearance`、`navigation`、`batch-tasks`、`scheduler`、`models`、`mcp`、`skills`、`projects`、`general`、`knowledge`、`plugins`、`im`、`webhook`、`downloads`、`updater`、`shortcuts`。
 
 领域命名对齐设置页 IA（不要再使用含糊的 `settings` 杂项域）：
 
@@ -57,6 +57,13 @@ Agent 说明只暴露完成操作所需的信息，包括：
 
 `agent` 域（设置 → Agent 配置）：
 - `agent.query` / `agent.manage`：实验开关（`set-experimental`）。
+
+`shortcuts` 域（设置 → 快捷键整页，业务一体）：
+- `shortcuts.query` / `shortcuts.manage`：
+  - 全局应用快捷键绑定（`set-binding` / `reset-binding` / `reset-all-bindings`）
+  - 快捷面板呼出与发送后行为（`set-quick-panel-trigger` / `set-quick-panel-behavior`）
+- 配置存储可分字段（`shortcuts.bindings` vs `quickPanel`），但 **Action 域不要拆成 quickpanel.***。
+- 快捷面板窗口/会话/创建对话等运行时能力仍走 quickpanel IPC，不在本域。
 
 `knowledge` 域：
 - 实体管理（list/create/…）与加工策略（`get-processing` / `set-processing`）均在 knowledge.*。

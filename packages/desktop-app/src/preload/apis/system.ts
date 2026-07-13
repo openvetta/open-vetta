@@ -138,6 +138,7 @@ export function createSystemApi(
 		config: {
 			get: () => ipc.invoke("vetta:config:get"),
 			set: (config) => ipc.invoke("vetta:config:set", config),
+			onShortcutsChanged: (handler) => onIpcEvent(ipc, "vetta:shortcuts:changed", handler),
 		},
 		knowledge: {
 			scanNow: () => ipc.invoke("vetta:kb:scan-now"),

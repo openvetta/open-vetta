@@ -1,80 +1,90 @@
 /**
- * Shortcut definitions and persistence.
- *
- * Each shortcut has:
- * - id: unique identifier
- * - label: Chinese display name
- * - defaultShortcut: default key combo (serialized)
- * - shortcut: current key combo (may differ if user customized)
+ * Renderer 侧全局快捷键：定义 re-export + 持久化（desktop-config）+ localStorage 迁移。
+ * 快捷面板不在此模块。
  */
 
-export interface ShortcutAction {
-	id: string;
-	/** settings ns i18n key，渲染期解析（模块级常量不存中文）。 */
-	labelKey: string;
-	descriptionKey: string;
-	defaultShortcut: string;
+import {
+	getEffectiveShortcut as getEffectiveFromShared,
+	isShortcutActionId,
+	listShortcutBindingsSnapshot,
+	normalizeShortcutBindings,
+	SHORTCUT_ACTIONS,
+	type ShortcutActionId,
+	type ShortcutBindings,
+} from "@/shared/shortcuts";
+
+export { SHORTCUT_ACTIONS, type ShortcutActionId, type ShortcutBindings, listShortcutBindingsSnapshot };
+export type { ShortcutActionDef } from "@/shared/shortcuts";
+
+/** @deprecated 使用 ShortcutBindings；保留别名避免旧 import 断裂。 */
+export type ShortcutMap = ShortcutBindings;
+
+const LEGACY_STORAGE_KEY = "vetta-shortcuts";
+
+function bindingsAsRecord(bindings: ShortcutBindings): Record<string, string> {
+	const out: Record<string, string> = {};
+	for (const [key, value] of Object.entries(bindings)) {
+		if (typeof value === "string") out[key] = value;
+	}
+	return out;
 }
 
-/** All available shortcut actions with defaults。as const 保留 labelKey 字面量类型供 t() 校验。 */
-export const SHORTCUT_ACTIONS = [
-	{
-		id: "new-session",
-		labelKey: "shortcutNewSessionLabel",
-		descriptionKey: "shortcutNewSessionDesc",
-		defaultShortcut: "mod+n",
-	},
-	{
-		id: "open-project",
-		labelKey: "shortcutOpenProjectLabel",
-		descriptionKey: "shortcutOpenProjectDesc",
-		defaultShortcut: "mod+o",
-	},
-	{
-		id: "open-settings",
-		labelKey: "shortcutOpenSettingsLabel",
-		descriptionKey: "shortcutOpenSettingsDesc",
-		defaultShortcut: "mod+,",
-	},
-] as const;
-
-const STORAGE_KEY = "vetta-shortcuts";
-
-export type ShortcutMap = Record<string, string>;
-
-/** Load user-customized shortcuts from localStorage */
-export function loadShortcuts(): ShortcutMap {
+function readLegacyLocalStorage(): ShortcutBindings {
 	try {
-		const raw = localStorage.getItem(STORAGE_KEY);
-		if (raw) return JSON.parse(raw) as ShortcutMap;
+		const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
+		if (!raw) return {};
+		return normalizeShortcutBindings(JSON.parse(raw) as unknown);
+	} catch {
+		return {};
+	}
+}
+
+function clearLegacyLocalStorage(): void {
+	try {
+		localStorage.removeItem(LEGACY_STORAGE_KEY);
 	} catch {
 		// ignore
 	}
+}
+
+/** 从 desktop-config 加载；若为空则迁移旧 localStorage 一次。 */
+export async function loadShortcutBindings(): Promise<ShortcutBindings> {
+	const config = await window.vetta.config.get();
+	const fromConfig = normalizeShortcutBindings(config.shortcuts?.bindings ?? {});
+	if (Object.keys(fromConfig).length > 0) {
+		clearLegacyLocalStorage();
+		return fromConfig;
+	}
+	const legacy = readLegacyLocalStorage();
+	if (Object.keys(legacy).length > 0) {
+		await window.vetta.config.set({ shortcuts: { bindings: bindingsAsRecord(legacy) } });
+		clearLegacyLocalStorage();
+		return legacy;
+	}
+	clearLegacyLocalStorage();
 	return {};
 }
 
-/** Save customized shortcuts to localStorage */
-export function saveShortcuts(map: ShortcutMap): void {
-	localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
+/** 整表写入自定义绑定（空对象 = 全部默认）。 */
+export async function saveShortcutBindings(bindings: ShortcutBindings): Promise<void> {
+	const normalized = normalizeShortcutBindings(bindings);
+	await window.vetta.config.set({ shortcuts: { bindings: bindingsAsRecord(normalized) } });
 }
 
-/** Get the effective shortcut for an action (custom or default) */
-export function getEffectiveShortcut(actionId: string, customMap: ShortcutMap): string {
-	if (customMap[actionId]) return customMap[actionId];
-	const action = SHORTCUT_ACTIONS.find((a) => a.id === actionId);
-	return action?.defaultShortcut ?? "";
+export function getEffectiveShortcut(actionId: string, customMap: ShortcutBindings): string {
+	if (!isShortcutActionId(actionId)) return "";
+	return getEffectiveFromShared(actionId, customMap);
 }
 
-/** Reset a single shortcut to its default */
-export function resetShortcut(actionId: string, customMap: ShortcutMap): ShortcutMap {
-	const next = { ...customMap };
+export async function resetShortcut(actionId: string, customMap: ShortcutBindings): Promise<ShortcutBindings> {
+	if (!isShortcutActionId(actionId)) return customMap;
+	const next: ShortcutBindings = { ...customMap };
 	delete next[actionId];
-	saveShortcuts(next);
+	await saveShortcutBindings(next);
 	return next;
 }
 
-/** Reset all shortcuts to defaults */
-export function resetAllShortcuts(): ShortcutMap {
-	localStorage.removeItem(STORAGE_KEY);
+export async function resetAllShortcuts(): Promise<ShortcutBindings> {
+	await saveShortcutBindings({});
 	return {};
 }
