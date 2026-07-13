@@ -8,6 +8,8 @@ export type { MacKeyboardPreviewProps, MacKeyId } from "./MacKeyboardPreview";
 export { MacKeyboardPreview } from "./MacKeyboardPreview";
 export type { MultiplierTagProps } from "./MultiplierTag";
 export { fmtMultiplier, MultiplierTag } from "./MultiplierTag";
+export type { ScrollFadeProps } from "./ScrollFade";
+export { ScrollFade } from "./ScrollFade";
 export type { SegmentedControlItem, SegmentedControlProps } from "./SegmentedControl";
 export { SegmentedControl } from "./SegmentedControl";
 export type { SyntaxHighlightedCodeProps } from "./SyntaxHighlightedCode";

@@ -1,5 +1,6 @@
 import { cn } from "@vetta/ui";
 import type { JSX, ReactNode } from "react";
+import { ScrollFade } from "../shared/ScrollFade";
 
 export interface DefaultConversationSectionViewLabels {
 	more: string;
@@ -57,9 +58,12 @@ export function DefaultConversationSectionView({
 					)}
 				</div>
 			</div>
-			<div ref={onListScrollRef} className="min-h-0 flex-1 overflow-y-auto no-scrollbar">
+			<ScrollFade
+				onScrollRef={onListScrollRef}
+				className="min-h-0 flex-1 overflow-y-auto no-scrollbar"
+			>
 				{list}
-			</div>
+			</ScrollFade>
 		</div>
 	);
 }
