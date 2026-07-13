@@ -7,6 +7,8 @@ export function BuiltinMcpSecretsDialog({
 	preset,
 	initialValues,
 	saving,
+	authorizing,
+	error,
 	onOpenChange,
 	onConfirm,
 }: {
@@ -14,6 +16,8 @@ export function BuiltinMcpSecretsDialog({
 	preset: BuiltinMcpPreset | null;
 	initialValues?: Record<string, string>;
 	saving?: boolean;
+	authorizing?: boolean;
+	error?: string | null;
 	onOpenChange: (open: boolean) => void;
 	onConfirm: (values: Record<string, string>) => void;
 }): JSX.Element | null {
@@ -22,6 +26,8 @@ export function BuiltinMcpSecretsDialog({
 		preset,
 		initialValues,
 		saving,
+		authorizing,
+		error,
 	});
 	if (!model) return null;
 	return (

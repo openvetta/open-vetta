@@ -1,4 +1,5 @@
 import type { JSX, ReactNode, RefObject } from "react";
+import { ScrollFade } from "../shared/ScrollFade";
 import { ProjectsPanelSplitHandle } from "../sidebar/ProjectsPanelSplitHandle";
 
 export interface ProjectsPanelViewProps {
@@ -39,13 +40,13 @@ export function ProjectsPanelView({
 
 			{showSplit ? (
 				<div ref={splitContainerRef} className="flex min-h-0 flex-1 flex-col overflow-hidden">
-					<div
-						ref={onProjectsScrollRef}
+					<ScrollFade
+						onScrollRef={onProjectsScrollRef}
 						className="min-h-0 overflow-y-auto no-scrollbar"
 						style={{ flex: `${splitRatio} 1 0%` }}
 					>
 						{projectsSection}
-					</div>
+					</ScrollFade>
 					<ProjectsPanelSplitHandle onResize={onSplitResize} onResizeEnd={onSplitResizeEnd} />
 					<div className="flex min-h-0 flex-col overflow-hidden" style={{ flex: `${1 - splitRatio} 1 0%` }}>
 						{defaultSection}
@@ -54,9 +55,12 @@ export function ProjectsPanelView({
 			) : (
 				<>
 					{showProjectsRegion && (
-						<div ref={onProjectsScrollRef} className="min-h-0 flex-1 overflow-y-auto no-scrollbar">
+						<ScrollFade
+							onScrollRef={onProjectsScrollRef}
+							className="min-h-0 flex-1 overflow-y-auto no-scrollbar"
+						>
 							{projectsSection}
-						</div>
+						</ScrollFade>
 					)}
 					{showDefaultRegion && (
 						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{defaultSection}</div>

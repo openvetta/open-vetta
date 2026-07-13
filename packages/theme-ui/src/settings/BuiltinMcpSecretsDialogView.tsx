@@ -28,6 +28,8 @@ export interface BuiltinMcpSecretsDialogViewLabels {
 	readonly privacyTooltip: string;
 	readonly privacyTooltipAria: string;
 	readonly saving: string;
+	/** 浏览器 OAuth 进行中时的主按钮文案 */
+	readonly authorizing?: string;
 	readonly setupBody: string;
 	readonly setupTitle: string;
 	readonly stepPasteKey: string;
@@ -50,6 +52,10 @@ export interface BuiltinMcpSecretsDialogViewProps {
 	readonly open: boolean;
 	readonly primaryHelpUrl?: string | null;
 	readonly saving: boolean;
+	/** 浏览器授权进行中（按钮 loading 文案用 authorizing） */
+	readonly authorizing?: boolean;
+	/** 授权/连接失败时展示在主按钮上方 */
+	readonly error?: string | null;
 	readonly values: Record<string, string>;
 }
 
@@ -149,8 +155,16 @@ export function BuiltinMcpSecretsDialogView({
 	open,
 	primaryHelpUrl,
 	saving,
+	authorizing = false,
+	error,
 	values,
 }: BuiltinMcpSecretsDialogViewProps): JSX.Element {
+	const busy = saving || authorizing;
+	const ctaLabel = authorizing
+		? (labels.authorizing ?? labels.saving)
+		: saving
+			? labels.saving
+			: labels.continueCta;
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="max-h-[min(90vh,640px)] max-w-[min(26rem,calc(100%-2rem))] gap-0 overflow-y-auto p-0">
@@ -238,14 +252,24 @@ export function BuiltinMcpSecretsDialogView({
 
 				{/* 底部全宽主按钮 */}
 				<div className="mt-5 px-5 pb-5">
+					{error ? (
+						<p className="mb-2.5 text-center text-[11px] leading-relaxed text-destructive">{error}</p>
+					) : null}
 					<Button
 						variant="primary"
 						size="lg"
 						className="w-full"
-						disabled={!canSubmit || saving}
+						disabled={!canSubmit || busy}
 						onClick={() => onConfirm(values)}
 					>
-						{saving ? labels.saving : labels.continueCta}
+						{authorizing ? (
+							<span className="inline-flex items-center gap-2">
+								<span className="icon-[mdi--loading] h-4 w-4 animate-spin" aria-hidden />
+								{ctaLabel}
+							</span>
+						) : (
+							ctaLabel
+						)}
 					</Button>
 				</div>
 			</DialogContent>

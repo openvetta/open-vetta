@@ -4,12 +4,14 @@ import { copyFile, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 
 import { homedir } from "node:os";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 import { getVettaHomePath } from "@vetta/action-rpc";
+import { clearMcpOAuthState, hasMcpOAuthTokens, loginHttpMcpServer } from "@vetta/coding-agent/core/mcp/index.js";
 import { BrowserWindow, ipcMain } from "electron";
 import type { FsEntry, FsFileRef } from "../../preload/fs-types.js";
 import { type AppLanguage, isSupportedLanguage } from "../../shared/i18n/config.js";
 import { normalizeShortcutsConfig, type ShortcutsConfig } from "../../shared/shortcuts.js";
 import { SHORTCUTS_CHANNELS } from "../../shared/shortcuts-ipc.js";
 import { probeModelProvider } from "../models/probe.js";
+import { openExternalUrl } from "../open-external.js";
 import { getLinuxSandboxCapability, getSandboxCapability, type SandboxCapability } from "../sandbox/capability.js";
 import { atomicWriteJSON } from "../utils/atomic-write.js";
 
@@ -444,6 +446,10 @@ const CHANNELS = {
 	MODELS_PROBE: "vetta:models:probe",
 	MCP_GET: "vetta:mcp:get",
 	MCP_SET: "vetta:mcp:set",
+	MCP_LOGIN: "vetta:mcp:login",
+	MCP_LOGOUT: "vetta:mcp:logout",
+	MCP_HAS_AUTH: "vetta:mcp:has-auth",
+	MCP_AUTH_STATUS: "vetta:mcp:auth-status",
 } as const;
 
 const BINARY_EXTENSIONS = new Set([
@@ -896,6 +902,57 @@ export function registerFsIpc(): () => void {
 		// 这样未使用的 session 不付出代价，且批量任务也能自然感知到变化。
 	});
 
+	ipcMain.handle(CHANNELS.MCP_LOGIN, async (_event, serverName: unknown, options?: unknown) => {
+		if (typeof serverName !== "string" || !serverName.trim()) {
+			throw new Error("Invalid server name");
+		}
+		const name = serverName.trim();
+		const optionUrl =
+			typeof options === "object" && options !== null && typeof (options as { url?: unknown }).url === "string"
+				? (options as { url: string }).url.trim()
+				: "";
+
+		let serverUrl = optionUrl;
+		if (!serverUrl) {
+			const config = await readMcpConfig();
+			const server = config.mcpServers[name];
+			if (!server) throw new Error(`MCP server '${name}' not found`);
+			if (server.type !== "http" || typeof server.url !== "string" || !server.url.trim()) {
+				throw new Error(`MCP server '${name}' is not a remote HTTP server`);
+			}
+			serverUrl = server.url.trim();
+		}
+
+		await loginHttpMcpServer({
+			serverName: name,
+			serverUrl,
+			openUrl: (url) => openExternalUrl(url),
+		});
+	});
+
+	ipcMain.handle(CHANNELS.MCP_LOGOUT, async (_event, serverName: unknown) => {
+		if (typeof serverName !== "string" || !serverName.trim()) {
+			throw new Error("Invalid server name");
+		}
+		clearMcpOAuthState(serverName.trim());
+	});
+
+	ipcMain.handle(CHANNELS.MCP_HAS_AUTH, async (_event, serverName: unknown): Promise<boolean> => {
+		if (typeof serverName !== "string" || !serverName.trim()) return false;
+		return hasMcpOAuthTokens(serverName.trim());
+	});
+
+	ipcMain.handle(CHANNELS.MCP_AUTH_STATUS, async (_event, serverNames: unknown): Promise<Record<string, boolean>> => {
+		if (!Array.isArray(serverNames)) return {};
+		const result: Record<string, boolean> = {};
+		for (const name of serverNames) {
+			if (typeof name === "string" && name.trim()) {
+				result[name.trim()] = hasMcpOAuthTokens(name.trim());
+			}
+		}
+		return result;
+	});
+
 	return () => {
 		// Close all directory watchers
 		for (const entry of watchers.values()) entry.watcher.close();
@@ -922,5 +979,9 @@ export function registerFsIpc(): () => void {
 		ipcMain.removeHandler(CHANNELS.MODELS_SET);
 		ipcMain.removeHandler(CHANNELS.MCP_GET);
 		ipcMain.removeHandler(CHANNELS.MCP_SET);
+		ipcMain.removeHandler(CHANNELS.MCP_LOGIN);
+		ipcMain.removeHandler(CHANNELS.MCP_LOGOUT);
+		ipcMain.removeHandler(CHANNELS.MCP_HAS_AUTH);
+		ipcMain.removeHandler(CHANNELS.MCP_AUTH_STATUS);
 	};
 }

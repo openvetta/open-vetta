@@ -18,7 +18,6 @@ export type BuiltinMcpLabelKey =
 	| "mcpPresets.googleDrive.description";
 
 export type BuiltinMcpSecretLabelKey =
-	| "mcpPresets.secrets.notionToken"
 	| "mcpPresets.secrets.figmaApiKey"
 	| "mcpPresets.secrets.slackBotToken"
 	| "mcpPresets.secrets.slackTeamId"
@@ -68,6 +67,12 @@ export interface BuiltinMcpPreset {
 	setupHelpUrl?: string;
 	/** args 中用于回退识别的包名片段 */
 	packageHint?: string;
+	/**
+	 * 是否在「发现 → 推荐」列表中展示。
+	 * 缺省/false：仅保留配置与匹配逻辑（已添加识别、图标、OAuth 等），UI 不展示。
+	 * 目前只放行已接好的预设（如 Notion）。
+	 */
+	listedInDiscover?: boolean;
 }
 
 const MCP_ICON_BASE = "./mcp";
@@ -94,23 +99,15 @@ export const BUILTIN_MCP_PRESETS: readonly BuiltinMcpPreset[] = [
 		iconFile: "notion.webp",
 		displayNameKey: "mcpPresets.notion.displayName",
 		descriptionKey: "mcpPresets.notion.description",
-		packageHint: "@notionhq/notion-mcp-server",
+		// 官方托管远程 MCP：HTTP + OAuth（添加后浏览器授权，无需 Internal Integration Secret）
+		packageHint: "mcp.notion.com",
 		setupGuideKey: "mcpPresets.guides.notion",
-		setupHelpUrl: "https://www.notion.so/my-integrations",
+		setupHelpUrl: "https://developers.notion.com/guides/mcp/get-started-with-mcp",
+		listedInDiscover: true,
 		config: {
-			command: "npx",
-			args: ["-y", "@notionhq/notion-mcp-server"],
+			type: "http",
+			url: "https://mcp.notion.com/mcp",
 		},
-		secrets: [
-			{
-				envKey: "NOTION_TOKEN",
-				labelKey: "mcpPresets.secrets.notionToken",
-				required: true,
-				secret: true,
-				placeholder: "ntn_…",
-				helpUrl: "https://www.notion.so/my-integrations",
-			},
-		],
 	},
 	{
 		id: "figma",
@@ -241,6 +238,11 @@ export function getBuiltinMcpPresetById(id: string): BuiltinMcpPreset | undefine
 	return BUILTIN_MCP_PRESETS.find((preset) => preset.id === id);
 }
 
+/** 推荐广场可见的内置预设（listedInDiscover !== true 的仅保留数据与匹配）。 */
+export function getListedBuiltinMcpPresets(): readonly BuiltinMcpPreset[] {
+	return BUILTIN_MCP_PRESETS.filter((preset) => preset.listedInDiscover === true);
+}
+
 /** 是否为内置预设对应的已添加条目（按 name 命中，或按包名特征回退匹配）。 */
 export function isBuiltinMcpServer(name: string, config: McpServerConfigData): boolean {
 	if (getBuiltinMcpPresetByName(name)) return true;
@@ -251,9 +253,36 @@ export function matchBuiltinMcpPreset(name: string, config: McpServerConfigData)
 	const byName = getBuiltinMcpPresetByName(name);
 	if (byName) return byName;
 
-	if (config.type === "http") return undefined;
+	if (config.type === "http") {
+		// 只拿「已配置条目的 url」去对 packageHint；不能再用 preset.config.url.includes(hint)
+		// —— 后者对 Notion 等预设恒真，会把广场上任意 HTTP MCP 都误匹配成 Notion。
+		const url = config.url ?? "";
+		return BUILTIN_MCP_PRESETS.find(
+			(preset) => Boolean(preset.packageHint) && preset.config.type === "http" && url.includes(preset.packageHint!),
+		);
+	}
 	const args = config.args?.join(" ") ?? "";
 	return BUILTIN_MCP_PRESETS.find((preset) => preset.packageHint && args.includes(preset.packageHint));
+}
+
+/** 远程 HTTP MCP：走 OAuth 浏览器授权（无必填密钥） */
+export function presetUsesOAuth(preset: BuiltinMcpPreset): boolean {
+	return preset.config.type === "http" && !presetRequiresSecrets(preset);
+}
+
+/**
+ * 已添加条目是否应按 OAuth 连接器展示（待授权 / 去授权 / 断开）。
+ * 仅内置 OAuth 预设（如 Notion 官方远程 MCP）为 true；
+ * 广场上免密钥的 HTTP MCP（如网页搜索）不提示授权。
+ */
+export function serverUsesOAuth(name: string, config: McpServerConfigData): boolean {
+	if (config.type !== "http") return false;
+	// 配置了 headers 时通常是静态密钥，不走 OAuth UI
+	if (config.headers && Object.keys(config.headers).some((k) => config.headers?.[k]?.trim())) {
+		return false;
+	}
+	const preset = matchBuiltinMcpPreset(name, config);
+	return Boolean(preset && presetUsesOAuth(preset));
 }
 
 /** 有配置图标时返回 URL；否则 null（UI 使用默认 SVG）。 */
