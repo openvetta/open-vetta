@@ -208,7 +208,9 @@ export function UserMessageView({
 		!hasFileBadges &&
 		!hasImages &&
 		!hasAppshot;
-	const showActions = Boolean(copyText) || canEdit || canSwitchBranch || canFork;
+	const showPrimaryActions = Boolean(copyText) || canEdit || canFork;
+	const showMetaRow = canSwitchBranch || Boolean(relativeTime);
+	const showActions = showPrimaryActions || showMetaRow;
 
 	return (
 		<motion.div
@@ -256,63 +258,76 @@ export function UserMessageView({
 				)}
 				{showActions && (
 					<div
-						className={`mt-1 flex h-6 items-center justify-end gap-1 whitespace-nowrap transition-opacity duration-150 ${
+						className={`mt-1 flex flex-col items-end gap-0.5 transition-opacity duration-150 ${
 							actionsVisible || isPendingEdit || canSwitchBranch
 								? "pointer-events-auto opacity-100"
 								: "pointer-events-none opacity-0"
 						}`}
 					>
-						{relativeTime}
-						{canSwitchBranch && (
-							<span className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground/70">
-								<button
-									type="button"
-									onClick={onBranchPrev}
-									disabled={branchIndex <= 0}
-									title={labels.branchPrev}
-									aria-label={labels.branchPrev}
-									className={actionBtnClass}
-								>
-									<span className="icon-[solar--alt-arrow-left-linear] h-3.5 w-3.5" />
-								</button>
-								<span className="min-w-[2.5rem] text-center tabular-nums" title={labels.branchPosition}>
-									{branchIndex + 1}/{branchTotal}
-								</span>
-								<button
-									type="button"
-									onClick={onBranchNext}
-									disabled={branchIndex >= branchTotal - 1}
-									title={labels.branchNext}
-									aria-label={labels.branchNext}
-									className={actionBtnClass}
-								>
-									<span className="icon-[solar--alt-arrow-right-linear] h-3.5 w-3.5" />
-								</button>
-							</span>
+						{/* Row 1: edit / fork / copy */}
+						{showPrimaryActions && (
+							<div className="flex h-6 items-center justify-end gap-1 whitespace-nowrap">
+								{canEdit && (
+									<button
+										type="button"
+										onClick={onEdit}
+										title={isPendingEdit ? labels.pendingEdit : labels.edit}
+										aria-label={labels.edit}
+										className={`${actionBtnClass} ${isPendingEdit ? "text-primary" : ""}`}
+									>
+										<span className="icon-[solar--pen-2-linear] h-3.5 w-3.5" />
+									</button>
+								)}
+								{canFork && (
+									<button
+										type="button"
+										onClick={onFork}
+										title={labels.fork}
+										aria-label={labels.fork}
+										className={actionBtnClass}
+									>
+										<span className="icon-[solar--branching-paths-up-linear] h-3.5 w-3.5" />
+									</button>
+								)}
+								{copyText ? copyButton : null}
+							</div>
 						)}
-						{canEdit && (
-							<button
-								type="button"
-								onClick={onEdit}
-								title={isPendingEdit ? labels.pendingEdit : labels.edit}
-								aria-label={labels.edit}
-								className={`${actionBtnClass} ${isPendingEdit ? "text-primary" : ""}`}
-							>
-								<span className="icon-[solar--pen-2-linear] h-3.5 w-3.5" />
-							</button>
+						{/* Row 2: branch switcher then time */}
+						{showMetaRow && (
+							<div className="flex h-6 items-center justify-end gap-1 whitespace-nowrap">
+								{canSwitchBranch && (
+									<span className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground/70">
+										<button
+											type="button"
+											onClick={onBranchPrev}
+											disabled={branchIndex <= 0}
+											title={labels.branchPrev}
+											aria-label={labels.branchPrev}
+											className={actionBtnClass}
+										>
+											<span className="icon-[solar--alt-arrow-left-linear] h-3.5 w-3.5" />
+										</button>
+										<span
+											className="min-w-[2.5rem] text-center tabular-nums"
+											title={labels.branchPosition}
+										>
+											{branchIndex + 1}/{branchTotal}
+										</span>
+										<button
+											type="button"
+											onClick={onBranchNext}
+											disabled={branchIndex >= branchTotal - 1}
+											title={labels.branchNext}
+											aria-label={labels.branchNext}
+											className={actionBtnClass}
+										>
+											<span className="icon-[solar--alt-arrow-right-linear] h-3.5 w-3.5" />
+										</button>
+									</span>
+								)}
+								{relativeTime}
+							</div>
 						)}
-						{canFork && (
-							<button
-								type="button"
-								onClick={onFork}
-								title={labels.fork}
-								aria-label={labels.fork}
-								className={actionBtnClass}
-							>
-								<span className="icon-[solar--branching-paths-up-linear] h-3.5 w-3.5" />
-							</button>
-						)}
-						{copyText ? copyButton : null}
 					</div>
 				)}
 			</div>
