@@ -17,6 +17,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **侧栏项目/会话分隔条可见性**：`ProjectsPanelSplitHandle` 在侧栏 hover 时展示细分割线与居中 grip 条，直接 hover/拖拽分隔条时切换为 primary 高亮，避免空白分隔区不易发现可拖拽。
 - **设置页 AI 协助入口**：紧凑「魔法棒 + 让Vetta帮您配置」触发；点击在按钮下方弹出意图 Popover（建议气泡、轻量动效、取消/开始操作），替代原先居中 Dialog。
 - **project 域 must_split 清空并迁入 `@vetta/theme-ui/project`**：侧栏 Project/Session 行与列表、ContextMenu、ProjectsPanel、Schedule/BatchQueue 状态、ProjectDetailPage 等拆为 model + props-driven View；FilterSelect 保留 host Popover（`host_primitive_hold`）；DetailPage 以 slots 挂载 batch/flowing/activity/dialog。见 `docs/theme/ui/17-project-split.md`。
 - **theme-ui 迁移闭合门禁**：新增 `eligible-inventory.mjs` + `docs/theme/ui/deferrals.json` 逐路径 deferral；SettingsMenu 账号/下载/设置/主题/配额段与 MessageCenterTabs 迁入 props-driven view。

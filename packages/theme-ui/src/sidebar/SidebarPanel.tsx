@@ -26,7 +26,7 @@ export function SidebarPanel({
 	return (
 		<div
 			className={cn(
-				"sidebar-surface relative h-full shrink-0 rounded-[10px] border border-border bg-muted",
+				"group/sidebar sidebar-surface relative h-full shrink-0 rounded-[10px] border border-border bg-muted",
 				surface?.rootClassName,
 				className,
 			)}
