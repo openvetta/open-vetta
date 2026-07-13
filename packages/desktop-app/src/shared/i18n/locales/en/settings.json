@@ -957,6 +957,9 @@
       "mcp": "e.g. Add an MCP that can search the web…",
       "models": "e.g. Add an OpenAI-compatible provider and set a default model…",
       "knowledge": "e.g. Enable knowledge processing every 10 minutes…",
+      "knowledgeBase": "e.g. Create a knowledge base and import a local folder…",
+      "batchTasks": "e.g. Create a batch project that runs on multiple folders…",
+      "automation": "e.g. Run a cleanup job every morning at 9…",
       "im": "e.g. Enable Claw and set up Feishu…",
       "webhook": "e.g. Add a channel that notifies me when a task finishes…",
       "appearance": "e.g. Switch to dark mode and use the stoat cursor…",
@@ -970,6 +973,9 @@
       "mcp": "Extensions → Connectors",
       "models": "Settings → Models",
       "knowledge": "Settings → Knowledge base",
+      "knowledgeBase": "Knowledge base",
+      "batchTasks": "Batch tasks",
+      "automation": "Automation",
       "im": "Settings → Claw",
       "webhook": "Settings → Notifications",
       "appearance": "Settings → Appearance",
@@ -983,6 +989,9 @@
       "mcp": "I want to configure MCP. Please check what's already added, then guide me through setup.",
       "models": "I want to configure models. Please check current providers and models, then guide me through setup.",
       "knowledge": "I want to configure the knowledge base. Please check current processing settings, then guide me through setup.",
+      "knowledgeBase": "I want to manage knowledge bases. Please check existing bases and processing status, then guide me.",
+      "batchTasks": "I want to create or manage batch tasks. Please check current projects and task status, then guide me.",
+      "automation": "I want to create or manage scheduled tasks. Please check existing tasks, then guide me.",
       "im": "I want to configure Claw (IM bridge). Please check current status and channels, then guide me through setup.",
       "webhook": "I want to configure message push / webhooks. Please check current channels, then guide me through setup.",
       "appearance": "I want to adjust appearance. Please check current theme and related settings, then guide me through setup.",
@@ -1008,6 +1017,21 @@
         "enable": "Turn on knowledge base background processing",
         "interval": "Set the processing interval to 10 minutes",
         "model": "Pick a suitable model for knowledge processing"
+      },
+      "knowledgeBase": {
+        "create": "Create a knowledge base",
+        "import": "Import local files into a knowledge base",
+        "process": "Turn on or adjust knowledge processing"
+      },
+      "batchTasks": {
+        "create": "Create a batch task project",
+        "run": "Run a batch project for me",
+        "status": "Show where my batch tasks stand"
+      },
+      "automation": {
+        "create": "Create a task that runs on a daily schedule",
+        "enable": "Enable or pause a scheduled task",
+        "list": "Show my current automation tasks"
       },
       "im": {
         "enable": "Enable the Claw IM bridge",

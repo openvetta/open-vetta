@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Button } from "@vetta/ui";
 
 import { cn } from "@shared/lib/utils";
+import { SettingsAiAssist } from "../../settings/ai-assist";
 import type { useKnowledgeBaseListModel } from "../hooks/useKnowledgeBaseListModel";
 import {
 	countKnowledgeDirsFromStatuses,
@@ -72,6 +73,7 @@ export function KnowledgeBaseListPageView({ model }: KnowledgeBaseListPageViewPr
 							className="h-8 w-full min-w-0 rounded-lg border border-transparent bg-muted/55 pl-8 pr-3 text-[12px] shadow-none outline-none placeholder:text-muted-foreground/45 hover:bg-muted/75 focus-visible:border-primary/25 focus-visible:bg-background/70 focus-visible:ring-1 focus-visible:ring-primary/15"
 						/>
 					</div>
+					<SettingsAiAssist tabId="knowledgeBase" />
 					<Button variant="primary" onClick={model.createKnowledgeBase}>
 						<span className="icon-[mdi--plus] h-4 w-4" />
 						{t("kbCreateBase")}

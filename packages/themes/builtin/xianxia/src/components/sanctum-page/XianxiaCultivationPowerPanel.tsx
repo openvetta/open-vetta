@@ -25,7 +25,7 @@ const cultivationCompositionPanelDecoration = {
 } as const;
 
 interface CultivationCompositionItem {
-	readonly icon: string;
+	readonly iconUrl: string;
 	readonly label: string;
 	readonly percent: number;
 	readonly value: number;
@@ -199,9 +199,13 @@ function XianxiaCultivationCompositionPanel({
 								<span className="absolute left-[-0.5rem] top-12 text-[34px] leading-none text-slate-500/80">+</span>
 							)}
 							<div className="text-[13px] font-semibold leading-5 text-slate-600">{item.label}</div>
-							<div className="mx-auto mt-2 flex h-14 w-14 items-center justify-center rounded-full border border-[#edd2aa]/70 bg-slate-700 text-[#edd2aa] shadow-[0_2px_7px_rgba(15,23,42,0.28)]">
-								<span className={cn(item.icon, "h-7 w-7")} />
-							</div>
+							<img
+								alt=""
+								aria-hidden="true"
+								className="mx-auto mt-2 h-14 w-14 object-contain drop-shadow-[0_2px_7px_rgba(15,23,42,0.28)]"
+								draggable={false}
+								src={item.iconUrl}
+							/>
 							<div className="mt-2 text-[24px] font-semibold leading-7 text-slate-800">{item.percent}%</div>
 							<div className="mt-1 text-[12px] leading-4 text-slate-500">
 								{formatCultivationNumber(item.value)} / {formatCultivationNumber(currentPower)}
@@ -211,9 +215,13 @@ function XianxiaCultivationCompositionPanel({
 					<div className="relative min-w-0">
 						<span className="absolute left-[-0.5rem] top-12 text-[34px] leading-none text-slate-500/80">=</span>
 						<div className="text-[13px] font-semibold leading-5 text-slate-600">修为值</div>
-						<div className="mx-auto mt-2 flex h-14 w-14 items-center justify-center rounded-full border border-[#edd2aa]/70 text-[#b6925d]">
-							<span className="icon-[solar--stars-bold] h-7 w-7" />
-						</div>
+						<img
+							alt=""
+							aria-hidden="true"
+							className="mx-auto mt-2 h-14 w-14 object-contain drop-shadow-[0_2px_7px_rgba(15,23,42,0.28)]"
+							draggable={false}
+							src={sanctumPageAssets.cultivationCompositionIcons.power}
+						/>
 						<div className="mt-2 text-[24px] font-semibold leading-7 text-slate-800">{formatCultivationNumber(currentPower)}</div>
 						<div className="mt-1 text-[12px] leading-4 text-slate-500">/ {formatCultivationNumber(maxPower)}</div>
 					</div>
@@ -234,22 +242,22 @@ function getCultivationCompositionItems(cultivation: SanctumCultivationView): re
 	const breakdown = cultivation.scoreBreakdown;
 	const items = [
 		{
-			icon: "icon-[solar--document-text-bold]",
+			iconUrl: sanctumPageAssets.cultivationCompositionIcons.document,
 			label: "文稿生成",
 			value: breakdown.messages + breakdown.turns + breakdown.depth,
 		},
 		{
-			icon: "icon-[solar--chart-2-bold]",
+			iconUrl: sanctumPageAssets.cultivationCompositionIcons.data,
 			label: "数据洞察",
 			value: breakdown.activeTime + breakdown.sessions + breakdown.tokens + breakdown.projects,
 		},
 		{
-			icon: "icon-[solar--shield-check-bold]",
+			iconUrl: sanctumPageAssets.cultivationCompositionIcons.risk,
 			label: "风险审查",
 			value: breakdown.tools + breakdown.knowledge,
 		},
 		{
-			icon: "icon-[solar--arrow-up-bold]",
+			iconUrl: sanctumPageAssets.cultivationCompositionIcons.automation,
 			label: "自动化任务",
 			value: breakdown.batch + breakdown.automation + breakdown.streak,
 		},
