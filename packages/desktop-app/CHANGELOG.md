@@ -13,6 +13,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **会话 streaming 时 text block 高频闪烁**：`useTextBlockModel` 每次 render 新建 `labels` 对象，导致 `TextBlockView` 的 ReactMarkdown `components` 映射失效、自定义节点整树 remount，`.streaming-chunk` 入场动画对已有文本整段重播。现稳定 `labels` 引用，且 `components` 仅随 `theme` 重建（labels/回调走 ref）。
 - **连接器「我的」误把其他 HTTP MCP 显示为 Notion**：`matchBuiltinMcpPreset` 回退匹配时错误使用了 `preset.config.url.includes(packageHint)`（对 Notion 预设恒真），导致广场添加的远程 HTTP 连接器标题/图标被盖成 Notion。现仅用条目自身的 `url` 与 `packageHint` 比对。
 - **免密钥 HTTP 连接器误提示「待授权」**：`serverUsesOAuth` 曾把所有无 headers 的 HTTP MCP 都当成 OAuth；现仅对内置 OAuth 预设（如 Notion）展示授权状态与按钮。
 - **输入框 / 用户消息本地图片无法展示**：输入栏 `@` 图片曾用 `file://`（Electron 拦截 `Not allowed to load local resource`），改为 `vetta-file://`；用户气泡不再过滤 `image-cache` 路径，发送落盘回放后缩略图可显示。共享 `toVettaFileUrl`。
