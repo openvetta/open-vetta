@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { BuiltinMcpPreset } from "../mcp/builtin-mcp-presets";
+import { type BuiltinMcpPreset, builtinMcpIconUrl } from "../mcp/builtin-mcp-presets";
 
 function resolvePrimaryHelpUrl(preset: BuiltinMcpPreset): string | undefined {
 	if (preset.setupHelpUrl) return preset.setupHelpUrl;
@@ -18,27 +18,23 @@ export interface BuiltinMcpSecretsFieldView {
 }
 
 export interface BuiltinMcpSecretsDialogModel {
-	readonly allowDefer: boolean;
+	readonly appIconUrl: string;
 	readonly canSubmit: boolean;
+	readonly connectorIconUrl: string;
+	readonly connectorName: string;
 	readonly fields: readonly BuiltinMcpSecretsFieldView[];
 	readonly guideLines: readonly string[];
 	readonly hasFields: boolean;
 	readonly labels: {
-		readonly cancel: string;
-		readonly confirmAdd: string;
-		readonly defer: string;
-		readonly finishConnect: string;
+		readonly continueCta: string;
 		readonly getKey: string;
-		readonly howTo: string;
-		readonly lead: string;
 		readonly openAuthPage: string;
 		readonly openKeyPage: string;
-		readonly privacy: string;
+		readonly privacyTooltip: string;
+		readonly privacyTooltipAria: string;
 		readonly saving: string;
-		readonly stepOpenAuth: string;
-		readonly stepOpenAuthHint: string;
-		readonly stepOpenSite: string;
-		readonly stepOpenSiteHint: string;
+		readonly setupBody: string;
+		readonly setupTitle: string;
 		readonly stepPasteKey: string;
 		readonly title: string;
 	};
@@ -55,13 +51,11 @@ export function useBuiltinMcpSecretsDialogModel({
 	preset,
 	initialValues,
 	saving = false,
-	allowDefer = false,
 }: {
 	open: boolean;
 	preset: BuiltinMcpPreset | null;
 	initialValues?: Record<string, string>;
 	saving?: boolean;
-	allowDefer?: boolean;
 }): BuiltinMcpSecretsDialogModel | null {
 	const { t } = useTranslation("settings");
 	const fields = preset?.secrets ?? [];
@@ -91,9 +85,12 @@ export function useBuiltinMcpSecretsDialogModel({
 			.map((line) => line.trim())
 			.filter(Boolean);
 		const hasFields = fields.length > 0;
+		const connectorName = t(preset.displayNameKey);
 		return {
-			allowDefer,
+			appIconUrl: "./icon.png",
 			canSubmit,
+			connectorIconUrl: builtinMcpIconUrl(preset.iconFile),
+			connectorName,
 			fields: fields.map((field) => ({
 				envKey: field.envKey,
 				helpUrl: field.helpUrl,
@@ -106,23 +103,17 @@ export function useBuiltinMcpSecretsDialogModel({
 			guideLines,
 			hasFields,
 			labels: {
-				cancel: t("cancel"),
-				confirmAdd: t("mcpPresets.confirmAdd"),
-				defer: t("mcpPresets.secretsDefer"),
-				finishConnect: t("mcpPresets.finishConnect"),
+				continueCta: t("mcpPresets.continueCta", { name: connectorName }),
 				getKey: t("mcpPresets.getKey"),
-				howTo: t("mcpPresets.secretsHowTo"),
-				lead: hasFields ? t("mcpPresets.secretsDialogLead") : t("mcpPresets.browserAuthDialogLead"),
 				openAuthPage: t("mcpPresets.openAuthPage"),
 				openKeyPage: t("mcpPresets.openKeyPage"),
-				privacy: t("mcpPresets.secretsPrivacy"),
+				privacyTooltip: t("mcpPresets.privacyTooltip"),
+				privacyTooltipAria: t("mcpPresets.privacyTooltipAria"),
 				saving: t("saving"),
-				stepOpenAuth: t("mcpPresets.stepOpenAuth"),
-				stepOpenAuthHint: t("mcpPresets.stepOpenAuthHint"),
-				stepOpenSite: t("mcpPresets.stepOpenSite"),
-				stepOpenSiteHint: t("mcpPresets.stepOpenSiteHint"),
+				setupBody: hasFields ? t("mcpPresets.secretsDialogLead") : t("mcpPresets.browserAuthDialogLead"),
+				setupTitle: t("mcpPresets.setupTitle"),
 				stepPasteKey: t("mcpPresets.stepPasteKey"),
-				title: t("mcpPresets.secretsDialogTitle", { name: t(preset.displayNameKey) }),
+				title: t("mcpPresets.secretsDialogTitle", { name: connectorName }),
 			},
 			onChangeValue: (envKey: string, value: string) => {
 				setValues((current) => ({ ...current, [envKey]: value }));
@@ -135,5 +126,5 @@ export function useBuiltinMcpSecretsDialogModel({
 			saving,
 			values,
 		};
-	}, [allowDefer, canSubmit, fields, open, preset, saving, t, values]);
+	}, [canSubmit, fields, open, preset, saving, t, values]);
 }
