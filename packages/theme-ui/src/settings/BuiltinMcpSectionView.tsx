@@ -1,6 +1,7 @@
 import { useState, type JSX } from "react";
 import { Button } from "@vetta/ui";
-import { SettingSection, type SettingSectionMeta } from "./SettingChrome";
+import { McpDefaultIcon } from "./McpDefaultIcon";
+import type { SettingSectionMeta } from "./SettingChrome";
 
 export interface BuiltinMcpPresetRowView {
 	readonly id: string;
@@ -33,6 +34,8 @@ export interface BuiltinMcpSectionViewProps {
 	readonly onRemove: (name: string) => void;
 }
 
+const GRID_CLASS = "grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-2.5";
+
 export function BuiltinMcpSectionView({
 	items,
 	addedNames,
@@ -44,7 +47,11 @@ export function BuiltinMcpSectionView({
 	onRemove,
 }: BuiltinMcpSectionViewProps): JSX.Element {
 	return (
-		<div>
+		<div
+			id={section.id}
+			data-setting-section-id={section.id}
+			data-setting-section-highlight-target={section.id}
+		>
 			{variant === "full" && (
 				<div className="mb-3">
 					<div className="text-[12px] font-medium text-foreground">{labels.listTitle}</div>
@@ -52,12 +59,14 @@ export function BuiltinMcpSectionView({
 				</div>
 			)}
 
-			<SettingSection section={section} title="">
-				{items.length === 0 ? (
-					<div className="px-5 py-8 text-center text-[12px] text-muted-foreground">{labels.allAdded}</div>
-				) : (
-					items.map((preset) => (
-						<BuiltinMcpRow
+			{items.length === 0 ? (
+				<div className="rounded-xl bg-muted/60 px-5 py-8 text-center text-[12px] text-muted-foreground">
+					{labels.allAdded}
+				</div>
+			) : (
+				<div className={GRID_CLASS}>
+					{items.map((preset) => (
+						<BuiltinMcpCard
 							key={preset.id}
 							preset={preset}
 							added={addedNames.has(preset.name)}
@@ -67,14 +76,14 @@ export function BuiltinMcpSectionView({
 							onAdd={() => onAdd(preset.name)}
 							onRemove={() => onRemove(preset.name)}
 						/>
-					))
-				)}
-			</SettingSection>
+					))}
+				</div>
+			)}
 		</div>
 	);
 }
 
-function BuiltinMcpRow({
+function BuiltinMcpCard({
 	preset,
 	added,
 	busy,
@@ -94,37 +103,62 @@ function BuiltinMcpRow({
 	const [imgFailed, setImgFailed] = useState(false);
 
 	return (
-		<div className="flex items-start gap-3 border-b border-border px-5 py-3 last:border-b-0">
-			{!imgFailed ? (
-				<img
-					src={preset.iconUrl}
-					alt=""
-					className="h-9 w-9 shrink-0 object-contain"
-					onError={() => setImgFailed(true)}
-				/>
-			) : (
-				<span className="icon-[mdi--puzzle-outline] h-9 w-9 shrink-0 text-muted-foreground" />
-			)}
-			<div className="min-w-0 flex-1">
-				<div className="flex flex-wrap items-center gap-2">
-					<span className="text-[13px] font-medium text-foreground">{preset.displayName}</span>
-					{!discover && added && (
-						<span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-medium text-emerald-400">
-							{labels.added}
-						</span>
+		<div
+			className={`group flex flex-col overflow-hidden rounded-xl transition-colors duration-200 ${
+				added
+					? "bg-muted/70 ring-1 ring-inset ring-emerald-500/20 hover:bg-muted"
+					: "bg-muted hover:bg-accent"
+			}`}
+		>
+			<div className="flex flex-1 flex-col gap-2.5 p-3.5">
+				<div className="flex items-start gap-2.5">
+					{!imgFailed ? (
+						<img
+							src={preset.iconUrl}
+							alt=""
+							className="h-10 w-10 shrink-0 rounded-lg object-contain"
+							onError={() => setImgFailed(true)}
+						/>
+					) : (
+						<McpDefaultIcon className="h-10 w-10 rounded-lg" />
+					)}
+					<div className="min-w-0 flex-1">
+						<div className="flex min-w-0 flex-wrap items-center gap-1.5">
+							<h4 className="truncate text-[13px] font-semibold tracking-tight text-foreground">
+								{preset.displayName}
+							</h4>
+							{added && (
+								<span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-medium text-emerald-400">
+									<span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+									{labels.added}
+								</span>
+							)}
+						</div>
+						<p className="mt-0.5 line-clamp-2 text-[11px] leading-relaxed text-muted-foreground/70">
+							{preset.description}
+						</p>
+					</div>
+				</div>
+
+				<div className="mt-auto flex justify-end pt-1">
+					{added ? (
+						discover ? (
+							<Button variant="outline" size="sm" disabled className="opacity-80">
+								<span className="icon-[mdi--check] h-3.5 w-3.5 text-emerald-400" />
+								{labels.added}
+							</Button>
+						) : (
+							<Button variant="ghost" size="sm" disabled={busy} onClick={onRemove}>
+								{busy ? labels.processing : labels.remove}
+							</Button>
+						)
+					) : (
+						<Button variant="primary" size="sm" disabled={busy} onClick={onAdd}>
+							{busy ? labels.processing : preset.needsKey ? labels.connect : labels.add}
+						</Button>
 					)}
 				</div>
-				<p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">{preset.description}</p>
 			</div>
-			{discover || !added ? (
-				<Button variant="primary" size="sm" disabled={busy} onClick={onAdd}>
-					{busy ? labels.processing : preset.needsKey ? labels.connect : labels.add}
-				</Button>
-			) : (
-				<Button variant="ghost" size="sm" disabled={busy} onClick={onRemove}>
-					{busy ? labels.processing : labels.remove}
-				</Button>
-			)}
 		</div>
 	);
 }

@@ -82,6 +82,7 @@ export type {
 export { ImLogDrawerView } from "./ImLogDrawerView";
 export type { ImStatusBadgeStatus, ImStatusBadgeViewProps } from "./ImStatusBadgeView";
 export { ImStatusBadgeView } from "./ImStatusBadgeView";
+export { McpDefaultIcon } from "./McpDefaultIcon";
 export type { McpJsonEditorViewProps } from "./McpJsonEditorView";
 export { McpJsonEditorView } from "./McpJsonEditorView";
 export type {

@@ -2,14 +2,17 @@
 	"tabs": {
 		"scene": "Scenes",
 		"skill": "Skills",
-		"plugin": "Plugins"
+		"plugin": "Plugins",
+		"connector": "Connectors"
 	},
 	"typeNoun": {
 		"scene": "scenes",
 		"skill": "skills",
-		"plugin": "plugins"
+		"plugin": "plugins",
+		"connector": "connectors"
 	},
 	"subtitle": "Install and enable the capabilities you need to give Vetta more expertise",
+	"subtitleConnector": "Manage MCP connectors to give the AI web, docs, and external tools",
 	"search": {
 		"placeholder": "Search {{noun}}..."
 	},

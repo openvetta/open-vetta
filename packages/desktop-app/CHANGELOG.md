@@ -8,6 +8,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 - **App Action：`shortcuts.*`（设置 → 快捷键整页）**：统一快捷键业务域——`shortcuts.query` / `shortcuts.manage` 覆盖全局应用快捷键绑定（`set-binding` / `reset-*`）与快捷面板呼出/发送后行为（`set-quick-panel-trigger` / `set-quick-panel-behavior`）。自定义绑定写入 `desktop-config.shortcuts.bindings`；面板相关仍用 `quickPanel` 配置字段供运行时复用，但不再注册独立 `quickpanel.*` Action。支持从旧 `localStorage(vetta-shortcuts)` 迁移；写操作走按 operation 的审批 UI。
 - **新会话欢迎区主题覆盖点 `chat.newSessionHero`**：开放 `NewSessionHeroProps`（标题/副标题/场景轮播等）供主题替换欢迎区实现；默认仍渲染 `BotAvatar`。修仙主题覆盖为无头像布局，去掉 idle 弹跳手势。
+- **扩展页「连接器」Tab**：侧栏「扩展」下新增连接器入口，承载原设置中的 MCP 管理（已添加列表、发现 MCP、AI 协助配置）。
 
 ### Removed
 
@@ -17,6 +18,15 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **MCP 无配置图标时使用默认 SVG**：已添加/远程列表在无图标或加载失败时展示主题色圆角矩形底 + 链环图标，不再回退 `default.webp` 或 puzzle 图标。
+- **连接器 MCP 布局改为宫格卡片**：已添加 / 推荐 / 远程列表由纵向列表改为 `auto-fill` 卡片网格，与扩展页插件区一致，更直观。
+- **扩展页去掉内容区顶部空白条**：移除页面内 `drag-region h-6` 占位，大标题与壳层顶栏更紧凑（拖拽仍由 PageHeader 提供）。
+- **扩展页顶栏右侧为 Tab 操作插槽**：场景/技能放搜索与导入；插件放导入；连接器放「让 Vetta 帮您配置」（原内容区内 AI 协助入口上移）。
+- **连接器「自定义」改为顶栏按钮 + 对话框**：发现区 Segmented 仅保留推荐/远程；顶栏「自定义连接器」打开添加 Dialog。
+- **连接器列表合并为「我的 / 发现」**：去掉上下双列表；Toggle 为「我的」「发现」；发现内上方「推荐」、下方「广场（远程）」。
+- **扩展页 Tab 切换偶发要点两下**：`typeTab` 改为仅从 URL `search.tab` 推导，去掉本地 state 与 URL 竞态回写。
+- **连接器 Toggle 顺序为「发现 | 我的」**：默认落在发现；发现列表保留已添加项并展示已添加徽标与禁用态按钮。
+- **MCP 管理从设置迁至扩展 → 连接器**：设置侧栏移除「MCP 管理」；`/settings/mcp` 与 `mcp-*` section 深链、`navigation.open` 的 `mcp`/`connectors` 目标均跳转到 `/skills?tab=connector`。AI 协助上下文文案改为「扩展 → 连接器」。
 - **侧栏项目/会话分隔条可见性**：`ProjectsPanelSplitHandle` 在侧栏 hover 时展示细分割线与居中 grip 条，直接 hover/拖拽分隔条时切换为 primary 高亮，避免空白分隔区不易发现可拖拽。
 - **设置页 AI 协助入口**：紧凑「魔法棒 + 让Vetta帮您配置」触发；点击在按钮下方弹出意图 Popover（建议气泡、轻量动效、取消/开始操作），替代原先居中 Dialog。
 - **project 域 must_split 清空并迁入 `@vetta/theme-ui/project`**：侧栏 Project/Session 行与列表、ContextMenu、ProjectsPanel、Schedule/BatchQueue 状态、ProjectDetailPage 等拆为 model + props-driven View；FilterSelect 保留 host Popover（`host_primitive_hold`）；DetailPage 以 slots 挂载 batch/flowing/activity/dialog。见 `docs/theme/ui/17-project-split.md`。

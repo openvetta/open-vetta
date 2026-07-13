@@ -40,6 +40,22 @@ const skillsRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	path: "/skills",
 	component: SkillsPage,
+	validateSearch: (search: Record<string, unknown>) => {
+		const tab =
+			search.tab === "scene" ||
+			search.tab === "skill" ||
+			search.tab === "plugin" ||
+			search.tab === "connector"
+				? search.tab
+				: undefined;
+		const section = typeof search.section === "string" ? search.section : undefined;
+		const nav = typeof search.nav === "string" ? search.nav : undefined;
+		return {
+			...(tab ? { tab } : {}),
+			...(section ? { section } : {}),
+			...(nav ? { nav } : {}),
+		};
+	},
 });
 
 const knowledgeRoute = createRoute({
