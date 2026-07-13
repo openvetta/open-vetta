@@ -1,4 +1,5 @@
 import type { SanctumAchievement } from "./achievements";
+import type { CultivationScoreBreakdown } from "../../cultivation";
 
 export interface RealmRequirement {
 	readonly current: number;
@@ -20,6 +21,8 @@ export interface SanctumCultivationView {
 	readonly name: string;
 	readonly progressPercent: string;
 	readonly realmId: string;
+	readonly score: number;
+	readonly scoreBreakdown: CultivationScoreBreakdown;
 }
 
 export interface RealmDetailView {

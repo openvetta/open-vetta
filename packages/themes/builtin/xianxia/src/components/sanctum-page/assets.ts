@@ -23,6 +23,7 @@ export const sanctumPageAssets = {
 		new URL("./assets/cultivation-digit-8.webp", import.meta.url).href,
 		new URL("./assets/cultivation-digit-9.webp", import.meta.url).href,
 	],
+	cultivationCompositionPanel: new URL("./assets/cultivation-composition-panel.webp", import.meta.url).href,
 	cultivationPowerPanel: new URL("./assets/cultivation-power-panel.webp", import.meta.url).href,
 	currentAchievementBackground: new URL("./assets/current-achievement-background.webp", import.meta.url).href,
 	profilePanel: new URL("./assets/profile-panel.webp", import.meta.url).href,

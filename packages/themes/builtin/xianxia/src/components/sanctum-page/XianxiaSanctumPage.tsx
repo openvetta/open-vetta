@@ -68,20 +68,10 @@ function XianxiaSanctumContentColumn({
 			/>
 			<AnimatePresence>
 				{selectedAchievement && (
-					<>
-						<motion.button
-							aria-label="关闭境界详情"
-							className="absolute inset-0 z-20 cursor-default bg-transparent"
-							exit={{ opacity: 0 }}
-							initial={{ opacity: 0 }}
-							onClick={() => setSelectedAchievementId(null)}
-							type="button"
-						/>
-						<XianxiaRealmDetailPanel
-							detail={getRealmDetailView(selectedAchievement, cultivation)}
-							onClose={() => setSelectedAchievementId(null)}
-						/>
-					</>
+					<XianxiaRealmDetailPanel
+						detail={getRealmDetailView(selectedAchievement, cultivation)}
+						onClose={() => setSelectedAchievementId(null)}
+					/>
 				)}
 			</AnimatePresence>
 		</motion.section>

@@ -188,6 +188,10 @@
 	font-family: var(--xianxia-font-family);
 }
 
+body.xianxia-sanctum-page-active {
+	font-family: "Palatino Linotype", Palatino, "Book Antiqua", KaiTi, STKaiti, "Kaiti SC", "楷体", serif;
+}
+
 .xianxia-app-frame > [data-theme-layout="app.frameContent"] {
 	padding: var(--xianxia-app-frame-inset);
 }
