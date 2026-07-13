@@ -260,6 +260,8 @@ export function matchBuiltinMcpPreset(name: string, config: McpServerConfigData)
 export function resolveMcpIcon(name: string, config: McpServerConfigData): string | null {
 	const preset = matchBuiltinMcpPreset(name, config);
 	if (preset) return builtinMcpIconUrl(preset.iconFile);
+	const icon = config.icon?.trim();
+	if (icon) return icon;
 	return null;
 }
 

@@ -515,7 +515,9 @@ function formToServer(form: McpServerFormState): McpServerConfigData {
 function marketToServer(server: MarketMcpServer): McpServerConfigData {
 	const base = (server.config ?? {}) as Record<string, unknown>;
 	const merged: Record<string, unknown> = { ...base };
-	if (server.display_name && !merged.displayName) merged.displayName = server.display_name;
-	if (server.description && !merged.description) merged.description = server.description;
+	if (server.display_name) merged.displayName = server.display_name;
+	if (server.description) merged.description = server.description;
+	// 市场侧 icon 已解析为绝对 URL，写入本地供「我的」展示
+	if (server.icon?.trim()) merged.icon = server.icon.trim();
 	return merged as unknown as McpServerConfigData;
 }
