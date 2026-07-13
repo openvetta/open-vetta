@@ -56,8 +56,12 @@ export const openAction: ActionDefinition = {
 			input: { type: "help" },
 		},
 		{
-			description: "打开技能广场",
+			description: "打开扩展（场景/技能/插件/连接器）",
 			input: { type: "open", target: "skills" },
+		},
+		{
+			description: "打开连接器（MCP 管理）",
+			input: { type: "open", target: "connectors" },
 		},
 		{
 			description: "打开模型配置页",

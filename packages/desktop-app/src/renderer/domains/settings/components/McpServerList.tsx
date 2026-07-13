@@ -1,78 +1,62 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { SettingSection } from "@vetta/theme-ui/settings";
+import { SETTINGS_SECTION } from "../registry";
 import { SegmentedControl } from "@vetta/theme-ui/shared";
-import { Button } from "@vetta/ui";
 import { BuiltinMcpSection } from "./BuiltinMcpSection";
-import { McpServerForm } from "./McpServerForm";
 import { McpServerRow } from "./McpServerRow";
 import {
 	RemoteMcpDiscoverList,
 	RemoteMcpRefreshButton,
 	useRemoteMcpSectionModel,
 } from "./RemoteMcpSection";
-import { SETTINGS_SECTION } from "../registry";
 import type { McpSettingsModel } from "./useMcpSettingsModel";
 
-type McpDiscoverTab = "recommended" | "remote" | "manual";
+type McpStoreTab = "mine" | "discover";
 
-/** 商店式：已安装（全部已添加 MCP） */
-export function McpInstalledList({ model }: { model: McpSettingsModel }): JSX.Element {
+const MCP_GRID_CLASS = "grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-2.5";
+
+/** 已添加 MCP 宫格（「我的」）。 */
+function McpMineGrid({ model }: { model: McpSettingsModel }): JSX.Element {
 	const { t } = useTranslation("settings");
 	const names = model.serverNames;
+	const section = SETTINGS_SECTION["mcp-server-list-builtin"];
 
 	return (
-		<section>
-			<SettingSection section={SETTINGS_SECTION["mcp-server-list-builtin"]} title="">
-				{names.length === 0 ? (
-					<div className="px-5 py-6 text-center text-[12px] text-muted-foreground">{t("mcpStore.installedEmpty")}</div>
-				) : (
-					names.map((name) => <McpServerRow key={name} name={name} model={model} />)
-				)}
-			</SettingSection>
+		<section
+			id={section.id}
+			data-setting-section-id={section.id}
+			data-setting-section-highlight-target={section.id}
+		>
+			{names.length === 0 ? (
+				<div className="rounded-xl bg-muted/60 px-5 py-10 text-center text-[12px] text-muted-foreground">
+					{t("mcpStore.installedEmpty")}
+				</div>
+			) : (
+				<div className={MCP_GRID_CLASS}>
+					{names.map((name) => (
+						<McpServerRow key={name} name={name} model={model} />
+					))}
+				</div>
+			)}
 		</section>
 	);
 }
 
-/** 商店式：发现 / 添加（仅展示尚未添加的项） */
-export function McpDiscoverSection({ model }: { model: McpSettingsModel }): JSX.Element {
+/** 发现：上方推荐 + 下方广场（远程）。 */
+function McpDiscoverBody({ model }: { model: McpSettingsModel }): JSX.Element {
 	const { t } = useTranslation("settings");
-	const [tab, setTab] = useState<McpDiscoverTab>("recommended");
 	const remoteModel = useRemoteMcpSectionModel({
 		onAdd: model.onAddRemoteServer,
 		onRemove: model.onRemoveRemoteServer,
 	});
 
 	return (
-		<section className="mt-8">
-			<div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-				<div className="min-w-0">
-					<div className="text-[15px] font-semibold text-foreground">{t("mcpStore.discoverTitle")}</div>
-					<p className="mt-0.5 text-[11px] text-muted-foreground">{t("mcpStore.discoverHint")}</p>
+		<div className="flex flex-col gap-8">
+			<section>
+				<div className="mb-3 min-w-0">
+					<div className="text-[13px] font-semibold text-foreground">{t("mcpStore.sectionRecommended")}</div>
+					<p className="mt-0.5 text-[11px] text-muted-foreground">{t("mcpStore.sectionRecommendedHint")}</p>
 				</div>
-				<div className="flex shrink-0 items-center gap-1.5">
-					{tab === "remote" && <RemoteMcpRefreshButton model={remoteModel} />}
-					<SegmentedControl
-						items={[
-							{ key: "recommended" as McpDiscoverTab, label: t("mcpStore.tabRecommended") },
-							{ key: "remote" as McpDiscoverTab, label: t("mcpStore.tabRemote") },
-							{ key: "manual" as McpDiscoverTab, label: t("mcpStore.tabManual") },
-						]}
-						value={tab}
-						onChange={(next) => {
-							setTab(next);
-							if (next !== "manual" && model.addingServer) {
-								model.onCancelAddServer();
-							}
-							if (next === "manual" && !model.addingServer) {
-								model.onStartAddServer();
-							}
-						}}
-					/>
-				</div>
-			</div>
-
-			{tab === "recommended" && (
 				<BuiltinMcpSection
 					variant="discover"
 					addedNames={model.addedServerNames}
@@ -80,37 +64,63 @@ export function McpDiscoverSection({ model }: { model: McpSettingsModel }): JSX.
 					onRemove={model.onRemoveRemoteServer}
 					busyName={model.busyPresetName}
 				/>
-			)}
+			</section>
 
-			{tab === "remote" && (
-				<RemoteMcpDiscoverList model={remoteModel} addedNames={model.addedServerNames} />
-			)}
-
-			{tab === "manual" && (
-				<SettingSection section={SETTINGS_SECTION["mcp-server-list"]} title="">
-					<div className="px-5 py-4">
-						<p className="mb-3 text-[11px] text-muted-foreground">{t("mcpStore.manualHint")}</p>
-						{model.addingServer ? (
-							<McpServerForm
-								form={model.serverForm}
-								setForm={model.setServerForm}
-								onSave={() => void model.onAddServer()}
-								onCancel={() => {
-									model.onCancelAddServer();
-									setTab("recommended");
-								}}
-								saving={model.saving}
-								saveLabel={t("addServer")}
-							/>
-						) : (
-							<Button variant="outline" size="sm" onClick={model.onStartAddServer}>
-								<span className="icon-[mdi--plus] h-3.5 w-3.5" />
-								{t("addMcpServer")}
-							</Button>
-						)}
+			<section>
+				<div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+					<div className="min-w-0">
+						<div className="text-[13px] font-semibold text-foreground">{t("mcpStore.sectionMarketplace")}</div>
+						<p className="mt-0.5 text-[11px] text-muted-foreground">{t("mcpStore.sectionMarketplaceHint")}</p>
 					</div>
-				</SettingSection>
-			)}
+					<RemoteMcpRefreshButton model={remoteModel} />
+				</div>
+				<RemoteMcpDiscoverList model={remoteModel} addedNames={model.addedServerNames} />
+			</section>
+		</div>
+	);
+}
+
+/**
+ * 连接器统一列表：右侧 Toggle「发现 | 我的」。
+ * - 发现：上推荐 / 下广场（远程）；已添加项仍展示并标「已添加」
+ * - 我的：已添加 MCP
+ */
+export function McpStorePanel({ model }: { model: McpSettingsModel }): JSX.Element {
+	const { t } = useTranslation("settings");
+	const [tab, setTab] = useState<McpStoreTab>("discover");
+
+	return (
+		<section>
+			<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+				<div className="min-w-0">
+					<div className="text-[15px] font-semibold text-foreground">
+						{tab === "mine" ? t("mcpStore.mineTitle") : t("mcpStore.discoverTitle")}
+					</div>
+					<p className="mt-0.5 text-[11px] text-muted-foreground">
+						{tab === "mine" ? t("mcpStore.mineHint") : t("mcpStore.discoverHint")}
+					</p>
+				</div>
+				<SegmentedControl
+					items={[
+						{ key: "discover" as McpStoreTab, label: t("mcpStore.tabDiscover") },
+						{ key: "mine" as McpStoreTab, label: t("mcpStore.tabMine") },
+					]}
+					value={tab}
+					onChange={setTab}
+				/>
+			</div>
+
+			{tab === "discover" ? <McpDiscoverBody model={model} /> : <McpMineGrid model={model} />}
 		</section>
 	);
+}
+
+/** @deprecated 使用 McpStorePanel；保留 re-export 以免外部残留引用。 */
+export function McpInstalledList({ model }: { model: McpSettingsModel }): JSX.Element {
+	return <McpMineGrid model={model} />;
+}
+
+/** @deprecated 使用 McpStorePanel */
+export function McpDiscoverSection({ model }: { model: McpSettingsModel }): JSX.Element {
+	return <McpDiscoverBody model={model} />;
 }

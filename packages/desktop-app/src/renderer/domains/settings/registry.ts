@@ -6,7 +6,6 @@ export type SettingsTabLabelKey =
 	| "tabAppearance"
 	| "tabContext"
 	| "tabModels"
-	| "tabMcp"
 	| "tabIm"
 	| "tabWebhook"
 	| "tabArchive"
@@ -43,7 +42,7 @@ export const SETTINGS_TABS: readonly SettingsTabRegistration[] = [
 	{ key: "appearance", label: "外观", labelKey: "tabAppearance", icon: "icon-[mdi--palette-outline]" },
 	{ key: "context", label: "Agent配置", labelKey: "tabContext", icon: "icon-[mdi--robot-outline]" },
 	{ key: "models", label: "模型配置", labelKey: "tabModels", icon: "icon-[mdi--brain]" },
-	{ key: "mcp", label: "MCP 管理", labelKey: "tabMcp", icon: "icon-[mdi--server-outline]" },
+	// MCP 管理已迁至侧栏「扩展 → 连接器」
 	{ key: "im", label: "Claw", labelKey: "tabIm", icon: "icon-[mdi--message-text-outline]" },
 	{ key: "webhook", label: "消息推送", labelKey: "tabWebhook", icon: "icon-[mdi--webhook]" },
 	// { key: "team", label: "团队管理", labelKey: "tabTeam", icon: "icon-[mdi--account-group-outline]", personalOnly: true },

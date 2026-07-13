@@ -20,24 +20,22 @@ export function BuiltinMcpSection({
 	onAdd: (preset: BuiltinMcpPreset) => Promise<void> | void;
 	onRemove: (name: string) => Promise<void> | void;
 	busyName: string | null;
-	/** discover：只展示未添加项，仅「添加」 */
+	/** discover：展示全部推荐（含已添加，卡片标「已添加」） */
 	variant?: "full" | "discover";
 }): JSX.Element {
 	const { t } = useTranslation("settings");
-	const items = useMemo(() => {
-		const list =
-			variant !== "discover"
-				? [...BUILTIN_MCP_PRESETS]
-				: BUILTIN_MCP_PRESETS.filter((preset) => !addedNames.has(preset.name));
-		return list.map((preset) => ({
-			id: String(preset.id),
-			name: preset.name,
-			displayName: t(preset.displayNameKey),
-			description: t(preset.descriptionKey),
-			iconUrl: builtinMcpIconUrl(preset.iconFile),
-			needsKey: presetRequiresSecrets(preset),
-		}));
-	}, [addedNames, t, variant]);
+	const items = useMemo(
+		() =>
+			BUILTIN_MCP_PRESETS.map((preset) => ({
+				id: String(preset.id),
+				name: preset.name,
+				displayName: t(preset.displayNameKey),
+				description: t(preset.descriptionKey),
+				iconUrl: builtinMcpIconUrl(preset.iconFile),
+				needsKey: presetRequiresSecrets(preset),
+			})),
+		[t],
+	);
 
 	const byName = useMemo(() => {
 		const map = new Map(BUILTIN_MCP_PRESETS.map((preset) => [preset.name, preset]));
