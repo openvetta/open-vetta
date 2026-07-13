@@ -42,9 +42,6 @@ export function XianxiaAchievementPanel({
 	readonly onSelectAchievement: (achievementId: string) => void;
 	readonly selectedAchievementId: string | null;
 }): JSX.Element {
-	const unlockedCount = cultivation.achievedRealmIds.length;
-	const unlockedPercent = `${Math.round((unlockedCount / sanctumAchievements.length) * 100)}%`;
-
 	return (
 		<section className="relative w-full min-w-0">
 			<NineSliceImageFrame
@@ -54,28 +51,10 @@ export function XianxiaAchievementPanel({
 				imageUrl={sanctumPageAssets.achievementDisplayPanel}
 				style={achievementLayoutStyle}
 			>
-				<div className="mb-4 flex items-center justify-between px-6 text-slate-700">
-					<div>
-						<div className="flex items-center gap-3 text-[18px] font-semibold">
-							<span className="text-slate-400">✧</span>
-							<span>{unlockedCount} / {sanctumAchievements.length} Unlocked</span>
-						</div>
-						<div className="mt-2 h-1.5 w-56 rounded-full bg-slate-300/70">
-							<motion.div
-								animate={{ width: unlockedPercent }}
-								className="h-full rounded-full bg-amber-300 shadow-[0_0_5px_rgba(252,211,77,0.65)]"
-								initial={{ width: "0%" }}
-								transition={{ delay: 0.45, duration: 0.75, ease: "easeOut" }}
-							/>
-						</div>
-					</div>
-					<button
-						type="button"
-						className="flex h-10 w-40 items-center justify-between rounded-2xl border border-slate-300/70 bg-slate-100/55 px-4 text-[15px] text-slate-700 shadow-inner"
-					>
-						<span>All Realms</span>
-						<span className="icon-[solar--alt-arrow-down-linear] h-4 w-4" />
-					</button>
+				<div className="flex items-center gap-2 px-6 text-slate-700">
+					<span className="text-[18px] text-slate-400">✧</span>
+					<h2 className="text-[20px] font-semibold leading-7 text-slate-800">修仙境界</h2>
+					<span className="text-[13px] font-semibold leading-5 text-slate-500">（共十五境界）</span>
 				</div>
 				<div className="xianxia-achievement-grid">
 					{sanctumAchievements.map((achievement, index) => (
