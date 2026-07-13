@@ -1,8 +1,22 @@
-import { useState } from "react";
-import { Input } from "../../../components/ui/input";
+import { ShortcutRecorder } from "@domains/settings/components/ShortcutRecorder";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@vetta/ui";
+import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { type ActiveActionApproval, useActionApproval } from "../../useActionApproval";
-import { ApprovalFormField, ApprovalImpactCard, ApprovalRawFallback } from "../ApprovalParts";
+import {
+	ApprovalImpactCard,
+	ApprovalRawFallback,
+	ApprovalSettingGroup,
+	ApprovalSettingRow,
+} from "../ApprovalParts";
 import { useManageApprovalFrame } from "../useManageApprovalShell";
+import {
+	getShortcutActionDefault,
+	resolveShortcutActionId,
+	SHORTCUT_ACTIONS,
+	SHORTCUTS_APPROVAL_ICON,
+	type ShortcutActionId,
+} from "./shortcutsApprovalShared";
 
 interface InputData {
 	operation: "set-binding";
@@ -32,18 +46,35 @@ export function ShortcutsSetBindingApproval(): JSX.Element | null {
 
 function Content({ approval }: { approval: ActiveActionApproval }): JSX.Element {
 	const { Frame, t, frameLabels } = useManageApprovalFrame();
+	const { t: tSettings } = useTranslation("settings");
 	const { request, responding, error, approve, reject } = approval;
 	const input = parseInput(request.input);
-	const [id, setId] = useState(input?.id ?? "");
-	const [shortcut, setShortcut] = useState(input?.shortcut ?? "");
-	const icon = "icon-[mdi--keyboard-outline]";
+	const [actionId, setActionId] = useState<ShortcutActionId>(() => resolveShortcutActionId(input?.id));
+	const [shortcut, setShortcut] = useState(() => input?.shortcut?.trim() || getShortcutActionDefault(actionId));
+
+	const defaultShortcut = getShortcutActionDefault(actionId);
+	const isDefault = shortcut === defaultShortcut;
+	const selectedDef = useMemo(
+		() => SHORTCUT_ACTIONS.find((action) => action.id === actionId) ?? SHORTCUT_ACTIONS[0],
+		[actionId],
+	);
+
+	const handleActionChange = (nextId: string) => {
+		const resolved = resolveShortcutActionId(nextId);
+		setActionId(resolved);
+		// 切换功能时：若当前仍是上一功能的默认键，则跟到新功能默认键；用户已录制的自定义键保留。
+		setShortcut((prev) => {
+			const prevDefault = getShortcutActionDefault(actionId);
+			return prev === prevDefault ? getShortcutActionDefault(resolved) : prev;
+		});
+	};
 
 	return (
 		<Frame
 			presentation="drawer"
 			title={t("manageApproval.shortcuts.ops.set-binding.title")}
 			summary={t("manageApproval.shortcuts.ops.set-binding.summary")}
-			icon={icon}
+			icon={SHORTCUTS_APPROVAL_ICON}
 			badge={t("manageApproval.shortcuts.ops.set-binding.badge")}
 			labels={frameLabels(request.permission, t("manageApproval.shortcuts.ops.set-binding.confirm"))}
 			responding={responding}
@@ -54,24 +85,57 @@ function Content({ approval }: { approval: ActiveActionApproval }): JSX.Element 
 				input
 					? approve({
 							operation: "set-binding",
-							id: id.trim(),
-							shortcut: shortcut.trim(),
+							id: actionId,
+							shortcut,
 							approvalUi: input.approvalUi ?? "shortcuts.set-binding",
 						})
 					: approve()
 			}
-			canApprove={id.trim().length > 0 && shortcut.trim().length > 0}
+			canApprove={Boolean(input) && shortcut.length > 0}
 		>
 			{input ? (
 				<>
-					<ApprovalFormField id="shortcuts-action-id" label={t("manageApproval.fields.shortcutActionId")}>
-						<Input id="shortcuts-action-id" value={id} onChange={(e) => setId(e.target.value)} />
-					</ApprovalFormField>
-					<ApprovalFormField id="shortcuts-combo" label={t("manageApproval.fields.shortcutCombo")}>
-						<Input id="shortcuts-combo" value={shortcut} onChange={(e) => setShortcut(e.target.value)} />
-					</ApprovalFormField>
+					<ApprovalSettingGroup
+						title={t("manageApproval.shortcuts.bindingSectionTitle")}
+						description={t("manageApproval.shortcuts.bindingSectionDescription")}
+					>
+						<ApprovalSettingRow
+							title={t("manageApproval.shortcuts.actionField")}
+							description={tSettings(selectedDef.descriptionKey)}
+						>
+							<Select value={actionId} onValueChange={handleActionChange}>
+								<SelectTrigger
+									size="sm"
+									className="h-8 min-w-[160px] border-border/70 bg-background/50 text-[12px]"
+								>
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									{SHORTCUT_ACTIONS.map((action) => (
+										<SelectItem key={action.id} value={action.id} className="text-[12px]">
+											{tSettings(action.labelKey)}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</ApprovalSettingRow>
+						<ApprovalSettingRow
+							title={t("manageApproval.shortcuts.comboField")}
+							description={t("manageApproval.shortcuts.comboFieldHint")}
+							border={false}
+						>
+							<ShortcutRecorder
+								value={shortcut}
+								onChange={setShortcut}
+								onReset={() => setShortcut(defaultShortcut)}
+								isDefault={isDefault}
+								placeholder={tSettings("shortcutPlaceholder")}
+								resetLabel={tSettings("reset")}
+							/>
+						</ApprovalSettingRow>
+					</ApprovalSettingGroup>
 					<ApprovalImpactCard
-						icon={icon}
+						icon={SHORTCUTS_APPROVAL_ICON}
 						title={t("manageApproval.afterActionTitle")}
 						description={t("manageApproval.shortcuts.ops.set-binding.impact")}
 					/>

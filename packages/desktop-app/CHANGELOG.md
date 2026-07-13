@@ -7,6 +7,10 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 ### Added
 
 - **App Action：`shortcuts.*`（设置 → 快捷键整页）**：统一快捷键业务域——`shortcuts.query` / `shortcuts.manage` 覆盖全局应用快捷键绑定（`set-binding` / `reset-*`）与快捷面板呼出/发送后行为（`set-quick-panel-trigger` / `set-quick-panel-behavior`）。自定义绑定写入 `desktop-config.shortcuts.bindings`；面板相关仍用 `quickPanel` 配置字段供运行时复用，但不再注册独立 `quickpanel.*` Action。支持从旧 `localStorage(vetta-shortcuts)` 迁移；写操作走按 operation 的审批 UI。
+
+### Changed
+
+- **快捷键 Action 授权弹窗对齐设置页交互**：`set-binding` 用功能下拉 + `ShortcutRecorder` 录制，不再手填 id/组合键字符串；快捷面板触发与发送后行为复用 `@vetta/ui` Select（与设置页同款）；恢复类弹窗展示产品功能名与默认键显示。文案按 `docs/user-facing-copy.md` 说结果与影响。
 - **新会话欢迎区主题覆盖点 `chat.newSessionHero`**：开放 `NewSessionHeroProps`（标题/副标题/场景轮播等）供主题替换欢迎区实现；默认仍渲染 `BotAvatar`。修仙主题覆盖为无头像布局，去掉 idle 弹跳手势。
 
 ### Removed

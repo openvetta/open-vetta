@@ -1,17 +1,24 @@
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@vetta/ui";
 import { useState } from "react";
 import { type ActiveActionApproval, useActionApproval } from "../../useActionApproval";
-import { ApprovalFormField, ApprovalImpactCard, ApprovalRawFallback } from "../ApprovalParts";
+import {
+	ApprovalImpactCard,
+	ApprovalRawFallback,
+	ApprovalSettingGroup,
+	ApprovalSettingRow,
+} from "../ApprovalParts";
 import { useManageApprovalFrame } from "../useManageApprovalShell";
-
-type Trigger = "none" | "mod" | "alt" | "shift";
+import {
+	QUICK_PANEL_APPROVAL_ICON,
+	QUICK_PANEL_TRIGGERS,
+	type QuickPanelTrigger,
+} from "./shortcutsApprovalShared";
 
 interface InputData {
 	operation: "set-quick-panel-trigger";
-	trigger: Trigger;
+	trigger: QuickPanelTrigger;
 	approvalUi?: string;
 }
-
-const TRIGGERS: Trigger[] = ["none", "mod", "alt", "shift"];
 
 function parseInput(input: unknown): InputData | null {
 	if (typeof input !== "object" || input === null || Array.isArray(input)) return null;
@@ -35,15 +42,14 @@ function Content({ approval }: { approval: ActiveActionApproval }): JSX.Element 
 	const { Frame, t, frameLabels } = useManageApprovalFrame();
 	const { request, responding, error, approve, reject } = approval;
 	const input = parseInput(request.input);
-	const [trigger, setTrigger] = useState<Trigger>(input?.trigger ?? "none");
-	const icon = "icon-[mdi--lightning-bolt-outline]";
+	const [trigger, setTrigger] = useState<QuickPanelTrigger>(input?.trigger ?? "none");
 
 	return (
 		<Frame
 			presentation="drawer"
 			title={t("manageApproval.shortcuts.ops.set-quick-panel-trigger.title")}
 			summary={t("manageApproval.shortcuts.ops.set-quick-panel-trigger.summary")}
-			icon={icon}
+			icon={QUICK_PANEL_APPROVAL_ICON}
 			badge={t("manageApproval.shortcuts.ops.set-quick-panel-trigger.badge")}
 			labels={frameLabels(request.permission, t("manageApproval.shortcuts.ops.set-quick-panel-trigger.confirm"))}
 			responding={responding}
@@ -63,22 +69,34 @@ function Content({ approval }: { approval: ActiveActionApproval }): JSX.Element 
 		>
 			{input ? (
 				<>
-					<ApprovalFormField id="shortcuts-qp-trigger" label={t("manageApproval.fields.quickpanelTrigger")}>
-						<select
-							id="shortcuts-qp-trigger"
-							className="h-9 w-full rounded-md border border-border bg-background px-3 text-[13px] text-foreground"
-							value={trigger}
-							onChange={(e) => setTrigger(e.target.value as Trigger)}
+					<ApprovalSettingGroup
+						title={t("manageApproval.shortcuts.quickPanelTriggerSectionTitle")}
+						description={t("manageApproval.shortcuts.quickPanelTriggerSectionDescription")}
+					>
+						<ApprovalSettingRow
+							title={t("manageApproval.fields.quickpanelTrigger")}
+							description={t(`manageApproval.shortcuts.quickPanelTriggerHints.${trigger}`)}
+							border={false}
 						>
-							{TRIGGERS.map((candidate) => (
-								<option key={candidate} value={candidate}>
-									{t(`manageApproval.shortcuts.quickPanelTriggers.${candidate}`)}
-								</option>
-							))}
-						</select>
-					</ApprovalFormField>
+							<Select value={trigger} onValueChange={(value) => setTrigger(value as QuickPanelTrigger)}>
+								<SelectTrigger
+									size="sm"
+									className="h-8 min-w-[150px] border-border/70 bg-background/50 text-[12px]"
+								>
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									{QUICK_PANEL_TRIGGERS.map((candidate) => (
+										<SelectItem key={candidate} value={candidate} className="text-[12px]">
+											{t(`manageApproval.shortcuts.quickPanelTriggers.${candidate}`)}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</ApprovalSettingRow>
+					</ApprovalSettingGroup>
 					<ApprovalImpactCard
-						icon={icon}
+						icon={QUICK_PANEL_APPROVAL_ICON}
 						title={t("manageApproval.afterActionTitle")}
 						description={t("manageApproval.shortcuts.ops.set-quick-panel-trigger.impact")}
 					/>
