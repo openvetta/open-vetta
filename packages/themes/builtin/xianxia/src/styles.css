@@ -114,6 +114,15 @@
 	container-type: inline-size;
 }
 
+.xianxia-hidden-scrollbar {
+	-ms-overflow-style: none;
+	scrollbar-width: none;
+}
+
+.xianxia-hidden-scrollbar::-webkit-scrollbar {
+	display: none;
+}
+
 .xianxia-achievement-grid {
 	display: grid;
 	grid-template-columns: repeat(3, var(--sanctum-achievement-size));
