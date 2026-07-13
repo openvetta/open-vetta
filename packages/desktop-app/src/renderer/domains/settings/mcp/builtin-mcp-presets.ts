@@ -72,8 +72,6 @@ export interface BuiltinMcpPreset {
 
 const MCP_ICON_BASE = "./mcp";
 
-export const DEFAULT_MCP_ICON = `${MCP_ICON_BASE}/default.webp`;
-
 export const BUILTIN_MCP_PRESETS: readonly BuiltinMcpPreset[] = [
 	{
 		id: "canva",
@@ -258,10 +256,11 @@ export function matchBuiltinMcpPreset(name: string, config: McpServerConfigData)
 	return BUILTIN_MCP_PRESETS.find((preset) => preset.packageHint && args.includes(preset.packageHint));
 }
 
-export function resolveMcpIcon(name: string, config: McpServerConfigData): string {
+/** 有配置图标时返回 URL；否则 null（UI 使用默认 SVG）。 */
+export function resolveMcpIcon(name: string, config: McpServerConfigData): string | null {
 	const preset = matchBuiltinMcpPreset(name, config);
 	if (preset) return builtinMcpIconUrl(preset.iconFile);
-	return DEFAULT_MCP_ICON;
+	return null;
 }
 
 export function buildBuiltinMcpServerConfig(

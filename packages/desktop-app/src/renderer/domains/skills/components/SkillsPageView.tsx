@@ -1,19 +1,35 @@
 import { SkillTagGroupView } from "@vetta/theme-ui/skills";
 import { motion } from "motion/react";
+import { type ReactNode, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@vetta/ui";
 import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
+import { SettingsAiAssist } from "../../settings/ai-assist";
+import { McpSettings, type McpSettingsHandle } from "../../settings/components/McpSettings";
 import { UNCATEGORIZED, type SkillsPageModel, type TypeTab } from "../hooks/useSkillsPageModel";
 import { PluginsPanel } from "./PluginsPanel";
 import { SkillDetailDialog } from "./SkillDetailDialog";
 import { SkillTagGroup } from "./SkillTagGroup";
+import "../../settings/components/settings-highlight.css";
 
 const easeOut = [0.22, 1, 0.36, 1] as const;
 
+const TYPE_TAB_ITEMS: readonly { key: TypeTab; labelKey: "tabs.scene" | "tabs.skill" | "tabs.plugin" | "tabs.connector" }[] =
+	[
+		{ key: "scene", labelKey: "tabs.scene" },
+		{ key: "skill", labelKey: "tabs.skill" },
+		{ key: "connector", labelKey: "tabs.connector" },
+		{ key: "plugin", labelKey: "tabs.plugin" },
+	];
+
 export function SkillsPageView({ model }: { model: SkillsPageModel }): JSX.Element {
 	const { t } = useTranslation("skills");
-	const typeNoun = (tab: TypeTab) =>
-		tab === "scene" ? t("typeNoun.scene") : tab === "skill" ? t("typeNoun.skill") : t("typeNoun.plugin");
+	const typeNoun = (tab: TypeTab) => {
+		if (tab === "scene") return t("typeNoun.scene");
+		if (tab === "skill") return t("typeNoun.skill");
+		if (tab === "plugin") return t("typeNoun.plugin");
+		return t("typeNoun.connector");
+	};
 	const {
 		typeTab,
 		setTypeTab,
@@ -39,11 +55,77 @@ export function SkillsPageView({ model }: { model: SkillsPageModel }): JSX.Eleme
 		handleFileChange,
 	} = model;
 	const narrow = useNarrowScreen();
+	const subtitle = typeTab === "connector" ? t("subtitleConnector") : t("subtitle");
+	const mcpSettingsRef = useRef<McpSettingsHandle>(null);
+	const { t: tSettings } = useTranslation("settings");
+
+	/** 顶栏标题区右侧插槽：按当前 Tab 填充操作（搜索/导入/AI 协助等）。 */
+	const headerTrailingSlot: ReactNode = (() => {
+		if (typeTab === "connector") {
+			return (
+				<>
+					<Button
+						type="button"
+						variant="outline"
+						onClick={() => mcpSettingsRef.current?.openCustomConnector()}
+					>
+						<span className="icon-[mdi--plus] h-3.5 w-3.5" />
+						<span>{tSettings("mcpStore.customConnector")}</span>
+					</Button>
+					<SettingsAiAssist tabId="mcp" />
+				</>
+			);
+		}
+		if (typeTab === "plugin") {
+			return (
+				<Button
+					type="button"
+					variant="outline"
+					onClick={() => pluginsPanelRef.current?.triggerImport()}
+				>
+					<span className="icon-[mdi--tray-arrow-up] h-3.5 w-3.5" />
+					<span>{t("actions.importPlugin")}</span>
+				</Button>
+			);
+		}
+		// scene / skill：搜索；skill 额外导入
+		return (
+			<>
+				<div className={`relative ${narrow ? "flex-1" : ""}`}>
+					<span className="icon-[mdi--magnify] absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/40" />
+					<input
+						type="text"
+						placeholder={t("search.placeholder", { noun: typeNoun(typeTab) })}
+						value={searchQuery}
+						onChange={(e) => setSearchQuery(e.target.value)}
+						className={`h-8 ${narrow ? "w-full" : "w-56"} rounded-full bg-muted pl-8 pr-3 text-[12px] text-foreground placeholder:text-muted-foreground/40 transition-colors hover:bg-accent focus:bg-accent focus:outline-none focus:ring-1 focus:ring-primary/30`}
+					/>
+				</div>
+				{typeTab === "skill" && (
+					<>
+						<input
+							ref={fileInputRef}
+							type="file"
+							accept=".zip,.tar.gz,.tgz,application/zip,application/gzip,application/x-gzip"
+							className="hidden"
+							onChange={handleFileChange}
+						/>
+						<Button type="button" variant="outline" onClick={handleImportClick} disabled={importing}>
+							{importing ? (
+								<span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />
+							) : (
+								<span className="icon-[mdi--tray-arrow-up] h-3.5 w-3.5" />
+							)}
+							<span>{t("actions.importSkill")}</span>
+						</Button>
+					</>
+				)}
+			</>
+		);
+	})();
 
 	return (
 		<div className="relative flex h-full w-full flex-1 flex-col overflow-hidden">
-			<div className="drag-region h-6 shrink-0" />
-
 			<div className="relative shrink-0 px-8 pb-4">
 				<div className={`flex gap-4 ${narrow ? "flex-col items-stretch" : "items-end justify-between"}`}>
 					<motion.div
@@ -51,14 +133,8 @@ export function SkillsPageView({ model }: { model: SkillsPageModel }): JSX.Eleme
 						animate={{ opacity: 1, y: 0 }}
 						transition={{ duration: 0.5, ease: easeOut }}
 					>
-						<div className="flex items-baseline gap-3">
-							{(
-								[
-									{ key: "scene" as TypeTab, label: t("tabs.scene") },
-									{ key: "skill" as TypeTab, label: t("tabs.skill") },
-									{ key: "plugin" as TypeTab, label: t("tabs.plugin") },
-								] as const
-							).map(({ key, label }) => (
+						<div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+							{TYPE_TAB_ITEMS.map(({ key, labelKey }) => (
 								<button
 									key={key}
 									type="button"
@@ -69,71 +145,28 @@ export function SkillsPageView({ model }: { model: SkillsPageModel }): JSX.Eleme
 											: "text-[17px] font-semibold text-muted-foreground/40 hover:text-muted-foreground/70"
 									}`}
 								>
-									{label}
+									{t(labelKey)}
 								</button>
 							))}
 						</div>
-						<p className="mt-1 text-[12px] text-muted-foreground/60">{t("subtitle")}</p>
+						<p className="mt-1 text-[12px] text-muted-foreground/60">{subtitle}</p>
 					</motion.div>
 
 					<motion.div
 						initial={{ opacity: 0, y: -6 }}
 						animate={{ opacity: 1, y: 0 }}
 						transition={{ duration: 0.5, delay: 0.1, ease: easeOut }}
-						className={`flex items-center gap-2 ${narrow ? "w-full" : ""}`}
+						className={`flex min-h-8 items-center gap-2 ${narrow ? "w-full" : "shrink-0"}`}
 					>
-						{typeTab !== "plugin" && (
-							<div className={`relative ${narrow ? "flex-1" : ""}`}>
-								<span className="icon-[mdi--magnify] absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/40" />
-								<input
-									type="text"
-									placeholder={t("search.placeholder", { noun: typeNoun(typeTab) })}
-									value={searchQuery}
-									onChange={(e) => setSearchQuery(e.target.value)}
-									className={`h-8 ${narrow ? "w-full" : "w-56"} rounded-full bg-muted pl-8 pr-3 text-[12px] text-foreground placeholder:text-muted-foreground/40 transition-colors hover:bg-accent focus:bg-accent focus:outline-none focus:ring-1 focus:ring-primary/30`}
-								/>
-							</div>
-						)}
-						{typeTab === "skill" && (
-							<>
-								<input
-									ref={fileInputRef}
-									type="file"
-									accept=".zip,.tar.gz,.tgz,application/zip,application/gzip,application/x-gzip"
-									className="hidden"
-									onChange={handleFileChange}
-								/>
-								<Button
-									type="button"
-									variant="outline"
-									onClick={handleImportClick}
-									disabled={importing}
-								>
-									{importing ? (
-										<span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />
-									) : (
-										<span className="icon-[mdi--tray-arrow-up] h-3.5 w-3.5" />
-									)}
-									<span>{t("actions.importSkill")}</span>
-								</Button>
-							</>
-						)}
-						{typeTab === "plugin" && (
-							<Button
-								type="button"
-								variant="outline"
-								onClick={() => pluginsPanelRef.current?.triggerImport()}
-							>
-								<span className="icon-[mdi--tray-arrow-up] h-3.5 w-3.5" />
-								<span>{t("actions.importPlugin")}</span>
-							</Button>
-						)}
+						{headerTrailingSlot}
 					</motion.div>
 				</div>
 			</div>
 
 			<div className="flex-1 overflow-y-auto px-8 pt-5 pb-8">
-				{typeTab === "plugin" ? (
+				{typeTab === "connector" ? (
+					<McpSettings ref={mcpSettingsRef} />
+				) : typeTab === "plugin" ? (
 					<PluginsPanel ref={pluginsPanelRef} />
 				) : loading ? (
 					<div className="flex h-full flex-col items-center justify-center gap-3 opacity-60">

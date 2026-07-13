@@ -44,10 +44,17 @@ const STATIC_TARGETS: readonly StaticNavigationTarget[] = [
 	},
 	{
 		id: "skills",
-		title: "技能广场",
-		description: "浏览和安装技能的页面。",
+		title: "扩展",
+		description: "场景、技能、插件与连接器（MCP）管理页面。",
 		hashPath: "/skills",
-		aliases: ["技能", "插件", "skill marketplace"],
+		aliases: ["技能", "插件", "扩展", "skill marketplace", "技能广场"],
+	},
+	{
+		id: "connectors",
+		title: "连接器",
+		description: "MCP 连接器管理，为 AI 接入外部工具。",
+		hashPath: "/skills?tab=connector",
+		aliases: ["MCP", "mcp", "MCP 管理", "连接器", "connectors"],
 	},
 	{
 		id: "downloads",
@@ -87,8 +94,23 @@ function buildSettingsHashPath(tab: string, section?: string): string {
 	return `/settings/${encodeURIComponent(tab)}${query ? `?${query}` : ""}`;
 }
 
+/** MCP 已迁至扩展 → 连接器。 */
+function buildConnectorsHashPath(section?: string): string {
+	const search = new URLSearchParams();
+	search.set("tab", "connector");
+	if (section) {
+		search.set("section", section);
+		search.set("nav", String(Date.now()));
+	}
+	return `/skills?${search.toString()}`;
+}
+
+function isMcpSettingsTarget(tabKey?: string, section?: SettingsSectionRegistration): boolean {
+	return tabKey === "mcp" || section?.tab === "mcp";
+}
+
 function buildSettingsCatalog(): JsonValue {
-	return SETTINGS_TABS.map((tab) => ({
+	const settingsTabs = SETTINGS_TABS.map((tab) => ({
 		id: tab.key,
 		title: tab.label,
 		target: { type: "open", target: "settings", tab: tab.key },
@@ -102,7 +124,20 @@ function buildSettingsCatalog(): JsonValue {
 			title: section.title,
 			target: { type: "open", target: section.id },
 		})),
-	})) as JsonValue;
+	}));
+	// 连接器（原设置 → MCP）挂在 extensions 目录，id 仍用 mcp 兼容旧 agent 调用。
+	const connectorsTab = {
+		id: "mcp",
+		title: "连接器",
+		target: { type: "open", target: "connectors" },
+		location: "扩展 → 连接器",
+		sections: SETTINGS_SECTIONS.filter((section) => section.tab === "mcp").map((section) => ({
+			id: section.id,
+			title: section.title,
+			target: { type: "open", target: section.id },
+		})),
+	};
+	return [...settingsTabs, connectorsTab] as JsonValue;
 }
 
 export function getNavigationHelp(): JsonValue {
@@ -188,7 +223,33 @@ export function resolveNavigationTarget(input: Extract<NavigationActionInput, { 
 		);
 	}
 
+	// 兼容旧 target=mcp / tab=mcp 与 mcp-* section（现位于扩展 → 连接器）。
+	if (target === "mcp" || isMcpSettingsTarget(input.tab ? normalizeTarget(input.tab) : undefined, explicitSection)) {
+		const section = explicitSection?.tab === "mcp" ? explicitSection : undefined;
+		return {
+			hashPath: buildConnectorsHashPath(section?.id),
+			resolved: {
+				kind: section ? "connectors-section" : "connectors",
+				tab: "mcp",
+				tabTitle: "连接器",
+				...(section ? { section: section.id, sectionTitle: section.title } : {}),
+			},
+		};
+	}
+
 	if (targetSection) {
+		if (targetSection.tab === "mcp") {
+			return {
+				hashPath: buildConnectorsHashPath(targetSection.id),
+				resolved: {
+					kind: "connectors-section",
+					tab: "mcp",
+					tabTitle: "连接器",
+					section: targetSection.id,
+					sectionTitle: targetSection.title,
+				},
+			};
+		}
 		const tab = tabsByKey.get(targetSection.tab);
 		return {
 			hashPath: buildSettingsHashPath(targetSection.tab, targetSection.id),
@@ -204,9 +265,21 @@ export function resolveNavigationTarget(input: Extract<NavigationActionInput, { 
 
 	if (target === "settings" || targetTab) {
 		const tabKey = input.tab ? normalizeTarget(input.tab) : (targetTab?.key ?? explicitSection?.tab ?? "general");
+		if (isMcpSettingsTarget(tabKey, explicitSection)) {
+			const section = explicitSection?.tab === "mcp" ? explicitSection : undefined;
+			return {
+				hashPath: buildConnectorsHashPath(section?.id),
+				resolved: {
+					kind: section ? "connectors-section" : "connectors",
+					tab: "mcp",
+					tabTitle: "连接器",
+					...(section ? { section: section.id, sectionTitle: section.title } : {}),
+				},
+			};
+		}
 		const tab = tabsByKey.get(tabKey);
 		if (!tab) {
-			const tabIds = [...tabsByKey.keys()];
+			const tabIds = [...tabsByKey.keys(), "mcp"];
 			throw new ActionError(
 				"ACTION_INVALID_INPUT",
 				`Refused navigation.open before user approval: unknown settings tab=${JSON.stringify(input.tab ?? tabKey)}. Call navigation.open with {"type":"help"} and use catalog.settings.tabs[].id. Available tabs: ${tabIds
@@ -250,7 +323,7 @@ export function resolveNavigationTarget(input: Extract<NavigationActionInput, { 
 	}
 
 	const pageIds = STATIC_TARGETS.map((item) => item.id);
-	const tabIds = [...tabsByKey.keys()];
+	const tabIds = [...tabsByKey.keys(), "mcp"];
 	throw new ActionError(
 		"ACTION_INVALID_INPUT",
 		`Refused navigation.open before user approval: unknown target=${JSON.stringify(input.target)}. Do not invent page ids. Call navigation.open with {"type":"help"} and pick from catalog.pages[].id, settings tab ids, or section ids. Page targets: ${pageIds

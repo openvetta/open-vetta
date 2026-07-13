@@ -31,7 +31,7 @@ export function ProjectsPanel(props: ProjectsPanelProps): JSX.Element {
 		(deltaY: number) => {
 			const container = splitContainerRef.current;
 			if (!container) return;
-			const contentHeight = container.clientHeight - 8;
+			const contentHeight = container.clientHeight - 10;
 			if (contentHeight <= 0) return;
 			setSplitRatio((prev) => clampSidebarProjectsSplitRatio(prev + deltaY / contentHeight));
 		},

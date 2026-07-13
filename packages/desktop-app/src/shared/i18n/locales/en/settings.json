@@ -922,15 +922,25 @@
   "closeEdit": "Collapse",
   "editingServer": "Edit",
   "mcpStore": {
-    "installedEmpty": "No MCP servers yet. Pick one under Discover MCP below.",
-    "discoverTitle": "Discover MCP",
-    "discoverHint": "Added items appear above. Already added ones are hidden here.",
+    "installedEmpty": "No connectors yet. Browse Discover, or use Custom connector at the top right.",
+    "mineTitle": "My connectors",
+    "mineHint": "MCP servers you have added. Enable, configure, or remove them here.",
+    "discoverTitle": "Discover connectors",
+    "discoverHint": "Browse recommended and marketplace. Already added items show an Added badge; manage them under Mine.",
+    "tabMine": "Mine",
+    "tabDiscover": "Discover",
     "tabRecommended": "Recommended",
     "tabRemote": "Remote",
+    "sectionRecommended": "Recommended",
+    "sectionRecommendedHint": "Built-in MCPs you can add in one click.",
+    "sectionMarketplace": "Marketplace",
+    "sectionMarketplaceHint": "Remote MCPs from the team or official catalog.",
     "tabManual": "Custom",
+    "customConnector": "Custom connector",
+    "customConnectorTitle": "Add custom connector",
     "manualHint": "Enter your own MCP config. Most people only need Recommended.",
-    "recommendedAllAdded": "All recommended items are already added. Manage them above.",
-    "remoteAllAdded": "All remote items are already added. Manage them above."
+    "recommendedAllAdded": "All recommended items are already added. Manage them under Mine.",
+    "remoteAllAdded": "All marketplace items are already added. Manage them under Mine."
   },
   "aiAssist": {
     "cta": "Let Vetta configure for you",
@@ -955,7 +965,7 @@
       "agent": "e.g. Pick a pragmatic persona and write custom instructions…"
     },
     "context": {
-      "mcp": "Settings → MCP",
+      "mcp": "Extensions → Connectors",
       "models": "Settings → Models",
       "knowledge": "Settings → Knowledge base",
       "im": "Settings → Claw",
