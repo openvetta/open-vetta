@@ -27,7 +27,7 @@ import {
 import { getQueueForSession, messageQueueBySessionAtom } from "@shared/store/message-queue-atoms";
 import { filePreviewAtom, type FilePreviewItem } from "@shared/store/file-preview-atoms";
 import { recordInputFilesAdded, recordInputImagesAdded } from "@shared/lib/app-monitor-events";
-import { pathBasename } from "@shared/lib/utils";
+import { pathBasename, toVettaFileUrl } from "@shared/lib/utils";
 import type { SelectedFile } from "../AtPanel";
 import type { InputBarModel, InputBarProps, InputBarDrawerItem } from "./types";
 
@@ -73,10 +73,6 @@ async function readMentionedFileSize(path: string, isDirectory: boolean): Promis
 	if (isDirectory) return undefined;
 	const stat = await window.vetta.fs.stat(path).catch(() => null);
 	return stat && stat.size > 0 ? stat.size : undefined;
-}
-
-function toFileProtocolUrl(path: string): string {
-	return `file://${path}`;
 }
 
 export function useInputBarModel({
@@ -149,7 +145,7 @@ export function useInputBarModel({
 	const imagePreviewItems: FilePreviewItem[] = useMemo(
 		() =>
 			imageFiles.map((f) => ({
-				url: toFileProtocolUrl(f.path),
+				url: toVettaFileUrl(f.path),
 				path: f.path,
 				name: pathBasename(f.path),
 			})),

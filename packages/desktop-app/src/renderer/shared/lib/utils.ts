@@ -69,3 +69,13 @@ export function pathNormalize(path: string): string {
 	if (isAbsolutePosix) return `/${joined}`;
 	return joined || ".";
 }
+
+/**
+ * Map a local absolute path to the privileged vetta-file:// scheme (ADR-0027).
+ * Do not use file:// — Electron renderer blocks it ("Not allowed to load local resource").
+ */
+export function toVettaFileUrl(path: string): string {
+	const normalized = pathNormalize(path);
+	const prefix = normalized.startsWith("/") ? "" : "/";
+	return `vetta-file://local${prefix}${encodeURI(normalized)}`;
+}

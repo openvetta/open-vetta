@@ -13,7 +13,7 @@ import {
 	type ChatMessage,
 	type FilePreviewItem,
 } from "@shared/store/atoms";
-import { pathBasename, pathNormalize } from "@shared/lib/utils";
+import { pathBasename, toVettaFileUrl } from "@shared/lib/utils";
 import {
 	SettingsAssistBadgeView,
 	SkillBadgeView,
@@ -66,15 +66,10 @@ function isUserImageFile(path: string): boolean {
 	return USER_IMAGE_EXTENSIONS.has(getPathExtension(path));
 }
 
-function toFileProtocolUrl(path: string): string {
-	const normalized = pathNormalize(path);
-	const prefix = normalized.startsWith("/") ? "" : "/";
-	return `vetta-file://local${prefix}${encodeURI(normalized)}`;
-}
-
 function getPreviewImageSrc(item: FilePreviewItem): string {
+	// Prefer path → vetta-file so stale file:// urls never win after history reload.
+	if (item.path) return toVettaFileUrl(item.path);
 	if (item.url) return item.url;
-	if (item.path) return toFileProtocolUrl(item.path);
 	return "";
 }
 
@@ -165,8 +160,8 @@ export function useUserMessageModel({
 	const { t } = useTranslation("chat");
 	const { skillName, skillType, files, body } = parseUserPrefixes(message.text);
 	const { appshotImage, rest: displayFiles } = splitAppshotFiles(files);
-	const isImageCache = (path: string): boolean => /[/\\]image-cache[/\\]/.test(path);
-	const imageFiles = displayFiles.filter((file) => isUserImageFile(file) && !isImageCache(file));
+	// image-cache (persistImages) must still render as thumbnails; appshot is already split out.
+	const imageFiles = displayFiles.filter((file) => isUserImageFile(file));
 	const hasExplicitMentionedFiles = message.mentionedFiles !== undefined;
 	const fileBadges = hasExplicitMentionedFiles
 		? message.mentionedFiles?.map((file) => file.path).filter((path) => !isUserImageFile(path)) ?? []
