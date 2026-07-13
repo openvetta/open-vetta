@@ -16,6 +16,8 @@ export interface AutomationPageViewLabels {
 
 export interface AutomationPageViewProps {
 	readonly hasTasks: boolean;
+	/** Optional trailing header actions (e.g. AI assist), rendered before the primary CTA. */
+	readonly headerTrailing?: ReactNode;
 	readonly labels: AutomationPageViewLabels;
 	readonly onNewTask: () => void;
 	/** Host-owned TaskList / empty handled here when hasTasks. */
@@ -26,6 +28,7 @@ export interface AutomationPageViewProps {
 
 export function AutomationPageView({
 	hasTasks,
+	headerTrailing,
 	labels,
 	onNewTask,
 	taskList,
@@ -49,10 +52,13 @@ export function AutomationPageView({
 						<p className="mt-1 text-[12px] text-muted-foreground/60">{labels.subtitle}</p>
 					</motion.div>
 
-					<Button type="button" variant="primary" onClick={onNewTask} title={labels.newTaskTitle}>
-						<span className="icon-[mdi--plus] text-[15px]" />
-						{labels.newTask}
-					</Button>
+					<div className="flex items-center gap-2">
+						{headerTrailing}
+						<Button type="button" variant="primary" onClick={onNewTask} title={labels.newTaskTitle}>
+							<span className="icon-[mdi--plus] text-[15px]" />
+							{labels.newTask}
+						</Button>
+					</div>
 				</div>
 			</div>
 

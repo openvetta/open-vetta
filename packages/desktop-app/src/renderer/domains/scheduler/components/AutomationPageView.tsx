@@ -1,6 +1,7 @@
 import type { ScheduledTask } from "@shared/store/scheduler-atoms";
 import { AutomationPageView as ThemeAutomationPageView } from "@vetta/theme-ui/scheduler";
 import { useTranslation } from "react-i18next";
+import { SettingsAiAssist } from "../../settings/ai-assist";
 import { HistoryDrawer } from "./HistoryDrawer";
 import { TaskFormDialog } from "./TaskForm";
 import { TaskList } from "./TaskList";
@@ -35,6 +36,7 @@ export function AutomationPageView({
 	return (
 		<ThemeAutomationPageView
 			hasTasks={hasTasks}
+			headerTrailing={<SettingsAiAssist tabId="automation" />}
 			onNewTask={onNewTask}
 			labels={{
 				title: t("page.title"),

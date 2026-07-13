@@ -7,6 +7,8 @@ const easeOut = [0.22, 1, 0.36, 1] as const;
 export interface BatchTasksPageViewProps {
 	/** Dialog host node (BatchProjectDialog). */
 	dialog: ReactNode;
+	/** Optional trailing header actions (e.g. AI assist), rendered before the primary CTA. */
+	headerTrailing?: ReactNode;
 	labels: BatchTasksPageLabels;
 	/** Task list when projects exist; ignored when empty. */
 	list: ReactNode;
@@ -17,6 +19,7 @@ export interface BatchTasksPageViewProps {
 
 export function BatchTasksPageView({
 	dialog,
+	headerTrailing,
 	labels,
 	list,
 	onNewProject,
@@ -40,8 +43,9 @@ export function BatchTasksPageView({
 						<p className="mt-1 text-[12px] text-muted-foreground/60">{labels.subtitle}</p>
 					</motion.div>
 
-					<div className="flex items-center gap-3">
+					<div className="flex items-center gap-2">
 						{stats.total > 0 && <CompactStats labels={labels} stats={stats} />}
+						{headerTrailing}
 						<button
 							type="button"
 							onClick={onNewProject}

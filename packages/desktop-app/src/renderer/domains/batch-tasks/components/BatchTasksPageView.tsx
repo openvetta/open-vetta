@@ -1,6 +1,7 @@
 import type { BatchProject } from "@shared/store/batch-tasks-atoms";
 import type { BatchTasksPageLabels, BatchTasksPageStatsView } from "@vetta/theme-ui/batch-tasks";
 import { BatchTasksPageView as ThemeBatchTasksPageView } from "@vetta/theme-ui/batch-tasks";
+import { SettingsAiAssist } from "../../settings/ai-assist";
 import { BatchProjectDialog } from "./BatchProjectDialog";
 import { BatchTaskList } from "./BatchTaskList";
 
@@ -30,6 +31,7 @@ export function BatchTasksPageView({
 			dialog={
 				<BatchProjectDialog open={dialogOpen} project={dialogProject ?? undefined} onClose={onCloseDialog} />
 			}
+			headerTrailing={<SettingsAiAssist tabId="batchTasks" />}
 			labels={labels}
 			list={<BatchTaskList projects={projects} onEditProject={onEditProject} />}
 			onNewProject={onNewProject}

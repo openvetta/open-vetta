@@ -47,6 +47,7 @@ export function XianxiaCultivationNumber({
 								alt={glyph}
 								animate={{ opacity: 1, y: 0 }}
 								className="absolute h-full w-auto max-w-none object-contain"
+								draggable={false}
 								exit={{ opacity: 0, y: "-105%" }}
 								initial={{ opacity: 0, y: "105%" }}
 								key={glyph}

@@ -6,6 +6,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **知识库 / 批量任务 / 自动化页 AI 协助入口**：复用设置页「让Vetta帮您配置」；顶栏弹出意图 Popover，打开带页面上下文的对话。知识库页（含未启用态与「全部知识库」列表）、批量任务页、自动化页均已接入；示例与气泡标签按页面区分（如「知识库协助」「批量任务协助」）。
 - **远程 MCP OAuth 授权（通用，Notion 首接）**：HTTP 连接器支持浏览器 OAuth；IPC `mcp.login` / `logout` / `hasAuth` / `authStatus`；扩展 → 连接器展示「待授权 / 已授权」与去授权/断开。Notion 内置预设改为官方托管 `https://mcp.notion.com/mcp`（不再手填 Integration Secret）。
 - **OAuth 连接器添加时序**：先浏览器授权成功再写入 mcp.json；Dialog 保持打开并显示「请在浏览器中完成授权…」，避免点继续后立刻出现「已添加」。
 - **对话消息编辑 / 分支切换 / 分叉会话**：任意已落盘的用户消息可编辑（解析 skill/@文件 回填底部输入框，发送时 `navigateForEdit` 从 parent 分叉）；同位置多版本显示 `‹ i/n ›` 切换分支；支持「分叉为新会话」导出独立 session。streaming 时切换/编辑/分叉会确认中断。History 透传 `entryId` 与 sibling 信息；Runtime/IPC 新增 `navigateForEdit` / `switchBranch` / `forkSession`。

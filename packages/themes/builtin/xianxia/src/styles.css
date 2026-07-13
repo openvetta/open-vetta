@@ -188,6 +188,12 @@
 	font-family: var(--xianxia-font-family);
 }
 
+.xianxia-app-frame img,
+body.xianxia-sanctum-page-active img {
+	user-select: none;
+	-webkit-user-drag: none;
+}
+
 body.xianxia-sanctum-page-active {
 	font-family: "Palatino Linotype", Palatino, "Book Antiqua", KaiTi, STKaiti, "Kaiti SC", "楷体", serif;
 }

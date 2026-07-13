@@ -1,8 +1,14 @@
-/** Settings tabs that surface AI assist entry points. */
+/**
+ * Surfaces that offer the “Let Vetta configure for you” entry.
+ * Includes settings tabs and main feature pages (knowledge base, batch tasks, automation).
+ */
 export type SettingsAiAssistTabId =
 	| "mcp"
 	| "models"
 	| "knowledge"
+	| "knowledgeBase"
+	| "batchTasks"
+	| "automation"
 	| "im"
 	| "webhook"
 	| "appearance"
@@ -50,6 +56,42 @@ const CATALOG = [
 			"aiAssist.examples.knowledge.enable",
 			"aiAssist.examples.knowledge.interval",
 			"aiAssist.examples.knowledge.model",
+		],
+	},
+	{
+		tabId: "knowledgeBase",
+		contextLabelKey: "aiAssist.context.knowledgeBase",
+		defaultIntentKey: "aiAssist.defaultIntent.knowledgeBase",
+		placeholderKey: "aiAssist.placeholder.knowledgeBase",
+		exampleKeys: [
+			WHAT_CAN_YOU_CONFIGURE,
+			"aiAssist.examples.knowledgeBase.create",
+			"aiAssist.examples.knowledgeBase.import",
+			"aiAssist.examples.knowledgeBase.process",
+		],
+	},
+	{
+		tabId: "batchTasks",
+		contextLabelKey: "aiAssist.context.batchTasks",
+		defaultIntentKey: "aiAssist.defaultIntent.batchTasks",
+		placeholderKey: "aiAssist.placeholder.batchTasks",
+		exampleKeys: [
+			WHAT_CAN_YOU_CONFIGURE,
+			"aiAssist.examples.batchTasks.create",
+			"aiAssist.examples.batchTasks.run",
+			"aiAssist.examples.batchTasks.status",
+		],
+	},
+	{
+		tabId: "automation",
+		contextLabelKey: "aiAssist.context.automation",
+		defaultIntentKey: "aiAssist.defaultIntent.automation",
+		placeholderKey: "aiAssist.placeholder.automation",
+		exampleKeys: [
+			WHAT_CAN_YOU_CONFIGURE,
+			"aiAssist.examples.automation.create",
+			"aiAssist.examples.automation.enable",
+			"aiAssist.examples.automation.list",
 		],
 	},
 	{
