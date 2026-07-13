@@ -2,6 +2,7 @@
 
 ### Added
 
+- **远程 HTTP MCP OAuth（通用）**：`HttpMcpClient` 接入 MCP SDK `OAuthClientProvider`；凭证落盘 `~/.vetta/agent/mcp-auth/<server>.json`（不写 mcp.json）。新增 `loginHttpMcpServer` / `hasMcpOAuthTokens` / `clearMcpOAuthState`，`McpManager` 状态 `needs_auth` 与 `loginServer` / `logoutServer`。任意 `type: "http"` 远程 MCP（如 Notion 官方 `https://mcp.notion.com/mcp`）可复用浏览器授权流程。
 - **会话树：`exportBranchToNewFile` / `resolveSubtreeTip` / `getUserMessageSiblings`**：导出分支为新 session 文件且不切换当前 manager（供桌面 host fork）；解析子树 tip 与 user sibling 列表，支撑同 session 内分支切换。
 - **`AgentSession.switchBranch` / `exportForkToNewFile`**：同文件切换 leaf 到目标子树 tip；fork 到新文件且保持当前会话不动。`exportForkToNewFile` 导出到该 user 回合 tip（含 user + 本轮 assistant/工具链，不含后续 user 轮）。
 - **`SessionManager.resolveUserTurnTip`**：从 user 消息向下只走非 user 子节点，得到本轮结束 tip。

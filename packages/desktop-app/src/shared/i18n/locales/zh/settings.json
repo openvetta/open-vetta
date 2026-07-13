@@ -939,6 +939,8 @@
     "customConnector": "自定义连接器",
     "customConnectorTitle": "添加自定义连接器",
     "manualHint": "填写你自己的 MCP 配置。多数情况使用「推荐」即可。",
+    "editServerHint": "正在编辑「{{name}}」",
+    "editServerFallback": "修改此连接器的配置",
     "recommendedAllAdded": "推荐项都已添加，可在「我的」中管理。",
     "remoteAllAdded": "广场中的项都已添加，可在「我的」中管理。"
   },
@@ -1067,6 +1069,12 @@
     "noEditHint": "由应用提供",
     "configureSecrets": "配置密钥",
     "needsSecrets": "待填密钥",
+    "needsAuth": "待授权",
+    "authorized": "已授权",
+    "authorize": "去授权",
+    "revokeAuth": "断开授权",
+    "authorizing": "请在浏览器中完成授权…",
+    "authFailed": "授权未完成，请重试",
     "badgeNeedsKey": "需密钥",
     "badgeBrowserAuth": "登录即可",
     "badgeReady": "即用",
@@ -1074,7 +1082,7 @@
     "confirmAdd": "知道了，添加",
     "secretsDialogTitle": "连接 {{name}}",
     "secretsDialogLead": "先打开官方页面拿到密钥，再粘贴回来。大约 1～2 分钟。",
-    "browserAuthDialogLead": "添加后首次使用时会打开浏览器登录，无需事先粘贴密钥。",
+    "browserAuthDialogLead": "点击继续后将打开浏览器完成授权，无需申请或粘贴 API Key。凭证只保存在本机。",
     "setupTitle": "连接方式",
     "privacyTooltip": "一切由你掌控：凭证只保存在本机，不会上传到 Vetta 服务器。你可随时在「我的连接器」中断开或重新配置。\n\n与此连接器共享的能力：连接后，AI 可通过该连接器调用其提供的工具（例如读取或写入相关数据）。仅会在你发起的对话请求中使用这些能力。",
     "privacyTooltipAria": "隐私与权限说明",
@@ -1082,7 +1090,7 @@
     "stepOpenSite": "第 1 步：打开密钥获取页",
     "stepOpenSiteHint": "点击下方按钮，会在浏览器中打开官方页面。按页面提示创建或复制密钥。",
     "stepOpenAuth": "第 1 步：了解授权方式",
-    "stepOpenAuthHint": "可先查看官方说明。添加后首次使用时会再打开浏览器完成登录。",
+    "stepOpenAuthHint": "可先查看官方说明。点击继续后会打开浏览器完成授权。",
     "openKeyPage": "打开密钥获取页面",
     "openAuthPage": "打开官方说明",
     "secretsHowTo": "第 2 步：按说明操作",
@@ -1093,7 +1101,7 @@
     "secretsDefer": "先添加，稍后填写",
     "secretsDialogConfirm": "保存并添加",
     "guides": {
-      "notion": "打开 Notion 集成页面，创建新集成\n复制「Internal Integration Secret」\n回到 Notion 页面，把集成邀请进要访问的页面/数据库\n将密钥粘贴到下方",
+      "notion": "点击继续后会打开 Notion 授权页\n登录并选择工作区，点允许即可\n无需创建 Integration 或粘贴密钥\n授权凭证只保存在本机",
       "figma": "打开 Figma 开发者设置中的 Access tokens\n生成 Personal access token\n复制后粘贴到下方",
       "slack": "打开 Slack API 应用列表，创建或选择一个 App\n在 OAuth & Permissions 安装到工作区，复制 Bot User OAuth Token（xoxb- 开头）\nTeam ID 可在工作区设置或 auth.test 中查看\n分别粘贴到下方两项",
       "gmail": "添加后，首次在对话中使用时会打开浏览器登录 Google\n按提示完成授权即可，一般无需手动填密钥",
@@ -1107,7 +1115,7 @@
     },
     "notion": {
       "displayName": "Notion",
-      "description": "让 AI 阅读与整理你的 Notion 页面，帮你查找笔记、补充内容和维护知识库。"
+      "description": "连接你的 Notion 工作区，让 AI 阅读与整理页面、查找笔记与维护知识库。点击授权即可，无需粘贴密钥。"
     },
     "figma": {
       "displayName": "Figma",
@@ -1130,7 +1138,6 @@
       "description": "查找与阅读云端文件，方便把网盘资料带进对话（首次使用可能需授权）。"
     },
     "secrets": {
-      "notionToken": "Notion 集成密钥",
       "figmaApiKey": "Figma 访问令牌",
       "slackBotToken": "Slack 机器人令牌",
       "slackTeamId": "Slack 工作区 ID",

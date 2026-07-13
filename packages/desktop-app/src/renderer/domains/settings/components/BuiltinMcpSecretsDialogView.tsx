@@ -28,6 +28,8 @@ export function BuiltinMcpSecretsDialogView({
 	open,
 	primaryHelpUrl,
 	saving,
+	authorizing,
+	error,
 	values,
 }: BuiltinMcpSecretsDialogViewProps): JSX.Element {
 	const themeProps: ThemeProps = {
@@ -46,6 +48,8 @@ export function BuiltinMcpSecretsDialogView({
 		open,
 		primaryHelpUrl,
 		saving,
+		authorizing,
+		error,
 		values,
 	};
 	return <ThemeBuiltinMcpSecretsDialogView {...themeProps} />;

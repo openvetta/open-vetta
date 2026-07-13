@@ -170,6 +170,10 @@ export function createSystemApi(
 		mcp: {
 			get: () => ipc.invoke("vetta:mcp:get"),
 			set: (config) => ipc.invoke("vetta:mcp:set", config),
+			login: (serverName, options) => ipc.invoke("vetta:mcp:login", serverName, options),
+			logout: (serverName) => ipc.invoke("vetta:mcp:logout", serverName),
+			hasAuth: (serverName) => ipc.invoke("vetta:mcp:has-auth", serverName),
+			authStatus: (serverNames) => ipc.invoke("vetta:mcp:auth-status", serverNames),
 		},
 		media: {
 			getAudioMetadata: (filePath) => ipc.invoke("vetta:media:audio-metadata", filePath),

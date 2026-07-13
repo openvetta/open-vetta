@@ -5,6 +5,7 @@ import {
 	BUILTIN_MCP_PRESETS,
 	builtinMcpIconUrl,
 	type BuiltinMcpPreset,
+	getListedBuiltinMcpPresets,
 	presetRequiresSecrets,
 } from "../mcp/builtin-mcp-presets";
 import { SETTINGS_SECTION } from "../registry";
@@ -24,9 +25,10 @@ export function BuiltinMcpSection({
 	variant?: "full" | "discover";
 }): JSX.Element {
 	const { t } = useTranslation("settings");
+	const listedPresets = useMemo(() => getListedBuiltinMcpPresets(), []);
 	const items = useMemo(
 		() =>
-			BUILTIN_MCP_PRESETS.map((preset) => ({
+			listedPresets.map((preset) => ({
 				id: String(preset.id),
 				name: preset.name,
 				displayName: t(preset.displayNameKey),
@@ -34,10 +36,11 @@ export function BuiltinMcpSection({
 				iconUrl: builtinMcpIconUrl(preset.iconFile),
 				needsKey: presetRequiresSecrets(preset),
 			})),
-		[t],
+		[listedPresets, t],
 	);
 
 	const byName = useMemo(() => {
+		// 匹配仍用全量预设：已添加但未 listed 的项在「我的」里仍可识别
 		const map = new Map(BUILTIN_MCP_PRESETS.map((preset) => [preset.name, preset]));
 		return map;
 	}, []);

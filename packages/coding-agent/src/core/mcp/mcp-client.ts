@@ -345,10 +345,16 @@ export interface McpClientHandle extends IMcpClient {
 export function createMcpClient(
 	name: string,
 	config: McpServerConfig,
-	options?: { debug?: boolean; timeout?: number },
+	options?: { debug?: boolean; timeout?: number; agentDir?: string },
 ): McpClientHandle {
 	if (isHttpServerConfig(config)) {
-		return new HttpMcpClient({ name, config, debug: options?.debug, timeout: options?.timeout });
+		return new HttpMcpClient({
+			name,
+			config,
+			debug: options?.debug,
+			timeout: options?.timeout,
+			agentDir: options?.agentDir,
+		});
 	}
 	return new McpClient({ name, config, debug: options?.debug, timeout: options?.timeout });
 }
