@@ -36,6 +36,18 @@ function PopoverAnchor({ ...props }: React.ComponentProps<typeof PopoverPrimitiv
 	return <PopoverPrimitive.Anchor data-slot="popover-anchor" {...props} />;
 }
 
+function PopoverArrow({ className, ...props }: React.ComponentProps<typeof PopoverPrimitive.Arrow>) {
+	return (
+		<PopoverPrimitive.Arrow
+			data-slot="popover-arrow"
+			width={14}
+			height={8}
+			className={cn("fill-popover drop-shadow-sm", className)}
+			{...props}
+		/>
+	);
+}
+
 function PopoverHeader({ className, ...props }: React.ComponentProps<"div">) {
 	return (
 		<div data-slot="popover-header" className={cn("flex flex-col gap-0.5 text-sm", className)} {...props} />
@@ -53,6 +65,7 @@ function PopoverDescription({ className, ...props }: React.ComponentProps<"p">) 
 export {
 	Popover,
 	PopoverAnchor,
+	PopoverArrow,
 	PopoverContent,
 	PopoverDescription,
 	PopoverHeader,

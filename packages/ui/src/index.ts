@@ -37,6 +37,7 @@ export {
 export {
 	Popover,
 	PopoverAnchor,
+	PopoverArrow,
 	PopoverContent,
 	PopoverDescription,
 	PopoverHeader,

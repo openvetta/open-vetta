@@ -933,7 +933,7 @@
     "remoteAllAdded": "远程列表中的项都已添加，可在上方管理。"
   },
   "aiAssist": {
-    "cta": "让 AI 协助配置",
+    "cta": "让Vetta帮您配置",
     "dialog": {
       "title": "让 AI 协助配置",
       "description": "你正在「{{page}}」。用一句话说明目标即可，也可以点下方示例。",
