@@ -22,7 +22,9 @@ export function McpSettingsView({ model }: { model: McpSettingsModel }): JSX.Ele
 				open={model.secretsDialogPreset !== null}
 				preset={model.secretsDialogPreset}
 				initialValues={model.secretsDialogInitial}
-				saving={model.saving || model.busyPresetName !== null}
+				saving={model.saving || (model.busyPresetName !== null && !model.secretsDialogAuthorizing)}
+				authorizing={model.secretsDialogAuthorizing}
+				error={model.secretsDialogError}
 				onOpenChange={(open) => {
 					if (!open) model.onCloseSecretsDialog();
 				}}

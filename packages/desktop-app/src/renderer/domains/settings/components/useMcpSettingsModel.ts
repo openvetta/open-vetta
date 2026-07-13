@@ -15,6 +15,8 @@ import {
 	matchBuiltinMcpPreset,
 	presetRequiresSecrets,
 	presetUsesBrowserAuth,
+	presetUsesOAuth,
+	serverUsesOAuth,
 } from "../mcp/builtin-mcp-presets";
 import { recordSettingsUsage } from "./recordSettingsUsage";
 
@@ -66,10 +68,22 @@ export interface McpSettingsModel {
 	/** 配置密钥时的已有 env（编辑已添加项） */
 	secretsDialogInitial: Record<string, string> | undefined;
 	secretsDialogMode: "add" | "configure";
+	/** 连接引导 Dialog 内的错误（如 OAuth 失败） */
+	secretsDialogError: string | null;
 	onAddBuiltinServer: (preset: BuiltinMcpPreset) => Promise<void>;
 	onConfigureBuiltinSecrets: (name: string) => void;
 	onCloseSecretsDialog: () => void;
 	onConfirmSecretsDialog: (values: Record<string, string>) => Promise<void>;
+	/** serverName → 是否已有 OAuth token */
+	oauthAuthByName: Record<string, boolean>;
+	/** 正在进行 OAuth 的 server name */
+	oauthBusyName: string | null;
+	/** 连接引导 Dialog 是否处于「浏览器授权中」 */
+	secretsDialogAuthorizing: boolean;
+	/** 对 type:http 远程 MCP 发起浏览器授权 */
+	onAuthorizeOAuth: (name: string) => Promise<void>;
+	/** 清除 OAuth 凭证 */
+	onRevokeOAuth: (name: string) => Promise<void>;
 	onAddRemoteServer: (server: MarketMcpServer) => Promise<void>;
 	onRemoveRemoteServer: (name: string) => Promise<void>;
 	onJsonSave: () => Promise<void>;
@@ -109,24 +123,49 @@ export function useMcpSettingsModel(): McpSettingsModel {
 	const [secretsDialogInitial, setSecretsDialogInitial] = useState<Record<string, string> | undefined>();
 	const [secretsDialogMode, setSecretsDialogMode] = useState<"add" | "configure">("add");
 	const [secretsDialogTargetName, setSecretsDialogTargetName] = useState<string | null>(null);
+	const [secretsDialogError, setSecretsDialogError] = useState<string | null>(null);
+	const [secretsDialogAuthorizing, setSecretsDialogAuthorizing] = useState(false);
+	const [oauthAuthByName, setOauthAuthByName] = useState<Record<string, boolean>>({});
+	const [oauthBusyName, setOauthBusyName] = useState<string | null>(null);
+
+	const refreshOAuthStatus = useCallback(async (cfg: McpConfigData | null) => {
+		if (!cfg) {
+			setOauthAuthByName({});
+			return;
+		}
+		const oauthNames = Object.entries(cfg.mcpServers)
+			.filter(([name, server]) => serverUsesOAuth(name, server))
+			.map(([name]) => name);
+		if (oauthNames.length === 0) {
+			setOauthAuthByName({});
+			return;
+		}
+		const status = await window.vetta.mcp.authStatus(oauthNames);
+		setOauthAuthByName(status);
+	}, []);
 
 	useEffect(() => {
 		void window.vetta.mcp.get().then((loadedConfig) => {
 			setConfig(loadedConfig);
 			setJsonText(JSON.stringify(loadedConfig, null, 2));
+			void refreshOAuthStatus(loadedConfig);
 		});
-	}, []);
+	}, [refreshOAuthStatus]);
 
-	const saveConfig = useCallback(async (newConfig: McpConfigData) => {
-		setSaving(true);
-		try {
-			await window.vetta.mcp.set(newConfig);
-			setConfig(newConfig);
-			setJsonText(JSON.stringify(newConfig, null, 2));
-		} finally {
-			setSaving(false);
-		}
-	}, []);
+	const saveConfig = useCallback(
+		async (newConfig: McpConfigData) => {
+			setSaving(true);
+			try {
+				await window.vetta.mcp.set(newConfig);
+				setConfig(newConfig);
+				setJsonText(JSON.stringify(newConfig, null, 2));
+				void refreshOAuthStatus(newConfig);
+			} finally {
+				setSaving(false);
+			}
+		},
+		[refreshOAuthStatus],
+	);
 
 	const closeEditor = useCallback(() => {
 		setEditingServer(null);
@@ -134,45 +173,91 @@ export function useMcpSettingsModel(): McpSettingsModel {
 	}, []);
 
 	const closeSecretsDialog = useCallback(() => {
+		// 授权进行中不允许关掉，避免中途丢状态
+		if (secretsDialogAuthorizing) return;
 		setSecretsDialogPreset(null);
 		setSecretsDialogInitial(undefined);
 		setSecretsDialogTargetName(null);
 		setSecretsDialogMode("add");
-	}, []);
+		setSecretsDialogError(null);
+		setSecretsDialogAuthorizing(false);
+	}, [secretsDialogAuthorizing]);
 
 	const writeBuiltinPreset = useCallback(
 		async (preset: BuiltinMcpPreset, secretValues?: Record<string, string>) => {
 			if (!config) return;
+			const targetName =
+				secretsDialogMode === "configure" && secretsDialogTargetName ? secretsDialogTargetName : preset.name;
+			const next = buildBuiltinMcpServerConfig(
+				preset,
+				{
+					displayName: t(preset.displayNameKey),
+					description: t(preset.descriptionKey),
+				},
+				secretValues,
+			);
+			const existing = config.mcpServers[targetName];
+			const merged =
+				secretsDialogMode === "configure" && existing
+					? {
+							...next,
+							disabled: existing.disabled,
+							autoApprove: existing.autoApprove,
+							startupTimeout: existing.startupTimeout,
+							debug: existing.debug,
+						}
+					: next;
+			const nextConfig = {
+				...config,
+				mcpServers: {
+					...config.mcpServers,
+					[targetName]: merged,
+				},
+			};
+
+			// OAuth 首次添加：先浏览器授权成功，再写入 mcp.json，避免列表提前显示「已添加」
+			if (presetUsesOAuth(preset) && secretsDialogMode === "add" && next.type === "http") {
+				setBusyPresetName(preset.name);
+				setSecretsDialogError(null);
+				setSecretsDialogAuthorizing(true);
+				setOauthBusyName(targetName);
+				try {
+					await window.vetta.mcp.login(targetName, { url: next.url });
+					await saveConfig(nextConfig);
+					recordSettingsUsage({
+						tab: "mcp",
+						action: "added",
+						target: "builtin-server",
+						value: preset.id,
+					});
+					recordSettingsUsage({
+						tab: "mcp",
+						action: "updated",
+						target: "oauth-login",
+						value: preset.id,
+					});
+					setSecretsDialogAuthorizing(false);
+					setSecretsDialogError(null);
+					setSecretsDialogPreset(null);
+					setSecretsDialogInitial(undefined);
+					setSecretsDialogTargetName(null);
+					setSecretsDialogMode("add");
+				} catch (error) {
+					console.error("[mcp] OAuth login failed:", error);
+					setSecretsDialogError(
+						error instanceof Error && error.message.trim() ? error.message : t("mcpPresets.authFailed"),
+					);
+				} finally {
+					setSecretsDialogAuthorizing(false);
+					setOauthBusyName(null);
+					setBusyPresetName(null);
+				}
+				return;
+			}
+
 			setBusyPresetName(preset.name);
 			try {
-				const next = buildBuiltinMcpServerConfig(
-					preset,
-					{
-						displayName: t(preset.displayNameKey),
-						description: t(preset.descriptionKey),
-					},
-					secretValues,
-				);
-				const targetName =
-					secretsDialogMode === "configure" && secretsDialogTargetName ? secretsDialogTargetName : preset.name;
-				const existing = config.mcpServers[targetName];
-				const merged =
-					secretsDialogMode === "configure" && existing
-						? {
-								...next,
-								disabled: existing.disabled,
-								autoApprove: existing.autoApprove,
-								startupTimeout: existing.startupTimeout,
-								debug: existing.debug,
-							}
-						: next;
-				await saveConfig({
-					...config,
-					mcpServers: {
-						...config.mcpServers,
-						[targetName]: merged,
-					},
-				});
+				await saveConfig(nextConfig);
 				recordSettingsUsage({
 					tab: "mcp",
 					action: secretsDialogMode === "configure" ? "updated" : "added",
@@ -185,6 +270,34 @@ export function useMcpSettingsModel(): McpSettingsModel {
 			}
 		},
 		[closeSecretsDialog, config, saveConfig, secretsDialogMode, secretsDialogTargetName, t],
+	);
+
+	const authorizeOAuth = useCallback(
+		async (name: string) => {
+			setOauthBusyName(name);
+			try {
+				await window.vetta.mcp.login(name);
+				if (config) await refreshOAuthStatus(config);
+				recordSettingsUsage({ tab: "mcp", action: "updated", target: "oauth-login", value: name });
+			} finally {
+				setOauthBusyName(null);
+			}
+		},
+		[config, refreshOAuthStatus],
+	);
+
+	const revokeOAuth = useCallback(
+		async (name: string) => {
+			setOauthBusyName(name);
+			try {
+				await window.vetta.mcp.logout(name);
+				if (config) await refreshOAuthStatus(config);
+				recordSettingsUsage({ tab: "mcp", action: "updated", target: "oauth-logout", value: name });
+			} finally {
+				setOauthBusyName(null);
+			}
+		},
+		[config, refreshOAuthStatus],
 	);
 
 	const handleAddServer = useCallback(async () => {
@@ -228,6 +341,8 @@ export function useMcpSettingsModel(): McpSettingsModel {
 				setSecretsDialogMode("add");
 				setSecretsDialogTargetName(preset.name);
 				setSecretsDialogInitial(undefined);
+				setSecretsDialogError(null);
+				setSecretsDialogAuthorizing(false);
 				setSecretsDialogPreset(preset);
 				return;
 			}
@@ -274,6 +389,14 @@ export function useMcpSettingsModel(): McpSettingsModel {
 			if (!config) return;
 			const newServers = { ...config.mcpServers };
 			delete newServers[name];
+			// 删除配置时一并清掉 OAuth 凭证，避免残留 token
+			if (serverUsesOAuth(name, config.mcpServers[name]!)) {
+				try {
+					await window.vetta.mcp.logout(name);
+				} catch {
+					// best-effort
+				}
+			}
 			await saveConfig({ ...config, mcpServers: newServers });
 			if (editingServer === name) {
 				setEditingServer(null);
@@ -307,7 +430,7 @@ export function useMcpSettingsModel(): McpSettingsModel {
 			const server = config.mcpServers[name];
 			if (!server) return;
 			if (isBuiltinMcpServer(name, server)) return;
-			// 再次点击编辑 = 收起面板
+			// 再次点击同一项 = 关闭侧边编辑 Sheet
 			if (editingServer === name) {
 				closeEditor();
 				return;
@@ -386,6 +509,8 @@ export function useMcpSettingsModel(): McpSettingsModel {
 		secretsDialogPreset,
 		secretsDialogInitial,
 		secretsDialogMode,
+		secretsDialogError,
+		secretsDialogAuthorizing,
 		setServerForm,
 		setJsonText,
 		clearJsonError: () => setJsonError(null),
@@ -410,6 +535,10 @@ export function useMcpSettingsModel(): McpSettingsModel {
 		onConfigureBuiltinSecrets: configureBuiltinSecrets,
 		onCloseSecretsDialog: closeSecretsDialog,
 		onConfirmSecretsDialog: confirmSecretsDialog,
+		oauthAuthByName,
+		oauthBusyName,
+		onAuthorizeOAuth: authorizeOAuth,
+		onRevokeOAuth: revokeOAuth,
 		onAddRemoteServer: addRemoteServer,
 		onRemoveRemoteServer: removeServer,
 		onJsonSave: handleJsonSave,

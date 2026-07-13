@@ -6,11 +6,15 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **远程 MCP OAuth 授权（通用，Notion 首接）**：HTTP 连接器支持浏览器 OAuth；IPC `mcp.login` / `logout` / `hasAuth` / `authStatus`；扩展 → 连接器展示「待授权 / 已授权」与去授权/断开。Notion 内置预设改为官方托管 `https://mcp.notion.com/mcp`（不再手填 Integration Secret）。
+- **OAuth 连接器添加时序**：先浏览器授权成功再写入 mcp.json；Dialog 保持打开并显示「请在浏览器中完成授权…」，避免点继续后立刻出现「已添加」。
 - **对话消息编辑 / 分支切换 / 分叉会话**：任意已落盘的用户消息可编辑（解析 skill/@文件 回填底部输入框，发送时 `navigateForEdit` 从 parent 分叉）；同位置多版本显示 `‹ i/n ›` 切换分支；支持「分叉为新会话」导出独立 session。streaming 时切换/编辑/分叉会确认中断。History 透传 `entryId` 与 sibling 信息；Runtime/IPC 新增 `navigateForEdit` / `switchBranch` / `forkSession`。
 - **远程 MCP 图标**：连接器「发现 → 广场」与「我的」均展示管理员配置的图标；添加时写入 `mcp.json` 的 `icon`；已添加但缺 icon 的条目会从市场自动补全。
 
 ### Fixed
 
+- **连接器「我的」误把其他 HTTP MCP 显示为 Notion**：`matchBuiltinMcpPreset` 回退匹配时错误使用了 `preset.config.url.includes(packageHint)`（对 Notion 预设恒真），导致广场添加的远程 HTTP 连接器标题/图标被盖成 Notion。现仅用条目自身的 `url` 与 `packageHint` 比对。
+- **免密钥 HTTP 连接器误提示「待授权」**：`serverUsesOAuth` 曾把所有无 headers 的 HTTP MCP 都当成 OAuth；现仅对内置 OAuth 预设（如 Notion）展示授权状态与按钮。
 - **输入框 / 用户消息本地图片无法展示**：输入栏 `@` 图片曾用 `file://`（Electron 拦截 `Not allowed to load local resource`），改为 `vetta-file://`；用户气泡不再过滤 `image-cache` 路径，发送落盘回放后缩略图可显示。共享 `toVettaFileUrl`。
 - **编辑/续聊后 bash 与文件树 ENOENT（session cwd 丢失）**：`~/.vetta/conversation/<uuid>` 是 ADR-0007 的运行 cwd；「清空产物」曾整目录删除这些 UUID 夹，session header 仍引用 → 编辑后 agent 报 Working directory does not exist、`vetta:fs:read-dir` scandir 失败。清空产物改为只清空 UUID 目录内容并保留目录；`session:create` 与 `RuntimeHost.prompt` 在启动轮次前 `mkdir` 自愈缺失 cwd。
 - **Fork 保留被点击的用户消息及本轮 AI 回复**：分叉导出到该 user 回合 tip（user + assistant/工具链；此前只到 user 会丢 AI 气泡；再早只到 parent 会连 user 也丢）。打开新会话后清空 pending 编辑，避免对原 session 的 entryId 调用 `navigateForEdit` 报 Entry not found。
@@ -19,6 +23,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **连接器编辑改为右侧 Sheet**：自定义 MCP 点编辑后从侧边滑出表单，不再在卡片下方内联展开。
 - **连接器配置引导 Dialog**：改为双图标头图 + 分区说明卡片 + 全宽「继续」主按钮的连接授权式布局（保留本机凭证表单与推荐徽标，风格沿用现有 token）。
 - **快捷键 Action 授权弹窗对齐设置页交互**：`set-binding` 用功能下拉 + `ShortcutRecorder` 录制，不再手填 id/组合键字符串；快捷面板触发与发送后行为复用 `@vetta/ui` Select（与设置页同款）；恢复类弹窗展示产品功能名与默认键显示。文案按 `docs/user-facing-copy.md` 说结果与影响。
 - **新会话欢迎区主题覆盖点 `chat.newSessionHero`**：开放 `NewSessionHeroProps`（标题/副标题/场景轮播等）供主题替换欢迎区实现；默认仍渲染 `BotAvatar`。修仙主题覆盖为无头像布局，去掉 idle 弹跳手势。
