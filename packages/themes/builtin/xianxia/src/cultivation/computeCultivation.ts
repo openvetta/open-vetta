@@ -33,6 +33,7 @@ function normalizeDailyScores(
 	dailyScores: readonly CultivationDailyScore[] | undefined,
 	score: number,
 	now: number,
+	previousScore?: number,
 ): readonly CultivationDailyScore[] {
 	const today = getLocalDateKey(now);
 	const cutoff = getDateKeyDaysAgo(now, HISTORY_RETENTION_DAYS);
@@ -42,17 +43,19 @@ function normalizeDailyScores(
 		if (entry.date < cutoff) continue;
 		byDate.set(entry.date, entry.score);
 	}
-	byDate.set(today, score);
+	if (!byDate.has(today)) {
+		byDate.set(today, previousScore ?? 0);
+	}
 
 	return [...byDate.entries()]
 		.sort(([left], [right]) => left.localeCompare(right))
 		.map(([date, entryScore]) => ({ date, score: entryScore }));
 }
 
-function findScoreBefore(dailyScores: readonly CultivationDailyScore[], date: string): number | null {
+function findScoreAtOrBefore(dailyScores: readonly CultivationDailyScore[], date: string): number | null {
 	for (let index = dailyScores.length - 1; index >= 0; index--) {
 		const entry = dailyScores[index];
-		if (entry.date < date) return entry.score;
+		if (entry.date <= date) return entry.score;
 	}
 	return null;
 }
@@ -61,14 +64,14 @@ function computeGrowth(score: number, dailyScores: readonly CultivationDailyScor
 	const today = getLocalDateKey(now);
 	const weekStart = getDateKeyDaysAgo(now, 7);
 	const monthStart = getDateKeyDaysAgo(now, 30);
-	const todayBase = findScoreBefore(dailyScores, today);
-	const weekBase = findScoreBefore(dailyScores, weekStart);
-	const monthBase = findScoreBefore(dailyScores, monthStart);
+	const todayBase = findScoreAtOrBefore(dailyScores, today);
+	const weekBase = findScoreAtOrBefore(dailyScores, weekStart);
+	const monthBase = findScoreAtOrBefore(dailyScores, monthStart);
 
 	return {
-		today: round2(Math.max(0, score - (todayBase ?? score))),
-		thisWeek: round2(Math.max(0, score - (weekBase ?? score))),
-		last30Days: round2(Math.max(0, score - (monthBase ?? score))),
+		today: round2(Math.max(0, score - (todayBase ?? 0))),
+		thisWeek: round2(Math.max(0, score - (weekBase ?? 0))),
+		last30Days: round2(Math.max(0, score - (monthBase ?? 0))),
 	};
 }
 
@@ -95,7 +98,7 @@ export function computeCultivation(
 	const current = CULTIVATION_REALMS[currentIndex];
 	const next = CULTIVATION_REALMS[currentIndex + 1] ?? null;
 	const achievedRealmIds = CULTIVATION_REALMS.slice(0, currentIndex + 1).map((realm) => realm.id);
-	const dailyScores = normalizeDailyScores(previous?.dailyScores, score, now);
+	const dailyScores = normalizeDailyScores(previous?.dailyScores, score, now, previous?.score);
 	const realmSpan = next ? next.targetScore - current.targetScore : 0;
 	const cultivationPower = round2(Math.max(0, score - current.targetScore));
 	const cultivationPowerTarget = round2(Math.max(0, realmSpan));

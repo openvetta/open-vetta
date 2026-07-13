@@ -1,4 +1,5 @@
 import { cn } from "@vetta/ui";
+import { AnimatePresence, motion } from "motion/react";
 import type { JSX } from "react";
 import { sanctumPageAssets } from "./assets";
 import { formatCultivationNumber } from "./cultivationView";
@@ -19,24 +20,41 @@ export function XianxiaCultivationNumber({
 	readonly value: number;
 }): JSX.Element {
 	return (
-		<span className={cn("inline-flex items-end", className)}>
+		<span className={cn("inline-flex items-end tabular-nums", className)}>
 			{prefix && <span className="mr-1 font-semibold leading-none text-amber-50">{prefix}</span>}
 			{getCultivationNumberGlyphs(value).map((glyph, index) =>
 				glyph === "," ? (
 					<span
 						aria-hidden="true"
-						className="mx-0.5 translate-y-[-0.06em] font-semibold leading-none text-amber-50"
+						className={cn(
+							"mx-0.5 flex aspect-[2/8] flex-none items-end justify-center overflow-hidden font-semibold leading-none text-amber-50",
+							digitClassName,
+						)}
 						key={`${glyph}-${index}`}
 					>
-						,
+						<span className="translate-y-[-0.06em]">,</span>
 					</span>
 				) : (
-					<img
-						alt={glyph}
-						className={cn("w-auto max-w-none object-contain", digitClassName)}
-						key={`${glyph}-${index}`}
-						src={sanctumPageAssets.cultivationDigits[Number(glyph)]}
-					/>
+					<span
+						className={cn(
+							"relative inline-flex aspect-[5/8] flex-none items-center justify-center overflow-hidden",
+							digitClassName,
+						)}
+						key={index}
+					>
+						<AnimatePresence initial={false} mode="popLayout">
+							<motion.img
+								alt={glyph}
+								animate={{ opacity: 1, y: 0 }}
+								className="absolute h-full w-auto max-w-none object-contain"
+								exit={{ opacity: 0, y: "-105%" }}
+								initial={{ opacity: 0, y: "105%" }}
+								key={glyph}
+								src={sanctumPageAssets.cultivationDigits[Number(glyph)]}
+								transition={{ duration: 0.28, ease: "easeOut" }}
+							/>
+						</AnimatePresence>
+					</span>
 				),
 			)}
 		</span>

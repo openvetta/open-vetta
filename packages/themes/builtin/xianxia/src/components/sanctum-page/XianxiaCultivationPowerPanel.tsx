@@ -37,7 +37,7 @@ export function XianxiaCultivationPowerPanel({
 						<span className="icon-[solar--info-circle-linear] h-5 w-5 flex-none text-slate-200/75" />
 					</div>
 					<div className="ml-4 min-[1280px]:ml-6">
-						<div className="mt-2 flex min-w-0 items-end gap-3">
+						<div className="mt-4 flex min-w-0 items-end gap-3">
 							<XianxiaCultivationNumber
 								className="drop-shadow-[0_1px_4px_rgba(15,23,42,0.75)]"
 								digitClassName="h-[48px] min-[1280px]:h-[58px]"
@@ -45,10 +45,10 @@ export function XianxiaCultivationPowerPanel({
 							/>
 							<span className="pb-1.5 text-[25px] font-semibold leading-none text-slate-100/95 min-[1280px]:pb-2 min-[1280px]:text-[30px]">/ {formatCultivationNumber(cultivation.maxPower)}</span>
 						</div>
-						<div className="mt-2 h-3 w-[82%] shrink-0 overflow-hidden rounded-full border border-amber-100/45 bg-slate-950/35 shadow-inner">
+						<div className="mt-2 h-3 w-[82%] shrink-0 overflow-hidden rounded-full border border-[#edd2aa]/55 bg-slate-950/35 p-[2px] shadow-inner">
 							<motion.div
 								animate={{ width: cultivation.progressPercent }}
-								className="h-full rounded-full bg-gradient-to-r from-amber-200 via-yellow-100 to-amber-300 shadow-[0_0_7px_rgba(255,240,190,0.75)]"
+								className="h-full rounded-full bg-[#edd2aa] shadow-[0_0_5px_rgba(237,210,170,0.58)]"
 								initial={{ width: "0%" }}
 								transition={{ delay: 0.38, duration: 0.75, ease: "easeOut" }}
 							/>
