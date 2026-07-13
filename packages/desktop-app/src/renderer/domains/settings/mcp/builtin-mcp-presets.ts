@@ -67,6 +67,12 @@ export interface BuiltinMcpPreset {
 	setupHelpUrl?: string;
 	/** args 中用于回退识别的包名片段 */
 	packageHint?: string;
+	/**
+	 * 是否在「发现 → 推荐」列表中展示。
+	 * 缺省/false：仅保留配置与匹配逻辑（已添加识别、图标、OAuth 等），UI 不展示。
+	 * 目前只放行已接好的预设（如 Notion）。
+	 */
+	listedInDiscover?: boolean;
 }
 
 const MCP_ICON_BASE = "./mcp";
@@ -97,6 +103,7 @@ export const BUILTIN_MCP_PRESETS: readonly BuiltinMcpPreset[] = [
 		packageHint: "mcp.notion.com",
 		setupGuideKey: "mcpPresets.guides.notion",
 		setupHelpUrl: "https://developers.notion.com/guides/mcp/get-started-with-mcp",
+		listedInDiscover: true,
 		config: {
 			type: "http",
 			url: "https://mcp.notion.com/mcp",
@@ -229,6 +236,11 @@ export function getBuiltinMcpPresetByName(name: string): BuiltinMcpPreset | unde
 
 export function getBuiltinMcpPresetById(id: string): BuiltinMcpPreset | undefined {
 	return BUILTIN_MCP_PRESETS.find((preset) => preset.id === id);
+}
+
+/** 推荐广场可见的内置预设（listedInDiscover !== true 的仅保留数据与匹配）。 */
+export function getListedBuiltinMcpPresets(): readonly BuiltinMcpPreset[] {
+	return BUILTIN_MCP_PRESETS.filter((preset) => preset.listedInDiscover === true);
 }
 
 /** 是否为内置预设对应的已添加条目（按 name 命中，或按包名特征回退匹配）。 */

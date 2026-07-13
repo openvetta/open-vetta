@@ -23,6 +23,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **连接器推荐仅展示已接好的 Notion**：Canva / Figma / Slack / Gmail / Google 日历 / 云端硬盘等内置预设仍保留配置与匹配逻辑，仅在「发现 → 推荐」中视觉隐藏（`listedInDiscover`）；后续配好后打开该标记即可重新展示。
 - **连接器编辑改为右侧 Sheet**：自定义 MCP 点编辑后从侧边滑出表单，不再在卡片下方内联展开。
 - **连接器配置引导 Dialog**：改为双图标头图 + 分区说明卡片 + 全宽「继续」主按钮的连接授权式布局（保留本机凭证表单与推荐徽标，风格沿用现有 token）。
 - **快捷键 Action 授权弹窗对齐设置页交互**：`set-binding` 用功能下拉 + `ShortcutRecorder` 录制，不再手填 id/组合键字符串；快捷面板触发与发送后行为复用 `@vetta/ui` Select（与设置页同款）；恢复类弹窗展示产品功能名与默认键显示。文案按 `docs/user-facing-copy.md` 说结果与影响。
