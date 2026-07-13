@@ -9,6 +9,8 @@ export interface SettingsAiAssistDialogProps {
 	placeholder: string;
 	submitting: boolean;
 	submitError: string | null;
+	triggerLabel: string;
+	className?: string;
 	onApplyExample: (text: string) => void;
 	onIntentChange: (value: string) => void;
 	onOpenChange: (open: boolean) => void;
@@ -23,6 +25,8 @@ export function SettingsAiAssistDialog({
 	placeholder,
 	submitting,
 	submitError,
+	triggerLabel,
+	className,
 	onApplyExample,
 	onIntentChange,
 	onOpenChange,
@@ -35,6 +39,8 @@ export function SettingsAiAssistDialog({
 		<SettingsAiAssistDialogView
 			open={open}
 			onOpenChange={onOpenChange}
+			triggerLabel={triggerLabel}
+			className={className}
 			examples={examples}
 			intent={intent}
 			placeholder={placeholder}
