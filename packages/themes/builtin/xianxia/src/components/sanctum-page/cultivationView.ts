@@ -19,6 +19,21 @@ const fallbackCultivationView: SanctumCultivationView = {
 	name: fallbackRealm.name,
 	progressPercent: "0%",
 	realmId: fallbackRealm.id,
+	score: 0,
+	scoreBreakdown: {
+		activeTime: 0,
+		automation: 0,
+		batch: 0,
+		depth: 0,
+		knowledge: 0,
+		messages: 0,
+		projects: 0,
+		sessions: 0,
+		streak: 0,
+		tokens: 0,
+		tools: 0,
+		turns: 0,
+	},
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -75,6 +90,8 @@ function toCultivationView(snapshot: CultivationSnapshot | null): SanctumCultiva
 		name: snapshot.name,
 		progressPercent: `${Math.round(snapshot.progressToNext * 100)}%`,
 		realmId: snapshot.realmId,
+		score: snapshot.score,
+		scoreBreakdown: snapshot.scoreBreakdown,
 	};
 }
 

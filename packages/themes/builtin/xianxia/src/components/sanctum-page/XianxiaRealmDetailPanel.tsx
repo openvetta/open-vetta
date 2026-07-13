@@ -1,7 +1,7 @@
 import { HorizontalSliceImageDecoration, NineSliceImageFrame } from "@vetta/theme-ui";
 import { cn } from "@vetta/ui";
 import { motion } from "motion/react";
-import type { JSX } from "react";
+import { useEffect, useRef, type JSX } from "react";
 import { sanctumPageAssets } from "./assets";
 import type { RealmDetailView, RealmRequirement } from "./types";
 
@@ -40,6 +40,20 @@ export function XianxiaRealmDetailPanel({
 	readonly detail: RealmDetailView;
 	readonly onClose: () => void;
 }): JSX.Element {
+	const panelRef = useRef<HTMLElement>(null);
+
+	useEffect(() => {
+		const onPointerDown = (event: PointerEvent): void => {
+			if (panelRef.current?.contains(event.target as Node)) return;
+			onClose();
+		};
+
+		document.addEventListener("pointerdown", onPointerDown, true);
+		return () => {
+			document.removeEventListener("pointerdown", onPointerDown, true);
+		};
+	}, [onClose]);
+
 	return (
 		<motion.aside
 			animate={{ opacity: 1, x: 0 }}
@@ -47,6 +61,7 @@ export function XianxiaRealmDetailPanel({
 			className="absolute right-0 top-[272px] z-30 min-h-[300px] w-[348px] text-slate-100 drop-shadow-[0_8px_24px_rgba(8,15,30,0.42)] min-[1280px]:right-[-10px] min-[1280px]:top-[282px] min-[1280px]:w-[382px]"
 			exit={{ opacity: 0, x: 46 }}
 			initial={{ opacity: 0, x: 80 }}
+			ref={panelRef}
 			role="dialog"
 			transition={{ duration: 0.28, ease: "easeOut" }}
 		>
