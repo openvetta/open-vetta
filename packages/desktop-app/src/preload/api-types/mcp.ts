@@ -7,6 +7,8 @@ export interface McpServerCommonConfigData {
 	displayName?: string;
 	/** 仅 UI 展示用的描述。 */
 	description?: string;
+	/** 仅 UI 展示用的图标 URL（远程市场/自定义配置）。 */
+	icon?: string;
 }
 
 export interface McpStdioServerConfigData extends McpServerCommonConfigData {
