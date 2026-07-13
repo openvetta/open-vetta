@@ -211,52 +211,72 @@
 		"shortcuts": {
 			"ops": {
 				"set-binding": {
-					"title": "修改全局快捷键",
-					"summary": "为指定应用动作设置新的键盘组合。可在确认前改动作或组合键。",
+					"title": "修改快捷键",
+					"summary": "选择要改的功能，再点按键区域录制新的组合键。确认后立刻可用。",
 					"confirm": "保存快捷键",
 					"badge": "快捷键",
-					"impact": "新组合键立即生效；与其它动作冲突时会拒绝保存。"
+					"impact": "之后用新的组合键就能触发该功能；若与其它功能冲突，保存会失败。"
 				},
 				"reset-binding": {
-					"title": "恢复单项快捷键",
-					"summary": "将该动作的快捷键恢复为默认组合。",
+					"title": "恢复默认快捷键",
+					"summary": "把这个功能的快捷键改回系统默认。",
 					"confirm": "恢复默认",
 					"badge": "恢复",
-					"impact": "该动作将重新使用默认快捷键。"
+					"impact": "该功能将重新使用默认组合键。"
 				},
 				"reset-all-bindings": {
-					"title": "恢复全部全局快捷键",
-					"summary": "将所有全局应用快捷键恢复为默认组合。",
+					"title": "全部恢复默认快捷键",
+					"summary": "把下列功能的自定义快捷键全部清掉，改回默认。",
 					"confirm": "全部恢复默认",
 					"badge": "重置",
-					"impact": "全部自定义全局绑定会被清除；快捷面板呼出与发送后行为不受影响。",
-					"warningTitle": "仅影响全局绑定",
-					"warning": "不会修改快捷面板的呼出方式或发送后行为。"
+					"impact": "全局功能快捷键会恢复默认；快捷面板怎么呼出、发送后怎么做不会变。",
+					"warningTitle": "仅影响全局功能键",
+					"warning": "不会改快捷面板的呼出方式，也不会改发送后是打开主窗口还是后台运行。"
 				},
 				"set-quick-panel-trigger": {
-					"title": "修改快捷面板触发",
-					"summary": "选择双击哪个功能键呼出快捷面板。可在确认前改选。",
-					"confirm": "保存触发方式",
+					"title": "修改快捷面板呼出方式",
+					"summary": "选择双击哪个键打开快捷面板。选「不启用」后只能从主窗口使用。",
+					"confirm": "保存呼出方式",
 					"badge": "快捷键",
-					"impact": "原生双击监听会按新设置立即启停。"
+					"impact": "马上生效，可随时再改。"
 				},
 				"set-quick-panel-behavior": {
-					"title": "修改快捷面板发送后行为",
-					"summary": "选择在快捷面板发送消息后打开主窗口或仅后台运行。",
+					"title": "修改发送后行为",
+					"summary": "在快捷面板发出消息后，是打开主窗口跟进，还是只在后台继续跑。",
 					"confirm": "保存发送后行为",
 					"badge": "快捷键",
-					"impact": "之后从快捷面板发送的会话将按新行为处理。"
+					"impact": "只影响之后从快捷面板发出的对话。"
 				}
 			},
+			"bindingSectionTitle": "功能快捷键",
+			"bindingSectionDescription": "与设置 → 快捷键中的全局快捷键相同，可先选功能再录制按键。",
+			"actionField": "功能",
+			"comboField": "组合键",
+			"comboFieldHint": "点击后按下新的组合键即可录制",
+			"resetToDefault": "将恢复为 {{shortcut}}",
+			"quickPanelTriggerSectionTitle": "快捷面板呼出",
+			"quickPanelTriggerSectionDescription": "与设置页里的快捷面板触发方式相同。",
+			"quickPanelBehaviorSectionTitle": "发送后怎么做",
+			"quickPanelBehaviorSectionDescription": "与设置页里的「发送后行为」相同。",
 			"quickPanelTriggers": {
 				"none": "不启用",
 				"mod": "双击 ⌘ / Ctrl",
 				"alt": "双击 ⌥ / Alt",
 				"shift": "双击 ⇧"
 			},
+			"quickPanelTriggerHints": {
+				"none": "关闭双击呼出，需要时从主窗口操作",
+				"mod": "在任意处双击 ⌘（Mac）或 Ctrl（Windows）打开面板",
+				"alt": "在任意处双击 ⌥ / Alt 打开面板",
+				"shift": "在任意处双击 ⇧ 打开面板"
+			},
 			"quickPanelBehaviors": {
 				"foreground": "打开主窗口",
 				"background": "后台运行"
+			},
+			"quickPanelBehaviorHints": {
+				"foreground": "发送后打开主窗口并定位到新对话",
+				"background": "发送后只关闭面板，对话在后台继续"
 			}
 		},
 		"models": {

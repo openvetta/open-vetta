@@ -1,6 +1,17 @@
+import { useTranslation } from "react-i18next";
 import { type ActiveActionApproval, useActionApproval } from "../../useActionApproval";
-import { ApprovalImpactCard, ApprovalRawFallback, ApprovalWarningCard } from "../ApprovalParts";
+import {
+	ApprovalImpactCard,
+	ApprovalRawFallback,
+	ApprovalValueList,
+	ApprovalWarningCard,
+} from "../ApprovalParts";
 import { useManageApprovalFrame } from "../useManageApprovalShell";
+import {
+	formatShortcutDisplay,
+	SHORTCUT_ACTIONS,
+	SHORTCUTS_APPROVAL_ICON,
+} from "./shortcutsApprovalShared";
 
 interface InputData {
 	operation: "reset-all-bindings";
@@ -25,16 +36,21 @@ export function ShortcutsResetAllBindingsApproval(): JSX.Element | null {
 
 function Content({ approval }: { approval: ActiveActionApproval }): JSX.Element {
 	const { Frame, t, frameLabels } = useManageApprovalFrame();
+	const { t: tSettings } = useTranslation("settings");
 	const { request, responding, error, approve, reject } = approval;
 	const input = parseInput(request.input);
-	const icon = "icon-[mdi--keyboard-outline]";
+
+	const rows = SHORTCUT_ACTIONS.map((action) => ({
+		label: tSettings(action.labelKey),
+		value: formatShortcutDisplay(action.defaultShortcut),
+	}));
 
 	return (
 		<Frame
 			presentation="dialog"
 			title={t("manageApproval.shortcuts.ops.reset-all-bindings.title")}
 			summary={t("manageApproval.shortcuts.ops.reset-all-bindings.summary")}
-			icon={icon}
+			icon={SHORTCUTS_APPROVAL_ICON}
 			badge={t("manageApproval.shortcuts.ops.reset-all-bindings.badge")}
 			labels={frameLabels(request.permission, t("manageApproval.shortcuts.ops.reset-all-bindings.confirm"))}
 			responding={responding}
@@ -53,11 +69,12 @@ function Content({ approval }: { approval: ActiveActionApproval }): JSX.Element 
 		>
 			{input ? (
 				<>
+					<ApprovalValueList rows={rows} />
 					<ApprovalWarningCard>
 						{t("manageApproval.shortcuts.ops.reset-all-bindings.warning")}
 					</ApprovalWarningCard>
 					<ApprovalImpactCard
-						icon={icon}
+						icon={SHORTCUTS_APPROVAL_ICON}
 						title={t("manageApproval.afterActionTitle")}
 						description={t("manageApproval.shortcuts.ops.reset-all-bindings.impact")}
 					/>

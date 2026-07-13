@@ -1,17 +1,24 @@
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@vetta/ui";
 import { useState } from "react";
 import { type ActiveActionApproval, useActionApproval } from "../../useActionApproval";
-import { ApprovalFormField, ApprovalImpactCard, ApprovalRawFallback } from "../ApprovalParts";
+import {
+	ApprovalImpactCard,
+	ApprovalRawFallback,
+	ApprovalSettingGroup,
+	ApprovalSettingRow,
+} from "../ApprovalParts";
 import { useManageApprovalFrame } from "../useManageApprovalShell";
-
-type Behavior = "foreground" | "background";
+import {
+	QUICK_PANEL_APPROVAL_ICON,
+	QUICK_PANEL_BEHAVIORS,
+	type QuickPanelBehavior,
+} from "./shortcutsApprovalShared";
 
 interface InputData {
 	operation: "set-quick-panel-behavior";
-	behavior: Behavior;
+	behavior: QuickPanelBehavior;
 	approvalUi?: string;
 }
-
-const BEHAVIORS: Behavior[] = ["foreground", "background"];
 
 function parseInput(input: unknown): InputData | null {
 	if (typeof input !== "object" || input === null || Array.isArray(input)) return null;
@@ -35,15 +42,14 @@ function Content({ approval }: { approval: ActiveActionApproval }): JSX.Element 
 	const { Frame, t, frameLabels } = useManageApprovalFrame();
 	const { request, responding, error, approve, reject } = approval;
 	const input = parseInput(request.input);
-	const [behavior, setBehavior] = useState<Behavior>(input?.behavior ?? "foreground");
-	const icon = "icon-[mdi--lightning-bolt-outline]";
+	const [behavior, setBehavior] = useState<QuickPanelBehavior>(input?.behavior ?? "foreground");
 
 	return (
 		<Frame
 			presentation="drawer"
 			title={t("manageApproval.shortcuts.ops.set-quick-panel-behavior.title")}
 			summary={t("manageApproval.shortcuts.ops.set-quick-panel-behavior.summary")}
-			icon={icon}
+			icon={QUICK_PANEL_APPROVAL_ICON}
 			badge={t("manageApproval.shortcuts.ops.set-quick-panel-behavior.badge")}
 			labels={frameLabels(request.permission, t("manageApproval.shortcuts.ops.set-quick-panel-behavior.confirm"))}
 			responding={responding}
@@ -63,22 +69,37 @@ function Content({ approval }: { approval: ActiveActionApproval }): JSX.Element 
 		>
 			{input ? (
 				<>
-					<ApprovalFormField id="shortcuts-qp-behavior" label={t("manageApproval.fields.quickpanelBehavior")}>
-						<select
-							id="shortcuts-qp-behavior"
-							className="h-9 w-full rounded-md border border-border bg-background px-3 text-[13px] text-foreground"
-							value={behavior}
-							onChange={(e) => setBehavior(e.target.value as Behavior)}
+					<ApprovalSettingGroup
+						title={t("manageApproval.shortcuts.quickPanelBehaviorSectionTitle")}
+						description={t("manageApproval.shortcuts.quickPanelBehaviorSectionDescription")}
+					>
+						<ApprovalSettingRow
+							title={t("manageApproval.fields.quickpanelBehavior")}
+							description={t(`manageApproval.shortcuts.quickPanelBehaviorHints.${behavior}`)}
+							border={false}
 						>
-							{BEHAVIORS.map((candidate) => (
-								<option key={candidate} value={candidate}>
-									{t(`manageApproval.shortcuts.quickPanelBehaviors.${candidate}`)}
-								</option>
-							))}
-						</select>
-					</ApprovalFormField>
+							<Select
+								value={behavior}
+								onValueChange={(value) => setBehavior(value as QuickPanelBehavior)}
+							>
+								<SelectTrigger
+									size="sm"
+									className="h-8 min-w-[150px] border-border/70 bg-background/50 text-[12px]"
+								>
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									{QUICK_PANEL_BEHAVIORS.map((candidate) => (
+										<SelectItem key={candidate} value={candidate} className="text-[12px]">
+											{t(`manageApproval.shortcuts.quickPanelBehaviors.${candidate}`)}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</ApprovalSettingRow>
+					</ApprovalSettingGroup>
 					<ApprovalImpactCard
-						icon={icon}
+						icon={QUICK_PANEL_APPROVAL_ICON}
 						title={t("manageApproval.afterActionTitle")}
 						description={t("manageApproval.shortcuts.ops.set-quick-panel-behavior.impact")}
 					/>
