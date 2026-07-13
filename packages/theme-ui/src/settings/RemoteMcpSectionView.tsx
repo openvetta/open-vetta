@@ -1,4 +1,4 @@
-import { useMemo, type JSX } from "react";
+import { useMemo, useState, type JSX } from "react";
 import { Button, cn } from "@vetta/ui";
 import { McpDefaultIcon } from "./McpDefaultIcon";
 import type { SettingSectionMeta } from "./SettingChrome";
@@ -8,6 +8,8 @@ export interface RemoteMcpServerRowView {
 	readonly name: string;
 	readonly display_name?: string;
 	readonly description?: string;
+	/** 绝对或相对图标 URL；空则使用默认图标 */
+	readonly icon?: string;
 }
 
 export interface RemoteMcpSectionViewLabels {
@@ -122,6 +124,9 @@ function RemoteMcpCard({
 	onAction: (server: RemoteMcpServerRowView, action: "add" | "remove") => Promise<void>;
 }): JSX.Element {
 	const title = server.display_name || server.name;
+	const iconSrc = server.icon?.trim() || "";
+	const [failedIcon, setFailedIcon] = useState<string | null>(null);
+	const showImg = Boolean(iconSrc) && failedIcon !== iconSrc;
 
 	return (
 		<div
@@ -133,7 +138,16 @@ function RemoteMcpCard({
 		>
 			<div className="flex flex-1 flex-col gap-2.5 p-3.5">
 				<div className="flex items-start gap-2.5">
-					<McpDefaultIcon className="h-10 w-10 rounded-lg" />
+					{showImg ? (
+						<img
+							src={iconSrc}
+							alt=""
+							className="h-10 w-10 shrink-0 rounded-lg object-contain"
+							onError={() => setFailedIcon(iconSrc)}
+						/>
+					) : (
+						<McpDefaultIcon className="h-10 w-10 rounded-lg" />
+					)}
 					<div className="min-w-0 flex-1">
 						<div className="flex min-w-0 flex-wrap items-center gap-1.5">
 							<h4 className="truncate text-[13px] font-semibold tracking-tight text-foreground">{title}</h4>

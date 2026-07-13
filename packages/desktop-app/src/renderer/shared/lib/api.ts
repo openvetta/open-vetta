@@ -402,14 +402,43 @@ export interface MarketMcpServer {
 	name: string;
 	display_name: string;
 	description: string;
+	/** 图标：外部 URL，或相对路径 `/api/v1/mcp-servers/:id/icon` */
+	icon?: string;
 	/** 由管理员维护的原样配置，直接作为 mcpServers[name] 写入本地 mcp.json */
 	config: Record<string, unknown>;
 }
 
+/** 将 API 返回的 icon（可能是相对路径）解析为可请求的绝对 URL */
+export async function resolveMarketMcpIconUrl(icon: string | undefined | null): Promise<string | undefined> {
+	if (!icon?.trim()) return undefined;
+	const trimmed = icon.trim();
+	if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("data:")) {
+		return trimmed;
+	}
+	const base = (await getApiBase()).replace(/\/$/, "");
+	if (trimmed.startsWith("/")) {
+		// base 通常是 https://host/api/v1；相对路径可能是 /api/v1/...
+		try {
+			const u = new URL(base);
+			return `${u.origin}${trimmed}`;
+		} catch {
+			return `${base}${trimmed}`;
+		}
+	}
+	return `${base}/${trimmed}`;
+}
+
 export async function fetchMarketMcpServers(token: string): Promise<MarketMcpServer[]> {
-	return request<MarketMcpServer[]>("/mcp-servers/market", {
+	const items = await request<MarketMcpServer[]>("/mcp-servers/market", {
 		headers: authHeaders(token),
 	});
+	// 并行解析图标绝对地址（上传图标多为 /api/v1/mcp-servers/:id/icon）
+	return Promise.all(
+		(items ?? []).map(async (item) => {
+			const icon = await resolveMarketMcpIconUrl(item.icon);
+			return { ...item, icon: icon || undefined };
+		}),
+	);
 }
 
 // ─── Flowing ───
