@@ -23,12 +23,10 @@ export function McpSettingsView({ model }: { model: McpSettingsModel }): JSX.Ele
 				preset={model.secretsDialogPreset}
 				initialValues={model.secretsDialogInitial}
 				saving={model.saving || model.busyPresetName !== null}
-				allowDefer={model.secretsDialogMode === "add"}
 				onOpenChange={(open) => {
 					if (!open) model.onCloseSecretsDialog();
 				}}
 				onConfirm={(values) => void model.onConfirmSecretsDialog(values)}
-				onDefer={() => void model.onConfirmSecretsDialog({})}
 			/>
 		</div>
 	);

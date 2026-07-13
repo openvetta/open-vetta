@@ -9,20 +9,20 @@ export type { BuiltinMcpSecretsDialogViewLabels };
 
 export interface BuiltinMcpSecretsDialogViewProps extends BuiltinMcpSecretsDialogModel {
 	readonly onConfirm: (values: Record<string, string>) => void;
-	readonly onDefer?: () => void;
 	readonly onOpenChange: (open: boolean) => void;
 }
 
 export function BuiltinMcpSecretsDialogView({
-	allowDefer,
+	appIconUrl,
 	canSubmit,
+	connectorIconUrl,
+	connectorName,
 	fields,
 	guideLines,
 	hasFields,
 	labels,
 	onChangeValue,
 	onConfirm,
-	onDefer,
 	onOpenChange,
 	onOpenHelp,
 	open,
@@ -31,15 +31,16 @@ export function BuiltinMcpSecretsDialogView({
 	values,
 }: BuiltinMcpSecretsDialogViewProps): JSX.Element {
 	const themeProps: ThemeProps = {
-		allowDefer,
+		appIconUrl,
 		canSubmit,
+		connectorIconUrl,
+		connectorName,
 		fields,
 		guideLines,
 		hasFields,
 		labels,
 		onChangeValue,
 		onConfirm,
-		onDefer,
 		onOpenChange,
 		onOpenHelp,
 		open,

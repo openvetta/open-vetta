@@ -11,6 +11,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **连接器配置引导 Dialog**：改为双图标头图 + 分区说明卡片 + 全宽「继续」主按钮的连接授权式布局（保留本机凭证表单与推荐徽标，风格沿用现有 token）。
 - **快捷键 Action 授权弹窗对齐设置页交互**：`set-binding` 用功能下拉 + `ShortcutRecorder` 录制，不再手填 id/组合键字符串；快捷面板触发与发送后行为复用 `@vetta/ui` Select（与设置页同款）；恢复类弹窗展示产品功能名与默认键显示。文案按 `docs/user-facing-copy.md` 说结果与影响。
 - **新会话欢迎区主题覆盖点 `chat.newSessionHero`**：开放 `NewSessionHeroProps`（标题/副标题/场景轮播等）供主题替换欢迎区实现；默认仍渲染 `BotAvatar`。修仙主题覆盖为无头像布局，去掉 idle 弹跳手势。
 - **扩展页「连接器」Tab**：侧栏「扩展」下新增连接器入口，承载原设置中的 MCP 管理（已添加列表、发现 MCP、AI 协助配置）。
