@@ -1,8 +1,8 @@
 import type { ThemeUsageStats } from "@vetta/theme-sdk";
 
 export const CULTIVATION_STORAGE_KEY = "cultivation";
-/** v2: score from app-monitor aggregates (not fanren/activeMs-only ladder). */
-export const CULTIVATION_SNAPSHOT_VERSION = 2;
+/** v3: sanctum-ready score display, growth, and compact daily history. */
+export const CULTIVATION_SNAPSHOT_VERSION = 3;
 
 export interface CultivationRealmDefinition {
 	readonly id: string;
@@ -29,6 +29,17 @@ export interface CultivationScoreBreakdown {
 	readonly depth: number;
 }
 
+export interface CultivationGrowth {
+	readonly today: number;
+	readonly thisWeek: number;
+	readonly last30Days: number;
+}
+
+export interface CultivationDailyScore {
+	readonly date: string;
+	readonly score: number;
+}
+
 /**
  * Theme-owned cultivation snapshot persisted via theme storage.
  * Derived only from app-monitor aggregates; never stores raw user content.
@@ -42,7 +53,15 @@ export interface CultivationSnapshot {
 	readonly englishName: string;
 	/** Total cultivation score from app-monitor. */
 	readonly score: number;
+	/** Current realm's entry score. */
+	readonly realmStartScore: number;
+	/** Current progress inside the active realm. */
+	readonly cultivationPower: number;
+	/** Required progress inside the active realm; equals 0 at max realm. */
+	readonly cultivationPowerTarget: number;
 	readonly scoreBreakdown: CultivationScoreBreakdown;
+	readonly growth: CultivationGrowth;
+	readonly dailyScores: readonly CultivationDailyScore[];
 	/** 0..1 progress toward the next realm; 1 when max realm. */
 	readonly progressToNext: number;
 	readonly nextRealmId: string | null;
