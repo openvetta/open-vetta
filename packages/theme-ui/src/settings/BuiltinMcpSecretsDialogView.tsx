@@ -1,14 +1,14 @@
-import type { JSX } from "react";
+import { useState, type JSX } from "react";
+import { Tooltip as TooltipPrimitive } from "radix-ui";
 import {
 	Button,
 	Dialog,
 	DialogContent,
 	DialogDescription,
-	DialogFooter,
-	DialogHeader,
 	DialogTitle,
 } from "@vetta/ui";
 import { InputField } from "./SettingsFormFields";
+import { McpDefaultIcon } from "./McpDefaultIcon";
 
 export interface BuiltinMcpSecretFieldView {
 	readonly envKey: string;
@@ -21,35 +21,30 @@ export interface BuiltinMcpSecretFieldView {
 }
 
 export interface BuiltinMcpSecretsDialogViewLabels {
-	readonly title: string;
-	readonly lead: string;
-	readonly stepOpenSite: string;
-	readonly stepOpenAuth: string;
-	readonly stepOpenSiteHint: string;
-	readonly stepOpenAuthHint: string;
-	readonly openKeyPage: string;
-	readonly openAuthPage: string;
-	readonly howTo: string;
-	readonly stepPasteKey: string;
+	readonly continueCta: string;
 	readonly getKey: string;
-	readonly privacy: string;
-	readonly defer: string;
-	readonly cancel: string;
+	readonly openAuthPage: string;
+	readonly openKeyPage: string;
+	readonly privacyTooltip: string;
+	readonly privacyTooltipAria: string;
 	readonly saving: string;
-	readonly finishConnect: string;
-	readonly confirmAdd: string;
+	readonly setupBody: string;
+	readonly setupTitle: string;
+	readonly stepPasteKey: string;
+	readonly title: string;
 }
 
 export interface BuiltinMcpSecretsDialogViewProps {
-	readonly allowDefer: boolean;
+	readonly appIconUrl: string;
 	readonly canSubmit: boolean;
+	readonly connectorIconUrl: string;
+	readonly connectorName: string;
 	readonly fields: readonly BuiltinMcpSecretFieldView[];
 	readonly guideLines: readonly string[];
 	readonly hasFields: boolean;
 	readonly labels: BuiltinMcpSecretsDialogViewLabels;
 	readonly onChangeValue: (envKey: string, value: string) => void;
 	readonly onConfirm: (values: Record<string, string>) => void;
-	readonly onDefer?: () => void;
 	readonly onOpenChange: (open: boolean) => void;
 	readonly onOpenHelp: (url: string) => void;
 	readonly open: boolean;
@@ -58,16 +53,97 @@ export interface BuiltinMcpSecretsDialogViewProps {
 	readonly values: Record<string, string>;
 }
 
+function ConnectorIcon({
+	src,
+	alt,
+}: {
+	src: string;
+	alt: string;
+}): JSX.Element {
+	const [failed, setFailed] = useState(false);
+	if (failed) {
+		return <McpDefaultIcon className="h-12 w-12 rounded-xl" />;
+	}
+	return (
+		<img
+			src={src}
+			alt={alt}
+			className="h-12 w-12 shrink-0 rounded-xl border border-border/50 bg-muted object-contain p-1.5"
+			onError={() => setFailed(true)}
+		/>
+	);
+}
+
+/** 纵向步骤条：序号圆点 + 连接线 */
+function StepList({ steps }: { steps: readonly string[] }): JSX.Element {
+	return (
+		<ol className="mt-2.5 space-y-0">
+			{steps.map((line, index) => {
+				const isLast = index === steps.length - 1;
+				return (
+					<li key={line} className="relative flex gap-2.5">
+						<div className="flex w-5 shrink-0 flex-col items-center">
+							<span className="relative z-10 flex h-5 w-5 items-center justify-center rounded-full border border-border bg-muted text-[10px] font-semibold tabular-nums text-foreground">
+								{index + 1}
+							</span>
+							{!isLast && <span className="my-0.5 w-px flex-1 bg-border" aria-hidden />}
+						</div>
+						<p
+							className={`min-w-0 flex-1 text-[11px] leading-relaxed text-muted-foreground ${isLast ? "pb-0" : "pb-3"}`}
+						>
+							{line}
+						</p>
+					</li>
+				);
+			})}
+		</ol>
+	);
+}
+
+function PrivacyHelpTooltip({
+	ariaLabel,
+	content,
+}: {
+	ariaLabel: string;
+	content: string;
+}): JSX.Element {
+	return (
+		<TooltipPrimitive.Provider delayDuration={200}>
+			<TooltipPrimitive.Root>
+				<TooltipPrimitive.Trigger asChild>
+					<button
+						type="button"
+						className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+						aria-label={ariaLabel}
+					>
+						<span className="icon-[mdi--help-circle-outline] h-4 w-4" aria-hidden />
+					</button>
+				</TooltipPrimitive.Trigger>
+				<TooltipPrimitive.Portal>
+					<TooltipPrimitive.Content
+						side="bottom"
+						sideOffset={6}
+						className="z-50 max-w-[min(18rem,calc(100vw-2rem))] rounded-lg border border-border bg-popover px-3 py-2.5 text-[11px] leading-relaxed whitespace-pre-line text-popover-foreground shadow-md outline-none"
+					>
+						{content}
+					</TooltipPrimitive.Content>
+				</TooltipPrimitive.Portal>
+			</TooltipPrimitive.Root>
+		</TooltipPrimitive.Provider>
+	);
+}
+
 export function BuiltinMcpSecretsDialogView({
-	allowDefer,
+	appIconUrl,
 	canSubmit,
+	connectorIconUrl,
+	connectorName,
 	fields,
 	guideLines,
 	hasFields,
 	labels,
 	onChangeValue,
 	onConfirm,
-	onDefer,
 	onOpenChange,
 	onOpenHelp,
 	open,
@@ -77,45 +153,58 @@ export function BuiltinMcpSecretsDialogView({
 }: BuiltinMcpSecretsDialogViewProps): JSX.Element {
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-w-md">
-				<DialogHeader>
-					<DialogTitle>{labels.title}</DialogTitle>
-					<DialogDescription>{labels.lead}</DialogDescription>
-				</DialogHeader>
-
-				{primaryHelpUrl && (
-					<div className="rounded-xl border border-border/50 bg-primary/5 px-3.5 py-3">
-						<div className="mb-2 text-[12px] font-medium text-foreground">
-							{hasFields ? labels.stepOpenSite : labels.stepOpenAuth}
+			<DialogContent className="max-h-[min(90vh,640px)] max-w-[min(26rem,calc(100%-2rem))] gap-0 overflow-y-auto p-0">
+				{/* 顶区：双图标 + 标题 + 隐私说明 tooltip */}
+				<div className="relative px-5 pb-4 pt-6">
+					<div className="flex items-center justify-center gap-3">
+						<img
+							src={appIconUrl}
+							alt=""
+							className="h-12 w-12 shrink-0 rounded-xl border border-border/50 bg-muted object-contain p-1.5"
+						/>
+						<div className="flex items-center gap-1 text-muted-foreground/40" aria-hidden>
+							<span className="h-1 w-1 rounded-full bg-current" />
+							<span className="h-1 w-1 rounded-full bg-current" />
+							<span className="h-1 w-1 rounded-full bg-current" />
 						</div>
-						<p className="mb-3 text-[11px] leading-relaxed text-muted-foreground">
-							{hasFields ? labels.stepOpenSiteHint : labels.stepOpenAuthHint}
-						</p>
-						<Button
-							variant="primary"
-							size="sm"
-							className="w-full"
-							onClick={() => onOpenHelp(primaryHelpUrl)}
-						>
-							<span className="icon-[mdi--open-in-new] h-3.5 w-3.5" />
-							{hasFields ? labels.openKeyPage : labels.openAuthPage}
-						</Button>
+						<ConnectorIcon src={connectorIconUrl} alt={connectorName} />
 					</div>
-				)}
 
-				{guideLines.length > 0 && (
-					<div className="rounded-xl border border-border/50 bg-muted/40 px-3.5 py-3">
-						<div className="mb-2 text-[12px] font-medium text-foreground">{labels.howTo}</div>
-						<ol className="list-decimal space-y-1.5 pl-4 text-[11px] leading-relaxed text-muted-foreground">
-							{guideLines.map((line) => (
-								<li key={line}>{line}</li>
-							))}
-						</ol>
+					<div className="mt-4 flex items-center justify-center gap-1.5">
+						<DialogTitle className="text-[15px] font-semibold tracking-tight text-foreground">
+							{labels.title}
+						</DialogTitle>
+						<PrivacyHelpTooltip
+							ariaLabel={labels.privacyTooltipAria}
+							content={labels.privacyTooltip}
+						/>
 					</div>
-				)}
+					<DialogDescription className="sr-only">{labels.setupBody}</DialogDescription>
+				</div>
 
+				{/* 连接方式 + 步骤条 */}
+				<div className="px-5">
+					<div className="overflow-hidden rounded-xl border border-border/50 bg-muted/30 px-3.5 py-3">
+						<div className="text-[12px] font-medium text-foreground">{labels.setupTitle}</div>
+						<p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">{labels.setupBody}</p>
+						{guideLines.length > 0 && <StepList steps={guideLines} />}
+						{primaryHelpUrl && (
+							<Button
+								variant="link"
+								size="sm"
+								className="mt-2 h-auto gap-1 p-0 text-[11px] font-medium"
+								onClick={() => onOpenHelp(primaryHelpUrl)}
+							>
+								<span className="icon-[mdi--open-in-new] h-3 w-3" />
+								{hasFields ? labels.openKeyPage : labels.openAuthPage}
+							</Button>
+						)}
+					</div>
+				</div>
+
+				{/* 密钥输入（仅需要粘贴凭证时） */}
 				{hasFields && (
-					<div className="flex flex-col gap-3">
+					<div className="mt-4 space-y-3 px-5">
 						<div className="text-[12px] font-medium text-foreground">{labels.stepPasteKey}</div>
 						{fields.map((field) => (
 							<div key={field.envKey}>
@@ -125,14 +214,15 @@ export function BuiltinMcpSecretsDialogView({
 										{field.required ? " *" : field.optionalSuffix}
 									</label>
 									{field.helpUrl && field.helpUrl !== primaryHelpUrl && (
-										<button
-											type="button"
-											className="inline-flex shrink-0 items-center gap-0.5 text-[11px] text-primary hover:underline"
+										<Button
+											variant="link"
+											size="sm"
+											className="h-auto shrink-0 gap-0.5 p-0 text-[11px]"
 											onClick={() => onOpenHelp(field.helpUrl!)}
 										>
 											<span className="icon-[mdi--open-in-new] h-3 w-3" />
 											{labels.getKey}
-										</button>
+										</Button>
 									)}
 								</div>
 								<InputField
@@ -146,26 +236,18 @@ export function BuiltinMcpSecretsDialogView({
 					</div>
 				)}
 
-				<p className="text-[11px] text-muted-foreground/80">{labels.privacy}</p>
-
-				<DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
-					{allowDefer && onDefer && hasFields && (
-						<Button variant="ghost" size="sm" onClick={onDefer} disabled={saving} className="sm:mr-auto">
-							{labels.defer}
-						</Button>
-					)}
-					<Button variant="ghost" size="sm" onClick={() => onOpenChange(false)} disabled={saving}>
-						{labels.cancel}
-					</Button>
+				{/* 底部全宽主按钮 */}
+				<div className="mt-5 px-5 pb-5">
 					<Button
 						variant="primary"
-						size="sm"
+						size="lg"
+						className="w-full"
 						disabled={!canSubmit || saving}
 						onClick={() => onConfirm(values)}
 					>
-						{saving ? labels.saving : hasFields ? labels.finishConnect : labels.confirmAdd}
+						{saving ? labels.saving : labels.continueCta}
 					</Button>
-				</DialogFooter>
+				</div>
 			</DialogContent>
 		</Dialog>
 	);
