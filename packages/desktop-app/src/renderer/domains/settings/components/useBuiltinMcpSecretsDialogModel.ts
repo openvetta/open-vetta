@@ -33,6 +33,7 @@ export interface BuiltinMcpSecretsDialogModel {
 		readonly privacyTooltip: string;
 		readonly privacyTooltipAria: string;
 		readonly saving: string;
+		readonly authorizing: string;
 		readonly setupBody: string;
 		readonly setupTitle: string;
 		readonly stepPasteKey: string;
@@ -43,6 +44,8 @@ export interface BuiltinMcpSecretsDialogModel {
 	readonly open: boolean;
 	readonly primaryHelpUrl?: string;
 	readonly saving: boolean;
+	readonly authorizing: boolean;
+	readonly error: string | null;
 	readonly values: Record<string, string>;
 }
 
@@ -51,11 +54,15 @@ export function useBuiltinMcpSecretsDialogModel({
 	preset,
 	initialValues,
 	saving = false,
+	authorizing = false,
+	error = null,
 }: {
 	open: boolean;
 	preset: BuiltinMcpPreset | null;
 	initialValues?: Record<string, string>;
 	saving?: boolean;
+	authorizing?: boolean;
+	error?: string | null;
 }): BuiltinMcpSecretsDialogModel | null {
 	const { t } = useTranslation("settings");
 	const fields = preset?.secrets ?? [];
@@ -110,6 +117,7 @@ export function useBuiltinMcpSecretsDialogModel({
 				privacyTooltip: t("mcpPresets.privacyTooltip"),
 				privacyTooltipAria: t("mcpPresets.privacyTooltipAria"),
 				saving: t("saving"),
+				authorizing: t("mcpPresets.authorizing"),
 				setupBody: hasFields ? t("mcpPresets.secretsDialogLead") : t("mcpPresets.browserAuthDialogLead"),
 				setupTitle: t("mcpPresets.setupTitle"),
 				stepPasteKey: t("mcpPresets.stepPasteKey"),
@@ -124,7 +132,9 @@ export function useBuiltinMcpSecretsDialogModel({
 			open,
 			primaryHelpUrl: resolvePrimaryHelpUrl(preset),
 			saving,
+			authorizing,
+			error,
 			values,
 		};
-	}, [canSubmit, fields, open, preset, saving, t, values]);
+	}, [authorizing, canSubmit, error, fields, open, preset, saving, t, values]);
 }

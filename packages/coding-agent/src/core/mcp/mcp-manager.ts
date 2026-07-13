@@ -6,10 +6,20 @@
  */
 
 import type { AgentTool } from "@vetta/agent-core";
+import { getAgentDir } from "../../config.js";
 import { createMcpClient } from "./mcp-client.js";
 import { McpConfigLoader } from "./mcp-config.js";
+import { isMcpAuthRequiredError } from "./mcp-http-client.js";
+import { loginHttpMcpServer, type OpenUrlHandler } from "./mcp-oauth-flow.js";
+import { clearMcpOAuthState, hasMcpOAuthTokens } from "./mcp-oauth-storage.js";
 import { adaptMcpTools } from "./mcp-tool-adapter.js";
-import type { McpManagerState, McpServerConfig, McpServerInstance, McpServerStatus } from "./types.js";
+import {
+	isHttpServerConfig,
+	type McpManagerState,
+	type McpServerConfig,
+	type McpServerInstance,
+	type McpServerStatus,
+} from "./types.js";
 
 const MCP_PROTOCOL_VERSION = "2024-11-05";
 const CLIENT_NAME = "vetta";
@@ -33,14 +43,16 @@ export class McpManager {
 	private state: McpManagerState;
 	private configLoader: McpConfigLoader;
 	private projectRoot: string;
+	private agentDir: string;
 	private debug: boolean;
 	/** mcp.json 签名快照，用于 reloadIfChanged 的 fast-path 判等。 */
 	private lastSignature: string | undefined;
 
 	constructor(options: McpManagerOptions = {}) {
 		this.projectRoot = options.projectRoot || process.cwd();
+		this.agentDir = options.agentDir || getAgentDir();
 		this.debug = options.debug || false;
-		this.configLoader = new McpConfigLoader(this.projectRoot, options.agentDir);
+		this.configLoader = new McpConfigLoader(this.projectRoot, this.agentDir);
 
 		this.state = {
 			servers: new Map(),
@@ -105,7 +117,10 @@ export class McpManager {
 
 		try {
 			// Create and start client
-			const client = createMcpClient(name, config, { debug: this.debug || config.debug });
+			const client = createMcpClient(name, config, {
+				debug: this.debug || config.debug,
+				agentDir: this.agentDir,
+			});
 
 			instance.client = client;
 			instance.startedAt = new Date();
@@ -146,13 +161,87 @@ export class McpManager {
 			}
 
 			instance.status = "ready";
+			instance.error = undefined;
 			this.log(`Server ${name} is ready`);
 		} catch (error) {
+			if (isMcpAuthRequiredError(error)) {
+				instance.status = "needs_auth";
+				instance.error = (error as Error).message;
+				instance.client = undefined;
+				this.log(`Server ${name} needs OAuth authorization`);
+				return;
+			}
 			instance.status = "error";
 			instance.error = (error as Error).message;
 			this.log(`Failed to initialize server ${name}: ${instance.error}`);
 			// Don't throw - allow other servers to initialize
 		}
+	}
+
+	/**
+	 * Run browser OAuth for an HTTP MCP server, persist tokens, and reconnect.
+	 * Works even when the server is not currently in the manager (uses mcp.json).
+	 */
+	async loginServer(name: string, options?: { openUrl?: OpenUrlHandler }): Promise<void> {
+		const instance = this.state.servers.get(name);
+		const config = instance?.config ?? this.configLoader.loadMerged().mcpServers[name];
+		if (!config) {
+			throw new Error(`Server '${name}' not found`);
+		}
+		if (!isHttpServerConfig(config)) {
+			throw new Error(`Server '${name}' is not an HTTP MCP server (OAuth only applies to type:http)`);
+		}
+
+		await loginHttpMcpServer({
+			serverName: name,
+			serverUrl: config.url,
+			agentDir: this.agentDir,
+			openUrl: options?.openUrl,
+		});
+
+		// Close any previous client and re-init
+		if (instance?.client) {
+			try {
+				await instance.client.close();
+			} catch {
+				// ignore
+			}
+		}
+		this.state.servers.delete(name);
+		if (!config.disabled) {
+			await this.initializeServer(name, config);
+		}
+	}
+
+	/**
+	 * Clear stored OAuth tokens for a server and mark it needs_auth / stopped.
+	 */
+	async logoutServer(name: string): Promise<void> {
+		clearMcpOAuthState(name, this.agentDir);
+		const instance = this.state.servers.get(name);
+		if (!instance) return;
+		if (instance.client) {
+			try {
+				await instance.client.close();
+			} catch {
+				// ignore
+			}
+		}
+		instance.client = undefined;
+		instance.tools = [];
+		instance.resources = [];
+		instance.serverInfo = undefined;
+		if (isHttpServerConfig(instance.config) && !instance.config.disabled) {
+			instance.status = "needs_auth";
+			instance.error = "OAuth credentials cleared";
+		} else {
+			instance.status = "stopped";
+		}
+	}
+
+	/** Whether the server has OAuth tokens on disk (not necessarily a live connection). */
+	hasAuthTokens(name: string): boolean {
+		return hasMcpOAuthTokens(name, this.agentDir);
 	}
 
 	/**
@@ -194,6 +283,7 @@ export class McpManager {
 			ready: [],
 			error: [],
 			stopped: [],
+			needs_auth: [],
 		};
 
 		for (const instance of this.state.servers.values()) {

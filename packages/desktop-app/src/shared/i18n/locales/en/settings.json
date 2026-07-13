@@ -939,6 +939,8 @@
     "customConnector": "Custom connector",
     "customConnectorTitle": "Add custom connector",
     "manualHint": "Enter your own MCP config. Most people only need Recommended.",
+    "editServerHint": "Editing “{{name}}”",
+    "editServerFallback": "Edit this connector’s configuration",
     "recommendedAllAdded": "All recommended items are already added. Manage them under Mine.",
     "remoteAllAdded": "All marketplace items are already added. Manage them under Mine."
   },
@@ -1067,6 +1069,12 @@
     "noEditHint": "Provided by the app",
     "configureSecrets": "Configure secrets",
     "needsSecrets": "Key required",
+    "needsAuth": "Authorize",
+    "authorized": "Connected",
+    "authorize": "Authorize",
+    "revokeAuth": "Disconnect",
+    "authorizing": "Complete authorization in your browser…",
+    "authFailed": "Authorization did not finish. Try again.",
     "badgeNeedsKey": "Key needed",
     "badgeBrowserAuth": "Sign-in",
     "badgeReady": "Ready",
@@ -1074,7 +1082,7 @@
     "confirmAdd": "Got it, add",
     "secretsDialogTitle": "Connect {{name}}",
     "secretsDialogLead": "Open the official page to get your key, then paste it back. Usually 1–2 minutes.",
-    "browserAuthDialogLead": "After adding, first use opens a browser to sign in—no key paste in advance.",
+    "browserAuthDialogLead": "Continue opens your browser to authorize—no API key application or paste. Credentials stay on this device.",
     "setupTitle": "How to connect",
     "privacyTooltip": "You're in control: Credentials stay on this device and are never uploaded to Vetta. You can disconnect or reconfigure anytime under My connectors.\n\nCapabilities shared with this connector: Once connected, the AI can call tools provided by this connector (for example reading or writing related data). These capabilities are only used in conversations you start.",
     "privacyTooltipAria": "Privacy and permission details",
@@ -1082,7 +1090,7 @@
     "stepOpenSite": "Step 1: Open the key page",
     "stepOpenSiteHint": "The button opens the official site in your browser. Follow the page to create or copy your key.",
     "stepOpenAuth": "Step 1: How authorization works",
-    "stepOpenAuthHint": "You can read the official guide first. After adding, first use will open a browser to sign in.",
+    "stepOpenAuthHint": "You can read the official guide first. Continue will open a browser to complete authorization.",
     "openKeyPage": "Open key page in browser",
     "openAuthPage": "Open official guide",
     "secretsHowTo": "Step 2: Follow these steps",
@@ -1093,7 +1101,7 @@
     "secretsDefer": "Add now, fill later",
     "secretsDialogConfirm": "Save & add",
     "guides": {
-      "notion": "Open Notion integrations and create a new integration\nCopy the Internal Integration Secret\nInvite the integration to the pages/databases you need\nPaste the secret below",
+      "notion": "Continue opens the Notion authorization page\nSign in, pick a workspace, and allow access\nNo Integration setup or secret paste required\nCredentials stay on this device only",
       "figma": "Open Figma developer settings → Access tokens\nCreate a Personal access token\nCopy and paste it below",
       "slack": "Open Slack API apps and create or select an app\nInstall it to your workspace and copy the Bot User OAuth Token (starts with xoxb-)\nFind the Team ID in workspace settings or auth.test\nPaste both values below",
       "gmail": "After adding, the first use in chat opens a browser to sign in with Google\nComplete authorization—no key paste required in most cases",
@@ -1107,7 +1115,7 @@
     },
     "notion": {
       "displayName": "Notion",
-      "description": "Read and organize your Notion pages—find notes, draft content, and maintain a knowledge base."
+      "description": "Connect your Notion workspace so the AI can read and organize pages, find notes, and maintain a knowledge base. Authorize in the browser—no API key paste."
     },
     "figma": {
       "displayName": "Figma",
@@ -1130,7 +1138,6 @@
       "description": "Find and read Drive files so cloud documents can be used in chat (authorization may be required)."
     },
     "secrets": {
-      "notionToken": "Notion integration secret",
       "figmaApiKey": "Figma access token",
       "slackBotToken": "Slack bot token",
       "slackTeamId": "Slack workspace ID",

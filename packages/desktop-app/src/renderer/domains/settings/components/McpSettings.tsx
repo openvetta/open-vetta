@@ -1,5 +1,6 @@
 import { forwardRef, useImperativeHandle } from "react";
 import { ManualMcpDialog } from "./ManualMcpDialog";
+import { McpEditDrawer } from "./McpEditDrawer";
 import { McpSettingsView } from "./McpSettingsView";
 import { useMcpSettingsModel } from "./useMcpSettingsModel";
 
@@ -27,6 +28,7 @@ export const McpSettings = forwardRef<McpSettingsHandle>(function McpSettings(_p
 		<>
 			<McpSettingsView model={model} />
 			<ManualMcpDialog model={model} />
+			<McpEditDrawer model={model} />
 		</>
 	);
 });

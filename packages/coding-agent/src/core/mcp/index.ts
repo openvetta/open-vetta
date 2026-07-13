@@ -13,6 +13,10 @@ export * from "./mcp-config.js";
 export * from "./mcp-http-client.js";
 // Manager
 export * from "./mcp-manager.js";
+// OAuth (remote HTTP MCP)
+export * from "./mcp-oauth-flow.js";
+export * from "./mcp-oauth-provider.js";
+export * from "./mcp-oauth-storage.js";
 // Process management
 export * from "./mcp-process.js";
 

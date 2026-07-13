@@ -389,7 +389,7 @@ export interface IMcpClient {
 /**
  * MCP Server Status
  */
-export type McpServerStatus = "starting" | "ready" | "error" | "stopped";
+export type McpServerStatus = "starting" | "ready" | "error" | "stopped" | "needs_auth";
 
 /**
  * MCP Server Instance State
@@ -409,7 +409,7 @@ export interface McpServerInstance {
 	tools: McpTool[];
 	/** Available resources */
 	resources: McpResource[];
-	/** Error message if status is "error" */
+	/** Error message if status is "error" or "needs_auth" */
 	error?: string;
 	/** Process ID (if applicable) */
 	pid?: number;
