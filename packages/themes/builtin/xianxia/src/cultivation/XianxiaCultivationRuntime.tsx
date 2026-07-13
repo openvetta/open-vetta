@@ -12,8 +12,8 @@ const SYNC_INTERVAL_MS = 30_000;
 function readStoredSnapshot(value: unknown): CultivationSnapshot | null {
 	if (value === null || typeof value !== "object" || Array.isArray(value)) return null;
 	const snapshot = value as CultivationSnapshot;
-	// Drop legacy v1 (fanren/activeMs ladder) snapshots so they recompute under v2.
-	if (snapshot.version !== 2) return null;
+	// Drop legacy snapshots so they recompute under the current page-facing schema.
+	if (snapshot.version !== 3) return null;
 	return snapshot;
 }
 
@@ -26,7 +26,12 @@ function toStorageValue(snapshot: CultivationSnapshot): ThemeStorageValue {
 		name: snapshot.name,
 		englishName: snapshot.englishName,
 		score: snapshot.score,
+		realmStartScore: snapshot.realmStartScore,
+		cultivationPower: snapshot.cultivationPower,
+		cultivationPowerTarget: snapshot.cultivationPowerTarget,
 		scoreBreakdown: { ...snapshot.scoreBreakdown },
+		growth: { ...snapshot.growth },
+		dailyScores: snapshot.dailyScores.map((entry) => ({ ...entry })),
 		progressToNext: snapshot.progressToNext,
 		nextRealmId: snapshot.nextRealmId,
 		nextRealmTargetScore: snapshot.nextRealmTargetScore,
@@ -66,8 +71,8 @@ export function XianxiaCultivationRuntime(): null {
 		if (usage.status !== "ready" || !usage.stats) return;
 		if (storage.status !== "ready") return;
 
-		const snapshot = computeCultivation(usage.stats);
 		const previous = readStoredSnapshot(storage.get(CULTIVATION_STORAGE_KEY));
+		const snapshot = computeCultivation(usage.stats, Date.now(), previous);
 		if (isSameCultivationSnapshot(previous, snapshot)) return;
 
 		const dedupeKey = `${snapshot.realmId}:${snapshot.score}:${snapshot.metrics.messages}:${snapshot.metrics.toolsCompleted}`;
