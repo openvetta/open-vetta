@@ -933,7 +933,7 @@
     "remoteAllAdded": "All remote items are already added. Manage them above."
   },
   "aiAssist": {
-    "cta": "Get AI help",
+    "cta": "Let Vetta configure for you",
     "dialog": {
       "title": "Get AI help with settings",
       "description": "You're on “{{page}}”. Describe your goal in one sentence, or pick an example below.",
