@@ -23,6 +23,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **侧边栏项目区 / 会话区可滚动底部渐隐**：内容溢出且未滚到底时显示底部 fade，提示可继续滚动；滚到底或无溢出时隐藏。
 - **连接器推荐仅展示已接好的 Notion**：Canva / Figma / Slack / Gmail / Google 日历 / 云端硬盘等内置预设仍保留配置与匹配逻辑，仅在「发现 → 推荐」中视觉隐藏（`listedInDiscover`）；后续配好后打开该标记即可重新展示。
 - **连接器编辑改为右侧 Sheet**：自定义 MCP 点编辑后从侧边滑出表单，不再在卡片下方内联展开。
 - **连接器配置引导 Dialog**：改为双图标头图 + 分区说明卡片 + 全宽「继续」主按钮的连接授权式布局（保留本机凭证表单与推荐徽标，风格沿用现有 token）。
