@@ -1,9 +1,9 @@
 import {
 	getEffectiveShortcut,
-	loadShortcuts,
+	loadShortcutBindings,
 	SHORTCUT_ACTIONS,
-	type ShortcutMap,
-	saveShortcuts,
+	type ShortcutBindings,
+	saveShortcutBindings,
 } from "@shared/lib/shortcuts";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -52,7 +52,7 @@ export interface ShortcutsSettingsModel {
 
 export function useShortcutsSettingsModel(): ShortcutsSettingsModel {
 	const { t } = useTranslation("settings");
-	const [customShortcuts, setCustomShortcuts] = useState<ShortcutMap>(loadShortcuts);
+	const [customShortcuts, setCustomShortcuts] = useState<ShortcutBindings>({});
 	const [trigger, setTrigger] = useState<QuickPanelTrigger>("none");
 	const [behavior, setBehavior] = useState<QuickPanelBehavior>("foreground");
 
@@ -61,11 +61,16 @@ export function useShortcutsSettingsModel(): ShortcutsSettingsModel {
 	const altGlyph = isMac ? "⌥" : "Alt";
 
 	useEffect(() => {
+		void loadShortcutBindings().then(setCustomShortcuts);
+		const unsubShortcuts = window.vetta.config.onShortcutsChanged((event) => {
+			setCustomShortcuts(event.bindings ?? {});
+		});
 		void window.vetta.config.get().then((config) => {
 			const qp = config.quickPanel;
 			setTrigger(qp?.trigger === "mod" || qp?.trigger === "alt" || qp?.trigger === "shift" ? qp.trigger : "none");
 			setBehavior(qp?.postSendBehavior === "background" ? "background" : "foreground");
 		});
+		return unsubShortcuts;
 	}, []);
 
 	const persistQuickPanel = useCallback(
@@ -79,7 +84,7 @@ export function useShortcutsSettingsModel(): ShortcutsSettingsModel {
 	const handleShortcutChange = useCallback((actionId: string, shortcut: string) => {
 		setCustomShortcuts((prev) => {
 			const next = { ...prev, [actionId]: shortcut };
-			saveShortcuts(next);
+			void saveShortcutBindings(next);
 			return next;
 		});
 		recordSettingsUsage({ tab: "shortcuts", action: "changed", target: "shortcut" });
@@ -88,8 +93,8 @@ export function useShortcutsSettingsModel(): ShortcutsSettingsModel {
 	const handleShortcutReset = useCallback((actionId: string) => {
 		setCustomShortcuts((prev) => {
 			const next = { ...prev };
-			delete next[actionId];
-			saveShortcuts(next);
+			delete next[actionId as keyof typeof next];
+			void saveShortcutBindings(next);
 			return next;
 		});
 		recordSettingsUsage({ tab: "shortcuts", action: "reset", target: "shortcut" });
@@ -97,7 +102,7 @@ export function useShortcutsSettingsModel(): ShortcutsSettingsModel {
 
 	const handleResetAll = useCallback(() => {
 		setCustomShortcuts({});
-		saveShortcuts({});
+		void saveShortcutBindings({});
 		recordSettingsUsage({ tab: "shortcuts", action: "reset", target: "all-shortcuts" });
 	}, []);
 

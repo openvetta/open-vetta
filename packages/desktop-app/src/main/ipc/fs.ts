@@ -7,6 +7,8 @@ import { getVettaHomePath } from "@vetta/action-rpc";
 import { BrowserWindow, ipcMain } from "electron";
 import type { FsEntry, FsFileRef } from "../../preload/fs-types.js";
 import { type AppLanguage, isSupportedLanguage } from "../../shared/i18n/config.js";
+import { normalizeShortcutsConfig, type ShortcutsConfig } from "../../shared/shortcuts.js";
+import { SHORTCUTS_CHANNELS } from "../../shared/shortcuts-ipc.js";
 import { probeModelProvider } from "../models/probe.js";
 import { getLinuxSandboxCapability, getSandboxCapability, type SandboxCapability } from "../sandbox/capability.js";
 import { atomicWriteJSON } from "../utils/atomic-write.js";
@@ -44,7 +46,12 @@ export interface DesktopConfig {
 	experimental?: ExperimentalConfig;
 	/** 知识库加工设置。 */
 	knowledgeBase?: KnowledgeBaseConfig;
-	/** 快捷面板（全局快捷键唤出 Spotlight 式面板）设置。 */
+	/**
+	 * 全局应用快捷键自定义绑定（设置 → 快捷键 → 全局快捷键）。
+	 * 与 quickPanel 无关，禁止混写。
+	 */
+	shortcuts?: ShortcutsConfig;
+	/** 快捷面板（双击功能键唤出 Spotlight 式面板）设置。 */
 	quickPanel?: QuickPanelConfig;
 	/** Appshot（全局手势捕获前台应用窗口）设置。缺省关闭。 */
 	appshot?: AppshotConfig;
@@ -138,6 +145,7 @@ const DEFAULT_CONFIG: DesktopConfig = {
 	debugMode: false,
 	notificationsEnabled: true,
 	experimental: { vettaCli: true, agentSkills: true },
+	shortcuts: { bindings: {} },
 	quickPanel: { trigger: "none", postSendBehavior: "foreground" },
 	appshot: { enabled: false, gesture: "both-shift" },
 };
@@ -191,6 +199,19 @@ function normalizeQuickPanel(value: unknown): QuickPanelConfig {
 	};
 }
 
+function normalizeShortcuts(value: unknown): ShortcutsConfig {
+	return normalizeShortcutsConfig(value);
+}
+
+/** 向所有窗口广播全局快捷键绑定变更（设置页 GUI 与 Action 共用）。 */
+export function broadcastShortcutsBindingsChanged(bindings: Record<string, string>): void {
+	const payload = { bindings };
+	for (const win of BrowserWindow.getAllWindows()) {
+		if (win.isDestroyed()) continue;
+		win.webContents.send(SHORTCUTS_CHANNELS.CHANGED, payload);
+	}
+}
+
 function normalizeAppshot(value: unknown): AppshotConfig {
 	// 锁定缺省：不启用、双 Shift 手势。非法值落默认。
 	if (typeof value !== "object" || value === null) return { enabled: false, gesture: "both-shift" };
@@ -236,6 +257,7 @@ export async function readDesktopConfig(): Promise<DesktopConfig> {
 			language: isSupportedLanguage(parsed.language) ? parsed.language : undefined,
 			experimental: normalizeExperimental(parsed.experimental),
 			knowledgeBase: normalizeKnowledgeBase(parsed.knowledgeBase),
+			shortcuts: normalizeShortcuts(parsed.shortcuts),
 			quickPanel: normalizeQuickPanel(parsed.quickPanel),
 			appshot: normalizeAppshot(parsed.appshot),
 		};
@@ -262,6 +284,7 @@ export function readConfigSync(): DesktopConfig {
 			language: isSupportedLanguage(parsed.language) ? parsed.language : undefined,
 			experimental: normalizeExperimental(parsed.experimental),
 			knowledgeBase: normalizeKnowledgeBase(parsed.knowledgeBase),
+			shortcuts: normalizeShortcuts(parsed.shortcuts),
 			quickPanel: normalizeQuickPanel(parsed.quickPanel),
 			appshot: normalizeAppshot(parsed.appshot),
 		};
@@ -824,6 +847,8 @@ export function registerFsIpc(): () => void {
 				patch.knowledgeBase !== undefined
 					? normalizeKnowledgeBase({ ...current.knowledgeBase, ...patch.knowledgeBase })
 					: current.knowledgeBase,
+			// bindings 整表替换（支持 reset 删键）；GUI/Action 均传完整 map。
+			shortcuts: patch.shortcuts !== undefined ? normalizeShortcuts(patch.shortcuts) : current.shortcuts,
 			quickPanel:
 				patch.quickPanel !== undefined
 					? normalizeQuickPanel({ ...current.quickPanel, ...patch.quickPanel })
@@ -836,6 +861,10 @@ export function registerFsIpc(): () => void {
 		for (const p of next.archivedProjects) allowProjectRoot(p.path);
 		if (next.workspacePath) allowProjectRoot(next.workspacePath);
 		await writeDesktopConfig(next);
+		if (patch.shortcuts !== undefined) {
+			const bindings = next.shortcuts?.bindings ?? {};
+			broadcastShortcutsBindingsChanged(bindings as Record<string, string>);
+		}
 	});
 
 	ipcMain.handle(CHANNELS.MODELS_GET, async (): Promise<ModelsConfig> => {

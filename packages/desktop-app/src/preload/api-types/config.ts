@@ -73,6 +73,14 @@ export interface DesktopConfigData {
 		/** 触发手势：同时按住左右两侧功能键。缺省 "both-shift"。 */
 		gesture?: "both-shift" | "both-mod" | "both-alt";
 	};
+	/**
+	 * 全局应用快捷键自定义绑定（设置 → 快捷键 → 全局快捷键）。
+	 * 与 quickPanel 无关。
+	 */
+	shortcuts?: {
+		/** actionId → 序列化组合键；缺省 id 表示使用默认键。 */
+		bindings?: Record<string, string>;
+	};
 	/** 快捷面板（双击功能键唤出 Spotlight 式面板）设置。缺省不启用。 */
 	quickPanel?: {
 		/** 呼出触发：none=不启用；mod=双击 ⌘/Ctrl；alt=双击 ⌥/Alt；shift=双击 ⇧。缺省 none。 */
@@ -82,7 +90,13 @@ export interface DesktopConfigData {
 	};
 }
 
+export interface ShortcutsBindingsChangedEvent {
+	bindings: Record<string, string>;
+}
+
 export interface DesktopConfigApi {
 	get(): Promise<DesktopConfigData>;
 	set(config: Partial<DesktopConfigData>): Promise<void>;
+	/** 全局快捷键绑定被 GUI 或 Action 更新后广播。 */
+	onShortcutsChanged(handler: (event: ShortcutsBindingsChangedEvent) => void): () => void;
 }

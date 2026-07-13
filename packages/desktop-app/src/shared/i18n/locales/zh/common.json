@@ -202,7 +202,62 @@
 			"command": "命令",
 			"args": "参数",
 			"cwd": "工作目录",
-			"headers": "请求头"
+			"headers": "请求头",
+			"shortcutActionId": "快捷键动作",
+			"shortcutCombo": "组合键",
+			"quickpanelTrigger": "呼出触发",
+			"quickpanelBehavior": "发送后行为"
+		},
+		"shortcuts": {
+			"ops": {
+				"set-binding": {
+					"title": "修改全局快捷键",
+					"summary": "为指定应用动作设置新的键盘组合。可在确认前改动作或组合键。",
+					"confirm": "保存快捷键",
+					"badge": "快捷键",
+					"impact": "新组合键立即生效；与其它动作冲突时会拒绝保存。"
+				},
+				"reset-binding": {
+					"title": "恢复单项快捷键",
+					"summary": "将该动作的快捷键恢复为默认组合。",
+					"confirm": "恢复默认",
+					"badge": "恢复",
+					"impact": "该动作将重新使用默认快捷键。"
+				},
+				"reset-all-bindings": {
+					"title": "恢复全部全局快捷键",
+					"summary": "将所有全局应用快捷键恢复为默认组合。",
+					"confirm": "全部恢复默认",
+					"badge": "重置",
+					"impact": "全部自定义全局绑定会被清除；快捷面板呼出与发送后行为不受影响。",
+					"warningTitle": "仅影响全局绑定",
+					"warning": "不会修改快捷面板的呼出方式或发送后行为。"
+				},
+				"set-quick-panel-trigger": {
+					"title": "修改快捷面板触发",
+					"summary": "选择双击哪个功能键呼出快捷面板。可在确认前改选。",
+					"confirm": "保存触发方式",
+					"badge": "快捷键",
+					"impact": "原生双击监听会按新设置立即启停。"
+				},
+				"set-quick-panel-behavior": {
+					"title": "修改快捷面板发送后行为",
+					"summary": "选择在快捷面板发送消息后打开主窗口或仅后台运行。",
+					"confirm": "保存发送后行为",
+					"badge": "快捷键",
+					"impact": "之后从快捷面板发送的会话将按新行为处理。"
+				}
+			},
+			"quickPanelTriggers": {
+				"none": "不启用",
+				"mod": "双击 ⌘ / Ctrl",
+				"alt": "双击 ⌥ / Alt",
+				"shift": "双击 ⇧"
+			},
+			"quickPanelBehaviors": {
+				"foreground": "打开主窗口",
+				"background": "后台运行"
+			}
 		},
 		"models": {
 			"ops": {

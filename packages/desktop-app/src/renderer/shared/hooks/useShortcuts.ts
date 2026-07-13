@@ -2,10 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { matchesShortcut } from "../lib/platform";
 import {
 	getEffectiveShortcut,
-	loadShortcuts,
+	loadShortcutBindings,
 	SHORTCUT_ACTIONS,
-	type ShortcutMap,
-	saveShortcuts,
+	type ShortcutBindings,
+	saveShortcutBindings,
 } from "../lib/shortcuts";
 
 export type ShortcutHandler = (actionId: string) => void;
@@ -15,18 +15,27 @@ export type ShortcutHandler = (actionId: string) => void;
  *
  * Registers a single keydown handler that checks all defined shortcuts
  * and calls the handler when a match is found.
+ * 绑定以 desktop-config 为源，并订阅 main 广播。
  */
 export function useGlobalShortcuts(handler: ShortcutHandler): {
-	customShortcuts: ShortcutMap;
+	customShortcuts: ShortcutBindings;
 	setCustomShortcut: (actionId: string, shortcut: string) => void;
 	resetShortcut: (actionId: string) => void;
 	resetAll: () => void;
 } {
-	const [customShortcuts, setCustomShortcuts] = useState<ShortcutMap>(loadShortcuts);
+	const [customShortcuts, setCustomShortcuts] = useState<ShortcutBindings>({});
 	const handlerRef = useRef(handler);
 	const customRef = useRef(customShortcuts);
 	handlerRef.current = handler;
 	customRef.current = customShortcuts;
+
+	useEffect(() => {
+		void loadShortcutBindings().then(setCustomShortcuts);
+		const unsubscribe = window.vetta.config.onShortcutsChanged((event) => {
+			setCustomShortcuts(event.bindings ?? {});
+		});
+		return unsubscribe;
+	}, []);
 
 	useEffect(() => {
 		function handleKeyDown(e: KeyboardEvent) {
@@ -56,7 +65,7 @@ export function useGlobalShortcuts(handler: ShortcutHandler): {
 	const setCustomShortcut = useCallback((actionId: string, shortcut: string) => {
 		setCustomShortcuts((prev) => {
 			const next = { ...prev, [actionId]: shortcut };
-			saveShortcuts(next);
+			void saveShortcutBindings(next);
 			return next;
 		});
 	}, []);
@@ -64,15 +73,15 @@ export function useGlobalShortcuts(handler: ShortcutHandler): {
 	const resetShortcut = useCallback((actionId: string) => {
 		setCustomShortcuts((prev) => {
 			const next = { ...prev };
-			delete next[actionId];
-			saveShortcuts(next);
+			delete next[actionId as keyof typeof next];
+			void saveShortcutBindings(next);
 			return next;
 		});
 	}, []);
 
 	const resetAll = useCallback(() => {
 		setCustomShortcuts({});
-		saveShortcuts({});
+		void saveShortcutBindings({});
 	}, []);
 
 	return { customShortcuts, setCustomShortcut, resetShortcut, resetAll };

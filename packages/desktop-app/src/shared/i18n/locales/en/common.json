@@ -202,7 +202,62 @@
 			"command": "Command",
 			"args": "Arguments",
 			"cwd": "Working directory",
-			"headers": "Headers"
+			"headers": "Headers",
+			"shortcutActionId": "Shortcut action",
+			"shortcutCombo": "Key combo",
+			"quickpanelTrigger": "Summon trigger",
+			"quickpanelBehavior": "After send"
+		},
+		"shortcuts": {
+			"ops": {
+				"set-binding": {
+					"title": "Change global shortcut",
+					"summary": "Assign a new key combo to an app action. You can edit the action or combo before confirming.",
+					"confirm": "Save shortcut",
+					"badge": "Shortcut",
+					"impact": "The new combo applies immediately. Conflicting bindings are rejected."
+				},
+				"reset-binding": {
+					"title": "Reset one shortcut",
+					"summary": "Restore this action to its default key combo.",
+					"confirm": "Restore default",
+					"badge": "Reset",
+					"impact": "This action will use the default shortcut again."
+				},
+				"reset-all-bindings": {
+					"title": "Reset all global shortcuts",
+					"summary": "Restore every global app shortcut to its default combo.",
+					"confirm": "Reset all",
+					"badge": "Reset",
+					"impact": "All custom global bindings are cleared. Quick Panel summon and after-send stay as they are.",
+					"warningTitle": "Global bindings only",
+					"warning": "Does not change Quick Panel summon or after-send behavior."
+				},
+				"set-quick-panel-trigger": {
+					"title": "Change Quick Panel trigger",
+					"summary": "Choose which modifier to double-tap to open the Quick Panel. You can change it below.",
+					"confirm": "Save trigger",
+					"badge": "Shortcut",
+					"impact": "Native double-tap listening starts or stops immediately."
+				},
+				"set-quick-panel-behavior": {
+					"title": "Change Quick Panel after-send",
+					"summary": "Choose whether sending from the Quick Panel opens the main window or stays in the background.",
+					"confirm": "Save after-send behavior",
+					"badge": "Shortcut",
+					"impact": "Later Quick Panel sends follow the new behavior."
+				}
+			},
+			"quickPanelTriggers": {
+				"none": "Disabled",
+				"mod": "Double-tap ⌘ / Ctrl",
+				"alt": "Double-tap ⌥ / Alt",
+				"shift": "Double-tap ⇧"
+			},
+			"quickPanelBehaviors": {
+				"foreground": "Open main window",
+				"background": "Run in background"
+			}
 		},
 		"models": {
 			"ops": {
