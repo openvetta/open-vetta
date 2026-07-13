@@ -1,5 +1,6 @@
 export const sanctumPageAssets = {
 	achievementConnector: new URL("./assets/achievement-connector.webp", import.meta.url).href,
+	achievementDisplayPanel: new URL("./assets/achievement-display-panel.webp", import.meta.url).href,
 	achievementPanel: new URL("./assets/achievement-panel.webp", import.meta.url).href,
 	backButton: new URL("./assets/back-button.webp", import.meta.url).href,
 	bottomBar: {
@@ -10,6 +11,7 @@ export const sanctumPageAssets = {
 		scroll: new URL("./assets/bottom-bar-scroll.webp", import.meta.url).href,
 	},
 	character: new URL("./assets/character.webp", import.meta.url).href,
+	cultivationPowerPanel: new URL("./assets/cultivation-power-panel.webp", import.meta.url).href,
 	currentAchievementBackground: new URL("./assets/current-achievement-background.webp", import.meta.url).href,
 	profilePanel: new URL("./assets/profile-panel.webp", import.meta.url).href,
 	statusLabels: {

@@ -32,7 +32,7 @@ const statusLabelDecoration = {
 const achievementPanelDecoration = {
 	borderWidth: "3.5rem",
 	repeat: "stretch",
-	slice: 88,
+	slice: 132,
 } as const;
 const bottomBarFrameDecoration = {
 	height: "100%",
@@ -56,6 +56,16 @@ const skillPerks = [
 	{ bonus: "+10%", name: "Defense Boost" },
 	{ bonus: "+200", name: "Max Qi Increase" },
 ] as const;
+const cultivationPower = {
+	current: 680,
+	max: 1000,
+	recentGrowth: [
+		{ label: "Today", value: "+18" },
+		{ label: "This Week", value: "+96" },
+		{ label: "Last 30 Days", value: "+280" },
+	],
+} as const;
+const cultivationPowerPercent = `${Math.round((cultivationPower.current / cultivationPower.max) * 100)}%`;
 
 export function XianxiaSanctumPage({ layout }: ThemePageProps): JSX.Element {
 	useEffect(() => {
@@ -79,7 +89,7 @@ export function XianxiaSanctumPage({ layout }: ThemePageProps): JSX.Element {
 				<XianxiaSanctumPageHeader />
 				<div className="grid min-h-0 grid-cols-1 gap-7 px-8 pb-5 pt-2 min-[1060px]:grid-cols-[430px_minmax(410px,1fr)] xl:grid-cols-[470px_minmax(0,1fr)]">
 					<XianxiaProfileColumn />
-					<XianxiaAchievementPanel />
+					<XianxiaSanctumContentColumn />
 				</div>
 				<XianxiaBottomBar />
 			</motion.div>
@@ -154,19 +164,78 @@ function XianxiaProfileColumn(): JSX.Element {
 	);
 }
 
-function XianxiaAchievementPanel(): JSX.Element {
+function XianxiaSanctumContentColumn(): JSX.Element {
 	return (
 		<motion.section
 			animate={{ opacity: 1, x: 0 }}
-			className="relative w-[530px] min-w-0 self-start justify-self-center min-[1060px]:w-full"
+			className="relative flex w-[530px] min-w-0 flex-col gap-5 self-start justify-self-center min-[1060px]:w-full"
 			initial={{ opacity: 0, x: 18 }}
 			transition={{ delay: 0.1, duration: 0.5, ease: "easeOut" }}
 		>
+			<XianxiaCultivationPowerPanel />
+			<XianxiaAchievementPanel />
+		</motion.section>
+	);
+}
+
+function XianxiaCultivationPowerPanel(): JSX.Element {
+	return (
+		<section className="relative aspect-[2172/724] min-h-[236px] w-full min-w-0 overflow-visible px-[7.5%] py-[5.8%] text-white">
+			<img
+				alt=""
+				aria-hidden="true"
+				className="absolute inset-0 h-full w-full object-fill drop-shadow-[0_0_10px_rgba(255,246,210,0.5)]"
+				src={sanctumPageAssets.cultivationPowerPanel}
+			/>
+			<div className="relative z-10 flex h-full min-w-0 flex-col">
+				<div className="flex items-center gap-3">
+					<span className="text-[20px] text-amber-100 drop-shadow-[0_0_5px_rgba(255,245,205,0.8)]">✧</span>
+					<h2 className="text-[22px] font-semibold leading-7 text-amber-50 drop-shadow-[0_1px_3px_rgba(15,23,42,0.65)] min-[1280px]:text-[24px] min-[1280px]:leading-8">
+						修为值
+					</h2>
+					<span className="text-[16px] text-slate-200/90 min-[1280px]:text-[18px]">Cultivation Power</span>
+				</div>
+				<div className="mt-3 flex min-w-0 items-end gap-3">
+					<span className="text-[48px] font-semibold leading-none text-amber-50 drop-shadow-[0_1px_4px_rgba(15,23,42,0.75)] min-[1280px]:text-[58px]">
+						{cultivationPower.current}
+					</span>
+					<span className="pb-1.5 text-[25px] font-semibold leading-none text-slate-100/95 min-[1280px]:pb-2 min-[1280px]:text-[30px]">/ {cultivationPower.max}</span>
+				</div>
+				<div className="mt-3 h-3 w-[70%] overflow-hidden rounded-full border border-amber-100/45 bg-slate-950/35 shadow-inner">
+					<motion.div
+						animate={{ width: cultivationPowerPercent }}
+						className="h-full rounded-full bg-gradient-to-r from-amber-200 via-yellow-100 to-amber-300 shadow-[0_0_7px_rgba(255,240,190,0.75)]"
+						initial={{ width: "0%" }}
+						transition={{ delay: 0.38, duration: 0.75, ease: "easeOut" }}
+					/>
+				</div>
+				<div className="mt-auto grid grid-cols-3 overflow-hidden rounded-[10px] border border-white/18 bg-slate-900/18">
+					{cultivationPower.recentGrowth.map((item, index) => (
+						<div
+							className={cn(
+								"min-w-0 px-4 py-2.5 text-center",
+								index > 0 ? "border-l border-white/16" : undefined,
+							)}
+							key={item.label}
+						>
+							<div className="truncate text-[13px] leading-5 text-slate-200/85">{item.label}</div>
+							<div className="text-[23px] font-semibold leading-7 text-amber-50 min-[1280px]:text-[26px] min-[1280px]:leading-8">{item.value}</div>
+						</div>
+					))}
+				</div>
+			</div>
+		</section>
+	);
+}
+
+function XianxiaAchievementPanel(): JSX.Element {
+	return (
+		<section className="relative w-full min-w-0">
 			<NineSliceImageFrame
 				className="w-full"
-				contentClassName="xianxia-achievement-panel-content relative z-10 flex w-full min-w-0 flex-col px-4 py-6 md:px-8 md:py-8"
+				contentClassName="xianxia-achievement-panel-content relative z-10 flex w-full min-w-0 flex-col px-4 py-7 md:px-8 md:py-9"
 				decoration={achievementPanelDecoration}
-				imageUrl={sanctumPageAssets.achievementPanel}
+				imageUrl={sanctumPageAssets.achievementDisplayPanel}
 				style={achievementLayoutStyle}
 			>
 				<div className="mb-4 flex items-center justify-between px-6 text-slate-700">
@@ -204,7 +273,7 @@ function XianxiaAchievementPanel(): JSX.Element {
 					))}
 				</div>
 			</NineSliceImageFrame>
-		</motion.section>
+		</section>
 	);
 }
 
