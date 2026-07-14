@@ -4,6 +4,7 @@ import * as React from "react";
 import * as jsxDevRuntime from "react/jsx-dev-runtime";
 import * as jsxRuntime from "react/jsx-runtime";
 import * as ReactDom from "react-dom";
+import * as ReactDomClient from "react-dom/client";
 
 export interface PluginSharedModule {
 	module: unknown;
@@ -27,6 +28,13 @@ export const pluginSharedModules = {
 	},
 	"react-dom": {
 		module: ReactDom,
+		version: ReactDom.version,
+		singleton: true,
+		requiredVersion: false,
+	},
+	// tldraw / some remotes share this subpath; host must provide it (RUNTIME-015).
+	"react-dom/client": {
+		module: ReactDomClient,
 		version: ReactDom.version,
 		singleton: true,
 		requiredVersion: false,
@@ -72,6 +80,7 @@ export function installViteFederationSharedCache(share: Record<string, unknown>)
 export const pluginHostShimModules = {
 	React,
 	ReactDom,
+	ReactDomClient,
 	jsxRuntime,
 	jsxDevRuntime,
 	pluginSdk,

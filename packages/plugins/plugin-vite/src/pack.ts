@@ -277,6 +277,19 @@ async function collectRuntimeFiles(
 		addFile(file.fullPath);
 	}
 
+	// Vite cssCodeSplit emits extra files like dist/style2.css for async chunks;
+	// include all dist-root CSS so preload-helper can fetch them (not only styles[]).
+	try {
+		for (const file of await collectFiles(distDir)) {
+			const rel = relative(distDir, file.fullPath).replace(/\\/g, "/");
+			if (rel.endsWith(".css") && !rel.includes("/")) {
+				addFile(file.fullPath);
+			}
+		}
+	} catch {
+		// dist missing
+	}
+
 	for (const style of pluginManifest.styles ?? []) {
 		addFile(resolve(rootDir, style));
 	}

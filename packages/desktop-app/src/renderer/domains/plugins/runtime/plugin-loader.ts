@@ -206,9 +206,9 @@ function createFsApi(plugin: InstalledPlugin): PluginFsApi {
 			permissions.require("fs.read");
 			return window.vetta.fs.readFile(filePath);
 		},
-		writeFile: (filePath, content) => {
+		writeFile: (filePath, content, encoding) => {
 			permissions.require("fs.write");
-			return window.vetta.fs.writeFile(filePath, content);
+			return window.vetta.fs.writeFile(filePath, content, encoding);
 		},
 		stat: (filePath) => {
 			permissions.require("fs.read");
@@ -675,9 +675,10 @@ function createContext(
 						});
 					})
 					.catch((error: Error) => {
+						// Do not fail the whole plugin load — UI contributions
+						// (activity tabs, slots) should still activate.
 						handlerHandle.dispose();
 						console.error(`Plugin ${plugin.id} failed to register agent tool ${toolId}`, error);
-						throw error;
 					});
 				pendingAgentRegistrations.push(registrationPromise);
 				return {

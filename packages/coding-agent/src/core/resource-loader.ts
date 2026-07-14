@@ -34,6 +34,11 @@ export interface ResourceLoader {
 	getAppendSystemPrompt(): string[];
 	getPathMetadata(): Map<string, PathMetadata>;
 	extendResources(paths: ResourceExtensionPaths): void;
+	/**
+	 * Replace additional skill roots (e.g. plugin skillPathContributions) and
+	 * reload skills without a full package-manager resolve.
+	 */
+	setAdditionalSkillPaths(paths: string[]): void;
 	reload(): Promise<void>;
 	/**
 	 * Detect on-disk changes under the currently tracked skill paths and reload
@@ -284,6 +289,20 @@ export class DefaultResourceLoader implements ResourceLoader {
 
 	getPathMetadata(): Map<string, PathMetadata> {
 		return this.pathMetadata;
+	}
+
+	/**
+	 * Replace plugin/session-provided extra skill roots and reload skills.
+	 * Used when agent plugins reconfigure (skillPathContributions change).
+	 */
+	setAdditionalSkillPaths(paths: string[]): void {
+		const previous = new Set(this.additionalSkillPaths.map((p) => resolve(p)));
+		this.additionalSkillPaths = [...paths];
+		// Drop previous additional paths, keep non-additional lastSkillPaths as base.
+		const basePaths = this.lastSkillPaths.filter((p) => !previous.has(resolve(p)));
+		this.lastSkillPaths = this.mergePaths(basePaths, this.additionalSkillPaths);
+		this.updateSkillsFromPaths(this.lastSkillPaths);
+		this.skillsFingerprint = this.computeSkillsFingerprint();
 	}
 
 	extendResources(paths: ResourceExtensionPaths): void {

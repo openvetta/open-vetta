@@ -7,6 +7,10 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 ### Added
 
 - **插件内聚 MCP**：`plugin.json` 支持 `agent.mcpServers`（路径或内联）与权限 `agent.mcp.control`；`buildAgentPluginRuntimeConfig` 产出 `mcpServerContributions`（路径相对插件根 resolve，运行时名 `plugin-<id>-<local>`）。启停插件经既有 `reconfigureAgentPlugins` 联动 MCP 进程。不写用户 `mcp.json`（ADR-0040）。
+- **系统插件 cowart-vetta**：改编自 [zhongerxin/Cowart](https://github.com/zhongerxin/Cowart)——活动面板 + `open_cowart_canvas`、skills、插件内聚 MCP（画布 state/image 工具；无 Codex widget 宿主）。
+- **Slash `/` 列出插件 skills**：`skills.list` 合并已启用插件的 `agent.skillPaths`（`skillPathContributions`），source 标为 `plugin`。
+- **cowart-vetta MCP 进程被误杀修复**：`start-mcp.mjs` 在 `import` bundle / `server.connect()` 返回后不再 `process.exit(0)`，否则宿主侧连接立刻断开、MCP tools 为空。
+- **cowart-vetta 1:1 画布**：活动面板嵌入完整 tldraw（上游 App.jsx）；Codex widget bridge 映射为 `ctx.fs` + `conversation.sendPrompt`；`fs.writeFile` 支持 `base64` 写二进制资产。
 - **知识库 / 批量任务 / 自动化页 AI 协助入口**：复用设置页「让Vetta帮您配置」；顶栏弹出意图 Popover，打开带页面上下文的对话。知识库页（含未启用态与「全部知识库」列表）、批量任务页、自动化页均已接入；示例与气泡标签按页面区分（如「知识库协助」「批量任务协助」）。
 - **连接器推荐 Figma（社区 MCP + PAT）**：`figma-developer-mcp` stdio 预设在「发现 → 推荐」展示；添加时必填 Personal Access Token（`FIGMA_API_KEY` env，仅本机）；引导链接指向 Figma Help Center「Manage personal access tokens」。定位为读设计上下文辅助写码（非官方 `mcp.figma.com` OAuth）。
 - **远程 MCP OAuth 授权（通用，Notion 首接）**：HTTP 连接器支持浏览器 OAuth；IPC `mcp.login` / `logout` / `hasAuth` / `authStatus`；扩展 → 连接器展示「待授权 / 已授权」与去授权/断开。Notion 内置预设改为官方托管 `https://mcp.notion.com/mcp`（不再手填 Integration Secret）。

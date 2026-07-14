@@ -112,7 +112,8 @@ export function createSystemApi(
 		fs: {
 			readDir: (dirPath) => ipc.invoke("vetta:fs:read-dir", dirPath),
 			readFile: (filePath) => ipc.invoke("vetta:fs:read-file", filePath),
-			writeFile: (filePath, content) => ipc.invoke("vetta:fs:write-file", filePath, content),
+			writeFile: (filePath, content, encoding) =>
+				ipc.invoke("vetta:fs:write-file", filePath, content, encoding ?? "utf8"),
 			stat: (filePath) => ipc.invoke("vetta:fs:stat", filePath),
 			rename: (oldPath, newPath) => ipc.invoke("vetta:fs:rename", oldPath, newPath),
 			delete: (targetPath) => ipc.invoke("vetta:fs:delete", targetPath),

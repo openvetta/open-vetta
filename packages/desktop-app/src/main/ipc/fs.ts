@@ -617,12 +617,17 @@ export function registerFsIpc(): () => void {
 		},
 	);
 
-	ipcMain.handle(CHANNELS.WRITE_FILE, async (_event, filePath: unknown, content: unknown) => {
+	ipcMain.handle(CHANNELS.WRITE_FILE, async (_event, filePath: unknown, content: unknown, encoding: unknown) => {
 		assertNonEmptyString(filePath, "filePath");
 		if (typeof content !== "string") throw new Error("Invalid content");
 		assertPathWithinProject(filePath);
 		const resolved = resolve(filePath);
 		await mkdir(dirname(resolved), { recursive: true });
+		// Optional base64 encoding for binary plugin assets (e.g. Cowart page images).
+		if (encoding === "base64") {
+			await writeFile(resolved, Buffer.from(content, "base64"));
+			return;
+		}
 		await writeFile(resolved, content, "utf8");
 	});
 

@@ -40,6 +40,12 @@ export function createVettaPluginFederationConfig(options: VettaPluginFederation
 				import: false,
 				requiredVersion: "*",
 			},
+			// Match host plugin-shared-modules (tldraw remotes may require this subpath).
+			"react-dom/client": {
+				singleton: true,
+				import: false,
+				requiredVersion: "*",
+			},
 			...options.shared,
 		},
 	};

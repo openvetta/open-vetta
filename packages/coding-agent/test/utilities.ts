@@ -185,6 +185,7 @@ export function createTestResourceLoader(): ResourceLoader {
 		getAppendSystemPrompt: () => [],
 		getPathMetadata: () => new Map(),
 		extendResources: () => {},
+		setAdditionalSkillPaths: () => {},
 		reload: async () => {},
 		refreshSkillsIfChanged: () => false,
 	};
