@@ -1127,7 +1127,7 @@
     "guides": {
       "notion": "点击继续后会打开 Notion 授权页\n登录并选择工作区，点允许即可\n无需创建 Integration 或粘贴密钥\n授权凭证只保存在本机",
       "figma": "打开下方链接中的官方说明，进入账号设置\n生成 Personal access token\n复制后粘贴到下方",
-      "github": "点击继续后会打开浏览器跳转 GitHub 授权页\n登录并点击 Authorize 即可\n无需创建令牌或粘贴密钥\n授权凭证只保存在本机",
+      "github": "点击继续后会打开浏览器跳转 GitHub 设备授权页\n核对页面上的验证码并点击 Authorize 即可\n无需创建令牌或粘贴密钥\n授权凭证只保存在本机",
       "slack": "打开 Slack API 应用列表，创建或选择一个 App\n在 OAuth & Permissions 安装到工作区，复制 Bot User OAuth Token（xoxb- 开头）\nTeam ID 可在工作区设置或 auth.test 中查看\n分别粘贴到下方两项",
       "gmail": "添加后，首次在对话中使用时会打开浏览器登录 Google\n按提示完成授权即可，一般无需手动填密钥",
       "googleCalendar": "打开 Google Cloud 控制台创建 OAuth 客户端（桌面应用类型）\n启用 Google Calendar API\n复制 Client ID 与 Client Secret 粘贴到下方\n首次使用时再按提示完成账号授权",

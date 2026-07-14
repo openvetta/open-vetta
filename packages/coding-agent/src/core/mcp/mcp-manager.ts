@@ -9,6 +9,7 @@ import type { AgentTool } from "@vetta/agent-core";
 import { getAgentDir } from "../../config.js";
 import { createMcpClient } from "./mcp-client.js";
 import { McpConfigLoader } from "./mcp-config.js";
+import { loginMcpDeviceFlow } from "./mcp-device-flow.js";
 import { isMcpAuthRequiredError } from "./mcp-http-client.js";
 import { loginHttpMcpServer, type OpenUrlHandler } from "./mcp-oauth-flow.js";
 import { clearMcpOAuthState, hasMcpOAuthTokens } from "./mcp-oauth-storage.js";
@@ -192,13 +193,27 @@ export class McpManager {
 			throw new Error(`Server '${name}' is not an HTTP MCP server (OAuth only applies to type:http)`);
 		}
 
-		await loginHttpMcpServer({
-			serverName: name,
-			serverUrl: config.url,
-			oauthClientId: config.oauthClientId,
-			agentDir: this.agentDir,
-			openUrl: options?.openUrl,
-		});
+		if (config.oauthDeviceFlow) {
+			if (!config.oauthClientId) {
+				throw new Error(`Server '${name}' is missing oauthClientId for the device flow`);
+			}
+			await loginMcpDeviceFlow({
+				serverName: name,
+				serverUrl: config.url,
+				clientId: config.oauthClientId,
+				scopes: config.oauthScopes,
+				agentDir: this.agentDir,
+				openUrl: options?.openUrl,
+			});
+		} else {
+			await loginHttpMcpServer({
+				serverName: name,
+				serverUrl: config.url,
+				oauthClientId: config.oauthClientId,
+				agentDir: this.agentDir,
+				openUrl: options?.openUrl,
+			});
+		}
 
 		// Close any previous client and re-init
 		if (instance?.client) {
