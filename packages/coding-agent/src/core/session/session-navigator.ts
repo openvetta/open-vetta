@@ -467,7 +467,8 @@ export class SessionNavigator {
 		const text = extractUserMessageText(selectedEntry.message.content);
 		// Leaf = end of this user turn (user + assistant/tool chain), not only the user node.
 		const turnTipId = this.ctx.sessionManager.resolveUserTurnTip(entryId);
-		const path = this.ctx.sessionManager.exportBranchToNewFile(turnTipId);
+		// Record the user entry (not the tip) so hosts can jump back to the source bubble.
+		const path = this.ctx.sessionManager.exportBranchToNewFile(turnTipId, { parentEntryId: entryId });
 		if (!path) {
 			throw new Error("Cannot export fork: session is not persisted");
 		}

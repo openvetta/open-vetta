@@ -376,6 +376,10 @@
 		},
 		"editButton": "Edit",
 		"forkButton": "Fork to new session",
+		"forkOrigin": {
+			"label": "Forked from original session",
+			"labelWithPreview": "Forked from message"
+		},
 		"branch": {
 			"prev": "Previous version",
 			"next": "Next version",

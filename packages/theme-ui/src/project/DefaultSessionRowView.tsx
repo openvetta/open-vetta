@@ -7,6 +7,10 @@ export interface DefaultSessionRowViewProps {
 	/** When false, context menu is ignored (e.g. claw filter). */
 	contextMenuEnabled: boolean;
 	label: string;
+	/** Tooltip / secondary label (e.g. forked-from preview). */
+	titleExtra?: string;
+	/** Session was forked from another session. */
+	forked?: boolean;
 	onOpenContextMenu: (event: React.MouseEvent) => void;
 	onRename: (name: string) => void;
 	onRenameDone: () => void;
@@ -21,6 +25,8 @@ export function DefaultSessionRowView({
 	active,
 	contextMenuEnabled,
 	label,
+	titleExtra,
+	forked,
 	onOpenContextMenu,
 	onRename,
 	onRenameDone,
@@ -30,6 +36,7 @@ export function DefaultSessionRowView({
 	scheduled,
 	timeLabel,
 }: DefaultSessionRowViewProps): JSX.Element {
+	const title = renaming ? undefined : titleExtra ? `${label}\n${titleExtra}` : label;
 	return (
 		<button
 			type="button"
@@ -45,7 +52,7 @@ export function DefaultSessionRowView({
 				"flex w-full items-center gap-2 rounded-md px-2.5 py-[6px] text-left transition-colors duration-100",
 				active ? "bg-primary/15 text-foreground" : "hover:bg-accent/50",
 			)}
-			title={renaming ? undefined : label}
+			title={title}
 		>
 			{renaming ? (
 				<SessionRenameInputView
@@ -64,6 +71,13 @@ export function DefaultSessionRowView({
 						/>
 					) : scheduled ? (
 						<span className="icon-[solar--clock-circle-linear] h-3.5 w-3.5 shrink-0 text-primary/80" />
+					) : forked ? (
+						<span
+							className={cn(
+								"icon-[mdi--source-fork] h-3.5 w-3.5 shrink-0",
+								active ? "text-primary/80" : "text-muted-foreground/60",
+							)}
+						/>
 					) : (
 						<span
 							className={cn(

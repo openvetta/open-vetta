@@ -1,4 +1,6 @@
 import type { ChatMessage } from "@shared/store/atoms";
+import { pendingScrollToEntryAtom } from "@shared/store/atoms";
+import { getDefaultStore } from "jotai";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { VirtuosoHandle } from "react-virtuoso";
 
@@ -126,6 +128,7 @@ export function useMessageListScrollModel({
 
 	const previousSessionIdRef = useRef<string | null | undefined>(sessionId);
 	const skipNextLerpRef = useRef(false);
+
 	useEffect(() => {
 		if (previousSessionIdRef.current === sessionId) return;
 		previousSessionIdRef.current = sessionId;
@@ -139,10 +142,42 @@ export function useMessageListScrollModel({
 		setPendingUserAnimationId(null);
 		setActiveUserAnimationId(null);
 		skipNextLerpRef.current = true;
+
+		const store = getDefaultStore();
+		const pending = store.get(pendingScrollToEntryAtom);
+		if (pending?.entryId) {
+			// Defer scroll-to-entry until messages for the new session are present.
+			shouldFollowBottomRef.current = false;
+			return;
+		}
 		requestAnimationFrame(() => {
 			virtuosoRef.current?.scrollToIndex({ index: "LAST", align: "end", behavior: "auto" });
 		});
 	}, [sessionId]);
+
+	// Jump to a specific entry after opening a parent session from a fork banner.
+	useEffect(() => {
+		const store = getDefaultStore();
+		const pending = store.get(pendingScrollToEntryAtom);
+		if (!pending?.entryId || messages.length === 0) return;
+		const index = messages.findIndex((m) => m.entryId === pending.entryId || m.id === pending.entryId);
+		if (index < 0) {
+			// Parent may lack that entry (deleted branch); still clear pending and go bottom.
+			store.set(pendingScrollToEntryAtom, null);
+			shouldFollowBottomRef.current = true;
+			requestAnimationFrame(() => {
+				virtuosoRef.current?.scrollToIndex({ index: "LAST", align: "end", behavior: "auto" });
+			});
+			return;
+		}
+		store.set(pendingScrollToEntryAtom, null);
+		shouldFollowBottomRef.current = false;
+		atBottomRef.current = false;
+		skipNextLerpRef.current = true;
+		requestAnimationFrame(() => {
+			virtuosoRef.current?.scrollToIndex({ index, align: "center", behavior: "smooth" });
+		});
+	}, [messages]);
 
 	useEffect(() => {
 		void messages;
