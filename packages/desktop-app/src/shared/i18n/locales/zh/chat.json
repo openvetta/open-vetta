@@ -376,6 +376,10 @@
 		},
 		"editButton": "编辑",
 		"forkButton": "分叉为新会话",
+		"forkOrigin": {
+			"label": "分叉自原会话",
+			"labelWithPreview": "分叉自消息"
+		},
 		"branch": {
 			"prev": "上一个版本",
 			"next": "下一个版本",

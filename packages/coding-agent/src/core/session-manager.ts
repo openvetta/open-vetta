@@ -36,6 +36,11 @@ export interface SessionHeader {
 	timestamp: string;
 	cwd: string;
 	parentSession?: string;
+	/**
+	 * User-message entry id in the parent session that this session was forked from.
+	 * Present on desktop exportFork / exportBranch when the host supplies it.
+	 */
+	parentEntryId?: string;
 }
 
 export interface NewSessionOptions {
@@ -193,6 +198,8 @@ export interface SessionInfo {
 	name?: string;
 	/** Path to the parent session (if this session was forked). */
 	parentSessionPath?: string;
+	/** User entry id in the parent session this fork was created from. */
+	parentEntryId?: string;
 	created: Date;
 	modified: Date;
 	messageCount: number;
@@ -615,6 +622,10 @@ async function buildSessionInfo(filePath: string): Promise<SessionInfo | null> {
 
 		const cwd = typeof (header as SessionHeader).cwd === "string" ? (header as SessionHeader).cwd : "";
 		const parentSessionPath = (header as SessionHeader).parentSession;
+		const parentEntryId =
+			typeof (header as SessionHeader).parentEntryId === "string"
+				? (header as SessionHeader).parentEntryId
+				: undefined;
 
 		const modified = getSessionModifiedDate(entries, header as SessionHeader, stats.mtime);
 
@@ -628,6 +639,7 @@ async function buildSessionInfo(filePath: string): Promise<SessionInfo | null> {
 			cwd,
 			name,
 			parentSessionPath,
+			parentEntryId,
 			created: new Date((header as SessionHeader).timestamp),
 			modified,
 			messageCount,
@@ -1445,7 +1457,10 @@ export class SessionManager {
 	 * Build header + path entries for a branched session file without mutating this manager.
 	 * `leafId === null` produces an empty conversation (header only).
 	 */
-	private _buildExportBranchContent(leafId: string | null): {
+	private _buildExportBranchContent(
+		leafId: string | null,
+		options?: { parentEntryId?: string },
+	): {
 		header: SessionHeader;
 		pathWithoutLabels: SessionEntry[];
 		labelEntries: LabelEntry[];
@@ -1469,6 +1484,7 @@ export class SessionManager {
 			timestamp,
 			cwd: this.cwd,
 			parentSession: this.persist ? previousSessionFile : undefined,
+			parentEntryId: options?.parentEntryId,
 		};
 
 		const pathEntryIds = new Set(pathWithoutLabels.map((e) => e.id));
@@ -1505,12 +1521,15 @@ export class SessionManager {
 	 * `leafId === null` writes an empty session (header only).
 	 * Returns the new file path, or undefined if not persisting.
 	 */
-	exportBranchToNewFile(leafId: string | null): string | undefined {
+	exportBranchToNewFile(leafId: string | null, options?: { parentEntryId?: string }): string | undefined {
 		if (!this.persist) return undefined;
 		if (!existsSync(this.getSessionDir())) {
 			mkdirSync(this.getSessionDir(), { recursive: true });
 		}
-		const { header, pathWithoutLabels, labelEntries, newSessionFile } = this._buildExportBranchContent(leafId);
+		const { header, pathWithoutLabels, labelEntries, newSessionFile } = this._buildExportBranchContent(
+			leafId,
+			options,
+		);
 		appendFileSync(newSessionFile, `${JSON.stringify(header)}\n`);
 		for (const entry of pathWithoutLabels) {
 			appendFileSync(newSessionFile, `${JSON.stringify(entry)}\n`);
