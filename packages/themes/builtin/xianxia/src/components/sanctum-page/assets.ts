@@ -45,6 +45,11 @@ export const sanctumPageAssets = {
 	},
 	cultivationPowerPanel: new URL("./assets/cultivation-power-panel.webp", import.meta.url).href,
 	currentAchievementBackground: new URL("./assets/current-achievement-background.webp", import.meta.url).href,
+	growthReport: {
+		card: new URL("./assets/growth-report-card.webp", import.meta.url).href,
+		panel: new URL("./assets/growth-report-panel.webp", import.meta.url).href,
+		suggestion: new URL("./assets/growth-report-suggestion.webp", import.meta.url).href,
+	},
 	profilePanel: new URL("./assets/profile-panel.webp", import.meta.url).href,
 	realmDetailActionButton: new URL("./assets/realm-detail-action-button.webp", import.meta.url).href,
 	realmDetailPanel: new URL("./assets/realm-detail-panel.webp", import.meta.url).href,

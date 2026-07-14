@@ -38,7 +38,7 @@ export function XianxiaSanctumPage({ layout }: ThemePageProps): JSX.Element {
 					<XianxiaProfileColumn cultivation={cultivation} />
 					<XianxiaSanctumContentColumn cultivation={cultivation} />
 				</div>
-				<XianxiaBottomBar />
+				<XianxiaBottomBar cultivation={cultivation} />
 			</motion.div>
 		</main>
 	);

@@ -2,6 +2,8 @@ import { HorizontalSliceImageDecoration, HorizontalSliceImageFrame } from "@vett
 import { motion } from "motion/react";
 import type { JSX } from "react";
 import { sanctumPageAssets } from "./assets";
+import type { SanctumCultivationView } from "./types";
+import { XianxiaGrowthReportDialog } from "./XianxiaGrowthReportDialog";
 
 const bottomBarFrameDecoration = {
 	height: "100%",
@@ -20,7 +22,11 @@ const bottomBarButtonDecoration = {
 	rightWidth: "4.25rem",
 } as const;
 
-export function XianxiaBottomBar(): JSX.Element {
+export function XianxiaBottomBar({
+	cultivation,
+}: {
+	readonly cultivation: SanctumCultivationView;
+}): JSX.Element {
 	return (
 		<motion.footer
 			animate={{ opacity: 1, y: 0 }}
@@ -43,20 +49,22 @@ export function XianxiaBottomBar(): JSX.Element {
 					<img alt="" aria-hidden="true" className="h-14 w-auto max-w-none flex-none object-contain" src={sanctumPageAssets.bottomBar.scroll} />
 					<p className="w-[310px] text-[14px] leading-5">Complete tasks, accumulate cultivation, and transcend to higher realms.</p>
 				</div>
-				<button
-					type="button"
-					className="relative flex h-14 flex-none items-center justify-center px-9 text-[18px] font-semibold text-white"
-				>
-					<HorizontalSliceImageDecoration
-						decoration={bottomBarButtonDecoration}
-						imageUrl={sanctumPageAssets.bottomBar.button}
-					/>
-					<span className="relative z-10 flex items-center gap-3">
-						<img alt="" aria-hidden="true" className="h-7 w-auto max-w-none object-contain" src={sanctumPageAssets.bottomBar.book} />
-						<span>View Cultivation Record</span>
-						<span className="icon-[solar--arrow-right-linear] h-5 w-5" />
-					</span>
-				</button>
+				<XianxiaGrowthReportDialog cultivation={cultivation}>
+					<button
+						type="button"
+						className="relative flex h-14 flex-none items-center justify-center px-9 text-[18px] font-semibold text-white outline-none transition hover:brightness-110 focus-visible:ring-2 focus-visible:ring-amber-200/80"
+					>
+						<HorizontalSliceImageDecoration
+							decoration={bottomBarButtonDecoration}
+							imageUrl={sanctumPageAssets.bottomBar.button}
+						/>
+						<span className="relative z-10 flex items-center gap-3">
+							<img alt="" aria-hidden="true" className="h-7 w-auto max-w-none object-contain" src={sanctumPageAssets.bottomBar.book} />
+							<span>View Cultivation Record</span>
+							<span className="icon-[solar--arrow-right-linear] h-5 w-5" />
+						</span>
+					</button>
+				</XianxiaGrowthReportDialog>
 			</HorizontalSliceImageFrame>
 		</motion.footer>
 	);

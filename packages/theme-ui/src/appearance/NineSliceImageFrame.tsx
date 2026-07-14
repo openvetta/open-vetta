@@ -21,7 +21,12 @@ export const NineSliceImageDecoration = memo(function NineSliceImageDecoration({
 	return (
 		<span
 			aria-hidden="true"
-			className={cn("pointer-events-none absolute inset-0", className)}
+			// -inset-px：四周外扩 1px，盖住 DPR/非整数宽下的子像素发丝缝
+			// translateZ(0)：独立合成层，减轻 border-image 切片接缝闪线
+			className={cn(
+				"pointer-events-none absolute -inset-px [backface-visibility:hidden] [transform:translateZ(0)]",
+				className,
+			)}
 			style={{
 				borderImageOutset: decoration.outset,
 				borderImageRepeat: decoration.repeat ?? "stretch",
