@@ -20,6 +20,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **用户长消息展开后移出气泡又自动折叠**：展开状态曾依赖 `children` 引用，hover 操作栏等重渲染会重建 `textBody` 并误重置。现以正文 `contentKey` 为唯一复原条件，点击展开后保持展开；无收缩按钮；切换会话或刷新后 remount 恢复折叠。
 - **会话 streaming 时 text block 高频闪烁**：`useTextBlockModel` 每次 render 新建 `labels` 对象，导致 `TextBlockView` 的 ReactMarkdown `components` 映射失效、自定义节点整树 remount，`.streaming-chunk` 入场动画对已有文本整段重播。现稳定 `labels` 引用，且 `components` 仅随 `theme` 重建（labels/回调走 ref）。
 - **连接器「我的」误把其他 HTTP MCP 显示为 Notion**：`matchBuiltinMcpPreset` 回退匹配时错误使用了 `preset.config.url.includes(packageHint)`（对 Notion 预设恒真），导致广场添加的远程 HTTP 连接器标题/图标被盖成 Notion。现仅用条目自身的 `url` 与 `packageHint` 比对。
 - **免密钥 HTTP 连接器误提示「待授权」**：`serverUsesOAuth` 曾把所有无 headers 的 HTTP MCP 都当成 OAuth；现仅对内置 OAuth 预设（如 Notion）展示授权状态与按钮。
@@ -31,6 +32,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **知识检索改为硬隔离**：开启「知识检索」toggle 后本轮才暴露 `kb_list_available_tags` / `kb_filter_by_tags`（经 `metadata.knowledgeMode`）；未开启时 agent 无法调用知识库检索工具。tooltip 文案同步。加工场景（`kb-processing`）不受影响。
 - **侧边栏导航「更多」收纳**：主区域保留新会话 / 自动化 / 知识库 / 扩展；「批量任务」「插件」收进底部「更多」弹出菜单（右侧 popover，打开时 chevron 旋转）。当前路由落在收纳项时，触发器展示该项 icon + label。
 - **侧边栏新增「插件」入口**：扩展页的「插件」Tab 迁至独立 `/plugins` 页面；侧栏新增导航项，旧深链 `/skills?tab=plugin` 自动重定向。
 - **侧边栏项目区 / 会话区可滚动底部渐隐**：内容溢出且未滚到底时显示底部 fade，提示可继续滚动；滚到底或无溢出时隐藏。
