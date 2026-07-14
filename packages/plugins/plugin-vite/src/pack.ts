@@ -28,6 +28,8 @@ interface PluginManifest {
 			promptPaths?: string[];
 		};
 		skillPaths?: string[];
+		/** Relative path to `.mcp.json` or present as object (inline). */
+		mcpServers?: string | Record<string, unknown>;
 	};
 }
 
@@ -68,9 +70,17 @@ function readAgentManifest(record: Record<string, unknown>): PluginManifest["age
 				promptPaths: readStringArray(agent.systemPrompt, "promptPaths"),
 			}
 		: undefined;
+	const mcpServersRaw = agent.mcpServers;
+	const mcpServers =
+		typeof mcpServersRaw === "string"
+			? mcpServersRaw
+			: isRecord(mcpServersRaw)
+				? mcpServersRaw
+				: undefined;
 	return {
 		systemPrompt,
 		skillPaths: readStringArray(agent, "skillPaths"),
+		mcpServers,
 	};
 }
 
@@ -280,6 +290,23 @@ async function collectRuntimeFiles(
 	for (const skillPath of pluginManifest.agent?.skillPaths ?? []) {
 		for (const file of await collectPath(resolve(rootDir, skillPath))) {
 			addFile(file.fullPath);
+		}
+	}
+
+	// Plugin-scoped MCP: include config file and conventional companion dirs when declared.
+	const mcpServers = pluginManifest.agent?.mcpServers;
+	if (mcpServers !== undefined) {
+		if (typeof mcpServers === "string") {
+			addFile(resolve(rootDir, mcpServers));
+		}
+		for (const companion of ["mcp", "scripts"]) {
+			try {
+				for (const file of await collectFiles(resolve(rootDir, companion))) {
+					addFile(file.fullPath);
+				}
+			} catch {
+				// optional companion directory
+			}
 		}
 	}
 

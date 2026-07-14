@@ -134,6 +134,7 @@
 			"agentSystemPromptWrite": "修改 Agent 系统提示词",
 			"agentSystemPromptFullControl": "完全控制 Agent 系统提示词",
 			"agentSkillsControl": "控制 Agent 技能加载",
+			"agentMcpControl": "提供插件内聚 MCP 服务",
 			"agentToolsControl": "控制 Agent 工具加载",
 			"agentToolsRegister": "注册 Agent 工具",
 			"agentToolHandlerExecute": "执行插件工具处理器",

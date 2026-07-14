@@ -134,6 +134,7 @@
 			"agentSystemPromptWrite": "Modify agent system prompt",
 			"agentSystemPromptFullControl": "Full control of agent system prompt",
 			"agentSkillsControl": "Control agent skill loading",
+			"agentMcpControl": "Provide plugin-scoped MCP servers",
 			"agentToolsControl": "Control agent tool loading",
 			"agentToolsRegister": "Register agent tools",
 			"agentToolHandlerExecute": "Execute plugin tool handlers",

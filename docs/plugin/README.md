@@ -10,6 +10,7 @@
 | --- | --- |
 | [getting-started.md](./getting-started.md) | 环境、脚手架、Vite/Module Federation 配置、构建、安装与调试闭环、最小可运行示例 |
 | [manifest.md](./manifest.md) | `plugin.json` 全字段参考、安装与版本机制、目录布局、`contributes.settings` 配置项 schema、`guidingWords` |
+| [mcp.md](./mcp.md) | 插件内聚 MCP（`agent.mcpServers`、生命周期、命名、打包） |
 | [permissions.md](./permissions.md) | 权限完整清单、门控点、声明/授权流程、占位符权限 |
 | [ui-slots.md](./ui-slots.md) | 全局浮层 / 文件预览 / 活动面板 Tab / 输入栏动作 四类 UI 扩展点 |
 | [message-cards.md](./message-cards.md) | 消息卡片系统（ADR-0030）：描述符、`details.cards`、`registerCardRenderer`、`pendingFor`、跨轮去重、收纳 UI |

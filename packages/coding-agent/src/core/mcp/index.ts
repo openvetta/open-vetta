@@ -20,8 +20,9 @@ export * from "./mcp-oauth-provider.js";
 export * from "./mcp-oauth-storage.js";
 // Process management
 export * from "./mcp-process.js";
-
 // Tool adapter
 export * from "./mcp-tool-adapter.js";
+// Plugin-scoped MCP (third config source)
+export * from "./plugin-mcp.js";
 // Types
 export * from "./types.js";
