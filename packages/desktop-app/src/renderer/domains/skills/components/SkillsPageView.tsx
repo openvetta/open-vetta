@@ -7,19 +7,17 @@ import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
 import { SettingsAiAssist } from "../../settings/ai-assist";
 import { McpSettings, type McpSettingsHandle } from "../../settings/components/McpSettings";
 import { UNCATEGORIZED, type SkillsPageModel, type TypeTab } from "../hooks/useSkillsPageModel";
-import { PluginsPanel } from "./PluginsPanel";
 import { SkillDetailDialog } from "./SkillDetailDialog";
 import { SkillTagGroup } from "./SkillTagGroup";
 import "../../settings/components/settings-highlight.css";
 
 const easeOut = [0.22, 1, 0.36, 1] as const;
 
-const TYPE_TAB_ITEMS: readonly { key: TypeTab; labelKey: "tabs.scene" | "tabs.skill" | "tabs.plugin" | "tabs.connector" }[] =
+const TYPE_TAB_ITEMS: readonly { key: TypeTab; labelKey: "tabs.scene" | "tabs.skill" | "tabs.connector" }[] =
 	[
 		{ key: "scene", labelKey: "tabs.scene" },
 		{ key: "skill", labelKey: "tabs.skill" },
 		{ key: "connector", labelKey: "tabs.connector" },
-		{ key: "plugin", labelKey: "tabs.plugin" },
 	];
 
 export function SkillsPageView({ model }: { model: SkillsPageModel }): JSX.Element {
@@ -27,7 +25,6 @@ export function SkillsPageView({ model }: { model: SkillsPageModel }): JSX.Eleme
 	const typeNoun = (tab: TypeTab) => {
 		if (tab === "scene") return t("typeNoun.scene");
 		if (tab === "skill") return t("typeNoun.skill");
-		if (tab === "plugin") return t("typeNoun.plugin");
 		return t("typeNoun.connector");
 	};
 	const {
@@ -42,7 +39,6 @@ export function SkillsPageView({ model }: { model: SkillsPageModel }): JSX.Eleme
 		selectedSkill,
 		setSelectedSkill,
 		fileInputRef,
-		pluginsPanelRef,
 		groups,
 		customSkills,
 		agentForTab,
@@ -74,18 +70,6 @@ export function SkillsPageView({ model }: { model: SkillsPageModel }): JSX.Eleme
 					</Button>
 					<SettingsAiAssist tabId="mcp" />
 				</>
-			);
-		}
-		if (typeTab === "plugin") {
-			return (
-				<Button
-					type="button"
-					variant="outline"
-					onClick={() => pluginsPanelRef.current?.triggerImport()}
-				>
-					<span className="icon-[mdi--tray-arrow-up] h-3.5 w-3.5" />
-					<span>{t("actions.importPlugin")}</span>
-				</Button>
 			);
 		}
 		// scene / skill：搜索；skill 额外导入
@@ -166,8 +150,6 @@ export function SkillsPageView({ model }: { model: SkillsPageModel }): JSX.Eleme
 			<div className="flex-1 overflow-y-auto px-8 pt-5 pb-8">
 				{typeTab === "connector" ? (
 					<McpSettings ref={mcpSettingsRef} />
-				) : typeTab === "plugin" ? (
-					<PluginsPanel ref={pluginsPanelRef} />
 				) : loading ? (
 					<div className="flex h-full flex-col items-center justify-center gap-3 opacity-60">
 						<motion.span

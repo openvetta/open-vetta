@@ -52,6 +52,20 @@ export interface McpHttpServerConfig extends McpServerCommonConfig {
 	url: string;
 	/** Optional HTTP headers sent with every request (supports ${VAR} substitution) */
 	headers?: Record<string, string>;
+	/**
+	 * Pre-registered OAuth client_id for servers that do NOT support Dynamic Client
+	 * Registration (e.g. GitHub). Public client + PKCE, no client_secret. When set,
+	 * the OAuth flow seeds this client_id and skips DCR.
+	 */
+	oauthClientId?: string;
+	/**
+	 * Use the OAuth 2.0 Device Authorization Grant instead of the authorization-code
+	 * flow. Needed for providers that require a client_secret for the code flow but
+	 * allow the device flow with only a client_id (e.g. GitHub).
+	 */
+	oauthDeviceFlow?: boolean;
+	/** Space-separated OAuth scopes to request during the device flow. */
+	oauthScopes?: string;
 }
 
 /**

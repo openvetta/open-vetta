@@ -45,9 +45,16 @@ const STATIC_TARGETS: readonly StaticNavigationTarget[] = [
 	{
 		id: "skills",
 		title: "扩展",
-		description: "场景、技能、插件与连接器（MCP）管理页面。",
+		description: "场景、技能与连接器（MCP）管理页面。",
 		hashPath: "/skills",
-		aliases: ["技能", "插件", "扩展", "skill marketplace", "技能广场"],
+		aliases: ["技能", "扩展", "skill marketplace", "技能广场", "场景"],
+	},
+	{
+		id: "plugins",
+		title: "插件",
+		description: "安装、启用与管理应用插件。",
+		hashPath: "/plugins",
+		aliases: ["插件", "plugin", "plugins"],
 	},
 	{
 		id: "connectors",

@@ -20,6 +20,7 @@ function getNavIndicatorBounds(element: HTMLButtonElement): NavIndicatorBounds {
 export function XianxiaSidebarNavigation(props: SidebarNavigationProps): JSX.Element {
 	const themePages = useThemePagesModel();
 	const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+	const moreButtonRef = useRef<HTMLButtonElement | null>(null);
 	const themePageItems = useMemo<SidebarNavItem[]>(
 		() =>
 			themePages.navItems.map((item) => ({
@@ -36,30 +37,46 @@ export function XianxiaSidebarNavigation(props: SidebarNavigationProps): JSX.Ele
 		() => [...props.items, ...themePageItems],
 		[props.items, themePageItems],
 	);
+	const moreItems = props.moreItems ?? [];
+	const moreActive = moreItems.some((item) => item.active);
+	const activeMoreKey = moreItems.find((item) => item.active)?.key;
 	const activeIndex = items.findIndex((item) => item.active);
 	const [indicatorBounds, setIndicatorBounds] = useState<NavIndicatorBounds | null>(null);
 	const setItemRef = useCallback(
 		(index: number) => (element: HTMLButtonElement | null) => {
 			itemRefs.current[index] = element;
-			props.setItemRef(index)(element);
+			// 仅把宿主主区域项的 ref 回传（主题页追加项 index 超出宿主列表）。
+			if (index < props.items.length) {
+				props.setItemRef(index)(element);
+			}
+		},
+		[props],
+	);
+	const setMoreButtonRef = useCallback(
+		(element: HTMLButtonElement | null) => {
+			moreButtonRef.current = element;
+			props.setMoreButtonRef?.(element);
 		},
 		[props],
 	);
 
 	useLayoutEffect(() => {
-		const activeElement = itemRefs.current[activeIndex];
+		void props.moreOpen;
+		void activeMoreKey;
+		const activeElement = moreActive ? moreButtonRef.current : itemRefs.current[activeIndex];
 		if (!activeElement) {
 			setIndicatorBounds(null);
 			return;
 		}
 		setIndicatorBounds(getNavIndicatorBounds(activeElement));
-	}, [activeIndex]);
+	}, [activeIndex, activeMoreKey, moreActive, props.moreOpen]);
 
 	return (
 		<SidebarNavigation
 			{...props}
 			indicatorBounds={indicatorBounds}
 			items={items}
+			moreActive={moreActive}
 			onItemClick={(item) => {
 				const page = themePages.navItems.find((navItem) => navItem.key === item.key);
 				if (page) {
@@ -69,6 +86,7 @@ export function XianxiaSidebarNavigation(props: SidebarNavigationProps): JSX.Ele
 				props.onItemClick(item);
 			}}
 			setItemRef={setItemRef}
+			setMoreButtonRef={setMoreButtonRef}
 		/>
 	);
 }

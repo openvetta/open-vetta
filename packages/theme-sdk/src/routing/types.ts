@@ -4,6 +4,7 @@ export type ThemeRouteArea =
 	| "chat"
 	| "downloads"
 	| "knowledgeBase"
+	| "plugins"
 	| "project"
 	| "settings"
 	| "skills"
@@ -22,6 +23,7 @@ export type ThemeNavigationTarget =
 	| { readonly kind: "downloads" }
 	| { readonly kind: "knowledgeBase" }
 	| { readonly kind: "knowledgeBaseList" }
+	| { readonly kind: "plugins" }
 	| { readonly kind: "skills" };
 
 export interface ThemeRouteModel {

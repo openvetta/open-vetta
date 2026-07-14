@@ -6,6 +6,7 @@ export type PageHeaderTitleKey =
 	| "appShell.routeTitles.knowledgeAll"
 	| "appShell.routeTitles.knowledge"
 	| "appShell.routeTitles.skills"
+	| "appShell.routeTitles.plugins"
 	| "appShell.routeTitles.settings"
 	| "appShell.routeTitles.project"
 	| "appShell.routeTitles.downloads"
