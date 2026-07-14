@@ -29,13 +29,14 @@ export function SidebarFilterSelectView({
 				<button
 					type="button"
 					className={cn(
-						"no-drag flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-[12px] font-medium transition-colors",
+						// 与侧栏「更多」触发器对齐：icon h-4 + gap-2。
+						"no-drag flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-0.5 text-[12px] font-medium transition-colors",
 						open
 							? "bg-accent text-foreground"
 							: "text-muted-foreground/80 hover:bg-accent hover:text-foreground",
 					)}
 				>
-					{showGridIcon && <span className="icon-[solar--widget-4-linear] h-3.5 w-3.5 shrink-0" />}
+					{showGridIcon && <span className="icon-[solar--widget-4-linear] h-4 w-4 shrink-0" />}
 					<span>{current?.label ?? ""}</span>
 					<span className="icon-[solar--alt-arrow-down-linear] h-3 w-3" />
 				</button>

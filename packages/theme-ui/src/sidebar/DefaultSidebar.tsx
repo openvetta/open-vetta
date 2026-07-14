@@ -52,8 +52,14 @@ export function DefaultSidebar({
 						}}
 						items={model.navItems}
 						indicatorBounds={model.navIndicatorBounds}
+						moreActive={model.moreActive}
+						moreItems={model.moreNavItems}
+						moreLabel={model.moreLabel}
+						moreOpen={model.moreOpen}
 						onItemClick={model.actions.openNavItem}
+						onMoreOpenChange={model.actions.setMoreOpen}
 						setItemRef={model.setNavItemRef}
+						setMoreButtonRef={model.setMoreButtonRef}
 					/>
 				</div>
 			</div>

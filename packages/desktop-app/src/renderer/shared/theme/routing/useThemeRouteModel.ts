@@ -6,6 +6,7 @@ function resolveRouteArea(pathname: string): ThemeRouteArea {
 	if (pathname === "/batch-tasks") return "batchTasks";
 	if (pathname === "/knowledge" || pathname === "/knowledge/all") return "knowledgeBase";
 	if (pathname === "/skills") return "skills";
+	if (pathname === "/plugins") return "plugins";
 	if (pathname.startsWith("/settings")) return "settings";
 	if (pathname.startsWith("/project")) return "project";
 	if (pathname === "/downloads") return "downloads";
@@ -39,6 +40,9 @@ export function useThemeRouteModel(): ThemeRouteModel {
 				return;
 			case "knowledgeBaseList":
 				void navigate({ to: "/knowledge/all" });
+				return;
+			case "plugins":
+				void navigate({ to: "/plugins" });
 				return;
 			case "skills":
 				void navigate({ to: "/skills" });

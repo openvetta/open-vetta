@@ -13,6 +13,7 @@
 	},
 	"subtitle": "Install and enable the capabilities you need to give Vetta more expertise",
 	"subtitleConnector": "Manage MCP connectors to give the AI web, docs, and external tools",
+	"subtitlePlugin": "Install, enable, and configure app plugins to extend Vetta's UI and capabilities",
 	"search": {
 		"placeholder": "Search {{noun}}..."
 	},
