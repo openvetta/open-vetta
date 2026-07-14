@@ -4,7 +4,12 @@ import { copyFile, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 
 import { homedir } from "node:os";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 import { getVettaHomePath } from "@vetta/action-rpc";
-import { clearMcpOAuthState, hasMcpOAuthTokens, loginHttpMcpServer } from "@vetta/coding-agent/core/mcp/index.js";
+import {
+	clearMcpOAuthState,
+	hasMcpOAuthTokens,
+	loginHttpMcpServer,
+	loginMcpDeviceFlow,
+} from "@vetta/coding-agent/core/mcp/index.js";
 import { BrowserWindow, ipcMain } from "electron";
 import type { FsEntry, FsFileRef } from "../../preload/fs-types.js";
 import { type AppLanguage, isSupportedLanguage } from "../../shared/i18n/config.js";
@@ -376,6 +381,12 @@ export interface McpHttpServerConfig extends McpServerCommonConfig {
 	type: "http";
 	url: string;
 	headers?: Record<string, string>;
+	/** 预注册 OAuth client_id：用于不支持 DCR 的远程 MCP（如 GitHub）。 */
+	oauthClientId?: string;
+	/** 使用设备码流（Device Flow）而非授权码流。 */
+	oauthDeviceFlow?: boolean;
+	/** 设备码流请求的 OAuth scopes（空格分隔）。 */
+	oauthScopes?: string;
 }
 
 export type McpServerConfig = McpStdioServerConfig | McpHttpServerConfig;
@@ -907,25 +918,47 @@ export function registerFsIpc(): () => void {
 			throw new Error("Invalid server name");
 		}
 		const name = serverName.trim();
-		const optionUrl =
-			typeof options === "object" && options !== null && typeof (options as { url?: unknown }).url === "string"
-				? (options as { url: string }).url.trim()
-				: "";
+		const opts = typeof options === "object" && options !== null ? (options as Record<string, unknown>) : {};
+		const optionUrl = typeof opts.url === "string" ? opts.url.trim() : "";
+		let oauthClientId = typeof opts.oauthClientId === "string" ? opts.oauthClientId.trim() : "";
+		let deviceFlow = opts.oauthDeviceFlow === true;
+		let scopes = typeof opts.oauthScopes === "string" ? opts.oauthScopes : "";
 
 		let serverUrl = optionUrl;
-		if (!serverUrl) {
+		// Read mcp.json for anything not passed by the renderer (re-authorize path).
+		if (!serverUrl || !oauthClientId || !deviceFlow || !scopes) {
 			const config = await readMcpConfig();
 			const server = config.mcpServers[name];
-			if (!server) throw new Error(`MCP server '${name}' not found`);
-			if (server.type !== "http" || typeof server.url !== "string" || !server.url.trim()) {
-				throw new Error(`MCP server '${name}' is not a remote HTTP server`);
+			if (!serverUrl) {
+				if (!server) throw new Error(`MCP server '${name}' not found`);
+				if (server.type !== "http" || typeof server.url !== "string" || !server.url.trim()) {
+					throw new Error(`MCP server '${name}' is not a remote HTTP server`);
+				}
+				serverUrl = server.url.trim();
 			}
-			serverUrl = server.url.trim();
+			if (server?.type === "http") {
+				if (!oauthClientId && typeof server.oauthClientId === "string") oauthClientId = server.oauthClientId.trim();
+				if (!deviceFlow && server.oauthDeviceFlow === true) deviceFlow = true;
+				if (!scopes && typeof server.oauthScopes === "string") scopes = server.oauthScopes;
+			}
+		}
+
+		if (deviceFlow) {
+			if (!oauthClientId) throw new Error(`MCP server '${name}' is missing oauthClientId for the device flow`);
+			await loginMcpDeviceFlow({
+				serverName: name,
+				serverUrl,
+				clientId: oauthClientId,
+				scopes: scopes || undefined,
+				openUrl: (url) => openExternalUrl(url),
+			});
+			return;
 		}
 
 		await loginHttpMcpServer({
 			serverName: name,
 			serverUrl,
+			oauthClientId: oauthClientId || undefined,
 			openUrl: (url) => openExternalUrl(url),
 		});
 	});

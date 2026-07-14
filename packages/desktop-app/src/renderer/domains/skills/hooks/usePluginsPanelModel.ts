@@ -107,6 +107,10 @@ function mergePlugins(installed: InstalledPlugin[], market: MarketPluginInfo[]):
 	});
 }
 
+export interface PluginsPanelHandle {
+	triggerImport: () => void;
+}
+
 export interface PluginsPanelModel {
 	fileInputRef: RefObject<HTMLInputElement | null>;
 	token: string | null;

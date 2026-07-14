@@ -32,6 +32,11 @@ export interface FileMcpOAuthProviderOptions {
 	agentDir?: string;
 	/** Display name for dynamic client registration */
 	clientName?: string;
+	/**
+	 * Pre-registered OAuth client_id for servers without DCR (e.g. GitHub).
+	 * When set, seeds client information so the SDK skips dynamic registration.
+	 */
+	clientId?: string;
 }
 
 export class FileMcpOAuthProvider implements OAuthClientProvider {
@@ -41,6 +46,7 @@ export class FileMcpOAuthProvider implements OAuthClientProvider {
 	private readonly onRedirect: (authorizationUrl: URL) => void | Promise<void>;
 	private readonly agentDir: string;
 	private readonly clientName: string;
+	private readonly clientId?: string;
 	/** Persisted OAuth credentials (named to avoid clashing with OAuthClientProvider.state()) */
 	private stored: McpOAuthStoredState;
 
@@ -51,12 +57,14 @@ export class FileMcpOAuthProvider implements OAuthClientProvider {
 		this.onRedirect = options.onRedirect;
 		this.agentDir = options.agentDir ?? getAgentDir();
 		this.clientName = options.clientName ?? "Vetta";
+		this.clientId = options.clientId?.trim() || undefined;
 
 		const existing = loadMcpOAuthState(this.serverName, this.agentDir);
 		if (!existing || existing.serverUrl !== this.serverUrl) {
 			// New server binding — start clean
 			this.stored = { serverUrl: this.serverUrl, redirectUri: this._redirectUri };
-			if (existing) this.persist();
+			this.seedPreRegisteredClient();
+			if (existing || this.stored.clientInformation) this.persist();
 		} else {
 			this.stored = { ...existing, serverUrl: this.serverUrl };
 			// Interactive login uses a fresh localhost port. Re-register the OAuth client so
@@ -67,14 +75,27 @@ export class FileMcpOAuthProvider implements OAuthClientProvider {
 				Boolean(existing.redirectUri) &&
 				existing.redirectUri !== this._redirectUri;
 			if (interactiveRedirectChange) {
+				// DCR clients must re-register when redirect_uri changes; a pre-registered
+				// client_id is stable (GitHub honors RFC 8252 loopback port flexibility), so re-seed it.
 				this.stored.clientInformation = undefined;
 				this.stored.redirectUri = this._redirectUri;
 				this.stored.discoveryState = undefined;
+				this.seedPreRegisteredClient();
 				this.persist();
-			} else if (!this.stored.redirectUri) {
-				this.stored.redirectUri = this._redirectUri;
+			} else {
+				if (!this.stored.redirectUri) this.stored.redirectUri = this._redirectUri;
+				// Backfill client_id if a prior state predates the pre-registered client.
+				if (this.clientId && !this.stored.clientInformation) {
+					this.seedPreRegisteredClient();
+					this.persist();
+				}
 			}
 		}
+	}
+
+	/** Seed a pre-registered client_id so the SDK skips DCR (no-op for DCR servers). */
+	private seedPreRegisteredClient(): void {
+		if (this.clientId) this.stored.clientInformation = { client_id: this.clientId };
 	}
 
 	/** Prefer stored redirect (stable) over constructor placeholder when connecting. */

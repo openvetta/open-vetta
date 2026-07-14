@@ -8,17 +8,13 @@ import { useAtomValue, useSetAtom } from "jotai";
 import type { ChangeEvent, RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-export type TypeTab = "skill" | "scene" | "plugin" | "connector";
+export type TypeTab = "skill" | "scene" | "connector";
 export type ActionState = "idle" | "loading" | "done";
 
-const TYPE_TABS = new Set<TypeTab>(["skill", "scene", "plugin", "connector"]);
+const TYPE_TABS = new Set<TypeTab>(["skill", "scene", "connector"]);
 
 // 渲染期解析为 t("group.uncategorized")（模块级常量不存中文）。
 export const UNCATEGORIZED = "__uncategorized__";
-
-export interface PluginsPanelHandle {
-	triggerImport: () => void;
-}
 
 export interface MergedSkill {
 	name: string;
@@ -155,7 +151,6 @@ export interface SkillsPageModel {
 	selectedSkill: MergedSkill | null;
 	setSelectedSkill: (skill: MergedSkill | null) => void;
 	fileInputRef: RefObject<HTMLInputElement | null>;
-	pluginsPanelRef: RefObject<PluginsPanelHandle | null>;
 	groups: Map<string, MergedSkill[]>;
 	customSkills: MergedSkill[];
 	agentForTab: MergedSkill[];
@@ -170,13 +165,14 @@ export interface SkillsPageModel {
 
 export function useSkillsPageModel(): SkillsPageModel {
 	const search = useSearch({ strict: false }) as {
-		tab?: TypeTab;
+		/** 含已废弃的 `plugin`（会重定向到 /plugins）。 */
+		tab?: TypeTab | "plugin";
 		section?: string;
 		nav?: string;
 	};
 	const navigate = useNavigate();
 	// Tab 以 URL 为唯一数据源，避免本地 state 与 search 双写导致「要点两下」回弹。
-	const typeTab: TypeTab = search.tab && TYPE_TABS.has(search.tab) ? search.tab : "scene";
+	const typeTab: TypeTab = search.tab && search.tab !== "plugin" && TYPE_TABS.has(search.tab) ? search.tab : "scene";
 	const [searchQuery, setSearchQuery] = useState("");
 	const [marketSkills, setMarketSkills] = useState<MarketSkillInfo[]>([]);
 	const [manifest, setManifest] = useState<Record<string, InstalledSkill>>({});
@@ -188,7 +184,6 @@ export function useSkillsPageModel(): SkillsPageModel {
 	const [importing, setImporting] = useState(false);
 	const [selectedSkill, setSelectedSkill] = useState<MergedSkill | null>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
-	const pluginsPanelRef = useRef<PluginsPanelHandle>(null);
 	const highlightingRef = useRef(false);
 
 	const token = useAtomValue(authTokenAtom);
@@ -207,6 +202,13 @@ export function useSkillsPageModel(): SkillsPageModel {
 		},
 		[navigate, typeTab],
 	);
+
+	// 旧深链 /skills?tab=plugin → 独立插件页。
+	useEffect(() => {
+		if (search.tab === "plugin") {
+			void navigate({ to: "/plugins", replace: true });
+		}
+	}, [navigate, search.tab]);
 
 	// 连接器 section 深链高亮；`navigationNonce` 变化时重新触发（与设置页一致）。
 	const navigationNonce = search.nav;
@@ -271,7 +273,7 @@ export function useSkillsPageModel(): SkillsPageModel {
 		loadMarket();
 	}, [refresh, loadMarket]);
 
-	// 扩展页不显示顶栏左上角标题（页面内已有大号场景/技能/插件/连接器切换器）。
+	// 扩展页不显示顶栏左上角标题（页面内已有大号场景/技能/连接器切换器）。
 	useEffect(() => {
 		setHeaderTitleHidden(true);
 		return () => setHeaderTitleHidden(false);
@@ -452,7 +454,6 @@ export function useSkillsPageModel(): SkillsPageModel {
 		selectedSkill,
 		setSelectedSkill,
 		fileInputRef,
-		pluginsPanelRef,
 		groups,
 		customSkills,
 		agentForTab,

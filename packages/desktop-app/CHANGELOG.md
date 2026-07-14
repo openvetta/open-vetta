@@ -26,6 +26,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **侧边栏导航「更多」收纳**：主区域保留新会话 / 自动化 / 知识库 / 扩展；「批量任务」「插件」收进底部「更多」弹出菜单（右侧 popover，打开时 chevron 旋转）。当前路由落在收纳项时，触发器展示该项 icon + label。
+- **侧边栏新增「插件」入口**：扩展页的「插件」Tab 迁至独立 `/plugins` 页面；侧栏新增导航项，旧深链 `/skills?tab=plugin` 自动重定向。
 - **侧边栏项目区 / 会话区可滚动底部渐隐**：内容溢出且未滚到底时显示底部 fade，提示可继续滚动；滚到底或无溢出时隐藏。
 - **连接器推荐仅展示已接好的预设**：目前为 Notion 与 Figma；Canva / Slack / Gmail / Google 日历 / 云端硬盘等仍保留配置与匹配逻辑，在「发现 → 推荐」中隐藏（`listedInDiscover`），接好后打开该标记即可展示。
 - **连接器编辑改为右侧 Sheet**：自定义 MCP 点编辑后从侧边滑出表单，不再在卡片下方内联展开。

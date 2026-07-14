@@ -750,6 +750,7 @@
 			"automation": "自动化",
 			"batch-tasks": "批量任务",
 			"skills": "扩展",
+			"plugins": "插件",
 			"connectors": "连接器",
 			"downloads": "下载中心",
 			"settings": "设置"
@@ -924,6 +925,7 @@
 			"knowledgeAll": "全部知识库",
 			"knowledge": "知识库",
 			"skills": "技能广场",
+			"plugins": "插件",
 			"settings": "设置",
 			"project": "项目详情",
 			"downloads": "下载中心",

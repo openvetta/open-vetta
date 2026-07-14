@@ -49,6 +49,8 @@ export interface LoginHttpMcpServerOptions {
 	serverName: string;
 	/** Remote MCP endpoint (e.g. https://mcp.notion.com/mcp) */
 	serverUrl: string;
+	/** Pre-registered OAuth client_id for servers without DCR (e.g. GitHub) */
+	oauthClientId?: string;
 	/** Open authorization URL (default: system browser) */
 	openUrl?: OpenUrlHandler;
 	/** Agent config directory */
@@ -82,6 +84,48 @@ export async function openUrlInBrowser(url: string): Promise<void> {
 			else resolve();
 		});
 	});
+}
+
+/**
+ * Wrap fetch so OAuth token-endpoint errors surface the provider's real message
+ * instead of a cryptic schema-validation failure. Some providers (e.g. GitHub)
+ * return HTTP 200 with an OAuth `error` body on a failed code exchange; the SDK
+ * then parses it as tokens and throws an opaque zod error (missing access_token).
+ */
+function createOAuthDiagnosticFetch(): typeof fetch {
+	return async (input, init) => {
+		const response = await fetch(input, init);
+		const method = (init?.method ?? "GET").toUpperCase();
+		if (method !== "POST" || !response.ok) return response;
+		let body: string;
+		try {
+			body = await response.clone().text();
+		} catch {
+			return response;
+		}
+		if (/access_token/.test(body) || !/error/i.test(body)) return response;
+		const message = extractOAuthError(body);
+		if (message) throw new Error(`OAuth authorization failed: ${message}`);
+		return response;
+	};
+}
+
+/** Pull `error`/`error_description` out of a JSON or form-encoded OAuth error body. */
+function extractOAuthError(body: string): string | null {
+	try {
+		const json = JSON.parse(body) as { error?: unknown; error_description?: unknown };
+		if (json && typeof json === "object" && typeof json.error === "string") {
+			return typeof json.error_description === "string" ? `${json.error}: ${json.error_description}` : json.error;
+		}
+	} catch {
+		const params = new URLSearchParams(body);
+		const error = params.get("error");
+		if (error) {
+			const desc = params.get("error_description");
+			return desc ? `${error}: ${desc}` : error;
+		}
+	}
+	return null;
 }
 
 interface CallbackServer {
@@ -222,6 +266,7 @@ export async function loginHttpMcpServer(options: LoginHttpMcpServerOptions): Pr
 
 	const callback = await startOAuthCallbackServer();
 	let authorizationOpened = false;
+	const diagnosticFetch = createOAuthDiagnosticFetch();
 
 	try {
 		const provider = new FileMcpOAuthProvider({
@@ -230,6 +275,7 @@ export async function loginHttpMcpServer(options: LoginHttpMcpServerOptions): Pr
 			redirectUri: callback.redirectUri,
 			agentDir,
 			clientName: CLIENT_NAME,
+			clientId: options.oauthClientId,
 			onRedirect: async (authorizationUrl) => {
 				authorizationOpened = true;
 				await openUrl(authorizationUrl.toString());
@@ -238,6 +284,7 @@ export async function loginHttpMcpServer(options: LoginHttpMcpServerOptions): Pr
 
 		const transport = new StreamableHTTPClientTransport(new URL(serverUrl), {
 			authProvider: provider,
+			fetch: diagnosticFetch,
 		});
 		const client = new Client({ name: CLIENT_NAME, version: CLIENT_VERSION }, { capabilities: {} });
 
@@ -264,6 +311,7 @@ export async function loginHttpMcpServer(options: LoginHttpMcpServerOptions): Pr
 		// Verify the tokens work by reconnecting once
 		const verifyTransport = new StreamableHTTPClientTransport(new URL(serverUrl), {
 			authProvider: provider,
+			fetch: diagnosticFetch,
 		});
 		const verifyClient = new Client({ name: CLIENT_NAME, version: CLIENT_VERSION }, { capabilities: {} });
 		await verifyClient.connect(verifyTransport, { timeout: timeoutMs });

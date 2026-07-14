@@ -1,6 +1,5 @@
 import { forwardRef, useImperativeHandle } from "react";
-import type { PluginsPanelHandle } from "../hooks/useSkillsPageModel";
-import { usePluginsPanelModel } from "../hooks/usePluginsPanelModel";
+import { type PluginsPanelHandle, usePluginsPanelModel } from "../hooks/usePluginsPanelModel";
 import { PluginsPanelView } from "./PluginsPanelView";
 
 export const PluginsPanel = forwardRef<PluginsPanelHandle>(function PluginsPanel(_props, ref): JSX.Element {
