@@ -1,3 +1,4 @@
+import type { ThemeUsageStats } from "@vetta/theme-sdk";
 import type { SanctumAchievement } from "./achievements";
 import type { CultivationScoreBreakdown } from "../../cultivation";
 
@@ -18,8 +19,13 @@ export interface SanctumCultivationView {
 	}[];
 	readonly level: number;
 	readonly maxPower: number;
+	/** Raw app-monitor metrics (counts / durations), not score-weighted breakdown. */
+	readonly metrics: ThemeUsageStats;
 	readonly name: string;
+	readonly nextRealmId: string | null;
 	readonly progressPercent: string;
+	/** 0..1 progress toward the next realm. */
+	readonly progressToNext: number;
 	readonly realmId: string;
 	readonly score: number;
 	readonly scoreBreakdown: CultivationScoreBreakdown;

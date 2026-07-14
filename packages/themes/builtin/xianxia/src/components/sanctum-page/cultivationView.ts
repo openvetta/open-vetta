@@ -5,6 +5,25 @@ import type { SanctumCultivationView } from "./types";
 
 const fallbackRealm = CULTIVATION_REALMS[0];
 
+const emptyMetrics = {
+	activeDayStreak: 0,
+	automationRuns: 0,
+	batchRuns: 0,
+	foregroundActiveMs: 0,
+	interactiveSessions: 0,
+	knowledgeBaseCount: 0,
+	knowledgeBaseFileOperations: 0,
+	longestConversationMessages: 0,
+	longestConversationTurns: 0,
+	messages: 0,
+	projectsCreated: 0,
+	todayActiveMs: 0,
+	todayMessages: 0,
+	toolsCompleted: 0,
+	totalTokens: 0,
+	turns: 0,
+} as const;
+
 const fallbackCultivationView: SanctumCultivationView = {
 	achievedRealmIds: [fallbackRealm.id],
 	currentPower: 0,
@@ -16,8 +35,11 @@ const fallbackCultivationView: SanctumCultivationView = {
 	],
 	level: fallbackRealm.level,
 	maxPower: CULTIVATION_REALMS[1]?.targetScore ?? 0,
+	metrics: emptyMetrics,
 	name: fallbackRealm.name,
+	nextRealmId: CULTIVATION_REALMS[1]?.id ?? null,
 	progressPercent: "0%",
+	progressToNext: 0,
 	realmId: fallbackRealm.id,
 	score: 0,
 	scoreBreakdown: {
@@ -125,8 +147,11 @@ function toCultivationView(snapshot: CultivationSnapshot | null): SanctumCultiva
 		],
 		level: snapshot.level,
 		maxPower,
+		metrics: snapshot.metrics ?? emptyMetrics,
 		name: snapshot.name,
+		nextRealmId: snapshot.nextRealmId,
 		progressPercent: `${Math.round(snapshot.progressToNext * 100)}%`,
+		progressToNext: snapshot.progressToNext,
 		realmId: snapshot.realmId,
 		score: snapshot.score,
 		scoreBreakdown: snapshot.scoreBreakdown,

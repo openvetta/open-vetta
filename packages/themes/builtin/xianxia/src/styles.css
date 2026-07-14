@@ -114,6 +114,46 @@
 	container-type: inline-size;
 }
 
+/* Growth report dialog metrics: column count + end-of-row divider reset */
+.xianxia-growth-report-metrics {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	row-gap: 0.75rem;
+}
+
+.xianxia-growth-report-metric:not(:nth-child(2n + 1)) {
+	border-left: 1px solid rgb(203 213 225 / 55%);
+}
+
+@container (min-width: 28rem) {
+	.xianxia-growth-report-metrics {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+	}
+
+	.xianxia-growth-report-metric:not(:nth-child(2n + 1)) {
+		border-left: none;
+	}
+
+	.xianxia-growth-report-metric:not(:nth-child(3n + 1)) {
+		border-left: 1px solid rgb(203 213 225 / 55%);
+	}
+}
+
+@container (min-width: 48rem) {
+	.xianxia-growth-report-metrics {
+		grid-template-columns: repeat(6, minmax(0, 1fr));
+		row-gap: 0;
+	}
+
+	.xianxia-growth-report-metric:not(:nth-child(3n + 1)) {
+		border-left: none;
+	}
+
+	.xianxia-growth-report-metric:not(:nth-child(6n + 1)) {
+		border-left: 1px solid rgb(203 213 225 / 55%);
+	}
+}
+
 .xianxia-hidden-scrollbar {
 	-ms-overflow-style: none;
 	scrollbar-width: none;
