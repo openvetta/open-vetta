@@ -137,8 +137,9 @@ export interface PromptOptions {
 	source?: InputSource;
 	/**
 	 * Per-turn metadata carried from the host's PromptRequest. Not sent to the
-	 * model as content; consumed in the input pipeline to gate turn behavior
-	 * (e.g. `{ imageMode: true }` routes this turn to image generation).
+	 * model as content; consumed in the input pipeline to amplify turn intent
+	 * (e.g. `{ imageMode: true }` injects a hidden “produce an image” instruction;
+	 * tools stay available by scope even without it — soft isolation).
 	 */
 	metadata?: Record<string, unknown>;
 }

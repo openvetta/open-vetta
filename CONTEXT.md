@@ -601,7 +601,7 @@ _Avoid_: 把音频也塞进 readFile base64 路径——无损音频可达百 MB
 
 ### 图像模式（Image Mode）
 
-权限选择器右侧一个可开关的输入动作（input action）chip。开启后用户发出的 prompt 进入**图像轮次**而非普通对话，再次点击关闭。是一个**意图标记**：插件通过输入插槽的 prompt 装饰器给 `PromptRequest` 注入 `imageMode`。开启且**无**[[图像编辑 attach]] 时，agent 自感知——按 prompt 语义自行决定调 `generate_image`（全新主题）还是 `edit_image`（在最近一张图基础上改）。
+权限选择器右侧一个可开关的输入动作（input action）chip。开启后再次点击关闭。是**软隔离意图标记**（非能力闸）：插件经输入插槽的 prompt 装饰器给 `PromptRequest` 注入 `imageMode`，input-pipeline 注入隐形指令，明确「本轮要产出图像」。`generate_image` / `edit_image` **始终按工具 `scope_use` 暴露**——未开开关时，用户自然语言明确要求生图/改图也可调用；开启则加强引导、优先走工具而非纯文字描述。开启且**无**[[图像编辑 attach]] 时，agent 自感知——按 prompt 语义自行决定调 `generate_image`（全新主题）还是 `edit_image`（在最近一张图基础上改）。
 
 ### 图像编辑 attach（Image Edit Attach）
 

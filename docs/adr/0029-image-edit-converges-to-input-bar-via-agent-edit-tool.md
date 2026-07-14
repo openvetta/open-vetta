@@ -27,7 +27,7 @@ ADR-0028 把图像能力拆成两条入口：会话里 agent 调 `generate_image
 ## Consequences
 
 - coding-agent 新增 `edit_image` 内置 tool，按既有约定扫齐 `tools/index.ts` 等 6+ 注册点；`ImageToolBackend` 接口加 `edit`，desktop `imageBackend` 补 `edit` 实现（转调 `editImage`）。
-- `input-pipeline` 的图像分支扩展：`editImageId` 存在 → 注入「强制编辑 id=X」指令；仅 `imageMode` → 注入「自感知生成或编辑最近图」指令。`editImageId` 存在即视为图像轮次（无需另开 toggle）。
+- `input-pipeline` 的图像分支扩展：`editImageId` 存在 → 注入「强制编辑 id=X」指令；仅 `imageMode` → 注入「自感知生成或编辑最近图」指令。`editImageId` 存在即视为图像轮次（无需另开 toggle）。**（软隔离修订：不再按 `imageMode`/`editImageId` 对本轮剥离图像 tool；工具常驻，metadata 只负责隐形意图提示。）**
 - plugin-sdk 新增 `ui.setEditImageAttachment(ref | null)`：插件点编辑 icon 时写入 host 新 atom；InputBar 顶部胶囊区据此渲染缩略图胶囊；`useSessionManager` 发送时读 atom 注入 `metadata.editImageId`，发送后清空。
 - `generate_image` tool-result 的 `<vetta-images>` marker 增加 `rootId` 字段；host 据此做谱系去重、只给最新消息绑 `imageRefs`；生成中的消息透传 in-flight `editImageId` 以便骨架卡直接挂在目标谱系 swiper 最前。
 - 移除 image-gen 插件的 `ui.slot.activity-tab` 权限与 `registerActivityTab` 注册、删除 `ImageEditorPanel`。

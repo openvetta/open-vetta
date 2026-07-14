@@ -592,9 +592,10 @@ export interface PromptRequest {
 	reasoning?: string;
 	/**
 	 * Per-turn metadata bag carried alongside the prompt. Not sent to the model
-	 * as content; consumed host-side / by tools to gate turn behavior (e.g.
-	 * `{ imageMode: true }` set by a plugin input action to route this turn to
-	 * image generation). Opaque to the runtime — pass-through only.
+	 * as content; consumed host-side / by the input pipeline to amplify turn
+	 * intent (e.g. `{ imageMode: true }` from a plugin input action injects a
+	 * hidden “produce an image” instruction; image tools remain available by
+	 * scope even without it — soft isolation). Opaque to the runtime — pass-through only.
 	 */
 	metadata?: Record<string, unknown>;
 }
