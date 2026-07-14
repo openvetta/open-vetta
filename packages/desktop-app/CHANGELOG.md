@@ -7,6 +7,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 ### Added
 
 - **知识库 / 批量任务 / 自动化页 AI 协助入口**：复用设置页「让Vetta帮您配置」；顶栏弹出意图 Popover，打开带页面上下文的对话。知识库页（含未启用态与「全部知识库」列表）、批量任务页、自动化页均已接入；示例与气泡标签按页面区分（如「知识库协助」「批量任务协助」）。
+- **连接器推荐 Figma（社区 MCP + PAT）**：`figma-developer-mcp` stdio 预设在「发现 → 推荐」展示；添加时必填 Personal Access Token（`FIGMA_API_KEY` env，仅本机）；引导链接指向 Figma Help Center「Manage personal access tokens」。定位为读设计上下文辅助写码（非官方 `mcp.figma.com` OAuth）。
 - **远程 MCP OAuth 授权（通用，Notion 首接）**：HTTP 连接器支持浏览器 OAuth；IPC `mcp.login` / `logout` / `hasAuth` / `authStatus`；扩展 → 连接器展示「待授权 / 已授权」与去授权/断开。Notion 内置预设改为官方托管 `https://mcp.notion.com/mcp`（不再手填 Integration Secret）。
 - **OAuth 连接器添加时序**：先浏览器授权成功再写入 mcp.json；Dialog 保持打开并显示「请在浏览器中完成授权…」，避免点继续后立刻出现「已添加」。
 - **对话消息编辑 / 分支切换 / 分叉会话**：任意已落盘的用户消息可编辑（解析 skill/@文件 回填底部输入框，发送时 `navigateForEdit` 从 parent 分叉）；同位置多版本显示 `‹ i/n ›` 切换分支；支持「分叉为新会话」导出独立 session。streaming 时切换/编辑/分叉会确认中断。History 透传 `entryId` 与 sibling 信息；Runtime/IPC 新增 `navigateForEdit` / `switchBranch` / `forkSession`。
@@ -26,7 +27,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 ### Changed
 
 - **侧边栏项目区 / 会话区可滚动底部渐隐**：内容溢出且未滚到底时显示底部 fade，提示可继续滚动；滚到底或无溢出时隐藏。
-- **连接器推荐仅展示已接好的 Notion**：Canva / Figma / Slack / Gmail / Google 日历 / 云端硬盘等内置预设仍保留配置与匹配逻辑，仅在「发现 → 推荐」中视觉隐藏（`listedInDiscover`）；后续配好后打开该标记即可重新展示。
+- **连接器推荐仅展示已接好的预设**：目前为 Notion 与 Figma；Canva / Slack / Gmail / Google 日历 / 云端硬盘等仍保留配置与匹配逻辑，在「发现 → 推荐」中隐藏（`listedInDiscover`），接好后打开该标记即可展示。
 - **连接器编辑改为右侧 Sheet**：自定义 MCP 点编辑后从侧边滑出表单，不再在卡片下方内联展开。
 - **连接器配置引导 Dialog**：改为双图标头图 + 分区说明卡片 + 全宽「继续」主按钮的连接授权式布局（保留本机凭证表单与推荐徽标，风格沿用现有 token）。
 - **快捷键 Action 授权弹窗对齐设置页交互**：`set-binding` 用功能下拉 + `ShortcutRecorder` 录制，不再手填 id/组合键字符串；快捷面板触发与发送后行为复用 `@vetta/ui` Select（与设置页同款）；恢复类弹窗展示产品功能名与默认键显示。文案按 `docs/user-facing-copy.md` 说结果与影响。
