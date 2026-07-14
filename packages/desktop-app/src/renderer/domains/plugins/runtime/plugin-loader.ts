@@ -36,8 +36,8 @@ import type {
 	PluginSettingsApi,
 	PluginToolCallSlotContribution,
 	PluginTurnCardContribution,
-} from "@vetta/plugin-sdk";
-import { resolveCatalogKey } from "@vetta/plugin-sdk";
+} from "@vetta-org/plugin-sdk";
+import { resolveCatalogKey } from "@vetta-org/plugin-sdk";
 import { getDefaultStore } from "jotai";
 import type { ComponentType } from "react";
 import { router } from "../../../router";
@@ -445,6 +445,12 @@ function createContext(
 		if (typeof contribution.label !== "string" || contribution.label.trim().length === 0) {
 			throw new Error("Input action label is required");
 		}
+		const userOnToggle = contribution.onToggle;
+		const hardIsolation = contribution.hardIsolation === true;
+		if (hardIsolation) {
+			// Register mode gate immediately so agent contributions stay stripped until toggle on (ADR-0041).
+			void window.vetta.plugins.registerModeGate(plugin.id);
+		}
 		const normalized: PluginInputActionContribution = {
 			id: `${plugin.id}:${contribution.id}`,
 			label: contribution.label,
@@ -452,7 +458,14 @@ function createContext(
 			defaultActive: contribution.defaultActive,
 			requiresActiveTool: contribution.requiresActiveTool,
 			scope_use: contribution.scope_use,
-			onToggle: contribution.onToggle,
+			hardIsolation,
+			onToggle: (active) => {
+				const veto = userOnToggle?.(active);
+				if (veto === false) return false;
+				if (hardIsolation) {
+					void window.vetta.plugins.setContributionMode(plugin.id, active);
+				}
+			},
 			decoratePrompt: contribution.decoratePrompt,
 		};
 		inputActions.push(normalized);
@@ -461,6 +474,9 @@ function createContext(
 			dispose: () => {
 				const index = inputActions.findIndex((action) => action.id === normalized.id);
 				if (index >= 0) inputActions.splice(index, 1);
+				if (hardIsolation) {
+					void window.vetta.plugins.setContributionMode(plugin.id, false);
+				}
 				onChanged();
 			},
 		};

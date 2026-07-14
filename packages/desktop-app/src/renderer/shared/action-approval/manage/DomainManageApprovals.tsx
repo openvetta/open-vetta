@@ -24,6 +24,7 @@ import {
 	ModelsUpsertProviderApproval,
 } from "./models";
 import {
+	PluginsInstallFromPathApproval,
 	PluginsInstallFromUrlApproval,
 	PluginsReloadApproval,
 	PluginsSetEnabledApproval,
@@ -111,6 +112,7 @@ export function DomainManageApprovals(): JSX.Element {
 
 			<PluginsSetEnabledApproval />
 			<PluginsInstallFromUrlApproval />
+			<PluginsInstallFromPathApproval />
 			<PluginsUninstallApproval />
 			<PluginsReloadApproval />
 

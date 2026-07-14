@@ -8,7 +8,7 @@ import type {
 	ToolCallUiDetails,
 	ToolImagePreview,
 } from "@shared/store/atoms";
-import type { CardDescriptor } from "@vetta/plugin-sdk";
+import type { CardDescriptor } from "@vetta-org/plugin-sdk";
 import type { HistoryEntry } from "../../../../../../runtime-core/src/index.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════

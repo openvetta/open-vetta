@@ -567,6 +567,13 @@
 					"badge": "Install",
 					"impact": "The plugin will be downloaded and installed from the URL."
 				},
+				"install-from-path": {
+					"title": "Install Plugin from Local Path Confirmation",
+					"summary": "Install the local zip, grant declared permissions once, and enable the plugin.",
+					"confirm": "Install and authorize",
+					"badge": "Install",
+					"impact": "The local plugin package will be installed, granted its declared permissions, and enabled."
+				},
 				"uninstall": {
 					"title": "Uninstall Plugin Confirmation",
 					"summary": "The plugin and its local data will be removed according to policy.",

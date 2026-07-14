@@ -1,4 +1,4 @@
-import type { CardDescriptor, ConversationMessage, PluginCardProps } from "@vetta/plugin-sdk";
+import type { CardDescriptor, ConversationMessage, PluginCardProps } from "@vetta-org/plugin-sdk";
 import { Component, type ComponentType, type ErrorInfo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { MessageCardsView } from "@vetta/theme-ui/chat";

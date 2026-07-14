@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Type, type Static } from "@sinclair/typebox";
-import { definePlugin } from "@vetta/plugin-sdk";
+import { definePlugin } from "@vetta-org/plugin-sdk";
 import "./style.css";
 
 const writeChapterSchema = Type.Object({

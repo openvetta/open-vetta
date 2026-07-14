@@ -1,4 +1,4 @@
-import { definePlugin } from "@vetta/plugin-sdk";
+import { definePlugin } from "@vetta-org/plugin-sdk";
 import { MobilePreviewPanel } from "./MobilePreviewPanel";
 import { setPluginCtx } from "./plugin-context";
 import "./style.css";

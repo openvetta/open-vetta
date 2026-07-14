@@ -1,11 +1,16 @@
 # Changelog
 
-All notable changes to `@vetta/plugin-sdk` are documented in this file.
+All notable changes to `@vetta-org/plugin-sdk` are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **npm 包名**：由 `@vetta/plugin-sdk` 更名为 `@vetta-org/plugin-sdk`（发布 scope 与 org `vetta-org` 对齐）。
+
 ### Added
 
+- **`PluginInputActionContribution.hardIsolation`**：为 true 时，宿主在 toggle 关闭期间剥离该插件的 agent 贡献与 Activity Tab（对齐 knowledgeMode 硬隔离，ADR-0041）。
 - **`agent.mcp.control` 权限**与 **`PluginAgentManifest.mcpServers`**（相对 `.mcp.json` 路径或内联 server map），供插件声明内聚 MCP（ADR-0040）。
 
 ### Changed

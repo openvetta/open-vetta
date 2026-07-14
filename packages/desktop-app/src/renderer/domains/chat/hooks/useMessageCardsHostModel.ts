@@ -1,6 +1,6 @@
 import { chatMessagesAtom, pluginCardRenderersAtom, type RegisteredCardRenderer } from "@shared/store/atoms";
 import type { ChatMessage, ContentBlock } from "@shared/store/chat-atoms";
-import type { CardDescriptor, PluginCardProps } from "@vetta/plugin-sdk";
+import type { CardDescriptor, PluginCardProps } from "@vetta-org/plugin-sdk";
 import { useAtomValue } from "jotai";
 import type { ComponentType, ReactNode } from "react";
 import { useMemo } from "react";

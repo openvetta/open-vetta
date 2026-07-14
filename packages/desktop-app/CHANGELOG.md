@@ -6,6 +6,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **插件工作台（系统插件）+ 硬隔离 / 本地安装路径**：新增 preset `plugin-workbench`（对话 skill、标准脚本、Activity 面板；输入栏 mode 默认关）。宿主：`plugins.manage` 支持 `install-from-path`（安装确认后按声明一次授权并启用）；`InstalledPlugin.rootPath`；`registerModeGate` / `setContributionMode` 按 pluginId 硬隔离 agent 贡献（tools/skills/MCP/prompt）与 Activity Tab（ADR-0041 / ADR-0042）。`registerInputAction.hardIsolation` 与 manifest `contributionMode.hardIsolation`。
+- **插件工作台内嵌完整插件手册**：将 `docs/plugin/*` 同步到 `agent/docs/plugin/`（`prebuild`/`sync-docs`），skill 强制先 read 再实现；附 doc-index 与 templates 参考。手册补全：MCP 三源聚合、`command.run`、turn-card/tool-call 槽、i18n、scope_use、hardIsolation、install-from-path 等。
 - **插件内聚 MCP**：`plugin.json` 支持 `agent.mcpServers`（路径或内联）与权限 `agent.mcp.control`；`buildAgentPluginRuntimeConfig` 产出 `mcpServerContributions`（路径相对插件根 resolve，运行时名 `plugin-<id>-<local>`）。启停插件经既有 `reconfigureAgentPlugins` 联动 MCP 进程。不写用户 `mcp.json`（ADR-0040）。
 - **外置插件 cowart-vetta**：改编自 [zhongerxin/Cowart](https://github.com/zhongerxin/Cowart)——活动面板 + `open_cowart_canvas`、skills、插件内聚 MCP（画布 state/image 工具；无 Codex widget 宿主）。源码位于 `packages/plugins/externals/cowart-vetta`，不随 App 打包，由用户安装 zip。
 - **Slash `/` 列出插件 skills**：`skills.list` 合并已启用插件的 `agent.skillPaths`（`skillPathContributions`），source 标为 `plugin`。
@@ -22,6 +24,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 ### Fixed
 
 - **Fork 后侧边栏不出现新会话**：「对话」项目下 openSession 用 UUID 子目录 cwd 刷新 sessionsMap，桶键与侧栏不一致。现用 `conversationBucketCwd` 归一后 `loadSessions`，并 `ensureLocalSession` 兜底插入；列表透出 `parentSessionPath` / `parentEntryId`。
+- **安装/启停/重载插件后活动面板 tab 不出现**：main 变更插件注册表后广播 `vetta:plugins:changed`，渲染进程 `PluginGlobalSlotHost` 重载 MF remotes。此前仅设置页本地 `notifyPluginsChanged`，工作台 / Action `install-from-path` 装完 UI 仍停在旧列表，需重启 App 才见 tab。
 - **用户长消息展开后移出气泡又自动折叠**：展开状态曾依赖 `children` 引用，hover 操作栏等重渲染会重建 `textBody` 并误重置。现以正文 `contentKey` 为唯一复原条件，点击展开后保持展开；无收缩按钮；切换会话或刷新后 remount 恢复折叠。
 - **会话 streaming 时 text block 高频闪烁**：`useTextBlockModel` 每次 render 新建 `labels` 对象，导致 `TextBlockView` 的 ReactMarkdown `components` 映射失效、自定义节点整树 remount，`.streaming-chunk` 入场动画对已有文本整段重播。现稳定 `labels` 引用，且 `components` 仅随 `theme` 重建（labels/回调走 ref）。
 - **连接器「我的」误把其他 HTTP MCP 显示为 Notion**：`matchBuiltinMcpPreset` 回退匹配时错误使用了 `preset.config.url.includes(packageHint)`（对 Notion 预设恒真），导致广场添加的远程 HTTP 连接器标题/图标被盖成 Notion。现仅用条目自身的 `url` 与 `packageHint` 比对。
@@ -34,6 +37,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **`build:presets` / dev 自动同步插件手册**：构建预置插件前若租户包含 `plugin-workbench`，先跑其 `scripts/sync-plugin-docs.mjs`（`docs/plugin` → 包内 `agent/docs/plugin`），再算缓存哈希；改 monorepo 手册无需再手跑 sync。
 - **知识检索改为硬隔离**：开启「知识检索」toggle 后本轮才暴露 `kb_list_available_tags` / `kb_filter_by_tags`（经 `metadata.knowledgeMode`）；未开启时 agent 无法调用知识库检索工具。tooltip 文案同步。加工场景（`kb-processing`）不受影响。
 - **侧边栏导航「更多」收纳**：主区域保留新会话 / 自动化 / 知识库 / 扩展；「批量任务」「插件」收进底部「更多」弹出菜单（右侧 popover，打开时 chevron 旋转）。当前路由落在收纳项时，触发器展示该项 icon + label。
 - **侧边栏新增「插件」入口**：扩展页的「插件」Tab 迁至独立 `/plugins` 页面；侧栏新增导航项，旧深链 `/skills?tab=plugin` 自动重定向。
@@ -187,9 +191,9 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 - **可信 UI 插件运行时**：新增桌面端插件系统基础设施，支持从本地 zip 或远程 zip 安装外部插件，读取 `plugin.json` 记录插件版本、`pluginApiVersion`、入口、样式和权限声明；主进程注册 `vetta-plugin://` 加载插件文件、`vetta-host://` 共享宿主 React / JSX runtime / plugin SDK，renderer 启动时加载已启用插件并渲染全局 slot。新增 `window.vetta.plugins` 管理 API（安装、卸载、启用、授权、撤权、手动 reload），插件更新只记录 pending 版本，不自动切换到新 UI。
 - **设置页插件管理**：新增「插件」设置页，支持选择本地 zip 或填写远程 zip URL 安装插件，查看已安装插件，管理启用状态、权限授权、重载和卸载；设置页操作后会通知 renderer 插件宿主即时重新加载已启用插件。
 - **插件 Module Federation 加载模式**：可信 UI 插件新增 `runtime: "module-federation"` manifest 格式，宿主通过 `@module-federation/enhanced/runtime` 动态注册 zip 插件 remote 并加载 expose，React / React DOM 由宿主作为 shared singleton 提供；原 `runtime: "esm"` 加载模式保留兼容。
-- **插件开发包**：新增 `@vetta/plugin-sdk` 和 `@vetta/plugin-vite` workspace 包，分别提供插件生命周期/权限/global slot 类型契约与 Vite Module Federation 配置封装，示例插件不再依赖手写 `host-modules.d.ts` 类型垫片。
+- **插件开发包**：新增 `@vetta-org/plugin-sdk` 和 `@vetta-org/plugin-vite` workspace 包，分别提供插件生命周期/权限/global slot 类型契约与 Vite Module Federation 配置封装，示例插件不再依赖手写 `host-modules.d.ts` 类型垫片。
 - **插件文件预览插槽（ui.slot.file-preview，ADR-0023）**：插件可经 `ctx.ui.registerFilePreview({ extensions, component })` 按文件扩展名贡献预览组件，挂进活动面板 `FilePreviewView`。优先级「仅补空白」——内置显式支持的扩展名插件抢不到，只有内置不认、本会掉进文本兜底的扩展名才查插件注册表，首个匹配胜。预览组件首次接收 props `{ path, name, extension, mime, size }` + 内容访问器 `readText() / readBytes() / getUrl()`（宿主不预读/猜编码，内容访问免额外权限）。配套把 `svg` 从内置图片预览集移出，交由新增的 `svg-viewer` 示例插件接管。新增权限位 `ui.slot.file-preview`。
-- **对话插件 API（agent.session.read / write，ADR-0023）**：插件可在 agent 对话场景读状态、监听事件、发起/驾驶对话。`@vetta/plugin-sdk` 导出 hook `useActiveConversation()` / `useConversationMessages()`（读宿主 jotai store、自动 rerender）；`ctx.conversation.on(event, cb)` 推送实时事件（turn-start/turn-end、message-added/updated、tool-call-start/end、conversation-changed）；`ctx.conversation` 提供 `sendPrompt(text)`（复用完整发送路径、渲染为用户气泡）、`insertText(text)`（填输入框不发）、`abort()`。宿主经 `installPluginHostBridge` 把 store/actions 注入 plugin-sdk 内部 bridge，事件由一个独立的 `session.subscribe` 翻译器产出，不改动既有会话事件处理。
+- **对话插件 API（agent.session.read / write，ADR-0023）**：插件可在 agent 对话场景读状态、监听事件、发起/驾驶对话。`@vetta-org/plugin-sdk` 导出 hook `useActiveConversation()` / `useConversationMessages()`（读宿主 jotai store、自动 rerender）；`ctx.conversation.on(event, cb)` 推送实时事件（turn-start/turn-end、message-added/updated、tool-call-start/end、conversation-changed）；`ctx.conversation` 提供 `sendPrompt(text)`（复用完整发送路径、渲染为用户气泡）、`insertText(text)`（填输入框不发）、`abort()`。宿主经 `installPluginHostBridge` 把 store/actions 注入 plugin-sdk 内部 bridge，事件由一个独立的 `session.subscribe` 翻译器产出，不改动既有会话事件处理。
 - **活动面板插件 tab（ui.slot.activity-tab，ADR-0026）**：插件可经 `ctx.ui.registerActivityTab({ id, label, icon?, component })` 注册活动面板 tab contribution（一个插件可注册多个，icon 为 React 节点而非 iconify class）。注册仅进入「可添加池」、不直接渲染——活动面板 tab 栏 hover 时右侧浮现"+"按钮，弹出勾选列表统一管理 attach/remove（attach 即切到该 tab；remove 当前激活的插件 tab 时回退 profile 默认 tab）。attach 记录以**会话 cwd** 为 key 持久化在 localStorage（`vetta-activity-plugin-tabs`）：普通项目所有 session 共享项目 cwd → attach 项目级同步；「对话」项目 per-session 子目录 cwd（ADR-0007）→ 天然按 session 隔离、零特判。渲染取「attach 记录 ∩ 已注册 contribution」交集——插件禁用 tab 即隐、重新启用自动回来，记录不联动删除。插件 tab 追加在所有内置 tab 之后、按 attach 顺序排列；面板组件零 props（会话上下文走对话插件 API hooks）；IM 会话查看器首期不支持。新增权限位 `ui.slot.activity-tab`。
 - **静态文件协议 vetta-file://（ADR-0027）**：主进程新增通用静态文件协议 `vetta-file://local/<绝对路径>`——**pathname 承载路径**（区别于 `vetta-media://` 的 query 参数形态），HTML 内相对引用的 css/js/图片按所在目录天然解析正确；mime 按扩展名映射常见 web 资源、未知回退 octet-stream，路径校验复用 `assertPathReadableForPreview`（与 readFile/vetta-media 同一道预览沙箱）。凡需「整页带资源地预览项目内 HTML」走本协议。
 - **活动面板插件 tab 的作用域出口 useActivityTab()**：plugin-sdk 新增 `useActivityTab()` hook（React Context，宿主 `PluginActivityTabPanel` 渲染插件组件时注入面板 cwd）。插件以此获知「自己被渲染在哪个 cwd 的面板里」，与 attach 作用域语义一致；不要用 `useActiveConversation().cwd` 代替——项目详情页的面板 cwd 与活动会话可能错位。

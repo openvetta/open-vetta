@@ -1,4 +1,4 @@
-import type { CardDescriptor } from "@vetta/plugin-sdk";
+import type { CardDescriptor } from "@vetta-org/plugin-sdk";
 import { atom } from "jotai";
 import { runningSessionPathsAtom } from "./running-sessions-atoms";
 

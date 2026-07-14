@@ -8,6 +8,7 @@ import {
 	selectedModelAtom,
 } from "@shared/store/atoms";
 import type { Message } from "@vetta/ai";
+import type { SessionEvent } from "@vetta/runtime-core";
 import type {
 	ConversationEvent,
 	ConversationMessage,
@@ -22,9 +23,8 @@ import type {
 	PluginHostBridge,
 	PluginImageRef,
 	PluginSystemPromptProviderHandler,
-} from "@vetta/plugin-sdk";
-import { __setPluginHostBridge } from "@vetta/plugin-sdk";
-import type { SessionEvent } from "@vetta/runtime-core";
+} from "@vetta-org/plugin-sdk";
+import { __setPluginHostBridge } from "@vetta-org/plugin-sdk";
 import { getDefaultStore, useAtomValue } from "jotai";
 import { useMemo } from "react";
 

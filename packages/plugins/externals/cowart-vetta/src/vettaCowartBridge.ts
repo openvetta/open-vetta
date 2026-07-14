@@ -2,7 +2,7 @@
  * Maps Codex MCP App widget bridge → Vetta plugin host APIs.
  * App.jsx talks to window.cowartMcp / window.openai; we install those shims.
  */
-import type { PluginContext, PluginFsApi } from "@vetta/plugin-sdk";
+import type { PluginContext, PluginFsApi } from "@vetta-org/plugin-sdk";
 
 const PAGE_ID_PREFIX = "page:";
 const PAGE_ASSETS_ROUTE = "/page-assets/";

@@ -1,4 +1,4 @@
-import { definePlugin } from "@vetta/plugin-sdk";
+import { definePlugin } from "@vetta-org/plugin-sdk";
 import { ACTIVITY_TAB_ID, INPUT_ACTION_ID, SAVE_TOOL_ID } from "./constants";
 import { IconLottie } from "./icons";
 import { LottieFilePreview } from "./LottieFilePreview";

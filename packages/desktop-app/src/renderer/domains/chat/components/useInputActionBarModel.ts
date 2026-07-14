@@ -7,7 +7,7 @@ import {
 	pluginInputActionsAtom,
 	type RegisteredInputAction,
 } from "@shared/store/atoms";
-import type { ConversationScenario } from "@vetta/plugin-sdk";
+import type { ConversationScenario } from "@vetta-org/plugin-sdk";
 import { useAtom, useAtomValue } from "jotai";
 import { type ReactNode, useCallback } from "react";
 import { useTranslation } from "react-i18next";

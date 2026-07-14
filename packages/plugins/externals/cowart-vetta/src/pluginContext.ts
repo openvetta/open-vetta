@@ -1,4 +1,4 @@
-import type { PluginContext } from "@vetta/plugin-sdk";
+import type { PluginContext } from "@vetta-org/plugin-sdk";
 
 let pluginContext: PluginContext | null = null;
 

@@ -1,4 +1,4 @@
-import { definePlugin } from "@vetta/plugin-sdk";
+import { definePlugin } from "@vetta-org/plugin-sdk";
 import "./style.css";
 import { GitPanel } from "./components/GitPanel";
 import { GitTurnCard } from "./components/GitTurnCard";

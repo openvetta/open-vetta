@@ -8,7 +8,7 @@ import type {
 	PluginLocales,
 	PluginToolCallSlotContribution,
 	PluginTurnCardContribution,
-} from "@vetta/plugin-sdk";
+} from "@vetta-org/plugin-sdk";
 import { atom } from "jotai";
 
 /** A loaded plugin's i18n catalogs + fallback locale, keyed by plugin id. */
@@ -71,6 +71,8 @@ export interface RegisteredInputAction {
 	requiresActiveTool?: PluginInputActionContribution["requiresActiveTool"];
 	/** 允许出现的对话场景（fail-closed：缺省/空 = 任何会话都不显示）。见契约。 */
 	scope_use?: PluginInputActionContribution["scope_use"];
+	/** When true, hide this plugin's activity tabs while the toggle is off (ADR-0041). */
+	hardIsolation?: boolean;
 	onToggle?: PluginInputActionContribution["onToggle"];
 	decoratePrompt?: PluginInputActionContribution["decoratePrompt"];
 }

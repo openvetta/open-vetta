@@ -1,0 +1,16 @@
+{
+  "syncedAt": "2026-07-14T09:57:25.510Z",
+  "source": "/Users/m4/Documents/dev/opensource/vetta-mono/docs/plugin",
+  "files": [
+    "README.md",
+    "conversation-and-agent.md",
+    "getting-started.md",
+    "manifest.md",
+    "mcp.md",
+    "message-cards.md",
+    "permissions.md",
+    "styling-and-pitfalls.md",
+    "system-plugins.md",
+    "ui-slots.md"
+  ]
+}

@@ -9,6 +9,7 @@ export function createPluginsApi(ipc: IpcRenderer): Pick<DesktopApi, "plugins"> 
 			installFromArchive: (archiveBuffer, options) =>
 				ipc.invoke("vetta:plugins:install-from-archive", archiveBuffer, options),
 			installFromUrl: (url, options) => ipc.invoke("vetta:plugins:install-from-url", url, options),
+			installFromPath: (path, options) => ipc.invoke("vetta:plugins:install-from-path", path, options),
 			uninstall: (id) => ipc.invoke("vetta:plugins:uninstall", id),
 			setEnabled: (id, enabled) => ipc.invoke("vetta:plugins:set-enabled", id, enabled),
 			grantPermissions: (id, permissions) => ipc.invoke("vetta:plugins:grant-permissions", id, permissions),
@@ -18,6 +19,8 @@ export function createPluginsApi(ipc: IpcRenderer): Pick<DesktopApi, "plugins"> 
 			runCommand: (pluginId, file, args, options) =>
 				ipc.invoke("vetta:plugins:command-run", pluginId, file, args, options),
 			reload: (id) => ipc.invoke("vetta:plugins:reload", id),
+			registerModeGate: (pluginId) => ipc.invoke("vetta:plugins:register-mode-gate", pluginId),
+			setContributionMode: (pluginId, active) => ipc.invoke("vetta:plugins:set-contribution-mode", pluginId, active),
 			beginAgentContributionsLoad: (pluginId, activationId) =>
 				ipc.invoke("vetta:plugins:agent-contributions-begin-load", pluginId, activationId),
 			registerAgentTool: (pluginId, registration) =>
@@ -56,6 +59,11 @@ export function createPluginsApi(ipc: IpcRenderer): Pick<DesktopApi, "plugins"> 
 				) => listener(payload);
 				ipc.on("vetta:plugins:settings-changed", handler);
 				return () => ipc.removeListener("vetta:plugins:settings-changed", handler);
+			},
+			onPluginsChanged: (listener) => {
+				const handler = () => listener();
+				ipc.on("vetta:plugins:changed", handler);
+				return () => ipc.removeListener("vetta:plugins:changed", handler);
 			},
 		},
 	};
