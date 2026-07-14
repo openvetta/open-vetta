@@ -750,6 +750,7 @@
 			"automation": "Automation",
 			"batch-tasks": "Batch tasks",
 			"skills": "Extensions",
+			"plugins": "Plugins",
 			"connectors": "Connectors",
 			"downloads": "Downloads",
 			"settings": "Settings"
@@ -924,6 +925,7 @@
 			"knowledgeAll": "All Knowledge Bases",
 			"knowledge": "Knowledge Base",
 			"skills": "Skills",
+			"plugins": "Plugins",
 			"settings": "Settings",
 			"project": "Project Details",
 			"downloads": "Downloads",

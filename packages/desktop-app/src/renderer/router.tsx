@@ -6,6 +6,7 @@ import { SessionViewerPage } from "./domains/chat/components/SessionViewerPage";
 import { AutomationPage } from "./domains/scheduler/components/AutomationPage";
 import { BatchTasksPage } from "./domains/batch-tasks/components/BatchTasksPage";
 import { SkillsPage } from "./domains/skills/components/SkillsPage";
+import { PluginsPage } from "./domains/skills/components/PluginsPage";
 import { SettingsPage } from "./domains/settings/components/SettingsPage";
 import { ProjectDetailPage } from "./domains/project/components/ProjectDetailPage";
 import { DownloadsPage } from "./domains/downloads/components/DownloadsPage";
@@ -41,6 +42,7 @@ const skillsRoute = createRoute({
 	path: "/skills",
 	component: SkillsPage,
 	validateSearch: (search: Record<string, unknown>) => {
+		// 仍接受已废弃的 plugin，页面内会重定向到 /plugins。
 		const tab =
 			search.tab === "scene" ||
 			search.tab === "skill" ||
@@ -56,6 +58,12 @@ const skillsRoute = createRoute({
 			...(nav ? { nav } : {}),
 		};
 	},
+});
+
+const pluginsRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: "/plugins",
+	component: PluginsPage,
 });
 
 const knowledgeRoute = createRoute({
@@ -123,6 +131,7 @@ const routeTree = rootRoute.addChildren([
 	knowledgeRoute,
 	knowledgeListRoute,
 	skillsRoute,
+	pluginsRoute,
 	settingsTabRoute,
 	projectDetailRoute,
 	downloadsRoute,

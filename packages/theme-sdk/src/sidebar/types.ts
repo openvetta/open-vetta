@@ -28,7 +28,9 @@ export type SidebarLabelKey =
 	| "sidebar.nav.automation"
 	| "sidebar.nav.batchTasks"
 	| "sidebar.nav.knowledge"
-	| "sidebar.nav.skills";
+	| "sidebar.nav.skills"
+	| "sidebar.nav.plugins"
+	| "sidebar.nav.more";
 
 export interface SidebarProps {
 	readonly onOpenSession: (cwd: string, sessionPath?: string) => Promise<void>;
@@ -52,7 +54,7 @@ export interface SidebarNavItem {
 	readonly key: string;
 	readonly label?: string;
 	readonly labelKey?: SidebarLabelKey;
-	readonly path?: "/automation" | "/batch-tasks" | "/knowledge" | "/skills";
+	readonly path?: "/automation" | "/batch-tasks" | "/knowledge" | "/skills" | "/plugins";
 	readonly title?: string;
 	readonly titleLabelKey?: SidebarLabelKey;
 	readonly type: "custom" | "new-session" | "route";
@@ -72,12 +74,22 @@ export interface SidebarModel {
 		readonly openNavItem: (item: SidebarNavItem) => void;
 		readonly resize: (delta: number) => void;
 		readonly resizeEnd: () => void;
+		readonly setMoreOpen: (open: boolean) => void;
 	};
 	readonly filter: SidebarFilter;
 	readonly floating: boolean;
 	readonly imOnline: boolean;
+	/** 收纳菜单中任一项为当前路由时为 true（「更多」按钮高亮）。 */
+	readonly moreActive: boolean;
+	/** 已解析的「更多」文案。 */
+	readonly moreLabel: string;
+	/** 收纳在「更多」弹出菜单中的次要导航项。 */
+	readonly moreNavItems: readonly SidebarNavItem[];
+	readonly moreOpen: boolean;
 	readonly navIndicatorBounds: NavIndicatorBounds | null;
+	/** 主区域常驻导航项（不含「更多」收纳项）。 */
 	readonly navItems: readonly SidebarNavItem[];
+	readonly setMoreButtonRef: RefCallback<HTMLButtonElement>;
 	readonly setNavItemRef: (index: number) => RefCallback<HTMLButtonElement>;
 	readonly width: number;
 }

@@ -13,6 +13,7 @@
 	},
 	"subtitle": "安装并启用你需要的能力，让 Vetta 拥有更多专业技能",
 	"subtitleConnector": "管理 MCP 连接器，为 AI 接入网页、文档与外部工具",
+	"subtitlePlugin": "安装、启用并配置应用插件，扩展 Vetta 的界面与能力",
 	"search": {
 		"placeholder": "搜索{{noun}}..."
 	},
