@@ -265,11 +265,16 @@ export class RuntimeManager {
 
 	reconfigureAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | undefined): void {
 		this._agentPlugins = agentPlugins;
+		const pluginSkillPaths =
+			agentPlugins?.skillPathContributions?.flatMap((contribution) => contribution.paths) ?? [];
 		debugPluginAgent("coding-agent reconfigureAgentPlugins", {
 			sessionId: this.host.sessionId,
 			toolContributions: summarizePluginToolContributions(agentPlugins),
 			mcpServers: agentPlugins?.mcpServerContributions?.map((item) => item.runtimeName) ?? [],
+			skillPaths: pluginSkillPaths,
 		});
+		// Hot-update plugin skill roots so slash + system prompt see them without new session.
+		this.resourceLoader.setAdditionalSkillPaths(pluginSkillPaths);
 		this.buildRuntime({
 			activeToolNames: this.getActiveToolNames(),
 			includeAllExtensionTools: true,

@@ -389,7 +389,20 @@ export class McpManager {
 		this.pluginServers = next;
 		this.pluginFingerprint = nextFingerprint;
 		this.log(`Plugin MCP set updated (${next.size} servers), reconciling`);
-		return this.reconcileToEffectiveConfig();
+		const changed = await this.reconcileToEffectiveConfig();
+		// Surface plugin MCP boot failures loudly — silent error status was the
+		// main reason "plugin tools missing" looked like injection never ran.
+		for (const instance of this.state.servers.values()) {
+			if (!instance.name.startsWith("plugin-")) continue;
+			if (instance.status === "error" || instance.status === "needs_auth") {
+				console.error(
+					`[MCP] Plugin server ${instance.name} status=${instance.status}: ${instance.error ?? "unknown"}`,
+				);
+			} else if (instance.status === "ready") {
+				this.log(`Plugin server ${instance.name} ready with ${instance.tools.length} tools`);
+			}
+		}
+		return changed;
 	}
 
 	private mapsEqualConfig(a: Map<string, McpServerConfig>, b: Map<string, McpServerConfig>): boolean {
