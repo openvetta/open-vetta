@@ -12,13 +12,7 @@ import { formatCultivationNumber } from "./cultivationView";
 import type { SanctumCultivationView } from "./types";
 import { XianxiaCultivationCompositionPopover } from "./XianxiaCultivationCompositionPopover";
 import { XianxiaCultivationNumber } from "./XianxiaCultivationNumber";
-
-const cultivationDataSources = [
-	{ icon: "icon-[solar--checklist-minimalistic-bold]", label: "完成任务" },
-	{ icon: "icon-[solar--document-text-bold]", label: "引用知识库" },
-	{ icon: "icon-[solar--magic-stick-3-bold]", label: "生成有效结果" },
-	{ icon: "icon-[solar--settings-bold]", label: "建立自动化" },
-] as const;
+import { XianxiaCultivationTrendChart } from "./XianxiaCultivationTrendChart";
 
 /**
  * Sanctum cultivation power summary card.
@@ -64,47 +58,54 @@ export function XianxiaCultivationPowerPanel({
 	return (
 		<NineSliceImageFrame
 			className="w-full min-w-0 overflow-visible text-white drop-shadow-[0_0_10px_rgba(255,246,210,0.5)]"
-			contentClassName="relative z-10 grid min-w-0 grid-cols-[minmax(0,1fr)_9.5rem] gap-4 px-[31px] py-[17px] min-[1280px]:grid-cols-[minmax(0,1fr)_10.5rem] min-[1280px]:gap-6"
+			contentClassName="relative z-10 grid min-w-0 grid-cols-[minmax(0,1fr)_9.4rem] gap-4 px-[31px] py-[17px] min-[1280px]:grid-cols-[minmax(0,1fr)_9.8rem] min-[1280px]:gap-6"
 			decoration={cultivationPowerPanelDecoration}
 			imageUrl={sanctumPageAssets.cultivationPowerPanel}
 		>
 			<div className="flex min-w-0 flex-col">
-				<div className="flex items-center gap-3">
-					<span className="text-[18px] text-amber-100 drop-shadow-[0_0_5px_rgba(255,245,205,0.8)]">✧</span>
-					<h2 className="text-[22px] font-semibold leading-7 text-amber-50 drop-shadow-[0_1px_3px_rgba(15,23,42,0.65)] min-[1280px]:text-[24px] min-[1280px]:leading-8">
-						修为值
-					</h2>
-					<span className="text-[16px] text-slate-200/90 min-[1280px]:text-[18px]">Cultivation Power</span>
-					<button
-						aria-label="了解修为规则"
-						className="flex h-5 w-5 flex-none items-center justify-center text-slate-200/75 outline-none transition hover:text-amber-50 focus-visible:ring-2 focus-visible:ring-amber-200/80"
-						data-xianxia-cultivation-rules-trigger=""
-						onClick={() => openPanel("rules")}
-						type="button"
-					>
-						<span className="icon-[solar--info-circle-linear] h-5 w-5" />
-					</button>
-				</div>
-				<div className="ml-4 min-[1280px]:ml-6">
-					<div className="mt-4 flex min-w-0 items-end gap-3">
-						<XianxiaCultivationNumber
-							className="drop-shadow-[0_1px_4px_rgba(15,23,42,0.75)]"
-							digitClassName="h-[48px] min-[1280px]:h-[58px]"
-							value={cultivation.currentPower}
-						/>
-						<span className="pb-1.5 text-[25px] font-semibold leading-none text-slate-100/95 min-[1280px]:pb-2 min-[1280px]:text-[30px]">/ {formatCultivationNumber(cultivation.maxPower)}</span>
+				<div className="grid min-w-0 grid-cols-[minmax(0,1fr)_9.5rem] gap-4 min-[1280px]:grid-cols-[minmax(0,1fr)_10rem] min-[1280px]:gap-5">
+					<div className="min-w-0">
+						<div className="flex items-center gap-3">
+							<span className="text-[18px] text-amber-100 drop-shadow-[0_0_5px_rgba(255,245,205,0.8)]">✧</span>
+							<h2 className="text-[22px] font-semibold leading-7 text-amber-50 drop-shadow-[0_1px_3px_rgba(15,23,42,0.65)] min-[1280px]:text-[24px] min-[1280px]:leading-8">
+								修为值
+							</h2>
+							<span className="text-[16px] text-slate-200/90 min-[1280px]:text-[18px]">Cultivation Power</span>
+							<button
+								aria-label="了解修为规则"
+								className="flex h-5 w-5 flex-none items-center justify-center text-slate-200/75 outline-none transition hover:text-amber-50 focus-visible:ring-2 focus-visible:ring-amber-200/80"
+								data-xianxia-cultivation-rules-trigger=""
+								onClick={() => openPanel("rules")}
+								type="button"
+							>
+								<span className="icon-[solar--info-circle-linear] h-5 w-5" />
+							</button>
+						</div>
+						<div className="ml-4 min-[1280px]:ml-6">
+							<div className="mt-4 flex min-w-0 items-end gap-3">
+								<XianxiaCultivationNumber
+									className="drop-shadow-[0_1px_4px_rgba(15,23,42,0.75)]"
+									digitClassName="h-[48px] min-[1280px]:h-[58px]"
+									value={cultivation.currentPower}
+								/>
+								<span className="pb-1.5 text-[25px] font-semibold leading-none text-slate-100/95 min-[1280px]:pb-2 min-[1280px]:text-[30px]">/ {formatCultivationNumber(cultivation.maxPower)}</span>
+							</div>
+							<div className="mt-2 h-3 w-[82%] shrink-0 overflow-hidden rounded-full border border-[#edd2aa]/55 bg-slate-950/35 p-[2px] shadow-inner">
+								<motion.div
+									animate={{ width: cultivation.progressPercent }}
+									className="h-full rounded-full bg-[#edd2aa] shadow-[0_0_5px_rgba(237,210,170,0.58)]"
+									initial={{ width: "0%" }}
+									transition={{ delay: 0.38, duration: 0.75, ease: "easeOut" }}
+								/>
+							</div>
+							<p className="mt-2 text-[13px] font-semibold tracking-[0.08em] text-slate-200/70">
+								数据来自真实使用行为
+							</p>
+						</div>
 					</div>
-					<div className="mt-2 h-3 w-[82%] shrink-0 overflow-hidden rounded-full border border-[#edd2aa]/55 bg-slate-950/35 p-[2px] shadow-inner">
-						<motion.div
-							animate={{ width: cultivation.progressPercent }}
-							className="h-full rounded-full bg-[#edd2aa] shadow-[0_0_5px_rgba(237,210,170,0.58)]"
-							initial={{ width: "0%" }}
-							transition={{ delay: 0.38, duration: 0.75, ease: "easeOut" }}
-						/>
+					<div className="mt-[24px] flex min-w-0 justify-end">
+						<XianxiaCultivationTrendChart cultivation={cultivation} />
 					</div>
-					<p className="mt-2 text-[13px] font-semibold tracking-[0.08em] text-slate-200/70">
-						数据来自真实使用行为
-					</p>
 				</div>
 				<div className="relative mt-2 grid min-h-[4.65rem] shrink-0 grid-cols-[1.1fr_repeat(3,1fr)] overflow-visible rounded-[10px] border border-white/18 bg-slate-900/18">
 					<div className="flex min-w-0 flex-col items-start px-3 pt-3 min-[1280px]:px-4">
@@ -181,17 +182,26 @@ export function XianxiaCultivationPowerPanel({
 					))}
 				</div>
 			</div>
-			<div className="mt-[26px] flex min-h-0 flex-col rounded-[10px] border border-slate-300/60 bg-slate-50/82 px-3 py-3 text-slate-700 shadow-[inset_0_0_12px_rgba(255,255,255,0.65)]">
-				<div className="mb-2 text-[14px] font-semibold leading-5 tracking-[0.08em] text-slate-700 min-[1280px]:text-[15px]">
+			<div className="mt-[24px] flex h-fit flex-col rounded-[10px] border border-slate-300/60 bg-slate-50/82 px-3 py-3 text-slate-700 shadow-[inset_0_0_12px_rgba(255,255,255,0.65)]">
+				<div className="mb-2 text-[13px] font-semibold leading-5 tracking-[0.08em] text-slate-700 min-[1280px]:text-[14px]">
 					数据来源:
 				</div>
-				<div className="flex min-h-0 flex-1 flex-col justify-between gap-1.5">
-					{cultivationDataSources.map((source) => (
+				<div className="flex flex-col gap-1.5">
+					{compositionItems.map((source) => (
 						<div className="flex min-w-0 items-center gap-2" key={source.label}>
-							<span className="flex h-6 w-6 flex-none items-center justify-center rounded-full border border-slate-400/55 bg-slate-700 text-amber-100 shadow-[0_1px_3px_rgba(15,23,42,0.28)]">
-								<span className={cn(source.icon, "h-3.5 w-3.5")} />
+							<img
+								alt=""
+								aria-hidden="true"
+								className="h-5 w-5 flex-none object-contain drop-shadow-[0_1px_3px_rgba(15,23,42,0.28)] min-[1280px]:h-6 min-[1280px]:w-6"
+								draggable={false}
+								src={source.iconUrl}
+							/>
+							<span className="min-w-0 flex-1 truncate text-[12px] font-semibold leading-5 min-[1280px]:text-[13px]">
+								{source.label}
 							</span>
-							<span className="truncate text-[13px] font-semibold leading-5 min-[1280px]:text-[14px]">{source.label}</span>
+							<span className="flex-none text-[12px] font-semibold leading-5 text-[#9a6f34] min-[1280px]:text-[13px]">
+								+{formatCultivationNumber(source.value)}
+							</span>
 						</div>
 					))}
 				</div>

@@ -34,6 +34,14 @@ const fallbackCultivationView: SanctumCultivationView = {
 		tools: 0,
 		turns: 0,
 	},
+	trend: [
+		{
+			date: getLocalDateKey(Date.now()),
+			label: "今日",
+			power: 0,
+			score: 0,
+		},
+	],
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -52,8 +60,38 @@ function readCultivationSnapshot(value: ThemeStorageValue | undefined): Cultivat
 	if (typeof value.progressToNext !== "number") return null;
 	if (!Array.isArray(value.achievedRealmIds)) return null;
 	if (!isRecord(value.growth)) return null;
+	if (!Array.isArray(value.dailyScores)) return null;
 
 	return value as unknown as CultivationSnapshot;
+}
+
+function getLocalDateKey(timestamp: number): string {
+	const date = new Date(timestamp);
+	const year = date.getFullYear();
+	const month = `${date.getMonth() + 1}`.padStart(2, "0");
+	const day = `${date.getDate()}`.padStart(2, "0");
+	return `${year}-${month}-${day}`;
+}
+
+function formatTrendLabel(dateKey: string): string {
+	const [, month, day] = dateKey.split("-");
+	return `${Number(month)}/${Number(day)}`;
+}
+
+function toTrendPoints(snapshot: CultivationSnapshot): SanctumCultivationView["trend"] {
+	const today = getLocalDateKey(snapshot.updatedAt);
+	const byDate = new Map(snapshot.dailyScores.map((entry) => [entry.date, entry.score]));
+	byDate.set(today, snapshot.score);
+
+	return [...byDate.entries()]
+		.sort(([left], [right]) => left.localeCompare(right))
+		.slice(-30)
+		.map(([date, score]) => ({
+			date,
+			label: formatTrendLabel(date),
+			power: Math.max(0, Math.floor(score - snapshot.realmStartScore)),
+			score,
+		}));
 }
 
 function useCultivationSnapshot(): CultivationSnapshot | null {
@@ -92,6 +130,7 @@ function toCultivationView(snapshot: CultivationSnapshot | null): SanctumCultiva
 		realmId: snapshot.realmId,
 		score: snapshot.score,
 		scoreBreakdown: snapshot.scoreBreakdown,
+		trend: toTrendPoints(snapshot),
 	};
 }
 
