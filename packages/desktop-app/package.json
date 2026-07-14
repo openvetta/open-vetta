@@ -73,6 +73,7 @@
 		"@vetta/runtime-core": "workspace:*",
 		"@vetta/theme-sdk": "workspace:*",
 		"@vetta/theme-ui": "workspace:*",
+		"@vetta/toolkit": "workspace:*",
 		"@vetta/ui": "workspace:*",
 		"@xyflow/react": "^12.10.2",
 		"adm-zip": "^0.5.16",

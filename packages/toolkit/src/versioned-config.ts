@@ -39,6 +39,10 @@ function findNextMigration(
 	return migrations.find((migration) => migration.fromVersion === fromVersion);
 }
 
+/**
+ * Apply a linear chain of schemaVersion migrations (vN → vN+1 → … → current).
+ * Pure function — no filesystem I/O.
+ */
 export function migrateVersionedConfig(
 	value: unknown,
 	options: VersionedConfigMigrationOptions,

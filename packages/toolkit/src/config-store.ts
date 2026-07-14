@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { atomicWriteJSON } from "../utils/atomic-write.js";
+import { atomicWriteJSON } from "./atomic-write.js";
 import type { VersionedConfigMigrationResult } from "./versioned-config.js";
 
 export interface VersionedJsonConfigStoreOptions<TConfig> {
@@ -68,6 +68,10 @@ async function persistMigratedConfigAsync<TConfig>(
 	}
 }
 
+/**
+ * Node-only versioned JSON config file store.
+ * Domain schemas / migrations stay in the consuming package.
+ */
 export function createVersionedJsonConfigStore<TConfig>(
 	options: VersionedJsonConfigStoreOptions<TConfig>,
 ): VersionedJsonConfigStore<TConfig> {

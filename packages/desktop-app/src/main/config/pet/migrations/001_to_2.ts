@@ -1,5 +1,5 @@
+import type { ConfigRecord, VersionedConfigMigration } from "@vetta/toolkit/versioned-config";
 import { PET_ACTIONS, type PetActionId } from "../../../../shared/pet-actions.js";
-import type { ConfigRecord, VersionedConfigMigration } from "../../versioned-config.js";
 
 const PET_ACTION_LEGACY_ID_MIGRATION: Record<string, PetActionId> = {
 	sleep: "stoat_sleep_lie_on_cushion",

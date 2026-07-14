@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { getVettaHomePath } from "@vetta/action-rpc";
+import { atomicWriteJSONAsync } from "@vetta/toolkit/atomic-write";
 import {
 	assertThemeStorageWritable,
 	isThemeStorageJson,
@@ -12,7 +13,6 @@ import {
 	type ThemeStorageJson,
 } from "../../shared/theme-storage.js";
 import { getAppLogger } from "../logger.js";
-import { atomicWriteJSONAsync } from "../utils/atomic-write.js";
 
 const log = getAppLogger("theme-data-store");
 

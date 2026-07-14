@@ -1,13 +1,12 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getAgentDir } from "@vetta/coding-agent";
+import { atomicWriteJSON } from "@vetta/toolkit/atomic-write";
 import { app, BrowserWindow, ipcMain, powerMonitor } from "electron";
-
 import type { RefreshOutcome } from "../../preload/api.js";
 import { DEFAULT_SERVER_URL, DEFAULT_SITE_URL } from "../constants.js";
 import { getAppLogger } from "../logger.js";
 import { peekSharedRuntime } from "../runtime.js";
-import { atomicWriteJSON } from "../utils/atomic-write.js";
 import { type ModelsConfig, type ProviderConfig, readModelsConfig, writeModelsConfig } from "./fs.js";
 
 const settingsLog = getAppLogger("settings");
