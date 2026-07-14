@@ -1,4 +1,4 @@
-import { useTranslation } from "@vetta/plugin-sdk";
+import { useTranslation } from "@vetta-org/plugin-sdk";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { computeGraphLayout, type GraphLine } from "../../git/graphLayout";
 import type { CommitNode } from "../../git/types";

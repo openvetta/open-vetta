@@ -1,4 +1,4 @@
-import { type PluginAudioMetadata, type PluginPreviewFile, useTranslation } from "@vetta/plugin-sdk";
+import { type PluginAudioMetadata, type PluginPreviewFile, useTranslation } from "@vetta-org/plugin-sdk";
 import { Slider } from "@vetta/ui";
 import { motion } from "motion/react";
 import type { JSX } from "react";

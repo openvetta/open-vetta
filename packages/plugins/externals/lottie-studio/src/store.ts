@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import type { PluginContext } from "@vetta/plugin-sdk";
+import type { PluginContext } from "@vetta-org/plugin-sdk";
 
 // Shared mutable state must live on globalThis: Module Federation can duplicate
 // this module across slots, and a per-copy module variable would let a setter

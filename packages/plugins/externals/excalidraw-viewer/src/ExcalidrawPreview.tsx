@@ -1,5 +1,5 @@
 import { exportToBlob, exportToSvg } from "@excalidraw/excalidraw";
-import { type PluginFilePreviewProps, useTranslation } from "@vetta/plugin-sdk";
+import { type PluginFilePreviewProps, useTranslation } from "@vetta-org/plugin-sdk";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type ExportOpts = Parameters<typeof exportToSvg>[0];

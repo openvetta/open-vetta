@@ -1,4 +1,4 @@
-import { useActivityTab, useTranslation, type PluginContext } from "@vetta/plugin-sdk";
+import { useActivityTab, useTranslation, type PluginContext } from "@vetta-org/plugin-sdk";
 import { lazy, Suspense, useLayoutEffect, useMemo, useState, type ComponentType } from "react";
 import { installBridgeFromPluginContext } from "./vettaCowartBridge";
 import { getPluginContext } from "./pluginContext";

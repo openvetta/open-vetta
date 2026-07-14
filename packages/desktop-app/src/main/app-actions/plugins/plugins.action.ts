@@ -1,6 +1,9 @@
+import type { PluginPermission } from "../../../preload/api-types/plugins.js";
 import { getAppLogger } from "../../logger.js";
 import {
 	buildAgentPluginRuntimeConfig,
+	grantPluginPermissions,
+	installPluginFromPath,
 	installPluginFromUrl,
 	listPlugins,
 	reloadPlugin,
@@ -46,7 +49,7 @@ const queryInputSchema: ActionInputSchema = {
 
 const manageInputSchema: ActionInputSchema = {
 	description:
-		'对象参数；operation 为 "set-enabled"、"install-from-url"、"uninstall" 或 "reload"。权限授权请在 GUI 中操作。',
+		'对象参数；operation 为 "set-enabled"、"install-from-url"、"install-from-path"、"uninstall" 或 "reload"。install-from-path 在确认时按声明一次授权。',
 	operations: [
 		{
 			name: "set-enabled",
@@ -63,6 +66,26 @@ const manageInputSchema: ActionInputSchema = {
 			parameters: [
 				{ name: "operation", type: '"install-from-url"', required: true, description: "固定为 install-from-url。" },
 				{ name: "url", type: "string", required: true, description: "插件包 URL。" },
+			],
+		},
+		{
+			name: "install-from-path",
+			description: "从本机 zip 绝对路径安装插件，确认后按 plugin.json 声明一次授予权限并默认启用。",
+			parameters: [
+				{
+					name: "operation",
+					type: '"install-from-path"',
+					required: true,
+					description: "固定为 install-from-path。",
+				},
+				{ name: "path", type: "string", required: true, description: "插件 zip 的绝对路径。" },
+				{
+					name: "grantedPermissions",
+					type: "string[]",
+					required: false,
+					description: "要授予的权限；省略则安装时授予清单声明的全部权限。",
+				},
+				{ name: "enable", type: "boolean", required: false, description: "安装后是否启用，默认 true。" },
 			],
 		},
 		{
@@ -89,6 +112,10 @@ const queryExamples: ActionExample[] = [{ description: "列出插件", input: { 
 const manageExamples: ActionExample[] = [
 	{ description: "停用插件", input: { operation: "set-enabled", id: "my-plugin", enabled: false } },
 	{ description: "从 URL 安装", input: { operation: "install-from-url", url: "https://example.com/plugin.zip" } },
+	{
+		description: "从本地 zip 安装",
+		input: { operation: "install-from-path", path: "/abs/path/to/my-plugin-0.1.0.zip" },
+	},
 ];
 
 function refreshAgentPlugins(): void {
@@ -153,6 +180,11 @@ export function createPluginsActions(): ActionDefinition[] {
 			approval: createOperationApprovals("plugins.set-enabled", [
 				{ id: "plugins.set-enabled", title: "启用/停用插件确认", description: "展示插件启用状态变更。" },
 				{ id: "plugins.install-from-url", title: "从 URL 安装插件确认", description: "展示并可编辑安装地址。" },
+				{
+					id: "plugins.install-from-path",
+					title: "从本地路径安装插件确认",
+					description: "展示 zip 路径；确认后按声明一次授权并启用。",
+				},
 				{ id: "plugins.uninstall", title: "卸载插件确认", description: "展示待卸载插件。" },
 				{ id: "plugins.reload", title: "重载插件确认", description: "展示待重载插件。" },
 			]),
@@ -161,8 +193,8 @@ export function createPluginsActions(): ActionDefinition[] {
 			validateInput: validatePluginsManageInput,
 			assertReady: (input) => {
 				const request = input as unknown as PluginsManageInput;
-				// install-from-url 为创建；其余操作必须插件已安装。
-				if (request.operation === "install-from-url") return;
+				// install-from-url / install-from-path 为创建；其余操作必须插件已安装。
+				if (request.operation === "install-from-url" || request.operation === "install-from-path") return;
 				const plugins = listPlugins();
 				const plugin = plugins.find((item) => item.id === request.id);
 				if (!plugin) {
@@ -192,6 +224,21 @@ export function createPluginsActions(): ActionDefinition[] {
 						const plugin = await installPluginFromUrl(request.url);
 						refreshAgentPlugins();
 						return { operation: "install-from-url", plugin: summarizePlugin(plugin) };
+					}
+					if (request.operation === "install-from-path") {
+						const grantedPermissions = request.grantedPermissions as PluginPermission[] | undefined;
+						let plugin = await installPluginFromPath(request.path, {
+							grantedPermissions,
+							enable: request.enable !== false,
+							source: "archive",
+						});
+						// Approve install = grant all declared permissions when caller omitted the list.
+						if ((!grantedPermissions || grantedPermissions.length === 0) && plugin.permissions.length > 0) {
+							plugin = grantPluginPermissions(plugin.id, plugin.permissions);
+						}
+						const enabled = setPluginEnabled(plugin.id, request.enable !== false);
+						refreshAgentPlugins();
+						return { operation: "install-from-path", plugin: summarizePlugin(enabled) };
 					}
 					if (request.operation === "uninstall") {
 						uninstallPlugin(request.id);

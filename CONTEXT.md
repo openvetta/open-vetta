@@ -540,7 +540,7 @@ _Avoid_: 与 [[媒体流协议]] 混用——vetta-media 专责音视频 Range �
 
 [[可信插件]] 在 agent 对话场景可用的能力出口，首期三类（斜杠命令明确**不**做、steer 缓）：
 
-**读状态（hook 为主 + 事件补非 React）**：宿主从 `@vetta/plugin-sdk` 导出 hook —— `useActiveConversation()`（→ id/cwd/title/model/isStreaming）、`useConversationMessages()`（→ ChatMessage[]）等，hook 内部读宿主默认 store 的 `activeSessionAtom` / `chatMessagesAtom` / `isStreamingAtom`、自动 rerender。落地靠：宿主在 `installPluginHostShim` 时把 jotai store/atoms/actions 注入 plugin-sdk 的内部 bridge，Module Federation 令宿主与插件共享同一份 pluginSdk 实例，故注入对插件 hook 可见（plugin-sdk 不反向依赖 desktop-app）。权限：`agent.session.read`。
+**读状态（hook 为主 + 事件补非 React）**：宿主从 `@vetta-org/plugin-sdk` 导出 hook —— `useActiveConversation()`（→ id/cwd/title/model/isStreaming）、`useConversationMessages()`（→ ChatMessage[]）等，hook 内部读宿主默认 store 的 `activeSessionAtom` / `chatMessagesAtom` / `isStreamingAtom`、自动 rerender。落地靠：宿主在 `installPluginHostShim` 时把 jotai store/atoms/actions 注入 plugin-sdk 的内部 bridge，Module Federation 令宿主与插件共享同一份 pluginSdk 实例，故注入对插件 hook 可见（plugin-sdk 不反向依赖 desktop-app）。权限：`agent.session.read`。
 
 **事件（实时、细粒度）**：`ctx.conversation.on(event, cb)`，是 `window.vetta.session.subscribe` 生命周期流策展成的插件友好事件，刻意做到「agent 每次调用都有事件、可实时反应」——成员：`turn-start` / `turn-end`（agent_end，携 stopReason）/ `message-added` / `message-updated`(delta) / `tool-call-start` / `tool-call-end` / `conversation-changed`(活动 session 切换)。权限：`agent.session.read`。
 

@@ -1,4 +1,4 @@
-import type { PluginToolCallSlotProps } from "@vetta/plugin-sdk";
+import type { PluginToolCallSlotProps } from "@vetta-org/plugin-sdk";
 import { IconLottie } from "./icons";
 import { focusAnimation, pluginContext } from "./store";
 import { ACTIVITY_TAB_ID } from "./constants";

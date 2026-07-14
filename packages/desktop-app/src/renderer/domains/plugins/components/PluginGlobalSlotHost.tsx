@@ -17,7 +17,7 @@ import {
 import { useSetAtom } from "jotai";
 import { Component, useEffect, useMemo, useReducer, useState } from "react";
 import type { ErrorInfo, ReactNode } from "react";
-import type { PluginGlobalSlotContribution } from "@vetta/plugin-sdk";
+import type { PluginGlobalSlotContribution } from "@vetta-org/plugin-sdk";
 import { markPluginHostLoading, markPluginHostReady, PLUGINS_CHANGED_EVENT } from "../runtime/plugin-events";
 import { installPluginHostBridge } from "../runtime/plugin-host-bridge";
 import { installPluginHostShim } from "../runtime/plugin-host-shim";
@@ -61,8 +61,13 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 
 	useEffect(() => {
 		window.addEventListener(PLUGINS_CHANGED_EVENT, reloadPlugins);
-		return () => window.removeEventListener(PLUGINS_CHANGED_EVENT, reloadPlugins);
-	}, []);
+		// Main process install/enable/reload (Action / workbench) → re-load remotes.
+		const unsubMain = window.vetta.plugins.onPluginsChanged(reloadPlugins);
+		return () => {
+			window.removeEventListener(PLUGINS_CHANGED_EVENT, reloadPlugins);
+			unsubMain();
+		};
+	}, [reloadPlugins]);
 
 	useEffect(() => {
 		let disposed = false;
@@ -165,6 +170,7 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 				defaultActive: action.defaultActive,
 				requiresActiveTool: action.requiresActiveTool,
 				scope_use: action.scope_use,
+				hardIsolation: action.hardIsolation,
 				onToggle: action.onToggle,
 				decoratePrompt: action.decoratePrompt,
 			})),

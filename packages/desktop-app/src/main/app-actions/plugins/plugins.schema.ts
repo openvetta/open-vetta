@@ -21,6 +21,15 @@ export const pluginsManageInputSchema = z.discriminatedUnion("operation", [
 		approvalUi: operationApprovalUiSchema("plugins.install-from-url"),
 	}),
 	z.object({
+		operation: z.literal("install-from-path"),
+		path: z.string().trim().min(1),
+		/** Permissions to grant at install time; omit to grant all declared after approval UI. */
+		grantedPermissions: z.array(z.string()).optional(),
+		/** Default true for agent apply path. */
+		enable: z.boolean().optional(),
+		approvalUi: operationApprovalUiSchema("plugins.install-from-path"),
+	}),
+	z.object({
 		operation: z.literal("uninstall"),
 		id: z.string().trim().min(1),
 		approvalUi: operationApprovalUiSchema("plugins.uninstall"),

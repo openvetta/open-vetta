@@ -1,5 +1,5 @@
 import { languageAtom, type PluginI18nEntry, pluginI18nByIdAtom } from "@shared/store/atoms";
-import { __PluginI18nContext, resolvePluginText } from "@vetta/plugin-sdk";
+import { __PluginI18nContext, resolvePluginText } from "@vetta-org/plugin-sdk";
 import { useAtomValue } from "jotai";
 import { useCallback, type ReactNode } from "react";
 

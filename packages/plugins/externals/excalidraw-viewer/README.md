@@ -37,7 +37,7 @@ The installable archive is written to:
 packages/plugins/externals/excalidraw-viewer/release/excalidraw-viewer-<version>.zip
 ```
 
-`@vetta/plugin-vite` creates the archive automatically after `vite build`; no
+`@vetta-org/plugin-vite` creates the archive automatically after `vite build`; no
 separate packaging script is required.
 
 ## Install From Renderer DevTools
@@ -62,6 +62,6 @@ management UI.
 
 - React is shared by the desktop host through Module Federation, so it is a
   plugin development dependency only.
-- `@vetta/plugin-sdk` is provided by the host and remains external.
+- `@vetta-org/plugin-sdk` is provided by the host and remains external.
 - Text fonts fall back to a system font if Excalifont cannot be loaded offline;
   shape rendering is unaffected.

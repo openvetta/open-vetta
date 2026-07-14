@@ -1,0 +1,95 @@
+.vetta-plugin-workbench {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+	height: 100%;
+	min-height: 0;
+	padding: 0.75rem;
+	overflow: auto;
+	font-size: 0.8125rem;
+	color: var(--foreground, inherit);
+	background: var(--background, transparent);
+}
+
+.vetta-plugin-workbench h2 {
+	margin: 0;
+	font-size: 0.9375rem;
+	font-weight: 600;
+}
+
+.vetta-plugin-workbench .wb-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	align-items: center;
+}
+
+.vetta-plugin-workbench button {
+	border: 1px solid var(--border, #333);
+	background: var(--accent, #2a2a2a);
+	color: inherit;
+	border-radius: 0.375rem;
+	padding: 0.35rem 0.65rem;
+	cursor: pointer;
+	font-size: 0.75rem;
+}
+
+.vetta-plugin-workbench button:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.vetta-plugin-workbench button.primary {
+	background: var(--primary, #3b82f6);
+	border-color: transparent;
+	color: var(--primary-foreground, #fff);
+}
+
+.vetta-plugin-workbench .wb-card {
+	border: 1px solid var(--border, #333);
+	border-radius: 0.5rem;
+	padding: 0.65rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.vetta-plugin-workbench .wb-muted {
+	opacity: 0.7;
+	font-size: 0.75rem;
+}
+
+.vetta-plugin-workbench .wb-error {
+	color: #f87171;
+	white-space: pre-wrap;
+}
+
+.vetta-plugin-workbench label {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	font-size: 0.75rem;
+}
+
+.vetta-plugin-workbench input,
+.vetta-plugin-workbench textarea {
+	border: 1px solid var(--border, #333);
+	background: var(--background, #111);
+	color: inherit;
+	border-radius: 0.375rem;
+	padding: 0.35rem 0.5rem;
+	font: inherit;
+}
+
+.vetta-plugin-workbench textarea {
+	min-height: 4.5rem;
+	resize: vertical;
+}
+
+.vetta-plugin-workbench .wb-badge {
+	display: inline-block;
+	padding: 0.1rem 0.4rem;
+	border-radius: 999px;
+	font-size: 0.6875rem;
+	border: 1px solid var(--border, #333);
+}

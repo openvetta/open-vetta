@@ -1,4 +1,4 @@
-import { useActivityTab } from "@vetta/plugin-sdk";
+import { useActivityTab } from "@vetta-org/plugin-sdk";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AndroidMockup, AndroidTabMockup, IPadMockup, IPhoneMockup } from "react-device-mockup";
 import { DEFAULT_DEVICE_ID, DEVICE_PRESETS, findDevice, type DevicePreset } from "./devices";

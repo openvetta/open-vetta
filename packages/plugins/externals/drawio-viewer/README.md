@@ -40,7 +40,7 @@ The installable archive is written to:
 packages/plugins/externals/drawio-viewer/release/drawio-viewer-0.2.0.zip
 ```
 
-`@vetta/plugin-vite` creates the archive automatically after `vite build`; no
+`@vetta-org/plugin-vite` creates the archive automatically after `vite build`; no
 separate packaging script is required. The archive is ~3.6 MB because the
 offline viewer engine is bundled.
 
@@ -72,4 +72,4 @@ management UI.
   would need network.
 - React is shared by the desktop host through Module Federation, so it is a
   plugin development dependency only.
-- `@vetta/plugin-sdk` is provided by the host and remains external.
+- `@vetta-org/plugin-sdk` is provided by the host and remains external.

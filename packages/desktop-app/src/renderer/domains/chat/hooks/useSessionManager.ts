@@ -57,7 +57,7 @@ import {
 	removeQueuedMessageAtom,
 } from "@shared/store/message-queue-atoms";
 import { useNavigate } from "@tanstack/react-router";
-import type { ConversationScenario } from "@vetta/plugin-sdk";
+import type { ConversationScenario } from "@vetta-org/plugin-sdk";
 import { getDefaultStore, useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef } from "react";
 import {
