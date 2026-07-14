@@ -9,11 +9,12 @@
 export * from "./mcp-client.js";
 // Configuration
 export * from "./mcp-config.js";
+// OAuth (remote HTTP MCP)
+export * from "./mcp-device-flow.js";
 // HTTP client
 export * from "./mcp-http-client.js";
 // Manager
 export * from "./mcp-manager.js";
-// OAuth (remote HTTP MCP)
 export * from "./mcp-oauth-flow.js";
 export * from "./mcp-oauth-provider.js";
 export * from "./mcp-oauth-storage.js";

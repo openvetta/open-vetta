@@ -151,7 +151,8 @@ export const BUILTIN_MCP_PRESETS: readonly BuiltinMcpPreset[] = [
 		iconFile: "github.svg",
 		displayNameKey: "mcpPresets.github.displayName",
 		descriptionKey: "mcpPresets.github.description",
-		// 官方托管远程 MCP：HTTP + OAuth（PKCE 公开客户端，预注册 client_id，不支持 DCR）
+		// 官方托管远程 MCP：HTTP + OAuth 设备码流（GitHub 授权码流强制要 client_secret，
+		// 桌面端免密只能走 Device Flow：仅 client_id，无 secret）
 		packageHint: "api.githubcopilot.com/mcp",
 		setupGuideKey: "mcpPresets.guides.github",
 		setupHelpUrl:
@@ -161,6 +162,8 @@ export const BUILTIN_MCP_PRESETS: readonly BuiltinMcpPreset[] = [
 			type: "http",
 			url: "https://api.githubcopilot.com/mcp/",
 			oauthClientId: GITHUB_OAUTH_CLIENT_ID,
+			oauthDeviceFlow: true,
+			oauthScopes: "repo read:org read:user gist workflow",
 		},
 	},
 	{
