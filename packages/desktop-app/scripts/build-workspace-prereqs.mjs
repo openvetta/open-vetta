@@ -13,6 +13,7 @@ const packages = {
 	ai: { dir: "packages/ai", dependencies: [] },
 	"runtime-telemetry": { dir: "packages/runtime-telemetry", dependencies: [] },
 	"action-rpc": { dir: "packages/action-rpc", dependencies: [] },
+	toolkit: { dir: "packages/toolkit", dependencies: [] },
 	"plugin-sdk": { dir: "packages/plugins/plugin-sdk", dependencies: [] },
 	"plugin-vite": { dir: "packages/plugins/plugin-vite", dependencies: [] },
 	agent: { dir: "packages/agent", dependencies: ["ai", "runtime-telemetry"] },
@@ -28,7 +29,7 @@ const packages = {
 };
 
 const layers = [
-	["ai", "runtime-telemetry", "action-rpc", "plugin-sdk", "plugin-vite"],
+	["ai", "runtime-telemetry", "action-rpc", "toolkit", "plugin-sdk", "plugin-vite"],
 	["agent"],
 	["coding-agent"],
 	["runtime-core", "runtime-tools", "runtime-storage", "runtime-mcp"],
