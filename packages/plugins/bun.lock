@@ -5,6 +5,35 @@
     "": {
       "name": "@vetta/plugin-workspace",
     },
+    "externals/cowart-vetta": {
+      "name": "@vetta/plugin-cowart-vetta",
+      "version": "0.1.7",
+      "dependencies": {
+        "@modelcontextprotocol/ext-apps": "^1.7.4",
+        "@modelcontextprotocol/sdk": "^1.29.0",
+        "@tiptap/pm": "3.27.0",
+        "@tldraw/assets": "^5.1.1",
+        "fractional-indexing": "^3.2.0",
+        "html2canvas": "^1.4.1",
+        "lucide-react": "^0.511.0",
+        "tldraw": "^5.1.1",
+        "zod": "^4.4.3",
+      },
+      "devDependencies": {
+        "@tailwindcss/vite": "^4.1.12",
+        "@types/node": "^22.10.5",
+        "@types/react": "^19.1.1",
+        "@types/react-dom": "^19.1.1",
+        "@vetta/plugin-sdk": "workspace:*",
+        "@vetta/plugin-vite": "workspace:*",
+        "esbuild": "^0.25.0",
+        "react": "19.1.1",
+        "react-dom": "19.1.1",
+        "tailwindcss": "^4.1.12",
+        "typescript": "^5.9.2",
+        "vite": "^7.1.7",
+      },
+    },
     "externals/drawio-viewer": {
       "name": "@vetta/plugin-drawio-viewer",
       "version": "0.2.0",
@@ -129,35 +158,6 @@
       },
       "peerDependencies": {
         "vite": "^7.0.0",
-      },
-    },
-    "presets/cowart-vetta": {
-      "name": "@vetta/plugin-cowart-vetta",
-      "version": "0.1.1",
-      "dependencies": {
-        "@modelcontextprotocol/ext-apps": "^1.7.4",
-        "@modelcontextprotocol/sdk": "^1.29.0",
-        "@tiptap/pm": "3.27.0",
-        "@tldraw/assets": "^5.1.1",
-        "fractional-indexing": "^3.2.0",
-        "html2canvas": "^1.4.1",
-        "lucide-react": "^0.511.0",
-        "tldraw": "^5.1.1",
-        "zod": "^4.4.3",
-      },
-      "devDependencies": {
-        "@tailwindcss/vite": "^4.1.12",
-        "@types/node": "^22.10.5",
-        "@types/react": "^19.1.1",
-        "@types/react-dom": "^19.1.1",
-        "@vetta/plugin-sdk": "workspace:*",
-        "@vetta/plugin-vite": "workspace:*",
-        "esbuild": "^0.25.0",
-        "react": "19.1.1",
-        "react-dom": "19.1.1",
-        "tailwindcss": "^4.1.12",
-        "typescript": "^5.9.2",
-        "vite": "^7.1.7",
       },
     },
     "presets/git": {
@@ -860,7 +860,7 @@
 
     "@upsetjs/venn.js": ["@upsetjs/venn.js@2.0.0", "https://registry.npmmirror.com/@upsetjs/venn.js/-/venn.js-2.0.0.tgz", { "optionalDependencies": { "d3-selection": "^3.0.0", "d3-transition": "^3.0.1" } }, "sha512-WbBhLrooyePuQ1VZxrJjtLvTc4NVfpOyKx0sKqioq9bX1C1m7Jgykkn8gLrtwumBioXIqam8DLxp88Adbue6Hw=="],
 
-    "@vetta/plugin-cowart-vetta": ["@vetta/plugin-cowart-vetta@workspace:presets/cowart-vetta"],
+    "@vetta/plugin-cowart-vetta": ["@vetta/plugin-cowart-vetta@workspace:externals/cowart-vetta"],
 
     "@vetta/plugin-drawio-viewer": ["@vetta/plugin-drawio-viewer@workspace:externals/drawio-viewer"],
 

@@ -1,6 +1,12 @@
 # cowart-vetta (1:1 host mapping)
 
-Vetta system preset adapted from [zhongerxin/Cowart](https://github.com/zhongerxin/Cowart).
+Vetta external plugin adapted from [zhongerxin/Cowart](https://github.com/zhongerxin/Cowart).
+
+## This is NOT a system plugin
+
+It lives under `packages/plugins/externals/` (not `presets/`), so it ships as a
+**user-installable** plugin: build the zip, install it in Desktop, grant the
+declared permissions, and enable/disable or remove it like other external plugins.
 
 ## Capability map (Codex → Vetta)
 
@@ -26,11 +32,18 @@ plugin.json
 ## Build
 
 ```bash
-cd packages/plugins && bun install
-cd presets/cowart-vetta && bun run build
+cd packages/plugins/externals/cowart-vetta
+bun install --cwd ../..
+bun run build
 ```
 
-Restage into Desktop `.artifacts/system-plugins` (or `build:presets`), **restart App**, **new conversation**.
+The installable archive is written to:
+
+```text
+packages/plugins/externals/cowart-vetta/release/cowart-vetta-<version>.zip
+```
+
+Install the zip from Desktop → Plugins, **restart App** if needed, open a **new conversation**.
 
 ## MCP start-mcp note
 
