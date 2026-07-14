@@ -3,8 +3,14 @@ import { cn, Popover, PopoverContent, PopoverTrigger } from "@vetta/ui";
 import { motion } from "motion/react";
 import { useMemo, useState, type JSX } from "react";
 import { sanctumPageAssets } from "./assets";
+import {
+	getCultivationCompositionItems,
+	type CultivationPanelView,
+} from "./cultivationComposition";
+import { cultivationPowerPanelDecoration, PANEL_WIDTH_CLASS } from "./cultivationPanelChrome";
 import { formatCultivationNumber } from "./cultivationView";
 import type { SanctumCultivationView } from "./types";
+import { XianxiaCultivationCompositionPopover } from "./XianxiaCultivationCompositionPopover";
 import { XianxiaCultivationNumber } from "./XianxiaCultivationNumber";
 
 const cultivationDataSources = [
@@ -13,24 +19,11 @@ const cultivationDataSources = [
 	{ icon: "icon-[solar--magic-stick-3-bold]", label: "生成有效结果" },
 	{ icon: "icon-[solar--settings-bold]", label: "建立自动化" },
 ] as const;
-const cultivationPowerPanelDecoration = {
-	borderWidth: "2.5rem",
-	repeat: "stretch",
-	slice: 110,
-} as const;
-const cultivationCompositionPanelDecoration = {
-	borderWidth: "2.25rem",
-	repeat: "stretch",
-	slice: 80,
-} as const;
 
-interface CultivationCompositionItem {
-	readonly iconUrl: string;
-	readonly label: string;
-	readonly percent: number;
-	readonly value: number;
-}
-
+/**
+ * Sanctum cultivation power summary card.
+ * Owns open-state for the composition/rules popover only.
+ */
 export function XianxiaCultivationPowerPanel({
 	cultivation,
 }: {
@@ -38,14 +31,34 @@ export function XianxiaCultivationPowerPanel({
 }): JSX.Element {
 	const [compositionOpen, setCompositionOpen] = useState(false);
 	const [compositionMounted, setCompositionMounted] = useState(false);
+	const [panelView, setPanelView] = useState<CultivationPanelView>("composition");
+	/** 1 = forward (composition → rules), -1 = back (rules → composition). */
+	const [slideDirection, setSlideDirection] = useState<1 | -1>(1);
 	const compositionItems = useMemo(() => getCultivationCompositionItems(cultivation), [cultivation]);
+
+	const openPanel = (view: CultivationPanelView): void => {
+		setSlideDirection(view === "rules" ? 1 : -1);
+		setPanelView(view);
+		setCompositionMounted(true);
+		setCompositionOpen(true);
+	};
+
 	const handleCompositionOpenChange = (open: boolean): void => {
 		if (open) {
-			setCompositionMounted(true);
-			setCompositionOpen(true);
+			openPanel("composition");
 			return;
 		}
 		setCompositionOpen(false);
+	};
+
+	const goToRules = (): void => {
+		setSlideDirection(1);
+		setPanelView("rules");
+	};
+
+	const goToComposition = (): void => {
+		setSlideDirection(-1);
+		setPanelView("composition");
 	};
 
 	return (
@@ -62,7 +75,15 @@ export function XianxiaCultivationPowerPanel({
 						修为值
 					</h2>
 					<span className="text-[16px] text-slate-200/90 min-[1280px]:text-[18px]">Cultivation Power</span>
-					<span className="icon-[solar--info-circle-linear] h-5 w-5 flex-none text-slate-200/75" />
+					<button
+						aria-label="了解修为规则"
+						className="flex h-5 w-5 flex-none items-center justify-center text-slate-200/75 outline-none transition hover:text-amber-50 focus-visible:ring-2 focus-visible:ring-amber-200/80"
+						data-xianxia-cultivation-rules-trigger=""
+						onClick={() => openPanel("rules")}
+						type="button"
+					>
+						<span className="icon-[solar--info-circle-linear] h-5 w-5" />
+					</button>
 				</div>
 				<div className="ml-4 min-[1280px]:ml-6">
 					<div className="mt-4 flex min-w-0 items-end gap-3">
@@ -104,18 +125,39 @@ export function XianxiaCultivationPowerPanel({
 								{compositionMounted && (
 									<PopoverContent
 										align="start"
-										className="z-[100] w-[520px] border-0 bg-transparent p-0 text-slate-700 shadow-none outline-none"
+										className={cn(
+											"z-[100] border-0 bg-transparent p-0 text-slate-700 shadow-none outline-none",
+											PANEL_WIDTH_CLASS,
+										)}
+										onOpenAutoFocus={(event) => event.preventDefault()}
+										onPointerDownOutside={(event) => {
+											const target = event.target;
+											if (!(target instanceof Element)) return;
+											// Title info button also opens this panel; keep it from dismissing.
+											if (target.closest("[data-xianxia-cultivation-rules-trigger]")) {
+												event.preventDefault();
+											}
+										}}
 										side="bottom"
 										sideOffset={8}
 									>
-										<XianxiaCultivationCompositionPanel
+										<XianxiaCultivationCompositionPopover
 											currentPower={cultivation.currentPower}
+											direction={slideDirection}
 											items={compositionItems}
 											maxPower={cultivation.maxPower}
+											onBackToComposition={goToComposition}
 											onExitComplete={() => {
-												if (!compositionOpen) setCompositionMounted(false);
+												if (!compositionOpen) {
+													setCompositionMounted(false);
+													setPanelView("composition");
+													setSlideDirection(1);
+												}
 											}}
+											onOpenRules={goToRules}
 											open={compositionOpen}
+											scoreBreakdown={cultivation.scoreBreakdown}
+											view={panelView}
 										/>
 									</PopoverContent>
 								)}
@@ -156,117 +198,4 @@ export function XianxiaCultivationPowerPanel({
 			</div>
 		</NineSliceImageFrame>
 	);
-}
-
-function XianxiaCultivationCompositionPanel({
-	currentPower,
-	items,
-	maxPower,
-	onExitComplete,
-	open,
-}: {
-	readonly currentPower: number;
-	readonly items: readonly CultivationCompositionItem[];
-	readonly maxPower: number;
-	readonly onExitComplete: () => void;
-	readonly open: boolean;
-}): JSX.Element {
-	return (
-		<motion.div
-			animate={open ? { opacity: 1, scale: 1, y: 0 } : { opacity: 0, scale: 0.96, y: -10 }}
-			className="w-[520px] origin-top text-slate-700 drop-shadow-[0_8px_20px_rgba(15,23,42,0.28)]"
-			initial={{ opacity: 0, scale: 0.96, y: -10 }}
-			onAnimationComplete={() => {
-				if (!open) onExitComplete();
-			}}
-			style={{ pointerEvents: open ? "auto" : "none" }}
-			transition={{ duration: 0.22, ease: "easeOut" }}
-		>
-			<NineSliceImageFrame
-				className="w-full"
-				contentClassName="relative z-10 px-7 py-5"
-				decoration={cultivationCompositionPanelDecoration}
-				imageUrl={sanctumPageAssets.cultivationCompositionPanel}
-			>
-				<div className="mb-4 flex items-baseline gap-2 pb-3">
-					<h3 className="text-[22px] font-semibold leading-7 text-slate-800">修为值构成</h3>
-					<span className="text-[13px] text-slate-500">（基于真实使用行为）</span>
-				</div>
-				<div className="grid grid-cols-[repeat(4,minmax(0,1fr))_0.78fr] items-start gap-3 text-center">
-					{items.map((item, index) => (
-						<div className="relative min-w-0" key={item.label}>
-							{index > 0 && (
-								<span className="absolute left-[-0.5rem] top-12 text-[34px] leading-none text-slate-500/80">+</span>
-							)}
-							<div className="text-[13px] font-semibold leading-5 text-slate-600">{item.label}</div>
-							<img
-								alt=""
-								aria-hidden="true"
-								className="mx-auto mt-2 h-14 w-14 object-contain drop-shadow-[0_2px_7px_rgba(15,23,42,0.28)]"
-								draggable={false}
-								src={item.iconUrl}
-							/>
-							<div className="mt-2 text-[24px] font-semibold leading-7 text-slate-800">{item.percent}%</div>
-							<div className="mt-1 text-[12px] leading-4 text-slate-500">
-								{formatCultivationNumber(item.value)} / {formatCultivationNumber(currentPower)}
-							</div>
-						</div>
-					))}
-					<div className="relative min-w-0">
-						<span className="absolute left-[-0.5rem] top-12 text-[34px] leading-none text-slate-500/80">=</span>
-						<div className="text-[13px] font-semibold leading-5 text-slate-600">修为值</div>
-						<img
-							alt=""
-							aria-hidden="true"
-							className="mx-auto mt-2 h-14 w-14 object-contain drop-shadow-[0_2px_7px_rgba(15,23,42,0.28)]"
-							draggable={false}
-							src={sanctumPageAssets.cultivationCompositionIcons.power}
-						/>
-						<div className="mt-2 text-[24px] font-semibold leading-7 text-slate-800">{formatCultivationNumber(currentPower)}</div>
-						<div className="mt-1 text-[12px] leading-4 text-slate-500">/ {formatCultivationNumber(maxPower)}</div>
-					</div>
-				</div>
-				<div className="mt-5 flex items-center justify-between pt-3 text-[13px] leading-5 text-slate-600">
-					<span>完成任务、引用知识库、生成有效结果、建立自动化都会累计修为。</span>
-					<span className="inline-flex items-center gap-1 font-semibold text-slate-700">
-						了解规则
-						<span className="icon-[solar--alt-arrow-right-linear] h-4 w-4" />
-					</span>
-				</div>
-			</NineSliceImageFrame>
-		</motion.div>
-	);
-}
-
-function getCultivationCompositionItems(cultivation: SanctumCultivationView): readonly CultivationCompositionItem[] {
-	const breakdown = cultivation.scoreBreakdown;
-	const items = [
-		{
-			iconUrl: sanctumPageAssets.cultivationCompositionIcons.document,
-			label: "文稿生成",
-			value: breakdown.messages + breakdown.turns + breakdown.depth,
-		},
-		{
-			iconUrl: sanctumPageAssets.cultivationCompositionIcons.data,
-			label: "数据洞察",
-			value: breakdown.activeTime + breakdown.sessions + breakdown.tokens + breakdown.projects,
-		},
-		{
-			iconUrl: sanctumPageAssets.cultivationCompositionIcons.risk,
-			label: "风险审查",
-			value: breakdown.tools + breakdown.knowledge,
-		},
-		{
-			iconUrl: sanctumPageAssets.cultivationCompositionIcons.automation,
-			label: "自动化任务",
-			value: breakdown.batch + breakdown.automation + breakdown.streak,
-		},
-	];
-	const total = items.reduce((sum, item) => sum + item.value, 0);
-
-	return items.map((item) => ({
-		...item,
-		percent: total > 0 ? Math.round((item.value / total) * 100) : 0,
-		value: total > 0 ? Math.floor((item.value / total) * cultivation.currentPower) : 0,
-	}));
 }
