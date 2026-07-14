@@ -6,10 +6,14 @@ import {
 	usePageHeaderModel,
 	useWindowControlsModel,
 } from "@vetta/desktop-theme-ui/app-shell";
-import { motion } from "motion/react";
 import type { JSX } from "react";
 import { sanctumPageAssets } from "./assets";
 
+/**
+ * Sanctum page top bar: back + title on the left, Windows controls on the right.
+ * Window controls use light ink — default `text-foreground` is dark (xianxia is
+ * a light scheme) and disappears against the night-sky sanctum background.
+ */
 export function XianxiaSanctumPageHeader(): JSX.Element {
 	const pageHeader = usePageHeaderModel({ narrow: false, sidebarCollapsed: false });
 	const windowControls = useWindowControlsModel();
@@ -28,43 +32,38 @@ export function XianxiaSanctumPageHeader(): JSX.Element {
 					aria-label="Back"
 					title="Back"
 					onClick={() => window.history.back()}
-					className="mt-0.5 h-10 w-10 transition-transform hover:-translate-x-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+					className="group mt-0.5 h-10 w-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
 				>
-					<img alt="" aria-hidden="true" className="h-full w-full object-contain" src={sanctumPageAssets.backButton} />
+					<img
+						alt=""
+						aria-hidden="true"
+						className="h-full w-full object-contain transition-transform duration-200 ease-out will-change-transform group-hover:-translate-x-1"
+						src={sanctumPageAssets.backButton}
+					/>
 				</button>
 				<div className="min-w-0">
-					<div className="flex min-w-0 items-center gap-4">
-						<PageHeaderTitle
-							title={pageHeader.title}
-							className="text-[31px] font-semibold leading-8 text-white"
-						/>
-						<span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/65 text-lg leading-none text-white/90">
-							i
-						</span>
-					</div>
+					<PageHeaderTitle
+						title={pageHeader.title}
+						className="text-[31px] font-semibold leading-8 text-white"
+					/>
 					<p className="mt-1 text-[19px] leading-none text-white/90">修仙成就</p>
 				</div>
 			</div>
 			<p className="pointer-events-none absolute left-1/2 top-[78px] hidden max-w-[42%] -translate-x-1/2 truncate text-[17px] text-white/90 xl:block">
 				15 Realms of Cultivation · Forge your path, ascend to immortality
 			</p>
-			<PageHeaderActionGroup className="min-w-0 max-w-[45%] items-start gap-4 overflow-hidden">
-				<span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/55 text-2xl text-white/90">?</span>
-				<div className="flex min-w-0 items-center gap-2 rounded-full bg-slate-900/25 px-2 py-1.5">
-					<motion.img
-						animate={{ boxShadow: "0 0 12px rgba(255,255,255,0.52)" }}
-						alt=""
-						aria-hidden="true"
-						className="h-11 w-11 rounded-full object-cover ring-2 ring-white/65"
-						initial={{ boxShadow: "0 0 0 rgba(255,255,255,0)" }}
-						src={sanctumPageAssets.achievements.unlocked[1]}
-						transition={{ duration: 1.8, repeat: Infinity, repeatType: "reverse" }}
+			{!windowControls.isMac && (
+				<PageHeaderActionGroup className="min-w-0 shrink-0 items-start overflow-visible">
+					<DefaultWindowControls
+						classNames={{
+							button: "text-white/92 hover:bg-white/18 hover:text-white",
+							closeButton: "hover:bg-red-500/90 hover:text-white",
+							icon: "drop-shadow-[0_1px_2px_rgba(0,0,0,0.55)]",
+						}}
+						model={windowControls}
 					/>
-					<span className="truncate text-[17px]">Barefoot Beech</span>
-					<span className="icon-[solar--alt-arrow-down-linear] h-4 w-4 shrink-0" />
-				</div>
-				{!windowControls.isMac && <DefaultWindowControls model={windowControls} />}
-			</PageHeaderActionGroup>
+				</PageHeaderActionGroup>
+			)}
 		</PageHeaderFrame>
 	);
 }
