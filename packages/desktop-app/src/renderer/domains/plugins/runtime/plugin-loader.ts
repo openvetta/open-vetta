@@ -553,9 +553,9 @@ function createContext(
 		createPermissionApi(plugin).require("ui.slot.input-action");
 		const store = getDefaultStore();
 		store.set(editImageAttachmentAtom, ref ?? null);
-		// Attaching an image to edit implies image mode is on: activate this plugin's
+		// Attaching an image to edit implies image intent: activate this plugin's
 		// input action(s) so the 图像生成 toggle reflects active and the turn carries
-		// imageMode (gen/edit is only allowed while image mode is active).
+		// imageMode (soft intent amplifier; tools are also available without the toggle).
 		if (ref) {
 			const myActionIds = store
 				.get(pluginInputActionsAtom)

@@ -141,7 +141,9 @@ ctx.ui.registerInputAction({
 });
 ```
 
-`decoratePrompt` 返回的 `metadata` 浅合并进外发 `PromptRequest.metadata`，agent 一侧可读（如内置图像工具读 `metadata.imageMode`）。插件自持任何 toggle 副作用状态（同一 MF 实例，与其它 slot 共享）。
+`decoratePrompt` 返回的 `metadata` 浅合并进外发 `PromptRequest.metadata`，agent 一侧可读（如 `imageMode` 触发 input-pipeline 隐形意图提示）。插件自持任何 toggle 副作用状态（同一 MF 实例，与其它 slot 共享）。
+
+**软隔离（image-gen）**：`generate_image` / `edit_image` 不因 toggle 关闭而从本轮 tool list 剥离；toggle 只注入 `imageMode` 加强「要出图」的意图。未开开关时，用户明确说生图/改图仍可调用工具。与「知识检索」toggle 同一模式。
 
 **`requiresActiveTool`：让 badge 跟随工具 scope。** 输入栏开关通常对应某个 agent 工具（badge 注入 metadata，引导 agent 调那个工具）。设置 `requiresActiveTool` 为该工具名后，**仅当该工具在当前会话激活**（按工具的 `scope_use` 解析，见 [conversation-and-agent.md](./conversation-and-agent.md#scope_use按对话场景限定工具出现范围)）时才显示这个 badge——避免在工具被场景屏蔽（如批量任务里 `generate_image` 不可用）时仍显示一个点了也无效的开关。不设则始终显示。`image-gen` 插件即为「图像生成」设了 `requiresActiveTool: "generate_image"`。
 

@@ -199,13 +199,14 @@ export class InputPipeline {
 		// Build messages array (custom message if any, then user message)
 		const messages: AgentMessage[] = [];
 
-		// Image mode: a plugin input action / preview-card edit set image metadata
-		// for this turn. Inject a hidden instruction so the agent routes to the
-		// host-injected image tools (generate_image / edit_image via customTools).
+		// Soft image intent: generate_image / edit_image stay on the tool list
+		// whenever scope allows (no hard strip). Optional metadata only injects a
+		// model-visible intent amplifier for this turn — same pattern as knowledgeMode.
 		// Two cases:
-		//  - editImageId present → the user explicitly picked an image to edit:
-		//    force edit_image with that exact id as source.
-		//  - imageMode only → agent self-decides generate vs edit from the prompt.
+		//  - editImageId present → user picked a specific image to edit: force
+		//    edit_image with that exact id as source.
+		//  - imageMode only → user toggled 图像生成: strongly prefer producing an
+		//    image; agent self-decides generate vs edit from the prompt.
 		const editImageId =
 			typeof options?.metadata?.editImageId === "string" && options.metadata.editImageId.trim().length > 0
 				? options.metadata.editImageId.trim()
@@ -227,7 +228,8 @@ export class InputPipeline {
 				role: "custom",
 				customType: "image_mode_instruction",
 				content:
-					"图像模式已开启，请自行判断用户意图并调用相应工具，不要只用文字描述图像：" +
+					"用户已开启「图像生成」意图：本轮要实际产出图像，禁止只写文字描述或绘画步骤。" +
+					"请自行判断并调用相应工具：" +
 					"若是全新主题/全新画面，调用 generate_image（先把请求优化成具体、生动的绘图 prompt）；" +
 					"若是在最近生成的那张图基础上做修改（改背景/调色/增删元素等），调用 edit_image，" +
 					"sourceImageId 取上下文里最近一次 <vetta-images> 标记中的图像 id。",
@@ -347,25 +349,11 @@ export class InputPipeline {
 		// New user turn: reset the ad-hoc todo nudge so this turn gets one fresh nudge.
 		this._lastTodoNudgeSignature = undefined;
 
-		// Gate the host-injected image tools (generate_image / edit_image) to
-		// image-mode turns only. They are registered for the whole session via
-		// withImageTools, so without this the model could generate/edit images on
-		// any turn. When the user hasn't activated 图像生成 (no imageMode and no
-		// editImageId), strip them from THIS turn's tool list. Safe because the
-		// agent throws if already streaming (no overlap) and _runLoop snapshots
-		// context.tools at the start of the turn; restore afterward.
-		const imageToolsEnabled = options?.metadata?.imageMode === true || editImageId !== undefined;
-		const savedTools = this.ctx.agent.state.tools;
-		const gatedTools = imageToolsEnabled
-			? savedTools
-			: savedTools.filter((t) => t.name !== "generate_image" && t.name !== "edit_image");
-		const toolsGated = gatedTools.length !== savedTools.length;
-		if (toolsGated) this.ctx.agent.setTools(gatedTools);
-		try {
-			await this.ctx.agent.prompt(messages);
-		} finally {
-			if (toolsGated) this.ctx.agent.setTools(savedTools);
-		}
+		// Image tools stay registered for the session (scoped by tool scope_use).
+		// Soft isolation: no per-turn strip — the model may call generate_image /
+		// edit_image when the user clearly asks for an image; imageMode /
+		// editImageId only add the hidden intent instructions above.
+		await this.ctx.agent.prompt(messages);
 		await this.retry.waitForRetry();
 	}
 
