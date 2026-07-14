@@ -32,6 +32,7 @@ export type PluginPermission =
 	| "agent.systemPrompt.write"
 	| "agent.systemPrompt.fullControl"
 	| "agent.skills.control"
+	| "agent.mcp.control"
 	| "agent.tools.control"
 	| "agent.tools.register"
 	| "agent.toolHandler.execute"
@@ -46,6 +47,39 @@ export type PluginPermission =
 	| "settings.read"
 	| "settings.write";
 
+/**
+ * MCP server config declared inside a plugin (stdio or http). Relative paths in
+ * stdio `command`/`args`/`cwd` are resolved against the plugin root at contribute time.
+ */
+export type PluginMcpServerConfig =
+	| {
+			type?: "stdio";
+			command: string;
+			args?: string[];
+			env?: Record<string, string>;
+			cwd?: string;
+			disabled?: boolean;
+			autoApprove?: string[];
+			startupTimeout?: number;
+			debug?: boolean;
+			displayName?: string;
+			description?: string;
+	  }
+	| {
+			type: "http";
+			url: string;
+			headers?: Record<string, string>;
+			oauthClientId?: string;
+			oauthDeviceFlow?: boolean;
+			oauthScopes?: string;
+			disabled?: boolean;
+			autoApprove?: string[];
+			startupTimeout?: number;
+			debug?: boolean;
+			displayName?: string;
+			description?: string;
+	  };
+
 export interface PluginAgentManifest {
 	systemPrompt?: {
 		/**
@@ -56,6 +90,12 @@ export interface PluginAgentManifest {
 	};
 	/** Plugin-packaged skill files or directories to add to the agent resource graph. */
 	skillPaths?: string[];
+	/**
+	 * Plugin-scoped MCP servers. Either a relative path to `.mcp.json`
+	 * (shape `{ mcpServers: { ... } }`) or an inline map of server configs.
+	 * Requires permission `agent.mcp.control`. Never written into user mcp.json.
+	 */
+	mcpServers?: string | Record<string, PluginMcpServerConfig>;
 	/** Declarative tool visibility policy. Names are tool ids after registration. */
 	toolPolicy?: {
 		allow?: string[];
@@ -671,7 +711,8 @@ export interface PluginFsReadResult {
 export interface PluginFsApi {
 	readDir(dirPath: string): Promise<PluginFsEntry[]>;
 	readFile(filePath: string): Promise<PluginFsReadResult>;
-	writeFile(filePath: string, content: string): Promise<void>;
+	/** Pass `encoding: "base64"` to write binary payloads (decoded from base64 text). */
+	writeFile(filePath: string, content: string, encoding?: "utf8" | "base64"): Promise<void>;
 	stat(filePath: string): Promise<PluginFsStatResult | null>;
 	rename(oldPath: string, newPath: string): Promise<void>;
 	delete(targetPath: string): Promise<void>;

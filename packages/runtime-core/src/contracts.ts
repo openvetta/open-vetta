@@ -55,6 +55,54 @@ export interface ToolPolicyContribution {
 	deny?: string[];
 }
 
+/**
+ * Plugin-scoped MCP server config (structurally aligned with coding-agent
+ * `McpServerConfig`). Paths in stdio configs must already be resolved absolute
+ * by the host before injection into the runtime.
+ */
+export type AgentPluginMcpServerConfig =
+	| {
+			type?: "stdio";
+			command: string;
+			args?: string[];
+			env?: Record<string, string>;
+			cwd?: string;
+			disabled?: boolean;
+			autoApprove?: string[];
+			startupTimeout?: number;
+			debug?: boolean;
+			displayName?: string;
+			description?: string;
+	  }
+	| {
+			type: "http";
+			url: string;
+			headers?: Record<string, string>;
+			oauthClientId?: string;
+			oauthDeviceFlow?: boolean;
+			oauthScopes?: string;
+			disabled?: boolean;
+			autoApprove?: string[];
+			startupTimeout?: number;
+			debug?: boolean;
+			displayName?: string;
+			description?: string;
+	  };
+
+/**
+ * One MCP server contributed by an installed plugin. `runtimeName` is the
+ * globally unique key used by McpManager (must not contain `_` — tool adapter
+ * splits on the first underscore after the `mcp_` prefix).
+ */
+export interface McpServerContribution {
+	pluginId: string;
+	/** Key inside the plugin's `.mcp.json` / inline map (pre-namespace). */
+	localName: string;
+	/** Unique runtime server name, e.g. `plugin-cowart-canvas`. */
+	runtimeName: string;
+	config: AgentPluginMcpServerConfig;
+}
+
 export type JsonSchema = Record<string, unknown>;
 
 export interface AgentPluginToolContribution {
@@ -152,6 +200,8 @@ export interface AgentPluginRuntimeConfig {
 	stateContributions?: AgentPluginStateContribution[];
 	continuationContributions?: AgentPluginContinuationContribution[];
 	systemPromptProviderContributions?: AgentPluginSystemPromptProviderContribution[];
+	/** Plugin-scoped MCP servers (third config source; never written to mcp.json). */
+	mcpServerContributions?: McpServerContribution[];
 }
 
 export interface AgentPluginToolInvocation {
@@ -542,9 +592,12 @@ export interface PromptRequest {
 	reasoning?: string;
 	/**
 	 * Per-turn metadata bag carried alongside the prompt. Not sent to the model
-	 * as content; consumed host-side / by tools to gate turn behavior (e.g.
-	 * `{ imageMode: true }` set by a plugin input action to route this turn to
-	 * image generation). Opaque to the runtime — pass-through only.
+	 * as content; consumed host-side / by the input pipeline. Opaque pass-through.
+	 * Known keys (coding-agent):
+	 * - `{ imageMode: true }` — soft isolation: hidden image intent instruction;
+	 *   image tools remain available by scope without it.
+	 * - `{ knowledgeMode: true }` — hard isolation: exposes kb-read tools + hidden
+	 *   knowledge-prefer instruction; without it those tools are stripped per turn.
 	 */
 	metadata?: Record<string, unknown>;
 }

@@ -4,6 +4,10 @@ All notable changes to `@vetta/plugin-sdk` are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **`agent.mcp.control` 权限**与 **`PluginAgentManifest.mcpServers`**（相对 `.mcp.json` 路径或内联 server map），供插件声明内聚 MCP（ADR-0040）。
+
 ### Changed
 
 - 会话页插槽（活动面板插件标签卡、AI 输入栏插件 toggle）现按 `scope_use` 随对话类型显隐，与工具 `scope_use` 同一套场景轴，**fail-closed**：未声明 / 空数组 = 任何会话都不显示。**行为破坏性变更**——既有不声明 `scope_use` 的活动面板标签卡 / 输入栏 toggle 将不再出现，需显式声明（如 `scope_use: ["project", "conversation"]`）。

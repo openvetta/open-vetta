@@ -168,6 +168,11 @@ export class RuntimeManager {
 		return this._extensionRunner;
 	}
 
+	/** Current conversation scenario (fixed for the session lifetime). */
+	get scenario(): ConversationScenario {
+		return this._scenario;
+	}
+
 	get mcpManager(): McpManager | undefined {
 		return this._mcpManager;
 	}
@@ -197,7 +202,15 @@ export class RuntimeManager {
 		// first prompt of a new session fires before init completes (LLM sees no MCP tools).
 		this._mcpInitPromise = this._mcpManager
 			.initialize()
-			.then(() => {
+			.then(async () => {
+				// Apply any plugin MCP already present on the session (reconfigure may race init).
+				const specs = (this._agentPlugins?.mcpServerContributions ?? []).map((item) => ({
+					runtimeName: item.runtimeName,
+					config: item.config,
+				}));
+				if (specs.length > 0) {
+					await this._mcpManager?.setPluginServers(specs);
+				}
 				this.buildRuntime({
 					activeToolNames: this._initialActiveToolNames ?? this.getActiveToolNames(),
 					includeAllExtensionTools: true,
@@ -257,14 +270,60 @@ export class RuntimeManager {
 
 	reconfigureAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | undefined): void {
 		this._agentPlugins = agentPlugins;
+		const pluginSkillPaths =
+			agentPlugins?.skillPathContributions?.flatMap((contribution) => contribution.paths) ?? [];
 		debugPluginAgent("coding-agent reconfigureAgentPlugins", {
 			sessionId: this.host.sessionId,
 			toolContributions: summarizePluginToolContributions(agentPlugins),
+			mcpServers: agentPlugins?.mcpServerContributions?.map((item) => item.runtimeName) ?? [],
+			skillPaths: pluginSkillPaths,
 		});
+		// Hot-update plugin skill roots so slash + system prompt see them without new session.
+		this.resourceLoader.setAdditionalSkillPaths(pluginSkillPaths);
 		this.buildRuntime({
 			activeToolNames: this.getActiveToolNames(),
 			includeAllExtensionTools: true,
 		});
+		// Plugin MCP is async (stdio/http start); reconcile then rebuild tools when ready.
+		void this.reconcilePluginMcpAndRebuild();
+	}
+
+	/**
+	 * Apply plugin-scoped MCP contributions to McpManager and rebuild the tool
+	 * surface when the server set actually changes.
+	 */
+	private async reconcilePluginMcpAndRebuild(): Promise<void> {
+		const manager = this._mcpManager;
+		if (!manager) return;
+
+		// Wait for initial file-based MCP init so we don't race initialize().
+		if (this._mcpInitPromise) {
+			try {
+				await this._mcpInitPromise;
+			} catch {
+				// initialize already logs
+			}
+		}
+
+		const specs = (this._agentPlugins?.mcpServerContributions ?? []).map((item) => ({
+			runtimeName: item.runtimeName,
+			config: item.config,
+		}));
+
+		let changed = false;
+		try {
+			changed = await manager.setPluginServers(specs);
+		} catch (error) {
+			console.error("[MCP] Failed to reconcile plugin servers:", (error as Error).message);
+			return;
+		}
+
+		if (changed) {
+			this.buildRuntime({
+				activeToolNames: this.getActiveToolNames(),
+				includeAllExtensionTools: true,
+			});
+		}
 	}
 
 	async prepareSystemPromptForAgentRun(messages: AgentMessage[], signal?: AbortSignal): Promise<string> {

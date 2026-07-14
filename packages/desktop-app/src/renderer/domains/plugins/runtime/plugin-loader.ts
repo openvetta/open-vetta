@@ -206,9 +206,9 @@ function createFsApi(plugin: InstalledPlugin): PluginFsApi {
 			permissions.require("fs.read");
 			return window.vetta.fs.readFile(filePath);
 		},
-		writeFile: (filePath, content) => {
+		writeFile: (filePath, content, encoding) => {
 			permissions.require("fs.write");
-			return window.vetta.fs.writeFile(filePath, content);
+			return window.vetta.fs.writeFile(filePath, content, encoding);
 		},
 		stat: (filePath) => {
 			permissions.require("fs.read");
@@ -553,9 +553,9 @@ function createContext(
 		createPermissionApi(plugin).require("ui.slot.input-action");
 		const store = getDefaultStore();
 		store.set(editImageAttachmentAtom, ref ?? null);
-		// Attaching an image to edit implies image mode is on: activate this plugin's
+		// Attaching an image to edit implies image intent: activate this plugin's
 		// input action(s) so the 图像生成 toggle reflects active and the turn carries
-		// imageMode (gen/edit is only allowed while image mode is active).
+		// imageMode (soft intent amplifier; tools are also available without the toggle).
 		if (ref) {
 			const myActionIds = store
 				.get(pluginInputActionsAtom)
@@ -675,9 +675,10 @@ function createContext(
 						});
 					})
 					.catch((error: Error) => {
+						// Do not fail the whole plugin load — UI contributions
+						// (activity tabs, slots) should still activate.
 						handlerHandle.dispose();
 						console.error(`Plugin ${plugin.id} failed to register agent tool ${toolId}`, error);
-						throw error;
 					});
 				pendingAgentRegistrations.push(registrationPromise);
 				return {

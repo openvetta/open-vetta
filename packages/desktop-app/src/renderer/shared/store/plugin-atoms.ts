@@ -82,9 +82,11 @@ export const pluginInputActionsAtom = atom<RegisteredInputAction[]>([]);
 export const activeInputActionIdsAtom = atom<Set<string>>(new Set<string>());
 
 /**
- * 原生「知识检索」开关（非插件输入动作）。开启后下一次发送携带
- * `metadata.knowledgeMode`，向 agent 注入一段仅模型可见的「优先查询知识库」提示。
- * 未开启时 agent 仍可按需调用知识库工具，开启只是明示。切换会话时重置。
+ * 原生「知识检索」开关（非插件输入动作，硬隔离）。开启后下一次发送携带
+ * `metadata.knowledgeMode`：input-pipeline 对本轮暴露 kb-read 工具并注入
+ * 仅模型可见的「优先查询知识库」提示。未开启时本轮剥离 kb-read 工具
+ * （`kb_list_available_tags` / `kb_filter_by_tags`），agent 无法调用。
+ * 切换会话时重置。
  */
 export const knowledgeRetrievalActiveAtom = atom<boolean>(false);
 

@@ -137,8 +137,12 @@ export interface PromptOptions {
 	source?: InputSource;
 	/**
 	 * Per-turn metadata carried from the host's PromptRequest. Not sent to the
-	 * model as content; consumed in the input pipeline to gate turn behavior
-	 * (e.g. `{ imageMode: true }` routes this turn to image generation).
+	 * model as content; consumed in the input pipeline:
+	 * - `{ imageMode: true }` — soft isolation: injects a hidden image intent
+	 *   instruction; image tools stay available by scope even without it.
+	 * - `{ knowledgeMode: true }` — hard isolation: exposes kb-read tools and
+	 *   injects a hidden “prefer knowledge base” instruction; without it those
+	 *   tools are stripped for this turn (except kb-processing scenario).
 	 */
 	metadata?: Record<string, unknown>;
 }

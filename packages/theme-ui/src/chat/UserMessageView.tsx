@@ -71,11 +71,14 @@ export interface UserMessageViewProps {
 }
 
 function UserMessageTextShell({
+	contentKey,
 	shouldAnimateIn,
 	shouldHoldHidden,
 	expandLabel,
 	children,
 }: {
+	/** Stable identity of the message body; only this should reset expanded state. */
+	contentKey: string;
 	shouldAnimateIn: boolean;
 	shouldHoldHidden: boolean;
 	expandLabel: string;
@@ -93,15 +96,20 @@ function UserMessageTextShell({
 		setCanExpand(content.scrollHeight > collapsedHeight + 1);
 	}, []);
 
+	// Expand is sticky for the lifetime of this mount (session switch / refresh remounts).
+	// Do not key off `children` — parent re-renders recreate that node (e.g. action hover).
 	useLayoutEffect(() => {
 		setExpanded(false);
+	}, [contentKey]);
+
+	useLayoutEffect(() => {
 		measureOverflow();
 		const content = contentRef.current;
 		if (!content) return;
 		const observer = new ResizeObserver(measureOverflow);
 		observer.observe(content);
 		return () => observer.disconnect();
-	}, [measureOverflow, children]);
+	}, [measureOverflow, contentKey, children]);
 
 	return (
 		<div
@@ -237,6 +245,7 @@ export function UserMessageView({
 						style={{ wordBreak: "break-word" }}
 					>
 						<UserMessageTextShell
+							contentKey={displayText}
 							shouldAnimateIn={shouldAnimateIn}
 							shouldHoldHidden={shouldHoldHidden}
 							expandLabel={labels.expand}

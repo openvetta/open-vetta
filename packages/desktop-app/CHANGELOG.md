@@ -6,6 +6,11 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **插件内聚 MCP**：`plugin.json` 支持 `agent.mcpServers`（路径或内联）与权限 `agent.mcp.control`；`buildAgentPluginRuntimeConfig` 产出 `mcpServerContributions`（路径相对插件根 resolve，运行时名 `plugin-<id>-<local>`）。启停插件经既有 `reconfigureAgentPlugins` 联动 MCP 进程。不写用户 `mcp.json`（ADR-0040）。
+- **外置插件 cowart-vetta**：改编自 [zhongerxin/Cowart](https://github.com/zhongerxin/Cowart)——活动面板 + `open_cowart_canvas`、skills、插件内聚 MCP（画布 state/image 工具；无 Codex widget 宿主）。源码位于 `packages/plugins/externals/cowart-vetta`，不随 App 打包，由用户安装 zip。
+- **Slash `/` 列出插件 skills**：`skills.list` 合并已启用插件的 `agent.skillPaths`（`skillPathContributions`），source 标为 `plugin`。
+- **cowart-vetta MCP 进程被误杀修复**：`start-mcp.mjs` 在 `import` bundle / `server.connect()` 返回后不再 `process.exit(0)`，否则宿主侧连接立刻断开、MCP tools 为空。
+- **cowart-vetta 1:1 画布**：活动面板嵌入完整 tldraw（上游 App.jsx）；Codex widget bridge 映射为 `ctx.fs` + `conversation.sendPrompt`；`fs.writeFile` 支持 `base64` 写二进制资产。
 - **知识库 / 批量任务 / 自动化页 AI 协助入口**：复用设置页「让Vetta帮您配置」；顶栏弹出意图 Popover，打开带页面上下文的对话。知识库页（含未启用态与「全部知识库」列表）、批量任务页、自动化页均已接入；示例与气泡标签按页面区分（如「知识库协助」「批量任务协助」）。
 - **连接器推荐 Figma（社区 MCP + PAT）**：`figma-developer-mcp` stdio 预设在「发现 → 推荐」展示；添加时必填 Personal Access Token（`FIGMA_API_KEY` env，仅本机）；引导链接指向 Figma Help Center「Manage personal access tokens」。定位为读设计上下文辅助写码（非官方 `mcp.figma.com` OAuth）。
 - **远程 MCP OAuth 授权（通用，Notion 首接）**：HTTP 连接器支持浏览器 OAuth；IPC `mcp.login` / `logout` / `hasAuth` / `authStatus`；扩展 → 连接器展示「待授权 / 已授权」与去授权/断开。Notion 内置预设改为官方托管 `https://mcp.notion.com/mcp`（不再手填 Integration Secret）。
@@ -15,6 +20,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **用户长消息展开后移出气泡又自动折叠**：展开状态曾依赖 `children` 引用，hover 操作栏等重渲染会重建 `textBody` 并误重置。现以正文 `contentKey` 为唯一复原条件，点击展开后保持展开；无收缩按钮；切换会话或刷新后 remount 恢复折叠。
 - **会话 streaming 时 text block 高频闪烁**：`useTextBlockModel` 每次 render 新建 `labels` 对象，导致 `TextBlockView` 的 ReactMarkdown `components` 映射失效、自定义节点整树 remount，`.streaming-chunk` 入场动画对已有文本整段重播。现稳定 `labels` 引用，且 `components` 仅随 `theme` 重建（labels/回调走 ref）。
 - **连接器「我的」误把其他 HTTP MCP 显示为 Notion**：`matchBuiltinMcpPreset` 回退匹配时错误使用了 `preset.config.url.includes(packageHint)`（对 Notion 预设恒真），导致广场添加的远程 HTTP 连接器标题/图标被盖成 Notion。现仅用条目自身的 `url` 与 `packageHint` 比对。
 - **免密钥 HTTP 连接器误提示「待授权」**：`serverUsesOAuth` 曾把所有无 headers 的 HTTP MCP 都当成 OAuth；现仅对内置 OAuth 预设（如 Notion）展示授权状态与按钮。
@@ -26,6 +32,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **知识检索改为硬隔离**：开启「知识检索」toggle 后本轮才暴露 `kb_list_available_tags` / `kb_filter_by_tags`（经 `metadata.knowledgeMode`）；未开启时 agent 无法调用知识库检索工具。tooltip 文案同步。加工场景（`kb-processing`）不受影响。
 - **侧边栏导航「更多」收纳**：主区域保留新会话 / 自动化 / 知识库 / 扩展；「批量任务」「插件」收进底部「更多」弹出菜单（右侧 popover，打开时 chevron 旋转）。当前路由落在收纳项时，触发器展示该项 icon + label。
 - **侧边栏新增「插件」入口**：扩展页的「插件」Tab 迁至独立 `/plugins` 页面；侧栏新增导航项，旧深链 `/skills?tab=plugin` 自动重定向。
 - **侧边栏项目区 / 会话区可滚动底部渐隐**：内容溢出且未滚到底时显示底部 fade，提示可继续滚动；滚到底或无溢出时隐藏。

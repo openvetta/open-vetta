@@ -224,6 +224,47 @@ export type AgentPluginSystemPromptInvoker = (
 	signal?: AbortSignal,
 ) => Promise<AgentPluginRuntimeEffect[]>;
 
+/**
+ * Plugin-scoped MCP server config (aligned with `McpServerConfig`). Host resolves
+ * relative paths before injecting into the runtime.
+ */
+export type AgentPluginMcpServerConfig =
+	| {
+			type?: "stdio";
+			command: string;
+			args?: string[];
+			env?: Record<string, string>;
+			cwd?: string;
+			disabled?: boolean;
+			autoApprove?: string[];
+			startupTimeout?: number;
+			debug?: boolean;
+			displayName?: string;
+			description?: string;
+	  }
+	| {
+			type: "http";
+			url: string;
+			headers?: Record<string, string>;
+			oauthClientId?: string;
+			oauthDeviceFlow?: boolean;
+			oauthScopes?: string;
+			disabled?: boolean;
+			autoApprove?: string[];
+			startupTimeout?: number;
+			debug?: boolean;
+			displayName?: string;
+			description?: string;
+	  };
+
+export interface McpServerContribution {
+	pluginId: string;
+	localName: string;
+	/** Unique runtime key; must not contain `_` (tool name adapter constraint). */
+	runtimeName: string;
+	config: AgentPluginMcpServerConfig;
+}
+
 export interface AgentPluginRuntimeConfig {
 	systemPromptContributions?: SystemPromptContribution[];
 	skillPathContributions?: SkillPathContribution[];
@@ -232,6 +273,8 @@ export interface AgentPluginRuntimeConfig {
 	stateContributions?: AgentPluginStateContribution[];
 	continuationContributions?: AgentPluginContinuationContribution[];
 	systemPromptProviderContributions?: AgentPluginSystemPromptProviderContribution[];
+	/** Plugin-scoped MCP (third source; never written to user mcp.json). */
+	mcpServerContributions?: McpServerContribution[];
 }
 
 export interface AgentPluginToolInvocation {

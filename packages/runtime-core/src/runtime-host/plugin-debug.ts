@@ -11,6 +11,7 @@ export function summarizeAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | u
 		systemPromptProviders:
 			agentPlugins?.systemPromptProviderContributions?.map((provider) => `${provider.pluginId}:${provider.id}`) ??
 			[],
+		mcpServers: agentPlugins?.mcpServerContributions?.map((item) => item.runtimeName) ?? [],
 	};
 }
 

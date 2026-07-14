@@ -13,6 +13,7 @@ export type PluginPermission =
 	| "agent.systemPrompt.write"
 	| "agent.systemPrompt.fullControl"
 	| "agent.skills.control"
+	| "agent.mcp.control"
 	| "agent.tools.control"
 	| "agent.tools.register"
 	| "agent.toolHandler.execute"
@@ -55,6 +56,35 @@ export interface PluginSettingSchema {
 	visibleWhen?: { key: string; in: string[] };
 }
 
+export type PluginMcpServerConfig =
+	| {
+			type?: "stdio";
+			command: string;
+			args?: string[];
+			env?: Record<string, string>;
+			cwd?: string;
+			disabled?: boolean;
+			autoApprove?: string[];
+			startupTimeout?: number;
+			debug?: boolean;
+			displayName?: string;
+			description?: string;
+	  }
+	| {
+			type: "http";
+			url: string;
+			headers?: Record<string, string>;
+			oauthClientId?: string;
+			oauthDeviceFlow?: boolean;
+			oauthScopes?: string;
+			disabled?: boolean;
+			autoApprove?: string[];
+			startupTimeout?: number;
+			debug?: boolean;
+			displayName?: string;
+			description?: string;
+	  };
+
 export interface PluginAgentManifest {
 	systemPrompt?: {
 		/**
@@ -65,6 +95,11 @@ export interface PluginAgentManifest {
 	};
 	/** Plugin-packaged skill files or directories to add to the agent resource graph. */
 	skillPaths?: string[];
+	/**
+	 * Plugin-scoped MCP: relative path to `.mcp.json` or inline server map.
+	 * Requires `agent.mcp.control`. Not written to user mcp.json.
+	 */
+	mcpServers?: string | Record<string, PluginMcpServerConfig>;
 	/** Declarative tool visibility policy. Names are tool ids after registration. */
 	toolPolicy?: {
 		allow?: string[];

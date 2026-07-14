@@ -24,6 +24,7 @@ export const PERMISSION_LABEL_KEYS = {
 	"agent.systemPrompt.write": "plugin.permission.agentSystemPromptWrite",
 	"agent.systemPrompt.fullControl": "plugin.permission.agentSystemPromptFullControl",
 	"agent.skills.control": "plugin.permission.agentSkillsControl",
+	"agent.mcp.control": "plugin.permission.agentMcpControl",
 	"agent.tools.control": "plugin.permission.agentToolsControl",
 	"agent.tools.register": "plugin.permission.agentToolsRegister",
 	"agent.toolHandler.execute": "plugin.permission.agentToolHandlerExecute",
