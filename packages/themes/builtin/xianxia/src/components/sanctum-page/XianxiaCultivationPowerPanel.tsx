@@ -29,6 +29,7 @@ export function XianxiaCultivationPowerPanel({
 	/** 1 = forward (composition → rules), -1 = back (rules → composition). */
 	const [slideDirection, setSlideDirection] = useState<1 | -1>(1);
 	const compositionItems = useMemo(() => getCultivationCompositionItems(cultivation), [cultivation]);
+	const showTrendChart = cultivation.trend.length > 1;
 
 	const openPanel = (view: CultivationPanelView): void => {
 		setSlideDirection(view === "rules" ? 1 : -1);
@@ -63,7 +64,14 @@ export function XianxiaCultivationPowerPanel({
 			imageUrl={sanctumPageAssets.cultivationPowerPanel}
 		>
 			<div className="flex min-w-0 flex-col">
-				<div className="grid min-w-0 grid-cols-[minmax(0,1fr)_9.5rem] gap-4 min-[1280px]:grid-cols-[minmax(0,1fr)_10rem] min-[1280px]:gap-5">
+				<div
+					className={cn(
+						"grid min-w-0 gap-4 min-[1280px]:gap-5",
+						showTrendChart
+							? "grid-cols-[minmax(0,1fr)_9.5rem] min-[1280px]:grid-cols-[minmax(0,1fr)_10rem]"
+							: "grid-cols-1",
+					)}
+				>
 					<div className="min-w-0">
 						<div className="flex items-center gap-3">
 							<span className="text-[18px] text-amber-100 drop-shadow-[0_0_5px_rgba(255,245,205,0.8)]">✧</span>
@@ -103,9 +111,11 @@ export function XianxiaCultivationPowerPanel({
 							</p>
 						</div>
 					</div>
-					<div className="mt-[24px] flex min-w-0 justify-end">
-						<XianxiaCultivationTrendChart cultivation={cultivation} />
-					</div>
+					{showTrendChart && (
+						<div className="mt-[24px] flex min-w-0 justify-end">
+							<XianxiaCultivationTrendChart cultivation={cultivation} />
+						</div>
+					)}
 				</div>
 				<div className="relative mt-2 grid min-h-[4.65rem] shrink-0 grid-cols-[1.1fr_repeat(3,1fr)] overflow-visible rounded-[10px] border border-white/18 bg-slate-900/18">
 					<div className="flex min-w-0 flex-col items-start px-3 pt-3 min-[1280px]:px-4">
