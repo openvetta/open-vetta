@@ -1127,7 +1127,7 @@
     "guides": {
       "notion": "Continue opens the Notion authorization page\nSign in, pick a workspace, and allow access\nNo Integration setup or secret paste required\nCredentials stay on this device only",
       "figma": "Open the official guide linked below, then go to account settings\nCreate a Personal access token\nCopy and paste it below",
-      "github": "Open the GitHub tokens page and create a fine-grained personal access token\nGrant the repository scope and permissions you need (e.g. Contents, Issues, Pull requests)\nCopy the generated token and paste it below",
+      "github": "Continue opens your browser and redirects to GitHub's authorization page\nSign in and click Authorize\nNo token creation or key pasting needed\nCredentials stay on this device",
       "slack": "Open Slack API apps and create or select an app\nInstall it to your workspace and copy the Bot User OAuth Token (starts with xoxb-)\nFind the Team ID in workspace settings or auth.test\nPaste both values below",
       "gmail": "After adding, the first use in chat opens a browser to sign in with Google\nComplete authorization—no key paste required in most cases",
       "googleCalendar": "In Google Cloud Console, create an OAuth client (Desktop app)\nEnable the Google Calendar API\nCopy Client ID and Client Secret below\nComplete account authorization on first use",
@@ -1148,7 +1148,7 @@
     },
     "github": {
       "displayName": "GitHub",
-      "description": "Connect your GitHub so the AI can read and write issues and PRs, search code, and view Actions run logs. Paste a Personal Access Token to connect (stored on this device only)."
+      "description": "Connect your GitHub so the AI can read and write issues and PRs, search code, and view Actions run logs. Authorize with one click—no key pasting needed."
     },
     "slack": {
       "displayName": "Slack",
@@ -1168,7 +1168,6 @@
     },
     "secrets": {
       "figmaApiKey": "Figma access token",
-      "githubPat": "GitHub access token",
       "slackBotToken": "Slack bot token",
       "slackTeamId": "Slack workspace ID",
       "googleClientId": "Google client ID",

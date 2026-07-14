@@ -376,6 +376,8 @@ export interface McpHttpServerConfig extends McpServerCommonConfig {
 	type: "http";
 	url: string;
 	headers?: Record<string, string>;
+	/** 预注册 OAuth client_id：用于不支持 DCR 的远程 MCP（如 GitHub）。 */
+	oauthClientId?: string;
 }
 
 export type McpServerConfig = McpStdioServerConfig | McpHttpServerConfig;
@@ -907,25 +909,31 @@ export function registerFsIpc(): () => void {
 			throw new Error("Invalid server name");
 		}
 		const name = serverName.trim();
-		const optionUrl =
-			typeof options === "object" && options !== null && typeof (options as { url?: unknown }).url === "string"
-				? (options as { url: string }).url.trim()
-				: "";
+		const opts = typeof options === "object" && options !== null ? (options as Record<string, unknown>) : {};
+		const optionUrl = typeof opts.url === "string" ? opts.url.trim() : "";
+		let oauthClientId = typeof opts.oauthClientId === "string" ? opts.oauthClientId.trim() : "";
 
 		let serverUrl = optionUrl;
-		if (!serverUrl) {
+		if (!serverUrl || !oauthClientId) {
 			const config = await readMcpConfig();
 			const server = config.mcpServers[name];
-			if (!server) throw new Error(`MCP server '${name}' not found`);
-			if (server.type !== "http" || typeof server.url !== "string" || !server.url.trim()) {
-				throw new Error(`MCP server '${name}' is not a remote HTTP server`);
+			if (!serverUrl) {
+				if (!server) throw new Error(`MCP server '${name}' not found`);
+				if (server.type !== "http" || typeof server.url !== "string" || !server.url.trim()) {
+					throw new Error(`MCP server '${name}' is not a remote HTTP server`);
+				}
+				serverUrl = server.url.trim();
 			}
-			serverUrl = server.url.trim();
+			// Re-authorize path: client_id not passed → read from mcp.json.
+			if (!oauthClientId && server?.type === "http" && typeof server.oauthClientId === "string") {
+				oauthClientId = server.oauthClientId.trim();
+			}
 		}
 
 		await loginHttpMcpServer({
 			serverName: name,
 			serverUrl,
+			oauthClientId: oauthClientId || undefined,
 			openUrl: (url) => openExternalUrl(url),
 		});
 	});

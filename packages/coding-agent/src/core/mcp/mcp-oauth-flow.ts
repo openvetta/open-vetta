@@ -49,6 +49,8 @@ export interface LoginHttpMcpServerOptions {
 	serverName: string;
 	/** Remote MCP endpoint (e.g. https://mcp.notion.com/mcp) */
 	serverUrl: string;
+	/** Pre-registered OAuth client_id for servers without DCR (e.g. GitHub) */
+	oauthClientId?: string;
 	/** Open authorization URL (default: system browser) */
 	openUrl?: OpenUrlHandler;
 	/** Agent config directory */
@@ -230,6 +232,7 @@ export async function loginHttpMcpServer(options: LoginHttpMcpServerOptions): Pr
 			redirectUri: callback.redirectUri,
 			agentDir,
 			clientName: CLIENT_NAME,
+			clientId: options.oauthClientId,
 			onRedirect: async (authorizationUrl) => {
 				authorizationOpened = true;
 				await openUrl(authorizationUrl.toString());
