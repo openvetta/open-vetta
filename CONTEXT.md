@@ -548,6 +548,12 @@ _Avoid_: 与 [[媒体流协议]] 混用——vetta-media 专责音视频 Range �
 
 **「活动会话」是环境量**：API 默认作用于当前活动 session（desktop 同时只看一个），不让插件枚举/持有任意 session 句柄。
 
+### 插件内聚 MCP（plugin-scoped MCP）
+
+[[可信插件]] 通过 `plugin.json` 的 `agent.mcpServers`（相对路径 `.mcp.json` 或内联 map）+ 权限 `agent.mcp.control` 贡献自带 MCP server。作为 **第三配置源** 进入会话 `McpManager`，与用户全局 / 项目 `mcp.json` **并列且不回写**用户文件。运行时名为 `plugin-<pluginId>-<localName>`（kebab、无 `_`）。生命周期绑定插件启停：禁用/卸载 reconcile 拆除进程。见 ADR-0040、`docs/plugin/mcp.md`。
+
+_Avoid_: 把插件 MCP 写入 `~/.vetta/agent/mcp.json`——卸载与版本切换会脏化用户配置。
+
 ### 系统插件（system plugin）
 
 随 App 一起发布、**用户不可删除/修改**的[[可信插件]]，与用户自行安装的插件（`source: "archive" | "remote"`）相对，来源标记 `source: "system"`。物理上从**只读位置直服**——打包后在 `process.resourcesPath/system-plugins/<id>/`，dev 下在 `packages/plugins/presets/<id>/`——`vetta-plugin://` 解析按 source 选 base 目录，**不**拷进 `~/.vetta`、**不**写进 `plugins-manifest.json`（该文件只存用户态：用户插件记录 + 用户对系统插件的偏好覆盖）。`listPlugins()` 时由运行时发现并与用户插件合并呈现。因随 App 发布，版本跟随 App，不走用户插件的 `availableVersion / pendingVersion` 更新流。
@@ -595,7 +601,7 @@ _Avoid_: 把音频也塞进 readFile base64 路径——无损音频可达百 MB
 
 ### 图像模式（Image Mode）
 
-权限选择器右侧一个可开关的输入动作（input action）chip。开启后用户发出的 prompt 进入**图像轮次**而非普通对话，再次点击关闭。是一个**意图标记**：插件通过输入插槽的 prompt 装饰器给 `PromptRequest` 注入 `imageMode`。开启且**无**[[图像编辑 attach]] 时，agent 自感知——按 prompt 语义自行决定调 `generate_image`（全新主题）还是 `edit_image`（在最近一张图基础上改）。
+权限选择器右侧一个可开关的输入动作（input action）chip。开启后再次点击关闭。是**软隔离意图标记**（非能力闸）：插件经输入插槽的 prompt 装饰器给 `PromptRequest` 注入 `imageMode`，input-pipeline 注入隐形指令，明确「本轮要产出图像」。`generate_image` / `edit_image` **始终按工具 `scope_use` 暴露**——未开开关时，用户自然语言明确要求生图/改图也可调用；开启则加强引导、优先走工具而非纯文字描述。开启且**无**[[图像编辑 attach]] 时，agent 自感知——按 prompt 语义自行决定调 `generate_image`（全新主题）还是 `edit_image`（在最近一张图基础上改）。
 
 ### 图像编辑 attach（Image Edit Attach）
 

@@ -132,6 +132,9 @@
 | --- | --- |
 | `agent.systemPrompt.promptPaths` | 追加进系统提示词的提示片段文件路径。 |
 | `agent.skillPaths` | 加入 agent 资源图的 skill 文件 / 目录。 |
+| `agent.mcpServers` | 插件内聚 MCP：相对路径指向 `.mcp.json`，或内联 `{ "server-name": { command, args, cwd? } \| { type:"http", url } }`。需权限 `agent.mcp.control`。见 [mcp.md](./mcp.md)。 |
 | `agent.toolPolicy.allow` / `.deny` | 声明式工具可见性策略（名字是工具注册后的 id）。 |
 
 > 在 JS 里**动态**注册 agent 工具走 `ctx.agent.registerTool`（见 [conversation-and-agent.md](./conversation-and-agent.md#注册-agent-工具)），与此处的**声明式**清单字段是两条不同路径。
+>
+> **插件 MCP** 是第三配置源：不写入用户 `~/.vetta/agent/mcp.json`；启用+授权后进会话 `McpManager`，禁用/卸载即拆掉（ADR-0040）。

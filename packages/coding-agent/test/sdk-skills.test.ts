@@ -60,6 +60,7 @@ This is a test skill.
 			getAppendSystemPrompt: () => [],
 			getPathMetadata: () => new Map(),
 			extendResources: () => {},
+			setAdditionalSkillPaths: () => {},
 			reload: async () => {},
 			refreshSkillsIfChanged: () => false,
 		};
@@ -96,6 +97,7 @@ This is a test skill.
 			getAppendSystemPrompt: () => [],
 			getPathMetadata: () => new Map(),
 			extendResources: () => {},
+			setAdditionalSkillPaths: () => {},
 			reload: async () => {},
 			refreshSkillsIfChanged: () => false,
 		};

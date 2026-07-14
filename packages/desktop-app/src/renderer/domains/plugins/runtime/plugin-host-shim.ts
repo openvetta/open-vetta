@@ -10,6 +10,7 @@ declare global {
 		| {
 				React: typeof pluginHostShimModules.React;
 				ReactDom: typeof pluginHostShimModules.ReactDom;
+				ReactDomClient: typeof pluginHostShimModules.ReactDomClient;
 				jsxRuntime: typeof pluginHostShimModules.jsxRuntime;
 				jsxDevRuntime: typeof pluginHostShimModules.jsxDevRuntime;
 				pluginSdk: typeof pluginHostShimModules.pluginSdk;
@@ -22,6 +23,7 @@ export function installPluginHostShim(): void {
 	globalThis.__VETTA_PLUGIN_HOST__ = {
 		React: pluginHostShimModules.React,
 		ReactDom: pluginHostShimModules.ReactDom,
+		ReactDomClient: pluginHostShimModules.ReactDomClient,
 		jsxRuntime: pluginHostShimModules.jsxRuntime,
 		jsxDevRuntime: pluginHostShimModules.jsxDevRuntime,
 		pluginSdk: pluginHostShimModules.pluginSdk,

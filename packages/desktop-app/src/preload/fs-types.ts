@@ -22,7 +22,8 @@ export interface FsStatResult {
 export interface DesktopFsApi {
 	readDir(dirPath: string): Promise<FsEntry[]>;
 	readFile(filePath: string): Promise<{ content: string; encoding: "utf8" | "base64" }>;
-	writeFile(filePath: string, content: string): Promise<void>;
+	/** `encoding: "base64"` writes decoded bytes (for binary assets). Default utf8. */
+	writeFile(filePath: string, content: string, encoding?: "utf8" | "base64"): Promise<void>;
 	stat(filePath: string): Promise<FsStatResult | null>;
 	rename(oldPath: string, newPath: string): Promise<void>;
 	delete(targetPath: string): Promise<void>;

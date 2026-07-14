@@ -2,6 +2,9 @@
 
 ### Added
 
+- **插件内聚 MCP（第三配置源）**：`McpManager.setPluginServers` / 组合签名含 plugin fingerprint；`initialize`/`reloadIfChanged` 合并 global+project+plugin，禁用插件时 reconcile 拆除 server。命名助手 `buildPluginMcpRuntimeName`（`plugin-<id>-<local>`，禁止 `_`）。`AgentPluginRuntimeConfig.mcpServerContributions`。见 ADR-0040。
+- **插件 MCP 启动失败可观测**：`setPluginServers` 对 `plugin-*` server 在 `error`/`needs_auth` 时 `console.error` 打出原因，避免静默无 tools。
+- **`ResourceLoader.setAdditionalSkillPaths` + reconfigure 热更新插件 skills**：插件 `skillPathContributions` 变更时会话内 skill 列表/系统提示词随之刷新。
 - **远程 HTTP MCP OAuth（通用）**：`HttpMcpClient` 接入 MCP SDK `OAuthClientProvider`；凭证落盘 `~/.vetta/agent/mcp-auth/<server>.json`（不写 mcp.json）。新增 `loginHttpMcpServer` / `hasMcpOAuthTokens` / `clearMcpOAuthState`，`McpManager` 状态 `needs_auth` 与 `loginServer` / `logoutServer`。任意 `type: "http"` 远程 MCP（如 Notion 官方 `https://mcp.notion.com/mcp`）可复用浏览器授权流程。
 - **会话树：`exportBranchToNewFile` / `resolveSubtreeTip` / `getUserMessageSiblings`**：导出分支为新 session 文件且不切换当前 manager（供桌面 host fork）；解析子树 tip 与 user sibling 列表，支撑同 session 内分支切换。
 - **`AgentSession.switchBranch` / `exportForkToNewFile`**：同文件切换 leaf 到目标子树 tip；fork 到新文件且保持当前会话不动。`exportForkToNewFile` 导出到该 user 回合 tip（含 user + 本轮 assistant/工具链，不含后续 user 轮）。
@@ -25,6 +28,8 @@
 
 ### Changed
 
+- **知识检索改为硬隔离**：input-pipeline 在未携带 `metadata.knowledgeMode` 时，从本轮 tool list 剥离 `category: "kb-read"` 工具（`kb_list_available_tags` / `kb_filter_by_tags`）；开启「知识检索」后才暴露并注入隐形「优先查知识库」指令。`kb-processing` 场景例外（无 toggle、加工依赖这些工具）。与图像生成的软隔离相反。
+- **图像工具改为软隔离**：input-pipeline 不再在未开「图像生成」时从本轮 tool list 剥离 `generate_image` / `edit_image`。工具始终按 `scope_use` 暴露；用户自然语言明确要求生图/改图即可调用。`metadata.imageMode` / `editImageId` 仅注入隐形意图指令（加强引导）。同步收紧 tool description（仅实际要产出/编辑图时调用）与 imageMode 提示文案。
 - **input-pipeline 支持设置页 AI 协助隐藏指令**：读取 `PromptOptions.metadata.settingsAssistInstruction`（非空字符串）时，在用户消息前注入 `display:false` 的 `settings_assist_instruction` 自定义消息，仅模型可见；用户气泡与历史只保留用户意图正文。
 - **Vetta CLI guidance 改为渐进式发现**：不再只点名批量/定时；明确 `action -h` 只说明流程与能力域，权威目录来自 `search`，参数细节来自 `describe` / `*.query` 的 `help`。
 - **系统提示词：完成时在结尾汇聚列出产物文件**：`buildGuidelines` 在已有「文件必须用 md 链接」强制规则之后新增一条（仅当具备 edit/write/shell 等可产文件的工具时启用）——任务产出或改动文件后，最终消息的**最末尾**必须是单一的产物块：一行小标题 + md **无序列表**，每项是指向绝对路径的 md 链接（`- [name.ext](/abs/path)`）。该块是列产物的**唯一**位置，不得在总结开头/中间再分散重复同样的链接，统一汇聚到结尾一处。只列**用户真正想要的成品**（如 .pptx/.pdf/.docx/图片，排除解包 XML、临时文件、lockfile 等中间脚手架与仅读取的文件），无产物则整块省略。配合 desktop 端用插件 turn 卡（git）/ md 链接预览（非 git）替代被移除的产物面板。

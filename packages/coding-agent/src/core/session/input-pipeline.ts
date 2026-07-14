@@ -199,13 +199,14 @@ export class InputPipeline {
 		// Build messages array (custom message if any, then user message)
 		const messages: AgentMessage[] = [];
 
-		// Image mode: a plugin input action / preview-card edit set image metadata
-		// for this turn. Inject a hidden instruction so the agent routes to the
-		// host-injected image tools (generate_image / edit_image via customTools).
+		// Soft image intent: generate_image / edit_image stay on the tool list
+		// whenever scope allows (no hard strip). Optional metadata only injects a
+		// model-visible intent amplifier for this turn.
 		// Two cases:
-		//  - editImageId present → the user explicitly picked an image to edit:
-		//    force edit_image with that exact id as source.
-		//  - imageMode only → agent self-decides generate vs edit from the prompt.
+		//  - editImageId present → user picked a specific image to edit: force
+		//    edit_image with that exact id as source.
+		//  - imageMode only → user toggled 图像生成: strongly prefer producing an
+		//    image; agent self-decides generate vs edit from the prompt.
 		const editImageId =
 			typeof options?.metadata?.editImageId === "string" && options.metadata.editImageId.trim().length > 0
 				? options.metadata.editImageId.trim()
@@ -227,7 +228,8 @@ export class InputPipeline {
 				role: "custom",
 				customType: "image_mode_instruction",
 				content:
-					"图像模式已开启，请自行判断用户意图并调用相应工具，不要只用文字描述图像：" +
+					"用户已开启「图像生成」意图：本轮要实际产出图像，禁止只写文字描述或绘画步骤。" +
+					"请自行判断并调用相应工具：" +
 					"若是全新主题/全新画面，调用 generate_image（先把请求优化成具体、生动的绘图 prompt）；" +
 					"若是在最近生成的那张图基础上做修改（改背景/调色/增删元素等），调用 edit_image，" +
 					"sourceImageId 取上下文里最近一次 <vetta-images> 标记中的图像 id。",
@@ -238,8 +240,8 @@ export class InputPipeline {
 
 		// Knowledge retrieval mode: user toggled 知识检索 for this turn. Inject a
 		// hidden (model-only) instruction telling the agent to consult the knowledge
-		// base before answering. Tools are always available regardless; this just
-		// makes the intent explicit for this turn.
+		// base before answering. Paired with hard isolation below (kb-read tools
+		// are stripped unless knowledgeMode is on).
 		if (options?.metadata?.knowledgeMode === true) {
 			messages.push({
 				role: "custom",
@@ -347,18 +349,17 @@ export class InputPipeline {
 		// New user turn: reset the ad-hoc todo nudge so this turn gets one fresh nudge.
 		this._lastTodoNudgeSignature = undefined;
 
-		// Gate the host-injected image tools (generate_image / edit_image) to
-		// image-mode turns only. They are registered for the whole session via
-		// withImageTools, so without this the model could generate/edit images on
-		// any turn. When the user hasn't activated 图像生成 (no imageMode and no
-		// editImageId), strip them from THIS turn's tool list. Safe because the
-		// agent throws if already streaming (no overlap) and _runLoop snapshots
-		// context.tools at the start of the turn; restore afterward.
-		const imageToolsEnabled = options?.metadata?.imageMode === true || editImageId !== undefined;
+		// Hard isolation for knowledge retrieval tools (kb-read: kb_list_available_tags /
+		// kb_filter_by_tags). They stay on the session registry via scope_use + requires,
+		// but without knowledgeMode this turn strips them so the model cannot call them
+		// unless the user activated 知识检索. Exception: kb-processing has no toggle and
+		// always needs these tools. Image tools remain soft-isolated (always available).
+		// Safe: agent throws if already streaming (no overlap); _runLoop snapshots
+		// context.tools at turn start; restore afterward.
+		const knowledgeToolsEnabled =
+			options?.metadata?.knowledgeMode === true || this.runtime.scenario === "kb-processing";
 		const savedTools = this.ctx.agent.state.tools;
-		const gatedTools = imageToolsEnabled
-			? savedTools
-			: savedTools.filter((t) => t.name !== "generate_image" && t.name !== "edit_image");
+		const gatedTools = knowledgeToolsEnabled ? savedTools : savedTools.filter((t) => t.category !== "kb-read");
 		const toolsGated = gatedTools.length !== savedTools.length;
 		if (toolsGated) this.ctx.agent.setTools(gatedTools);
 		try {

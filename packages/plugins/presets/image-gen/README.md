@@ -4,7 +4,7 @@
 
 ## 能力
 
-- **输入栏「图像生成」开关**：开启后，本轮提示词进入图像模式（给 `PromptRequest.metadata` 注入 `imageMode`）。无显式编辑目标时，agent **自感知**——按 prompt 语义自行决定调用内置 `generate_image`（全新画面）还是 `edit_image`（在最近一张图上修改）。
+- **输入栏「图像生成」开关（软隔离）**：开启后给 `PromptRequest.metadata` 注入 `imageMode`，由 input-pipeline 注入隐形意图提示（本轮要产出图像）。**未开启时**工具仍可用——用户自然语言明确要求生图/改图也可调用；开启则加强引导。无显式编辑目标时，agent **自感知**——按 prompt 语义自行决定调用内置 `generate_image`（全新画面）还是 `edit_image`（在最近一张图上修改）。
 - **消息下方版本 swiper**：在生成图像的那条消息下横向排列该图编辑谱系的全部版本（超出可左右翻看），每张 hover 出「编辑」「导出」。同一谱系只在最新一条消息下渲染，生成中时最前面插入「生成中」骨架卡。
 - **图改图统一从输入栏触发**：点某张图的「编辑」icon → 该图作为编辑目标 attach 到输入栏顶部胶囊（`ui.setEditImageAttachment`），发送时注入 `metadata.editImageId`，agent 强制调用 `edit_image` 以该图为 source。一次性，发送后释放。
 

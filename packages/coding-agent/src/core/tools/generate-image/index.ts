@@ -135,7 +135,8 @@ export function createGenerateImageTool(
 		scope_use: ["im-claw", "conversation", "project", "cli"],
 		category: "media",
 		description:
-			"Generate an image from a text prompt (text-to-image). Use when the user wants a brand-new image. " +
+			"Generate an image from a text prompt (text-to-image). Call when the user wants an actual new image " +
+			"produced (e.g. draw/generate/create an image of …), not when they only ask how image generation works. " +
 			"Optimize the user's request into a detailed prompt, then call this tool. The generated image is shown " +
 			"to the user automatically; you only receive a short confirmation, not the image bytes.",
 		parameters: generateImageSchema,
@@ -176,13 +177,14 @@ export function createEditImageTool(
 		scope_use: ["im-claw", "conversation", "project", "cli"],
 		category: "media",
 		description:
-			"Edit an existing image (image-to-image) rather than create a new one. The source can be either an " +
-			"image Vetta previously generated (pass its id in `sourceImageId`) or any local image file on disk — " +
-			"e.g. an image the user uploaded/attached, referenced by @path — (pass its absolute path in " +
-			"`sourceImagePath`). Provide exactly one of the two and describe the change in `prompt`. Prefer this " +
-			"over generate_image whenever the user wants to modify a specific existing image: it preserves the " +
-			"original content instead of redrawing from scratch. The result is shown to the user automatically; " +
-			"you only receive a short confirmation, not the image bytes.",
+			"Edit an existing image (image-to-image) rather than create a new one. Call when the user wants an " +
+			"actual edit of a specific image, not when they only discuss editing in the abstract. The source can " +
+			"be either an image Vetta previously generated (pass its id in `sourceImageId`) or any local image " +
+			"file on disk — e.g. an image the user uploaded/attached, referenced by @path — (pass its absolute " +
+			"path in `sourceImagePath`). Provide exactly one of the two and describe the change in `prompt`. " +
+			"Prefer this over generate_image whenever the user wants to modify a specific existing image: it " +
+			"preserves the original content instead of redrawing from scratch. The result is shown to the user " +
+			"automatically; you only receive a short confirmation, not the image bytes.",
 		parameters: editImageSchema,
 		execute: async (_toolCallId, params, _signal, _onUpdate, ctx) => {
 			if (!params.sourceImageId && !params.sourceImagePath) {

@@ -9,6 +9,7 @@ import AdmZip from "adm-zip";
 import { ipcMain } from "electron";
 import type { AppMonitorResourceOperation } from "../../preload/api-types/app-monitor.js";
 import { recordAppMonitorEvent } from "../app-monitor/app-monitor-service.js";
+import { buildAgentPluginRuntimeConfig } from "../plugins/plugin-store.js";
 import { allowProjectRoot, readDesktopConfig } from "./fs.js";
 
 function assertNonEmptyString(value: unknown, fieldName: string): asserts value is string {
@@ -230,12 +231,29 @@ export async function listSkills(cwd?: string): Promise<ListedSkill[]> {
 	// 适配通用 Agent Skill：跟随「Agent配置 → 扩展功能」开关，关闭时不发现 .agents/skills。
 	const desktopConfig = await readDesktopConfig();
 	const includeAgentSkills = desktopConfig.experimental?.agentSkills !== false;
+	// Plugin-packaged skills (agent.skillPaths) must appear in slash "/" the same way
+	// they are injected into agent sessions via skillPathContributions.
+	const pluginSkillPaths =
+		buildAgentPluginRuntimeConfig()?.skillPathContributions?.flatMap((contribution) => contribution.paths) ?? [];
 	// 传入当前会话/项目 cwd，才能发现项目级 <cwd>/.agents/skills 与 <cwd>/.vetta/skills；
 	// 不传则只列全局来源（主进程自身 cwd 下通常无项目目录）。
-	const loader = new DefaultResourceLoader({ includeAgentSkills, cwd });
+	const loader = new DefaultResourceLoader({
+		includeAgentSkills,
+		cwd,
+		additionalSkillPaths: pluginSkillPaths,
+	});
 	await loader.reload();
 	const { skills } = loader.getSkills();
 	const manifest = readManifest();
+	// Absolute plugin skill roots — used to label source as "plugin" in the slash list.
+	const pluginRoots = pluginSkillPaths.map((p) => p.replace(/[/\\]+$/, ""));
+	const isUnderPluginRoot = (filePath: string): boolean => {
+		const normalized = filePath.replace(/\\/g, "/");
+		return pluginRoots.some((root) => {
+			const r = root.replace(/\\/g, "/");
+			return normalized === r || normalized.startsWith(`${r}/`);
+		});
+	};
 	return skills
 		.filter((s) => {
 			const entry = manifest[s.name];
@@ -243,16 +261,17 @@ export async function listSkills(cwd?: string): Promise<ListedSkill[]> {
 			if (s.source === "market" || s.source === "scene") {
 				return entry?.enabled ?? false;
 			}
-			// 其余来源（user/project/path/agents-*）默认显示
+			// 其余来源（user/project/path/agents-* / plugin）默认显示
 			return !entry || entry.enabled;
 		})
 		.map((s) => {
 			const entry = manifest[s.name];
+			const source = isUnderPluginRoot(s.filePath) ? "plugin" : s.source;
 			return {
 				name: s.name,
 				alias: s.alias || entry?.alias,
 				description: (entry?.source === "market" ? entry.marketDescription : undefined) || s.description,
-				source: s.source,
+				source,
 				type: s.type,
 			};
 		});
@@ -319,6 +338,16 @@ export function registerSkillsIpc(): () => void {
 
 	ipcMain.handle("vetta:skills:list", async (_event, cwd: unknown) => {
 		const resolvedCwd = typeof cwd === "string" && cwd.trim().length > 0 ? cwd : undefined;
+		// Plugin skill packages live under system-plugins / ~/.vetta/plugins; allow
+		// roots so slash/detail previews can read SKILL.md via fs IPC if needed.
+		const pluginSkillPaths = buildAgentPluginRuntimeConfig()?.skillPathContributions?.flatMap((c) => c.paths) ?? [];
+		for (const root of pluginSkillPaths) {
+			try {
+				allowProjectRoot(root);
+			} catch {
+				// ignore invalid roots
+			}
+		}
 		return listSkills(resolvedCwd);
 	});
 

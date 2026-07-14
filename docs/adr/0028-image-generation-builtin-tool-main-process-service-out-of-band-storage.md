@@ -22,7 +22,7 @@
 
 ## Consequences
 
-- `PromptRequest` 新增可选 `metadata` 字段，并需把它从 runtime-core 贯通到 agent 轮，使 `imageMode` 能门控本轮 tool 行为（开启时强制/优先调用，关闭时 tool 不对模型暴露，保持普通对话）。
+- `PromptRequest` 新增可选 `metadata` 字段，并需把它从 runtime-core 贯通到 agent 轮，使 `imageMode` 能门控本轮 tool 行为（开启时强制/优先调用，关闭时 tool 不对模型暴露，保持普通对话）。**（图像软隔离修订：关闭时不再剥离 image tool；`imageMode` 仅注入隐形意图。知识检索则保持/改为硬隔离：`knowledgeMode` 关闭时剥离 kb-read 工具。）**
 - coding-agent 要新增内置 tool，按既有约定扫齐 `tools/index.ts` 等 6+ 注册点；tool 需要一个 host 注入的图像服务句柄抽象（在 coding-agent 定接口、desktop 供实现），避免 coding-agent 反向依赖 desktop-app。
 - 图像存储要有按 session 的目录与清理策略，并经 `vetta-media://`（ADR-0021 的自定义流式协议）映射给 `<img>`。重载恢复靠存储 + 会话里轻量引用重建，不依赖 LLM 历史。
 - message-slot 的入参契约要扩展（host 把 `imageRefs` 附到 message），这意味着 host 必须能从该轮 tool-result 里识别图像 tool 并提取引用。
