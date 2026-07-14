@@ -23,6 +23,12 @@ export interface SanctumCultivationView {
 	readonly realmId: string;
 	readonly score: number;
 	readonly scoreBreakdown: CultivationScoreBreakdown;
+	readonly trend: readonly {
+		readonly date: string;
+		readonly label: string;
+		readonly power: number;
+		readonly score: number;
+	}[];
 }
 
 export interface RealmDetailView {
