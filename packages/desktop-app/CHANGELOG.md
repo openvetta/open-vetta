@@ -7,7 +7,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 ### Added
 
 - **插件内聚 MCP**：`plugin.json` 支持 `agent.mcpServers`（路径或内联）与权限 `agent.mcp.control`；`buildAgentPluginRuntimeConfig` 产出 `mcpServerContributions`（路径相对插件根 resolve，运行时名 `plugin-<id>-<local>`）。启停插件经既有 `reconfigureAgentPlugins` 联动 MCP 进程。不写用户 `mcp.json`（ADR-0040）。
-- **系统插件 cowart-vetta**：改编自 [zhongerxin/Cowart](https://github.com/zhongerxin/Cowart)——活动面板 + `open_cowart_canvas`、skills、插件内聚 MCP（画布 state/image 工具；无 Codex widget 宿主）。
+- **外置插件 cowart-vetta**：改编自 [zhongerxin/Cowart](https://github.com/zhongerxin/Cowart)——活动面板 + `open_cowart_canvas`、skills、插件内聚 MCP（画布 state/image 工具；无 Codex widget 宿主）。源码位于 `packages/plugins/externals/cowart-vetta`，不随 App 打包，由用户安装 zip。
 - **Slash `/` 列出插件 skills**：`skills.list` 合并已启用插件的 `agent.skillPaths`（`skillPathContributions`），source 标为 `plugin`。
 - **cowart-vetta MCP 进程被误杀修复**：`start-mcp.mjs` 在 `import` bundle / `server.connect()` 返回后不再 `process.exit(0)`，否则宿主侧连接立刻断开、MCP tools 为空。
 - **cowart-vetta 1:1 画布**：活动面板嵌入完整 tldraw（上游 App.jsx）；Codex widget bridge 映射为 `ctx.fs` + `conversation.sendPrompt`；`fs.writeFile` 支持 `base64` 写二进制资产。
