@@ -1,55 +1,24 @@
-import {
-	useThemeStorage,
-	useThemeUsageStats,
-	type ThemeStorageValue,
-} from "@vetta/theme-sdk";
+import { useThemeStorage, useThemeUsageStats } from "@vetta/theme-sdk";
 import { useEffect, useRef } from "react";
 import { computeCultivation, isSameCultivationSnapshot } from "./computeCultivation";
-import { CULTIVATION_STORAGE_KEY, type CultivationSnapshot } from "./types";
+import { loadCultivationSnapshot, toCultivationStorageValue } from "./migrate-config";
+import { CULTIVATION_STORAGE_KEY } from "./types";
 
 const SYNC_INTERVAL_MS = 30_000;
 
-function readStoredSnapshot(value: unknown): CultivationSnapshot | null {
-	if (value === null || typeof value !== "object" || Array.isArray(value)) return null;
-	const snapshot = value as CultivationSnapshot;
-	// Drop legacy snapshots so they recompute under the current page-facing schema.
-	if (snapshot.version !== 3) return null;
-	return snapshot;
-}
-
-function toStorageValue(snapshot: CultivationSnapshot): ThemeStorageValue {
-	return {
-		version: snapshot.version,
-		updatedAt: snapshot.updatedAt,
-		realmId: snapshot.realmId,
-		level: snapshot.level,
-		name: snapshot.name,
-		englishName: snapshot.englishName,
-		score: snapshot.score,
-		realmStartScore: snapshot.realmStartScore,
-		cultivationPower: snapshot.cultivationPower,
-		cultivationPowerTarget: snapshot.cultivationPowerTarget,
-		scoreBreakdown: { ...snapshot.scoreBreakdown },
-		growth: { ...snapshot.growth },
-		dailyScores: snapshot.dailyScores.map((entry) => ({ ...entry })),
-		dailyMetrics: (snapshot.dailyMetrics ?? []).map((entry) => ({ ...entry })),
-		progressToNext: snapshot.progressToNext,
-		nextRealmId: snapshot.nextRealmId,
-		nextRealmTargetScore: snapshot.nextRealmTargetScore,
-		achievedRealmIds: [...snapshot.achievedRealmIds],
-		metrics: { ...snapshot.metrics },
-	};
-}
-
 /**
  * Headless runtime: app-monitor aggregates → theme cultivation storage.
+ * Versioning uses @vetta/toolkit migrate; persistence stays on theme storage.
  * Verify via console `[xianxia-cultivation]` and
- * `~/.vetta/desktop-app/themes/xianxia/data.json`.
+ * `~/.vetta/desktop-app/themes/xianxia/cultivation.json`.
  */
 export function XianxiaCultivationRuntime(): null {
 	const storage = useThemeStorage();
 	const usage = useThemeUsageStats();
+	const storageStatus = storage.status;
+	const usageStatus = usage.status;
 	const lastSyncedKeyRef = useRef<string>("");
+	const didWriteMigrationRef = useRef(false);
 
 	useEffect(() => {
 		void usage.refresh();
@@ -68,26 +37,39 @@ export function XianxiaCultivationRuntime(): null {
 		};
 	}, [usage.refresh]);
 
+	// One-shot: persist schema migration even when usage stats are unchanged.
 	useEffect(() => {
-		if (usage.status !== "ready" || !usage.stats) return;
-		if (storage.status !== "ready") return;
+		if (storageStatus !== "ready" || didWriteMigrationRef.current) return;
+		const loaded = loadCultivationSnapshot(storage.get(CULTIVATION_STORAGE_KEY));
+		if (!loaded.migrated || !loaded.snapshot) return;
+		didWriteMigrationRef.current = true;
+		storage.set(CULTIVATION_STORAGE_KEY, toCultivationStorageValue(loaded.snapshot));
+		console.info(`[xianxia-cultivation] migrated storage schema to v${loaded.snapshot.version}`);
+	}, [storage, storageStatus]);
 
-		const previous = readStoredSnapshot(storage.get(CULTIVATION_STORAGE_KEY));
+	useEffect(() => {
+		if (usageStatus !== "ready" || !usage.stats) return;
+		if (storageStatus !== "ready") return;
+
+		const loaded = loadCultivationSnapshot(storage.get(CULTIVATION_STORAGE_KEY));
+		const previous = loaded.snapshot;
 		const snapshot = computeCultivation(usage.stats, Date.now(), previous);
-		if (isSameCultivationSnapshot(previous, snapshot)) return;
+		if (!loaded.migrated && isSameCultivationSnapshot(previous, snapshot)) return;
 
 		const dedupeKey = `${snapshot.realmId}:${snapshot.score}:${snapshot.metrics.messages}:${snapshot.metrics.toolsCompleted}`;
-		if (lastSyncedKeyRef.current === dedupeKey) return;
+		if (!loaded.migrated && lastSyncedKeyRef.current === dedupeKey) return;
 		lastSyncedKeyRef.current = dedupeKey;
+		didWriteMigrationRef.current = true;
 
-		storage.set(CULTIVATION_STORAGE_KEY, toStorageValue(snapshot));
+		// Storage remains theme host KV — only the value is version-migrated.
+		storage.set(CULTIVATION_STORAGE_KEY, toCultivationStorageValue(snapshot));
 		console.info(
 			`[xianxia-cultivation] synced realm=${snapshot.realmId} level=${snapshot.level} ` +
 				`score=${snapshot.score} progress=${snapshot.progressToNext.toFixed(3)} ` +
 				`messages=${snapshot.metrics.messages} turns=${snapshot.metrics.turns} ` +
 				`tools=${snapshot.metrics.toolsCompleted} activeMs=${snapshot.metrics.foregroundActiveMs}`,
 		);
-	}, [storage, usage.stats, usage.status]);
+	}, [storage, storageStatus, usage.stats, usageStatus]);
 
 	return null;
 }

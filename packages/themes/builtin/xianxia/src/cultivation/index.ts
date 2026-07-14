@@ -1,4 +1,10 @@
 export { computeCultivation, isSameCultivationSnapshot } from "./computeCultivation";
+export {
+	loadCultivationSnapshot,
+	migrateCultivationConfig,
+	normalizeCultivationSnapshot,
+	toCultivationStorageValue,
+} from "./migrate-config";
 export { CULTIVATION_REALMS } from "./realms";
 export { computeCultivationScore } from "./score";
 export {

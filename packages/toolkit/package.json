@@ -21,6 +21,10 @@
 		"./config-store": {
 			"types": "./dist/config-store.d.ts",
 			"import": "./dist/config-store.js"
+		},
+		"./file-migrations": {
+			"types": "./dist/file-migrations.d.ts",
+			"import": "./dist/file-migrations.js"
 		}
 	},
 	"files": ["dist"],

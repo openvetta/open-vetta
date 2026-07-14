@@ -61,6 +61,7 @@ function CompositionMetricsRow({
 	readonly maxPower: number;
 }): JSX.Element {
 	const powerPercent = maxPower > 0 ? Math.round((currentPower / maxPower) * 100) : 0;
+	const contributionTotal = items.reduce((sum, item) => sum + item.value, 0);
 
 	const columns = [
 		...items.map((item) => ({
@@ -68,7 +69,7 @@ function CompositionMetricsRow({
 			key: item.label,
 			label: item.label,
 			primary: `${item.percent}%`,
-			secondary: `${formatCultivationNumber(item.value)} / ${formatCultivationNumber(currentPower)}`,
+			secondary: `${formatCultivationNumber(item.value)} / ${formatCultivationNumber(contributionTotal)}`,
 		})),
 		{
 			iconUrl: sanctumPageAssets.cultivationCompositionIcons.power,

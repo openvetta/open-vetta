@@ -36,8 +36,8 @@ export function XianxiaCultivationTrendChart({
 }): JSX.Element {
 	const data = useMemo<readonly TrendDatum[]>(() => {
 		if (cultivation.trend.length > 0) return cultivation.trend;
-		return [{ date: "today", label: "今日", power: cultivation.currentPower, score: cultivation.score }];
-	}, [cultivation.currentPower, cultivation.score, cultivation.trend]);
+		return [{ date: "today", label: "今日", power: cultivation.score, score: cultivation.score }];
+	}, [cultivation.score, cultivation.trend]);
 	const {
 		hideTooltip,
 		showTooltip,
