@@ -222,7 +222,7 @@ export function useMcpSettingsModel(): McpSettingsModel {
 				setSecretsDialogAuthorizing(true);
 				setOauthBusyName(targetName);
 				try {
-					await window.vetta.mcp.login(targetName, { url: next.url });
+					await window.vetta.mcp.login(targetName, { url: next.url, oauthClientId: next.oauthClientId });
 					await saveConfig(nextConfig);
 					recordSettingsUsage({
 						tab: "mcp",

@@ -21,7 +21,6 @@ export type BuiltinMcpLabelKey =
 
 export type BuiltinMcpSecretLabelKey =
 	| "mcpPresets.secrets.figmaApiKey"
-	| "mcpPresets.secrets.githubPat"
 	| "mcpPresets.secrets.slackBotToken"
 	| "mcpPresets.secrets.slackTeamId"
 	| "mcpPresets.secrets.googleClientId"
@@ -50,11 +49,6 @@ export interface BuiltinMcpSecretField {
 	placeholder?: string;
 	/** 官方获取密钥/凭证的页面，一键在浏览器打开 */
 	helpUrl?: string;
-	/**
-	 * 写入 headers/env 时的值模板，`{value}` 替换为用户输入。
-	 * 用于形如 `Bearer {value}` 的鉴权头；缺省时直接写入原值。
-	 */
-	valueTemplate?: string;
 }
 
 /** 内置 MCP 预设：仅提供配置模板与 UI 元数据，不自动写入 mcp.json，也不预装依赖。 */
@@ -85,6 +79,14 @@ export interface BuiltinMcpPreset {
 }
 
 const MCP_ICON_BASE = "./mcp";
+
+/**
+ * GitHub OAuth App 的 client_id（公开客户端 + PKCE，无 client_secret）。
+ * 在 github.com → Settings → Developer settings → OAuth Apps 注册后填入。
+ * Callback URL 建议填 http://127.0.0.1/callback（RFC 8252 loopback，运行时端口动态）。
+ * 未填时 GitHub 连接器仍展示但授权会失败。
+ */
+const GITHUB_OAUTH_CLIENT_ID = "Ov23li0xYNRui0UDnQGH";
 
 export const BUILTIN_MCP_PRESETS: readonly BuiltinMcpPreset[] = [
 	{
@@ -149,26 +151,17 @@ export const BUILTIN_MCP_PRESETS: readonly BuiltinMcpPreset[] = [
 		iconFile: "github.svg",
 		displayNameKey: "mcpPresets.github.displayName",
 		descriptionKey: "mcpPresets.github.description",
-		// 官方托管远程 MCP：HTTP + PAT（Authorization: Bearer <token>）
+		// 官方托管远程 MCP：HTTP + OAuth（PKCE 公开客户端，预注册 client_id，不支持 DCR）
 		packageHint: "api.githubcopilot.com/mcp",
 		setupGuideKey: "mcpPresets.guides.github",
-		setupHelpUrl: "https://github.com/settings/personal-access-tokens",
+		setupHelpUrl:
+			"https://docs.github.com/en/copilot/how-tos/context/model-context-protocol/using-the-github-mcp-server",
 		listedInDiscover: true,
 		config: {
 			type: "http",
 			url: "https://api.githubcopilot.com/mcp/",
+			oauthClientId: GITHUB_OAUTH_CLIENT_ID,
 		},
-		secrets: [
-			{
-				envKey: "Authorization",
-				labelKey: "mcpPresets.secrets.githubPat",
-				required: true,
-				secret: true,
-				placeholder: "github_pat_… / ghp_…",
-				valueTemplate: "Bearer {value}",
-				helpUrl: "https://github.com/settings/personal-access-tokens",
-			},
-		],
 	},
 	{
 		id: "slack",
@@ -341,9 +334,7 @@ export function buildBuiltinMcpServerConfig(
 	if (secretValues) {
 		for (const [key, value] of Object.entries(secretValues)) {
 			const trimmed = value.trim();
-			if (!trimmed) continue;
-			const template = preset.secrets?.find((field) => field.envKey === key)?.valueTemplate;
-			env[key] = template ? template.replace("{value}", trimmed) : trimmed;
+			if (trimmed) env[key] = trimmed;
 		}
 	}
 	const base = { ...preset.config, displayName: labels.displayName, description: labels.description };
@@ -362,22 +353,12 @@ export function missingRequiredSecrets(preset: BuiltinMcpPreset, config: McpServ
 	return secrets.filter((field) => !env?.[field.envKey]?.trim());
 }
 
-/** 把存储值按模板还原成用户原始输入（用于回填编辑框）；不匹配时原样返回。 */
-function stripSecretTemplate(stored: string, template?: string): string {
-	if (!template) return stored;
-	const [prefix, suffix] = template.split("{value}");
-	if (prefix !== undefined && suffix !== undefined && stored.startsWith(prefix) && stored.endsWith(suffix)) {
-		return stored.slice(prefix.length, stored.length - suffix.length);
-	}
-	return stored;
-}
-
 export function existingSecretValues(preset: BuiltinMcpPreset, config: McpServerConfigData): Record<string, string> {
 	const env = config.type === "http" ? config.headers : config.env;
 	const values: Record<string, string> = {};
 	for (const field of preset.secrets ?? []) {
 		const current = env?.[field.envKey];
-		if (current) values[field.envKey] = stripSecretTemplate(current, field.valueTemplate);
+		if (current) values[field.envKey] = current;
 	}
 	return values;
 }

@@ -23,6 +23,11 @@ export interface McpHttpServerConfigData extends McpServerCommonConfigData {
 	type: "http";
 	url: string;
 	headers?: Record<string, string>;
+	/**
+	 * 预注册 OAuth client_id：用于不支持 DCR 的远程 MCP（如 GitHub）。
+	 * 公开客户端 + PKCE，无 client_secret；非密钥，可安全写入 mcp.json。
+	 */
+	oauthClientId?: string;
 }
 
 export type McpServerConfigData = McpStdioServerConfigData | McpHttpServerConfigData;
@@ -38,8 +43,9 @@ export interface DesktopMcpApi {
 	 * 对 type:http 的远程 MCP 发起浏览器 OAuth 授权（通用机制，不限 Notion）。
 	 * 成功后 token 写入 ~/.vetta/agent/mcp-auth/<name>.json。
 	 * `url` 可选：首次添加时尚未写入 mcp.json，可直接传远程 MCP 地址。
+	 * `oauthClientId` 可选：不支持 DCR 的服务（如 GitHub）首次授权时透传预注册 client_id。
 	 */
-	login(serverName: string, options?: { url?: string }): Promise<void>;
+	login(serverName: string, options?: { url?: string; oauthClientId?: string }): Promise<void>;
 	/** 清除该 server 的 OAuth 凭证 */
 	logout(serverName: string): Promise<void>;
 	/** 是否已有该 server 的 OAuth token（不探测连通性） */

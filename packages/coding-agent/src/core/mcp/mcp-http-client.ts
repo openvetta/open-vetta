@@ -88,6 +88,7 @@ export class HttpMcpClient implements IMcpClient {
 				serverUrl: this.config.url,
 				redirectUri: loadRedirectUri(this.name, this.agentDir) ?? "http://127.0.0.1/callback",
 				agentDir: this.agentDir,
+				clientId: this.config.oauthClientId,
 				onRedirect: () => {
 					// Non-interactive: transport throws UnauthorizedError → needs_auth
 				},

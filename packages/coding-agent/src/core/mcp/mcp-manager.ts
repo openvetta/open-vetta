@@ -195,6 +195,7 @@ export class McpManager {
 		await loginHttpMcpServer({
 			serverName: name,
 			serverUrl: config.url,
+			oauthClientId: config.oauthClientId,
 			agentDir: this.agentDir,
 			openUrl: options?.openUrl,
 		});
