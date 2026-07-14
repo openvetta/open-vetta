@@ -4,9 +4,11 @@ import { dirname, join, normalize, resolve } from "node:path";
 import { getVettaHomePath } from "@vetta/action-rpc";
 import type {
 	AgentPluginContinuationContribution,
+	AgentPluginMcpServerConfig,
 	AgentPluginRuntimeConfig,
 	AgentPluginSystemPromptProviderContribution,
 	AgentPluginToolContribution,
+	McpServerContribution,
 	SystemPromptBlock,
 	SystemPromptOperation,
 } from "@vetta/runtime-core";
@@ -19,6 +21,7 @@ import type {
 	PluginLocaleCatalog,
 	PluginLocales,
 	PluginManifest,
+	PluginMcpServerConfig,
 	PluginPermission,
 	PluginSettingSchema,
 } from "../../preload/api-types/plugins.js";
@@ -61,7 +64,235 @@ function summarizeRuntimeConfig(config: AgentPluginRuntimeConfig | undefined): R
 			config?.continuationContributions?.map((provider) => `${provider.pluginId}:${provider.id}`) ?? [],
 		systemPromptProviders:
 			config?.systemPromptProviderContributions?.map((provider) => `${provider.pluginId}:${provider.id}`) ?? [],
+		mcpServers: config?.mcpServerContributions?.map((item) => item.runtimeName) ?? [],
 	};
+}
+
+/** Kebab-case segment for plugin MCP runtime names (no underscores — tool adapter constraint). */
+function normalizePluginMcpNameSegment(raw: string): string {
+	const normalized = raw
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/-+/g, "-")
+		.replace(/^-+|-+$/g, "");
+	if (!normalized) {
+		throw new Error(`Invalid plugin MCP name segment: ${JSON.stringify(raw)}`);
+	}
+	return normalized;
+}
+
+/** Runtime name: `plugin-<pluginId>-<localName>` (unique, no `_`). */
+export function buildPluginMcpRuntimeName(pluginId: string, localName: string): string {
+	return `plugin-${normalizePluginMcpNameSegment(pluginId)}-${normalizePluginMcpNameSegment(localName)}`;
+}
+
+function isAbsoluteFsPath(value: string): boolean {
+	return value.startsWith("/") || /^[a-zA-Z]:[\\/]/.test(value);
+}
+
+/** Relative path or `.` → resolve under plugin root; bare binary name left as-is. */
+function resolvePluginPathArg(pluginRoot: string, value: string): string {
+	if (isAbsoluteFsPath(value)) return value;
+	if (
+		value === "." ||
+		value.startsWith("./") ||
+		value.startsWith("../") ||
+		value.includes("/") ||
+		value.includes("\\")
+	) {
+		return resolve(pluginRoot, value);
+	}
+	return value;
+}
+
+/**
+ * Resolve stdio paths against the plugin install root so the MCP process can
+ * start from any session cwd.
+ */
+function resolvePluginMcpServerConfig(pluginRoot: string, config: PluginMcpServerConfig): AgentPluginMcpServerConfig {
+	if (config.type === "http") {
+		return { ...config };
+	}
+	const cwd = resolvePluginPathArg(pluginRoot, config.cwd === undefined ? "." : config.cwd);
+	return {
+		...config,
+		type: config.type,
+		command: resolvePluginPathArg(pluginRoot, config.command),
+		args: config.args?.map((arg) => resolvePluginPathArg(pluginRoot, arg)),
+		cwd,
+	};
+}
+
+function parsePluginMcpServerConfig(name: string, raw: unknown): PluginMcpServerConfig {
+	if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
+		throw new Error(`Invalid plugin MCP server config for '${name}'`);
+	}
+	const input = raw as Record<string, unknown>;
+	const type = input.type === undefined || input.type === "stdio" || input.type === "http" ? input.type : undefined;
+	if (input.type !== undefined && type === undefined) {
+		throw new Error(`Invalid plugin MCP server type for '${name}'`);
+	}
+	if (type === "http") {
+		const url = assertString(input.url, `mcpServers.${name}.url`);
+		const headers =
+			input.headers === undefined
+				? undefined
+				: (() => {
+						if (input.headers == null || typeof input.headers !== "object" || Array.isArray(input.headers)) {
+							throw new Error(`Invalid plugin MCP headers for '${name}'`);
+						}
+						const result: Record<string, string> = {};
+						for (const [key, value] of Object.entries(input.headers as Record<string, unknown>)) {
+							if (typeof value !== "string") {
+								throw new Error(`Invalid plugin MCP header value for '${name}.${key}'`);
+							}
+							result[key] = value;
+						}
+						return result;
+					})();
+		return {
+			type: "http",
+			url,
+			headers,
+			oauthClientId: typeof input.oauthClientId === "string" ? input.oauthClientId : undefined,
+			oauthDeviceFlow: typeof input.oauthDeviceFlow === "boolean" ? input.oauthDeviceFlow : undefined,
+			oauthScopes: typeof input.oauthScopes === "string" ? input.oauthScopes : undefined,
+			disabled: typeof input.disabled === "boolean" ? input.disabled : undefined,
+			autoApprove:
+				input.autoApprove === undefined
+					? undefined
+					: assertStringArray(input.autoApprove, `mcpServers.${name}.autoApprove`),
+			startupTimeout: typeof input.startupTimeout === "number" ? input.startupTimeout : undefined,
+			debug: typeof input.debug === "boolean" ? input.debug : undefined,
+			displayName: typeof input.displayName === "string" ? input.displayName : undefined,
+			description: typeof input.description === "string" ? input.description : undefined,
+		};
+	}
+	const command = assertString(input.command, `mcpServers.${name}.command`);
+	const args =
+		input.args === undefined
+			? undefined
+			: (() => {
+					if (!Array.isArray(input.args) || input.args.some((item) => typeof item !== "string")) {
+						throw new Error(`Invalid plugin MCP args for '${name}'`);
+					}
+					return input.args as string[];
+				})();
+	const env =
+		input.env === undefined
+			? undefined
+			: (() => {
+					if (input.env == null || typeof input.env !== "object" || Array.isArray(input.env)) {
+						throw new Error(`Invalid plugin MCP env for '${name}'`);
+					}
+					const result: Record<string, string> = {};
+					for (const [key, value] of Object.entries(input.env as Record<string, unknown>)) {
+						if (typeof value !== "string") {
+							throw new Error(`Invalid plugin MCP env value for '${name}.${key}'`);
+						}
+						result[key] = value;
+					}
+					return result;
+				})();
+	return {
+		type: type === "stdio" ? "stdio" : undefined,
+		command,
+		args,
+		env,
+		cwd: typeof input.cwd === "string" ? input.cwd : undefined,
+		disabled: typeof input.disabled === "boolean" ? input.disabled : undefined,
+		autoApprove:
+			input.autoApprove === undefined
+				? undefined
+				: assertStringArray(input.autoApprove, `mcpServers.${name}.autoApprove`),
+		startupTimeout: typeof input.startupTimeout === "number" ? input.startupTimeout : undefined,
+		debug: typeof input.debug === "boolean" ? input.debug : undefined,
+		displayName: typeof input.displayName === "string" ? input.displayName : undefined,
+		description: typeof input.description === "string" ? input.description : undefined,
+	};
+}
+
+function parseMcpServersField(raw: unknown): PluginAgentManifest["mcpServers"] {
+	if (raw === undefined) return undefined;
+	if (typeof raw === "string") {
+		return validateRelativePath(raw.trim(), "agent.mcpServers");
+	}
+	if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
+		throw new Error("Invalid plugin agent.mcpServers");
+	}
+	const result: Record<string, PluginMcpServerConfig> = {};
+	for (const [name, value] of Object.entries(raw as Record<string, unknown>)) {
+		if (!name.trim()) throw new Error("Invalid plugin MCP server name");
+		result[name.trim()] = parsePluginMcpServerConfig(name, value);
+	}
+	return result;
+}
+
+/**
+ * Materialize plugin MCP contributions for an installed plugin.
+ * Skips on missing files / parse errors (warn) so one bad plugin does not block others.
+ */
+function buildMcpServerContributionsForPlugin(plugin: InstalledPlugin): McpServerContribution[] {
+	const declared = plugin.agent?.mcpServers;
+	if (!declared) return [];
+	if (!hasGrantedPermission(plugin, "agent.mcp.control")) {
+		debugPluginAgent("skip mcp contributions: missing agent.mcp.control", { pluginId: plugin.id });
+		return [];
+	}
+
+	let servers: Record<string, PluginMcpServerConfig>;
+	// User plugins live under versions/<ver>/; system plugins at package root.
+	const pluginRoot =
+		plugin.source === "system"
+			? resolvePluginFilePath(plugin.id, ".")
+			: resolvePluginFilePath(plugin.id, `versions/${encodeURIComponent(plugin.activeVersion)}`);
+
+	try {
+		if (typeof declared === "string") {
+			const configPath = resolveInstalledPluginResource(plugin, declared);
+			if (!existsSync(configPath)) {
+				pluginLog.warn(`Plugin ${plugin.id}: MCP config missing at ${declared}`);
+				return [];
+			}
+			const parsed: unknown = JSON.parse(readFileSync(configPath, "utf-8"));
+			if (parsed == null || typeof parsed !== "object" || Array.isArray(parsed)) {
+				pluginLog.warn(`Plugin ${plugin.id}: MCP config is not an object`);
+				return [];
+			}
+			const map = (parsed as Record<string, unknown>).mcpServers;
+			if (map == null || typeof map !== "object" || Array.isArray(map)) {
+				pluginLog.warn(`Plugin ${plugin.id}: MCP config missing mcpServers object`);
+				return [];
+			}
+			servers = {};
+			for (const [name, value] of Object.entries(map as Record<string, unknown>)) {
+				servers[name] = parsePluginMcpServerConfig(name, value);
+			}
+		} else {
+			servers = declared;
+		}
+	} catch (error) {
+		pluginLog.warn(`Plugin ${plugin.id}: failed to load MCP servers:`, error);
+		return [];
+	}
+
+	const contributions: McpServerContribution[] = [];
+	for (const [localName, config] of Object.entries(servers)) {
+		try {
+			const runtimeName = buildPluginMcpRuntimeName(plugin.id, localName);
+			const resolved = resolvePluginMcpServerConfig(pluginRoot, config);
+			contributions.push({
+				pluginId: plugin.id,
+				localName,
+				runtimeName,
+				config: resolved,
+			});
+		} catch (error) {
+			pluginLog.warn(`Plugin ${plugin.id}: skip MCP server '${localName}':`, error);
+		}
+	}
+	return contributions;
 }
 
 export function summarizeAgentPluginRuntimeConfig(
@@ -354,6 +585,7 @@ function parseAgentManifest(raw: unknown): PluginAgentManifest | undefined {
 		skillPaths: assertStringArray(input.skillPaths, "agent.skillPaths").map((path) =>
 			validateRelativePath(path, "agent.skillPaths"),
 		),
+		mcpServers: parseMcpServersField(input.mcpServers),
 		toolPolicy: parseToolPolicy(input.toolPolicy),
 	};
 }
@@ -559,6 +791,7 @@ export function buildAgentPluginRuntimeConfig(): AgentPluginRuntimeConfig | unde
 	const continuationContributions: NonNullable<AgentPluginRuntimeConfig["continuationContributions"]> = [];
 	const systemPromptProviderContributions: NonNullable<AgentPluginRuntimeConfig["systemPromptProviderContributions"]> =
 		[];
+	const mcpServerContributions: McpServerContribution[] = [];
 
 	for (const plugin of enabledPlugins) {
 		try {
@@ -592,6 +825,9 @@ export function buildAgentPluginRuntimeConfig(): AgentPluginRuntimeConfig | unde
 					allow: agent.toolPolicy.allow,
 					deny: agent.toolPolicy.deny,
 				});
+			}
+			if (agent.mcpServers) {
+				mcpServerContributions.push(...buildMcpServerContributionsForPlugin(plugin));
 			}
 		} catch (error) {
 			pluginLog.warn(`Skipping agent contribution for ${plugin.id}:`, error);
@@ -650,6 +886,7 @@ export function buildAgentPluginRuntimeConfig(): AgentPluginRuntimeConfig | unde
 	if (systemPromptProviderContributions.length > 0) {
 		config.systemPromptProviderContributions = systemPromptProviderContributions;
 	}
+	if (mcpServerContributions.length > 0) config.mcpServerContributions = mcpServerContributions;
 	const result = Object.keys(config).length > 0 ? config : undefined;
 	debugPluginAgent("build runtime config done", summarizeRuntimeConfig(result));
 	return result;

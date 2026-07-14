@@ -14,8 +14,10 @@ import { isMcpAuthRequiredError } from "./mcp-http-client.js";
 import { loginHttpMcpServer, type OpenUrlHandler } from "./mcp-oauth-flow.js";
 import { clearMcpOAuthState, hasMcpOAuthTokens } from "./mcp-oauth-storage.js";
 import { adaptMcpTools } from "./mcp-tool-adapter.js";
+import { fingerprintPluginMcpServers, type PluginMcpServerSpec } from "./plugin-mcp.js";
 import {
 	isHttpServerConfig,
+	type McpConfig,
 	type McpManagerState,
 	type McpServerConfig,
 	type McpServerInstance,
@@ -48,6 +50,13 @@ export class McpManager {
 	private debug: boolean;
 	/** mcp.json 签名快照，用于 reloadIfChanged 的 fast-path 判等。 */
 	private lastSignature: string | undefined;
+	/**
+	 * Plugin-scoped MCP servers (third config source). Keyed by runtimeName.
+	 * Never written to user/project mcp.json; reconciled via setPluginServers.
+	 */
+	private pluginServers = new Map<string, McpServerConfig>();
+	/** Fingerprint of pluginServers for combined hasConfigChanged / reload. */
+	private pluginFingerprint = fingerprintPluginMcpServers([]);
 
 	constructor(options: McpManagerOptions = {}) {
 		this.projectRoot = options.projectRoot || process.cwd();
@@ -59,6 +68,23 @@ export class McpManager {
 			servers: new Map(),
 			enabled: options.enabled !== undefined ? options.enabled : true,
 		};
+	}
+
+	/**
+	 * Merge file-based config with in-memory plugin servers.
+	 * Plugin runtime names win on collision (they are namespaced).
+	 */
+	private loadEffectiveConfig(): McpConfig {
+		const merged = this.configLoader.loadMerged();
+		const mcpServers: Record<string, McpServerConfig> = { ...merged.mcpServers };
+		for (const [name, config] of this.pluginServers) {
+			mcpServers[name] = config;
+		}
+		return { mcpServers };
+	}
+
+	private combinedSignature(): string {
+		return `${this.configLoader.getMergedSignature()}|plugin:${this.pluginFingerprint}`;
 	}
 
 	/**
@@ -75,8 +101,8 @@ export class McpManager {
 			this.state.globalConfig = this.configLoader.loadGlobal() || undefined;
 			this.state.projectConfig = this.configLoader.loadProject() || undefined;
 
-			// Merge configurations
-			const mergedConfig = this.configLoader.loadMerged();
+			// Merge file + plugin configurations
+			const mergedConfig = this.loadEffectiveConfig();
 
 			// Initialize servers
 			const initPromises: Promise<void>[] = [];
@@ -91,7 +117,7 @@ export class McpManager {
 			// Wait for all servers to initialize (in parallel)
 			await Promise.allSettled(initPromises);
 
-			this.lastSignature = this.configLoader.getMergedSignature();
+			this.lastSignature = this.combinedSignature();
 			this.log(`Initialized ${this.state.servers.size} MCP servers`);
 		} catch (error) {
 			this.log(`Failed to initialize MCP servers: ${(error as Error).message}`);
@@ -322,53 +348,76 @@ export class McpManager {
 	}
 
 	/**
-	 * 仅探测：mcp.json 是否自上次加载后发生变化。无副作用，O(stat+hash)。
+	 * 仅探测：mcp.json 或插件 MCP 贡献是否自上次加载后发生变化。无副作用。
 	 * 用于 prompt 入口的 fast-path 判等。
 	 */
 	hasConfigChanged(): boolean {
 		if (!this.state.enabled) return false;
-		const sig = this.configLoader.getMergedSignature();
-		return this.lastSignature !== sig;
+		return this.lastSignature !== this.combinedSignature();
 	}
 
 	/**
-	 * 若 mcp.json 自上次加载以来发生变化，则按需重启变化的 server。
+	 * Replace the plugin MCP contribution set and reconcile running servers.
+	 * Does not touch user/project mcp.json servers except on name collision
+	 * (plugin runtime names are namespaced with `plugin-`).
 	 *
-	 * Fast-path：mtime+hash 签名相等直接返回 false，0 副作用。
-	 * Slow-path：diff 旧/新配置：
-	 *   - 删除的 server → close client + 移除实例
-	 *   - 新增的 server → initializeServer
-	 *   - 配置改变的 server → close 旧 client + 用新配置重建
-	 *   - 不变的 server → 保留运行中的 client，不抖
-	 * 这种最小化重启避免了 "改 A server 把 B 也抖一下" 的副作用。
-	 *
-	 * @returns 是否真的执行了重启（false = 配置未变 / MCP 关闭）
+	 * @returns whether any server was started/stopped/restarted
 	 */
-	async reloadIfChanged(): Promise<boolean> {
-		if (!this.state.enabled) return false;
-
-		const currentSignature = this.configLoader.getMergedSignature();
-		if (this.lastSignature !== undefined && this.lastSignature === currentSignature) {
+	async setPluginServers(specs: readonly PluginMcpServerSpec[]): Promise<boolean> {
+		if (!this.state.enabled) {
+			this.pluginServers.clear();
+			this.pluginFingerprint = fingerprintPluginMcpServers([]);
 			return false;
 		}
 
-		this.log("MCP config changed, diff-reloading");
+		const next = new Map<string, McpServerConfig>();
+		for (const spec of specs) {
+			if (!spec.runtimeName || spec.runtimeName.includes("_")) {
+				this.log(`Rejecting plugin MCP server with invalid runtimeName: ${spec.runtimeName}`);
+				continue;
+			}
+			next.set(spec.runtimeName, spec.config);
+		}
 
-		// 解析新配置
-		let mergedConfig: { mcpServers: Record<string, McpServerConfig> };
+		const nextFingerprint = fingerprintPluginMcpServers(
+			[...next.entries()].map(([runtimeName, config]) => ({ runtimeName, config })),
+		);
+		if (nextFingerprint === this.pluginFingerprint && this.mapsEqualConfig(this.pluginServers, next)) {
+			return false;
+		}
+
+		this.pluginServers = next;
+		this.pluginFingerprint = nextFingerprint;
+		this.log(`Plugin MCP set updated (${next.size} servers), reconciling`);
+		return this.reconcileToEffectiveConfig();
+	}
+
+	private mapsEqualConfig(a: Map<string, McpServerConfig>, b: Map<string, McpServerConfig>): boolean {
+		if (a.size !== b.size) return false;
+		for (const [name, config] of a) {
+			const other = b.get(name);
+			if (!other || JSON.stringify(other) !== JSON.stringify(config)) return false;
+		}
+		return true;
+	}
+
+	/**
+	 * Diff-reconcile running servers against the effective (file + plugin) config.
+	 */
+	private async reconcileToEffectiveConfig(): Promise<boolean> {
+		let mergedConfig: McpConfig;
 		try {
-			mergedConfig = this.configLoader.loadMerged();
+			mergedConfig = this.loadEffectiveConfig();
 		} catch (err) {
-			this.log(`Failed to load new MCP config, keeping current state: ${(err as Error).message}`);
-			// 签名仍然推进，避免下一轮 prompt 再次踩坑
-			this.lastSignature = currentSignature;
+			this.log(`Failed to load effective MCP config, keeping current state: ${(err as Error).message}`);
+			this.lastSignature = this.combinedSignature();
 			return false;
 		}
 
 		const oldNames = new Set(this.state.servers.keys());
 		const newNames = new Set(Object.keys(mergedConfig.mcpServers));
+		let changed = false;
 
-		// 1) 删除：旧有新没
 		for (const name of oldNames) {
 			if (!newNames.has(name)) {
 				const instance = this.state.servers.get(name);
@@ -381,29 +430,29 @@ export class McpManager {
 				}
 				this.state.servers.delete(name);
 				this.log(`Removed server: ${name}`);
+				changed = true;
 			}
 		}
 
-		// 2) 新增 + 修改
 		const tasks: Promise<void>[] = [];
 		for (const [name, newConfig] of Object.entries(mergedConfig.mcpServers)) {
 			const oldInstance = this.state.servers.get(name);
 			const newDisabled = !!newConfig.disabled;
 
 			if (!oldInstance) {
-				// 新增（仅启用项才真起进程）
-				if (!newDisabled) tasks.push(this.initializeServer(name, newConfig));
+				if (!newDisabled) {
+					tasks.push(this.initializeServer(name, newConfig));
+					changed = true;
+				}
 				continue;
 			}
 
 			const oldConfigJson = JSON.stringify(oldInstance.config);
 			const newConfigJson = JSON.stringify(newConfig);
 			if (oldConfigJson === newConfigJson) {
-				// 完全没变，保留
 				continue;
 			}
 
-			// 改了：先停旧的（不管旧的是不是 disabled，都清理一次）
 			if (oldInstance.client) {
 				try {
 					await oldInstance.client.close();
@@ -412,6 +461,7 @@ export class McpManager {
 				}
 			}
 			this.state.servers.delete(name);
+			changed = true;
 			if (!newDisabled) {
 				tasks.push(this.initializeServer(name, newConfig));
 			} else {
@@ -421,17 +471,37 @@ export class McpManager {
 
 		await Promise.allSettled(tasks);
 
-		// 更新 cached config / signature
 		this.state.globalConfig = this.configLoader.loadGlobal() || undefined;
 		this.state.projectConfig = this.configLoader.loadProject() || undefined;
-		this.lastSignature = currentSignature;
+		this.lastSignature = this.combinedSignature();
 
-		this.log(`Diff-reload done, ${this.state.servers.size} servers active`);
-		return true;
+		this.log(`Reconcile done, ${this.state.servers.size} servers active`);
+		return changed;
 	}
 
 	/**
-	 * Reload configuration and restart servers
+	 * 若 mcp.json 或插件 MCP 自上次加载以来发生变化，则按需重启变化的 server。
+	 *
+	 * Fast-path：组合签名相等直接返回 false，0 副作用。
+	 * Slow-path：diff 旧/新配置（含插件源），最小化重启。
+	 *
+	 * @returns 是否真的执行了重启（false = 配置未变 / MCP 关闭）
+	 */
+	async reloadIfChanged(): Promise<boolean> {
+		if (!this.state.enabled) return false;
+
+		const currentSignature = this.combinedSignature();
+		if (this.lastSignature !== undefined && this.lastSignature === currentSignature) {
+			return false;
+		}
+
+		this.log("MCP config changed, diff-reloading");
+		return this.reconcileToEffectiveConfig();
+	}
+
+	/**
+	 * Reload configuration and restart servers.
+	 * Preserves the current plugin server set (only re-reads mcp.json files).
 	 */
 	async reload(): Promise<void> {
 		this.log("Reloading MCP configuration");
@@ -439,11 +509,11 @@ export class McpManager {
 		// Stop all servers
 		await this.shutdown();
 
-		// Clear state
+		// Clear running instances only; keep pluginServers map
 		this.state.servers.clear();
 		this.lastSignature = undefined;
 
-		// Reinitialize
+		// Reinitialize (file + plugin)
 		await this.initialize();
 	}
 
