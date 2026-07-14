@@ -168,6 +168,11 @@ export class RuntimeManager {
 		return this._extensionRunner;
 	}
 
+	/** Current conversation scenario (fixed for the session lifetime). */
+	get scenario(): ConversationScenario {
+		return this._scenario;
+	}
+
 	get mcpManager(): McpManager | undefined {
 		return this._mcpManager;
 	}

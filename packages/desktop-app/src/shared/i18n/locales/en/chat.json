@@ -271,7 +271,7 @@
 		},
 		"knowledgeRetrieval": {
 			"label": "Knowledge search",
-			"tooltip": "When enabled, this question lets the AI search your knowledge base for answers first"
+			"tooltip": "When on, this turn can call knowledge-base tools and prefers answering from your knowledge base"
 		}
 	},
 	"inputBar": {
