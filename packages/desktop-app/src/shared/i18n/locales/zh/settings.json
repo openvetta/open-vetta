@@ -1126,7 +1126,7 @@
     "secretsDialogConfirm": "保存并添加",
     "guides": {
       "notion": "点击继续后会打开 Notion 授权页\n登录并选择工作区，点允许即可\n无需创建 Integration 或粘贴密钥\n授权凭证只保存在本机",
-      "figma": "打开 Figma 开发者设置中的 Access tokens\n生成 Personal access token\n复制后粘贴到下方",
+      "figma": "打开下方链接中的官方说明，进入账号设置\n生成 Personal access token\n复制后粘贴到下方",
       "slack": "打开 Slack API 应用列表，创建或选择一个 App\n在 OAuth & Permissions 安装到工作区，复制 Bot User OAuth Token（xoxb- 开头）\nTeam ID 可在工作区设置或 auth.test 中查看\n分别粘贴到下方两项",
       "gmail": "添加后，首次在对话中使用时会打开浏览器登录 Google\n按提示完成授权即可，一般无需手动填密钥",
       "googleCalendar": "打开 Google Cloud 控制台创建 OAuth 客户端（桌面应用类型）\n启用 Google Calendar API\n复制 Client ID 与 Client Secret 粘贴到下方\n首次使用时再按提示完成账号授权",
@@ -1143,7 +1143,7 @@
     },
     "figma": {
       "displayName": "Figma",
-      "description": "读取设计稿信息，辅助对照界面实现代码、核对组件与标注。"
+      "description": "读取 Figma 设计稿上下文，辅助对照实现界面代码、核对组件与标注。连接时粘贴 Personal Access Token（仅保存在本机）。"
     },
     "slack": {
       "displayName": "Slack",

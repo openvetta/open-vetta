@@ -115,9 +115,11 @@ export const BUILTIN_MCP_PRESETS: readonly BuiltinMcpPreset[] = [
 		iconFile: "figma.webp",
 		displayNameKey: "mcpPresets.figma.displayName",
 		descriptionKey: "mcpPresets.figma.description",
+		// 社区 Framelink MCP（figma-developer-mcp）：stdio + PAT，非官方 mcp.figma.com
 		packageHint: "figma-developer-mcp",
 		setupGuideKey: "mcpPresets.guides.figma",
-		setupHelpUrl: "https://www.figma.com/developers/api#access-tokens",
+		setupHelpUrl: "https://help.figma.com/hc/en-us/articles/8085703771159-Manage-personal-access-tokens",
+		listedInDiscover: true,
 		config: {
 			command: "npx",
 			args: ["-y", "figma-developer-mcp", "--stdio"],
@@ -128,7 +130,7 @@ export const BUILTIN_MCP_PRESETS: readonly BuiltinMcpPreset[] = [
 				labelKey: "mcpPresets.secrets.figmaApiKey",
 				required: true,
 				secret: true,
-				helpUrl: "https://www.figma.com/developers/api#access-tokens",
+				helpUrl: "https://help.figma.com/hc/en-us/articles/8085703771159-Manage-personal-access-tokens",
 			},
 		],
 	},
