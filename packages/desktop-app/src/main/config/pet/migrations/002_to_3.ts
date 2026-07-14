@@ -1,5 +1,5 @@
+import type { VersionedConfigMigration } from "@vetta/toolkit/versioned-config";
 import { DEFAULT_PET_BUBBLE_STYLE_ID } from "../../../../shared/pet-bubbles.js";
-import type { VersionedConfigMigration } from "../../versioned-config.js";
 
 export const petConfigMigration002To3: VersionedConfigMigration = {
 	fromVersion: 2,

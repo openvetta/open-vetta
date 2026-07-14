@@ -19,6 +19,7 @@
 		"packages/runtime-mcp",
 		"packages/runtime-storage",
 		"packages/runtime-telemetry",
+		"packages/toolkit",
 		"packages/cli-app",
 		"packages/desktop-app",
 		"packages/site",

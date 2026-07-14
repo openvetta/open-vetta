@@ -10,6 +10,7 @@ import {
 	loginHttpMcpServer,
 	loginMcpDeviceFlow,
 } from "@vetta/coding-agent/core/mcp/index.js";
+import { atomicWriteJSON } from "@vetta/toolkit/atomic-write";
 import { BrowserWindow, ipcMain } from "electron";
 import type { FsEntry, FsFileRef } from "../../preload/fs-types.js";
 import { type AppLanguage, isSupportedLanguage } from "../../shared/i18n/config.js";
@@ -18,7 +19,6 @@ import { SHORTCUTS_CHANNELS } from "../../shared/shortcuts-ipc.js";
 import { probeModelProvider } from "../models/probe.js";
 import { openExternalUrl } from "../open-external.js";
 import { getLinuxSandboxCapability, getSandboxCapability, type SandboxCapability } from "../sandbox/capability.js";
-import { atomicWriteJSON } from "../utils/atomic-write.js";
 
 // ─── Desktop app config ───
 

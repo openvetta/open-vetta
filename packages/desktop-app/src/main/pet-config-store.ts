@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { getVettaHomePath } from "@vetta/action-rpc";
+import { createVersionedJsonConfigStore } from "@vetta/toolkit/config-store";
 import { normalizePetConfig, type PetConfig } from "../shared/pet-config.js";
-import { createVersionedJsonConfigStore } from "./config/config-store.js";
 import { migratePetConfig } from "./config/pet/migrate-config.js";
 import { getAppLogger } from "./logger.js";
 

@@ -32,8 +32,7 @@ export function atomicWriteFile(path: string, data: string): void {
  * Atomically write a value as pretty-printed JSON.
  *
  * Convenience wrapper around atomicWriteFile for the common case of writing
- * a config / state file. Uses 2-space indentation to match the project's
- * existing config files (settings.json, desktop-config.json).
+ * a config / state file. Uses 2-space indentation to match existing config files.
  */
 export function atomicWriteJSON(path: string, value: unknown): void {
 	atomicWriteFile(path, JSON.stringify(value, null, 2));

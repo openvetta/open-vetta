@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getVettaHomePath } from "@vetta/action-rpc";
-import { atomicWriteJSON } from "../utils/atomic-write.js";
+import { atomicWriteJSON } from "@vetta/toolkit/atomic-write";
 
 /**
  * Non-secret IM bridge configuration. Stored in plaintext under

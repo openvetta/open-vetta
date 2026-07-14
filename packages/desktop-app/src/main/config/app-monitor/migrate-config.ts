@@ -1,5 +1,5 @@
+import { migrateVersionedConfig, type VersionedConfigMigrationResult } from "@vetta/toolkit/versioned-config";
 import { APP_MONITOR_SCHEMA_VERSION } from "../../app-monitor/app-monitor-data.js";
-import { migrateVersionedConfig, type VersionedConfigMigrationResult } from "../versioned-config.js";
 
 const APP_MONITOR_MIGRATIONS = [] as const;
 
