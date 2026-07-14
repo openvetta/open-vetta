@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { readFile, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { getVettaHomePath } from "@vetta/action-rpc";
 import { atomicWriteJSONAsync } from "@vetta/toolkit/atomic-write";
@@ -8,11 +8,15 @@ import {
 	isThemeStorageJson,
 	isValidThemeStorageKey,
 	isValidThemeStorageThemeId,
-	THEME_STORAGE_FILE_VERSION,
-	type ThemeStorageFile,
 	type ThemeStorageJson,
 } from "../../shared/theme-storage.js";
 import { getAppLogger } from "../logger.js";
+import { runThemeStorageFileMigrations } from "./migrations/index.js";
+import {
+	legacyThemeStorageFilePath,
+	listThemeStorageValueFiles,
+	themeStorageValuePath,
+} from "./theme-storage-layout.js";
 
 const log = getAppLogger("theme-data-store");
 
@@ -23,8 +27,12 @@ function themesDataRoot(): string {
 	return join(getVettaHomePath(), "desktop-app", "themes");
 }
 
-function themeDataPath(themeId: string): string {
-	return join(themesDataRoot(), themeId, "data.json");
+function themeDir(themeId: string): string {
+	return join(themesDataRoot(), themeId);
+}
+
+function themeKeyPath(themeId: string, key: string): string {
+	return themeStorageValuePath(themeDir(themeId), key);
 }
 
 function enqueueWrite<T>(themeId: string, task: () => Promise<T>): Promise<T> {
@@ -44,38 +52,44 @@ function emptyData(): Record<string, ThemeStorageJson> {
 	return {};
 }
 
-function parseFile(raw: string): Record<string, ThemeStorageJson> {
-	const parsed = JSON.parse(raw) as Partial<ThemeStorageFile>;
-	if (
-		parsed === null ||
-		typeof parsed !== "object" ||
-		typeof parsed.version !== "number" ||
-		parsed.data === null ||
-		typeof parsed.data !== "object" ||
-		Array.isArray(parsed.data)
-	) {
-		throw new Error("Invalid theme storage file shape");
-	}
+async function readKeyFiles(themeId: string): Promise<Record<string, ThemeStorageJson>> {
+	const dir = themeDir(themeId);
+	if (!existsSync(dir)) return emptyData();
+
 	const data: Record<string, ThemeStorageJson> = {};
-	for (const [key, value] of Object.entries(parsed.data)) {
-		if (!isValidThemeStorageKey(key) || !isThemeStorageJson(value)) continue;
-		data[key] = value;
+	for (const file of await listThemeStorageValueFiles(dir)) {
+		try {
+			const raw = await readFile(file.path, "utf8");
+			const value: unknown = JSON.parse(raw);
+			if (!isThemeStorageJson(value)) {
+				log.warn(`Skip invalid theme storage value file: ${themeId}/${file.fileName}`);
+				continue;
+			}
+			data[file.key] = value;
+		} catch (error) {
+			log.warn(
+				`Failed to read ${themeId}/${file.fileName}: ${error instanceof Error ? error.message : String(error)}`,
+			);
+		}
 	}
 	return data;
 }
 
 async function readFromDisk(themeId: string): Promise<Record<string, ThemeStorageJson>> {
-	const path = themeDataPath(themeId);
-	if (!existsSync(path)) return emptyData();
-	try {
-		const raw = await readFile(path, "utf8");
-		return parseFile(raw);
-	} catch (error) {
-		log.warn(
-			`Failed to read theme storage for "${themeId}": ${error instanceof Error ? error.message : String(error)}`,
-		);
-		return emptyData();
+	const dir = themeDir(themeId);
+	if (!existsSync(dir)) return emptyData();
+
+	if (existsSync(legacyThemeStorageFilePath(dir))) {
+		try {
+			await runThemeStorageFileMigrations(dir, log);
+		} catch (error) {
+			log.warn(
+				`Failed to migrate theme storage files for "${themeId}": ${error instanceof Error ? error.message : String(error)}`,
+			);
+		}
 	}
+
+	return readKeyFiles(themeId);
 }
 
 async function ensureLoaded(themeId: string): Promise<Record<string, ThemeStorageJson>> {
@@ -87,14 +101,6 @@ async function ensureLoaded(themeId: string): Promise<Record<string, ThemeStorag
 	const data = await readFromDisk(themeId);
 	memoryCache.set(themeId, data);
 	return data;
-}
-
-async function persist(themeId: string, data: Record<string, ThemeStorageJson>): Promise<void> {
-	const file: ThemeStorageFile = {
-		version: THEME_STORAGE_FILE_VERSION,
-		data,
-	};
-	await atomicWriteJSONAsync(themeDataPath(themeId), file);
 }
 
 function cloneData(data: Record<string, ThemeStorageJson>): Record<string, ThemeStorageJson> {
@@ -119,7 +125,7 @@ export async function setThemeStorageValue(
 		const next = { ...current, [key]: value };
 		assertThemeStorageWritable(themeId, key, value, next);
 		memoryCache.set(themeId, next);
-		await persist(themeId, next);
+		await atomicWriteJSONAsync(themeKeyPath(themeId, key), value);
 		return cloneData(next);
 	});
 }
@@ -137,7 +143,8 @@ export async function removeThemeStorageValue(themeId: string, key: string): Pro
 		const next = { ...current };
 		delete next[key];
 		memoryCache.set(themeId, next);
-		await persist(themeId, next);
+		const path = themeKeyPath(themeId, key);
+		if (existsSync(path)) await unlink(path);
 		return cloneData(next);
 	});
 }
@@ -147,9 +154,15 @@ export async function clearThemeStorage(themeId: string): Promise<Record<string,
 		if (!isValidThemeStorageThemeId(themeId)) {
 			throw new Error(`Invalid theme storage themeId: ${themeId}`);
 		}
+		const current = await ensureLoaded(themeId);
 		const next = emptyData();
 		memoryCache.set(themeId, next);
-		await persist(themeId, next);
+		for (const key of Object.keys(current)) {
+			const path = themeKeyPath(themeId, key);
+			if (existsSync(path)) await unlink(path);
+		}
+		const legacyPath = legacyThemeStorageFilePath(themeDir(themeId));
+		if (existsSync(legacyPath)) await unlink(legacyPath);
 		return cloneData(next);
 	});
 }

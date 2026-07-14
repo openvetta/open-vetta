@@ -42,6 +42,6 @@ export function getCultivationCompositionItems(
 	return items.map((item) => ({
 		...item,
 		percent: total > 0 ? Math.round((item.value / total) * 100) : 0,
-		value: total > 0 ? Math.floor((item.value / total) * cultivation.currentPower) : 0,
+		value: Math.floor(item.value),
 	}));
 }

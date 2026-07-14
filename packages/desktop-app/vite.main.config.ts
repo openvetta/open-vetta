@@ -1,6 +1,21 @@
 import { builtinModules } from "node:module";
 import { resolve } from "node:path";
-import { defineConfig, loadEnv } from "vite";
+import { defineConfig, loadEnv, type Plugin } from "vite";
+
+function workspaceSourceAlias(): Plugin {
+	return {
+		name: "workspace-source-alias",
+		resolveId(source) {
+			if (source === "@vetta/toolkit") {
+				return resolve(process.cwd(), "../toolkit/src/index.ts");
+			}
+			if (source.startsWith("@vetta/toolkit/")) {
+				return resolve(process.cwd(), `../toolkit/src/${source.slice("@vetta/toolkit/".length)}.ts`);
+			}
+			return null;
+		},
+	};
+}
 
 export default defineConfig(({ mode }) => {
 	// 允许通过 VETTA_BUILD_ENV 覆盖构建模式，方便 dist:*:test 等组合脚本从外层注入，
@@ -24,6 +39,7 @@ export default defineConfig(({ mode }) => {
 
 	return {
 		define,
+		plugins: [workspaceSourceAlias()],
 		resolve: {
 			alias: {
 				x11: resolve(process.cwd(), "src/main/shims/x11.ts"),

@@ -1,6 +1,11 @@
-import { useThemeStorage, type ThemeStorageValue } from "@vetta/theme-sdk";
+import { useThemeStorage } from "@vetta/theme-sdk";
 import { useSyncExternalStore } from "react";
-import { CULTIVATION_REALMS, CULTIVATION_STORAGE_KEY, type CultivationSnapshot } from "../../cultivation";
+import {
+	CULTIVATION_REALMS,
+	CULTIVATION_STORAGE_KEY,
+	loadCultivationSnapshot,
+	type CultivationSnapshot,
+} from "../../cultivation";
 import type { SanctumCultivationView } from "./types";
 
 const fallbackRealm = CULTIVATION_REALMS[0];
@@ -67,27 +72,6 @@ const fallbackCultivationView: SanctumCultivationView = {
 	],
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-function readCultivationSnapshot(value: ThemeStorageValue | undefined): CultivationSnapshot | null {
-	if (!isRecord(value)) return null;
-	if (value.version !== 3) return null;
-	if (typeof value.realmId !== "string") return null;
-	if (typeof value.level !== "number") return null;
-	if (typeof value.name !== "string") return null;
-	if (typeof value.englishName !== "string") return null;
-	if (typeof value.cultivationPower !== "number") return null;
-	if (typeof value.cultivationPowerTarget !== "number") return null;
-	if (typeof value.progressToNext !== "number") return null;
-	if (!Array.isArray(value.achievedRealmIds)) return null;
-	if (!isRecord(value.growth)) return null;
-	if (!Array.isArray(value.dailyScores)) return null;
-
-	return value as unknown as CultivationSnapshot;
-}
-
 function getLocalDateKey(timestamp: number): string {
 	const date = new Date(timestamp);
 	const year = date.getFullYear();
@@ -113,7 +97,7 @@ function toTrendPoints(snapshot: CultivationSnapshot): SanctumCultivationView["t
 		.map(([date, score]) => ({
 			date,
 			label: formatTrendLabel(date),
-			power: Math.max(0, Math.floor(score - snapshot.realmStartScore)),
+			power: Math.max(0, Math.floor(score)),
 			score,
 		}));
 }
@@ -128,7 +112,7 @@ function useCultivationSnapshot(): CultivationSnapshot | null {
 	);
 
 	if (storage.status !== "ready") return null;
-	return readCultivationSnapshot(storage.get(CULTIVATION_STORAGE_KEY));
+	return loadCultivationSnapshot(storage.get(CULTIVATION_STORAGE_KEY)).snapshot;
 }
 
 function toCultivationView(snapshot: CultivationSnapshot | null): SanctumCultivationView {

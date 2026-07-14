@@ -138,6 +138,14 @@ Use these sections under `## [Unreleased]`:
 - **Internal changes (from issues)**: `Fixed foo bar (#123)`
 - **External contributions**: `Added feature X (#456 by @username)`
 
+## Adding a New Monorepo Package
+
+新增 `packages/*` 下的 `@vetta/*` TypeScript workspace 包时，除 scaffold 外必须接 workspace、TS path maps、`build.sh` 分层等。完整 checklist 见：
+
+→ [`docs/monorepo-new-package.md`](docs/monorepo-new-package.md)
+
+最易漏：根 `tsconfig.json` 的 `paths` + `include`，以及（若 desktop 引用）`packages/desktop-app/tsconfig.json` 的 `paths`（指向 **源码**，不要只靠 `dist/`）。
+
 ## Adding a New LLM Provider (packages/ai)
 
 Adding a new provider requires changes across multiple files:

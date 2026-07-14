@@ -37,7 +37,9 @@
 			"@vetta/runtime-telemetry/langfuse": ["../runtime-telemetry/src/langfuse.ts"],
 			"@vetta/runtime-telemetry/*": ["../runtime-telemetry/src/*"],
 			"@vetta/action-rpc": ["../action-rpc/src/index.ts"],
-			"@vetta/action-rpc/*": ["../action-rpc/src/*"]
+			"@vetta/action-rpc/*": ["../action-rpc/src/*"],
+			"@vetta/toolkit": ["../toolkit/src/index.ts"],
+			"@vetta/toolkit/*": ["../toolkit/src/*"]
 		},
 		"allowImportingTsExtensions": true
 	},
