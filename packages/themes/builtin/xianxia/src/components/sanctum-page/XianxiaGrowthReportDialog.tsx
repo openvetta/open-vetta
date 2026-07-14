@@ -9,10 +9,11 @@ import {
 	DialogTrigger,
 } from "@vetta/ui";
 import { motion } from "motion/react";
-import { useMemo, useState, type JSX, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type JSX, type ReactNode } from "react";
 import { sanctumPageAssets } from "./assets";
 import {
 	getGrowthReportView,
+	resolveMinPeriodOffset,
 	type GrowthReportPeriodMode,
 } from "./growthReportView";
 import { formatCultivationNumber } from "./cultivationView";
@@ -47,10 +48,10 @@ const viewTabs = [
 	{ label: "周度视图", mode: "week" as const },
 ] as const;
 
-/** dailyScores 约保留 31 天，导航最多回看若干完整周期 */
+/** Hard cap for period navigation (~3 months retention). */
 const MAX_PERIOD_OFFSET = {
-	month: -2,
-	week: -4,
+	month: -3,
+	week: -12,
 } as const;
 
 export function XianxiaGrowthReportDialog({
@@ -62,13 +63,23 @@ export function XianxiaGrowthReportDialog({
 }): JSX.Element {
 	const [periodMode, setPeriodMode] = useState<GrowthReportPeriodMode>("month");
 	const [periodOffset, setPeriodOffset] = useState(0);
-	const report = useMemo(
-		() => getGrowthReportView(cultivation, { mode: periodMode, offset: periodOffset }),
-		[cultivation, periodMode, periodOffset],
+	const minOffset = useMemo(
+		() => Math.max(MAX_PERIOD_OFFSET[periodMode], resolveMinPeriodOffset(cultivation, periodMode)),
+		[cultivation, periodMode],
 	);
-	const minOffset = MAX_PERIOD_OFFSET[periodMode];
-	const canGoPrev = periodOffset > minOffset;
-	const canGoNext = periodOffset < 0;
+	const safeOffset = Math.max(minOffset, Math.min(0, periodOffset));
+	const report = useMemo(
+		() => getGrowthReportView(cultivation, { mode: periodMode, offset: safeOffset }),
+		[cultivation, periodMode, safeOffset],
+	);
+	const canGoPrev = safeOffset > minOffset;
+	const canGoNext = safeOffset < 0;
+
+	useEffect(() => {
+		if (periodOffset !== safeOffset) {
+			setPeriodOffset(safeOffset);
+		}
+	}, [periodOffset, safeOffset]);
 
 	return (
 		<Dialog>
@@ -169,7 +180,14 @@ export function XianxiaGrowthReportDialog({
 						{/* 底部间距由外层 content pb 承担，避免内容贴边框；内部仅保留少量收尾空白 */}
 						<div className="xianxia-hidden-scrollbar mt-4 min-h-0 flex-1 overflow-y-auto pb-1">
 							<ReportCard>
-								<SectionTitle subtitle={`统计周期：${report.periodLabel}`} title="本月修行成果" />
+								<SectionTitle
+									subtitle={
+										report.hasHistoryData
+											? `统计周期：${report.periodLabel} · 修为 +${formatCultivationNumber(report.periodScoreDelta)}`
+											: `统计周期：${report.periodLabel} · 暂无周期样本`
+									}
+									title="本月修行成果"
+								/>
 								{/* 指标：2 → 3 → 6 列阶梯；竖线分隔由 container query 按列数对齐 */}
 								<div className="xianxia-growth-report-metrics">
 									{report.metrics.map((metric) => (
@@ -216,13 +234,19 @@ export function XianxiaGrowthReportDialog({
 									<div className="mt-4">
 										<div className="mb-1 flex justify-between text-[12px] text-slate-500">
 											<span>修为值成长曲线</span>
-											<span>{periodMode === "week" ? "本周区间" : "本月区间"}</span>
+											<span>{periodMode === "week" ? "周度区间" : "月度区间"}</span>
 										</div>
-										<ReportSparkline
-											endLabel={report.historyEndLabel}
-											points={report.historyPoints}
-											startLabel={report.historyStartLabel}
-										/>
+										{report.hasHistoryData ? (
+											<ReportSparkline
+												endLabel={report.historyEndLabel}
+												points={report.historyPoints}
+												startLabel={report.historyStartLabel}
+											/>
+										) : (
+											<div className="flex h-[96px] items-center justify-center rounded-lg border border-dashed border-slate-300/70 bg-white/30 px-3 text-center text-[12px] text-slate-500">
+												该周期暂无修为记录（仅保留近约 3 个月的每日分数）
+											</div>
+										)}
 									</div>
 								</ReportCard>
 
@@ -370,18 +394,19 @@ function ReportSparkline({
 	const height = 72;
 	const left = 36;
 	const width = left + plotWidth;
-	const max = Math.max(...points, 1);
-	const min = Math.min(...points, 0);
+	const safePoints = points.length > 0 ? points : [0];
+	const max = Math.max(...safePoints, 1);
+	const min = Math.min(...safePoints, 0);
 	const range = Math.max(1, max - min);
 	const yAt = (value: number): number => height - ((value - min) / range) * (height - 12) - 6;
-	const line = points
+	const line = safePoints
 		.map((point, index) => {
-			const x = left + (index / Math.max(1, points.length - 1)) * plotWidth;
+			const x = left + (index / Math.max(1, safePoints.length - 1)) * plotWidth;
 			const y = yAt(point);
 			return `${x.toFixed(1)},${y.toFixed(1)}`;
 		})
 		.join(" ");
-	const lastY = yAt(points[points.length - 1] ?? 0);
+	const lastY = yAt(safePoints[safePoints.length - 1] ?? 0);
 	const ticks = [max, (max + min) / 2, min];
 
 	return (

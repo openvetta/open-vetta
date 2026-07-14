@@ -27,6 +27,7 @@ const emptyMetrics = {
 const fallbackCultivationView: SanctumCultivationView = {
 	achievedRealmIds: [fallbackRealm.id],
 	currentPower: 0,
+	dailyMetrics: [],
 	englishName: fallbackRealm.englishName,
 	growth: [
 		{ label: "今日", value: 0 },
@@ -107,7 +108,8 @@ function toTrendPoints(snapshot: CultivationSnapshot): SanctumCultivationView["t
 
 	return [...byDate.entries()]
 		.sort(([left], [right]) => left.localeCompare(right))
-		.slice(-30)
+		// Align with cultivation daily retention (~3 months) for period navigation.
+		.slice(-93)
 		.map(([date, score]) => ({
 			date,
 			label: formatTrendLabel(date),
@@ -139,6 +141,7 @@ function toCultivationView(snapshot: CultivationSnapshot | null): SanctumCultiva
 	return {
 		achievedRealmIds: snapshot.achievedRealmIds,
 		currentPower: snapshot.cultivationPower,
+		dailyMetrics: snapshot.dailyMetrics ?? [],
 		englishName: snapshot.englishName,
 		growth: [
 			{ label: "今日", value: snapshot.growth.today },

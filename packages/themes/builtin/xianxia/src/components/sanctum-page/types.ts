@@ -1,6 +1,6 @@
 import type { ThemeUsageStats } from "@vetta/theme-sdk";
 import type { SanctumAchievement } from "./achievements";
-import type { CultivationScoreBreakdown } from "../../cultivation";
+import type { CultivationDailyMetrics, CultivationScoreBreakdown } from "../../cultivation";
 
 export interface RealmRequirement {
 	readonly current: number;
@@ -12,6 +12,11 @@ export interface RealmRequirement {
 export interface SanctumCultivationView {
 	readonly achievedRealmIds: readonly string[];
 	readonly currentPower: number;
+	/**
+	 * Theme-stored daily cumulative metrics samples (end-of-day / last sync).
+	 * Used by 修行履历 for month/week period deltas.
+	 */
+	readonly dailyMetrics: readonly CultivationDailyMetrics[];
 	readonly englishName: string;
 	readonly growth: readonly {
 		readonly label: string;
@@ -19,7 +24,7 @@ export interface SanctumCultivationView {
 	}[];
 	readonly level: number;
 	readonly maxPower: number;
-	/** Raw app-monitor metrics (counts / durations), not score-weighted breakdown. */
+	/** Latest host totals (lifetime), not score-weighted breakdown. */
 	readonly metrics: ThemeUsageStats;
 	readonly name: string;
 	readonly nextRealmId: string | null;

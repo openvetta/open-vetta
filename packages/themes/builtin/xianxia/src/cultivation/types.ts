@@ -41,6 +41,23 @@ export interface CultivationDailyScore {
 }
 
 /**
+ * End-of-day (last sync that day) cumulative host metrics.
+ * Theme owns this history; host only supplies the latest totals.
+ * Period deltas = sample(end) − sample(before period start).
+ */
+export interface CultivationDailyMetrics {
+	readonly date: string;
+	readonly automationRuns: number;
+	readonly batchRuns: number;
+	readonly interactiveSessions: number;
+	readonly knowledgeBaseCount: number;
+	readonly knowledgeBaseFileOperations: number;
+	readonly messages: number;
+	readonly projectsCreated: number;
+	readonly toolsCompleted: number;
+}
+
+/**
  * Theme-owned cultivation snapshot persisted via theme storage.
  * Derived only from app-monitor aggregates; never stores raw user content.
  */
@@ -62,6 +79,11 @@ export interface CultivationSnapshot {
 	readonly scoreBreakdown: CultivationScoreBreakdown;
 	readonly growth: CultivationGrowth;
 	readonly dailyScores: readonly CultivationDailyScore[];
+	/**
+	 * Daily cumulative metrics samples for period reports.
+	 * Optional for older v3 blobs; treated as [] when missing.
+	 */
+	readonly dailyMetrics: readonly CultivationDailyMetrics[];
 	/** 0..1 progress toward the next realm; 1 when max realm. */
 	readonly progressToNext: number;
 	readonly nextRealmId: string | null;
