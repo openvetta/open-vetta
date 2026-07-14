@@ -1075,8 +1075,8 @@ export function useSessionManager(): SessionManagerResult {
 					}
 				}
 			}
-			// 原生「知识检索」开关：开启后本轮携带 knowledgeMode，input-pipeline 注入
-			// 一段仅模型可见的「优先查询知识库」提示。
+			// 原生「知识检索」开关（硬隔离）：开启后本轮携带 knowledgeMode——
+			// input-pipeline 暴露 kb-read 工具并注入仅模型可见的「优先查询知识库」提示。
 			if (pluginStore.get(knowledgeRetrievalActiveAtom)) {
 				promptReq.metadata = { ...promptReq.metadata, knowledgeMode: true };
 				usedInputActions.push({

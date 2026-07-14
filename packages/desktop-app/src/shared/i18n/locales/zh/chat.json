@@ -271,7 +271,7 @@
 		},
 		"knowledgeRetrieval": {
 			"label": "知识检索",
-			"tooltip": "开启后，这次提问会让 AI 优先去你的知识库里找答案"
+			"tooltip": "开启后本轮才能调用知识库工具，并优先用知识库回答"
 		}
 	},
 	"inputBar": {

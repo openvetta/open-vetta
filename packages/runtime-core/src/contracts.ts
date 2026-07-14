@@ -592,10 +592,12 @@ export interface PromptRequest {
 	reasoning?: string;
 	/**
 	 * Per-turn metadata bag carried alongside the prompt. Not sent to the model
-	 * as content; consumed host-side / by the input pipeline to amplify turn
-	 * intent (e.g. `{ imageMode: true }` from a plugin input action injects a
-	 * hidden “produce an image” instruction; image tools remain available by
-	 * scope even without it — soft isolation). Opaque to the runtime — pass-through only.
+	 * as content; consumed host-side / by the input pipeline. Opaque pass-through.
+	 * Known keys (coding-agent):
+	 * - `{ imageMode: true }` — soft isolation: hidden image intent instruction;
+	 *   image tools remain available by scope without it.
+	 * - `{ knowledgeMode: true }` — hard isolation: exposes kb-read tools + hidden
+	 *   knowledge-prefer instruction; without it those tools are stripped per turn.
 	 */
 	metadata?: Record<string, unknown>;
 }

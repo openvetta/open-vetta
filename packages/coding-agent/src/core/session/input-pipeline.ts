@@ -201,7 +201,7 @@ export class InputPipeline {
 
 		// Soft image intent: generate_image / edit_image stay on the tool list
 		// whenever scope allows (no hard strip). Optional metadata only injects a
-		// model-visible intent amplifier for this turn — same pattern as knowledgeMode.
+		// model-visible intent amplifier for this turn.
 		// Two cases:
 		//  - editImageId present → user picked a specific image to edit: force
 		//    edit_image with that exact id as source.
@@ -240,8 +240,8 @@ export class InputPipeline {
 
 		// Knowledge retrieval mode: user toggled 知识检索 for this turn. Inject a
 		// hidden (model-only) instruction telling the agent to consult the knowledge
-		// base before answering. Tools are always available regardless; this just
-		// makes the intent explicit for this turn.
+		// base before answering. Paired with hard isolation below (kb-read tools
+		// are stripped unless knowledgeMode is on).
 		if (options?.metadata?.knowledgeMode === true) {
 			messages.push({
 				role: "custom",
@@ -349,11 +349,24 @@ export class InputPipeline {
 		// New user turn: reset the ad-hoc todo nudge so this turn gets one fresh nudge.
 		this._lastTodoNudgeSignature = undefined;
 
-		// Image tools stay registered for the session (scoped by tool scope_use).
-		// Soft isolation: no per-turn strip — the model may call generate_image /
-		// edit_image when the user clearly asks for an image; imageMode /
-		// editImageId only add the hidden intent instructions above.
-		await this.ctx.agent.prompt(messages);
+		// Hard isolation for knowledge retrieval tools (kb-read: kb_list_available_tags /
+		// kb_filter_by_tags). They stay on the session registry via scope_use + requires,
+		// but without knowledgeMode this turn strips them so the model cannot call them
+		// unless the user activated 知识检索. Exception: kb-processing has no toggle and
+		// always needs these tools. Image tools remain soft-isolated (always available).
+		// Safe: agent throws if already streaming (no overlap); _runLoop snapshots
+		// context.tools at turn start; restore afterward.
+		const knowledgeToolsEnabled =
+			options?.metadata?.knowledgeMode === true || this.runtime.scenario === "kb-processing";
+		const savedTools = this.ctx.agent.state.tools;
+		const gatedTools = knowledgeToolsEnabled ? savedTools : savedTools.filter((t) => t.category !== "kb-read");
+		const toolsGated = gatedTools.length !== savedTools.length;
+		if (toolsGated) this.ctx.agent.setTools(gatedTools);
+		try {
+			await this.ctx.agent.prompt(messages);
+		} finally {
+			if (toolsGated) this.ctx.agent.setTools(savedTools);
+		}
 		await this.retry.waitForRetry();
 	}
 
