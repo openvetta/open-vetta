@@ -32,6 +32,7 @@ function toStorageValue(snapshot: CultivationSnapshot): ThemeStorageValue {
 		scoreBreakdown: { ...snapshot.scoreBreakdown },
 		growth: { ...snapshot.growth },
 		dailyScores: snapshot.dailyScores.map((entry) => ({ ...entry })),
+		dailyMetrics: (snapshot.dailyMetrics ?? []).map((entry) => ({ ...entry })),
 		progressToNext: snapshot.progressToNext,
 		nextRealmId: snapshot.nextRealmId,
 		nextRealmTargetScore: snapshot.nextRealmTargetScore,

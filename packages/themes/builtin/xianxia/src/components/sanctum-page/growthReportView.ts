@@ -1,4 +1,5 @@
 import type { ThemeUsageStats } from "@vetta/theme-sdk";
+import type { CultivationDailyMetrics } from "../../cultivation";
 import { sanctumAchievements } from "./achievements";
 import { sanctumPageAssets } from "./assets";
 import { getCultivationCompositionItems } from "./cultivationComposition";
@@ -64,29 +65,38 @@ export interface GrowthReportRealmNode {
 export interface GrowthReportView {
 	readonly abilities: readonly GrowthReportAbility[];
 	readonly badges: readonly GrowthReportBadge[];
+	/** True when selected period has at least one daily score sample. */
+	readonly hasHistoryData: boolean;
 	readonly historyEndLabel: string;
 	readonly historyPoints: readonly number[];
 	readonly historyStartLabel: string;
 	readonly metrics: readonly GrowthReportMetric[];
+	/** Earliest allowed period offset for navigation (≤ 0). */
+	readonly minPeriodOffset: number;
 	readonly monthLabel: string;
 	readonly nextStepSummary: string;
 	readonly nextSteps: readonly GrowthReportNextStep[];
 	readonly periodLabel: string;
+	/** Score gained within the selected period (from dailyScores). */
+	readonly periodScoreDelta: number;
 	readonly realmTimeline: readonly GrowthReportRealmNode[];
 }
 
 /**
  * Map sanctum cultivation snapshot fields → 修行履历 panel view-model.
- * UI labels stay fixed; values come from real metrics / composition / trend.
+ * Host only supplies latest cumulative totals; theme stores daily samples and
+ * derives month/week deltas for the report panel.
  */
 export function getGrowthReportView(
 	cultivation: SanctumCultivationView,
 	period: GrowthReportPeriodQuery = { mode: "month", offset: 0 },
 ): GrowthReportView {
-	const metrics = cultivation.metrics;
 	const compositionItems = getCultivationCompositionItems(cultivation);
-	const range = resolvePeriodRange(period);
+	const minPeriodOffset = resolveMinPeriodOffset(cultivation, period.mode);
+	const safeOffset = Math.max(minPeriodOffset, Math.min(0, period.offset));
+	const range = resolvePeriodRange({ mode: period.mode, offset: safeOffset });
 	const history = buildHistorySeries(cultivation, range);
+	const periodMetrics = resolvePeriodMetrics(cultivation, range);
 
 	const compositionTotal = compositionItems.reduce((sum, item) => sum + item.value, 0);
 	const knowledgeShare = cultivation.score > 0 ? cultivation.scoreBreakdown.knowledge / cultivation.score : 0;
@@ -141,7 +151,8 @@ export function getGrowthReportView(
 				progress,
 			};
 		}),
-		badges: buildBadges(cultivation, metrics),
+		badges: buildBadges(cultivation, cultivation.metrics),
+		hasHistoryData: history.hasData,
 		historyEndLabel: history.endLabel,
 		historyPoints: history.points,
 		historyStartLabel: history.startLabel,
@@ -150,48 +161,71 @@ export function getGrowthReportView(
 				iconUrl: sanctumPageAssets.cultivationCompositionIcons.toolCheck,
 				label: "完成任务",
 				unit: "次",
-				value: formatCultivationNumber(metrics.toolsCompleted),
+				value: formatCultivationNumber(periodMetrics.toolsCompleted),
 			},
 			{
 				iconUrl: sanctumPageAssets.cultivationCompositionIcons.document,
 				label: "生成文稿",
 				unit: "篇",
 				// No dedicated document counter — dialogue volume is the closest real proxy.
-				value: formatCultivationNumber(metrics.messages),
+				value: formatCultivationNumber(periodMetrics.messages),
 			},
 			{
 				iconUrl: sanctumPageAssets.cultivationCompositionIcons.data,
 				label: "数据分析",
 				unit: "次",
-				value: formatCultivationNumber(metrics.projectsCreated),
+				value: formatCultivationNumber(periodMetrics.projectsCreated),
 			},
 			{
 				iconUrl: sanctumPageAssets.cultivationCompositionIcons.risk,
 				label: "风险识别",
 				unit: "次",
 				value: formatCultivationNumber(
-					metrics.knowledgeBaseFileOperations + metrics.knowledgeBaseCount,
+					periodMetrics.knowledgeBaseFileOperations + periodMetrics.knowledgeBaseCount,
 				),
 			},
 			{
 				iconUrl: sanctumPageAssets.cultivationCompositionIcons.automation,
 				label: "自动化执行",
 				unit: "次",
-				value: formatCultivationNumber(metrics.batchRuns + metrics.automationRuns),
+				value: formatCultivationNumber(periodMetrics.batchRuns + periodMetrics.automationRuns),
 			},
 			{
 				iconUrl: sanctumPageAssets.cultivationCompositionIcons.time,
 				label: "节省时间",
 				unit: "h",
-				value: formatSavedHours(metrics),
+				value: formatSavedHoursFromCounts(periodMetrics),
 			},
 		],
+		minPeriodOffset,
 		monthLabel: range.label,
 		nextStepSummary: nextSteps.summary,
 		nextSteps: nextSteps.items,
 		periodLabel: range.periodLabel,
+		periodScoreDelta: history.scoreDelta,
 		realmTimeline: buildRealmTimeline(cultivation),
 	};
+}
+
+/** How far back the period navigator can go given stored trend samples. */
+export function resolveMinPeriodOffset(
+	cultivation: SanctumCultivationView,
+	mode: GrowthReportPeriodMode,
+	now = new Date(),
+): number {
+	const earliest = cultivation.trend[0]?.date;
+	if (!earliest) return 0;
+
+	let offset = 0;
+	// Cap search; retention is ~3 months.
+	const limit = mode === "month" ? -6 : -16;
+	while (offset > limit) {
+		const next = offset - 1;
+		const range = resolvePeriodRange({ mode, offset: next }, now);
+		if (range.endKey < earliest) break;
+		offset = next;
+	}
+	return offset;
 }
 
 interface PeriodRange {
@@ -254,32 +288,48 @@ function buildHistorySeries(
 	range: PeriodRange,
 ): {
 	readonly endLabel: string;
+	readonly hasData: boolean;
 	readonly points: readonly number[];
+	readonly scoreDelta: number;
 	readonly startLabel: string;
 } {
 	const inRange = cultivation.trend.filter(
 		(point) => point.date >= range.startKey && point.date <= range.endKey,
 	);
 
-	// Prefer total score for cross-realm readable growth; fall back to realm power.
-	const points =
-		inRange.length > 0
-			? inRange.map((point) => point.score)
-			: cultivation.trend.length > 0
-				? [cultivation.trend[cultivation.trend.length - 1].score]
-				: [cultivation.score];
+	const startLabel = formatShortDateKey(range.startKey);
+	const endLabel = formatShortDateKey(range.endKey);
 
-	const series =
-		points.length === 1 ? [Math.max(0, points[0] - Math.max(1, Math.round(points[0] * 0.05))), points[0]] : points;
+	if (inRange.length === 0) {
+		return {
+			endLabel,
+			hasData: false,
+			points: [],
+			scoreDelta: 0,
+			startLabel,
+		};
+	}
 
-	const startLabel = inRange[0]?.label ?? range.startKey.slice(5).replace("-", "/");
-	const endLabel = inRange[inRange.length - 1]?.label ?? range.endKey.slice(5).replace("-", "/");
+	// Total score series — readable across realm breakthroughs.
+	const points = inRange.map((point) => point.score);
+	const first = points[0] ?? 0;
+	const last = points[points.length - 1] ?? first;
+	// Single sample: keep two equal points so the axis still draws; not a fake growth slope.
+	const series = points.length === 1 ? [first, first] : points;
 
 	return {
-		endLabel,
+		endLabel: inRange[inRange.length - 1]?.label ?? endLabel,
+		hasData: true,
 		points: series,
-		startLabel,
+		scoreDelta: Math.max(0, Math.round((last - first) * 100) / 100),
+		startLabel: inRange[0]?.label ?? startLabel,
 	};
+}
+
+function formatShortDateKey(dateKey: string): string {
+	const [, month, day] = dateKey.split("-");
+	if (!month || !day) return dateKey;
+	return `${Number(month)}/${Number(day)}`;
 }
 
 function buildRealmTimeline(cultivation: SanctumCultivationView): readonly GrowthReportRealmNode[] {
@@ -451,18 +501,111 @@ function buildNextSteps(
 	return { items: items.slice(0, 2), summary };
 }
 
-/** Estimated hours saved from tool / automation usage. */
-export function computeSavedMinutes(metrics: ThemeUsageStats): number {
+type PeriodMetricCounts = {
+	readonly automationRuns: number;
+	readonly batchRuns: number;
+	readonly knowledgeBaseCount: number;
+	readonly knowledgeBaseFileOperations: number;
+	readonly messages: number;
+	readonly projectsCreated: number;
+	readonly toolsCompleted: number;
+};
+
+/**
+ * Period activity = last cumulative sample on/before period end
+ *                 − last cumulative sample before period start.
+ * Falls back to lifetime metrics only when no daily samples exist yet (first sync).
+ */
+function resolvePeriodMetrics(
+	cultivation: SanctumCultivationView,
+	range: PeriodRange,
+): PeriodMetricCounts {
+	const samples = cultivation.dailyMetrics;
+	if (samples.length === 0) {
+		// Bootstrap: no theme history yet — show lifetime totals for current period only.
+		const m = cultivation.metrics;
+		return {
+			automationRuns: m.automationRuns,
+			batchRuns: m.batchRuns,
+			knowledgeBaseCount: m.knowledgeBaseCount,
+			knowledgeBaseFileOperations: m.knowledgeBaseFileOperations,
+			messages: m.messages,
+			projectsCreated: m.projectsCreated,
+			toolsCompleted: m.toolsCompleted,
+		};
+	}
+
+	const baseline = findMetricsBefore(samples, range.startKey);
+	const end = findMetricsAtOrBefore(samples, range.endKey);
+	if (!end) {
+		return {
+			automationRuns: 0,
+			batchRuns: 0,
+			knowledgeBaseCount: 0,
+			knowledgeBaseFileOperations: 0,
+			messages: 0,
+			projectsCreated: 0,
+			toolsCompleted: 0,
+		};
+	}
+
+	return {
+		automationRuns: delta(end.automationRuns, baseline?.automationRuns),
+		batchRuns: delta(end.batchRuns, baseline?.batchRuns),
+		knowledgeBaseCount: delta(end.knowledgeBaseCount, baseline?.knowledgeBaseCount),
+		knowledgeBaseFileOperations: delta(
+			end.knowledgeBaseFileOperations,
+			baseline?.knowledgeBaseFileOperations,
+		),
+		messages: delta(end.messages, baseline?.messages),
+		projectsCreated: delta(end.projectsCreated, baseline?.projectsCreated),
+		toolsCompleted: delta(end.toolsCompleted, baseline?.toolsCompleted),
+	};
+}
+
+function findMetricsAtOrBefore(
+	samples: readonly CultivationDailyMetrics[],
+	date: string,
+): CultivationDailyMetrics | null {
+	for (let index = samples.length - 1; index >= 0; index--) {
+		const entry = samples[index];
+		if (entry.date <= date) return entry;
+	}
+	return null;
+}
+
+function findMetricsBefore(
+	samples: readonly CultivationDailyMetrics[],
+	date: string,
+): CultivationDailyMetrics | null {
+	for (let index = samples.length - 1; index >= 0; index--) {
+		const entry = samples[index];
+		if (entry.date < date) return entry;
+	}
+	return null;
+}
+
+function delta(end: number, start: number | undefined): number {
+	return Math.max(0, end - (start ?? 0));
+}
+
+/** Estimated hours saved from tool / automation usage counts (period or lifetime). */
+export function computeSavedMinutes(counts: {
+	readonly automationRuns: number;
+	readonly batchRuns: number;
+	readonly knowledgeBaseFileOperations: number;
+	readonly toolsCompleted: number;
+}): number {
 	return (
-		Math.max(0, metrics.toolsCompleted) * SAVED_TIME_MINUTES.toolCompleted +
-		Math.max(0, metrics.automationRuns) * SAVED_TIME_MINUTES.automationRun +
-		Math.max(0, metrics.batchRuns) * SAVED_TIME_MINUTES.batchRun +
-		Math.max(0, metrics.knowledgeBaseFileOperations) * SAVED_TIME_MINUTES.knowledgeOp
+		Math.max(0, counts.toolsCompleted) * SAVED_TIME_MINUTES.toolCompleted +
+		Math.max(0, counts.automationRuns) * SAVED_TIME_MINUTES.automationRun +
+		Math.max(0, counts.batchRuns) * SAVED_TIME_MINUTES.batchRun +
+		Math.max(0, counts.knowledgeBaseFileOperations) * SAVED_TIME_MINUTES.knowledgeOp
 	);
 }
 
-function formatSavedHours(metrics: ThemeUsageStats): string {
-	const hours = computeSavedMinutes(metrics) / 60;
+function formatSavedHoursFromCounts(counts: PeriodMetricCounts): string {
+	const hours = computeSavedMinutes(counts) / 60;
 	if (hours <= 0) return "0";
 	if (hours < 0.1) return "0.1";
 	return (Math.round(hours * 10) / 10).toString();
