@@ -1,12 +1,23 @@
-import type { ThemeUsageStats } from "@vetta/theme-sdk";
+import type { ThemeNavigationTarget, ThemeUsageStats } from "@vetta/theme-sdk";
 import type { SanctumAchievement } from "./achievements";
 import type { CultivationDailyMetrics, CultivationScoreBreakdown } from "../../cultivation";
 
-export interface RealmRequirement {
-	readonly current: number;
+export interface RealmProgressItem {
 	readonly icon: string;
 	readonly label: string;
-	readonly target: number;
+	readonly progress: number;
+	readonly valueText: string;
+}
+
+export interface RealmDetailAction {
+	readonly icon: string;
+	readonly label: string;
+	readonly target: ThemeNavigationTarget;
+}
+
+export interface RealmDetailOutcome {
+	readonly icon: string;
+	readonly label: string;
 }
 
 export interface SanctumCultivationView {
@@ -45,8 +56,12 @@ export interface SanctumCultivationView {
 export interface RealmDetailView {
 	readonly achieved: boolean;
 	readonly achievement: SanctumAchievement;
+	readonly actions: readonly RealmDetailAction[];
+	readonly benefits: readonly RealmDetailOutcome[];
 	readonly definition: string;
 	readonly nextRealmName: string | null;
 	readonly previousRealmName: string | null;
-	readonly requirements: readonly RealmRequirement[];
+	readonly requirements: readonly RealmProgressItem[];
+	readonly rewards: readonly RealmDetailOutcome[];
+	readonly sources: readonly string[];
 }
