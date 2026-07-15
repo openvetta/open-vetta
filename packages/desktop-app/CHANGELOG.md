@@ -7,7 +7,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 ### Added
 
 - **插件 release 导出（插件工作台）**：活动面板工程卡片新增「导出」按钮；经宿主原生保存对话框把当前 `release/<id>-<version>.zip` 复制到用户选择路径。宿主新增 `dialog.saveCopy(sourcePath, options?)`（源路径需可读，取消返回 null）。
-- **插件 dev 热更新（插件工作台）**：工程卡片新增「热更新」开关（默认关，需已安装过一次）。打开后宿主把插件 dev 链接到工程目录（`vetta-plugin://` 资源直接从工程 `dist/` 解析，内存态不落注册表）、常驻托管 Node `vite build --watch` 并监听 dist，产物变化自动 `reload`（token 强制 MF 重注册），保存源码即生效。宿主新增 `plugins.startDevWatch/stopDevWatch` IPC；`InstalledPlugin.devWatch` 透出状态（starting/running/error）；卸载与 App 退出自动停 watch；`@vetta-org/plugin-vite` 在 `VETTA_PLUGIN_DEV_WATCH=1` 下跳过每轮重打 zip。
+- **插件 dev 热更新（插件工作台）**：工程卡片新增「热更新」开关（已安装后默认开）。打开后宿主把插件 dev 链接到工程目录（`vetta-plugin://` 资源直接从工程 `dist/` 解析，内存态不落注册表）、常驻托管 Node `vite build --watch` 并监听 dist，产物变化自动 `reload`（token 强制 MF 重注册），保存源码即生效。宿主新增 `plugins.startDevWatch/stopDevWatch` IPC；`InstalledPlugin.devWatch` 透出状态（starting/running/error）；卸载与 App 退出自动停 watch；`@vetta-org/plugin-vite` 在 `VETTA_PLUGIN_DEV_WATCH=1` 下跳过每轮重打 zip。
 - **插件页自定义 badge**：本地 zip 导入或 plugin-workbench `install-from-path` 安装的插件（`source === "archive"`）在卡片与详情标题旁显示「自定义」标记，与系统插件「系统」badge 对称。
 - **插件工作台（系统插件）+ 硬隔离 / 本地安装路径**：新增 preset `plugin-workbench`（对话 skill、标准脚本、Activity 面板；输入栏 mode 默认关）。宿主：`plugins.manage` 支持 `install-from-path`（安装确认后按声明一次授权并启用）；`InstalledPlugin.rootPath`；`registerModeGate` / `setContributionMode` 按 pluginId 硬隔离 agent 贡献（tools/skills/MCP/prompt）与 Activity Tab（ADR-0041 / ADR-0042）。`registerInputAction.hardIsolation` 与 manifest `contributionMode.hardIsolation`。
 - **插件工作台内嵌完整插件手册**：将 `docs/plugin/*` 同步到 `agent/docs/plugin/`（`prebuild`/`sync-docs`），skill 强制先 read 再实现；附 doc-index 与 templates 参考。手册补全：MCP 三源聚合、`command.run`、turn-card/tool-call 槽、i18n、scope_use、hardIsolation、install-from-path 等。
@@ -24,6 +24,10 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 - **Fork 来源展示与跳转**：分叉会话在 fork 回合 AI 回复下方展示来源提示（居中、无背景，含被 fork 消息预览），点击打开父会话并滚动到源消息；侧栏 fork 会话用分叉图标标识。
 - **远程 MCP 图标**：连接器「发现 → 广场」与「我的」均展示管理员配置的图标；添加时写入 `mcp.json` 的 `icon`；已添加但缺 icon 的条目会从市场自动补全。
 
+### Changed
+
+- **插件工作台热更新默认开启**：已安装的工程卡片在应用成功或打开面板时默认启动热更新；用户可手动关闭（本会话内不再自动重开）。
+
 ### Fixed
 
 - **确认 Dialog 被右侧 Drawer/Sheet 挡住**：全局 `ConfirmDialog` 挂在 `AppFrame`（`isolate`）内，z-index 被 stacking context 困住；插件详情等经 Portal 挂到 body 的 Drawer（z-50）会盖住卸载确认框。现将 ConfirmDialog portal 到 `document.body`，与 Drawer/Dialog 同层比较（z-[100] 压过 z-50）。
@@ -32,7 +36,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 - **热更新后活动面板宽度被重置**：插件 `activate()` 里的 `ctx.ui.openActivityTab({ width })` 会随 reload/热更新重放，把用户手动拖出的面板宽度覆盖回初始值（小于下限时表现为缩到最小）。现 `width` 只在该 tab 首次 attach 时生效，重复调用只做激活。
 - **插件 reload/热更新加载旧代码（根因修复）**：remoteEntry.js 是 ESM 容器，MF 用原生 `import()` 加载，浏览器 ES module registry 按 URL 永久缓存——reload token 只在 manifest URL 上、相对解析不会带到 remoteEntry，导致 reload 与热更新永远执行旧模块（只有换版本路径的卸载重装才生效）。现给 MF host 注册 `vetta-reload-bust` runtime 插件，在 `afterResolve` 把 token 追加到 remoteEntry 的 import URL，使每轮重载 URL 唯一。同时修复 Action 路径 uninstall/set-enabled(false) 不停 dev watch 子进程的泄漏。
 - **Agent 改插件感知热更新**：`plugins.query` 的返回项透出 `devWatch`；workbench skill/prompt 更新——热更新开启时改完源码即自动生效，agent 不再走 install-from-path/reload（不弹确认）。
-- **工作台流程不再弹「从本地路径安装插件确认」**：workbench skill/prompt 全面改为引导用户在活动面板点「应用到 Vetta」（面板路径一次完成授权+启用、无确认弹窗），首次应用后建议开启「热更新」。宿主 `plugins.manage` 的 `install-from-path` 能力保留（外置插件 zip 等通用场景仍可用）。
+- **工作台流程不再弹「从本地路径安装插件确认」**：workbench skill/prompt 全面改为引导用户在活动面板点「应用到 Vetta」（面板路径一次完成授权+启用、无确认弹窗）；应用后默认开启「热更新」。宿主 `plugins.manage` 的 `install-from-path` 能力保留（外置插件 zip 等通用场景仍可用）。
 - **AI 输入栏 toggle 按会话持久化**：图像生成、插件工作台、知识检索等 input-action 状态按 `sessionPath` 独立记忆（localStorage）；切会话 / 离开再回来 / 刷新后恢复，且 hardIsolation contribution mode 随当前会话同步。此前为全局内存态，切换或刷新即丢失。
 - **Fork 后侧边栏不出现新会话**：「对话」项目下 openSession 用 UUID 子目录 cwd 刷新 sessionsMap，桶键与侧栏不一致。现用 `conversationBucketCwd` 归一后 `loadSessions`，并 `ensureLocalSession` 兜底插入；列表透出 `parentSessionPath` / `parentEntryId`。
 - **安装/启停/重载插件后活动面板 tab 不出现**：main 变更插件注册表后广播 `vetta:plugins:changed`，渲染进程 `PluginGlobalSlotHost` 重载 MF remotes。此前仅设置页本地 `notifyPluginsChanged`，工作台 / Action `install-from-path` 装完 UI 仍停在旧列表，需重启 App 才见 tab。

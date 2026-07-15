@@ -9,7 +9,7 @@
    - 用 read 工具打开**绝对路径**；按扩展点补读，禁止凭记忆编造 SDK API。
 3. 信息不足时 **AskUserQuestion**，禁止臆测：插件 id、展示名、权限、功能范围、是否立即安装、扩展点类型。
 4. 构建/打包只走工作台 `scripts/build-and-pack.mjs`（及 scaffold / check-manifest）；不要另起一套不一致的 pack。
-5. **安装/再应用不要调用 `plugins.manage` 的 `install-from-path`**（会弹确认 sheet）。一律引导用户到活动面板「插件工作台」点对应工程卡片的「应用到 Vetta」（一次完成授权+启用）；首次应用后建议用户打开「热更新」开关。
+5. **安装/再应用不要调用 `plugins.manage` 的 `install-from-path`**（会弹确认 sheet）。一律引导用户到活动面板「插件工作台」点对应工程卡片的「应用到 Vetta」（一次完成授权+启用）；应用后面板会默认开启「热更新」。
 6. 改 name / guidingWords 只改 cwd 工程 `plugin.json`，再 build→pack→install/reload；不要改已安装目录当源码。
-7. **改已安装插件前先查热更新状态**（`plugins.query` get 返回项的 `devWatch` 字段）：已开启热更新的插件改完源码即自动构建+重载，**不要**再 build/pack/install-from-path/reload（会弹多余确认）；仅改 `permissions`/`commands` 声明时才需重新应用。未开启热更新则走常规 build→pack→install-from-path（用户确认）。
-7. **样式只使用 Tailwind className**；禁止手写业务 CSS 文件或全局选择器（会注入宿主页面、污染 UI）。`style.css` 仅允许 Tailwind theme+utilities 入口，见 `styling-and-pitfalls.md`。
+7. **改已安装插件前先查热更新状态**（`plugins.query` get 返回项的 `devWatch` 字段）：已开启热更新的插件改完源码即自动构建+重载，**不要**再 build/pack/install-from-path/reload（会弹多余确认）；仅改 `permissions`/`commands` 声明时才需重新应用。未开启热更新则走常规 build→pack→引导用户在面板点「应用到 Vetta」（应用后会再默认开启热更新）。
+8. **样式只使用 Tailwind className**；禁止手写业务 CSS 文件或全局选择器（会注入宿主页面、污染 UI）。`style.css` 仅允许 Tailwind theme+utilities 入口，见 `styling-and-pitfalls.md`。
