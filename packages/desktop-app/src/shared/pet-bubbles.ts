@@ -4,7 +4,6 @@ import childrenDayStyle from "./pet-bubble-styles/stoat_children_day_corner_bord
 import christmasStyle from "./pet-bubble-styles/stoat_christmas_corner_border_set.json";
 import dragonBoatStyle from "./pet-bubble-styles/stoat_dragon_boat_festival_corner_border_set.json";
 import halloweenStyle from "./pet-bubble-styles/stoat_halloween_corner_border_set.json";
-import heartStyle from "./pet-bubble-styles/stoat_heart_decor_corner_border_set.json";
 import laborDayStyle from "./pet-bubble-styles/stoat_labor_day_corner_border_set.json";
 import midAutumnStyle from "./pet-bubble-styles/stoat_mid_autumn_festival_corner_border_set.json";
 import nationalDayStyle from "./pet-bubble-styles/stoat_national_day_frame_border.json";
@@ -18,7 +17,6 @@ export type PetBubbleStyleId = string;
 export type PetBubbleCornerId = string;
 export type PetBubbleStyleLabelKey =
 	| "settings.bubble.styles.plain.label"
-	| "settings.bubble.styles.pink.label"
 	| "settings.bubble.styles.springFestival.label"
 	| "settings.bubble.styles.dragonBoat.label"
 	| "settings.bubble.styles.midAutumn.label"
@@ -34,7 +32,6 @@ export type PetBubbleStyleLabelKey =
 	| "settings.bubble.styles.valentineDay.label";
 export type PetBubbleStyleDescriptionKey =
 	| "settings.bubble.styles.plain.description"
-	| "settings.bubble.styles.pink.description"
 	| "settings.bubble.styles.springFestival.description"
 	| "settings.bubble.styles.dragonBoat.description"
 	| "settings.bubble.styles.midAutumn.description"
@@ -82,7 +79,7 @@ export interface PetBubbleStyle {
 	readonly decor?: PetBubbleDecorStyle;
 }
 
-export const DEFAULT_PET_BUBBLE_STYLE_ID: PetBubbleStyleId = "stoat_heart_decor_corner_border_set";
+export const DEFAULT_PET_BUBBLE_STYLE_ID: PetBubbleStyleId = "plain";
 
 function definePetBubbleStyle(style: unknown): PetBubbleStyle {
 	return style as PetBubbleStyle;
@@ -90,7 +87,6 @@ function definePetBubbleStyle(style: unknown): PetBubbleStyle {
 
 export const PET_BUBBLE_STYLES: readonly PetBubbleStyle[] = [
 	definePetBubbleStyle(plainStyle),
-	definePetBubbleStyle(heartStyle),
 	definePetBubbleStyle(springFestivalStyle),
 	definePetBubbleStyle(dragonBoatStyle),
 	definePetBubbleStyle(midAutumnStyle),
@@ -108,7 +104,6 @@ export const PET_BUBBLE_STYLES: readonly PetBubbleStyle[] = [
 
 const PET_BUBBLE_STYLE_IDS = new Set<string>(PET_BUBBLE_STYLES.map((style) => style.id));
 const LEGACY_PET_BUBBLE_STYLE_ID_ALIASES: Readonly<Record<string, PetBubbleStyleId>> = {
-	pink: "stoat_heart_decor_corner_border_set",
 	"spring-festival": "stoat_spring_festival_corner_border_set",
 	"dragon-boat": "stoat_dragon_boat_festival_corner_border_set",
 	"mid-autumn": "stoat_mid_autumn_festival_corner_border_set",
