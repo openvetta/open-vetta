@@ -1,5 +1,5 @@
 import { useActiveConversation, useActivityTab, useTranslation } from "@vetta-org/plugin-sdk";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { getWorkbenchCommand, getWorkbenchFs } from "./runtime";
 
 interface ProjectInfo {
@@ -199,6 +199,9 @@ export function WorkbenchPanel() {
 	const [error, setError] = useState<string | null>(null);
 	const [workbenchRoot, setWorkbenchRoot] = useState<string | null>(null);
 	const [edits, setEdits] = useState<Record<string, { name: string; guidingWords: string }>>({});
+	// Session prefs: user may turn hot reload off; otherwise default on for installed items.
+	const hotReloadUserOffRef = useRef(new Set<string>());
+	const hotReloadAutoAttemptedRef = useRef(new Set<string>());
 
 	const refresh = useCallback(async () => {
 		setError(null);
@@ -234,6 +237,23 @@ export function WorkbenchPanel() {
 	useEffect(() => {
 		void refresh();
 	}, [refresh]);
+
+	// Default-on: once an item is installed, start hot reload unless the user turned it off this session.
+	useEffect(() => {
+		for (const project of projects) {
+			const inst = installed.get(project.id);
+			if (!inst || inst.devWatch) continue;
+			if (hotReloadUserOffRef.current.has(project.id)) continue;
+			if (hotReloadAutoAttemptedRef.current.has(project.id)) continue;
+			hotReloadAutoAttemptedRef.current.add(project.id);
+			void window.vetta.plugins
+				.startDevWatch(project.id, project.dir)
+				.then(() => refresh())
+				.catch((err) => {
+					setError(err instanceof Error ? err.message : String(err));
+				});
+		}
+	}, [projects, installed, refresh]);
 
 	const runBuild = async (project: ProjectInfo) => {
 		if (!workbenchRoot) {
@@ -295,6 +315,10 @@ export function WorkbenchPanel() {
 			} catch {
 				// first install may not need reload
 			}
+			// Hot reload defaults on after apply (idempotent if already watching).
+			hotReloadUserOffRef.current.delete(project.id);
+			hotReloadAutoAttemptedRef.current.add(project.id);
+			await window.vetta.plugins.startDevWatch(project.id, project.dir);
 			// Host also broadcasts plugins:changed; window event covers same-frame listeners.
 			window.dispatchEvent(new Event("vetta:plugins-changed"));
 			await refresh();
@@ -310,6 +334,8 @@ export function WorkbenchPanel() {
 		setError(null);
 		try {
 			await window.vetta.plugins.uninstall(id);
+			hotReloadUserOffRef.current.delete(id);
+			hotReloadAutoAttemptedRef.current.delete(id);
 			window.dispatchEvent(new Event("vetta:plugins-changed"));
 			await refresh();
 		} catch (err) {
@@ -338,8 +364,11 @@ export function WorkbenchPanel() {
 		setError(null);
 		try {
 			if (inst.devWatch) {
+				hotReloadUserOffRef.current.add(project.id);
 				await window.vetta.plugins.stopDevWatch(project.id);
 			} else {
+				hotReloadUserOffRef.current.delete(project.id);
+				hotReloadAutoAttemptedRef.current.add(project.id);
 				await window.vetta.plugins.startDevWatch(project.id, project.dir);
 			}
 			window.dispatchEvent(new Event("vetta:plugins-changed"));
@@ -583,7 +612,7 @@ export function WorkbenchPanel() {
 								</label>
 							</div>
 
-							{/* Hot reload (dev) — off by default; requires an installed plugin */}
+							{/* Hot reload (dev) — on by default once installed; user may turn off */}
 							<div className="flex items-center justify-between gap-2 rounded-lg border border-border/40 bg-muted/30 px-2.5 py-2">
 								<div className="min-w-0 flex-1">
 									<div className="flex items-center gap-1.5">

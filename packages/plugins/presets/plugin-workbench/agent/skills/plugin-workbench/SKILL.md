@@ -149,8 +149,8 @@ node "{workbenchRoot}/scripts/build-and-pack.mjs" "{pluginRoot}"
 
 > 打开右侧活动面板「插件工作台」→ 对应工程卡片 → 点 **「应用到 Vetta」**（面板安装一次完成授权 + 启用，无确认弹窗）。
 
-- 首次应用成功后，**建议用户顺手打开该卡片的「热更新」开关**：之后你改源码即自动构建+重载（§4.3.5），无需再次应用。  
-- 再次应用（未开热更新时）：build-and-pack 后再请用户点「应用到 Vetta」。  
+- 应用成功后面板会**默认开启「热更新」**：之后你改源码即自动构建+重载（§4.3.5），无需再次应用。用户可手动关掉。  
+- 再次应用（热更新被关掉时）：build-and-pack 后再请用户点「应用到 Vetta」（应用后会重新默认开启热更新）。  
 - 不可覆盖系统插件 id。
 
 ### 4.6 改 name / guidingWords
@@ -167,7 +167,7 @@ node "{workbenchRoot}/scripts/build-and-pack.mjs" "{pluginRoot}"
 
 Activity Tab「插件工作台」（同样受 toggle 硬隔离）：扫描 cwd、构建、应用、卸载、重载、改 name/引导词。与对话同一规则与同一脚本。
 
-每张工程卡片有 **「热更新」开关（默认关，需已安装过一次）**：打开后宿主把插件 dev 链接到工程目录并常驻 `vite build --watch`，保存源码即自动构建 + 自动重载（无需 bump/重打 zip/手动 reload）。适合迭代调试；改 `permissions` 仍需重新「应用到 Vetta」授权。关闭开关或重启 App 后回落安装目录。
+每张工程卡片有 **「热更新」开关（已安装后默认开）**：宿主把插件 dev 链接到工程目录并常驻 `vite build --watch`，保存源码即自动构建 + 自动重载（无需 bump/重打 zip/手动 reload）。适合迭代调试；改 `permissions` 仍需重新「应用到 Vetta」授权。用户可手动关闭；关闭开关或重启 App 后回落安装目录（重新打开面板时仍会默认再开）。
 
 ---
 
@@ -179,7 +179,7 @@ Activity Tab「插件工作台」（同样受 toggle 硬隔离）：扫描 cwd�
 | npm install 失败 | registry、网络、sdk 版本；AskUserQuestion |
 | 构建失败 | 读完整错误；对照 getting-started / 依赖版本 |
 | 装上无效果 | permissions 是否授予；scope_use；插件 enabled；reload + version |
-| 反复改 UI 调试 | 面板打开该工程「热更新」开关：保存即自动构建+重载（见 §5） |
+| 反复改 UI 调试 | 已安装工程默认开热更新：保存即自动构建+重载（见 §5）；若被关掉可再打开 |
 | UI 不出现 | ui-slots 权限与 scope_use；activity tab 是否 attach |
 | 样式/缓存怪 | styling-and-pitfalls；bump version |
 
