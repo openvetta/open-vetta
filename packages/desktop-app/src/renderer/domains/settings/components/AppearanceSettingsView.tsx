@@ -5,6 +5,7 @@ import type { CursorStyle } from "@shared/theme/cursor";
 import type { ThemeDef } from "@shared/theme/tokens";
 import { type MouseEvent, useState } from "react";
 import { SettingsAiAssist } from "../ai-assist";
+import themeLock from "../assets/theme-lock.webp";
 import { SETTINGS_SECTION } from "../registry";
 import { SettingHeading } from "@vetta/theme-ui/settings";
 import type {
@@ -213,6 +214,7 @@ function UiThemeCard({
 	label,
 	onSelect,
 	preview,
+	unavailable,
 }: AppearanceUiThemeOption & {
 	onSelect: () => void;
 }): JSX.Element {
@@ -224,16 +226,20 @@ function UiThemeCard({
 			className={cn(
 				"group overflow-hidden rounded-xl border bg-card/40 text-left transition-colors",
 				active ? "border-primary/70 ring-1 ring-inset ring-primary/30" : "border-border/50 hover:border-primary/40 hover:bg-card/60",
-				disabled && "cursor-not-allowed opacity-50",
+				disabled && "cursor-not-allowed",
 			)}
 		>
 			<div className="relative aspect-[16/9] overflow-hidden border-b border-border/50">
-				<img src={preview} alt="" className="h-full w-full object-cover" />
-				{active && (
+				<img src={preview} alt="" className={cn("h-full w-full object-cover", disabled && "opacity-50")} />
+				{unavailable ? (
+					<span className="absolute right-2 top-2 flex h-10 w-10 items-center justify-center rounded-lg bg-background/80 p-1 backdrop-blur-sm">
+						<img src={themeLock} alt="" className="h-8 w-auto object-contain" />
+					</span>
+				) : active ? (
 					<span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-background/80 backdrop-blur-sm">
 						<span className="icon-[solar--check-circle-linear] h-4 w-4 text-primary" />
 					</span>
-				)}
+				) : null}
 			</div>
 			<div className="px-3.5 pb-3 pt-3">
 				<div className="text-[13px] font-medium text-card-foreground">{label}</div>

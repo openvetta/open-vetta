@@ -40,6 +40,7 @@ export interface AppearanceUiThemeOption {
 	id: string;
 	label: string;
 	preview: string;
+	unavailable: boolean;
 }
 
 export interface AppearanceCursorOption {
@@ -178,6 +179,7 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 					label: t(theme.labelKey),
 					hint: unavailable ? t("uiThemeUnavailable") : t(theme.hintKey),
 					preview: theme.preview,
+					unavailable,
 				};
 			}),
 		[activeThemeId, availableThemes, t, themeRuntimeStatus],
