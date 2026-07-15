@@ -1,16 +1,14 @@
 import { type RefObject, useEffect } from "react";
 
 export function usePetHitbox({
-	debugFrame,
 	shouldShowVideo,
 	videoRef,
 }: {
-	debugFrame: boolean;
 	shouldShowVideo: boolean;
 	videoRef: RefObject<HTMLDivElement | null>;
 }): void {
 	useEffect(() => {
-		if (debugFrame || !shouldShowVideo) {
+		if (!shouldShowVideo) {
 			void window.vettaPet?.setVideoHitbox(undefined);
 			return;
 		}
@@ -47,5 +45,5 @@ export function usePetHitbox({
 			window.removeEventListener("resize", reportHitbox);
 			void window.vettaPet?.setVideoHitbox(undefined);
 		};
-	}, [debugFrame, shouldShowVideo, videoRef]);
+	}, [shouldShowVideo, videoRef]);
 }

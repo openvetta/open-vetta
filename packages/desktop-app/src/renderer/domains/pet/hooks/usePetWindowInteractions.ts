@@ -1,6 +1,5 @@
 import { type PointerEvent as ReactPointerEvent, type RefObject, useRef, type WheelEvent } from "react";
 import type { PetActionId } from "../../../../shared/pet-actions";
-import { normalizePetVideoSizeForWindow, PET_VIDEO_SIZE_STEP } from "../../../../shared/pet-config";
 
 function isPointOverElement(element: HTMLElement | null, clientX: number, clientY: number): boolean {
 	const bounds = element?.getBoundingClientRect();
@@ -11,20 +10,10 @@ function isPointOverElement(element: HTMLElement | null, clientX: number, client
 
 export function usePetWindowInteractions({
 	actionId,
-	debugFrame,
-	maxVideoSize,
-	selectedVideoSize,
-	videoScale,
 	videoRef,
-	onVideoBaseSizeChange,
 }: {
 	actionId: PetActionId | undefined;
-	debugFrame: boolean;
-	maxVideoSize: number;
-	selectedVideoSize: number;
-	videoScale: number;
 	videoRef: RefObject<HTMLDivElement | null>;
-	onVideoBaseSizeChange: (size: number) => void;
 }): {
 	handlePointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
 	handlePointerLeave: () => void;
@@ -35,7 +24,7 @@ export function usePetWindowInteractions({
 	const isPointOverVideo = (clientX: number, clientY: number) =>
 		isPointOverElement(videoRef.current, clientX, clientY);
 	const updateMousePassthrough = (clientX: number, clientY: number) => {
-		if (debugFrame || isDraggingRef.current) {
+		if (isDraggingRef.current) {
 			void window.vettaPet?.setMousePassthrough(false);
 			return;
 		}
@@ -45,21 +34,6 @@ export function usePetWindowInteractions({
 	const handleWheel = (event: WheelEvent<HTMLDivElement>) => {
 		event.preventDefault();
 		event.stopPropagation();
-		if (debugFrame) {
-			if (isPointOverVideo(event.clientX, event.clientY) && actionId) {
-				const direction = event.deltaY < 0 ? 1 : -1;
-				const nextVideoSize = normalizePetVideoSizeForWindow(
-					selectedVideoSize + direction * PET_VIDEO_SIZE_STEP,
-					maxVideoSize,
-				);
-				const nextBaseSize = normalizePetVideoSizeForWindow(nextVideoSize / videoScale, maxVideoSize / videoScale);
-				onVideoBaseSizeChange(nextBaseSize);
-				void window.vettaPet?.setVideoBaseSize(actionId, nextBaseSize);
-				return;
-			}
-			void window.vettaPet?.resizeByWheel(event.deltaY);
-			return;
-		}
 		if (actionId) {
 			void window.vettaPet?.resizeVideoByWheel(actionId, event.deltaY);
 		}
@@ -93,9 +67,7 @@ export function usePetWindowInteractions({
 	return {
 		handlePointerDown,
 		handlePointerLeave: () => {
-			if (!debugFrame) {
-				void window.vettaPet?.setMousePassthrough(true);
-			}
+			void window.vettaPet?.setMousePassthrough(true);
 		},
 		handlePointerMove: (event) => updateMousePassthrough(event.clientX, event.clientY),
 		handleWheel,
