@@ -9,9 +9,11 @@ export const SCENE_STATE_RANK: Record<SceneCardState, number> = {
 };
 
 // 展示限额（非数据截断）：同时最多 2 组、每组最多 3 词；超出则轮播。
+// 组级用步进 1 的滑动窗口（见 useGuidingWordsModel），间隔需明显短于用户停留时间，
+// 否则词级 6s 轮播会让人误以为「永远只有头两个插件」。
 export const GUIDING_GROUP_PAGE = 2;
 export const GUIDING_WORD_PAGE = 3;
-export const GUIDING_GROUP_INTERVAL = 24000;
+export const GUIDING_GROUP_INTERVAL = 8000;
 export const GUIDING_WORD_INTERVAL = 6000;
 
 // 引导词轮播缓动：柔和线性收尾，避免生硬切换。

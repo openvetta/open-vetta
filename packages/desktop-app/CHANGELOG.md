@@ -26,6 +26,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **新会话页引导词只轮播头两个插件**：组级原为整页跳切（一次换 2 组）且间隔 24s，词级 6s 动画更抢眼，体感上永远只有前两个插件在转。现改为步进 1 的滑动窗口，组级间隔 8s，所有声明了 `guidingWords` 的启用插件都会进入可见区。
 - **插件 reload 后活动面板宽度回到默认**：工作台「重载」/ agent reload / 热更新会短暂清空插件 activity tabs，active tab 回退到 `file` 并触发文件 tab 卸载副作用，用户拖宽（如 500px）被盖回默认。现 (1) reload 期间保留上次已发布的 tab/action 贡献、原子替换插件列表；(2) 记忆中的插件 tab 在贡献短暂缺失时 sticky，不回退 file；(3) 面板宽度写入 localStorage。
 - **热更新后活动面板宽度被重置**：插件 `activate()` 里的 `ctx.ui.openActivityTab({ width })` 会随 reload/热更新重放，把用户手动拖出的面板宽度覆盖回初始值（小于下限时表现为缩到最小）。现 `width` 只在该 tab 首次 attach 时生效，重复调用只做激活。
 - **插件 reload/热更新加载旧代码（根因修复）**：remoteEntry.js 是 ESM 容器，MF 用原生 `import()` 加载，浏览器 ES module registry 按 URL 永久缓存——reload token 只在 manifest URL 上、相对解析不会带到 remoteEntry，导致 reload 与热更新永远执行旧模块（只有换版本路径的卸载重装才生效）。现给 MF host 注册 `vetta-reload-bust` runtime 插件，在 `afterResolve` 把 token 追加到 remoteEntry 的 import URL，使每轮重载 URL 唯一。同时修复 Action 路径 uninstall/set-enabled(false) 不停 dev watch 子进程的泄漏。
