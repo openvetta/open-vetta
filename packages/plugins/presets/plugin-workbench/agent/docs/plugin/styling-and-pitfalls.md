@@ -97,3 +97,24 @@ function Icon() {
 ## 权限缺失的两种后果
 
 复习 [permissions.md](./permissions.md)：部分注册点缺权限**抛错**（中断该次调用）、部分**跳过+警告**（不影响其它能力）。把可选能力的注册各自独立，避免一处 throw 掉整段 `activate()`。
+
+## 错误必须上报用户（notify）
+
+预览解析、工具执行、读盘、调用外部库等**可能失败**的路径：
+
+- **禁止**只 `catch` 成一句「失败了」写在组件里、不把原始 `error` 交给宿主。
+- **必须**调用 `ctx.ui.notify({ message: 用户可读摘要, error })`（无权限）。宿主右下角 Toast 提供 **「复制堆栈」**，便于用户粘贴给 agent / 反馈。
+- 组件内仍可保留简短失败 UI；notify 与内联文案互补，不是二选一。
+- 在 `activate` 里把 `notify` 赋给模块变量，供组件闭包使用（组件 props 不含 `ctx`）。
+
+完整约定与示例见 [ui-slots.md → 全局通知 notify](./ui-slots.md#全局通知-notify)。
+
+## 文件预览必须考虑大文件
+
+做 `registerFilePreview` 时**禁止**「小样例能开就交差」：
+
+- **优先 `file.getUrl()`**（Range 流式），需要整包时用 `fetch(url).arrayBuffer()`；不要默认 `readBytes()`。
+- `readBytes` / `readText` 经 IPC **约 10MB 硬上限**，再大直接抛错——只靠它们的预览在真实 pptx/pdf/音视频上会大面积失败。
+- 读 `file.size`、做 loading/取消、超大时降级或明确提示；失败走 `notify({ message, error })`。
+
+细则、选型表与正反例见 [ui-slots.md → 文件预览 / 大文件](./ui-slots.md#文件预览-registerfilepreview)。

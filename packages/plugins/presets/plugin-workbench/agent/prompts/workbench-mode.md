@@ -13,3 +13,4 @@
 6. 改 name / guidingWords 只改 cwd 工程 `plugin.json`，再 build→pack→install/reload；不要改已安装目录当源码。
 7. **改已安装插件前先查热更新状态**（`plugins.query` get 返回项的 `devWatch` 字段）：已开启热更新的插件改完源码即自动构建+重载，**不要**再 build/pack/install-from-path/reload（会弹多余确认）；仅改 `permissions`/`commands` 声明时才需重新应用。未开启热更新则走常规 build→pack→引导用户在面板点「应用到 Vetta」（应用后会再默认开启热更新）。
 8. **样式只使用 Tailwind className**；禁止手写业务 CSS 文件或全局选择器（会注入宿主页面、污染 UI）。`style.css` 仅允许 Tailwind theme+utilities 入口，见 `styling-and-pitfalls.md`。
+9. **错误必须对用户可排查**：读文件/解析/网络/外部库等可能失败的路径，在 catch 中调用 `ctx.ui.notify({ message: 用户可读摘要, error })`（无权限）。禁止只写死「失败」文案并丢弃原始 error。有 `error` 时宿主右下角 Toast 可一键「复制堆栈」。见 `ui-slots.md` → notify 与 `styling-and-pitfalls.md`。

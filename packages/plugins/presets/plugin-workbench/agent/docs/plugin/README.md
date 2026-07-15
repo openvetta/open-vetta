@@ -12,7 +12,7 @@
 | [manifest.md](./manifest.md) | `plugin.json` 全字段、`commands`、`contributionMode`、`defaultLocale` / i18n、settings、guidingWords、agent 贡献 |
 | [mcp.md](./mcp.md) | **MCP 三源聚合**、插件内聚 MCP（`agent.mcpServers`）、命名、生命周期、打包 |
 | [permissions.md](./permissions.md) | 权限完整清单、门控点、声明/授权流程 |
-| [ui-slots.md](./ui-slots.md) | 全局浮层 / 文件预览 / 活动 Tab / 输入栏动作 / **Turn 卡** / **Tool-call 槽** |
+| [ui-slots.md](./ui-slots.md) | **notify 全局 Toast** / 文件预览（**含大文件 getUrl 规范**）/ 全局浮层 / 活动 Tab / 输入栏动作 / **Turn 卡** / **Tool-call 槽** |
 | [message-cards.md](./message-cards.md) | 消息卡片：`details.cards`、`registerCardRenderer`、`pendingFor`、跨轮去重 |
 | [conversation-and-agent.md](./conversation-and-agent.md) | 对话、registerTool、**command.run**、fs、images、settings、**i18n** |
 | [system-plugins.md](./system-plugins.md) | 系统插件（presets）、租户打包 |
@@ -24,6 +24,7 @@
 
 | 能力 | 入口 | 权限 | 文档 |
 | --- | --- | --- | --- |
+| **全局 Toast / 错误通知** | `ctx.ui.notify` | 无 | [ui-slots](./ui-slots.md#全局通知-notify) |
 | 全局浮层 UI | `ctx.ui.registerGlobalSlot` | `ui.slot.global` | [ui-slots](./ui-slots.md#全局浮层-registerglobalslot) |
 | 文件预览 | `ctx.ui.registerFilePreview` | `ui.slot.file-preview` | [ui-slots](./ui-slots.md#文件预览-registerfilepreview) |
 | 活动面板 Tab | `ctx.ui.registerActivityTab` / `openActivityTab` | `ui.slot.activity-tab` | [ui-slots](./ui-slots.md#活动面板-tab-registeractivitytab) |

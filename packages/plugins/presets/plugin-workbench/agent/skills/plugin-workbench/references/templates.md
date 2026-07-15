@@ -71,7 +71,46 @@ ctx.agent.registerTool({
 
 权限：`ui.slot.file-preview`。仅当宿主内置未覆盖的扩展名才生效。
 
-见 `ui-slots.md` → registerFilePreview。
+解析失败时**必须** `notify({ message, error })`（无权限），便于用户复制堆栈：
+
+```tsx
+import { definePlugin, type PluginFilePreviewProps, type PluginUiApi } from "@vetta-org/plugin-sdk";
+import { useEffect, useState } from "react";
+import "./style.css";
+
+let notify: PluginUiApi["notify"];
+
+function Preview({ file }: PluginFilePreviewProps) {
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let cancelled = false;
+    file.readBytes()
+      .then(async (bytes) => {
+        // parse bytes...
+        if (!cancelled) setError("");
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError("无法解析此文件");
+        notify({ message: "无法解析此文件", error: err });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [file]);
+  if (error) return <div className="p-4 text-sm text-destructive">{error}</div>;
+  return <div className="p-4 text-sm text-foreground">…</div>;
+}
+
+export default definePlugin({
+  activate(ctx) {
+    notify = ctx.ui.notify;
+    ctx.ui.registerFilePreview({ extensions: ["xyz"], component: Preview });
+  },
+});
+```
+
+见 `ui-slots.md` → registerFilePreview、**全局通知 notify**。
 
 ## E. 输入栏 toggle
 
@@ -98,4 +137,5 @@ ctx.agent.registerTool({
 - **样式只 Tailwind className**；勿手写业务 CSS（污染全局）— `styling-and-pitfalls.md`
 - 顶层禁止依赖共享 React 的 JSX（放进组件或 activate 内）
 - 改代码不生效：bump `plugin.json` version + reload
+- **可能失败的路径必须 `ctx.ui.notify({ message, error })`**，禁止吞掉 error — `ui-slots.md` → notify
 - 用户工程依赖用 **registry semver** 的 `@vetta-org/plugin-sdk` / `@vetta-org/plugin-vite`，禁止 `workspace:*`
