@@ -85,7 +85,7 @@ workbenchRoot = listPlugins() 中 id === "plugin-workbench" 的 rootPath
 | 展示名 `name` | 用户可见品牌 |
 | `permissions` 列表 | 安全；对照 permissions.md 向用户解释再写入 |
 | 要解决的问题 / MVP 范围 | 避免一次做全家桶 |
-| 是否立即安装到本机 | 构建后是否走 install-from-path |
+| 是否立即安装到本机 | 构建后是否引导用户在面板点「应用到 Vetta」 |
 | 扩展点类型（用户没说时） | activity-tab / 工具 / 引导词 / 预览 / … |
 
 ---
@@ -130,8 +130,8 @@ node "{workbenchRoot}/scripts/check-manifest.mjs" "{pluginRoot}"
 
 改一个**已安装**的插件前，先 `plugins.query` → `get {id}` 看返回项有没有 `devWatch` 字段：
 
-- **`devWatch` 存在（热更新已开启）**：改完工程源码即结束——宿主的 `vite build --watch` 会自动构建、自动重载。**禁止**再走 4.4 build-and-pack、4.5 install-from-path 或 reload（多余且会打断用户，弹无意义的确认）。例外：改了 `permissions` / 新增 `commands` 等需要重新授权的声明时，仍需走 4.4→4.5 重新应用。若 `devWatch.status === "error"`，提示用户到面板看错误详情。
-- **`devWatch` 不存在**：走 4.4→4.5 常规流程（install-from-path 会请求用户确认）。
+- **`devWatch` 存在（热更新已开启）**：改完工程源码即结束——宿主的 `vite build --watch` 会自动构建、自动重载。**禁止**再走 4.4 build-and-pack、4.5 应用或 reload（多余且会打断用户）。例外：改了 `permissions` / 新增 `commands` 等需要重新授权的声明时，仍需走 4.4→4.5 重新应用。若 `devWatch.status === "error"`，提示用户到面板看错误详情。
+- **`devWatch` 不存在**：走 4.4→4.5 常规流程（构建打包后引导用户在面板点「应用到 Vetta」）。
 
 ### 4.4 构建打包（强制脚本）
 
@@ -143,21 +143,15 @@ node "{workbenchRoot}/scripts/build-and-pack.mjs" "{pluginRoot}"
 - 解析 stdout JSON：`zipPath`、`id`、`version`  
 - 失败：读 stderr，按 getting-started / styling 修；缺依赖或 registry 问题 → AskUserQuestion  
 
-### 4.5 安装到本机 Vetta
+### 4.5 安装到本机 Vetta（引导用户在面板点击，不要弹确认）
 
-宿主 Action（通用 API，非工作台私货）：
+打包完成后**不要调用** `plugins.manage` 的 `install-from-path`（会弹确认 sheet，工作台流程已废弃此路径）。改为告知用户：
 
-```json
-{
-  "operation": "install-from-path",
-  "path": "{绝对路径 zipPath}"
-}
-```
+> 打开右侧活动面板「插件工作台」→ 对应工程卡片 → 点 **「应用到 Vetta」**（面板安装一次完成授权 + 启用，无确认弹窗）。
 
-- 用户确认后：按声明 **一次授予权限** 并 **启用**  
-- 不可覆盖系统插件 id  
-- 再次应用：再 build-and-pack → install-from-path → 必要时 `reload`  
-- 改代码不生效：bump（脚本已做）+ reload（见 styling-and-pitfalls）
+- 首次应用成功后，**建议用户顺手打开该卡片的「热更新」开关**：之后你改源码即自动构建+重载（§4.3.5），无需再次应用。  
+- 再次应用（未开热更新时）：build-and-pack 后再请用户点「应用到 Vetta」。  
+- 不可覆盖系统插件 id。
 
 ### 4.6 改 name / guidingWords
 
