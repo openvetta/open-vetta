@@ -1,9 +1,7 @@
 import type { ThemeDef } from "../tokens";
 
-// GitHub 主题：配色参照 GitHub Primer 官方 token。
-// light 取 GitHub Light，dark 取 GitHub Dark；primary 用 GitHub 标志性绿色主按钮
-// (light #1f883d / dark #238636)，accent 用 Primer 蓝色链接色。
-// 字体、阴影沿用其它主题，圆角按 GitHub 习惯使用 0.375rem。
+// 「青石」主题：冷灰画布 + 青绿主色，圆角 0.375rem。
+// 配色偏开发工具风格的中性灰与绿色强调，不绑定任何第三方品牌命名。
 
 const FONT_SANS = '-apple-system, "SF Pro Text", "SF Pro Display", "Helvetica Neue", sans-serif';
 const FONT_SERIF = "Georgia, serif";
@@ -18,9 +16,9 @@ const SHADOW_LG = "0px 1px 2px 0px hsl(0 0% 0% / 0.18), 0px 4px 6px -1px hsl(0 0
 const SHADOW_XL = "0px 1px 2px 0px hsl(0 0% 0% / 0.18), 0px 8px 10px -1px hsl(0 0% 0% / 0.18)";
 const SHADOW_2XL = "0px 1px 2px 0px hsl(0 0% 0% / 0.45)";
 
-export const githubTheme: ThemeDef = {
-	id: "github",
-	label: "GitHub",
+export const slateTheme: ThemeDef = {
+	id: "slate",
+	label: "青石",
 	dark: {
 		background: "rgb(13, 17, 23)",
 		foreground: "rgb(230, 237, 243)",
@@ -30,7 +28,8 @@ export const githubTheme: ThemeDef = {
 		popoverForeground: "rgb(230, 237, 243)",
 		primary: "rgb(35, 134, 54)",
 		primaryForeground: "rgb(255, 255, 255)",
-		secondary: "rgb(33, 38, 45)",
+		// secondary 略深于 muted
+		secondary: "rgb(18, 23, 30)",
 		secondaryForeground: "rgb(230, 237, 243)",
 		muted: "rgb(22, 27, 34)",
 		mutedForeground: "rgb(139, 148, 158)",
@@ -68,7 +67,8 @@ export const githubTheme: ThemeDef = {
 		popoverForeground: "rgb(31, 35, 40)",
 		primary: "rgb(31, 136, 61)",
 		primaryForeground: "rgb(255, 255, 255)",
-		secondary: "rgb(246, 248, 250)",
+		// secondary 略浅于 muted
+		secondary: "rgb(250, 251, 252)",
 		secondaryForeground: "rgb(31, 35, 40)",
 		muted: "rgb(246, 248, 250)",
 		mutedForeground: "rgb(101, 109, 118)",

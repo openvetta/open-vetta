@@ -82,7 +82,7 @@ export function InputBarView({ model, className, classNames }: InputBarViewProps
 	);
 
 	const cardClass = [
-		"input-card relative z-10 overflow-visible rounded-[20px] border bg-muted transition-[border-color,box-shadow,transform] duration-200 dark:bg-card",
+		"input-card relative z-10 overflow-visible rounded-[20px] border bg-card transition-[border-color,box-shadow,transform] duration-200",
 		model.isFocused ? "border-primary/20" : "border-border",
 		surface?.rootClassName,
 		classNames?.card,

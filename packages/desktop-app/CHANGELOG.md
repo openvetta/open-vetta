@@ -31,6 +31,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **插件热更新偶发要手点「重载 / 重新安装」**：根因 (1) 仅靠 dist 顶层 `fs.watch`，部分环境下丢事件或半截写盘即触发，未读 vite 成功日志（stdout 还被直接 discard）；(2) dev overlay 不带 permissions/commands/settingsSchema，改声明像没生效。现以 vite「built in …ms」为主触发、dist 与 `plugin.json` 监听为辅；dev 会话内声明权限/命令自动放行（仅内存，不落注册表），关热更新仍回落安装态。
 - **发送图片后消息列表并排出现两张缩略图**：乐观气泡同时带了 base64 `message.images` 与文本里的 `@image-cache` 路径，渲染把两者拼在一起；重进会话只有路径故正常。现有落盘路径时只渲染路径缩略图，base64 仅作 persist 失败时的兜底。
 - **插件 file-preview 布局围栏**：`PluginFilePreviewView` 外壳增加 `transform` fixed containing block + `overflow-hidden` + `isolate`，避免预览插件用 `position: fixed` 贴 App 视口逃出预览区。手册补充面板类 slot 布局边界（禁止 viewport fixed / 超高 z-index；全局浮层走 `registerGlobalSlot` / `notify`）。
 - **office-viewer 不再占住 PPT/PPTX 预览**：系统插件只注册实际可渲染的 `pdf` / `docx` / 表格扩展名，移除 PowerPoint 兼容性占位页；第三方插件可接管 `ppt`/`pptx` 预览。

@@ -69,7 +69,7 @@ export function TaskListView({
 					whileHover={{ y: -2 }}
 					onClick={() => onSelectTask(item.id)}
 					className={`group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl p-5 transition-colors duration-300 ${
-						item.isSelected ? "bg-primary/10 ring-1 ring-inset ring-primary/30" : "bg-muted hover:bg-accent"
+						item.isSelected ? "bg-primary/10 ring-1 ring-inset ring-primary/30" : "bg-card hover:bg-accent"
 					}`}
 				>
 					<div className="relative flex items-start gap-2.5">

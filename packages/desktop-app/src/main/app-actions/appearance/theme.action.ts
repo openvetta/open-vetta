@@ -97,7 +97,7 @@ export const themeAction: ActionDefinition = {
 		},
 		{
 			description: "只切换主题风格",
-			input: { type: "set", themeId: "ocean" },
+			input: { type: "set", themeId: "slate" },
 		},
 		{
 			description: "切换为白鼬鼠标指针",
@@ -117,7 +117,7 @@ export const themeAction: ActionDefinition = {
 		},
 		{
 			description: "切换主题并明确使用通用审批界面",
-			input: { type: "set", themeId: "ocean", approvalUi: "generic" },
+			input: { type: "set", themeId: "slate", approvalUi: "generic" },
 		},
 	],
 	validateInput: validateThemeActionInput,

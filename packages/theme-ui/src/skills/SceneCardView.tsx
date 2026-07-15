@@ -41,7 +41,7 @@ export function SceneCardView({
 			transition={{ type: "spring", stiffness: 280, damping: 26 }}
 			whileHover={{ y: -2 }}
 			onClick={previewable ? onPreview : undefined}
-			className={`group relative flex flex-col overflow-hidden rounded-xl bg-muted transition-colors duration-200 hover:bg-accent ${
+			className={`group relative flex flex-col overflow-hidden rounded-xl bg-card transition-colors duration-200 hover:bg-accent ${
 				previewable ? "cursor-pointer" : ""
 			}`}
 		>

@@ -134,7 +134,7 @@ node "{workbenchRoot}/scripts/check-manifest.mjs" "{pluginRoot}"
 
 改一个**已安装**的插件前，先 `plugins.query` → `get {id}` 看返回项有没有 `devWatch` 字段：
 
-- **`devWatch` 存在（热更新已开启）**：改完工程源码即结束——宿主的 `vite build --watch` 会自动构建、自动重载。**禁止**再走 4.4 build-and-pack、4.5 应用或 reload（多余且会打断用户）。例外：改了 `permissions` / 新增 `commands` 等需要重新授权的声明时，仍需走 4.4→4.5 重新应用。若 `devWatch.status === "error"`，提示用户到面板看错误详情。
+- **`devWatch` 存在（热更新已开启）**：改完工程源码或 `plugin.json` 即结束——vite watch 构建成功后自动重载；dev 会话内新增 permissions/commands 也会自动放行。**禁止**再走 4.4/4.5 或 reload。若 `devWatch.status === "error"`，提示用户看面板错误或拨一下热更新开关。仅当用户明确要**持久**写入注册表（关热更新/重启后仍生效）时，才用 `workbench_offer_reinstall` 让用户点卡片「重新安装」。
 - **`devWatch` 不存在**：走 4.4→4.5 常规流程（构建打包后引导用户在面板点「应用到 Vetta」）。
 
 ### 4.4 构建打包（强制脚本）
@@ -161,9 +161,10 @@ node "{workbenchRoot}/scripts/build-and-pack.mjs" "{pluginRoot}"
 
 只改 **工程源码** `plugin.json`，再 4.4 → 4.5。禁止改 `~/.vetta/plugins/...` 已装目录当真相源。
 
-### 4.7 卸载 / 重载
+### 4.7 卸载 / 重载 / 重新安装
 
-`plugins.manage`：`uninstall` / `reload`（系统插件不可卸）。
+- `plugins.manage`：`uninstall` / `reload`（系统插件不可卸）。
+- **重新安装**（权限/命令等安装态变更）：工具 `workbench_offer_reinstall` 出消息卡，或面板「重新安装」——**不要** `install-from-path`。
 
 ---
 
@@ -171,7 +172,9 @@ node "{workbenchRoot}/scripts/build-and-pack.mjs" "{pluginRoot}"
 
 Activity Tab「插件工作台」（同样受 toggle 硬隔离）：扫描 cwd、构建、应用、卸载、重载、改 name/引导词。与对话同一规则与同一脚本。
 
-每张工程卡片有 **「热更新」开关（已安装后默认开）**：宿主把插件 dev 链接到工程目录并常驻 `vite build --watch`，保存源码即自动构建 + 自动重载（无需 bump/重打 zip/手动 reload）。适合迭代调试；改 `permissions` 仍需重新「应用到 Vetta」授权。用户可手动关闭；关闭开关或重启 App 后回落安装目录（重新打开面板时仍会默认再开）。
+每张工程卡片有 **「热更新」开关（已安装后默认开）**：宿主把插件 dev 链接到工程目录并常驻 `vite build --watch`，保存源码即自动构建 + 自动重载（无需 bump/重打 zip/手动 reload）。适合迭代调试。
+
+已安装时还有 **「重新安装」**（与消息卡按钮同路径）：强制 build-and-pack → 把权限/命令**持久写入注册表** → **刷新整个 Vetta 窗口**。日常改代码 / 改 plugin.json 靠热更新即可（dev 会话内权限声明自动放行）；重新安装用于落盘授权或热更新异常时兜底。首次安装仍用「应用到 Vetta」。
 
 ---
 

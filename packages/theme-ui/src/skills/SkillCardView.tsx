@@ -57,7 +57,7 @@ export function SkillCardView({
 			}}
 			transition={{ type: "spring", stiffness: 320, damping: 26 }}
 			onClick={previewable ? onPreview : undefined}
-			className={`group relative flex items-center gap-3 rounded-xl bg-muted px-3 py-2.5 transition-colors duration-200 hover:bg-accent ${
+			className={`group relative flex items-center gap-3 rounded-xl bg-card px-3 py-2.5 transition-colors duration-200 hover:bg-accent ${
 				previewable ? "cursor-pointer" : ""
 			}`}
 		>
