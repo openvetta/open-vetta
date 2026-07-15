@@ -3,11 +3,12 @@ import { Agent, type AgentMessage, type ThinkingLevel } from "@vetta/agent-core"
 import type { Message, Model } from "@vetta/ai";
 import type { RuntimeTracer } from "@vetta/runtime-telemetry";
 import { createLangfuseRuntimeTracerFromEnv } from "@vetta/runtime-telemetry/langfuse";
-import { DEFAULT_SERVER_URL, ENV_SERVER_URL, getAgentDir, getDocsPath } from "../config.js";
+import { CONFIG_DIR_NAME, DEFAULT_SERVER_URL, ENV_SERVER_URL, getAgentDir, getDocsPath } from "../config.js";
 import { AgentSession } from "./agent-session.js";
 import { AuthStorage } from "./auth-storage.js";
 import { DEFAULT_THINKING_LEVEL } from "./defaults.js";
 import type { ExtensionRunner, LoadExtensionsResult, ToolDefinition } from "./extensions/index.js";
+import type { EcosystemHookAdapterFactory } from "./hooks/index.js";
 import { applyImageBudget } from "./image-budget.js";
 import { convertToLlm } from "./messages.js";
 import { ModelRegistry } from "./model-registry.js";
@@ -96,6 +97,8 @@ export interface CreateAgentSessionOptions {
 	scenario?: ConversationScenario;
 	/** Custom tools to register (in addition to built-in tools). */
 	customTools?: ToolDefinition[];
+	/** Additional external-ecosystem Hook adapters composed with built-in adapters. */
+	additionalHookAdapterFactories?: readonly EcosystemHookAdapterFactory[];
 
 	/** Resource loader. When omitted, DefaultResourceLoader is used. */
 	resourceLoader?: ResourceLoader;
@@ -540,6 +543,11 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		scopedModels: options.scopedModels,
 		resourceLoader,
 		customTools: options.customTools,
+		additionalHookAdapterFactories: options.additionalHookAdapterFactories,
+		hookConfigLayers: [
+			{ directory: agentDir, enabled: true, label: "vetta-user" },
+			{ directory: join(cwd, CONFIG_DIR_NAME), enabled: true, label: "vetta-project" },
+		],
 		modelRegistry,
 		scenario: options.scenario,
 		initialActiveToolNames,

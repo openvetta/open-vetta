@@ -24,6 +24,7 @@ import {
 	wrapRegisteredTools,
 	wrapToolsWithExtensions,
 } from "../extensions/index.js";
+import { wrapToolsWithEcosystemHooks } from "../hooks/index.js";
 import { createMcpManager, type McpManager } from "../mcp/index.js";
 import type { ResourceExtensionPaths, ResourceLoader } from "../resource-loader.js";
 import type {
@@ -1122,13 +1123,15 @@ export class RuntimeManager {
 
 		if (this._extensionRunner) {
 			const wrappedActiveTools = wrapToolsWithExtensions(activeToolsArray, this._extensionRunner);
-			this.ctx.agent.setTools(wrappedActiveTools as AgentTool[]);
+			this.ctx.agent.setTools(wrapToolsWithEcosystemHooks(wrappedActiveTools as AgentTool[], this.ctx.hookRuntime));
 
 			const wrappedAllTools = wrapToolsWithExtensions(Array.from(toolRegistry.values()), this._extensionRunner);
-			this._toolRegistry = new Map(wrappedAllTools.map((tool) => [tool.name, tool]));
+			const hookWrappedTools = wrapToolsWithEcosystemHooks(wrappedAllTools as AgentTool[], this.ctx.hookRuntime);
+			this._toolRegistry = new Map(hookWrappedTools.map((tool) => [tool.name, tool]));
 		} else {
-			this.ctx.agent.setTools(activeToolsArray);
-			this._toolRegistry = toolRegistry;
+			const hookWrappedTools = wrapToolsWithEcosystemHooks(Array.from(toolRegistry.values()), this.ctx.hookRuntime);
+			this.ctx.agent.setTools(hookWrappedTools.filter((tool) => activeToolNameSet.has(tool.name)));
+			this._toolRegistry = new Map(hookWrappedTools.map((tool) => [tool.name, tool]));
 		}
 
 		const systemPromptToolNames = Array.from(activeToolNameSet);

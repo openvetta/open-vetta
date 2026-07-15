@@ -1,0 +1,196 @@
+import type {
+	ConfiguredHookHandler,
+	HookCommandExecutor,
+	HookCompatibilityProfile,
+	HookDispatchOutcome,
+	HookHandlerOutcome,
+	HookObserver,
+	HookRequest,
+	HookRunSummary,
+} from "./types.js";
+
+export interface HookDispatcherOptions {
+	profile: HookCompatibilityProfile;
+	handlers: readonly ConfiguredHookHandler[];
+	executor: HookCommandExecutor;
+	observer?: HookObserver;
+}
+
+export class HookDispatcher {
+	private readonly profile: HookCompatibilityProfile;
+	private readonly handlers: readonly ConfiguredHookHandler[];
+	private readonly executor: HookCommandExecutor;
+	private readonly observer?: HookObserver;
+
+	constructor(options: HookDispatcherOptions) {
+		this.profile = options.profile;
+		this.handlers = options.handlers;
+		this.executor = options.executor;
+		this.observer = options.observer;
+	}
+
+	hasHandlers(eventName: HookRequest["eventName"]): boolean {
+		return this.handlers.some((handler) => handler.eventName === eventName);
+	}
+
+	async dispatch(request: HookRequest, signal?: AbortSignal): Promise<HookDispatchOutcome> {
+		const handlers = this.selectHandlers(request);
+		if (handlers.length === 0) {
+			return { ...emptyEffect(), runs: [] };
+		}
+
+		let input: string;
+		try {
+			input = this.profile.encodeInput(request);
+		} catch (error) {
+			const now = epochSeconds();
+			const message = error instanceof Error ? error.message : String(error);
+			const outcomes = handlers.map<HookHandlerOutcome>(() => ({
+				...emptyHandlerOutcome(),
+				status: "Failed",
+				entries: [{ kind: "Error", text: `failed to serialize hook input: ${message}` }],
+			}));
+			const runs = handlers.map((handler, index) => {
+				const run = this.completedSummary(handler, request, outcomes[index], {
+					startedAt: now,
+					completedAt: now,
+					durationMs: 0,
+				});
+				this.notifyCompleted(run);
+				return run;
+			});
+			return { ...this.profile.aggregate(request, outcomes), runs };
+		}
+
+		for (const handler of handlers) {
+			this.notifyStarted(this.runningSummary(handler, request));
+		}
+
+		let completionOrder = 0;
+		const results = await Promise.all(
+			handlers.map(async (handler) => {
+				const result = await this.executor.execute(
+					{
+						command: handler.command,
+						cwd: request.cwd,
+						stdin: input,
+						timeoutMs: handler.timeoutMs,
+						env: handler.env,
+					},
+					signal,
+				);
+				return { ...result, completionOrder: completionOrder++ };
+			}),
+		);
+		const outcomes = results.map((result) => this.profile.interpretResult(request, result));
+		const runs = handlers.map((handler, index) => {
+			const result = results[index];
+			const run = this.completedSummary(handler, request, outcomes[index], result);
+			this.notifyCompleted(run);
+			return run;
+		});
+
+		return { ...this.profile.aggregate(request, outcomes), runs };
+	}
+
+	private selectHandlers(request: HookRequest): ConfiguredHookHandler[] {
+		return this.handlers
+			.filter((handler) => handler.eventName === request.eventName)
+			.filter((handler) => this.profile.matches(request, handler.matcher));
+	}
+
+	private runningSummary(handler: ConfiguredHookHandler, request: HookRequest): HookRunSummary {
+		return {
+			id: runId(handler, request),
+			profileId: this.profile.id,
+			eventName: handler.eventName,
+			handlerType: "command",
+			executionMode: "sync",
+			scope: handler.eventName === "SessionStart" ? "session" : "turn",
+			sourcePath: handler.sourcePath,
+			displayOrder: handler.displayOrder,
+			status: "Running",
+			statusMessage: handler.statusMessage,
+			startedAt: epochSeconds(),
+			entries: [],
+		};
+	}
+
+	private completedSummary(
+		handler: ConfiguredHookHandler,
+		request: HookRequest,
+		outcome: HookHandlerOutcome,
+		timing: { startedAt: number; completedAt: number; durationMs: number },
+	): HookRunSummary {
+		return {
+			id: runId(handler, request),
+			profileId: this.profile.id,
+			eventName: handler.eventName,
+			handlerType: "command",
+			executionMode: "sync",
+			scope: handler.eventName === "SessionStart" ? "session" : "turn",
+			sourcePath: handler.sourcePath,
+			displayOrder: handler.displayOrder,
+			status: outcome.status,
+			statusMessage: handler.statusMessage,
+			startedAt: timing.startedAt,
+			completedAt: timing.completedAt,
+			durationMs: timing.durationMs,
+			entries: outcome.entries,
+		};
+	}
+
+	private notifyStarted(summary: HookRunSummary): void {
+		try {
+			this.observer?.onRunStarted?.(summary);
+		} catch {
+			// Observability must not change hook behavior.
+		}
+	}
+
+	private notifyCompleted(summary: HookRunSummary): void {
+		try {
+			this.observer?.onRunCompleted?.(summary);
+		} catch {
+			// Observability must not change hook behavior.
+		}
+	}
+}
+
+export function emptyEffect() {
+	return {
+		shouldStop: false,
+		shouldBlock: false,
+		additionalContexts: [],
+		continuationFragments: [],
+	};
+}
+
+export function emptyHandlerOutcome(): HookHandlerOutcome {
+	return {
+		status: "Completed",
+		entries: [],
+		shouldStop: false,
+		shouldBlock: false,
+		additionalContexts: [],
+		feedbackMessages: [],
+		continuationFragments: [],
+	};
+}
+
+function runId(handler: ConfiguredHookHandler, request: HookRequest): string {
+	const event = handler.eventName.replace(
+		/[A-Z]/g,
+		(letter, index) => `${index === 0 ? "" : "-"}${letter.toLowerCase()}`,
+	);
+	const base = `${event}:${handler.displayOrder}:${handler.sourcePath}`;
+	if (request.eventName === "PreToolUse" || request.eventName === "PostToolUse") {
+		return `${base}:${request.toolUseId}`;
+	}
+	if (request.eventName === "PermissionRequest") return `${base}:${request.runIdSuffix}`;
+	return base;
+}
+
+function epochSeconds(): number {
+	return Math.floor(Date.now() / 1000);
+}
