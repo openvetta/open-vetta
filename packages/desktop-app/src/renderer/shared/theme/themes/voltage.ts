@@ -18,7 +18,8 @@ export const voltageTheme: ThemeDef = {
 		popoverForeground: "rgb(255, 255, 255)",
 		primary: "rgb(250, 255, 105)",
 		primaryForeground: "rgb(10, 10, 10)",
-		secondary: "rgb(26, 26, 26)",
+		// secondary 略深于 muted
+		secondary: "rgb(14, 14, 14)",
 		secondaryForeground: "rgb(255, 255, 255)",
 		muted: "rgb(18, 18, 18)",
 		mutedForeground: "rgb(136, 136, 136)",
@@ -47,7 +48,8 @@ export const voltageTheme: ThemeDef = {
 		// 原荧光黄 #faff69 保留到 chart1 作为图表强调色。
 		primary: "rgb(161, 98, 7)",
 		primaryForeground: "rgb(255, 255, 255)",
-		secondary: "rgb(240, 240, 240)",
+		// secondary 略浅于 muted
+		secondary: "rgb(250, 249, 246)",
 		secondaryForeground: "rgb(10, 10, 10)",
 		muted: "rgb(244, 243, 239)",
 		mutedForeground: "rgb(90, 90, 90)",

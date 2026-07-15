@@ -43,5 +43,16 @@
 	"panel.hotReloadRunning": "Watching",
 	"panel.hotReloadError": "Hot reload error",
 	"panel.hotReloadNeedsInstall": "Apply to Vetta first",
-	"panel.busyHotReload": "Toggling hot reload…"
+	"panel.busyHotReload": "Toggling hot reload…",
+	"panel.reinstall": "Reinstall",
+	"panel.reinstallHint": "Force rebuild & re-apply (permissions/commands), then reload the whole Vetta app",
+	"panel.busyReinstall": "Reinstalling & refreshing…",
+	"card.reinstall.tabTitle": "Reinstall",
+	"card.reinstall.title": "Plugin reinstall required",
+	"card.reinstall.defaultReason": "Install-time fields (permissions / commands / settings) changed; hot reload cannot sync them.",
+	"card.reinstall.refreshHint": "This rebuilds the zip, re-applies the plugin, and reloads the entire Vetta app.",
+	"card.reinstall.action": "Reinstall & refresh app",
+	"card.reinstall.busy": "Reinstalling…",
+	"card.reinstall.pending": "Preparing reinstall prompt…",
+	"card.reinstall.missingDir": "Missing project directory; cannot reinstall"
 }

@@ -1,4 +1,4 @@
-import { DEFAULT_THEME_ID } from "@shared/theme/themes";
+import { DEFAULT_THEME_ID, resolveThemeId } from "@shared/theme/themes";
 import { atom } from "jotai";
 import type { ReactNode } from "react";
 import { type AppLanguage, FALLBACK_LANGUAGE, isSupportedLanguage } from "@/shared/i18n/config";
@@ -51,7 +51,9 @@ export type SettingsTab =
 export type ThemeMode = "light" | "dark" | "auto";
 export const themeModeAtom = atom<ThemeMode>((localStorage.getItem("vetta-theme") as ThemeMode) || "dark");
 export const resolvedThemeAtom = atom<"light" | "dark">("dark");
-export const themeNameAtom = atom<string>(localStorage.getItem("vetta-color-theme") || DEFAULT_THEME_ID);
+export const themeNameAtom = atom<string>(
+	resolveThemeId(localStorage.getItem("vetta-color-theme") || DEFAULT_THEME_ID),
+);
 export type { CursorStyle };
 export const cursorStyleAtom = atom<CursorStyle>(getStoredCursorStyle());
 
