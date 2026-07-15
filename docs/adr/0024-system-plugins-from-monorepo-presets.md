@@ -2,7 +2,7 @@
 
 需要一类**随 App 发布、用户不可删改**的插件（[[系统插件]]）。仓库已有「内置 vendor 首启拷进 `~/.vetta` 托管目录」的 seed 先例（ADR-0011），但那是因为运行时需要可写的执行位置；插件无此需要。
 
-决定：[[系统插件]]的源以 [[预置插件]]形式放在 `packages/plugins/presets/<id>/`（monorepo 内维护），但不纳入根 workspace。`packages/plugins/package.json` 定义独立的插件 workspace，将 presets 与根仓库中的 `@vetta/plugin-sdk`、`@vetta/plugin-vite` 纳入同一插件依赖图；插件开发直接链接这两个包的本地源码，但第三方依赖和锁文件由 `packages/plugins/bun.lock` 独立管理。每个插件独立构建 `release/<id>-<version>.zip`。Desktop 在开发准备和应用打包阶段都只消费 zip：校验归档路径、manifest、id/version 和入口文件后，分别解压到 `packages/desktop-app/.artifacts/system-plugins/<id>/` 与打包 staging 的 `system-plugins/<id>/`。运行时只读取解压后的只读目录，**不读取 preset 源码目录、不拷贝进 `~/.vetta`、不写 `plugins-manifest.json`**。`vetta-plugin://` 解析器按记录的 `source` 选 base 目录（打包 `process.resourcesPath/system-plugins`、dev `.artifacts/system-plugins`），`listPlugins()` 在运行时发现系统插件并与用户插件注册表合并返回。
+决定：[[系统插件]]的源以 [[预置插件]]形式放在 `packages/plugins/presets/<id>/`（monorepo 内维护），但不纳入根 workspace。`packages/plugins/package.json` 定义独立的插件 workspace，将 presets 与根仓库中的 `@vetta-org/plugin-sdk`、`@vetta-org/plugin-vite` 纳入同一插件依赖图；插件开发直接链接这两个包的本地源码，但第三方依赖和锁文件由 `packages/plugins/bun.lock` 独立管理。每个插件独立构建 `release/<id>-<version>.zip`。Desktop 在开发准备和应用打包阶段都只消费 zip：校验归档路径、manifest、id/version 和入口文件后，分别解压到 `packages/desktop-app/.artifacts/system-plugins/<id>/` 与打包 staging 的 `system-plugins/<id>/`。运行时只读取解压后的只读目录，**不读取 preset 源码目录、不拷贝进 `~/.vetta`、不写 `plugins-manifest.json`**。`vetta-plugin://` 解析器按记录的 `source` 选 base 目录（打包 `process.resourcesPath/system-plugins`、dev `.artifacts/system-plugins`），`listPlugins()` 在运行时发现系统插件并与用户插件注册表合并返回。
 
 配套语义：
 - **来源**：`InstalledPlugin.source` 新增 `"system"`，与 `"archive" | "remote"` 并列。

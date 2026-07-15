@@ -1,4 +1,4 @@
-import { useActivityTab, useTranslation } from "@vetta/plugin-sdk";
+import { useActivityTab, useTranslation } from "@vetta-org/plugin-sdk";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { initRepo, resolveRepoRoot, statusPorcelain } from "../git/run";
 import { parseStatus } from "../git/parseStatus";

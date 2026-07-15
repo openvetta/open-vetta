@@ -10,6 +10,7 @@ import {
 	editImageAttachmentAtom,
 	filePreviewAtom,
 	languageAtom,
+	persistCurrentInputActionState,
 	pluginInputActionsAtom,
 	setActivityPanelWidthAtom,
 } from "@shared/store/atoms";
@@ -36,8 +37,8 @@ import type {
 	PluginSettingsApi,
 	PluginToolCallSlotContribution,
 	PluginTurnCardContribution,
-} from "@vetta/plugin-sdk";
-import { resolveCatalogKey } from "@vetta/plugin-sdk";
+} from "@vetta-org/plugin-sdk";
+import { resolveCatalogKey } from "@vetta-org/plugin-sdk";
 import { getDefaultStore } from "jotai";
 import type { ComponentType } from "react";
 import { router } from "../../../router";
@@ -445,14 +446,32 @@ function createContext(
 		if (typeof contribution.label !== "string" || contribution.label.trim().length === 0) {
 			throw new Error("Input action label is required");
 		}
+		const userOnToggle = contribution.onToggle;
+		const hardIsolation = contribution.hardIsolation === true;
+		const namespacedId = `${plugin.id}:${contribution.id}`;
+		if (hardIsolation) {
+			// Register mode gate immediately so agent contributions stay stripped until toggle on (ADR-0041).
+			void window.vetta.plugins.registerModeGate(plugin.id);
+			// 会话恢复可能早于插件加载：若工作集已含本 action，立刻放行 contribution。
+			if (getDefaultStore().get(activeInputActionIdsAtom).has(namespacedId)) {
+				void window.vetta.plugins.setContributionMode(plugin.id, true);
+			}
+		}
 		const normalized: PluginInputActionContribution = {
-			id: `${plugin.id}:${contribution.id}`,
+			id: namespacedId,
 			label: contribution.label,
 			icon: contribution.icon,
 			defaultActive: contribution.defaultActive,
 			requiresActiveTool: contribution.requiresActiveTool,
 			scope_use: contribution.scope_use,
-			onToggle: contribution.onToggle,
+			hardIsolation,
+			onToggle: (active) => {
+				const veto = userOnToggle?.(active);
+				if (veto === false) return false;
+				if (hardIsolation) {
+					void window.vetta.plugins.setContributionMode(plugin.id, active);
+				}
+			},
 			decoratePrompt: contribution.decoratePrompt,
 		};
 		inputActions.push(normalized);
@@ -461,6 +480,9 @@ function createContext(
 			dispose: () => {
 				const index = inputActions.findIndex((action) => action.id === normalized.id);
 				if (index >= 0) inputActions.splice(index, 1);
+				if (hardIsolation) {
+					void window.vetta.plugins.setContributionMode(plugin.id, false);
+				}
 				onChanged();
 			},
 		};
@@ -567,6 +589,7 @@ function createContext(
 					for (const id of myActionIds) next.add(id);
 					return next;
 				});
+				persistCurrentInputActionState(store.get(activeSessionAtom)?.sessionPath);
 			}
 		}
 	};

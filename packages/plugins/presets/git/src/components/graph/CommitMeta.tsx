@@ -1,4 +1,4 @@
-import { useTranslation } from "@vetta/plugin-sdk";
+import { useTranslation } from "@vetta-org/plugin-sdk";
 import type { CommitNode } from "../../git/types";
 import { CopyIcon } from "../icons";
 import { CommitMessage } from "./CommitMessage";

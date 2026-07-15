@@ -1,4 +1,4 @@
-import { definePlugin, type PluginFilePreviewProps } from "@vetta/plugin-sdk";
+import { definePlugin, type PluginFilePreviewProps } from "@vetta-org/plugin-sdk";
 import { useCallback, useEffect, useRef, useState } from "react";
 import viewerJs from "./vendor/viewer-static.min.js?raw";
 import "./style.css";

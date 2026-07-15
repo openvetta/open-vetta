@@ -1,13 +1,15 @@
 import {
 	activeInputActionIdsAtom,
+	activeSessionAtom,
 	activeToolNamesAtom,
 	currentScenarioAtom,
 	knowledgeBaseEnabledAtom,
 	knowledgeRetrievalActiveAtom,
+	persistInputActionStateForSession,
 	pluginInputActionsAtom,
 	type RegisteredInputAction,
 } from "@shared/store/atoms";
-import type { ConversationScenario } from "@vetta/plugin-sdk";
+import type { ConversationScenario } from "@vetta-org/plugin-sdk";
 import { useAtom, useAtomValue } from "jotai";
 import { type ReactNode, useCallback } from "react";
 import { useTranslation } from "react-i18next";
@@ -62,6 +64,7 @@ export function useInputActionBarModel(): InputActionBarModel {
 	const knowledgeBaseEnabled = useAtomValue(knowledgeBaseEnabledAtom);
 	const activeTools = useAtomValue(activeToolNamesAtom);
 	const currentScenario = useAtomValue(currentScenarioAtom);
+	const sessionPath = useAtomValue(activeSessionAtom)?.sessionPath || null;
 	const showKnowledge = knowledgeBaseEnabled && knowledgeVisible(activeTools);
 	const visibleActions = allActions.filter((action) => actionVisible(action, activeTools, currentScenario));
 
@@ -73,22 +76,32 @@ export function useInputActionBarModel(): InputActionBarModel {
 			const willActivate = !activeIds.has(actionId);
 			if (willActivate && action.onToggle?.(true) === false) return;
 			if (!willActivate) action.onToggle?.(false);
-			setActiveIds((previousIds) => {
-				const nextIds = new Set(previousIds);
-				if (willActivate) nextIds.add(actionId);
-				else nextIds.delete(actionId);
-				return nextIds;
-			});
+			const nextIds = new Set(activeIds);
+			if (willActivate) nextIds.add(actionId);
+			else nextIds.delete(actionId);
+			setActiveIds(nextIds);
+			if (sessionPath) {
+				persistInputActionStateForSession(sessionPath, {
+					actionIds: [...nextIds],
+					knowledgeRetrieval: knowledgeActive,
+				});
+			}
 			recordInputActionToggled("plugin", actionId, willActivate);
 		},
-		[activeIds, allActions, setActiveIds],
+		[activeIds, allActions, knowledgeActive, sessionPath, setActiveIds],
 	);
 
 	const toggleKnowledge = useCallback(() => {
 		const willActivate = !knowledgeActive;
 		setKnowledgeActive(willActivate);
+		if (sessionPath) {
+			persistInputActionStateForSession(sessionPath, {
+				actionIds: [...activeIds],
+				knowledgeRetrieval: willActivate,
+			});
+		}
 		recordInputActionToggled("builtin", BUILTIN_KNOWLEDGE_RETRIEVAL_ACTION_ID, willActivate);
-	}, [knowledgeActive, setKnowledgeActive]);
+	}, [activeIds, knowledgeActive, sessionPath, setKnowledgeActive]);
 
 	return {
 		actions: {

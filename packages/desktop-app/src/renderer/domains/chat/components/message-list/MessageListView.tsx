@@ -1,7 +1,10 @@
+import { activeSessionAtom } from "@shared/store/atoms";
 import { MessageListView as ThemeMessageListView, VirtuosoListContainer } from "@vetta/theme-ui/chat";
-import { forwardRef, useCallback, useMemo } from "react";
+import { useAtomValue } from "jotai";
+import { useCallback, useMemo } from "react";
 import { Virtuoso } from "react-virtuoso";
 import { SuggestionBubbles } from "../SuggestionBubbles";
+import { ForkOriginBanner, resolveForkOriginPlacement } from "./ForkOriginBanner";
 import { MessageItem, ModelSwitchBoundary, ExportMessageList } from "./MessageItem";
 import { MessageListFooter } from "./MessageListFooter";
 import type { ChatMessage, MessageListModel, MessageListProps } from "./types";
@@ -32,47 +35,69 @@ export function MessageListView({
 		showWaiting,
 		tailMessageId,
 	} = model;
+	const activeSession = useAtomValue(activeSessionAtom);
+	const forkOriginPlacement = useMemo(
+		() =>
+			resolveForkOriginPlacement(
+				messages,
+				activeSession?.parentEntryId,
+				Boolean(activeSession?.parentSessionPath),
+			),
+		[activeSession?.parentEntryId, activeSession?.parentSessionPath, messages],
+	);
 	const lastUserMessageId = useMemo(() => {
 		const lastUser = [...messages].reverse().find((m) => m.role === "user");
 		return lastUser?.id ?? null;
 	}, [messages]);
 	const itemContent = useCallback(
-		(index: number, message: ChatMessage) => (
-			<div
-				className={
-					index === messages.length - 1 && message.role === "user" ? "pb-9" : "pb-5"
-				}
-			>
-				{modelSwitchLabels.has(message.id) && (
-					<ModelSwitchBoundary label={modelSwitchLabels.get(message.id) as string} />
-				)}
-				<MessageItem
-					message={message}
-					isTailMessage={message.id === tailMessageId}
-					isStreaming={isStreaming}
-					isLastUserMessage={message.id === lastUserMessageId}
-					hasAssistantAfter={
-						index < messages.length - 1 &&
-						messages.slice(index + 1).some((m) => m.role !== "user")
+		(index: number, message: ChatMessage) => {
+			const showForkOrigin = forkOriginPlacement?.anchorIndex === index;
+			const sourceUser =
+				showForkOrigin && forkOriginPlacement
+					? messages[forkOriginPlacement.sourceUserIndex]
+					: undefined;
+			return (
+				<div
+					data-entry-id={message.entryId ?? message.id}
+					className={
+						index === messages.length - 1 && message.role === "user" && !showForkOrigin
+							? "pb-9"
+							: "pb-5"
 					}
-					userMessageEntryState={
-						message.id === scroll.activeUserAnimationId
-							? "enter"
-							: message.id === scroll.pendingUserAnimationId ||
-									message.id === scroll.enteringUserMessageId
-								? "hidden"
-								: "static"
-					}
-					onUserMessageEntryComplete={
-						message.id === scroll.activeUserAnimationId
-							? scroll.onUserMessageEntryComplete
-							: undefined
-					}
-					onAbortEdit={onAbort}
-				/>
-			</div>
-		),
+				>
+					{modelSwitchLabels.has(message.id) && (
+						<ModelSwitchBoundary label={modelSwitchLabels.get(message.id) as string} />
+					)}
+					<MessageItem
+						message={message}
+						isTailMessage={message.id === tailMessageId}
+						isStreaming={isStreaming}
+						isLastUserMessage={message.id === lastUserMessageId}
+						hasAssistantAfter={
+							index < messages.length - 1 &&
+							messages.slice(index + 1).some((m) => m.role !== "user")
+						}
+						userMessageEntryState={
+							message.id === scroll.activeUserAnimationId
+								? "enter"
+								: message.id === scroll.pendingUserAnimationId ||
+										message.id === scroll.enteringUserMessageId
+									? "hidden"
+									: "static"
+						}
+						onUserMessageEntryComplete={
+							message.id === scroll.activeUserAnimationId
+								? scroll.onUserMessageEntryComplete
+								: undefined
+						}
+						onAbortEdit={onAbort}
+					/>
+					{showForkOrigin ? <ForkOriginBanner sourceMessage={sourceUser} /> : null}
+				</div>
+			);
+		},
 		[
+			forkOriginPlacement,
 			isStreaming,
 			lastUserMessageId,
 			messages.length,

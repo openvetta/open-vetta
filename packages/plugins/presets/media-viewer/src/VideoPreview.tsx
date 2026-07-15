@@ -1,4 +1,4 @@
-import { type PluginPreviewFile, useTranslation } from "@vetta/plugin-sdk";
+import { type PluginPreviewFile, useTranslation } from "@vetta-org/plugin-sdk";
 import type { JSX } from "react";
 import { useEffect, useState } from "react";
 import { versionedUrl } from "./utils";

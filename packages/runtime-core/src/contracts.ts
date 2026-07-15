@@ -516,6 +516,10 @@ export interface SessionStateSnapshot {
 	 * coding-agent 的 DEFAULT_SCENARIO（"cli"）。
 	 */
 	scenario: ConversationScenario;
+	/** Parent session jsonl path when this session was forked. */
+	parentSessionPath?: string;
+	/** User entry id in the parent session this fork was created from. */
+	parentEntryId?: string;
 }
 
 export interface ProjectInfo {
@@ -532,6 +536,10 @@ export interface SessionHistoryInfo {
 	modifiedAt: number;
 	/** Trimmed preview (~120 chars) of the most recent user/assistant message text. */
 	lastMessagePreview?: string;
+	/** Parent session jsonl path when this session was forked. */
+	parentSessionPath?: string;
+	/** User entry id in the parent session this fork was created from. */
+	parentEntryId?: string;
 }
 
 export type SessionExecutionMode = "sandbox" | "full-access";

@@ -1,4 +1,4 @@
-import type { PluginCommandApi } from "@vetta/plugin-sdk";
+import type { PluginCommandApi } from "@vetta-org/plugin-sdk";
 import type { ChangeCode, TurnChangeDelta } from "./types";
 
 /**

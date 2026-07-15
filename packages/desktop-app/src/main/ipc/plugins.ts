@@ -20,14 +20,17 @@ import {
 	grantPluginCommands,
 	grantPluginPermissions,
 	installPluginFromArchive,
+	installPluginFromPath,
 	installPluginFromUrl,
 	listPlugins,
 	registerDynamicAgentTool,
 	registerDynamicContinuationProvider,
 	registerDynamicSystemPromptProvider,
+	registerPluginModeGate,
 	reloadPlugin,
 	revokePluginCommands,
 	revokePluginPermissions,
+	setPluginContributionMode,
 	setPluginEnabled,
 	setPluginSettings,
 	summarizeAgentPluginRuntimeConfig,
@@ -52,7 +55,8 @@ function asOptions(value: unknown): PluginInstallOptions | undefined {
 		Array.isArray(input.grantedPermissions) && input.grantedPermissions.every((item) => typeof item === "string")
 			? (input.grantedPermissions as PluginPermission[])
 			: undefined;
-	return { source, grantedPermissions };
+	const enable = input.enable === true ? true : input.enable === false ? false : undefined;
+	return { source, grantedPermissions, enable };
 }
 
 function asPluginId(value: unknown): string {
@@ -272,6 +276,26 @@ export function registerPluginsIpc(): () => void {
 			return plugin;
 		});
 	});
+	ipcMain.handle("vetta:plugins:install-from-path", async (_event, path: unknown, options: unknown) => {
+		if (typeof path !== "string" || path.trim().length === 0) {
+			throw new Error("Invalid plugin path");
+		}
+		const plugin = await installPluginFromPath(path.trim(), asOptions(options));
+		recordPluginResourceEvent({
+			plugin,
+			operation: isFreshPluginInstall(plugin) ? "installed" : "updated",
+		});
+		refreshAgentPlugins();
+		return plugin;
+	});
+	ipcMain.handle("vetta:plugins:register-mode-gate", (_event, id: unknown) => {
+		registerPluginModeGate(asPluginId(id));
+		refreshAgentPlugins();
+	});
+	ipcMain.handle("vetta:plugins:set-contribution-mode", (_event, id: unknown, active: unknown) => {
+		setPluginContributionMode(asPluginId(id), active === true);
+		refreshAgentPlugins();
+	});
 	ipcMain.handle("vetta:plugins:uninstall", (_event, id: unknown) => {
 		const pluginId = asPluginId(id);
 		const plugin = listPlugins().find((candidate) => candidate.id === pluginId);
@@ -467,6 +491,9 @@ export function registerPluginsIpc(): () => void {
 		ipcMain.removeHandler("vetta:plugins:list");
 		ipcMain.removeHandler("vetta:plugins:install-from-archive");
 		ipcMain.removeHandler("vetta:plugins:install-from-url");
+		ipcMain.removeHandler("vetta:plugins:install-from-path");
+		ipcMain.removeHandler("vetta:plugins:register-mode-gate");
+		ipcMain.removeHandler("vetta:plugins:set-contribution-mode");
 		ipcMain.removeHandler("vetta:plugins:uninstall");
 		ipcMain.removeHandler("vetta:plugins:set-enabled");
 		ipcMain.removeHandler("vetta:plugins:grant-permissions");

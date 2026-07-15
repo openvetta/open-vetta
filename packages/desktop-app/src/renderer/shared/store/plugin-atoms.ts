@@ -8,8 +8,8 @@ import type {
 	PluginLocales,
 	PluginToolCallSlotContribution,
 	PluginTurnCardContribution,
-} from "@vetta/plugin-sdk";
-import { atom } from "jotai";
+} from "@vetta-org/plugin-sdk";
+import { atom, getDefaultStore } from "jotai";
 
 /** A loaded plugin's i18n catalogs + fallback locale, keyed by plugin id. */
 export interface PluginI18nEntry {
@@ -71,6 +71,8 @@ export interface RegisteredInputAction {
 	requiresActiveTool?: PluginInputActionContribution["requiresActiveTool"];
 	/** 允许出现的对话场景（fail-closed：缺省/空 = 任何会话都不显示）。见契约。 */
 	scope_use?: PluginInputActionContribution["scope_use"];
+	/** When true, hide this plugin's activity tabs while the toggle is off (ADR-0041). */
+	hardIsolation?: boolean;
 	onToggle?: PluginInputActionContribution["onToggle"];
 	decoratePrompt?: PluginInputActionContribution["decoratePrompt"];
 }
@@ -78,7 +80,11 @@ export interface RegisteredInputAction {
 /** Input-action toggles shown beneath the AI input bar, published by PluginGlobalSlotHost. */
 export const pluginInputActionsAtom = atom<RegisteredInputAction[]>([]);
 
-/** The set of currently-active (toggled-on) input action ids. */
+/**
+ * 当前「正在查看」会话的 input-action 工作集（插件 toggle ids）。
+ * 按会话隔离的真相源是 {@link sessionInputActionStateMapAtom}；本 atom 只是
+ * 当前会话的投影，供发送 / Activity 硬隔离 / InputActionBar 读取。
+ */
 export const activeInputActionIdsAtom = atom<Set<string>>(new Set<string>());
 
 /**
@@ -86,9 +92,146 @@ export const activeInputActionIdsAtom = atom<Set<string>>(new Set<string>());
  * `metadata.knowledgeMode`：input-pipeline 对本轮暴露 kb-read 工具并注入
  * 仅模型可见的「优先查询知识库」提示。未开启时本轮剥离 kb-read 工具
  * （`kb_list_available_tags` / `kb_filter_by_tags`），agent 无法调用。
- * 切换会话时重置。
+ * 与插件 input-action 一样按会话独立持久化（见 sessionInputActionStateMapAtom）。
  */
 export const knowledgeRetrievalActiveAtom = atom<boolean>(false);
+
+/** 单会话 AI 输入栏 toggle 持久化快照。 */
+export interface SessionInputActionState {
+	/** Active plugin input-action ids（namespaced `${pluginId}:${id}`）。 */
+	actionIds: string[];
+	/** 宿主内置「知识检索」开关。 */
+	knowledgeRetrieval: boolean;
+}
+
+export const SESSION_INPUT_ACTIONS_STORAGE_KEY = "vetta-session-input-actions";
+
+function normalizeSessionInputActionState(raw: unknown): SessionInputActionState | null {
+	if (raw == null || typeof raw !== "object") return null;
+	const record = raw as Record<string, unknown>;
+	const actionIds = Array.isArray(record.actionIds)
+		? record.actionIds.filter((id): id is string => typeof id === "string" && id.length > 0)
+		: [];
+	return {
+		actionIds,
+		knowledgeRetrieval: record.knowledgeRetrieval === true,
+	};
+}
+
+function loadSessionInputActionStateMap(): Record<string, SessionInputActionState> {
+	try {
+		const raw = localStorage.getItem(SESSION_INPUT_ACTIONS_STORAGE_KEY);
+		if (!raw) return {};
+		const parsed: unknown = JSON.parse(raw);
+		if (parsed == null || typeof parsed !== "object") return {};
+		const map: Record<string, SessionInputActionState> = {};
+		for (const [sessionPath, value] of Object.entries(parsed)) {
+			if (!sessionPath) continue;
+			const state = normalizeSessionInputActionState(value);
+			if (!state) continue;
+			// 跳过全空条目，避免 map 无限膨胀。
+			if (state.actionIds.length === 0 && !state.knowledgeRetrieval) continue;
+			map[sessionPath] = state;
+		}
+		return map;
+	} catch {
+		return {};
+	}
+}
+
+const sessionInputActionStateMapBaseAtom = atom<Record<string, SessionInputActionState>>(
+	loadSessionInputActionStateMap(),
+);
+
+/**
+ * sessionPath → 该会话 AI 输入栏 toggle 状态。写入时同步 localStorage，
+ * 刷新 / 切页 / 切会话后可恢复（runtimeId 进程内才有效，故用 sessionPath）。
+ */
+export const sessionInputActionStateMapAtom = atom(
+	(get) => get(sessionInputActionStateMapBaseAtom),
+	(_get, set, next: Record<string, SessionInputActionState>) => {
+		set(sessionInputActionStateMapBaseAtom, next);
+		try {
+			localStorage.setItem(SESSION_INPUT_ACTIONS_STORAGE_KEY, JSON.stringify(next));
+		} catch {
+			// private mode / quota — 内存态仍可用
+		}
+	},
+);
+
+export function emptySessionInputActionState(): SessionInputActionState {
+	return { actionIds: [], knowledgeRetrieval: false };
+}
+
+/** 快照当前工作集（activeInputActionIds + knowledgeRetrieval）。 */
+export function captureInputActionWorkingState(): SessionInputActionState {
+	const store = getDefaultStore();
+	return {
+		actionIds: [...store.get(activeInputActionIdsAtom)],
+		knowledgeRetrieval: store.get(knowledgeRetrievalActiveAtom),
+	};
+}
+
+/**
+ * 把 hardIsolation 插件的 contribution mode 同步到「当前工作集」。
+ * 进程级 gate（main `activeContributionModeIds`）只应反映当前可见会话。
+ */
+export function syncHardIsolationContributionModes(activeIds: ReadonlySet<string>): void {
+	const store = getDefaultStore();
+	const byPlugin = new Map<string, boolean>();
+	for (const action of store.get(pluginInputActionsAtom)) {
+		if (!action.hardIsolation) continue;
+		const on = activeIds.has(action.actionId);
+		byPlugin.set(action.pluginId, (byPlugin.get(action.pluginId) ?? false) || on);
+	}
+	for (const [pluginId, active] of byPlugin) {
+		void window.vetta.plugins.setContributionMode(pluginId, active);
+	}
+}
+
+/** 写入当前工作集 atom，并同步 hardIsolation contribution mode。 */
+export function applyInputActionWorkingState(state: SessionInputActionState): void {
+	const store = getDefaultStore();
+	store.set(activeInputActionIdsAtom, new Set(state.actionIds));
+	store.set(knowledgeRetrievalActiveAtom, state.knowledgeRetrieval);
+	syncHardIsolationContributionModes(new Set(state.actionIds));
+}
+
+export function loadInputActionStateForSession(sessionPath: string): SessionInputActionState {
+	if (!sessionPath) return emptySessionInputActionState();
+	return getDefaultStore().get(sessionInputActionStateMapAtom)[sessionPath] ?? emptySessionInputActionState();
+}
+
+/** 将状态写入 map（空状态则删键）；sessionPath 为空时 no-op。 */
+export function persistInputActionStateForSession(sessionPath: string, state: SessionInputActionState): void {
+	if (!sessionPath) return;
+	const store = getDefaultStore();
+	const prev = store.get(sessionInputActionStateMapAtom);
+	const isEmpty = state.actionIds.length === 0 && !state.knowledgeRetrieval;
+	if (isEmpty) {
+		if (!(sessionPath in prev)) return;
+		const next = { ...prev };
+		delete next[sessionPath];
+		store.set(sessionInputActionStateMapAtom, next);
+		return;
+	}
+	const existing = prev[sessionPath];
+	if (
+		existing &&
+		existing.knowledgeRetrieval === state.knowledgeRetrieval &&
+		existing.actionIds.length === state.actionIds.length &&
+		existing.actionIds.every((id, index) => id === state.actionIds[index])
+	) {
+		return;
+	}
+	store.set(sessionInputActionStateMapAtom, { ...prev, [sessionPath]: state });
+}
+
+/** 把当前工作集落到指定 sessionPath（toggle / 切会话时调用）。 */
+export function persistCurrentInputActionState(sessionPath: string | null | undefined): void {
+	if (!sessionPath) return;
+	persistInputActionStateForSession(sessionPath, captureInputActionWorkingState());
+}
 
 /**
  * 知识库总开关（镜像 desktop config 的 knowledgeBase.enabled，缺省关）。

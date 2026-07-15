@@ -170,6 +170,20 @@ if (entries.length === 0) {
 	process.exit(0);
 }
 
+// 在算缓存哈希 / 构建之前：把 monorepo docs/plugin 同步进 plugin-workbench 包内，
+// 这样 dev（build:presets:dev）与 dist（build → build:presets）都会带上最新手册，
+// 且同步结果参与下方 hashDirectory，docs 变更会自然触发 rebuild。
+const pluginWorkbenchDir = join(presetsDir, "plugin-workbench");
+const pluginWorkbenchSyncScript = join(pluginWorkbenchDir, "scripts", "sync-plugin-docs.mjs");
+if (entries.includes("plugin-workbench") && existsSync(pluginWorkbenchSyncScript)) {
+	await run(
+		process.execPath,
+		[pluginWorkbenchSyncScript],
+		pluginWorkbenchDir,
+		"同步 plugin-workbench 插件开发手册 (docs/plugin → agent/docs/plugin)",
+	);
+}
+
 const cache = await readCache();
 const installHash = await hashFiles([join(pluginWorkspaceDir, "package.json"), join(pluginWorkspaceDir, "bun.lock")]);
 const workspaceNodeModulesDirs = [

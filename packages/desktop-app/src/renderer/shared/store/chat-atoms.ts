@@ -1,4 +1,4 @@
-import type { CardDescriptor } from "@vetta/plugin-sdk";
+import type { CardDescriptor } from "@vetta-org/plugin-sdk";
 import { atom } from "jotai";
 import { runningSessionPathsAtom } from "./running-sessions-atoms";
 
@@ -200,7 +200,18 @@ export interface ActiveSession {
 	cwd: string;
 	sessionPath: string;
 	runtimeId: string;
+	/** Parent session jsonl path when this session was forked. */
+	parentSessionPath?: string;
+	/** User entry id in the parent session this fork was created from. */
+	parentEntryId?: string;
 }
+
+/** After opening a parent session from a fork banner, scroll to this entry. */
+export interface PendingScrollToEntry {
+	entryId: string;
+}
+
+export const pendingScrollToEntryAtom = atom<PendingScrollToEntry | null>(null);
 
 export interface LastActiveSession {
 	cwd: string;

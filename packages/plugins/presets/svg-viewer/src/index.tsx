@@ -1,4 +1,4 @@
-import { definePlugin, type PluginFilePreviewProps, useTranslation } from "@vetta/plugin-sdk";
+import { definePlugin, type PluginFilePreviewProps, useTranslation } from "@vetta-org/plugin-sdk";
 import { useEffect, useMemo, useState } from "react";
 import "./style.css";
 

@@ -1,5 +1,5 @@
 import type { ModuleFederation } from "@module-federation/enhanced/runtime";
-import * as pluginSdk from "@vetta/plugin-sdk";
+import * as pluginSdk from "@vetta-org/plugin-sdk";
 import * as React from "react";
 import * as jsxDevRuntime from "react/jsx-dev-runtime";
 import * as jsxRuntime from "react/jsx-runtime";
@@ -14,7 +14,7 @@ export interface PluginSharedModule {
 }
 
 export const pluginSharedModules = {
-	"@vetta/plugin-sdk": {
+	"@vetta-org/plugin-sdk": {
 		module: pluginSdk,
 		version: "1.0.0",
 		singleton: true,

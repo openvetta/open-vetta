@@ -1,4 +1,4 @@
-import { useTranslation } from "@vetta/plugin-sdk";
+import { useTranslation } from "@vetta-org/plugin-sdk";
 import { useMemo } from "react";
 import { parseDiff } from "../git/parseDiff";
 

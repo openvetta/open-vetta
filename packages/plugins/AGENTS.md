@@ -46,6 +46,10 @@ VETTA_TENANT=tenant-b bun run build
 租户的 zip 制品打入 `Resources/system-plugins`。同一次构建务必使用一致的
 `VETTA_TENANT`，否则打包阶段会因缺少对应 zip 而报错。
 
+若租户包含 `plugin-workbench`，`build-presets.mjs` 在算缓存哈希之前会先跑
+`presets/plugin-workbench/scripts/sync-plugin-docs.mjs`，将 monorepo
+`docs/plugin` 同步到该插件包内 `agent/docs/plugin/`（dev / dist 共用此路径）。
+
 ## Preset 与外置插件的区别
 
 | 项目 | Preset 系统插件 | 外置插件 |
@@ -56,7 +60,7 @@ VETTA_TENANT=tenant-b bun run build
 | 安装方式 | 随 Desktop 发布，不需要用户安装 | 构建 zip 后由用户安装 |
 | 开发加载 | 构建 zip 后解压到 Desktop `.artifacts/system-plugins` | 从 `~/.vetta/plugins` 读取已安装版本 |
 | App 打包 | 从 `release/<id>-<version>.zip` 解压到 `Resources/system-plugins` | 不随 App 打包 |
-| 插件制品 | `@vetta/plugin-vite` 在构建后生成 zip | `@vetta/plugin-vite` 在构建后生成安装 zip |
+| 插件制品 | `@vetta-org/plugin-vite` 在构建后生成 zip | `@vetta-org/plugin-vite` 在构建后生成安装 zip |
 | 权限 | manifest 中声明的权限自动授予，不可撤销 | 安装后由用户授权 |
 | 生命周期 | 默认启用，可停用，不可卸载，版本随 App | 可安装、更新、重载和卸载 |
 
@@ -106,8 +110,8 @@ Preset 和 external 插件不纳入根 workspace，而是纳入
   "devDependencies": {
     "@types/react": "^19.1.1",
     "@types/react-dom": "^19.1.1",
-    "@vetta/plugin-sdk": "workspace:*",
-    "@vetta/plugin-vite": "workspace:*",
+    "@vetta-org/plugin-sdk": "workspace:*",
+    "@vetta-org/plugin-vite": "workspace:*",
     "react": "19.1.1",
     "react-dom": "19.1.1"
   }
@@ -167,7 +171,7 @@ Preset 和 external 插件不纳入根 workspace，而是纳入
 ### Vite 配置
 
 ```ts
-import { vettaPluginFederation } from "@vetta/plugin-vite";
+import { vettaPluginFederation } from "@vetta-org/plugin-vite";
 import { defineConfig } from "vite";
 
 export default defineConfig({
@@ -180,7 +184,7 @@ export default defineConfig({
 });
 ```
 
-React、React DOM 和 `@vetta/plugin-sdk` 由宿主共享。模块顶层禁止创建
+React、React DOM 和 `@vetta-org/plugin-sdk` 由宿主共享。模块顶层禁止创建
 依赖共享模块的 JSX；将 JSX 放在组件或 `activate()` 内。
 
 ## 安装、构建与验证
@@ -218,7 +222,7 @@ bun run check
   `packages/plugins/externals/<id>/`。
 - 根 workspace 不包含 preset 或 external 插件。
 - `packages/plugins/bun.lock` 已更新。
-- `@vetta/plugin-sdk` 和 `@vetta/plugin-vite` 使用 `workspace:*`，或使用
+- `@vetta-org/plugin-sdk` 和 `@vetta-org/plugin-vite` 使用 `workspace:*`，或使用
   可由当前本地包满足且已按发布场景验证的 semver。
 - `dist/`、`release/`、`node_modules/` 已加入 `.gitignore`，没有提交。
 - `plugin.json` 的入口与实际构建产物一致。

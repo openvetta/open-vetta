@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { cp, mkdir, readdir, rm } from "node:fs/promises";
-import { dirname, join, normalize, resolve } from "node:path";
+import { cp, mkdir, readdir, readFile, rm } from "node:fs/promises";
+import { dirname, isAbsolute, join, normalize, resolve } from "node:path";
 import { getVettaHomePath } from "@vetta/action-rpc";
 import type {
 	AgentPluginContinuationContribution,
@@ -13,7 +13,7 @@ import type {
 	SystemPromptOperation,
 } from "@vetta/runtime-core";
 import AdmZip from "adm-zip";
-import { app } from "electron";
+import { app, webContents } from "electron";
 import type {
 	InstalledPlugin,
 	PluginAgentManifest,
@@ -48,6 +48,25 @@ const pluginLog = getAppLogger("plugin");
 const dynamicAgentTools = new Map<string, Map<string, RegisteredAgentTool>>();
 const dynamicContinuationProviders = new Map<string, Map<string, RegisteredContinuationProvider>>();
 const dynamicSystemPromptProviders = new Map<string, Map<string, RegisteredSystemPromptProvider>>();
+/** Plugins that hard-isolate agent contributions until contribution mode is on (ADR-0041). */
+const modeGatedPluginIds = new Set<string>();
+/** Subset of mode-gated plugins currently active (toggle on). */
+const activeContributionModeIds = new Set<string>();
+
+/**
+ * Tell every renderer to re-list and re-load plugins (MF remotes + activity tabs).
+ * Without this, install/enable via Action or workbench leaves the UI on the pre-install set.
+ */
+export function broadcastPluginsChanged(): void {
+	for (const contents of webContents.getAllWebContents()) {
+		if (contents.isDestroyed()) continue;
+		try {
+			contents.send("vetta:plugins:changed");
+		} catch {
+			// ignore gone frames
+		}
+	}
+}
 const dynamicAgentActivations = new Map<string, string>();
 
 function debugPluginAgent(message: string, data?: Record<string, unknown>): void {
@@ -319,6 +338,8 @@ function readRegistry(): PluginManifestFile {
 			plugin.activeVersion ??= plugin.version;
 			plugin.defaultLocale ??= "zh";
 			plugin.locales ??= {};
+			plugin.source ??= "archive";
+			plugin.rootPath = computePluginRootPath(plugin.id, plugin.source, plugin.activeVersion);
 		}
 		return registry;
 	} catch {
@@ -485,6 +506,18 @@ function parseManifest(raw: unknown): PluginManifest {
 		guidingWords:
 			input.guidingWords === undefined ? undefined : assertStringArray(input.guidingWords, "guidingWords"),
 		defaultLocale: parseDefaultLocale(input.defaultLocale),
+		contributionMode: parseContributionMode(input.contributionMode),
+	};
+}
+
+function parseContributionMode(raw: unknown): PluginManifest["contributionMode"] {
+	if (raw === undefined) return undefined;
+	if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
+		throw new Error("Invalid plugin contributionMode");
+	}
+	const input = raw as Record<string, unknown>;
+	return {
+		hardIsolation: input.hardIsolation === true,
 	};
 }
 
@@ -655,12 +688,13 @@ function installedFromManifest(
 		guidingWords: manifest.guidingWords,
 		defaultLocale: manifest.defaultLocale ?? "zh",
 		locales,
-		enabled: previous?.enabled ?? false,
+		enabled: options?.enable === true ? true : (previous?.enabled ?? false),
 		installedAt: previous?.installedAt ?? now,
 		updatedAt: now,
 		source: options?.source ?? "archive",
 		availableVersion: previous && previous.version !== manifest.version ? manifest.version : undefined,
 		pendingVersion: previous && previous.version !== manifest.version ? manifest.version : undefined,
+		rootPath: computePluginRootPath(manifest.id, options?.source ?? "archive", activeVersion),
 	};
 }
 
@@ -712,6 +746,31 @@ function systemPluginsBaseDir(): string {
 	return app.isPackaged
 		? join(process.resourcesPath, "system-plugins")
 		: join(process.cwd(), ".artifacts", "system-plugins");
+}
+
+function computePluginRootPath(pluginId: string, source: InstalledPlugin["source"], activeVersion: string): string {
+	if (source === "system") {
+		return join(systemPluginsBaseDir(), pluginId);
+	}
+	return join(pluginsBaseDir, pluginId, "versions", activeVersion);
+}
+
+/** ADR-0041: mode-gated plugins contribute only while their contribution mode is active. */
+export function isPluginContributionModeActive(pluginId: string): boolean {
+	if (!modeGatedPluginIds.has(pluginId)) return true;
+	return activeContributionModeIds.has(pluginId);
+}
+
+export function registerPluginModeGate(pluginId: string): void {
+	validatePluginId(pluginId);
+	modeGatedPluginIds.add(pluginId);
+}
+
+export function setPluginContributionMode(pluginId: string, active: boolean): void {
+	validatePluginId(pluginId);
+	modeGatedPluginIds.add(pluginId);
+	if (active) activeContributionModeIds.add(pluginId);
+	else activeContributionModeIds.delete(pluginId);
 }
 
 function readSystemPrefs(): SystemPluginPrefs {
@@ -774,8 +833,12 @@ function readPromptBlock(
 }
 
 export function buildAgentPluginRuntimeConfig(): AgentPluginRuntimeConfig | undefined {
-	const enabledPlugins = listPlugins().filter((plugin) => plugin.enabled && plugin.agent);
-	const enabledToolPlugins = listPlugins().filter((plugin) => plugin.enabled);
+	const enabledPlugins = listPlugins().filter(
+		(plugin) => plugin.enabled && plugin.agent && isPluginContributionModeActive(plugin.id),
+	);
+	const enabledToolPlugins = listPlugins().filter(
+		(plugin) => plugin.enabled && isPluginContributionModeActive(plugin.id),
+	);
 	debugPluginAgent("build runtime config start", {
 		agentPlugins: enabledPlugins.map((plugin) => plugin.id),
 		enabledPlugins: enabledToolPlugins.map((plugin) => plugin.id),
@@ -1124,6 +1187,7 @@ function systemInstalledFromManifest(
 		installedAt: now,
 		updatedAt: now,
 		source: "system",
+		rootPath: computePluginRootPath(manifest.id, "system", manifest.version),
 	};
 }
 
@@ -1149,6 +1213,10 @@ export function discoverSystemPlugins(force = false): InstalledPlugin[] {
 				if (!existsSync(join(dir, manifest.entry))) {
 					pluginLog.warn(`discover: 跳过 ${manifest.id}：staging 缺少入口 (${manifest.entry})`);
 					continue;
+				}
+				if (manifest.contributionMode?.hardIsolation) {
+					// Gate before renderer activate so skills/MCP never leak on cold start (ADR-0041).
+					modeGatedPluginIds.add(manifest.id);
 				}
 				result.push(
 					systemInstalledFromManifest(
@@ -1247,9 +1315,22 @@ export async function installPluginFromArchive(
 		const registry = readRegistry();
 		const previous = registry[manifest.id];
 		await copyExtractedPlugin(sourceDir, manifest.id, manifest.version);
-		const installed = installedFromManifest(manifest, options, previous, loadPluginLocales(sourceDir));
+		let installed = installedFromManifest(manifest, options, previous, loadPluginLocales(sourceDir));
+		// Fresh install with explicit grants: if caller passed permissions, keep them.
+		// ADR-0042 agent path typically grants all declared permissions at approve time.
+		if (options?.grantedPermissions && options.grantedPermissions.length > 0) {
+			const allowed = new Set(manifest.permissions ?? []);
+			installed = {
+				...installed,
+				grantedPermissions: options.grantedPermissions.filter((p) => allowed.has(p)),
+			};
+		}
+		if (manifest.contributionMode?.hardIsolation) {
+			modeGatedPluginIds.add(manifest.id);
+		}
 		registry[manifest.id] = installed;
 		writeRegistry(registry);
+		broadcastPluginsChanged();
 		return installed;
 	} finally {
 		await rm(extractDir, { recursive: true, force: true }).catch(() => {});
@@ -1269,6 +1350,25 @@ export async function installPluginFromUrl(url: string, options?: PluginInstallO
 	return installPluginFromArchive(buffer, { ...options, source: "remote" });
 }
 
+/** Install from a local zip path (ADR-0042). */
+export async function installPluginFromPath(
+	filePath: string,
+	options?: PluginInstallOptions,
+): Promise<InstalledPlugin> {
+	if (typeof filePath !== "string" || filePath.trim().length === 0) {
+		throw new Error("Plugin path is required");
+	}
+	const resolved = isAbsolute(filePath) ? filePath : resolve(filePath);
+	if (!existsSync(resolved)) {
+		throw new Error(`Plugin archive not found: ${resolved}`);
+	}
+	if (!resolved.toLowerCase().endsWith(".zip")) {
+		throw new Error("Plugin path must be a .zip archive");
+	}
+	const buffer = await readFile(resolved);
+	return installPluginFromArchive(buffer, { ...options, source: options?.source ?? "archive" });
+}
+
 export function uninstallPlugin(id: string): void {
 	validatePluginId(id);
 	if (isSystemPluginId(id)) throw new Error(`Cannot uninstall a system plugin: ${id}`);
@@ -1276,6 +1376,7 @@ export function uninstallPlugin(id: string): void {
 	delete registry[id];
 	writeRegistry(registry);
 	rmSync(join(pluginsBaseDir, id), { recursive: true, force: true });
+	broadcastPluginsChanged();
 }
 
 export function setPluginEnabled(id: string, enabled: boolean): InstalledPlugin {
@@ -1287,6 +1388,7 @@ export function setPluginEnabled(id: string, enabled: boolean): InstalledPlugin 
 		writeSystemPrefs(prefs);
 		const refreshed = discoverSystemPlugins(true).find((plugin) => plugin.id === id);
 		if (!refreshed) throw new Error(`Plugin not found: ${id}`);
+		broadcastPluginsChanged();
 		return refreshed;
 	}
 	const registry = readRegistry();
@@ -1295,6 +1397,7 @@ export function setPluginEnabled(id: string, enabled: boolean): InstalledPlugin 
 	plugin.enabled = enabled;
 	plugin.updatedAt = new Date().toISOString();
 	writeRegistry(registry);
+	broadcastPluginsChanged();
 	return plugin;
 }
 
@@ -1310,6 +1413,7 @@ export function grantPluginPermissions(id: string, permissions: PluginPermission
 	);
 	plugin.updatedAt = new Date().toISOString();
 	writeRegistry(registry);
+	broadcastPluginsChanged();
 	return plugin;
 }
 
@@ -1323,6 +1427,7 @@ export function revokePluginPermissions(id: string, permissions: PluginPermissio
 	plugin.grantedPermissions = plugin.grantedPermissions.filter((permission) => !revoked.has(permission));
 	plugin.updatedAt = new Date().toISOString();
 	writeRegistry(registry);
+	broadcastPluginsChanged();
 	return plugin;
 }
 
@@ -1392,6 +1497,7 @@ export function reloadPlugin(id: string): InstalledPlugin {
 	if (isSystemPluginId(id)) {
 		const refreshed = discoverSystemPlugins(true).find((plugin) => plugin.id === id);
 		if (!refreshed) throw new Error(`Plugin not found: ${id}`);
+		broadcastPluginsChanged();
 		return refreshed;
 	}
 	const registry = readRegistry();
@@ -1419,8 +1525,10 @@ export function reloadPlugin(id: string): InstalledPlugin {
 	plugin.grantedCommandNames = (plugin.grantedCommandNames ?? []).filter((name) =>
 		plugin.declaredCommands.includes(name),
 	);
+	plugin.rootPath = computePluginRootPath(plugin.id, plugin.source, plugin.activeVersion);
 	plugin.updatedAt = new Date().toISOString();
 	writeRegistry(registry);
+	broadcastPluginsChanged();
 	return plugin;
 }
 

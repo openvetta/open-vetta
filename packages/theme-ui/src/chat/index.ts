@@ -126,12 +126,14 @@ export { MessageCardsView } from "./MessageCardsView";
 export type {
 	CompactionBoundaryViewProps,
 	ExportMessageListViewProps,
+	ForkOriginBannerViewProps,
 	MessageItemViewProps,
 	ModelSwitchBoundaryViewProps,
 } from "./MessageItemView";
 export {
 	CompactionBoundaryView,
 	ExportMessageListView,
+	ForkOriginBannerView,
 	MessageItemView,
 	ModelSwitchBoundaryView,
 } from "./MessageItemView";

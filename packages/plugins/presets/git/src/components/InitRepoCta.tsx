@@ -1,4 +1,4 @@
-import { useTranslation } from "@vetta/plugin-sdk";
+import { useTranslation } from "@vetta-org/plugin-sdk";
 import { useState } from "react";
 import { GitIcon } from "./icons";
 

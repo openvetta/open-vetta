@@ -1,20 +1,25 @@
 import {
-	activeInputActionIdsAtom,
 	activeSessionAtom,
 	activityPanelOpenAtom,
+	applyInputActionWorkingState,
 	authUserAtom,
+	captureInputActionWorkingState,
 	chatMessagesAtom,
 	closeInlineFilePreviewAtom,
 	defaultConversationCwdAtom,
 	editImageAttachmentAtom,
+	emptySessionInputActionState,
 	getProjectDisplayName,
 	inlineFilePreviewContextReadonlyAtom,
 	isStreamingAtom,
-	knowledgeRetrievalActiveAtom,
+	loadInputActionStateForSession,
 	pageHeaderTitleAtom,
 	pendingEditImageIdAtom,
+	persistCurrentInputActionState,
+	persistInputActionStateForSession,
 	sessionDisplayLabel,
 	sessionsMapAtom,
+	syncHardIsolationContributionModes,
 	workflowCompleteDialogOpenAtom,
 	workflowInstanceAtom,
 } from "@shared/store/atoms";
@@ -41,26 +46,57 @@ export function useChatViewModel(): ChatViewModelResult {
 	const sessionsMap = useAtomValue(sessionsMapAtom);
 	const setEditImageAttachment = useSetAtom(editImageAttachmentAtom);
 	const setPendingEditImageId = useSetAtom(pendingEditImageIdAtom);
-	const setActiveInputActionIds = useSetAtom(activeInputActionIdsAtom);
-	const setKnowledgeRetrievalActive = useSetAtom(knowledgeRetrievalActiveAtom);
 
-	const prevRuntimeIdRef = useRef<string | undefined>(undefined);
+	// 按 sessionPath 恢复 / 切换 AI 输入栏 toggle（插件 input-action + 知识检索）。
+	// undefined = 尚未挂载；null = 无有效 sessionPath（新建页或 early open 的空 path）。
+	// 落盘主要在 toggle 时完成；此处负责切会话时保存上一会话工作集并加载下一会话。
+	// 不在 unmount 落盘：NewSession 会先清工作集，unmount 再写会把空状态覆盖旧会话。
+	const prevSessionPathRef = useRef<string | null | undefined>(undefined);
+
 	useEffect(() => {
-		const previousRuntimeId = prevRuntimeIdRef.current;
-		const currentRuntimeId = activeSession?.runtimeId;
-		prevRuntimeIdRef.current = currentRuntimeId;
-		if (previousRuntimeId == null || previousRuntimeId === currentRuntimeId) return;
+		const nextPath = activeSession?.sessionPath || null;
+		const prevPath = prevSessionPathRef.current;
+
+		if (prevPath === undefined) {
+			// ChatView 首次挂载：优先保留新建页草稿（工作集非空），否则从持久化恢复。
+			prevSessionPathRef.current = nextPath;
+			if (!nextPath) return;
+			const working = captureInputActionWorkingState();
+			const hasDraft = working.actionIds.length > 0 || working.knowledgeRetrieval;
+			if (hasDraft) {
+				persistInputActionStateForSession(nextPath, working);
+				syncHardIsolationContributionModes(new Set(working.actionIds));
+			} else {
+				applyInputActionWorkingState(loadInputActionStateForSession(nextPath));
+			}
+			return;
+		}
+
+		if (prevPath === nextPath) return;
+
+		// 编辑目标是一次性 attach，不跨会话。
 		setEditImageAttachment(null);
 		setPendingEditImageId(null);
-		setActiveInputActionIds(new Set());
-		setKnowledgeRetrievalActive(false);
-	}, [
-		activeSession?.runtimeId,
-		setActiveInputActionIds,
-		setEditImageAttachment,
-		setKnowledgeRetrievalActive,
-		setPendingEditImageId,
-	]);
+
+		if (prevPath) {
+			persistCurrentInputActionState(prevPath);
+		}
+
+		if (nextPath) {
+			if (prevPath === null) {
+				// 新建会话首条消息落地 path：认领当前工作集，不覆盖为空。
+				const working = captureInputActionWorkingState();
+				persistInputActionStateForSession(nextPath, working);
+				syncHardIsolationContributionModes(new Set(working.actionIds));
+			} else {
+				applyInputActionWorkingState(loadInputActionStateForSession(nextPath));
+			}
+		} else {
+			applyInputActionWorkingState(emptySessionInputActionState());
+		}
+
+		prevSessionPathRef.current = nextPath;
+	}, [activeSession?.sessionPath, setEditImageAttachment, setPendingEditImageId]);
 
 	const [pinned, setPinned] = useState(false);
 	const [exporting, setExporting] = useState(false);

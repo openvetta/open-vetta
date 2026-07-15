@@ -1,0 +1,37 @@
+{
+	"id": "plugin-workbench",
+	"name": "%plugin.name%",
+	"version": "0.1.5",
+	"defaultLocale": "zh",
+	"pluginApiVersion": "^1.0.0",
+	"runtime": "module-federation",
+	"entry": "dist/mf-manifest.json",
+	"moduleFederation": {
+		"remoteName": "plugin_workbench",
+		"expose": "./plugin"
+	},
+	"styles": ["dist/style.css"],
+	"permissions": [
+		"ui.slot.activity-tab",
+		"ui.slot.input-action",
+		"agent.session.read",
+		"agent.skills.control",
+		"agent.systemPrompt.write",
+		"agent.command.run",
+		"fs.read",
+		"fs.write"
+	],
+	"commands": ["node", "npm"],
+	"agent": {
+		"skillPaths": ["agent/skills"],
+		"systemPrompt": {
+			"promptPaths": ["agent/prompts/workbench-mode.md"]
+		}
+	},
+	"description": "%plugin.description%",
+	"author": "Vetta",
+	"guidingWords": ["%guidingWords.createPlugin%", "%guidingWords.applyPlugin%"],
+	"contributionMode": {
+		"hardIsolation": true
+	}
+}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useActivityTab } from "@vetta/plugin-sdk";
+import { useActivityTab } from "@vetta-org/plugin-sdk";
 import { IconLottie, IconRefresh } from "./icons";
 import { LottieStudioView } from "./LottieStudioView";
 import { bumpVersion, pluginContext, useLottieStore } from "./store";

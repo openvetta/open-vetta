@@ -5,6 +5,7 @@ import { type ActivityTabKey, useProjectProfile } from "@shared/lib/project-prof
 import {
 	ACTIVITY_PANEL_MIN_CHAT_AREA,
 	ACTIVITY_PANEL_MIN_WIDTH,
+	activeInputActionIdsAtom,
 	activeSessionAtom,
 	activityPanelMaxWidth,
 	activityPanelOpenAtom,
@@ -21,6 +22,7 @@ import {
 	getTodoItemsForSession,
 	hiddenActivityTabsAtom,
 	pluginActivityTabsAtom,
+	pluginInputActionsAtom,
 	sidebarCollapsedAtom,
 	sidebarWidthAtom,
 	todoItemsBySessionAtom,
@@ -82,14 +84,28 @@ export function useActivityPanelModel({
 	);
 	const debugMode = useAtomValue(debugModeAtom);
 	const registeredPluginTabs = useAtomValue(pluginActivityTabsAtom);
+	const pluginInputActions = useAtomValue(pluginInputActionsAtom);
+	const activeInputActionIds = useAtomValue(activeInputActionIdsAtom);
 	const trPlugin = usePluginTextResolver();
 	const currentScenario = useAtomValue(currentScenarioAtom);
+	/** Plugin ids whose hard-isolation toggle is currently off (ADR-0041). */
+	const hardIsolationOffPluginIds = useMemo(() => {
+		const off = new Set<string>();
+		for (const action of pluginInputActions) {
+			if (action.hardIsolation && !activeInputActionIds.has(action.actionId)) {
+				off.add(action.pluginId);
+			}
+		}
+		return off;
+	}, [pluginInputActions, activeInputActionIds]);
 	const pluginTabContribs = useMemo(
 		() =>
 			enablePluginTabs && currentScenario !== null
-				? registeredPluginTabs.filter((tab) => tab.scope_use?.includes(currentScenario))
+				? registeredPluginTabs.filter(
+						(tab) => tab.scope_use?.includes(currentScenario) && !hardIsolationOffPluginIds.has(tab.pluginId),
+					)
 				: [],
-		[enablePluginTabs, registeredPluginTabs, currentScenario],
+		[enablePluginTabs, registeredPluginTabs, currentScenario, hardIsolationOffPluginIds],
 	);
 	const [hiddenTabsMap, setHiddenTabsMap] = useAtom(hiddenActivityTabsAtom);
 	const [tabOrderMap, setTabOrderMap] = useAtom(activityTabOrderAtom);

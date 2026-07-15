@@ -36,6 +36,59 @@ export function ModelSwitchBoundaryView({ prefix, label }: ModelSwitchBoundaryVi
 	);
 }
 
+export interface ForkOriginBannerViewProps {
+	/** Full accessible label / title. */
+	label: string;
+	/** Optional short preview of the source message. */
+	preview?: string;
+	/** When set, banner is clickable. */
+	onClick?: () => void;
+	/** Disabled state (e.g. parent session missing). */
+	disabled?: boolean;
+}
+
+/** Inline hint under the forked turn’s AI reply: no chrome, centered text. */
+export function ForkOriginBannerView({
+	label,
+	preview,
+	onClick,
+	disabled,
+}: ForkOriginBannerViewProps): JSX.Element {
+	const interactive = Boolean(onClick) && !disabled;
+	const title = preview ? `${label} · ${preview}` : label;
+	const text = preview ? (
+		<>
+			{label}
+			<span className="text-muted-foreground/50"> · </span>
+			{preview}
+		</>
+	) : (
+		label
+	);
+	// mt-4: leave clear gap under the assistant bubble; py keeps hit area usable.
+	const className =
+		"mx-auto mt-4 flex max-w-full items-center justify-center gap-1 px-2 py-1.5 text-center text-[11px] text-muted-foreground/60";
+	if (interactive) {
+		return (
+			<button
+				type="button"
+				onClick={onClick}
+				className={`${className} cursor-pointer transition-colors hover:text-primary/70`}
+				title={title}
+			>
+				<span className="icon-[mdi--source-fork] h-3 w-3 shrink-0" />
+				<span className="min-w-0 truncate">{text}</span>
+			</button>
+		);
+	}
+	return (
+		<div className={className} title={title}>
+			<span className="icon-[mdi--source-fork] h-3 w-3 shrink-0" />
+			<span className="min-w-0 truncate">{text}</span>
+		</div>
+	);
+}
+
 export interface MessageItemViewProps {
 	children: ReactNode;
 }

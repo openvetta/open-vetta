@@ -2,15 +2,16 @@ import type { SkillInfo } from "@preload/api";
 import { i18n } from "@shared/i18n";
 import { downloadSkill } from "@shared/lib/api";
 import {
-	activeInputActionIdsAtom,
 	activeSessionAtom,
 	activeToolNamesAtom,
+	applyInputActionWorkingState,
 	attachedImagesAtom,
 	authTokenAtom,
 	authUserAtom,
 	contextUsageAtom,
 	currentScenarioAtom,
 	editImageAttachmentAtom,
+	emptySessionInputActionState,
 	inputValueAtom,
 	lastActiveSessionAtom,
 	mentionedFilesAtom,
@@ -86,7 +87,6 @@ export function useNewSessionPageModel(): NewSessionPageModel {
 	const setLastActiveSession = useSetAtom(lastActiveSessionAtom);
 	const setEditImageAttachment = useSetAtom(editImageAttachmentAtom);
 	const setPendingEditImageId = useSetAtom(pendingEditImageIdAtom);
-	const setActiveInputActionIds = useSetAtom(activeInputActionIdsAtom);
 	const setCurrentScenario = useSetAtom(currentScenarioAtom);
 	const setActiveToolNames = useSetAtom(activeToolNamesAtom);
 	const authUser = useAtomValue(authUserAtom);
@@ -107,8 +107,9 @@ export function useNewSessionPageModel(): NewSessionPageModel {
 		// 释放一次性的图像编辑 attach，避免别处选中的编辑目标带进新会话。
 		setEditImageAttachment(null);
 		setPendingEditImageId(null);
-		// 清空所有 active 的 input-action（如「图像生成」），回到默认输入态。
-		setActiveInputActionIds(new Set());
+		// 清空 input-action / 知识检索工作集，并关掉 hardIsolation contribution mode。
+		// 各既有会话的持久化状态仍在 sessionInputActionStateMap，切回可恢复。
+		applyInputActionWorkingState(emptySessionInputActionState());
 		// 重置输入栏 action 的两道可见性闸门，避免继承上个会话（如批量任务）的隐藏态：
 		// 1) 对话场景置为新建普通对话的默认 "conversation"（与 session.create 落库一致），
 		//    否则残留 "batch" 会让 fail-closed 过滤把默认 action 全部隐藏。
@@ -130,7 +131,6 @@ export function useNewSessionPageModel(): NewSessionPageModel {
 		setAttachedImages,
 		setEditImageAttachment,
 		setPendingEditImageId,
-		setActiveInputActionIds,
 		setCurrentScenario,
 		setActiveToolNames,
 		setContextUsage,
