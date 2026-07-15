@@ -31,10 +31,6 @@
 					"label": "普通气泡",
 					"description": "跟随应用主题变化的基础气泡。"
 				},
-				"pink": {
-					"label": "粉色气泡",
-					"description": "固定粉色背景，使用爱心四角装饰。"
-				},
 				"springFestival": {
 					"label": "春节气泡",
 					"description": "暖红背景，使用春节四角装饰。"

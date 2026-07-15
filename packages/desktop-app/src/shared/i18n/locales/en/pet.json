@@ -31,10 +31,6 @@
 					"label": "Plain bubble",
 					"description": "Basic bubble that follows the app theme."
 				},
-				"pink": {
-					"label": "Pink bubble",
-					"description": "Fixed pink background with heart corner decorations."
-				},
 				"springFestival": {
 					"label": "Spring Festival bubble",
 					"description": "Warm red background with Spring Festival corner decorations."
