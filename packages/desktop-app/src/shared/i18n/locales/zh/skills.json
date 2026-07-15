@@ -1,17 +1,20 @@
 {
 	"tabs": {
 		"scene": "场景",
+		"capability": "能力",
 		"skill": "技能",
 		"plugin": "插件",
 		"connector": "连接器"
 	},
 	"typeNoun": {
 		"scene": "场景",
+		"capability": "能力",
 		"skill": "技能",
 		"plugin": "插件",
 		"connector": "连接器"
 	},
 	"subtitle": "安装并启用你需要的能力，让 Vetta 拥有更多专业技能",
+	"subtitleCapability": "按想要实现的功能选择能力，无需关心背后的技术方式",
 	"subtitleConnector": "管理 MCP 连接器，为 AI 接入网页、文档与外部工具",
 	"subtitlePlugin": "安装、启用并配置应用插件，扩展 Vetta 的界面与能力",
 	"search": {
@@ -25,6 +28,60 @@
 		"reload": "重载",
 		"importSkill": "导入技能",
 		"importPlugin": "导入插件"
+	},
+	"capabilities": {
+		"scope": {
+			"discover": "发现",
+			"mine": "我的",
+			"discoverTitle": "发现能力",
+			"discoverHint": "选择想要实现的功能，添加后即可使用",
+			"mineTitle": "我的能力",
+			"mineHint": "管理已经添加到 Vetta 的能力"
+		},
+		"add": {
+			"trigger": "添加能力",
+			"title": "选择添加方式",
+			"importSkill": "导入 Skill 能力",
+			"importSkillHint": "从本地 zip、tar.gz 或 tgz 压缩包安装",
+			"addConnector": "添加 MCP 能力",
+			"addConnectorHint": "手动配置 stdio 或 HTTP MCP 服务"
+		},
+		"status": {
+			"added": "已添加",
+			"setupRequired": "需要配置",
+			"updateAvailable": "可更新",
+			"custom": "自定义",
+			"readonly": "只读"
+		},
+		"actions": {
+			"add": "添加",
+			"update": "更新",
+			"finishSetup": "完成配置",
+			"connectAccount": "连接账户",
+			"disconnectAccount": "断开账户",
+			"configure": "配置凭证",
+			"edit": "编辑配置",
+			"viewDetails": "查看详情",
+			"remove": "移除能力",
+			"enable": "启用能力",
+			"disable": "停用能力",
+			"more": "更多操作",
+			"refresh": "刷新"
+		},
+		"card": {
+			"noDescription": "暂无能力说明",
+			"usageCount": "{{count}} 次下载"
+		},
+		"empty": {
+			"noMatch": "没有匹配的能力",
+			"noMatchHint": "换个功能描述试试",
+			"discover": "暂时没有可发现的能力",
+			"mine": "还没有添加能力",
+			"hint": "稍后刷新，或通过右上角添加能力"
+		},
+		"error": {
+			"partial": "部分能力暂时无法加载：{{error}}"
+		}
 	},
 	"loading": "加载中...",
 	"card": {
@@ -71,7 +128,7 @@
 		"author": "作者",
 		"downloads": "下载量",
 		"description": "描述",
-		"notInstalledHint": "此技能尚未安装，以上为技能广场元数据预览。安装后可查看完整 SKILL.md。"
+		"notInstalledHint": "此能力尚未添加，以上为能力元数据预览。添加后可查看完整说明。"
 	},
 	"plugin": {
 		"status": {

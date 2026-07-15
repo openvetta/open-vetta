@@ -1,0 +1,154 @@
+import { Button } from "@vetta/ui";
+import { SegmentedControl } from "@vetta/theme-ui/shared";
+import { forwardRef, useImperativeHandle } from "react";
+import { useTranslation } from "react-i18next";
+import { BuiltinMcpSecretsDialog } from "../../settings/components/BuiltinMcpSecretsDialog";
+import { ManualMcpDialog } from "../../settings/components/ManualMcpDialog";
+import { McpEditDrawer } from "../../settings/components/McpEditDrawer";
+import type { ActionState, MergedSkill } from "../hooks/useSkillsPageModel";
+import {
+	type CapabilityScope,
+	useCapabilitiesModel,
+} from "../hooks/useCapabilitiesModel";
+import { CapabilityCard } from "./CapabilityCard";
+
+export interface CapabilitiesPanelHandle {
+	openCustomCapability: () => void;
+	showMine: () => void;
+}
+
+interface CapabilitiesPanelProps {
+	skills: MergedSkill[];
+	searchQuery: string;
+	skillLoading: boolean;
+	skillError: string | null;
+	actionStates: Record<string, ActionState>;
+	sectionId?: string;
+	onInstallSkill: (skill: MergedSkill) => void;
+	onToggleSkill: (name: string) => void;
+	onUninstallSkill: (name: string, type: "skill" | "scene") => void;
+	onPreviewSkill: (skill: MergedSkill) => void;
+	onRefreshSkills: () => void;
+}
+
+export const CapabilitiesPanel = forwardRef<CapabilitiesPanelHandle, CapabilitiesPanelProps>(
+	function CapabilitiesPanel(props, ref): JSX.Element {
+		const { t } = useTranslation("skills");
+		const model = useCapabilitiesModel(props);
+
+		useImperativeHandle(
+			ref,
+			() => ({
+				openCustomCapability: () => {
+					model.setScope("mine");
+					model.mcp.onStartAddServer();
+				},
+				showMine: () => model.setScope("mine"),
+			}),
+			[model.mcp.onStartAddServer, model.setScope],
+		);
+
+		return (
+			<>
+				<div
+					id={props.sectionId}
+					data-setting-section-id={props.sectionId}
+					data-setting-section-highlight-target={props.sectionId}
+					className="flex flex-col gap-4"
+				>
+					<div className="flex flex-wrap items-center justify-between gap-3">
+						<div className="min-w-0">
+							<h2 className="text-[15px] font-semibold text-foreground">
+								{model.scope === "discover"
+									? t("capabilities.scope.discoverTitle")
+									: t("capabilities.scope.mineTitle")}
+							</h2>
+							<p className="mt-0.5 text-[11px] text-muted-foreground/70">
+								{model.scope === "discover"
+									? t("capabilities.scope.discoverHint")
+									: t("capabilities.scope.mineHint")}
+							</p>
+						</div>
+						<div className="flex items-center gap-2">
+							<Button
+								variant="ghost"
+								size="sm"
+								disabled={model.refreshing}
+								onClick={model.refresh}
+							>
+								<span
+									className={`icon-[solar--refresh-linear] h-3.5 w-3.5 ${model.refreshing ? "animate-spin" : ""}`}
+								/>
+								{t("capabilities.actions.refresh")}
+							</Button>
+							<SegmentedControl
+								items={[
+									{ key: "discover" as CapabilityScope, label: t("capabilities.scope.discover") },
+									{ key: "mine" as CapabilityScope, label: t("capabilities.scope.mine") },
+								]}
+								value={model.scope}
+								onChange={model.setScope}
+							/>
+						</div>
+					</div>
+
+					{model.errors.length > 0 && (
+						<div className="flex items-start gap-2 rounded-lg bg-muted/60 px-3 py-2 text-[12px] text-muted-foreground/70">
+							<span className="icon-[solar--info-circle-linear] mt-0.5 h-3.5 w-3.5 shrink-0" />
+							<span>{t("capabilities.error.partial", { error: model.errors.join("；") })}</span>
+						</div>
+					)}
+
+					{model.loading ? (
+						<div className="flex min-h-52 flex-col items-center justify-center gap-2 text-muted-foreground/60">
+							<span className="icon-[solar--refresh-linear] h-8 w-8 animate-spin" />
+							<span className="text-[12px]">{t("loading")}</span>
+						</div>
+					) : model.items.length === 0 ? (
+						<div className="flex min-h-52 flex-col items-center justify-center gap-3 rounded-xl border border-border/50 bg-card/30 text-center">
+							<span className="icon-[solar--magic-stick-3-linear] h-10 w-10 text-muted-foreground/50" />
+							<div>
+								<p className="text-[13px] font-semibold text-foreground">
+									{props.searchQuery
+										? t("capabilities.empty.noMatch")
+										: model.scope === "discover"
+											? t("capabilities.empty.discover")
+											: t("capabilities.empty.mine")}
+								</p>
+								<p className="mt-1 text-[11px] text-muted-foreground/60">
+									{props.searchQuery
+										? t("capabilities.empty.noMatchHint")
+										: t("capabilities.empty.hint")}
+								</p>
+							</div>
+						</div>
+					) : (
+						<div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-3">
+							{model.items.map((item) => (
+								<CapabilityCard key={item.id} item={item} scope={model.scope} model={model} />
+							))}
+						</div>
+					)}
+				</div>
+
+				<ManualMcpDialog model={model.mcp} />
+				<McpEditDrawer model={model.mcp} />
+				<BuiltinMcpSecretsDialog
+					open={model.mcp.secretsDialogPreset !== null}
+					preset={model.mcp.secretsDialogPreset}
+					initialValues={model.mcp.secretsDialogInitial}
+					saving={
+						model.mcp.saving ||
+						(model.mcp.busyPresetName !== null && !model.mcp.secretsDialogAuthorizing)
+					}
+					authorizing={model.mcp.secretsDialogAuthorizing}
+					error={model.mcp.secretsDialogError}
+					onOpenChange={(open) => {
+						if (!open) model.mcp.onCloseSecretsDialog();
+					}}
+					onConfirm={(values) => void model.mcp.onConfirmSecretsDialog(values)}
+				/>
+			</>
+		);
+	},
+);
