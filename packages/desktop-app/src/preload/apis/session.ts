@@ -21,6 +21,7 @@ const CHANNELS = {
 	NAVIGATE_FOR_EDIT: "vetta:session:navigate-for-edit",
 	SWITCH_BRANCH: "vetta:session:switch-branch",
 	DELETE_MESSAGE: "vetta:session:delete-message",
+	REPLACE_LAST_USER_MESSAGE: "vetta:session:replace-last-user-message",
 	FORK_SESSION: "vetta:session:fork-session",
 	CONFIRM_REQUEST: "vetta:session:confirm-request",
 	CONFIRM_RESPONSE: "vetta:session:confirm-response",
@@ -96,6 +97,8 @@ export function createSessionApi(ipc: IpcRenderer): Pick<DesktopApi, "session"> 
 			navigateForEdit: (sessionId, entryId) => ipc.invoke(CHANNELS.NAVIGATE_FOR_EDIT, sessionId, entryId),
 			switchBranch: (sessionId, entryId) => ipc.invoke(CHANNELS.SWITCH_BRANCH, sessionId, entryId),
 			deleteMessage: (sessionId, entryId) => ipc.invoke(CHANNELS.DELETE_MESSAGE, sessionId, entryId),
+			replaceLastUserMessage: (sessionId, entryId) =>
+				ipc.invoke(CHANNELS.REPLACE_LAST_USER_MESSAGE, sessionId, entryId),
 			forkSession: (sessionId, entryId) => ipc.invoke(CHANNELS.FORK_SESSION, sessionId, entryId),
 			delete: (sessionPath) => ipc.invoke(CHANNELS.DELETE, sessionPath),
 			rename: (sessionPath, name) => ipc.invoke(CHANNELS.RENAME, sessionPath, name),

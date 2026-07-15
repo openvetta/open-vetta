@@ -833,6 +833,17 @@ export class RuntimeHost implements SessionFacade {
 		return handle.session.deleteMessage(entryId);
 	}
 
+	/** Remove the active branch's last user turn so the next prompt replaces it in place. */
+	async replaceLastUserMessage(sessionId: string, entryId: string): Promise<{ leafId: string | null }> {
+		const handle = this.requireSession(sessionId);
+		if (handle.session.isStreaming || handle.session.isBashRunning) {
+			throw new Error("Cannot replace a message while the session is streaming");
+		}
+		const result = handle.session.sessionManager.replaceLastUserMessage(entryId);
+		handle.session.agent.replaceMessages(handle.session.sessionManager.buildSessionContext().messages);
+		return result;
+	}
+
 	/**
 	 * Export a fork as a new session file without leaving the current session.
 	 */

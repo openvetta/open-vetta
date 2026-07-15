@@ -398,9 +398,9 @@
 			"position": "第 {{current}} / {{total}} 个版本"
 		},
 		"edit": {
-			"pendingHint": "正在编辑此消息，发送后将从此处创建新分支",
+			"pendingHint": "正在编辑最后一条消息，发送后将替换原消息和回复",
 			"overwriteDraftTitle": "覆盖当前输入？",
-			"overwriteDraftBody": "输入框中已有内容。继续编辑历史消息将覆盖当前草稿。",
+			"overwriteDraftBody": "输入框中已有内容。继续编辑最后一条消息将覆盖当前草稿。",
 			"overwriteDraftConfirm": "覆盖并编辑"
 		},
 		"interrupt": {

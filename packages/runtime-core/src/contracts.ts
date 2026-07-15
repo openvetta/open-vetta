@@ -722,6 +722,8 @@ export interface SessionFacade {
 	switchBranch(sessionId: string, entryId: string): Promise<{ leafId: string }>;
 	/** Delete one message and reparent its descendants to the deleted message's parent. */
 	deleteMessage(sessionId: string, entryId: string): Promise<{ leafId: string | null }>;
+	/** Remove the active branch's last user turn before sending its edited replacement. */
+	replaceLastUserMessage(sessionId: string, entryId: string): Promise<{ leafId: string | null }>;
 	/**
 	 * Export a fork as a new session file without leaving the current session.
 	 * Copies history up to the parent of the selected user message.

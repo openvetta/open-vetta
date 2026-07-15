@@ -1281,6 +1281,89 @@ export class SessionManager {
 	}
 
 	/**
+	 * Remove the active branch's last user message and its entire reply subtree.
+	 * The next append starts from that user's parent, so replacing the message
+	 * does not leave an alternate branch behind.
+	 */
+	replaceLastUserMessage(entryId: string): { leafId: string | null } {
+		const entry = this.byId.get(entryId);
+		if (!entry || entry.type !== "message" || entry.message.role !== "user") {
+			throw new Error(`Entry ${entryId} is not a user message`);
+		}
+
+		const lastUserEntry = this.getBranch()
+			.slice()
+			.reverse()
+			.find((candidate) => candidate.type === "message" && candidate.message.role === "user");
+		if (lastUserEntry?.id !== entryId) {
+			throw new Error(`Entry ${entryId} is not the last user message on the active branch`);
+		}
+
+		const childrenByParent = new Map<string, string[]>();
+		for (const candidate of this.byId.values()) {
+			if (candidate.parentId === null) continue;
+			const children = childrenByParent.get(candidate.parentId) ?? [];
+			children.push(candidate.id);
+			childrenByParent.set(candidate.parentId, children);
+		}
+		const removedIds = new Set<string>();
+		const stack = [entryId];
+		while (stack.length > 0) {
+			const current = stack.pop();
+			if (!current || removedIds.has(current)) continue;
+			removedIds.add(current);
+			stack.push(...(childrenByParent.get(current) ?? []));
+		}
+		for (const candidate of this.byId.values()) {
+			if (candidate.type === "label" && removedIds.has(candidate.targetId)) {
+				removedIds.add(candidate.id);
+			}
+		}
+
+		const resolveSurvivingParent = (parentId: string | null): string | null => {
+			let current = parentId;
+			while (current && removedIds.has(current)) {
+				current = this.byId.get(current)?.parentId ?? null;
+			}
+			return current;
+		};
+
+		const firstKeptReplacements = new Map<string, string>();
+		for (const candidate of this.byId.values()) {
+			if (candidate.type !== "compaction" || !removedIds.has(candidate.firstKeptEntryId)) continue;
+			const path = this.getBranch(candidate.id);
+			const removedIndex = path.findIndex((pathEntry) => removedIds.has(pathEntry.id));
+			const replacement = path.slice(removedIndex + 1).find((pathEntry) => !removedIds.has(pathEntry.id));
+			firstKeptReplacements.set(candidate.id, replacement?.id ?? candidate.id);
+		}
+
+		this.fileEntries = this.fileEntries
+			.filter((candidate) => candidate.type === "session" || !removedIds.has(candidate.id))
+			.map((candidate): FileEntry => {
+				if (candidate.type === "session") return candidate;
+				let next: SessionEntry = candidate;
+				const parentId = resolveSurvivingParent(candidate.parentId);
+				if (parentId !== candidate.parentId) {
+					next = { ...next, parentId } as SessionEntry;
+				}
+				const firstKeptEntryId = firstKeptReplacements.get(candidate.id);
+				if (next.type === "compaction" && firstKeptEntryId) {
+					next = { ...next, firstKeptEntryId };
+				}
+				if (next.type === "branch_summary" && removedIds.has(next.fromId)) {
+					next = { ...next, fromId: resolveSurvivingParent(next.fromId) ?? "root" };
+				}
+				return next;
+			});
+
+		this._buildIndex();
+		this.leafId = entry.parentId && this.byId.has(entry.parentId) ? entry.parentId : null;
+		this._rewriteFile();
+		this.flushed = true;
+		return { leafId: this.leafId };
+	}
+
+	/**
 	 * Get all direct children of an entry.
 	 * Pass `null` to list root entries (parentId === null).
 	 */
@@ -1419,7 +1502,8 @@ export class SessionManager {
 	/**
 	 * Get all session entries (excludes header). Returns a shallow copy.
 	 * Use appendXXX() to add entries and branch() to change the leaf pointer.
-	 * Message deletion is an explicit destructive exception handled by deleteMessage().
+	 * Message deletion/replacement are explicit destructive exceptions handled by
+	 * deleteMessage() and replaceLastUserMessage().
 	 */
 	getEntries(): SessionEntry[] {
 		return this.fileEntries.filter((e): e is SessionEntry => e.type !== "session");

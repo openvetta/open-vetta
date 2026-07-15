@@ -189,8 +189,8 @@ export interface ChatMessage {
 }
 
 /**
- * Pending re-edit of a historical user message: input bar is filled, navigateForEdit
- * runs on send (not on click) so cancel is free of backend side-effects.
+ * Pending replacement of the latest user message. The destructive backend change
+ * runs on send (not on click), so cancelling the edit has no session side effects.
  */
 export interface PendingMessageEdit {
 	entryId: string;
@@ -290,7 +290,7 @@ export interface MentionedFile {
 
 export const chatMessagesAtom = atom<ChatMessage[]>([]);
 
-/** Pending historical message re-edit (navigateForEdit deferred until send). */
+/** Pending latest-message replacement, deferred until send. */
 export const pendingMessageEditAtom = atom<PendingMessageEdit | null>(null);
 
 export const inputValueAtom = atom<string>("");

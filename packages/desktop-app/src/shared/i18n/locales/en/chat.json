@@ -398,9 +398,9 @@
 			"position": "Version {{current}} of {{total}}"
 		},
 		"edit": {
-			"pendingHint": "Editing this message — send to create a new branch from here",
+			"pendingHint": "Editing the last message — send to replace the original message and reply",
 			"overwriteDraftTitle": "Overwrite current draft?",
-			"overwriteDraftBody": "The input already has content. Editing a past message will replace your draft.",
+			"overwriteDraftBody": "The input already has content. Editing the last message will replace your draft.",
 			"overwriteDraftConfirm": "Overwrite and edit"
 		},
 		"interrupt": {
