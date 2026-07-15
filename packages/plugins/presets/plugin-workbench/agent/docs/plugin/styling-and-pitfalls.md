@@ -54,6 +54,62 @@ Agent 写插件时：若需要样式 → **只加/改 className**；不要新建
 
 ---
 
+## 面板类 slot 布局边界（禁止 viewport 级浮层）
+
+插件 UI 与宿主**共享同一 document / 同一 React 树**（无 iframe / Shadow 沙箱）。面板类扩展点渲染在活动面板的有限矩形内，**不得**做成贴浏览器/App 视口的全局浮层。
+
+### 哪些算「面板类」
+
+| 扩展点 | 布局预期 |
+| --- | --- |
+| **`registerFilePreview`** | 内容铺满预览区；所有 UI 留在预览壳内 |
+| **`registerActivityTab`** | 内容铺满 Tab 面板；所有 UI 留在面板内 |
+| **`registerInputAction` 面板内容**（若有） | 同面板约束 |
+| **`registerGlobalSlot`** | **例外**：这是全局浮层扩展点，可相对视口布局 |
+| **`ctx.ui.notify`** | **例外**：全局 Toast，由宿主渲染，不要自己造右上角固定条 |
+
+### 硬规则（agent / 作者）
+
+1. **禁止**在面板类 slot 内用 Tailwind `fixed` / `sticky` 去贴窗口（如 `fixed right-4 top-4`、`fixed inset-0` 当全屏遮罩）。
+2. **禁止**超高 z-index 抢宿主 chrome（如 `z-[2147483647]`）。面板内层级用普通 `z-10` / `z-20` 即可。
+3. 面板内需要「浮在内容上」的工具条 / 调试按钮：根节点 `relative`，子节点用 **`absolute`**（相对面板，不是视口）。
+4. 需要真正的**全局** UI（设置引导、跨页面悬浮球）→ 用 **`registerGlobalSlot`**（权限 `ui.slot.global`），不要塞进 file-preview / activity-tab。
+5. 需要错误/提示 → **`ctx.ui.notify`**，不要自己 `fixed` 一个 Toast。
+6. **不要** `createPortal(..., document.body)` 把节点挂到 body 逃出面板；弹层留在组件树内，或 portal 到本面板根节点（若必须 portal）。
+
+### 正反例
+
+```tsx
+// ❌ 相对视口：会跑到 App 窗口角落 / 盖住宿主 chrome
+<button type="button" className="fixed right-4 top-4 z-[2147483647] ...">
+  测试
+</button>
+
+// ✅ 相对预览/面板根：工具条贴在内容区右上角
+function Preview() {
+  return (
+    <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
+      <button
+        type="button"
+        className="absolute right-3 top-3 z-10 rounded-md border border-border bg-background px-2 py-1 text-xs"
+      >
+        测试
+      </button>
+      {/* 预览主体 */}
+    </div>
+  );
+}
+```
+
+### 宿主侧兜底（file-preview）
+
+`registerFilePreview` 的挂载壳会建立 **fixed containing block**（`transform`）并 `overflow: hidden` + stacking `isolate`：即便误写了 `fixed`，也会被收进预览矩形，而不是贴 App 视口。  
+**这是兜底，不是许可证**——实现仍须按上面规则写 `absolute` / 走 global / notify。activity-tab 等其它面板目前主要靠约定；不要依赖「写 fixed 宿主会修好」。
+
+详见 [ui-slots.md → 文件预览](./ui-slots.md#文件预览-registerfilepreview)。
+
+---
+
 ## Module Federation 顶层 JSX 陷阱
 
 **模块顶层不要使用共享依赖（含 JSX）。**

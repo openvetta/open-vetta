@@ -52,13 +52,13 @@ workbenchRoot = listPlugins() 中 id === "plugin-workbench" 的 rootPath
 | --- | --- |
 | 侧栏面板 / 活动 Tab | `ui-slots.md`（activity-tab） |
 | 输入栏按钮 | `ui-slots.md`（input-action） |
-| 文件预览 | `ui-slots.md`（file-preview + **notify 错误上报**） |
+| 文件预览 | `ui-slots.md`（file-preview + **notify 错误上报**）+ `styling-and-pitfalls.md`（**面板布局边界**） |
 | 全局弹层 | `ui-slots.md`（global） |
 | 任何可能失败的 IO/解析 | `ui-slots.md`（**notify**）+ `styling-and-pitfalls.md`（错误必须上报） |
 | Agent 工具 / 读写文件 / 对话 | `conversation-and-agent.md` |
 | 消息下方卡片 | `message-cards.md` |
 | 插件自带 MCP | `mcp.md` |
-| 样式 / 不生效 / 缓存 | `styling-and-pitfalls.md` |
+| 样式 / 布局逃逸 / 不生效 / 缓存 | `styling-and-pitfalls.md`（含**面板类 slot 禁止 viewport fixed**） |
 | 引导词 / 设置项 | `manifest.md` 对应章节 |
 
 ### 1.3 实现时
@@ -124,6 +124,7 @@ node "{workbenchRoot}/scripts/check-manifest.mjs" "{pluginRoot}"
 - [ ] 工具 description 写清何时调用  
 - [ ] 无 MF 顶层 JSX 陷阱  
 - [ ] **样式：只用 Tailwind className；未手写业务 .css / 未用全局选择器**（`style.css` 仅 theme+utilities 入口，见 styling-and-pitfalls）  
+- [ ] **面板布局：file-preview / activity-tab 内无 `fixed` 贴视口、无超高 z-index、无 portal 到 `document.body`**；面板内浮层用 `relative`+`absolute`；全局浮层用 `registerGlobalSlot`，Toast 用 `notify`（见 styling-and-pitfalls → 面板类 slot 布局边界）  
 - [ ] 用户工程无 `workspace:*`  
 - [ ] i18n：若要宿主渲染中文 label，按手册用 catalog / `%key%`（desktop 用户文案规范）  
 - [ ] **错误可排查：所有可能失败的路径（读文件/解析/网络/外部库）在 catch 里调用 `ctx.ui.notify({ message, error })`**，禁止只写死「失败」文案、丢掉原始 error；`notify` 无需权限，有 `error` 时宿主 Toast 可一键复制堆栈（见 `ui-slots.md` → notify）  

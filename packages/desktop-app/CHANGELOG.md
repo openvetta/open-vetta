@@ -31,6 +31,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **插件 file-preview 布局围栏**：`PluginFilePreviewView` 外壳增加 `transform` fixed containing block + `overflow-hidden` + `isolate`，避免预览插件用 `position: fixed` 贴 App 视口逃出预览区。手册补充面板类 slot 布局边界（禁止 viewport fixed / 超高 z-index；全局浮层走 `registerGlobalSlot` / `notify`）。
 - **office-viewer 不再占住 PPT/PPTX 预览**：系统插件只注册实际可渲染的 `pdf` / `docx` / 表格扩展名，移除 PowerPoint 兼容性占位页；第三方插件可接管 `ppt`/`pptx` 预览。
 - **确认 Dialog 被右侧 Drawer/Sheet 挡住**：全局 `ConfirmDialog` 挂在 `AppFrame`（`isolate`）内，z-index 被 stacking context 困住；插件详情等经 Portal 挂到 body 的 Drawer（z-50）会盖住卸载确认框。现将 ConfirmDialog portal 到 `document.body`，与 Drawer/Dialog 同层比较（z-[100] 压过 z-50）。
 - **新会话页引导词只轮播头两个插件**：组级原为整页跳切（一次换 2 组）且间隔 24s，词级 6s 动画更抢眼，体感上永远只有前两个插件在转。现改为步进 1 的滑动窗口，组级间隔 8s，所有声明了 `guidingWords` 的启用插件都会进入可见区。

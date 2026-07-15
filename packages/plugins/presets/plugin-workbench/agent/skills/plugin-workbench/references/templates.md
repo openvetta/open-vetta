@@ -71,6 +71,8 @@ ctx.agent.registerTool({
 
 权限：`ui.slot.file-preview`。仅当宿主内置未覆盖的扩展名才生效。
 
+**布局**：预览 UI 必须留在预览壳内。禁止 `fixed` / 视口定位与 `z-[2147483647]`；面板内浮层用根 `relative` + 子 `absolute`。全局浮层 → `registerGlobalSlot`；Toast → `notify`。见 `styling-and-pitfalls.md` → 面板类 slot 布局边界。
+
 解析失败时**必须** `notify({ message, error })`（无权限），便于用户复制堆栈：
 
 ```tsx
@@ -135,6 +137,7 @@ export default definePlugin({
 ## 样式与陷阱（必看）
 
 - **样式只 Tailwind className**；勿手写业务 CSS（污染全局）— `styling-and-pitfalls.md`
+- **面板类 slot 禁止 viewport `fixed` / 超高 z-index**；浮层用 `absolute` 或 `registerGlobalSlot` / `notify` — `styling-and-pitfalls.md` → 面板类 slot 布局边界
 - 顶层禁止依赖共享 React 的 JSX（放进组件或 activate 内）
 - 改代码不生效：bump `plugin.json` version + reload
 - **可能失败的路径必须 `ctx.ui.notify({ message, error })`**，禁止吞掉 error — `ui-slots.md` → notify
