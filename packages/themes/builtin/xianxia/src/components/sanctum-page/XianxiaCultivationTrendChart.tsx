@@ -4,7 +4,7 @@ import { scaleLinear } from "@visx/scale";
 import { AreaClosed, LinePath } from "@visx/shape";
 import { TooltipWithBounds, useTooltip } from "@visx/tooltip";
 import { useId, useMemo, type JSX, type PointerEvent } from "react";
-import { formatCultivationNumber } from "./cultivationView";
+import { formatCultivationNumber, getCultivationChartUpperBound } from "./cultivationView";
 import type { SanctumCultivationView } from "./types";
 
 const chartWidth = 152;
@@ -51,7 +51,7 @@ export function XianxiaCultivationTrendChart({
 	const glowFilterId = `${id}-glow`;
 	const xMax = chartWidth - margin.left - margin.right;
 	const yMax = chartHeight - margin.top - margin.bottom;
-	const yDomainMax = Math.max(cultivation.maxPower, ...data.map((datum) => datum.power), 1);
+	const yDomainMax = getCultivationChartUpperBound(Math.max(...data.map((datum) => datum.power), 0));
 	const xScale = scaleLinear<number>({
 		domain: [0, Math.max(data.length - 1, 1)],
 		range: [0, xMax],
