@@ -1,5 +1,5 @@
 import type { InstalledSkill } from "@preload/api";
-import type { PluginLocales } from "@vetta/plugin-sdk";
+import type { PluginLocales } from "@vetta-org/plugin-sdk";
 import type { SceneCardActionState, SceneCardModel } from "./SceneCard";
 
 export type SceneItem = SceneCardModel;

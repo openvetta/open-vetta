@@ -64,6 +64,10 @@ export interface SessionInfo {
 	name?: string;
 	firstMessage: string;
 	modifiedAt: number;
+	/** Parent session jsonl path when this session was forked. */
+	parentSessionPath?: string;
+	/** User entry id in the parent session this fork was created from. */
+	parentEntryId?: string;
 }
 
 /** coding-agent 对「无消息」session 给出的占位 firstMessage，UI 层不直接展示。 */

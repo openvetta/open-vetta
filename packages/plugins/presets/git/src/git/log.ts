@@ -1,4 +1,4 @@
-import type { PluginCommandRunResult } from "@vetta/plugin-sdk";
+import type { PluginCommandRunResult } from "@vetta-org/plugin-sdk";
 import { getGitCommand } from "./runtime";
 import type { BranchRef, GraphScope, GraphSelection } from "./types";
 

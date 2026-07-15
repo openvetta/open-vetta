@@ -312,15 +312,31 @@ async function collectRuntimeFiles(
 		if (typeof mcpServers === "string") {
 			addFile(resolve(rootDir, mcpServers));
 		}
-		for (const companion of ["mcp", "scripts"]) {
-			try {
-				for (const file of await collectFiles(resolve(rootDir, companion))) {
-					addFile(file.fullPath);
-				}
-			} catch {
-				// optional companion directory
+		try {
+			for (const file of await collectFiles(resolve(rootDir, "mcp"))) {
+				addFile(file.fullPath);
 			}
+		} catch {
+			// optional mcp/ directory
 		}
+	}
+
+	// Helper scripts (plugin workbench etc.): always pack scripts/ when present.
+	try {
+		for (const file of await collectFiles(resolve(rootDir, "scripts"))) {
+			addFile(file.fullPath);
+		}
+	} catch {
+		// optional scripts/ directory
+	}
+
+	// Handbook / agent docs beside skills (not always listed in skillPaths).
+	try {
+		for (const file of await collectFiles(resolve(rootDir, "agent/docs"))) {
+			addFile(file.fullPath);
+		}
+	} catch {
+		// optional agent/docs
 	}
 
 	// Plugin i18n catalogs (ADR-0033): bundle locales/<lang>.json so the host can

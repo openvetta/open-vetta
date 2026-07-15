@@ -6,6 +6,10 @@ import { SessionRenameInputView } from "./SessionRenameInputView";
 export interface SessionRowViewProps {
 	active: boolean;
 	label: string;
+	/** Tooltip / secondary label (e.g. forked-from preview). */
+	titleExtra?: string;
+	/** Session was forked from another session. */
+	forked?: boolean;
 	onOpenContextMenu: (event: React.MouseEvent) => void;
 	onRename: (name: string) => void;
 	onRenameDone: () => void;
@@ -19,6 +23,8 @@ export interface SessionRowViewProps {
 export function SessionRowView({
 	active,
 	label,
+	titleExtra,
+	forked,
 	onOpenContextMenu,
 	onRename,
 	onRenameDone,
@@ -28,6 +34,7 @@ export function SessionRowView({
 	scheduled,
 	timeLabel,
 }: SessionRowViewProps): JSX.Element {
+	const title = renaming ? undefined : titleExtra ? `${label}\n${titleExtra}` : label;
 	return (
 		<button
 			type="button"
@@ -39,7 +46,7 @@ export function SessionRowView({
 				"relative flex w-full items-center gap-2 rounded-lg px-2.5 py-[6px] text-left transition-colors duration-100",
 				active ? "bg-primary/15 text-foreground" : "hover:bg-accent/50",
 			)}
-			title={renaming ? undefined : label}
+			title={title}
 		>
 			{renaming ? (
 				<SessionRenameInputView
@@ -50,7 +57,16 @@ export function SessionRowView({
 				/>
 			) : (
 				<>
-					<SessionStatusIcon active={active} running={running} scheduled={scheduled} />
+					{forked && !running && !scheduled ? (
+						<span
+							className={cn(
+								"icon-[mdi--source-fork] h-3.5 w-3.5 shrink-0",
+								active ? "text-primary/80" : "text-muted-foreground/60",
+							)}
+						/>
+					) : (
+						<SessionStatusIcon active={active} running={running} scheduled={scheduled} />
+					)}
 					<span
 						className={cn(
 							"min-w-0 flex-1 truncate text-[13px]",

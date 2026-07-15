@@ -23,6 +23,9 @@
 		"defaultConversation": {
 			"noConversations": "No conversations"
 		},
+		"session": {
+			"forkedTooltip": "Forked from another session"
+		},
 		"dialogs": {
 			"deleteBatchTitle": "Delete batch project",
 			"deleteBatchMessage": "Delete batch project \"{{name}}\"? This cannot be undone.",

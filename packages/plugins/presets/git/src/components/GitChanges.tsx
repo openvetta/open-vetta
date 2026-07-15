@@ -1,5 +1,5 @@
 import { preloadHighlighter } from "@pierre/diffs";
-import { useTranslation } from "@vetta/plugin-sdk";
+import { useTranslation } from "@vetta-org/plugin-sdk";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { findEntry } from "../git/gitStatus";
 import { resizePanel } from "../git/runtime";

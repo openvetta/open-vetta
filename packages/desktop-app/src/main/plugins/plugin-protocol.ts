@@ -99,8 +99,8 @@ export const jsxDEV = jsxDevRuntime.jsxDEV;
 `);
 	}
 	if (moduleName === "plugin-sdk") {
-		// 须与 @vetta/plugin-sdk 的运行时导出保持同步（纯类型导出无需列出）：
-		// 插件构建时 @vetta/plugin-sdk 被外部化为本模块，漏列会在插件模块求值时
+		// 须与 @vetta-org/plugin-sdk 的运行时导出保持同步（纯类型导出无需列出）：
+		// 插件构建时 @vetta-org/plugin-sdk 被外部化为本模块，漏列会在插件模块求值时
 		// 抛 "does not provide an export named ..." 导致整个插件加载失败。
 		return moduleResponse(`
 const sdk = globalThis.__VETTA_PLUGIN_HOST__.pluginSdk;

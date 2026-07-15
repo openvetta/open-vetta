@@ -46,6 +46,7 @@ import {
 	selectedSkillAtom,
 	sendMessageFnRef,
 	sessionExecutionModeAtom,
+	sessionsMapAtom,
 	type TodoItem,
 	todoItemsBySessionAtom,
 } from "@shared/store/atoms";
@@ -56,7 +57,7 @@ import {
 	removeQueuedMessageAtom,
 } from "@shared/store/message-queue-atoms";
 import { useNavigate } from "@tanstack/react-router";
-import type { ConversationScenario } from "@vetta/plugin-sdk";
+import type { ConversationScenario } from "@vetta-org/plugin-sdk";
 import { getDefaultStore, useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef } from "react";
 import {
@@ -353,6 +354,9 @@ export function useSessionManager(): SessionManagerResult {
 			setActiveToolNames(new Set(state.activeToolNames));
 			// 对话场景 → 会话页插件插槽按对话类型 fail-closed 显隐。
 			setCurrentScenario(state.scenario);
+			// Fork lineage from session header (parentSession / parentEntryId).
+			const parentSessionPath = state.parentSessionPath;
+			const parentEntryId = state.parentEntryId;
 
 			// 打开「已有」会话（sessionPath 有值）：真相源为后端会话 settings，把后端模型 pull
 			// 到前端镜像，避免用全局 atom 的旧值 push 覆盖本会话（会污染其它会话已选的模型）。
@@ -428,10 +432,16 @@ export function useSessionManager(): SessionManagerResult {
 				setTurnStartTime(startedAt);
 			}
 
-			// 补一次写入：把解析好的真实 sessionPath 落到 activeSession 上。
-			// （早写入用的是 sessionPath ?? ""，对新 session 是空串。）
-			if (cachedKey !== earlySessionInfo.sessionPath) {
-				const sessionInfo = { cwd: effectiveCwd, sessionPath: cachedKey, runtimeId: sessionId };
+			// 补一次写入：真实 sessionPath + fork 血缘（parentSession/parentEntryId）。
+			// 早写入用的是 sessionPath ?? "" 且无 lineage；state 落地后统一覆写。
+			{
+				const sessionInfo = {
+					cwd: effectiveCwd,
+					sessionPath: cachedKey,
+					runtimeId: sessionId,
+					parentSessionPath,
+					parentEntryId,
+				};
 				setActiveSession(sessionInfo);
 				activeSessionRef.current = sessionInfo;
 			}
@@ -788,7 +798,28 @@ export function useSessionManager(): SessionManagerResult {
 				setLastActiveSession({ cwd, sessionPath: cachedKey });
 			}
 
-			await loadSessions(cwd);
+			// ADR-0007: 侧边栏 sessionsMap 挂在「对话」项目根；运行 cwd 可能是 UUID 子目录。
+			// 必须归一到 bucket 再 list，否则 fork/打开已有会话后侧栏不出现该条。
+			const bucketCwd = conversationBucketCwd(effectiveCwd, defaultConversationCwdRef.current);
+			await loadSessions(bucketCwd);
+			// 乐观兜底：fork 刚写出的文件若 list 未收录，再插入一次（已有则不动，避免改 modifiedAt 排序）。
+			if (cachedKey) {
+				const listed = getDefaultStore().get(sessionsMapAtom).get(bucketCwd) ?? [];
+				if (!listed.some((s) => s.path === cachedKey)) {
+					const firstUser = mapped.find((m) => m.role === "user");
+					const firstMessage =
+						(firstUser?.text ?? "").trim().slice(0, 80) || i18n.t("chat:session.emptyMessageLabel");
+					ensureLocalSession(bucketCwd, {
+						id: sessionId,
+						path: cachedKey,
+						cwd: effectiveCwd,
+						firstMessage,
+						modifiedAt: Date.now(),
+						parentSessionPath,
+						parentEntryId,
+					});
+				}
+			}
 		},
 		[
 			setChatMessages,
@@ -798,6 +829,7 @@ export function useSessionManager(): SessionManagerResult {
 			setIsReloadingMcp,
 			navigate,
 			loadSessions,
+			ensureLocalSession,
 			setLastTurnUsage,
 			setLastActiveSession,
 			setContextUsage,

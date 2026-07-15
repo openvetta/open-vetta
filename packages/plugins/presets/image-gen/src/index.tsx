@@ -8,7 +8,7 @@ import {
 	useActiveConversation,
 	useEditImageAttachment,
 	useTranslation,
-} from "@vetta/plugin-sdk";
+} from "@vetta-org/plugin-sdk";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import "./style.css";
 

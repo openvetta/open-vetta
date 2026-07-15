@@ -1,4 +1,4 @@
-import { useTranslation } from "@vetta/plugin-sdk";
+import { useTranslation } from "@vetta-org/plugin-sdk";
 import { useCallback, useEffect, useState } from "react";
 import { aheadBehind, diffStat, gitFetch, gitPull, gitPush, gitSync } from "../git/run";
 import { emitRefreshSignal, onRefreshSignal } from "../git/runtime";

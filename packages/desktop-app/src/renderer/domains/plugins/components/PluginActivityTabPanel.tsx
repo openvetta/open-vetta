@@ -1,6 +1,6 @@
 import { Component, useMemo } from "react";
 import type { ErrorInfo, ReactNode } from "react";
-import { __ActivityTabContext } from "@vetta/plugin-sdk";
+import { __ActivityTabContext } from "@vetta-org/plugin-sdk";
 import type { RegisteredActivityTab } from "@shared/store/atoms";
 import { PluginI18nBoundary } from "../runtime/plugin-i18n";
 

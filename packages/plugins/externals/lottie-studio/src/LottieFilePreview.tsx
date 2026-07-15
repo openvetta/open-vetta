@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { PluginFilePreviewProps } from "@vetta/plugin-sdk";
+import type { PluginFilePreviewProps } from "@vetta-org/plugin-sdk";
 import { LottieStudioView } from "./LottieStudioView";
 import { pluginContext } from "./store";
 

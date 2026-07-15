@@ -1,4 +1,4 @@
-import { useTranslation } from "@vetta/plugin-sdk";
+import { useTranslation } from "@vetta-org/plugin-sdk";
 import type { BranchRef, GraphScope, GraphSelection } from "../../git/types";
 import { BranchIcon } from "../icons";
 

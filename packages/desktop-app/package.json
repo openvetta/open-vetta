@@ -69,7 +69,7 @@
 		"@types/adm-zip": "^0.5.8",
 		"@vetta/action-rpc": "workspace:*",
 		"@vetta/ai": "workspace:*",
-		"@vetta/plugin-sdk": "workspace:*",
+		"@vetta-org/plugin-sdk": "workspace:*",
 		"@vetta/runtime-core": "workspace:*",
 		"@vetta/theme-sdk": "workspace:*",
 		"@vetta/theme-ui": "workspace:*",

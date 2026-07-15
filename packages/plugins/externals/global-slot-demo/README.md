@@ -19,7 +19,7 @@ packages/plugins/externals/global-slot-demo/release/global-slot-demo-0.1.0.zip
 ```
 
 The archive contains only runtime files required by the desktop host. Module Federation build metadata remains in `dist/` for diagnostics, but is not included in the zip.
-`@vetta/plugin-vite` creates the archive automatically after `vite build`; no separate packaging script is required.
+`@vetta-org/plugin-vite` creates the archive automatically after `vite build`; no separate packaging script is required.
 
 ## Install From Renderer DevTools
 
@@ -51,7 +51,7 @@ The settings page can also install and enable the generated zip from the plugin 
 ## Notes
 
 - The plugin is built as a Module Federation remote and exposes `./plugin`.
-- `@vetta/plugin-vite` supplies the default Vite Module Federation and Rollup configuration for Vetta plugins.
+- `@vetta-org/plugin-vite` supplies the default Vite Module Federation and Rollup configuration for Vetta plugins.
 - `src/index.tsx` registers `fiction-system-prompt` with `ctx.agent.registerSystemPromptProvider(...)`.
   - The provider runs before every Agent run and receives current plugin settings, session, model, conversation, runtime tool, and trigger snapshots.
   - It demonstrates all five prompt operations: add, replace, update, disable, and remove.
@@ -63,6 +63,6 @@ The settings page can also install and enable the generated zip from the plugin 
 - `src/index.tsx` registers `fiction-next-step` with `ctx.agent.registerContinuationProvider(...)`. It is disabled by default through the `continuationDemoEnabled` plugin setting. When enabled, it injects one short next-step request per session and uses `idempotencyKey` to prevent duplicate continuation.
 - Tailwind CSS is compiled inside the plugin through `@tailwindcss/vite`; only utilities are imported, so the plugin does not inject Tailwind Preflight into the host.
 - React is shared by the desktop host through Module Federation, so it is a plugin development dependency only.
-- `@vetta/plugin-sdk` is provided by the host and remains external.
+- `@vetta-org/plugin-sdk` is provided by the host and remains external.
 - The plugin declares `ui.slot.global`, `agent.systemPrompt.write`, `agent.skills.control`, `agent.tools.control`, `agent.tools.register`, `agent.toolHandler.execute`, `agent.continuation.register`, `fs.read`, and `fs.write`; without these grants, the corresponding UI, agent contribution, tool registration, continuation provider, or file operation is ignored.
 - Tailwind classes reference Vetta CSS variables such as `--primary` and `--popover`, so the plugin follows the active host theme.

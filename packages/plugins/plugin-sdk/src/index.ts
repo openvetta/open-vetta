@@ -250,6 +250,12 @@ export interface PluginInputActionContribution {
 	 */
 	scope_use?: readonly ConversationScenario[];
 	/**
+	 * When true, this plugin's agent contributions (tools / skills / MCP /
+	 * systemPrompt) and Activity Tabs are hard-isolated: inactive until this
+	 * toggle is on (ADR-0041, knowledgeMode-style). Default false.
+	 */
+	hardIsolation?: boolean;
+	/**
 	 * Fired when the user toggles the action; `active` is the new state. Return
 	 * `false` when `active` is true to VETO the activation (e.g. the plugin needs
 	 * configuration first) — the toggle stays off. Deactivation can't be vetoed.

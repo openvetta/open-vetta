@@ -60,7 +60,7 @@ function createBuildDefaultsPlugin(entry: string): Plugin {
 				build: {
 					rollupOptions: {
 						input: entry,
-						external: ["@vetta/plugin-sdk"],
+						external: ["@vetta-org/plugin-sdk"],
 						output: {
 							assetFileNames(assetInfo) {
 								return assetInfo.names.some((name) => name.endsWith(".css"))
@@ -68,7 +68,7 @@ function createBuildDefaultsPlugin(entry: string): Plugin {
 									: "assets/[name]-[hash][extname]";
 							},
 							paths: {
-								"@vetta/plugin-sdk": "vetta-host://plugin-sdk",
+								"@vetta-org/plugin-sdk": "vetta-host://plugin-sdk",
 							},
 						},
 					},

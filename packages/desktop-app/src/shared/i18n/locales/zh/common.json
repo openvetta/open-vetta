@@ -567,6 +567,13 @@
 					"badge": "安装",
 					"impact": "将从 URL 下载并安装插件。"
 				},
+				"install-from-path": {
+					"title": "从本地安装插件确认",
+					"summary": "确认后将安装本地 zip，并按插件声明一次授予权限后启用。",
+					"confirm": "确认安装并授权",
+					"badge": "安装",
+					"impact": "将安装本地插件包，授予其声明的权限并启用。"
+				},
 				"uninstall": {
 					"title": "卸载插件确认",
 					"summary": "卸载后插件及其本地数据将按策略移除。",

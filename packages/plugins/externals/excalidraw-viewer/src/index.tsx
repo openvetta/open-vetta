@@ -1,4 +1,4 @@
-import { definePlugin } from "@vetta/plugin-sdk";
+import { definePlugin } from "@vetta-org/plugin-sdk";
 import { ExcalidrawPreview } from "./ExcalidrawPreview";
 import "./style.css";
 

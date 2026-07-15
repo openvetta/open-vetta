@@ -749,6 +749,7 @@ export class RuntimeHost implements SessionFacade {
 	getState(sessionId: string): SessionStateSnapshot {
 		const handle = this.requireSession(sessionId);
 		const contextUsage = handle.session.getContextUsage();
+		const header = handle.session.sessionManager.getHeader();
 		return {
 			sessionId,
 			model: handle.session.model,
@@ -761,6 +762,8 @@ export class RuntimeHost implements SessionFacade {
 			contextWindow: contextUsage?.contextWindow ?? 0,
 			activeToolNames: handle.session.getActiveToolNames(),
 			scenario: handle.scenario,
+			parentSessionPath: header?.parentSession,
+			parentEntryId: header?.parentEntryId,
 		};
 	}
 
@@ -863,6 +866,8 @@ export class RuntimeHost implements SessionFacade {
 			firstMessage: session.firstMessage,
 			modifiedAt: session.modified.getTime(),
 			lastMessagePreview: session.lastMessagePreview,
+			parentSessionPath: session.parentSessionPath,
+			parentEntryId: session.parentEntryId,
 		}));
 	}
 

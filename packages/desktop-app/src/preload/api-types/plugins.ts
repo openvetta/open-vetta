@@ -143,6 +143,14 @@ export interface PluginManifest {
 	 * 由宿主加载、不在 manifest 内联。
 	 */
 	defaultLocale?: string;
+	/**
+	 * When hardIsolation is true, agent contributions stay stripped until the
+	 * matching input-action mode is toggled on (ADR-0041). Declared in manifest
+	 * so the gate applies before the plugin UI activates.
+	 */
+	contributionMode?: {
+		hardIsolation?: boolean;
+	};
 }
 
 /** 一份扁平 catalog：翻译 key → 本地化字符串。 */
@@ -188,11 +196,18 @@ export interface InstalledPlugin {
 	source: "archive" | "remote" | "system";
 	availableVersion?: string;
 	pendingVersion?: string;
+	/**
+	 * Absolute filesystem root of the active plugin package
+	 * (system staging dir, or `~/.vetta/plugins/<id>/versions/<activeVersion>`).
+	 */
+	rootPath: string;
 }
 
 export interface PluginInstallOptions {
 	source?: "archive" | "remote";
 	grantedPermissions?: PluginPermission[];
+	/** When true, enable the plugin after install (default false for GUI parity; agent path may set true). */
+	enable?: boolean;
 }
 
 export interface PluginAgentToolRegistration {
@@ -313,6 +328,8 @@ export interface DesktopPluginsApi {
 	list(): Promise<InstalledPlugin[]>;
 	installFromArchive(archiveBuffer: ArrayBuffer, options?: PluginInstallOptions): Promise<InstalledPlugin>;
 	installFromUrl(url: string, options?: PluginInstallOptions): Promise<InstalledPlugin>;
+	/** Install from a local zip absolute path (ADR-0042). */
+	installFromPath(path: string, options?: PluginInstallOptions): Promise<InstalledPlugin>;
 	uninstall(id: string): Promise<void>;
 	setEnabled(id: string, enabled: boolean): Promise<void>;
 	grantPermissions(id: string, permissions: PluginPermission[]): Promise<InstalledPlugin>;
@@ -329,6 +346,13 @@ export interface DesktopPluginsApi {
 		options?: PluginCommandRunOptions,
 	): Promise<PluginCommandRunResult>;
 	reload(id: string): Promise<InstalledPlugin>;
+	/**
+	 * Mark a plugin as contribution-mode-gated (ADR-0041). Until
+	 * {@link setContributionMode} enables it, agent contributions are stripped.
+	 */
+	registerModeGate(pluginId: string): Promise<void>;
+	/** Enable/disable a mode-gated plugin's agent contributions (ADR-0041). */
+	setContributionMode(pluginId: string, active: boolean): Promise<void>;
 	beginAgentContributionsLoad(pluginId: string, activationId: string): Promise<void>;
 	registerAgentTool(pluginId: string, registration: PluginAgentToolRegistration): Promise<void>;
 	unregisterAgentTool(pluginId: string, toolId: string, activationId?: string): Promise<void>;
@@ -359,6 +383,8 @@ export interface DesktopPluginsApi {
 	setSettings(id: string, values: Record<string, unknown>): Promise<void>;
 	/** Subscribe to setting changes for any plugin. Returns an unsubscribe fn. */
 	onSettingsChanged(listener: (payload: { pluginId: string; values: Record<string, unknown> }) => void): () => void;
+	/** Fired when plugins are installed/uninstalled/enabled/reloaded (host should re-load remotes). */
+	onPluginsChanged(listener: () => void): () => void;
 	/** Text-to-image via the main-process image service (out-of-band stored). */
 	generateImage(pluginId: string, input: PluginGenerateImageInput): Promise<PluginImageResult[]>;
 	/** Image-to-image edit, producing the next version in a lineage. */

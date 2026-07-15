@@ -1,4 +1,4 @@
-import { useActiveConversation, useTranslation } from "@vetta/plugin-sdk";
+import { useActiveConversation, useTranslation } from "@vetta-org/plugin-sdk";
 import { useEffect, useRef, useState } from "react";
 import { diffStatForEntries, resolveRepoRoot, statusPorcelain } from "../git/run";
 import { parseStatus } from "../git/parseStatus";
