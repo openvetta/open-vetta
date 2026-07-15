@@ -1,8 +1,6 @@
 import { type RefObject, useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import type { PetActionId } from "../../../../shared/pet-actions";
 import { PetVideoDebugBorder } from "./PetDebugOverlay";
-import { VideoResizeHandles } from "./VideoResizeHandles";
 
 function MissingPetVideo(): JSX.Element {
 	const { t } = useTranslation("pet");
@@ -34,11 +32,8 @@ function loadVideoSource(video: HTMLVideoElement, src: string | undefined, pause
 
 export function PetVideoSurface({
 	actionDescription,
-	actionId,
-	baseSize,
 	debugFrame,
 	hasNaturalSize,
-	maxVideoSize,
 	paused,
 	shouldShowVideo,
 	videoRef,
@@ -46,14 +41,10 @@ export function PetVideoSurface({
 	videoSrc,
 	onError,
 	onLoadedMetadata,
-	onVideoSizeChange,
 }: {
 	actionDescription: string | undefined;
-	actionId: PetActionId | undefined;
-	baseSize: number;
 	debugFrame: boolean;
 	hasNaturalSize: boolean;
-	maxVideoSize: number;
 	paused: boolean;
 	shouldShowVideo: boolean;
 	videoRef: RefObject<HTMLDivElement | null>;
@@ -61,7 +52,6 @@ export function PetVideoSurface({
 	videoSrc: string | undefined;
 	onError: () => void;
 	onLoadedMetadata: (size: { width: number; height: number }) => void;
-	onVideoSizeChange: (size: number) => void;
 }): JSX.Element {
 	const videoElRef = useRef<HTMLVideoElement | null>(null);
 	const loadedVideoSrcRef = useRef<string | undefined>(undefined);
@@ -123,15 +113,6 @@ export function PetVideoSurface({
 			}}
 		>
 			<PetVideoDebugBorder debugFrame={debugFrame} />
-			{debugFrame && actionId ? (
-				<VideoResizeHandles
-					actionId={actionId}
-					baseSize={baseSize}
-					onSizeChange={onVideoSizeChange}
-					videoScale={1}
-					windowSize={maxVideoSize}
-				/>
-			) : null}
 			<video
 				ref={setVideoElement}
 				autoPlay

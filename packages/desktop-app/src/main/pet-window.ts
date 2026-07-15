@@ -42,7 +42,6 @@ const petMediaDir = join(buildDir, "pet");
 const devServerUrl = process.env.VETTA_DESKTOP_DEV_URL;
 const petPreloadPath = join(resDir, "preload/pet.js");
 const PET_BOUNDS_TOLERANCE = 1;
-const PET_MOVE_SIZE_DRIFT_TOLERANCE = 4;
 const PET_CONTENT_BOUNDS_PADDING = 16;
 
 let petWindow: BrowserWindow | null = null;
@@ -55,6 +54,7 @@ let isMousePassthroughEnabled = false;
 let petVideoHitbox: PetVideoHitbox | undefined;
 let petContentOffset = { x: 0, y: 0 };
 let petContentBounds: PetContentBounds | undefined;
+let pendingPetContentSize: number | PetContentBounds | undefined;
 let mousePassthroughPollTimer: ReturnType<typeof setInterval> | undefined;
 
 type PetWindowResizeSession = {
@@ -66,6 +66,7 @@ type PetWindowResizeSession = {
 type PetWindowMoveSession = {
 	startBounds: Electron.Rectangle;
 	startCursor: Electron.Point;
+	lastCursor: Electron.Point;
 };
 
 type PetVideoResolution = {
@@ -193,28 +194,24 @@ function isSeverelyInvalidPetBounds(bounds: Electron.Rectangle): boolean {
 	);
 }
 
-function hasUnacceptablePetMoveSizeChange(bounds: Electron.Rectangle, expectedSize: number): boolean {
-	return (
-		Math.abs(bounds.width - expectedSize) > PET_MOVE_SIZE_DRIFT_TOLERANCE ||
-		Math.abs(bounds.height - expectedSize) > PET_MOVE_SIZE_DRIFT_TOLERANCE ||
-		isSeverelyInvalidPetBounds(bounds)
-	);
+function setPetExactBounds(win: BrowserWindow, bounds: Electron.Rectangle): void {
+	try {
+		isApplyingPetBounds = true;
+		win.setBounds(bounds);
+	} finally {
+		isApplyingPetBounds = false;
+	}
 }
 
 function setPetBounds(win: BrowserWindow, bounds: Electron.Rectangle, reason: string): void {
 	const before = win.getBounds();
 	const size = normalizePetSize(Math.max(bounds.width, bounds.height));
-	try {
-		isApplyingPetBounds = true;
-		win.setBounds({
-			x: bounds.x,
-			y: bounds.y,
-			width: size,
-			height: size,
-		});
-	} finally {
-		isApplyingPetBounds = false;
-	}
+	setPetExactBounds(win, {
+		x: bounds.x,
+		y: bounds.y,
+		width: size,
+		height: size,
+	});
 	const after = win.getBounds();
 	if (isSeverelyInvalidPetBounds(after)) {
 		log.warn("set bounds produced invalid size", {
@@ -290,6 +287,7 @@ function getPetEntryUrl(query: string): string {
 function loadPetEntry(win: BrowserWindow): void {
 	petContentOffset = { x: 0, y: 0 };
 	petContentBounds = undefined;
+	pendingPetContentSize = undefined;
 	const query = buildPetQuery(petConfig);
 	const url = getPetEntryUrl(query);
 	log.info("load entry", {
@@ -330,10 +328,6 @@ function isCursorOverPetVideo(win: BrowserWindow): boolean {
 function syncPetMousePassthroughForCursor(): void {
 	if (!petWindow || petWindow.isDestroyed()) return;
 	if (windowMoveSession) {
-		setPetMousePassthrough(false);
-		return;
-	}
-	if (petConfig.debugFrame) {
 		setPetMousePassthrough(false);
 		return;
 	}
@@ -510,7 +504,7 @@ export function createPetWindow(): BrowserWindow {
 	petWindow.on("resize", () => {
 		if (!petWindow || petWindow.isDestroyed()) return;
 		if (isApplyingPetBounds) return;
-		if (windowResizeSession) return;
+		if (windowMoveSession || windowResizeSession) return;
 		const bounds = petWindow.getBounds();
 		if (isSeverelyInvalidPetBounds(bounds)) {
 			schedulePersistPetWindowSize(normalizeCurrentPetBounds(petWindow));
@@ -540,6 +534,7 @@ export function createPetWindow(): BrowserWindow {
 		petVideoHitbox = undefined;
 		petContentOffset = { x: 0, y: 0 };
 		petContentBounds = undefined;
+		pendingPetContentSize = undefined;
 		petWindow = null;
 		log.info("closed");
 	});
@@ -581,10 +576,6 @@ export function applyPetConfig(config: PetConfig): void {
 
 	const win = petWindow && !petWindow.isDestroyed() ? petWindow : createPetWindow();
 	win.setAlwaysOnTop(petConfig.alwaysOnTop, "screen-saver");
-	const bounds = win.getBounds();
-	if (petConfig.debugFrame && (bounds.width !== petConfig.size || bounds.height !== petConfig.size)) {
-		setPetBounds(win, getCenteredBounds(bounds, petConfig.size), "apply-config");
-	}
 	if (!win.isVisible()) {
 		win.showInactive();
 	}
@@ -624,24 +615,12 @@ export async function resizePetWindowByWheel(deltaY: number): Promise<void> {
 
 export function beginPetWindowMove(): void {
 	const win = petWindow && !petWindow.isDestroyed() ? petWindow : createPetWindow();
-	const bounds = win.getBounds();
-	const normalizedSize = normalizePetSize(Math.max(bounds.width, bounds.height));
-	if (bounds.width !== normalizedSize || bounds.height !== normalizedSize) {
-		setPetBounds(
-			win,
-			{
-				x: bounds.x,
-				y: bounds.y,
-				width: normalizedSize,
-				height: normalizedSize,
-			},
-			"move-normalize-before-session",
-		);
-		schedulePersistPetWindowSize(normalizedSize);
-	}
+	const startCursor = screen.getCursorScreenPoint();
+	pendingPetContentSize = undefined;
 	windowMoveSession = {
 		startBounds: win.getBounds(),
-		startCursor: screen.getCursorScreenPoint(),
+		startCursor,
+		lastCursor: startCursor,
 	};
 }
 
@@ -650,40 +629,56 @@ export function movePetWindow(): void {
 	if (!session) return;
 	const win = petWindow && !petWindow.isDestroyed() ? petWindow : createPetWindow();
 	const cursor = screen.getCursorScreenPoint();
+	if (cursor.x === session.lastCursor.x && cursor.y === session.lastCursor.y) return;
+
 	const x = Math.round(session.startBounds.x + cursor.x - session.startCursor.x);
 	let y = Math.round(session.startBounds.y + cursor.y - session.startCursor.y);
+	let nextSession = { ...session, lastCursor: cursor };
 	if (process.platform === "darwin") {
 		const { workArea } = screen.getDisplayNearestPoint(cursor);
 		if (y < workArea.y) {
 			y = workArea.y;
-			windowMoveSession = {
+			nextSession = {
 				startBounds: { ...session.startBounds, y },
 				startCursor: cursor,
+				lastCursor: cursor,
 			};
 		}
 	}
-	const normalizedSize = normalizePetSize(Math.max(session.startBounds.width, session.startBounds.height));
+	windowMoveSession = nextSession;
+	const bounds = win.getBounds();
+	if (bounds.x === x && bounds.y === y) return;
 	win.setPosition(x, y, false);
-	const after = win.getBounds();
-	if (hasUnacceptablePetMoveSizeChange(after, normalizedSize)) {
-		setPetBounds(
-			win,
-			{
-				x: after.x,
-				y: after.y,
-				width: normalizedSize,
-				height: normalizedSize,
-			},
-			"restore-size-after-move",
-		);
-	}
 }
 
 export function endPetWindowMove(): void {
+	const pendingContentSize = pendingPetContentSize;
 	windowMoveSession = undefined;
-	if (petContentBounds) {
-		setPetWindowContentSize(petContentBounds);
+	pendingPetContentSize = undefined;
+	if (pendingContentSize !== undefined) {
+		setPetWindowContentSize(pendingContentSize);
+		return;
 	}
+	if (!petContentBounds) return;
+
+	const win = petWindow && !petWindow.isDestroyed() ? petWindow : createPetWindow();
+	const bounds = win.getBounds();
+	const anchorScreenX = bounds.x + petContentBounds.anchor.x + petContentBounds.anchor.width / 2;
+	const anchorScreenY = bounds.y + petContentBounds.anchor.y + petContentBounds.anchor.height / 2;
+	const nextBounds = constrainPetBoundsToDisplay({
+		x: Math.round(anchorScreenX - bounds.width / 2),
+		y: Math.round(anchorScreenY - bounds.height / 2),
+		width: bounds.width,
+		height: bounds.height,
+	});
+	const nextOffset = {
+		x: anchorScreenX - nextBounds.x - nextBounds.width / 2,
+		y: anchorScreenY - nextBounds.y - nextBounds.height / 2,
+	};
+	if (nextBounds.x !== bounds.x || nextBounds.y !== bounds.y) {
+		setPetExactBounds(win, nextBounds);
+	}
+	sendPetContentOffset(win, nextOffset);
 }
 
 export function beginPetWindowResize(corner: PetResizeCorner): void {
@@ -753,7 +748,11 @@ function getPetWindowBoundsForContent(current: Electron.Rectangle, content: PetC
 
 export function setPetWindowContentSize(content: number | PetContentBounds): void {
 	if (typeof content === "number" && !Number.isFinite(content)) return;
-	if (windowMoveSession || windowResizeSession) return;
+	if (windowMoveSession) {
+		pendingPetContentSize = content;
+		return;
+	}
+	if (windowResizeSession) return;
 	const win = petWindow && !petWindow.isDestroyed() ? petWindow : createPetWindow();
 	const bounds = win.getBounds();
 	if (typeof content === "number") {

@@ -45,12 +45,10 @@ function getContentBounds(content: HTMLElement, anchor: HTMLElement): PetContent
 export function usePetAutoContentSize({
 	contentRef,
 	targetRef,
-	debugFrame,
 	observeKey,
 }: {
 	contentRef: RefObject<HTMLElement | null>;
 	targetRef: RefObject<HTMLElement | null>;
-	debugFrame: boolean;
 	observeKey: unknown;
 }): void {
 	const lastBoundsKeyRef = useRef<string | undefined>(undefined);
@@ -58,7 +56,6 @@ export function usePetAutoContentSize({
 	useEffect(() => {
 		void observeKey;
 		lastBoundsKeyRef.current = undefined;
-		if (debugFrame) return;
 
 		let animationFrame: number | undefined;
 
@@ -107,5 +104,5 @@ export function usePetAutoContentSize({
 			mutationObserver.disconnect();
 			window.removeEventListener("resize", scheduleReport);
 		};
-	}, [contentRef, targetRef, debugFrame, observeKey]);
+	}, [contentRef, targetRef, observeKey]);
 }

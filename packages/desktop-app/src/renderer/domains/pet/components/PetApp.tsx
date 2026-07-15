@@ -52,7 +52,7 @@ export function PetApp(): JSX.Element {
 	const [contentOffset, setContentOffset] = useState({ x: 0, y: 0 });
 	const [failedVideoSrc, setFailedVideoSrc] = useState<string | undefined>();
 	const [playbackPaused, setPlaybackPaused] = useState(false);
-	const [windowSize, setWindowSize] = useWindowSize();
+	const [windowSize] = useWindowSize();
 	const [videoNaturalSize, setVideoNaturalSize] = useState<{ width: number; height: number } | undefined>();
 	const contentRef = useRef<HTMLDivElement>(null);
 	const videoRef = useRef<HTMLDivElement>(null);
@@ -67,16 +67,15 @@ export function PetApp(): JSX.Element {
 	const shouldShowVideo = videoSrc != null && videoSrc !== failedVideoSrc;
 	const selectedVideoBaseSize = actionId ? videoBaseSizeByAction[actionId] : DEFAULT_PET_VIDEO_SIZE;
 	const selectedVideoSize = normalizePetVideoSize(selectedVideoBaseSize * videoScale);
-	const maxVideoSize = debugFrame ? Math.min(windowSize.width, windowSize.height) : PET_SIZE_MAX;
 	const targetVideoSize = selectedVideoSize;
-	const effectiveVideoSize = normalizePetVideoSizeForWindow(targetVideoSize, maxVideoSize);
+	const effectiveVideoSize = normalizePetVideoSizeForWindow(targetVideoSize, PET_SIZE_MAX);
 	const videoSize = getVideoDisplaySize(videoNaturalSize, effectiveVideoSize);
 	const bubbleAnchorSize = normalizePetVideoSizeForWindow(
 		PET_ACTIONS.reduce(
 			(total, item) => total + normalizePetVideoSize((videoBaseSizeByAction[item.id] ?? DEFAULT_PET_VIDEO_SIZE) * videoScale),
 			0,
 		) / PET_ACTIONS.length,
-		maxVideoSize,
+		PET_SIZE_MAX,
 	);
 	const bubblePlacement = bubble && contentOffset.y < 0 ? "below" : "above";
 
@@ -140,22 +139,10 @@ export function PetApp(): JSX.Element {
 
 	const { handlePointerDown, handlePointerLeave, handlePointerMove, handleWheel } = usePetWindowInteractions({
 		actionId,
-		debugFrame,
-		maxVideoSize,
-		selectedVideoSize,
-		videoScale,
 		videoRef,
-		onVideoBaseSizeChange: (nextBaseSize) => {
-			if (!actionId) return;
-			setVideoBaseSizeByAction((current) => ({
-				...current,
-				[actionId]: nextBaseSize,
-			}));
-		},
 	});
 
 	usePetHitbox({
-		debugFrame,
 		shouldShowVideo,
 		videoRef,
 	});
@@ -163,7 +150,6 @@ export function PetApp(): JSX.Element {
 	usePetAutoContentSize({
 		contentRef,
 		targetRef: videoRef,
-		debugFrame,
 		observeKey: `${actionId ?? ""}:${bubblePlacement}:${bubbleAnchorSize}`,
 	});
 
@@ -177,13 +163,6 @@ export function PetApp(): JSX.Element {
 			clearPresentationThrottle();
 		};
 	}, [clearPresentationThrottle]);
-
-	useEffect(() => {
-		void window.vettaPet?.setMousePassthrough(!debugFrame);
-		return () => {
-			void window.vettaPet?.setMousePassthrough(false);
-		};
-	}, [debugFrame]);
 
 	useEffect(() => {
 		if (!autoMode || !actionId || playbackPaused) return;
@@ -290,15 +269,6 @@ export function PetApp(): JSX.Element {
 		});
 	}, [hideBubble, queueAppAction, queueAppBubble, showBubble, videos]);
 
-	const handleDebugVideoSizeChange = (size: number) => {
-		if (!actionId) return;
-		const nextBaseSize = normalizePetVideoSizeForWindow(size / videoScale, maxVideoSize / videoScale);
-		setVideoBaseSizeByAction((current) => ({
-			...current,
-			[actionId]: nextBaseSize,
-		}));
-	};
-
 	return (
 		<div
 			className="fixed inset-0 flex cursor-move items-center justify-center overflow-hidden bg-transparent"
@@ -311,7 +281,6 @@ export function PetApp(): JSX.Element {
 				debugFrame={debugFrame}
 				videoSize={videoSize}
 				windowSize={windowSize}
-				onWindowSizeChange={(size) => setWindowSize({ width: size, height: size })}
 			/>
 			<div
 				ref={contentRef}
@@ -334,10 +303,7 @@ export function PetApp(): JSX.Element {
 				/>
 				<PetVideoSurface
 					actionDescription={action?.description}
-					actionId={actionId}
-					baseSize={selectedVideoSize}
 					debugFrame={debugFrame}
-					maxVideoSize={maxVideoSize}
 					paused={playbackPaused}
 					shouldShowVideo={shouldShowVideo}
 					videoRef={videoRef}
@@ -346,7 +312,6 @@ export function PetApp(): JSX.Element {
 					hasNaturalSize={videoNaturalSize != null}
 					onError={() => setFailedVideoSrc(videoSrc)}
 					onLoadedMetadata={(size) => setVideoNaturalSize(size)}
-					onVideoSizeChange={handleDebugVideoSizeChange}
 				/>
 			</div>
 		</div>
