@@ -10,6 +10,7 @@ All notable changes to `@vetta-org/plugin-sdk` are documented in this file.
 
 ### Added
 
+- **`PluginUiApi.notify` / `PluginNotifyOptions`**：插件可向宿主右下角全局 Toast 推送通知；传入 `error` 时宿主提供一键「复制堆栈」（含 pluginId@version）。无需权限。
 - **`PluginInputActionContribution.hardIsolation`**：为 true 时，宿主在 toggle 关闭期间剥离该插件的 agent 贡献与 Activity Tab（对齐 knowledgeMode 硬隔离，ADR-0041）。
 - **`agent.mcp.control` 权限**与 **`PluginAgentManifest.mcpServers`**（相对 `.mcp.json` 路径或内联 server map），供插件声明内聚 MCP（ADR-0040）。
 

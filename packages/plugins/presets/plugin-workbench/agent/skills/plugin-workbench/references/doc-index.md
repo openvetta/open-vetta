@@ -22,7 +22,7 @@
 
 | 文件 | 何时读 |
 | --- | --- |
-| `ui-slots.md` | global / file-preview / activity-tab / input-action / **turn-card** / **tool-call 槽** / hardIsolation |
+| `ui-slots.md` | **notify 全局 Toast/错误堆栈** / global / file-preview / activity-tab / input-action / **turn-card** / **tool-call 槽** / hardIsolation |
 | `conversation-and-agent.md` | 对话、registerTool、**command.run**、fs、images、settings、**i18n** |
 | `message-cards.md` | 消息下方卡片、`details.cards`、registerCardRenderer |
 | `mcp.md` | **MCP 三源聚合**、插件内聚 MCP 清单与命名 |

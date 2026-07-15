@@ -6,6 +6,77 @@
 
 会话页相关 slot（活动 Tab、输入栏 toggle、Turn 卡）支持 **`scope_use`**：**fail-closed**——未声明或空数组 = **任何对话场景都不显示**；声明后仅在列出的场景出现（如 `["project", "conversation"]`）。场景 slug 见 [conversation-and-agent.md](./conversation-and-agent.md#scope_use按对话场景限定工具出现范围)。
 
+## 全局通知 notify
+
+向宿主右下角全局 Toast 推送一条通知，**无需权限**。用于把失败原因暴露给用户（比只写红字 / `console.error` 更可操作）。
+
+- 权限：无
+- 传入 `error` 时：variant 默认 `error`、Toast **不自动消失**，并提供 **「复制堆栈」** 一键复制（含 `pluginId@version`、Error.stack / 序列化详情）；同时 `console.error` 一份便于 DevTools
+- React 组件拿不到 `ctx`：在 `activate` 里把 `ctx.ui.notify` 存到模块变量再调用
+
+```ts
+interface PluginNotifyOptions {
+  message: string;                 // 用户可见摘要（必填）
+  title?: string;                  // 默认插件展示名
+  variant?: "info" | "success" | "warning" | "error";
+  error?: unknown;                 // 有则附加「复制堆栈」
+  durationMs?: number;             // 0 = 手动关闭；有 error 时默认 0
+}
+```
+
+```tsx
+// 模块级捕获，供预览 / 面板组件使用
+let notify: import("@vetta-org/plugin-sdk").PluginUiApi["notify"];
+
+function PptxPreview({ file }: PluginFilePreviewProps) {
+  useEffect(() => {
+    let cancelled = false;
+    // 二进制预览优先 getUrl（见下文「大文件」），勿默认 readBytes
+    const load = async () => {
+      const url = file.getUrl();
+      const bytes = url
+        ? await (await fetch(url)).arrayBuffer()
+        : await file.readBytes();
+      return parse(bytes);
+    };
+    load()
+      .then((_result) => {
+        if (cancelled) return;
+        // setSlides(_result) …
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        notify({
+          message: "无法解析此 PPTX 文件",
+          error: err, // 用户可点「复制堆栈」
+        });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [file]);
+  // ...
+}
+
+export default definePlugin({
+  activate(ctx) {
+    notify = ctx.ui.notify;
+    ctx.ui.registerFilePreview({ extensions: ["pptx"], component: PptxPreview });
+  },
+});
+```
+
+**何时必须 notify（推荐规范）**
+
+| 场景 | 做法 |
+| --- | --- |
+| 读文件 / 解析 / 网络 / 外部库失败 | `notify({ message: 用户可读摘要, error })`，UI 仍可显示简短失败态 |
+| 权限 / 配置缺失 | `warning` + 可引导 `openPluginSettings()`（若适用） |
+| 纯成功反馈 | 可选 `variant: "success"`，短 `durationMs` |
+| 可预期的空态（无数据） | **不要**当错误 notify，用组件内 empty UI |
+
+禁止：只 `catch (() => setError("失败"))` 且不传 `error`——用户与 agent 都无法拿到堆栈。
+
 ## 全局浮层 registerGlobalSlot
 
 在 App 根部渲染一个组件（全局浮层 / 对话框 / 常驻 UI）。
@@ -40,7 +111,7 @@ interface PluginPreviewFile {
   name: string;
   extension: string;       // 小写、不含点
   mime: string;
-  size: number;
+  size: number;            // 字节；未知时可能为 0——不要假定很小
   readText(): Promise<string>;
   readBytes(): Promise<ArrayBuffer>;
   getUrl(options?: { mediaKind?: "audio" | "video" }): string; // Range 流式 URL
@@ -55,7 +126,59 @@ interface PluginPreviewFile {
 ctx.ui.registerFilePreview({ extensions: ["svg"], component: SvgPreview });
 ```
 
-完整示例见 `packages/plugins/presets/svg-viewer`、`media-viewer`。
+完整示例见 `packages/plugins/presets/svg-viewer`、`media-viewer`、`office-viewer`。
+
+### 内容访问：三种 API 怎么选
+
+| API | 适用 | 宿主行为 / 限制 |
+| --- | --- | --- |
+| **`getUrl()`** | **二进制 / 可能偏大 / 媒体 / 可流式解析**（PDF、Office zip、音视频、大图） | 返回 `vetta-media://…`（或远程 url）。**支持 Range**；`fetch(url)` 或交给原生 `<audio>`/`pdf.js` 等。**无整文件 10MB 封顶**（相对 IPC 全量读）。 |
+| **`readBytes()`** | 仅当库**必须**拿到完整 `ArrayBuffer` 且你已接受体积风险 | 经 IPC 全量读盘。**硬上限约 10MB**——更大直接抛错（如 `File too large to preview (>10 MB)`）。base64 往返，内存与序列化成本高。 |
+| **`readText()`** | 明确的小文本（svg 源、json、轻量 xml） | 同样走 IPC；**大文本同样不适合**。 |
+
+**Agent / 作者硬规则（文件预览插件不要敷衍）**
+
+1. **默认按「用户可能打开几十 MB～上百 MB」设计**，不要只拿 100KB 样例验收。
+2. **能流式就流式**：优先 `const url = file.getUrl()`，再 `fetch(url)` / 交给支持 URL 的引擎。官方 `office-viewer` 模式：
+
+   ```ts
+   async function fetchFileBytes(file: PluginPreviewFile): Promise<ArrayBuffer> {
+     const url = file.getUrl();
+     if (!url) return file.readBytes(); // 仅 url-only 兜底
+     const res = await fetch(url);
+     if (!res.ok) throw new Error(`HTTP ${res.status}`);
+     return res.arrayBuffer();
+   }
+   ```
+
+3. **禁止**无脑 `readBytes()` 当唯一路径，然后 catch 成一句「无法解析」——大文件会先撞 10MB 墙，用户只看到含糊失败。
+4. 若格式**必须**整包进内存（如整 zip 解压）：
+   - 仍优先 `getUrl` + `arrayBuffer()`（绕开 IPC 10MB）；
+   - 读 `file.size`：过大时**提前**友好提示（可给阈值，如「超过 N MB 仅支持元数据/前几页」），不要等 OOM；
+   - 无法支持的巨大文件：组件内说明 + `notify({ message, error 或 说明 })`，**不要静默挂死**。
+5. **加载态 / 取消**：`useEffect` 里 `cancelled` 标志；卸载后不 `setState`；长时间解析显示 loading，必要时分片/只解析需要的部分（如 pptx 只读 `ppt/slides/*`，不必把整包图片解码进 UI）。
+6. **媒体类**（音/视频）直接用 `getUrl({ mediaKind })` 作 `src`，**禁止** base64 塞进内存。
+7. 失败一律带原始错误：`notify({ message: "…", error })`（见 [notify](#全局通知-notify)）。
+
+### 反例与正例
+
+```tsx
+// ❌ 敷衍：一律 readBytes，无 size 意识，吞错误
+file.readBytes().then(parse).catch(() => setError("失败"));
+
+// ✅ 优先流式 URL；大文件友好；错误可复制堆栈
+const url = file.getUrl();
+const bytes = url
+  ? await (await fetch(url)).arrayBuffer()
+  : await file.readBytes();
+```
+
+若引擎支持 URL/Range（PDF.js 等），**连整包 arrayBuffer 都可省**：
+
+```tsx
+// ✅ 最佳：引擎自己拉流
+pdfjs.getDocument({ url: file.getUrl() });
+```
 
 ## 活动面板 Tab registerActivityTab
 

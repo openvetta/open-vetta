@@ -49,7 +49,7 @@ ctx.permissions.require("fs.read");  // 缺则抛 Plugin permission denied: fs.r
 | `fs.write` | `writeFile` / `rename` / `delete` / `move` / `createDirectory` | 同上 |
 | `images.generate` | `ctx.images.generate/edit/lineage/sessionLineages` | [conversation-and-agent](./conversation-and-agent.md#图像-api) |
 
-> `ctx.settings` / `ctx.i18n` **不需要权限**——分别读本插件设置命名空间与本插件 catalog。
+> `ctx.settings` / `ctx.i18n` / **`ctx.ui.notify`** **不需要权限**——分别读本插件设置命名空间、本插件 catalog、以及向宿主右下角推送 Toast（含错误堆栈复制）。错误上报规范见 [ui-slots → notify](./ui-slots.md#全局通知-notify)。
 
 ## 占位符权限（已声明、暂无对应 API）
 
