@@ -17,12 +17,13 @@ const DARK_POPOVER = DARK_CARD;
 const DARK_ACCENT = "rgb(69, 69, 69)"; // #454545
 
 // ── light ──
-const LIGHT_BG = "rgb(242, 240, 227)"; // #f2f0e3
-const LIGHT_MUTED = "rgb(238, 236, 223)"; // #eeecdf
-const LIGHT_SECONDARY = "rgb(232, 226, 208)"; // #e8e2d0（用户气泡）
-const LIGHT_CARD = "rgb(247, 246, 238)"; // #f7f6ee
+// 冷灰石色：去掉米黄偏黄感，仍保留柔和纸面层级（card > bg > muted > secondary）
+const LIGHT_BG = "rgb(240, 241, 242)"; // #f0f1f2
+const LIGHT_MUTED = "rgb(234, 235, 237)"; // #eaebed
+const LIGHT_SECONDARY = "rgb(226, 228, 231)"; // #e2e4e7（用户气泡，明显深于背景）
+const LIGHT_CARD = "rgb(246, 247, 248)"; // #f6f7f8
 const LIGHT_POPOVER = LIGHT_CARD;
-const LIGHT_ACCENT = "rgb(232, 230, 218)"; // #e8e6da
+const LIGHT_ACCENT = "rgb(228, 230, 233)"; // #e4e6e9
 
 export const sandTheme: ThemeDef = {
 	id: "sand",

@@ -236,7 +236,7 @@ export function CapabilityCard({
 		<div
 			onClick={previewable ? () => model.preview(item) : undefined}
 			className={cn(
-				"group flex min-h-28 flex-col rounded-xl border border-border/50 bg-card/40 px-3.5 pt-3 pb-3 backdrop-blur-sm transition-colors duration-200 hover:border-primary/40 hover:bg-card/60",
+				"group relative flex min-h-28 flex-col overflow-hidden rounded-xl bg-card px-3.5 pt-3 pb-3 transition-colors duration-200 hover:bg-accent",
 				previewable && "cursor-pointer",
 				!item.enabled && item.installed && "opacity-75",
 			)}

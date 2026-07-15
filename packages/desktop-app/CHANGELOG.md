@@ -27,6 +27,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **「默认」主题浅色偏冷**：浅色表面由米黄纸面改为冷灰石色（`#f0f1f2` 等），降低黄调；主色与深色不变。
 - **「默认」主题换新色板**：原暖砂默认下线；由迭代中的「测试」色板接替（id 仍为 `sand`，label「默认」）。主题色 `#f76f53`；旧 id `test` 迁移到 `sand`。
 - **外观颜色主题精简与重命名**：移除「猩红 / 霓虹 / 海洋」；原「GitHub」更名为「青石」（id `slate`）；旧 id `github` 自动迁移。
 - **全主题 secondary 相对 muted 对齐**：深色 secondary 略深于 muted，浅色 secondary 略浅于 muted。
