@@ -61,8 +61,16 @@
 		0px 8px 10px -1px hsl(0 0% 0% / 0.18);
 	--shadow-2xl: 0px 1px 2px 0px hsl(0 0% 0% / 0.45);
 
-	--tool-call-shimmer-base: rgb(255 255 255 / 0.45);
-	--tool-call-shimmer-peak: rgb(255 255 255 / 0.95);
+	--tool-call-shimmer-base: color-mix(
+		in srgb,
+		var(--muted-foreground) 85%,
+		var(--foreground)
+	);
+	--tool-call-shimmer-peak: color-mix(
+		in srgb,
+		var(--foreground) 72%,
+		var(--primary)
+	);
 }
 
 /* ─── Light mode ─── */
@@ -108,8 +116,16 @@
 		0px 8px 10px -1px hsl(0 0% 0% / 0.18);
 	--shadow-2xl: 0px 1px 2px 0px hsl(0 0% 0% / 0.45);
 
-	--tool-call-shimmer-base: rgb(255 255 255 / 0.55);
-	--tool-call-shimmer-peak: rgb(255 255 255 / 0.9);
+	--tool-call-shimmer-base: color-mix(
+		in srgb,
+		var(--muted-foreground) 85%,
+		var(--foreground)
+	);
+	--tool-call-shimmer-peak: color-mix(
+		in srgb,
+		var(--foreground) 72%,
+		var(--primary)
+	);
 }
 
 @theme inline {
@@ -578,12 +594,11 @@ a {
 }
 
 @keyframes tool-call-text-shimmer {
-	0%,
-	100% {
-		opacity: 0.62;
+	from {
+		background-position: 200% 0;
 	}
-	50% {
-		opacity: 1;
+	to {
+		background-position: -200% 0;
 	}
 }
 
@@ -597,11 +612,12 @@ a {
 		var(--tool-call-shimmer-base) 100%
 	);
 	background-size: 220% 100%;
+	background-position: 200% 0;
 	-webkit-background-clip: text;
 	background-clip: text;
 	-webkit-text-fill-color: transparent;
-	animation: tool-call-text-shimmer 2.4s ease-in-out infinite;
-	will-change: opacity;
+	animation: tool-call-text-shimmer 2.4s linear infinite;
+	will-change: background-position;
 }
 
 /* Soft halo behind the card on focus. */
@@ -677,6 +693,13 @@ a {
 }
 
 @media (prefers-reduced-motion: reduce) {
+	.tool-call-shimmer-text {
+		color: var(--muted-foreground);
+		background: none;
+		-webkit-text-fill-color: currentColor;
+		animation: none;
+	}
+
 	.theme-blob-ripple,
 	.theme-blob-spin {
 		animation: none;
