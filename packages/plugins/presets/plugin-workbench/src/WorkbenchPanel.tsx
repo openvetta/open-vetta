@@ -181,6 +181,7 @@ function busyLabel(busy: string, t: (key: string) => string): string {
 		reload: t("panel.busyReload"),
 		save: t("panel.busySave"),
 		hotreload: t("panel.busyHotReload"),
+		export: t("panel.busyExport"),
 	};
 	return map[kind] ?? t("panel.busy");
 }
@@ -365,6 +366,29 @@ export function WorkbenchPanel() {
 				.filter(Boolean);
 			await getWorkbenchFs().writeFile(path, `${JSON.stringify(manifest, null, "\t")}\n`);
 			await refresh();
+		} catch (err) {
+			setError(err instanceof Error ? err.message : String(err));
+		} finally {
+			setBusy(null);
+		}
+	};
+
+	const runExport = async (project: ProjectInfo) => {
+		if (!project.zipPath) {
+			setError(t("panel.exportNeedsZip"));
+			return;
+		}
+		setBusy(`export:${project.id}`);
+		setError(null);
+		try {
+			const defaultFileName = `${project.id}-${project.version}.zip`;
+			const saved = await window.vetta.dialog.saveCopy(project.zipPath, {
+				defaultFileName,
+				title: t("panel.exportTitle"),
+				filters: [{ name: "Zip", extensions: ["zip"] }],
+			});
+			// null = user cancelled the save dialog; no error.
+			if (saved == null) return;
 		} catch (err) {
 			setError(err instanceof Error ? err.message : String(err));
 		} finally {
@@ -626,6 +650,18 @@ export function WorkbenchPanel() {
 									disabled={isBusy}
 								>
 									{t("panel.build")}
+								</button>
+								<button
+									type="button"
+									className={btnSecondary}
+									onClick={() => void runExport(project)}
+									disabled={isBusy || !project.zipPath}
+									title={!project.zipPath ? t("panel.exportNeedsZip") : t("panel.export")}
+								>
+									{projectBusy && busy?.startsWith("export") ? (
+										<RefreshIcon className="h-3 w-3 animate-spin" />
+									) : null}
+									{t("panel.export")}
 								</button>
 								<button
 									type="button"

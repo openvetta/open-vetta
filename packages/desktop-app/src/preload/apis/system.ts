@@ -38,6 +38,7 @@ export function createSystemApi(
 			selectImages: () => ipc.invoke("vetta:dialog:select-images"),
 			selectFiles: (defaultPath) => ipc.invoke("vetta:dialog:select-files", defaultPath),
 			saveHtml: (defaultFileName, content) => ipc.invoke("vetta:dialog:save-html", defaultFileName, content),
+			saveCopy: (sourcePath, options) => ipc.invoke("vetta:dialog:save-copy", sourcePath, options),
 			persistImages: (sessionId, images) => ipc.invoke("vetta:dialog:persist-images", sessionId, images),
 		},
 		theme: {

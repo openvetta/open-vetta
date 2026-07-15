@@ -44,9 +44,21 @@ interface VettaFsApi {
 	stat(path: string): Promise<{ size: number } | null>;
 }
 
+interface VettaDialogSaveCopyOptions {
+	defaultFileName?: string;
+	title?: string;
+	filters?: Array<{ name: string; extensions: string[] }>;
+}
+
+interface VettaDialogApi {
+	/** Native save dialog that copies an existing file; null if cancelled. */
+	saveCopy(sourcePath: string, options?: VettaDialogSaveCopyOptions): Promise<string | null>;
+}
+
 interface Window {
 	vetta: {
 		plugins: VettaPluginsApi;
 		fs: VettaFsApi;
+		dialog: VettaDialogApi;
 	};
 }
