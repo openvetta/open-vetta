@@ -25,6 +25,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **插件 reload/热更新加载旧代码（根因修复）**：remoteEntry.js 是 ESM 容器，MF 用原生 `import()` 加载，浏览器 ES module registry 按 URL 永久缓存——reload token 只在 manifest URL 上、相对解析不会带到 remoteEntry，导致 reload 与热更新永远执行旧模块（只有换版本路径的卸载重装才生效）。现给 MF host 注册 `vetta-reload-bust` runtime 插件，在 `afterResolve` 把 token 追加到 remoteEntry 的 import URL，使每轮重载 URL 唯一。同时修复 Action 路径 uninstall/set-enabled(false) 不停 dev watch 子进程的泄漏。
+- **Agent 改插件感知热更新**：`plugins.query` 的返回项透出 `devWatch`；workbench skill/prompt 更新——热更新开启时改完源码即自动生效，agent 不再走 install-from-path/reload（不弹确认）；未开启则维持确认流程。
 - **AI 输入栏 toggle 按会话持久化**：图像生成、插件工作台、知识检索等 input-action 状态按 `sessionPath` 独立记忆（localStorage）；切会话 / 离开再回来 / 刷新后恢复，且 hardIsolation contribution mode 随当前会话同步。此前为全局内存态，切换或刷新即丢失。
 - **Fork 后侧边栏不出现新会话**：「对话」项目下 openSession 用 UUID 子目录 cwd 刷新 sessionsMap，桶键与侧栏不一致。现用 `conversationBucketCwd` 归一后 `loadSessions`，并 `ensureLocalSession` 兜底插入；列表透出 `parentSessionPath` / `parentEntryId`。
 - **安装/启停/重载插件后活动面板 tab 不出现**：main 变更插件注册表后广播 `vetta:plugins:changed`，渲染进程 `PluginGlobalSlotHost` 重载 MF remotes。此前仅设置页本地 `notifyPluginsChanged`，工作台 / Action `install-from-path` 装完 UI 仍停在旧列表，需重启 App 才见 tab。
