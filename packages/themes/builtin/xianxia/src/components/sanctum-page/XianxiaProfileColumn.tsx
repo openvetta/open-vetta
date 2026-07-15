@@ -2,21 +2,17 @@ import { motion } from "motion/react";
 import type { JSX } from "react";
 import { sanctumPageAssets } from "./assets";
 import { formatRealmTitle } from "./cultivationView";
+import { getProfileSkills } from "./profileSkills";
 import type { SanctumCultivationView } from "./types";
 import { XianxiaCultivationNumber } from "./XianxiaCultivationNumber";
-
-const skillPerks = [
-	{ bonus: "+10%", name: "Qi Gathering" },
-	{ bonus: "+15%", name: "Cultivation Speed" },
-	{ bonus: "+10%", name: "Defense Boost" },
-	{ bonus: "+200", name: "Max Qi Increase" },
-] as const;
 
 export function XianxiaProfileColumn({
 	cultivation,
 }: {
 	readonly cultivation: SanctumCultivationView;
 }): JSX.Element {
+	const skills = getProfileSkills(cultivation);
+
 	return (
 		<section className="relative flex min-h-[650px] w-[430px] min-w-[430px] flex-none flex-col items-center justify-start self-start justify-self-center min-[1060px]:!sticky min-[1060px]:top-[90px] xl:w-[470px] xl:min-w-[470px]">
 			<div className="absolute left-1/2 top-[70px] z-20 -translate-x-1/2 rounded-full bg-slate-800/65 px-6 py-1.5 text-[15px] font-semibold text-white shadow-[0_0_8px_rgba(255,255,255,0.35)]">
@@ -57,25 +53,26 @@ export function XianxiaProfileColumn({
 				</div>
 				<div className="absolute inset-x-14 bottom-9">
 					<div className="mb-2 text-center text-[13px] text-slate-600">
-						Realm Perks
+						修行能力 · Cultivation Skills
 					</div>
 					<div className="grid grid-cols-4 gap-2 overflow-hidden">
-						{sanctumPageAssets.skills.map((icon, index) => (
+						{skills.map((skill, index) => (
 							<motion.div
 								animate={{ opacity: 1, y: 0 }}
 								className="min-w-0 text-center"
 								initial={{ opacity: 0, y: 8 }}
-								key={icon}
+								key={skill.id}
+								title={`${skill.label} · Lv.${skill.level} · 累计 ${Math.floor(skill.value).toLocaleString("zh-CN")} 修为`}
 								transition={{ delay: 0.35 + index * 0.08, duration: 0.32, ease: "easeOut" }}
 							>
 								<img
 									alt=""
 									aria-hidden="true"
 									className="mx-auto h-12 w-auto max-w-none drop-shadow-[0_0_7px_rgba(255,255,255,0.72)]"
-									src={icon}
+									src={sanctumPageAssets.skills[index]}
 								/>
-								<span className="mt-1 block truncate text-[10px] leading-tight text-slate-600">{skillPerks[index]?.name}</span>
-								<span className="mt-0.5 block text-[12px] font-semibold leading-tight text-slate-700">{skillPerks[index]?.bonus}</span>
+								<span className="mt-1 block truncate text-[10px] leading-tight text-slate-600">{skill.label}</span>
+								<span className="mt-0.5 block text-[12px] font-semibold leading-tight text-slate-700">Lv.{skill.level}</span>
 							</motion.div>
 						))}
 					</div>
