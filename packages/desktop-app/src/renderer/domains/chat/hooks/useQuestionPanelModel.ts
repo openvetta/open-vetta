@@ -42,6 +42,7 @@ export function useQuestionPanelModel(pending: PendingQuestion): QuestionPanelMo
 			questionTabLabel: (number) => t("questionPanel.questionTabLabel", { number }),
 			keyboardHint: t("questionPanel.keyboardHint"),
 			cancel: t("common:actions.cancel"),
+			next: t("questionPanel.nextButton"),
 			submit: t("questionPanel.submitButton"),
 			multiSelectHint: t("questionPanel.multiSelectHint"),
 			otherOption: t("questionPanel.otherOption"),

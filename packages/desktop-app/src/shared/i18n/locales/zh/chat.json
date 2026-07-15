@@ -439,6 +439,7 @@
 		"multiSelectHint": "可多选",
 		"otherOption": "其它（自定义输入）",
 		"otherPlaceholder": "输入你的答案…",
+		"nextButton": "下一步",
 		"questionTabLabel": "问题 {{number}}",
 		"submitButton": "提交",
 		"title": "Vetta 需要你的选择"

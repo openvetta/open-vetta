@@ -31,6 +31,9 @@ export interface QuestionPanelLabels {
 	questionTabLabel: (number: number) => string;
 	keyboardHint: string;
 	cancel: string;
+	/** 多题且未到最后一题时的主按钮文案。 */
+	next: string;
+	/** 单题或最后一题时的主按钮文案。 */
 	submit: string;
 	multiSelectHint: string;
 	otherOption: string;
