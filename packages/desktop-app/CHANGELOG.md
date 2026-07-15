@@ -27,6 +27,11 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **「默认」主题换新色板**：原暖砂默认下线；由迭代中的「测试」色板接替（id 仍为 `sand`，label「默认」）。主题色 `#f76f53`；旧 id `test` 迁移到 `sand`。
+- **外观颜色主题精简与重命名**：移除「猩红 / 霓虹 / 海洋」；原「GitHub」更名为「青石」（id `slate`）；旧 id `github` 自动迁移。
+- **全主题 secondary 相对 muted 对齐**：深色 secondary 略深于 muted，浅色 secondary 略浅于 muted。
+- **列表卡片背景改用 card**：自动化 / 扩展 / 批量任务 / 插件页 item 由 `bg-muted` 改为 `bg-card`。
+- **输入栏背景统一 `bg-card`**：输入框本体深浅色均为 `bg-card`；下方 action list 为 `bg-card/70`。
 - **插件工作台热更新默认开启**：已安装的工程卡片在应用成功或打开面板时默认启动热更新；用户可手动关闭（本会话内不再自动重开）。
 
 ### Fixed
