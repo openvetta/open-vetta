@@ -20,6 +20,7 @@ const REALM_DETAIL_SOURCES = ["对话与会话", "活跃与项目", "工具与�
 interface RealmScoreCategory {
 	readonly icon: string;
 	readonly label: string;
+	readonly targetWeight: number;
 	readonly value: number;
 }
 
@@ -67,16 +68,19 @@ function getRealmScoreCategories(cultivation: SanctumCultivationView): readonly 
 		{
 			icon: "icon-[solar--chat-round-dots-bold]",
 			label: "对话修为",
+			targetWeight: 0.4,
 			value: breakdown.messages + breakdown.turns + breakdown.depth,
 		},
 		{
 			icon: "icon-[solar--book-2-bold]",
 			label: "工具知识",
+			targetWeight: 0.25,
 			value: breakdown.tools + breakdown.knowledge,
 		},
 		{
 			icon: "icon-[solar--settings-bold]",
 			label: "实践自动化",
+			targetWeight: 0.35,
 			value:
 				breakdown.activeTime +
 				breakdown.sessions +
@@ -94,7 +98,6 @@ function getRealmProgressItems(
 	targetScore: number,
 	categories: readonly RealmScoreCategory[],
 ): readonly RealmProgressItem[] {
-	const compositionTotal = categories.reduce((total, category) => total + category.value, 0);
 	const realmProgress = targetScore <= 0 ? 1 : cultivation.score / targetScore;
 
 	return [
@@ -104,12 +107,24 @@ function getRealmProgressItems(
 			progress: clamp01(realmProgress),
 			valueText: targetScore <= 0 ? "已达成" : `${Math.round(clamp01(realmProgress) * 100)}%`,
 		},
-		...categories.map((category) => ({
-			icon: category.icon,
-			label: category.label,
-			progress: compositionTotal > 0 ? clamp01(category.value / compositionTotal) : 0,
-			valueText: formatCompactNumber(category.value),
-		})),
+		...categories.map((category) => {
+			if (targetScore <= 0) {
+				return {
+					icon: category.icon,
+					label: category.label,
+					progress: 1,
+					valueText: "起点",
+				};
+			}
+			const categoryTarget = Math.max(1, Math.ceil(targetScore * category.targetWeight));
+			const complete = category.value >= categoryTarget;
+			return {
+				icon: category.icon,
+				label: category.label,
+				progress: complete ? 1 : clamp01(category.value / categoryTarget),
+				valueText: complete ? "100%" : formatProgressValue(category.value, categoryTarget),
+			};
+		}),
 	];
 }
 
@@ -170,6 +185,18 @@ function formatCompactNumber(value: number): string {
 		maximumFractionDigits: 1,
 		notation: "compact",
 	}).format(Math.max(0, Math.floor(value)));
+}
+
+function formatProgressValue(value: number, target: number): string {
+	const scale = target >= 10_000 ? 10_000 : target >= 1_000 ? 1_000 : 1;
+	const suffix = scale === 10_000 ? "万" : scale === 1_000 ? "k" : "";
+	return `${formatScaledNumber(value, scale)}/${formatScaledNumber(target, scale)}${suffix}`;
+}
+
+function formatScaledNumber(value: number, scale: number): string {
+	if (scale === 1) return Math.max(0, Math.floor(value)).toString();
+	const scaled = Math.max(0, value) / scale;
+	return (Math.round(scaled * 10) / 10).toString();
 }
 
 function clamp01(value: number): number {

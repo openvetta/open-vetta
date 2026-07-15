@@ -1,13 +1,13 @@
 import type { ThemeUsageStats } from "@vetta/theme-sdk";
 import type { CultivationDailyMetrics } from "../../cultivation";
+import { levelFromXp } from "./abilityProgress";
 import { sanctumAchievements } from "./achievements";
 import { sanctumPageAssets } from "./assets";
 import { getCultivationCompositionItems } from "./cultivationComposition";
 import { formatCultivationNumber } from "./cultivationView";
 import type { SanctumCultivationView } from "./types";
 
-/** Ability XP floors for Lv.1–5 (composition power contribution). */
-export const ABILITY_LEVEL_XP_THRESHOLDS = [0, 50, 150, 350, 700] as const;
+export { ABILITY_LEVEL_XP_THRESHOLDS, levelFromXp } from "./abilityProgress";
 
 /**
  * Estimated minutes saved per action (manual work avoided).
@@ -620,30 +620,4 @@ function formatDate(date: Date): string {
 
 function toDateKey(date: Date): string {
 	return formatDate(date).replaceAll("/", "-");
-}
-
-/**
- * Absolute XP ladder: thresholds are min XP to be at that level.
- * Progress is distance to the next level (Lv.5 = 100%).
- */
-export function levelFromXp(xp: number): { readonly level: number; readonly progress: number } {
-	const value = Math.max(0, xp);
-	const thresholds = ABILITY_LEVEL_XP_THRESHOLDS;
-	let level = 1;
-	for (let index = thresholds.length - 1; index >= 0; index--) {
-		if (value >= thresholds[index]) {
-			level = index + 1;
-			break;
-		}
-	}
-	if (level >= thresholds.length) {
-		return { level: thresholds.length, progress: 100 };
-	}
-	const floor = thresholds[level - 1];
-	const next = thresholds[level];
-	const progress = Math.round(((value - floor) / Math.max(1, next - floor)) * 100);
-	return {
-		level,
-		progress: Math.max(8, Math.min(99, progress)),
-	};
 }

@@ -100,7 +100,7 @@ function AchievedRealmDetailContent({
 			<RealmDetailSection index={1} title="境界定义">
 				<p className="text-[13px] leading-5 text-slate-200/82">{detail.definition}</p>
 			</RealmDetailSection>
-			<RealmDetailSection index={2} title="修行数据">
+			<RealmDetailSection index={2} title="境界与能力进度">
 				<RealmProgressList compact items={detail.requirements} />
 			</RealmDetailSection>
 			<RealmDetailSection index={3} title="数据来源">
@@ -132,7 +132,7 @@ function LockedRealmDetailContent({
 					{detail.nextRealmName ? <><span className="px-1 text-amber-100">→</span> {detail.nextRealmName}</> : null}
 				</p>
 			</RealmDetailSection>
-			<RealmDetailSection index={3} title="修行数据">
+			<RealmDetailSection index={3} title="境界与能力进度">
 				<RealmProgressList items={detail.requirements} />
 			</RealmDetailSection>
 			<RealmDetailSection index={4} title="数据来源">
@@ -194,7 +194,7 @@ function RealmProgressList({
 							style={{ width: getProgressWidth(item.progress) }}
 						/>
 					</div>
-					<div className="truncate text-right text-[12px] leading-4 text-slate-200/80">{item.valueText}</div>
+					<div className="truncate text-right text-[10px] leading-4 text-slate-200/80">{item.valueText}</div>
 				</div>
 			))}
 		</div>
