@@ -1,9 +1,15 @@
+import { useThemeRouteModel } from "@vetta/theme-sdk";
 import { HorizontalSliceImageDecoration, NineSliceImageFrame } from "@vetta/theme-ui";
 import { cn } from "@vetta/ui";
 import { motion } from "motion/react";
 import { useEffect, useRef, type JSX } from "react";
 import { sanctumPageAssets } from "./assets";
-import type { RealmDetailView, RealmRequirement } from "./types";
+import type {
+	RealmDetailAction,
+	RealmDetailOutcome,
+	RealmDetailView,
+	RealmProgressItem,
+} from "./types";
 
 const realmDetailPanelDecoration = {
 	borderWidth: "4.25rem",
@@ -18,21 +24,6 @@ const realmDetailActionDecoration = {
 	rightSlice: 36,
 	rightWidth: "0.9rem",
 } as const;
-const realmDetailBenefits = ["跨任务协同", "综合分析能力", "复杂任务处理"] as const;
-const realmDetailRewards = ["能力标签", "推荐工作流", "模板资产"] as const;
-const realmDetailActions = [
-	{ icon: "icon-[solar--document-add-bold]", label: "去写公文" },
-	{ icon: "icon-[solar--book-2-bold]", label: "去知识库" },
-	{ icon: "icon-[solar--chart-2-bold]", label: "去分析" },
-	{ icon: "icon-[solar--settings-bold]", label: "去自动化" },
-] as const;
-const realmDetailSources = ["公文写作", "知识库", "数据洞察", "自动化"] as const;
-const realmDetailOutcomeIcons = [
-	"icon-[solar--medal-ribbon-star-bold]",
-	"icon-[solar--workflow-bold]",
-	"icon-[solar--folder-with-files-bold]",
-] as const;
-
 export function XianxiaRealmDetailPanel({
 	detail,
 	onClose,
@@ -109,17 +100,17 @@ function AchievedRealmDetailContent({
 			<RealmDetailSection index={1} title="境界定义">
 				<p className="text-[13px] leading-5 text-slate-200/82">{detail.definition}</p>
 			</RealmDetailSection>
-			<RealmDetailSection index={2} title="达成条件">
-				<RealmRequirementList compact requirements={detail.requirements} />
+			<RealmDetailSection index={2} title="修行数据">
+				<RealmProgressList compact items={detail.requirements} />
 			</RealmDetailSection>
 			<RealmDetailSection index={3} title="数据来源">
-				<RealmSourceChips />
+				<RealmSourceChips sources={detail.sources} />
 			</RealmDetailSection>
 			<RealmDetailSection index={4} title="推荐入口">
-				<RealmActionGrid />
+				<RealmActionGrid actions={detail.actions} />
 			</RealmDetailSection>
 			<RealmDetailSection index={5} title="达成后收益">
-				<RealmOutcomeGrid items={realmDetailRewards} />
+				<RealmOutcomeGrid items={detail.rewards} />
 			</RealmDetailSection>
 		</>
 	);
@@ -141,20 +132,20 @@ function LockedRealmDetailContent({
 					{detail.nextRealmName ? <><span className="px-1 text-amber-100">→</span> {detail.nextRealmName}</> : null}
 				</p>
 			</RealmDetailSection>
-			<RealmDetailSection index={3} title="当前差距">
-				<RealmRequirementList requirements={detail.requirements} />
+			<RealmDetailSection index={3} title="修行数据">
+				<RealmProgressList items={detail.requirements} />
 			</RealmDetailSection>
 			<RealmDetailSection index={4} title="数据来源">
-				<RealmSourceChips />
+				<RealmSourceChips sources={detail.sources} />
 			</RealmDetailSection>
 			<RealmDetailSection index={5} title="建议修炼路径">
-				<RealmActionGrid />
+				<RealmActionGrid actions={detail.actions} />
 			</RealmDetailSection>
 			<RealmDetailSection index={6} title="达成后代表">
-				<RealmOutcomeGrid items={realmDetailBenefits} />
+				<RealmOutcomeGrid items={detail.benefits} />
 			</RealmDetailSection>
 			<RealmDetailSection index={7} title="成长收获预览">
-				<RealmOutcomeGrid items={realmDetailRewards} />
+				<RealmOutcomeGrid items={detail.rewards} />
 			</RealmDetailSection>
 		</>
 	);
@@ -182,40 +173,38 @@ function RealmDetailSection({
 	);
 }
 
-function RealmRequirementList({
+function RealmProgressList({
 	compact = false,
-	requirements,
+	items,
 }: {
 	readonly compact?: boolean;
-	readonly requirements: readonly RealmRequirement[];
+	readonly items: readonly RealmProgressItem[];
 }): JSX.Element {
 	return (
 		<div className={cn("space-y-2", compact && "space-y-1.5")}>
-			{requirements.map((requirement) => (
-				<div className="grid grid-cols-[5.5rem_minmax(0,1fr)_2.75rem] items-center gap-2" key={requirement.label}>
+			{items.map((item) => (
+				<div className="grid grid-cols-[5.5rem_minmax(0,1fr)_2.75rem] items-center gap-2" key={item.label}>
 					<div className="flex min-w-0 items-center gap-1.5 text-[12px] leading-4 text-slate-200/82">
-						<span className={cn(requirement.icon, "h-4 w-4 flex-none text-amber-100/90")} />
-						<span className="truncate">{requirement.label}</span>
+						<span className={cn(item.icon, "h-4 w-4 flex-none text-amber-100/90")} />
+						<span className="truncate">{item.label}</span>
 					</div>
 					<div className="h-1.5 overflow-hidden rounded-full bg-slate-950/45">
 						<div
 							className="h-full rounded-full bg-gradient-to-r from-sky-200 to-amber-100"
-							style={{ width: getRequirementProgress(requirement) }}
+							style={{ width: getProgressWidth(item.progress) }}
 						/>
 					</div>
-					<div className="text-right text-[12px] leading-4 text-slate-200/80">
-						{requirement.current} / {requirement.target}
-					</div>
+					<div className="truncate text-right text-[12px] leading-4 text-slate-200/80">{item.valueText}</div>
 				</div>
 			))}
 		</div>
 	);
 }
 
-function RealmSourceChips(): JSX.Element {
+function RealmSourceChips({ sources }: { readonly sources: readonly string[] }): JSX.Element {
 	return (
 		<div className="flex flex-wrap gap-2">
-			{realmDetailSources.map((source) => (
+			{sources.map((source) => (
 				<span className="rounded border border-white/14 bg-white/6 px-3 py-1 text-[12px] leading-4 text-slate-200/82" key={source}>
 					{source}
 				</span>
@@ -224,11 +213,18 @@ function RealmSourceChips(): JSX.Element {
 	);
 }
 
-function RealmActionGrid(): JSX.Element {
+function RealmActionGrid({ actions }: { readonly actions: readonly RealmDetailAction[] }): JSX.Element {
+	const route = useThemeRouteModel();
+
 	return (
 		<div className="grid grid-cols-2 gap-2 min-[1280px]:grid-cols-4">
-			{realmDetailActions.map((action) => (
-				<button className="relative flex h-9 min-w-0 items-center justify-center gap-1.5 px-2 text-[12px] font-semibold text-slate-700 outline-none transition hover:brightness-105 focus-visible:ring-2 focus-visible:ring-amber-200/80" key={action.label} type="button">
+			{actions.map((action) => (
+				<button
+					className="relative flex h-9 min-w-0 items-center justify-center gap-1.5 px-2 text-[12px] font-semibold text-slate-700 outline-none transition hover:brightness-105 focus-visible:ring-2 focus-visible:ring-amber-200/80"
+					key={action.label}
+					onClick={() => route.navigate(action.target)}
+					type="button"
+				>
 					<HorizontalSliceImageDecoration
 						decoration={realmDetailActionDecoration}
 						imageUrl={sanctumPageAssets.realmDetailActionButton}
@@ -244,20 +240,20 @@ function RealmActionGrid(): JSX.Element {
 function RealmOutcomeGrid({
 	items,
 }: {
-	readonly items: readonly string[];
+	readonly items: readonly RealmDetailOutcome[];
 }): JSX.Element {
 	return (
 		<div className="grid grid-cols-3 gap-2">
-			{items.map((item, index) => (
-				<div className="rounded border border-amber-100/18 bg-slate-950/18 px-2 py-2 text-center text-[12px] leading-4 text-slate-200/82" key={item}>
-					<span className={cn(realmDetailOutcomeIcons[index] ?? realmDetailOutcomeIcons[0], "mx-auto mb-1 block h-5 w-5 text-amber-100")} />
-					{item}
+			{items.map((item) => (
+				<div className="rounded border border-amber-100/18 bg-slate-950/18 px-2 py-2 text-center text-[12px] leading-4 text-slate-200/82" key={item.label}>
+					<span className={cn(item.icon, "mx-auto mb-1 block h-5 w-5 text-amber-100")} />
+					{item.label}
 				</div>
 			))}
 		</div>
 	);
 }
 
-function getRequirementProgress(requirement: RealmRequirement): string {
-	return `${Math.round((requirement.current / requirement.target) * 100)}%`;
+function getProgressWidth(progress: number): string {
+	return `${Math.round(Math.min(1, Math.max(0, progress)) * 100)}%`;
 }

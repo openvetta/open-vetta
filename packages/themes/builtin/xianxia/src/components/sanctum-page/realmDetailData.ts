@@ -1,33 +1,177 @@
-import { sanctumAchievements, type SanctumAchievement } from "./achievements";
-import type { RealmDetailView, SanctumCultivationView } from "./types";
+import { CULTIVATION_REALMS } from "../../cultivation";
+import type { SanctumAchievement } from "./achievements";
+import type {
+	RealmDetailAction,
+	RealmDetailOutcome,
+	RealmDetailView,
+	RealmProgressItem,
+	SanctumCultivationView,
+} from "./types";
 
-export function getRealmDetailView(achievement: SanctumAchievement, cultivation: SanctumCultivationView): RealmDetailView {
-	const index = sanctumAchievements.findIndex((item) => item.id === achievement.id);
-	const progressBase = achievement.level <= cultivation.level ? 1 : Math.max(0.18, 1 - (achievement.level - cultivation.level) * 0.18);
-	const requirementTemplates = [
-		{ icon: "icon-[solar--document-text-bold]", label: "正式文稿", target: 5 },
-		{ icon: "icon-[solar--document-add-bold]", label: "知识库引用", target: 2 },
-		{ icon: "icon-[solar--chart-2-bold]", label: "数据分析", target: 1 },
-		{ icon: "icon-[solar--settings-bold]", label: "自动化任务", target: 1 },
-	] as const;
+const REALM_DETAIL_ACTIONS = [
+	{ icon: "icon-[solar--chat-round-dots-bold]", label: "开始对话", target: { kind: "chat" } },
+	{ icon: "icon-[solar--book-2-bold]", label: "去知识库", target: { kind: "knowledgeBase" } },
+	{ icon: "icon-[solar--play-circle-bold]", label: "批量任务", target: { kind: "batchTasks" } },
+	{ icon: "icon-[solar--settings-bold]", label: "去自动化", target: { kind: "automation" } },
+] as const satisfies readonly RealmDetailAction[];
+
+const REALM_DETAIL_SOURCES = ["对话与会话", "活跃与项目", "工具与知识库", "批处理与自动化"] as const;
+
+interface RealmScoreCategory {
+	readonly icon: string;
+	readonly label: string;
+	readonly value: number;
+}
+
+export function getRealmDetailView(
+	achievement: SanctumAchievement,
+	cultivation: SanctumCultivationView,
+): RealmDetailView {
+	const realmIndex = Math.max(
+		0,
+		CULTIVATION_REALMS.findIndex((realm) => realm.id === achievement.id),
+	);
+	const realm = CULTIVATION_REALMS[realmIndex] ?? CULTIVATION_REALMS[0];
+	const previousRealm = CULTIVATION_REALMS[realmIndex - 1] ?? null;
+	const nextRealm = CULTIVATION_REALMS[realmIndex + 1] ?? null;
+	const achieved = cultivation.achievedRealmIds.includes(achievement.id);
+	const remainingScore = Math.max(0, realm.targetScore - cultivation.score);
+	const categories = getRealmScoreCategories(cultivation);
+	const primaryCategory = categories.reduce((primary, category) =>
+		category.value > primary.value ? category : primary,
+	);
 
 	return {
-		achieved: cultivation.achievedRealmIds.includes(achievement.id),
+		achieved,
 		achievement,
-		definition:
-			achievement.level <= cultivation.level
-				? `${achievement.name}已稳定成形，代表你在多工具协同与真实业务推进中具备可靠积累。`
-				: `${achievement.name}尚未达成，需要继续累积真实使用数据，完成关键能力条件后即可突破。`,
-		nextRealmName: sanctumAchievements[index + 1]?.name ?? null,
-		previousRealmName: sanctumAchievements[index - 1]?.name ?? null,
-		requirements: requirementTemplates.map((requirement, requirementIndex) => ({
-			current: Math.min(
-				requirement.target,
-				Math.floor(requirement.target * progressBase + (requirementIndex === 0 ? achievement.level % 3 : 0)),
-			),
-			icon: requirement.icon,
-			label: requirement.label,
-			target: requirement.target,
-		})),
+		actions: REALM_DETAIL_ACTIONS,
+		benefits: getRealmBenefits(achievement, realm.targetScore, nextRealm?.name ?? null),
+		definition: getRealmDefinition(
+			achievement.name,
+			achieved,
+			cultivation.score,
+			realm.targetScore,
+			remainingScore,
+		),
+		nextRealmName: nextRealm?.name ?? null,
+		previousRealmName: previousRealm?.name ?? null,
+		requirements: getRealmProgressItems(cultivation, realm.targetScore, categories),
+		rewards: getRealmRewards(achievement, primaryCategory),
+		sources: REALM_DETAIL_SOURCES,
 	};
+}
+
+function getRealmScoreCategories(cultivation: SanctumCultivationView): readonly RealmScoreCategory[] {
+	const breakdown = cultivation.scoreBreakdown;
+	return [
+		{
+			icon: "icon-[solar--chat-round-dots-bold]",
+			label: "对话修为",
+			value: breakdown.messages + breakdown.turns + breakdown.depth,
+		},
+		{
+			icon: "icon-[solar--book-2-bold]",
+			label: "工具知识",
+			value: breakdown.tools + breakdown.knowledge,
+		},
+		{
+			icon: "icon-[solar--settings-bold]",
+			label: "实践自动化",
+			value:
+				breakdown.activeTime +
+				breakdown.sessions +
+				breakdown.tokens +
+				breakdown.projects +
+				breakdown.batch +
+				breakdown.automation +
+				breakdown.streak,
+		},
+	];
+}
+
+function getRealmProgressItems(
+	cultivation: SanctumCultivationView,
+	targetScore: number,
+	categories: readonly RealmScoreCategory[],
+): readonly RealmProgressItem[] {
+	const compositionTotal = categories.reduce((total, category) => total + category.value, 0);
+	const realmProgress = targetScore <= 0 ? 1 : cultivation.score / targetScore;
+
+	return [
+		{
+			icon: "icon-[solar--medal-ribbon-star-bold]",
+			label: "境界进度",
+			progress: clamp01(realmProgress),
+			valueText: targetScore <= 0 ? "已达成" : `${Math.round(clamp01(realmProgress) * 100)}%`,
+		},
+		...categories.map((category) => ({
+			icon: category.icon,
+			label: category.label,
+			progress: compositionTotal > 0 ? clamp01(category.value / compositionTotal) : 0,
+			valueText: formatCompactNumber(category.value),
+		})),
+	];
+}
+
+function getRealmDefinition(
+	realmName: string,
+	achieved: boolean,
+	currentScore: number,
+	targetScore: number,
+	remainingScore: number,
+): string {
+	if (targetScore <= 0) {
+		return `${realmName}是修行起点。当前累计修为 ${formatNumber(currentScore)}，已具备该境界资格。`;
+	}
+	if (achieved) {
+		return `${realmName}的突破门槛为 ${formatNumber(targetScore)} 修为。当前累计 ${formatNumber(currentScore)} 修为，已经达到该境界。`;
+	}
+	return `${realmName}的突破门槛为 ${formatNumber(targetScore)} 修为。当前累计 ${formatNumber(currentScore)} 修为，仍需 ${formatNumber(remainingScore)} 修为。`;
+}
+
+function getRealmBenefits(
+	achievement: SanctumAchievement,
+	targetScore: number,
+	nextRealmName: string | null,
+): readonly RealmDetailOutcome[] {
+	return [
+		{
+			icon: "icon-[solar--chart-2-bold]",
+			label: targetScore <= 0 ? "初始境界" : `${formatCompactNumber(targetScore)} 修为门槛`,
+		},
+		{ icon: "icon-[solar--medal-ribbon-star-bold]", label: `点亮${achievement.name}` },
+		{
+			icon: "icon-[solar--workflow-bold]",
+			label: nextRealmName ? `开启${nextRealmName}进阶` : "登临最高境界",
+		},
+	];
+}
+
+function getRealmRewards(
+	achievement: SanctumAchievement,
+	primaryCategory: RealmScoreCategory,
+): readonly RealmDetailOutcome[] {
+	return [
+		{ icon: "icon-[solar--medal-ribbon-star-bold]", label: `${achievement.name}徽章` },
+		{ icon: "icon-[solar--ranking-bold]", label: `第 ${achievement.level} 阶称号` },
+		{
+			icon: "icon-[solar--chart-2-bold]",
+			label: primaryCategory.value > 0 ? `主修${primaryCategory.label}` : "等待修行积累",
+		},
+	];
+}
+
+function formatNumber(value: number): string {
+	return Math.max(0, Math.floor(value)).toLocaleString("zh-CN");
+}
+
+function formatCompactNumber(value: number): string {
+	return new Intl.NumberFormat("zh-CN", {
+		maximumFractionDigits: 1,
+		notation: "compact",
+	}).format(Math.max(0, Math.floor(value)));
+}
+
+function clamp01(value: number): number {
+	return Math.min(1, Math.max(0, value));
 }
