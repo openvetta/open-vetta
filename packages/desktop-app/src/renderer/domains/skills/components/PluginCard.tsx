@@ -16,6 +16,8 @@ export function PluginCard({
 }): JSX.Element {
 	const isInstalled = row.installed !== null;
 	const isSystem = row.installed?.source === "system";
+	// archive = 本地 zip 导入或 plugin-workbench install-from-path
+	const isCustom = row.installed?.source === "archive";
 	const enabled = row.installed?.enabled ?? false;
 	const tr = usePluginI18n();
 	const { t } = useTranslation("skills");
@@ -32,6 +34,7 @@ export function PluginCard({
 				installing,
 				isInstalled,
 				isSystem,
+				isCustom,
 				name,
 				needsUpdate: Boolean(row.needsUpdate),
 				noDescription: t("card.noDescription"),
@@ -39,6 +42,7 @@ export function PluginCard({
 				statusEnabled: t("plugin.status.enabled"),
 				statusDisabled: t("plugin.status.disabled"),
 				systemBadge: t("plugin.badge.system"),
+				customBadge: t("plugin.badge.custom"),
 				updatableBadge: row.needsUpdate
 					? t("plugin.badge.updatable", { version: row.market?.version })
 					: undefined,

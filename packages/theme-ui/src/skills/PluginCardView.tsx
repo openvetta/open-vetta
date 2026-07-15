@@ -9,6 +9,8 @@ export interface PluginCardViewModel {
 	readonly installing: boolean;
 	readonly isInstalled: boolean;
 	readonly isSystem: boolean;
+	/** Local zip import or workbench install-from-path (source === "archive"). */
+	readonly isCustom: boolean;
 	readonly name: string;
 	readonly needsUpdate: boolean;
 	readonly noDescription: string;
@@ -16,6 +18,7 @@ export interface PluginCardViewModel {
 	readonly statusEnabled: string;
 	readonly statusDisabled: string;
 	readonly systemBadge: string;
+	readonly customBadge: string;
 	readonly updatableBadge?: string;
 	readonly version: string;
 	readonly installLabel: string;
@@ -90,6 +93,11 @@ export function PluginCardView({ model, onSelect, onInstall }: PluginCardViewPro
 						{model.isSystem && (
 							<span className="inline-flex h-5 shrink-0 items-center rounded-full bg-primary/10 px-2 text-[10px] font-semibold text-primary">
 								{model.systemBadge}
+							</span>
+						)}
+						{model.isCustom && (
+							<span className="inline-flex h-5 shrink-0 items-center rounded-full bg-primary/10 px-2 text-[10px] font-semibold text-primary">
+								{model.customBadge}
 							</span>
 						)}
 						{model.needsUpdate && model.updatableBadge && (

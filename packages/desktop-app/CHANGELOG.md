@@ -6,6 +6,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **插件页自定义 badge**：本地 zip 导入或 plugin-workbench `install-from-path` 安装的插件（`source === "archive"`）在卡片与详情标题旁显示「自定义」标记，与系统插件「系统」badge 对称。
 - **插件工作台（系统插件）+ 硬隔离 / 本地安装路径**：新增 preset `plugin-workbench`（对话 skill、标准脚本、Activity 面板；输入栏 mode 默认关）。宿主：`plugins.manage` 支持 `install-from-path`（安装确认后按声明一次授权并启用）；`InstalledPlugin.rootPath`；`registerModeGate` / `setContributionMode` 按 pluginId 硬隔离 agent 贡献（tools/skills/MCP/prompt）与 Activity Tab（ADR-0041 / ADR-0042）。`registerInputAction.hardIsolation` 与 manifest `contributionMode.hardIsolation`。
 - **插件工作台内嵌完整插件手册**：将 `docs/plugin/*` 同步到 `agent/docs/plugin/`（`prebuild`/`sync-docs`），skill 强制先 read 再实现；附 doc-index 与 templates 参考。手册补全：MCP 三源聚合、`command.run`、turn-card/tool-call 槽、i18n、scope_use、hardIsolation、install-from-path 等。
 - **插件内聚 MCP**：`plugin.json` 支持 `agent.mcpServers`（路径或内联）与权限 `agent.mcp.control`；`buildAgentPluginRuntimeConfig` 产出 `mcpServerContributions`（路径相对插件根 resolve，运行时名 `plugin-<id>-<local>`）。启停插件经既有 `reconfigureAgentPlugins` 联动 MCP 进程。不写用户 `mcp.json`（ADR-0040）。
