@@ -988,7 +988,9 @@ export function useSessionManager(): SessionManagerResult {
 					timestamp: Date.now(),
 					model: modelKeyToParts(selectedModel),
 				};
-				if (images) {
+				// Base64 preview only when persist failed — otherwise @image-cache paths
+				// in text already drive thumbnails (avoids double image while streaming).
+				if (images && imagePaths.length === 0) {
 					userMsg.images = images.map((img) => ({ data: img.data, mimeType: img.mimeType, name: img.name }));
 				}
 				if (appshot) {
