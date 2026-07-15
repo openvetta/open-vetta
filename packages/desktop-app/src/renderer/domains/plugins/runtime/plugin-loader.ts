@@ -88,7 +88,8 @@ function openPluginActivityTab(pluginId: string, tabId: string, width?: number |
 	const key = `${pluginId}:${tabId}`;
 	const attached = store.get(attachedPluginTabsAtom);
 	const list = attached.get(cwd) ?? [];
-	if (!list.includes(key)) {
+	const alreadyAttached = list.includes(key);
+	if (!alreadyAttached) {
 		const next = new Map(attached);
 		next.set(cwd, [...list, key]);
 		store.set(attachedPluginTabsAtom, next);
@@ -97,7 +98,9 @@ function openPluginActivityTab(pluginId: string, tabId: string, width?: number |
 	active.set(cwd, `plugin:${key}` as ActivityTabKey);
 	store.set(activityPanelTabByProjectAtom, active);
 	store.set(activityPanelOpenAtom, true);
-	if (width != null) store.set(setActivityPanelWidthAtom, width);
+	// width 只在首次 attach 时生效：插件 activate 里的 openActivityTab 会随
+	// reload/热更新重放，不能每次都把用户手动拖出的面板宽度覆盖回初始值。
+	if (width != null && !alreadyAttached) store.set(setActivityPanelWidthAtom, width);
 }
 
 interface PluginModule {
