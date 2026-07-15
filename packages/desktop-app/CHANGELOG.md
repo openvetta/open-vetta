@@ -25,6 +25,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **热更新后活动面板宽度被重置**：插件 `activate()` 里的 `ctx.ui.openActivityTab({ width })` 会随 reload/热更新重放，把用户手动拖出的面板宽度覆盖回初始值（小于下限时表现为缩到最小）。现 `width` 只在该 tab 首次 attach 时生效，重复调用只做激活。
 - **插件 reload/热更新加载旧代码（根因修复）**：remoteEntry.js 是 ESM 容器，MF 用原生 `import()` 加载，浏览器 ES module registry 按 URL 永久缓存——reload token 只在 manifest URL 上、相对解析不会带到 remoteEntry，导致 reload 与热更新永远执行旧模块（只有换版本路径的卸载重装才生效）。现给 MF host 注册 `vetta-reload-bust` runtime 插件，在 `afterResolve` 把 token 追加到 remoteEntry 的 import URL，使每轮重载 URL 唯一。同时修复 Action 路径 uninstall/set-enabled(false) 不停 dev watch 子进程的泄漏。
 - **Agent 改插件感知热更新**：`plugins.query` 的返回项透出 `devWatch`；workbench skill/prompt 更新——热更新开启时改完源码即自动生效，agent 不再走 install-from-path/reload（不弹确认）。
 - **工作台流程不再弹「从本地路径安装插件确认」**：workbench skill/prompt 全面改为引导用户在活动面板点「应用到 Vetta」（面板路径一次完成授权+启用、无确认弹窗），首次应用后建议开启「热更新」。宿主 `plugins.manage` 的 `install-from-path` 能力保留（外置插件 zip 等通用场景仍可用）。
