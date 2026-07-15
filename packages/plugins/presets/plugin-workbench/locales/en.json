@@ -32,5 +32,12 @@
 	"panel.zipReady": "Zip ready",
 	"panel.zipMissing": "Needs build",
 	"panel.permCount": "{{count}} permissions",
-	"panel.guideCount": "{{count}} guiding words"
+	"panel.guideCount": "{{count}} guiding words",
+	"panel.hotReload": "Hot reload",
+	"panel.hotReloadHint": "Auto build & reload on save (vite watch)",
+	"panel.hotReloadStarting": "Starting…",
+	"panel.hotReloadRunning": "Watching",
+	"panel.hotReloadError": "Hot reload error",
+	"panel.hotReloadNeedsInstall": "Apply to Vetta first",
+	"panel.busyHotReload": "Toggling hot reload…"
 }

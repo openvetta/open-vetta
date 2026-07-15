@@ -45,6 +45,7 @@ import { MEDIA_PROTOCOL_PRIVILEGE, registerMediaProtocolHandler } from "./media-
 import { openExternalUrl } from "./open-external.js";
 import { startPetIdleGuard } from "./pet/pet-idle-guard.js";
 import { initializePetWindow } from "./pet-window.js";
+import { stopAllPluginDevWatches } from "./plugins/plugin-dev-watch.js";
 import { PLUGIN_PROTOCOL_PRIVILEGES, registerPluginProtocols } from "./plugins/plugin-protocol.js";
 import { discoverSystemPlugins } from "./plugins/plugin-store.js";
 import { stopAllUiohookConsumers } from "./quickpanel-trigger.js";
@@ -678,6 +679,9 @@ app.on("before-quit", async (event) => {
 
 	// 退出前注销全部全局键盘监听消费者（快捷面板双击 + appshot 双键同按），避免 uiohook 线程残留。
 	stopAllUiohookConsumers();
+
+	// 停掉插件工作台 dev 热更新的 vite watch 子进程，避免孤儿进程。
+	stopAllPluginDevWatches();
 
 	const host = getImHost();
 	if (host.getStatus().sidecarPid) {

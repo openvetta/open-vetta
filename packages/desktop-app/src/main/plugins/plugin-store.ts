@@ -17,6 +17,7 @@ import { app, webContents } from "electron";
 import type {
 	InstalledPlugin,
 	PluginAgentManifest,
+	PluginDevWatchState,
 	PluginInstallOptions,
 	PluginLocaleCatalog,
 	PluginLocales,
@@ -261,9 +262,9 @@ function buildMcpServerContributionsForPlugin(plugin: InstalledPlugin): McpServe
 	}
 
 	let servers: Record<string, PluginMcpServerConfig>;
-	// User plugins live under versions/<ver>/; system plugins at package root.
+	// User plugins live under versions/<ver>/; system and dev-linked plugins at package root.
 	const pluginRoot =
-		plugin.source === "system"
+		plugin.source === "system" || devLinks.has(plugin.id)
 			? resolvePluginFilePath(plugin.id, ".")
 			: resolvePluginFilePath(plugin.id, `versions/${encodeURIComponent(plugin.activeVersion)}`);
 
@@ -808,7 +809,120 @@ function hasGrantedPermission(plugin: InstalledPlugin, permission: PluginPermiss
 }
 
 function pluginResourceRelativePath(plugin: InstalledPlugin, relativePath: string): string {
-	return plugin.source === "system" ? relativePath : versionedPath(plugin.activeVersion, relativePath);
+	// 系统插件与 dev 链接插件的文件都在包根下，无 versions/ 段。
+	return plugin.source === "system" || devLinks.has(plugin.id)
+		? relativePath
+		: versionedPath(plugin.activeVersion, relativePath);
+}
+
+// =============================================================================
+// Dev 热更新链接（插件工作台）—— 纯内存态，不落注册表：App 重启即回落安装目录，
+// 注册表始终保持可发布的安装态（避免崩溃后 entryUrl 指向不存在的工程目录）。
+// =============================================================================
+
+interface PluginDevLink {
+	projectDir: string;
+	manifest: PluginManifest;
+	locales: PluginLocales;
+	reloadToken: string;
+	status: PluginDevWatchState["status"];
+	error?: string;
+}
+
+const devLinks = new Map<string, PluginDevLink>();
+
+/** dev 资源 URL：直接以工程根为根（无 versions/ 段），token 变化驱动 MF 强制重注册。 */
+function toDevPluginUrl(pluginId: string, relativePath: string, token: string): string {
+	const normalized = validateRelativePath(relativePath, "path");
+	return `vetta-plugin://${pluginId}/${normalized}?v=dev&reload=${token}`;
+}
+
+/**
+ * 把 dev 链接叠加到注册表对象上（entry/style/agent/locales/rootPath 改指工程）。
+ * 权限与命令授权保持安装态不变：dev 期新增权限需重新走 apply 授权。
+ */
+function applyDevOverlay(plugin: InstalledPlugin): InstalledPlugin {
+	const link = devLinks.get(plugin.id);
+	if (!link) return plugin;
+	const manifest = link.manifest;
+	return {
+		...plugin,
+		name: manifest.name,
+		runtime: manifest.runtime ?? "esm",
+		entryUrl: toDevPluginUrl(plugin.id, manifest.entry, link.reloadToken),
+		moduleFederation: manifest.moduleFederation,
+		agent: manifest.agent,
+		styleUrls: (manifest.styles ?? []).map((style) => toDevPluginUrl(plugin.id, style, link.reloadToken)),
+		guidingWords: manifest.guidingWords,
+		defaultLocale: manifest.defaultLocale ?? "zh",
+		locales: link.locales,
+		rootPath: link.projectDir,
+		devWatch: { projectDir: link.projectDir, status: link.status, error: link.error },
+	};
+}
+
+function readDevProjectManifest(projectDir: string, expectedId: string): PluginManifest {
+	const manifestFile = join(projectDir, "plugin.json");
+	if (!existsSync(manifestFile)) {
+		throw new Error(`plugin.json not found in ${projectDir}`);
+	}
+	const manifest = parseManifest(JSON.parse(readFileSync(manifestFile, "utf-8")));
+	if (manifest.id !== expectedId) {
+		throw new Error(`Project plugin id mismatch: expected ${expectedId}, got ${manifest.id}`);
+	}
+	return manifest;
+}
+
+/** 建立 dev 链接。要求插件已安装过一次（授权/启用沿用安装态）。 */
+export function setPluginDevLink(id: string, projectDir: string): InstalledPlugin {
+	validatePluginId(id);
+	if (isSystemPluginId(id)) throw new Error(`Cannot dev-link a system plugin: ${id}`);
+	const registry = readRegistry();
+	const plugin = registry[id];
+	if (!plugin) throw new Error(`Plugin not installed (apply it once before enabling hot reload): ${id}`);
+	const resolvedDir = resolve(projectDir);
+	const manifest = readDevProjectManifest(resolvedDir, id);
+	devLinks.set(id, {
+		projectDir: resolvedDir,
+		manifest,
+		locales: loadPluginLocales(resolvedDir),
+		reloadToken: Date.now().toString(),
+		status: "starting",
+	});
+	broadcastPluginsChanged();
+	return applyDevOverlay(plugin);
+}
+
+export function clearPluginDevLink(id: string): void {
+	if (devLinks.delete(id)) broadcastPluginsChanged();
+}
+
+export function hasPluginDevLink(id: string): boolean {
+	return devLinks.has(id);
+}
+
+/** dist 产物变化后：重读工程 manifest/locales，bump token，广播驱动渲染进程重载。 */
+export function refreshPluginDevLink(id: string): InstalledPlugin {
+	const link = devLinks.get(id);
+	if (!link) throw new Error(`Plugin is not dev-linked: ${id}`);
+	link.manifest = readDevProjectManifest(link.projectDir, id);
+	link.locales = loadPluginLocales(link.projectDir);
+	link.reloadToken = Date.now().toString();
+	link.status = "running";
+	link.error = undefined;
+	const plugin = readRegistry()[id];
+	if (!plugin) throw new Error(`Plugin not found: ${id}`);
+	broadcastPluginsChanged();
+	return applyDevOverlay(plugin);
+}
+
+/** watcher/子进程状态回写（面板经 list() 感知）。链接不存在时静默忽略。 */
+export function setPluginDevLinkStatus(id: string, status: PluginDevWatchState["status"], error?: string): void {
+	const link = devLinks.get(id);
+	if (!link) return;
+	link.status = status;
+	link.error = error;
+	broadcastPluginsChanged();
 }
 
 function resolveInstalledPluginResource(plugin: InstalledPlugin, relativePath: string): string {
@@ -1295,7 +1409,9 @@ export function listPlugins(): InstalledPlugin[] {
 	const system = discoverSystemPlugins();
 	const reserved = new Set(system.map((plugin) => plugin.id));
 	// id 冲突时系统插件遮蔽用户插件（ADR-0024）。
-	const userPlugins = Object.values(readRegistry()).filter((plugin) => !reserved.has(plugin.id));
+	const userPlugins = Object.values(readRegistry())
+		.filter((plugin) => !reserved.has(plugin.id))
+		.map(applyDevOverlay);
 	return [...system, ...userPlugins].sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -1372,6 +1488,8 @@ export async function installPluginFromPath(
 export function uninstallPlugin(id: string): void {
 	validatePluginId(id);
 	if (isSystemPluginId(id)) throw new Error(`Cannot uninstall a system plugin: ${id}`);
+	// 卸载即断开 dev 链接（watcher/子进程由 ipc 层的 dev-watch 管理器同步停掉）。
+	devLinks.delete(id);
 	const registry = readRegistry();
 	delete registry[id];
 	writeRegistry(registry);
@@ -1528,14 +1646,21 @@ export function reloadPlugin(id: string): InstalledPlugin {
 	plugin.rootPath = computePluginRootPath(plugin.id, plugin.source, plugin.activeVersion);
 	plugin.updatedAt = new Date().toISOString();
 	writeRegistry(registry);
+	// dev 链接期间：注册表照常应用 pendingVersion（否则「应用到 Vetta」的新版本会被
+	// 吞掉，关热更新后回落旧版本），但返回值与广播叠加 dev 快照（资源仍从工程加载）。
+	if (devLinks.has(id)) {
+		return refreshPluginDevLink(id);
+	}
 	broadcastPluginsChanged();
 	return plugin;
 }
 
 export function resolvePluginFilePath(pluginId: string, relativePath: string): string {
 	validatePluginId(pluginId);
+	// dev 链接优先：协议请求直接映射到开发工程目录（越界检查同样生效）。
+	const devLink = devLinks.get(pluginId);
 	const baseDir = isSystemPluginId(pluginId) ? systemPluginsBaseDir() : pluginsBaseDir;
-	const root = resolve(baseDir, pluginId);
+	const root = devLink ? devLink.projectDir : resolve(baseDir, pluginId);
 	const target = resolve(root, relativePath);
 	if (target !== root && !target.startsWith(`${root}\\`) && !target.startsWith(`${root}/`)) {
 		throw new Error("Plugin file path escapes plugin directory");
