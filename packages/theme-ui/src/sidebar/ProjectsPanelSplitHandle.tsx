@@ -10,11 +10,13 @@ import { cn } from "@vetta/ui";
 export interface ProjectsPanelSplitHandleProps {
 	onResize: (deltaY: number) => void;
 	onResizeEnd?: () => void;
+	onResizeStart?: () => void;
 }
 
 export function ProjectsPanelSplitHandle({
 	onResize,
 	onResizeEnd,
+	onResizeStart,
 }: ProjectsPanelSplitHandleProps): JSX.Element {
 	const startYRef = useRef(0);
 	const [dragging, setDragging] = useState(false);
@@ -22,6 +24,7 @@ export function ProjectsPanelSplitHandle({
 	const onPointerDown = useCallback(
 		(event: ReactPointerEvent) => {
 			event.preventDefault();
+			onResizeStart?.();
 			startYRef.current = event.clientY;
 			setDragging(true);
 
@@ -41,6 +44,8 @@ export function ProjectsPanelSplitHandle({
 			const onPointerUp = () => {
 				document.removeEventListener("pointermove", onPointerMove);
 				document.removeEventListener("pointerup", onPointerUp);
+				document.removeEventListener("pointercancel", onPointerUp);
+				window.removeEventListener("blur", onPointerUp);
 				overlay.remove();
 				document.body.style.userSelect = "";
 				setDragging(false);
@@ -49,9 +54,11 @@ export function ProjectsPanelSplitHandle({
 
 			document.addEventListener("pointermove", onPointerMove);
 			document.addEventListener("pointerup", onPointerUp);
+			document.addEventListener("pointercancel", onPointerUp);
+			window.addEventListener("blur", onPointerUp);
 			document.body.style.userSelect = "none";
 		},
-		[onResize, onResizeEnd],
+		[onResize, onResizeEnd, onResizeStart],
 	);
 
 	const lineGradient =

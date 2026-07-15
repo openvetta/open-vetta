@@ -112,9 +112,9 @@ const readSidebarWidth = (): number => {
 export const sidebarWidthAtom = atom<number>(readSidebarWidth());
 export const sidebarFilterAtom = atom<SidebarFilter>("all");
 
-/** 侧栏「项目区 : 默认对话区」高度比中，项目区占比。默认 0.4（4:6），范围 [0.2, 0.8]（2:8～8:2）。 */
+/** 侧栏项目区的最大高度占比。内容不足时按自然高度收缩；默认最多占 80%。 */
 export const SIDEBAR_PROJECTS_SPLIT_RATIO_KEY = "vetta-sidebar-projects-split-ratio";
-export const SIDEBAR_PROJECTS_SPLIT_DEFAULT = 0.4;
+export const SIDEBAR_PROJECTS_SPLIT_DEFAULT = 0.8;
 export const SIDEBAR_PROJECTS_SPLIT_MIN = 0.2;
 export const SIDEBAR_PROJECTS_SPLIT_MAX = 0.8;
 
@@ -129,11 +129,23 @@ const readSidebarProjectsSplitRatio = (): number => {
 	return clampSidebarProjectsSplitRatio(Number(raw));
 };
 
-export const sidebarProjectsSplitRatioAtom = atom<number>(readSidebarProjectsSplitRatio());
+const sidebarProjectsSplitRatioBaseAtom = atom<number>(readSidebarProjectsSplitRatio());
 
-export function persistSidebarProjectsSplitRatio(ratio: number): void {
-	localStorage.setItem(SIDEBAR_PROJECTS_SPLIT_RATIO_KEY, String(clampSidebarProjectsSplitRatio(ratio)));
-}
+/** 项目区最大高度占比。每次写入同步持久化，避免拖拽结束事件丢失导致刷新后复位。 */
+export const sidebarProjectsSplitRatioAtom = atom(
+	(get) => get(sidebarProjectsSplitRatioBaseAtom),
+	(get, set, update: number | ((prev: number) => number)) => {
+		const prev = get(sidebarProjectsSplitRatioBaseAtom);
+		const next = clampSidebarProjectsSplitRatio(typeof update === "function" ? update(prev) : update);
+		if (next === prev) return;
+		set(sidebarProjectsSplitRatioBaseAtom, next);
+		try {
+			localStorage.setItem(SIDEBAR_PROJECTS_SPLIT_RATIO_KEY, String(next));
+		} catch {
+			// ignore storage failures; the in-memory preference still applies for this renderer session
+		}
+	},
+);
 
 export type DefaultConversationFilter = "conversation" | "claw";
 export const defaultConversationFilterAtom = atom<DefaultConversationFilter>("conversation");

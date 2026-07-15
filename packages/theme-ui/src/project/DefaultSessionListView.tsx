@@ -1,12 +1,14 @@
 import { cn } from "@vetta/ui";
-import type { JSX, ReactNode } from "react";
-import { Virtuoso } from "react-virtuoso";
+import { useRef, type JSX, type ReactNode } from "react";
+import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import {
 	VIRTUAL_SESSION_OVERSCAN,
 	VIRTUAL_SESSION_ROW_HEIGHT,
 } from "./types";
+import { useActiveSessionAutoScroll } from "./useActiveSessionAutoScroll";
 
 export interface DefaultSessionListViewItem {
+	active?: boolean;
 	key: string;
 }
 
@@ -42,6 +44,11 @@ export function DefaultSessionListView<T extends DefaultSessionListViewItem>({
 	totalCount,
 	visibleSessions,
 }: DefaultSessionListViewProps<T>): JSX.Element {
+	const virtuosoRef = useRef<VirtuosoHandle>(null);
+	const activeIndex = sessions.findIndex((session) => session.active);
+	const activeKey = activeIndex >= 0 ? sessions[activeIndex]?.key : undefined;
+	useActiveSessionAutoScroll({ activeIndex, activeKey, scrollParent, virtuosoRef });
+
 	if (totalCount === 0) {
 		return (
 			<p className={cn("px-2.5 py-1.5 text-[11px] text-muted-foreground/60", className)}>
@@ -56,6 +63,7 @@ export function DefaultSessionListView<T extends DefaultSessionListViewItem>({
 		<div className={cn("flex flex-col", className)}>
 			{useVirtual ? (
 				<Virtuoso
+					ref={virtuosoRef}
 					customScrollParent={scrollParent}
 					data={sessions as T[]}
 					defaultItemHeight={VIRTUAL_SESSION_ROW_HEIGHT}

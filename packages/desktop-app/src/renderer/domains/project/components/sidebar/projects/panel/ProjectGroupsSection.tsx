@@ -3,10 +3,15 @@ import type { ProjectsPanelModel } from "./types";
 
 interface ProjectGroupsSectionProps {
 	model: ProjectsPanelModel;
+	onProjectInteract: () => boolean;
 	scrollParent: HTMLElement | null;
 }
 
-export function ProjectGroupsSection({ model, scrollParent }: ProjectGroupsSectionProps): JSX.Element {
+export function ProjectGroupsSection({
+	model,
+	onProjectInteract,
+	scrollParent,
+}: ProjectGroupsSectionProps): JSX.Element {
 	return (
 		<>
 			{model.filteredProjects.map((project) => (
@@ -22,6 +27,7 @@ export function ProjectGroupsSection({ model, scrollParent }: ProjectGroupsSecti
 					onCollapse={model.actions.collapseProject}
 					onNavigateProject={model.actions.navigateProject}
 					onNewSession={model.actions.batchNewSession}
+					onProjectInteract={onProjectInteract}
 					onSelectSession={model.actions.selectSession}
 					onRenameSession={model.actions.renameSession}
 				/>
@@ -40,6 +46,7 @@ export function ProjectGroupsSection({ model, scrollParent }: ProjectGroupsSecti
 						onCollapse={model.actions.collapseBatchProject}
 						onNavigateProject={model.actions.navigateProject}
 						onNewSession={model.actions.batchNewSession}
+						onProjectInteract={onProjectInteract}
 						onSelectSession={model.actions.selectBatchSession}
 						onRenameSession={model.actions.renameSession}
 					/>

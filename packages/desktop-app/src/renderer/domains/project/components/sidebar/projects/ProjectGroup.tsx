@@ -14,6 +14,7 @@ interface ProjectGroupProps {
 	onCollapse: (cwd: string) => void;
 	onNavigateProject: (cwd: string) => void;
 	onNewSession: (cwd: string) => void;
+	onProjectInteract: () => boolean;
 	onSelectSession: (cwd: string, sessionPath: string) => void;
 	onRenameSession: (cwd: string, sessionPath: string, name: string) => void;
 }
@@ -23,6 +24,7 @@ export const ProjectGroup = memo(function ProjectGroup(props: ProjectGroupProps)
 
 	return (
 		<ProjectGroupView
+			onProjectInteract={props.onProjectInteract}
 			projectRow={{
 				badge: model.projectBadge,
 				displayName: model.displayName,

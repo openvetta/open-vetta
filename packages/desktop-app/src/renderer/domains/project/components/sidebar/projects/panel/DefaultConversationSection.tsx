@@ -11,6 +11,7 @@ interface DefaultConversationSectionProps {
 	defaultConversationFilter: DefaultConversationFilter;
 	listClassName?: string;
 	onNewSession: (cwd: string) => void;
+	onBeforeSelectSession: () => boolean;
 	onRenameSession: (cwd: string, sessionPath: string, name: string) => void;
 	onSelectSession: (cwd: string, sessionPath: string) => void;
 	project: Project;
@@ -37,6 +38,7 @@ export function DefaultConversationSection(
 					className={cn("project-list-containment -mx-1.5 px-1.5", props.listClassName)}
 					cwd={props.project.cwd}
 					filter={props.defaultConversationFilter}
+					onBeforeSelect={props.onBeforeSelectSession}
 					scrollParent={model.listScrollEl}
 					onRenameSession={props.onRenameSession}
 					onSelectSession={props.onSelectSession}

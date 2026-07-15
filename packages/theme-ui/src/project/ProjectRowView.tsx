@@ -1,7 +1,8 @@
 import { cn } from "@vetta/ui";
-import type { JSX } from "react";
+import type { JSX, Ref } from "react";
 import { RunningPulseDot } from "../sidebar/RunningPulseDot";
 import { PROJECT_TYPE_ICONS, type ProjectTypeIconKey } from "./types";
+import { runAfterSidebarSelection } from "./useActiveSessionAutoScroll";
 
 export interface ProjectRowViewProps {
 	badge?: string;
@@ -12,11 +13,13 @@ export interface ProjectRowViewProps {
 	newSessionTitle: string;
 	onCollapse: () => void;
 	onExpand: () => void;
+	onInteract?: () => boolean;
 	onNavigateProject: () => void;
 	onNewSession: () => void;
 	onOpenContextMenu: (event: React.MouseEvent) => void;
 	projectCwd: string;
 	projectType: ProjectTypeIconKey;
+	rowRef?: Ref<HTMLDivElement>;
 }
 
 export function ProjectRowView({
@@ -28,14 +31,21 @@ export function ProjectRowView({
 	newSessionTitle,
 	onCollapse,
 	onExpand,
+	onInteract = () => false,
 	onNavigateProject,
 	onNewSession,
 	onOpenContextMenu,
 	projectCwd,
 	projectType,
+	rowRef,
 }: ProjectRowViewProps): JSX.Element {
+	const navigateProject = (defer: boolean) => {
+		runAfterSidebarSelection(onNavigateProject, defer);
+	};
+
 	return (
 		<div
+			ref={rowRef}
 			className={cn(
 				"group flex w-full items-center gap-2 rounded-lg px-2.5 py-[6px] text-left transition-colors duration-100",
 				isActive ? "bg-primary/15 text-foreground" : "hover:bg-accent/50",
@@ -46,12 +56,13 @@ export function ProjectRowView({
 			<button
 				type="button"
 				onClick={() => {
+					const interactionWillMove = onInteract();
 					if (expanded) {
 						onCollapse();
 						return;
 					}
 					onExpand();
-					onNavigateProject();
+					navigateProject(interactionWillMove || !expanded);
 				}}
 				className="relative flex shrink-0 items-center justify-center"
 			>
@@ -66,10 +77,11 @@ export function ProjectRowView({
 			<button
 				type="button"
 				onClick={() => {
+					const interactionWillMove = onInteract();
 					if (!expanded) {
 						onExpand();
 					}
-					onNavigateProject();
+					navigateProject(interactionWillMove || !expanded);
 				}}
 				className={cn(
 					"min-w-0 flex-1 truncate text-left text-[13px] font-medium",
