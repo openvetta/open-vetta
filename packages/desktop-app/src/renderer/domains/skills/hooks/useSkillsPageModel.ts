@@ -8,10 +8,8 @@ import { useAtomValue, useSetAtom } from "jotai";
 import type { ChangeEvent, RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-export type TypeTab = "skill" | "scene" | "connector";
+export type TypeTab = "scene" | "capability";
 export type ActionState = "idle" | "loading" | "done";
-
-const TYPE_TABS = new Set<TypeTab>(["skill", "scene", "connector"]);
 
 // 渲染期解析为 t("group.uncategorized")（模块级常量不存中文）。
 export const UNCATEGORIZED = "__uncategorized__";
@@ -69,7 +67,7 @@ function mergeSkills(marketSkills: MarketSkillInfo[], manifest: Record<string, I
 				name,
 				alias: "",
 				description: "",
-				type: "skill",
+				type: local.type === "scene" ? "scene" : "skill",
 				version: local.version,
 				author: "",
 				tags: [],
@@ -152,27 +150,30 @@ export interface SkillsPageModel {
 	setSelectedSkill: (skill: MergedSkill | null) => void;
 	fileInputRef: RefObject<HTMLInputElement | null>;
 	groups: Map<string, MergedSkill[]>;
-	customSkills: MergedSkill[];
 	agentForTab: MergedSkill[];
+	capabilitySkills: MergedSkill[];
 	hasContent: boolean;
+	sectionId?: string;
 	handleInstall: (skill: MergedSkill) => void;
 	handleToggle: (name: string) => void;
 	handleUninstall: (name: string, type: "skill" | "scene") => void;
 	handlePreview: (skill: MergedSkill) => void;
 	handleImportClick: () => void;
 	handleFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
+	refreshCapabilities: () => void;
 }
 
 export function useSkillsPageModel(): SkillsPageModel {
 	const search = useSearch({ strict: false }) as {
-		/** 含已废弃的 `plugin`（会重定向到 /plugins）。 */
-		tab?: TypeTab | "plugin";
+		/** skill / connector 为旧深链，统一映射到 capability；plugin 会重定向。 */
+		tab?: TypeTab | "skill" | "connector" | "plugin";
 		section?: string;
 		nav?: string;
 	};
 	const navigate = useNavigate();
 	// Tab 以 URL 为唯一数据源，避免本地 state 与 search 双写导致「要点两下」回弹。
-	const typeTab: TypeTab = search.tab && search.tab !== "plugin" && TYPE_TABS.has(search.tab) ? search.tab : "scene";
+	const typeTab: TypeTab =
+		search.tab === "capability" || search.tab === "skill" || search.tab === "connector" ? "capability" : "scene";
 	const [searchQuery, setSearchQuery] = useState("");
 	const [marketSkills, setMarketSkills] = useState<MarketSkillInfo[]>([]);
 	const [manifest, setManifest] = useState<Record<string, InstalledSkill>>({});
@@ -210,10 +211,10 @@ export function useSkillsPageModel(): SkillsPageModel {
 		}
 	}, [navigate, search.tab]);
 
-	// 连接器 section 深链高亮；`navigationNonce` 变化时重新触发（与设置页一致）。
+	// 历史连接配置 section 深链高亮；`navigationNonce` 变化时重新触发（与设置页一致）。
 	const navigationNonce = search.nav;
 	useEffect(() => {
-		if (typeTab !== "connector" || !search.section || highlightingRef.current) return;
+		if (typeTab !== "capability" || !search.section || highlightingRef.current) return;
 		void navigationNonce;
 		const element = document.getElementById(search.section);
 		if (!element) return;
@@ -268,12 +269,17 @@ export function useSkillsPageModel(): SkillsPageModel {
 			.finally(() => setLoading(false));
 	}, [token]);
 
+	const refreshCapabilities = useCallback(() => {
+		refresh();
+		loadMarket();
+	}, [loadMarket, refresh]);
+
 	useEffect(() => {
 		refresh();
 		loadMarket();
 	}, [refresh, loadMarket]);
 
-	// 扩展页不显示顶栏左上角标题（页面内已有大号场景/技能/连接器切换器）。
+	// 扩展页不显示顶栏左上角标题（页面内已有大号场景/能力切换器）。
 	useEffect(() => {
 		setHeaderTitleHidden(true);
 		return () => setHeaderTitleHidden(false);
@@ -398,27 +404,20 @@ export function useSkillsPageModel(): SkillsPageModel {
 		[searchQuery],
 	);
 
-	const skillLikeTab = typeTab === "skill" || typeTab === "scene";
-
 	const filtered = useMemo(
-		() => (skillLikeTab ? filterBySearch(merged.filter((s) => s.type === typeTab)) : []),
-		[merged, typeTab, filterBySearch, skillLikeTab],
-	);
-
-	const customSkills = useMemo(
-		() => (typeTab === "skill" ? filterBySearch(buildCustomSkills(manifest)) : []),
-		[manifest, typeTab, filterBySearch],
+		() => (typeTab === "scene" ? filterBySearch(merged.filter((s) => s.type === "scene")) : []),
+		[merged, typeTab, filterBySearch],
 	);
 
 	const groups = useMemo(() => groupByCategory(filtered), [filtered]);
 
-	// 通用 Agent Skill 只读分区：按当前 tab 的 type 过滤 + 搜索过滤。
+	// 场景页的通用 Agent Scene 只读分区。
 	const agentForTab = useMemo<MergedSkill[]>(
 		() =>
-			skillLikeTab
+			typeTab === "scene"
 				? filterBySearch(
 						agentSkills
-							.filter((s) => s.type === typeTab)
+							.filter((s) => s.type === "scene")
 							.map((s) => ({
 								name: s.name,
 								alias: s.alias ?? "",
@@ -437,10 +436,36 @@ export function useSkillsPageModel(): SkillsPageModel {
 							})),
 					)
 				: [],
-		[agentSkills, typeTab, filterBySearch, skillLikeTab],
+		[agentSkills, typeTab, filterBySearch],
 	);
 
-	const hasContent = groups.size > 0 || customSkills.length > 0 || agentForTab.length > 0;
+	const capabilitySkills = useMemo<MergedSkill[]>(
+		() => [
+			...merged.filter((skill) => skill.type === "skill"),
+			...buildCustomSkills(manifest),
+			...agentSkills
+				.filter((skill) => skill.type === "skill")
+				.map((skill) => ({
+					name: skill.name,
+					alias: skill.alias ?? "",
+					description: skill.description,
+					type: "skill" as const,
+					version: "",
+					author: "",
+					tags: [],
+					category: "",
+					installed: true,
+					enabled: true,
+					needsUpdate: false,
+					isAgent: true,
+					downloadCount: 0,
+					license: "",
+				})),
+		],
+		[agentSkills, manifest, merged],
+	);
+
+	const hasContent = groups.size > 0 || agentForTab.length > 0;
 
 	return {
 		typeTab,
@@ -455,14 +480,16 @@ export function useSkillsPageModel(): SkillsPageModel {
 		setSelectedSkill,
 		fileInputRef,
 		groups,
-		customSkills,
 		agentForTab,
+		capabilitySkills,
 		hasContent,
+		sectionId: search.section,
 		handleInstall,
 		handleToggle,
 		handleUninstall,
 		handlePreview,
 		handleImportClick,
 		handleFileChange,
+		refreshCapabilities,
 	};
 }

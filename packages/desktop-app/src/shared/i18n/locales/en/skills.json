@@ -1,17 +1,20 @@
 {
 	"tabs": {
 		"scene": "Scenes",
+		"capability": "Capabilities",
 		"skill": "Skills",
 		"plugin": "Plugins",
 		"connector": "Connectors"
 	},
 	"typeNoun": {
 		"scene": "scenes",
+		"capability": "capabilities",
 		"skill": "skills",
 		"plugin": "plugins",
 		"connector": "connectors"
 	},
 	"subtitle": "Install and enable the capabilities you need to give Vetta more expertise",
+	"subtitleCapability": "Choose what you want to accomplish without worrying about the technology behind it",
 	"subtitleConnector": "Manage MCP connectors to give the AI web, docs, and external tools",
 	"subtitlePlugin": "Install, enable, and configure app plugins to extend Vetta's UI and capabilities",
 	"search": {
@@ -25,6 +28,60 @@
 		"reload": "Reload",
 		"importSkill": "Import skill",
 		"importPlugin": "Import plugin"
+	},
+	"capabilities": {
+		"scope": {
+			"discover": "Discover",
+			"mine": "Mine",
+			"discoverTitle": "Discover capabilities",
+			"discoverHint": "Choose what you want to accomplish and add it when needed",
+			"mineTitle": "My capabilities",
+			"mineHint": "Manage capabilities already added to Vetta"
+		},
+		"add": {
+			"trigger": "Add capability",
+			"title": "Choose how to add it",
+			"importSkill": "Import a Skill capability",
+			"importSkillHint": "Install from a local zip, tar.gz, or tgz archive",
+			"addConnector": "Add an MCP capability",
+			"addConnectorHint": "Manually configure a stdio or HTTP MCP server"
+		},
+		"status": {
+			"added": "Added",
+			"setupRequired": "Setup required",
+			"updateAvailable": "Update available",
+			"custom": "Custom",
+			"readonly": "Read-only"
+		},
+		"actions": {
+			"add": "Add",
+			"update": "Update",
+			"finishSetup": "Finish setup",
+			"connectAccount": "Connect account",
+			"disconnectAccount": "Disconnect account",
+			"configure": "Configure credentials",
+			"edit": "Edit configuration",
+			"viewDetails": "View details",
+			"remove": "Remove capability",
+			"enable": "Enable capability",
+			"disable": "Disable capability",
+			"more": "More actions",
+			"refresh": "Refresh"
+		},
+		"card": {
+			"noDescription": "No capability description",
+			"usageCount": "{{count}} downloads"
+		},
+		"empty": {
+			"noMatch": "No matching capabilities",
+			"noMatchHint": "Try describing the function differently",
+			"discover": "No capabilities to discover yet",
+			"mine": "No capabilities added yet",
+			"hint": "Refresh later or add one from the top-right menu"
+		},
+		"error": {
+			"partial": "Some capabilities could not be loaded: {{error}}"
+		}
 	},
 	"loading": "Loading...",
 	"card": {
@@ -71,7 +128,7 @@
 		"author": "Author",
 		"downloads": "Downloads",
 		"description": "Description",
-		"notInstalledHint": "This skill is not yet installed. The above is a preview based on marketplace metadata. Install to view the full SKILL.md."
+		"notInstalledHint": "This capability has not been added yet. The information above is a metadata preview. Add it to view the full details."
 	},
 	"plugin": {
 		"status": {

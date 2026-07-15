@@ -30,12 +30,14 @@ export interface SkillDetailDialogViewProps {
 	readonly skill: SkillDetailDialogSkillView;
 	readonly onClose: () => void;
 	readonly labels: SkillDetailDialogViewLabels;
+	readonly showNotInstalledHint?: boolean;
 }
 
 export function SkillDetailDialogView({
 	skill,
 	onClose,
 	labels,
+	showNotInstalledHint = true,
 }: SkillDetailDialogViewProps): JSX.Element {
 	return (
 		<Dialog
@@ -114,9 +116,11 @@ export function SkillDetailDialogView({
 								</div>
 							)}
 
-							<div className="rounded-lg border border-dashed border-muted-foreground/20 bg-muted/20 px-3 py-2.5 text-[12px] text-muted-foreground/60">
-								<p>{labels.notInstalledHint}</p>
-							</div>
+							{showNotInstalledHint && (
+								<div className="rounded-lg border border-dashed border-muted-foreground/20 bg-muted/20 px-3 py-2.5 text-[12px] text-muted-foreground/60">
+									<p>{labels.notInstalledHint}</p>
+								</div>
+							)}
 						</>
 					)}
 				</div>

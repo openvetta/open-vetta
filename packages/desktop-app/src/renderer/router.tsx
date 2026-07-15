@@ -42,9 +42,10 @@ const skillsRoute = createRoute({
 	path: "/skills",
 	component: SkillsPage,
 	validateSearch: (search: Record<string, unknown>) => {
-		// 仍接受已废弃的 plugin，页面内会重定向到 /plugins。
+		// skill / connector 为历史深链，页面内统一映射到 capability；plugin 会重定向。
 		const tab =
 			search.tab === "scene" ||
+			search.tab === "capability" ||
 			search.tab === "skill" ||
 			search.tab === "plugin" ||
 			search.tab === "connector"

@@ -2,30 +2,27 @@ import { SkillTagGroupView } from "@vetta/theme-ui/skills";
 import { motion } from "motion/react";
 import { type ReactNode, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Button } from "@vetta/ui";
 import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
 import { SettingsAiAssist } from "../../settings/ai-assist";
-import { McpSettings, type McpSettingsHandle } from "../../settings/components/McpSettings";
 import { UNCATEGORIZED, type SkillsPageModel, type TypeTab } from "../hooks/useSkillsPageModel";
+import { AddCapabilityMenu } from "./AddCapabilityMenu";
+import { CapabilitiesPanel, type CapabilitiesPanelHandle } from "./CapabilitiesPanel";
 import { SkillDetailDialog } from "./SkillDetailDialog";
 import { SkillTagGroup } from "./SkillTagGroup";
 import "../../settings/components/settings-highlight.css";
 
 const easeOut = [0.22, 1, 0.36, 1] as const;
 
-const TYPE_TAB_ITEMS: readonly { key: TypeTab; labelKey: "tabs.scene" | "tabs.skill" | "tabs.connector" }[] =
-	[
-		{ key: "scene", labelKey: "tabs.scene" },
-		{ key: "skill", labelKey: "tabs.skill" },
-		{ key: "connector", labelKey: "tabs.connector" },
-	];
+const TYPE_TAB_ITEMS: readonly { key: TypeTab; labelKey: "tabs.scene" | "tabs.capability" }[] = [
+	{ key: "scene", labelKey: "tabs.scene" },
+	{ key: "capability", labelKey: "tabs.capability" },
+];
 
 export function SkillsPageView({ model }: { model: SkillsPageModel }): JSX.Element {
 	const { t } = useTranslation("skills");
 	const typeNoun = (tab: TypeTab) => {
 		if (tab === "scene") return t("typeNoun.scene");
-		if (tab === "skill") return t("typeNoun.skill");
-		return t("typeNoun.connector");
+		return t("typeNoun.capability");
 	};
 	const {
 		typeTab,
@@ -40,71 +37,68 @@ export function SkillsPageView({ model }: { model: SkillsPageModel }): JSX.Eleme
 		setSelectedSkill,
 		fileInputRef,
 		groups,
-		customSkills,
 		agentForTab,
+		capabilitySkills,
 		hasContent,
+		sectionId,
 		handleInstall,
 		handleToggle,
 		handleUninstall,
 		handlePreview,
 		handleImportClick,
 		handleFileChange,
+		refreshCapabilities,
 	} = model;
 	const narrow = useNarrowScreen();
-	const subtitle = typeTab === "connector" ? t("subtitleConnector") : t("subtitle");
-	const mcpSettingsRef = useRef<McpSettingsHandle>(null);
-	const { t: tSettings } = useTranslation("settings");
+	const subtitle = typeTab === "capability" ? t("subtitleCapability") : t("subtitle");
+	const capabilitiesRef = useRef<CapabilitiesPanelHandle>(null);
 
 	/** 顶栏标题区右侧插槽：按当前 Tab 填充操作（搜索/导入/AI 协助等）。 */
 	const headerTrailingSlot: ReactNode = (() => {
-		if (typeTab === "connector") {
+		if (typeTab === "capability") {
 			return (
 				<>
-					<Button
-						type="button"
-						variant="outline"
-						onClick={() => mcpSettingsRef.current?.openCustomConnector()}
-					>
-						<span className="icon-[mdi--plus] h-3.5 w-3.5" />
-						<span>{tSettings("mcpStore.customConnector")}</span>
-					</Button>
+					<input
+						ref={fileInputRef}
+						type="file"
+						accept=".zip,.tar.gz,.tgz,application/zip,application/gzip,application/x-gzip"
+						className="hidden"
+						onChange={handleFileChange}
+					/>
+					<div className={`relative ${narrow ? "flex-1" : ""}`}>
+						<span className="icon-[solar--magnifer-linear] absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/40" />
+						<input
+							type="text"
+							placeholder={t("search.placeholder", { noun: typeNoun(typeTab) })}
+							value={searchQuery}
+							onChange={(event) => setSearchQuery(event.target.value)}
+							className={`h-8 ${narrow ? "w-full" : "w-56"} rounded-full bg-muted pl-8 pr-3 text-[12px] text-foreground placeholder:text-muted-foreground/40 transition-colors hover:bg-accent focus:bg-accent focus:outline-none focus:ring-1 focus:ring-primary/30`}
+						/>
+					</div>
+					<AddCapabilityMenu
+						importing={importing}
+						onImportSkill={() => {
+							capabilitiesRef.current?.showMine();
+							handleImportClick();
+						}}
+						onAddConnector={() => capabilitiesRef.current?.openCustomCapability()}
+					/>
 					<SettingsAiAssist tabId="mcp" />
 				</>
 			);
 		}
-		// scene / skill：搜索；skill 额外导入
+		// 场景：仅搜索。
 		return (
-			<>
-				<div className={`relative ${narrow ? "flex-1" : ""}`}>
-					<span className="icon-[mdi--magnify] absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/40" />
-					<input
-						type="text"
-						placeholder={t("search.placeholder", { noun: typeNoun(typeTab) })}
-						value={searchQuery}
-						onChange={(e) => setSearchQuery(e.target.value)}
-						className={`h-8 ${narrow ? "w-full" : "w-56"} rounded-full bg-muted pl-8 pr-3 text-[12px] text-foreground placeholder:text-muted-foreground/40 transition-colors hover:bg-accent focus:bg-accent focus:outline-none focus:ring-1 focus:ring-primary/30`}
-					/>
-				</div>
-				{typeTab === "skill" && (
-					<>
-						<input
-							ref={fileInputRef}
-							type="file"
-							accept=".zip,.tar.gz,.tgz,application/zip,application/gzip,application/x-gzip"
-							className="hidden"
-							onChange={handleFileChange}
-						/>
-						<Button type="button" variant="outline" onClick={handleImportClick} disabled={importing}>
-							{importing ? (
-								<span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />
-							) : (
-								<span className="icon-[mdi--tray-arrow-up] h-3.5 w-3.5" />
-							)}
-							<span>{t("actions.importSkill")}</span>
-						</Button>
-					</>
-				)}
-			</>
+			<div className={`relative ${narrow ? "flex-1" : ""}`}>
+				<span className="icon-[solar--magnifer-linear] absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/40" />
+				<input
+					type="text"
+					placeholder={t("search.placeholder", { noun: typeNoun(typeTab) })}
+					value={searchQuery}
+					onChange={(event) => setSearchQuery(event.target.value)}
+					className={`h-8 ${narrow ? "w-full" : "w-56"} rounded-full bg-muted pl-8 pr-3 text-[12px] text-foreground placeholder:text-muted-foreground/40 transition-colors hover:bg-accent focus:bg-accent focus:outline-none focus:ring-1 focus:ring-primary/30`}
+				/>
+			</div>
 		);
 	})();
 
@@ -147,9 +141,22 @@ export function SkillsPageView({ model }: { model: SkillsPageModel }): JSX.Eleme
 				</div>
 			</div>
 
-			<div className="flex-1 overflow-y-auto px-8 pt-5 pb-8">
-				{typeTab === "connector" ? (
-					<McpSettings ref={mcpSettingsRef} />
+			<div className="flex-1 overflow-y-auto px-8 pt-5 pb-8 [scrollbar-gutter:stable]">
+				{typeTab === "capability" ? (
+					<CapabilitiesPanel
+						ref={capabilitiesRef}
+						skills={capabilitySkills}
+						searchQuery={searchQuery}
+						skillLoading={loading}
+						skillError={error}
+						actionStates={actionStates}
+						sectionId={sectionId}
+						onInstallSkill={handleInstall}
+						onToggleSkill={handleToggle}
+						onUninstallSkill={handleUninstall}
+						onPreviewSkill={setSelectedSkill}
+						onRefreshSkills={refreshCapabilities}
+					/>
 				) : loading ? (
 					<div className="flex h-full flex-col items-center justify-center gap-3 opacity-60">
 						<motion.span
@@ -209,17 +216,6 @@ export function SkillsPageView({ model }: { model: SkillsPageModel }): JSX.Eleme
 							<SkillTagGroup
 								tag={t("group.agentSkill")}
 								skills={agentForTab}
-								onInstall={handleInstall}
-								onToggle={handleToggle}
-								onUninstall={handleUninstall}
-								onPreview={handlePreview}
-								actionStates={actionStates}
-							/>
-						)}
-						{customSkills.length > 0 && (
-							<SkillTagGroup
-								tag={t("group.custom")}
-								skills={customSkills}
 								onInstall={handleInstall}
 								onToggle={handleToggle}
 								onUninstall={handleUninstall}

@@ -27,9 +27,10 @@ export function SkillDetailDialog({
 				license: skill.license,
 			}}
 			onClose={onClose}
+			showNotInstalledHint={!skill.installed}
 			labels={{
 				typeLabel: t("detail.type"),
-				typeNoun: skill.type === "scene" ? t("typeNoun.scene") : t("typeNoun.skill"),
+				typeNoun: skill.type === "scene" ? t("typeNoun.scene") : t("typeNoun.capability"),
 				nameLabel: t("detail.name"),
 				versionLabel: t("detail.version"),
 				authorLabel: t("detail.author"),
