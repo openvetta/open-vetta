@@ -3,7 +3,7 @@ import { useLanguage } from "@shared/hooks/useLanguage";
 import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
 import { useTheme } from "@shared/hooks/useTheme";
 import type { ThemeMode } from "@shared/store/atoms";
-import type { CursorStyle } from "@shared/theme/cursor";
+import { type CursorStyle, STOAT_CURSOR_PREVIEW_URL } from "@shared/theme/cursor";
 import { useThemeRuntime } from "@shared/theme/runtime";
 import { THEMES } from "@shared/theme/themes";
 import type { ThemeDef } from "@shared/theme/tokens";
@@ -142,7 +142,7 @@ const CURSOR_OPTIONS = [
 		id: "stoat" as const,
 		labelKey: "cursorStoatTitle",
 		hintKey: "cursorStoatHint",
-		preview: "/cursors/default.png",
+		preview: STOAT_CURSOR_PREVIEW_URL,
 	},
 ] as const;
 

@@ -1,4 +1,4 @@
-import type { CursorStyle } from "@shared/theme/cursor";
+import { STOAT_CURSOR_PREVIEW_URL, type CursorStyle } from "@shared/theme/cursor";
 import { THEMES } from "@shared/theme/themes";
 import {
 	AppearanceActionPickerView,
@@ -25,7 +25,7 @@ const CURSORS: AppearanceCursorOption[] = [
 		value: "stoat",
 		label: "白鼬",
 		hint: "自定义白鼬指针",
-		preview: "/cursors/default.png",
+		preview: STOAT_CURSOR_PREVIEW_URL,
 	},
 ];
 
