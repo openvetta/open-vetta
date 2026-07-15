@@ -1,9 +1,9 @@
-import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { basename, extname, join } from "node:path";
 import { getVettaHomePath } from "@vetta/action-rpc";
 import { dialog, ipcMain } from "electron";
 import { getAppLogger } from "../logger.js";
-import { allowProjectRoot } from "./fs.js";
+import { allowProjectRoot, assertPathReadableForPreview } from "./fs.js";
 import { selectFoldersWithLinuxPortal } from "./linux-portal-dialog.js";
 
 const log = getAppLogger("dialog");
@@ -147,6 +147,70 @@ export function registerDialogIpc(): () => void {
 		return result.filePath;
 	});
 
+	/**
+	 * Copy an existing file to a path chosen via the native save dialog.
+	 * Source must be readable under host preview rules (project roots or home).
+	 * Destination is user-chosen (no project-root write restriction).
+	 * Returns the saved path, or null if cancelled.
+	 */
+	ipcMain.handle(
+		"vetta:dialog:save-copy",
+		async (
+			_event,
+			sourcePath: unknown,
+			options?: {
+				defaultFileName?: string;
+				title?: string;
+				filters?: Array<{ name: string; extensions: string[] }>;
+			},
+		): Promise<string | null> => {
+			if (typeof sourcePath !== "string" || !sourcePath.trim()) {
+				throw new Error("Invalid source path");
+			}
+			assertPathReadableForPreview(sourcePath);
+			let sourceStat: Awaited<ReturnType<typeof stat>>;
+			try {
+				sourceStat = await stat(sourcePath);
+			} catch {
+				throw new Error(`Source file not found: ${sourcePath}`);
+			}
+			if (!sourceStat.isFile()) {
+				throw new Error(`Source is not a file: ${sourcePath}`);
+			}
+
+			const defaultFileName =
+				typeof options?.defaultFileName === "string" && options.defaultFileName.trim()
+					? options.defaultFileName.trim()
+					: basename(sourcePath);
+			const title = typeof options?.title === "string" && options.title.trim() ? options.title.trim() : "Save File";
+			const filters =
+				Array.isArray(options?.filters) && options.filters.length > 0
+					? options.filters.filter(
+							(f) =>
+								typeof f?.name === "string" &&
+								Array.isArray(f.extensions) &&
+								f.extensions.every((e) => typeof e === "string"),
+						)
+					: undefined;
+			const ext = extname(defaultFileName).replace(/^\./, "").toLowerCase();
+			const resolvedFilters =
+				filters && filters.length > 0
+					? filters
+					: ext
+						? [{ name: ext.toUpperCase(), extensions: [ext] }]
+						: undefined;
+
+			const result = await dialog.showSaveDialog({
+				title,
+				defaultPath: defaultFileName,
+				filters: resolvedFilters,
+			});
+			if (result.canceled || !result.filePath) return null;
+			await copyFile(sourcePath, result.filePath);
+			return result.filePath;
+		},
+	);
+
 	ipcMain.handle("vetta:dialog:select-folders", async () => {
 		if (process.platform === "linux") {
 			try {
@@ -177,6 +241,7 @@ export function registerDialogIpc(): () => void {
 		ipcMain.removeHandler("vetta:dialog:select-folder");
 		ipcMain.removeHandler("vetta:dialog:select-files");
 		ipcMain.removeHandler("vetta:dialog:save-html");
+		ipcMain.removeHandler("vetta:dialog:save-copy");
 		ipcMain.removeHandler("vetta:dialog:select-folders");
 	};
 }

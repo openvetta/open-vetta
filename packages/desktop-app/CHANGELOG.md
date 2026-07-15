@@ -6,6 +6,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **插件 release 导出（插件工作台）**：活动面板工程卡片新增「导出」按钮；经宿主原生保存对话框把当前 `release/<id>-<version>.zip` 复制到用户选择路径。宿主新增 `dialog.saveCopy(sourcePath, options?)`（源路径需可读，取消返回 null）。
 - **插件 dev 热更新（插件工作台）**：工程卡片新增「热更新」开关（默认关，需已安装过一次）。打开后宿主把插件 dev 链接到工程目录（`vetta-plugin://` 资源直接从工程 `dist/` 解析，内存态不落注册表）、常驻托管 Node `vite build --watch` 并监听 dist，产物变化自动 `reload`（token 强制 MF 重注册），保存源码即生效。宿主新增 `plugins.startDevWatch/stopDevWatch` IPC；`InstalledPlugin.devWatch` 透出状态（starting/running/error）；卸载与 App 退出自动停 watch；`@vetta-org/plugin-vite` 在 `VETTA_PLUGIN_DEV_WATCH=1` 下跳过每轮重打 zip。
 - **插件页自定义 badge**：本地 zip 导入或 plugin-workbench `install-from-path` 安装的插件（`source === "archive"`）在卡片与详情标题旁显示「自定义」标记，与系统插件「系统」badge 对称。
 - **插件工作台（系统插件）+ 硬隔离 / 本地安装路径**：新增 preset `plugin-workbench`（对话 skill、标准脚本、Activity 面板；输入栏 mode 默认关）。宿主：`plugins.manage` 支持 `install-from-path`（安装确认后按声明一次授权并启用）；`InstalledPlugin.rootPath`；`registerModeGate` / `setContributionMode` 按 pluginId 硬隔离 agent 贡献（tools/skills/MCP/prompt）与 Activity Tab（ADR-0041 / ADR-0042）。`registerInputAction.hardIsolation` 与 manifest `contributionMode.hardIsolation`。
