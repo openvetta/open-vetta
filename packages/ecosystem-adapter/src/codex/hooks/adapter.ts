@@ -17,6 +17,20 @@ export async function createCodexHookAdapter(
 ): Promise<EcosystemHookAdapter | undefined> {
 	const discovery = await discoverCodexHookHandlers(options.configLayers);
 	for (const diagnostic of discovery.diagnostics) options.onDiagnostic?.(diagnostic);
+	const byEvent: Record<string, number> = {};
+	for (const handler of discovery.handlers) {
+		byEvent[handler.eventName] = (byEvent[handler.eventName] ?? 0) + 1;
+	}
+	const sources = options.configLayers.flatMap((layer) =>
+		(layer.sources ?? [{ path: `${layer.directory}/hooks.json` }]).map((source) => source.path),
+	);
+	console.info("[ecosystem-hooks] codex handlers loaded", {
+		profile: codexHookProfileFca51f6.id,
+		total: discovery.handlers.length,
+		byEvent,
+		sources,
+		diagnostics: discovery.diagnostics.length,
+	});
 	const dispatcher = new HookDispatcher({
 		profile: codexHookProfileFca51f6,
 		handlers: discovery.handlers,
