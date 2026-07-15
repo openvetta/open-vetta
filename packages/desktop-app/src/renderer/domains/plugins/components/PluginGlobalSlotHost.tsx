@@ -53,6 +53,8 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 	const [plugins, setPlugins] = useState<LoadedPlugin[]>([]);
 	const [revision, forceUpdate] = useReducer((value: number) => value + 1, 0);
 	const [reloadRevision, reloadPlugins] = useReducer((value: number) => value + 1, 0);
+	/** True while remotes are (re)loading — keep last published contributions to avoid tab flash. */
+	const [hostLoading, setHostLoading] = useState(true);
 	const setFilePreviews = useSetAtom(pluginFilePreviewsAtom);
 	const setActivityTabs = useSetAtom(pluginActivityTabsAtom);
 	const setInputActions = useSetAtom(pluginInputActionsAtom);
@@ -72,6 +74,9 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 	}, [reloadPlugins]);
 
 	useEffect(() => {
+		// Synchronous: previous lifecycle dispose can empty contribution arrays and
+		// forceUpdate before the new load finishes — hold last published tabs/actions.
+		setHostLoading(true);
 		let disposed = false;
 		let requestCleanup = (): void => {};
 		const cleanupRequested = new Promise<void>((resolve) => {
@@ -83,7 +88,6 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 
 			installPluginHostShim();
 			installPluginHostBridge();
-			setPlugins([]);
 			markPluginHostLoading();
 
 			const loadedPlugins = await window.vetta.plugins
@@ -109,7 +113,15 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 				})
 				.finally(markPluginHostReady);
 
-			if (!disposed) setPlugins(loadedPlugins);
+			// Atomic replace — do not blank plugins to [] mid-reload (that drops activity tabs
+			// and falls active tab back to "file", which can reset panel width via file-tab cleanup).
+			if (!disposed) {
+				setPlugins(loadedPlugins);
+				setHostLoading(false);
+			} else {
+				await Promise.all(loadedPlugins.map((plugin) => plugin.dispose()));
+				return;
+			}
 
 			await cleanupRequested;
 			await Promise.all(loadedPlugins.map((plugin) => plugin.dispose()));
@@ -131,6 +143,7 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 
 	// Publish file-preview registrations so FilePreviewView (a separate subtree)
 	// can dispatch by extension. Republished on every plugin/slot revision.
+	// While hostLoading, skip empty publishes so dispose/reload does not flash UI.
 	useEffect(() => {
 		const previews: RegisteredFilePreview[] = plugins.flatMap((plugin) =>
 			plugin.filePreviews.map((preview) => ({
@@ -139,9 +152,8 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 				component: preview.component,
 			})),
 		);
-		setFilePreviews(previews);
-		return () => setFilePreviews([]);
-	}, [plugins, revision, setFilePreviews]);
+		if (previews.length > 0 || !hostLoading) setFilePreviews(previews);
+	}, [plugins, revision, hostLoading, setFilePreviews]);
 
 	// Publish activity-tab contributions (the addable pool) so ActivityPanel
 	// can render attached tabs and the "+" picker.
@@ -157,9 +169,8 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 				scope_use: tab.scope_use,
 			})),
 		);
-		setActivityTabs(tabs);
-		return () => setActivityTabs([]);
-	}, [plugins, revision, setActivityTabs]);
+		if (tabs.length > 0 || !hostLoading) setActivityTabs(tabs);
+	}, [plugins, revision, hostLoading, setActivityTabs]);
 
 	// Publish input-action toggles (rendered beneath the AI input bar).
 	useEffect(() => {
@@ -177,11 +188,14 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 				decoratePrompt: action.decoratePrompt,
 			})),
 		);
-		setInputActions(actions);
-		// 插件晚于会话恢复加载时，按当前工作集补齐 hardIsolation contribution mode。
-		syncHardIsolationContributionModes(getDefaultStore().get(activeInputActionIdsAtom));
-		return () => setInputActions([]);
-	}, [plugins, revision, setInputActions]);
+		if (actions.length > 0 || !hostLoading) {
+			setInputActions(actions);
+			// 插件晚于会话恢复加载时，按当前工作集补齐 hardIsolation contribution mode。
+			if (actions.length > 0) {
+				syncHardIsolationContributionModes(getDefaultStore().get(activeInputActionIdsAtom));
+			}
+		}
+	}, [plugins, revision, hostLoading, setInputActions]);
 
 	// Publish card renderers (keyed by type). The per-message card host resolves
 	// each card descriptor's `type` to one of these.
@@ -196,9 +210,8 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 				pendingFor: renderer.pendingFor,
 			})),
 		);
-		setCardRenderers(cardRenderers);
-		return () => setCardRenderers([]);
-	}, [plugins, revision, setCardRenderers]);
+		if (cardRenderers.length > 0 || !hostLoading) setCardRenderers(cardRenderers);
+	}, [plugins, revision, hostLoading, setCardRenderers]);
 
 	// Publish per-plugin i18n catalogs so contribution labels and plugin
 	// components (useTranslation) resolve `%key%` against the right catalog.
@@ -207,9 +220,8 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 		for (const plugin of plugins) {
 			registry[plugin.id] = { locales: plugin.locales, defaultLocale: plugin.defaultLocale };
 		}
-		setPluginI18n(registry);
-		return () => setPluginI18n({});
-	}, [plugins, setPluginI18n]);
+		if (Object.keys(registry).length > 0 || !hostLoading) setPluginI18n(registry);
+	}, [plugins, hostLoading, setPluginI18n]);
 
 	// Publish tool-call renderers so transcript tool blocks can be replaced by plugins.
 	useEffect(() => {
@@ -221,9 +233,8 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 				component: slot.component,
 			})),
 		);
-		setToolCallSlots(toolCallSlots);
-		return () => setToolCallSlots([]);
-	}, [plugins, revision, setToolCallSlots]);
+		if (toolCallSlots.length > 0 || !hostLoading) setToolCallSlots(toolCallSlots);
+	}, [plugins, revision, hostLoading, setToolCallSlots]);
 
 	// Publish turn cards (message-list footer slot). Not tool-bound — each plugin
 	// component owns its own visibility; PluginTurnCardHost renders them.
@@ -236,9 +247,29 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 				scope_use: card.scope_use,
 			})),
 		);
-		setTurnCards(turnCards);
-		return () => setTurnCards([]);
-	}, [plugins, revision, setTurnCards]);
+		if (turnCards.length > 0 || !hostLoading) setTurnCards(turnCards);
+	}, [plugins, revision, hostLoading, setTurnCards]);
+
+	// Host unmount only: clear published contributions.
+	useEffect(() => {
+		return () => {
+			setFilePreviews([]);
+			setActivityTabs([]);
+			setInputActions([]);
+			setCardRenderers([]);
+			setToolCallSlots([]);
+			setTurnCards([]);
+			setPluginI18n({});
+		};
+	}, [
+		setFilePreviews,
+		setActivityTabs,
+		setInputActions,
+		setCardRenderers,
+		setToolCallSlots,
+		setTurnCards,
+		setPluginI18n,
+	]);
 
 	if (slots.length === 0) return null;
 
