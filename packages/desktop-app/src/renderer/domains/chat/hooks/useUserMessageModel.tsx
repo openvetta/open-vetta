@@ -206,20 +206,35 @@ export function useUserMessageModel({
 	const activeSession = useAtomValue(activeSessionAtom);
 	const pendingEdit = useAtomValue(pendingMessageEditAtom);
 
-	const canEdit = Boolean(message.entryId);
-	const canDelete = canEdit && Boolean(activeSession?.runtimeId);
+	const hasPersistedEntry = Boolean(message.entryId);
+	const canEdit = isLastUserMessage && Boolean(activeSession?.runtimeId);
+	const canDelete = hasPersistedEntry && Boolean(activeSession?.runtimeId);
+	const canFork = hasPersistedEntry && Boolean(activeSession?.runtimeId);
 	const branch = message.branch;
 	const canSwitchBranch = Boolean(branch && branch.siblings.length > 1 && message.entryId);
-	const isPendingEdit = Boolean(pendingEdit && message.entryId && pendingEdit.entryId === message.entryId);
+	const isPendingEdit = Boolean(
+		pendingEdit && isLastUserMessage && (!message.entryId || pendingEdit.entryId === message.entryId),
+	);
 
-	const applyEditFill = useCallback(() => {
-		if (!message.entryId) return;
+	const applyEditFill = useCallback(async () => {
+		let entryId = message.entryId;
+		if (!entryId && activeSession?.runtimeId) {
+			const history = await window.vetta.session.getFullHistory(activeSession.runtimeId);
+			for (let index = history.length - 1; index >= 0; index--) {
+				const entry = history[index];
+				if (entry.type === "message" && entry.message.role === "user" && entry.entryId) {
+					entryId = entry.entryId;
+					break;
+				}
+			}
+		}
+		if (!entryId) return;
 		fillInputFromUserText(message.text);
-		getDefaultStore().set(pendingMessageEditAtom, { entryId: message.entryId });
-	}, [message.entryId, message.text]);
+		getDefaultStore().set(pendingMessageEditAtom, { entryId });
+	}, [activeSession?.runtimeId, message.entryId, message.text]);
 
 	const runWithInterruptConfirm = useCallback(
-		(kind: "edit" | "switch" | "fork", action: () => void | Promise<void>) => {
+		(kind: "switch" | "fork", action: () => void | Promise<void>) => {
 			const run = (): void => {
 				void (async () => {
 					const runtimeId = activeSession?.runtimeId;
@@ -236,18 +251,10 @@ export function useUserMessageModel({
 			}
 			setConfirmDialog({
 				title: t(
-					kind === "edit"
-						? "messageList.interrupt.editTitle"
-						: kind === "switch"
-							? "messageList.interrupt.switchTitle"
-							: "messageList.interrupt.forkTitle",
+					kind === "switch" ? "messageList.interrupt.switchTitle" : "messageList.interrupt.forkTitle",
 				),
 				message: t(
-					kind === "edit"
-						? "messageList.interrupt.editBody"
-						: kind === "switch"
-							? "messageList.interrupt.switchBody"
-							: "messageList.interrupt.forkBody",
+					kind === "switch" ? "messageList.interrupt.switchBody" : "messageList.interrupt.forkBody",
 				),
 				confirmLabel: t("messageList.interrupt.confirm"),
 				cancelLabel: t("messageList.interrupt.cancel"),
@@ -259,10 +266,9 @@ export function useUserMessageModel({
 	);
 
 	const handleEdit = useCallback(() => {
-		if (!message.entryId) return;
 		const startEdit = (): void => {
-			runWithInterruptConfirm("edit", () => {
-				applyEditFill();
+			void applyEditFill().catch((error) => {
+				console.error("[useUserMessageModel] prepare edit failed:", error);
 			});
 		};
 		if (inputHasDraft() && !isPendingEdit) {
@@ -276,7 +282,7 @@ export function useUserMessageModel({
 			return;
 		}
 		startEdit();
-	}, [applyEditFill, isPendingEdit, message.entryId, runWithInterruptConfirm, setConfirmDialog, t]);
+	}, [applyEditFill, isPendingEdit, setConfirmDialog, t]);
 
 	const handleSwitchBranch = useCallback(
 		(direction: -1 | 1) => {
@@ -300,7 +306,7 @@ export function useUserMessageModel({
 		if (!message.entryId || !activeSession?.runtimeId) return;
 		runWithInterruptConfirm("fork", async () => {
 			// Drop any in-progress re-edit before switching sessions — pending entryIds
-			// belong to the source session and would break navigateForEdit after open.
+			// belong to the source session and cannot be replaced after opening the fork.
 			const store = getDefaultStore();
 			store.set(pendingMessageEditAtom, null);
 			store.set(inputValueAtom, "");
@@ -506,7 +512,7 @@ export function useUserMessageModel({
 		isLastUserMessage,
 		canEdit,
 		canSwitchBranch,
-		canFork: canEdit,
+		canFork,
 		isPendingEdit,
 		branchIndex: branch?.index ?? 0,
 		branchTotal: branch?.siblings.length ?? 0,

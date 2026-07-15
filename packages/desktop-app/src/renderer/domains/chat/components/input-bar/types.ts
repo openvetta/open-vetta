@@ -103,7 +103,7 @@ export interface InputBarModel {
 	drawerItems: InputBarDrawerItem[];
 	drawerActiveTab: string | null;
 	hasEditImageAttachment: boolean;
-	/** Historical message re-edit pending (navigate on send). */
+	/** Latest user message replacement pending (applied on send). */
 	pendingMessageEdit: boolean;
 	pendingEditHint: string;
 	cancelPendingEditLabel: string;

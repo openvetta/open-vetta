@@ -933,8 +933,8 @@ export function useSessionManager(): SessionManagerResult {
 				setMentionedFiles([]);
 				setAppshotAttachment(null);
 			}
-			// 历史消息重编辑：发送前 navigateForEdit（leaf → parent），再按新枝 prompt。
-			// 不得走 streaming 入队，否则 leaf 未回退会导致上下文错误。
+			// 最后一条用户消息重编辑：提交时先中止当前生成，再删除旧消息及其回复子树；
+			// 随后的正常 prompt 从原 parent 继续，因此不会创建会话内分支。
 			const store = getDefaultStore();
 			const pendingEdit = store.get(pendingMessageEditAtom);
 			if (pendingEdit) {
@@ -963,34 +963,23 @@ export function useSessionManager(): SessionManagerResult {
 					});
 				}
 				try {
-					const nav = await window.vetta.session.navigateForEdit(session.runtimeId, pendingEdit.entryId);
-					if (nav.cancelled) {
-						store.set(pendingMessageEditAtom, null);
-						return;
-					}
+					await window.vetta.session.replaceLastUserMessage(session.runtimeId, pendingEdit.entryId);
 					const history = await window.vetta.session.getFullHistory(session.runtimeId);
 					setChatMessages(fullHistoryToChat(history));
 					store.set(pendingMessageEditAtom, null);
 				} catch (err) {
 					const message = err instanceof Error ? err.message : String(err);
-					const notFound = /Entry .+ not found/i.test(message);
-					console.error("[useSessionManager.sendMessage] navigateForEdit failed:", err);
+					console.error("[useSessionManager.sendMessage] replaceLastUserMessage failed:", err);
 					store.set(pendingMessageEditAtom, null);
-					if (notFound) {
-						// Stale pending edit (e.g. entry from a previous session after fork).
-						// Fall through as a normal append so the user is not blocked.
-						console.warn("[useSessionManager.sendMessage] stale pending edit cleared; sending as new message");
-					} else {
-						setChatMessages((prev) => appendError(prev, message));
-						return;
-					}
+					setChatMessages((prev) => appendError(prev, message));
+					return;
 				}
 			}
 
 			// streaming 期间发送 = 排队等下一轮：跳过「用户气泡 / 清产物列表 / 乐观侧边栏 /
 			// 清 todo」这些开启新一轮才该有的副作用，仅在下方组装好 promptReq 快照后入队。
 			// （输入框已在上方清空，符合「入队后清空输入框」语义。）
-			const streaming = getDefaultStore().get(isStreamingAtom);
+			const streaming = pendingEdit ? false : getDefaultStore().get(isStreamingAtom);
 			if (!streaming) {
 				const userMsg: ChatMessage = {
 					id: nextId("user"),

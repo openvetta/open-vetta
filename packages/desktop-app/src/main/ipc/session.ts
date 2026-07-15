@@ -204,6 +204,7 @@ const CHANNELS = {
 	NAVIGATE_FOR_EDIT: "vetta:session:navigate-for-edit",
 	SWITCH_BRANCH: "vetta:session:switch-branch",
 	DELETE_MESSAGE: "vetta:session:delete-message",
+	REPLACE_LAST_USER_MESSAGE: "vetta:session:replace-last-user-message",
 	FORK_SESSION: "vetta:session:fork-session",
 	GET_SESSION_PATH: "vetta:session:get-session-path",
 	SET_GLOBAL_THINKING: "vetta:session:set-global-thinking-level",
@@ -938,6 +939,12 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		assertNonEmptyString(sessionId, "sessionId");
 		assertNonEmptyString(entryId, "entryId");
 		return runtime.deleteMessage(sessionId, entryId);
+	});
+
+	ipcMain.handle(CHANNELS.REPLACE_LAST_USER_MESSAGE, async (_event, sessionId: unknown, entryId: unknown) => {
+		assertNonEmptyString(sessionId, "sessionId");
+		assertNonEmptyString(entryId, "entryId");
+		return runtime.replaceLastUserMessage(sessionId, entryId);
 	});
 
 	ipcMain.handle(CHANNELS.FORK_SESSION, async (_event, sessionId: unknown, entryId: unknown) => {
