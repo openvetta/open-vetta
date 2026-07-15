@@ -1,8 +1,6 @@
 import type { ConfigRecord, VersionedConfigMigration } from "@vetta/toolkit/versioned-config";
 
-/**
- * v2 → v3: sanctum-ready shape (growth + dailyScores required for UI).
- */
+/** v2 → v3: add the sanctum growth fields used by the current snapshot. */
 export const cultivationMigration002To3: VersionedConfigMigration = {
 	fromVersion: 2,
 	toVersion: 3,
