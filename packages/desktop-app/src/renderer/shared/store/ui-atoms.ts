@@ -62,8 +62,12 @@ export interface ConfirmDialogState {
 	message: string;
 	confirmLabel?: string;
 	cancelLabel?: string;
+	checkbox?: {
+		label: string;
+		checked: boolean;
+	};
 	variant?: "danger" | "default";
-	onConfirm: () => void;
+	onConfirm: (checkboxChecked: boolean) => void;
 	onCancel?: () => void;
 }
 

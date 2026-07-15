@@ -374,6 +374,18 @@
 			"copied": "已复制",
 			"copy": "复制"
 		},
+		"contextMenu": {
+			"edit": "编辑",
+			"copy": "复制",
+			"delete": "删除"
+		},
+		"delete": {
+			"title": "删除此消息？",
+			"body": "删除后将保留后续消息，但它们的上下文将不再包含此消息。此操作无法撤销。",
+			"streamingBody": "删除将先停止正在生成的回复。后续消息会保留，但它们的上下文将不再包含此消息。此操作无法撤销。",
+			"confirm": "删除",
+			"suppressForOneMinute": "一分钟内不再提醒"
+		},
 		"editButton": "编辑",
 		"forkButton": "分叉为新会话",
 		"branch": {

@@ -4,6 +4,10 @@ import { ThemeSurface } from "../appearance/ThemeSurface";
 
 export interface ConfirmDialogViewState {
 	readonly cancelLabel?: string;
+	readonly checkbox?: {
+		readonly checked: boolean;
+		readonly label: string;
+	};
 	readonly confirmLabel?: string;
 	readonly message: string;
 	readonly title: string;
@@ -18,6 +22,7 @@ export interface ConfirmDialogViewLabels {
 export interface ConfirmDialogViewProps {
 	readonly labels: ConfirmDialogViewLabels;
 	readonly onCancel: () => void;
+	readonly onCheckboxCheckedChange: (checked: boolean) => void;
 	readonly onConfirm: () => void;
 	readonly overlayRef: RefObject<HTMLDivElement | null>;
 	readonly state: ConfirmDialogViewState | null;
@@ -29,6 +34,7 @@ const buttonBase =
 export function ConfirmDialogView({
 	labels,
 	onCancel,
+	onCheckboxCheckedChange,
 	onConfirm,
 	overlayRef,
 	state,
@@ -60,6 +66,17 @@ export function ConfirmDialogView({
 							<p className="mt-2 max-h-[45vh] overflow-auto whitespace-pre-wrap break-words text-[13px] text-muted-foreground">
 								{state.message}
 							</p>
+							{state.checkbox && (
+								<label className="mt-4 flex cursor-pointer items-center gap-2 text-[12px] text-muted-foreground">
+									<input
+										type="checkbox"
+										checked={state.checkbox.checked}
+										onChange={(event) => onCheckboxCheckedChange(event.currentTarget.checked)}
+										className="h-3.5 w-3.5 accent-primary"
+									/>
+									<span>{state.checkbox.label}</span>
+								</label>
+							)}
 							<div className="mt-5 flex justify-end gap-2">
 								<button
 									type="button"

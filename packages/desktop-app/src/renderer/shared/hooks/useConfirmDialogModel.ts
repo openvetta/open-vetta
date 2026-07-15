@@ -15,9 +15,18 @@ export function useConfirmDialogModel(): ConfirmDialogViewProps {
 	}, [setState, state]);
 
 	const onConfirm = useCallback(() => {
-		state?.onConfirm();
+		state?.onConfirm(state.checkbox?.checked ?? false);
 		setState(null);
 	}, [setState, state]);
+
+	const onCheckboxCheckedChange = useCallback(
+		(checked: boolean) => {
+			setState((current) =>
+				current?.checkbox ? { ...current, checkbox: { ...current.checkbox, checked } } : current,
+			);
+		},
+		[setState],
+	);
 
 	useEffect(() => {
 		if (!state) return;
@@ -38,11 +47,13 @@ export function useConfirmDialogModel(): ConfirmDialogViewProps {
 				confirm: t("actions.confirm"),
 			},
 			onCancel,
+			onCheckboxCheckedChange,
 			onConfirm,
 			overlayRef,
 			state: state
 				? {
 						cancelLabel: state.cancelLabel,
+						checkbox: state.checkbox,
 						confirmLabel: state.confirmLabel,
 						message: state.message,
 						title: state.title,
@@ -50,6 +61,6 @@ export function useConfirmDialogModel(): ConfirmDialogViewProps {
 					}
 				: null,
 		}),
-		[onCancel, onConfirm, state, t],
+		[onCancel, onCheckboxCheckedChange, onConfirm, state, t],
 	);
 }

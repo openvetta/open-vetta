@@ -1,6 +1,11 @@
 import type { ChatMessage } from "@shared/store/atoms";
-import { UserMessageView, type UserMessageEntryState } from "@vetta/theme-ui/chat";
+import {
+	UserMessageContextMenuView,
+	UserMessageView,
+	type UserMessageEntryState,
+} from "@vetta/theme-ui/chat";
 import { memo } from "react";
+import { createPortal } from "react-dom";
 import { useUserMessageModel } from "../../hooks/useUserMessageModel";
 
 export type { UserMessageEntryState };
@@ -16,6 +21,11 @@ interface UserMessageProps {
 }
 
 export const UserMessage = memo(function UserMessage(props: UserMessageProps) {
-	const model = useUserMessageModel(props);
-	return <UserMessageView {...model} />;
+	const { contextMenu, ...viewModel } = useUserMessageModel(props);
+	return (
+		<>
+			<UserMessageView {...viewModel} />
+			{contextMenu ? createPortal(<UserMessageContextMenuView {...contextMenu} />, document.body) : null}
+		</>
+	);
 });

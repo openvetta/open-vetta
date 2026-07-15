@@ -73,6 +73,8 @@ export interface DesktopSessionApi {
 	navigateForEdit(sessionId: string, entryId: string): Promise<{ text: string; cancelled: boolean }>;
 	/** Switch leaf to tip of subtree at entryId (sibling branch view). */
 	switchBranch(sessionId: string, entryId: string): Promise<{ leafId: string }>;
+	/** Permanently delete one message while preserving subsequent messages. */
+	deleteMessage(sessionId: string, entryId: string): Promise<{ leafId: string | null }>;
 	/** Export fork as new session file; current session unchanged. */
 	forkSession(sessionId: string, entryId: string): Promise<{ path: string; text: string }>;
 	delete(sessionPath: string): Promise<void>;

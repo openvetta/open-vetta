@@ -1,6 +1,6 @@
 import { motion } from "motion/react";
 import type { Transition } from "motion/react";
-import type { JSX, ReactNode } from "react";
+import type { JSX, MouseEvent, ReactNode } from "react";
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 
 const HIDDEN_VISUAL_STATE = { opacity: 0, scale: 0.82, x: 14, y: 12 };
@@ -63,6 +63,7 @@ export interface UserMessageViewProps {
 	relativeTime: ReactNode;
 	copyButton: ReactNode;
 	onEntryComplete?: () => void;
+	onContextMenu: (event: MouseEvent<HTMLDivElement>) => void;
 	onEdit: () => void;
 	onFork: () => void;
 	onBranchPrev: () => void;
@@ -201,6 +202,7 @@ export function UserMessageView({
 	relativeTime,
 	copyButton,
 	onEntryComplete,
+	onContextMenu,
 	onEdit,
 	onFork,
 	onBranchPrev,
@@ -228,6 +230,7 @@ export function UserMessageView({
 			transition={ENTRY_TRANSITION}
 			onAnimationComplete={shouldAnimateIn ? onEntryComplete : undefined}
 			style={MESSAGE_STYLE}
+			onContextMenu={onContextMenu}
 			onMouseEnter={() => onActionsVisibleChange(true)}
 			onMouseLeave={() => onActionsVisibleChange(false)}
 		>
