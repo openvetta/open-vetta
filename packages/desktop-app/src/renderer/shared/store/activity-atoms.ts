@@ -5,7 +5,6 @@ export const activityPanelOpenAtom = atom<boolean>(false);
 
 /** 活动面板默认宽度，也是关闭内嵌预览时回拉的兜底值。 */
 export const ACTIVITY_PANEL_DEFAULT_WIDTH = 360;
-export const activityPanelWidthAtom = atom<number>(ACTIVITY_PANEL_DEFAULT_WIDTH);
 
 /** 活动面板可拖拽的最小宽度。 */
 export const ACTIVITY_PANEL_MIN_WIDTH = 260;
@@ -17,6 +16,45 @@ export const ACTIVITY_PANEL_MIN_CHAT_AREA = 360;
  * 拖窄到阈值以下自动收起预览，拖宽回来自动恢复；无选中文件时跨过阈值默认选第一个文件。
  */
 export const ACTIVITY_PANEL_PREVIEW_MIN_WIDTH = 520;
+
+export const ACTIVITY_PANEL_WIDTH_STORAGE_KEY = "vetta-activity-panel-width";
+
+function readPersistedPanelWidth(): number {
+	try {
+		const raw = localStorage.getItem(ACTIVITY_PANEL_WIDTH_STORAGE_KEY);
+		if (raw == null) return ACTIVITY_PANEL_DEFAULT_WIDTH;
+		const value = Number(raw);
+		if (!Number.isFinite(value)) return ACTIVITY_PANEL_DEFAULT_WIDTH;
+		return Math.max(ACTIVITY_PANEL_MIN_WIDTH, value);
+	} catch {
+		return ACTIVITY_PANEL_DEFAULT_WIDTH;
+	}
+}
+
+function persistPanelWidth(width: number): void {
+	try {
+		localStorage.setItem(ACTIVITY_PANEL_WIDTH_STORAGE_KEY, String(width));
+	} catch {
+		// ignore quota / private mode
+	}
+}
+
+/** Internal primitive store; public API is {@link activityPanelWidthAtom}. */
+const activityPanelWidthBaseAtom = atom(readPersistedPanelWidth());
+
+/**
+ * 活动面板宽度。读写均经此 atom；写入时同步 localStorage，避免 reload/热更新后回到默认值。
+ */
+export const activityPanelWidthAtom = atom(
+	(get) => get(activityPanelWidthBaseAtom),
+	(get, set, update: number | ((prev: number) => number)) => {
+		const prev = get(activityPanelWidthBaseAtom);
+		const next = typeof update === "function" ? update(prev) : update;
+		if (next === prev) return;
+		set(activityPanelWidthBaseAtom, next);
+		persistPanelWidth(next);
+	},
+);
 
 /** 当前窗口宽度下，活动面板的最大宽度。 */
 export function activityPanelMaxWidth(windowWidth: number): number {
