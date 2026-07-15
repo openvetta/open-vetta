@@ -1,10 +1,10 @@
-import { useThemeStorage } from "@vetta/theme-sdk";
 import { useSyncExternalStore } from "react";
 import {
 	CULTIVATION_REALMS,
-	CULTIVATION_STORAGE_KEY,
-	loadCultivationSnapshot,
-	type CultivationSnapshot,
+	getCultivationDailyMetrics,
+	getCultivationDailyScores,
+	type CultivationState,
+	useCultivationRepository,
 } from "../../cultivation";
 import type { SanctumCultivationView } from "./types";
 
@@ -85,38 +85,34 @@ function formatTrendLabel(dateKey: string): string {
 	return `${Number(month)}/${Number(day)}`;
 }
 
-function toTrendPoints(snapshot: CultivationSnapshot): SanctumCultivationView["trend"] {
-	const today = getLocalDateKey(snapshot.updatedAt);
-	const byDate = new Map(snapshot.dailyScores.map((entry) => [entry.date, entry.score]));
-	byDate.set(today, snapshot.score);
-
-	return [...byDate.entries()]
-		.sort(([left], [right]) => left.localeCompare(right))
+function toTrendPoints(state: CultivationState): SanctumCultivationView["trend"] {
+	return getCultivationDailyScores(state.history, state.snapshot)
 		// Align with cultivation daily retention (~3 months) for period navigation.
 		.slice(-93)
-		.map(([date, score]) => ({
-			date,
-			label: formatTrendLabel(date),
-			power: Math.max(0, Math.floor(score)),
-			score,
+		.map((entry) => ({
+			date: entry.date,
+			label: formatTrendLabel(entry.date),
+			power: Math.max(0, Math.floor(entry.score)),
+			score: entry.score,
 		}));
 }
 
-function useCultivationSnapshot(): CultivationSnapshot | null {
-	const storage = useThemeStorage();
+function useCultivationState(): CultivationState | null {
+	const repository = useCultivationRepository();
 
 	useSyncExternalStore(
-		storage.subscribe,
-		() => `${storage.status}:${JSON.stringify(storage.get(CULTIVATION_STORAGE_KEY))}`,
+		repository.subscribe,
+		repository.getSnapshot,
 		() => "loading:",
 	);
 
-	if (storage.status !== "ready") return null;
-	return loadCultivationSnapshot(storage.get(CULTIVATION_STORAGE_KEY)).snapshot;
+	if (repository.status !== "ready") return null;
+	return repository.load();
 }
 
-function toCultivationView(snapshot: CultivationSnapshot | null): SanctumCultivationView {
-	if (!snapshot) return fallbackCultivationView;
+function toCultivationView(state: CultivationState | null): SanctumCultivationView {
+	if (!state) return fallbackCultivationView;
+	const { snapshot } = state;
 	const maxPower =
 		snapshot.cultivationPowerTarget > 0
 			? snapshot.cultivationPowerTarget
@@ -125,7 +121,7 @@ function toCultivationView(snapshot: CultivationSnapshot | null): SanctumCultiva
 	return {
 		achievedRealmIds: snapshot.achievedRealmIds,
 		currentPower: snapshot.cultivationPower,
-		dailyMetrics: snapshot.dailyMetrics ?? [],
+		dailyMetrics: getCultivationDailyMetrics(state.history, snapshot),
 		englishName: snapshot.englishName,
 		growth: [
 			{ label: "今日", value: snapshot.growth.today },
@@ -142,12 +138,12 @@ function toCultivationView(snapshot: CultivationSnapshot | null): SanctumCultiva
 		realmId: snapshot.realmId,
 		score: snapshot.score,
 		scoreBreakdown: snapshot.scoreBreakdown,
-		trend: toTrendPoints(snapshot),
+		trend: toTrendPoints(state),
 	};
 }
 
 export function useSanctumCultivationView(): SanctumCultivationView {
-	return toCultivationView(useCultivationSnapshot());
+	return toCultivationView(useCultivationState());
 }
 
 export function formatCultivationNumber(value: number): string {

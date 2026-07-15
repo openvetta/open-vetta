@@ -13,7 +13,7 @@ export interface SanctumCultivationView {
 	readonly achievedRealmIds: readonly string[];
 	readonly currentPower: number;
 	/**
-	 * Theme-stored daily cumulative metrics samples (end-of-day / last sync).
+	 * Closed-day cumulative metrics plus the live current-day sample.
 	 * Used by 修行履历 for month/week period deltas.
 	 */
 	readonly dailyMetrics: readonly CultivationDailyMetrics[];

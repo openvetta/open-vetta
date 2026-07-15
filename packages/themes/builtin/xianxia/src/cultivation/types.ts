@@ -1,9 +1,5 @@
 import type { ThemeUsageStats } from "@vetta/theme-sdk";
 
-export const CULTIVATION_STORAGE_KEY = "cultivation";
-/** v3: sanctum-ready score display, growth, and compact daily history. */
-export const CULTIVATION_SNAPSHOT_VERSION = 3;
-
 export interface CultivationRealmDefinition {
 	readonly id: string;
 	readonly level: number;
@@ -57,12 +53,17 @@ export interface CultivationDailyMetrics {
 	readonly toolsCompleted: number;
 }
 
+/** Closed-day samples persisted separately from the frequently updated snapshot. */
+export interface CultivationHistory {
+	readonly dailyScores: readonly CultivationDailyScore[];
+	readonly dailyMetrics: readonly CultivationDailyMetrics[];
+}
+
 /**
- * Theme-owned cultivation snapshot persisted via theme storage.
- * Derived only from app-monitor aggregates; never stores raw user content.
+ * Current cultivation snapshot derived from app-monitor aggregates.
+ * Never stores raw user content.
  */
 export interface CultivationSnapshot {
-	readonly version: typeof CULTIVATION_SNAPSHOT_VERSION;
 	readonly updatedAt: number;
 	readonly realmId: string;
 	readonly level: number;
@@ -78,12 +79,6 @@ export interface CultivationSnapshot {
 	readonly cultivationPowerTarget: number;
 	readonly scoreBreakdown: CultivationScoreBreakdown;
 	readonly growth: CultivationGrowth;
-	readonly dailyScores: readonly CultivationDailyScore[];
-	/**
-	 * Daily cumulative metrics samples for period reports.
-	 * Optional for older v3 blobs; treated as [] when missing.
-	 */
-	readonly dailyMetrics: readonly CultivationDailyMetrics[];
 	/** 0..1 progress toward the next realm; 1 when max realm. */
 	readonly progressToNext: number;
 	readonly nextRealmId: string | null;
@@ -91,4 +86,10 @@ export interface CultivationSnapshot {
 	readonly achievedRealmIds: readonly string[];
 	/** Raw app-monitor snapshot used for this computation. */
 	readonly metrics: ThemeUsageStats;
+}
+
+/** Canonical cultivation model consumed by business logic and views. */
+export interface CultivationState {
+	readonly snapshot: CultivationSnapshot;
+	readonly history: CultivationHistory;
 }

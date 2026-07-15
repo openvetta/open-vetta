@@ -1,16 +1,18 @@
 import type { ThemeUsageStats } from "@vetta/theme-sdk";
+import {
+	createEmptyCultivationHistory,
+	finalizeCultivationHistory,
+	getCultivationDailyScores,
+} from "./cultivation-history";
 import { CULTIVATION_REALMS } from "./realms";
 import { computeCultivationScore } from "./score";
 import {
-	CULTIVATION_SNAPSHOT_VERSION,
-	type CultivationDailyMetrics,
 	type CultivationDailyScore,
 	type CultivationGrowth,
 	type CultivationSnapshot,
+	type CultivationState,
 } from "./types";
 
-/** Keep ~3 months of daily scores so 修行履历 can page month/week views. */
-const HISTORY_RETENTION_DAYS = 93;
 const MS_PER_DAY = 86_400_000;
 
 function clamp01(value: number): number {
@@ -29,65 +31,6 @@ function getLocalDateKey(timestamp: number): string {
 
 function getDateKeyDaysAgo(timestamp: number, days: number): string {
 	return getLocalDateKey(timestamp - days * MS_PER_DAY);
-}
-
-function normalizeDailyScores(
-	dailyScores: readonly CultivationDailyScore[] | undefined,
-	score: number,
-	now: number,
-): readonly CultivationDailyScore[] {
-	const today = getLocalDateKey(now);
-	const cutoff = getDateKeyDaysAgo(now, HISTORY_RETENTION_DAYS);
-	const byDate = new Map<string, number>();
-
-	for (const entry of dailyScores ?? []) {
-		if (entry.date < cutoff) continue;
-		byDate.set(entry.date, entry.score);
-	}
-	// Always refresh today's end-of-day score to the latest total.
-	byDate.set(today, score);
-
-	return [...byDate.entries()]
-		.sort(([left], [right]) => left.localeCompare(right))
-		.map(([date, entryScore]) => ({ date, score: entryScore }));
-}
-
-function snapshotMetricsForDay(date: string, stats: ThemeUsageStats): CultivationDailyMetrics {
-	return {
-		automationRuns: Math.max(0, stats.automationRuns),
-		batchRuns: Math.max(0, stats.batchRuns),
-		date,
-		interactiveSessions: Math.max(0, stats.interactiveSessions),
-		knowledgeBaseCount: Math.max(0, stats.knowledgeBaseCount),
-		knowledgeBaseFileOperations: Math.max(0, stats.knowledgeBaseFileOperations),
-		messages: Math.max(0, stats.messages),
-		projectsCreated: Math.max(0, stats.projectsCreated),
-		toolsCompleted: Math.max(0, stats.toolsCompleted),
-	};
-}
-
-/**
- * Persist cumulative host metrics once per calendar day (last write wins for that day).
- * Period reports compute deltas between samples — host stays period-agnostic.
- */
-function normalizeDailyMetrics(
-	dailyMetrics: readonly CultivationDailyMetrics[] | undefined,
-	stats: ThemeUsageStats,
-	now: number,
-): readonly CultivationDailyMetrics[] {
-	const today = getLocalDateKey(now);
-	const cutoff = getDateKeyDaysAgo(now, HISTORY_RETENTION_DAYS);
-	const byDate = new Map<string, CultivationDailyMetrics>();
-
-	for (const entry of dailyMetrics ?? []) {
-		if (entry.date < cutoff) continue;
-		byDate.set(entry.date, entry);
-	}
-	byDate.set(today, snapshotMetricsForDay(today, stats));
-
-	return [...byDate.entries()]
-		.sort(([left], [right]) => left.localeCompare(right))
-		.map(([, entry]) => entry);
 }
 
 function findScoreAtOrBefore(dailyScores: readonly CultivationDailyScore[], date: string): number | null {
@@ -139,9 +82,15 @@ function computeGrowth(score: number, dailyScores: readonly CultivationDailyScor
 export function computeCultivation(
 	stats: ThemeUsageStats,
 	now = Date.now(),
-	previous?: CultivationSnapshot | null,
-): CultivationSnapshot {
+	previous?: CultivationState | null,
+): CultivationState {
 	const { score, breakdown } = computeCultivationScore(stats);
+	const history = finalizeCultivationHistory(
+		previous?.history ?? createEmptyCultivationHistory(),
+		previous?.snapshot,
+		now,
+	);
+	const dailyScores = getCultivationDailyScores(history, { score, updatedAt: now });
 
 	let currentIndex = 0;
 	for (let i = 0; i < CULTIVATION_REALMS.length; i++) {
@@ -155,8 +104,6 @@ export function computeCultivation(
 	const current = CULTIVATION_REALMS[currentIndex];
 	const next = CULTIVATION_REALMS[currentIndex + 1] ?? null;
 	const achievedRealmIds = CULTIVATION_REALMS.slice(0, currentIndex + 1).map((realm) => realm.id);
-	const dailyScores = normalizeDailyScores(previous?.dailyScores, score, now);
-	const dailyMetrics = normalizeDailyMetrics(previous?.dailyMetrics, stats, now);
 	const realmSpan = next ? next.targetScore - current.targetScore : 0;
 	const cultivationPower = round2(Math.max(0, score - current.targetScore));
 	const cultivationPowerTarget = round2(Math.max(0, realmSpan));
@@ -166,8 +113,7 @@ export function computeCultivation(
 		progressToNext = realmSpan <= 0 ? 1 : clamp01(cultivationPower / realmSpan);
 	}
 
-	return {
-		version: CULTIVATION_SNAPSHOT_VERSION,
+	const snapshot: CultivationSnapshot = {
 		updatedAt: now,
 		realmId: current.id,
 		level: current.level,
@@ -179,8 +125,6 @@ export function computeCultivation(
 		cultivationPowerTarget,
 		scoreBreakdown: breakdown,
 		growth: computeGrowth(score, dailyScores, now),
-		dailyScores,
-		dailyMetrics,
 		progressToNext,
 		nextRealmId: next?.id ?? null,
 		nextRealmTargetScore: next?.targetScore ?? null,
@@ -204,6 +148,7 @@ export function computeCultivation(
 			turns: stats.turns,
 		},
 	};
+	return { snapshot, history };
 }
 
 /** Compare cultivation payloads ignoring volatile `updatedAt`. */
@@ -212,48 +157,9 @@ export function isSameCultivationSnapshot(
 	right: CultivationSnapshot,
 ): boolean {
 	if (!left) return false;
-	return (
-		left.version === right.version &&
-		left.realmId === right.realmId &&
-		left.level === right.level &&
-		left.score === right.score &&
-		left.realmStartScore === right.realmStartScore &&
-		left.cultivationPower === right.cultivationPower &&
-		left.cultivationPowerTarget === right.cultivationPowerTarget &&
-		left.progressToNext === right.progressToNext &&
-		left.nextRealmId === right.nextRealmId &&
-		left.nextRealmTargetScore === right.nextRealmTargetScore &&
-		left.growth.today === right.growth.today &&
-		left.growth.thisWeek === right.growth.thisWeek &&
-		left.growth.last30Days === right.growth.last30Days &&
-		left.dailyScores.length === right.dailyScores.length &&
-		left.dailyScores.every(
-			(entry, index) =>
-				entry.date === right.dailyScores[index]?.date &&
-				entry.score === right.dailyScores[index]?.score,
-		) &&
-		(left.dailyMetrics?.length ?? 0) === (right.dailyMetrics?.length ?? 0) &&
-		(left.dailyMetrics ?? []).every(
-			(entry, index) =>
-				entry.date === right.dailyMetrics?.[index]?.date &&
-				entry.toolsCompleted === right.dailyMetrics?.[index]?.toolsCompleted &&
-				entry.messages === right.dailyMetrics?.[index]?.messages &&
-				entry.automationRuns === right.dailyMetrics?.[index]?.automationRuns &&
-				entry.batchRuns === right.dailyMetrics?.[index]?.batchRuns,
-		) &&
-		left.metrics.foregroundActiveMs === right.metrics.foregroundActiveMs &&
-		left.metrics.messages === right.metrics.messages &&
-		left.metrics.turns === right.metrics.turns &&
-		left.metrics.toolsCompleted === right.metrics.toolsCompleted &&
-		left.metrics.totalTokens === right.metrics.totalTokens &&
-		left.metrics.activeDayStreak === right.metrics.activeDayStreak &&
-		left.metrics.interactiveSessions === right.metrics.interactiveSessions &&
-		left.metrics.batchRuns === right.metrics.batchRuns &&
-		left.metrics.automationRuns === right.metrics.automationRuns &&
-		left.metrics.knowledgeBaseFileOperations === right.metrics.knowledgeBaseFileOperations &&
-		left.achievedRealmIds.length === right.achievedRealmIds.length &&
-		left.achievedRealmIds.every((id, index) => id === right.achievedRealmIds[index])
-	);
+	const { updatedAt: _leftUpdatedAt, ...leftStable } = left;
+	const { updatedAt: _rightUpdatedAt, ...rightStable } = right;
+	return JSON.stringify(leftStable) === JSON.stringify(rightStable);
 }
 
 function round2(value: number): number {
