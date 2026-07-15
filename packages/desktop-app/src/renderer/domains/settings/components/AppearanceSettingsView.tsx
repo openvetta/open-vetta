@@ -232,8 +232,8 @@ function UiThemeCard({
 			<div className="relative aspect-[16/9] overflow-hidden border-b border-border/50">
 				<img src={preview} alt="" className={cn("h-full w-full object-cover", disabled && "opacity-50")} />
 				{unavailable ? (
-					<span className="absolute right-2 top-2 flex h-10 w-10 items-center justify-center rounded-lg bg-background/80 p-1 backdrop-blur-sm">
-						<img src={themeLock} alt="" className="h-8 w-auto object-contain" />
+					<span className="absolute inset-0 flex items-center justify-center">
+						<img src={themeLock} alt="" className="h-14 w-auto object-contain" />
 					</span>
 				) : active ? (
 					<span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-background/80 backdrop-blur-sm">
