@@ -16,6 +16,7 @@ interface InstalledInfo {
 	id: string;
 	version: string;
 	enabled: boolean;
+	devWatch: VettaPluginDevWatchState | null;
 }
 
 function joinPath(base: string, ...parts: string[]): string {
@@ -179,6 +180,7 @@ function busyLabel(busy: string, t: (key: string) => string): string {
 		uninstall: t("panel.busyUninstall"),
 		reload: t("panel.busyReload"),
 		save: t("panel.busySave"),
+		hotreload: t("panel.busyHotReload"),
 	};
 	return map[kind] ?? t("panel.busy");
 }
@@ -204,7 +206,7 @@ export function WorkbenchPanel() {
 			const map = new Map<string, InstalledInfo>();
 			let wbRoot: string | null = null;
 			for (const p of list) {
-				map.set(p.id, { id: p.id, version: p.version, enabled: p.enabled });
+				map.set(p.id, { id: p.id, version: p.version, enabled: p.enabled, devWatch: p.devWatch ?? null });
 				if (p.id === "plugin-workbench" && p.rootPath) wbRoot = p.rootPath;
 			}
 			setInstalled(map);
@@ -321,6 +323,24 @@ export function WorkbenchPanel() {
 		setError(null);
 		try {
 			await window.vetta.plugins.reload(id);
+			window.dispatchEvent(new Event("vetta:plugins-changed"));
+			await refresh();
+		} catch (err) {
+			setError(err instanceof Error ? err.message : String(err));
+		} finally {
+			setBusy(null);
+		}
+	};
+
+	const toggleHotReload = async (project: ProjectInfo, inst: InstalledInfo) => {
+		setBusy(`hotreload:${project.id}`);
+		setError(null);
+		try {
+			if (inst.devWatch) {
+				await window.vetta.plugins.stopDevWatch(project.id);
+			} else {
+				await window.vetta.plugins.startDevWatch(project.id, project.dir);
+			}
 			window.dispatchEvent(new Event("vetta:plugins-changed"));
 			await refresh();
 		} catch (err) {
@@ -538,6 +558,56 @@ export function WorkbenchPanel() {
 									/>
 								</label>
 							</div>
+
+							{/* Hot reload (dev) — off by default; requires an installed plugin */}
+							<div className="flex items-center justify-between gap-2 rounded-lg border border-border/40 bg-muted/30 px-2.5 py-2">
+								<div className="min-w-0 flex-1">
+									<div className="flex items-center gap-1.5">
+										<span className="text-[11px] font-medium text-foreground">{t("panel.hotReload")}</span>
+										{inst?.devWatch?.status === "starting" && (
+											<span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+												{t("panel.hotReloadStarting")}
+											</span>
+										)}
+										{inst?.devWatch?.status === "running" && (
+											<span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">
+												<span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+												{t("panel.hotReloadRunning")}
+											</span>
+										)}
+										{inst?.devWatch?.status === "error" && (
+											<span className="rounded-full bg-destructive/15 px-1.5 py-0.5 text-[10px] font-medium text-destructive">
+												{t("panel.hotReloadError")}
+											</span>
+										)}
+									</div>
+									<p className="mt-0.5 truncate text-[10px] text-muted-foreground/80">
+										{inst ? t("panel.hotReloadHint") : t("panel.hotReloadNeedsInstall")}
+									</p>
+								</div>
+								<button
+									type="button"
+									role="switch"
+									aria-checked={Boolean(inst?.devWatch)}
+									aria-label={t("panel.hotReload")}
+									disabled={!inst || isBusy}
+									onClick={() => inst && void toggleHotReload(project, inst)}
+									className={`relative h-5 w-9 shrink-0 rounded-full transition-colors disabled:pointer-events-none disabled:opacity-40 ${
+										inst?.devWatch ? "bg-primary" : "bg-muted-foreground/30"
+									}`}
+								>
+									<span
+										className={`absolute top-0.5 h-4 w-4 rounded-full bg-background transition-[left] duration-150 ${
+											inst?.devWatch ? "left-[18px]" : "left-0.5"
+										}`}
+									/>
+								</button>
+							</div>
+							{inst?.devWatch?.status === "error" && inst.devWatch.error && (
+								<pre className="whitespace-pre-wrap break-words rounded-lg bg-destructive/10 px-2.5 py-2 font-sans text-[10px] leading-relaxed text-destructive/90">
+									{inst.devWatch.error}
+								</pre>
+							)}
 
 							{/* Actions */}
 							<div className="flex flex-wrap items-center gap-1.5 border-t border-border/40 pt-2.5">

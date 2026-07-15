@@ -19,6 +19,8 @@ export function createPluginsApi(ipc: IpcRenderer): Pick<DesktopApi, "plugins"> 
 			runCommand: (pluginId, file, args, options) =>
 				ipc.invoke("vetta:plugins:command-run", pluginId, file, args, options),
 			reload: (id) => ipc.invoke("vetta:plugins:reload", id),
+			startDevWatch: (id, projectDir) => ipc.invoke("vetta:plugins:dev-watch-start", id, projectDir),
+			stopDevWatch: (id) => ipc.invoke("vetta:plugins:dev-watch-stop", id),
 			registerModeGate: (pluginId) => ipc.invoke("vetta:plugins:register-mode-gate", pluginId),
 			setContributionMode: (pluginId, active) => ipc.invoke("vetta:plugins:set-contribution-mode", pluginId, active),
 			beginAgentContributionsLoad: (pluginId, activationId) =>

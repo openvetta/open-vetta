@@ -158,6 +158,18 @@ export type PluginLocaleCatalog = Record<string, string>;
 /** 插件随包发的全部 catalog，按 locale code 归集（如 "zh"、"en"）。 */
 export type PluginLocales = Record<string, PluginLocaleCatalog>;
 
+/**
+ * Dev 热更新（插件工作台）：内存态 dev 链接快照，不落注册表。
+ * 存在即表示该插件资源正从开发工程目录（而非安装目录）加载。
+ */
+export interface PluginDevWatchState {
+	/** 开发工程根目录（含 plugin.json 与 dist/）。 */
+	projectDir: string;
+	/** starting = vite watch 已拉起但未产出首个构建；error 详见 error 字段。 */
+	status: "starting" | "running" | "error";
+	error?: string;
+}
+
 export interface InstalledPlugin {
 	id: string;
 	name: string;
@@ -201,6 +213,8 @@ export interface InstalledPlugin {
 	 * (system staging dir, or `~/.vetta/plugins/<id>/versions/<activeVersion>`).
 	 */
 	rootPath: string;
+	/** 存在即该插件处于 dev 热更新链接（资源改从工程目录加载）。 */
+	devWatch?: PluginDevWatchState;
 }
 
 export interface PluginInstallOptions {
@@ -346,6 +360,13 @@ export interface DesktopPluginsApi {
 		options?: PluginCommandRunOptions,
 	): Promise<PluginCommandRunResult>;
 	reload(id: string): Promise<InstalledPlugin>;
+	/**
+	 * 开启 dev 热更新：把插件 dev 链接到 projectDir（资源改从工程 dist 加载），
+	 * 宿主常驻 `vite build --watch` 并监听 dist，产物变化自动重载。要求插件已安装过一次。
+	 */
+	startDevWatch(id: string, projectDir: string): Promise<InstalledPlugin>;
+	/** 关闭 dev 热更新：停掉 vite watch 与文件监听，资源回落已安装目录。 */
+	stopDevWatch(id: string): Promise<void>;
 	/**
 	 * Mark a plugin as contribution-mode-gated (ADR-0041). Until
 	 * {@link setContributionMode} enables it, agent contributions are stripped.
