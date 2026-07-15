@@ -150,6 +150,13 @@ export function formatCultivationNumber(value: number): string {
 	return Math.floor(value).toLocaleString("en-US");
 }
 
+export function getCultivationChartUpperBound(value: number): number {
+	const maximum = Math.max(0, value);
+	if (maximum === 0) return 1;
+	const step = 10 ** Math.floor(Math.log10(maximum)) / 2;
+	return Math.ceil((maximum * 1.15) / step) * step;
+}
+
 export function formatRealmTitle(name: string): string {
 	return name.split("").join(" ");
 }

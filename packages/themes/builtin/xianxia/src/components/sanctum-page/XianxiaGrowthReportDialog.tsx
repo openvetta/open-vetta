@@ -16,7 +16,7 @@ import {
 	resolveMinPeriodOffset,
 	type GrowthReportPeriodMode,
 } from "./growthReportView";
-import { formatCultivationNumber } from "./cultivationView";
+import { formatCultivationNumber, getCultivationChartUpperBound } from "./cultivationView";
 import type { SanctumCultivationView } from "./types";
 
 // 使用整数 px，避免 rem 在不同 DPR/宽度下变成非整数像素导致 border-image 发丝缝
@@ -395,7 +395,7 @@ function ReportSparkline({
 	const left = 36;
 	const width = left + plotWidth;
 	const safePoints = points.length > 0 ? points : [0];
-	const max = Math.max(...safePoints, 1);
+	const max = getCultivationChartUpperBound(Math.max(...safePoints, 0));
 	const min = Math.min(...safePoints, 0);
 	const range = Math.max(1, max - min);
 	const yAt = (value: number): number => height - ((value - min) / range) * (height - 12) - 6;
