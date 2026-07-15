@@ -8,6 +8,7 @@ import { ActionApprovalBroker } from "./app-actions/approval-broker.js";
 import { getActionServerEndpointFilePath } from "./app-actions/endpoint-file.js";
 import { createAppActionRuntime } from "./app-actions/index.js";
 import { type LocalActionServerHandle, startLocalActionServer } from "./app-actions/local-server.js";
+import { APP_ASSET_PROTOCOL_PRIVILEGE, registerAppAssetProtocol } from "./app-asset-protocol.js";
 import { initializeAppMonitor, shutdownAppMonitor } from "./app-monitor/app-monitor-service.js";
 import { BatchTaskService } from "./batch-tasks/batch-task-service.js";
 import { parseActionCliCommand, runActionCliCommand } from "./cli/action-command.js";
@@ -72,12 +73,13 @@ fixPath();
 
 const PROTOCOL = "vetta";
 // registerSchemesAsPrivileged 整个进程只能调用一次且须在 ready 前：
-// 所有自定义 scheme（插件、媒体流）的特权声明在此合并注册。
+// 所有自定义 scheme（插件、主题、应用资源、媒体流）的特权声明在此合并注册。
 protocol.registerSchemesAsPrivileged([
 	...PLUGIN_PROTOCOL_PRIVILEGES,
 	THEME_PROTOCOL_PRIVILEGE,
 	MEDIA_PROTOCOL_PRIVILEGE,
 	FILE_PROTOCOL_PRIVILEGE,
+	APP_ASSET_PROTOCOL_PRIVILEGE,
 ]);
 const isMac = process.platform === "darwin";
 const appRoot = app.isPackaged ? app.getAppPath() : process.cwd();
@@ -325,6 +327,7 @@ if (!gotSingleLock) {
 		installChromiumFetchForMain();
 		registerPluginProtocols();
 		registerThemeProtocol();
+		registerAppAssetProtocol();
 		// 开发模式：每次启动清空 HTTP 缓存。插件资源走 vetta-plugin://，remoteEntry.js
 		// 是固定文件名，Chromium 会启发式缓存它——重编译后旧缓存仍 pin 着旧 chunk，
 		// 重启也不清（持久化在 userData）。dev 下清缓存代价是重新拉一次本地资源，可忽略；

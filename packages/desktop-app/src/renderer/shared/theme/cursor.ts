@@ -1,10 +1,12 @@
+import { createAppAssetUrl } from "@/shared/app-asset-protocol";
+
 export type CursorStyle = "default" | "stoat";
 
 /** 当前使用的存储键：值是 CursorStyle。 */
 export const CURSOR_STORAGE_KEY = "vetta-cursor-style";
 
-/** 白鼬鼠标预览资源；相对构建 base，兼容开发服务器与生产 file://。 */
-export const STOAT_CURSOR_PREVIEW_URL = `${import.meta.env.BASE_URL}cursors/default.png`;
+/** 白鼬鼠标预览资源；固定应用资源协议，兼容开发与打包环境。 */
+export const STOAT_CURSOR_PREVIEW_URL = createAppAssetUrl("renderer", "cursors/default.png");
 
 /** 旧开关键（true/false），读取时兼容迁移。 */
 export const LEGACY_CURSOR_STORAGE_KEY = "vetta-custom-cursor";
