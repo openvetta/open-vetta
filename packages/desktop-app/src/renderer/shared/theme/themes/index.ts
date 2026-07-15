@@ -6,14 +6,7 @@ import { sandTheme } from "./sand";
 import { slateTheme } from "./slate";
 import { voltageTheme } from "./voltage";
 
-export const THEMES: ThemeDef[] = [
-	sandTheme,
-	defaultTheme,
-	monoTheme,
-	voltageTheme,
-	emeraldTheme,
-	slateTheme,
-];
+export const THEMES: ThemeDef[] = [sandTheme, defaultTheme, monoTheme, voltageTheme, emeraldTheme, slateTheme];
 
 export const THEME_MAP: Record<string, ThemeDef> = Object.fromEntries(THEMES.map((t) => [t.id, t]));
 
