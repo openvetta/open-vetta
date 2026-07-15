@@ -10,6 +10,7 @@ import {
 	editImageAttachmentAtom,
 	filePreviewAtom,
 	languageAtom,
+	persistCurrentInputActionState,
 	pluginInputActionsAtom,
 	setActivityPanelWidthAtom,
 } from "@shared/store/atoms";
@@ -447,12 +448,17 @@ function createContext(
 		}
 		const userOnToggle = contribution.onToggle;
 		const hardIsolation = contribution.hardIsolation === true;
+		const namespacedId = `${plugin.id}:${contribution.id}`;
 		if (hardIsolation) {
 			// Register mode gate immediately so agent contributions stay stripped until toggle on (ADR-0041).
 			void window.vetta.plugins.registerModeGate(plugin.id);
+			// 会话恢复可能早于插件加载：若工作集已含本 action，立刻放行 contribution。
+			if (getDefaultStore().get(activeInputActionIdsAtom).has(namespacedId)) {
+				void window.vetta.plugins.setContributionMode(plugin.id, true);
+			}
 		}
 		const normalized: PluginInputActionContribution = {
-			id: `${plugin.id}:${contribution.id}`,
+			id: namespacedId,
 			label: contribution.label,
 			icon: contribution.icon,
 			defaultActive: contribution.defaultActive,
@@ -583,6 +589,7 @@ function createContext(
 					for (const id of myActionIds) next.add(id);
 					return next;
 				});
+				persistCurrentInputActionState(store.get(activeSessionAtom)?.sessionPath);
 			}
 		}
 	};

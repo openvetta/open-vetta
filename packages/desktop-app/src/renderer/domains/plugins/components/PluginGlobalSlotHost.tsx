@@ -1,4 +1,5 @@
 import {
+	activeInputActionIdsAtom,
 	pluginActivityTabsAtom,
 	pluginCardRenderersAtom,
 	pluginFilePreviewsAtom,
@@ -13,8 +14,9 @@ import {
 	type RegisteredInputAction,
 	type RegisteredToolCallSlot,
 	type RegisteredTurnCard,
+	syncHardIsolationContributionModes,
 } from "@shared/store/atoms";
-import { useSetAtom } from "jotai";
+import { getDefaultStore, useSetAtom } from "jotai";
 import { Component, useEffect, useMemo, useReducer, useState } from "react";
 import type { ErrorInfo, ReactNode } from "react";
 import type { PluginGlobalSlotContribution } from "@vetta-org/plugin-sdk";
@@ -176,6 +178,8 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 			})),
 		);
 		setInputActions(actions);
+		// 插件晚于会话恢复加载时，按当前工作集补齐 hardIsolation contribution mode。
+		syncHardIsolationContributionModes(getDefaultStore().get(activeInputActionIdsAtom));
 		return () => setInputActions([]);
 	}, [plugins, revision, setInputActions]);
 

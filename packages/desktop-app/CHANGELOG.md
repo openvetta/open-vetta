@@ -23,6 +23,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **AI 输入栏 toggle 按会话持久化**：图像生成、插件工作台、知识检索等 input-action 状态按 `sessionPath` 独立记忆（localStorage）；切会话 / 离开再回来 / 刷新后恢复，且 hardIsolation contribution mode 随当前会话同步。此前为全局内存态，切换或刷新即丢失。
 - **Fork 后侧边栏不出现新会话**：「对话」项目下 openSession 用 UUID 子目录 cwd 刷新 sessionsMap，桶键与侧栏不一致。现用 `conversationBucketCwd` 归一后 `loadSessions`，并 `ensureLocalSession` 兜底插入；列表透出 `parentSessionPath` / `parentEntryId`。
 - **安装/启停/重载插件后活动面板 tab 不出现**：main 变更插件注册表后广播 `vetta:plugins:changed`，渲染进程 `PluginGlobalSlotHost` 重载 MF remotes。此前仅设置页本地 `notifyPluginsChanged`，工作台 / Action `install-from-path` 装完 UI 仍停在旧列表，需重启 App 才见 tab。
 - **用户长消息展开后移出气泡又自动折叠**：展开状态曾依赖 `children` 引用，hover 操作栏等重渲染会重建 `textBody` 并误重置。现以正文 `contentKey` 为唯一复原条件，点击展开后保持展开；无收缩按钮；切换会话或刷新后 remount 恢复折叠。
