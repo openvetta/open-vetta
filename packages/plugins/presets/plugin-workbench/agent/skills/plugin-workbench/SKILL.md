@@ -52,8 +52,9 @@ workbenchRoot = listPlugins() 中 id === "plugin-workbench" 的 rootPath
 | --- | --- |
 | 侧栏面板 / 活动 Tab | `ui-slots.md`（activity-tab） |
 | 输入栏按钮 | `ui-slots.md`（input-action） |
-| 文件预览 | `ui-slots.md`（file-preview） |
+| 文件预览 | `ui-slots.md`（file-preview + **notify 错误上报**） |
 | 全局弹层 | `ui-slots.md`（global） |
+| 任何可能失败的 IO/解析 | `ui-slots.md`（**notify**）+ `styling-and-pitfalls.md`（错误必须上报） |
 | Agent 工具 / 读写文件 / 对话 | `conversation-and-agent.md` |
 | 消息下方卡片 | `message-cards.md` |
 | 插件自带 MCP | `mcp.md` |
@@ -125,6 +126,8 @@ node "{workbenchRoot}/scripts/check-manifest.mjs" "{pluginRoot}"
 - [ ] **样式：只用 Tailwind className；未手写业务 .css / 未用全局选择器**（`style.css` 仅 theme+utilities 入口，见 styling-and-pitfalls）  
 - [ ] 用户工程无 `workspace:*`  
 - [ ] i18n：若要宿主渲染中文 label，按手册用 catalog / `%key%`（desktop 用户文案规范）  
+- [ ] **错误可排查：所有可能失败的路径（读文件/解析/网络/外部库）在 catch 里调用 `ctx.ui.notify({ message, error })`**，禁止只写死「失败」文案、丢掉原始 error；`notify` 无需权限，有 `error` 时宿主 Toast 可一键复制堆栈（见 `ui-slots.md` → notify）  
+
 
 ### 4.3.5 热更新感知（改已装插件前必查）
 
@@ -182,6 +185,8 @@ Activity Tab「插件工作台」（同样受 toggle 硬隔离）：扫描 cwd�
 | 反复改 UI 调试 | 已安装工程默认开热更新：保存即自动构建+重载（见 §5）；若被关掉可再打开 |
 | UI 不出现 | ui-slots 权限与 scope_use；activity tab 是否 attach |
 | 样式/缓存怪 | styling-and-pitfalls；bump version |
+| 运行时「失败」但不知原因 | 插件是否 `notify({ message, error })`？让用户右下角 Toast 点「复制堆栈」贴给你；没有则补 notify 后热更新再复现 |
+| 只显示红字无堆栈 | 实现遗漏：catch 必须把原始 `error` 传给 `ctx.ui.notify`（见 §4.3 与 ui-slots notify） |
 
 ---
 

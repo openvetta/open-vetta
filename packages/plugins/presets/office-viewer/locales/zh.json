@@ -1,9 +1,7 @@
 {
 	"plugin.name": "Office 查看器",
-	"plugin.description": "离线预览 PDF、DOCX 和电子表格文件，并对 PowerPoint 提供明确的兼容性说明。",
+	"plugin.description": "离线预览 PDF、DOCX 和电子表格文件。",
 	"error.unsupportedFormat": "暂不支持此 Office 文件格式",
-	"pptx.unsupported.title": "暂不提供 PowerPoint 内嵌渲染",
-	"pptx.unsupported.body": "目前没有符合长期维护要求的轻量纯本地 PPT/PPTX 渲染引擎。为避免错误版式和高风险依赖，此格式暂不做近似渲染。",
 	"docx.error": "无法渲染 DOCX 文件",
 	"pdf.error": "无法渲染 PDF 文件",
 	"pdf.pageLabel": "{{name}} 第 {{page}} 页",

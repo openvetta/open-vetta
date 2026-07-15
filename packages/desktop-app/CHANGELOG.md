@@ -23,6 +23,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 - **对话消息编辑 / 分支切换 / 分叉会话**：任意已落盘的用户消息可编辑（解析 skill/@文件 回填底部输入框，发送时 `navigateForEdit` 从 parent 分叉）；同位置多版本显示 `‹ i/n ›` 切换分支；支持「分叉为新会话」导出独立 session。streaming 时切换/编辑/分叉会确认中断。History 透传 `entryId` 与 sibling 信息；Runtime/IPC 新增 `navigateForEdit` / `switchBranch` / `forkSession`。
 - **Fork 来源展示与跳转**：分叉会话在 fork 回合 AI 回复下方展示来源提示（居中、无背景，含被 fork 消息预览），点击打开父会话并滚动到源消息；侧栏 fork 会话用分叉图标标识。
 - **远程 MCP 图标**：连接器「发现 → 广场」与「我的」均展示管理员配置的图标；添加时写入 `mcp.json` 的 `icon`；已添加但缺 icon 的条目会从市场自动补全。
+- **插件全局 Toast `ctx.ui.notify`**：插件可调用无权限的 `notify({ message, title?, variant?, error?, durationMs? })` 推送右下角 Toast；传入 `error` 时默认 error 样式、常驻不自动关，并提供「复制堆栈」（含 pluginId@version 与 stack），同时 `console.error` 一份。
 
 ### Changed
 
@@ -30,6 +31,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **office-viewer 不再占住 PPT/PPTX 预览**：系统插件只注册实际可渲染的 `pdf` / `docx` / 表格扩展名，移除 PowerPoint 兼容性占位页；第三方插件可接管 `ppt`/`pptx` 预览。
 - **确认 Dialog 被右侧 Drawer/Sheet 挡住**：全局 `ConfirmDialog` 挂在 `AppFrame`（`isolate`）内，z-index 被 stacking context 困住；插件详情等经 Portal 挂到 body 的 Drawer（z-50）会盖住卸载确认框。现将 ConfirmDialog portal 到 `document.body`，与 Drawer/Dialog 同层比较（z-[100] 压过 z-50）。
 - **新会话页引导词只轮播头两个插件**：组级原为整页跳切（一次换 2 组）且间隔 24s，词级 6s 动画更抢眼，体感上永远只有前两个插件在转。现改为步进 1 的滑动窗口，组级间隔 8s，所有声明了 `guidingWords` 的启用插件都会进入可见区。
 - **插件 reload 后活动面板宽度回到默认**：工作台「重载」/ agent reload / 热更新会短暂清空插件 activity tabs，active tab 回退到 `file` 并触发文件 tab 卸载副作用，用户拖宽（如 500px）被盖回默认。现 (1) reload 期间保留上次已发布的 tab/action 贡献、原子替换插件列表；(2) 记忆中的插件 tab 在贡献短暂缺失时 sticky，不回退 file；(3) 面板宽度写入 localStorage。

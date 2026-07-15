@@ -444,6 +444,38 @@ export interface PluginUiApi {
 	 * The host owns the navigation; the plugin only asks to jump there.
 	 */
 	openPluginSettings(): void;
+	/**
+	 * Show a global toast in the host UI (bottom-right). No permission required.
+	 * Prefer this over swallowing errors into opaque UI copy: pass `error` so
+	 * the host attaches a one-click "copy stack" action for the user.
+	 *
+	 * Capture `ctx.ui.notify` in `activate` if React components need it
+	 * (components do not receive `ctx`).
+	 */
+	notify(options: PluginNotifyOptions): void;
+}
+
+/**
+ * Options for {@link PluginUiApi.notify}. Surfaces a host toast so users can
+ * see plugin failures without opening DevTools.
+ */
+export interface PluginNotifyOptions {
+	/** Toast body. Required even when `error` is set (user-facing summary). */
+	message: string;
+	/** Defaults to plugin display name when omitted. */
+	title?: string;
+	/** Defaults to `"info"`; when `error` is set and variant omitted, host uses `"error"`. */
+	variant?: "info" | "success" | "warning" | "error";
+	/**
+	 * Optional failure cause. Host formats message + stack and adds a
+	 * "复制堆栈" action so the user can paste it into bug reports / chat.
+	 */
+	error?: unknown;
+	/**
+	 * Auto-dismiss delay in ms. `0` keeps the toast until dismissed.
+	 * Defaults: sticky (`0`) when `error` is present, otherwise host default (~4s).
+	 */
+	durationMs?: number;
 }
 
 // ─── Conversation ───

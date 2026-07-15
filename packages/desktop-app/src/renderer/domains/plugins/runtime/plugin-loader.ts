@@ -36,6 +36,7 @@ import type {
 	PluginImagesApi,
 	PluginInputActionContribution,
 	PluginLocales,
+	PluginNotifyOptions,
 	PluginOpenActivityTabOptions,
 	PluginPermission,
 	PluginSettingsApi,
@@ -344,6 +345,48 @@ function createI18nApi(plugin: InstalledPlugin): PluginI18nApi {
 			return { dispose: unsub };
 		},
 	};
+}
+
+/** Format a plugin error for clipboard + console (plugin id/version + stack). */
+function formatPluginErrorDetail(plugin: InstalledPlugin, error: unknown): string {
+	const header = `Plugin: ${plugin.id}@${plugin.activeVersion} (${plugin.name})`;
+	if (error instanceof Error) {
+		const stack = error.stack?.trim() || `${error.name}: ${error.message}`;
+		return `${header}\n${stack}`;
+	}
+	if (typeof error === "string" && error.trim()) {
+		return `${header}\n${error.trim()}`;
+	}
+	try {
+		return `${header}\n${JSON.stringify(error, null, 2)}`;
+	} catch {
+		return `${header}\n${String(error)}`;
+	}
+}
+
+async function copyTextToClipboard(text: string): Promise<boolean> {
+	try {
+		if (navigator.clipboard?.writeText) {
+			await navigator.clipboard.writeText(text);
+			return true;
+		}
+	} catch {
+		// fall through
+	}
+	try {
+		const el = document.createElement("textarea");
+		el.value = text;
+		el.setAttribute("readonly", "");
+		el.style.position = "fixed";
+		el.style.left = "-9999px";
+		document.body.appendChild(el);
+		el.select();
+		const ok = document.execCommand("copy");
+		document.body.removeChild(el);
+		return ok;
+	} catch {
+		return false;
+	}
 }
 
 function createCommandApi(plugin: InstalledPlugin): PluginCommandApi {
@@ -662,6 +705,43 @@ function createContext(
 			search: { section: `plugin-${plugin.id}` },
 		});
 	};
+	const notify = (options: PluginNotifyOptions): void => {
+		if (options == null || typeof options !== "object" || typeof options.message !== "string") {
+			throw new Error("notify() requires { message: string }");
+		}
+		const message = options.message.trim();
+		if (message.length === 0) {
+			throw new Error("notify() message must be non-empty");
+		}
+		const hasError = options.error !== undefined;
+		const variant = options.variant ?? (hasError ? "error" : "info");
+		const title = options.title?.trim() || plugin.name;
+		const detail = hasError ? formatPluginErrorDetail(plugin, options.error) : null;
+		const durationMs = options.durationMs ?? (hasError ? 0 : undefined);
+		showToast({
+			variant,
+			title,
+			message,
+			durationMs,
+			action: detail
+				? {
+						label: "复制堆栈",
+						onClick: () => {
+							void copyTextToClipboard(detail).then((ok) => {
+								showToast({
+									variant: ok ? "success" : "warning",
+									message: ok ? "错误堆栈已复制到剪贴板" : "复制失败，请手动从控制台复制",
+									durationMs: 2500,
+								});
+							});
+						},
+					}
+				: undefined,
+		});
+		if (detail) {
+			console.error(`[plugin:${plugin.id}] ${message}\n${detail}`);
+		}
+	};
 	return {
 		plugin: {
 			id: plugin.id,
@@ -680,6 +760,7 @@ function createContext(
 			setEditImageAttachment,
 			previewImage,
 			openPluginSettings,
+			notify,
 		},
 		conversation,
 		fs,
