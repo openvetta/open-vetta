@@ -85,7 +85,7 @@ workbenchRoot = listPlugins() 中 id === "plugin-workbench" 的 rootPath
 | 展示名 `name` | 用户可见品牌 |
 | `permissions` 列表 | 安全；对照 permissions.md 向用户解释再写入 |
 | 要解决的问题 / MVP 范围 | 避免一次做全家桶 |
-| 是否立即安装到本机 | 构建后是否走 install-from-path |
+| 是否立即安装到本机 | 构建后是否引导用户在面板点「应用到 Vetta」 |
 | 扩展点类型（用户没说时） | activity-tab / 工具 / 引导词 / 预览 / … |
 
 ---
@@ -126,6 +126,13 @@ node "{workbenchRoot}/scripts/check-manifest.mjs" "{pluginRoot}"
 - [ ] 用户工程无 `workspace:*`  
 - [ ] i18n：若要宿主渲染中文 label，按手册用 catalog / `%key%`（desktop 用户文案规范）  
 
+### 4.3.5 热更新感知（改已装插件前必查）
+
+改一个**已安装**的插件前，先 `plugins.query` → `get {id}` 看返回项有没有 `devWatch` 字段：
+
+- **`devWatch` 存在（热更新已开启）**：改完工程源码即结束——宿主的 `vite build --watch` 会自动构建、自动重载。**禁止**再走 4.4 build-and-pack、4.5 应用或 reload（多余且会打断用户）。例外：改了 `permissions` / 新增 `commands` 等需要重新授权的声明时，仍需走 4.4→4.5 重新应用。若 `devWatch.status === "error"`，提示用户到面板看错误详情。
+- **`devWatch` 不存在**：走 4.4→4.5 常规流程（构建打包后引导用户在面板点「应用到 Vetta」）。
+
 ### 4.4 构建打包（强制脚本）
 
 ```bash
@@ -136,21 +143,15 @@ node "{workbenchRoot}/scripts/build-and-pack.mjs" "{pluginRoot}"
 - 解析 stdout JSON：`zipPath`、`id`、`version`  
 - 失败：读 stderr，按 getting-started / styling 修；缺依赖或 registry 问题 → AskUserQuestion  
 
-### 4.5 安装到本机 Vetta
+### 4.5 安装到本机 Vetta（引导用户在面板点击，不要弹确认）
 
-宿主 Action（通用 API，非工作台私货）：
+打包完成后**不要调用** `plugins.manage` 的 `install-from-path`（会弹确认 sheet，工作台流程已废弃此路径）。改为告知用户：
 
-```json
-{
-  "operation": "install-from-path",
-  "path": "{绝对路径 zipPath}"
-}
-```
+> 打开右侧活动面板「插件工作台」→ 对应工程卡片 → 点 **「应用到 Vetta」**（面板安装一次完成授权 + 启用，无确认弹窗）。
 
-- 用户确认后：按声明 **一次授予权限** 并 **启用**  
-- 不可覆盖系统插件 id  
-- 再次应用：再 build-and-pack → install-from-path → 必要时 `reload`  
-- 改代码不生效：bump（脚本已做）+ reload（见 styling-and-pitfalls）
+- 应用成功后面板会**默认开启「热更新」**：之后你改源码即自动构建+重载（§4.3.5），无需再次应用。用户可手动关掉。  
+- 再次应用（热更新被关掉时）：build-and-pack 后再请用户点「应用到 Vetta」（应用后会重新默认开启热更新）。  
+- 不可覆盖系统插件 id。
 
 ### 4.6 改 name / guidingWords
 
@@ -166,6 +167,8 @@ node "{workbenchRoot}/scripts/build-and-pack.mjs" "{pluginRoot}"
 
 Activity Tab「插件工作台」（同样受 toggle 硬隔离）：扫描 cwd、构建、应用、卸载、重载、改 name/引导词。与对话同一规则与同一脚本。
 
+每张工程卡片有 **「热更新」开关（已安装后默认开）**：宿主把插件 dev 链接到工程目录并常驻 `vite build --watch`，保存源码即自动构建 + 自动重载（无需 bump/重打 zip/手动 reload）。适合迭代调试；改 `permissions` 仍需重新「应用到 Vetta」授权。用户可手动关闭；关闭开关或重启 App 后回落安装目录（重新打开面板时仍会默认再开）。
+
 ---
 
 ## 6. 排错
@@ -176,6 +179,7 @@ Activity Tab「插件工作台」（同样受 toggle 硬隔离）：扫描 cwd�
 | npm install 失败 | registry、网络、sdk 版本；AskUserQuestion |
 | 构建失败 | 读完整错误；对照 getting-started / 依赖版本 |
 | 装上无效果 | permissions 是否授予；scope_use；插件 enabled；reload + version |
+| 反复改 UI 调试 | 已安装工程默认开热更新：保存即自动构建+重载（见 §5）；若被关掉可再打开 |
 | UI 不出现 | ui-slots 权限与 scope_use；activity tab 是否 attach |
 | 样式/缓存怪 | styling-and-pitfalls；bump version |
 

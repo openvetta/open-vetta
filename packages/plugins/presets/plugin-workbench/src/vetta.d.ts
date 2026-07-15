@@ -1,4 +1,10 @@
 /** Minimal host bridge types for trusted plugins (ADR-0023). */
+interface VettaPluginDevWatchState {
+	projectDir: string;
+	status: "starting" | "running" | "error";
+	error?: string;
+}
+
 interface VettaPluginsApi {
 	list(): Promise<
 		Array<{
@@ -10,6 +16,7 @@ interface VettaPluginsApi {
 			rootPath?: string;
 			permissions?: string[];
 			grantedPermissions?: string[];
+			devWatch?: VettaPluginDevWatchState;
 		}>
 	>;
 	installFromArchive(
@@ -22,6 +29,8 @@ interface VettaPluginsApi {
 	): Promise<{ id: string; name: string; version: string }>;
 	uninstall(id: string): Promise<void>;
 	reload(id: string): Promise<unknown>;
+	startDevWatch(id: string, projectDir: string): Promise<unknown>;
+	stopDevWatch(id: string): Promise<void>;
 	setEnabled(id: string, enabled: boolean): Promise<unknown>;
 	grantPermissions(id: string, permissions: string[]): Promise<unknown>;
 	registerModeGate(pluginId: string): Promise<void>;
@@ -35,9 +44,21 @@ interface VettaFsApi {
 	stat(path: string): Promise<{ size: number } | null>;
 }
 
+interface VettaDialogSaveCopyOptions {
+	defaultFileName?: string;
+	title?: string;
+	filters?: Array<{ name: string; extensions: string[] }>;
+}
+
+interface VettaDialogApi {
+	/** Native save dialog that copies an existing file; null if cancelled. */
+	saveCopy(sourcePath: string, options?: VettaDialogSaveCopyOptions): Promise<string | null>;
+}
+
 interface Window {
 	vetta: {
 		plugins: VettaPluginsApi;
 		fs: VettaFsApi;
+		dialog: VettaDialogApi;
 	};
 }

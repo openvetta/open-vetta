@@ -15,6 +15,10 @@
 	"panel.uninstall": "卸载",
 	"panel.reload": "重载",
 	"panel.build": "构建打包",
+	"panel.export": "导出",
+	"panel.exportTitle": "导出插件 release",
+	"panel.exportNeedsZip": "请先构建打包，再导出 release zip",
+	"panel.busyExport": "正在导出…",
 	"panel.name": "名称",
 	"panel.guidingWords": "引导词（每行一条）",
 	"panel.saveManifest": "保存清单",
@@ -32,5 +36,12 @@
 	"panel.zipReady": "产物已就绪",
 	"panel.zipMissing": "待构建",
 	"panel.permCount": "{{count}} 项权限",
-	"panel.guideCount": "{{count}} 条引导词"
+	"panel.guideCount": "{{count}} 条引导词",
+	"panel.hotReload": "热更新",
+	"panel.hotReloadHint": "保存即自动构建并重载（vite watch）",
+	"panel.hotReloadStarting": "启动中…",
+	"panel.hotReloadRunning": "监听中",
+	"panel.hotReloadError": "热更新出错",
+	"panel.hotReloadNeedsInstall": "先应用到 Vetta 再开启",
+	"panel.busyHotReload": "正在切换热更新…"
 }

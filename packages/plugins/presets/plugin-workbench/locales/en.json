@@ -15,6 +15,10 @@
 	"panel.uninstall": "Uninstall",
 	"panel.reload": "Reload",
 	"panel.build": "Build & pack",
+	"panel.export": "Export",
+	"panel.exportTitle": "Export plugin release",
+	"panel.exportNeedsZip": "Build & pack first, then export the release zip",
+	"panel.busyExport": "Exporting…",
 	"panel.name": "Name",
 	"panel.guidingWords": "Guiding words (one per line)",
 	"panel.saveManifest": "Save manifest",
@@ -32,5 +36,12 @@
 	"panel.zipReady": "Zip ready",
 	"panel.zipMissing": "Needs build",
 	"panel.permCount": "{{count}} permissions",
-	"panel.guideCount": "{{count}} guiding words"
+	"panel.guideCount": "{{count}} guiding words",
+	"panel.hotReload": "Hot reload",
+	"panel.hotReloadHint": "Auto build & reload on save (vite watch)",
+	"panel.hotReloadStarting": "Starting…",
+	"panel.hotReloadRunning": "Watching",
+	"panel.hotReloadError": "Hot reload error",
+	"panel.hotReloadNeedsInstall": "Apply to Vetta first",
+	"panel.busyHotReload": "Toggling hot reload…"
 }

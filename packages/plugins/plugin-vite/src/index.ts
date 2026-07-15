@@ -117,7 +117,9 @@ export function vettaPluginFederation(options: VettaPluginFederationOptions): Pl
 		createBuildDefaultsPlugin(entry),
 		...federation(createVettaPluginFederationConfig(options)),
 	];
-	if (options.package !== false) {
+	// VETTA_PLUGIN_DEV_WATCH=1：宿主 dev 热更新的 `vite build --watch` 只需要 dist，
+	// 跳过每次增量重建都重打 zip（closeBundle 在 watch 模式每轮都会触发）。
+	if (options.package !== false && process.env.VETTA_PLUGIN_DEV_WATCH !== "1") {
 		plugins.push(createPackagePlugin(packageOptions));
 	}
 	return plugins;
