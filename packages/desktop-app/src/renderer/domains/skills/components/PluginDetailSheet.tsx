@@ -31,6 +31,7 @@ export function PluginDetailSheet({
 	const { t } = useTranslation("skills");
 	if (!plugin) return <div />;
 	const isSystem = plugin.source === "system";
+	const isCustom = plugin.source === "archive";
 	const hasPendingVersion = Boolean(plugin.pendingVersion);
 	const name = tr(plugin, plugin.name);
 	const description = tr(plugin, plugin.description);
@@ -47,6 +48,11 @@ export function PluginDetailSheet({
 						{isSystem && (
 							<span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
 								{t("plugin.badge.system")}
+							</span>
+						)}
+						{isCustom && (
+							<span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
+								{t("plugin.badge.custom")}
 							</span>
 						)}
 						{hasPendingVersion && (

@@ -12,6 +12,7 @@ import { recordAppMonitorEvent } from "../app-monitor/app-monitor-service.js";
 import { getAppLogger } from "../logger.js";
 import { runPluginCommand } from "../plugins/command-runner.js";
 import { editImage, generateImage, imageLineage, sessionLineages } from "../plugins/image-service.js";
+import { startPluginDevWatch, stopPluginDevWatch } from "../plugins/plugin-dev-watch.js";
 import {
 	beginDynamicAgentContributionLoad,
 	buildAgentPluginRuntimeConfig,
@@ -299,12 +300,17 @@ export function registerPluginsIpc(): () => void {
 	ipcMain.handle("vetta:plugins:uninstall", (_event, id: unknown) => {
 		const pluginId = asPluginId(id);
 		const plugin = listPlugins().find((candidate) => candidate.id === pluginId);
+		// 卸载前停掉 dev 热更新（vite watch 子进程 + dist 监听）。
+		stopPluginDevWatch(pluginId);
 		uninstallPlugin(pluginId);
 		refreshAgentPlugins();
 		if (plugin) recordPluginResourceEvent({ plugin, operation: "uninstalled" });
 	});
 	ipcMain.handle("vetta:plugins:set-enabled", (_event, id: unknown, enabled: unknown) => {
-		const plugin = setPluginEnabled(asPluginId(id), enabled === true);
+		const pluginId = asPluginId(id);
+		// 禁用即停 dev 热更新：否则被禁用的插件仍常驻 vite watch，且每次保存都触发全表重载。
+		if (enabled !== true) stopPluginDevWatch(pluginId);
+		const plugin = setPluginEnabled(pluginId, enabled === true);
 		refreshAgentPlugins();
 		recordPluginResourceEvent({ plugin, operation: plugin.enabled ? "enabled" : "disabled" });
 		return plugin;
@@ -370,6 +376,19 @@ export function registerPluginsIpc(): () => void {
 		refreshAgentPlugins();
 		recordPluginResourceEvent({ plugin, operation: "reloaded" });
 		return plugin;
+	});
+	ipcMain.handle("vetta:plugins:dev-watch-start", (_event, id: unknown, projectDir: unknown) => {
+		const pluginId = asPluginId(id);
+		if (typeof projectDir !== "string" || projectDir.trim().length === 0) {
+			throw new Error("Invalid plugin project dir");
+		}
+		const plugin = startPluginDevWatch(pluginId, projectDir.trim());
+		refreshAgentPlugins();
+		return plugin;
+	});
+	ipcMain.handle("vetta:plugins:dev-watch-stop", (_event, id: unknown) => {
+		stopPluginDevWatch(asPluginId(id));
+		refreshAgentPlugins();
 	});
 	ipcMain.handle(
 		"vetta:plugins:agent-contributions-begin-load",
@@ -502,6 +521,8 @@ export function registerPluginsIpc(): () => void {
 		ipcMain.removeHandler("vetta:plugins:revoke-commands");
 		ipcMain.removeHandler("vetta:plugins:command-run");
 		ipcMain.removeHandler("vetta:plugins:reload");
+		ipcMain.removeHandler("vetta:plugins:dev-watch-start");
+		ipcMain.removeHandler("vetta:plugins:dev-watch-stop");
 		ipcMain.removeHandler("vetta:plugins:agent-contributions-begin-load");
 		ipcMain.removeHandler("vetta:plugins:agent-tool-register");
 		ipcMain.removeHandler("vetta:plugins:agent-tool-unregister");

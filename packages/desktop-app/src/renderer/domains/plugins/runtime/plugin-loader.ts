@@ -1,4 +1,8 @@
-import { createInstance, type ModuleFederation } from "@module-federation/enhanced/runtime";
+import {
+	createInstance,
+	type ModuleFederation,
+	type ModuleFederationRuntimePlugin,
+} from "@module-federation/enhanced/runtime";
 import type { InstalledPlugin } from "@preload/api";
 import type { ActivityTabKey } from "@shared/lib/project-profile";
 import {
@@ -84,7 +88,8 @@ function openPluginActivityTab(pluginId: string, tabId: string, width?: number |
 	const key = `${pluginId}:${tabId}`;
 	const attached = store.get(attachedPluginTabsAtom);
 	const list = attached.get(cwd) ?? [];
-	if (!list.includes(key)) {
+	const alreadyAttached = list.includes(key);
+	if (!alreadyAttached) {
 		const next = new Map(attached);
 		next.set(cwd, [...list, key]);
 		store.set(attachedPluginTabsAtom, next);
@@ -93,7 +98,9 @@ function openPluginActivityTab(pluginId: string, tabId: string, width?: number |
 	active.set(cwd, `plugin:${key}` as ActivityTabKey);
 	store.set(activityPanelTabByProjectAtom, active);
 	store.set(activityPanelOpenAtom, true);
-	if (width != null) store.set(setActivityPanelWidthAtom, width);
+	// width 只在首次 attach 时生效：插件 activate 里的 openActivityTab 会随
+	// reload/热更新重放，不能每次都把用户手动拖出的面板宽度覆盖回初始值。
+	if (width != null && !alreadyAttached) store.set(setActivityPanelWidthAtom, width);
 }
 
 interface PluginModule {
@@ -104,6 +111,40 @@ interface PluginModule {
 
 let moduleFederationHost: ModuleFederation | undefined;
 const registeredRemotes = new Map<string, { alias: string; entry: string }>();
+/** remoteName → 当前 reload token（取自 manifest entryUrl 的 query，重载即变）。 */
+const remoteReloadTokens = new Map<string, string>();
+
+function extractReloadToken(entryUrl: string): string | null {
+	try {
+		const params = new URL(entryUrl).searchParams;
+		return params.get("reload") ?? params.get("v");
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * remoteEntry.js 是 ESM 容器（manifest `type: "module"`），MF 用原生 `import()`
+ * 加载——浏览器 ES module registry 按 URL 永久缓存，协议层 no-store 与 MF 的
+ * force/removeRemote 都清不掉它。manifest 上的 reload token 经相对解析不会带到
+ * remoteEntry URL 上，导致 reload/热更新永远拿回旧模块（只有换版本路径段的
+ * 卸载重装才生效）。此插件在 afterResolve（snapshot 插件已把 remoteInfo.entry
+ * 设为 remoteEntry.js URL 之后）把 token 追加到 entry query，使每轮重载的
+ * import URL 唯一。async chunk 文件名含内容 hash，天然失效，无需处理。
+ */
+function createReloadBustPlugin(): ModuleFederationRuntimePlugin {
+	return {
+		name: "vetta-reload-bust",
+		afterResolve(args) {
+			const token = remoteReloadTokens.get(args.remoteInfo.name);
+			if (token && args.remoteInfo.entry && !args.remoteInfo.entry.includes("reloadBust=")) {
+				const sep = args.remoteInfo.entry.includes("?") ? "&" : "?";
+				args.remoteInfo.entry = `${args.remoteInfo.entry}${sep}reloadBust=${encodeURIComponent(token)}`;
+			}
+			return args;
+		},
+	};
+}
 
 function getModuleFederationHost(): ModuleFederation {
 	moduleFederationHost ??= createInstance({
@@ -111,6 +152,7 @@ function getModuleFederationHost(): ModuleFederation {
 		remotes: [],
 		shared: createPluginRuntimeShared(),
 		shareStrategy: "loaded-first",
+		plugins: [createReloadBustPlugin()],
 	});
 	return moduleFederationHost;
 }
@@ -826,6 +868,10 @@ async function loadPluginModule(plugin: InstalledPlugin): Promise<PluginModule> 
 		alias: plugin.id,
 		entry: plugin.entryUrl,
 	};
+	// 供 reload-bust 插件给 remoteEntry.js 的 import URL 追加 token（见上方注释）。
+	const reloadToken = extractReloadToken(plugin.entryUrl);
+	if (reloadToken) remoteReloadTokens.set(remote.name, reloadToken);
+	else remoteReloadTokens.delete(remote.name);
 	const registeredRemote = registeredRemotes.get(remote.name);
 	if (!registeredRemote || registeredRemote.alias !== remote.alias || registeredRemote.entry !== remote.entry) {
 		host.registerRemotes([remote], registeredRemote ? { force: true } : undefined);

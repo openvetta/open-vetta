@@ -231,6 +231,9 @@ export function useActivityPanelModel({
 		if (cwd) {
 			const remembered = tabByProject.get(cwd);
 			if (remembered && tabItems.some((item) => item.key === remembered)) return remembered;
+			// Keep plugin tab sticky while contributions briefly disappear (reload / hot reload).
+			// Falling back to "file" mounts FileTabContent and its unmount cleanup can reset width.
+			if (remembered?.startsWith("plugin:")) return remembered;
 		}
 		const fallback = profile?.defaultActivityTab ?? "file";
 		if (tabItems.some((item) => item.key === fallback)) return fallback;

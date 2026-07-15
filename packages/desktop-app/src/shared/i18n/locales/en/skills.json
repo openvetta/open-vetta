@@ -81,6 +81,7 @@
 		},
 		"badge": {
 			"system": "System",
+			"custom": "Custom",
 			"updatable": "Update v{{version}}"
 		},
 		"source": {

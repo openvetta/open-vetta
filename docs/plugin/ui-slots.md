@@ -105,6 +105,8 @@ ctx.ui.openActivityTab(tabId, options?: { width?: number | "max" });
 
 编程方式 attach（如需）并激活本插件某个 tab；`width: "max"` 尽量拉满（宿主仍 clamp）。载荷经插件自己的内存状态传递。
 
+`width` **只在该 tab 首次 attach 时生效**：tab 已 attach 的重复调用（含 reload/热更新导致的 `activate()` 重放）只做激活，不会覆盖用户手动拖出的面板宽度。
+
 示例：`packages/plugins/presets/git`、`externals/mobile-ui-preview`。
 
 ## 输入栏动作 registerInputAction
