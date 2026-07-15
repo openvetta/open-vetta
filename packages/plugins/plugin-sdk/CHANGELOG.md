@@ -4,22 +4,24 @@ All notable changes to `@vetta-org/plugin-sdk` are documented in this file.
 
 ## [Unreleased]
 
-### Changed
-
-- **npm 包名**：由 `@vetta/plugin-sdk` 更名为 `@vetta-org/plugin-sdk`（发布 scope 与 org `vetta-org` 对齐）。
+## [0.0.2] — 2026-07-15
 
 ### Added
 
-- **`PluginInputActionContribution.hardIsolation`**：为 true 时，宿主在 toggle 关闭期间剥离该插件的 agent 贡献与 Activity Tab（对齐 knowledgeMode 硬隔离，ADR-0041）。
-- **`agent.mcp.control` 权限**与 **`PluginAgentManifest.mcpServers`**（相对 `.mcp.json` 路径或内联 server map），供插件声明内聚 MCP（ADR-0040）。
+- **`PluginUiApi.notify` / `PluginNotifyOptions`**：插件可向宿主右下角全局 Toast 推送通知；传入 `error` 时宿主提供一键「复制堆栈」（含 pluginId@version）。无需权限。
+
+## [0.0.1] — 2026-07-14
 
 ### Changed
 
+- **npm 包名**：由 `@vetta/plugin-sdk` 更名为 `@vetta-org/plugin-sdk`（发布 scope 与 org `vetta-org` 对齐）。
 - 会话页插槽（活动面板插件标签卡、AI 输入栏插件 toggle）现按 `scope_use` 随对话类型显隐，与工具 `scope_use` 同一套场景轴，**fail-closed**：未声明 / 空数组 = 任何会话都不显示。**行为破坏性变更**——既有不声明 `scope_use` 的活动面板标签卡 / 输入栏 toggle 将不再出现，需显式声明（如 `scope_use: ["project", "conversation"]`）。
 - `PluginAgentToolRegistration.scope_use` 类型由 `string[]` 收紧为 `readonly ConversationScenario[]`，声明工具可见场景时获得补全与拼写校验。
 
 ### Added
 
+- **`PluginInputActionContribution.hardIsolation`**：为 true 时，宿主在 toggle 关闭期间剥离该插件的 agent 贡献与 Activity Tab（对齐 knowledgeMode 硬隔离，ADR-0041）。
+- **`agent.mcp.control` 权限**与 **`PluginAgentManifest.mcpServers`**（相对 `.mcp.json` 路径或内联 server map），供插件声明内聚 MCP（ADR-0040）。
 - 新增 `ui.slot.turn-card` 槽位与 `PluginContext.ui.registerTurnCard(contribution)`：插件可在消息列表底部（最新一轮）渲染一张**不绑定 tool 调用**的卡片，由插件组件自身决定可见性（不适用时 `return null`，借 `useActiveConversation` / `useConversationMessages` / `conversation.on("turn-end")` 读实时状态）。配套 `PluginTurnCardContribution` 类型与 `ui.slot.turn-card` 权限；`scope_use` 做 fail-closed 的会话场景门控。首个消费者是内置 Git 插件的「本轮变更卡」（turn-end 后列出本轮相对 turn-start 基线的变更）。
 - 新增插件 i18n 表面（ADR-0033）：`PluginContext.i18n`（`t(key, params?)` / `locale` / `onChange`）与响应式 React hook `useTranslation()`（返回 `{ t, locale }`，宿主切语言即重渲染），配套 `PluginI18nApi` / `PluginTranslation` / `PluginLocales` / `PluginLocaleCatalog` / `PluginTranslate` 类型与纯函数解析器 `resolvePluginText` / `resolveCatalogKey` / `interpolatePluginText`，以及内部 `__PluginI18nContext` 和 host bridge `useLocale()`。插件把译文放包内 `locales/<lang>.json`（扁平 key→译文），宿主加载后随 `InstalledPlugin` 下发；宿主渲染的插件串（`plugin.json` 的 name/description/settings/guidingWords 与 `ctx.ui.register*` 的 `label`）用 `%key%` 占位符标记（非 `%key%` 即字面量、向后兼容），插件自己组件内文字用 `t()`。fallback 链：当前 locale → 插件 `defaultLocale`（manifest 声明，缺省 zh）→ 裸 key。
 - 新增命令执行能力 `PluginContext.command.run(file, args?, opts?)`（execFile 语义、不走 shell、buffered 返回 `{ stdout, stderr, exitCode }`），配套 `PluginCommandApi` / `PluginCommandRunOptions` / `PluginCommandRunResult` 类型，门控既有占位权限 `agent.command.run`。插件须在 `plugin.json` 顶层 `commands: string[]`（二进制名）声明可执行的命令，未声明一律拒；用户可在插件设置里逐条开关，被关命令调用时被拦截并通知用户。详见 `docs/adr/0032`。
