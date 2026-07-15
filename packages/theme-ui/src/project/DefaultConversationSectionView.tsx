@@ -59,6 +59,7 @@ export function DefaultConversationSectionView({
 				</div>
 			</div>
 			<ScrollFade
+				data-sidebar-selection-scroll="true"
 				onScrollRef={onListScrollRef}
 				className="min-h-0 flex-1 overflow-y-auto no-scrollbar"
 			>

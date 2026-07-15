@@ -8,6 +8,7 @@ interface DefaultSessionListProps {
 	className?: string;
 	cwd: string;
 	filter: DefaultConversationFilter;
+	onBeforeSelect: () => boolean;
 	onRenameSession: (cwd: string, sessionPath: string, name: string) => void;
 	onSelectSession: (cwd: string, sessionPath: string) => void;
 	scrollParent: HTMLElement | null;
@@ -36,6 +37,7 @@ export const DefaultSessionList = memo(function DefaultSessionList(
 					active={item.active}
 					contextMenuEnabled={model.contextMenuEnabled}
 					label={item.label}
+					onBeforeSelect={props.onBeforeSelect}
 					renaming={item.renaming}
 					running={item.running}
 					scheduled={item.scheduled}

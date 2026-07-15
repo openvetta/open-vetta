@@ -7,7 +7,7 @@ import {
 	sessionDisplayLabel,
 } from "@shared/store/atoms";
 import { useAtom, useAtomValue } from "jotai";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { relativeTime } from "../components/sidebar/projects/relativeTime";
 
@@ -54,11 +54,24 @@ export function useDefaultSessionListModel({
 		return basenames;
 	}, [scheduledSessionPaths]);
 	const [showAll, setShowAll] = useState(false);
+	const revealedActiveSessionRef = useRef<string | null>(null);
 	const [prevFilter, setPrevFilter] = useState(filter);
 	if (prevFilter !== filter) {
 		setPrevFilter(filter);
 		setShowAll(false);
 	}
+
+	useEffect(() => {
+		if (!activeSessionPath) {
+			revealedActiveSessionRef.current = null;
+			return;
+		}
+		if (revealedActiveSessionRef.current === activeSessionPath) return;
+		const activeIndex = sorted.findIndex((session) => session.path === activeSessionPath);
+		if (activeIndex < 0) return;
+		revealedActiveSessionRef.current = activeSessionPath;
+		if (activeIndex >= DEFAULT_VISIBLE_DEFAULT_SESSIONS) setShowAll(true);
+	}, [activeSessionPath, sorted]);
 
 	const hasMore = sorted.length > DEFAULT_VISIBLE_DEFAULT_SESSIONS;
 	const hiddenCount = sorted.length - DEFAULT_VISIBLE_DEFAULT_SESSIONS;

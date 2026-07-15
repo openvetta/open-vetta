@@ -2,6 +2,8 @@ import type { JSX, ReactNode, RefObject } from "react";
 import { ScrollFade } from "../shared/ScrollFade";
 import { ProjectsPanelSplitHandle } from "../sidebar/ProjectsPanelSplitHandle";
 
+const SPLIT_HANDLE_HEIGHT = 10;
+
 export interface ProjectsPanelViewProps {
 	defaultSection: ReactNode;
 	/** Host-resolved empty state (i18n). */
@@ -10,11 +12,13 @@ export interface ProjectsPanelViewProps {
 	onProjectsScrollRef: (el: HTMLDivElement | null) => void;
 	onSplitResize: (deltaY: number) => void;
 	onSplitResizeEnd: () => void;
+	onSplitResizeStart: () => void;
 	projectsSection: ReactNode;
 	showDefaultRegion: boolean;
 	showEmpty: boolean;
 	showProjectsRegion: boolean;
 	showSplit: boolean;
+	splitDragging: boolean;
 	splitContainerRef: RefObject<HTMLDivElement | null>;
 	splitRatio: number;
 }
@@ -26,11 +30,13 @@ export function ProjectsPanelView({
 	onProjectsScrollRef,
 	onSplitResize,
 	onSplitResizeEnd,
+	onSplitResizeStart,
 	projectsSection,
 	showDefaultRegion,
 	showEmpty,
 	showProjectsRegion,
 	showSplit,
+	splitDragging,
 	splitContainerRef,
 	splitRatio,
 }: ProjectsPanelViewProps): JSX.Element {
@@ -41,14 +47,23 @@ export function ProjectsPanelView({
 			{showSplit ? (
 				<div ref={splitContainerRef} className="flex min-h-0 flex-1 flex-col overflow-hidden">
 					<ScrollFade
+						data-sidebar-selection-scroll="true"
 						onScrollRef={onProjectsScrollRef}
-						className="min-h-0 overflow-y-auto no-scrollbar"
-						style={{ flex: `${splitRatio} 1 0%` }}
+						className={`min-h-0 shrink-0 overflow-y-auto no-scrollbar motion-reduce:transition-none ${
+							splitDragging ? "" : "transition-[max-height] duration-[350ms] ease-out"
+						}`}
+						style={{
+							maxHeight: `calc(${splitRatio * 100}% - ${SPLIT_HANDLE_HEIGHT * splitRatio}px)`,
+						}}
 					>
 						{projectsSection}
 					</ScrollFade>
-					<ProjectsPanelSplitHandle onResize={onSplitResize} onResizeEnd={onSplitResizeEnd} />
-					<div className="flex min-h-0 flex-col overflow-hidden" style={{ flex: `${1 - splitRatio} 1 0%` }}>
+					<ProjectsPanelSplitHandle
+						onResize={onSplitResize}
+						onResizeEnd={onSplitResizeEnd}
+						onResizeStart={onSplitResizeStart}
+					/>
+					<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
 						{defaultSection}
 					</div>
 				</div>
@@ -56,6 +71,7 @@ export function ProjectsPanelView({
 				<>
 					{showProjectsRegion && (
 						<ScrollFade
+							data-sidebar-selection-scroll="true"
 							onScrollRef={onProjectsScrollRef}
 							className="min-h-0 flex-1 overflow-y-auto no-scrollbar"
 						>

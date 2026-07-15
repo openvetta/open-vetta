@@ -1,6 +1,10 @@
 import { cn } from "@vetta/ui";
 import type { JSX } from "react";
 import { SessionRenameInputView } from "./SessionRenameInputView";
+import {
+	prepareSidebarSelection,
+	runAfterSidebarSelection,
+} from "./useActiveSessionAutoScroll";
 
 export interface DefaultSessionRowViewProps {
 	active: boolean;
@@ -11,6 +15,7 @@ export interface DefaultSessionRowViewProps {
 	titleExtra?: string;
 	/** Session was forked from another session. */
 	forked?: boolean;
+	onBeforeSelect?: () => boolean;
 	onOpenContextMenu: (event: React.MouseEvent) => void;
 	onRename: (name: string) => void;
 	onRenameDone: () => void;
@@ -27,6 +32,7 @@ export function DefaultSessionRowView({
 	label,
 	titleExtra,
 	forked,
+	onBeforeSelect,
 	onOpenContextMenu,
 	onRename,
 	onRenameDone,
@@ -40,8 +46,12 @@ export function DefaultSessionRowView({
 	return (
 		<button
 			type="button"
-			onClick={() => {
-				if (!renaming) onSelect();
+			data-session-active={active ? "true" : undefined}
+			onClick={(event) => {
+				if (renaming) return;
+				const panelWillMove = onBeforeSelect?.() ?? false;
+				const rowWillMove = prepareSidebarSelection(event.currentTarget);
+				runAfterSidebarSelection(onSelect, panelWillMove || rowWillMove);
 			}}
 			onContextMenu={(event) => {
 				event.preventDefault();

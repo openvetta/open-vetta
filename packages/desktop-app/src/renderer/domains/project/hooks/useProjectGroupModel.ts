@@ -10,7 +10,7 @@ import {
 } from "@shared/store/atoms";
 import { DEFAULT_VISIBLE_SESSIONS } from "@vetta/theme-ui/project";
 import { useAtom, useAtomValue } from "jotai";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { relativeTime } from "../components/sidebar/projects/relativeTime";
 
@@ -59,6 +59,7 @@ export function useProjectGroupModel({
 	const [, setProjectContextMenu] = useAtom(projectContextMenuAtom);
 	const [renamingSessionPath, setRenamingSessionPath] = useAtom(renamingSessionPathAtom);
 	const [showAllSessions, setShowAllSessions] = useState(false);
+	const revealedActiveSessionRef = useRef<string | null>(null);
 	const runningSessionPaths = useAtomValue(runningSessionPathsAtom);
 	const scheduledSessionPaths = useAtomValue(scheduledSessionPathsAtom);
 	const scheduledBasenames = useMemo(() => {
@@ -74,6 +75,18 @@ export function useProjectGroupModel({
 	useEffect(() => {
 		if (!isExpanded) setShowAllSessions(false);
 	}, [isExpanded]);
+
+	useEffect(() => {
+		if (!activeSessionPath) {
+			revealedActiveSessionRef.current = null;
+			return;
+		}
+		if (revealedActiveSessionRef.current === activeSessionPath) return;
+		const activeIndex = sortedSessions.findIndex((session) => session.path === activeSessionPath);
+		if (activeIndex < 0) return;
+		revealedActiveSessionRef.current = activeSessionPath;
+		if (activeIndex >= DEFAULT_VISIBLE_SESSIONS) setShowAllSessions(true);
+	}, [activeSessionPath, sortedSessions]);
 
 	const hasMoreSessions = sortedSessions.length > DEFAULT_VISIBLE_SESSIONS;
 	const visibleSessions = showAllSessions ? sortedSessions : sortedSessions.slice(0, DEFAULT_VISIBLE_SESSIONS);

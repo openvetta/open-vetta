@@ -1,13 +1,15 @@
 import { AnimatePresence, motion } from "motion/react";
-import type { JSX, ReactNode } from "react";
-import { Virtuoso } from "react-virtuoso";
+import { useRef, type JSX, type ReactNode } from "react";
+import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { ShowMoreSessionsButton } from "../sidebar/ShowMoreSessionsButton";
 import {
 	VIRTUAL_SESSION_OVERSCAN,
 	VIRTUAL_SESSION_ROW_HEIGHT,
 } from "./types";
+import { useActiveSessionAutoScroll } from "./useActiveSessionAutoScroll";
 
 export interface ProjectSessionsViewItem {
+	active?: boolean;
 	key: string;
 }
 
@@ -41,6 +43,10 @@ export function ProjectSessionsView<T extends ProjectSessionsViewItem>({
 	renderSession,
 }: ProjectSessionsViewProps<T>): JSX.Element {
 	const useVirtual = showAll && sessions.length > 0 && scrollParent != null;
+	const virtuosoRef = useRef<VirtuosoHandle>(null);
+	const activeIndex = sessions.findIndex((session) => session.active);
+	const activeKey = activeIndex >= 0 ? sessions[activeIndex]?.key : undefined;
+	useActiveSessionAutoScroll({ activeIndex, activeKey, enabled: expanded, scrollParent, virtuosoRef });
 
 	return (
 		<AnimatePresence initial={false}>
@@ -58,6 +64,7 @@ export function ProjectSessionsView<T extends ProjectSessionsViewItem>({
 							empty
 						) : useVirtual ? (
 							<Virtuoso
+								ref={virtuosoRef}
 								customScrollParent={scrollParent}
 								data={sessions as T[]}
 								defaultItemHeight={VIRTUAL_SESSION_ROW_HEIGHT}
