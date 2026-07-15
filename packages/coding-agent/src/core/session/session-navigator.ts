@@ -81,6 +81,7 @@ export class SessionNavigator {
 				previousSessionFile,
 			});
 		}
+		this.ctx.hookRuntime.markSessionStart("clear");
 
 		return true;
 	}
@@ -166,6 +167,7 @@ export class SessionNavigator {
 		}
 
 		this.ctx.reconnectToAgent();
+		this.ctx.hookRuntime.markSessionStart("resume");
 		return true;
 	}
 
@@ -223,6 +225,7 @@ export class SessionNavigator {
 		if (!skipConversationRestore) {
 			this.ctx.agent.replaceMessages(sessionContext.messages);
 		}
+		this.ctx.hookRuntime.markSessionStart("clear");
 
 		return { selectedText, cancelled: false };
 	}

@@ -111,6 +111,7 @@
         "@vetta/action-rpc": "workspace:*",
         "@vetta/agent-core": "workspace:*",
         "@vetta/ai": "workspace:*",
+        "@vetta/ecosystem-adapter": "workspace:*",
         "@vetta/runtime-telemetry": "workspace:*",
         "ajv": "^8.17.1",
         "ajv-formats": "^3.0.1",
@@ -249,6 +250,18 @@
         "typescript": "^5.9.2",
         "vite": "^7.1.7",
         "wait-on": "^9.0.1",
+      },
+    },
+    "packages/ecosystem-adapter": {
+      "name": "@vetta/ecosystem-adapter",
+      "version": "0.0.1",
+      "dependencies": {
+        "zod": "^4.4.3",
+      },
+      "devDependencies": {
+        "@types/node": "^22.10.5",
+        "shx": "^0.4.0",
+        "typescript": "^5.9.2",
       },
     },
     "packages/plugins/plugin-sdk": {
@@ -1479,6 +1492,8 @@
     "@vetta/coding-agent": ["@vetta/coding-agent@workspace:packages/coding-agent"],
 
     "@vetta/desktop-app": ["@vetta/desktop-app@workspace:packages/desktop-app"],
+
+    "@vetta/ecosystem-adapter": ["@vetta/ecosystem-adapter@workspace:packages/ecosystem-adapter"],
 
     "@vetta/runtime-core": ["@vetta/runtime-core@workspace:packages/runtime-core"],
 

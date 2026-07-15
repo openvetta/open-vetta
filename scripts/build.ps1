@@ -38,6 +38,7 @@ function Build-Layer0 {
 	Build-Pkg "packages/ai"
 	Build-Pkg "packages/runtime-telemetry"
 	Build-Pkg "packages/agent"
+	Build-Pkg "packages/ecosystem-adapter"
 	Build-Pkg "packages/action-rpc"
 	Build-Pkg "packages/plugins/plugin-sdk"
 	Build-Pkg "packages/plugins/plugin-vite"

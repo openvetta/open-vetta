@@ -99,6 +99,14 @@ export class CompactionController {
 				throw new Error("Nothing to compact (session too small)");
 			}
 
+			const preHookOutcome = await this.ctx.hookRuntime.runPreCompact(
+				"manual",
+				this._compactionAbortController.signal,
+			);
+			if (preHookOutcome.shouldStop || preHookOutcome.shouldBlock) {
+				throw new Error(preHookOutcome.stopReason ?? preHookOutcome.blockReason ?? "Compaction blocked by hook");
+			}
+
 			let extensionCompaction: CompactionResult | undefined;
 			let fromExtension = false;
 
@@ -168,6 +176,9 @@ export class CompactionController {
 					fromExtension,
 				});
 			}
+
+			await this.ctx.hookRuntime.runPostCompact("manual", this._compactionAbortController.signal);
+			this.ctx.hookRuntime.markSessionStart("compact");
 
 			return {
 				summary,
@@ -328,6 +339,15 @@ export class CompactionController {
 				return;
 			}
 
+			const preHookOutcome = await this.ctx.hookRuntime.runPreCompact(
+				"auto",
+				this._autoCompactionAbortController.signal,
+			);
+			if (preHookOutcome.shouldStop || preHookOutcome.shouldBlock) {
+				this.ctx.emit({ type: "auto_compaction_end", result: undefined, aborted: true, willRetry: false });
+				return;
+			}
+
 			// memory-mode (ADR-0009): flush durable facts out of the
 			// about-to-be-discarded context into MEMORY.md BEFORE summarizing, so
 			// the rollover never silently loses what's worth remembering. Best
@@ -431,6 +451,12 @@ export class CompactionController {
 				});
 			}
 
+			const postHookOutcome = await this.ctx.hookRuntime.runPostCompact(
+				"auto",
+				this._autoCompactionAbortController.signal,
+			);
+			this.ctx.hookRuntime.markSessionStart("compact");
+
 			const result: CompactionResult = {
 				summary,
 				firstKeptEntryId,
@@ -438,9 +464,10 @@ export class CompactionController {
 				details,
 			};
 			this._circuitBreaker.recordSuccess();
-			this.ctx.emit({ type: "auto_compaction_end", result, aborted: false, willRetry });
+			const shouldRetry = willRetry && !postHookOutcome.shouldStop;
+			this.ctx.emit({ type: "auto_compaction_end", result, aborted: false, willRetry: shouldRetry });
 
-			if (willRetry) {
+			if (shouldRetry) {
 				const messages = this.ctx.agent.state.messages;
 				const lastMsg = messages[messages.length - 1];
 				if (lastMsg?.role === "assistant" && (lastMsg as AssistantMessage).stopReason === "error") {
@@ -450,7 +477,7 @@ export class CompactionController {
 				setTimeout(() => {
 					this.ctx.agent.continue().catch(() => {});
 				}, 100);
-			} else if (this.ctx.agent.hasQueuedMessages()) {
+			} else if (!postHookOutcome.shouldStop && this.ctx.agent.hasQueuedMessages()) {
 				// Auto-compaction can complete while follow-up/steering/custom messages are waiting.
 				// Kick the loop so queued messages are actually delivered.
 				setTimeout(() => {

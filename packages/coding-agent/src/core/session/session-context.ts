@@ -14,6 +14,7 @@ import type { Agent } from "@vetta/agent-core";
 import type { Model } from "@vetta/ai";
 import type { AgentSessionEvent } from "../agent-session.js";
 import type { ExtensionRunner } from "../extensions/index.js";
+import type { EcosystemHookRuntime } from "../hooks/index.js";
 import type { ModelRegistry } from "../model-registry.js";
 import type { SessionManager } from "../session-manager.js";
 import type { SettingsManager } from "../settings-manager.js";
@@ -24,6 +25,7 @@ export interface SessionContext {
 	readonly settingsManager: SettingsManager;
 	readonly modelRegistry: ModelRegistry;
 	readonly cwd: string;
+	readonly hookRuntime: EcosystemHookRuntime;
 
 	/** Current model (changes on model switch). */
 	readonly model: Model<any> | undefined;

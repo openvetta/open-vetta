@@ -59,6 +59,7 @@
 		"@vetta/action-rpc": "workspace:*",
 		"@vetta/agent-core": "workspace:*",
 		"@vetta/ai": "workspace:*",
+		"@vetta/ecosystem-adapter": "workspace:*",
 		"@vetta/runtime-telemetry": "workspace:*",
 		"ajv": "^8.17.1",
 		"ajv-formats": "^3.0.1",

@@ -23,6 +23,7 @@ import type { CompactionResult } from "./compaction/index.js";
 import { exportSessionToHtml, type ToolHtmlRenderer } from "./export-html/index.js";
 import { createToolHtmlRenderer } from "./export-html/tool-renderer.js";
 import type { ContextUsage, ExtensionRunner, ToolDefinition, ToolInfo } from "./extensions/index.js";
+import { createEcosystemHookRuntime, type EcosystemHookRuntime } from "./hooks/index.js";
 import type { McpManager } from "./mcp/index.js";
 import { DEFAULT_MEMORY_CHAR_LIMIT, readMemoryContent } from "./memory/memory-store.js";
 import type { CustomMessage } from "./messages.js";
@@ -140,6 +141,7 @@ export class AgentSession {
 
 	// Background bash tasks (run_in_background)
 	private _backgroundTasks: BackgroundTaskManager;
+	private _hookRuntime: EcosystemHookRuntime;
 
 	constructor(config: AgentSessionConfig) {
 		this.agent = config.agent;
@@ -148,6 +150,31 @@ export class AgentSession {
 		this._resourceLoader = config.resourceLoader;
 		this._cwd = config.cwd;
 		this._modelRegistry = config.modelRegistry;
+		this._hookRuntime = createEcosystemHookRuntime({
+			host: {
+				cwd: this._cwd,
+				getSessionId: () => this.sessionManager.getSessionId(),
+				getTranscriptPath: () => this.sessionManager.getSessionFile() ?? null,
+				getModelId: () => this.model?.id ?? this.agent.state.model?.id ?? "unknown",
+				abortCurrentRun: () => this.agent.abort(),
+				recordAdditionalContexts: (contexts) => {
+					for (const content of contexts) {
+						const message: CustomMessage = {
+							role: "custom",
+							customType: "ecosystem-hook-context",
+							content,
+							display: false,
+							timestamp: Date.now(),
+						};
+						this.agent.appendMessage(message);
+						this.sessionManager.appendMessage(message);
+					}
+				},
+			},
+			initialSessionStartSource: this.sessionManager.getEntries().length > 0 ? "resume" : "startup",
+			additionalAdapterFactories: config.additionalHookAdapterFactories,
+			configLayers: config.hookConfigLayers,
+		});
 
 		// memory-mode: capture the frozen MEMORY.md snapshot once, here at
 		// construction. im-gateway spawns a fresh process per message burst, so
@@ -169,6 +196,7 @@ export class AgentSession {
 			settingsManager: this.settingsManager,
 			modelRegistry: this._modelRegistry,
 			cwd: this._cwd,
+			hookRuntime: this._hookRuntime,
 			get model() {
 				return session.model;
 			},
@@ -271,7 +299,17 @@ export class AgentSession {
 		this.agent.continuationProvider = async (signal) => {
 			const todoMessages = this._input.buildTodoContinuationMessages();
 			if (todoMessages.length > 0) return todoMessages;
-			return this._runtime.collectPluginContinuationMessages(signal);
+			const pluginMessages = await this._runtime.collectPluginContinuationMessages(signal);
+			if (pluginMessages.length > 0) return pluginMessages;
+			const fragments = await this._hookRuntime.runStop(
+				readLastAssistantText(this.agent.state.messages) ?? null,
+				signal,
+			);
+			return fragments.map((text) => ({
+				role: "user" as const,
+				content: [{ type: "text" as const, text }],
+				timestamp: Date.now(),
+			}));
 		};
 
 		// Background task wiring: forward state changes to session listeners (UI),

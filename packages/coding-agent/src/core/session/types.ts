@@ -7,6 +7,7 @@
 
 import type { Agent, AgentEvent, AgentTool, ThinkingLevel } from "@vetta/agent-core";
 import type { ImageContent, Model } from "@vetta/ai";
+import type { HookConfigLayer } from "@vetta/ecosystem-adapter/hooks";
 import type { BackgroundTaskSnapshot } from "../background-tasks/index.js";
 import type { CompactionResult } from "../compaction/index.js";
 import type {
@@ -18,6 +19,7 @@ import type {
 	ShutdownHandler,
 	ToolDefinition,
 } from "../extensions/index.js";
+import type { EcosystemHookAdapterFactory } from "../hooks/index.js";
 import type { ModelRegistry } from "../model-registry.js";
 import type { ResourceLoader } from "../resource-loader.js";
 import type { SessionManager } from "../session-manager.js";
@@ -69,6 +71,10 @@ export interface AgentSessionConfig {
 	customTools?: ToolDefinition[];
 	/** Model registry for API key resolution and model discovery */
 	modelRegistry: ModelRegistry;
+	/** Additional external-ecosystem Hook adapters composed with built-in adapters. */
+	additionalHookAdapterFactories?: readonly EcosystemHookAdapterFactory[];
+	/** Vetta-owned application config layers containing ecosystem-compatible hooks.json files. */
+	hookConfigLayers?: readonly HookConfigLayer[];
 	/** 对话场景：决定按 scope_use 激活哪些工具。默认 DEFAULT_SCENARIO("cli")。 */
 	scenario?: ConversationScenario;
 	/** Initial active built-in tool names. Default: [read, command-tool, edit, write] */

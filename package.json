@@ -6,6 +6,7 @@
 	"workspaces": [
 		"packages/ai",
 		"packages/agent",
+		"packages/ecosystem-adapter",
 		"packages/coding-agent",
 		"packages/plugins/plugin-sdk",
 		"packages/plugins/plugin-vite",

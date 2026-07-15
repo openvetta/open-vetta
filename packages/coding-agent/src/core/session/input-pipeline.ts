@@ -149,8 +149,9 @@ export class InputPipeline {
 					"Agent is already processing. Specify streamingBehavior ('steer' or 'followUp') to queue the message.",
 				);
 			}
+			const hookContexts = await this.runPromptHooks(expandedText);
 			// For streaming, combine injections with user text since we can't inject custom messages
-			const injection = [skillInjection, sceneInjection].filter(Boolean).join("\n\n");
+			const injection = [...hookContexts, skillInjection, sceneInjection].filter(Boolean).join("\n\n");
 			const textForStream = injection ? `${injection}\n\n${expandedText}` : expandedText;
 			if (options.streamingBehavior === "followUp") {
 				this.queue.queueFollowUp(textForStream, currentImages);
@@ -190,6 +191,8 @@ export class InputPipeline {
 			);
 		}
 
+		const hookContexts = await this.runPromptHooks(expandedText);
+
 		// Check if we need to compact before sending (catches aborted responses)
 		const lastAssistant = this.findLastAssistantMessage();
 		if (lastAssistant) {
@@ -198,6 +201,15 @@ export class InputPipeline {
 
 		// Build messages array (custom message if any, then user message)
 		const messages: AgentMessage[] = [];
+		for (const content of hookContexts) {
+			messages.push({
+				role: "custom",
+				customType: "ecosystem_hook_context",
+				content,
+				display: false,
+				timestamp: Date.now(),
+			});
+		}
 
 		// Soft image intent: generate_image / edit_image stay on the tool list
 		// whenever scope allows (no hard strip). Optional metadata only injects a
@@ -505,6 +517,20 @@ export class InputPipeline {
 			todoStore: this.todoStore,
 			emitError: runner ? (error) => runner.emitError(error) : undefined,
 		});
+	}
+
+	private async runPromptHooks(prompt: string): Promise<string[]> {
+		const sessionStart = await this.ctx.hookRuntime.runPendingSessionStart();
+		if (sessionStart?.shouldStop || sessionStart?.shouldBlock) {
+			throw new Error(
+				sessionStart.stopReason ?? sessionStart.blockReason ?? "Session start blocked by ecosystem hook",
+			);
+		}
+		const promptSubmit = await this.ctx.hookRuntime.runUserPromptSubmit(prompt);
+		if (promptSubmit.shouldStop || promptSubmit.shouldBlock) {
+			throw new Error(promptSubmit.stopReason ?? promptSubmit.blockReason ?? "Prompt blocked by ecosystem hook");
+		}
+		return [...(sessionStart?.additionalContexts ?? []), ...promptSubmit.additionalContexts];
 	}
 
 	private async normalizeUserImages(
