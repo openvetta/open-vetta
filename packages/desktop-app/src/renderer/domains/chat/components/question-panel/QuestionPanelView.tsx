@@ -51,6 +51,10 @@ export function QuestionPanelView({
 	const activeIndex = Math.min(active, questions.length - 1);
 	const activeQuestion = questions[activeIndex];
 	const otherIndex = activeQuestion.options.length;
+	const isLastQuestion = activeIndex >= questions.length - 1;
+	const currentAnswered = isAnswered(states[activeIndex]);
+	/** 多题未到最后一题：主按钮是「下一步」；单题或最后一题：主按钮是「提交」。 */
+	const showNext = questions.length > 1 && !isLastQuestion;
 
 	useEffect(() => {
 		containerRef.current?.focus();
@@ -76,10 +80,15 @@ export function QuestionPanelView({
 		[questions.length],
 	);
 
+	const goNext = useCallback(() => {
+		if (submitting || isLastQuestion || !currentAnswered) return;
+		goTab(activeIndex + 1);
+	}, [submitting, isLastQuestion, currentAnswered, activeIndex, goTab]);
+
 	const advance = useCallback(() => {
-		if (activeIndex < questions.length - 1) goTab(activeIndex + 1);
+		if (!isLastQuestion) goNext();
 		else submit();
-	}, [activeIndex, questions.length, goTab, submit]);
+	}, [isLastQuestion, goNext, submit]);
 
 	const toggleOption = useCallback((qIndex: number, label: string, multiSelect: boolean) => {
 		setStates((prev) =>
@@ -271,9 +280,15 @@ export function QuestionPanelView({
 							<Button variant="ghost" size="sm" onClick={cancel} disabled={submitting}>
 								{labels.cancel}
 							</Button>
-							<Button size="sm" onClick={submit} disabled={!allAnswered || submitting}>
-								{labels.submit}
-							</Button>
+							{showNext ? (
+								<Button size="sm" onClick={goNext} disabled={!currentAnswered || submitting}>
+									{labels.next}
+								</Button>
+							) : (
+								<Button size="sm" onClick={submit} disabled={!allAnswered || submitting}>
+									{labels.submit}
+								</Button>
+							)}
 						</div>
 					</div>
 				</div>
