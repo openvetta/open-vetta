@@ -50,6 +50,7 @@ export function createInvokeSkillTool(options: InvokeSkillToolOptions): CodingAg
 				const availableNames = skills
 					.filter((s) => !s.disableModelInvocation && s.type !== "scene")
 					.map((s) => s.name);
+				console.info("[skills] invoke miss", { name, available: availableNames.length });
 				return {
 					content: [
 						{
@@ -85,12 +86,19 @@ export function createInvokeSkillTool(options: InvokeSkillToolOptions): CodingAg
 					lines.push("", `User arguments: ${args}`);
 				}
 
+				console.info("[skills] invoke", {
+					name: skill.name,
+					source: skill.source,
+					path: skill.filePath,
+					hasArgs: Boolean(args),
+				});
 				return {
 					content: [{ type: "text" as const, text: lines.join("\n") }],
 					details: { skillName: skill.name, skillLocation: skill.filePath },
 				};
 			} catch (err) {
 				const message = err instanceof Error ? err.message : String(err);
+				console.info("[skills] invoke error", { name, path: skill.filePath, error: message });
 				return {
 					content: [
 						{

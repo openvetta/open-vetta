@@ -6,6 +6,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **会话 / Skill 列表 info 日志（测试可观测）**：`session created` 记 sessionId、cwd、kind、scenario、`includeAgentSkills`；`skills.list` 记 cwd、按 source 计数与名称。使用 `getAppLogger("session"|"skills")`。
 - **应用监控月度日聚合存储**：保留累计 `summary.json` 契约，同时按持久化统计时区将每日聚合写入 `app-monitor/months/YYYY-MM.json`；月文件携带随机安装设备 ID、revision、IANA 时区、UTC 日边界与覆盖起点，为后续多设备云同步预留可合并边界。升级时一次性清除旧 `~/.vetta/app-monitor.json`、累计汇总和已有月度聚合，从本次启动重新采集；设备 ID 与统计时区继续保留。
 - **插件 release 导出（插件工作台）**：活动面板工程卡片新增「导出」按钮；经宿主原生保存对话框把当前 `release/<id>-<version>.zip` 复制到用户选择路径。宿主新增 `dialog.saveCopy(sourcePath, options?)`（源路径需可读，取消返回 null）。
 - **插件 dev 热更新（插件工作台）**：工程卡片新增「热更新」开关（已安装后默认开）。打开后宿主把插件 dev 链接到工程目录（`vetta-plugin://` 资源直接从工程 `dist/` 解析，内存态不落注册表）、常驻托管 Node `vite build --watch` 并监听 dist，产物变化自动 `reload`（token 强制 MF 重注册），保存源码即生效。宿主新增 `plugins.startDevWatch/stopDevWatch` IPC；`InstalledPlugin.devWatch` 透出状态（starting/running/error）；卸载与 App 退出自动停 watch；`@vetta-org/plugin-vite` 在 `VETTA_PLUGIN_DEV_WATCH=1` 下跳过每轮重打 zip。
