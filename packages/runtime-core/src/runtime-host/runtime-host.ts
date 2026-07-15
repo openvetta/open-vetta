@@ -821,6 +821,15 @@ export class RuntimeHost implements SessionFacade {
 		return handle.session.switchBranch(entryId);
 	}
 
+	/** Delete one message while retaining the rest of the active branch. */
+	async deleteMessage(sessionId: string, entryId: string): Promise<{ leafId: string | null }> {
+		const handle = this.requireSession(sessionId);
+		if (handle.session.isStreaming || handle.session.isBashRunning) {
+			throw new Error("Cannot delete a message while the session is streaming");
+		}
+		return handle.session.deleteMessage(entryId);
+	}
+
 	/**
 	 * Export a fork as a new session file without leaving the current session.
 	 */

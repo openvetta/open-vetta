@@ -374,6 +374,18 @@
 			"copied": "Copied",
 			"copy": "Copy"
 		},
+		"contextMenu": {
+			"edit": "Edit",
+			"copy": "Copy",
+			"delete": "Delete"
+		},
+		"delete": {
+			"title": "Delete this message?",
+			"body": "Later messages will be kept, but their context will no longer include this message. This cannot be undone.",
+			"streamingBody": "The reply in progress will be stopped first. Later messages will be kept, but their context will no longer include this message. This cannot be undone.",
+			"confirm": "Delete",
+			"suppressForOneMinute": "Don't ask again for one minute"
+		},
 		"editButton": "Edit",
 		"forkButton": "Fork to new session",
 		"branch": {

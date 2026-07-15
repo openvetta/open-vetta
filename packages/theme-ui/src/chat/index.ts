@@ -220,6 +220,11 @@ export { ToolCallBlockView } from "./ToolCallBlockView";
 export type { UsageBarViewProps } from "./UsageBarView";
 export { UsageBarView } from "./UsageBarView";
 export type {
+	UserMessageContextMenuViewLabels,
+	UserMessageContextMenuViewProps,
+} from "./UserMessageContextMenuView";
+export { UserMessageContextMenuView } from "./UserMessageContextMenuView";
+export type {
 	UserMessageEntryState,
 	UserMessageViewLabels,
 	UserMessageViewProps,

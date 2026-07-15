@@ -680,7 +680,7 @@ async function listSessionsFromDir(
 }
 
 /**
- * Manages conversation sessions as append-only trees stored in JSONL files.
+ * Manages conversation sessions as trees stored in JSONL files.
  *
  * Each session entry has an id and parentId forming a tree structure. The "leaf"
  * pointer tracks the current position. Appending creates a child of the current leaf.
@@ -1203,6 +1203,72 @@ export class SessionManager {
 	}
 
 	/**
+	 * Permanently delete one message while preserving its descendants.
+	 * Children are reparented to the deleted message's parent, and label entries
+	 * targeting the message are removed with the same reparenting rule.
+	 */
+	deleteMessage(entryId: string): { leafId: string | null } {
+		const entry = this.byId.get(entryId);
+		if (!entry || entry.type !== "message") {
+			throw new Error(`Entry ${entryId} is not a message`);
+		}
+
+		const removedIds = new Set<string>([entryId]);
+		for (const candidate of this.byId.values()) {
+			if (candidate.type === "label" && candidate.targetId === entryId) {
+				removedIds.add(candidate.id);
+			}
+		}
+
+		const resolveSurvivingParent = (parentId: string | null): string | null => {
+			let current = parentId;
+			while (current && removedIds.has(current)) {
+				current = this.byId.get(current)?.parentId ?? null;
+			}
+			return current;
+		};
+
+		const firstKeptReplacements = new Map<string, string>();
+		for (const candidate of this.byId.values()) {
+			if (candidate.type !== "compaction" || !removedIds.has(candidate.firstKeptEntryId)) continue;
+			const path = this.getBranch(candidate.id);
+			const removedIndex = path.findIndex((pathEntry) => removedIds.has(pathEntry.id));
+			const replacement = path.slice(removedIndex + 1).find((pathEntry) => !removedIds.has(pathEntry.id));
+			firstKeptReplacements.set(candidate.id, replacement?.id ?? candidate.id);
+		}
+
+		const previousLeafId = this.leafId;
+		this.fileEntries = this.fileEntries
+			.filter((candidate) => candidate.type === "session" || !removedIds.has(candidate.id))
+			.map((candidate): FileEntry => {
+				if (candidate.type === "session") return candidate;
+				let next: SessionEntry = candidate;
+				const parentId = resolveSurvivingParent(candidate.parentId);
+				if (parentId !== candidate.parentId) {
+					next = { ...next, parentId } as SessionEntry;
+				}
+				const firstKeptEntryId = firstKeptReplacements.get(candidate.id);
+				if (next.type === "compaction" && firstKeptEntryId) {
+					next = { ...next, firstKeptEntryId };
+				}
+				if (next.type === "branch_summary" && removedIds.has(next.fromId)) {
+					next = { ...next, fromId: resolveSurvivingParent(next.fromId) ?? "root" };
+				}
+				return next;
+			});
+
+		this._buildIndex();
+		if (previousLeafId && !removedIds.has(previousLeafId) && this.byId.has(previousLeafId)) {
+			this.leafId = previousLeafId;
+		} else {
+			this.leafId = resolveSurvivingParent(previousLeafId);
+		}
+		this._rewriteFile();
+		this.flushed = true;
+		return { leafId: this.leafId };
+	}
+
+	/**
 	 * Get all direct children of an entry.
 	 * Pass `null` to list root entries (parentId === null).
 	 */
@@ -1340,8 +1406,8 @@ export class SessionManager {
 
 	/**
 	 * Get all session entries (excludes header). Returns a shallow copy.
-	 * The session is append-only: use appendXXX() to add entries, branch() to
-	 * change the leaf pointer. Entries cannot be modified or deleted.
+	 * Use appendXXX() to add entries and branch() to change the leaf pointer.
+	 * Message deletion is an explicit destructive exception handled by deleteMessage().
 	 */
 	getEntries(): SessionEntry[] {
 		return this.fileEntries.filter((e): e is SessionEntry => e.type !== "session");

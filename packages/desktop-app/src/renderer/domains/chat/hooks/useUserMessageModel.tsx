@@ -17,11 +17,12 @@ import { pathBasename, toVettaFileUrl } from "@shared/lib/utils";
 import {
 	SettingsAssistBadgeView,
 	SkillBadgeView,
+	type UserMessageContextMenuViewProps,
 	type UserMessageEntryState,
 	type UserMessageViewProps,
 } from "@vetta/theme-ui/chat";
 import { getDefaultStore, useAtomValue, useSetAtom } from "jotai";
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { fullHistoryToChat, parseUserPrefixes } from "../services/chat-service";
 import { AppshotCard, type AppshotCardData } from "../components/AppshotCard";
@@ -29,6 +30,12 @@ import { TextBlockView } from "../components/blocks/TextBlock";
 import { CopyButton, RelativeTimeLabel } from "../components/message-list/MessageActions";
 
 const USER_IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "ico"]);
+const DELETE_CONFIRMATION_SUPPRESSION_MS = 60_000;
+const CONTEXT_MENU_WIDTH = 170;
+const CONTEXT_MENU_HEIGHT = 112;
+const CONTEXT_MENU_VIEWPORT_GAP = 8;
+
+let deleteConfirmationSuppressedUntil = 0;
 
 const SETTINGS_ASSIST_TAB_IDS = [
 	"mcp",
@@ -150,7 +157,9 @@ export interface UserMessageModelInput {
 	onEntryComplete?: () => void;
 }
 
-export type UserMessageModel = UserMessageViewProps;
+export interface UserMessageModel extends UserMessageViewProps {
+	contextMenu: UserMessageContextMenuViewProps | null;
+}
 
 export function useUserMessageModel({
 	message,
@@ -191,12 +200,14 @@ export function useUserMessageModel({
 	const hasFileBadges = fileBadges.length > 0;
 	const copyText = displayText.trim();
 	const [actionsVisible, setActionsVisible] = useState(false);
+	const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null);
 	const setFilePreview = useSetAtom(filePreviewAtom);
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
 	const activeSession = useAtomValue(activeSessionAtom);
 	const pendingEdit = useAtomValue(pendingMessageEditAtom);
 
 	const canEdit = Boolean(message.entryId);
+	const canDelete = canEdit && Boolean(activeSession?.runtimeId);
 	const branch = message.branch;
 	const canSwitchBranch = Boolean(branch && branch.siblings.length > 1 && message.entryId);
 	const isPendingEdit = Boolean(pendingEdit && message.entryId && pendingEdit.entryId === message.entryId);
@@ -310,6 +321,85 @@ export function useUserMessageModel({
 		});
 	}, [activeSession?.cwd, activeSession?.runtimeId, message.entryId, runWithInterruptConfirm]);
 
+	const closeContextMenu = useCallback(() => setContextMenuPosition(null), []);
+
+	const handleOpenContextMenu = useCallback((event: MouseEvent<HTMLDivElement>) => {
+		event.preventDefault();
+		setContextMenuPosition({
+			x: Math.max(
+				CONTEXT_MENU_VIEWPORT_GAP,
+				Math.min(event.clientX, window.innerWidth - CONTEXT_MENU_WIDTH - CONTEXT_MENU_VIEWPORT_GAP),
+			),
+			y: Math.max(
+				CONTEXT_MENU_VIEWPORT_GAP,
+				Math.min(event.clientY, window.innerHeight - CONTEXT_MENU_HEIGHT - CONTEXT_MENU_VIEWPORT_GAP),
+			),
+		});
+	}, []);
+
+	const handleMenuEdit = useCallback(() => {
+		closeContextMenu();
+		handleEdit();
+	}, [closeContextMenu, handleEdit]);
+
+	const handleMenuCopy = useCallback(() => {
+		closeContextMenu();
+		if (!copyText) return;
+		void navigator.clipboard.writeText(copyText).catch((error) => {
+			console.warn("[useUserMessageModel] copy failed", error);
+		});
+	}, [closeContextMenu, copyText]);
+
+	const performDelete = useCallback(
+		async (suppressForOneMinute: boolean): Promise<void> => {
+			if (!message.entryId || !activeSession?.runtimeId) return;
+			const runtimeId = activeSession.runtimeId;
+			if (isStreaming) {
+				onAbortEdit?.();
+				await abortAndWait(runtimeId);
+			}
+			await window.vetta.session.deleteMessage(runtimeId, message.entryId);
+			if (suppressForOneMinute) {
+				deleteConfirmationSuppressedUntil = Date.now() + DELETE_CONFIRMATION_SUPPRESSION_MS;
+			}
+			if (pendingEdit?.entryId === message.entryId) {
+				getDefaultStore().set(pendingMessageEditAtom, null);
+			}
+			await reloadChatHistory(runtimeId);
+		},
+		[activeSession?.runtimeId, isStreaming, message.entryId, onAbortEdit, pendingEdit?.entryId],
+	);
+
+	const runDelete = useCallback(
+		(suppressForOneMinute: boolean) => {
+			void performDelete(suppressForOneMinute).catch((error) => {
+				console.error("[useUserMessageModel] delete failed:", error);
+			});
+		},
+		[performDelete],
+	);
+
+	const handleMenuDelete = useCallback(() => {
+		closeContextMenu();
+		if (!canDelete) return;
+		if (Date.now() < deleteConfirmationSuppressedUntil) {
+			runDelete(false);
+			return;
+		}
+		setConfirmDialog({
+			title: t("messageList.delete.title"),
+			message: t(isStreaming ? "messageList.delete.streamingBody" : "messageList.delete.body"),
+			confirmLabel: t("messageList.delete.confirm"),
+			cancelLabel: t("messageList.interrupt.cancel"),
+			checkbox: {
+				label: t("messageList.delete.suppressForOneMinute"),
+				checked: false,
+			},
+			variant: "danger",
+			onConfirm: runDelete,
+		});
+	}, [canDelete, closeContextMenu, isStreaming, runDelete, setConfirmDialog, t]);
+
 	const labels = {
 		expand: t("messageList.userMessage.expand"),
 		edit: t("messageList.editButton"),
@@ -395,6 +485,24 @@ export function useUserMessageModel({
 		hasFileBadges,
 		hasAppshot: Boolean(appshotData),
 		copyText,
+		contextMenu: contextMenuPosition
+			? {
+					canCopy: Boolean(copyText),
+					canDelete,
+					canEdit,
+					labels: {
+						copy: t("messageList.contextMenu.copy"),
+						delete: t("messageList.contextMenu.delete"),
+						edit: t("messageList.contextMenu.edit"),
+					},
+					onClose: closeContextMenu,
+					onCopy: handleMenuCopy,
+					onDelete: handleMenuDelete,
+					onEdit: handleMenuEdit,
+					x: contextMenuPosition.x,
+					y: contextMenuPosition.y,
+				}
+			: null,
 		isLastUserMessage,
 		canEdit,
 		canSwitchBranch,
@@ -417,6 +525,7 @@ export function useUserMessageModel({
 		relativeTime: message.timestamp ? <RelativeTimeLabel endedAt={message.timestamp} /> : null,
 		copyButton: <CopyButton getText={() => copyText} />,
 		onEntryComplete,
+		onContextMenu: handleOpenContextMenu,
 		onEdit: handleEdit,
 		onFork: handleFork,
 		onBranchPrev: () => handleSwitchBranch(-1),

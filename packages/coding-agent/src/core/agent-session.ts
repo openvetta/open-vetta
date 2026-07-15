@@ -862,6 +862,13 @@ export class AgentSession {
 		return this._nav.switchBranch(targetId);
 	}
 
+	/** Permanently delete one message while preserving and reparenting its descendants. */
+	deleteMessage(entryId: string): { leafId: string | null } {
+		const result = this.sessionManager.deleteMessage(entryId);
+		this.agent.replaceMessages(this.sessionManager.buildSessionContext().messages);
+		return result;
+	}
+
 	/**
 	 * Export a fork as a new session file without leaving the current session.
 	 * History is copied up to the parent of the selected user message.
