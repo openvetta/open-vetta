@@ -12,12 +12,16 @@ const ignoredDirectoryNames = new Set([".git", "dist", "node_modules"]);
 const packages = {
 	ai: { dir: "packages/ai", dependencies: [] },
 	"runtime-telemetry": { dir: "packages/runtime-telemetry", dependencies: [] },
+	"ecosystem-adapter": { dir: "packages/ecosystem-adapter", dependencies: [] },
 	"action-rpc": { dir: "packages/action-rpc", dependencies: [] },
 	toolkit: { dir: "packages/toolkit", dependencies: [] },
 	"plugin-sdk": { dir: "packages/plugins/plugin-sdk", dependencies: [] },
 	"plugin-vite": { dir: "packages/plugins/plugin-vite", dependencies: [] },
 	agent: { dir: "packages/agent", dependencies: ["ai", "runtime-telemetry"] },
-	"coding-agent": { dir: "packages/coding-agent", dependencies: ["agent", "ai", "runtime-telemetry"] },
+	"coding-agent": {
+		dir: "packages/coding-agent",
+		dependencies: ["agent", "ai", "runtime-telemetry", "ecosystem-adapter"],
+	},
 	"runtime-core": { dir: "packages/runtime-core", dependencies: ["coding-agent", "agent", "ai"] },
 	"runtime-tools": { dir: "packages/runtime-tools", dependencies: ["coding-agent"] },
 	"runtime-storage": { dir: "packages/runtime-storage", dependencies: ["coding-agent"] },
@@ -29,7 +33,15 @@ const packages = {
 };
 
 const layers = [
-	["ai", "runtime-telemetry", "action-rpc", "toolkit", "plugin-sdk", "plugin-vite"],
+	[
+		"ai",
+		"runtime-telemetry",
+		"ecosystem-adapter",
+		"action-rpc",
+		"toolkit",
+		"plugin-sdk",
+		"plugin-vite",
+	],
 	["agent"],
 	["coding-agent"],
 	["runtime-core", "runtime-tools", "runtime-storage", "runtime-mcp"],
