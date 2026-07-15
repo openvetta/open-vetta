@@ -1,5 +1,6 @@
 import type { PluginPermission } from "../../../preload/api-types/plugins.js";
 import { getAppLogger } from "../../logger.js";
+import { stopPluginDevWatch } from "../../plugins/plugin-dev-watch.js";
 import {
 	buildAgentPluginRuntimeConfig,
 	grantPluginPermissions,
@@ -133,6 +134,8 @@ function summarizePlugin(plugin: ReturnType<typeof listPlugins>[number]) {
 		source: plugin.source,
 		permissions: plugin.permissions,
 		description: plugin.description,
+		// dev 热更新状态：存在即该插件正从工程目录热加载（agent 据此跳过 install/reload）。
+		devWatch: plugin.devWatch,
 	};
 }
 
@@ -153,7 +156,8 @@ export function createPluginsActions(): ActionDefinition[] {
 				const request = input as unknown as PluginsQueryInput;
 				if (request.operation === "help") {
 					return toJsonValue({
-						guidance: "权限 grant/revoke 请在设置页完成；Action 支持启停、URL 安装、卸载、reload。",
+						guidance:
+							"权限 grant/revoke 请在设置页完成；Action 支持启停、URL 安装、卸载、reload。插件若已开启 dev 热更新（list/get 返回项含 devWatch），改工程源码即自动构建+重载，无需 install-from-path/reload。",
 						actions: [
 							{ id: "plugins.query", inputSchema: queryInputSchema, examples: queryExamples },
 							{ id: "plugins.manage", inputSchema: manageInputSchema, examples: manageExamples },
@@ -216,6 +220,8 @@ export function createPluginsActions(): ActionDefinition[] {
 				const request = input as unknown as PluginsManageInput;
 				return await runActionService(async () => {
 					if (request.operation === "set-enabled") {
+						// 禁用即停 dev 热更新（与 IPC 路径一致），避免 vite watch 空转+反复触发全表重载。
+						if (!request.enabled) stopPluginDevWatch(request.id);
 						const plugin = setPluginEnabled(request.id, request.enabled);
 						refreshAgentPlugins();
 						return { operation: "set-enabled", plugin: summarizePlugin(plugin) };
@@ -241,6 +247,8 @@ export function createPluginsActions(): ActionDefinition[] {
 						return { operation: "install-from-path", plugin: summarizePlugin(enabled) };
 					}
 					if (request.operation === "uninstall") {
+						// 卸载前停 dev 热更新子进程（IPC 路径已同样处理；此处覆盖 Action 路径）。
+						stopPluginDevWatch(request.id);
 						uninstallPlugin(request.id);
 						refreshAgentPlugins();
 						return { operation: "uninstall", id: request.id };

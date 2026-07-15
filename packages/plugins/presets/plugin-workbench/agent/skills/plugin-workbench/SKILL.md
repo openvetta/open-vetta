@@ -126,6 +126,13 @@ node "{workbenchRoot}/scripts/check-manifest.mjs" "{pluginRoot}"
 - [ ] 用户工程无 `workspace:*`  
 - [ ] i18n：若要宿主渲染中文 label，按手册用 catalog / `%key%`（desktop 用户文案规范）  
 
+### 4.3.5 热更新感知（改已装插件前必查）
+
+改一个**已安装**的插件前，先 `plugins.query` → `get {id}` 看返回项有没有 `devWatch` 字段：
+
+- **`devWatch` 存在（热更新已开启）**：改完工程源码即结束——宿主的 `vite build --watch` 会自动构建、自动重载。**禁止**再走 4.4 build-and-pack、4.5 install-from-path 或 reload（多余且会打断用户，弹无意义的确认）。例外：改了 `permissions` / 新增 `commands` 等需要重新授权的声明时，仍需走 4.4→4.5 重新应用。若 `devWatch.status === "error"`，提示用户到面板看错误详情。
+- **`devWatch` 不存在**：走 4.4→4.5 常规流程（install-from-path 会请求用户确认）。
+
 ### 4.4 构建打包（强制脚本）
 
 ```bash
