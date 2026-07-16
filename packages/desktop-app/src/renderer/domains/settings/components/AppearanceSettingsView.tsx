@@ -231,8 +231,8 @@ function UiThemeCard({
 			onClick={onSelect}
 			className={cn(
 				// overflow-hidden 放在内层，避免裁切 active 的 ring-offset 间隙
-				"group relative rounded-xl bg-card/40 text-left transition-all",
-				active ? SELECTION_ACTIVE_RING : cn(SELECTION_IDLE_RING, "hover:bg-card/60"),
+				"group relative rounded-xl bg-card text-left transition-all",
+				active ? SELECTION_ACTIVE_RING : cn(SELECTION_IDLE_RING, "hover:bg-accent/40"),
 				disabled && "cursor-not-allowed",
 			)}
 		>

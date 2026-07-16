@@ -29,6 +29,9 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **侧边栏 Claw badge**：背景改为 `bg-secondary`，文字与状态点改为 `text-secondary-foreground`。
+- **设置页 item 背景统一 `bg-card`**：`SettingSection` 容器及 MCP / IM / 插件 / 外观 / 宠物等列表卡片由 `bg-muted`（或半透明变体）改为 `bg-card`。
+- **Agent 设置人设 / 自定义指令背景**：人设下拉触发器与自定义指令 textarea 改为 `bg-card`。
 - **设置 → 外观选中态统一**：外观模式 / UI 主题 / 鼠标指针的 active 样式与「默认主题色」卡片一致（`ring-2 ring-primary ring-offset-2` + 右上角 check badge）。
 - **「默认」主题浅色偏冷**：浅色表面由米黄纸面改为冷灰石色（`#f0f1f2` 等），降低黄调；主色与深色不变。
 - **「默认」主题换新色板**：原暖砂默认下线；由迭代中的「测试」色板接替（id 仍为 `sand`，label「默认」）。主题色 `#f76f53`；旧 id `test` 迁移到 `sand`。
