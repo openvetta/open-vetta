@@ -2,8 +2,6 @@
 	"activityPanel": {
 		"tabs": {
 			"file": "Files",
-			"journey": "Journey",
-			"chat": "Chat",
 			"batchProgress": "Progress",
 			"todo": "Todo",
 			"backgroundTasks": "Background tasks",
@@ -23,10 +21,6 @@
 		},
 		"batchProgress": {
 			"notFound": "Batch project not found"
-		},
-		"chatTab": {
-			"loading": "Loading…",
-			"notFlowing": "This project is not a flowing project and has no chat room"
 		},
 		"debug": {
 			"toolCalls": "Tool calls",
@@ -77,39 +71,6 @@
 			"enable": "Enable",
 			"executionRecords": "Execution records",
 			"noRecords": "No execution records"
-		},
-		"journey": {
-			"statusPending": "Pending",
-			"statusInProgress": "In progress",
-			"statusCompleted": "Completed",
-			"statusReturned": "Returned",
-			"transferPending": "Pending",
-			"transferAccepted": "Accepted",
-			"transferRejected": "Rejected",
-			"member": "Member {{id}}",
-			"loadFailed": "Failed to load journey",
-			"notWorkflow": "This project is not a workflow project",
-			"empty": "No workflow journey yet",
-			"badge": "Journey",
-			"stageCount": "Stages {{completed}}/{{total}}",
-			"transferCount": "Transfers {{count}}",
-			"noSubtitle": "No subtitle",
-			"subtitlePrefix": "Subtitle: {{subtitle}}",
-			"memberLabel": "Member:",
-			"noMembers": "No assigned members",
-			"enteredAt": "Entered at",
-			"completedAt": "Completed at",
-			"stageOutputFiles": "Stage output files",
-			"transferMessageEmpty": "None",
-			"collapseDetails": "Collapse",
-			"expandDetails": "Expand",
-			"senderReceiver": "Sender → Receiver",
-			"sentAt": "Sent at {{time}}",
-			"subtitle": "Subtitle",
-			"attachedMessage": "Attached message",
-			"attachedFiles": "Attached files",
-			"none": "None",
-			"noTransfers": "No transfer records"
 		},
 		"htmlPreview": {
 			"preview": "Preview",
@@ -196,9 +157,6 @@
 		"defaultSessionName": "Vetta Session"
 	},
 	"chatView": {
-		"completeButton": {
-			"label": "Done"
-		},
 		"defaultSessionTitle": "Vetta Session",
 		"exportButton": {
 			"title": "Export full session as HTML"

@@ -1,4 +1,6 @@
 import { PluginCardView } from "@vetta/theme-ui/skills";
+import { confirmDialogAtom } from "@shared/store/atoms";
+import { useAtomValue } from "jotai";
 import { motion } from "motion/react";
 import {
 	Drawer,
@@ -18,6 +20,8 @@ const easeOut = [0.22, 1, 0.36, 1] as const;
 export function PluginsPanelView({ model }: { model: PluginsPanelModel }): JSX.Element {
 	const tr = usePluginI18n();
 	const { t } = useTranslation("skills");
+	// ConfirmDialog 叠在 Drawer 上时，outside 交互会先关掉 sheet；确认中忽略 dismiss。
+	const confirmOpen = useAtomValue(confirmDialogAtom) !== null;
 	const {
 		fileInputRef,
 		token,
@@ -147,10 +151,20 @@ export function PluginsPanelView({ model }: { model: PluginsPanelModel }): JSX.E
 				direction="right"
 				open={selected !== null}
 				onOpenChange={(open) => {
+					// 确认框打开时忽略 dismiss，避免点 dialog 按钮时 sheet 先关、按钮需再点一次
+					if (!open && confirmOpen) return;
 					if (!open) setSelectedId(null);
 				}}
 			>
-				<DrawerContent className="border-l-0 sm:max-w-md">
+				<DrawerContent
+					className="border-l-0 sm:max-w-md"
+					onPointerDownOutside={(event) => {
+						if (confirmOpen) event.preventDefault();
+					}}
+					onInteractOutside={(event) => {
+						if (confirmOpen) event.preventDefault();
+					}}
+				>
 					{selected && (
 						<>
 							<DrawerHeader className="border-b border-border">

@@ -1,6 +1,6 @@
 import type { DefaultConversationFilter, SidebarFilter } from "@shared/store/atoms";
 
-export type ProjectFilterLabelKey = "filterTabs.all" | "filterTabs.normal" | "filterTabs.batch" | "filterTabs.flowing";
+export type ProjectFilterLabelKey = "filterTabs.all" | "filterTabs.normal" | "filterTabs.batch";
 
 export type DefaultConversationFilterLabelKey = "filterTabs.conversation" | "filterTabs.claw";
 

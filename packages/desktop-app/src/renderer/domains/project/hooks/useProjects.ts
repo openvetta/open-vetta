@@ -99,13 +99,10 @@ export function useProjects() {
 		// Read meta.json for each project in parallel to determine type
 		const metaResults = await Promise.all(
 			entries.map(async (entry) => {
-				const meta = await window.vetta.flowing.readMeta(entry.cwd);
+				const meta = await window.vetta.project.readMeta(entry.cwd);
 				const rawType = meta?.type as string | undefined;
-				const type: ProjectType = rawType === "flowing" || rawType === "batch" ? rawType : "normal";
-				const workflowInstanceId =
-					typeof meta?.workflowInstanceId === "number" ? (meta.workflowInstanceId as number) : undefined;
-				const flowingId = typeof meta?.flowingId === "number" ? (meta.flowingId as number) : undefined;
-				return { ...entry, type, workflowInstanceId, flowingId };
+				const type: ProjectType = rawType === "batch" ? rawType : "normal";
+				return { ...entry, type };
 			}),
 		);
 

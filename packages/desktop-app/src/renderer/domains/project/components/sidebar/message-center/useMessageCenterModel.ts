@@ -1,4 +1,4 @@
-import { flowingChatTotalUnreadAtom, flowingPendingCountAtom, notificationUnreadAtom } from "@shared/store/atoms";
+import { notificationUnreadAtom } from "@shared/store/atoms";
 import { useAtomValue } from "jotai";
 import { useState } from "react";
 import type { MessageCenterTab } from "./types";
@@ -16,18 +16,16 @@ export function useMessageCenterModel(): {
 } {
 	const [open, setOpen] = useState(false);
 	const [activeTab, setActiveTab] = useState<MessageCenterTab>("all");
-	const pendingCount = useAtomValue(flowingPendingCountAtom);
-	const chatUnread = useAtomValue(flowingChatTotalUnreadAtom);
 	const notifUnread = useAtomValue(notificationUnreadAtom);
-	const totalUnread = pendingCount + chatUnread + notifUnread;
+	const totalUnread = notifUnread;
 
 	return {
 		activeTab,
-		chatUnread,
+		chatUnread: 0,
 		close: () => setOpen(false),
 		notifUnread,
 		open,
-		pendingCount,
+		pendingCount: 0,
 		setActiveTab,
 		setOpen,
 		totalUnread,

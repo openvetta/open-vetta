@@ -8,6 +8,5 @@ export const VIRTUAL_SESSION_OVERSCAN = 120;
 
 export const PROJECT_TYPE_ICONS: Record<ProjectType, string> = {
 	normal: "icon-[solar--folder-linear]",
-	flowing: "icon-[solar--transfer-horizontal-linear]",
 	batch: "icon-[solar--layers-minimalistic-linear]",
 };

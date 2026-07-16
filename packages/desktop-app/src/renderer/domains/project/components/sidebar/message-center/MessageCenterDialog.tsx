@@ -40,15 +40,7 @@ export function MessageCenterDialog({
 					onSelect={onSelectTab}
 				/>
 			}
-			content={
-				<MessageCenterContent
-					activeTab={activeTab}
-					chatUnread={chatUnread}
-					notifUnread={notifUnread}
-					pendingCount={pendingCount}
-					onClose={onClose}
-				/>
-			}
+			content={<MessageCenterContent activeTab={activeTab} notifUnread={notifUnread} />}
 		/>
 	);
 }

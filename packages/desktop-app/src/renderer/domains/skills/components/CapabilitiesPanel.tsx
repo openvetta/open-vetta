@@ -20,6 +20,7 @@ export interface CapabilitiesPanelHandle {
 interface CapabilitiesPanelProps {
 	skills: MergedSkill[];
 	searchQuery: string;
+	onSearchChange: (query: string) => void;
 	skillLoading: boolean;
 	skillError: string | null;
 	actionStates: Record<string, ActionState>;
@@ -57,17 +58,15 @@ export const CapabilitiesPanel = forwardRef<CapabilitiesPanelHandle, Capabilitie
 					className="flex flex-col gap-4"
 				>
 					<div className="flex flex-wrap items-center justify-between gap-3">
-						<div className="min-w-0">
-							<h2 className="text-[15px] font-semibold text-foreground">
-								{model.scope === "discover"
-									? t("capabilities.scope.discoverTitle")
-									: t("capabilities.scope.mineTitle")}
-							</h2>
-							<p className="mt-0.5 text-[11px] text-muted-foreground/70">
-								{model.scope === "discover"
-									? t("capabilities.scope.discoverHint")
-									: t("capabilities.scope.mineHint")}
-							</p>
+						<div className="relative w-56 shrink-0">
+							<span className="icon-[solar--magnifer-linear] absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/40" />
+							<input
+								type="text"
+								placeholder={t("search.placeholder", { noun: t("typeNoun.capability") })}
+								value={props.searchQuery}
+								onChange={(event) => props.onSearchChange(event.target.value)}
+								className="h-8 w-full rounded-lg bg-secondary pl-8 pr-3 text-[12px] text-foreground placeholder:text-muted-foreground/40 transition-colors hover:bg-accent focus:bg-accent focus:outline-none focus:ring-1 focus:ring-primary/30"
+							/>
 						</div>
 						<div className="flex items-center gap-2">
 							<Button
@@ -123,9 +122,9 @@ export const CapabilitiesPanel = forwardRef<CapabilitiesPanelHandle, Capabilitie
 							</div>
 						</div>
 					) : (
-						<div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-3">
+						<div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
 							{model.items.map((item) => (
-								<CapabilityCard key={item.id} item={item} scope={model.scope} model={model} />
+								<CapabilityCard key={item.id} item={item} model={model} />
 							))}
 						</div>
 					)}

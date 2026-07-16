@@ -7,9 +7,6 @@ export interface ChatHeaderActionsViewProps {
 	readonly exportDisabled: boolean;
 	readonly exporting: boolean;
 	readonly onOpenExport: () => void;
-	readonly isLastStage: boolean;
-	readonly completeLabel: string;
-	readonly onOpenWorkflowComplete: () => void;
 	readonly pinTitle: string;
 	readonly pinned: boolean;
 	readonly onTogglePin: () => void;
@@ -24,9 +21,6 @@ export function ChatHeaderActionsView({
 	exportDisabled,
 	exporting,
 	onOpenExport,
-	isLastStage,
-	completeLabel,
-	onOpenWorkflowComplete,
 	pinTitle,
 	pinned,
 	onTogglePin,
@@ -46,16 +40,6 @@ export function ChatHeaderActionsView({
 					}
 				/>
 			</Button>
-			{isLastStage ? (
-				<Button
-					size="sm"
-					className="rounded-full bg-emerald-600 hover:bg-emerald-700"
-					onClick={onOpenWorkflowComplete}
-				>
-					<span className="icon-[solar--check-circle-linear] text-[14px]" />
-					<span>{completeLabel}</span>
-				</Button>
-			) : null}
 			<Button
 				size="icon-xs"
 				variant="ghost"

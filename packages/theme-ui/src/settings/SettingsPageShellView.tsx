@@ -24,7 +24,7 @@ export function SettingsPageShellView({
 }: SettingsPageShellViewProps): JSX.Element {
 	if (loading) {
 		return (
-			<div className="mx-auto w-full max-w-[680px] px-8 py-4">
+			<div className="mx-auto w-full max-w-[680px] px-8 pt-2 pb-4">
 				{description ? (
 					<>
 						<h1 className="mb-2 text-[20px] font-bold text-foreground">{title}</h1>
@@ -41,7 +41,7 @@ export function SettingsPageShellView({
 	}
 
 	return (
-		<div className={`mx-auto w-full max-w-[680px] px-8 py-4${pb ? " pb-10" : ""}`}>
+		<div className={`mx-auto w-full max-w-[680px] px-8 pt-2 pb-4${pb ? " pb-10" : ""}`}>
 			<div className={description || headerAction ? "mb-6" : "mb-6"}>
 				<div
 					className={

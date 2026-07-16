@@ -16,7 +16,6 @@ import {
 	browserUrlBySessionAtom,
 	currentScenarioAtom,
 	debugModeAtom,
-	flowingChatUnreadAtom,
 	getBackgroundTasksForSession,
 	getBrowserUrlForSession,
 	getTodoItemsForSession,
@@ -70,8 +69,6 @@ export function useActivityPanelModel({
 	const prevSidebarCollapsedRef = useRef(sidebarCollapsed);
 	const cwd = cwdProp ?? activeSession?.cwd ?? null;
 	const { profile } = useProjectProfile(cwd);
-	const unreadMap = useAtomValue(flowingChatUnreadAtom);
-	const chatUnread = profile?.flowingId != null ? (unreadMap.get(profile.flowingId) ?? 0) : 0;
 	const todoMap = useAtomValue(todoItemsBySessionAtom);
 	const todoItems = useMemo(
 		() => getTodoItemsForSession(todoMap, activeSession?.runtimeId ?? null),
@@ -164,7 +161,6 @@ export function useActivityPanelModel({
 			key: tab.key,
 			label: t(tab.label),
 			icon: tab.icon,
-			badge: tab.key === "chat" ? chatUnread : undefined,
 			removable: !NON_HIDEABLE_TABS.has(tab.key),
 		}));
 		base.push({
@@ -210,7 +206,7 @@ export function useActivityPanelModel({
 			});
 		}
 		return base;
-	}, [knowledgeHistory, profile, chatUnread, todoItems, backgroundTasks, debugMode, pluginTabContribs, trPlugin, t]);
+	}, [knowledgeHistory, profile, todoItems, backgroundTasks, debugMode, pluginTabContribs, trPlugin, t]);
 	const tabItems = useMemo(
 		() =>
 			applyTabOrder(

@@ -6,6 +6,7 @@ import { SessionViewerPage } from "./domains/chat/components/SessionViewerPage";
 import { AutomationPage } from "./domains/scheduler/components/AutomationPage";
 import { BatchTasksPage } from "./domains/batch-tasks/components/BatchTasksPage";
 import { SkillsPage } from "./domains/skills/components/SkillsPage";
+import { ScenesPage } from "./domains/skills/components/ScenesPage";
 import { PluginsPage } from "./domains/skills/components/PluginsPage";
 import { SettingsPage } from "./domains/settings/components/SettingsPage";
 import { ProjectDetailPage } from "./domains/project/components/ProjectDetailPage";
@@ -42,7 +43,7 @@ const skillsRoute = createRoute({
 	path: "/skills",
 	component: SkillsPage,
 	validateSearch: (search: Record<string, unknown>) => {
-		// skill / connector 为历史深链，页面内统一映射到 capability；plugin 会重定向。
+		// skill / connector 为历史深链，页面内统一映射到 capability；plugin / scene 会重定向。
 		const tab =
 			search.tab === "scene" ||
 			search.tab === "capability" ||
@@ -59,6 +60,12 @@ const skillsRoute = createRoute({
 			...(nav ? { nav } : {}),
 		};
 	},
+});
+
+const scenesRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: "/scenes",
+	component: ScenesPage,
 });
 
 const pluginsRoute = createRoute({
@@ -132,6 +139,7 @@ const routeTree = rootRoute.addChildren([
 	knowledgeRoute,
 	knowledgeListRoute,
 	skillsRoute,
+	scenesRoute,
 	pluginsRoute,
 	settingsTabRoute,
 	projectDetailRoute,

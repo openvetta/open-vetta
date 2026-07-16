@@ -7,8 +7,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
  */
 export type ActivityTabKey =
 	| "file"
-	| "journey"
-	| "chat"
 	| "batch-progress"
 	| "schedule-records"
 	| "todo"
@@ -19,11 +17,7 @@ export type ActivityTabKey =
 	| `plugin:${string}`;
 
 /** 内置 tab 的 i18n key（chat 命名空间）——模块级常量只存 key，渲染期解析。 */
-export type ActivityTabLabelKey =
-	| "activityPanel.tabs.file"
-	| "activityPanel.tabs.journey"
-	| "activityPanel.tabs.chat"
-	| "activityPanel.tabs.batchProgress";
+export type ActivityTabLabelKey = "activityPanel.tabs.file" | "activityPanel.tabs.batchProgress";
 
 export interface ActivityTabConfig {
 	key: ActivityTabKey;
@@ -43,12 +37,6 @@ export interface ProjectProfile {
 	cwd: string;
 	/** 项目类型 */
 	type: ProjectType;
-	/** 是否为工作流项目（建立在 flowing 之上） */
-	isWorkflow: boolean;
-	/** 工作流实例 ID（若存在） */
-	workflowInstanceId: string | null;
-	/** 流转 ID（若存在） */
-	flowingId: number | null;
 	/** 原始 meta.json 内容（仅用于兜底，业务尽量不直接读） */
 	rawMeta: Record<string, unknown> | null;
 	/** 该项目的活动面板 tab 列表 */
@@ -63,75 +51,30 @@ const TAB_FILE: ActivityTabConfig = {
 	label: "activityPanel.tabs.file",
 	icon: "icon-[mdi--file-document-outline]",
 };
-const TAB_JOURNEY: ActivityTabConfig = {
-	key: "journey",
-	label: "activityPanel.tabs.journey",
-	icon: "icon-[mdi--timeline-outline]",
-};
-const TAB_CHAT: ActivityTabConfig = {
-	key: "chat",
-	label: "activityPanel.tabs.chat",
-	icon: "icon-[mdi--message-text-outline]",
-};
 const TAB_BATCH_PROGRESS: ActivityTabConfig = {
 	key: "batch-progress",
 	label: "activityPanel.tabs.batchProgress",
 	icon: "icon-[mdi--progress-clock]",
 };
 /**
- * 根据 meta 推断项目类型与是否工作流。
+ * 根据 meta 推断项目类型。
  * 规则：
- * - meta.type === "flowing" 且 meta.workflowInstanceId 存在 → 工作流项目
- * - meta.type 为 "flowing" / "batch" → 对应类型
+ * - meta.type === "batch" → 批量项目
  * - 其他 → "normal"
  */
-function deriveType(meta: Record<string, unknown> | null): {
-	type: ProjectType;
-	isWorkflow: boolean;
-	workflowInstanceId: string | null;
-	flowingId: number | null;
-} {
+function deriveType(meta: Record<string, unknown> | null): { type: ProjectType } {
 	const rawType = typeof meta?.type === "string" ? (meta.type as string) : null;
-	const workflowInstanceIdRaw = meta?.workflowInstanceId;
-	const workflowInstanceId =
-		typeof workflowInstanceIdRaw === "string" || typeof workflowInstanceIdRaw === "number"
-			? String(workflowInstanceIdRaw)
-			: null;
-	const flowingIdRaw = meta?.flowingId;
-	const flowingId = typeof flowingIdRaw === "number" ? flowingIdRaw : null;
-
-	let type: ProjectType;
-	switch (rawType) {
-		case "flowing":
-		case "batch":
-			type = rawType;
-			break;
-		default:
-			type = "normal";
-	}
-
-	const isWorkflow = type === "flowing" && workflowInstanceId !== null;
-	return { type, isWorkflow, workflowInstanceId, flowingId };
+	return { type: rawType === "batch" ? "batch" : "normal" };
 }
 
 /**
- * 根据项目类型 / 是否工作流 计算活动面板 tab 配置。
+ * 根据项目类型计算活动面板 tab 配置。
  * 这是项目类型差异化配置的"中央调度点"，未来要按项目类型加 tab 在这里加。
  */
-function buildActivityTabs(
-	type: ProjectType,
-	isWorkflow: boolean,
-): {
+function buildActivityTabs(type: ProjectType): {
 	tabs: ActivityTabConfig[];
 	defaultTab: ActivityTabKey;
 } {
-	if (isWorkflow) {
-		return {
-			tabs: [TAB_FILE, TAB_JOURNEY, TAB_CHAT],
-			defaultTab: "journey",
-		};
-	}
-
 	if (type === "batch") {
 		return {
 			tabs: [TAB_FILE, TAB_BATCH_PROGRESS],
@@ -139,7 +82,7 @@ function buildActivityTabs(
 		};
 	}
 
-	// 非工作流项目（普通 / 流转）只展示文件 tab
+	// 普通项目只展示文件 tab
 	return {
 		tabs: [TAB_FILE],
 		defaultTab: "file",
@@ -147,14 +90,11 @@ function buildActivityTabs(
 }
 
 function buildProfile(cwd: string, meta: Record<string, unknown> | null): ProjectProfile {
-	const { type, isWorkflow, workflowInstanceId, flowingId } = deriveType(meta);
-	const { tabs, defaultTab } = buildActivityTabs(type, isWorkflow);
+	const { type } = deriveType(meta);
+	const { tabs, defaultTab } = buildActivityTabs(type);
 	return {
 		cwd,
 		type,
-		isWorkflow,
-		workflowInstanceId,
-		flowingId,
 		rawMeta: meta,
 		activityTabs: tabs,
 		defaultActivityTab: defaultTab,
@@ -170,7 +110,7 @@ function buildProfile(cwd: string, meta: Record<string, unknown> | null): Projec
 export async function getProjectProfile(cwd: string): Promise<ProjectProfile> {
 	let meta: Record<string, unknown> | null = null;
 	try {
-		meta = await window.vetta.flowing.readMeta(cwd);
+		meta = await window.vetta.project.readMeta(cwd);
 	} catch {
 		meta = null;
 	}

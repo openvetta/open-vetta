@@ -2,16 +2,13 @@ import { isSubPath, pathBasename } from "@shared/lib/utils";
 import { atom } from "jotai";
 import { SCHEDULE_SESSION_MARKER } from "../../../shared/scheduled-session";
 
-export type ProjectType = "normal" | "flowing" | "batch";
+export type ProjectType = "normal" | "batch";
 
 export interface Project {
 	cwd: string;
 	name?: string;
 	sessionCount: number;
 	type: ProjectType;
-	workflowInstanceId?: number;
-	/** 流转项目对应的 flowing id（来自 meta.json） */
-	flowingId?: number;
 	/** 是否为默认「对话」项目（运行时虚拟注入，不写入 config.projects）。 */
 	isDefault?: boolean;
 }
@@ -95,7 +92,7 @@ export function isImSession(session: Pick<SessionInfo, "cwd">, imCwd: string): b
 	return imCwd !== "" && session.cwd === imCwd;
 }
 
-export type SidebarFilter = "all" | "normal" | "batch" | "flowing";
+export type SidebarFilter = "all" | "normal" | "batch";
 
 export const projectsAtom = atom<Project[]>([]);
 export const expandedProjectsAtom = atom<Set<string>>(new Set<string>());

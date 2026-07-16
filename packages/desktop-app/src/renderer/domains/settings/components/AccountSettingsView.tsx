@@ -53,14 +53,14 @@ export function AccountSettingsView({ model }: AccountSettingsViewProps): JSX.El
 
 	if (!model.user) {
 		return (
-			<div className="mx-auto w-full max-w-[680px] px-8 py-10">
+			<div className="mx-auto w-full max-w-[680px] px-8 pt-2 pb-10">
 				<p className="text-[13px] text-muted-foreground">{model.labels.pleaseLogin}</p>
 			</div>
 		);
 	}
 
 	return (
-		<div className="mx-auto w-full max-w-[680px] px-8 py-6">
+		<div className="mx-auto w-full max-w-[680px] px-8 pt-2 pb-6">
 			<motion.div
 				className="mb-8 flex items-center gap-5"
 				initial={{ opacity: 0, y: 10 }}
