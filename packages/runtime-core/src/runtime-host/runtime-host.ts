@@ -167,20 +167,9 @@ export class RuntimeHost implements SessionFacade {
 				debugPluginAgent("runtime reconfigure skip: plugins disabled", { sessionId });
 				continue;
 			}
-			if (handle.session.isStreaming || handle.session.isBashRunning) {
-				handle.pendingAgentPlugins = agentPlugins;
-				handle.hasPendingAgentPlugins = true;
-				debugPluginAgent("runtime reconfigure deferred: session busy", {
-					sessionId,
-					isStreaming: handle.session.isStreaming,
-					isBashRunning: handle.session.isBashRunning,
-				});
-				continue;
-			}
-			debugPluginAgent("runtime reconfigure apply", { sessionId });
-			handle.session.reconfigureAgentPlugins(agentPlugins);
-			handle.pendingAgentPlugins = undefined;
-			handle.hasPendingAgentPlugins = false;
+			handle.pendingAgentPlugins = agentPlugins;
+			handle.hasPendingAgentPlugins = true;
+			debugPluginAgent("runtime reconfigure deferred until prompt", { sessionId });
 		}
 	}
 
@@ -281,8 +270,10 @@ export class RuntimeHost implements SessionFacade {
 				if (config.executionMode !== undefined && config.executionMode !== existing.handle.executionMode) {
 					await this.setExecutionMode(existing.sessionId, config.executionMode);
 				}
-				if (config.enableAgentPlugins === true) {
+				if (config.enableAgentPlugins === true && !existing.handle.agentPluginsEnabled) {
 					existing.handle.agentPluginsEnabled = true;
+					existing.handle.pendingAgentPlugins = config.agentPlugins;
+					existing.handle.hasPendingAgentPlugins = true;
 				}
 				await existing.handle.session.bindExtensions({
 					uiContext: this.createExtensionUIContext({ current: existing.sessionId }),
@@ -495,7 +486,7 @@ export class RuntimeHost implements SessionFacade {
 
 	async prompt(sessionId: string, request: PromptRequest): Promise<void> {
 		const handle = this.requireSession(sessionId);
-		this.applyPendingAgentPlugins(sessionId, handle);
+		await this.applyPendingAgentPlugins(sessionId, handle);
 
 		// Ensure the session model matches the requested model BEFORE prompting,
 		// so the model actually used is always the one the UI displays.
@@ -583,7 +574,7 @@ export class RuntimeHost implements SessionFacade {
 
 	async continue(sessionId: string): Promise<void> {
 		const handle = this.requireSession(sessionId);
-		this.applyPendingAgentPlugins(sessionId, handle);
+		await this.applyPendingAgentPlugins(sessionId, handle);
 		await handle.session.agent.continue();
 	}
 
@@ -1056,13 +1047,22 @@ export class RuntimeHost implements SessionFacade {
 		return handle;
 	}
 
-	private applyPendingAgentPlugins(sessionId: string, handle: SessionHandle): void {
+	private async applyPendingAgentPlugins(sessionId: string, handle: SessionHandle): Promise<void> {
 		if (!handle.agentPluginsEnabled || !handle.hasPendingAgentPlugins) return;
 		if (handle.session.isStreaming || handle.session.isBashRunning) return;
 		debugPluginAgent("runtime deferred reconfigure apply", { sessionId });
-		handle.session.reconfigureAgentPlugins(handle.pendingAgentPlugins);
+		const pendingAgentPlugins = handle.pendingAgentPlugins;
 		handle.pendingAgentPlugins = undefined;
 		handle.hasPendingAgentPlugins = false;
+		try {
+			await handle.session.reconfigureAgentPlugins(pendingAgentPlugins);
+		} catch (error) {
+			if (!handle.hasPendingAgentPlugins) {
+				handle.pendingAgentPlugins = pendingAgentPlugins;
+				handle.hasPendingAgentPlugins = true;
+			}
+			throw error;
+		}
 	}
 
 	private assertCanSwitchExecutionMode(handle: SessionHandle): void {

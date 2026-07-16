@@ -760,14 +760,6 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			: config;
 		const result = await runtime.createSession(effectiveConfig);
 		monitorRuntimeSession(runtime, result.sessionId, "interactive");
-		if (isConversation) {
-			const refreshedAgentPlugins = buildAgentPluginRuntimeConfig();
-			pluginLog.debug("session create post-reconfigure", {
-				sessionId: result.sessionId,
-				...summarizeAgentPluginRuntimeConfig(refreshedAgentPlugins),
-			});
-			runtime.reconfigureAgentPlugins(refreshedAgentPlugins);
-		}
 		if (effectiveCwd) {
 			sessionCwdMap.set(result.sessionId, effectiveCwd);
 		}

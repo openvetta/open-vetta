@@ -296,8 +296,16 @@ export class DefaultResourceLoader implements ResourceLoader {
 	 * Used when agent plugins reconfigure (skillPathContributions change).
 	 */
 	setAdditionalSkillPaths(paths: string[]): void {
-		const previous = new Set(this.additionalSkillPaths.map((p) => resolve(p)));
-		this.additionalSkillPaths = [...paths];
+		const previousPaths = this.mergePaths([], this.additionalSkillPaths);
+		const nextPaths = this.mergePaths([], paths);
+		if (
+			previousPaths.length === nextPaths.length &&
+			previousPaths.every((path, index) => path === nextPaths[index])
+		) {
+			return;
+		}
+		const previous = new Set(previousPaths);
+		this.additionalSkillPaths = nextPaths;
 		// Drop previous additional paths, keep non-additional lastSkillPaths as base.
 		const basePaths = this.lastSkillPaths.filter((p) => !previous.has(resolve(p)));
 		this.lastSkillPaths = this.mergePaths(basePaths, this.additionalSkillPaths);
