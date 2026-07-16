@@ -52,6 +52,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **插件详情卸载确认二次点击**：Sheet（Vaul Drawer）打开时确认框首次点击会关掉 sheet、需再点一次才生效。根因是 modal drawer 把 body 设为 `pointer-events: none`，portaled ConfirmDialog 未恢复点击；现为 ConfirmDialog 加 `pointer-events-auto`，并在确认框打开时阻止 drawer outside dismiss。
 - **Claw / 自动化 / 批量任务卡片网格固定横排**：设置页 Claw 消息渠道、自动化任务列表、批量任务卡片不再随容器/视口宽度在单列与多列间切换，分别固定为 2 列与 3 列横排。
 - **问答面板多题主按钮**：多问题未到最后一题时底部主按钮显示「下一步」（当前题已答即可点），最后一题才显示「提交」；避免未答完全部问题时一直看到置灰的「提交」。
 - **插件热更新偶发要手点「重载 / 重新安装」**：根因 (1) 仅靠 dist 顶层 `fs.watch`，部分环境下丢事件或半截写盘即触发，未读 vite 成功日志（stdout 还被直接 discard）；(2) dev overlay 不带 permissions/commands/settingsSchema，改声明像没生效。现以 vite「built in …ms」为主触发、dist 与 `plugin.json` 监听为辅；dev 会话内声明权限/命令自动放行（仅内存，不落注册表），关热更新仍回落安装态。
