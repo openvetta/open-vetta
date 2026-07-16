@@ -14,7 +14,7 @@ interface ProjectGroupProps {
 	onCollapse: (cwd: string) => void;
 	onNavigateProject: (cwd: string) => void;
 	onNewSession: (cwd: string) => void;
-	onProjectInteract: () => boolean;
+	onProjectInteract: () => boolean | Promise<void>;
 	onSelectSession: (cwd: string, sessionPath: string) => void;
 	onRenameSession: (cwd: string, sessionPath: string, name: string) => void;
 }
@@ -62,6 +62,7 @@ export const ProjectGroup = memo(function ProjectGroup(props: ProjectGroupProps)
 						running={session.running}
 						scheduled={session.scheduled}
 						timeLabel={session.timeLabel}
+						onBeforeSelect={props.onProjectInteract}
 						onOpenContextMenu={(event) =>
 							model.actions.openSessionContextMenu(event, session.session)
 						}

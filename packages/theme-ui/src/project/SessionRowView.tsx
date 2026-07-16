@@ -5,6 +5,7 @@ import { SessionRenameInputView } from "./SessionRenameInputView";
 import {
 	prepareSidebarSelection,
 	runAfterSidebarSelection,
+	type SidebarSelectionWait,
 } from "./useActiveSessionAutoScroll";
 
 export interface SessionRowViewProps {
@@ -14,6 +15,7 @@ export interface SessionRowViewProps {
 	titleExtra?: string;
 	/** Session was forked from another session. */
 	forked?: boolean;
+	onBeforeSelect?: () => SidebarSelectionWait;
 	onOpenContextMenu: (event: React.MouseEvent) => void;
 	onRename: (name: string) => void;
 	onRenameDone: () => void;
@@ -29,6 +31,7 @@ export function SessionRowView({
 	label,
 	titleExtra,
 	forked,
+	onBeforeSelect,
 	onOpenContextMenu,
 	onRename,
 	onRenameDone,
@@ -45,7 +48,9 @@ export function SessionRowView({
 			data-session-active={active ? "true" : undefined}
 			onClick={(event) => {
 				if (renaming) return;
-				runAfterSidebarSelection(onSelect, prepareSidebarSelection(event.currentTarget));
+				const panelWait = onBeforeSelect?.() ?? false;
+				const rowWait = prepareSidebarSelection(event.currentTarget);
+				runAfterSidebarSelection(onSelect, [panelWait, rowWait]);
 			}}
 			onContextMenu={onOpenContextMenu}
 			className={cn(

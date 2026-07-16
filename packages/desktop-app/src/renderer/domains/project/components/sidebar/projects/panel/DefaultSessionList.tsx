@@ -8,7 +8,7 @@ interface DefaultSessionListProps {
 	className?: string;
 	cwd: string;
 	filter: DefaultConversationFilter;
-	onBeforeSelect: () => boolean;
+	onBeforeSelect: () => boolean | Promise<void>;
 	onRenameSession: (cwd: string, sessionPath: string, name: string) => void;
 	onSelectSession: (cwd: string, sessionPath: string) => void;
 	scrollParent: HTMLElement | null;

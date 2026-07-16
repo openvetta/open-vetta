@@ -1,6 +1,7 @@
 import type { DefaultConversationFilter, Project, SessionInfo } from "@shared/store/atoms";
 import { cn } from "@shared/lib/utils";
 import { DefaultConversationSectionView } from "@vetta/theme-ui/project";
+import { useTranslation } from "react-i18next";
 import { DefaultConversationFilterSelect } from "../../filters/SidebarFilterSelect";
 import { useDefaultConversationSectionModel } from "../../../../hooks/useDefaultConversationSectionModel";
 import { DefaultSessionList } from "./DefaultSessionList";
@@ -11,7 +12,7 @@ interface DefaultConversationSectionProps {
 	defaultConversationFilter: DefaultConversationFilter;
 	listClassName?: string;
 	onNewSession: (cwd: string) => void;
-	onBeforeSelectSession: () => boolean;
+	onBeforeSelectSession: () => boolean | Promise<void>;
 	onRenameSession: (cwd: string, sessionPath: string, name: string) => void;
 	onSelectSession: (cwd: string, sessionPath: string) => void;
 	project: Project;
@@ -21,6 +22,7 @@ interface DefaultConversationSectionProps {
 export function DefaultConversationSection(
 	props: DefaultConversationSectionProps,
 ): JSX.Element {
+	const { t } = useTranslation("project");
 	const model = useDefaultConversationSectionModel({
 		project: props.project,
 		defaultConversationFilter: props.defaultConversationFilter,
@@ -45,10 +47,15 @@ export function DefaultConversationSection(
 					sessions={props.sessions}
 				/>
 			}
+			listScrollElement={model.listScrollEl}
 			onListScrollRef={model.setListScrollEl}
 			onMoreClick={model.actions.openMoreMenu}
 			onNewSession={model.actions.newSession}
 			onOpenContextMenu={model.actions.openContextMenu}
+			quickScrollLabels={{
+				bottom: t("sidebar.projects.scrollToBottom"),
+				top: t("sidebar.projects.scrollToTop"),
+			}}
 			showNewSession={model.showNewSession}
 		/>
 	);

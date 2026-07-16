@@ -2,7 +2,10 @@ import { cn } from "@vetta/ui";
 import type { JSX, Ref } from "react";
 import { RunningPulseDot } from "../sidebar/RunningPulseDot";
 import { PROJECT_TYPE_ICONS, type ProjectTypeIconKey } from "./types";
-import { runAfterSidebarSelection } from "./useActiveSessionAutoScroll";
+import {
+	runAfterSidebarSelection,
+	type SidebarSelectionWait,
+} from "./useActiveSessionAutoScroll";
 
 export interface ProjectRowViewProps {
 	badge?: string;
@@ -13,7 +16,7 @@ export interface ProjectRowViewProps {
 	newSessionTitle: string;
 	onCollapse: () => void;
 	onExpand: () => void;
-	onInteract?: () => boolean;
+	onInteract?: () => SidebarSelectionWait | readonly SidebarSelectionWait[];
 	onNavigateProject: () => void;
 	onNewSession: () => void;
 	onOpenContextMenu: (event: React.MouseEvent) => void;
@@ -39,8 +42,8 @@ export function ProjectRowView({
 	projectType,
 	rowRef,
 }: ProjectRowViewProps): JSX.Element {
-	const navigateProject = (defer: boolean) => {
-		runAfterSidebarSelection(onNavigateProject, defer);
+	const navigateProject = (waits: SidebarSelectionWait | readonly SidebarSelectionWait[]) => {
+		runAfterSidebarSelection(onNavigateProject, waits);
 	};
 
 	return (
@@ -56,13 +59,13 @@ export function ProjectRowView({
 			<button
 				type="button"
 				onClick={() => {
-					const interactionWillMove = onInteract();
+					const interactionWait = onInteract();
 					if (expanded) {
 						onCollapse();
 						return;
 					}
 					onExpand();
-					navigateProject(interactionWillMove || !expanded);
+					navigateProject([interactionWait, !expanded].flat());
 				}}
 				className="relative flex shrink-0 items-center justify-center"
 			>
@@ -77,11 +80,11 @@ export function ProjectRowView({
 			<button
 				type="button"
 				onClick={() => {
-					const interactionWillMove = onInteract();
+					const interactionWait = onInteract();
 					if (!expanded) {
 						onExpand();
 					}
-					navigateProject(interactionWillMove || !expanded);
+					navigateProject([interactionWait, !expanded].flat());
 				}}
 				className={cn(
 					"min-w-0 flex-1 truncate text-left text-[13px] font-medium",
