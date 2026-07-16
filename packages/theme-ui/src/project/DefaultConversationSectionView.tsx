@@ -1,6 +1,7 @@
 import { cn } from "@vetta/ui";
 import type { JSX, ReactNode } from "react";
 import { ScrollFade } from "../shared/ScrollFade";
+import { QuickScrollOverlay, type QuickScrollLabels } from "./QuickScrollOverlay";
 
 export interface DefaultConversationSectionViewLabels {
 	more: string;
@@ -12,10 +13,12 @@ export interface DefaultConversationSectionViewProps {
 	filterSelect: ReactNode;
 	labels: DefaultConversationSectionViewLabels;
 	list: ReactNode;
+	listScrollElement: HTMLElement | null;
 	onListScrollRef: (el: HTMLDivElement | null) => void;
 	onMoreClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
 	onNewSession?: () => void;
 	onOpenContextMenu: (event: React.MouseEvent) => void;
+	quickScrollLabels: QuickScrollLabels;
 	showNewSession: boolean;
 }
 
@@ -24,10 +27,12 @@ export function DefaultConversationSectionView({
 	filterSelect,
 	labels,
 	list,
+	listScrollElement,
 	onListScrollRef,
 	onMoreClick,
 	onNewSession,
 	onOpenContextMenu,
+	quickScrollLabels,
 	showNewSession,
 }: DefaultConversationSectionViewProps): JSX.Element {
 	return (
@@ -58,13 +63,19 @@ export function DefaultConversationSectionView({
 					)}
 				</div>
 			</div>
-			<ScrollFade
-				data-sidebar-selection-scroll="true"
-				onScrollRef={onListScrollRef}
-				className="min-h-0 flex-1 overflow-y-auto no-scrollbar"
+			<QuickScrollOverlay
+				labels={quickScrollLabels}
+				scrollElement={listScrollElement}
+				className="min-h-0 flex-1"
 			>
-				{list}
-			</ScrollFade>
+				<ScrollFade
+					data-sidebar-selection-scroll="true"
+					onScrollRef={onListScrollRef}
+					className="min-h-0 flex-1 overflow-y-auto no-scrollbar"
+				>
+					{list}
+				</ScrollFade>
+			</QuickScrollOverlay>
 		</div>
 	);
 }

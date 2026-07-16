@@ -18,7 +18,9 @@
 		"projects": {
 			"noSessions": "暂无会话",
 			"collapseSessions": "折叠会话",
-			"expandMore": "展开更多（{{count}}）"
+			"expandMore": "展开更多（{{count}}）",
+			"scrollToTop": "滚动到顶部",
+			"scrollToBottom": "滚动到底部"
 		},
 		"defaultConversation": {
 			"noConversations": "暂无对话"

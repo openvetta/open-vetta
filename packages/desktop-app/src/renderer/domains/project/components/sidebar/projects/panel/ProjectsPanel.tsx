@@ -6,6 +6,7 @@ import {
 import { ProjectsPanelView } from "@vetta/theme-ui/project";
 import { useAtom } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { DefaultConversationSection } from "./DefaultConversationSection";
 import { ProjectGroupsSection } from "./ProjectGroupsSection";
 import { ProjectsPanelEmptyState } from "./ProjectsPanelEmptyState";
@@ -16,8 +17,29 @@ import type { ProjectsPanelProps } from "./types";
 const SPLIT_HANDLE_HEIGHT = 10;
 const DEFAULT_CONVERSATION_MIN_RATIO = 0.3;
 const RESTORED_PROJECTS_RATIO = 0.4;
+const PANEL_TRANSITION_FALLBACK_MS = 450;
+
+function waitForPanelResize(element: HTMLElement): Promise<void> {
+	return new Promise((resolve) => {
+		let fallbackTimer = 0;
+		const finish = () => {
+			window.clearTimeout(fallbackTimer);
+			element.removeEventListener("transitioncancel", handleTransition);
+			element.removeEventListener("transitionend", handleTransition);
+			resolve();
+		};
+		const handleTransition = (event: TransitionEvent) => {
+			if (event.target === element && event.propertyName === "max-height") finish();
+		};
+
+		element.addEventListener("transitioncancel", handleTransition);
+		element.addEventListener("transitionend", handleTransition);
+		fallbackTimer = window.setTimeout(finish, PANEL_TRANSITION_FALLBACK_MS);
+	});
+}
 
 export function ProjectsPanel(props: ProjectsPanelProps): JSX.Element {
+	const { t } = useTranslation("project");
 	const model = useProjectsPanelModel(props);
 	const [splitRatio, setSplitRatio] = useAtom(sidebarProjectsSplitRatioAtom);
 	const splitContainerRef = useRef<HTMLDivElement>(null);
@@ -72,10 +94,18 @@ export function ProjectsPanel(props: ProjectsPanelProps): JSX.Element {
 	);
 	const handleSplitResizeEnd = useCallback(() => setSplitDragging(false), []);
 	const handleProjectInteract = useCallback(() => {
-		const willExpandPanel = !autoFitExpandedProject && splitRatio < SIDEBAR_PROJECTS_SPLIT_MAX;
+		const willExpandPanel =
+			showSplit && !autoFitExpandedProject && splitRatio < SIDEBAR_PROJECTS_SPLIT_MAX;
+		const panelResizeWait =
+			willExpandPanel &&
+			projectsScrollEl &&
+			!splitDragging &&
+			!window.matchMedia("(prefers-reduced-motion: reduce)").matches
+				? waitForPanelResize(projectsScrollEl)
+				: false;
 		setAutoFitExpandedProject(true);
-		return willExpandPanel;
-	}, [autoFitExpandedProject, splitRatio]);
+		return panelResizeWait;
+	}, [autoFitExpandedProject, projectsScrollEl, showSplit, splitDragging, splitRatio]);
 	const handleDefaultSessionInteract = useCallback(() => {
 		const container = splitContainerRef.current;
 		if (!container || !projectsScrollEl) return false;
@@ -84,10 +114,14 @@ export function ProjectsPanel(props: ProjectsPanelProps): JSX.Element {
 		const defaultConversationHeight = contentHeight - projectsScrollEl.clientHeight;
 		if (defaultConversationHeight / contentHeight >= DEFAULT_CONVERSATION_MIN_RATIO) return false;
 
+		const panelResizeWait =
+			splitDragging || window.matchMedia("(prefers-reduced-motion: reduce)").matches
+				? false
+				: waitForPanelResize(projectsScrollEl);
 		setAutoFitExpandedProject(false);
 		setSplitRatio(RESTORED_PROJECTS_RATIO);
-		return true;
-	}, [projectsScrollEl, setSplitRatio]);
+		return panelResizeWait;
+	}, [projectsScrollEl, setSplitRatio, splitDragging]);
 
 	const defaultSection =
 		showDefaultRegion && model.defaultProject ? (
@@ -110,6 +144,7 @@ export function ProjectsPanel(props: ProjectsPanelProps): JSX.Element {
 			emptyState={<ProjectsPanelEmptyState />}
 			menus={<ProjectsPanelMenus model={model} />}
 			onProjectsScrollRef={setProjectsScrollEl}
+			projectsScrollElement={projectsScrollEl}
 			onSplitResize={handleSplitResize}
 			onSplitResizeEnd={handleSplitResizeEnd}
 			onSplitResizeStart={handleSplitResizeStart}
@@ -120,6 +155,10 @@ export function ProjectsPanel(props: ProjectsPanelProps): JSX.Element {
 					onProjectInteract={handleProjectInteract}
 				/>
 			}
+			quickScrollLabels={{
+				bottom: t("sidebar.projects.scrollToBottom"),
+				top: t("sidebar.projects.scrollToTop"),
+			}}
 			showDefaultRegion={showDefaultRegion}
 			showEmpty={showEmpty}
 			showProjectsRegion={showProjectsRegion}

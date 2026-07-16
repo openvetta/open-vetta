@@ -4,6 +4,7 @@ import { SessionRenameInputView } from "./SessionRenameInputView";
 import {
 	prepareSidebarSelection,
 	runAfterSidebarSelection,
+	type SidebarSelectionWait,
 } from "./useActiveSessionAutoScroll";
 
 export interface DefaultSessionRowViewProps {
@@ -15,7 +16,7 @@ export interface DefaultSessionRowViewProps {
 	titleExtra?: string;
 	/** Session was forked from another session. */
 	forked?: boolean;
-	onBeforeSelect?: () => boolean;
+	onBeforeSelect?: () => SidebarSelectionWait;
 	onOpenContextMenu: (event: React.MouseEvent) => void;
 	onRename: (name: string) => void;
 	onRenameDone: () => void;
@@ -50,8 +51,8 @@ export function DefaultSessionRowView({
 			onClick={(event) => {
 				if (renaming) return;
 				const panelWillMove = onBeforeSelect?.() ?? false;
-				const rowWillMove = prepareSidebarSelection(event.currentTarget);
-				runAfterSidebarSelection(onSelect, panelWillMove || rowWillMove);
+				const rowWait = prepareSidebarSelection(event.currentTarget);
+				runAfterSidebarSelection(onSelect, [panelWillMove, rowWait]);
 			}}
 			onContextMenu={(event) => {
 				event.preventDefault();

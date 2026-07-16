@@ -18,7 +18,9 @@
 		"projects": {
 			"noSessions": "No sessions",
 			"collapseSessions": "Collapse sessions",
-			"expandMore": "Show more ({{count}})"
+			"expandMore": "Show more ({{count}})",
+			"scrollToTop": "Scroll to top",
+			"scrollToBottom": "Scroll to bottom"
 		},
 		"defaultConversation": {
 			"noConversations": "No conversations"
