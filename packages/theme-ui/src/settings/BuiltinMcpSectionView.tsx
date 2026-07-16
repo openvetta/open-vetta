@@ -60,7 +60,7 @@ export function BuiltinMcpSectionView({
 			)}
 
 			{items.length === 0 ? (
-				<div className="rounded-xl bg-muted/60 px-5 py-8 text-center text-[12px] text-muted-foreground">
+				<div className="rounded-xl bg-card px-5 py-8 text-center text-[12px] text-muted-foreground">
 					{labels.allAdded}
 				</div>
 			) : (
@@ -106,8 +106,8 @@ function BuiltinMcpCard({
 		<div
 			className={`group flex flex-col overflow-hidden rounded-xl transition-colors duration-200 ${
 				added
-					? "bg-muted/70 ring-1 ring-inset ring-emerald-500/20 hover:bg-muted"
-					: "bg-muted hover:bg-accent"
+					? "bg-card ring-1 ring-inset ring-emerald-500/20 hover:bg-accent"
+					: "bg-card hover:bg-accent"
 			}`}
 		>
 			<div className="flex flex-1 flex-col gap-2.5 p-3.5">

@@ -19,7 +19,15 @@ function wrapTool<TParameters extends TSchema, TDetails>(
 			const pre = await hooks.runPreToolUse(toolCallId, descriptor, params, signal);
 			await hooks.recordAdditionalContexts(pre.additionalContexts);
 			if (pre.shouldStop || pre.shouldBlock) {
-				throw new Error(pre.stopReason ?? pre.blockReason ?? "Tool execution blocked by ecosystem hook");
+				const reason = pre.stopReason ?? pre.blockReason ?? "Tool execution blocked by ecosystem hook";
+				console.info("[ecosystem-hooks] pre-tool blocked", {
+					tool: descriptor.hostName,
+					toolUseId: toolCallId,
+					shouldStop: pre.shouldStop,
+					shouldBlock: pre.shouldBlock,
+					reason,
+				});
+				throw new Error(reason);
 			}
 			const executionParams = (pre.updatedToolInput ?? params) as typeof params;
 
@@ -27,9 +35,16 @@ function wrapTool<TParameters extends TSchema, TDetails>(
 			const post = await hooks.runPostToolUse(toolCallId, descriptor, executionParams, result, signal);
 			await hooks.recordAdditionalContexts(post.additionalContexts);
 			if (post.shouldStop || post.shouldBlock) {
-				throw new Error(
-					post.stopReason ?? post.blockReason ?? post.feedbackMessage ?? "Tool result blocked by ecosystem hook",
-				);
+				const reason =
+					post.stopReason ?? post.blockReason ?? post.feedbackMessage ?? "Tool result blocked by ecosystem hook";
+				console.info("[ecosystem-hooks] post-tool blocked", {
+					tool: descriptor.hostName,
+					toolUseId: toolCallId,
+					shouldStop: post.shouldStop,
+					shouldBlock: post.shouldBlock,
+					reason,
+				});
+				throw new Error(reason);
 			}
 			return post.feedbackMessage === undefined
 				? result

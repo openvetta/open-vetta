@@ -104,6 +104,7 @@ interface PluginGlobalSlotContribution {
 - 权限：`ui.slot.file-preview`（缺权限 **warn+noop**）
 - **优先级=仅补空白**：内置已支持的扩展名（image / audio / pdf / docx / markdown / json / 常见文本）插件**抢不到**；只有内置不认、本会掉进文本兜底的扩展名才查插件注册表，**首个匹配胜**。
 - 组件收到 `file` prop —— 宿主**不**预读、不替你猜编码。
+- **布局边界（面板内）**：预览组件必须把 UI 限制在预览壳内。禁止 `fixed` / 视口级定位、禁止超高 `z-index` 抢宿主 chrome、禁止 `createPortal` 到 `document.body`。面板内浮层用根节点 `relative` + 子节点 `absolute`。全局浮层走 [`registerGlobalSlot`](#全局浮层-registerglobalslot)；错误/提示走 [`notify`](#全局通知-notify)。宿主会对 file-preview 壳做 fixed containing block + overflow 裁剪作为兜底——**仍须按规范写**。细则与正反例见 [styling-and-pitfalls.md → 面板类 slot 布局边界](./styling-and-pitfalls.md#面板类-slot-布局边界禁止-viewport-级浮层)。
 
 ```ts
 interface PluginPreviewFile {
@@ -188,6 +189,7 @@ pdfjs.getDocument({ url: file.getUrl() });
 - **`scope_use` fail-closed**（必写，否则任何场景不显示）
 - 宿主用响应式 TabBar 管理展示；可用 `openActivityTab` 主动打开。attach/可见性与 **会话 cwd** 相关（ADR-0026）
 - 插件禁用时 tab 隐藏，重新启用可回来
+- **布局边界（面板内）**：与 file-preview 相同——UI 留在 Tab 面板矩形内，禁止 viewport 级 `fixed` / 超高 z-index / portal 到 `document.body`。全局浮层用 `registerGlobalSlot`，Toast 用 `notify`。见 [styling-and-pitfalls.md → 面板类 slot 布局边界](./styling-and-pitfalls.md#面板类-slot-布局边界禁止-viewport-级浮层)。
 
 ```ts
 interface PluginActivityTabContribution {

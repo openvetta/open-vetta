@@ -80,7 +80,10 @@ export function expandSkillCommand(text: string, deps: SkillExpansionDeps): Skil
 	const skill = isScene
 		? allSkills.find((s) => s.name === skillName && s.type === "scene")
 		: allSkills.find((s) => s.name === skillName);
-	if (!skill) return { text }; // Unknown skill/scene, pass through
+	if (!skill) {
+		console.info("[skills] expand miss", { kind: isScene ? "scene" : "skill", name: skillName });
+		return { text }; // Unknown skill/scene, pass through
+	}
 
 	try {
 		const content = readFileSync(skill.filePath, "utf-8");
@@ -143,6 +146,13 @@ export function expandSkillCommand(text: string, deps: SkillExpansionDeps): Skil
 
 			// Scene content is injected as a hidden custom message, not shown in user's message bubble
 			const userText = args || text;
+			console.info("[skills] expand", {
+				kind: "scene",
+				name: skill.name,
+				source: skill.source,
+				path: skill.filePath,
+				hasArgs: Boolean(args),
+			});
 			return { text: userText, sceneInjection: lines.join("\n") };
 		}
 
@@ -150,12 +160,26 @@ export function expandSkillCommand(text: string, deps: SkillExpansionDeps): Skil
 		// on the user message (so reload-from-disk renders the badge instead of the
 		// full SKILL.md), and inject the expanded block as a hidden custom message.
 		const skillBlock = `<skill name="${skill.name}" location="${skill.filePath}">\nReferences are relative to ${skill.baseDir}.\n\n${body}\n</skill>`;
+		console.info("[skills] expand", {
+			kind: "skill",
+			name: skill.name,
+			source: skill.source,
+			path: skill.filePath,
+			hasArgs: Boolean(args),
+		});
 		return { text, skillInjection: skillBlock };
 	} catch (err) {
+		const error = err instanceof Error ? err.message : String(err);
+		console.info("[skills] expand error", {
+			kind: isScene ? "scene" : "skill",
+			name: skill.name,
+			path: skill.filePath,
+			error,
+		});
 		deps.emitError?.({
 			extensionPath: skill.filePath,
 			event: "skill_expansion",
-			error: err instanceof Error ? err.message : String(err),
+			error,
 		});
 		return { text }; // Return original on error
 	}

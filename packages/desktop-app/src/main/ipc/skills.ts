@@ -9,8 +9,11 @@ import AdmZip from "adm-zip";
 import { ipcMain } from "electron";
 import type { AppMonitorResourceOperation } from "../../preload/api-types/app-monitor.js";
 import { recordAppMonitorEvent } from "../app-monitor/app-monitor-service.js";
+import { getAppLogger } from "../logger.js";
 import { buildAgentPluginRuntimeConfig } from "../plugins/plugin-store.js";
 import { allowProjectRoot, readDesktopConfig } from "./fs.js";
+
+const skillsLog = getAppLogger("skills");
 
 function assertNonEmptyString(value: unknown, fieldName: string): asserts value is string {
 	if (typeof value !== "string" || value.trim().length === 0) {
@@ -254,7 +257,7 @@ export async function listSkills(cwd?: string): Promise<ListedSkill[]> {
 			return normalized === r || normalized.startsWith(`${r}/`);
 		});
 	};
-	return skills
+	const listed = skills
 		.filter((s) => {
 			const entry = manifest[s.name];
 			// market 来源的 skill/scene 必须在 manifest 中且已启用
@@ -275,6 +278,19 @@ export async function listSkills(cwd?: string): Promise<ListedSkill[]> {
 				type: s.type,
 			};
 		});
+
+	const bySource: Record<string, number> = {};
+	for (const item of listed) {
+		bySource[item.source] = (bySource[item.source] ?? 0) + 1;
+	}
+	skillsLog.info("skills listed", {
+		cwd: cwd ?? null,
+		includeAgentSkills,
+		total: listed.length,
+		bySource,
+		names: listed.map((s) => s.name),
+	});
+	return listed;
 }
 
 export function setSkillEnabled(name: string, enabled: boolean): { name: string; enabled: boolean } {

@@ -40,7 +40,7 @@ export function PluginCardView({ model, onSelect, onInstall }: PluginCardViewPro
 			transition={{ type: "spring", stiffness: 280, damping: 26 }}
 			whileHover={{ y: -2 }}
 			onClick={() => (model.isInstalled ? onSelect() : onInstall())}
-			className="group relative flex cursor-pointer flex-col overflow-hidden rounded-xl bg-muted transition-colors duration-200 hover:bg-accent"
+			className="group relative flex cursor-pointer flex-col overflow-hidden rounded-xl bg-card transition-colors duration-200 hover:bg-accent"
 		>
 			<div className="flex flex-1 flex-col gap-2 px-3.5 pt-3 pb-3">
 				<div className="flex items-start gap-2.5">

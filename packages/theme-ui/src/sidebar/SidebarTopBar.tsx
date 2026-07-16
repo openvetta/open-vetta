@@ -65,13 +65,13 @@ export function SidebarTopBar({
 						onClick={onOpenClawSettings}
 						title={labels.clawConnected}
 						className={cn(
-							"no-drag relative flex h-5 items-center gap-1 rounded-full bg-primary/15 px-1.5 text-[10px] font-medium text-primary transition-colors hover:bg-primary/25",
+							"no-drag relative flex h-5 items-center gap-1 rounded-full bg-secondary px-1.5 text-[10px] font-medium text-secondary-foreground transition-colors hover:bg-secondary/80",
 							classNames?.clawButton,
 						)}
 					>
 						<span className="relative flex h-1 w-1">
-							<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-70" />
-							<span className="relative inline-flex h-1 w-1 rounded-full bg-primary" />
+							<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-secondary-foreground opacity-70" />
+							<span className="relative inline-flex h-1 w-1 rounded-full bg-secondary-foreground" />
 						</span>
 						Claw
 					</button>

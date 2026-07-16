@@ -6,6 +6,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **会话 / Skill 列表 info 日志（测试可观测）**：`session created` 记 sessionId、cwd、kind、scenario、`includeAgentSkills`；`skills.list` 记 cwd、按 source 计数与名称。使用 `getAppLogger("session"|"skills")`。
+- **应用监控月度日聚合存储**：保留累计 `summary.json` 契约，同时按持久化统计时区将每日聚合写入 `app-monitor/months/YYYY-MM.json`；月文件携带随机安装设备 ID、revision、IANA 时区、UTC 日边界与覆盖起点，为后续多设备云同步预留可合并边界。升级时一次性清除旧 `~/.vetta/app-monitor.json`、累计汇总和已有月度聚合，从本次启动重新采集；设备 ID 与统计时区继续保留。
 - **插件 release 导出（插件工作台）**：活动面板工程卡片新增「导出」按钮；经宿主原生保存对话框把当前 `release/<id>-<version>.zip` 复制到用户选择路径。宿主新增 `dialog.saveCopy(sourcePath, options?)`（源路径需可读，取消返回 null）。
 - **插件 dev 热更新（插件工作台）**：工程卡片新增「热更新」开关（已安装后默认开）。打开后宿主把插件 dev 链接到工程目录（`vetta-plugin://` 资源直接从工程 `dist/` 解析，内存态不落注册表）、常驻托管 Node `vite build --watch` 并监听 dist，产物变化自动 `reload`（token 强制 MF 重注册），保存源码即生效。宿主新增 `plugins.startDevWatch/stopDevWatch` IPC；`InstalledPlugin.devWatch` 透出状态（starting/running/error）；卸载与 App 退出自动停 watch；`@vetta-org/plugin-vite` 在 `VETTA_PLUGIN_DEV_WATCH=1` 下跳过每轮重打 zip。
 - **插件页自定义 badge**：本地 zip 导入或 plugin-workbench `install-from-path` 安装的插件（`source === "archive"`）在卡片与详情标题旁显示「自定义」标记，与系统插件「系统」badge 对称。
@@ -27,11 +29,25 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **侧边栏 Claw badge**：背景改为 `bg-secondary`，文字与状态点改为 `text-secondary-foreground`。
+- **设置页 item 背景统一 `bg-card`**：`SettingSection` 容器及 MCP / IM / 插件 / 外观 / 宠物等列表卡片由 `bg-muted`（或半透明变体）改为 `bg-card`。
+- **Agent 设置人设 / 自定义指令背景**：人设下拉触发器与自定义指令 textarea 改为 `bg-card`。
+- **设置 → 外观选中态统一**：外观模式 / UI 主题 / 鼠标指针的 active 样式与「默认主题色」卡片一致（`ring-2 ring-primary ring-offset-2` + 右上角 check badge）。
+- **「默认」主题浅色偏冷**：浅色表面由米黄纸面改为冷灰石色（`#f0f1f2` 等），降低黄调；主色与深色不变。
+- **「默认」主题换新色板**：原暖砂默认下线；由迭代中的「测试」色板接替（id 仍为 `sand`，label「默认」）。主题色 `#f76f53`；旧 id `test` 迁移到 `sand`。
+- **外观颜色主题精简与重命名**：移除「猩红 / 霓虹 / 海洋」；原「GitHub」更名为「青石」（id `slate`）；旧 id `github` 自动迁移。
+- **全主题 secondary 相对 muted 对齐**：深色 secondary 略深于 muted，浅色 secondary 略浅于 muted。
+- **列表卡片背景改用 card**：自动化 / 扩展 / 批量任务 / 插件页 item 由 `bg-muted` 改为 `bg-card`。
+- **输入栏背景统一 `bg-card`**：输入框本体深浅色均为 `bg-card`；下方 action list 为 `bg-card/70`。
 - **插件工作台热更新默认开启**：已安装的工程卡片在应用成功或打开面板时默认启动热更新；用户可手动关闭（本会话内不再自动重开）。
 
 ### Fixed
 
 - **Claw / 自动化 / 批量任务卡片网格固定横排**：设置页 Claw 消息渠道、自动化任务列表、批量任务卡片不再随容器/视口宽度在单列与多列间切换，分别固定为 2 列与 3 列横排。
+- **问答面板多题主按钮**：多问题未到最后一题时底部主按钮显示「下一步」（当前题已答即可点），最后一题才显示「提交」；避免未答完全部问题时一直看到置灰的「提交」。
+- **插件热更新偶发要手点「重载 / 重新安装」**：根因 (1) 仅靠 dist 顶层 `fs.watch`，部分环境下丢事件或半截写盘即触发，未读 vite 成功日志（stdout 还被直接 discard）；(2) dev overlay 不带 permissions/commands/settingsSchema，改声明像没生效。现以 vite「built in …ms」为主触发、dist 与 `plugin.json` 监听为辅；dev 会话内声明权限/命令自动放行（仅内存，不落注册表），关热更新仍回落安装态。
+- **发送图片后消息列表并排出现两张缩略图**：乐观气泡同时带了 base64 `message.images` 与文本里的 `@image-cache` 路径，渲染把两者拼在一起；重进会话只有路径故正常。现有落盘路径时只渲染路径缩略图，base64 仅作 persist 失败时的兜底。
+- **插件 file-preview 布局围栏**：`PluginFilePreviewView` 外壳增加 `transform` fixed containing block + `overflow-hidden` + `isolate`，避免预览插件用 `position: fixed` 贴 App 视口逃出预览区。手册补充面板类 slot 布局边界（禁止 viewport fixed / 超高 z-index；全局浮层走 `registerGlobalSlot` / `notify`）。
 - **office-viewer 不再占住 PPT/PPTX 预览**：系统插件只注册实际可渲染的 `pdf` / `docx` / 表格扩展名，移除 PowerPoint 兼容性占位页；第三方插件可接管 `ppt`/`pptx` 预览。
 - **确认 Dialog 被右侧 Drawer/Sheet 挡住**：全局 `ConfirmDialog` 挂在 `AppFrame`（`isolate`）内，z-index 被 stacking context 困住；插件详情等经 Portal 挂到 body 的 Drawer（z-50）会盖住卸载确认框。现将 ConfirmDialog portal 到 `document.body`，与 Drawer/Dialog 同层比较（z-[100] 压过 z-50）。
 - **新会话页引导词只轮播头两个插件**：组级原为整页跳切（一次换 2 组）且间隔 24s，词级 6s 动画更抢眼，体感上永远只有前两个插件在转。现改为步进 1 的滑动窗口，组级间隔 8s，所有声明了 `guidingWords` 的启用插件都会进入可见区。

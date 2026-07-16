@@ -1,8 +1,18 @@
 import type { RuntimeHost, SessionEvent } from "../../../../runtime-core/src/index.js";
 import type { AppMonitorEvent, AppMonitorInputImageAttachment } from "../../preload/api-types/app-monitor.js";
 import { getAppLogger } from "../logger.js";
+import { formatDayKey, getDayBounds, getPreviousDayKey, getPreviousMonthKey } from "./app-monitor-calendar.js";
 import { type AppMonitorData, createDefaultAppMonitorData } from "./app-monitor-data.js";
-import { appMonitorStore } from "./app-monitor-store.js";
+import {
+	type AppMonitorDayBucket,
+	type AppMonitorMonthData,
+	createDefaultAppMonitorMonthData,
+	getAppMonitorMonthKey,
+	getOrCreateAppMonitorDayBucket,
+} from "./app-monitor-month-data.js";
+import { type AppMonitorProfile, createDefaultAppMonitorProfile } from "./app-monitor-profile.js";
+import { appMonitorProfileStore, appMonitorStore, createAppMonitorMonthStore } from "./app-monitor-store.js";
+import { runAppMonitorFileMigrations } from "./migrations/index.js";
 
 const ACTIVE_TIMEOUT_MS = 2 * 60 * 1000;
 const FLUSH_INTERVAL_MS = 2 * 60 * 1000;
@@ -31,6 +41,9 @@ interface SessionEngagementStats {
 
 class AppMonitorService {
 	private data = createDefaultAppMonitorData();
+	private profile: AppMonitorProfile = createDefaultAppMonitorProfile();
+	private readonly months = new Map<string, AppMonitorMonthData>();
+	private readonly persistedMonthRevisions = new Map<string, number>();
 	private initialized = false;
 	private visible = false;
 	private lastActivityAt = Date.now();
@@ -41,18 +54,45 @@ class AppMonitorService {
 	private flushPromise: Promise<void> | undefined;
 	private readonly runtimeSubscriptions = new Map<string, () => void>();
 	private readonly sessionStats = new Map<string, SessionEngagementStats>();
+	private readonly dailySessionStats = new Map<string, SessionEngagementStats>();
 
 	async initialize(): Promise<void> {
 		if (this.initialized) return;
 		try {
+			await runAppMonitorFileMigrations(log);
+		} catch (error) {
+			log.warn("file migration failed", error);
+		}
+		try {
+			this.profile = await appMonitorProfileStore.read();
+			await appMonitorProfileStore.write(this.profile);
+		} catch (error) {
+			log.warn("profile initialization failed, using in-memory defaults", error);
+		}
+		try {
 			this.data = await appMonitorStore.read();
 		} catch (error) {
-			log.warn("initialization failed, using in-memory defaults", error);
+			log.warn("summary initialization failed, using in-memory defaults", error);
 		}
 		const now = Date.now();
+		const monthKeys = new Set([
+			getAppMonitorMonthKey(now, this.profile),
+			getPreviousMonthKey(now, this.profile.reportingTimeZone),
+		]);
+		for (const monthKey of monthKeys) {
+			try {
+				const month = await createAppMonitorMonthStore(monthKey, this.profile).read();
+				this.months.set(monthKey, month);
+				this.persistedMonthRevisions.set(monthKey, month.revision);
+			} catch (error) {
+				log.warn("monthly data initialization failed, using in-memory defaults", { month: monthKey }, error);
+			}
+		}
 		this.lastActivityAt = now;
 		this.lastAccountedAt = now;
 		this.initialized = true;
+		this.ensureDayBucket(now);
+		this.ensureEngagementDay(now);
 		this.flushTimer = setInterval(() => {
 			void this.flush();
 		}, FLUSH_INTERVAL_MS);
@@ -73,6 +113,7 @@ class AppMonitorService {
 	}
 
 	recordEvent(event: AppMonitorEvent): void {
+		const now = Date.now();
 		this.mutate((data) => {
 			switch (event.type) {
 				case "input.attachments.added":
@@ -85,16 +126,16 @@ class AppMonitorService {
 					recordInputActionUsed(data, event);
 					break;
 				case "input.context.used":
-					recordInputContextUsed(data, event);
+					recordInputContextUsed(data, event, now);
 					break;
 				case "resource.lifecycle":
-					recordResourceLifecycle(data, event);
+					recordResourceLifecycle(data, event, now);
 					break;
 				case "settings.changed":
-					recordSettingsChanged(data, event);
+					recordSettingsChanged(data, event, now);
 					break;
 			}
-		});
+		}, now);
 	}
 
 	recordBatchProjectCreated(): void {
@@ -226,25 +267,51 @@ class AppMonitorService {
 		}
 		this.runtimeSubscriptions.delete(sessionId);
 		this.sessionStats.delete(sessionId);
+		for (const key of this.dailySessionStats.keys()) {
+			if (key.endsWith(`\0${sessionId}`)) this.dailySessionStats.delete(key);
+		}
 	}
 
 	async flush(): Promise<void> {
 		this.accountDuration(Date.now());
-		if (this.revision === this.persistedRevision) return;
+		const dirtyMonths = [...this.months.entries()].filter(
+			([monthKey, month]) => month.revision !== this.persistedMonthRevisions.get(monthKey),
+		);
+		if (this.revision === this.persistedRevision && dirtyMonths.length === 0) return;
 		if (this.flushPromise) {
 			await this.flushPromise;
-			if (this.revision !== this.persistedRevision) {
+			if (
+				this.revision !== this.persistedRevision ||
+				[...this.months.entries()].some(
+					([monthKey, month]) => month.revision !== this.persistedMonthRevisions.get(monthKey),
+				)
+			) {
 				await this.flush();
 			}
 			return;
 		}
 
-		const snapshot = structuredClone(this.data);
+		const snapshot = this.revision === this.persistedRevision ? undefined : structuredClone(this.data);
 		const snapshotRevision = this.revision;
-		this.flushPromise = appMonitorStore
-			.write(snapshot)
+		const monthSnapshots = dirtyMonths.map(([monthKey, month]) => ({
+			monthKey,
+			revision: month.revision,
+			snapshot: structuredClone(month),
+		}));
+		const writes: Promise<void>[] = [];
+		if (snapshot) writes.push(appMonitorStore.write(snapshot));
+		for (const month of monthSnapshots) {
+			writes.push(createAppMonitorMonthStore(month.monthKey, this.profile).write(month.snapshot));
+		}
+		this.flushPromise = Promise.all(writes)
 			.then(() => {
-				this.persistedRevision = Math.max(this.persistedRevision, snapshotRevision);
+				if (snapshot) this.persistedRevision = Math.max(this.persistedRevision, snapshotRevision);
+				for (const month of monthSnapshots) {
+					this.persistedMonthRevisions.set(
+						month.monthKey,
+						Math.max(this.persistedMonthRevisions.get(month.monthKey) ?? 0, month.revision),
+					);
+				}
 			})
 			.catch((error: unknown) => {
 				log.warn("periodic flush failed", error);
@@ -272,110 +339,145 @@ class AppMonitorService {
 		this.lastAccountedAt = now;
 
 		if (!this.visible) {
-			this.addDuration("backgroundMs", now - from);
+			this.addDuration("backgroundMs", from, now);
 			return;
 		}
 
 		const activeUntil = this.lastActivityAt + ACTIVE_TIMEOUT_MS;
 		const activeEnd = Math.min(now, Math.max(from, activeUntil));
 		if (activeEnd > from) {
-			this.addForegroundActiveDuration(from, activeEnd);
+			this.addDuration("foregroundActiveMs", from, activeEnd);
 		}
 		if (now > activeEnd) {
-			this.addDuration("foregroundInactiveMs", now - activeEnd);
+			this.addDuration("foregroundInactiveMs", activeEnd, now);
 		}
 	}
 
-	private addForegroundActiveDuration(from: number, to: number): void {
+	private addDuration(key: keyof AppMonitorData["durations"], from: number, to: number): void {
 		if (to <= from) return;
-		this.mutate((data) => {
-			data.durations.foregroundActiveMs += to - from;
-			let cursor = from;
-			while (cursor < to) {
-				const nextBoundary = Math.min(to, startOfNextLocalDay(cursor));
-				const durationMs = nextBoundary - cursor;
-				if (durationMs > 0) {
-					markActiveDay(data, cursor);
+		let cursor = from;
+		while (cursor < to) {
+			const nextBoundary = Math.min(to, getDayBounds(cursor, this.profile.reportingTimeZone).endUtc);
+			const durationMs = nextBoundary - cursor;
+			if (durationMs <= 0) break;
+			this.mutate((data) => {
+				data.durations[key] += durationMs;
+				if (key === "foregroundActiveMs") {
+					markActiveDay(data, cursor, this.profile.reportingTimeZone);
 					data.engagement.todayForegroundActiveMs += durationMs;
 				}
-				cursor = nextBoundary;
-			}
-		});
-	}
-
-	private addDuration(key: keyof AppMonitorData["durations"], durationMs: number): void {
-		if (durationMs <= 0) return;
-		this.mutate((data) => {
-			data.durations[key] += durationMs;
-		});
+			}, cursor);
+			cursor = nextBoundary;
+		}
 	}
 
 	private recordSessionEvent(event: SessionEvent): void {
-		this.mutate((data) => {
-			switch (event.type) {
-				case "session.lifecycle":
-					if (event.phase === "turn_start") {
-						data.sessions.turns += 1;
-						this.recordSessionTurn(data, event.sessionId, event.timestamp);
-					}
-					break;
-				case "message.final":
-					data.sessions.messages += 1;
-					this.recordSessionMessage(data, event.sessionId, event.timestamp);
-					break;
-				case "tool.start":
+		switch (event.type) {
+			case "session.lifecycle":
+				if (event.phase === "turn_start") this.recordSessionTurn(event.sessionId, event.timestamp);
+				break;
+			case "message.final":
+				this.recordSessionMessage(event.sessionId, event.timestamp);
+				break;
+			case "tool.start":
+				this.mutate((data) => {
 					data.tools.started += 1;
 					recordToolStart(data, event.toolName);
-					break;
-				case "tool.end":
+				}, event.timestamp);
+				break;
+			case "tool.end":
+				this.mutate((data) => {
 					data.tools.completed += 1;
 					if (event.isError) data.tools.failed += 1;
 					data.tools.totalDurationMs += Math.max(0, event.durationMs);
 					recordToolEnd(data, event.toolName, event.isError, event.durationMs);
-					break;
-				case "usage.update":
+				}, event.timestamp);
+				break;
+			case "usage.update":
+				this.mutate((data) => {
 					data.usage.inputTokens += Math.max(0, event.input);
 					data.usage.outputTokens += Math.max(0, event.output);
 					data.usage.cacheReadTokens += Math.max(0, event.cacheRead);
 					data.usage.cacheWriteTokens += Math.max(0, event.cacheWrite);
 					data.usage.costTotal += Math.max(0, event.costTotal);
-					break;
-				case "compaction.start":
+				}, event.timestamp);
+				break;
+			case "compaction.start":
+				this.mutate((data) => {
 					data.compactions.started += 1;
-					break;
-				case "compaction.end":
+				}, event.timestamp);
+				break;
+			case "compaction.end":
+				this.mutate((data) => {
 					data.compactions[event.success ? "succeeded" : "failed"] += 1;
-					break;
-				case "error":
+				}, event.timestamp);
+				break;
+			case "error":
+				this.mutate((data) => {
 					data.errors[event.error.origin] += 1;
-					break;
-			}
-		});
+				}, event.timestamp);
+				break;
+		}
 	}
 
 	private ensureEngagementDay(timestamp: number): void {
-		const dayKey = formatLocalDayKey(timestamp);
+		const dayKey = formatDayKey(timestamp, this.profile.reportingTimeZone);
 		if (this.data.engagement.currentDay === dayKey) return;
 		this.mutate((data) => {
 			ensureEngagementDay(data, dayKey);
-		});
+		}, timestamp);
 	}
 
-	private recordSessionTurn(data: AppMonitorData, sessionId: string, timestamp: number): void {
-		markActiveDay(data, timestamp);
+	private recordSessionTurn(sessionId: string, timestamp: number): void {
 		const stats = this.sessionStats.get(sessionId) ?? { turns: 0, messages: 0 };
 		stats.turns += 1;
 		this.sessionStats.set(sessionId, stats);
-		this.updateLongestConversation(data, stats);
+		const dailyStats = this.getDailySessionStats(sessionId, timestamp);
+		dailyStats.turns += 1;
+		this.mutate(
+			(data) => {
+				data.sessions.turns += 1;
+				markActiveDay(data, timestamp, this.profile.reportingTimeZone);
+				this.updateLongestConversation(data, stats);
+			},
+			timestamp,
+			(data) => {
+				data.sessions.turns += 1;
+				markActiveDay(data, timestamp, this.profile.reportingTimeZone);
+				this.updateLongestConversation(data, dailyStats);
+			},
+		);
 	}
 
-	private recordSessionMessage(data: AppMonitorData, sessionId: string, timestamp: number): void {
-		markActiveDay(data, timestamp);
-		data.engagement.todayMessages += 1;
+	private recordSessionMessage(sessionId: string, timestamp: number): void {
 		const stats = this.sessionStats.get(sessionId) ?? { turns: 0, messages: 0 };
 		stats.messages += 1;
 		this.sessionStats.set(sessionId, stats);
-		this.updateLongestConversation(data, stats);
+		const dailyStats = this.getDailySessionStats(sessionId, timestamp);
+		dailyStats.messages += 1;
+		this.mutate(
+			(data) => {
+				data.sessions.messages += 1;
+				markActiveDay(data, timestamp, this.profile.reportingTimeZone);
+				data.engagement.todayMessages += 1;
+				this.updateLongestConversation(data, stats);
+			},
+			timestamp,
+			(data) => {
+				data.sessions.messages += 1;
+				markActiveDay(data, timestamp, this.profile.reportingTimeZone);
+				data.engagement.todayMessages += 1;
+				this.updateLongestConversation(data, dailyStats);
+			},
+		);
+	}
+
+	private getDailySessionStats(sessionId: string, timestamp: number): SessionEngagementStats {
+		const dayKey = formatDayKey(timestamp, this.profile.reportingTimeZone);
+		const key = `${dayKey}\0${sessionId}`;
+		const stats = this.dailySessionStats.get(key) ?? { turns: 0, messages: 0 };
+		this.dailySessionStats.set(key, stats);
+		return stats;
 	}
 
 	private updateLongestConversation(data: AppMonitorData, stats: SessionEngagementStats): void {
@@ -386,36 +488,55 @@ class AppMonitorService {
 		);
 	}
 
-	private mutate(update: (data: AppMonitorData) => void): void {
+	private mutate(
+		update: (data: AppMonitorData) => void,
+		timestamp = Date.now(),
+		updateDaily: (data: AppMonitorData) => void = update,
+	): void {
 		try {
 			update(this.data);
-			this.data.updatedAt = Date.now();
+			this.data.updatedAt = timestamp;
 			this.revision += 1;
 		} catch (error) {
 			log.warn("in-memory update failed", error);
 		}
+		if (!this.initialized) return;
+		try {
+			const bucket = this.ensureDayBucket(timestamp);
+			updateDaily(bucket.data);
+			bucket.data.updatedAt = timestamp;
+			this.touchMonth(timestamp);
+		} catch (error) {
+			log.warn("daily in-memory update failed", error);
+		}
+	}
+
+	private ensureDayBucket(timestamp: number): AppMonitorDayBucket {
+		const monthKey = getAppMonitorMonthKey(timestamp, this.profile);
+		let month = this.months.get(monthKey);
+		if (!month) {
+			month = createDefaultAppMonitorMonthData(monthKey, this.profile, timestamp);
+			this.months.set(monthKey, month);
+			this.persistedMonthRevisions.set(monthKey, 0);
+		}
+		const dayKey = formatDayKey(timestamp, this.profile.reportingTimeZone);
+		const existing = month.days[dayKey];
+		if (existing) return existing;
+		const bucket = getOrCreateAppMonitorDayBucket(month, timestamp);
+		this.touchMonth(timestamp);
+		return bucket;
+	}
+
+	private touchMonth(timestamp: number): void {
+		const monthKey = getAppMonitorMonthKey(timestamp, this.profile);
+		const month = this.months.get(monthKey);
+		if (!month) return;
+		month.updatedAt = timestamp;
+		month.revision += 1;
 	}
 }
 
 const appMonitor = new AppMonitorService();
-
-function formatLocalDayKey(timestamp: number): string {
-	const date = new Date(timestamp);
-	const year = date.getFullYear();
-	const month = String(date.getMonth() + 1).padStart(2, "0");
-	const day = String(date.getDate()).padStart(2, "0");
-	return `${year}-${month}-${day}`;
-}
-
-function startOfNextLocalDay(timestamp: number): number {
-	const date = new Date(timestamp);
-	return new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1).getTime();
-}
-
-function previousLocalDayKey(timestamp: number): string {
-	const date = new Date(timestamp);
-	return formatLocalDayKey(new Date(date.getFullYear(), date.getMonth(), date.getDate() - 1).getTime());
-}
 
 function ensureEngagementDay(data: AppMonitorData, dayKey: string): void {
 	if (data.engagement.currentDay === dayKey) return;
@@ -424,12 +545,14 @@ function ensureEngagementDay(data: AppMonitorData, dayKey: string): void {
 	data.engagement.todayMessages = 0;
 }
 
-function markActiveDay(data: AppMonitorData, timestamp: number): void {
-	const dayKey = formatLocalDayKey(timestamp);
+function markActiveDay(data: AppMonitorData, timestamp: number, reportingTimeZone: string): void {
+	const dayKey = formatDayKey(timestamp, reportingTimeZone);
 	ensureEngagementDay(data, dayKey);
 	if (data.engagement.lastActiveDay === dayKey) return;
 	data.engagement.activeDayStreak =
-		data.engagement.lastActiveDay === previousLocalDayKey(timestamp) ? data.engagement.activeDayStreak + 1 : 1;
+		data.engagement.lastActiveDay === getPreviousDayKey(timestamp, reportingTimeZone)
+			? data.engagement.activeDayStreak + 1
+			: 1;
 	data.engagement.lastActiveDay = dayKey;
 }
 
@@ -580,6 +703,7 @@ function updateInputActionUsageStats(
 function recordInputContextUsed(
 	data: AppMonitorData,
 	event: Extract<AppMonitorEvent, { type: "input.context.used" }>,
+	timestamp: number,
 ): void {
 	const files = event.files ?? [];
 	const images = event.images ?? [];
@@ -597,7 +721,7 @@ function recordInputContextUsed(
 		recordInputImageUsed(data, image);
 	}
 	if (event.promptRef) {
-		recordInputPromptRefUsed(data, event.promptRef.kind, event.promptRef.name);
+		recordInputPromptRefUsed(data, event.promptRef.kind, event.promptRef.name, timestamp);
 	}
 }
 
@@ -641,11 +765,10 @@ function recordInputImageUsed(data: AppMonitorData, image: AppMonitorInputImageA
 	}
 }
 
-function recordInputPromptRefUsed(data: AppMonitorData, rawKind: string, rawName: string): void {
+function recordInputPromptRefUsed(data: AppMonitorData, rawKind: string, rawName: string, timestamp: number): void {
 	const kind = normalizeMetricKey(rawKind);
 	const name = normalizeMetricKey(rawName);
 	if (kind === "unknown" || name === "unknown") return;
-	const now = Date.now();
 	const refKey = `${kind}:${name}`;
 	data.inputPromptRefs.events += 1;
 	if (kind === "skill") data.inputPromptRefs.skills += 1;
@@ -660,7 +783,7 @@ function recordInputPromptRefUsed(data: AppMonitorData, rawKind: string, rawName
 	};
 	const stats = data.inputPromptRefs.byRef[refKey];
 	stats.used += 1;
-	stats.lastUsedAt = now;
+	stats.lastUsedAt = timestamp;
 	data.inputPromptRefs.recent = { ...stats };
 	if (kind === "skill") data.inputPromptRefs.recentSkill = { ...stats };
 	if (kind === "scene") data.inputPromptRefs.recentScene = { ...stats };
@@ -670,13 +793,13 @@ function recordInputPromptRefUsed(data: AppMonitorData, rawKind: string, rawName
 function recordResourceLifecycle(
 	data: AppMonitorData,
 	event: Extract<AppMonitorEvent, { type: "resource.lifecycle" }>,
+	timestamp: number,
 ): void {
 	const kind = normalizeMetricKey(event.resourceKind);
 	const id = normalizeResourceId(event.resourceId);
 	const operation = normalizeMetricKey(event.operation);
 	if ((kind !== "skill" && kind !== "scene" && kind !== "plugin") || id === "" || operation === "unknown") return;
 	const source = event.source ? normalizeMetricKey(event.source) : "";
-	const now = Date.now();
 	data.resources.events += 1;
 	data.resources.byOperation[operation] = (data.resources.byOperation[operation] ?? 0) + 1;
 	if (source !== "" && source !== "unknown") {
@@ -709,7 +832,7 @@ function recordResourceLifecycle(
 	const resourceStats = data.resources.byResource[resourceKey];
 	resourceStats.events += 1;
 	resourceStats.lastOperation = operation;
-	resourceStats.lastOperationAt = now;
+	resourceStats.lastOperationAt = timestamp;
 	resourceStats.system = event.system === true;
 	if (source !== "" && source !== "unknown") resourceStats.source = source;
 	updateResourceOperationStats(resourceStats, operation, event.permissionCount, event.commandCount);
@@ -726,13 +849,13 @@ function recordResourceLifecycle(
 function recordSettingsChanged(
 	data: AppMonitorData,
 	event: Extract<AppMonitorEvent, { type: "settings.changed" }>,
+	timestamp: number,
 ): void {
 	const tab = normalizeMetricKey(event.tab);
 	const action = normalizeMetricKey(event.action);
 	const target = normalizeMetricKey(event.target);
 	const value = event.value ? normalizeMetricKey(event.value) : "";
 	if (tab === "unknown" || action === "unknown" || target === "unknown") return;
-	const now = Date.now();
 	const entryKey =
 		value === "" || value === "unknown" ? `${tab}:${action}:${target}` : `${tab}:${action}:${target}:${value}`;
 	data.settings.events += 1;
@@ -758,7 +881,7 @@ function recordSettingsChanged(
 	};
 	const stats = data.settings.byEntry[entryKey];
 	stats.used += 1;
-	stats.lastUsedAt = now;
+	stats.lastUsedAt = timestamp;
 	data.settings.recent = { ...stats };
 	if (isMoreUsedSetting(stats, data.settings.mostUsed)) {
 		data.settings.mostUsed = { ...stats };

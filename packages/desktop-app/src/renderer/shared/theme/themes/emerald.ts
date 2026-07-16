@@ -17,7 +17,8 @@ export const emeraldTheme: ThemeDef = {
 		popoverForeground: "rgb(255, 255, 255)",
 		primary: "rgb(30, 215, 96)",
 		primaryForeground: "rgb(0, 0, 0)",
-		secondary: "rgb(32, 32, 32)",
+		// secondary 略深于 muted
+		secondary: "rgb(16, 16, 16)",
 		secondaryForeground: "rgb(255, 255, 255)",
 		muted: "rgb(20, 20, 20)",
 		mutedForeground: "rgb(167, 167, 167)",
@@ -44,7 +45,8 @@ export const emeraldTheme: ThemeDef = {
 		popoverForeground: "rgb(10, 10, 10)",
 		primary: "rgb(25, 167, 78)",
 		primaryForeground: "rgb(255, 255, 255)",
-		secondary: "rgb(238, 250, 242)",
+		// secondary 略浅于 muted
+		secondary: "rgb(248, 252, 250)",
 		secondaryForeground: "rgb(10, 10, 10)",
 		muted: "rgb(242, 247, 244)",
 		mutedForeground: "rgb(90, 100, 92)",

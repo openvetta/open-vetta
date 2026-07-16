@@ -6,6 +6,7 @@ All notable changes to `@vetta/ecosystem-adapter` are documented in this file.
 
 ### Added
 
+- **Hook 关键路径 info 日志（测试可观测）**：Codex adapter 加载时记 profile、handler 按事件计数与配置源；dispatch 对 SessionStart/Stop/Compact 及 block/fail 打精简 info（不含 command/stdin）。
 - 新增通用 Hook 调度内核，负责配置、匹配、并发、命令执行和归一化 effect 聚合。
 - 新增可组合的 `EcosystemHookRuntime` / `EcosystemHookAdapter` 抽象，将会话状态、多适配器聚合和 Stop 安全策略从 Coding Agent 下沉到生态适配包。
 - 新增 `codex-hooks/fca51f6` profile，支持最新版 10 个事件、事件级严格 wire contract、Codex matcher、`commandWindows`、handler 环境变量、完成顺序聚合、通用工具身份、PreToolUse 输入改写及 PermissionRequest 决策。

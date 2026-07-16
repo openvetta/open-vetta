@@ -759,6 +759,13 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 				}
 			: config;
 		const result = await runtime.createSession(effectiveConfig);
+		sessionLog.info("session created", {
+			sessionId: result.sessionId,
+			cwd: effectiveCwd,
+			kind,
+			scenario,
+			includeAgentSkills,
+		});
 		monitorRuntimeSession(runtime, result.sessionId, "interactive");
 		if (effectiveCwd) {
 			sessionCwdMap.set(result.sessionId, effectiveCwd);

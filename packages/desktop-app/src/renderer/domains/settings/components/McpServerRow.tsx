@@ -48,7 +48,7 @@ export function McpServerRow({
 	return (
 		<div
 			className={cn(
-				"group flex flex-col overflow-hidden rounded-xl bg-muted transition-colors duration-200 hover:bg-accent",
+				"group flex flex-col overflow-hidden rounded-xl bg-card transition-colors duration-200 hover:bg-accent",
 				isDisabled && "opacity-75",
 			)}
 		>
