@@ -2,8 +2,6 @@
 	"activityPanel": {
 		"tabs": {
 			"file": "文件",
-			"journey": "历程",
-			"chat": "聊天",
 			"batchProgress": "执行进度",
 			"todo": "待办",
 			"backgroundTasks": "后台任务",
@@ -23,10 +21,6 @@
 		},
 		"batchProgress": {
 			"notFound": "未找到批量任务项目"
-		},
-		"chatTab": {
-			"loading": "加载中…",
-			"notFlowing": "该项目不是流转项目，没有聊天室"
 		},
 		"debug": {
 			"toolCalls": "工具调用",
@@ -77,39 +71,6 @@
 			"enable": "启用",
 			"executionRecords": "执行记录",
 			"noRecords": "暂无执行记录"
-		},
-		"journey": {
-			"statusPending": "待处理",
-			"statusInProgress": "进行中",
-			"statusCompleted": "已完成",
-			"statusReturned": "已退回",
-			"transferPending": "待处理",
-			"transferAccepted": "已接受",
-			"transferRejected": "已拒绝",
-			"member": "成员 {{id}}",
-			"loadFailed": "加载历程失败",
-			"notWorkflow": "当前项目不是工作流项目",
-			"empty": "暂无工作流历程",
-			"badge": "历程",
-			"stageCount": "环节 {{completed}}/{{total}}",
-			"transferCount": "流转记录 {{count}}",
-			"noSubtitle": "暂无子标题",
-			"subtitlePrefix": "子标题：{{subtitle}}",
-			"memberLabel": "成员：",
-			"noMembers": "无指定成员",
-			"enteredAt": "进入时间",
-			"completedAt": "完成时间",
-			"stageOutputFiles": "环节产出文件",
-			"transferMessageEmpty": "无",
-			"collapseDetails": "收起详情",
-			"expandDetails": "展开详情",
-			"senderReceiver": "发送者 → 接收者",
-			"sentAt": "发送时间 {{time}}",
-			"subtitle": "子标题",
-			"attachedMessage": "附加消息",
-			"attachedFiles": "附加文件",
-			"none": "无",
-			"noTransfers": "暂无流转记录"
 		},
 		"htmlPreview": {
 			"preview": "预览",
@@ -196,9 +157,6 @@
 		"defaultSessionName": "Vetta 会话"
 	},
 	"chatView": {
-		"completeButton": {
-			"label": "完成"
-		},
 		"defaultSessionTitle": "Vetta 会话",
 		"exportButton": {
 			"title": "导出完整会话 HTML"

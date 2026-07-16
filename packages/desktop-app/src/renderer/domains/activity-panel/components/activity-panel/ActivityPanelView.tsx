@@ -6,10 +6,8 @@ import { ActivityPanelView as ThemeActivityPanelView } from "@vetta/theme-ui/act
 import { BackgroundTasksTabPanel } from "../BackgroundTasksTabPanel";
 import { BatchProgressTabPanel } from "../BatchProgressTabPanel";
 import { BrowserPanel } from "../BrowserPanel";
-import { ChatTabPanel } from "../ChatTabPanel";
 import { DebugTabPanel } from "../DebugTabPanel";
 import { FileTabContent } from "../file-tab/FileTabContent";
-import { JourneyPanel } from "../JourneyPanel";
 import { KnowledgeHistoryPanel } from "../KnowledgeHistoryPanel";
 import { PluginTabPicker } from "../PluginTabPicker";
 import { ScheduleExecutionTabPanel } from "../ScheduleExecutionTabPanel";
@@ -54,8 +52,6 @@ export function ActivityPanelView({
 	const panelContent = (
 		<div key={model.cwd ?? "__none__"} className="flex min-h-0 flex-1 flex-col">
 			{model.activeTab === "file" && <FileTabContent cwd={model.cwd} />}
-			{model.activeTab === "journey" && model.cwd && <JourneyPanel cwd={model.cwd} />}
-			{model.activeTab === "chat" && model.cwd && <ChatTabPanel cwd={model.cwd} />}
 			{model.activeTab === "batch-progress" && model.cwd && <BatchProgressTabPanel cwd={model.cwd} />}
 			{model.activeTab === "schedule-records" && model.cwd && (
 				<ScheduleExecutionTabPanel cwd={model.cwd} />

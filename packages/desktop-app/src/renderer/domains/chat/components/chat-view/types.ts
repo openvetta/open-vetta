@@ -7,11 +7,9 @@ export interface ChatViewProps {
 }
 
 export interface ChatViewHeaderModel {
-	completeLabel: string;
 	exportDisabled: boolean;
 	exporting: boolean;
 	exportTitle: string;
-	isLastStage: boolean;
 	panelOpen: boolean;
 	panelTitle: string;
 	pinTitle: string;
@@ -31,7 +29,6 @@ export interface ChatViewModel {
 export interface ChatViewActions {
 	finishExport: () => void;
 	openExport: () => void;
-	openWorkflowComplete: () => void;
 	togglePanel: () => void;
 	togglePin: () => Promise<void>;
 }

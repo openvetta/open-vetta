@@ -1,7 +1,5 @@
 import { LoginDialog } from "../domains/auth/components/LoginDialog";
 import { FilePreviewDialog } from "../domains/file-preview/components/FilePreviewDialog";
-import { FlowingSendDialog } from "../domains/flowing/components/FlowingSendDialog";
-import { WorkflowCompleteDialog } from "../domains/flowing/components/WorkflowCompleteDialog";
 import { KnowledgeDropOverlay } from "../domains/knowledge-base/components/KnowledgeDropOverlay";
 import { PluginGlobalSlotHost } from "../domains/plugins/components/PluginGlobalSlotHost";
 import { ActionApprovalCenter } from "../shared/action-approval/ActionApprovalCenter";
@@ -26,8 +24,6 @@ import { useThemeComponent } from "@vetta/theme-sdk";
 export function RootGlobalOverlays(): JSX.Element {
 	const ThemedConfirmDialog = useThemeComponent("root.confirmDialog", ConfirmDialog);
 	const ThemedLoginDialog = useThemeComponent("root.loginDialog", LoginDialog);
-	const ThemedFlowingSendDialog = useThemeComponent("root.flowingSendDialog", FlowingSendDialog);
-	const ThemedWorkflowCompleteDialog = useThemeComponent("root.workflowCompleteDialog", WorkflowCompleteDialog);
 	const ThemedFilePreviewDialog = useThemeComponent("root.filePreviewDialog", FilePreviewDialog);
 	const ThemedUpdateRestartDialog = useThemeComponent("root.updateRestartDialog", UpdateRestartDialog);
 	const ThemedGenericActionApproval = useThemeComponent("root.genericActionApproval", GenericActionApproval);
@@ -52,8 +48,6 @@ export function RootGlobalOverlays(): JSX.Element {
 		<>
 			<ThemedConfirmDialog />
 			<ThemedLoginDialog />
-			<ThemedFlowingSendDialog />
-			<ThemedWorkflowCompleteDialog />
 			<ThemedFilePreviewDialog />
 			<ThemedUpdateRestartDialog />
 			<ActionApprovalCenter />

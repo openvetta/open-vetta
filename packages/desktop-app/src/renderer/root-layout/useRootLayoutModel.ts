@@ -5,8 +5,6 @@ import { useAuth } from "../domains/auth/hooks/useAuth";
 import { useAppInit } from "../domains/chat/hooks/useAppInit";
 import { useSessionManager } from "../domains/chat/hooks/useSessionManager";
 import { useDownloadsInit } from "../domains/downloads/hooks/useDownloadsInit";
-import { useFlowingInit } from "../domains/flowing/hooks/useFlowingInit";
-import { useFlowingChatInit } from "../domains/flowing-chat/hooks/useFlowingChatInit";
 import { useNotificationInit } from "../domains/message/hooks/useNotificationInit";
 import { useProjects } from "../domains/project/hooks/useProjects";
 import { useMessageQueueDispatcher } from "../shared/hooks/useMessageQueueDispatcher";
@@ -83,9 +81,7 @@ export function useRootLayoutModel(): RootLayoutModel {
 	useTheme();
 	useAuth();
 	useAppInit();
-	useFlowingInit();
 	useNotificationInit();
-	useFlowingChatInit();
 	useDownloadsInit();
 	useUpdaterInit();
 	// 全局 running-sessions 订阅必须挂在始终挂载的 App 上：它是 streaming 状态真值

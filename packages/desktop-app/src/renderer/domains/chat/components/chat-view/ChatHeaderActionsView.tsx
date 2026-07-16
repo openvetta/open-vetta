@@ -21,9 +21,6 @@ export function ChatHeaderActionsView({ actions, model }: ChatHeaderActionsViewP
 			exportDisabled={model.exportDisabled}
 			exporting={model.exporting}
 			onOpenExport={actions.openExport}
-			isLastStage={model.isLastStage}
-			completeLabel={model.completeLabel}
-			onOpenWorkflowComplete={actions.openWorkflowComplete}
 			pinTitle={model.pinTitle}
 			pinned={model.pinned}
 			onTogglePin={actions.togglePin}

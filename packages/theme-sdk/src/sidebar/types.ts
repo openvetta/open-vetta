@@ -1,6 +1,6 @@
 import type { RefCallback } from "react";
 
-export type SidebarFilter = "all" | "normal" | "batch" | "flowing";
+export type SidebarFilter = "all" | "normal" | "batch";
 
 export interface SidebarClassNames {
 	readonly bottomBar?: string;
