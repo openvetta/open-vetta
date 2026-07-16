@@ -16,6 +16,11 @@ export interface ProjectsPanelViewProps {
 	onSplitResizeEnd: () => void;
 	onSplitResizeStart: () => void;
 	projectsSection: ReactNode;
+	/**
+	 * When true (and not split), the projects region does not grow — used for
+	 * the no-projects empty placeholder above the default conversation section.
+	 */
+	projectsRegionCompact?: boolean;
 	quickScrollLabels: QuickScrollLabels;
 	showDefaultRegion: boolean;
 	showEmpty: boolean;
@@ -36,6 +41,7 @@ export function ProjectsPanelView({
 	onSplitResizeEnd,
 	onSplitResizeStart,
 	projectsSection,
+	projectsRegionCompact = false,
 	quickScrollLabels,
 	showDefaultRegion,
 	showEmpty,
@@ -49,7 +55,11 @@ export function ProjectsPanelView({
 		<ScrollFade
 			data-sidebar-selection-scroll="true"
 			onScrollRef={onProjectsScrollRef}
-			className="min-h-0 flex-1 overflow-y-auto no-scrollbar"
+			className={
+				projectsRegionCompact
+					? "shrink-0 overflow-y-auto no-scrollbar"
+					: "min-h-0 flex-1 overflow-y-auto no-scrollbar"
+			}
 		>
 			{projectsSection}
 		</ScrollFade>
@@ -84,15 +94,18 @@ export function ProjectsPanelView({
 				</div>
 			) : (
 				<>
-					{showProjectsRegion && (
-						<QuickScrollOverlay
-							labels={quickScrollLabels}
-							scrollElement={projectsScrollElement}
-							className="min-h-0 flex-1"
-						>
-							{projectsScroll}
-						</QuickScrollOverlay>
-					)}
+					{showProjectsRegion &&
+						(projectsRegionCompact ? (
+							projectsScroll
+						) : (
+							<QuickScrollOverlay
+								labels={quickScrollLabels}
+								scrollElement={projectsScrollElement}
+								className="min-h-0 flex-1"
+							>
+								{projectsScroll}
+							</QuickScrollOverlay>
+						))}
 					{showDefaultRegion && (
 						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{defaultSection}</div>
 					)}
