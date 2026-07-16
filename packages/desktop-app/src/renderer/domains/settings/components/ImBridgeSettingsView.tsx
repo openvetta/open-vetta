@@ -127,12 +127,12 @@ export function ImBridgeSettingsView({ model }: { model: ImBridgeSettingsModel }
 				</SettingRow>
 			</SettingSection>
 
-			<div className="@container mb-6">
+			<div className="mb-6">
 				<div className="mb-3 flex items-baseline gap-2">
 					<SettingHeading section={SETTINGS_SECTION["imbridge-channels"]} />
 					<span className="text-[12px] text-muted-foreground">{t("channelsCount")}</span>
 				</div>
-				<div className="grid grid-cols-1 gap-3 @xl:grid-cols-2">
+				<div className="grid grid-cols-2 gap-3">
 					<ImChannelCard
 						name={t("feishuName")}
 						subtitle={t("feishuSubtitle")}
