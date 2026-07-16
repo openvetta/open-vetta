@@ -18,7 +18,7 @@ export function ImBridgeSettingsView({ model }: { model: ImBridgeSettingsModel }
 
 	if (!model.config) {
 		return (
-			<div className="mx-auto w-full max-w-[680px] px-8 py-4">
+			<div className="mx-auto w-full max-w-[680px] px-8 pt-2 pb-4">
 				<h1 className="mb-6 text-[20px] font-bold text-foreground">Vetta Claw</h1>
 				<div className="text-[13px] text-muted-foreground">{t("loadFailed")}</div>
 			</div>
@@ -26,7 +26,7 @@ export function ImBridgeSettingsView({ model }: { model: ImBridgeSettingsModel }
 	}
 
 	return (
-		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
+		<div className="mx-auto w-full max-w-[680px] px-8 pt-2 pb-4">
 			<div className="mb-6 flex flex-wrap items-center justify-between gap-3">
 				<h1 className="text-[20px] font-bold text-foreground">Vetta Claw</h1>
 				<SettingsAiAssist tabId="im" />

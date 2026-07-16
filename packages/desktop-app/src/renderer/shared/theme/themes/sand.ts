@@ -15,6 +15,9 @@ const DARK_SECONDARY = "rgb(26, 26, 26)"; // 略深于 muted
 const DARK_CARD = "rgb(28, 28, 28)"; // #1c1c1c
 const DARK_POPOVER = DARK_CARD;
 const DARK_ACCENT = "rgb(69, 69, 69)"; // #454545
+// 中性灰边框（覆盖经典主题偏蓝的 border/input）
+const DARK_BORDER = "rgb(58, 58, 58)"; // #3a3a3a
+const DARK_INPUT = "rgb(66, 66, 66)"; // #424242
 
 // ── light ──
 // 冷灰石色：去掉米黄偏黄感，仍保留柔和纸面层级（card > bg > muted > secondary）
@@ -24,6 +27,8 @@ const LIGHT_SECONDARY = "rgb(226, 228, 231)"; // #e2e4e7（用户气泡，明显
 const LIGHT_CARD = "rgb(246, 247, 248)"; // #f6f7f8
 const LIGHT_POPOVER = LIGHT_CARD;
 const LIGHT_ACCENT = "rgb(228, 230, 233)"; // #e4e6e9
+const LIGHT_BORDER = "rgb(214, 216, 219)"; // #d6d8db
+const LIGHT_INPUT = LIGHT_BORDER;
 
 export const sandTheme: ThemeDef = {
 	id: "sand",
@@ -36,6 +41,8 @@ export const sandTheme: ThemeDef = {
 		card: DARK_CARD,
 		popover: DARK_POPOVER,
 		accent: DARK_ACCENT,
+		border: DARK_BORDER,
+		input: DARK_INPUT,
 		primary: PRIMARY,
 		primaryForeground: PRIMARY_FG,
 		ring: PRIMARY,
@@ -48,6 +55,8 @@ export const sandTheme: ThemeDef = {
 		card: LIGHT_CARD,
 		popover: LIGHT_POPOVER,
 		accent: LIGHT_ACCENT,
+		border: LIGHT_BORDER,
+		input: LIGHT_INPUT,
 		primary: PRIMARY,
 		primaryForeground: PRIMARY_FG,
 		ring: PRIMARY,

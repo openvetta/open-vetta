@@ -76,7 +76,7 @@ export const SETTINGS_SECTIONS = [
 	{ tab: "general", id: "general-notifications", title: "通知", titleKey: "section_general-notifications" },
 	{ tab: "general", id: "general-developer", title: "开发者", titleKey: "section_general-developer" },
 	{ tab: "appearance", id: "appearance-mode", title: "外观模式", titleKey: "section_appearance-mode" },
-	{ tab: "appearance", id: "appearance-ui-theme", title: "界面主题", titleKey: "section_appearance-ui-theme" },
+	// appearance-ui-theme（界面主题）暂不在外观设置展示
 	{ tab: "appearance", id: "appearance-theme", title: "主题", titleKey: "section_appearance-theme" },
 	{ tab: "appearance", id: "appearance-language", title: "语言", titleKey: "section_appearance-language" },
 	{ tab: "appearance", id: "appearance-cursor", title: "鼠标指针", titleKey: "section_appearance-cursor" },
