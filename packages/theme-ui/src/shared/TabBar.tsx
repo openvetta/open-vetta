@@ -1,6 +1,5 @@
 import { motion } from "motion/react";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type JSX, type ReactNode } from "react";
 
 function cn(...parts: Array<string | false | null | undefined>): string {
 	return parts.filter(Boolean).join(" ");

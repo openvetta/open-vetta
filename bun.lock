@@ -266,7 +266,7 @@
     },
     "packages/plugins/plugin-sdk": {
       "name": "@vetta-org/plugin-sdk",
-      "version": "0.0.1",
+      "version": "0.0.2",
       "devDependencies": {
         "@types/react": "^19.1.1",
         "typescript": "^5.9.2",
@@ -280,7 +280,7 @@
     },
     "packages/plugins/plugin-vite": {
       "name": "@vetta-org/plugin-vite",
-      "version": "0.0.1",
+      "version": "0.0.2",
       "dependencies": {
         "@module-federation/vite": "^1.16.6",
       },
@@ -356,12 +356,22 @@
       "name": "@vetta/site",
       "version": "0.55.3",
       "dependencies": {
+        "@iconify-json/mdi": "^1.2.3",
+        "@iconify-json/solar": "^1.2.5",
+        "@iconify/tailwind4": "^1.2.3",
         "@tailwindcss/postcss": "^4.1.18",
+        "@vetta/theme-sdk": "workspace:*",
+        "@vetta/theme-ui": "workspace:*",
+        "@vetta/ui": "workspace:*",
+        "class-variance-authority": "^0.7.1",
+        "clsx": "^2.1.1",
         "motion": "^12.42.2",
         "next": "^16.0.0",
         "next-auth": "^5.0.0-beta.31",
+        "radix-ui": "^1.6.2",
         "react": "^19.2.3",
         "react-dom": "^19.2.3",
+        "tailwind-merge": "^3.6.0",
         "tailwindcss": "^4.1.18",
       },
       "devDependencies": {

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type JSX } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { cn } from "@vetta/ui";
 
