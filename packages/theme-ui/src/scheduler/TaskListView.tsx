@@ -1,4 +1,4 @@
-import type { MouseEvent } from "react";
+import type { JSX, MouseEvent } from "react";
 import { motion } from "motion/react";
 
 export interface TaskListItemView {

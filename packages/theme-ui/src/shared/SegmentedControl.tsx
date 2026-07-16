@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { useId } from "react";
+import { useId, type JSX } from "react";
 
 function cn(...parts: Array<string | false | null | undefined>): string {
 	return parts.filter(Boolean).join(" ");

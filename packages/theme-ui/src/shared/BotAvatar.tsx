@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState, type JSX } from "react";
 import { AnimatePresence, motion, useAnimation } from "motion/react";
 
 type AvatarMood = "idle" | "left" | "right" | "think" | "blink" | "bounce" | "sleep";
@@ -306,11 +306,12 @@ export const BotAvatar = memo(function BotAvatar({
 				style={{ transformOrigin: mood === "bounce" ? "50% 100%" : "50% 50%" }}
 			>
 				<div className={`flex items-center ${cfg.gap}`}>
+					{/* Multi-keyframe scaleY (blink/sleep) must use tween — spring only allows 2 keyframes. */}
 					<motion.span
 						className={`block rounded-full bg-white ${cfg.eye}`}
 						animate={{ x: eyesShift, scaleY: eyesScaleY }}
 						transition={{
-							type: mood === "sleep" ? "tween" : "spring",
+							type: mood === "blink" || mood === "sleep" ? "tween" : "spring",
 							stiffness: 380,
 							damping: 22,
 							duration:
@@ -322,7 +323,7 @@ export const BotAvatar = memo(function BotAvatar({
 						className={`block rounded-full bg-white ${cfg.eye}`}
 						animate={{ x: eyesShift, scaleY: eyesScaleY }}
 						transition={{
-							type: mood === "sleep" ? "tween" : "spring",
+							type: mood === "blink" || mood === "sleep" ? "tween" : "spring",
 							stiffness: 380,
 							damping: 22,
 							duration:
