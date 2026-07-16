@@ -165,14 +165,10 @@ export function useProjectGroupModel({
 }
 
 function getProjectBadge(
-	project: Project,
+	_project: Project,
 	projectType: ProjectType,
-	t: (key: "detail.typeBatch" | "detail.typeFlowing" | "detail.typeWorkflow") => string,
+	t: (key: "detail.typeBatch") => string,
 ): string | undefined {
 	if (projectType === "normal") return undefined;
-	if (project.type === "flowing" && typeof project.workflowInstanceId === "number") {
-		return t("detail.typeWorkflow");
-	}
-	if (projectType === "flowing") return t("detail.typeFlowing");
 	return t("detail.typeBatch");
 }

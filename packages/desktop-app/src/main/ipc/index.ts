@@ -8,7 +8,6 @@ import { registerDebugIpc } from "./debug.js";
 import { registerDiagnosticsIpc } from "./diagnostics.js";
 import { registerDialogIpc } from "./dialog.js";
 import { registerDownloadsIpc } from "./downloads.js";
-import { registerFlowingIpc } from "./flowing.js";
 import { registerFsIpc } from "./fs.js";
 import { registerImIpc } from "./im.js";
 import { registerMediaIpc } from "./media.js";
@@ -36,7 +35,6 @@ interface IpcTeardown {
 	teardownThemes: () => void;
 	teardownDialog: () => void;
 	teardownFs: () => void;
-	teardownFlowing: () => void;
 	teardownBatchTasks: () => void;
 	teardownDownloads: () => void;
 	teardownIm: () => void;
@@ -69,7 +67,6 @@ export function registerAllIpc(
 		teardownThemes: registerThemesIpc(),
 		teardownDialog: registerDialogIpc(),
 		teardownFs: registerFsIpc(),
-		teardownFlowing: registerFlowingIpc(),
 		teardownBatchTasks: () => {},
 		teardownDownloads: registerDownloadsIpc(webContents),
 		teardownIm: registerImIpc(webContents),
@@ -99,7 +96,6 @@ export function teardownAllIpc(teardown: IpcTeardown): void {
 	teardown.teardownThemes();
 	teardown.teardownDialog();
 	teardown.teardownFs();
-	teardown.teardownFlowing();
 	teardown.teardownBatchTasks();
 	teardown.teardownDownloads();
 	teardown.teardownIm();

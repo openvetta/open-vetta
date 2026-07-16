@@ -2,7 +2,6 @@ import {
 	activeSessionAtom,
 	activityPanelOpenAtom,
 	applyInputActionWorkingState,
-	authUserAtom,
 	captureInputActionWorkingState,
 	chatMessagesAtom,
 	closeInlineFilePreviewAtom,
@@ -20,8 +19,6 @@ import {
 	sessionDisplayLabel,
 	sessionsMapAtom,
 	syncHardIsolationContributionModes,
-	workflowCompleteDialogOpenAtom,
-	workflowInstanceAtom,
 } from "@shared/store/atoms";
 import { useThemeSurface } from "@vetta/theme-sdk/appearance";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
@@ -36,9 +33,6 @@ export function useChatViewModel(): ChatViewModelResult {
 	const messages = useAtomValue(chatMessagesAtom);
 	const isStreaming = useAtomValue(isStreamingAtom);
 	const [panelOpen, setPanelOpen] = useAtom(activityPanelOpenAtom);
-	const setWorkflowCompleteOpen = useSetAtom(workflowCompleteDialogOpenAtom);
-	const workflowInstance = useAtomValue(workflowInstanceAtom);
-	const authUser = useAtomValue(authUserAtom);
 	const setHeaderTitle = useSetAtom(pageHeaderTitleAtom);
 	const inlinePreviewActive = useAtomValue(inlineFilePreviewContextReadonlyAtom) !== null;
 	const closeInlinePreview = useSetAtom(closeInlineFilePreviewAtom);
@@ -110,7 +104,6 @@ export function useChatViewModel(): ChatViewModelResult {
 	}, []);
 	const finishExport = useCallback(() => setExporting(false), []);
 	const openExport = useCallback(() => setExporting(true), []);
-	const openWorkflowComplete = useCallback(() => setWorkflowCompleteOpen(true), [setWorkflowCompleteOpen]);
 	const togglePanel = useCallback(() => {
 		if (inlinePreviewActive) {
 			closeInlinePreview();
@@ -119,13 +112,6 @@ export function useChatViewModel(): ChatViewModelResult {
 		}
 		setPanelOpen((open) => !open);
 	}, [closeInlinePreview, inlinePreviewActive, setPanelOpen]);
-
-	const isLastStage =
-		workflowInstance != null &&
-		workflowInstance.status === "active" &&
-		authUser != null &&
-		workflowInstance.current_stage === workflowInstance.stages.length - 1 &&
-		workflowInstance.stages[workflowInstance.current_stage]?.member_ids.includes(authUser.id);
 
 	const sessionTitle = useMemo(() => {
 		if (!activeSession) return null;
@@ -145,7 +131,6 @@ export function useChatViewModel(): ChatViewModelResult {
 		actions: {
 			finishExport,
 			openExport,
-			openWorkflowComplete,
 			togglePanel,
 			togglePin,
 		},
@@ -153,11 +138,9 @@ export function useChatViewModel(): ChatViewModelResult {
 			exporting,
 			exportTitle: sessionTitle ?? t("chatView.defaultSessionTitle"),
 			header: {
-				completeLabel: t("chatView.completeButton.label"),
 				exportDisabled: messages.length === 0 || isStreaming || exporting,
 				exporting,
 				exportTitle: t("chatView.exportButton.title"),
-				isLastStage,
 				panelOpen,
 				panelTitle: panelOpen ? t("chatView.panelButton.open") : t("chatView.panelButton.closed"),
 				pinTitle: pinned ? t("chatView.pinButton.pinned") : t("chatView.pinButton.unpinned"),

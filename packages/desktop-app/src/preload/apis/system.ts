@@ -25,7 +25,6 @@ export function createSystemApi(
 	| "auth"
 	| "updater"
 	| "tray"
-	| "flowing"
 	| "debug"
 	| "diagnostics"
 	| "project"
@@ -233,14 +232,6 @@ export function createSystemApi(
 			getQuitBehavior: () => ipc.invoke("vetta:tray:get-quit-behavior"),
 			setTooltip: (text) => ipc.invoke("vetta:tray:set-tooltip", text),
 		},
-		flowing: {
-			packFiles: (projectDir, filePaths, message, senderName) =>
-				ipc.invoke("vetta:flowing:pack-files", projectDir, filePaths, message, senderName),
-			unpackFiles: (zipBuffer, destDir) => ipc.invoke("vetta:flowing:unpack-files", zipBuffer, destDir),
-			readMeta: (projectDir) => ipc.invoke("vetta:flowing:read-meta", projectDir),
-			writeMeta: (projectDir, meta) => ipc.invoke("vetta:flowing:write-meta", projectDir, meta),
-			findProjectByFlowingId: (flowingId, projects) => ipc.invoke("vetta:flowing:find-project", flowingId, projects),
-		},
 		debug: {
 			parseToolCalls: (sessionPath) => ipc.invoke("vetta:debug:parse-tool-calls", sessionPath),
 			listRequestFiles: (projectName, sessionId) =>
@@ -254,6 +245,7 @@ export function createSystemApi(
 		project: {
 			export: (projectDir) => ipc.invoke("vetta:project:export", projectDir),
 			import: () => ipc.invoke("vetta:project:import"),
+			readMeta: (projectDir) => ipc.invoke("vetta:project:read-meta", projectDir),
 		},
 		permissions: {
 			checkAll: () => ipc.invoke("vetta:permissions:check-all"),

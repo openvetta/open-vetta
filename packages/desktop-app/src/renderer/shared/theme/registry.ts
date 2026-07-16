@@ -9,8 +9,6 @@ import type { SkillCard } from "@domains/chat/components/new-session/SkillCard";
 import type { QuestionPanelView } from "@domains/chat/components/question-panel/QuestionPanelView";
 import type { SlashPanelView } from "@domains/chat/components/slash-panel/SlashPanelView";
 import type { FilePreviewDialogView } from "@domains/file-preview/components/FilePreviewDialogView";
-import type { FlowingSendDialogView } from "@domains/flowing/components/FlowingSendDialogView";
-import type { WorkflowCompleteDialogView } from "@domains/flowing/components/WorkflowCompleteDialogView";
 import type { KnowledgeDropOverlayView } from "@domains/knowledge-base/components/KnowledgeDropOverlayView";
 import type { SidebarNavItemButton } from "@domains/project/components/sidebar/SidebarNavItemButton";
 import type { SidebarNavigationProps } from "@domains/project/components/sidebar/SidebarNavigation";
@@ -86,8 +84,6 @@ declare module "@vetta/theme-sdk" {
 		readonly "root.confirmDialogView"?: typeof ConfirmDialogView;
 		readonly "root.filePreviewDialog"?: ComponentType;
 		readonly "root.filePreviewDialogView"?: typeof FilePreviewDialogView;
-		readonly "root.flowingSendDialog"?: ComponentType;
-		readonly "root.flowingSendDialogView"?: typeof FlowingSendDialogView;
 		readonly "root.genericActionApproval"?: ComponentType;
 		readonly "root.genericActionApprovalView"?: typeof GenericActionApprovalView;
 		readonly "root.knowledgeDropOverlay"?: ComponentType;
@@ -97,8 +93,6 @@ declare module "@vetta/theme-sdk" {
 		readonly "root.toaster"?: ComponentType;
 		readonly "root.updateRestartDialog"?: ComponentType;
 		readonly "root.updateRestartDialogView"?: typeof UpdateRestartDialogView;
-		readonly "root.workflowCompleteDialog"?: ComponentType;
-		readonly "root.workflowCompleteDialogView"?: typeof WorkflowCompleteDialogView;
 		readonly "sidebar.navItem"?: typeof SidebarNavItemButton;
 		readonly "sidebar.navigation"?: ComponentType<SidebarNavigationProps>;
 		readonly "sidebar.settingsTrigger"?: typeof SettingsMenuTrigger;

@@ -12,7 +12,6 @@ const FILTER_OPTIONS = [
 	{ value: "all" as const, labelKey: "filterTabs.all" as const },
 	{ value: "normal" as const, labelKey: "filterTabs.normal" as const },
 	{ value: "batch" as const, labelKey: "filterTabs.batch" as const },
-	{ value: "flowing" as const, labelKey: "filterTabs.flowing" as const },
 ];
 
 const DEFAULT_CONVERSATION_FILTER_OPTIONS = [

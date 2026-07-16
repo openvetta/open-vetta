@@ -6,7 +6,6 @@ const easeOut = [0.22, 1, 0.36, 1] as const;
 export type ProjectDetailSaveStatus = "idle" | "saving" | "saved" | "error";
 
 export interface ProjectDetailPageViewLabels {
-	bindWorkflow: string;
 	showInFolderTitle: string;
 	showInFolder: string;
 	exportTitle: string;
@@ -31,20 +30,15 @@ export interface ProjectDetailPageViewProps {
 	activityPanel: ReactNode;
 	/** Host BatchQueueStatus section body (already wrapped or raw). */
 	batchSection: ReactNode | null;
-	/** Host WorkflowBindDialog. */
-	bindDialog: ReactNode | null;
 	content: string;
 	createdAtLabel: string | null;
 	cwd: string;
 	displayName: string;
 	editorFocused: boolean;
 	exportable: boolean;
-	/** Host FlowingWorkflow section. */
-	flowingSection: ReactNode | null;
 	isDirty: boolean;
 	labels: ProjectDetailPageViewLabels;
 	loading: boolean;
-	onBindWorkflow: () => void;
 	onContentChange: (value: string) => void;
 	onEditorBlur: () => void;
 	onEditorFocus: () => void;
@@ -56,29 +50,23 @@ export interface ProjectDetailPageViewProps {
 	projectTypeLabel: string | null;
 	saveStatus: ProjectDetailSaveStatus;
 	sessionCountLabel: string;
-	showBindWorkflow: boolean;
 	taskCountLabel: string | null;
 	textareaRef: RefObject<HTMLTextAreaElement | null>;
-	/** Host WorkflowProgress section. */
-	workflowProgressSection: ReactNode | null;
 }
 
 export function ProjectDetailPageView({
 	activityOpen,
 	activityPanel,
 	batchSection,
-	bindDialog,
 	content,
 	createdAtLabel,
 	cwd,
 	displayName,
 	editorFocused,
 	exportable,
-	flowingSection,
 	isDirty,
 	labels,
 	loading,
-	onBindWorkflow,
 	onContentChange,
 	onEditorBlur,
 	onEditorFocus,
@@ -90,10 +78,8 @@ export function ProjectDetailPageView({
 	projectTypeLabel,
 	saveStatus,
 	sessionCountLabel,
-	showBindWorkflow,
 	taskCountLabel,
 	textareaRef,
-	workflowProgressSection,
 }: ProjectDetailPageViewProps): JSX.Element {
 	return (
 		<div className="flex h-full w-full flex-col overflow-hidden">
@@ -126,22 +112,6 @@ export function ProjectDetailPageView({
 										</motion.span>
 									)}
 								</AnimatePresence>
-								{showBindWorkflow && (
-									<motion.div
-										initial={{ opacity: 0, x: -6 }}
-										animate={{ opacity: 1, x: 0 }}
-										transition={{ delay: 0.15, duration: 0.4, ease: easeOut }}
-									>
-										<button
-											type="button"
-											className="inline-flex h-7 items-center gap-1 rounded-full px-2 text-muted-foreground/60 hover:bg-primary/8 hover:text-primary"
-											onClick={onBindWorkflow}
-										>
-											<span className="icon-[mdi--sitemap-outline] text-xs" />
-											<span className="text-[10px]">{labels.bindWorkflow}</span>
-										</button>
-									</motion.div>
-								)}
 							</div>
 							<motion.div
 								className="flex items-center gap-2"
@@ -246,8 +216,6 @@ export function ProjectDetailPageView({
 
 					<div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto">
 						{batchSection}
-						{flowingSection}
-						{workflowProgressSection}
 
 						<motion.div
 							className="flex min-h-[340px] flex-1 flex-col px-10 py-6"
@@ -381,7 +349,6 @@ export function ProjectDetailPageView({
 				</div>
 				{activityPanel}
 			</div>
-			{bindDialog}
 		</div>
 	);
 }

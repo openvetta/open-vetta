@@ -1,17 +1,13 @@
-import { useWorkflowSSE } from "@domains/flowing/hooks/useWorkflowSSE";
-import { fetchWorkflowInstanceByFlowing, type WorkflowInstance } from "@shared/lib/api";
 import { isMac } from "@shared/lib/platform";
 import { pathBasename } from "@shared/lib/utils";
 import {
 	activityPanelOpenAtom,
-	authTokenAtom,
 	batchProjectsAtom,
 	confirmDialogAtom,
 	isPersonalModeAtom,
 	pageHeaderTitleHiddenAtom,
 	projectsAtom,
 	sessionsMapAtom,
-	workflowInstanceAtom,
 } from "@shared/store/atoms";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import type { ProjectDetailPageViewProps } from "@vetta/theme-ui/project";
@@ -26,37 +22,10 @@ function formatDate(ts: number, locale: string): string {
 	return d.toLocaleDateString(locale, { year: "numeric", month: "long", day: "numeric" });
 }
 
-function getProjectTypeKey(
-	project: { type: "normal" | "flowing" | "batch"; workflowInstanceId?: number } | undefined,
-): "detail.typeBatch" | "detail.typeWorkflow" | "detail.typeFlowing" | null {
+function getProjectTypeKey(project: { type: "normal" | "batch" } | undefined): "detail.typeBatch" | null {
 	if (!project) return null;
 	if (project.type === "batch") return "detail.typeBatch";
-	if (project.type === "flowing") {
-		return typeof project.workflowInstanceId === "number" ? "detail.typeWorkflow" : "detail.typeFlowing";
-	}
 	return null;
-}
-
-function useFlowingMeta(cwd: string) {
-	const [flowingId, setFlowingId] = useState<number | null>(null);
-	const [workflowInstanceId, setWorkflowInstanceId] = useState<number | null>(null);
-
-	useEffect(() => {
-		void window.vetta.flowing.readMeta(cwd).then((meta) => {
-			if (meta && meta.type === "flowing" && typeof meta.flowingId === "number") {
-				setFlowingId(meta.flowingId);
-			} else {
-				setFlowingId(null);
-			}
-			if (meta && typeof meta.workflowInstanceId === "number") {
-				setWorkflowInstanceId(meta.workflowInstanceId);
-			} else {
-				setWorkflowInstanceId(null);
-			}
-		});
-	}, [cwd]);
-
-	return { flowingId, workflowInstanceId };
 }
 
 function useProjectDetail(cwd: string) {
@@ -136,20 +105,12 @@ function useCreatedAt(cwd: string) {
 	return createdAt;
 }
 
-export interface ProjectDetailPageModel
-	extends Omit<
-		ProjectDetailPageViewProps,
-		"activityPanel" | "batchSection" | "bindDialog" | "flowingSection" | "workflowProgressSection"
-	> {
+export interface ProjectDetailPageModel extends Omit<ProjectDetailPageViewProps, "activityPanel" | "batchSection"> {
 	batchProject: ReturnType<typeof useProjectDetail>["batchProject"];
-	bindDialogOpen: boolean;
 	decodedCwd: string;
-	flowingId: number | null;
 	isBatch: boolean;
 	isPersonal: boolean;
-	projectType: "normal" | "flowing" | "batch" | undefined;
-	setBindDialogOpen: (open: boolean) => void;
-	workflowInstance: WorkflowInstance | null;
+	projectType: "normal" | "batch" | undefined;
 }
 
 export function useProjectDetailPageModel(): ProjectDetailPageModel {
@@ -158,15 +119,10 @@ export function useProjectDetailPageModel(): ProjectDetailPageModel {
 	const { cwd } = useParams({ strict: false }) as { cwd: string };
 	const decodedCwd = decodeURIComponent(cwd);
 
-	const token = useAtomValue(authTokenAtom);
 	const { project, sessionCount, batchProject } = useProjectDetail(decodedCwd);
 	const createdAt = useCreatedAt(decodedCwd);
-	const { flowingId, workflowInstanceId } = useFlowingMeta(decodedCwd);
 	const { content, setContent, loading, save, saveStatus, isDirty } = useAgentsMd(decodedCwd);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
-	const [bindDialogOpen, setBindDialogOpen] = useState(false);
-	const workflowInstance = useAtomValue(workflowInstanceAtom);
-	const setWorkflowInstance = useSetAtom(workflowInstanceAtom);
 	const isPersonal = useAtomValue(isPersonalModeAtom);
 	const [activityOpen, setActivityOpen] = useAtom(activityPanelOpenAtom);
 	const setConfirm = useSetAtom(confirmDialogAtom);
@@ -178,18 +134,6 @@ export function useProjectDetailPageModel(): ProjectDetailPageModel {
 		setHeaderTitleHidden(true);
 		return () => setHeaderTitleHidden(false);
 	}, [setHeaderTitleHidden]);
-
-	useWorkflowSSE();
-
-	useEffect(() => {
-		if (!token || !flowingId || !workflowInstanceId) {
-			setWorkflowInstance(null);
-			return;
-		}
-		void fetchWorkflowInstanceByFlowing(token, flowingId)
-			.then((inst) => setWorkflowInstance(inst))
-			.catch(() => setWorkflowInstance(null));
-	}, [token, flowingId, workflowInstanceId, setWorkflowInstance]);
 
 	const displayName = project?.name ?? pathBasename(decodedCwd);
 	const isBatch = !!batchProject;
@@ -232,7 +176,6 @@ export function useProjectDetailPageModel(): ProjectDetailPageModel {
 	return {
 		activityOpen,
 		batchProject,
-		bindDialogOpen,
 		content,
 		createdAtLabel: createdAt ? formatDate(createdAt, dateLocale) : null,
 		cwd: decodedCwd,
@@ -240,12 +183,10 @@ export function useProjectDetailPageModel(): ProjectDetailPageModel {
 		displayName,
 		editorFocused,
 		exportable,
-		flowingId,
 		isBatch,
 		isDirty,
 		isPersonal,
 		labels: {
-			bindWorkflow: t("detail.bindWorkflow"),
 			showInFolderTitle: isMac ? t("detail.showInFinder") : t("detail.showInExplorer"),
 			showInFolder: isMac ? t("detail.finder") : t("detail.explorer"),
 			exportTitle: t("detail.exportTitle"),
@@ -268,12 +209,8 @@ export function useProjectDetailPageModel(): ProjectDetailPageModel {
 		projectTypeLabel,
 		saveStatus,
 		sessionCountLabel: t("detail.sessionCount", { count: sessionCount }),
-		setBindDialogOpen,
-		showBindWorkflow: !isPersonal && project?.type === "normal" && !workflowInstance,
 		taskCountLabel: isBatch ? t("detail.taskCount", { count: batchProject.tasks.length }) : null,
 		textareaRef,
-		workflowInstance,
-		onBindWorkflow: () => setBindDialogOpen(true),
 		onContentChange: setContent,
 		onEditorBlur: () => setEditorFocused(false),
 		onEditorFocus: () => setEditorFocused(true),

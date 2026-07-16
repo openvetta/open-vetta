@@ -57,7 +57,6 @@
 		"all": "All",
 		"normal": "Normal",
 		"batch": "Batch",
-		"flowing": "Flowing",
 		"conversation": "Chat",
 		"claw": "Claw"
 	},
@@ -95,9 +94,6 @@
 	},
 	"detail": {
 		"typeBatch": "Batch Task",
-		"typeWorkflow": "Workflow",
-		"typeFlowing": "Flowing",
-		"bindWorkflow": "Bind workflow",
 		"showInFinder": "Reveal in Finder",
 		"showInExplorer": "Show in Explorer",
 		"finder": "Finder",
