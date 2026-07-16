@@ -1,5 +1,6 @@
 import type { JSX } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@vetta/ui";
+import { SkillTypeIcon } from "./skill-icon";
 
 export type SkillDetailTypeView = "scene" | "skill";
 
@@ -7,6 +8,8 @@ export interface SkillDetailDialogSkillView {
 	readonly name: string;
 	readonly alias?: string | null;
 	readonly type: SkillDetailTypeView;
+	/** 空=默认；solar:xxx-bold；或已解析图片 URL */
+	readonly icon?: string | null;
 	readonly version?: string | null;
 	readonly author?: string | null;
 	readonly downloadCount?: number | null;
@@ -48,7 +51,12 @@ export function SkillDetailDialogView({
 		>
 			<DialogContent className="max-h-[80vh] max-w-lg overflow-y-auto">
 				<DialogHeader>
-					<DialogTitle className="text-lg font-bold">{skill.alias || skill.name}</DialogTitle>
+					<DialogTitle className="flex items-center gap-2.5 text-lg font-bold">
+						<span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-primary/10 text-primary">
+							<SkillTypeIcon type={skill.type} icon={skill.icon} className="h-4 w-4" />
+						</span>
+						<span className="min-w-0 truncate">{skill.alias || skill.name}</span>
+					</DialogTitle>
 				</DialogHeader>
 				<div className="mt-2 space-y-4 text-sm">
 					{skill.alias && skill.alias !== skill.name && (

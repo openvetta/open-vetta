@@ -85,11 +85,23 @@ interface UseCapabilitiesModelOptions {
 }
 
 function toSkillCapability(skill: MergedSkill, actionStates: Record<string, ActionState>): SkillCapability {
+	const icon = skill.icon?.trim();
+	// 图片 URL 写入 iconUrl；solar: 等由 CapabilityCard 经 SkillTypeIcon 渲染
+	const iconUrl =
+		icon &&
+		(icon.startsWith("http://") ||
+			icon.startsWith("https://") ||
+			icon.startsWith("data:") ||
+			icon.startsWith("blob:") ||
+			icon.startsWith("/"))
+			? icon
+			: undefined;
 	return {
 		driver: "skill",
 		id: `skill:${skill.name}`,
 		title: skill.alias || skill.name,
 		description: skill.description,
+		iconUrl,
 		installed: skill.installed,
 		enabled: skill.enabled,
 		readonly: Boolean(skill.isAgent),
