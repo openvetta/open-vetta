@@ -336,13 +336,21 @@ export interface MarketSkillInfo {
 	author: string;
 	tags: string[];
 	category: string;
+	/** 空=默认；solar:xxx-bold；外部 URL；或 /api/v1/skill-icons/:id */
+	icon: string;
 	download_count: number;
 }
 
 export async function fetchMarketSkills(token: string): Promise<MarketSkillInfo[]> {
-	return request<MarketSkillInfo[]>("/skills/market", {
+	const items = await request<MarketSkillInfo[]>("/skills/market", {
 		headers: authHeaders(token),
 	});
+	return Promise.all(
+		(items ?? []).map(async (item) => {
+			const icon = await resolveMarketIconUrl(item.icon);
+			return { ...item, icon: icon ?? "" };
+		}),
+	);
 }
 
 export async function downloadSkill(token: string, name: string): Promise<ArrayBuffer> {
@@ -408,11 +416,25 @@ export interface MarketMcpServer {
 	config: Record<string, unknown>;
 }
 
-/** 将 API 返回的 icon（可能是相对路径）解析为可请求的绝对 URL */
-export async function resolveMarketMcpIconUrl(icon: string | undefined | null): Promise<string | undefined> {
+/**
+ * 将市场实体 icon 解析为 UI 可用值：
+ * - 空 → undefined
+ * - `solar:xxx` → 原样（由 theme-ui 按 iconify class 渲染）
+ * - 绝对/data URL → 原样
+ * - 相对路径 → 拼成绝对 URL（供 <img src>）
+ */
+export async function resolveMarketIconUrl(icon: string | undefined | null): Promise<string | undefined> {
 	if (!icon?.trim()) return undefined;
 	const trimmed = icon.trim();
-	if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("data:")) {
+	if (trimmed.startsWith("solar:")) {
+		return trimmed;
+	}
+	if (
+		trimmed.startsWith("http://") ||
+		trimmed.startsWith("https://") ||
+		trimmed.startsWith("data:") ||
+		trimmed.startsWith("blob:")
+	) {
 		return trimmed;
 	}
 	const base = (await getApiBase()).replace(/\/$/, "");
@@ -426,6 +448,11 @@ export async function resolveMarketMcpIconUrl(icon: string | undefined | null): 
 		}
 	}
 	return `${base}/${trimmed}`;
+}
+
+/** @deprecated 使用 resolveMarketIconUrl */
+export async function resolveMarketMcpIconUrl(icon: string | undefined | null): Promise<string | undefined> {
+	return resolveMarketIconUrl(icon);
 }
 
 export async function fetchMarketMcpServers(token: string): Promise<MarketMcpServer[]> {

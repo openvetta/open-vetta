@@ -23,6 +23,8 @@ export interface MergedSkill {
 	author: string;
 	tags: string[];
 	category: string;
+	/** 空=默认；solar:xxx-bold；或已解析绝对图 URL */
+	icon?: string;
 	installed: boolean;
 	enabled: boolean;
 	needsUpdate: boolean;
@@ -51,6 +53,7 @@ function mergeSkills(marketSkills: MarketSkillInfo[], manifest: Record<string, I
 			author: ms.author,
 			tags: ms.tags,
 			category: ms.category,
+			icon: ms.icon || undefined,
 			installed,
 			enabled: installed ? local.enabled : false,
 			needsUpdate,

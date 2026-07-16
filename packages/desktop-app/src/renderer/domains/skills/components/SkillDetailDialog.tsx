@@ -19,6 +19,7 @@ export function SkillDetailDialog({
 				name: skill.name,
 				alias: skill.alias,
 				type: skill.type,
+				icon: skill.icon,
 				version: skill.version,
 				author: skill.author,
 				downloadCount: skill.downloadCount,

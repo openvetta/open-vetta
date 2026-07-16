@@ -19,3 +19,10 @@ export type { SkillTagGroupViewProps } from "./SkillTagGroupView";
 export { SkillTagGroupView } from "./SkillTagGroupView";
 export type { SkillToggleSwitchProps } from "./SkillToggleSwitch";
 export { SkillToggleSwitch } from "./SkillToggleSwitch";
+export type { SkillTypeIconProps } from "./skill-icon";
+export {
+	isImageSkillIcon,
+	isSolarSkillIcon,
+	SkillTypeIcon,
+	SOLAR_SKILL_ICON_CLASS,
+} from "./skill-icon";
