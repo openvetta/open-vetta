@@ -48,11 +48,18 @@ export function ProjectsPanel(props: ProjectsPanelProps): JSX.Element {
 	const [splitDragging, setSplitDragging] = useState(false);
 	const previousExpandedProjectsRef = useRef<Set<string>>(new Set());
 
-	const showProjectsRegion =
+	// User-added projects (and batch group under current filter). Default "对话" is separate.
+	const hasUserProjects =
 		model.filteredProjects.length > 0 || (model.showBatchGroup && model.batchProjects.length > 0);
 	const showDefaultRegion = Boolean(model.defaultProject);
-	const showEmpty = !showProjectsRegion && !showDefaultRegion;
-	const showSplit = showProjectsRegion && showDefaultRegion;
+	// Full-panel empty only when neither region has content (rare: no default project either).
+	const showEmpty = !hasUserProjects && !showDefaultRegion;
+	// When default conversation exists but no user projects, still show the empty
+	// placeholder in the projects region (noOtherProjects was already computed for this).
+	const showProjectsEmpty = model.noOtherProjects && showDefaultRegion;
+	const showProjectsRegion = hasUserProjects || showProjectsEmpty;
+	// Split only when there are real project rows + default; empty placeholder stays compact.
+	const showSplit = hasUserProjects && showDefaultRegion;
 
 	useEffect(() => {
 		const visibleProjectCwds = new Set([
@@ -148,12 +155,17 @@ export function ProjectsPanel(props: ProjectsPanelProps): JSX.Element {
 			onSplitResize={handleSplitResize}
 			onSplitResizeEnd={handleSplitResizeEnd}
 			onSplitResizeStart={handleSplitResizeStart}
+			projectsRegionCompact={showProjectsEmpty}
 			projectsSection={
-				<ProjectGroupsSection
-					model={model}
-					scrollParent={projectsScrollEl}
-					onProjectInteract={handleProjectInteract}
-				/>
+				hasUserProjects ? (
+					<ProjectGroupsSection
+						model={model}
+						scrollParent={projectsScrollEl}
+						onProjectInteract={handleProjectInteract}
+					/>
+				) : (
+					<ProjectsPanelEmptyState />
+				)
 			}
 			quickScrollLabels={{
 				bottom: t("sidebar.projects.scrollToBottom"),
