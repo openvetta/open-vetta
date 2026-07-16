@@ -472,8 +472,8 @@ export class AgentSession {
 	}
 
 	/** Reconfigure plugin-provided runtime resources and rebuild tools/system prompt. */
-	reconfigureAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | undefined): void {
-		this._runtime.reconfigureAgentPlugins(agentPlugins);
+	async reconfigureAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | undefined): Promise<void> {
+		await this._runtime.reconfigureAgentPlugins(agentPlugins);
 	}
 
 	async prepareSystemPromptForAgentRun(messages: AgentMessage[], signal?: AbortSignal): Promise<string> {

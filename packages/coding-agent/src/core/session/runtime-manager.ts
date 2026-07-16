@@ -269,7 +269,7 @@ export class RuntimeManager {
 		});
 	}
 
-	reconfigureAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | undefined): void {
+	async reconfigureAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | undefined): Promise<void> {
 		this._agentPlugins = agentPlugins;
 		const pluginSkillPaths =
 			agentPlugins?.skillPathContributions?.flatMap((contribution) => contribution.paths) ?? [];
@@ -285,8 +285,8 @@ export class RuntimeManager {
 			activeToolNames: this.getActiveToolNames(),
 			includeAllExtensionTools: true,
 		});
-		// Plugin MCP is async (stdio/http start); reconcile then rebuild tools when ready.
-		void this.reconcilePluginMcpAndRebuild();
+		// Prompt-time plugin refresh must wait until MCP tools are ready for this turn.
+		await this.reconcilePluginMcpAndRebuild();
 	}
 
 	/**
