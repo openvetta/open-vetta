@@ -6,6 +6,7 @@
 			"batchTasks": "批量任务",
 			"knowledge": "知识库",
 			"skills": "扩展",
+			"scenes": "场景",
 			"plugins": "插件",
 			"more": "更多"
 		},
@@ -57,7 +58,6 @@
 		"all": "全部",
 		"normal": "普通",
 		"batch": "批量任务",
-		"flowing": "流转",
 		"conversation": "对话",
 		"claw": "Claw"
 	},
@@ -95,9 +95,6 @@
 	},
 	"detail": {
 		"typeBatch": "批量任务",
-		"typeWorkflow": "工作流",
-		"typeFlowing": "流转",
-		"bindWorkflow": "绑定工作流",
 		"showInFinder": "在 Finder 中显示",
 		"showInExplorer": "在资源管理器中显示",
 		"finder": "Finder",

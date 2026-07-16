@@ -292,10 +292,7 @@ export function useSessionManager(): SessionManagerResult {
 				batchProjectsRef.current.some((project) => project.tasks.some((task) => task.sessionPath === sessionPath));
 			const isBatchProject = batchProjectsRef.current.some((project) => project.id === cwd);
 			const projectType = projectsRef.current.find((project) => project.cwd === cwd)?.type;
-			const sessionKind =
-				isBatchSession || isBatchProject || projectType === "batch" || projectType === "flowing"
-					? "other"
-					: "conversation";
+			const sessionKind = isBatchSession || isBatchProject || projectType === "batch" ? "other" : "conversation";
 			// 对话场景显式下发（不依赖 sessionKind，避免改 kind 牵动 VETTA_CLI/子目录等行为）：
 			// - 批量 → "batch"（与 batch-task-executor 一致，重开不退化成 project，输入栏 badge 不复活）。
 			// - 默认「对话」项目（cwd 归一到 defaultConversationCwd）→ "conversation"。
@@ -596,7 +593,7 @@ export function useSessionManager(): SessionManagerResult {
 
 							// 输入预测：仅交互式会话（排除批量 / 流转），且开关开启时。每轮
 							// 正常完成后基于最近几轮对话异步生成 0-3 条建议，回填时校验过期。
-							if (rid && projectType !== "batch" && projectType !== "flowing") {
+							if (rid && projectType !== "batch") {
 								let predictSnapshot: ChatMessage[] = [];
 								setChatMessages((prev) => {
 									predictSnapshot = prev;

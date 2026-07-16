@@ -5,7 +5,6 @@ import type { CursorStyle } from "@shared/theme/cursor";
 import type { ThemeDef } from "@shared/theme/tokens";
 import { type MouseEvent, useState } from "react";
 import { SettingsAiAssist } from "../ai-assist";
-import themeLock from "../assets/theme-lock.webp";
 import { SETTINGS_SECTION } from "../registry";
 import { SettingHeading } from "@vetta/theme-ui/settings";
 import type {
@@ -13,7 +12,6 @@ import type {
 	AppearanceLanguageOption,
 	AppearanceModeOption,
 	AppearanceSettingsModel,
-	AppearanceUiThemeOption,
 } from "./useAppearanceSettingsModel";
 
 type ThemeMode = AppearanceModeOption["value"];
@@ -110,13 +108,15 @@ function ModeCard({
 			type="button"
 			onClick={(event) => onSelect(mode, event)}
 			className={cn(
-				"group relative flex flex-col items-start gap-2 rounded-xl bg-card px-4 py-3 text-left transition-all",
+				"group relative flex items-center gap-2.5 rounded-lg bg-card px-3 py-2 text-left transition-all",
 				active ? SELECTION_ACTIVE_RING : cn(SELECTION_IDLE_RING, "hover:bg-accent/40"),
 			)}
 		>
-			<span className={cn(icon, "h-5 w-5", active ? "text-primary" : "text-muted-foreground")} />
-			<div className="text-[13px] font-medium text-foreground">{label}</div>
-			<div className="text-[11px] text-muted-foreground">{hint}</div>
+			<span className={cn(icon, "h-4 w-4 shrink-0", active ? "text-primary" : "text-muted-foreground")} />
+			<div className="min-w-0 flex-1 pr-5">
+				<div className="text-[12px] font-medium text-foreground">{label}</div>
+				<div className="truncate text-[11px] text-muted-foreground">{hint}</div>
+			</div>
 			{active && <SelectionCheckBadge />}
 		</button>
 	);
@@ -213,48 +213,6 @@ function ThemeCard({
 	);
 }
 
-function UiThemeCard({
-	active,
-	disabled,
-	hint,
-	label,
-	onSelect,
-	preview,
-	unavailable,
-}: AppearanceUiThemeOption & {
-	onSelect: () => void;
-}): JSX.Element {
-	return (
-		<button
-			type="button"
-			disabled={disabled}
-			onClick={onSelect}
-			className={cn(
-				// overflow-hidden 放在内层，避免裁切 active 的 ring-offset 间隙
-				"group relative rounded-xl bg-card text-left transition-all",
-				active ? SELECTION_ACTIVE_RING : cn(SELECTION_IDLE_RING, "hover:bg-accent/40"),
-				disabled && "cursor-not-allowed",
-			)}
-		>
-			<div className="overflow-hidden rounded-xl">
-				<div className="relative aspect-[16/9] overflow-hidden border-b border-border/50">
-					<img src={preview} alt="" className={cn("h-full w-full object-cover", disabled && "opacity-50")} />
-					{unavailable ? (
-						<span className="absolute inset-0 flex items-center justify-center">
-							<img src={themeLock} alt="" className="h-14 w-auto object-contain" />
-						</span>
-					) : null}
-				</div>
-				<div className="px-3.5 pb-3 pt-3">
-					<div className="text-[13px] font-medium text-card-foreground">{label}</div>
-					<div className="mt-1 text-[11px] text-muted-foreground">{hint}</div>
-				</div>
-			</div>
-			{active && !unavailable && <SelectionCheckBadge />}
-		</button>
-	);
-}
-
 function CursorStyleCard({
 	active,
 	hint,
@@ -271,19 +229,21 @@ function CursorStyleCard({
 			type="button"
 			onClick={() => onSelect(id)}
 			className={cn(
-				"group relative flex flex-col items-start gap-2 rounded-xl bg-card px-4 py-3 text-left transition-all",
+				"group relative flex items-center gap-2.5 rounded-lg bg-card px-3 py-2 text-left transition-all",
 				active ? SELECTION_ACTIVE_RING : cn(SELECTION_IDLE_RING, "hover:bg-accent/40"),
 			)}
 		>
-			<div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted/80">
+			<div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted/80">
 				{preview ? (
-					<img src={preview} alt="" className="h-7 w-7 object-contain" draggable={false} />
+					<img src={preview} alt="" className="h-5 w-5 object-contain" draggable={false} />
 				) : (
-					<span className={cn(icon, "h-6 w-6", active ? "text-primary" : "text-muted-foreground")} />
+					<span className={cn(icon, "h-4 w-4", active ? "text-primary" : "text-muted-foreground")} />
 				)}
 			</div>
-			<div className="text-[13px] font-medium text-foreground">{label}</div>
-			<div className="text-[11px] text-muted-foreground">{hint}</div>
+			<div className="min-w-0 flex-1 pr-5">
+				<div className="text-[12px] font-medium text-foreground">{label}</div>
+				<div className="truncate text-[11px] text-muted-foreground">{hint}</div>
+			</div>
 			{active && <SelectionCheckBadge />}
 		</button>
 	);
@@ -291,28 +251,29 @@ function CursorStyleCard({
 
 export function AppearanceSettingsView({ model }: { model: AppearanceSettingsModel }): JSX.Element {
 	return (
-		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
-			<div className="mb-4 flex items-start justify-between gap-4">
-				<div className="flex min-w-0 flex-wrap items-center gap-3">
-					<h1 className="text-[20px] font-bold text-foreground">{model.labels.title}</h1>
-					<SettingsAiAssist tabId="appearance" />
+		<div className="mx-auto w-full max-w-[680px] px-8 pt-2 pb-4">
+			<div className="mb-4 flex min-w-0 flex-wrap items-center gap-3">
+				<h1 className="text-[20px] font-bold text-foreground">{model.labels.title}</h1>
+				<SettingsAiAssist tabId="appearance" />
+			</div>
+
+			{/* 语言区 + 右侧空白放 bot avatar（外观模式上方）；右侧留白避免 pacing 活动区超出内容宽度 */}
+			<div className="mb-6 flex items-center gap-4 pr-10">
+				<div className="min-w-0 flex-1">
+					<SettingHeading title={model.labels.sections.language} section={SETTINGS_SECTION["appearance-language"]} className="mb-1" />
+					<p className="mb-3 text-[12px] text-muted-foreground">{model.labels.languageHint}</p>
+					<LanguageSelect language={model.language} languages={model.languages} onSelect={model.actions.changeLanguage} />
 				</div>
 				{!model.narrow && (
-					<div className="flex items-center justify-start pt-1" style={{ height: 56, width: 200 }}>
+					<div className="flex h-[100px] w-[120px] shrink-0 items-center justify-center">
 						<BotAvatar pacing size="lg" />
 					</div>
 				)}
 			</div>
 
 			<div className="mb-6">
-				<SettingHeading title={model.labels.sections.language} section={SETTINGS_SECTION["appearance-language"]} className="mb-1" />
-				<p className="mb-3 text-[12px] text-muted-foreground">{model.labels.languageHint}</p>
-				<LanguageSelect language={model.language} languages={model.languages} onSelect={model.actions.changeLanguage} />
-			</div>
-
-			<div className="mb-6">
 				<SettingHeading title={model.labels.sections.mode} section={SETTINGS_SECTION["appearance-mode"]} className="mb-3" />
-				<div className={cn("grid gap-3", model.narrow ? "grid-cols-1" : "grid-cols-3")}>
+				<div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4">
 					{model.modeOptions.map((mode) => (
 						<ModeCard
 							key={mode.value}
@@ -323,15 +284,6 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 							active={model.mode === mode.value}
 							onSelect={(value, event) => model.actions.changeMode(value, { x: event.clientX, y: event.clientY })}
 						/>
-					))}
-				</div>
-			</div>
-
-			<div className="mb-6">
-				<SettingHeading title={model.labels.sections.uiTheme} section={SETTINGS_SECTION["appearance-ui-theme"]} className="mb-3" />
-				<div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3">
-					{model.uiThemes.map((theme) => (
-						<UiThemeCard key={theme.id} {...theme} onSelect={() => model.actions.selectUiTheme(theme.id)} />
 					))}
 				</div>
 			</div>
@@ -354,7 +306,7 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 
 			<div className="mb-6">
 				<SettingHeading title={model.labels.sections.cursor} section={SETTINGS_SECTION["appearance-cursor"]} className="mb-3" />
-				<div className={cn("grid gap-3", model.narrow ? "grid-cols-1" : "grid-cols-2")}>
+				<div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4">
 					{model.cursorOptions.map((option) => (
 						<CursorStyleCard
 							key={option.id}

@@ -29,6 +29,15 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **外观设置 BotAvatar 下移**：右上角动画移到「语言」区右侧、「外观模式」上方空白处。
+- **设置页顶栏与侧栏标题平齐**：去掉内容区顶部 `h-12` 占位，各设置页 `pt-2` 与侧栏「设置」label 对齐。
+- **「默认」主题边框改中性灰**：深色 `border`/`input` 改为 `#3a3a3a` / `#424242`，浅色 `#d6d8db`，不再继承经典主题偏蓝描边。
+- **外观设置文案与紧凑卡片**：section「默认主题颜色」改为「主题颜色」；外观模式、鼠标指针选项改为横向紧凑卡片。
+- **外观设置隐藏「界面主题」**：设置 → 外观不再展示界面主题（default / 仙侠）选择 section。
+- **「经典」主题 secondary 与背景拉开色差**：深色 `rgb(36, 38, 48)`、浅色 `rgb(235, 235, 235)`，避免 `bg-secondary` 与背景几乎同色。
+- **场景迁至侧栏「更多」**：扩展页移除「场景」Tab；新增独立 `/scenes` 页面，入口在侧栏「更多 → 场景」。旧深链 `/skills?tab=scene` 自动重定向。
+- **扩展 → 能力列表 UI**：item 改为「图标 | 标题与 intro | 添加/更多」横排；未添加显示「添加」按钮，已添加显示更多菜单；去掉下载次数与常驻背景色，仅保留 hover 高亮。无图标时使用默认 3D 方块 SVG（浅色 `#1C274C` / 深色白色）；所有图标外包超圆角矩形。
+- **内置 MCP 图标**：GitHub / Figma / Notion 替换为新版预设图标（`public/mcp/*.png`）。
 - **侧边栏 Claw badge**：背景改为 `bg-secondary`，文字与状态点改为 `text-secondary-foreground`。
 - **设置页 item 背景统一 `bg-card`**：`SettingSection` 容器及 MCP / IM / 插件 / 外观 / 宠物等列表卡片由 `bg-muted`（或半透明变体）改为 `bg-card`。
 - **Agent 设置人设 / 自定义指令背景**：人设下拉触发器与自定义指令 textarea 改为 `bg-card`。
@@ -43,6 +52,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **插件详情卸载确认二次点击**：Sheet（Vaul Drawer）打开时确认框首次点击会关掉 sheet、需再点一次才生效。根因是 modal drawer 把 body 设为 `pointer-events: none`，portaled ConfirmDialog 未恢复点击；现为 ConfirmDialog 加 `pointer-events-auto`，并在确认框打开时阻止 drawer outside dismiss。
 - **Claw / 自动化 / 批量任务卡片网格固定横排**：设置页 Claw 消息渠道、自动化任务列表、批量任务卡片不再随容器/视口宽度在单列与多列间切换，分别固定为 2 列与 3 列横排。
 - **问答面板多题主按钮**：多问题未到最后一题时底部主按钮显示「下一步」（当前题已答即可点），最后一题才显示「提交」；避免未答完全部问题时一直看到置灰的「提交」。
 - **插件热更新偶发要手点「重载 / 重新安装」**：根因 (1) 仅靠 dist 顶层 `fs.watch`，部分环境下丢事件或半截写盘即触发，未读 vite 成功日志（stdout 还被直接 discard）；(2) dev overlay 不带 permissions/commands/settingsSchema，改声明像没生效。现以 vite「built in …ms」为主触发、dist 与 `plugin.json` 监听为辅；dev 会话内声明权限/命令自动放行（仅内存，不落注册表），关热更新仍回落安装态。

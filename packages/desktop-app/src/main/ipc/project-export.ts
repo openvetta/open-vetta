@@ -13,6 +13,7 @@ const log = getAppLogger("project-export");
 export const PROJECT_EXPORT_CHANNELS = {
 	EXPORT: "vetta:project:export",
 	IMPORT: "vetta:project:import",
+	READ_META: "vetta:project:read-meta",
 } as const;
 
 // ─── Manifest format ───
@@ -454,7 +455,23 @@ function toErrorPayload(error: unknown): IpcErrorPayload {
 	return { error: { code: "extract-failed", message } };
 }
 
+/** 读取项目 `.vetta/meta.json`（用于识别 batch 等项目类型）；不存在或解析失败返回 null。 */
+function readProjectMeta(projectDir: string): Record<string, unknown> | null {
+	const metaPath = join(projectDir, ".vetta", "meta.json");
+	if (!existsSync(metaPath)) return null;
+	try {
+		return JSON.parse(readFileSync(metaPath, "utf-8")) as Record<string, unknown>;
+	} catch {
+		return null;
+	}
+}
+
 export function registerProjectExportIpc(): () => void {
+	ipcMain.handle(PROJECT_EXPORT_CHANNELS.READ_META, async (_event, projectDir: string) => {
+		if (typeof projectDir !== "string" || !projectDir) return null;
+		return readProjectMeta(projectDir);
+	});
+
 	ipcMain.handle(PROJECT_EXPORT_CHANNELS.EXPORT, async (_event, projectDir: string) => {
 		if (typeof projectDir !== "string" || !projectDir) {
 			return toErrorPayload(new ProjectExportError("invalid-zip", "项目路径不合法"));
@@ -477,6 +494,7 @@ export function registerProjectExportIpc(): () => void {
 	});
 
 	return () => {
+		ipcMain.removeHandler(PROJECT_EXPORT_CHANNELS.READ_META);
 		ipcMain.removeHandler(PROJECT_EXPORT_CHANNELS.EXPORT);
 		ipcMain.removeHandler(PROJECT_EXPORT_CHANNELS.IMPORT);
 	};

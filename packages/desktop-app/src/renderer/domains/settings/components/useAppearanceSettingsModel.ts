@@ -71,7 +71,6 @@ export interface AppearanceSettingsModel {
 			language: string;
 			mode: string;
 			theme: string;
-			uiTheme: string;
 		};
 		title: string;
 	};
@@ -206,7 +205,6 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 				language: t(SETTINGS_SECTION["appearance-language"].titleKey),
 				mode: t(SETTINGS_SECTION["appearance-mode"].titleKey),
 				theme: t(SETTINGS_SECTION["appearance-theme"].titleKey),
-				uiTheme: t(SETTINGS_SECTION["appearance-ui-theme"].titleKey),
 			},
 			title: t("appearanceTitle"),
 		}),

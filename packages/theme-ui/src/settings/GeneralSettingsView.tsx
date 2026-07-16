@@ -82,7 +82,7 @@ export function GeneralSettingsView({
 	onExportDiagnostics,
 }: GeneralSettingsViewProps): JSX.Element {
 	return (
-		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
+		<div className="mx-auto w-full max-w-[680px] px-8 pt-2 pb-4">
 			<h1 className="mb-6 text-[20px] font-bold text-foreground">{labels.title}</h1>
 
 			<SettingSection title={labels.sections.workspace} section={sections.workspace}>
