@@ -13,7 +13,6 @@ export function SettingsContent({ children, rootClassName }: SettingsContentProp
 				rootClassName,
 			)}
 		>
-			<div className="drag-region h-12 shrink-0" />
 			{children}
 		</div>
 	);

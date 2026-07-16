@@ -21,7 +21,7 @@ export function KnowledgeBaseSettingsView({ model }: { model: KnowledgeBaseSetti
 		"inline-flex items-center gap-1.5 rounded-md border border-input bg-secondary px-2.5 py-1 text-[12px] text-foreground transition-colors hover:bg-accent disabled:opacity-50";
 
 	return (
-		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
+		<div className="mx-auto w-full max-w-[680px] px-8 pt-2 pb-4">
 			<div className="mb-6 flex flex-wrap items-center justify-between gap-3">
 				<h1 className="text-[20px] font-bold text-foreground">{model.labels.title}</h1>
 				<div className="flex flex-wrap items-center gap-2">
