@@ -513,6 +513,12 @@ function buildGuidelines(tools: string[]): string {
 		);
 	}
 
+	if (hasSelectedCommandTool) {
+		guidelinesList.push(
+			"Before bash/shell: if the process may not exit on its own (dev server, watcher, docker compose up without -d, make dev), MUST set run_in_background: true. Foreground blocks the entire agent turn until exit (or auto-promote after the soft wait).",
+		);
+	}
+
 	if (hasDirTree) {
 		guidelinesList.push(
 			'ALWAYS use dir_tree (not bash "tree", "ls -R", "find", "fd", or "rg --files") whenever you need to view directory structure or explore a codebase. Only fall back to bash if dir_tree cannot fulfill the specific requirement (e.g., custom output formatting)',

@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { createWriteStream, existsSync, readdirSync, statSync } from "node:fs";
+import { createWriteStream, existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { type Static, Type } from "@sinclair/typebox";
@@ -19,6 +19,14 @@ import { loadToolDescription } from "../description.js";
 import { type PathLiteralCorrection, rewriteQuotedPathLiterals } from "../path-utils.js";
 import { toolCallDescriptionSchema } from "../tool-call-description.js";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize, type TruncationResult, truncateTail } from "../truncate.js";
+
+/**
+ * Soft wait (seconds) for foreground bash/shell when `timeout` is unset.
+ * If the process is still running after this and BackgroundTaskManager is available,
+ * the command is auto-promoted to a background task instead of blocking forever.
+ * When background tasks are unavailable, this becomes a hard kill timeout.
+ */
+export const DEFAULT_BASH_BLOCK_UNTIL_SEC = 45;
 
 /**
  * Generate a unique temp file path for bash output
@@ -96,11 +104,16 @@ const bashSchema = Type.Object({
 	command: Type.String({
 		description: "Bash command to execute.",
 	}),
-	timeout: Type.Optional(Type.Number({ description: "Timeout in seconds (optional, no default timeout)" })),
+	timeout: Type.Optional(
+		Type.Number({
+			description:
+				"Hard timeout in seconds: kill the process when exceeded. Prefer for bounded work (builds, one-shot tests). Unrelated to auto-promote soft wait.",
+		}),
+	),
 	run_in_background: Type.Optional(
 		Type.Boolean({
 			description:
-				"Run the command as a background task. Returns a task ID immediately; output is written to a log file and a <task-notification> is delivered when the command finishes. Use for long-running commands (builds, test suites, servers, watchers). Ignores timeout.",
+				"Run as a background task immediately (returns task ID). REQUIRED for any process that does not exit on its own: dev servers, watchers, docker compose up (without -d), make dev, tunnels. Do not use for quick one-shot commands. Ignores timeout.",
 		}),
 	),
 });
@@ -111,8 +124,10 @@ export interface BashToolDetails {
 	truncation?: TruncationResult;
 	fullOutputPath?: string;
 	pathCorrections?: PathLiteralCorrection[];
-	/** Set when the command was started as a background task. */
+	/** Set when the command was started as a background task (explicit or auto-promoted). */
 	backgroundTaskId?: string;
+	/** True when a foreground command was auto-promoted after the soft wait. */
+	autoPromoted?: boolean;
 }
 
 /**
@@ -257,6 +272,20 @@ export interface BashToolOptions {
 	spawnHook?: BashSpawnHook;
 	/** Background task manager enabling run_in_background (local execution only) */
 	backgroundTasks?: BackgroundTaskManager;
+	/**
+	 * Soft wait (seconds) before auto-promoting a foreground command to background
+	 * when `timeout` is unset. Default {@link DEFAULT_BASH_BLOCK_UNTIL_SEC}.
+	 * When background tasks are unavailable, this becomes a hard kill timeout.
+	 */
+	blockUntilSec?: number;
+}
+
+function readTaskLog(outputFile: string): string {
+	try {
+		return readFileSync(outputFile, "utf-8");
+	} catch {
+		return "";
+	}
 }
 
 export function createBashTool(cwd: string, options?: BashToolOptions): CodingAgentTool<typeof bashSchema> {
@@ -264,6 +293,9 @@ export function createBashTool(cwd: string, options?: BashToolOptions): CodingAg
 	const commandPrefix = options?.commandPrefix;
 	const spawnHook = options?.spawnHook;
 	const backgroundTasks = options?.backgroundTasks;
+	const blockUntilSec = options?.blockUntilSec ?? DEFAULT_BASH_BLOCK_UNTIL_SEC;
+	// Custom ops (e.g. remote) cannot be adopted into the local BackgroundTaskManager.
+	const canPromote = Boolean(backgroundTasks) && !options?.operations;
 	const fallbackDescription = `Execute a bash command in the current working directory. Returns stdout and stderr. Output is truncated to last ${DEFAULT_MAX_LINES} lines or ${DEFAULT_MAX_BYTES / 1024}KB (whichever is hit first). If truncated, full output is saved to a temp file. Optionally provide a timeout in seconds.`;
 	const description = loadToolDescription(import.meta.url, fallbackDescription);
 
@@ -321,6 +353,127 @@ export function createBashTool(cwd: string, options?: BashToolOptions): CodingAg
 
 			// Snapshot protected directories before execution
 			const protectedSnapshot = snapshotProtectedDirs(cwd);
+
+			// ── Soft wait → auto-promote (local + BTM, no hard timeout) ───────────
+			// Spawns via BackgroundTaskManager so a process that outlives blockUntilSec
+			// is handed off without killing. Commands that exit within the wait return
+			// inline (no <task-notification>).
+			if (timeout === undefined && canPromote && backgroundTasks) {
+				const task = backgroundTasks.spawn({
+					command: spawnContext.command,
+					cwd: spawnContext.cwd,
+					env: spawnContext.env,
+					toolCallId,
+					notifyOnlyIfPromoted: true,
+				});
+
+				const unsub = backgroundTasks.subscribe((event) => {
+					if (event.type === "tasks_cleared" || !onUpdate) return;
+					if (event.task.id !== task.id) return;
+					if (event.type === "task_output" || event.type === "task_ended") {
+						const truncation = truncateTail(event.task.tail || "");
+						onUpdate({
+							content: [{ type: "text", text: truncation.content || "" }],
+							details: {
+								backgroundTaskId: task.id,
+								fullOutputPath: event.task.outputFile,
+								...(pathCorrections.length > 0 ? { pathCorrections } : {}),
+							} satisfies BashToolDetails,
+						});
+					}
+				});
+
+				try {
+					const { stillRunning, snapshot } = await backgroundTasks.wait(task.id, {
+						maxMs: blockUntilSec * 1000,
+						signal,
+					});
+
+					const afterSnapshot = snapshotProtectedDirs(cwd);
+					const protectedChanges = detectProtectedChanges(protectedSnapshot, afterSnapshot);
+
+					if (stillRunning) {
+						const partial = (snapshot.tail || "").trim() || "(no output yet)";
+						let text =
+							`Command still running after ${blockUntilSec}s; auto-promoted to background task ${snapshot.id}.\n` +
+							`Command: ${command}\n` +
+							`Partial output:\n${partial}\n` +
+							`Full output file: ${snapshot.outputFile}\n` +
+							`Use task_output to read more, task_stop to terminate.\n` +
+							`A <task-notification> will be delivered when it finishes.`;
+						if (protectedChanges.length > 0) {
+							const fileList = protectedChanges.map((f) => `  - ${f}`).join("\n");
+							text +=
+								`\n\n⚠ WARNING: The following files inside skill/scene directories were created or modified by this command:\n` +
+								`${fileList}\n` +
+								`Skill/scene directories are READ-ONLY. Move these output files to the user's working directory (cwd) immediately ` +
+								`and delete the copies from the skill/scene directory.`;
+						}
+						text = prependPathCorrectionNotes(text, pathCorrections);
+						return {
+							content: [{ type: "text", text }],
+							details: {
+								backgroundTaskId: snapshot.id,
+								fullOutputPath: snapshot.outputFile,
+								autoPromoted: true,
+								...(pathCorrections.length > 0 ? { pathCorrections } : {}),
+							} satisfies BashToolDetails,
+						};
+					}
+
+					// Completed within soft wait — same formatting as hard foreground path
+					const fullOutput = readTaskLog(snapshot.outputFile);
+					const truncation = truncateTail(fullOutput);
+					let outputText = truncation.content || "(no output)";
+					const tempFilePath = truncation.truncated ? snapshot.outputFile : undefined;
+
+					if (protectedChanges.length > 0) {
+						const fileList = protectedChanges.map((f) => `  - ${f}`).join("\n");
+						outputText +=
+							`\n\n⚠ WARNING: The following files inside skill/scene directories were created or modified by this command:\n` +
+							`${fileList}\n` +
+							`Skill/scene directories are READ-ONLY. Move these output files to the user's working directory (cwd) immediately ` +
+							`and delete the copies from the skill/scene directory.`;
+					}
+
+					let details: BashToolDetails | undefined;
+					const hasPathCorrections = pathCorrections.length > 0;
+					if (truncation.truncated) {
+						details = {
+							truncation,
+							fullOutputPath: tempFilePath,
+							...(hasPathCorrections ? { pathCorrections } : {}),
+						};
+						const startLine = truncation.totalLines - truncation.outputLines + 1;
+						const endLine = truncation.totalLines;
+						if (truncation.lastLinePartial) {
+							const lastLineSize = formatSize(Buffer.byteLength(fullOutput.split("\n").pop() || "", "utf-8"));
+							outputText += `\n\n[Showing last ${formatSize(truncation.outputBytes)} of line ${endLine} (line is ${lastLineSize}). Full output: ${tempFilePath}]`;
+						} else if (truncation.truncatedBy === "lines") {
+							outputText += `\n\n[Showing lines ${startLine}-${endLine} of ${truncation.totalLines}. Full output: ${tempFilePath}]`;
+						} else {
+							outputText += `\n\n[Showing lines ${startLine}-${endLine} of ${truncation.totalLines} (${formatSize(DEFAULT_MAX_BYTES)} limit). Full output: ${tempFilePath}]`;
+						}
+					}
+					if (!details && hasPathCorrections) {
+						details = { pathCorrections };
+					}
+					outputText = prependPathCorrectionNotes(outputText, pathCorrections);
+
+					const exitCode = snapshot.exitCode ?? null;
+					if (exitCode !== 0 && exitCode !== null) {
+						outputText += `\n\nCommand exited with code ${exitCode}`;
+						throw new Error(outputText);
+					}
+					return { content: [{ type: "text", text: outputText }], details };
+				} finally {
+					unsub();
+				}
+			}
+
+			// Hard timeout: explicit timeout, or default blockUntilSec when promote is unavailable
+			const hardTimeout = timeout !== undefined ? timeout : !canPromote ? blockUntilSec : undefined;
+			const usingDefaultHardTimeout = timeout === undefined && !canPromote;
 
 			return new Promise((resolve, reject) => {
 				// We'll stream to a temp file if output gets large
@@ -380,7 +533,7 @@ export function createBashTool(cwd: string, options?: BashToolOptions): CodingAg
 				ops.exec(spawnContext.command, spawnContext.cwd, {
 					onData: handleData,
 					signal,
-					timeout,
+					timeout: hardTimeout,
 					env: spawnContext.env,
 				})
 					.then(({ exitCode }) => {
@@ -467,6 +620,12 @@ export function createBashTool(cwd: string, options?: BashToolOptions): CodingAg
 							const timeoutSecs = err.message.split(":")[1];
 							if (output) output += "\n\n";
 							output += `Command timed out after ${timeoutSecs} seconds`;
+							if (usingDefaultHardTimeout) {
+								output +=
+									`. Foreground commands without an explicit timeout are capped at ${blockUntilSec}s when background tasks are unavailable. ` +
+									`For dev servers/watchers, enable background tasks and use run_in_background: true. ` +
+									`For long bounded work, pass a larger timeout.`;
+							}
 							reject(new Error(output));
 						} else {
 							reject(err);
