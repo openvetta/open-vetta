@@ -1,3 +1,4 @@
+import { SkillTypeIcon } from "@vetta/theme-ui/skills";
 import {
 	Button,
 	cn,
@@ -46,6 +47,16 @@ function CapabilityDefaultIcon(): JSX.Element {
 
 function CapabilityIcon({ item }: { item: CapabilityItem }): JSX.Element {
 	const [failedIcon, setFailedIcon] = useState<string | null>(null);
+
+	// 技能：支持 solar / 上传图 / 默认 type 图标（与详情 dialog 一致）
+	if (item.driver === "skill") {
+		return (
+			<div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/40 bg-accent/50 text-foreground">
+				<SkillTypeIcon type={item.skill.type} icon={item.skill.icon} className="h-5 w-5" />
+			</div>
+		);
+	}
+
 	const showImage = Boolean(item.iconUrl) && failedIcon !== item.iconUrl;
 
 	return (

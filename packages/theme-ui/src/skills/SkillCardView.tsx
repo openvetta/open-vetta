@@ -1,6 +1,7 @@
 import type { JSX } from "react";
 import { motion } from "motion/react";
 import { Button, Popover, PopoverContent, PopoverTrigger } from "@vetta/ui";
+import { SkillTypeIcon } from "./skill-icon";
 import { SkillToggleSwitch } from "./SkillToggleSwitch";
 
 export interface SkillCardSkillView {
@@ -8,6 +9,8 @@ export interface SkillCardSkillView {
 	readonly alias?: string | null;
 	readonly type: "skill" | "scene";
 	readonly description?: string | null;
+	/** 空=默认；solar:xxx-bold；或已解析的图片 URL */
+	readonly icon?: string | null;
 	readonly installed: boolean;
 	readonly enabled: boolean;
 	readonly isCustom?: boolean;
@@ -62,15 +65,11 @@ export function SkillCardView({
 			}`}
 		>
 			<div
-				className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
+				className={`flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg transition-colors ${
 					skill.installed ? "bg-primary/10 text-primary" : "bg-accent/50 text-muted-foreground/70"
 				}`}
 			>
-				<span
-					className={`h-4 w-4 ${
-						skill.type === "scene" ? "icon-[mdi--movie-open-outline]" : "icon-[mdi--puzzle-outline]"
-					}`}
-				/>
+				<SkillTypeIcon type={skill.type} icon={skill.icon} className="h-4 w-4" />
 			</div>
 
 			<div className="min-w-0 flex-1">
