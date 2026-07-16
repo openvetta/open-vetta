@@ -48,7 +48,10 @@ export function ConfirmDialogView({
 					animate={{ opacity: 1 }}
 					exit={{ opacity: 0 }}
 					transition={{ duration: 0.15 }}
-					className="fixed inset-0 z-[100] flex items-center justify-center bg-background/70"
+					// pointer-events-auto: Vaul/Radix modal Drawer 会把 body 设为
+					// pointer-events: none；本层 portaled 到 body，不显式恢复则点击穿透，
+					// 首次点按钮只会关掉下层 sheet，需再点一次才命中 dialog。
+					className="pointer-events-auto fixed inset-0 z-[100] flex items-center justify-center bg-background/70"
 					onClick={(e) => {
 						if (e.target === overlayRef.current) onCancel();
 					}}
