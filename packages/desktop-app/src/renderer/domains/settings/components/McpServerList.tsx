@@ -47,7 +47,7 @@ function McpMineGrid({
 			data-setting-section-highlight-target={section.id}
 		>
 			{names.length === 0 ? (
-				<div className="rounded-xl bg-muted/60 px-5 py-10 text-center text-[12px] text-muted-foreground">
+				<div className="rounded-xl bg-card px-5 py-10 text-center text-[12px] text-muted-foreground">
 					{t("mcpStore.installedEmpty")}
 				</div>
 			) : (

@@ -41,7 +41,7 @@ export function ImChannelCardView({
 	return (
 		<div
 			className={cn(
-				"flex flex-col gap-4 rounded-2xl border bg-muted p-5",
+				"flex flex-col gap-4 rounded-2xl border bg-card p-5",
 				isActive ? "border-primary/60" : "border-border",
 			)}
 		>

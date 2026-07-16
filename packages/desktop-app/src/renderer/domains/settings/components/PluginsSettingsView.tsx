@@ -160,7 +160,7 @@ export function PluginsSettingsView({ model }: { model: PluginsSettingsModel }):
 			</div>
 
 			{model.sections.length === 0 ? (
-				<div className="rounded-xl border border-border bg-muted px-5 py-4 text-[12px] text-muted-foreground">
+				<div className="rounded-xl border border-border bg-card px-5 py-4 text-[12px] text-muted-foreground">
 					{model.labels.noPlugin}
 				</div>
 			) : (

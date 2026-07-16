@@ -75,7 +75,7 @@ export function SettingSection({
 			{description && <p className="mb-3 text-[12px] text-muted-foreground">{description}</p>}
 			<div
 				id={hasTitle ? undefined : section.id}
-				className="overflow-hidden rounded-xl border border-border bg-muted"
+				className="overflow-hidden rounded-xl border border-border bg-card"
 				data-setting-section-id={section.id}
 			>
 				{children}

@@ -104,7 +104,7 @@ export function PetSettingsView({
 					{decorations.map((decoration) => (
 						<div
 							key={decoration.id}
-							className="overflow-hidden rounded-lg border border-border bg-background"
+							className="overflow-hidden rounded-lg border border-border bg-card"
 						>
 							<div className="flex h-28 items-center justify-center bg-muted">
 								{decoration.found ? (
