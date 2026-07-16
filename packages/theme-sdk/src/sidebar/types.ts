@@ -29,6 +29,7 @@ export type SidebarLabelKey =
 	| "sidebar.nav.batchTasks"
 	| "sidebar.nav.knowledge"
 	| "sidebar.nav.skills"
+	| "sidebar.nav.scenes"
 	| "sidebar.nav.plugins"
 	| "sidebar.nav.more";
 
@@ -54,7 +55,7 @@ export interface SidebarNavItem {
 	readonly key: string;
 	readonly label?: string;
 	readonly labelKey?: SidebarLabelKey;
-	readonly path?: "/automation" | "/batch-tasks" | "/knowledge" | "/skills" | "/plugins";
+	readonly path?: "/automation" | "/batch-tasks" | "/knowledge" | "/skills" | "/scenes" | "/plugins";
 	readonly title?: string;
 	readonly titleLabelKey?: SidebarLabelKey;
 	readonly type: "custom" | "new-session" | "route";

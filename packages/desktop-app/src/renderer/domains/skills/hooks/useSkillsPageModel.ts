@@ -163,17 +163,17 @@ export interface SkillsPageModel {
 	refreshCapabilities: () => void;
 }
 
-export function useSkillsPageModel(): SkillsPageModel {
+export function useSkillsPageModel(options?: { mode?: TypeTab }): SkillsPageModel {
+	const pageMode: TypeTab = options?.mode ?? "capability";
 	const search = useSearch({ strict: false }) as {
-		/** skill / connector 为旧深链，统一映射到 capability；plugin 会重定向。 */
+		/** skill / connector 为旧深链，统一映射到 capability；plugin / scene 会重定向。 */
 		tab?: TypeTab | "skill" | "connector" | "plugin";
 		section?: string;
 		nav?: string;
 	};
 	const navigate = useNavigate();
-	// Tab 以 URL 为唯一数据源，避免本地 state 与 search 双写导致「要点两下」回弹。
-	const typeTab: TypeTab =
-		search.tab === "capability" || search.tab === "skill" || search.tab === "connector" ? "capability" : "scene";
+	// 页面由路由固定 mode：/skills → capability，/scenes → scene。
+	const typeTab: TypeTab = pageMode;
 	const [searchQuery, setSearchQuery] = useState("");
 	const [marketSkills, setMarketSkills] = useState<MarketSkillInfo[]>([]);
 	const [manifest, setManifest] = useState<Record<string, InstalledSkill>>({});
@@ -195,21 +195,25 @@ export function useSkillsPageModel(): SkillsPageModel {
 		(tab: TypeTab) => {
 			if (tab === typeTab) return;
 			void navigate({
-				to: "/skills",
-				// 场景为默认 Tab，不写 search.tab；切换时清空 section/nav，避免脏深链。
-				search: tab === "scene" ? {} : { tab },
+				to: tab === "scene" ? "/scenes" : "/skills",
+				search: {},
 				replace: true,
 			});
 		},
 		[navigate, typeTab],
 	);
 
-	// 旧深链 /skills?tab=plugin → 独立插件页。
+	// 旧深链：/skills?tab=plugin → 插件页；/skills?tab=scene → 场景页。
 	useEffect(() => {
+		if (pageMode !== "capability") return;
 		if (search.tab === "plugin") {
 			void navigate({ to: "/plugins", replace: true });
+			return;
 		}
-	}, [navigate, search.tab]);
+		if (search.tab === "scene") {
+			void navigate({ to: "/scenes", replace: true });
+		}
+	}, [navigate, pageMode, search.tab]);
 
 	// 历史连接配置 section 深链高亮；`navigationNonce` 变化时重新触发（与设置页一致）。
 	const navigationNonce = search.nav;
@@ -279,7 +283,7 @@ export function useSkillsPageModel(): SkillsPageModel {
 		loadMarket();
 	}, [refresh, loadMarket]);
 
-	// 扩展页不显示顶栏左上角标题（页面内已有大号场景/能力切换器）。
+	// 扩展/场景页不显示顶栏左上角标题（页面内已有大号标题）。
 	useEffect(() => {
 		setHeaderTitleHidden(true);
 		return () => setHeaderTitleHidden(false);

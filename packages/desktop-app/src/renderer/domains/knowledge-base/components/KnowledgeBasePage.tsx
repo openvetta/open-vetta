@@ -7,6 +7,7 @@ import {
 	pageHeaderTitleHiddenAtom,
 } from "@shared/store/atoms";
 import { Button } from "@shared/components/ui/button";
+import { SettingsAiAssist } from "../../settings/ai-assist";
 import { useKnowledgeBasePageModel } from "../hooks/useKnowledgeBasePageModel";
 import { KnowledgeBasePageView } from "./KnowledgeBasePageView";
 import { KnowledgeProcessingBadge } from "./KnowledgeProcessingBadge";
@@ -31,6 +32,7 @@ export function KnowledgeBasePage(): JSX.Element {
 	useEffect(() => {
 		setHeaderRightSlot(
 			<>
+				<SettingsAiAssist tabId="knowledgeBase" />
 				{model.activeBase && (
 					<Button variant="ghost" size="sm" onClick={() => model.setPendingOpen(true)}>
 						<span className="icon-[mdi--clock-alert-outline] h-4 w-4" />

@@ -105,7 +105,7 @@ export const BUILTIN_MCP_PRESETS: readonly BuiltinMcpPreset[] = [
 	{
 		id: "notion",
 		name: "notion",
-		iconFile: "notion.webp",
+		iconFile: "notion.png",
 		displayNameKey: "mcpPresets.notion.displayName",
 		descriptionKey: "mcpPresets.notion.description",
 		// 官方托管远程 MCP：HTTP + OAuth（添加后浏览器授权，无需 Internal Integration Secret）
@@ -121,7 +121,7 @@ export const BUILTIN_MCP_PRESETS: readonly BuiltinMcpPreset[] = [
 	{
 		id: "figma",
 		name: "figma",
-		iconFile: "figma.webp",
+		iconFile: "figma.png",
 		displayNameKey: "mcpPresets.figma.displayName",
 		descriptionKey: "mcpPresets.figma.description",
 		// 社区 Framelink MCP（figma-developer-mcp）：stdio + PAT，非官方 mcp.figma.com
@@ -146,7 +146,7 @@ export const BUILTIN_MCP_PRESETS: readonly BuiltinMcpPreset[] = [
 	{
 		id: "github",
 		name: "github",
-		iconFile: "github.svg",
+		iconFile: "github.png",
 		displayNameKey: "mcpPresets.github.displayName",
 		descriptionKey: "mcpPresets.github.description",
 		// 官方托管远程 MCP：HTTP + PAT（Authorization: Bearer <token>）
