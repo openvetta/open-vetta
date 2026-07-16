@@ -12,10 +12,10 @@ export function ProjectDetailPage(): JSX.Element {
 	const batchSection =
 		model.isBatch && model.batchProject ? (
 			<motion.div
-				className="px-10 py-6"
+				className="px-4 pb-4 @md:px-8"
 				initial={{ opacity: 0, y: 10 }}
 				animate={{ opacity: 1, y: 0 }}
-				transition={{ duration: 0.5, delay: 0.35, ease: easeOut }}
+				transition={{ duration: 0.5, delay: 0.2, ease: easeOut }}
 			>
 				<BatchQueueStatus project={model.batchProject} />
 			</motion.div>
