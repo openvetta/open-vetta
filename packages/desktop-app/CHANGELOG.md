@@ -29,6 +29,9 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **场景迁至侧栏「更多」**：扩展页移除「场景」Tab；新增独立 `/scenes` 页面，入口在侧栏「更多 → 场景」。旧深链 `/skills?tab=scene` 自动重定向。
+- **扩展 → 能力列表 UI**：item 改为「图标 | 标题与 intro | 添加/更多」横排；未添加显示「添加」按钮，已添加显示更多菜单；去掉下载次数与常驻背景色，仅保留 hover 高亮。无图标时使用默认 3D 方块 SVG（浅色 `#1C274C` / 深色白色）；所有图标外包超圆角矩形。
+- **内置 MCP 图标**：GitHub / Figma / Notion 替换为新版预设图标（`public/mcp/*.png`）。
 - **侧边栏 Claw badge**：背景改为 `bg-secondary`，文字与状态点改为 `text-secondary-foreground`。
 - **设置页 item 背景统一 `bg-card`**：`SettingSection` 容器及 MCP / IM / 插件 / 外观 / 宠物等列表卡片由 `bg-muted`（或半透明变体）改为 `bg-card`。
 - **Agent 设置人设 / 自定义指令背景**：人设下拉触发器与自定义指令 textarea 改为 `bg-card`。

@@ -38,13 +38,19 @@ const PRIMARY_NAV_ITEMS = [
 	{ type: "route", path: "/skills" as const, labelKey: "sidebar.nav.skills", icon: "icon-[solar--widget-5-linear]" },
 ] as const;
 
-// 「更多」收纳：批量任务 / 插件。
+// 「更多」收纳：批量任务 / 场景 / 插件。
 const MORE_NAV_ITEMS = [
 	{
 		type: "route",
 		path: "/batch-tasks" as const,
 		labelKey: "sidebar.nav.batchTasks",
 		icon: "icon-[solar--clipboard-check-outline]",
+	},
+	{
+		type: "route",
+		path: "/scenes" as const,
+		labelKey: "sidebar.nav.scenes",
+		icon: "icon-[solar--clapperboard-open-linear]",
 	},
 	{
 		type: "route",

@@ -117,61 +117,58 @@ export function KnowledgeBasePageView({ model }: KnowledgeBasePageViewProps): JS
 						</button>
 					</p>
 				</motion.div>
-				<motion.div
-					initial={{ opacity: 0, y: -6 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ duration: 0.4, delay: 0.06, ease: EASE_OUT }}
-					className={cn(
-						"flex shrink-0 items-center gap-2",
-						model.narrow ? "flex-wrap justify-end" : "",
-					)}
-				>
-					<SettingsAiAssist tabId="knowledgeBase" />
-					{model.activeBase && (
-						<>
-							<Button variant="ghost" size="icon-sm" title={t("kbPageRefresh")} onClick={() => void model.refresh()}>
-								<span className="icon-[mdi--refresh] h-4 w-4" />
-							</Button>
-							<div className="flex items-center rounded-lg bg-muted/55 p-0.5">
-								{(
-									[
-										{ mode: "grid", icon: "icon-[mdi--view-grid-outline]", title: t("kbPageGridView") },
-										{ mode: "list", icon: "icon-[mdi--view-list-outline]", title: t("kbPageListView") },
-									] as const
-								).map(({ mode, icon, title }) => (
-									<button
-										key={mode}
-										type="button"
-										title={title}
-										aria-pressed={model.viewMode === mode}
-										onClick={() => model.setViewMode(mode)}
-										className={cn(
-											"flex h-7 w-7 items-center justify-center rounded-md transition-colors",
-											model.viewMode === mode
-												? "bg-background text-foreground shadow-sm"
-												: "text-muted-foreground/60 hover:text-foreground",
-										)}
-									>
-										<span className={cn(icon, "h-4 w-4")} />
-									</button>
-								))}
-							</div>
-							<KnowledgeSourcePicker
-								onPickFiles={model.pickFilesForActiveBase}
-								onPickFolders={model.pickFoldersForActiveBase}
+				{model.activeBase && (
+					<motion.div
+						initial={{ opacity: 0, y: -6 }}
+						animate={{ opacity: 1, y: 0 }}
+						transition={{ duration: 0.4, delay: 0.06, ease: EASE_OUT }}
+						className={cn(
+							"flex shrink-0 items-center gap-2",
+							model.narrow ? "flex-wrap justify-end" : "",
+						)}
+					>
+						<Button variant="ghost" size="icon-sm" title={t("kbPageRefresh")} onClick={() => void model.refresh()}>
+							<span className="icon-[mdi--refresh] h-4 w-4" />
+						</Button>
+						<div className="flex items-center rounded-lg bg-muted/55 p-0.5">
+							{(
+								[
+									{ mode: "grid", icon: "icon-[mdi--view-grid-outline]", title: t("kbPageGridView") },
+									{ mode: "list", icon: "icon-[mdi--view-list-outline]", title: t("kbPageListView") },
+								] as const
+							).map(({ mode, icon, title }) => (
+								<button
+									key={mode}
+									type="button"
+									title={title}
+									aria-pressed={model.viewMode === mode}
+									onClick={() => model.setViewMode(mode)}
+									className={cn(
+										"flex h-7 w-7 items-center justify-center rounded-md transition-colors",
+										model.viewMode === mode
+											? "bg-background text-foreground shadow-sm"
+											: "text-muted-foreground/60 hover:text-foreground",
+									)}
+								>
+									<span className={cn(icon, "h-4 w-4")} />
+								</button>
+							))}
+						</div>
+						<KnowledgeSourcePicker
+							onPickFiles={model.pickFilesForActiveBase}
+							onPickFolders={model.pickFoldersForActiveBase}
+						/>
+						<div className="relative w-28 sm:w-40">
+							<span className="icon-[mdi--magnify] absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/40" />
+							<input
+								value={model.search}
+								onChange={(event) => model.setSearch(event.target.value)}
+								placeholder={t("kbPageSearch")}
+								className="h-8 w-full min-w-0 rounded-lg border border-transparent bg-secondary pl-7 pr-2.5 text-[12px] shadow-none outline-none placeholder:text-muted-foreground/45 hover:bg-accent focus-visible:border-primary/25 focus-visible:bg-background/70 focus-visible:ring-1 focus-visible:ring-primary/15"
 							/>
-							<div className="relative w-28 sm:w-40">
-								<span className="icon-[mdi--magnify] absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/40" />
-								<input
-									value={model.search}
-									onChange={(event) => model.setSearch(event.target.value)}
-									placeholder={t("kbPageSearch")}
-									className="h-8 w-full min-w-0 rounded-lg border border-transparent bg-secondary pl-7 pr-2.5 text-[12px] shadow-none outline-none placeholder:text-muted-foreground/45 hover:bg-accent focus-visible:border-primary/25 focus-visible:bg-background/70 focus-visible:ring-1 focus-visible:ring-primary/15"
-								/>
-							</div>
-						</>
-					)}
-				</motion.div>
+						</div>
+					</motion.div>
+				)}
 			</header>
 
 			{/* 仅列表尚无缓存时页面骨架；有 activeBase 时保持内容面板挂载，避免 path 丢失弹回根层 */}
