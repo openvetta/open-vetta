@@ -1,7 +1,7 @@
 {
 	"id": "plugin-workbench",
 	"name": "%plugin.name%",
-	"version": "0.1.5",
+	"version": "0.1.6",
 	"defaultLocale": "zh",
 	"pluginApiVersion": "^1.0.0",
 	"runtime": "module-federation",
@@ -14,9 +14,12 @@
 	"permissions": [
 		"ui.slot.activity-tab",
 		"ui.slot.input-action",
+		"ui.slot.message",
 		"agent.session.read",
 		"agent.skills.control",
 		"agent.systemPrompt.write",
+		"agent.tools.register",
+		"agent.toolHandler.execute",
 		"agent.command.run",
 		"fs.read",
 		"fs.write"

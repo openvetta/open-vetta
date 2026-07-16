@@ -34,7 +34,7 @@ export function McpJsonEditorView({
 					{saveLabel}
 				</Button>
 			</div>
-			<div className="overflow-hidden rounded-xl border border-border bg-muted">
+			<div className="overflow-hidden rounded-xl border border-border bg-card">
 				<textarea
 					value={jsonText}
 					onChange={(event) => onJsonTextChange(event.target.value)}

@@ -8,6 +8,7 @@
 		"check": "bunx tsc --noEmit"
 	},
 	"dependencies": {
+		"@aiden0z/pptx-renderer": "^1.2.4",
 		"docx-preview": "0.3.7",
 		"pdfjs-dist": "4.10.38",
 		"xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"

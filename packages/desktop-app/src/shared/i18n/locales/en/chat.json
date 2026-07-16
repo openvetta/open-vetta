@@ -439,6 +439,7 @@
 		"multiSelectHint": "Multiple choice",
 		"otherOption": "Other (custom input)",
 		"otherPlaceholder": "Type your answer…",
+		"nextButton": "Next",
 		"questionTabLabel": "Question {{number}}",
 		"submitButton": "Submit",
 		"title": "Vetta needs your choice"

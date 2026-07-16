@@ -44,7 +44,7 @@ export function BatchTaskGridView({
 						value={searchQuery}
 						onChange={(event) => onSearchChange(event.target.value)}
 						placeholder={labels.searchPlaceholder}
-						className="h-8 w-full rounded-lg border border-border/40 bg-card/30 pl-8 pr-8 text-[12px] text-foreground placeholder:text-muted-foreground/40 outline-none transition-colors focus:border-primary/40 focus:bg-card/50"
+						className="h-8 w-full rounded-lg border border-border/40 bg-secondary pl-8 pr-8 text-[12px] text-foreground placeholder:text-muted-foreground/40 outline-none transition-colors focus:border-primary/40 focus:bg-secondary"
 					/>
 					{searchQuery && (
 						<button

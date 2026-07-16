@@ -2,6 +2,7 @@ import type {
 	ConfiguredHookHandler,
 	HookCommandExecutor,
 	HookCompatibilityProfile,
+	HookDispatchEffect,
 	HookDispatchOutcome,
 	HookHandlerOutcome,
 	HookObserver,
@@ -59,7 +60,9 @@ export class HookDispatcher {
 				this.notifyCompleted(run);
 				return run;
 			});
-			return { ...this.profile.aggregate(request, outcomes), runs };
+			const effect = this.profile.aggregate(request, outcomes);
+			logHookDispatch(request, effect, runs);
+			return { ...effect, runs };
 		}
 
 		for (const handler of handlers) {
@@ -90,7 +93,9 @@ export class HookDispatcher {
 			return run;
 		});
 
-		return { ...this.profile.aggregate(request, outcomes), runs };
+		const effect = this.profile.aggregate(request, outcomes);
+		logHookDispatch(request, effect, runs);
+		return { ...effect, runs };
 	}
 
 	private selectHandlers(request: HookRequest): ConfiguredHookHandler[] {
@@ -193,4 +198,37 @@ function runId(handler: ConfiguredHookHandler, request: HookRequest): string {
 
 function epochSeconds(): number {
 	return Math.floor(Date.now() / 1000);
+}
+
+/** 只记关键结果：生命周期事件或 block/fail；不含 command/stdin/payload。 */
+function logHookDispatch(request: HookRequest, effect: HookDispatchEffect, runs: readonly HookRunSummary[]): void {
+	const hasIssue =
+		effect.shouldBlock ||
+		effect.shouldStop ||
+		runs.some((run) => run.status === "Failed" || run.status === "Blocked" || run.status === "Stopped");
+	const alwaysLog =
+		request.eventName === "SessionStart" ||
+		request.eventName === "Stop" ||
+		request.eventName === "PreCompact" ||
+		request.eventName === "PostCompact";
+	if (!alwaysLog && !hasIssue) return;
+
+	const tool =
+		request.eventName === "PreToolUse" ||
+		request.eventName === "PostToolUse" ||
+		request.eventName === "PermissionRequest"
+			? request.tool.name
+			: undefined;
+
+	console.info("[ecosystem-hooks] dispatch", {
+		event: request.eventName,
+		cwd: request.cwd,
+		tool,
+		handlers: runs.length,
+		statuses: runs.map((run) => run.status),
+		shouldBlock: effect.shouldBlock || undefined,
+		shouldStop: effect.shouldStop || undefined,
+		reason: effect.blockReason ?? effect.stopReason,
+		contexts: effect.additionalContexts.length || undefined,
+	});
 }

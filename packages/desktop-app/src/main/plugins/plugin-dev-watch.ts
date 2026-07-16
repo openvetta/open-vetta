@@ -16,28 +16,37 @@ import {
  * 插件 dev 热更新管理器（插件工作台方案 B）。
  *
  * 每个开启热更新的插件持有：一个常驻 `vite build --watch` 子进程（托管 Node，
- * ADR-0011 已把托管 node 前置进 PATH）+ 一个工程 dist 顶层目录的 fs.watch。
- * dist 产物变化 → debounce → plugin-store.refreshPluginDevLink（bump reload
- * token + broadcast）→ 渲染进程整表重载，UI 自动跟随。
+ * ADR-0011 已把托管 node 前置进 PATH）+ dist / plugin.json 文件监听。
  *
- * 不用现有 command-runner：它是 buffered execFile + 120s 硬超时，无法承载常驻
- * watch。生命周期是 SidecarManager 的简化版：不自动重启，意外退出置 error 态
- * 由面板展示（dev 工具，用户可再拨一次开关重启）。
+ * 触发刷新的信号（任一即可，debounce 合并）：
+ * 1. vite 标准输出匹配「built in …ms」——**主信号**（fs.watch 在部分 FS/编辑器
+ *    下会丢事件或半截写盘时就触发，导致偶发必须手点「重载」）
+ * 2. dist 顶层变更（兜底）
+ * 3. 工程 `plugin.json` 变更（权限/commands/agent 路径等无需等 rebuild）
+ *
+ * 刷新：plugin-store.refreshPluginDevLink（bump reload token + broadcast）→
+ * 渲染进程整表重载；并 reconfigureAgentPlugins。
  */
 
 const log = getAppLogger("plugin");
 
-/** 等 vite 一次增量构建完整写盘（fs.watch 单次构建会触发多个事件）。 */
-const DEBOUNCE_MS = 500;
+/** 等 vite 一轮写盘完整落地；略加长以降低半截 dist 被 import 的概率。 */
+const DEBOUNCE_MS = 700;
 /** dist 尚未生成（首次构建前）/ 被删除时的重挂间隔。 */
 const DIST_RETRY_MS = 1000;
 /** SIGTERM 后未退出的 SIGKILL 兜底。 */
 const KILL_GRACE_MS = 3000;
 
+/** vite build --watch 成功收尾（stdout/stderr 都可能出现，视版本而定）。 */
+const VITE_BUILD_OK = /built in\s+[\d.+\s]*m?s|✓\s*built/i;
+/** vite 编译失败且进程不退出。 */
+const VITE_BUILD_FAIL = /error during build|build failed/i;
+
 interface DevWatchEntry {
 	projectDir: string;
 	child: ChildProcess | null;
 	watcher: FSWatcher | null;
+	manifestWatcher: FSWatcher | null;
 	debounceTimer: NodeJS.Timeout | null;
 	retryTimer: NodeJS.Timeout | null;
 	stopped: boolean;
@@ -54,7 +63,7 @@ function refreshAgentPlugins(): void {
 }
 
 /**
- * 关掉 dist 监听与全部定时器（子进程死亡 / stop 时调用）。
+ * 关掉 dist / manifest 监听与全部定时器（子进程死亡 / stop 时调用）。
  * 子进程已死后若 watcher 仍存活，后续 dist 事件会经 refreshPluginDevLink
  * 把 error 态静默洗回 running（面板误报健康）——必须一并拆除。
  */
@@ -67,13 +76,16 @@ function teardownWatch(entry: DevWatchEntry): void {
 		clearTimeout(entry.retryTimer);
 		entry.retryTimer = null;
 	}
-	if (entry.watcher) {
-		try {
-			entry.watcher.close();
-		} catch {
-			// already closed
+	for (const key of ["watcher", "manifestWatcher"] as const) {
+		const w = entry[key];
+		if (w) {
+			try {
+				w.close();
+			} catch {
+				// already closed
+			}
+			entry[key] = null;
 		}
-		entry.watcher = null;
 	}
 }
 
@@ -99,16 +111,27 @@ function spawnViteWatch(id: string, entry: DevWatchEntry): void {
 	}
 	entry.child = child;
 	let stderrTail = "";
-	child.stdout?.resume();
-	child.stderr?.on("data", (chunk: Buffer) => {
-		stderrTail = `${stderrTail}${chunk.toString()}`.slice(-2000);
-		// vite build --watch 编译失败时进程不退出、也不写 dist（不会有任何 fs 事件），
-		// 唯一信号是 stderr 的 "error during build"。不置 error 会永久卡在 starting。
-		// 后续构建成功后 dist 事件经 refreshPluginDevLink 自动恢复 running。
-		if (!entry.stopped && /error during build|build failed/i.test(chunk.toString())) {
+
+	const onViteLog = (chunk: Buffer, from: "stdout" | "stderr"): void => {
+		const text = chunk.toString();
+		if (from === "stderr") {
+			stderrTail = `${stderrTail}${text}`.slice(-2000);
+		}
+		if (entry.stopped) return;
+		// 构建成功：以 vite 日志为准触发热更（比 fs.watch 稳）。
+		if (VITE_BUILD_OK.test(text)) {
+			scheduleRefresh(id, entry);
+			return;
+		}
+		// vite build --watch 编译失败时进程不退出、也不写 dist。
+		// 不置 error 会永久卡在 starting。后续成功构建会经 refresh 恢复 running。
+		if (from === "stderr" && VITE_BUILD_FAIL.test(text)) {
 			setPluginDevLinkStatus(id, "error", stderrTail.trim());
 		}
-	});
+	};
+
+	child.stdout?.on("data", (chunk: Buffer) => onViteLog(chunk, "stdout"));
+	child.stderr?.on("data", (chunk: Buffer) => onViteLog(chunk, "stderr"));
 	child.on("error", (err) => {
 		entry.child = null;
 		if (entry.stopped) return;
@@ -139,6 +162,7 @@ function scheduleRefresh(id: string, entry: DevWatchEntry): void {
 		try {
 			refreshPluginDevLink(id);
 			refreshAgentPlugins();
+			log.info(`dev-watch: refreshed ${id}`);
 		} catch (err) {
 			log.warn(`dev-watch: reload failed for ${id}`, err);
 			setPluginDevLinkStatus(id, "error", err instanceof Error ? err.message : String(err));
@@ -157,7 +181,7 @@ function attachDistWatcher(id: string, entry: DevWatchEntry, viaRetry = false): 
 	let watcher: FSWatcher;
 	try {
 		// 只挂 dist 顶层（跨平台：Linux 不支持 recursive）。remoteEntry.js /
-		// mf-manifest.json / style.css 都在顶层，每次构建必然触发。
+		// mf-manifest.json / style.css 都在顶层；与 vite 日志双保险。
 		watcher = watch(distDir, () => scheduleRefresh(id, entry));
 	} catch {
 		entry.retryTimer = setTimeout(() => attachDistWatcher(id, entry, true), DIST_RETRY_MS);
@@ -182,9 +206,30 @@ function attachDistWatcher(id: string, entry: DevWatchEntry, viaRetry = false): 
 	if (viaRetry) scheduleRefresh(id, entry);
 }
 
+/** 监听 plugin.json：改 permissions/agent/styles 等不必等 vite 再写 dist。 */
+function attachManifestWatcher(id: string, entry: DevWatchEntry): void {
+	if (entry.stopped) return;
+	const manifestFile = join(entry.projectDir, "plugin.json");
+	if (!existsSync(manifestFile)) return;
+	try {
+		const watcher = watch(manifestFile, () => scheduleRefresh(id, entry));
+		watcher.on("error", () => {
+			try {
+				watcher.close();
+			} catch {
+				// already closed
+			}
+			if (entry.manifestWatcher === watcher) entry.manifestWatcher = null;
+		});
+		entry.manifestWatcher = watcher;
+	} catch (err) {
+		log.warn(`dev-watch: cannot watch plugin.json for ${id}`, err);
+	}
+}
+
 /**
  * 开启热更新：建立 dev 链接（校验插件已安装、工程 plugin.json 匹配）→
- * 拉起 vite watch → 挂 dist 监听。已开启时先停旧的再重启（幂等）。
+ * 拉起 vite watch → 挂 dist / manifest 监听。已开启时先停旧的再重启（幂等）。
  */
 export function startPluginDevWatch(id: string, projectDir: string): InstalledPlugin {
 	stopPluginDevWatch(id);
@@ -194,13 +239,17 @@ export function startPluginDevWatch(id: string, projectDir: string): InstalledPl
 		projectDir: resolvedDir,
 		child: null,
 		watcher: null,
+		manifestWatcher: null,
 		debounceTimer: null,
 		retryTimer: null,
 		stopped: false,
 	};
 	entries.set(id, entry);
 	spawnViteWatch(id, entry);
-	if (entry.child) attachDistWatcher(id, entry);
+	if (entry.child) {
+		attachDistWatcher(id, entry);
+		attachManifestWatcher(id, entry);
+	}
 	log.info(`dev-watch: started for ${id} at ${resolvedDir}`);
 	return plugin;
 }

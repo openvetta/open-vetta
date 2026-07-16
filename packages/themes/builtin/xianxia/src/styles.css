@@ -222,10 +222,23 @@
 
 .xianxia-app-frame {
 	--xianxia-app-frame-inset: 12px;
+	--xianxia-app-frame-overlay-inset: var(--xianxia-app-frame-inset);
+	--xianxia-app-frame-overlay-radius: var(--xianxia-app-frame-radius);
 	--xianxia-font-family: "Palatino Linotype", Palatino, "Book Antiqua", KaiTi, STKaiti, "Kaiti SC", "楷体", serif;
 	--font-sans: var(--xianxia-font-family);
 
 	font-family: var(--xianxia-font-family);
+}
+
+.xianxia-app-frame:has(> .xianxia-app-background-edge-to-edge) {
+	--xianxia-app-frame-inset: 0px;
+	--xianxia-app-frame-overlay-inset: 2px;
+	--xianxia-app-frame-overlay-radius: 8px;
+	--xianxia-app-frame-radius: 10px;
+	--xianxia-main-content-background-radius: 10px;
+	--xianxia-sidebar-background-radius: 10px;
+
+	border-radius: var(--xianxia-app-frame-radius);
 }
 
 .xianxia-app-frame img,
@@ -247,12 +260,19 @@ body.xianxia-sanctum-page-active [data-theme-surface="app.frame"] > span {
 }
 
 .xianxia-app-frame-overlay {
-	inset: var(--xianxia-app-frame-inset);
-	border-radius: var(--xianxia-app-frame-radius);
+	inset: var(--xianxia-app-frame-overlay-inset);
+	border-radius: var(--xianxia-app-frame-overlay-radius);
 	box-shadow:
 		inset 0 0 14px rgb(255 255 255 / 28%),
 		0 0 5px rgb(255 255 255 / 78%),
 		0 0 14px rgb(230 240 255 / 48%);
+}
+
+.xianxia-app-frame:has(> .xianxia-app-background-edge-to-edge) > .xianxia-app-frame-overlay {
+	box-shadow:
+		inset 0 0 5px rgb(255 255 255 / 78%),
+		inset 0 0 14px rgb(230 240 255 / 48%),
+		inset 0 0 22px rgb(255 255 255 / 20%);
 }
 
 .xianxia-app-frame-overlay::before {

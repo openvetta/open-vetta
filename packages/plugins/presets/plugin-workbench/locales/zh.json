@@ -43,5 +43,16 @@
 	"panel.hotReloadRunning": "监听中",
 	"panel.hotReloadError": "热更新出错",
 	"panel.hotReloadNeedsInstall": "先应用到 Vetta 再开启",
-	"panel.busyHotReload": "正在切换热更新…"
+	"panel.busyHotReload": "正在切换热更新…",
+	"panel.reinstall": "重新安装",
+	"panel.reinstallHint": "强制重建并安装，同步权限/命令等安装态字段，并刷新整个 Vetta",
+	"panel.busyReinstall": "正在重新安装并刷新…",
+	"card.reinstall.tabTitle": "重新安装",
+	"card.reinstall.title": "需要重新安装插件",
+	"card.reinstall.defaultReason": "权限 / 命令 / 设置声明等安装态字段已变更，热更新无法同步。",
+	"card.reinstall.refreshHint": "点击后将重新构建打包、安装到本机，并刷新整个 Vetta App。",
+	"card.reinstall.action": "重新安装并刷新 App",
+	"card.reinstall.busy": "正在重新安装…",
+	"card.reinstall.pending": "正在准备重新安装提示…",
+	"card.reinstall.missingDir": "缺少工程路径，无法重新安装"
 }

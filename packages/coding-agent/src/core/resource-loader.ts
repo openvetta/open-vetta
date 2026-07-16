@@ -626,6 +626,20 @@ export class DefaultResourceLoader implements ResourceLoader {
 		for (const skill of this.skills) {
 			this.addDefaultMetadataForPath(skill.filePath);
 		}
+
+		// 测试可观测：会话 skill 发现结果（主进程经 console patch 进 desktop main 日志）
+		const bySource: Record<string, number> = {};
+		for (const skill of this.skills) {
+			const source = skill.source ?? "unknown";
+			bySource[source] = (bySource[source] ?? 0) + 1;
+		}
+		console.info("[skills] loaded", {
+			cwd: this.cwd,
+			includeAgentSkills: this.includeAgentSkills,
+			total: this.skills.length,
+			bySource,
+			names: this.skills.map((s) => s.name),
+		});
 	}
 
 	private updatePromptsFromPaths(

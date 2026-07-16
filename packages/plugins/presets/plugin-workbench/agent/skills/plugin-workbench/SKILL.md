@@ -52,13 +52,13 @@ workbenchRoot = listPlugins() 中 id === "plugin-workbench" 的 rootPath
 | --- | --- |
 | 侧栏面板 / 活动 Tab | `ui-slots.md`（activity-tab） |
 | 输入栏按钮 | `ui-slots.md`（input-action） |
-| 文件预览 | `ui-slots.md`（file-preview + **notify 错误上报**） |
+| 文件预览 | `ui-slots.md`（file-preview + **notify 错误上报**）+ `styling-and-pitfalls.md`（**面板布局边界**） |
 | 全局弹层 | `ui-slots.md`（global） |
 | 任何可能失败的 IO/解析 | `ui-slots.md`（**notify**）+ `styling-and-pitfalls.md`（错误必须上报） |
 | Agent 工具 / 读写文件 / 对话 | `conversation-and-agent.md` |
 | 消息下方卡片 | `message-cards.md` |
 | 插件自带 MCP | `mcp.md` |
-| 样式 / 不生效 / 缓存 | `styling-and-pitfalls.md` |
+| 样式 / 布局逃逸 / 不生效 / 缓存 | `styling-and-pitfalls.md`（含**面板类 slot 禁止 viewport fixed**） |
 | 引导词 / 设置项 | `manifest.md` 对应章节 |
 
 ### 1.3 实现时
@@ -124,6 +124,7 @@ node "{workbenchRoot}/scripts/check-manifest.mjs" "{pluginRoot}"
 - [ ] 工具 description 写清何时调用  
 - [ ] 无 MF 顶层 JSX 陷阱  
 - [ ] **样式：只用 Tailwind className；未手写业务 .css / 未用全局选择器**（`style.css` 仅 theme+utilities 入口，见 styling-and-pitfalls）  
+- [ ] **面板布局：file-preview / activity-tab 内无 `fixed` 贴视口、无超高 z-index、无 portal 到 `document.body`**；面板内浮层用 `relative`+`absolute`；全局浮层用 `registerGlobalSlot`，Toast 用 `notify`（见 styling-and-pitfalls → 面板类 slot 布局边界）  
 - [ ] 用户工程无 `workspace:*`  
 - [ ] i18n：若要宿主渲染中文 label，按手册用 catalog / `%key%`（desktop 用户文案规范）  
 - [ ] **错误可排查：所有可能失败的路径（读文件/解析/网络/外部库）在 catch 里调用 `ctx.ui.notify({ message, error })`**，禁止只写死「失败」文案、丢掉原始 error；`notify` 无需权限，有 `error` 时宿主 Toast 可一键复制堆栈（见 `ui-slots.md` → notify）  
@@ -133,7 +134,7 @@ node "{workbenchRoot}/scripts/check-manifest.mjs" "{pluginRoot}"
 
 改一个**已安装**的插件前，先 `plugins.query` → `get {id}` 看返回项有没有 `devWatch` 字段：
 
-- **`devWatch` 存在（热更新已开启）**：改完工程源码即结束——宿主的 `vite build --watch` 会自动构建、自动重载。**禁止**再走 4.4 build-and-pack、4.5 应用或 reload（多余且会打断用户）。例外：改了 `permissions` / 新增 `commands` 等需要重新授权的声明时，仍需走 4.4→4.5 重新应用。若 `devWatch.status === "error"`，提示用户到面板看错误详情。
+- **`devWatch` 存在（热更新已开启）**：改完工程源码或 `plugin.json` 即结束——vite watch 构建成功后自动重载；dev 会话内新增 permissions/commands 也会自动放行。**禁止**再走 4.4/4.5 或 reload。若 `devWatch.status === "error"`，提示用户看面板错误或拨一下热更新开关。仅当用户明确要**持久**写入注册表（关热更新/重启后仍生效）时，才用 `workbench_offer_reinstall` 让用户点卡片「重新安装」。
 - **`devWatch` 不存在**：走 4.4→4.5 常规流程（构建打包后引导用户在面板点「应用到 Vetta」）。
 
 ### 4.4 构建打包（强制脚本）
@@ -160,9 +161,10 @@ node "{workbenchRoot}/scripts/build-and-pack.mjs" "{pluginRoot}"
 
 只改 **工程源码** `plugin.json`，再 4.4 → 4.5。禁止改 `~/.vetta/plugins/...` 已装目录当真相源。
 
-### 4.7 卸载 / 重载
+### 4.7 卸载 / 重载 / 重新安装
 
-`plugins.manage`：`uninstall` / `reload`（系统插件不可卸）。
+- `plugins.manage`：`uninstall` / `reload`（系统插件不可卸）。
+- **重新安装**（权限/命令等安装态变更）：工具 `workbench_offer_reinstall` 出消息卡，或面板「重新安装」——**不要** `install-from-path`。
 
 ---
 
@@ -170,7 +172,9 @@ node "{workbenchRoot}/scripts/build-and-pack.mjs" "{pluginRoot}"
 
 Activity Tab「插件工作台」（同样受 toggle 硬隔离）：扫描 cwd、构建、应用、卸载、重载、改 name/引导词。与对话同一规则与同一脚本。
 
-每张工程卡片有 **「热更新」开关（已安装后默认开）**：宿主把插件 dev 链接到工程目录并常驻 `vite build --watch`，保存源码即自动构建 + 自动重载（无需 bump/重打 zip/手动 reload）。适合迭代调试；改 `permissions` 仍需重新「应用到 Vetta」授权。用户可手动关闭；关闭开关或重启 App 后回落安装目录（重新打开面板时仍会默认再开）。
+每张工程卡片有 **「热更新」开关（已安装后默认开）**：宿主把插件 dev 链接到工程目录并常驻 `vite build --watch`，保存源码即自动构建 + 自动重载（无需 bump/重打 zip/手动 reload）。适合迭代调试。
+
+已安装时还有 **「重新安装」**（与消息卡按钮同路径）：强制 build-and-pack → 把权限/命令**持久写入注册表** → **刷新整个 Vetta 窗口**。日常改代码 / 改 plugin.json 靠热更新即可（dev 会话内权限声明自动放行）；重新安装用于落盘授权或热更新异常时兜底。首次安装仍用「应用到 Vetta」。
 
 ---
 

@@ -1,87 +1,14 @@
 import { useActiveConversation, useActivityTab, useTranslation } from "@vetta-org/plugin-sdk";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { discoverProjects, joinPath, readJson, type ProjectInfo } from "./project";
+import { applyPluginToVetta, reinstallPluginToVetta } from "./reinstall";
 import { getWorkbenchCommand, getWorkbenchFs } from "./runtime";
-
-interface ProjectInfo {
-	dir: string;
-	id: string;
-	name: string;
-	version: string;
-	guidingWords: string[];
-	permissions: string[];
-	zipPath: string | null;
-}
 
 interface InstalledInfo {
 	id: string;
 	version: string;
 	enabled: boolean;
 	devWatch: VettaPluginDevWatchState | null;
-}
-
-function joinPath(base: string, ...parts: string[]): string {
-	const sep = base.includes("\\") ? "\\" : "/";
-	let out = base.replace(/[/\\]+$/, "");
-	for (const p of parts) {
-		out = `${out}${sep}${p.replace(/^[/\\]+/, "")}`;
-	}
-	return out;
-}
-
-async function readJson(path: string): Promise<Record<string, unknown> | null> {
-	try {
-		const file = await getWorkbenchFs().readFile(path);
-		return JSON.parse(file.content) as Record<string, unknown>;
-	} catch {
-		return null;
-	}
-}
-
-async function discoverProjects(cwd: string): Promise<ProjectInfo[]> {
-	const fs = getWorkbenchFs();
-	const candidates: string[] = [cwd];
-	try {
-		const entries = await fs.readDir(cwd);
-		for (const e of entries) {
-			if (e.isDirectory && e.name !== "node_modules" && e.name !== "dist" && e.name !== ".git") {
-				candidates.push(e.path || joinPath(cwd, e.name));
-			}
-		}
-	} catch {
-		// cwd unreadable
-	}
-
-	const projects: ProjectInfo[] = [];
-	for (const dir of candidates) {
-		const manifest = await readJson(joinPath(dir, "plugin.json"));
-		if (!manifest || typeof manifest.id !== "string") continue;
-		const id = manifest.id;
-		const version = typeof manifest.version === "string" ? manifest.version : "0.0.0";
-		const name = typeof manifest.name === "string" ? manifest.name : id;
-		const guidingWords = Array.isArray(manifest.guidingWords)
-			? manifest.guidingWords.filter((w): w is string => typeof w === "string")
-			: [];
-		const permissions = Array.isArray(manifest.permissions)
-			? manifest.permissions.filter((p): p is string => typeof p === "string")
-			: [];
-		const zipPath = joinPath(dir, "release", `${id}-${version}.zip`);
-		let zipExists = false;
-		try {
-			zipExists = (await fs.stat(zipPath)) != null;
-		} catch {
-			zipExists = false;
-		}
-		projects.push({
-			dir,
-			id,
-			name,
-			version,
-			guidingWords,
-			permissions,
-			zipPath: zipExists ? zipPath : null,
-		});
-	}
-	return projects;
 }
 
 // ─── Icons (created at render — never at module top level in an MF remote) ───
@@ -177,6 +104,7 @@ function busyLabel(busy: string, t: (key: string) => string): string {
 	const map: Record<string, string> = {
 		build: t("panel.busyBuild"),
 		apply: t("panel.busyApply"),
+		reinstall: t("panel.busyReinstall"),
 		uninstall: t("panel.busyUninstall"),
 		reload: t("panel.busyReload"),
 		save: t("panel.busySave"),
@@ -283,48 +211,37 @@ export function WorkbenchPanel() {
 		setBusy(`apply:${project.id}`);
 		setError(null);
 		try {
-			let zip = project.zipPath;
-			if (!zip) {
-				setBusy(`build:${project.id}`);
-				if (!workbenchRoot) throw new Error("plugin-workbench rootPath missing");
-				const script = joinPath(workbenchRoot, "scripts", "build-and-pack.mjs");
-				const result = await getWorkbenchCommand().run("node", [script, project.dir], {
-					cwd: project.dir,
-					timeoutMs: 120_000,
-				});
-				if (result.exitCode !== 0) {
-					throw new Error(result.stderr || result.stdout || `exit ${result.exitCode}`);
-				}
-				const manifest = await readJson(joinPath(project.dir, "plugin.json"));
-				const version = typeof manifest?.version === "string" ? manifest.version : project.version;
-				zip = joinPath(project.dir, "release", `${project.id}-${version}.zip`);
-			}
-			const st = await getWorkbenchFs().stat(zip);
-			if (!st) throw new Error(`Zip not found: ${zip}`);
-
-			await window.vetta.plugins.installFromPath(zip, {
-				grantedPermissions: project.permissions,
-				enable: true,
+			if (!workbenchRoot) throw new Error("plugin-workbench rootPath missing");
+			if (!project.zipPath) setBusy(`build:${project.id}`);
+			await applyPluginToVetta({
+				project,
+				workbenchRoot,
+				forceBuild: !project.zipPath,
+				refreshApp: false,
+				startHotReload: true,
 			});
-			await window.vetta.plugins.setEnabled(project.id, true);
-			if (project.permissions.length > 0) {
-				await window.vetta.plugins.grantPermissions(project.id, project.permissions);
-			}
-			try {
-				await window.vetta.plugins.reload(project.id);
-			} catch {
-				// first install may not need reload
-			}
-			// Hot reload defaults on after apply (idempotent if already watching).
 			hotReloadUserOffRef.current.delete(project.id);
 			hotReloadAutoAttemptedRef.current.add(project.id);
-			await window.vetta.plugins.startDevWatch(project.id, project.dir);
-			// Host also broadcasts plugins:changed; window event covers same-frame listeners.
-			window.dispatchEvent(new Event("vetta:plugins-changed"));
 			await refresh();
 		} catch (err) {
 			setError(err instanceof Error ? err.message : String(err));
 		} finally {
+			setBusy(null);
+		}
+	};
+
+	/** Force rebuild + re-apply registry (permissions/commands/…) + full app reload. */
+	const runReinstall = async (project: ProjectInfo) => {
+		setBusy(`reinstall:${project.id}`);
+		setError(null);
+		try {
+			if (!workbenchRoot) throw new Error("plugin-workbench rootPath missing");
+			hotReloadUserOffRef.current.delete(project.id);
+			hotReloadAutoAttemptedRef.current.add(project.id);
+			await reinstallPluginToVetta(project, workbenchRoot);
+			// location.reload() scheduled inside reinstall — no refresh()
+		} catch (err) {
+			setError(err instanceof Error ? err.message : String(err));
 			setBusy(null);
 		}
 	};
@@ -706,6 +623,18 @@ export function WorkbenchPanel() {
 								{inst && (
 									<>
 										<div className="mx-0.5 h-4 w-px bg-border/60" />
+										<button
+											type="button"
+											className={btnSecondary}
+											onClick={() => void runReinstall(project)}
+											disabled={isBusy}
+											title={t("panel.reinstallHint")}
+										>
+											{projectBusy && busy?.startsWith("reinstall") ? (
+												<RefreshIcon className="h-3 w-3 animate-spin" />
+											) : null}
+											{t("panel.reinstall")}
+										</button>
 										<button
 											type="button"
 											className={btnGhost}

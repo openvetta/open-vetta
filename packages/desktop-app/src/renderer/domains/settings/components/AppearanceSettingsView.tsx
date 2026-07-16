@@ -78,6 +78,18 @@ function LanguageSelect({
 	);
 }
 
+function SelectionCheckBadge(): JSX.Element {
+	return (
+		<span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-background/85 shadow-sm backdrop-blur-sm">
+			<span className="icon-[mdi--check] h-3.5 w-3.5 text-primary" />
+		</span>
+	);
+}
+
+/** 与主题色 ThemeCard 一致：active 时 ring 与卡片之间留 ring-offset 间隙 */
+const SELECTION_ACTIVE_RING = "ring-2 ring-primary ring-offset-2 ring-offset-background";
+const SELECTION_IDLE_RING = "ring-1 ring-border/60 hover:ring-primary/50";
+
 function ModeCard({
 	mode,
 	label,
@@ -98,16 +110,14 @@ function ModeCard({
 			type="button"
 			onClick={(event) => onSelect(mode, event)}
 			className={cn(
-				"group relative flex flex-col items-start gap-2 rounded-xl border bg-card px-4 py-3 text-left transition-all",
-				active ? "border-primary/70 ring-2 ring-primary/30" : "border-border hover:border-primary/40 hover:bg-accent/40",
+				"group relative flex flex-col items-start gap-2 rounded-xl bg-card px-4 py-3 text-left transition-all",
+				active ? SELECTION_ACTIVE_RING : cn(SELECTION_IDLE_RING, "hover:bg-accent/40"),
 			)}
 		>
-			<div className="flex w-full items-center justify-between">
-				<span className={cn(icon, "h-5 w-5", active ? "text-primary" : "text-muted-foreground")} />
-				{active && <span className="icon-[mdi--check-circle] h-4 w-4 text-primary" />}
-			</div>
+			<span className={cn(icon, "h-5 w-5", active ? "text-primary" : "text-muted-foreground")} />
 			<div className="text-[13px] font-medium text-foreground">{label}</div>
 			<div className="text-[11px] text-muted-foreground">{hint}</div>
+			{active && <SelectionCheckBadge />}
 		</button>
 	);
 }
@@ -140,7 +150,7 @@ function ThemeCard({
 			<div
 				className={cn(
 					"relative aspect-[16/9] w-full overflow-hidden rounded-lg transition-all",
-					active ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : "ring-1 ring-border/60 group-hover:ring-primary/50",
+					active ? SELECTION_ACTIVE_RING : "ring-1 ring-border/60 group-hover:ring-primary/50",
 				)}
 				style={{ background: palette.background }}
 			>
@@ -194,11 +204,7 @@ function ThemeCard({
 						</div>
 					</div>
 				</div>
-				{active && (
-					<span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-background/85 shadow-sm backdrop-blur-sm">
-						<span className="icon-[mdi--check] h-3.5 w-3.5 text-primary" />
-					</span>
-				)}
+				{active && <SelectionCheckBadge />}
 			</div>
 			<span className={cn("text-[12px] transition-colors", active ? "font-medium text-foreground" : "text-muted-foreground")}>
 				{theme.label}
@@ -224,27 +230,27 @@ function UiThemeCard({
 			disabled={disabled}
 			onClick={onSelect}
 			className={cn(
-				"group overflow-hidden rounded-xl border bg-card/40 text-left transition-colors",
-				active ? "border-primary/70 ring-1 ring-inset ring-primary/30" : "border-border/50 hover:border-primary/40 hover:bg-card/60",
+				// overflow-hidden 放在内层，避免裁切 active 的 ring-offset 间隙
+				"group relative rounded-xl bg-card text-left transition-all",
+				active ? SELECTION_ACTIVE_RING : cn(SELECTION_IDLE_RING, "hover:bg-accent/40"),
 				disabled && "cursor-not-allowed",
 			)}
 		>
-			<div className="relative aspect-[16/9] overflow-hidden border-b border-border/50">
-				<img src={preview} alt="" className={cn("h-full w-full object-cover", disabled && "opacity-50")} />
-				{unavailable ? (
-					<span className="absolute inset-0 flex items-center justify-center">
-						<img src={themeLock} alt="" className="h-14 w-auto object-contain" />
-					</span>
-				) : active ? (
-					<span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-background/80 backdrop-blur-sm">
-						<span className="icon-[solar--check-circle-linear] h-4 w-4 text-primary" />
-					</span>
-				) : null}
+			<div className="overflow-hidden rounded-xl">
+				<div className="relative aspect-[16/9] overflow-hidden border-b border-border/50">
+					<img src={preview} alt="" className={cn("h-full w-full object-cover", disabled && "opacity-50")} />
+					{unavailable ? (
+						<span className="absolute inset-0 flex items-center justify-center">
+							<img src={themeLock} alt="" className="h-14 w-auto object-contain" />
+						</span>
+					) : null}
+				</div>
+				<div className="px-3.5 pb-3 pt-3">
+					<div className="text-[13px] font-medium text-card-foreground">{label}</div>
+					<div className="mt-1 text-[11px] text-muted-foreground">{hint}</div>
+				</div>
 			</div>
-			<div className="px-3.5 pb-3 pt-3">
-				<div className="text-[13px] font-medium text-card-foreground">{label}</div>
-				<div className="mt-1 text-[11px] text-muted-foreground">{hint}</div>
-			</div>
+			{active && !unavailable && <SelectionCheckBadge />}
 		</button>
 	);
 }
@@ -265,22 +271,20 @@ function CursorStyleCard({
 			type="button"
 			onClick={() => onSelect(id)}
 			className={cn(
-				"group relative flex flex-col items-start gap-2 rounded-xl border bg-card px-4 py-3 text-left transition-all",
-				active ? "border-primary/70 ring-2 ring-primary/30" : "border-border hover:border-primary/40 hover:bg-accent/40",
+				"group relative flex flex-col items-start gap-2 rounded-xl bg-card px-4 py-3 text-left transition-all",
+				active ? SELECTION_ACTIVE_RING : cn(SELECTION_IDLE_RING, "hover:bg-accent/40"),
 			)}
 		>
-			<div className="flex w-full items-center justify-between">
-				<div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted/80">
-					{preview ? (
-						<img src={preview} alt="" className="h-7 w-7 object-contain" draggable={false} />
-					) : (
-						<span className={cn(icon, "h-6 w-6", active ? "text-primary" : "text-muted-foreground")} />
-					)}
-				</div>
-				{active && <span className="icon-[mdi--check-circle] h-4 w-4 text-primary" />}
+			<div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted/80">
+				{preview ? (
+					<img src={preview} alt="" className="h-7 w-7 object-contain" draggable={false} />
+				) : (
+					<span className={cn(icon, "h-6 w-6", active ? "text-primary" : "text-muted-foreground")} />
+				)}
 			</div>
 			<div className="text-[13px] font-medium text-foreground">{label}</div>
 			<div className="text-[11px] text-muted-foreground">{hint}</div>
+			{active && <SelectionCheckBadge />}
 		</button>
 	);
 }

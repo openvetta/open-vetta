@@ -21,7 +21,7 @@ export const BatchTaskCardView = memo(function BatchTaskCardView({
 		<div
 			onMouseEnter={() => setHovered(true)}
 			onMouseLeave={() => setHovered(false)}
-			className="relative flex flex-col gap-1 overflow-hidden rounded-lg bg-muted px-2.5 py-2 transition-colors duration-300 ease-out hover:bg-accent"
+			className="relative flex flex-col gap-1 overflow-hidden rounded-lg bg-card px-2.5 py-2 transition-colors duration-300 ease-out hover:bg-accent"
 		>
 			<div className="flex items-center gap-1.5">
 				<div className="relative flex h-1.5 w-1.5 shrink-0">

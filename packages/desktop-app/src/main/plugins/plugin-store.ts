@@ -839,15 +839,29 @@ function toDevPluginUrl(pluginId: string, relativePath: string, token: string): 
 
 /**
  * 把 dev 链接叠加到注册表对象上（entry/style/agent/locales/rootPath 改指工程）。
- * 权限与命令授权保持安装态不变：dev 期新增权限需重新走 apply 授权。
+ *
+ * Dev 期额外同步安装态字段（仅内存，不写注册表）：
+ * - permissions / declaredCommands / settingsSchema 跟工程 plugin.json
+ * - 新声明的权限与命令在热更新会话内自动视为已授权，避免「改了 permissions
+ *   却必须重新安装」的开发摩擦；关热更新或重启后仍回落注册表安装态。
+ * 正式发布 / 关热更新后的持久授权仍走「应用到 Vetta / 重新安装」。
  */
 function applyDevOverlay(plugin: InstalledPlugin): InstalledPlugin {
 	const link = devLinks.get(plugin.id);
 	if (!link) return plugin;
 	const manifest = link.manifest;
+	const permissions = manifest.permissions ?? [];
+	const declaredCommands = manifest.commands ?? [];
+	// 热更新会话内：声明即放行（合并用户已授权集合，不收回已有授权）。
+	const grantedPermissions = Array.from(new Set([...plugin.grantedPermissions, ...permissions]));
+	const grantedCommandNames = Array.from(new Set([...(plugin.grantedCommandNames ?? []), ...declaredCommands]));
 	return {
 		...plugin,
 		name: manifest.name,
+		version: manifest.version,
+		pluginApiVersion: manifest.pluginApiVersion,
+		description: manifest.description,
+		author: manifest.author,
 		runtime: manifest.runtime ?? "esm",
 		entryUrl: toDevPluginUrl(plugin.id, manifest.entry, link.reloadToken),
 		moduleFederation: manifest.moduleFederation,
@@ -856,6 +870,11 @@ function applyDevOverlay(plugin: InstalledPlugin): InstalledPlugin {
 		guidingWords: manifest.guidingWords,
 		defaultLocale: manifest.defaultLocale ?? "zh",
 		locales: link.locales,
+		permissions,
+		grantedPermissions,
+		declaredCommands,
+		grantedCommandNames,
+		settingsSchema: manifest.contributes?.settings,
 		rootPath: link.projectDir,
 		devWatch: { projectDir: link.projectDir, status: link.status, error: link.error },
 	};

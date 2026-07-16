@@ -24,7 +24,11 @@ import {
 import { getDefaultStore, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { fullHistoryToChat, parseUserPrefixes } from "../services/chat-service";
+import {
+	fullHistoryToChat,
+	isSystemAttachmentPath,
+	parseUserPrefixes,
+} from "../services/chat-service";
 import { AppshotCard, type AppshotCardData } from "../components/AppshotCard";
 import { TextBlockView } from "../components/blocks/TextBlock";
 import { CopyButton, RelativeTimeLabel } from "../components/message-list/MessageActions";
@@ -181,18 +185,27 @@ export function useUserMessageModel({
 	const displayText = body;
 	const appshotData: AppshotCardData | null =
 		message.appshot ?? (appshotImage ? { imagePath: appshotImage } : null);
-	const imageItems = useMemo<FilePreviewItem[]>(
-		() => [
-			...(message.images ?? []).map((image) => ({
-				name: image.name,
-				url: `data:${image.mimeType};base64,${image.data}`,
-				kind: "image" as const,
-				mime: image.mimeType,
-			})),
-			...imageFiles.map((path) => ({ name: pathBasename(path), path, kind: "image" as const })),
-		],
-		[imageFiles, message.images],
-	);
+	// Path-based thumbs are the canonical source (history reload + optimistic after
+	// persistImages). Base64 on message.images is only for optimistic display when
+	// persist failed. Merging both doubles thumbnails while streaming.
+	const imageItems = useMemo<FilePreviewItem[]>(() => {
+		const fromPaths = imageFiles.map((path) => ({
+			name: pathBasename(path),
+			path,
+			kind: "image" as const,
+		}));
+		const hasPersistedImagePaths = imageFiles.some(isSystemAttachmentPath);
+		if (hasPersistedImagePaths) {
+			return fromPaths;
+		}
+		const fromBase64 = (message.images ?? []).map((image) => ({
+			name: image.name,
+			url: `data:${image.mimeType};base64,${image.data}`,
+			kind: "image" as const,
+			mime: image.mimeType,
+		}));
+		return [...fromBase64, ...fromPaths];
+	}, [imageFiles, message.images]);
 	const hasImages = imageItems.length > 0;
 	const hasSkillBadge = Boolean(skillName);
 	const settingsAssistTabId = message.settingsAssistTabId?.trim() ?? "";

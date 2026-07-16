@@ -11,7 +11,7 @@ import {
 	withThemeTransition,
 } from "../theme/apply";
 import { getStoredCursorStyle, setStoredCursorStyle } from "../theme/cursor";
-import { DEFAULT_THEME_ID, THEMES } from "../theme/themes";
+import { DEFAULT_THEME_ID, resolveThemeId, THEMES } from "../theme/themes";
 
 export function useTheme() {
 	const [mode, setModeAtom] = useAtom(themeModeAtom);
@@ -26,7 +26,7 @@ export function useTheme() {
 		const resolvedMode = root.getAttribute("data-mode");
 		return {
 			mode: storedMode === "light" || storedMode === "dark" || storedMode === "auto" ? storedMode : "dark",
-			themeId: storedThemeId && storedThemeId.length > 0 ? storedThemeId : DEFAULT_THEME_ID,
+			themeId: resolveThemeId(storedThemeId && storedThemeId.length > 0 ? storedThemeId : DEFAULT_THEME_ID),
 			resolved: resolvedMode === "light" || resolvedMode === "dark" ? resolvedMode : null,
 			appliedThemeId: root.getAttribute("data-theme"),
 			cursorStyle: getStoredCursorStyle(),
@@ -53,7 +53,7 @@ export function useTheme() {
 				await window.vetta.theme.set(mode).catch(() => {});
 			}
 			const r: ResolvedMode = isDark ? "dark" : "light";
-			const currentTheme = localStorage.getItem(THEME_STORAGE_KEY) ?? DEFAULT_THEME_ID;
+			const currentTheme = resolveThemeId(localStorage.getItem(THEME_STORAGE_KEY) ?? DEFAULT_THEME_ID);
 			setResolved(r);
 			applyTheme(r, currentTheme);
 		}
@@ -66,7 +66,7 @@ export function useTheme() {
 			const current = (localStorage.getItem(MODE_STORAGE_KEY) as ThemeMode | null) ?? "dark";
 			if (current !== "auto") return;
 			const r: ResolvedMode = info.shouldUseDarkColors ? "dark" : "light";
-			const currentTheme = localStorage.getItem(THEME_STORAGE_KEY) ?? DEFAULT_THEME_ID;
+			const currentTheme = resolveThemeId(localStorage.getItem(THEME_STORAGE_KEY) ?? DEFAULT_THEME_ID);
 			setResolved(r);
 			applyTheme(r, currentTheme);
 		});
@@ -108,10 +108,11 @@ export function useTheme() {
 
 	const setThemeName = useCallback(
 		(name: string, transitionOptions?: ThemeTransitionOptions) => {
-			localStorage.setItem(THEME_STORAGE_KEY, name);
+			const nextName = resolveThemeId(name);
+			localStorage.setItem(THEME_STORAGE_KEY, nextName);
 			withThemeTransition(() => {
-				setThemeNameAtom(name);
-				applyTheme(resolved, name);
+				setThemeNameAtom(nextName);
+				applyTheme(resolved, nextName);
 			}, transitionOptions);
 		},
 		[resolved, setThemeNameAtom],
@@ -125,8 +126,11 @@ export function useTheme() {
 			}
 			if (requestedMode !== undefined) {
 				if (typeof themeId === "string") {
-					localStorage.setItem(THEME_STORAGE_KEY, themeId);
-					setThemeNameAtom(themeId);
+					const nextThemeId = resolveThemeId(themeId);
+					localStorage.setItem(THEME_STORAGE_KEY, nextThemeId);
+					setThemeNameAtom(nextThemeId);
+					await setMode(requestedMode, undefined, nextThemeId);
+					return getThemeSnapshot();
 				}
 				await setMode(requestedMode, undefined, themeId);
 				return getThemeSnapshot();
