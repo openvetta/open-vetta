@@ -45,6 +45,17 @@ describe("buildSystemPrompt", () => {
 			expect(prompt).toContain("- edit:");
 			expect(prompt).toContain("- write:");
 		});
+
+		test("includes foreground vs background guideline when bash is selected", () => {
+			const prompt = buildSystemPrompt({
+				selectedTools: ["bash", "read"],
+				contextFiles: [],
+				skills: [],
+			});
+
+			expect(prompt).toContain("run_in_background: true");
+			expect(prompt).toContain("auto-promote");
+		});
 	});
 
 	describe("plugin tools", () => {

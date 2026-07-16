@@ -54,6 +54,12 @@ export interface SpawnBackgroundTaskOptions {
 	cwd: string;
 	env: NodeJS.ProcessEnv;
 	toolCallId?: string;
+	/**
+	 * When true, `onNotify` only fires if the task was auto-promoted (wait soft-timeout).
+	 * Used by foreground soft-wait: if the process exits before block_until, the result is
+	 * returned inline and no <task-notification> is injected.
+	 */
+	notifyOnlyIfPromoted?: boolean;
 }
 
 interface InternalTask {
@@ -68,6 +74,12 @@ interface InternalTask {
 	ended: boolean;
 	/** Guards against duplicate completion notifications. */
 	notified: boolean;
+	/** True after wait() soft-timeout: agent received task id; completion may notify. */
+	promoted: boolean;
+	/** When true, suppress onNotify unless promoted. */
+	notifyOnlyIfPromoted: boolean;
+	/** Waiters registered by wait(); resolved when the task ends. */
+	waiters: Array<() => void>;
 	outputTimer?: NodeJS.Timeout;
 }
 
@@ -131,6 +143,9 @@ export class BackgroundTaskManager {
 			writtenBytes: 0,
 			ended: false,
 			notified: false,
+			promoted: false,
+			notifyOnlyIfPromoted: options.notifyOnlyIfPromoted ?? false,
+			waiters: [],
 		};
 		this.tasks.set(id, task);
 
@@ -182,12 +197,87 @@ export class BackgroundTaskManager {
 		task.snapshot.exitCode = exitCode;
 		task.snapshot.endedAt = Date.now();
 
+		const waiters = task.waiters.splice(0, task.waiters.length);
+		for (const w of waiters) {
+			try {
+				w();
+			} catch {
+				// ignore waiter errors
+			}
+		}
+
 		this.emit({ type: "task_ended", task: { ...task.snapshot } });
 
-		if (!task.notified && this.onNotify) {
+		// Suppress notify when foreground soft-wait already returned the full result inline.
+		const shouldNotify = !task.notifyOnlyIfPromoted || task.promoted;
+		if (shouldNotify && !task.notified && this.onNotify) {
 			task.notified = true;
 			this.onNotify({ ...task.snapshot });
 		}
+	}
+
+	/**
+	 * Wait until a task ends, or until maxMs elapses.
+	 * On soft timeout the task is marked promoted (still running) so a later finish may notify.
+	 * On natural completion before maxMs, notify is suppressed when notifyOnlyIfPromoted was set.
+	 */
+	async wait(
+		taskId: string,
+		options: { maxMs: number; signal?: AbortSignal },
+	): Promise<{ stillRunning: boolean; snapshot: BackgroundTaskSnapshot }> {
+		const task = this.tasks.get(taskId);
+		if (!task) {
+			throw new Error(`Background task "${taskId}" not found.`);
+		}
+		if (task.ended) {
+			return { stillRunning: false, snapshot: { ...task.snapshot } };
+		}
+
+		const { maxMs, signal } = options;
+		if (signal?.aborted) {
+			this.kill(taskId);
+			throw new Error("aborted");
+		}
+
+		return new Promise((resolve, reject) => {
+			let settled = false;
+
+			const cleanup = () => {
+				signal?.removeEventListener("abort", onAbort);
+				clearTimeout(timer);
+				const idx = task.waiters.indexOf(onEnd);
+				if (idx >= 0) task.waiters.splice(idx, 1);
+			};
+
+			const settle = (stillRunning: boolean) => {
+				if (settled) return;
+				settled = true;
+				cleanup();
+				if (stillRunning) {
+					task.promoted = true;
+				}
+				resolve({ stillRunning, snapshot: { ...task.snapshot } });
+			};
+
+			const onEnd = () => settle(false);
+
+			const onAbort = () => {
+				if (settled) return;
+				settled = true;
+				cleanup();
+				this.kill(taskId);
+				reject(new Error("aborted"));
+			};
+
+			const timer = setTimeout(() => settle(true), Math.max(0, maxMs));
+			task.waiters.push(onEnd);
+			signal?.addEventListener("abort", onAbort, { once: true });
+
+			// Race: may have ended between the ended check and registering the waiter
+			if (task.ended) {
+				settle(false);
+			}
+		});
 	}
 
 	get(taskId: string): BackgroundTaskSnapshot | undefined {
