@@ -51,10 +51,20 @@ export interface ConnectorCapability extends CapabilityBase {
 
 export type CapabilityItem = SkillCapability | ConnectorCapability;
 
+/** 「我的」下分组：主列表 + ~/.agents/skills 兼容来源独立组。 */
+export type CapabilityMineGroupId = "mine" | "agents";
+
+export interface CapabilityMineGroup {
+	id: CapabilityMineGroupId;
+	items: CapabilityItem[];
+}
+
 export interface CapabilitiesModel {
 	scope: CapabilityScope;
 	setScope: (scope: CapabilityScope) => void;
 	items: CapabilityItem[];
+	/** scope=mine 时按来源拆分；discover 时为空数组。 */
+	mineGroups: CapabilityMineGroup[];
 	loading: boolean;
 	refreshing: boolean;
 	errors: string[];
@@ -68,6 +78,11 @@ export interface CapabilitiesModel {
 	revokeAuthorization: (item: ConnectorCapability) => void;
 	preview: (item: SkillCapability) => void;
 	refresh: () => void;
+}
+
+/** 是否为 ~/.agents/skills（或项目 .agents/skills）兼容发现的能力。 */
+export function isAgentsCompatibleSkill(item: CapabilityItem): boolean {
+	return item.driver === "skill" && Boolean(item.skill.source?.startsWith("agents-"));
 }
 
 interface UseCapabilitiesModelOptions {
@@ -122,8 +137,27 @@ function filterCapabilities(items: CapabilityItem[], query: string): CapabilityI
 	return items.filter((item) => item.searchTerms.some((term) => term.toLowerCase().includes(normalized)));
 }
 
+/**
+ * 能力列表分类排序（越小越靠前）：
+ * 0 内置 MCP 连接器 → 1 远程 MCP → 2 手动/自定义 MCP →
+ * 3 自定义 skill → 4 远程/市场 skill → 5 只读 agent/内置 skill
+ */
+function capabilityCategoryRank(item: CapabilityItem): number {
+	if (item.driver === "connector") {
+		if (item.preset) return 0;
+		if (item.market) return 1;
+		return 2;
+	}
+	if (item.skill.isCustom) return 3;
+	if (item.skill.isAgent || item.skill.source?.startsWith("agents-")) return 5;
+	return 4;
+}
+
 function sortCapabilities(items: CapabilityItem[], scope: CapabilityScope): CapabilityItem[] {
 	return [...items].sort((a, b) => {
+		const rankDiff = capabilityCategoryRank(a) - capabilityCategoryRank(b);
+		if (rankDiff !== 0) return rankDiff;
+		// 同类内：mine 优先待配置；再按安装态 / 可更新 / 热度 / 标题
 		if (scope === "mine" && a.setupRequired !== b.setupRequired) return a.setupRequired ? -1 : 1;
 		if (a.installed !== b.installed) return a.installed ? -1 : 1;
 		if (a.needsUpdate !== b.needsUpdate) return a.needsUpdate ? -1 : 1;
@@ -241,6 +275,21 @@ export function useCapabilitiesModel({
 		return sortCapabilities(filterCapabilities([...visibleSkills, ...connectors], searchQuery), scope);
 	}, [actionStates, connectorCapabilities, scope, searchQuery, skills]);
 
+	// 「我的」：把 ~/.agents/skills 兼容能力拆成独立组，其余（市场/自定义/连接器/内置）留在主列表。
+	const mineGroups = useMemo<CapabilityMineGroup[]>(() => {
+		if (scope !== "mine") return [];
+		const mine: CapabilityItem[] = [];
+		const agents: CapabilityItem[] = [];
+		for (const item of items) {
+			if (isAgentsCompatibleSkill(item)) agents.push(item);
+			else mine.push(item);
+		}
+		const groups: CapabilityMineGroup[] = [];
+		if (mine.length > 0) groups.push({ id: "mine", items: mine });
+		if (agents.length > 0) groups.push({ id: "agents", items: agents });
+		return groups;
+	}, [items, scope]);
+
 	const add = useCallback(
 		(item: CapabilityItem) => {
 			if (item.driver === "skill") {
@@ -303,6 +352,7 @@ export function useCapabilitiesModel({
 		scope,
 		setScope,
 		items,
+		mineGroups,
 		loading: mcp.config === null || ((skillLoading || remote.loading) && items.length === 0),
 		refreshing: skillLoading || remote.loading,
 		errors,

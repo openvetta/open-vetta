@@ -44,10 +44,10 @@ const STATIC_TARGETS: readonly StaticNavigationTarget[] = [
 	},
 	{
 		id: "skills",
-		title: "扩展",
-		description: "场景、技能与连接器（MCP）管理页面。",
+		title: "能力",
+		description: "能力与连接器（MCP）管理页面。",
 		hashPath: "/skills",
-		aliases: ["技能", "扩展", "skill marketplace", "技能广场", "场景"],
+		aliases: ["技能", "能力", "扩展", "skill marketplace", "技能广场", "场景"],
 	},
 	{
 		id: "plugins",
@@ -101,7 +101,7 @@ function buildSettingsHashPath(tab: string, section?: string): string {
 	return `/settings/${encodeURIComponent(tab)}${query ? `?${query}` : ""}`;
 }
 
-/** MCP 已迁至扩展 → 连接器。 */
+/** MCP 已迁至能力 → 连接器。 */
 function buildConnectorsHashPath(section?: string): string {
 	const search = new URLSearchParams();
 	search.set("tab", "connector");
@@ -137,7 +137,7 @@ function buildSettingsCatalog(): JsonValue {
 		id: "mcp",
 		title: "连接器",
 		target: { type: "open", target: "connectors" },
-		location: "扩展 → 连接器",
+		location: "能力 → 连接器",
 		sections: SETTINGS_SECTIONS.filter((section) => section.tab === "mcp").map((section) => ({
 			id: section.id,
 			title: section.title,
@@ -230,7 +230,7 @@ export function resolveNavigationTarget(input: Extract<NavigationActionInput, { 
 		);
 	}
 
-	// 兼容旧 target=mcp / tab=mcp 与 mcp-* section（现位于扩展 → 连接器）。
+	// 兼容旧 target=mcp / tab=mcp 与 mcp-* section（现位于能力 → 连接器）。
 	if (target === "mcp" || isMcpSettingsTarget(input.tab ? normalizeTarget(input.tab) : undefined, explicitSection)) {
 		const section = explicitSection?.tab === "mcp" ? explicitSection : undefined;
 		return {

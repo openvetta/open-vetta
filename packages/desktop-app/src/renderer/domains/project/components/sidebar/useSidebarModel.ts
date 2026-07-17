@@ -16,7 +16,7 @@ const MIN_WIDTH = 160;
 const MAX_WIDTH = 400;
 
 // label 在渲染期由 t(labelKey) 解析（模块级常量不存中文，见 AGENTS.md i18n 规范）。
-// 主区域常驻：新会话 / 自动化 / 知识库 / 扩展。
+// 主区域常驻：新会话 / 自动化 / 知识库 / 能力。
 const PRIMARY_NAV_ITEMS = [
 	{
 		type: "new-session",

@@ -30,8 +30,13 @@ export interface MergedSkill {
 	needsUpdate: boolean;
 	localVersion?: string;
 	isCustom?: boolean;
-	/** 通用 Agent Skill（~/.agents/skills）：只读展示，不可安装/卸载/启停。 */
+	/** 通用 Agent Skill（~/.agents/skills）或内置：只读展示，不可安装/卸载/启停。 */
 	isAgent?: boolean;
+	/**
+	 * 来源标识（仅 agent/builtin 等 listSkills 结果会写入）。
+	 * `agents-user` / `agents-project` 对应 ~/.agents/skills 兼容发现。
+	 */
+	source?: string;
 	downloadCount: number;
 	license: string;
 }
@@ -438,6 +443,7 @@ export function useSkillsPageModel(options?: { mode?: TypeTab }): SkillsPageMode
 								enabled: true,
 								needsUpdate: false,
 								isAgent: true,
+								source: s.source,
 								downloadCount: 0,
 								license: "",
 							})),
@@ -465,6 +471,7 @@ export function useSkillsPageModel(options?: { mode?: TypeTab }): SkillsPageMode
 					enabled: true,
 					needsUpdate: false,
 					isAgent: true,
+					source: skill.source,
 					downloadCount: 0,
 					license: "",
 				})),

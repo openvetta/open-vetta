@@ -121,8 +121,30 @@ export const CapabilitiesPanel = forwardRef<CapabilitiesPanelHandle, Capabilitie
 								</p>
 							</div>
 						</div>
+					) : model.scope === "mine" && model.mineGroups.length > 0 ? (
+						<div className="flex flex-col gap-7">
+							{model.mineGroups.map((group) => (
+								<div key={group.id} className="flex flex-col gap-3">
+									{group.id === "agents" && (
+										<div className="flex items-baseline gap-2">
+											<h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/60">
+												{t("group.agentSkill")}
+											</h3>
+											<span className="text-[11px] tabular-nums text-muted-foreground/40">
+												{group.items.length}
+											</span>
+										</div>
+									)}
+									<div className="grid grid-cols-3 gap-x-3 gap-y-0.5">
+										{group.items.map((item) => (
+											<CapabilityCard key={item.id} item={item} model={model} />
+										))}
+									</div>
+								</div>
+							))}
+						</div>
 					) : (
-						<div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+						<div className="grid grid-cols-3 gap-x-3 gap-y-0.5">
 							{model.items.map((item) => (
 								<CapabilityCard key={item.id} item={item} model={model} />
 							))}
