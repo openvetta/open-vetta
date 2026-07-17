@@ -21,7 +21,6 @@ export interface AppshotSettingsModel {
 	};
 	highlightKeys: MacKeyId[];
 	labels: {
-		betaBadge: string;
 		permissionHint: string;
 		permissionSectionDescription: string;
 		permissions: {
@@ -143,7 +142,6 @@ export function useAppshotSettingsModel(): AppshotSettingsModel {
 
 	const labels = useMemo(
 		() => ({
-			betaBadge: t("betaBadge"),
 			permissionHint: t("appshotPermHint"),
 			permissionSectionDescription: t("appshotPermSectionDesc"),
 			permissions: {

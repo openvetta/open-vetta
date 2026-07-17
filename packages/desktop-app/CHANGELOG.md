@@ -35,6 +35,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **知识库 Beta 徽标**：侧栏「知识库」与设置「知识库设置」显示镂空 BETA badge；设置「应用快照」侧栏与页标题去掉 beta 标记；设置侧栏 beta badge 改为镂空描边样式。
 - **自动化新建/编辑 Dialog**：加宽为 `max-w-[min(52rem,calc(100%-2rem))]`（覆盖 Dialog 默认 24rem），高度上限 `88vh`。
 - **Markdown 无序列表样式**：聊天消息与 Markdown 预览的 `ul` 由圆点改为与新会话页引导词一致的树形连接线（竖轨 + 横枝 / 末项 L 角）。
 - **能力页窄屏 2 列**：能力卡片网格由固定 3 列改为 `grid-cols-2 lg:grid-cols-3`（宽度低于 lg 时两列）。

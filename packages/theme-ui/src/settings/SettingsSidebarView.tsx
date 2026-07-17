@@ -49,7 +49,7 @@ export function SettingsSidebarView({
 						<span className={cn(item.icon, "h-4 w-4 shrink-0")} />
 						{!narrow && <span className="flex-1 text-left">{item.label}</span>}
 						{!narrow && item.beta && (
-							<span className="rounded-full bg-primary/15 px-1.5 py-px text-[9px] font-semibold uppercase text-primary">
+							<span className="rounded-full border border-primary/40 px-1.5 py-px text-[9px] font-semibold uppercase leading-tight tracking-wide text-primary">
 								{betaBadgeLabel}
 							</span>
 						)}
