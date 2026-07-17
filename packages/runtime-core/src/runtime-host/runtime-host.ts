@@ -220,6 +220,16 @@ export class RuntimeHost implements SessionFacade {
 	}
 
 	/**
+	 * 用户从 UI 手动终止后台任务。
+	 * 成功时进程结束会触发 onNotify，向 agent 注入「用户手动终止」的 task-notification。
+	 */
+	killBackgroundTask(sessionId: string, taskId: string): boolean {
+		const handle = this.sessions.get(sessionId);
+		if (!handle) return false;
+		return handle.session.backgroundTasks.kill(taskId, "user");
+	}
+
+	/**
 	 * 当前后台任务快照。renderer 重载后 atom 状态丢失而注册表仍在内存，
 	 * 订阅方用它在重新订阅时回放一次全量状态（事件流只在状态变化时推送）。
 	 */

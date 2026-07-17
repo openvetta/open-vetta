@@ -50,7 +50,7 @@ export function createTaskStopTool(options: TaskStopToolOptions): CodingAgentToo
 				};
 			}
 
-			manager.kill(task_id);
+			manager.kill(task_id, "agent");
 			return {
 				content: [
 					{

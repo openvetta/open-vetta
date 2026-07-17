@@ -225,6 +225,7 @@ const CHANNELS = {
 	SANDBOX_GRANTS_REVOKE: "vetta:session:sandbox-grants-revoke",
 	SANDBOX_GRANTS_REVOKE_ALL: "vetta:session:sandbox-grants-revoke-all",
 	BACKGROUND_TASKS_CLEAR_FINISHED: "vetta:session:background-tasks-clear-finished",
+	BACKGROUND_TASKS_KILL: "vetta:session:background-tasks-kill",
 	LIST_RUNNING: "vetta:session:list-running",
 	RUNNING_CHANGED: "vetta:session:running-changed",
 	// 某 session 是否有待回答的 ask_user_question；广播给所有窗口（侧栏 + 快捷面板）。
@@ -1173,6 +1174,12 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	ipcMain.handle(CHANNELS.BACKGROUND_TASKS_CLEAR_FINISHED, (_event, sessionId: unknown) => {
 		assertNonEmptyString(sessionId, "sessionId");
 		return runtime.clearFinishedBackgroundTasks(sessionId);
+	});
+
+	ipcMain.handle(CHANNELS.BACKGROUND_TASKS_KILL, (_event, sessionId: unknown, taskId: unknown) => {
+		assertNonEmptyString(sessionId, "sessionId");
+		assertNonEmptyString(taskId, "taskId");
+		return runtime.killBackgroundTask(sessionId, taskId);
 	});
 
 	ipcMain.handle(CHANNELS.SUBSCRIBE, async (_event, sessionId: unknown) => {

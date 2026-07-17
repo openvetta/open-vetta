@@ -26,6 +26,9 @@ import {
 
 export type BackgroundTaskStatus = "running" | "completed" | "failed" | "killed";
 
+/** Who requested termination of a running background task. */
+export type BackgroundTaskEndedBy = "user" | "agent" | "dispose";
+
 /** Serializable task state, safe to send over IPC to UI layers. */
 export interface BackgroundTaskSnapshot {
 	id: string;
@@ -39,6 +42,8 @@ export interface BackgroundTaskSnapshot {
 	toolCallId?: string;
 	/** Rolling tail of sanitized output (last ~2KB) for live UI display. */
 	tail: string;
+	/** Present when status is "killed" and a kill reason was recorded. */
+	endedBy?: BackgroundTaskEndedBy;
 }
 
 export type BackgroundTaskEvent =
@@ -81,6 +86,8 @@ interface InternalTask {
 	/** Waiters registered by wait(); resolved when the task ends. */
 	waiters: Array<() => void>;
 	outputTimer?: NodeJS.Timeout;
+	/** Set when kill() is called so finish() can annotate the snapshot. */
+	killReason?: BackgroundTaskEndedBy;
 }
 
 const TAIL_MAX_CHARS = 2048;
@@ -193,9 +200,15 @@ export class BackgroundTaskManager {
 			task.outputTimer = undefined;
 		}
 		task.stream.end();
-		task.snapshot.status = status;
+		// Intentional kill (UI / task_stop / dispose) always reports "killed",
+		// even when the OS reports a non-null exit code (common on Windows).
+		const resolvedStatus: BackgroundTaskStatus = task.killReason ? "killed" : status;
+		task.snapshot.status = resolvedStatus;
 		task.snapshot.exitCode = exitCode;
 		task.snapshot.endedAt = Date.now();
+		if (task.killReason) {
+			task.snapshot.endedBy = task.killReason;
+		}
 
 		const waiters = task.waiters.splice(0, task.waiters.length);
 		for (const w of waiters) {
@@ -310,10 +323,16 @@ export class BackgroundTaskManager {
 		return result;
 	}
 
-	/** Kill a running task's process tree. Returns false if not found or already ended. */
-	kill(taskId: string): boolean {
+	/**
+	 * Kill a running task's process tree.
+	 * @param reason Recorded on the snapshot when the process ends (`endedBy`),
+	 *   so UI/agent notifications can distinguish user stop vs agent task_stop.
+	 * @returns false if not found or already ended.
+	 */
+	kill(taskId: string, reason?: BackgroundTaskEndedBy): boolean {
 		const task = this.tasks.get(taskId);
 		if (!task || task.ended) return false;
+		if (reason) task.killReason = reason;
 		if (task.child.pid) {
 			killProcessTree(task.child.pid);
 		} else {
@@ -342,9 +361,9 @@ export class BackgroundTaskManager {
 
 	/** Kill all running tasks. Called on session dispose. */
 	killAll(): void {
-		for (const task of this.tasks.values()) {
-			if (!task.ended && task.child.pid) {
-				killProcessTree(task.child.pid);
+		for (const [id, task] of this.tasks) {
+			if (!task.ended) {
+				this.kill(id, "dispose");
 			}
 		}
 	}
@@ -356,18 +375,26 @@ export function buildTaskNotification(task: BackgroundTaskSnapshot): string {
 		task.status === "completed"
 			? `completed (exit code ${task.exitCode ?? 0})`
 			: task.status === "killed"
-				? "was killed"
+				? task.endedBy === "user"
+					? "was terminated by the user from the UI"
+					: "was killed"
 				: `failed (exit code ${task.exitCode ?? "unknown"})`;
 	const summary = `Background command "${task.command}" ${statusText}`;
+	const userStopNote =
+		task.status === "killed" && task.endedBy === "user"
+			? "The user manually stopped this background task. Do not restart it unless the user asks."
+			: undefined;
 	return [
 		"<task-notification>",
 		`<task-id>${task.id}</task-id>`,
 		...(task.toolCallId ? [`<tool-use-id>${task.toolCallId}</tool-use-id>`] : []),
 		`<status>${task.status}</status>`,
+		...(task.endedBy ? [`<ended-by>${task.endedBy}</ended-by>`] : []),
 		`<output-file>${task.outputFile}</output-file>`,
 		`<summary>${summary}</summary>`,
 		"</task-notification>",
 		"",
+		...(userStopNote ? [userStopNote, ""] : []),
 		"Use the task_output tool to read the command output if needed.",
 	].join("\n");
 }

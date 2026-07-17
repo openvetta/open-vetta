@@ -25,6 +25,7 @@ export {
 } from "./core/auth-storage.js";
 // Background bash tasks (run_in_background)
 export {
+	type BackgroundTaskEndedBy,
 	type BackgroundTaskEvent,
 	type BackgroundTaskListener,
 	BackgroundTaskManager,

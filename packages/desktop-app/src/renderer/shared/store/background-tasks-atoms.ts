@@ -12,6 +12,8 @@ export interface BackgroundTask {
 	toolCallId?: string;
 	/** 输出尾部（约 2KB），用于实时滚动显示。 */
 	tail: string;
+	/** status 为 killed 时，记录终止来源（user / agent / dispose）。 */
+	endedBy?: "user" | "agent" | "dispose";
 }
 
 /**
