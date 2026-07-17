@@ -154,6 +154,26 @@
 	}
 }
 
+/* 黑白主题浅色：纯黑 primary 的 15%/10% 叠色作侧栏选中过深，压到约 7%/5%。
+   仅覆盖 tint 工具类，不影响 solid bg-primary 按钮。 */
+[data-theme="mono"][data-mode="light"] .bg-primary\/15 {
+	background-color: color-mix(in srgb, var(--primary) 7%, transparent);
+}
+[data-theme="mono"][data-mode="light"] .bg-primary\/10 {
+	background-color: color-mix(in srgb, var(--primary) 5%, transparent);
+}
+
+/* 黑白主题：深色灰眼（浅色脸底）；浅色保持默认白眼 */
+[data-theme="mono"][data-mode="dark"] .bot-avatar-eye {
+	background-color: rgb(150, 150, 150);
+}
+
+/* 黑白主题浅色：发送按钮禁用态默认用 muted-foreground，偏深；压浅为中性灰 */
+[data-theme="mono"][data-mode="light"] .send-button {
+	--send-button-inactive-background: color-mix(in srgb, rgb(180, 180, 180) 22%, transparent);
+	--send-button-inactive-foreground: rgb(180, 180, 180);
+}
+
 /* 切换主题/模式时短暂启用过渡。由 shared/theme/apply.ts 的
    withThemeTransition() 添加/移除根节点 class。仅作用于颜色/边框/阴影，
    不影响 transform、opacity 等交互反馈相关的属性。 */
