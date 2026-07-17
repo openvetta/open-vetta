@@ -1,12 +1,12 @@
 import type { ThemeDef } from "../tokens";
 import { defaultTheme } from "./default";
 
-// 黑白主题：默认主题的基础上把主色替换为黑/白。
+// 「默认」主题：经典色板基础上把主色替换为黑/白。
 // 深色模式 primary = 白，浅色模式 primary = 黑；ring 与 primary 一致。
 
 export const monoTheme: ThemeDef = {
 	id: "mono",
-	label: "黑白",
+	label: "默认",
 	dark: {
 		...defaultTheme.dark,
 		background: "rgb(10, 10, 10)",
