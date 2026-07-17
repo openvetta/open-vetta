@@ -6,6 +6,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **自动化空状态推荐任务**：用户尚无自动化任务时，页面直接展示「每日晨间简报 / 每日工作总结 / 每周复盘」三张推荐模板；点击后打开新建表单并预填名称、调度与 prompt（顶栏「新建任务」仍可空白创建）。
 - **后台任务手动终止**：活动面板后台任务列表中，运行中的任务可点「终止」；主进程 kill 后 agent 会收到用户手动终止的 `<task-notification>`，无需再靠对话让 agent 调 `task_stop`。
 - **外观设置「界面主题」环境开关**：`VETTA_SHOW_UI_THEME=true` 时在设置 → 外观展示 default / xianxia 界面主题选择（含预览与不可用锁定态）；默认不展示。颜色主题仍仅在 default 界面主题下显示。
 - **内置 Agent Skills**：构建时从 `packages/skill-presets` 按 `skills-manifest.json` 打包启用的 Skill，并内置 `create-skill`。
