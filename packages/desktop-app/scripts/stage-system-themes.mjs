@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { join, normalize, resolve } from "node:path";
 import AdmZip from "adm-zip";
 
@@ -85,6 +85,29 @@ export function stageSystemThemesFromArchives(targetDir, logPrefix = "system-the
 		validateStagedTheme(target, sourceManifest, archivePath);
 		count += 1;
 		console.log(`[${logPrefix}] staged ${sourceManifest.id}@${sourceManifest.version}`);
+	}
+	return count;
+}
+
+export function stageSystemThemeManifests(targetDir, logPrefix = "system-themes-dev") {
+	rmSync(targetDir, { recursive: true, force: true });
+	mkdirSync(targetDir, { recursive: true });
+	if (!existsSync(builtinThemesDir)) return 0;
+
+	let count = 0;
+	for (const name of readdirSync(builtinThemesDir)) {
+		const themeDir = join(builtinThemesDir, name);
+		const manifestPath = join(themeDir, "theme.json");
+		if (!statSync(themeDir).isDirectory() || !existsSync(manifestPath)) continue;
+		const manifest = readManifest(manifestPath);
+		if (manifest.id !== name) {
+			throw new Error(`[${logPrefix}] 内置主题目录名与 id 不一致：${name} != ${manifest.id}`);
+		}
+		const target = join(targetDir, manifest.id);
+		mkdirSync(target, { recursive: true });
+		cpSync(manifestPath, join(target, "theme.json"));
+		count += 1;
+		console.log(`[${logPrefix}] staged ${manifest.id}@${manifest.version}`);
 	}
 	return count;
 }

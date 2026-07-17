@@ -23,6 +23,13 @@ export default defineConfig(({ mode }) => {
 	// 默认值：vite build 命令的 mode（不指定时为 production）。
 	const effectiveMode = process.env.VETTA_BUILD_ENV || mode;
 	const env = loadEnv(effectiveMode, process.cwd(), "VETTA_");
+	const developmentWorkspacePackages =
+		effectiveMode === "development"
+			? [/^@vetta\/(?:action-rpc|ai|coding-agent|runtime-core)(?:\/|$)/]
+			: [];
+	const sourcemapEnabled =
+		effectiveMode === "development" &&
+		(process.env.VETTA_MAIN_SOURCEMAP ?? env.VETTA_MAIN_SOURCEMAP) === "1";
 
 	if (!env.VETTA_SERVER_URL) {
 		throw new Error(
@@ -58,6 +65,7 @@ export default defineConfig(({ mode }) => {
 					"electron",
 					...builtinModules,
 					...builtinModules.map((m) => `node:${m}`),
+					...developmentWorkspacePackages,
 					// Photon-node ships as CJS with __dirname-based WASM loading.
 					// Inlining it into this ESM bundle makes Node interpret its .js
 					// as ESM (because desktop-app/package.json has "type":"module"),
@@ -74,7 +82,7 @@ export default defineConfig(({ mode }) => {
 				],
 			},
 			minify: false,
-			sourcemap: effectiveMode === "development",
+			sourcemap: sourcemapEnabled,
 		},
 	};
 });
