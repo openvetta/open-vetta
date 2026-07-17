@@ -306,9 +306,10 @@ export const BotAvatar = memo(function BotAvatar({
 				style={{ transformOrigin: mood === "bounce" ? "50% 100%" : "50% 50%" }}
 			>
 				<div className={`flex items-center ${cfg.gap}`}>
-					{/* Multi-keyframe scaleY (blink/sleep) must use tween — spring only allows 2 keyframes. */}
+					{/* Multi-keyframe scaleY (blink/sleep) must use tween — spring only allows 2 keyframes.
+					    默认白眼；黑白主题深色经 .bot-avatar-eye 覆盖为灰。 */}
 					<motion.span
-						className={`block rounded-full bg-white ${cfg.eye}`}
+						className={`bot-avatar-eye block rounded-full bg-white ${cfg.eye}`}
 						animate={{ x: eyesShift, scaleY: eyesScaleY }}
 						transition={{
 							type: mood === "blink" || mood === "sleep" ? "tween" : "spring",
@@ -320,7 +321,7 @@ export const BotAvatar = memo(function BotAvatar({
 						}}
 					/>
 					<motion.span
-						className={`block rounded-full bg-white ${cfg.eye}`}
+						className={`bot-avatar-eye block rounded-full bg-white ${cfg.eye}`}
 						animate={{ x: eyesShift, scaleY: eyesScaleY }}
 						transition={{
 							type: mood === "blink" || mood === "sleep" ? "tween" : "spring",

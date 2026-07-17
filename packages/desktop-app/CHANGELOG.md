@@ -32,6 +32,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **「黑白」主题配色**：深色 `background` `#0a0a0a`、`muted` `#161616`、`card` `#121212`；深色 `popover`/`border`/`input` 改为中性灰；深色 `accent`（hover）抬到 `rgb(48, 48, 48)`，与 popover 拉开侧栏设置菜单 hover；浅色 `card` `#f8f8f8`、`muted` `#fafafa`、`secondary` `#f0f0f1`、`border`/`input` `#eeeeee`、`accent` 调浅；浅色侧栏选中 `bg-primary/15` 压到约 7%/5% 叠色。
 - **能力列表排序**：固定为内置 MCP → 远程 MCP → 手动 MCP → 自定义 skill → 远程/市场 skill（同类内仍按安装态/可更新/热度/标题）。
 - **Skill 默认图标**：未配置 icon 时使用 3D 方块 SVG（浅色 `#1C274C` / 深色白色），能力卡片、Skill 卡片与详情 dialog 共用。
 - **侧边栏「扩展」更名为「能力」**：主导航与相关 deep-link / 审批文案对齐；能力页「我的」将 `~/.agents/skills` 兼容发现的项独立为「通用 Agent Skill」分组。
@@ -59,6 +60,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **黑白主题 BotAvatar 眼睛**：深色覆盖为灰 `rgb(150, 150, 150)`；浅色保持白眼，不影响其它主题。
+- **黑白主题浅色发送按钮禁用态**：默认 `muted-foreground` 偏深，压浅为中性灰 `rgb(180, 180, 180)`。
 - **「经典」主题浅色 border / card 分层**：`border`/`input` 由 `rgb(213, 213, 216)` 改为 `rgb(230, 230, 230)`；`background` 纯白、`card` 极浅灰 `rgb(250, 250, 250)`（`styles.css` 浅色回退同步）。
 - **「电光」主题浅色 border 过深**：`border`/`input` 由 `rgb(215, 213, 206)` 改为 `rgb(230, 228, 222)`；浅色仍为纯白画布 + `card` `rgb(250, 250, 250)`。
 - **「黑白」主题浅色 card 与背景不可辨**：浅色 `background` 纯白 `rgb(255, 255, 255)`，`card` 改为极浅灰 `rgb(250, 250, 250)` 分层；`popover` 保持纯白。
