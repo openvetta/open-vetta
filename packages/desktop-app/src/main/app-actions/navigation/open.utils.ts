@@ -5,6 +5,7 @@ import {
 	type SettingsSectionRegistration,
 	type SettingsTabRegistration,
 } from "../../../renderer/domains/settings/registry.js";
+import { isAppearanceUiThemeEnabled } from "../../../shared/feature-flags.js";
 import { getAppLogger } from "../../logger.js";
 import { getMainWindow, showMainWindow } from "../../window-manager.js";
 import { ActionError, type JsonValue } from "../types.js";
@@ -87,8 +88,17 @@ function getSettingsTabsByKey(): Map<string, SettingsTabRegistration> {
 	return new Map(SETTINGS_TABS.map((tab) => [tab.key, tab]));
 }
 
+function isSettingsSectionVisible(section: SettingsSectionRegistration): boolean {
+	if (section.id === "appearance-ui-theme") return isAppearanceUiThemeEnabled();
+	return true;
+}
+
+function getVisibleSettingsSections(): readonly SettingsSectionRegistration[] {
+	return SETTINGS_SECTIONS.filter(isSettingsSectionVisible);
+}
+
 function getSettingsSectionsById(): Map<string, SettingsSectionRegistration> {
-	return new Map(SETTINGS_SECTIONS.map((section) => [section.id, section]));
+	return new Map(getVisibleSettingsSections().map((section) => [section.id, section]));
 }
 
 function buildSettingsHashPath(tab: string, section?: string): string {
@@ -126,11 +136,13 @@ function buildSettingsCatalog(): JsonValue {
 			...(tab.requireAuth ? { requireAuth: true } : {}),
 			...(tab.macOnly ? { macOnly: true } : {}),
 		},
-		sections: SETTINGS_SECTIONS.filter((section) => section.tab === tab.key).map((section) => ({
-			id: section.id,
-			title: section.title,
-			target: { type: "open", target: section.id },
-		})),
+		sections: getVisibleSettingsSections()
+			.filter((section) => section.tab === tab.key)
+			.map((section) => ({
+				id: section.id,
+				title: section.title,
+				target: { type: "open", target: section.id },
+			})),
 	}));
 	// 连接器（原设置 → MCP）挂在 extensions 目录，id 仍用 mcp 兼容旧 agent 调用。
 	const connectorsTab = {
@@ -138,11 +150,13 @@ function buildSettingsCatalog(): JsonValue {
 		title: "连接器",
 		target: { type: "open", target: "connectors" },
 		location: "能力 → 连接器",
-		sections: SETTINGS_SECTIONS.filter((section) => section.tab === "mcp").map((section) => ({
-			id: section.id,
-			title: section.title,
-			target: { type: "open", target: section.id },
-		})),
+		sections: getVisibleSettingsSections()
+			.filter((section) => section.tab === "mcp")
+			.map((section) => ({
+				id: section.id,
+				title: section.title,
+				target: { type: "open", target: section.id },
+			})),
 	};
 	return [...settingsTabs, connectorsTab] as JsonValue;
 }

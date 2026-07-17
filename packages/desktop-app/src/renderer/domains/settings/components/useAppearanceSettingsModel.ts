@@ -9,6 +9,7 @@ import { THEMES } from "@shared/theme/themes";
 import type { ThemeDef } from "@shared/theme/tokens";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { isAppearanceUiThemeEnabled } from "@/shared/feature-flags";
 import type { AppLanguage } from "@/shared/i18n/config";
 import defaultThemePreview from "../assets/default.webp";
 import xianxiaThemePreview from "../assets/xianxia.webp";
@@ -71,6 +72,7 @@ export interface AppearanceSettingsModel {
 			language: string;
 			mode: string;
 			theme: string;
+			uiTheme: string;
 		};
 		title: string;
 	};
@@ -79,6 +81,8 @@ export interface AppearanceSettingsModel {
 	mode: ThemeMode;
 	modeOptions: AppearanceModeOption[];
 	narrow: boolean;
+	/** 是否展示「界面主题」区段（`VETTA_SHOW_UI_THEME=true`） */
+	showUiTheme: boolean;
 	themeName: string;
 	themes: ThemeDef[];
 	uiThemes: AppearanceUiThemeOption[];
@@ -205,6 +209,7 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 				language: t(SETTINGS_SECTION["appearance-language"].titleKey),
 				mode: t(SETTINGS_SECTION["appearance-mode"].titleKey),
 				theme: t(SETTINGS_SECTION["appearance-theme"].titleKey),
+				uiTheme: t(SETTINGS_SECTION["appearance-ui-theme"].titleKey),
 			},
 			title: t("appearanceTitle"),
 		}),
@@ -248,6 +253,7 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 		mode,
 		modeOptions,
 		narrow,
+		showUiTheme: isAppearanceUiThemeEnabled(),
 		themeName,
 		themes: THEMES,
 		uiThemes,
