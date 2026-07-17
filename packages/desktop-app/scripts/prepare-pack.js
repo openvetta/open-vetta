@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadBuildEnv } from "./load-build-env.mjs";
 import { resolveTenant, stageSystemPluginsFromArchives } from "./stage-system-plugins.mjs";
+import { stageSystemSkills } from "./stage-system-skills.mjs";
 import { stageSystemThemesFromArchives } from "./stage-system-themes.mjs";
 
 // 从 .env.<mode>/.env 注入构建期变量（如 VETTA_TENANT），命令行内联优先。
@@ -564,6 +565,7 @@ stageSystemPluginsFromArchives(join(buildStageDir, "system-plugins"), "prepare-p
 	pluginIds: packTenant.pluginIds ?? undefined,
 });
 stageSystemThemesFromArchives(join(buildStageDir, "system-themes"), "prepare-pack");
+stageSystemSkills(join(buildStageDir, "system-skills"), "prepare-pack");
 
 function resolveExtraResources() {
 	const extraResources = [
@@ -590,6 +592,11 @@ function resolveExtraResources() {
 		{
 			from: "system-plugins",
 			to: "system-plugins",
+			filter: ["**/*"],
+		},
+		{
+			from: "system-skills",
+			to: "system-skills",
 			filter: ["**/*"],
 		},
 		{

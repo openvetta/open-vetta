@@ -6,6 +6,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **内置 Agent Skills**：构建时从 `packages/skill-presets` 按 `skills-manifest.json` 打包启用的 Skill，并内置 `create-skill`。
 - **技能市场图标**：展示服务端下发的 `icon`（上传图 / `solar:xxx-bold`）；未配置时仍用 capability/scene 默认图标。
 - **会话 / Skill 列表 info 日志（测试可观测）**：`session created` 记 sessionId、cwd、kind、scenario、`includeAgentSkills`；`skills.list` 记 cwd、按 source 计数与名称。使用 `getAppLogger("session"|"skills")`。
 - **应用监控月度日聚合存储**：保留累计 `summary.json` 契约，同时按持久化统计时区将每日聚合写入 `app-monitor/months/YYYY-MM.json`；月文件携带随机安装设备 ID、revision、IANA 时区、UTC 日边界与覆盖起点，为后续多设备云同步预留可合并边界。升级时一次性清除旧 `~/.vetta/app-monitor.json`、累计汇总和已有月度聚合，从本次启动重新采集；设备 ID 与统计时区继续保留。

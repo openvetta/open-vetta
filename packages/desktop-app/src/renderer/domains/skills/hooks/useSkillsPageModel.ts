@@ -252,7 +252,7 @@ export function useSkillsPageModel(options?: { mode?: TypeTab }): SkillsPageMode
 		// 全局通用 Agent Skill（不传 cwd → 仅 ~/.agents/skills），只读展示。
 		void window.vetta.skills
 			.list()
-			.then((list) => setAgentSkills(list.filter((s) => s.source.startsWith("agents-"))));
+			.then((list) => setAgentSkills(list.filter((s) => s.source.startsWith("agents-") || s.source === "builtin")));
 	}, []);
 
 	const loadMarket = useCallback(() => {

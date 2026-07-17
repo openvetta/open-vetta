@@ -51,6 +51,7 @@ export type RunningChangedReason = "agent_end" | "aborted" | "error";
 
 export interface RuntimeHostOptions {
 	getDefaultExecutionMode?: () => SessionExecutionMode | Promise<SessionExecutionMode>;
+	additionalSkillPaths?: string[];
 	sandboxHostPath?: string;
 	linuxBubblewrapPath?: string;
 	macosSandboxExecPath?: string;
