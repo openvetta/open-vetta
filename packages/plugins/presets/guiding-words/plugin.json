@@ -1,7 +1,7 @@
 {
 	"id": "guiding-words",
 	"name": "%plugin.name%",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"pluginApiVersion": "^1.0.0",
 	"runtime": "module-federation",
 	"entry": "dist/mf-manifest.json",
@@ -14,11 +14,11 @@
 	"author": "Vetta",
 	"defaultLocale": "zh",
 	"guidingWords": [
-		"%guidingWords.narrative%",
-		"%guidingWords.wordToPdf%",
-		"%guidingWords.cleanCache%",
-		"%guidingWords.weekPlan%",
-		"%guidingWords.meetingMinutes%",
-		"%guidingWords.classifyDesktop%"
+		"%guidingWords.webSearchMcp%",
+		"%guidingWords.openPetSettings%",
+		"%guidingWords.drinkWalkReminder%",
+		"%guidingWords.knowledgeFromDesktop%",
+		"%guidingWords.whatPlugins%",
+		"%guidingWords.shortStorySkills%"
 	]
 }
