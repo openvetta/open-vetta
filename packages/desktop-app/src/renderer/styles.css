@@ -508,30 +508,58 @@ textarea:focus {
 	}
 }
 
-/* Markdown bullet list: indigo themed dot marker */
+/* Markdown unordered list: tree connector (matches NewSession guiding words) */
 .md-bullet-list {
 	list-style: none;
-	padding-left: 0;
+	padding-left: 0.625rem; /* pl-2.5 */
 }
 .md-bullet-list > li {
 	position: relative;
-	padding-left: 1rem;
+	padding-left: 18px;
+	padding-top: 0.25rem;
+	padding-bottom: 0.25rem;
 }
-.md-bullet-list > li::before {
+/* Tight paragraphs so the branch aligns with the first text line */
+.md-bullet-list > li > p {
+	margin-top: 0;
+	margin-bottom: 0;
+}
+.md-bullet-list > li > p + p {
+	margin-top: 0.375rem;
+}
+/* Non-last: full-height vertical rail */
+.md-bullet-list > li:not(:last-child)::before {
 	content: "";
 	position: absolute;
-	left: 0.15rem;
-	top: 0.65em;
-	width: 0.4rem;
-	height: 0.4rem;
-	border-radius: 9999px;
-	background: var(--primary);
+	left: 0;
+	top: 0;
+	bottom: 0;
+	width: 0;
+	border-left: 1px solid color-mix(in srgb, var(--muted-foreground) 30%, transparent);
 }
-/* Nested lists: keep the same indigo dot but slightly smaller */
-.md-bullet-list .md-bullet-list > li::before {
-	width: 0.3rem;
-	height: 0.3rem;
-	background: color-mix(in srgb, var(--primary) 70%, transparent);
+/* Non-last: horizontal branch at first-line height */
+.md-bullet-list > li:not(:last-child)::after {
+	content: "";
+	position: absolute;
+	left: 0;
+	top: 0.95rem;
+	width: 12px;
+	border-top: 1px solid color-mix(in srgb, var(--muted-foreground) 30%, transparent);
+}
+/* Last: L-shaped corner */
+.md-bullet-list > li:last-child::before {
+	content: "";
+	position: absolute;
+	left: 0;
+	top: 0;
+	height: 0.95rem;
+	width: 12px;
+	border-left: 1px solid color-mix(in srgb, var(--muted-foreground) 30%, transparent);
+	border-bottom: 1px solid color-mix(in srgb, var(--muted-foreground) 30%, transparent);
+	border-bottom-left-radius: 7px;
+}
+.md-bullet-list > li:last-child::after {
+	content: none;
 }
 
 /* Smooth transitions globally */

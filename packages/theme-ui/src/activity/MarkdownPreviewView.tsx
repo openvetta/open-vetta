@@ -142,16 +142,14 @@ export function MarkdownPreviewView({ content, theme, onOpenExternal }: Markdown
 			),
 			p: ({ children }) => <p className="my-1.5 text-[13px] leading-[1.6] text-foreground">{children}</p>,
 			ul: ({ children }) => (
-				<ul className="md-bullet-list my-1.5 ml-4 space-y-0.5 text-[13px] leading-[1.6] text-foreground">
-					{children}
-				</ul>
+				<ul className="md-bullet-list my-1.5 text-[13px] leading-[1.6] text-foreground">{children}</ul>
 			),
 			ol: ({ children }) => (
 				<ol className="my-1.5 ml-4 list-decimal space-y-0.5 text-[13px] leading-[1.6] text-foreground marker:text-primary">
 					{children}
 				</ol>
 			),
-			li: ({ children }) => <li className="pl-0.5">{children}</li>,
+			li: ({ children }) => <li>{children}</li>,
 			code: ({ className, children }) => {
 				const raw = String(children);
 				const isBlock = (className?.startsWith("language-") ?? false) || raw.includes("\n");
