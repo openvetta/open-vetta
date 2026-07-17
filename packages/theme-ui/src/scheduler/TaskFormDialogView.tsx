@@ -30,7 +30,7 @@ export function TaskFormDialogView({
 	return (
 		<Dialog open={open} onOpenChange={(value) => !value && onClose()}>
 			<DialogContent
-				className="flex max-h-[82vh] flex-col gap-0 overflow-hidden rounded-xl border border-border/60 bg-card/95 p-0 backdrop-blur-md sm:max-w-3xl"
+				className="flex max-h-[88vh] flex-col gap-0 overflow-hidden rounded-xl border border-border/60 bg-card/95 p-0 backdrop-blur-md max-w-[min(52rem,calc(100%-2rem))]"
 				showCloseButton={false}
 			>
 				<div className="flex-1 overflow-y-auto px-7 py-6">{fields}</div>
