@@ -1,7 +1,7 @@
 import type { ThemeDef } from "../tokens";
 import { defaultTheme } from "./default";
 
-// 「默认」主题：中性灰表面 + 珊瑚主色 #f76f53。
+// 「珊瑚」主题：中性灰表面 + 珊瑚主色 #f76f53。
 // dark accent 抬高以便 bg-accent 与 dropdown 的 hover:bg-accent/50 可辨；
 // light secondary 用于用户消息气泡，须明显深于背景。
 
@@ -32,7 +32,7 @@ const LIGHT_INPUT = LIGHT_BORDER;
 
 export const sandTheme: ThemeDef = {
 	id: "sand",
-	label: "默认",
+	label: "珊瑚",
 	dark: {
 		...defaultTheme.dark,
 		background: DARK_BG,

@@ -36,7 +36,7 @@ export const PET_CONFIG_SCHEMA_VERSION = 4;
 
 export const DEFAULT_PET_CONFIG: PetConfig = {
 	schemaVersion: PET_CONFIG_SCHEMA_VERSION,
-	enabled: false,
+	enabled: true,
 	autoMode: true,
 	alwaysOnTop: true,
 	size: 220,
