@@ -34,6 +34,7 @@ const PRIMARY_NAV_ITEMS = [
 		path: "/knowledge" as const,
 		labelKey: "sidebar.nav.knowledge",
 		icon: "icon-[solar--library-linear]",
+		badgeKey: "sidebar.nav.betaBadge",
 	},
 	{ type: "route", path: "/skills" as const, labelKey: "sidebar.nav.skills", icon: "icon-[solar--widget-5-linear]" },
 ] as const;
@@ -80,6 +81,7 @@ function toNavItem(
 	item: (typeof PRIMARY_NAV_ITEMS)[number] | (typeof MORE_NAV_ITEMS)[number],
 	label: string,
 	currentPath: string,
+	badge?: string,
 ): SidebarNavItem {
 	if (item.type === "new-session") {
 		return {
@@ -100,6 +102,7 @@ function toNavItem(
 		label,
 		labelKey: item.labelKey,
 		icon: item.icon,
+		badge,
 		active: isRouteActive(item.path, currentPath),
 	};
 }
@@ -167,7 +170,10 @@ export function useSidebarModel({
 	widthRef.current = width;
 	// Resolve i18n in the model layer so theme-ui nav item stays props-driven.
 	const navItems: SidebarNavItem[] = useMemo(
-		() => PRIMARY_NAV_ITEMS.map((item) => toNavItem(item, t(item.labelKey), currentPath)),
+		() =>
+			PRIMARY_NAV_ITEMS.map((item) =>
+				toNavItem(item, t(item.labelKey), currentPath, "badgeKey" in item ? t(item.badgeKey) : undefined),
+			),
 		[currentPath, t],
 	);
 	const moreNavItems: SidebarNavItem[] = useMemo(

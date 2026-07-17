@@ -38,7 +38,7 @@ export const SidebarNavItemButton = forwardRef<HTMLButtonElement, SidebarNavItem
 				{item.badge && (
 					<span
 						className={cn(
-							"relative z-10 rounded-full border border-primary/40 px-1.5 py-px text-[9px] font-semibold uppercase leading-tight tracking-wide text-primary",
+							"relative z-10 shrink-0 rounded-full border border-primary/40 px-1.5 py-px text-[9px] font-semibold uppercase leading-tight tracking-wide text-primary",
 							classNames?.badge,
 						)}
 					>

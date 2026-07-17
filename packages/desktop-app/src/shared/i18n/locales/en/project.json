@@ -8,7 +8,8 @@
 			"skills": "Capabilities",
 			"scenes": "Scenes",
 			"plugins": "Plugins",
-			"more": "More"
+			"more": "More",
+			"betaBadge": "BETA"
 		},
 		"clawConnected": "Claw connected · click to open settings",
 		"hide": "Hide sidebar",

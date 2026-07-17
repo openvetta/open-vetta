@@ -54,11 +54,16 @@ export const SETTINGS_TABS: readonly SettingsTabRegistration[] = [
 		labelKey: "tabAppshot",
 		icon: "icon-[mdi--monitor-screenshot]",
 		macOnly: true,
-		beta: true,
 	},
 	{ key: "environment", label: "应用环境", labelKey: "tabEnvironment", icon: "icon-[mdi--package-variant-closed]" },
 	{ key: "plugins", label: "插件设置", labelKey: "tabPlugins", icon: "icon-[mdi--puzzle-outline]" },
-	{ key: "knowledge", label: "知识库设置", labelKey: "tabKnowledge", icon: "icon-[mdi--database-outline]" },
+	{
+		key: "knowledge",
+		label: "知识库设置",
+		labelKey: "tabKnowledge",
+		icon: "icon-[mdi--database-outline]",
+		beta: true,
+	},
 	{ key: "pet", label: "Vetta Vivi", labelKey: "tabPet", icon: "icon-[mdi--paw-outline]" },
 	{
 		key: "permissions",

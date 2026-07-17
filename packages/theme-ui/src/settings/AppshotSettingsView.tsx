@@ -11,7 +11,6 @@ export interface AppshotSelectOptionView {
 
 export interface AppshotSettingsViewLabels {
 	readonly title: string;
-	readonly betaBadge: string;
 	readonly sectionShortcut: string;
 	readonly shortcutTitle: string;
 	readonly shortcutDescription: string;
@@ -86,12 +85,7 @@ export function AppshotSettingsView({
 }: AppshotSettingsViewProps): JSX.Element {
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 pt-2 pb-4">
-			<div className="mb-1.5 flex items-center gap-2">
-				<h1 className="text-[20px] font-bold text-foreground">{labels.title}</h1>
-				<span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
-					{labels.betaBadge}
-				</span>
-			</div>
+			<h1 className="mb-1.5 text-[20px] font-bold text-foreground">{labels.title}</h1>
 			<p className="mb-6 text-[13px] leading-relaxed text-muted-foreground">{subtitle}</p>
 
 			<SettingSection title={labels.sectionShortcut} section={gestureSection}>
