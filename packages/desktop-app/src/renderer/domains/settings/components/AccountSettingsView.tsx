@@ -68,12 +68,12 @@ export function AccountSettingsView({ model }: AccountSettingsViewProps): JSX.El
 				transition={{ type: "spring", stiffness: 300, damping: 26 }}
 			>
 				<div className="relative shrink-0">
-					<div className="rounded-full bg-gradient-to-br from-primary/40 to-primary/10 p-[2px]">
+					<div className="rounded-2xl bg-gradient-to-br from-primary/40 to-primary/10 p-[2px]">
 						<UserAvatar
 							avatar={model.user.avatar}
 							nickname={model.user.nickname ?? undefined}
 							username={model.user.username}
-							className="h-20 w-20"
+							className="h-20 w-20 rounded-2xl"
 							textClassName="text-3xl"
 						/>
 					</div>
