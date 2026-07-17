@@ -5,6 +5,7 @@ import AdmZip from "adm-zip";
 import {
 	builtinThemesDir,
 	devSystemThemesDir,
+	stageSystemThemeManifests,
 	stageSystemThemesFromArchives,
 } from "./stage-system-themes.mjs";
 
@@ -28,13 +29,16 @@ function packageTheme(themeDir) {
 	zip.writeZip(archivePath);
 }
 
-if (!existsSync(builtinThemesDir)) process.exit(0);
-const entries = readdirSync(builtinThemesDir).filter((name) =>
-	existsSync(join(builtinThemesDir, name, "theme.json"))
-);
-for (const name of entries) {
-	const themeDir = join(builtinThemesDir, name);
-	await run("bun", ["run", "build"], themeDir);
-	packageTheme(themeDir);
+if (process.argv.includes("--development")) {
+	stageSystemThemeManifests(devSystemThemesDir, "stage-themes-dev");
+} else if (existsSync(builtinThemesDir)) {
+	const entries = readdirSync(builtinThemesDir).filter((name) =>
+		existsSync(join(builtinThemesDir, name, "theme.json")),
+	);
+	for (const name of entries) {
+		const themeDir = join(builtinThemesDir, name);
+		await run("bun", ["run", "build"], themeDir);
+		packageTheme(themeDir);
+	}
+	stageSystemThemesFromArchives(devSystemThemesDir, "build-themes");
 }
-stageSystemThemesFromArchives(devSystemThemesDir, "build-themes");

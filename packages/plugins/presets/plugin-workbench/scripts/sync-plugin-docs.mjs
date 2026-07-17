@@ -45,7 +45,6 @@ async function main() {
 
 	const files = (await readdir(destDir)).filter((f) => f.endsWith(".md")).sort();
 	const stamp = {
-		syncedAt: new Date().toISOString(),
 		source: srcDir,
 		files,
 	};
