@@ -51,6 +51,11 @@ export interface ConnectorCapability extends CapabilityBase {
 
 export type CapabilityItem = SkillCapability | ConnectorCapability;
 
+/** Banner 右侧轮播用的市场图标源（与列表卡片同源）。 */
+export type CapabilityBannerIcon =
+	| { id: string; kind: "skill"; icon?: string; type: "skill" | "scene" }
+	| { id: string; kind: "image"; url: string };
+
 /** 「我的」下分组：主列表 + ~/.agents/skills 兼容来源独立组。 */
 export type CapabilityMineGroupId = "mine" | "agents";
 
@@ -65,6 +70,8 @@ export interface CapabilitiesModel {
 	items: CapabilityItem[];
 	/** scope=mine 时按来源拆分；discover 时为空数组。 */
 	mineGroups: CapabilityMineGroup[];
+	/** 不受搜索/scope 过滤：市场 skill + 发现态连接器图标，供 Banner 轮播。 */
+	bannerIcons: CapabilityBannerIcon[];
 	loading: boolean;
 	refreshing: boolean;
 	errors: string[];
@@ -275,6 +282,26 @@ export function useCapabilitiesModel({
 		return sortCapabilities(filterCapabilities([...visibleSkills, ...connectors], searchQuery), scope);
 	}, [actionStates, connectorCapabilities, scope, searchQuery, skills]);
 
+	/** 市场能力图标池：与「发现」列表同源，不受搜索 / 当前 scope 影响。 */
+	const bannerIcons = useMemo((): CapabilityBannerIcon[] => {
+		const fromSkills: CapabilityBannerIcon[] = skills
+			.filter((skill) => !skill.isCustom && !skill.isAgent)
+			.map((skill) => ({
+				id: `skill:${skill.name}`,
+				kind: "skill",
+				icon: skill.icon,
+				type: skill.type,
+			}));
+		const fromConnectors: CapabilityBannerIcon[] = connectorCapabilities.discover
+			.filter((item): item is ConnectorCapability & { iconUrl: string } => Boolean(item.iconUrl))
+			.map((item) => ({
+				id: item.id,
+				kind: "image",
+				url: item.iconUrl,
+			}));
+		return [...fromSkills, ...fromConnectors];
+	}, [connectorCapabilities.discover, skills]);
+
 	// 「我的」：把 ~/.agents/skills 兼容能力拆成独立组，其余（市场/自定义/连接器/内置）留在主列表。
 	const mineGroups = useMemo<CapabilityMineGroup[]>(() => {
 		if (scope !== "mine") return [];
@@ -353,6 +380,7 @@ export function useCapabilitiesModel({
 		setScope,
 		items,
 		mineGroups,
+		bannerIcons,
 		loading: mcp.config === null || ((skillLoading || remote.loading) && items.length === 0),
 		refreshing: skillLoading || remote.loading,
 		errors,

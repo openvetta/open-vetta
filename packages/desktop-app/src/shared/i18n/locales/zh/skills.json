@@ -17,6 +17,10 @@
 	"subtitleCapability": "按想要实现的功能选择能力，无需关心背后的技术方式",
 	"subtitleConnector": "管理 MCP 连接器，为 AI 接入网页、文档与外部工具",
 	"subtitlePlugin": "安装、启用并配置应用插件，扩展 Vetta 的界面与能力",
+	"banner": {
+		"title": "扩展 Vetta 的专业能力",
+		"description": "从写作、效率、设计到数据分析，挑选所需能力一键启用，让对话即刻具备对应专长。"
+	},
 	"search": {
 		"placeholder": "搜索{{noun}}..."
 	},
