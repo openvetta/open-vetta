@@ -59,9 +59,10 @@ export const defaultTheme: ThemeDef = {
 		shadow2xl: SHADOW_2XL,
 	},
 	light: {
-		background: "rgb(252, 252, 252)",
+		// 纯白画布 + 极浅灰 card 分层；border 不宜过重
+		background: "rgb(255, 255, 255)",
 		foreground: "rgb(0, 0, 0)",
-		card: "rgb(255, 255, 255)",
+		card: "rgb(250, 250, 250)",
 		cardForeground: "rgb(0, 0, 0)",
 		popover: "rgb(255, 255, 255)",
 		popoverForeground: "rgb(0, 0, 0)",
@@ -76,8 +77,8 @@ export const defaultTheme: ThemeDef = {
 		accentForeground: "rgb(0, 0, 0)",
 		destructive: "rgb(229, 75, 79)",
 		destructiveForeground: "rgb(255, 255, 255)",
-		border: "rgb(213, 213, 216)",
-		input: "rgb(213, 213, 216)",
+		border: "rgb(230, 230, 230)",
+		input: "rgb(230, 230, 230)",
 		ring: "rgb(79, 70, 229)",
 		chart1: "rgb(255, 174, 4)",
 		chart2: "rgb(45, 98, 239)",
