@@ -17,7 +17,8 @@
 			"durationMin": "{{min}} 分 {{sec}} 秒",
 			"durationHour": "{{hr}} 小时 {{min}} 分",
 			"empty": "暂无后台任务",
-			"clearFinished": "清除已结束 ({{count}})"
+			"clearFinished": "清除已结束 ({{count}})",
+			"stop": "终止"
 		},
 		"batchProgress": {
 			"notFound": "未找到批量任务项目"

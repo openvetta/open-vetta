@@ -17,7 +17,8 @@
 			"durationMin": "{{min}}m {{sec}}s",
 			"durationHour": "{{hr}}h {{min}}m",
 			"empty": "No background tasks",
-			"clearFinished": "Clear finished ({{count}})"
+			"clearFinished": "Clear finished ({{count}})",
+			"stop": "Stop"
 		},
 		"batchProgress": {
 			"notFound": "Batch project not found"

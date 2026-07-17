@@ -55,6 +55,8 @@ export interface DesktopSessionApi {
 	revokeAllSandboxGrants(sessionId: string): Promise<number>;
 	/** 清除指定 session 中所有已结束的后台任务，返回清除数量。 */
 	clearFinishedBackgroundTasks(sessionId: string): Promise<number>;
+	/** 用户从 UI 手动终止运行中的后台任务；成功后 agent 会收到 task-notification。 */
+	killBackgroundTask(sessionId: string, taskId: string): Promise<boolean>;
 	getSessionPath(sessionId: string): Promise<string | undefined>;
 	updateSettings(sessionId: string, partialSettings: SettingsPatch): Promise<void>;
 	setExecutionMode(sessionId: string, mode: SessionExecutionMode): Promise<void>;

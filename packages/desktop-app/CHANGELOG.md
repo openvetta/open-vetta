@@ -6,6 +6,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **后台任务手动终止**：活动面板后台任务列表中，运行中的任务可点「终止」；主进程 kill 后 agent 会收到用户手动终止的 `<task-notification>`，无需再靠对话让 agent 调 `task_stop`。
 - **外观设置「界面主题」环境开关**：`VETTA_SHOW_UI_THEME=true` 时在设置 → 外观展示 default / xianxia 界面主题选择（含预览与不可用锁定态）；默认不展示。颜色主题仍仅在 default 界面主题下显示。
 - **内置 Agent Skills**：构建时从 `packages/skill-presets` 按 `skills-manifest.json` 打包启用的 Skill，并内置 `create-skill`。
 - **技能市场图标**：展示服务端下发的 `icon`（上传图 / `solar:xxx-bold`）；未配置时仍用 capability/scene 默认图标。

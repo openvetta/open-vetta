@@ -10,6 +10,8 @@ export function BackgroundTasksTabPanel(): JSX.Element {
 			emptyLabel={model.emptyLabel}
 			clearFinishedLabel={model.clearFinishedLabel}
 			onClearFinished={model.onClearFinished}
+			stopLabel={model.stopLabel}
+			onStop={model.onStop}
 		/>
 	);
 }

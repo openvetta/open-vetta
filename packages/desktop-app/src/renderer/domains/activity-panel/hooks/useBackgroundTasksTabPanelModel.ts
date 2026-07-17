@@ -72,6 +72,8 @@ export interface BackgroundTasksTabPanelModel {
 	emptyLabel: string;
 	clearFinishedLabel: string | null;
 	onClearFinished: () => void;
+	stopLabel: string;
+	onStop: (taskId: string) => void;
 }
 
 export function useBackgroundTasksTabPanelModel(): BackgroundTasksTabPanelModel {
@@ -101,6 +103,15 @@ export function useBackgroundTasksTabPanelModel(): BackgroundTasksTabPanelModel 
 		void window.vetta.session.clearFinishedBackgroundTasks(sessionId);
 	}, [sessionId]);
 
+	const handleStop = useCallback(
+		(taskId: string) => {
+			if (!sessionId) return;
+			// 主进程 kill(reason=user) → 进程结束后 onNotify 注入 task-notification 唤醒 agent。
+			void window.vetta.session.killBackgroundTask(sessionId, taskId);
+		},
+		[sessionId],
+	);
+
 	const items = useMemo(
 		() =>
 			tasks
@@ -116,5 +127,7 @@ export function useBackgroundTasksTabPanelModel(): BackgroundTasksTabPanelModel 
 		clearFinishedLabel:
 			finishedCount > 0 ? t("activityPanel.backgroundTasks.clearFinished", { count: finishedCount }) : null,
 		onClearFinished: handleClearFinished,
+		stopLabel: t("activityPanel.backgroundTasks.stop"),
+		onStop: handleStop,
 	};
 }

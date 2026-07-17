@@ -22,9 +22,20 @@ export interface BackgroundTasksTabPanelViewProps {
 	/** Null when there are no finished tasks (hide clear button). */
 	clearFinishedLabel: string | null;
 	onClearFinished: () => void;
+	/** Label for the per-task stop button (running tasks only). */
+	stopLabel: string;
+	onStop: (taskId: string) => void;
 }
 
-function TaskCard({ task }: { task: BackgroundTaskViewItem }): JSX.Element {
+function TaskCard({
+	task,
+	stopLabel,
+	onStop,
+}: {
+	task: BackgroundTaskViewItem;
+	stopLabel: string;
+	onStop: (taskId: string) => void;
+}): JSX.Element {
 	const tailRef = useRef<HTMLPreElement>(null);
 
 	// 输出尾部自动滚动到底部，跟随最新输出
@@ -45,6 +56,18 @@ function TaskCard({ task }: { task: BackgroundTaskViewItem }): JSX.Element {
 					<span className="text-[10px] text-muted-foreground/70">exit {task.exitCode}</span>
 				)}
 				<span className="ml-auto shrink-0 text-[10px] text-muted-foreground/70">{task.durationLabel}</span>
+				{task.status === "running" && (
+					<button
+						type="button"
+						onClick={() => onStop(task.id)}
+						title={stopLabel}
+						aria-label={stopLabel}
+						className="flex shrink-0 items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+					>
+						<span className="icon-[mdi--stop-circle-outline] h-3 w-3" />
+						<span>{stopLabel}</span>
+					</button>
+				)}
 			</div>
 			<div className="mt-1.5 truncate font-mono text-[11px] text-foreground" title={task.command}>
 				{task.command}
@@ -66,6 +89,8 @@ export function BackgroundTasksTabPanelView({
 	emptyLabel,
 	clearFinishedLabel,
 	onClearFinished,
+	stopLabel,
+	onStop,
 }: BackgroundTasksTabPanelViewProps): JSX.Element {
 	if (items.length === 0) {
 		return (
@@ -91,7 +116,7 @@ export function BackgroundTasksTabPanelView({
 			)}
 			<div className="flex-1 space-y-2 overflow-y-auto p-2.5">
 				{items.map((task) => (
-					<TaskCard key={task.id} task={task} />
+					<TaskCard key={task.id} task={task} stopLabel={stopLabel} onStop={onStop} />
 				))}
 			</div>
 		</div>
