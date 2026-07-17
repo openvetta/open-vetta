@@ -16,10 +16,12 @@ export interface TaskFormModel {
 interface UseTaskFormModelOptions {
 	readonly open: boolean;
 	readonly task: ScheduledTask | undefined;
+	/** Prefill for create mode (e.g. recommended templates). Ignored when `task` is set. */
+	readonly initialDraft?: SchedulerTaskDraft | undefined;
 	readonly onClose: () => void;
 }
 
-export function useTaskFormModel({ open, task, onClose }: UseTaskFormModelOptions): TaskFormModel {
+export function useTaskFormModel({ open, task, initialDraft, onClose }: UseTaskFormModelOptions): TaskFormModel {
 	const { createTask, updateTask } = useScheduledTasks();
 	const projects = useAtomValue(projectsAtom);
 	const defaultCwd = useAtomValue(defaultConversationCwdAtom);
@@ -30,18 +32,33 @@ export function useTaskFormModel({ open, task, onClose }: UseTaskFormModelOption
 	useEffect(() => {
 		if (!open) return;
 		const defaultCron = toCronExpression(getDefaultDailySchedule());
+		const fallbackCwd = defaultCwd ?? projects[0]?.cwd ?? "";
+		if (task) {
+			setData({
+				name: task.name,
+				cwd: task.cwd || fallbackCwd,
+				prompt: task.prompt,
+				cron: task.cron,
+				isOnce: task.isOnce,
+				enabled: task.enabled,
+				executionMode: task.executionMode ?? "full-access",
+				modelKey: task.modelKey,
+				skill: task.skill ?? null,
+			});
+			return;
+		}
 		setData({
-			name: task?.name ?? "",
-			cwd: task?.cwd ?? defaultCwd ?? projects[0]?.cwd ?? "",
-			prompt: task?.prompt ?? "",
-			cron: task?.cron ?? defaultCron,
-			isOnce: task?.isOnce ?? false,
-			enabled: task?.enabled ?? true,
-			executionMode: task?.executionMode ?? "full-access",
-			modelKey: task?.modelKey,
-			skill: task?.skill ?? null,
+			name: initialDraft?.name ?? "",
+			cwd: initialDraft?.cwd ?? fallbackCwd,
+			prompt: initialDraft?.prompt ?? "",
+			cron: initialDraft?.cron ?? defaultCron,
+			isOnce: initialDraft?.isOnce ?? false,
+			enabled: initialDraft?.enabled ?? true,
+			executionMode: initialDraft?.executionMode ?? "full-access",
+			modelKey: initialDraft?.modelKey,
+			skill: initialDraft?.skill ?? null,
 		});
-	}, [defaultCwd, open, projects, task]);
+	}, [defaultCwd, initialDraft, open, projects, task]);
 
 	const canSubmit = canSubmitFromData(data);
 

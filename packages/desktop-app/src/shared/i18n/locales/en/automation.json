@@ -5,11 +5,31 @@
 		"newTask": "New Task",
 		"newTaskTitle": "New scheduled task"
 	},
-	"empty": {
-		"title": "No scheduled tasks yet",
-		"desc": "Create a scheduled task and let AI run it automatically on schedule",
-		"action": "Create your first task"
+	"recommend": {
+		"title": "Recommended",
+		"use": "Use template",
+		"items": {
+			"morningBrief": {
+				"name": "Morning briefing",
+				"desc": "Weekday morning summary of repo changes, uncommitted work, and focus items",
+				"schedule": "Weekdays 09:00",
+				"prompt": "Act as my morning briefing assistant in the current workspace:\n1. Inspect git status and recent commits if git is available\n2. List uncommitted changes, unpushed branches, or likely blockers\n3. Suggest 3 clear focus items for today\nReply in English with a concise structure. Do not modify any files."
+			},
+			"dailySummary": {
+				"name": "Daily wrap-up",
+				"desc": "Evening review of today's changes into a short work log",
+				"schedule": "Daily 18:00",
+				"prompt": "Generate today's work summary for this workspace:\n1. Summarize what was done from git log / file changes\n2. Call out unfinished or follow-up items\n3. Propose up to 3 actionable next steps for tomorrow\nUse concise bullet points. Do not change code."
+			},
+			"weeklyReview": {
+				"name": "Weekly review",
+				"desc": "Friday afternoon weekly report from this week's commits",
+				"schedule": "Fridays 17:00",
+				"prompt": "Produce a weekly review for the current repository:\n1. Summarize major commits and feature progress this week\n2. Capture risks, tech debt, or recurring issues\n3. Recommend next-week priorities (up to 5 items)\nWrite it ready to paste into a weekly report. Do not modify repository files."
+			}
+		}
 	},
+
 	"dialog": {
 		"namePlaceholderEdit": "Task name",
 		"namePlaceholderNew": "New task",

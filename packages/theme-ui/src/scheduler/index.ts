@@ -1,6 +1,7 @@
 export type {
 	AutomationPageViewLabels,
 	AutomationPageViewProps,
+	AutomationRecommendationItem,
 } from "./AutomationPageView";
 export { AutomationPageView } from "./AutomationPageView";
 export type {

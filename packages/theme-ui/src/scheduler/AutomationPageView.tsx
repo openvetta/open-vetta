@@ -4,14 +4,27 @@ import { Button } from "@vetta/ui";
 
 const easeOut = [0.22, 1, 0.36, 1] as const;
 
+export interface AutomationRecommendationItem {
+	readonly id: string;
+	readonly icon: string;
+	readonly title: string;
+	readonly description: string;
+	readonly scheduleLabel: string;
+}
+
 export interface AutomationPageViewLabels {
 	readonly title: string;
 	readonly subtitle: string;
 	readonly newTask: string;
 	readonly newTaskTitle: string;
-	readonly emptyTitle: string;
-	readonly emptyDesc: string;
-	readonly emptyAction: string;
+	/** @deprecated Empty hero removed; kept optional for host compatibility. */
+	readonly emptyTitle?: string;
+	readonly emptyDesc?: string;
+	readonly emptyAction?: string;
+	/** Section heading above recommended templates when the user has no tasks. */
+	readonly recommendTitle?: string;
+	/** Optional CTA on each recommendation card. */
+	readonly recommendUse?: string;
 }
 
 export interface AutomationPageViewProps {
@@ -24,6 +37,9 @@ export interface AutomationPageViewProps {
 	readonly taskList: ReactNode;
 	readonly historyDrawer: ReactNode;
 	readonly taskFormDialog: ReactNode;
+	/** Recommended templates shown only when `hasTasks` is false. */
+	readonly recommendations?: readonly AutomationRecommendationItem[];
+	readonly onSelectRecommendation?: (id: string) => void;
 }
 
 export function AutomationPageView({
@@ -34,6 +50,8 @@ export function AutomationPageView({
 	taskList,
 	historyDrawer,
 	taskFormDialog,
+	recommendations,
+	onSelectRecommendation,
 }: AutomationPageViewProps): JSX.Element {
 	return (
 		<div className="relative flex h-full w-full flex-1 flex-col overflow-hidden">
@@ -66,11 +84,11 @@ export function AutomationPageView({
 				{hasTasks ? (
 					taskList
 				) : (
-					<AutomationEmptyState
-						title={labels.emptyTitle}
-						desc={labels.emptyDesc}
-						action={labels.emptyAction}
-						onNew={onNewTask}
+					<AutomationRecommendations
+						recommendTitle={labels.recommendTitle}
+						recommendUse={labels.recommendUse}
+						recommendations={recommendations}
+						onSelectRecommendation={onSelectRecommendation}
 					/>
 				)}
 			</div>
@@ -81,40 +99,61 @@ export function AutomationPageView({
 	);
 }
 
-function AutomationEmptyState({
-	title,
-	desc,
-	action,
-	onNew,
+function AutomationRecommendations({
+	recommendTitle,
+	recommendUse,
+	recommendations,
+	onSelectRecommendation,
 }: {
-	readonly title: string;
-	readonly desc: string;
-	readonly action: string;
-	readonly onNew: () => void;
-}): JSX.Element {
+	readonly recommendTitle?: string;
+	readonly recommendUse?: string;
+	readonly recommendations?: readonly AutomationRecommendationItem[];
+	readonly onSelectRecommendation?: (id: string) => void;
+}): JSX.Element | null {
+	if (!recommendations || recommendations.length === 0) return null;
+
 	return (
 		<motion.div
-			className="flex flex-1 flex-col items-center justify-center gap-5 text-center"
+			className="flex w-full flex-col gap-3"
 			initial={{ opacity: 0, y: 12 }}
 			animate={{ opacity: 1, y: 0 }}
 			transition={{ duration: 0.5, ease: easeOut }}
 		>
-			<motion.div
-				className="relative flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/15 to-primary/5 ring-1 ring-inset ring-primary/20"
-				animate={{ y: [0, -6, 0] }}
-				transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
-			>
-				<span className="absolute inset-0 rounded-2xl bg-primary/10 blur-2xl" />
-				<span className="icon-[mdi--clock-check-outline] relative text-4xl text-primary/80" />
-			</motion.div>
-			<div className="space-y-1.5">
-				<p className="text-[15px] font-semibold text-foreground">{title}</p>
-				<p className="max-w-xs text-[12px] text-muted-foreground/60">{desc}</p>
+			{recommendTitle ? (
+				<p className="text-[12px] font-medium tracking-wide text-muted-foreground/70">{recommendTitle}</p>
+			) : null}
+			<div className="grid grid-cols-3 gap-4">
+				{recommendations.map((item, index) => (
+					<motion.button
+						key={item.id}
+						type="button"
+						initial={{ opacity: 0, y: 12 }}
+						animate={{ opacity: 1, y: 0 }}
+						transition={{ duration: 0.4, delay: 0.05 * index, ease: easeOut }}
+						onClick={() => onSelectRecommendation?.(item.id)}
+						className="group flex cursor-pointer flex-col rounded-xl border border-border/50 bg-card/40 p-4 text-left backdrop-blur-sm transition-colors duration-200 hover:border-primary/40 hover:bg-card/60"
+					>
+						<div className="flex items-start gap-3">
+							<div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 ring-1 ring-inset ring-primary/15">
+								<span className={`${item.icon} h-4 w-4 text-primary`} />
+							</div>
+							<div className="min-w-0 flex-1">
+								<p className="truncate text-[13px] font-semibold text-foreground">{item.title}</p>
+								<p className="mt-0.5 truncate text-[11px] text-muted-foreground/60">{item.scheduleLabel}</p>
+							</div>
+						</div>
+						<p className="mt-3 line-clamp-2 text-[12px] leading-relaxed text-muted-foreground/70">
+							{item.description}
+						</p>
+						{recommendUse && (
+							<span className="mt-3 inline-flex items-center gap-1 text-[11px] font-medium text-primary opacity-80 transition-opacity group-hover:opacity-100">
+								{recommendUse}
+								<span className="icon-[mdi--arrow-right] h-3.5 w-3.5" />
+							</span>
+						)}
+					</motion.button>
+				))}
 			</div>
-			<Button type="button" variant="primary" onClick={onNew} className="mt-2">
-				<span className="icon-[mdi--plus] text-[15px]" />
-				{action}
-			</Button>
 		</motion.div>
 	);
 }
