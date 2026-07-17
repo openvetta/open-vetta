@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { AuthStorage, getAgentDir, ModelRegistry } from "@vetta/coding-agent";
 import { RuntimeHost } from "../../../runtime-core/src/index.js";
+import { getBuiltinSkillPaths } from "./builtin-skills.js";
 import { DEFAULT_SERVER_URL } from "./constants.js";
 import { readDesktopConfig } from "./ipc/fs.js";
 import { editImage, generateImage, IMAGE_GEN_PLUGIN_ID } from "./plugins/image-service.js";
@@ -85,6 +86,7 @@ export function peekSharedRuntime(): RuntimeHost | null {
 export function getSharedRuntime(): RuntimeHost {
 	if (!sharedRuntime) {
 		sharedRuntime = new RuntimeHost({
+			additionalSkillPaths: getBuiltinSkillPaths(),
 			getDefaultExecutionMode: async () => {
 				const config = await readDesktopConfig();
 				return config.defaultExecutionMode;

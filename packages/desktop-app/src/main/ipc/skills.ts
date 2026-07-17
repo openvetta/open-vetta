@@ -2,13 +2,14 @@ import { execSync } from "node:child_process";
 import { chmodSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, sep } from "node:path";
 import { getVettaHomePath } from "@vetta/action-rpc";
 import { DefaultResourceLoader } from "@vetta/coding-agent";
 import AdmZip from "adm-zip";
 import { ipcMain } from "electron";
 import type { AppMonitorResourceOperation } from "../../preload/api-types/app-monitor.js";
 import { recordAppMonitorEvent } from "../app-monitor/app-monitor-service.js";
+import { getBuiltinSkillPaths, isBuiltinSkillFile, readBuiltinSkillsManifest } from "../builtin-skills.js";
 import { getAppLogger } from "../logger.js";
 import { buildAgentPluginRuntimeConfig } from "../plugins/plugin-store.js";
 import { allowProjectRoot, readDesktopConfig } from "./fs.js";
@@ -238,16 +239,18 @@ export async function listSkills(cwd?: string): Promise<ListedSkill[]> {
 	// they are injected into agent sessions via skillPathContributions.
 	const pluginSkillPaths =
 		buildAgentPluginRuntimeConfig()?.skillPathContributions?.flatMap((contribution) => contribution.paths) ?? [];
+	const builtinSkillPaths = getBuiltinSkillPaths();
 	// 传入当前会话/项目 cwd，才能发现项目级 <cwd>/.agents/skills 与 <cwd>/.vetta/skills；
 	// 不传则只列全局来源（主进程自身 cwd 下通常无项目目录）。
 	const loader = new DefaultResourceLoader({
 		includeAgentSkills,
 		cwd,
-		additionalSkillPaths: pluginSkillPaths,
+		additionalSkillPaths: [...pluginSkillPaths, ...builtinSkillPaths],
 	});
 	await loader.reload();
 	const { skills } = loader.getSkills();
 	const manifest = readManifest();
+	const builtinManifest = readBuiltinSkillsManifest();
 	// Absolute plugin skill roots — used to label source as "plugin" in the slash list.
 	const pluginRoots = pluginSkillPaths.map((p) => p.replace(/[/\\]+$/, ""));
 	const isUnderPluginRoot = (filePath: string): boolean => {
@@ -259,6 +262,7 @@ export async function listSkills(cwd?: string): Promise<ListedSkill[]> {
 	};
 	const listed = skills
 		.filter((s) => {
+			if (isBuiltinSkillFile(s.filePath)) return builtinManifest[s.name]?.enabled ?? false;
 			const entry = manifest[s.name];
 			// market 来源的 skill/scene 必须在 manifest 中且已启用
 			if (s.source === "market" || s.source === "scene") {
@@ -268,12 +272,17 @@ export async function listSkills(cwd?: string): Promise<ListedSkill[]> {
 			return !entry || entry.enabled;
 		})
 		.map((s) => {
-			const entry = manifest[s.name];
-			const source = isUnderPluginRoot(s.filePath) ? "plugin" : s.source;
+			const isBuiltin = isBuiltinSkillFile(s.filePath);
+			const builtinEntry = isBuiltin ? builtinManifest[s.name] : undefined;
+			const entry = isBuiltin ? undefined : manifest[s.name];
+			const source = isBuiltin ? "builtin" : isUnderPluginRoot(s.filePath) ? "plugin" : s.source;
 			return {
 				name: s.name,
-				alias: s.alias || entry?.alias,
-				description: (entry?.source === "market" ? entry.marketDescription : undefined) || s.description,
+				alias: s.alias || builtinEntry?.alias || entry?.alias,
+				description:
+					builtinEntry?.description ||
+					(entry?.source === "market" ? entry.marketDescription : entry?.description) ||
+					s.description,
 				source,
 				type: s.type,
 			};
@@ -351,6 +360,9 @@ export function registerSkillsIpc(): () => void {
 	allowProjectRoot(sceneBaseDir);
 	// 通用 Agent Skill（只读）预览：放行全局 ~/.agents/skills。
 	allowProjectRoot(join(homedir(), ".agents", "skills"));
+	for (const root of getBuiltinSkillPaths()) {
+		allowProjectRoot(root);
+	}
 
 	ipcMain.handle("vetta:skills:list", async (_event, cwd: unknown) => {
 		const resolvedCwd = typeof cwd === "string" && cwd.trim().length > 0 ? cwd : undefined;
@@ -462,6 +474,12 @@ export function registerSkillsIpc(): () => void {
 		const agentSkillMd = join(homedir(), ".agents", "skills", name, "SKILL.md");
 		if (existsSync(agentSkillMd)) {
 			return agentSkillMd;
+		}
+		for (const builtinSkillDir of getBuiltinSkillPaths()) {
+			const builtinSkillMd = join(builtinSkillDir, "SKILL.md");
+			if (builtinSkillDir.endsWith(`${sep}${name}`) && existsSync(builtinSkillMd)) {
+				return builtinSkillMd;
+			}
 		}
 		throw new Error(`SKILL.md 不存在：${skillMd}`);
 	});

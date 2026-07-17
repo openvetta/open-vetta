@@ -91,6 +91,7 @@ export class RuntimeHost implements SessionFacade {
 		(sessionPath: string, running: boolean, sessionId?: string, reason?: RunningChangedReason) => void
 	>();
 	private readonly getDefaultExecutionMode: () => SessionExecutionMode | Promise<SessionExecutionMode>;
+	private readonly additionalSkillPaths: string[];
 	private readonly sandboxHostPath: string | undefined;
 	private readonly linuxBubblewrapPath: string | undefined;
 	private readonly macosSandboxExecPath: string | undefined;
@@ -112,6 +113,7 @@ export class RuntimeHost implements SessionFacade {
 
 	constructor(options: RuntimeHostOptions = {}) {
 		this.getDefaultExecutionMode = options.getDefaultExecutionMode ?? (() => "sandbox");
+		this.additionalSkillPaths = [...(options.additionalSkillPaths ?? [])];
 		this.sandboxHostPath = options.sandboxHostPath;
 		this.linuxBubblewrapPath = options.linuxBubblewrapPath;
 		this.macosSandboxExecPath = options.macosSandboxExecPath;
@@ -157,17 +159,34 @@ export class RuntimeHost implements SessionFacade {
 		this.pluginSystemPromptInvoker = handler;
 	}
 
+	private withAdditionalSkillPaths(
+		agentPlugins: AgentPluginRuntimeConfig | undefined,
+	): AgentPluginRuntimeConfig | undefined {
+		if (this.additionalSkillPaths.length === 0) return agentPlugins;
+		return {
+			...(agentPlugins ?? {}),
+			skillPathContributions: [
+				...(agentPlugins?.skillPathContributions ?? []),
+				{
+					pluginId: "runtime-host:additional-skills",
+					paths: this.additionalSkillPaths,
+				},
+			],
+		};
+	}
+
 	reconfigureAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | undefined): void {
+		const nextAgentPlugins = this.withAdditionalSkillPaths(agentPlugins);
 		debugPluginAgent("runtime reconfigure requested", {
 			sessionCount: this.sessions.size,
-			...summarizeAgentPlugins(agentPlugins),
+			...summarizeAgentPlugins(nextAgentPlugins),
 		});
 		for (const [sessionId, handle] of this.sessions) {
 			if (!handle.agentPluginsEnabled) {
 				debugPluginAgent("runtime reconfigure skip: plugins disabled", { sessionId });
 				continue;
 			}
-			handle.pendingAgentPlugins = agentPlugins;
+			handle.pendingAgentPlugins = nextAgentPlugins;
 			handle.hasPendingAgentPlugins = true;
 			debugPluginAgent("runtime reconfigure deferred until prompt", { sessionId });
 		}
@@ -272,7 +291,7 @@ export class RuntimeHost implements SessionFacade {
 				}
 				if (config.enableAgentPlugins === true && !existing.handle.agentPluginsEnabled) {
 					existing.handle.agentPluginsEnabled = true;
-					existing.handle.pendingAgentPlugins = config.agentPlugins;
+					existing.handle.pendingAgentPlugins = this.withAdditionalSkillPaths(config.agentPlugins);
 					existing.handle.hasPendingAgentPlugins = true;
 				}
 				await existing.handle.session.bindExtensions({
@@ -313,7 +332,7 @@ export class RuntimeHost implements SessionFacade {
 			env: config.env,
 			enableBackgroundTasks: config.enableBackgroundTasks,
 			includeAgentSkills: config.includeAgentSkills,
-			agentPlugins: config.agentPlugins,
+			agentPlugins: this.withAdditionalSkillPaths(config.agentPlugins),
 			invokePluginTool: this.pluginToolInvoker
 				? (invocation, signal) =>
 						this.pluginToolInvoker?.(invocation, signal) ?? Promise.resolve({ value: undefined, effects: [] })
