@@ -6,6 +6,8 @@ All notable changes to `@vetta/runtime-core` are documented in this file.
 
 ### Added
 
+- **Subagent 协议与宿主开关**：`SessionEvent` 增加 `subagents_update` / `SubagentInfo`；`RuntimeHost` 在 `conversation`/`project`/`cli` 场景启用 `enableSubagents`；`listSubagents` / `interruptSubagent` 供 UI 重放与中断。
+- **`clearFinishedBackgroundTasks` 同时清理终端态子代理**：活动面板「清除已结束」一条 IPC 清 bash 已结束任务 + completed/failed/interrupted 子代理。
 - **`RuntimeHost.killBackgroundTask`**：宿主可按 session/taskId 终止后台 bash 任务（`endedBy: user`），进程结束后 agent 收到用户手动终止的 task-notification。
 - **RuntimeHost 固定 Skill 路径**：新增 `additionalSkillPaths`，创建会话和插件热重载时持续合并宿主提供的内置 Skill。
 - **`AgentPluginRuntimeConfig.mcpServerContributions`**：插件作用域 MCP 贡献（`McpServerContribution` / `AgentPluginMcpServerConfig`），由 desktop 物化后交给 coding-agent `McpManager`（ADR-0040）。

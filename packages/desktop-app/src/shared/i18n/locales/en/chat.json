@@ -13,6 +13,8 @@
 			"statusCompleted": "Completed",
 			"statusFailed": "Failed",
 			"statusKilled": "Killed",
+			"subagentStatusPending": "Pending",
+			"subagentStatusInterrupted": "Interrupted",
 			"durationSec": "{{sec}}s",
 			"durationMin": "{{min}}m {{sec}}s",
 			"durationHour": "{{hr}}h {{min}}m",

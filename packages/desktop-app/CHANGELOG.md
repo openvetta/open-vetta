@@ -6,6 +6,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **后台任务 Tab 统一展示子代理**：活动面板「后台任务」入口合并 bash 后台任务与 explorer 子代理（异构 item 分型渲染）；角标计入两者运行中数量；支持中断子代理（`session.interruptSubagent` IPC）。
+- **后台任务「清除已结束」含已完成子代理**：与 bash 已结束任务一并清除，避免完成态子代理一直挂在列表里。
 - **能力页顶部 Banner**：能力列表上方增加装饰性 Hero 条；右侧从市场能力图标池随机轮播（与卡片同源 skill/MCP 图标）。
 - **自动化空状态推荐任务**：用户尚无自动化任务时，页面直接展示「每日晨间简报 / 每日工作总结 / 每周复盘」三张推荐模板；点击后打开新建表单并预填名称、调度与 prompt（顶栏「新建任务」仍可空白创建）。
 - **后台任务手动终止**：活动面板后台任务列表中，运行中的任务可点「终止」；主进程 kill 后 agent 会收到用户手动终止的 `<task-notification>`，无需再靠对话让 agent 调 `task_stop`。

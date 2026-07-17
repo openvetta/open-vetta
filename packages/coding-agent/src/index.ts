@@ -253,6 +253,27 @@ export {
 	type Skill,
 	type SkillFrontmatter,
 } from "./core/skills.js";
+// Subagents (extensible type registry; builtin explorer)
+export {
+	buildToolsForSubagentType,
+	createDefaultSubagentSessionFactory,
+	createDefaultSubagentTypeRegistry,
+	createEmptySubagentTypeRegistry,
+	createExplorerTypeDefinition,
+	createSubagentControlTools,
+	EXPLORER_SYSTEM_PROMPT,
+	isValidTaskName,
+	SUBAGENT_CONTROL_TOOL_NAMES,
+	SUBAGENT_TYPE_EXPLORER,
+	type SubagentChildHandle,
+	SubagentCoordinator,
+	type SubagentSessionFactory,
+	type SubagentSnapshot,
+	type SubagentStatus,
+	type SubagentTypeDefinition,
+	type SubagentTypeId,
+	SubagentTypeRegistry,
+} from "./core/subagents/index.js";
 export {
 	createEditImageTool,
 	createGenerateImageTool,

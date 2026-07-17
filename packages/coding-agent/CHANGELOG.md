@@ -2,6 +2,8 @@
 
 ### Added
 
+- **Subagent clearFinished**：`SubagentCoordinator.clearFinished()` / `AgentSession.clearFinishedSubagents()` 移除已结束（completed/failed/interrupted）子代理条目并释放 `task_name`；不删磁盘 transcript。
+- **Subagent 基础设施（可扩展类型注册表，首版仅 explorer）**：`core/subagents/` 含 `SubagentTypeRegistry`、`SubagentCoordinator`、默认 `SubagentSessionFactory`、控制工具 `spawn_agent` / `wait_agent` / `list_agents` / `interrupt_agent` / `send_message` / `followup_task`。类型通过注册表横向扩展（首版只注册 `explorer`：只读工具 + 继承父会话 MCP 代理；写操作仍归主 Agent）。`createAgentSession({ enableSubagents })` fail-closed；子会话强制 `enableSubagents: false` / `enableMcp: false`。事件 `subagents_update` 全量快照。
 - **后台任务用户终止标记**：`BackgroundTaskManager.kill(taskId, reason?)` 支持 `endedBy`（`user` / `agent` / `dispose`）；用户从 UI 终止时 `<task-notification>` 会标明 `ended-by: user` 并提示 agent 勿擅自重启。
 - **Skill / Hook 关键路径 info 日志（测试可观测）**：会话加载 skill 记 cwd、`includeAgentSkills`、按 source 计数与名称；`/skill:` 展开与 `invoke_skill` 记 name/source/path；hook 拦截 Pre/Post tool 记 tool 与 reason。走进程内 `console.info`（desktop 主进程经 console patch 写入 main 日志），不含 SKILL 正文或 hook stdin。
 - **外部生态 Hook 通用生命周期接入**：Coding Agent 只依赖 `EcosystemHookRuntime`，统一上报 SessionStart、UserPromptSubmit、通用工具 Pre/PostToolUse、Pre/PostCompact 与 Stop，不保存具体生态实现；内置最新版 Codex profile 负责 Bash、普通 function tool、MCP 的协议映射。`CreateAgentSessionOptions.additionalHookAdapterFactories` 可追加其他生态实现，无需修改 Coding Agent 生命周期。Hook additional context 以隐藏消息进入模型，PreToolUse 可阻止或改写真实执行参数，PostToolUse 可拒绝或替换模型可见结果，Stop 可在 Agent 自然结束点请求续跑。

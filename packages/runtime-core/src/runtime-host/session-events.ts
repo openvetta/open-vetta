@@ -227,6 +227,15 @@ export function mapAgentSessionEvent(
 		return events;
 	}
 
+	if (event.type === "subagents_update") {
+		events.push({
+			...baseSessionEvent(sessionId, "agent"),
+			type: "subagents_update",
+			agents: event.agents as any[],
+		});
+		return events;
+	}
+
 	if (event.type === "auto_compaction_start") {
 		events.push({
 			...baseSessionEvent(sessionId, "agent"),

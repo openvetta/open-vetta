@@ -24,6 +24,7 @@ import type { ModelRegistry } from "../model-registry.js";
 import type { ResourceLoader } from "../resource-loader.js";
 import type { SessionManager } from "../session-manager.js";
 import type { SettingsManager } from "../settings-manager.js";
+import type { SubagentSessionFactory, SubagentSnapshot, SubagentTypeRegistry } from "../subagents/index.js";
 import type {
 	AgentPluginContinuationInvoker,
 	AgentPluginRuntimeConfig,
@@ -49,6 +50,7 @@ export type AgentSessionEvent =
 	| { type: "auto_retry_end"; success: boolean; attempt: number; finalError?: string }
 	| { type: "todo_update"; items: ReadonlyArray<TodoItem> }
 	| { type: "background_tasks_update"; tasks: ReadonlyArray<BackgroundTaskSnapshot> }
+	| { type: "subagents_update"; agents: ReadonlyArray<SubagentSnapshot> }
 	| { type: "mcp_reload_start" }
 	| { type: "mcp_reload_end"; changed: boolean; errorMessage?: string }
 	// memory-mode session rollover (ADR-0009): the active session jsonl changed.
@@ -115,6 +117,17 @@ export interface AgentSessionConfig {
 	 * 完成通知又会凭空唤醒新 turn，干扰队列对「任务完成」的判定。
 	 */
 	enableBackgroundTasks?: boolean;
+	/**
+	 * Enable root-side subagent tools + coordinator. Fail-closed default: false.
+	 * Child sessions created by the coordinator always pass false.
+	 */
+	enableSubagents?: boolean;
+	/** Optional type registry (default: explorer only when enableSubagents). */
+	subagentTypeRegistry?: SubagentTypeRegistry;
+	/** Optional child session factory (default: in-process createAgentSession factory). */
+	subagentSessionFactory?: SubagentSessionFactory;
+	/** Max concurrent pending/running children (default 3). */
+	subagentMaxConcurrent?: number;
 	/** Runtime plugin contributions applied while building agent prompts/resources. */
 	agentPlugins?: AgentPluginRuntimeConfig;
 	/** Host bridge used by plugin-contributed tools. */

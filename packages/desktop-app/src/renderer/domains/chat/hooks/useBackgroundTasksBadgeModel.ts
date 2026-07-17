@@ -5,13 +5,16 @@ import {
 	activityPanelTabByProjectAtom,
 	backgroundTasksBySessionAtom,
 	getBackgroundTasksForSession,
+	getSubagentsForSession,
+	isSubagentActive,
+	subagentsBySessionAtom,
 } from "@shared/store/atoms";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
 export interface BackgroundTasksBadgeModel {
-	/** Null when no running tasks (host renders null). */
+	/** Null when no running work (host renders null). */
 	runningCount: number | null;
 	title: string;
 	onClick: () => void;
@@ -21,6 +24,7 @@ export function useBackgroundTasksBadgeModel(): BackgroundTasksBadgeModel {
 	const { t } = useTranslation("chat");
 	const activeSession = useAtomValue(activeSessionAtom);
 	const tasksMap = useAtomValue(backgroundTasksBySessionAtom);
+	const subagentsMap = useAtomValue(subagentsBySessionAtom);
 	const setPanelOpen = useSetAtom(activityPanelOpenAtom);
 	const setTabByProject = useSetAtom(activityPanelTabByProjectAtom);
 
@@ -28,7 +32,15 @@ export function useBackgroundTasksBadgeModel(): BackgroundTasksBadgeModel {
 		() => getBackgroundTasksForSession(tasksMap, activeSession?.runtimeId ?? null),
 		[tasksMap, activeSession?.runtimeId],
 	);
-	const running = useMemo(() => tasks.filter((task) => task.status === "running").length, [tasks]);
+	const subagents = useMemo(
+		() => getSubagentsForSession(subagentsMap, activeSession?.runtimeId ?? null),
+		[subagentsMap, activeSession?.runtimeId],
+	);
+	const running = useMemo(() => {
+		const bash = tasks.filter((task) => task.status === "running").length;
+		const sub = subagents.filter((a) => isSubagentActive(a.status)).length;
+		return bash + sub;
+	}, [tasks, subagents]);
 
 	const onClick = useCallback(() => {
 		const cwd = activeSession?.cwd;

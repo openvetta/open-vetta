@@ -226,6 +226,7 @@ const CHANNELS = {
 	SANDBOX_GRANTS_REVOKE_ALL: "vetta:session:sandbox-grants-revoke-all",
 	BACKGROUND_TASKS_CLEAR_FINISHED: "vetta:session:background-tasks-clear-finished",
 	BACKGROUND_TASKS_KILL: "vetta:session:background-tasks-kill",
+	SUBAGENT_INTERRUPT: "vetta:session:subagent-interrupt",
 	LIST_RUNNING: "vetta:session:list-running",
 	RUNNING_CHANGED: "vetta:session:running-changed",
 	// 某 session 是否有待回答的 ask_user_question；广播给所有窗口（侧栏 + 快捷面板）。
@@ -1182,6 +1183,13 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		return runtime.killBackgroundTask(sessionId, taskId);
 	});
 
+	ipcMain.handle(CHANNELS.SUBAGENT_INTERRUPT, (_event, sessionId: unknown, target: unknown) => {
+		assertNonEmptyString(sessionId, "sessionId");
+		assertNonEmptyString(target, "target");
+		const snap = runtime.interruptSubagent(sessionId, target);
+		return snap != null;
+	});
+
 	ipcMain.handle(CHANNELS.SUBSCRIBE, async (_event, sessionId: unknown) => {
 		assertNonEmptyString(sessionId, "sessionId");
 		const subscriptionId = `${sessionId}:${randomUUID()}`;
@@ -1240,6 +1248,19 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 				source: "runtime-core",
 				type: "background_tasks_update",
 				tasks: backgroundTasks,
+			});
+		}
+
+		const subagents = runtime.listSubagents(sessionId);
+		if (subagents.length > 0 && !webContents.isDestroyed()) {
+			webContents.send(CHANNELS.EVENT, subscriptionId, {
+				schemaVersion: 1,
+				sessionId,
+				eventId: randomUUID(),
+				timestamp: Date.now(),
+				source: "runtime-core",
+				type: "subagents_update",
+				agents: subagents,
 			});
 		}
 

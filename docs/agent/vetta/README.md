@@ -22,7 +22,7 @@ Vetta 首版应采用：
 2. `SubagentCoordinator` 归 `AgentSession` 所有，放在 `packages/coding-agent`；不把多 Agent 策略下沉到通用的 `packages/agent`。
 3. 子会话必须由 `SubagentSessionFactory` 创建。desktop 的 `RuntimeHost` 注入保留 sandbox/执行模式的工厂，CLI/SDK 使用默认本地工厂；禁止直接复用父会话的工具闭包。
 4. 首版只允许 root 创建一层 child，child 不暴露 subagent 工具；默认最多 3 个同时处于 `pending/running` 的 child。
-5. 首版提供 `explorer`（只读）和 `worker`（编码）两种内置类型，继承父会话当前模型与推理强度，不开放模型覆盖、自定义角色和上下文 fork。
+5. 首版**只注册 `explorer`**（只读探索 + 父 MCP 代理；改写归主 Agent）。类型系统用 `SubagentTypeRegistry` 横向扩展（后续 `worker` 等只注册定义，不改 coordinator）。继承父会话当前模型与推理强度，不开放模型覆盖、自定义角色和上下文 fork。
 6. 首版工具面为 `spawn_agent`、`send_message`、`followup_task`、`wait_agent`、`list_agents`、`interrupt_agent`。
 7. 完成结果通过同步 wait 或合并后的 `<subagent_notification>` 回到父 Agent；同一完成结果只由一个通道消费，避免重复唤醒。
 8. 子 transcript 独立落盘，进程重启后运行中的 child 标记为 `interrupted`，不自动续跑；已完成 child 可由 `followup_task` 懒加载并续接。

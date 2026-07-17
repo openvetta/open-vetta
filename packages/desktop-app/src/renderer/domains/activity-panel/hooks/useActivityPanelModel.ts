@@ -18,12 +18,14 @@ import {
 	debugModeAtom,
 	getBackgroundTasksForSession,
 	getBrowserUrlForSession,
+	getSubagentsForSession,
 	getTodoItemsForSession,
 	hiddenActivityTabsAtom,
 	pluginActivityTabsAtom,
 	pluginInputActionsAtom,
 	sidebarCollapsedAtom,
 	sidebarWidthAtom,
+	subagentsBySessionAtom,
 	todoItemsBySessionAtom,
 } from "@shared/store/atoms";
 import { useAtom, useAtomValue } from "jotai";
@@ -78,6 +80,11 @@ export function useActivityPanelModel({
 	const backgroundTasks = useMemo(
 		() => getBackgroundTasksForSession(backgroundTasksMap, activeSession?.runtimeId ?? null),
 		[backgroundTasksMap, activeSession?.runtimeId],
+	);
+	const subagentsMap = useAtomValue(subagentsBySessionAtom);
+	const subagents = useMemo(
+		() => getSubagentsForSession(subagentsMap, activeSession?.runtimeId ?? null),
+		[subagentsMap, activeSession?.runtimeId],
 	);
 	const debugMode = useAtomValue(debugModeAtom);
 	const registeredPluginTabs = useAtomValue(pluginActivityTabsAtom);
@@ -179,8 +186,10 @@ export function useActivityPanelModel({
 				removable: true,
 			});
 		}
-		if (backgroundTasks.length > 0) {
-			const running = backgroundTasks.filter((task) => task.status === "running").length;
+		if (backgroundTasks.length > 0 || subagents.length > 0) {
+			const runningBash = backgroundTasks.filter((task) => task.status === "running").length;
+			const runningSub = subagents.filter((a) => a.status === "pending" || a.status === "running").length;
+			const running = runningBash + runningSub;
 			base.push({
 				key: "background-tasks",
 				label: t("activityPanel.tabs.backgroundTasks"),
@@ -206,7 +215,7 @@ export function useActivityPanelModel({
 			});
 		}
 		return base;
-	}, [knowledgeHistory, profile, todoItems, backgroundTasks, debugMode, pluginTabContribs, trPlugin, t]);
+	}, [knowledgeHistory, profile, todoItems, backgroundTasks, subagents, debugMode, pluginTabContribs, trPlugin, t]);
 	const tabItems = useMemo(
 		() =>
 			applyTabOrder(

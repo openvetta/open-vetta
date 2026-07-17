@@ -6,6 +6,7 @@ import type { Message } from "@vetta/ai";
 import {
 	type AgentSession,
 	type SessionEntry as CodingSessionEntry,
+	type ConversationScenario,
 	type CreateAgentSessionOptions,
 	createAgentSession,
 	createEditImageTool,
@@ -17,6 +18,7 @@ import {
 	type ModelRegistry,
 	type SessionInfo,
 	SessionManager,
+	type SubagentSnapshot,
 	type ToolDefinition,
 } from "@vetta/coding-agent";
 import type {
@@ -212,11 +214,16 @@ export class RuntimeHost implements SessionFacade {
 		return revokeAllSessionGrants(sessionId);
 	}
 
-	/** 清除指定 session 中所有已结束的后台任务，返回清除数量。 */
+	/**
+	 * 清除指定 session 中已结束的「后台工作」条目（bash 后台任务 + 终端态子代理）。
+	 * 活动面板「清除已结束」共用此入口；返回合计清除数量。
+	 */
 	clearFinishedBackgroundTasks(sessionId: string): number {
 		const handle = this.sessions.get(sessionId);
 		if (!handle) return 0;
-		return handle.session.backgroundTasks.clearFinished();
+		const bash = handle.session.backgroundTasks.clearFinished();
+		const subagents = handle.session.clearFinishedSubagents();
+		return bash + subagents;
 	}
 
 	/**
@@ -237,6 +244,19 @@ export class RuntimeHost implements SessionFacade {
 		const handle = this.sessions.get(sessionId);
 		if (!handle) return [];
 		return handle.session.backgroundTasks.list();
+	}
+
+	/** Full subagent snapshot for UI rehydrate (same role as listBackgroundTasks). */
+	listSubagents(sessionId: string): SubagentSnapshot[] {
+		const handle = this.sessions.get(sessionId);
+		if (!handle) return [];
+		return [...handle.session.listSubagents()];
+	}
+
+	interruptSubagent(sessionId: string, target: string): SubagentSnapshot | undefined {
+		const handle = this.sessions.get(sessionId);
+		if (!handle) return undefined;
+		return handle.session.interruptSubagent(target);
 	}
 
 	/**
@@ -341,6 +361,9 @@ export class RuntimeHost implements SessionFacade {
 			appendSystemPrompt: config.appendSystemPrompt,
 			env: config.env,
 			enableBackgroundTasks: config.enableBackgroundTasks,
+			// Fail-closed product gate: only interactive conversation/project/cli roots.
+			// batch/automation/kb-processing/im-claw stay off until lifecycle is designed.
+			enableSubagents: shouldEnableSubagents(config.scenario),
 			includeAgentSkills: config.includeAgentSkills,
 			agentPlugins: this.withAdditionalSkillPaths(config.agentPlugins),
 			invokePluginTool: this.pluginToolInvoker
@@ -1191,4 +1214,10 @@ export class RuntimeHost implements SessionFacade {
 			},
 		};
 	}
+}
+
+/** Subagents first ship on interactive roots only (docs/agent/vetta). */
+function shouldEnableSubagents(scenario: ConversationScenario | undefined): boolean {
+	const s = scenario ?? DEFAULT_SCENARIO;
+	return s === "conversation" || s === "project" || s === "cli";
 }

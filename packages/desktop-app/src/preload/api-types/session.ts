@@ -57,6 +57,8 @@ export interface DesktopSessionApi {
 	clearFinishedBackgroundTasks(sessionId: string): Promise<number>;
 	/** 用户从 UI 手动终止运行中的后台任务；成功后 agent 会收到 task-notification。 */
 	killBackgroundTask(sessionId: string, taskId: string): Promise<boolean>;
+	/** 中断运行中的子代理（explorer 等）。 */
+	interruptSubagent(sessionId: string, target: string): Promise<boolean>;
 	getSessionPath(sessionId: string): Promise<string | undefined>;
 	updateSettings(sessionId: string, partialSettings: SettingsPatch): Promise<void>;
 	setExecutionMode(sessionId: string, mode: SessionExecutionMode): Promise<void>;

@@ -18,6 +18,12 @@ import { DefaultResourceLoader } from "./resource-loader.js";
 import type { ConversationScenario } from "./session/tool-scope.js";
 import { SessionManager } from "./session-manager.js";
 import { SettingsManager } from "./settings-manager.js";
+import {
+	createDefaultSubagentSessionFactory,
+	createDefaultSubagentTypeRegistry,
+	type SubagentSessionFactory,
+	type SubagentTypeRegistry,
+} from "./subagents/index.js";
 import type {
 	AgentPluginContinuationInvoker,
 	AgentPluginRuntimeConfig,
@@ -145,6 +151,21 @@ export interface CreateAgentSessionOptions {
 	 * 按 session 生命周期编排执行的宿主（如桌面批量任务）应置 false。
 	 */
 	enableBackgroundTasks?: boolean;
+
+	/**
+	 * Enable subagent coordinator + control tools. Fail-closed default: false.
+	 * Desktop/CLI conversation|project|cli should pass true when product-ready.
+	 * Child sessions must leave this false.
+	 */
+	enableSubagents?: boolean;
+	/** Override type registry (default explorer-only when enableSubagents). */
+	subagentTypeRegistry?: SubagentTypeRegistry;
+	/** Override child session factory (desktop injects sandbox-aware factory). */
+	subagentSessionFactory?: SubagentSessionFactory;
+	/** Max concurrent pending/running children (default 3). */
+	subagentMaxConcurrent?: number;
+	/** Disable MCP manager on this session (child sessions pass false). Default true. */
+	enableMcp?: boolean;
 
 	/**
 	 * Vetta 远端服务 URL（拉取 remote models / providers）。当宿主进程已经从环境
@@ -558,6 +579,15 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		memoryCharLimit: options.memoryCharLimit,
 		askUserQuestion: options.askUserQuestion,
 		enableBackgroundTasks: options.enableBackgroundTasks,
+		enableSubagents: options.enableSubagents,
+		subagentTypeRegistry:
+			options.subagentTypeRegistry ?? (options.enableSubagents ? createDefaultSubagentTypeRegistry() : undefined),
+		// Inject createAgentSession so the factory never imports this module (cycle-safe).
+		subagentSessionFactory:
+			options.subagentSessionFactory ??
+			(options.enableSubagents ? createDefaultSubagentSessionFactory(createAgentSession) : undefined),
+		subagentMaxConcurrent: options.subagentMaxConcurrent,
+		enableMcp: options.enableMcp,
 		agentPlugins: options.agentPlugins,
 		invokePluginTool: options.invokePluginTool,
 		invokePluginContinuation: options.invokePluginContinuation,
