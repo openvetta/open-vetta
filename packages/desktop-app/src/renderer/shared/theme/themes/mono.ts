@@ -18,7 +18,13 @@ export const monoTheme: ThemeDef = {
 	},
 	light: {
 		...defaultTheme.light,
+		// 纯白画布；card 用极浅灰分层（侧栏 bg-muted 约 242，与 bg 可辨）
 		background: "rgb(255, 255, 255)",
+		card: "rgb(250, 250, 250)",
+		popover: "rgb(255, 255, 255)",
+		// 比经典浅色 border(213) 更浅，避免灰框过重
+		border: "rgb(230, 230, 230)",
+		input: "rgb(230, 230, 230)",
 		primary: "rgb(0, 0, 0)",
 		primaryForeground: "rgb(255, 255, 255)",
 		ring: "rgb(0, 0, 0)",

@@ -58,6 +58,10 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **「经典」主题浅色 border / card 分层**：`border`/`input` 由 `rgb(213, 213, 216)` 改为 `rgb(230, 230, 230)`；`background` 纯白、`card` 极浅灰 `rgb(250, 250, 250)`（`styles.css` 浅色回退同步）。
+- **「电光」主题浅色 border 过深**：`border`/`input` 由 `rgb(215, 213, 206)` 改为 `rgb(230, 228, 222)`；浅色仍为纯白画布 + `card` `rgb(250, 250, 250)`。
+- **「黑白」主题浅色 card 与背景不可辨**：浅色 `background` 纯白 `rgb(255, 255, 255)`，`card` 改为极浅灰 `rgb(250, 250, 250)` 分层；`popover` 保持纯白。
+- **「黑白」主题浅色 border 过深**：`border`/`input` 由继承经典的 `rgb(213, 213, 216)` 改为 `rgb(230, 230, 230)`，减轻灰框重量。
 - **插件详情卸载确认二次点击**：Sheet（Vaul Drawer）打开时确认框首次点击会关掉 sheet、需再点一次才生效。根因是 modal drawer 把 body 设为 `pointer-events: none`，portaled ConfirmDialog 未恢复点击；现为 ConfirmDialog 加 `pointer-events-auto`，并在确认框打开时阻止 drawer outside dismiss。
 - **Claw / 自动化 / 批量任务卡片网格固定横排**：设置页 Claw 消息渠道、自动化任务列表、批量任务卡片不再随容器/视口宽度在单列与多列间切换，分别固定为 2 列与 3 列横排。
 - **问答面板多题主按钮**：多问题未到最后一题时底部主按钮显示「下一步」（当前题已答即可点），最后一题才显示「提交」；避免未答完全部问题时一直看到置灰的「提交」。

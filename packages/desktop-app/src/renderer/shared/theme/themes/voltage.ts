@@ -38,6 +38,7 @@ export const voltageTheme: ThemeDef = {
 	},
 	light: {
 		...defaultTheme.light,
+		// 纯白画布 + 极浅灰 card；border 用浅暖灰，避免过重
 		background: "rgb(255, 255, 255)",
 		foreground: "rgb(10, 10, 10)",
 		card: "rgb(250, 250, 250)",
@@ -57,8 +58,8 @@ export const voltageTheme: ThemeDef = {
 		accentForeground: "rgb(10, 10, 10)",
 		destructive: "rgb(239, 68, 68)",
 		destructiveForeground: "rgb(255, 255, 255)",
-		border: "rgb(215, 213, 206)",
-		input: "rgb(215, 213, 206)",
+		border: "rgb(230, 228, 222)",
+		input: "rgb(230, 228, 222)",
 		ring: "rgb(161, 98, 7)",
 		chart1: "rgb(250, 255, 105)",
 		chart2: "rgb(59, 130, 246)",

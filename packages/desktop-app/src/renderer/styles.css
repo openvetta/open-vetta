@@ -77,9 +77,9 @@
 [data-mode="light"] {
 	color-scheme: light;
 
-	--background: rgb(252, 252, 252);
+	--background: rgb(255, 255, 255);
 	--foreground: rgb(0, 0, 0);
-	--card: rgb(255, 255, 255);
+	--card: rgb(250, 250, 250);
 	--card-foreground: rgb(0, 0, 0);
 	--popover: rgb(255, 255, 255);
 	--popover-foreground: rgb(0, 0, 0);
@@ -87,14 +87,14 @@
 	--primary-foreground: rgb(255, 255, 255);
 	--secondary: rgb(235, 235, 235);
 	--secondary-foreground: rgb(0, 0, 0);
-	--muted: rgb(245, 245, 245);
+	--muted: rgb(242, 242, 245);
 	--muted-foreground: rgb(82, 82, 82);
 	--accent: rgb(235, 235, 235);
 	--accent-foreground: rgb(0, 0, 0);
 	--destructive: rgb(229, 75, 79);
 	--destructive-foreground: rgb(255, 255, 255);
-	--border: rgb(213, 213, 216);
-	--input: rgb(213, 213, 216);
+	--border: rgb(230, 230, 230);
+	--input: rgb(230, 230, 230);
 	--ring: rgb(79, 70, 229);
 	--chart-1: rgb(255, 174, 4);
 	--chart-2: rgb(45, 98, 239);
