@@ -34,6 +34,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **能力页窄屏 2 列**：能力卡片网格由固定 3 列改为 `grid-cols-2 lg:grid-cols-3`（宽度低于 lg 时两列）。
 - **设置 → 账户 Vetta Go 卡片简化**：去掉 3D 倾斜、浮动光晕、持续弹跳与扫光等装饰动画，改为标准 `bg-card` 边框卡片；信息结构（套餐/额度/模型）不变。
 - **设置 → 账户头像**：由圆形改为圆角矩形（`rounded-2xl`）。
 - **设置「桌宠」更名为「Vetta Vivi」**（侧栏 item 与设置页顶部标题），且桌宠默认开启（无本地配置时 `enabled: true`）。

@@ -135,7 +135,7 @@ export const CapabilitiesPanel = forwardRef<CapabilitiesPanelHandle, Capabilitie
 											</span>
 										</div>
 									)}
-									<div className="grid grid-cols-3 gap-x-3 gap-y-0.5">
+									<div className="grid grid-cols-2 gap-x-3 gap-y-0.5 lg:grid-cols-3">
 										{group.items.map((item) => (
 											<CapabilityCard key={item.id} item={item} model={model} />
 										))}
@@ -144,7 +144,7 @@ export const CapabilitiesPanel = forwardRef<CapabilitiesPanelHandle, Capabilitie
 							))}
 						</div>
 					) : (
-						<div className="grid grid-cols-3 gap-x-3 gap-y-0.5">
+						<div className="grid grid-cols-2 gap-x-3 gap-y-0.5 lg:grid-cols-3">
 							{model.items.map((item) => (
 								<CapabilityCard key={item.id} item={item} model={model} />
 							))}
