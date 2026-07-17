@@ -56,7 +56,7 @@ export const openAction: ActionDefinition = {
 			input: { type: "help" },
 		},
 		{
-			description: "打开扩展（场景/技能/插件/连接器）",
+			description: "打开能力（技能/连接器）",
 			input: { type: "open", target: "skills" },
 		},
 		{

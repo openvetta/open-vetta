@@ -74,7 +74,7 @@ const DOMAIN_KEYWORDS: Record<string, readonly string[]> = {
 	scheduler: ["定时", "定时任务", "计划任务", "自动化", "cron", "schedule", "调度"],
 	models: ["模型", "model", "provider", "服务商", "defaultModel", "API Key"],
 	mcp: ["mcp", "MCP", "服务器", "tools"],
-	skills: ["技能", "skill", "scene", "技能广场"],
+	skills: ["技能", "能力", "skill", "scene", "技能广场", "扩展"],
 	projects: ["项目", "project", "会话", "session", "侧边栏", "归档"],
 	general: ["通用", "general", "通知", "workspace", "工作区", "沙盒", "执行模式", "settings"],
 	agent: ["agent", "Agent", "实验", "experimental", "Vetta CLI", "输入预测", "agentSkills"],

@@ -970,7 +970,7 @@
       "agent": "e.g. Pick a pragmatic persona and write custom instructions…"
     },
     "context": {
-      "mcp": "Extensions → Connectors",
+      "mcp": "Capabilities → Connectors",
       "models": "Settings → Models",
       "knowledge": "Settings → Knowledge base",
       "knowledgeBase": "Knowledge base",
