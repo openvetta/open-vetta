@@ -32,7 +32,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
-- **设置「桌宠」更名为「vivi」**（侧栏 item 与设置页顶部标题），且桌宠默认开启（无本地配置时 `enabled: true`）。
+- **设置「桌宠」更名为「Vetta Vivi」**（侧栏 item 与设置页顶部标题），且桌宠默认开启（无本地配置时 `enabled: true`）。
 - **「黑白」主题配色**：深色 `background` `#0a0a0a`、`muted` `#161616`、`card` `#121212`；深色 `popover`/`border`/`input` 改为中性灰；深色 `accent`（hover）抬到 `rgb(48, 48, 48)`，与 popover 拉开侧栏设置菜单 hover；浅色 `card` `#f8f8f8`、`muted` `#fafafa`、`secondary` `#f0f0f1`、`border`/`input` `#eeeeee`、`accent` 调浅；浅色侧栏选中 `bg-primary/15` 压到约 7%/5% 叠色。
 - **能力列表排序**：固定为内置 MCP → 远程 MCP → 手动 MCP → 自定义 skill → 远程/市场 skill（同类内仍按安装态/可更新/热度/标题）。
 - **Skill 默认图标**：未配置 icon 时使用 3D 方块 SVG（浅色 `#1C274C` / 深色白色），能力卡片、Skill 卡片与详情 dialog 共用。
