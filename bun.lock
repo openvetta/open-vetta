@@ -170,7 +170,7 @@
     },
     "packages/desktop-app": {
       "name": "@vetta/desktop-app",
-      "version": "0.4.27",
+      "version": "0.5.1",
       "dependencies": {
         "@dagrejs/dagre": "^3.0.0",
         "@fontsource-variable/geist": "^5.2.8",
@@ -378,6 +378,7 @@
         "tailwindcss": "^4.1.18",
       },
       "devDependencies": {
+        "@lobehub/icons-static-avatar": "^1.13.0",
         "@types/node": "^25.0.2",
         "@types/react": "^19.2.7",
         "@types/react-dom": "^19.2.3",
@@ -853,6 +854,8 @@
     "@langfuse/otel": ["@langfuse/otel@5.4.1", "https://registry.npmmirror.com/@langfuse/otel/-/otel-5.4.1.tgz", { "dependencies": { "@langfuse/core": "^5.4.1" }, "peerDependencies": { "@opentelemetry/api": "^1.9.0", "@opentelemetry/core": "^2.0.1", "@opentelemetry/exporter-trace-otlp-http": ">=0.202.0 <1.0.0", "@opentelemetry/sdk-trace-base": "^2.0.1" } }, "sha512-w69aVC2fTmd7hyCTaX8zhhivHlsGVgZ551XOf6yMSOi3k8tlDML4dinnjJUP/6qTvdH54NYcmAIp5KZRbkouxg=="],
 
     "@langfuse/tracing": ["@langfuse/tracing@5.4.1", "https://registry.npmmirror.com/@langfuse/tracing/-/tracing-5.4.1.tgz", { "dependencies": { "@langfuse/core": "^5.4.1" }, "peerDependencies": { "@opentelemetry/api": "^1.9.0" } }, "sha512-nPyoPXXNMaJgaUZgIE0haWI/hrT7l4r/irp0o/FGaBYR2V07EFNvSKFcqOsX1pQvVvB6HyfNlYQm7AoQJj+fqQ=="],
+
+    "@lobehub/icons-static-avatar": ["@lobehub/icons-static-avatar@1.13.0", "https://registry.npmmirror.com/@lobehub/icons-static-avatar/-/icons-static-avatar-1.13.0.tgz", {}, "sha512-U5X6ScZe1XIJSncQO4dWlabG41/nPshDXpxXDBF0FqLulUPSWRrCMdOmMqEkmvjUmA4X11fAX/4EJVn3ISN56Q=="],
 
     "@malept/cross-spawn-promise": ["@malept/cross-spawn-promise@2.0.0", "https://registry.npmmirror.com/@malept/cross-spawn-promise/-/cross-spawn-promise-2.0.0.tgz", { "dependencies": { "cross-spawn": "^7.0.1" } }, "sha512-1DpKU0Z5ThltBwjNySMC14g0CkbyhCaz9FkhxqNsZI6uAPJXFS8cMXlBKo26FJ8ZuW6S9GCMcR9IO5k2X5/9Fg=="],
 
