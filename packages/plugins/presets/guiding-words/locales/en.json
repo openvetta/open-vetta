@@ -1,10 +1,10 @@
 {
 	"plugin.name": "How Can I Help",
 	"plugin.description": "A set of handy starter prompts to begin a chat from the new-session welcome page.",
-	"guidingWords.narrative": "Write me a 500-word short narrative",
-	"guidingWords.wordToPdf": "Convert my Word document to PDF",
-	"guidingWords.cleanCache": "Analyze my computer cache and clean it up",
-	"guidingWords.weekPlan": "Draft a work plan for this week",
-	"guidingWords.meetingMinutes": "Draft a set of meeting minutes",
-	"guidingWords.classifyDesktop": "Organize and classify the files on my desktop"
+	"guidingWords.webSearchMcp": "Connect a web search MCP so I can look up the latest news",
+	"guidingWords.openPetSettings": "Open the desktop pet settings page for me",
+	"guidingWords.drinkWalkReminder": "Set a reminder to drink water and get up to stretch",
+	"guidingWords.knowledgeFromDesktop": "Create a knowledge base and import documents from my desktop",
+	"guidingWords.whatPlugins": "What plugins can I install? What features can I use?",
+	"guidingWords.shortStorySkills": "I want to write a short story — which capabilities should I pick?"
 }
