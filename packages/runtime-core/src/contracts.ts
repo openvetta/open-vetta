@@ -403,6 +403,28 @@ export interface BackgroundTasksUpdateEvent extends SessionEventBase {
 	tasks: BackgroundTaskInfo[];
 }
 
+/** Subagent child snapshot (full list on each update; mirrors background_tasks_update). */
+export interface SubagentInfo {
+	id: string;
+	taskName: string;
+	path: string;
+	agentType: string;
+	status: "pending" | "running" | "completed" | "failed" | "interrupted";
+	task: string;
+	parentSessionId: string;
+	sessionFile?: string;
+	startedAt: number;
+	endedAt?: number;
+	finalText?: string;
+	errorMessage?: string;
+	generation: number;
+}
+
+export interface SubagentsUpdateEvent extends SessionEventBase {
+	type: "subagents_update";
+	agents: SubagentInfo[];
+}
+
 export interface CompactionStartEvent extends SessionEventBase {
 	type: "compaction.start";
 	reason: "threshold" | "overflow";
@@ -494,6 +516,7 @@ export type SessionEvent =
 	| ErrorEvent
 	| TodoUpdateEvent
 	| BackgroundTasksUpdateEvent
+	| SubagentsUpdateEvent
 	| CompactionStartEvent
 	| CompactionEndEvent;
 

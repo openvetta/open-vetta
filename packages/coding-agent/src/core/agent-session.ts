@@ -57,6 +57,7 @@ import type {
 } from "./session/types.js";
 import type { BranchSummaryEntry, SessionManager } from "./session-manager.js";
 import type { SettingsManager } from "./settings-manager.js";
+import { createDefaultSubagentTypeRegistry, SubagentCoordinator, type SubagentSnapshot } from "./subagents/index.js";
 import type { AgentPluginRuntimeConfig } from "./system-prompt.js";
 import { TODO_SNAPSHOT_TYPE, TodoStore } from "./todo-store.js";
 import type { BashOperations } from "./tools/bash/index.js";
@@ -116,6 +117,9 @@ export class AgentSession {
 
 	// Bash execution. State owned by the controller.
 	private _bash: BashController;
+
+	// Subagent coordinator (optional, root sessions only).
+	private _subagents?: SubagentCoordinator;
 
 	// Tool runtime + extension lifecycle + MCP. State owned by the manager.
 	private _runtime: RuntimeManager;
@@ -245,11 +249,40 @@ export class AgentSession {
 
 		this._backgroundTasks = new BackgroundTaskManager();
 
+		if (config.enableSubagents && config.subagentSessionFactory) {
+			const typeRegistry = config.subagentTypeRegistry ?? createDefaultSubagentTypeRegistry();
+			this._subagents = new SubagentCoordinator({
+				factory: config.subagentSessionFactory,
+				typeRegistry,
+				parentSessionId: this.sessionManager.getSessionId(),
+				parentSessionFile: this.sessionManager.getSessionFile(),
+				cwd: config.cwd,
+				scenario: config.scenario ?? "cli",
+				getModel: () => this.model,
+				getThinkingLevel: () => this.thinkingLevel,
+				getParentMcpTools: () => this._runtime?.mcpManager?.getTools() ?? [],
+				agentDir: undefined,
+				maxConcurrent: config.subagentMaxConcurrent,
+				onUpdate: (agents) => {
+					this._emit({ type: "subagents_update", agents });
+				},
+				onNotify: (payload) => {
+					void this.sendCustomMessage(
+						{ customType: "subagent-notification", content: payload.text, display: true },
+						{ triggerTurn: true, deliverAs: "followUp" },
+					).catch((err) => {
+						console.error("[Subagents] Failed to deliver subagent notification:", err);
+					});
+				},
+			});
+		}
+
 		this._runtime = new RuntimeManager(this._ctx, this, {
 			resourceLoader: this._resourceLoader,
 			todoStore: this._todoStore,
 			backgroundTasks: this._backgroundTasks,
 			enableBackgroundTasks: config.enableBackgroundTasks !== false,
+			getSubagentCoordinator: () => this._subagents,
 			customTools: config.customTools ?? [],
 			baseToolsOverride: config.baseToolsOverride,
 			envOverlay: config.envOverlay,
@@ -334,6 +367,29 @@ export class AgentSession {
 		return this._modelRegistry;
 	}
 
+	/** Subagent coordinator when enableSubagents is on; undefined otherwise. */
+	get subagents(): SubagentCoordinator | undefined {
+		return this._subagents;
+	}
+
+	/** Snapshot list of child subagents (empty when disabled). */
+	listSubagents(): ReadonlyArray<SubagentSnapshot> {
+		return this._subagents?.list() ?? [];
+	}
+
+	/** Interrupt a child by id / task_name / path (UI / host control). */
+	interruptSubagent(target: string): SubagentSnapshot | undefined {
+		return this._subagents?.interrupt(target);
+	}
+
+	/**
+	 * Drop terminal subagents from the live registry (UI "clear finished").
+	 * Does not delete child transcript files on disk.
+	 */
+	clearFinishedSubagents(): number {
+		return this._subagents?.clearFinished() ?? 0;
+	}
+
 	/** MCP manager for managing MCP servers and tools */
 	get mcpManager(): McpManager | undefined {
 		return this._runtime.mcpManager;
@@ -406,6 +462,10 @@ export class AgentSession {
 	dispose(): void {
 		this._disconnectFromAgent();
 		this._eventListeners = [];
+
+		// Tear down children first so they cannot notify a disposed parent.
+		void this._subagents?.dispose();
+		this._subagents = undefined;
 
 		// Kill any still-running background tasks (lifecycle bound to the session).
 		this._backgroundTasks.killAll();

@@ -3,14 +3,18 @@ import {
 	type BackgroundTask,
 	backgroundTasksBySessionAtom,
 	getBackgroundTasksForSession,
+	getSubagentsForSession,
+	isSubagentActive,
+	type SubagentTask,
+	subagentsBySessionAtom,
 } from "@shared/store/atoms";
-import type { BackgroundTaskViewItem } from "@vetta/theme-ui/activity";
+import type { BackgroundWorkViewItem } from "@vetta/theme-ui/activity";
 import type { TFunction } from "i18next";
 import { useAtomValue } from "jotai";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-function statusMeta(
+function bashStatusMeta(
 	status: BackgroundTask["status"],
 	t: TFunction<"chat">,
 ): { icon: string; label: string; className: string } {
@@ -42,6 +46,44 @@ function statusMeta(
 	}
 }
 
+function subagentStatusMeta(
+	status: SubagentTask["status"],
+	t: TFunction<"chat">,
+): { icon: string; label: string; className: string } {
+	switch (status) {
+		case "pending":
+			return {
+				icon: "icon-[mdi--clock-outline]",
+				label: t("activityPanel.backgroundTasks.subagentStatusPending"),
+				className: "text-muted-foreground",
+			};
+		case "running":
+			return {
+				icon: "icon-[mdi--loading] animate-spin",
+				label: t("activityPanel.backgroundTasks.statusRunning"),
+				className: "text-blue-500",
+			};
+		case "completed":
+			return {
+				icon: "icon-[mdi--check-circle-outline]",
+				label: t("activityPanel.backgroundTasks.statusCompleted"),
+				className: "text-emerald-600",
+			};
+		case "failed":
+			return {
+				icon: "icon-[mdi--close-circle-outline]",
+				label: t("activityPanel.backgroundTasks.statusFailed"),
+				className: "text-destructive",
+			};
+		case "interrupted":
+			return {
+				icon: "icon-[mdi--stop-circle-outline]",
+				label: t("activityPanel.backgroundTasks.subagentStatusInterrupted"),
+				className: "text-muted-foreground",
+			};
+	}
+}
+
 function formatDuration(startedAt: number, endedAt: number | undefined, now: number, t: TFunction<"chat">): string {
 	const ms = Math.max(0, (endedAt ?? now) - startedAt);
 	const sec = Math.floor(ms / 1000);
@@ -52,9 +94,10 @@ function formatDuration(startedAt: number, endedAt: number | undefined, now: num
 	return t("activityPanel.backgroundTasks.durationHour", { hr, min: min % 60 });
 }
 
-function toViewItem(task: BackgroundTask, now: number, t: TFunction<"chat">): BackgroundTaskViewItem {
-	const meta = statusMeta(task.status, t);
+function toBashItem(task: BackgroundTask, now: number, t: TFunction<"chat">): BackgroundWorkViewItem {
+	const meta = bashStatusMeta(task.status, t);
 	return {
+		kind: "bash",
 		id: task.id,
 		command: task.command,
 		status: task.status,
@@ -67,26 +110,46 @@ function toViewItem(task: BackgroundTask, now: number, t: TFunction<"chat">): Ba
 	};
 }
 
+function toSubagentItem(agent: SubagentTask, now: number, t: TFunction<"chat">): BackgroundWorkViewItem {
+	const meta = subagentStatusMeta(agent.status, t);
+	return {
+		kind: "subagent",
+		id: agent.id,
+		agentType: agent.agentType,
+		taskName: agent.taskName,
+		path: agent.path,
+		status: agent.status,
+		taskPreview: agent.task,
+		finalText: agent.finalText,
+		errorMessage: agent.errorMessage,
+		statusIcon: meta.icon,
+		statusLabel: meta.label,
+		statusClassName: meta.className,
+		durationLabel: formatDuration(agent.startedAt, agent.endedAt, now, t),
+	};
+}
+
 export interface BackgroundTasksTabPanelModel {
-	items: BackgroundTaskViewItem[];
+	items: BackgroundWorkViewItem[];
 	emptyLabel: string;
 	clearFinishedLabel: string | null;
 	onClearFinished: () => void;
 	stopLabel: string;
-	onStop: (taskId: string) => void;
+	onStop: (id: string, kind: "bash" | "subagent") => void;
 }
 
 export function useBackgroundTasksTabPanelModel(): BackgroundTasksTabPanelModel {
 	const { t } = useTranslation("chat");
 	const tasksMap = useAtomValue(backgroundTasksBySessionAtom);
+	const subagentsMap = useAtomValue(subagentsBySessionAtom);
 	const activeSession = useAtomValue(activeSessionAtom);
-	const tasks = useMemo(
-		() => getBackgroundTasksForSession(tasksMap, activeSession?.runtimeId ?? null),
-		[tasksMap, activeSession?.runtimeId],
-	);
+	const sessionId = activeSession?.runtimeId ?? null;
 
-	// 运行中任务的时长每秒刷新
-	const hasRunning = tasks.some((task) => task.status === "running");
+	const bashTasks = useMemo(() => getBackgroundTasksForSession(tasksMap, sessionId), [tasksMap, sessionId]);
+	const subagents = useMemo(() => getSubagentsForSession(subagentsMap, sessionId), [subagentsMap, sessionId]);
+
+	const hasRunning =
+		bashTasks.some((task) => task.status === "running") || subagents.some((a) => isSubagentActive(a.status));
 	const [now, setNow] = useState(() => Date.now());
 	useEffect(() => {
 		if (!hasRunning) return;
@@ -94,32 +157,40 @@ export function useBackgroundTasksTabPanelModel(): BackgroundTasksTabPanelModel 
 		return () => window.clearInterval(id);
 	}, [hasRunning]);
 
-	const sessionId = activeSession?.runtimeId;
-	const finishedCount = tasks.length - tasks.filter((task) => task.status === "running").length;
+	const finishedBashCount = bashTasks.filter((task) => task.status !== "running").length;
+	const finishedSubagentCount = subagents.filter((a) => !isSubagentActive(a.status)).length;
+	const finishedCount = finishedBashCount + finishedSubagentCount;
+
 	const handleClearFinished = useCallback(() => {
 		if (!sessionId) return;
-		// 清理落在主进程注册表（数据源），随后的 background_tasks_update 全量
-		// 快照事件会驱动本地 atom 更新，无需乐观更新。
+		// Host clears both bash finished tasks and terminal subagents, then emits
+		// background_tasks_update + subagents_update (or empty snapshots).
 		void window.vetta.session.clearFinishedBackgroundTasks(sessionId);
 	}, [sessionId]);
 
 	const handleStop = useCallback(
-		(taskId: string) => {
+		(id: string, kind: "bash" | "subagent") => {
 			if (!sessionId) return;
-			// 主进程 kill(reason=user) → 进程结束后 onNotify 注入 task-notification 唤醒 agent。
-			void window.vetta.session.killBackgroundTask(sessionId, taskId);
+			if (kind === "bash") {
+				void window.vetta.session.killBackgroundTask(sessionId, id);
+			} else {
+				void window.vetta.session.interruptSubagent?.(sessionId, id);
+			}
 		},
 		[sessionId],
 	);
 
-	const items = useMemo(
-		() =>
-			tasks
-				.slice()
-				.sort((a, b) => b.startedAt - a.startedAt)
-				.map((task) => toViewItem(task, now, t)),
-		[tasks, now, t],
-	);
+	const items = useMemo(() => {
+		const bashItems = bashTasks.map((task) => ({
+			sortAt: task.startedAt,
+			item: toBashItem(task, now, t),
+		}));
+		const subItems = subagents.map((agent) => ({
+			sortAt: agent.startedAt,
+			item: toSubagentItem(agent, now, t),
+		}));
+		return [...bashItems, ...subItems].sort((a, b) => b.sortAt - a.sortAt).map((row) => row.item);
+	}, [bashTasks, subagents, now, t]);
 
 	return {
 		items,

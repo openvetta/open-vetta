@@ -14,6 +14,9 @@ export type {
 	BackgroundTaskStatus,
 	BackgroundTasksTabPanelViewProps,
 	BackgroundTaskViewItem,
+	BackgroundWorkViewItem,
+	SubagentWorkStatus,
+	SubagentWorkViewItem,
 } from "./BackgroundTasksTabPanelView";
 export { BackgroundTasksTabPanelView } from "./BackgroundTasksTabPanelView";
 export type { BatchProgressTabPanelViewProps } from "./BatchProgressTabPanelView";

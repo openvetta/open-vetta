@@ -42,11 +42,13 @@ import {
 	promptSuggestionsAtom,
 	reasoningByModelAtom,
 	type SessionExecutionMode,
+	type SubagentTask,
 	selectedModelAtom,
 	selectedSkillAtom,
 	sendMessageFnRef,
 	sessionExecutionModeAtom,
 	sessionsMapAtom,
+	subagentsBySessionAtom,
 	type TodoItem,
 	todoItemsBySessionAtom,
 } from "@shared/store/atoms";
@@ -144,6 +146,7 @@ export function useSessionManager(): SessionManagerResult {
 	const setCurrentScenario = useSetAtom(currentScenarioAtom);
 	const setTodoItems = useSetAtom(todoItemsBySessionAtom);
 	const setBackgroundTasks = useSetAtom(backgroundTasksBySessionAtom);
+	const setSubagents = useSetAtom(subagentsBySessionAtom);
 	// sendMessage 需要读「当前 session 的 todo 状态」决定是否在下一个 prompt 前清空。
 	// 用 ref 镜像，避免在 useCallback 闭包里拿到旧值或让 sendMessage 依赖 atom 频繁变化。
 	const todoItemsMap = useAtomValue(todoItemsBySessionAtom);
@@ -763,6 +766,24 @@ export function useSessionManager(): SessionManagerResult {
 					return;
 				}
 
+				// ── Subagents update (explorer children, etc.) ──
+				if (event.type === "subagents_update") {
+					const sid = activeSessionRef.current?.runtimeId;
+					if (sid) {
+						const agents = ((event as { agents?: unknown[] }).agents ?? []) as SubagentTask[];
+						setSubagents((prev) => {
+							const next = new Map(prev);
+							if (agents.length > 0) {
+								next.set(sid, agents);
+							} else {
+								next.delete(sid);
+							}
+							return next;
+						});
+					}
+					return;
+				}
+
 				// ── Todo update ──
 				if (event.type === "todo_update") {
 					const sid = activeSessionRef.current?.runtimeId;
@@ -835,8 +856,9 @@ export function useSessionManager(): SessionManagerResult {
 			setActiveToolNames,
 			setCurrentScenario,
 			setSelectedModel,
-			setTodoItems,
 			setBackgroundTasks,
+			setSubagents,
+			setTodoItems,
 			flushDeltas,
 			scheduleDeltaFlush,
 			applyLocalRename,

@@ -27,6 +27,8 @@ import {
 import { wrapToolsWithEcosystemHooks } from "../hooks/index.js";
 import { createMcpManager, type McpManager } from "../mcp/index.js";
 import type { ResourceExtensionPaths, ResourceLoader } from "../resource-loader.js";
+import type { SubagentCoordinator } from "../subagents/index.js";
+import { createSubagentControlTools } from "../subagents/index.js";
 import type {
 	AgentPluginContinuationInvoker,
 	AgentPluginContinuationResult,
@@ -80,6 +82,8 @@ export interface RuntimeManagerOptions {
 	backgroundTasks: BackgroundTaskManager;
 	/** false 时 bash/shell 禁用 run_in_background，且不注册 task_output/task_stop */
 	enableBackgroundTasks: boolean;
+	/** When set and returns a coordinator, registers spawn/wait/list/… tools. */
+	getSubagentCoordinator?: () => SubagentCoordinator | undefined;
 	/** Runtime plugin contributions applied while building agent resources. */
 	agentPlugins?: AgentPluginRuntimeConfig;
 	/** Host bridge used by plugin-contributed tools. */
@@ -106,6 +110,7 @@ export class RuntimeManager {
 	private readonly _askUserQuestion?: AskUserQuestionCapability;
 	private readonly _backgroundTasks: BackgroundTaskManager;
 	private readonly _enableBackgroundTasks: boolean;
+	private readonly _getSubagentCoordinator?: () => SubagentCoordinator | undefined;
 	private _agentPlugins?: AgentPluginRuntimeConfig;
 	private readonly _invokePluginTool?: AgentPluginToolInvoker;
 	private readonly _invokePluginContinuation?: AgentPluginContinuationInvoker;
@@ -159,6 +164,7 @@ export class RuntimeManager {
 		this._askUserQuestion = opts.askUserQuestion;
 		this._backgroundTasks = opts.backgroundTasks;
 		this._enableBackgroundTasks = opts.enableBackgroundTasks;
+		this._getSubagentCoordinator = opts.getSubagentCoordinator;
 		this._agentPlugins = opts.agentPlugins;
 		this._invokePluginTool = opts.invokePluginTool;
 		this._invokePluginContinuation = opts.invokePluginContinuation;
@@ -1005,6 +1011,15 @@ export class RuntimeManager {
 		if (this._enableBackgroundTasks) {
 			baseTools.task_output = createTaskOutputTool({ getManager: () => this._backgroundTasks });
 			baseTools.task_stop = createTaskStopTool({ getManager: () => this._backgroundTasks });
+		}
+
+		// Root-only subagent control tools (never on child sessions).
+		if (this._getSubagentCoordinator?.()) {
+			for (const tool of createSubagentControlTools({
+				getCoordinator: () => this._getSubagentCoordinator?.(),
+			})) {
+				baseTools[tool.name] = tool as AgentTool<any>;
+			}
 		}
 
 		// Add ask_user_question only when the host exposes the capability (capability=registration).

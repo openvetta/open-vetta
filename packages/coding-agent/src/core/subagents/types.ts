@@ -1,0 +1,191 @@
+/**
+ * Subagent public types and factory contracts.
+ *
+ * Agent *kinds* are not a closed union in product code: new types register via
+ * {@link SubagentTypeRegistry}. Built-in ids (e.g. `"explorer"`) are constants
+ * only; tools and the factory resolve behaviour through the registry.
+ */
+
+import type { AgentTool, ThinkingLevel } from "@vetta/agent-core";
+import type { Model } from "@vetta/ai";
+import type { ConversationScenario } from "../session/tool-scope.js";
+
+/** Stable builtin type id for the read-only explorer (first shipped type). */
+export const SUBAGENT_TYPE_EXPLORER = "explorer" as const;
+
+/**
+ * Subagent type id. Built-ins use known string constants; custom types may use
+ * any non-empty id registered on the session's {@link SubagentTypeRegistry}.
+ */
+export type SubagentTypeId = string;
+
+export type SubagentStatus = "pending" | "running" | "completed" | "failed" | "interrupted";
+
+export interface SubagentUsageSnapshot {
+	input: number;
+	output: number;
+	cacheRead: number;
+	cacheWrite: number;
+	costTotal: number;
+}
+
+/** Serializable child state for tools, events, and desktop UI. */
+export interface SubagentSnapshot {
+	id: string;
+	taskName: string;
+	path: string;
+	agentType: SubagentTypeId;
+	status: SubagentStatus;
+	task: string;
+	parentSessionId: string;
+	sessionFile?: string;
+	startedAt: number;
+	endedAt?: number;
+	finalText?: string;
+	errorMessage?: string;
+	usage: SubagentUsageSnapshot;
+	/** Monotonic completion generation for single-delivery notifications. */
+	generation: number;
+}
+
+export interface SubagentSpawnRequest {
+	taskName: string;
+	message: string;
+	agentType: SubagentTypeId;
+}
+
+export interface SubagentParentContext {
+	parentSessionId: string;
+	parentSessionFile?: string;
+	cwd: string;
+	scenario: ConversationScenario;
+	model: Model<any>;
+	thinkingLevel: ThinkingLevel;
+	agentDir?: string;
+	/** Live MCP tools from the parent session (proxy, not re-spawned). */
+	parentMcpTools: ReadonlyArray<AgentTool>;
+}
+
+/**
+ * How a registered type assembles child tools and prompt policy.
+ * Horizontal expansion = register another definition; coordinator stays generic.
+ */
+export interface SubagentTypeDefinition {
+	/** Unique type id (e.g. `"explorer"`, future `"worker"`). */
+	id: SubagentTypeId;
+	/** Short label for UI / tool docs. */
+	label: string;
+	/** Longer description injected into spawn_agent tool docs. */
+	description: string;
+	/**
+	 * Build the type's *builtin* tool set for a child cwd.
+	 * Must not include subagent control tools (spawn/list/wait/…).
+	 */
+	createBuiltinTools: (cwd: string) => AgentTool[];
+	/**
+	 * When true, parent MCP tools are appended to the child tool surface
+	 * (shared parent connections; no new MCP process).
+	 */
+	inheritParentMcp: boolean;
+	/** Appended to the child system prompt (persona / constraints). */
+	systemPromptAddon: string;
+	/**
+	 * Optional hard denylist of tool name prefixes after MCP merge
+	 * (e.g. future worker-only filters). Default: none.
+	 */
+	denyToolNamePrefixes?: readonly string[];
+}
+
+/**
+ * Creates a full child {@link import("../agent-session.js").AgentSession}.
+ * Hosts (desktop RuntimeHost) inject sandbox-aware factories; CLI uses default.
+ */
+export interface SubagentSessionFactory {
+	create(
+		request: SubagentSpawnRequest,
+		parent: SubagentParentContext,
+		typeDef: SubagentTypeDefinition,
+		signal?: AbortSignal,
+	): Promise<SubagentChildHandle>;
+	reopen?(
+		snapshot: SubagentSnapshot,
+		parent: SubagentParentContext,
+		typeDef: SubagentTypeDefinition,
+		signal?: AbortSignal,
+	): Promise<SubagentChildHandle>;
+}
+
+/**
+ * Minimal surface the coordinator needs on a live child session.
+ * Avoids circular imports on the full AgentSession class.
+ */
+export interface SubagentChildHandle {
+	sessionId: string;
+	sessionFile?: string;
+	prompt(text: string): Promise<void>;
+	/** Queue message for next turn without starting a run (idle/running). */
+	sendMessage(text: string): Promise<void>;
+	/** Continue after terminal or during run (follow-up semantics). */
+	followUp(text: string): Promise<void>;
+	abort(): void;
+	waitForIdle(): Promise<void>;
+	isStreaming(): boolean;
+	getLastAssistantText(): string | undefined;
+	dispose(): void;
+	subscribe(listener: (event: { type: string; messages?: unknown[] }) => void): () => void;
+}
+
+export interface SubagentCoordinatorOptions {
+	factory: SubagentSessionFactory;
+	typeRegistry: SubagentTypeRegistryLike;
+	parentSessionId: string;
+	parentSessionFile?: string;
+	cwd: string;
+	scenario: ConversationScenario;
+	getModel: () => Model<any> | undefined;
+	getThinkingLevel: () => ThinkingLevel;
+	getParentMcpTools: () => ReadonlyArray<AgentTool>;
+	agentDir?: string;
+	/** Default 3. Only pending/running count. */
+	maxConcurrent?: number;
+	/** Notify parent agent loop (completion delivery). */
+	onNotify?: (payload: SubagentNotificationPayload) => void;
+	/** Snapshot list changed (UI). */
+	onUpdate?: (agents: ReadonlyArray<SubagentSnapshot>) => void;
+}
+
+export interface SubagentNotificationPayload {
+	agents: ReadonlyArray<SubagentSnapshot>;
+	text: string;
+}
+
+/** Narrow registry surface for coordinator (testable without concrete class). */
+export interface SubagentTypeRegistryLike {
+	get(id: SubagentTypeId): SubagentTypeDefinition | undefined;
+	list(): readonly SubagentTypeDefinition[];
+	ids(): readonly SubagentTypeId[];
+	describeForTools(): string;
+}
+
+export const TASK_NAME_PATTERN = /^[a-z][a-z0-9_]*$/;
+
+export function isValidTaskName(name: string): boolean {
+	return name.length > 0 && name !== "root" && TASK_NAME_PATTERN.test(name);
+}
+
+export function taskPath(taskName: string): string {
+	return `/root/${taskName}`;
+}
+
+export function emptyUsage(): SubagentUsageSnapshot {
+	return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, costTotal: 0 };
+}
+
+/** Max characters of finalText delivered via wait/notification (full text stays in transcript). */
+export const SUBAGENT_FINAL_TEXT_LIMIT = 16 * 1024;
+
+export function clipFinalText(text: string | undefined, limit = SUBAGENT_FINAL_TEXT_LIMIT): string | undefined {
+	if (text === undefined) return undefined;
+	if (text.length <= limit) return text;
+	return `${text.slice(0, limit)}\n…[truncated ${text.length - limit} chars; see child transcript]`;
+}

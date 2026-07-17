@@ -13,6 +13,8 @@
 			"statusCompleted": "已完成",
 			"statusFailed": "失败",
 			"statusKilled": "已终止",
+			"subagentStatusPending": "排队中",
+			"subagentStatusInterrupted": "已中断",
 			"durationSec": "{{sec}} 秒",
 			"durationMin": "{{min}} 分 {{sec}} 秒",
 			"durationHour": "{{hr}} 小时 {{min}} 分",

@@ -208,18 +208,20 @@ Vetta 当前 agent loop 只会在工具完成点检查 steering，并没有 Code
 
 ## 2.7 内置 Agent 类型与工具能力
 
-### `explorer`
+类型定义通过 `SubagentTypeRegistry` 注册。Coordinator / 控制工具对 type id 无硬编码分支。
 
-- 使用 `createReadOnlyTools(cwd)` 对应的 `read/grep/glob/find/ls/dir_tree`；
-- 不暴露 edit/write/bash/shell/todo/ask/subagent 工具；
-- system prompt 强调只读探索、绝对路径、证据和简洁结论。
+### `explorer`（首版唯一内置）
 
-### `worker`
+- `createBuiltinTools` → `createReadOnlyTools(cwd)`（read/grep/glob/find/ls/dir_tree）；
+- `inheritParentMcp: true`：代理父会话**全部已连接 MCP 工具**（不另起 MCP 进程；可写 MCP 残留风险靠人设约束，二期可收紧）；
+- 不暴露 edit/write/bash/shell/todo/ask/subagent 控制工具；
+- system prompt：探索/补信息、可联网搜、不改仓库；最终改内容归 root。
 
-- 使用当前 `createCodingTools(cwd)` 的工具名集合；
-- 由 factory 用父宿主的有效实现覆盖同名工具，确保 sandbox/full-access 不漂移；
-- 不暴露 ask_user_question 和 subagent 工具；
-- system prompt 强调任务边界、写集所有权、不能回滚他人修改、必须报告改动文件和验证结果。
+### 横向扩展（例：`worker`，未实现）
+
+- 新增 `types/worker.ts` + `registry.register(...)`；
+- `createBuiltinTools` 用 coding tools；`inheritParentMcp` 按需；
+- factory 仍按 typeDef 装配，coordinator 无需改。
 
 ### 权限不增原则
 
