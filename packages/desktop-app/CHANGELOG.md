@@ -6,6 +6,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **外观设置「界面主题」环境开关**：`VETTA_SHOW_UI_THEME=true` 时在设置 → 外观展示 default / xianxia 界面主题选择（含预览与不可用锁定态）；默认不展示。颜色主题仍仅在 default 界面主题下显示。
 - **内置 Agent Skills**：构建时从 `packages/skill-presets` 按 `skills-manifest.json` 打包启用的 Skill，并内置 `create-skill`。
 - **技能市场图标**：展示服务端下发的 `icon`（上传图 / `solar:xxx-bold`）；未配置时仍用 capability/scene 默认图标。
 - **会话 / Skill 列表 info 日志（测试可观测）**：`session created` 记 sessionId、cwd、kind、scenario、`includeAgentSkills`；`skills.list` 记 cwd、按 source 计数与名称。使用 `getAppLogger("session"|"skills")`。

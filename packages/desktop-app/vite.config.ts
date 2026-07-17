@@ -1,9 +1,7 @@
 import path, { resolve } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig, type Plugin } from "vite";
-
-const themeDevelopmentEnabled = process.env.VETTA_THEME_DEV_SERVER === "1";
+import { defineConfig, loadEnv, type Plugin } from "vite";
 
 function themeDevelopmentReload(): Plugin {
 	const themeSourceDir = resolve(__dirname, "../themes/builtin/xianxia/src");
@@ -28,34 +26,45 @@ function themeDevelopmentReload(): Plugin {
 	};
 }
 
-export default defineConfig({
-	plugins: [react(), tailwindcss(), ...(themeDevelopmentEnabled ? [themeDevelopmentReload()] : [])],
-	root: "src/renderer",
-	base: "./",
-	resolve: {
-		alias: {
-			"@shared": path.resolve(__dirname, "./src/renderer/shared"),
-			"@domains": path.resolve(__dirname, "./src/renderer/domains"),
-			"@vetta/theme-sdk": path.resolve(__dirname, "../theme-sdk/src"),
-			"@vetta/theme-ui": path.resolve(__dirname, "../theme-ui/src"),
-			"@vetta/ui": path.resolve(__dirname, "../ui/src/index.ts"),
-			"@": path.resolve(__dirname, "./src"),
-		}
-	},
-	build: {
-		outDir: resolve(process.cwd(), "dist/renderer"),
-		emptyOutDir: false,
-		rollupOptions: {
-			input: {
-				main: resolve(__dirname, "src/renderer/index.html"),
-				pet: resolve(__dirname, "src/renderer/pet.html"),
-				quickpanel: resolve(__dirname, "src/renderer/quickpanel.html"),
-				onboarding: resolve(__dirname, "src/renderer/onboarding.html"),
+export default defineConfig(({ mode }) => {
+	const env = loadEnv(mode, process.cwd(), "VETTA_");
+	const themeDevelopmentEnabled =
+		(process.env.VETTA_THEME_DEV_SERVER ?? env.VETTA_THEME_DEV_SERVER) === "1";
+	// 外观「界面主题」区段：默认隐藏；VETTA_SHOW_UI_THEME=true 时展示（shell > .env）
+	const showUiTheme = process.env.VETTA_SHOW_UI_THEME ?? env.VETTA_SHOW_UI_THEME ?? "";
+
+	return {
+		define: {
+			"process.env.VETTA_SHOW_UI_THEME": JSON.stringify(showUiTheme),
+		},
+		plugins: [react(), tailwindcss(), ...(themeDevelopmentEnabled ? [themeDevelopmentReload()] : [])],
+		root: "src/renderer",
+		base: "./",
+		resolve: {
+			alias: {
+				"@shared": path.resolve(__dirname, "./src/renderer/shared"),
+				"@domains": path.resolve(__dirname, "./src/renderer/domains"),
+				"@vetta/theme-sdk": path.resolve(__dirname, "../theme-sdk/src"),
+				"@vetta/theme-ui": path.resolve(__dirname, "../theme-ui/src"),
+				"@vetta/ui": path.resolve(__dirname, "../ui/src/index.ts"),
+				"@": path.resolve(__dirname, "./src"),
 			},
 		},
-	},
-	server: {
-		host: '127.0.0.1',
-		port: 3000,
-	},
+		build: {
+			outDir: resolve(process.cwd(), "dist/renderer"),
+			emptyOutDir: false,
+			rollupOptions: {
+				input: {
+					main: resolve(__dirname, "src/renderer/index.html"),
+					pet: resolve(__dirname, "src/renderer/pet.html"),
+					quickpanel: resolve(__dirname, "src/renderer/quickpanel.html"),
+					onboarding: resolve(__dirname, "src/renderer/onboarding.html"),
+				},
+			},
+		},
+		server: {
+			host: "127.0.0.1",
+			port: 3000,
+		},
+	};
 });

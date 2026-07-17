@@ -5,6 +5,7 @@ import type { CursorStyle } from "@shared/theme/cursor";
 import type { ThemeDef } from "@shared/theme/tokens";
 import { type MouseEvent, useState } from "react";
 import { SettingsAiAssist } from "../ai-assist";
+import themeLock from "../assets/theme-lock.webp";
 import { SETTINGS_SECTION } from "../registry";
 import { SettingHeading } from "@vetta/theme-ui/settings";
 import type {
@@ -12,6 +13,7 @@ import type {
 	AppearanceLanguageOption,
 	AppearanceModeOption,
 	AppearanceSettingsModel,
+	AppearanceUiThemeOption,
 } from "./useAppearanceSettingsModel";
 
 type ThemeMode = AppearanceModeOption["value"];
@@ -213,6 +215,48 @@ function ThemeCard({
 	);
 }
 
+function UiThemeCard({
+	active,
+	disabled,
+	hint,
+	label,
+	onSelect,
+	preview,
+	unavailable,
+}: AppearanceUiThemeOption & {
+	onSelect: () => void;
+}): JSX.Element {
+	return (
+		<button
+			type="button"
+			disabled={disabled}
+			onClick={onSelect}
+			className={cn(
+				// overflow-hidden 放在内层，避免裁切 active 的 ring-offset 间隙
+				"group relative rounded-xl bg-card text-left transition-all",
+				active ? SELECTION_ACTIVE_RING : cn(SELECTION_IDLE_RING, "hover:bg-accent/40"),
+				disabled && "cursor-not-allowed",
+			)}
+		>
+			<div className="overflow-hidden rounded-xl">
+				<div className="relative aspect-[16/9] overflow-hidden border-b border-border/50">
+					<img src={preview} alt="" className={cn("h-full w-full object-cover", disabled && "opacity-50")} />
+					{unavailable ? (
+						<span className="absolute inset-0 flex items-center justify-center">
+							<img src={themeLock} alt="" className="h-14 w-auto object-contain" />
+						</span>
+					) : null}
+				</div>
+				<div className="px-3.5 pb-3 pt-3">
+					<div className="text-[13px] font-medium text-card-foreground">{label}</div>
+					<div className="mt-1 text-[11px] text-muted-foreground">{hint}</div>
+				</div>
+			</div>
+			{active && !unavailable && <SelectionCheckBadge />}
+		</button>
+	);
+}
+
 function CursorStyleCard({
 	active,
 	hint,
@@ -287,6 +331,17 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 					))}
 				</div>
 			</div>
+
+			{model.showUiTheme && (
+				<div className="mb-6">
+					<SettingHeading title={model.labels.sections.uiTheme} section={SETTINGS_SECTION["appearance-ui-theme"]} className="mb-3" />
+					<div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3">
+						{model.uiThemes.map((theme) => (
+							<UiThemeCard key={theme.id} {...theme} onSelect={() => model.actions.selectUiTheme(theme.id)} />
+						))}
+					</div>
+				</div>
+			)}
 
 			{model.activeUiThemeId === "default" && (
 				<div className="mb-6">
