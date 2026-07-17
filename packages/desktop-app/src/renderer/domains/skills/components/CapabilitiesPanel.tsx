@@ -10,6 +10,8 @@ import {
 	type CapabilityScope,
 	useCapabilitiesModel,
 } from "../hooks/useCapabilitiesModel";
+import { AddCapabilityMenu } from "./AddCapabilityMenu";
+import { CapabilitiesBanner } from "./CapabilitiesBanner";
 import { CapabilityCard } from "./CapabilityCard";
 
 export interface CapabilitiesPanelHandle {
@@ -25,6 +27,9 @@ interface CapabilitiesPanelProps {
 	skillError: string | null;
 	actionStates: Record<string, ActionState>;
 	sectionId?: string;
+	importing: boolean;
+	onImportSkill: () => void;
+	onAddConnector: () => void;
 	onInstallSkill: (skill: MergedSkill) => void;
 	onToggleSkill: (name: string) => void;
 	onUninstallSkill: (name: string, type: "skill" | "scene") => void;
@@ -55,17 +60,27 @@ export const CapabilitiesPanel = forwardRef<CapabilitiesPanelHandle, Capabilitie
 					id={props.sectionId}
 					data-setting-section-id={props.sectionId}
 					data-setting-section-highlight-target={props.sectionId}
-					className="flex flex-col gap-4"
+					className="flex flex-col gap-5"
 				>
+					<CapabilitiesBanner icons={model.bannerIcons} />
+
+					<div className="flex flex-col gap-4">
 					<div className="flex flex-wrap items-center justify-between gap-3">
-						<div className="relative w-56 shrink-0">
-							<span className="icon-[solar--magnifer-linear] absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/40" />
-							<input
-								type="text"
-								placeholder={t("search.placeholder", { noun: t("typeNoun.capability") })}
-								value={props.searchQuery}
-								onChange={(event) => props.onSearchChange(event.target.value)}
-								className="h-8 w-full rounded-lg bg-secondary pl-8 pr-3 text-[12px] text-foreground placeholder:text-muted-foreground/40 transition-colors hover:bg-accent focus:bg-accent focus:outline-none focus:ring-1 focus:ring-primary/30"
+						<div className="flex min-w-0 flex-wrap items-center gap-2">
+							<div className="relative w-56 shrink-0">
+								<span className="icon-[solar--magnifer-linear] absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/40" />
+								<input
+									type="text"
+									placeholder={t("search.placeholder", { noun: t("typeNoun.capability") })}
+									value={props.searchQuery}
+									onChange={(event) => props.onSearchChange(event.target.value)}
+									className="h-8 w-full rounded-lg bg-secondary pl-8 pr-3 text-[12px] text-foreground placeholder:text-muted-foreground/40 transition-colors hover:bg-accent focus:bg-accent focus:outline-none focus:ring-1 focus:ring-primary/30"
+								/>
+							</div>
+							<AddCapabilityMenu
+								importing={props.importing}
+								onImportSkill={props.onImportSkill}
+								onAddConnector={props.onAddConnector}
 							/>
 						</div>
 						<div className="flex items-center gap-2">
@@ -150,6 +165,7 @@ export const CapabilitiesPanel = forwardRef<CapabilitiesPanelHandle, Capabilitie
 							))}
 						</div>
 					)}
+					</div>
 				</div>
 
 				<ManualMcpDialog model={model.mcp} />

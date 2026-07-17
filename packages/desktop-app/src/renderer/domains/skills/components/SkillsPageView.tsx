@@ -5,7 +5,6 @@ import { useTranslation } from "react-i18next";
 import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
 import { SettingsAiAssist } from "../../settings/ai-assist";
 import { UNCATEGORIZED, type SkillsPageModel, type TypeTab } from "../hooks/useSkillsPageModel";
-import { AddCapabilityMenu } from "./AddCapabilityMenu";
 import { CapabilitiesPanel, type CapabilitiesPanelHandle } from "./CapabilitiesPanel";
 import { SkillDetailDialog } from "./SkillDetailDialog";
 import { SkillTagGroup } from "./SkillTagGroup";
@@ -48,29 +47,10 @@ export function SkillsPageView({ model }: { model: SkillsPageModel }): JSX.Eleme
 	const subtitle = typeTab === "capability" ? t("subtitleCapability") : t("subtitle");
 	const capabilitiesRef = useRef<CapabilitiesPanelHandle>(null);
 
-	/** 顶栏标题区右侧插槽：按当前页面填充操作（导入/AI 协助/搜索等）。 */
+	/** 顶栏标题区右侧插槽：能力页保留 AI 协助；场景页为搜索。 */
 	const headerTrailingSlot: ReactNode = (() => {
 		if (typeTab === "capability") {
-			return (
-				<>
-					<input
-						ref={fileInputRef}
-						type="file"
-						accept=".zip,.tar.gz,.tgz,application/zip,application/gzip,application/x-gzip"
-						className="hidden"
-						onChange={handleFileChange}
-					/>
-					<AddCapabilityMenu
-						importing={importing}
-						onImportSkill={() => {
-							capabilitiesRef.current?.showMine();
-							handleImportClick();
-						}}
-						onAddConnector={() => capabilitiesRef.current?.openCustomCapability()}
-					/>
-					<SettingsAiAssist tabId="mcp" />
-				</>
-			);
+			return <SettingsAiAssist tabId="mcp" />;
 		}
 		// 场景：仅搜索。
 		return (
@@ -89,6 +69,13 @@ export function SkillsPageView({ model }: { model: SkillsPageModel }): JSX.Eleme
 
 	return (
 		<div className="relative flex h-full w-full flex-1 flex-col overflow-hidden">
+			<input
+				ref={fileInputRef}
+				type="file"
+				accept=".zip,.tar.gz,.tgz,application/zip,application/gzip,application/x-gzip"
+				className="hidden"
+				onChange={handleFileChange}
+			/>
 			<div className="relative shrink-0 px-8 pb-4">
 				<div
 					className={`mx-auto flex w-full max-w-5xl gap-4 ${narrow ? "flex-col items-stretch" : "items-end justify-between"}`}
@@ -127,6 +114,12 @@ export function SkillsPageView({ model }: { model: SkillsPageModel }): JSX.Eleme
 							skillError={error}
 							actionStates={actionStates}
 							sectionId={sectionId}
+							importing={importing}
+							onImportSkill={() => {
+								capabilitiesRef.current?.showMine();
+								handleImportClick();
+							}}
+							onAddConnector={() => capabilitiesRef.current?.openCustomCapability()}
 							onInstallSkill={handleInstall}
 							onToggleSkill={handleToggle}
 							onUninstallSkill={handleUninstall}

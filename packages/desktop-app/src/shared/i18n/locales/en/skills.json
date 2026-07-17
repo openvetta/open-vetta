@@ -17,6 +17,10 @@
 	"subtitleCapability": "Choose what you want to accomplish without worrying about the technology behind it",
 	"subtitleConnector": "Manage MCP connectors to give the AI web, docs, and external tools",
 	"subtitlePlugin": "Install, enable, and configure app plugins to extend Vetta's UI and capabilities",
+	"banner": {
+		"title": "Extend Vetta with professional capabilities",
+		"description": "From writing and productivity to design and data analysis—pick what you need and enable it in one click."
+	},
 	"search": {
 		"placeholder": "Search {{noun}}..."
 	},
