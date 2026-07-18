@@ -9,7 +9,7 @@ import type {
 	ToolImagePreview,
 } from "@shared/store/atoms";
 import type { CardDescriptor } from "@vetta-org/plugin-sdk";
-import type { HistoryEntry } from "../../../../../../runtime-core/src/index.js";
+import type { HistoryEntry, PromptResourceRef } from "../../../../../../runtime-core/src/index.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Message conversion helpers
@@ -314,10 +314,15 @@ export function historyToChat(
 		if (m.role === "user") {
 			const text = extractText(m.content);
 			const parsedUser = parseUserPrefixes(text);
+			const legacyPromptRef: PromptResourceRef | undefined =
+				parsedUser.skillName && parsedUser.skillType
+					? { kind: parsedUser.skillType, name: parsedUser.skillName }
+					: undefined;
 			const userMsg: ChatMessage = {
 				id: `hist-user-${messages.length}`,
 				role: "user",
 				text,
+				promptRef: legacyPromptRef,
 				// Only absolute (panel/system) prefixes; hand-typed @text stays in body.
 				// Exclude image-cache so system images/appshot don't become file badges.
 				mentionedFiles: toMentionedFilesFromPrefixes(parsedUser.files),
@@ -377,10 +382,13 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatMessage[] {
 
 	/** Next user message follows a settings-assist model-only instruction. */
 	let pendingSettingsAssistTabId: string | undefined;
+	/** Next user message follows a Skill / Scene expansion marker. */
+	let pendingPromptRef: PromptResourceRef | undefined;
 
 	for (const entry of entries) {
 		if (entry.type === "compaction") {
 			pendingSettingsAssistTabId = undefined;
+			pendingPromptRef = undefined;
 			messages.push({
 				id: entry.entryId ?? `hist-compact-${messages.length}`,
 				entryId: entry.entryId,
@@ -393,6 +401,11 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatMessage[] {
 
 		if (entry.type === "settings_assist_marker") {
 			pendingSettingsAssistTabId = entry.tabId?.trim() || "unknown";
+			continue;
+		}
+
+		if (entry.type === "prompt_ref_marker") {
+			pendingPromptRef = entry.promptRef;
 			continue;
 		}
 
@@ -448,6 +461,10 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatMessage[] {
 		if (m.role === "user") {
 			const text = extractText(m.content);
 			const parsedUser = parseUserPrefixes(text);
+			const legacyPromptRef: PromptResourceRef | undefined =
+				parsedUser.skillName && parsedUser.skillType
+					? { kind: parsedUser.skillType, name: parsedUser.skillName }
+					: undefined;
 			const entryId = entry.type === "message" ? entry.entryId : undefined;
 			const parentId = entry.type === "message" ? entry.parentId : undefined;
 			const branch = entry.type === "message" ? entry.branch : undefined;
@@ -458,6 +475,7 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatMessage[] {
 				branch: branch ? { siblings: branch.siblings, index: branch.index } : undefined,
 				role: "user",
 				text,
+				promptRef: pendingPromptRef ?? legacyPromptRef,
 				// Only absolute (panel/system) prefixes; hand-typed @text stays in body.
 				// Exclude image-cache so system images/appshot don't become file badges.
 				mentionedFiles: toMentionedFilesFromPrefixes(parsedUser.files),
@@ -466,9 +484,11 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatMessage[] {
 				userMsg.settingsAssistTabId = pendingSettingsAssistTabId;
 				pendingSettingsAssistTabId = undefined;
 			}
+			pendingPromptRef = undefined;
 			messages.push(userMsg);
 		} else if (m.role === "assistant") {
 			pendingSettingsAssistTabId = undefined;
+			pendingPromptRef = undefined;
 			const entryId = entry.type === "message" ? entry.entryId : undefined;
 			const target = currentAssistant();
 			// Prefer first assistant entry id for the merged bubble when not set yet.

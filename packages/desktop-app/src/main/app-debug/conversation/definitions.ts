@@ -105,7 +105,7 @@ export function createConversationDebugDefinitions(service: DesktopConversationS
 			keywords: ["conversation", "session", "create", "prompt", "agent"],
 			inputSchema: {
 				description:
-					"Absolute cwd, non-empty prompt, optional executionMode/modelKey/reasoning, and timeoutMs (1000-1800000).",
+					"Absolute cwd, non-empty prompt, optional structured promptRef ({ kind: skill|scene, name }), executionMode/modelKey/reasoning, and timeoutMs (1000-1800000).",
 			},
 			examples: [
 				{
@@ -126,6 +126,7 @@ export function createConversationDebugDefinitions(service: DesktopConversationS
 						session,
 						{
 							text: request.prompt,
+							...(request.promptRef ? { promptRef: request.promptRef } : {}),
 							...(request.modelKey ? { modelKey: request.modelKey } : {}),
 							...(request.reasoning ? { reasoning: request.reasoning } : {}),
 						},
@@ -145,7 +146,7 @@ export function createConversationDebugDefinitions(service: DesktopConversationS
 			keywords: ["conversation", "session", "continue", "resume", "prompt", "agent"],
 			inputSchema: {
 				description:
-					"Absolute sessionPath, non-empty prompt, optional executionMode/modelKey/reasoning, and timeoutMs (1000-1800000).",
+					"Absolute sessionPath, non-empty prompt, optional structured promptRef ({ kind: skill|scene, name }), executionMode/modelKey/reasoning, and timeoutMs (1000-1800000).",
 			},
 			examples: [
 				{
@@ -169,6 +170,7 @@ export function createConversationDebugDefinitions(service: DesktopConversationS
 						session,
 						{
 							text: request.prompt,
+							...(request.promptRef ? { promptRef: request.promptRef } : {}),
 							...(request.modelKey ? { modelKey: request.modelKey } : {}),
 							...(request.reasoning ? { reasoning: request.reasoning } : {}),
 						},

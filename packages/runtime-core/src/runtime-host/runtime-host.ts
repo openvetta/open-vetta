@@ -601,6 +601,7 @@ export class RuntimeHost implements SessionFacade {
 			await handle.session.prompt(text, {
 				images,
 				streamingBehavior: request.streamingBehavior,
+				promptRef: request.promptRef,
 				source: "extension",
 				metadata: request.metadata,
 			});

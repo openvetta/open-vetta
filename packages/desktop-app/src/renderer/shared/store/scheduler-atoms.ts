@@ -13,7 +13,7 @@ export interface ScheduledTask {
 	cwd: string;
 	modelKey?: string;
 	executionMode?: ExecutionModeOverride;
-	/** 任务级技能/场景。运行时主进程会在 prompt 前注入 `/skill:` 或 `/scene:` 行。 */
+	/** 任务级技能/场景。运行时通过 PromptRequest.promptRef 结构化传递。 */
 	skill?: SelectedSkill;
 	createdAt: number;
 	updatedAt: number;

@@ -2,6 +2,7 @@
 
 ### Added
 
+- **结构化 Prompt 资源引用**：`PromptOptions.promptRef` 以 `{ kind: "skill" | "scene", name }` 传递 Skill / Scene 选择，展开内容继续作为隐藏 custom message 注入，并在 `details.promptRef` 中持久化引用；资源已卸载或不可读时保留用户正文与引用、跳过内容加载，旧 `/skill:` / `/scene:` 文本命令保持兼容。
 - **Subagent clearFinished**：`SubagentCoordinator.clearFinished()` / `AgentSession.clearFinishedSubagents()` 移除已结束（completed/failed/interrupted）子代理条目并释放 `task_name`；不删磁盘 transcript。
 - **Subagent 基础设施（可扩展类型注册表，首版仅 explorer）**：`core/subagents/` 含 `SubagentTypeRegistry`、`SubagentCoordinator`、默认 `SubagentSessionFactory`、控制工具 `spawn_agent` / `wait_agent` / `list_agents` / `interrupt_agent` / `send_message` / `followup_task`。类型通过注册表横向扩展（首版只注册 `explorer`：只读工具 + 继承父会话 MCP 代理；写操作仍归主 Agent）。`createAgentSession({ enableSubagents })` fail-closed；子会话强制 `enableSubagents: false` / `enableMcp: false`。事件 `subagents_update` 全量快照。
 - **后台任务用户终止标记**：`BackgroundTaskManager.kill(taskId, reason?)` 支持 `endedBy`（`user` / `agent` / `dispose`）；用户从 UI 终止时 `<task-notification>` 会标明 `ended-by: user` 并提示 agent 勿擅自重启。

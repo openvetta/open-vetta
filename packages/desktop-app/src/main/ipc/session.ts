@@ -10,7 +10,6 @@ import type {
 	AgentPluginHandlerResult,
 	AgentPluginSystemPromptInvocation,
 	AgentPluginToolInvocation,
-	PromptRequest,
 	RuntimeSandboxGrantDecision,
 	RuntimeSandboxGrantRequest,
 	RuntimeUserConfirmationRequest,
@@ -24,6 +23,7 @@ import type {
 import { stopMonitoringRuntimeSession } from "../app-monitor/app-monitor-service.js";
 import { onConversationListChanged } from "../conversations/conversation-list-events.js";
 import { getDesktopConversationService } from "../conversations/desktop-conversation-service.js";
+import { parsePromptRequest } from "../conversations/prompt-request-schema.js";
 import { isConversationSubCwd, readSessionCwdFromHeader } from "../conversations/session-paths.js";
 import { getDesktopUserQuestionBroker } from "../conversations/user-question-broker.js";
 import { type DebugRequestData, writeDebugRequest } from "../debug-writer.js";
@@ -213,42 +213,6 @@ function setPendingQuestion(sessionPath: string, hasPendingQuestion: boolean): v
 function assertNonEmptyString(value: unknown, fieldName: string): asserts value is string {
 	if (typeof value !== "string" || value.trim().length === 0) {
 		throw new Error(`Invalid ${fieldName}`);
-	}
-}
-
-function assertPromptRequest(value: unknown): asserts value is PromptRequest {
-	if (typeof value !== "object" || value === null) {
-		throw new Error("Invalid prompt request");
-	}
-	const request = value as Record<string, unknown>;
-	if (typeof request.text !== "string" || request.text.length === 0) {
-		throw new Error("Invalid prompt request text");
-	}
-	if (
-		request.streamingBehavior !== undefined &&
-		request.streamingBehavior !== "steer" &&
-		request.streamingBehavior !== "followUp"
-	) {
-		throw new Error("Invalid prompt request streamingBehavior");
-	}
-	if (request.modelKey !== undefined && (typeof request.modelKey !== "string" || request.modelKey.length === 0)) {
-		throw new Error("Invalid prompt request modelKey");
-	}
-	if (request.images !== undefined) {
-		if (!Array.isArray(request.images)) {
-			throw new Error("Invalid prompt request images");
-		}
-		for (const img of request.images as Array<Record<string, unknown>>) {
-			if (img.type !== "image" || typeof img.data !== "string" || typeof img.mimeType !== "string") {
-				throw new Error("Invalid prompt request image entry");
-			}
-		}
-	}
-	if (
-		request.metadata !== undefined &&
-		(typeof request.metadata !== "object" || request.metadata === null || Array.isArray(request.metadata))
-	) {
-		throw new Error("Invalid prompt request metadata");
 	}
 }
 
@@ -662,8 +626,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 
 	ipcMain.handle(CHANNELS.PROMPT, async (_event, sessionId: unknown, request: unknown) => {
 		assertNonEmptyString(sessionId, "sessionId");
-		assertPromptRequest(request);
-		const req = request as PromptRequest;
+		const req = parsePromptRequest(request);
 		sessionLog.info(
 			`prompt session=${sessionId} textLength=${req.text.length} images=${req.images?.length ?? 0} streamingBehavior=${req.streamingBehavior ?? "default"}`,
 		);
@@ -671,7 +634,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			sessionId,
 			...summarizeAgentPluginRuntimeConfig(buildAgentPluginRuntimeConfig()),
 		});
-		await runtime.prompt(sessionId, request);
+		await runtime.prompt(sessionId, req);
 	});
 
 	ipcMain.handle(CHANNELS.CONTINUE, async (_event, sessionId: unknown) => {

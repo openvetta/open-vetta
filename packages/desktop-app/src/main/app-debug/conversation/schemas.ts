@@ -1,11 +1,14 @@
 import { z } from "zod";
+import { promptResourceRefSchema } from "../../conversations/prompt-request-schema.js";
 
 const executionModeSchema = z.enum(["sandbox", "full-access"]);
+const promptRefSchema = promptResourceRefSchema.strict();
 
 export const createConversationInputSchema = z
 	.object({
 		cwd: z.string().trim().min(1),
 		prompt: z.string().trim().min(1),
+		promptRef: promptRefSchema.optional(),
 		executionMode: executionModeSchema.optional(),
 		modelKey: z.string().trim().min(1).optional(),
 		reasoning: z.string().trim().min(1).optional(),
@@ -17,6 +20,7 @@ export const continueConversationInputSchema = z
 	.object({
 		sessionPath: z.string().trim().min(1),
 		prompt: z.string().trim().min(1),
+		promptRef: promptRefSchema.optional(),
 		executionMode: executionModeSchema.optional(),
 		modelKey: z.string().trim().min(1).optional(),
 		reasoning: z.string().trim().min(1).optional(),

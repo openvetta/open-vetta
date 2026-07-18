@@ -1,5 +1,11 @@
 import type { Message, TextContent } from "@vetta/ai";
-import type { SessionEntry as CodingSessionEntry, CustomEntry, FileEntry } from "@vetta/coding-agent";
+import {
+	type SessionEntry as CodingSessionEntry,
+	type CustomEntry,
+	type FileEntry,
+	PROMPT_RESOURCE_REFERENCE_TYPE,
+	type PromptResourceRef,
+} from "@vetta/coding-agent";
 import type { AssistantTurnTiming, HistoryEntry, HistoryMessageBranch } from "../contracts.js";
 
 export const ASSISTANT_TURN_TIMING_TYPE = "vetta.assistant_turn_timing";
@@ -57,6 +63,24 @@ export function parseAssistantTurnTiming(entry: CustomEntry): AssistantTurnTimin
 		return null;
 	}
 	return { startedAt, endedAt, durationMs };
+}
+
+function parsePromptResourceRef(entry: CodingSessionEntry & { type: "custom_message" }): PromptResourceRef | null {
+	const details = entry.details;
+	if (details && typeof details === "object" && !Array.isArray(details)) {
+		const candidate = (details as { promptRef?: unknown }).promptRef;
+		if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+			const { kind, name } = candidate as { kind?: unknown; name?: unknown };
+			if ((kind === "skill" || kind === "scene") && typeof name === "string" && name.trim()) {
+				return { kind, name: name.trim() };
+			}
+		}
+	}
+
+	// Compatibility for sessions persisted before details.promptRef existed.
+	const kind = entry.customType === "scene_expansion" ? "scene" : "skill";
+	const match = typeof entry.content === "string" ? entry.content.match(new RegExp(`^<${kind} name="([^"]+)"`)) : null;
+	return match?.[1] ? { kind, name: match[1] } : null;
 }
 
 function isUserMessageEntry(
@@ -197,6 +221,11 @@ export function entriesToHistory(branch: CodingSessionEntry[], options?: Entries
 					timestamp: entry.timestamp,
 				});
 			}
+		} else if (entry.type === "custom_message" && entry.customType === PROMPT_RESOURCE_REFERENCE_TYPE) {
+			const promptRef = parsePromptResourceRef(entry);
+			if (promptRef) {
+				entries.push({ type: "prompt_ref_marker", promptRef, timestamp: entry.timestamp });
+			}
 		} else if (entry.type === "custom_message" && entry.customType === "settings_assist_instruction") {
 			// Model-only settings-assist preamble; surface a marker so the next user
 			// bubble can show a page-specific badge after history reload.
@@ -213,6 +242,14 @@ export function entriesToHistory(branch: CodingSessionEntry[], options?: Entries
 				tabId,
 				timestamp: entry.timestamp,
 			});
+		} else if (
+			entry.type === "custom_message" &&
+			(entry.customType === "skill_expansion" || entry.customType === "scene_expansion")
+		) {
+			const promptRef = parsePromptResourceRef(entry);
+			if (promptRef) {
+				entries.push({ type: "prompt_ref_marker", promptRef, timestamp: entry.timestamp });
+			}
 		} else if (entry.type === "tool_timing") {
 			entries.push({
 				type: "tool_timing",

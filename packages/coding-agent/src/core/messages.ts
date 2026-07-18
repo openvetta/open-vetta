@@ -8,6 +8,9 @@
 import type { AgentMessage } from "@vetta/agent-core";
 import type { ImageContent, Message, TextContent } from "@vetta/ai";
 
+/** Persisted prompt metadata marker. It is intentionally excluded from LLM context. */
+export const PROMPT_RESOURCE_REFERENCE_TYPE = "prompt_resource_reference";
+
 export const COMPACTION_SUMMARY_PREFIX = `The conversation history before this point was compacted into the following summary:
 
 <summary>
@@ -148,6 +151,9 @@ export function createCustomMessage(
 export function convertToLlm(messages: AgentMessage[]): Message[] {
 	return messages
 		.map((m): Message | undefined => {
+			if (m.role === "custom" && m.customType === PROMPT_RESOURCE_REFERENCE_TYPE) {
+				return undefined;
+			}
 			switch (m.role) {
 				case "bashExecution":
 					// Skip messages excluded from context (!! prefix)

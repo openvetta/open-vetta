@@ -40,9 +40,55 @@ cd packages/desktop-app
 bun run dev
 ```
 
-这是常驻进程。需要自动化启动时，可以让它在后台运行，并把 stdout、stderr 重定向到临时日志文件。不要在每个 Debug 调用前重复启动 App。
+这是常驻进程。不要在每个 Debug 调用前重复启动 App。
 
 注意：`dev:electron` 会在启动时构建主进程代码，但不会监听主进程源码变化。修改 `packages/desktop-app/src/main` 或 preload 后，需要重启开发进程；只修改 Vite Renderer 代码通常可以热更新。
+
+### 3.1.1 Agent：应用未启动时必须自行启动（禁止只报“App 未运行”就停）
+
+面向外层开发 Agent：**使用 Vetta Debug 前先确认开发版 Desktop 是否在线；若不在线，必须自己后台启动，而不是把“请先启动 App”推回给用户后结束。**
+
+**探测是否已在运行（任选其一，失败即视为未启动）：**
+
+```powershell
+# 1) CLI 能否连上本地 Debug RPC
+vetta debug search "" --category conversation
+
+# 2) 端点文件是否存在（Windows: %USERPROFILE%\.vetta\action-server.json）
+#    不存在、无法读取，或指向已退出进程 → 未启动 / 需重启
+```
+
+常见未启动信号：
+
+| 现象 | 含义 |
+|---|---|
+| `LOCAL_RPC_SERVER_NOT_FOUND` | 端点文件不存在，或 CLI 与 App 配置目录不一致 |
+| `LOCAL_RPC_SERVER_UNREACHABLE` | 端点指向已退出的进程 |
+| 无 `~/.vetta/action-server.json`（Windows 下为 `%USERPROFILE%\.vetta\action-server.json`） | 开发 App 从未成功写出本地 RPC 端点 |
+
+**未启动时的标准动作（PowerShell 示例）：**
+
+```powershell
+cd packages/desktop-app
+# 后台常驻；把日志落到临时文件，便于排查启动失败
+$log = Join-Path $env:TEMP "vetta-desktop-dev.log"
+Start-Process -NoNewWindow -FilePath "bun" -ArgumentList "run","dev" `
+  -RedirectStandardOutput $log -RedirectStandardError $log
+# 或在支持后台任务的 Agent shell 中：bun run dev（background=true）
+```
+
+**启动后必须轮询就绪，再继续 Debug 调用：**
+
+1. 等待 `~/.vetta/action-server.json` 出现（或 `%USERPROFILE%\.vetta\action-server.json`）。
+2. 再执行 `vetta debug search "" --category conversation`，直到返回 `ok: true`（或至少不再是 `LOCAL_RPC_*`）。
+3. 若 2–3 分钟仍未就绪：读启动日志（如上 `$log`），修复环境问题后重试；不要假装 Debug 可用。
+
+**硬性约束：**
+
+- **已在运行则禁止再起一份**（先探测，再启动；多实例会抢端点文件，最后启动的实例生效）。
+- **不要每个 Debug 调用都重启**；只有改了 `packages/desktop-app/src/main` / preload、端点失效、或主进程明显挂死时才重启。
+- 仅改 Renderer / 非 desktop 主进程包时，优先热更新或依赖已在跑的实例，不必为“验证一次”整包重启。
+- 用户明确禁止启动 GUI / 当前环境无法开 Electron 时，才可跳过并说明原因；默认路径是 **自行拉起开发 App**。
 
 ### 3.2 准备 CLI
 
@@ -383,9 +429,9 @@ vetta debug run conversation.continue '{"sessionPath":"<第一轮返回的 sessi
 
 | 错误码 | 常见原因 | 处理方式 |
 |---|---|---|
-| `LOCAL_RPC_SERVER_NOT_FOUND` | 端点文件不存在或配置目录不一致 | 启动开发 App，确认 CLI 与 App 使用同一 Vetta 配置目录 |
-| `LOCAL_RPC_SERVER_UNREACHABLE` | 端点指向已退出的进程 | 重启开发 App，再调用 `debug search` |
-| `DEBUG_NOT_AVAILABLE` | 连接的是打包版或未注册 Debug runtime 的实例 | 改为运行开发版 Desktop App |
+| `LOCAL_RPC_SERVER_NOT_FOUND` | 端点文件不存在或配置目录不一致 | **Agent 按 §3.1.1 自行启动**开发 App，确认 CLI 与 App 使用同一 Vetta 配置目录；不要只向用户报“未启动” |
+| `LOCAL_RPC_SERVER_UNREACHABLE` | 端点指向已退出的进程 | **Agent 自行重启**开发 App，再调用 `debug search` |
+| `DEBUG_NOT_AVAILABLE` | 连接的是打包版或未注册 Debug runtime 的实例 | 改为运行开发版 Desktop App（`packages/desktop-app` 下 `bun run dev`） |
 | `DEBUG_NOT_FOUND` | 能力 ID 错误或连接到旧实例 | 执行 `debug search`，必要时重启开发 App |
 | `DEBUG_INVALID_INPUT` | JSON 无效、字段多余、UUID 或参数范围错误 | 执行 `debug describe`，按 schema 修正输入 |
 | `DEBUG_SESSION_BUSY` | 同一会话已有 Debug 操作 | 保存现有 `operationId` 并 `wait` / `abort`，不要并发 continue |
