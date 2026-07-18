@@ -66,3 +66,4 @@ export {
 	type ToolCapability,
 	type ToolCategory,
 } from "./session/tool-scope.js";
+export type { PromptAttachmentRef } from "./session/types.js";

@@ -27,13 +27,13 @@ import { useTranslation } from "react-i18next";
 import {
 	fullHistoryToChat,
 	isSystemAttachmentPath,
+	isUserImageFile,
 	parseUserPrefixes,
 } from "../services/chat-service";
 import { AppshotCard, type AppshotCardData } from "../components/AppshotCard";
 import { TextBlockView } from "../components/blocks/TextBlock";
 import { CopyButton, RelativeTimeLabel } from "../components/message-list/MessageActions";
 
-const USER_IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "ico"]);
 const DELETE_CONFIRMATION_SUPPRESSION_MS = 60_000;
 const CONTEXT_MENU_WIDTH = 170;
 const CONTEXT_MENU_HEIGHT = 112;
@@ -68,16 +68,6 @@ function splitAppshotFiles(files: string[]): { appshotImage: string | null; rest
 	const isAppshot = (path: string): boolean => /[/\\]image-cache[/\\]appshot[/\\]/.test(path);
 	const appshotImage = files.find((path) => isAppshot(path) && /\.png$/i.test(path)) ?? null;
 	return { appshotImage, rest: files.filter((path) => !isAppshot(path)) };
-}
-
-function getPathExtension(path: string): string {
-	const basename = pathBasename(path);
-	const dotIndex = basename.lastIndexOf(".");
-	return dotIndex === -1 ? "" : basename.slice(dotIndex + 1).toLowerCase();
-}
-
-function isUserImageFile(path: string): boolean {
-	return USER_IMAGE_EXTENSIONS.has(getPathExtension(path));
 }
 
 function getPreviewImageSrc(item: FilePreviewItem): string {
@@ -119,7 +109,11 @@ async function reloadChatHistory(runtimeId: string): Promise<void> {
 	getDefaultStore().set(chatMessagesAtom, fullHistoryToChat(history));
 }
 
-function fillInputFromUserText(rawText: string, promptRef?: ChatMessage["promptRef"]): void {
+function fillInputFromUserText(
+	rawText: string,
+	promptRef?: ChatMessage["promptRef"],
+	attachments?: ChatMessage["attachments"],
+): void {
 	const store = getDefaultStore();
 	const { skillName, skillType, files, body } = parseUserPrefixes(rawText);
 	store.set(inputValueAtom, body);
@@ -134,13 +128,19 @@ function fillInputFromUserText(rawText: string, promptRef?: ChatMessage["promptR
 	// Appshot capsule needs full AppshotAttachment; on re-edit we re-attach the image path
 	// via mentionedFiles @prefix instead (sendMessage will include it).
 	store.set(appshotAttachmentAtom, null);
-	// Restore @attachments for re-send (workspace files + image-cache / appshot paths).
+	// Restore structured attachments for re-send; legacy @prefixes remain compatible.
+	const restoredAttachments =
+		attachments ??
+		files.map((path) => ({
+			kind: isUserImageFile(path) ? ("image" as const) : ("file" as const),
+			path,
+		}));
 	store.set(
 		mentionedFilesAtom,
-		files.map((path) => ({
-			path,
-			name: pathBasename(path),
-			isDirectory: false,
+		restoredAttachments.map((attachment) => ({
+			path: attachment.path,
+			name: pathBasename(attachment.path),
+			isDirectory: attachment.kind === "directory",
 		})),
 	);
 }
@@ -187,13 +187,16 @@ export function useUserMessageModel({
 	const skillName = promptRef?.name ?? null;
 	const skillType = promptRef?.kind ?? null;
 	const { files, body } = parsedUser;
-	const { appshotImage, rest: displayFiles } = splitAppshotFiles(files);
+	const attachmentPaths = message.attachments?.map((attachment) => attachment.path) ?? files;
+	const { appshotImage, rest: displayFiles } = splitAppshotFiles(attachmentPaths);
 	// image-cache (persistImages) must still render as thumbnails; appshot is already split out.
 	const imageFiles = displayFiles.filter((file) => isUserImageFile(file));
 	const hasExplicitMentionedFiles = message.mentionedFiles !== undefined;
-	const fileBadges = hasExplicitMentionedFiles
-		? message.mentionedFiles?.map((file) => file.path).filter((path) => !isUserImageFile(path)) ?? []
-		: displayFiles.filter((file) => !isUserImageFile(file));
+	const fileBadges = message.attachments
+		? displayFiles.filter((file) => !isUserImageFile(file))
+		: hasExplicitMentionedFiles
+			? message.mentionedFiles?.map((file) => file.path).filter((path) => !isUserImageFile(path)) ?? []
+			: displayFiles.filter((file) => !isUserImageFile(file));
 	const displayText = body;
 	const appshotData: AppshotCardData | null =
 		message.appshot ?? (appshotImage ? { imagePath: appshotImage } : null);
@@ -254,9 +257,9 @@ export function useUserMessageModel({
 			}
 		}
 		if (!entryId) return;
-		fillInputFromUserText(message.text, message.promptRef);
+		fillInputFromUserText(message.text, message.promptRef, message.attachments);
 		getDefaultStore().set(pendingMessageEditAtom, { entryId });
-	}, [activeSession?.runtimeId, message.entryId, message.promptRef, message.text]);
+	}, [activeSession?.runtimeId, message.attachments, message.entryId, message.promptRef, message.text]);
 
 	const runWithInterruptConfirm = useCallback(
 		(kind: "switch" | "fork", action: () => void | Promise<void>) => {

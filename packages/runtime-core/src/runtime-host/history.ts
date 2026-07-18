@@ -3,7 +3,10 @@ import {
 	type SessionEntry as CodingSessionEntry,
 	type CustomEntry,
 	type FileEntry,
+	PROMPT_ATTACHMENT_CONTEXT_TYPE,
+	PROMPT_ATTACHMENT_REFERENCE_TYPE,
 	PROMPT_RESOURCE_REFERENCE_TYPE,
+	type PromptAttachmentRef,
 	type PromptResourceRef,
 } from "@vetta/coding-agent";
 import type { AssistantTurnTiming, HistoryEntry, HistoryMessageBranch } from "../contracts.js";
@@ -81,6 +84,22 @@ function parsePromptResourceRef(entry: CodingSessionEntry & { type: "custom_mess
 	const kind = entry.customType === "scene_expansion" ? "scene" : "skill";
 	const match = typeof entry.content === "string" ? entry.content.match(new RegExp(`^<${kind} name="([^"]+)"`)) : null;
 	return match?.[1] ? { kind, name: match[1] } : null;
+}
+
+function parsePromptAttachments(entry: CodingSessionEntry & { type: "custom_message" }): PromptAttachmentRef[] | null {
+	const details = entry.details;
+	if (!details || typeof details !== "object" || Array.isArray(details)) return null;
+	const candidates = (details as { attachments?: unknown }).attachments;
+	if (!Array.isArray(candidates)) return null;
+	const attachments: PromptAttachmentRef[] = [];
+	for (const candidate of candidates) {
+		if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) continue;
+		const { kind, path } = candidate as { kind?: unknown; path?: unknown };
+		if ((kind === "file" || kind === "directory" || kind === "image") && typeof path === "string" && path.trim()) {
+			attachments.push({ kind, path: path.trim() });
+		}
+	}
+	return attachments;
 }
 
 function isUserMessageEntry(
@@ -225,6 +244,14 @@ export function entriesToHistory(branch: CodingSessionEntry[], options?: Entries
 			const promptRef = parsePromptResourceRef(entry);
 			if (promptRef) {
 				entries.push({ type: "prompt_ref_marker", promptRef, timestamp: entry.timestamp });
+			}
+		} else if (
+			entry.type === "custom_message" &&
+			(entry.customType === PROMPT_ATTACHMENT_CONTEXT_TYPE || entry.customType === PROMPT_ATTACHMENT_REFERENCE_TYPE)
+		) {
+			const attachments = parsePromptAttachments(entry);
+			if (attachments) {
+				entries.push({ type: "prompt_attachments_marker", attachments, timestamp: entry.timestamp });
 			}
 		} else if (entry.type === "custom_message" && entry.customType === "settings_assist_instruction") {
 			// Model-only settings-assist preamble; surface a marker so the next user

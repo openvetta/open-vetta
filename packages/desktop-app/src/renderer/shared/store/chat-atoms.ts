@@ -1,6 +1,6 @@
 import type { CardDescriptor } from "@vetta-org/plugin-sdk";
 import { atom } from "jotai";
-import type { PromptResourceRef } from "../../../../../runtime-core/src/index.js";
+import type { PromptAttachmentRef, PromptResourceRef } from "../../../../../runtime-core/src/index.js";
 import { runningSessionPathsAtom } from "./running-sessions-atoms";
 
 // ─── Rich content blocks ───
@@ -189,6 +189,8 @@ export interface ChatMessage {
 	settingsAssistTabId?: string;
 	/** Structured Skill / Scene selection associated with this user turn. */
 	promptRef?: PromptResourceRef;
+	/** Structured filesystem attachments associated with this user turn. */
+	attachments?: PromptAttachmentRef[];
 }
 
 /**

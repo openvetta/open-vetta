@@ -1,5 +1,7 @@
 # `mentionedFile` accepts any absolute path, not just paths inside the session cwd
 
+> The absolute-path decision remains active. ADR-0043 supersedes only the `@path` prompt serialization and image transport described below.
+
 `mentionedFile` (the per-prompt file/directory reference shown as a `Capsule` in `InputBar` and serialized as `@${path}` lines into the user message) is broadened: its `path` may be any absolute filesystem path. It is no longer implicitly scoped to the active session's cwd. External OS drag-drops onto `ChatPage`, internal drags from `File Explorer`, and the original `@`-mention picker all push into the same `mentionedFilesAtom` channel.
 
 The driving requirement is that users want to "grab a file from their desktop and chat about it" with the same affordance they already use for in-project files. Forcing a second concept ("dropped file" vs "mentioned file") would have produced two near-identical capsule UIs and two prompt-injection paths for what the user perceives as one thing.
@@ -12,7 +14,7 @@ The driving requirement is that users want to "grab a file from their desktop an
 
 ## Consequences
 
-- Session jsonl will record `@/absolute/path/outside/cwd` lines in user messages going forward. The agent already resolves absolute paths via its filesystem tools, so no agent-side change is required, but the historical assumption "every `@…` in a prompt is a project-relative reference" no longer holds when reading old logs.
+- Legacy session jsonl may contain `@/absolute/path/outside/cwd` lines in user messages. New desktop turns use structured prompt attachments as defined by ADR-0043; the legacy parser remains for old logs and text-only integrations.
 - The `@`-mention picker (`AtPanel`) continues to constrain itself to cwd by its own UI logic — the broadening is at the data layer, not at every producer. Producers that want a stricter scope (e.g. `AtPanel`) enforce it themselves.
-- Image drops keep their own channel (`attachedImagesAtom`, DataURL multimodal). The split between `mentionedFile` and `attachedImage` is preserved precisely because their serialization differs — one becomes text in the prompt, the other becomes a multimodal content block.
+- Image drops still enter through `attachedImagesAtom`, but the desktop persists them and sends the resulting absolute paths as structured image attachments. Direct multimodal data is only the persistence-failure fallback.
 - Future "where did this reference come from" telemetry (e.g. distinguishing `@`-picker vs drag-drop) would require adding an explicit `source` field to `MentionedFile`; today the origin is intentionally not tracked.

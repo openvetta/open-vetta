@@ -27,6 +27,7 @@ export type {
 	MessageDeltaEvent,
 	MessageFinalEvent,
 	ProjectInfo,
+	PromptAttachmentRef,
 	PromptRequest,
 	PromptResourceRef,
 	RuntimeQuestionItem,

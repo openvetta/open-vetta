@@ -27,8 +27,10 @@ export function useMessageQueueDispatcher(): void {
 				const msg: ChatMessage = {
 					id: nextId("user"),
 					role: "user",
-					text: head.request.text,
+					text: head.displayText,
 					timestamp: Date.now(),
+					promptRef: head.request.promptRef,
+					attachments: head.request.attachments,
 				};
 				store.set(chatMessagesAtom, (prev) => [...prev, msg]);
 			}
