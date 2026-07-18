@@ -32,10 +32,24 @@ export interface PersonalizationConfig {
 
 export type DesktopSessionKind = "conversation" | "other";
 
+export type DesktopUserQuestionRequest = RuntimeUserQuestionRequest;
+
+export interface DesktopUserQuestionResolvedEvent {
+	requestId: string;
+	sessionId: string;
+}
+
 export interface DesktopSessionApi {
 	create(config: SessionConfig | undefined, kind: DesktopSessionKind): Promise<{ sessionId: string; cwd?: string }>;
 	listProjects(): Promise<ProjectInfo[]>;
 	listSessions(cwd: string): Promise<SessionHistoryInfo[]>;
+	onSessionsChanged(
+		handler: (payload: {
+			cwd: string;
+			sessionPath: string;
+			session?: { id: string; cwd: string; firstMessage: string; modifiedAt: number };
+		}) => void,
+	): () => void;
 	prompt(sessionId: string, request: PromptRequest): Promise<void>;
 	continue(sessionId: string): Promise<void>;
 	abort(sessionId: string): Promise<void>;
@@ -46,6 +60,10 @@ export interface DesktopSessionApi {
 	respondToConfirmation(requestId: string, confirmed: boolean): Promise<void>;
 	/** ask_user_question：监听主进程发来的提问请求（携 sessionId + questions）。 */
 	onQuestionRequest(handler: (request: RuntimeUserQuestionRequest) => void): () => void;
+	/** 当前仍等待回答的问题快照，供 Renderer 初始化或重载后恢复真实状态。 */
+	listPendingQuestions(): Promise<RuntimeUserQuestionRequest[]>;
+	/** 问题由用户、Agent、取消或中断解决后统一通知 Renderer 清理面板。 */
+	onQuestionResolved(handler: (event: DesktopUserQuestionResolvedEvent) => void): () => void;
 	/** 回传用户对某次提问的答案 / 取消。 */
 	respondToQuestion(requestId: string, result: RuntimeUserQuestionResult): Promise<void>;
 	onSandboxGrantRequest(handler: (request: RuntimeSandboxGrantRequest) => void): () => void;

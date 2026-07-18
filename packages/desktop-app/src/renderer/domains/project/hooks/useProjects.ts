@@ -30,6 +30,7 @@ let didAutoExpand = false;
 // reloads the default "对话" project's session list whenever the sidecar
 // emits a state_patch (i.e. an IM message just created or updated a session).
 let imSubscribed = false;
+let sessionListSubscribed = false;
 
 export function useProjects() {
 	const [projects, setProjects] = useAtom(projectsAtom);
@@ -77,19 +78,52 @@ export function useProjects() {
 	const imCwdRef = useRef(defaultImConversationCwd);
 	imCwdRef.current = defaultImConversationCwd;
 	useEffect(() => {
-		if (imSubscribed) return;
-		imSubscribed = true;
-		window.vetta.im.onSessionChanged(() => {
-			// Claw 会话写在独立的 IM cwd 下（ADR-0005），fs watcher 监听的也是它；
-			// 桌面「对话」cwd 不会被 sidecar 写，但保留刷新以兼容历史路径。
-			const imCwd = imCwdRef.current;
-			if (imCwd) void loadSessionsRef.current(imCwd);
-			const cwd = defaultCwdRef.current;
-			if (cwd && cwd !== imCwd) void loadSessionsRef.current(cwd);
-		});
+		if (!imSubscribed) {
+			imSubscribed = true;
+			window.vetta.im.onSessionChanged(() => {
+				// Claw 会话写在独立的 IM cwd 下（ADR-0005），fs watcher 监听的也是它；
+				// 桌面「对话」cwd 不会被 sidecar 写，但保留刷新以兼容历史路径。
+				const imCwd = imCwdRef.current;
+				if (imCwd) void loadSessionsRef.current(imCwd);
+				const cwd = defaultCwdRef.current;
+				if (cwd && cwd !== imCwd) void loadSessionsRef.current(cwd);
+			});
+		}
+		if (!sessionListSubscribed) {
+			sessionListSubscribed = true;
+			window.vetta.session.onSessionsChanged(({ cwd, sessionPath, session }) => {
+				if (session && isUsableFirstMessage(session.firstMessage)) {
+					setSessionsMap((prev) => {
+						const sessions = prev.get(cwd) ?? [];
+						const existingIndex = sessions.findIndex((item) => item.path === sessionPath);
+						const nextSessions = sessions.slice();
+						if (existingIndex === -1) {
+							nextSessions.unshift({
+								id: session.id,
+								path: sessionPath,
+								cwd: session.cwd,
+								firstMessage: session.firstMessage,
+								modifiedAt: session.modifiedAt,
+							});
+						} else {
+							const existing = nextSessions[existingIndex];
+							nextSessions[existingIndex] = {
+								...existing,
+								firstMessage: isUsableFirstMessage(existing.firstMessage)
+									? existing.firstMessage
+									: session.firstMessage,
+								modifiedAt: Math.max(existing.modifiedAt, session.modifiedAt),
+							};
+						}
+						return new Map([...prev, [cwd, nextSessions]]);
+					});
+				}
+				void loadSessionsRef.current(cwd);
+			});
+		}
 		// Intentionally no cleanup: the listener lives for the renderer's
 		// lifetime, mirroring the singleton-style hooks (useAppInit, etc.).
-	}, []);
+	}, [setSessionsMap]);
 
 	const refreshProjects = useCallback(async () => {
 		// Read project list from app-specific config file (not shared with CLI)
