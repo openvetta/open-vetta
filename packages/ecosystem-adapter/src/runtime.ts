@@ -1,3 +1,4 @@
+import { createClaudeHookAdapter } from "./claude-code/hooks/adapter.js";
 import { createCodexHookAdapter } from "./codex/hooks/adapter.js";
 import { type EcosystemHookAdapter, type EcosystemHookHost, EcosystemHookRuntime } from "./hooks/runtime.js";
 import type { HookConfigLayer, HookDiagnostic, HookRunSummary, SessionStartSource } from "./hooks/types.js";
@@ -28,6 +29,14 @@ const BUILT_IN_ADAPTER_FACTORIES: readonly EcosystemHookAdapterFactory[] = [
 	async (context) => {
 		return createCodexHookAdapter({
 			configLayers: context.configLayers,
+			onDiagnostic: context.onDiagnostic,
+			onFailedRun: context.onFailedRun,
+		});
+	},
+	async (context) => {
+		return createClaudeHookAdapter({
+			configLayers: context.configLayers,
+			projectDir: context.cwd,
 			onDiagnostic: context.onDiagnostic,
 			onFailedRun: context.onFailedRun,
 		});

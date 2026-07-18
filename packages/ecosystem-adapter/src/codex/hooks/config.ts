@@ -44,6 +44,7 @@ export async function discoverCodexHookHandlers(layers: readonly HookConfigLayer
 		if (!layer.enabled) continue;
 		const sources = layer.sources ?? [{ path: join(layer.directory, "hooks.json") }];
 		for (const source of sources) {
+			if (!isCodexOwnedSource(source)) continue;
 			displayOrder = await appendSource(source, handlers, diagnostics, displayOrder);
 		}
 	}
@@ -212,6 +213,16 @@ function matcherForEvent(
 	if (matcher === undefined) return { invalid: false };
 	if (matcher.length === 0 || matcher === "*") return { invalid: false, value: matcher };
 	return validateLatestCodexMatcher(matcher) ? { invalid: false, value: matcher } : { invalid: true };
+}
+
+function isCodexOwnedSource(source: HookConfigSource): boolean {
+	if (source.profileId) return source.profileId.startsWith("codex-hooks");
+	// Claude plugin hooks and claude-hooks.json belong to the Claude adapter.
+	if (source.env?.CLAUDE_PLUGIN_ROOT) return false;
+	const normalized = source.path.replace(/\\/g, "/").toLowerCase();
+	if (normalized.endsWith("/claude-hooks.json")) return false;
+	if (normalized.endsWith("/hooks/hooks.json")) return false;
+	return true;
 }
 
 function isMissingFile(error: unknown): boolean {
