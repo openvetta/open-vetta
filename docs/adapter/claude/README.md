@@ -54,6 +54,7 @@ Vetta 已经具备三块可复用基础：标准 Agent Skill 发现、可扩展�
 2. [Vetta 能力与兼容差距](./02-compatibility-matrix.md)
 3. [目标架构与协议映射](./03-target-architecture.md)
 4. [实施路线与验收标准](./04-roadmap-and-acceptance.md)
+5. [Hook 首期兼容分析](./05-hook-compatibility.md)
 
 ## 核心决策
 
