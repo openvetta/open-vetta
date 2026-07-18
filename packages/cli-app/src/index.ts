@@ -1,10 +1,12 @@
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { parseActionCommand, runActionCommand } from "./action-command.js";
+import { parseDebugCommand, runDebugCommand } from "./debug-command.js";
 
 const HELP_TEXT = `Usage:
   vetta [options] [@files...] [messages...]
   vetta action <subcommand> [options]
+  vetta debug <subcommand> [options]
   vetta agent [options] [@files...] [messages...]
 
 Options:
@@ -15,10 +17,14 @@ Commands:
   action search         Search GUI actions.
   action describe       Describe a GUI action.
   action run            Run a GUI action.
+  debug search          Search development-only Debug capabilities.
+  debug describe        Describe a Debug capability.
+  debug run             Run a Debug capability.
   agent                 Run the coding agent explicitly.
 
 Run "vetta agent --help" for coding-agent options.
 Run "vetta action --help" for GUI action options.
+Run "vetta debug --help" for development Debug options.
 `;
 
 function isTopLevelHelp(argv: string[]): boolean {
@@ -52,6 +58,12 @@ export async function runCli(argv: string[]): Promise<void> {
 	const actionCommand = parseActionCommand(argv);
 	if (actionCommand) {
 		process.exitCode = await runActionCommand(actionCommand);
+		return;
+	}
+
+	const debugCommand = parseDebugCommand(argv);
+	if (debugCommand) {
+		process.exitCode = await runDebugCommand(debugCommand);
 		return;
 	}
 

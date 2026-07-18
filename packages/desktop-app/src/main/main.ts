@@ -5,10 +5,11 @@ import { URL } from "node:url";
 import { getVettaHomePath, VETTA_HOME_ENV } from "@vetta/action-rpc";
 import { app, dialog, ipcMain, nativeImage, nativeTheme, protocol, session, shell } from "electron";
 import { ActionApprovalBroker } from "./app-actions/approval-broker.js";
-import { getActionServerEndpointFilePath } from "./app-actions/endpoint-file.js";
 import { createAppActionRuntime } from "./app-actions/index.js";
-import { type LocalActionServerHandle, startLocalActionServer } from "./app-actions/local-server.js";
+import { createActionRpcRuntime } from "./app-actions/rpc.js";
 import { APP_ASSET_PROTOCOL_PRIVILEGE, registerAppAssetProtocol } from "./app-asset-protocol.js";
+import { createAppDebugRuntime } from "./app-debug/index.js";
+import { createDebugRpcRuntime } from "./app-debug/rpc.js";
 import { initializeAppMonitor, shutdownAppMonitor } from "./app-monitor/app-monitor-service.js";
 import { BatchTaskService } from "./batch-tasks/batch-task-service.js";
 import { parseActionCliCommand, runActionCliCommand } from "./cli/action-command.js";
@@ -41,6 +42,8 @@ import {
 import { syncQuickPanelTrigger } from "./ipc/quickpanel.js";
 import { registerKnowledgeIpc } from "./knowledge/ipc.js";
 import { reloadKnowledgePoller } from "./knowledge/poller.js";
+import { getLocalRpcServerEndpointFilePath } from "./local-rpc/endpoint-file.js";
+import { type DesktopLocalRpcServerHandle, startDesktopLocalRpcServer } from "./local-rpc/server.js";
 import { getAppLogger } from "./logger.js";
 import { MEDIA_PROTOCOL_PRIVILEGE, registerMediaProtocolHandler } from "./media-protocol.js";
 import { openExternalUrl } from "./open-external.js";
@@ -200,7 +203,7 @@ if (!app.isPackaged) {
 let ipcTeardown: IpcTeardown | undefined;
 let teardownSchedulerIpc: (() => void) | undefined;
 let teardownBatchTasksIpc: (() => void) | undefined;
-let localActionServer: LocalActionServerHandle | undefined;
+let localRpcServer: DesktopLocalRpcServerHandle | undefined;
 
 // Register custom protocol for OAuth callback
 // Windows dev mode: must pass electron.exe path and app entry as args,
@@ -570,15 +573,22 @@ if (!gotSingleLock) {
 
 		try {
 			const actionRuntime = createAppActionRuntime(actionApprovalBroker, batchTaskService, schedulerService);
-			localActionServer = await startLocalActionServer(actionRuntime, {
-				endpointFilePath: getActionServerEndpointFilePath(),
-			});
-			mainLog.info("local action server ready", {
-				transport: localActionServer.endpoint.transport,
-				url: localActionServer.endpoint.url,
+			localRpcServer = await startDesktopLocalRpcServer(
+				{
+					actions: createActionRpcRuntime(actionRuntime),
+					debug: app.isPackaged ? undefined : createDebugRpcRuntime(createAppDebugRuntime()),
+				},
+				{
+					endpointFilePath: getLocalRpcServerEndpointFilePath(),
+				},
+			);
+			mainLog.info("local RPC server ready", {
+				transport: localRpcServer.endpoint.transport,
+				url: localRpcServer.endpoint.url,
+				debugEnabled: !app.isPackaged,
 			});
 		} catch (err) {
-			mainLog.error("failed to start local action server", err);
+			mainLog.error("failed to start local RPC server", err);
 		}
 
 		// 启动 Updater：恢复 pending-install + 后台检查一次
@@ -701,13 +711,13 @@ app.on("before-quit", async (event) => {
 	} catch (err) {
 		mainLog.error("disposeSharedRuntime failed", err);
 	}
-	if (localActionServer) {
+	if (localRpcServer) {
 		try {
-			await localActionServer.close();
+			await localRpcServer.close();
 		} catch (err) {
-			mainLog.error("local action server shutdown failed", err);
+			mainLog.error("local RPC server shutdown failed", err);
 		}
-		localActionServer = undefined;
+		localRpcServer = undefined;
 	}
 	await shutdownAppMonitor();
 	app.exit(0);

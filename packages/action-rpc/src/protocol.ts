@@ -1,5 +1,5 @@
 import { ActionRpcError } from "./errors.js";
-import type { ActionRpcRequest } from "./types.js";
+import type { ActionRpcRequest, DebugRpcRequest, LocalRpcRequest } from "./types.js";
 
 function asRecord(value: unknown): Record<string, unknown> {
 	if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -15,11 +15,26 @@ function requireId(record: Record<string, unknown>): string {
 	return record.id;
 }
 
-export function parseActionRpcRequest(value: unknown): ActionRpcRequest {
+function requireStringParam(params: Record<string, unknown> | undefined, name: string): string {
+	const value = params?.[name];
+	if (typeof value !== "string" || value.length === 0) {
+		throw new ActionRpcError("INVALID_REQUEST", `params.${name} is required`);
+	}
+	return value;
+}
+
+export function parseLocalRpcRequest(value: unknown): LocalRpcRequest {
 	const record = asRecord(value);
 	const id = requireId(record);
 	const method = record.method;
-	if (method !== "actions.search" && method !== "actions.describe" && method !== "actions.run") {
+	if (
+		method !== "actions.search" &&
+		method !== "actions.describe" &&
+		method !== "actions.run" &&
+		method !== "debug.search" &&
+		method !== "debug.describe" &&
+		method !== "debug.run"
+	) {
 		throw new ActionRpcError("INVALID_REQUEST", "Unsupported request method", {
 			method: typeof method === "string" ? method : "unknown",
 		});
@@ -37,17 +52,34 @@ export function parseActionRpcRequest(value: unknown): ActionRpcRequest {
 		};
 	}
 
-	if (typeof params?.actionId !== "string" || params.actionId.length === 0) {
-		throw new ActionRpcError("INVALID_REQUEST", "params.actionId is required");
-	}
-
-	if (method === "actions.describe") {
+	if (method === "debug.search") {
 		return {
 			id,
 			method,
 			params: {
-				actionId: params.actionId,
+				query: typeof params?.query === "string" ? params.query : undefined,
+				category: typeof params?.category === "string" ? params.category : undefined,
 			},
+		};
+	}
+
+	if (method === "debug.describe") {
+		return { id, method, params: { debugId: requireStringParam(params, "debugId") } };
+	}
+	if (method === "debug.run") {
+		return {
+			id,
+			method,
+			params: { debugId: requireStringParam(params, "debugId"), input: params?.input },
+		};
+	}
+
+	const actionId = requireStringParam(params, "actionId");
+	if (method === "actions.describe") {
+		return {
+			id,
+			method,
+			params: { actionId },
 		};
 	}
 
@@ -55,8 +87,28 @@ export function parseActionRpcRequest(value: unknown): ActionRpcRequest {
 		id,
 		method,
 		params: {
-			actionId: params.actionId,
-			input: params.input,
+			actionId,
+			input: params?.input,
 		},
 	};
+}
+
+export function parseActionRpcRequest(value: unknown): ActionRpcRequest {
+	const request = parseLocalRpcRequest(value);
+	if (!request.method.startsWith("actions.")) {
+		throw new ActionRpcError("INVALID_REQUEST", "Unsupported action request method", {
+			method: request.method,
+		});
+	}
+	return request as ActionRpcRequest;
+}
+
+export function parseDebugRpcRequest(value: unknown): DebugRpcRequest {
+	const request = parseLocalRpcRequest(value);
+	if (!request.method.startsWith("debug.")) {
+		throw new ActionRpcError("INVALID_REQUEST", "Unsupported debug request method", {
+			method: request.method,
+		});
+	}
+	return request as DebugRpcRequest;
 }

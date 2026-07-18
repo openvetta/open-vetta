@@ -2,19 +2,28 @@ import type { Server } from "node:http";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { ActionRpcError } from "./errors.js";
-import { parseActionRpcRequest } from "./protocol.js";
-import type { ActionRpcEndpoint, ActionRpcErrorBody, ActionRpcResponse, ActionRpcRuntime } from "./types.js";
+import { parseLocalRpcRequest } from "./protocol.js";
+import type {
+	ActionRpcEndpoint,
+	ActionRpcErrorBody,
+	ActionRpcResponse,
+	ActionRpcRuntime,
+	LocalRpcRuntime,
+} from "./types.js";
 
-export interface ActionRpcServerHandle {
+export interface LocalRpcServerHandle {
 	endpoint: ActionRpcEndpoint;
 	close: () => Promise<void>;
 }
 
-export interface StartActionRpcServerOptions {
+export interface StartLocalRpcServerOptions {
 	host?: string;
 	port?: number;
 	token: string;
 }
+
+export type ActionRpcServerHandle = LocalRpcServerHandle;
+export type StartActionRpcServerOptions = StartLocalRpcServerOptions;
 
 function errorBody(err: unknown): ActionRpcErrorBody {
 	if (err instanceof ActionRpcError) {
@@ -43,29 +52,47 @@ function getBearerToken(value: string | undefined): string | undefined {
 }
 
 async function dispatch(
-	runtime: ActionRpcRuntime,
-	request: ReturnType<typeof parseActionRpcRequest>,
+	runtime: LocalRpcRuntime,
+	request: ReturnType<typeof parseLocalRpcRequest>,
 	signal: AbortSignal,
 ) {
 	if (request.method === "actions.search") {
-		return await runtime.search({
+		return await runtime.actions.search({
 			query: request.params?.query,
 			domain: request.params?.domain,
 		});
 	}
 	if (request.method === "actions.describe") {
-		return await runtime.describe(request.params.actionId);
+		return await runtime.actions.describe(request.params.actionId);
 	}
-	return await runtime.run(request.params.actionId, request.params.input ?? {}, {
+	if (request.method === "actions.run") {
+		return await runtime.actions.run(request.params.actionId, request.params.input ?? {}, {
+			requestId: request.id,
+			signal,
+		});
+	}
+	if (!runtime.debug) {
+		throw new ActionRpcError("DEBUG_NOT_AVAILABLE", "Vetta Debug is only available in development mode.");
+	}
+	if (request.method === "debug.search") {
+		return await runtime.debug.search({
+			query: request.params?.query,
+			category: request.params?.category,
+		});
+	}
+	if (request.method === "debug.describe") {
+		return await runtime.debug.describe(request.params.debugId);
+	}
+	return await runtime.debug.run(request.params.debugId, request.params.input ?? {}, {
 		requestId: request.id,
 		signal,
 	});
 }
 
-export async function startActionRpcServer(
-	runtime: ActionRpcRuntime,
-	options: StartActionRpcServerOptions,
-): Promise<ActionRpcServerHandle> {
+export async function startLocalRpcServer(
+	runtime: LocalRpcRuntime,
+	options: StartLocalRpcServerOptions,
+): Promise<LocalRpcServerHandle> {
 	const host = options.host ?? "127.0.0.1";
 	const app = new Hono();
 
@@ -76,7 +103,7 @@ export async function startActionRpcServer(
 			if (getBearerToken(c.req.header("authorization")) !== options.token) {
 				throw new ActionRpcError("UNAUTHORIZED", "Invalid action RPC token");
 			}
-			const request = parseActionRpcRequest(await c.req.json());
+			const request = parseLocalRpcRequest(await c.req.json());
 			id = request.id;
 			const result = await dispatch(runtime, request, c.req.raw.signal);
 			return c.json({ id, ok: true, result } satisfies ActionRpcResponse);
@@ -113,4 +140,11 @@ export async function startActionRpcServer(
 			});
 		},
 	};
+}
+
+export async function startActionRpcServer(
+	runtime: ActionRpcRuntime,
+	options: StartActionRpcServerOptions,
+): Promise<ActionRpcServerHandle> {
+	return await startLocalRpcServer({ actions: runtime }, options);
 }

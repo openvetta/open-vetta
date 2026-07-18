@@ -1,4 +1,4 @@
-export { createActionRpcClient } from "./client.js";
+export { createActionRpcClient, createDebugRpcClient } from "./client.js";
 export {
 	ACTION_RPC_ENDPOINT_FILE_ENV,
 	DEFAULT_CONFIG_DIR_NAME,
@@ -9,9 +9,14 @@ export {
 	VETTA_HOME_ENV,
 } from "./endpoint-file.js";
 export { ActionRpcError } from "./errors.js";
-export { parseActionRpcRequest } from "./protocol.js";
-export type { ActionRpcServerHandle, StartActionRpcServerOptions } from "./server.js";
-export { startActionRpcServer } from "./server.js";
+export { parseActionRpcRequest, parseDebugRpcRequest, parseLocalRpcRequest } from "./protocol.js";
+export type {
+	ActionRpcServerHandle,
+	LocalRpcServerHandle,
+	StartActionRpcServerOptions,
+	StartLocalRpcServerOptions,
+} from "./server.js";
+export { startActionRpcServer, startLocalRpcServer } from "./server.js";
 export type {
 	ActionRpcEndpoint,
 	ActionRpcErrorBody,
@@ -20,6 +25,12 @@ export type {
 	ActionRpcRequest,
 	ActionRpcResponse,
 	ActionRpcRuntime,
+	DebugRpcMethod,
+	DebugRpcRequest,
+	DebugRpcRuntime,
 	JsonPrimitive,
 	JsonValue,
+	LocalRpcMethod,
+	LocalRpcRequest,
+	LocalRpcRuntime,
 } from "./types.js";

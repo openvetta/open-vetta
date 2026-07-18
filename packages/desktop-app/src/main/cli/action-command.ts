@@ -1,6 +1,6 @@
 import { writeSync } from "node:fs";
 import { ActionRpcError, createActionRpcClient } from "@vetta/action-rpc";
-import { readActionServerEndpoint } from "../app-actions/endpoint-file.js";
+import { readLocalRpcServerEndpoint } from "../local-rpc/endpoint-file.js";
 
 export type ActionCliCommand =
 	| { type: "help" }
@@ -209,7 +209,7 @@ export async function runActionCliCommand(command: ActionCliCommand): Promise<nu
 	}
 
 	try {
-		const client = createActionRpcClient(await readActionServerEndpoint());
+		const client = createActionRpcClient(await readLocalRpcServerEndpoint());
 		const result =
 			command.type === "search"
 				? await client.search({ query: command.query, domain: command.domain })
