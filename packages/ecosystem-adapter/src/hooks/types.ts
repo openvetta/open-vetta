@@ -29,6 +29,11 @@ export interface HookConfigSource {
 	path: string;
 	env?: Readonly<Record<string, string>>;
 	pluginId?: string;
+	/**
+	 * Optional profile ownership. When set, only the matching adapter loads this source.
+	 * Example values: `codex-hooks/fca51f6`, `claude-code-hooks/2.1.211`.
+	 */
+	profileId?: string;
 }
 
 export interface HookDiagnostic {
@@ -39,7 +44,9 @@ export interface HookDiagnostic {
 		| "invalid_handler"
 		| "unsupported_handler_type"
 		| "unsupported_handler_mode"
-		| "untrusted_handler";
+		| "unsupported_event"
+		| "untrusted_handler"
+		| "unsupported_runtime";
 	message: string;
 	sourcePath: string;
 }

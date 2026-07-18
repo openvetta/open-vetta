@@ -6,6 +6,7 @@ All notable changes to `@vetta/ecosystem-adapter` are documented in this file.
 
 ### Added
 
+- **Claude Code Hook profile `claude-code-hooks/2.1.211`**：独立 wire contract（不污染 Codex profile），支持 Vetta 宿主已触发的 10 个事件子集、`command` sync handler、matcher、`${CLAUDE_PLUGIN_ROOT}` / `${CLAUDE_PROJECT_DIR}` 展开、Windows 上禁止将 `.sh` 交给 cmd.exe；配置源默认读取 `claude-hooks.json` 或显式 `hooks/hooks.json` + `CLAUDE_PLUGIN_ROOT`。
 - **Hook 关键路径 info 日志（测试可观测）**：Codex adapter 加载时记 profile、handler 按事件计数与配置源；dispatch 对 SessionStart/Stop/Compact 及 block/fail 打精简 info（不含 command/stdin）。
 - 新增通用 Hook 调度内核，负责配置、匹配、并发、命令执行和归一化 effect 聚合。
 - 新增可组合的 `EcosystemHookRuntime` / `EcosystemHookAdapter` 抽象，将会话状态、多适配器聚合和 Stop 安全策略从 Coding Agent 下沉到生态适配包。

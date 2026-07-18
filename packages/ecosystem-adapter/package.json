@@ -17,6 +17,10 @@
 		"./codex/hooks": {
 			"types": "./dist/codex/hooks/index.d.ts",
 			"import": "./dist/codex/hooks/index.js"
+		},
+		"./claude-code/hooks": {
+			"types": "./dist/claude-code/hooks/index.d.ts",
+			"import": "./dist/claude-code/hooks/index.js"
 		}
 	},
 	"files": ["dist", "CHANGELOG.md", "README.md"],
