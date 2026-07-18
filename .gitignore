@@ -66,3 +66,4 @@ skills-lock.json
 terminals
 mcps
 agent-tools
+.playwright-cli
