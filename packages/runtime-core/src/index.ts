@@ -28,6 +28,7 @@ export type {
 	MessageFinalEvent,
 	ProjectInfo,
 	PromptRequest,
+	PromptResourceRef,
 	RuntimeQuestionItem,
 	RuntimeQuestionOption,
 	RuntimeSandboxGrantDecision,

@@ -145,6 +145,11 @@ export interface ExtensionBindings {
 }
 
 /** Options for AgentSession.prompt() */
+export interface PromptResourceRef {
+	kind: "skill" | "scene";
+	name: string;
+}
+
 export interface PromptOptions {
 	/** Whether to expand file-based prompt templates (default: true) */
 	expandPromptTemplates?: boolean;
@@ -152,6 +157,8 @@ export interface PromptOptions {
 	images?: ImageContent[];
 	/** When streaming, how to queue the message: "steer" (interrupt) or "followUp" (wait). Required if streaming. */
 	streamingBehavior?: "steer" | "followUp";
+	/** Structured Skill / Scene selection. Expanded before the user message is sent to the model. */
+	promptRef?: PromptResourceRef;
 	/** Source of input for extension input event handlers. Defaults to "interactive". */
 	source?: InputSource;
 	/**

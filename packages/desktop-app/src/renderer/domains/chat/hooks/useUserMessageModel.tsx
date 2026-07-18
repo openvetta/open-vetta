@@ -119,13 +119,17 @@ async function reloadChatHistory(runtimeId: string): Promise<void> {
 	getDefaultStore().set(chatMessagesAtom, fullHistoryToChat(history));
 }
 
-function fillInputFromUserText(rawText: string): void {
+function fillInputFromUserText(rawText: string, promptRef?: ChatMessage["promptRef"]): void {
 	const store = getDefaultStore();
 	const { skillName, skillType, files, body } = parseUserPrefixes(rawText);
 	store.set(inputValueAtom, body);
 	store.set(
 		selectedSkillAtom,
-		skillName ? { name: skillName, type: skillType ?? "skill" } : null,
+		promptRef
+			? { name: promptRef.name, type: promptRef.kind }
+			: skillName
+				? { name: skillName, type: skillType ?? "skill" }
+				: null,
 	);
 	// Appshot capsule needs full AppshotAttachment; on re-edit we re-attach the image path
 	// via mentionedFiles @prefix instead (sendMessage will include it).
@@ -174,7 +178,15 @@ export function useUserMessageModel({
 	onEntryComplete,
 }: UserMessageModelInput): UserMessageModel {
 	const { t } = useTranslation("chat");
-	const { skillName, skillType, files, body } = parseUserPrefixes(message.text);
+	const parsedUser = parseUserPrefixes(message.text);
+	const promptRef =
+		message.promptRef ??
+		(parsedUser.skillName && parsedUser.skillType
+			? { kind: parsedUser.skillType, name: parsedUser.skillName }
+			: undefined);
+	const skillName = promptRef?.name ?? null;
+	const skillType = promptRef?.kind ?? null;
+	const { files, body } = parsedUser;
 	const { appshotImage, rest: displayFiles } = splitAppshotFiles(files);
 	// image-cache (persistImages) must still render as thumbnails; appshot is already split out.
 	const imageFiles = displayFiles.filter((file) => isUserImageFile(file));
@@ -242,9 +254,9 @@ export function useUserMessageModel({
 			}
 		}
 		if (!entryId) return;
-		fillInputFromUserText(message.text);
+		fillInputFromUserText(message.text, message.promptRef);
 		getDefaultStore().set(pendingMessageEditAtom, { entryId });
-	}, [activeSession?.runtimeId, message.entryId, message.text]);
+	}, [activeSession?.runtimeId, message.entryId, message.promptRef, message.text]);
 
 	const runWithInterruptConfirm = useCallback(
 		(kind: "switch" | "fork", action: () => void | Promise<void>) => {

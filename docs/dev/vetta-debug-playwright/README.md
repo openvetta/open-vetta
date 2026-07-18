@@ -23,6 +23,8 @@ CDP 入口满足以下约束：
 - 默认端口为 `9223`。
 - `VETTA_DEBUG_CDP_PORT` 可以覆盖端口；设为 `0`、`off` 或 `false` 可以关闭。
 
+**Agent 必读：应用未启动时自行启动。** 使用本目录流程前，先按 [自动化开发手册 §3.1.1](../vetta-debug-automated-development.md) 探测本地 RPC / `ui.info`；若 App 未运行，在 `packages/desktop-app` 后台执行 `bun run dev` 并轮询就绪，**禁止**只向用户报“请先启动开发版 Vetta”后结束。已在运行则不要重复启动。
+
 PowerShell 覆盖端口：
 
 ```powershell
@@ -186,9 +188,12 @@ playwright-cli -s=vetta console error
 ## 6. 推荐的 Agent 闭环
 
 ```text
+探测 Desktop 是否在线（debug search / action-server.json / ui.info）
+  → 未在线：自行后台 bun run dev，轮询直到 RPC 与 CDP 就绪（见手册 §3.1.1）
+  → 已在线：不要重复启动
 修改实现
   → bun run check
-  → 必要时重启 Desktop 主进程
+  → 改了 main/preload 时再重启 Desktop 主进程
   → ui.info 确认 CDP target
   → conversation.create / conversation.continue 驱动业务
   → Playwright 选择主窗口

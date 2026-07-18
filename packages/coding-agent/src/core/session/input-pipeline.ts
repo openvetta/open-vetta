@@ -13,7 +13,7 @@ import type { AgentMessage } from "@vetta/agent-core";
 import type { AssistantMessage, ImageContent, TextContent } from "@vetta/ai";
 import { getDocsPath } from "../../config.js";
 import type { PromptOptions } from "../agent-session.js";
-import type { CustomMessage } from "../messages.js";
+import { type CustomMessage, PROMPT_RESOURCE_REFERENCE_TYPE } from "../messages.js";
 import { expandPromptTemplate } from "../prompt-templates.js";
 import type { ResourceLoader } from "../resource-loader.js";
 import type { TodoStore } from "../todo-store.js";
@@ -24,7 +24,7 @@ import type { QueueController } from "./queue-controller.js";
 import type { RetryController } from "./retry-controller.js";
 import type { RuntimeManager } from "./runtime-manager.js";
 import type { SessionContext } from "./session-context.js";
-import { expandSkillCommand } from "./skill-expansion.js";
+import { expandSkillCommand, expandSkillReference } from "./skill-expansion.js";
 import { buildTodoContinuationMessages } from "./todo-continuation.js";
 
 export interface InputPipelineDeps {
@@ -134,11 +134,20 @@ export class InputPipeline {
 		let expandedText = currentText;
 		let sceneInjection: string | undefined;
 		let skillInjection: string | undefined;
-		if (expandPromptTemplates) {
-			const expanded = this.expandSkillCommand(expandedText);
+		let promptRef = options?.promptRef;
+		if (promptRef && /^\/(?:skill|scene):/.test(expandedText)) {
+			throw new Error("Prompt must not contain a Skill / Scene command when promptRef is provided");
+		}
+		if (promptRef || expandPromptTemplates) {
+			const expanded = promptRef
+				? expandSkillReference(expandedText, promptRef, this.skillExpansionDeps())
+				: this.expandSkillCommand(expandedText);
 			expandedText = expanded.text;
 			sceneInjection = expanded.sceneInjection;
 			skillInjection = expanded.skillInjection;
+			promptRef = expanded.promptRef;
+		}
+		if (expandPromptTemplates) {
 			expandedText = expandPromptTemplate(expandedText, [...this.resourceLoader.getPrompts().prompts]);
 		}
 
@@ -297,12 +306,23 @@ export class InputPipeline {
 
 		// Inject skill/scene content as hidden custom messages (before user message so model sees it first).
 		// Skill goes first so the model parses its `<skill>` block before any scene context.
+		if (promptRef && !skillInjection && !sceneInjection) {
+			messages.push({
+				role: "custom",
+				customType: PROMPT_RESOURCE_REFERENCE_TYPE,
+				content: "",
+				display: false,
+				details: { promptRef },
+				timestamp: Date.now(),
+			});
+		}
 		if (skillInjection) {
 			messages.push({
 				role: "custom",
 				customType: "skill_expansion",
 				content: skillInjection,
 				display: false,
+				details: promptRef ? { promptRef } : undefined,
 				timestamp: Date.now(),
 			});
 		}
@@ -312,6 +332,7 @@ export class InputPipeline {
 				customType: "scene_expansion",
 				content: sceneInjection,
 				display: false,
+				details: promptRef ? { promptRef } : undefined,
 				timestamp: Date.now(),
 			});
 		}
@@ -510,13 +531,17 @@ export class InputPipeline {
 		});
 	}
 
-	private expandSkillCommand(text: string): { text: string; sceneInjection?: string; skillInjection?: string } {
+	private expandSkillCommand(text: string): ReturnType<typeof expandSkillCommand> {
+		return expandSkillCommand(text, this.skillExpansionDeps());
+	}
+
+	private skillExpansionDeps(): Parameters<typeof expandSkillCommand>[1] {
 		const runner = this.runtime.extensionRunner;
-		return expandSkillCommand(text, {
+		return {
 			resourceLoader: this.resourceLoader,
 			todoStore: this.todoStore,
 			emitError: runner ? (error) => runner.emitError(error) : undefined,
-		});
+		};
 	}
 
 	private async runPromptHooks(prompt: string): Promise<string[]> {

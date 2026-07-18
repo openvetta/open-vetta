@@ -1,6 +1,8 @@
 import type { ThinkingLevel, ToolPhase } from "@vetta/agent-core";
 import type { Message, Model } from "@vetta/ai";
-import type { ConversationScenario } from "@vetta/coding-agent";
+import type { ConversationScenario, PromptResourceRef } from "@vetta/coding-agent";
+
+export type { PromptResourceRef } from "@vetta/coding-agent";
 
 export type RuntimeEventSource = "runtime-core" | "agent" | "tool" | "mcp";
 
@@ -613,6 +615,8 @@ export interface SessionConfig {
 
 export interface PromptRequest {
 	text: string;
+	/** Structured Skill / Scene selection. Kept separate from user-visible prompt text. */
+	promptRef?: PromptResourceRef;
 	images?: Array<{ type: "image"; data: string; mimeType: string }>;
 	streamingBehavior?: "steer" | "followUp";
 	/** Model key in "provider/modelId" format — ensures the prompt uses exactly this model */
@@ -685,6 +689,8 @@ export type HistoryEntry =
 	 * tabId identifies the settings page for the badge label (e.g. "mcp" →「MCP配置协助」).
 	 */
 	| { type: "settings_assist_marker"; tabId?: string; timestamp: string }
+	/** Marker that the next user message was sent with a structured Skill / Scene reference. */
+	| { type: "prompt_ref_marker"; promptRef: PromptResourceRef; timestamp: string }
 	| {
 			type: "tool_timing";
 			toolCallId: string;

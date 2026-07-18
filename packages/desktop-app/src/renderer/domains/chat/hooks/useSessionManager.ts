@@ -62,6 +62,7 @@ import { useNavigate } from "@tanstack/react-router";
 import type { ConversationScenario } from "@vetta-org/plugin-sdk";
 import { getDefaultStore, useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef } from "react";
+import type { PromptRequest } from "../../../../../../runtime-core/src/index.js";
 import {
 	adoptDraftId,
 	appendError,
@@ -917,13 +918,14 @@ export function useSessionManager(): SessionManagerResult {
 					console.error("[useSessionManager.sendMessage] persistImages failed:", err);
 				}
 			}
-			// Build prefix lines（override 直发不带前缀）
-			const skillPrefix =
+			const promptRef =
 				!hasOverride && selectedSkill
-					? selectedSkill.type === "scene"
-						? `/scene:${selectedSkill.name}\n`
-						: `/skill:${selectedSkill.name}\n`
-					: "";
+					? {
+							kind: selectedSkill.type === "scene" ? ("scene" as const) : ("skill" as const),
+							name: selectedSkill.name,
+						}
+					: undefined;
+			// Build attachment prefix lines（override 直发不带输入框附件）
 			const filesPrefix =
 				!hasOverride && mentionedFiles.length > 0 ? `${mentionedFiles.map((f) => `@${f.path}`).join("\n")}\n` : "";
 			// Appshot 附件：截图与 AX 文本以 @路径 形式随 prompt 引用（agent 用 Read 按需读取）。
@@ -932,7 +934,7 @@ export function useSessionManager(): SessionManagerResult {
 					? `${appshot.imagePath ? `@${appshot.imagePath}\n` : ""}${appshot.textPath ? `@${appshot.textPath}\n` : ""}`
 					: "";
 			const imagesPrefix = imagePaths.length > 0 ? `${imagePaths.map((p) => `@${p}`).join("\n")}\n` : "";
-			const text = `${skillPrefix}${filesPrefix}${appshotPrefix}${imagesPrefix}${rawText}`;
+			const text = `${filesPrefix}${appshotPrefix}${imagesPrefix}${rawText}`;
 			recordInputContextUsed({
 				files: hasOverride ? [] : mentionedFiles,
 				images: images ?? [],
@@ -1006,6 +1008,7 @@ export function useSessionManager(): SessionManagerResult {
 					text,
 					timestamp: Date.now(),
 					model: modelKeyToParts(selectedModel),
+					promptRef,
 				};
 				// Base64 preview only when persist failed — otherwise @image-cache paths
 				// in text already drive thumbnails (avoids double image while streaming).
@@ -1084,13 +1087,9 @@ export function useSessionManager(): SessionManagerResult {
 				}
 			}
 
-			const promptReq: {
-				text: string;
-				modelKey?: string;
-				reasoning?: string;
-				metadata?: Record<string, unknown>;
-			} = {
+			const promptReq: PromptRequest = {
 				text: text || "(see attached images)",
+				promptRef,
 			};
 			if (selectedModel) {
 				promptReq.modelKey = selectedModel;
@@ -1234,6 +1233,7 @@ export function useSessionManager(): SessionManagerResult {
 				text: item.request.text,
 				timestamp: Date.now(),
 				model: modelKeyToParts(item.request.modelKey),
+				promptRef: item.request.promptRef,
 			};
 			setChatMessages((prev) => [...prev, queuedUserMsg]);
 			try {

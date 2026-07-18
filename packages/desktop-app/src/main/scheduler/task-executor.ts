@@ -21,16 +21,6 @@ export interface ExecuteTaskOptions {
 	onOneTimeCompleted?: (task: ScheduledTask) => Promise<void> | void;
 }
 
-/**
- * 与 batch-task-executor.applySkillPrefix 等价：在 prompt 前注入 `/skill:` 或 `/scene:` 行。
- * 与会话页的发送逻辑保持一致，由后端 agent 解析。
- */
-function applySkillPrefix(prompt: string, skill: ScheduledTask["skill"]): string {
-	if (!skill) return prompt;
-	const prefix = skill.type === "scene" ? `/scene:${skill.name}\n` : `/skill:${skill.name}\n`;
-	return `${prefix}${prompt}`;
-}
-
 export async function executeTask(
 	task: ScheduledTask,
 	runtime: RuntimeHost,
@@ -201,7 +191,15 @@ export async function executeTask(
 		executingTasks.set(task.id, { sessionId, runtime, unsubscribe: safeUnsubscribe });
 
 		await runtime.prompt(sessionId, {
-			text: applySkillPrefix(task.prompt, task.skill),
+			text: task.prompt,
+			...(task.skill
+				? {
+						promptRef: {
+							kind: task.skill.type === "scene" ? ("scene" as const) : ("skill" as const),
+							name: task.skill.name,
+						},
+					}
+				: {}),
 			...(task.modelKey ? { modelKey: task.modelKey } : {}),
 		});
 	} catch (error) {

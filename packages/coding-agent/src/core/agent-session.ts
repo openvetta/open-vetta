@@ -54,6 +54,7 @@ import type {
 	AgentSessionEventListener,
 	ExtensionBindings,
 	PromptOptions,
+	PromptResourceRef,
 } from "./session/types.js";
 import type { BranchSummaryEntry, SessionManager } from "./session-manager.js";
 import type { SettingsManager } from "./settings-manager.js";
@@ -76,6 +77,7 @@ export type {
 	ExtensionBindings,
 	ModelCycleResult,
 	PromptOptions,
+	PromptResourceRef,
 	SessionStats,
 };
 

@@ -1,5 +1,6 @@
 import type { CardDescriptor } from "@vetta-org/plugin-sdk";
 import { atom } from "jotai";
+import type { PromptResourceRef } from "../../../../../runtime-core/src/index.js";
 import { runningSessionPathsAtom } from "./running-sessions-atoms";
 
 // ─── Rich content blocks ───
@@ -186,6 +187,8 @@ export interface ChatMessage {
 	 * 乐观发送与历史回放（settings_assist_marker）都会设置。
 	 */
 	settingsAssistTabId?: string;
+	/** Structured Skill / Scene selection associated with this user turn. */
+	promptRef?: PromptResourceRef;
 }
 
 /**

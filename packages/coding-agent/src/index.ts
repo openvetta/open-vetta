@@ -10,6 +10,7 @@ export {
 	type ModelCycleResult,
 	type ParsedSkillBlock,
 	type PromptOptions,
+	type PromptResourceRef,
 	parseSkillBlock,
 	type SessionStats,
 } from "./core/agent-session.js";
@@ -161,7 +162,7 @@ export {
 export type { ReadonlyFooterDataProvider } from "./core/footer-data-provider.js";
 // Knowledge base core modules
 export * as knowledge from "./core/knowledge/index.js";
-export { convertToLlm } from "./core/messages.js";
+export { convertToLlm, PROMPT_RESOURCE_REFERENCE_TYPE } from "./core/messages.js";
 export { ModelRegistry } from "./core/model-registry.js";
 export type {
 	PackageManager,
