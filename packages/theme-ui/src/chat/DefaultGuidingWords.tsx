@@ -5,6 +5,11 @@ import type { NewSessionGuidingWordsProps } from "./NewSession";
 const easeOut = [0.16, 1, 0.3, 1] as const;
 const guidingEase = [0.22, 1, 0.36, 1] as const;
 
+// 与桌面端 GUIDING_WORD_PAGE=3 对齐：固定 3 槽位高度，轮播切换时不改组件高度。
+// 单槽 = 1 行 text-[12px]/leading-relaxed + py-1.5（12*1.625 + 12 ≈ 31.5px）。
+const WORD_SLOT_CLASS = "h-8";
+const WORD_LIST_MIN_H_CLASS = "min-h-24";
+
 export function DefaultGuidingWords({
 	className,
 	groups,
@@ -12,13 +17,15 @@ export function DefaultGuidingWords({
 	onPick,
 	...props
 }: NewSessionGuidingWordsProps): JSX.Element {
+	const columnsClass = groups.length <= 1 ? "grid-cols-1" : "grid-cols-2";
+
 	return (
 		<div className={["mt-5 w-full", className].filter(Boolean).join(" ")} {...props}>
 			<motion.div
 				initial={{ opacity: 0, y: 8 }}
 				animate={{ opacity: mounted ? 1 : 0, y: mounted ? 0 : 8 }}
 				transition={{ duration: 0.5, delay: 0.35, ease: easeOut }}
-				className="grid w-full grid-cols-2 items-start gap-x-10"
+				className={`grid w-full ${columnsClass} items-start gap-x-4`}
 			>
 				{groups.map((group) => (
 					<div key={group.id} className="flex w-full min-w-0 flex-col gap-1.5">
@@ -30,7 +37,7 @@ export function DefaultGuidingWords({
 							initial="initial"
 							animate="animate"
 							variants={{ animate: { transition: { staggerChildren: 0.05, delayChildren: 0.04 } } }}
-							className="flex flex-col pl-2.5"
+							className={`flex min-w-0 flex-col ${WORD_LIST_MIN_H_CLASS}`}
 						>
 							{group.words.map((word, index) => {
 								const isLast = index === group.words.length - 1;
@@ -46,13 +53,13 @@ export function DefaultGuidingWords({
 										transition={{ duration: 0.55, ease: guidingEase }}
 										whileTap={{ scale: 0.98 }}
 										title={word}
-										className={`relative flex min-h-8 items-start py-1.5 pl-[18px] text-left text-[12px] leading-relaxed text-muted-foreground transition-colors hover:text-primary before:absolute before:left-0 before:border-l before:border-muted-foreground/30 before:content-[''] ${
+										className={`relative flex ${WORD_SLOT_CLASS} w-full min-w-0 shrink-0 items-center overflow-hidden py-1.5 pl-3 text-left text-[12px] leading-relaxed text-muted-foreground transition-colors hover:text-primary before:absolute before:left-0 before:border-l before:border-muted-foreground/30 before:content-[''] ${
 											isLast
-												? "before:top-0 before:h-4 before:w-[12px] before:rounded-bl-[7px] before:border-b"
-												: "before:inset-y-0 before:w-0 after:absolute after:left-0 after:top-4 after:w-[12px] after:border-t after:border-muted-foreground/30 after:content-['']"
+												? "before:top-0 before:h-4 before:w-2.5 before:rounded-bl-[7px] before:border-b"
+												: "before:inset-y-0 before:w-0 after:absolute after:left-0 after:top-1/2 after:w-2.5 after:border-t after:border-muted-foreground/30 after:content-['']"
 										}`}
 									>
-										<span className="break-words">{word}</span>
+										<span className="block min-w-0 flex-1 truncate">{word}</span>
 									</motion.button>
 								);
 							})}

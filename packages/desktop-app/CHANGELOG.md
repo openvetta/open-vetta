@@ -72,6 +72,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **新会话引导词区高度抖动**：单条引导词过长换行或轮播切页时组件高度变化，牵动 `justify-center` 布局导致页面跳动。现固定 3 槽位列表高度，单条单行 `truncate`（全文在 `title`）；仅 1 组时用满宽，默认主题与仙侠主题同步。
 - **黑白主题 BotAvatar 眼睛**：深色覆盖为灰 `rgb(150, 150, 150)`；浅色保持白眼，不影响其它主题。
 - **黑白主题浅色发送按钮禁用态**：默认 `muted-foreground` 偏深，压浅为中性灰 `rgb(180, 180, 180)`。
 - **「经典」主题浅色 border / card 分层**：`border`/`input` 由 `rgb(213, 213, 216)` 改为 `rgb(230, 230, 230)`；`background` 纯白、`card` 极浅灰 `rgb(250, 250, 250)`（`styles.css` 浅色回退同步）。

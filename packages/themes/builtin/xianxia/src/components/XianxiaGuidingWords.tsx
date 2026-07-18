@@ -5,6 +5,10 @@ import { cn } from "@vetta/ui";
 import type { JSX } from "react";
 import { xianxiaAssets } from "../assets";
 
+// 与 DefaultGuidingWords / GUIDING_WORD_PAGE=3 对齐：固定单行槽位，避免轮播引起页面抖动。
+const WORD_SLOT_CLASS = "h-8";
+const WORD_LIST_MIN_H_CLASS = "min-h-24";
+
 export function XianxiaGuidingWords({
 	className,
 	groups,
@@ -13,6 +17,8 @@ export function XianxiaGuidingWords({
 	...props
 }: NewSessionGuidingWordsProps): JSX.Element {
 	const surface = useThemeSurface("chat.newSessionGuidingWords");
+	const columnsClass =
+		groups.length <= 1 ? "grid-cols-1" : "grid-cols-[minmax(0,2fr)_minmax(0,3fr)]";
 
 	return (
 		<div
@@ -42,7 +48,7 @@ export function XianxiaGuidingWords({
 				initial={{ opacity: 0, y: 8 }}
 				animate={{ opacity: mounted ? 1 : 0, y: mounted ? 0 : 8 }}
 				transition={{ duration: 0.5, delay: 0.35 }}
-				className="relative z-10 grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] items-start gap-x-10"
+				className={cn("relative z-10 grid items-start gap-x-4", columnsClass)}
 			>
 				{groups.map((group) => (
 					<div key={group.id} className="flex min-w-0 flex-col gap-2">
@@ -54,7 +60,7 @@ export function XianxiaGuidingWords({
 							initial="initial"
 							animate="animate"
 							variants={{ animate: { transition: { staggerChildren: 0.05, delayChildren: 0.04 } } }}
-							className="flex flex-col"
+							className={cn("flex min-w-0 flex-col", WORD_LIST_MIN_H_CLASS)}
 						>
 							{group.words.map((word, index) => (
 								<motion.button
@@ -68,9 +74,12 @@ export function XianxiaGuidingWords({
 									transition={{ duration: 0.5 }}
 									whileTap={{ scale: 0.98 }}
 									title={word}
-									className="min-h-8 border-l border-primary/20 px-4 py-1.5 text-left text-[12px] leading-relaxed text-muted-foreground transition-colors hover:text-primary"
+									className={cn(
+										WORD_SLOT_CLASS,
+										"flex w-full min-w-0 shrink-0 items-center overflow-hidden border-l border-primary/20 px-3 py-1.5 text-left text-[12px] leading-relaxed text-muted-foreground transition-colors hover:text-primary",
+									)}
 								>
-									<span className="break-words">{word}</span>
+									<span className="block min-w-0 flex-1 truncate">{word}</span>
 								</motion.button>
 							))}
 						</motion.div>
