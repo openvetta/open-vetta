@@ -10,6 +10,7 @@ import { createActionRpcRuntime } from "./app-actions/rpc.js";
 import { APP_ASSET_PROTOCOL_PRIVILEGE, registerAppAssetProtocol } from "./app-asset-protocol.js";
 import { createAppDebugRuntime } from "./app-debug/index.js";
 import { createDebugRpcRuntime } from "./app-debug/rpc.js";
+import { configureRendererCdp } from "./app-debug/ui/renderer-cdp.js";
 import { initializeAppMonitor, shutdownAppMonitor } from "./app-monitor/app-monitor-service.js";
 import { BatchTaskService } from "./batch-tasks/batch-task-service.js";
 import { parseActionCliCommand, runActionCliCommand } from "./cli/action-command.js";
@@ -158,6 +159,12 @@ if (agentRpcArgs) {
 	installMainDiagnostics();
 }
 const mainLog = getAppLogger("main");
+const rendererCdp = configureRendererCdp({
+	isCliMode,
+	isPackaged: app.isPackaged,
+	devServerUrl: process.env.VETTA_DESKTOP_DEV_URL,
+	portValue: process.env.VETTA_DEBUG_CDP_PORT,
+});
 process.env[VETTA_HOME_ENV] = getVettaHomePath();
 
 if (isCliMode) {
@@ -576,7 +583,7 @@ if (!gotSingleLock) {
 			localRpcServer = await startDesktopLocalRpcServer(
 				{
 					actions: createActionRpcRuntime(actionRuntime),
-					debug: app.isPackaged ? undefined : createDebugRpcRuntime(createAppDebugRuntime()),
+					debug: app.isPackaged ? undefined : createDebugRpcRuntime(createAppDebugRuntime({ rendererCdp })),
 				},
 				{
 					endpointFilePath: getLocalRpcServerEndpointFilePath(),
