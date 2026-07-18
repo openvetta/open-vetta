@@ -1,10 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { type Dirent, type FSWatcher, watch } from "node:fs";
-import { mkdir, readdir, readFile, rm } from "node:fs/promises";
-import { basename, isAbsolute, join, relative, resolve } from "node:path";
-import { type ConversationScenario, DEFAULT_PERSONA_ID, PERSONAS } from "@vetta/coding-agent";
+import { mkdir, readdir, rm } from "node:fs/promises";
+import { basename, join, resolve } from "node:path";
+import { DEFAULT_PERSONA_ID, PERSONAS } from "@vetta/coding-agent";
 import { BrowserWindow, ipcMain, type WebContents } from "electron";
-import { VETTA_CLI_GUIDANCE } from "../../../../coding-agent/src/core/system-prompt.js";
 import type {
 	AgentPluginContinuationInvocation,
 	AgentPluginContinuationResult,
@@ -22,7 +21,11 @@ import type {
 	SessionExecutionMode,
 	SettingsPatch,
 } from "../../../../runtime-core/src/index.js";
-import { monitorRuntimeSession, stopMonitoringRuntimeSession } from "../app-monitor/app-monitor-service.js";
+import { stopMonitoringRuntimeSession } from "../app-monitor/app-monitor-service.js";
+import { onConversationListChanged } from "../conversations/conversation-list-events.js";
+import { getDesktopConversationService } from "../conversations/desktop-conversation-service.js";
+import { isConversationSubCwd, readSessionCwdFromHeader } from "../conversations/session-paths.js";
+import { getDesktopUserQuestionBroker } from "../conversations/user-question-broker.js";
 import { type DebugRequestData, writeDebugRequest } from "../debug-writer.js";
 import { getAppLogger } from "../logger.js";
 import { notify } from "../notifications/index.js";
@@ -46,44 +49,13 @@ import {
 	DEFAULT_CONVERSATION_SESSION_DIR,
 	DEFAULT_IM_CONVERSATION_CWD,
 	DEFAULT_IM_CONVERSATION_SESSION_DIR,
-	KB_PROCESSING_CWD,
-	KB_PROCESSING_SESSION_DIR,
 	readConfigSync,
 	readDesktopConfig,
 	writeDesktopConfig,
 } from "./fs.js";
 import { readSettings, writeSettings } from "./settings.js";
 
-/**
- * 默认「对话」与 IM cwd 的会话都放到 <cwd>/.vetta/sessions（与批量项目一致）。
- * 当请求的 cwd 是这两类之一时自动注入 sessionDir，渲染端无需感知。
- */
-export function resolveSessionDirForCwd(cwd: string | undefined): string | undefined {
-	if (!cwd) return undefined;
-	const abs = resolve(cwd);
-	if (abs === resolve(DEFAULT_CONVERSATION_CWD)) {
-		return DEFAULT_CONVERSATION_SESSION_DIR;
-	}
-	if (abs === resolve(DEFAULT_IM_CONVERSATION_CWD)) {
-		return DEFAULT_IM_CONVERSATION_SESSION_DIR;
-	}
-	if (abs === resolve(KB_PROCESSING_CWD)) {
-		return KB_PROCESSING_SESSION_DIR;
-	}
-	return undefined;
-}
-
-/**
- * 判断给定 cwd 是不是「对话」项目根下的某个 session 子目录
- * （即 ADR-0007 引入的 per-session artifact dir）。
- */
-function isConversationSubCwd(cwd: string): boolean {
-	const abs = resolve(cwd);
-	const root = resolve(DEFAULT_CONVERSATION_CWD);
-	if (abs === root) return false;
-	const rel = relative(root, abs).replace(/\\/g, "/");
-	return rel.length > 0 && !rel.startsWith("..") && !isAbsolute(rel) && !rel.includes("/");
-}
+export { ensureConversationSubCwd, resolveSessionDirForCwd } from "../conversations/session-paths.js";
 
 /** ADR-0007 per-session dir name under conversation roots (UUID). */
 function isSessionArtifactDirName(name: string): boolean {
@@ -99,47 +71,6 @@ async function clearDirectoryContents(dir: string): Promise<void> {
 		return;
 	}
 	await Promise.all(entries.map((entry) => rm(join(dir, entry.name), { recursive: true, force: true })));
-}
-
-/**
- * Ensure a session working directory exists on disk.
- * Header may still point at a per-session subdir after「清空产物」deleted it.
- */
-async function ensureSessionWorkingCwd(cwd: string | undefined): Promise<void> {
-	if (!cwd) return;
-	await mkdir(cwd, { recursive: true });
-}
-
-/**
- * ADR-0007: 「对话」默认项目下每个新建 session eager 一个独立子目录作为运行 cwd，
- * 避免不同 session 的 agent 产物在根目录互相覆盖/被误读。
- * 仅作用于 cwd 恰好为 DEFAULT_CONVERSATION_CWD 的场景；其他项目原样返回
- * （有的项目 session 之间产物本就需要共享，不能动）。
- *
- * 定时任务执行器（scheduler/task-executor）也复用此函数，使其在「对话」项目下
- * 触发时同样获得独立子目录，与 UI 创建的 session 行为一致。
- */
-export async function ensureConversationSubCwd(requestedCwd: string | undefined): Promise<string | undefined> {
-	if (!requestedCwd) return requestedCwd;
-	if (resolve(requestedCwd) !== resolve(DEFAULT_CONVERSATION_CWD)) return requestedCwd;
-	const sub = join(DEFAULT_CONVERSATION_CWD, randomUUID());
-	await mkdir(sub, { recursive: true });
-	return sub;
-}
-
-/** 从 session jsonl 第一行 header 里读 cwd；读不到返回 undefined。 */
-async function readSessionCwdFromHeader(sessionPath: string): Promise<string | undefined> {
-	try {
-		const text = await readFile(sessionPath, "utf8");
-		const nl = text.indexOf("\n");
-		const firstLine = nl === -1 ? text : text.slice(0, nl);
-		if (!firstLine) return undefined;
-		const header = JSON.parse(firstLine) as { type?: string; cwd?: string };
-		if (header.type !== "session") return undefined;
-		return typeof header.cwd === "string" ? header.cwd : undefined;
-	} catch {
-		return undefined;
-	}
 }
 
 /**
@@ -184,6 +115,7 @@ const CHANNELS = {
 	CREATE: "vetta:session:create",
 	LIST_PROJECTS: "vetta:session:list-projects",
 	LIST_SESSIONS: "vetta:session:list-sessions",
+	SESSIONS_CHANGED: "vetta:session:sessions-changed",
 	PROMPT: "vetta:session:prompt",
 	CONTINUE: "vetta:session:continue",
 	ABORT: "vetta:session:abort",
@@ -218,6 +150,8 @@ const CHANNELS = {
 	CONFIRM_REQUEST: "vetta:session:confirm-request",
 	CONFIRM_RESPONSE: "vetta:session:confirm-response",
 	QUESTION_REQUEST: "vetta:session:question-request",
+	QUESTION_LIST_PENDING: "vetta:session:question-list-pending",
+	QUESTION_RESOLVED: "vetta:session:question-resolved",
 	QUESTION_RESPONSE: "vetta:session:question-response",
 	SANDBOX_GRANT_REQUEST: "vetta:session:sandbox-grant-request",
 	SANDBOX_GRANT_RESPONSE: "vetta:session:sandbox-grant-response",
@@ -352,6 +286,11 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	};
 
 	const runtime = getSharedRuntime();
+	const conversationService = getDesktopConversationService();
+	const questionBroker = getDesktopUserQuestionBroker();
+	const unsubscribeConversationListChanged = onConversationListChanged((event) => {
+		broadcastToAllWindows(CHANNELS.SESSIONS_CHANGED, event);
+	});
 	const subscriptionMap = new Map<string, () => void>();
 	const confirmationMap = new Map<string, (confirmed: boolean) => void>();
 	const questionMap = new Map<string, (result: RuntimeUserQuestionResult) => void>();
@@ -495,7 +434,15 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 
 	// 提问用户面板不再是用户开关：问答 handler 恒注入（能力始终在）。是否向 agent 暴露
 	// ask_user_question 改由该工具的 scope_use（仅 conversation/project 场景）决定。
-	runtime.setUserQuestionHandler(questionHandler);
+	const unregisterInteractiveQuestionHandler = questionBroker.setInteractiveHandler(questionHandler);
+	const unregisterQuestionResolved = questionBroker.onQuestionResolved((event) => {
+		if (webContents.isDestroyed()) return;
+		try {
+			webContents.send(CHANNELS.QUESTION_RESOLVED, event);
+		} catch {
+			// Renderer may be between render-process-gone and reload; snapshot sync will recover.
+		}
+	});
 
 	runtime.setUserSandboxGrantHandler((request: RuntimeSandboxGrantRequest, signal?: AbortSignal) => {
 		if (webContents.isDestroyed()) return Promise.resolve<RuntimeSandboxGrantDecision>("deny");
@@ -688,96 +635,18 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 
 	ipcMain.handle(CHANNELS.CREATE, async (_event, config: SessionConfig | undefined, kind: unknown) => {
 		assertSessionKind(kind);
-		if (config?.cwd) allowProjectRoot(config.cwd);
 		assertExecutionMode(config?.executionMode);
-		await assertSandboxAvailableForMode(config?.executionMode, resolveDefaultExecutionMode);
-		// 默认项目：缺省把 session 落到 <cwd>/.vetta/sessions（与批量项目一致）。
-		// 关键：sessionDir 用「原始」projectCwd 推导（DEFAULT_CONVERSATION_SESSION_DIR
-		// 仍在项目根，不进 per-session 子目录），然后 cwd 再 swap 到子目录。
-		const injectedSessionDir = config?.sessionDir ?? resolveSessionDirForCwd(config?.cwd);
-		// ADR-0007: 重新打开已存在的 session 时，渲染端传进来的 cwd 是项目根，
-		// 但 session header 里持久化的真实 cwd 可能是 per-session 子目录。
-		// 优先用 header 里的 cwd，避免 activeSession.cwd 退化回项目根。
-		const cwdFromExistingHeader = config?.sessionPath
-			? await readSessionCwdFromHeader(config.sessionPath)
-			: undefined;
-		// ADR-0007: 「对话」项目下「新建」session 拿独立 cwd 子目录；
-		// 已有 session 不重 mkdir，直接沿用 header cwd。
-		const effectiveCwd = cwdFromExistingHeader ?? (await ensureConversationSubCwd(config?.cwd));
-		// Heal missing per-session dirs (e.g.「清空产物」删掉了 UUID 子目录，header 仍引用)。
-		// Without this, bash/read/write and FilesPanel fail with ENOENT after reopen or edit.
-		await ensureSessionWorkingCwd(effectiveCwd);
-		if (effectiveCwd && effectiveCwd !== config?.cwd) {
-			allowProjectRoot(effectiveCwd);
-		}
-		const isConversation = kind === "conversation";
-		// 对话场景：调用方显式传入则尊重（如批量任务 viewer 传 "batch"，与 executor 一致）；
-		// 否则按 kind 推导——conversation 与 project（kind="other"）均为交互式桌面会话，工具
-		// 差异交给各工具的 scope_use 表达，而非在入口写死。
-		const scenario: ConversationScenario = config?.scenario ?? (isConversation ? "conversation" : "project");
-		const desktopConfig = await readDesktopConfig();
-		// project 也开 ask（决策）：conversation/project 对称，ask_user_question 的 scope_use 含两者。
-		const askUserQuestion = true;
-		// 后台任务不再是用户开关：交互式会话恒开（task_output/task_stop 由 scope_use + 该会话
-		// 的 enableBackgroundTasks 决定）。批量场景与 executor 一致强制关，避免后台任务干扰队列判定。
-		const enableBackgroundTasks = scenario !== "batch";
-		// 适配通用 Agent Skill：默认开（缺省视为开），仅当用户显式关闭时禁用 .agents/skills 发现。
-		const includeAgentSkills = desktopConfig.experimental?.agentSkills !== false;
-		const appendSystemPrompt =
-			isConversation && desktopConfig.experimental?.vettaCli === true
-				? config?.appendSystemPrompt
-					? `${config.appendSystemPrompt}\n\n${VETTA_CLI_GUIDANCE}`
-					: VETTA_CLI_GUIDANCE
-				: config?.appendSystemPrompt;
-		// conversation/project 均注入插件运行时；具体哪些插件工具出现由其 scope_use 过滤。
-		const agentPlugins = buildAgentPluginRuntimeConfig();
-		pluginLog.debug("session create plugin snapshot", {
-			kind,
-			isConversation,
-			...summarizeAgentPluginRuntimeConfig(agentPlugins),
-		});
-		const needPatch =
-			effectiveCwd !== config?.cwd ||
-			injectedSessionDir !== config?.sessionDir ||
-			appendSystemPrompt !== config?.appendSystemPrompt ||
-			scenario !== config?.scenario ||
-			askUserQuestion !== config?.askUserQuestion ||
-			enableBackgroundTasks !== config?.enableBackgroundTasks ||
-			includeAgentSkills !== config?.includeAgentSkills ||
-			config?.enableAgentPlugins !== true ||
-			agentPlugins !== config?.agentPlugins;
-		const effectiveConfig: SessionConfig | undefined = needPatch
-			? {
-					...(config ?? {}),
-					cwd: effectiveCwd,
-					sessionDir: injectedSessionDir ?? config?.sessionDir,
-					scenario,
-					appendSystemPrompt,
-					askUserQuestion,
-					enableBackgroundTasks,
-					includeAgentSkills,
-					enableAgentPlugins: true,
-					agentPlugins,
-				}
-			: config;
-		const result = await runtime.createSession(effectiveConfig);
-		sessionLog.info("session created", {
-			sessionId: result.sessionId,
-			cwd: effectiveCwd,
-			kind,
-			scenario,
-			includeAgentSkills,
-		});
-		monitorRuntimeSession(runtime, result.sessionId, "interactive");
+		const result = await conversationService.createSession(config, kind, "interactive");
+		const effectiveCwd = result.cwd;
 		if (effectiveCwd) {
 			sessionCwdMap.set(result.sessionId, effectiveCwd);
 		}
 		// ADR-0002: 经本通道创建的即交互式 session，挂常驻通知订阅。
-		attachNotificationSub(result.sessionId, effectiveCwd ?? config?.cwd ?? "");
+		attachNotificationSub(result.sessionId, effectiveCwd);
 		// ADR-0007: 把实际 cwd（可能是「对话」per-session 子目录）返回给渲染端，
 		// 否则 activeSession.cwd 仍是用户传入的项目根，ActivityPanel 文件树会
 		// 落到项目根、看到其他 session 的子目录。
-		return { ...result, cwd: effectiveCwd };
+		return { sessionId: result.sessionId, cwd: effectiveCwd };
 	});
 
 	ipcMain.handle(CHANNELS.LIST_PROJECTS, async () => {
@@ -788,9 +657,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 
 	ipcMain.handle(CHANNELS.LIST_SESSIONS, async (_event, cwd: unknown) => {
 		assertNonEmptyString(cwd, "cwd");
-		allowProjectRoot(cwd);
-		const sessionDir = resolveSessionDirForCwd(cwd);
-		return runtime.listSessions(cwd, sessionDir);
+		return conversationService.listSessions(cwd);
 	});
 
 	ipcMain.handle(CHANNELS.PROMPT, async (_event, sessionId: unknown, request: unknown) => {
@@ -1111,6 +978,8 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		resolve(confirmed === true);
 	});
 
+	ipcMain.handle(CHANNELS.QUESTION_LIST_PENDING, () => questionBroker.listPendingQuestions());
+
 	ipcMain.handle(CHANNELS.QUESTION_RESPONSE, (_event, requestId: unknown, result: unknown) => {
 		assertNonEmptyString(requestId, "requestId");
 		const resolve = questionMap.get(requestId);
@@ -1370,6 +1239,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	});
 
 	return () => {
+		unsubscribeConversationListChanged();
 		webContents.removeListener("render-process-gone", onRenderGone);
 		for (const sub of viewerSubs.values()) {
 			try {
@@ -1409,7 +1279,8 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		}
 		pluginContinuationMap.clear();
 		runtime.setUserConfirmationHandler(undefined);
-		runtime.setUserQuestionHandler(undefined);
+		unregisterInteractiveQuestionHandler();
+		unregisterQuestionResolved();
 		runtime.setUserSandboxGrantHandler(undefined);
 		runtime.setPluginToolInvoker(undefined);
 		runtime.setPluginContinuationInvoker(undefined);

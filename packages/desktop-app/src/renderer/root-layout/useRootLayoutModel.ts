@@ -1,3 +1,4 @@
+import type { DesktopUserQuestionRequest, DesktopUserQuestionResolvedEvent } from "@preload/api";
 import { useMatches, useNavigate } from "@tanstack/react-router";
 import { getDefaultStore, useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -243,13 +244,48 @@ export function useRootLayoutModel(): RootLayoutModel {
 		});
 	}, [setSandboxPermissionDrawer]);
 
-	// ask_user_question：把提问请求按 sessionId 存入 pendingQuestionsAtom，
-	// 由对应 session 的 InputBar 接管为「问答面板」。不在此弹全局框（与 confirm 不同）。
+	// ask_user_question：主进程持有待答真相源。Renderer 先订阅增量事件，再读取快照，
+	// 让用户或 Debug Agent 回答、重载以及晚打开窗口都收敛到同一面板状态。
 	const setPendingQuestions = useSetAtom(pendingQuestionsAtom);
 	useEffect(() => {
-		return window.vetta.session.onQuestionRequest((request) => {
+		let active = true;
+		const liveRequests = new Map<string, DesktopUserQuestionRequest>();
+		const resolvedRequestIds = new Set<string>();
+
+		const unsubscribeRequest = window.vetta.session.onQuestionRequest((request) => {
+			liveRequests.set(request.requestId, request);
 			setPendingQuestions((prev) => ({ ...prev, [request.sessionId]: request }));
 		});
+		const unsubscribeResolved = window.vetta.session.onQuestionResolved((event: DesktopUserQuestionResolvedEvent) => {
+			resolvedRequestIds.add(event.requestId);
+			liveRequests.delete(event.requestId);
+			setPendingQuestions((prev) => {
+				const pending = prev[event.sessionId];
+				if (!pending || pending.requestId !== event.requestId) return prev;
+				const next = { ...prev };
+				delete next[event.sessionId];
+				return next;
+			});
+		});
+
+		void window.vetta.session
+			.listPendingQuestions()
+			.then((snapshot) => {
+				if (!active) return;
+				const pendingByRequestId = new Map(snapshot.map((request) => [request.requestId, request]));
+				for (const [requestId, request] of liveRequests) pendingByRequestId.set(requestId, request);
+				for (const requestId of resolvedRequestIds) pendingByRequestId.delete(requestId);
+				const next: Record<string, DesktopUserQuestionRequest> = {};
+				for (const request of pendingByRequestId.values()) next[request.sessionId] = request;
+				setPendingQuestions(next);
+			})
+			.catch((error: unknown) => console.warn("[RootLayout] sync pending questions failed", error));
+
+		return () => {
+			active = false;
+			unsubscribeRequest();
+			unsubscribeResolved();
+		};
 	}, [setPendingQuestions]);
 
 	const grantQueueRef = useRef<Parameters<Parameters<typeof window.vetta.session.onSandboxGrantRequest>[0]>[0][]>([]);

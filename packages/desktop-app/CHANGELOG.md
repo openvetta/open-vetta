@@ -6,6 +6,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **开发环境会话 Debug 能力**：`vetta debug` 新增 `conversation.list`、`conversation.create`、`conversation.continue`、`conversation.answer`、`conversation.wait`、`conversation.abort`，通过持久化 `sessionPath` 创建或恢复真实 Desktop 会话并等待完整 Agent 回合；与 UI 共用会话装配服务，支持 sandbox、模型选择、超时、取消及稳定错误码；遇到 `ask_user_question` 时返回 `input_required`，允许调用方 Agent或用户回答后继续执行，主进程统一维护待答快照并在任一来源完成回答后通知 Renderer 自动关闭面板；打包环境不启用。
+- **外部会话实时刷新与标题衔接**：Debug 等主进程入口创建或更新会话后广播受影响的项目 cwd，侧栏无需刷新页面；首轮开始时直接用用户消息展示，不再短暂出现「未命名会话」，Agent 完成后后台生成并替换为自动标题。
 - **后台任务 Tab 统一展示子代理**：活动面板「后台任务」入口合并 bash 后台任务与 explorer 子代理（异构 item 分型渲染）；角标计入两者运行中数量；支持中断子代理（`session.interruptSubagent` IPC）。
 - **后台任务「清除已结束」含已完成子代理**：与 bash 已结束任务一并清除，避免完成态子代理一直挂在列表里。
 - **能力页顶部 Banner**：能力列表上方增加装饰性 Hero 条；右侧从市场能力图标池随机轮播（与卡片同源 skill/MCP 图标）。
