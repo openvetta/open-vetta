@@ -105,7 +105,7 @@ export function createConversationDebugDefinitions(service: DesktopConversationS
 			keywords: ["conversation", "session", "create", "prompt", "agent"],
 			inputSchema: {
 				description:
-					"Absolute cwd, non-empty prompt, optional structured promptRef ({ kind: skill|scene, name }), executionMode/modelKey/reasoning, and timeoutMs (1000-1800000).",
+					"Absolute cwd, non-empty prompt, optional structured promptRef ({ kind: skill|scene, name }) and attachments ({ kind: file|directory|image, path }), executionMode/modelKey/reasoning, and timeoutMs (1000-1800000).",
 			},
 			examples: [
 				{
@@ -127,6 +127,7 @@ export function createConversationDebugDefinitions(service: DesktopConversationS
 						{
 							text: request.prompt,
 							...(request.promptRef ? { promptRef: request.promptRef } : {}),
+							...(request.attachments ? { attachments: request.attachments } : {}),
 							...(request.modelKey ? { modelKey: request.modelKey } : {}),
 							...(request.reasoning ? { reasoning: request.reasoning } : {}),
 						},
@@ -146,7 +147,7 @@ export function createConversationDebugDefinitions(service: DesktopConversationS
 			keywords: ["conversation", "session", "continue", "resume", "prompt", "agent"],
 			inputSchema: {
 				description:
-					"Absolute sessionPath, non-empty prompt, optional structured promptRef ({ kind: skill|scene, name }), executionMode/modelKey/reasoning, and timeoutMs (1000-1800000).",
+					"Absolute sessionPath, non-empty prompt, optional structured promptRef ({ kind: skill|scene, name }) and attachments ({ kind: file|directory|image, path }), executionMode/modelKey/reasoning, and timeoutMs (1000-1800000).",
 			},
 			examples: [
 				{
@@ -171,6 +172,7 @@ export function createConversationDebugDefinitions(service: DesktopConversationS
 						{
 							text: request.prompt,
 							...(request.promptRef ? { promptRef: request.promptRef } : {}),
+							...(request.attachments ? { attachments: request.attachments } : {}),
 							...(request.modelKey ? { modelKey: request.modelKey } : {}),
 							...(request.reasoning ? { reasoning: request.reasoning } : {}),
 						},

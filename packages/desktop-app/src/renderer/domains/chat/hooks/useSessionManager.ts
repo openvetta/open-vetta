@@ -62,7 +62,7 @@ import { useNavigate } from "@tanstack/react-router";
 import type { ConversationScenario } from "@vetta-org/plugin-sdk";
 import { getDefaultStore, useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef } from "react";
-import type { PromptRequest } from "../../../../../../runtime-core/src/index.js";
+import type { PromptAttachmentRef, PromptRequest } from "../../../../../../runtime-core/src/index.js";
 import {
 	adoptDraftId,
 	appendError,
@@ -76,6 +76,7 @@ import {
 	handleToolEnd,
 	handleToolPhase,
 	handleToolStart,
+	isUserImageFile,
 	nextId,
 	resetStreamState,
 	setCurrentUnsubscribe,
@@ -892,7 +893,14 @@ export function useSessionManager(): SessionManagerResult {
 			// 作为独立 prompt 直发，不带技能 / @文件前缀，也不消费当前草稿与附图。
 			const override = typeof overrideText === "string" ? overrideText.trim() : "";
 			const hasOverride = override.length > 0;
-			if (!session?.runtimeId || (!hasOverride && !inputValue.trim() && attachedImages.length === 0 && !appshot)) {
+			if (
+				!session?.runtimeId ||
+				(!hasOverride &&
+					!inputValue.trim() &&
+					attachedImages.length === 0 &&
+					mentionedFiles.length === 0 &&
+					!appshot)
+			) {
 				return;
 			}
 			// 发出新 prompt：清空该会话的输入预测，并作废仍在飞的生成（过期判定）。
@@ -925,16 +933,26 @@ export function useSessionManager(): SessionManagerResult {
 							name: selectedSkill.name,
 						}
 					: undefined;
-			// Build attachment prefix lines（override 直发不带输入框附件）
-			const filesPrefix =
-				!hasOverride && mentionedFiles.length > 0 ? `${mentionedFiles.map((f) => `@${f.path}`).join("\n")}\n` : "";
-			// Appshot 附件：截图与 AX 文本以 @路径 形式随 prompt 引用（agent 用 Read 按需读取）。
-			const appshotPrefix =
-				!hasOverride && appshot
-					? `${appshot.imagePath ? `@${appshot.imagePath}\n` : ""}${appshot.textPath ? `@${appshot.textPath}\n` : ""}`
-					: "";
-			const imagesPrefix = imagePaths.length > 0 ? `${imagePaths.map((p) => `@${p}`).join("\n")}\n` : "";
-			const text = `${filesPrefix}${appshotPrefix}${imagesPrefix}${rawText}`;
+			const attachmentsByPath = new Map<string, PromptAttachmentRef>();
+			if (!hasOverride) {
+				for (const file of mentionedFiles) {
+					attachmentsByPath.set(file.path, {
+						kind: file.isDirectory ? "directory" : isUserImageFile(file.path) ? "image" : "file",
+						path: file.path,
+					});
+				}
+				if (appshot?.imagePath) {
+					attachmentsByPath.set(appshot.imagePath, { kind: "image", path: appshot.imagePath });
+				}
+				if (appshot?.textPath) {
+					attachmentsByPath.set(appshot.textPath, { kind: "file", path: appshot.textPath });
+				}
+				for (const path of imagePaths) {
+					attachmentsByPath.set(path, { kind: "image", path });
+				}
+			}
+			const attachments = [...attachmentsByPath.values()];
+			const text = rawText;
 			recordInputContextUsed({
 				files: hasOverride ? [] : mentionedFiles,
 				images: images ?? [],
@@ -1009,9 +1027,10 @@ export function useSessionManager(): SessionManagerResult {
 					timestamp: Date.now(),
 					model: modelKeyToParts(selectedModel),
 					promptRef,
+					attachments,
 				};
-				// Base64 preview only when persist failed — otherwise @image-cache paths
-				// in text already drive thumbnails (avoids double image while streaming).
+				// Base64 preview only when persistence failed; structured image paths
+				// are otherwise the canonical source for optimistic and restored UI.
 				if (images && imagePaths.length === 0) {
 					userMsg.images = images.map((img) => ({ data: img.data, mimeType: img.mimeType, name: img.name }));
 				}
@@ -1059,7 +1078,12 @@ export function useSessionManager(): SessionManagerResult {
 
 			if (pausedBatch) {
 				try {
-					await window.vetta.batchTasks.resumeTaskWithText(pausedBatch.projectId, pausedBatch.taskId, text);
+					// The batch resume contract still accepts text only. Preserve attachment
+					// behavior there through the legacy prefix format until that API is migrated.
+					const legacyText = attachments.length
+						? `${attachments.map((attachment) => `@${attachment.path}`).join("\n")}\n${text}`
+						: text;
+					await window.vetta.batchTasks.resumeTaskWithText(pausedBatch.projectId, pausedBatch.taskId, legacyText);
 				} catch (err) {
 					const message = err instanceof Error ? err.message : String(err);
 					console.error("[useSessionManager.sendMessage] resumeTaskWithText rejected:", err);
@@ -1088,9 +1112,19 @@ export function useSessionManager(): SessionManagerResult {
 			}
 
 			const promptReq: PromptRequest = {
-				text: text || "(see attached images)",
+				text: text || "(see attached content)",
 				promptRef,
 			};
+			if (attachments.length > 0 || pendingEdit) {
+				promptReq.attachments = attachments;
+			}
+			if (images && imagePaths.length === 0) {
+				promptReq.images = images.map((image) => ({
+					type: "image",
+					data: image.data,
+					mimeType: image.mimeType,
+				}));
+			}
 			if (selectedModel) {
 				promptReq.modelKey = selectedModel;
 				// Per-model reasoning level rides alongside modelKey (see reasoning-level design).
@@ -1234,6 +1268,7 @@ export function useSessionManager(): SessionManagerResult {
 				timestamp: Date.now(),
 				model: modelKeyToParts(item.request.modelKey),
 				promptRef: item.request.promptRef,
+				attachments: item.request.attachments,
 			};
 			setChatMessages((prev) => [...prev, queuedUserMsg]);
 			try {

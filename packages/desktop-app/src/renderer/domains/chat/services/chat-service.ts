@@ -9,7 +9,7 @@ import type {
 	ToolImagePreview,
 } from "@shared/store/atoms";
 import type { CardDescriptor } from "@vetta-org/plugin-sdk";
-import type { HistoryEntry, PromptResourceRef } from "../../../../../../runtime-core/src/index.js";
+import type { HistoryEntry, PromptAttachmentRef, PromptResourceRef } from "../../../../../../runtime-core/src/index.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Message conversion helpers
@@ -56,6 +56,15 @@ export function isUserMessageAttachmentPath(path: string): boolean {
 /** System-injected attachment paths (images / appshot), not panel file badges. */
 export function isSystemAttachmentPath(path: string): boolean {
 	return /[/\\]image-cache[/\\]/.test(path);
+}
+
+const USER_IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "ico"]);
+
+export function isUserImageFile(path: string): boolean {
+	const basename = pathBasename(path);
+	const dotIndex = basename.lastIndexOf(".");
+	const extension = dotIndex === -1 ? "" : basename.slice(dotIndex + 1).toLowerCase();
+	return USER_IMAGE_EXTENSIONS.has(extension);
 }
 
 /**
@@ -384,11 +393,14 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatMessage[] {
 	let pendingSettingsAssistTabId: string | undefined;
 	/** Next user message follows a Skill / Scene expansion marker. */
 	let pendingPromptRef: PromptResourceRef | undefined;
+	/** Next user message carries structured filesystem attachments. */
+	let pendingAttachments: PromptAttachmentRef[] | undefined;
 
 	for (const entry of entries) {
 		if (entry.type === "compaction") {
 			pendingSettingsAssistTabId = undefined;
 			pendingPromptRef = undefined;
+			pendingAttachments = undefined;
 			messages.push({
 				id: entry.entryId ?? `hist-compact-${messages.length}`,
 				entryId: entry.entryId,
@@ -406,6 +418,11 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatMessage[] {
 
 		if (entry.type === "prompt_ref_marker") {
 			pendingPromptRef = entry.promptRef;
+			continue;
+		}
+
+		if (entry.type === "prompt_attachments_marker") {
+			pendingAttachments = entry.attachments;
 			continue;
 		}
 
@@ -476,6 +493,7 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatMessage[] {
 				role: "user",
 				text,
 				promptRef: pendingPromptRef ?? legacyPromptRef,
+				attachments: pendingAttachments,
 				// Only absolute (panel/system) prefixes; hand-typed @text stays in body.
 				// Exclude image-cache so system images/appshot don't become file badges.
 				mentionedFiles: toMentionedFilesFromPrefixes(parsedUser.files),
@@ -485,10 +503,12 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatMessage[] {
 				pendingSettingsAssistTabId = undefined;
 			}
 			pendingPromptRef = undefined;
+			pendingAttachments = undefined;
 			messages.push(userMsg);
 		} else if (m.role === "assistant") {
 			pendingSettingsAssistTabId = undefined;
 			pendingPromptRef = undefined;
+			pendingAttachments = undefined;
 			const entryId = entry.type === "message" ? entry.entryId : undefined;
 			const target = currentAssistant();
 			// Prefer first assistant entry id for the merged bubble when not set yet.

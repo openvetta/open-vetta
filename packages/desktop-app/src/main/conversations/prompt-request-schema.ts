@@ -1,3 +1,4 @@
+import { isAbsolute } from "node:path";
 import { z } from "zod";
 import type { PromptRequest } from "../../../../runtime-core/src/index.js";
 
@@ -5,6 +6,13 @@ export const promptResourceRefSchema = z
 	.object({
 		kind: z.enum(["skill", "scene"]),
 		name: z.string().trim().min(1),
+	})
+	.passthrough();
+
+export const promptAttachmentRefSchema = z
+	.object({
+		kind: z.enum(["file", "directory", "image"]),
+		path: z.string().trim().min(1).refine(isAbsolute, "Attachment path must be absolute"),
 	})
 	.passthrough();
 
@@ -20,6 +28,7 @@ export const promptRequestSchema: z.ZodType<PromptRequest> = z
 	.object({
 		text: z.string().min(1),
 		promptRef: promptResourceRefSchema.optional(),
+		attachments: z.array(promptAttachmentRefSchema).optional(),
 		images: z.array(promptImageSchema).optional(),
 		streamingBehavior: z.enum(["steer", "followUp"]).optional(),
 		modelKey: z.string().min(1).optional(),

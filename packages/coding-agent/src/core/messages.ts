@@ -11,6 +11,12 @@ import type { ImageContent, Message, TextContent } from "@vetta/ai";
 /** Persisted prompt metadata marker. It is intentionally excluded from LLM context. */
 export const PROMPT_RESOURCE_REFERENCE_TYPE = "prompt_resource_reference";
 
+/** Model-visible prompt attachment context with structured details for history restoration. */
+export const PROMPT_ATTACHMENT_CONTEXT_TYPE = "prompt_attachment_context";
+
+/** Model-invisible marker used when an edited prompt explicitly clears prior attachments. */
+export const PROMPT_ATTACHMENT_REFERENCE_TYPE = "prompt_attachment_reference";
+
 export const COMPACTION_SUMMARY_PREFIX = `The conversation history before this point was compacted into the following summary:
 
 <summary>
@@ -151,7 +157,10 @@ export function createCustomMessage(
 export function convertToLlm(messages: AgentMessage[]): Message[] {
 	return messages
 		.map((m): Message | undefined => {
-			if (m.role === "custom" && m.customType === PROMPT_RESOURCE_REFERENCE_TYPE) {
+			if (
+				m.role === "custom" &&
+				(m.customType === PROMPT_RESOURCE_REFERENCE_TYPE || m.customType === PROMPT_ATTACHMENT_REFERENCE_TYPE)
+			) {
 				return undefined;
 			}
 			switch (m.role) {

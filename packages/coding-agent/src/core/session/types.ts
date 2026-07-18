@@ -150,6 +150,12 @@ export interface PromptResourceRef {
 	name: string;
 }
 
+/** Absolute filesystem reference attached to one user prompt. */
+export interface PromptAttachmentRef {
+	kind: "file" | "directory" | "image";
+	path: string;
+}
+
 export interface PromptOptions {
 	/** Whether to expand file-based prompt templates (default: true) */
 	expandPromptTemplates?: boolean;
@@ -159,6 +165,8 @@ export interface PromptOptions {
 	streamingBehavior?: "steer" | "followUp";
 	/** Structured Skill / Scene selection. Expanded before the user message is sent to the model. */
 	promptRef?: PromptResourceRef;
+	/** Structured filesystem attachments. The agent reads them on demand with tools. */
+	attachments?: PromptAttachmentRef[];
 	/** Source of input for extension input event handlers. Defaults to "interactive". */
 	source?: InputSource;
 	/**

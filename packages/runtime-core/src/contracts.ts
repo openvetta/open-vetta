@@ -1,8 +1,8 @@
 import type { ThinkingLevel, ToolPhase } from "@vetta/agent-core";
 import type { Message, Model } from "@vetta/ai";
-import type { ConversationScenario, PromptResourceRef } from "@vetta/coding-agent";
+import type { ConversationScenario, PromptAttachmentRef, PromptResourceRef } from "@vetta/coding-agent";
 
-export type { PromptResourceRef } from "@vetta/coding-agent";
+export type { PromptAttachmentRef, PromptResourceRef } from "@vetta/coding-agent";
 
 export type RuntimeEventSource = "runtime-core" | "agent" | "tool" | "mcp";
 
@@ -617,6 +617,8 @@ export interface PromptRequest {
 	text: string;
 	/** Structured Skill / Scene selection. Kept separate from user-visible prompt text. */
 	promptRef?: PromptResourceRef;
+	/** Absolute filesystem references attached to this turn. Read by the agent on demand. */
+	attachments?: PromptAttachmentRef[];
 	images?: Array<{ type: "image"; data: string; mimeType: string }>;
 	streamingBehavior?: "steer" | "followUp";
 	/** Model key in "provider/modelId" format — ensures the prompt uses exactly this model */
@@ -691,6 +693,8 @@ export type HistoryEntry =
 	| { type: "settings_assist_marker"; tabId?: string; timestamp: string }
 	/** Marker that the next user message was sent with a structured Skill / Scene reference. */
 	| { type: "prompt_ref_marker"; promptRef: PromptResourceRef; timestamp: string }
+	/** Marker that the next user message was sent with structured filesystem attachments. */
+	| { type: "prompt_attachments_marker"; attachments: PromptAttachmentRef[]; timestamp: string }
 	| {
 			type: "tool_timing";
 			toolCallId: string;

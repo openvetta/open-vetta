@@ -602,6 +602,7 @@ export class RuntimeHost implements SessionFacade {
 				images,
 				streamingBehavior: request.streamingBehavior,
 				promptRef: request.promptRef,
+				attachments: request.attachments,
 				source: "extension",
 				metadata: request.metadata,
 			});

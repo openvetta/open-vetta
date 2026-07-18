@@ -13,7 +13,12 @@ import type { AgentMessage } from "@vetta/agent-core";
 import type { AssistantMessage, ImageContent, TextContent } from "@vetta/ai";
 import { getDocsPath } from "../../config.js";
 import type { PromptOptions } from "../agent-session.js";
-import { type CustomMessage, PROMPT_RESOURCE_REFERENCE_TYPE } from "../messages.js";
+import {
+	type CustomMessage,
+	PROMPT_ATTACHMENT_CONTEXT_TYPE,
+	PROMPT_ATTACHMENT_REFERENCE_TYPE,
+	PROMPT_RESOURCE_REFERENCE_TYPE,
+} from "../messages.js";
 import { expandPromptTemplate } from "../prompt-templates.js";
 import type { ResourceLoader } from "../resource-loader.js";
 import type { TodoStore } from "../todo-store.js";
@@ -26,6 +31,7 @@ import type { RuntimeManager } from "./runtime-manager.js";
 import type { SessionContext } from "./session-context.js";
 import { expandSkillCommand, expandSkillReference } from "./skill-expansion.js";
 import { buildTodoContinuationMessages } from "./todo-continuation.js";
+import type { PromptAttachmentRef } from "./types.js";
 
 export interface InputPipelineDeps {
 	runtime: RuntimeManager;
@@ -35,6 +41,16 @@ export interface InputPipelineDeps {
 	compaction: CompactionController;
 	todoStore: TodoStore;
 	resourceLoader: ResourceLoader;
+}
+
+function buildPromptAttachmentContext(attachments: PromptAttachmentRef[]): string {
+	const serialized = JSON.stringify(attachments).replaceAll("<", "\\u003c").replaceAll(">", "\\u003e");
+	return [
+		"<prompt_attachments>",
+		serialized,
+		"</prompt_attachments>",
+		"These are absolute filesystem references attached by the user. Use the available tools to read them only when needed.",
+	].join("\n");
 }
 
 export class InputPipeline {
@@ -160,7 +176,12 @@ export class InputPipeline {
 			}
 			const hookContexts = await this.runPromptHooks(expandedText);
 			// For streaming, combine injections with user text since we can't inject custom messages
-			const injection = [...hookContexts, skillInjection, sceneInjection].filter(Boolean).join("\n\n");
+			const attachmentContext = options?.attachments?.length
+				? buildPromptAttachmentContext(options.attachments)
+				: undefined;
+			const injection = [...hookContexts, attachmentContext, skillInjection, sceneInjection]
+				.filter(Boolean)
+				.join("\n\n");
 			const textForStream = injection ? `${injection}\n\n${expandedText}` : expandedText;
 			if (options.streamingBehavior === "followUp") {
 				this.queue.queueFollowUp(textForStream, currentImages);
@@ -300,6 +321,18 @@ export class InputPipeline {
 				display: false,
 				// tabId is UI-only (badge label); not sent to the LLM as content.
 				details: settingsAssistTabId ? { tabId: settingsAssistTabId } : undefined,
+				timestamp: Date.now(),
+			});
+		}
+
+		if (options?.attachments !== undefined) {
+			const hasAttachments = options.attachments.length > 0;
+			messages.push({
+				role: "custom",
+				customType: hasAttachments ? PROMPT_ATTACHMENT_CONTEXT_TYPE : PROMPT_ATTACHMENT_REFERENCE_TYPE,
+				content: hasAttachments ? buildPromptAttachmentContext(options.attachments) : "",
+				display: false,
+				details: { attachments: options.attachments },
 				timestamp: Date.now(),
 			});
 		}
