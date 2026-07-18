@@ -8,6 +8,11 @@
 
 会话操作的完整参数与 Ask User 闭环见 [Vetta Debug 自动化开发手册](../vetta-debug-automated-development.md)。本目录的 [实测记录](field-notes-2026-07-18.md) 保存了首次接入时遇到的问题。
 
+## 专题文档
+
+- [右侧活动面板：打开、断言与单独截图](ui-automation/activity-panel.md)
+- [左侧“更多”下拉层：进入插件页](ui-automation/more-menu-to-plugins.md)
+
 ## 1. 边界与启用条件
 
 CDP 入口满足以下约束：
@@ -94,33 +99,6 @@ URL:   http://127.0.0.1:3000/
 ```
 
 tab 下标会随窗口启停变化，Agent 每次重新附着后都应先运行 `tab-list`。
-
-### 3.1 最短打开右侧活动面板
-
-前提是当前 Playwright session 已经选中 `Vetta Desktop` 主窗口。面板确定为关闭状态时，应用内只需要一次点击：
-
-```powershell
-playwright-cli -s=vetta click "getByRole('button', { name: '打开活动面板' })"
-```
-
-如果 Agent 不知道面板当前是否已经打开，推荐用一个幂等 `run-code` 命令：面板关闭时点击一次，已经打开时不点击，并直接返回验证结果。
-
-```powershell
-playwright-cli -s=vetta run-code "async (page) => { const panel = page.locator('aside'); const before = await panel.boundingBox(); const clicked = !before || before.width === 0; if (clicked) await page.getByRole('button', { name: '打开活动面板' }).click(); const after = await panel.boundingBox(); return { clicked, visible: Boolean(after && after.width > 0), width: after?.width ?? 0 }; }"
-```
-
-成功结果应满足：
-
-```json
-{
-  "visible": true,
-  "width": 360
-}
-```
-
-`width` 不要求固定为 `360`，只要求大于 `0`。打开后按钮的可访问名称会变为“关闭活动面板”，面板内可见“文件”“浏览器”“Git”等标签。
-
-不要只根据 snapshot 中是否出现这些标签判断面板状态。当前实现即使处于关闭状态，`aside` 的后代仍可能保留在 accessibility tree；本次实测中关闭时 `aside` 宽度为 `0`，打开后为 `360`。几何尺寸才是可靠断言。
 
 ## 4. 用 Vetta Debug 创建待验收会话
 
