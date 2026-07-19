@@ -11,6 +11,7 @@ export type ActivityTabKey =
 	| "schedule-records"
 	| "todo"
 	| "background-tasks"
+	| "workflow"
 	| "debug"
 	| "knowledge-history"
 	| "browser"

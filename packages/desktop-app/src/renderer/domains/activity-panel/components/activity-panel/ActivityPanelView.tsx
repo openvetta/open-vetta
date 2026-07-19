@@ -12,6 +12,7 @@ import { KnowledgeHistoryPanel } from "../KnowledgeHistoryPanel";
 import { PluginTabPicker } from "../PluginTabPicker";
 import { ScheduleExecutionTabPanel } from "../ScheduleExecutionTabPanel";
 import { TodoTabPanel } from "../TodoTabPanel";
+import { WorkflowTabPanel } from "../WorkflowTabPanel";
 import type { ActivityPanelFrameProps } from "./ActivityPanelFrame";
 import type { ActivityPanelActions, ActivityPanelModel } from "./types";
 
@@ -58,6 +59,7 @@ export function ActivityPanelView({
 			)}
 			{model.activeTab === "todo" && model.cwd && <TodoTabPanel />}
 			{model.activeTab === "background-tasks" && model.cwd && <BackgroundTasksTabPanel />}
+			{model.activeTab === "workflow" && model.cwd && <WorkflowTabPanel />}
 			{model.activeTab === "debug" && model.cwd && <DebugTabPanel cwd={model.cwd} />}
 			{model.activeTab === "knowledge-history" && <KnowledgeHistoryPanel cwd={model.cwd} />}
 			{model.activePluginTab && model.cwd && (

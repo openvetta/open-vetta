@@ -25,10 +25,13 @@ interface InternalChild {
 	snapshot: SubagentSnapshot;
 	handle?: SubagentChildHandle;
 	unsubscribe?: () => void;
+	todoUnsubscribe?: () => void;
 	/** Active slot held while pending/running. */
 	holdsActiveSlot: boolean;
 	/** Waiters for any terminal transition of this child. */
 	waiters: Array<() => void>;
+	/** Original request (todos etc.), kept until the child actually starts. */
+	queuedRequest?: SubagentSpawnRequest;
 }
 
 function isActiveStatus(status: SubagentStatus): boolean {
@@ -52,8 +55,11 @@ export class SubagentCoordinator {
 	private readonly getModel: SubagentCoordinatorOptions["getModel"];
 	private readonly getThinkingLevel: SubagentCoordinatorOptions["getThinkingLevel"];
 	private readonly getParentMcpTools: SubagentCoordinatorOptions["getParentMcpTools"];
+	private readonly getParentContextMessages?: SubagentCoordinatorOptions["getParentContextMessages"];
 	private readonly agentDir?: string;
 	private readonly maxConcurrent: number;
+	/** FIFO of child ids waiting for a concurrency slot (status "queued"). */
+	private readonly queue: string[] = [];
 	private onNotify?: SubagentCoordinatorOptions["onNotify"];
 	private onUpdate?: SubagentCoordinatorOptions["onUpdate"];
 	private disposed = false;
@@ -70,6 +76,7 @@ export class SubagentCoordinator {
 		this.getModel = options.getModel;
 		this.getThinkingLevel = options.getThinkingLevel;
 		this.getParentMcpTools = options.getParentMcpTools;
+		this.getParentContextMessages = options.getParentContextMessages;
 		this.agentDir = options.agentDir;
 		this.maxConcurrent = options.maxConcurrent ?? DEFAULT_MAX_CONCURRENT;
 		this.onNotify = options.onNotify;
@@ -99,6 +106,8 @@ export class SubagentCoordinator {
 			if (!isTerminalStatus(entry.snapshot.status)) continue;
 			entry.unsubscribe?.();
 			entry.unsubscribe = undefined;
+			entry.todoUnsubscribe?.();
+			entry.todoUnsubscribe = undefined;
 			try {
 				entry.handle?.dispose();
 			} catch {
@@ -126,10 +135,96 @@ export class SubagentCoordinator {
 	/**
 	 * Reserve + create child + start prompt in background.
 	 * Returns immediately with pending/running snapshot.
+	 * Throws when no concurrency slot is free (use spawnMany for queueing).
 	 */
 	async spawn(request: SubagentSpawnRequest): Promise<SubagentSnapshot> {
 		this.assertNotDisposed();
+		const { taskName } = this.validateRequest(request);
 
+		const activeCount = this.countActive();
+		if (activeCount >= this.maxConcurrent) {
+			throw new Error(
+				`Too many active subagents (${activeCount}/${this.maxConcurrent}). Wait or interrupt one before spawning more.`,
+			);
+		}
+
+		const entry = this.reserveEntry(request, taskName, "pending");
+		this.emitUpdate();
+
+		try {
+			await this.startChild(entry);
+			this.emitUpdate();
+			return { ...entry.snapshot };
+		} catch (err) {
+			this.releaseEntry(entry, "failed", err instanceof Error ? err.message : String(err));
+			this.emitUpdate();
+			this.drainQueue();
+			throw err;
+		}
+	}
+
+	/**
+	 * Batch dispatch: accept every request, start as many as slots allow, queue
+	 * the rest (FIFO auto-refill on any terminal transition). All-or-nothing
+	 * validation: any invalid request rejects the whole batch before reserving.
+	 */
+	spawnMany(requests: SubagentSpawnRequest[]): SubagentSnapshot[] {
+		this.assertNotDisposed();
+		if (requests.length === 0) {
+			throw new Error("dispatch requires at least one workflow");
+		}
+		const seen = new Set<string>();
+		const validated = requests.map((request) => {
+			const { taskName } = this.validateRequest(request);
+			if (seen.has(taskName)) {
+				throw new Error(`Duplicate task_name "${taskName}" in this dispatch`);
+			}
+			seen.add(taskName);
+			return { request, taskName };
+		});
+
+		const entries: InternalChild[] = [];
+		for (const { request, taskName } of validated) {
+			const hasSlot = this.countActive() < this.maxConcurrent;
+			const entry = this.reserveEntry(request, taskName, hasSlot ? "pending" : "queued");
+			if (hasSlot) {
+				void this.startChildInBackground(entry);
+			} else {
+				this.queue.push(entry.snapshot.id);
+			}
+			entries.push(entry);
+		}
+		this.emitUpdate();
+		return entries.map((e) => ({ ...e.snapshot }));
+	}
+
+	/** Reserve name + placeholder id so concurrent spawns cannot collide. */
+	private reserveEntry(request: SubagentSpawnRequest, taskName: string, status: "pending" | "queued"): InternalChild {
+		const provisionalId = `pending-${taskName}-${Date.now()}`;
+		const snapshot: SubagentSnapshot = {
+			id: provisionalId,
+			taskName,
+			path: taskPath(taskName),
+			agentType: request.agentType,
+			status,
+			task: request.message,
+			parentSessionId: this.parentSessionId,
+			startedAt: Date.now(),
+			usage: emptyUsage(),
+			generation: 0,
+		};
+		const entry: InternalChild = {
+			snapshot,
+			holdsActiveSlot: status === "pending",
+			waiters: [],
+			queuedRequest: request,
+		};
+		this.children.set(provisionalId, entry);
+		this.byTaskName.set(taskName, provisionalId);
+		return entry;
+	}
+
+	private validateRequest(request: SubagentSpawnRequest): { taskName: string } {
 		const taskName = request.taskName.trim();
 		if (!isValidTaskName(taskName)) {
 			throw new Error(
@@ -139,103 +234,117 @@ export class SubagentCoordinator {
 		if (!request.message.trim()) {
 			throw new Error("message must be non-empty");
 		}
-
 		const typeDef = this.typeRegistry.get(request.agentType);
 		if (!typeDef) {
 			const known = this.typeRegistry.ids().join(", ") || "(none)";
 			throw new Error(`Unknown agent_type "${request.agentType}". Registered: ${known}`);
 		}
-
 		if (this.byTaskName.has(taskName)) {
 			throw new Error(`task_name "${taskName}" is already used in this session`);
 		}
-
-		const activeCount = this.countActive();
-		if (activeCount >= this.maxConcurrent) {
-			throw new Error(
-				`Too many active subagents (${activeCount}/${this.maxConcurrent}). Wait or interrupt one before spawning more.`,
-			);
+		if (!this.getModel()) {
+			throw new Error("Cannot spawn subagent: parent has no model selected");
 		}
+		return { taskName };
+	}
 
+	/** Create the child session for a reserved entry and fire its initial prompt. */
+	private async startChild(entry: InternalChild): Promise<void> {
+		const request: SubagentSpawnRequest = entry.queuedRequest ?? {
+			taskName: entry.snapshot.taskName,
+			message: entry.snapshot.task,
+			agentType: entry.snapshot.agentType,
+		};
+		entry.queuedRequest = undefined;
+		const typeDef = this.typeRegistry.get(entry.snapshot.agentType);
+		if (!typeDef) {
+			throw new Error(`Type "${entry.snapshot.agentType}" is no longer registered`);
+		}
 		const model = this.getModel();
 		if (!model) {
 			throw new Error("Cannot spawn subagent: parent has no model selected");
 		}
 
-		// Pre-reserve name + placeholder id so concurrent spawns cannot collide.
-		const provisionalId = `pending-${taskName}-${Date.now()}`;
-		const startedAt = Date.now();
-		const snapshot: SubagentSnapshot = {
-			id: provisionalId,
-			taskName,
-			path: taskPath(taskName),
-			agentType: typeDef.id,
-			status: "pending",
-			task: request.message,
-			parentSessionId: this.parentSessionId,
-			startedAt,
-			usage: emptyUsage(),
-			generation: 0,
-		};
+		const forkContextMessages = typeDef.forkParentContext ? this.getParentContextMessages?.() : undefined;
 
-		const entry: InternalChild = {
-			snapshot,
-			holdsActiveSlot: true,
-			waiters: [],
-		};
-		this.children.set(provisionalId, entry);
-		this.byTaskName.set(taskName, provisionalId);
-		this.emitUpdate();
+		const handle = await this.factory.create(
+			{ taskName: entry.snapshot.taskName, message: request.message, agentType: typeDef.id, todos: request.todos },
+			{
+				parentSessionId: this.parentSessionId,
+				parentSessionFile: this.parentSessionFile,
+				cwd: this.cwd,
+				scenario: this.scenario,
+				model,
+				thinkingLevel: this.getThinkingLevel(),
+				agentDir: this.agentDir,
+				parentMcpTools: this.getParentMcpTools(),
+				forkContextMessages,
+			},
+			typeDef,
+		);
 
-		try {
-			const handle = await this.factory.create(
-				{ taskName, message: request.message, agentType: typeDef.id },
-				{
-					parentSessionId: this.parentSessionId,
-					parentSessionFile: this.parentSessionFile,
-					cwd: this.cwd,
-					scenario: this.scenario,
-					model,
-					thinkingLevel: this.getThinkingLevel(),
-					agentDir: this.agentDir,
-					parentMcpTools: this.getParentMcpTools(),
-				},
-				typeDef,
-			);
+		if (this.disposed) {
+			handle.dispose();
+			throw new Error("Parent session disposed during subagent spawn");
+		}
 
-			if (this.disposed) {
-				handle.dispose();
-				throw new Error("Parent session disposed during subagent spawn");
-			}
+		// Re-key under real session id.
+		const provisionalId = entry.snapshot.id;
+		this.children.delete(provisionalId);
+		entry.snapshot.id = handle.sessionId;
+		entry.snapshot.sessionFile = handle.sessionFile;
+		entry.handle = handle;
+		this.children.set(handle.sessionId, entry);
+		this.byTaskName.set(entry.snapshot.taskName, handle.sessionId);
 
-			// Re-key under real session id.
-			this.children.delete(provisionalId);
-			snapshot.id = handle.sessionId;
-			snapshot.sessionFile = handle.sessionFile;
-			entry.handle = handle;
-			this.children.set(handle.sessionId, entry);
-			this.byTaskName.set(taskName, handle.sessionId);
-
-			entry.unsubscribe = handle.subscribe((event) => {
-				if (event.type === "agent_start") {
-					if (entry.snapshot.status === "pending") {
-						entry.snapshot.status = "running";
-						this.emitUpdate();
-					}
-				} else if (event.type === "agent_end") {
-					void this.onChildAgentEnd(entry);
+		entry.unsubscribe = handle.subscribe((event) => {
+			if (event.type === "agent_start") {
+				if (entry.snapshot.status === "pending") {
+					entry.snapshot.status = "running";
+					this.emitUpdate();
 				}
+			} else if (event.type === "agent_end") {
+				void this.onChildAgentEnd(entry);
+			}
+		});
+		if (handle.getTodoProgress) {
+			entry.snapshot.todoProgress = handle.getTodoProgress();
+			entry.todoUnsubscribe = handle.subscribeTodos?.((progress) => {
+				entry.snapshot.todoProgress = progress;
+				this.emitUpdate();
 			});
+		}
 
-			// Fire-and-forget prompt; completion via agent_end.
-			void this.runInitialPrompt(entry, request.message);
+		// Fire-and-forget prompt; completion via agent_end.
+		void this.runInitialPrompt(entry, request.message);
+	}
 
+	/** startChild wrapper for queued/batch children: failures notify instead of throwing. */
+	private async startChildInBackground(entry: InternalChild): Promise<void> {
+		try {
+			await this.startChild(entry);
 			this.emitUpdate();
-			return { ...entry.snapshot };
 		} catch (err) {
+			if (this.disposed) return;
 			this.releaseEntry(entry, "failed", err instanceof Error ? err.message : String(err));
 			this.emitUpdate();
-			throw err;
+			this.queueNotification(entry.snapshot);
+			this.drainQueue();
+		}
+	}
+
+	/** Promote queued children into free concurrency slots (FIFO). */
+	private drainQueue(): void {
+		if (this.disposed) return;
+		while (this.queue.length > 0 && this.countActive() < this.maxConcurrent) {
+			const id = this.queue.shift();
+			if (!id) break;
+			const entry = this.children.get(id);
+			if (!entry || entry.snapshot.status !== "queued") continue;
+			entry.snapshot.status = "pending";
+			entry.holdsActiveSlot = true;
+			this.emitUpdate();
+			void this.startChildInBackground(entry);
 		}
 	}
 
@@ -292,6 +401,7 @@ export class SubagentCoordinator {
 		this.wakeWaiters(entry);
 		this.emitUpdate();
 		this.queueNotification(entry.snapshot);
+		this.drainQueue();
 	}
 
 	async sendMessage(target: string, message: string): Promise<SubagentSnapshot> {
@@ -347,6 +457,13 @@ export class SubagentCoordinator {
 					void this.onChildAgentEnd(entry);
 				}
 			});
+			if (entry.handle.getTodoProgress) {
+				entry.snapshot.todoProgress = entry.handle.getTodoProgress();
+				entry.todoUnsubscribe = entry.handle.subscribeTodos?.((progress) => {
+					entry.snapshot.todoProgress = progress;
+					this.emitUpdate();
+				});
+			}
 		}
 
 		if (isTerminalStatus(entry.snapshot.status)) {
@@ -385,10 +502,11 @@ export class SubagentCoordinator {
 	interrupt(target: string): SubagentSnapshot {
 		this.assertNotDisposed();
 		const entry = this.requireChild(target);
-		if (!isActiveStatus(entry.snapshot.status)) {
+		if (isTerminalStatus(entry.snapshot.status)) {
 			return { ...entry.snapshot };
 		}
 		entry.handle?.abort();
+		entry.queuedRequest = undefined;
 		entry.snapshot.status = "interrupted";
 		entry.snapshot.endedAt = Date.now();
 		entry.snapshot.generation += 1;
@@ -396,6 +514,7 @@ export class SubagentCoordinator {
 		this.wakeWaiters(entry);
 		this.emitUpdate();
 		this.queueNotification(entry.snapshot);
+		this.drainQueue();
 		return { ...entry.snapshot };
 	}
 
@@ -413,7 +532,7 @@ export class SubagentCoordinator {
 		const resolveTargets = (): InternalChild[] => {
 			if (!options?.targets || options.targets.length === 0) {
 				return Array.from(this.children.values()).filter(
-					(c) => isActiveStatus(c.snapshot.status) || this.hasUndelivered(c),
+					(c) => !isTerminalStatus(c.snapshot.status) || this.hasUndelivered(c),
 				);
 			}
 			return options.targets.map((t) => this.requireChild(t));
@@ -437,7 +556,7 @@ export class SubagentCoordinator {
 			return { timedOut: false, agents: immediate };
 		}
 
-		const active = resolveTargets().filter((c) => isActiveStatus(c.snapshot.status));
+		const active = resolveTargets().filter((c) => !isTerminalStatus(c.snapshot.status));
 		if (active.length === 0) {
 			return { timedOut: false, agents: [] };
 		}
@@ -479,9 +598,10 @@ export class SubagentCoordinator {
 		this.notifyBuffer = [];
 		this.onNotify = undefined;
 
+		this.queue.length = 0;
 		const entries = Array.from(this.children.values());
 		for (const entry of entries) {
-			if (isActiveStatus(entry.snapshot.status)) {
+			if (!isTerminalStatus(entry.snapshot.status)) {
 				entry.handle?.abort();
 				entry.snapshot.status = "interrupted";
 				entry.snapshot.endedAt = Date.now();
@@ -491,6 +611,8 @@ export class SubagentCoordinator {
 			this.wakeWaiters(entry);
 			entry.unsubscribe?.();
 			entry.unsubscribe = undefined;
+			entry.todoUnsubscribe?.();
+			entry.todoUnsubscribe = undefined;
 			try {
 				entry.handle?.dispose();
 			} catch {
@@ -527,10 +649,13 @@ export class SubagentCoordinator {
 		entry.snapshot.endedAt = Date.now();
 		entry.snapshot.errorMessage = errorMessage;
 		entry.snapshot.generation += 1;
+		entry.queuedRequest = undefined;
 		this.releaseActiveSlot(entry);
 		this.wakeWaiters(entry);
 		entry.unsubscribe?.();
 		entry.unsubscribe = undefined;
+		entry.todoUnsubscribe?.();
+		entry.todoUnsubscribe = undefined;
 		try {
 			entry.handle?.dispose();
 		} catch {
@@ -575,6 +700,8 @@ export class SubagentCoordinator {
 			if (!old) break;
 			old.unsubscribe?.();
 			old.unsubscribe = undefined;
+			old.todoUnsubscribe?.();
+			old.todoUnsubscribe = undefined;
 			try {
 				old.handle?.dispose();
 			} catch {

@@ -10,6 +10,8 @@
 import type { AgentTool } from "@vetta/agent-core";
 import type { AgentSession } from "../agent-session.js";
 import { SessionManager } from "../session-manager.js";
+import { createTodoTool } from "../tools/todo/index.js";
+import { seedForkContext } from "./fork-context.js";
 import { ensureSubagentDir, resolveSubagentDir } from "./persistence.js";
 import type {
 	SubagentChildHandle,
@@ -17,6 +19,7 @@ import type {
 	SubagentSessionFactory,
 	SubagentSnapshot,
 	SubagentSpawnRequest,
+	SubagentTodoProgress,
 	SubagentTypeDefinition,
 } from "./types.js";
 
@@ -32,6 +35,11 @@ function mergeTools(typeDef: SubagentTypeDefinition, cwd: string, parentMcp: Rea
 	const builtin = typeDef.createBuiltinTools(cwd);
 	const withMcp = typeDef.inheritParentMcp ? [...builtin, ...parentMcp] : builtin;
 	return filterDeniedTools(withMcp, typeDef.denyToolNamePrefixes);
+}
+
+function todoProgressOf(session: AgentSession): SubagentTodoProgress {
+	const items = session.todoStore.getAll();
+	return { done: items.filter((t) => t.status === "done").length, total: items.length };
 }
 
 function wrapSession(session: AgentSession): SubagentChildHandle {
@@ -69,6 +77,11 @@ function wrapSession(session: AgentSession): SubagentChildHandle {
 					messages: "messages" in event ? (event as { messages?: unknown[] }).messages : undefined,
 				});
 			}),
+		setTodos: (contents) => {
+			if (contents.length > 0) session.todoStore.createMany(contents);
+		},
+		getTodoProgress: () => todoProgressOf(session),
+		subscribeTodos: (listener) => session.todoStore.subscribe(() => listener(todoProgressOf(session))),
 	};
 }
 
@@ -83,7 +96,7 @@ export function createDefaultSubagentSessionFactory(
 ): SubagentSessionFactory {
 	return {
 		async create(
-			_request: SubagentSpawnRequest,
+			request: SubagentSpawnRequest,
 			parent: SubagentParentContext,
 			typeDef: SubagentTypeDefinition,
 			signal?: AbortSignal,
@@ -95,6 +108,18 @@ export function createDefaultSubagentSessionFactory(
 			const tools = mergeTools(typeDef, parent.cwd, parent.parentMcpTools);
 			const appendSystemPrompt = typeDef.systemPromptAddon;
 
+			// Todo tool binds to the child session's own TodoStore via a late ref.
+			let sessionRef: AgentSession | undefined;
+			if (typeDef.includeTodoTool) {
+				const todoTool = createTodoTool({
+					getTodoStore: () => {
+						if (!sessionRef) throw new Error("Child session not ready");
+						return sessionRef.todoStore;
+					},
+				});
+				tools.push(todoTool as unknown as AgentTool);
+			}
+
 			let sessionManager: SessionManager;
 			if (options.inMemory || !parent.parentSessionFile) {
 				sessionManager = SessionManager.inMemory(parent.cwd);
@@ -104,6 +129,12 @@ export function createDefaultSubagentSessionFactory(
 				sessionManager = SessionManager.create(parent.cwd, dir, {
 					parentSession: parent.parentSessionFile,
 				});
+			}
+
+			// Seed the fork snapshot BEFORE session creation so the agent state
+			// loads it as existing context (ADR-0044).
+			if (typeDef.forkParentContext && parent.forkContextMessages?.length) {
+				seedForkContext(sessionManager, parent.forkContextMessages);
 			}
 
 			const { session } = await createAgentSession({
@@ -119,7 +150,12 @@ export function createDefaultSubagentSessionFactory(
 				enableMcp: false,
 				appendSystemPrompt,
 			});
+			sessionRef = session;
 			session.agent.setTools(tools);
+
+			if (request.todos && request.todos.length > 0) {
+				session.todoStore.createMany(request.todos);
+			}
 
 			if (signal?.aborted) {
 				session.dispose();
@@ -141,6 +177,16 @@ export function createDefaultSubagentSessionFactory(
 			}
 
 			const tools = mergeTools(typeDef, parent.cwd, parent.parentMcpTools);
+			let sessionRef: AgentSession | undefined;
+			if (typeDef.includeTodoTool) {
+				const todoTool = createTodoTool({
+					getTodoStore: () => {
+						if (!sessionRef) throw new Error("Child session not ready");
+						return sessionRef.todoStore;
+					},
+				});
+				tools.push(todoTool as unknown as AgentTool);
+			}
 			const sessionManager = SessionManager.open(snapshot.sessionFile);
 			const { session } = await createAgentSession({
 				cwd: parent.cwd,
@@ -155,6 +201,7 @@ export function createDefaultSubagentSessionFactory(
 				enableMcp: false,
 				appendSystemPrompt: typeDef.systemPromptAddon,
 			});
+			sessionRef = session;
 			session.agent.setTools(tools);
 			return wrapSession(session);
 		},

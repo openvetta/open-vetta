@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 
 export type BackgroundTaskStatus = "running" | "completed" | "failed" | "killed";
 
-export type SubagentWorkStatus = "pending" | "running" | "completed" | "failed" | "interrupted";
+export type SubagentWorkStatus = "queued" | "pending" | "running" | "completed" | "failed" | "interrupted";
 
 /** Bash background task row (run_in_background). */
 export interface BackgroundTaskViewItem {

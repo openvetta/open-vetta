@@ -21,10 +21,12 @@ export function MessageListView({
 	model,
 	onAbort,
 	onSend,
+	sessionId = null,
 }: {
 	model: MessageListModel;
 	onAbort: MessageListProps["onAbort"];
 	onSend: MessageListProps["onSend"];
+	sessionId?: MessageListProps["sessionId"];
 }): JSX.Element {
 	const {
 		isCompacting,
@@ -115,10 +117,14 @@ export function MessageListView({
 		() => (
 			<>
 				{onSend && <SuggestionBubbles onSend={onSend} />}
-				<MessageListFooter isCompacting={isCompacting} showWaiting={showWaiting} />
+				<MessageListFooter
+					isCompacting={isCompacting}
+					showWaiting={showWaiting}
+					showWorkflows={sessionId != null}
+				/>
 			</>
 		),
-		[isCompacting, showWaiting, onSend],
+		[isCompacting, showWaiting, onSend, sessionId],
 	);
 	const components = useMemo(
 		() => ({ List: VirtuosoListContainer, Footer: footer }),

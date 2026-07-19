@@ -263,6 +263,9 @@ export class AgentSession {
 				getModel: () => this.model,
 				getThinkingLevel: () => this.thinkingLevel,
 				getParentMcpTools: () => this._runtime?.mcpManager?.getTools() ?? [],
+				// Fork snapshot for workflow children (ADR-0044): the parent's live
+				// message state, which already reflects the current branch.
+				getParentContextMessages: () => [...this.agent.state.messages],
 				agentDir: undefined,
 				maxConcurrent: config.subagentMaxConcurrent,
 				onUpdate: (agents) => {

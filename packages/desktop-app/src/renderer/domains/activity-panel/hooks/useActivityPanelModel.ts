@@ -21,6 +21,8 @@ import {
 	getSubagentsForSession,
 	getTodoItemsForSession,
 	hiddenActivityTabsAtom,
+	isSubagentActive,
+	isWorkflowTask,
 	pluginActivityTabsAtom,
 	pluginInputActionsAtom,
 	sidebarCollapsedAtom,
@@ -82,10 +84,13 @@ export function useActivityPanelModel({
 		[backgroundTasksMap, activeSession?.runtimeId],
 	);
 	const subagentsMap = useAtomValue(subagentsBySessionAtom);
-	const subagents = useMemo(
+	const allSubagents = useMemo(
 		() => getSubagentsForSession(subagentsMap, activeSession?.runtimeId ?? null),
 		[subagentsMap, activeSession?.runtimeId],
 	);
+	// Workflows live in their own tab; background-tasks keeps bash + non-workflow subagents.
+	const subagents = useMemo(() => allSubagents.filter((a) => !isWorkflowTask(a)), [allSubagents]);
+	const workflows = useMemo(() => allSubagents.filter(isWorkflowTask), [allSubagents]);
 	const debugMode = useAtomValue(debugModeAtom);
 	const registeredPluginTabs = useAtomValue(pluginActivityTabsAtom);
 	const pluginInputActions = useAtomValue(pluginInputActionsAtom);
@@ -188,13 +193,23 @@ export function useActivityPanelModel({
 		}
 		if (backgroundTasks.length > 0 || subagents.length > 0) {
 			const runningBash = backgroundTasks.filter((task) => task.status === "running").length;
-			const runningSub = subagents.filter((a) => a.status === "pending" || a.status === "running").length;
+			const runningSub = subagents.filter((a) => isSubagentActive(a.status)).length;
 			const running = runningBash + runningSub;
 			base.push({
 				key: "background-tasks",
 				label: t("activityPanel.tabs.backgroundTasks"),
 				icon: "icon-[mdi--console-line]",
 				badge: running || undefined,
+				removable: true,
+			});
+		}
+		if (workflows.length > 0) {
+			const runningWorkflows = workflows.filter((a) => isSubagentActive(a.status)).length;
+			base.push({
+				key: "workflow",
+				label: t("activityPanel.tabs.workflow"),
+				icon: "icon-[mdi--sitemap-outline]",
+				badge: runningWorkflows || undefined,
 				removable: true,
 			});
 		}
@@ -215,7 +230,18 @@ export function useActivityPanelModel({
 			});
 		}
 		return base;
-	}, [knowledgeHistory, profile, todoItems, backgroundTasks, subagents, debugMode, pluginTabContribs, trPlugin, t]);
+	}, [
+		knowledgeHistory,
+		profile,
+		todoItems,
+		backgroundTasks,
+		subagents,
+		workflows,
+		debugMode,
+		pluginTabContribs,
+		trPlugin,
+		t,
+	]);
 	const tabItems = useMemo(
 		() =>
 			applyTabOrder(

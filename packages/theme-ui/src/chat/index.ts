@@ -243,5 +243,7 @@ export {
 	SkillBadgeView,
 	UserMessageView,
 } from "./UserMessageView";
+export type { WorkflowFooterItem, WorkflowFooterItemsViewProps } from "./WorkflowFooterItemsView";
+export { WorkflowFooterItemsView } from "./WorkflowFooterItemsView";
 export type { WriteContentViewProps } from "./WriteContentView";
 export { WriteContentView } from "./WriteContentView";

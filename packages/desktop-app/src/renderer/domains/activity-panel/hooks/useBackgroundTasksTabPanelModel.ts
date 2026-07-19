@@ -5,6 +5,7 @@ import {
 	getBackgroundTasksForSession,
 	getSubagentsForSession,
 	isSubagentActive,
+	isWorkflowTask,
 	type SubagentTask,
 	subagentsBySessionAtom,
 } from "@shared/store/atoms";
@@ -51,6 +52,7 @@ function subagentStatusMeta(
 	t: TFunction<"chat">,
 ): { icon: string; label: string; className: string } {
 	switch (status) {
+		case "queued":
 		case "pending":
 			return {
 				icon: "icon-[mdi--clock-outline]",
@@ -146,7 +148,11 @@ export function useBackgroundTasksTabPanelModel(): BackgroundTasksTabPanelModel 
 	const sessionId = activeSession?.runtimeId ?? null;
 
 	const bashTasks = useMemo(() => getBackgroundTasksForSession(tasksMap, sessionId), [tasksMap, sessionId]);
-	const subagents = useMemo(() => getSubagentsForSession(subagentsMap, sessionId), [subagentsMap, sessionId]);
+	// Workflows have their own tab; this panel keeps bash + non-workflow subagents.
+	const subagents = useMemo(
+		() => getSubagentsForSession(subagentsMap, sessionId).filter((a) => !isWorkflowTask(a)),
+		[subagentsMap, sessionId],
+	);
 
 	const hasRunning =
 		bashTasks.some((task) => task.status === "running") || subagents.some((a) => isSubagentActive(a.status));
