@@ -93,9 +93,14 @@ export interface InputBarModel {
 	hasSession: boolean;
 	canSend: boolean;
 	isEmpty: boolean;
+	/** 输入框无任何字符（含空格）时展示覆盖层 placeholder；与原生行为一致 */
+	showPlaceholder: boolean;
 	hasCapsules: boolean;
 	effectiveCwd: string;
-	placeholder: string;
+	/** 空输入时展示的占位文案；多条时垂直轮播 */
+	placeholderTexts: readonly string[];
+	/** 是否对 placeholderTexts 做自动上下切换（suggestion/thinking 等为 false） */
+	placeholderRotating: boolean;
 	isFocused: boolean;
 	slashOpen: boolean;
 	slashFilter: string;

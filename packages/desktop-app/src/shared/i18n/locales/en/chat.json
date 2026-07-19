@@ -267,7 +267,11 @@
 			"deny": "Deny"
 		},
 		"placeholder": {
-			"default": "Ask Vetta, use / for skills, @ to reference files",
+			"defaults": [
+				"Ask Vetta, use / for skills, @ to reference files",
+				"Describe the task, press ⏎ to send",
+				"Paste a screenshot or @ a file to get started"
+			],
 			"noSession": "Select or create a session to start",
 			"suggestion": "↵ {{suggestion}}",
 			"thinking": "Vetta is thinking…"

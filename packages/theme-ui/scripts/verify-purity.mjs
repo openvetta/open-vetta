@@ -27,6 +27,7 @@ const requiredExports = [
 	"DefaultSkillBadgeRow",
 	"InputBarToolbarButton",
 	"InputBarCapsule",
+	"InputBarPlaceholder",
 	"NewSessionBackground",
 	"SendButton",
 	"DrawerCard",

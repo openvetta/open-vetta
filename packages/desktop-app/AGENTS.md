@@ -151,7 +151,7 @@ src/
 **catalog 与命名空间**
 - 文案存 `src/shared/i18n/locales/{zh,en}/<ns>.json`，**zh 为准、en 后填**，缺译自动回退 zh（`fallbackLng=zh`，绝不暴露原始 key）。
 - 按 domain 分 ns：`common`（按钮等基础件）、`main`（主进程原生 UI）、`chat` / `settings` / … 各 domain 一个 ns。
-- key 用**语义点路径**，按组件/特性分组：`t("inputBar.placeholder.default")`、`t("newSession.subtitle")`。
+- key 用**语义点路径**，按组件/特性分组：`t("inputBar.placeholder.defaults")`、`t("newSession.subtitle")`。
 
 **怎么取文案**
 - React 组件：`const { t } = useTranslation("<ns>")`，用**裸 key**：`t("group.leaf")`。带插值：catalog 里写 `{{var}}`，调用 `t("k", { var })`。内嵌 JSX（含 `<b>`/`<a>` 等）用 `<Trans i18nKey="<ns>:k">…</Trans>`。跨 ns 取词用前缀并把该 ns 绑进 hook：`useTranslation(["chat","common"])` 后 `t("common:actions.cancel")`。
