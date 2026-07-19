@@ -4,8 +4,11 @@ import { I18nextProvider } from "react-i18next";
 import { QuickPanelApp } from "./QuickPanelApp";
 import { i18n, initQuickPanelI18n } from "./i18n";
 import { applyInitialTheme, applyStoredTheme, MODE_STORAGE_KEY, THEME_STORAGE_KEY } from "../shared/theme/apply";
+import { initializeRendererErrorMonitoring } from "../telemetry/error-monitoring";
 import "../styles.css";
 import "./index.css";
+
+initializeRendererErrorMonitoring("quick-panel");
 
 // 挂载前同步注入主题变量与 i18n，避免冷启动闪烁（对齐主窗口 main.tsx）。
 applyInitialTheme();

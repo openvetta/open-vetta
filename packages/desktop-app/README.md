@@ -32,4 +32,4 @@ builds changed workspace prerequisites, stages plugin and theme manifests, then 
 theme server, and Electron process in parallel.
 
 Main-process sourcemaps are disabled by default to keep startup builds fast. Set
-`VETTA_MAIN_SOURCEMAP=1` when source-mapped Electron stack traces are needed.
+`VETTA_MAIN_SOURCEMAP=true` when source-mapped Electron stack traces are needed.

@@ -19,6 +19,7 @@ import {
 	recordAppMonitorEvent,
 	recordAppMonitorUserActivity,
 } from "../app-monitor/app-monitor-service.js";
+import { captureProductEvent } from "../telemetry/index.js";
 
 const USER_ACTIVITY_CHANNEL = "vetta:app-monitor:user-activity";
 const RECORD_EVENT_CHANNEL = "vetta:app-monitor:record-event";
@@ -95,6 +96,7 @@ export function registerAppMonitorIpc(): () => void {
 		const event = toAppMonitorEvent(payload);
 		if (!event) return;
 		recordAppMonitorEvent(event);
+		captureProductEvent(event);
 	};
 	ipcMain.on(USER_ACTIVITY_CHANNEL, onUserActivity);
 	ipcMain.on(RECORD_EVENT_CHANNEL, onRecordEvent);

@@ -10,7 +10,12 @@ import { desktopThemeHost } from "./shared/theme/desktopThemeHost";
 import { ThemeRuntimeProvider } from "./shared/theme/runtime";
 import { ThemeColorOverrideBridge } from "./shared/theme/ThemeColorOverrideBridge";
 import { ThemeHostProvider } from "@vetta/theme-sdk";
+import { captureReactError, initializeRendererErrorMonitoring } from "./telemetry/error-monitoring";
+import { initializeProductAnalytics } from "./telemetry/product-analytics";
 import "./styles.css";
+
+initializeRendererErrorMonitoring("main");
+initializeProductAnalytics();
 
 // 必须在 React 挂载前同步注入主题变量，避免冷启动闪烁。
 applyInitialTheme();
@@ -24,7 +29,7 @@ if (!rootElement) {
 	throw new Error("Missing root element");
 }
 
-createRoot(rootElement).render(
+createRoot(rootElement, { onCaughtError: captureReactError, onRecoverableError: captureReactError }).render(
 	<StrictMode>
 		<I18nextProvider i18n={i18n}>
 			<ThemeHostProvider host={desktopThemeHost}>

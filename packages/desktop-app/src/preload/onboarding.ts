@@ -1,4 +1,5 @@
 import { contextBridge, type IpcRendererEvent, ipcRenderer } from "electron";
+import "./telemetry.js";
 import type { HelperPermissions, OnboardingBridge, OnboardingPaneKind } from "../shared/onboarding-ipc.js";
 
 // 通道字面量刻意内联（不 import shared/onboarding-ipc.ts，避免把主进程模块拉进 preload
