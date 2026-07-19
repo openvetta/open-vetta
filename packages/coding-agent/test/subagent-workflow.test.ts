@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { SubagentCoordinator } from "../src/core/subagents/coordinator.js";
 import { buildForkSeedMessages, trimDanglingToolCalls } from "../src/core/subagents/fork-context.js";
 import { createDefaultSubagentTypeRegistry } from "../src/core/subagents/index.js";
+import { createWaitAgentTool } from "../src/core/subagents/tools/wait-agent.js";
 import type {
 	SubagentChildHandle,
 	SubagentParentContext,
@@ -163,6 +164,80 @@ describe("SubagentCoordinator.spawnMany (workflow dispatch)", () => {
 		});
 		pushProgress?.({ done: 2, total: 3 });
 		expect(coord.get("progress")?.todoProgress).toEqual({ done: 2, total: 3 });
+		await coord.dispose();
+	});
+
+	it("carries the human-readable title into snapshots", async () => {
+		const { coord } = makeCoordinator({ create: async () => fakeHandle() });
+		const snaps = coord.spawnMany([{ ...wf("titled"), title: "重构鉴权层" }]);
+		expect(snaps[0]?.title).toBe("重构鉴权层");
+		await vi.waitFor(() => expect(coord.get("titled")?.title).toBe("重构鉴权层"));
+		await coord.dispose();
+	});
+
+	it("a new dispatch batch clears terminal workflows of the same type and frees names", async () => {
+		const { coord } = makeCoordinator({ create: async () => fakeHandle() });
+		coord.spawnMany([wf("alpha"), wf("beta")]);
+		await vi.waitFor(() => {
+			expect(coord.list().every((s) => s.status === "completed")).toBe(true);
+		});
+		const next = coord.spawnMany([wf("alpha")]);
+		expect(next).toHaveLength(1);
+		// old terminal entries are gone; only the fresh batch remains
+		const names = coord.list().map((s) => s.taskName);
+		expect(names).toEqual(["alpha"]);
+		await coord.dispose();
+	});
+
+	it("keeps interrupted workflows across a new dispatch batch (resume candidates)", async () => {
+		let pushProgress: ((p: SubagentTodoProgress) => void) | undefined;
+		const paused = fakeHandle({
+			prompt: async () => {
+				await new Promise((r) => setTimeout(r, 500));
+			},
+			getTodoProgress: () => ({ done: 2, total: 5 }),
+			subscribeTodos: (listener) => {
+				pushProgress = listener;
+				return () => {};
+			},
+		});
+		const factory: SubagentSessionFactory = {
+			create: async (request) => (request.taskName === "paused" ? paused : fakeHandle()),
+		};
+		const { coord } = makeCoordinator(factory, { maxConcurrent: 3 });
+		coord.spawnMany([wf("paused", ["a", "b", "c", "d", "e"])]);
+		await vi.waitFor(() => expect(coord.get("paused")?.status).toBe("running"));
+		coord.interrupt("paused");
+		expect(coord.get("paused")?.status).toBe("interrupted");
+		expect(coord.get("paused")?.todoProgress).toEqual({ done: 2, total: 5 });
+
+		// New batch must NOT wipe the interrupted (resumable) workflow.
+		coord.spawnMany([wf("other")]);
+		expect(coord.get("paused")?.status).toBe("interrupted");
+
+		// Resume via followUp: same child, progress intact, runs again.
+		const resumed = await coord.followUp("paused", "continue the remaining todos");
+		expect(resumed.status).toBe("running");
+		expect(coord.get("paused")?.todoProgress).toEqual({ done: 2, total: 5 });
+		pushProgress?.({ done: 3, total: 5 });
+		expect(coord.get("paused")?.todoProgress).toEqual({ done: 3, total: 5 });
+		await coord.dispose();
+	});
+
+	it("wait_agent refuses to park on workflow-only children (notification-driven instead)", async () => {
+		const factory: SubagentSessionFactory = { create: async () => slowHandle(5000) };
+		const { coord } = makeCoordinator(factory, { maxConcurrent: 2 });
+		coord.spawnMany([wf("long_a"), wf("long_b")]);
+		await vi.waitFor(() => expect(coord.get("long_a")?.status).toBe("running"));
+
+		const tool = createWaitAgentTool({ getCoordinator: () => coord });
+		const started = Date.now();
+		const result = await tool.execute("t1", { description: "wait", timeout_ms: 60_000 } as never);
+		// Guard caps the wait at 1s regardless of the requested timeout.
+		expect(Date.now() - started).toBeLessThan(3000);
+		const text = (result.content[0] as { text: string }).text;
+		expect(text).toContain("subagent_notification");
+		expect((result.details as { workflowNoWait?: boolean }).workflowNoWait).toBe(true);
 		await coord.dispose();
 	});
 

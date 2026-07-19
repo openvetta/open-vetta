@@ -8,6 +8,7 @@ import {
 	type SubagentTask,
 	selectedWorkflowIdAtom,
 	subagentsBySessionAtom,
+	workflowDisplayName,
 } from "@shared/store/atoms";
 import type { WorkflowSwitcherItem } from "@vetta/theme-ui/activity";
 import { useAtom, useAtomValue } from "jotai";
@@ -53,7 +54,7 @@ export function useWorkflowTabPanelModel(): WorkflowTabPanelModel {
 				const meta = workflowStatusMeta(task.status, t);
 				return {
 					id: task.id,
-					name: task.taskName,
+					name: workflowDisplayName(task),
 					progressLabel: workflowProgressLabel(task),
 					statusIcon: meta.icon,
 					statusClassName: meta.className,

@@ -61,6 +61,8 @@ export interface SubagentSnapshot {
 	generation: number;
 	/** Present when the child has a todo list (workflow children). */
 	todoProgress?: SubagentTodoProgress;
+	/** Human-readable one-line summary for UI display. */
+	title?: string;
 }
 
 export interface SubagentSpawnRequest {
@@ -69,6 +71,8 @@ export interface SubagentSpawnRequest {
 	agentType: SubagentTypeId;
 	/** Pre-filled (unlocked) todo items for the child's own TodoStore. */
 	todos?: string[];
+	/** Human-readable one-line summary for UI display (task_name stays the id). */
+	title?: string;
 }
 
 export interface SubagentParentContext {

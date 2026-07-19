@@ -525,6 +525,12 @@ function buildGuidelines(tools: string[]): string {
 		);
 	}
 
+	if (tools.includes("dispatch_workflows")) {
+		guidelinesList.push(
+			"PARALLEL WORKFLOWS: this app can fan a complex task out to parallel workflow subagents via dispatch_workflows — each inherits a snapshot of this conversation and executes its own todo list concurrently. Proactively consider dispatching workflows whenever a task splits into independent, non-overlapping scopes (multi-module changes, batch generation, parallel research); do not wait for the user to ask. You are notified via <subagent_notification> as each finishes — after dispatching, NEVER sit in wait_agent: end your turn (or do other work) and react to notifications passively. When the user pauses workflows and later says continue, RESUME each interrupted workflow with followup_task (context and todo progress are preserved) — never re-dispatch them as new workflows.",
+		);
+	}
+
 	if (tools.includes("current_time")) {
 		guidelinesList.push(
 			'ALWAYS use current_time tool (not bash "date", "timedatectl", or other shell commands) when you need to know the current date or time. Only fall back to bash if current_time cannot fulfill the specific requirement (e.g., timezone conversion, date arithmetic)',

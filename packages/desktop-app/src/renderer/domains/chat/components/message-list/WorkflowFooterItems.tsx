@@ -9,6 +9,7 @@ import {
 	isWorkflowTask,
 	selectedWorkflowIdAtom,
 	subagentsBySessionAtom,
+	workflowDisplayName,
 } from "@shared/store/atoms";
 import { WorkflowFooterItemsView } from "@vetta/theme-ui/chat";
 import { useAtomValue, useSetAtom } from "jotai";
@@ -39,12 +40,12 @@ export function WorkflowFooterItems(): JSX.Element | null {
 				const meta = workflowStatusMeta(task.status, t);
 				return {
 					id: task.id,
-					name: task.taskName,
+					name: workflowDisplayName(task),
 					progressLabel: workflowProgressLabel(task),
 					statusLabel: meta.label,
-					statusIcon: meta.icon,
 					statusClassName: meta.className,
 					active: isSubagentActive(task.status),
+					completed: task.status === "completed",
 				};
 			}),
 		[workflows, t],
@@ -75,9 +76,16 @@ export function WorkflowFooterItems(): JSX.Element | null {
 	);
 
 	if (items.length === 0) return null;
+	const activeCount = items.filter((item) => item.active).length;
 	return (
 		<WorkflowFooterItemsView
 			items={items}
+			title={
+				activeCount > 0
+					? t("activityPanel.workflow.processingTitle", { count: activeCount })
+					: t("activityPanel.workflow.doneTitle")
+			}
+			processing={activeCount > 0}
 			stopLabel={t("activityPanel.workflow.stop")}
 			onOpen={handleOpen}
 			onStop={handleStop}

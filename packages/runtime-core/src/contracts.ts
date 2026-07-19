@@ -422,6 +422,8 @@ export interface SubagentInfo {
 	generation: number;
 	/** Workflow children mirror their todo progress (display only). */
 	todoProgress?: { done: number; total: number };
+	/** Human-readable one-line summary for UI display. */
+	title?: string;
 }
 
 export interface SubagentsUpdateEvent extends SessionEventBase {

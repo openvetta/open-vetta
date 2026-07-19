@@ -90,7 +90,9 @@
 			"statusRunning": "运行中",
 			"statusCompleted": "已完成",
 			"statusFailed": "失败",
-			"statusInterrupted": "已中断"
+			"statusInterrupted": "已中断",
+			"processingTitle": "有 {{count}} 个工作流正在处理",
+			"doneTitle": "工作流已全部结束"
 		}
 	},
 	"fileExplorer": {

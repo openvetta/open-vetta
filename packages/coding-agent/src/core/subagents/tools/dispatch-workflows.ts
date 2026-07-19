@@ -10,7 +10,11 @@ export const DISPATCH_WORKFLOWS_MAX_BATCH = 8;
 const workflowItemSchema = Type.Object({
 	task_name: Type.String({
 		description:
-			"Unique snake_case name for this workflow (e.g. refactor_api). Lowercase letters, digits, underscore; start with a letter.",
+			"Unique snake_case id for this workflow (e.g. refactor_api). Lowercase letters, digits, underscore; start with a letter.",
+	}),
+	title: Type.String({
+		description:
+			"Human-readable one-line summary of this workflow, shown in the UI (e.g. 重构 API 鉴权层). Write it in the user's language.",
 	}),
 	message: Type.String({
 		description:
@@ -52,6 +56,11 @@ export function createDispatchWorkflowsTool(options: {
 			"Split tasks into NON-OVERLAPPING scopes: workflows share the working directory, so two workflows",
 			"must never edit the same files. Workflows cannot spawn agents themselves (single layer).",
 			"Use interrupt_agent / send_message / followup_task with the task_name to control a workflow.",
+			"",
+			"RESUME, don't re-dispatch: an interrupted workflow keeps its full context and todo progress.",
+			"To continue it, call followup_task(target: task_name, message: 'continue the remaining todos').",
+			"Only dispatch NEW workflows for NEW scopes — dispatching again resets nothing for interrupted ones",
+			"(their names stay reserved) and would duplicate work.",
 		].join("\n"),
 		parameters: dispatchWorkflowsSchema,
 		execute: async (_toolCallId, input: DispatchWorkflowsToolInput) => {
@@ -62,6 +71,7 @@ export function createDispatchWorkflowsTool(options: {
 			const snaps = coord.spawnMany(
 				input.workflows.map((w) => ({
 					taskName: w.task_name,
+					title: w.title,
 					message: w.message,
 					agentType: SUBAGENT_TYPE_WORKFLOW,
 					todos: w.todos,
@@ -72,7 +82,9 @@ export function createDispatchWorkflowsTool(options: {
 				const todo = snap.todoProgress ? ` todos: ${snap.todoProgress.done}/${snap.todoProgress.total}` : "";
 				lines.push(`- ${snap.taskName} [${snap.status}] id: ${snap.id}${todo}`);
 			}
-			lines.push("You will receive <subagent_notification> as each workflow reaches a terminal state.");
+			lines.push(
+				"You will receive <subagent_notification> as each workflow reaches a terminal state. Do NOT call wait_agent — end your turn (or continue other work) and handle the notifications passively.",
+			);
 			return {
 				content: [{ type: "text" as const, text: lines.join("\n") }],
 				details: { workflows: snaps },
