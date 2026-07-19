@@ -3,7 +3,10 @@ import { createRoot } from "react-dom/client";
 import { PetApp } from "./domains/pet/components/PetApp";
 import { applyInitialTheme, applyStoredTheme, MODE_STORAGE_KEY, THEME_STORAGE_KEY } from "./shared/theme/apply";
 import { applyStoredCursorStyle, CURSOR_STORAGE_KEY, LEGACY_CURSOR_STORAGE_KEY } from "./shared/theme/cursor";
+import { initializeRendererErrorMonitoring } from "./telemetry/error-monitoring";
 import "./styles.css";
+
+initializeRendererErrorMonitoring("pet");
 
 applyInitialTheme();
 applyStoredCursorStyle();

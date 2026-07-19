@@ -2,9 +2,12 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { I18nextProvider } from "react-i18next";
 import { applyInitialTheme, applyStoredTheme, MODE_STORAGE_KEY, THEME_STORAGE_KEY } from "../shared/theme/apply";
+import { initializeRendererErrorMonitoring } from "../telemetry/error-monitoring";
 import "../styles.css";
 import { i18n, initOnboardingI18n } from "./i18n";
 import { OnboardingApp } from "./OnboardingApp";
+
+initializeRendererErrorMonitoring("onboarding");
 
 // 挂载前同步注入主题变量与 i18n，避免冷启动闪烁（对齐 quickpanel/entry.tsx）。
 applyInitialTheme();

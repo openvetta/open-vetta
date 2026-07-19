@@ -1,6 +1,7 @@
 import { builtinModules } from "node:module";
 import { resolve } from "node:path";
 import { defineConfig, loadEnv, type Plugin } from "vite";
+import { createSentryBuildSetup } from "./sentry-vite";
 
 function workspaceSourceAlias(): Plugin {
 	return {
@@ -23,13 +24,15 @@ export default defineConfig(({ mode }) => {
 	// 默认值：vite build 命令的 mode（不指定时为 production）。
 	const effectiveMode = process.env.VETTA_BUILD_ENV || mode;
 	const env = loadEnv(effectiveMode, process.cwd(), "VETTA_");
+	for (const [key, value] of Object.entries(process.env)) {
+		if (key.startsWith("VETTA_") && value !== undefined) env[key] = value;
+	}
 	const developmentWorkspacePackages =
 		effectiveMode === "development"
 			? [/^@vetta\/(?:action-rpc|ai|coding-agent|runtime-core)(?:\/|$)/]
 			: [];
-	const sourcemapEnabled =
-		effectiveMode === "development" &&
-		(process.env.VETTA_MAIN_SOURCEMAP ?? env.VETTA_MAIN_SOURCEMAP) === "1";
+	const sourcemapEnabled = (process.env.VETTA_MAIN_SOURCEMAP ?? env.VETTA_MAIN_SOURCEMAP) === "true";
+	const sentry = createSentryBuildSetup(env, "dist/main");
 
 	if (!env.VETTA_SERVER_URL) {
 		throw new Error(
@@ -46,7 +49,7 @@ export default defineConfig(({ mode }) => {
 
 	return {
 		define,
-		plugins: [workspaceSourceAlias()],
+		plugins: [workspaceSourceAlias(), ...sentry.plugins],
 		resolve: {
 			alias: {
 				x11: resolve(process.cwd(), "src/main/shims/x11.ts"),
@@ -82,7 +85,7 @@ export default defineConfig(({ mode }) => {
 				],
 			},
 			minify: false,
-			sourcemap: sourcemapEnabled,
+			sourcemap: sentry.enabled ? "hidden" : sourcemapEnabled,
 		},
 	};
 });

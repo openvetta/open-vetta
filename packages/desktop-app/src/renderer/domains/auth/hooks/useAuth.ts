@@ -11,6 +11,7 @@ import {
 import { subscriptionStatusAtom } from "@shared/store/auth-atoms";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect } from "react";
+import { setProductAnalyticsUser } from "../../../telemetry/product-analytics";
 
 const ACCESS_TOKEN_KEY = "vetta-auth-token";
 const REFRESH_TOKEN_KEY = "vetta-refresh-token";
@@ -23,6 +24,10 @@ export function useAuth() {
 	const setSubscriptionStatus = useSetAtom(subscriptionStatusAtom);
 	const sseClient = useAtomValue(sseClientAtom);
 	const setSseState = useSetAtom(sseConnectionStateAtom);
+
+	useEffect(() => {
+		setProductAnalyticsUser(user?.id ?? null);
+	}, [user]);
 
 	const logout = useCallback(() => {
 		// 注意：这里只清服务器侧状态（token / user / 远程 providers / SSE）。

@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
+import "./telemetry.js";
 import type { DesktopApi } from "./api.js";
 import { createActionApprovalApi } from "./apis/action-approval.js";
 import { createAppMonitorApi } from "./apis/app-monitor.js";
@@ -14,6 +15,7 @@ import { createQuickPanelApi } from "./apis/quick-panel.js";
 import { createSchedulerApi } from "./apis/scheduler.js";
 import { createSessionApi } from "./apis/session.js";
 import { createSystemApi } from "./apis/system.js";
+import { createTelemetryApi } from "./apis/telemetry.js";
 import { createThemesApi } from "./apis/themes.js";
 import { createWebhookApi } from "./apis/webhook.js";
 
@@ -48,6 +50,7 @@ const api: DesktopApi = {
 	...createQuickPanelApi(ipcRenderer),
 	...createAppshotApi(ipcRenderer),
 	...createI18nApi(ipcRenderer),
+	...createTelemetryApi(ipcRenderer),
 	...createSystemApi(ipcRenderer, webUtils),
 };
 
