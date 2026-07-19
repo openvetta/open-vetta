@@ -92,7 +92,7 @@ export type PetCommand =
 			source?: PetCommandSource;
 	  }
 	| {
-			// 系统空闲/锁屏/休眠时暂停桌宠视频解码，避免无人值守时持续解码累积内存与占用 CPU。
+			// 系统锁屏或休眠时暂停桌宠视频解码，解锁或唤醒后恢复。
 			type: "set-playback";
 			playing: boolean;
 	  };

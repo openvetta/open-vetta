@@ -42,31 +42,42 @@ export function usePetWindowInteractions({
 	const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
 		if (event.button !== 0) return;
 		event.preventDefault();
-		event.currentTarget.setPointerCapture(event.pointerId);
+		const dragTarget = event.currentTarget;
+		dragTarget.setPointerCapture(event.pointerId);
 		isDraggingRef.current = true;
 		void window.vettaPet?.setMousePassthrough(false);
 		const moveSessionReady = window.vettaPet?.beginWindowMove() ?? Promise.resolve();
+		let dragFinished = false;
 
 		const handlePointerMove = (moveEvent: PointerEvent) => {
 			moveEvent.preventDefault();
 			void moveSessionReady.then(() => window.vettaPet?.moveWindow());
 		};
 		const handlePointerUp = () => {
+			if (dragFinished) return;
+			dragFinished = true;
 			window.removeEventListener("pointermove", handlePointerMove);
 			window.removeEventListener("pointerup", handlePointerUp);
 			window.removeEventListener("pointercancel", handlePointerUp);
+			dragTarget.removeEventListener("lostpointercapture", handleLostPointerCapture);
 			isDraggingRef.current = false;
 			void moveSessionReady.then(() => window.vettaPet?.endWindowMove());
+		};
+		const handleLostPointerCapture = (captureEvent: PointerEvent) => {
+			if ((captureEvent.buttons & 1) !== 0) return;
+			handlePointerUp();
 		};
 
 		window.addEventListener("pointermove", handlePointerMove);
 		window.addEventListener("pointerup", handlePointerUp);
 		window.addEventListener("pointercancel", handlePointerUp);
+		dragTarget.addEventListener("lostpointercapture", handleLostPointerCapture);
 	};
 
 	return {
 		handlePointerDown,
 		handlePointerLeave: () => {
+			if (isDraggingRef.current) return;
 			void window.vettaPet?.setMousePassthrough(true);
 		},
 		handlePointerMove: (event) => updateMousePassthrough(event.clientX, event.clientY),

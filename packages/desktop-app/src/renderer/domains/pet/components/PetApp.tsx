@@ -21,7 +21,6 @@ import {
 	getVideoMap,
 } from "../services/pet-url-options";
 import { getVideoDisplaySize } from "../services/pet-video-size";
-import { usePetAutoContentSize } from "../hooks/usePetAutoContentSize";
 import { usePetBubble } from "../hooks/usePetBubble";
 import { usePetHitbox } from "../hooks/usePetHitbox";
 import {
@@ -54,7 +53,6 @@ export function PetApp(): JSX.Element {
 	const [playbackPaused, setPlaybackPaused] = useState(false);
 	const [windowSize] = useWindowSize();
 	const [videoNaturalSize, setVideoNaturalSize] = useState<{ width: number; height: number } | undefined>();
-	const contentRef = useRef<HTMLDivElement>(null);
 	const videoRef = useRef<HTMLDivElement>(null);
 	const autoModeRef = useRef(autoMode);
 	const appActionIdRef = useRef<PetActionId | undefined>(undefined);
@@ -78,6 +76,14 @@ export function PetApp(): JSX.Element {
 		PET_SIZE_MAX,
 	);
 	const bubblePlacement = bubble && contentOffset.y < 0 ? "below" : "above";
+	const bubbleMaxWidth = Math.min(360, Math.max(0, windowSize.width - 24));
+	const bubbleAnchorX = windowSize.width / 2 + contentOffset.x;
+	const bubbleMinCenterX = bubbleMaxWidth / 2 + 12;
+	const bubbleMaxCenterX = windowSize.width - bubbleMaxWidth / 2 - 12;
+	const bubbleHorizontalOffset =
+		bubbleMinCenterX > bubbleMaxCenterX
+			? 0
+			: Math.min(Math.max(bubbleAnchorX, bubbleMinCenterX), bubbleMaxCenterX) - bubbleAnchorX;
 
 	const clearUserOverrideTimer = () => {
 		if (userOverrideTimerRef.current == null) return;
@@ -145,12 +151,6 @@ export function PetApp(): JSX.Element {
 	usePetHitbox({
 		shouldShowVideo,
 		videoRef,
-	});
-
-	usePetAutoContentSize({
-		contentRef,
-		targetRef: videoRef,
-		observeKey: `${actionId ?? ""}:${bubblePlacement}:${bubbleAnchorSize}`,
 	});
 
 	useEffect(() => {
@@ -283,11 +283,10 @@ export function PetApp(): JSX.Element {
 				windowSize={windowSize}
 			/>
 			<div
-				ref={contentRef}
 				className="relative flex items-center justify-center"
 				style={{
-					width: videoNaturalSize ? `${videoSize.width}px` : "100%",
-					height: videoNaturalSize ? `${videoSize.height}px` : "100%",
+					width: `${videoSize.width}px`,
+					height: `${videoSize.height}px`,
 					transform:
 						contentOffset.x === 0 && contentOffset.y === 0
 							? undefined
@@ -297,6 +296,7 @@ export function PetApp(): JSX.Element {
 				<PetSpeechBubble
 					anchorSize={bubbleAnchorSize}
 					decorUrl={bubbleStyle.decorUrl}
+					horizontalOffset={bubbleHorizontalOffset}
 					message={bubble}
 					placement={bubblePlacement}
 					styleId={bubbleStyle.styleId}
@@ -309,7 +309,6 @@ export function PetApp(): JSX.Element {
 					videoRef={videoRef}
 					videoSize={videoSize}
 					videoSrc={videoSrc}
-					hasNaturalSize={videoNaturalSize != null}
 					onError={() => setFailedVideoSrc(videoSrc)}
 					onLoadedMetadata={(size) => setVideoNaturalSize(size)}
 				/>
