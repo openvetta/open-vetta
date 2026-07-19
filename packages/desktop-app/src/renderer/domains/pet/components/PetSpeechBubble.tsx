@@ -8,12 +8,14 @@ export interface PetSpeechBubbleMessage {
 export function PetSpeechBubble({
 	anchorSize,
 	decorUrl,
+	horizontalOffset,
 	message,
 	placement,
 	styleId,
 }: {
 	anchorSize: number;
 	decorUrl: string | undefined;
+	horizontalOffset: number;
 	message: PetSpeechBubbleMessage | undefined;
 	placement: "above" | "below";
 	styleId: PetBubbleStyleId;
@@ -22,11 +24,11 @@ export function PetSpeechBubble({
 
 	return (
 		<div
-			className="pointer-events-none absolute left-1/2 z-10 max-w-[min(360px,calc(100vw-24px))] -translate-x-1/2 select-none"
+			className="pointer-events-none absolute z-10 max-w-[min(360px,calc(100vw-24px))] -translate-x-1/2 select-none"
 			style={
 				placement === "above"
-					? { bottom: `calc(50% + ${anchorSize / 2}px)` }
-					: { top: `calc(50% + ${anchorSize / 2}px)` }
+					? { bottom: `calc(50% + ${anchorSize / 2}px)`, left: `calc(50% + ${horizontalOffset}px)` }
+					: { top: `calc(50% + ${anchorSize / 2}px)`, left: `calc(50% + ${horizontalOffset}px)` }
 			}
 		>
 			<PetBubbleFrame

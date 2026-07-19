@@ -33,7 +33,6 @@ function loadVideoSource(video: HTMLVideoElement, src: string | undefined, pause
 export function PetVideoSurface({
 	actionDescription,
 	debugFrame,
-	hasNaturalSize,
 	paused,
 	shouldShowVideo,
 	videoRef,
@@ -44,7 +43,6 @@ export function PetVideoSurface({
 }: {
 	actionDescription: string | undefined;
 	debugFrame: boolean;
-	hasNaturalSize: boolean;
 	paused: boolean;
 	shouldShowVideo: boolean;
 	videoRef: RefObject<HTMLDivElement | null>;
@@ -70,7 +68,7 @@ export function PetVideoSurface({
 		}
 	}, []);
 
-	// 系统空闲/锁屏/休眠时暂停视频解码，唤醒后恢复。这是桌宠通宵持续解码累积内存/占 CPU 的兜底。
+	// 系统锁屏或休眠时暂停视频解码，解锁或唤醒后恢复。
 	useEffect(() => {
 		pausedRef.current = paused;
 		const video = videoElRef.current;
@@ -108,8 +106,8 @@ export function PetVideoSurface({
 			ref={videoRef}
 			className="relative"
 			style={{
-				width: hasNaturalSize ? `${videoSize.width}px` : "100%",
-				height: hasNaturalSize ? `${videoSize.height}px` : "100%",
+				width: `${videoSize.width}px`,
+				height: `${videoSize.height}px`,
 			}}
 		>
 			<PetVideoDebugBorder debugFrame={debugFrame} />
