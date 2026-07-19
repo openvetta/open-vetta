@@ -32,7 +32,7 @@ import {
 } from "../services/chat-service";
 import { AppshotCard, type AppshotCardData } from "../components/AppshotCard";
 import { TextBlockView } from "../components/blocks/TextBlock";
-import { CopyButton, RelativeTimeLabel } from "../components/message-list/MessageActions";
+import { CopyButton } from "../components/message-list/MessageActions";
 
 const DELETE_CONFIRMATION_SUPPRESSION_MS = 60_000;
 const CONTEXT_MENU_WIDTH = 170;
@@ -556,7 +556,7 @@ export function useUserMessageModel({
 				className="max-w-full overflow-x-auto [overflow-wrap:anywhere] [&_code]:break-all"
 			/>
 		),
-		relativeTime: message.timestamp ? <RelativeTimeLabel endedAt={message.timestamp} /> : null,
+		relativeTime: null,
 		copyButton: <CopyButton getText={() => copyText} />,
 		onEntryComplete,
 		onContextMenu: handleOpenContextMenu,
