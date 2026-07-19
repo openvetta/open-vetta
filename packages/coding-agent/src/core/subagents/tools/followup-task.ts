@@ -20,7 +20,8 @@ export function createFollowupTaskTool(options: {
 		scope_use: ["conversation", "project", "cli"],
 		category: "agent-control",
 		description:
-			"Continue work on an existing subagent, reusing its transcript. If terminal, starts a new run; if running, queues follow-up for the natural stop point.",
+			"Continue work on an existing subagent, reusing its transcript. If terminal, starts a new run; if running, queues follow-up for the natural stop point. " +
+			"This is THE way to resume an interrupted workflow: its context and todo progress are preserved — never re-dispatch it as a new workflow.",
 		parameters: followupTaskSchema,
 		execute: async (_toolCallId, input: FollowupTaskToolInput) => {
 			const coord = options.getCoordinator();

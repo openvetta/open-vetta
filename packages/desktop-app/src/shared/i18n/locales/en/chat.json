@@ -90,7 +90,9 @@
 			"statusRunning": "Running",
 			"statusCompleted": "Completed",
 			"statusFailed": "Failed",
-			"statusInterrupted": "Interrupted"
+			"statusInterrupted": "Interrupted",
+			"processingTitle": "{{count}} workflow(s) in progress",
+			"doneTitle": "All workflows finished"
 		}
 	},
 	"fileExplorer": {

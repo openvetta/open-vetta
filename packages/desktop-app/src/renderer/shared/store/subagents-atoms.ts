@@ -17,6 +17,13 @@ export interface SubagentTask {
 	generation: number;
 	/** Workflow children mirror their todo progress (display only). */
 	todoProgress?: { done: number; total: number };
+	/** Human-readable one-line summary for UI display. */
+	title?: string;
+}
+
+/** Display name for a workflow: human-readable title, falling back to the id. */
+export function workflowDisplayName(task: SubagentTask): string {
+	return task.title?.trim() || task.taskName;
 }
 
 /** Workflow children (dispatch_workflows) shown in the footer items + workflow tab. */

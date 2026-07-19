@@ -37,7 +37,13 @@ export function buildSubagentNotification(agents: ReadonlyArray<SubagentSnapshot
 		lines.push(`path: ${a.path}`);
 		lines.push(`type: ${a.agentType}`);
 		lines.push(`task_name: ${a.taskName}`);
+		if (a.title) lines.push(`title: ${a.title}`);
 		lines.push(`status: ${a.status}`);
+		if (a.status === "interrupted") {
+			lines.push(
+				"hint: resumable — use followup_task to continue this child with its context and todo progress intact; do NOT re-dispatch it as a new workflow",
+			);
+		}
 		if (a.errorMessage) lines.push(`error: ${a.errorMessage}`);
 		const text = clipFinalText(a.finalText);
 		if (text) {

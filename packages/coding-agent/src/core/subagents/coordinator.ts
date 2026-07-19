@@ -173,6 +173,12 @@ export class SubagentCoordinator {
 		if (requests.length === 0) {
 			throw new Error("dispatch requires at least one workflow");
 		}
+		// A new dispatch batch supersedes finished children of the same types:
+		// drop completed/failed entries so the UI shows only the current batch and
+		// their task_names become reusable (ADR-0044). Active children are
+		// untouched; interrupted ones are kept — they are resume candidates
+		// (followup_task continues with context + todo progress intact).
+		this.clearFinishedByTypes(new Set(requests.map((r) => r.agentType)));
 		const seen = new Set<string>();
 		const validated = requests.map((request) => {
 			const { taskName } = this.validateRequest(request);
@@ -208,6 +214,7 @@ export class SubagentCoordinator {
 			agentType: request.agentType,
 			status,
 			task: request.message,
+			title: request.title?.trim() || undefined,
 			parentSessionId: this.parentSessionId,
 			startedAt: Date.now(),
 			usage: emptyUsage(),
@@ -330,6 +337,30 @@ export class SubagentCoordinator {
 			this.emitUpdate();
 			this.queueNotification(entry.snapshot);
 			this.drainQueue();
+		}
+	}
+
+	/**
+	 * clearFinished limited to the given agent types (no update emit; caller
+	 * emits). Deliberately skips `interrupted` children: those are resumable via
+	 * followup_task and must survive a new dispatch batch.
+	 */
+	private clearFinishedByTypes(types: ReadonlySet<SubagentTypeId>): void {
+		for (const [id, entry] of [...this.children.entries()]) {
+			if (!types.has(entry.snapshot.agentType)) continue;
+			if (entry.snapshot.status !== "completed" && entry.snapshot.status !== "failed") continue;
+			entry.unsubscribe?.();
+			entry.unsubscribe = undefined;
+			entry.todoUnsubscribe?.();
+			entry.todoUnsubscribe = undefined;
+			try {
+				entry.handle?.dispose();
+			} catch {
+				// ignore dispose errors on finished children
+			}
+			entry.handle = undefined;
+			this.byTaskName.delete(entry.snapshot.taskName);
+			this.children.delete(id);
 		}
 	}
 
