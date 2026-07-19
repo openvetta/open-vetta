@@ -1,6 +1,7 @@
 import "../registry";
 import type { ComponentType } from "react";
 import type { InputBarBackground } from "./InputBarBackground";
+import type { InputBarPlaceholder } from "./InputBarPlaceholder";
 import type {
 	NewSessionGuidingWordsProps,
 	NewSessionHeroProps,
@@ -13,6 +14,7 @@ import type { SkillCard } from "./SkillCard";
 declare module "@vetta/theme-sdk" {
 	interface ThemeComponentRegistry {
 		readonly "chat.inputBarBackground"?: typeof InputBarBackground;
+		readonly "chat.inputBarPlaceholder"?: typeof InputBarPlaceholder;
 		readonly "chat.newSessionGuidingWords"?: ComponentType<NewSessionGuidingWordsProps>;
 		readonly "chat.newSessionHero"?: ComponentType<NewSessionHeroProps>;
 		readonly "chat.newSessionSceneCard"?: typeof SceneCard;
@@ -95,6 +97,11 @@ export type { InputBarBackgroundProps } from "./InputBarBackground";
 export { InputBarBackground } from "./InputBarBackground";
 export type { InputBarCapsuleLabels, InputBarCapsuleProps } from "./InputBarCapsule";
 export { InputBarCapsule } from "./InputBarCapsule";
+export type {
+	InputBarPlaceholderClassNames,
+	InputBarPlaceholderProps,
+} from "./InputBarPlaceholder";
+export { InputBarPlaceholder } from "./InputBarPlaceholder";
 export type { InputBarToolbarButtonProps } from "./InputBarToolbarButton";
 export { InputBarToolbarButton } from "./InputBarToolbarButton";
 export type {

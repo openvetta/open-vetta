@@ -125,6 +125,8 @@ export function useInputBarModel({
 		!isStreaming &&
 		(inputValue.trim().length > 0 || attachedImages.length > 0 || Boolean(appshotAttachment));
 	const isEmpty = inputValue.trim().length === 0 && attachedImages.length === 0;
+	/** 与原生 placeholder 一致：任意字符（含空格）即隐藏覆盖层 */
+	const showPlaceholder = inputValue.length === 0;
 	const hasCapsules =
 		Boolean(selectedSkill) ||
 		mentionedFiles.length > 0 ||
@@ -505,13 +507,38 @@ export function useInputBarModel({
 		[addImages],
 	);
 
-	const placeholder = !hasSession
-		? t("inputBar.placeholder.noSession")
-		: isStreaming
-			? t("inputBar.placeholder.thinking")
-			: isEmpty && firstSuggestion
-				? t("inputBar.placeholder.suggestion", { suggestion: firstSuggestion })
-				: t("inputBar.placeholder.default");
+	const defaultPlaceholders = useMemo(() => {
+		const raw = t("inputBar.placeholder.defaults", { returnObjects: true });
+		const list = Array.isArray(raw) ? (raw as string[]) : [];
+		return list.filter((item) => typeof item === "string" && item.length > 0);
+	}, [t]);
+
+	const { placeholderTexts, placeholderRotating } = useMemo(() => {
+		if (!hasSession) {
+			return {
+				placeholderTexts: [t("inputBar.placeholder.noSession")] as const,
+				placeholderRotating: false,
+			};
+		}
+		if (isStreaming) {
+			return {
+				placeholderTexts: [t("inputBar.placeholder.thinking")] as const,
+				placeholderRotating: false,
+			};
+		}
+		if (showPlaceholder && firstSuggestion) {
+			return {
+				placeholderTexts: [
+					t("inputBar.placeholder.suggestion", { suggestion: firstSuggestion }),
+				] as const,
+				placeholderRotating: false,
+			};
+		}
+		return {
+			placeholderTexts: defaultPlaceholders,
+			placeholderRotating: defaultPlaceholders.length > 1,
+		};
+	}, [hasSession, isStreaming, showPlaceholder, firstSuggestion, defaultPlaceholders, t]);
 
 	return {
 		inputValue,
@@ -529,9 +556,11 @@ export function useInputBarModel({
 		hasSession,
 		canSend,
 		isEmpty,
+		showPlaceholder,
 		hasCapsules,
 		effectiveCwd,
-		placeholder,
+		placeholderTexts,
+		placeholderRotating,
 		isFocused,
 		slashOpen,
 		slashFilter,

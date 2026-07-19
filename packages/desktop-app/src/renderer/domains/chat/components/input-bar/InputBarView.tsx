@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useThemeComponent } from "@vetta/theme-sdk";
 import { useThemeSurface } from "@vetta/theme-sdk/appearance";
 import { ThemeSurface } from "@vetta/theme-ui/appearance";
+import { InputBarPlaceholder } from "@vetta/theme-ui/chat";
 import { DrawerCard, type DrawerTab } from "@shared/components/DrawerCard";
 import { QueueCard } from "@shared/components/QueueCard";
 import { TodoCard } from "@shared/components/TodoCard";
@@ -46,6 +47,10 @@ export function InputBarView({ model, className, classNames }: InputBarViewProps
 	const ThemedInputBarBackground = useThemeComponent(
 		"chat.inputBarBackground",
 		InputBarBackground,
+	);
+	const ThemedInputBarPlaceholder = useThemeComponent(
+		"chat.inputBarPlaceholder",
+		InputBarPlaceholder,
 	);
 	const drawerTabs = useMemo(
 		(): DrawerTab[] =>
@@ -316,24 +321,31 @@ export function InputBarView({ model, className, classNames }: InputBarViewProps
 							)}
 						</AnimatePresence>
 
-						<div className={["relative px-4 pb-1 pt-3", classNames?.textareaWrap].filter(Boolean).join(" ")}>
-							<textarea
-								ref={model.textareaRef}
-								rows={1}
-								value={model.inputValue}
-								onChange={model.actions.handleChange}
-								onKeyDown={model.actions.handleKeyDown}
-								onPaste={(e) => void model.actions.handlePaste(e)}
-								onFocus={() => model.actions.setFocused(true)}
-								onBlur={() => model.actions.setFocused(false)}
-								disabled={!model.hasSession}
-								placeholder={model.placeholder}
-								className="w-full resize-none bg-transparent text-[13.5px] leading-[1.6] text-foreground outline-none placeholder:text-muted-foreground/45 disabled:cursor-not-allowed"
-								style={{
-									minHeight: `${MIN_HEIGHT}px`,
-									maxHeight: `${MAX_HEIGHT}px`,
-								}}
-							/>
+						<div className={["px-4 pb-1 pt-3", classNames?.textareaWrap].filter(Boolean).join(" ")}>
+							<div className="relative">
+								<textarea
+									ref={model.textareaRef}
+									rows={1}
+									value={model.inputValue}
+									onChange={model.actions.handleChange}
+									onKeyDown={model.actions.handleKeyDown}
+									onPaste={(e) => void model.actions.handlePaste(e)}
+									onFocus={() => model.actions.setFocused(true)}
+									onBlur={() => model.actions.setFocused(false)}
+									disabled={!model.hasSession}
+									aria-label={model.placeholderTexts[0]}
+									className="w-full resize-none bg-transparent text-[13.5px] leading-[1.6] text-foreground outline-none disabled:cursor-not-allowed"
+									style={{
+										minHeight: `${MIN_HEIGHT}px`,
+										maxHeight: `${MAX_HEIGHT}px`,
+									}}
+								/>
+								<ThemedInputBarPlaceholder
+									texts={model.placeholderTexts}
+									visible={model.showPlaceholder}
+									rotating={model.placeholderRotating}
+								/>
+							</div>
 						</div>
 
 						<div

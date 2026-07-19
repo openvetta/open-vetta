@@ -267,7 +267,11 @@
 			"deny": "拒绝"
 		},
 		"placeholder": {
-			"default": "向 Vetta 提问，使用 / 唤出技能，@ 引用文件",
+			"defaults": [
+				"向 Vetta 提问，使用 / 唤出技能，@ 引用文件",
+				"描述你想完成的任务，按 ⏎ 发送",
+				"粘贴截图或 @ 引用文件，直接开始"
+			],
 			"noSession": "选择或创建会话以开始",
 			"suggestion": "↵ {{suggestion}}",
 			"thinking": "Vetta 正在思考…"
