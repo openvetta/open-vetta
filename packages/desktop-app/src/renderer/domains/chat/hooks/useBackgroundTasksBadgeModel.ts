@@ -7,6 +7,7 @@ import {
 	getBackgroundTasksForSession,
 	getSubagentsForSession,
 	isSubagentActive,
+	isWorkflowTask,
 	subagentsBySessionAtom,
 } from "@shared/store/atoms";
 import { useAtomValue, useSetAtom } from "jotai";
@@ -32,8 +33,9 @@ export function useBackgroundTasksBadgeModel(): BackgroundTasksBadgeModel {
 		() => getBackgroundTasksForSession(tasksMap, activeSession?.runtimeId ?? null),
 		[tasksMap, activeSession?.runtimeId],
 	);
+	// Workflows surface via footer items + workflow tab, not this badge.
 	const subagents = useMemo(
-		() => getSubagentsForSession(subagentsMap, activeSession?.runtimeId ?? null),
+		() => getSubagentsForSession(subagentsMap, activeSession?.runtimeId ?? null).filter((a) => !isWorkflowTask(a)),
 		[subagentsMap, activeSession?.runtimeId],
 	);
 	const running = useMemo(() => {

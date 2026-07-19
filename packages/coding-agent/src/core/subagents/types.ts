@@ -6,12 +6,15 @@
  * only; tools and the factory resolve behaviour through the registry.
  */
 
-import type { AgentTool, ThinkingLevel } from "@vetta/agent-core";
+import type { AgentMessage, AgentTool, ThinkingLevel } from "@vetta/agent-core";
 import type { Model } from "@vetta/ai";
 import type { ConversationScenario } from "../session/tool-scope.js";
 
 /** Stable builtin type id for the read-only explorer (first shipped type). */
 export const SUBAGENT_TYPE_EXPLORER = "explorer" as const;
+
+/** Stable builtin type id for the todo-driven parallel workflow (ADR-0044). */
+export const SUBAGENT_TYPE_WORKFLOW = "workflow" as const;
 
 /**
  * Subagent type id. Built-ins use known string constants; custom types may use
@@ -19,7 +22,17 @@ export const SUBAGENT_TYPE_EXPLORER = "explorer" as const;
  */
 export type SubagentTypeId = string;
 
-export type SubagentStatus = "pending" | "running" | "completed" | "failed" | "interrupted";
+/**
+ * `queued`: accepted by dispatch but waiting for a concurrency slot (no child
+ * session exists yet). `pending`: slot held, child session being created.
+ */
+export type SubagentStatus = "queued" | "pending" | "running" | "completed" | "failed" | "interrupted";
+
+/** Todo progress mirrored from a child's TodoStore (display only; not a completion signal). */
+export interface SubagentTodoProgress {
+	done: number;
+	total: number;
+}
 
 export interface SubagentUsageSnapshot {
 	input: number;
@@ -46,12 +59,16 @@ export interface SubagentSnapshot {
 	usage: SubagentUsageSnapshot;
 	/** Monotonic completion generation for single-delivery notifications. */
 	generation: number;
+	/** Present when the child has a todo list (workflow children). */
+	todoProgress?: SubagentTodoProgress;
 }
 
 export interface SubagentSpawnRequest {
 	taskName: string;
 	message: string;
 	agentType: SubagentTypeId;
+	/** Pre-filled (unlocked) todo items for the child's own TodoStore. */
+	todos?: string[];
 }
 
 export interface SubagentParentContext {
@@ -64,6 +81,11 @@ export interface SubagentParentContext {
 	agentDir?: string;
 	/** Live MCP tools from the parent session (proxy, not re-spawned). */
 	parentMcpTools: ReadonlyArray<AgentTool>;
+	/**
+	 * One-shot snapshot of the parent's current-branch context to seed the child
+	 * with (ADR-0044). Populated only for types with `forkParentContext`.
+	 */
+	forkContextMessages?: AgentMessage[];
 }
 
 /**
@@ -94,6 +116,10 @@ export interface SubagentTypeDefinition {
 	 * (e.g. future worker-only filters). Default: none.
 	 */
 	denyToolNamePrefixes?: readonly string[];
+	/** Seed the child with a snapshot of the parent's branch context (ADR-0044). */
+	forkParentContext?: boolean;
+	/** Give the child its own todo tool (bound to the child session's TodoStore). */
+	includeTodoTool?: boolean;
 }
 
 /**
@@ -133,6 +159,10 @@ export interface SubagentChildHandle {
 	getLastAssistantText(): string | undefined;
 	dispose(): void;
 	subscribe(listener: (event: { type: string; messages?: unknown[] }) => void): () => void;
+	/** Pre-fill the child's TodoStore (unlocked). Optional: only full sessions support it. */
+	setTodos?(contents: string[]): void;
+	getTodoProgress?(): SubagentTodoProgress;
+	subscribeTodos?(listener: (progress: SubagentTodoProgress) => void): () => void;
 }
 
 export interface SubagentCoordinatorOptions {
@@ -145,8 +175,10 @@ export interface SubagentCoordinatorOptions {
 	getModel: () => Model<any> | undefined;
 	getThinkingLevel: () => ThinkingLevel;
 	getParentMcpTools: () => ReadonlyArray<AgentTool>;
+	/** Parent branch context for fork-seeding (types with `forkParentContext`). */
+	getParentContextMessages?: () => AgentMessage[];
 	agentDir?: string;
-	/** Default 3. Only pending/running count. */
+	/** Default 3. Only pending/running count; queued children wait for a slot. */
 	maxConcurrent?: number;
 	/** Notify parent agent loop (completion delivery). */
 	onNotify?: (payload: SubagentNotificationPayload) => void;

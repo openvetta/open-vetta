@@ -6,7 +6,7 @@ export interface SubagentTask {
 	taskName: string;
 	path: string;
 	agentType: string;
-	status: "pending" | "running" | "completed" | "failed" | "interrupted";
+	status: "queued" | "pending" | "running" | "completed" | "failed" | "interrupted";
 	task: string;
 	parentSessionId: string;
 	sessionFile?: string;
@@ -15,7 +15,17 @@ export interface SubagentTask {
 	finalText?: string;
 	errorMessage?: string;
 	generation: number;
+	/** Workflow children mirror their todo progress (display only). */
+	todoProgress?: { done: number; total: number };
 }
+
+/** Workflow children (dispatch_workflows) shown in the footer items + workflow tab. */
+export function isWorkflowTask(task: SubagentTask): boolean {
+	return task.agentType === "workflow";
+}
+
+/** Workflow selected in the activity panel's workflow tab (footer click targets it). */
+export const selectedWorkflowIdAtom = atom<string | null>(null);
 
 /**
  * Subagent children for the root session.
@@ -32,5 +42,5 @@ export function getSubagentsForSession(
 }
 
 export function isSubagentActive(status: SubagentTask["status"]): boolean {
-	return status === "pending" || status === "running";
+	return status === "queued" || status === "pending" || status === "running";
 }

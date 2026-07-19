@@ -260,7 +260,7 @@ export {
 	type Skill,
 	type SkillFrontmatter,
 } from "./core/skills.js";
-// Subagents (extensible type registry; builtin explorer)
+// Subagents (extensible type registry; builtin explorer + workflow)
 export {
 	buildToolsForSubagentType,
 	createDefaultSubagentSessionFactory,
@@ -268,18 +268,23 @@ export {
 	createEmptySubagentTypeRegistry,
 	createExplorerTypeDefinition,
 	createSubagentControlTools,
+	createWorkflowTypeDefinition,
+	DISPATCH_WORKFLOWS_MAX_BATCH,
 	EXPLORER_SYSTEM_PROMPT,
 	isValidTaskName,
 	SUBAGENT_CONTROL_TOOL_NAMES,
 	SUBAGENT_TYPE_EXPLORER,
+	SUBAGENT_TYPE_WORKFLOW,
 	type SubagentChildHandle,
 	SubagentCoordinator,
 	type SubagentSessionFactory,
 	type SubagentSnapshot,
 	type SubagentStatus,
+	type SubagentTodoProgress,
 	type SubagentTypeDefinition,
 	type SubagentTypeId,
 	SubagentTypeRegistry,
+	WORKFLOW_SYSTEM_PROMPT,
 } from "./core/subagents/index.js";
 export {
 	createEditImageTool,

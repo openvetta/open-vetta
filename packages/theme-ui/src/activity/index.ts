@@ -88,3 +88,5 @@ export type {
 	ToolCallViewItem,
 } from "./ToolCallsSubTabView";
 export { ToolCallsSubTabView } from "./ToolCallsSubTabView";
+export type { WorkflowSwitcherItem, WorkflowTabPanelViewProps } from "./WorkflowTabPanelView";
+export { WorkflowTabPanelView } from "./WorkflowTabPanelView";

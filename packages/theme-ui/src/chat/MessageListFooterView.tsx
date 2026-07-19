@@ -15,6 +15,8 @@ export interface MessageListFooterViewProps {
 	readonly pluginHost?: ReactNode;
 	readonly showWaiting: boolean;
 	readonly streamingIndicator: ReactNode;
+	/** Workflow summary items (ADR-0044); rendered above the plugin host. */
+	readonly workflowItems?: ReactNode;
 }
 
 function CompactionIndicator({ label }: { label: string }): JSX.Element {
@@ -60,6 +62,7 @@ export function MessageListFooterView({
 	pluginHost,
 	showWaiting,
 	streamingIndicator,
+	workflowItems,
 }: MessageListFooterViewProps): JSX.Element {
 	return (
 		<div className="mx-auto flex max-w-3xl flex-col gap-2 px-5 pt-1 pb-16">
@@ -67,6 +70,7 @@ export function MessageListFooterView({
 				{isCompacting && <CompactionIndicator key="compacting" label={compactionLabel} />}
 			</AnimatePresence>
 			{showWaiting && !isCompacting && <div className="flex items-center">{streamingIndicator}</div>}
+			{workflowItems}
 			{pluginHost}
 		</div>
 	);

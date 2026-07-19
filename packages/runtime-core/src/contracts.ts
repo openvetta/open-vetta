@@ -411,7 +411,7 @@ export interface SubagentInfo {
 	taskName: string;
 	path: string;
 	agentType: string;
-	status: "pending" | "running" | "completed" | "failed" | "interrupted";
+	status: "queued" | "pending" | "running" | "completed" | "failed" | "interrupted";
 	task: string;
 	parentSessionId: string;
 	sessionFile?: string;
@@ -420,6 +420,8 @@ export interface SubagentInfo {
 	finalText?: string;
 	errorMessage?: string;
 	generation: number;
+	/** Workflow children mirror their todo progress (display only). */
+	todoProgress?: { done: number; total: number };
 }
 
 export interface SubagentsUpdateEvent extends SessionEventBase {

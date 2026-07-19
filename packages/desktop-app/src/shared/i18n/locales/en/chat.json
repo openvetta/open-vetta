@@ -6,7 +6,8 @@
 			"todo": "Todo",
 			"backgroundTasks": "Background tasks",
 			"debug": "Debug",
-			"knowledgeHistory": "Processing history"
+			"knowledgeHistory": "Processing history",
+			"workflow": "Workflows"
 		},
 		"backgroundTasks": {
 			"statusRunning": "Running",
@@ -79,6 +80,17 @@
 			"preview": "Preview",
 			"code": "Code",
 			"title": "HTML preview"
+		},
+		"workflow": {
+			"empty": "No workflows",
+			"noTranscript": "No messages from this workflow yet",
+			"stop": "Stop",
+			"statusQueued": "Queued",
+			"statusPending": "Starting",
+			"statusRunning": "Running",
+			"statusCompleted": "Completed",
+			"statusFailed": "Failed",
+			"statusInterrupted": "Interrupted"
 		}
 	},
 	"fileExplorer": {
