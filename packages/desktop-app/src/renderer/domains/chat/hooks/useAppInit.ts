@@ -7,6 +7,7 @@ import {
 	deployModeAtom,
 	knowledgeBaseEnabledAtom,
 	knowledgeProcessingCwdAtom,
+	SELECTED_MODEL_STORAGE_KEY,
 	selectedModelAtom,
 	sessionExecutionModeAtom,
 	workspacePathAtom,
@@ -51,12 +52,19 @@ export function useAppInit(): void {
 				setKnowledgeProcessingCwd(config.knowledgeProcessingCwd);
 			}
 		});
-		// Load default model if no model selected
+		// 恢复新会话全局模型偏好；无偏好时才回落到配置的 defaultModel。
+		// （atom 已从 localStorage 初始化；此处再同步一次，并补写缺失的默认。）
 		void window.vetta.models.get().then((modelsConfig) => {
-			const saved = localStorage.getItem("vetta-selected-model");
-			if (!saved && modelsConfig.defaultModel) {
+			const saved = localStorage.getItem(SELECTED_MODEL_STORAGE_KEY);
+			if (saved) {
+				setSelectedModel(saved);
+			} else if (modelsConfig.defaultModel) {
 				setSelectedModel(modelsConfig.defaultModel);
-				localStorage.setItem("vetta-selected-model", modelsConfig.defaultModel);
+				try {
+					localStorage.setItem(SELECTED_MODEL_STORAGE_KEY, modelsConfig.defaultModel);
+				} catch {
+					// ignore persistence errors (private mode / quota)
+				}
 			}
 		});
 		void refreshProjects().catch(console.error);

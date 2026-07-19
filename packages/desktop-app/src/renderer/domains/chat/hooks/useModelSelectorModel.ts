@@ -1,9 +1,10 @@
 import { resolveReasoning } from "@shared/components/ModelSelect/resolveReasoning";
-import { useModelOptions } from "@shared/components/ModelSelect/useModelOptions";
+import { type ModelOption, useModelOptions } from "@shared/components/ModelSelect/useModelOptions";
 import {
 	activeSessionAtom,
 	modelSupportsImagesAtom,
 	reasoningByModelAtom,
+	SELECTED_MODEL_STORAGE_KEY,
 	selectedModelAtom,
 } from "@shared/store/atoms";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
@@ -14,6 +15,27 @@ import type { ModelSelectorViewProps } from "../components/model-selector/types"
 export interface ModelSelectorModel {
 	empty: boolean;
 	viewProps: ModelSelectorViewProps;
+}
+
+function persistSelectedModel(key: string): void {
+	try {
+		localStorage.setItem(SELECTED_MODEL_STORAGE_KEY, key);
+	} catch {
+		// ignore persistence errors (private mode / quota)
+	}
+}
+
+/** options 尚未加载（如远程 catalog）时，用 modelKey 拼一个最小 option 供触发器展示。 */
+function fallbackOptionFromKey(key: string): ModelOption {
+	const slash = key.indexOf("/");
+	const provider = slash > 0 ? key.slice(0, slash) : key;
+	const modelId = slash > 0 ? key.slice(slash + 1) : key;
+	return {
+		provider,
+		modelId,
+		displayName: modelId,
+		key,
+	};
 }
 
 /**
@@ -30,8 +52,15 @@ export function useModelSelectorModel(): ModelSelectorModel {
 	const setModelSupportsImages = useSetAtom(modelSupportsImagesAtom);
 	const { options, grouped, defaultKey, iconFor, labelFor } = useModelOptions();
 
-	const selectedOption = useMemo(() => options.find((m) => m.key === selectedModel) ?? null, [options, selectedModel]);
-	const resolved = useMemo(() => resolveReasoning(selectedOption), [selectedOption]);
+	const catalogOption = useMemo(() => options.find((m) => m.key === selectedModel) ?? null, [options, selectedModel]);
+	// 有 key 但 catalog 未就绪时仍展示 modelId，避免闪「选择模型」。
+	const selectedOption = useMemo(() => {
+		if (catalogOption) return catalogOption;
+		if (selectedModel) return fallbackOptionFromKey(selectedModel);
+		return null;
+	}, [catalogOption, selectedModel]);
+	// 推理档位只认 catalog 中的真实配置，fallback option 不参与 resolve。
+	const resolved = useMemo(() => resolveReasoning(catalogOption), [catalogOption]);
 
 	// "off" (disable thinking) is always offered for reasoning-capable models, on top of
 	// the model's configured/preset levels. When the model explicitly includes "none",
@@ -63,15 +92,15 @@ export function useModelSelectorModel(): ModelSelectorModel {
 	useEffect(() => {
 		if (!selectedModel && defaultKey) {
 			setSelectedModel(defaultKey);
-			localStorage.setItem("vetta-selected-model", defaultKey);
+			persistSelectedModel(defaultKey);
 		}
 	}, [selectedModel, defaultKey, setSelectedModel]);
 
-	// Keep image-support flag in sync with the resolved selection.
+	// Keep image-support flag in sync with the resolved catalog selection only.
 	useEffect(() => {
 		if (options.length === 0) return;
-		setModelSupportsImages(selectedOption?.supportsImage ?? false);
-	}, [options.length, selectedOption, setModelSupportsImages]);
+		setModelSupportsImages(catalogOption?.supportsImage ?? false);
+	}, [options.length, catalogOption, setModelSupportsImages]);
 
 	// Persist the effective default level for the selected model when none is remembered,
 	// so the prompt sender always has a value to send (per-model memory seeded with default).
@@ -86,6 +115,8 @@ export function useModelSelectorModel(): ModelSelectorModel {
 	const handleModelSelect = useCallback(
 		(key: string) => {
 			setSelectedModel(key);
+			// 全局新会话偏好；已有会话另写 session settings。
+			persistSelectedModel(key);
 			if (activeSession?.runtimeId) {
 				void window.vetta.session.updateSettings(activeSession.runtimeId, { modelKey: key });
 			}
@@ -102,7 +133,8 @@ export function useModelSelectorModel(): ModelSelectorModel {
 	);
 
 	return {
-		empty: options.length === 0,
+		// 已有选中 key 时即使 options 还在加载也展示触发器，避免空白/占位闪烁。
+		empty: options.length === 0 && !selectedModel,
 		viewProps: {
 			currentLevel,
 			defaultKey,
