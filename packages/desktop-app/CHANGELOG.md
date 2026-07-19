@@ -77,6 +77,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **新会话页模型选择器重启后显示「选择模型」**：per-session 改造后全局偏好不再写入/恢复 localStorage，欢迎页无会话可 pull 导致 UI 空置（实际仍可走后端默认模型对话）。现恢复 `vetta-selected-model` 作为新会话全局偏好（atom 启动读取、用户选择写回、`useAppInit` 正确恢复），options 未就绪时用 modelKey 兜底展示，已有会话仍以 session settings 为准。
 - **新会话引导词区高度抖动**：单条引导词过长换行或轮播切页时组件高度变化，牵动 `justify-center` 布局导致页面跳动。现固定 3 槽位列表高度，单条单行 `truncate`（全文在 `title`）；仅 1 组时用满宽，默认主题与仙侠主题同步。
 - **黑白主题 BotAvatar 眼睛**：深色覆盖为灰 `rgb(150, 150, 150)`；浅色保持白眼，不影响其它主题。
 - **黑白主题浅色发送按钮禁用态**：默认 `muted-foreground` 偏深，压浅为中性灰 `rgb(180, 180, 180)`。
