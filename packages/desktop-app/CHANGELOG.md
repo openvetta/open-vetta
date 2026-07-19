@@ -40,6 +40,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **用户消息不再展示相对时间**：消息下方操作区去掉「刚刚 / N 分钟前」等时间标签，复制等操作按钮与分支切换保留。
 - **聊天输入框 placeholder**：改为自定义不可选中覆盖层，默认态多条文案垂直自动轮播（i18n `inputBar.placeholder.defaults` 数组可自由扩展）；无会话 / 思考中 / 输入预测建议仍为单条静态文案；有任意字符（含空格）即隐藏，与原生 placeholder 一致。纯视图落在 `@vetta/theme-ui/chat` 的 `InputBarPlaceholder`，desktop model 解析文案；支持 `chat.inputBarPlaceholder` component override。
 - **Skill / Scene 改为结构化 Prompt 引用**：会话输入、Vetta Debug、自动化与批量任务统一通过顶层 `PromptRequest.promptRef` 传递选择，不再向用户正文拼接 `/skill:` / `/scene:`；历史重载、消息编辑和徽章展示从隐藏历史标记恢复，旧文本前缀会话仍可读取。
 - **知识库 Beta 徽标**：侧栏「知识库」与设置「知识库设置」显示镂空 BETA badge；设置「应用快照」侧栏与页标题去掉 beta 标记；设置侧栏 beta badge 改为镂空描边样式。
