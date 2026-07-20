@@ -2,10 +2,18 @@ import { isMac } from "@shared/lib/platform";
 
 export type SetupWizardStepId = "permissions" | "languageAppearance" | "login" | "welcome";
 
-/** macOS: 4 steps (permissions first); other platforms: 3 steps. */
-export function getSetupWizardSteps(): readonly SetupWizardStepId[] {
-	if (isMac) {
-		return ["permissions", "languageAppearance", "login", "welcome"] as const;
+export interface GetSetupWizardStepsOptions {
+	/** When true, omit the optional login step (already signed in). */
+	readonly isLoggedIn?: boolean;
+}
+
+/** macOS: language/appearance → permissions → login → welcome; other platforms skip permissions. */
+export function getSetupWizardSteps(options?: GetSetupWizardStepsOptions): readonly SetupWizardStepId[] {
+	const base: readonly SetupWizardStepId[] = isMac
+		? ["languageAppearance", "permissions", "login", "welcome"]
+		: ["languageAppearance", "login", "welcome"];
+	if (options?.isLoggedIn) {
+		return base.filter((step) => step !== "login");
 	}
-	return ["languageAppearance", "login", "welcome"] as const;
+	return base;
 }

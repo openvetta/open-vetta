@@ -18,6 +18,7 @@ export function GeneralSettingsView({ model }: GeneralSettingsViewProps): JSX.El
 				sandbox: SETTINGS_SECTION["general-sandbox"],
 				notifications: SETTINGS_SECTION["general-notifications"],
 				developer: SETTINGS_SECTION["general-developer"],
+				setupGuide: SETTINGS_SECTION["general-setup-guide"],
 			}}
 			workspacePath={model.workspacePath}
 			onSelectWorkspace={() => void model.actions.selectWorkspace()}
@@ -32,6 +33,7 @@ export function GeneralSettingsView({ model }: GeneralSettingsViewProps): JSX.El
 			onDebugChange={model.actions.toggleDebug}
 			exportingDiagnostics={model.exportingDiagnostics}
 			onExportDiagnostics={() => void model.actions.exportDiagnostics()}
+			onStartAppGuide={model.actions.startAppGuide}
 		/>
 	);
 }

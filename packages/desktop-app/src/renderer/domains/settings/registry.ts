@@ -79,6 +79,7 @@ export const SETTINGS_SECTIONS = [
 	{ tab: "general", id: "general-sandbox", title: "沙盒", titleKey: "section_general-sandbox" },
 	{ tab: "general", id: "general-notifications", title: "通知", titleKey: "section_general-notifications" },
 	{ tab: "general", id: "general-developer", title: "开发者", titleKey: "section_general-developer" },
+	{ tab: "general", id: "general-setup-guide", title: "引导", titleKey: "section_general-setup-guide" },
 	{ tab: "appearance", id: "appearance-mode", title: "外观模式", titleKey: "section_appearance-mode" },
 	{ tab: "appearance", id: "appearance-ui-theme", title: "界面主题", titleKey: "section_appearance-ui-theme" },
 	{ tab: "appearance", id: "appearance-theme", title: "主题", titleKey: "section_appearance-theme" },
