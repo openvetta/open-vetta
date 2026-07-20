@@ -163,6 +163,10 @@ function asAppActionRegistration(value: unknown): PluginAppActionRegistration {
 	}
 	const title = asOptionalString(input.title);
 	const summary = asOptionalString(input.summary);
+	const publicId = asOptionalString(input.publicId);
+	if (publicId && !/^[a-z0-9][a-z0-9._-]{0,127}$/.test(publicId)) {
+		throw new Error("Invalid app action public id");
+	}
 	const handlerId = asPluginId(input.handlerId);
 	const activationId = asPluginId(input.activationId);
 	if (!title) throw new Error("Invalid app action title");
@@ -174,6 +178,7 @@ function asAppActionRegistration(value: unknown): PluginAppActionRegistration {
 	if (!Array.isArray(examples)) throw new Error("Invalid app action examples");
 	return {
 		id,
+		publicId,
 		title,
 		summary,
 		description: asOptionalString(input.description),
@@ -457,6 +462,12 @@ export function registerPluginsIpc(pluginActionService: PluginActionService): ()
 	ipcMain.handle("vetta:plugins:app-action-register", (_event, pluginId: unknown, registration: unknown) => {
 		pluginActionService.register(asPluginId(pluginId), asAppActionRegistration(registration));
 	});
+	ipcMain.handle("vetta:plugins:app-action-activation-commit", (_event, pluginId: unknown, activationId: unknown) => {
+		pluginActionService.commit(asPluginId(pluginId), asPluginId(activationId));
+	});
+	ipcMain.handle("vetta:plugins:app-action-activation-abort", (_event, pluginId: unknown, activationId: unknown) => {
+		pluginActionService.abort(asPluginId(pluginId), asPluginId(activationId));
+	});
 	ipcMain.handle(
 		"vetta:plugins:app-action-unregister",
 		(_event, pluginId: unknown, actionId: unknown, activationId: unknown) => {
@@ -596,6 +607,8 @@ export function registerPluginsIpc(pluginActionService: PluginActionService): ()
 		ipcMain.removeHandler("vetta:plugins:agent-tool-unregister");
 		ipcMain.removeHandler("vetta:plugins:agent-contributions-clear");
 		ipcMain.removeHandler("vetta:plugins:app-action-register");
+		ipcMain.removeHandler("vetta:plugins:app-action-activation-commit");
+		ipcMain.removeHandler("vetta:plugins:app-action-activation-abort");
 		ipcMain.removeHandler("vetta:plugins:app-action-unregister");
 		ipcMain.removeHandler("vetta:plugins:app-action-response");
 		ipcMain.removeHandler("vetta:plugins:continuation-register");

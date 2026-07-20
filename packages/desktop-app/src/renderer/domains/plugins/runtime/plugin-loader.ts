@@ -437,6 +437,7 @@ function createContext(
 	turnCards: PluginTurnCardContribution[],
 	settingsApi: PluginSettingsApi,
 	onChanged: () => void,
+	disposers: Array<() => void>,
 	pendingRuntimeRegistrations: Promise<void>[],
 	activationId: string,
 ): PluginContext {
@@ -929,6 +930,15 @@ function createContext(
 						"App action id must be 1-64 chars: lowercase letters, numbers, dot, underscore, or dash",
 					);
 				}
+				if (
+					registration.publicId !== undefined &&
+					(typeof registration.publicId !== "string" ||
+						!/^[a-z0-9][a-z0-9._-]{0,127}$/.test(registration.publicId))
+				) {
+					throw new Error(
+						"App action publicId must be 1-128 chars: lowercase letters, numbers, dot, underscore, or dash",
+					);
+				}
 				if (typeof registration.title !== "string" || registration.title.trim().length === 0) {
 					throw new Error("App action title is required");
 				}
@@ -952,9 +962,11 @@ function createContext(
 					handlerId,
 					handler: registration.handler as PluginAppActionHandler,
 				});
+				disposers.push(() => handlerHandle.dispose());
 				const registrationPromise = window.vetta.plugins
 					.registerAppAction(plugin.id, {
 						id: actionId,
+						publicId: registration.publicId,
 						title: registration.title.trim(),
 						summary: registration.summary.trim(),
 						description: registration.description?.trim() || undefined,
@@ -968,7 +980,7 @@ function createContext(
 					})
 					.catch((error: Error) => {
 						handlerHandle.dispose();
-						console.error(`Plugin ${plugin.id} failed to register app action ${actionId}`, error);
+						throw error;
 					});
 				pendingRuntimeRegistrations.push(registrationPromise);
 				return {
@@ -1054,74 +1066,110 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 	const turnCards: PluginTurnCardContribution[] = [];
 	const disposers: Array<() => void> = [];
 	const styleHandle = loadPluginStyles(plugin);
-	await window.vetta.plugins.beginAgentContributionsLoad(plugin.id, activationId);
-	debugPluginAgent("began dynamic agent contribution activation", { pluginId: plugin.id, activationId });
-	await assertPluginEntryFetchable(plugin);
-	const module = await loadPluginModule(plugin);
-	const definition = normalizePluginDefinition(module);
-	const initialSettings = plugin.settingsSchema?.length
-		? await window.vetta.plugins.getSettings(plugin.id).catch(() => ({}))
-		: {};
-	const settingsApi = createSettingsApi(plugin, initialSettings, disposers);
-	const pendingRuntimeRegistrations: Promise<void>[] = [];
-	const context = createContext(
-		plugin,
-		slots,
-		filePreviews,
-		activityTabs,
-		inputActions,
-		cardRenderers,
-		toolCallSlots,
-		turnCards,
-		settingsApi,
-		onChanged,
-		pendingRuntimeRegistrations,
-		activationId,
-	);
-	await definition.activate(context);
-	debugPluginAgent("activate resolved", {
-		pluginId: plugin.id,
-		pendingRuntimeRegistrations: pendingRuntimeRegistrations.length,
-		activationId,
-	});
-	await Promise.all(pendingRuntimeRegistrations);
-	debugPluginAgent("load complete", {
-		pluginId: plugin.id,
-		runtimeContributionsRegistered: pendingRuntimeRegistrations.length,
-		globalSlots: slots.length,
-		activityTabs: activityTabs.length,
-		cardRenderers: cardRenderers.length,
-		toolCallSlots: toolCallSlots.length,
-		activationId,
-	});
-	return {
-		id: plugin.id,
-		name: plugin.name,
-		version: plugin.activeVersion,
-		defaultLocale: plugin.defaultLocale,
-		locales: plugin.locales,
-		slots,
-		filePreviews,
-		activityTabs,
-		inputActions,
-		cardRenderers,
-		toolCallSlots,
-		turnCards,
-		dispose: async () => {
-			debugPluginAgent("dispose start", { pluginId: plugin.id, activationId });
-			await definition.deactivate?.();
-			await window.vetta.plugins.clearAgentContributions(plugin.id, activationId);
-			debugPluginAgent("cleared dynamic agent contributions on dispose", { pluginId: plugin.id, activationId });
-			styleHandle.dispose();
-			for (const dispose of disposers) dispose();
-			slots.splice(0, slots.length);
-			filePreviews.splice(0, filePreviews.length);
-			activityTabs.splice(0, activityTabs.length);
-			inputActions.splice(0, inputActions.length);
-			cardRenderers.splice(0, cardRenderers.length);
-			toolCallSlots.splice(0, toolCallSlots.length);
-			turnCards.splice(0, turnCards.length);
-			onChanged();
-		},
+	let locallyDisposed = false;
+	const disposeLocalContributions = () => {
+		if (locallyDisposed) return;
+		locallyDisposed = true;
+		styleHandle.dispose();
+		for (const dispose of disposers) dispose();
+		slots.splice(0, slots.length);
+		filePreviews.splice(0, filePreviews.length);
+		activityTabs.splice(0, activityTabs.length);
+		inputActions.splice(0, inputActions.length);
+		cardRenderers.splice(0, cardRenderers.length);
+		toolCallSlots.splice(0, toolCallSlots.length);
+		turnCards.splice(0, turnCards.length);
+		onChanged();
 	};
+	let definition: PluginDefinition | undefined;
+	let activationStarted = false;
+	try {
+		await window.vetta.plugins.beginAgentContributionsLoad(plugin.id, activationId);
+		debugPluginAgent("began dynamic agent contribution activation", { pluginId: plugin.id, activationId });
+		await assertPluginEntryFetchable(plugin);
+		const module = await loadPluginModule(plugin);
+		definition = normalizePluginDefinition(module);
+		const initialSettings = plugin.settingsSchema?.length
+			? await window.vetta.plugins.getSettings(plugin.id).catch(() => ({}))
+			: {};
+		const settingsApi = createSettingsApi(plugin, initialSettings, disposers);
+		const pendingRuntimeRegistrations: Promise<void>[] = [];
+		const context = createContext(
+			plugin,
+			slots,
+			filePreviews,
+			activityTabs,
+			inputActions,
+			cardRenderers,
+			toolCallSlots,
+			turnCards,
+			settingsApi,
+			onChanged,
+			disposers,
+			pendingRuntimeRegistrations,
+			activationId,
+		);
+		activationStarted = true;
+		await definition.activate(context);
+		debugPluginAgent("activate resolved", {
+			pluginId: plugin.id,
+			pendingRuntimeRegistrations: pendingRuntimeRegistrations.length,
+			activationId,
+		});
+		await Promise.all(pendingRuntimeRegistrations);
+		await window.vetta.plugins.commitAppActionActivation(plugin.id, activationId);
+		debugPluginAgent("load complete", {
+			pluginId: plugin.id,
+			runtimeContributionsRegistered: pendingRuntimeRegistrations.length,
+			globalSlots: slots.length,
+			activityTabs: activityTabs.length,
+			cardRenderers: cardRenderers.length,
+			toolCallSlots: toolCallSlots.length,
+			activationId,
+		});
+		return {
+			id: plugin.id,
+			name: plugin.name,
+			version: plugin.activeVersion,
+			defaultLocale: plugin.defaultLocale,
+			locales: plugin.locales,
+			slots,
+			filePreviews,
+			activityTabs,
+			inputActions,
+			cardRenderers,
+			toolCallSlots,
+			turnCards,
+			dispose: async () => {
+				debugPluginAgent("dispose start", { pluginId: plugin.id, activationId });
+				try {
+					await definition?.deactivate?.();
+				} finally {
+					try {
+						await window.vetta.plugins.clearAgentContributions(plugin.id, activationId);
+						debugPluginAgent("cleared dynamic agent contributions on dispose", {
+							pluginId: plugin.id,
+							activationId,
+						});
+					} finally {
+						disposeLocalContributions();
+					}
+				}
+			},
+		};
+	} catch (error) {
+		if (activationStarted) {
+			await Promise.resolve(definition?.deactivate?.()).catch((deactivateError: unknown) => {
+				console.error(`Plugin ${plugin.id} failed to deactivate after activation failure`, deactivateError);
+			});
+		}
+		await window.vetta.plugins.abortAppActionActivation(plugin.id, activationId).catch((abortError: unknown) => {
+			console.error(`Plugin ${plugin.id} failed to abort app action activation`, abortError);
+		});
+		await window.vetta.plugins.clearAgentContributions(plugin.id, activationId).catch((clearError: unknown) => {
+			console.error(`Plugin ${plugin.id} failed to clear contributions after activation failure`, clearError);
+		});
+		disposeLocalContributions();
+		throw error;
+	}
 }

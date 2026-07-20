@@ -35,6 +35,10 @@ export function createPluginsApi(ipc: IpcRenderer): Pick<DesktopApi, "plugins"> 
 			respondAgentTool: (requestId, result) => ipc.invoke("vetta:plugins:agent-tool-response", requestId, result),
 			registerAppAction: (pluginId, registration) =>
 				ipc.invoke("vetta:plugins:app-action-register", pluginId, registration),
+			commitAppActionActivation: (pluginId, activationId) =>
+				ipc.invoke("vetta:plugins:app-action-activation-commit", pluginId, activationId),
+			abortAppActionActivation: (pluginId, activationId) =>
+				ipc.invoke("vetta:plugins:app-action-activation-abort", pluginId, activationId),
 			unregisterAppAction: (pluginId, actionId, activationId) =>
 				ipc.invoke("vetta:plugins:app-action-unregister", pluginId, actionId, activationId),
 			onAppActionRequest: (handler) => onIpcEvent(ipc, "vetta:plugins:app-action-request", handler),
