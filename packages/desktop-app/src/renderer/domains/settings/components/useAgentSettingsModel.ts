@@ -7,9 +7,36 @@ import { recordSettingsUsage } from "./recordSettingsUsage";
 const MIN_IMAGES = 1;
 const MAX_IMAGES = 10;
 
+const PERSONA_I18N_KEYS = {
+	default: {
+		label: "personas.default.label",
+		description: "personas.default.description",
+	},
+	pragmatic: {
+		label: "personas.pragmatic.label",
+		description: "personas.pragmatic.description",
+	},
+	interactive: {
+		label: "personas.interactive.label",
+		description: "personas.interactive.description",
+	},
+} as const;
+
 function clampImages(value: number): number {
 	if (!Number.isFinite(value)) return 2;
 	return Math.min(Math.max(Math.round(value), MIN_IMAGES), MAX_IMAGES);
+}
+
+type PersonaI18nKey = (typeof PERSONA_I18N_KEYS)[keyof typeof PERSONA_I18N_KEYS]["label" | "description"];
+
+function localizePersona(persona: PersonaOption, t: (key: PersonaI18nKey) => string): PersonaOption {
+	const keys = PERSONA_I18N_KEYS[persona.id as keyof typeof PERSONA_I18N_KEYS];
+	if (!keys) return persona;
+	return {
+		...persona,
+		label: t(keys.label),
+		description: t(keys.description),
+	};
 }
 
 export interface AgentSettingsModel {
@@ -113,7 +140,9 @@ export function useAgentSettingsModel(): AgentSettingsModel {
 	}, []);
 
 	const dirty = personaId !== applied.personaId || customPrompt !== applied.customPrompt;
-	const selectedPersona = personas.find((persona) => persona.id === personaId);
+
+	const localizedPersonas = useMemo(() => personas.map((persona) => localizePersona(persona, t)), [personas, t]);
+	const selectedPersona = localizedPersonas.find((persona) => persona.id === personaId);
 
 	const applyPersonalization = useCallback(async () => {
 		setSaving(true);
@@ -197,7 +226,7 @@ export function useAgentSettingsModel(): AgentSettingsModel {
 		maxRecentImages,
 		minImages: MIN_IMAGES,
 		personaId,
-		personas,
+		personas: localizedPersonas,
 		promptPredictionEnabled,
 		saving,
 		selectedPersona,

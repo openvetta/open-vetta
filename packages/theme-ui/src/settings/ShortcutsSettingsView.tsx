@@ -14,6 +14,7 @@ export interface ShortcutsSettingsViewProps {
 	readonly resetAllLabel: string;
 	readonly shortcutHint: string;
 	readonly globalSection: SettingSectionMeta;
+	readonly globalSectionTitle?: string;
 	readonly aiAssistSlot: ReactNode;
 	readonly onResetAll: () => void;
 	readonly shortcutActions: readonly ShortcutActionRowView[];
@@ -25,6 +26,7 @@ export function ShortcutsSettingsView({
 	resetAllLabel,
 	shortcutHint,
 	globalSection,
+	globalSectionTitle,
 	aiAssistSlot,
 	onResetAll,
 	shortcutActions,
@@ -43,7 +45,7 @@ export function ShortcutsSettingsView({
 				</div>
 			</div>
 
-			<SettingSection section={globalSection}>
+			<SettingSection section={globalSection} title={globalSectionTitle}>
 				{shortcutActions.map((action, idx) => (
 					<SettingRow
 						key={action.id}

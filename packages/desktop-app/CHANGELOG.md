@@ -78,9 +78,11 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 - **列表卡片背景改用 card**：自动化 / 扩展 / 批量任务 / 插件页 item 由 `bg-muted` 改为 `bg-card`。
 - **输入栏背景统一 `bg-card`**：输入框本体深浅色均为 `bg-card`；下方 action list 为 `bg-card/70`。
 - **插件工作台热更新默认开启**：已安装的工程卡片在应用成功或打开面板时默认启动热更新；用户可手动关闭（本会话内不再自动重开）。
+- **设置侧栏「知识库设置」去掉 BETA 徽标**。
 
 ### Fixed
 
+- **设置页多处 i18n 漏翻**：外观六个颜色主题名、Agent 人设下拉 label/description、快捷键「全局快捷键 / 快捷面板」section 标题、Claw「总开关 / 消息渠道」section 标题、Vetta Vivi 装饰 item 名称均改为走 i18n；主题定义与装饰元数据中的中文硬编码改为英文 fallback。
 - **新会话页模型选择器重启后显示「选择模型」**：per-session 改造后全局偏好不再写入/恢复 localStorage，欢迎页无会话可 pull 导致 UI 空置（实际仍可走后端默认模型对话）。现恢复 `vetta-selected-model` 作为新会话全局偏好（atom 启动读取、用户选择写回、`useAppInit` 正确恢复），options 未就绪时用 modelKey 兜底展示，已有会话仍以 session settings 为准。
 - **新会话引导词区高度抖动**：单条引导词过长换行或轮播切页时组件高度变化，牵动 `justify-center` 布局导致页面跳动。现固定 3 槽位列表高度，单条单行 `truncate`（全文在 `title`）；仅 1 组时用满宽，默认主题与仙侠主题同步。
 - **黑白主题 BotAvatar 眼睛**：深色覆盖为灰 `rgb(150, 150, 150)`；浅色保持白眼，不影响其它主题。

@@ -149,6 +149,15 @@ const CURSOR_OPTIONS = [
 	},
 ] as const;
 
+const COLOR_THEME_LABEL_KEYS = {
+	mono: "colorThemes.mono",
+	default: "colorThemes.default",
+	emerald: "colorThemes.emerald",
+	sand: "colorThemes.sand",
+	slate: "colorThemes.slate",
+	voltage: "colorThemes.voltage",
+} as const;
+
 export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 	const { mode, themeName, setMode, setThemeName } = useTheme();
 	const { activeThemeId, availableThemes, selectTheme, status: themeRuntimeStatus } = useThemeRuntime();
@@ -199,6 +208,18 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 				icon: "icon" in option ? option.icon : undefined,
 			})),
 		[cursorStyle, t],
+	);
+
+	const themes = useMemo(
+		() =>
+			THEMES.map((theme) => {
+				const labelKey = COLOR_THEME_LABEL_KEYS[theme.id as keyof typeof COLOR_THEME_LABEL_KEYS];
+				return {
+					...theme,
+					label: labelKey ? t(labelKey) : theme.label,
+				};
+			}),
+		[t],
 	);
 
 	const labels = useMemo(
@@ -255,7 +276,7 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 		narrow,
 		showUiTheme: isAppearanceUiThemeEnabled(),
 		themeName,
-		themes: THEMES,
+		themes,
 		uiThemes,
 	};
 }

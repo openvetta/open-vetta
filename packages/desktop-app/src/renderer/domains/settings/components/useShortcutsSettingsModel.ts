@@ -31,10 +31,12 @@ export interface ShortcutsSettingsModel {
 	shortcutHint: string;
 	shortcutPlaceholder: string;
 	resetLabel: string;
+	globalSectionTitle: string;
 	shortcutActions: ShortcutActionItem[];
 	quickPanel: {
 		trigger: QuickPanelTrigger;
 		behavior: QuickPanelBehavior;
+		sectionTitle: string;
 		triggerTitle: string;
 		triggerDescription: string;
 		behaviorTitle: string;
@@ -145,10 +147,12 @@ export function useShortcutsSettingsModel(): ShortcutsSettingsModel {
 		shortcutHint: t("shortcutHint"),
 		shortcutPlaceholder: t("shortcutPlaceholder"),
 		resetLabel: t("reset"),
+		globalSectionTitle: t("section_shortcuts-global"),
 		shortcutActions,
 		quickPanel: {
 			trigger,
 			behavior,
+			sectionTitle: t("section_shortcuts-quickpanel"),
 			triggerTitle: t("quickPanelTrigger"),
 			triggerDescription,
 			behaviorTitle: t("quickPanelBehavior"),

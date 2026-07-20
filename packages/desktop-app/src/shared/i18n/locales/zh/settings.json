@@ -755,6 +755,28 @@
   "uiThemeXianxia": "修仙主题",
   "uiThemeXianxiaHint": "使用修仙风格界面",
   "uiThemeUnavailable": "尽请期待",
+  "colorThemes": {
+    "mono": "默认",
+    "default": "经典",
+    "emerald": "翠玉",
+    "sand": "珊瑚",
+    "slate": "青石",
+    "voltage": "电光"
+  },
+  "personas": {
+    "default": {
+      "label": "默认",
+      "description": "不追加任何人设，保持 agent 原始行为"
+    },
+    "pragmatic": {
+      "label": "务实",
+      "description": "回答精炼，切入准确，不绕弯子，专注任务"
+    },
+    "interactive": {
+      "label": "交互",
+      "description": "主动提问对齐需求，附推荐方向，获授权后再执行"
+    }
+  },
   "saveFailed": "保存失败",
   "pleaseLogin": "请先登录",
   "tokenActivity": {

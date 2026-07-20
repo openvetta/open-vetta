@@ -7,51 +7,17 @@ import {
 	type AppearanceThemeMode,
 	type AppearanceThemePreview,
 } from "@vetta/theme-ui/action-approval";
+import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 
-const MODES: AppearanceModeOption[] = [
-	{ value: "light", label: "浅色", icon: "icon-[mdi--white-balance-sunny]", hint: "始终浅色" },
-	{ value: "dark", label: "深色", icon: "icon-[mdi--moon-waning-crescent]", hint: "始终深色" },
-	{ value: "auto", label: "跟随系统", icon: "icon-[mdi--theme-light-dark]", hint: "自动切换" },
-];
-
-const CURSORS: AppearanceCursorOption[] = [
-	{
-		value: "default",
-		label: "默认指针",
-		hint: "系统原生鼠标指针",
-		icon: "icon-[mdi--cursor-default-outline]",
-	},
-	{
-		value: "stoat",
-		label: "白鼬",
-		hint: "自定义白鼬指针",
-		preview: STOAT_CURSOR_PREVIEW_URL,
-	},
-];
-
-const THEME_PREVIEWS: AppearanceThemePreview[] = THEMES.map((theme) => ({
-	id: theme.id,
-	label: theme.label,
-	dark: {
-		primary: theme.dark.primary,
-		accent: theme.dark.accent,
-		ring: theme.dark.ring,
-		chart1: theme.dark.chart1,
-		chart2: theme.dark.chart2,
-		background: theme.dark.background,
-		card: theme.dark.card,
-		border: theme.dark.border,
-		destructive: theme.dark.destructive,
-		foreground: theme.dark.foreground,
-		mutedForeground: theme.dark.mutedForeground,
-	},
-}));
-
-const LABELS = {
-	modeSection: "显示模式",
-	themeSection: "主题风格",
-	cursorSection: "鼠标指针",
-};
+const COLOR_THEME_LABEL_KEYS = {
+	mono: "colorThemes.mono",
+	default: "colorThemes.default",
+	emerald: "colorThemes.emerald",
+	sand: "colorThemes.sand",
+	slate: "colorThemes.slate",
+	voltage: "colorThemes.voltage",
+} as const;
 
 export function AppearanceActionPicker({
 	mode,
@@ -68,15 +34,78 @@ export function AppearanceActionPicker({
 	onThemeChange: (themeId: string) => void;
 	onCursorStyleChange: (style: CursorStyle) => void;
 }): JSX.Element {
+	const { t } = useTranslation("settings");
+
+	const modes = useMemo<AppearanceModeOption[]>(
+		() => [
+			{ value: "light", label: t("themeLight"), icon: "icon-[mdi--white-balance-sunny]", hint: t("appearanceLightHint") },
+			{ value: "dark", label: t("themeDark"), icon: "icon-[mdi--moon-waning-crescent]", hint: t("appearanceDarkHint") },
+			{ value: "auto", label: t("themeSystem"), icon: "icon-[mdi--theme-light-dark]", hint: t("appearanceAutoHint") },
+		],
+		[t],
+	);
+
+	const cursors = useMemo<AppearanceCursorOption[]>(
+		() => [
+			{
+				value: "default",
+				label: t("cursorDefaultTitle"),
+				hint: t("cursorDefaultHint"),
+				icon: "icon-[mdi--cursor-default-outline]",
+			},
+			{
+				value: "stoat",
+				label: t("cursorStoatTitle"),
+				hint: t("cursorStoatHint"),
+				preview: STOAT_CURSOR_PREVIEW_URL,
+			},
+		],
+		[t],
+	);
+
+	const themes = useMemo<AppearanceThemePreview[]>(
+		() =>
+			THEMES.map((theme) => {
+				const labelKey = COLOR_THEME_LABEL_KEYS[theme.id as keyof typeof COLOR_THEME_LABEL_KEYS];
+				return {
+					id: theme.id,
+					label: labelKey ? t(labelKey) : theme.label,
+					dark: {
+						primary: theme.dark.primary,
+						accent: theme.dark.accent,
+						ring: theme.dark.ring,
+						chart1: theme.dark.chart1,
+						chart2: theme.dark.chart2,
+						background: theme.dark.background,
+						card: theme.dark.card,
+						border: theme.dark.border,
+						destructive: theme.dark.destructive,
+						foreground: theme.dark.foreground,
+						mutedForeground: theme.dark.mutedForeground,
+					},
+				};
+			}),
+		[t],
+	);
+
+	const labels = useMemo(
+		() => ({
+			modeSection: t("section_appearance-mode"),
+			themeSection: t("section_appearance-theme"),
+			cursorSection: t("section_appearance-cursor"),
+		}),
+		[t],
+	);
+
 	return (
 		<AppearanceActionPickerView
 			mode={mode}
 			themeId={themeId}
 			cursorStyle={cursorStyle}
-			themes={THEME_PREVIEWS}
-			modes={MODES}
-			cursors={CURSORS}
-			labels={LABELS}
+			themes={themes}
+			modes={modes}
+			cursors={cursors}
+			labels={labels}
 			onModeChange={onModeChange}
 			onThemeChange={onThemeChange}
 			onCursorStyleChange={(style) => onCursorStyleChange(style as CursorStyle)}

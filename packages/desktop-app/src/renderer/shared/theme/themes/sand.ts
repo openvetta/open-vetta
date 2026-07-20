@@ -32,7 +32,7 @@ const LIGHT_INPUT = LIGHT_BORDER;
 
 export const sandTheme: ThemeDef = {
 	id: "sand",
-	label: "珊瑚",
+	label: "Coral",
 	dark: {
 		...defaultTheme.dark,
 		background: DARK_BG,

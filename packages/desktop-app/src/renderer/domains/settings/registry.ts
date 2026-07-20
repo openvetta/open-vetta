@@ -62,7 +62,6 @@ export const SETTINGS_TABS: readonly SettingsTabRegistration[] = [
 		label: "知识库设置",
 		labelKey: "tabKnowledge",
 		icon: "icon-[mdi--database-outline]",
-		beta: true,
 	},
 	{ key: "pet", label: "Vetta Vivi", labelKey: "tabPet", icon: "icon-[mdi--paw-outline]" },
 	{

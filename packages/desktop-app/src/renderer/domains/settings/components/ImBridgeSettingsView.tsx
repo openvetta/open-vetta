@@ -41,7 +41,7 @@ export function ImBridgeSettingsView({ model }: { model: ImBridgeSettingsModel }
 				/>
 			)}
 
-			<SettingSection section={SETTINGS_SECTION["imbridge-toggle"]}>
+			<SettingSection section={SETTINGS_SECTION["imbridge-toggle"]} title={t("section_imbridge-toggle")}>
 				<SettingRow title={t("enableImBridge")} description={t("enableImBridgeDesc")} border={false}>
 					<button
 						type="button"
@@ -129,7 +129,10 @@ export function ImBridgeSettingsView({ model }: { model: ImBridgeSettingsModel }
 
 			<div className="mb-6">
 				<div className="mb-3 flex items-baseline gap-2">
-					<SettingHeading section={SETTINGS_SECTION["imbridge-channels"]} />
+					<SettingHeading
+						section={SETTINGS_SECTION["imbridge-channels"]}
+						title={t("section_imbridge-channels")}
+					/>
 					<span className="text-[12px] text-muted-foreground">{t("channelsCount")}</span>
 				</div>
 				<div className="grid grid-cols-2 gap-3">

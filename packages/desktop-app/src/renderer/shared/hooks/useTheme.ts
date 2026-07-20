@@ -1,3 +1,4 @@
+import { i18n } from "@shared/i18n";
 import { useAtom } from "jotai";
 import { useCallback, useEffect } from "react";
 import type { DesktopThemeSnapshot } from "../../../preload/api-types/theme";
@@ -12,6 +13,15 @@ import {
 } from "../theme/apply";
 import { getStoredCursorStyle, setStoredCursorStyle } from "../theme/cursor";
 import { DEFAULT_THEME_ID, resolveThemeId, THEMES } from "../theme/themes";
+
+const COLOR_THEME_LABEL_KEYS = {
+	mono: "colorThemes.mono",
+	default: "colorThemes.default",
+	emerald: "colorThemes.emerald",
+	sand: "colorThemes.sand",
+	slate: "colorThemes.slate",
+	voltage: "colorThemes.voltage",
+} as const;
 
 export function useTheme() {
 	const [mode, setModeAtom] = useAtom(themeModeAtom);
@@ -149,7 +159,13 @@ export function useTheme() {
 	useEffect(() => {
 		return window.vetta.theme.onHelpRequested(() => ({
 			state: getThemeSnapshot(),
-			themes: THEMES.map(({ id, label }) => ({ id, label })),
+			themes: THEMES.map(({ id, label }) => {
+				const labelKey = COLOR_THEME_LABEL_KEYS[id as keyof typeof COLOR_THEME_LABEL_KEYS];
+				return {
+					id,
+					label: labelKey ? i18n.t(`settings:${labelKey}`) : label,
+				};
+			}),
 		}));
 	}, [getThemeSnapshot]);
 

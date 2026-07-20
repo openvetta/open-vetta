@@ -18,7 +18,7 @@ const SHADOW_2XL = "0px 1px 2px 0px hsl(0 0% 0% / 0.45)";
 
 export const slateTheme: ThemeDef = {
 	id: "slate",
-	label: "青石",
+	label: "Slate",
 	dark: {
 		background: "rgb(13, 17, 23)",
 		foreground: "rgb(230, 237, 243)",
