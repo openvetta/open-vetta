@@ -18,7 +18,8 @@ const I18N_GET_INITIAL = "vetta:i18n:get-initial-language";
 const I18N_LANGUAGE_CHANGED = "vetta:i18n:language-changed";
 
 // preload 求值期同步取主进程当前语言（与主窗口同源），供面板 i18n 首帧前读取。
-const initialLanguage = (ipcRenderer.sendSync(I18N_GET_INITIAL) as string | undefined) ?? "zh";
+// 与 DEFAULT_LANGUAGE 对齐：sendSync 失败时默认英文，勿硬编码 zh。
+const initialLanguage = (ipcRenderer.sendSync(I18N_GET_INITIAL) as string | undefined) ?? "en";
 
 const api: QuickPanelBridge = {
 	initialLanguage,

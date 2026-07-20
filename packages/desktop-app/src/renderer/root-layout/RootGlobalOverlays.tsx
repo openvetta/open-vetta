@@ -2,6 +2,7 @@ import { LoginDialog } from "../domains/auth/components/LoginDialog";
 import { FilePreviewDialog } from "../domains/file-preview/components/FilePreviewDialog";
 import { KnowledgeDropOverlay } from "../domains/knowledge-base/components/KnowledgeDropOverlay";
 import { PluginGlobalSlotHost } from "../domains/plugins/components/PluginGlobalSlotHost";
+import { SetupWizard } from "../domains/setup-wizard";
 import { ActionApprovalCenter } from "../shared/action-approval/ActionApprovalCenter";
 import { AppearancePickerApproval } from "../shared/action-approval/appearance/AppearancePickerApproval";
 import { ThemeChangeApproval } from "../shared/action-approval/appearance/ThemeChangeApproval";
@@ -67,6 +68,8 @@ export function RootGlobalOverlays(): JSX.Element {
 			<PluginGlobalSlotHost />
 			<ThemedKnowledgeDropOverlay />
 			<ThemedToaster />
+			{/* 首次启动引导：盖在其它 overlay 之上；完成后写 localStorage 并通知 SidebarTour */}
+			<SetupWizard />
 		</>
 	);
 }

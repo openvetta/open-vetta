@@ -3,6 +3,10 @@ import { useSetAtom } from "jotai";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
+	isSetupWizardCompleted,
+	SETUP_WIZARD_COMPLETED_EVENT,
+} from "../setup-wizard/storage";
+import {
 	SIDEBAR_TOUR_STORAGE_KEY,
 	TOUR_ANCHORS,
 	tourSelector,
@@ -18,9 +22,21 @@ interface SidebarTourProps {
 	onEnsureSidebarVisible?: () => void;
 }
 
+function waitForSetupWizardIfNeeded(): Promise<void> {
+	if (isSetupWizardCompleted()) return Promise.resolve();
+	return new Promise((resolve) => {
+		const onDone = () => {
+			window.removeEventListener(SETUP_WIZARD_COMPLETED_EVENT, onDone);
+			resolve();
+		};
+		window.addEventListener(SETUP_WIZARD_COMPLETED_EVENT, onDone);
+	});
+}
+
 /**
  * First-run sidebar tour: projects → conversations → capabilities nav.
  * Click Next to advance; completed state is stored in localStorage.
+ * Waits until the setup wizard is dismissed so the two first-run UIs do not overlap.
  */
 export function SidebarTour({ onEnsureSidebarVisible }: SidebarTourProps): null {
 	const { t } = useTranslation(["project", "common"]);
@@ -31,6 +47,9 @@ export function SidebarTour({ onEnsureSidebarVisible }: SidebarTourProps): null 
 
 		let cancelled = false;
 		const start = async () => {
+			await waitForSetupWizardIfNeeded();
+			if (cancelled) return;
+
 			// Ensure sidebar is expanded / overlay open so anchors exist.
 			setSidebarCollapsed(false);
 			onEnsureSidebarVisible?.();

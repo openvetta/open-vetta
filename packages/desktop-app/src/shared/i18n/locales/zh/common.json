@@ -945,5 +945,53 @@
 			"none": "关闭",
 			"off": "关闭"
 		}
+	},
+	"setupWizard": {
+		"skip": "跳过",
+		"next": "下一步",
+		"back": "上一步",
+		"getStarted": "开始使用",
+		"progress": "{{current}} / {{total}}",
+		"permissions": {
+			"title": "授予权限",
+			"subtitle": "授权后可使用截图、自动化与系统通知等能力；均可稍后在设置中完成",
+			"systemSection": "系统权限",
+			"computerUseTitle": "Vetta Computer Use",
+			"computerUseDesc": "独立辅助程序负责前台窗口捕获，需单独完成辅助功能与屏幕录制授权",
+			"optionalHint": "权限均为可选，可随时在「设置 › 权限」中调整"
+		},
+		"languageAppearance": {
+			"title": "语言与外观",
+			"subtitle": "选择界面语言、主题模式与配色，之后可在设置中随时更改",
+			"language": "语言",
+			"appearance": "外观模式",
+			"theme": "主题配色"
+		},
+		"login": {
+			"title": "登录账号",
+			"subtitle": "登录后可同步云端能力与订阅；也可先跳过，稍后再登录",
+			"optionalHint": "登录可选，点「下一步」继续",
+			"signedInTitle": "已登录",
+			"signedInDesc": "欢迎回来，{{name}}",
+			"signedInFallback": "用户"
+		},
+		"welcome": {
+			"title": "欢迎使用 Vetta",
+			"subtitle": "你的桌面 AI 编程助手已就绪，从一次对话开始吧",
+			"highlights": {
+				"chat": {
+					"title": "智能对话",
+					"desc": "在项目上下文中提问、改代码、跑命令"
+				},
+				"skills": {
+					"title": "技能与连接器",
+					"desc": "扩展能力市场，连接常用工具与服务"
+				},
+				"automation": {
+					"title": "自动化",
+					"desc": "定时任务与批量作业，把重复工作交给 Vetta"
+				}
+			}
+		}
 	}
 }
