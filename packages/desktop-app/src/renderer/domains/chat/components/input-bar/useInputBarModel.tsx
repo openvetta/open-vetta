@@ -166,13 +166,33 @@ export function useInputBarModel({
 	}, [sandboxPermission]);
 
 	const prevValueLenRef = useRef(inputValue.length);
+	/**
+	 * Auto-resize the textarea to content height.
+	 *
+	 * Shrinking must reset height before reading scrollHeight, but a bare
+	 * `height: 0` reflows the flex column: MessageList expands, its scrollTop
+	 * is clamped, then the height is restored and stick-to-bottom lerps back —
+	 * visible list jitter on every Backspace while multi-line.
+	 * Lock the parent box height for the measure so MessageList never sees the
+	 * intermediate collapse.
+	 */
 	const resize = useCallback(() => {
 		const el = textareaRef.current;
 		if (!el) return;
-		if (el.value.length < prevValueLenRef.current) {
-			el.style.height = "0";
-		}
+		const shrinking = el.value.length < prevValueLenRef.current;
 		prevValueLenRef.current = el.value.length;
+
+		if (shrinking) {
+			const host = el.parentElement;
+			const lockPx = host?.offsetHeight ?? el.offsetHeight;
+			if (host) host.style.minHeight = `${lockPx}px`;
+			el.style.height = "0px";
+			const next = Math.max(MIN_HEIGHT, Math.min(el.scrollHeight, MAX_HEIGHT));
+			el.style.height = `${next}px`;
+			if (host) host.style.minHeight = "";
+			return;
+		}
+
 		el.style.height = `${Math.max(MIN_HEIGHT, Math.min(el.scrollHeight, MAX_HEIGHT))}px`;
 	}, []);
 

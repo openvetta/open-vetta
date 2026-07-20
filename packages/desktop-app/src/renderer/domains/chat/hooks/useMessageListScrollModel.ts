@@ -227,10 +227,24 @@ export function useMessageListScrollModel({
 		element.addEventListener("wheel", onWheel, { passive: true });
 		element.addEventListener("touchstart", onTouchStart, { passive: true });
 		element.addEventListener("touchmove", onTouchMove, { passive: true });
+		// Viewport size changes (e.g. input bar grow/shrink) clamp scrollTop.
+		// While sticky, snap immediately so we do not need multi-frame lerp thrash.
+		// ResizeObserver only fires on border-box size, not content scrollHeight —
+		// streaming growth still uses the messages/isStreaming lerp path.
+		const onViewportResize = (): void => {
+			if (!shouldFollowBottomRef.current) return;
+			const target = Math.max(0, element.scrollHeight - element.clientHeight);
+			if (Math.abs(target - element.scrollTop) > 0.5) {
+				element.scrollTop = target;
+			}
+		};
+		const resizeObserver = new ResizeObserver(onViewportResize);
+		resizeObserver.observe(element);
 		return () => {
 			element.removeEventListener("wheel", onWheel);
 			element.removeEventListener("touchstart", onTouchStart);
 			element.removeEventListener("touchmove", onTouchMove);
+			resizeObserver.disconnect();
 		};
 	}, [onWheel, onTouchMove, onTouchStart]);
 
