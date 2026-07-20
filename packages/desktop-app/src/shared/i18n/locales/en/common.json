@@ -649,7 +649,8 @@
 			"notFound": "Webhook endpoint not found",
 			"loadFailed": "Failed to load webhooks",
 			"feishu": "Feishu",
-			"dingtalk": "DingTalk"
+			"dingtalk": "DingTalk",
+			"botSuffix": "bot"
 		},
 		"downloads": {
 			"ops": {

@@ -34,22 +34,22 @@ function levelTag(level: WebhookMessage["level"]): string {
 
 function validateDingtalkUrl(url: string): string | null {
 	const trimmed = url.trim();
-	if (!trimmed) return "Webhook URL 不能为空";
-	if (!/^https:\/\//i.test(trimmed)) return "Webhook URL 必须以 https:// 开头";
+	if (!trimmed) return "Webhook URL cannot be empty";
+	if (!/^https:\/\//i.test(trimmed)) return "Webhook URL must start with https://";
 	let parsed: URL;
 	try {
 		parsed = new URL(trimmed);
 	} catch {
-		return "Webhook URL 格式不正确";
+		return "Invalid webhook URL format";
 	}
 	if (parsed.hostname !== DINGTALK_HOST) {
-		return `钉钉 Webhook URL 域名必须是 ${DINGTALK_HOST}`;
+		return `DingTalk webhook URL domain must be ${DINGTALK_HOST}`;
 	}
 	if (!parsed.pathname.startsWith("/robot/send")) {
-		return "钉钉 Webhook URL 路径必须以 /robot/send 开头";
+		return "DingTalk webhook URL path must start with /robot/send";
 	}
 	if (!parsed.searchParams.get("access_token")) {
-		return "URL 缺少 access_token 参数";
+		return "URL is missing access_token parameter";
 	}
 	return null;
 }
@@ -137,11 +137,11 @@ async function sendDingtalk(
 			return { ok: false, error: `HTTP ${response.status} ${response.statusText}` };
 		}
 		const body = (await response.json().catch(() => null)) as { errcode?: number; errmsg?: string } | null;
-		if (!body) return { ok: false, error: "响应解析失败" };
+		if (!body) return { ok: false, error: "Response parse failed" };
 		if (body.errcode === 0) return { ok: true };
-		return { ok: false, error: body.errmsg ?? `钉钉返回 errcode=${body.errcode}` };
+		return { ok: false, error: body.errmsg ?? `DingTalk returned errcode=${body.errcode}` };
 	} catch (err) {
-		if ((err as Error).name === "AbortError") return { ok: false, error: "请求超时（30s）" };
+		if ((err as Error).name === "AbortError") return { ok: false, error: "Request timeout (30s)" };
 		return { ok: false, error: (err as Error).message };
 	} finally {
 		clearTimeout(timer);
@@ -150,8 +150,7 @@ async function sendDingtalk(
 
 export const dingtalkProvider: WebhookProvider = {
 	kind: "dingtalk",
-	displayName: "钉钉",
-	iconClass: "icon-[mdi--message-processing]",
+	displayName: "DingTalk",
 	validateUrl: validateDingtalkUrl,
 	send: sendDingtalk,
 };

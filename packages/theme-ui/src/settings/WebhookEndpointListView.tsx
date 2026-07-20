@@ -7,7 +7,7 @@ export interface WebhookEndpointRowView {
 	readonly name: string;
 	readonly kind: string;
 	readonly kindDisplayName: string;
-	readonly iconClass: string;
+	readonly iconClass?: string;
 	readonly urlMask: string | null;
 	readonly enabled: boolean;
 	readonly hasSignSecret: boolean;
@@ -90,7 +90,7 @@ export function WebhookEndpointListView({
 				return (
 					<div key={endpoint.id} className="flex flex-col gap-2 px-5 py-3">
 						<div className="flex items-center gap-3">
-							<span className={cn(endpoint.iconClass, "h-5 w-5 shrink-0 text-foreground")} />
+							{endpoint.iconClass && <span className={cn(endpoint.iconClass, "h-5 w-5 shrink-0 text-foreground")} />}
 							<div className="min-w-0 flex-1">
 								<div className="flex min-w-0 items-center gap-2">
 									<span className="truncate text-[13px] font-medium text-foreground">{endpoint.name}</span>

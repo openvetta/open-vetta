@@ -76,16 +76,16 @@ function buildCardPayload(message: WebhookMessage, mentionAll: boolean): Record<
 
 function validateFeishuUrl(url: string): string | null {
 	const trimmed = url.trim();
-	if (!trimmed) return "Webhook URL 不能为空";
-	if (!/^https:\/\//i.test(trimmed)) return "Webhook URL 必须以 https:// 开头";
+	if (!trimmed) return "Webhook URL cannot be empty";
+	if (!/^https:\/\//i.test(trimmed)) return "Webhook URL must start with https://";
 	if (!trimmed.toLowerCase().startsWith(FEISHU_HOOK_PREFIX)) {
 		if (trimmed.toLowerCase().startsWith(FEISHU_HOOK_PREFIX_HTTP)) {
-			return "请使用 https:// 协议";
+			return "Please use the https:// protocol";
 		}
-		return "飞书 Webhook URL 必须以 https://open.feishu.cn/open-apis/bot/v2/hook/ 开头";
+		return "Feishu webhook URL must start with https://open.feishu.cn/open-apis/bot/v2/hook/";
 	}
 	const token = trimmed.slice(FEISHU_HOOK_PREFIX.length);
-	if (!token || token.length < 8) return "URL 末尾 token 缺失或过短";
+	if (!token || token.length < 8) return "URL token is missing or too short";
 	return null;
 }
 
@@ -125,12 +125,12 @@ async function sendFeishu(
 			msg?: string;
 			StatusMessage?: string;
 		} | null;
-		if (!body) return { ok: false, error: "响应解析失败" };
+		if (!body) return { ok: false, error: "Response parse failed" };
 		const code = body.code ?? body.StatusCode;
 		if (code === 0) return { ok: true };
-		return { ok: false, error: body.msg ?? body.StatusMessage ?? `飞书返回 code=${code}` };
+		return { ok: false, error: body.msg ?? body.StatusMessage ?? `Feishu returned code=${code}` };
 	} catch (err) {
-		if ((err as Error).name === "AbortError") return { ok: false, error: "请求超时（30s）" };
+		if ((err as Error).name === "AbortError") return { ok: false, error: "Request timeout (30s)" };
 		return { ok: false, error: (err as Error).message };
 	} finally {
 		clearTimeout(timer);
@@ -139,8 +139,7 @@ async function sendFeishu(
 
 export const feishuProvider: WebhookProvider = {
 	kind: "feishu",
-	displayName: "飞书",
-	iconClass: "icon-[mdi--message-text]",
+	displayName: "Feishu",
 	validateUrl: validateFeishuUrl,
 	send: sendFeishu,
 };

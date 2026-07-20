@@ -20,7 +20,7 @@ export interface WebhookEndpointPublic {
 export interface WebhookProviderDescriptor {
 	kind: WebhookKind;
 	displayName: string;
-	iconClass: string;
+	iconClass?: string;
 }
 
 export interface WebhookCreateInput {

@@ -9,7 +9,7 @@ export function WebhookEndpointList({ model }: { model: WebhookSettingsModel }):
 			name: endpoint.name,
 			kind: endpoint.kind,
 			kindDisplayName: provider?.displayName ?? endpoint.kind,
-			iconClass: provider?.iconClass ?? "icon-[mdi--webhook]",
+			iconClass: provider?.iconClass,
 			urlMask: endpoint.urlMask ?? null,
 			enabled: endpoint.enabled,
 			hasSignSecret: Boolean(endpoint.hasSignSecret),

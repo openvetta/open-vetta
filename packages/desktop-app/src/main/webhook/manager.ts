@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { mainT } from "../i18n/index.js";
 import { loadWebhookConfig, saveWebhookConfig } from "./config-store.js";
 import {
 	loadWebhookCredentials,
@@ -82,7 +83,9 @@ export class WebhookManager {
 		if (urlError) {
 			throw new Error(urlError);
 		}
-		const name = (input.name ?? "").trim() || `${getProvider(input.kind).displayName} 机器人`;
+		const displayName = mainT(`common:manageApproval.webhook.${input.kind}`) || getProvider(input.kind).displayName;
+		const botSuffix = mainT("common:manageApproval.webhook.botSuffix") || "bot";
+		const name = (input.name ?? "").trim() || `${displayName} ${botSuffix}`;
 		const id = randomUUID();
 		const now = new Date().toISOString();
 		const endpoint: WebhookEndpointPublic = {
@@ -174,16 +177,10 @@ export class WebhookManager {
 	}
 
 	async test(id: string): Promise<WebhookSendResult> {
+		const time = new Date().toLocaleString();
 		return this.send(id, {
-			title: "Vetta 连通性测试",
-			text: [
-				"这是一条来自 **Vetta 桌面应用**的测试消息。",
-				"",
-				"- 收到本条消息表示 Webhook 配置正常",
-				"- 富文本（**加粗** / *斜体* / [链接](https://example.com)）渲染由通道侧决定",
-				"",
-				`发送时间：${new Date().toLocaleString("zh-CN")}`,
-			].join("\n"),
+			title: mainT("settings:whTestTitle"),
+			text: mainT("settings:whTestText", { time }),
 			level: "info",
 		});
 	}

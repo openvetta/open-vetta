@@ -17,7 +17,7 @@ import { feishuProvider } from "./feishu.js";
 export interface WebhookProvider {
 	kind: WebhookKind;
 	displayName: string;
-	iconClass: string;
+	iconClass?: string;
 	validateUrl(url: string): string | null;
 	send(pub: WebhookEndpointPublic, sec: WebhookEndpointSecret, message: WebhookMessage): Promise<WebhookSendResult>;
 }
@@ -36,13 +36,13 @@ export function getProvider(kind: WebhookKind): WebhookProvider {
 export interface WebhookProviderDescriptor {
 	kind: WebhookKind;
 	displayName: string;
-	iconClass: string;
+	iconClass?: string;
 }
 
 export function listProviderDescriptors(): WebhookProviderDescriptor[] {
 	return Object.values(WEBHOOK_PROVIDERS).map((p) => ({
 		kind: p.kind,
 		displayName: p.displayName,
-		iconClass: p.iconClass,
+		...(p.iconClass ? { iconClass: p.iconClass } : {}),
 	}));
 }

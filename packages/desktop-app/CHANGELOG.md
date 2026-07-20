@@ -123,6 +123,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 - **Fork 保留被点击的用户消息及本轮 AI 回复**：分叉导出到该 user 回合 tip（user + assistant/工具链；此前只到 user 会丢 AI 气泡；再早只到 parent 会连 user 也丢）。打开新会话后清空 pending 编辑，避免对原 session 的 entryId 调用 `navigateForEdit` 报 Entry not found。
 - **分支箭头在 skill/隐藏 custom 插入后也能识别 sibling**：user 版本按「结构分支点」聚合（跳过 skill_expansion 等透明节点），不再只比直接 parentId。
 - **App Action：`shortcuts.*`（设置 → 快捷键整页）**：统一快捷键业务域——`shortcuts.query` / `shortcuts.manage` 覆盖全局应用快捷键绑定（`set-binding` / `reset-*`）与快捷面板呼出/发送后行为（`set-quick-panel-trigger` / `set-quick-panel-behavior`）。自定义绑定写入 `desktop-config.shortcuts.bindings`；面板相关仍用 `quickPanel` 配置字段供运行时复用，但不再注册独立 `quickpanel.*` Action。支持从旧 `localStorage(vetta-shortcuts)` 迁移；写操作走按 operation 的审批 UI。
+- **设置页 Webhook 飞书/钉钉表述**：原 provider 中 displayName 与错误提示、manager 中默认名称与测试消息硬编码中文。现 displayName 源改为英文，设置页通过 i18n（whFeishu/whDingtalk）渲染；默认名生成与测试消息走 mainT + settings i18n；botSuffix 提取到 common；URL 校验错误改为英文。
+- **设置页 Webhook 飞书/钉钉图标**：移除飞书、钉钉的 iconClass（provider 源、接口、descriptor、列表 mapper、编辑器选择器、EndpointListView 渲染全部条件化显示），不再展示图标。
 
 ### Changed
 
