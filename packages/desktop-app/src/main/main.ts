@@ -566,7 +566,7 @@ if (!gotSingleLock) {
 			unscheduleTask: unscheduleTaskInCron,
 		});
 		await batchTaskService.initialize();
-		const actionSystem = createAppActionSystem(actionApprovalBroker, batchTaskService, schedulerService);
+		const actionSystem = createAppActionSystem(actionApprovalBroker);
 		const pluginActionService = new PluginActionService(mainWindow.webContents, actionSystem.catalog);
 
 		// Register IPC handlers
