@@ -115,14 +115,15 @@ export function MessageListView({
 	);
 	const footer = useCallback(
 		() => (
-			<>
-				{onSend && <SuggestionBubbles onSend={onSend} />}
+			// Workflow footer sits above input-suggestion capsules; pb-16 clears the floating InputBar.
+			<div className="pb-16">
 				<MessageListFooter
 					isCompacting={isCompacting}
 					showWaiting={showWaiting}
 					showWorkflows={sessionId != null}
 				/>
-			</>
+				{onSend && <SuggestionBubbles onSend={onSend} />}
+			</div>
 		),
 		[isCompacting, showWaiting, onSend, sessionId],
 	);

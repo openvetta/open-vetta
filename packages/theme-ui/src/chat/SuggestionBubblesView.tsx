@@ -31,7 +31,7 @@ export function SuggestionBubblesView({
 							animate={{ opacity: 1, height: "auto" }}
 							exit={{ opacity: 0, height: 0 }}
 							transition={SOFT}
-							className="flex flex-col items-start gap-1.5 overflow-hidden pt-1 pb-2"
+							className="mt-3 flex flex-col items-start gap-1.5 overflow-hidden pt-1 pb-2"
 						>
 							{suggestions.map((s, i) => (
 								<motion.button

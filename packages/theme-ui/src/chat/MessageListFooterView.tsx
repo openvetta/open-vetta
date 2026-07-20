@@ -65,7 +65,7 @@ export function MessageListFooterView({
 	workflowItems,
 }: MessageListFooterViewProps): JSX.Element {
 	return (
-		<div className="mx-auto flex max-w-3xl flex-col gap-2 px-5 pt-1 pb-16">
+		<div className="mx-auto flex max-w-3xl flex-col gap-2 px-5 pt-0">
 			<AnimatePresence initial={false}>
 				{isCompacting && <CompactionIndicator key="compacting" label={compactionLabel} />}
 			</AnimatePresence>

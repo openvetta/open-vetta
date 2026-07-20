@@ -31,7 +31,7 @@ export const VirtuosoListContainer = forwardRef<
 		<div
 			{...props}
 			ref={ref}
-			className="mx-auto flex max-w-3xl flex-col overflow-hidden px-5 pb-5"
+			className="mx-auto flex max-w-3xl flex-col overflow-hidden px-5 pb-2"
 			style={{ ...props.style }}
 		/>
 	);
