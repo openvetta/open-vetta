@@ -2,9 +2,11 @@ import { Outlet } from "@tanstack/react-router";
 import { ThemeSurface } from "@vetta/theme-ui/appearance";
 import { AppFrame, MainContentFrame, SidebarDock, SidebarOverlay } from "@vetta/theme-ui/layout";
 import { useThemeComponent, useThemeSurface } from "@vetta/theme-sdk";
+import { useCallback } from "react";
 import { Sidebar } from "../domains/project/components/sidebar/Sidebar";
 import { PageHeader } from "../shared/app-shell/page-header";
 import { TooltipProvider } from "../shared/components/ui/tooltip";
+import { SidebarTour } from "../shared/tour";
 import { AppBackground } from "./app-background/AppBackground";
 import { RootGlobalOverlays } from "./RootGlobalOverlays";
 import type { RootLayoutModel } from "./types";
@@ -27,6 +29,9 @@ export function RootLayoutView({ model }: RootLayoutViewProps): JSX.Element {
 		sidebarCollapsed,
 	} = model;
 	const showSidebar = pageLayout !== "app";
+	const ensureSidebarVisible = useCallback(() => {
+		if (narrow) actions.openOverlay();
+	}, [actions.openOverlay, narrow]);
 	const pageHeader =
 		pageLayout === "content" ? (
 			<PageHeader
@@ -57,6 +62,7 @@ export function RootLayoutView({ model }: RootLayoutViewProps): JSX.Element {
 						>
 							<Sidebar onOpenSession={onOpenSession} onCollapse={actions.closeOverlay} floating />
 						</SidebarOverlay>
+						<SidebarTour onEnsureSidebarVisible={ensureSidebarVisible} />
 					</>
 				)}
 				{pageLayout === "app" ? (

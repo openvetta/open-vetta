@@ -66,7 +66,10 @@ export const CapabilitiesPanel = forwardRef<CapabilitiesPanelHandle, Capabilitie
 
 					<div className="flex flex-col gap-4">
 					<div className="flex flex-wrap items-center justify-between gap-3">
-						<div className="flex min-w-0 flex-wrap items-center gap-2">
+						<div
+							data-tour="capabilities-search-add"
+							className="flex min-w-0 flex-wrap items-center gap-2"
+						>
 							<div className="relative w-56 shrink-0">
 								<span className="icon-[solar--magnifer-linear] absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/40" />
 								<input
@@ -95,14 +98,16 @@ export const CapabilitiesPanel = forwardRef<CapabilitiesPanelHandle, Capabilitie
 								/>
 								{t("capabilities.actions.refresh")}
 							</Button>
-							<SegmentedControl
-								items={[
-									{ key: "discover" as CapabilityScope, label: t("capabilities.scope.discover") },
-									{ key: "mine" as CapabilityScope, label: t("capabilities.scope.mine") },
-								]}
-								value={model.scope}
-								onChange={model.setScope}
-							/>
+							<div data-tour="capabilities-scope">
+								<SegmentedControl
+									items={[
+										{ key: "discover" as CapabilityScope, label: t("capabilities.scope.discover") },
+										{ key: "mine" as CapabilityScope, label: t("capabilities.scope.mine") },
+									]}
+									value={model.scope}
+									onChange={model.setScope}
+								/>
+							</div>
 						</div>
 					</div>
 
@@ -113,6 +118,7 @@ export const CapabilitiesPanel = forwardRef<CapabilitiesPanelHandle, Capabilitie
 						</div>
 					)}
 
+					<div data-tour="capabilities-list">
 					{model.loading ? (
 						<div className="flex min-h-52 flex-col items-center justify-center gap-2 text-muted-foreground/60">
 							<span className="icon-[solar--refresh-linear] h-8 w-8 animate-spin" />
@@ -165,6 +171,7 @@ export const CapabilitiesPanel = forwardRef<CapabilitiesPanelHandle, Capabilitie
 							))}
 						</div>
 					)}
+					</div>
 					</div>
 				</div>
 

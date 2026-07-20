@@ -9,6 +9,12 @@
 		"apply": "Apply",
 		"back": "Back"
 	},
+	"tour": {
+		"next": "Next",
+		"prev": "Back",
+		"done": "Done",
+		"progress": "{{current}} / {{total}}"
+	},
 	"appearance": {
 		"languageTitle": "Language",
 		"languageHint": "Choose the display language"
@@ -938,6 +944,54 @@
 			"max": "Max",
 			"none": "None",
 			"off": "Off"
+		}
+	},
+	"setupWizard": {
+		"skip": "Skip",
+		"next": "Next",
+		"back": "Back",
+		"getStarted": "Get started",
+		"progress": "{{current}} / {{total}}",
+		"permissions": {
+			"title": "Grant permissions",
+			"subtitle": "Enable screenshots, automation, and system notifications. You can finish this later in Settings",
+			"systemSection": "System permissions",
+			"computerUseTitle": "Vetta Computer Use",
+			"computerUseDesc": "A separate helper captures the frontmost window and needs its own Accessibility and Screen Recording grants",
+			"optionalHint": "All permissions are optional. Adjust anytime in Settings → Permissions"
+		},
+		"languageAppearance": {
+			"title": "Language & appearance",
+			"subtitle": "Pick your language, theme mode, and color theme. You can change them later in Settings",
+			"language": "Language",
+			"appearance": "Appearance",
+			"theme": "Color theme"
+		},
+		"login": {
+			"title": "Sign in",
+			"subtitle": "Sign in for cloud features and subscription. You can skip and sign in later",
+			"optionalHint": "Optional — tap Next to continue",
+			"signedInTitle": "Signed in",
+			"signedInDesc": "Welcome back, {{name}}",
+			"signedInFallback": "User"
+		},
+		"welcome": {
+			"title": "Welcome to Vetta",
+			"subtitle": "Your desktop AI coding assistant is ready. Start with a conversation",
+			"highlights": {
+				"chat": {
+					"title": "Smart chat",
+					"desc": "Ask questions, edit code, and run commands in project context"
+				},
+				"skills": {
+					"title": "Skills & connectors",
+					"desc": "Extend capabilities and connect the tools you already use"
+				},
+				"automation": {
+					"title": "Automation",
+					"desc": "Scheduled tasks and batch jobs for repetitive work"
+				}
+			}
 		}
 	}
 }

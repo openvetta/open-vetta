@@ -6,6 +6,7 @@
 import i18next from "i18next";
 import {
 	type AppLanguage,
+	DEFAULT_LANGUAGE,
 	FALLBACK_LANGUAGE,
 	isSupportedLanguage,
 	NAMESPACES,
@@ -14,12 +15,12 @@ import {
 import { readConfigSync } from "../ipc/fs.js";
 
 const mainI18n = i18next.createInstance();
-let currentLanguage: AppLanguage = FALLBACK_LANGUAGE;
+let currentLanguage: AppLanguage = DEFAULT_LANGUAGE;
 
-/** 同步初始化主进程语言：读 desktop-config.language，未设置则默认中文（FALLBACK_LANGUAGE）。 */
+/** 同步初始化主进程语言：读 desktop-config.language，未设置则默认英文（DEFAULT_LANGUAGE）。 */
 export function initAppLanguage(): void {
 	const stored = readConfigSync().language;
-	currentLanguage = isSupportedLanguage(stored) ? stored : FALLBACK_LANGUAGE;
+	currentLanguage = isSupportedLanguage(stored) ? stored : DEFAULT_LANGUAGE;
 	// initAsync:false 强制同步初始化（i18next 默认把资源装载推到 setTimeout，
 	// 那样 init 返回后 isInitialized 仍为 false、t() 暂吐 key）。资源已静态内联，
 	// 同步装载无 IO 成本，保证 init 返回即可用——后续 mainT() 立刻拿到译文。

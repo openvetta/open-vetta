@@ -20,12 +20,22 @@ export const SidebarNavItemButton = forwardRef<HTMLButtonElement, SidebarNavItem
 		const label = item.label ?? item.labelKey ?? "";
 		const title = item.title ?? item.titleLabelKey ?? label;
 
+		const tourAnchor =
+			item.path === "/skills"
+				? "sidebar-nav-skills"
+				: item.path
+					? `sidebar-nav-${item.path.replace(/^\//, "")}`
+					: item.type === "new-session"
+						? "sidebar-nav-new-session"
+						: undefined;
+
 		return (
 			<button
 				ref={ref}
 				type="button"
 				onClick={onClick}
 				title={title}
+				data-tour={tourAnchor}
 				className={cn(
 					"no-drag relative z-20 flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors",
 					item.active ? "font-semibold text-foreground" : "text-foreground hover:bg-accent/50",
