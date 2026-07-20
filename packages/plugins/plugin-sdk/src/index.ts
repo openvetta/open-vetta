@@ -765,6 +765,23 @@ export interface PluginAppActionsApi {
 	register<TInput = unknown>(registration: PluginAppActionRegistration<TInput>): Disposable;
 }
 
+// ─── Official host capabilities ───
+
+export interface PluginOfficialGeneralSettings {
+	workspacePath: string;
+	defaultExecutionMode?: "sandbox" | "full-access";
+	notificationsEnabled: boolean;
+	debugMode: boolean;
+	sandbox: unknown;
+}
+
+/** 仅宿主验证为官方来源的插件可以调用；普通插件调用时由宿主拒绝。 */
+export interface PluginOfficialApi {
+	general: {
+		getSettings(): Promise<PluginOfficialGeneralSettings>;
+	};
+}
+
 // ─── Files ───
 
 export interface PluginFsEntry {
@@ -972,6 +989,7 @@ export interface PluginContext {
 	conversation: PluginConversationApi;
 	agent: PluginAgentApi;
 	appActions: PluginAppActionsApi;
+	official: PluginOfficialApi;
 	fs: PluginFsApi;
 	command: PluginCommandApi;
 	images: PluginImagesApi;

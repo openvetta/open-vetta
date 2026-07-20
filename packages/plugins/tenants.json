@@ -2,6 +2,7 @@
   "default": "common",
   "tenants": {
     "common": [
+		"vetta-actions",
       "guiding-words",
       "image-gen",
       "media-viewer",

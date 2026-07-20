@@ -172,6 +172,8 @@ export interface PluginDevWatchState {
 	error?: string;
 }
 
+export type PluginTrustLevel = "official" | "community" | "local";
+
 export interface InstalledPlugin {
 	id: string;
 	name: string;
@@ -208,6 +210,8 @@ export interface InstalledPlugin {
 	installedAt: string;
 	updatedAt: string;
 	source: "archive" | "remote" | "system";
+	/** 执行权限信任级别；与安装来源分离，不能由插件 manifest 自行声明。 */
+	trustLevel: PluginTrustLevel;
 	availableVersion?: string;
 	pendingVersion?: string;
 	/**
