@@ -106,7 +106,7 @@ function getInitialBounds(): Electron.Rectangle {
 	return screen.getPrimaryDisplay().workArea;
 }
 
-function buildPetQuery(config: PetConfig): string {
+function buildPetQuery(config: PetConfig, contentOffset: Electron.Point): string {
 	const params = new URLSearchParams();
 	const bubbleDecorUrl = resolvePetBubbleDecorUrl(config.bubbleStyleId);
 	params.set("bubbleStyle", config.bubbleStyleId);
@@ -121,6 +121,9 @@ function buildPetQuery(config: PetConfig): string {
 	params.set("videoScale", String(config.videoScale));
 	params.set("autoMode", String(config.autoMode));
 	params.set("debugFrame", String(config.debugFrame));
+	// 首屏定位走 URL，避免 did-finish-load 的 set-content-offset 与 React 监听注册竞态后卡在中心。
+	params.set("contentOffsetX", String(contentOffset.x));
+	params.set("contentOffsetY", String(contentOffset.y));
 	return params.toString();
 }
 
@@ -228,13 +231,15 @@ function getPetEntryUrl(query: string): string {
 }
 
 function loadPetEntry(win: BrowserWindow): void {
-	petContentOffset = { x: 0, y: 0 };
-	const query = buildPetQuery(petConfig);
+	const initialOffset = getInitialPetContentOffset(win.getBounds(), petConfig.size);
+	petContentOffset = initialOffset;
+	const query = buildPetQuery(petConfig, initialOffset);
 	const url = getPetEntryUrl(query);
 	log.info("load entry", {
 		mode: devServerUrl ? "dev-server" : "file",
 		devServerUrl,
 		url,
+		contentOffset: initialOffset,
 	});
 	const loadPromise = win.loadURL(url);
 

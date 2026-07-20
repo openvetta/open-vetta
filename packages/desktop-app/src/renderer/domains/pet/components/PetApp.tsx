@@ -15,6 +15,7 @@ import {
 	getInitialAction,
 	getInitialAutoMode,
 	getInitialBubbleStyle,
+	getInitialContentOffset,
 	getInitialDebugFrame,
 	getInitialVideoBaseSizeByAction,
 	getInitialVideoScale,
@@ -48,7 +49,7 @@ export function PetApp(): JSX.Element {
 	const [debugFrame, setDebugFrame] = useState(getInitialDebugFrame);
 	const [videoScale, setVideoScale] = useState(getInitialVideoScale);
 	const [videoBaseSizeByAction, setVideoBaseSizeByAction] = useState(getInitialVideoBaseSizeByAction);
-	const [contentOffset, setContentOffset] = useState({ x: 0, y: 0 });
+	const [contentOffset, setContentOffset] = useState(getInitialContentOffset);
 	const [failedVideoSrc, setFailedVideoSrc] = useState<string | undefined>();
 	const [playbackPaused, setPlaybackPaused] = useState(false);
 	const [windowSize] = useWindowSize();
