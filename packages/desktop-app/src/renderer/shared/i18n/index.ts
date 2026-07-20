@@ -3,13 +3,13 @@
 
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
-import { FALLBACK_LANGUAGE, NAMESPACES, resources } from "@/shared/i18n/resources";
+import { DEFAULT_LANGUAGE, FALLBACK_LANGUAGE, NAMESPACES, resources } from "@/shared/i18n/resources";
 
 function readInitialLanguage(): string {
 	const fromMain = window.vetta?.i18n?.initialLanguage;
 	if (fromMain) return fromMain;
-	// 极端兜底：preload 尚未就绪时默认中文（正常路径不会走到）。
-	return FALLBACK_LANGUAGE;
+	// 极端兜底：preload 尚未就绪时默认英文（正常路径不会走到）。
+	return DEFAULT_LANGUAGE;
 }
 
 let subscribed = false;

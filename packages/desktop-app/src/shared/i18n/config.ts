@@ -5,6 +5,12 @@
 export const SUPPORTED_LANGUAGES = ["zh", "en"] as const;
 export type AppLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 
+/**
+ * 首次启动且 desktop-config.language 未设置时的默认界面语言。
+ * 与 FALLBACK_LANGUAGE 分离：默认 UI 语言 vs 缺译回退语言。
+ */
+export const DEFAULT_LANGUAGE: AppLanguage = "en";
+
 /** 回退语言：key 缺译文时回退中文，绝不暴露原始 key（见 ADR-0031）。 */
 export const FALLBACK_LANGUAGE: AppLanguage = "zh";
 

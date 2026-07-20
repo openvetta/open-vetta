@@ -134,5 +134,21 @@
 		"moreTabs": "更多标签页",
 		"hiddenPanels": "已隐藏面板",
 		"menu": "标签页菜单"
+	},
+	"tour": {
+		"sidebar": {
+			"projects": {
+				"title": "项目区域",
+				"description": "这里管理你的工作项目。点击项目可展开会话列表，也可以用上方按钮新建或导入项目。"
+			},
+			"conversations": {
+				"title": "对话区域",
+				"description": "默认对话列表在这里。最近的会话会按时间排列，点击即可继续上次的对话。"
+			},
+			"skills": {
+				"title": "能力入口",
+				"description": "点这里打开能力页，安装技能与连接器，让 Vetta 具备更多专业能力。"
+			}
+		}
 	}
 }
