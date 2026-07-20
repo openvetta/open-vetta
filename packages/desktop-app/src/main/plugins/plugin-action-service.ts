@@ -3,7 +3,13 @@ import Ajv, { type ErrorObject, type ValidateFunction } from "ajv";
 import type { WebContents } from "electron";
 import type { PluginAppActionRegistration } from "../../preload/api-types/plugins.js";
 import type { AppActionCatalog } from "../app-actions/catalog.js";
-import { type ActionContext, type ActionDefinition, ActionError, type JsonValue } from "../app-actions/types.js";
+import {
+	type ActionApprovalMetadata,
+	type ActionContext,
+	type ActionDefinition,
+	ActionError,
+	type JsonValue,
+} from "../app-actions/types.js";
 import { getAppLogger } from "../logger.js";
 import { getPluginSettings, listPlugins } from "./plugin-store.js";
 
@@ -113,6 +119,113 @@ function buildProviderId(pluginId: string, activationId: string): string {
 	return `plugin:${pluginId}:${activationId}`;
 }
 
+function buildApprovalMetadata(
+	pluginId: string,
+	registration: PluginAppActionRegistration,
+): ActionApprovalMetadata | undefined {
+	if (registration.effect === "read") {
+		if (registration.approval) {
+			throw new ActionError(
+				"PLUGIN_ACTION_APPROVAL_INVALID",
+				"Read-only plugin actions cannot declare approval UI.",
+			);
+		}
+		return undefined;
+	}
+	if (!registration.approval) {
+		return {
+			defaultPresentation: "generic",
+			presentations: [
+				{
+					id: "generic",
+					title: registration.title,
+					description: registration.description ?? registration.summary,
+				},
+			],
+		};
+	}
+	if (!isTrustedOfficialPlugin(pluginId)) {
+		throw new ActionError(
+			"PLUGIN_ACTION_APPROVAL_DENIED",
+			"Only trusted official plugins can select host approval presentations.",
+		);
+	}
+	const approval = registration.approval;
+	if (
+		typeof approval.defaultPresentation !== "string" ||
+		approval.defaultPresentation.length === 0 ||
+		!Array.isArray(approval.presentations) ||
+		approval.presentations.length === 0 ||
+		(approval.presentationByOperation !== undefined &&
+			(typeof approval.presentationByOperation !== "object" ||
+				approval.presentationByOperation === null ||
+				Array.isArray(approval.presentationByOperation)))
+	) {
+		throw new ActionError("PLUGIN_ACTION_APPROVAL_INVALID", "Plugin action approval metadata is incomplete.");
+	}
+	const presentationIds = new Set<string>();
+	for (const presentation of approval.presentations) {
+		if (
+			typeof presentation !== "object" ||
+			presentation === null ||
+			typeof presentation.id !== "string" ||
+			presentation.id.length === 0 ||
+			typeof presentation.title !== "string" ||
+			presentation.title.length === 0 ||
+			typeof presentation.description !== "string" ||
+			presentation.description.length === 0 ||
+			presentationIds.has(presentation.id)
+		) {
+			throw new ActionError("PLUGIN_ACTION_APPROVAL_INVALID", "Plugin action approval presentations are invalid.");
+		}
+		presentationIds.add(presentation.id);
+	}
+	if (!presentationIds.has(approval.defaultPresentation)) {
+		throw new ActionError(
+			"PLUGIN_ACTION_APPROVAL_INVALID",
+			"Plugin action default approval presentation must be declared.",
+		);
+	}
+	for (const presentation of Object.values(approval.presentationByOperation ?? {})) {
+		if (!presentationIds.has(presentation)) {
+			throw new ActionError(
+				"PLUGIN_ACTION_APPROVAL_INVALID",
+				`Plugin action operation references an undeclared approval presentation: ${presentation}`,
+			);
+		}
+	}
+	return {
+		defaultPresentation: approval.defaultPresentation,
+		presentations: approval.presentations,
+	};
+}
+
+function prepareApprovalInput(
+	input: JsonValue,
+	registration: PluginAppActionRegistration,
+): { schemaInput: JsonValue; requestedPresentation?: string } {
+	if (!registration.approval || typeof input !== "object" || input === null || Array.isArray(input)) {
+		return { schemaInput: input };
+	}
+	if (typeof input.approvalUi !== "string") return { schemaInput: input };
+	const { approvalUi, ...schemaInput } = input;
+	return { schemaInput, requestedPresentation: approvalUi };
+}
+
+function applyApprovalPresentation(
+	input: JsonValue,
+	requestedPresentation: string | undefined,
+	registration: PluginAppActionRegistration,
+): JsonValue {
+	if (!registration.approval || typeof input !== "object" || input === null || Array.isArray(input)) return input;
+	const operation = typeof input.operation === "string" ? input.operation : undefined;
+	const presentation =
+		requestedPresentation ??
+		(operation ? registration.approval.presentationByOperation?.[operation] : undefined) ??
+		registration.approval.defaultPresentation;
+	return { ...input, approvalUi: presentation };
+}
+
 export class PluginActionService {
 	private readonly activeActivations = new Map<string, PluginActionActivation>();
 	private readonly stagingActivations = new Map<string, PluginActionActivation>();
@@ -179,6 +292,7 @@ export class PluginActionService {
 			),
 		}));
 		const globalActionId = buildGlobalActionId(pluginId, registration.id, registration.publicId);
+		const approval = buildApprovalMetadata(pluginId, registration);
 		let registered: RegisteredPluginAction;
 		const definition: ActionDefinition = {
 			id: globalActionId,
@@ -190,19 +304,7 @@ export class PluginActionService {
 			availability: "gui-renderer",
 			permission: `plugin.${pluginId}.app-action.${registration.effect}`,
 			keywords: registration.keywords,
-			approval:
-				registration.effect === "read"
-					? undefined
-					: {
-							defaultPresentation: "generic",
-							presentations: [
-								{
-									id: "generic",
-									title: registration.title,
-									description: registration.description ?? registration.summary,
-								},
-							],
-						},
+			approval,
 			inputSchema: {
 				description: registration.description ?? registration.summary,
 				jsonSchema: inputSchema,
@@ -214,12 +316,13 @@ export class PluginActionService {
 					"ACTION_INVALID_INPUT",
 					`Input is not JSON serializable for ${globalActionId}`,
 				);
-				if (!validateInput(normalizedInput)) {
+				const { schemaInput, requestedPresentation } = prepareApprovalInput(normalizedInput, registration);
+				if (!validateInput(schemaInput)) {
 					throw new ActionError("ACTION_INVALID_INPUT", `Input must match the ${globalActionId} schema.`, {
 						issues: summarizeValidationErrors(validateInput.errors),
 					});
 				}
-				return normalizedInput;
+				return applyApprovalPresentation(schemaInput, requestedPresentation, registration);
 			},
 			requiresApproval:
 				registration.effect === "read" ? undefined : (_input, context) => context.source === "local-server",

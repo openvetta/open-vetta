@@ -745,6 +745,21 @@ export type PluginAppActionHandler<TInput = unknown> = (
 	context: PluginAppActionHandlerContext<TInput>,
 ) => unknown | Promise<unknown>;
 
+export interface PluginAppActionApprovalPresentation {
+	id: string;
+	title: string;
+	description: string;
+}
+
+export interface PluginAppActionApproval {
+	/** 默认使用的宿主审批界面。 */
+	defaultPresentation: string;
+	/** 可用的宿主审批界面；仅官方插件可以声明。 */
+	presentations: PluginAppActionApprovalPresentation[];
+	/** 根据 input.operation 自动选择审批界面，不要求 Agent 传 approvalUi。 */
+	presentationByOperation?: Record<string, string>;
+}
+
 export interface PluginAppActionRegistration<TInput = unknown> {
 	/** 插件内局部 id；宿主公开为 `plugin.<pluginId>.<id>`。 */
 	id: string;
@@ -755,6 +770,8 @@ export interface PluginAppActionRegistration<TInput = unknown> {
 	description?: string;
 	keywords?: string[];
 	effect: PluginAppActionEffect;
+	/** 官方插件可引用宿主已有审批界面；不能关闭 effect 对应的审批。 */
+	approval?: PluginAppActionApproval;
 	inputSchema: PluginJsonSchema;
 	examples?: PluginAppActionExample<TInput>[];
 	timeoutMs?: number;
@@ -775,10 +792,16 @@ export interface PluginOfficialGeneralSettings {
 	sandbox: unknown;
 }
 
+export type PluginOfficialGeneralSettingsUpdate =
+	| { operation: "set-notifications"; enabled: boolean }
+	| { operation: "set-execution-mode"; mode: "sandbox" | "full-access" }
+	| { operation: "set-workspace"; path: string };
+
 /** 仅宿主验证为官方来源的插件可以调用；普通插件调用时由宿主拒绝。 */
 export interface PluginOfficialApi {
 	general: {
 		getSettings(): Promise<PluginOfficialGeneralSettings>;
+		setSettings(input: PluginOfficialGeneralSettingsUpdate): Promise<PluginOfficialGeneralSettingsUpdate>;
 	};
 }
 

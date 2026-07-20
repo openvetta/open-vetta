@@ -248,6 +248,12 @@ export interface PluginAgentToolRegistration {
 
 export type PluginAppActionEffect = "read" | "write" | "execute";
 
+export interface PluginAppActionApproval {
+	defaultPresentation: string;
+	presentations: Array<{ id: string; title: string; description: string }>;
+	presentationByOperation?: Record<string, string>;
+}
+
 export interface PluginAppActionRegistration {
 	id: string;
 	publicId?: string;
@@ -256,6 +262,7 @@ export interface PluginAppActionRegistration {
 	description?: string;
 	keywords?: string[];
 	effect: PluginAppActionEffect;
+	approval?: PluginAppActionApproval;
 	inputSchema: Record<string, unknown>;
 	examples: Array<{ description: string; input: unknown }>;
 	handlerId: string;

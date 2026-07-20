@@ -50,7 +50,7 @@ export default definePlugin({
 
 可信官方插件还可声明 `publicId`，例如 `publicId: "general.query"`。目录会优先使用该插件实现，并保留同 id 的内置实现作为 fallback；插件停用、卸载、权限撤销或激活失败后自动回退。普通插件使用 `publicId` 会被拒绝。门控依据宿主生成的 `trustLevel: "official"`，而不是插件 id 或安装来源；当前随包系统插件会获得该级别，远端和本地插件不会。
 
-官方插件需要读取宿主数据时使用 `ctx.official`。该 API 在 SDK 中可见，但普通插件调用会被宿主拒绝；目前只提供首个迁移领域所需的 `ctx.official.general.getSettings()`，不一次性暴露通用 IPC。
+官方插件需要读写宿主数据时使用 `ctx.official`。该 API 在 SDK 中可见，但普通插件调用会被宿主拒绝；目前提供首个迁移领域所需的 `ctx.official.general.getSettings()` 与 `setSettings()`，不一次性暴露通用 IPC。
 
 ## effect 与审批
 
@@ -60,7 +60,7 @@ export default definePlugin({
 - `write`：修改应用或用户数据；从本地 Action RPC 调用时必须审批。
 - `execute`：启动外部执行或有明显副作用；从本地 Action RPC 调用时必须审批。
 
-插件不能自定义或绕过审批 UI。宿主根据 `effect` 决定是否审批，并在用户批准后再次使用同一 JSON Schema 校验输入。
+插件不能绕过审批。宿主根据 `effect` 决定是否审批，并在用户批准后再次使用同一 JSON Schema 校验输入。普通插件固定使用通用审批；可信官方插件可通过 `approval` 引用宿主已有 presentation，并用 `presentationByOperation` 自动选择领域专用界面。该能力不能注入新组件，也不能把 `write` / `execute` 改为免审批。
 
 ## 运行时边界
 
@@ -76,4 +76,4 @@ export default definePlugin({
 
 官方 Action 插件可以由 Desktop 的首装流程放入插件注册表，也可以由插件服务下发更新。更新服务负责版本、灰度、回滚和签名验证；Action Runtime 不承担下载职责，只消费已经通过插件安装链验证并激活的版本。这样发布机制与执行机制解耦，远端协议变化不会扩大 Action Runtime 的可信边界。
 
-当前 `vetta-actions` 以随包系统插件形式提供 `general.query`，静态 Action 仍是 fallback。产品意义上的“内置 Action 插件”最终应当是**官方托管插件**：可附带 bootstrap 版本，更新包经过签名验证后获得 `trustLevel: "official"`。远端更新服务最后实施；在此之前远端插件不能使用公共 Action id。
+当前 `vetta-actions` 以随包系统插件形式提供 `general.query` 与 `general.manage`，对应静态 Action 仍是 fallback。产品意义上的“内置 Action 插件”最终应当是**官方托管插件**：可附带 bootstrap 版本，更新包经过签名验证后获得 `trustLevel: "official"`。远端更新服务最后实施；在此之前远端插件不能使用公共 Action id。
