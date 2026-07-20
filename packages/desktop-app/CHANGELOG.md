@@ -6,6 +6,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **首次启动引导页**：用户首次进入主窗口时全屏展示；右上角可 Skip。非 mac 3 屏（语言与外观 → 登录 → 欢迎），mac 4 屏（授予权限 → 语言与外观 → 登录 → 欢迎）。权限屏含系统权限与 Computer Use 辅助程序引导；登录可选；完成/跳过写入 localStorage，并延后侧边栏 product tour 避免叠层。语言与外观步含 6 色主题选择；底部导航（上一步 / 指示点 / 下一步）收拢为居中胶囊条并带动画。
 - **插件动态 App Action（ADR-0045）**：插件可通过 `ctx.appActions.register()` 向主进程 Action 目录动态注册 JSON Schema Action；支持 `vetta action search/describe/run`、插件 activation 生命周期清理、权限复查、write/execute 审批、超时、取消与 JSON 结果校验，为官方 Action 插件独立于 Desktop 发版奠定运行时基础。
 - **功能引导（driver.js）**：首次使用时侧边栏 3 步引导（项目区域 / 对话区域 / 能力入口）与能力页 4 步讲解；点击下一步推进，完成或关闭后写入 localStorage，各引导只展示一次。
 - **可选 Desktop telemetry**：集成 Sentry 错误与崩溃监控、PostHog 产品分析/Feature Flag/可选 Replay；未配置对应环境变量时 SDK 不初始化，采集和网络异常不阻断应用。Main、Renderer 与四个自包含 preload bundle 共享脱敏上下文，并支持 release Source Map 上传。
@@ -44,6 +45,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **默认界面语言**：`desktop-config.language` 未设置时默认英文（`DEFAULT_LANGUAGE=en`）；缺译回退仍为中文（`FALLBACK_LANGUAGE=zh`）。
 - **开发态 Vite renderer 端口改为 3020**：避免与官网 Next（3000）、仙侠主题 dev（3010）冲突；`wait-on` / `VETTA_DESKTOP_DEV_URL` 同步为 `http://127.0.0.1:3020`，并启用 `strictPort`。
 - **用户消息不再展示相对时间**：消息下方操作区去掉「刚刚 / N 分钟前」等时间标签，复制等操作按钮与分支切换保留。
 - **聊天输入框 placeholder**：改为自定义不可选中覆盖层，默认态多条文案垂直自动轮播（i18n `inputBar.placeholder.defaults` 数组可自由扩展）；无会话 / 思考中 / 输入预测建议仍为单条静态文案；有任意字符（含空格）即隐藏，与原生 placeholder 一致。纯视图落在 `@vetta/theme-ui/chat` 的 `InputBarPlaceholder`，desktop model 解析文案；支持 `chat.inputBarPlaceholder` component override。

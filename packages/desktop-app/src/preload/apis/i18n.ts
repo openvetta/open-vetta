@@ -8,7 +8,8 @@ const LANGUAGE_CHANGED_CHANNEL = "vetta:i18n:language-changed";
 
 export function createI18nApi(ipc: IpcRenderer): Pick<DesktopApi, "i18n"> {
 	// sendSync 在 preload 求值期同步取主进程当前语言，暴露成普通值供 renderer 首帧前读取。
-	const initialLanguage = (ipc.sendSync(GET_INITIAL_CHANNEL) as string | undefined) ?? "zh";
+	// 与 DEFAULT_LANGUAGE 对齐：sendSync 失败时默认英文，勿硬编码 zh。
+	const initialLanguage = (ipc.sendSync(GET_INITIAL_CHANNEL) as string | undefined) ?? "en";
 	return {
 		i18n: {
 			initialLanguage,
