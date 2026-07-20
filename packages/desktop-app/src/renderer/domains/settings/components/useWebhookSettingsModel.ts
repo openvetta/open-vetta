@@ -162,11 +162,20 @@ export function useWebhookSettingsModel(): WebhookSettingsModel {
 		})();
 	}, [refresh]);
 
+	const localizedProviders = useMemo(
+		() =>
+			providers.map((p) => ({
+				...p,
+				displayName: p.kind === "feishu" ? t("whFeishu") : p.kind === "dingtalk" ? t("whDingtalk") : p.displayName,
+			})),
+		[providers, t],
+	);
+
 	const providerByKind = useMemo(() => {
 		const map = new Map<WebhookKind, WebhookProviderDescriptor>();
-		for (const provider of providers) map.set(provider.kind, provider);
+		for (const provider of localizedProviders) map.set(provider.kind, provider);
 		return map;
-	}, [providers]);
+	}, [localizedProviders]);
 
 	const openCreate = useCallback(() => {
 		setEditingId(null);
@@ -366,7 +375,7 @@ export function useWebhookSettingsModel(): WebhookSettingsModel {
 		loading,
 		narrow,
 		providerByKind,
-		providers,
+		providers: localizedProviders,
 		rowMessage,
 		saving,
 		testingId,

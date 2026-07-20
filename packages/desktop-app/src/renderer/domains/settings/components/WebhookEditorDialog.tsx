@@ -60,7 +60,7 @@ function ProviderPicker({ model, isEdit }: { isEdit: boolean; model: WebhookSett
 							isEdit && provider.kind !== model.form.kind && "opacity-40",
 						)}
 					>
-						<span className={cn(provider.iconClass, "h-4 w-4")} />
+						{provider.iconClass && <span className={cn(provider.iconClass, "h-4 w-4")} />}
 						{provider.displayName}
 					</button>
 				))}

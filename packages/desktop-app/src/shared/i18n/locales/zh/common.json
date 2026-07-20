@@ -649,7 +649,8 @@
 			"notFound": "未找到该 Webhook 端点",
 			"loadFailed": "加载 Webhook 列表失败",
 			"feishu": "飞书",
-			"dingtalk": "钉钉"
+			"dingtalk": "钉钉",
+			"botSuffix": "机器人"
 		},
 		"downloads": {
 			"ops": {
