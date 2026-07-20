@@ -156,15 +156,17 @@ export function getOfficialNavigationHelp(): unknown {
 	return {
 		type: "help",
 		description:
-			"navigation.open 用于打开应用页面。先根据用户意图从 catalog 选择最匹配的 target/tab/section，再调用 open；不要直接拼接或暴露 window.location.hash。",
+			"navigation.query help 返回本目录（只读、不弹授权）。打开页面请用 navigation.open：从 catalog 选 target/tab/section，不要直接拼接 window.location.hash。",
 		operations: [
 			{
 				type: "help",
-				description: "返回可导航页面、设置页分类和设置子项目录。",
+				action: "navigation.query",
+				description: "返回可导航页面、设置页分类和设置子项目录（只读）。",
 				input: { type: "help" },
 			},
 			{
 				type: "open",
+				action: "navigation.open",
 				description:
 					"打开页面。普通页面传 target；设置页可传 target=settings + tab/section，也可直接把设置分类 id 或设置子项 id 作为 target。",
 				input: { type: "open", target: "models-providers" },

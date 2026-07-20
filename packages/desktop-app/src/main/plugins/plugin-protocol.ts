@@ -116,6 +116,7 @@ export const __PluginI18nContext = sdk.__PluginI18nContext;
 export const interpolatePluginText = sdk.interpolatePluginText;
 export const resolveCatalogKey = sdk.resolveCatalogKey;
 export const resolvePluginText = sdk.resolvePluginText;
+export const PluginAppActionError = sdk.PluginAppActionError;
 `);
 	}
 	return new Response("Not found", { status: 404 });
