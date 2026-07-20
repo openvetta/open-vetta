@@ -66,3 +66,19 @@ export function getInitialVideoBaseSizeByAction(): PetVideoBaseSizeByAction {
 export function getInitialAction(videos: PetVideoMap): PetActionId | undefined {
 	return pickIdleAction(videos);
 }
+
+/** 默认贴主屏工作区右下角（与 main `getInitialPetContentOffset` 一致）；URL 优先。 */
+export function getInitialContentOffset(): { x: number; y: number } {
+	const params = getSearchParams();
+	const x = Number(params.get("contentOffsetX"));
+	const y = Number(params.get("contentOffsetY"));
+	if (Number.isFinite(x) && Number.isFinite(y)) {
+		return { x: Math.round(x), y: Math.round(y) };
+	}
+	const margin = 24;
+	const halfSize = 110;
+	return {
+		x: Math.round(window.innerWidth / 2 - halfSize - margin),
+		y: Math.round(window.innerHeight / 2 - halfSize - margin),
+	};
+}

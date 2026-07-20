@@ -83,6 +83,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **桌宠首次出现落在屏幕中心**：全屏 workArea 叠加后默认 `contentOffset` 为中心，右下角仅靠 `did-finish-load` 的 `set-content-offset` IPC，易与 React 监听注册竞态导致消息丢失。现加载时直接计算右下角 offset 并写入入口 URL，渲染端首帧即读取初始位置。
 - **设置页多处 i18n 漏翻**：外观六个颜色主题名、Agent 人设下拉 label/description、快捷键「全局快捷键 / 快捷面板」section 标题、Claw「总开关 / 消息渠道」section 标题、Vetta Vivi 装饰 item 名称均改为走 i18n；主题定义与装饰元数据中的中文硬编码改为英文 fallback。
 - **新会话页模型选择器重启后显示「选择模型」**：per-session 改造后全局偏好不再写入/恢复 localStorage，欢迎页无会话可 pull 导致 UI 空置（实际仍可走后端默认模型对话）。现恢复 `vetta-selected-model` 作为新会话全局偏好（atom 启动读取、用户选择写回、`useAppInit` 正确恢复），options 未就绪时用 modelKey 兜底展示，已有会话仍以 session settings 为准。
 - **新会话引导词区高度抖动**：单条引导词过长换行或轮播切页时组件高度变化，牵动 `justify-center` 布局导致页面跳动。现固定 3 槽位列表高度，单条单行 `truncate`（全文在 `title`）；仅 1 组时用满宽，默认主题与仙侠主题同步。
