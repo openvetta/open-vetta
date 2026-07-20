@@ -213,5 +213,25 @@
 			"settingsRead": "读取设置",
 			"settingsWrite": "修改设置"
 		}
+	},
+	"tour": {
+		"capabilities": {
+			"banner": {
+				"title": "扩展专业能力",
+				"description": "能力页汇总技能与连接器。按想实现的功能挑选，一键添加后即可在对话中使用。"
+			},
+			"searchAdd": {
+				"title": "搜索与添加",
+				"description": "用搜索快速定位能力；也可点「添加能力」从本地导入 Skill，或手动配置 MCP 连接器。"
+			},
+			"scope": {
+				"title": "发现 / 我的",
+				"description": "「发现」浏览可添加的能力；「我的」管理已安装的能力，包括启用、配置与移除。"
+			},
+			"list": {
+				"title": "能力卡片",
+				"description": "每张卡片对应一项能力。可查看说明、添加或启用；需要凭证时会提示完成配置。"
+			}
+		}
 	}
 }

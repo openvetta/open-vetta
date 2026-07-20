@@ -9,6 +9,12 @@
 		"apply": "应用",
 		"back": "返回"
 	},
+	"tour": {
+		"next": "下一步",
+		"prev": "上一步",
+		"done": "完成",
+		"progress": "{{current}} / {{total}}"
+	},
 	"appearance": {
 		"languageTitle": "语言",
 		"languageHint": "选择界面显示语言"

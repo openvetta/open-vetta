@@ -86,6 +86,7 @@
 		"date-fns": "^4.1.0",
 		"dbus-next": "^0.10.2",
 		"dotenv": "^17.3.1",
+		"driver.js": "^1.8.0",
 		"electron-liquid-glass": "^1.1.1",
 		"electron-log": "^5.4.4",
 		"i18next": "^26.3.2",
