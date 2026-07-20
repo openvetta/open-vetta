@@ -1,43 +1,65 @@
 import type { PluginAppActionExample, PluginContext, PluginJsonSchema } from "@vetta-org/plugin-sdk";
 import { throwInvalidInput } from "../action-errors";
 
-type NavigationInput =
-	| { type: "help" }
-	| { type: "open"; target: string; tab?: string; section?: string; approvalUi?: string };
-
-const inputSchema: PluginJsonSchema = {
-	type: "object",
-	oneOf: [
-		{ properties: { type: { const: "help" } }, required: ["type"], additionalProperties: false },
-		{
-			properties: {
-				type: { const: "open" },
-				target: { type: "string", minLength: 1 },
-				tab: { type: "string", minLength: 1 },
-				section: { type: "string", minLength: 1 },
-				approvalUi: { enum: ["navigation.open", "generic"] },
-			},
-			required: ["type", "target"],
-			additionalProperties: false,
-		},
-	],
+type NavigationQueryInput = { type: "help" };
+type NavigationOpenInput = {
+	type: "open";
+	target: string;
+	tab?: string;
+	section?: string;
+	approvalUi?: string;
 };
 
-const examples: PluginAppActionExample<NavigationInput>[] = [
+const querySchema: PluginJsonSchema = {
+	type: "object",
+	oneOf: [{ properties: { type: { const: "help" } }, required: ["type"], additionalProperties: false }],
+};
+
+const openSchema: PluginJsonSchema = {
+	type: "object",
+	properties: {
+		type: { const: "open" },
+		target: { type: "string", minLength: 1 },
+		tab: { type: "string", minLength: 1 },
+		section: { type: "string", minLength: 1 },
+		approvalUi: { enum: ["navigation.open", "generic"] },
+	},
+	required: ["type", "target"],
+	additionalProperties: false,
+};
+
+const queryExamples: PluginAppActionExample<NavigationQueryInput>[] = [
 	{ description: "查看可导航页面目录", input: { type: "help" } },
+];
+
+const openExamples: PluginAppActionExample<NavigationOpenInput>[] = [
 	{ description: "打开能力页", input: { type: "open", target: "skills" } },
 	{ description: "打开模型配置", input: { type: "open", target: "models" } },
 	{ description: "打开连接器", input: { type: "open", target: "connectors" } },
 ];
 
 export function registerNavigationActions(ctx: PluginContext): void {
-	ctx.appActions.register<NavigationInput>({
+	ctx.appActions.register<NavigationQueryInput>({
+		id: "navigation.query",
+		publicId: "navigation.query",
+		title: "查询可导航页面",
+		summary: "列出可打开的应用页面与设置分类目录。",
+		description:
+			'对象参数：{ "type": "help" }。只读，不弹授权。打开页面请用 navigation.open。',
+		keywords: ["open", "打开", "跳转", "导航", "页面", "settings", "设置", "目录", "help"],
+		effect: "read",
+		inputSchema: querySchema,
+		examples: queryExamples,
+		handler: async () => ctx.official.navigation.help(),
+	});
+
+	ctx.appActions.register<NavigationOpenInput>({
 		id: "navigation.open",
 		publicId: "navigation.open",
 		title: "打开应用页面",
 		summary: "根据稳定页面 id 打开应用内页面；支持跳转到设置页分类和具体设置项。",
 		description:
-			'对象参数：{ "type": "help" } 或 { "type": "open", "target": string, "tab"?: string, "section"?: string }。',
+			'对象参数：{ "type": "open", "target": string, "tab"?: string, "section"?: string }。查询目录请用 navigation.query help。',
 		keywords: [
 			"open",
 			"打开",
@@ -65,10 +87,9 @@ export function registerNavigationActions(ctx: PluginContext): void {
 				open: "navigation.open",
 			},
 		},
-		inputSchema,
-		examples,
+		inputSchema: openSchema,
+		examples: openExamples,
 		assertReady: async ({ input }) => {
-			if (input.type !== "open") return;
 			try {
 				ctx.official.navigation.resolveOpen({
 					target: input.target,
@@ -85,7 +106,6 @@ export function registerNavigationActions(ctx: PluginContext): void {
 			}
 		},
 		handler: async ({ input }) => {
-			if (input.type === "help") return ctx.official.navigation.help();
 			return ctx.official.navigation.open({
 				target: input.target,
 				tab: input.tab,

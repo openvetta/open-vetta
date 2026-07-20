@@ -1,9 +1,9 @@
 import type { PluginAppActionExample, PluginContext, PluginJsonSchema } from "@vetta-org/plugin-sdk";
 import { throwEntityNotFound } from "../action-errors";
 
-type ThemeInput =
-	| { type: "help" }
-	| { type: "get" }
+type ThemeQueryInput = { type: "help" } | { type: "get" };
+
+type ThemeManageInput =
 	| {
 			type: "set";
 			mode?: "light" | "dark" | "auto";
@@ -13,11 +13,17 @@ type ThemeInput =
 	  }
 	| { type: "set-language"; language: "zh" | "en"; approvalUi?: string };
 
-const inputSchema: PluginJsonSchema = {
+const querySchema: PluginJsonSchema = {
 	type: "object",
 	oneOf: [
 		{ properties: { type: { const: "help" } }, required: ["type"], additionalProperties: false },
 		{ properties: { type: { const: "get" } }, required: ["type"], additionalProperties: false },
+	],
+};
+
+const manageSchema: PluginJsonSchema = {
+	type: "object",
+	oneOf: [
 		{
 			properties: {
 				type: { const: "set" },
@@ -43,21 +49,41 @@ const inputSchema: PluginJsonSchema = {
 	],
 };
 
-const examples: PluginAppActionExample<ThemeInput>[] = [
+const queryExamples: PluginAppActionExample<ThemeQueryInput>[] = [
 	{ description: "查看可用主题", input: { type: "help" } },
 	{ description: "获取当前外观", input: { type: "get" } },
+];
+
+const manageExamples: PluginAppActionExample<ThemeManageInput>[] = [
 	{ description: "切换深色默认主题", input: { type: "set", mode: "dark", themeId: "default" } },
 	{ description: "切换界面语言为英文", input: { type: "set-language", language: "en" } },
 ];
 
 export function registerAppearanceActions(ctx: PluginContext): void {
-	ctx.appActions.register<ThemeInput>({
+	ctx.appActions.register<ThemeQueryInput>({
+		id: "appearance.query",
+		publicId: "appearance.query",
+		title: "查询外观",
+		summary: "读取当前显示模式、主题、指针样式与界面语言；查看可用主题列表。",
+		description:
+			'对象参数：{ "type": "help" } 或 { "type": "get" }。只读，不弹授权。变更外观请用 appearance.theme。',
+		keywords: ["theme", "主题", "外观", "深色", "浅色", "dark", "light", "语言", "language", "cursor", "鼠标"],
+		effect: "read",
+		inputSchema: querySchema,
+		examples: queryExamples,
+		handler: async ({ input }) => {
+			if (input.type === "help") return ctx.official.appearance.help();
+			return ctx.official.appearance.get();
+		},
+	});
+
+	ctx.appActions.register<ThemeManageInput>({
 		id: "appearance.theme",
 		publicId: "appearance.theme",
-		title: "读取或设置外观",
-		summary: "对应设置 → 外观：读取/切换显示模式、主题风格、鼠标指针，以及界面语言（zh/en）。",
+		title: "设置外观",
+		summary: "对应设置 → 外观：切换显示模式、主题风格、鼠标指针，以及界面语言（zh/en）。",
 		description:
-			'对象参数：{ "type": "help" }、{ "type": "get" }、{ "type": "set", "mode"?: ..., "themeId"?: ..., "cursorStyle"?: ... } 或 { "type": "set-language", "language": "zh" | "en" }。',
+			'对象参数：{ "type": "set", "mode"?: ..., "themeId"?: ..., "cursorStyle"?: ... } 或 { "type": "set-language", "language": "zh" | "en" }。只读查询请用 appearance.query（help/get）。',
 		keywords: [
 			"theme",
 			"主题",
@@ -97,8 +123,8 @@ export function registerAppearanceActions(ctx: PluginContext): void {
 				"set-language": "appearance.set-language",
 			},
 		},
-		inputSchema,
-		examples,
+		inputSchema: manageSchema,
+		examples: manageExamples,
 		assertReady: async ({ input }) => {
 			if (input.type !== "set" || input.themeId === undefined) return;
 			const ids = ctx.official.appearance.listThemeIds();
@@ -108,16 +134,14 @@ export function registerAppearanceActions(ctx: PluginContext): void {
 				entity: "color theme",
 				idField: "themeId",
 				id: input.themeId,
-				queryAction: "appearance.theme",
+				queryAction: "appearance.query",
 				queryExample: { type: "help" },
 				resultIdPath: "themes[].id",
 				availableIds: ids,
-				extra: 'You may also call appearance.theme with {"type":"get"} for current state.',
+				extra: 'You may also call appearance.query with {"type":"get"} for current state.',
 			});
 		},
 		handler: async ({ input }) => {
-			if (input.type === "help") return ctx.official.appearance.help();
-			if (input.type === "get") return ctx.official.appearance.get();
 			if (input.type === "set-language") return ctx.official.appearance.setLanguage(input.language);
 			return ctx.official.appearance.set({
 				mode: input.mode,

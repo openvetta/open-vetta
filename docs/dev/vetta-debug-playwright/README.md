@@ -6,10 +6,11 @@
 - Playwright CLI 通过 CDP 附着当前 Electron，负责观察、点击和断言 Renderer UI。
 - 两者结合后，Agent 可以根据失败证据继续修改代码并重复验收。
 
-会话操作的完整参数与 Ask User 闭环见 [Vetta Debug 自动化开发手册](../vetta-debug-automated-development.md)。本目录的 [实测记录](field-notes-2026-07-18.md) 保存了首次接入时遇到的问题。
+会话操作的完整参数与 Ask User 闭环见 [Vetta Debug 自动化开发手册](../vetta-debug-automated-development.md)。踩坑与已知问题见 [常见问题](troubleshooting.md)。
 
 ## 专题文档
 
+- [常见问题（踩坑与处理）](troubleshooting.md)
 - [右侧活动面板：打开、断言与单独截图](ui-automation/activity-panel.md)
 - [左侧“更多”下拉层：进入插件页](ui-automation/more-menu-to-plugins.md)
 
@@ -87,6 +88,42 @@ playwright-cli -s=vetta attach --cdp=http://127.0.0.1:9223
 playwright-cli -s=vetta tab-list
 ```
 
+### 3.1 Agent 环境：session 必须后台保活
+
+`playwright-cli -s=vetta` 的会话由 **daemon** 承载，attach 成功后可跨 shell 复用，不必每次重新 attach。
+
+但在 **Agent / 工具包装的 shell** 里，前台命令结束后 Job 往往会收掉子进程，daemon 随之退出，后续就会报：
+
+```text
+Browser 'vetta' is not open.
+```
+
+因此 Agent 侧应把 attach **挂为后台长任务**保活，而不是在每次短命令里 attach 完就结束进程树：
+
+```powershell
+# 后台任务（background / 长驻）：attach 后 sleep 保活 Job
+playwright-cli -s=vetta attach --cdp=http://127.0.0.1:9223
+while ($true) { Start-Sleep -Seconds 3600 }
+```
+
+前台业务命令直接用同一 session（**不要**无故 `close`）：
+
+```powershell
+playwright-cli list                          # 应看到 vetta: status open
+playwright-cli -s=vetta tab-list
+playwright-cli -s=vetta tab-select <index>
+playwright-cli -s=vetta snapshot
+playwright-cli -s=vetta click "getByRole('button', { name: /确认/ })"
+```
+
+注意：
+
+- 仅当 App/CDP 挂掉、或主动 `close` / `kill-all` 后才需要重新 attach。
+- 不要用「每次 tool 调用都 close + attach」代替后台保活；那既慢又容易连错 tab。
+- 本机交互式终端里 daemon 通常能自行存活；**后台保活是给 Agent Job 生命周期用的**。
+
+### 3.2 选择主窗口 tab
+
 Vetta Desktop 会同时创建主窗口、Quick Panel、桌宠窗口，开发模式还可能创建 DevTools。附着后不要假设 tab `0` 是主窗口，应根据标题和 URL 选择：
 
 ```powershell
@@ -100,7 +137,27 @@ Title: Vetta Desktop
 URL:   http://127.0.0.1:3000/
 ```
 
-tab 下标会随窗口启停变化，Agent 每次重新附着后都应先运行 `tab-list`。
+tab 下标会随窗口启停变化；session 保活期间若只开关了 Pet/Quick Panel，下标也可能变。**每次操作主窗前先 `tab-list`，不要写死 index。**
+
+### 3.3 写 Action / 审批弹窗：直接看页面，不要用脚本
+
+App Action 写路径会在主窗弹出审批 UI。验收时：
+
+1. **先看页面**：`snapshot` 或 `run-code` 列出可见按钮文案（不要假设一定是「确认执行」）。
+2. **再点对的按钮**：如 `确认开启`、`保存实验功能`、`打开`、`切换语言`、`全部恢复默认` 等。
+3. **清干净再测下一个**：若看到 `拒绝（0:00）`，说明上一笔已超时但弹窗还在，FIFO 会堵死后续写 action。
+
+**禁止**再包一层「自动点审批」脚本（PowerShell / 黑盒 `--approve` 批量盲点）。脚本猜不全文案、也看不到残留队列，只会把问题记成超时。
+
+约定与只读复跑说明见 [docs/actions/README.md](../../actions/README.md)。
+
+```powershell
+# 示例：看当前主窗按钮
+playwright-cli -s=vetta tab-select <Desktop下标>
+playwright-cli -s=vetta run-code "async (page) => { const all=page.getByRole('button'); const n=await all.count(); const vis=[]; for (let i=0;i<n;i++){ const t=(await all.nth(i).innerText().catch(()=>'')).replace(/\s+/g,' ').trim(); if (t && await all.nth(i).isVisible()) vis.push(t);} return vis; }"
+# 再按看到的 name 点击
+playwright-cli -s=vetta click "getByRole('button', { name: '确认开启' })"
+```
 
 ## 4. 用 Vetta Debug 创建待验收会话
 

@@ -39,7 +39,7 @@ export function registerDownloadsActions(ctx: PluginContext): void {
 		handler: async ({ input }) => {
 			if (input.operation === "help") {
 				return {
-					guidance: "下载中心列表与取消；打开页面可用 navigation.open target=downloads。",
+					guidance: "下载中心列表与取消；页面目录 navigation.query help；打开页面 navigation.open target=downloads。",
 					actions: [
 						{ id: "downloads.query", inputSchema: querySchema, examples: queryExamples },
 						{ id: "downloads.manage", inputSchema: manageSchema, examples: manageExamples },

@@ -45,12 +45,13 @@ export async function getOfficialAppearanceHelp(): Promise<unknown> {
 	return {
 		type: "help",
 		description:
-			"appearance.theme 对应设置 → 外观：用一个 JSON 对象通过 type 字段选择操作，覆盖显示模式、主题风格与鼠标指针。",
+			"appearance.query 只读：type=help 返回本说明与主题目录，type=get 返回当前外观。变更请用 appearance.theme（type=set / set-language）。",
 		state,
 		themes: THEMES.map(({ id, label }) => ({ id, label })),
 		language: currentLanguage(),
 		native,
-		guidance: "界面语言用 type=set-language；主题/模式/指针用 type=set。",
+		guidance:
+			"只读：appearance.query help|get。写操作：appearance.theme type=set（mode/themeId/cursorStyle）或 type=set-language。",
 	};
 }
 

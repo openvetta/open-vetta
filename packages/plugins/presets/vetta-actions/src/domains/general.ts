@@ -66,7 +66,7 @@ export function registerGeneralActions(ctx: PluginContext): void {
 			if (input.operation === "help") {
 				return {
 					guidance:
-						"general 对应设置 → 通用。语言 → appearance.theme（set-language）；Agent 实验开关 → agent.query / agent.manage；知识库加工 → knowledge.query get-processing / knowledge.manage set-processing；模型/MCP 用 models.* / mcp.*。",
+						"general 对应设置 → 通用。外观查询 → appearance.query；语言/主题变更 → appearance.theme；Agent 实验开关 → agent.query / agent.manage；知识库加工 → knowledge.query get-processing / knowledge.manage set-processing；模型/MCP 用 models.* / mcp.*。",
 					actions: [
 						{ id: "general.query", inputSchema: querySchema, examples: queryExamples },
 						{ id: "general.manage", inputSchema: manageSchema, examples: manageExamples },
