@@ -7,7 +7,7 @@ All notable changes to `@vetta-org/plugin-sdk` are documented in this file.
 ### Added
 
 - Added `ctx.appActions.register()` and its typed JSON Schema Action registration, trusted-official `publicId`, effect, handler, cancellation, and lifecycle contracts.
-- Added the trust-gated `ctx.official.general.getSettings()` host capability for the official Action plugin.
+- Added trust-gated `ctx.official.general.getSettings()` / `setSettings()` host capabilities and official-only host approval presentation mappings for the official Action plugin.
 
 ## [0.0.2] — 2026-07-15
 

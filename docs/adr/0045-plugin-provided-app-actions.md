@@ -19,8 +19,9 @@ Desktop 的 App Action 当前由 `packages/desktop-app/src/main/app-actions` 静
 5. 第三方插件公开 id 固定为 `plugin.<pluginId>.<localId>`。只有宿主判定为 `trustLevel: "official"` 的插件才可通过 `publicId` 占用稳定公共 id。信任级别由宿主生成，不能由插件 manifest 或用户可编辑的注册表声明。
 6. 现有内置 Action 保留为 fallback。官方 Action 插件可按领域逐步提供同 id 的新版实现，不需要先删除静态注册；停用、卸载、权限撤销或 activation 清理后目录自动恢复内置 provider。
 7. 插件下载、签名、灰度与回滚继续归插件分发链负责，不写入 Action Runtime。
-8. 首个实现为随包 `vetta-actions` 系统插件，先覆盖 `general.query`；静态 `general.query` 保留为 fallback。插件通过受信任的 `ctx.official.general.getSettings()` 读取宿主数据，不反向调用同 id 的静态 Action。
+8. 首个实现为随包 `vetta-actions` 系统插件，覆盖 `general.query` 与 `general.manage`；对应静态 Action 保留为 fallback。插件通过受信任的 `ctx.official.general.getSettings()` / `setSettings()` 读写宿主数据，不反向调用同 id 的静态 Action。
 9. 官方 Action 插件未来改为独立更新时，分发层必须把签名验证结果映射为 `trustLevel: "official"`；不能仅凭远端来源或插件 id 放宽覆盖权限。远端更新服务最后实施。
+10. `write` / `execute` 的审批与二次校验仍由宿主强制执行。普通插件只能使用通用审批；官方插件可以声明宿主已有的 approval presentation 及 operation 映射，以保留领域专用、可编辑的审批体验，但不能注入组件或声明免审批。
 
 ## 原因
 
@@ -35,6 +36,7 @@ Desktop 的 App Action 当前由 `packages/desktop-app/src/main/app-actions` 静
 
 - Desktop 仍需随协议演进更新 SDK，但新增或修改具体 Action 不再需要发版。
 - `gui-renderer` Action 依赖主窗口 renderer；renderer 不可用时返回 `PLUGIN_ACTION_UNAVAILABLE`。
-- 首版只提供通用审批，不允许插件注入审批组件或声明免审批。
+- 普通插件只提供通用审批；官方插件可以引用宿主已有审批 presentation，但不能注入审批组件或声明免审批。
 - 当前变更建立动态 Action Runtime、事务激活和内置 fallback；官方托管插件的服务清单、签名、灰度、回滚与 bootstrap 登记仍需由分发层另行实现。
 - 当前随包系统插件由宿主标记为 `trustLevel: "official"`；远端和本地插件分别为 `community` 与 `local`，均不能使用 `publicId`。来源与信任门控已经解耦，但远端签名验证尚未实施。
+- `vetta-actions` 已完成 `general` 领域的读写迁移；其它领域继续使用静态实现，并可按同一模式逐域迁移。

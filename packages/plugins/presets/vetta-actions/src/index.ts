@@ -5,6 +5,10 @@ import {
 } from "@vetta-org/plugin-sdk";
 
 type GeneralQueryInput = { operation: "help" } | { operation: "get" };
+type GeneralManageInput =
+	| { operation: "set-notifications"; enabled: boolean }
+	| { operation: "set-execution-mode"; mode: "sandbox" | "full-access" }
+	| { operation: "set-workspace"; path: string };
 
 const generalQueryInputSchema: PluginJsonSchema = {
 	type: "object",
@@ -55,7 +59,7 @@ const generalManageInputSchema: PluginJsonSchema = {
 const queryExamples: PluginAppActionExample<GeneralQueryInput>[] = [
 	{ description: "读取通用设置", input: { operation: "get" } },
 ];
-const manageExamples = [
+const manageExamples: PluginAppActionExample<GeneralManageInput>[] = [
 	{ description: "默认沙盒执行", input: { operation: "set-execution-mode", mode: "sandbox" } },
 	{ description: "关闭系统通知", input: { operation: "set-notifications", enabled: false } },
 ];
@@ -86,6 +90,44 @@ export default definePlugin({
 				}
 				return ctx.official.general.getSettings();
 			},
+		});
+		ctx.appActions.register<GeneralManageInput>({
+			id: "general.manage",
+			publicId: "general.manage",
+			title: "修改通用设置",
+			summary: "修改通知、默认执行模式或工作区路径。",
+			description:
+				'对象参数；operation 为 "set-notifications"、"set-execution-mode" 或 "set-workspace"。',
+			keywords: ["通用", "通知", "沙盒", "full-access", "workspace", "工作区", "执行模式"],
+			effect: "write",
+			approval: {
+				defaultPresentation: "general.set-notifications",
+				presentations: [
+					{
+						id: "general.set-notifications",
+						title: "修改通知设置确认",
+						description: "确认通知开关。",
+					},
+					{
+						id: "general.set-execution-mode",
+						title: "修改默认执行模式确认",
+						description: "确认执行模式变更。",
+					},
+					{
+						id: "general.set-workspace",
+						title: "修改工作区路径确认",
+						description: "展示并可编辑工作区路径。",
+					},
+				],
+				presentationByOperation: {
+					"set-notifications": "general.set-notifications",
+					"set-execution-mode": "general.set-execution-mode",
+					"set-workspace": "general.set-workspace",
+				},
+			},
+			inputSchema: generalManageInputSchema,
+			examples: manageExamples,
+			handler: ({ input }) => ctx.official.general.setSettings(input),
 		});
 	},
 });
