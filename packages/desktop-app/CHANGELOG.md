@@ -6,6 +6,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **官方 App Action 第二批迁移**：`vetta-actions` 系统插件与 `ctx.official` 宿主能力扩展覆盖 `skills`、`shortcuts`、`im`、`mcp`、`models`、`projects`、`knowledge`、`plugins`；继续以同 id 静态实现为 fallback，写操作复用既有领域审批 UI。
+- **官方 App Action 第三批迁移（收尾）**：完成 `batch-tasks`、`scheduler`、`appearance`、`navigation`；`ctx.official` 新增批量/定时窄 API、渲染器内主题读写与 hash 导航；插件审批 presentation 映射同时识别 `operation` 与 `type` 字段。
 - **插件动态 App Action（ADR-0045）**：插件可通过 `ctx.appActions.register()` 向主进程 Action 目录动态注册 JSON Schema Action；支持 `vetta action search/describe/run`、插件 activation 两阶段提交与失败回滚、内置 provider fallback、可信系统插件稳定 `publicId`、权限复查、write/execute 审批、超时、取消与 JSON 结果校验，为官方 Action 插件独立于 Desktop 发版奠定运行时基础。
 - **首次启动引导页**：用户首次进入主窗口时全屏展示；右上角可 Skip。非 mac 3 屏（语言与外观 → 登录 → 欢迎），mac 4 屏（语言与外观 → 授予权限 → 登录 → 欢迎）。权限屏仅 mac 可见；已登录时省略登录步与 indicator；登录可选；完成/跳过写入 localStorage，并延后侧边栏 product tour。设置 → 通用可重新「启动App引导」。语言与外观步含 6 色主题选择；底部导航收拢为居中胶囊条并带动画。
 - **插件动态 App Action（ADR-0045）**：插件可通过 `ctx.appActions.register()` 向主进程 Action 目录动态注册 JSON Schema Action；支持 `vetta action search/describe/run`、插件 activation 生命周期清理、权限复查、write/execute 审批、超时、取消与 JSON 结果校验，为官方 Action 插件独立于 Desktop 发版奠定运行时基础。

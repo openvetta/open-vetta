@@ -218,7 +218,9 @@ function applyApprovalPresentation(
 	registration: PluginAppActionRegistration,
 ): JsonValue {
 	if (!registration.approval || typeof input !== "object" || input === null || Array.isArray(input)) return input;
-	const operation = typeof input.operation === "string" ? input.operation : undefined;
+	// appearance/navigation 等用 type 字段区分操作；多数域用 operation。
+	const operation =
+		typeof input.operation === "string" ? input.operation : typeof input.type === "string" ? input.type : undefined;
 	const presentation =
 		requestedPresentation ??
 		(operation ? registration.approval.presentationByOperation?.[operation] : undefined) ??
