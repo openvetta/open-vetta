@@ -1,0 +1,16 @@
+{
+	"id": "vetta-actions",
+	"name": "%plugin.name%",
+	"version": "0.1.0",
+	"pluginApiVersion": "^1.0.0",
+	"runtime": "module-federation",
+	"entry": "dist/mf-manifest.json",
+	"moduleFederation": {
+		"remoteName": "vetta_actions",
+		"expose": "./plugin"
+	},
+	"permissions": ["app.actions.register", "app.actionHandler.execute"],
+	"description": "%plugin.description%",
+	"author": "Vetta",
+	"defaultLocale": "zh"
+}

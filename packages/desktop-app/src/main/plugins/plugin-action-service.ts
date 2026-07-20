@@ -93,7 +93,7 @@ function assertPluginCanExecute(pluginId: string): void {
 }
 
 function isTrustedOfficialPlugin(pluginId: string): boolean {
-	return listPlugins().some((plugin) => plugin.id === pluginId && plugin.source === "system");
+	return listPlugins().some((plugin) => plugin.id === pluginId && plugin.trustLevel === "official");
 }
 
 function buildGlobalActionId(pluginId: string, localActionId: string, publicId: string | undefined): string {

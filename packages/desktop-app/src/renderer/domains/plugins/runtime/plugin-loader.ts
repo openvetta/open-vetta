@@ -38,6 +38,7 @@ import type {
 	PluginInputActionContribution,
 	PluginLocales,
 	PluginNotifyOptions,
+	PluginOfficialApi,
 	PluginOpenActivityTabOptions,
 	PluginPermission,
 	PluginSettingsApi,
@@ -422,6 +423,26 @@ function createCommandApi(plugin: InstalledPlugin): PluginCommandApi {
 				throw new Error(`Plugin ${plugin.id} command disabled by user: ${file}`);
 			}
 			return window.vetta.plugins.runCommand(plugin.id, file, args ?? [], options);
+		},
+	};
+}
+
+function createOfficialApi(plugin: InstalledPlugin): PluginOfficialApi {
+	return {
+		general: {
+			getSettings: async () => {
+				if (plugin.trustLevel !== "official") {
+					throw new Error(`Plugin ${plugin.id} is not allowed to use official host capabilities`);
+				}
+				const config = await window.vetta.config.get();
+				return {
+					workspacePath: config.workspacePath,
+					defaultExecutionMode: config.defaultExecutionMode,
+					notificationsEnabled: config.notificationsEnabled !== false,
+					debugMode: Boolean(config.debugMode),
+					sandbox: config.sandbox ?? config.linuxSandbox,
+				};
+			},
 		},
 	};
 }
@@ -991,6 +1012,7 @@ function createContext(
 				};
 			},
 		},
+		official: createOfficialApi(plugin),
 		images: createImagesApi(plugin),
 		settings: settingsApi,
 		i18n: createI18nApi(plugin),

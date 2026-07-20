@@ -340,6 +340,8 @@ function readRegistry(): PluginManifestFile {
 			plugin.defaultLocale ??= "zh";
 			plugin.locales ??= {};
 			plugin.source ??= "archive";
+			// 用户可编辑的注册表不是信任根；远端签名链接入前一律按来源降为非官方。
+			plugin.trustLevel = plugin.source === "remote" ? "community" : "local";
 			plugin.rootPath = computePluginRootPath(plugin.id, plugin.source, plugin.activeVersion);
 		}
 		return registry;
@@ -693,6 +695,7 @@ function installedFromManifest(
 		installedAt: previous?.installedAt ?? now,
 		updatedAt: now,
 		source: options?.source ?? "archive",
+		trustLevel: options?.source === "remote" ? "community" : "local",
 		availableVersion: previous && previous.version !== manifest.version ? manifest.version : undefined,
 		pendingVersion: previous && previous.version !== manifest.version ? manifest.version : undefined,
 		rootPath: computePluginRootPath(manifest.id, options?.source ?? "archive", activeVersion),
@@ -1320,6 +1323,7 @@ function systemInstalledFromManifest(
 		installedAt: now,
 		updatedAt: now,
 		source: "system",
+		trustLevel: "official",
 		rootPath: computePluginRootPath(manifest.id, "system", manifest.version),
 	};
 }
