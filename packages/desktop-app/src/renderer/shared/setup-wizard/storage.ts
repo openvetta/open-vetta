@@ -3,6 +3,9 @@ export const SETUP_WIZARD_STORAGE_KEY = "vetta-setup-wizard-completed";
 
 export const SETUP_WIZARD_COMPLETED_EVENT = "vetta-setup-wizard-completed";
 
+/** Re-open the setup wizard from Settings (does not clear the completed flag). */
+export const SETUP_WIZARD_OPEN_EVENT = "vetta-setup-wizard-open";
+
 /**
  * Signals that the user already used the app before this wizard shipped.
  * Avoid forcing the wizard on upgrade installs.
@@ -47,4 +50,9 @@ export function markSetupWizardCompleted(): void {
 		// ignore quota / private mode
 	}
 	window.dispatchEvent(new Event(SETUP_WIZARD_COMPLETED_EVENT));
+}
+
+/** Open the setup wizard again (e.g. from Settings → General). */
+export function openSetupWizard(): void {
+	window.dispatchEvent(new Event(SETUP_WIZARD_OPEN_EVENT));
 }

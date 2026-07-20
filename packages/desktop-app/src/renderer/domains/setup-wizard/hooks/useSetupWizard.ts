@@ -1,7 +1,9 @@
-import { useCallback, useMemo, useState } from "react";
+import { authTokenAtom } from "@shared/store/atoms";
+import { useAtomValue } from "jotai";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getSetupWizardSteps, type SetupWizardStepId } from "../steps";
-import { isSetupWizardCompleted, markSetupWizardCompleted } from "../storage";
+import { isSetupWizardCompleted, markSetupWizardCompleted, SETUP_WIZARD_OPEN_EVENT } from "../storage";
 
 export interface SetupWizardModel {
 	readonly actions: {
@@ -26,11 +28,31 @@ export interface SetupWizardModel {
 	readonly totalSteps: number;
 }
 
+function resolveSteps(isLoggedIn: boolean): readonly SetupWizardStepId[] {
+	return getSetupWizardSteps({ isLoggedIn });
+}
+
 export function useSetupWizard(): SetupWizardModel {
 	const { t } = useTranslation("common");
-	const steps = useMemo(() => getSetupWizardSteps(), []);
+	const token = useAtomValue(authTokenAtom);
+
 	const [open, setOpen] = useState(() => !isSetupWizardCompleted());
+	// Freeze step list for the current open session so mid-wizard login does not
+	// shrink the indicator / scramble stepIndex; re-open recomputes from auth.
+	const [steps, setSteps] = useState<readonly SetupWizardStepId[]>(() => resolveSteps(Boolean(token)));
 	const [stepIndex, setStepIndex] = useState(0);
+
+	const openWizard = useCallback(() => {
+		setSteps(resolveSteps(Boolean(token)));
+		setStepIndex(0);
+		setOpen(true);
+	}, [token]);
+
+	useEffect(() => {
+		const onOpen = () => openWizard();
+		window.addEventListener(SETUP_WIZARD_OPEN_EVENT, onOpen);
+		return () => window.removeEventListener(SETUP_WIZARD_OPEN_EVENT, onOpen);
+	}, [openWizard]);
 
 	const finish = useCallback(() => {
 		markSetupWizardCompleted();
@@ -55,6 +77,17 @@ export function useSetupWizard(): SetupWizardModel {
 	const isFirst = stepIndex === 0;
 	const isLast = stepIndex === steps.length - 1;
 
+	const labels = useMemo(
+		() => ({
+			back: t("setupWizard.back"),
+			getStarted: t("setupWizard.getStarted"),
+			next: t("setupWizard.next"),
+			progress: t("setupWizard.progress", { current: stepIndex + 1, total: steps.length }),
+			skip: t("setupWizard.skip"),
+		}),
+		[stepIndex, steps.length, t],
+	);
+
 	return {
 		actions: {
 			back,
@@ -65,13 +98,7 @@ export function useSetupWizard(): SetupWizardModel {
 		currentStep,
 		isFirst,
 		isLast,
-		labels: {
-			back: t("setupWizard.back"),
-			getStarted: t("setupWizard.getStarted"),
-			next: t("setupWizard.next"),
-			progress: t("setupWizard.progress", { current: stepIndex + 1, total: steps.length }),
-			skip: t("setupWizard.skip"),
-		},
+		labels,
 		open,
 		stepIndex,
 		steps,

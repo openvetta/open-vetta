@@ -18,6 +18,7 @@ export interface GeneralSettingsViewLabels {
 		readonly sandbox: string;
 		readonly notifications: string;
 		readonly developer: string;
+		readonly setupGuide: string;
 	};
 	readonly workspaceTitle: string;
 	readonly workspaceDescription: string;
@@ -29,6 +30,9 @@ export interface GeneralSettingsViewLabels {
 	readonly debugModeDescription: string;
 	readonly exportDiagnostics: string;
 	readonly exportDiagnosticsDescription: string;
+	readonly startAppGuide: string;
+	readonly startAppGuideDescription: string;
+	readonly startAppGuideAction: string;
 	readonly fullAccess: string;
 	readonly useSandbox: string;
 	readonly export: string;
@@ -44,6 +48,7 @@ export interface GeneralSettingsViewProps {
 		readonly sandbox: SettingSectionMeta;
 		readonly notifications: SettingSectionMeta;
 		readonly developer: SettingSectionMeta;
+		readonly setupGuide: SettingSectionMeta;
 	};
 	readonly workspacePath: string;
 	readonly onSelectWorkspace: () => void;
@@ -58,6 +63,7 @@ export interface GeneralSettingsViewProps {
 	readonly onDebugChange: (checked: boolean) => void;
 	readonly exportingDiagnostics: boolean;
 	readonly onExportDiagnostics: () => void;
+	readonly onStartAppGuide: () => void;
 }
 
 /**
@@ -80,6 +86,7 @@ export function GeneralSettingsView({
 	onDebugChange,
 	exportingDiagnostics,
 	onExportDiagnostics,
+	onStartAppGuide,
 }: GeneralSettingsViewProps): JSX.Element {
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 pt-2 pb-4">
@@ -157,6 +164,14 @@ export function GeneralSettingsView({
 				>
 					<Button size="sm" variant="outline" disabled={exportingDiagnostics} onClick={onExportDiagnostics}>
 						{exportingDiagnostics ? labels.exporting : labels.export}
+					</Button>
+				</SettingRow>
+			</SettingSection>
+
+			<SettingSection title={labels.sections.setupGuide} section={sections.setupGuide}>
+				<SettingRow title={labels.startAppGuide} description={labels.startAppGuideDescription} border={false}>
+					<Button size="sm" variant="outline" onClick={onStartAppGuide}>
+						{labels.startAppGuideAction}
 					</Button>
 				</SettingRow>
 			</SettingSection>

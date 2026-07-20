@@ -1,3 +1,4 @@
+import { openSetupWizard } from "@domains/setup-wizard";
 import {
 	confirmDialogAtom,
 	debugModeAtom,
@@ -17,6 +18,7 @@ export interface GeneralSettingsModel {
 		exportDiagnostics: () => Promise<void>;
 		resetWorkspace: () => Promise<void>;
 		selectWorkspace: () => Promise<void>;
+		startAppGuide: () => void;
 		toggleDebug: (checked: boolean) => void;
 		toggleNotifications: (checked: boolean) => void;
 	};
@@ -44,9 +46,13 @@ interface GeneralSettingsLabels {
 		developer: string;
 		notifications: string;
 		sandbox: string;
+		setupGuide: string;
 		updates: string;
 		workspace: string;
 	};
+	startAppGuide: string;
+	startAppGuideAction: string;
+	startAppGuideDescription: string;
 	systemNotifications: string;
 	systemNotificationsDescription: string;
 	title: string;
@@ -169,6 +175,11 @@ export function useGeneralSettingsModel(): GeneralSettingsModel {
 		[executionMode, sandboxUnavailableReason, setExecutionMode],
 	);
 
+	const startAppGuide = useCallback(() => {
+		openSetupWizard();
+		recordSettingsUsage({ tab: "general", action: "selected", target: "setup-guide" });
+	}, []);
+
 	const labels = useMemo<GeneralSettingsLabels>(
 		() => ({
 			debugMode: t("debugMode"),
@@ -185,9 +196,13 @@ export function useGeneralSettingsModel(): GeneralSettingsModel {
 				developer: t(SETTINGS_SECTION["general-developer"].titleKey),
 				notifications: t(SETTINGS_SECTION["general-notifications"].titleKey),
 				sandbox: t(SETTINGS_SECTION["general-sandbox"].titleKey),
+				setupGuide: t(SETTINGS_SECTION["general-setup-guide"].titleKey),
 				updates: t(SETTINGS_SECTION["general-updates"].titleKey),
 				workspace: t(SETTINGS_SECTION["general-workspace"].titleKey),
 			},
+			startAppGuide: t("startAppGuide"),
+			startAppGuideAction: t("startAppGuideAction"),
+			startAppGuideDescription: t("startAppGuideDescription"),
 			systemNotifications: t("systemNotifications"),
 			systemNotificationsDescription: t("systemNotificationsDescription"),
 			title: t("general"),
@@ -204,6 +219,7 @@ export function useGeneralSettingsModel(): GeneralSettingsModel {
 			exportDiagnostics,
 			resetWorkspace,
 			selectWorkspace,
+			startAppGuide,
 			toggleDebug,
 			toggleNotifications,
 		},
