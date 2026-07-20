@@ -48,7 +48,9 @@ export default definePlugin({
 
 插件局部 id `notes.list` 会被宿主公开为 `plugin.<pluginId>.notes.list`，避免插件之间及插件与内置 Action 冲突。`describe` 会返回原始 `inputSchema`，调用方可据此生成输入。
 
-可信官方插件还可声明 `publicId`，例如 `publicId: "general.query"`。目录会优先使用该插件实现，并保留同 id 的内置实现作为 fallback；插件停用、卸载、权限撤销或激活失败后自动回退。普通插件使用 `publicId` 会被拒绝。当前只有随包安装且 `source: "system"` 的插件被视为可信官方来源；远端官方插件必须等待分发层提供经过签名验证的可信身份，不能只依赖插件 id。
+可信官方插件还可声明 `publicId`，例如 `publicId: "general.query"`。目录会优先使用该插件实现，并保留同 id 的内置实现作为 fallback；插件停用、卸载、权限撤销或激活失败后自动回退。普通插件使用 `publicId` 会被拒绝。门控依据宿主生成的 `trustLevel: "official"`，而不是插件 id 或安装来源；当前随包系统插件会获得该级别，远端和本地插件不会。
+
+官方插件需要读取宿主数据时使用 `ctx.official`。该 API 在 SDK 中可见，但普通插件调用会被宿主拒绝；目前只提供首个迁移领域所需的 `ctx.official.general.getSettings()`，不一次性暴露通用 IPC。
 
 ## effect 与审批
 
@@ -74,4 +76,4 @@ export default definePlugin({
 
 官方 Action 插件可以由 Desktop 的首装流程放入插件注册表，也可以由插件服务下发更新。更新服务负责版本、灰度、回滚和签名验证；Action Runtime 不承担下载职责，只消费已经通过插件安装链验证并激活的版本。这样发布机制与执行机制解耦，远端协议变化不会扩大 Action Runtime 的可信边界。
 
-注意：当前 `source: "system"` 是 ADR-0024 定义的随包只读插件，可覆盖同 id 的内置 fallback，但仍不能由市场更新。产品意义上的“内置 Action 插件”最终应当是**官方托管插件**：可附带 bootstrap 版本，更新包经过签名验证后获得可信官方身份。更新服务协议确定前，远端插件不能使用公共 Action id。
+当前 `vetta-actions` 以随包系统插件形式提供 `general.query`，静态 Action 仍是 fallback。产品意义上的“内置 Action 插件”最终应当是**官方托管插件**：可附带 bootstrap 版本，更新包经过签名验证后获得 `trustLevel: "official"`。远端更新服务最后实施；在此之前远端插件不能使用公共 Action id。
