@@ -748,6 +748,8 @@ export type PluginAppActionHandler<TInput = unknown> = (
 export interface PluginAppActionRegistration<TInput = unknown> {
 	/** 插件内局部 id；宿主公开为 `plugin.<pluginId>.<id>`。 */
 	id: string;
+	/** 可信官方插件可指定稳定公共 id，以覆盖同 id 的内置 fallback。 */
+	publicId?: string;
 	title: string;
 	summary: string;
 	description?: string;

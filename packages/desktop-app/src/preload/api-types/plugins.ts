@@ -246,6 +246,7 @@ export type PluginAppActionEffect = "read" | "write" | "execute";
 
 export interface PluginAppActionRegistration {
 	id: string;
+	publicId?: string;
 	title: string;
 	summary: string;
 	description?: string;
@@ -413,6 +414,8 @@ export interface DesktopPluginsApi {
 	onAgentToolRequest(handler: (request: PluginAgentToolInvocationRequest) => void): () => void;
 	respondAgentTool(requestId: string, result: unknown): Promise<void>;
 	registerAppAction(pluginId: string, registration: PluginAppActionRegistration): Promise<void>;
+	commitAppActionActivation(pluginId: string, activationId: string): Promise<void>;
+	abortAppActionActivation(pluginId: string, activationId: string): Promise<void>;
 	unregisterAppAction(pluginId: string, actionId: string, activationId?: string): Promise<void>;
 	onAppActionRequest(handler: (request: PluginAppActionInvocationRequest) => void): () => void;
 	onAppActionCancel(handler: (request: PluginAppActionCancelRequest) => void): () => void;

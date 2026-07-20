@@ -3,13 +3,14 @@ import Ajv, { type ErrorObject, type ValidateFunction } from "ajv";
 import type { WebContents } from "electron";
 import type { PluginAppActionRegistration } from "../../preload/api-types/plugins.js";
 import type { AppActionCatalog } from "../app-actions/catalog.js";
-import { type ActionContext, ActionError, type JsonValue } from "../app-actions/types.js";
+import { type ActionContext, type ActionDefinition, ActionError, type JsonValue } from "../app-actions/types.js";
 import { getAppLogger } from "../logger.js";
 import { getPluginSettings, listPlugins } from "./plugin-store.js";
 
 const REGISTER_PERMISSION = "app.actions.register";
 const EXECUTE_PERMISSION = "app.actionHandler.execute";
 const DEFAULT_TIMEOUT_MS = 30_000;
+const PLUGIN_PROVIDER_PRIORITY = 100;
 const ACTION_REQUEST_CHANNEL = "vetta:plugins:app-action-request";
 const ACTION_CANCEL_CHANNEL = "vetta:plugins:app-action-cancel";
 
@@ -22,7 +23,13 @@ interface RegisteredPluginAction {
 	localActionId: string;
 	globalActionId: string;
 	timeoutMs: number;
-	unregisterCatalogAction: () => void;
+	definition: ActionDefinition;
+	unregisterCatalogAction?: () => void;
+}
+
+interface PluginActionActivation {
+	activationId: string;
+	actions: Map<string, RegisteredPluginAction>;
 }
 
 interface PendingInvocation {
@@ -85,13 +92,30 @@ function assertPluginCanExecute(pluginId: string): void {
 	}
 }
 
-function buildGlobalActionId(pluginId: string, localActionId: string): string {
+function isTrustedOfficialPlugin(pluginId: string): boolean {
+	return listPlugins().some((plugin) => plugin.id === pluginId && plugin.source === "system");
+}
+
+function buildGlobalActionId(pluginId: string, localActionId: string, publicId: string | undefined): string {
+	if (publicId) {
+		if (!isTrustedOfficialPlugin(pluginId)) {
+			throw new ActionError(
+				"PLUGIN_ACTION_RESERVED_ID_DENIED",
+				`Only trusted official plugins can register a public action id: ${publicId}`,
+			);
+		}
+		return publicId;
+	}
 	return `plugin.${pluginId}.${localActionId}`;
 }
 
+function buildProviderId(pluginId: string, activationId: string): string {
+	return `plugin:${pluginId}:${activationId}`;
+}
+
 export class PluginActionService {
-	private readonly activations = new Map<string, string>();
-	private readonly actions = new Map<string, Map<string, RegisteredPluginAction>>();
+	private readonly activeActivations = new Map<string, PluginActionActivation>();
+	private readonly stagingActivations = new Map<string, PluginActionActivation>();
 	private readonly pendingInvocations = new Map<string, PendingInvocation>();
 
 	constructor(
@@ -101,20 +125,28 @@ export class PluginActionService {
 
 	beginLoad(pluginId: string, activationId: string): void {
 		assertPluginAvailable(pluginId);
-		this.clearPlugin(pluginId, undefined, "Plugin action activation was replaced");
-		this.activations.set(pluginId, activationId);
+		this.stagingActivations.set(pluginId, {
+			activationId,
+			actions: new Map<string, RegisteredPluginAction>(),
+		});
 		log.info("activation began", { pluginId, activationId });
 	}
 
 	register(pluginId: string, registration: PluginAppActionRegistration): void {
 		assertPluginCanExecute(pluginId);
-		const currentActivationId = this.activations.get(pluginId);
-		if (!currentActivationId || registration.activationId !== currentActivationId) {
+		const staging = this.stagingActivations.get(pluginId);
+		const active = this.activeActivations.get(pluginId);
+		const activation =
+			staging?.activationId === registration.activationId
+				? staging
+				: active?.activationId === registration.activationId
+					? active
+					: undefined;
+		if (!activation) {
 			throw new ActionError("PLUGIN_ACTION_STALE_ACTIVATION", `Stale plugin action activation: ${pluginId}`);
 		}
 
-		const pluginActions = this.actions.get(pluginId) ?? new Map<string, RegisteredPluginAction>();
-		if (pluginActions.has(registration.id)) {
+		if (activation.actions.has(registration.id)) {
 			throw new ActionError(
 				"PLUGIN_ACTION_DUPLICATE",
 				`Plugin action is already registered: ${pluginId}/${registration.id}`,
@@ -146,19 +178,13 @@ export class PluginActionService {
 				`Plugin action example is not JSON serializable: ${pluginId}/${registration.id}`,
 			),
 		}));
-		const globalActionId = buildGlobalActionId(pluginId, registration.id);
-		const registered: RegisteredPluginAction = {
-			activationId: registration.activationId,
-			handlerId: registration.handlerId,
-			localActionId: registration.id,
-			globalActionId,
-			timeoutMs: registration.timeoutMs ?? DEFAULT_TIMEOUT_MS,
-			unregisterCatalogAction: () => {},
-		};
-
-		registered.unregisterCatalogAction = this.catalog.register({
+		const globalActionId = buildGlobalActionId(pluginId, registration.id, registration.publicId);
+		let registered: RegisteredPluginAction;
+		const definition: ActionDefinition = {
 			id: globalActionId,
-			domain: `plugin.${pluginId}`,
+			domain: registration.publicId
+				? (registration.publicId.split(".")[0] ?? `plugin.${pluginId}`)
+				: `plugin.${pluginId}`,
 			title: registration.title,
 			summary: registration.summary,
 			availability: "gui-renderer",
@@ -198,10 +224,23 @@ export class PluginActionService {
 			requiresApproval:
 				registration.effect === "read" ? undefined : (_input, context) => context.source === "local-server",
 			run: (input, context) => this.invoke(pluginId, registered, input, context),
-		});
+		};
+		registered = {
+			activationId: registration.activationId,
+			handlerId: registration.handlerId,
+			localActionId: registration.id,
+			globalActionId,
+			timeoutMs: registration.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+			definition,
+		};
 
-		pluginActions.set(registration.id, registered);
-		this.actions.set(pluginId, pluginActions);
+		if (activation === active) {
+			registered.unregisterCatalogAction = this.catalog.register(registered.definition, {
+				providerId: buildProviderId(pluginId, activation.activationId),
+				priority: PLUGIN_PROVIDER_PRIORITY,
+			});
+		}
+		activation.actions.set(registration.id, registered);
 		log.info("action registered", {
 			pluginId,
 			localActionId: registration.id,
@@ -211,21 +250,61 @@ export class PluginActionService {
 		});
 	}
 
+	commit(pluginId: string, activationId: string): void {
+		const staging = this.stagingActivations.get(pluginId);
+		if (!staging || staging.activationId !== activationId) {
+			throw new ActionError("PLUGIN_ACTION_STALE_ACTIVATION", `Stale plugin action activation: ${pluginId}`);
+		}
+		const unregisterByActionId = this.catalog.registerProvider(
+			[...staging.actions.values()].map((action) => action.definition),
+			{
+				providerId: buildProviderId(pluginId, activationId),
+				priority: PLUGIN_PROVIDER_PRIORITY,
+			},
+		);
+		for (const action of staging.actions.values()) {
+			action.unregisterCatalogAction = unregisterByActionId.get(action.globalActionId);
+		}
+
+		const previous = this.activeActivations.get(pluginId);
+		this.activeActivations.set(pluginId, staging);
+		this.stagingActivations.delete(pluginId);
+		if (previous) this.disposeActivation(pluginId, previous, "Plugin action activation was replaced");
+		log.info("activation committed", { pluginId, activationId, actionCount: staging.actions.size });
+	}
+
+	abort(pluginId: string, activationId: string): void {
+		const staging = this.stagingActivations.get(pluginId);
+		if (!staging || staging.activationId !== activationId) return;
+		this.stagingActivations.delete(pluginId);
+		log.info("activation aborted", { pluginId, activationId });
+	}
+
 	unregister(pluginId: string, localActionId: string, activationId?: string): void {
-		if (activationId && this.activations.get(pluginId) !== activationId) return;
-		const pluginActions = this.actions.get(pluginId);
-		const action = pluginActions?.get(localActionId);
-		if (!action || (activationId && action.activationId !== activationId)) return;
-		action.unregisterCatalogAction();
-		pluginActions?.delete(localActionId);
-		if (pluginActions?.size === 0) this.actions.delete(pluginId);
-		this.cancelInvocations(pluginId, action.handlerId, "Plugin action was unregistered");
-		log.info("action unregistered", { pluginId, localActionId, activationId });
+		for (const candidate of [this.stagingActivations.get(pluginId), this.activeActivations.get(pluginId)]) {
+			if (!candidate || (activationId && candidate.activationId !== activationId)) continue;
+			const action = candidate.actions.get(localActionId);
+			if (!action) continue;
+			action.unregisterCatalogAction?.();
+			candidate.actions.delete(localActionId);
+			if (candidate === this.activeActivations.get(pluginId)) {
+				this.cancelInvocations(pluginId, action.handlerId, "Plugin action was unregistered");
+			}
+			log.info("action unregistered", { pluginId, localActionId, activationId: candidate.activationId });
+		}
 	}
 
 	clear(pluginId: string, activationId?: string): void {
-		if (activationId && this.activations.get(pluginId) !== activationId) return;
-		this.clearPlugin(pluginId, activationId, "Plugin action activation was cleared");
+		const staging = this.stagingActivations.get(pluginId);
+		if (staging && (!activationId || staging.activationId === activationId)) {
+			this.stagingActivations.delete(pluginId);
+		}
+		const active = this.activeActivations.get(pluginId);
+		if (active && (!activationId || active.activationId === activationId)) {
+			this.activeActivations.delete(pluginId);
+			this.disposeActivation(pluginId, active, "Plugin action activation was cleared");
+		}
+		log.info("plugin actions cleared", { pluginId, activationId });
 	}
 
 	respond(requestId: string, result: unknown): void {
@@ -259,13 +338,12 @@ export class PluginActionService {
 	}
 
 	dispose(): void {
-		for (const pluginId of [...this.actions.keys()]) {
-			this.clearPlugin(pluginId, undefined, "Plugin action service was disposed");
+		for (const pluginId of new Set([...this.activeActivations.keys(), ...this.stagingActivations.keys()])) {
+			this.clear(pluginId);
 		}
 		for (const [requestId, pending] of this.pendingInvocations) {
 			this.cancelPending(requestId, pending, "Plugin action service was disposed");
 		}
-		this.activations.clear();
 	}
 
 	private invoke(
@@ -275,10 +353,8 @@ export class PluginActionService {
 		context: ActionContext,
 	): Promise<JsonValue> {
 		assertPluginCanExecute(pluginId);
-		if (
-			this.activations.get(pluginId) !== action.activationId ||
-			this.actions.get(pluginId)?.get(action.localActionId) !== action
-		) {
+		const active = this.activeActivations.get(pluginId);
+		if (active?.activationId !== action.activationId || active.actions.get(action.localActionId) !== action) {
 			throw new ActionError(
 				"PLUGIN_ACTION_UNAVAILABLE",
 				`Plugin action is no longer registered: ${action.globalActionId}`,
@@ -329,15 +405,11 @@ export class PluginActionService {
 		});
 	}
 
-	private clearPlugin(pluginId: string, activationId: string | undefined, reason: string): void {
-		const pluginActions = this.actions.get(pluginId);
-		if (pluginActions) {
-			for (const action of pluginActions.values()) action.unregisterCatalogAction();
-			this.actions.delete(pluginId);
+	private disposeActivation(pluginId: string, activation: PluginActionActivation, reason: string): void {
+		for (const action of activation.actions.values()) {
+			action.unregisterCatalogAction?.();
+			this.cancelInvocations(pluginId, action.handlerId, reason);
 		}
-		this.cancelInvocations(pluginId, undefined, reason);
-		if (!activationId || this.activations.get(pluginId) === activationId) this.activations.delete(pluginId);
-		log.info("plugin actions cleared", { pluginId, activationId });
 	}
 
 	private cancelInvocations(pluginId: string, handlerId: string | undefined, reason: string): void {
