@@ -5,30 +5,22 @@ import { ActionError } from "./types.js";
 
 const log = getAppLogger("action-catalog");
 
-const BUILTIN_PROVIDER_ID = "builtin";
-const BUILTIN_PROVIDER_PRIORITY = 0;
-
 export interface AppActionProviderOptions {
 	providerId: string;
-	priority: number;
 }
 
-interface AppActionProviderEntry extends AppActionProviderOptions {
+interface AppActionEntry extends AppActionProviderOptions {
 	action: ActionDefinition;
-	sequence: number;
 }
 
+/**
+ * App Action 目录：每个 action id 仅保留一份实现。
+ * 冲突策略：先注册为准，后到者打日志并忽略（返回 no-op unregister）。
+ */
 export class AppActionCatalog {
-	private readonly providers = new Map<string, Map<string, AppActionProviderEntry>>();
-	private registrationSequence = 0;
+	private readonly entries = new Map<string, AppActionEntry>();
 
-	register(
-		action: ActionDefinition,
-		options: AppActionProviderOptions = {
-			providerId: BUILTIN_PROVIDER_ID,
-			priority: BUILTIN_PROVIDER_PRIORITY,
-		},
-	): () => void {
+	register(action: ActionDefinition, options: AppActionProviderOptions): () => void {
 		return this.registerProvider([action], options).get(action.id)!;
 	}
 
@@ -44,37 +36,38 @@ export class AppActionCatalog {
 			);
 		}
 		for (const action of actions) {
-			if (this.providers.get(action.id)?.has(options.providerId)) {
-				log.error("register: duplicate provider action", {
-					actionId: action.id,
-					domain: action.domain,
-					providerId: options.providerId,
-				});
-				throw new ActionError(
-					"ACTION_DUPLICATE",
-					`Action is already registered by provider ${options.providerId}: ${action.id}`,
-				);
-			}
 			this.validateAction(action);
 		}
 
-		const sequence = ++this.registrationSequence;
 		const unregisterByActionId = new Map<string, () => void>();
 		for (const action of actions) {
-			const providers = this.providers.get(action.id) ?? new Map<string, AppActionProviderEntry>();
-			const entry: AppActionProviderEntry = { action, ...options, sequence };
-			providers.set(options.providerId, entry);
-			this.providers.set(action.id, providers);
+			const existing = this.entries.get(action.id);
+			if (existing) {
+				log.warn("register: action id conflict, keeping first registration", {
+					actionId: action.id,
+					domain: action.domain,
+					existingProviderId: existing.providerId,
+					existingTitle: existing.action.title,
+					rejectedProviderId: options.providerId,
+					rejectedTitle: action.title,
+				});
+				unregisterByActionId.set(action.id, () => {
+					/* conflict loser: nothing to unregister from catalog */
+				});
+				continue;
+			}
+
+			const entry: AppActionEntry = { action, providerId: options.providerId };
+			this.entries.set(action.id, entry);
 			unregisterByActionId.set(action.id, this.createUnregister(entry));
 			log.info("register: success", {
 				actionId: action.id,
 				domain: action.domain,
 				providerId: options.providerId,
-				priority: options.priority,
 				availability: action.availability,
 				permission: action.permission,
 				requiresApproval: action.requiresApproval !== undefined,
-				registeredCount: this.providers.size,
+				registeredCount: this.entries.size,
 			});
 		}
 		return unregisterByActionId;
@@ -116,44 +109,30 @@ export class AppActionCatalog {
 		}
 	}
 
-	private createUnregister(entry: AppActionProviderEntry): () => void {
+	private createUnregister(entry: AppActionEntry): () => void {
 		let registered = true;
 		return () => {
 			if (!registered) return;
 			registered = false;
-			const providers = this.providers.get(entry.action.id);
-			if (providers?.get(entry.providerId) !== entry) return;
-			providers.delete(entry.providerId);
-			if (providers.size === 0) this.providers.delete(entry.action.id);
+			const current = this.entries.get(entry.action.id);
+			if (current !== entry) return;
+			this.entries.delete(entry.action.id);
 			log.info("unregister: success", {
 				actionId: entry.action.id,
 				domain: entry.action.domain,
 				providerId: entry.providerId,
-				registeredCount: this.providers.size,
+				registeredCount: this.entries.size,
 			});
 		};
 	}
 
 	private getActiveAction(actionId: string): ActionDefinition | undefined {
-		const providers = this.providers.get(actionId);
-		if (!providers) return undefined;
-		let active: AppActionProviderEntry | undefined;
-		for (const candidate of providers.values()) {
-			if (
-				!active ||
-				candidate.priority > active.priority ||
-				(candidate.priority === active.priority && candidate.sequence > active.sequence)
-			) {
-				active = candidate;
-			}
-		}
-		return active?.action;
+		return this.entries.get(actionId)?.action;
 	}
 
 	private *getActiveActions(): IterableIterator<ActionDefinition> {
-		for (const actionId of this.providers.keys()) {
-			const action = this.getActiveAction(actionId);
-			if (action) yield action;
+		for (const entry of this.entries.values()) {
+			yield entry.action;
 		}
 	}
 

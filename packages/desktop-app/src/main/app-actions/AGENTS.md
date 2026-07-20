@@ -2,159 +2,37 @@
 
 ## Action 的作用
 
-App Action 是 agent 调用 Vetta Desktop 能力的受控 RPC 边界。它负责：
+App Action 是 agent 调用 Vetta Desktop 能力的受控 RPC 边界。主进程只保留：
 
-- 向 agent 描述有哪些能力、如何调用以及调用结果的语义。
-- 在主进程中校验不可信输入。
-- 根据调用来源和操作风险决定是否请求用户确认。
-- 将经过确认的输入交给现有 service 或桌面能力执行。
-- 将业务错误转换为稳定、可理解的 Action 错误。
+- Catalog / Runtime / 本地 Action RPC
+- 审批 broker
+- 插件动态注册（`PluginActionService`）
 
-Action 不应复制 service 的业务实现，也不应把 renderer 的展示逻辑放进主进程。优先复用已有 service、IPC 和领域类型。
+**业务 Action 实现由插件提供**（官方系统插件 `vetta-actions` 与第三方插件），不再在 `app-actions/*` 下维护静态领域实现。
 
-## Agent 接口与执行校验
+## 注册与冲突
 
-两类定义用途不同，不要互相替代：
+- 插件通过 `ctx.appActions.register()` 提交声明；官方插件可用 `publicId` 占用稳定 id。
+- Catalog **每个 action id 仅保留一份实现**。
+- **冲突策略：先注册为准**；后到的同 id 注册会被忽略，并在主进程日志中记录
+  `register: action id conflict, keeping first registration`（含双方 providerId / title）。
+- 插件 activation 使用 `begin → stage → commit/abort`：commit 时会先卸掉该插件旧 activation，再发布新 staging，避免 first-wins 导致热更新空窗。
 
-- `inputSchema`、`examples` 和 `help` 返回值是给 agent 阅读的能力说明。agent 不知道应用内部实现，因此所有影响正确调用的信息都必须在这里明确说明。
-- Zod schema 和 `validateInput` 是运行时安全边界，负责拒绝无效输入。不要因为 service 内部还有参数校验就堆叠重复的手写类型校验。
+## 运行时边界
 
-Agent 说明只暴露完成操作所需的信息，包括：
+- JSON Schema 校验、write/execute 审批、超时、取消、结果序列化由宿主强制执行。
+- handler 在插件 renderer 运行；renderer 不可用时返回 `PLUGIN_ACTION_UNAVAILABLE`。
+- 写操作对 `local-server` 来源走审批；`assertReady` 失败不得弹审批。
 
-- operation、必填参数、字段范围、默认值和清空语义。
-- ID 应从哪个查询结果取得。
-- 操作的关键副作用、前置状态和返回行为。
-- 更新操作是局部更新还是完整替换。
-- 需要 agent 主动选择的交互方式。
+## 新增 / 修改 Action
 
-不要暴露 renderer 组件名、IPC 通道、存储格式等内部细节。若审批界面可由 operation 自动确定，不要要求 agent 传 `approvalUi`。
+1. 改官方插件 `packages/plugins/presets/vetta-actions`（或独立官方 Action 插件）。
+2. 需要宿主数据时扩展 `ctx.official`（`plugin-sdk` + `plugin-official-api.ts`），禁止插件任意 IPC。
+3. 写操作复用已有审批 presentation id；不能注入新审批组件。
+4. 文档见 `docs/plugin/app-actions.md` 与 `docs/adr/0045-plugin-provided-app-actions.md`。
 
-查询类 Action 宜提供 `help` operation，集中返回同一领域全部 Action 的 `inputSchema`、示例和必要 guidance。示例必须是有效且具有代表性的输入。
+## 验证
 
-## 推荐目录结构
-
-每个领域使用独立目录：
-
-```text
-<domain>/
-  <domain>.schema.ts  # Zod schema、输入类型、validateInput
-  <domain>.action.ts  # metadata、agent 帮助、审批策略、run
-  actions.ts          # 注册该领域的 Action
-```
-
-在根目录 `index.ts` 的 `createAppActionRuntime` 中注册新领域。一个 Action 应围绕一致的权限和审批策略；如果查询、写入、执行控制的风险不同，应拆成多个 Action。
-
-当前已注册领域（静态 fallback 均保留）：
-`agent`、`appearance`、`navigation`、`batch-tasks`、`scheduler`、`models`、`mcp`、`skills`、`projects`、`general`、`knowledge`、`plugins`、`im`、`webhook`、`downloads`、`updater`、`shortcuts`。
-
-上述领域均可由官方插件 `vetta-actions` 以 `publicId` 覆盖；静态注册始终保留为 fallback。
-
-领域命名对齐设置页 IA（不要再使用含糊的 `settings` 杂项域）：
-
-`appearance` 域：
-- `appearance.theme`：对应设置 → 外观：显示模式、主题风格、鼠标指针，以及界面语言（`type: "set-language"`）；含 theme-change / picker / set-language 专用 UI。
-
-`general` 域（设置 → 通用）：
-- `general.query` / `general.manage`：工作区、系统通知、默认执行模式（沙盒）。
-
-`agent` 域（设置 → Agent 配置）：
-- `agent.query` / `agent.manage`：实验开关（`set-experimental`）。
-
-`shortcuts` 域（设置 → 快捷键整页，业务一体）：
-- `shortcuts.query` / `shortcuts.manage`：
-  - 全局应用快捷键绑定（`set-binding` / `reset-binding` / `reset-all-bindings`）
-  - 快捷面板呼出与发送后行为（`set-quick-panel-trigger` / `set-quick-panel-behavior`）
-- 配置存储可分字段（`shortcuts.bindings` vs `quickPanel`），但 **Action 域不要拆成 quickpanel.***。
-- 快捷面板窗口/会话/创建对话等运行时能力仍走 quickpanel IPC，不在本域。
-
-`knowledge` 域：
-- 实体管理（list/create/…）与加工策略（`get-processing` / `set-processing`）均在 knowledge.*。
-
-审批 UI：
-- `appearance` / `navigation` / `batch-tasks` / `scheduler`：各有专用 presentation 与组件。
-- 其余 manage Action：**按 operation 拆 presentation**（如 `mcp.upsert` / `mcp.set-enabled` / `mcp.remove`），schema 为每种 operation 填默认 `approvalUi`；renderer 下 `shared/action-approval/manage/<domain>/` 一 operation 一组件（对齐 scheduler 拆分方式）。共用 Frame + ApprovalParts，禁止把 create/update/delete 堆进同一 god component。`generic` 仅兜底。
-
-查询结果若含密钥字段必须脱敏（`***`），不要把脱敏值写回 upsert。市场安装 skill（需 archive buffer）与 Flowing 远端流转仍走 GUI，不在 Action 面硬做。
-
-## 创建 Action
-
-1. 在 schema 文件中用 Zod 定义输入，优先使用带 `operation` 的 discriminated union。
-2. 导出 Zod 推导类型和 `validateInput`，失败时抛出 `ACTION_INVALID_INPUT`，并返回可定位字段的 issues。
-3. 在 action 文件中定义稳定的 `id`、`domain`、`title`、`summary`、`availability` 和细粒度 `permission`。
-4. 补充 `keywords`（中英文同义词、用户口头说法、常见 operation 名），供 `actions.search` 相关性检索；不要只靠 id/title。
-5. 编写面向 agent 的 `inputSchema`、`examples`，必要时增加 `help` operation。
-6. 只在有副作用且需要确认时配置 `approval` 和 `requiresApproval`。
-7. `run` 调用已有 service，并把领域错误转换为 `ActionError`；返回值必须可序列化为 `JsonValue`。
-8. 在领域 `actions.ts` 和根 `index.ts` 注册。
-9. 若新增审批 presentation，同时在 renderer 的 action approval 路由中实现对应 UI。
-
-## 审批与可编辑输入
-
-运行流程为：
-
-```text
-查找 Action -> validateInput -> assertReady（可选）
--> 判断是否审批 -> 用户确认/编辑
--> 再次 validateInput -> 再次 assertReady（若 input 被改写）-> run
-```
-
-- `validateInput`：同步结构校验（Zod schema）。
-- `assertReady`（可选）：可异步业务就绪校验。**编辑 / 删除 / 改状态**所引用的实体必须在此确认存在；失败抛 `ACTION_NOT_FOUND`，**不得弹出授权框**。创建类 operation 一般不要求实体已存在。
-- 审批 UI 返回修改后的 `input` 时，runtime 会再次 `validateInput` + `assertReady`。参数合法性由 schema 维护；实体存在性由 `assertReady` 维护。UI 只做编辑体验所需的即时约束。
-
-审批约定：
-
-- 涉及创建或更新且允许用户调整内容时，使用右侧抽屉，并返回完整、可执行的 Action input。
-- 仅请求用户确认的操作使用共享 `Dialog` 组件。
-- 授权弹窗不得通过点击遮罩关闭，避免误操作；必须显式确认或拒绝。
-- 使用 `renderer/shared/components/ui` 中的组件，不要手写弹窗、遮罩或焦点管理。
-- `approval.defaultPresentation` 必须存在于 `presentations` 中，presentation id 不得重复。
-- 同一个 Action 包含多种 operation 时，schema 应为每种 operation 填入正确的默认 `approvalUi`，避免全部落到 Action 级默认界面。
-- 只有 agent 确实需要选择交互方式时，才在帮助中暴露 `approvalUi`。
-
-### 审批 UI 体验与组件复用（强制）
-
-授权弹窗是用户面对 Agent 写操作的主交互面，**交互质量不得明显低于对应设置页**。实现审批 UI 时：
-
-1. **优先复用原有 UI**：对应设置页/既有审批里已有的录入、选择、录制、开关、列表行等交互，必须优先复用同一套组件（含 `theme-ui` 设置控件、`ShortcutRecorder`、卡片选项、`Switch`、领域专用审批 View 等），经 adapter 注入数据与 i18n，而不是用原生 `<select>` / 裸 `<input>` / 纯文本列表凑合。
-2. **原组件不够再新建**：仅当现有组件确实无法满足审批场景（例如必须可编辑再确认、需合并 agent patch 与当前值）时，才新建专用组件；新建后仍应放在合理目录（设置控件、`action-approval` 共享件或领域 manage 目录），并尽量与设置页视觉与交互一致，禁止一次性 throwaway 结构。
-3. **禁止「技术输入框」冒充产品 UI**：不要让用户手填内部 id、原始 JSON、难记的枚举字面量（如 `mod+n`、`foreground`）作为主路径；应展示产品名、可点击选项、录制键位等用户可理解的控件。内部 id 仅可放在次要/技术详情区。
-4. **用户可见文案**遵循仓库根目录 [`docs/user-facing-copy.md`](../../../../docs/user-facing-copy.md)：说结果与影响、不说实现细节；用生活语言描述开关与状态；标题/摘要/按钮/影响说明走 i18n，不硬编码中文；Agent 错误消息仍面向 Agent，不适用该文档。
-5. **验收直觉**：用户若已在设置页配置过同类能力，在授权弹窗中应能用相近方式完成确认/改选，而不是被迫理解 Action schema 字段名。
-
-## 更新操作
-
-更新 Action 应优先采用 patch 语义：
-
-- agent 只提交用户要求修改的字段，不要先查询并复制未修改字段。
-- `inputSchema/help` 必须说明 `null`、空数组和字段省略分别代表清除、替换还是保持不变。
-- 可编辑审批 UI 应根据稳定 ID 主动读取当前实体，将当前完整配置与 agent patch 合并后展示。
-- 合并优先级为“当前配置 < agent patch < 用户最终编辑”。
-- 无法取得当前实体时，不得让用户以不完整数据继续确认更新。
-- 执行层仍提交 service 所需的 patch；不要把仅为 UI 补全的字段误当成 agent 修改意图。
-
-renderer 页面中的 atom 可能尚未加载，不能作为获取完整实体的唯一来源。可将 atom 用作缓存，但审批 UI 必须能够通过 preload API 或已有查询接口独立加载数据。
-
-## 错误与边界
-
-- 使用稳定错误码，例如 `ACTION_INVALID_INPUT`、`ACTION_NOT_FOUND` 或领域 service 提供的错误码。
-- **错误消息的读者是 Agent，不是终端用户。** 实体不存在等 `assertReady` 失败必须说明：
-  1. 拒绝了哪次 operation、哪个字段/取值无效；
-  2. **未向用户弹出授权框**（避免 agent 误以为用户拒绝）；
-  3. 下一步应调用哪个 query、示例 input、结果里哪个字段是合法 id；
-  4. 尽可能在 `details.availableIds` / 文案中列出当前已知 id，禁止 agent 编造 id。
-  优先使用 `throwAgentEntityNotFound` / `throwAgentInvalidInput`（`shared.ts`）。
-- `context.source` 用于区分内部调用和 `local-server` 调用；当前写操作通常只对 `local-server` 请求审批。
-- 尊重 `context.signal`，不要吞掉取消和超时。
-- 不要返回 class 实例、`undefined`、函数或其他非 JSON 数据。
-
-## 验证清单
-
-- Action 可被 catalog 搜索和 describe。
-- agent 仅根据 metadata/help 就能构造正确输入。
-- 每个 operation 的有效、无效输入均由 schema 正确处理。
-- 有副作用的外部调用会进入正确审批 UI。
-- 审批中编辑后的输入会再次通过同一个 schema 校验。
-- 更新审批展示完整当前配置，但执行时保持正确的 patch 语义。
-- 取消、拒绝、超时和 service 错误返回稳定错误。
-- 修改 desktop 代码后，在仓库根目录运行 `bun run check`（已含 desktop-app `tsc`）。单独排查可用：`bunx tsc --noEmit -p packages/desktop-app/tsconfig.json`。
+- 插件激活后 `vetta action search` 能列出对应 id。
+- 两个插件抢同一 `publicId` 时，后者只打日志，前者仍可 run。
+- 修改 desktop 代码后：`bun run check`。

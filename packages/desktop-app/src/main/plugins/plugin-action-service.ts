@@ -16,7 +16,6 @@ import { getPluginSettings, listPlugins } from "./plugin-store.js";
 const REGISTER_PERMISSION = "app.actions.register";
 const EXECUTE_PERMISSION = "app.actionHandler.execute";
 const DEFAULT_TIMEOUT_MS = 30_000;
-const PLUGIN_PROVIDER_PRIORITY = 100;
 const ACTION_REQUEST_CHANNEL = "vetta:plugins:app-action-request";
 const ACTION_CANCEL_CHANNEL = "vetta:plugins:app-action-cancel";
 
@@ -347,7 +346,6 @@ export class PluginActionService {
 		if (activation === active) {
 			registered.unregisterCatalogAction = this.catalog.register(registered.definition, {
 				providerId: buildProviderId(pluginId, activation.activationId),
-				priority: PLUGIN_PROVIDER_PRIORITY,
 			});
 		}
 		activation.actions.set(registration.id, registered);
@@ -365,21 +363,23 @@ export class PluginActionService {
 		if (!staging || staging.activationId !== activationId) {
 			throw new ActionError("PLUGIN_ACTION_STALE_ACTIVATION", `Stale plugin action activation: ${pluginId}`);
 		}
+		// first-wins 下必须先卸掉本插件旧 activation，再注册新 staging，否则新 id 会被旧实现挡住，
+		// 随后 dispose 旧实现会把目录清空。
+		const previous = this.activeActivations.get(pluginId);
+		if (previous) this.disposeActivation(pluginId, previous, "Plugin action activation was replaced");
+
 		const unregisterByActionId = this.catalog.registerProvider(
 			[...staging.actions.values()].map((action) => action.definition),
 			{
 				providerId: buildProviderId(pluginId, activationId),
-				priority: PLUGIN_PROVIDER_PRIORITY,
 			},
 		);
 		for (const action of staging.actions.values()) {
 			action.unregisterCatalogAction = unregisterByActionId.get(action.globalActionId);
 		}
 
-		const previous = this.activeActivations.get(pluginId);
 		this.activeActivations.set(pluginId, staging);
 		this.stagingActivations.delete(pluginId);
-		if (previous) this.disposeActivation(pluginId, previous, "Plugin action activation was replaced");
 		log.info("activation committed", { pluginId, activationId, actionCount: staging.actions.size });
 	}
 
