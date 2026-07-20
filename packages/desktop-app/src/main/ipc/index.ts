@@ -1,6 +1,7 @@
 import type { WebContents } from "electron";
 import type { ActionApprovalBroker } from "../app-actions/approval-broker.js";
 import { registerNotificationIpc } from "../notifications/index.js";
+import type { PluginActionService } from "../plugins/plugin-action-service.js";
 import { registerActionApprovalIpc } from "./action-approval.js";
 import { registerAppMonitorIpc } from "./app-monitor.js";
 import { registerAppshotIpc } from "./appshot.js";
@@ -55,7 +56,7 @@ interface IpcTeardown {
 
 export function registerAllIpc(
 	webContents: WebContents,
-	options: { actionApprovalBroker: ActionApprovalBroker },
+	options: { actionApprovalBroker: ActionApprovalBroker; pluginActionService: PluginActionService },
 ): IpcTeardown {
 	return {
 		teardownActionApproval: registerActionApprovalIpc(options.actionApprovalBroker),
@@ -76,7 +77,7 @@ export function registerAllIpc(
 		teardownWebhook: registerWebhookIpc(),
 		teardownRuntimes: registerRuntimesIpc(),
 		teardownPermissions: registerPermissionsIpc(),
-		teardownPlugins: registerPluginsIpc(),
+		teardownPlugins: registerPluginsIpc(options.pluginActionService),
 		teardownNotifications: registerNotificationIpc(webContents),
 		teardownPet: registerPetIpc(),
 		teardownQuickPanel: registerQuickPanelIpc(),

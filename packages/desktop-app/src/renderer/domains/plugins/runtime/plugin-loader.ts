@@ -23,6 +23,7 @@ import type {
 	Disposable,
 	PluginActivityTabContribution,
 	PluginAgentToolHandler,
+	PluginAppActionHandler,
 	PluginCardRendererContribution,
 	PluginCommandApi,
 	PluginContext,
@@ -50,6 +51,7 @@ import { router } from "../../../router";
 import {
 	pluginHostBridge,
 	registerPluginAgentToolHandler,
+	registerPluginAppActionHandler,
 	registerPluginContinuationHandler,
 	registerPluginSystemPromptHandler,
 } from "./plugin-host-bridge";
@@ -435,7 +437,7 @@ function createContext(
 	turnCards: PluginTurnCardContribution[],
 	settingsApi: PluginSettingsApi,
 	onChanged: () => void,
-	pendingAgentRegistrations: Promise<void>[],
+	pendingRuntimeRegistrations: Promise<void>[],
 	activationId: string,
 ): PluginContext {
 	const registerGlobalSlot = (contribution: PluginGlobalSlotContribution): Disposable => {
@@ -826,7 +828,7 @@ function createContext(
 						handlerHandle.dispose();
 						console.error(`Plugin ${plugin.id} failed to register agent tool ${toolId}`, error);
 					});
-				pendingAgentRegistrations.push(registrationPromise);
+				pendingRuntimeRegistrations.push(registrationPromise);
 				return {
 					dispose: () => {
 						handlerHandle.dispose();
@@ -862,7 +864,7 @@ function createContext(
 						handlerHandle.dispose();
 						throw error;
 					});
-				pendingAgentRegistrations.push(registrationPromise);
+				pendingRuntimeRegistrations.push(registrationPromise);
 				return {
 					dispose: () => {
 						handlerHandle.dispose();
@@ -903,11 +905,76 @@ function createContext(
 						handlerHandle.dispose();
 						throw error;
 					});
-				pendingAgentRegistrations.push(registrationPromise);
+				pendingRuntimeRegistrations.push(registrationPromise);
 				return {
 					dispose: () => {
 						handlerHandle.dispose();
 						void window.vetta.plugins.unregisterSystemPromptProvider(plugin.id, providerId, activationId);
+					},
+				};
+			},
+		},
+		appActions: {
+			register: (registration) => {
+				if (!hasPermission(plugin, "app.actions.register")) {
+					warnSkippedContribution(plugin, "app.actions.register", "app action");
+					return noopDisposable;
+				}
+				if (!hasPermission(plugin, "app.actionHandler.execute")) {
+					warnSkippedContribution(plugin, "app.actionHandler.execute", "app action handler");
+					return noopDisposable;
+				}
+				if (typeof registration.id !== "string" || !/^[a-z0-9][a-z0-9._-]{0,63}$/.test(registration.id)) {
+					throw new Error(
+						"App action id must be 1-64 chars: lowercase letters, numbers, dot, underscore, or dash",
+					);
+				}
+				if (typeof registration.title !== "string" || registration.title.trim().length === 0) {
+					throw new Error("App action title is required");
+				}
+				if (typeof registration.summary !== "string" || registration.summary.trim().length === 0) {
+					throw new Error("App action summary is required");
+				}
+				if (!(["read", "write", "execute"] as const).includes(registration.effect)) {
+					throw new Error("App action effect must be read, write, or execute");
+				}
+				if (typeof registration.inputSchema !== "object" || registration.inputSchema === null) {
+					throw new Error("App action inputSchema must be a JSON Schema object");
+				}
+				if (typeof registration.handler !== "function") {
+					throw new Error("App action handler is required");
+				}
+
+				const actionId = registration.id;
+				const handlerId = `${actionId}:${crypto.randomUUID()}`;
+				const handlerHandle = registerPluginAppActionHandler({
+					pluginId: plugin.id,
+					handlerId,
+					handler: registration.handler as PluginAppActionHandler,
+				});
+				const registrationPromise = window.vetta.plugins
+					.registerAppAction(plugin.id, {
+						id: actionId,
+						title: registration.title.trim(),
+						summary: registration.summary.trim(),
+						description: registration.description?.trim() || undefined,
+						keywords: registration.keywords,
+						effect: registration.effect,
+						inputSchema: registration.inputSchema as Record<string, unknown>,
+						examples: registration.examples ?? [],
+						handlerId,
+						activationId,
+						timeoutMs: registration.timeoutMs,
+					})
+					.catch((error: Error) => {
+						handlerHandle.dispose();
+						console.error(`Plugin ${plugin.id} failed to register app action ${actionId}`, error);
+					});
+				pendingRuntimeRegistrations.push(registrationPromise);
+				return {
+					dispose: () => {
+						handlerHandle.dispose();
+						void window.vetta.plugins.unregisterAppAction(plugin.id, actionId, activationId);
 					},
 				};
 			},
@@ -996,7 +1063,7 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 		? await window.vetta.plugins.getSettings(plugin.id).catch(() => ({}))
 		: {};
 	const settingsApi = createSettingsApi(plugin, initialSettings, disposers);
-	const pendingAgentRegistrations: Promise<void>[] = [];
+	const pendingRuntimeRegistrations: Promise<void>[] = [];
 	const context = createContext(
 		plugin,
 		slots,
@@ -1008,19 +1075,19 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 		turnCards,
 		settingsApi,
 		onChanged,
-		pendingAgentRegistrations,
+		pendingRuntimeRegistrations,
 		activationId,
 	);
 	await definition.activate(context);
 	debugPluginAgent("activate resolved", {
 		pluginId: plugin.id,
-		pendingAgentRegistrations: pendingAgentRegistrations.length,
+		pendingRuntimeRegistrations: pendingRuntimeRegistrations.length,
 		activationId,
 	});
-	await Promise.all(pendingAgentRegistrations);
+	await Promise.all(pendingRuntimeRegistrations);
 	debugPluginAgent("load complete", {
 		pluginId: plugin.id,
-		agentContributionsRegistered: pendingAgentRegistrations.length,
+		runtimeContributionsRegistered: pendingRuntimeRegistrations.length,
 		globalSlots: slots.length,
 		activityTabs: activityTabs.length,
 		cardRenderers: cardRenderers.length,

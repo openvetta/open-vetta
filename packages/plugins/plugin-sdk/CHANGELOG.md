@@ -4,6 +4,10 @@ All notable changes to `@vetta-org/plugin-sdk` are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Added `ctx.appActions.register()` and its typed JSON Schema Action registration, effect, handler, cancellation, and lifecycle contracts.
+
 ## [0.0.2] — 2026-07-15
 
 ### Added

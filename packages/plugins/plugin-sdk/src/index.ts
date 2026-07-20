@@ -40,6 +40,8 @@ export type PluginPermission =
 	| "agent.state.write"
 	| "agent.continuation.register"
 	| "agent.runtime.configure"
+	| "app.actions.register"
+	| "app.actionHandler.execute"
 	| "fs.read"
 	| "fs.write"
 	| "network.fetch"
@@ -719,6 +721,48 @@ export interface PluginContinuationRegistration {
 	handler: PluginContinuationHandler;
 }
 
+// ─── App Actions ───
+
+export type PluginAppActionEffect = "read" | "write" | "execute";
+
+export interface PluginAppActionExample<TInput = unknown> {
+	description: string;
+	input: TInput;
+}
+
+export interface PluginAppActionHandlerContext<TInput = unknown> {
+	invocationId: string;
+	plugin: {
+		id: string;
+		actionId: string;
+		settings: Readonly<Record<string, unknown>>;
+	};
+	input: TInput;
+	signal: AbortSignal;
+}
+
+export type PluginAppActionHandler<TInput = unknown> = (
+	context: PluginAppActionHandlerContext<TInput>,
+) => unknown | Promise<unknown>;
+
+export interface PluginAppActionRegistration<TInput = unknown> {
+	/** 插件内局部 id；宿主公开为 `plugin.<pluginId>.<id>`。 */
+	id: string;
+	title: string;
+	summary: string;
+	description?: string;
+	keywords?: string[];
+	effect: PluginAppActionEffect;
+	inputSchema: PluginJsonSchema;
+	examples?: PluginAppActionExample<TInput>[];
+	timeoutMs?: number;
+	handler: PluginAppActionHandler<TInput>;
+}
+
+export interface PluginAppActionsApi {
+	register<TInput = unknown>(registration: PluginAppActionRegistration<TInput>): Disposable;
+}
+
 // ─── Files ───
 
 export interface PluginFsEntry {
@@ -925,6 +969,7 @@ export interface PluginContext {
 	ui: PluginUiApi;
 	conversation: PluginConversationApi;
 	agent: PluginAgentApi;
+	appActions: PluginAppActionsApi;
 	fs: PluginFsApi;
 	command: PluginCommandApi;
 	images: PluginImagesApi;
