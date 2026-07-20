@@ -7,6 +7,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 ### Added
 
 - **插件动态 App Action（ADR-0045）**：插件可通过 `ctx.appActions.register()` 向主进程 Action 目录动态注册 JSON Schema Action；支持 `vetta action search/describe/run`、插件 activation 生命周期清理、权限复查、write/execute 审批、超时、取消与 JSON 结果校验，为官方 Action 插件独立于 Desktop 发版奠定运行时基础。
+- **功能引导（driver.js）**：首次使用时侧边栏 3 步引导（项目区域 / 对话区域 / 能力入口）与能力页 4 步讲解；点击下一步推进，完成或关闭后写入 localStorage，各引导只展示一次。
 - **可选 Desktop telemetry**：集成 Sentry 错误与崩溃监控、PostHog 产品分析/Feature Flag/可选 Replay；未配置对应环境变量时 SDK 不初始化，采集和网络异常不阻断应用。Main、Renderer 与四个自包含 preload bundle 共享脱敏上下文，并支持 release Source Map 上传。
 - **工作流并行执行 UI（ADR-0044）**：Agent 经 `dispatch_workflows` 派遣工作流后，消息列表 footer 出现工作流摘要块——深蓝色波光标题「有 N 个工作流正在处理」（spin 图标，结束后转对勾）+ 树形分支列表（人类可读标题 + todo 进度如 1/4 + 状态 + 悬停停止按钮），点击 item 打开活动面板新增的「工作流」标签卡（有工作流才出现、带运行中计数角标）：顶部工作流切换条 + 选中工作流的 1:1 只读 MessageList（复用无锁 session viewer 通道实时刷新）。工作流不再出现在「后台任务」标签卡与角标中，二者职责互斥；新一批派遣自动替换已结束的旧工作流列表。
 - **开发环境会话 Debug 能力**：`vetta debug` 新增 `conversation.list`、`conversation.create`、`conversation.continue`、`conversation.answer`、`conversation.wait`、`conversation.abort`，通过持久化 `sessionPath` 创建或恢复真实 Desktop 会话并等待完整 Agent 回合；与 UI 共用会话装配服务，支持 sandbox、模型选择、超时、取消及稳定错误码；遇到 `ask_user_question` 时返回 `input_required`，允许调用方 Agent或用户回答后继续执行，主进程统一维护待答快照并在任一来源完成回答后通知 Renderer 自动关闭面板；打包环境不启用。

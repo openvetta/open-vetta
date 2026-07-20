@@ -134,5 +134,21 @@
 		"moreTabs": "More tabs",
 		"hiddenPanels": "Hidden panels",
 		"menu": "Tab menu"
+	},
+	"tour": {
+		"sidebar": {
+			"projects": {
+				"title": "Projects",
+				"description": "Manage your work projects here. Expand a project to see its sessions, or use the buttons above to create or import a project."
+			},
+			"conversations": {
+				"title": "Conversations",
+				"description": "Your default conversation list lives here. Recent sessions are ordered by time — click one to continue."
+			},
+			"skills": {
+				"title": "Capabilities",
+				"description": "Open the Capabilities page to install skills and connectors that give Vetta more expertise."
+			}
+		}
 	}
 }

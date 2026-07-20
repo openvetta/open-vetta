@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import { type ReactNode, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
+import { CapabilitiesTour } from "@shared/tour";
 import { SettingsAiAssist } from "../../settings/ai-assist";
 import { UNCATEGORIZED, type SkillsPageModel, type TypeTab } from "../hooks/useSkillsPageModel";
 import { CapabilitiesPanel, type CapabilitiesPanelHandle } from "./CapabilitiesPanel";
@@ -206,6 +207,7 @@ export function SkillsPageView({ model }: { model: SkillsPageModel }): JSX.Eleme
 			</div>
 
 			<SkillDetailDialog skill={selectedSkill} onClose={() => setSelectedSkill(null)} />
+			{typeTab === "capability" && <CapabilitiesTour />}
 		</div>
 	);
 }

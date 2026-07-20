@@ -9,6 +9,12 @@
 		"apply": "Apply",
 		"back": "Back"
 	},
+	"tour": {
+		"next": "Next",
+		"prev": "Back",
+		"done": "Done",
+		"progress": "{{current}} / {{total}}"
+	},
 	"appearance": {
 		"languageTitle": "Language",
 		"languageHint": "Choose the display language"

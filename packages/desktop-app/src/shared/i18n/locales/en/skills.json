@@ -213,5 +213,25 @@
 			"settingsRead": "Read settings",
 			"settingsWrite": "Modify settings"
 		}
+	},
+	"tour": {
+		"capabilities": {
+			"banner": {
+				"title": "Extend with capabilities",
+				"description": "This page lists skills and connectors. Pick what you want to accomplish and add it in one click to use it in chat."
+			},
+			"searchAdd": {
+				"title": "Search and add",
+				"description": "Search to find a capability quickly, or use Add to import a local Skill or configure an MCP connector."
+			},
+			"scope": {
+				"title": "Discover / Mine",
+				"description": "Discover browses capabilities you can add. Mine manages what you already installed — enable, configure, or remove."
+			},
+			"list": {
+				"title": "Capability cards",
+				"description": "Each card is one capability. View details, add or enable it; you will be prompted when credentials are required."
+			}
+		}
 	}
 }

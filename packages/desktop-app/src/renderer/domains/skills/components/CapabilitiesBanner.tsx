@@ -87,7 +87,8 @@ export function CapabilitiesBanner({
 			initial={{ opacity: 0, y: 8 }}
 			animate={{ opacity: 1, y: 0 }}
 			transition={{ duration: 0.45, ease: easeOut }}
-			className="relative overflow-hidden rounded-2xl border border-border/50 bg-card/40"
+			data-tour="capabilities-banner"
+		className="relative overflow-hidden rounded-2xl border border-border/50 bg-card/40"
 		>
 			<div
 				aria-hidden

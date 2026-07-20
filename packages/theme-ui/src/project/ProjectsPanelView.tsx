@@ -53,6 +53,7 @@ export function ProjectsPanelView({
 }: ProjectsPanelViewProps): JSX.Element {
 	const projectsScroll = (
 		<ScrollFade
+			data-tour="sidebar-projects"
 			data-sidebar-selection-scroll="true"
 			onScrollRef={onProjectsScrollRef}
 			className={
@@ -68,6 +69,15 @@ export function ProjectsPanelView({
 	const splitProjectsStyle: CSSProperties = {
 		maxHeight: `calc(${splitRatio * 100}% - ${SPLIT_HANDLE_HEIGHT * splitRatio}px)`,
 	};
+
+	const conversationRegion = (
+		<div
+			data-tour="sidebar-conversations"
+			className="flex min-h-0 flex-1 flex-col overflow-hidden"
+		>
+			{defaultSection}
+		</div>
+	);
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col overflow-hidden px-1.5 py-0.5">
@@ -90,7 +100,7 @@ export function ProjectsPanelView({
 						onResizeEnd={onSplitResizeEnd}
 						onResizeStart={onSplitResizeStart}
 					/>
-					<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{defaultSection}</div>
+					{conversationRegion}
 				</div>
 			) : (
 				<>
@@ -106,9 +116,7 @@ export function ProjectsPanelView({
 								{projectsScroll}
 							</QuickScrollOverlay>
 						))}
-					{showDefaultRegion && (
-						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{defaultSection}</div>
-					)}
+					{showDefaultRegion && conversationRegion}
 				</>
 			)}
 
