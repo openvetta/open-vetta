@@ -21,11 +21,16 @@ import type { ActionApprovalRequester } from "./types.js";
 import { registerUpdaterActions } from "./updater/actions.js";
 import { registerWebhookActions } from "./webhook/actions.js";
 
-export function createAppActionRuntime(
+export interface AppActionSystem {
+	catalog: AppActionCatalog;
+	runtime: AppActionRuntime;
+}
+
+export function createAppActionSystem(
 	approvalRequester: ActionApprovalRequester,
 	batchTaskService: BatchTaskService,
 	schedulerService: SchedulerService,
-): AppActionRuntime {
+): AppActionSystem {
 	const catalog = new AppActionCatalog();
 	const register = catalog.register.bind(catalog);
 
@@ -47,7 +52,18 @@ export function createAppActionRuntime(
 	registerUpdaterActions(register);
 	registerWebhookActions(register);
 
-	return new AppActionRuntime(catalog, approvalRequester);
+	return {
+		catalog,
+		runtime: new AppActionRuntime(catalog, approvalRequester),
+	};
+}
+
+export function createAppActionRuntime(
+	approvalRequester: ActionApprovalRequester,
+	batchTaskService: BatchTaskService,
+	schedulerService: SchedulerService,
+): AppActionRuntime {
+	return createAppActionSystem(approvalRequester, batchTaskService, schedulerService).runtime;
 }
 
 export { AppActionRuntime } from "./runtime.js";

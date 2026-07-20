@@ -204,6 +204,8 @@
 			"agentStateWrite": "写入插件 Agent 状态",
 			"agentContinuationRegister": "注册 Agent 自动续跑策略",
 			"agentRuntimeConfigure": "配置 Agent 运行时",
+			"appActionsRegister": "注册应用 Action",
+			"appActionHandlerExecute": "执行插件 Action 处理器",
 			"fsRead": "读取文件",
 			"fsWrite": "写入文件",
 			"networkFetch": "访问网络",

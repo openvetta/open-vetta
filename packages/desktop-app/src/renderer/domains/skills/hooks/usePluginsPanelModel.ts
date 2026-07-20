@@ -32,6 +32,8 @@ export const PERMISSION_LABEL_KEYS = {
 	"agent.state.write": "plugin.permission.agentStateWrite",
 	"agent.continuation.register": "plugin.permission.agentContinuationRegister",
 	"agent.runtime.configure": "plugin.permission.agentRuntimeConfigure",
+	"app.actions.register": "plugin.permission.appActionsRegister",
+	"app.actionHandler.execute": "plugin.permission.appActionHandlerExecute",
 	"fs.read": "plugin.permission.fsRead",
 	"fs.write": "plugin.permission.fsWrite",
 	"network.fetch": "plugin.permission.networkFetch",

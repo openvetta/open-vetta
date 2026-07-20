@@ -6,7 +6,7 @@ import { URL } from "node:url";
 import { getVettaHomePath, VETTA_HOME_ENV } from "@vetta/action-rpc";
 import { app, dialog, ipcMain, nativeImage, nativeTheme, protocol, session, shell } from "electron";
 import { ActionApprovalBroker } from "./app-actions/approval-broker.js";
-import { createAppActionRuntime } from "./app-actions/index.js";
+import { createAppActionSystem } from "./app-actions/index.js";
 import { createActionRpcRuntime } from "./app-actions/rpc.js";
 import { APP_ASSET_PROTOCOL_PRIVILEGE, registerAppAssetProtocol } from "./app-asset-protocol.js";
 import { createAppDebugRuntime } from "./app-debug/index.js";
@@ -51,6 +51,7 @@ import { MEDIA_PROTOCOL_PRIVILEGE, registerMediaProtocolHandler } from "./media-
 import { openExternalUrl } from "./open-external.js";
 import { startPetIdleGuard } from "./pet/pet-idle-guard.js";
 import { initializePetWindow } from "./pet-window.js";
+import { PluginActionService } from "./plugins/plugin-action-service.js";
 import { stopAllPluginDevWatches } from "./plugins/plugin-dev-watch.js";
 import { PLUGIN_PROTOCOL_PRIVILEGES, registerPluginProtocols } from "./plugins/plugin-protocol.js";
 import { discoverSystemPlugins } from "./plugins/plugin-store.js";
@@ -565,9 +566,11 @@ if (!gotSingleLock) {
 			unscheduleTask: unscheduleTaskInCron,
 		});
 		await batchTaskService.initialize();
+		const actionSystem = createAppActionSystem(actionApprovalBroker, batchTaskService, schedulerService);
+		const pluginActionService = new PluginActionService(mainWindow.webContents, actionSystem.catalog);
 
 		// Register IPC handlers
-		ipcTeardown = registerAllIpc(mainWindow.webContents, { actionApprovalBroker });
+		ipcTeardown = registerAllIpc(mainWindow.webContents, { actionApprovalBroker, pluginActionService });
 		teardownBatchTasksIpc = registerBatchTasksIpc(mainWindow.webContents, batchTaskService);
 		initializePetWindow();
 		startPetIdleGuard();
@@ -583,10 +586,9 @@ if (!gotSingleLock) {
 		});
 
 		try {
-			const actionRuntime = createAppActionRuntime(actionApprovalBroker, batchTaskService, schedulerService);
 			localRpcServer = await startDesktopLocalRpcServer(
 				{
-					actions: createActionRpcRuntime(actionRuntime),
+					actions: createActionRpcRuntime(actionSystem.runtime),
 					debug: app.isPackaged ? undefined : createDebugRpcRuntime(createAppDebugRuntime({ rendererCdp })),
 				},
 				{

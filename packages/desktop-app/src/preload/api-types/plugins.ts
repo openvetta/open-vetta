@@ -21,6 +21,8 @@ export type PluginPermission =
 	| "agent.state.write"
 	| "agent.continuation.register"
 	| "agent.runtime.configure"
+	| "app.actions.register"
+	| "app.actionHandler.execute"
 	| "fs.read"
 	| "fs.write"
 	| "network.fetch"
@@ -240,6 +242,36 @@ export interface PluginAgentToolRegistration {
 	context?: { conversation?: "summary" | "messages" };
 }
 
+export type PluginAppActionEffect = "read" | "write" | "execute";
+
+export interface PluginAppActionRegistration {
+	id: string;
+	title: string;
+	summary: string;
+	description?: string;
+	keywords?: string[];
+	effect: PluginAppActionEffect;
+	inputSchema: Record<string, unknown>;
+	examples: Array<{ description: string; input: unknown }>;
+	handlerId: string;
+	activationId: string;
+	timeoutMs?: number;
+}
+
+export interface PluginAppActionInvocationRequest {
+	requestId: string;
+	pluginId: string;
+	actionId: string;
+	localActionId: string;
+	handlerId: string;
+	settings: Record<string, unknown>;
+	input: unknown;
+}
+
+export interface PluginAppActionCancelRequest {
+	requestId: string;
+}
+
 export interface PluginHandlerInvocationBase {
 	requestId: string;
 	pluginId: string;
@@ -380,6 +412,11 @@ export interface DesktopPluginsApi {
 	clearAgentContributions(pluginId: string, activationId?: string): Promise<void>;
 	onAgentToolRequest(handler: (request: PluginAgentToolInvocationRequest) => void): () => void;
 	respondAgentTool(requestId: string, result: unknown): Promise<void>;
+	registerAppAction(pluginId: string, registration: PluginAppActionRegistration): Promise<void>;
+	unregisterAppAction(pluginId: string, actionId: string, activationId?: string): Promise<void>;
+	onAppActionRequest(handler: (request: PluginAppActionInvocationRequest) => void): () => void;
+	onAppActionCancel(handler: (request: PluginAppActionCancelRequest) => void): () => void;
+	respondAppAction(requestId: string, result: unknown): Promise<void>;
 	registerContinuationProvider(pluginId: string, registration: PluginContinuationRegistration): Promise<void>;
 	unregisterContinuationProvider(pluginId: string, providerId: string, activationId?: string): Promise<void>;
 	onContinuationRequest(handler: (request: PluginContinuationInvocationRequest) => void): () => void;

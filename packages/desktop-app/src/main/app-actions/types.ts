@@ -25,6 +25,8 @@ export interface ActionInputOperation {
 export interface ActionInputSchema {
 	description: string;
 	operations?: ActionInputOperation[];
+	/** 插件 Action 可直接暴露完整 JSON Schema；内置 Action 继续使用现有摘要结构。 */
+	jsonSchema?: JsonValue;
 }
 
 export interface ActionApprovalPresentation {

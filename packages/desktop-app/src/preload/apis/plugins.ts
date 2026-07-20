@@ -33,6 +33,13 @@ export function createPluginsApi(ipc: IpcRenderer): Pick<DesktopApi, "plugins"> 
 				ipc.invoke("vetta:plugins:agent-contributions-clear", pluginId, activationId),
 			onAgentToolRequest: (handler) => onIpcEvent(ipc, "vetta:plugins:agent-tool-request", handler),
 			respondAgentTool: (requestId, result) => ipc.invoke("vetta:plugins:agent-tool-response", requestId, result),
+			registerAppAction: (pluginId, registration) =>
+				ipc.invoke("vetta:plugins:app-action-register", pluginId, registration),
+			unregisterAppAction: (pluginId, actionId, activationId) =>
+				ipc.invoke("vetta:plugins:app-action-unregister", pluginId, actionId, activationId),
+			onAppActionRequest: (handler) => onIpcEvent(ipc, "vetta:plugins:app-action-request", handler),
+			onAppActionCancel: (handler) => onIpcEvent(ipc, "vetta:plugins:app-action-cancel", handler),
+			respondAppAction: (requestId, result) => ipc.invoke("vetta:plugins:app-action-response", requestId, result),
 			registerContinuationProvider: (pluginId, registration) =>
 				ipc.invoke("vetta:plugins:continuation-register", pluginId, registration),
 			unregisterContinuationProvider: (pluginId, providerId, activationId) =>

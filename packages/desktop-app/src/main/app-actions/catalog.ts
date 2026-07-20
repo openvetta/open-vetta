@@ -8,7 +8,7 @@ const log = getAppLogger("action-catalog");
 export class AppActionCatalog {
 	private actions = new Map<string, ActionDefinition>();
 
-	register(action: ActionDefinition): void {
+	register(action: ActionDefinition): () => void {
 		if (this.actions.has(action.id)) {
 			log.error("register: duplicate action", { actionId: action.id, domain: action.domain });
 			throw new ActionError("ACTION_DUPLICATE", `Action is already registered: ${action.id}`);
@@ -55,6 +55,18 @@ export class AppActionCatalog {
 			requiresApproval: action.requiresApproval !== undefined,
 			registeredCount: this.actions.size,
 		});
+		let registered = true;
+		return () => {
+			if (!registered) return;
+			registered = false;
+			if (this.actions.get(action.id) !== action) return;
+			this.actions.delete(action.id);
+			log.info("unregister: success", {
+				actionId: action.id,
+				domain: action.domain,
+				registeredCount: this.actions.size,
+			});
+		};
 	}
 
 	search(options: { query?: string; domain?: string } = {}): ActionSearchResult[] {

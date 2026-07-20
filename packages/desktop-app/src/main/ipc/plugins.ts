@@ -2,6 +2,7 @@ import { ipcMain, webContents } from "electron";
 import type { AppMonitorResourceOperation, AppMonitorResourceSource } from "../../preload/api-types/app-monitor.js";
 import type {
 	InstalledPlugin,
+	PluginAppActionRegistration,
 	PluginCommandRunOptions,
 	PluginEditImageInput,
 	PluginGenerateImageInput,
@@ -12,6 +13,7 @@ import { recordAppMonitorEvent } from "../app-monitor/app-monitor-service.js";
 import { getAppLogger } from "../logger.js";
 import { runPluginCommand } from "../plugins/command-runner.js";
 import { editImage, generateImage, imageLineage, sessionLineages } from "../plugins/image-service.js";
+import type { PluginActionService } from "../plugins/plugin-action-service.js";
 import { startPluginDevWatch, stopPluginDevWatch } from "../plugins/plugin-dev-watch.js";
 import {
 	beginDynamicAgentContributionLoad,
@@ -153,6 +155,46 @@ function asAgentToolRegistration(value: unknown): {
 	};
 }
 
+function asAppActionRegistration(value: unknown): PluginAppActionRegistration {
+	const input = asRecord(value, "app action registration");
+	const id = asPluginId(input.id);
+	if (!/^[a-z0-9][a-z0-9._-]{0,63}$/.test(id)) {
+		throw new Error("Invalid app action id");
+	}
+	const title = asOptionalString(input.title);
+	const summary = asOptionalString(input.summary);
+	const handlerId = asPluginId(input.handlerId);
+	const activationId = asPluginId(input.activationId);
+	if (!title) throw new Error("Invalid app action title");
+	if (!summary) throw new Error("Invalid app action summary");
+	if (input.effect !== "read" && input.effect !== "write" && input.effect !== "execute") {
+		throw new Error("Invalid app action effect");
+	}
+	const examples = input.examples === undefined ? [] : input.examples;
+	if (!Array.isArray(examples)) throw new Error("Invalid app action examples");
+	return {
+		id,
+		title,
+		summary,
+		description: asOptionalString(input.description),
+		keywords: asOptionalStringArray(input.keywords),
+		effect: input.effect,
+		inputSchema: asRecord(input.inputSchema, "app action input schema"),
+		examples: examples.map((example) => {
+			const normalized = asRecord(example, "app action example");
+			const description = asOptionalString(normalized.description);
+			if (!description) throw new Error("Invalid app action example description");
+			return { description, input: normalized.input };
+		}),
+		handlerId,
+		activationId,
+		timeoutMs:
+			typeof input.timeoutMs === "number" && Number.isFinite(input.timeoutMs) && input.timeoutMs > 0
+				? Math.min(Math.floor(input.timeoutMs), 120_000)
+				: undefined,
+	};
+}
+
 function asContinuationRegistration(value: unknown): {
 	id: string;
 	handlerId: string;
@@ -255,7 +297,7 @@ function countRemoved(previous: readonly string[], next: readonly string[]): num
 	return previous.filter((item) => !after.has(item)).length;
 }
 
-export function registerPluginsIpc(): () => void {
+export function registerPluginsIpc(pluginActionService: PluginActionService): () => void {
 	ipcMain.handle("vetta:plugins:list", () => listPlugins());
 	ipcMain.handle("vetta:plugins:install-from-archive", async (_event, archiveBuffer: unknown, options: unknown) => {
 		const plugin = await installPluginFromArchive(asArchiveBuffer(archiveBuffer), asOptions(options));
@@ -303,6 +345,7 @@ export function registerPluginsIpc(): () => void {
 		// 卸载前停掉 dev 热更新（vite watch 子进程 + dist 监听）。
 		stopPluginDevWatch(pluginId);
 		uninstallPlugin(pluginId);
+		pluginActionService.clear(pluginId);
 		refreshAgentPlugins();
 		if (plugin) recordPluginResourceEvent({ plugin, operation: "uninstalled" });
 	});
@@ -311,6 +354,7 @@ export function registerPluginsIpc(): () => void {
 		// 禁用即停 dev 热更新：否则被禁用的插件仍常驻 vite watch，且每次保存都触发全表重载。
 		if (enabled !== true) stopPluginDevWatch(pluginId);
 		const plugin = setPluginEnabled(pluginId, enabled === true);
+		if (!plugin.enabled) pluginActionService.clear(pluginId);
 		refreshAgentPlugins();
 		recordPluginResourceEvent({ plugin, operation: plugin.enabled ? "enabled" : "disabled" });
 		return plugin;
@@ -331,6 +375,12 @@ export function registerPluginsIpc(): () => void {
 		const pluginId = asPluginId(id);
 		const previous = listPlugins().find((candidate) => candidate.id === pluginId)?.grantedPermissions ?? [];
 		const plugin = revokePluginPermissions(pluginId, asPermissions(permissions));
+		if (
+			!plugin.grantedPermissions.includes("app.actions.register") ||
+			!plugin.grantedPermissions.includes("app.actionHandler.execute")
+		) {
+			pluginActionService.clear(pluginId);
+		}
 		refreshAgentPlugins();
 		recordPluginResourceEvent({
 			plugin,
@@ -400,9 +450,26 @@ export function registerPluginsIpc(): () => void {
 				activationId: normalizedActivationId,
 			});
 			beginDynamicAgentContributionLoad(normalizedPluginId, normalizedActivationId);
+			pluginActionService.beginLoad(normalizedPluginId, normalizedActivationId);
 			refreshAgentPlugins();
 		},
 	);
+	ipcMain.handle("vetta:plugins:app-action-register", (_event, pluginId: unknown, registration: unknown) => {
+		pluginActionService.register(asPluginId(pluginId), asAppActionRegistration(registration));
+	});
+	ipcMain.handle(
+		"vetta:plugins:app-action-unregister",
+		(_event, pluginId: unknown, actionId: unknown, activationId: unknown) => {
+			pluginActionService.unregister(
+				asPluginId(pluginId),
+				asPluginId(actionId),
+				asOptionalStringId(activationId, "app action activation id"),
+			);
+		},
+	);
+	ipcMain.handle("vetta:plugins:app-action-response", (_event, requestId: unknown, result: unknown) => {
+		pluginActionService.respond(asPluginId(requestId), result);
+	});
 	ipcMain.handle("vetta:plugins:continuation-register", (_event, pluginId: unknown, registration: unknown) => {
 		registerDynamicContinuationProvider(asPluginId(pluginId), asContinuationRegistration(registration));
 		refreshAgentPlugins();
@@ -472,6 +539,7 @@ export function registerPluginsIpc(): () => void {
 			activationId: normalizedActivationId,
 		});
 		clearDynamicAgentContributions(normalizedPluginId, normalizedActivationId);
+		pluginActionService.clear(normalizedPluginId, normalizedActivationId);
 		refreshAgentPlugins();
 	});
 	ipcMain.handle("vetta:plugins:get-settings", (_event, id: unknown) => getPluginSettings(asPluginId(id)));
@@ -527,6 +595,9 @@ export function registerPluginsIpc(): () => void {
 		ipcMain.removeHandler("vetta:plugins:agent-tool-register");
 		ipcMain.removeHandler("vetta:plugins:agent-tool-unregister");
 		ipcMain.removeHandler("vetta:plugins:agent-contributions-clear");
+		ipcMain.removeHandler("vetta:plugins:app-action-register");
+		ipcMain.removeHandler("vetta:plugins:app-action-unregister");
+		ipcMain.removeHandler("vetta:plugins:app-action-response");
 		ipcMain.removeHandler("vetta:plugins:continuation-register");
 		ipcMain.removeHandler("vetta:plugins:continuation-unregister");
 		ipcMain.removeHandler("vetta:plugins:system-prompt-provider-register");
@@ -537,5 +608,6 @@ export function registerPluginsIpc(): () => void {
 		ipcMain.removeHandler("vetta:plugins:images:edit");
 		ipcMain.removeHandler("vetta:plugins:images:lineage");
 		ipcMain.removeHandler("vetta:plugins:images:session-lineages");
+		pluginActionService.dispose();
 	};
 }

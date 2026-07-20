@@ -17,6 +17,7 @@ import type {
 	PluginAgentActions,
 	PluginAgentToolApi,
 	PluginAgentToolHandler,
+	PluginAppActionHandler,
 	PluginContinuationHandler,
 	PluginConversationApi,
 	PluginDynamicSystemPromptOperation,
@@ -36,6 +37,8 @@ interface PluginAgentToolHandlerEntry {
 }
 
 const agentToolHandlers = new Map<string, PluginAgentToolHandlerEntry>();
+const appActionHandlers = new Map<string, PluginAppActionHandler>();
+const appActionInvocations = new Map<string, { controller: AbortController; handlerKey: string }>();
 const continuationHandlers = new Map<string, { handler: PluginContinuationHandler; api: PluginAgentToolApi }>();
 const systemPromptHandlers = new Map<string, { handler: PluginSystemPromptProviderHandler; api: PluginAgentToolApi }>();
 
@@ -236,6 +239,54 @@ function startToolRequestListener(): void {
 	});
 }
 
+let appActionRequestListenerStarted = false;
+
+function startAppActionRequestListener(): void {
+	if (appActionRequestListenerStarted) return;
+	appActionRequestListenerStarted = true;
+	window.vetta.plugins.onAppActionRequest((request) => {
+		const key = handlerKey(request.pluginId, request.handlerId);
+		const handler = appActionHandlers.get(key);
+		if (!handler) {
+			void window.vetta.plugins.respondAppAction(request.requestId, {
+				error: `Plugin action handler not found: ${request.pluginId}/${request.handlerId}`,
+			});
+			return;
+		}
+		const controller = new AbortController();
+		appActionInvocations.set(request.requestId, { controller, handlerKey: key });
+		void Promise.resolve(
+			handler({
+				invocationId: request.requestId,
+				plugin: {
+					id: request.pluginId,
+					actionId: request.actionId,
+					settings: request.settings,
+				},
+				input: request.input,
+				signal: controller.signal,
+			}),
+		).then(
+			(value) => {
+				appActionInvocations.delete(request.requestId);
+				return window.vetta.plugins.respondAppAction(request.requestId, { value });
+			},
+			(error: unknown) => {
+				appActionInvocations.delete(request.requestId);
+				return window.vetta.plugins.respondAppAction(request.requestId, {
+					error: error instanceof Error ? error.message : String(error),
+				});
+			},
+		);
+	});
+	window.vetta.plugins.onAppActionCancel(({ requestId }) => {
+		const invocation = appActionInvocations.get(requestId);
+		if (!invocation) return;
+		appActionInvocations.delete(requestId);
+		invocation.controller.abort();
+	});
+}
+
 let continuationRequestListenerStarted = false;
 
 function startContinuationRequestListener(): void {
@@ -354,6 +405,25 @@ export function registerPluginAgentToolHandler(options: {
 	};
 }
 
+export function registerPluginAppActionHandler(options: {
+	pluginId: string;
+	handlerId: string;
+	handler: PluginAppActionHandler;
+}): Disposable {
+	const key = handlerKey(options.pluginId, options.handlerId);
+	appActionHandlers.set(key, options.handler);
+	return {
+		dispose: () => {
+			if (appActionHandlers.get(key) === options.handler) appActionHandlers.delete(key);
+			for (const [requestId, invocation] of appActionInvocations) {
+				if (invocation.handlerKey !== key) continue;
+				appActionInvocations.delete(requestId);
+				invocation.controller.abort();
+			}
+		},
+	};
+}
+
 export function registerPluginContinuationHandler(options: {
 	pluginId: string;
 	handlerId: string;
@@ -463,6 +533,7 @@ let installed = false;
 export function installPluginHostBridge(): void {
 	startTranslator();
 	startToolRequestListener();
+	startAppActionRequestListener();
 	startContinuationRequestListener();
 	startSystemPromptRequestListener();
 	if (installed) return;
