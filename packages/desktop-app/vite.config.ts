@@ -82,8 +82,10 @@ export default defineConfig(({ mode }) => {
 			},
 		},
 		server: {
+			// Keep off 3000 (packages/site Next) and 3010 (xianxia theme dev).
 			host: "127.0.0.1",
-			port: 3000,
+			port: 3020,
+			strictPort: true,
 		},
 	};
 });
