@@ -44,8 +44,10 @@ Agent 说明只暴露完成操作所需的信息，包括：
 
 在根目录 `index.ts` 的 `createAppActionRuntime` 中注册新领域。一个 Action 应围绕一致的权限和审批策略；如果查询、写入、执行控制的风险不同，应拆成多个 Action。
 
-当前已注册领域：
+当前已注册领域（静态 fallback 均保留）：
 `agent`、`appearance`、`navigation`、`batch-tasks`、`scheduler`、`models`、`mcp`、`skills`、`projects`、`general`、`knowledge`、`plugins`、`im`、`webhook`、`downloads`、`updater`、`shortcuts`。
+
+上述领域均可由官方插件 `vetta-actions` 以 `publicId` 覆盖；静态注册始终保留为 fallback。
 
 领域命名对齐设置页 IA（不要再使用含糊的 `settings` 杂项域）：
 

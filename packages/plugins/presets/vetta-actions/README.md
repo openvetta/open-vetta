@@ -1,7 +1,12 @@
 # Vetta Actions
 
-Vetta 官方 App Action 插件。当前已迁移 `general`、`agent`、`downloads`、`updater`
-与 `webhook` 领域，通过 `publicId` 覆盖同 id 静态实现。
+Vetta 官方 App Action 插件。当前已迁移 Desktop 全部 App Action 域：
+
+- 首批：`general`、`agent`、`downloads`、`updater`、`webhook`
+- 第二批：`skills`、`shortcuts`、`im`、`mcp`、`models`、`projects`、`knowledge`、`plugins`
+- 第三批：`batch-tasks`、`scheduler`、`appearance`、`navigation`
+
+均通过 `publicId` 覆盖同 id 静态实现。
 
 静态 Action 保留为 fallback：插件停用、加载失败或 activation 回滚后，Action 目录会自动恢复内置实现。
 

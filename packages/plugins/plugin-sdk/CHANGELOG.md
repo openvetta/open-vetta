@@ -9,6 +9,8 @@ All notable changes to `@vetta-org/plugin-sdk` are documented in this file.
 - Added `ctx.appActions.register()` and its typed JSON Schema Action registration, trusted-official `publicId`, effect, handler, cancellation, and lifecycle contracts.
 - Added trust-gated `ctx.official.general.getSettings()` / `setSettings()` host capabilities and official-only host approval presentation mappings for the official Action plugin.
 - Added plugin Action `assertReady`, structured `PluginAppActionError`, and trusted official host capabilities for the agent, downloads, updater, and webhook migration domains.
+- Extended `ctx.official` with skills、shortcuts、im、mcp、models、projects、knowledge、plugins host capabilities for the next official App Action migration batch.
+- Extended `ctx.official` with batchTasks、scheduler、appearance、navigation host capabilities to finish migrating remaining Desktop App Action domains.
 
 ## [0.0.2] — 2026-07-15
 

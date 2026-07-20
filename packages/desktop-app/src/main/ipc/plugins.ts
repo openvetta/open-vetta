@@ -356,6 +356,7 @@ export function registerPluginsIpc(pluginActionService: PluginActionService): ()
 				plugin,
 				operation: isFreshPluginInstall(plugin) ? "installed" : "updated",
 			});
+			refreshAgentPlugins();
 			return plugin;
 		});
 	});
