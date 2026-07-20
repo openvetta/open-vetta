@@ -24,12 +24,13 @@ export interface WorkflowFooterItemsViewProps {
 	onStop: (id: string) => void;
 }
 
-/** Fixed deep blue, intentionally NOT theme-driven (product spec). */
-const TITLE_BLUE = "#1e3a8a";
-const CUBE_BLUE = "#004dff";
+/** Theme primary — follows active theme / brand color. */
+const TITLE_COLOR = "var(--primary)";
+const TITLE_SHIMMER_MID = "color-mix(in srgb, var(--primary) 45%, white)";
+const CUBE_COLOR = "var(--primary)";
 
 const TITLE_SHIMMER_STYLE: CSSProperties = {
-	backgroundImage: `linear-gradient(90deg, ${TITLE_BLUE} 0%, ${TITLE_BLUE} 35%, #93c5fd 50%, ${TITLE_BLUE} 65%, ${TITLE_BLUE} 100%)`,
+	backgroundImage: `linear-gradient(90deg, ${TITLE_COLOR} 0%, ${TITLE_COLOR} 35%, ${TITLE_SHIMMER_MID} 50%, ${TITLE_COLOR} 65%, ${TITLE_COLOR} 100%)`,
 	backgroundSize: "200% 100%",
 	WebkitBackgroundClip: "text",
 	backgroundClip: "text",
@@ -37,7 +38,7 @@ const TITLE_SHIMMER_STYLE: CSSProperties = {
 	animation: "workflow-title-shimmer 2.4s linear infinite",
 };
 
-const TITLE_STATIC_STYLE: CSSProperties = { color: TITLE_BLUE };
+const TITLE_STATIC_STYLE: CSSProperties = { color: TITLE_COLOR };
 
 const WORKFLOW_FOOTER_CSS = `
 @keyframes workflow-title-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
@@ -56,8 +57,8 @@ const WORKFLOW_FOOTER_CSS = `
 .workflow-cube > i {
 	position: absolute;
 	inset: 0;
-	background-color: rgba(0, 77, 255, 0.2);
-	border: 1px solid ${CUBE_BLUE};
+	background-color: color-mix(in srgb, var(--primary) 20%, transparent);
+	border: 1px solid ${CUBE_COLOR};
 }
 .workflow-cube > i:nth-of-type(1) { transform: translateZ(-4.5px) rotateY(180deg); }
 .workflow-cube > i:nth-of-type(2) { transform: rotateY(-270deg) translateX(50%); transform-origin: top right; }
@@ -67,7 +68,7 @@ const WORKFLOW_FOOTER_CSS = `
 .workflow-cube > i:nth-of-type(6) { transform: translateZ(4.5px); }
 `;
 
-/** 3D spinning cube while processing (product-spec loader, deep blue). */
+/** 3D spinning cube while processing (theme primary loader). */
 function CubeSpinner(): JSX.Element {
 	return (
 		<span aria-hidden className="flex h-4 w-4 shrink-0 items-center justify-center">
@@ -89,9 +90,9 @@ function DoneSquare(): JSX.Element {
 		<span aria-hidden className="flex h-4 w-4 shrink-0 items-center justify-center">
 			<span
 				className="flex h-[11px] w-[11px] items-center justify-center border"
-				style={{ borderColor: CUBE_BLUE }}
+				style={{ borderColor: CUBE_COLOR }}
 			>
-				<span className="h-[5px] w-[5px]" style={{ backgroundColor: CUBE_BLUE }} />
+				<span className="h-[5px] w-[5px]" style={{ backgroundColor: CUBE_COLOR }} />
 			</span>
 		</span>
 	);
@@ -99,7 +100,7 @@ function DoneSquare(): JSX.Element {
 
 /**
  * Workflow summary block in the MessageList footer (ADR-0044):
- * cube loader + deep-blue shimmering title, then a guiding-words-style
+ * cube loader + theme-primary shimmering title, then a guiding-words-style
  * branch list of workflows. Click a row to open the workflow activity tab;
  * stop interrupts the child.
  */
