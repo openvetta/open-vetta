@@ -50,7 +50,7 @@ export default definePlugin({
 
 可信官方插件还可声明 `publicId`，例如 `publicId: "general.query"`。目录会优先使用该插件实现，并保留同 id 的内置实现作为 fallback；插件停用、卸载、权限撤销或激活失败后自动回退。普通插件使用 `publicId` 会被拒绝。门控依据宿主生成的 `trustLevel: "official"`，而不是插件 id 或安装来源；当前随包系统插件会获得该级别，远端和本地插件不会。
 
-官方插件需要读写宿主数据时使用 `ctx.official`。该 API 在 SDK 中可见，但普通插件调用会被宿主拒绝；目前提供首个迁移领域所需的 `ctx.official.general.getSettings()` 与 `setSettings()`，不一次性暴露通用 IPC。
+官方插件需要读写宿主数据时使用 `ctx.official`。该 API 在 SDK 中可见，但普通插件调用会被宿主拒绝；目前按已迁移领域提供 `general`、`agent`、`downloads`、`updater` 与 `webhook` 能力，不暴露任意 IPC 调用入口。
 
 ## effect 与审批
 
@@ -70,10 +70,20 @@ export default definePlugin({
 - 超时、调用方取消、插件重载或注销会触发 `signal.abort()`。
 - 每次执行都会重新检查插件是否启用以及两个权限是否仍有效。
 - Action 按 activation 两阶段发布，不会把注册到一半的声明暴露给 search/describe/run。
+- 可选 `assertReady` 在审批前执行；审批 UI 改写输入后会再次执行。适合检查待编辑、删除或取消的实体是否仍存在。
+- `assertReady` 或 `handler` 可抛 `PluginAppActionError(code, message, details)`，宿主保留稳定错误码和 JSON 详情。`assertReady` 失败不会展示审批。
 - handler 在插件 renderer 运行，可以继续使用闭包中的 `ctx.fs`、`ctx.settings` 等 API；这些 API 各自的权限边界不变。
+
+## 当前迁移矩阵
+
+- 已迁移：`general`、`agent`、`downloads`、`updater`、`webhook`。这些领域已覆盖查询、配置写入、实体审批前校验和外部执行，并保留同 id 静态 fallback。
+- 下一批领域适配：`models`、`mcp`、`skills`、`plugins`、`projects`、`shortcuts`、`knowledge`、`im`。迁移时需要逐一保持脱敏、patch 语义、实体校验和专用审批输入合并。
+- 最后迁移的本地复杂执行域：`batch-tasks`、`scheduler`、`appearance`、`navigation`。这些领域依赖任务生命周期、窗口/路由状态或专用运行时服务，应先形成窄粒度宿主能力，不能退化为任意 IPC 转发。
+
+未迁移领域继续由静态 provider 提供，不影响现有 Action 可用性。
 
 ## 独立发布建议
 
 官方 Action 插件可以由 Desktop 的首装流程放入插件注册表，也可以由插件服务下发更新。更新服务负责版本、灰度、回滚和签名验证；Action Runtime 不承担下载职责，只消费已经通过插件安装链验证并激活的版本。这样发布机制与执行机制解耦，远端协议变化不会扩大 Action Runtime 的可信边界。
 
-当前 `vetta-actions` 以随包系统插件形式提供 `general.query` 与 `general.manage`，对应静态 Action 仍是 fallback。产品意义上的“内置 Action 插件”最终应当是**官方托管插件**：可附带 bootstrap 版本，更新包经过签名验证后获得 `trustLevel: "official"`。远端更新服务最后实施；在此之前远端插件不能使用公共 Action id。
+当前 `vetta-actions` 以随包系统插件形式提供 `general`、`agent`、`downloads`、`updater` 与 `webhook` 领域，所有对应静态 Action 仍是 fallback。尚未迁移的复杂领域继续由静态 provider 提供。产品意义上的“内置 Action 插件”最终应当是**官方托管插件**：可附带 bootstrap 版本，更新包经过签名验证后获得 `trustLevel: "official"`。远端更新服务最后实施；在此之前远端插件不能使用公共 Action id。

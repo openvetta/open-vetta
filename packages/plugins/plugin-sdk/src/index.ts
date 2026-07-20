@@ -745,6 +745,23 @@ export type PluginAppActionHandler<TInput = unknown> = (
 	context: PluginAppActionHandlerContext<TInput>,
 ) => unknown | Promise<unknown>;
 
+export type PluginAppActionReadyHandler<TInput = unknown> = (
+	context: PluginAppActionHandlerContext<TInput>,
+) => void | Promise<void>;
+
+/** 插件 Action 向宿主返回稳定错误码与可序列化详情。 */
+export class PluginAppActionError extends Error {
+	readonly code: string;
+	readonly details?: unknown;
+
+	constructor(code: string, message: string, details?: unknown) {
+		super(message);
+		this.name = "PluginAppActionError";
+		this.code = code;
+		this.details = details;
+	}
+}
+
 export interface PluginAppActionApprovalPresentation {
 	id: string;
 	title: string;
@@ -775,6 +792,8 @@ export interface PluginAppActionRegistration<TInput = unknown> {
 	inputSchema: PluginJsonSchema;
 	examples?: PluginAppActionExample<TInput>[];
 	timeoutMs?: number;
+	/** 审批前业务就绪校验；失败时不会向用户弹出审批。 */
+	assertReady?: PluginAppActionReadyHandler<TInput>;
 	handler: PluginAppActionHandler<TInput>;
 }
 
@@ -797,11 +816,116 @@ export type PluginOfficialGeneralSettingsUpdate =
 	| { operation: "set-execution-mode"; mode: "sandbox" | "full-access" }
 	| { operation: "set-workspace"; path: string };
 
+export interface PluginOfficialExperimentalSettings {
+	vettaCli: boolean;
+	promptPrediction: boolean;
+	agentSkills: boolean;
+}
+
+export interface PluginOfficialDownloadItem {
+	id: string;
+	url: string;
+	filename: string;
+	path: string;
+	totalBytes: number;
+	receivedBytes: number;
+	status: "queued" | "downloading" | "paused" | "completed" | "failed" | "canceled";
+	error?: string;
+	createdAt: number;
+	completedAt?: number;
+	speedBytesPerSec?: number;
+}
+
+export interface PluginOfficialUpdaterState {
+	phase: "idle" | "checking" | "available" | "downloading" | "ready" | "installing" | "error";
+	currentVersion: string;
+	latestVersion?: string;
+	releaseNote?: string;
+	progress?: number;
+	downloadedBytes?: number;
+	totalBytes?: number;
+	assetFileName?: string;
+	error?: string;
+	pendingInstall: boolean;
+}
+
+export type PluginOfficialWebhookKind = "feishu" | "dingtalk";
+
+export interface PluginOfficialWebhookEndpoint {
+	id: string;
+	kind: PluginOfficialWebhookKind;
+	name: string;
+	enabled: boolean;
+	createdAt: string;
+	updatedAt: string;
+	urlMask?: string;
+	hasSignSecret?: boolean;
+}
+
+export interface PluginOfficialWebhookProvider {
+	kind: PluginOfficialWebhookKind;
+	displayName: string;
+	iconClass?: string;
+}
+
+export interface PluginOfficialWebhookCreateInput {
+	kind: PluginOfficialWebhookKind;
+	name: string;
+	webhookUrl: string;
+	signSecret?: string;
+	enabled?: boolean;
+}
+
+export interface PluginOfficialWebhookUpdateInput {
+	name?: string;
+	enabled?: boolean;
+	webhookUrl?: string;
+	signSecret?: string;
+}
+
+export interface PluginOfficialWebhookMessage {
+	title?: string;
+	text: string;
+	level?: "info" | "warn" | "error" | "success";
+}
+
+export interface PluginOfficialWebhookSendResult {
+	ok: boolean;
+	error?: string;
+}
+
 /** 仅宿主验证为官方来源的插件可以调用；普通插件调用时由宿主拒绝。 */
 export interface PluginOfficialApi {
 	general: {
 		getSettings(): Promise<PluginOfficialGeneralSettings>;
 		setSettings(input: PluginOfficialGeneralSettingsUpdate): Promise<PluginOfficialGeneralSettingsUpdate>;
+	};
+	agent: {
+		getExperimental(): Promise<PluginOfficialExperimentalSettings>;
+		setExperimental(input: Partial<PluginOfficialExperimentalSettings>): Promise<PluginOfficialExperimentalSettings>;
+	};
+	downloads: {
+		list(): Promise<PluginOfficialDownloadItem[]>;
+		cancel(id: string): Promise<void>;
+	};
+	updater: {
+		getState(): Promise<PluginOfficialUpdaterState>;
+		getCurrentVersion(): Promise<string>;
+		check(): Promise<PluginOfficialUpdaterState>;
+		download(): Promise<PluginOfficialUpdaterState>;
+		install(): Promise<void>;
+		dismiss(): Promise<void>;
+		cancel(): Promise<void>;
+	};
+	webhook: {
+		list(): Promise<PluginOfficialWebhookEndpoint[]>;
+		listProviders(): Promise<PluginOfficialWebhookProvider[]>;
+		create(input: PluginOfficialWebhookCreateInput): Promise<PluginOfficialWebhookEndpoint>;
+		update(id: string, input: PluginOfficialWebhookUpdateInput): Promise<PluginOfficialWebhookEndpoint>;
+		setEnabled(id: string, enabled: boolean): Promise<PluginOfficialWebhookEndpoint>;
+		delete(id: string): Promise<void>;
+		test(id: string): Promise<PluginOfficialWebhookSendResult>;
+		send(id: string, message: PluginOfficialWebhookMessage): Promise<PluginOfficialWebhookSendResult>;
 	};
 }
 

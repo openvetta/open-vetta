@@ -18,6 +18,7 @@ import type {
 	PluginAgentToolApi,
 	PluginAgentToolHandler,
 	PluginAppActionHandler,
+	PluginAppActionReadyHandler,
 	PluginContinuationHandler,
 	PluginConversationApi,
 	PluginDynamicSystemPromptOperation,
@@ -25,7 +26,7 @@ import type {
 	PluginImageRef,
 	PluginSystemPromptProviderHandler,
 } from "@vetta-org/plugin-sdk";
-import { __setPluginHostBridge } from "@vetta-org/plugin-sdk";
+import { __setPluginHostBridge, PluginAppActionError } from "@vetta-org/plugin-sdk";
 import { getDefaultStore, useAtomValue } from "jotai";
 import { useMemo } from "react";
 
@@ -37,7 +38,12 @@ interface PluginAgentToolHandlerEntry {
 }
 
 const agentToolHandlers = new Map<string, PluginAgentToolHandlerEntry>();
-const appActionHandlers = new Map<string, PluginAppActionHandler>();
+interface PluginAppActionHandlerEntry {
+	handler: PluginAppActionHandler;
+	assertReady?: PluginAppActionReadyHandler;
+}
+
+const appActionHandlers = new Map<string, PluginAppActionHandlerEntry>();
 const appActionInvocations = new Map<string, { controller: AbortController; handlerKey: string }>();
 const continuationHandlers = new Map<string, { handler: PluginContinuationHandler; api: PluginAgentToolApi }>();
 const systemPromptHandlers = new Map<string, { handler: PluginSystemPromptProviderHandler; api: PluginAgentToolApi }>();
@@ -246,8 +252,8 @@ function startAppActionRequestListener(): void {
 	appActionRequestListenerStarted = true;
 	window.vetta.plugins.onAppActionRequest((request) => {
 		const key = handlerKey(request.pluginId, request.handlerId);
-		const handler = appActionHandlers.get(key);
-		if (!handler) {
+		const entry = appActionHandlers.get(key);
+		if (!entry) {
 			void window.vetta.plugins.respondAppAction(request.requestId, {
 				error: `Plugin action handler not found: ${request.pluginId}/${request.handlerId}`,
 			});
@@ -255,26 +261,40 @@ function startAppActionRequestListener(): void {
 		}
 		const controller = new AbortController();
 		appActionInvocations.set(request.requestId, { controller, handlerKey: key });
-		void Promise.resolve(
-			handler({
-				invocationId: request.requestId,
-				plugin: {
-					id: request.pluginId,
-					actionId: request.actionId,
-					settings: request.settings,
-				},
-				input: request.input,
-				signal: controller.signal,
-			}),
-		).then(
+		const context = {
+			invocationId: request.requestId,
+			plugin: {
+				id: request.pluginId,
+				actionId: request.actionId,
+				settings: request.settings,
+			},
+			input: request.input,
+			signal: controller.signal,
+		};
+		const invocation =
+			request.phase === "assert-ready"
+				? entry.assertReady
+					? entry.assertReady(context)
+					: Promise.reject(
+							new Error(`Plugin action assertReady handler not found: ${request.pluginId}/${request.handlerId}`),
+						)
+				: entry.handler(context);
+		void Promise.resolve(invocation).then(
 			(value) => {
 				appActionInvocations.delete(request.requestId);
-				return window.vetta.plugins.respondAppAction(request.requestId, { value });
+				return window.vetta.plugins.respondAppAction(request.requestId, {
+					value: request.phase === "assert-ready" ? null : value,
+				});
 			},
 			(error: unknown) => {
 				appActionInvocations.delete(request.requestId);
 				return window.vetta.plugins.respondAppAction(request.requestId, {
-					error: error instanceof Error ? error.message : String(error),
+					error:
+						error instanceof PluginAppActionError
+							? { code: error.code, message: error.message, details: error.details }
+							: error instanceof Error
+								? error.message
+								: String(error),
 				});
 			},
 		);
@@ -409,12 +429,17 @@ export function registerPluginAppActionHandler(options: {
 	pluginId: string;
 	handlerId: string;
 	handler: PluginAppActionHandler;
+	assertReady?: PluginAppActionReadyHandler;
 }): Disposable {
 	const key = handlerKey(options.pluginId, options.handlerId);
-	appActionHandlers.set(key, options.handler);
+	const entry: PluginAppActionHandlerEntry = {
+		handler: options.handler,
+		assertReady: options.assertReady,
+	};
+	appActionHandlers.set(key, entry);
 	return {
 		dispose: () => {
-			if (appActionHandlers.get(key) === options.handler) appActionHandlers.delete(key);
+			if (appActionHandlers.get(key) === entry) appActionHandlers.delete(key);
 			for (const [requestId, invocation] of appActionInvocations) {
 				if (invocation.handlerKey !== key) continue;
 				appActionInvocations.delete(requestId);

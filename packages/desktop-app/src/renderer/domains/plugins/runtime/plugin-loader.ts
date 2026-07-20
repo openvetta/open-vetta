@@ -24,6 +24,7 @@ import type {
 	PluginActivityTabContribution,
 	PluginAgentToolHandler,
 	PluginAppActionHandler,
+	PluginAppActionReadyHandler,
 	PluginCardRendererContribution,
 	PluginCommandApi,
 	PluginContext,
@@ -38,7 +39,6 @@ import type {
 	PluginInputActionContribution,
 	PluginLocales,
 	PluginNotifyOptions,
-	PluginOfficialApi,
 	PluginOpenActivityTabOptions,
 	PluginPermission,
 	PluginSettingsApi,
@@ -56,6 +56,7 @@ import {
 	registerPluginContinuationHandler,
 	registerPluginSystemPromptHandler,
 } from "./plugin-host-bridge";
+import { createPluginOfficialApi } from "./plugin-official-api";
 import { createPluginRuntimeShared } from "./plugin-shared-modules";
 
 export interface LoadedPlugin {
@@ -423,52 +424,6 @@ function createCommandApi(plugin: InstalledPlugin): PluginCommandApi {
 				throw new Error(`Plugin ${plugin.id} command disabled by user: ${file}`);
 			}
 			return window.vetta.plugins.runCommand(plugin.id, file, args ?? [], options);
-		},
-	};
-}
-
-function createOfficialApi(plugin: InstalledPlugin): PluginOfficialApi {
-	const assertOfficial = (): void => {
-		if (plugin.trustLevel !== "official") {
-			throw new Error(`Plugin ${plugin.id} is not allowed to use official host capabilities`);
-		}
-	};
-	return {
-		general: {
-			getSettings: async () => {
-				assertOfficial();
-				const config = await window.vetta.config.get();
-				return {
-					workspacePath: config.workspacePath,
-					defaultExecutionMode: config.defaultExecutionMode,
-					notificationsEnabled: config.notificationsEnabled !== false,
-					debugMode: Boolean(config.debugMode),
-					sandbox: config.sandbox ?? config.linuxSandbox,
-				};
-			},
-			setSettings: async (input) => {
-				assertOfficial();
-				if (input.operation === "set-notifications") {
-					if (typeof input.enabled !== "boolean") throw new Error("enabled must be a boolean");
-					await window.vetta.config.set({ notificationsEnabled: input.enabled });
-					return { operation: input.operation, enabled: input.enabled };
-				}
-				if (input.operation === "set-execution-mode") {
-					if (input.mode !== "sandbox" && input.mode !== "full-access") {
-						throw new Error("mode must be sandbox or full-access");
-					}
-					await window.vetta.config.set({ defaultExecutionMode: input.mode });
-					return { operation: input.operation, mode: input.mode };
-				}
-				if (input.operation === "set-workspace") {
-					const path = typeof input.path === "string" ? input.path.trim() : "";
-					const isAbsolute = path.startsWith("/") || /^[a-zA-Z]:[\\/]/.test(path) || path.startsWith("\\\\");
-					if (!isAbsolute) throw new Error("workspace path must be absolute");
-					await window.vetta.config.set({ workspacePath: path });
-					return { operation: input.operation, path };
-				}
-				throw new Error("Unsupported general settings operation");
-			},
 		},
 	};
 }
@@ -1008,6 +963,7 @@ function createContext(
 					pluginId: plugin.id,
 					handlerId,
 					handler: registration.handler as PluginAppActionHandler,
+					assertReady: registration.assertReady as PluginAppActionReadyHandler | undefined,
 				});
 				disposers.push(() => handlerHandle.dispose());
 				const registrationPromise = window.vetta.plugins
@@ -1024,6 +980,7 @@ function createContext(
 						examples: registration.examples ?? [],
 						handlerId,
 						activationId,
+						hasAssertReady: typeof registration.assertReady === "function",
 						timeoutMs: registration.timeoutMs,
 					})
 					.catch((error: Error) => {
@@ -1039,7 +996,7 @@ function createContext(
 				};
 			},
 		},
-		official: createOfficialApi(plugin),
+		official: createPluginOfficialApi(plugin),
 		images: createImagesApi(plugin),
 		settings: settingsApi,
 		i18n: createI18nApi(plugin),

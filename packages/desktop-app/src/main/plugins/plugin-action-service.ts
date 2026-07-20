@@ -324,6 +324,11 @@ export class PluginActionService {
 				}
 				return applyApprovalPresentation(schemaInput, requestedPresentation, registration);
 			},
+			assertReady: registration.hasAssertReady
+				? async (input, context) => {
+						await this.invoke(pluginId, registered, input, context, "assert-ready");
+					}
+				: undefined,
 			requiresApproval:
 				registration.effect === "read" ? undefined : (_input, context) => context.source === "local-server",
 			run: (input, context) => this.invoke(pluginId, registered, input, context),
@@ -415,12 +420,31 @@ export class PluginActionService {
 		if (!pending) return;
 		this.detachPending(requestId, pending);
 		if (typeof result === "object" && result !== null && "error" in result) {
-			pending.reject(
-				new ActionError(
-					"PLUGIN_ACTION_FAILED",
-					String((result as { error?: unknown }).error ?? "Plugin action failed"),
-				),
-			);
+			const error = (result as { error?: unknown }).error;
+			if (typeof error === "object" && error !== null) {
+				const structured = error as { code?: unknown; message?: unknown; details?: unknown };
+				const code = typeof structured.code === "string" ? structured.code : "PLUGIN_ACTION_FAILED";
+				const message = typeof structured.message === "string" ? structured.message : "Plugin action failed";
+				try {
+					const details =
+						structured.details === undefined
+							? undefined
+							: toJsonValue(
+									structured.details,
+									"ACTION_SERIALIZE_ERROR",
+									"Plugin action error details must be JSON serializable.",
+								);
+					pending.reject(new ActionError(code, message, details));
+				} catch (serializationError) {
+					pending.reject(
+						serializationError instanceof ActionError
+							? serializationError
+							: new ActionError("ACTION_SERIALIZE_ERROR", "Plugin action error details are invalid."),
+					);
+				}
+				return;
+			}
+			pending.reject(new ActionError("PLUGIN_ACTION_FAILED", String(error ?? "Plugin action failed")));
 			return;
 		}
 		try {
@@ -454,6 +478,7 @@ export class PluginActionService {
 		action: RegisteredPluginAction,
 		input: JsonValue,
 		context: ActionContext,
+		phase: "assert-ready" | "run" = "run",
 	): Promise<JsonValue> {
 		assertPluginCanExecute(pluginId);
 		const active = this.activeActivations.get(pluginId);
@@ -495,6 +520,7 @@ export class PluginActionService {
 					handlerId: action.handlerId,
 					settings: getPluginSettings(pluginId),
 					input,
+					phase,
 				});
 			} catch (error) {
 				this.detachPending(requestId, pending);
