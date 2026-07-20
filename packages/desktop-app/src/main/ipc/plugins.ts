@@ -2,6 +2,7 @@ import { ipcMain, webContents } from "electron";
 import type { AppMonitorResourceOperation, AppMonitorResourceSource } from "../../preload/api-types/app-monitor.js";
 import type {
 	InstalledPlugin,
+	PluginAppActionApproval,
 	PluginAppActionRegistration,
 	PluginCommandRunOptions,
 	PluginEditImageInput,
@@ -155,6 +156,38 @@ function asAgentToolRegistration(value: unknown): {
 	};
 }
 
+function asAppActionApproval(value: unknown): PluginAppActionApproval | undefined {
+	if (value === undefined) return undefined;
+	const input = asRecord(value, "app action approval");
+	const defaultPresentation = asOptionalString(input.defaultPresentation);
+	if (!defaultPresentation || !Array.isArray(input.presentations)) {
+		throw new Error("Invalid app action approval metadata");
+	}
+	const presentations = input.presentations.map((value) => {
+		const presentation = asRecord(value, "app action approval presentation");
+		const id = asOptionalString(presentation.id);
+		const title = asOptionalString(presentation.title);
+		const description = asOptionalString(presentation.description);
+		if (!id || !title || !description) throw new Error("Invalid app action approval presentation");
+		return { id, title, description };
+	});
+	const operationInput =
+		input.presentationByOperation === undefined
+			? undefined
+			: asRecord(input.presentationByOperation, "app action approval operation map");
+	const presentationByOperation = operationInput
+		? Object.fromEntries(
+				Object.entries(operationInput).map(([operation, presentation]) => {
+					if (typeof presentation !== "string" || presentation.trim().length === 0) {
+						throw new Error("Invalid app action approval operation presentation");
+					}
+					return [operation, presentation.trim()];
+				}),
+			)
+		: undefined;
+	return { defaultPresentation, presentations, presentationByOperation };
+}
+
 function asAppActionRegistration(value: unknown): PluginAppActionRegistration {
 	const input = asRecord(value, "app action registration");
 	const id = asPluginId(input.id);
@@ -184,6 +217,7 @@ function asAppActionRegistration(value: unknown): PluginAppActionRegistration {
 		description: asOptionalString(input.description),
 		keywords: asOptionalStringArray(input.keywords),
 		effect: input.effect,
+		approval: asAppActionApproval(input.approval),
 		inputSchema: asRecord(input.inputSchema, "app action input schema"),
 		examples: examples.map((example) => {
 			const normalized = asRecord(example, "app action example");
@@ -193,6 +227,7 @@ function asAppActionRegistration(value: unknown): PluginAppActionRegistration {
 		}),
 		handlerId,
 		activationId,
+		hasAssertReady: input.hasAssertReady === true,
 		timeoutMs:
 			typeof input.timeoutMs === "number" && Number.isFinite(input.timeoutMs) && input.timeoutMs > 0
 				? Math.min(Math.floor(input.timeoutMs), 120_000)

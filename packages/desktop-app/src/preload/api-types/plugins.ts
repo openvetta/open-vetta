@@ -267,6 +267,7 @@ export interface PluginAppActionRegistration {
 	examples: Array<{ description: string; input: unknown }>;
 	handlerId: string;
 	activationId: string;
+	hasAssertReady: boolean;
 	timeoutMs?: number;
 }
 
@@ -278,6 +279,7 @@ export interface PluginAppActionInvocationRequest {
 	handlerId: string;
 	settings: Record<string, unknown>;
 	input: unknown;
+	phase: "assert-ready" | "run";
 }
 
 export interface PluginAppActionCancelRequest {
