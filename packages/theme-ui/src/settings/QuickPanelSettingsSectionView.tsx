@@ -10,6 +10,7 @@ export interface QuickPanelOptionView {
 
 export interface QuickPanelSettingsSectionViewProps {
 	readonly section: SettingSectionMeta;
+	readonly sectionTitle?: string;
 	readonly triggerTitle: string;
 	readonly triggerDescription: string;
 	readonly trigger: string;
@@ -25,6 +26,7 @@ export interface QuickPanelSettingsSectionViewProps {
 
 export function QuickPanelSettingsSectionView({
 	section,
+	sectionTitle,
 	triggerTitle,
 	triggerDescription,
 	trigger,
@@ -38,7 +40,7 @@ export function QuickPanelSettingsSectionView({
 	behaviorDisabled,
 }: QuickPanelSettingsSectionViewProps): JSX.Element {
 	return (
-		<SettingSection section={section}>
+		<SettingSection section={section} title={sectionTitle}>
 			<SettingRow title={triggerTitle} description={triggerDescription}>
 				<Select value={trigger} onValueChange={onTriggerChange}>
 					<SelectTrigger size="sm" className="h-8 min-w-[150px] border-border/70 bg-background/50 text-[12px]">

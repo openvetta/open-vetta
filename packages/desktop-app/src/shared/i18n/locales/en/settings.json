@@ -755,6 +755,28 @@
   "uiThemeXianxia": "Xianxia theme",
   "uiThemeXianxiaHint": "Use the Xianxia-styled interface",
   "uiThemeUnavailable": "Coming soon",
+  "colorThemes": {
+    "mono": "Default",
+    "default": "Classic",
+    "emerald": "Emerald",
+    "sand": "Coral",
+    "slate": "Slate",
+    "voltage": "Voltage"
+  },
+  "personas": {
+    "default": {
+      "label": "Default",
+      "description": "Do not append a persona; keep the agent’s original behavior"
+    },
+    "pragmatic": {
+      "label": "Pragmatic",
+      "description": "Concise answers, precise focus, no detours — stay on the task"
+    },
+    "interactive": {
+      "label": "Interactive",
+      "description": "Ask to align on requirements, suggest directions, and wait for go-ahead"
+    }
+  },
   "saveFailed": "Save failed",
   "pleaseLogin": "Please log in first",
   "tokenActivity": {

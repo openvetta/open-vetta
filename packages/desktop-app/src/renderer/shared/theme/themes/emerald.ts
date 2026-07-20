@@ -6,7 +6,7 @@ import { defaultTheme } from "./default";
 
 export const emeraldTheme: ThemeDef = {
 	id: "emerald",
-	label: "翠玉",
+	label: "Emerald",
 	dark: {
 		...defaultTheme.dark,
 		background: "rgb(18, 18, 18)",

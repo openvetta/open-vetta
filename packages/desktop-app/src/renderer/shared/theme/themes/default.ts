@@ -18,7 +18,7 @@ const SHADOW_2XL = "0px 1px 2px 0px hsl(0 0% 0% / 0.45)";
 
 export const defaultTheme: ThemeDef = {
 	id: "default",
-	label: "经典",
+	label: "Classic",
 	dark: {
 		background: "rgb(20, 22, 30)",
 		foreground: "rgb(240, 242, 248)",

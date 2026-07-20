@@ -110,6 +110,15 @@ export function usePetSettingsModel(): PetSettingsModel {
 		[bubbleStyleAssets, t],
 	);
 
+	const localizedDecorations = useMemo(
+		() =>
+			decorations.map((decoration) => ({
+				...decoration,
+				label: t(decoration.labelKey),
+			})),
+		[decorations, t],
+	);
+
 	const labels = useMemo(
 		() => ({
 			alwaysOnTop: t("settings.alwaysOnTop"),
@@ -145,7 +154,7 @@ export function usePetSettingsModel(): PetSettingsModel {
 		},
 		bubbleStyles,
 		config,
-		decorations,
+		decorations: localizedDecorations,
 		labels,
 	};
 }

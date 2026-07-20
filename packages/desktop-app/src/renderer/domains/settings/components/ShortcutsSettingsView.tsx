@@ -12,6 +12,7 @@ export function ShortcutsSettingsView({ model }: { model: ShortcutsSettingsModel
 			resetAllLabel={model.resetAllLabel}
 			shortcutHint={model.shortcutHint}
 			globalSection={SETTINGS_SECTION["shortcuts-global"]}
+			globalSectionTitle={model.globalSectionTitle}
 			aiAssistSlot={<SettingsAiAssist tabId="shortcuts" />}
 			onResetAll={model.onResetAll}
 			shortcutActions={model.shortcutActions.map((action) => ({

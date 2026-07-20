@@ -7,7 +7,7 @@ import { defaultTheme } from "./default";
 
 export const voltageTheme: ThemeDef = {
 	id: "voltage",
-	label: "电光",
+	label: "Voltage",
 	dark: {
 		...defaultTheme.dark,
 		background: "rgb(10, 10, 10)",

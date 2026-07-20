@@ -6,7 +6,7 @@ import { defaultTheme } from "./default";
 
 export const monoTheme: ThemeDef = {
 	id: "mono",
-	label: "默认",
+	label: "Default",
 	dark: {
 		...defaultTheme.dark,
 		background: "rgb(10, 10, 10)",

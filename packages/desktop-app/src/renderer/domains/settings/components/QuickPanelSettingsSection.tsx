@@ -16,6 +16,7 @@ export function QuickPanelSettingsSection({
 	return (
 		<QuickPanelSettingsSectionView
 			section={SETTINGS_SECTION["shortcuts-quickpanel"]}
+			sectionTitle={model.sectionTitle}
 			triggerTitle={model.triggerTitle}
 			triggerDescription={model.triggerDescription}
 			trigger={model.trigger}
