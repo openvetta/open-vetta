@@ -76,19 +76,22 @@ export function HtmlPreviewView({
 	);
 
 	return (
-		<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+		<div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden">
 			<div className="flex shrink-0 items-center justify-center border-b border-border/40 px-4 py-2">
 				<SegmentedControl items={toggleItems} value={mode} onChange={setMode} />
 			</div>
 			{mode === "preview" ? (
-				<iframe
-					title={labels.title}
-					srcDoc={srcDoc}
-					sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-					className="min-h-0 flex-1 border-0 bg-white"
-				/>
+				// iframe ignores flex-grow in many engines — absolute fill matches parent height.
+				<div className="relative min-h-0 w-full flex-1">
+					<iframe
+						title={labels.title}
+						srcDoc={srcDoc}
+						sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+						className="absolute inset-0 h-full w-full border-0 bg-white"
+					/>
+				</div>
 			) : (
-				<div className="min-h-0 flex-1 overflow-y-auto">
+				<div className="min-h-0 w-full flex-1 overflow-y-auto">
 					<CodePreviewComponent content={content} extension={extension} theme={theme} />
 				</div>
 			)}
