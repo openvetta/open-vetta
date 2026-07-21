@@ -5,6 +5,11 @@ import { PageHeaderContent } from "./PageHeaderContent";
 import { PageHeaderFrame } from "./PageHeaderFrame";
 
 export interface DefaultPageHeaderProps extends PageHeaderRegionProps {
+	/**
+	 * Force Mac titlebar metrics (traffic-light gutter / h-11).
+	 * Use for marketing shells that paint Mac chrome on any host OS.
+	 */
+	forceMacChrome?: boolean;
 	/** Host-provided window chrome (connected WindowControls). */
 	windowControls?: ReactNode;
 }
@@ -12,6 +17,7 @@ export interface DefaultPageHeaderProps extends PageHeaderRegionProps {
 export function DefaultPageHeader({
 	className,
 	classNames,
+	forceMacChrome = false,
 	model,
 	narrow,
 	onExpandSidebar,
@@ -25,6 +31,7 @@ export function DefaultPageHeader({
 		<PageHeaderFrame
 			className={className}
 			contentClassName={classNames?.content}
+			forceMacChrome={forceMacChrome}
 			triggerVisible={model.triggerVisible}
 		>
 			<ThemePageHeaderContent
