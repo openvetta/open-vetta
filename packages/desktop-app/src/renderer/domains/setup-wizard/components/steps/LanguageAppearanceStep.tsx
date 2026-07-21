@@ -72,14 +72,15 @@ function CompactThemeCard({
 		>
 			<div
 				className={cn(
-					"relative aspect-[16/10] w-full overflow-hidden rounded-lg transition-colors",
+					// 全宽 2×3：固定预览高度，避免 aspect 随列宽变高
+					"relative h-[4.75rem] w-full overflow-hidden rounded-lg transition-colors",
 					active
 						? "ring-1 ring-inset ring-primary/40"
 						: "ring-1 ring-border/50 group-hover:ring-primary/40",
 				)}
 				style={{ background: palette.background }}
 			>
-				<div className="absolute inset-0 flex items-end justify-between gap-1 p-2">
+				<div className="absolute inset-0 flex items-stretch justify-between gap-1 p-2">
 					<div
 						className="h-full w-[42%] rounded-md"
 						style={{
@@ -87,7 +88,7 @@ function CompactThemeCard({
 							border: `1px solid ${palette.border}`,
 						}}
 					/>
-					<div className="flex flex-1 flex-col justify-end gap-1 pb-0.5">
+					<div className="flex flex-1 flex-col justify-start gap-1 pt-0.5">
 						{swatches.map((color, i) => (
 							<span
 								key={`${theme.id}-swatch-${i}`}
@@ -264,7 +265,8 @@ export function LanguageAppearanceStep(): JSX.Element {
 				<h3 className="mb-2 text-[12px] font-medium text-muted-foreground">
 					{t("setupWizard.languageAppearance.theme")}
 				</h3>
-				<div className="grid grid-cols-3 gap-2.5">
+				{/* 2×3 铺满宽度；预览 max-h 锁原高度，避免 aspect 随列宽变高 */}
+				<div className="grid w-full grid-cols-3 gap-2.5">
 					{themes.map((theme) => (
 						<CompactThemeCard
 							key={theme.id}
