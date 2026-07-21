@@ -19,6 +19,10 @@ packages/*/dist-firefox/
 # Deploy-time config (contains secrets, must not be committed)
 deploy/config.*.yaml
 !deploy/config.*.example.yaml
+# TLS 私钥（Cloudflare Origin Certificate）与本地生成的 htpasswd
+deploy/certs/
+*.pem
+*.key
 
 # Editor files
 .vscode/
