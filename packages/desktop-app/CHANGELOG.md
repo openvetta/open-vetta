@@ -54,7 +54,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 - **插件 App Action 运行时收口**：`vetta-actions` 改为不可停用/卸载的 required 系统插件并要求 Plugin API `^1.1.0`；Catalog 在核心 provider 未就绪时返回结构化错误，插件热更新按 provider 快照原子切换并在失败时保留上一版；官方审批 operation 映射改为宿主权威选择；批量任务、定时任务与 MCP 写入增加主进程结构校验，官方插件 API 按领域拆分并收紧数据类型。
 - **首次启动引导**：已登录时隐藏登录步骤（含底部 indicator）；设置 → 通用最下方新增「启动 App 引导」，可随时重新打开引导页。
-- **界面语言默认跟随系统**：`desktop-config.language` 未设置时，启动按 OS locale 解析（中文族 → `zh`，其余 → `en`）；系统 locale 不可读时再回落 `DEFAULT_LANGUAGE=en`。首次引导「语言与外观」页预选系统语言；用户显式选择后才持久化。缺译回退仍为中文（`FALLBACK_LANGUAGE=zh`）。
+- **界面语言支持「跟随系统」**：`desktop-config.language` 取值 `system` | `zh` | `en`（缺省 / 未设置 = `system`）；启动按 OS locale 解析（中文族 → `zh`，其余 → `en`）。设置 → 外观与首次引导「语言与外观」均提供跟随系统 / 中文 / English 选项；缺译回退仍为中文（`FALLBACK_LANGUAGE=zh`）。
 - **开发态 Vite renderer 端口改为 3020**：避免与官网 Next（3000）、仙侠主题 dev（3010）冲突；`wait-on` / `VETTA_DESKTOP_DEV_URL` 同步为 `http://127.0.0.1:3020`，并启用 `strictPort`。
 - **用户消息不再展示相对时间**：消息下方操作区去掉「刚刚 / N 分钟前」等时间标签，复制等操作按钮与分支切换保留。
 - **聊天输入框 placeholder**：改为自定义不可选中覆盖层，默认态多条文案垂直自动轮播（i18n `inputBar.placeholder.defaults` 数组可自由扩展）；无会话 / 思考中 / 输入预测建议仍为单条静态文案；有任意字符（含空格）即隐藏，与原生 placeholder 一致。纯视图落在 `@vetta/theme-ui/chat` 的 `InputBarPlaceholder`，desktop model 解析文案；支持 `chat.inputBarPlaceholder` component override。

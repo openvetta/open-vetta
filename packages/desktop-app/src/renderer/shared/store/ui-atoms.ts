@@ -1,17 +1,35 @@
 import { DEFAULT_THEME_ID, resolveThemeId } from "@shared/theme/themes";
 import { atom } from "jotai";
 import type { ReactNode } from "react";
-import { type AppLanguage, DEFAULT_LANGUAGE, isSupportedLanguage } from "@/shared/i18n/config";
+import {
+	type AppLanguage,
+	DEFAULT_LANGUAGE,
+	DEFAULT_LANGUAGE_PREFERENCE,
+	isLanguagePreference,
+	isSupportedLanguage,
+	type LanguagePreference,
+} from "@/shared/i18n/config";
 import { type CursorStyle, getStoredCursorStyle } from "../theme/cursor";
 
 // ─── i18n ───
-// 初值取主进程同步暴露的当前语言（config.language 或系统 locale 解析结果）。
-// 经 isSupportedLanguage 守卫，preload 未就绪/异常值时回落 DEFAULT_LANGUAGE。
+// 初值取主进程同步暴露的语言状态（preference + 解析后 language）。
 // 切换写主进程，见 useLanguage。
-const initialLanguage = typeof window !== "undefined" ? window.vetta?.i18n?.initialLanguage : undefined;
-export const languageAtom = atom<AppLanguage>(
-	isSupportedLanguage(initialLanguage) ? initialLanguage : DEFAULT_LANGUAGE,
-);
+const initialState = typeof window !== "undefined" ? window.vetta?.i18n?.initialState : undefined;
+const initialPreference: LanguagePreference = isLanguagePreference(initialState?.preference)
+	? initialState.preference
+	: isLanguagePreference(typeof window !== "undefined" ? window.vetta?.i18n?.initialLanguagePreference : undefined)
+		? (window.vetta!.i18n.initialLanguagePreference as LanguagePreference)
+		: DEFAULT_LANGUAGE_PREFERENCE;
+const initialResolved: AppLanguage = isSupportedLanguage(initialState?.language)
+	? initialState.language
+	: isSupportedLanguage(typeof window !== "undefined" ? window.vetta?.i18n?.initialLanguage : undefined)
+		? (window.vetta!.i18n.initialLanguage as AppLanguage)
+		: DEFAULT_LANGUAGE;
+
+/** 用户语言偏好（含 system）；设置/引导页选中态。 */
+export const languagePreferenceAtom = atom<LanguagePreference>(initialPreference);
+/** 解析后的实际界面语言（i18next lng）。 */
+export const languageAtom = atom<AppLanguage>(initialResolved);
 
 // ─── Page header overrides ───
 // Pages can set these to override the default route-based title and inject

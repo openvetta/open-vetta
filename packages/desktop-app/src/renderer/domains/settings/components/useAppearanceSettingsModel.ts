@@ -10,7 +10,7 @@ import type { ThemeDef } from "@shared/theme/tokens";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { isAppearanceUiThemeEnabled } from "@/shared/feature-flags";
-import type { AppLanguage } from "@/shared/i18n/config";
+import type { LanguagePreference } from "@/shared/i18n/config";
 import defaultThemePreview from "../assets/default.webp";
 import xianxiaThemePreview from "../assets/xianxia.webp";
 import { SETTINGS_SECTION } from "../registry";
@@ -31,7 +31,7 @@ export interface AppearanceModeOption {
 export interface AppearanceLanguageOption {
 	alt: string;
 	native: string;
-	value: AppLanguage;
+	value: LanguagePreference;
 }
 
 export interface AppearanceUiThemeOption {
@@ -56,7 +56,7 @@ export interface AppearanceCursorOption {
 
 export interface AppearanceSettingsModel {
 	actions: {
-		changeLanguage: (language: AppLanguage) => void;
+		changeLanguage: (language: LanguagePreference) => void;
 		changeMode: (mode: ThemeMode, point: AppearancePoint) => void;
 		changeThemeName: (id: string, point: AppearancePoint) => void;
 		selectUiTheme: (id: string) => void;
@@ -76,7 +76,8 @@ export interface AppearanceSettingsModel {
 		};
 		title: string;
 	};
-	language: AppLanguage;
+	/** 用户语言偏好（含 system），用于选择器高亮。 */
+	language: LanguagePreference;
 	languages: AppearanceLanguageOption[];
 	mode: ThemeMode;
 	modeOptions: AppearanceModeOption[];
@@ -114,7 +115,12 @@ const MODE_OPTIONS = [
 	value: ThemeMode;
 }>;
 
-const LANGUAGE_OPTIONS: AppearanceLanguageOption[] = [
+/** 固定语言名（语种自称，非 UI chrome 文案）；system 项 label 由 i18n 注入。 */
+const FIXED_LANGUAGE_OPTIONS: ReadonlyArray<{
+	value: Exclude<LanguagePreference, "system">;
+	native: string;
+	alt: string;
+}> = [
 	{ value: "zh", native: "中文", alt: "Chinese" },
 	{ value: "en", native: "English", alt: "英文" },
 ];
@@ -161,10 +167,22 @@ const COLOR_THEME_LABEL_KEYS = {
 export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 	const { mode, themeName, setMode, setThemeName } = useTheme();
 	const { activeThemeId, availableThemes, selectTheme, status: themeRuntimeStatus } = useThemeRuntime();
-	const { language, setLanguage } = useLanguage();
+	const { languagePreference, setLanguage } = useLanguage();
 	const { style: cursorStyle, setStyle: setCursorStyle } = useCursorStyle();
 	const { t } = useTranslation("settings");
 	const narrow = useNarrowScreen();
+
+	const languages = useMemo<AppearanceLanguageOption[]>(
+		() => [
+			{
+				value: "system",
+				native: t("languageSystem"),
+				alt: t("languageSystemAlt"),
+			},
+			...FIXED_LANGUAGE_OPTIONS,
+		],
+		[t],
+	);
 
 	const modeOptions = useMemo<AppearanceModeOption[]>(
 		() =>
@@ -269,8 +287,8 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 		cursorOptions,
 		cursorStyle,
 		labels,
-		language,
-		languages: LANGUAGE_OPTIONS,
+		language: languagePreference,
+		languages,
 		mode,
 		modeOptions,
 		narrow,

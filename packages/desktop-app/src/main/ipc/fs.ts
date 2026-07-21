@@ -20,7 +20,7 @@ import type {
 	McpStdioServerConfigData,
 } from "../../preload/api-types/mcp.js";
 import type { FsEntry, FsFileRef } from "../../preload/fs-types.js";
-import { type AppLanguage, isSupportedLanguage } from "../../shared/i18n/config.js";
+import { isLanguagePreference, type LanguagePreference } from "../../shared/i18n/config.js";
 import { normalizeShortcutsConfig, type ShortcutsConfig } from "../../shared/shortcuts.js";
 import { SHORTCUTS_CHANNELS } from "../../shared/shortcuts-ipc.js";
 import { validateMcpConfig } from "../mcp-config-validation.js";
@@ -55,8 +55,11 @@ export interface DesktopConfig {
 	vettaCliAppPath?: string;
 	/** 系统通知总开关（「通用设置」）。缺省视为开启。 */
 	notificationsEnabled?: boolean;
-	/** 界面语言（见 ADR-0031）。缺省（undefined）= 首启跟随系统 locale。 */
-	language?: AppLanguage;
+	/**
+	 * 界面语言偏好（见 ADR-0031）：`system` | `zh` | `en`。
+	 * 缺省（undefined）= 跟随系统（等价 system）。
+	 */
+	language?: LanguagePreference;
 	/** 实验性功能开关分组。缺省视为全部开启。 */
 	experimental?: ExperimentalConfig;
 	/** 知识库加工设置。 */
@@ -269,7 +272,7 @@ export async function readDesktopConfig(): Promise<DesktopConfig> {
 			vettaAppPath: typeof parsed.vettaAppPath === "string" ? parsed.vettaAppPath : undefined,
 			vettaCliAppPath: typeof parsed.vettaCliAppPath === "string" ? parsed.vettaCliAppPath : undefined,
 			notificationsEnabled: typeof parsed.notificationsEnabled === "boolean" ? parsed.notificationsEnabled : true,
-			language: isSupportedLanguage(parsed.language) ? parsed.language : undefined,
+			language: isLanguagePreference(parsed.language) ? parsed.language : undefined,
 			experimental: normalizeExperimental(parsed.experimental),
 			knowledgeBase: normalizeKnowledgeBase(parsed.knowledgeBase),
 			shortcuts: normalizeShortcuts(parsed.shortcuts),
@@ -296,7 +299,7 @@ export function readConfigSync(): DesktopConfig {
 			vettaAppPath: typeof parsed.vettaAppPath === "string" ? parsed.vettaAppPath : undefined,
 			vettaCliAppPath: typeof parsed.vettaCliAppPath === "string" ? parsed.vettaCliAppPath : undefined,
 			notificationsEnabled: typeof parsed.notificationsEnabled === "boolean" ? parsed.notificationsEnabled : true,
-			language: isSupportedLanguage(parsed.language) ? parsed.language : undefined,
+			language: isLanguagePreference(parsed.language) ? parsed.language : undefined,
 			experimental: normalizeExperimental(parsed.experimental),
 			knowledgeBase: normalizeKnowledgeBase(parsed.knowledgeBase),
 			shortcuts: normalizeShortcuts(parsed.shortcuts),
