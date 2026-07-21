@@ -1,0 +1,276 @@
+/**
+ * 博客正文排版。所有颜色走 shadcn 主题变量（--foreground / --muted-foreground / --border / --primary /
+ * --muted / --card），admin 与 site 各自的亮/暗主题都能直接继承，不在这里写死任何具体色值。
+ * 全部选择器都挂在 .vetta-markdown 下，避免污染宿主页面。
+ */
+
+.vetta-markdown {
+	color: var(--foreground);
+	font-size: 1rem;
+	line-height: 1.75;
+	overflow-wrap: break-word;
+}
+
+.vetta-markdown > *:first-child {
+	margin-top: 0;
+}
+
+.vetta-markdown > *:last-child {
+	margin-bottom: 0;
+}
+
+/* ── 标题 ── */
+
+.vetta-markdown h1,
+.vetta-markdown h2,
+.vetta-markdown h3,
+.vetta-markdown h4,
+.vetta-markdown h5,
+.vetta-markdown h6 {
+	margin: 2em 0 0.75em;
+	font-weight: 600;
+	line-height: 1.3;
+	letter-spacing: -0.01em;
+	scroll-margin-top: 6rem;
+}
+
+.vetta-markdown h1 {
+	font-size: 1.875em;
+}
+
+.vetta-markdown h2 {
+	font-size: 1.5em;
+	padding-bottom: 0.3em;
+	border-bottom: 1px solid var(--border);
+}
+
+.vetta-markdown h3 {
+	font-size: 1.25em;
+}
+
+.vetta-markdown h4 {
+	font-size: 1.05em;
+}
+
+.vetta-markdown h5,
+.vetta-markdown h6 {
+	font-size: 1em;
+	color: var(--muted-foreground);
+}
+
+/* ── 段落与行内 ── */
+
+.vetta-markdown p {
+	margin: 1.15em 0;
+}
+
+.vetta-markdown strong {
+	font-weight: 600;
+}
+
+.vetta-markdown a {
+	color: var(--primary);
+	text-decoration: underline;
+	text-underline-offset: 0.2em;
+	text-decoration-color: color-mix(in srgb, var(--primary) 45%, transparent);
+	transition: text-decoration-color 150ms ease;
+}
+
+.vetta-markdown a:hover {
+	text-decoration-color: var(--primary);
+}
+
+.vetta-markdown hr {
+	margin: 2.5em 0;
+	border: 0;
+	border-top: 1px solid var(--border);
+}
+
+/* ── 列表 ── */
+
+.vetta-markdown ul,
+.vetta-markdown ol {
+	margin: 1.15em 0;
+	padding-left: 1.5em;
+}
+
+.vetta-markdown ul {
+	list-style: disc;
+}
+
+.vetta-markdown ol {
+	list-style: decimal;
+}
+
+.vetta-markdown li {
+	margin: 0.4em 0;
+}
+
+.vetta-markdown li > ul,
+.vetta-markdown li > ol {
+	margin: 0.4em 0;
+}
+
+/* GFM 任务列表：去掉项目符号，复选框与文字基线对齐 */
+.vetta-markdown li:has(> input[type="checkbox"]) {
+	list-style: none;
+	margin-left: -1.35em;
+}
+
+.vetta-markdown li > input[type="checkbox"] {
+	margin-right: 0.5em;
+	vertical-align: middle;
+	accent-color: var(--primary);
+}
+
+/* ── 引用 ── */
+
+.vetta-markdown blockquote {
+	margin: 1.5em 0;
+	padding: 0.25em 0 0.25em 1.15em;
+	border-left: 3px solid color-mix(in srgb, var(--primary) 55%, transparent);
+	color: var(--muted-foreground);
+}
+
+.vetta-markdown blockquote > *:first-child {
+	margin-top: 0;
+}
+
+.vetta-markdown blockquote > *:last-child {
+	margin-bottom: 0;
+}
+
+/* ── 代码 ── */
+
+.vetta-markdown code {
+	font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+	font-size: 0.875em;
+}
+
+/* 行内代码（pre 里的块级代码在下面单独覆写） */
+.vetta-markdown :not(pre) > code {
+	padding: 0.15em 0.4em;
+	border-radius: 0.35em;
+	background: color-mix(in srgb, var(--muted-foreground) 16%, transparent);
+	word-break: break-word;
+}
+
+.vetta-markdown pre {
+	margin: 1.5em 0;
+	padding: 1em 1.15em;
+	border: 1px solid var(--border);
+	border-radius: 0.75em;
+	background: var(--muted);
+	overflow-x: auto;
+	line-height: 1.6;
+}
+
+.vetta-markdown pre > code {
+	display: block;
+	padding: 0;
+	background: none;
+	white-space: pre;
+}
+
+/* ── 表格 ── */
+
+.vetta-markdown-table-scroll {
+	margin: 1.5em 0;
+	overflow-x: auto;
+	border: 1px solid var(--border);
+	border-radius: 0.75em;
+}
+
+.vetta-markdown table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.925em;
+}
+
+.vetta-markdown th,
+.vetta-markdown td {
+	padding: 0.6em 0.9em;
+	text-align: left;
+	border-bottom: 1px solid var(--border);
+}
+
+.vetta-markdown tr:last-child > td {
+	border-bottom: 0;
+}
+
+.vetta-markdown thead th {
+	background: color-mix(in srgb, var(--muted-foreground) 10%, transparent);
+	font-weight: 600;
+}
+
+/* ── 图片 ── */
+
+.vetta-markdown img {
+	display: block;
+	max-width: 100%;
+	height: auto;
+	margin: 1.75em auto;
+	border-radius: 0.75em;
+	border: 1px solid var(--border);
+}
+
+/* ── highlight.js 词法着色 ──
+ * 只用主题变量 + 少量在亮/暗底上都可读的固定色相，避免引入 hljs 自带主题文件
+ * （那些文件写死背景色，会和上面的 pre 背景打架）。
+ */
+
+.vetta-markdown .hljs-comment,
+.vetta-markdown .hljs-quote {
+	color: color-mix(in srgb, var(--muted-foreground) 85%, transparent);
+	font-style: italic;
+}
+
+.vetta-markdown .hljs-keyword,
+.vetta-markdown .hljs-selector-tag,
+.vetta-markdown .hljs-literal,
+.vetta-markdown .hljs-doctag {
+	color: oklch(0.62 0.18 305);
+}
+
+.vetta-markdown .hljs-string,
+.vetta-markdown .hljs-regexp,
+.vetta-markdown .hljs-addition {
+	color: oklch(0.6 0.15 150);
+}
+
+.vetta-markdown .hljs-number,
+.vetta-markdown .hljs-symbol,
+.vetta-markdown .hljs-bullet {
+	color: oklch(0.65 0.16 45);
+}
+
+.vetta-markdown .hljs-title,
+.vetta-markdown .hljs-section,
+.vetta-markdown .hljs-name {
+	color: oklch(0.62 0.16 250);
+}
+
+.vetta-markdown .hljs-attr,
+.vetta-markdown .hljs-attribute,
+.vetta-markdown .hljs-variable,
+.vetta-markdown .hljs-template-variable {
+	color: oklch(0.65 0.14 200);
+}
+
+.vetta-markdown .hljs-type,
+.vetta-markdown .hljs-built_in,
+.vetta-markdown .hljs-class .hljs-title {
+	color: oklch(0.68 0.14 85);
+}
+
+.vetta-markdown .hljs-deletion {
+	color: oklch(0.6 0.18 25);
+}
+
+.vetta-markdown .hljs-emphasis {
+	font-style: italic;
+}
+
+.vetta-markdown .hljs-strong {
+	font-weight: 600;
+}
