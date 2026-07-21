@@ -105,6 +105,12 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - Root `bun run check` runs: Biome → monorepo `tsgo --noEmit` → **desktop-app** `tsc --noEmit` (`packages/desktop-app/tsconfig.json`). Do not skip desktop by only running `tsc`/`tsgo` at repo root without `-p packages/desktop-app/tsconfig.json`.
 - Note: `bun run check` does not run tests.
 - NEVER run: `bun run dev`, `bun run build`, `bun test`
+- desktop-app UI 自验只能使用仓库根目录的 `bun run verify:ui:*` 命令。允许 AI 运行
+  `verify:ui:start`（长驻）、`verify:ui:status`、`verify:ui:attach`、
+  `verify:ui:pw -- <playwright-cli args>`、`verify:ui:debug -- <debug args>`、
+  `verify:ui:detach` 与 `verify:ui:stop`；
+  不得用 `bun run dev` 绕过该隔离入口。完整流程见
+  `docs/dev/README.md`。
 - Only run specific tests if user instructs: `bunx tsx ../../node_modules/vitest/dist/cli.js --run test/specific.test.ts`
 - Run tests from the package root, not the repo root.
 - When writing tests, run them, identify issues in either the test or implementation, and iterate until fixed.

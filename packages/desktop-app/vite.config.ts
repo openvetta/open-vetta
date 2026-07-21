@@ -31,6 +31,11 @@ export default defineConfig(({ mode }) => {
 	const env = loadEnv(mode, process.cwd(), "VETTA_");
 	const themeDevelopmentEnabled =
 		(process.env.VETTA_THEME_DEV_SERVER ?? env.VETTA_THEME_DEV_SERVER) === "1";
+	const rawDevServerPort = process.env.VETTA_DESKTOP_DEV_PORT ?? env.VETTA_DESKTOP_DEV_PORT ?? "3020";
+	const devServerPort = Number(rawDevServerPort);
+	if (!Number.isInteger(devServerPort) || devServerPort < 1 || devServerPort > 65_535) {
+		throw new Error(`Invalid VETTA_DESKTOP_DEV_PORT: ${rawDevServerPort}`);
+	}
 	// 外观「界面主题」区段：默认隐藏；VETTA_SHOW_UI_THEME=true 时展示（shell > .env）
 	const showUiTheme = process.env.VETTA_SHOW_UI_THEME ?? env.VETTA_SHOW_UI_THEME ?? "";
 	const sentry = createSentryBuildSetup(env, "dist/renderer");
@@ -84,7 +89,7 @@ export default defineConfig(({ mode }) => {
 		server: {
 			// Keep off 3000 (packages/site Next) and 3010 (xianxia theme dev).
 			host: "127.0.0.1",
-			port: 3020,
+			port: devServerPort,
 			strictPort: true,
 		},
 	};
