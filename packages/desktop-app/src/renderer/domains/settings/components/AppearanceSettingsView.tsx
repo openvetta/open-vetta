@@ -35,11 +35,16 @@ function LanguageSelect({
 				<button
 					type="button"
 					className={cn(
-						"flex h-9 w-[220px] items-center gap-2 rounded-lg border px-3 text-[13px] transition-colors",
+						"flex h-9 w-[260px] items-center gap-2 rounded-lg border px-3 text-[13px] transition-colors",
 						open ? "border-primary/70 bg-accent/40" : "border-border hover:border-primary/40 hover:bg-accent/30",
 					)}
 				>
-					<span className="icon-[mdi--translate] h-4 w-4 shrink-0 text-muted-foreground" />
+					<span
+						className={cn(
+							language === "system" ? "icon-[mdi--monitor]" : "icon-[mdi--translate]",
+							"h-4 w-4 shrink-0 text-muted-foreground",
+						)}
+					/>
 					<span className="flex-1 truncate text-left">
 						<span className="font-medium text-foreground">{current.native}</span>
 						<span className="ml-1.5 text-[11px] text-muted-foreground">{current.alt}</span>
@@ -52,7 +57,7 @@ function LanguageSelect({
 					/>
 				</button>
 			</PopoverTrigger>
-			<PopoverContent align="start" sideOffset={6} className="w-[220px] rounded-lg border border-border p-1">
+			<PopoverContent align="start" sideOffset={6} className="w-[260px] rounded-lg border border-border p-1">
 				{languages.map((l) => (
 					<button
 						key={l.value}
@@ -66,6 +71,12 @@ function LanguageSelect({
 							language === l.value ? "bg-accent text-foreground" : "text-foreground hover:bg-accent/60",
 						)}
 					>
+						<span
+							className={cn(
+								l.value === "system" ? "icon-[mdi--monitor]" : "icon-[mdi--translate]",
+								"h-4 w-4 shrink-0 text-muted-foreground",
+							)}
+						/>
 						<span className="flex-1 truncate text-left">
 							<span className="font-medium">{l.native}</span>
 							<span className="ml-1.5 text-[11px] text-muted-foreground">{l.alt}</span>

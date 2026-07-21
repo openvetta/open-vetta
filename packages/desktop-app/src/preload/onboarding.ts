@@ -17,8 +17,27 @@ const I18N_GET_INITIAL = "vetta:i18n:get-initial-language";
 const I18N_LANGUAGE_CHANGED = "vetta:i18n:language-changed";
 
 // preload 求值期同步取主进程当前语言，供引导窗 i18n 首帧前读取。
-// 与 DEFAULT_LANGUAGE 对齐：sendSync 失败时默认英文，勿硬编码 zh。
-const initialLanguage = (ipcRenderer.sendSync(I18N_GET_INITIAL) as string | undefined) ?? "en";
+// get-initial 返回 { preference, language }；引导窗只需要解析后的 language。
+function readInitialLanguage(): string {
+	const raw = ipcRenderer.sendSync(I18N_GET_INITIAL) as unknown;
+	if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+		const language = (raw as { language?: unknown }).language;
+		if (typeof language === "string" && language.length > 0) return language;
+	}
+	if (typeof raw === "string" && raw.length > 0 && raw !== "system") return raw;
+	return "en";
+}
+
+function languageFromChangedPayload(payload: unknown): string {
+	if (payload && typeof payload === "object" && !Array.isArray(payload)) {
+		const language = (payload as { language?: unknown }).language;
+		if (typeof language === "string" && language.length > 0) return language;
+	}
+	if (typeof payload === "string" && payload.length > 0 && payload !== "system") return payload;
+	return "en";
+}
+
+const initialLanguage = readInitialLanguage();
 
 const api: OnboardingBridge = {
 	initialLanguage,
@@ -52,8 +71,8 @@ const api: OnboardingBridge = {
 		return () => ipcRenderer.removeListener(DRAG_ERROR, listener);
 	},
 	onLanguageChanged(handler: (lang: string) => void): () => void {
-		const listener = (_event: IpcRendererEvent, lang: string) => {
-			handler(lang);
+		const listener = (_event: IpcRendererEvent, payload: unknown) => {
+			handler(languageFromChangedPayload(payload));
 		};
 		ipcRenderer.on(I18N_LANGUAGE_CHANGED, listener);
 		return () => ipcRenderer.removeListener(I18N_LANGUAGE_CHANGED, listener);
