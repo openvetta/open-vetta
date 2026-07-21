@@ -1,4 +1,10 @@
-import type { PluginAppActionExample, PluginContext, PluginJsonSchema } from "@vetta-org/plugin-sdk";
+import type {
+	PluginAppActionExample,
+	PluginContext,
+	PluginJsonSchema,
+	PluginOfficialSchedulerTaskCreateData,
+	PluginOfficialSchedulerTaskUpdateData,
+} from "@vetta-org/plugin-sdk";
 import { throwEntityNotFound } from "../action-errors";
 
 type QueryInput =
@@ -7,8 +13,8 @@ type QueryInput =
 	| { operation: "get"; taskId: string }
 	| { operation: "history"; taskId: string };
 type TaskInput =
-	| { operation: "create"; data: Record<string, unknown> }
-	| { operation: "update"; taskId: string; data: Record<string, unknown> }
+	| { operation: "create"; data: PluginOfficialSchedulerTaskCreateData }
+	| { operation: "update"; taskId: string; data: PluginOfficialSchedulerTaskUpdateData }
 	| { operation: "delete"; taskId: string }
 	| { operation: "enable"; taskId: string }
 	| { operation: "disable"; taskId: string };
@@ -38,13 +44,58 @@ const querySchema: PluginJsonSchema = {
 	],
 };
 
+const nonBlankStringSchema = { type: "string", minLength: 1, pattern: "\\S" } as const;
+const executionModeSchema = { enum: ["inherit", "sandbox", "full-access"] } as const;
+const skillSchema = {
+	type: "object",
+	properties: {
+		name: nonBlankStringSchema,
+		alias: nonBlankStringSchema,
+		type: { enum: ["skill", "scene"] },
+	},
+	required: ["name", "type"],
+	additionalProperties: false,
+} as const;
+const createTaskDataSchema = {
+	type: "object",
+	properties: {
+		name: nonBlankStringSchema,
+		prompt: nonBlankStringSchema,
+		cron: nonBlankStringSchema,
+		isOnce: { type: "boolean" },
+		enabled: { type: "boolean" },
+		cwd: nonBlankStringSchema,
+		modelKey: nonBlankStringSchema,
+		executionMode: executionModeSchema,
+		skill: skillSchema,
+	},
+	required: ["name", "prompt", "cron", "isOnce", "cwd"],
+	additionalProperties: false,
+} as const;
+const updateTaskDataSchema = {
+	type: "object",
+	properties: {
+		name: nonBlankStringSchema,
+		prompt: nonBlankStringSchema,
+		cron: nonBlankStringSchema,
+		isOnce: { type: "boolean" },
+		enabled: { type: "boolean" },
+		cwd: nonBlankStringSchema,
+		modelKey: { anyOf: [nonBlankStringSchema, { type: "null" }] },
+		executionMode: executionModeSchema,
+		skill: { anyOf: [skillSchema, { type: "null" }] },
+	},
+	minProperties: 1,
+	additionalProperties: false,
+} as const;
+
 const taskSchema: PluginJsonSchema = {
 	type: "object",
 	oneOf: [
 		{
 			properties: {
 				operation: { const: "create" },
-				data: { type: "object", minProperties: 1 },
+				data: createTaskDataSchema,
 			},
 			required: ["operation", "data"],
 			additionalProperties: false,
@@ -53,7 +104,7 @@ const taskSchema: PluginJsonSchema = {
 			properties: {
 				operation: { const: "update" },
 				taskId: { type: "string", minLength: 1 },
-				data: { type: "object", minProperties: 1 },
+				data: updateTaskDataSchema,
 			},
 			required: ["operation", "taskId", "data"],
 			additionalProperties: false,
@@ -186,7 +237,7 @@ export function registerSchedulerActions(ctx: PluginContext): void {
 		handler: async ({ input }) => {
 			switch (input.operation) {
 				case "create":
-					return ctx.official.scheduler.createTask(input.data);
+					return ctx.official.scheduler.createTask({ ...input.data, enabled: input.data.enabled ?? true });
 				case "update":
 					return ctx.official.scheduler.updateTask(input.taskId, input.data);
 				case "delete":

@@ -45,6 +45,80 @@ export class SchedulerServiceError extends Error {
 	}
 }
 
+const SCHEDULER_TASK_KEYS = new Set([
+	"name",
+	"prompt",
+	"cron",
+	"isOnce",
+	"enabled",
+	"cwd",
+	"modelKey",
+	"executionMode",
+	"skill",
+]);
+
+function isNonBlankString(value: unknown): value is string {
+	return typeof value === "string" && value.trim().length > 0;
+}
+
+function isExecutionMode(value: unknown): boolean {
+	return value === "inherit" || value === "sandbox" || value === "full-access";
+}
+
+function isSelectedSkill(value: unknown): boolean {
+	if (value == null || typeof value !== "object" || Array.isArray(value)) return false;
+	const skill = value as Record<string, unknown>;
+	return (
+		isNonBlankString(skill.name) &&
+		(skill.alias === undefined || isNonBlankString(skill.alias)) &&
+		(skill.type === "skill" || skill.type === "scene") &&
+		Object.keys(skill).every((key) => key === "name" || key === "alias" || key === "type")
+	);
+}
+
+function assertCreateTaskInput(value: unknown): asserts value is CreateScheduledTaskInput {
+	if (value == null || typeof value !== "object" || Array.isArray(value)) {
+		throw new SchedulerServiceError("SCHEDULER_TASK_INVALID_INPUT", "Scheduled task input must be an object.");
+	}
+	const input = value as Record<string, unknown>;
+	const valid =
+		Object.keys(input).every((key) => SCHEDULER_TASK_KEYS.has(key)) &&
+		isNonBlankString(input.name) &&
+		isNonBlankString(input.prompt) &&
+		isNonBlankString(input.cron) &&
+		typeof input.isOnce === "boolean" &&
+		typeof input.enabled === "boolean" &&
+		isNonBlankString(input.cwd) &&
+		(input.modelKey === undefined || isNonBlankString(input.modelKey)) &&
+		(input.executionMode === undefined || isExecutionMode(input.executionMode)) &&
+		(input.skill === undefined || isSelectedSkill(input.skill));
+	if (!valid) {
+		throw new SchedulerServiceError("SCHEDULER_TASK_INVALID_INPUT", "Invalid scheduled task create input.");
+	}
+}
+
+function assertUpdateTaskInput(value: unknown): asserts value is UpdateScheduledTaskInput {
+	if (value == null || typeof value !== "object" || Array.isArray(value)) {
+		throw new SchedulerServiceError("SCHEDULER_TASK_INVALID_INPUT", "Scheduled task update must be an object.");
+	}
+	const input = value as Record<string, unknown>;
+	const valid =
+		Object.keys(input).length > 0 &&
+		Object.keys(input).every((key) => SCHEDULER_TASK_KEYS.has(key)) &&
+		(input.name === undefined || isNonBlankString(input.name)) &&
+		(input.prompt === undefined || isNonBlankString(input.prompt)) &&
+		(input.cron === undefined || isNonBlankString(input.cron)) &&
+		(input.isOnce === undefined || typeof input.isOnce === "boolean") &&
+		(input.enabled === undefined || typeof input.enabled === "boolean") &&
+		(input.cwd === undefined || isNonBlankString(input.cwd)) &&
+		(input.modelKey === undefined || isNonBlankString(input.modelKey)) &&
+		(input.executionMode === undefined || isExecutionMode(input.executionMode)) &&
+		(input.skill === undefined || isSelectedSkill(input.skill));
+	if (!valid) {
+		throw new SchedulerServiceError("SCHEDULER_TASK_INVALID_INPUT", "Invalid scheduled task update input.");
+	}
+}
+
 export class SchedulerService {
 	private readonly changeHandlers = new Set<() => void>();
 
@@ -71,6 +145,7 @@ export class SchedulerService {
 	}
 
 	async createTask(data: CreateScheduledTaskInput): Promise<ScheduledTask> {
+		assertCreateTaskInput(data);
 		this.assertCron(data.cron);
 		await this.assertDirectory(data.cwd);
 		const now = Date.now();
@@ -94,6 +169,7 @@ export class SchedulerService {
 	}
 
 	async updateTask(taskId: string, patch: UpdateScheduledTaskInput): Promise<ScheduledTask> {
+		assertUpdateTaskInput(patch);
 		if (patch.cron !== undefined) {
 			this.assertCron(patch.cron);
 		}

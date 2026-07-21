@@ -12,10 +12,18 @@ import {
 } from "@vetta/coding-agent/core/mcp/index.js";
 import { atomicWriteJSON } from "@vetta/toolkit/atomic-write";
 import { BrowserWindow, ipcMain } from "electron";
+import type {
+	McpConfigData,
+	McpHttpServerConfigData,
+	McpServerCommonConfigData,
+	McpServerConfigData,
+	McpStdioServerConfigData,
+} from "../../preload/api-types/mcp.js";
 import type { FsEntry, FsFileRef } from "../../preload/fs-types.js";
 import { type AppLanguage, isSupportedLanguage } from "../../shared/i18n/config.js";
 import { normalizeShortcutsConfig, type ShortcutsConfig } from "../../shared/shortcuts.js";
 import { SHORTCUTS_CHANNELS } from "../../shared/shortcuts-ipc.js";
+import { validateMcpConfig } from "../mcp-config-validation.js";
 import { probeModelProvider } from "../models/probe.js";
 import { openExternalUrl } from "../open-external.js";
 import { getLinuxSandboxCapability, getSandboxCapability, type SandboxCapability } from "../sandbox/capability.js";
@@ -362,46 +370,18 @@ const DEFAULT_MODELS_CONFIG: ModelsConfig = { providers: {} };
 
 // ─── MCP config ───
 
-export interface McpServerCommonConfig {
-	disabled?: boolean;
-	autoApprove?: string[];
-	startupTimeout?: number;
-	debug?: boolean;
-}
-
-export interface McpStdioServerConfig extends McpServerCommonConfig {
-	type?: "stdio";
-	command: string;
-	args?: string[];
-	env?: Record<string, string>;
-	cwd?: string;
-}
-
-export interface McpHttpServerConfig extends McpServerCommonConfig {
-	type: "http";
-	url: string;
-	headers?: Record<string, string>;
-	/** 预注册 OAuth client_id：用于不支持 DCR 的远程 MCP（如 GitHub）。 */
-	oauthClientId?: string;
-	/** 使用设备码流（Device Flow）而非授权码流。 */
-	oauthDeviceFlow?: boolean;
-	/** 设备码流请求的 OAuth scopes（空格分隔）。 */
-	oauthScopes?: string;
-}
-
-export type McpServerConfig = McpStdioServerConfig | McpHttpServerConfig;
-
-export interface McpConfig {
-	mcpServers: Record<string, McpServerConfig>;
-}
+export type McpServerCommonConfig = McpServerCommonConfigData;
+export type McpStdioServerConfig = McpStdioServerConfigData;
+export type McpHttpServerConfig = McpHttpServerConfigData;
+export type McpServerConfig = McpServerConfigData;
+export type McpConfig = McpConfigData;
 
 const DEFAULT_MCP_CONFIG: McpConfig = { mcpServers: {} };
 
 export async function readMcpConfig(): Promise<McpConfig> {
 	try {
 		const raw = await readFile(MCP_CONFIG_PATH, "utf8");
-		const parsed = JSON.parse(raw) as Partial<McpConfig>;
-		return { ...DEFAULT_MCP_CONFIG, ...parsed };
+		return validateMcpConfig(JSON.parse(raw));
 	} catch {
 		return { ...DEFAULT_MCP_CONFIG };
 	}
@@ -911,8 +891,7 @@ export function registerFsIpc(): () => void {
 	});
 
 	ipcMain.handle(CHANNELS.MCP_SET, async (_event, config: unknown) => {
-		if (typeof config !== "object" || config === null) throw new Error("Invalid MCP config");
-		await writeMcpConfig(config as McpConfig);
+		await writeMcpConfig(validateMcpConfig(config));
 		// 不再在保存时 fan-out 重建所有 session。改为每个 session 在用户发
 		// prompt 时按需 diff-reload（见 AgentSession._maybeReloadMcpForPrompt）。
 		// 这样未使用的 session 不付出代价，且批量任务也能自然感知到变化。

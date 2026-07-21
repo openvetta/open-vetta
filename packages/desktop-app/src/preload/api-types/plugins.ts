@@ -207,6 +207,8 @@ export interface InstalledPlugin {
 	 */
 	locales: PluginLocales;
 	enabled: boolean;
+	/** 宿主必需插件；不可停用或卸载，不由 manifest 自行声明。 */
+	required: boolean;
 	installedAt: string;
 	updatedAt: string;
 	source: "archive" | "remote" | "system";
@@ -252,6 +254,7 @@ export interface PluginAppActionApproval {
 	defaultPresentation: string;
 	presentations: Array<{ id: string; title: string; description: string }>;
 	presentationByOperation?: Record<string, string>;
+	alternativePresentationsByOperation?: Record<string, string[]>;
 }
 
 export interface PluginAppActionRegistration {

@@ -11,7 +11,7 @@ import {
 	type JsonValue,
 } from "../app-actions/types.js";
 import { getAppLogger } from "../logger.js";
-import { getPluginSettings, listPlugins } from "./plugin-store.js";
+import { CORE_ACTION_PLUGIN_ID, getPluginSettings, listPlugins } from "./plugin-store.js";
 
 const REGISTER_PERMISSION = "app.actions.register";
 const EXECUTE_PERMISSION = "app.actionHandler.execute";
@@ -162,8 +162,16 @@ function buildApprovalMetadata(
 	) {
 		throw new ActionError("PLUGIN_ACTION_APPROVAL_INVALID", "Plugin action approval metadata is incomplete.");
 	}
+	const presentations = [...approval.presentations];
+	if (!presentations.some((presentation) => presentation.id === "generic")) {
+		presentations.push({
+			id: "generic",
+			title: registration.title,
+			description: registration.description ?? registration.summary,
+		});
+	}
 	const presentationIds = new Set<string>();
-	for (const presentation of approval.presentations) {
+	for (const presentation of presentations) {
 		if (
 			typeof presentation !== "object" ||
 			presentation === null ||
@@ -193,9 +201,17 @@ function buildApprovalMetadata(
 			);
 		}
 	}
+	for (const alternatives of Object.values(approval.alternativePresentationsByOperation ?? {})) {
+		if (!Array.isArray(alternatives) || alternatives.some((presentation) => !presentationIds.has(presentation))) {
+			throw new ActionError(
+				"PLUGIN_ACTION_APPROVAL_INVALID",
+				"Plugin action operation references an undeclared alternative approval presentation.",
+			);
+		}
+	}
 	return {
 		defaultPresentation: approval.defaultPresentation,
-		presentations: approval.presentations,
+		presentations,
 	};
 }
 
@@ -220,10 +236,28 @@ function applyApprovalPresentation(
 	// appearance/navigation 等用 type 字段区分操作；多数域用 operation。
 	const operation =
 		typeof input.operation === "string" ? input.operation : typeof input.type === "string" ? input.type : undefined;
-	const presentation =
-		requestedPresentation ??
+	const mappedPresentation =
 		(operation ? registration.approval.presentationByOperation?.[operation] : undefined) ??
 		registration.approval.defaultPresentation;
+	const allowedAlternatives = operation
+		? (registration.approval.alternativePresentationsByOperation?.[operation] ?? [])
+		: [];
+	const presentation =
+		requestedPresentation === undefined || requestedPresentation === mappedPresentation
+			? mappedPresentation
+			: requestedPresentation === "generic" || allowedAlternatives.includes(requestedPresentation)
+				? requestedPresentation
+				: (() => {
+						throw new ActionError(
+							"ACTION_INVALID_INPUT",
+							`Approval UI does not match operation: ${operation ?? "unknown"}`,
+							{
+								...(operation === undefined ? {} : { operation }),
+								requestedPresentation,
+								allowed: [mappedPresentation, "generic", ...allowedAlternatives],
+							},
+						);
+					})();
 	return { ...input, approvalUi: presentation };
 }
 
@@ -363,16 +397,16 @@ export class PluginActionService {
 		if (!staging || staging.activationId !== activationId) {
 			throw new ActionError("PLUGIN_ACTION_STALE_ACTIVATION", `Stale plugin action activation: ${pluginId}`);
 		}
-		// first-wins 下必须先卸掉本插件旧 activation，再注册新 staging，否则新 id 会被旧实现挡住，
-		// 随后 dispose 旧实现会把目录清空。
+		if (pluginId === CORE_ACTION_PLUGIN_ID && staging.actions.size === 0) {
+			throw new ActionError("PLUGIN_ACTION_ACTIVATION_EMPTY", "Core Action plugin registered no actions.");
+		}
 		const previous = this.activeActivations.get(pluginId);
-		if (previous) this.disposeActivation(pluginId, previous, "Plugin action activation was replaced");
-
-		const unregisterByActionId = this.catalog.registerProvider(
+		const unregisterByActionId = this.catalog.replaceProvider(
 			[...staging.actions.values()].map((action) => action.definition),
 			{
 				providerId: buildProviderId(pluginId, activationId),
 			},
+			previous ? buildProviderId(pluginId, previous.activationId) : undefined,
 		);
 		for (const action of staging.actions.values()) {
 			action.unregisterCatalogAction = unregisterByActionId.get(action.globalActionId);
@@ -380,6 +414,7 @@ export class PluginActionService {
 
 		this.activeActivations.set(pluginId, staging);
 		this.stagingActivations.delete(pluginId);
+		if (previous) this.disposeActivation(pluginId, previous, "Plugin action activation was replaced");
 		log.info("activation committed", { pluginId, activationId, actionCount: staging.actions.size });
 	}
 

@@ -74,6 +74,108 @@ export class BatchTaskServiceError extends Error {
 	}
 }
 
+const CREATE_PROJECT_KEYS = new Set([
+	"name",
+	"prompt",
+	"modelKey",
+	"folders",
+	"concurrency",
+	"executionMode",
+	"artifactPatterns",
+	"notifyEnabled",
+	"timeoutMinutes",
+	"skill",
+]);
+const UPDATE_PROJECT_KEYS = new Set([
+	"name",
+	"prompt",
+	"modelKey",
+	"concurrency",
+	"executionMode",
+	"artifactPatterns",
+	"notifyEnabled",
+	"timeoutMinutes",
+	"newFolders",
+	"skill",
+]);
+
+function isNonBlankString(value: unknown): value is string {
+	return typeof value === "string" && value.trim().length > 0;
+}
+
+function isNonBlankStringArray(value: unknown, allowEmpty: boolean): value is string[] {
+	return Array.isArray(value) && (allowEmpty || value.length > 0) && value.every(isNonBlankString);
+}
+
+function isExecutionMode(value: unknown): value is ExecutionModeOverride {
+	return value === "inherit" || value === "sandbox" || value === "full-access";
+}
+
+function isBatchSkill(value: unknown): value is BatchSkillRef {
+	if (value == null || typeof value !== "object" || Array.isArray(value)) return false;
+	const skill = value as Record<string, unknown>;
+	return (
+		isNonBlankString(skill.name) &&
+		(skill.alias === undefined || isNonBlankString(skill.alias)) &&
+		(skill.type === "skill" || skill.type === "scene") &&
+		Object.keys(skill).every((key) => key === "name" || key === "alias" || key === "type")
+	);
+}
+
+function assertCreateProjectInput(value: unknown): asserts value is CreateBatchProjectInput {
+	if (value == null || typeof value !== "object" || Array.isArray(value)) {
+		throw new BatchTaskServiceError("BATCH_PROJECT_INVALID_INPUT", "Batch project input must be an object.");
+	}
+	const input = value as Record<string, unknown>;
+	const valid =
+		Object.keys(input).every((key) => CREATE_PROJECT_KEYS.has(key)) &&
+		isNonBlankString(input.name) &&
+		typeof input.prompt === "string" &&
+		isNonBlankStringArray(input.folders, false) &&
+		Number.isInteger(input.concurrency) &&
+		Number(input.concurrency) >= 1 &&
+		Number(input.concurrency) <= 64 &&
+		(input.modelKey === undefined || isNonBlankString(input.modelKey)) &&
+		(input.executionMode === undefined || isExecutionMode(input.executionMode)) &&
+		(input.artifactPatterns === undefined || isNonBlankStringArray(input.artifactPatterns, true)) &&
+		(input.notifyEnabled === undefined || typeof input.notifyEnabled === "boolean") &&
+		(input.timeoutMinutes === undefined ||
+			(Number.isInteger(input.timeoutMinutes) &&
+				Number(input.timeoutMinutes) >= 1 &&
+				Number(input.timeoutMinutes) <= 10_080)) &&
+		(input.skill === undefined || isBatchSkill(input.skill));
+	if (!valid) {
+		throw new BatchTaskServiceError("BATCH_PROJECT_INVALID_INPUT", "Invalid batch project create input.");
+	}
+}
+
+function assertUpdateProjectInput(value: unknown): asserts value is UpdateBatchProjectInput {
+	if (value == null || typeof value !== "object" || Array.isArray(value)) {
+		throw new BatchTaskServiceError("BATCH_PROJECT_INVALID_INPUT", "Batch project update must be an object.");
+	}
+	const input = value as Record<string, unknown>;
+	const valid =
+		Object.keys(input).length > 0 &&
+		Object.keys(input).every((key) => UPDATE_PROJECT_KEYS.has(key)) &&
+		(input.name === undefined || isNonBlankString(input.name)) &&
+		(input.prompt === undefined || typeof input.prompt === "string") &&
+		(input.modelKey === undefined || isNonBlankString(input.modelKey)) &&
+		(input.concurrency === undefined ||
+			(Number.isInteger(input.concurrency) && Number(input.concurrency) >= 1 && Number(input.concurrency) <= 64)) &&
+		(input.executionMode === undefined || isExecutionMode(input.executionMode)) &&
+		(input.artifactPatterns === undefined || isNonBlankStringArray(input.artifactPatterns, true)) &&
+		(input.notifyEnabled === undefined || typeof input.notifyEnabled === "boolean") &&
+		(input.timeoutMinutes === undefined ||
+			(Number.isInteger(input.timeoutMinutes) &&
+				Number(input.timeoutMinutes) >= 1 &&
+				Number(input.timeoutMinutes) <= 10_080)) &&
+		(input.newFolders === undefined || isNonBlankStringArray(input.newFolders, true)) &&
+		(input.skill === undefined || input.skill === null || isBatchSkill(input.skill));
+	if (!valid) {
+		throw new BatchTaskServiceError("BATCH_PROJECT_INVALID_INPUT", "Invalid batch project update input.");
+	}
+}
+
 const log = getAppLogger("batch-service");
 
 export class BatchTaskService {
@@ -96,6 +198,7 @@ export class BatchTaskService {
 	}
 
 	async createProject(data: CreateBatchProjectInput): Promise<BatchProject> {
+		assertCreateProjectInput(data);
 		const name = data.name.trim();
 		if (name.length === 0 || name === "." || name === ".." || /[\\/]/.test(name)) {
 			throw new BatchTaskServiceError("BATCH_PROJECT_INVALID_NAME", "批量项目名称不能包含路径分隔符。", {
@@ -133,6 +236,7 @@ export class BatchTaskService {
 	}
 
 	async updateProject(projectId: string, data: UpdateBatchProjectInput): Promise<BatchProject> {
+		assertUpdateProjectInput(data);
 		await this.requireProject(projectId);
 		if (data.newFolders) {
 			await this.assertDirectories(data.newFolders);

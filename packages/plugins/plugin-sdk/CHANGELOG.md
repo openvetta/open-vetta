@@ -12,6 +12,10 @@ All notable changes to `@vetta-org/plugin-sdk` are documented in this file.
 - Extended `ctx.official` with skills、shortcuts、im、mcp、models、projects、knowledge、plugins host capabilities for the next official App Action migration batch.
 - Extended `ctx.official` with batchTasks、scheduler、appearance、navigation host capabilities to finish migrating remaining Desktop App Action domains.
 
+### Changed
+
+- Tightened Plugin API 1.1 contracts for official batch-task and scheduler mutations, required system-plugin metadata, and approval operation mappings with explicitly allowed alternative presentations.
+
 ## [0.0.2] — 2026-07-15
 
 ### Added

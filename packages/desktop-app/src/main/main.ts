@@ -325,7 +325,7 @@ if (!gotSingleLock) {
 		});
 
 		// 在创建任何窗口/托盘菜单之前同步定语言：读 desktop-config.language，
-		// 缺省回落系统 locale。托盘菜单（590）与系统通知据此取文案（见 ADR-0031）。
+		// 未设置则跟随系统 locale（中文族→zh，其余→en）。托盘菜单与系统通知据此取文案（ADR-0031）。
 		initAppLanguage();
 		// 必须在 createWindow 之前注册：renderer preload 一加载就 sendSync 取初值，
 		// 若晚于 createWindow 注册会与异步 page-load 抢跑、读到 undefined 回落错语言（首帧闪）。

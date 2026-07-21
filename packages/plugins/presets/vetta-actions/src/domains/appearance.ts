@@ -1,4 +1,9 @@
-import type { PluginAppActionExample, PluginContext, PluginJsonSchema } from "@vetta-org/plugin-sdk";
+import {
+	PluginAppActionError,
+	type PluginAppActionExample,
+	type PluginContext,
+	type PluginJsonSchema,
+} from "@vetta-org/plugin-sdk";
 import { throwEntityNotFound } from "../action-errors";
 
 type ThemeQueryInput = { type: "help" } | { type: "get" };
@@ -31,7 +36,7 @@ const manageSchema: PluginJsonSchema = {
 				themeId: { type: "string", minLength: 1 },
 				cursorStyle: { enum: ["default", "stoat"] },
 				approvalUi: {
-					enum: ["appearance.theme-change", "appearance.picker", "appearance.set-language", "generic"],
+					enum: ["appearance.theme-change", "appearance.picker", "generic"],
 				},
 			},
 			required: ["type"],
@@ -122,10 +127,25 @@ export function registerAppearanceActions(ctx: PluginContext): void {
 				set: "appearance.theme-change",
 				"set-language": "appearance.set-language",
 			},
+			alternativePresentationsByOperation: {
+				set: ["appearance.picker"],
+			},
 		},
 		inputSchema: manageSchema,
 		examples: manageExamples,
 		assertReady: async ({ input }) => {
+			if (
+				input.type === "set" &&
+				input.mode === undefined &&
+				input.themeId === undefined &&
+				input.cursorStyle === undefined &&
+				input.approvalUi !== "appearance.picker"
+			) {
+				throw new PluginAppActionError(
+					"APPEARANCE_CHANGE_EMPTY",
+					"Appearance change requires mode, themeId, cursorStyle, or the appearance picker.",
+				);
+			}
 			if (input.type !== "set" || input.themeId === undefined) return;
 			const ids = ctx.official.appearance.listThemeIds();
 			if (ids.includes(input.themeId)) return;

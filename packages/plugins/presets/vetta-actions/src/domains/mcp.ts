@@ -38,7 +38,40 @@ const manageSchema: PluginJsonSchema = {
 			properties: {
 				operation: { const: "upsert" },
 				name: { type: "string", minLength: 1 },
-				data: { type: "object", minProperties: 1 },
+				data: {
+					oneOf: [
+						{
+							type: "object",
+							properties: {
+								type: { const: "stdio" },
+								command: { type: "string", minLength: 1 },
+								args: { type: "array", items: { type: "string" } },
+								env: { type: "object", additionalProperties: { type: "string" } },
+								cwd: { type: "string", minLength: 1 },
+								disabled: { type: "boolean" },
+								autoApprove: { type: "array", items: { type: "string" } },
+								startupTimeout: { type: "integer", minimum: 1 },
+								debug: { type: "boolean" },
+							},
+							minProperties: 1,
+							additionalProperties: false,
+						},
+						{
+							type: "object",
+							properties: {
+								type: { const: "http" },
+								url: { type: "string", minLength: 1 },
+								headers: { type: "object", additionalProperties: { type: "string" } },
+								disabled: { type: "boolean" },
+								autoApprove: { type: "array", items: { type: "string" } },
+								startupTimeout: { type: "integer", minimum: 1 },
+								debug: { type: "boolean" },
+							},
+							required: ["type"],
+							additionalProperties: false,
+						},
+					],
+				},
 			},
 			required: ["operation", "name", "data"],
 			additionalProperties: false,

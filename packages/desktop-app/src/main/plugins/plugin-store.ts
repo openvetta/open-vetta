@@ -28,7 +28,9 @@ import type {
 } from "../../preload/api-types/plugins.js";
 import { getAppLogger } from "../logger.js";
 
-const PLUGIN_API_VERSION = "1.0.0";
+export const PLUGIN_API_VERSION = "1.1.0";
+export const CORE_ACTION_PLUGIN_ID = "vetta-actions";
+const REQUIRED_SYSTEM_PLUGIN_IDS = new Set<string>([CORE_ACTION_PLUGIN_ID]);
 const pluginsBaseDir = join(getVettaHomePath(), "plugins");
 const manifestPath = join(getVettaHomePath(), "plugins-manifest.json");
 const tmpBaseDir = join(getVettaHomePath(), "tmp", "plugins");
@@ -340,6 +342,7 @@ function readRegistry(): PluginManifestFile {
 			plugin.defaultLocale ??= "zh";
 			plugin.locales ??= {};
 			plugin.source ??= "archive";
+			plugin.required = false;
 			// 用户可编辑的注册表不是信任根；远端签名链接入前一律按来源降为非官方。
 			plugin.trustLevel = plugin.source === "remote" ? "community" : "local";
 			plugin.rootPath = computePluginRootPath(plugin.id, plugin.source, plugin.activeVersion);
@@ -626,11 +629,29 @@ function parseAgentManifest(raw: unknown): PluginAgentManifest | undefined {
 	};
 }
 
+function parseApiVersion(value: string): readonly [number, number, number] | undefined {
+	const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(value);
+	if (!match) return undefined;
+	return [Number(match[1]), Number(match[2]), Number(match[3])];
+}
+
+function compareApiVersions(left: readonly [number, number, number], right: readonly [number, number, number]): number {
+	for (let index = 0; index < left.length; index += 1) {
+		if (left[index] !== right[index]) return left[index] - right[index];
+	}
+	return 0;
+}
+
 function supportsPluginApi(range: string): boolean {
-	if (range === PLUGIN_API_VERSION) return true;
-	if (range === "^1.0.0" || range === "^1") return true;
-	if (range === "1.x" || range === ">=1.0.0") return true;
-	return false;
+	const host = parseApiVersion(PLUGIN_API_VERSION)!;
+	const normalized = range.trim();
+	const exact = parseApiVersion(normalized);
+	if (exact) return exact[0] === host[0] && compareApiVersions(host, exact) >= 0;
+	const caret = normalized.startsWith("^") ? parseApiVersion(normalized.slice(1)) : undefined;
+	if (caret) return caret[0] === host[0] && compareApiVersions(host, caret) >= 0;
+	if (normalized === `^${host[0]}` || normalized === `${host[0]}.x`) return true;
+	const minimum = normalized.startsWith(">=") ? parseApiVersion(normalized.slice(2)) : undefined;
+	return minimum !== undefined && compareApiVersions(host, minimum) >= 0;
 }
 
 function versionedPath(version: string, relativePath: string): string {
@@ -692,6 +713,7 @@ function installedFromManifest(
 		defaultLocale: manifest.defaultLocale ?? "zh",
 		locales,
 		enabled: options?.enable === true ? true : (previous?.enabled ?? false),
+		required: false,
 		installedAt: previous?.installedAt ?? now,
 		updatedAt: now,
 		source: options?.source ?? "archive",
@@ -1292,7 +1314,11 @@ function systemInstalledFromManifest(
 	locales: PluginLocales,
 	disabledCommands: string[] = [],
 ): InstalledPlugin {
+	if (!supportsPluginApi(manifest.pluginApiVersion)) {
+		throw new Error(`Unsupported plugin API version: ${manifest.pluginApiVersion}`);
+	}
 	const now = new Date().toISOString();
+	const required = REQUIRED_SYSTEM_PLUGIN_IDS.has(manifest.id);
 	const declaredCommands = manifest.commands ?? [];
 	// System plugins auto-grant declared commands; the user may still disable any
 	// of them (persisted in system-plugin-prefs.json, not the user registry).
@@ -1319,7 +1345,8 @@ function systemInstalledFromManifest(
 		guidingWords: manifest.guidingWords,
 		defaultLocale: manifest.defaultLocale ?? "zh",
 		locales,
-		enabled,
+		enabled: required || enabled,
+		required,
 		installedAt: now,
 		updatedAt: now,
 		source: "system",
@@ -1522,6 +1549,9 @@ export function uninstallPlugin(id: string): void {
 
 export function setPluginEnabled(id: string, enabled: boolean): InstalledPlugin {
 	validatePluginId(id);
+	if (!enabled && REQUIRED_SYSTEM_PLUGIN_IDS.has(id)) {
+		throw new Error(`Required system plugin cannot be disabled: ${id}`);
+	}
 	// 系统插件可停用但不可删改：偏好写进独立的 prefs 文件，本体不入注册表（ADR-0024）。
 	if (isSystemPluginId(id)) {
 		const prefs = readSystemPrefs();
