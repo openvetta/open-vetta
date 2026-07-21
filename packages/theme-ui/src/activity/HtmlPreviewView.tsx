@@ -57,6 +57,88 @@ function DefaultSegmentedControl({
 	);
 }
 
+/**
+ * Match packages/site `globals.css` thin scrollbar (6px rounded thumb).
+ * Must live inside the iframe document — parent CSS never applies to srcDoc.
+ *
+ * Why body scroll (not the viewport root):
+ * On Windows Chromium, `::-webkit-scrollbar` often fails to style the
+ * documentElement/viewport scroller inside iframes, so the OS classic bar
+ * shows. Pin html height + scroll body so webkit pseudo-elements apply.
+ *
+ * Colors mirror site tokens (muted-foreground / primary @ 28% / 48%).
+ */
+function previewChromeStyle(theme: "light" | "dark"): string {
+	const thumb =
+		theme === "dark" ? "rgba(163, 163, 163, 0.28)" : "rgba(82, 82, 82, 0.28)";
+	const thumbHover =
+		theme === "dark" ? "rgba(255, 255, 255, 0.48)" : "rgba(24, 24, 27, 0.48)";
+	return `
+:root { color-scheme: ${theme}; }
+html {
+  height: 100%;
+  overflow: hidden;
+}
+/* Override preview HTML min-height:100vh so body is the scroller. */
+html body {
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: 100%;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  scrollbar-width: thin;
+  scrollbar-color: ${thumb} transparent;
+}
+/* Also style nested overflow nodes (match .vetta-app-ui * on the host). */
+html body * {
+  scrollbar-width: thin;
+  scrollbar-color: ${thumb} transparent;
+}
+html body::-webkit-scrollbar,
+html body *::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+html body::-webkit-scrollbar-track,
+html body *::-webkit-scrollbar-track {
+  background: transparent;
+}
+html body::-webkit-scrollbar-thumb,
+html body *::-webkit-scrollbar-thumb {
+  min-height: 48px;
+  border-radius: 999px;
+  background-color: ${thumb};
+}
+html body::-webkit-scrollbar-thumb:hover,
+html body *::-webkit-scrollbar-thumb:hover {
+  background-color: ${thumbHover};
+}
+html body::-webkit-scrollbar-corner,
+html body *::-webkit-scrollbar-corner {
+  background: transparent;
+}
+`.trim();
+}
+
+/**
+ * Inject chrome CSS into a full HTML document's <head> (last wins over page CSS).
+ * Prepending before <!DOCTYPE> is dropped by browsers and never applies.
+ */
+function injectPreviewChrome(content: string, theme: "light" | "dark"): string {
+	const styleTag = `<style data-preview-chrome>${previewChromeStyle(theme)}</style>`;
+	if (/<\/head>/i.test(content)) {
+		return content.replace(/<\/head>/i, `${styleTag}</head>`);
+	}
+	if (/<head(\s[^>]*)?>/i.test(content)) {
+		return content.replace(/<head(\s[^>]*)?>/i, (m) => `${m}${styleTag}`);
+	}
+	if (/<html(\s[^>]*)?>/i.test(content)) {
+		return content.replace(/<html(\s[^>]*)?>/i, (m) => `${m}<head>${styleTag}</head>`);
+	}
+	// Fragment / incomplete HTML — wrap so body rules still match.
+	return `<!DOCTYPE html><html><head>${styleTag}</head><body>${content}</body></html>`;
+}
+
 export function HtmlPreviewView({
 	content,
 	extension,
@@ -66,7 +148,7 @@ export function HtmlPreviewView({
 	CodePreviewComponent = CodePreview,
 }: HtmlPreviewViewProps): JSX.Element {
 	const [mode, setMode] = useState<Mode>("preview");
-	const srcDoc = `<style>:root{color-scheme:${theme}}</style>${content}`;
+	const srcDoc = useMemo(() => injectPreviewChrome(content, theme), [content, theme]);
 	const toggleItems = useMemo<HtmlPreviewSegmentItem[]>(
 		() => [
 			{ key: "preview", label: labels.preview },
