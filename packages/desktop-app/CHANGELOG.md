@@ -10,7 +10,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 - **官方 App Action 第三批迁移（收尾）**：完成 `batch-tasks`、`scheduler`、`appearance`、`navigation`；`ctx.official` 新增批量/定时窄 API、渲染器内主题读写与 hash 导航；插件审批 presentation 映射同时识别 `operation` 与 `type` 字段。
 - **移除静态 App Action 领域实现**：Desktop 仅保留 Catalog/Runtime/审批/插件注册协议；业务 Action 完全由 `vetta-actions` 等插件提供。Catalog 每个 action id 只保留一份实现，**先注册为准**，冲突写日志忽略；插件 activation commit 时先卸旧再挂新，避免热更新空窗。
 - **`vetta-host://plugin-sdk` 补导出 `PluginAppActionError`**：官方 `vetta-actions` 插件加载依赖该运行时导出；漏列会导致插件 SyntaxError 整包失败、Action Catalog 为空。
-- **市场产物 sha256 校验**：技能、场景、插件与应用安装包下载后，在主进程解压/落盘前比对服务端下发的 `sha256`，不一致直接中止安装并清理临时文件。摘要机制之前上传的存量条目服务端不下发摘要，此时跳过校验以免装不上。下载接口现在可能 302 到对象存储的预签名 URL，`fetch` 默认跟随重定向，客户端无需改动请求方式。
+- **市场产物 sha256 校验**：技能、场景、插件与应用安装包下载后，在主进程解压/落盘前比对服务端下发的 `sha256`，不一致直接中止安装并清理临时文件。摘要机制之前上传的存量条目服务端不下发摘要，此时跳过校验以免装不上。技能与插件的下载接口现在可能 302 到对象存储的预签名 URL，`fetch` 默认跟随重定向，客户端无需改动请求方式。
 
 - **插件动态 App Action（ADR-0045）**：插件可通过 `ctx.appActions.register()` 向主进程 Action 目录动态注册 JSON Schema Action；支持 `vetta action search/describe/run`、插件 activation 两阶段提交与失败回滚、内置 provider fallback、可信系统插件稳定 `publicId`、权限复查、write/execute 审批、超时、取消与 JSON 结果校验，为官方 Action 插件独立于 Desktop 发版奠定运行时基础。
 - **首次启动引导页**：用户首次进入主窗口时全屏展示；右上角可 Skip。非 mac 3 屏（语言与外观 → 登录 → 欢迎），mac 4 屏（语言与外观 → 授予权限 → 登录 → 欢迎）。权限屏仅 mac 可见；已登录时省略登录步与 indicator；登录可选；完成/跳过写入 localStorage，并延后侧边栏 product tour。设置 → 通用可重新「启动App引导」。语言与外观步含 6 色主题选择；底部导航收拢为居中胶囊条并带动画。
