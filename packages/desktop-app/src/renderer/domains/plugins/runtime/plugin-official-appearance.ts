@@ -1,4 +1,5 @@
 import { i18n } from "@shared/i18n";
+import type { PluginOfficialApi } from "@vetta-org/plugin-sdk";
 import { getDefaultStore } from "jotai";
 import { cursorStyleAtom, resolvedThemeAtom, themeModeAtom, themeNameAtom } from "../../../shared/store/ui-atoms";
 import { applyTheme, MODE_STORAGE_KEY, type ResolvedMode, THEME_STORAGE_KEY } from "../../../shared/theme/apply";
@@ -124,4 +125,29 @@ export async function setOfficialAppearance(input: {
 export async function setOfficialLanguage(language: "zh" | "en"): Promise<unknown> {
 	await window.vetta.i18n.setLanguage(language);
 	return { type: "set-language", language };
+}
+
+export function createOfficialAppearanceApi(assertOfficial: () => void): PluginOfficialApi["appearance"] {
+	return {
+		help: async () => {
+			assertOfficial();
+			return getOfficialAppearanceHelp();
+		},
+		get: async () => {
+			assertOfficial();
+			return getOfficialAppearanceState();
+		},
+		set: async (input) => {
+			assertOfficial();
+			return setOfficialAppearance(input);
+		},
+		setLanguage: async (language) => {
+			assertOfficial();
+			return setOfficialLanguage(language);
+		},
+		listThemeIds: () => {
+			assertOfficial();
+			return listOfficialThemeIds();
+		},
+	};
 }
