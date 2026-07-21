@@ -1,6 +1,6 @@
 import type { SkillInfo } from "@preload/api";
 import { i18n } from "@shared/i18n";
-import { downloadSkill } from "@shared/lib/api";
+import { downloadSkill, fetchSkillInfo } from "@shared/lib/api";
 import {
 	activeSessionAtom,
 	activeToolNamesAtom,
@@ -195,11 +195,16 @@ export function useNewSessionPageModel(): NewSessionPageModel {
 				try {
 					if (item.state === "uninstalled") {
 						if (!token) throw new Error("未登录，无法安装场景");
-						const buffer = await downloadSkill(token, item.name);
+						// SceneItem 不带摘要（类型来自 theme-ui），单独查一次 info 拿 sha256 用于安装前校验
+						const [info, buffer] = await Promise.all([
+							fetchSkillInfo(token, item.name),
+							downloadSkill(token, item.name),
+						]);
 						await window.vetta.skills.installFromMarket(item.name, buffer, "scene", {
 							alias: item.alias,
 							marketDescription: item.description,
 							version: item.version,
+							sha256: info.sha256,
 						});
 					} else {
 						// disabled：已落盘，仅切换启用，无需重新下载。

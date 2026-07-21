@@ -27,6 +27,7 @@ import type {
 	PluginSettingSchema,
 } from "../../preload/api-types/plugins.js";
 import { getAppLogger } from "../logger.js";
+import { verifySha256 } from "../utils/integrity.js";
 
 export const PLUGIN_API_VERSION = "1.1.0";
 export const CORE_ACTION_PLUGIN_ID = "vetta-actions";
@@ -1470,6 +1471,7 @@ export async function installPluginFromArchive(
 	options?: PluginInstallOptions,
 ): Promise<InstalledPlugin> {
 	const buffer = Buffer.isBuffer(archiveBuffer) ? archiveBuffer : Buffer.from(archiveBuffer);
+	verifySha256(buffer, options?.expectedSha256, "插件安装包");
 	const stamp = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 	const extractDir = join(tmpBaseDir, `_install_${stamp}`);
 	await extractArchive(buffer, extractDir);

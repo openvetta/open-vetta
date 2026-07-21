@@ -338,6 +338,8 @@ export interface MarketSkillInfo {
 	category: string;
 	/** 空=默认；solar:xxx-bold；外部 URL；或 /api/v1/skill-icons/:id */
 	icon: string;
+	/** 归档包 sha256，安装前校验用；归档机制之前上传的存量技能为空 */
+	sha256: string;
 	download_count: number;
 }
 
@@ -379,6 +381,8 @@ export interface MarketPluginInfo {
 	plugin_api_version: string;
 	permissions: string[];
 	tags: string[];
+	/** zip 包 sha256，安装前校验用；摘要机制之前上传的存量插件为空 */
+	sha256: string;
 	download_count: number;
 }
 

@@ -230,6 +230,8 @@ export interface PluginInstallOptions {
 	grantedPermissions?: PluginPermission[];
 	/** When true, enable the plugin after install (default false for GUI parity; agent path may set true). */
 	enable?: boolean;
+	/** Expected sha256 of the archive, from the market entry. Omitted for entries uploaded before digests existed. */
+	expectedSha256?: string;
 }
 
 export interface PluginAgentToolRegistration {

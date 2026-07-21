@@ -60,7 +60,8 @@ function asOptions(value: unknown): PluginInstallOptions | undefined {
 			? (input.grantedPermissions as PluginPermission[])
 			: undefined;
 	const enable = input.enable === true ? true : input.enable === false ? false : undefined;
-	return { source, grantedPermissions, enable };
+	const expectedSha256 = typeof input.expectedSha256 === "string" ? input.expectedSha256 : undefined;
+	return { source, grantedPermissions, enable, expectedSha256 };
 }
 
 function asPluginId(value: unknown): string {

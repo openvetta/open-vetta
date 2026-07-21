@@ -12,6 +12,7 @@ import { recordAppMonitorEvent } from "../app-monitor/app-monitor-service.js";
 import { getBuiltinSkillPaths, isBuiltinSkillFile, readBuiltinSkillsManifest } from "../builtin-skills.js";
 import { getAppLogger } from "../logger.js";
 import { buildAgentPluginRuntimeConfig } from "../plugins/plugin-store.js";
+import { verifySha256 } from "../utils/integrity.js";
 import { allowProjectRoot, readDesktopConfig } from "./fs.js";
 
 const skillsLog = getAppLogger("skills");
@@ -391,9 +392,11 @@ export function registerSkillsIpc(): () => void {
 				alias?: string;
 				marketDescription?: string;
 				version?: string;
+				sha256?: string;
 			};
 
 			const buffer = Buffer.isBuffer(archiveBuffer) ? archiveBuffer : Buffer.from(archiveBuffer as ArrayBuffer);
+			verifySha256(buffer, metaObj.sha256, `技能 ${name}`);
 
 			const baseDir = getBaseDir(itemType);
 			if (!existsSync(baseDir)) {
