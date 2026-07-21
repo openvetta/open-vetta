@@ -24,6 +24,7 @@ import { isLanguagePreference, type LanguagePreference } from "../../shared/i18n
 import { normalizeShortcutsConfig, type ShortcutsConfig } from "../../shared/shortcuts.js";
 import { SHORTCUTS_CHANNELS } from "../../shared/shortcuts-ipc.js";
 import { validateMcpConfig } from "../mcp-config-validation.js";
+import { fetchProviderModels } from "../models/fetch-models.js";
 import { probeModelProvider } from "../models/probe.js";
 import { openExternalUrl } from "../open-external.js";
 import { getLinuxSandboxCapability, getSandboxCapability, type SandboxCapability } from "../sandbox/capability.js";
@@ -466,6 +467,7 @@ const CHANNELS = {
 	MODELS_GET: "vetta:models:get",
 	MODELS_SET: "vetta:models:set",
 	MODELS_PROBE: "vetta:models:probe",
+	MODELS_FETCH_PROVIDER_MODELS: "vetta:models:fetch-provider-models",
 	MCP_GET: "vetta:mcp:get",
 	MCP_SET: "vetta:mcp:set",
 	MCP_LOGIN: "vetta:mcp:login",
@@ -919,6 +921,11 @@ export function registerFsIpc(): () => void {
 
 	ipcMain.handle(CHANNELS.MODELS_PROBE, async (_event, ref: { provider: string; model: string }) => {
 		return probeModelProvider(ref);
+	});
+
+	ipcMain.handle(CHANNELS.MODELS_FETCH_PROVIDER_MODELS, async (_event, providerName: unknown) => {
+		if (typeof providerName !== "string" || !providerName.trim()) throw new Error("Invalid provider name");
+		return fetchProviderModels(providerName.trim());
 	});
 
 	ipcMain.handle(CHANNELS.MCP_GET, async (): Promise<McpConfig> => {

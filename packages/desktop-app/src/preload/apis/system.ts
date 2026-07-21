@@ -167,6 +167,7 @@ export function createSystemApi(
 			fetchRemote: () => ipc.invoke("vetta:models:fetch-remote"),
 			fetchTemplates: () => ipc.invoke("vetta:models:fetch-templates"),
 			probe: (ref) => ipc.invoke("vetta:models:probe", ref),
+			fetchProviderModels: (providerName) => ipc.invoke("vetta:models:fetch-provider-models", providerName),
 		},
 		mcp: {
 			get: () => ipc.invoke("vetta:mcp:get"),
