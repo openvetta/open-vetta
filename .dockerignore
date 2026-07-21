@@ -1,0 +1,12 @@
+# 仓库根作为 docker build context 时生效（目前只有 packages/admin/Dockerfile 这么用）。
+**/node_modules
+**/dist
+**/.next
+**/out
+**/.turbo
+**/.cache
+.git
+.github
+releases
+deploy/.env*
+**/*.log
