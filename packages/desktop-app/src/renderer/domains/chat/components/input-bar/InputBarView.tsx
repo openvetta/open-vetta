@@ -1,9 +1,10 @@
 import { useMemo } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { useThemeComponent } from "@vetta/theme-sdk";
 import { useThemeSurface } from "@vetta/theme-sdk/appearance";
 import { ThemeSurface } from "@vetta/theme-ui/appearance";
-import { InputBarPlaceholder } from "@vetta/theme-ui/chat";
+import { InputBarContextMenuView, InputBarPlaceholder } from "@vetta/theme-ui/chat";
 import { DrawerCard, type DrawerTab } from "@shared/components/DrawerCard";
 import { QueueCard } from "@shared/components/QueueCard";
 import { TodoCard } from "@shared/components/TodoCard";
@@ -330,6 +331,7 @@ export function InputBarView({ model, className, classNames }: InputBarViewProps
 									onChange={model.actions.handleChange}
 									onKeyDown={model.actions.handleKeyDown}
 									onPaste={(e) => void model.actions.handlePaste(e)}
+									onContextMenu={model.actions.handleContextMenu}
 									onFocus={() => model.actions.setFocused(true)}
 									onBlur={() => model.actions.setFocused(false)}
 									disabled={!model.hasSession}
@@ -439,6 +441,10 @@ export function InputBarView({ model, className, classNames }: InputBarViewProps
 
 				<InputActionBar />
 			</div>
+
+			{model.contextMenu
+				? createPortal(<InputBarContextMenuView {...model.contextMenu} />, document.body)
+				: null}
 		</div>
 	);
 }

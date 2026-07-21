@@ -1,7 +1,7 @@
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { ChangeEvent, ClipboardEvent, KeyboardEvent } from "react";
+import type { ChangeEvent, ClipboardEvent, KeyboardEvent, MouseEvent } from "react";
 import type { SkillInfo } from "@preload/api";
 import {
 	activeSessionAtom,
@@ -28,11 +28,49 @@ import { getQueueForSession, messageQueueBySessionAtom } from "@shared/store/mes
 import { filePreviewAtom, type FilePreviewItem } from "@shared/store/file-preview-atoms";
 import { recordInputFilesAdded, recordInputImagesAdded } from "@shared/lib/app-monitor-events";
 import { pathBasename, toVettaFileUrl } from "@shared/lib/utils";
+import type { InputBarContextMenuViewProps } from "@vetta/theme-ui/chat";
 import type { SelectedFile } from "../AtPanel";
 import type { InputBarModel, InputBarProps, InputBarDrawerItem } from "./types";
 
 const MIN_HEIGHT = 24;
 const MAX_HEIGHT = 140;
+const CONTEXT_MENU_WIDTH = 160;
+const CONTEXT_MENU_HEIGHT = 112;
+const CONTEXT_MENU_VIEWPORT_GAP = 8;
+
+interface InputBarContextMenuState {
+	canCopy: boolean;
+	canCut: boolean;
+	canPaste: boolean;
+	/** Snapshot selection at menu open — survives blur when clicking menu items. */
+	selectionEnd: number;
+	selectionStart: number;
+	x: number;
+	y: number;
+}
+
+function clampContextMenuPosition(clientX: number, clientY: number): { x: number; y: number } {
+	return {
+		x: Math.max(
+			CONTEXT_MENU_VIEWPORT_GAP,
+			Math.min(clientX, window.innerWidth - CONTEXT_MENU_WIDTH - CONTEXT_MENU_VIEWPORT_GAP),
+		),
+		y: Math.max(
+			CONTEXT_MENU_VIEWPORT_GAP,
+			Math.min(clientY, window.innerHeight - CONTEXT_MENU_HEIGHT - CONTEXT_MENU_VIEWPORT_GAP),
+		),
+	};
+}
+
+async function clipboardHasText(): Promise<boolean> {
+	try {
+		const text = await navigator.clipboard.readText();
+		return text.length > 0;
+	} catch {
+		// Permission denied or unsupported — still offer paste so user can try.
+		return true;
+	}
+}
 
 let imageIdCounter = 0;
 
@@ -98,6 +136,7 @@ export function useInputBarModel({
 	const focusInputRequest = useAtomValue(focusInputRequestAtom);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const [isFocused, setIsFocused] = useState(false);
+	const [contextMenuState, setContextMenuState] = useState<InputBarContextMenuState | null>(null);
 	const [slashOpen, setSlashOpen] = useState(false);
 	const [slashFilter, setSlashFilter] = useState("");
 	const [atOpen, setAtOpen] = useState(false);
@@ -527,6 +566,87 @@ export function useInputBarModel({
 		[addImages],
 	);
 
+	const closeContextMenu = useCallback(() => setContextMenuState(null), []);
+
+	const handleContextMenu = useCallback(
+		(e: MouseEvent<HTMLTextAreaElement>): void => {
+			e.preventDefault();
+			if (!hasSession) return;
+			const el = textareaRef.current;
+			if (!el) return;
+			const selectionStart = el.selectionStart ?? 0;
+			const selectionEnd = el.selectionEnd ?? 0;
+			const hasSelection = selectionStart !== selectionEnd;
+			const position = clampContextMenuPosition(e.clientX, e.clientY);
+			void clipboardHasText().then((hasClipboard) => {
+				setContextMenuState({
+					...position,
+					canCopy: hasSelection,
+					canCut: hasSelection,
+					canPaste: hasClipboard,
+					selectionEnd,
+					selectionStart,
+				});
+			});
+		},
+		[hasSession],
+	);
+
+	const handleMenuCut = useCallback(() => {
+		const state = contextMenuState;
+		closeContextMenu();
+		if (!state || state.selectionStart === state.selectionEnd) return;
+		const { selectionStart: start, selectionEnd: end } = state;
+		const selected = inputValue.slice(start, end);
+		void navigator.clipboard.writeText(selected).catch((error) => {
+			console.warn("[useInputBarModel] cut clipboard write failed", error);
+		});
+		const next = inputValue.slice(0, start) + inputValue.slice(end);
+		setInputValue(next);
+		const el = textareaRef.current;
+		requestAnimationFrame(() => {
+			el?.focus();
+			el?.setSelectionRange(start, start);
+		});
+	}, [closeContextMenu, contextMenuState, inputValue, setInputValue]);
+
+	const handleMenuCopy = useCallback(() => {
+		const state = contextMenuState;
+		closeContextMenu();
+		if (!state || state.selectionStart === state.selectionEnd) return;
+		void navigator.clipboard
+			.writeText(inputValue.slice(state.selectionStart, state.selectionEnd))
+			.catch((error) => {
+				console.warn("[useInputBarModel] copy clipboard write failed", error);
+			});
+	}, [closeContextMenu, contextMenuState, inputValue]);
+
+	const handleMenuPaste = useCallback(() => {
+		const state = contextMenuState;
+		closeContextMenu();
+		const el = textareaRef.current;
+		if (!el || !hasSession) return;
+		const start = state?.selectionStart ?? el.selectionStart ?? inputValue.length;
+		const end = state?.selectionEnd ?? el.selectionEnd ?? start;
+		void (async () => {
+			let clip = "";
+			try {
+				clip = await navigator.clipboard.readText();
+			} catch (error) {
+				console.warn("[useInputBarModel] paste clipboard read failed", error);
+				return;
+			}
+			if (!clip) return;
+			const next = inputValue.slice(0, start) + clip + inputValue.slice(end);
+			setInputValue(next);
+			const cursor = start + clip.length;
+			requestAnimationFrame(() => {
+				el.focus();
+				el.setSelectionRange(cursor, cursor);
+			});
+		})();
+	}, [closeContextMenu, contextMenuState, hasSession, inputValue, setInputValue]);
+
 	const defaultPlaceholders = useMemo(() => {
 		const raw = t("inputBar.placeholder.defaults", { returnObjects: true });
 		const list = Array.isArray(raw) ? (raw as string[]) : [];
@@ -560,6 +680,25 @@ export function useInputBarModel({
 		};
 	}, [hasSession, isStreaming, showPlaceholder, firstSuggestion, defaultPlaceholders, t]);
 
+	const contextMenu: InputBarContextMenuViewProps | null = contextMenuState
+		? {
+				canCopy: contextMenuState.canCopy,
+				canCut: contextMenuState.canCut,
+				canPaste: contextMenuState.canPaste,
+				labels: {
+					copy: t("inputBar.contextMenu.copy"),
+					cut: t("inputBar.contextMenu.cut"),
+					paste: t("inputBar.contextMenu.paste"),
+				},
+				onClose: closeContextMenu,
+				onCopy: handleMenuCopy,
+				onCut: handleMenuCut,
+				onPaste: handleMenuPaste,
+				x: contextMenuState.x,
+				y: contextMenuState.y,
+			}
+		: null;
+
 	return {
 		inputValue,
 		isStreaming,
@@ -592,6 +731,7 @@ export function useInputBarModel({
 		pendingEditHint: t("messageList.edit.pendingHint"),
 		cancelPendingEditLabel: t("messageList.interrupt.cancel"),
 		textareaRef,
+		contextMenu,
 		labels: {
 			capsule: {
 				editImage: t("inputBar.capsule.editImage"),
@@ -621,6 +761,7 @@ export function useInputBarModel({
 			handleKeyDown,
 			handleChange,
 			handlePaste,
+			handleContextMenu,
 			handleSlashClose,
 			handleSlashSelect,
 			handleAtClose,
