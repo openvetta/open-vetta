@@ -98,6 +98,11 @@ export { InputBarBackground } from "./InputBarBackground";
 export type { InputBarCapsuleLabels, InputBarCapsuleProps } from "./InputBarCapsule";
 export { InputBarCapsule } from "./InputBarCapsule";
 export type {
+	InputBarContextMenuViewLabels,
+	InputBarContextMenuViewProps,
+} from "./InputBarContextMenuView";
+export { InputBarContextMenuView } from "./InputBarContextMenuView";
+export type {
 	InputBarPlaceholderClassNames,
 	InputBarPlaceholderProps,
 } from "./InputBarPlaceholder";
@@ -148,6 +153,11 @@ export type { MessageListFooterViewProps } from "./MessageListFooterView";
 export { MessageListFooterView } from "./MessageListFooterView";
 export type { MessageListViewProps } from "./MessageListView";
 export { MessageListView, VirtuosoListContainer } from "./MessageListView";
+export type {
+	MessageSelectionContextMenuViewLabels,
+	MessageSelectionContextMenuViewProps,
+} from "./MessageSelectionContextMenuView";
+export { MessageSelectionContextMenuView } from "./MessageSelectionContextMenuView";
 export type {
 	NewSessionGuidingWordsGroup,
 	NewSessionGuidingWordsProps,

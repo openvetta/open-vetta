@@ -1,8 +1,14 @@
 import { activeSessionAtom } from "@shared/store/atoms";
-import { MessageListView as ThemeMessageListView, VirtuosoListContainer } from "@vetta/theme-ui/chat";
+import {
+	MessageListView as ThemeMessageListView,
+	MessageSelectionContextMenuView,
+	VirtuosoListContainer,
+} from "@vetta/theme-ui/chat";
 import { useAtomValue } from "jotai";
 import { useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { Virtuoso } from "react-virtuoso";
+import { useMessageSelectionContextMenu } from "../../hooks/useMessageSelectionContextMenu";
 import { SuggestionBubbles } from "../SuggestionBubbles";
 import { ForkOriginBanner, resolveForkOriginPlacement } from "./ForkOriginBanner";
 import { MessageItem, ModelSwitchBoundary, ExportMessageList } from "./MessageItem";
@@ -131,29 +137,44 @@ export function MessageListView({
 		() => ({ List: VirtuosoListContainer, Footer: footer }),
 		[footer],
 	);
+	const selectionMenu = useMessageSelectionContextMenu();
 
 	return (
-		<ThemeMessageListView
-			virtuoso={
-				<Virtuoso
-					ref={scroll.virtuosoRef}
-					scrollerRef={scroll.scrollerRef}
-					data={messages}
-					className="flex-1 pt-2"
-					style={VIRTUOSO_STYLE}
-					atBottomStateChange={scroll.onAtBottomChange}
-					atBottomThreshold={80}
-					overscan={isStreaming ? STREAMING_OVERSCAN : IDLE_OVERSCAN}
-					increaseViewportBy={
-						isStreaming ? STREAMING_INCREASE_VIEWPORT_BY : IDLE_INCREASE_VIEWPORT_BY
+		<>
+			<div
+				ref={selectionMenu.containerRef}
+				className="flex min-h-0 flex-1 flex-col"
+				onContextMenuCapture={selectionMenu.onContextMenuCapture}
+			>
+				<ThemeMessageListView
+					virtuoso={
+						<Virtuoso
+							ref={scroll.virtuosoRef}
+							scrollerRef={scroll.scrollerRef}
+							data={messages}
+							className="flex-1 pt-2"
+							style={VIRTUOSO_STYLE}
+							atBottomStateChange={scroll.onAtBottomChange}
+							atBottomThreshold={80}
+							overscan={isStreaming ? STREAMING_OVERSCAN : IDLE_OVERSCAN}
+							increaseViewportBy={
+								isStreaming ? STREAMING_INCREASE_VIEWPORT_BY : IDLE_INCREASE_VIEWPORT_BY
+							}
+							defaultItemHeight={80}
+							components={components}
+							itemContent={itemContent}
+							initialTopMostItemIndex={messages.length > 0 ? messages.length - 1 : 0}
+						/>
 					}
-					defaultItemHeight={80}
-					components={components}
-					itemContent={itemContent}
-					initialTopMostItemIndex={messages.length > 0 ? messages.length - 1 : 0}
 				/>
-			}
-		/>
+			</div>
+			{selectionMenu.contextMenu
+				? createPortal(
+						<MessageSelectionContextMenuView {...selectionMenu.contextMenu} />,
+						document.body,
+					)
+				: null}
+		</>
 	);
 }
 

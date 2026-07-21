@@ -294,6 +294,11 @@
 			"addImage": "Add image",
 			"attachFile": "Attach file reference",
 			"skills": "Skills / Scenes"
+		},
+		"contextMenu": {
+			"cut": "Cut",
+			"copy": "Copy",
+			"paste": "Paste"
 		}
 	},
 	"knowledgeTools": {
@@ -357,6 +362,10 @@
 			"edit": "Edit",
 			"copy": "Copy",
 			"delete": "Delete"
+		},
+		"selectionContextMenu": {
+			"copy": "Copy",
+			"addToInput": "Add to input"
 		},
 		"delete": {
 			"title": "Delete this message?",

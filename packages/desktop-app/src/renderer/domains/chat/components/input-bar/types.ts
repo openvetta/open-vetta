@@ -2,7 +2,8 @@ import type { SkillInfo } from "@preload/api";
 import type { AppshotAttachment, AttachedImage, MentionedFile } from "@shared/store/atoms";
 import type { FilePreviewItem } from "@shared/store/file-preview-atoms";
 import type { TodoItem } from "@shared/store/todo-atoms";
-import type { ChangeEvent, ClipboardEvent, ComponentProps, KeyboardEvent, RefObject } from "react";
+import type { InputBarContextMenuViewProps } from "@vetta/theme-ui/chat";
+import type { ChangeEvent, ClipboardEvent, ComponentProps, KeyboardEvent, MouseEvent, RefObject } from "react";
 import type { SelectedFile } from "../AtPanel";
 import type { QuestionPanel } from "../QuestionPanel";
 
@@ -113,6 +114,8 @@ export interface InputBarModel {
 	pendingEditHint: string;
 	cancelPendingEditLabel: string;
 	textareaRef: RefObject<HTMLTextAreaElement | null>;
+	/** Textarea right-click cut/copy/paste menu; null when closed. */
+	contextMenu: InputBarContextMenuViewProps | null;
 	labels: InputBarLabels;
 	actions: {
 		setFocused: (focused: boolean) => void;
@@ -120,6 +123,7 @@ export interface InputBarModel {
 		handleKeyDown: (e: KeyboardEvent<HTMLTextAreaElement>) => void;
 		handleChange: (e: ChangeEvent<HTMLTextAreaElement>) => void;
 		handlePaste: (e: ClipboardEvent) => Promise<void>;
+		handleContextMenu: (e: MouseEvent<HTMLTextAreaElement>) => void;
 		handleSlashClose: () => void;
 		handleSlashSelect: (skill: SkillInfo) => void;
 		handleAtClose: () => void;
