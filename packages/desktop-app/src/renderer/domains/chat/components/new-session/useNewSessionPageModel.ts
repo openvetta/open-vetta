@@ -15,6 +15,7 @@ import {
 	inputValueAtom,
 	lastActiveSessionAtom,
 	mentionedFilesAtom,
+	newSessionPageVisibilityAtom,
 	pageHeaderTitleHiddenAtom,
 	pendingEditImageIdAtom,
 	selectedSkillAtom,
@@ -92,6 +93,7 @@ export function useNewSessionPageModel(): NewSessionPageModel {
 	const authUser = useAtomValue(authUserAtom);
 	const token = useAtomValue(authTokenAtom);
 	const executionMode = useAtomValue(sessionExecutionModeAtom);
+	const pageVisibility = useAtomValue(newSessionPageVisibilityAtom);
 	const { openSession, sendMessage, abortMessage } = useSessionManager();
 	const isShort = useShortViewport();
 	const { guidingGroups, loadResources, scenes, skillBadges } = useNewSessionResources(decodedCwd, token);
@@ -272,7 +274,8 @@ export function useNewSessionPageModel(): NewSessionPageModel {
 		avatarAutoplay,
 		cwd: decodedCwd,
 		greetingTitle,
-		guidingGroups,
+		// 设置 → 新会话页可隐藏对应区块；隐藏时传空数组，下游 length 判断会跳过渲染。
+		guidingGroups: pageVisibility.showGuidingWords ? guidingGroups : [],
 		isShort,
 		mounted,
 		onAbort: abortMessage,
@@ -282,9 +285,9 @@ export function useNewSessionPageModel(): NewSessionPageModel {
 		onSend: handleSend,
 		renderHero,
 		sceneActions,
-		scenes,
+		scenes: pageVisibility.showSceneCards ? scenes : [],
 		selectedSkill,
-		skillBadges,
+		skillBadges: pageVisibility.showSkillBadges ? skillBadges : [],
 		subtitle: i18n.t("chat:newSession.subtitle"),
 	};
 }

@@ -73,6 +73,18 @@ export interface DesktopConfig {
 	quickPanel?: QuickPanelConfig;
 	/** Appshot（全局手势捕获前台应用窗口）设置。缺省关闭。 */
 	appshot?: AppshotConfig;
+	/** 新会话页元素显隐（设置 → 新会话页）。各项缺省 true。 */
+	newSessionPage?: NewSessionPageConfig;
+}
+
+/** 新会话页欢迎区元素显隐。缺省全部显示。 */
+export interface NewSessionPageConfig {
+	/** 场景卡片 list。缺省 true。 */
+	showSceneCards?: boolean;
+	/** 技能 badge list。缺省 true。 */
+	showSkillBadges?: boolean;
+	/** 引导词轮播。缺省 true。 */
+	showGuidingWords?: boolean;
 }
 
 /** Appshot 触发手势：双键同按（左右两侧同时按住）。both-shift=双 ⇧；both-mod=双 ⌘(mac)/Ctrl；both-alt=双 ⌥/Alt。 */
@@ -166,6 +178,7 @@ const DEFAULT_CONFIG: DesktopConfig = {
 	shortcuts: { bindings: {} },
 	quickPanel: { trigger: "none", postSendBehavior: "foreground" },
 	appshot: { enabled: false, gesture: "both-shift" },
+	newSessionPage: { showSceneCards: true, showSkillBadges: true, showGuidingWords: true },
 };
 
 /** Migrate legacy string[] format to ProjectEntry[] */
@@ -242,6 +255,19 @@ function normalizeAppshot(value: unknown): AppshotConfig {
 	};
 }
 
+function normalizeNewSessionPage(value: unknown): NewSessionPageConfig {
+	// 锁定缺省：三项均显示。仅显式 false 才隐藏。
+	if (typeof value !== "object" || value === null) {
+		return { showSceneCards: true, showSkillBadges: true, showGuidingWords: true };
+	}
+	const v = value as Record<string, unknown>;
+	return {
+		showSceneCards: v.showSceneCards !== false,
+		showSkillBadges: v.showSkillBadges !== false,
+		showGuidingWords: v.showGuidingWords !== false,
+	};
+}
+
 function normalizeExperimental(value: unknown): ExperimentalConfig {
 	// promptPrediction 缺省 false（区别于其他键缺省 true）。
 	if (typeof value !== "object" || value === null)
@@ -278,6 +304,7 @@ export async function readDesktopConfig(): Promise<DesktopConfig> {
 			shortcuts: normalizeShortcuts(parsed.shortcuts),
 			quickPanel: normalizeQuickPanel(parsed.quickPanel),
 			appshot: normalizeAppshot(parsed.appshot),
+			newSessionPage: normalizeNewSessionPage(parsed.newSessionPage),
 		};
 	} catch {
 		return { ...DEFAULT_CONFIG };
@@ -305,6 +332,7 @@ export function readConfigSync(): DesktopConfig {
 			shortcuts: normalizeShortcuts(parsed.shortcuts),
 			quickPanel: normalizeQuickPanel(parsed.quickPanel),
 			appshot: normalizeAppshot(parsed.appshot),
+			newSessionPage: normalizeNewSessionPage(parsed.newSessionPage),
 		};
 	} catch {
 		return { ...DEFAULT_CONFIG };
@@ -860,6 +888,10 @@ export function registerFsIpc(): () => void {
 					: current.quickPanel,
 			appshot:
 				patch.appshot !== undefined ? normalizeAppshot({ ...current.appshot, ...patch.appshot }) : current.appshot,
+			newSessionPage:
+				patch.newSessionPage !== undefined
+					? normalizeNewSessionPage({ ...current.newSessionPage, ...patch.newSessionPage })
+					: current.newSessionPage,
 		};
 		// Allow all known roots for file operations
 		for (const p of next.projects) allowProjectRoot(p.path);

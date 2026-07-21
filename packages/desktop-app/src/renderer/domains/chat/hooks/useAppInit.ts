@@ -7,6 +7,7 @@ import {
 	deployModeAtom,
 	knowledgeBaseEnabledAtom,
 	knowledgeProcessingCwdAtom,
+	newSessionPageVisibilityAtom,
 	SELECTED_MODEL_STORAGE_KEY,
 	selectedModelAtom,
 	sessionExecutionModeAtom,
@@ -24,6 +25,7 @@ export function useAppInit(): void {
 	const setDeployMode = useSetAtom(deployModeAtom);
 	const setKnowledgeBaseEnabled = useSetAtom(knowledgeBaseEnabledAtom);
 	const setKnowledgeProcessingCwd = useSetAtom(knowledgeProcessingCwdAtom);
+	const setNewSessionPageVisibility = useSetAtom(newSessionPageVisibilityAtom);
 	const { refreshProjects } = useProjects();
 	const { refreshProjects: refreshBatchProjects } = useBatchTasks();
 
@@ -51,6 +53,12 @@ export function useAppInit(): void {
 			if (config.knowledgeProcessingCwd) {
 				setKnowledgeProcessingCwd(config.knowledgeProcessingCwd);
 			}
+			const page = config.newSessionPage;
+			setNewSessionPageVisibility({
+				showSceneCards: page?.showSceneCards !== false,
+				showSkillBadges: page?.showSkillBadges !== false,
+				showGuidingWords: page?.showGuidingWords !== false,
+			});
 		});
 		// 恢复新会话全局模型偏好；无偏好时才回落到配置的 defaultModel。
 		// （atom 已从 localStorage 初始化；此处再同步一次，并补写缺失的默认。）
@@ -84,5 +92,6 @@ export function useAppInit(): void {
 		setDefaultImConversationCwd,
 		setKnowledgeBaseEnabled,
 		setKnowledgeProcessingCwd,
+		setNewSessionPageVisibility,
 	]);
 }

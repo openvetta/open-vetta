@@ -62,7 +62,25 @@ export type SettingsTab =
 	| "context"
 	| "plugins"
 	| "knowledge"
-	| "pet";
+	| "pet"
+	| "newSession";
+
+// ─── New session page visibility ───
+
+/** 新会话页欢迎区元素显隐；与 desktop-config `newSessionPage` 对齐，缺省全开。 */
+export interface NewSessionPageVisibility {
+	showSceneCards: boolean;
+	showSkillBadges: boolean;
+	showGuidingWords: boolean;
+}
+
+export const DEFAULT_NEW_SESSION_PAGE_VISIBILITY: NewSessionPageVisibility = {
+	showSceneCards: true,
+	showSkillBadges: true,
+	showGuidingWords: true,
+};
+
+export const newSessionPageVisibilityAtom = atom<NewSessionPageVisibility>(DEFAULT_NEW_SESSION_PAGE_VISIBILITY);
 
 // ─── Theme ───
 

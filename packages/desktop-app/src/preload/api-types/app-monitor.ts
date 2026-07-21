@@ -80,7 +80,8 @@ export type AppMonitorSettingsTab =
 	| "pet"
 	| "plugins"
 	| "archived"
-	| "subscription";
+	| "subscription"
+	| "newSession";
 
 export type AppMonitorSettingsAction =
 	| "selected"
