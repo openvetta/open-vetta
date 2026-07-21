@@ -19,7 +19,7 @@
     "editorFontFamily": "Editor font family",
     "systemDefault": "System default",
     "language": "Language",
-    "languageHint": "The app will reload after switching language.",
+    "languageHint": "Defaults to your system language; changes apply immediately.",
     "fontSizeValue": "{{value}}px"
   },
   "model": "Model",
@@ -63,7 +63,7 @@
   "executionModeChangeFailed": "Failed to switch execution mode: {{reason}}",
   "notificationsChangeFailed": "Failed to save notification settings: {{reason}}",
   "appearanceDescription": "Theme, density, font size, and editor font family.",
-  "languageHint": "The app will reload after switching language.",
+  "languageHint": "Defaults to your system language; changes apply immediately.",
   "modelDescription": "Model provider keys, model selection, and rate limits.",
   "mcpDescription": "Manage MCP servers to give the AI extra capabilities, such as browsing the web or using external tools. Once added, they are available in chat.",
   "pluginDescription": "Manage plugin settings and configuration options.",

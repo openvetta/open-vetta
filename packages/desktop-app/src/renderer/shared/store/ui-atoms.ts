@@ -5,7 +5,7 @@ import { type AppLanguage, DEFAULT_LANGUAGE, isSupportedLanguage } from "@/share
 import { type CursorStyle, getStoredCursorStyle } from "../theme/cursor";
 
 // ─── i18n ───
-// 初值取主进程同步暴露的当前语言（真相源 = desktop-config.language）。
+// 初值取主进程同步暴露的当前语言（config.language 或系统 locale 解析结果）。
 // 经 isSupportedLanguage 守卫，preload 未就绪/异常值时回落 DEFAULT_LANGUAGE。
 // 切换写主进程，见 useLanguage。
 const initialLanguage = typeof window !== "undefined" ? window.vetta?.i18n?.initialLanguage : undefined;

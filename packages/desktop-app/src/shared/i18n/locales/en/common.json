@@ -17,7 +17,7 @@
 	},
 	"appearance": {
 		"languageTitle": "Language",
-		"languageHint": "Choose the display language"
+		"languageHint": "Defaults to your system language; change anytime"
 	},
 	"updateRestart": {
 		"title": "Update Ready",
@@ -963,7 +963,7 @@
 		},
 		"languageAppearance": {
 			"title": "Language & appearance",
-			"subtitle": "Pick your language, theme mode, and color theme. You can change them later in Settings",
+			"subtitle": "Language defaults to your system. Adjust theme mode and colors — change anytime in Settings",
 			"language": "Language",
 			"appearance": "Appearance",
 			"theme": "Color theme"
