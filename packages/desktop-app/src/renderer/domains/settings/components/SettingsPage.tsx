@@ -10,6 +10,7 @@ import { GeneralSettings } from "./GeneralSettings";
 import { ImBridgeSettings } from "./ImBridgeSettings";
 import { KnowledgeBaseSettings } from "./KnowledgeBaseSettings";
 import { ModelsSettings } from "./ModelsSettings";
+import { NewSessionSettings } from "./NewSessionSettings";
 import { PermissionsSettings } from "./PermissionsSettings";
 import { PetSettings } from "./PetSettings";
 import { PluginsSettings } from "./PluginsSettings";
@@ -38,6 +39,7 @@ const SETTINGS_CONTENT: { [K in Exclude<SettingsTab, "mcp">]: () => JSX.Element 
 	plugins: PluginsSettings,
 	knowledge: KnowledgeBaseSettings,
 	pet: PetSettings,
+	newSession: NewSessionSettings,
 };
 
 export function SettingsPage(): JSX.Element {

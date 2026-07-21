@@ -67,6 +67,7 @@ const SETTINGS_TABS = new Set<AppMonitorSettingsTab>([
 	"plugins",
 	"archived",
 	"subscription",
+	"newSession",
 ]);
 const SETTINGS_ACTIONS = new Set<AppMonitorSettingsAction>([
 	"selected",
