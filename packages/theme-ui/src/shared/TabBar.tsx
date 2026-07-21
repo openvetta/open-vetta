@@ -148,6 +148,9 @@ export function TabBar<T extends string>({
 	// 拖拽中：dragKey 为被拖动的页签，order 为拖拽过程中的临时顺序（提交前不触碰 props）
 	const [dragKey, setDragKey] = useState<T | null>(null);
 	const [order, setOrder] = useState<T[] | null>(null);
+	// 悬浮页签：减号按钮的显隐走 state 而非 CSS group-hover（group-hover 依赖的类链在部分
+	// 环境下未生效，导致按钮永不出现），同时用于把该页签 z-index 提到最高防被相邻页签盖住。
+	const [hoverKey, setHoverKey] = useState<T | null>(null);
 
 	// 拖拽中按临时顺序渲染，否则按 props 顺序
 	const renderItems =
@@ -226,9 +229,13 @@ export function TabBar<T extends string>({
 					const active = value === key;
 					const isDragged = dragKey === key;
 					// 激活页签置顶；非激活页签越靠近激活页签层级越高，向激活页签方向叠压
-					const zIndex = active
-						? visibleItems.length + 1
-						: visibleItems.length - Math.abs(index - activeIndex);
+					// 悬浮页签置于最顶，保证右上角减号按钮不被相邻页签（重叠 -ml-2）盖住
+					const zIndex =
+						hoverKey === key
+							? visibleItems.length + 2
+							: active
+								? visibleItems.length + 1
+								: visibleItems.length - Math.abs(index - activeIndex);
 					// 用普通 div：拖拽走原生 HTML5 draggable，不需要 framer。激活态切换会改变页签
 					// 高度(29↔23)，任何 framer layout 动画都会用 scale 变换拉伸带边框的盒子致边框闪
 					// 一下——所以这里不挂 framer，切换即时无动画。
@@ -243,6 +250,8 @@ export function TabBar<T extends string>({
 								if (dragging) e.preventDefault();
 							}}
 							onDragEnd={endDrag}
+							onMouseEnter={() => setHoverKey(key)}
+							onMouseLeave={() => setHoverKey((prev) => (prev === key ? null : prev))}
 							onDrop={(e) => {
 								if (dragging) e.preventDefault();
 							}}
@@ -279,7 +288,7 @@ export function TabBar<T extends string>({
 								)}
 								<TabInner icon={icon} label={label} badge={badge} active={active} />
 							</button>
-							{removable && onRemove != null && !dragging && (
+							{removable && onRemove != null && hoverKey === key && !dragging && (
 								<span
 									role="button"
 									title="隐藏此面板"
@@ -289,7 +298,7 @@ export function TabBar<T extends string>({
 										e.stopPropagation();
 										onRemove(key);
 									}}
-									className="absolute -right-1 -top-1 z-20 hidden h-3.5 w-3.5 cursor-pointer items-center justify-center rounded-full bg-muted-foreground/85 text-background shadow-sm hover:bg-foreground group-hover/tab:flex"
+									className="absolute -right-1 -top-1 z-20 flex h-3.5 w-3.5 cursor-pointer items-center justify-center rounded-full bg-muted-foreground/85 text-background shadow-sm hover:bg-foreground"
 								>
 									<span className="icon-[mdi--minus] h-2.5 w-2.5" />
 								</span>
