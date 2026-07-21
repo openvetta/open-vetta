@@ -31,6 +31,14 @@ export interface EditingModelState {
 	modelId: string;
 }
 
+/** 「从 /models 接口拉取」面板状态：某个 provider 拉到的模型 id 与勾选情况。 */
+export interface FetchedModelsState {
+	provider: string;
+	models: string[];
+	selected: string[];
+	error?: string;
+}
+
 export interface ModelsSettingsModel {
 	config: ModelsConfigData | null;
 	providerNames: string[];
@@ -42,6 +50,8 @@ export interface ModelsSettingsModel {
 	editingModel: EditingModelState | null;
 	modelForm: ModelFormState;
 	saving: boolean;
+	fetchingModelsFor: string | null;
+	fetchedModels: FetchedModelsState | null;
 	setProviderForm: React.Dispatch<React.SetStateAction<ProviderFormState>>;
 	setModelForm: React.Dispatch<React.SetStateAction<ModelFormState>>;
 	saveConfig: (newConfig: ModelsConfigData) => Promise<void>;
@@ -61,6 +71,10 @@ export interface ModelsSettingsModel {
 	onUpdateModel: (providerName: string, oldModelId: string) => Promise<void>;
 	onDeleteModel: (providerName: string, modelId: string) => Promise<void>;
 	onSetDefaultModel: (providerName: string, modelId: string) => Promise<void>;
+	onFetchProviderModels: (providerName: string) => Promise<void>;
+	onToggleFetchedModel: (modelId: string) => void;
+	onCancelFetchedModels: () => void;
+	onApplyFetchedModels: (providerName: string) => Promise<void>;
 }
 
 export const API_OPTIONS = [
@@ -117,6 +131,8 @@ export function useModelsSettingsModel(): ModelsSettingsModel {
 	const [editingModel, setEditingModel] = useState<EditingModelState | null>(null);
 	const [modelForm, setModelForm] = useState<ModelFormState>({ ...emptyModel });
 	const [saving, setSaving] = useState(false);
+	const [fetchingModelsFor, setFetchingModelsFor] = useState<string | null>(null);
+	const [fetchedModels, setFetchedModels] = useState<FetchedModelsState | null>(null);
 
 	useEffect(() => {
 		void window.vetta.models.get().then((loadedConfig) => {
@@ -331,6 +347,50 @@ export function useModelsSettingsModel(): ModelsSettingsModel {
 		[config],
 	);
 
+	const handleFetchProviderModels = useCallback(
+		async (providerName: string) => {
+			setFetchingModelsFor(providerName);
+			try {
+				const result = await window.vetta.models.fetchProviderModels(providerName);
+				const existing = new Set((config?.providers[providerName]?.models || []).map((item) => item.id));
+				setFetchedModels({
+					provider: providerName,
+					models: result.models,
+					// 默认只勾选尚未添加的模型，避免重复项。
+					selected: result.models.filter((id) => !existing.has(id)),
+					error: result.error,
+				});
+			} finally {
+				setFetchingModelsFor(null);
+			}
+		},
+		[config],
+	);
+
+	const handleApplyFetchedModels = useCallback(
+		async (providerName: string) => {
+			if (!config || !fetchedModels || fetchedModels.provider !== providerName) return;
+			const provider = config.providers[providerName];
+			if (!provider) return;
+			const existing = new Set((provider.models || []).map((item) => item.id));
+			const added = fetchedModels.selected.filter((id) => !existing.has(id)).map((id) => ({ id }));
+			if (added.length === 0) {
+				setFetchedModels(null);
+				return;
+			}
+			await saveConfig({
+				...config,
+				providers: {
+					...config.providers,
+					[providerName]: { ...provider, models: [...(provider.models || []), ...added] },
+				},
+			});
+			setFetchedModels(null);
+			recordSettingsUsage({ tab: "models", action: "added", target: "model", value: "fetched" });
+		},
+		[config, fetchedModels, saveConfig],
+	);
+
 	const providerNames = useMemo(
 		() =>
 			config ? Object.keys(config.providers).filter((name) => config.providers[name]?.source !== "template") : [],
@@ -348,6 +408,8 @@ export function useModelsSettingsModel(): ModelsSettingsModel {
 		editingModel,
 		modelForm,
 		saving,
+		fetchingModelsFor,
+		fetchedModels,
 		setProviderForm,
 		setModelForm,
 		saveConfig,
@@ -387,6 +449,20 @@ export function useModelsSettingsModel(): ModelsSettingsModel {
 		onUpdateModel: handleUpdateModel,
 		onDeleteModel: handleDeleteModel,
 		onSetDefaultModel: handleSetDefaultModel,
+		onFetchProviderModels: handleFetchProviderModels,
+		onToggleFetchedModel: (modelId: string) =>
+			setFetchedModels((prev) =>
+				prev
+					? {
+							...prev,
+							selected: prev.selected.includes(modelId)
+								? prev.selected.filter((id) => id !== modelId)
+								: [...prev.selected, modelId],
+						}
+					: prev,
+			),
+		onCancelFetchedModels: () => setFetchedModels(null),
+		onApplyFetchedModels: handleApplyFetchedModels,
 	};
 }
 

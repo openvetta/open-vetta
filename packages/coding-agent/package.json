@@ -31,6 +31,10 @@
 		"./core/mcp/types.js": {
 			"types": "./dist/core/mcp/types.d.ts",
 			"import": "./dist/core/mcp/types.js"
+		},
+		"./core/resolve-config-value.js": {
+			"types": "./dist/core/resolve-config-value.d.ts",
+			"import": "./dist/core/resolve-config-value.js"
 		}
 	},
 	"files": [

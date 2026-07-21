@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { ModelsProviderFormView } from "@vetta/theme-ui/settings";
 import { Button, cn } from "@vetta/ui";
+import { ModelsFetchedModelsPanel } from "./ModelsFetchedModelsPanel";
 import { ModelsModelForm } from "./ModelsModelForm";
 import { ModelsProviderForm } from "./ModelsProviderForm";
 import type { ModelsSettingsModel } from "./useModelsSettingsModel";
@@ -172,6 +173,8 @@ export function ModelsProviderRow({
 						);
 					})}
 
+					<ModelsFetchedModelsPanel name={name} model={model} />
+
 					{model.addingModelFor === name ? (
 						<div className="border-t border-border/50 px-5 py-3">
 							<ModelsModelForm
@@ -184,10 +187,27 @@ export function ModelsProviderRow({
 							/>
 						</div>
 					) : (
-						<div className="border-t border-border/50 px-5 py-2">
+						<div className="flex items-center gap-1 border-t border-border/50 px-5 py-2">
 							<Button variant="ghost" size="sm" onClick={() => model.onStartAddModel(name)}>
 								<span className="icon-[mdi--plus] h-3.5 w-3.5" />
 								{t("addModel")}
+							</Button>
+							<Button
+								variant="ghost"
+								size="sm"
+								onClick={() => void model.onFetchProviderModels(name)}
+								disabled={!provider.baseUrl || model.fetchingModelsFor === name}
+								title={provider.baseUrl ? undefined : t("fetchModelsNeedsBaseUrl")}
+							>
+								<span
+									className={cn(
+										"h-3.5 w-3.5",
+										model.fetchingModelsFor === name
+											? "icon-[mdi--loading] animate-spin"
+											: "icon-[mdi--cloud-download-outline]",
+									)}
+								/>
+								{t("fetchModels")}
 							</Button>
 						</div>
 					)}

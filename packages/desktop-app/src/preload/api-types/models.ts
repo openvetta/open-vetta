@@ -76,4 +76,6 @@ export interface DesktopModelsApi {
 	fetchTemplates(): Promise<ProviderTemplatesResult>;
 	/** 探测某 (provider, model) 的 baseUrl 是否可达(本地 models.json 优先,回退云端目录)。仅判可达性,任何 HTTP 响应都算通。 */
 	probe(ref: { provider: string; model: string }): Promise<{ ok: boolean; message?: string; error?: string }>;
+	/** 拉取本地自定义 provider 的 `GET {baseUrl}/models`,返回上游模型 id 列表,用于快速填写模型配置。 */
+	fetchProviderModels(providerName: string): Promise<{ models: string[]; error?: string }>;
 }
