@@ -54,14 +54,14 @@ export function ActivityPanelView({
 						width: isOpen ? width : 0,
 						transition: isResizing ? "none" : "width 0.2s ease-in-out",
 					}}
-					className="relative shrink-0 overflow-visible"
+					className="relative flex h-full min-h-0 shrink-0 flex-col overflow-visible"
 				>
 					<div
 						aria-hidden={!isOpen}
 						className={
 							isOpen
-								? "flex h-full flex-col opacity-100 transition-opacity duration-150"
-								: "pointer-events-none flex h-full flex-col opacity-0 transition-opacity duration-150"
+								? "flex h-full min-h-0 flex-col opacity-100 transition-opacity duration-150"
+								: "pointer-events-none flex h-full min-h-0 flex-col opacity-0 transition-opacity duration-150"
 						}
 						style={{ width }}
 					>

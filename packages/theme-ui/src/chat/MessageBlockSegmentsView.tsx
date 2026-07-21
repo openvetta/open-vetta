@@ -26,6 +26,8 @@ export interface ToolCallGroupViewProps {
 	summary: string;
 	allDone: boolean;
 	exportMode?: boolean;
+	/** Force open (e.g. marketing story while tools stream in). */
+	forceExpanded?: boolean;
 	/** Expanded tool/thinking rows. */
 	children: ReactNode;
 }
@@ -35,11 +37,13 @@ export function ToolCallGroupView({
 	summary,
 	allDone,
 	exportMode = false,
+	forceExpanded = false,
 	children,
 }: ToolCallGroupViewProps): JSX.Element {
-	const [expanded, setExpanded] = useState(false);
+	const [expanded, setExpanded] = useState(forceExpanded);
 	const generatedId = useId();
 	const panelId = exportMode ? `export-tool-group-${generatedId}` : undefined;
+	const open = expanded || exportMode || forceExpanded;
 
 	return (
 		<div className="relative w-fit max-w-full overflow-hidden rounded-lg px-1 py-0.5">
@@ -48,11 +52,11 @@ export function ToolCallGroupView({
 					type="button"
 					onClick={() => setExpanded(!expanded)}
 					data-export-toggle={panelId}
-					aria-expanded={expanded}
+					aria-expanded={open}
 					className="inline-flex max-w-full items-center gap-2 rounded-lg pr-2 py-1 text-left transition-colors hover:bg-muted/60"
 				>
 					<span
-						className={`icon-[mdi--chevron-right] h-4 w-4 shrink-0 text-muted-foreground/80 transition-transform duration-200 ${expanded ? "rotate-90" : ""}`}
+						className={`icon-[mdi--chevron-right] h-4 w-4 shrink-0 text-muted-foreground/80 transition-transform duration-200 ${open ? "rotate-90" : ""}`}
 					/>
 					<span className="flex h-5 min-w-5 items-center justify-center rounded bg-muted px-1.5 text-[11px] font-medium text-muted-foreground/60">
 						{blockCount}
@@ -65,11 +69,11 @@ export function ToolCallGroupView({
 				</button>
 			</div>
 			<AnimatePresence initial={false}>
-				{(expanded || exportMode) && (
+				{open && (
 					<motion.div
 						id={panelId}
 						data-export-collapse-panel={exportMode ? "" : undefined}
-						hidden={exportMode && !expanded}
+						hidden={exportMode && !expanded && !forceExpanded}
 						initial={COLLAPSE_INITIAL}
 						animate={COLLAPSE_ANIMATE}
 						exit={COLLAPSE_EXIT}
