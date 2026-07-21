@@ -47,7 +47,7 @@ dig +short api.vettawork.app
 # 期望：返回 CF 的 IP（104.x / 172.6x 段），不是 120.26.174.239
 # 返回源站 IP 说明橙云没开
 ```
-
+ 
 ### 1.2 加密模式
 
 SSL/TLS → Overview → 加密模式选 **Full (strict)**。
@@ -70,22 +70,22 @@ Caching → Cache Rules，建两条。
 
 **规则 A：产物缓存**
 
-- Rule name：`cdn-artifacts`
-- If：`Hostname` `equals` `cdn.vettawork.app`
-- Then：
-  - Cache eligibility：**Eligible for cache**
-  - Edge TTL：Override origin，**1 day**
-  - Cache Key → Query String → **Ignore specific query string parameters**，逐个填入：
-    ```
-    X-Amz-Signature
-    X-Amz-Date
-    X-Amz-Credential
-    X-Amz-Expires
-    X-Amz-SignedHeaders
-    X-Amz-Algorithm
-    ```
+- 规则名称：`cdn-artifacts`
+- 当传入请求匹配时：`主机名 (Hostname)` `等于` `cdn.vettawork.app`
+- 然后：
+  - **缓存资格 (Cache eligibility)** → 符合缓存条件 (Eligible for cache)
+  - **边缘 TTL (Edge TTL)** → 忽略缓存控制标头并使用此 TTL → **1 天**
+  - **缓存密钥 (Cache Key)** → 添加设置 → 打开 **「忽略查询字符串」开关**
+  - 该区域其余开关（缓存欺骗盔甲、按设备类型缓存、对查询字符串排序）保持关闭
 
-> 这一步不做，CDN 等于没接。预签名 URL 每次签出来都不同，按完整 URL 做缓存键会导致命中率恒为 0。
+> 中文界面把 Cache Key 译成了「缓存密钥」，就是那一项。
+>
+> 免费版下面那组「查询字符串」单选（所有参数 / 除以下项外…）是**企业版专属，全灰不可点**。
+> 不需要它们——上方的「忽略查询字符串」开关免费版可用，效果等价于排除所有查询参数。
+>
+> 这一步不做，CDN 等于没接：预签名 URL 每次签出来都不同，按完整 URL 做缓存键命中率恒为 0。
+
+**为什么整体忽略 query 在这个域上是安全的**：对象完全由 path 决定（技能 `/{name}/{version}.tar.gz`、插件 `/plugins/{id}.zip`），query 上只有签名参数、不承载内容语义；规则条件限定了主机名，不波及 api 域；S3 的列举操作由 API 进程走内网 endpoint 发起，不经此域。也就是说这里不存在「同 path、不同 query 返回不同内容」的情况。
 
 **规则 B：API 不进缓存**
 
@@ -245,7 +245,7 @@ curl -sI "$URL" | grep -i cf-cache-status   # 第一次 MISS
 curl -sI "$URL" | grep -i cf-cache-status   # 第二次应为 HIT
 ```
 
-第 8 步如果第二次仍是 MISS，回去检查 Cache Rule 的 **Ignore specific query string parameters** 是否六个参数都填了。
+第 8 步如果第二次仍是 MISS，回去检查缓存规则里「缓存密钥」下的**「忽略查询字符串」开关是否真的打开了**（保存后重新进规则确认一遍，这个开关容易漏点部署）。
 
 **桌面客户端实测**：打开现有客户端（走旧的 8080），进能力页安装一个技能和一个插件，确认能装上。旧客户端没有 sha256 校验逻辑，会忽略该字段；下载时的 302 由 `fetch` 默认跟随，无需改动。
 

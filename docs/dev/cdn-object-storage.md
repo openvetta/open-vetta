@@ -55,12 +55,13 @@ SSL/TLS 加密模式设 **Full (strict)**。该证书只被 Cloudflare 信任、
 
 Caching → Cache Rules，新建规则匹配 `Hostname eq cdn.vettawork.app`：
 
-- Cache eligibility：**Eligible for cache**
-- Cache Key → Query String → **Ignore specific parameters**，填入：
-  `X-Amz-Signature`、`X-Amz-Date`、`X-Amz-Credential`、`X-Amz-Expires`、`X-Amz-SignedHeaders`、`X-Amz-Algorithm`
-- Edge TTL：1 天
+- 缓存资格：**符合缓存条件**
+- 边缘 TTL：忽略缓存控制标头并使用此 TTL → **1 天**
+- 缓存密钥（即 Cache Key，中文界面译作「缓存密钥」）→ 打开 **「忽略查询字符串」开关**
 
-预签名 URL 每次签出来都不同，不剔掉这些参数缓存命中率就是 0。剔掉后按对象 key 缓存——技能 key 含版本号、插件 key 按内容覆盖，不会串味。
+预签名 URL 每次签出来都不同，不把 query 排除掉缓存命中率就是 0。排除后按对象 path 缓存——技能 path 含版本号、插件 path 按内容覆盖，不会串味。
+
+免费版下方那组「查询字符串」单选（排除指定参数等）是企业版专属，用不了也不需要：上方的「忽略查询字符串」开关效果等价。整体忽略在这个域上安全，因为对象完全由 path 决定，query 只承载签名。
 
 再加一条规则匹配 `Hostname eq api.vettawork.app`，设 **Bypass cache**：API 响应带用户态，绝不能进共享缓存。
 
