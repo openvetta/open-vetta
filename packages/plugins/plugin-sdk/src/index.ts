@@ -775,6 +775,8 @@ export interface PluginAppActionApproval {
 	presentations: PluginAppActionApprovalPresentation[];
 	/** 根据 input.operation 自动选择审批界面，不要求 Agent 传 approvalUi。 */
 	presentationByOperation?: Record<string, string>;
+	/** 某 operation 明确允许的附加审批界面；宿主仍会拒绝未列出的调用方选择。 */
+	alternativePresentationsByOperation?: Record<string, string[]>;
 }
 
 export interface PluginAppActionRegistration<TInput = unknown> {
@@ -987,6 +989,64 @@ export type PluginOfficialMcpUpsertData =
 			debug?: boolean;
 	  };
 
+export type PluginOfficialExecutionMode = "inherit" | "sandbox" | "full-access";
+
+export interface PluginOfficialSelectedSkill {
+	name: string;
+	alias?: string;
+	type: "skill" | "scene";
+}
+
+export interface PluginOfficialBatchProjectCreateData {
+	name: string;
+	prompt: string;
+	modelKey?: string;
+	folders: string[];
+	concurrency: number;
+	executionMode?: PluginOfficialExecutionMode;
+	artifactPatterns?: string[];
+	notifyEnabled?: boolean;
+	timeoutMinutes?: number;
+	skill?: PluginOfficialSelectedSkill;
+}
+
+export interface PluginOfficialBatchProjectUpdateData {
+	name?: string;
+	prompt?: string;
+	modelKey?: string;
+	concurrency?: number;
+	executionMode?: PluginOfficialExecutionMode;
+	artifactPatterns?: string[];
+	notifyEnabled?: boolean;
+	timeoutMinutes?: number;
+	newFolders?: string[];
+	skill?: PluginOfficialSelectedSkill | null;
+}
+
+export interface PluginOfficialSchedulerTaskCreateData {
+	name: string;
+	prompt: string;
+	cron: string;
+	isOnce: boolean;
+	enabled?: boolean;
+	cwd: string;
+	modelKey?: string;
+	executionMode?: PluginOfficialExecutionMode;
+	skill?: PluginOfficialSelectedSkill;
+}
+
+export interface PluginOfficialSchedulerTaskUpdateData {
+	name?: string;
+	prompt?: string;
+	cron?: string;
+	isOnce?: boolean;
+	enabled?: boolean;
+	cwd?: string;
+	modelKey?: string | null;
+	executionMode?: PluginOfficialExecutionMode;
+	skill?: PluginOfficialSelectedSkill | null;
+}
+
 export interface PluginOfficialModelSummary {
 	id: string;
 	name?: string;
@@ -1048,6 +1108,7 @@ export interface PluginOfficialPluginSummary {
 	name: string;
 	version: string;
 	enabled: boolean;
+	required: boolean;
 	source: string;
 	permissions: string[];
 	description?: string;
@@ -1204,8 +1265,8 @@ export interface PluginOfficialApi {
 		listProjects(): Promise<unknown[]>;
 		getProject(projectId: string): Promise<unknown>;
 		listProjectIds(): Promise<string[]>;
-		createProject(data: Record<string, unknown>): Promise<unknown>;
-		updateProject(projectId: string, data: Record<string, unknown>): Promise<unknown>;
+		createProject(data: PluginOfficialBatchProjectCreateData): Promise<unknown>;
+		updateProject(projectId: string, data: PluginOfficialBatchProjectUpdateData): Promise<unknown>;
 		deleteProject(projectId: string): Promise<unknown>;
 		runTask(projectId: string, taskId: string): Promise<unknown>;
 		retryTask(projectId: string, taskId: string): Promise<unknown>;
@@ -1225,8 +1286,8 @@ export interface PluginOfficialApi {
 		getTask(taskId: string): Promise<unknown>;
 		listTaskIds(): Promise<string[]>;
 		getHistory(taskId: string): Promise<unknown[]>;
-		createTask(data: Record<string, unknown>): Promise<unknown>;
-		updateTask(taskId: string, data: Record<string, unknown>): Promise<unknown>;
+		createTask(data: PluginOfficialSchedulerTaskCreateData): Promise<unknown>;
+		updateTask(taskId: string, data: PluginOfficialSchedulerTaskUpdateData): Promise<unknown>;
 		deleteTask(taskId: string): Promise<unknown>;
 		setEnabled(taskId: string, enabled: boolean): Promise<unknown>;
 		runNow(taskId: string): Promise<unknown>;

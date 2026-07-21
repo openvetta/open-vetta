@@ -15,7 +15,7 @@ Desktop 的 App Action 曾由 `packages/desktop-app/src/main/app-actions` 静态
 1. 插件提交 JSON 可序列化的 Action 元数据、JSON Schema、effect 和 renderer handler。
 2. 主进程把声明包装为 `ActionDefinition` 并注册到唯一的 `AppActionCatalog`。**每个 action id 仅保留一份实现**；冲突时 **先注册为准**，后到者写入日志并忽略。
 3. 主进程拥有 JSON Schema 校验、权限复查、write/execute 审批、超时、取消和结果序列化。
-4. renderer 只执行已经通过宿主边界的 handler。插件 Action activation 使用 `begin -> stage -> commit/abort`：全部声明注册成功后才一次切换；失败时丢弃 staging，不发布半套 Action。同一插件 commit 新 activation 时 **先卸掉旧 activation 再注册**，避免 first-wins 导致热更新空窗。
+4. renderer 只执行已经通过宿主边界的 handler。插件 Action activation 使用 `begin -> stage -> commit/abort`：全部声明注册成功后，Catalog 以 provider 快照原子替换旧 activation；失败时丢弃 staging 并保留上一版，不发布半套 Action，也不产生热更新空窗。
 5. 第三方插件公开 id 固定为 `plugin.<pluginId>.<localId>`。只有宿主判定为 `trustLevel: "official"` 的插件才可通过 `publicId` 占用稳定公共 id。信任级别由宿主生成，不能由插件 manifest 或用户可编辑的注册表声明。
 6. **不再维护静态领域 Action 实现**；业务能力由随包系统插件 `vetta-actions`（及后续官方 Action 插件）提供。Desktop 只保留 Catalog / Runtime / 审批 / 插件注册协议。
 7. 插件下载、签名、灰度与回滚继续归插件分发链负责，不写入 Action Runtime。
@@ -23,6 +23,8 @@ Desktop 的 App Action 曾由 `packages/desktop-app/src/main/app-actions` 静态
 9. 官方 Action 插件未来改为独立更新时，分发层必须把签名验证结果映射为 `trustLevel: "official"`；不能仅凭远端来源或插件 id 放宽覆盖权限。远端更新服务最后实施。
 10. `write` / `execute` 的审批与二次校验仍由宿主强制执行。普通插件只能使用通用审批；官方插件可以声明宿主已有的 approval presentation 及 operation 映射，以保留领域专用、可编辑的审批体验，但不能注入组件或声明免审批。
 11. 插件 Action 可声明 `assertReady`，宿主会在审批前和审批输入被编辑后调用；失败通过结构化 `PluginAppActionError` 返回稳定错误码与详情，不展示审批。该阶段与 `handler` 使用同一取消、超时、权限和 activation 生命周期。
+12. `vetta-actions` 是 required 系统插件：宿主不允许停用或卸载；公共 Action provider 未就绪时 Catalog 返回结构化 `ACTION_RUNTIME_NOT_READY`，不把空目录当作成功结果。
+13. manifest 的 `pluginApiVersion` 在安装发现阶段由宿主校验。宿主在同一主版本内向后兼容，插件不能要求高于宿主的 API 版本；`vetta-actions` 从 `^1.1.0` 起依赖本 ADR 的完整宿主能力。
 
 ## 原因
 
@@ -40,3 +42,4 @@ Desktop 的 App Action 曾由 `packages/desktop-app/src/main/app-actions` 静态
 - 普通插件只提供通用审批；官方插件可以引用宿主已有审批 presentation，但不能注入审批组件或声明免审批。
 - **不再有静态 fallback**：官方 Action 插件未激活或激活失败时，对应公共 id 从目录消失，直到插件恢复。
 - 当前随包系统插件由宿主标记为 `trustLevel: "official"`；远端和本地插件分别为 `community` 与 `local`，均不能使用 `publicId`。来源与信任门控已经解耦，但远端签名验证尚未实施。
+- 当前插件与宿主共享 renderer JavaScript realm，因此 `ctx.official` 门控不是恶意代码隔离边界。要把第三方插件作为不可信代码执行，后续必须迁移到 Worker、utility process 或独立受限 renderer，并通过携带宿主侧插件身份的消息通道授权；renderer token 不能建立该边界。

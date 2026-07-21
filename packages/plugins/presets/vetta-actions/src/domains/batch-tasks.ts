@@ -1,4 +1,10 @@
-import type { PluginAppActionExample, PluginContext, PluginJsonSchema } from "@vetta-org/plugin-sdk";
+import type {
+	PluginAppActionExample,
+	PluginContext,
+	PluginJsonSchema,
+	PluginOfficialBatchProjectCreateData,
+	PluginOfficialBatchProjectUpdateData,
+} from "@vetta-org/plugin-sdk";
 import { throwEntityNotFound } from "../action-errors";
 
 type QueryInput =
@@ -6,8 +12,8 @@ type QueryInput =
 	| { operation: "list" }
 	| { operation: "get"; projectId: string };
 type ProjectInput =
-	| { operation: "create"; data: Record<string, unknown> }
-	| { operation: "update"; projectId: string; data: Record<string, unknown> }
+	| { operation: "create"; data: PluginOfficialBatchProjectCreateData }
+	| { operation: "update"; projectId: string; data: PluginOfficialBatchProjectUpdateData }
 	| { operation: "delete"; projectId: string };
 type TaskInput =
 	| { operation: "run"; projectId: string; taskId: string }
@@ -40,13 +46,60 @@ const querySchema: PluginJsonSchema = {
 	],
 };
 
+const nonBlankStringSchema = { type: "string", minLength: 1, pattern: "\\S" } as const;
+const executionModeSchema = { enum: ["inherit", "sandbox", "full-access"] } as const;
+const skillSchema = {
+	type: "object",
+	properties: {
+		name: nonBlankStringSchema,
+		alias: nonBlankStringSchema,
+		type: { enum: ["skill", "scene"] },
+	},
+	required: ["name", "type"],
+	additionalProperties: false,
+} as const;
+const createProjectDataSchema = {
+	type: "object",
+	properties: {
+		name: nonBlankStringSchema,
+		prompt: { type: "string" },
+		modelKey: nonBlankStringSchema,
+		folders: { type: "array", items: nonBlankStringSchema, minItems: 1 },
+		concurrency: { type: "integer", minimum: 1, maximum: 64 },
+		executionMode: executionModeSchema,
+		artifactPatterns: { type: "array", items: nonBlankStringSchema },
+		notifyEnabled: { type: "boolean" },
+		timeoutMinutes: { type: "integer", minimum: 1, maximum: 10_080 },
+		skill: skillSchema,
+	},
+	required: ["name", "prompt", "folders", "concurrency"],
+	additionalProperties: false,
+} as const;
+const updateProjectDataSchema = {
+	type: "object",
+	properties: {
+		name: nonBlankStringSchema,
+		prompt: { type: "string" },
+		modelKey: nonBlankStringSchema,
+		concurrency: { type: "integer", minimum: 1, maximum: 64 },
+		executionMode: executionModeSchema,
+		artifactPatterns: { type: "array", items: nonBlankStringSchema },
+		notifyEnabled: { type: "boolean" },
+		timeoutMinutes: { type: "integer", minimum: 1, maximum: 10_080 },
+		newFolders: { type: "array", items: nonBlankStringSchema },
+		skill: { anyOf: [skillSchema, { type: "null" }] },
+	},
+	minProperties: 1,
+	additionalProperties: false,
+} as const;
+
 const projectSchema: PluginJsonSchema = {
 	type: "object",
 	oneOf: [
 		{
 			properties: {
 				operation: { const: "create" },
-				data: { type: "object", minProperties: 1 },
+				data: createProjectDataSchema,
 			},
 			required: ["operation", "data"],
 			additionalProperties: false,
@@ -55,7 +108,7 @@ const projectSchema: PluginJsonSchema = {
 			properties: {
 				operation: { const: "update" },
 				projectId: { type: "string", minLength: 1 },
-				data: { type: "object", minProperties: 1 },
+				data: updateProjectDataSchema,
 			},
 			required: ["operation", "projectId", "data"],
 			additionalProperties: false,

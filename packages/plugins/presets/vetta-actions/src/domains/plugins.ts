@@ -1,4 +1,9 @@
-import type { PluginAppActionExample, PluginContext, PluginJsonSchema } from "@vetta-org/plugin-sdk";
+import {
+	PluginAppActionError,
+	type PluginAppActionExample,
+	type PluginContext,
+	type PluginJsonSchema,
+} from "@vetta-org/plugin-sdk";
 import { throwEntityNotFound } from "../action-errors";
 
 type PluginsQueryInput =
@@ -154,7 +159,18 @@ export function registerPluginsActions(ctx: PluginContext): void {
 		assertReady: async ({ input }) => {
 			if (input.operation === "install-from-url" || input.operation === "install-from-path") return;
 			const plugins = await ctx.official.plugins.list();
-			if (plugins.some((item) => item.id === input.id)) return;
+			const target = plugins.find((item) => item.id === input.id);
+			if (
+				target?.required &&
+				(input.operation === "uninstall" || (input.operation === "set-enabled" && !input.enabled))
+			) {
+				throw new PluginAppActionError(
+					"PLUGIN_REQUIRED",
+					`Required Action plugin cannot be ${input.operation === "uninstall" ? "uninstalled" : "disabled"}.`,
+					{ pluginId: input.id },
+				);
+			}
+			if (target) return;
 			throwEntityNotFound({
 				operation: input.operation,
 				entity: "plugin",

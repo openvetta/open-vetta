@@ -17,7 +17,7 @@ import {
 	syncHardIsolationContributionModes,
 } from "@shared/store/atoms";
 import { getDefaultStore, useSetAtom } from "jotai";
-import { Component, useEffect, useMemo, useReducer, useState } from "react";
+import { Component, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { ErrorInfo, ReactNode } from "react";
 import type { PluginGlobalSlotContribution } from "@vetta-org/plugin-sdk";
 import { markPluginHostLoading, markPluginHostReady, PLUGINS_CHANGED_EVENT } from "../runtime/plugin-events";
@@ -26,7 +26,7 @@ import { installPluginHostShim } from "../runtime/plugin-host-shim";
 import { PluginI18nBoundary } from "../runtime/plugin-i18n";
 import { loadPlugin, type LoadedPlugin } from "../runtime/plugin-loader";
 
-// React effect 重启时，必须先停用上一轮插件，再激活下一轮；插件定义本身可能被模块缓存复用。
+// 串行加载插件快照，避免并发 reload 交叉提交 activation。
 let pluginHostLifecycle = Promise.resolve();
 
 class PluginSlotErrorBoundary extends Component<
@@ -62,6 +62,9 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 	const setToolCallSlots = useSetAtom(pluginToolCallSlotsAtom);
 	const setTurnCards = useSetAtom(pluginTurnCardsAtom);
 	const setPluginI18n = useSetAtom(pluginI18nByIdAtom);
+	const loadedPluginsRef = useRef<LoadedPlugin[]>([]);
+	const scheduledRevisionRef = useRef<number | undefined>(undefined);
+	const unmountedRef = useRef(false);
 
 	useEffect(() => {
 		window.addEventListener(PLUGINS_CHANGED_EVENT, reloadPlugins);
@@ -74,67 +77,82 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 	}, [reloadPlugins]);
 
 	useEffect(() => {
-		// Synchronous: previous lifecycle dispose can empty contribution arrays and
-		// forceUpdate before the new load finishes — hold last published tabs/actions.
+		// React StrictMode 会用相同 revision 重放 effect；只排入一次生命周期。
+		if (scheduledRevisionRef.current === reloadRevision) return;
+		scheduledRevisionRef.current = reloadRevision;
 		setHostLoading(true);
-		let disposed = false;
-		let requestCleanup = (): void => {};
-		const cleanupRequested = new Promise<void>((resolve) => {
-			requestCleanup = resolve;
-		});
 
 		const lifecycle = pluginHostLifecycle.then(async () => {
-			if (disposed) return;
+			if (unmountedRef.current) return;
 
 			installPluginHostShim();
 			installPluginHostBridge();
 			markPluginHostLoading();
 
+			const previousPlugins = loadedPluginsRef.current;
 			const loadedPlugins = await window.vetta.plugins
 				.list()
 				.then(async (installedPlugins) => {
-					const loaded = await Promise.all(
+					const loadResults = await Promise.all(
 						installedPlugins
 							.filter((plugin) => plugin.enabled)
 							.map(async (plugin) => {
 								try {
-									return await loadPlugin(plugin, forceUpdate);
+									return { pluginId: plugin.id, loaded: await loadPlugin(plugin, forceUpdate) };
 								} catch (error) {
 									console.error(`Failed to load plugin: ${plugin.id}`, error);
-									return undefined;
+									return { pluginId: plugin.id, loaded: undefined };
 								}
 							}),
 					);
-					return loaded.filter((plugin): plugin is LoadedPlugin => plugin !== undefined);
+					return loadResults.flatMap(({ pluginId, loaded }) => {
+						if (loaded) return [loaded];
+						const lastKnownGood = previousPlugins.find((plugin) => plugin.id === pluginId);
+						return lastKnownGood ? [lastKnownGood] : [];
+					});
 				})
 				.catch((error: Error) => {
 					console.error("Failed to initialize plugins", error);
-					return [];
+					return previousPlugins;
 				})
 				.finally(markPluginHostReady);
 
-			// Atomic replace — do not blank plugins to [] mid-reload (that drops activity tabs
-			// and falls active tab back to "file", which can reset panel width via file-tab cleanup).
-			if (!disposed) {
-				setPlugins(loadedPlugins);
-				setHostLoading(false);
-			} else {
-				await Promise.all(loadedPlugins.map((plugin) => plugin.dispose()));
+			if (unmountedRef.current) {
+				await Promise.all(
+					loadedPlugins.filter((plugin) => !previousPlugins.includes(plugin)).map((plugin) => plugin.dispose()),
+				);
 				return;
 			}
 
-			await cleanupRequested;
-			await Promise.all(loadedPlugins.map((plugin) => plugin.dispose()));
+			// 新 activation 已在 loadPlugin 内提交；此处一次性发布新贡献，再释放未被
+			// last-known-good 保留的旧实例。旧 activation 的清理因 id 不匹配不会误删新 Action。
+			loadedPluginsRef.current = loadedPlugins;
+			setPlugins(loadedPlugins);
+			setHostLoading(false);
+			await Promise.all(
+				previousPlugins.filter((plugin) => !loadedPlugins.includes(plugin)).map((plugin) => plugin.dispose()),
+			);
 		});
 		pluginHostLifecycle = lifecycle.catch((error: unknown) => {
-			console.error("Failed to dispose plugins", error);
+			console.error("Failed to replace plugins", error);
 		});
-
-		return () => {
-			disposed = true;
-			requestCleanup();
-		};
 	}, [reloadRevision]);
+
+	useEffect(() => {
+		unmountedRef.current = false;
+		return () => {
+			unmountedRef.current = true;
+			const activePlugins = loadedPluginsRef.current;
+			loadedPluginsRef.current = [];
+			pluginHostLifecycle = pluginHostLifecycle
+				.then(async () => {
+					await Promise.all(activePlugins.map((plugin) => plugin.dispose()));
+				})
+				.catch((error: unknown) => {
+					console.error("Failed to dispose plugins", error);
+				});
+		};
+	}, []);
 
 	const slots = useMemo<PluginGlobalSlotContribution[]>(
 		() => plugins.flatMap((plugin) => plugin.slots),

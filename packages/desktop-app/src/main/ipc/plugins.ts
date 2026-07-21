@@ -185,7 +185,29 @@ function asAppActionApproval(value: unknown): PluginAppActionApproval | undefine
 				}),
 			)
 		: undefined;
-	return { defaultPresentation, presentations, presentationByOperation };
+	const alternativesInput =
+		input.alternativePresentationsByOperation === undefined
+			? undefined
+			: asRecord(input.alternativePresentationsByOperation, "app action approval alternative map");
+	const alternativePresentationsByOperation = alternativesInput
+		? Object.fromEntries(
+				Object.entries(alternativesInput).map(([operation, alternatives]) => {
+					if (
+						!Array.isArray(alternatives) ||
+						alternatives.some((presentation) => typeof presentation !== "string" || !presentation.trim())
+					) {
+						throw new Error("Invalid app action alternative approval presentations");
+					}
+					return [operation, alternatives.map((presentation) => presentation.trim())];
+				}),
+			)
+		: undefined;
+	return {
+		defaultPresentation,
+		presentations,
+		presentationByOperation,
+		alternativePresentationsByOperation,
+	};
 }
 
 function asAppActionRegistration(value: unknown): PluginAppActionRegistration {

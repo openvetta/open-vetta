@@ -50,7 +50,7 @@ export default definePlugin({
 
 可信官方插件还可声明 `publicId`，例如 `publicId: "general.query"`。若该 id 已被其它实现占用，后到的注册会被忽略并记日志（先注册为准）。普通插件使用 `publicId` 会被拒绝。门控依据宿主生成的 `trustLevel: "official"`，而不是插件 id 或安装来源；当前随包系统插件会获得该级别，远端和本地插件不会。
 
-官方插件需要读写宿主数据时使用 `ctx.official`。该 API 在 SDK 中可见，但普通插件调用会被宿主拒绝；目前按已迁移领域提供 `general`、`agent`、`downloads`、`updater` 与 `webhook` 能力，不暴露任意 IPC 调用入口。
+官方插件需要读写宿主数据时使用 `ctx.official`。该 API 在 SDK 中可见，但普通插件调用会被宿主拒绝；宿主按领域提供窄 API，并通过 `pluginApiVersion` 做主版本兼容检查。`vetta-actions` 当前要求 `^1.1.0`，旧主版本或高于宿主能力的版本不会激活。
 
 ## effect 与审批
 
@@ -60,7 +60,7 @@ export default definePlugin({
 - `write`：修改应用或用户数据；从本地 Action RPC 调用时必须审批。
 - `execute`：启动外部执行或有明显副作用；从本地 Action RPC 调用时必须审批。
 
-插件不能绕过审批。宿主根据 `effect` 决定是否审批，并在用户批准后再次使用同一 JSON Schema 校验输入。普通插件固定使用通用审批；可信官方插件可通过 `approval` 引用宿主已有 presentation，并用 `presentationByOperation` 自动选择领域专用界面。该能力不能注入新组件，也不能把 `write` / `execute` 改为免审批。
+插件不能绕过审批。宿主根据 `effect` 决定是否审批，并在用户批准后再次使用同一 JSON Schema 校验输入。普通插件固定使用通用审批；可信官方插件可通过 `approval` 引用宿主已有 presentation，并用 `presentationByOperation` 自动选择领域专用界面。operation 映射是宿主执行时的权威选择；调用方只能使用映射结果、通用审批或声明在 `alternativePresentationsByOperation` 中的备选界面。该能力不能注入新组件，也不能把 `write` / `execute` 改为免审批。
 
 ## 运行时边界
 
@@ -70,6 +70,7 @@ export default definePlugin({
 - 超时、调用方取消、插件重载或注销会触发 `signal.abort()`。
 - 每次执行都会重新检查插件是否启用以及两个权限是否仍有效。
 - Action 按 activation 两阶段发布，不会把注册到一半的声明暴露给 search/describe/run。
+- 同一 provider 的 staging 会完整校验后原子替换旧快照；新 activation 失败时继续使用上一版，不先卸载旧版。
 - 可选 `assertReady` 在审批前执行；审批 UI 改写输入后会再次执行。适合检查待编辑、删除或取消的实体是否仍存在。
 - `assertReady` 或 `handler` 可抛 `PluginAppActionError(code, message, details)`，宿主保留稳定错误码和 JSON 详情。`assertReady` 失败不会展示审批。
 - handler 在插件 renderer 运行，可以继续使用闭包中的 `ctx.fs`、`ctx.settings` 等 API；这些 API 各自的权限边界不变。
@@ -82,10 +83,13 @@ Catalog 规则：
 
 - 每个 action id **仅一份**实现。
 - **先注册为准**；后到的同 id 注册只写主进程日志（`action id conflict, keeping first registration`）并忽略。
-- 同一插件 commit 新 activation 时先卸旧再挂新，避免热更新被 first-wins 挡住。
+- 同一插件 commit 新 activation 时原子替换该 provider 的完整快照，既不被自己的旧注册挡住，也不产生热更新空窗。
+- `vetta-actions` 是 required 系统插件，不能被停用或卸载；未激活时 Catalog 返回 `ACTION_RUNTIME_NOT_READY`，而不是返回一个看似正常的空结果。
 
 ## 独立发布建议
 
 官方 Action 插件可以由 Desktop 的首装流程放入插件注册表，也可以由插件服务下发更新。更新服务负责版本、灰度、回滚和签名验证；Action Runtime 不承担下载职责，只消费已经通过插件安装链验证并激活的版本。这样发布机制与执行机制解耦，远端协议变化不会扩大 Action Runtime 的可信边界。
 
 产品意义上的“内置 Action 插件”最终应当是**官方托管插件**：可附带 bootstrap 版本，更新包经过签名验证后获得 `trustLevel: "official"`。远端更新服务最后实施；在此之前远端插件不能使用公共 Action id。
+
+当前 Module Federation 插件与宿主共享 renderer JavaScript realm。`ctx.official` 的 trust gate 是宿主能力门控，但不是针对恶意插件的进程级安全隔离；同 realm 的普通插件仍可能尝试访问宿主已暴露的通用 preload API。若要把第三方插件视为不可信代码，必须另建 Worker、utility process 或独立受限 renderer，并让所有宿主能力经过按插件身份授权的消息通道。该隔离属于插件运行时演进，不应以 renderer token 代替。

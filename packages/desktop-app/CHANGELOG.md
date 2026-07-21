@@ -50,6 +50,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **插件 App Action 运行时收口**：`vetta-actions` 改为不可停用/卸载的 required 系统插件并要求 Plugin API `^1.1.0`；Catalog 在核心 provider 未就绪时返回结构化错误，插件热更新按 provider 快照原子切换并在失败时保留上一版；官方审批 operation 映射改为宿主权威选择；批量任务、定时任务与 MCP 写入增加主进程结构校验，官方插件 API 按领域拆分并收紧数据类型。
 - **首次启动引导**：已登录时隐藏登录步骤（含底部 indicator）；设置 → 通用最下方新增「启动 App 引导」，可随时重新打开引导页。
 - **界面语言默认跟随系统**：`desktop-config.language` 未设置时，启动按 OS locale 解析（中文族 → `zh`，其余 → `en`）；系统 locale 不可读时再回落 `DEFAULT_LANGUAGE=en`。首次引导「语言与外观」页预选系统语言；用户显式选择后才持久化。缺译回退仍为中文（`FALLBACK_LANGUAGE=zh`）。
 - **开发态 Vite renderer 端口改为 3020**：避免与官网 Next（3000）、仙侠主题 dev（3010）冲突；`wait-on` / `VETTA_DESKTOP_DEV_URL` 同步为 `http://127.0.0.1:3020`，并启用 `strictPort`。
