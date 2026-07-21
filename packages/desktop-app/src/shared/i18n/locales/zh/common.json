@@ -17,7 +17,7 @@
 	},
 	"appearance": {
 		"languageTitle": "语言",
-		"languageHint": "选择界面显示语言"
+		"languageHint": "默认跟随系统语言；可随时手动切换"
 	},
 	"updateRestart": {
 		"title": "更新已就绪",
@@ -963,7 +963,7 @@
 		},
 		"languageAppearance": {
 			"title": "语言与外观",
-			"subtitle": "选择界面语言、主题模式与配色，之后可在设置中随时更改",
+			"subtitle": "语言默认跟随系统；也可改主题模式与配色，之后可在设置中随时更改",
 			"language": "语言",
 			"appearance": "外观模式",
 			"theme": "主题配色"

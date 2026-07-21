@@ -51,7 +51,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 ### Changed
 
 - **首次启动引导**：已登录时隐藏登录步骤（含底部 indicator）；设置 → 通用最下方新增「启动 App 引导」，可随时重新打开引导页。
-- **默认界面语言**：`desktop-config.language` 未设置时默认英文（`DEFAULT_LANGUAGE=en`）；缺译回退仍为中文（`FALLBACK_LANGUAGE=zh`）。
+- **界面语言默认跟随系统**：`desktop-config.language` 未设置时，启动按 OS locale 解析（中文族 → `zh`，其余 → `en`）；系统 locale 不可读时再回落 `DEFAULT_LANGUAGE=en`。首次引导「语言与外观」页预选系统语言；用户显式选择后才持久化。缺译回退仍为中文（`FALLBACK_LANGUAGE=zh`）。
 - **开发态 Vite renderer 端口改为 3020**：避免与官网 Next（3000）、仙侠主题 dev（3010）冲突；`wait-on` / `VETTA_DESKTOP_DEV_URL` 同步为 `http://127.0.0.1:3020`，并启用 `strictPort`。
 - **用户消息不再展示相对时间**：消息下方操作区去掉「刚刚 / N 分钟前」等时间标签，复制等操作按钮与分支切换保留。
 - **聊天输入框 placeholder**：改为自定义不可选中覆盖层，默认态多条文案垂直自动轮播（i18n `inputBar.placeholder.defaults` 数组可自由扩展）；无会话 / 思考中 / 输入预测建议仍为单条静态文案；有任意字符（含空格）即隐藏，与原生 placeholder 一致。纯视图落在 `@vetta/theme-ui/chat` 的 `InputBarPlaceholder`，desktop model 解析文案；支持 `chat.inputBarPlaceholder` component override。

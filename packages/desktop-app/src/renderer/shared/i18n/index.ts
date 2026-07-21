@@ -1,5 +1,5 @@
 // Renderer i18next 实例。资源静态内联（见 ADR-0031），故 init 同步生效、首帧不闪。
-// 初值来自主进程同步暴露的 window.vetta.i18n.initialLanguage（真相源 = desktop-config）。
+// 初值来自主进程同步暴露的 window.vetta.i18n.initialLanguage（config 或系统 locale 解析结果）。
 
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";

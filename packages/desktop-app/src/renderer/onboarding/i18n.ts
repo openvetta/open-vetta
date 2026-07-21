@@ -6,16 +6,12 @@
 
 import i18next from "i18next";
 import { initReactI18next } from "react-i18next";
-import { resources } from "@/shared/i18n/resources";
+import { type AppLanguage, resolveAppLanguageFromLocale, resources } from "@/shared/i18n/resources";
 
-function normalizeLanguage(value: string | undefined): "zh" | "en" {
-	const lang = value?.toLowerCase() ?? "";
-	return lang.startsWith("en") ? "en" : "zh";
-}
-
-function detectLanguage(): "zh" | "en" {
+function detectLanguage(): AppLanguage {
+	// 真相源：main 已按 config 或系统 locale 解析；缺失时用 navigator 兜底（与 main 同一套规则）。
 	const fromBridge = window.vettaOnboarding?.initialLanguage;
-	return normalizeLanguage(fromBridge ?? navigator.language);
+	return resolveAppLanguageFromLocale(fromBridge ?? navigator.language);
 }
 
 export const i18n = i18next.createInstance();
@@ -46,7 +42,7 @@ export function subscribeOnboardingLanguage(): () => void {
 	const bridge = window.vettaOnboarding;
 	if (!bridge?.onLanguageChanged) return () => {};
 	return bridge.onLanguageChanged((lang) => {
-		const next = normalizeLanguage(lang);
+		const next = resolveAppLanguageFromLocale(lang);
 		void i18n.changeLanguage(next);
 		document.documentElement.lang = next;
 	});
