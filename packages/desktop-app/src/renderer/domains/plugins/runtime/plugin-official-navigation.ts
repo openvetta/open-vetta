@@ -1,3 +1,4 @@
+import type { PluginOfficialApi } from "@vetta-org/plugin-sdk";
 import { isAppearanceUiThemeEnabled } from "../../../../shared/feature-flags";
 import {
 	SETTINGS_SECTIONS,
@@ -313,4 +314,23 @@ export function resolveOfficialNavigationOpen(input: { target: string; tab?: str
 
 export function openOfficialHashPath(hashPath: string): void {
 	window.location.hash = `#${hashPath}`;
+}
+
+export function createOfficialNavigationApi(assertOfficial: () => void): PluginOfficialApi["navigation"] {
+	return {
+		help: () => {
+			assertOfficial();
+			return getOfficialNavigationHelp();
+		},
+		resolveOpen: (input) => {
+			assertOfficial();
+			return resolveOfficialNavigationOpen(input);
+		},
+		open: async (input) => {
+			assertOfficial();
+			const target = resolveOfficialNavigationOpen(input);
+			openOfficialHashPath(target.hashPath);
+			return { type: "open", resolved: target.resolved };
+		},
+	};
 }
