@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { createWriteStream, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -18,6 +19,8 @@ interface ReleaseAsset {
 	file_name: string;
 	file_size: number;
 	content_type: string;
+	/** 安装包 sha256，下载后校验；摘要机制之前发布的存量安装包为空，跳过校验 */
+	sha256?: string;
 }
 
 interface LatestRelease {
@@ -389,7 +392,7 @@ class UpdaterService {
 
 		this.downloadAbort = new AbortController();
 		try {
-			await this.downloadStream(release.version, serverToken, assetPath, asset.file_size);
+			await this.downloadStream(release.version, serverToken, assetPath, asset.file_size, asset.sha256);
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : "下载失败";
 			rmSync(assetPath, { force: true });
@@ -424,6 +427,7 @@ class UpdaterService {
 		serverToken: string,
 		destPath: string,
 		expectedSize: number,
+		expectedSha256?: string,
 	): Promise<void> {
 		const url = `${getServerUrl()}/releases/${version}/download?platform=${getPlatformId()}&arch=${getArchId()}`;
 		const response = await fetch(url, {
@@ -437,6 +441,8 @@ class UpdaterService {
 		const total = Number(response.headers.get("Content-Length") || expectedSize || 0);
 		const writeStream = createWriteStream(destPath);
 		const reader = response.body.getReader();
+		// 边下边算摘要，避免安装包落盘后再整个读一遍
+		const hash = createHash("sha256");
 		let received = 0;
 
 		try {
@@ -445,6 +451,7 @@ class UpdaterService {
 				if (done) break;
 				if (value) {
 					received += value.byteLength;
+					hash.update(value);
 					await new Promise<void>((resolve, reject) => {
 						writeStream.write(value, (err) => (err ? reject(err) : resolve()));
 					});
@@ -453,6 +460,14 @@ class UpdaterService {
 			}
 		} finally {
 			await new Promise<void>((resolve) => writeStream.end(resolve));
+		}
+
+		// 摘要校验：服务端提供了 sha256 才做（存量安装包没有）
+		if (expectedSha256) {
+			const actual = hash.digest("hex");
+			if (actual !== expectedSha256.toLowerCase()) {
+				throw new Error(`安装包校验失败：内容摘要与服务端不一致（期望 ${expectedSha256}，实际 ${actual}）`);
+			}
 		}
 
 		// 大小校验（弱完整性检查，缺 hash 时的兜底）

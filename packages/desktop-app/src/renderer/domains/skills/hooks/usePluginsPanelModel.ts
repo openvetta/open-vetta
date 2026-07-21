@@ -211,7 +211,10 @@ export function usePluginsPanelModel(): PluginsPanelModel {
 			void runOperation(`install:${row.id}`, async () => {
 				if (!token) throw new Error(i18n.t("skills:error.notLoggedIn"));
 				const buffer = await downloadPlugin(token, row.id);
-				const plugin = await window.vetta.plugins.installFromArchive(buffer, { source: "remote" });
+				const plugin = await window.vetta.plugins.installFromArchive(buffer, {
+					source: "remote",
+					expectedSha256: row.market?.sha256,
+				});
 				return i18n.t("skills:plugin.message.installed", { name: plugin.name, version: plugin.version });
 			});
 		},

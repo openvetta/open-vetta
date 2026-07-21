@@ -25,6 +25,8 @@ export interface MergedSkill {
 	category: string;
 	/** 空=默认；solar:xxx-bold；或已解析绝对图 URL */
 	icon?: string;
+	/** 市场归档包 sha256，安装前校验用；自定义/本地技能与存量市场技能为空 */
+	sha256?: string;
 	installed: boolean;
 	enabled: boolean;
 	needsUpdate: boolean;
@@ -59,6 +61,7 @@ function mergeSkills(marketSkills: MarketSkillInfo[], manifest: Record<string, I
 			tags: ms.tags,
 			category: ms.category,
 			icon: ms.icon || undefined,
+			sha256: ms.sha256 || undefined,
 			installed,
 			enabled: installed ? local.enabled : false,
 			needsUpdate,
@@ -311,6 +314,7 @@ export function useSkillsPageModel(options?: { mode?: TypeTab }): SkillsPageMode
 						alias: skill.alias,
 						marketDescription: skill.description,
 						version: skill.version,
+						sha256: skill.sha256,
 					}),
 				)
 				.then(() => {

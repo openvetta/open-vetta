@@ -46,7 +46,8 @@ export interface DesktopSkillsApi {
 		name: string,
 		archiveBuffer: ArrayBuffer,
 		type: "skill" | "scene",
-		meta?: { alias?: string; marketDescription?: string; version?: string },
+		/** sha256：市场归档包摘要，安装前校验；存量技能无摘要时省略，跳过校验 */
+		meta?: { alias?: string; marketDescription?: string; version?: string; sha256?: string },
 	): Promise<void>;
 	importCustom(archiveBuffer: ArrayBuffer): Promise<{ name: string }>;
 	uninstall(name: string, type: "skill" | "scene"): Promise<void>;
