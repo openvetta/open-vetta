@@ -8,5 +8,13 @@
 .git
 .github
 releases
-deploy/.env*
 **/*.log
+
+# 环境文件一律不进构建上下文。
+# Bun 在 NODE_ENV 未设置时按 development 处理，会把 .env.development 灌进
+# process.env；Vite 的 loadEnv 又会把 process.env 里带 VITE_ 前缀的一并收下，
+# 于是开发用的 API 地址会被编译进生产产物（admin 曾因此把线上请求打到
+# http://localhost:8080，即访问者自己的机器）。
+**/.env
+**/.env.*
+!**/.env.example
