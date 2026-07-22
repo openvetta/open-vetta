@@ -12,7 +12,7 @@
 | 验收项 | 结果 |
 | --- | --- |
 | 独立 Claude profile（不污染 Codex） | 通过 |
-| 配置源隔离：`hooks.json` vs `claude-hooks.json` / 插件 `hooks/hooks.json` | 通过 |
+| 配置源隔离：`.codex/hooks.json` vs `.claude/settings*.json` / 插件 `hooks/hooks.json` | 通过 |
 | SessionStart plain stdout → additional context | 通过（unit + desktop） |
 | UserPromptSubmit `decision:block` | 通过（unit + desktop `/cdt`） |
 | PreToolUse `permissionDecision:deny` + matcher | 通过（unit + desktop Write） |
@@ -44,9 +44,10 @@ packages/ecosystem-adapter/src/claude-code/hooks/
 
 | 来源 | 路径 / 条件 |
 | --- | --- |
-| 用户/项目 | `~/.vetta/agent/claude-hooks.json`、`<cwd>/.vetta/claude-hooks.json` |
+| 官方用户/项目 | `~/.claude/settings.json`、`<cwd>/.claude/settings.json`、`settings.local.json`（`"hooks"` 字段） |
 | 插件 | 显式 `HookConfigSource`：`path=.../hooks/hooks.json` + `CLAUDE_PLUGIN_ROOT` 或 `profileId=claude-code-hooks/*` |
-| Codex | 仍只读 `hooks.json`；不会吃 Claude 插件 hooks |
+| Codex | 官方 `.codex/hooks.json`；`profileId` / 路径过滤器隔离，不会吃 Claude settings |
+| 已移除 | Vetta `agentDir` / `.vetta` 下的 `claude-hooks.json` / `hooks.json` |
 
 ## 相关文档
 

@@ -27,11 +27,13 @@
 
 | 能力 | 状态 |
 | --- | --- |
+| 官方 `~/.claude/settings.json` / 项目 `.claude/settings.json` / `settings.local.json` | 支持（`"hooks"` 键；经 `buildDefaultHookConfigLayers`） |
 | plugin `hooks/hooks.json` 原样解析 | 支持（需显式 source） |
 | `${CLAUDE_PLUGIN_ROOT}` / `${CLAUDE_PROJECT_DIR}` / `${CLAUDE_PLUGIN_DATA}` | 支持受控展开 |
 | CRLF / LF | 读取时规范化 |
-| 与 Codex `hooks.json` 同目录隔离 | 支持 |
-| 自动扫描 `~/.claude` / marketplace | **不做**（宿主显式传入） |
+| 与 Codex `.codex` / `hooks.json` 路径隔离 | 支持（`profileId` + ownership filter） |
+| Vetta `.vetta` / `agentDir` hook 路径 | **已移除**（仅官方布局） |
+| 自动扫描 marketplace / 任意插件目录 | **不做**（宿主显式传入） |
 | 插件信任 UI / hash 重授权 | **未做**（后续 desktop 插件加载器） |
 
 ## 4. Windows 脚本运行
@@ -58,7 +60,7 @@
 3. Skill `$ARGUMENTS` / `context:fork` / custom agents
 4. 把 Claude profile 字段塞进 Codex profile
 5. 自动翻译 Bash → PowerShell
-6. 扫描用户机器上的 `~/.claude` 并静默执行
+6. 扫描 Claude marketplace 插件目录并静默安装/执行（官方 settings 路径已按文档加载）
 
 ## 7. 后续建议优先级
 

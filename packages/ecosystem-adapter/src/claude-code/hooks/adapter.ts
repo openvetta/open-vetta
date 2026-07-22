@@ -32,7 +32,12 @@ export async function createClaudeHookAdapter(
 		byEvent[handler.eventName] = (byEvent[handler.eventName] ?? 0) + 1;
 	}
 	const sources = options.configLayers.flatMap((layer) =>
-		(layer.sources ?? [{ path: `${layer.directory}/claude-hooks.json` }])
+		(
+			layer.sources ?? [
+				{ path: `${layer.directory}/settings.json` },
+				{ path: `${layer.directory}/settings.local.json` },
+			]
+		)
 			.filter((source) => source.profileId?.startsWith("claude-code-hooks") || !source.profileId)
 			.map((source) => source.path),
 	);

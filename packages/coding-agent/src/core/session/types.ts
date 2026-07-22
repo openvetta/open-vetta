@@ -75,7 +75,11 @@ export interface AgentSessionConfig {
 	modelRegistry: ModelRegistry;
 	/** Additional external-ecosystem Hook adapters composed with built-in adapters. */
 	additionalHookAdapterFactories?: readonly EcosystemHookAdapterFactory[];
-	/** Vetta-owned application config layers containing ecosystem-compatible hooks.json files. */
+	/**
+	 * Hook config layers for ecosystem adapters (Codex + Claude).
+	 * Default (via createAgentSession): official user/project paths only —
+	 * `~/.codex/hooks.json`, `~/.claude/settings.json`, `<cwd>/.codex/`, `<cwd>/.claude/`.
+	 */
 	hookConfigLayers?: readonly HookConfigLayer[];
 	/** 对话场景：决定按 scope_use 激活哪些工具。默认 DEFAULT_SCENARIO("cli")。 */
 	scenario?: ConversationScenario;
