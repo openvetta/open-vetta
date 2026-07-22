@@ -67,6 +67,8 @@ export interface SkillFrontmatter {
 	name?: string;
 	alias?: string;
 	description?: string;
+	/** 工作模式白名单（agent_mode 轴）。缺省/空 = 通用。字符串或字符串数组。见 ADR-0046。 */
+	agent_mode?: string | string[];
 	"disable-model-invocation"?: boolean;
 	metadata?: {
 		type?: string;
@@ -85,12 +87,21 @@ export interface Skill {
 	baseDir: string;
 	source: string;
 	type: SkillType;
+	/** 工作模式白名单（agent_mode 轴）。undefined/空 = 通用。见 ADR-0046。 */
+	agentMode?: string[];
 	disableModelInvocation: boolean;
 }
 
 export interface LoadSkillsResult {
 	skills: Skill[];
 	diagnostics: ResourceDiagnostic[];
+}
+
+/** frontmatter agent_mode（string | string[]）→ 归一化的 string[]；空/无效 → undefined（= 通用）。 */
+function normalizeSkillAgentMode(raw: string | string[] | undefined): string[] | undefined {
+	if (raw === undefined) return undefined;
+	const arr = (Array.isArray(raw) ? raw : [raw]).map((m) => String(m).trim()).filter((m) => m.length > 0);
+	return arr.length > 0 ? arr : undefined;
 }
 
 /**
@@ -271,6 +282,7 @@ function loadSkillFromFile(
 		}
 
 		const skillType: SkillType = frontmatter.metadata?.type === "scene" ? "scene" : "skill";
+		const agentMode = normalizeSkillAgentMode(frontmatter.agent_mode);
 
 		return {
 			skill: {
@@ -281,6 +293,7 @@ function loadSkillFromFile(
 				baseDir: skillDir,
 				source,
 				type: skillType,
+				agentMode,
 				disableModelInvocation: frontmatter["disable-model-invocation"] === true,
 			},
 			diagnostics,

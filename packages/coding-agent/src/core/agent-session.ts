@@ -292,6 +292,7 @@ export class AgentSession {
 			baseToolsOverride: config.baseToolsOverride,
 			envOverlay: config.envOverlay,
 			scenario: config.scenario,
+			agentMode: config.agentMode,
 			initialActiveToolNames: config.initialActiveToolNames,
 			extensionRunnerRef: config.extensionRunnerRef,
 			enableMcp: config.enableMcp !== undefined ? config.enableMcp : true,
@@ -539,6 +540,16 @@ export class AgentSession {
 	/** Reconfigure plugin-provided runtime resources and rebuild tools/system prompt. */
 	async reconfigureAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | undefined): Promise<void> {
 		await this._runtime.reconfigureAgentPlugins(agentPlugins);
+	}
+
+	/** 当前工作模式（agent_mode 轴）。 */
+	get agentMode(): string | undefined {
+		return this._runtime.agentMode;
+	}
+
+	/** 切换工作模式并重建 runtime（工具集 + 系统提示词）。调用方须在 turn 边界调用。见 ADR-0046。 */
+	setAgentMode(mode: string | undefined): void {
+		this._runtime.setAgentMode(mode);
 	}
 
 	async prepareSystemPromptForAgentRun(messages: AgentMessage[], signal?: AbortSignal): Promise<string> {

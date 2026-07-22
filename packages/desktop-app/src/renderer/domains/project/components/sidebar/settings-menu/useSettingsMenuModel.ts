@@ -1,4 +1,5 @@
 import { useAuth } from "@domains/auth/hooks/useAuth";
+import { useAgentMode } from "@shared/hooks/useAgentMode";
 import { useTheme } from "@shared/hooks/useTheme";
 import { downloadsActiveCountAtom, loginDialogOpenAtom, type ThemeMode, themeModeAtom } from "@shared/store/atoms";
 import { subscriptionStatusAtom } from "@shared/store/auth-atoms";
@@ -17,6 +18,12 @@ export function useSettingsMenuModel(open: boolean, setOpen: (open: boolean) => 
 	const setLoginOpen = useSetAtom(loginDialogOpenAtom);
 	const { user, logout } = useAuth();
 	const subscription = useAtomValue(subscriptionStatusAtom);
+	const { agentMode, setAgentMode } = useAgentMode();
+	const agentModeOptions = [
+		{ value: "work" as const, label: t("agentMode.work") },
+		{ value: "coding" as const, label: t("agentMode.coding") },
+	];
+	const agentModeLabel = agentModeOptions.find((option) => option.value === agentMode)?.label ?? t("agentMode.work");
 
 	const goEnabled = subscription.go_enabled;
 	const fiveHourWindowRaw = goEnabled ? subscription.windows?.find((window) => window.kind === "5h") : undefined;
@@ -38,6 +45,9 @@ export function useSettingsMenuModel(open: boolean, setOpen: (open: boolean) => 
 		goBadgeText: subscription.badge_text,
 		goEnabled,
 		mode,
+		agentMode,
+		agentModeLabel,
+		agentModeOptions,
 		open,
 		subscriptionTierName: subscription.tier_name,
 		themeOptions,
@@ -64,6 +74,9 @@ export function useSettingsMenuModel(open: boolean, setOpen: (open: boolean) => 
 					x: event.clientX,
 					y: event.clientY,
 				});
+			},
+			setAgentMode: (nextMode) => {
+				void setAgentMode(nextMode);
 			},
 			setOpen,
 		},

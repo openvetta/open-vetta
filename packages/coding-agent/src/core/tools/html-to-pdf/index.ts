@@ -126,6 +126,7 @@ export function createHtmlToPdfTool(cwd: string): CodingAgentTool<typeof htmlToP
 		name: "html_to_pdf",
 		label: "html_to_pdf",
 		scope_use: ["im-claw", "conversation", "project", "batch", "automation", "kb-processing", "cli"],
+		agent_mode: ["work"],
 		category: "doc",
 		description,
 		parameters: htmlToPdfSchema,

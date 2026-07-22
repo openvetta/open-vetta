@@ -128,6 +128,7 @@ function asAgentToolRegistration(value: unknown): {
 	timeoutMs?: number;
 	scope_use?: string[];
 	requires?: string[];
+	agent_mode?: string[];
 	context?: { conversation?: "summary" | "messages" };
 } {
 	const input = asRecord(value, "agent tool registration");
@@ -153,6 +154,7 @@ function asAgentToolRegistration(value: unknown): {
 		timeoutMs,
 		scope_use: asOptionalStringArray(input.scope_use),
 		requires: asOptionalStringArray(input.requires),
+		agent_mode: asOptionalStringArray(input.agent_mode),
 		context: asHandlerContext(input.context),
 	};
 }

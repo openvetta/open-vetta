@@ -86,6 +86,7 @@ export type SystemPromptBlockType =
 	| "context"
 	| "memory"
 	| "skills"
+	| "mode"
 	| "personalization"
 	| "footer"
 	| "plugin";
@@ -150,6 +151,8 @@ export interface AgentPluginToolContribution {
 	scope_use?: string[];
 	/** 需要的会话能力 slug（如 "knowledge"）。 */
 	requires?: string[];
+	/** 允许出现的工作模式 slug（agent_mode 轴，缺省/空 = 通用）。见 ADR-0046。 */
+	agent_mode?: string[];
 	context?: { conversation?: "summary" | "messages" };
 }
 
@@ -263,6 +266,8 @@ export interface McpServerContribution {
 	/** Unique runtime key; must not contain `_` (tool name adapter constraint). */
 	runtimeName: string;
 	config: AgentPluginMcpServerConfig;
+	/** 该 server 的工具允许出现的工作模式 slug（agent_mode 轴，缺省/空 = 通用）。见 ADR-0046。 */
+	agent_mode?: string[];
 }
 
 export interface AgentPluginRuntimeConfig {
@@ -338,6 +343,11 @@ export interface BuildSystemPromptOptions {
 	 * 拼在系统提示词末尾（date/cwd 页脚之前），recency 最高。
 	 */
 	personalization?: string;
+	/**
+	 * 工作模式专用系统提示词正文（getModePrompt 解析）。作为独立 `mode` block 注入，与 persona 正交。
+	 * 空/未传 = 不追加。见 ADR-0046。
+	 */
+	modePrompt?: string;
 	/** Runtime plugin contributions applied to the structured prompt draft before rendering. */
 	agentPlugins?: AgentPluginRuntimeConfig;
 }
@@ -618,6 +628,7 @@ export function buildSystemPromptDraft(options: BuildSystemPromptOptions = {}): 
 		mcpTools: providedMcpTools,
 		memory,
 		personalization,
+		modePrompt,
 		agentPlugins,
 	} = options;
 	const resolvedCwd = cwd ?? process.cwd();
@@ -655,6 +666,7 @@ export function buildSystemPromptDraft(options: BuildSystemPromptOptions = {}): 
 			),
 		);
 		blocks.push(coreBlock("core.final-answer-order", "guidelines", FINAL_ANSWER_ORDER_GUIDANCE, 950));
+		blocks.push(coreBlock("core.mode", "mode", modePrompt ?? "", 975));
 		blocks.push(coreBlock("core.personalization", "personalization", personalization ?? "", 1000));
 		blocks.push(coreBlock("core.footer", "footer", renderFooter(dateTime, resolvedCwd), 1100));
 		const draft: SystemPromptDraft = { blocks, metadata: { cwd: resolvedCwd, dateTime } };
@@ -682,6 +694,7 @@ export function buildSystemPromptDraft(options: BuildSystemPromptOptions = {}): 
 	if ((hasRead || hasInvokeSkill) && skills.length > 0) {
 		blocks.push(coreBlock("core.skills", "skills", formatSkillsForPrompt(skills), 700));
 	}
+	blocks.push(coreBlock("core.mode", "mode", modePrompt ?? "", 850));
 	blocks.push(coreBlock("core.personalization", "personalization", personalization ?? "", 900));
 	blocks.push(coreBlock("core.footer", "footer", renderFooter(dateTime, resolvedCwd), 1000));
 

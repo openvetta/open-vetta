@@ -17,6 +17,11 @@ export interface SessionHandle {
 	hasPendingAgentPlugins: boolean;
 	/** 本会话解析后的对话场景（缺省回落 DEFAULT_SCENARIO），getState 回传给 renderer。 */
 	scenario: ConversationScenario;
+	/** 当前生效的工作模式（agent_mode 轴）。undefined = 不过滤。见 ADR-0046。 */
+	agentMode: string | undefined;
+	/** 全局切换 mode 时挂起，于下一个 turn 边界 apply（避免 streaming 中途换工具集）。 */
+	pendingAgentMode: string | undefined;
+	hasPendingAgentMode: boolean;
 }
 
 /**

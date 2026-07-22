@@ -11,6 +11,7 @@ import { basename, dirname } from "node:path";
 import type { TSchema } from "@sinclair/typebox";
 import type { AgentMessage, AgentTool } from "@vetta/agent-core";
 import { resetApiProviders } from "@vetta/ai";
+import { matchesAgentMode } from "../agent-mode.js";
 import type { AgentSession, ExtensionBindings } from "../agent-session.js";
 import type { BackgroundTaskManager } from "../background-tasks/index.js";
 import {
@@ -74,6 +75,8 @@ export interface RuntimeManagerOptions {
 	envOverlay?: Record<string, string>;
 	/** 对话场景：决定按 scope_use 激活哪些工具。默认 DEFAULT_SCENARIO("cli")。 */
 	scenario?: ConversationScenario;
+	/** 工作模式（agent_mode 正交轴）。缺省（CLI/headless）= 不按模式过滤。见 ADR-0046。 */
+	agentMode?: string;
 	initialActiveToolNames?: string[];
 	extensionRunnerRef?: { current?: ExtensionRunner };
 	enableMcp: boolean;
@@ -103,6 +106,8 @@ export class RuntimeManager {
 	private readonly _baseToolsOverride?: Record<string, AgentTool>;
 	private readonly _envOverlay?: Record<string, string>;
 	private readonly _scenario: ConversationScenario;
+	/** 当前工作模式（可变：纯全局实时切换，切换后于下一个 turn 边界重建）。undefined = 不过滤。 */
+	private _agentMode: string | undefined;
 	private readonly _initialActiveToolNames?: string[];
 	/** 调用方是否显式传了 tools（含 --no-tools 的空数组）。true 时用其名单，跳过 scenario 解析。 */
 	private readonly _hasExplicitTools: boolean;
@@ -156,6 +161,7 @@ export class RuntimeManager {
 		this._baseToolsOverride = opts.baseToolsOverride;
 		this._envOverlay = opts.envOverlay;
 		this._scenario = opts.scenario ?? DEFAULT_SCENARIO;
+		this._agentMode = opts.agentMode;
 		this._initialActiveToolNames = opts.initialActiveToolNames;
 		this._hasExplicitTools = opts.initialActiveToolNames !== undefined;
 		this._extensionRunnerRef = opts.extensionRunnerRef;
@@ -178,6 +184,22 @@ export class RuntimeManager {
 	/** Current conversation scenario (fixed for the session lifetime). */
 	get scenario(): ConversationScenario {
 		return this._scenario;
+	}
+
+	/** Current work mode (agent_mode axis). undefined = 不按模式过滤。 */
+	get agentMode(): string | undefined {
+		return this._agentMode;
+	}
+
+	/**
+	 * 切换工作模式并重建运行时（工具集 + 系统提示词）。纯全局实时切换的落点。
+	 * 调用方（会话层）负责在 turn 边界调用，避免 streaming 中途改工具集破坏 tool_use/tool_result 配对。
+	 * 见 ADR-0046。
+	 */
+	setAgentMode(mode: string | undefined): void {
+		if (this._agentMode === mode) return;
+		this._agentMode = mode;
+		this.buildRuntime({});
 	}
 
 	get mcpManager(): McpManager | undefined {
@@ -579,6 +601,7 @@ export class RuntimeManager {
 			memoryFile: this.ctx.memoryFile,
 			memorySnapshot: this.ctx.memorySnapshot,
 			memoryCharLimit: this.ctx.memoryCharLimit,
+			agentMode: this._agentMode,
 			agentPlugins,
 		});
 	}
@@ -595,6 +618,7 @@ export class RuntimeManager {
 			memoryFile: this.ctx.memoryFile,
 			memorySnapshot: this.ctx.memorySnapshot,
 			memoryCharLimit: this.ctx.memoryCharLimit,
+			agentMode: this._agentMode,
 			agentPlugins,
 		});
 	}
@@ -988,12 +1012,15 @@ export class RuntimeManager {
 					},
 				});
 
-		// Add invoke_skill tool if skills are available
-		const loadedSkills = this.resourceLoader.getSkills().skills;
+		// Add invoke_skill tool if skills are available（按 agent_mode 轴过滤：模式外 skill 不可感知/不可调用）
+		const loadedSkills = this.resourceLoader
+			.getSkills()
+			.skills.filter((s) => matchesAgentMode(s.agentMode, this._agentMode));
 		const visibleSkills = loadedSkills.filter((s) => !s.disableModelInvocation && s.type !== "scene");
 		if (visibleSkills.length > 0) {
 			const invokeSkillTool = createInvokeSkillTool({
-				getSkills: () => this.resourceLoader.getSkills().skills,
+				getSkills: () =>
+					this.resourceLoader.getSkills().skills.filter((s) => matchesAgentMode(s.agentMode, this._agentMode)),
 			});
 			baseTools.invoke_skill = invokeSkillTool;
 		}
@@ -1097,8 +1124,16 @@ export class RuntimeManager {
 
 		// MCP 工具：全场景可用（约定），并入注册表前盖章 scope_use 让 scope 解析放行。
 		const mcpTools = this._mcpManager?.getTools() ?? [];
+		// agent_mode 轴：插件 MCP server 可声明工作模式，按 runtimeName 前缀盖到其工具上。见 ADR-0046。
+		const pluginMcpServers = this._agentPlugins?.mcpServerContributions ?? [];
 		for (const mcpTool of mcpTools) {
 			if (!mcpTool.scope_use) mcpTool.scope_use = [...ALL_SCENARIOS];
+			if (!mcpTool.agent_mode) {
+				const server = pluginMcpServers.find(
+					(s) => s.agent_mode && s.agent_mode.length > 0 && mcpTool.name.startsWith(s.runtimeName),
+				);
+				if (server) mcpTool.agent_mode = server.agent_mode;
+			}
 			toolRegistry.set(mcpTool.name, mcpTool);
 		}
 
@@ -1117,7 +1152,7 @@ export class RuntimeManager {
 			if (this._enableBackgroundTasks) capabilities.add("bg-tasks");
 			if (askEnabled) capabilities.add("host:ask");
 			activeToolNameSet = new Set(
-				resolveActiveToolNames(this._scenario, Array.from(toolRegistry.values()), capabilities),
+				resolveActiveToolNames(this._scenario, Array.from(toolRegistry.values()), capabilities, this._agentMode),
 			);
 		}
 		// 插件 allow/deny 策略覆盖（plugin toolPolicyContributions）。
@@ -1222,6 +1257,8 @@ function createPluginTool(
 		// 插件工具按其声明的 scope_use 过滤（fail-closed：未声明 = 所有场景都不激活）。
 		scope_use: contribution.scope_use,
 		requires: contribution.requires,
+		// agent_mode 轴：插件工具按其声明的工作模式过滤（缺省/空 = 通用）。见 ADR-0046。
+		agent_mode: contribution.agent_mode,
 		category: "external",
 		execute: async (toolCallId, params: unknown, signal?: AbortSignal) => {
 			if (!options.invoke) {

@@ -3,6 +3,13 @@
  */
 
 export {
+	type AgentMode,
+	ALL_AGENT_MODES,
+	DEFAULT_AGENT_MODE,
+	isAgentMode,
+	matchesAgentMode,
+} from "./agent-mode.js";
+export {
 	AgentSession,
 	type AgentSessionConfig,
 	type AgentSessionEvent,

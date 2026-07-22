@@ -6,8 +6,10 @@
  */
 
 import type { AgentTool } from "@vetta/agent-core";
+import { matchesAgentMode } from "../agent-mode.js";
 import type { McpManager } from "../mcp/index.js";
 import { renderMemoryForPrompt } from "../memory/memory-store.js";
+import { getModePrompt } from "../mode-prompt.js";
 import { getPersonaPrompt } from "../personas.js";
 import type { ResourceLoader } from "../resource-loader.js";
 import type { SettingsManager } from "../settings-manager.js";
@@ -51,6 +53,8 @@ export interface SystemPromptDeps {
 	memoryFile: string | undefined;
 	memorySnapshot: string;
 	memoryCharLimit: number;
+	/** 当前工作模式（agent_mode 轴）。解析出模式专用 system prompt block。见 ADR-0046。 */
+	agentMode?: string;
 	agentPlugins?: AgentPluginRuntimeConfig;
 }
 
@@ -59,7 +63,10 @@ function resolveSystemPromptOptions(deps: SystemPromptDeps): BuildSystemPromptOp
 	const loaderSystemPrompt = deps.resourceLoader.getSystemPrompt();
 	const loaderAppendSystemPrompt = deps.resourceLoader.getAppendSystemPrompt();
 	const appendSystemPrompt = loaderAppendSystemPrompt.length > 0 ? loaderAppendSystemPrompt.join("\n\n") : undefined;
-	const loadedSkills = deps.resourceLoader.getSkills().skills;
+	// agent_mode 轴：过滤掉当前模式不可见的 skill（未声明 agent_mode 视为通用）。见 ADR-0046。
+	const loadedSkills = deps.resourceLoader
+		.getSkills()
+		.skills.filter((s) => matchesAgentMode(s.agentMode, deps.agentMode));
 	const loadedContextFiles = deps.resourceLoader.getAgentsFiles().agentsFiles;
 
 	// Collect MCP tool information for system prompt
@@ -78,6 +85,7 @@ function resolveSystemPromptOptions(deps: SystemPromptDeps): BuildSystemPromptOp
 			: undefined;
 
 	const personalization = buildPersonalizationBlock(deps.settingsManager);
+	const modePrompt = getModePrompt(deps.agentMode);
 
 	return {
 		cwd: deps.cwd,
@@ -89,6 +97,7 @@ function resolveSystemPromptOptions(deps: SystemPromptDeps): BuildSystemPromptOp
 		mcpTools,
 		memory,
 		personalization,
+		modePrompt,
 		agentPlugins: deps.agentPlugins,
 	};
 }

@@ -91,6 +91,11 @@
     "system": "System",
     "title": "Theme"
   },
+  "agentMode": {
+    "title": "Work Mode",
+    "work": "Work",
+    "coding": "Coding"
+  },
   "density": {
     "compact": "Compact",
     "comfortable": "Comfortable",
