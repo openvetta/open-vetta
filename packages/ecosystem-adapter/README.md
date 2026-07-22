@@ -30,3 +30,13 @@ Claude Code profile 固定为 `claude-code-hooks/2.1.211`。它复用通用 disp
 仍不支持：Codex inline TOML `[hooks]`、自动扫描 Claude marketplace。
 
 调用方也可以通过 `HookConfigLayer.sources` 显式提供 Vetta 已安装插件范围内的 Hook 文件，并为每个 source 注入环境变量。解析器不会自行扫描插件目录；插件 manifest 发现、路径边界校验与信任决策仍属于应用插件加载器职责。
+
+## 测试
+
+Vitest 安装在 monorepo 根 `devDependencies`；本包只保留 `vitest.config.ts` 与 `"test"` script。在包根运行：
+
+```bash
+bun run test
+# 或指定文件
+bunx vitest --run test/default-hook-config-layers.test.ts
+```

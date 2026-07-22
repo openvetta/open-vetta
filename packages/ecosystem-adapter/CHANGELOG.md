@@ -6,6 +6,7 @@ All notable changes to `@vetta/ecosystem-adapter` are documented in this file.
 
 ### Added
 
+- **Vitest 配置**：本包 `vitest.config.ts` + `"test": "vitest --run"`；框架依赖统一在 monorepo 根 `devDependencies`，不在子包重复安装。
 - **官方 Hook 配置路径发现 `buildDefaultHookConfigLayers()`**：仅按 Codex / Claude Code 官方布局累加读取——Codex：`$CODEX_HOME|~/.codex/hooks.json` 与 `<cwd>/.codex/hooks.json`；Claude：`~/.claude/settings.json`、`<cwd>/.claude/settings.json`、`settings.local.json`（`"hooks"` 键）。source 带 `profileId` 隔离；**不读** Vetta `agentDir` / `.vetta` 下的 hook 文件。
 - **Claude Code Hook profile `claude-code-hooks/2.1.211`**：独立 wire contract（不污染 Codex profile），支持 Vetta 宿主已触发的 10 个事件子集、`command` sync handler、matcher、`${CLAUDE_PLUGIN_ROOT}` / `${CLAUDE_PROJECT_DIR}` 展开、Windows 上禁止将 `.sh` 交给 cmd.exe；配置源为官方 settings 或显式 `hooks/hooks.json` + `CLAUDE_PLUGIN_ROOT`。
 - **Hook 关键路径 info 日志（测试可观测）**：Codex adapter 加载时记 profile、handler 按事件计数与配置源；dispatch 对 SessionStart/Stop/Compact 及 block/fail 打精简 info（不含 command/stdin）。
