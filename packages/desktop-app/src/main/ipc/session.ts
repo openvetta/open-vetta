@@ -32,6 +32,7 @@ import { notify } from "../notifications/index.js";
 import { mapSessionEventToPetPresentation } from "../pet/session-event-action-policy.js";
 import { sendPetCommandToWindow } from "../pet-window.js";
 import {
+	broadcastPluginsChanged,
 	buildAgentPluginRuntimeConfig,
 	getPluginSettings,
 	listPlugins,
@@ -689,6 +690,8 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		for (const win of BrowserWindow.getAllWindows()) {
 			win.webContents.send(CHANNELS.AGENT_MODE_CHANGED, next);
 		}
+		// renderer 侧硬闸：重新 list + 重载 MF remotes，模式外插件的 UI/bundle 立即消失。
+		broadcastPluginsChanged();
 	});
 
 	ipcMain.handle(CHANNELS.SET_GLOBAL_THINKING, (_event, level: unknown) => {

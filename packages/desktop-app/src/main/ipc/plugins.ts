@@ -27,6 +27,7 @@ import {
 	installPluginFromPath,
 	installPluginFromUrl,
 	listPlugins,
+	pluginVisibleInAgentMode,
 	registerDynamicAgentTool,
 	registerDynamicContinuationProvider,
 	registerDynamicSystemPromptProvider,
@@ -44,6 +45,7 @@ import {
 	unregisterDynamicSystemPromptProvider,
 } from "../plugins/plugin-store.js";
 import { getSharedRuntime } from "../runtime.js";
+import { readDesktopConfig } from "./fs.js";
 
 function asArchiveBuffer(value: unknown): ArrayBuffer | Buffer {
 	if (value instanceof ArrayBuffer || Buffer.isBuffer(value)) return value;
@@ -363,7 +365,12 @@ function countRemoved(previous: readonly string[], next: readonly string[]): num
 }
 
 export function registerPluginsIpc(pluginActionService: PluginActionService): () => void {
-	ipcMain.handle("vetta:plugins:list", () => listPlugins());
+	// 插件级 agent_mode 硬闸的 renderer 侧：白名单外的插件对渲染层完全不可见
+	// （工作台列表 + UI 贡献 + bundle 均不出现）。见 ADR-0046。
+	ipcMain.handle("vetta:plugins:list", async () => {
+		const mode = (await readDesktopConfig()).agentMode ?? "work";
+		return listPlugins().filter((plugin) => pluginVisibleInAgentMode(plugin, mode));
+	});
 	ipcMain.handle("vetta:plugins:install-from-archive", async (_event, archiveBuffer: unknown, options: unknown) => {
 		const plugin = await installPluginFromArchive(asArchiveBuffer(archiveBuffer), asOptions(options));
 		recordPluginResourceEvent({

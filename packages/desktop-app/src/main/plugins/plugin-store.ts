@@ -1016,10 +1016,21 @@ function normalizeAgentModeList(raw: unknown): string[] | undefined {
  * 当前无 mode（CLI/headless）或插件未声明 = 放行。见 ADR-0046。
  */
 function pluginMatchesAgentMode(plugin: InstalledPlugin): boolean {
-	if (currentAgentMode === undefined) return true;
+	return pluginVisibleInAgentMode(plugin, currentAgentMode);
+}
+
+/**
+ * 插件级 agent_mode 硬闸（纯函数版）：供 renderer 侧列表（UI/bundle）复用同一判定。
+ * mode 为 undefined（CLI/headless）或插件未声明 = 放行。见 ADR-0046。
+ */
+export function pluginVisibleInAgentMode(
+	plugin: Pick<InstalledPlugin, "agent_mode">,
+	mode: string | undefined,
+): boolean {
+	if (mode === undefined) return true;
 	const declared = normalizeAgentModeList(plugin.agent_mode);
 	if (!declared || declared.length === 0) return true;
-	return declared.includes(currentAgentMode);
+	return declared.includes(mode);
 }
 
 export function buildAgentPluginRuntimeConfig(): AgentPluginRuntimeConfig | undefined {
