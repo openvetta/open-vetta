@@ -1,4 +1,4 @@
-import { useActivityTab } from "@vetta-org/plugin-sdk";
+import { useActivityTab, useTranslation } from "@vetta-org/plugin-sdk";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AndroidMockup, AndroidTabMockup, IPadMockup, IPhoneMockup } from "react-device-mockup";
 import { DEFAULT_DEVICE_ID, DEVICE_PRESETS, findDevice, type DevicePreset } from "./devices";
@@ -73,6 +73,7 @@ function DeviceFrame({
 
 export function MobilePreviewPanel() {
 	const { cwd } = useActivityTab();
+	const { t } = useTranslation();
 	const [deviceId, setDeviceId] = useState<string>(
 		() => localStorage.getItem(STORAGE_DEVICE) ?? DEFAULT_DEVICE_ID,
 	);
@@ -265,14 +266,14 @@ export function MobilePreviewPanel() {
 						border: "none",
 						outline: "none",
 					}}
-					title="移动UI预览"
+					title={t("panel.previewTitle")}
 				/>
 			) : !selected ? (
 				<div
 					className="flex h-full w-full flex-col items-center justify-center gap-[12px] overflow-y-auto p-[20px] text-[#999]"
 					style={{ paddingTop: Math.round(device.statusBarHeight * scale) + 12 }}
 				>
-					<div className="text-[13px] text-[#bbb]">选择一个 HTML 文件开始预览</div>
+					<div className="text-[13px] text-[#bbb]">{t("panel.emptyHint")}</div>
 					{files.length > 0 ? (
 						<div className="flex max-h-[60%] w-full max-w-[320px] flex-col gap-[4px] overflow-y-auto">
 							{files.map((file) => (
@@ -288,7 +289,7 @@ export function MobilePreviewPanel() {
 						</div>
 					) : (
 						<div className="text-[12px] text-[#777]">
-							{cwd ? "当前作用域内没有 html/htm 文件" : "无可用作用域"}
+							{cwd ? t("panel.noHtml") : t("panel.noScope")}
 						</div>
 					)}
 				</div>
@@ -310,10 +311,10 @@ export function MobilePreviewPanel() {
 					className={`${selectCls} min-w-0 flex-1`}
 					value={selectedRel ?? ""}
 					onChange={(e) => onSelectHtml(e.target.value)}
-					title="选择 HTML 文件"
+					title={t("panel.selectHtmlTitle")}
 				>
 					<option value="" disabled>
-						选择 HTML…
+						{t("panel.selectHtmlPlaceholder")}
 					</option>
 					{files.map((file) => (
 						<option key={file.relPath} value={file.relPath}>
@@ -325,33 +326,38 @@ export function MobilePreviewPanel() {
 					className={selectCls}
 					value={device.id}
 					onChange={(e) => onSelectDevice(e.target.value)}
-					title="选择设备型号"
+					title={t("panel.selectDeviceTitle")}
 				>
 					{groups.map(([group, presets]) => (
-						<optgroup key={group} label={group}>
+						<optgroup key={group} label={t(`group.${group}`)}>
 							{presets.map((preset) => (
 								<option key={preset.id} value={preset.id}>
-									{preset.label}
+									{preset.labelKey ? t(preset.labelKey) : preset.label}
 								</option>
 							))}
 						</optgroup>
 					))}
 				</select>
-				<button type="button" className={iconBtn} title={landscape ? "切换竖屏" : "切换横屏"} onClick={onToggleLandscape}>
+				<button
+					type="button"
+					className={iconBtn}
+					title={landscape ? t("panel.toPortrait") : t("panel.toLandscape")}
+					onClick={onToggleLandscape}
+				>
 					<svg viewBox="0 0 24 24" className="h-[14px] w-[14px]" fill="none" stroke="currentColor" strokeWidth="1.8">
 						<rect x="7.5" y="3.5" width="9" height="17" rx="2" />
 						<path d="M3.5 12a8.5 8.5 0 0 1 2.5-6M20.5 12a8.5 8.5 0 0 1-2.5 6" strokeLinecap="round" />
 						<path d="M5 3.5 6 6l-2.6.6M19 20.5 18 18l2.6-.6" strokeLinecap="round" strokeLinejoin="round" />
 					</svg>
 				</button>
-				<button type="button" className={iconBtn} title="刷新" onClick={onRefresh}>
+				<button type="button" className={iconBtn} title={t("panel.refresh")} onClick={onRefresh}>
 					<svg viewBox="0 0 24 24" className="h-[14px] w-[14px]" fill="none" stroke="currentColor" strokeWidth="1.8">
 						<path d="M20 12a8 8 0 1 1-2.34-5.66" strokeLinecap="round" />
 						<path d="M20 3v4h-4" strokeLinecap="round" strokeLinejoin="round" />
 					</svg>
 				</button>
 				<div className="relative shrink-0">
-					<button type="button" className={iconBtn} title="导出" onClick={() => setExportOpen((v) => !v)}>
+					<button type="button" className={iconBtn} title={t("panel.export")} onClick={() => setExportOpen((v) => !v)}>
 						<svg viewBox="0 0 24 24" className="h-[14px] w-[14px]" fill="none" stroke="currentColor" strokeWidth="1.8">
 							<path d="M12 15V3M7.5 7.5 12 3l4.5 4.5" strokeLinecap="round" strokeLinejoin="round" />
 							<path d="M4 14v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" strokeLinecap="round" />
@@ -366,7 +372,7 @@ export function MobilePreviewPanel() {
 									className="rounded-[6px] px-[10px] py-[6px] text-left text-[12px] text-[var(--foreground)] hover:bg-[var(--accent)]"
 									onClick={() => void onExportPng()}
 								>
-									导出 PNG 渲染图
+									{t("panel.exportPng")}
 								</button>
 								<button
 									type="button"
@@ -374,7 +380,7 @@ export function MobilePreviewPanel() {
 									className="rounded-[6px] px-[10px] py-[6px] text-left text-[12px] text-[var(--foreground)] hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"
 									onClick={onExportPrompt}
 								>
-									生成工程化 Prompt
+									{t("panel.exportPrompt")}
 								</button>
 							</div>
 						</>
