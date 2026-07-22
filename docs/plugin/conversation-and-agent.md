@@ -14,6 +14,8 @@ interface PluginContext {
   images: PluginImagesApi;
   settings: PluginSettingsApi;
   i18n: PluginI18nApi;        // 见「插件 i18n」
+  getAgentMode(): AgentMode;  // 当前工作模式，见「工作模式」
+  onAgentModeChanged(listener: (mode: AgentMode) => void): Disposable;
 }
 ```
 
@@ -81,6 +83,7 @@ interface PluginAgentToolRegistration<TInput = unknown> {
   parameters: object;         // JSON Schema（可用 TypeBox 产出）
   scope_use?: string[];       // 允许出现的对话场景（见下）。fail-closed：缺省/空 = 任何场景都不出现
   requires?: string[];        // 需要的会话能力（如 "knowledge"），一般插件无需设置
+  agent_mode?: string[];      // 允许出现的工作模式（"work"/"coding"），缺省/空 = 通用。见「工作模式」
   timeoutMs?: number;
   context?: { conversation?: "summary" | "messages" }; // 大上下文 opt-in，缺省只传消息数
   handler: (context: PluginAgentHandlerContext<{
@@ -136,6 +139,7 @@ ctx.agent.registerTool({
 - `scope_use` 只能“减”——它从“宿主已注入的工具”里过滤，不能让工具凭空出现在未注入插件的场景。
 - 输入栏的开关 badge 也会跟随对应工具的 scope：工具在当前场景不出现时，对应 badge 自动隐藏（见 [ui-slots.md](./ui-slots.md#输入栏动作-registerinputaction) 的 `requiresActiveTool`）。
 - `requires` 是另一条正交轴（会话能力，如 `"knowledge"`）；与 `scope_use` 取交集才激活。一般插件无需设置。
+- `agent_mode` 是第三条正交轴（工作模式，`"work"`/`"coding"`）；缺省/空 = 通用（所有模式可见）。若插件级 [manifest `agent_mode`](./manifest.md#agent_mode工作模式白名单) 也声明了，两者取交集。见 [工作模式](#工作模式agent_mode)。
 
 ## 注册动态系统提示词 Provider
 
@@ -353,3 +357,29 @@ function Panel() {
 
 - 宿主渲染的插件串用 **`%key%`**；组件内用 **裸 key** 调 `t()`。
 - fallback：当前 locale → `defaultLocale` → 裸 key。详见 [manifest i18n](./manifest.md#i18n)。
+
+## 工作模式（agent_mode）
+
+工作模式（ADR-0046）是与对话场景、会话能力正交的一条轴，把 agent 分成 **Work** 与 **Coding**。它是**纯全局态**，用户在侧边栏设置里切换。
+
+```ts
+type AgentMode = "work" | "coding";
+ctx.getAgentMode(): AgentMode;                                   // 同步读当前模式
+ctx.onAgentModeChanged(listener: (mode: AgentMode) => void): Disposable; // 订阅变更
+```
+
+```tsx
+function Panel() {
+  const [mode, setMode] = useState(ctx.getAgentMode());
+  useEffect(() => ctx.onAgentModeChanged(setMode).dispose, []);
+  return <div>{mode === "coding" ? "编程模式" : "工作模式"}</div>;
+}
+```
+
+- 开发者可据当前模式做定制内容（不同 UI、不同行为）。
+- 声明式限定资源的可见模式则用 `agent_mode` 字段：
+  - **插件级**（整个插件）：[manifest `agent_mode`](./manifest.md#agent_mode工作模式白名单)。
+  - **单个 tool**：`registerTool({ agent_mode: [...] })`（见 [注册 Agent 工具](#注册-agent-工具)）。
+  - **单个 MCP server**：`agent.mcpServers` 内联 map 的 `agent_mode`（见 [mcp.md](./mcp.md)）。
+  - **单个 skill**：其 `SKILL.md` frontmatter 的 `agent_mode`。
+  - 缺省/空 = 通用；插件级与子资源级取交集。

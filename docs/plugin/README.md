@@ -9,12 +9,12 @@
 | 文档 | 内容 |
 | --- | --- |
 | [getting-started.md](./getting-started.md) | 环境、脚手架、Vite/Module Federation、构建、安装（含本地路径）、调试闭环 |
-| [manifest.md](./manifest.md) | `plugin.json` 全字段、`commands`、`contributionMode`、`defaultLocale` / i18n、settings、guidingWords、agent 贡献 |
+| [manifest.md](./manifest.md) | `plugin.json` 全字段、`commands`、`contributionMode`、**`agent_mode` 工作模式白名单**、`defaultLocale` / i18n、settings、guidingWords、agent 贡献 |
 | [mcp.md](./mcp.md) | **MCP 三源聚合**、插件内聚 MCP（`agent.mcpServers`）、命名、生命周期、打包 |
 | [permissions.md](./permissions.md) | 权限完整清单、门控点、声明/授权流程 |
 | [ui-slots.md](./ui-slots.md) | **notify 全局 Toast** / 文件预览（**含大文件 getUrl 规范**）/ 全局浮层 / 活动 Tab / 输入栏动作 / **Turn 卡** / **Tool-call 槽** |
 | [message-cards.md](./message-cards.md) | 消息卡片：`details.cards`、`registerCardRenderer`、`pendingFor`、跨轮去重 |
-| [conversation-and-agent.md](./conversation-and-agent.md) | 对话、registerTool、**command.run**、fs、images、settings、**i18n** |
+| [conversation-and-agent.md](./conversation-and-agent.md) | 对话、registerTool、**command.run**、fs、images、settings、**i18n**、**工作模式 getAgentMode** |
 | [app-actions.md](./app-actions.md) | 动态 App Action：JSON Schema、审批、生命周期、取消与独立发布 |
 | [system-plugins.md](./system-plugins.md) | 系统插件（presets）、租户打包 |
 | [styling-and-pitfalls.md](./styling-and-pitfalls.md) | 样式、MF 顶层 JSX 陷阱、缓存与 version bump |
@@ -48,6 +48,7 @@
 | 动态 system prompt | `registerSystemPromptProvider` | `agent.systemPrompt.*` | [conversation-and-agent](./conversation-and-agent.md#注册动态系统提示词-provider) |
 | 自动续跑 | `registerContinuationProvider` | `agent.continuation.register` | [conversation-and-agent](./conversation-and-agent.md#注册-agent-自动续跑策略) |
 | 贡献硬隔离模式 | `hardIsolation` / `contributionMode` | — | [ui-slots](./ui-slots.md#插件贡献硬隔离-hardisolation) / [manifest](./manifest.md#contributionmode) |
+| **工作模式(Work/Coding)门控 + 鉴别** | 清单 `agent_mode` / `ctx.getAgentMode` / `onAgentModeChanged` | 无 | [manifest](./manifest.md#agent_mode工作模式白名单) / [conversation-and-agent](./conversation-and-agent.md#工作模式agent_mode) |
 
 ## 信任模型
 
