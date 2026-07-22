@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
  * Scaffold a minimal Vetta MF plugin project under a target directory.
- * Usage: node scaffold.mjs <targetDir> --id <id> --name <displayName> [--semver-sdk ^0.0.1]
+ * Usage: node scaffold.mjs <targetDir> --id <id> --name <displayName> [--semver-sdk ^0.0.3]
  */
 import { mkdir, writeFile, access } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
 function parseArgs(argv) {
-	const out = { target: null, id: null, name: null, sdk: "^0.0.1" };
+	const out = { target: null, id: null, name: null, sdk: "^0.0.3" };
 	const rest = [...argv];
 	out.target = rest.shift() ?? null;
 	while (rest.length) {
@@ -35,7 +35,7 @@ async function exists(path) {
 
 const args = parseArgs(process.argv.slice(2));
 if (!args.target || !args.id || !args.name) {
-	console.error("Usage: node scaffold.mjs <targetDir> --id <id> --name <displayName> [--semver-sdk ^0.0.1]");
+	console.error("Usage: node scaffold.mjs <targetDir> --id <id> --name <displayName> [--semver-sdk ^0.0.3]");
 	process.exit(2);
 }
 if (!/^[a-z][a-z0-9-]{0,62}$/.test(args.id)) {
