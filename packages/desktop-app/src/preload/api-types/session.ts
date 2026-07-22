@@ -17,6 +17,9 @@ import type {
 	SettingsPatch,
 } from "../../../../runtime-core/src/index.js";
 
+/** 工作模式（agent_mode 轴，见 ADR-0046）。 */
+export type AgentMode = "work" | "coding";
+
 /** 个性化人设选项（由 coding-agent 注册表下发，不含提示词正文）。 */
 export interface PersonaOption {
 	id: string;
@@ -81,6 +84,10 @@ export interface DesktopSessionApi {
 	updateSettings(sessionId: string, partialSettings: SettingsPatch): Promise<void>;
 	setExecutionMode(sessionId: string, mode: SessionExecutionMode): Promise<void>;
 	setGlobalExecutionMode(mode: SessionExecutionMode): Promise<void>;
+	/** 全局切换工作模式（agent_mode 轴，纯全局态）。见 ADR-0046。 */
+	setGlobalAgentMode(mode: AgentMode): Promise<void>;
+	/** 订阅工作模式变更广播（多窗口同步 badge/atom）。 */
+	onAgentModeChanged(handler: (mode: AgentMode) => void): () => void;
 	setGlobalThinkingLevel(level: string): Promise<void>;
 	getGlobalThinkingLevel(): Promise<string>;
 	setMaxRecentImages(count: number): Promise<void>;

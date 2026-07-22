@@ -71,6 +71,8 @@ export type PluginMcpServerConfig =
 			debug?: boolean;
 			displayName?: string;
 			description?: string;
+			/** 该 server 的工具允许出现的工作模式 slug（agent_mode 轴，缺省/空 = 通用）。见 ADR-0046。 */
+			agent_mode?: string | string[];
 	  }
 	| {
 			type: "http";
@@ -85,6 +87,8 @@ export type PluginMcpServerConfig =
 			debug?: boolean;
 			displayName?: string;
 			description?: string;
+			/** 该 server 的工具允许出现的工作模式 slug（agent_mode 轴，缺省/空 = 通用）。见 ADR-0046。 */
+			agent_mode?: string | string[];
 	  };
 
 export interface PluginAgentManifest {
@@ -153,6 +157,11 @@ export interface PluginManifest {
 	contributionMode?: {
 		hardIsolation?: boolean;
 	};
+	/**
+	 * 插件级工作模式白名单（agent_mode 轴，见 ADR-0046）。声明后，白名单外的工作模式下整个插件
+	 * 不可见（agent 贡献 + UI/bundle 均不加载）。缺省/空 = 全局通用。plugin.json 里可写 string | string[]。
+	 */
+	agent_mode?: string | string[];
 }
 
 /** 一份扁平 catalog：翻译 key → 本地化字符串。 */
@@ -187,6 +196,8 @@ export interface InstalledPlugin {
 		expose: string;
 	};
 	agent?: PluginAgentManifest;
+	/** 插件级工作模式白名单（agent_mode 轴，见 ADR-0046）。缺省/空 = 全局通用。 */
+	agent_mode?: string | string[];
 	styleUrls: string[];
 	permissions: PluginPermission[];
 	grantedPermissions: PluginPermission[];
@@ -247,6 +258,8 @@ export interface PluginAgentToolRegistration {
 	scope_use?: readonly string[];
 	/** 需要的会话能力 slug。 */
 	requires?: string[];
+	/** 允许出现的工作模式 slug（agent_mode 轴，缺省/空 = 通用）。见 ADR-0046。 */
+	agent_mode?: readonly string[];
 	context?: { conversation?: "summary" | "messages" };
 }
 

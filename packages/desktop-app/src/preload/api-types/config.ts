@@ -6,6 +6,8 @@ export interface DesktopConfigData {
 	workspacePath: string;
 	vettaAppPath?: string;
 	defaultExecutionMode?: "sandbox" | "full-access";
+	/** 工作模式（agent_mode 轴，见 ADR-0046）。缺省视为 "work"。 */
+	agentMode?: "work" | "coding";
 	sandbox?: {
 		status: "unknown" | "available" | "unavailable";
 		backend: "bundled-bwrap" | "system-bwrap" | "macos-seatbelt" | "windows-host" | null;

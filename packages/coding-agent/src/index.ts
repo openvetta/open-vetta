@@ -2,6 +2,14 @@
 
 // Config paths
 export { DEFAULT_SERVER_URL, getAgentDir, VERSION } from "./config.js";
+// 工作模式（agent_mode 正交轴，见 ADR-0046）
+export {
+	type AgentMode,
+	ALL_AGENT_MODES,
+	DEFAULT_AGENT_MODE,
+	isAgentMode,
+	matchesAgentMode,
+} from "./core/agent-mode.js";
 export {
 	AgentSession,
 	type AgentSessionConfig,

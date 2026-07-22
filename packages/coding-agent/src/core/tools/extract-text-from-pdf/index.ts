@@ -285,6 +285,7 @@ export function createExtractTextFromPdfTool(cwd: string): CodingAgentTool<typeo
 		name: "extract_text_from_pdf",
 		label: "extract_text_from_pdf",
 		scope_use: ["im-claw", "conversation", "project", "batch", "automation", "kb-processing", "cli"],
+		agent_mode: ["work"],
 		category: "doc",
 		description,
 		parameters: extractTextFromPdfSchema,

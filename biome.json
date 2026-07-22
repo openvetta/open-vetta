@@ -32,6 +32,7 @@
 			"!**/test-sessions.ts",
 			"!**/models.generated.ts",
 			"!**/personas-data.ts",
+			"!**/modes-data.ts",
 			"!!**/node_modules"
 		]
 	}

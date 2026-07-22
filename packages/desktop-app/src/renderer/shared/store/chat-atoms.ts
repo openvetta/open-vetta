@@ -370,6 +370,13 @@ function getStoredExecutionMode(): SessionExecutionMode {
 
 export const sessionExecutionModeAtom = atom<SessionExecutionMode>(getStoredExecutionMode());
 
+/**
+ * 当前工作模式（agent_mode 轴，纯全局态，见 ADR-0046）。真源在主进程 desktop-config，
+ * 本 atom 于 app 初始化时由 config.get() 水合、并跟随主进程广播更新。默认 "work"。
+ */
+export type AgentMode = "work" | "coding";
+export const agentModeAtom = atom<AgentMode>("work");
+
 /** Per-turn stats (speed, duration) for the last completed turn */
 export const lastTurnUsageAtom = atom<TurnUsageData | null>(null);
 

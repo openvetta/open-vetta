@@ -32,9 +32,11 @@ import { notify } from "../notifications/index.js";
 import { mapSessionEventToPetPresentation } from "../pet/session-event-action-policy.js";
 import { sendPetCommandToWindow } from "../pet-window.js";
 import {
+	broadcastPluginsChanged,
 	buildAgentPluginRuntimeConfig,
 	getPluginSettings,
 	listPlugins,
+	setPluginRuntimeAgentMode,
 	summarizeAgentPluginRuntimeConfig,
 } from "../plugins/plugin-store.js";
 import {
@@ -125,6 +127,8 @@ const CHANNELS = {
 	UPDATE_SETTINGS: "vetta:session:update-settings",
 	SET_EXECUTION_MODE: "vetta:session:set-execution-mode",
 	SET_GLOBAL_EXECUTION_MODE: "vetta:session:set-global-execution-mode",
+	SET_GLOBAL_AGENT_MODE: "vetta:session:set-global-agent-mode",
+	AGENT_MODE_CHANGED: "vetta:session:agent-mode-changed",
 	GET_STATE: "vetta:session:get-state",
 	GET_MESSAGES: "vetta:session:get-messages",
 	DELETE: "vetta:session:delete",
@@ -669,6 +673,25 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		const settings = await readDesktopConfig();
 		settings.defaultExecutionMode = mode as SessionExecutionMode;
 		await writeDesktopConfig(settings);
+	});
+
+	// 全局工作模式切换（agent_mode 轴，纯全局态）。持久化 + 推 pending 给活跃 session（turn 边界 apply）
+	// + 广播各窗口更新 badge/atom。见 ADR-0046。
+	ipcMain.handle(CHANNELS.SET_GLOBAL_AGENT_MODE, async (_event, mode: unknown) => {
+		const next = mode === "coding" ? "coding" : "work";
+		const settings = await readDesktopConfig();
+		settings.agentMode = next;
+		await writeDesktopConfig(settings);
+		// tools/skills/prompt：pending，turn 边界 apply。
+		runtime.setGlobalAgentMode(next);
+		// 插件级硬闸：更新 gate 模式并重建插件配置（排除模式外插件），推给活跃 session。
+		setPluginRuntimeAgentMode(next);
+		await runtime.reconfigureAgentPlugins(buildAgentPluginRuntimeConfig());
+		for (const win of BrowserWindow.getAllWindows()) {
+			win.webContents.send(CHANNELS.AGENT_MODE_CHANGED, next);
+		}
+		// renderer 侧硬闸：重新 list + 重载 MF remotes，模式外插件的 UI/bundle 立即消失。
+		broadcastPluginsChanged();
 	});
 
 	ipcMain.handle(CHANNELS.SET_GLOBAL_THINKING, (_event, level: unknown) => {

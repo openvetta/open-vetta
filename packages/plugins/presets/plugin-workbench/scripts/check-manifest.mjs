@@ -39,6 +39,12 @@ async function main() {
 	}
 	if (!Array.isArray(raw.permissions)) warnings.push("permissions should be an array");
 
+	if (raw.agent_mode !== undefined) {
+		const modes = Array.isArray(raw.agent_mode) ? raw.agent_mode : [raw.agent_mode];
+		const invalid = modes.filter((m) => m !== "work" && m !== "coding");
+		if (invalid.length > 0) warnings.push(`agent_mode has unknown values: ${invalid.join(", ")} (allowed: work, coding)`);
+	}
+
 	const distEntry = join(root, raw.entry ?? "dist/mf-manifest.json");
 	try {
 		await access(distEntry);
