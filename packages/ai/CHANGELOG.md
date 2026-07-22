@@ -9,6 +9,7 @@
 
 ### Changed
 
+- **Vitest 依赖上收到 monorepo 根**：本包不再声明 `devDependencies.vitest`，改用根目录统一版本；包内仍保留 `vitest.config.ts` 与 `"test": "vitest --run"`。
 - `SimpleStreamOptions.reasoning` 由固定的 `ThinkingLevel` 联合类型放宽为任意字符串（保留 `ThinkingLevel` 字面量自动补全），以支持每模型自定义推理档位（如 OpenAI 的 `none`、DeepSeek 的 `max`）。`openai-completions` / `openai-responses` 及其衍生 v1 适配器（azure / codex）改为将档位值**原样透传**到 provider 的推理字段，移除 `supportsXhigh` / `clampReasoning` 的 xhigh 夹取——模型只提供自身支持的档位，由调用方保证取值合法。token 预算型 provider（Anthropic / Bedrock / Google）行为不变，仍按档位映射预算。
 
 ### Fixed

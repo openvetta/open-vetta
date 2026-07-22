@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+### Changed
+
+- **Vitest 依赖上收到 monorepo 根**：本包不再声明 `devDependencies.vitest`，改用根目录统一版本；包内仍保留 `vitest.config.ts` 与 `"test": "vitest --run"`。
+
 ### Added
 
 - **工作流 subagent 类型 + 批量派遣（ADR-0044）**：新增内建类型 `workflow`（完整编码工具 + 子会话独享 todo 工具、继承父 MCP、完全单层）与控制工具 `dispatch_workflows`（一批最多 8 个，`task_name + message + todos`）。派遣时把主会话当前分支消息历史做一次性快照 fork 进子会话初始上下文（`fork-context.ts` 负责截断悬空 tool call、把 compaction/branch summary 转成 custom 种子消息）；todo 预填不锁定，子会话可自行增删。`SubagentSnapshot` 新增 `todoProgress`（done/total，todo 变更实时镜像）。

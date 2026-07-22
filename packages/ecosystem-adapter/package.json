@@ -26,7 +26,8 @@
 	"files": ["dist", "CHANGELOG.md", "README.md"],
 	"scripts": {
 		"clean": "shx rm -rf dist",
-		"build": "tsgo -p tsconfig.build.json"
+		"build": "tsgo -p tsconfig.build.json",
+		"test": "vitest --run"
 	},
 	"dependencies": {
 		"zod": "^4.4.3"

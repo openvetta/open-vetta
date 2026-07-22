@@ -111,8 +111,8 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
   `verify:ui:detach` 与 `verify:ui:stop`；
   不得用 `bun run dev` 绕过该隔离入口。完整流程见
   `docs/dev/README.md`。
-- Only run specific tests if user instructs: `bunx tsx ../../node_modules/vitest/dist/cli.js --run test/specific.test.ts`
-- Run tests from the package root, not the repo root.
+- Only run specific tests if user instructs. From the **package root**: `bunx vitest --run test/specific.test.ts` (Vitest is a monorepo root `devDependency`; each package keeps its own `vitest.config.*` and `"test"` script).
+- Run tests from the package root, not the repo root. Full package suite: `bun run test` in that package (root `bun run test` runs all workspace packages that define `test`).
 - When writing tests, run them, identify issues in either the test or implementation, and iterate until fixed.
 - NEVER commit unless user asks
 
