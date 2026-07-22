@@ -1,4 +1,6 @@
 export {
+	type BuildDefaultHookConfigLayersOptions,
+	buildDefaultHookConfigLayers,
 	createEcosystemHookRuntime,
 	type EcosystemHookAdapter,
 	type EcosystemHookAdapterFactory,

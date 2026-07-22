@@ -100,19 +100,14 @@ Zod 只负责“输入形状是否合法”，不负责 block、stop、fail-open
 
 ## 7. 文件发现边界
 
-默认 Coding Agent 只显式提供：
+默认 Coding Agent 经 `buildDefaultHookConfigLayers` 仅提供官方路径（source 带 `profileId`）：
 
-1. `~/.vetta/agent/hooks.json`，或调用方指定的 `agentDir/hooks.json`；
-2. `<cwd>/.vetta/hooks.json`。
+1. `$CODEX_HOME/hooks.json` 或 `~/.codex/hooks.json`（用户）；
+2. `<cwd>/.codex/hooks.json`（项目）。
 
-兼容层不会扫描或读取：
+不读 Vetta `agentDir` / `<cwd>/.vetta` 下的 hook 文件。兼容层不扫描 Codex 源码树或 marketplace；只解析宿主传入层。缺失文件 ENOENT 跳过。
 
-- `CODEX_HOME`
-- `~/.codex`
-- `<cwd>/.codex/hooks.json`
-- `C:\github\codex` 中的运行时文件
-
-插件加载器可以通过 `HookConfigLayer.sources` 显式提供应用已安装范围内的 Hook 文件和环境变量。兼容层不负责自动寻找 Codex 文件。
+插件加载器可以通过 `HookConfigLayer.sources` 显式提供应用已安装范围内的 Hook 文件和环境变量。
 
 ## 8. oh-story 样本对照
 
@@ -127,7 +122,7 @@ Zod 只负责“输入形状是否合法”，不负责 block、stop、fail-open
 | Pre/PostCompact | 手动和自动压缩都会触发 | 可用 |
 | Stop 扫描 | 根 turn 自然结束点执行 | 可用 |
 | `commandWindows` | Windows 使用覆盖命令 | 可用 |
-| 样本 `.codex/hooks.json` 自动发现 | Vetta 明确不扫描 `.codex` | 未实现，需显式部署 |
+| 样本 `.codex/hooks.json` 自动发现 | 默认 `buildDefaultHookConfigLayers` 读取官方路径 | 可用 |
 
 集成方必须把 Hook 配置作为 Vetta 应用或插件的显式 source 提供，并保证配置引用的 Python 脚本路径与实际部署位置一致。兼容层不会自动改写脚本路径。
 

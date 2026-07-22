@@ -59,7 +59,7 @@ export async function discoverClaudeHookHandlers(
 
 	for (const layer of layers) {
 		if (!layer.enabled) continue;
-		const sources = layer.sources ?? [{ path: join(layer.directory, "claude-hooks.json") }];
+		const sources = layer.sources ?? defaultClaudeSources(layer.directory);
 		for (const source of sources) {
 			if (!isClaudeOwnedSource(source)) continue;
 			displayOrder = await appendSource(
@@ -79,9 +79,22 @@ export function isClaudeOwnedSource(source: HookConfigSource): boolean {
 	if (source.profileId) return source.profileId.startsWith("claude-code-hooks");
 	if (source.env?.CLAUDE_PLUGIN_ROOT) return true;
 	const normalized = source.path.replace(/\\/g, "/").toLowerCase();
-	if (normalized.endsWith("/claude-hooks.json")) return true;
+	// Claude Code plugin layout
 	if (normalized.endsWith("/hooks/hooks.json")) return true;
+	// Official Claude Code settings (hooks key inside settings.json)
+	if (normalized.endsWith("/.claude/settings.json")) return true;
+	if (normalized.endsWith("/.claude/settings.local.json")) return true;
 	return false;
+}
+
+/** Default sources when a layer only provides a Claude config directory. */
+function defaultClaudeSources(directory: string): HookConfigSource[] {
+	const normalized = directory.replace(/\\/g, "/").toLowerCase();
+	if (normalized.endsWith("/.claude") || normalized.endsWith("/.claude/")) {
+		return [{ path: join(directory, "settings.json") }, { path: join(directory, "settings.local.json") }];
+	}
+	// Layer is a plugin root: only hooks/hooks.json is official without explicit sources.
+	return [{ path: join(directory, "hooks", "hooks.json") }];
 }
 
 async function appendSource(

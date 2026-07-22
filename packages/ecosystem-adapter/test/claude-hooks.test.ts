@@ -59,12 +59,12 @@ describe("claude tool mapper", () => {
 });
 
 describe("discoverClaudeHookHandlers", () => {
-	it("loads SessionStart command handlers from claude-hooks.json", async () => {
+	it("loads SessionStart command handlers from .claude/settings.json", async () => {
 		const root = await makeTempDir();
-		const vettaDir = join(root, ".vetta");
-		await mkdir(vettaDir, { recursive: true });
+		const claudeDir = join(root, ".claude");
+		await mkdir(claudeDir, { recursive: true });
 		await writeFile(
-			join(vettaDir, "claude-hooks.json"),
+			join(claudeDir, "settings.json"),
 			JSON.stringify({
 				hooks: {
 					SessionStart: [
@@ -82,7 +82,7 @@ describe("discoverClaudeHookHandlers", () => {
 			"utf8",
 		);
 
-		const result = await discoverClaudeHookHandlers([{ directory: vettaDir, enabled: true }], {
+		const result = await discoverClaudeHookHandlers([{ directory: claudeDir, enabled: true }], {
 			projectDir: root,
 		});
 		expect(result.diagnostics).toEqual([]);
@@ -148,10 +148,10 @@ describe("discoverClaudeHookHandlers", () => {
 
 	it("reports unsupported handler types and events", async () => {
 		const root = await makeTempDir();
-		const vettaDir = join(root, ".vetta");
-		await mkdir(vettaDir, { recursive: true });
+		const claudeDir = join(root, ".claude");
+		await mkdir(claudeDir, { recursive: true });
 		await writeFile(
-			join(vettaDir, "claude-hooks.json"),
+			join(claudeDir, "settings.json"),
 			JSON.stringify({
 				hooks: {
 					Notification: [{ hooks: [{ type: "command", command: "echo hi" }] }],
@@ -167,7 +167,7 @@ describe("discoverClaudeHookHandlers", () => {
 			}),
 			"utf8",
 		);
-		const result = await discoverClaudeHookHandlers([{ directory: vettaDir, enabled: true }], {
+		const result = await discoverClaudeHookHandlers([{ directory: claudeDir, enabled: true }], {
 			projectDir: root,
 		});
 		expect(result.handlers).toHaveLength(0);
@@ -176,23 +176,23 @@ describe("discoverClaudeHookHandlers", () => {
 	});
 });
 
-async function writeHookProject(files: Record<string, string>): Promise<{ root: string; vettaDir: string }> {
+async function writeHookProject(files: Record<string, string>): Promise<{ root: string; claudeDir: string }> {
 	const root = await makeTempDir();
-	const vettaDir = join(root, ".vetta");
-	await mkdir(vettaDir, { recursive: true });
+	const claudeDir = join(root, ".claude");
+	await mkdir(claudeDir, { recursive: true });
 	for (const [relative, content] of Object.entries(files)) {
 		const absolute = join(root, relative);
 		await mkdir(dirname(absolute), { recursive: true });
 		await writeFile(absolute, content, "utf8");
 	}
-	return { root, vettaDir };
+	return { root, claudeDir };
 }
 
 describe("createClaudeHookAdapter runtime", () => {
 	it("SessionStart plain stdout becomes additional context", async () => {
-		const { root, vettaDir } = await writeHookProject({
+		const { root, claudeDir } = await writeHookProject({
 			"session-start.cjs": `process.stdout.write("preflight context from fixture");\n`,
-			".vetta/claude-hooks.json": JSON.stringify({
+			".claude/settings.json": JSON.stringify({
 				hooks: {
 					SessionStart: [{ hooks: [{ type: "command", command: "node session-start.cjs" }] }],
 				},
@@ -208,7 +208,7 @@ describe("createClaudeHookAdapter runtime", () => {
 				abortCurrentRun: () => {},
 			},
 			initialSessionStartSource: "startup",
-			configLayers: [{ directory: vettaDir, enabled: true, label: "fixture" }],
+			configLayers: [{ directory: claudeDir, enabled: true, label: "fixture" }],
 		});
 
 		const outcome = await runtime.runPendingSessionStart();
@@ -219,7 +219,7 @@ describe("createClaudeHookAdapter runtime", () => {
 	});
 
 	it("UserPromptSubmit decision:block stops the prompt", async () => {
-		const { root, vettaDir } = await writeHookProject({
+		const { root, claudeDir } = await writeHookProject({
 			"block-prompt.cjs": `
 let data = "";
 process.stdin.on("data", (chunk) => { data += chunk; });
@@ -233,7 +233,7 @@ process.stdin.on("end", () => {
   }
 });
 `,
-			".vetta/claude-hooks.json": JSON.stringify({
+			".claude/settings.json": JSON.stringify({
 				hooks: {
 					UserPromptSubmit: [{ hooks: [{ type: "command", command: "node block-prompt.cjs" }] }],
 				},
@@ -249,7 +249,7 @@ process.stdin.on("end", () => {
 				abortCurrentRun: () => {},
 			},
 			initialSessionStartSource: "startup",
-			configLayers: [{ directory: vettaDir, enabled: true }],
+			configLayers: [{ directory: claudeDir, enabled: true }],
 		});
 		await runtime.runPendingSessionStart();
 		const blocked = await runtime.runUserPromptSubmit("/cdt plan something");
@@ -262,7 +262,7 @@ process.stdin.on("end", () => {
 	});
 
 	it("PreToolUse permissionDecision:deny blocks tool", async () => {
-		const { root, vettaDir } = await writeHookProject({
+		const { root, claudeDir } = await writeHookProject({
 			"deny-write.cjs": `
 let data = "";
 process.stdin.on("data", (chunk) => { data += chunk; });
@@ -279,7 +279,7 @@ process.stdin.on("end", () => {
   }
 });
 `,
-			".vetta/claude-hooks.json": JSON.stringify({
+			".claude/settings.json": JSON.stringify({
 				hooks: {
 					PreToolUse: [
 						{
@@ -300,7 +300,7 @@ process.stdin.on("end", () => {
 				abortCurrentRun: () => {},
 			},
 			initialSessionStartSource: "startup",
-			configLayers: [{ directory: vettaDir, enabled: true }],
+			configLayers: [{ directory: claudeDir, enabled: true }],
 		});
 		await runtime.runPendingSessionStart();
 		await runtime.runUserPromptSubmit("touch files");
@@ -326,7 +326,7 @@ process.stdin.on("end", () => {
 	});
 
 	it("Stop decision:block produces continuation fragments and stop_hook_active on reentry", async () => {
-		const { root, vettaDir } = await writeHookProject({
+		const { root, claudeDir } = await writeHookProject({
 			"stop-gate.cjs": `
 let data = "";
 process.stdin.on("data", (chunk) => { data += chunk; });
@@ -340,7 +340,7 @@ process.stdin.on("end", () => {
   }
 });
 `,
-			".vetta/claude-hooks.json": JSON.stringify({
+			".claude/settings.json": JSON.stringify({
 				hooks: {
 					Stop: [{ hooks: [{ type: "command", command: "node stop-gate.cjs" }] }],
 				},
@@ -356,7 +356,7 @@ process.stdin.on("end", () => {
 				abortCurrentRun: () => {},
 			},
 			initialSessionStartSource: "startup",
-			configLayers: [{ directory: vettaDir, enabled: true }],
+			configLayers: [{ directory: claudeDir, enabled: true }],
 		});
 		await runtime.runPendingSessionStart();
 		await runtime.runUserPromptSubmit("do work");

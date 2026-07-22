@@ -12,11 +12,21 @@ Codex profile 只兼容 `C:\github\codex` 提交 `fca51f6dafb106177f23084d16f076
 
 Claude Code profile 固定为 `claude-code-hooks/2.1.211`。它复用通用 dispatcher/executor，但配置 schema、stdin/stdout、matcher 与 exit code 语义独立。首期支持 Vetta 宿主已触发的事件子集与同步 `command` handler；`http` / `prompt` / `agent` 等 handler 产生诊断而不静默执行。
 
-Adapters 不发现 `CODEX_HOME`、`~/.codex`、`~/.claude` 或项目 `.codex` / `.claude`。它们只解析宿主显式传入的配置层。Vetta Coding Agent 当前只提供自己的应用目录，并按顺序累加读取：
+配置发现由宿主通过 `HookConfigLayer` / `buildDefaultHookConfigLayers()` 显式传入。默认构建器（Coding Agent `createAgentSession` 使用）**只读官方路径**，source 带 `profileId` 防止跨 profile 误读：
 
-- Codex：`~/.vetta/agent/hooks.json` 与 `<cwd>/.vetta/hooks.json`
-- Claude：`~/.vetta/agent/claude-hooks.json` 与 `<cwd>/.vetta/claude-hooks.json`，以及带 `CLAUDE_PLUGIN_ROOT` 或 `profileId: claude-code-hooks/*` 的显式 source（例如插件 `hooks/hooks.json`）
+**Codex**
 
-这些目录由 Vetta 宿主传给兼容解析器；ecosystem-adapter 不拥有应用目录策略。配置只在每个 Agent Session 首次触发 Hook 时加载一次。
+1. `$CODEX_HOME/hooks.json` 或 `~/.codex/hooks.json`
+2. `<cwd>/.codex/hooks.json`
+
+**Claude Code**
+
+1. `~/.claude/settings.json`（`"hooks"` 字段）
+2. `<cwd>/.claude/settings.json`、`<cwd>/.claude/settings.local.json`
+3. 插件：显式 `hooks/hooks.json` + `CLAUDE_PLUGIN_ROOT` 或 `profileId: claude-code-hooks/*`
+
+不读 `~/.vetta/agent` 或 `<cwd>/.vetta` 下的 hook 配置。官方布局与 [Codex Hooks](https://developers.openai.com/codex/hooks)、[Claude Code Hooks](https://code.claude.com/docs/en/hooks) 一致。缺失文件在 discovery 时静默跳过（ENOENT）。配置只在每个 Agent Session 首次触发 Hook 时加载一次。
+
+仍不支持：Codex inline TOML `[hooks]`、自动扫描 Claude marketplace。
 
 调用方也可以通过 `HookConfigLayer.sources` 显式提供 Vetta 已安装插件范围内的 Hook 文件，并为每个 source 注入环境变量。解析器不会自行扫描插件目录；插件 manifest 发现、路径边界校验与信任决策仍属于应用插件加载器职责。

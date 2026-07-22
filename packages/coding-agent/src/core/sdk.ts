@@ -1,9 +1,10 @@
 import { join } from "node:path";
 import { Agent, type AgentMessage, type ThinkingLevel } from "@vetta/agent-core";
 import type { Message, Model } from "@vetta/ai";
+import { buildDefaultHookConfigLayers } from "@vetta/ecosystem-adapter";
 import type { RuntimeTracer } from "@vetta/runtime-telemetry";
 import { createLangfuseRuntimeTracerFromEnv } from "@vetta/runtime-telemetry/langfuse";
-import { CONFIG_DIR_NAME, DEFAULT_SERVER_URL, ENV_SERVER_URL, getAgentDir, getDocsPath } from "../config.js";
+import { DEFAULT_SERVER_URL, ENV_SERVER_URL, getAgentDir, getDocsPath } from "../config.js";
 import { AgentSession } from "./agent-session.js";
 import { AuthStorage } from "./auth-storage.js";
 import { DEFAULT_THINKING_LEVEL } from "./defaults.js";
@@ -565,10 +566,8 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		resourceLoader,
 		customTools: options.customTools,
 		additionalHookAdapterFactories: options.additionalHookAdapterFactories,
-		hookConfigLayers: [
-			{ directory: agentDir, enabled: true, label: "vetta-user" },
-			{ directory: join(cwd, CONFIG_DIR_NAME), enabled: true, label: "vetta-project" },
-		],
+		// Official Codex/Claude paths only; profileId isolates ownership.
+		hookConfigLayers: buildDefaultHookConfigLayers({ cwd }),
 		modelRegistry,
 		scenario: options.scenario,
 		initialActiveToolNames,

@@ -1,3 +1,7 @@
+export {
+	type BuildDefaultHookConfigLayersOptions,
+	buildDefaultHookConfigLayers,
+} from "../default-hook-config-layers.js";
 export { HookDispatcher, type HookDispatcherOptions } from "./dispatcher.js";
 export { NodeHookCommandExecutor, type NodeHookCommandExecutorOptions } from "./node-command-executor.js";
 export {
