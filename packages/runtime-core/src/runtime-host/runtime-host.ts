@@ -357,6 +357,7 @@ export class RuntimeHost implements SessionFacade {
 			model: config.model,
 			thinkingLevel: config.thinkingLevel,
 			scenario: config.scenario,
+			agentMode: config.agentMode,
 			customTools,
 			appendSystemPrompt: config.appendSystemPrompt,
 			env: config.env,
@@ -419,6 +420,9 @@ export class RuntimeHost implements SessionFacade {
 			pendingAgentPlugins: undefined,
 			hasPendingAgentPlugins: false,
 			scenario: config.scenario ?? DEFAULT_SCENARIO,
+			agentMode: config.agentMode,
+			pendingAgentMode: undefined,
+			hasPendingAgentMode: false,
 		});
 		debugPluginAgent("runtime createSession registered", {
 			sessionId,
@@ -536,9 +540,26 @@ export class RuntimeHost implements SessionFacade {
 		}
 	}
 
+	/**
+	 * 全局切换工作模式（agent_mode 轴，纯全局态）。对每个 mode 不同的活跃 session 写 pending，
+	 * 于各自下一个 turn 边界（prompt 入口）apply，避免 streaming 中途换工具集。见 ADR-0046。
+	 */
+	setGlobalAgentMode(mode: string): void {
+		for (const handle of this.sessions.values()) {
+			if (handle.agentMode === mode) {
+				handle.pendingAgentMode = undefined;
+				handle.hasPendingAgentMode = false;
+				continue;
+			}
+			handle.pendingAgentMode = mode;
+			handle.hasPendingAgentMode = true;
+		}
+	}
+
 	async prompt(sessionId: string, request: PromptRequest): Promise<void> {
 		const handle = this.requireSession(sessionId);
 		await this.applyPendingAgentPlugins(sessionId, handle);
+		this.applyPendingAgentMode(handle);
 
 		// Ensure the session model matches the requested model BEFORE prompting,
 		// so the model actually used is always the one the UI displays.
@@ -629,6 +650,7 @@ export class RuntimeHost implements SessionFacade {
 	async continue(sessionId: string): Promise<void> {
 		const handle = this.requireSession(sessionId);
 		await this.applyPendingAgentPlugins(sessionId, handle);
+		this.applyPendingAgentMode(handle);
 		await handle.session.agent.continue();
 	}
 
@@ -1117,6 +1139,20 @@ export class RuntimeHost implements SessionFacade {
 			}
 			throw error;
 		}
+	}
+
+	/**
+	 * 在 turn 边界应用挂起的工作模式切换（仿 applyPendingAgentPlugins）。
+	 * streaming / bash 运行中不 apply，留到再下一个 turn 边界。见 ADR-0046。
+	 */
+	private applyPendingAgentMode(handle: SessionHandle): void {
+		if (!handle.hasPendingAgentMode) return;
+		if (handle.session.isStreaming || handle.session.isBashRunning) return;
+		const pendingAgentMode = handle.pendingAgentMode;
+		handle.pendingAgentMode = undefined;
+		handle.hasPendingAgentMode = false;
+		handle.agentMode = pendingAgentMode;
+		handle.session.setAgentMode(pendingAgentMode);
 	}
 
 	private assertCanSwitchExecutionMode(handle: SessionHandle): void {

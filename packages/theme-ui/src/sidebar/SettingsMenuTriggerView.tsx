@@ -3,29 +3,28 @@ import { cn } from "@vetta/ui";
 
 export interface SettingsMenuTriggerViewProps extends ComponentPropsWithoutRef<"button"> {
 	readonly avatar?: ReactNode;
-	readonly goBadgeColor?: string;
-	readonly goBadgeText?: string | null;
-	readonly goEnabled?: boolean;
-	readonly goTitle?: string;
+	/** 工作模式 badge 文案（Work/Coding，见 ADR-0046）。展示位取代原 Go 套餐 badge。 */
+	readonly agentModeBadge?: string;
+	readonly agentModeTitle?: string;
 	readonly open: boolean;
 	readonly settingsFallbackLabel: string;
 	readonly userLabel?: string | null;
 }
 
+function AgentModeBadge({ label, title }: { label: string; title?: string }): JSX.Element {
+	return (
+		<span
+			className="inline-flex shrink-0 items-center justify-center rounded-full bg-accent px-1.5 py-0.5 text-[9px] font-medium leading-none text-foreground"
+			title={title || label}
+		>
+			{label}
+		</span>
+	);
+}
+
 export const SettingsMenuTriggerView = forwardRef<HTMLButtonElement, SettingsMenuTriggerViewProps>(
 	function SettingsMenuTriggerView(
-		{
-			avatar,
-			className,
-			goBadgeColor,
-			goBadgeText,
-			goEnabled,
-			goTitle,
-			open,
-			settingsFallbackLabel,
-			userLabel,
-			...props
-		},
+		{ avatar, className, agentModeBadge, agentModeTitle, open, settingsFallbackLabel, userLabel, ...props },
 		ref,
 	): JSX.Element {
 		return (
@@ -43,20 +42,13 @@ export const SettingsMenuTriggerView = forwardRef<HTMLButtonElement, SettingsMen
 					<>
 						{avatar}
 						<span className="truncate">{userLabel}</span>
-						{goEnabled && (
-							<span
-								className="inline-flex shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-[9px] font-medium leading-none text-primary-foreground"
-								style={{ backgroundColor: goBadgeColor || "var(--primary)" }}
-								title={goTitle || "Vetta Go"}
-							>
-								{goBadgeText || goTitle || "Go"}
-							</span>
-						)}
+						{agentModeBadge && <AgentModeBadge label={agentModeBadge} title={agentModeTitle} />}
 					</>
 				) : (
 					<>
 						<span className="icon-[solar--settings-linear] h-3.5 w-3.5" />
-						{settingsFallbackLabel}
+						<span className="truncate">{settingsFallbackLabel}</span>
+						{agentModeBadge && <AgentModeBadge label={agentModeBadge} title={agentModeTitle} />}
 					</>
 				)}
 			</button>

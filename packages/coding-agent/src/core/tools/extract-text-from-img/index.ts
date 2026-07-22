@@ -171,6 +171,7 @@ export function createExtractTextFromImgTool(cwd: string): CodingAgentTool<typeo
 		name: "extract_text_from_img",
 		label: "extract_text_from_img",
 		scope_use: ["im-claw", "conversation", "project", "batch", "automation", "kb-processing", "cli"],
+		agent_mode: ["work"],
 		category: "doc",
 		description,
 		parameters: extractTextFromImgSchema,

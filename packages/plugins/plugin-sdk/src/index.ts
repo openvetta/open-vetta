@@ -66,6 +66,8 @@ export type PluginMcpServerConfig =
 			debug?: boolean;
 			displayName?: string;
 			description?: string;
+			/** 该 server 的工具允许出现的工作模式 slug（agent_mode 轴，缺省/空 = 通用）。见 ADR-0046。 */
+			agent_mode?: string | string[];
 	  }
 	| {
 			type: "http";
@@ -80,6 +82,8 @@ export type PluginMcpServerConfig =
 			debug?: boolean;
 			displayName?: string;
 			description?: string;
+			/** 该 server 的工具允许出现的工作模式 slug（agent_mode 轴，缺省/空 = 通用）。见 ADR-0046。 */
+			agent_mode?: string | string[];
 	  };
 
 export interface PluginAgentManifest {
@@ -541,6 +545,8 @@ export interface PluginAgentToolRegistration<TInput = unknown> {
 	scope_use?: readonly ConversationScenario[];
 	/** 需要的会话能力 slug（如 "knowledge"）；全满足才激活。一般插件无需设置。 */
 	requires?: string[];
+	/** 允许该工具出现的工作模式 slug（agent_mode 轴，如 "work"/"coding"）。缺省/空 = 通用。见 ADR-0046。 */
+	agent_mode?: readonly string[];
 	context?: { conversation?: "summary" | "messages" };
 	handler: PluginAgentToolHandler<TInput>;
 }
@@ -1511,6 +1517,9 @@ export interface PluginI18nApi {
 	onChange(listener: (locale: string) => void): Disposable;
 }
 
+/** 工作模式（agent_mode 轴，见 ADR-0046）。宿主 Work/Coding，未来可能扩展。 */
+export type AgentMode = "work" | "coding";
+
 export interface PluginContext {
 	plugin: {
 		id: string;
@@ -1527,6 +1536,10 @@ export interface PluginContext {
 	images: PluginImagesApi;
 	settings: PluginSettingsApi;
 	i18n: PluginI18nApi;
+	/** 当前工作模式（agent_mode 轴）。开发者据此做模式定制。见 ADR-0046。 */
+	getAgentMode(): AgentMode;
+	/** 订阅工作模式变更（纯全局实时切换）。返回 Disposable 取消订阅。 */
+	onAgentModeChanged(listener: (mode: AgentMode) => void): Disposable;
 }
 
 export interface PluginDefinition {

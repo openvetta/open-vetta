@@ -10,6 +10,7 @@ import {
 	activeSessionAtom,
 	activityPanelOpenAtom,
 	activityPanelTabByProjectAtom,
+	agentModeAtom,
 	attachedPluginTabsAtom,
 	editImageAttachmentAtom,
 	filePreviewAtom,
@@ -814,6 +815,7 @@ function createContext(
 						timeoutMs: registration.timeoutMs,
 						scope_use: registration.scope_use,
 						requires: registration.requires,
+						agent_mode: registration.agent_mode,
 						context: registration.context,
 					})
 					.then(() => {
@@ -1000,6 +1002,12 @@ function createContext(
 		images: createImagesApi(plugin),
 		settings: settingsApi,
 		i18n: createI18nApi(plugin),
+		getAgentMode: () => getDefaultStore().get(agentModeAtom),
+		onAgentModeChanged: (listener) => {
+			const store = getDefaultStore();
+			const unsub = store.sub(agentModeAtom, () => listener(store.get(agentModeAtom)));
+			return { dispose: unsub };
+		},
 	};
 }
 

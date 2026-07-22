@@ -102,6 +102,8 @@ export interface CreateAgentSessionOptions {
 	 * 即裸 CLI/SDK fallback（≈全开）。desktop 各入口按场景显式传入。
 	 */
 	scenario?: ConversationScenario;
+	/** 工作模式（agent_mode 正交轴）。不传=不按模式过滤（CLI/headless）。见 ADR-0046。 */
+	agentMode?: string;
 	/** Custom tools to register (in addition to built-in tools). */
 	customTools?: ToolDefinition[];
 	/** Additional external-ecosystem Hook adapters composed with built-in adapters. */
@@ -570,6 +572,7 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		hookConfigLayers: buildDefaultHookConfigLayers({ cwd }),
 		modelRegistry,
 		scenario: options.scenario,
+		agentMode: options.agentMode,
 		initialActiveToolNames,
 		extensionRunnerRef,
 		envOverlay: options.env,

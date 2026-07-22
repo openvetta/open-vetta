@@ -50,6 +50,7 @@ export function createRenderPdfPageTool(cwd: string): CodingAgentTool<typeof ren
 		name: "render_pdf_page",
 		label: "render_pdf_page",
 		scope_use: ["im-claw", "conversation", "project", "batch", "automation", "kb-processing", "cli"],
+		agent_mode: ["work"],
 		category: "doc",
 		description,
 		parameters: renderPdfPageSchema,
