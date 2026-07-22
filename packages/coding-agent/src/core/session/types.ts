@@ -79,6 +79,8 @@ export interface AgentSessionConfig {
 	hookConfigLayers?: readonly HookConfigLayer[];
 	/** 对话场景：决定按 scope_use 激活哪些工具。默认 DEFAULT_SCENARIO("cli")。 */
 	scenario?: ConversationScenario;
+	/** 工作模式（agent_mode 正交轴）。不传=不按模式过滤。见 ADR-0046。 */
+	agentMode?: string;
 	/** Initial active built-in tool names. Default: [read, command-tool, edit, write] */
 	initialActiveToolNames?: string[];
 	/** Override base tools (useful for custom runtimes). */

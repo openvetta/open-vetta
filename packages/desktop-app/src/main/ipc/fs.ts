@@ -61,6 +61,8 @@ export interface DesktopConfig {
 	 * 缺省（undefined）= 跟随系统（等价 system）。
 	 */
 	language?: LanguagePreference;
+	/** 工作模式（agent_mode 轴，见 ADR-0046）：`work` | `coding`。缺省视为 `work`。 */
+	agentMode?: "work" | "coding";
 	/** 实验性功能开关分组。缺省视为全部开启。 */
 	experimental?: ExperimentalConfig;
 	/** 知识库加工设置。 */
@@ -173,6 +175,7 @@ const DEFAULT_CONFIG: DesktopConfig = {
 	archivedProjects: [],
 	workspacePath: join(getVettaHomePath(), "workspace"),
 	defaultExecutionMode: "full-access",
+	agentMode: "work",
 	debugMode: false,
 	notificationsEnabled: true,
 	experimental: { vettaCli: true, agentSkills: true },
@@ -194,6 +197,11 @@ function migrateProjectEntries(entries: unknown): ProjectEntry[] {
 
 function normalizeExecutionMode(value: unknown): "sandbox" | "full-access" {
 	return value === "sandbox" ? "sandbox" : "full-access";
+}
+
+/** 归一化工作模式（agent_mode 轴）。未知/缺省 → "work"（ADR-0046 desktop 默认）。 */
+function normalizeAgentMode(value: unknown): "work" | "coding" {
+	return value === "coding" ? "coding" : "work";
 }
 
 const KB_POLL_INTERVALS = [3, 5, 10, 30];
@@ -295,6 +303,7 @@ export async function readDesktopConfig(): Promise<DesktopConfig> {
 			workspacePath:
 				typeof parsed.workspacePath === "string" ? expandTilde(parsed.workspacePath) : DEFAULT_CONFIG.workspacePath,
 			defaultExecutionMode: normalizeExecutionMode(parsed.defaultExecutionMode),
+			agentMode: normalizeAgentMode(parsed.agentMode),
 			debugMode: typeof parsed.debugMode === "boolean" ? parsed.debugMode : false,
 			vettaAppPath: typeof parsed.vettaAppPath === "string" ? parsed.vettaAppPath : undefined,
 			vettaCliAppPath: typeof parsed.vettaCliAppPath === "string" ? parsed.vettaCliAppPath : undefined,
@@ -323,6 +332,7 @@ export function readConfigSync(): DesktopConfig {
 			workspacePath:
 				typeof parsed.workspacePath === "string" ? expandTilde(parsed.workspacePath) : DEFAULT_CONFIG.workspacePath,
 			defaultExecutionMode: normalizeExecutionMode(parsed.defaultExecutionMode),
+			agentMode: normalizeAgentMode(parsed.agentMode),
 			debugMode: typeof parsed.debugMode === "boolean" ? parsed.debugMode : false,
 			vettaAppPath: typeof parsed.vettaAppPath === "string" ? parsed.vettaAppPath : undefined,
 			vettaCliAppPath: typeof parsed.vettaCliAppPath === "string" ? parsed.vettaCliAppPath : undefined,
@@ -869,6 +879,7 @@ export function registerFsIpc(): () => void {
 				patch.defaultExecutionMode !== undefined
 					? normalizeExecutionMode(patch.defaultExecutionMode)
 					: current.defaultExecutionMode,
+			agentMode: patch.agentMode !== undefined ? normalizeAgentMode(patch.agentMode) : current.agentMode,
 			debugMode: patch.debugMode ?? current.debugMode,
 			vettaAppPath: patch.vettaAppPath ?? current.vettaAppPath,
 			vettaCliAppPath: patch.vettaCliAppPath ?? current.vettaCliAppPath,

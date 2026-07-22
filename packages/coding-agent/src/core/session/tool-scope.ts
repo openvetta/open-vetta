@@ -15,6 +15,7 @@
 
 import type { TSchema } from "@sinclair/typebox";
 import type { AgentTool } from "@vetta/agent-core";
+import { matchesAgentMode } from "../agent-mode.js";
 
 /** 对话场景 slug。隔离的唯一轴。 */
 export type ConversationScenario =
@@ -73,17 +74,21 @@ export type ToolCategory =
  * @param scenario 当前对话场景。
  * @param tools 注册表里全部可用工具（含 MCP / plugin / extension）。
  * @param capabilities 当前会话具备的能力集。
+ * @param mode 当前工作模式（agent_mode 正交轴）；`undefined`（CLI/headless）= 不过滤。见 ADR-0046。
  */
 export function resolveActiveToolNames(
 	scenario: ConversationScenario,
 	tools: AgentTool[],
 	capabilities: ReadonlySet<string>,
+	mode?: string,
 ): string[] {
 	const active: string[] = [];
 	for (const tool of tools) {
 		// fail-closed：未声明 scope_use 或不含当前场景 → 不激活。
 		if (!tool.scope_use || !tool.scope_use.includes(scenario)) continue;
 		if (tool.requires && !tool.requires.every((c) => capabilities.has(c))) continue;
+		// agent_mode 正交轴：未传 mode 不过滤；工具未声明 agent_mode 视为通用。
+		if (!matchesAgentMode(tool.agent_mode, mode)) continue;
 		active.push(tool.name);
 	}
 	return active;

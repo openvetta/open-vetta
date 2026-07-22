@@ -16,6 +16,7 @@ export type SystemPromptBlockType =
 	| "context"
 	| "memory"
 	| "skills"
+	| "mode"
 	| "personalization"
 	| "footer"
 	| "plugin";
@@ -103,6 +104,8 @@ export interface McpServerContribution {
 	/** Unique runtime server name, e.g. `plugin-cowart-canvas`. */
 	runtimeName: string;
 	config: AgentPluginMcpServerConfig;
+	/** 该 server 的工具允许出现的工作模式 slug（agent_mode 轴，缺省/空 = 通用）。见 ADR-0046。 */
+	agent_mode?: string[];
 }
 
 export type JsonSchema = Record<string, unknown>;
@@ -588,6 +591,8 @@ export interface SessionConfig {
 	 * DEFAULT_SCENARIO("cli")。desktop 各入口（普通对话/项目/批量/自动化）显式传入。
 	 */
 	scenario?: ConversationScenario;
+	/** 工作模式（agent_mode 正交轴）。纯全局态，desktop 从 desktop-config 读入。缺省=不过滤。见 ADR-0046。 */
+	agentMode?: string;
 	/** 追加到 system prompt 末尾的文本，不会被上下文压缩 */
 	appendSystemPrompt?: string;
 	/**

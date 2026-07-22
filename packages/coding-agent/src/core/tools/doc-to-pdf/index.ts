@@ -238,6 +238,7 @@ export function createDocToPdfTool(cwd: string, options?: DocToPdfToolOptions): 
 		name: "doc_to_pdf",
 		label: "doc_to_pdf",
 		scope_use: ["im-claw", "conversation", "project", "batch", "automation", "kb-processing", "cli"],
+		agent_mode: ["work"],
 		category: "doc",
 		description,
 		parameters: docToPdfSchema,

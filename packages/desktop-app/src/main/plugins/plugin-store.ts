@@ -310,6 +310,8 @@ function buildMcpServerContributionsForPlugin(plugin: InstalledPlugin): McpServe
 				localName,
 				runtimeName,
 				config: resolved,
+				// agent_mode 轴：per-server 工作模式（缺省/空 = 通用）。见 ADR-0046。
+				agent_mode: normalizeAgentModeList(config.agent_mode),
 			});
 		} catch (error) {
 			pluginLog.warn(`Plugin ${plugin.id}: skip MCP server '${localName}':`, error);
@@ -514,6 +516,8 @@ function parseManifest(raw: unknown): PluginManifest {
 			input.guidingWords === undefined ? undefined : assertStringArray(input.guidingWords, "guidingWords"),
 		defaultLocale: parseDefaultLocale(input.defaultLocale),
 		contributionMode: parseContributionMode(input.contributionMode),
+		// 插件级工作模式白名单（agent_mode 轴，缺省/空 = 通用/全局）。见 ADR-0046。
+		agent_mode: normalizeAgentModeList(input.agent_mode),
 	};
 }
 
@@ -892,6 +896,7 @@ function applyDevOverlay(plugin: InstalledPlugin): InstalledPlugin {
 		entryUrl: toDevPluginUrl(plugin.id, manifest.entry, link.reloadToken),
 		moduleFederation: manifest.moduleFederation,
 		agent: manifest.agent,
+		agent_mode: manifest.agent_mode,
 		styleUrls: (manifest.styles ?? []).map((style) => toDevPluginUrl(plugin.id, style, link.reloadToken)),
 		guidingWords: manifest.guidingWords,
 		defaultLocale: manifest.defaultLocale ?? "zh",
@@ -991,12 +996,39 @@ function readPromptBlock(
 	};
 }
 
+/** 当前全局工作模式（agent_mode 轴，纯全局态）。由 setPluginRuntimeAgentMode 更新，插件级硬闸据此过滤。见 ADR-0046。 */
+let currentAgentMode: string | undefined;
+
+/** 主进程记录当前全局工作模式，供 buildAgentPluginRuntimeConfig 的插件级硬闸使用。 */
+export function setPluginRuntimeAgentMode(mode: string | undefined): void {
+	currentAgentMode = mode;
+}
+
+/** manifest agent_mode（string | string[]）→ 归一化 string[]；空 → undefined（通用）。见 ADR-0046。 */
+function normalizeAgentModeList(raw: unknown): string[] | undefined {
+	if (raw === undefined || raw === null) return undefined;
+	const arr = (Array.isArray(raw) ? raw : [raw]).map((m) => String(m).trim()).filter((m) => m.length > 0);
+	return arr.length > 0 ? arr : undefined;
+}
+
+/**
+ * 插件级 agent_mode 硬闸：白名单外整个插件不可见（含 agent 贡献；UI/bundle 由 renderer 端过滤）。
+ * 当前无 mode（CLI/headless）或插件未声明 = 放行。见 ADR-0046。
+ */
+function pluginMatchesAgentMode(plugin: InstalledPlugin): boolean {
+	if (currentAgentMode === undefined) return true;
+	const declared = normalizeAgentModeList(plugin.agent_mode);
+	if (!declared || declared.length === 0) return true;
+	return declared.includes(currentAgentMode);
+}
+
 export function buildAgentPluginRuntimeConfig(): AgentPluginRuntimeConfig | undefined {
 	const enabledPlugins = listPlugins().filter(
-		(plugin) => plugin.enabled && plugin.agent && isPluginContributionModeActive(plugin.id),
+		(plugin) =>
+			plugin.enabled && plugin.agent && isPluginContributionModeActive(plugin.id) && pluginMatchesAgentMode(plugin),
 	);
 	const enabledToolPlugins = listPlugins().filter(
-		(plugin) => plugin.enabled && isPluginContributionModeActive(plugin.id),
+		(plugin) => plugin.enabled && isPluginContributionModeActive(plugin.id) && pluginMatchesAgentMode(plugin),
 	);
 	debugPluginAgent("build runtime config start", {
 		agentPlugins: enabledPlugins.map((plugin) => plugin.id),
@@ -1334,6 +1366,7 @@ function systemInstalledFromManifest(
 		entryUrl: toSystemPluginUrl(manifest.id, manifest.entry, manifest.version),
 		moduleFederation: manifest.moduleFederation,
 		agent: manifest.agent,
+		agent_mode: manifest.agent_mode,
 		styleUrls: (manifest.styles ?? []).map((style) => toSystemPluginUrl(manifest.id, style, manifest.version)),
 		permissions: manifest.permissions ?? [],
 		// 系统插件随包发的可信代码：声明权限全部自动授予，用户不可撤（ADR-0024）。
