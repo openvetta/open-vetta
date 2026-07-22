@@ -10,7 +10,7 @@ export default definePlugin({
 		// 不能出现 JSX；icon 须在 activate 内构造（此时 bootstrap 已完成）。
 		ctx.ui.registerActivityTab({
 			id: "preview",
-			label: "移动预览",
+			label: "%tab.label%",
 			icon: (
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
 					<rect x="7" y="2.5" width="10" height="19" rx="2.5" />
