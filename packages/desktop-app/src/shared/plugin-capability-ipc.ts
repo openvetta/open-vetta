@@ -10,4 +10,11 @@ export const PLUGIN_CAPABILITY_CHANNELS = {
 	FS_MOVE: "vetta:plugins:capabilities:fs:move",
 	FS_CREATE_DIRECTORY: "vetta:plugins:capabilities:fs:create-directory",
 	FS_LIST_FILES_RECURSIVE: "vetta:plugins:capabilities:fs:list-files-recursive",
+	PROJECT_LIST: "vetta:plugins:capabilities:project:list",
+	PROJECT_CREATE: "vetta:plugins:capabilities:project:create",
+	PROJECT_OPEN: "vetta:plugins:capabilities:project:open",
+	PROJECT_RENAME: "vetta:plugins:capabilities:project:rename",
+	PROJECT_ARCHIVE: "vetta:plugins:capabilities:project:archive",
+	PROJECT_UNARCHIVE: "vetta:plugins:capabilities:project:unarchive",
+	PROJECT_REMOVE: "vetta:plugins:capabilities:project:remove",
 } as const;

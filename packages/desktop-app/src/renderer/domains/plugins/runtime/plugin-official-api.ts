@@ -18,7 +18,7 @@ import { createOfficialSkillsApi } from "./plugin-official-skills";
 import { createOfficialUpdaterApi } from "./plugin-official-updater";
 import { createOfficialWebhookApi } from "./plugin-official-webhook";
 
-export function createPluginOfficialApi(plugin: InstalledPlugin): PluginOfficialApi {
+export function createPluginOfficialApi(plugin: InstalledPlugin, capabilitySessionId: string): PluginOfficialApi {
 	const assertOfficial = (): void => {
 		if (plugin.trustLevel !== "official") {
 			throw new Error(`Plugin ${plugin.id} is not allowed to use official host capabilities`);
@@ -36,7 +36,7 @@ export function createPluginOfficialApi(plugin: InstalledPlugin): PluginOfficial
 		im: createOfficialImApi(assertOfficial),
 		mcp: createOfficialMcpApi(assertOfficial),
 		models: createOfficialModelsApi(assertOfficial),
-		projects: createOfficialProjectsApi(assertOfficial),
+		projects: createOfficialProjectsApi(assertOfficial, capabilitySessionId),
 		plugins: createOfficialPluginsApi(assertOfficial),
 		knowledge: createOfficialKnowledgeApi(assertOfficial),
 		batchTasks: createOfficialBatchTasksApi(assertOfficial),

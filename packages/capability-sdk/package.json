@@ -33,7 +33,8 @@
 	"files": ["dist"],
 	"scripts": {
 		"clean": "rm -rf dist",
-		"build": "tsgo -p tsconfig.build.json"
+		"build": "tsgo -p tsconfig.build.json",
+		"test": "bunx vitest --run"
 	},
 	"devDependencies": {
 		"@types/node": "^22.10.5",

@@ -3,6 +3,7 @@ import { PluginCapabilityAdapter } from "@vetta/capability-sdk/internal/plugin-a
 import { ThemeCapabilityAdapter } from "@vetta/capability-sdk/internal/theme-adapter";
 import { getAppLogger } from "../logger.js";
 import { listPlugins } from "../plugins/plugin-store.js";
+import { registerDesktopDomainProviders } from "./domain-providers.js";
 import { registerDesktopFoundationProviders } from "./foundation-providers.js";
 
 const log = getAppLogger("capability-access");
@@ -30,12 +31,17 @@ function auditCapabilityAccess(event: CapabilityAccessAuditEvent): void {
 function createDesktopCapabilityHost(): DesktopCapabilityHost {
 	const hub = new CapabilityHub();
 	const foundationRegistration = registerDesktopFoundationProviders(hub.foundation);
+	const domainRegistration = registerDesktopDomainProviders(hub.domain);
 	const access = new CapabilityAccessController(hub, { audit: auditCapabilityAccess });
 	const pluginAdapter = new PluginCapabilityAdapter(access, {
 		resolvePermissions: (pluginId) => {
 			const plugin = listPlugins().find((candidate) => candidate.id === pluginId);
 			if (!plugin || !plugin.enabled) return [];
 			return plugin.permissions.filter((permission) => plugin.grantedPermissions.includes(permission));
+		},
+		isOfficialPlugin: (pluginId) => {
+			const plugin = listPlugins().find((candidate) => candidate.id === pluginId);
+			return plugin?.enabled === true && plugin.trustLevel === "official";
 		},
 	});
 	const themeAdapter = new ThemeCapabilityAdapter(access);
@@ -46,6 +52,7 @@ function createDesktopCapabilityHost(): DesktopCapabilityHost {
 		dispose: () => {
 			pluginAdapter.dispose();
 			themeAdapter.dispose();
+			domainRegistration.dispose();
 			foundationRegistration.dispose();
 		},
 	};

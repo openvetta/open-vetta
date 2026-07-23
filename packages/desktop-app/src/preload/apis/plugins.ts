@@ -26,6 +26,19 @@ export function createPluginsApi(ipc: IpcRenderer): Pick<DesktopApi, "plugins"> 
 					listFilesRecursive: (sessionId, path) =>
 						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.FS_LIST_FILES_RECURSIVE, sessionId, path),
 				},
+				projects: {
+					list: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.PROJECT_LIST, sessionId),
+					create: (sessionId, name, path) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.PROJECT_CREATE, sessionId, name, path),
+					open: (sessionId, path, name) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.PROJECT_OPEN, sessionId, path, name),
+					rename: (sessionId, path, name) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.PROJECT_RENAME, sessionId, path, name),
+					archive: (sessionId, path) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.PROJECT_ARCHIVE, sessionId, path),
+					unarchive: (sessionId, path) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.PROJECT_UNARCHIVE, sessionId, path),
+					remove: (sessionId, path) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.PROJECT_REMOVE, sessionId, path),
+				},
 			},
 			list: () => ipc.invoke("vetta:plugins:list"),
 			installFromArchive: (archiveBuffer, options) =>

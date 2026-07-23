@@ -8,6 +8,7 @@ import type {
 } from "../src/access.js";
 import { PLUGIN_CAPABILITY_PERMISSIONS, PluginCapabilityAdapter } from "../src/adapters/plugin.js";
 import { CAPABILITY_ERROR_CODES, type CapabilityId, type CapabilityToken } from "../src/contracts.js";
+import { DOMAIN_PROJECT_CAPABILITIES } from "../src/domain.js";
 import { FOUNDATION_FILESYSTEM_CAPABILITIES } from "../src/foundation.js";
 
 class RecordingAccessFactory implements CapabilityAccessSessionFactory {
@@ -46,6 +47,16 @@ function outputFor(capabilityId: CapabilityId): unknown {
 	}
 	if (capabilityId === FOUNDATION_FILESYSTEM_CAPABILITIES.STAT.id) return null;
 	if (capabilityId === FOUNDATION_FILESYSTEM_CAPABILITIES.LIST_FILES_RECURSIVE.id) return [];
+	if (capabilityId === DOMAIN_PROJECT_CAPABILITIES.LIST.id) {
+		return { workspacePath: "C:/workspace", projects: [], archivedProjects: [] };
+	}
+	if (
+		capabilityId === DOMAIN_PROJECT_CAPABILITIES.CREATE.id ||
+		capabilityId === DOMAIN_PROJECT_CAPABILITIES.OPEN.id ||
+		capabilityId === DOMAIN_PROJECT_CAPABILITIES.RENAME.id
+	) {
+		return { path: "C:/workspace/demo", name: "demo" };
+	}
 	return undefined;
 }
 
@@ -53,6 +64,7 @@ describe("PluginCapabilityAdapter", () => {
 	it("maps plugin permissions to exact filesystem capability grants", async () => {
 		const access = new RecordingAccessFactory();
 		const adapter = new PluginCapabilityAdapter(access, {
+			isOfficialPlugin: () => false,
 			resolvePermissions: () => [PLUGIN_CAPABILITY_PERMISSIONS.FILESYSTEM_READ],
 		});
 
@@ -78,6 +90,7 @@ describe("PluginCapabilityAdapter", () => {
 		const access = new RecordingAccessFactory();
 		let permissions: readonly string[] = [PLUGIN_CAPABILITY_PERMISSIONS.FILESYSTEM_READ];
 		const adapter = new PluginCapabilityAdapter(access, {
+			isOfficialPlugin: () => false,
 			resolvePermissions: () => permissions,
 		});
 		const sessionId = adapter.openSession("revocable");
@@ -92,6 +105,7 @@ describe("PluginCapabilityAdapter", () => {
 	it("revokes the previous session when the same plugin is opened again", () => {
 		const access = new RecordingAccessFactory();
 		const adapter = new PluginCapabilityAdapter(access, {
+			isOfficialPlugin: () => false,
 			resolvePermissions: () => [PLUGIN_CAPABILITY_PERMISSIONS.FILESYSTEM_READ],
 		});
 		const firstSessionId = adapter.openSession("reloadable");
@@ -111,10 +125,49 @@ describe("PluginCapabilityAdapter", () => {
 	it("allows empty file content", async () => {
 		const access = new RecordingAccessFactory();
 		const adapter = new PluginCapabilityAdapter(access, {
+			isOfficialPlugin: () => false,
 			resolvePermissions: () => [PLUGIN_CAPABILITY_PERMISSIONS.FILESYSTEM_WRITE],
 		});
 		const sessionId = adapter.openSession("writer");
 
 		await expect(adapter.writeFile(sessionId, "C:/project/empty.txt", "")).resolves.toBeUndefined();
+	});
+
+	it("grants project capabilities only to official plugins and rechecks trust on every invocation", async () => {
+		const access = new RecordingAccessFactory();
+		let official = true;
+		const adapter = new PluginCapabilityAdapter(access, {
+			isOfficialPlugin: () => official,
+			resolvePermissions: () => [],
+		});
+		const sessionId = adapter.openSession("official");
+
+		expect(access.sessions[0]?.grants.map((grant) => grant.capabilityId)).toEqual(
+			Object.values(DOMAIN_PROJECT_CAPABILITIES).map((capability) => capability.id),
+		);
+		await expect(adapter.listProjects(sessionId)).resolves.toEqual({
+			workspacePath: "C:/workspace",
+			projects: [],
+			archivedProjects: [],
+		});
+
+		official = false;
+		expect(() => adapter.listProjects(sessionId)).toThrowError(
+			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
+		);
+	});
+
+	it("does not grant project capabilities to non-official plugins", () => {
+		const access = new RecordingAccessFactory();
+		const adapter = new PluginCapabilityAdapter(access, {
+			isOfficialPlugin: () => false,
+			resolvePermissions: () => [],
+		});
+		const sessionId = adapter.openSession("community");
+
+		expect(access.sessions[0]?.grants).toEqual([]);
+		expect(() => adapter.listProjects(sessionId)).toThrowError(
+			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
+		);
 	});
 });
