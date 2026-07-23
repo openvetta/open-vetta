@@ -8,6 +8,7 @@
 
 import type { AgentMessage, AgentTool, ThinkingLevel } from "@vetta/agent-core";
 import type { Model } from "@vetta/ai";
+import type { EcosystemHookRuntime } from "../hooks/index.js";
 import type { ConversationScenario } from "../session/tool-scope.js";
 
 /** Stable builtin type id for the read-only explorer (first shipped type). */
@@ -188,6 +189,11 @@ export interface SubagentCoordinatorOptions {
 	onNotify?: (payload: SubagentNotificationPayload) => void;
 	/** Snapshot list changed (UI). */
 	onUpdate?: (agents: ReadonlyArray<SubagentSnapshot>) => void;
+	/**
+	 * Optional ecosystem hooks for user-visible subagent lifecycle
+	 * ({@link EcosystemHookRuntime.runSubagentStart} / {@link EcosystemHookRuntime.runSubagentStop}).
+	 */
+	hookRuntime?: EcosystemHookRuntime;
 }
 
 export interface SubagentNotificationPayload {

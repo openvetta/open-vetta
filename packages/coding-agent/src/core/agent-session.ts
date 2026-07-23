@@ -268,6 +268,7 @@ export class AgentSession {
 				getParentContextMessages: () => [...this.agent.state.messages],
 				agentDir: undefined,
 				maxConcurrent: config.subagentMaxConcurrent,
+				hookRuntime: this._hookRuntime,
 				onUpdate: (agents) => {
 					this._emit({ type: "subagents_update", agents });
 				},

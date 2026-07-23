@@ -16,6 +16,8 @@ import type {
 	ContextEvent,
 	ContextEventResult,
 	ContextUsage,
+	EcosystemPermissionHookRequest,
+	EcosystemPermissionHookResult,
 	Extension,
 	ExtensionActions,
 	ExtensionCommandContext,
@@ -216,6 +218,9 @@ export class ExtensionRunner {
 	private shutdownHandler: ShutdownHandler = () => {};
 	private shortcutDiagnostics: ResourceDiagnostic[] = [];
 	private commandDiagnostics: ResourceDiagnostic[] = [];
+	private ecosystemPermissionHandler?: (
+		request: EcosystemPermissionHookRequest,
+	) => Promise<EcosystemPermissionHookResult | undefined>;
 
 	constructor(
 		extensions: Extension[],
@@ -230,6 +235,16 @@ export class ExtensionRunner {
 		this.cwd = cwd;
 		this.sessionManager = sessionManager;
 		this.modelRegistry = modelRegistry;
+	}
+
+	/**
+	 * Wire ecosystem PermissionRequest hooks into {@link ExtensionContext.requestEcosystemPermission}.
+	 * Called by RuntimeManager when sandbox (or other) permission UIs share this runner.
+	 */
+	setEcosystemPermissionHandler(
+		handler?: (request: EcosystemPermissionHookRequest) => Promise<EcosystemPermissionHookResult | undefined>,
+	): void {
+		this.ecosystemPermissionHandler = handler;
 	}
 
 	bindCore(actions: ExtensionActions, contextActions: ExtensionContextActions): void {
@@ -495,6 +510,7 @@ export class ExtensionRunner {
 	 */
 	createContext(): ExtensionContext {
 		const getModel = this.getModel;
+		const permissionHandler = this.ecosystemPermissionHandler;
 		return {
 			ui: this.uiContext,
 			hasUI: this.hasUI(),
@@ -511,6 +527,7 @@ export class ExtensionRunner {
 			getContextUsage: () => this.getContextUsageFn(),
 			compact: (options) => this.compactFn(options),
 			getSystemPrompt: () => this.getSystemPromptFn(),
+			requestEcosystemPermission: permissionHandler ? (request) => permissionHandler(request) : undefined,
 		};
 	}
 

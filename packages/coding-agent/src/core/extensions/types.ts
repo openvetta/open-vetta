@@ -263,6 +263,24 @@ export interface SandboxGrantPromptRequest {
 	sensitive: boolean;
 }
 
+/**
+ * Input for ecosystem PermissionRequest hooks, fired only when a host permission UI
+ * is about to appear (e.g. sandbox grant). Not Claude wire vocabulary.
+ */
+export interface EcosystemPermissionHookRequest {
+	toolName: string;
+	toolInput: unknown;
+	/** Stable id suffix for this approval attempt (run summary / wire run_id). */
+	runIdSuffix: string;
+	signal?: AbortSignal;
+}
+
+export interface EcosystemPermissionHookResult {
+	/** Hook decided without showing UI. Undefined = fall through to host UI. */
+	decision?: "allow" | "deny";
+	message?: string;
+}
+
 // ============================================================================
 // Extension Context
 // ============================================================================
@@ -311,6 +329,13 @@ export interface ExtensionContext {
 	compact(options?: CompactOptions): void;
 	/** Get the current effective system prompt. */
 	getSystemPrompt(): string;
+	/**
+	 * Optional ecosystem PermissionRequest gate. Host wires {@link EcosystemHookRuntime}
+	 * here; sandbox (and future permission UIs) call before prompting the user.
+	 */
+	requestEcosystemPermission?(
+		request: EcosystemPermissionHookRequest,
+	): Promise<EcosystemPermissionHookResult | undefined>;
 }
 
 /**

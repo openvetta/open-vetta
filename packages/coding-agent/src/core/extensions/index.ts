@@ -43,6 +43,8 @@ export type {
 	CustomToolResultEvent,
 	DirTreeToolCallEvent,
 	DirTreeToolResultEvent,
+	EcosystemPermissionHookRequest,
+	EcosystemPermissionHookResult,
 	EditToolCallEvent,
 	EditToolResultEvent,
 	ExecOptions,
