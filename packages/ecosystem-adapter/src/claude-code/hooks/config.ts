@@ -81,7 +81,7 @@ export function isClaudeOwnedSource(source: HookConfigSource): boolean {
 	const normalized = source.path.replace(/\\/g, "/").toLowerCase();
 	// Claude Code plugin layout
 	if (normalized.endsWith("/hooks/hooks.json")) return true;
-	// Official Claude Code settings (hooks key inside settings.json)
+	// Claude settings under any .claude dir (including .vetta/.claude)
 	if (normalized.endsWith("/.claude/settings.json")) return true;
 	if (normalized.endsWith("/.claude/settings.local.json")) return true;
 	return false;

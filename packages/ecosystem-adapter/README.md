@@ -12,20 +12,20 @@ Codex profile 只兼容 `C:\github\codex` 提交 `fca51f6dafb106177f23084d16f076
 
 Claude Code profile 固定为 `claude-code-hooks/2.1.211`。它复用通用 dispatcher/executor，但配置 schema、stdin/stdout、matcher 与 exit code 语义独立。首期支持 Vetta 宿主已触发的事件子集与同步 `command` handler；`http` / `prompt` / `agent` 等 handler 产生诊断而不静默执行。
 
-配置发现由宿主通过 `HookConfigLayer` / `buildDefaultHookConfigLayers()` 显式传入。默认构建器（Coding Agent `createAgentSession` 使用）**只读官方路径**，source 带 `profileId` 防止跨 profile 误读：
+配置发现由宿主通过 `HookConfigLayer` / `buildDefaultHookConfigLayers()` 显式传入。默认构建器（Coding Agent `createAgentSession` 使用）**只在 Vetta 根下镜像官方目录布局**，source 带 `profileId` 防止跨 profile 误读：
 
 **Codex**
 
-1. `$CODEX_HOME/hooks.json` 或 `~/.codex/hooks.json`
-2. `<cwd>/.codex/hooks.json`
+1. `~/.vetta/.codex/hooks.json`（`VETTA_HOME` 可覆盖 vetta 根）
+2. `<cwd>/.vetta/.codex/hooks.json`
 
 **Claude Code**
 
-1. `~/.claude/settings.json`（`"hooks"` 字段）
-2. `<cwd>/.claude/settings.json`、`<cwd>/.claude/settings.local.json`
+1. `~/.vetta/.claude/settings.json`（`"hooks"` 字段）
+2. `<cwd>/.vetta/.claude/settings.json`、`<cwd>/.vetta/.claude/settings.local.json`
 3. 插件：显式 `hooks/hooks.json` + `CLAUDE_PLUGIN_ROOT` 或 `profileId: claude-code-hooks/*`
 
-不读 `~/.vetta/agent` 或 `<cwd>/.vetta` 下的 hook 配置。官方布局与 [Codex Hooks](https://developers.openai.com/codex/hooks)、[Claude Code Hooks](https://code.claude.com/docs/en/hooks) 一致。缺失文件在 discovery 时静默跳过（ENOENT）。配置只在每个 Agent Session 首次触发 Hook 时加载一次。
+**不读**顶层 `~/.codex` / `~/.claude` 或项目根 `.codex` / `.claude`，避免加载无关官方 hook。文件格式仍与 [Codex Hooks](https://developers.openai.com/codex/hooks)、[Claude Code Hooks](https://code.claude.com/docs/en/hooks) 一致。缺失文件在 discovery 时静默跳过（ENOENT）。配置只在每个 Agent Session 首次触发 Hook 时加载一次。
 
 仍不支持：Codex inline TOML `[hooks]`、自动扫描 Claude marketplace。
 
