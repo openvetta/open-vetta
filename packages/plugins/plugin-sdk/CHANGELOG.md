@@ -4,6 +4,10 @@ All notable changes to `@vetta-org/plugin-sdk` are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- Split `src/index.ts` into domain modules (`scenario`, `permissions`, `ui`, `agent`, `official`, `hooks`, …); package public API is unchanged and still re-exported from `@vetta-org/plugin-sdk`.
+
 ### Added
 
 - Added work-mode (`agent_mode`) support: `AgentMode` type, `ctx.getAgentMode()` / `ctx.onAgentModeChanged()`, optional `agent_mode` on `PluginAgentToolRegistration` and `PluginMcpServerConfig`, plus plugin-level `agent_mode` in the manifest (ADR-0046).
