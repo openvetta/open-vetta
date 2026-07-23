@@ -261,6 +261,11 @@ export interface PluginAgentToolRegistration {
 	/** 允许出现的工作模式 slug（agent_mode 轴，缺省/空 = 通用）。见 ADR-0046。 */
 	agent_mode?: readonly string[];
 	context?: { conversation?: "summary" | "messages" };
+	/**
+	 * 该工具带有自渲染卡片（同一插件为它注册了 tool-call slot）。由渲染进程自动探测，
+	 * 插件无需声明；宿主据此为它注入可选的 md_intro 参数。见 ADR-0047。
+	 */
+	rendersCard?: boolean;
 }
 
 export type PluginAppActionEffect = "read" | "write" | "execute";

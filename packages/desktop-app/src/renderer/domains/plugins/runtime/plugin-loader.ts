@@ -3,7 +3,7 @@ import {
 	type ModuleFederation,
 	type ModuleFederationRuntimePlugin,
 } from "@module-federation/enhanced/runtime";
-import type { InstalledPlugin } from "@preload/api";
+import type { InstalledPlugin, PluginAgentToolRegistration } from "@preload/api";
 import type { ActivityTabKey } from "@shared/lib/project-profile";
 import {
 	activeInputActionIdsAtom,
@@ -444,6 +444,20 @@ function createContext(
 	pendingRuntimeRegistrations: Promise<void>[],
 	activationId: string,
 ): PluginContext {
+	/**
+	 * 已注册的 agent 工具负载，按 toolName 索引。用于「工具先注册、自渲染槽后注册」时回补
+	 * `rendersCard`——同一次激活内两者顺序不固定，靠重推让状态收敛（主进程按 tool.id 覆盖，幂等）。
+	 */
+	const registeredAgentTools = new Map<string, PluginAgentToolRegistration>();
+	const hasToolCallSlot = (toolName: string): boolean => toolCallSlots.some((slot) => slot.toolName === toolName);
+	const pushAgentToolRegistration = (payload: PluginAgentToolRegistration): Promise<void> =>
+		window.vetta.plugins
+			.registerAgentTool(plugin.id, payload)
+			.then(() => undefined)
+			.catch((error: Error) => {
+				console.error(`Plugin ${plugin.id} failed to register agent tool ${payload.id}`, error);
+			});
+
 	const registerGlobalSlot = (contribution: PluginGlobalSlotContribution): Disposable => {
 		if (!hasPermission(plugin, "ui.slot.global")) {
 			warnSkippedContribution(plugin, "ui.slot.global", "global slot");
@@ -623,6 +637,12 @@ function createContext(
 			component: contribution.component,
 		};
 		toolCallSlots.push(normalized);
+		// 工具可能先于槽注册；此时回补 rendersCard 并重推，否则 md_intro 参数会时有时无。
+		const registered = registeredAgentTools.get(normalized.toolName);
+		if (registered && registered.rendersCard !== true) {
+			registered.rendersCard = true;
+			pendingRuntimeRegistrations.push(pushAgentToolRegistration(registered));
+		}
 		onChanged();
 		return {
 			dispose: () => {
@@ -803,21 +823,25 @@ function createContext(
 					handler: registration.handler as PluginAgentToolHandler,
 					api: { fs, conversation },
 				});
+				const payload: PluginAgentToolRegistration = {
+					id: toolId,
+					name: toolName,
+					label: registration.label,
+					description: registration.description,
+					parameters: registration.parameters as Record<string, unknown>,
+					handlerId,
+					activationId,
+					timeoutMs: registration.timeoutMs,
+					scope_use: registration.scope_use,
+					requires: registration.requires,
+					agent_mode: registration.agent_mode,
+					context: registration.context,
+					// 宿主自动检测：带自渲染槽的工具会被注入可选的 md_intro 参数（见 ADR-0047）。
+					rendersCard: hasToolCallSlot(toolName) || undefined,
+				};
+				registeredAgentTools.set(toolName, payload);
 				const registrationPromise = window.vetta.plugins
-					.registerAgentTool(plugin.id, {
-						id: toolId,
-						name: toolName,
-						label: registration.label,
-						description: registration.description,
-						parameters: registration.parameters as Record<string, unknown>,
-						handlerId,
-						activationId,
-						timeoutMs: registration.timeoutMs,
-						scope_use: registration.scope_use,
-						requires: registration.requires,
-						agent_mode: registration.agent_mode,
-						context: registration.context,
-					})
+					.registerAgentTool(plugin.id, payload)
 					.then(() => {
 						debugPluginAgent("renderer registerTool completed", {
 							pluginId: plugin.id,

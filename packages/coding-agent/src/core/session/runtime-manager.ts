@@ -1239,6 +1239,40 @@ function clonePromptDraft(draft: SystemPromptDraft): SystemPromptDraft {
 	};
 }
 
+/** 宿主注入给自渲染工具的可选参数名。渲染层据此在卡片上方渲染一段 markdown 说明。 */
+const MD_INTRO_PARAM = "md_intro";
+
+const MD_INTRO_PROPERTY = {
+	type: "string",
+	description:
+		"Optional markdown rendered directly above this call's result card, as the one-line lead-in the reader sees before the deliverable. State what the deliverable shows — its headline finding — in the user's language, one sentence. Do NOT put data scope, sources, methodology or caveats here; those belong in the card's own title/subtitle. Omit when the call is not part of your answer.",
+	maxLength: 200,
+};
+
+/**
+ * 为自渲染工具追加 `md_intro` 参数。插件的 schema 原样保留，只在 LLM 可见的副本上加一层，
+ * 插件 handler 也收不到这个参数（调用前会剥掉），所以插件端零改动、零兼容成本。
+ */
+export function withMdIntroParameter(parameters: unknown): unknown {
+	if (typeof parameters !== "object" || parameters === null) return parameters;
+	const schema = parameters as Record<string, unknown>;
+	const properties = schema.properties;
+	if (typeof properties !== "object" || properties === null) return parameters;
+	if (MD_INTRO_PARAM in (properties as Record<string, unknown>)) return parameters;
+	return {
+		...schema,
+		properties: { ...(properties as Record<string, unknown>), [MD_INTRO_PARAM]: MD_INTRO_PROPERTY },
+	};
+}
+
+/** 剥掉宿主注入的参数，插件 handler 只看到自己声明过的输入。 */
+export function stripMdIntroParameter(params: unknown): unknown {
+	if (typeof params !== "object" || params === null || Array.isArray(params)) return params;
+	if (!(MD_INTRO_PARAM in (params as Record<string, unknown>))) return params;
+	const { [MD_INTRO_PARAM]: _dropped, ...rest } = params as Record<string, unknown>;
+	return rest;
+}
+
 function createPluginTool(
 	contribution: AgentPluginToolContribution,
 	options: {
@@ -1253,7 +1287,9 @@ function createPluginTool(
 		name: contribution.name,
 		label: contribution.label ?? contribution.name,
 		description: contribution.description,
-		parameters: contribution.parameters as TSchema,
+		parameters: (contribution.rendersCard
+			? withMdIntroParameter(contribution.parameters)
+			: contribution.parameters) as TSchema,
 		// 插件工具按其声明的 scope_use 过滤（fail-closed：未声明 = 所有场景都不激活）。
 		scope_use: contribution.scope_use,
 		requires: contribution.requires,
@@ -1275,7 +1311,7 @@ function createPluginTool(
 							toolId: contribution.id,
 							toolName: contribution.name,
 							handlerId: contribution.handlerId,
-							input: params,
+							input: contribution.rendersCard ? stripMdIntroParameter(params) : params,
 							...options.getContext(contribution.context?.conversation === "messages"),
 							trigger: { kind: "tool-call", timestamp: Date.now(), toolCallId },
 						},

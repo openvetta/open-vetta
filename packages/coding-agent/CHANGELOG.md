@@ -6,7 +6,7 @@
 
 ### Added
 
-- **`progress` 阶段声明工具（Work 模式，ADR-0047）**：新增 display-only 内置工具 `progress`（`agent_mode: ["work"]`），采用滑动窗口契约——一次调用中 `summary` 关闭并改写上一阶段、`label` 开启新阶段，最后一个阶段由正文文本隐式关闭。宿主据此把工具调用折叠成用户可读的阶段组。`modes/work.md` 同步加入使用引导（含「产物类调用不要塞进阶段」）。
+- **`progress` 阶段声明工具（Work 模式，ADR-0047）**：新增 display-only 内置工具 `progress`（`agent_mode: ["work"]`），采用滑动窗口契约——一次调用中 `summary` 关闭并改写上一阶段、`label` 开启新阶段，最后一个阶段由正文文本隐式关闭。宿主据此把工具调用折叠成用户可读的阶段组。`modes/work.md` 同步加入使用引导（含「产物类调用不要塞进阶段」），并新增 Placing Deliverables 一节：渲染类工具必须在撰写答案时按叙述顺序调用，不得在调研阶段提前渲染、也不得把所有渲染调用批量堆在正文之前；同一约束同步加入 `modes/coding.md`。新增宿主注入的 `md_intro` 参数：带自渲染卡片的插件工具（渲染进程自动探测 tool-call slot，插件零改动）在 LLM 可见的 schema 副本上多一个可选 `md_intro`，模型填的 markdown 由宿主渲染在卡片正上方，调用插件 handler 前剥离。另定义该引入句的内容契约（只写该产物的要点结论，数据口径/来源/免责一律归入产物自身的标题副标题字段、不在正文重复），并要求产物之后收一段「关键观察」承载真正的结论，回答末尾顺序为 产物 → 关键观察 → 交付物清单。
 
 - **工作流 subagent 类型 + 批量派遣（ADR-0044）**：新增内建类型 `workflow`（完整编码工具 + 子会话独享 todo 工具、继承父 MCP、完全单层）与控制工具 `dispatch_workflows`（一批最多 8 个，`task_name + message + todos`）。派遣时把主会话当前分支消息历史做一次性快照 fork 进子会话初始上下文（`fork-context.ts` 负责截断悬空 tool call、把 compaction/branch summary 转成 custom 种子消息）；todo 预填不锁定，子会话可自行增删。`SubagentSnapshot` 新增 `todoProgress`（done/total，todo 变更实时镜像）。
 - **Subagent 协调器排队**：`SubagentCoordinator.spawnMany()` 批量接单——超出 `maxConcurrent` 的子代理挂 `queued` 状态（新状态值），任一子代理终态后 FIFO 自动补位；`interrupt` 可移除排队中的子代理。`spawn()`（单个）保持超限报错语义不变。新批次派遣自动清除同类型已完成/失败的旧子代理（`task_name` 可复用，UI 只显示当前批次）；**被中断的保留**——它们是断点续跑候选，`followup_task` 续跑时上下文与 todo 进度完整保留，中断通知与工具描述/系统提示词均明确引导「续跑而非重派」。`wait_agent` 对纯工作流目标做确定性防呆：在途子代理全为 workflow 时强制 1 秒封顶（未送达的终态结果照常领取），超时则返回「工作流会主动通知、请结束回合被动接收」的引导，杜绝派遣后傻等。

@@ -12,6 +12,12 @@ export type BlockSegment =
 export interface AssistantFoldData {
 	processBlocks: ContentBlock[];
 	trailingBlocks: ContentBlock[];
+	/**
+	 * 收起时渲染的完整答案区（含插件产物卡片与其后的工具调用），而非只有文本。
+	 * 插件自定义 UI 工具是作者主动要给用户看的产物，必须活过大折叠。
+	 */
+	answerBlocks: ContentBlock[];
+	/** 答案区中的文本，供复制按钮与 conclusionText 使用。 */
 	outputBlocks: TextBlock[];
 	hiddenCount: number;
 }
@@ -111,32 +117,54 @@ function findPreviousPrimaryAnswerIndex(blocks: ContentBlock[], beforeIndex: num
 export function getAssistantFoldData(blocks: ContentBlock[], customToolNames: Set<string>): AssistantFoldData | null {
 	const lastProcessIndex = findLastProcessBlockIndex(blocks, customToolNames);
 	if (lastProcessIndex === -1) return null;
-	const trailingTextBlocks = blocks
-		.slice(lastProcessIndex + 1)
-		.filter((block): block is TextBlock => block.type === "text" && block.text.trim().length > 0);
-	if (trailingTextBlocks.length === 0) return null;
+
+	// 答案区起点：默认是最后一个过程块之后；一旦出现插件产物，则退到「该产物之前最后一次
+	// 真实工具调用」之后——否则产物上方那段引出它的结论文字会被划进过程区一起折走，产物
+	// 就成了没有上下文的孤块。产物之后的过程块因此落进答案区、不再被折叠（见 docs/adr/0047）。
+	const firstArtifactIndex = blocks.findIndex((block) => isCustomToolUiBlock(block, customToolNames));
+	const answerStart =
+		firstArtifactIndex === -1
+			? lastProcessIndex + 1
+			: Math.min(
+					findLastProcessBlockIndex(blocks.slice(0, firstArtifactIndex), customToolNames) + 1,
+					lastProcessIndex + 1,
+				);
+	const answerBlocks = blocks.slice(answerStart);
+	const trailingTextBlocks = answerBlocks.filter(
+		(block): block is TextBlock => block.type === "text" && block.text.trim().length > 0,
+	);
+	const hasArtifact = answerBlocks.some((block) => isCustomToolUiBlock(block, customToolNames));
+	// 光有产物、没有收尾文字也算有答案，照样值得折叠出来。
+	if (trailingTextBlocks.length === 0 && !hasArtifact) return null;
 
 	const lastProcessBlock = blocks[lastProcessIndex];
+	// 「todo 收尾 + 一句短跋」的老特例只在没有产物时适用；有产物时分界已由产物决定。
 	const primaryAnswerIndex =
-		isMaintenanceToolCall(lastProcessBlock) && isShortEpilogueText(trailingTextBlocks)
+		!hasArtifact && isMaintenanceToolCall(lastProcessBlock) && isShortEpilogueText(trailingTextBlocks)
 			? findPreviousPrimaryAnswerIndex(blocks, lastProcessIndex)
 			: -1;
 	if (primaryAnswerIndex !== -1) {
 		const primaryAnswerBlock = blocks[primaryAnswerIndex] as TextBlock;
 		const outputBlocks = [primaryAnswerBlock, ...trailingTextBlocks];
 		const outputBlockSet = new Set<ContentBlock>(outputBlocks);
+		const trailingBlocks = blocks.filter((block) => outputBlockSet.has(block));
 		return {
 			processBlocks: blocks.filter((block) => !outputBlockSet.has(block)),
-			trailingBlocks: blocks.filter((block) => outputBlockSet.has(block)),
+			trailingBlocks,
+			answerBlocks: trailingBlocks,
 			outputBlocks,
 			hiddenCount: blocks.length - outputBlocks.length,
 		};
 	}
 
+	// 没有任何东西被折走时不显示折叠条（产物出现在首个工具调用之前时会发生）。
+	if (answerStart === 0) return null;
+
 	return {
-		processBlocks: blocks.slice(0, lastProcessIndex + 1),
-		trailingBlocks: blocks.slice(lastProcessIndex + 1),
+		processBlocks: blocks.slice(0, answerStart),
+		trailingBlocks: answerBlocks,
+		answerBlocks,
 		outputBlocks: trailingTextBlocks,
-		hiddenCount: blocks.length - trailingTextBlocks.length,
+		hiddenCount: answerStart,
 	};
 }

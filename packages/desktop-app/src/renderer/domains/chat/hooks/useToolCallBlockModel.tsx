@@ -10,6 +10,7 @@ import { useAtomValue } from "jotai";
 import { Component, type ErrorInfo, type ReactNode, useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PluginI18nBoundary } from "../../plugins/runtime/plugin-i18n";
+import { MarkdownContent } from "../components/blocks/TextBlock";
 import { AskUserQuestionView } from "../components/blocks/tool-views/AskUserQuestionView";
 import { BashTerminalCard } from "../components/blocks/tool-views/BashTerminalCard";
 import { EditDiffView } from "../components/blocks/tool-views/EditDiffView";
@@ -94,6 +95,8 @@ export function useToolCallBlockModel(block: ToolCallBlock, exportMode = false):
 
 	if (pluginRenderer) {
 		const SlotComponent = pluginRenderer.component;
+		// 宿主注入的 md_intro：产物卡片正上方那句由 agent 撰写的说明（见 ADR-0047）。
+		const mdIntro = typeof block.args.md_intro === "string" ? block.args.md_intro.trim() : "";
 		return {
 			canExpand: false,
 			expanded: false,
@@ -106,9 +109,11 @@ export function useToolCallBlockModel(block: ToolCallBlock, exportMode = false):
 			body: null,
 			onToggle: () => undefined,
 			pluginSlot: (
-				<PluginToolCallErrorBoundary>
-					<PluginI18nBoundary pluginId={pluginRenderer.pluginId}>
-						<SlotComponent
+				<>
+					{mdIntro ? <MarkdownContent text={mdIntro} className="mb-2" /> : null}
+					<PluginToolCallErrorBoundary>
+						<PluginI18nBoundary pluginId={pluginRenderer.pluginId}>
+							<SlotComponent
 							toolCall={{
 								toolCallId: block.toolCallId,
 								toolName: block.toolName,
@@ -116,10 +121,11 @@ export function useToolCallBlockModel(block: ToolCallBlock, exportMode = false):
 								status: block.status,
 								result: block.result,
 								isError: block.isError,
-							}}
-						/>
-					</PluginI18nBoundary>
-				</PluginToolCallErrorBoundary>
+								}}
+							/>
+						</PluginI18nBoundary>
+					</PluginToolCallErrorBoundary>
+				</>
 			),
 		};
 	}
