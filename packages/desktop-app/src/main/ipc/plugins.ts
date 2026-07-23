@@ -132,6 +132,7 @@ function asAgentToolRegistration(value: unknown): {
 	requires?: string[];
 	agent_mode?: string[];
 	context?: { conversation?: "summary" | "messages" };
+	rendersCard?: boolean;
 } {
 	const input = asRecord(value, "agent tool registration");
 	const id = asPluginId(input.id);
@@ -158,6 +159,8 @@ function asAgentToolRegistration(value: unknown): {
 		requires: asOptionalStringArray(input.requires),
 		agent_mode: asOptionalStringArray(input.agent_mode),
 		context: asHandlerContext(input.context),
+		// 渲染进程在注册时探测该工具有没有 tool-call slot；有则宿主注入 md_intro 参数。
+		rendersCard: input.rendersCard === true ? true : undefined,
 	};
 }
 

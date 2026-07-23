@@ -7,6 +7,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 ### Added
 
 - **Work 模式对话渲染改为 agent 自述的阶段组（ADR-0047）**：Work 模式下 `MessageList` 不再平铺工具卡片，而是按 agent 通过 `progress` 工具声明的阶段折叠成一行标题（进行中 / 完成态文案均由 agent 撰写），展开后一行一条调用说明，再点开才是完整工具卡片；thinking 一律不渲染；流式期间阶段标题行常驻，消息结束后整段过程收起、只留最终总结，折叠条按阶段数计数。没有 `progress` 调用时退回启发式合组 + 通用文案。插件自定义 UI 工具、错误块与失败调用强制冒泡到组外。Coding 模式渲染不变，历史消息中的 `progress` 调用降级为一行语义分隔小标题。
+- **插件产物卡片支持 agent 撰写的引入语**：渲染进程自动探测某个插件 agent 工具是否注册了 tool-call slot，是则宿主为其注入可选的 `md_intro` 参数，模型填写的 markdown 渲染在卡片正上方。插件无需任何改动。
+- **插件产物不再被大折叠吞掉**：`registerToolCallSlot` 注册的自定义 UI 工具一律视为产物，消息级折叠的答案区起点改为「第一个产物之前最后一次真实工具调用之后」与「最后一个过程块之后」中更靠前者，work 与 coding 同时生效；产物上方引出它的结论文字一并留在答案区，产物之后的过程块也不再折叠。答案区之前无内容可折时不再显示折叠条。
 
 - **本地服务商模型一键拉取**：设置 → 模型的本地服务商展开后新增「从接口拉取」，按 provider 的 `baseUrl`/`apiKey`/`headers` 请求 `GET {baseUrl}/models`（兼容 OpenAI `data[].id` 与 `models[].name`），勾选后批量写入 models.json；仅写 modelId，其余字段继承服务商默认，已存在的模型默认不勾选。
 - **新会话页设置**：设置新增「新会话页」页，可分别控制场景卡片列表、技能徽章列表、引导词轮播的显示/隐藏（默认均显示）；配置持久化到 `desktop-config.json` 的 `newSessionPage`。

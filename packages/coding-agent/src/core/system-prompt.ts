@@ -156,6 +156,12 @@ export interface AgentPluginToolContribution {
 	/** 允许出现的工作模式 slug（agent_mode 轴，缺省/空 = 通用）。见 ADR-0046。 */
 	agent_mode?: string[];
 	context?: { conversation?: "summary" | "messages" };
+	/**
+	 * 该工具带有宿主自渲染卡片（插件注册了 tool-call slot），其结果是用户当作答案来读的
+	 * 产物。宿主据此为它追加一个可选的 `md_intro` 参数：模型填的这段 markdown 会渲染在
+	 * 卡片正上方，作为产物的一句话说明。插件无需感知，宿主自动检测并注入。见 ADR-0047。
+	 */
+	rendersCard?: boolean;
 }
 
 export interface AgentPluginStateContribution {

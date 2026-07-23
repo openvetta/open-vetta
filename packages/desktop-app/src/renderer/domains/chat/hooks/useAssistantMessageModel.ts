@@ -36,9 +36,10 @@ export function useAssistantMessageModel({
 		[message.blocks, customToolNames],
 	);
 	const visibleBlocks = useMemo(() => {
-		if (exportMode && foldData) return foldData.trailingBlocks;
+		// 收起时渲染整个答案区（含插件产物卡片），而不是只留文本。
+		if (exportMode && foldData) return foldData.answerBlocks;
 		if (!foldData || expanded || isCurrentlyStreaming) return message.blocks ?? [];
-		return foldData.outputBlocks;
+		return foldData.answerBlocks;
 	}, [expanded, exportMode, foldData, isCurrentlyStreaming, message.blocks]);
 	const segments = useMemo(
 		() =>
