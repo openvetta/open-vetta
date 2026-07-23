@@ -1,6 +1,7 @@
 import { federation, type ModuleFederationOptions } from "@module-federation/vite";
 import type { Plugin, PluginOption } from "vite";
 import { type CreateVettaPluginPackageOptions, createVettaPluginPackage } from "./pack.js";
+import { createPluginStyleScopePlugin } from "./style-scope.js";
 
 export interface VettaPluginPackageOptions extends Omit<CreateVettaPluginPackageOptions, "rootDir" | "distDir"> {
 	enabled?: boolean;
@@ -116,6 +117,7 @@ export function vettaPluginFederation(options: VettaPluginFederationOptions): Pl
 	const plugins: PluginOption[] = [
 		createBuildDefaultsPlugin(entry),
 		...federation(createVettaPluginFederationConfig(options)),
+		createPluginStyleScopePlugin(),
 	];
 	// VETTA_PLUGIN_DEV_WATCH=1：宿主 dev 热更新的 `vite build --watch` 只需要 dist，
 	// 跳过每次增量重建都重打 zip（closeBundle 在 watch 模式每轮都会触发）。

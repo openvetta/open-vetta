@@ -207,17 +207,17 @@ function warnSkippedContribution(plugin: InstalledPlugin, permission: PluginPerm
 }
 
 function loadPluginStyles(plugin: InstalledPlugin): Disposable {
-	const links = plugin.styleUrls.map((href) => {
-		const link = document.createElement("link");
-		link.rel = "stylesheet";
-		link.href = href;
-		link.dataset.vettaPluginId = plugin.id;
-		document.head.append(link);
-		return link;
+	const pluginLayer = `vetta-plugins.${CSS.escape(plugin.id)}`;
+	const styles = plugin.styleUrls.map((href) => {
+		const style = document.createElement("style");
+		style.dataset.vettaPluginId = plugin.id;
+		style.textContent = `@import ${JSON.stringify(href)} layer(${pluginLayer});`;
+		document.head.append(style);
+		return style;
 	});
 	return {
 		dispose: () => {
-			for (const link of links) link.remove();
+			for (const style of styles) style.remove();
 		},
 	};
 }

@@ -182,6 +182,10 @@ export default defineConfig({
 React、React DOM 和 `@vetta-org/plugin-sdk` 由宿主共享。模块顶层禁止创建
 依赖共享模块的 JSX；将 JSX 放在组件或 `activate()` 内。
 
+`@vetta-org/plugin-vite` 会在构建产物中自动用原生 `@scope` 把 CSS 限定到 manifest
+声明的插件 id 根节点，并将 `:root` / `:host` 映射为 `:scope`。插件作者可以正常使用
+Tailwind 或业务 CSS，不要手写插件 id 前缀，也不要依赖修改 `body`、`html` 或宿主私有 class。
+
 ## 安装、构建与验证
 
 在仓库根 workspace 安装依赖，再进入目标插件目录构建：

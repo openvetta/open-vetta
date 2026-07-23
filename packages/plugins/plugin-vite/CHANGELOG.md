@@ -4,6 +4,10 @@ All notable changes to `@vetta-org/plugin-vite` are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- 插件 CSS 构建产物自动通过原生 `@scope` 限定到当前插件根节点，`:root` / `:host` 自动映射为 `:scope`，插件作者无需手写选择器前缀或 cascade layer。
+
 ## [0.0.2] — 2026-07-15
 
 ### Added

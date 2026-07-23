@@ -11,6 +11,8 @@ export interface PluginCardViewModel {
 	readonly isSystem: boolean;
 	/** Local zip import or workbench install-from-path (source === "archive"). */
 	readonly isCustom: boolean;
+	/** Recently installed (host decides window); not for system plugins. */
+	readonly isNew: boolean;
 	readonly name: string;
 	readonly needsUpdate: boolean;
 	readonly noDescription: string;
@@ -19,6 +21,7 @@ export interface PluginCardViewModel {
 	readonly statusDisabled: string;
 	readonly systemBadge: string;
 	readonly customBadge: string;
+	readonly newBadge: string;
 	readonly updatableBadge?: string;
 	readonly version: string;
 	readonly installLabel: string;
@@ -75,12 +78,12 @@ export function PluginCardView({ model, onSelect, onInstall }: PluginCardViewPro
 								className={`inline-flex h-5 shrink-0 items-center gap-1 rounded-full px-2 text-[10px] font-semibold ${
 									model.enabled
 										? "bg-emerald-500/15 text-emerald-400"
-										: "bg-accent/60 text-muted-foreground"
+										: "bg-amber-500/15 text-amber-400"
 								}`}
 							>
 								<span
 									className={`h-1.5 w-1.5 rounded-full ${
-										model.enabled ? "bg-emerald-400" : "bg-muted-foreground/60"
+										model.enabled ? "bg-emerald-400" : "bg-amber-400"
 									}`}
 								/>
 								{model.enabled ? model.statusEnabled : model.statusDisabled}
@@ -88,6 +91,11 @@ export function PluginCardView({ model, onSelect, onInstall }: PluginCardViewPro
 						) : (
 							<span className="inline-flex h-5 shrink-0 items-center rounded-full bg-accent/60 px-2 text-[10px] font-semibold text-muted-foreground">
 								{model.notInstalledLabel}
+							</span>
+						)}
+						{model.isNew && (
+							<span className="inline-flex h-5 shrink-0 items-center rounded-full bg-primary/10 px-2 text-[10px] font-semibold text-primary">
+								{model.newBadge}
 							</span>
 						)}
 						{model.isSystem && (
@@ -106,7 +114,7 @@ export function PluginCardView({ model, onSelect, onInstall }: PluginCardViewPro
 							</span>
 						)}
 						{!model.isInstalled && model.downloadCount !== undefined && (
-							<span className="inline-flex h-5 shrink-0 items-center gap-0.5 rounded-full bg-accent/50 px-2 text-[10px] font-medium tabular-nums text-muted-foreground/70">
+							<span className="inline-flex h-5 shrink-0 items-center gap-0.5 text-[10px] font-medium tabular-nums text-muted-foreground/70">
 								<span className="icon-[mdi--download] h-3 w-3" />
 								{model.downloadCount}
 							</span>
@@ -125,7 +133,7 @@ export function PluginCardView({ model, onSelect, onInstall }: PluginCardViewPro
 								e.stopPropagation();
 								onInstall();
 							}}
-							className="flex shrink-0 items-center gap-1 rounded-lg border border-input bg-secondary px-2.5 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-50"
+							className="flex shrink-0 items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
 						>
 							{model.installing ? (
 								<span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />
