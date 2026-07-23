@@ -101,9 +101,12 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ## Commands
 - Use Bun for package management and scripts (`bun`/`bunx`) unless the user explicitly asks for npm.
-- After code changes (not documentation changes): `bun run check` (get full output, no tail). Fix all errors, warnings, and infos before committing.
-- Root `bun run check` runs: Biome → monorepo `tsgo --noEmit` → **desktop-app** `tsc --noEmit` (`packages/desktop-app/tsconfig.json`). Do not skip desktop by only running `tsc`/`tsgo` at repo root without `-p packages/desktop-app/tsconfig.json`.
-- Note: `bun run check` does not run tests.
+- During a code task, use `bun run check:quick` for fast feedback on every changed file. It covers committed branch differences, staged, unstaged, and untracked files, but intentionally does not typecheck.
+- After completing one round of code changes (not after every edit, and not for documentation-only changes), run `bun run check` once with full output. Fix all errors, warnings, and infos before handing off or opening a PR.
+- Root `bun run check` runs full Biome, monorepo `tsgo --noEmit`, **desktop-app** `tsc --noEmit` (`packages/desktop-app/tsconfig.json`), and quality guards (`check:guards`) in parallel. Do not skip desktop by only running `tsc`/`tsgo` at repo root without `-p packages/desktop-app/tsconfig.json`.
+- Quality gates (layered): see `docs/dev/quality-gates.md`. Husky pre-commit runs **fast** `check:precommit` (staged Biome + key/conflict guards) only; full typecheck is **not** in the hook — still run `bun run check` before PR.
+- Prefer targeted tests: `bun run test:pkg <ai|agent|coding-agent|ecosystem-adapter>` or `bun run test:changed`. `bun run test:unit` runs those four packages. Root `bun run test` still runs all workspace packages that define `test`.
+- Note: `bun run check` does not run tests. Optional dead-code report: `bun run deadcode:report` (Knip; not part of `check`).
 - NEVER run: `bun run dev`, `bun run build`, `bun test`
 - desktop-app UI 自验只能使用仓库根目录的 `bun run verify:ui:*` 命令。允许 AI 运行
   `verify:ui:start`（长驻）、`verify:ui:status`、`verify:ui:attach`、

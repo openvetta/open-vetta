@@ -13,7 +13,10 @@ Vetta 是一套面向企业与个人的 AI Agent 产品栈：在本地/桌面运
 ```bash
 bun install                # 安装所有工作区依赖（需要 Bun 1.3+、Node 20+）
 bun run build              # 构建所有核心库（packages/ai 等）
-bun run check              # Biome 格式化 + 类型检查（改完代码必跑）
+bun run check              # Biome + 类型检查 + 架构守卫（开 PR 前必跑）
+bun run test:unit          # 核心库单元测试（ai/agent/coding-agent/ecosystem-adapter）
+bun run test:pkg ai        # 只跑单个包测试；test:pkg --list 查看可测包
+bun run test:changed       # 相对 origin/dev 只测变更触及的包
 
 # 应用
 bun run build:desktop      # 构建 Electron 桌面应用
@@ -24,6 +27,8 @@ bun run build:admin        # 构建 React 管理台
 cd packages/api && make run            # 启动业务 API
 cd packages/im-gateway && make build   # 构建 IM 旁路网关
 ```
+
+质量门禁分层、husky 快路径与守卫说明见 [docs/dev/quality-gates.md](docs/dev/quality-gates.md)。
 
 桌面应用入口：`packages/desktop-app`；API 服务入口：`packages/api/cmd/server/main.go`。
 
