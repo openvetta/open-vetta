@@ -31,7 +31,7 @@ export interface ProgressToolDetails {
 export function createProgressTool(): CodingAgentTool<typeof progressSchema, ProgressToolDetails> {
 	const fallbackDescription =
 		"Announce what you are about to do next, so the user sees readable stages instead of raw tool calls.";
-	const description = loadToolDescription(import.meta.url, fallbackDescription);
+	const description = loadToolDescription("progress", fallbackDescription);
 
 	return {
 		name: "progress",

@@ -142,7 +142,7 @@ export function createReadTool(cwd: string, options?: ReadToolOptions): CodingAg
 	const autoResizeImages = options?.autoResizeImages ?? true;
 	const ops = options?.operations ?? defaultReadOperations;
 	const fallbackDescription = `Read the contents of a file. Supports text files and images (jpg, png, gif, webp). Images are sent as attachments. For text files, output is truncated to ${DEFAULT_MAX_LINES} lines or ${DEFAULT_MAX_BYTES / 1024}KB (whichever is hit first). Use offset/limit for large files. When you need the full file, continue with offset until complete.`;
-	const description = loadToolDescription(import.meta.url, fallbackDescription);
+	const description = loadToolDescription("read", fallbackDescription);
 
 	return {
 		name: "read",

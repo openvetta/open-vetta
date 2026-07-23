@@ -20,7 +20,7 @@ export type ShellToolOptions = BashToolOptions;
 export function createShellTool(cwd: string, options?: ShellToolOptions): ReturnType<typeof createBashTool> {
 	const base = createBashTool(cwd, options);
 	const fallbackDescription = `Execute a shell command in the current working directory. Returns stdout and stderr. Output is truncated to last ${DEFAULT_MAX_LINES} lines or ${DEFAULT_MAX_BYTES / 1024}KB (whichever is hit first). If truncated, full output is saved to a temp file. Optionally provide a timeout in seconds.`;
-	const description = loadToolDescription(import.meta.url, fallbackDescription);
+	const description = loadToolDescription("shell", fallbackDescription);
 
 	return {
 		...base,

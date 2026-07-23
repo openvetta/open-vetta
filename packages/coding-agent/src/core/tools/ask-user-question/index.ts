@@ -138,7 +138,7 @@ function formatResultText(result: AskUserQuestionResult): string {
 export function createAskUserQuestionTool(
 	options: AskUserQuestionToolOptions,
 ): CodingAgentTool<typeof askUserQuestionSchema, AskUserQuestionToolDetails> {
-	const description = loadToolDescription(import.meta.url, FALLBACK_DESCRIPTION);
+	const description = loadToolDescription("ask-user-question", FALLBACK_DESCRIPTION);
 	return {
 		name: "ask_user_question",
 		label: "Ask User",

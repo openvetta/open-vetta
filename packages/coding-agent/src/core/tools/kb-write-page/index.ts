@@ -69,7 +69,7 @@ export function createKbWritePageTool(
 	const fallbackDescription =
 		"Write (create or update) a wiki page in the knowledge base. Enforces the closed frontmatter schema, " +
 		"assigns a stable id, upserts by id or source_hash, and refreshes the tags/manifest caches.";
-	const description = loadToolDescription(import.meta.url, fallbackDescription);
+	const description = loadToolDescription("kb-write-page", fallbackDescription);
 
 	return {
 		name: "kb_write_page",

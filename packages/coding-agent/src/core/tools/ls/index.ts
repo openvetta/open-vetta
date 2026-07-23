@@ -49,7 +49,7 @@ export interface LsToolOptions {
 export function createLsTool(cwd: string, options?: LsToolOptions): CodingAgentTool<typeof lsSchema> {
 	const ops = options?.operations ?? defaultLsOperations;
 	const fallbackDescription = `List directory contents. Returns entries sorted alphabetically, with '/' suffix for directories. Includes dotfiles. Output is truncated to ${DEFAULT_LIMIT} entries or ${DEFAULT_MAX_BYTES / 1024}KB (whichever is hit first).`;
-	const description = loadToolDescription(import.meta.url, fallbackDescription);
+	const description = loadToolDescription("ls", fallbackDescription);
 
 	return {
 		name: "ls",

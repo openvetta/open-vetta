@@ -279,7 +279,7 @@ function buildAgentText(doc: OcrJsonDocument, maxChars: number, outputPath: stri
 
 export function createExtractTextFromPdfTool(cwd: string): CodingAgentTool<typeof extractTextFromPdfSchema> {
 	const fallback = "Extract text from a PDF (scanned or born-digital) via Vetta Desktop's local OCR runner.";
-	const description = loadToolDescription(import.meta.url, fallback);
+	const description = loadToolDescription("extract-text-from-pdf", fallback);
 
 	return {
 		name: "extract_text_from_pdf",

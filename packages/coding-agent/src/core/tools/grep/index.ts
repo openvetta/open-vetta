@@ -66,7 +66,7 @@ export interface GrepToolOptions {
 export function createGrepTool(cwd: string, options?: GrepToolOptions): CodingAgentTool<typeof grepSchema> {
 	const customOps = options?.operations;
 	const fallbackDescription = `Search file contents for a pattern. Returns matching lines with file paths and line numbers. Respects .gitignore. Output is truncated to ${DEFAULT_LIMIT} matches or ${DEFAULT_MAX_BYTES / 1024}KB (whichever is hit first). Long lines are truncated to ${GREP_MAX_LINE_LENGTH} chars.`;
-	const description = loadToolDescription(import.meta.url, fallbackDescription);
+	const description = loadToolDescription("grep", fallbackDescription);
 
 	return {
 		name: "grep",

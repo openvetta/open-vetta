@@ -22,7 +22,7 @@ export interface TaskStopToolOptions {
 
 export function createTaskStopTool(options: TaskStopToolOptions): CodingAgentTool<typeof taskStopSchema> {
 	const fallbackDescription = "Terminate a running background task started via bash with run_in_background.";
-	const description = loadToolDescription(import.meta.url, fallbackDescription);
+	const description = loadToolDescription("task-stop", fallbackDescription);
 
 	return {
 		name: "task_stop",

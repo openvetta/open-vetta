@@ -23,7 +23,7 @@ export function createKbListTagsTool(root?: string): CodingAgentTool<typeof kbLi
 	const fallbackDescription =
 		"List all tags available in the knowledge base, with the page count for each. " +
 		"Call this before kb_filter_by_tags when you don't know which tags exist.";
-	const description = loadToolDescription(import.meta.url, fallbackDescription);
+	const description = loadToolDescription("kb-list-tags", fallbackDescription);
 
 	return {
 		name: "kb_list_available_tags",

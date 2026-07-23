@@ -33,7 +33,7 @@ export interface InvokeSkillToolOptions {
 export function createInvokeSkillTool(options: InvokeSkillToolOptions): CodingAgentTool<typeof invokeSkillSchema> {
 	const fallbackDescription =
 		"Invoke a skill by name. Use this tool when the user's request matches a skill in <available_skills>.";
-	const description = loadToolDescription(import.meta.url, fallbackDescription);
+	const description = loadToolDescription("invoke-skill", fallbackDescription);
 
 	return {
 		name: "invoke_skill",

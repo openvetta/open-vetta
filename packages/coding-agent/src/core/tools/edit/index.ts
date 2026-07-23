@@ -61,7 +61,7 @@ export function createEditTool(cwd: string, options?: EditToolOptions): CodingAg
 	const ops = options?.operations ?? defaultEditOperations;
 	const fallbackDescription =
 		"Edit a file by replacing exact text. The oldText must match exactly (including whitespace). Use this for precise, surgical edits.";
-	const description = loadToolDescription(import.meta.url, fallbackDescription);
+	const description = loadToolDescription("edit", fallbackDescription);
 
 	return {
 		name: "edit",

@@ -165,7 +165,7 @@ function buildAgentText(doc: OcrJsonDocument, maxChars: number, outputPath: stri
 
 export function createExtractTextFromImgTool(cwd: string): CodingAgentTool<typeof extractTextFromImgSchema> {
 	const fallback = "Extract text from a single image via Vetta Desktop's local PP-OCRv5 runner.";
-	const description = loadToolDescription(import.meta.url, fallback);
+	const description = loadToolDescription("extract-text-from-img", fallback);
 
 	return {
 		name: "extract_text_from_img",

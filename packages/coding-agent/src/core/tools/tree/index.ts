@@ -274,7 +274,7 @@ function parseFdOutput(stdout: string, searchPath: string): string[] {
 export function createTreeTool(cwd: string, options?: TreeToolOptions): CodingAgentTool<typeof treeSchema> {
 	const ops = options?.operations ?? defaultTreeOperations;
 	const fallbackDescription = `Render a compact directory tree with explicit node types ([D]/[F]) and per-directory child counts. Use this first to understand project structure with minimal tokens. Tool name is dir_tree (not shell tree). Respects .gitignore, supports depth limiting, and truncates output to ${DEFAULT_LIMIT} nodes or ${DEFAULT_MAX_BYTES / 1024}KB.`;
-	const description = loadToolDescription(import.meta.url, fallbackDescription);
+	const description = loadToolDescription("tree", fallbackDescription);
 
 	return {
 		name: "dir_tree",

@@ -232,7 +232,7 @@ export function createDocToPdfTool(cwd: string, options?: DocToPdfToolOptions): 
 	const ops = options?.operations ?? defaultOperations;
 	const fallbackDescription =
 		"Convert a .doc or .docx file to PDF using Microsoft Office or WPS Office installed on the system.";
-	const description = loadToolDescription(import.meta.url, fallbackDescription);
+	const description = loadToolDescription("doc-to-pdf", fallbackDescription);
 
 	return {
 		name: "doc_to_pdf",
