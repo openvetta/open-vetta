@@ -4,9 +4,11 @@
 
 - **自渲染工具的 `md_intro` 软引导改为按上下文的决策树**：原先只让模型写「一句话 headline」，导致引导过于草率、放不下标题+背景。现在 schema description 与 coding/work 两个 mode 的系统提示词统一改为按产物上下文决定结构——卡片自带标题时只写一句话结论且不重复标题；产物无标题/需背景时用加粗标题行+一两句正文；内联小产物一句话即可。`md_intro` 仍是单个 markdown 字符串（渲染层与插件零改动），`maxLength` 由 200 放宽到 600。
 - **Vitest 依赖上收到 monorepo 根**：本包不再声明 `devDependencies.vitest`，改用根目录统一版本；包内仍保留 `vitest.config.ts` 与 `"test": "vitest --run"`。
+- **系统提示词 MCP 工具清单只保留描述首行**：MCP 工具的完整 description 本就随请求 tools 数组下发，系统提示词里的清单再抄全文属于重复计费（Notion 官方 MCP 单此一项约 11k token）。改为首行摘要（超 200 字符截断）。
 
 ### Fixed
 
+- **bash/shell 命令工具不再双双激活**：场景解析原先把 `bash` 与 `shell` 同时激活，每轮请求多发一份无用的命令工具 schema（约 1.5k token；mac/linux 上 `shell` 是 PowerShell 版本、根本不可用）。改为非本平台的命令工具 `scope_use` 置空（注册但默认不激活），显式 tools 名单仍可强制启用。
 - **工具的 `description.txt` 从未真正生效**：`loadToolDescription` 原先在运行时按 `import.meta.url` 读同目录的 `description.txt`，但本包会被 desktop-app 的 vite 打进 main bundle、也会被 `bun build --compile` 打进单文件二进制，两种形态下该路径都不指向源码目录；`copy-assets` 也没把这些文件拷进 `dist`。于是 26 份工具说明书全部静默退回代码里的一行 fallback（`catch` 吞掉异常，无日志、check 与测试均无感）。改为构建期内联（`scripts/generate-tool-descriptions.mjs` → `src/core/tools/descriptions-data.ts`），与 personas / modes 同一套做法，运行时零文件系统依赖；调用点由 `import.meta.url` 改为显式工具目录名。此修复会显著增加 system prompt 长度（约 35KB / 9–12k token）。
 
 ### Added
