@@ -120,6 +120,12 @@ export {
 } from "./ls/index.js";
 export { createMemoryTool, type MemoryToolDetails } from "./memory/index.js";
 export {
+	createProgressTool,
+	type ProgressToolDetails,
+	type ProgressToolInput,
+	progressTool,
+} from "./progress/index.js";
+export {
 	createReadTool,
 	type ReadOperations,
 	type ReadToolDetails,
@@ -196,6 +202,7 @@ import { createKbFilterByTagsTool, kbFilterByTagsTool } from "./kb-filter-by-tag
 import { createKbListTagsTool, kbListTagsTool } from "./kb-list-tags/index.js";
 import { createKbWritePageTool, kbWritePageTool } from "./kb-write-page/index.js";
 import { createLsTool, lsTool } from "./ls/index.js";
+import { createProgressTool, progressTool } from "./progress/index.js";
 import { createReadTool, type ReadToolOptions, readTool } from "./read/index.js";
 import { createRenderPdfPageTool, renderPdfPageTool } from "./render-pdf-page/index.js";
 import { createShellTool, type ShellToolOptions, shellTool } from "./shell/index.js";
@@ -254,6 +261,7 @@ export const allTools = {
 	extract_text_from_img: extractTextFromImgTool,
 	render_pdf_page: renderPdfPageTool,
 	current_time: currentTimeTool,
+	progress: progressTool,
 	kb_write_page: kbWritePageTool,
 	kb_filter_by_tags: kbFilterByTagsTool,
 	kb_list_available_tags: kbListTagsTool,
@@ -334,6 +342,7 @@ export function createAllTools(cwd: string, options?: ToolsOptions): Record<Tool
 		extract_text_from_img: createExtractTextFromImgTool(cwd),
 		render_pdf_page: createRenderPdfPageTool(cwd),
 		current_time: createCurrentTimeTool(),
+		progress: createProgressTool(),
 		kb_write_page: createKbWritePageTool(),
 		kb_filter_by_tags: createKbFilterByTagsTool(),
 		kb_list_available_tags: createKbListTagsTool(),

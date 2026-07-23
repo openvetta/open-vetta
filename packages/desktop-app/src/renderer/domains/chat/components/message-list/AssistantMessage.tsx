@@ -13,12 +13,16 @@ export function StreamingIndicator(): JSX.Element {
 	const list = Array.isArray(phrases) ? (phrases as string[]) : [];
 	return <ThemeStreamingIndicator phrases={list} />;
 }
-import { memo, useId, useMemo, useState } from "react";
+import { memo, useId, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useAssistantMessageModel } from "../../hooks/useAssistantMessageModel";
 import { MessageCardsHost } from "../MessageCardsHost";
 import { SegmentRenderer } from "./MessageBlockSegments";
+import type { BlockSegment } from "./messageBlockModel";
 import { segmentKey } from "./messageBlockModel";
+import { useExpansion } from "./expansionStore";
+import { workSegmentKey } from "./progressGroupModel";
+import { WorkSegmentRenderer } from "./WorkSegmentRenderer";
 import { CopyButton, formatDuration, formatTime, RelativeTimeLabel } from "./MessageActions";
 
 interface AssistantMessageProps {
@@ -36,7 +40,8 @@ export const AssistantMessage = memo(function AssistantMessage({
 }: AssistantMessageProps) {
 	const { t } = useTranslation("chat");
 	const surface = useThemeSurface("chat.assistantMessage");
-	const [expanded, setExpanded] = useState(false);
+	// 展开态外置：Virtuoso 会卸载滚出视窗的高条目，组件内 state 会被清掉。
+	const [expanded, toggleExpanded] = useExpansion(`fold:${message.id}`);
 	const generatedId = useId();
 	const exportFoldPanelId = exportMode ? `export-assistant-fold-${generatedId}` : undefined;
 	const model = useAssistantMessageModel({
@@ -47,45 +52,48 @@ export const AssistantMessage = memo(function AssistantMessage({
 		message,
 	});
 
-	const labels = useMemo(() => {
-		const phrases = t("messageList.streamingPhrases", { returnObjects: true });
-		return {
-			processing: t("messageList.assistantMessage.processing"),
-			predicting: t("messageList.assistantMessage.predicting"),
-			streamingFold: (elapsed: number) =>
-				t("messageList.assistantFoldTip.streaming", { elapsed }),
-			expandFold: (count: number) => t("messageList.assistantFoldTip.expand", { count }),
-			collapseFold: (count: number) => t("messageList.assistantFoldTip.collapse", { count }),
-			streamingPhrases: Array.isArray(phrases) ? (phrases as string[]) : [],
-		};
-	}, [t]);
-
 	const {
 		conclusionText,
 		exportProcessSegments,
 		foldData,
 		isCurrentlyStreaming,
 		isPredicting,
+		isWorkMode,
 		segments,
 		showDuration,
 		streamingTailIndex,
+		workFoldCount,
 	} = model;
 
-	const fold =
-		isCurrentlyStreaming
+	const labels = useMemo(() => {
+		const phrases = t("messageList.streamingPhrases", { returnObjects: true });
+		// Work 折叠条说的是「阶段」，coding 说的是「过程条数」。
+		const foldNamespace = isWorkMode ? "messageList.assistantFoldTip.work" : "messageList.assistantFoldTip";
+		return {
+			processing: t("messageList.assistantMessage.processing"),
+			predicting: t("messageList.assistantMessage.predicting"),
+			streamingFold: (elapsed: number) =>
+				t("messageList.assistantFoldTip.streaming", { elapsed }),
+			expandFold: (count: number) => t(`${foldNamespace}.expand`, { count }),
+			collapseFold: (count: number) => t(`${foldNamespace}.collapse`, { count }),
+			streamingPhrases: Array.isArray(phrases) ? (phrases as string[]) : [],
+		};
+	}, [t, isWorkMode]);
+
+	const fold = isCurrentlyStreaming
+		? {
+				kind: "streaming" as const,
+				count: message.blocks?.length ?? 0,
+				startedAt: message.startedAt ?? message.timestamp,
+			}
+		: foldData
 			? {
-					kind: "streaming" as const,
-					count: message.blocks?.length ?? 0,
-					startedAt: message.startedAt ?? message.timestamp,
+					kind: "complete" as const,
+					count: isWorkMode ? workFoldCount : foldData.hiddenCount,
+					expanded,
+					exportPanelId: exportFoldPanelId,
 				}
-			: foldData
-				? {
-						kind: "complete" as const,
-						count: foldData.hiddenCount,
-						expanded,
-						exportPanelId: exportFoldPanelId,
-					}
-				: null;
+			: null;
 
 	const hasBlocks = Boolean(message.blocks?.length);
 
@@ -120,15 +128,25 @@ export const AssistantMessage = memo(function AssistantMessage({
 								))}
 							</div>
 						)}
-						{segments.map((segment, index) => (
-							<SegmentRenderer
-								key={segmentKey(segment)}
-								segment={segment}
-								isStreamingTail={index === streamingTailIndex}
-								animateIn={isCurrentlyStreaming && index === segments.length - 1}
-								exportMode={exportMode}
-							/>
-						))}
+						{segments.map((segment, index) =>
+							isWorkMode ? (
+								<WorkSegmentRenderer
+									key={workSegmentKey(segment)}
+									segment={segment}
+									isStreamingTail={index === streamingTailIndex}
+									animateIn={isCurrentlyStreaming && index === segments.length - 1}
+									exportMode={exportMode}
+								/>
+							) : (
+								<SegmentRenderer
+									key={workSegmentKey(segment)}
+									segment={segment as BlockSegment}
+									isStreamingTail={index === streamingTailIndex}
+									animateIn={isCurrentlyStreaming && index === segments.length - 1}
+									exportMode={exportMode}
+								/>
+							),
+						)}
 					</>
 				) : null
 			}
@@ -144,7 +162,7 @@ export const AssistantMessage = memo(function AssistantMessage({
 				) : undefined
 			}
 			messageCards={<MessageCardsHost message={message} />}
-			onToggleExpanded={() => setExpanded((value) => !value)}
+			onToggleExpanded={toggleExpanded}
 		/>
 	);
 });

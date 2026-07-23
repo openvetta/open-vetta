@@ -1,8 +1,13 @@
 import type { ContentBlock, TextBlock, ThinkingBlock, ToolCallBlock } from "@shared/store/atoms";
 
+/** Work 模式的阶段声明工具（display-only，见 docs/adr/0047）。 */
+export const PROGRESS_TOOL_NAME = "progress";
+
 export type BlockSegment =
 	| { type: "single"; block: ContentBlock }
-	| { type: "tool_group"; blocks: (ToolCallBlock | ThinkingBlock)[] };
+	| { type: "tool_group"; blocks: (ToolCallBlock | ThinkingBlock)[] }
+	/** Work 模式的 progress 调用，在 coding 渲染下降级为一行轻量小标题分隔符。 */
+	| { type: "progress_divider"; block: ToolCallBlock };
 
 export interface AssistantFoldData {
 	processBlocks: ContentBlock[];
@@ -26,6 +31,7 @@ function blockKey(block: ContentBlock): string {
 
 export function segmentKey(segment: BlockSegment): string {
 	if (segment.type === "single") return blockKey(segment.block);
+	if (segment.type === "progress_divider") return `pd-${segment.block.toolCallId}`;
 	return `group-${blockKey(segment.blocks[0])}`;
 }
 
@@ -44,7 +50,10 @@ export function groupBlocks(blocks: ContentBlock[], customToolNames: Set<string>
 		batch = [];
 	};
 	for (const block of blocks) {
-		if (isCustomToolUiBlock(block, customToolNames)) {
+		if (block.type === "tool_call" && block.toolName === PROGRESS_TOOL_NAME) {
+			flushBatch();
+			segments.push({ type: "progress_divider", block });
+		} else if (isCustomToolUiBlock(block, customToolNames)) {
 			flushBatch();
 			segments.push({ type: "single", block });
 		} else if (block.type === "tool_call" || block.type === "thinking") {

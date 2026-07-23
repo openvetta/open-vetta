@@ -340,7 +340,11 @@
 			"collapseLabel": "收起",
 			"expand": "展开{{count}}条内容",
 			"expandLabel": "展开",
-			"streaming": "正在处理{{elapsed}}s"
+			"streaming": "正在处理{{elapsed}}s",
+			"work": {
+				"collapse": "收起{{count}}个步骤",
+				"expand": "展开{{count}}个步骤"
+			}
 		},
 		"assistantMessage": {
 			"predicting": "Vetta 正在预测…",
@@ -400,6 +404,11 @@
 			"forkBody": "分叉为新会话将停止正在生成的回复。",
 			"confirm": "中断并继续",
 			"cancel": "取消"
+		},
+		"progressGroup": {
+			"fallbackTitle": "正在处理",
+			"genericDone": "完成了 {{count}} 步操作",
+			"genericRunning": "正在处理…"
 		},
 		"toolCallGroup": {
 			"completed": "{{count}} 个工具调用完成",

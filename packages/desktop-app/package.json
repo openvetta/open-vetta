@@ -9,6 +9,7 @@
 	"scripts": {
 		"clean": "rm -rf dist",
 		"typecheck": "tsc --noEmit",
+		"test": "vitest --run",
 		"build:preload": "cross-env VETTA_PRELOAD_ENTRY=index vite build --config vite.preload.config.ts && cross-env VETTA_PRELOAD_ENTRY=pet vite build --config vite.preload.config.ts && cross-env VETTA_PRELOAD_ENTRY=quickpanel vite build --config vite.preload.config.ts && cross-env VETTA_PRELOAD_ENTRY=onboarding vite build --config vite.preload.config.ts",
 		"build:renderer": "vite build --config vite.config.ts",
 		"build:main": "vite build --config vite.main.config.ts",

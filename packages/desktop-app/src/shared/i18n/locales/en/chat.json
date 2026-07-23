@@ -340,7 +340,11 @@
 			"collapseLabel": "Collapse",
 			"expand": "Expand {{count}} items",
 			"expandLabel": "Expand",
-			"streaming": "Processing {{elapsed}}s"
+			"streaming": "Processing {{elapsed}}s",
+			"work": {
+				"collapse": "Collapse {{count}} steps",
+				"expand": "Expand {{count}} steps"
+			}
 		},
 		"assistantMessage": {
 			"predicting": "Vetta is predicting…",
@@ -400,6 +404,11 @@
 			"forkBody": "Forking to a new session will stop the reply in progress.",
 			"confirm": "Interrupt and continue",
 			"cancel": "Cancel"
+		},
+		"progressGroup": {
+			"fallbackTitle": "Working",
+			"genericDone": "Completed {{count}} steps",
+			"genericRunning": "Working on it"
 		},
 		"toolCallGroup": {
 			"completed": "{{count}} tool calls completed",
