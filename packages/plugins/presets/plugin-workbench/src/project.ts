@@ -1,4 +1,4 @@
-import { getWorkbenchFs } from "./runtime";
+import { getWorkbenchFs, withWorkbenchFs } from "./runtime";
 
 export interface ProjectInfo {
 	dir: string;
@@ -21,7 +21,7 @@ export function joinPath(base: string, ...parts: string[]): string {
 
 export async function readJson(path: string): Promise<Record<string, unknown> | null> {
 	try {
-		const file = await getWorkbenchFs().readFile(path);
+		const file = await withWorkbenchFs((fs) => fs.readFile(path));
 		return JSON.parse(file.content) as Record<string, unknown>;
 	} catch {
 		return null;
