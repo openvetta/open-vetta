@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+### Added
+
+- **外部生态 Hook `SessionEnd` / `PostToolUseFailure` 宿主接线**：`newSession` / `switchSession` / `fork` 在切换会话 id 前 `await runSessionEnd`（Vetta cause：`new_session` / `switch_session` / `fork_session`）；`dispose` best-effort `runSessionEnd("dispose")`（同步捕获 session 元数据）。Claude wire `reason` 仅在 ecosystem-adapter Claude profile 映射。工具 wrapper 在真实 `execute` 抛错后触发 `PostToolUseFailure`（`error` / `is_interrupt` / `duration_ms`），Pre/Post 阻断不计入失败；失败 hook 的 `additionalContext` / exit 2 反馈可进入模型上下文或错误消息。
+
 ### Changed
 
 - **系统提示词瘦身与场景化裁剪**：桌面渲染契约类 guideline（文件徽章链接、「产物:」交付块、URL 描述性链接）改为按对话场景注入——`cli` 场景剔除（终端无徽章/卡片渲染，省约 1.7k 常驻字符），桌面场景与未传 scenario 的 SDK 直调行为不变。同时压缩长文案（文件徽章/产物块两条各砍约 40% 字数、`VETTA_CLI_GUIDANCE` 16 条合并为 8 条、MCP 段真假 markdown 两分支合一），语义约束不变；文件名保真规则收敛为单一常量（原 guidelines 与 custom-prompt 分支各写一份）。新增 Project Context 头部的 AGENTS.md 作用域规范（就近目录树生效、深层覆盖浅层、用户对话指令最高）。

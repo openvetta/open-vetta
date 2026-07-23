@@ -2,6 +2,7 @@ import type {
 	CompactionTrigger,
 	HookDispatchOutcome,
 	HookPermissionMode,
+	SessionEndCause,
 	SessionStartSource,
 	SubagentHookContext,
 } from "./types.js";
@@ -30,6 +31,11 @@ export interface EcosystemSessionStartEvent extends EcosystemHookEventBase {
 	source: SessionStartSource;
 }
 
+export interface EcosystemSessionEndEvent extends EcosystemHookEventBase {
+	eventName: "SessionEnd";
+	cause: SessionEndCause;
+}
+
 export interface EcosystemUserPromptSubmitEvent extends EcosystemHookEventBase {
 	eventName: "UserPromptSubmit";
 	turnId: string;
@@ -51,6 +57,17 @@ export interface EcosystemPostToolUseEvent extends EcosystemHookEventBase {
 	toolUseId: string;
 	toolInput: unknown;
 	toolResponse: unknown;
+}
+
+export interface EcosystemPostToolUseFailureEvent extends EcosystemHookEventBase {
+	eventName: "PostToolUseFailure";
+	turnId: string;
+	tool: EcosystemToolDescriptor;
+	toolUseId: string;
+	toolInput: unknown;
+	error: string;
+	isInterrupt?: boolean;
+	durationMs?: number;
 }
 
 export interface EcosystemPermissionRequestEvent extends EcosystemHookEventBase {
@@ -89,10 +106,12 @@ export interface EcosystemStopEvent extends EcosystemHookEventBase {
 
 export type EcosystemHookEvent =
 	| EcosystemSessionStartEvent
+	| EcosystemSessionEndEvent
 	| EcosystemUserPromptSubmitEvent
 	| EcosystemPreToolUseEvent
 	| EcosystemPermissionRequestEvent
 	| EcosystemPostToolUseEvent
+	| EcosystemPostToolUseFailureEvent
 	| EcosystemCompactEvent
 	| EcosystemSubagentStartEvent
 	| EcosystemSubagentStopEvent
@@ -153,6 +172,16 @@ export class EcosystemHookRuntime {
 		return this.dispatch({ ...this.baseEvent(), eventName: "SessionStart", source }, signal);
 	}
 
+	/**
+	 * Best-effort session teardown hook. Cannot block session end.
+	 * `cause` is Vetta-native ({@link SessionEndCause}); Claude wire `reason` is mapped only in the Claude profile.
+	 * Captures session id / transcript path synchronously via {@link baseEvent}.
+	 */
+	async runSessionEnd(cause: SessionEndCause, signal?: AbortSignal): Promise<HookDispatchOutcome> {
+		this.finishTurn();
+		return this.dispatch({ ...this.baseEvent(), eventName: "SessionEnd", cause }, signal);
+	}
+
 	async runUserPromptSubmit(prompt: string, signal?: AbortSignal): Promise<HookDispatchOutcome> {
 		const turnId = `${this.host.getSessionId()}:turn-${++this.turnSequence}`;
 		this.currentTurnId = turnId;
@@ -201,6 +230,33 @@ export class EcosystemHookRuntime {
 		);
 		if (outcome.shouldStop) this.host.abortCurrentRun();
 		return outcome;
+	}
+
+	/**
+	 * Fires after a tool call throws / fails. Cannot undo tool side effects.
+	 * May return additional context or feedback for the model.
+	 */
+	async runPostToolUseFailure(
+		toolUseId: string,
+		tool: EcosystemToolDescriptor | string,
+		toolInput: unknown,
+		error: string,
+		options?: { isInterrupt?: boolean; durationMs?: number; signal?: AbortSignal },
+	): Promise<HookDispatchOutcome> {
+		return this.dispatch(
+			{
+				...this.baseEvent(),
+				eventName: "PostToolUseFailure",
+				turnId: this.ensureTurnId(),
+				tool: normalizeToolDescriptor(tool),
+				toolUseId,
+				toolInput,
+				error,
+				isInterrupt: options?.isInterrupt,
+				durationMs: options?.durationMs,
+			},
+			options?.signal,
+		);
 	}
 
 	async runPermissionRequest(

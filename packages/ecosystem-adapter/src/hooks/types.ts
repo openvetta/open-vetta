@@ -1,9 +1,11 @@
 export const HOOK_EVENT_NAMES = [
 	"SessionStart",
+	"SessionEnd",
 	"UserPromptSubmit",
 	"PreToolUse",
 	"PermissionRequest",
 	"PostToolUse",
+	"PostToolUseFailure",
 	"PreCompact",
 	"PostCompact",
 	"SubagentStart",
@@ -14,6 +16,20 @@ export const HOOK_EVENT_NAMES = [
 export type HookEventName = (typeof HOOK_EVENT_NAMES)[number];
 export type HookPermissionMode = "default" | "acceptEdits" | "plan" | "dontAsk" | "bypassPermissions";
 export type SessionStartSource = "startup" | "resume" | "clear" | "compact";
+/**
+ * Vetta-native reason the current session is ending.
+ * Host and neutral runtime use only these values — never Claude/Codex wire strings.
+ * Claude stdin `reason` / settings matchers are produced only in the Claude profile.
+ */
+export type SessionEndCause =
+	/** Host creates a brand-new session (replaces the current one). */
+	| "new_session"
+	/** Host switches to another existing session file. */
+	| "switch_session"
+	/** Host forks the conversation into a new branched session. */
+	| "fork_session"
+	/** AgentSession / runtime is disposed (process teardown, UI closed session). */
+	| "dispose";
 export type CompactionTrigger = "manual" | "auto";
 export type HookRunStatus = "Running" | "Completed" | "Failed" | "Blocked" | "Stopped";
 export type HookOutputEntryKind = "Warning" | "Stop" | "Feedback" | "Context" | "Error";
@@ -87,6 +103,12 @@ export interface SessionStartHookRequest extends HookRequestBase {
 	source: SessionStartSource;
 }
 
+export interface SessionEndHookRequest extends HookRequestBase {
+	eventName: "SessionEnd";
+	/** Vetta-native end cause; profile maps to ecosystem wire fields if needed. */
+	cause: SessionEndCause;
+}
+
 export interface UserPromptSubmitHookRequest extends HookRequestBase {
 	eventName: "UserPromptSubmit";
 	turnId: string;
@@ -122,6 +144,18 @@ export interface PostToolUseHookRequest extends HookRequestBase {
 	subagent?: SubagentHookContext;
 }
 
+export interface PostToolUseFailureHookRequest extends HookRequestBase {
+	eventName: "PostToolUseFailure";
+	turnId: string;
+	tool: HookToolIdentity;
+	toolUseId: string;
+	toolInput: unknown;
+	error: string;
+	isInterrupt?: boolean;
+	durationMs?: number;
+	subagent?: SubagentHookContext;
+}
+
 export interface CompactHookRequest extends HookRequestBase {
 	eventName: "PreCompact" | "PostCompact";
 	turnId: string;
@@ -151,10 +185,12 @@ export interface StopHookRequest extends HookRequestBase {
 
 export type HookRequest =
 	| SessionStartHookRequest
+	| SessionEndHookRequest
 	| UserPromptSubmitHookRequest
 	| PreToolUseHookRequest
 	| PermissionRequestHookRequest
 	| PostToolUseHookRequest
+	| PostToolUseFailureHookRequest
 	| CompactHookRequest
 	| SubagentStartHookRequest
 	| SubagentStopHookRequest

@@ -52,6 +52,8 @@ function interpretByEvent(request: HookRequest, result: HookCommandResult): Hook
 		case "SessionStart":
 		case "SubagentStart":
 			return interpretStart(request.eventName, result);
+		case "SessionEnd":
+			return interpretSessionEnd(result);
 		case "UserPromptSubmit":
 			return interpretUserPromptSubmit(result);
 		case "PreToolUse":
@@ -60,6 +62,8 @@ function interpretByEvent(request: HookRequest, result: HookCommandResult): Hook
 			return interpretPermissionRequest(result);
 		case "PostToolUse":
 			return interpretPostToolUse(result);
+		case "PostToolUseFailure":
+			return interpretPostToolUseFailure(result);
 		case "PreCompact":
 			return interpretPreCompact(result);
 		case "PostCompact":
@@ -87,6 +91,18 @@ function interpretStart(eventName: "SessionStart" | "SubagentStart", result: Hoo
 	const outcome = fromUniversal(parsed.value);
 	appendContext(outcome, parsed.value.additionalContext);
 	return outcome;
+}
+
+/** SessionEnd cannot block teardown; non-zero exit is a non-blocking failure. */
+function interpretSessionEnd(result: HookCommandResult): HookHandlerOutcome {
+	if (result.exitCode !== 0) {
+		const detail = trimmed(result.stderr) ?? `hook exited with code ${result.exitCode}`;
+		return failed(`SessionEnd ${detail}`);
+	}
+	const stdout = result.stdout.trim();
+	if (!stdout || !looksJsonLike(stdout)) return emptyHandlerOutcome();
+	const parsed = parseClaudeOutput("SessionEnd", stdout);
+	return parsed.ok ? fromUniversal(parsed.value) : failed(parsed.message);
 }
 
 function interpretUserPromptSubmit(result: HookCommandResult): HookHandlerOutcome {
@@ -183,6 +199,32 @@ function interpretPostToolUse(result: HookCommandResult): HookHandlerOutcome {
 			entries: [...outcome.entries, { kind: "Feedback", text: reason }],
 		};
 	}
+	return outcome;
+}
+
+/**
+ * PostToolUseFailure: tool already failed. Exit 2 surfaces stderr to the model as feedback.
+ * JSON may supply additionalContext; cannot reverse the failure.
+ */
+function interpretPostToolUseFailure(result: HookCommandResult): HookHandlerOutcome {
+	if (result.exitCode === 2) {
+		const feedback = trimmed(result.stderr);
+		return feedback
+			? {
+					...emptyHandlerOutcome(),
+					status: "Completed",
+					feedbackMessages: [feedback],
+					entries: [{ kind: "Feedback", text: feedback }],
+				}
+			: failed("PostToolUseFailure hook exited with code 2 without feedback");
+	}
+	if (result.exitCode !== 0) return failed(`hook exited with code ${result.exitCode}`);
+	const stdout = result.stdout.trim();
+	if (!stdout || !looksJsonLike(stdout)) return emptyHandlerOutcome();
+	const parsed = parseClaudeOutput("PostToolUseFailure", stdout);
+	if (!parsed.ok) return failed(parsed.message);
+	const outcome = { ...emptyHandlerOutcome(), entries: warningEntriesFor(parsed.value) };
+	appendContext(outcome, parsed.value.additionalContext);
 	return outcome;
 }
 

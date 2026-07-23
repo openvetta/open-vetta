@@ -13,6 +13,9 @@ export function encodeLatestCodexHookInput(request: HookRequest): string {
 	switch (request.eventName) {
 		case "SessionStart":
 			return JSON.stringify({ ...permission, source: request.source });
+		case "SessionEnd":
+		case "PostToolUseFailure":
+			throw new Error(`Codex profile does not encode ${request.eventName}`);
 		case "UserPromptSubmit":
 			return JSON.stringify({
 				...permission,

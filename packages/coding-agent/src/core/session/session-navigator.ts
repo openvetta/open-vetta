@@ -56,6 +56,8 @@ export class SessionNavigator {
 
 		this.ctx.disconnectFromAgent();
 		await this.ctx.abort();
+		// Outgoing session ends because the host is opening a new one.
+		await this.ctx.hookRuntime.runSessionEnd("new_session");
 		this.ctx.agent.reset();
 		this.ctx.sessionManager.newSession({ parentSession: options?.parentSession });
 		this.ctx.agent.sessionId = this.ctx.sessionManager.getSessionId();
@@ -110,6 +112,8 @@ export class SessionNavigator {
 		this.ctx.disconnectFromAgent();
 		await this.ctx.abort();
 		this.queue.reset();
+		// Leave current session for another existing session file.
+		await this.ctx.hookRuntime.runSessionEnd("switch_session");
 
 		// Set new session
 		this.ctx.sessionManager.setSessionFile(sessionPath);
@@ -203,6 +207,7 @@ export class SessionNavigator {
 
 		// Clear pending messages (bound to old session state)
 		this.queue.resetNextTurn();
+		await this.ctx.hookRuntime.runSessionEnd("fork_session");
 
 		if (!selectedEntry.parentId) {
 			this.ctx.sessionManager.newSession({ parentSession: previousSessionFile });

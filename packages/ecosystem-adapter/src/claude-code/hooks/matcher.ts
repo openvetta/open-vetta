@@ -1,4 +1,5 @@
 import type { HookRequest } from "../../hooks/types.js";
+import { toClaudeSessionEndReason } from "./session-end-reason.js";
 
 /**
  * Claude matcher rules (docs as of analysis baseline):
@@ -6,6 +7,7 @@ import type { HookRequest } from "../../hooks/types.js";
  * - only letters, digits, `_`, `-`, spaces, `,`, `|` → exact tokens split by `|` or `,`
  * - otherwise → unanchored JavaScript RegExp
  * UserPromptSubmit / Stop ignore matchers (always fire).
+ * SessionEnd matchers use Claude wire `reason` (mapped from Vetta cause), not host cause ids.
  */
 export function matchesClaudeHook(request: HookRequest, matcher: string | undefined): boolean {
 	const inputs = matcherInputs(request);
@@ -41,9 +43,12 @@ function matcherInputs(request: HookRequest): readonly string[] | undefined {
 	switch (request.eventName) {
 		case "SessionStart":
 			return [request.source];
+		case "SessionEnd":
+			return [toClaudeSessionEndReason(request.cause)];
 		case "PreToolUse":
 		case "PermissionRequest":
 		case "PostToolUse":
+		case "PostToolUseFailure":
 			return [request.tool.name, ...request.tool.matcherAliases];
 		case "PreCompact":
 		case "PostCompact":

@@ -1,4 +1,5 @@
 import type { HookRequest, SubagentHookContext } from "../../hooks/types.js";
+import { toClaudeSessionEndReason } from "./session-end-reason.js";
 
 export function encodeClaudeHookInput(request: HookRequest): string {
 	const common = {
@@ -15,6 +16,12 @@ export function encodeClaudeHookInput(request: HookRequest): string {
 				...common,
 				source: request.source,
 				model: request.model,
+			});
+		case "SessionEnd":
+			// Wire field stays Claude's `reason`; host uses Vetta `cause`.
+			return JSON.stringify({
+				...common,
+				reason: toClaudeSessionEndReason(request.cause),
 			});
 		case "UserPromptSubmit":
 			return JSON.stringify({
@@ -45,6 +52,17 @@ export function encodeClaudeHookInput(request: HookRequest): string {
 				tool_input: request.toolInput,
 				tool_response: request.toolResponse,
 				tool_use_id: request.toolUseId,
+			});
+		case "PostToolUseFailure":
+			return JSON.stringify({
+				...common,
+				...subagentFields(request.subagent),
+				tool_name: request.tool.name,
+				tool_input: request.toolInput,
+				tool_use_id: request.toolUseId,
+				error: request.error,
+				...(request.isInterrupt !== undefined ? { is_interrupt: request.isInterrupt } : {}),
+				...(request.durationMs !== undefined ? { duration_ms: request.durationMs } : {}),
 			});
 		case "PreCompact":
 		case "PostCompact":

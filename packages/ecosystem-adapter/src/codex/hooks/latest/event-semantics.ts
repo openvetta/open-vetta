@@ -52,6 +52,9 @@ function interpretByEvent(request: HookRequest, result: HookCommandResult): Hook
 		case "SessionStart":
 		case "SubagentStart":
 			return interpretStart(request.eventName, result);
+		case "SessionEnd":
+		case "PostToolUseFailure":
+			return failed(`Codex profile does not support ${request.eventName}`);
 		case "UserPromptSubmit":
 			return interpretUserPromptSubmit(result);
 		case "PreToolUse":

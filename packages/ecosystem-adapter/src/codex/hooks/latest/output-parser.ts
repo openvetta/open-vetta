@@ -111,6 +111,9 @@ export function parseLatestCodexOutput(eventName: HookEventName, stdout: string)
 				output.updatedMcpToolOutput = optionalValue(wire.hookSpecificOutput?.updatedMCPToolOutput);
 				return output;
 			});
+		case "SessionEnd":
+		case "PostToolUseFailure":
+			return invalid(eventName);
 		case "PreCompact":
 		case "PostCompact":
 			return parseWithSchema(eventName, compactOutputSchema, root, fromUniversal);
