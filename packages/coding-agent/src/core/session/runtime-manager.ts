@@ -1034,6 +1034,46 @@ export class RuntimeManager {
 		});
 	}
 
+	/**
+	 * Sandbox (and other permission UIs) call ExtensionContext.requestEcosystemPermission
+	 * before prompting the user. Map that to ecosystem PermissionRequest hooks.
+	 */
+	private _bindEcosystemPermissionHandler(runner: ExtensionRunner): void {
+		const hooks = this.ctx.hookRuntime;
+		runner.setEcosystemPermissionHandler(async (request) => {
+			const kind =
+				request.toolName === "bash" || request.toolName === "shell"
+					? "shell"
+					: request.toolName === "edit" || request.toolName === "write"
+						? "file-edit"
+						: "function";
+			const outcome = await hooks.runPermissionRequest(
+				request.runIdSuffix,
+				{ hostName: request.toolName, kind },
+				request.toolInput,
+				request.signal,
+			);
+			await hooks.recordAdditionalContexts(outcome.additionalContexts);
+			if (outcome.permissionDecision === "deny" || outcome.shouldBlock || outcome.shouldStop) {
+				return {
+					decision: "deny",
+					message:
+						outcome.permissionMessage ??
+						outcome.blockReason ??
+						outcome.stopReason ??
+						"Permission denied by ecosystem hook",
+				};
+			}
+			if (outcome.permissionDecision === "allow") {
+				return {
+					decision: "allow",
+					message: outcome.permissionMessage,
+				};
+			}
+			return undefined;
+		});
+	}
+
 	buildRuntime(options: {
 		activeToolNames?: string[];
 		flagValues?: Map<string, boolean | string>;
@@ -1158,6 +1198,7 @@ export class RuntimeManager {
 		if (this._extensionRunner) {
 			this._bindExtensionCore(this._extensionRunner);
 			this._applyExtensionBindings(this._extensionRunner);
+			this._bindEcosystemPermissionHandler(this._extensionRunner);
 		}
 
 		const registeredTools = this._extensionRunner?.getAllRegisteredTools() ?? [];

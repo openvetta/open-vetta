@@ -26,12 +26,12 @@
 | `SessionStart` | `startup/resume/clear/compact` | `continue:false`、additional context | 新会话、恢复、清理、压缩后的下一轮 | 可用 |
 | `UserPromptSubmit` | 忽略 matcher | block、stop、additional context | 用户消息写入会话前 | 可用 |
 | `PreToolUse` | canonical name 与 aliases | deny、additional context、`updatedInput` | 所有实际激活工具执行前 | 可用 |
-| `PermissionRequest` | canonical name 与 aliases | allow/deny、deny 优先聚合 | Coding Agent 尚无统一工具审批入口 | 协议可用 |
+| `PermissionRequest` | canonical name 与 aliases | allow/deny、deny 优先聚合 | 沙箱权限 UI 弹出前（`confirmSandboxPermission`） | 可用 |
 | `PostToolUse` | canonical name 与 aliases | block、feedback、additional context | 工具成功执行后 | 可用 |
 | `PreCompact` | `manual/auto` | `continue:false` | 手动或自动压缩真正开始前 | 可用 |
 | `PostCompact` | `manual/auto` | `continue:false` | 摘要、session 与 agent messages 更新后 | 可用 |
-| `SubagentStart` | agent type | stop、additional context | 尚无 Codex thread-spawn 等价生命周期 | 协议可用 |
-| `SubagentStop` | agent type | block 续跑、stop | 同上 | 协议可用 |
+| `SubagentStart` | agent type | stop、additional context | `SubagentCoordinator` 子会话创建后、首轮 prompt 前 | 可用 |
+| `SubagentStop` | agent type | block 续跑、stop | 子代理自然结束（可续跑）/ interrupt·failed 终态 | 可用 |
 | `Stop` | 忽略 matcher | block 续跑、stop、`stop_hook_active` | 根 turn 自然结束点 | 可用 |
 
 说明：协议可用但宿主未触发的事件不会被伪造成其他事件。未来增加统一审批或可见子代理后，只需调用通用 `EcosystemHookRuntime` API，不需要在 Coding Agent 中增加 Codex 专用实现。

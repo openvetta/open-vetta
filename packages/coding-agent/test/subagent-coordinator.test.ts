@@ -1,7 +1,13 @@
+import type { EcosystemHookRuntime, HookDispatchOutcome } from "@vetta/ecosystem-adapter/hooks";
 import { describe, expect, it, vi } from "vitest";
 import { SubagentCoordinator } from "../src/core/subagents/coordinator.js";
 import { createDefaultSubagentTypeRegistry } from "../src/core/subagents/index.js";
-import type { SubagentChildHandle, SubagentSessionFactory, SubagentSnapshot } from "../src/core/subagents/types.js";
+import type {
+	SubagentChildHandle,
+	SubagentCoordinatorOptions,
+	SubagentSessionFactory,
+	SubagentSnapshot,
+} from "../src/core/subagents/types.js";
 import { emptyUsage } from "../src/core/subagents/types.js";
 
 function fakeHandle(overrides?: Partial<SubagentChildHandle> & { id?: string }): SubagentChildHandle {
@@ -44,7 +50,11 @@ function createFactory(handles?: SubagentChildHandle[]): SubagentSessionFactory 
 	};
 }
 
-function makeCoordinator(factory: SubagentSessionFactory, maxConcurrent = 3) {
+function makeCoordinator(
+	factory: SubagentSessionFactory,
+	maxConcurrent = 3,
+	extra?: { hookRuntime?: SubagentCoordinatorOptions["hookRuntime"] },
+) {
 	const updates: SubagentSnapshot[][] = [];
 	const notifications: string[] = [];
 	const coord = new SubagentCoordinator({
@@ -62,13 +72,94 @@ function makeCoordinator(factory: SubagentSessionFactory, maxConcurrent = 3) {
 		getThinkingLevel: () => "off",
 		getParentMcpTools: () => [],
 		maxConcurrent,
+		hookRuntime: extra?.hookRuntime,
 		onUpdate: (agents) => updates.push([...agents]),
 		onNotify: (p) => notifications.push(p.text),
 	});
 	return { coord, updates, notifications };
 }
 
+function emptyHookOutcome(overrides?: Partial<HookDispatchOutcome>): HookDispatchOutcome {
+	return {
+		shouldStop: false,
+		shouldBlock: false,
+		additionalContexts: [],
+		continuationFragments: [],
+		runs: [],
+		...overrides,
+	};
+}
+
 describe("SubagentCoordinator", () => {
+	it("fires SubagentStart then SubagentStop around a successful run", async () => {
+		const calls: string[] = [];
+		const hookRuntime = {
+			runSubagentStart: async () => {
+				calls.push("start");
+				return emptyHookOutcome({ additionalContexts: ["policy: read-only"] });
+			},
+			runSubagentStop: async () => {
+				calls.push("stop");
+				return emptyHookOutcome();
+			},
+			recordAdditionalContexts: async () => {},
+		} as unknown as EcosystemHookRuntime;
+
+		const prompted: string[] = [];
+		const listeners = new Set<(e: { type: string }) => void>();
+		const full = fakeHandle({
+			prompt: async (text) => {
+				prompted.push(text);
+				for (const l of listeners) l({ type: "agent_start" });
+				for (const l of listeners) l({ type: "agent_end" });
+			},
+			subscribe: (listener) => {
+				listeners.add(listener);
+				return () => listeners.delete(listener);
+			},
+		});
+
+		const { coord } = makeCoordinator(createFactory([full]), 3, { hookRuntime });
+		await coord.spawn({
+			taskName: "api_trace",
+			message: "map auth flow",
+			agentType: "explorer",
+		});
+
+		await vi.waitFor(() => {
+			expect(coord.list()[0]?.status).toBe("completed");
+		});
+		expect(calls).toEqual(["start", "stop"]);
+		expect(prompted[0]).toContain("policy: read-only");
+		expect(prompted[0]).toContain("map auth flow");
+	});
+
+	it("aborts spawn when SubagentStart blocks", async () => {
+		const disposed: string[] = [];
+		const hookRuntime = {
+			runSubagentStart: async () =>
+				emptyHookOutcome({ shouldBlock: true, blockReason: "subagents disabled by policy" }),
+			runSubagentStop: async () => emptyHookOutcome(),
+			recordAdditionalContexts: async () => {},
+		} as unknown as EcosystemHookRuntime;
+
+		const handle = fakeHandle({
+			dispose: () => {
+				disposed.push("yes");
+			},
+		});
+		const { coord } = makeCoordinator(createFactory([handle]), 3, { hookRuntime });
+		await expect(
+			coord.spawn({
+				taskName: "blocked",
+				message: "should not run",
+				agentType: "explorer",
+			}),
+		).rejects.toThrow(/subagents disabled by policy/);
+		expect(disposed).toEqual(["yes"]);
+		expect(coord.list()[0]?.status).toBe("failed");
+	});
+
 	it("spawns explorer and completes with final text", async () => {
 		const { coord } = makeCoordinator(createFactory());
 		const snap = await coord.spawn({

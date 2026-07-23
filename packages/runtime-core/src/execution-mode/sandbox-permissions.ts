@@ -423,6 +423,43 @@ export async function confirmSandboxPermission(
 	ctx: ExtensionContext,
 	request: SandboxPermissionRequest,
 ): Promise<SandboxPermissionDecision> {
+	// Ecosystem PermissionRequest: only when host is about to show a permission UI.
+	// allow/deny short-circuit; undefined falls through to UI (or deny without UI).
+	if (typeof ctx.requestEcosystemPermission === "function") {
+		try {
+			const hookDecision = await ctx.requestEcosystemPermission({
+				toolName: request.toolName,
+				toolInput: {
+					capability: request.capability,
+					target: request.target,
+					resolvedTarget: request.resolvedTarget,
+					grantRoot: request.grantRoot,
+					command: request.command,
+					reason: request.reason,
+				},
+				runIdSuffix: `${request.capability}:${request.resolvedTarget}`,
+			});
+			if (hookDecision?.decision === "deny") {
+				console.info("[ecosystem-hooks] PermissionRequest denied sandbox grant", {
+					tool: request.toolName,
+					capability: request.capability,
+					message: hookDecision.message,
+				});
+				return "deny";
+			}
+			if (hookDecision?.decision === "allow") {
+				console.info("[ecosystem-hooks] PermissionRequest allowed sandbox grant", {
+					tool: request.toolName,
+					capability: request.capability,
+				});
+				// Hooks approve this single request; session-cache still requires user "allow_session".
+				return "allow_once";
+			}
+		} catch (error) {
+			console.warn("[ecosystem-hooks] PermissionRequest hook failed; falling through to UI", error);
+		}
+	}
+
 	if (!ctx.hasUI) return "deny";
 	const sensitive = isSensitiveSandboxRequest(request);
 	const title = "沙箱权限请求";

@@ -21,6 +21,8 @@ const MIN_WAIT_TIMEOUT_MS = 1_000;
 const MAX_WAIT_TIMEOUT_MS = 300_000;
 const MAX_TERMINAL_HANDLES = 50;
 
+const MAX_SUBAGENT_STOP_CONTINUATIONS = 8;
+
 interface InternalChild {
 	snapshot: SubagentSnapshot;
 	handle?: SubagentChildHandle;
@@ -32,6 +34,13 @@ interface InternalChild {
 	waiters: Array<() => void>;
 	/** Original request (todos etc.), kept until the child actually starts. */
 	queuedRequest?: SubagentSpawnRequest;
+	/** True after SubagentStart hooks ran successfully for this child. */
+	ecosystemStartFired?: boolean;
+	/** Mirrors Claude/Codex stop_hook_active for SubagentStop re-entry. */
+	stopHookActive?: boolean;
+	stopContinuationCount?: number;
+	/** Prevents concurrent onChildAgentEnd (agent_end + prompt settle race). */
+	endInFlight?: boolean;
 }
 
 function isActiveStatus(status: SubagentStatus): boolean {
@@ -62,6 +71,7 @@ export class SubagentCoordinator {
 	private readonly queue: string[] = [];
 	private onNotify?: SubagentCoordinatorOptions["onNotify"];
 	private onUpdate?: SubagentCoordinatorOptions["onUpdate"];
+	private readonly hookRuntime?: SubagentCoordinatorOptions["hookRuntime"];
 	private disposed = false;
 	private notifyBuffer: SubagentSnapshot[] = [];
 	private notifyTimer?: ReturnType<typeof setTimeout>;
@@ -81,6 +91,7 @@ export class SubagentCoordinator {
 		this.maxConcurrent = options.maxConcurrent ?? DEFAULT_MAX_CONCURRENT;
 		this.onNotify = options.onNotify;
 		this.onUpdate = options.onUpdate;
+		this.hookRuntime = options.hookRuntime;
 	}
 
 	list(): ReadonlyArray<SubagentSnapshot> {
@@ -156,7 +167,9 @@ export class SubagentCoordinator {
 			this.emitUpdate();
 			return { ...entry.snapshot };
 		} catch (err) {
-			this.releaseEntry(entry, "failed", err instanceof Error ? err.message : String(err));
+			if (!(err instanceof SubagentStartBlockedError)) {
+				this.releaseEntry(entry, "failed", err instanceof Error ? err.message : String(err));
+			}
 			this.emitUpdate();
 			this.drainQueue();
 			throw err;
@@ -322,8 +335,17 @@ export class SubagentCoordinator {
 			});
 		}
 
+		// User-visible subagent is ready: SubagentStart before the first prompt.
+		const startMessage = await this.fireSubagentStart(entry, request.message);
+		if (startMessage === undefined) {
+			// Hook blocked; child disposed and marked failed by fireSubagentStart.
+			const reason = entry.snapshot.errorMessage ?? "SubagentStart ecosystem hook blocked subagent spawn";
+			// Avoid double releaseEntry from callers when already terminal.
+			throw new SubagentStartBlockedError(reason);
+		}
+
 		// Fire-and-forget prompt; completion via agent_end.
-		void this.runInitialPrompt(entry, request.message);
+		void this.runInitialPrompt(entry, startMessage);
 	}
 
 	/** startChild wrapper for queued/batch children: failures notify instead of throwing. */
@@ -333,7 +355,9 @@ export class SubagentCoordinator {
 			this.emitUpdate();
 		} catch (err) {
 			if (this.disposed) return;
-			this.releaseEntry(entry, "failed", err instanceof Error ? err.message : String(err));
+			if (!(err instanceof SubagentStartBlockedError)) {
+				this.releaseEntry(entry, "failed", err instanceof Error ? err.message : String(err));
+			}
 			this.emitUpdate();
 			this.queueNotification(entry.snapshot);
 			this.drainQueue();
@@ -421,18 +445,149 @@ export class SubagentCoordinator {
 			return;
 		}
 		if (entry.snapshot.status === "completed") return;
+		// agent_end listener and prompt-settle can race; only one settle path runs.
+		if (entry.endInFlight) return;
+		entry.endInFlight = true;
 
-		const text = entry.handle?.getLastAssistantText();
-		entry.snapshot.finalText = text;
-		entry.snapshot.status = "completed";
-		entry.snapshot.endedAt = Date.now();
-		entry.snapshot.generation += 1;
-		this.releaseActiveSlot(entry);
-		this.trimTerminalHandles();
-		this.wakeWaiters(entry);
-		this.emitUpdate();
-		this.queueNotification(entry.snapshot);
-		this.drainQueue();
+		try {
+			const text = entry.handle?.getLastAssistantText() ?? null;
+			entry.snapshot.finalText = text ?? undefined;
+
+			// SubagentStop may request continuation (like root Stop).
+			const continued = await this.fireSubagentStop(entry, text);
+			if (continued) {
+				entry.endInFlight = false;
+				return;
+			}
+
+			entry.snapshot.status = "completed";
+			entry.snapshot.endedAt = Date.now();
+			entry.snapshot.generation += 1;
+			this.releaseActiveSlot(entry);
+			this.trimTerminalHandles();
+			this.wakeWaiters(entry);
+			this.emitUpdate();
+			this.queueNotification(entry.snapshot);
+			this.drainQueue();
+		} catch (error) {
+			entry.endInFlight = false;
+			throw error;
+		}
+	}
+
+	/**
+	 * Run SubagentStart hooks. Returns the (possibly context-augmented) task message,
+	 * or undefined when spawn must abort (child disposed and marked failed).
+	 */
+	private async fireSubagentStart(entry: InternalChild, message: string): Promise<string | undefined> {
+		const hooks = this.hookRuntime;
+		if (!hooks) {
+			entry.ecosystemStartFired = true;
+			return message;
+		}
+		const turnId = `${this.parentSessionId}:subagent-start:${entry.snapshot.id}`;
+		try {
+			const outcome = await hooks.runSubagentStart(
+				{ agentId: entry.snapshot.id, agentType: entry.snapshot.agentType },
+				turnId,
+			);
+			await hooks.recordAdditionalContexts(outcome.additionalContexts);
+			if (outcome.shouldStop || outcome.shouldBlock) {
+				const reason =
+					outcome.stopReason ?? outcome.blockReason ?? "SubagentStart ecosystem hook blocked subagent spawn";
+				console.info("[ecosystem-hooks] SubagentStart blocked", {
+					agentId: entry.snapshot.id,
+					agentType: entry.snapshot.agentType,
+					reason,
+				});
+				this.disposeChildHandle(entry);
+				entry.snapshot.errorMessage = reason;
+				entry.snapshot.status = "failed";
+				entry.snapshot.endedAt = Date.now();
+				entry.snapshot.generation += 1;
+				this.releaseActiveSlot(entry);
+				return undefined;
+			}
+			entry.ecosystemStartFired = true;
+			entry.stopHookActive = false;
+			entry.stopContinuationCount = 0;
+			if (outcome.additionalContexts.length === 0) return message;
+			return `${outcome.additionalContexts.join("\n\n")}\n\n${message}`;
+		} catch (error) {
+			console.warn("[ecosystem-hooks] SubagentStart failed", error);
+			entry.ecosystemStartFired = true;
+			return message;
+		}
+	}
+
+	/**
+	 * Run SubagentStop. Returns true if the child was re-prompted (still active).
+	 */
+	private async fireSubagentStop(entry: InternalChild, lastAssistantMessage: string | null): Promise<boolean> {
+		const hooks = this.hookRuntime;
+		if (!hooks || !entry.ecosystemStartFired) return false;
+
+		const turnId = `${this.parentSessionId}:subagent-stop:${entry.snapshot.id}:${entry.snapshot.generation}`;
+		try {
+			const outcome = await hooks.runSubagentStop({
+				agentId: entry.snapshot.id,
+				agentType: entry.snapshot.agentType,
+				turnId,
+				stopHookActive: entry.stopHookActive === true,
+				lastAssistantMessage,
+				agentTranscriptPath: entry.snapshot.sessionFile ?? null,
+			});
+			await hooks.recordAdditionalContexts(outcome.additionalContexts);
+
+			const canContinue =
+				outcome.shouldBlock &&
+				!outcome.shouldStop &&
+				outcome.continuationFragments.length > 0 &&
+				entry.handle &&
+				(entry.stopContinuationCount ?? 0) < MAX_SUBAGENT_STOP_CONTINUATIONS;
+
+			if (canContinue && entry.handle) {
+				entry.stopHookActive = true;
+				entry.stopContinuationCount = (entry.stopContinuationCount ?? 0) + 1;
+				const fragment = outcome.continuationFragments.join("\n\n");
+				console.info("[ecosystem-hooks] SubagentStop continuation", {
+					agentId: entry.snapshot.id,
+					count: entry.stopContinuationCount,
+				});
+				void entry.handle.prompt(fragment).then(
+					() => {
+						if (entry.handle && !entry.handle.isStreaming() && entry.snapshot.status === "running") {
+							void this.onChildAgentEnd(entry);
+						}
+					},
+					(err) => {
+						if (entry.snapshot.status === "running" || entry.snapshot.status === "pending") {
+							this.releaseEntry(entry, "failed", err instanceof Error ? err.message : String(err));
+							this.emitUpdate();
+							this.queueNotification(entry.snapshot);
+							this.drainQueue();
+						}
+					},
+				);
+				return true;
+			}
+		} catch (error) {
+			console.warn("[ecosystem-hooks] SubagentStop failed", error);
+		}
+		return false;
+	}
+
+	private disposeChildHandle(entry: InternalChild): void {
+		entry.unsubscribe?.();
+		entry.unsubscribe = undefined;
+		entry.todoUnsubscribe?.();
+		entry.todoUnsubscribe = undefined;
+		try {
+			entry.handle?.dispose();
+		} catch {
+			// ignore
+		}
+		entry.handle = undefined;
 	}
 
 	async sendMessage(target: string, message: string): Promise<SubagentSnapshot> {
@@ -536,8 +691,10 @@ export class SubagentCoordinator {
 		if (isTerminalStatus(entry.snapshot.status)) {
 			return { ...entry.snapshot };
 		}
+		const lastText = entry.handle?.getLastAssistantText() ?? null;
 		entry.handle?.abort();
 		entry.queuedRequest = undefined;
+		entry.snapshot.finalText = lastText ?? entry.snapshot.finalText;
 		entry.snapshot.status = "interrupted";
 		entry.snapshot.endedAt = Date.now();
 		entry.snapshot.generation += 1;
@@ -546,7 +703,28 @@ export class SubagentCoordinator {
 		this.emitUpdate();
 		this.queueNotification(entry.snapshot);
 		this.drainQueue();
+		// Best-effort SubagentStop after terminal mark (must not re-prompt).
+		void this.fireSubagentStopTerminal(entry, lastText);
 		return { ...entry.snapshot };
+	}
+
+	/** SubagentStop for terminal paths that must not continue the child. */
+	private async fireSubagentStopTerminal(entry: InternalChild, lastAssistantMessage: string | null): Promise<void> {
+		const hooks = this.hookRuntime;
+		if (!hooks || !entry.ecosystemStartFired) return;
+		try {
+			const outcome = await hooks.runSubagentStop({
+				agentId: entry.snapshot.id,
+				agentType: entry.snapshot.agentType,
+				turnId: `${this.parentSessionId}:subagent-stop:${entry.snapshot.id}:${entry.snapshot.generation}`,
+				stopHookActive: entry.stopHookActive === true,
+				lastAssistantMessage,
+				agentTranscriptPath: entry.snapshot.sessionFile ?? null,
+			});
+			await hooks.recordAdditionalContexts(outcome.additionalContexts);
+		} catch (error) {
+			console.warn("[ecosystem-hooks] SubagentStop (terminal) failed", error);
+		}
 	}
 
 	/**
@@ -676,24 +854,18 @@ export class SubagentCoordinator {
 	}
 
 	private releaseEntry(entry: InternalChild, status: "failed" | "interrupted", errorMessage?: string): void {
+		const lastText = entry.handle?.getLastAssistantText() ?? entry.snapshot.finalText ?? null;
 		entry.snapshot.status = status;
 		entry.snapshot.endedAt = Date.now();
 		entry.snapshot.errorMessage = errorMessage;
+		entry.snapshot.finalText = lastText ?? undefined;
 		entry.snapshot.generation += 1;
 		entry.queuedRequest = undefined;
 		this.releaseActiveSlot(entry);
 		this.wakeWaiters(entry);
-		entry.unsubscribe?.();
-		entry.unsubscribe = undefined;
-		entry.todoUnsubscribe?.();
-		entry.todoUnsubscribe = undefined;
-		try {
-			entry.handle?.dispose();
-		} catch {
-			// ignore
-		}
-		entry.handle = undefined;
+		this.disposeChildHandle(entry);
 		// Keep task name reserved so list/follow-up can still resolve historical children.
+		void this.fireSubagentStopTerminal(entry, lastText);
 	}
 
 	private wakeWaiters(entry: InternalChild): void {
@@ -785,4 +957,12 @@ export class SubagentCoordinator {
 
 function clamp(n: number, min: number, max: number): number {
 	return Math.min(max, Math.max(min, n));
+}
+
+/** Spawn aborted by SubagentStart hook; entry is already terminal. */
+class SubagentStartBlockedError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = "SubagentStartBlockedError";
+	}
 }

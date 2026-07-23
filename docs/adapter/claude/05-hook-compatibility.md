@@ -196,8 +196,9 @@ CDT 的 `Stop` 兼容尤其需要谨慎：Vetta 必须在 Hook 阻止停止后�
 - `PostToolUse`（已实现）
 - `PostToolUseFailure`（已实现：工具 `execute` 抛错后触发；exit 2 反馈 / `additionalContext`；不可撤销失败）
 - `Notification`
-- `SubagentStart`
-- `SubagentStop`
+- `SubagentStart`（已实现：coordinator spawn 后首轮 prompt 前；可阻断；additionalContext 注入任务消息）
+- `SubagentStop`（已实现：自然结束可续跑 ≤8 次；interrupt/failed best-effort 不续跑）
+- `PermissionRequest`（已实现：沙箱权限 UI 前；allow/deny 短路）
 - `PreCompact`（已实现）
 - `PostCompact`（已实现）
 - `SessionEnd`（已实现：宿主用 Vetta `SessionEndCause`（`new_session` / `switch_session` / `fork_session` / `dispose`）；Claude profile 映射为 stdin/matcher 的 `reason`（`clear` / `resume` / `other` 等）；不可阻断拆会话）
