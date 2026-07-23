@@ -56,7 +56,7 @@ bun run verify:ui:stop
 
 ## 验证闭环
 
-1. 修改代码后运行 `bun run check`。
+1. 修改代码后运行 `bun run check`（Biome + 类型 + 架构守卫）。逻辑变更再跑 `bun run test:pkg <包名>` 或 `bun run test:changed`。门禁分层见 [quality-gates.md](./quality-gates.md)。
 2. Renderer 改动由 Vite HMR 更新；Main 或 Preload 改动需要执行 `verify:ui:stop` 后重新 `verify:ui:start`。
 3. 用 `snapshot` 读取当前页面状态，再执行点击或输入。
 4. 等待具体业务状态出现或消失，不使用固定长时间 sleep。

@@ -25,6 +25,9 @@
 	},
 	"files": {
 		"includes": [
+			"package.json",
+			"knip.config.ts",
+			"scripts/quality/**/*.mjs",
 			"packages/*/src/**/*.ts",
 			"packages/*/test/**/*.ts",
 			"packages/coding-agent/examples/**/*.ts",
