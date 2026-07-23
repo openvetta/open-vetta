@@ -36,6 +36,7 @@
 			"!**/models.generated.ts",
 			"!**/personas-data.ts",
 			"!**/modes-data.ts",
+			"!**/descriptions-data.ts",
 			"!!**/node_modules"
 		]
 	}

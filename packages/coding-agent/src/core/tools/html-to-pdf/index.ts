@@ -120,7 +120,7 @@ function parseDesktopResponse(stdout: string): DesktopPdfResponse {
 
 export function createHtmlToPdfTool(cwd: string): CodingAgentTool<typeof htmlToPdfSchema> {
 	const fallbackDescription = "Convert an HTML file to PDF by calling Vetta Desktop command-line PDF mode.";
-	const description = loadToolDescription(import.meta.url, fallbackDescription);
+	const description = loadToolDescription("html-to-pdf", fallbackDescription);
 
 	return {
 		name: "html_to_pdf",

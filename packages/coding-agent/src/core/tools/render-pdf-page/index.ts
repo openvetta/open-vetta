@@ -44,7 +44,7 @@ function stripPngExt(p: string): string {
 export function createRenderPdfPageTool(cwd: string): CodingAgentTool<typeof renderPdfPageSchema> {
 	const fallback =
 		"Render a single PDF page to a PNG image for visual inspection. Follow up with `read` on the returned path.";
-	const description = loadToolDescription(import.meta.url, fallback);
+	const description = loadToolDescription("render-pdf-page", fallback);
 
 	return {
 		name: "render_pdf_page",

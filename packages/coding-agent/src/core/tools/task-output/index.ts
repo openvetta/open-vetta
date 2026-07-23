@@ -32,7 +32,7 @@ export interface TaskOutputToolOptions {
 export function createTaskOutputTool(options: TaskOutputToolOptions): CodingAgentTool<typeof taskOutputSchema> {
 	const fallbackDescription =
 		"Read output of a background task started via bash with run_in_background. Returns new output since the last read (incremental). Set from_start to re-read everything.";
-	const description = loadToolDescription(import.meta.url, fallbackDescription);
+	const description = loadToolDescription("task-output", fallbackDescription);
 
 	return {
 		name: "task_output",

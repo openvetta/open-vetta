@@ -41,7 +41,7 @@ export function createMemoryTool(
 		"Save or update durable, cross-session memory in MEMORY.md (frozen into the system prompt at session start). " +
 		"Use it to remember who the user is, their preferences, ongoing projects, key decisions, and lessons learned. " +
 		"Writes take effect on the next session; the tool returns the updated state for this session.";
-	const description = loadToolDescription(import.meta.url, fallbackDescription);
+	const description = loadToolDescription("memory", fallbackDescription);
 
 	return {
 		name: "memory",

@@ -40,7 +40,7 @@ export function createKbFilterByTagsTool(root?: string): CodingAgentTool<typeof 
 	const fallbackDescription =
 		"Filter knowledge base wiki pages by tags using set algebra (all=AND, any=OR, none=NOT). " +
 		"A retrieval shortcut. Call kb_list_available_tags first if unsure which tags exist.";
-	const description = loadToolDescription(import.meta.url, fallbackDescription);
+	const description = loadToolDescription("kb-filter-by-tags", fallbackDescription);
 
 	return {
 		name: "kb_filter_by_tags",

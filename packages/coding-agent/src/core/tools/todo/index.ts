@@ -56,7 +56,7 @@ function formatItems(store: TodoStore): string {
 
 export function createTodoTool(options: TodoToolOptions): CodingAgentTool<typeof todoSchema> {
 	const fallbackDescription = "Manage a todo list to plan and track progress on multi-step tasks.";
-	const description = loadToolDescription(import.meta.url, fallbackDescription);
+	const description = loadToolDescription("todo", fallbackDescription);
 
 	return {
 		name: "todo",

@@ -41,7 +41,7 @@ export function createImSendAttachmentTool(
 		"Send a local file as an attachment to the current IM conversation. " +
 		"Use for delivering generated artifacts (image / pdf / zip / etc.) to the user. " +
 		"Counts as one outbound message against the per-peer quota.";
-	const description = loadToolDescription(import.meta.url, fallbackDescription);
+	const description = loadToolDescription("im-send-attachment", fallbackDescription);
 
 	return {
 		name: "im_send_attachment",

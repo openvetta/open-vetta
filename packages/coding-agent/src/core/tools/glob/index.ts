@@ -190,7 +190,7 @@ async function runNodeGlob(
 export function createGlobTool(cwd: string, options?: GlobToolOptions): CodingAgentTool<typeof globSchema> {
 	const customOps = options?.operations;
 	const fallbackDescription = `Fast file and directory pattern matching by glob pattern. Returns matching paths relative to the search directory. Respects .gitignore. Output is truncated to ${DEFAULT_LIMIT} results or ${DEFAULT_MAX_BYTES / 1024}KB (whichever is hit first).`;
-	const description = loadToolDescription(import.meta.url, fallbackDescription);
+	const description = loadToolDescription("glob", fallbackDescription);
 
 	return {
 		name: "glob",

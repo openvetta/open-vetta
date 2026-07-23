@@ -4,6 +4,10 @@
 
 - **Vitest 依赖上收到 monorepo 根**：本包不再声明 `devDependencies.vitest`，改用根目录统一版本；包内仍保留 `vitest.config.ts` 与 `"test": "vitest --run"`。
 
+### Fixed
+
+- **工具的 `description.txt` 从未真正生效**：`loadToolDescription` 原先在运行时按 `import.meta.url` 读同目录的 `description.txt`，但本包会被 desktop-app 的 vite 打进 main bundle、也会被 `bun build --compile` 打进单文件二进制，两种形态下该路径都不指向源码目录；`copy-assets` 也没把这些文件拷进 `dist`。于是 26 份工具说明书全部静默退回代码里的一行 fallback（`catch` 吞掉异常，无日志、check 与测试均无感）。改为构建期内联（`scripts/generate-tool-descriptions.mjs` → `src/core/tools/descriptions-data.ts`），与 personas / modes 同一套做法，运行时零文件系统依赖；调用点由 `import.meta.url` 改为显式工具目录名。此修复会显著增加 system prompt 长度（约 35KB / 9–12k token）。
+
 ### Added
 
 - **`progress` 阶段声明工具（Work 模式，ADR-0047）**：新增 display-only 内置工具 `progress`（`agent_mode: ["work"]`），采用滑动窗口契约——一次调用中 `summary` 关闭并改写上一阶段、`label` 开启新阶段，最后一个阶段由正文文本隐式关闭。宿主据此把工具调用折叠成用户可读的阶段组。`modes/work.md` 同步加入使用引导（含「产物类调用不要塞进阶段」），并新增 Placing Deliverables 一节：渲染类工具必须在撰写答案时按叙述顺序调用，不得在调研阶段提前渲染、也不得把所有渲染调用批量堆在正文之前；同一约束同步加入 `modes/coding.md`。新增宿主注入的 `md_intro` 参数：带自渲染卡片的插件工具（渲染进程自动探测 tool-call slot，插件零改动）在 LLM 可见的 schema 副本上多一个可选 `md_intro`，模型填的 markdown 由宿主渲染在卡片正上方，调用插件 handler 前剥离。另定义该引入句的内容契约（只写该产物的要点结论，数据口径/来源/免责一律归入产物自身的标题副标题字段、不在正文重复），并要求产物之后收一段「关键观察」承载真正的结论，回答末尾顺序为 产物 → 关键观察 → 交付物清单。

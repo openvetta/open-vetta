@@ -25,7 +25,7 @@ function formatDateTime(date: Date): string {
 
 export function createCurrentTimeTool(): CodingAgentTool<typeof currentTimeSchema, CurrentTimeToolDetails> {
 	const fallbackDescription = "Get the current system time. Returns the time in YYYY-MM-DD HH:mm:ss format.";
-	const description = loadToolDescription(import.meta.url, fallbackDescription);
+	const description = loadToolDescription("current-time", fallbackDescription);
 
 	return {
 		name: "current_time",

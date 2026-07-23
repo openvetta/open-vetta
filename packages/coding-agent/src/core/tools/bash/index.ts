@@ -297,7 +297,7 @@ export function createBashTool(cwd: string, options?: BashToolOptions): CodingAg
 	// Custom ops (e.g. remote) cannot be adopted into the local BackgroundTaskManager.
 	const canPromote = Boolean(backgroundTasks) && !options?.operations;
 	const fallbackDescription = `Execute a bash command in the current working directory. Returns stdout and stderr. Output is truncated to last ${DEFAULT_MAX_LINES} lines or ${DEFAULT_MAX_BYTES / 1024}KB (whichever is hit first). If truncated, full output is saved to a temp file. Optionally provide a timeout in seconds.`;
-	const description = loadToolDescription(import.meta.url, fallbackDescription);
+	const description = loadToolDescription("bash", fallbackDescription);
 
 	return {
 		name: "bash",
