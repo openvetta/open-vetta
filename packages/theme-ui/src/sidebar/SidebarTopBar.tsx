@@ -10,23 +10,26 @@ export interface SidebarTopBarClassNames {
 }
 
 export interface SidebarTopBarLabels {
-	clawConnected: string;
+	clawConnected?: string;
 	hide: string;
 }
 
 export interface SidebarTopBarProps {
+	/** 顶栏 actions 区插槽（如工作模式徽章 popover）。渲染在折叠按钮之前。 */
+	agentModeSlot?: ReactNode;
 	/** Host-provided brand trailing content (e.g. connected SidebarUpdateButton). */
 	brandTrailing?: ReactNode;
 	className?: string;
 	classNames?: SidebarTopBarClassNames;
 	floating: boolean;
-	imOnline: boolean;
+	imOnline?: boolean;
 	labels: SidebarTopBarLabels;
 	onCollapse?: () => void;
-	onOpenClawSettings: () => void;
+	onOpenClawSettings?: () => void;
 }
 
 export function SidebarTopBar({
+	agentModeSlot,
 	brandTrailing,
 	className,
 	classNames,
@@ -59,6 +62,7 @@ export function SidebarTopBar({
 				</div>
 			)}
 			<div className={cn("flex items-center gap-1", classNames?.actions)}>
+				{agentModeSlot}
 				{imOnline && (
 					<button
 						type="button"

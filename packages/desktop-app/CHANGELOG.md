@@ -57,7 +57,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
-- **工作模式徽章与 Claw 徽章位置互换**：侧边栏顶栏改为展示「工作模式」徽章（点击弹出 popover 切换 Work/Coding），Claw 在线徽章下沉到底部头像 item 内（脉冲点 + Claw，非交互状态标记）。新增共享的滑块分段切换器 `AgentModeSwitcher`（主题色），顶栏 popover、底部设置菜单工作模式区、新会话页问候语上方三处共用；新会话页在问候语上方新增工作模式切换器。
+- **工作模式徽章与 Claw 徽章位置互换**：侧边栏顶栏改为展示「工作模式」徽章（点击展开下拉菜单切换 Work/Coding，带模式图标与当前项打勾），Claw 在线徽章下沉到底部头像 item 内（脉冲点 + Claw，非交互状态标记）。新增共享的分段切换器 `AgentModeSwitcher`（outline 描边容器 + primary 实心滑块 + 模式图标，圆角走主题），底部设置菜单工作模式区与新会话页问候语上方复用。
 - **插件 App Action 运行时收口**：`vetta-actions` 改为不可停用/卸载的 required 系统插件并要求 Plugin API `^1.1.0`；Catalog 在核心 provider 未就绪时返回结构化错误，插件热更新按 provider 快照原子切换并在失败时保留上一版；官方审批 operation 映射改为宿主权威选择；批量任务、定时任务与 MCP 写入增加主进程结构校验，官方插件 API 按领域拆分并收紧数据类型。
 - **首次启动引导**：已登录时隐藏登录步骤（含底部 indicator）；设置 → 通用最下方新增「启动 App 引导」，可随时重新打开引导页。
 - **界面语言支持「跟随系统」**：`desktop-config.language` 取值 `system` | `zh` | `en`（缺省 / 未设置 = `system`）；启动按 OS locale 解析（中文族 → `zh`，其余 → `en`）。设置 → 外观与首次引导「语言与外观」均提供跟随系统 / 中文 / English 选项；缺译回退仍为中文（`FALLBACK_LANGUAGE=zh`）。

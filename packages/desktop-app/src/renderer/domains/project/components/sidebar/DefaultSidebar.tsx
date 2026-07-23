@@ -23,13 +23,10 @@ export function DefaultSidebar({ classNames, model, onOpenSession }: DefaultSide
 					classNames={{
 						actions: classNames?.topBarActions,
 						brand: classNames?.topBarBrand,
-						clawButton: classNames?.topBarClawButton,
 						collapseButton: classNames?.topBarCollapseButton,
 					}}
 					floating={model.floating}
-					imOnline={model.imOnline}
 					onCollapse={model.actions.collapse}
-					onOpenClawSettings={model.actions.openClawSettings}
 				/>
 			}
 			projects={

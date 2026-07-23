@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
+import { AgentModeSwitcher } from "@shared/components/AgentModeSwitcher";
 import { BotAvatar } from "@shared/components/BotAvatar";
 import { cn } from "@shared/lib/utils";
 import { useThemeComponent } from "@vetta/theme-sdk";
@@ -89,6 +90,11 @@ export function DefaultNewSessionHero({
 			>
 				{/* 欢迎语上方的引导 badge 轮播 */}
 				<GuideBadgeSwiper mounted={mounted} />
+
+				{/* 欢迎语上方的工作模式切换器 */}
+				<div className="mb-3 w-full max-w-[160px]">
+					<AgentModeSwitcher />
+				</div>
 
 				{/* 标题/副标题在左、BotAvatar 在最右，同一行左右对齐 */}
 				<div className="flex w-full items-center justify-between gap-4">

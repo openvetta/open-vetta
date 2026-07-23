@@ -20,8 +20,8 @@ export const SettingsMenuTrigger = forwardRef<HTMLButtonElement, SettingsMenuTri
 				open={model.open}
 				userLabel={userLabel}
 				settingsFallbackLabel={t("sidebar.settings")}
-				agentModeBadge={model.agentModeLabel}
-				agentModeTitle={t("agentMode.title")}
+				clawOnline={model.clawOnline}
+				clawTitle={model.clawTitle}
 				avatar={
 					model.user ? (
 						<UserAvatar

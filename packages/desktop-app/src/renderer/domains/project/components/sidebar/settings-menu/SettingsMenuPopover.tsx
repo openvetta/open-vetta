@@ -50,7 +50,7 @@ export function SettingsMenuPopover({ model }: SettingsMenuPopoverProps): JSX.El
 					animate="show"
 				>
 					<motion.div variants={itemVariants}>
-						<SettingsMenuAgentModeSection model={model} />
+						<SettingsMenuAgentModeSection />
 					</motion.div>
 					<motion.div variants={dividerVariants}>
 						<SettingsMenuDivider />
