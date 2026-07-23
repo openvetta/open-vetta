@@ -31,8 +31,6 @@ export interface PresetProviderRow {
 
 export interface PresetProvidersSectionLabels {
 	title: string;
-	refresh: string;
-	refreshing: string;
 	clickRetry: string;
 	loading: string;
 	noPresetProviders: string;
@@ -46,6 +44,7 @@ export interface PresetProvidersSectionLabels {
 	remove: string;
 	enable: string;
 	apiKeyDirect: (provider: string) => string;
+	apiKeyPlaceholder: string;
 	save: string;
 	noModels: string;
 	thinking: string;
@@ -56,13 +55,13 @@ export interface PresetProvidersSectionModel {
 	rows: PresetProviderRow[];
 	error: string | null;
 	loading: boolean;
-	draftKey: string;
+	/** Per-provider draft API keys (always-visible enable inputs need independent drafts). */
+	draftKeys: Record<string, string>;
 	saving: boolean;
 	labels: PresetProvidersSectionLabels;
-	onReload: () => Promise<void>;
 	onToggleExpanded: (row: PresetProviderRow) => void;
 	onToggleEditor: (row: PresetProviderRow) => void;
-	onDraftKeyChange: (key: string) => void;
+	onDraftKeyChange: (rowId: string, key: string) => void;
 	onAdopt: (row: PresetProviderRow) => Promise<void>;
 	onRemove: (row: PresetProviderRow) => Promise<void>;
 }
@@ -78,9 +77,10 @@ export function usePresetProvidersSectionModel({
 	const [templates, setTemplates] = useState<ProviderTemplate[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	/** Only used for adopted providers' "change key" panel. */
 	const [openId, setOpenId] = useState<string | null>(null);
 	const [expandedId, setExpandedId] = useState<string | null>(null);
-	const [draftKey, setDraftKey] = useState("");
+	const [draftKeys, setDraftKeys] = useState<Record<string, string>>({});
 	const [saving, setSaving] = useState(false);
 
 	const load = useCallback(async () => {
@@ -140,32 +140,32 @@ export function usePresetProvidersSectionModel({
 		}));
 	}, [config.providers, expandedId, openId, t, templates]);
 
-	const startEdit = useCallback(
-		(row: PresetProviderRow): void => {
-			setOpenId(row.id);
-			setDraftKey(config.providers[row.id]?.apiKey ?? "");
-		},
-		[config.providers],
-	);
-
 	const handleToggleEditor = useCallback(
 		(row: PresetProviderRow): void => {
 			if (row.isOpen) {
 				setOpenId(null);
 				return;
 			}
-			startEdit(row);
+			setOpenId(row.id);
+			setDraftKeys((prev) => ({
+				...prev,
+				[row.id]: prev[row.id] ?? config.providers[row.id]?.apiKey ?? "",
+			}));
 		},
-		[startEdit],
+		[config.providers],
 	);
 
 	const handleToggleExpanded = useCallback((row: PresetProviderRow): void => {
 		setExpandedId(row.isExpanded ? null : row.id);
 	}, []);
 
+	const handleDraftKeyChange = useCallback((rowId: string, key: string): void => {
+		setDraftKeys((prev) => ({ ...prev, [rowId]: key }));
+	}, []);
+
 	const adopt = useCallback(
 		async (row: PresetProviderRow): Promise<void> => {
-			const key = draftKey.trim();
+			const key = (draftKeys[row.id] ?? "").trim();
 			if (!key) return;
 			setSaving(true);
 			try {
@@ -183,13 +183,17 @@ export function usePresetProvidersSectionModel({
 					...config,
 					providers: { ...config.providers, [row.id]: entry },
 				});
-				setOpenId(null);
-				setDraftKey("");
+				setOpenId((current) => (current === row.id ? null : current));
+				setDraftKeys((prev) => {
+					const next = { ...prev };
+					delete next[row.id];
+					return next;
+				});
 			} finally {
 				setSaving(false);
 			}
 		},
-		[config, draftKey, saveConfig],
+		[config, draftKeys, saveConfig],
 	);
 
 	const remove = useCallback(
@@ -199,6 +203,12 @@ export function usePresetProvidersSectionModel({
 			const defaultModel = config.defaultModel?.startsWith(`${row.id}/`) ? undefined : config.defaultModel;
 			await saveConfig({ ...config, defaultModel, providers });
 			if (openId === row.id) setOpenId(null);
+			setDraftKeys((prev) => {
+				if (!(row.id in prev)) return prev;
+				const next = { ...prev };
+				delete next[row.id];
+				return next;
+			});
 		},
 		[config, openId, saveConfig],
 	);
@@ -207,12 +217,10 @@ export function usePresetProvidersSectionModel({
 		rows,
 		error,
 		loading,
-		draftKey,
+		draftKeys,
 		saving,
 		labels: {
 			title: t("presetProviders"),
-			refresh: t("refresh"),
-			refreshing: t("refreshing"),
 			clickRetry: t("clickRetry"),
 			loading: t("loading"),
 			noPresetProviders: t("noPresetProviders"),
@@ -226,15 +234,15 @@ export function usePresetProvidersSectionModel({
 			remove: t("remove"),
 			enable: t("enable"),
 			apiKeyDirect: (provider: string) => t("apiKeyDirect", { provider }),
+			apiKeyPlaceholder: t("presetApiKeyPlaceholder"),
 			save: t("save"),
 			noModels: t("noModels"),
 			thinking: t("thinking"),
 			perMillionTokens: t("perMillionTokens"),
 		},
-		onReload: load,
 		onToggleExpanded: handleToggleExpanded,
 		onToggleEditor: handleToggleEditor,
-		onDraftKeyChange: setDraftKey,
+		onDraftKeyChange: handleDraftKeyChange,
 		onAdopt: adopt,
 		onRemove: remove,
 	};

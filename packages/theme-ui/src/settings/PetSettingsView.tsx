@@ -31,8 +31,7 @@ export interface PetSettingsViewLabels {
 	readonly debugFrame: string;
 	readonly debugFrameDescription: string;
 	readonly sections: {
-		readonly status: string;
-		readonly window: string;
+		readonly display: string;
 		readonly decoration: string;
 		readonly bubble: string;
 		readonly developer: string;
@@ -42,8 +41,7 @@ export interface PetSettingsViewLabels {
 export interface PetSettingsViewProps {
 	readonly labels: PetSettingsViewLabels;
 	readonly sections: {
-		readonly status: SettingSectionMeta;
-		readonly window: SettingSectionMeta;
+		readonly display: SettingSectionMeta;
 		readonly decoration: SettingSectionMeta;
 		readonly bubble: SettingSectionMeta;
 		readonly developer: SettingSectionMeta;
@@ -79,13 +77,10 @@ export function PetSettingsView({
 				{aiAssistSlot}
 			</div>
 
-			<SettingSection title={labels.sections.status} section={sections.status}>
-				<SettingRow title={labels.showPet} description={labels.showPetDescription} border={false}>
+			<SettingSection title={labels.sections.display} section={sections.display}>
+				<SettingRow title={labels.showPet} description={labels.showPetDescription}>
 					<Switch checked={enabled} onCheckedChange={onChangeEnabled} />
 				</SettingRow>
-			</SettingSection>
-
-			<SettingSection title={labels.sections.window} section={sections.window}>
 				<SettingRow title={labels.alwaysOnTop} description={labels.alwaysOnTopDescription} border={false}>
 					<Switch
 						checked={alwaysOnTop}

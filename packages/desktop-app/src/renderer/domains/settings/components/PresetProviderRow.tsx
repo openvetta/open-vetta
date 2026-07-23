@@ -23,7 +23,7 @@ export function PresetProviderRow({
 	labels: PresetProvidersSectionLabels;
 	onToggleExpanded: (row: PresetProviderRowModel) => void;
 	onToggleEditor: (row: PresetProviderRowModel) => void;
-	onDraftKeyChange: (key: string) => void;
+	onDraftKeyChange: (rowId: string, key: string) => void;
 	onAdopt: (row: PresetProviderRowModel) => Promise<void>;
 	onRemove: (row: PresetProviderRowModel) => Promise<void>;
 }): JSX.Element {
@@ -35,7 +35,7 @@ export function PresetProviderRow({
 			labels={labels}
 			onToggleExpanded={() => onToggleExpanded(row)}
 			onToggleEditor={() => onToggleEditor(row)}
-			onDraftKeyChange={onDraftKeyChange}
+			onDraftKeyChange={(key) => onDraftKeyChange(row.id, key)}
 			onAdopt={() => void onAdopt(row)}
 			onRemove={() => void onRemove(row)}
 			icon={<ProviderIcon symbol={row.icon} className="h-7 w-7 shrink-0" />}

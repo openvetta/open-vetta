@@ -1,4 +1,5 @@
-import type { JSX } from "react";
+import type { JSX, KeyboardEvent } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@vetta/ui";
 
 export function SelectField({
 	value,
@@ -10,20 +11,21 @@ export function SelectField({
 	options: { value: string; label: string }[];
 }): JSX.Element {
 	return (
-		<div className="relative">
-			<select
-				value={value}
-				onChange={(e) => onChange(e.target.value)}
-				className="h-8 w-full appearance-none rounded-lg border border-input bg-secondary pl-3 pr-8 text-[12px] text-foreground outline-none transition-colors hover:bg-accent focus:border-ring"
+		<Select value={value} onValueChange={onChange}>
+			<SelectTrigger
+				size="sm"
+				className="h-8 w-full border-input bg-secondary text-[12px] hover:bg-accent dark:bg-secondary dark:hover:bg-accent"
 			>
+				<SelectValue />
+			</SelectTrigger>
+			<SelectContent position="popper" align="start">
 				{options.map((option) => (
-					<option key={option.value} value={option.value}>
+					<SelectItem key={option.value} value={option.value} className="text-[12px]">
 						{option.label}
-					</option>
+					</SelectItem>
 				))}
-			</select>
-			<span className="icon-[mdi--chevron-down] pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-		</div>
+			</SelectContent>
+		</Select>
 	);
 }
 
@@ -32,19 +34,28 @@ export function InputField({
 	onChange,
 	placeholder,
 	type = "text",
+	disabled,
+	onBlur,
+	onKeyDown,
 }: {
 	value: string;
 	onChange: (v: string) => void;
 	placeholder?: string;
 	type?: string;
+	disabled?: boolean;
+	onBlur?: () => void;
+	onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void;
 }): JSX.Element {
 	return (
 		<input
 			type={type}
 			value={value}
+			disabled={disabled}
 			onChange={(e) => onChange(e.target.value)}
+			onBlur={onBlur}
+			onKeyDown={onKeyDown}
 			placeholder={placeholder}
-			className="h-8 w-full rounded-lg border border-input bg-secondary px-3 text-[12px] text-foreground placeholder:text-muted-foreground/40 outline-none transition-colors hover:bg-accent focus:border-ring"
+			className="h-8 w-full rounded-lg border border-input bg-secondary px-3 text-[12px] text-foreground placeholder:text-muted-foreground/40 outline-none transition-colors hover:bg-accent focus:border-ring disabled:cursor-not-allowed disabled:opacity-50"
 		/>
 	);
 }

@@ -23,6 +23,7 @@ export interface PresetProviderRowViewLabels {
 	readonly remove: string;
 	readonly enable: string;
 	readonly apiKeyDirect: (name: string) => string;
+	readonly apiKeyPlaceholder: string;
 	readonly save: string;
 }
 
@@ -53,6 +54,13 @@ export function PresetProviderRowView({
 	icon,
 	modelsList,
 }: PresetProviderRowViewProps): JSX.Element {
+	const canEnable = !row.offline;
+	const showInlineKey = !row.adopted && canEnable;
+
+	const tryAdopt = (): void => {
+		if (draftKey.trim() && !saving) onAdopt();
+	};
+
 	return (
 		<div className="border-b border-border last:border-b-0">
 			<div className="flex items-center gap-3 px-5 py-3.5">
@@ -88,31 +96,58 @@ export function PresetProviderRowView({
 						</div>
 					</div>
 				</button>
-				<div className="flex shrink-0 items-center gap-1">
-					{row.adopted ? (
-						<>
-							<Button variant="ghost" size="sm" onClick={onToggleEditor}>
-								{row.isOpen ? labels.collapse : labels.changeKey}
-							</Button>
-							<Button
-								variant="ghost"
-								size="icon-sm"
-								onClick={onRemove}
-								title={labels.remove}
-								className="text-muted-foreground hover:text-destructive"
-							>
-								<span className="icon-[mdi--delete-outline] h-3.5 w-3.5" />
-							</Button>
-						</>
-					) : (
-						<Button variant="primary" size="sm" onClick={onToggleEditor} disabled={row.offline}>
-							{row.isOpen ? labels.collapse : labels.enable}
+
+				{showInlineKey && (
+					<div className="ml-auto flex shrink-0 items-center gap-2">
+						<div className="w-44" title={labels.apiKeyDirect(row.displayName)}>
+							<InputField
+								value={draftKey}
+								onChange={onDraftKeyChange}
+								placeholder={labels.apiKeyPlaceholder}
+								type="password"
+								disabled={saving}
+								onKeyDown={(event) => {
+									if (event.key === "Enter") {
+										event.preventDefault();
+										tryAdopt();
+									}
+								}}
+							/>
+						</div>
+						<Button
+							variant="primary"
+							size="sm"
+							onClick={tryAdopt}
+							disabled={!draftKey.trim() || saving}
+						>
+							{labels.enable}
 						</Button>
-					)}
-				</div>
+					</div>
+				)}
+
+				{row.adopted && (
+					<div className="flex shrink-0 items-center gap-1">
+						<Button variant="ghost" size="sm" onClick={onToggleEditor}>
+							{row.isOpen ? labels.collapse : labels.changeKey}
+						</Button>
+						<Button
+							variant="ghost"
+							size="icon-sm"
+							onClick={onRemove}
+							title={labels.remove}
+							className="text-muted-foreground hover:text-destructive"
+						>
+							<span className="icon-[mdi--delete-outline] h-3.5 w-3.5" />
+						</Button>
+					</div>
+				)}
+
+				{!row.adopted && row.offline && (
+					<span className="shrink-0 text-[11px] text-muted-foreground">{labels.deprecated}</span>
+				)}
 			</div>
 
-			{row.isOpen && (
+			{row.adopted && row.isOpen && (
 				<div className="border-t border-border bg-secondary/40 px-5 py-3">
 					<label className="mb-1 block text-[11px] text-muted-foreground">
 						{labels.apiKeyDirect(row.displayName)}
@@ -122,17 +157,24 @@ export function PresetProviderRowView({
 							<InputField
 								value={draftKey}
 								onChange={onDraftKeyChange}
-								placeholder="sk-..."
+								placeholder={labels.apiKeyPlaceholder}
 								type="password"
+								disabled={saving}
+								onKeyDown={(event) => {
+									if (event.key === "Enter") {
+										event.preventDefault();
+										tryAdopt();
+									}
+								}}
 							/>
 						</div>
 						<Button
 							variant="primary"
 							size="sm"
-							onClick={onAdopt}
+							onClick={tryAdopt}
 							disabled={!draftKey.trim() || saving}
 						>
-							{row.adopted ? labels.save : labels.enable}
+							{labels.save}
 						</Button>
 					</div>
 				</div>
