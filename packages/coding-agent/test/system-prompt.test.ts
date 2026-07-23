@@ -58,6 +58,69 @@ describe("buildSystemPrompt", () => {
 		});
 	});
 
+	describe("scenario gating of UI rendering guidelines", () => {
+		test("cli scenario omits file-link badge, deliverables block, and URL link guidelines", () => {
+			const prompt = buildSystemPrompt({
+				selectedTools: ["read", "bash", "edit", "write"],
+				contextFiles: [],
+				skills: [],
+				scenario: "cli",
+			});
+
+			expect(prompt).not.toContain("MANDATORY file-link format");
+			expect(prompt).not.toContain("deliverables block");
+			expect(prompt).not.toContain("Render web URLs");
+		});
+
+		test("desktop scenarios keep rendering guidelines", () => {
+			for (const scenario of ["conversation", "project", "batch", "automation", "im-claw"] as const) {
+				const prompt = buildSystemPrompt({
+					selectedTools: ["read", "bash", "edit", "write"],
+					contextFiles: [],
+					skills: [],
+					scenario,
+				});
+
+				expect(prompt).toContain("MANDATORY file-link format");
+				expect(prompt).toContain("deliverables block");
+			}
+		});
+
+		test("unset scenario keeps rendering guidelines (legacy SDK behavior)", () => {
+			const prompt = buildSystemPrompt({
+				selectedTools: ["read", "bash"],
+				contextFiles: [],
+				skills: [],
+			});
+
+			expect(prompt).toContain("MANDATORY file-link format");
+		});
+	});
+
+	describe("context files", () => {
+		test("prepends AGENTS.md scoping rules when context files exist", () => {
+			const prompt = buildSystemPrompt({
+				selectedTools: ["read"],
+				contextFiles: [{ path: "AGENTS.md", content: "Use bun." }],
+				skills: [],
+			});
+
+			expect(prompt).toContain("Scoping rules:");
+			expect(prompt).toContain("more deeply nested files take precedence");
+			expect(prompt).toContain("## AGENTS.md");
+		});
+
+		test("no scoping rules without context files", () => {
+			const prompt = buildSystemPrompt({
+				selectedTools: ["read"],
+				contextFiles: [],
+				skills: [],
+			});
+
+			expect(prompt).not.toContain("Scoping rules:");
+		});
+	});
+
 	describe("plugin tools", () => {
 		const agentPlugins = {
 			toolContributions: [

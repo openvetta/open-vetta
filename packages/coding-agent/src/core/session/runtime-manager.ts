@@ -603,6 +603,7 @@ export class RuntimeManager {
 			memoryCharLimit: this.ctx.memoryCharLimit,
 			agentMode: this._agentMode,
 			agentPlugins,
+			scenario: this._scenario,
 		});
 	}
 
@@ -620,6 +621,7 @@ export class RuntimeManager {
 			memoryCharLimit: this.ctx.memoryCharLimit,
 			agentMode: this._agentMode,
 			agentPlugins,
+			scenario: this._scenario,
 		});
 	}
 

@@ -2,6 +2,7 @@
  * System prompt construction and project context loading.
  */
 
+import type { ConversationScenario } from "./session/tool-scope.js";
 import { formatSkillsForPrompt, type Skill } from "./skills.js";
 import { SUBCONSCIOUS } from "./subconscious.js";
 
@@ -33,7 +34,7 @@ const toolDescriptions: Record<string, string> = {
 	extract_text_from_img:
 		"Extract text from a single image (PNG/JPG/WebP/BMP/GIF) via Vetta Desktop's local PP-OCRv5 OCR",
 	render_pdf_page:
-		"Render a single PDF page to a PNG (via pdftoppm) for VISUAL inspection — seals/stamps (盖章), signatures, handwriting, layout, logos, figures. Follow up with `read` on the returned PNG path. Use this instead of `extract_text_from_pdf` when the task needs a visual judgment OCR cannot make.",
+		"Render a single PDF page to a PNG (via pdftoppm) for visual inspection (seals/stamps, signatures, handwriting, layout); follow up with `read` on the returned PNG path. Use when the task needs a visual judgment OCR cannot make.",
 	kb_write_page:
 		"Create or update a knowledge base wiki page (closed frontmatter schema, stable id, upsert by id/source_hash, auto-refreshes tag/manifest caches)",
 	kb_filter_by_tags:
@@ -44,20 +45,12 @@ const toolDescriptions: Record<string, string> = {
 export const VETTA_CLI_GUIDANCE = [
 	"Vetta CLI is your interface to the running Vetta Desktop app: use `vetta action` both to learn what Desktop can do and to operate it.",
 	'Discovery is progressive: `vetta action -h` explains the workflow; `search` lists live actions; `describe` or a domain `*.query` with `{"operation":"help"}` reveals inputs; then `run`.',
-	"Do not expect CLI help to list every parameter. Help only names capability areas (for example navigation, settings, models, skills, projects, batch-tasks, scheduler, knowledge, plugins, im). The authoritative inventory is always `vetta action search`.",
-	"Before using Vetta CLI, analyze whether the user wants to inspect/manage current app state or wants a general feature explanation.",
-	"Only explain what a feature can do when the user explicitly asks for a feature introduction, explanation, or capability overview; otherwise prefer querying or operating the running app.",
-	"If the user's intent is unclear, ask a concise clarifying question instead of assuming or turning the request into a general explanation.",
-	"When the user asks about Vetta Desktop app features, settings, pages, models, skills, projects, automation, knowledge, plugins, IM, or how to operate the app, you MUST start with `vetta action -h` and/or `vetta action search`, then describe/run as needed.",
-	"Do not answer by guessing from memory.",
-	"Do not inspect files under `.vetta` to resolve user confusion about app configuration or feature locations; local config files are not the app UX contract and do not help users find or change settings in the running app.",
-	"Do not memorize or guess detailed action parameters; use search/describe/help output for details.",
-	"After determining the correct action and input, call `vetta action run` directly.",
-	"Never show or quote Vetta CLI commands, command arguments, or raw terminal output to the user.",
-	"The user may not understand command-line tools, so explain Vetta features, actions, and results in plain language that a non-technical person can understand.",
-	"Avoid technical terms when describing Vetta or its responses; summarize what happened and what the user needs to know.",
-	"Actions that require authorization will automatically ask the user through Vetta Desktop while the command is running.",
-	"Do not ask for authorization before running the command, and do not automatically retry an action after the user rejects it.",
+	"Do not expect CLI help to list every parameter. Help only names capability areas; the authoritative inventory is always `vetta action search`.",
+	"Before using Vetta CLI, decide whether the user wants to inspect/operate the running app or wants a general feature explanation; only explain capabilities when explicitly asked for an introduction, and ask a concise clarifying question when intent is unclear.",
+	"When the user asks about Vetta Desktop app features, settings, pages, models, skills, projects, automation, knowledge, plugins, IM, or how to operate the app, you MUST start with `vetta action -h` and/or `vetta action search`, then describe/run as needed. Never answer by guessing from memory or by inspecting files under `.vetta`; local config files are not the app UX contract.",
+	"Do not memorize or guess detailed action parameters; get them from search/describe/help output, then call `vetta action run` directly.",
+	"Never show or quote Vetta CLI commands, arguments, or raw terminal output. Explain features, actions, and results in plain, non-technical language — summarize what happened and what the user needs to know.",
+	"Actions that require authorization automatically ask the user through Vetta Desktop while the command runs; do not ask for authorization beforehand, and do not retry after the user rejects.",
 ].join(" ");
 
 /**
@@ -72,6 +65,29 @@ export const OUTPUT_LOCATION_GUIDANCE =
 const FINAL_ANSWER_ORDER_GUIDANCE =
 	"Before writing the final user-facing answer, complete all required tool calls and cleanup work, including validation, saving files, todo updates, and status updates. " +
 	"Once you begin the final answer, do not call more tools or perform additional actions. If more work is needed, do it first, then answer.";
+
+/** 文件名保真规则（buildGuidelines 与 custom-prompt 分支共用同一定义）。 */
+const FILENAME_FIDELITY_GUIDANCE =
+	"CRITICAL — File name fidelity: file names and paths are opaque byte strings — reproduce them EXACTLY as returned by tools (ls, find, dir_tree) or provided by the user; " +
+	"NEVER add, remove, or change any characters including spaces, dashes, underscores, or punctuation. " +
+	"When in doubt, run ls or find first to get the exact name, then copy it verbatim.";
+
+/**
+ * 桌面端渲染契约（文件徽章 / 产物块 / URL 链接）。这些是 UI 渲染约定而非模型行为指令，
+ * 仅在桌面场景注入；`cli` 场景（终端无徽章/卡片渲染）剔除以省常驻 token。
+ */
+const FILE_LINK_GUIDANCE =
+	"MANDATORY file-link format: whenever you mention a file you created, edited, or point the user at — anywhere in your prose — write it as a markdown link to its ABSOLUTE path: [filename.ext](/abs/path/filename.ext). The UI renders these as clickable preview badges. " +
+	"NEVER emit a bare path, NEVER wrap a path in backticks/inline code, and do NOT prepend file emojis like 📄 or 📁. " +
+	"Use the exact absolute path returned by tools — never invent one; if you only have a relative path, leave it as plain text. " +
+	"The only exception is paths inside fenced code blocks or shell command examples — keep those as-is.";
+
+const DELIVERABLES_GUIDANCE =
+	"When a task produced or changed files, the VERY LAST thing in your final message MUST be one aggregated deliverables block: a short heading (e.g. '产物:' / 'Deliverables:') followed by an unordered list where each item is a markdown link to the file's ABSOLUTE path — `- [filename.ext](/abs/path/filename.ext)`. " +
+	"This block is the ONLY place outputs are listed (do not also scatter the same links earlier), and it includes only user-facing deliverables — not intermediate scaffolding, temp files, or files you merely read. If the task produced no files, omit the block.";
+
+const URL_LINK_GUIDANCE =
+	"Render web URLs in your prose as markdown links with descriptive text, e.g. [Vite docs](https://vitejs.dev), instead of bare URLs. Keep URLs as-is inside code blocks and shell examples.";
 
 export interface McpToolInfo {
 	name: string;
@@ -358,6 +374,11 @@ export interface BuildSystemPromptOptions {
 	modePrompt?: string;
 	/** Runtime plugin contributions applied to the structured prompt draft before rendering. */
 	agentPlugins?: AgentPluginRuntimeConfig;
+	/**
+	 * 当前对话场景。用于裁剪仅对 UI 渲染有意义的 guideline（文件徽章/产物块/URL 链接）：
+	 * `cli` 场景剔除；未传（SDK 直调）保守保留，与旧行为一致。
+	 */
+	scenario?: ConversationScenario;
 }
 
 function coreBlock(id: string, type: SystemPromptBlockType, content: string, priority: number): SystemPromptBlock {
@@ -392,35 +413,25 @@ function renderMcpToolsSection(mcpTools: McpToolInfo[], markdownTools: boolean):
 		)
 		.join("\n");
 
-	if (markdownTools) {
-		return `# MCP (Model Context Protocol) Tools
+	const header = markdownTools
+		? "# MCP (Model Context Protocol) Tools\n\nThe following MCP tools are available from external servers:"
+		: "MCP (Model Context Protocol) tools:";
 
-The following MCP tools are available from external servers:
+	return `${header}
 
 ${toolsList}
 
-**IMPORTANT - MCP Tool Usage:**
-- When the user explicitly mentions "use [server-name] MCP" or "using [tool-name]", you MUST use the corresponding MCP tool
-- MCP tools are prefixed with "mcp_[servername]_" (e.g., mcp_filesystem_list_directory)
-- MCP tools may provide specialized functionality not available in built-in tools
-- Example: If user says "use filesystem MCP to list files", use mcp_filesystem_list_directory instead of bash ls`;
-	}
-
-	return `MCP (Model Context Protocol) tools:
-${toolsList}
-
-**IMPORTANT - MCP Tool Usage:**
-- When the user explicitly mentions "use [server-name] MCP" or "using [tool-name]", you MUST use the corresponding MCP tool
-- MCP tools are prefixed with "mcp_[servername]_" (e.g., mcp_filesystem_list_directory)
-- MCP tools may provide specialized functionality not available in built-in tools
-- Example: If user says "use filesystem MCP to list files", use mcp_filesystem_list_directory instead of bash ls`;
+**MCP tool usage**: tool names are prefixed with "mcp_[servername]_" (e.g., mcp_filesystem_list_directory). When the user explicitly asks to use a specific MCP server or tool (e.g. "use filesystem MCP to list files"), you MUST use the corresponding MCP tool instead of a built-in equivalent.`;
 }
 
 function renderContextFilesSection(contextFiles: Array<{ path: string; content: string }>): string {
 	if (contextFiles.length === 0) {
 		return "";
 	}
-	let content = "# Project Context\n\nProject-specific instructions and guidelines:\n\n";
+	let content =
+		"# Project Context\n\nProject-specific instructions and guidelines:\n\n" +
+		"Scoping rules: each instruction file (AGENTS.md, CLAUDE.md, …) applies to the entire directory tree rooted at the folder that contains it. " +
+		"When instructions conflict, more deeply nested files take precedence over higher-level ones, and direct user instructions in the chat always override any instruction file.\n\n";
 	for (const { path: filePath, content: fileContent } of contextFiles) {
 		content += `## ${filePath}\n\n${fileContent}\n\n`;
 	}
@@ -522,8 +533,11 @@ function buildDateTime(): string {
 	});
 }
 
-function buildGuidelines(tools: string[]): string {
+function buildGuidelines(tools: string[], scenario?: ConversationScenario): string {
 	const guidelinesList: string[] = [];
+	// 渲染契约（徽章/产物块/URL 链接）只对有 UI 渲染的场景有意义；cli 场景剔除。
+	// scenario 未传（SDK 直调/测试）时保守保留，行为与旧版一致。
+	const hasUiRendering = scenario !== "cli";
 	const hasSelectedCommandTool = tools.includes("bash") || tools.includes("shell");
 	const hasEdit = tools.includes("edit");
 	const hasWrite = tools.includes("write");
@@ -581,31 +595,16 @@ function buildGuidelines(tools: string[]): string {
 		);
 	}
 
-	guidelinesList.push(
-		"CRITICAL: File names and paths are opaque byte strings — reproduce them EXACTLY as returned by tools (ls, find, dir_tree) or provided by the user. " +
-			"NEVER add, remove, or change any characters including spaces, dashes, underscores, or punctuation. " +
-			"When in doubt, run ls or find first to get the exact name, then copy it verbatim.",
-	);
+	guidelinesList.push(FILENAME_FIDELITY_GUIDANCE);
 	guidelinesList.push("Be concise in your responses");
 	guidelinesList.push(FINAL_ANSWER_ORDER_GUIDANCE);
-	guidelinesList.push(
-		"MANDATORY file-link format: EVERY time you mention a file you created, edited, read, or otherwise point the user at — anywhere in your prose, including headings, list items, tables, and 'saved to' / 'output' lines — you MUST write it as a markdown link whose target is the file's ABSOLUTE path: [filename.ext](/abs/path/filename.ext). The UI turns these into clickable preview badges, so this is not optional styling. " +
-			"NEVER emit a bare file path as plain text, and NEVER wrap a file path in inline code/backticks (`/Users/...`) when you are pointing the user at it — backtick paths render as dead monospace text with no preview. Do NOT prepend file emojis like 📄 or 📁; the badge already shows a file-type icon. " +
-			"Correct: Saved to [report.md](/Users/me/Desktop/report.md). Wrong: Saved to `/Users/me/Desktop/report.md` — or — Saved to 📄 /Users/me/Desktop/report.md. " +
-			"Use the exact absolute path returned by tools (do not invent or guess paths); if you genuinely only have a relative path, leave it as plain text rather than fabricating an absolute one. " +
-			"The ONLY exception is file paths that appear inside fenced code blocks or shell command examples — keep those as-is.",
-	);
-	if (hasEdit || hasWrite || hasSelectedCommandTool) {
-		guidelinesList.push(
-			"When you finish a task that produced or changed files, the VERY LAST thing in your final message MUST be a single aggregated deliverables block: a short heading line (e.g. '产物:' / 'Deliverables:') followed by a markdown UNORDERED LIST where each item is a markdown link to the file's ABSOLUTE path (per the file-link rule above) — `- [filename.ext](/abs/path/filename.ext)`. " +
-				"This block goes at the END of the conclusion, not the beginning, and it is the ONLY place you list the outputs — do NOT also scatter the same deliverable links inline earlier in the summary; mention them once, here, gathered together. " +
-				"Include only the user-facing deliverables — the files the user actually wants (e.g. the .pptx/.pdf/.docx/.xlsx/image), NOT intermediate scaffolding like unpacked XML, temp files, or lockfiles, and not files you merely read or inspected. If the task produced no files, omit the block entirely.",
-		);
+	if (hasUiRendering) {
+		guidelinesList.push(FILE_LINK_GUIDANCE);
+		if (hasEdit || hasWrite || hasSelectedCommandTool) {
+			guidelinesList.push(DELIVERABLES_GUIDANCE);
+		}
+		guidelinesList.push(URL_LINK_GUIDANCE);
 	}
-	guidelinesList.push(
-		"When you reference a web URL in your prose, render it as a markdown link with descriptive text, e.g. [Vite docs](https://vitejs.dev), instead of pasting the bare URL. " +
-			"Inside code blocks or shell command examples, keep URLs as-is.",
-	);
 	guidelinesList.push(
 		"When the user sends images inline in their message, analyze them directly using your vision capabilities. Do NOT try to locate or read them from disk - the image data is already embedded in the message",
 	);
@@ -649,6 +648,7 @@ export function buildSystemPromptDraft(options: BuildSystemPromptOptions = {}): 
 		personalization,
 		modePrompt,
 		agentPlugins,
+		scenario,
 	} = options;
 	const resolvedCwd = cwd ?? process.cwd();
 	const dateTime = buildDateTime();
@@ -673,17 +673,7 @@ export function buildSystemPromptDraft(options: BuildSystemPromptOptions = {}): 
 		if (canUseSkills && skills.length > 0) {
 			blocks.push(coreBlock("core.skills", "skills", formatSkillsForPrompt(skills), 800));
 		}
-		blocks.push(
-			coreBlock(
-				"core.filename-fidelity",
-				"guidelines",
-				"**CRITICAL — File name fidelity**: " +
-					"File names and paths are opaque byte strings — reproduce them EXACTLY as returned by tools or provided by the user. " +
-					"NEVER add, remove, or change any characters including spaces, dashes, underscores, or punctuation. " +
-					"When in doubt, run ls or find first to get the exact name, then copy it verbatim.",
-				900,
-			),
-		);
+		blocks.push(coreBlock("core.filename-fidelity", "guidelines", FILENAME_FIDELITY_GUIDANCE, 900));
 		blocks.push(coreBlock("core.final-answer-order", "guidelines", FINAL_ANSWER_ORDER_GUIDANCE, 950));
 		blocks.push(coreBlock("core.mode", "mode", modePrompt ?? "", 975));
 		blocks.push(coreBlock("core.personalization", "personalization", personalization ?? "", 1000));
@@ -706,7 +696,7 @@ export function buildSystemPromptDraft(options: BuildSystemPromptOptions = {}): 
 			200,
 		),
 	);
-	blocks.push(coreBlock("core.guidelines", "guidelines", `Guidelines:\n${buildGuidelines(tools)}\n`, 300));
+	blocks.push(coreBlock("core.guidelines", "guidelines", `Guidelines:\n${buildGuidelines(tools, scenario)}\n`, 300));
 	blocks.push(coreBlock("core.append", "append", appendSystemPrompt ?? "", 400));
 	blocks.push(coreBlock("core.context", "context", renderContextFilesSection(contextFiles), 500));
 	blocks.push(coreBlock("core.memory", "memory", memory ?? "", 600));
