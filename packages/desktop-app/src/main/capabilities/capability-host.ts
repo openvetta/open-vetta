@@ -1,6 +1,8 @@
 import { type CapabilityAccessAuditEvent, CapabilityAccessController, CapabilityHub } from "@vetta/capability-runtime";
+import { PluginCapabilityAdapter } from "@vetta/capability-sdk/internal/plugin-adapter";
 import { ThemeCapabilityAdapter } from "@vetta/capability-sdk/internal/theme-adapter";
 import { getAppLogger } from "../logger.js";
+import { listPlugins } from "../plugins/plugin-store.js";
 import { registerDesktopFoundationProviders } from "./foundation-providers.js";
 
 const log = getAppLogger("capability-access");
@@ -8,6 +10,7 @@ const log = getAppLogger("capability-access");
 export interface DesktopCapabilityHost {
 	readonly access: CapabilityAccessController;
 	readonly adapters: {
+		readonly plugin: PluginCapabilityAdapter;
 		readonly theme: ThemeCapabilityAdapter;
 	};
 	readonly hub: CapabilityHub;
@@ -28,12 +31,20 @@ function createDesktopCapabilityHost(): DesktopCapabilityHost {
 	const hub = new CapabilityHub();
 	const foundationRegistration = registerDesktopFoundationProviders(hub.foundation);
 	const access = new CapabilityAccessController(hub, { audit: auditCapabilityAccess });
+	const pluginAdapter = new PluginCapabilityAdapter(access, {
+		resolvePermissions: (pluginId) => {
+			const plugin = listPlugins().find((candidate) => candidate.id === pluginId);
+			if (!plugin || !plugin.enabled) return [];
+			return plugin.permissions.filter((permission) => plugin.grantedPermissions.includes(permission));
+		},
+	});
 	const themeAdapter = new ThemeCapabilityAdapter(access);
 	return {
 		access,
-		adapters: Object.freeze({ theme: themeAdapter }),
+		adapters: Object.freeze({ plugin: pluginAdapter, theme: themeAdapter }),
 		hub,
 		dispose: () => {
+			pluginAdapter.dispose();
 			themeAdapter.dispose();
 			foundationRegistration.dispose();
 		},

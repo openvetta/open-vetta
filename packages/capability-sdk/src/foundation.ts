@@ -23,6 +23,50 @@ export interface StorageRemoveInput extends StorageGetAllInput {
 	readonly key: string;
 }
 
+export interface FilesystemPathInput {
+	readonly path: string;
+}
+
+export interface FilesystemRenameInput {
+	readonly oldPath: string;
+	readonly newPath: string;
+}
+
+export interface FilesystemMoveInput {
+	readonly sourcePath: string;
+	readonly destinationDirectory: string;
+}
+
+export interface FilesystemWriteFileInput extends FilesystemPathInput {
+	readonly content: string;
+	readonly encoding?: "utf8" | "base64";
+}
+
+export interface FilesystemEntry {
+	readonly name: string;
+	readonly path: string;
+	readonly isDirectory: boolean;
+	readonly size: number;
+	readonly modifiedAt: number;
+}
+
+export interface FilesystemFileRef {
+	readonly name: string;
+	readonly path: string;
+	readonly relPath: string;
+}
+
+export interface FilesystemReadFileResult {
+	readonly content: string;
+	readonly encoding: "utf8" | "base64";
+}
+
+export interface FilesystemStatResult {
+	readonly size: number;
+	readonly modifiedAt: number;
+	readonly createdAt: number;
+}
+
 const STORAGE_NAMESPACE_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/;
 const STORAGE_KEY_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/;
 
@@ -112,6 +156,140 @@ function parseRemoveInput(value: unknown): StorageRemoveInput {
 	};
 }
 
+function parseRequiredString(input: Record<string, unknown>, field: string): string {
+	const value = input[field];
+	if (typeof value !== "string" || value.trim().length === 0) {
+		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_INPUT, `Capability field ${field} must be a string`);
+	}
+	return value;
+}
+
+function parsePathInput(value: unknown): FilesystemPathInput {
+	const input = parseRecord(value);
+	return { path: parseRequiredString(input, "path") };
+}
+
+function parseRenameInput(value: unknown): FilesystemRenameInput {
+	const input = parseRecord(value);
+	return {
+		oldPath: parseRequiredString(input, "oldPath"),
+		newPath: parseRequiredString(input, "newPath"),
+	};
+}
+
+function parseMoveInput(value: unknown): FilesystemMoveInput {
+	const input = parseRecord(value);
+	return {
+		sourcePath: parseRequiredString(input, "sourcePath"),
+		destinationDirectory: parseRequiredString(input, "destinationDirectory"),
+	};
+}
+
+function parseWriteFileInput(value: unknown): FilesystemWriteFileInput {
+	const input = parseRecord(value);
+	const content = input.content;
+	if (typeof content !== "string") {
+		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_INPUT, "Filesystem content must be a string");
+	}
+	const encoding = input.encoding;
+	if (encoding !== undefined && encoding !== "utf8" && encoding !== "base64") {
+		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_INPUT, "Invalid filesystem encoding");
+	}
+	return {
+		path: parseRequiredString(input, "path"),
+		content,
+		...(encoding === undefined ? {} : { encoding }),
+	};
+}
+
+function parseOutputRecord(value: unknown): Record<string, unknown> {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_OUTPUT, "Capability output must be an object");
+	}
+	return value as Record<string, unknown>;
+}
+
+function parseOutputString(input: Record<string, unknown>, field: string): string {
+	const value = input[field];
+	if (typeof value !== "string") {
+		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_OUTPUT, `Capability output ${field} must be a string`);
+	}
+	return value;
+}
+
+function parseOutputNumber(input: Record<string, unknown>, field: string): number {
+	const value = input[field];
+	if (typeof value !== "number" || !Number.isFinite(value)) {
+		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_OUTPUT, `Capability output ${field} must be a number`);
+	}
+	return value;
+}
+
+function parseFilesystemEntry(value: unknown): FilesystemEntry {
+	const entry = parseOutputRecord(value);
+	if (typeof entry.isDirectory !== "boolean") {
+		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_OUTPUT, "Capability output isDirectory must be boolean");
+	}
+	return {
+		name: parseOutputString(entry, "name"),
+		path: parseOutputString(entry, "path"),
+		isDirectory: entry.isDirectory,
+		size: parseOutputNumber(entry, "size"),
+		modifiedAt: parseOutputNumber(entry, "modifiedAt"),
+	};
+}
+
+function parseFilesystemEntries(value: unknown): FilesystemEntry[] {
+	if (!Array.isArray(value)) {
+		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_OUTPUT, "Capability output must be an array");
+	}
+	return value.map(parseFilesystemEntry);
+}
+
+function parseFilesystemFileRef(value: unknown): FilesystemFileRef {
+	const file = parseOutputRecord(value);
+	return {
+		name: parseOutputString(file, "name"),
+		path: parseOutputString(file, "path"),
+		relPath: parseOutputString(file, "relPath"),
+	};
+}
+
+function parseFilesystemFileRefs(value: unknown): FilesystemFileRef[] {
+	if (!Array.isArray(value)) {
+		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_OUTPUT, "Capability output must be an array");
+	}
+	return value.map(parseFilesystemFileRef);
+}
+
+function parseFilesystemReadFileResult(value: unknown): FilesystemReadFileResult {
+	const result = parseOutputRecord(value);
+	if (result.encoding !== "utf8" && result.encoding !== "base64") {
+		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_OUTPUT, "Invalid filesystem output encoding");
+	}
+	return {
+		content: parseOutputString(result, "content"),
+		encoding: result.encoding,
+	};
+}
+
+function parseFilesystemStatResult(value: unknown): FilesystemStatResult | null {
+	if (value === null) return null;
+	const result = parseOutputRecord(value);
+	return {
+		size: parseOutputNumber(result, "size"),
+		modifiedAt: parseOutputNumber(result, "modifiedAt"),
+		createdAt: parseOutputNumber(result, "createdAt"),
+	};
+}
+
+function parseVoidOutput(value: unknown): undefined {
+	if (value !== undefined) {
+		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_OUTPUT, "Capability output must be undefined");
+	}
+	return undefined;
+}
+
 export const FOUNDATION_STORAGE_CAPABILITIES = {
 	GET_ALL: defineCapability<StorageGetAllInput, CapabilityJsonMap>({
 		id: "cap.foundation.vetta.storage.get-all",
@@ -144,5 +322,80 @@ export const FOUNDATION_STORAGE_CAPABILITIES = {
 		version: 1,
 		parseInput: parseGetAllInput,
 		parseOutput: parseCapabilityJsonMap,
+	}),
+} as const;
+
+export const FOUNDATION_FILESYSTEM_CAPABILITIES = {
+	READ_DIRECTORY: defineCapability<FilesystemPathInput, FilesystemEntry[]>({
+		id: "cap.foundation.vetta.fs.read-directory",
+		kind: "query",
+		layer: CAPABILITY_LAYERS.FOUNDATION,
+		version: 1,
+		parseInput: parsePathInput,
+		parseOutput: parseFilesystemEntries,
+	}),
+	READ_FILE: defineCapability<FilesystemPathInput, FilesystemReadFileResult>({
+		id: "cap.foundation.vetta.fs.read-file",
+		kind: "query",
+		layer: CAPABILITY_LAYERS.FOUNDATION,
+		version: 1,
+		parseInput: parsePathInput,
+		parseOutput: parseFilesystemReadFileResult,
+	}),
+	WRITE_FILE: defineCapability<FilesystemWriteFileInput, undefined>({
+		id: "cap.foundation.vetta.fs.write-file",
+		kind: "command",
+		layer: CAPABILITY_LAYERS.FOUNDATION,
+		version: 1,
+		parseInput: parseWriteFileInput,
+		parseOutput: parseVoidOutput,
+	}),
+	STAT: defineCapability<FilesystemPathInput, FilesystemStatResult | null>({
+		id: "cap.foundation.vetta.fs.stat",
+		kind: "query",
+		layer: CAPABILITY_LAYERS.FOUNDATION,
+		version: 1,
+		parseInput: parsePathInput,
+		parseOutput: parseFilesystemStatResult,
+	}),
+	RENAME: defineCapability<FilesystemRenameInput, undefined>({
+		id: "cap.foundation.vetta.fs.rename",
+		kind: "command",
+		layer: CAPABILITY_LAYERS.FOUNDATION,
+		version: 1,
+		parseInput: parseRenameInput,
+		parseOutput: parseVoidOutput,
+	}),
+	DELETE: defineCapability<FilesystemPathInput, undefined>({
+		id: "cap.foundation.vetta.fs.delete",
+		kind: "command",
+		layer: CAPABILITY_LAYERS.FOUNDATION,
+		version: 1,
+		parseInput: parsePathInput,
+		parseOutput: parseVoidOutput,
+	}),
+	MOVE: defineCapability<FilesystemMoveInput, undefined>({
+		id: "cap.foundation.vetta.fs.move",
+		kind: "command",
+		layer: CAPABILITY_LAYERS.FOUNDATION,
+		version: 1,
+		parseInput: parseMoveInput,
+		parseOutput: parseVoidOutput,
+	}),
+	CREATE_DIRECTORY: defineCapability<FilesystemPathInput, undefined>({
+		id: "cap.foundation.vetta.fs.create-directory",
+		kind: "command",
+		layer: CAPABILITY_LAYERS.FOUNDATION,
+		version: 1,
+		parseInput: parsePathInput,
+		parseOutput: parseVoidOutput,
+	}),
+	LIST_FILES_RECURSIVE: defineCapability<FilesystemPathInput, FilesystemFileRef[]>({
+		id: "cap.foundation.vetta.fs.list-files-recursive",
+		kind: "query",
+		layer: CAPABILITY_LAYERS.FOUNDATION,
+		version: 1,
+		parseInput: parsePathInput,
+		parseOutput: parseFilesystemFileRefs,
 	}),
 } as const;

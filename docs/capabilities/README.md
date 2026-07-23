@@ -484,6 +484,8 @@ Plugin Adapter 负责：
 
 Plugin 开发者仍然只导入 `plugin-sdk` 并调用 `ctx.fs.readFile()`。宿主桥接把调用交给 Plugin Adapter，后者包装 `FS_READ_FILE` Token，不再直接调用原始 `window.vetta.fs.*`。Plugin Adapter 本身不作为第三方 API 导出。
 
+Plugin Loader 激活插件时向宿主打开一个与 `pluginId` 绑定的 Capability Session，并把不透明的 session ID 封装在 `ctx.fs` 实现中；插件停用、激活失败或重新加载时关闭或替换该 session。每次调用都重新读取插件当前的启用状态、声明权限和用户授权，因此撤销 `fs.read`、`fs.write` 或禁用插件后无需等待旧 session 过期。跨进程接口只暴露 Plugin Adapter 已封装的文件操作，不提供任意 Capability ID 调用入口。
+
 ### 7.4 Theme Adapter
 
 Theme Adapter 负责：
@@ -532,7 +534,7 @@ packages/capability-sdk/
   src/access.ts           # Grant/Session 边界契约
   src/adapters/
     theme.ts              # 内置 Theme 系统适配器
-    plugin.ts             # 后续迁移时添加
+    plugin.ts             # 内置 Plugin 系统适配器
     action.ts             # 后续迁移时添加
 
 packages/capability-runtime/
@@ -602,18 +604,20 @@ window.vetta.capabilities.invoke({
 
 ### 当前落地状态
 
-第一条端到端链路已经实现：
+当前已经实现两条端到端链路：
 
-- `packages/capability-sdk` 提供 Capability ID、Token、基础存储能力、Grant、稳定错误码以及宿主内置的 `internal/theme-adapter`。
+- `packages/capability-sdk` 提供 Capability ID、Token、基础存储与文件能力、Grant、稳定错误码，以及宿主内置的 Theme、Plugin Adapter。
 - `packages/capability-runtime` 提供 Foundation/Domain 双 Registry、Capability Hub、Provider 原子替换、精确 Grant、AccessSession、namespace constraint 和审计事件。
-- `packages/desktop-app/src/main/capabilities` 只提供 Desktop Capability Host、基础存储 Provider 和原生持久化后端装配。
-- Desktop Capability Host 单例持有 Theme Adapter；Theme IPC 只复用该实例，不再重复创建或负责销毁。
+- `packages/desktop-app/src/main/capabilities` 提供 Desktop Capability Host、基础存储/文件 Provider 和原生后端装配；原文件 IPC 与 Capability Provider 复用同一文件服务实现。
+- Desktop Capability Host 单例持有 Theme Adapter 和 Plugin Adapter；IPC 只复用实例，不重复创建或负责销毁。
 - Theme Storage 主进程路径已经迁移为 `Theme SDK facade -> 宿主桥接 -> 内置 Theme Adapter -> AccessSession -> Foundation Storage Capability -> 现有持久化后端`。
 - Theme SDK、renderer storage hook、preload API、IPC channel 和磁盘格式保持兼容。
+- Plugin `ctx.fs` 已迁移为 `plugin-sdk facade -> Plugin Loader/Preload/IPC 桥接 -> 内置 Plugin Adapter -> AccessSession -> Foundation Filesystem Capability -> 文件服务`，公开 `PluginFsApi` 保持兼容。
+- Plugin Adapter 将 `fs.read` 和 `fs.write` 精确展开为各文件 Capability Grant；每次调用都会核验当前有效插件权限，同一插件重新激活时自动撤销旧 session。
 
 尚未迁移：
 
-- Plugin facade 和 `PluginOfficialApi`。
+- Plugin 的 `ctx.images` 等其他 facade 和 `PluginOfficialApi`。
 - App Action provider。
 - 其他基础能力与领域能力。
 - 不可信扩展的进程级隔离。
@@ -640,8 +644,8 @@ window.vetta.capabilities.invoke({
 
 ### 阶段四：Plugin 迁移
 
-1. 将 `ctx.fs`、`ctx.images` 等 facade 改为使用 Capability Token。
-2. Plugin Adapter 将现有插件权限展开为独立 Capability Grant。
+1. `ctx.fs` 已改为使用 Foundation Filesystem Capability Token；继续迁移 `ctx.images` 等 facade。
+2. Plugin Adapter 已将 `fs.read`、`fs.write` 展开为独立 Capability Grant；后续权限继续按同一方式显式映射。
 3. `ui.slot.*`、`app.actions.register` 等继续留在 Plugin Adapter。
 4. 将 `PluginOfficialApi` 中稳定的 Desktop 领域服务逐步迁移为 Domain Capability，保留兼容 facade。
 

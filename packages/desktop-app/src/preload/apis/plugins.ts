@@ -1,10 +1,32 @@
 import type { IpcRenderer, IpcRendererEvent } from "electron";
+import { PLUGIN_CAPABILITY_CHANNELS } from "../../shared/plugin-capability-ipc.js";
 import type { DesktopApi } from "../api.js";
 import { onIpcEvent } from "./helper.js";
 
 export function createPluginsApi(ipc: IpcRenderer): Pick<DesktopApi, "plugins"> {
 	return {
 		plugins: {
+			internalCapabilities: {
+				openSession: (pluginId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.OPEN_SESSION, pluginId),
+				closeSession: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.CLOSE_SESSION, sessionId),
+				filesystem: {
+					readDirectory: (sessionId, path) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.FS_READ_DIRECTORY, sessionId, path),
+					readFile: (sessionId, path) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.FS_READ_FILE, sessionId, path),
+					writeFile: (sessionId, path, content, encoding) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.FS_WRITE_FILE, sessionId, path, content, encoding),
+					stat: (sessionId, path) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.FS_STAT, sessionId, path),
+					rename: (sessionId, oldPath, newPath) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.FS_RENAME, sessionId, oldPath, newPath),
+					delete: (sessionId, path) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.FS_DELETE, sessionId, path),
+					move: (sessionId, sourcePath, destinationDirectory) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.FS_MOVE, sessionId, sourcePath, destinationDirectory),
+					createDirectory: (sessionId, path) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.FS_CREATE_DIRECTORY, sessionId, path),
+					listFilesRecursive: (sessionId, path) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.FS_LIST_FILES_RECURSIVE, sessionId, path),
+				},
+			},
 			list: () => ipc.invoke("vetta:plugins:list"),
 			installFromArchive: (archiveBuffer, options) =>
 				ipc.invoke("vetta:plugins:install-from-archive", archiveBuffer, options),

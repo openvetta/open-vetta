@@ -1,8 +1,8 @@
-import type { Dirent, FSWatcher, Stats } from "node:fs";
+import type { FSWatcher } from "node:fs";
 import { readFileSync, watch } from "node:fs";
-import { copyFile, mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { getVettaHomePath } from "@vetta/action-rpc";
 import {
 	clearMcpOAuthState,
@@ -23,6 +23,18 @@ import type { FsEntry, FsFileRef } from "../../preload/fs-types.js";
 import { isLanguagePreference, type LanguagePreference } from "../../shared/i18n/config.js";
 import { normalizeShortcutsConfig, type ShortcutsConfig } from "../../shared/shortcuts.js";
 import { SHORTCUTS_CHANNELS } from "../../shared/shortcuts-ipc.js";
+import {
+	allowProjectRoot,
+	createFilesystemDirectory,
+	deleteFilesystemPath,
+	listFilesystemFilesRecursive,
+	moveFilesystemPath,
+	readFilesystemDirectory,
+	readFilesystemFile,
+	renameFilesystemPath,
+	statFilesystemPath,
+	writeFilesystemFile,
+} from "../filesystem/filesystem-service.js";
 import { validateMcpConfig } from "../mcp-config-validation.js";
 import { fetchProviderModels } from "../models/fetch-models.js";
 import { probeModelProvider } from "../models/probe.js";
@@ -486,271 +498,67 @@ const CHANNELS = {
 	MCP_AUTH_STATUS: "vetta:mcp:auth-status",
 } as const;
 
-const BINARY_EXTENSIONS = new Set([
-	"png",
-	"jpg",
-	"jpeg",
-	"gif",
-	"webp",
-	"svg",
-	"ico",
-	"pdf",
-	"docx",
-	"xls",
-	"xlsx",
-	"xlsm",
-	"xlsb",
-	"ods",
-	"ppt",
-	"pptx",
-]);
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
-
-const HIDDEN_FILES = new Set([".DS_Store", "Thumbs.db", "desktop.ini"]);
-
-/** 递归列文件时跳过的重型/无关目录。 */
-const RECURSIVE_IGNORED_DIRS = new Set([
-	"node_modules",
-	".git",
-	"dist",
-	"build",
-	"out",
-	"target",
-	"coverage",
-	".next",
-	".turbo",
-	".cache",
-]);
-/** 递归列文件的上限，避免超大仓库一次性返回过多条目卡住 UI。 */
-const MAX_RECURSIVE_FILES = 10000;
-
-/** Set of project CWDs that are allowed for file operations */
-const allowedRoots = new Set<string>();
-
-export function allowProjectRoot(cwd: string): void {
-	allowedRoots.add(resolve(cwd));
-}
-
 function assertNonEmptyString(value: unknown, fieldName: string): asserts value is string {
 	if (typeof value !== "string" || value.trim().length === 0) {
 		throw new Error(`Invalid ${fieldName}`);
 	}
 }
 
-function normalizePathForComparison(value: string): string {
-	const normalized = resolve(value);
-	return process.platform === "win32" ? normalized.toLowerCase() : normalized;
-}
-
-/** 判断 targetPath 是否落在 root 目录内（含 root 本身）。 */
-function isPathWithin(root: string, targetPath: string): boolean {
-	const rel = relative(normalizePathForComparison(root), normalizePathForComparison(targetPath));
-	return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
-}
-
-function isWithinAllowedRoots(targetPath: string): boolean {
-	for (const root of allowedRoots) {
-		if (isPathWithin(root, targetPath)) return true;
-	}
-	return false;
-}
-
-function assertPathWithinProject(targetPath: string): void {
-	if (!isWithinAllowedRoots(targetPath)) {
-		throw new Error("Path is outside any known project directory");
-	}
-}
-
-/**
- * 预览读取专用的路径校验：比项目根更宽松。
- * 除已注册的项目根外，额外允许用户主目录（~）内的文件——
- * 这样 agent 写到 ~/Desktop 等位置的产物点击后也能预览，
- * 同时仍拦截 /etc、/System 等主目录之外的系统路径。
- * media-protocol（音频流式预览）与 READ_FILE 共用这道边界。
- */
-export function assertPathReadableForPreview(targetPath: string): void {
-	if (isWithinAllowedRoots(targetPath)) return;
-	if (isPathWithin(homedir(), targetPath)) return;
-	throw new Error("Path is outside any previewable directory");
-}
+export { allowProjectRoot, assertPathReadableForPreview } from "../filesystem/filesystem-service.js";
 
 export function registerFsIpc(): () => void {
 	ipcMain.handle(CHANNELS.READ_DIR, async (_event, dirPath: unknown): Promise<FsEntry[]> => {
 		assertNonEmptyString(dirPath, "dirPath");
-		assertPathWithinProject(dirPath);
-
-		const resolved = resolve(dirPath);
-		const entries = await readdir(resolved, { withFileTypes: true });
-		const results: FsEntry[] = [];
-
-		for (const entry of entries) {
-			if (HIDDEN_FILES.has(entry.name) || entry.name.startsWith(".")) continue;
-			const fullPath = join(resolved, entry.name);
-			try {
-				const stats = await stat(fullPath);
-				results.push({
-					name: entry.name,
-					path: fullPath,
-					isDirectory: entry.isDirectory(),
-					size: stats.size,
-					modifiedAt: stats.mtimeMs,
-				});
-			} catch {
-				// Skip entries we can't stat (permission errors, broken symlinks, etc.)
-			}
-		}
-
-		// Sort: directories first, then by name (case-insensitive)
-		results.sort((a, b) => {
-			if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
-			return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
-		});
-
-		return results;
+		return readFilesystemDirectory(dirPath);
 	});
 
 	ipcMain.handle(
 		CHANNELS.READ_FILE,
 		async (_event, filePath: unknown): Promise<{ content: string; encoding: "utf8" | "base64" }> => {
 			assertNonEmptyString(filePath, "filePath");
-			assertPathReadableForPreview(filePath);
-
-			const resolved = resolve(filePath);
-			let stats: Stats;
-			try {
-				stats = await stat(resolved);
-			} catch (err: unknown) {
-				if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-					return { content: "", encoding: "utf8" };
-				}
-				throw err;
-			}
-			if (stats.size > MAX_FILE_SIZE) {
-				throw new Error("File too large to preview (>10 MB)");
-			}
-
-			const ext = extname(resolved).slice(1).toLowerCase();
-			if (BINARY_EXTENSIONS.has(ext)) {
-				const buffer = await readFile(resolved);
-				return { content: buffer.toString("base64"), encoding: "base64" };
-			}
-
-			const content = await readFile(resolved, "utf8");
-			return { content, encoding: "utf8" };
+			return readFilesystemFile(filePath);
 		},
 	);
 
 	ipcMain.handle(CHANNELS.WRITE_FILE, async (_event, filePath: unknown, content: unknown, encoding: unknown) => {
 		assertNonEmptyString(filePath, "filePath");
 		if (typeof content !== "string") throw new Error("Invalid content");
-		assertPathWithinProject(filePath);
-		const resolved = resolve(filePath);
-		await mkdir(dirname(resolved), { recursive: true });
-		// Optional base64 encoding for binary plugin assets (e.g. Cowart page images).
-		if (encoding === "base64") {
-			await writeFile(resolved, Buffer.from(content, "base64"));
-			return;
-		}
-		await writeFile(resolved, content, "utf8");
+		await writeFilesystemFile(filePath, content, encoding === "base64" ? "base64" : "utf8");
 	});
 
 	ipcMain.handle(
 		CHANNELS.STAT,
 		async (_event, filePath: unknown): Promise<{ size: number; modifiedAt: number; createdAt: number } | null> => {
 			assertNonEmptyString(filePath, "filePath");
-			assertPathWithinProject(filePath);
-			try {
-				const stats = await stat(resolve(filePath));
-				return { size: stats.size, modifiedAt: stats.mtimeMs, createdAt: stats.birthtimeMs };
-			} catch {
-				return null;
-			}
+			return statFilesystemPath(filePath);
 		},
 	);
 
 	ipcMain.handle(CHANNELS.RENAME, async (_event, oldPath: unknown, newPath: unknown) => {
 		assertNonEmptyString(oldPath, "oldPath");
 		assertNonEmptyString(newPath, "newPath");
-		assertPathWithinProject(oldPath);
-		assertPathWithinProject(newPath);
-		await rename(resolve(oldPath), resolve(newPath));
+		await renameFilesystemPath(oldPath, newPath);
 	});
 
 	ipcMain.handle(CHANNELS.DELETE, async (_event, targetPath: unknown) => {
 		assertNonEmptyString(targetPath, "targetPath");
-		assertPathWithinProject(targetPath);
-		await rm(resolve(targetPath), { recursive: true, force: true });
+		await deleteFilesystemPath(targetPath);
 	});
 
 	ipcMain.handle(CHANNELS.MOVE, async (_event, sourcePath: unknown, destDir: unknown) => {
 		assertNonEmptyString(sourcePath, "sourcePath");
 		assertNonEmptyString(destDir, "destDir");
-		assertPathWithinProject(sourcePath);
-		assertPathWithinProject(destDir);
-
-		const resolvedSource = resolve(sourcePath);
-		const resolvedDest = join(resolve(destDir), basename(resolvedSource));
-
-		try {
-			await rename(resolvedSource, resolvedDest);
-		} catch (err: unknown) {
-			// Cross-device move: copy + delete
-			if ((err as NodeJS.ErrnoException).code === "EXDEV") {
-				const srcStat = await stat(resolvedSource);
-				if (srcStat.isDirectory()) {
-					// For directories, use recursive copy
-					await mkdir(resolvedDest, { recursive: true });
-					const children = await readdir(resolvedSource, { withFileTypes: true });
-					for (const child of children) {
-						const childSrc = join(resolvedSource, child.name);
-						const childDest = join(resolvedDest, child.name);
-						await copyFile(childSrc, childDest);
-					}
-				} else {
-					await copyFile(resolvedSource, resolvedDest);
-				}
-				await rm(resolvedSource, { recursive: true, force: true });
-			} else {
-				throw err;
-			}
-		}
+		await moveFilesystemPath(sourcePath, destDir);
 	});
 
 	ipcMain.handle(CHANNELS.CREATE_DIRECTORY, async (_event, dirPath: unknown) => {
 		assertNonEmptyString(dirPath, "dirPath");
-		await mkdir(resolve(expandTilde(dirPath)), { recursive: true });
+		await createFilesystemDirectory(dirPath);
 	});
 
 	ipcMain.handle(CHANNELS.LIST_FILES_RECURSIVE, async (_event, rootPath: unknown): Promise<FsFileRef[]> => {
 		assertNonEmptyString(rootPath, "rootPath");
-		assertPathWithinProject(rootPath);
-
-		const root = resolve(rootPath);
-		const results: FsFileRef[] = [];
-
-		async function walk(dir: string): Promise<void> {
-			if (results.length >= MAX_RECURSIVE_FILES) return;
-			let entries: Dirent[];
-			try {
-				entries = await readdir(dir, { withFileTypes: true });
-			} catch {
-				return; // 跳过无权限/已删除目录
-			}
-			for (const entry of entries) {
-				if (results.length >= MAX_RECURSIVE_FILES) return;
-				if (entry.name.startsWith(".") || HIDDEN_FILES.has(entry.name)) continue;
-				const fullPath = join(dir, entry.name);
-				if (entry.isDirectory()) {
-					if (RECURSIVE_IGNORED_DIRS.has(entry.name)) continue;
-					await walk(fullPath);
-				} else if (entry.isFile()) {
-					results.push({ name: entry.name, path: fullPath, relPath: relative(root, fullPath) });
-				}
-			}
-		}
-
-		await walk(root);
-		return results;
+		return listFilesystemFilesRecursive(rootPath);
 	});
 
 	ipcMain.handle(CHANNELS.LIST_SUB_DIRS, async (_event, dirPath: unknown): Promise<FsEntry[]> => {

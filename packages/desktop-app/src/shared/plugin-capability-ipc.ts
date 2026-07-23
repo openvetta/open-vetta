@@ -1,0 +1,13 @@
+export const PLUGIN_CAPABILITY_CHANNELS = {
+	OPEN_SESSION: "vetta:plugins:capabilities:open-session",
+	CLOSE_SESSION: "vetta:plugins:capabilities:close-session",
+	FS_READ_DIRECTORY: "vetta:plugins:capabilities:fs:read-directory",
+	FS_READ_FILE: "vetta:plugins:capabilities:fs:read-file",
+	FS_WRITE_FILE: "vetta:plugins:capabilities:fs:write-file",
+	FS_STAT: "vetta:plugins:capabilities:fs:stat",
+	FS_RENAME: "vetta:plugins:capabilities:fs:rename",
+	FS_DELETE: "vetta:plugins:capabilities:fs:delete",
+	FS_MOVE: "vetta:plugins:capabilities:fs:move",
+	FS_CREATE_DIRECTORY: "vetta:plugins:capabilities:fs:create-directory",
+	FS_LIST_FILES_RECURSIVE: "vetta:plugins:capabilities:fs:list-files-recursive",
+} as const;

@@ -24,6 +24,10 @@
 		"./internal/theme-adapter": {
 			"types": "./dist/adapters/theme.d.ts",
 			"import": "./dist/adapters/theme.js"
+		},
+		"./internal/plugin-adapter": {
+			"types": "./dist/adapters/plugin.d.ts",
+			"import": "./dist/adapters/plugin.js"
 		}
 	},
 	"files": ["dist"],
