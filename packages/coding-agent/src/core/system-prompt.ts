@@ -371,13 +371,24 @@ function coreBlock(id: string, type: SystemPromptBlockType, content: string, pri
 	};
 }
 
+/**
+ * MCP 工具的完整 description 已随请求的 tools 数组下发，这里的清单只是索引；
+ * 只取首行摘要，避免长描述（如 Notion 单工具数千字符）在系统提示词里重复计费。
+ */
+function firstLine(text: string): string {
+	const line = text.split("\n", 1)[0]?.trim() ?? "";
+	return line.length > 200 ? `${line.slice(0, 200)}…` : line;
+}
+
 function renderMcpToolsSection(mcpTools: McpToolInfo[], markdownTools: boolean): string {
 	if (mcpTools.length === 0) {
 		return "";
 	}
 	const toolsList = mcpTools
 		.map((tool) =>
-			markdownTools ? `- **${tool.name}**: ${tool.description}` : `- ${tool.name}: ${tool.description}`,
+			markdownTools
+				? `- **${tool.name}**: ${firstLine(tool.description)}`
+				: `- ${tool.name}: ${firstLine(tool.description)}`,
 		)
 		.join("\n");
 

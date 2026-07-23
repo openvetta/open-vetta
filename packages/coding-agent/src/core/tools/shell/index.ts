@@ -26,7 +26,12 @@ export function createShellTool(cwd: string, options?: ShellToolOptions): Return
 		...base,
 		name: "shell",
 		label: "shell",
-		scope_use: ["im-claw", "conversation", "project", "batch", "automation", "kb-processing", "cli"],
+		// 非 win32 的默认命令工具是 bash：shell 置空 scope_use（注册但默认不激活），
+		// 避免每轮同时下发 bash+shell 两份 schema；显式 tools 名单仍可强制启用。
+		scope_use:
+			process.platform === "win32"
+				? ["im-claw", "conversation", "project", "batch", "automation", "kb-processing", "cli"]
+				: [],
 		category: "core",
 		description,
 	};
