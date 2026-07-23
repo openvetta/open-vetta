@@ -1,3 +1,5 @@
+import type { ProjectEntry, ProjectListResult } from "@vetta/capability-sdk";
+
 export type PluginPermission =
 	| "ui.slot.global"
 	| "ui.slot.file-preview"
@@ -419,11 +421,22 @@ export interface DesktopPluginCapabilityFilesystemApi {
 	listFilesRecursive(sessionId: string, path: string): Promise<FsFileRef[]>;
 }
 
+export interface DesktopPluginCapabilityProjectsApi {
+	list(sessionId: string): Promise<ProjectListResult>;
+	create(sessionId: string, name: string, path?: string): Promise<ProjectEntry>;
+	open(sessionId: string, path: string, name?: string): Promise<ProjectEntry>;
+	rename(sessionId: string, path: string, name: string): Promise<ProjectEntry>;
+	archive(sessionId: string, path: string): Promise<void>;
+	unarchive(sessionId: string, path: string): Promise<void>;
+	remove(sessionId: string, path: string): Promise<void>;
+}
+
 /** @internal Host bridge used to implement the public plugin-sdk facade. */
 export interface DesktopPluginInternalCapabilitiesApi {
 	openSession(pluginId: string): Promise<string>;
 	closeSession(sessionId: string): Promise<void>;
 	filesystem: DesktopPluginCapabilityFilesystemApi;
+	projects: DesktopPluginCapabilityProjectsApi;
 }
 
 export interface DesktopPluginsApi {

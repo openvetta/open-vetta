@@ -604,22 +604,23 @@ window.vetta.capabilities.invoke({
 
 ### 当前落地状态
 
-当前已经实现两条端到端链路：
+当前已经实现三条端到端链路：
 
-- `packages/capability-sdk` 提供 Capability ID、Token、基础存储与文件能力、Grant、稳定错误码，以及宿主内置的 Theme、Plugin Adapter。
-- `packages/capability-runtime` 提供 Foundation/Domain 双 Registry、Capability Hub、Provider 原子替换、精确 Grant、AccessSession、namespace constraint 和审计事件。
-- `packages/desktop-app/src/main/capabilities` 提供 Desktop Capability Host、基础存储/文件 Provider 和原生后端装配；原文件 IPC 与 Capability Provider 复用同一文件服务实现。
+- `packages/capability-sdk` 提供 Capability ID、Token、基础存储与文件能力、项目领域能力、Grant、稳定错误码，以及宿主内置的 Theme、Plugin Adapter。
+- `packages/capability-runtime` 提供 Foundation/Domain 双 Registry、Capability Hub、Provider 原子替换、替换或卸载时的在途调用中止、精确 Grant、AccessSession、namespace constraint 和审计事件。
+- `packages/desktop-app/src/main/capabilities` 提供 Desktop Capability Host、基础存储/文件 Provider、项目领域 Provider 和原生后端装配；原文件 IPC 与 Capability Provider 复用同一文件服务实现。
 - Desktop Capability Host 单例持有 Theme Adapter 和 Plugin Adapter；IPC 只复用实例，不重复创建或负责销毁。
 - Theme Storage 主进程路径已经迁移为 `Theme SDK facade -> 宿主桥接 -> 内置 Theme Adapter -> AccessSession -> Foundation Storage Capability -> 现有持久化后端`。
 - Theme SDK、renderer storage hook、preload API、IPC channel 和磁盘格式保持兼容。
 - Plugin `ctx.fs` 已迁移为 `plugin-sdk facade -> Plugin Loader/Preload/IPC 桥接 -> 内置 Plugin Adapter -> AccessSession -> Foundation Filesystem Capability -> 文件服务`，公开 `PluginFsApi` 保持兼容。
 - Plugin Adapter 将 `fs.read` 和 `fs.write` 精确展开为各文件 Capability Grant；每次调用都会核验当前有效插件权限，同一插件重新激活时自动撤销旧 session。
+- 官方插件的项目管理已迁移为 `PluginOfficialApi projects facade -> Preload/IPC 桥接 -> Plugin Adapter -> AccessSession -> Domain Project Capability -> 项目服务`；仅官方且当前启用的插件获得七个精确项目操作 Grant，公开 facade 保持兼容。
 
 尚未迁移：
 
-- Plugin 的 `ctx.images` 等其他 facade 和 `PluginOfficialApi`。
+- Plugin 的 `ctx.images` 等其他 facade，以及 `PluginOfficialApi` 中除项目管理外的领域服务。
 - App Action provider。
-- 其他基础能力与领域能力。
+- 其他基础能力与项目以外的领域能力。
 - 不可信扩展的进程级隔离。
 
 ### 阶段一：契约和 Registry
@@ -647,7 +648,7 @@ window.vetta.capabilities.invoke({
 1. `ctx.fs` 已改为使用 Foundation Filesystem Capability Token；继续迁移 `ctx.images` 等 facade。
 2. Plugin Adapter 已将 `fs.read`、`fs.write` 展开为独立 Capability Grant；后续权限继续按同一方式显式映射。
 3. `ui.slot.*`、`app.actions.register` 等继续留在 Plugin Adapter。
-4. 将 `PluginOfficialApi` 中稳定的 Desktop 领域服务逐步迁移为 Domain Capability，保留兼容 facade。
+4. `PluginOfficialApi.projects` 已迁移为独立 Domain Project Capability；继续迁移其余稳定的 Desktop 领域服务，并保留兼容 facade。
 
 ### 阶段五：Action 迁移
 

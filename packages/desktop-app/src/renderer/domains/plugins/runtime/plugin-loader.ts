@@ -1024,7 +1024,7 @@ function createContext(
 				};
 			},
 		},
-		official: createPluginOfficialApi(plugin),
+		official: createPluginOfficialApi(plugin, capabilitySessionId),
 		images: createImagesApi(plugin),
 		settings: settingsApi,
 		i18n: createI18nApi(plugin),

@@ -7,6 +7,11 @@ function requireString(value: unknown, field: string): string {
 	return value;
 }
 
+function optionalString(value: unknown, field: string): string | undefined {
+	if (value === undefined) return undefined;
+	return requireString(value, field);
+}
+
 export function registerPluginCapabilitiesIpc(): () => void {
 	const adapter = getDesktopCapabilityHost().adapters.plugin;
 	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.OPEN_SESSION, (_event, pluginId: unknown) =>
@@ -65,6 +70,43 @@ export function registerPluginCapabilitiesIpc(): () => void {
 	);
 	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.FS_LIST_FILES_RECURSIVE, (_event, sessionId: unknown, path: unknown) =>
 		adapter.listFilesRecursive(requireString(sessionId, "sessionId"), requireString(path, "path")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.PROJECT_LIST, (_event, sessionId: unknown) =>
+		adapter.listProjects(requireString(sessionId, "sessionId")),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.PROJECT_CREATE,
+		(_event, sessionId: unknown, name: unknown, path: unknown) =>
+			adapter.createProject(
+				requireString(sessionId, "sessionId"),
+				requireString(name, "name"),
+				optionalString(path, "path"),
+			),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.PROJECT_OPEN, (_event, sessionId: unknown, path: unknown, name: unknown) =>
+		adapter.openProject(
+			requireString(sessionId, "sessionId"),
+			requireString(path, "path"),
+			optionalString(name, "name"),
+		),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.PROJECT_RENAME,
+		(_event, sessionId: unknown, path: unknown, name: unknown) =>
+			adapter.renameProject(
+				requireString(sessionId, "sessionId"),
+				requireString(path, "path"),
+				requireString(name, "name"),
+			),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.PROJECT_ARCHIVE, (_event, sessionId: unknown, path: unknown) =>
+		adapter.archiveProject(requireString(sessionId, "sessionId"), requireString(path, "path")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.PROJECT_UNARCHIVE, (_event, sessionId: unknown, path: unknown) =>
+		adapter.unarchiveProject(requireString(sessionId, "sessionId"), requireString(path, "path")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.PROJECT_REMOVE, (_event, sessionId: unknown, path: unknown) =>
+		adapter.removeProject(requireString(sessionId, "sessionId"), requireString(path, "path")),
 	);
 
 	return () => {

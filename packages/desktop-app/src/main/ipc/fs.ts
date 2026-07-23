@@ -1,7 +1,6 @@
 import type { FSWatcher } from "node:fs";
-import { readFileSync, watch } from "node:fs";
+import { watch } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
-import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { getVettaHomePath } from "@vetta/action-rpc";
 import {
@@ -20,9 +19,37 @@ import type {
 	McpStdioServerConfigData,
 } from "../../preload/api-types/mcp.js";
 import type { FsEntry, FsFileRef } from "../../preload/fs-types.js";
-import { isLanguagePreference, type LanguagePreference } from "../../shared/i18n/config.js";
-import { normalizeShortcutsConfig, type ShortcutsConfig } from "../../shared/shortcuts.js";
 import { SHORTCUTS_CHANNELS } from "../../shared/shortcuts-ipc.js";
+import {
+	type AppshotConfig,
+	type AppshotGesture,
+	DEFAULT_CONVERSATION_CWD,
+	DEFAULT_CONVERSATION_SESSION_DIR,
+	DEFAULT_IM_CONVERSATION_CWD,
+	DEFAULT_IM_CONVERSATION_SESSION_DIR,
+	type DesktopConfig,
+	type ExperimentalConfig,
+	expandTildePath,
+	KB_PROCESSING_CWD,
+	KB_PROCESSING_SESSION_DIR,
+	type KnowledgeBaseConfig,
+	type NewSessionPageConfig,
+	normalizeAgentMode,
+	normalizeAppshot,
+	normalizeExecutionMode,
+	normalizeExperimental,
+	normalizeKnowledgeBase,
+	normalizeNewSessionPage,
+	normalizeQuickPanel,
+	normalizeShortcuts,
+	type ProjectEntry,
+	persistVettaCliPaths,
+	type QuickPanelConfig,
+	type QuickPanelTrigger,
+	readConfigSync,
+	readDesktopConfig,
+	writeDesktopConfig,
+} from "../config/desktop-config-store.js";
 import {
 	allowProjectRoot,
 	createFilesystemDirectory,
@@ -40,103 +67,6 @@ import { fetchProviderModels } from "../models/fetch-models.js";
 import { probeModelProvider } from "../models/probe.js";
 import { openExternalUrl } from "../open-external.js";
 import { getLinuxSandboxCapability, getSandboxCapability, type SandboxCapability } from "../sandbox/capability.js";
-
-// ─── Desktop app config ───
-
-export interface ProjectEntry {
-	path: string;
-	name?: string;
-}
-
-/** 实验性功能开关分组（设置页「Agent配置 → 扩展功能」）。新增实验项只加一个键。 */
-export interface ExperimentalConfig {
-	/** Vetta CLI 提示词：开启后仅注入桌面端对话会话。缺省开。 */
-	vettaCli?: boolean;
-	/** 输入预测：每轮正常回答后预测用户下一个可能输入的 prompt。**缺省关**（区别于本组其他键的缺省开）；批量/流转会话不适用。 */
-	promptPrediction?: boolean;
-	/** 适配通用 Agent Skill：发现 `~/.agents/skills`、`<cwd>/.agents/skills` 下的通用 Agent Skill。缺省开。 */
-	agentSkills?: boolean;
-}
-
-export interface DesktopConfig {
-	projects: ProjectEntry[];
-	archivedProjects: ProjectEntry[];
-	workspacePath: string;
-	defaultExecutionMode: "sandbox" | "full-access";
-	debugMode?: boolean;
-	vettaAppPath?: string;
-	vettaCliAppPath?: string;
-	/** 系统通知总开关（「通用设置」）。缺省视为开启。 */
-	notificationsEnabled?: boolean;
-	/**
-	 * 界面语言偏好（见 ADR-0031）：`system` | `zh` | `en`。
-	 * 缺省（undefined）= 跟随系统（等价 system）。
-	 */
-	language?: LanguagePreference;
-	/** 工作模式（agent_mode 轴，见 ADR-0046）：`work` | `coding`。缺省视为 `work`。 */
-	agentMode?: "work" | "coding";
-	/** 实验性功能开关分组。缺省视为全部开启。 */
-	experimental?: ExperimentalConfig;
-	/** 知识库加工设置。 */
-	knowledgeBase?: KnowledgeBaseConfig;
-	/**
-	 * 全局应用快捷键自定义绑定（设置 → 快捷键 → 全局快捷键）。
-	 * 与 quickPanel 无关，禁止混写。
-	 */
-	shortcuts?: ShortcutsConfig;
-	/** 快捷面板（双击功能键唤出 Spotlight 式面板）设置。 */
-	quickPanel?: QuickPanelConfig;
-	/** Appshot（全局手势捕获前台应用窗口）设置。缺省关闭。 */
-	appshot?: AppshotConfig;
-	/** 新会话页元素显隐（设置 → 新会话页）。各项缺省 true。 */
-	newSessionPage?: NewSessionPageConfig;
-}
-
-/** 新会话页欢迎区元素显隐。缺省全部显示。 */
-export interface NewSessionPageConfig {
-	/** 场景卡片 list。缺省 true。 */
-	showSceneCards?: boolean;
-	/** 技能 badge list。缺省 true。 */
-	showSkillBadges?: boolean;
-	/** 引导词轮播。缺省 true。 */
-	showGuidingWords?: boolean;
-}
-
-/** Appshot 触发手势：双键同按（左右两侧同时按住）。both-shift=双 ⇧；both-mod=双 ⌘(mac)/Ctrl；both-alt=双 ⌥/Alt。 */
-export type AppshotGesture = "both-shift" | "both-mod" | "both-alt";
-
-export interface AppshotConfig {
-	/** 是否启用。缺省 false。 */
-	enabled?: boolean;
-	/** 触发手势。缺省 "both-shift"。 */
-	gesture?: AppshotGesture;
-}
-
-/** 快捷面板设置（设置页「快捷键 → 快捷面板」）。缺省关闭、无预设快捷键。 */
-/** 快捷面板呼出触发：双击哪个功能键。none=不启用；mod=双击 ⌘(mac)/Ctrl(win)；alt=双击 ⌥/Alt；shift=双击 ⇧。 */
-export type QuickPanelTrigger = "none" | "mod" | "alt" | "shift";
-
-export interface QuickPanelConfig {
-	/** 呼出触发（双击功能键）。缺省 none（不启用）。 */
-	trigger?: QuickPanelTrigger;
-	/** 发送后行为：foreground=打开主窗定位新会话；background=后台运行仅关面板。缺省 foreground。 */
-	postSendBehavior?: "foreground" | "background";
-}
-
-export interface KnowledgeBaseConfig {
-	/** 是否启用后台惰性加工。缺省关。 */
-	enabled?: boolean;
-	/** 轮询间隔（分钟）：3 / 5 / 10 / 30。缺省 5。 */
-	pollIntervalMinutes?: number;
-	/** 加工会话使用的模型 key（provider/modelId）。缺省跟随默认模型。 */
-	processingModelKey?: string;
-	/** 加工模型的推理档位；未设置时按模型自身默认档。"off" 关闭思考。 */
-	processingModelReasoningLevel?: string;
-	/** 并发加工会话数（网络/LLM 限流）。缺省 3。 */
-	agentConcurrency?: number;
-	/** 并发本地 OCR 子进程数（CPU 限流）。缺省 1（受 desktop 共享 OCR profile 制约）。 */
-	ocrConcurrency?: number;
-}
 
 export interface LinuxSandboxConfigState {
 	status: "unknown" | "available" | "unavailable";
@@ -157,104 +87,8 @@ export interface DesktopConfigSnapshot extends DesktopConfig {
 	knowledgeProcessingCwd: string;
 }
 
-export const DEFAULT_CONVERSATION_CWD = join(getVettaHomePath(), "conversation");
-
-/**
- * 默认「对话」项目的会话目录：仿照批量项目，把 session jsonl 放到 cwd 内部，
- * 避免 ~/.vetta/agent/sessions/<encoded-cwd>/ 的设备相关编码路径。
- */
-export const DEFAULT_CONVERSATION_SESSION_DIR = join(DEFAULT_CONVERSATION_CWD, ".vetta", "sessions");
-
-/**
- * im-gateway 自己的 cwd，跟桌面「对话」物理分离（ADR-0005）。Claw tab 只读
- * 列出此目录下的 session；im-gateway sidecar 启动时也注入此路径。
- */
-export const DEFAULT_IM_CONVERSATION_CWD = join(getVettaHomePath(), "im-gateway", "conversation");
-export const DEFAULT_IM_CONVERSATION_SESSION_DIR = join(DEFAULT_IM_CONVERSATION_CWD, ".vetta", "sessions");
-
-/**
- * 知识库加工特殊项目（仿「对话」项目）：cwd 是 ~/.vetta/knowledges/processing_records，
- * 每轮加工的 session jsonl 落在其本地 .vetta/sessions，自包含、可在 sidebar 回看。
- */
-export const KB_PROCESSING_CWD = join(getVettaHomePath(), "knowledges", "processing_records");
-export const KB_PROCESSING_SESSION_DIR = join(KB_PROCESSING_CWD, ".vetta", "sessions");
-
-const CONFIG_PATH = join(getVettaHomePath(), "desktop-config.json");
 const MODELS_CONFIG_PATH = join(getVettaHomePath(), "agent", "models.json");
 const MCP_CONFIG_PATH = join(getVettaHomePath(), "agent", "mcp.json");
-const DEFAULT_CONFIG: DesktopConfig = {
-	projects: [],
-	archivedProjects: [],
-	workspacePath: join(getVettaHomePath(), "workspace"),
-	defaultExecutionMode: "full-access",
-	agentMode: "work",
-	debugMode: false,
-	notificationsEnabled: true,
-	experimental: { vettaCli: true, agentSkills: true },
-	shortcuts: { bindings: {} },
-	quickPanel: { trigger: "none", postSendBehavior: "foreground" },
-	appshot: { enabled: false, gesture: "both-shift" },
-	newSessionPage: { showSceneCards: true, showSkillBadges: true, showGuidingWords: true },
-};
-
-/** Migrate legacy string[] format to ProjectEntry[] */
-function migrateProjectEntries(entries: unknown): ProjectEntry[] {
-	if (!Array.isArray(entries)) return [];
-	if (entries.length === 0) return [];
-	if (typeof entries[0] === "string") {
-		return (entries as string[]).map((p) => ({ path: p }));
-	}
-	return entries as ProjectEntry[];
-}
-
-function normalizeExecutionMode(value: unknown): "sandbox" | "full-access" {
-	return value === "sandbox" ? "sandbox" : "full-access";
-}
-
-/** 归一化工作模式（agent_mode 轴）。未知/缺省 → "work"（ADR-0046 desktop 默认）。 */
-function normalizeAgentMode(value: unknown): "work" | "coding" {
-	return value === "coding" ? "coding" : "work";
-}
-
-const KB_POLL_INTERVALS = [3, 5, 10, 30];
-
-function normalizeKnowledgeBase(value: unknown): KnowledgeBaseConfig {
-	// 总开关缺省视为关闭（知识库消耗大量 Token，改为用户主动开启）；后台加工跟随总开关。
-	if (typeof value !== "object" || value === null) {
-		return { enabled: false, pollIntervalMinutes: 5 };
-	}
-	const v = value as Record<string, unknown>;
-	const interval = typeof v.pollIntervalMinutes === "number" ? v.pollIntervalMinutes : 5;
-	const clampInt = (x: unknown, fallback: number, min: number): number =>
-		typeof x === "number" && Number.isFinite(x) && x >= min ? Math.floor(x) : fallback;
-	return {
-		enabled: v.enabled === true,
-		// 0 = 永不自动加工（仅停后台轮询，知识库本身仍启用、可手动整理）。
-		pollIntervalMinutes: interval === 0 || KB_POLL_INTERVALS.includes(interval) ? interval : 5,
-		processingModelKey: typeof v.processingModelKey === "string" ? v.processingModelKey : undefined,
-		processingModelReasoningLevel:
-			typeof v.processingModelReasoningLevel === "string" ? v.processingModelReasoningLevel : undefined,
-		agentConcurrency: clampInt(v.agentConcurrency, 3, 1),
-		ocrConcurrency: clampInt(v.ocrConcurrency, 1, 1),
-	};
-}
-
-function normalizeQuickPanel(value: unknown): QuickPanelConfig {
-	// 锁定缺省：不启用、发送后前台。
-	if (typeof value !== "object" || value === null) return { trigger: "none", postSendBehavior: "foreground" };
-	const v = value as Record<string, unknown>;
-	const trigger: QuickPanelTrigger =
-		v.trigger === "mod" || v.trigger === "alt" || v.trigger === "shift" ? v.trigger : "none";
-	return {
-		trigger,
-		postSendBehavior: v.postSendBehavior === "background" ? "background" : "foreground",
-	};
-}
-
-function normalizeShortcuts(value: unknown): ShortcutsConfig {
-	return normalizeShortcutsConfig(value);
-}
-
 /** 向所有窗口广播全局快捷键绑定变更（设置页 GUI 与 Action 共用）。 */
 export function broadcastShortcutsBindingsChanged(bindings: Record<string, string>): void {
 	const payload = { bindings };
@@ -264,120 +98,27 @@ export function broadcastShortcutsBindingsChanged(bindings: Record<string, strin
 	}
 }
 
-function normalizeAppshot(value: unknown): AppshotConfig {
-	// 锁定缺省：不启用、双 Shift 手势。非法值落默认。
-	if (typeof value !== "object" || value === null) return { enabled: false, gesture: "both-shift" };
-	const v = value as Record<string, unknown>;
-	const gesture: AppshotGesture =
-		v.gesture === "both-shift" || v.gesture === "both-mod" || v.gesture === "both-alt" ? v.gesture : "both-shift";
-	return {
-		enabled: v.enabled === true,
-		gesture,
-	};
-}
-
-function normalizeNewSessionPage(value: unknown): NewSessionPageConfig {
-	// 锁定缺省：三项均显示。仅显式 false 才隐藏。
-	if (typeof value !== "object" || value === null) {
-		return { showSceneCards: true, showSkillBadges: true, showGuidingWords: true };
-	}
-	const v = value as Record<string, unknown>;
-	return {
-		showSceneCards: v.showSceneCards !== false,
-		showSkillBadges: v.showSkillBadges !== false,
-		showGuidingWords: v.showGuidingWords !== false,
-	};
-}
-
-function normalizeExperimental(value: unknown): ExperimentalConfig {
-	// promptPrediction 缺省 false（区别于其他键缺省 true）。
-	if (typeof value !== "object" || value === null)
-		return {
-			vettaCli: true,
-			promptPrediction: false,
-			agentSkills: true,
-		};
-	const v = value as Record<string, unknown>;
-	return {
-		vettaCli: typeof v.vettaCli === "boolean" ? v.vettaCli : true,
-		promptPrediction: typeof v.promptPrediction === "boolean" ? v.promptPrediction : false,
-		agentSkills: typeof v.agentSkills === "boolean" ? v.agentSkills : true,
-	};
-}
-
-export async function readDesktopConfig(): Promise<DesktopConfig> {
-	try {
-		const raw = await readFile(CONFIG_PATH, "utf8");
-		const parsed = JSON.parse(raw) as Record<string, unknown>;
-		return {
-			projects: migrateProjectEntries(parsed.projects),
-			archivedProjects: migrateProjectEntries(parsed.archivedProjects),
-			workspacePath:
-				typeof parsed.workspacePath === "string" ? expandTilde(parsed.workspacePath) : DEFAULT_CONFIG.workspacePath,
-			defaultExecutionMode: normalizeExecutionMode(parsed.defaultExecutionMode),
-			agentMode: normalizeAgentMode(parsed.agentMode),
-			debugMode: typeof parsed.debugMode === "boolean" ? parsed.debugMode : false,
-			vettaAppPath: typeof parsed.vettaAppPath === "string" ? parsed.vettaAppPath : undefined,
-			vettaCliAppPath: typeof parsed.vettaCliAppPath === "string" ? parsed.vettaCliAppPath : undefined,
-			notificationsEnabled: typeof parsed.notificationsEnabled === "boolean" ? parsed.notificationsEnabled : true,
-			language: isLanguagePreference(parsed.language) ? parsed.language : undefined,
-			experimental: normalizeExperimental(parsed.experimental),
-			knowledgeBase: normalizeKnowledgeBase(parsed.knowledgeBase),
-			shortcuts: normalizeShortcuts(parsed.shortcuts),
-			quickPanel: normalizeQuickPanel(parsed.quickPanel),
-			appshot: normalizeAppshot(parsed.appshot),
-			newSessionPage: normalizeNewSessionPage(parsed.newSessionPage),
-		};
-	} catch {
-		return { ...DEFAULT_CONFIG };
-	}
-}
-
-/** Sync version for use in hot paths (e.g. event callbacks) */
-export function readConfigSync(): DesktopConfig {
-	try {
-		const raw = readFileSync(CONFIG_PATH, "utf8");
-		const parsed = JSON.parse(raw) as Record<string, unknown>;
-		return {
-			projects: migrateProjectEntries(parsed.projects),
-			archivedProjects: migrateProjectEntries(parsed.archivedProjects),
-			workspacePath:
-				typeof parsed.workspacePath === "string" ? expandTilde(parsed.workspacePath) : DEFAULT_CONFIG.workspacePath,
-			defaultExecutionMode: normalizeExecutionMode(parsed.defaultExecutionMode),
-			agentMode: normalizeAgentMode(parsed.agentMode),
-			debugMode: typeof parsed.debugMode === "boolean" ? parsed.debugMode : false,
-			vettaAppPath: typeof parsed.vettaAppPath === "string" ? parsed.vettaAppPath : undefined,
-			vettaCliAppPath: typeof parsed.vettaCliAppPath === "string" ? parsed.vettaCliAppPath : undefined,
-			notificationsEnabled: typeof parsed.notificationsEnabled === "boolean" ? parsed.notificationsEnabled : true,
-			language: isLanguagePreference(parsed.language) ? parsed.language : undefined,
-			experimental: normalizeExperimental(parsed.experimental),
-			knowledgeBase: normalizeKnowledgeBase(parsed.knowledgeBase),
-			shortcuts: normalizeShortcuts(parsed.shortcuts),
-			quickPanel: normalizeQuickPanel(parsed.quickPanel),
-			appshot: normalizeAppshot(parsed.appshot),
-			newSessionPage: normalizeNewSessionPage(parsed.newSessionPage),
-		};
-	} catch {
-		return { ...DEFAULT_CONFIG };
-	}
-}
-
-export async function writeDesktopConfig(config: DesktopConfig): Promise<void> {
-	atomicWriteJSON(CONFIG_PATH, config);
-}
-
-export async function persistVettaCliPaths(paths: { vettaAppPath: string; vettaCliAppPath: string }): Promise<void> {
-	const config = await readDesktopConfig();
-	if (config.vettaAppPath === paths.vettaAppPath && config.vettaCliAppPath === paths.vettaCliAppPath) return;
-	await writeDesktopConfig({ ...config, ...paths });
-}
-
-function expandTilde(p: string): string {
-	if (p.startsWith("~/") || p === "~") {
-		return join(homedir(), p.slice(1));
-	}
-	return p;
-}
+export {
+	type AppshotConfig,
+	type AppshotGesture,
+	DEFAULT_CONVERSATION_CWD,
+	DEFAULT_CONVERSATION_SESSION_DIR,
+	DEFAULT_IM_CONVERSATION_CWD,
+	DEFAULT_IM_CONVERSATION_SESSION_DIR,
+	type DesktopConfig,
+	type ExperimentalConfig,
+	KB_PROCESSING_CWD,
+	KB_PROCESSING_SESSION_DIR,
+	type KnowledgeBaseConfig,
+	type NewSessionPageConfig,
+	persistVettaCliPaths,
+	type ProjectEntry,
+	type QuickPanelConfig,
+	type QuickPanelTrigger,
+	readConfigSync,
+	readDesktopConfig,
+	writeDesktopConfig,
+};
 
 // ─── Models config (providers & models) ───
 
@@ -563,7 +304,7 @@ export function registerFsIpc(): () => void {
 
 	ipcMain.handle(CHANNELS.LIST_SUB_DIRS, async (_event, dirPath: unknown): Promise<FsEntry[]> => {
 		assertNonEmptyString(dirPath, "dirPath");
-		const resolved = resolve(expandTilde(dirPath));
+		const resolved = resolve(expandTildePath(dirPath));
 		allowProjectRoot(resolved);
 		try {
 			const entries = await readdir(resolved, { withFileTypes: true });
