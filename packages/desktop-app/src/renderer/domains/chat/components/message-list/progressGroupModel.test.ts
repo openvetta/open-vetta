@@ -88,7 +88,7 @@ describe("groupBlocksForWork", () => {
 		expect(stage.blocks).toHaveLength(1);
 	});
 
-	it("失败的工具调用冒泡到组外，阶段拆成两段但共享标题", () => {
+	it("失败的工具调用留在阶段组内，不冒泡到组外", () => {
 		const blocks = [
 			progress({ label: "整理数据" }),
 			tool("read"),
@@ -97,11 +97,11 @@ describe("groupBlocksForWork", () => {
 			progress({ summary: "整理了 2 份数据" }),
 		];
 		const segments = groupBlocksForWork(blocks, new Set());
-		expect(segments.map((segment) => segment.type)).toEqual(["progress_group", "single", "progress_group"]);
+		expect(segments.map((segment) => segment.type)).toEqual(["progress_group"]);
 		const parts = stages(blocks);
-		expect(parts).toHaveLength(2);
-		expect(parts[0].stageId).toBe(parts[1].stageId);
-		expect(parts.every((part) => part.summary === "整理了 2 份数据")).toBe(true);
+		expect(parts).toHaveLength(1);
+		expect(parts[0].blocks).toHaveLength(3);
+		expect(parts[0].summary).toBe("整理了 2 份数据");
 	});
 
 	it("插件自定义 UI 工具永远组外单独渲染", () => {
