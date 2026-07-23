@@ -3,28 +3,33 @@ import { cn } from "@vetta/ui";
 
 export interface SettingsMenuTriggerViewProps extends ComponentPropsWithoutRef<"button"> {
 	readonly avatar?: ReactNode;
-	/** 工作模式 badge 文案（Work/Coding，见 ADR-0046）。展示位取代原 Go 套餐 badge。 */
-	readonly agentModeBadge?: string;
-	readonly agentModeTitle?: string;
+	/** Claw 在线状态徽章（脉冲点 + "Claw"），仅在线时展示。取代原工作模式 badge 位。 */
+	readonly clawOnline?: boolean;
+	readonly clawTitle?: string;
 	readonly open: boolean;
 	readonly settingsFallbackLabel: string;
 	readonly userLabel?: string | null;
 }
 
-function AgentModeBadge({ label, title }: { label: string; title?: string }): JSX.Element {
+/** 底部头像 item 内的 Claw 在线状态徽章，非交互（点击由外层头像 item 处理）。 */
+function ClawBadge({ title }: { title?: string }): JSX.Element {
 	return (
 		<span
-			className="inline-flex shrink-0 items-center justify-center rounded-full bg-accent px-1.5 py-0.5 text-[9px] font-medium leading-none text-foreground"
-			title={title || label}
+			className="relative flex h-5 shrink-0 items-center gap-1 rounded-full bg-secondary px-1.5 text-[10px] font-medium leading-none text-secondary-foreground"
+			title={title}
 		>
-			{label}
+			<span className="relative flex h-1 w-1">
+				<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-secondary-foreground opacity-70" />
+				<span className="relative inline-flex h-1 w-1 rounded-full bg-secondary-foreground" />
+			</span>
+			Claw
 		</span>
 	);
 }
 
 export const SettingsMenuTriggerView = forwardRef<HTMLButtonElement, SettingsMenuTriggerViewProps>(
 	function SettingsMenuTriggerView(
-		{ avatar, className, agentModeBadge, agentModeTitle, open, settingsFallbackLabel, userLabel, ...props },
+		{ avatar, className, clawOnline, clawTitle, open, settingsFallbackLabel, userLabel, ...props },
 		ref,
 	): JSX.Element {
 		return (
@@ -42,13 +47,13 @@ export const SettingsMenuTriggerView = forwardRef<HTMLButtonElement, SettingsMen
 					<>
 						{avatar}
 						<span className="truncate">{userLabel}</span>
-						{agentModeBadge && <AgentModeBadge label={agentModeBadge} title={agentModeTitle} />}
+						{clawOnline && <ClawBadge title={clawTitle} />}
 					</>
 				) : (
 					<>
 						<span className="icon-[solar--settings-linear] h-3.5 w-3.5" />
 						<span className="truncate">{settingsFallbackLabel}</span>
-						{agentModeBadge && <AgentModeBadge label={agentModeBadge} title={agentModeTitle} />}
+						{clawOnline && <ClawBadge title={clawTitle} />}
 					</>
 				)}
 			</button>
