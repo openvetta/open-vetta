@@ -24,6 +24,15 @@ function getToolCallDescription(args: Record<string, unknown>): string {
 	return typeof description === "string" ? description.trim() : "";
 }
 
+/**
+ * 系统工具名对普通用户不可读（`invoke_skill`、`edit`…），映射到 i18n 语义别名。
+ * 只替换工具名本身；agent 写的 description / 参数 detail 照旧拼在后面。
+ * 未登记的工具名（含 MCP 工具）原样返回。
+ */
+export function toolAlias(name: string): string {
+	return i18n.t(`chat:toolLabel.alias.${name}`, { defaultValue: name });
+}
+
 /** Get icon for tool */
 export function toolIcon(name: string): string {
 	if (name.startsWith("mcp_")) return "icon-[mdi--cloud-outline]";
@@ -59,8 +68,12 @@ export function toolIcon(name: string): string {
 	}
 }
 
-/** Format the tool header label */
-export function toolLabel(block: ToolCallBlock): { name: string; detail: string } {
+/**
+ * Format the tool header label.
+ * @param aliased Work 模式传 true：用 i18n 语义别名替换系统工具名（`invoke_skill`→执行技能）。
+ *   coding 模式保持原始工具名。
+ */
+export function toolLabel(block: ToolCallBlock, aliased = false): { name: string; detail: string } {
 	const mcp = parseMcpTool(block.toolName);
 	const args = block.args;
 
@@ -73,7 +86,7 @@ export function toolLabel(block: ToolCallBlock): { name: string; detail: string 
 	}
 
 	const name = block.toolName;
-	let displayName = name;
+	let displayName = aliased ? toolAlias(name) : name;
 	let detail = "";
 	const description = getToolCallDescription(args);
 

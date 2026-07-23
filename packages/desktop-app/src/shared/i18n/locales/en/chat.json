@@ -343,7 +343,9 @@
 			"streaming": "Processing {{elapsed}}s",
 			"work": {
 				"collapse": "Collapse {{count}} steps",
-				"expand": "Expand {{count}} steps"
+				"collapseZero": "Collapse process",
+				"expand": "Expand {{count}} steps",
+				"expandZero": "Expand process"
 			}
 		},
 		"assistantMessage": {
@@ -521,6 +523,42 @@
 		"unknown": "Unknown"
 	},
 	"toolLabel": {
+		"alias": {
+			"ask_user_question": "Ask",
+			"bash": "Run command",
+			"current_time": "Current time",
+			"dir_tree": "Directory tree",
+			"dispatch_workflows": "Dispatch workflows",
+			"doc_to_pdf": "To PDF",
+			"easy_use_vettaApp": "Use app",
+			"edit": "Edit",
+			"edit_image": "Edit image",
+			"extract_text_from_img": "Extract text (image)",
+			"extract_text_from_pdf": "Extract text (PDF)",
+			"find": "Find files",
+			"followup_task": "Follow-up task",
+			"generate_image": "Generate image",
+			"glob": "Match files",
+			"grep": "Search",
+			"html_to_pdf": "To PDF",
+			"im_send_attachment": "Send attachment",
+			"interrupt_agent": "Interrupt agent",
+			"invoke_skill": "Run skill",
+			"list_agents": "List agents",
+			"ls": "List",
+			"memory": "Memory",
+			"read": "Read",
+			"render_pdf_page": "Render PDF page",
+			"send_message": "Send message",
+			"shell": "Run command",
+			"spawn_agent": "Spawn agent",
+			"task_output": "Task output",
+			"task_stop": "Stop task",
+			"todo": "Todo",
+			"tree": "Directory tree",
+			"wait_agent": "Wait agent",
+			"write": "Write"
+		},
 		"knowledgeBase": {
 			"filterByTags": "Knowledge · Filter by tags",
 			"listTags": "Knowledge · List tags",

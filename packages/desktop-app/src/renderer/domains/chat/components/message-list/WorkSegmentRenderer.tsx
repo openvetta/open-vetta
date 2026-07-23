@@ -13,7 +13,7 @@ import { isProgressGroupDone } from "./progressGroupModel";
 function rowText(block: ToolCallBlock): string {
 	const description = block.args.description;
 	if (typeof description === "string" && description.trim()) return description.trim();
-	const { name, detail } = toolLabel(block);
+	const { name, detail } = toolLabel(block, true);
 	return detail ? `${name} · ${detail}` : name;
 }
 
@@ -31,7 +31,7 @@ const StageRow = memo(function StageRow({ block, exportMode }: StageRowProps) {
 			exportMode={exportMode}
 			expanded={expanded}
 			onToggle={toggle}
-			details={<ToolCallBlockView block={block} exportMode={exportMode} />}
+			details={<ToolCallBlockView block={block} exportMode={exportMode} aliased />}
 		/>
 	);
 });
@@ -154,7 +154,7 @@ export const WorkSegmentRenderer = memo(function WorkSegmentRenderer({
 				content = null;
 				break;
 			case "tool_call":
-				content = <ToolCallBlockView block={segment.block} exportMode={exportMode} />;
+				content = <ToolCallBlockView block={segment.block} exportMode={exportMode} aliased />;
 				break;
 			case "error":
 				content = <ErrorBlockView text={segment.block.text} />;

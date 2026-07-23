@@ -49,7 +49,7 @@ class PluginToolCallErrorBoundary extends Component<{ children: ReactNode }, { f
 
 export type ToolCallBlockModel = ToolCallBlockViewProps;
 
-export function useToolCallBlockModel(block: ToolCallBlock, exportMode = false): ToolCallBlockModel {
+export function useToolCallBlockModel(block: ToolCallBlock, exportMode = false, aliased = false): ToolCallBlockModel {
 	const { t } = useTranslation("chat");
 	const [expanded, setExpanded] = useState(false);
 	const generatedId = useId();
@@ -69,7 +69,7 @@ export function useToolCallBlockModel(block: ToolCallBlock, exportMode = false):
 				getStringArg(block.args, "newText") !== null)) ||
 		(block.toolName === "ask_user_question" && Array.isArray(block.args.questions));
 	const canExpand = hasResult || hasMeta || hasToolSpecificResult;
-	const { name, detail } = toolLabel(block);
+	const { name, detail } = toolLabel(block, aliased);
 	const mcp = parseMcpTool(block.toolName);
 	const icon = toolIcon(block.toolName);
 	const shellCommand = getShellCommand(block);
