@@ -440,6 +440,8 @@ export interface SystemAdapterContext {
 
 适配层是完整的一层，不是散落在 Desktop IPC 目录中的辅助函数。一个系统的权限展开、Subject 生成、namespace 绑定和 Capability 调用包装应聚合在同一个系统模块中；只有当单个系统适配器本身复杂到包含多个独立职责时才继续拆分，避免按每个能力创建一个文件。
 
+系统 Adapter 的实例和生命周期由 Capability Host 统一管理。每种系统 Adapter 在宿主进程中只创建一次，IPC、RPC 等协议入口只借用 Host 持有的实例，不自行构造或销毁。这样高频调用可以复用 Adapter 内部的 AccessSession 和缓存，Host 关闭时再统一撤销 Session 并释放 Provider。
+
 ### 7.2 系统权限到 Capability Grant 的转换
 
 系统适配层可以拥有自己的权限名称和权限组合，但这些信息不进入通用权限层。
@@ -576,6 +578,8 @@ packages/desktop-app/src/main/capabilities/
 
 Desktop 只保留原生 Provider 和装配入口，不再保存 Plugin、Theme、Action 的适配器。Provider 文件按能力层或底层资源聚合；不为了每个 operation 单独创建文件。
 
+`capability-host.ts` 是唯一组合根：创建 Capability Hub、权限控制器、Provider 和各系统 Adapter，并负责统一销毁。IPC、RPC、renderer bridge 等入口不得直接 `new` 系统 Adapter。
+
 如果落地为新的 `packages/*` workspace 包，必须同时完成 workspace、根 TS paths、desktop TS paths 和 `build.sh` 分层接入，遵循 `docs/monorepo-new-package.md`。
 
 ## 9. 传输与安全边界
@@ -603,6 +607,7 @@ window.vetta.capabilities.invoke({
 - `packages/capability-sdk` 提供 Capability ID、Token、基础存储能力、Grant、稳定错误码以及宿主内置的 `internal/theme-adapter`。
 - `packages/capability-runtime` 提供 Foundation/Domain 双 Registry、Capability Hub、Provider 原子替换、精确 Grant、AccessSession、namespace constraint 和审计事件。
 - `packages/desktop-app/src/main/capabilities` 只提供 Desktop Capability Host、基础存储 Provider 和原生持久化后端装配。
+- Desktop Capability Host 单例持有 Theme Adapter；Theme IPC 只复用该实例，不再重复创建或负责销毁。
 - Theme Storage 主进程路径已经迁移为 `Theme SDK facade -> 宿主桥接 -> 内置 Theme Adapter -> AccessSession -> Foundation Storage Capability -> 现有持久化后端`。
 - Theme SDK、renderer storage hook、preload API、IPC channel 和磁盘格式保持兼容。
 
@@ -659,6 +664,7 @@ window.vetta.capabilities.invoke({
 - 通用权限层源码不出现 Plugin、Theme、Action 的类型或业务分支。
 - 系统权限到 Capability Grant 的展开只发生在对应系统适配层。
 - 系统适配器集中位于 `capability-sdk/adapters`，不散落在 Desktop IPC 或公开系统 SDK 中。
+- 系统 Adapter 由 Capability Host 单例持有，协议入口不直接创建或销毁 Adapter。
 - 新增 Capability 后默认没有 Grant，不会扩大现有授权。
 - Provider 热更新失败时保留旧版本，卸载后取消进行中的调用。
 - 公开 Catalog、JSON Schema 和文档由 SDK Token 定义生成。
