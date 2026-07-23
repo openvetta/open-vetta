@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 /**
  * Scaffold a minimal Vetta MF plugin project under a target directory.
- * Usage: node scaffold.mjs <targetDir> --id <id> --name <displayName> [--semver-sdk ^0.0.3]
+ * Usage: node scaffold.mjs <targetDir> --id <id> --name <displayName> [--semver-sdk ^0.0.4] [--semver-vite ^0.0.3]
  */
 import { mkdir, writeFile, access } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
 function parseArgs(argv) {
-	const out = { target: null, id: null, name: null, sdk: "^0.0.3" };
+	// sdk / vite 版本各自独立发布，不要合成一个参数。
+	const out = { target: null, id: null, name: null, sdk: "^0.0.4", vite: "^0.0.3" };
 	const rest = [...argv];
 	out.target = rest.shift() ?? null;
 	while (rest.length) {
@@ -15,6 +16,7 @@ function parseArgs(argv) {
 		if (key === "--id") out.id = rest.shift();
 		else if (key === "--name") out.name = rest.shift();
 		else if (key === "--semver-sdk") out.sdk = rest.shift();
+		else if (key === "--semver-vite") out.vite = rest.shift();
 		else throw new Error(`Unknown arg: ${key}`);
 	}
 	return out;
@@ -35,7 +37,9 @@ async function exists(path) {
 
 const args = parseArgs(process.argv.slice(2));
 if (!args.target || !args.id || !args.name) {
-	console.error("Usage: node scaffold.mjs <targetDir> --id <id> --name <displayName> [--semver-sdk ^0.0.3]");
+	console.error(
+		"Usage: node scaffold.mjs <targetDir> --id <id> --name <displayName> [--semver-sdk ^0.0.4] [--semver-vite ^0.0.3]",
+	);
 	process.exit(2);
 }
 if (!/^[a-z][a-z0-9-]{0,62}$/.test(args.id)) {
@@ -84,7 +88,7 @@ const files = {
 				"@types/react": "^19.1.1",
 				"@types/react-dom": "^19.1.1",
 				"@vetta-org/plugin-sdk": args.sdk,
-				"@vetta-org/plugin-vite": args.sdk,
+				"@vetta-org/plugin-vite": args.vite,
 				react: "19.1.1",
 				"react-dom": "19.1.1",
 				tailwindcss: "^4.1.12",
