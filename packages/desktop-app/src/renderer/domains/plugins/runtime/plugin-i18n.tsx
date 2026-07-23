@@ -38,9 +38,9 @@ export function usePluginTextResolver(): (pluginId: string, raw: string | undefi
 }
 
 /**
- * Wrap a plugin-rendered component subtree so `useTranslation()` inside it
- * resolves against THIS plugin's catalogs. Looks the catalog up by plugin id in
- * the loaded-plugin registry (ADR-0033).
+ * Wrap a plugin-rendered component subtree so `useTranslation()` resolves
+ * against this plugin's catalogs and generated plugin CSS stays inside this
+ * plugin's DOM subtree.
  */
 export function PluginI18nBoundary({ pluginId, children }: { pluginId: string; children: ReactNode }): JSX.Element {
 	const registry = useAtomValue(pluginI18nByIdAtom);
@@ -49,7 +49,9 @@ export function PluginI18nBoundary({ pluginId, children }: { pluginId: string; c
 		<__PluginI18nContext.Provider
 			value={{ locales: entry?.locales ?? {}, defaultLocale: entry?.defaultLocale ?? "zh" }}
 		>
-			{children}
+			<div className="contents" data-vetta-plugin-root={pluginId}>
+				{children}
+			</div>
 		</__PluginI18nContext.Provider>
 	);
 }

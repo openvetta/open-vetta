@@ -143,6 +143,7 @@
 		"badge": {
 			"system": "System",
 			"custom": "Custom",
+			"new": "New",
 			"updatable": "Update v{{version}}"
 		},
 		"source": {

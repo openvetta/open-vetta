@@ -2,35 +2,36 @@
 
 把这页当 checklist：以下几条都踩过坑，足以让插件「加载失败」「元素不可见」「改了不生效」「污染宿主 UI」。
 
-## 样式规则（强制）：只用 Tailwind，不要手写 CSS
+## 样式隔离：正常写 Tailwind 或 CSS
 
-**插件 UI 样式只能用 Tailwind 工具类写在 JSX 的 `className` 上。禁止让 agent / 作者手写业务 CSS 规则。**
+使用 `@vetta-org/plugin-vite` 构建时，插件 CSS 会自动包进以
+`[data-vetta-plugin-root="<id>"]` 为根的原生 `@scope`，`:root` / `:host` 会自动映射为
+`:scope`。
+插件作者不需要手写插件 id 前缀或 cascade layer，可以正常使用 Tailwind，也可以编写业务 CSS。
 
-原因：插件 CSS 经 `plugin.json` 的 `styles` 注入**宿主页面全局**，没有 Shadow DOM。一旦写 `button { … }`、`div { … }`、`* { … }` 或未隔离的选择器，会**污染整个 Vetta UI**。
+宿主加载插件 CSS 时还会统一放入低优先级 `vetta-plugins` layer，兼容旧版构建产物，
+避免插件样式覆盖 Desktop。插件仍与宿主共享同一 document，不要依赖修改 `body`、`html`
+或宿主私有 class；这些选择器在新版构建中不会匹配到插件根以外的元素。
 
 | 允许 | 禁止 |
 | --- | --- |
-| JSX：`className="flex h-8 gap-2 rounded-lg bg-background text-foreground"` | 手写 `.my-btn { padding: 8px }` 等业务样式表 |
-| `style.css` **仅**放 Tailwind 入口 import（见下） | `@import` 一整份 reset / preflight 进全局 |
-| 极少数无法用工具类表达时：用 **强前缀类名**（如 `.vetta-plugin-<id>-…`）且**绝不**选择全局元素 | `body` / `html` / `button` / `a` / `*` 等全局选择器 |
+| JSX：`className="flex h-8 gap-2 rounded-lg bg-background text-foreground"` | 依赖修改 Desktop 私有 class |
+| `.panel button { padding: 8px }` 等插件业务样式 | 用 `body` / `html` 定制 App 外壳 |
+| 在 `:root` 定义插件内部变量（构建后映射到插件根） | `createPortal(..., document.body)` 逃出插件根 |
 
 主题色优先用 **宿主 CSS 变量**对应的 Tailwind 语义类（或 `var(--foreground)` 仅出现在不可避免的例外里）：`--foreground` / `--background` / `--border` / `--primary` / `--muted` 等。
 
-### style.css 只做 Tailwind 管道
+### Tailwind 入口
 
-`src/style.css`（构建产物 `dist/style.css`）**不是**写业务样式的地方，只负责导入 Tailwind 层：
+需要 Tailwind 时，`src/style.css` 可以直接导入完整 Tailwind；preflight 和 utilities 都会被自动限制在插件根：
 
 ```css
-/* 导入 theme + utilities。不要 preflight / base reset，避免 reset 污染宿主全局。 */
-@layer theme, base, components, utilities;
-@import "tailwindcss/theme.css" layer(theme);
-@import "tailwindcss/utilities.css" layer(utilities);
+@import "tailwindcss";
 ```
 
-- **必须**带 `theme.css`：否则 `h-7`、`gap-1.5`、`rounded-lg` 等依赖设计令牌的类**生成不出来**（常见 0×0 不可见）。
-- **不要** `@import "tailwindcss"` 全量（常含 preflight，会污染宿主）。
 - Vite 配 `@tailwindcss/vite`；入口 `import "./style.css"` 一次即可。
 - `plugin.json`：`"styles": ["dist/style.css"]`。
+- 如不需要 preflight，也可以继续只导入 `theme.css` + `utilities.css` 以减小产物。
 
 ### JSX 示例
 
@@ -46,11 +47,11 @@ function Panel() {
   );
 }
 
-// ❌ 不要 import 自写业务 css
+// ✅ 也可以 import 插件自己的业务 CSS，构建工具会自动加作用域
 // import "./panel-styles.css";
 ```
 
-Agent 写插件时：若需要样式 → **只加/改 className**；不要新建 `.css` / 往 style.css 里堆选择器。
+Agent 写插件时可以按普通 React 项目使用 `className` 或 CSS；不要为了隔离手写插件 id 前缀。
 
 ---
 

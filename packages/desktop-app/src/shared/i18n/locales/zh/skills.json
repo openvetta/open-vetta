@@ -143,6 +143,7 @@
 		"badge": {
 			"system": "系统",
 			"custom": "自定义",
+			"new": "New",
 			"updatable": "可更新 v{{version}}"
 		},
 		"source": {

@@ -20,7 +20,7 @@ my-plugin/
   vite.config.ts       # Module Federation + Tailwind
   src/
     index.tsx          # 插件入口：export default definePlugin(...)
-    style.css          # 仅 Tailwind 入口 import，禁止手写业务 CSS（见 styling-and-pitfalls）
+    style.css          # Tailwind 入口，也可包含插件业务 CSS
 ```
 
 构建产物（`dist/`）形如：
@@ -85,14 +85,18 @@ export default defineConfig({
 
 `vettaPluginFederation` 自动：把 `react` / `react-dom` 设为 `singleton`、`import:false`（用宿主的），把 `@vetta-org/plugin-sdk` 设为 external，产出 `mf-manifest.json` + `remoteEntry.js`，CSS 落 `dist/style.css`。
 
-## 4. 样式入口 src/style.css（仅 Tailwind 管道）
+## 4. 样式入口 src/style.css
 
-**不要在这里写业务选择器。** 只导入 theme + utilities（不要 preflight）：
+插件 CSS 会由 `vettaPluginFederation` 自动限定到插件根节点，并由宿主放入低优先级 layer；
+不需要手写插件 id 前缀或 `@layer`。需要 Tailwind 时可以直接：
 
 ```css
-@layer theme, base, components, utilities;
-@import "tailwindcss/theme.css" layer(theme);
-@import "tailwindcss/utilities.css" layer(utilities);
+@import "tailwindcss";
+
+/* 可选：正常编写插件业务 CSS */
+.panel button {
+  min-width: 6rem;
+}
 ```
 
 ## 5. 入口 src/index.tsx
@@ -100,12 +104,12 @@ export default defineConfig({
 ```tsx
 import { definePlugin } from "@vetta-org/plugin-sdk";
 import { useState } from "react";
-import "./style.css"; // 仅启用 Tailwind utilities
+import "./style.css";
 
 function MyPanel() {
   const [open, setOpen] = useState(true);
   if (!open) return null;
-  // ✅ 样式只用 Tailwind className，禁止另写 .css 业务规则
+  // 可以使用 Tailwind className，也可以使用插件自己的 CSS
   return (
     <div className="flex flex-col gap-2 p-3 text-sm text-foreground">
       <button
