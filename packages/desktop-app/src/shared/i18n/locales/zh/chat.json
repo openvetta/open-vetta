@@ -204,6 +204,13 @@
 		"releaseToRef": "松开以引用文件"
 	},
 	"editDiff": {
+		"anchor": {
+			"badge": "锚点编辑",
+			"delete": "删除",
+			"insertAfter": "插入到其后",
+			"replace": "替换该行",
+			"replaceRange": "替换区间"
+		},
 		"netChangeLabel": "净 {{net}}",
 		"newTextEmpty": "空替换文本",
 		"oldTextEmpty": "空匹配文本"

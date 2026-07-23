@@ -204,6 +204,13 @@
 		"releaseToRef": "Release to reference file"
 	},
 	"editDiff": {
+		"anchor": {
+			"badge": "Anchor edit",
+			"delete": "Delete",
+			"insertAfter": "Insert after",
+			"replace": "Replace line",
+			"replaceRange": "Replace range"
+		},
 		"netChangeLabel": "Net {{net}}",
 		"newTextEmpty": "Empty replacement text",
 		"oldTextEmpty": "Empty match text"

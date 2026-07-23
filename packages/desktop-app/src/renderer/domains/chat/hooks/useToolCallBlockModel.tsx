@@ -66,7 +66,8 @@ export function useToolCallBlockModel(block: ToolCallBlock, exportMode = false, 
 		(block.toolName === "edit" &&
 			(block.uiDetails?.diff !== undefined ||
 				getStringArg(block.args, "oldText") !== null ||
-				getStringArg(block.args, "newText") !== null)) ||
+				getStringArg(block.args, "newText") !== null ||
+				Array.isArray(block.args.edits))) ||
 		(block.toolName === "ask_user_question" && Array.isArray(block.args.questions));
 	const canExpand = hasResult || hasMeta || hasToolSpecificResult;
 	const { name, detail } = toolLabel(block, aliased);
