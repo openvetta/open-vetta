@@ -11,7 +11,7 @@ const toolDescriptions: Record<string, string> = {
 	read: "Read file contents",
 	bash: "Execute bash commands (ls, grep, find, etc.)",
 	shell: "Execute shell commands (PowerShell on Windows by default)",
-	edit: "Make surgical edits to files (find exact text and replace)",
+	edit: "Make surgical edits to files — anchor mode (batch, atomic, anchors from read/grep output) or exact-text replace",
 	write: "Create or overwrite files",
 	grep: "Search file contents for patterns (respects .gitignore)",
 	glob: "Find files by glob pattern (respects .gitignore)",
@@ -594,7 +594,9 @@ function buildGuidelines(tools: string[], scenario?: ConversationScenario): stri
 		guidelinesList.push("Use read to examine files before editing. You must use this tool instead of cat or sed.");
 	}
 	if (hasEdit) {
-		guidelinesList.push("Use edit for precise changes (old text must match exactly)");
+		guidelinesList.push(
+			"Use edit for precise changes. Prefer anchor mode: pass `edits` with the `line:hash` anchors from read/grep output (copy verbatim, never fabricate); the batch is atomic and stale-anchor errors return fresh anchors for immediate retry",
+		);
 	}
 	if (hasWrite) {
 		guidelinesList.push("Use write only for new files or complete rewrites");

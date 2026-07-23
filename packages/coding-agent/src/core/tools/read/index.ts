@@ -12,6 +12,7 @@ import {
 import { detectSupportedImageMimeTypeFromFile } from "../../../utils/mime.js";
 import { decodeTextBuffer } from "../../../utils/shell.js";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
+import { renderAnchoredLines } from "../anchors.js";
 import { loadToolDescription } from "../description.js";
 import { resolveReadPath } from "../path-utils.js";
 import { toolCallDescriptionSchema } from "../tool-call-description.js";
@@ -299,6 +300,11 @@ export function createReadTool(cwd: string, options?: ReadToolOptions): CodingAg
 								// Apply truncation (respects both line and byte limits)
 								const truncation = truncateHead(selectedContent);
 
+								// 文本行加锚点前缀（`N:hh→content`）：edit 锚点模式凭此定位。
+								// 在截断之后加，行/字节限额按原始内容计。
+								const anchorContent = (raw: string): string =>
+									renderAnchoredLines(raw.split("\n"), startLineDisplay).join("\n");
+
 								let outputText: string;
 
 								if (truncation.firstLineExceedsLimit) {
@@ -311,7 +317,7 @@ export function createReadTool(cwd: string, options?: ReadToolOptions): CodingAg
 									const endLineDisplay = startLineDisplay + truncation.outputLines - 1;
 									const nextOffset = endLineDisplay + 1;
 
-									outputText = truncation.content;
+									outputText = anchorContent(truncation.content);
 
 									if (truncation.truncatedBy === "lines") {
 										outputText += `\n\n[Showing lines ${startLineDisplay}-${endLineDisplay} of ${totalFileLines}. Use offset=${nextOffset} to continue.]`;
@@ -324,11 +330,11 @@ export function createReadTool(cwd: string, options?: ReadToolOptions): CodingAg
 									const remaining = allLines.length - (startLine + userLimitedLines);
 									const nextOffset = startLine + userLimitedLines + 1;
 
-									outputText = truncation.content;
+									outputText = anchorContent(truncation.content);
 									outputText += `\n\n[${remaining} more lines in file. Use offset=${nextOffset} to continue.]`;
 								} else {
 									// No truncation, no user limit exceeded
-									outputText = truncation.content;
+									outputText = anchorContent(truncation.content);
 								}
 
 								content = [{ type: "text", text: outputText }];
