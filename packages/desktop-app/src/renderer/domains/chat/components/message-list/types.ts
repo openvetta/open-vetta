@@ -1,6 +1,7 @@
 import type { ChatMessage } from "@shared/store/atoms";
 import type { MessageListScrollModel } from "../../hooks/useMessageListScrollModel";
 import type { AssistantFoldData, BlockSegment } from "./messageBlockModel";
+import type { WorkSegment } from "./progressGroupModel";
 
 export type { ChatMessage };
 
@@ -28,7 +29,11 @@ export interface AssistantMessageModel {
 	foldData: AssistantFoldData | null;
 	isCurrentlyStreaming: boolean;
 	isPredicting: boolean;
-	segments: BlockSegment[];
+	/** Work 模式（agent 声明的阶段组）；coding 模式下不折叠整段过程。 */
+	isWorkMode: boolean;
+	segments: WorkSegment[];
+	/** Work 模式折叠条的计数单位是阶段数，而非原始 block 数。 */
+	workFoldCount: number;
 	showDuration: boolean;
 	streamingTailIndex: number;
 }

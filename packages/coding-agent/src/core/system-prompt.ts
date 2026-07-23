@@ -22,6 +22,8 @@ const toolDescriptions: Record<string, string> = {
 	task_output: "Read incremental output of a background task started via bash/shell with run_in_background",
 	task_stop: "Terminate a running background task started via bash/shell with run_in_background",
 	current_time: "Get the current date and time (preferred over bash date/time commands)",
+	progress:
+		"Announce the current stage in plain language so the user sees readable steps instead of raw tool calls (Work mode only)",
 	ask_user_question:
 		"Ask the user multiple-choice questions and wait for their answers (clarify ambiguity, gather preferences, offer decisions)",
 	doc_to_pdf: "Convert .doc/.docx files to PDF using Microsoft Office or WPS Office",

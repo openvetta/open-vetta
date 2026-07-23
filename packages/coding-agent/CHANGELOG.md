@@ -6,6 +6,8 @@
 
 ### Added
 
+- **`progress` 阶段声明工具（Work 模式，ADR-0047）**：新增 display-only 内置工具 `progress`（`agent_mode: ["work"]`），采用滑动窗口契约——一次调用中 `summary` 关闭并改写上一阶段、`label` 开启新阶段，最后一个阶段由正文文本隐式关闭。宿主据此把工具调用折叠成用户可读的阶段组。`modes/work.md` 同步加入使用引导（含「产物类调用不要塞进阶段」）。
+
 - **工作流 subagent 类型 + 批量派遣（ADR-0044）**：新增内建类型 `workflow`（完整编码工具 + 子会话独享 todo 工具、继承父 MCP、完全单层）与控制工具 `dispatch_workflows`（一批最多 8 个，`task_name + message + todos`）。派遣时把主会话当前分支消息历史做一次性快照 fork 进子会话初始上下文（`fork-context.ts` 负责截断悬空 tool call、把 compaction/branch summary 转成 custom 种子消息）；todo 预填不锁定，子会话可自行增删。`SubagentSnapshot` 新增 `todoProgress`（done/total，todo 变更实时镜像）。
 - **Subagent 协调器排队**：`SubagentCoordinator.spawnMany()` 批量接单——超出 `maxConcurrent` 的子代理挂 `queued` 状态（新状态值），任一子代理终态后 FIFO 自动补位；`interrupt` 可移除排队中的子代理。`spawn()`（单个）保持超限报错语义不变。新批次派遣自动清除同类型已完成/失败的旧子代理（`task_name` 可复用，UI 只显示当前批次）；**被中断的保留**——它们是断点续跑候选，`followup_task` 续跑时上下文与 todo 进度完整保留，中断通知与工具描述/系统提示词均明确引导「续跑而非重派」。`wait_agent` 对纯工作流目标做确定性防呆：在途子代理全为 workflow 时强制 1 秒封顶（未送达的终态结果照常领取），超时则返回「工作流会主动通知、请结束回合被动接收」的引导，杜绝派遣后傻等。
 - **工作流可发现性与人类可读标题**：`dispatch_workflows` 存在时系统提示词注入并行工作流能力说明（主动拆分独立任务，不等用户点名）；派遣参数新增必填 `title`（一句话摘要，用户语言，UI 展示用），`SubagentSnapshot.title` 透传并写入 `<subagent_notification>`。
