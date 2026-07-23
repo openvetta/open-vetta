@@ -4,9 +4,12 @@ All notable changes to `@vetta-org/plugin-sdk` are documented in this file.
 
 ## [Unreleased]
 
+## [0.0.4] — 2026-07-23
+
 ### Changed
 
 - Split `src/index.ts` into domain modules (`scenario`, `permissions`, `ui`, `agent`, `official`, `hooks`, …); package public API is unchanged and still re-exported from `@vetta-org/plugin-sdk`.
+- Tightened Plugin API 1.1 contracts for official batch-task and scheduler mutations, required system-plugin metadata, and approval operation mappings with explicitly allowed alternative presentations.
 
 ### Added
 
@@ -16,10 +19,6 @@ All notable changes to `@vetta-org/plugin-sdk` are documented in this file.
 - Added plugin Action `assertReady`, structured `PluginAppActionError`, and trusted official host capabilities for the agent, downloads, updater, and webhook migration domains.
 - Extended `ctx.official` with skills、shortcuts、im、mcp、models、projects、knowledge、plugins host capabilities for the next official App Action migration batch.
 - Extended `ctx.official` with batchTasks、scheduler、appearance、navigation host capabilities to finish migrating remaining Desktop App Action domains.
-
-### Changed
-
-- Tightened Plugin API 1.1 contracts for official batch-task and scheduler mutations, required system-plugin metadata, and approval operation mappings with explicitly allowed alternative presentations.
 
 ## [0.0.2] — 2026-07-15
 
