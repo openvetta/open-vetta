@@ -8,7 +8,8 @@
  * - 组标题由 agent 写（label 进行中 / summary 完成态），而不是「已完成 N 个工具调用」。
  * - 没有任何 progress 调用时退回启发式合组（连续 tool_call/thinking 合成一组），
  *   标题交给渲染层的通用 i18n 文案。
- * - 硬性例外（插件自定义 UI 工具、error 块、失败的工具调用）永远冒泡到组外单独渲染。
+ * - 硬性例外（插件自定义 UI 工具、error 块）永远冒泡到组外单独渲染；失败的工具调用
+ *   不冒泡——work 模式的受众看不懂工具报错，留在阶段组内折叠，展开仍可查看。
  */
 
 import type { ContentBlock, ThinkingBlock, ToolCallBlock } from "@shared/store/atoms";
@@ -23,7 +24,7 @@ export interface ProgressGroupSegment {
 	/** 稳定 key。 */
 	id: string;
 	/**
-	 * 同一逻辑阶段的标识。一个阶段被失败调用打断后会拆成多个 segment，
+	 * 同一逻辑阶段的标识。一个阶段被组外例外块打断后会拆成多个 segment，
 	 * 但它们共享 stageId，后续 summary 会同时改写它们的标题。
 	 */
 	stageId: string;
@@ -62,11 +63,6 @@ function isProgressCall(block: ContentBlock): boolean {
 
 function isCustomToolUiBlock(block: ContentBlock, customToolNames: Set<string>): boolean {
 	return block.type === "tool_call" && customToolNames.has(block.toolName);
-}
-
-/** 失败的工具调用永远冒泡到组外，避免「探索完成」掩盖掉整段失败。 */
-function isFailedToolCall(block: ContentBlock): boolean {
-	return block.type === "tool_call" && (block.status === "error" || block.isError === true);
 }
 
 function readStringArg(block: ToolCallBlock, key: "label" | "summary"): string | undefined {
@@ -157,7 +153,7 @@ export function groupBlocksForWork(
 
 		if (block.type === "tool_result") continue;
 
-		if (isCustomToolUiBlock(block, customToolNames) || block.type === "error" || isFailedToolCall(block)) {
+		if (isCustomToolUiBlock(block, customToolNames) || block.type === "error") {
 			// 硬性例外：冒泡到组外单独渲染，阶段本身不结束（后续调用回到同一阶段）。
 			flushFallback();
 			flushCurrent();
