@@ -1,4 +1,3 @@
-import { ThemeCapabilityAdapter } from "@vetta/capability-sdk/internal/theme-adapter";
 import { BrowserWindow, ipcMain } from "electron";
 import type { ThemeStorageChangedEvent, ThemeStorageJson } from "../../shared/theme-storage.js";
 import { getDesktopCapabilityHost } from "../capabilities/capability-host.js";
@@ -22,7 +21,7 @@ function broadcastStorageChanged(themeId: string, data: Record<string, ThemeStor
 }
 
 export function registerThemesIpc(): () => void {
-	const themeAdapter = new ThemeCapabilityAdapter(getDesktopCapabilityHost().access);
+	const themeAdapter = getDesktopCapabilityHost().adapters.theme;
 	ipcMain.handle(CHANNELS.LIST, () => listThemes());
 
 	ipcMain.handle(CHANNELS.STORAGE_GET_ALL, async (_event, themeId: unknown) => {
@@ -59,6 +58,5 @@ export function registerThemesIpc(): () => void {
 		ipcMain.removeHandler(CHANNELS.STORAGE_SET);
 		ipcMain.removeHandler(CHANNELS.STORAGE_REMOVE);
 		ipcMain.removeHandler(CHANNELS.STORAGE_CLEAR);
-		themeAdapter.dispose();
 	};
 }
