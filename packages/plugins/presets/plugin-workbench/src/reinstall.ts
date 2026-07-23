@@ -1,4 +1,4 @@
-import { getWorkbenchCommand, getWorkbenchFs } from "./runtime";
+import { getWorkbenchCommand, withWorkbenchFs } from "./runtime";
 import { joinPath, readJson, type ProjectInfo, resolveWorkbenchRoot } from "./project";
 
 export interface ApplyPluginOptions {
@@ -27,7 +27,6 @@ export interface ApplyPluginOptions {
 export async function applyPluginToVetta(options: ApplyPluginOptions): Promise<{ zipPath: string }> {
 	const { project, forceBuild = false, refreshApp = false, startHotReload = true } = options;
 	const workbenchRoot = options.workbenchRoot ?? (await resolveWorkbenchRoot());
-	const fs = getWorkbenchFs();
 	const command = getWorkbenchCommand();
 
 	let zip = project.zipPath;
@@ -45,7 +44,8 @@ export async function applyPluginToVetta(options: ApplyPluginOptions): Promise<{
 		zip = joinPath(project.dir, "release", `${project.id}-${version}.zip`);
 	}
 
-	const st = await fs.stat(zip);
+	// 构建期间 dev-watch 可能已触发插件重载，必须用重载后的 fs session。
+	const st = await withWorkbenchFs((fs) => fs.stat(zip));
 	if (!st) throw new Error(`Zip not found: ${zip}`);
 
 	await window.vetta.plugins.installFromPath(zip, {
