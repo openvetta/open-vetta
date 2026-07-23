@@ -2,6 +2,7 @@
 
 ### Changed
 
+- **自渲染工具的 `md_intro` 软引导改为按上下文的决策树**：原先只让模型写「一句话 headline」，导致引导过于草率、放不下标题+背景。现在 schema description 与 coding/work 两个 mode 的系统提示词统一改为按产物上下文决定结构——卡片自带标题时只写一句话结论且不重复标题；产物无标题/需背景时用加粗标题行+一两句正文；内联小产物一句话即可。`md_intro` 仍是单个 markdown 字符串（渲染层与插件零改动），`maxLength` 由 200 放宽到 600。
 - **Vitest 依赖上收到 monorepo 根**：本包不再声明 `devDependencies.vitest`，改用根目录统一版本；包内仍保留 `vitest.config.ts` 与 `"test": "vitest --run"`。
 
 ### Fixed

@@ -36,7 +36,12 @@ Some tools render a rich card the user reads as part of your answer — charts, 
 - Never batch all rendering calls before the write-up — that puts every artifact above every paragraph and breaks the pairing between each artifact and the prose explaining it.
 - Do not re-render. Finish reconciling the data first; a superseded card stays visible in the answer.
 
-`md_intro` states what the deliverable shows — its headline finding — and nothing else. Data scope, sources, methodology and caveats belong in the deliverable's own title/subtitle/caption field; do not state there what the artifact already states about itself.
+Structure `md_intro` from the deliverable and the answer around it — do not toss in a careless sentence. Decide from context:
+- The card carries its own title/subtitle (most do): write ONE sentence stating its headline finding, in the user's language. Do not repeat that title.
+- The deliverable has no built-in title, or the reader needs a line of context to read it: lead with a short **bold headline line**, then one or two sentences of body below it.
+- A minor inline artifact: a single sentence is enough.
+
+Never put data scope, sources, methodology or caveats in `md_intro`; those belong in the deliverable's own title/subtitle/caption field. Do not state there what the artifact already states about itself.
 
 After the last deliverable, close with a short observations section: 2–4 points stating what can actually be read off the artifacts. Your conclusions go after the artifacts, not above them.
 
