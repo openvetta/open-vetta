@@ -6,6 +6,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **内置「图表渲染」系统插件（chart-renderer）**：收编原第三方插件为 preset，随 App 发布（common / tenantb 租户）。Agent 调用 `render_chart` 传入标准 Chart.js `type`/`data`（或 `charts` 数组，最多 4 个），图表渲染在工具调用下方；随包附带 `chart-renderer` skill；`agent_mode: ["work"]`，Coding 模式下整体不可见；文案接入插件 i18n（zh/en）。
 - **插件卡片 New 徽章**：用户新安装的非系统插件在安装后 1 小时内于卡片状态徽章旁显示 `New`（依据 `installedAt`）。
 - **Work 模式对话渲染改为 agent 自述的阶段组（ADR-0047）**：Work 模式下 `MessageList` 不再平铺工具卡片，而是按 agent 通过 `progress` 工具声明的阶段折叠成一行标题（进行中 / 完成态文案均由 agent 撰写），展开后一行一条调用说明，再点开才是完整工具卡片；thinking 一律不渲染；流式期间阶段标题行常驻，消息结束后整段过程收起、只留最终总结，折叠条按阶段数计数。没有 `progress` 调用时退回启发式合组 + 通用文案。插件自定义 UI 工具、错误块与失败调用强制冒泡到组外。Coding 模式渲染不变，历史消息中的 `progress` 调用降级为一行语义分隔小标题。
 - **插件产物卡片支持 agent 撰写的引入语**：渲染进程自动探测某个插件 agent 工具是否注册了 tool-call slot，是则宿主为其注入可选的 `md_intro` 参数，模型填写的 markdown 渲染在卡片正上方。插件无需任何改动。

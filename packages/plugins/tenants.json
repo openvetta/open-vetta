@@ -8,6 +8,7 @@
       "media-viewer",
       "office-viewer",
       "svg-viewer",
+      "chart-renderer",
       "git",
       "plugin-workbench"
     ]
