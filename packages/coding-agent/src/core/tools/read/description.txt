@@ -1,5 +1,7 @@
 Read the contents of a file. Supports text files and images (jpg, png, gif, webp). Images are sent as attachments. For text files, output is truncated to 2000 lines or 30KB (whichever is hit first). Use offset/limit for large files. When you need the full file, continue with offset until complete.
 
+Text output lines carry an anchor prefix `line:hash→content` (e.g. `42:ab→const x = 1;`). The `42:ab` part is an ANCHOR for the `edit` tool's anchor mode — it is metadata, NOT file content. Never treat the prefix as part of the file; when quoting file content to the user, strip the prefix.
+
 CRITICAL: ALWAYS use this tool to read files. NEVER use bash commands (cat, head, tail, less, more, sed -n) to read file contents.
 
 CRITICAL: You MUST read a file with this tool BEFORE editing it with `edit`. Never guess or assume file contents.

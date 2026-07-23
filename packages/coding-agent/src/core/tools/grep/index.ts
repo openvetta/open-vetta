@@ -5,6 +5,7 @@ import { readFileSync, statSync } from "fs";
 import path from "path";
 import { ensureTool } from "../../../utils/tools-manager.js";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
+import { anchorLineHash } from "../anchors.js";
 import { loadToolDescription } from "../description.js";
 import { resolveExistingPath } from "../path-utils.js";
 import { toolCallDescriptionSchema } from "../tool-call-description.js";
@@ -227,10 +228,13 @@ export function createGrepTool(cwd: string, options?: GrepToolOptions): CodingAg
 									linesTruncated = true;
 								}
 
+								// 行号后挂锚点哈希（`path:42:ab:`）——`42:ab` 可直接作为 edit 锚点。
+								// 哈希对完整行内容计算（截断只影响展示）。
+								const anchorHash = anchorLineHash(sanitized);
 								if (isMatchLine) {
-									block.push(`${relativePath}:${current}: ${truncatedText}`);
+									block.push(`${relativePath}:${current}:${anchorHash}: ${truncatedText}`);
 								} else {
-									block.push(`${relativePath}-${current}- ${truncatedText}`);
+									block.push(`${relativePath}-${current}:${anchorHash}- ${truncatedText}`);
 								}
 							}
 

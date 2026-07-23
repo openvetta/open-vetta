@@ -44,9 +44,15 @@ describe("Coding Agent Tools", () => {
 
 			const result = await readTool.execute("test-call-1", { path: testFile });
 
-			expect(getTextOutput(result)).toBe(content);
+			// 每行带锚点前缀 `line:hash→content`
+			const output = getTextOutput(result);
+			const lines = output.split("\n");
+			expect(lines).toHaveLength(3);
+			expect(lines[0]).toMatch(/^1:[0-9a-z]{2}→Hello, world!$/);
+			expect(lines[1]).toMatch(/^2:[0-9a-z]{2}→Line 2$/);
+			expect(lines[2]).toMatch(/^3:[0-9a-z]{2}→Line 3$/);
 			// No truncation message since file fits within limits
-			expect(getTextOutput(result)).not.toContain("Use offset=");
+			expect(output).not.toContain("Use offset=");
 			expect(result.details).toBeUndefined();
 		});
 
@@ -56,7 +62,7 @@ describe("Coding Agent Tools", () => {
 
 			const result = await readTool.execute("test-call-gb18030", { path: testFile });
 
-			expect(getTextOutput(result)).toBe("中文测试");
+			expect(getTextOutput(result)).toMatch(/^1:[0-9a-z]{2}→中文测试$/);
 		});
 
 		it("should handle non-existent files", async () => {
@@ -421,7 +427,8 @@ describe("Coding Agent Tools", () => {
 			});
 
 			const output = getTextOutput(result);
-			expect(output).toContain("example.txt:2: match line");
+			// 行号后带锚点哈希：`path:line:hash: content`
+			expect(output).toMatch(/example\.txt:2:[0-9a-z]{2}: match line/);
 		});
 
 		it("should respect global limit and include context lines", async () => {
@@ -437,9 +444,9 @@ describe("Coding Agent Tools", () => {
 			});
 
 			const output = getTextOutput(result);
-			expect(output).toContain("context.txt-1- before");
-			expect(output).toContain("context.txt:2: match one");
-			expect(output).toContain("context.txt-3- after");
+			expect(output).toMatch(/context\.txt-1:[0-9a-z]{2}- before/);
+			expect(output).toMatch(/context\.txt:2:[0-9a-z]{2}: match one/);
+			expect(output).toMatch(/context\.txt-3:[0-9a-z]{2}- after/);
 			expect(output).toContain("[1 matches limit reached. Use limit=2 for more, or refine pattern]");
 			// Ensure second match is not present
 			expect(output).not.toContain("match two");
