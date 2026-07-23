@@ -1,4 +1,6 @@
 import {
+	AnchorEditsFallbackView,
+	type AnchorEditItemView,
 	DiffPreviewView,
 	EditTextFallbackView,
 	type DiffLineView,
@@ -13,7 +15,20 @@ interface EditDiffBlock {
 	uiDetails?: { diff?: string };
 }
 
-function DiffPreview({ diff }: { diff: string }): JSX.Element {
+/** edit 锚点模式的单条编辑（与 coding-agent anchorEditSchema 对齐，宽松解析）。 */
+interface AnchorEditArg {
+	anchor?: unknown;
+	end_anchor?: unknown;
+	new_text?: unknown;
+	insert_after?: unknown;
+}
+
+/** 从工具参数里取锚点编辑数组；非锚点模式返回 null。 */
+function getAnchorEdits(args: Record<string, unknown>): AnchorEditArg[] | null {
+	return Array.isArray(args.edits) ? (args.edits as AnchorEditArg[]) : null;
+}
+
+function DiffPreview({ diff, anchorMode }: { diff: string; anchorMode: boolean }): JSX.Element {
 	const { t } = useTranslation("chat");
 	const { lines, stats } = parseDiff(diff);
 	const net = stats.added - stats.removed;
@@ -51,6 +66,42 @@ function DiffPreview({ diff }: { diff: string }): JSX.Element {
 			statsAdded={stats.added}
 			statsRemoved={stats.removed}
 			netLabel={t("editDiff.netChangeLabel", { net: formatSignedCount(net) })}
+			modeBadge={anchorMode ? t("editDiff.anchor.badge") : undefined}
+		/>
+	);
+}
+
+/** 锚点模式流式降级：diff 尚未产出时展示每条锚点编辑的目标与新文本。 */
+function AnchorEditsFallback({ edits }: { edits: AnchorEditArg[] }): JSX.Element | null {
+	const { t } = useTranslation("chat");
+	const items: AnchorEditItemView[] = edits.map((edit) => {
+		const anchor = typeof edit.anchor === "string" ? edit.anchor : "?";
+		const endAnchor = typeof edit.end_anchor === "string" ? edit.end_anchor : null;
+		const newText = typeof edit.new_text === "string" ? edit.new_text : "";
+		const isInsert = edit.insert_after === true;
+		const isDelete = !isInsert && newText.length === 0;
+		return {
+			anchorLabel: endAnchor !== null ? `${anchor} – ${endAnchor}` : anchor,
+			actionLabel: isInsert
+				? t("editDiff.anchor.insertAfter")
+				: isDelete
+					? t("editDiff.anchor.delete")
+					: endAnchor !== null
+						? t("editDiff.anchor.replaceRange")
+						: t("editDiff.anchor.replace"),
+			text: isDelete ? null : newText,
+		};
+	});
+
+	return (
+		<AnchorEditsFallbackView
+			badge={t("editDiff.anchor.badge")}
+			items={items}
+			textPreviewLabels={{
+				characterUnit: t("textPreview.characterUnit"),
+				emptyLabel: t("textPreview.emptyLabel"),
+				lineUnit: t("textPreview.lineUnit"),
+			}}
 		/>
 	);
 }
@@ -78,6 +129,8 @@ function EditTextFallback({ block }: { block: EditDiffBlock }): JSX.Element | nu
 
 /** Desktop adapter: parse tool block + i18n into props-driven theme-ui views. */
 export function EditDiffView({ block }: { block: EditDiffBlock }): JSX.Element | null {
-	if (block.uiDetails?.diff) return <DiffPreview diff={block.uiDetails.diff} />;
+	const anchorEdits = getAnchorEdits(block.args);
+	if (block.uiDetails?.diff) return <DiffPreview diff={block.uiDetails.diff} anchorMode={anchorEdits !== null} />;
+	if (anchorEdits !== null) return <AnchorEditsFallback edits={anchorEdits} />;
 	return <EditTextFallback block={block} />;
 }

@@ -6,6 +6,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **edit 锚点模式的专属渲染**：diff 卡片统计行新增紫色「锚点编辑」徽章（`DiffPreviewView.modeBadge`）标识本次修改走锚点模式；流式阶段（diff 尚未产出）不再空白，新降级视图逐条展示锚点目标（`42:ab` 紫色 chip）、动作（替换该行/替换区间/插入到其后/删除）与新文本预览；文案接入 i18n（zh/en）。锚点模式参数（`edits` 数组）纳入工具卡片可展开判定。
+
 - **内置「图表渲染」系统插件（chart-renderer）**：收编原第三方插件为 preset，随 App 发布（common / tenant-b 租户）。Agent 调用 `render_chart` 传入标准 Chart.js `type`/`data`（或 `charts` 数组，最多 4 个），图表渲染在工具调用下方；随包附带 `chart-renderer` skill；`agent_mode: ["work"]`，Coding 模式下整体不可见；文案接入插件 i18n（zh/en）。
 - **插件卡片 New 徽章**：用户新安装的非系统插件在安装后 1 小时内于卡片状态徽章旁显示 `New`（依据 `installedAt`）。
 - **Work 模式对话渲染改为 agent 自述的阶段组（ADR-0047）**：Work 模式下 `MessageList` 不再平铺工具卡片，而是按 agent 通过 `progress` 工具声明的阶段折叠成一行标题（进行中 / 完成态文案均由 agent 撰写），展开后一行一条调用说明，再点开才是完整工具卡片；thinking 一律不渲染；流式期间阶段标题行常驻，消息结束后整段过程收起、只留最终总结，折叠条按阶段数计数。没有 `progress` 调用时退回启发式合组 + 通用文案。插件自定义 UI 工具、错误块与失败调用强制冒泡到组外。Coding 模式渲染不变，历史消息中的 `progress` 调用降级为一行语义分隔小标题。

@@ -70,12 +70,14 @@ export { DefaultSkillBadgeRow } from "./DefaultSkillBadgeRow";
 export type { DrawerCardProps, DrawerTab } from "./DrawerCard";
 export { DrawerCard } from "./DrawerCard";
 export type {
+	AnchorEditItemView,
+	AnchorEditsFallbackViewProps,
 	DiffLineKind,
 	DiffLineView,
 	DiffPreviewViewProps,
 	EditTextFallbackViewProps,
 } from "./EditDiffView";
-export { DiffPreviewView, EditTextFallbackView } from "./EditDiffView";
+export { AnchorEditsFallbackView, DiffPreviewView, EditTextFallbackView } from "./EditDiffView";
 export type {
 	ExecutionModeOptionView,
 	ExecutionModeSelectorViewProps,
