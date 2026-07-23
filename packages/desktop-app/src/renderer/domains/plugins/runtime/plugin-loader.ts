@@ -244,44 +244,45 @@ function createConversationApi(plugin: InstalledPlugin): PluginConversationApi {
 	};
 }
 
-function createFsApi(plugin: InstalledPlugin): PluginFsApi {
+function createFsApi(plugin: InstalledPlugin, capabilitySessionId: string): PluginFsApi {
 	const permissions = createPermissionApi(plugin);
+	const filesystem = window.vetta.plugins.internalCapabilities.filesystem;
 	return {
 		readDir: (dirPath) => {
 			permissions.require("fs.read");
-			return window.vetta.fs.readDir(dirPath);
+			return filesystem.readDirectory(capabilitySessionId, dirPath);
 		},
 		readFile: (filePath) => {
 			permissions.require("fs.read");
-			return window.vetta.fs.readFile(filePath);
+			return filesystem.readFile(capabilitySessionId, filePath);
 		},
 		writeFile: (filePath, content, encoding) => {
 			permissions.require("fs.write");
-			return window.vetta.fs.writeFile(filePath, content, encoding);
+			return filesystem.writeFile(capabilitySessionId, filePath, content, encoding);
 		},
 		stat: (filePath) => {
 			permissions.require("fs.read");
-			return window.vetta.fs.stat(filePath);
+			return filesystem.stat(capabilitySessionId, filePath);
 		},
 		rename: (oldPath, newPath) => {
 			permissions.require("fs.write");
-			return window.vetta.fs.rename(oldPath, newPath);
+			return filesystem.rename(capabilitySessionId, oldPath, newPath);
 		},
 		delete: (targetPath) => {
 			permissions.require("fs.write");
-			return window.vetta.fs.delete(targetPath);
+			return filesystem.delete(capabilitySessionId, targetPath);
 		},
 		move: (sourcePath, destDir) => {
 			permissions.require("fs.write");
-			return window.vetta.fs.move(sourcePath, destDir);
+			return filesystem.move(capabilitySessionId, sourcePath, destDir);
 		},
 		createDirectory: (dirPath) => {
 			permissions.require("fs.write");
-			return window.vetta.fs.createDirectory(dirPath);
+			return filesystem.createDirectory(capabilitySessionId, dirPath);
 		},
 		listFilesRecursive: (rootPath) => {
 			permissions.require("fs.read");
-			return window.vetta.fs.listFilesRecursive(rootPath);
+			return filesystem.listFilesRecursive(capabilitySessionId, rootPath);
 		},
 	};
 }
@@ -443,6 +444,7 @@ function createContext(
 	disposers: Array<() => void>,
 	pendingRuntimeRegistrations: Promise<void>[],
 	activationId: string,
+	capabilitySessionId: string,
 ): PluginContext {
 	/**
 	 * 已注册的 agent 工具负载，按 toolName 索引。用于「工具先注册、自渲染槽后注册」时回补
@@ -541,7 +543,7 @@ function createContext(
 			},
 		};
 	};
-	const fs = createFsApi(plugin);
+	const fs = createFsApi(plugin, capabilitySessionId);
 	const conversation = createConversationApi(plugin);
 	const registerInputAction = (contribution: PluginInputActionContribution): Disposable => {
 		createPermissionApi(plugin).require("ui.slot.input-action");
@@ -1121,6 +1123,13 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 	};
 	let definition: PluginDefinition | undefined;
 	let activationStarted = false;
+	let capabilitySessionId: string | undefined;
+	const closeCapabilitySession = async (): Promise<void> => {
+		if (capabilitySessionId === undefined) return;
+		const sessionId = capabilitySessionId;
+		capabilitySessionId = undefined;
+		await window.vetta.plugins.internalCapabilities.closeSession(sessionId);
+	};
 	try {
 		await window.vetta.plugins.beginAgentContributionsLoad(plugin.id, activationId);
 		debugPluginAgent("began dynamic agent contribution activation", { pluginId: plugin.id, activationId });
@@ -1132,6 +1141,7 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 			: {};
 		const settingsApi = createSettingsApi(plugin, initialSettings, disposers);
 		const pendingRuntimeRegistrations: Promise<void>[] = [];
+		capabilitySessionId = await window.vetta.plugins.internalCapabilities.openSession(plugin.id);
 		const context = createContext(
 			plugin,
 			slots,
@@ -1146,6 +1156,7 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 			disposers,
 			pendingRuntimeRegistrations,
 			activationId,
+			capabilitySessionId,
 		);
 		activationStarted = true;
 		await definition.activate(context);
@@ -1190,7 +1201,11 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 							activationId,
 						});
 					} finally {
-						disposeLocalContributions();
+						try {
+							disposeLocalContributions();
+						} finally {
+							await closeCapabilitySession();
+						}
 					}
 				}
 			},
@@ -1208,6 +1223,9 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 			console.error(`Plugin ${plugin.id} failed to clear contributions after activation failure`, clearError);
 		});
 		disposeLocalContributions();
+		await closeCapabilitySession().catch((closeError: unknown) => {
+			console.error(`Plugin ${plugin.id} failed to close capability session`, closeError);
+		});
 		throw error;
 	}
 }

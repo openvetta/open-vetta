@@ -407,7 +407,27 @@ export interface PluginHandlerInvocationResult<T> {
 	effects: PluginDynamicSystemPromptOperation[];
 }
 
+export interface DesktopPluginCapabilityFilesystemApi {
+	readDirectory(sessionId: string, path: string): Promise<FsEntry[]>;
+	readFile(sessionId: string, path: string): Promise<{ content: string; encoding: "utf8" | "base64" }>;
+	writeFile(sessionId: string, path: string, content: string, encoding?: "utf8" | "base64"): Promise<void>;
+	stat(sessionId: string, path: string): Promise<FsStatResult | null>;
+	rename(sessionId: string, oldPath: string, newPath: string): Promise<void>;
+	delete(sessionId: string, path: string): Promise<void>;
+	move(sessionId: string, sourcePath: string, destinationDirectory: string): Promise<void>;
+	createDirectory(sessionId: string, path: string): Promise<void>;
+	listFilesRecursive(sessionId: string, path: string): Promise<FsFileRef[]>;
+}
+
+/** @internal Host bridge used to implement the public plugin-sdk facade. */
+export interface DesktopPluginInternalCapabilitiesApi {
+	openSession(pluginId: string): Promise<string>;
+	closeSession(sessionId: string): Promise<void>;
+	filesystem: DesktopPluginCapabilityFilesystemApi;
+}
+
 export interface DesktopPluginsApi {
+	readonly internalCapabilities: DesktopPluginInternalCapabilitiesApi;
 	list(): Promise<InstalledPlugin[]>;
 	installFromArchive(archiveBuffer: ArrayBuffer, options?: PluginInstallOptions): Promise<InstalledPlugin>;
 	installFromUrl(url: string, options?: PluginInstallOptions): Promise<InstalledPlugin>;
@@ -526,3 +546,5 @@ export interface PluginEditImageInput {
 	size?: string;
 	sessionId?: string;
 }
+
+import type { FsEntry, FsFileRef, FsStatResult } from "../fs-types.js";
