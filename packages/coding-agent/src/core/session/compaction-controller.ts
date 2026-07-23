@@ -18,14 +18,18 @@ import {
 	calculateContextTokens,
 	compact,
 	estimateContextTokens,
+	fingerprintCompactionPrefix,
+	isPrefireCacheValid,
 	microcompact,
+	type PrefireCache,
 	prepareCompaction,
 	shouldCompact,
+	shouldPrefire,
 } from "../compaction/index.js";
 import type { SessionBeforeCompactResult } from "../extensions/index.js";
 import { flushMemoryBeforeRollover } from "../memory/memory-flush.js";
 import { appendJournalSection } from "../memory/memory-journal.js";
-import { type CompactionEntry, getLatestCompactionEntry } from "../session-manager.js";
+import { type CompactionEntry, getLatestCompactionEntry, type SessionEntry } from "../session-manager.js";
 import type { SettingsManager } from "../settings-manager.js";
 import type { SessionContext } from "./session-context.js";
 
@@ -33,6 +37,11 @@ export class CompactionController {
 	private _compactionAbortController: AbortController | undefined = undefined;
 	private _autoCompactionAbortController: AbortController | undefined = undefined;
 	private _circuitBreaker = new CompactionCircuitBreaker();
+	/** Prefire 后台预压缩：缓存 + 单飞锁（同一时刻至多一个 prefire 在跑）。 */
+	private _prefireCache: PrefireCache | undefined = undefined;
+	private _prefireAbortController: AbortController | undefined = undefined;
+	/** 抑制日志去重：熔断拦截只在状态翻转时打一条。 */
+	private _suppressLogged = false;
 
 	constructor(private readonly ctx: SessionContext) {}
 
@@ -41,10 +50,11 @@ export class CompactionController {
 		return this._autoCompactionAbortController !== undefined || this._compactionAbortController !== undefined;
 	}
 
-	/** Cancel in-progress compaction (manual or auto). */
+	/** Cancel in-progress compaction (manual or auto) and any background prefire. */
 	abort(): void {
 		this._compactionAbortController?.abort();
 		this._autoCompactionAbortController?.abort();
+		this._prefireAbortController?.abort();
 	}
 
 	/**
@@ -231,10 +241,25 @@ export class CompactionController {
 		if (contextWindow <= 0) return messages;
 
 		const estimate = estimateContextTokens(messages);
-		if (!shouldCompact(estimate.tokens, contextWindow, this.settingsFor(contextWindow))) return messages;
+		if (!shouldCompact(estimate.tokens, contextWindow, this.settingsFor(contextWindow))) {
+			// 阈值未到但已进入 lead 区间 → 后台 prefire，把摘要提前算好
+			if (shouldPrefire(estimate.tokens, contextWindow, this.settingsFor(contextWindow))) {
+				this.maybeStartPrefire();
+			}
+			return messages;
+		}
 
 		// Circuit breaker check
-		if (!this._circuitBreaker.canAttempt()) return messages;
+		if (!this._circuitBreaker.canAttempt()) {
+			if (!this._suppressLogged) {
+				this._suppressLogged = true;
+				console.info(
+					`[compaction] auto-compaction suppressed: circuit breaker open (${this._circuitBreaker.consecutiveFailures} consecutive failures)`,
+				);
+			}
+			return messages;
+		}
+		this._suppressLogged = false;
 
 		// Concurrency guard: skip if compaction is already running
 		if (this._autoCompactionAbortController) return messages;
@@ -248,6 +273,56 @@ export class CompactionController {
 			this._circuitBreaker.recordFailure();
 			return messages;
 		}
+	}
+
+	/**
+	 * 启动后台 prefire（幂等：已在跑 / 正式压缩在跑 / 熔断打开 时直接返回）。
+	 * 结果写入 _prefireCache；任何失败都静默（best-effort，正式路径兜底）。
+	 */
+	private maybeStartPrefire(): void {
+		if (this._prefireAbortController || this.isCompacting) return;
+		if (!this._circuitBreaker.canAttempt()) return;
+		if (!this.ctx.model) return;
+		this._prefireAbortController = new AbortController();
+		void this.runPrefire(this._prefireAbortController.signal).finally(() => {
+			this._prefireAbortController = undefined;
+		});
+	}
+
+	private async runPrefire(signal: AbortSignal): Promise<void> {
+		try {
+			const model = this.ctx.model;
+			if (!model) return;
+			const apiKey = await this.ctx.modelRegistry.getApiKey(model);
+			if (!apiKey) return;
+			const pathEntries = this.ctx.sessionManager.getBranch();
+			const settings = this.ctx.settingsManager.getCompactionSettings();
+			const preparation = prepareCompaction(pathEntries, settings);
+			if (!preparation) return;
+			const fingerprint = fingerprintCompactionPrefix(pathEntries, preparation.firstKeptEntryId);
+			if (!fingerprint) return;
+			// 同一前缀已有缓存 → 不重复花钱
+			if (this._prefireCache?.fingerprint === fingerprint) return;
+			const result = await compact(preparation, model, apiKey, undefined, signal);
+			if (signal.aborted) return;
+			this._prefireCache = { fingerprint, result };
+			console.info(
+				`[compaction] prefire cached (tokensBefore=${result.tokensBefore}, firstKept=${result.firstKeptEntryId})`,
+			);
+		} catch {
+			// best-effort：prefire 失败不动熔断计数，正式压缩路径自会重试并计数
+		}
+	}
+
+	/**
+	 * 取出对当前分支仍有效的 prefire 缓存（取出即清空；无效也清空并返回 undefined）。
+	 */
+	private takeValidPrefireCache(pathEntries: SessionEntry[]): CompactionResult | undefined {
+		const cache = this._prefireCache;
+		if (!cache) return undefined;
+		this._prefireCache = undefined;
+		if (!isPrefireCacheValid(cache, pathEntries)) return undefined;
+		return cache.result;
 	}
 
 	/**
@@ -400,14 +475,21 @@ export class CompactionController {
 				tokensBefore = extensionCompaction.tokensBefore;
 				details = extensionCompaction.details;
 			} else {
-				// Generate compaction result
-				const compactResult = await compact(
-					preparation,
-					this.ctx.model,
-					apiKey,
-					undefined,
-					this._autoCompactionAbortController.signal,
-				);
+				// prefire 缓存命中（前缀指纹匹配）→ 免 LLM 调用，瞬时完成。
+				// 沿用 prefire 时的切点：保留尾巴比按当下重切略大，但受 lead 上限约束。
+				const prefired = this.takeValidPrefireCache(pathEntries);
+				const compactResult =
+					prefired ??
+					(await compact(
+						preparation,
+						this.ctx.model,
+						apiKey,
+						undefined,
+						this._autoCompactionAbortController.signal,
+					));
+				if (prefired) {
+					console.info("[compaction] prefire cache hit — applied without LLM call");
+				}
 				summary = compactResult.summary;
 				firstKeptEntryId = compactResult.firstKeptEntryId;
 				tokensBefore = compactResult.tokensBefore;
