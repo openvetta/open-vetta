@@ -54,6 +54,7 @@ import { createInvokeSkillTool } from "../tools/invoke-skill/index.js";
 import { createTaskOutputTool } from "../tools/task-output/index.js";
 import { createTaskStopTool } from "../tools/task-stop/index.js";
 import { createTodoTool } from "../tools/todo/index.js";
+import { createToolSearchTool, scoreDeferredTools, type ToolSearchResult } from "../tools/tool-search/index.js";
 import { bindExtensionCore } from "./extension-binding.js";
 import type { SessionContext } from "./session-context.js";
 import { personalizationSig, rebuildSystemPrompt, rebuildSystemPromptDraft } from "./system-prompt-builder.js";
@@ -98,6 +99,12 @@ export interface RuntimeManagerOptions {
 
 const MAX_PLUGIN_CONTINUATIONS_PER_RUN = 8;
 const DEFAULT_PLUGIN_CONTINUATION_TIMEOUT_MS = 3000;
+
+/**
+ * MCP 渐进披露阈值：全部 MCP server 的工具总数 ≤ 阈值时维持现状全量注入（小配置零感知）；
+ * 超过则切 deferred 模式（schema 不进 tools 数组，经 tool_search 检索激活）。
+ */
+export const MCP_DEFERRED_THRESHOLD = 15;
 
 export class RuntimeManager {
 	private readonly resourceLoader: ResourceLoader;
@@ -149,6 +156,12 @@ export class RuntimeManager {
 	private readonly _enableMcp: boolean;
 	private readonly _mcpDebug: boolean;
 	private _mcpInitPromise: Promise<void> | undefined = undefined;
+	/** MCP 渐进披露：工具总数超阈值时进入 deferred 模式（schema 不进 tools 数组，经 tool_search 检索激活）。 */
+	private _mcpDeferred = false;
+	/** deferred 模式下的检索索引（name → description）。 */
+	private _deferredMcpToolIndex: Map<string, string> = new Map();
+	/** 会话生命周期内经 tool_search 激活的 MCP 工具名（内存态，重载后由模型按需重新激活）。 */
+	private readonly _activatedMcpToolNames = new Set<string>();
 
 	constructor(
 		private readonly ctx: SessionContext,
@@ -269,6 +282,38 @@ export class RuntimeManager {
 			description: t.description,
 			parameters: t.parameters,
 		}));
+	}
+
+	/**
+	 * tool_search 的宿主实现：对 deferred MCP 索引做关键词打分，把 top-N 命中并入激活集
+	 * （setActiveToolsByName 同步 agent tools + 重建系统提示词）。激活在会话生命周期内保持。
+	 */
+	private searchAndActivateDeferredMcpTools(query: string, maxResults: number): ToolSearchResult {
+		const entries = Array.from(this._deferredMcpToolIndex, ([name, description]) => ({ name, description }));
+		const ranked = scoreDeferredTools(query, entries).slice(0, maxResults);
+		const activeNames = new Set(this.getActiveToolNames());
+		const activated: typeof ranked = [];
+		const alreadyActive: string[] = [];
+		for (const entry of ranked) {
+			if (activeNames.has(entry.name)) {
+				alreadyActive.push(entry.name);
+			} else {
+				activated.push(entry);
+			}
+		}
+		if (activated.length > 0) {
+			for (const entry of activated) {
+				this._activatedMcpToolNames.add(entry.name);
+			}
+			this.setActiveToolsByName([...activeNames, ...activated.map((entry) => entry.name)]);
+		}
+		// 结果里的描述给首行摘要即可（完整 description 已随激活后的 schema 下发）。
+		const firstLine = (text: string) => text.split("\n", 1)[0]?.trim() ?? "";
+		return {
+			activated: activated.map((entry) => ({ name: entry.name, description: firstLine(entry.description) })),
+			alreadyActive,
+			totalDeferred: this._deferredMcpToolIndex.size,
+		};
 	}
 
 	setActiveToolsByName(toolNames: string[]): void {
@@ -604,6 +649,7 @@ export class RuntimeManager {
 			agentMode: this._agentMode,
 			agentPlugins,
 			scenario: this._scenario,
+			mcpDeferred: this._mcpDeferred,
 		});
 	}
 
@@ -622,6 +668,7 @@ export class RuntimeManager {
 			agentMode: this._agentMode,
 			agentPlugins,
 			scenario: this._scenario,
+			mcpDeferred: this._mcpDeferred,
 		});
 	}
 
@@ -1035,6 +1082,11 @@ export class RuntimeManager {
 		const todoTool = createTodoTool({ getTodoStore: () => this.todoStore });
 		baseTools.todo = todoTool;
 
+		// MCP 渐进披露的检索工具（scope_use 为空 = 注册但不默认激活；deferred 模式下强制加入激活集）。
+		baseTools.tool_search = createToolSearchTool({
+			search: (query, maxResults) => this.searchAndActivateDeferredMcpTools(query, maxResults),
+		});
+
 		// Background task companion tools (bash/shell spawn the tasks). Skipped when
 		// the host disables background tasks (e.g. desktop batch-task sessions).
 		if (this._enableBackgroundTasks) {
@@ -1139,6 +1191,15 @@ export class RuntimeManager {
 			toolRegistry.set(mcpTool.name, mcpTool);
 		}
 
+		// MCP 渐进披露：工具总数超阈值时进入 deferred 模式——未激活的 MCP 工具不进 tools
+		// 数组（省 schema token），系统提示词保留轻量索引，模型经 tool_search 检索激活。
+		// 显式 tools 名单 / baseToolsOverride 由调用方全权控制，不做 deferral。
+		this._mcpDeferred =
+			!this._baseToolsOverride && !this._hasExplicitTools && mcpTools.length > MCP_DEFERRED_THRESHOLD;
+		this._deferredMcpToolIndex = new Map(
+			mcpTools.map((tool) => [tool.name, tool.description ?? "Tool from MCP server"]),
+		);
+
 		// 激活集三种来源：
 		//  1. baseToolsOverride（自定义运行时）→ 全量激活；
 		//  2. 调用方显式传 tools（含 --no-tools/--tools，SDK 直接消费）→ 用其名单，跳过场景解析；
@@ -1156,6 +1217,16 @@ export class RuntimeManager {
 			activeToolNameSet = new Set(
 				resolveActiveToolNames(this._scenario, Array.from(toolRegistry.values()), capabilities, this._agentMode),
 			);
+		}
+		// deferred 模式：剔除未激活的 MCP 工具、强制启用 tool_search。放在插件策略之前，
+		// 让插件 allow 名单仍可显式点亮个别 MCP 工具（插件意图优先于 deferral）。
+		if (this._mcpDeferred) {
+			for (const mcpTool of mcpTools) {
+				if (!this._activatedMcpToolNames.has(mcpTool.name)) {
+					activeToolNameSet.delete(mcpTool.name);
+				}
+			}
+			activeToolNameSet.add("tool_search");
 		}
 		// 插件 allow/deny 策略覆盖（plugin toolPolicyContributions）。
 		this.applyPluginToolPolicies(activeToolNameSet, new Set(toolRegistry.keys()));

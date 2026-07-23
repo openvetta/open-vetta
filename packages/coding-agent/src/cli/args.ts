@@ -357,5 +357,6 @@ ${chalk.bold(`Available Tools (default: ${defaultToolsList}):`)}
   render_pdf_page - Render a PDF page to PNG for visual inspection (seals, signatures, layout); follow up with read
   current_time - Get the current date and time
   progress - Announce the current stage in plain language (Work mode only, display-only)
+  tool_search - Search and activate deferred MCP tools by keyword (auto-enabled when MCP tools exceed the disclosure threshold)
 `);
 }

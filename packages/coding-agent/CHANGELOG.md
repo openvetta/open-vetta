@@ -14,6 +14,7 @@
 
 ### Added
 
+- **MCP 渐进式披露（`tool_search`）**：MCP 工具总数超过阈值（15）时进入 deferred 模式——未激活工具的完整 schema 不再进请求 tools 数组，系统提示词保留「名字 + 首行描述」的全量索引并引导模型经新内置工具 `tool_search`（关键词打分：名称 ×3 / 描述 ×1）检索激活，激活在会话生命周期内保持（内存态，会话重载后按需重新激活）。阈值内的小配置维持现状全量注入，显式 `--tools` 名单与 `baseToolsOverride` 不做 deferral；插件 allow 名单仍可显式点亮个别 MCP 工具。`tool_search` 注册但 `scope_use` 为空（仅 deferred 模式强制激活）。
 - **`progress` 阶段声明工具（Work 模式，ADR-0047）**：新增 display-only 内置工具 `progress`（`agent_mode: ["work"]`），采用滑动窗口契约——一次调用中 `summary` 关闭并改写上一阶段、`label` 开启新阶段，最后一个阶段由正文文本隐式关闭。宿主据此把工具调用折叠成用户可读的阶段组。`modes/work.md` 同步加入使用引导（含「产物类调用不要塞进阶段」），并新增 Placing Deliverables 一节：渲染类工具必须在撰写答案时按叙述顺序调用，不得在调研阶段提前渲染、也不得把所有渲染调用批量堆在正文之前；同一约束同步加入 `modes/coding.md`。新增宿主注入的 `md_intro` 参数：带自渲染卡片的插件工具（渲染进程自动探测 tool-call slot，插件零改动）在 LLM 可见的 schema 副本上多一个可选 `md_intro`，模型填的 markdown 由宿主渲染在卡片正上方，调用插件 handler 前剥离。另定义该引入句的内容契约（只写该产物的要点结论，数据口径/来源/免责一律归入产物自身的标题副标题字段、不在正文重复），并要求产物之后收一段「关键观察」承载真正的结论，回答末尾顺序为 产物 → 关键观察 → 交付物清单。
 
 - **工作流 subagent 类型 + 批量派遣（ADR-0044）**：新增内建类型 `workflow`（完整编码工具 + 子会话独享 todo 工具、继承父 MCP、完全单层）与控制工具 `dispatch_workflows`（一批最多 8 个，`task_name + message + todos`）。派遣时把主会话当前分支消息历史做一次性快照 fork 进子会话初始上下文（`fork-context.ts` 负责截断悬空 tool call、把 compaction/branch summary 转成 custom 种子消息）；todo 预填不锁定，子会话可自行增删。`SubagentSnapshot` 新增 `todoProgress`（done/total，todo 变更实时镜像）。

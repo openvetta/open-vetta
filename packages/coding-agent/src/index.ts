@@ -326,6 +326,7 @@ export {
 	createAskUserQuestionTool,
 	createTaskOutputTool,
 	createTaskStopTool,
+	createToolSearchTool,
 	DEFAULT_MAX_BYTES,
 	DEFAULT_MAX_LINES,
 	type EditOperations,

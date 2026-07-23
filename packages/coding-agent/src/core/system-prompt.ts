@@ -40,6 +40,7 @@ const toolDescriptions: Record<string, string> = {
 	kb_filter_by_tags:
 		"Filter knowledge base wiki pages by tags using set algebra (all=AND, any=OR, none=NOT); a retrieval shortcut",
 	kb_list_available_tags: "List all tags in the knowledge base with page counts; call before kb_filter_by_tags",
+	tool_search: "Search the deferred MCP tool index by keyword and activate matching tools so they become callable",
 };
 
 export const VETTA_CLI_GUIDANCE = [
@@ -379,6 +380,11 @@ export interface BuildSystemPromptOptions {
 	 * `cli` 场景剔除；未传（SDK 直调）保守保留，与旧行为一致。
 	 */
 	scenario?: ConversationScenario;
+	/**
+	 * MCP 渐进披露模式：true 时 mcpTools 是「未加载的索引」而非已激活工具，
+	 * MCP 段落改为引导经 tool_search 检索激活。
+	 */
+	mcpDeferred?: boolean;
 }
 
 function coreBlock(id: string, type: SystemPromptBlockType, content: string, priority: number): SystemPromptBlock {
@@ -401,7 +407,7 @@ function firstLine(text: string): string {
 	return line.length > 200 ? `${line.slice(0, 200)}…` : line;
 }
 
-function renderMcpToolsSection(mcpTools: McpToolInfo[], markdownTools: boolean): string {
+function renderMcpToolsSection(mcpTools: McpToolInfo[], markdownTools: boolean, mcpDeferred = false): string {
 	if (mcpTools.length === 0) {
 		return "";
 	}
@@ -417,11 +423,15 @@ function renderMcpToolsSection(mcpTools: McpToolInfo[], markdownTools: boolean):
 		? "# MCP (Model Context Protocol) Tools\n\nThe following MCP tools are available from external servers:"
 		: "MCP (Model Context Protocol) tools:";
 
+	const usage = mcpDeferred
+		? '**MCP tool usage (deferred)**: the list above is an INDEX — these tools are not loaded into your tool list yet. Before calling one, activate it via the `tool_search` tool (keyword search over this index); activated tools stay callable for the rest of the session. Tool names are prefixed with "mcp_[servername]_". When the user explicitly asks to use a specific MCP server or tool, search for it by name and use it instead of a built-in equivalent.'
+		: '**MCP tool usage**: tool names are prefixed with "mcp_[servername]_" (e.g., mcp_filesystem_list_directory). When the user explicitly asks to use a specific MCP server or tool (e.g. "use filesystem MCP to list files"), you MUST use the corresponding MCP tool instead of a built-in equivalent.';
+
 	return `${header}
 
 ${toolsList}
 
-**MCP tool usage**: tool names are prefixed with "mcp_[servername]_" (e.g., mcp_filesystem_list_directory). When the user explicitly asks to use a specific MCP server or tool (e.g. "use filesystem MCP to list files"), you MUST use the corresponding MCP tool instead of a built-in equivalent.`;
+${usage}`;
 }
 
 function renderContextFilesSection(contextFiles: Array<{ path: string; content: string }>): string {
@@ -649,6 +659,7 @@ export function buildSystemPromptDraft(options: BuildSystemPromptOptions = {}): 
 		modePrompt,
 		agentPlugins,
 		scenario,
+		mcpDeferred,
 	} = options;
 	const resolvedCwd = cwd ?? process.cwd();
 	const dateTime = buildDateTime();
@@ -666,7 +677,7 @@ export function buildSystemPromptDraft(options: BuildSystemPromptOptions = {}): 
 		blocks.push(coreBlock("core.base", "base", customPrompt, 200));
 		blocks.push(coreBlock("core.tools", "tools", `Available tools:\n${toolsList}`, 300));
 		blocks.push(coreBlock("core.append", "append", appendSystemPrompt ?? "", 400));
-		blocks.push(coreBlock("core.mcp", "mcp", renderMcpToolsSection(mcpTools, true), 500));
+		blocks.push(coreBlock("core.mcp", "mcp", renderMcpToolsSection(mcpTools, true, mcpDeferred), 500));
 		blocks.push(coreBlock("core.context", "context", renderContextFilesSection(contextFiles), 600));
 		blocks.push(coreBlock("core.memory", "memory", memory ?? "", 700));
 		const canUseSkills = !selectedTools || selectedTools.includes("invoke_skill") || selectedTools.includes("read");
@@ -683,7 +694,7 @@ export function buildSystemPromptDraft(options: BuildSystemPromptOptions = {}): 
 		return draft;
 	}
 
-	const mcpToolsSection = renderMcpToolsSection(mcpTools, false);
+	const mcpToolsSection = renderMcpToolsSection(mcpTools, false, mcpDeferred);
 	const hasInvokeSkill = tools.includes("invoke_skill");
 	const hasRead = tools.includes("read");
 
