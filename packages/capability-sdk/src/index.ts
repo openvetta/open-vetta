@@ -1,0 +1,36 @@
+export {
+	type AccessSubject,
+	type AuthorizedCapabilityClient,
+	CAPABILITY_CONSTRAINT_KINDS,
+	type CapabilityAccessHandle,
+	type CapabilityAccessSessionFactory,
+	type CapabilityAccessSessionOptions,
+	type CapabilityConstraint,
+	type CapabilityConstraintKind,
+	type CapabilityGrant,
+	type CapabilityInvokeOptions,
+	createCapabilityGrant,
+} from "./access.js";
+export {
+	type AnyCapabilityToken,
+	CAPABILITY_ERROR_CODES,
+	CAPABILITY_LAYERS,
+	CAPABILITY_PREFIXES,
+	type CapabilityDefinition,
+	CapabilityError,
+	type CapabilityErrorCode,
+	type CapabilityExecutionContext,
+	type CapabilityHandler,
+	type CapabilityId,
+	type CapabilityLayer,
+	type CapabilityParser,
+	type CapabilityToken,
+	capabilityLayerFromId,
+	type Disposable,
+	defineCapability,
+	isCapabilityError,
+	isCapabilityId,
+	parseCapabilityId,
+} from "./contracts.js";
+export * from "./domain.js";
+export * from "./foundation.js";

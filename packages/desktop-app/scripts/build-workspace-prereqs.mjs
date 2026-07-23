@@ -10,6 +10,8 @@ const cachePath = join(desktopRoot, ".desktop-dev", "workspace-build-cache.json"
 const ignoredDirectoryNames = new Set([".git", "dist", "node_modules"]);
 
 const packages = {
+	"capability-sdk": { dir: "packages/capability-sdk", dependencies: [] },
+	"capability-runtime": { dir: "packages/capability-runtime", dependencies: ["capability-sdk"] },
 	ai: { dir: "packages/ai", dependencies: [] },
 	"runtime-telemetry": { dir: "packages/runtime-telemetry", dependencies: [] },
 	"ecosystem-adapter": { dir: "packages/ecosystem-adapter", dependencies: [] },
@@ -34,6 +36,7 @@ const packages = {
 
 const layers = [
 	[
+		"capability-sdk",
 		"ai",
 		"runtime-telemetry",
 		"ecosystem-adapter",
@@ -42,7 +45,7 @@ const layers = [
 		"plugin-sdk",
 		"plugin-vite",
 	],
-	["agent"],
+	["capability-runtime", "agent"],
 	["coding-agent"],
 	["runtime-core", "runtime-tools", "runtime-storage", "runtime-mcp"],
 	["cli-app"],

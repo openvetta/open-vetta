@@ -1,0 +1,38 @@
+{
+	"name": "@vetta/capability-sdk",
+	"version": "0.0.1",
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		},
+		"./access": {
+			"types": "./dist/access.d.ts",
+			"import": "./dist/access.js"
+		},
+		"./foundation": {
+			"types": "./dist/foundation.d.ts",
+			"import": "./dist/foundation.js"
+		},
+		"./domain": {
+			"types": "./dist/domain.d.ts",
+			"import": "./dist/domain.js"
+		},
+		"./internal/theme-adapter": {
+			"types": "./dist/adapters/theme.d.ts",
+			"import": "./dist/adapters/theme.js"
+		}
+	},
+	"files": ["dist"],
+	"scripts": {
+		"clean": "rm -rf dist",
+		"build": "tsgo -p tsconfig.build.json"
+	},
+	"devDependencies": {
+		"@types/node": "^22.10.5",
+		"typescript": "^5.9.2"
+	}
+}

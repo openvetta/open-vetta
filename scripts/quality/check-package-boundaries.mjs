@@ -17,6 +17,8 @@ import { fail, isDirectRun, ok, readText, rel, repoRoot, walkFiles } from "./lib
 
 /** Path prefixes (posix, under repo root) that must stay host-agnostic. */
 const LIB_PREFIXES = [
+	"packages/capability-sdk/",
+	"packages/capability-runtime/",
 	"packages/ai/",
 	"packages/agent/",
 	"packages/coding-agent/",
@@ -75,6 +77,19 @@ export function collectImportSpecifiers(filePath, text) {
 	return specifiers;
 }
 
+function collectCapabilityIdLiterals(filePath, text) {
+	const sourceFile = ts.createSourceFile(filePath, text, ts.ScriptTarget.Latest, true, scriptKind(filePath));
+	const capabilityIds = [];
+	const visit = (node) => {
+		if (ts.isStringLiteralLike(node) && /^cap\.(?:foundation|domain)\./.test(node.text)) {
+			capabilityIds.push(node.text);
+		}
+		ts.forEachChild(node, visit);
+	};
+	visit(sourceFile);
+	return capabilityIds;
+}
+
 function forbiddenAppId(specifier) {
 	const normalized = specifier.replaceAll("\\", "/");
 	for (const packageName of ["@vetta/desktop-app", "@vetta/cli-app", "@vetta/site", "shadcn-admin"]) {
@@ -110,16 +125,61 @@ function checkPluginDesktopDeepImport(posixPath, specifiers, findings) {
 	}
 }
 
+function checkCapabilityLayerImports(posixPath, specifiers, findings) {
+	const isCapabilitySdk = posixPath.startsWith("packages/capability-sdk/");
+	const isCapabilityRuntime = posixPath.startsWith("packages/capability-runtime/");
+	if (!isCapabilitySdk && !isCapabilityRuntime) return;
+
+	const forbiddenPrefixes = [
+		"@vetta-org/plugin-sdk",
+		"@vetta/action-rpc",
+		"@vetta/desktop-app",
+		"@vetta/theme-sdk",
+		"@vetta/theme-ui",
+	];
+	if (isCapabilitySdk) forbiddenPrefixes.push("@vetta/capability-runtime");
+	for (const specifier of specifiers) {
+		if (forbiddenPrefixes.some((prefix) => specifier === prefix || specifier.startsWith(`${prefix}/`))) {
+			findings.push(
+				`${posixPath}: capability internals must not import public system SDKs or app packages (${specifier})`,
+			);
+		}
+	}
+}
+
+function checkPublicSystemSdkImports(posixPath, specifiers, findings) {
+	const isPublicSystemSdk =
+		posixPath.startsWith("packages/theme-sdk/") || posixPath.startsWith("packages/plugins/plugin-sdk/");
+	if (!isPublicSystemSdk) return;
+	for (const specifier of specifiers) {
+		if (specifier.startsWith("@vetta/capability-sdk/internal/")) {
+			findings.push(`${posixPath}: public system SDKs must not expose built-in capability adapters (${specifier})`);
+		}
+	}
+}
+
+function checkRawCapabilityIds(posixPath, text, findings) {
+	if (posixPath.startsWith("packages/capability-sdk/src/")) return;
+	for (const capabilityId of collectCapabilityIdLiterals(posixPath, text)) {
+		findings.push(`${posixPath}: import a capability token instead of using raw id ${capabilityId}`);
+	}
+}
+
 export function findPackageBoundaryViolations(posixPath, text) {
 	const findings = [];
 	const specifiers = collectImportSpecifiers(posixPath, text);
 	checkForbiddenAppImports(posixPath, specifiers, findings);
 	checkTestTreeImports(posixPath, specifiers, findings);
 	checkPluginDesktopDeepImport(posixPath, specifiers, findings);
+	checkCapabilityLayerImports(posixPath, specifiers, findings);
+	checkPublicSystemSdkImports(posixPath, specifiers, findings);
+	checkRawCapabilityIds(posixPath, text, findings);
 	return findings;
 }
 
 const roots = [
+	join(repoRoot, "packages/capability-sdk"),
+	join(repoRoot, "packages/capability-runtime"),
 	join(repoRoot, "packages/ai"),
 	join(repoRoot, "packages/agent"),
 	join(repoRoot, "packages/coding-agent"),
@@ -136,6 +196,8 @@ const roots = [
 	join(repoRoot, "packages/markdown"),
 	join(repoRoot, "packages/ui"),
 	join(repoRoot, "packages/plugins"),
+	join(repoRoot, "packages/themes"),
+	join(repoRoot, "packages/desktop-app"),
 ];
 
 export function main() {

@@ -39,6 +39,7 @@ build_pkg() {
 
 # ── Layer 0: no workspace deps ──
 build_layer0() {
+  build_pkg packages/capability-sdk
   build_pkg packages/ai
   build_pkg packages/runtime-telemetry
   build_pkg packages/agent
@@ -51,6 +52,7 @@ build_layer0() {
 
 # ── Layer 1: depends on layer 0 ──
 build_layer1() {
+  build_pkg packages/capability-runtime
   build_pkg packages/coding-agent
 }
 

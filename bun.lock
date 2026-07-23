@@ -152,6 +152,25 @@
         "canvas": "^3.2.0",
       },
     },
+    "packages/capability-runtime": {
+      "name": "@vetta/capability-runtime",
+      "version": "0.0.1",
+      "dependencies": {
+        "@vetta/capability-sdk": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/node": "^22.10.5",
+        "typescript": "^5.9.2",
+      },
+    },
+    "packages/capability-sdk": {
+      "name": "@vetta/capability-sdk",
+      "version": "0.0.1",
+      "devDependencies": {
+        "@types/node": "^22.10.5",
+        "typescript": "^5.9.2",
+      },
+    },
     "packages/cli-app": {
       "name": "@vetta/cli-app",
       "version": "0.0.1",
@@ -257,6 +276,8 @@
         "@vetta-org/plugin-sdk": "workspace:*",
         "@vetta/action-rpc": "workspace:*",
         "@vetta/ai": "workspace:*",
+        "@vetta/capability-runtime": "workspace:*",
+        "@vetta/capability-sdk": "workspace:*",
         "@vetta/runtime-core": "workspace:*",
         "@vetta/theme-sdk": "workspace:*",
         "@vetta/theme-ui": "workspace:*",
@@ -2311,6 +2332,10 @@
     "@vetta/agent-core": ["@vetta/agent-core@workspace:packages/agent"],
 
     "@vetta/ai": ["@vetta/ai@workspace:packages/ai"],
+
+    "@vetta/capability-runtime": ["@vetta/capability-runtime@workspace:packages/capability-runtime"],
+
+    "@vetta/capability-sdk": ["@vetta/capability-sdk@workspace:packages/capability-sdk"],
 
     "@vetta/cli-app": ["@vetta/cli-app@workspace:packages/cli-app"],
 

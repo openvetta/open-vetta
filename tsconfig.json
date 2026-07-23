@@ -4,6 +4,11 @@
 		"noEmit": true,
 		"paths": {
 			"*": ["./*"],
+			"@vetta/capability-sdk": ["./packages/capability-sdk/src/index.ts"],
+			"@vetta/capability-sdk/internal/theme-adapter": ["./packages/capability-sdk/src/adapters/theme.ts"],
+			"@vetta/capability-sdk/*": ["./packages/capability-sdk/src/*"],
+			"@vetta/capability-runtime": ["./packages/capability-runtime/src/index.ts"],
+			"@vetta/capability-runtime/*": ["./packages/capability-runtime/src/*"],
 			"@vetta/coding-agent": ["./packages/coding-agent/src/index.ts"],
 			"@vetta/coding-agent/*": ["./packages/coding-agent/src/*"],
 			"@vetta/ai": ["./packages/ai/src/index.ts"],
@@ -48,6 +53,8 @@
 		}
 	},
 	"include": [
+		"packages/capability-sdk/src/**/*",
+		"packages/capability-runtime/src/**/*",
 		"packages/ai/src/**/*",
 		"packages/ai/test/**/*",
 		"packages/agent/src/**/*",
