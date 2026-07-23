@@ -20,6 +20,7 @@ import {
 	buildSystemPromptDraft,
 	type SystemPromptDraft,
 } from "../system-prompt.js";
+import type { ConversationScenario } from "./tool-scope.js";
 
 /**
  * Build the personalization (persona + custom instructions) append block.
@@ -56,6 +57,8 @@ export interface SystemPromptDeps {
 	/** 当前工作模式（agent_mode 轴）。解析出模式专用 system prompt block。见 ADR-0046。 */
 	agentMode?: string;
 	agentPlugins?: AgentPluginRuntimeConfig;
+	/** 当前对话场景。用于裁剪仅对 UI 渲染有意义的 guideline（cli 场景剔除渲染契约）。 */
+	scenario?: ConversationScenario;
 }
 
 function resolveSystemPromptOptions(deps: SystemPromptDeps): BuildSystemPromptOptions {
@@ -99,6 +102,7 @@ function resolveSystemPromptOptions(deps: SystemPromptDeps): BuildSystemPromptOp
 		personalization,
 		modePrompt,
 		agentPlugins: deps.agentPlugins,
+		scenario: deps.scenario,
 	};
 }
 
