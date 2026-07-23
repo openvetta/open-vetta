@@ -19,7 +19,8 @@ loadBuildEnv();
 
 const desktopAppDir = join(import.meta.dirname, "..");
 const monorepoPackagesDir = join(desktopAppDir, "..");
-const pluginWorkspaceDir = dirname(presetsDir);
+const monorepoRoot = join(monorepoPackagesDir, "..");
+const pluginsDir = dirname(presetsDir);
 const cachePath = join(desktopAppDir, ".desktop-dev", "preset-build-cache.json");
 const ignoredDirectoryNames = new Set(["dist", "node_modules", "release"]);
 
@@ -66,7 +67,7 @@ async function hashDirectory(hash, rootDir, currentDir = rootDir) {
 async function hashFiles(paths) {
 	const hash = createHash("sha256");
 	for (const path of paths) {
-		hash.update(relative(pluginWorkspaceDir, path).replaceAll("\\", "/"));
+		hash.update(relative(monorepoRoot, path).replaceAll("\\", "/"));
 		hash.update(await readFile(path));
 	}
 	return hash.digest("hex");
@@ -104,8 +105,7 @@ function workspaceDependencyNames(packageJson) {
 		if (section === null || typeof section !== "object") continue;
 		for (const [dependencyName, specifier] of Object.entries(section)) {
 			if (typeof specifier !== "string") continue;
-			// workspace:* 解析受 workspace globs 限制，无法指向工作区外的 monorepo 兄弟包
-			// （如 packages/ui）。这类跨工作区共享依赖改用 link:/file: 指定，同样纳入缓存哈希。
+			// 本地 workspace/link/file 依赖的源码变更都要使插件构建缓存失效。
 			if (
 				specifier.startsWith("workspace:") ||
 				specifier.startsWith("link:") ||
@@ -185,16 +185,16 @@ if (entries.includes("plugin-workbench") && existsSync(pluginWorkbenchSyncScript
 }
 
 const cache = await readCache();
-const installHash = await hashFiles([join(pluginWorkspaceDir, "package.json"), join(pluginWorkspaceDir, "bun.lock")]);
+const installHash = await hashFiles([join(monorepoRoot, "package.json"), join(monorepoRoot, "bun.lock")]);
 const workspaceNodeModulesDirs = [
-	join(pluginWorkspaceDir, "node_modules"),
-	...["plugin-sdk", "plugin-vite"].map((name) => join(pluginWorkspaceDir, name, "node_modules")),
+	join(monorepoRoot, "node_modules"),
+	...["plugin-sdk", "plugin-vite"].map((name) => join(pluginsDir, name, "node_modules")),
 	...entries.map((name) => join(presetsDir, name, "node_modules")),
 ];
 if (cache.installHash === installHash && workspaceNodeModulesDirs.every((dir) => existsSync(dir))) {
-	console.log("[build-presets] 跳过插件 workspace 依赖安装（无变更）");
+	console.log("[build-presets] 跳过根 workspace 依赖安装（无变更）");
 } else {
-	await run("bun", ["install", "--frozen-lockfile"], pluginWorkspaceDir, "安装插件 workspace 依赖");
+	await run("bun", ["install", "--frozen-lockfile"], monorepoRoot, "安装根 workspace 依赖");
 	cache.installHash = installHash;
 	await writeCache(cache);
 }
@@ -204,7 +204,7 @@ if (process.env.VETTA_SKIP_PLUGIN_TOOLING_BUILD === "1") {
 } else {
 	await Promise.all(
 		["plugin-sdk", "plugin-vite"].map((name) =>
-			run("bun", ["run", "build"], join(pluginWorkspaceDir, name), `构建插件工具包 ${name}`),
+			run("bun", ["run", "build"], join(pluginsDir, name), `构建插件工具包 ${name}`),
 		),
 	);
 }
@@ -212,7 +212,7 @@ if (process.env.VETTA_SKIP_PLUGIN_TOOLING_BUILD === "1") {
 const toolingHash = createHash("sha256");
 for (const name of ["plugin-sdk", "plugin-vite"]) {
 	toolingHash.update(name);
-	await hashDirectory(toolingHash, join(pluginWorkspaceDir, name, "dist"));
+	await hashDirectory(toolingHash, join(pluginsDir, name, "dist"));
 }
 const sharedBuildHash = toolingHash.digest("hex");
 const siblingWorkspacePackages = await discoverSiblingWorkspacePackages();

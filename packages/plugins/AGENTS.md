@@ -1,6 +1,6 @@
-# Plugin Workspace Development Rules
+# Plugin Development Rules
 
-本目录是 Vetta 插件独立 workspace。创建或修改以下内容时，必须遵守本文件：
+本目录中的包统一属于仓库根 workspace。创建或修改以下内容时，必须遵守本文件：
 
 - `plugin-sdk/`：插件运行时 API 和类型契约。
 - `plugin-vite/`：插件 Vite、Module Federation 和 zip 打包工具。
@@ -54,7 +54,7 @@ VETTA_TENANT=tenantb bun run build
 | 项目 | Preset 系统插件 | 外置插件 |
 | --- | --- | --- |
 | 源码位置 | `packages/plugins/presets/<id>/` | `packages/plugins/externals/<id>/` |
-| 仓库内依赖管理 | `packages/plugins` 独立 workspace 和 `bun.lock` | 当前仓库示例也属于同一插件 workspace |
+| 仓库内依赖管理 | 根 workspace 和根 `bun.lock` | 当前仓库示例同样属于根 workspace |
 | Vetta 开发包依赖 | 可使用 `workspace:*` 或与本地包匹配的 semver | 仓库内同左；移出仓库后必须使用已发布版本 |
 | 安装方式 | 随 Desktop 发布，不需要用户安装 | 构建 zip 后由用户安装 |
 | 开发加载 | 构建 zip 后解压到 Desktop `.artifacts/system-plugins` | 从 `~/.vetta/plugins` 读取已安装版本 |
@@ -65,10 +65,8 @@ VETTA_TENANT=tenantb bun run build
 
 Preset 不进入 `~/.vetta/plugins`，也不写 `plugins-manifest.json`。
 
-`plugin-sdk` 和 `plugin-vite` 同时列在根 workspace 与
-`packages/plugins` workspace 中：Desktop 可直接依赖它们，插件 workspace
-也可独立安装和构建。`presets/*` 与 `externals/*` 只属于插件 workspace，
-不进入根 workspace。
+`plugin-sdk`、`plugin-vite`、`presets/*` 与 `externals/*` 都列在根 workspace
+中，共用根依赖图与锁文件；各插件仍保留独立的 `package.json` 和构建制品。
 
 ## 创建插件
 
@@ -91,10 +89,8 @@ Preset 可参考 `presets/svg-viewer`；外置插件可
 
 ### package.json
 
-Preset 和 external 插件不纳入根 workspace，而是纳入
-`packages/plugins/package.json` 定义的独立插件 workspace。仓库内需要持续
-跟随 SDK 和构建包源码时，使用
-`workspace:*`：
+Preset 和 external 插件直接纳入根 `package.json` 定义的 workspace。仓库内
+需要持续跟随 SDK、构建包或其它本地包源码时，使用 `workspace:*`：
 
 ```json
 {
@@ -122,23 +118,23 @@ Preset 和 external 插件不纳入根 workspace，而是纳入
 - 使用 `workspace:*` 时，两个开发包修改后无需发布，下一次 preset 构建直接
   使用本地源码。
 - 也可使用与本地包版本匹配的 semver，例如当前版本可写
-  `^0.0.1`。在插件 workspace 内安装时，Bun 会链接满足该版本范围的本地
+  `^0.0.1`。在根 workspace 内安装时，Bun 会链接满足该版本范围的本地
   workspace 包；插件移出本仓库后，同一声明会从 registry 安装已发布版本。
 - 使用 semver 前必须确认 `plugin-sdk`、`plugin-vite` 的本地版本满足范围；
   独立构建或发布外置插件前，还必须确认对应版本已经发布到可访问的 registry。
 - 不要使用 `file:`、相对路径或手工复制开发包，避免插件与仓库目录结构绑定。
-- 修改插件依赖后重新生成插件 workspace 锁文件。
-- React、React DOM 及其类型版本应与当前插件 workspace 保持兼容。
+- 修改插件依赖后重新生成根 workspace 锁文件。
+- React、React DOM 及其类型版本应与根 workspace 保持兼容。
 - 第三方运行时依赖放在 `dependencies`，构建工具放在
   `devDependencies`。
 
 ### 锁文件
 
-- 插件 workspace 提交统一的 `packages/plugins/bun.lock`。
-- 修改插件依赖后，在 `packages/plugins` 目录执行 `bun install`。
+- 全仓库统一提交根目录 `bun.lock`，不再维护 `packages/plugins/bun.lock`。
+- 修改插件依赖后，在仓库根目录执行 `bun install`。
 - preset 和 external 插件不提交自己的 `bun.lock`。
-- 根 `bun.lock` 可以包含 `plugin-sdk`、`plugin-vite` 及其依赖，但不应包含
-  preset、external 示例插件或它们专属的第三方依赖。
+- 根 `bun.lock` 包含 `plugin-sdk`、`plugin-vite`、preset、external 示例插件
+  及其第三方依赖。
 
 ### plugin.json
 
@@ -188,13 +184,12 @@ React、React DOM 和 `@vetta-org/plugin-sdk` 由宿主共享。模块顶层禁�
 
 ## 安装、构建与验证
 
-在插件 workspace 安装依赖，再进入目标插件目录构建：
+在仓库根 workspace 安装依赖，再进入目标插件目录构建：
 
 ```bash
-cd packages/plugins
 bun install
 
-cd <presets|externals>/<id>
+cd packages/plugins/<presets|externals>/<id>
 bun run build
 ```
 
@@ -209,8 +204,8 @@ cd ../..
 bun run check
 ```
 
-`build:presets` 会先按 `packages/plugins/bun.lock` 为插件 workspace
-执行一次 `bun install --frozen-lockfile`，构建 workspace 根下的 SDK/构建包，
+`build:presets` 会先按根 `bun.lock` 为根 workspace
+执行一次 `bun install --frozen-lockfile`，构建根 workspace 中的 SDK/构建包，
 再遍历 `presets/` 构建。每个插件构建会生成 `dist/` 和
 `release/<id>-<version>.zip`，随后 zip 会经过路径、manifest 和入口校验，
 解压到 `packages/desktop-app/.artifacts/system-plugins/<id>/` 供开发加载。
@@ -219,8 +214,8 @@ bun run check
 
 - 系统插件位于 `packages/plugins/presets/<id>/`，外置插件位于
   `packages/plugins/externals/<id>/`。
-- 根 workspace 不包含 preset 或 external 插件。
-- `packages/plugins/bun.lock` 已更新。
+- preset 和 external 插件已纳入根 workspace。
+- 根 `bun.lock` 已更新。
 - `@vetta-org/plugin-sdk` 和 `@vetta-org/plugin-vite` 使用 `workspace:*`，或使用
   可由当前本地包满足且已按发布场景验证的 semver。
 - `dist/`、`release/`、`node_modules/` 已加入 `.gitignore`，没有提交。

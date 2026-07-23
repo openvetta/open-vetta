@@ -110,7 +110,7 @@ async function main() {
 	const force = process.argv.includes("--force");
 	const cache = await readCache();
 	const nextCache = { version: 1, packages: {} };
-	const globalHash = await hashFiles(["package.json", "bun.lock", "tsconfig.base.json", "packages/plugins/bun.lock"]);
+	const globalHash = await hashFiles(["package.json", "bun.lock", "tsconfig.base.json"]);
 	const buildHashes = new Map();
 
 	for (const layer of layers) {

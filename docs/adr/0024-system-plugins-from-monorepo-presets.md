@@ -2,7 +2,7 @@
 
 需要一类**随 App 发布、用户不可删改**的插件（[[系统插件]]）。仓库已有「内置 vendor 首启拷进 `~/.vetta` 托管目录」的 seed 先例（ADR-0011），但那是因为运行时需要可写的执行位置；插件无此需要。
 
-决定：[[系统插件]]的源以 [[预置插件]]形式放在 `packages/plugins/presets/<id>/`（monorepo 内维护），但不纳入根 workspace。`packages/plugins/package.json` 定义独立的插件 workspace，将 presets 与根仓库中的 `@vetta-org/plugin-sdk`、`@vetta-org/plugin-vite` 纳入同一插件依赖图；插件开发直接链接这两个包的本地源码，但第三方依赖和锁文件由 `packages/plugins/bun.lock` 独立管理。每个插件独立构建 `release/<id>-<version>.zip`。Desktop 在开发准备和应用打包阶段都只消费 zip：校验归档路径、manifest、id/version 和入口文件后，分别解压到 `packages/desktop-app/.artifacts/system-plugins/<id>/` 与打包 staging 的 `system-plugins/<id>/`。运行时只读取解压后的只读目录，**不读取 preset 源码目录、不拷贝进 `~/.vetta`、不写 `plugins-manifest.json`**。`vetta-plugin://` 解析器按记录的 `source` 选 base 目录（打包 `process.resourcesPath/system-plugins`、dev `.artifacts/system-plugins`），`listPlugins()` 在运行时发现系统插件并与用户插件注册表合并返回。
+决定：[[系统插件]]的源以 [[预置插件]]形式放在 `packages/plugins/presets/<id>/`（monorepo 内维护），与插件 SDK、构建工具及其它 monorepo 包统一纳入根 workspace，共用根 `bun.lock`。插件开发通过 `workspace:*` 直接链接 `@vetta-org/plugin-sdk`、`@vetta-org/plugin-vite` 等本地包。每个插件独立构建 `release/<id>-<version>.zip`。Desktop 在开发准备和应用打包阶段都只消费 zip：校验归档路径、manifest、id/version 和入口文件后，分别解压到 `packages/desktop-app/.artifacts/system-plugins/<id>/` 与打包 staging 的 `system-plugins/<id>/`。运行时只读取解压后的只读目录，**不读取 preset 源码目录、不拷贝进 `~/.vetta`、不写 `plugins-manifest.json`**。`vetta-plugin://` 解析器按记录的 `source` 选 base 目录（打包 `process.resourcesPath/system-plugins`、dev `.artifacts/system-plugins`），`listPlugins()` 在运行时发现系统插件并与用户插件注册表合并返回。
 
 配套语义：
 - **来源**：`InstalledPlugin.source` 新增 `"system"`，与 `"archive" | "remote"` 并列。
@@ -21,8 +21,8 @@
 
 - `vetta-plugin://` 解析器要从「单一 `pluginsBaseDir`」改为「按 source 选 base 目录」，且需持有一份运行时发现的系统插件 id 集合（解析器只拿到 pluginId）。
 - `plugins-manifest.json` 只记录用户插件；系统插件停用偏好单独写入 `system-plugin-prefs.json`。系统插件本体不入用户目录，每次启动从对应 `system-plugins` staging 重新发现。
-- `build:presets` 先构建插件 workspace 根下的 `plugin-sdk`、`plugin-vite`，再逐个构建插件 zip，并将 zip 校验解压到 Desktop 开发 staging；应用开发启动不再直接读取 preset 的 `dist/`。
-- preset 不进入根 workspace 和根 `bun.lock`；`build:presets` 按 `packages/plugins/bun.lock` 为插件 workspace 执行一次独立安装。
+- `build:presets` 先构建根 workspace 中的 `plugin-sdk`、`plugin-vite`，再逐个构建插件 zip，并将 zip 校验解压到 Desktop 开发 staging；应用开发启动不再直接读取 preset 的 `dist/`。
+- preset 进入根 workspace 和根 `bun.lock`；`build:presets` 根据根依赖清单与锁文件按需执行一次冻结安装。
 - `prepare-pack.js` 从每个 preset 的 `release/<id>-<version>.zip` 重新校验解压到打包 staging，再经 `extraResources` 随包。
 - zip 缺失、manifest 与源码不一致、包含路径穿越条目或缺少入口/样式文件时，开发准备和打包直接失败，避免使用陈旧或不完整的 `dist`。
 - 既有 `svg-viewer` 示例迁入 `packages/plugins/presets/svg-viewer` 成为首个系统插件；`global-slot-demo` 留作纯示例不随包。

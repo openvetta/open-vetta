@@ -10,6 +10,8 @@
 		"packages/coding-agent",
 		"packages/plugins/plugin-sdk",
 		"packages/plugins/plugin-vite",
+		"packages/plugins/presets/*",
+		"packages/plugins/externals/*",
 		"packages/theme-sdk",
 		"packages/theme-ui",
 		"packages/themes/builtin/*",
