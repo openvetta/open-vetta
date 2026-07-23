@@ -13,12 +13,9 @@ import { SettingRow, SettingSection, type SettingSectionMeta } from "./SettingCh
 export interface GeneralSettingsViewLabels {
 	readonly title: string;
 	readonly sections: {
-		readonly workspace: string;
-		readonly updates: string;
-		readonly sandbox: string;
-		readonly notifications: string;
+		readonly basics: string;
+		readonly app: string;
 		readonly developer: string;
-		readonly setupGuide: string;
 	};
 	readonly workspaceTitle: string;
 	readonly workspaceDescription: string;
@@ -43,12 +40,9 @@ export interface GeneralSettingsViewLabels {
 export interface GeneralSettingsViewProps {
 	readonly labels: GeneralSettingsViewLabels;
 	readonly sections: {
-		readonly workspace: SettingSectionMeta;
-		readonly updates: SettingSectionMeta;
-		readonly sandbox: SettingSectionMeta;
-		readonly notifications: SettingSectionMeta;
+		readonly basics: SettingSectionMeta;
+		readonly app: SettingSectionMeta;
 		readonly developer: SettingSectionMeta;
-		readonly setupGuide: SettingSectionMeta;
 	};
 	readonly workspacePath: string;
 	readonly onSelectWorkspace: () => void;
@@ -69,6 +63,11 @@ export interface GeneralSettingsViewProps {
 /**
  * Settings general page layout. Host chrome uses `@vetta/ui` primitives (not desktop components/ui).
  * UpdateChecker stays host-injected (desktop-connected).
+ *
+ * Grouped into 3 sections to reduce one-setting-per-card scatter:
+ * - basics: workspace, sandbox, notifications
+ * - app: updates, setup guide
+ * - developer: debug mode, diagnostics export
  */
 export function GeneralSettingsView({
 	labels,
@@ -92,8 +91,8 @@ export function GeneralSettingsView({
 		<div className="mx-auto w-full max-w-[680px] px-8 pt-2 pb-4">
 			<h1 className="mb-6 text-[20px] font-bold text-foreground">{labels.title}</h1>
 
-			<SettingSection title={labels.sections.workspace} section={sections.workspace}>
-				<SettingRow title={labels.workspaceTitle} description={labels.workspaceDescription} border={false}>
+			<SettingSection title={labels.sections.basics} section={sections.basics}>
+				<SettingRow title={labels.workspaceTitle} description={labels.workspaceDescription}>
 					<div className="flex items-center gap-2">
 						<button
 							type="button"
@@ -114,14 +113,7 @@ export function GeneralSettingsView({
 						</button>
 					</div>
 				</SettingRow>
-			</SettingSection>
-
-			<SettingSection title={labels.sections.updates} section={sections.updates}>
-				<div className="px-5 py-4">{updatesSlot}</div>
-			</SettingSection>
-
-			<SettingSection title={labels.sections.sandbox} section={sections.sandbox}>
-				<SettingRow title={labels.sandboxTitle} description={labels.sandboxDescription} border={false}>
+				<SettingRow title={labels.sandboxTitle} description={labels.sandboxDescription}>
 					<Select value={executionMode} onValueChange={onExecutionModeChange}>
 						<SelectTrigger size="sm" className="h-8 min-w-[120px] border-border/70 bg-background/50 text-[12px]">
 							<SelectValue />
@@ -141,15 +133,22 @@ export function GeneralSettingsView({
 						</SelectContent>
 					</Select>
 				</SettingRow>
-			</SettingSection>
-
-			<SettingSection title={labels.sections.notifications} section={sections.notifications}>
 				<SettingRow
 					title={labels.systemNotifications}
 					description={labels.systemNotificationsDescription}
 					border={false}
 				>
 					<Switch checked={notificationsEnabled} onCheckedChange={onNotificationsChange} />
+				</SettingRow>
+			</SettingSection>
+
+			<SettingSection title={labels.sections.app} section={sections.app}>
+				{/* UpdateChecker is full-width (status + release notes); not constrained by SettingRow */}
+				<div className="border-b border-border px-5 py-4">{updatesSlot}</div>
+				<SettingRow title={labels.startAppGuide} description={labels.startAppGuideDescription} border={false}>
+					<Button size="sm" variant="outline" onClick={onStartAppGuide}>
+						{labels.startAppGuideAction}
+					</Button>
 				</SettingRow>
 			</SettingSection>
 
@@ -164,14 +163,6 @@ export function GeneralSettingsView({
 				>
 					<Button size="sm" variant="outline" disabled={exportingDiagnostics} onClick={onExportDiagnostics}>
 						{exportingDiagnostics ? labels.exporting : labels.export}
-					</Button>
-				</SettingRow>
-			</SettingSection>
-
-			<SettingSection title={labels.sections.setupGuide} section={sections.setupGuide}>
-				<SettingRow title={labels.startAppGuide} description={labels.startAppGuideDescription} border={false}>
-					<Button size="sm" variant="outline" onClick={onStartAppGuide}>
-						{labels.startAppGuideAction}
 					</Button>
 				</SettingRow>
 			</SettingSection>

@@ -1,17 +1,16 @@
-import { useTranslation } from "react-i18next";
 import { ModelSelect } from "@shared/components/ModelSelect";
-import { Button } from "@vetta/ui";
-import { cn } from "@shared/lib/utils";
-import { SettingsAiAssist } from "../ai-assist";
+import { Button, Switch } from "@vetta/ui";
 import { SettingHeading, SettingRow, SettingSection } from "@vetta/theme-ui/settings";
+import { useTranslation } from "react-i18next";
+import { SettingsAiAssist } from "../ai-assist";
 import { SETTINGS_SECTION } from "../registry";
 import { ImChannelCard } from "./ImChannelCard";
 import { ImFeishuDialog } from "./ImFeishuDialog";
 import { ImLegacyImportBanner } from "./ImLegacyImportBanner";
 import { ImLogDrawer } from "./ImLogDrawer";
 import { ImStatusBadge } from "./ImStatusBadge";
-import { WechatBindDialog } from "./WechatBindDialog";
 import type { ImBridgeSettingsModel } from "./useImBridgeSettingsModel";
+import { WechatBindDialog } from "./WechatBindDialog";
 
 export function ImBridgeSettingsView({ model }: { model: ImBridgeSettingsModel }): JSX.Element {
 	const { t } = useTranslation("settings");
@@ -28,7 +27,10 @@ export function ImBridgeSettingsView({ model }: { model: ImBridgeSettingsModel }
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 pt-2 pb-4">
 			<div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-				<h1 className="text-[20px] font-bold text-foreground">Vetta Claw</h1>
+				<div className="flex min-w-0 items-center gap-3">
+					<h1 className="text-[20px] font-bold text-foreground">Vetta Claw</h1>
+					<ImStatusBadge status={model.transportStatus} />
+				</div>
 				<SettingsAiAssist tabId="im" />
 			</div>
 
@@ -41,36 +43,17 @@ export function ImBridgeSettingsView({ model }: { model: ImBridgeSettingsModel }
 				/>
 			)}
 
-			<SettingSection section={SETTINGS_SECTION["imbridge-toggle"]} title={t("section_imbridge-toggle")}>
-				<SettingRow title={t("enableImBridge")} description={t("enableImBridgeDesc")} border={false}>
-					<button
-						type="button"
-						role="switch"
-						aria-checked={model.config.enabled}
-						onClick={() => void model.onToggleEnabled(!model.config?.enabled)}
+			{/* 基础：总开关 + 对话模型（原两个单行分区） */}
+			<SettingSection section={SETTINGS_SECTION["imbridge-basics"]} title={t("section_imbridge-basics")}>
+				<SettingRow title={t("enableImBridge")} description={t("enableImBridgeDesc")}>
+					<Switch
+						checked={model.config.enabled}
+						onCheckedChange={(checked) => void model.onToggleEnabled(checked)}
 						disabled={model.saving}
-						className={cn(
-							"relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
-							model.config.enabled ? "bg-primary" : "bg-muted-foreground/30",
-						)}
-					>
-						<span
-							className={cn(
-								"inline-block h-3.5 w-3.5 transform rounded-full bg-background shadow transition-transform",
-								model.config.enabled ? "translate-x-[18px]" : "translate-x-[3px]",
-							)}
-						/>
-					</button>
+					/>
 				</SettingRow>
-			</SettingSection>
-
-			<SettingSection
-				section={SETTINGS_SECTION["imbridge-model"]}
-				title={t("dialogModel")}
-				description={t("dialogModelDesc")}
-			>
-				<SettingRow title={t("modelSetting")} description={t("modelSettingDesc")}>
-					<div className="flex flex-wrap items-center gap-2">
+				<SettingRow title={t("dialogModel")} description={t("dialogModelDesc")} border={false}>
+					<div className="flex flex-wrap items-center justify-end gap-2">
 						<ModelSelect
 							value={
 								model.config.agentModel
@@ -127,7 +110,8 @@ export function ImBridgeSettingsView({ model }: { model: ImBridgeSettingsModel }
 				</SettingRow>
 			</SettingSection>
 
-			<div className="mb-6">
+			{/* 消息渠道：飞书 / 微信卡片 */}
+			<div className="mb-6 p-1.5" data-setting-section-highlight-target={SETTINGS_SECTION["imbridge-channels"].id}>
 				<div className="mb-3 flex items-baseline gap-2">
 					<SettingHeading
 						section={SETTINGS_SECTION["imbridge-channels"]}
@@ -180,20 +164,17 @@ export function ImBridgeSettingsView({ model }: { model: ImBridgeSettingsModel }
 				onConfirmedRefresh={model.onWechatConfirmedRefresh}
 			/>
 
-			<SettingSection
-				section={SETTINGS_SECTION["imbridge-status"]}
-				title={
-					<div className="flex items-center justify-between">
-						<span>{t("statusLog")}</span>
-						<ImStatusBadge status={model.transportStatus} />
-					</div>
-				}
-			>
-				<SettingRow title={t("bridgePid")} description={t("bridgePidDesc")}>
+			{/* 状态与日志：进程信息 + 操作 */}
+			<SettingSection section={SETTINGS_SECTION["imbridge-status"]} title={t("section_imbridge-status")}>
+				<SettingRow
+					title={t("bridgePid")}
+					description={t("bridgePidDesc")}
+					border={Boolean(model.status?.lastError)}
+				>
 					<span className="text-[13px] tabular-nums text-muted-foreground">{model.status?.sidecarPid ?? "—"}</span>
 				</SettingRow>
 				{model.status?.lastError && (
-					<SettingRow title={t("lastError")} description={model.status.lastErrorAt ?? ""}>
+					<SettingRow title={t("lastError")} description={model.status.lastErrorAt ?? ""} border={false}>
 						<span className="text-[12px] text-destructive">{model.status.lastError}</span>
 					</SettingRow>
 				)}
@@ -201,7 +182,12 @@ export function ImBridgeSettingsView({ model }: { model: ImBridgeSettingsModel }
 					<Button variant="outline" size="sm" onClick={() => void model.onOpenLogs()}>
 						{t("viewLogs")}
 					</Button>
-					<Button variant="outline" size="sm" onClick={() => void model.onRestart()} disabled={!model.config.enabled}>
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={() => void model.onRestart()}
+						disabled={!model.config.enabled}
+					>
 						{t("restartBridgeBtn")}
 					</Button>
 				</div>

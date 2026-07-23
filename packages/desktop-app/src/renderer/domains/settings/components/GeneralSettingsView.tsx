@@ -13,12 +13,9 @@ export function GeneralSettingsView({ model }: GeneralSettingsViewProps): JSX.El
 		<ThemeGeneralSettingsView
 			labels={model.labels}
 			sections={{
-				workspace: SETTINGS_SECTION["general-workspace"],
-				updates: SETTINGS_SECTION["general-updates"],
-				sandbox: SETTINGS_SECTION["general-sandbox"],
-				notifications: SETTINGS_SECTION["general-notifications"],
+				basics: SETTINGS_SECTION["general-basics"],
+				app: SETTINGS_SECTION["general-app"],
 				developer: SETTINGS_SECTION["general-developer"],
-				setupGuide: SETTINGS_SECTION["general-setup-guide"],
 			}}
 			workspacePath={model.workspacePath}
 			onSelectWorkspace={() => void model.actions.selectWorkspace()}

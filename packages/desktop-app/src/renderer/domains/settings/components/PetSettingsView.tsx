@@ -11,8 +11,7 @@ export function PetSettingsView({ model }: { model: PetSettingsModel }): JSX.Ele
 		<ThemePetSettingsView
 			labels={model.labels}
 			sections={{
-				status: SETTINGS_SECTION["pet-status"],
-				window: SETTINGS_SECTION["pet-window"],
+				display: SETTINGS_SECTION["pet-display"],
 				decoration: SETTINGS_SECTION["pet-decoration"],
 				bubble: SETTINGS_SECTION["pet-bubble"],
 				developer: SETTINGS_SECTION["pet-developer"],

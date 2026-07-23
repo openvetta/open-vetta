@@ -43,12 +43,9 @@ interface GeneralSettingsLabels {
 	sandboxDescription: string;
 	sandboxTitle: string;
 	sections: {
+		app: string;
+		basics: string;
 		developer: string;
-		notifications: string;
-		sandbox: string;
-		setupGuide: string;
-		updates: string;
-		workspace: string;
 	};
 	startAppGuide: string;
 	startAppGuideAction: string;
@@ -193,12 +190,9 @@ export function useGeneralSettingsModel(): GeneralSettingsModel {
 			sandboxDescription: t("sandboxDescription"),
 			sandboxTitle: t("sandbox.title"),
 			sections: {
+				app: t(SETTINGS_SECTION["general-app"].titleKey),
+				basics: t(SETTINGS_SECTION["general-basics"].titleKey),
 				developer: t(SETTINGS_SECTION["general-developer"].titleKey),
-				notifications: t(SETTINGS_SECTION["general-notifications"].titleKey),
-				sandbox: t(SETTINGS_SECTION["general-sandbox"].titleKey),
-				setupGuide: t(SETTINGS_SECTION["general-setup-guide"].titleKey),
-				updates: t(SETTINGS_SECTION["general-updates"].titleKey),
-				workspace: t(SETTINGS_SECTION["general-workspace"].titleKey),
 			},
 			startAppGuide: t("startAppGuide"),
 			startAppGuideAction: t("startAppGuideAction"),

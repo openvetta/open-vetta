@@ -11,12 +11,11 @@ export function PresetProvidersSectionView({ model }: { model: PresetProvidersSe
 			error={model.error}
 			hasRows={model.rows.length > 0}
 			loading={model.loading}
-			onReload={() => void model.onReload()}
 			rows={model.rows.map((row) => (
 				<PresetProviderRow
 					key={row.id}
 					row={row}
-					draftKey={model.draftKey}
+					draftKey={model.draftKeys[row.id] ?? ""}
 					saving={model.saving}
 					labels={model.labels}
 					onToggleExpanded={model.onToggleExpanded}

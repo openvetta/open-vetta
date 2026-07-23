@@ -39,8 +39,7 @@ export interface PetSettingsModel {
 			bubble: string;
 			decoration: string;
 			developer: string;
-			status: string;
-			window: string;
+			display: string;
 		};
 		showPet: string;
 		showPetDescription: string;
@@ -136,8 +135,7 @@ export function usePetSettingsModel(): PetSettingsModel {
 				bubble: tSettings(SETTINGS_SECTION["pet-bubble"].titleKey),
 				decoration: tSettings(SETTINGS_SECTION["pet-decoration"].titleKey),
 				developer: tSettings(SETTINGS_SECTION["pet-developer"].titleKey),
-				status: tSettings(SETTINGS_SECTION["pet-status"].titleKey),
-				window: tSettings(SETTINGS_SECTION["pet-window"].titleKey),
+				display: tSettings(SETTINGS_SECTION["pet-display"].titleKey),
 			},
 			showPet: t("settings.showPet"),
 			showPetDescription: t("settings.showPetDesc"),
