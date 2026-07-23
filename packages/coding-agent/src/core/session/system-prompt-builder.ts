@@ -59,6 +59,8 @@ export interface SystemPromptDeps {
 	agentPlugins?: AgentPluginRuntimeConfig;
 	/** 当前对话场景。用于裁剪仅对 UI 渲染有意义的 guideline（cli 场景剔除渲染契约）。 */
 	scenario?: ConversationScenario;
+	/** MCP 渐进披露模式：true 时提示词列全量 MCP 索引（含未激活）并引导 tool_search 激活。 */
+	mcpDeferred?: boolean;
 }
 
 function resolveSystemPromptOptions(deps: SystemPromptDeps): BuildSystemPromptOptions {
@@ -72,11 +74,12 @@ function resolveSystemPromptOptions(deps: SystemPromptDeps): BuildSystemPromptOp
 		.skills.filter((s) => matchesAgentMode(s.agentMode, deps.agentMode));
 	const loadedContextFiles = deps.resourceLoader.getAgentsFiles().agentsFiles;
 
-	// Collect MCP tool information for system prompt
+	// Collect MCP tool information for system prompt.
+	// deferred 模式下列全量索引（未激活的工具正是需要被模型发现的），否则只列已激活工具。
 	const mcpTools =
 		deps.mcpManager
 			?.getTools()
-			.filter((tool) => deps.toolNames.includes(tool.name))
+			.filter((tool) => deps.mcpDeferred || deps.toolNames.includes(tool.name))
 			.map((tool) => ({
 				name: tool.name,
 				description: tool.description || `Tool from MCP server`,
@@ -103,6 +106,7 @@ function resolveSystemPromptOptions(deps: SystemPromptDeps): BuildSystemPromptOp
 		modePrompt,
 		agentPlugins: deps.agentPlugins,
 		scenario: deps.scenario,
+		mcpDeferred: deps.mcpDeferred,
 	};
 }
 

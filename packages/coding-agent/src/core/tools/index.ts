@@ -162,6 +162,15 @@ export {
 } from "./task-stop/index.js";
 export { createTodoTool, type TodoToolDetails, type TodoToolOptions } from "./todo/index.js";
 export {
+	createToolSearchTool,
+	type DeferredToolIndexEntry,
+	scoreDeferredTools,
+	type ToolSearchResult,
+	type ToolSearchToolDetails,
+	type ToolSearchToolInput,
+	type ToolSearchToolOptions,
+} from "./tool-search/index.js";
+export {
 	createTreeTool,
 	type TreeOperations,
 	type TreeToolDetails,
