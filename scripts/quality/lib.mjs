@@ -21,6 +21,8 @@ export const TESTABLE_PACKAGES = {
 /** Short name → directory for common workspace packages. */
 export const PACKAGE_DIRS = {
 	...TESTABLE_PACKAGES,
+	"capability-sdk": "packages/capability-sdk",
+	"capability-runtime": "packages/capability-runtime",
 	"desktop-app": "packages/desktop-app",
 	"cli-app": "packages/cli-app",
 	"plugin-sdk": "packages/plugins/plugin-sdk",

@@ -1,0 +1,39 @@
+import { type CapabilityAccessAuditEvent, CapabilityAccessController, CapabilityHub } from "@vetta/capability-runtime";
+import { getAppLogger } from "../logger.js";
+import { registerDesktopFoundationProviders } from "./foundation-providers.js";
+
+const log = getAppLogger("capability-access");
+
+export interface DesktopCapabilityHost {
+	readonly access: CapabilityAccessController;
+	readonly hub: CapabilityHub;
+	dispose(): void;
+}
+
+function auditCapabilityAccess(event: CapabilityAccessAuditEvent): void {
+	log.debug("access decision", {
+		capabilityId: event.capabilityId,
+		decision: event.decision,
+		reason: event.reason,
+		sessionId: event.subject.sessionId,
+		subjectId: event.subject.id,
+	});
+}
+
+function createDesktopCapabilityHost(): DesktopCapabilityHost {
+	const hub = new CapabilityHub();
+	const foundationRegistration = registerDesktopFoundationProviders(hub.foundation);
+	const access = new CapabilityAccessController(hub, { audit: auditCapabilityAccess });
+	return {
+		access,
+		hub,
+		dispose: () => foundationRegistration.dispose(),
+	};
+}
+
+let desktopCapabilityHost: DesktopCapabilityHost | undefined;
+
+export function getDesktopCapabilityHost(): DesktopCapabilityHost {
+	desktopCapabilityHost ??= createDesktopCapabilityHost();
+	return desktopCapabilityHost;
+}

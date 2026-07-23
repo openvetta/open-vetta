@@ -1,11 +1,7 @@
+import { ThemeCapabilityAdapter } from "@vetta/capability-sdk/internal/theme-adapter";
 import { BrowserWindow, ipcMain } from "electron";
 import type { ThemeStorageChangedEvent, ThemeStorageJson } from "../../shared/theme-storage.js";
-import {
-	clearThemeStorage,
-	getThemeStorageData,
-	removeThemeStorageValue,
-	setThemeStorageValue,
-} from "../themes/theme-data-store.js";
+import { getDesktopCapabilityHost } from "../capabilities/capability-host.js";
 import { listThemes } from "../themes/theme-store.js";
 
 const CHANNELS = {
@@ -26,17 +22,18 @@ function broadcastStorageChanged(themeId: string, data: Record<string, ThemeStor
 }
 
 export function registerThemesIpc(): () => void {
+	const themeAdapter = new ThemeCapabilityAdapter(getDesktopCapabilityHost().access);
 	ipcMain.handle(CHANNELS.LIST, () => listThemes());
 
 	ipcMain.handle(CHANNELS.STORAGE_GET_ALL, async (_event, themeId: unknown) => {
 		if (typeof themeId !== "string") throw new Error("themeId must be a string");
-		return getThemeStorageData(themeId);
+		return themeAdapter.getStorage(themeId);
 	});
 
 	ipcMain.handle(CHANNELS.STORAGE_SET, async (_event, themeId: unknown, key: unknown, value: unknown) => {
 		if (typeof themeId !== "string") throw new Error("themeId must be a string");
 		if (typeof key !== "string") throw new Error("key must be a string");
-		const data = await setThemeStorageValue(themeId, key, value);
+		const data = await themeAdapter.setStorage(themeId, key, value);
 		broadcastStorageChanged(themeId, data);
 		return data;
 	});
@@ -44,14 +41,14 @@ export function registerThemesIpc(): () => void {
 	ipcMain.handle(CHANNELS.STORAGE_REMOVE, async (_event, themeId: unknown, key: unknown) => {
 		if (typeof themeId !== "string") throw new Error("themeId must be a string");
 		if (typeof key !== "string") throw new Error("key must be a string");
-		const data = await removeThemeStorageValue(themeId, key);
+		const data = await themeAdapter.removeStorage(themeId, key);
 		broadcastStorageChanged(themeId, data);
 		return data;
 	});
 
 	ipcMain.handle(CHANNELS.STORAGE_CLEAR, async (_event, themeId: unknown) => {
 		if (typeof themeId !== "string") throw new Error("themeId must be a string");
-		const data = await clearThemeStorage(themeId);
+		const data = await themeAdapter.clearStorage(themeId);
 		broadcastStorageChanged(themeId, data);
 		return data;
 	});
@@ -62,5 +59,6 @@ export function registerThemesIpc(): () => void {
 		ipcMain.removeHandler(CHANNELS.STORAGE_SET);
 		ipcMain.removeHandler(CHANNELS.STORAGE_REMOVE);
 		ipcMain.removeHandler(CHANNELS.STORAGE_CLEAR);
+		themeAdapter.dispose();
 	};
 }

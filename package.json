@@ -4,6 +4,8 @@
 	"type": "module",
 	"packageManager": "bun@1.3.4",
 	"workspaces": [
+		"packages/capability-sdk",
+		"packages/capability-runtime",
 		"packages/ai",
 		"packages/agent",
 		"packages/ecosystem-adapter",

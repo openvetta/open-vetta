@@ -209,5 +209,6 @@ vetta-mono/
 
 架构文档：
 
+- [`docs/capabilities/README.md`](docs/capabilities/README.md) — 基础/领域能力、直接基于 Capability ID 的通用权限层与系统适配层
 - [`docs/architecture-overview.md`](docs/architecture-overview.md) — 依赖方向、请求流、应用/运行时边界
 - [`docs/package-conventions.md`](docs/package-conventions.md) — 包与目录所有权约定

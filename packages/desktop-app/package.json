@@ -80,6 +80,8 @@
 		"@vetta-org/plugin-sdk": "workspace:*",
 		"@vetta/action-rpc": "workspace:*",
 		"@vetta/ai": "workspace:*",
+		"@vetta/capability-runtime": "workspace:*",
+		"@vetta/capability-sdk": "workspace:*",
 		"@vetta/runtime-core": "workspace:*",
 		"@vetta/theme-sdk": "workspace:*",
 		"@vetta/theme-ui": "workspace:*",
