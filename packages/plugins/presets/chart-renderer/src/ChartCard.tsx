@@ -117,9 +117,7 @@ export function ChartVisual({ payload, pending }: { payload?: ChartPayload; pend
 	if (!payload) return null;
 	const items = "charts" in payload ? payload.charts : [payload];
 	return (
-		<div
-			className={`my-2 grid min-w-0 gap-3 ${items.length === 1 ? "grid-cols-1" : "grid-cols-1 md:grid-cols-2"}`}
-		>
+		<div className="my-2 grid min-w-0 grid-cols-1 gap-3">
 			{items.slice(0, 4).map((item, index) => (
 				<ChartPanel item={item} key={`${item.title ?? item.type}-${index}`} />
 			))}
