@@ -193,14 +193,14 @@ CDT 的 `Stop` 兼容尤其需要谨慎：Vetta 必须在 Hook 阻止停止后�
 
 四个基线事件稳定后，可以增加：
 
-- `PostToolUse`
-- `PostToolUseFailure`
+- `PostToolUse`（已实现）
+- `PostToolUseFailure`（已实现：工具 `execute` 抛错后触发；exit 2 反馈 / `additionalContext`；不可撤销失败）
 - `Notification`
 - `SubagentStart`
 - `SubagentStop`
-- `PreCompact`
-- `PostCompact`
-- `SessionEnd`
+- `PreCompact`（已实现）
+- `PostCompact`（已实现）
+- `SessionEnd`（已实现：宿主用 Vetta `SessionEndCause`（`new_session` / `switch_session` / `fork_session` / `dispose`）；Claude profile 映射为 stdin/matcher 的 `reason`（`clear` / `resume` / `other` 等）；不可阻断拆会话）
 
 其中 `PostToolUse` 和 `PostToolUseFailure` 适合格式化、审计和反馈，是普通 Skill/插件最常见的扩展点；它们不应被宣称可以撤销已经发生的工具副作用。
 

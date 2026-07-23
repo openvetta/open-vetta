@@ -111,7 +111,7 @@ export class HookDispatcher {
 			eventName: handler.eventName,
 			handlerType: "command",
 			executionMode: "sync",
-			scope: handler.eventName === "SessionStart" ? "session" : "turn",
+			scope: sessionScopedEvent(handler.eventName) ? "session" : "turn",
 			sourcePath: handler.sourcePath,
 			displayOrder: handler.displayOrder,
 			status: "Running",
@@ -133,7 +133,7 @@ export class HookDispatcher {
 			eventName: handler.eventName,
 			handlerType: "command",
 			executionMode: "sync",
-			scope: handler.eventName === "SessionStart" ? "session" : "turn",
+			scope: sessionScopedEvent(handler.eventName) ? "session" : "turn",
 			sourcePath: handler.sourcePath,
 			displayOrder: handler.displayOrder,
 			status: outcome.status,
@@ -189,11 +189,19 @@ function runId(handler: ConfiguredHookHandler, request: HookRequest): string {
 		(letter, index) => `${index === 0 ? "" : "-"}${letter.toLowerCase()}`,
 	);
 	const base = `${event}:${handler.displayOrder}:${handler.sourcePath}`;
-	if (request.eventName === "PreToolUse" || request.eventName === "PostToolUse") {
+	if (
+		request.eventName === "PreToolUse" ||
+		request.eventName === "PostToolUse" ||
+		request.eventName === "PostToolUseFailure"
+	) {
 		return `${base}:${request.toolUseId}`;
 	}
 	if (request.eventName === "PermissionRequest") return `${base}:${request.runIdSuffix}`;
 	return base;
+}
+
+function sessionScopedEvent(eventName: HookRequest["eventName"]): boolean {
+	return eventName === "SessionStart" || eventName === "SessionEnd";
 }
 
 function epochSeconds(): number {
@@ -208,6 +216,7 @@ function logHookDispatch(request: HookRequest, effect: HookDispatchEffect, runs:
 		runs.some((run) => run.status === "Failed" || run.status === "Blocked" || run.status === "Stopped");
 	const alwaysLog =
 		request.eventName === "SessionStart" ||
+		request.eventName === "SessionEnd" ||
 		request.eventName === "Stop" ||
 		request.eventName === "PreCompact" ||
 		request.eventName === "PostCompact";
@@ -216,6 +225,7 @@ function logHookDispatch(request: HookRequest, effect: HookDispatchEffect, runs:
 	const tool =
 		request.eventName === "PreToolUse" ||
 		request.eventName === "PostToolUse" ||
+		request.eventName === "PostToolUseFailure" ||
 		request.eventName === "PermissionRequest"
 			? request.tool.name
 			: undefined;

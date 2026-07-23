@@ -4,6 +4,8 @@ import type { EcosystemHookRuntime, EcosystemToolDescriptor } from "@vetta/ecosy
 
 export type EcosystemHookAwareTool = AgentTool & { ecosystemHook?: EcosystemToolDescriptor };
 
+const HOOK_BLOCKED = Symbol("ecosystemHookBlocked");
+
 export function wrapToolsWithEcosystemHooks(tools: AgentTool[], hooks: EcosystemHookRuntime): AgentTool[] {
 	return tools.map((tool) => wrapTool(tool, hooks));
 }
@@ -27,33 +29,63 @@ function wrapTool<TParameters extends TSchema, TDetails>(
 					shouldBlock: pre.shouldBlock,
 					reason,
 				});
-				throw new Error(reason);
+				throw markHookBlocked(new Error(reason));
 			}
 			const executionParams = (pre.updatedToolInput ?? params) as typeof params;
+			const startedAt = Date.now();
 
-			const result = await tool.execute(toolCallId, executionParams, signal, onUpdate, context);
-			const post = await hooks.runPostToolUse(toolCallId, descriptor, executionParams, result, signal);
-			await hooks.recordAdditionalContexts(post.additionalContexts);
-			if (post.shouldStop || post.shouldBlock) {
-				const reason =
-					post.stopReason ?? post.blockReason ?? post.feedbackMessage ?? "Tool result blocked by ecosystem hook";
-				console.info("[ecosystem-hooks] post-tool blocked", {
-					tool: descriptor.hostName,
-					toolUseId: toolCallId,
-					shouldStop: post.shouldStop,
-					shouldBlock: post.shouldBlock,
-					reason,
+			try {
+				const result = await tool.execute(toolCallId, executionParams, signal, onUpdate, context);
+				const post = await hooks.runPostToolUse(toolCallId, descriptor, executionParams, result, signal);
+				await hooks.recordAdditionalContexts(post.additionalContexts);
+				if (post.shouldStop || post.shouldBlock) {
+					const reason =
+						post.stopReason ??
+						post.blockReason ??
+						post.feedbackMessage ??
+						"Tool result blocked by ecosystem hook";
+					console.info("[ecosystem-hooks] post-tool blocked", {
+						tool: descriptor.hostName,
+						toolUseId: toolCallId,
+						shouldStop: post.shouldStop,
+						shouldBlock: post.shouldBlock,
+						reason,
+					});
+					throw markHookBlocked(new Error(reason));
+				}
+				return post.feedbackMessage === undefined
+					? result
+					: {
+							...result,
+							content: [{ type: "text", text: post.feedbackMessage }],
+						};
+			} catch (error) {
+				// Pre/Post hook blocks are not tool failures; do not fire PostToolUseFailure.
+				if (isHookBlocked(error)) throw error;
+
+				const message = error instanceof Error ? error.message : String(error);
+				const failure = await hooks.runPostToolUseFailure(toolCallId, descriptor, executionParams, message, {
+					isInterrupt: signal?.aborted === true,
+					durationMs: Date.now() - startedAt,
+					signal,
 				});
-				throw new Error(reason);
+				await hooks.recordAdditionalContexts(failure.additionalContexts);
+				if (failure.feedbackMessage) {
+					throw new Error(`${message}\n\n${failure.feedbackMessage}`);
+				}
+				throw error;
 			}
-			return post.feedbackMessage === undefined
-				? result
-				: {
-						...result,
-						content: [{ type: "text", text: post.feedbackMessage }],
-					};
 		},
 	};
+}
+
+function markHookBlocked(error: Error): Error {
+	(error as Error & { [HOOK_BLOCKED]?: true })[HOOK_BLOCKED] = true;
+	return error;
+}
+
+function isHookBlocked(error: unknown): boolean {
+	return typeof error === "object" && error !== null && HOOK_BLOCKED in error;
 }
 
 function toolDescriptor(tool: { name: string; ecosystemHook?: EcosystemToolDescriptor }): EcosystemToolDescriptor {

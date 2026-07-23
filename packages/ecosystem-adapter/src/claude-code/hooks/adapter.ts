@@ -74,6 +74,8 @@ function toClaudeRequest(event: EcosystemHookEvent): HookRequest {
 	switch (event.eventName) {
 		case "SessionStart":
 			return { ...common, eventName: event.eventName, source: event.source };
+		case "SessionEnd":
+			return { ...common, eventName: event.eventName, cause: event.cause };
 		case "UserPromptSubmit":
 			return {
 				...common,
@@ -111,6 +113,19 @@ function toClaudeRequest(event: EcosystemHookEvent): HookRequest {
 				toolUseId: event.toolUseId,
 				toolInput: event.toolInput,
 				toolResponse: event.toolResponse,
+				subagent: event.subagent,
+			};
+		case "PostToolUseFailure":
+			return {
+				...common,
+				eventName: event.eventName,
+				turnId: event.turnId,
+				tool: mapToolToClaude(event.tool),
+				toolUseId: event.toolUseId,
+				toolInput: event.toolInput,
+				error: event.error,
+				isInterrupt: event.isInterrupt,
+				durationMs: event.durationMs,
 				subagent: event.subagent,
 			};
 		case "PreCompact":

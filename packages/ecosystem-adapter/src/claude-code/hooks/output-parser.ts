@@ -3,8 +3,10 @@ import type { HookEventName } from "../../hooks/types.js";
 import {
 	compactOutputSchema,
 	permissionRequestOutputSchema,
+	postToolUseFailureOutputSchema,
 	postToolUseOutputSchema,
 	preToolUseOutputSchema,
+	sessionEndOutputSchema,
 	sessionStartOutputSchema,
 	stopOutputSchema,
 	subagentStartOutputSchema,
@@ -59,6 +61,12 @@ export function parseClaudeOutput(eventName: HookEventName, stdout: string): Cla
 				output.additionalContext = optionalString(wire.hookSpecificOutput?.additionalContext);
 				return output;
 			});
+		case "SessionEnd":
+			return parseWithSchema(eventName, sessionEndOutputSchema, root, (wire) => {
+				const output = fromUniversal(wire);
+				output.additionalContext = optionalString(wire.hookSpecificOutput?.additionalContext);
+				return output;
+			});
 		case "SubagentStart":
 			return parseWithSchema(eventName, subagentStartOutputSchema, root, (wire) => {
 				const output = fromUniversal(wire);
@@ -109,6 +117,12 @@ export function parseClaudeOutput(eventName: HookEventName, stdout: string): Cla
 				output.reason = optionalString(wire.reason);
 				output.additionalContext = optionalString(wire.hookSpecificOutput?.additionalContext);
 				output.updatedMcpToolOutput = optionalValue(wire.hookSpecificOutput?.updatedMCPToolOutput);
+				return output;
+			});
+		case "PostToolUseFailure":
+			return parseWithSchema(eventName, postToolUseFailureOutputSchema, root, (wire) => {
+				const output = fromUniversal(wire);
+				output.additionalContext = optionalString(wire.hookSpecificOutput?.additionalContext);
 				return output;
 			});
 		case "PreCompact":

@@ -11,7 +11,15 @@ const universalShape = {
 };
 
 function additionalContextOutput(
-	eventName: "SessionStart" | "SubagentStart" | "UserPromptSubmit" | "PostToolUse" | "Stop" | "SubagentStop",
+	eventName:
+		| "SessionStart"
+		| "SessionEnd"
+		| "SubagentStart"
+		| "UserPromptSubmit"
+		| "PostToolUse"
+		| "PostToolUseFailure"
+		| "Stop"
+		| "SubagentStop",
 ) {
 	return z
 		.object({
@@ -25,6 +33,13 @@ export const sessionStartOutputSchema = z
 	.object({
 		...universalShape,
 		hookSpecificOutput: additionalContextOutput("SessionStart").nullable().optional(),
+	})
+	.passthrough();
+
+export const sessionEndOutputSchema = z
+	.object({
+		...universalShape,
+		hookSpecificOutput: additionalContextOutput("SessionEnd").nullable().optional(),
 	})
 	.passthrough();
 
@@ -101,6 +116,13 @@ export const postToolUseOutputSchema = z
 			.passthrough()
 			.nullable()
 			.optional(),
+	})
+	.passthrough();
+
+export const postToolUseFailureOutputSchema = z
+	.object({
+		...universalShape,
+		hookSpecificOutput: additionalContextOutput("PostToolUseFailure").nullable().optional(),
 	})
 	.passthrough();
 

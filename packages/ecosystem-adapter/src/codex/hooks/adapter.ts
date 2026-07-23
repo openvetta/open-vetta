@@ -40,7 +40,8 @@ export async function createCodexHookAdapter(
 
 	return {
 		id: codexHookProfileFca51f6.id,
-		supports: () => true,
+		// SessionEnd / PostToolUseFailure are Claude-only in this release; Codex profile stays at 10 events.
+		supports: (event) => event.eventName !== "SessionEnd" && event.eventName !== "PostToolUseFailure",
 		dispatch: (event, signal) => dispatcher.dispatch(toLatestCodexRequest(event), signal),
 	};
 }
@@ -56,6 +57,9 @@ function toLatestCodexRequest(event: EcosystemHookEvent): HookRequest {
 	switch (event.eventName) {
 		case "SessionStart":
 			return { ...common, eventName: event.eventName, source: event.source };
+		case "SessionEnd":
+		case "PostToolUseFailure":
+			throw new Error(`Codex profile does not support ${event.eventName}`);
 		case "UserPromptSubmit":
 			return {
 				...common,

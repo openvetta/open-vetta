@@ -33,9 +33,13 @@ function matcherInputs(request: HookRequest): readonly string[] | undefined {
 	switch (request.eventName) {
 		case "SessionStart":
 			return [request.source];
+		case "SessionEnd":
+			// Unsupported on Codex profile; value only exists for HookRequest exhaustiveness.
+			return [request.cause];
 		case "PreToolUse":
 		case "PermissionRequest":
 		case "PostToolUse":
+		case "PostToolUseFailure":
 			return [request.tool.name, ...request.tool.matcherAliases];
 		case "PreCompact":
 		case "PostCompact":

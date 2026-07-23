@@ -31,10 +31,12 @@ export interface ClaudeHookDiscoveryResult {
 /** Events Vetta host can fire and this profile can load. */
 const SUPPORTED_EVENT_NAMES: readonly HookEventName[] = [
 	"SessionStart",
+	"SessionEnd",
 	"UserPromptSubmit",
 	"PreToolUse",
 	"PermissionRequest",
 	"PostToolUse",
+	"PostToolUseFailure",
 	"PreCompact",
 	"PostCompact",
 	"SubagentStart",

@@ -469,6 +469,12 @@ export class AgentSession {
 		this._disconnectFromAgent();
 		this._eventListeners = [];
 
+		// Best-effort SessionEnd before tearing down session resources.
+		// baseEvent() is captured synchronously; do not await (dispose stays sync).
+		void this._hookRuntime.runSessionEnd("dispose").catch((error) => {
+			console.warn("[ecosystem-hooks] SessionEnd on dispose failed", error);
+		});
+
 		// Tear down children first so they cannot notify a disposed parent.
 		void this._subagents?.dispose();
 		this._subagents = undefined;

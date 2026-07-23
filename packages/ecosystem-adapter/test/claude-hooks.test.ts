@@ -366,6 +366,137 @@ process.stdin.on("end", () => {
 		const second = await runtime.runStop("assistant after continuation");
 		expect(second).toEqual([]);
 	});
+
+	it("SessionEnd maps Vetta cause to Claude reason for matcher and stdin", async () => {
+		const { root, claudeDir } = await writeHookProject({
+			"session-end.cjs": `
+let data = "";
+process.stdin.on("data", (chunk) => { data += chunk; });
+process.stdin.on("end", () => {
+  const body = JSON.parse(data);
+  if (body.hook_event_name !== "SessionEnd") process.exit(1);
+  // Wire still uses Claude reason (new_session / fork_session → clear)
+  if (body.reason !== "clear") process.exit(1);
+  process.stdout.write(JSON.stringify({
+    systemMessage: "session end ok"
+  }));
+});
+`,
+			".claude/settings.json": JSON.stringify({
+				hooks: {
+					SessionEnd: [
+						{
+							// Claude settings matcher stays on Claude reason vocabulary
+							matcher: "clear",
+							hooks: [{ type: "command", command: "node session-end.cjs" }],
+						},
+					],
+				},
+			}),
+		});
+
+		const runtime = createEcosystemHookRuntime({
+			host: {
+				cwd: root,
+				getSessionId: () => "session-end-1",
+				getTranscriptPath: () => null,
+				getModelId: () => "test-model",
+				abortCurrentRun: () => {},
+			},
+			initialSessionStartSource: "startup",
+			configLayers: [{ directory: claudeDir, enabled: true }],
+		});
+		await runtime.runPendingSessionStart();
+
+		const newSessionEnd = await runtime.runSessionEnd("new_session");
+		expect(newSessionEnd.shouldBlock).toBe(false);
+		expect(newSessionEnd.shouldStop).toBe(false);
+		expect(newSessionEnd.runs).toHaveLength(1);
+		expect(newSessionEnd.runs[0]?.status).toBe("Completed");
+
+		const forkEnd = await runtime.runSessionEnd("fork_session");
+		expect(forkEnd.runs).toHaveLength(1);
+		expect(forkEnd.runs[0]?.status).toBe("Completed");
+
+		// switch_session → Claude reason "resume"; does not match matcher "clear"
+		const switchEnd = await runtime.runSessionEnd("switch_session");
+		expect(switchEnd.runs).toHaveLength(0);
+
+		// dispose → Claude reason "other"
+		const disposeEnd = await runtime.runSessionEnd("dispose");
+		expect(disposeEnd.runs).toHaveLength(0);
+	});
+
+	it("PostToolUseFailure returns additionalContext and exit 2 feedback", async () => {
+		const { root, claudeDir } = await writeHookProject({
+			"failure-context.cjs": `
+let data = "";
+process.stdin.on("data", (chunk) => { data += chunk; });
+process.stdin.on("end", () => {
+  const body = JSON.parse(data);
+  if (body.hook_event_name !== "PostToolUseFailure") process.exit(1);
+  if (!body.error || body.tool_name !== "Bash") process.exit(1);
+  process.stdout.write(JSON.stringify({
+    hookSpecificOutput: {
+      hookEventName: "PostToolUseFailure",
+      additionalContext: "retry with smaller batch"
+    }
+  }));
+});
+`,
+			"failure-feedback.cjs": `
+process.stderr.write("tool failed; check credentials");
+process.exit(2);
+`,
+			".claude/settings.json": JSON.stringify({
+				hooks: {
+					PostToolUseFailure: [
+						{
+							matcher: "Bash",
+							hooks: [{ type: "command", command: "node failure-context.cjs" }],
+						},
+						{
+							matcher: "Write",
+							hooks: [{ type: "command", command: "node failure-feedback.cjs" }],
+						},
+					],
+				},
+			}),
+		});
+
+		const runtime = createEcosystemHookRuntime({
+			host: {
+				cwd: root,
+				getSessionId: () => "session-fail-1",
+				getTranscriptPath: () => null,
+				getModelId: () => "test-model",
+				abortCurrentRun: () => {},
+			},
+			initialSessionStartSource: "startup",
+			configLayers: [{ directory: claudeDir, enabled: true }],
+		});
+		await runtime.runPendingSessionStart();
+		await runtime.runUserPromptSubmit("run tools");
+
+		const bashFail = await runtime.runPostToolUseFailure(
+			"call-fail-1",
+			{ hostName: "bash", kind: "shell" },
+			{ command: "false" },
+			"Command exited with non-zero status code 1",
+			{ durationMs: 12 },
+		);
+		expect(bashFail.shouldBlock).toBe(false);
+		expect(bashFail.additionalContexts.some((c) => c.includes("smaller batch"))).toBe(true);
+
+		const writeFail = await runtime.runPostToolUseFailure(
+			"call-fail-2",
+			{ hostName: "write", kind: "file-edit" },
+			{ path: "a.txt", content: "x" },
+			"write failed",
+		);
+		expect(writeFail.shouldBlock).toBe(false);
+		expect(writeFail.feedbackMessage).toContain("credentials");
+	});
 });
 
 describe("createClaudeHookAdapter presence", () => {
