@@ -1,7 +1,7 @@
-# Vetta Plugin Workspace
+# Vetta Plugins
 
-本目录是 Vetta 插件独立 workspace，集中维护插件 SDK、构建工具、系统插件和
-外置插件示例。
+本目录集中维护插件 SDK、构建工具、系统插件和外置插件示例，所有包统一纳入
+仓库根 workspace。
 
 ## 开发前必读
 
@@ -18,10 +18,9 @@
 
 ## 安装
 
-插件 workspace 使用独立锁文件：
+从仓库根目录统一安装依赖：
 
 ```bash
-cd packages/plugins
 bun install
 ```
 
