@@ -139,6 +139,38 @@ function injectPreviewChrome(content: string, theme: "light" | "dark"): string {
 	return `<!DOCTYPE html><html><head>${styleTag}</head><body>${content}</body></html>`;
 }
 
+function HtmlPreviewFrame({
+	srcDoc,
+	theme,
+	title,
+}: {
+	readonly srcDoc: string;
+	readonly theme: "light" | "dark";
+	readonly title: string;
+}): JSX.Element {
+	const [loadedSrcDoc, setLoadedSrcDoc] = useState<string | null>(null);
+	const loaded = loadedSrcDoc === srcDoc;
+	const backgroundClass = theme === "dark" ? "bg-neutral-950" : "bg-white";
+
+	return (
+		<div
+			aria-busy={!loaded}
+			className={`relative min-h-0 w-full flex-1 ${backgroundClass}`}
+		>
+			<iframe
+				title={title}
+				srcDoc={srcDoc}
+				sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+				onLoad={() => setLoadedSrcDoc(srcDoc)}
+				className={`absolute inset-0 h-full w-full border-0 ${backgroundClass} ${
+					loaded ? "opacity-100" : "opacity-0"
+				}`}
+				style={{ colorScheme: theme }}
+			/>
+		</div>
+	);
+}
+
 export function HtmlPreviewView({
 	content,
 	extension,
@@ -164,14 +196,7 @@ export function HtmlPreviewView({
 			</div>
 			{mode === "preview" ? (
 				// iframe ignores flex-grow in many engines — absolute fill matches parent height.
-				<div className="relative min-h-0 w-full flex-1">
-					<iframe
-						title={labels.title}
-						srcDoc={srcDoc}
-						sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-						className="absolute inset-0 h-full w-full border-0 bg-white"
-					/>
-				</div>
+				<HtmlPreviewFrame srcDoc={srcDoc} theme={theme} title={labels.title} />
 			) : (
 				<div className="min-h-0 w-full flex-1 overflow-y-auto">
 					<CodePreviewComponent content={content} extension={extension} theme={theme} />
