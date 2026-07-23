@@ -74,8 +74,15 @@ export const AssistantMessage = memo(function AssistantMessage({
 			predicting: t("messageList.assistantMessage.predicting"),
 			streamingFold: (elapsed: number) =>
 				t("messageList.assistantFoldTip.streaming", { elapsed }),
-			expandFold: (count: number) => t(`${foldNamespace}.expand`, { count }),
-			collapseFold: (count: number) => t(`${foldNamespace}.collapse`, { count }),
+			// 被折走的过程里一个阶段都没有（例如只有零散的单次调用）时，不说数量。
+			expandFold: (count: number) =>
+				isWorkMode && count === 0
+					? t("messageList.assistantFoldTip.work.expandZero")
+					: t(`${foldNamespace}.expand`, { count }),
+			collapseFold: (count: number) =>
+				isWorkMode && count === 0
+					? t("messageList.assistantFoldTip.work.collapseZero")
+					: t(`${foldNamespace}.collapse`, { count }),
 			streamingPhrases: Array.isArray(phrases) ? (phrases as string[]) : [],
 		};
 	}, [t, isWorkMode]);
