@@ -7,8 +7,10 @@ import {
 	DOMAIN_DOWNLOAD_CAPABILITIES,
 	DOMAIN_KNOWLEDGE_CAPABILITIES,
 	DOMAIN_PROJECT_CAPABILITIES,
+	DOMAIN_QUICK_PANEL_CAPABILITIES,
 	DOMAIN_SCHEDULER_CAPABILITIES,
 	DOMAIN_SESSION_CAPABILITIES,
+	DOMAIN_SHORTCUT_CAPABILITIES,
 	DOMAIN_SKILL_CAPABILITIES,
 	DOMAIN_UPDATER_CAPABILITIES,
 	DOMAIN_WEBHOOK_CAPABILITIES,
@@ -21,6 +23,7 @@ import { allowProjectRoot, createFilesystemDirectory } from "../filesystem/files
 import { getKnowledgeService } from "../knowledge/knowledge-service.js";
 import { ProjectService } from "../projects/project-service.js";
 import { getDesktopSchedulerService } from "../scheduler/scheduler-service.js";
+import { getDesktopShortcutService } from "../shortcuts/shortcut-service.js";
 import { getDesktopSkillService } from "../skills/skill-service.js";
 import { getAppVersion, updaterService } from "../updater.js";
 import { getWebhookManager } from "../webhook/index.js";
@@ -29,6 +32,8 @@ const DOMAIN_BATCH_TASK_PROVIDER_OWNER = "vetta.domain.batch-task";
 const DOMAIN_PROJECT_PROVIDER_OWNER = "vetta.domain.project";
 const DOMAIN_SESSION_PROVIDER_OWNER = "vetta.domain.session";
 const DOMAIN_SKILL_PROVIDER_OWNER = "vetta.domain.skill";
+const DOMAIN_SHORTCUT_PROVIDER_OWNER = "vetta.domain.shortcut";
+const DOMAIN_QUICK_PANEL_PROVIDER_OWNER = "vetta.domain.quick-panel";
 const DOMAIN_DOWNLOAD_PROVIDER_OWNER = "vetta.domain.download";
 const DOMAIN_UPDATER_PROVIDER_OWNER = "vetta.domain.updater";
 const DOMAIN_KNOWLEDGE_PROVIDER_OWNER = "vetta.domain.knowledge";
@@ -46,6 +51,7 @@ export function registerDesktopDomainProviders(registry: CapabilityRegistry): Di
 	const downloads = getDesktopDownloadService();
 	const knowledge = getKnowledgeService();
 	const scheduler = getDesktopSchedulerService();
+	const shortcuts = getDesktopShortcutService();
 	const skills = getDesktopSkillService();
 	const webhooks = getWebhookManager();
 	const projects = new ProjectService({
@@ -239,6 +245,46 @@ export function registerDesktopDomainProviders(registry: CapabilityRegistry): Di
 			execute: async ({ name, type }, context) => {
 				assertNotAborted(context.signal);
 				await skills.uninstall(name, type);
+			},
+		}),
+	]);
+	const shortcutRegistration = registry.registerOwner(DOMAIN_SHORTCUT_PROVIDER_OWNER, [
+		bindCapability(DOMAIN_SHORTCUT_CAPABILITIES.GET_SETTINGS, {
+			execute: async (_input, context) => {
+				assertNotAborted(context.signal);
+				return shortcuts.getSettings();
+			},
+		}),
+		bindCapability(DOMAIN_SHORTCUT_CAPABILITIES.SET_BINDING, {
+			execute: async ({ id, shortcut }, context) => {
+				assertNotAborted(context.signal);
+				return shortcuts.setBinding(id, shortcut);
+			},
+		}),
+		bindCapability(DOMAIN_SHORTCUT_CAPABILITIES.RESET_BINDING, {
+			execute: async ({ id }, context) => {
+				assertNotAborted(context.signal);
+				return shortcuts.resetBinding(id);
+			},
+		}),
+		bindCapability(DOMAIN_SHORTCUT_CAPABILITIES.RESET_ALL_BINDINGS, {
+			execute: async (_input, context) => {
+				assertNotAborted(context.signal);
+				return shortcuts.resetAllBindings();
+			},
+		}),
+	]);
+	const quickPanelRegistration = registry.registerOwner(DOMAIN_QUICK_PANEL_PROVIDER_OWNER, [
+		bindCapability(DOMAIN_QUICK_PANEL_CAPABILITIES.SET_TRIGGER, {
+			execute: async ({ trigger }, context) => {
+				assertNotAborted(context.signal);
+				return shortcuts.setQuickPanelTrigger(trigger);
+			},
+		}),
+		bindCapability(DOMAIN_QUICK_PANEL_CAPABILITIES.SET_POST_SEND_BEHAVIOR, {
+			execute: async ({ behavior }, context) => {
+				assertNotAborted(context.signal);
+				return shortcuts.setQuickPanelPostSendBehavior(behavior);
 			},
 		}),
 	]);
@@ -488,6 +534,8 @@ export function registerDesktopDomainProviders(registry: CapabilityRegistry): Di
 			updaterRegistration.dispose();
 			downloadRegistration.dispose();
 			batchTaskRegistration.dispose();
+			quickPanelRegistration.dispose();
+			shortcutRegistration.dispose();
 			skillRegistration.dispose();
 			sessionRegistration.dispose();
 			projectRegistration.dispose();

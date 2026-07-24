@@ -131,6 +131,19 @@ export function createPluginsApi(ipc: IpcRenderer): Pick<DesktopApi, "plugins"> 
 					uninstall: (sessionId, name, type) =>
 						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.SKILL_INSTALLED_UNINSTALL, sessionId, name, type),
 				},
+				shortcuts: {
+					getSettings: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.SHORTCUT_SETTINGS_GET, sessionId),
+					setBinding: (sessionId, id, shortcut) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.SHORTCUT_BINDING_SET, sessionId, id, shortcut),
+					resetBinding: (sessionId, id) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.SHORTCUT_BINDING_RESET, sessionId, id),
+					resetAllBindings: (sessionId) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.SHORTCUT_BINDING_RESET_ALL, sessionId),
+					setQuickPanelTrigger: (sessionId, trigger) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.QUICK_PANEL_TRIGGER_SET, sessionId, trigger),
+					setQuickPanelPostSendBehavior: (sessionId, behavior) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.QUICK_PANEL_POST_SEND_BEHAVIOR_SET, sessionId, behavior),
+				},
 				scheduler: {
 					listTasks: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.SCHEDULER_TASK_LIST, sessionId),
 					getTask: (sessionId, taskId) =>

@@ -19,7 +19,6 @@ import type {
 	McpStdioServerConfigData,
 } from "../../preload/api-types/mcp.js";
 import type { FsEntry, FsFileRef } from "../../preload/fs-types.js";
-import { SHORTCUTS_CHANNELS } from "../../shared/shortcuts-ipc.js";
 import {
 	type AppshotConfig,
 	type AppshotGesture,
@@ -67,6 +66,7 @@ import { fetchProviderModels } from "../models/fetch-models.js";
 import { probeModelProvider } from "../models/probe.js";
 import { openExternalUrl } from "../open-external.js";
 import { getLinuxSandboxCapability, getSandboxCapability, type SandboxCapability } from "../sandbox/capability.js";
+import { getDesktopShortcutService } from "../shortcuts/shortcut-service.js";
 
 export interface LinuxSandboxConfigState {
 	status: "unknown" | "available" | "unavailable";
@@ -89,15 +89,6 @@ export interface DesktopConfigSnapshot extends DesktopConfig {
 
 const MODELS_CONFIG_PATH = join(getVettaHomePath(), "agent", "models.json");
 const MCP_CONFIG_PATH = join(getVettaHomePath(), "agent", "mcp.json");
-/** 向所有窗口广播全局快捷键绑定变更（设置页 GUI 与 Action 共用）。 */
-export function broadcastShortcutsBindingsChanged(bindings: Record<string, string>): void {
-	const payload = { bindings };
-	for (const win of BrowserWindow.getAllWindows()) {
-		if (win.isDestroyed()) continue;
-		win.webContents.send(SHORTCUTS_CHANNELS.CHANGED, payload);
-	}
-}
-
 export {
 	type AppshotConfig,
 	type AppshotGesture,
@@ -248,6 +239,7 @@ function assertNonEmptyString(value: unknown, fieldName: string): asserts value 
 export { allowProjectRoot, assertPathReadableForPreview } from "../filesystem/filesystem-service.js";
 
 export function registerFsIpc(): () => void {
+	const shortcuts = getDesktopShortcutService();
 	ipcMain.handle(CHANNELS.READ_DIR, async (_event, dirPath: unknown): Promise<FsEntry[]> => {
 		assertNonEmptyString(dirPath, "dirPath");
 		return readFilesystemDirectory(dirPath);
@@ -462,7 +454,7 @@ export function registerFsIpc(): () => void {
 		await writeDesktopConfig(next);
 		if (patch.shortcuts !== undefined) {
 			const bindings = next.shortcuts?.bindings ?? {};
-			broadcastShortcutsBindingsChanged(bindings as Record<string, string>);
+			shortcuts.notifyBindingsChanged(bindings as Record<string, string>);
 		}
 	});
 

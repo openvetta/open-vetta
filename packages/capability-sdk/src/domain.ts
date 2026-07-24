@@ -93,6 +93,23 @@ export {
 	type SessionRuntimeProject,
 } from "./domain/session.js";
 export {
+	DOMAIN_QUICK_PANEL_CAPABILITIES,
+	DOMAIN_SHORTCUT_CAPABILITIES,
+	QUICK_PANEL_POST_SEND_BEHAVIORS,
+	QUICK_PANEL_TRIGGERS,
+	type QuickPanelPostSendBehavior,
+	type QuickPanelPostSendBehaviorInput,
+	type QuickPanelSettings,
+	type QuickPanelTrigger,
+	type QuickPanelTriggerInput,
+	type ShortcutActionInput,
+	type ShortcutBinding,
+	type ShortcutBindingInput,
+	type ShortcutBindingResetResult,
+	type ShortcutBindingsResult,
+	type ShortcutSettings,
+} from "./domain/shortcut.js";
+export {
 	DOMAIN_SKILL_CAPABILITIES,
 	INSTALLED_SKILL_SOURCES,
 	type InstalledSkill,

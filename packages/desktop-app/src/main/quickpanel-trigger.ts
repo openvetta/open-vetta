@@ -7,7 +7,7 @@
 // macOS 首次启动监听会触发系统「输入监控」授权；未授权时收不到事件——设置页有提示。
 
 import { UiohookKey, uIOhook } from "uiohook-napi";
-import type { AppshotGesture, QuickPanelTrigger } from "./ipc/fs.js";
+import type { AppshotGesture, QuickPanelTrigger } from "./config/desktop-config-store.js";
 import { getAppLogger } from "./logger.js";
 
 const log = getAppLogger("quickpanel-trigger");
