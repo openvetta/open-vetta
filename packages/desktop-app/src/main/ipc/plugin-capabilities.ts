@@ -7,6 +7,11 @@ function requireString(value: unknown, field: string): string {
 	return value;
 }
 
+function requireText(value: unknown, field: string): string {
+	if (typeof value !== "string") throw new Error(`${field} must be a string`);
+	return value;
+}
+
 function optionalString(value: unknown, field: string): string | undefined {
 	if (value === undefined) return undefined;
 	return requireString(value, field);
@@ -31,6 +36,110 @@ export function registerPluginCapabilitiesIpc(): () => void {
 	);
 	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.CLOSE_SESSION, (_event, sessionId: unknown) =>
 		adapter.closeSession(requireString(sessionId, "sessionId")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.BATCH_PROJECT_LIST, (_event, sessionId: unknown) =>
+		adapter.listBatchProjects(requireString(sessionId, "sessionId")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.BATCH_PROJECT_GET, (_event, sessionId: unknown, projectId: unknown) =>
+		adapter.getBatchProject(requireString(sessionId, "sessionId"), requireString(projectId, "projectId")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.BATCH_PROJECT_CREATE, (_event, sessionId: unknown, data: unknown) =>
+		adapter.createBatchProject(requireString(sessionId, "sessionId"), data),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.BATCH_PROJECT_UPDATE,
+		(_event, sessionId: unknown, projectId: unknown, data: unknown) =>
+			adapter.updateBatchProject(requireString(sessionId, "sessionId"), requireString(projectId, "projectId"), data),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.BATCH_PROJECT_DELETE, (_event, sessionId: unknown, projectId: unknown) =>
+		adapter.deleteBatchProject(requireString(sessionId, "sessionId"), requireString(projectId, "projectId")),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.BATCH_TASK_RUN,
+		(_event, sessionId: unknown, projectId: unknown, taskId: unknown) =>
+			adapter.runBatchTask(
+				requireString(sessionId, "sessionId"),
+				requireString(projectId, "projectId"),
+				requireString(taskId, "taskId"),
+			),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.BATCH_TASK_RETRY,
+		(_event, sessionId: unknown, projectId: unknown, taskId: unknown) =>
+			adapter.retryBatchTask(
+				requireString(sessionId, "sessionId"),
+				requireString(projectId, "projectId"),
+				requireString(taskId, "taskId"),
+			),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.BATCH_TASK_STOP,
+		(_event, sessionId: unknown, projectId: unknown, taskId: unknown) =>
+			adapter.stopBatchTask(
+				requireString(sessionId, "sessionId"),
+				requireString(projectId, "projectId"),
+				requireString(taskId, "taskId"),
+			),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.BATCH_TASK_DELETE,
+		(_event, sessionId: unknown, projectId: unknown, taskId: unknown) =>
+			adapter.deleteBatchTask(
+				requireString(sessionId, "sessionId"),
+				requireString(projectId, "projectId"),
+				requireString(taskId, "taskId"),
+			),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.BATCH_TASK_RESUME,
+		(_event, sessionId: unknown, projectId: unknown, taskId: unknown) =>
+			adapter.resumeBatchTask(
+				requireString(sessionId, "sessionId"),
+				requireString(projectId, "projectId"),
+				requireString(taskId, "taskId"),
+			),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.BATCH_TASK_RESUME_WITH_TEXT,
+		(_event, sessionId: unknown, projectId: unknown, taskId: unknown, text: unknown) =>
+			adapter.resumeBatchTaskWithText(
+				requireString(sessionId, "sessionId"),
+				requireString(projectId, "projectId"),
+				requireString(taskId, "taskId"),
+				requireText(text, "text"),
+			),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.BATCH_TASK_SESSION_DELETE,
+		(_event, sessionId: unknown, projectId: unknown, taskId: unknown) =>
+			adapter.deleteBatchTaskSession(
+				requireString(sessionId, "sessionId"),
+				requireString(projectId, "projectId"),
+				requireString(taskId, "taskId"),
+			),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.BATCH_PROJECT_TASK_DELETE_ALL,
+		(_event, sessionId: unknown, projectId: unknown) =>
+			adapter.deleteAllBatchTasks(requireString(sessionId, "sessionId"), requireString(projectId, "projectId")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.BATCH_PROJECT_START, (_event, sessionId: unknown, projectId: unknown) =>
+		adapter.startBatchProject(requireString(sessionId, "sessionId"), requireString(projectId, "projectId")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.BATCH_PROJECT_STOP, (_event, sessionId: unknown, projectId: unknown) =>
+		adapter.stopBatchProject(requireString(sessionId, "sessionId"), requireString(projectId, "projectId")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.BATCH_PROJECT_RESET, (_event, sessionId: unknown, projectId: unknown) =>
+		adapter.resetBatchProject(requireString(sessionId, "sessionId"), requireString(projectId, "projectId")),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.BATCH_PROJECT_FAILED_TASK_RESET,
+		(_event, sessionId: unknown, projectId: unknown, taskIds: unknown) =>
+			adapter.resetFailedBatchTasks(
+				requireString(sessionId, "sessionId"),
+				requireString(projectId, "projectId"),
+				requireStringArray(taskIds, "taskIds"),
+			),
 	);
 	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.FS_READ_DIRECTORY, (_event, sessionId: unknown, path: unknown) =>
 		adapter.readDirectory(requireString(sessionId, "sessionId"), requireString(path, "path")),

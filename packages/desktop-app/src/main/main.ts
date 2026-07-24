@@ -13,7 +13,7 @@ import { createAppDebugRuntime } from "./app-debug/index.js";
 import { createDebugRpcRuntime } from "./app-debug/rpc.js";
 import { configureRendererCdp } from "./app-debug/ui/renderer-cdp.js";
 import { initializeAppMonitor, shutdownAppMonitor } from "./app-monitor/app-monitor-service.js";
-import { BatchTaskService } from "./batch-tasks/batch-task-service.js";
+import { initializeDesktopBatchTaskService } from "./batch-tasks/batch-task-service.js";
 import { parseActionCliCommand, runActionCliCommand } from "./cli/action-command.js";
 import { parseAgentRpcCommand, runAgentRpcCommand } from "./cli/agent-rpc-command.js";
 import { parseHelpCliCommand, runHelpCliCommand } from "./cli/help-command.js";
@@ -559,7 +559,7 @@ if (!gotSingleLock) {
 		mainWindow.on("maximize", sendWindowMaximizedChanged);
 		mainWindow.on("unmaximize", sendWindowMaximizedChanged);
 		const actionApprovalBroker = new ActionApprovalBroker(mainWindow.webContents);
-		const batchTaskService = new BatchTaskService(getSharedRuntime);
+		const batchTaskService = initializeDesktopBatchTaskService(getSharedRuntime);
 		const schedulerService = initializeDesktopSchedulerService({
 			getRuntime: getSharedRuntime,
 			scheduleTask: scheduleTaskInCron,

@@ -9,6 +9,7 @@ import type {
 import { PLUGIN_CAPABILITY_PERMISSIONS, PluginCapabilityAdapter } from "../src/adapters/plugin.js";
 import { CAPABILITY_ERROR_CODES, type CapabilityId, type CapabilityToken } from "../src/contracts.js";
 import {
+	DOMAIN_BATCH_TASK_CAPABILITIES,
 	DOMAIN_DOWNLOAD_CAPABILITIES,
 	DOMAIN_KNOWLEDGE_CAPABILITIES,
 	DOMAIN_PROJECT_CAPABILITIES,
@@ -54,6 +55,34 @@ function outputFor(capabilityId: CapabilityId): unknown {
 	}
 	if (capabilityId === FOUNDATION_FILESYSTEM_CAPABILITIES.STAT.id) return null;
 	if (capabilityId === FOUNDATION_FILESYSTEM_CAPABILITIES.LIST_FILES_RECURSIVE.id) return [];
+	if (
+		capabilityId === DOMAIN_BATCH_TASK_CAPABILITIES.LIST_PROJECTS.id ||
+		capabilityId === DOMAIN_BATCH_TASK_CAPABILITIES.GET_PROJECT.id ||
+		capabilityId === DOMAIN_BATCH_TASK_CAPABILITIES.CREATE_PROJECT.id ||
+		capabilityId === DOMAIN_BATCH_TASK_CAPABILITIES.UPDATE_PROJECT.id
+	) {
+		const project = {
+			id: "C:/workspace/Batch",
+			name: "Batch",
+			prompt: "Process",
+			executionMode: "full-access",
+			concurrency: 2,
+			notifyEnabled: false,
+			timeoutMinutes: 60,
+			tasks: [],
+			createdAt: 1,
+			updatedAt: 1,
+		};
+		return capabilityId === DOMAIN_BATCH_TASK_CAPABILITIES.LIST_PROJECTS.id ? [project] : project;
+	}
+	if (Object.values(DOMAIN_BATCH_TASK_CAPABILITIES).some((capability) => capability.id === capabilityId)) {
+		return {
+			status: "accepted",
+			projectId: "C:/workspace/Batch",
+			affectedTaskIds: ["task"],
+			queuedTaskIds: [],
+		};
+	}
 	if (capabilityId === DOMAIN_PROJECT_CAPABILITIES.LIST.id) {
 		return { workspacePath: "C:/workspace", projects: [], archivedProjects: [] };
 	}
@@ -269,6 +298,7 @@ describe("PluginCapabilityAdapter", () => {
 		const sessionId = adapter.openSession("official");
 
 		expect(access.sessions[0]?.grants.map((grant) => grant.capabilityId)).toEqual([
+			...Object.values(DOMAIN_BATCH_TASK_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_DOWNLOAD_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_KNOWLEDGE_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_PROJECT_CAPABILITIES).map((capability) => capability.id),
@@ -276,6 +306,13 @@ describe("PluginCapabilityAdapter", () => {
 			...Object.values(DOMAIN_SCHEDULER_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_WEBHOOK_CAPABILITIES).map((capability) => capability.id),
 		]);
+		await expect(adapter.listBatchProjects(sessionId)).resolves.toHaveLength(1);
+		await expect(adapter.resumeBatchTask(sessionId, "C:/workspace/Batch", "task")).resolves.toEqual({
+			status: "accepted",
+			projectId: "C:/workspace/Batch",
+			affectedTaskIds: ["task"],
+			queuedTaskIds: [],
+		});
 		await expect(adapter.listProjects(sessionId)).resolves.toEqual({
 			workspacePath: "C:/workspace",
 			projects: [],
@@ -322,6 +359,9 @@ describe("PluginCapabilityAdapter", () => {
 		});
 
 		official = false;
+		expect(() => adapter.listBatchProjects(sessionId)).toThrowError(
+			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
+		);
 		expect(() => adapter.listProjects(sessionId)).toThrowError(
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
@@ -348,6 +388,9 @@ describe("PluginCapabilityAdapter", () => {
 		const sessionId = adapter.openSession("community");
 
 		expect(access.sessions[0]?.grants).toEqual([]);
+		expect(() => adapter.listBatchProjects(sessionId)).toThrowError(
+			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
+		);
 		expect(() => adapter.listProjects(sessionId)).toThrowError(
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
