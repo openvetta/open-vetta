@@ -53,7 +53,9 @@ import {
 	todoItemsBySessionAtom,
 } from "@shared/store/atoms";
 import {
+	bumpQueuedDispatchSeq,
 	enqueueMessageAtom,
+	getQueuedDispatchSeq,
 	getQueueForSession,
 	messageQueueBySessionAtom,
 	removeQueuedMessageAtom,
@@ -201,6 +203,10 @@ export function useSessionManager(): SessionManagerResult {
 		const map = suggestionTokenRef.current;
 		map.set(rid, (map.get(rid) ?? 0) + 1);
 	}, []);
+	// 每轮 agent_start 记录当时的「队列派发序号」快照；该轮 agent_end 的整体历史重拉落地时
+	// 若序号已变（结束时/后发生过队列派发，重拉已跨到下一轮）则跳过，避免冲掉下一轮的乐观
+	// 气泡 / 令 draft 串台。交由下一轮自己在无重叠时安全重拉。
+	const turnStartDispatchSeqRef = useRef<Map<string, number>>(new Map());
 
 	// ── Delta batching: accumulate text/thinking deltas per rAF frame ──
 	const pendingTextDeltaRef = useRef("");
@@ -460,6 +466,8 @@ export function useSessionManager(): SessionManagerResult {
 					if (event.phase === "agent_start") {
 						// 新一轮开始：让上一轮的输入预测生成（若仍在飞）回填时作废。
 						bumpSuggestionToken(sessionId);
+						// 快照本轮起始时的队列派发序号，供本轮 agent_end 判定重拉是否已过期。
+						turnStartDispatchSeqRef.current.set(sessionId, getQueuedDispatchSeq(sessionId));
 						resetStreamState();
 						// 无用户消息介入的唤醒（如后台任务 <task-notification> 触发的新
 						// turn）延续上一个 assistant 气泡，而不是新开一条——与重载时
@@ -509,6 +517,12 @@ export function useSessionManager(): SessionManagerResult {
 							.getFullHistory(sessionId)
 							.then((history) => {
 								if (activeSessionRef.current?.runtimeId !== sessionId) return;
+								// 判活：本轮结束时/后若发生过队列派发（立即发送 / 自然出队），这次整体
+								// 替换已「跨到下一轮」——会冲掉下一轮的乐观用户气泡、令 draft 串台，或与
+								// 已抢先落盘的 mapped 重复。跳过，交由下一轮自己的 agent_end 安全重拉。
+								if (getQueuedDispatchSeq(sessionId) !== (turnStartDispatchSeqRef.current.get(sessionId) ?? 0)) {
+									return;
+								}
 								const mapped = fullHistoryToChat(history);
 								if (elapsed > 0) {
 									for (let i = mapped.length - 1; i >= 0; i--) {
@@ -1233,6 +1247,10 @@ export function useSessionManager(): SessionManagerResult {
 			store.set(removeQueuedMessageAtom, { runtimeId, id });
 
 			if (store.get(isStreamingAtom)) {
+				// 立即发送要 abort 掉当前回合再发新的——被 abort 回合的 agent_end 会触发整体
+				// 重拉，那次重拉已「跨到下一轮」。先 +1 序号，使其在落地时被判为过期而跳过，
+				// 避免冲掉下方乐观气泡 / 令新一轮 draft 续写到被中断的旧 assistant 上。
+				bumpQueuedDispatchSeq(runtimeId);
 				// 中止当前流并等它真正停下再发。注意 runtime 把 abort 也走 agent_end
 				// （lifecycle 从不发 "aborted" phase），所以不能等生命周期事件；但
 				// running-changed 一定会广播 running=false。用一次性监听等它，带超时兜底。
