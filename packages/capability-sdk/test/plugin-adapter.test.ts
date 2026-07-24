@@ -8,7 +8,11 @@ import type {
 } from "../src/access.js";
 import { PLUGIN_CAPABILITY_PERMISSIONS, PluginCapabilityAdapter } from "../src/adapters/plugin.js";
 import { CAPABILITY_ERROR_CODES, type CapabilityId, type CapabilityToken } from "../src/contracts.js";
-import { DOMAIN_PROJECT_CAPABILITIES, DOMAIN_SESSION_CAPABILITIES } from "../src/domain.js";
+import {
+	DOMAIN_DOWNLOAD_CAPABILITIES,
+	DOMAIN_PROJECT_CAPABILITIES,
+	DOMAIN_SESSION_CAPABILITIES,
+} from "../src/domain.js";
 import { FOUNDATION_FILESYSTEM_CAPABILITIES } from "../src/foundation.js";
 
 class RecordingAccessFactory implements CapabilityAccessSessionFactory {
@@ -63,6 +67,21 @@ function outputFor(capabilityId: CapabilityId): unknown {
 	}
 	if (capabilityId === DOMAIN_SESSION_CAPABILITIES.LIST_RUNTIME_PROJECTS.id) {
 		return [{ cwd: "C:/workspace", sessionCount: 1 }];
+	}
+	if (capabilityId === DOMAIN_DOWNLOAD_CAPABILITIES.LIST.id) {
+		return [
+			{
+				id: "download",
+				url: "https://example.com/file",
+				filename: "file",
+				path: "C:/downloads/file",
+				totalBytes: 10,
+				receivedBytes: 10,
+				status: "completed",
+				createdAt: 1,
+				completedAt: 2,
+			},
+		];
 	}
 	if (
 		capabilityId === DOMAIN_PROJECT_CAPABILITIES.CREATE.id ||
@@ -157,6 +176,7 @@ describe("PluginCapabilityAdapter", () => {
 		const sessionId = adapter.openSession("official");
 
 		expect(access.sessions[0]?.grants.map((grant) => grant.capabilityId)).toEqual([
+			...Object.values(DOMAIN_DOWNLOAD_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_PROJECT_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_SESSION_CAPABILITIES).map((capability) => capability.id),
 		]);
@@ -174,6 +194,20 @@ describe("PluginCapabilityAdapter", () => {
 				modifiedAt: 1,
 			},
 		]);
+		await expect(adapter.listDownloads(sessionId)).resolves.toEqual([
+			{
+				id: "download",
+				url: "https://example.com/file",
+				filename: "file",
+				path: "C:/downloads/file",
+				totalBytes: 10,
+				receivedBytes: 10,
+				status: "completed",
+				createdAt: 1,
+				completedAt: 2,
+			},
+		]);
+		await expect(adapter.cancelDownload(sessionId, "download")).resolves.toBeUndefined();
 
 		official = false;
 		expect(() => adapter.listProjects(sessionId)).toThrowError(
@@ -197,6 +231,9 @@ describe("PluginCapabilityAdapter", () => {
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
 		expect(() => adapter.listSessions(sessionId, "C:/workspace")).toThrowError(
+			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
+		);
+		expect(() => adapter.listDownloads(sessionId)).toThrowError(
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
 	});

@@ -19,4 +19,6 @@ export const PLUGIN_CAPABILITY_CHANNELS = {
 	PROJECT_REMOVE: "vetta:plugins:capabilities:project:remove",
 	SESSION_LIST: "vetta:plugins:capabilities:session:list",
 	SESSION_LIST_RUNTIME_PROJECTS: "vetta:plugins:capabilities:session:list-runtime-projects",
+	DOWNLOAD_LIST: "vetta:plugins:capabilities:download:list",
+	DOWNLOAD_CANCEL: "vetta:plugins:capabilities:download:cancel",
 } as const;

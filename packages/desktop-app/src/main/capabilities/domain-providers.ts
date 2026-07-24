@@ -3,16 +3,19 @@ import {
 	CAPABILITY_ERROR_CODES,
 	CapabilityError,
 	type Disposable,
+	DOMAIN_DOWNLOAD_CAPABILITIES,
 	DOMAIN_PROJECT_CAPABILITIES,
 	DOMAIN_SESSION_CAPABILITIES,
 } from "@vetta/capability-sdk";
 import { readDesktopConfig, writeDesktopConfig } from "../config/desktop-config-store.js";
 import { listRuntimeSessionProjects, listSessionHistory } from "../conversations/session-query-service.js";
+import { getDesktopDownloadService } from "../downloads/download-service.js";
 import { allowProjectRoot, createFilesystemDirectory } from "../filesystem/filesystem-service.js";
 import { ProjectService } from "../projects/project-service.js";
 
 const DOMAIN_PROJECT_PROVIDER_OWNER = "vetta.domain.project";
 const DOMAIN_SESSION_PROVIDER_OWNER = "vetta.domain.session";
+const DOMAIN_DOWNLOAD_PROVIDER_OWNER = "vetta.domain.download";
 
 function assertNotAborted(signal: AbortSignal): void {
 	if (signal.aborted) {
@@ -21,6 +24,7 @@ function assertNotAborted(signal: AbortSignal): void {
 }
 
 export function registerDesktopDomainProviders(registry: CapabilityRegistry): Disposable {
+	const downloads = getDesktopDownloadService();
 	const projects = new ProjectService({
 		allowProjectRoot,
 		createDirectory: createFilesystemDirectory,
@@ -85,8 +89,23 @@ export function registerDesktopDomainProviders(registry: CapabilityRegistry): Di
 			},
 		}),
 	]);
+	const downloadRegistration = registry.registerOwner(DOMAIN_DOWNLOAD_PROVIDER_OWNER, [
+		bindCapability(DOMAIN_DOWNLOAD_CAPABILITIES.LIST, {
+			execute: async (_input, context) => {
+				assertNotAborted(context.signal);
+				return downloads.list();
+			},
+		}),
+		bindCapability(DOMAIN_DOWNLOAD_CAPABILITIES.CANCEL, {
+			execute: async ({ id }, context) => {
+				assertNotAborted(context.signal);
+				downloads.cancel(id);
+			},
+		}),
+	]);
 	return {
 		dispose: () => {
+			downloadRegistration.dispose();
 			sessionRegistration.dispose();
 			projectRegistration.dispose();
 		},

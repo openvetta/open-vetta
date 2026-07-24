@@ -60,6 +60,35 @@ export interface SessionHistoryEntry {
 	readonly parentEntryId?: string;
 }
 
+export const DOWNLOAD_STATUSES = {
+	QUEUED: "queued",
+	DOWNLOADING: "downloading",
+	PAUSED: "paused",
+	COMPLETED: "completed",
+	FAILED: "failed",
+	CANCELED: "canceled",
+} as const;
+
+export type DownloadStatus = (typeof DOWNLOAD_STATUSES)[keyof typeof DOWNLOAD_STATUSES];
+
+export interface DownloadItem {
+	readonly id: string;
+	readonly url: string;
+	readonly filename: string;
+	readonly path: string;
+	readonly totalBytes: number;
+	readonly receivedBytes: number;
+	readonly status: DownloadStatus;
+	readonly error?: string;
+	readonly createdAt: number;
+	readonly completedAt?: number;
+	readonly speedBytesPerSec?: number;
+}
+
+export interface DownloadCancelInput {
+	readonly id: string;
+}
+
 function parseInputRecord(value: unknown): Record<string, unknown> {
 	if (typeof value !== "object" || value === null || Array.isArray(value)) {
 		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_INPUT, "Capability input must be an object");
@@ -108,6 +137,12 @@ function parseRequiredOutputNumber(input: Record<string, unknown>, field: string
 		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_OUTPUT, `Capability output ${field} must be a number`);
 	}
 	return value;
+}
+
+function parseOptionalOutputNumber(input: Record<string, unknown>, field: string): number | undefined {
+	const value = input[field];
+	if (value === undefined) return undefined;
+	return parseRequiredOutputNumber(input, field);
 }
 
 function parseEmptyInput(value: unknown): Record<string, never> {
@@ -237,6 +272,42 @@ function parseSessionHistory(value: unknown): SessionHistoryEntry[] {
 	return value.map(parseSessionHistoryEntry);
 }
 
+function parseDownloadItem(value: unknown): DownloadItem {
+	const item = parseOutputRecord(value);
+	const status = item.status;
+	if (typeof status !== "string" || !Object.values(DOWNLOAD_STATUSES).includes(status as DownloadStatus)) {
+		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_OUTPUT, "Capability output status is invalid");
+	}
+	const error = parseOptionalOutputString(item, "error");
+	const completedAt = parseOptionalOutputNumber(item, "completedAt");
+	const speedBytesPerSec = parseOptionalOutputNumber(item, "speedBytesPerSec");
+	return {
+		id: parseRequiredOutputString(item, "id"),
+		url: parseRequiredOutputString(item, "url"),
+		filename: parseRequiredOutputString(item, "filename"),
+		path: parseRequiredOutputString(item, "path"),
+		totalBytes: parseRequiredOutputNumber(item, "totalBytes"),
+		receivedBytes: parseRequiredOutputNumber(item, "receivedBytes"),
+		status: status as DownloadStatus,
+		...(error === undefined ? {} : { error }),
+		createdAt: parseRequiredOutputNumber(item, "createdAt"),
+		...(completedAt === undefined ? {} : { completedAt }),
+		...(speedBytesPerSec === undefined ? {} : { speedBytesPerSec }),
+	};
+}
+
+function parseDownloadItems(value: unknown): DownloadItem[] {
+	if (!Array.isArray(value)) {
+		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_OUTPUT, "Capability output must be an array");
+	}
+	return value.map(parseDownloadItem);
+}
+
+function parseDownloadCancelInput(value: unknown): DownloadCancelInput {
+	const input = parseInputRecord(value);
+	return { id: parseRequiredInputString(input, "id") };
+}
+
 export const DOMAIN_PROJECT_CAPABILITIES = {
 	LIST: defineCapability<Record<string, never>, ProjectListResult>({
 		id: "cap.domain.vetta.project.list",
@@ -312,5 +383,24 @@ export const DOMAIN_SESSION_CAPABILITIES = {
 		version: 1,
 		parseInput: parseEmptyInput,
 		parseOutput: parseSessionRuntimeProjects,
+	}),
+} as const;
+
+export const DOMAIN_DOWNLOAD_CAPABILITIES = {
+	LIST: defineCapability<Record<string, never>, DownloadItem[]>({
+		id: "cap.domain.vetta.download.list",
+		kind: "query",
+		layer: CAPABILITY_LAYERS.DOMAIN,
+		version: 1,
+		parseInput: parseEmptyInput,
+		parseOutput: parseDownloadItems,
+	}),
+	CANCEL: defineCapability<DownloadCancelInput, undefined>({
+		id: "cap.domain.vetta.download.cancel",
+		kind: "command",
+		layer: CAPABILITY_LAYERS.DOMAIN,
+		version: 1,
+		parseInput: parseDownloadCancelInput,
+		parseOutput: parseVoidOutput,
 	}),
 } as const;

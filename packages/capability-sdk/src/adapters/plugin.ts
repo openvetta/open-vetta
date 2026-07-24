@@ -2,8 +2,10 @@ import { randomUUID } from "node:crypto";
 import { type CapabilityAccessHandle, type CapabilityAccessSessionFactory, createCapabilityGrant } from "../access.js";
 import { CAPABILITY_ERROR_CODES, CapabilityError } from "../contracts.js";
 import {
+	DOMAIN_DOWNLOAD_CAPABILITIES,
 	DOMAIN_PROJECT_CAPABILITIES,
 	DOMAIN_SESSION_CAPABILITIES,
+	type DownloadItem,
 	type ProjectEntry,
 	type ProjectListResult,
 	type SessionHistoryEntry,
@@ -76,6 +78,8 @@ export class PluginCapabilityAdapter {
 				: []),
 			...(official
 				? [
+						createCapabilityGrant(DOMAIN_DOWNLOAD_CAPABILITIES.LIST),
+						createCapabilityGrant(DOMAIN_DOWNLOAD_CAPABILITIES.CANCEL),
 						createCapabilityGrant(DOMAIN_PROJECT_CAPABILITIES.LIST),
 						createCapabilityGrant(DOMAIN_PROJECT_CAPABILITIES.CREATE),
 						createCapabilityGrant(DOMAIN_PROJECT_CAPABILITIES.OPEN),
@@ -211,6 +215,14 @@ export class PluginCapabilityAdapter {
 
 	listRuntimeProjects(sessionId: string): Promise<SessionRuntimeProject[]> {
 		return this.client(sessionId, { official: true }).invoke(DOMAIN_SESSION_CAPABILITIES.LIST_RUNTIME_PROJECTS, {});
+	}
+
+	listDownloads(sessionId: string): Promise<DownloadItem[]> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_DOWNLOAD_CAPABILITIES.LIST, {});
+	}
+
+	cancelDownload(sessionId: string, id: string): Promise<undefined> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_DOWNLOAD_CAPABILITIES.CANCEL, { id });
 	}
 
 	private client(sessionId: string, requirement: PluginCapabilityRequirement): CapabilityAccessHandle["client"] {
