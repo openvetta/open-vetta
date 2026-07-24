@@ -25,6 +25,7 @@ import { onConversationListChanged } from "../conversations/conversation-list-ev
 import { getDesktopConversationService } from "../conversations/desktop-conversation-service.js";
 import { parsePromptRequest } from "../conversations/prompt-request-schema.js";
 import { isConversationSubCwd, readSessionCwdFromHeader } from "../conversations/session-paths.js";
+import { listRuntimeSessionProjects, listSessionHistory } from "../conversations/session-query-service.js";
 import { getDesktopUserQuestionBroker } from "../conversations/user-question-broker.js";
 import { type DebugRequestData, writeDebugRequest } from "../debug-writer.js";
 import { getAppLogger } from "../logger.js";
@@ -46,7 +47,6 @@ import {
 import { getSharedRuntime } from "../runtime.js";
 import { assertSandboxAvailableForMode } from "../sandbox/capability.js";
 import {
-	allowProjectRoot,
 	DEFAULT_CONVERSATION_CWD,
 	DEFAULT_CONVERSATION_SESSION_DIR,
 	DEFAULT_IM_CONVERSATION_CWD,
@@ -618,14 +618,12 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	});
 
 	ipcMain.handle(CHANNELS.LIST_PROJECTS, async () => {
-		const projects = await runtime.listProjects();
-		for (const p of projects) allowProjectRoot(p.cwd);
-		return projects;
+		return listRuntimeSessionProjects();
 	});
 
 	ipcMain.handle(CHANNELS.LIST_SESSIONS, async (_event, cwd: unknown) => {
 		assertNonEmptyString(cwd, "cwd");
-		return conversationService.listSessions(cwd);
+		return listSessionHistory(cwd);
 	});
 
 	ipcMain.handle(CHANNELS.PROMPT, async (_event, sessionId: unknown, request: unknown) => {

@@ -1,4 +1,9 @@
-import type { ProjectEntry, ProjectListResult } from "@vetta/capability-sdk";
+import type {
+	ProjectEntry,
+	ProjectListResult,
+	SessionHistoryEntry,
+	SessionRuntimeProject,
+} from "@vetta/capability-sdk";
 
 export type PluginPermission =
 	| "ui.slot.global"
@@ -431,12 +436,18 @@ export interface DesktopPluginCapabilityProjectsApi {
 	remove(sessionId: string, path: string): Promise<void>;
 }
 
+export interface DesktopPluginCapabilitySessionsApi {
+	list(sessionId: string, cwd: string): Promise<SessionHistoryEntry[]>;
+	listRuntimeProjects(sessionId: string): Promise<SessionRuntimeProject[]>;
+}
+
 /** @internal Host bridge used to implement the public plugin-sdk facade. */
 export interface DesktopPluginInternalCapabilitiesApi {
 	openSession(pluginId: string): Promise<string>;
 	closeSession(sessionId: string): Promise<void>;
 	filesystem: DesktopPluginCapabilityFilesystemApi;
 	projects: DesktopPluginCapabilityProjectsApi;
+	sessions: DesktopPluginCapabilitySessionsApi;
 }
 
 export interface DesktopPluginsApi {

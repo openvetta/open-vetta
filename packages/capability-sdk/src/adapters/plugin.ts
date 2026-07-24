@@ -1,7 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { type CapabilityAccessHandle, type CapabilityAccessSessionFactory, createCapabilityGrant } from "../access.js";
 import { CAPABILITY_ERROR_CODES, CapabilityError } from "../contracts.js";
-import { DOMAIN_PROJECT_CAPABILITIES, type ProjectEntry, type ProjectListResult } from "../domain.js";
+import {
+	DOMAIN_PROJECT_CAPABILITIES,
+	DOMAIN_SESSION_CAPABILITIES,
+	type ProjectEntry,
+	type ProjectListResult,
+	type SessionHistoryEntry,
+	type SessionRuntimeProject,
+} from "../domain.js";
 import {
 	type FilesystemEntry,
 	type FilesystemFileRef,
@@ -76,6 +83,8 @@ export class PluginCapabilityAdapter {
 						createCapabilityGrant(DOMAIN_PROJECT_CAPABILITIES.ARCHIVE),
 						createCapabilityGrant(DOMAIN_PROJECT_CAPABILITIES.UNARCHIVE),
 						createCapabilityGrant(DOMAIN_PROJECT_CAPABILITIES.REMOVE),
+						createCapabilityGrant(DOMAIN_SESSION_CAPABILITIES.LIST),
+						createCapabilityGrant(DOMAIN_SESSION_CAPABILITIES.LIST_RUNTIME_PROJECTS),
 					]
 				: []),
 		];
@@ -194,6 +203,14 @@ export class PluginCapabilityAdapter {
 
 	removeProject(sessionId: string, path: string): Promise<undefined> {
 		return this.client(sessionId, { official: true }).invoke(DOMAIN_PROJECT_CAPABILITIES.REMOVE, { path });
+	}
+
+	listSessions(sessionId: string, cwd: string): Promise<SessionHistoryEntry[]> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_SESSION_CAPABILITIES.LIST, { cwd });
+	}
+
+	listRuntimeProjects(sessionId: string): Promise<SessionRuntimeProject[]> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_SESSION_CAPABILITIES.LIST_RUNTIME_PROJECTS, {});
 	}
 
 	private client(sessionId: string, requirement: PluginCapabilityRequirement): CapabilityAccessHandle["client"] {
