@@ -14,6 +14,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -31,6 +33,7 @@ import org.vetta.android.core.model.SubscriptionStatus
 import org.vetta.android.core.model.User
 import org.vetta.android.ui.components.QuotaMeter
 import org.vetta.android.ui.i18n.Str
+import org.vetta.android.ui.icons.VettaIcons
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,7 +52,9 @@ fun MeScreen(
             TopAppBar(
                 title = { Text(Str.me) },
                 navigationIcon = {
-                    TextButton(onClick = onBack) { Text(Str.back) }
+                    IconButton(onClick = onBack) {
+                        Icon(VettaIcons.Back, contentDescription = Str.back)
+                    }
                 },
             )
         },
@@ -116,21 +121,26 @@ fun MeScreen(
             onDismissRequest = { confirmLogout = false },
             title = { Text(Str.logout) },
             text = { Text(Str.logoutConfirm) },
+            // 主操作：退出并保留本机对话
             confirmButton = {
-                TextButton(
+                Button(
                     onClick = {
                         confirmLogout = false
                         onLogout(false)
                     },
                 ) { Text(Str.logout) }
             },
+            // 次操作：退出并清除本机对话；另提供取消
             dismissButton = {
-                TextButton(
-                    onClick = {
-                        confirmLogout = false
-                        onLogout(true)
-                    },
-                ) { Text(Str.logoutAndClear) }
+                Column {
+                    TextButton(
+                        onClick = {
+                            confirmLogout = false
+                            onLogout(true)
+                        },
+                    ) { Text(Str.logoutAndClear) }
+                    TextButton(onClick = { confirmLogout = false }) { Text(Str.cancel) }
+                }
             },
         )
     }
@@ -148,7 +158,9 @@ fun PlanScreen(
             TopAppBar(
                 title = { Text(Str.plan) },
                 navigationIcon = {
-                    TextButton(onClick = onBack) { Text(Str.back) }
+                    IconButton(onClick = onBack) {
+                        Icon(VettaIcons.Back, contentDescription = Str.back)
+                    }
                 },
                 actions = {
                     TextButton(onClick = onRefresh) { Text(Str.actionRetry) }

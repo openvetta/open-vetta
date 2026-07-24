@@ -149,7 +149,8 @@ internal data class ChatCompletionRequestDto(
 @Serializable
 internal data class ChatMessageDto(
     val role: String,
-    val content: String,
+    /** OpenAI 兼容：纯字符串，或 text/image_url 数组。 */
+    val content: kotlinx.serialization.json.JsonElement,
 )
 
 @Serializable

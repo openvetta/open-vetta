@@ -11,12 +11,13 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -24,6 +25,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import org.vetta.android.app.ThemeMode
 import org.vetta.android.ui.i18n.Str
+import org.vetta.android.ui.icons.VettaIcons
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,7 +41,9 @@ fun SettingsScreen(
             TopAppBar(
                 title = { Text(Str.settings) },
                 navigationIcon = {
-                    TextButton(onClick = onBack) { Text(Str.back) }
+                    IconButton(onClick = onBack) {
+                        Icon(VettaIcons.Back, contentDescription = Str.back)
+                    }
                 },
             )
         },

@@ -194,6 +194,15 @@ private data class MessageDto(
     val status: String,
     val createdAtEpochMs: Long,
     val errorMessage: String? = null,
+    val images: List<MessageImageDto> = emptyList(),
+)
+
+@Serializable
+private data class MessageImageDto(
+    val id: String,
+    val mimeType: String,
+    val fileName: String? = null,
+    val base64Data: String,
 )
 
 private fun SessionDto.toDomain() =
@@ -227,6 +236,15 @@ private fun MessageDto.toDomain() =
         status = MessageStatus.entries.firstOrNull { it.name == status } ?: MessageStatus.Complete,
         createdAtEpochMs = createdAtEpochMs,
         errorMessage = errorMessage,
+        images =
+            images.map {
+                org.vetta.android.domain.session.MessageImage(
+                    id = it.id,
+                    mimeType = it.mimeType,
+                    fileName = it.fileName,
+                    base64Data = it.base64Data,
+                )
+            },
     )
 
 private fun LocalMessage.toDto() =
@@ -238,4 +256,13 @@ private fun LocalMessage.toDto() =
         status = status.name,
         createdAtEpochMs = createdAtEpochMs,
         errorMessage = errorMessage,
+        images =
+            images.map {
+                MessageImageDto(
+                    id = it.id,
+                    mimeType = it.mimeType,
+                    fileName = it.fileName,
+                    base64Data = it.base64Data,
+                )
+            },
     )

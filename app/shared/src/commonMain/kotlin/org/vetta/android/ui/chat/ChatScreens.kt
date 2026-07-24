@@ -1,5 +1,6 @@
 package org.vetta.android.ui.chat
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,16 +15,20 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
@@ -42,6 +47,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import org.vetta.android.core.model.ChatRole
@@ -49,10 +55,14 @@ import org.vetta.android.core.model.LlmModel
 import org.vetta.android.domain.error.UiError
 import org.vetta.android.domain.error.UiErrorAction
 import org.vetta.android.domain.session.LocalMessage
+import org.vetta.android.domain.session.MessageImage
 import org.vetta.android.domain.session.MessageStatus
 import org.vetta.android.ui.components.EmptyState
 import org.vetta.android.ui.components.VettaErrorBanner
 import org.vetta.android.ui.i18n.Str
+import org.vetta.android.ui.icons.VettaIcons
+import org.vetta.android.ui.media.imageBitmapFromBase64
+import org.vetta.android.ui.media.rememberImagePicker
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,6 +70,7 @@ fun ChatScreen(
     title: String,
     messages: List<LocalMessage>,
     draft: String,
+    pendingImages: List<MessageImage>,
     isStreaming: Boolean,
     models: List<LlmModel>,
     selectedModel: LlmModel?,
@@ -77,9 +88,24 @@ fun ChatScreen(
     onErrorAction: (UiErrorAction) -> Unit,
     onDismissError: () -> Unit,
     onSuggestion: (String) -> Unit,
+    onImagesPicked: (List<MessageImage>) -> Unit,
+    onRemovePendingImage: (String) -> Unit,
 ) {
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    val launchPicker =
+        rememberImagePicker { picked ->
+            onImagesPicked(
+                picked.map {
+                    MessageImage(
+                        id = "pending-${it.fileName}-${it.bytes.size}-${it.bytes.hashCode()}",
+                        mimeType = it.mimeType,
+                        fileName = it.fileName,
+                        base64Data = it.toBase64(),
+                    )
+                },
+            )
+        }
     val isAtBottom by remember {
         derivedStateOf {
             val info = listState.layoutInfo
@@ -94,12 +120,17 @@ fun ChatScreen(
         }
     }
 
+    val canSend =
+        !isStreaming &&
+            selectedModel != null &&
+            (draft.isNotBlank() || pendingImages.isNotEmpty())
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Column {
-                        Text(title, maxLines = 1)
+                        Text(title, maxLines = 1, style = MaterialTheme.typography.titleMedium)
                         if (isStreaming) {
                             Text(
                                 Str.streaming,
@@ -110,14 +141,24 @@ fun ChatScreen(
                     }
                 },
                 navigationIcon = {
-                    TextButton(onClick = onOpenDrawer) { Text(Str.sessions) }
+                    IconButton(onClick = onOpenDrawer) {
+                        Icon(VettaIcons.Menu, contentDescription = Str.sessions)
+                    }
                 },
                 actions = {
                     TextButton(onClick = onOpenModelPicker) {
-                        Text(selectedModel?.name ?: Str.selectModel, maxLines = 1)
+                        Text(
+                            selectedModel?.name ?: Str.selectModel,
+                            maxLines = 1,
+                            style = MaterialTheme.typography.labelLarge,
+                        )
                     }
-                    TextButton(onClick = onNewChat) { Text(Str.newChat) }
-                    TextButton(onClick = onOpenMe) { Text(Str.me) }
+                    IconButton(onClick = onNewChat) {
+                        Icon(VettaIcons.Add, contentDescription = Str.newChat)
+                    }
+                    IconButton(onClick = onOpenMe) {
+                        Icon(VettaIcons.Person, contentDescription = Str.me)
+                    }
                 },
             )
         },
@@ -137,13 +178,20 @@ fun ChatScreen(
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                     )
                 }
+                if (pendingImages.isNotEmpty()) {
+                    PendingImageRow(
+                        images = pendingImages,
+                        onRemove = onRemovePendingImage,
+                    )
+                }
                 InputDock(
                     value = draft,
                     isStreaming = isStreaming,
-                    sendEnabled = draft.isNotBlank() && !isStreaming && selectedModel != null,
+                    sendEnabled = canSend,
                     onValueChange = onDraftChange,
                     onSend = onSend,
                     onStop = onStop,
+                    onAttach = launchPicker,
                 )
             }
         },
@@ -257,6 +305,57 @@ fun ChatScreen(
 }
 
 @Composable
+private fun PendingImageRow(
+    images: List<MessageImage>,
+    onRemove: (String) -> Unit,
+) {
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        items(images, key = { it.id }) { image ->
+            Box {
+                val bmp = remember(image.id) { imageBitmapFromBase64(image.base64Data) }
+                if (bmp != null) {
+                    Image(
+                        bitmap = bmp,
+                        contentDescription = image.fileName ?: Str.attach,
+                        modifier =
+                            Modifier
+                                .size(72.dp)
+                                .clip(RoundedCornerShape(10.dp)),
+                        contentScale = ContentScale.Crop,
+                    )
+                } else {
+                    Surface(
+                        modifier = Modifier.size(72.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text("IMG", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+                IconButton(
+                    onClick = { onRemove(image.id) },
+                    modifier =
+                        Modifier
+                            .align(Alignment.TopEnd)
+                            .size(28.dp),
+                ) {
+                    Icon(
+                        VettaIcons.Close,
+                        contentDescription = Str.removeAttachment,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun MessageBubble(message: LocalMessage) {
     val isUser = message.role == ChatRole.User
     Row(
@@ -264,9 +363,30 @@ private fun MessageBubble(message: LocalMessage) {
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
     ) {
         Column(
-            modifier = Modifier.widthIn(max = 520.dp),
+            modifier = Modifier.widthIn(max = 560.dp),
             horizontalAlignment = if (isUser) Alignment.End else Alignment.Start,
         ) {
+            if (message.images.isNotEmpty()) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(message.images, key = { it.id }) { image ->
+                        val bmp = remember(image.id) { imageBitmapFromBase64(image.base64Data) }
+                        if (bmp != null) {
+                            Image(
+                                bitmap = bmp,
+                                contentDescription = image.fileName ?: Str.attach,
+                                modifier =
+                                    Modifier
+                                        .size(120.dp)
+                                        .clip(RoundedCornerShape(12.dp)),
+                                contentScale = ContentScale.Crop,
+                            )
+                        }
+                    }
+                }
+                if (message.content.isNotBlank() || message.status == MessageStatus.Streaming) {
+                    Spacer(Modifier.height(6.dp))
+                }
+            }
             Surface(
                 shape =
                     RoundedCornerShape(
@@ -288,19 +408,45 @@ private fun MessageBubble(message: LocalMessage) {
                         MaterialTheme.colorScheme.onSurfaceVariant
                     },
             ) {
-                Text(
-                    text =
-                        message.content.ifBlank {
-                            when (message.status) {
-                                MessageStatus.Streaming -> "…"
-                                MessageStatus.Error -> message.errorMessage ?: Str.errorGeneric
-                                MessageStatus.Aborted -> "（已停止）"
-                                else -> ""
-                            }
-                        },
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                    style = MaterialTheme.typography.bodyLarge,
-                )
+                when {
+                    isUser -> {
+                        Text(
+                            text =
+                                message.content.ifBlank {
+                                    if (message.images.isNotEmpty()) " " else ""
+                                },
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                    }
+                    message.content.isBlank() && message.status == MessageStatus.Streaming -> {
+                        Text(
+                            "…",
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                    }
+                    message.content.isBlank() && message.status == MessageStatus.Error -> {
+                        Text(
+                            message.errorMessage ?: Str.errorGeneric,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                    }
+                    message.content.isBlank() && message.status == MessageStatus.Aborted -> {
+                        Text(
+                            "（已停止）",
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                    }
+                    else -> {
+                        MarkdownContent(
+                            source = message.content,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                        )
+                    }
+                }
             }
             if (message.status == MessageStatus.Error && !message.errorMessage.isNullOrBlank()) {
                 Text(
@@ -322,15 +468,19 @@ private fun InputDock(
     onValueChange: (String) -> Unit,
     onSend: () -> Unit,
     onStop: () -> Unit,
+    onAttach: () -> Unit,
 ) {
     Surface(tonalElevation = 2.dp, shadowElevation = 4.dp) {
         Row(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                    .padding(horizontal = 8.dp, vertical = 10.dp),
             verticalAlignment = Alignment.Bottom,
         ) {
+            IconButton(onClick = onAttach, enabled = !isStreaming) {
+                Icon(VettaIcons.Attach, contentDescription = Str.attach)
+            }
             Box(
                 modifier =
                     Modifier
@@ -359,11 +509,15 @@ private fun InputDock(
                     maxLines = 6,
                 )
             }
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(4.dp))
             if (isStreaming) {
-                Button(onClick = onStop) { Text(Str.stop) }
+                FilledIconButton(onClick = onStop) {
+                    Icon(VettaIcons.Stop, contentDescription = Str.stop)
+                }
             } else {
-                Button(onClick = onSend, enabled = sendEnabled) { Text(Str.send) }
+                FilledIconButton(onClick = onSend, enabled = sendEnabled) {
+                    Icon(VettaIcons.Send, contentDescription = Str.send)
+                }
             }
         }
     }

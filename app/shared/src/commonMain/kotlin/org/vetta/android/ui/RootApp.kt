@@ -13,8 +13,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import org.vetta.android.app.AppContainer
 import org.vetta.android.domain.session.SessionStore
@@ -29,10 +34,29 @@ import org.vetta.android.ui.navigation.AppRoute
 import org.vetta.android.ui.sessions.SessionsDrawerContent
 import org.vetta.android.ui.settings.SettingsScreen
 import org.vetta.android.ui.theme.VettaTheme
+import kotlin.reflect.KClass
+
+val LocalAppContainer =
+    staticCompositionLocalOf<AppContainer> {
+        error("AppContainer not provided")
+    }
+
+private class AppViewModelFactory(
+    private val container: AppContainer,
+) : ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(
+        modelClass: KClass<T>,
+        extras: CreationExtras,
+    ): T = AppViewModel(container) as T
+}
 
 @Composable
-fun RootApp(container: AppContainer) {
-    val vm = remember(container) { AppViewModel(container) }
+fun RootApp(container: AppContainer = LocalAppContainer.current) {
+    val vm: AppViewModel =
+        viewModel(
+            factory = remember(container) { AppViewModelFactory(container) },
+        )
     val state by vm.state.collectAsState()
     val sessions by vm.sessions.collectAsState()
 
@@ -120,6 +144,7 @@ fun RootApp(container: AppContainer) {
                         title = title,
                         messages = state.messages,
                         draft = state.draft,
+                        pendingImages = state.pendingImages,
                         isStreaming = state.isStreaming,
                         models = state.models,
                         selectedModel = selected,
@@ -139,6 +164,8 @@ fun RootApp(container: AppContainer) {
                         onSuggestion = { tip ->
                             vm.onDraftChange(tip)
                         },
+                        onImagesPicked = vm::addPendingImages,
+                        onRemovePendingImage = vm::removePendingImage,
                     )
                 }
             }

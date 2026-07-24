@@ -16,6 +16,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.vetta.android.core.VettaConfig
 import org.vetta.android.core.auth.TokenStore
+import org.vetta.android.core.chat.ChatRequestEncoder
 import org.vetta.android.core.chat.OpenAiSseParser
 import org.vetta.android.core.error.VettaException
 import org.vetta.android.core.model.AuthSession
@@ -131,12 +132,16 @@ internal class VettaApi(
         temperature: Double? = null,
     ): Flow<ChatStreamEvent> =
         flow {
+            val wireMessages = ChatRequestEncoder.encodeMessages(messages)
             val body =
                 ChatCompletionRequestDto(
                     model = model,
                     messages =
-                        messages.map {
-                            ChatMessageDto(role = it.role.toApiValue(), content = it.content)
+                        wireMessages.map { obj ->
+                            ChatMessageDto(
+                                role = (obj["role"] as kotlinx.serialization.json.JsonPrimitive).content,
+                                content = obj["content"]!!,
+                            )
                         },
                     stream = true,
                     temperature = temperature,

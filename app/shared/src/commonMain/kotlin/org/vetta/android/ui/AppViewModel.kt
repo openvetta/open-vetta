@@ -13,17 +13,19 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.vetta.android.app.AppContainer
 import org.vetta.android.app.ThemeMode
-import org.vetta.android.core.model.ChatMessage
 import org.vetta.android.core.model.ChatRole
 import org.vetta.android.core.model.ChatStreamEvent
 import org.vetta.android.core.model.LlmModel
 import org.vetta.android.core.model.SubscriptionStatus
 import org.vetta.android.core.model.User
 import org.vetta.android.core.net.RefreshOutcome
+import org.vetta.android.domain.chat.prepareRetryTurn
+import org.vetta.android.domain.chat.shouldClearPendingImagesOnSessionChange
 import org.vetta.android.domain.error.ErrorMapper
 import org.vetta.android.domain.error.UiError
 import org.vetta.android.domain.error.UiErrorAction
 import org.vetta.android.domain.session.LocalMessage
+import org.vetta.android.domain.session.MessageImage
 import org.vetta.android.domain.session.MessageStatus
 import org.vetta.android.domain.session.SessionStore
 import org.vetta.android.domain.session.nowEpochMs
@@ -43,6 +45,7 @@ data class AppUiState(
     val currentSessionId: String? = null,
     val messages: List<LocalMessage> = emptyList(),
     val draft: String = "",
+    val pendingImages: List<MessageImage> = emptyList(),
     val isStreaming: Boolean = false,
     val sessionsDrawerOpen: Boolean = false,
     val modelPickerOpen: Boolean = false,
@@ -185,12 +188,22 @@ class AppViewModel(
     fun openSettings() = navigate(AppRoute.Settings)
 
     fun openChat(sessionId: String?) {
+        val previousSessionId = _state.value.currentSessionId
+        val clearPending =
+            shouldClearPendingImagesOnSessionChange(previousSessionId, sessionId)
         navigate(AppRoute.Chat(sessionId))
         if (sessionId != null) {
-            attachSession(sessionId)
+            attachSession(sessionId, clearPendingImages = clearPending)
         } else {
             detachSessionMessages()
-            _state.update { it.copy(currentSessionId = null, messages = emptyList(), draft = "") }
+            _state.update {
+                it.copy(
+                    currentSessionId = null,
+                    messages = emptyList(),
+                    draft = "",
+                    pendingImages = if (clearPending) emptyList() else it.pendingImages,
+                )
+            }
         }
         setDrawer(false)
     }
@@ -232,6 +245,17 @@ class AppViewModel(
         val sid = _state.value.currentSessionId
         if (sid != null) drafts[sid] = value
         _state.update { it.copy(draft = value) }
+    }
+
+    fun addPendingImages(images: List<MessageImage>) {
+        if (images.isEmpty()) return
+        _state.update { state ->
+            state.copy(pendingImages = (state.pendingImages + images).distinctBy { it.id }.take(6))
+        }
+    }
+
+    fun removePendingImage(id: String) {
+        _state.update { it.copy(pendingImages = it.pendingImages.filterNot { img -> img.id == id }) }
     }
 
     fun selectModel(model: LlmModel) {
@@ -321,6 +345,7 @@ class AppViewModel(
                 currentSessionId = null,
                 messages = emptyList(),
                 draft = "",
+                pendingImages = emptyList(),
                 isStreaming = false,
                 route = AppRoute.Login,
                 sessionsDrawerOpen = false,
@@ -370,6 +395,7 @@ class AppViewModel(
                 )
             container.preferences.lastSessionId = session.id
             drafts[session.id] = ""
+            _state.update { it.copy(pendingImages = emptyList()) }
             openChat(session.id)
         }
     }
@@ -400,7 +426,8 @@ class AppViewModel(
 
     fun sendMessage() {
         val text = _state.value.draft.trim()
-        if (text.isEmpty() || _state.value.isStreaming) return
+        val images = _state.value.pendingImages
+        if ((text.isEmpty() && images.isEmpty()) || _state.value.isStreaming) return
         val model = currentModel()
         if (model == null) {
             _state.update {
@@ -444,6 +471,7 @@ class AppViewModel(
                     content = text,
                     status = MessageStatus.Complete,
                     createdAtEpochMs = nowEpochMs(),
+                    images = images,
                 )
             val assistantId = newMessageId()
             val assistantMsg =
@@ -458,7 +486,9 @@ class AppViewModel(
             container.sessionStore.upsertMessage(userMsg)
             container.sessionStore.upsertMessage(assistantMsg)
             drafts[sid] = ""
-            _state.update { it.copy(draft = "", isStreaming = true, globalError = null) }
+            _state.update {
+                it.copy(draft = "", pendingImages = emptyList(), isStreaming = true, globalError = null)
+            }
 
             val history =
                 container.sessionStore
@@ -466,8 +496,8 @@ class AppViewModel(
                     .filter {
                         it.id != assistantId &&
                             it.status != MessageStatus.Error &&
-                            it.content.isNotBlank()
-                    }.map { ChatMessage(role = it.role, content = it.content) }
+                            it.hasVisualContent
+                    }.map { it.toChatMessage() }
 
             streamJob?.cancel()
             streamJob =
@@ -564,21 +594,17 @@ class AppViewModel(
         val sid = _state.value.currentSessionId ?: return
         viewModelScope.launch {
             val messages = container.sessionStore.getMessages(sid)
-            val lastAssistant =
-                messages.lastOrNull {
-                    it.role == ChatRole.Assistant &&
-                        (it.status == MessageStatus.Error || it.status == MessageStatus.Aborted)
-                } ?: return@launch
-            val lastUser =
-                messages.lastOrNull {
-                    it.role == ChatRole.User && it.createdAtEpochMs <= lastAssistant.createdAtEpochMs
-                } ?: return@launch
-            container.sessionStore.replaceMessages(
-                sid,
-                messages.filterNot { it.id == lastAssistant.id || it.id == lastUser.id },
-            )
-            drafts[sid] = lastUser.content
-            _state.update { it.copy(draft = lastUser.content, globalError = null) }
+            val turn = prepareRetryTurn(messages) ?: return@launch
+            container.sessionStore.replaceMessages(sid, turn.remainingMessages)
+            drafts[sid] = turn.draft
+            // 必须同时恢复图片；否则纯图重试会变成 no-op，图文重试会丢图
+            _state.update {
+                it.copy(
+                    draft = turn.draft,
+                    pendingImages = turn.images,
+                    globalError = null,
+                )
+            }
             sendMessage()
         }
     }
@@ -609,15 +635,24 @@ class AppViewModel(
         container.sessionStore.sessions
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    private fun attachSession(sessionId: String) {
+    private fun attachSession(
+        sessionId: String,
+        clearPendingImages: Boolean = true,
+    ) {
         messagesCollectJob?.cancel()
         container.preferences.lastSessionId = sessionId
         val draft = drafts[sessionId].orEmpty()
-        _state.update { it.copy(currentSessionId = sessionId, draft = draft) }
+        _state.update {
+            it.copy(
+                currentSessionId = sessionId,
+                draft = draft,
+                pendingImages = if (clearPendingImages) emptyList() else it.pendingImages,
+            )
+        }
         messagesCollectJob =
             viewModelScope.launch {
                 container.sessionStore.observeMessages(sessionId).collect { list ->
-                    _state.update { it.copy(messages = list) }
+                    _state.update { state -> state.copy(messages = list) }
                 }
             }
     }

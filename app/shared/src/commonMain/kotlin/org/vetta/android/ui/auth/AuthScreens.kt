@@ -15,6 +15,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -36,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import org.vetta.android.domain.error.UiError
 import org.vetta.android.ui.components.VettaErrorBanner
 import org.vetta.android.ui.i18n.Str
+import org.vetta.android.ui.icons.VettaIcons
 
 @Composable
 fun WelcomeScreen(
@@ -93,7 +96,9 @@ fun LoginScreen(
             TopAppBar(
                 title = { Text(Str.loginTitle) },
                 navigationIcon = {
-                    TextButton(onClick = onBack) { Text(Str.back) }
+                    IconButton(onClick = onBack) {
+                        Icon(VettaIcons.Back, contentDescription = Str.back)
+                    }
                 },
             )
         },
@@ -145,8 +150,12 @@ fun LoginScreen(
                 visualTransformation =
                     if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 trailingIcon = {
-                    TextButton(onClick = { onTogglePassword(!passwordVisible) }) {
-                        Text(if (passwordVisible) Str.hidePassword else Str.showPassword)
+                    IconButton(onClick = { onTogglePassword(!passwordVisible) }) {
+                        Icon(
+                            if (passwordVisible) VettaIcons.VisibilityOff else VettaIcons.Visibility,
+                            contentDescription =
+                                if (passwordVisible) Str.hidePassword else Str.showPassword,
+                        )
                     }
                 },
                 keyboardOptions =
@@ -200,7 +209,9 @@ fun ServerSetupScreen(
             TopAppBar(
                 title = { Text(Str.server) },
                 navigationIcon = {
-                    TextButton(onClick = onBack) { Text(Str.back) }
+                    IconButton(onClick = onBack) {
+                        Icon(VettaIcons.Back, contentDescription = Str.back)
+                    }
                 },
             )
         },

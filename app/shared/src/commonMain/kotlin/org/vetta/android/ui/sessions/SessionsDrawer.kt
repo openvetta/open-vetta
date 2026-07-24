@@ -15,6 +15,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.Text
@@ -30,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import org.vetta.android.domain.session.ChatSession
 import org.vetta.android.ui.i18n.Str
+import org.vetta.android.ui.icons.VettaIcons
 
 @Composable
 fun SessionsDrawerContent(
@@ -65,6 +68,8 @@ fun SessionsDrawerContent(
             Text(Str.sessions, style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(12.dp))
             Button(onClick = onNewChat, modifier = Modifier.fillMaxWidth()) {
+                Icon(VettaIcons.Add, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
                 Text(Str.newChat)
             }
             Spacer(Modifier.height(12.dp))
@@ -186,6 +191,8 @@ private fun SessionRow(
             }
         }
         TextButton(onClick = onRename) { Text(Str.rename) }
-        TextButton(onClick = onDelete) { Text(Str.delete) }
+        IconButton(onClick = onDelete) {
+            Icon(VettaIcons.Delete, contentDescription = Str.delete)
+        }
     }
 }
