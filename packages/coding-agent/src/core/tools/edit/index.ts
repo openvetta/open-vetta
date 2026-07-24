@@ -193,6 +193,13 @@ async function executeAnchorEdits(
 	for (let i = 1; i < sorted.length; i++) {
 		const prev = sorted[i - 1];
 		const curr = sorted[i];
+		// 同一行被两处编辑命中（含两个 insert_after 落到同行）即视为冲突——
+		// 否则两段内容会挤在同一位置，正是「重复片段」的表现。
+		if (curr.startLine === prev.startLine) {
+			throw new Error(
+				`edits[${prev.index}] and edits[${curr.index}] both target line ${curr.startLine}. Merge them into one edit.`,
+			);
+		}
 		const prevEnd = prev.insertAfter ? prev.startLine : prev.endLine;
 		const currStart = curr.insertAfter ? curr.startLine + 1 : curr.startLine;
 		if (currStart <= prevEnd) {

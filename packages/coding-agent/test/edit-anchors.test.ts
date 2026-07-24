@@ -107,6 +107,42 @@ describe("edit tool anchor mode", () => {
 		).rejects.toThrow(/overlap/);
 	});
 
+	test("drifted anchors on duplicate lines reject instead of collapsing to one spot", async () => {
+		// 回归：两个 insert_after 目标各自的空行，行号提示漂移。旧实现会因就近取胜
+		// 把两段内容挤到同一行 → 重复片段。现应判 STALE，原子拒绝。
+		writeFileSync(
+			file,
+			["function a() {", "  return 1;", "}", "", "function b() {", "  return 2;", "}", ""].join("\n"),
+		);
+		const blank = anchorLineHash("");
+		await expect(
+			tool().execute("t", {
+				path: file,
+				edits: [
+					{ anchor: `2:${blank}`, new_text: "// after a", insert_after: true },
+					{ anchor: `6:${blank}`, new_text: "// after b", insert_after: true },
+				],
+			}),
+		).rejects.toThrow(/STALE|Fresh anchors/);
+		// 原子性：文件未变
+		expect(readFileSync(file, "utf-8")).toBe(
+			["function a() {", "  return 1;", "}", "", "function b() {", "  return 2;", "}", ""].join("\n"),
+		);
+	});
+
+	test("two edits resolving to the same line are rejected as conflicting", async () => {
+		writeFileSync(file, ["x", "y", "z"].join("\n"));
+		await expect(
+			tool().execute("t", {
+				path: file,
+				edits: [
+					{ anchor: anchorFor("y", 2), new_text: "A", insert_after: true },
+					{ anchor: anchorFor("y", 2), new_text: "B", insert_after: true },
+				],
+			}),
+		).rejects.toThrow(/both target line 2|overlap/);
+	});
+
 	test("malformed anchor errors immediately", async () => {
 		await expect(
 			tool().execute("t", { path: file, edits: [{ anchor: "not-an-anchor", new_text: "x" }] }),
