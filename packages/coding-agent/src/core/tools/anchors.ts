@@ -47,6 +47,15 @@ export function parseAnchor(anchor: string): ParsedAnchor | undefined {
 	return { line, hash: match[2] };
 }
 
+/** 全文件按哈希收集匹配行号（1-based）。纯哈希锚点（缺 `行号:` 前缀）的降级找回用。 */
+export function findHashLines(lines: string[], hash: string): number[] {
+	const hits: number[] = [];
+	for (let i = 0; i < lines.length; i++) {
+		if (anchorLineHash(lines[i]) === hash) hits.push(i + 1);
+	}
+	return hits;
+}
+
 export type AnchorValidation =
 	| { status: "ok"; line: number }
 	| { status: "shifted"; line: number }
