@@ -29,7 +29,7 @@ export function createPluginOfficialApi(plugin: InstalledPlugin, capabilitySessi
 		general: createOfficialGeneralApi(assertOfficial),
 		agent: createOfficialAgentApi(assertOfficial),
 		downloads: createOfficialDownloadsApi(assertOfficial, capabilitySessionId),
-		updater: createOfficialUpdaterApi(assertOfficial),
+		updater: createOfficialUpdaterApi(assertOfficial, capabilitySessionId),
 		webhook: createOfficialWebhookApi(assertOfficial, capabilitySessionId),
 		skills: createOfficialSkillsApi(assertOfficial),
 		shortcuts: createOfficialShortcutsApi(assertOfficial),

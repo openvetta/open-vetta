@@ -241,6 +241,27 @@ export function registerPluginCapabilitiesIpc(): () => void {
 	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.DOWNLOAD_CANCEL, (_event, sessionId: unknown, id: unknown) =>
 		adapter.cancelDownload(requireString(sessionId, "sessionId"), requireString(id, "id")),
 	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.UPDATER_STATE_GET, (_event, sessionId: unknown) =>
+		adapter.getUpdaterState(requireString(sessionId, "sessionId")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.UPDATER_CURRENT_VERSION_GET, (_event, sessionId: unknown) =>
+		adapter.getUpdaterCurrentVersion(requireString(sessionId, "sessionId")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.UPDATER_CHECK, (_event, sessionId: unknown) =>
+		adapter.checkUpdater(requireString(sessionId, "sessionId")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.UPDATER_DOWNLOAD, (_event, sessionId: unknown) =>
+		adapter.downloadUpdater(requireString(sessionId, "sessionId")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.UPDATER_INSTALL, (_event, sessionId: unknown) =>
+		adapter.installUpdater(requireString(sessionId, "sessionId")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.UPDATER_DISMISS, (_event, sessionId: unknown) =>
+		adapter.dismissUpdater(requireString(sessionId, "sessionId")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.UPDATER_CANCEL, (_event, sessionId: unknown) =>
+		adapter.cancelUpdater(requireString(sessionId, "sessionId")),
+	);
 	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.KNOWLEDGE_BASE_LIST, (_event, sessionId: unknown) =>
 		adapter.listKnowledgeBases(requireString(sessionId, "sessionId")),
 	);

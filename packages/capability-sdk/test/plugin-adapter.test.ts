@@ -15,6 +15,7 @@ import {
 	DOMAIN_PROJECT_CAPABILITIES,
 	DOMAIN_SCHEDULER_CAPABILITIES,
 	DOMAIN_SESSION_CAPABILITIES,
+	DOMAIN_UPDATER_CAPABILITIES,
 	DOMAIN_WEBHOOK_CAPABILITIES,
 } from "../src/domain.js";
 import { FOUNDATION_FILESYSTEM_CAPABILITIES } from "../src/foundation.js";
@@ -114,6 +115,14 @@ function outputFor(capabilityId: CapabilityId): unknown {
 				completedAt: 2,
 			},
 		];
+	}
+	if (capabilityId === DOMAIN_UPDATER_CAPABILITIES.GET_CURRENT_VERSION.id) return "1.0.0";
+	if (
+		capabilityId === DOMAIN_UPDATER_CAPABILITIES.GET_STATE.id ||
+		capabilityId === DOMAIN_UPDATER_CAPABILITIES.CHECK.id ||
+		capabilityId === DOMAIN_UPDATER_CAPABILITIES.DOWNLOAD.id
+	) {
+		return { phase: "idle", currentVersion: "1.0.0", pendingInstall: false };
 	}
 	if (capabilityId === DOMAIN_KNOWLEDGE_CAPABILITIES.LIST_BASES.id) {
 		return [
@@ -300,6 +309,7 @@ describe("PluginCapabilityAdapter", () => {
 		expect(access.sessions[0]?.grants.map((grant) => grant.capabilityId)).toEqual([
 			...Object.values(DOMAIN_BATCH_TASK_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_DOWNLOAD_CAPABILITIES).map((capability) => capability.id),
+			...Object.values(DOMAIN_UPDATER_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_KNOWLEDGE_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_PROJECT_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_SESSION_CAPABILITIES).map((capability) => capability.id),
@@ -341,6 +351,12 @@ describe("PluginCapabilityAdapter", () => {
 			},
 		]);
 		await expect(adapter.cancelDownload(sessionId, "download")).resolves.toBeUndefined();
+		await expect(adapter.getUpdaterState(sessionId)).resolves.toEqual({
+			phase: "idle",
+			currentVersion: "1.0.0",
+			pendingInstall: false,
+		});
+		await expect(adapter.installUpdater(sessionId)).resolves.toBeUndefined();
 		await expect(adapter.listKnowledgeBases(sessionId)).resolves.toHaveLength(1);
 		await expect(adapter.setKnowledgeProcessing(sessionId, { processingModelKey: null })).resolves.toEqual({
 			enabled: true,
@@ -369,6 +385,9 @@ describe("PluginCapabilityAdapter", () => {
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
 		expect(() => adapter.listKnowledgeBases(sessionId)).toThrowError(
+			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
+		);
+		expect(() => adapter.getUpdaterState(sessionId)).toThrowError(
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
 		expect(() => adapter.listScheduledTasks(sessionId)).toThrowError(
@@ -401,6 +420,9 @@ describe("PluginCapabilityAdapter", () => {
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
 		expect(() => adapter.listKnowledgeBases(sessionId)).toThrowError(
+			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
+		);
+		expect(() => adapter.getUpdaterState(sessionId)).toThrowError(
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
 		expect(() => adapter.listScheduledTasks(sessionId)).toThrowError(

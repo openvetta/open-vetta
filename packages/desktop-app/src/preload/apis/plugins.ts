@@ -71,6 +71,16 @@ export function createPluginsApi(ipc: IpcRenderer): Pick<DesktopApi, "plugins"> 
 					list: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.DOWNLOAD_LIST, sessionId),
 					cancel: (sessionId, id) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.DOWNLOAD_CANCEL, sessionId, id),
 				},
+				updater: {
+					getState: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.UPDATER_STATE_GET, sessionId),
+					getCurrentVersion: (sessionId) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.UPDATER_CURRENT_VERSION_GET, sessionId),
+					check: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.UPDATER_CHECK, sessionId),
+					download: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.UPDATER_DOWNLOAD, sessionId),
+					install: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.UPDATER_INSTALL, sessionId),
+					dismiss: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.UPDATER_DISMISS, sessionId),
+					cancel: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.UPDATER_CANCEL, sessionId),
+				},
 				knowledge: {
 					listBases: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.KNOWLEDGE_BASE_LIST, sessionId),
 					listFileStatuses: (sessionId) =>

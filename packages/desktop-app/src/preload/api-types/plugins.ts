@@ -18,6 +18,7 @@ import type {
 	SchedulerTaskUpdateData,
 	SessionHistoryEntry,
 	SessionRuntimeProject,
+	UpdaterState,
 	WebhookCreateData,
 	WebhookEndpoint,
 	WebhookMessage,
@@ -492,6 +493,16 @@ export interface DesktopPluginCapabilityDownloadsApi {
 	cancel(sessionId: string, id: string): Promise<void>;
 }
 
+export interface DesktopPluginCapabilityUpdaterApi {
+	getState(sessionId: string): Promise<UpdaterState>;
+	getCurrentVersion(sessionId: string): Promise<string>;
+	check(sessionId: string): Promise<UpdaterState>;
+	download(sessionId: string): Promise<UpdaterState>;
+	install(sessionId: string): Promise<void>;
+	dismiss(sessionId: string): Promise<void>;
+	cancel(sessionId: string): Promise<void>;
+}
+
 export interface DesktopPluginCapabilityKnowledgeApi {
 	listBases(sessionId: string): Promise<KnowledgeBase[]>;
 	listFileStatuses(sessionId: string): Promise<KnowledgeFileStatuses>;
@@ -541,6 +552,7 @@ export interface DesktopPluginInternalCapabilitiesApi {
 	projects: DesktopPluginCapabilityProjectsApi;
 	scheduler: DesktopPluginCapabilitySchedulerApi;
 	sessions: DesktopPluginCapabilitySessionsApi;
+	updater: DesktopPluginCapabilityUpdaterApi;
 	webhook: DesktopPluginCapabilityWebhookApi;
 }
 

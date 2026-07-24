@@ -9,6 +9,7 @@ import {
 	DOMAIN_PROJECT_CAPABILITIES,
 	DOMAIN_SCHEDULER_CAPABILITIES,
 	DOMAIN_SESSION_CAPABILITIES,
+	DOMAIN_UPDATER_CAPABILITIES,
 	DOMAIN_WEBHOOK_CAPABILITIES,
 } from "@vetta/capability-sdk";
 import { getDesktopBatchTaskService } from "../batch-tasks/batch-task-service.js";
@@ -19,12 +20,14 @@ import { allowProjectRoot, createFilesystemDirectory } from "../filesystem/files
 import { getKnowledgeService } from "../knowledge/knowledge-service.js";
 import { ProjectService } from "../projects/project-service.js";
 import { getDesktopSchedulerService } from "../scheduler/scheduler-service.js";
+import { getAppVersion, updaterService } from "../updater.js";
 import { getWebhookManager } from "../webhook/index.js";
 
 const DOMAIN_BATCH_TASK_PROVIDER_OWNER = "vetta.domain.batch-task";
 const DOMAIN_PROJECT_PROVIDER_OWNER = "vetta.domain.project";
 const DOMAIN_SESSION_PROVIDER_OWNER = "vetta.domain.session";
 const DOMAIN_DOWNLOAD_PROVIDER_OWNER = "vetta.domain.download";
+const DOMAIN_UPDATER_PROVIDER_OWNER = "vetta.domain.updater";
 const DOMAIN_KNOWLEDGE_PROVIDER_OWNER = "vetta.domain.knowledge";
 const DOMAIN_SCHEDULER_PROVIDER_OWNER = "vetta.domain.scheduler";
 const DOMAIN_WEBHOOK_PROVIDER_OWNER = "vetta.domain.webhook";
@@ -223,6 +226,50 @@ export function registerDesktopDomainProviders(registry: CapabilityRegistry): Di
 			},
 		}),
 	]);
+	const updaterRegistration = registry.registerOwner(DOMAIN_UPDATER_PROVIDER_OWNER, [
+		bindCapability(DOMAIN_UPDATER_CAPABILITIES.GET_STATE, {
+			execute: async (_input, context) => {
+				assertNotAborted(context.signal);
+				return updaterService.getState();
+			},
+		}),
+		bindCapability(DOMAIN_UPDATER_CAPABILITIES.GET_CURRENT_VERSION, {
+			execute: async (_input, context) => {
+				assertNotAborted(context.signal);
+				return getAppVersion();
+			},
+		}),
+		bindCapability(DOMAIN_UPDATER_CAPABILITIES.CHECK, {
+			execute: async (_input, context) => {
+				assertNotAborted(context.signal);
+				return updaterService.check();
+			},
+		}),
+		bindCapability(DOMAIN_UPDATER_CAPABILITIES.DOWNLOAD, {
+			execute: async (_input, context) => {
+				assertNotAborted(context.signal);
+				return updaterService.startDownload();
+			},
+		}),
+		bindCapability(DOMAIN_UPDATER_CAPABILITIES.INSTALL, {
+			execute: async (_input, context) => {
+				assertNotAborted(context.signal);
+				await updaterService.install();
+			},
+		}),
+		bindCapability(DOMAIN_UPDATER_CAPABILITIES.DISMISS, {
+			execute: async (_input, context) => {
+				assertNotAborted(context.signal);
+				updaterService.dismissReady();
+			},
+		}),
+		bindCapability(DOMAIN_UPDATER_CAPABILITIES.CANCEL, {
+			execute: async (_input, context) => {
+				assertNotAborted(context.signal);
+				updaterService.cancel();
+			},
+		}),
+	]);
 	const knowledgeRegistration = registry.registerOwner(DOMAIN_KNOWLEDGE_PROVIDER_OWNER, [
 		bindCapability(DOMAIN_KNOWLEDGE_CAPABILITIES.LIST_BASES, {
 			execute: async (_input, context) => {
@@ -408,6 +455,7 @@ export function registerDesktopDomainProviders(registry: CapabilityRegistry): Di
 			webhookRegistration.dispose();
 			schedulerRegistration.dispose();
 			knowledgeRegistration.dispose();
+			updaterRegistration.dispose();
 			downloadRegistration.dispose();
 			batchTaskRegistration.dispose();
 			sessionRegistration.dispose();
