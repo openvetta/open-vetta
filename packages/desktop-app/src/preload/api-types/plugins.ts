@@ -18,6 +18,9 @@ import type {
 	KnowledgeProcessingSettings,
 	KnowledgeProcessingUpdate,
 	KnowledgeScanResult,
+	McpServerDetail,
+	McpServerSummary,
+	McpServerUpsertData,
 	ModelConfigSnapshot,
 	ModelDefaultResult,
 	ModelListResult,
@@ -510,6 +513,14 @@ export interface DesktopPluginCapabilityModelsApi {
 	removeProvider(sessionId: string, provider: string): Promise<void>;
 }
 
+export interface DesktopPluginCapabilityMcpApi {
+	list(sessionId: string): Promise<McpServerSummary[]>;
+	get(sessionId: string, name: string): Promise<McpServerDetail>;
+	upsert(sessionId: string, name: string, data: McpServerUpsertData): Promise<McpServerDetail>;
+	setEnabled(sessionId: string, name: string, enabled: boolean): Promise<void>;
+	remove(sessionId: string, name: string): Promise<void>;
+}
+
 export interface DesktopPluginCapabilityBatchTasksApi {
 	listProjects(sessionId: string): Promise<BatchProject[]>;
 	getProject(sessionId: string, projectId: string): Promise<BatchProject>;
@@ -628,6 +639,7 @@ export interface DesktopPluginInternalCapabilitiesApi {
 	filesystem: DesktopPluginCapabilityFilesystemApi;
 	generalSettings: DesktopPluginCapabilityGeneralSettingsApi;
 	im: DesktopPluginCapabilityImApi;
+	mcp: DesktopPluginCapabilityMcpApi;
 	models: DesktopPluginCapabilityModelsApi;
 	downloads: DesktopPluginCapabilityDownloadsApi;
 	knowledge: DesktopPluginCapabilityKnowledgeApi;

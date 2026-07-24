@@ -1,15 +1,13 @@
 import type { FSWatcher } from "node:fs";
 import { watch } from "node:fs";
-import { readdir, readFile, stat } from "node:fs/promises";
+import { readdir, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { getVettaHomePath } from "@vetta/action-rpc";
 import {
 	clearMcpOAuthState,
 	hasMcpOAuthTokens,
 	loginHttpMcpServer,
 	loginMcpDeviceFlow,
 } from "@vetta/coding-agent/core/mcp/index.js";
-import { atomicWriteJSON } from "@vetta/toolkit/atomic-write";
 import { BrowserWindow, ipcMain } from "electron";
 import type {
 	McpConfigData,
@@ -61,7 +59,7 @@ import {
 	statFilesystemPath,
 	writeFilesystemFile,
 } from "../filesystem/filesystem-service.js";
-import { validateMcpConfig } from "../mcp-config-validation.js";
+import { getDesktopMcpSettingsService, readMcpConfig, writeMcpConfig } from "../mcp/mcp-settings-service.js";
 import { fetchProviderModels } from "../models/fetch-models.js";
 import { getDesktopModelSettingsService } from "../models/model-settings-host.js";
 import type { ModelsConfig } from "../models/model-settings-service.js";
@@ -89,7 +87,6 @@ export interface DesktopConfigSnapshot extends DesktopConfig {
 	knowledgeProcessingCwd: string;
 }
 
-const MCP_CONFIG_PATH = join(getVettaHomePath(), "agent", "mcp.json");
 export {
 	type AppshotConfig,
 	type AppshotGesture,
@@ -111,6 +108,7 @@ export {
 	readDesktopConfig,
 	writeDesktopConfig,
 };
+export { readMcpConfig, writeMcpConfig };
 
 // ─── MCP config ───
 
@@ -119,21 +117,6 @@ export type McpStdioServerConfig = McpStdioServerConfigData;
 export type McpHttpServerConfig = McpHttpServerConfigData;
 export type McpServerConfig = McpServerConfigData;
 export type McpConfig = McpConfigData;
-
-const DEFAULT_MCP_CONFIG: McpConfig = { mcpServers: {} };
-
-export async function readMcpConfig(): Promise<McpConfig> {
-	try {
-		const raw = await readFile(MCP_CONFIG_PATH, "utf8");
-		return validateMcpConfig(JSON.parse(raw));
-	} catch {
-		return { ...DEFAULT_MCP_CONFIG };
-	}
-}
-
-export async function writeMcpConfig(config: McpConfig): Promise<void> {
-	atomicWriteJSON(MCP_CONFIG_PATH, config);
-}
 
 const CHANNELS = {
 	READ_DIR: "vetta:fs:read-dir",
@@ -172,6 +155,7 @@ function assertNonEmptyString(value: unknown, fieldName: string): asserts value 
 export { allowProjectRoot, assertPathReadableForPreview } from "../filesystem/filesystem-service.js";
 
 export function registerFsIpc(): () => void {
+	const mcp = getDesktopMcpSettingsService();
 	const models = getDesktopModelSettingsService();
 	const shortcuts = getDesktopShortcutService();
 	ipcMain.handle(CHANNELS.READ_DIR, async (_event, dirPath: unknown): Promise<FsEntry[]> => {
@@ -411,11 +395,11 @@ export function registerFsIpc(): () => void {
 	});
 
 	ipcMain.handle(CHANNELS.MCP_GET, async (): Promise<McpConfig> => {
-		return readMcpConfig();
+		return mcp.getConfig();
 	});
 
 	ipcMain.handle(CHANNELS.MCP_SET, async (_event, config: unknown) => {
-		await writeMcpConfig(validateMcpConfig(config));
+		await mcp.replaceConfig(config);
 		// 不再在保存时 fan-out 重建所有 session。改为每个 session 在用户发
 		// prompt 时按需 diff-reload（见 AgentSession._maybeReloadMcpForPrompt）。
 		// 这样未使用的 session 不付出代价，且批量任务也能自然感知到变化。
@@ -435,7 +419,7 @@ export function registerFsIpc(): () => void {
 		let serverUrl = optionUrl;
 		// Read mcp.json for anything not passed by the renderer (re-authorize path).
 		if (!serverUrl || !oauthClientId || !deviceFlow || !scopes) {
-			const config = await readMcpConfig();
+			const config = await mcp.getConfig();
 			const server = config.mcpServers[name];
 			if (!serverUrl) {
 				if (!server) throw new Error(`MCP server '${name}' not found`);

@@ -91,6 +91,19 @@ export {
 	type KnowledgeSetProcessingInput,
 } from "./domain/knowledge.js";
 export {
+	DOMAIN_MCP_CAPABILITIES,
+	MCP_SERVER_TYPES,
+	type McpHttpServerUpsertData,
+	type McpServerDetail,
+	type McpServerNameInput,
+	type McpServerSetEnabledInput,
+	type McpServerSummary,
+	type McpServerType,
+	type McpServerUpsertData,
+	type McpServerUpsertInput,
+	type McpStdioServerUpsertData,
+} from "./domain/mcp.js";
+export {
 	DOMAIN_MODEL_CAPABILITIES,
 	type ModelConfigSnapshot,
 	type ModelCost,
