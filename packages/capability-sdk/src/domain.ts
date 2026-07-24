@@ -4,6 +4,29 @@ import { CAPABILITY_PREFIXES } from "./contracts.js";
 export const VETTA_DOMAIN_CAPABILITY_PREFIX = CAPABILITY_PREFIXES.VETTA_DOMAIN;
 
 export {
+	BATCH_COMMAND_STATUSES,
+	BATCH_EXECUTION_MODES,
+	BATCH_SKILL_TYPES,
+	BATCH_TASK_STATUSES,
+	type BatchCommandStatus,
+	type BatchExecutionMode,
+	type BatchProject,
+	type BatchProjectCreateData,
+	type BatchProjectCreateInput,
+	type BatchProjectIdInput,
+	type BatchProjectUpdateData,
+	type BatchProjectUpdateInput,
+	type BatchSkillRef,
+	type BatchSkillType,
+	type BatchTask,
+	type BatchTaskCommandResult,
+	type BatchTaskIdInput,
+	type BatchTaskIdsInput,
+	type BatchTaskResumeInput,
+	type BatchTaskStatus,
+	DOMAIN_BATCH_TASK_CAPABILITIES,
+} from "./domain/batch-task.js";
+export {
 	DOMAIN_DOWNLOAD_CAPABILITIES,
 	DOWNLOAD_STATUSES,
 	type DownloadCancelInput,

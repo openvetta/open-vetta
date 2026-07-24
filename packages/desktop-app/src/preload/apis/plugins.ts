@@ -9,6 +9,47 @@ export function createPluginsApi(ipc: IpcRenderer): Pick<DesktopApi, "plugins"> 
 			internalCapabilities: {
 				openSession: (pluginId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.OPEN_SESSION, pluginId),
 				closeSession: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.CLOSE_SESSION, sessionId),
+				batchTasks: {
+					listProjects: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.BATCH_PROJECT_LIST, sessionId),
+					getProject: (sessionId, projectId) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.BATCH_PROJECT_GET, sessionId, projectId),
+					createProject: (sessionId, data) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.BATCH_PROJECT_CREATE, sessionId, data),
+					updateProject: (sessionId, projectId, data) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.BATCH_PROJECT_UPDATE, sessionId, projectId, data),
+					deleteProject: (sessionId, projectId) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.BATCH_PROJECT_DELETE, sessionId, projectId),
+					runTask: (sessionId, projectId, taskId) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.BATCH_TASK_RUN, sessionId, projectId, taskId),
+					retryTask: (sessionId, projectId, taskId) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.BATCH_TASK_RETRY, sessionId, projectId, taskId),
+					stopTask: (sessionId, projectId, taskId) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.BATCH_TASK_STOP, sessionId, projectId, taskId),
+					deleteTask: (sessionId, projectId, taskId) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.BATCH_TASK_DELETE, sessionId, projectId, taskId),
+					resumeTask: (sessionId, projectId, taskId) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.BATCH_TASK_RESUME, sessionId, projectId, taskId),
+					resumeTaskWithText: (sessionId, projectId, taskId, text) =>
+						ipc.invoke(
+							PLUGIN_CAPABILITY_CHANNELS.BATCH_TASK_RESUME_WITH_TEXT,
+							sessionId,
+							projectId,
+							taskId,
+							text,
+						),
+					deleteTaskSession: (sessionId, projectId, taskId) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.BATCH_TASK_SESSION_DELETE, sessionId, projectId, taskId),
+					deleteAllTasks: (sessionId, projectId) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.BATCH_PROJECT_TASK_DELETE_ALL, sessionId, projectId),
+					startProject: (sessionId, projectId) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.BATCH_PROJECT_START, sessionId, projectId),
+					stopProject: (sessionId, projectId) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.BATCH_PROJECT_STOP, sessionId, projectId),
+					resetProject: (sessionId, projectId) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.BATCH_PROJECT_RESET, sessionId, projectId),
+					resetFailedTasks: (sessionId, projectId, taskIds) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.BATCH_PROJECT_FAILED_TASK_RESET, sessionId, projectId, taskIds),
+				},
 				filesystem: {
 					readDirectory: (sessionId, path) =>
 						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.FS_READ_DIRECTORY, sessionId, path),

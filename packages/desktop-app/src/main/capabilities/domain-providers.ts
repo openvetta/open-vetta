@@ -3,6 +3,7 @@ import {
 	CAPABILITY_ERROR_CODES,
 	CapabilityError,
 	type Disposable,
+	DOMAIN_BATCH_TASK_CAPABILITIES,
 	DOMAIN_DOWNLOAD_CAPABILITIES,
 	DOMAIN_KNOWLEDGE_CAPABILITIES,
 	DOMAIN_PROJECT_CAPABILITIES,
@@ -10,6 +11,7 @@ import {
 	DOMAIN_SESSION_CAPABILITIES,
 	DOMAIN_WEBHOOK_CAPABILITIES,
 } from "@vetta/capability-sdk";
+import { getDesktopBatchTaskService } from "../batch-tasks/batch-task-service.js";
 import { readDesktopConfig, writeDesktopConfig } from "../config/desktop-config-store.js";
 import { listRuntimeSessionProjects, listSessionHistory } from "../conversations/session-query-service.js";
 import { getDesktopDownloadService } from "../downloads/download-service.js";
@@ -19,6 +21,7 @@ import { ProjectService } from "../projects/project-service.js";
 import { getDesktopSchedulerService } from "../scheduler/scheduler-service.js";
 import { getWebhookManager } from "../webhook/index.js";
 
+const DOMAIN_BATCH_TASK_PROVIDER_OWNER = "vetta.domain.batch-task";
 const DOMAIN_PROJECT_PROVIDER_OWNER = "vetta.domain.project";
 const DOMAIN_SESSION_PROVIDER_OWNER = "vetta.domain.session";
 const DOMAIN_DOWNLOAD_PROVIDER_OWNER = "vetta.domain.download";
@@ -33,6 +36,7 @@ function assertNotAborted(signal: AbortSignal): void {
 }
 
 export function registerDesktopDomainProviders(registry: CapabilityRegistry): Disposable {
+	const batchTasks = getDesktopBatchTaskService();
 	const downloads = getDesktopDownloadService();
 	const knowledge = getKnowledgeService();
 	const scheduler = getDesktopSchedulerService();
@@ -84,6 +88,110 @@ export function registerDesktopDomainProviders(registry: CapabilityRegistry): Di
 			execute: async ({ path }, context) => {
 				assertNotAborted(context.signal);
 				await projects.remove(path);
+			},
+		}),
+	]);
+	const batchTaskRegistration = registry.registerOwner(DOMAIN_BATCH_TASK_PROVIDER_OWNER, [
+		bindCapability(DOMAIN_BATCH_TASK_CAPABILITIES.LIST_PROJECTS, {
+			execute: async (_input, context) => {
+				assertNotAborted(context.signal);
+				return batchTasks.listProjects();
+			},
+		}),
+		bindCapability(DOMAIN_BATCH_TASK_CAPABILITIES.GET_PROJECT, {
+			execute: async ({ projectId }, context) => {
+				assertNotAborted(context.signal);
+				return batchTasks.getProject(projectId);
+			},
+		}),
+		bindCapability(DOMAIN_BATCH_TASK_CAPABILITIES.CREATE_PROJECT, {
+			execute: async ({ data }, context) => {
+				assertNotAborted(context.signal);
+				return batchTasks.createProject({ ...data });
+			},
+		}),
+		bindCapability(DOMAIN_BATCH_TASK_CAPABILITIES.UPDATE_PROJECT, {
+			execute: async ({ projectId, data }, context) => {
+				assertNotAborted(context.signal);
+				return batchTasks.updateProject(projectId, { ...data });
+			},
+		}),
+		bindCapability(DOMAIN_BATCH_TASK_CAPABILITIES.DELETE_PROJECT, {
+			execute: async ({ projectId }, context) => {
+				assertNotAborted(context.signal);
+				return batchTasks.deleteProject(projectId);
+			},
+		}),
+		bindCapability(DOMAIN_BATCH_TASK_CAPABILITIES.RUN_TASK, {
+			execute: async ({ projectId, taskId }, context) => {
+				assertNotAborted(context.signal);
+				return batchTasks.runTask(projectId, taskId);
+			},
+		}),
+		bindCapability(DOMAIN_BATCH_TASK_CAPABILITIES.RETRY_TASK, {
+			execute: async ({ projectId, taskId }, context) => {
+				assertNotAborted(context.signal);
+				return batchTasks.retryTask(projectId, taskId);
+			},
+		}),
+		bindCapability(DOMAIN_BATCH_TASK_CAPABILITIES.STOP_TASK, {
+			execute: async ({ projectId, taskId }, context) => {
+				assertNotAborted(context.signal);
+				return batchTasks.stopTask(projectId, taskId);
+			},
+		}),
+		bindCapability(DOMAIN_BATCH_TASK_CAPABILITIES.DELETE_TASK, {
+			execute: async ({ projectId, taskId }, context) => {
+				assertNotAborted(context.signal);
+				return batchTasks.deleteTask(projectId, taskId);
+			},
+		}),
+		bindCapability(DOMAIN_BATCH_TASK_CAPABILITIES.RESUME_TASK, {
+			execute: async ({ projectId, taskId }, context) => {
+				assertNotAborted(context.signal);
+				return batchTasks.resumeTask(projectId, taskId);
+			},
+		}),
+		bindCapability(DOMAIN_BATCH_TASK_CAPABILITIES.RESUME_TASK_WITH_TEXT, {
+			execute: async ({ projectId, taskId, text }, context) => {
+				assertNotAborted(context.signal);
+				return batchTasks.resumeTask(projectId, taskId, text);
+			},
+		}),
+		bindCapability(DOMAIN_BATCH_TASK_CAPABILITIES.DELETE_TASK_SESSION, {
+			execute: async ({ projectId, taskId }, context) => {
+				assertNotAborted(context.signal);
+				return batchTasks.deleteTaskSession(projectId, taskId);
+			},
+		}),
+		bindCapability(DOMAIN_BATCH_TASK_CAPABILITIES.DELETE_ALL_TASKS, {
+			execute: async ({ projectId }, context) => {
+				assertNotAborted(context.signal);
+				return batchTasks.deleteAllTasks(projectId);
+			},
+		}),
+		bindCapability(DOMAIN_BATCH_TASK_CAPABILITIES.START_PROJECT, {
+			execute: async ({ projectId }, context) => {
+				assertNotAborted(context.signal);
+				return batchTasks.startProject(projectId);
+			},
+		}),
+		bindCapability(DOMAIN_BATCH_TASK_CAPABILITIES.STOP_PROJECT, {
+			execute: async ({ projectId }, context) => {
+				assertNotAborted(context.signal);
+				return batchTasks.stopProject(projectId);
+			},
+		}),
+		bindCapability(DOMAIN_BATCH_TASK_CAPABILITIES.RESET_PROJECT, {
+			execute: async ({ projectId }, context) => {
+				assertNotAborted(context.signal);
+				return batchTasks.resetProject(projectId);
+			},
+		}),
+		bindCapability(DOMAIN_BATCH_TASK_CAPABILITIES.RESET_FAILED_TASKS, {
+			execute: async ({ projectId, taskIds }, context) => {
+				assertNotAborted(context.signal);
+				return batchTasks.resetFailedTasks(projectId, taskIds);
 			},
 		}),
 	]);
@@ -301,6 +409,7 @@ export function registerDesktopDomainProviders(registry: CapabilityRegistry): Di
 			schedulerRegistration.dispose();
 			knowledgeRegistration.dispose();
 			downloadRegistration.dispose();
+			batchTaskRegistration.dispose();
 			sessionRegistration.dispose();
 			projectRegistration.dispose();
 		},

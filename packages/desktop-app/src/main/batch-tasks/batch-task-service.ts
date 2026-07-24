@@ -518,3 +518,16 @@ export class BatchTaskService {
 		};
 	}
 }
+
+let desktopBatchTaskService: BatchTaskService | undefined;
+
+export function initializeDesktopBatchTaskService(getRuntime: () => RuntimeHost): BatchTaskService {
+	if (desktopBatchTaskService) throw new Error("Desktop batch task service is already initialized");
+	desktopBatchTaskService = new BatchTaskService(getRuntime);
+	return desktopBatchTaskService;
+}
+
+export function getDesktopBatchTaskService(): BatchTaskService {
+	if (!desktopBatchTaskService) throw new Error("Desktop batch task service is not initialized");
+	return desktopBatchTaskService;
+}

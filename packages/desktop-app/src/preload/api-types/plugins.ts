@@ -1,4 +1,8 @@
 import type {
+	BatchProject,
+	BatchProjectCreateData,
+	BatchProjectUpdateData,
+	BatchTaskCommandResult,
 	DownloadItem as CapabilityDownloadItem,
 	KnowledgeBase,
 	KnowledgeFileStatuses,
@@ -443,6 +447,31 @@ export interface DesktopPluginCapabilityFilesystemApi {
 	listFilesRecursive(sessionId: string, path: string): Promise<FsFileRef[]>;
 }
 
+export interface DesktopPluginCapabilityBatchTasksApi {
+	listProjects(sessionId: string): Promise<BatchProject[]>;
+	getProject(sessionId: string, projectId: string): Promise<BatchProject>;
+	createProject(sessionId: string, data: BatchProjectCreateData): Promise<BatchProject>;
+	updateProject(sessionId: string, projectId: string, data: BatchProjectUpdateData): Promise<BatchProject>;
+	deleteProject(sessionId: string, projectId: string): Promise<BatchTaskCommandResult>;
+	runTask(sessionId: string, projectId: string, taskId: string): Promise<BatchTaskCommandResult>;
+	retryTask(sessionId: string, projectId: string, taskId: string): Promise<BatchTaskCommandResult>;
+	stopTask(sessionId: string, projectId: string, taskId: string): Promise<BatchTaskCommandResult>;
+	deleteTask(sessionId: string, projectId: string, taskId: string): Promise<BatchTaskCommandResult>;
+	resumeTask(sessionId: string, projectId: string, taskId: string): Promise<BatchTaskCommandResult>;
+	resumeTaskWithText(
+		sessionId: string,
+		projectId: string,
+		taskId: string,
+		text: string,
+	): Promise<BatchTaskCommandResult>;
+	deleteTaskSession(sessionId: string, projectId: string, taskId: string): Promise<BatchTaskCommandResult>;
+	deleteAllTasks(sessionId: string, projectId: string): Promise<BatchTaskCommandResult>;
+	startProject(sessionId: string, projectId: string): Promise<BatchTaskCommandResult>;
+	stopProject(sessionId: string, projectId: string): Promise<BatchTaskCommandResult>;
+	resetProject(sessionId: string, projectId: string): Promise<BatchTaskCommandResult>;
+	resetFailedTasks(sessionId: string, projectId: string, taskIds: string[]): Promise<BatchTaskCommandResult>;
+}
+
 export interface DesktopPluginCapabilityProjectsApi {
 	list(sessionId: string): Promise<ProjectListResult>;
 	create(sessionId: string, name: string, path?: string): Promise<ProjectEntry>;
@@ -505,6 +534,7 @@ export interface DesktopPluginCapabilityWebhookApi {
 export interface DesktopPluginInternalCapabilitiesApi {
 	openSession(pluginId: string): Promise<string>;
 	closeSession(sessionId: string): Promise<void>;
+	batchTasks: DesktopPluginCapabilityBatchTasksApi;
 	filesystem: DesktopPluginCapabilityFilesystemApi;
 	downloads: DesktopPluginCapabilityDownloadsApi;
 	knowledge: DesktopPluginCapabilityKnowledgeApi;

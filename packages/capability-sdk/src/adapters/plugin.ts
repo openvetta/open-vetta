@@ -2,6 +2,9 @@ import { randomUUID } from "node:crypto";
 import { type CapabilityAccessHandle, type CapabilityAccessSessionFactory, createCapabilityGrant } from "../access.js";
 import { CAPABILITY_ERROR_CODES, CapabilityError } from "../contracts.js";
 import {
+	type BatchProject,
+	type BatchTaskCommandResult,
+	DOMAIN_BATCH_TASK_CAPABILITIES,
 	DOMAIN_DOWNLOAD_CAPABILITIES,
 	DOMAIN_KNOWLEDGE_CAPABILITIES,
 	DOMAIN_PROJECT_CAPABILITIES,
@@ -91,6 +94,23 @@ export class PluginCapabilityAdapter {
 				: []),
 			...(official
 				? [
+						createCapabilityGrant(DOMAIN_BATCH_TASK_CAPABILITIES.LIST_PROJECTS),
+						createCapabilityGrant(DOMAIN_BATCH_TASK_CAPABILITIES.GET_PROJECT),
+						createCapabilityGrant(DOMAIN_BATCH_TASK_CAPABILITIES.CREATE_PROJECT),
+						createCapabilityGrant(DOMAIN_BATCH_TASK_CAPABILITIES.UPDATE_PROJECT),
+						createCapabilityGrant(DOMAIN_BATCH_TASK_CAPABILITIES.DELETE_PROJECT),
+						createCapabilityGrant(DOMAIN_BATCH_TASK_CAPABILITIES.RUN_TASK),
+						createCapabilityGrant(DOMAIN_BATCH_TASK_CAPABILITIES.RETRY_TASK),
+						createCapabilityGrant(DOMAIN_BATCH_TASK_CAPABILITIES.STOP_TASK),
+						createCapabilityGrant(DOMAIN_BATCH_TASK_CAPABILITIES.DELETE_TASK),
+						createCapabilityGrant(DOMAIN_BATCH_TASK_CAPABILITIES.RESUME_TASK),
+						createCapabilityGrant(DOMAIN_BATCH_TASK_CAPABILITIES.RESUME_TASK_WITH_TEXT),
+						createCapabilityGrant(DOMAIN_BATCH_TASK_CAPABILITIES.DELETE_TASK_SESSION),
+						createCapabilityGrant(DOMAIN_BATCH_TASK_CAPABILITIES.DELETE_ALL_TASKS),
+						createCapabilityGrant(DOMAIN_BATCH_TASK_CAPABILITIES.START_PROJECT),
+						createCapabilityGrant(DOMAIN_BATCH_TASK_CAPABILITIES.STOP_PROJECT),
+						createCapabilityGrant(DOMAIN_BATCH_TASK_CAPABILITIES.RESET_PROJECT),
+						createCapabilityGrant(DOMAIN_BATCH_TASK_CAPABILITIES.RESET_FAILED_TASKS),
 						createCapabilityGrant(DOMAIN_DOWNLOAD_CAPABILITIES.LIST),
 						createCapabilityGrant(DOMAIN_DOWNLOAD_CAPABILITIES.CANCEL),
 						createCapabilityGrant(DOMAIN_KNOWLEDGE_CAPABILITIES.LIST_BASES),
@@ -265,6 +285,118 @@ export class PluginCapabilityAdapter {
 
 	cancelDownload(sessionId: string, id: string): Promise<undefined> {
 		return this.client(sessionId, { official: true }).invoke(DOMAIN_DOWNLOAD_CAPABILITIES.CANCEL, { id });
+	}
+
+	listBatchProjects(sessionId: string): Promise<BatchProject[]> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_BATCH_TASK_CAPABILITIES.LIST_PROJECTS, {});
+	}
+
+	getBatchProject(sessionId: string, projectId: string): Promise<BatchProject> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_BATCH_TASK_CAPABILITIES.GET_PROJECT, {
+			projectId,
+		});
+	}
+
+	createBatchProject(sessionId: string, data: unknown): Promise<BatchProject> {
+		const input = DOMAIN_BATCH_TASK_CAPABILITIES.CREATE_PROJECT.parseInput({ data });
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_BATCH_TASK_CAPABILITIES.CREATE_PROJECT, input);
+	}
+
+	updateBatchProject(sessionId: string, projectId: string, data: unknown): Promise<BatchProject> {
+		const input = DOMAIN_BATCH_TASK_CAPABILITIES.UPDATE_PROJECT.parseInput({ projectId, data });
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_BATCH_TASK_CAPABILITIES.UPDATE_PROJECT, input);
+	}
+
+	deleteBatchProject(sessionId: string, projectId: string): Promise<BatchTaskCommandResult> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_BATCH_TASK_CAPABILITIES.DELETE_PROJECT, {
+			projectId,
+		});
+	}
+
+	runBatchTask(sessionId: string, projectId: string, taskId: string): Promise<BatchTaskCommandResult> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_BATCH_TASK_CAPABILITIES.RUN_TASK, {
+			projectId,
+			taskId,
+		});
+	}
+
+	retryBatchTask(sessionId: string, projectId: string, taskId: string): Promise<BatchTaskCommandResult> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_BATCH_TASK_CAPABILITIES.RETRY_TASK, {
+			projectId,
+			taskId,
+		});
+	}
+
+	stopBatchTask(sessionId: string, projectId: string, taskId: string): Promise<BatchTaskCommandResult> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_BATCH_TASK_CAPABILITIES.STOP_TASK, {
+			projectId,
+			taskId,
+		});
+	}
+
+	deleteBatchTask(sessionId: string, projectId: string, taskId: string): Promise<BatchTaskCommandResult> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_BATCH_TASK_CAPABILITIES.DELETE_TASK, {
+			projectId,
+			taskId,
+		});
+	}
+
+	resumeBatchTask(sessionId: string, projectId: string, taskId: string): Promise<BatchTaskCommandResult> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_BATCH_TASK_CAPABILITIES.RESUME_TASK, {
+			projectId,
+			taskId,
+		});
+	}
+
+	resumeBatchTaskWithText(
+		sessionId: string,
+		projectId: string,
+		taskId: string,
+		text: string,
+	): Promise<BatchTaskCommandResult> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_BATCH_TASK_CAPABILITIES.RESUME_TASK_WITH_TEXT, {
+			projectId,
+			taskId,
+			text,
+		});
+	}
+
+	deleteBatchTaskSession(sessionId: string, projectId: string, taskId: string): Promise<BatchTaskCommandResult> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_BATCH_TASK_CAPABILITIES.DELETE_TASK_SESSION, {
+			projectId,
+			taskId,
+		});
+	}
+
+	deleteAllBatchTasks(sessionId: string, projectId: string): Promise<BatchTaskCommandResult> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_BATCH_TASK_CAPABILITIES.DELETE_ALL_TASKS, {
+			projectId,
+		});
+	}
+
+	startBatchProject(sessionId: string, projectId: string): Promise<BatchTaskCommandResult> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_BATCH_TASK_CAPABILITIES.START_PROJECT, {
+			projectId,
+		});
+	}
+
+	stopBatchProject(sessionId: string, projectId: string): Promise<BatchTaskCommandResult> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_BATCH_TASK_CAPABILITIES.STOP_PROJECT, {
+			projectId,
+		});
+	}
+
+	resetBatchProject(sessionId: string, projectId: string): Promise<BatchTaskCommandResult> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_BATCH_TASK_CAPABILITIES.RESET_PROJECT, {
+			projectId,
+		});
+	}
+
+	resetFailedBatchTasks(sessionId: string, projectId: string, taskIds: string[]): Promise<BatchTaskCommandResult> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_BATCH_TASK_CAPABILITIES.RESET_FAILED_TASKS, {
+			projectId,
+			taskIds,
+		});
 	}
 
 	listScheduledTasks(sessionId: string): Promise<SchedulerTask[]> {
