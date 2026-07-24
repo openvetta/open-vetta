@@ -54,5 +54,5 @@
 		"allowImportingTsExtensions": true
 	},
 	"include": ["./**/*.ts", "./**/*.tsx", "./**/*.d.ts"],
-	"exclude": ["node_modules", "../preload", "../../runtime-core"]
+	"exclude": ["node_modules", "../preload", "../../runtime-core", "e2e", "wdio.conf.ts"]
 }
