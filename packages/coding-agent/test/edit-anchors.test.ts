@@ -216,4 +216,226 @@ describe("edit tool anchor mode", () => {
 		});
 		expect(readFileSync(file, "utf-8")).toBe("a\r\nB\r\nc");
 	});
+	test("rejects an anchor replacement that introduces invalid TSX syntax", async () => {
+		file = join(dir, "sample.tsx");
+		const source = ["export function Card() {", "  return <div>ok</div>;", "}"].join("\n");
+		writeFileSync(file, source);
+
+		await expect(
+			tool().execute("t", {
+				path: file,
+				edits: [
+					{
+						anchor: anchorFor("export function Card() {", 1),
+						end_anchor: anchorFor("}", 3),
+						new_text: ["export function Card() {", "  return <section>ok</section>;"].join("\n"),
+					},
+				],
+			}),
+		).rejects.toThrow(/dropped the range's closing tail/);
+		expect(readFileSync(file, "utf-8")).toBe(source);
+	});
+
+	test("rejects an anchor replacement that drops a JSX closing tag", async () => {
+		file = join(dir, "sample.tsx");
+		const source = ["export const Card = () => (", "  <section>", "    <span>ok</span>", "  </section>", ");"].join(
+			"\n",
+		);
+		writeFileSync(file, source);
+
+		await expect(
+			tool().execute("t", {
+				path: file,
+				edits: [
+					{
+						anchor: anchorFor("  <section>", 2),
+						end_anchor: anchorFor("  </section>", 4),
+						new_text: ["  <article>", "    <span>updated</span>"].join("\n"),
+					},
+				],
+			}),
+		).rejects.toThrow(/dropped the range's closing tail/);
+		expect(readFileSync(file, "utf-8")).toBe(source);
+	});
+
+	test("allows replacing a closing line when new_text is structurally complete", async () => {
+		file = join(dir, "sample.tsx");
+		writeFileSync(file, ["export function Card() {", "  return <div>ok</div>;", "}"].join("\n"));
+
+		await tool().execute("t", {
+			path: file,
+			edits: [
+				{
+					anchor: anchorFor("export function Card() {", 1),
+					end_anchor: anchorFor("}", 3),
+					new_text: "export const Card = () => <section>ok</section>;",
+				},
+			],
+		});
+
+		expect(readFileSync(file, "utf-8")).toBe("export const Card = () => <section>ok</section>;");
+	});
+
+	test("ignores structural characters inside strings and comments", async () => {
+		file = join(dir, "sample.ts");
+		writeFileSync(file, ["export function value() {", "  return 1;", "}"].join("\n"));
+
+		await tool().execute("t", {
+			path: file,
+			edits: [
+				{
+					anchor: anchorFor("export function value() {", 1),
+					end_anchor: anchorFor("}", 3),
+					new_text: 'export const value = "{"; // {',
+				},
+			],
+		});
+
+		expect(readFileSync(file, "utf-8")).toBe('export const value = "{"; // {');
+	});
+
+	test("rejects dropping a compound closing line", async () => {
+		file = join(dir, "sample.ts");
+		const source = ["const value = (() => {", "  return 1;", "})();"].join("\n");
+		writeFileSync(file, source);
+
+		await expect(
+			tool().execute("t", {
+				path: file,
+				edits: [
+					{
+						anchor: anchorFor("const value = (() => {", 1),
+						end_anchor: anchorFor("})();", 3),
+						new_text: ["const value = (() => {", "  return 2;"].join("\n"),
+					},
+				],
+			}),
+		).rejects.toThrow(/dropped the range's closing tail/);
+		expect(readFileSync(file, "utf-8")).toBe(source);
+	});
+
+	test("rejects dropping a JSX fragment closing tag", async () => {
+		file = join(dir, "sample.tsx");
+		const source = ["const value = (", "  <>", "    <span>ok</span>", "  </>", ");"].join("\n");
+		writeFileSync(file, source);
+
+		await expect(
+			tool().execute("t", {
+				path: file,
+				edits: [
+					{
+						anchor: anchorFor("  <>", 2),
+						end_anchor: anchorFor("  </>", 4),
+						new_text: ["  <>", "    <span>updated</span>"].join("\n"),
+					},
+				],
+			}),
+		).rejects.toThrow(/dropped the range's closing tail/);
+		expect(readFileSync(file, "utf-8")).toBe(source);
+	});
+
+	test("ignores structural characters inside regular expressions", async () => {
+		file = join(dir, "sample.ts");
+		writeFileSync(file, ["export function value() {", "  return 1;", "}"].join("\n"));
+
+		await tool().execute("t", {
+			path: file,
+			edits: [
+				{
+					anchor: anchorFor("export function value() {", 1),
+					end_anchor: anchorFor("}", 3),
+					new_text: "export const value = /{/;",
+				},
+			],
+		});
+
+		expect(readFileSync(file, "utf-8")).toBe("export const value = /{/;");
+	});
+
+	test("rejects dropping an as-const structural closing line", async () => {
+		file = join(dir, "sample.ts");
+		const source = ["const value = {", "  a: 1,", "} as const;"].join("\n");
+		writeFileSync(file, source);
+
+		await expect(
+			tool().execute("t", {
+				path: file,
+				edits: [
+					{
+						anchor: anchorFor("const value = {", 1),
+						end_anchor: anchorFor("} as const;", 3),
+						new_text: ["const value = {", "  a: 2,"].join("\n"),
+					},
+				],
+			}),
+		).rejects.toThrow(/dropped the range's closing tail/);
+		expect(readFileSync(file, "utf-8")).toBe(source);
+	});
+
+	test("rejects replacing a single structural closer without a matching closer", async () => {
+		file = join(dir, "sample.ts");
+		const source = ["export function value() {", "  return 1;", "}"].join("\n");
+		writeFileSync(file, source);
+
+		await expect(
+			tool().execute("t", {
+				path: file,
+				edits: [
+					{
+						anchor: anchorFor("}", 3),
+						new_text: "// missing closer",
+					},
+				],
+			}),
+		).rejects.toThrow(/dropped the range's closing tail/);
+		expect(readFileSync(file, "utf-8")).toBe(source);
+	});
+
+	test("allows deleting a single structural closer with empty new_text", async () => {
+		file = join(dir, "sample.ts");
+		writeFileSync(file, ["export function value() {", "  return 1;", "}"].join("\n"));
+
+		await tool().execute("t", {
+			path: file,
+			edits: [
+				{
+					anchor: anchorFor("}", 3),
+					new_text: "",
+				},
+			],
+		});
+
+		expect(readFileSync(file, "utf-8")).toBe(["export function value() {", "  return 1;"].join("\n"));
+	});
+
+	test("rejects a batch when one edit drops a structural closing tail", async () => {
+		file = join(dir, "sample.ts");
+		const source = [
+			"export function first() {",
+			"  return 1;",
+			"}",
+			"export function second() {",
+			"  return 2;",
+			"}",
+		].join("\n");
+		writeFileSync(file, source);
+
+		await expect(
+			tool().execute("t", {
+				path: file,
+				edits: [
+					{
+						anchor: anchorFor("export function first() {", 1),
+						new_text: "export function firstRenamed() {",
+					},
+					{
+						anchor: anchorFor("export function second() {", 4),
+						end_anchor: anchorFor("}", 6),
+						new_text: ["export function second() {", "  return 3;"].join("\n"),
+					},
+				],
+			}),
+		).rejects.toThrow(/dropped the range's closing tail/);
+		expect(readFileSync(file, "utf-8")).toBe(source);
+	});
 });
