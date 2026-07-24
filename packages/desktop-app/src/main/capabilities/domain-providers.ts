@@ -7,6 +7,7 @@ import {
 	DOMAIN_BATCH_TASK_CAPABILITIES,
 	DOMAIN_DOWNLOAD_CAPABILITIES,
 	DOMAIN_GENERAL_SETTINGS_CAPABILITIES,
+	DOMAIN_IM_CAPABILITIES,
 	DOMAIN_KNOWLEDGE_CAPABILITIES,
 	DOMAIN_PROJECT_CAPABILITIES,
 	DOMAIN_QUICK_PANEL_CAPABILITIES,
@@ -24,6 +25,7 @@ import { listRuntimeSessionProjects, listSessionHistory } from "../conversations
 import { getDesktopDownloadService } from "../downloads/download-service.js";
 import { allowProjectRoot, createFilesystemDirectory } from "../filesystem/filesystem-service.js";
 import { getDesktopGeneralSettingsService } from "../general-settings/general-settings-service.js";
+import { getImHost } from "../im-host/index.js";
 import { getKnowledgeService } from "../knowledge/knowledge-service.js";
 import { ProjectService } from "../projects/project-service.js";
 import { getDesktopSchedulerService } from "../scheduler/scheduler-service.js";
@@ -35,6 +37,7 @@ import { getWebhookManager } from "../webhook/index.js";
 const DOMAIN_BATCH_TASK_PROVIDER_OWNER = "vetta.domain.batch-task";
 const DOMAIN_AGENT_SETTINGS_PROVIDER_OWNER = "vetta.domain.agent-settings";
 const DOMAIN_GENERAL_SETTINGS_PROVIDER_OWNER = "vetta.domain.general-settings";
+const DOMAIN_IM_PROVIDER_OWNER = "vetta.domain.im";
 const DOMAIN_PROJECT_PROVIDER_OWNER = "vetta.domain.project";
 const DOMAIN_SESSION_PROVIDER_OWNER = "vetta.domain.session";
 const DOMAIN_SKILL_PROVIDER_OWNER = "vetta.domain.skill";
@@ -57,6 +60,7 @@ export function registerDesktopDomainProviders(registry: CapabilityRegistry): Di
 	const batchTasks = getDesktopBatchTaskService();
 	const downloads = getDesktopDownloadService();
 	const generalSettings = getDesktopGeneralSettingsService();
+	const im = getImHost();
 	const knowledge = getKnowledgeService();
 	const scheduler = getDesktopSchedulerService();
 	const shortcuts = getDesktopShortcutService();
@@ -149,6 +153,60 @@ export function registerDesktopDomainProviders(registry: CapabilityRegistry): Di
 			execute: async ({ path }, context) => {
 				assertNotAborted(context.signal);
 				return generalSettings.setWorkspace(path);
+			},
+		}),
+	]);
+	const imRegistration = registry.registerOwner(DOMAIN_IM_PROVIDER_OWNER, [
+		bindCapability(DOMAIN_IM_CAPABILITIES.GET_STATUS, {
+			execute: async (_input, context) => {
+				assertNotAborted(context.signal);
+				const config = im.getPublicConfig();
+				return {
+					enabled: config.enabled,
+					transport: config.transport,
+					agentModel: config.agentModel ?? null,
+					wechatBound: config.wechat.bound,
+					feishuAppId: config.feishu.appId || null,
+					runtime: im.getStatus(),
+				};
+			},
+		}),
+		bindCapability(DOMAIN_IM_CAPABILITIES.LIST_LOGS, {
+			execute: async ({ limit }, context) => {
+				assertNotAborted(context.signal);
+				return im
+					.getRecentLogs()
+					.slice(-limit)
+					.map(({ level, msg, time, fields }) => ({
+						level,
+						msg,
+						time,
+						...(fields === undefined ? {} : { fields: { ...fields } }),
+					}));
+			},
+		}),
+		bindCapability(DOMAIN_IM_CAPABILITIES.SET_ENABLED, {
+			execute: async ({ enabled }, context) => {
+				assertNotAborted(context.signal);
+				const result = await im.setConfig({ enabled });
+				if (!result.ok) throw new Error(result.error ?? "Failed to update IM config");
+				return im.getStatus();
+			},
+		}),
+		bindCapability(DOMAIN_IM_CAPABILITIES.RESTART, {
+			execute: async (_input, context) => {
+				assertNotAborted(context.signal);
+				await im.restart();
+				return im.getStatus();
+			},
+		}),
+		bindCapability(DOMAIN_IM_CAPABILITIES.SET_AGENT_MODEL, {
+			execute: async ({ agentModel }, context) => {
+				assertNotAborted(context.signal);
+				const config = im.getPublicConfig();
+				const result = await im.setConfig({ enabled: config.enabled, agentModel });
+				if (!result.ok) throw new Error(result.error ?? "Failed to set IM agent model");
+				return im.getStatus();
 			},
 		}),
 	]);
@@ -587,6 +645,7 @@ export function registerDesktopDomainProviders(registry: CapabilityRegistry): Di
 			skillRegistration.dispose();
 			sessionRegistration.dispose();
 			projectRegistration.dispose();
+			imRegistration.dispose();
 			generalSettingsRegistration.dispose();
 			agentSettingsRegistration.dispose();
 		},

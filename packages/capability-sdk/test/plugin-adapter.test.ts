@@ -13,6 +13,7 @@ import {
 	DOMAIN_BATCH_TASK_CAPABILITIES,
 	DOMAIN_DOWNLOAD_CAPABILITIES,
 	DOMAIN_GENERAL_SETTINGS_CAPABILITIES,
+	DOMAIN_IM_CAPABILITIES,
 	DOMAIN_KNOWLEDGE_CAPABILITIES,
 	DOMAIN_PROJECT_CAPABILITIES,
 	DOMAIN_QUICK_PANEL_CAPABILITIES,
@@ -81,6 +82,27 @@ function outputFor(capabilityId: CapabilityId): unknown {
 		return { mode: "sandbox" };
 	}
 	if (capabilityId === DOMAIN_GENERAL_SETTINGS_CAPABILITIES.SET_WORKSPACE.id) return { path: "C:/next" };
+	const imRuntime = { transport: "online", activeSessions: 1, consecutiveStartFailures: 0 };
+	if (capabilityId === DOMAIN_IM_CAPABILITIES.GET_STATUS.id) {
+		return {
+			enabled: true,
+			transport: "feishu",
+			agentModel: { provider: "openai", model: "gpt-5" },
+			wechatBound: false,
+			feishuAppId: "app-id",
+			runtime: imRuntime,
+		};
+	}
+	if (capabilityId === DOMAIN_IM_CAPABILITIES.LIST_LOGS.id) {
+		return [{ level: "info", msg: "started", time: "2026-07-24T00:00:00.000Z" }];
+	}
+	if (
+		capabilityId === DOMAIN_IM_CAPABILITIES.SET_ENABLED.id ||
+		capabilityId === DOMAIN_IM_CAPABILITIES.RESTART.id ||
+		capabilityId === DOMAIN_IM_CAPABILITIES.SET_AGENT_MODEL.id
+	) {
+		return imRuntime;
+	}
 	if (
 		capabilityId === DOMAIN_BATCH_TASK_CAPABILITIES.LIST_PROJECTS.id ||
 		capabilityId === DOMAIN_BATCH_TASK_CAPABILITIES.GET_PROJECT.id ||
@@ -375,6 +397,7 @@ describe("PluginCapabilityAdapter", () => {
 		expect(access.sessions[0]?.grants.map((grant) => grant.capabilityId)).toEqual([
 			...Object.values(DOMAIN_AGENT_SETTINGS_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_GENERAL_SETTINGS_CAPABILITIES).map((capability) => capability.id),
+			...Object.values(DOMAIN_IM_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_BATCH_TASK_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_DOWNLOAD_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_UPDATER_CAPABILITIES).map((capability) => capability.id),
@@ -401,6 +424,21 @@ describe("PluginCapabilityAdapter", () => {
 		await expect(adapter.setNotifications(sessionId, false)).resolves.toEqual({ enabled: false });
 		await expect(adapter.setDefaultExecutionMode(sessionId, "sandbox")).resolves.toEqual({ mode: "sandbox" });
 		await expect(adapter.setWorkspace(sessionId, "C:/next")).resolves.toEqual({ path: "C:/next" });
+		await expect(adapter.getImStatus(sessionId)).resolves.toHaveProperty("transport", "feishu");
+		await expect(adapter.listImLogs(sessionId, 50)).resolves.toHaveLength(1);
+		await expect(adapter.setImEnabled(sessionId, true)).resolves.toEqual({
+			transport: "online",
+			activeSessions: 1,
+			consecutiveStartFailures: 0,
+		});
+		await expect(adapter.restartIm(sessionId)).resolves.toHaveProperty("transport", "online");
+		await expect(adapter.setImAgentModel(sessionId, "openai/gpt-5", "high")).resolves.toHaveProperty(
+			"transport",
+			"online",
+		);
+		expect(() => adapter.setImAgentModel(sessionId, "invalid", "high")).toThrowError(
+			"IM agent model key must use the provider/model format",
+		);
 		await expect(adapter.listBatchProjects(sessionId)).resolves.toHaveLength(1);
 		await expect(adapter.resumeBatchTask(sessionId, "C:/workspace/Batch", "task")).resolves.toEqual({
 			status: "accepted",
@@ -492,6 +530,9 @@ describe("PluginCapabilityAdapter", () => {
 		expect(() => adapter.getGeneralSettings(sessionId)).toThrowError(
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
+		expect(() => adapter.getImStatus(sessionId)).toThrowError(
+			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
+		);
 		expect(() => adapter.listBatchProjects(sessionId)).toThrowError(
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
@@ -534,6 +575,9 @@ describe("PluginCapabilityAdapter", () => {
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
 		expect(() => adapter.getGeneralSettings(sessionId)).toThrowError(
+			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
+		);
+		expect(() => adapter.getImStatus(sessionId)).toThrowError(
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
 		expect(() => adapter.listBatchProjects(sessionId)).toThrowError(

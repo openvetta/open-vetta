@@ -24,6 +24,15 @@ export function createPluginsApi(ipc: IpcRenderer): Pick<DesktopApi, "plugins"> 
 					setWorkspace: (sessionId, path) =>
 						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.GENERAL_SETTINGS_WORKSPACE_SET, sessionId, path),
 				},
+				im: {
+					getStatus: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.IM_STATUS_GET, sessionId),
+					listLogs: (sessionId, limit) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.IM_LOG_LIST, sessionId, limit),
+					setEnabled: (sessionId, enabled) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.IM_ENABLED_SET, sessionId, enabled),
+					restart: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.IM_RESTART, sessionId),
+					setAgentModel: (sessionId, modelKey, reasoningLevel) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.IM_AGENT_MODEL_SET, sessionId, modelKey, reasoningLevel),
+				},
 				batchTasks: {
 					listProjects: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.BATCH_PROJECT_LIST, sessionId),
 					getProject: (sessionId, projectId) =>

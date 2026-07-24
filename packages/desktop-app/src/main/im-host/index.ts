@@ -46,6 +46,7 @@ import { type ImBridgeStatus, StatusStore } from "./status-store.js";
 export interface ImAgentModelRef {
 	provider: string;
 	model: string;
+	reasoningLevel?: string;
 }
 
 export interface ImHostPublicConfig {

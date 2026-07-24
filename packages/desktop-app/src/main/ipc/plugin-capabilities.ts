@@ -17,8 +17,18 @@ function optionalString(value: unknown, field: string): string | undefined {
 	return requireString(value, field);
 }
 
+function requireNullableString(value: unknown, field: string): string | null {
+	if (value === null) return null;
+	return requireString(value, field);
+}
+
 function requireBoolean(value: unknown, field: string): boolean {
 	if (typeof value !== "boolean") throw new Error(`${field} must be a boolean`);
+	return value;
+}
+
+function requireNumber(value: unknown, field: string): number {
+	if (typeof value !== "number") throw new Error(`${field} must be a number`);
 	return value;
 }
 
@@ -89,6 +99,27 @@ export function registerPluginCapabilitiesIpc(): () => void {
 		PLUGIN_CAPABILITY_CHANNELS.GENERAL_SETTINGS_WORKSPACE_SET,
 		(_event, sessionId: unknown, path: unknown) =>
 			adapter.setWorkspace(requireString(sessionId, "sessionId"), requireString(path, "path")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.IM_STATUS_GET, (_event, sessionId: unknown) =>
+		adapter.getImStatus(requireString(sessionId, "sessionId")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.IM_LOG_LIST, (_event, sessionId: unknown, limit: unknown) =>
+		adapter.listImLogs(requireString(sessionId, "sessionId"), requireNumber(limit, "limit")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.IM_ENABLED_SET, (_event, sessionId: unknown, enabled: unknown) =>
+		adapter.setImEnabled(requireString(sessionId, "sessionId"), requireBoolean(enabled, "enabled")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.IM_RESTART, (_event, sessionId: unknown) =>
+		adapter.restartIm(requireString(sessionId, "sessionId")),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.IM_AGENT_MODEL_SET,
+		(_event, sessionId: unknown, modelKey: unknown, reasoningLevel: unknown) =>
+			adapter.setImAgentModel(
+				requireString(sessionId, "sessionId"),
+				requireNullableString(modelKey, "modelKey"),
+				reasoningLevel === undefined ? undefined : requireText(reasoningLevel, "reasoningLevel"),
+			),
 	);
 	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.BATCH_PROJECT_LIST, (_event, sessionId: unknown) =>
 		adapter.listBatchProjects(requireString(sessionId, "sessionId")),

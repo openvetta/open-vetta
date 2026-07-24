@@ -8,6 +8,11 @@ export const PLUGIN_CAPABILITY_CHANNELS = {
 	GENERAL_SETTINGS_DEFAULT_EXECUTION_MODE_SET:
 		"vetta:plugins:capabilities:general-settings:default-execution-mode:set",
 	GENERAL_SETTINGS_WORKSPACE_SET: "vetta:plugins:capabilities:general-settings:workspace:set",
+	IM_STATUS_GET: "vetta:plugins:capabilities:im:status:get",
+	IM_LOG_LIST: "vetta:plugins:capabilities:im:log:list",
+	IM_ENABLED_SET: "vetta:plugins:capabilities:im:enabled:set",
+	IM_RESTART: "vetta:plugins:capabilities:im:restart",
+	IM_AGENT_MODEL_SET: "vetta:plugins:capabilities:im:agent-model:set",
 	FS_READ_DIRECTORY: "vetta:plugins:capabilities:fs:read-directory",
 	FS_READ_FILE: "vetta:plugins:capabilities:fs:read-file",
 	FS_WRITE_FILE: "vetta:plugins:capabilities:fs:write-file",
