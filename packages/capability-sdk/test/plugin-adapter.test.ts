@@ -15,6 +15,7 @@ import {
 	DOMAIN_PROJECT_CAPABILITIES,
 	DOMAIN_SCHEDULER_CAPABILITIES,
 	DOMAIN_SESSION_CAPABILITIES,
+	DOMAIN_SKILL_CAPABILITIES,
 	DOMAIN_UPDATER_CAPABILITIES,
 	DOMAIN_WEBHOOK_CAPABILITIES,
 } from "../src/domain.js";
@@ -101,6 +102,22 @@ function outputFor(capabilityId: CapabilityId): unknown {
 	if (capabilityId === DOMAIN_SESSION_CAPABILITIES.LIST_RUNTIME_PROJECTS.id) {
 		return [{ cwd: "C:/workspace", sessionCount: 1 }];
 	}
+	if (capabilityId === DOMAIN_SKILL_CAPABILITIES.LIST.id) {
+		return [{ name: "review", description: "Review changes", source: "market", type: "skill" }];
+	}
+	if (capabilityId === DOMAIN_SKILL_CAPABILITIES.LIST_INSTALLED.id) {
+		return {
+			review: {
+				name: "review",
+				version: "1.0.0",
+				installedAt: "2026-01-01T00:00:00.000Z",
+				source: "market",
+				enabled: true,
+				type: "skill",
+			},
+		};
+	}
+	if (capabilityId === DOMAIN_SKILL_CAPABILITIES.SET_ENABLED.id) return { name: "review", enabled: false };
 	if (capabilityId === DOMAIN_DOWNLOAD_CAPABILITIES.LIST.id) {
 		return [
 			{
@@ -313,6 +330,7 @@ describe("PluginCapabilityAdapter", () => {
 			...Object.values(DOMAIN_KNOWLEDGE_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_PROJECT_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_SESSION_CAPABILITIES).map((capability) => capability.id),
+			...Object.values(DOMAIN_SKILL_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_SCHEDULER_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_WEBHOOK_CAPABILITIES).map((capability) => capability.id),
 		]);
@@ -337,6 +355,12 @@ describe("PluginCapabilityAdapter", () => {
 				modifiedAt: 1,
 			},
 		]);
+		await expect(adapter.listSkills(sessionId, "C:/workspace")).resolves.toHaveLength(1);
+		await expect(adapter.setSkillEnabled(sessionId, "review", false)).resolves.toEqual({
+			name: "review",
+			enabled: false,
+		});
+		await expect(adapter.uninstallSkill(sessionId, "review")).resolves.toBeUndefined();
 		await expect(adapter.listDownloads(sessionId)).resolves.toEqual([
 			{
 				id: "download",
@@ -384,6 +408,9 @@ describe("PluginCapabilityAdapter", () => {
 		expect(() => adapter.listRuntimeProjects(sessionId)).toThrowError(
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
+		expect(() => adapter.listSkills(sessionId)).toThrowError(
+			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
+		);
 		expect(() => adapter.listKnowledgeBases(sessionId)).toThrowError(
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
@@ -414,6 +441,9 @@ describe("PluginCapabilityAdapter", () => {
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
 		expect(() => adapter.listSessions(sessionId, "C:/workspace")).toThrowError(
+			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
+		);
+		expect(() => adapter.listSkills(sessionId)).toThrowError(
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
 		expect(() => adapter.listDownloads(sessionId)).toThrowError(

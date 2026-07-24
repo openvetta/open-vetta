@@ -29,6 +29,12 @@ function requireStringArray(value: unknown, field: string): string[] {
 	return value;
 }
 
+function optionalSkillType(value: unknown): "skill" | "scene" | undefined {
+	if (value === undefined) return undefined;
+	if (value !== "skill" && value !== "scene") throw new Error("type must be skill or scene");
+	return value;
+}
+
 export function registerPluginCapabilitiesIpc(): () => void {
 	const adapter = getDesktopCapabilityHost().adapters.plugin;
 	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.OPEN_SESSION, (_event, pluginId: unknown) =>
@@ -234,6 +240,30 @@ export function registerPluginCapabilitiesIpc(): () => void {
 	);
 	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.SESSION_LIST_RUNTIME_PROJECTS, (_event, sessionId: unknown) =>
 		adapter.listRuntimeProjects(requireString(sessionId, "sessionId")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.SKILL_LIST, (_event, sessionId: unknown, cwd: unknown) =>
+		adapter.listSkills(requireString(sessionId, "sessionId"), optionalString(cwd, "cwd")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.SKILL_INSTALLED_LIST, (_event, sessionId: unknown) =>
+		adapter.listInstalledSkills(requireString(sessionId, "sessionId")),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.SKILL_INSTALLED_SET_ENABLED,
+		(_event, sessionId: unknown, name: unknown, enabled: unknown) =>
+			adapter.setSkillEnabled(
+				requireString(sessionId, "sessionId"),
+				requireString(name, "name"),
+				requireBoolean(enabled, "enabled"),
+			),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.SKILL_INSTALLED_UNINSTALL,
+		(_event, sessionId: unknown, name: unknown, type: unknown) =>
+			adapter.uninstallSkill(
+				requireString(sessionId, "sessionId"),
+				requireString(name, "name"),
+				optionalSkillType(type),
+			),
 	);
 	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.DOWNLOAD_LIST, (_event, sessionId: unknown) =>
 		adapter.listDownloads(requireString(sessionId, "sessionId")),

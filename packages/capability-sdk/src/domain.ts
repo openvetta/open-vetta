@@ -93,6 +93,19 @@ export {
 	type SessionRuntimeProject,
 } from "./domain/session.js";
 export {
+	DOMAIN_SKILL_CAPABILITIES,
+	INSTALLED_SKILL_SOURCES,
+	type InstalledSkill,
+	type InstalledSkillSource,
+	SKILL_TYPES,
+	type SkillInfo,
+	type SkillListInput,
+	type SkillSetEnabledInput,
+	type SkillSetEnabledResult,
+	type SkillType,
+	type SkillUninstallInput,
+} from "./domain/skill.js";
+export {
 	DOMAIN_UPDATER_CAPABILITIES,
 	UPDATER_PHASES,
 	type UpdaterPhase,

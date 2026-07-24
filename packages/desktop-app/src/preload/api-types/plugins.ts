@@ -4,6 +4,7 @@ import type {
 	BatchProjectUpdateData,
 	BatchTaskCommandResult,
 	DownloadItem as CapabilityDownloadItem,
+	InstalledSkill,
 	KnowledgeBase,
 	KnowledgeFileStatuses,
 	KnowledgeProcessingSettings,
@@ -18,6 +19,9 @@ import type {
 	SchedulerTaskUpdateData,
 	SessionHistoryEntry,
 	SessionRuntimeProject,
+	SkillInfo,
+	SkillSetEnabledResult,
+	SkillType,
 	UpdaterState,
 	WebhookCreateData,
 	WebhookEndpoint,
@@ -488,6 +492,13 @@ export interface DesktopPluginCapabilitySessionsApi {
 	listRuntimeProjects(sessionId: string): Promise<SessionRuntimeProject[]>;
 }
 
+export interface DesktopPluginCapabilitySkillsApi {
+	list(sessionId: string, cwd?: string): Promise<SkillInfo[]>;
+	listInstalled(sessionId: string): Promise<Record<string, InstalledSkill>>;
+	setEnabled(sessionId: string, name: string, enabled: boolean): Promise<SkillSetEnabledResult>;
+	uninstall(sessionId: string, name: string, type?: SkillType): Promise<void>;
+}
+
 export interface DesktopPluginCapabilityDownloadsApi {
 	list(sessionId: string): Promise<CapabilityDownloadItem[]>;
 	cancel(sessionId: string, id: string): Promise<void>;
@@ -552,6 +563,7 @@ export interface DesktopPluginInternalCapabilitiesApi {
 	projects: DesktopPluginCapabilityProjectsApi;
 	scheduler: DesktopPluginCapabilitySchedulerApi;
 	sessions: DesktopPluginCapabilitySessionsApi;
+	skills: DesktopPluginCapabilitySkillsApi;
 	updater: DesktopPluginCapabilityUpdaterApi;
 	webhook: DesktopPluginCapabilityWebhookApi;
 }

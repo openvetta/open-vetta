@@ -1,21 +1,23 @@
 import { execSync } from "node:child_process";
-import { chmodSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, sep } from "node:path";
 import { getVettaHomePath } from "@vetta/action-rpc";
-import { DefaultResourceLoader } from "@vetta/coding-agent";
 import AdmZip from "adm-zip";
 import { ipcMain } from "electron";
-import type { AppMonitorResourceOperation } from "../../preload/api-types/app-monitor.js";
-import { recordAppMonitorEvent } from "../app-monitor/app-monitor-service.js";
-import { getBuiltinSkillPaths, isBuiltinSkillFile, readBuiltinSkillsManifest } from "../builtin-skills.js";
-import { getAppLogger } from "../logger.js";
+import { getBuiltinSkillPaths } from "../builtin-skills.js";
 import { buildAgentPluginRuntimeConfig } from "../plugins/plugin-store.js";
+import {
+	ensureDirWritable,
+	getDesktopSkillService,
+	getSkillBaseDir,
+	readSkillsManifest,
+	recordSkillResourceEvent,
+	writeSkillsManifest,
+} from "../skills/skill-service.js";
 import { verifySha256 } from "../utils/integrity.js";
-import { allowProjectRoot, readDesktopConfig } from "./fs.js";
-
-const skillsLog = getAppLogger("skills");
+import { allowProjectRoot } from "./fs.js";
 
 function assertNonEmptyString(value: unknown, fieldName: string): asserts value is string {
 	if (typeof value !== "string" || value.trim().length === 0) {
@@ -23,83 +25,7 @@ function assertNonEmptyString(value: unknown, fieldName: string): asserts value 
 	}
 }
 
-const skillsBaseDir = join(getVettaHomePath(), "skills");
-const sceneBaseDir = join(getVettaHomePath(), "scene");
-const manifestPath = join(getVettaHomePath(), "skills-manifest.json");
 const tmpBaseDir = join(getVettaHomePath(), "tmp");
-
-function getBaseDir(type: "skill" | "scene"): string {
-	return type === "scene" ? sceneBaseDir : skillsBaseDir;
-}
-
-function recordSkillResourceEvent(input: {
-	name: string;
-	type: "skill" | "scene";
-	source?: "market" | "custom";
-	operation: AppMonitorResourceOperation;
-}): void {
-	try {
-		recordAppMonitorEvent({
-			type: "resource.lifecycle",
-			resourceKind: input.type,
-			operation: input.operation,
-			resourceId: input.name,
-			...(input.source ? { source: input.source } : {}),
-		});
-	} catch {
-		// Monitoring must not affect skill operations.
-	}
-}
-
-interface InstalledMarketSkill {
-	name: string;
-	version: string;
-	installedAt: string;
-	source: "market";
-	enabled: boolean;
-	type?: "skill" | "scene";
-	alias?: string;
-	marketDescription?: string;
-}
-
-interface InstalledCustomSkill {
-	name: string;
-	version: string;
-	installedAt: string;
-	source: "custom";
-	enabled: boolean;
-	type: "skill";
-	alias?: string;
-	description: string;
-}
-
-type InstalledSkill = InstalledMarketSkill | InstalledCustomSkill;
-
-export function readSkillsManifest(): Record<string, InstalledSkill> {
-	return readManifest();
-}
-
-function readManifest(): Record<string, InstalledSkill> {
-	if (!existsSync(manifestPath)) return {};
-	try {
-		const raw = JSON.parse(readFileSync(manifestPath, "utf-8")) as Record<string, InstalledSkill>;
-		// Backward compat: entries without `enabled` default to true
-		for (const entry of Object.values(raw)) {
-			if (entry.enabled === undefined) {
-				entry.enabled = true;
-			}
-		}
-		return raw;
-	} catch {
-		return {};
-	}
-}
-
-function writeManifest(manifest: Record<string, InstalledSkill>): void {
-	const dir = dirname(manifestPath);
-	if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-	writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), "utf-8");
-}
 
 interface SkillFrontmatter {
 	name?: string;
@@ -198,20 +124,6 @@ function findShallowestSkillMd(rootDir: string): string | null {
 	return holder.best?.path ?? null;
 }
 
-// 历史版本曾把临时 tar 写入 baseDir 内，少数环境下 baseDir 的写权限被破坏后会卡死后续安装/卸载。
-// 这里在每次写操作前主动给目录补上 u+w，做一次自愈。仅修复缺失的 owner 写权限，不放宽其他位。
-function ensureDirWritable(dir: string): void {
-	if (!existsSync(dir)) return;
-	try {
-		const mode = statSync(dir).mode & 0o777;
-		if ((mode & 0o200) === 0) {
-			chmodSync(dir, mode | 0o200);
-		}
-	} catch {
-		// 权限修复失败时，让后续真正的写操作抛出更具体的错误
-	}
-}
-
 function parseVersionFromSkillDir(skillDir: string): string {
 	const skillMdPath = join(skillDir, "SKILL.md");
 	if (!existsSync(skillMdPath)) return "0.0.0";
@@ -224,141 +136,11 @@ function parseVersionFromSkillDir(skillDir: string): string {
 	}
 }
 
-export interface ListedSkill {
-	name: string;
-	alias?: string;
-	description?: string;
-	source: string;
-	type?: string;
-}
-
-export async function listSkills(cwd?: string): Promise<ListedSkill[]> {
-	// 适配通用 Agent Skill：跟随「Agent配置 → 扩展功能」开关，关闭时不发现 .agents/skills。
-	const desktopConfig = await readDesktopConfig();
-	const includeAgentSkills = desktopConfig.experimental?.agentSkills !== false;
-	// Plugin-packaged skills (agent.skillPaths) must appear in slash "/" the same way
-	// they are injected into agent sessions via skillPathContributions.
-	const pluginSkillPaths =
-		buildAgentPluginRuntimeConfig()?.skillPathContributions?.flatMap((contribution) => contribution.paths) ?? [];
-	const builtinSkillPaths = getBuiltinSkillPaths();
-	// 传入当前会话/项目 cwd，才能发现项目级 <cwd>/.agents/skills 与 <cwd>/.vetta/skills；
-	// 不传则只列全局来源（主进程自身 cwd 下通常无项目目录）。
-	const loader = new DefaultResourceLoader({
-		includeAgentSkills,
-		cwd,
-		additionalSkillPaths: [...pluginSkillPaths, ...builtinSkillPaths],
-	});
-	await loader.reload();
-	const { skills } = loader.getSkills();
-	const manifest = readManifest();
-	const builtinManifest = readBuiltinSkillsManifest();
-	// Absolute plugin skill roots — used to label source as "plugin" in the slash list.
-	const pluginRoots = pluginSkillPaths.map((p) => p.replace(/[/\\]+$/, ""));
-	const isUnderPluginRoot = (filePath: string): boolean => {
-		const normalized = filePath.replace(/\\/g, "/");
-		return pluginRoots.some((root) => {
-			const r = root.replace(/\\/g, "/");
-			return normalized === r || normalized.startsWith(`${r}/`);
-		});
-	};
-	const listed = skills
-		.filter((s) => {
-			if (isBuiltinSkillFile(s.filePath)) return builtinManifest[s.name]?.enabled ?? false;
-			const entry = manifest[s.name];
-			// market 来源的 skill/scene 必须在 manifest 中且已启用
-			if (s.source === "market" || s.source === "scene") {
-				return entry?.enabled ?? false;
-			}
-			// 其余来源（user/project/path/agents-* / plugin）默认显示
-			return !entry || entry.enabled;
-		})
-		.map((s) => {
-			const isBuiltin = isBuiltinSkillFile(s.filePath);
-			const builtinEntry = isBuiltin ? builtinManifest[s.name] : undefined;
-			const entry = isBuiltin ? undefined : manifest[s.name];
-			const source = isBuiltin ? "builtin" : isUnderPluginRoot(s.filePath) ? "plugin" : s.source;
-			return {
-				name: s.name,
-				alias: s.alias || builtinEntry?.alias || entry?.alias,
-				description:
-					builtinEntry?.description ||
-					(entry?.source === "market" ? entry.marketDescription : entry?.description) ||
-					s.description,
-				source,
-				type: s.type,
-			};
-		});
-
-	const bySource: Record<string, number> = {};
-	for (const item of listed) {
-		bySource[item.source] = (bySource[item.source] ?? 0) + 1;
-	}
-	skillsLog.info("skills listed", {
-		cwd: cwd ?? null,
-		includeAgentSkills,
-		total: listed.length,
-		bySource,
-		names: listed.map((s) => s.name),
-	});
-	return listed;
-}
-
-export function setSkillEnabled(name: string, enabled: boolean): { name: string; enabled: boolean } {
-	const manifest = readManifest();
-	const entry = manifest[name];
-	if (!entry) {
-		throw new Error(`Skill "${name}" is not installed`);
-	}
-	if (entry.enabled !== enabled) {
-		entry.enabled = enabled;
-		writeManifest(manifest);
-		recordSkillResourceEvent({
-			name,
-			type: entry.type === "scene" ? "scene" : "skill",
-			source: entry.source,
-			operation: enabled ? "enabled" : "disabled",
-		});
-	}
-	return { name, enabled: entry.enabled };
-}
-
-export function toggleSkill(name: string): { name: string; enabled: boolean } {
-	const manifest = readManifest();
-	const entry = manifest[name];
-	if (!entry) {
-		throw new Error(`Skill "${name}" is not installed`);
-	}
-	return setSkillEnabled(name, !entry.enabled);
-}
-
-export async function uninstallSkill(name: string, type?: "skill" | "scene"): Promise<void> {
-	const manifest = readManifest();
-	const itemType: "skill" | "scene" =
-		type === "scene" ? "scene" : type === "skill" ? "skill" : manifest[name]?.type === "scene" ? "scene" : "skill";
-
-	const baseDir = getBaseDir(itemType);
-	ensureDirWritable(baseDir);
-	const skillDir = join(baseDir, name);
-	const previous = manifest[name];
-	if (existsSync(skillDir)) {
-		ensureDirWritable(skillDir);
-		await rm(skillDir, { recursive: true, force: true });
-	}
-
-	delete manifest[name];
-	writeManifest(manifest);
-	recordSkillResourceEvent({
-		name,
-		type: itemType,
-		source: previous?.source,
-		operation: "uninstalled",
-	});
-}
-
 export function registerSkillsIpc(): () => void {
+	const skills = getDesktopSkillService();
 	// 允许通用 fs IPC 读取技能 / 场景目录下的文件（用于 SKILL.md 预览等）
-	allowProjectRoot(skillsBaseDir);
-	allowProjectRoot(sceneBaseDir);
+	allowProjectRoot(getSkillBaseDir("skill"));
+	allowProjectRoot(getSkillBaseDir("scene"));
 	// 通用 Agent Skill（只读）预览：放行全局 ~/.agents/skills。
 	allowProjectRoot(join(homedir(), ".agents", "skills"));
 	for (const root of getBuiltinSkillPaths()) {
@@ -377,7 +159,7 @@ export function registerSkillsIpc(): () => void {
 				// ignore invalid roots
 			}
 		}
-		return listSkills(resolvedCwd);
+		return skills.list(resolvedCwd);
 	});
 
 	ipcMain.handle(
@@ -398,7 +180,7 @@ export function registerSkillsIpc(): () => void {
 			const buffer = Buffer.isBuffer(archiveBuffer) ? archiveBuffer : Buffer.from(archiveBuffer as ArrayBuffer);
 			verifySha256(buffer, metaObj.sha256, `技能 ${name}`);
 
-			const baseDir = getBaseDir(itemType);
+			const baseDir = getSkillBaseDir(itemType);
 			if (!existsSync(baseDir)) {
 				await mkdir(baseDir, { recursive: true });
 			}
@@ -430,7 +212,7 @@ export function registerSkillsIpc(): () => void {
 					? metaObj.version.trim()
 					: parseVersionFromSkillDir(skillDir);
 
-			const manifest = readManifest();
+			const manifest = readSkillsManifest();
 			const previous = manifest[name];
 			manifest[name] = {
 				name,
@@ -442,7 +224,7 @@ export function registerSkillsIpc(): () => void {
 				alias: metaObj.alias,
 				marketDescription: metaObj.marketDescription,
 			};
-			writeManifest(manifest);
+			writeSkillsManifest(manifest);
 			recordSkillResourceEvent({
 				name,
 				type: itemType,
@@ -454,22 +236,22 @@ export function registerSkillsIpc(): () => void {
 
 	ipcMain.handle("vetta:skills:uninstall", async (_event, name: unknown, type: unknown) => {
 		assertNonEmptyString(name, "name");
-		await uninstallSkill(name, type === "scene" ? "scene" : type === "skill" ? "skill" : undefined);
+		await skills.uninstall(name, type === "scene" ? "scene" : type === "skill" ? "skill" : undefined);
 	});
 
 	ipcMain.handle("vetta:skills:toggle", async (_event, name: unknown) => {
 		assertNonEmptyString(name, "name");
-		return toggleSkill(name);
+		return skills.toggle(name);
 	});
 
 	ipcMain.handle("vetta:skills:get-market-manifest", async () => {
-		return readSkillsManifest();
+		return skills.getManifest();
 	});
 
 	ipcMain.handle("vetta:skills:get-skill-md-path", async (_event, name: unknown, type: unknown) => {
 		assertNonEmptyString(name, "name");
 		const itemType: "skill" | "scene" = type === "scene" ? "scene" : "skill";
-		const skillMd = join(getBaseDir(itemType), name, "SKILL.md");
+		const skillMd = join(getSkillBaseDir(itemType), name, "SKILL.md");
 		if (existsSync(skillMd)) {
 			return skillMd;
 		}
@@ -528,8 +310,9 @@ export function registerSkillsIpc(): () => void {
 				throw new Error("name 仅允许小写字母、数字、连字符（1–64 字符）");
 			}
 
+			const skillsBaseDir = getSkillBaseDir("skill");
 			const targetDir = join(skillsBaseDir, fm.name);
-			const manifest = readManifest();
+			const manifest = readSkillsManifest();
 			if (manifest[fm.name] || existsSync(targetDir)) {
 				throw new Error(`已存在同名技能：${fm.name}`);
 			}
@@ -560,7 +343,7 @@ export function registerSkillsIpc(): () => void {
 				alias: fm.alias,
 				description: fm.description,
 			};
-			writeManifest(manifest);
+			writeSkillsManifest(manifest);
 			recordSkillResourceEvent({
 				name: fm.name,
 				type: "skill",
