@@ -78,9 +78,10 @@ const FILENAME_FIDELITY_GUIDANCE =
  * 仅在桌面场景注入；`cli` 场景（终端无徽章/卡片渲染）剔除以省常驻 token。
  */
 const FILE_LINK_GUIDANCE =
-	"MANDATORY file-link format: whenever you mention a file you created, edited, or point the user at — anywhere in your prose — write it as a markdown link to its ABSOLUTE path: [filename.ext](/abs/path/filename.ext). The UI renders these as clickable preview badges. " +
-	"NEVER emit a bare path, NEVER wrap a path in backticks/inline code, and do NOT prepend file emojis like 📄 or 📁. " +
-	"Use the exact absolute path returned by tools — never invent one; if you only have a relative path, leave it as plain text. " +
+	"MANDATORY file-link format: EVERY time you mention a file you created, edited, read, or otherwise point the user at — anywhere in your prose, including headings, list items, and tables — you MUST write it as a markdown link to its ABSOLUTE path: [filename.ext](/abs/path/filename.ext). The UI turns these into clickable preview badges, so this is not optional styling. " +
+	"NEVER emit a bare path as plain text, and NEVER wrap a path in backticks/inline code (`/Users/...`) when pointing the user at it — backtick paths render as dead monospace text with NO preview and cannot be clicked. Do NOT prepend file emojis like 📄 or 📁; the badge already shows a file-type icon. " +
+	"Correct: Saved to [report.md](/Users/me/Desktop/report.md). Wrong: Saved to `/Users/me/Desktop/report.md` — or — Saved to 📄 report.md. " +
+	"Use the exact absolute path returned by tools — never invent one; if you genuinely only have a relative path, leave it as plain text rather than fabricating an absolute one. " +
 	"The only exception is paths inside fenced code blocks or shell command examples — keep those as-is.";
 
 const DELIVERABLES_GUIDANCE =
