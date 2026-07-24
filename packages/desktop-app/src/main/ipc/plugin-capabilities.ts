@@ -159,6 +159,29 @@ export function registerPluginCapabilitiesIpc(): () => void {
 	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.MODEL_PROVIDER_REMOVE, (_event, sessionId: unknown, provider: unknown) =>
 		adapter.removeModelProvider(requireString(sessionId, "sessionId"), requireString(provider, "provider")),
 	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.MCP_SERVER_LIST, (_event, sessionId: unknown) =>
+		adapter.listMcpServers(requireString(sessionId, "sessionId")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.MCP_SERVER_GET, (_event, sessionId: unknown, name: unknown) =>
+		adapter.getMcpServer(requireString(sessionId, "sessionId"), requireString(name, "name")),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.MCP_SERVER_UPSERT,
+		(_event, sessionId: unknown, name: unknown, data: unknown) =>
+			adapter.upsertMcpServer(requireString(sessionId, "sessionId"), requireString(name, "name"), data),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.MCP_SERVER_SET_ENABLED,
+		(_event, sessionId: unknown, name: unknown, enabled: unknown) =>
+			adapter.setMcpServerEnabled(
+				requireString(sessionId, "sessionId"),
+				requireString(name, "name"),
+				requireBoolean(enabled, "enabled"),
+			),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.MCP_SERVER_REMOVE, (_event, sessionId: unknown, name: unknown) =>
+		adapter.removeMcpServer(requireString(sessionId, "sessionId"), requireString(name, "name")),
+	);
 	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.BATCH_PROJECT_LIST, (_event, sessionId: unknown) =>
 		adapter.listBatchProjects(requireString(sessionId, "sessionId")),
 	);

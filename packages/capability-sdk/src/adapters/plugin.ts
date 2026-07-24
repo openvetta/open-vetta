@@ -13,6 +13,7 @@ import {
 	DOMAIN_GENERAL_SETTINGS_CAPABILITIES,
 	DOMAIN_IM_CAPABILITIES,
 	DOMAIN_KNOWLEDGE_CAPABILITIES,
+	DOMAIN_MCP_CAPABILITIES,
 	DOMAIN_MODEL_CAPABILITIES,
 	DOMAIN_PROJECT_CAPABILITIES,
 	DOMAIN_QUICK_PANEL_CAPABILITIES,
@@ -33,6 +34,8 @@ import {
 	type KnowledgeFileStatuses,
 	type KnowledgeProcessingSettings,
 	type KnowledgeScanResult,
+	type McpServerDetail,
+	type McpServerSummary,
 	type ModelConfigSnapshot,
 	type ModelDefaultResult,
 	type ModelListResult,
@@ -160,6 +163,11 @@ export class PluginCapabilityAdapter {
 						createCapabilityGrant(DOMAIN_MODEL_CAPABILITIES.SET_DEFAULT),
 						createCapabilityGrant(DOMAIN_MODEL_CAPABILITIES.UPSERT_PROVIDER),
 						createCapabilityGrant(DOMAIN_MODEL_CAPABILITIES.REMOVE_PROVIDER),
+						createCapabilityGrant(DOMAIN_MCP_CAPABILITIES.LIST_SERVERS),
+						createCapabilityGrant(DOMAIN_MCP_CAPABILITIES.GET_SERVER),
+						createCapabilityGrant(DOMAIN_MCP_CAPABILITIES.UPSERT_SERVER),
+						createCapabilityGrant(DOMAIN_MCP_CAPABILITIES.SET_SERVER_ENABLED),
+						createCapabilityGrant(DOMAIN_MCP_CAPABILITIES.REMOVE_SERVER),
 						createCapabilityGrant(DOMAIN_BATCH_TASK_CAPABILITIES.LIST_PROJECTS),
 						createCapabilityGrant(DOMAIN_BATCH_TASK_CAPABILITIES.GET_PROJECT),
 						createCapabilityGrant(DOMAIN_BATCH_TASK_CAPABILITIES.CREATE_PROJECT),
@@ -430,6 +438,30 @@ export class PluginCapabilityAdapter {
 		return this.client(sessionId, { official: true }).invoke(DOMAIN_MODEL_CAPABILITIES.REMOVE_PROVIDER, {
 			provider,
 		});
+	}
+
+	listMcpServers(sessionId: string): Promise<McpServerSummary[]> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_MCP_CAPABILITIES.LIST_SERVERS, {});
+	}
+
+	getMcpServer(sessionId: string, name: string): Promise<McpServerDetail> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_MCP_CAPABILITIES.GET_SERVER, { name });
+	}
+
+	upsertMcpServer(sessionId: string, name: string, data: unknown): Promise<McpServerDetail> {
+		const input = DOMAIN_MCP_CAPABILITIES.UPSERT_SERVER.parseInput({ name, data });
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_MCP_CAPABILITIES.UPSERT_SERVER, input);
+	}
+
+	setMcpServerEnabled(sessionId: string, name: string, enabled: boolean): Promise<undefined> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_MCP_CAPABILITIES.SET_SERVER_ENABLED, {
+			name,
+			enabled,
+		});
+	}
+
+	removeMcpServer(sessionId: string, name: string): Promise<undefined> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_MCP_CAPABILITIES.REMOVE_SERVER, { name });
 	}
 
 	createProject(sessionId: string, name: string, path?: string): Promise<ProjectEntry> {
