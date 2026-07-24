@@ -1,74 +1,58 @@
-import type { PluginOfficialApi, PluginOfficialKnowledgeProcessingSettings } from "@vetta-org/plugin-sdk";
+import type { PluginOfficialApi } from "@vetta-org/plugin-sdk";
 
-function knowledgeProcessing(
-	config: Awaited<ReturnType<typeof window.vetta.config.get>>,
-): PluginOfficialKnowledgeProcessingSettings {
-	return { ...(config.knowledgeBase ?? {}) };
-}
-
-export function createOfficialKnowledgeApi(assertOfficial: () => void): PluginOfficialApi["knowledge"] {
+export function createOfficialKnowledgeApi(
+	assertOfficial: () => void,
+	capabilitySessionId: string,
+): PluginOfficialApi["knowledge"] {
+	const knowledge = window.vetta.plugins.internalCapabilities.knowledge;
 	return {
 		list: async () => {
 			assertOfficial();
-			return window.vetta.knowledge.list();
+			return knowledge.listBases(capabilitySessionId);
 		},
 		fileStatuses: async () => {
 			assertOfficial();
-			return window.vetta.knowledge.fileStatuses();
+			return knowledge.listFileStatuses(capabilitySessionId);
 		},
 		isProcessing: async () => {
 			assertOfficial();
-			return window.vetta.knowledge.isProcessing();
+			return knowledge.isProcessing(capabilitySessionId);
 		},
 		getProcessing: async () => {
 			assertOfficial();
-			return knowledgeProcessing(await window.vetta.config.get());
+			return knowledge.getProcessing(capabilitySessionId);
 		},
 		create: async (name) => {
 			assertOfficial();
-			await window.vetta.knowledge.create(name);
+			await knowledge.createBase(capabilitySessionId, name);
 		},
 		rename: async (name, newName) => {
 			assertOfficial();
-			await window.vetta.knowledge.rename(name, newName);
+			await knowledge.renameBase(capabilitySessionId, name, newName);
 		},
 		delete: async (name) => {
 			assertOfficial();
-			await window.vetta.knowledge.delete(name);
+			await knowledge.deleteBase(capabilitySessionId, name);
 		},
 		addFiles: async (kbId, paths, move = false) => {
 			assertOfficial();
-			await window.vetta.knowledge.addFiles(kbId, paths, move);
+			await knowledge.addFiles(capabilitySessionId, kbId, paths, move);
 		},
 		deleteEntry: async (kbId, relPath) => {
 			assertOfficial();
-			await window.vetta.knowledge.deleteEntry(kbId, relPath);
+			await knowledge.deleteEntry(capabilitySessionId, kbId, relPath);
 		},
 		scanNow: async () => {
 			assertOfficial();
-			return window.vetta.knowledge.scanNow();
+			return knowledge.scanNow(capabilitySessionId);
 		},
 		retryFailed: async () => {
 			assertOfficial();
-			return window.vetta.knowledge.retryFailed();
+			return knowledge.retryFailed(capabilitySessionId);
 		},
 		setProcessing: async (data) => {
 			assertOfficial();
-			const config = await window.vetta.config.get();
-			const kb = { ...config.knowledgeBase };
-			if (data.enabled !== undefined) kb.enabled = data.enabled;
-			if (data.pollIntervalMinutes !== undefined) kb.pollIntervalMinutes = data.pollIntervalMinutes;
-			if (data.processingModelKey === null) delete kb.processingModelKey;
-			else if (data.processingModelKey !== undefined) kb.processingModelKey = data.processingModelKey;
-			if (data.processingModelReasoningLevel === null) delete kb.processingModelReasoningLevel;
-			else if (data.processingModelReasoningLevel !== undefined) {
-				kb.processingModelReasoningLevel = data.processingModelReasoningLevel;
-			}
-			if (data.agentConcurrency !== undefined) kb.agentConcurrency = data.agentConcurrency;
-			if (data.ocrConcurrency !== undefined) kb.ocrConcurrency = data.ocrConcurrency;
-			await window.vetta.config.set({ knowledgeBase: kb });
-			await window.vetta.knowledge.reload();
-			return knowledgeProcessing(await window.vetta.config.get());
+			return knowledge.setProcessing(capabilitySessionId, data);
 		},
 	};
 }

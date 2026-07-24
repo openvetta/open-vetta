@@ -17,6 +17,13 @@ function requireBoolean(value: unknown, field: string): boolean {
 	return value;
 }
 
+function requireStringArray(value: unknown, field: string): string[] {
+	if (!Array.isArray(value) || !value.every((entry) => typeof entry === "string")) {
+		throw new Error(`${field} must be an array of strings`);
+	}
+	return value;
+}
+
 export function registerPluginCapabilitiesIpc(): () => void {
 	const adapter = getDesktopCapabilityHost().adapters.plugin;
 	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.OPEN_SESSION, (_event, pluginId: unknown) =>
@@ -124,6 +131,63 @@ export function registerPluginCapabilitiesIpc(): () => void {
 	);
 	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.DOWNLOAD_CANCEL, (_event, sessionId: unknown, id: unknown) =>
 		adapter.cancelDownload(requireString(sessionId, "sessionId"), requireString(id, "id")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.KNOWLEDGE_BASE_LIST, (_event, sessionId: unknown) =>
+		adapter.listKnowledgeBases(requireString(sessionId, "sessionId")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.KNOWLEDGE_FILE_STATUS_LIST, (_event, sessionId: unknown) =>
+		adapter.listKnowledgeFileStatuses(requireString(sessionId, "sessionId")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.KNOWLEDGE_PROCESSING_STATUS_GET, (_event, sessionId: unknown) =>
+		adapter.isKnowledgeProcessing(requireString(sessionId, "sessionId")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.KNOWLEDGE_PROCESSING_SETTINGS_GET, (_event, sessionId: unknown) =>
+		adapter.getKnowledgeProcessing(requireString(sessionId, "sessionId")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.KNOWLEDGE_BASE_CREATE, (_event, sessionId: unknown, name: unknown) =>
+		adapter.createKnowledgeBase(requireString(sessionId, "sessionId"), requireString(name, "name")),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.KNOWLEDGE_BASE_RENAME,
+		(_event, sessionId: unknown, name: unknown, newName: unknown) =>
+			adapter.renameKnowledgeBase(
+				requireString(sessionId, "sessionId"),
+				requireString(name, "name"),
+				requireString(newName, "newName"),
+			),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.KNOWLEDGE_BASE_DELETE, (_event, sessionId: unknown, name: unknown) =>
+		adapter.deleteKnowledgeBase(requireString(sessionId, "sessionId"), requireString(name, "name")),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.KNOWLEDGE_ENTRY_ADD_FILES,
+		(_event, sessionId: unknown, kbId: unknown, paths: unknown, move: unknown) =>
+			adapter.addKnowledgeFiles(
+				requireString(sessionId, "sessionId"),
+				requireString(kbId, "kbId"),
+				requireStringArray(paths, "paths"),
+				requireBoolean(move, "move"),
+			),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.KNOWLEDGE_ENTRY_DELETE,
+		(_event, sessionId: unknown, kbId: unknown, relPath: unknown) =>
+			adapter.deleteKnowledgeEntry(
+				requireString(sessionId, "sessionId"),
+				requireString(kbId, "kbId"),
+				requireString(relPath, "relPath"),
+			),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.KNOWLEDGE_PROCESSING_SCAN, (_event, sessionId: unknown) =>
+		adapter.scanKnowledgeNow(requireString(sessionId, "sessionId")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.KNOWLEDGE_PROCESSING_RETRY_FAILED, (_event, sessionId: unknown) =>
+		adapter.retryFailedKnowledge(requireString(sessionId, "sessionId")),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.KNOWLEDGE_PROCESSING_SETTINGS_SET,
+		(_event, sessionId: unknown, data: unknown) =>
+			adapter.setKnowledgeProcessing(requireString(sessionId, "sessionId"), data),
 	);
 	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.SCHEDULER_TASK_LIST, (_event, sessionId: unknown) =>
 		adapter.listScheduledTasks(requireString(sessionId, "sessionId")),

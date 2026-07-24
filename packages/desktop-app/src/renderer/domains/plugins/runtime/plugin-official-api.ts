@@ -38,7 +38,7 @@ export function createPluginOfficialApi(plugin: InstalledPlugin, capabilitySessi
 		models: createOfficialModelsApi(assertOfficial),
 		projects: createOfficialProjectsApi(assertOfficial, capabilitySessionId),
 		plugins: createOfficialPluginsApi(assertOfficial),
-		knowledge: createOfficialKnowledgeApi(assertOfficial),
+		knowledge: createOfficialKnowledgeApi(assertOfficial, capabilitySessionId),
 		batchTasks: createOfficialBatchTasksApi(assertOfficial),
 		scheduler: createOfficialSchedulerApi(assertOfficial, capabilitySessionId),
 		appearance: createOfficialAppearanceApi(assertOfficial),

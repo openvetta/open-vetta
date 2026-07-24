@@ -3,11 +3,16 @@ import { type CapabilityAccessHandle, type CapabilityAccessSessionFactory, creat
 import { CAPABILITY_ERROR_CODES, CapabilityError } from "../contracts.js";
 import {
 	DOMAIN_DOWNLOAD_CAPABILITIES,
+	DOMAIN_KNOWLEDGE_CAPABILITIES,
 	DOMAIN_PROJECT_CAPABILITIES,
 	DOMAIN_SCHEDULER_CAPABILITIES,
 	DOMAIN_SESSION_CAPABILITIES,
 	DOMAIN_WEBHOOK_CAPABILITIES,
 	type DownloadItem,
+	type KnowledgeBase,
+	type KnowledgeFileStatuses,
+	type KnowledgeProcessingSettings,
+	type KnowledgeScanResult,
 	type ProjectEntry,
 	type ProjectListResult,
 	type SchedulerCommandResult,
@@ -88,6 +93,18 @@ export class PluginCapabilityAdapter {
 				? [
 						createCapabilityGrant(DOMAIN_DOWNLOAD_CAPABILITIES.LIST),
 						createCapabilityGrant(DOMAIN_DOWNLOAD_CAPABILITIES.CANCEL),
+						createCapabilityGrant(DOMAIN_KNOWLEDGE_CAPABILITIES.LIST_BASES),
+						createCapabilityGrant(DOMAIN_KNOWLEDGE_CAPABILITIES.LIST_FILE_STATUSES),
+						createCapabilityGrant(DOMAIN_KNOWLEDGE_CAPABILITIES.GET_PROCESSING_STATUS),
+						createCapabilityGrant(DOMAIN_KNOWLEDGE_CAPABILITIES.GET_PROCESSING_SETTINGS),
+						createCapabilityGrant(DOMAIN_KNOWLEDGE_CAPABILITIES.CREATE_BASE),
+						createCapabilityGrant(DOMAIN_KNOWLEDGE_CAPABILITIES.RENAME_BASE),
+						createCapabilityGrant(DOMAIN_KNOWLEDGE_CAPABILITIES.DELETE_BASE),
+						createCapabilityGrant(DOMAIN_KNOWLEDGE_CAPABILITIES.ADD_FILES),
+						createCapabilityGrant(DOMAIN_KNOWLEDGE_CAPABILITIES.DELETE_ENTRY),
+						createCapabilityGrant(DOMAIN_KNOWLEDGE_CAPABILITIES.SCAN_NOW),
+						createCapabilityGrant(DOMAIN_KNOWLEDGE_CAPABILITIES.RETRY_FAILED),
+						createCapabilityGrant(DOMAIN_KNOWLEDGE_CAPABILITIES.SET_PROCESSING_SETTINGS),
 						createCapabilityGrant(DOMAIN_PROJECT_CAPABILITIES.LIST),
 						createCapabilityGrant(DOMAIN_PROJECT_CAPABILITIES.CREATE),
 						createCapabilityGrant(DOMAIN_PROJECT_CAPABILITIES.OPEN),
@@ -329,6 +346,71 @@ export class PluginCapabilityAdapter {
 	sendWebhookMessage(sessionId: string, id: string, message: unknown): Promise<WebhookSendResult> {
 		const input = DOMAIN_WEBHOOK_CAPABILITIES.SEND_MESSAGE.parseInput({ id, message });
 		return this.client(sessionId, { official: true }).invoke(DOMAIN_WEBHOOK_CAPABILITIES.SEND_MESSAGE, input);
+	}
+
+	listKnowledgeBases(sessionId: string): Promise<KnowledgeBase[]> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_KNOWLEDGE_CAPABILITIES.LIST_BASES, {});
+	}
+
+	listKnowledgeFileStatuses(sessionId: string): Promise<KnowledgeFileStatuses> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_KNOWLEDGE_CAPABILITIES.LIST_FILE_STATUSES, {});
+	}
+
+	isKnowledgeProcessing(sessionId: string): Promise<boolean> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_KNOWLEDGE_CAPABILITIES.GET_PROCESSING_STATUS, {});
+	}
+
+	getKnowledgeProcessing(sessionId: string): Promise<KnowledgeProcessingSettings> {
+		return this.client(sessionId, { official: true }).invoke(
+			DOMAIN_KNOWLEDGE_CAPABILITIES.GET_PROCESSING_SETTINGS,
+			{},
+		);
+	}
+
+	createKnowledgeBase(sessionId: string, name: string): Promise<undefined> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_KNOWLEDGE_CAPABILITIES.CREATE_BASE, { name });
+	}
+
+	renameKnowledgeBase(sessionId: string, name: string, newName: string): Promise<undefined> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_KNOWLEDGE_CAPABILITIES.RENAME_BASE, {
+			name,
+			newName,
+		});
+	}
+
+	deleteKnowledgeBase(sessionId: string, name: string): Promise<undefined> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_KNOWLEDGE_CAPABILITIES.DELETE_BASE, { name });
+	}
+
+	addKnowledgeFiles(sessionId: string, kbId: string, paths: string[], move: boolean): Promise<undefined> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_KNOWLEDGE_CAPABILITIES.ADD_FILES, {
+			kbId,
+			paths,
+			move,
+		});
+	}
+
+	deleteKnowledgeEntry(sessionId: string, kbId: string, relPath: string): Promise<undefined> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_KNOWLEDGE_CAPABILITIES.DELETE_ENTRY, {
+			kbId,
+			relPath,
+		});
+	}
+
+	scanKnowledgeNow(sessionId: string): Promise<KnowledgeScanResult> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_KNOWLEDGE_CAPABILITIES.SCAN_NOW, {});
+	}
+
+	retryFailedKnowledge(sessionId: string): Promise<KnowledgeScanResult> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_KNOWLEDGE_CAPABILITIES.RETRY_FAILED, {});
+	}
+
+	setKnowledgeProcessing(sessionId: string, data: unknown): Promise<KnowledgeProcessingSettings> {
+		const input = DOMAIN_KNOWLEDGE_CAPABILITIES.SET_PROCESSING_SETTINGS.parseInput({ data });
+		return this.client(sessionId, { official: true }).invoke(
+			DOMAIN_KNOWLEDGE_CAPABILITIES.SET_PROCESSING_SETTINGS,
+			input,
+		);
 	}
 
 	private client(sessionId: string, requirement: PluginCapabilityRequirement): CapabilityAccessHandle["client"] {
