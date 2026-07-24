@@ -54,6 +54,22 @@ export {
 	type WorkspaceSettingInput,
 } from "./domain/general-settings.js";
 export {
+	DOMAIN_IM_CAPABILITIES,
+	IM_LOG_LEVELS,
+	IM_TRANSPORT_STATUSES,
+	IM_TRANSPORTS,
+	type ImAgentModel,
+	type ImAgentModelSettingInput,
+	type ImEnabledInput,
+	type ImLogEntry,
+	type ImLogLevel,
+	type ImLogListInput,
+	type ImRuntimeStatus,
+	type ImStatusSnapshot,
+	type ImTransport,
+	type ImTransportStatus,
+} from "./domain/im.js";
+export {
 	DOMAIN_KNOWLEDGE_CAPABILITIES,
 	KNOWLEDGE_NODE_TYPES,
 	KNOWLEDGE_PROCESS_STATUSES,

@@ -608,11 +608,11 @@ window.vetta.capabilities.invoke({
 
 ### 当前落地状态
 
-当前已经实现十四条端到端链路：
+当前已经实现十五条端到端链路：
 
-- `packages/capability-sdk` 提供 Capability ID、Token、基础存储与文件能力、Agent 设置/通用设置/项目/会话/下载/调度/Webhook/知识库/批量任务/应用更新/技能管理/全局快捷键/快捷面板领域能力、Grant、稳定错误码，以及宿主内置的 Theme、Plugin Adapter。
+- `packages/capability-sdk` 提供 Capability ID、Token、基础存储与文件能力、Agent 设置/通用设置/IM 桥接/项目/会话/下载/调度/Webhook/知识库/批量任务/应用更新/技能管理/全局快捷键/快捷面板领域能力、Grant、稳定错误码，以及宿主内置的 Theme、Plugin Adapter。
 - `packages/capability-runtime` 提供 Foundation/Domain 双 Registry、Capability Hub、Provider 原子替换、替换或卸载时的在途调用中止、精确 Grant、AccessSession、namespace constraint 和审计事件。
-- `packages/desktop-app/src/main/capabilities` 提供 Desktop Capability Host、基础存储/文件 Provider、Agent 设置/通用设置/项目/会话/下载/调度/Webhook/知识库/批量任务/应用更新/技能管理/全局快捷键/快捷面板领域 Provider 和原生后端装配；已抽取领域服务的原 IPC 与 Capability Provider 复用同一实现，通用配置桥则与领域服务共享底层 config store。
+- `packages/desktop-app/src/main/capabilities` 提供 Desktop Capability Host、基础存储/文件 Provider、Agent 设置/通用设置/IM 桥接/项目/会话/下载/调度/Webhook/知识库/批量任务/应用更新/技能管理/全局快捷键/快捷面板领域 Provider 和原生后端装配；已抽取领域服务的原 IPC 与 Capability Provider 复用同一实现，通用配置桥则与领域服务共享底层 config store。
 - Desktop Capability Host 单例持有 Theme Adapter 和 Plugin Adapter；IPC 只复用实例，不重复创建或负责销毁。
 - Theme Storage 主进程路径已经迁移为 `Theme SDK facade -> 宿主桥接 -> 内置 Theme Adapter -> AccessSession -> Foundation Storage Capability -> 现有持久化后端`。
 - Theme SDK、renderer storage hook、preload API、IPC channel 和磁盘格式保持兼容。
@@ -620,6 +620,7 @@ window.vetta.capabilities.invoke({
 - Plugin Adapter 将 `fs.read` 和 `fs.write` 精确展开为各文件 Capability Grant；每次调用都会核验当前有效插件权限，同一插件重新激活时自动撤销旧 session。
 - 官方插件的 Agent 实验设置已迁移为 `PluginOfficialApi agent facade -> Preload/IPC 桥接 -> Plugin Adapter -> AccessSession -> Domain Agent Settings Capability -> AgentSettingsService`；读取与局部更新使用两个精确 Grant，局部更新在主进程单次读写中完成并返回完整规范化快照。Desktop UI 的通用 Config IPC 保持兼容并共享同一个 config store；公开 `plugin-sdk` 签名保持兼容，不再直连 `window.vetta.config.*`。
 - 官方插件的通用设置已迁移为 `PluginOfficialApi general facade -> Preload/IPC 桥接 -> Plugin Adapter -> AccessSession -> Domain General Settings Capability -> GeneralSettingsService`；读取设置、设置通知、设置默认执行模式和设置工作区分别使用精确 Grant。工作区路径校验、持久化与文件根授权集中在主进程单例服务中，Desktop UI 的通用 Config IPC 保持兼容并共享同一个 config store；公开 `plugin-sdk` 签名保持兼容，不再直连 `window.vetta.config.*`。
+- 官方插件的 IM 桥接管理已迁移为 `PluginOfficialApi im facade -> Preload/IPC 桥接 -> Plugin Adapter -> AccessSession -> Domain IM Capability -> ImHost`；状态、日志、启停、重启和 Agent 模型设置分别使用精确 Grant，Capability Provider 与原 IM IPC 复用同一个 `ImHost` 单例。状态契约只返回 App ID 等公开摘要，不返回 App Secret、Verification Token、Encrypt Key 等凭据；`assertModelKeyExists` 仍由 Models facade 负责，待 Models 领域能力迁移时再统一。
 - 官方插件的项目管理已迁移为 `PluginOfficialApi projects facade -> Preload/IPC 桥接 -> Plugin Adapter -> AccessSession -> Domain Project/Session Capability -> 项目与会话服务`；七个项目操作和两个会话查询分别使用精确 Grant，公开 facade 保持兼容，不再直连 `window.vetta.session.*`。
 - 官方插件的下载查询与取消已迁移为 `PluginOfficialApi downloads facade -> Preload/IPC 桥接 -> Plugin Adapter -> AccessSession -> Domain Download Capability -> 下载服务`；原 Downloads IPC 与 Provider 共用单例服务，公开 facade 和下载持久化格式保持兼容。
 - 官方插件的调度任务管理已迁移为 `PluginOfficialApi scheduler facade -> Preload/IPC 桥接 -> Plugin Adapter -> AccessSession -> Domain Scheduler Capability -> SchedulerService`；九个操作使用独立 Grant，`listTaskIds` 由任务列表派生，调度引擎和原 Scheduler IPC 继续复用同一个服务实例。
@@ -629,11 +630,11 @@ window.vetta.capabilities.invoke({
 - 官方插件的应用更新管理已迁移为 `PluginOfficialApi updater facade -> Preload/IPC 桥接 -> Plugin Adapter -> AccessSession -> Domain Updater Capability -> UpdaterService`；状态与当前版本查询、检查、下载、安装、稍后处理和取消共七个操作分别使用精确 Grant，原 Updater IPC 与 Provider 共用同一个服务实例，Desktop UI 的状态事件仍保留为内部订阅通道。
 - 官方插件的技能管理已迁移为 `PluginOfficialApi skills facade -> Preload/IPC 桥接 -> Plugin Adapter -> AccessSession -> Domain Skill Capability -> SkillService`；技能发现、已安装清单、启停和卸载分别使用精确 Grant，原 Skills IPC 与 Provider 共用同一个服务单例，市场安装和自定义导入仍保留在原系统流程中。
 - 官方插件的快捷键管理已迁移为 `PluginOfficialApi shortcuts facade -> Preload/IPC 桥接 -> Plugin Adapter -> AccessSession -> Domain Shortcut/Quick Panel Capability -> ShortcutService`；绑定查询、设置、单项重置、全部重置、快捷面板触发键和发送后行为分别使用精确 Grant，原 Config/Quick Panel IPC 与 Provider 共用同一个服务单例。同步的动作目录仍由 Plugin 系统 facade 从宿主共享的静态应用目录派生，不进入能力契约。
-- Plugin Action provider 的调用边界已有回归测试：Action caller 的来源、request id 和授权上下文不会转发给 provider；provider 被禁用后调用立即被拒绝。Agent 设置、通用设置、项目、下载、调度、Webhook、知识库、批量任务、应用更新、技能管理和快捷键管理相关 Action 最终只使用该 Plugin 自己的 Capability Session。
+- Plugin Action provider 的调用边界已有回归测试：Action caller 的来源、request id 和授权上下文不会转发给 provider；provider 被禁用后调用立即被拒绝。Agent 设置、通用设置、IM 桥接、项目、下载、调度、Webhook、知识库、批量任务、应用更新、技能管理和快捷键管理相关 Action 最终只使用该 Plugin 自己的 Capability Session。
 
 尚未迁移：
 
-- Plugin 的 `ctx.images` 等其他 facade，以及 `PluginOfficialApi` 中除 Agent 设置、通用设置、项目管理、下载、调度、Webhook、知识库、批量任务、应用更新、技能管理和快捷键管理外的领域服务。
+- Plugin 的 `ctx.images` 等其他 facade，以及 `PluginOfficialApi` 中除 Agent 设置、通用设置、IM 桥接、项目管理、下载、调度、Webhook、知识库、批量任务、应用更新、技能管理和快捷键管理外的领域服务。
 - `PluginOfficialApi.appearance` 的主题目录、DOM 状态、Jotai 和 localStorage 操作属于 renderer host 能力，不能通过主进程反向调用 renderer 强行接入当前 Capability Host；后续需要先建立独立的 renderer capability provider/host 边界，再迁移外观 facade。系统原生主题与语言可在该边界确定后拆为独立能力。
 - 其他 App Action provider 使用的领域服务。
 - 其他基础能力与项目以外的领域能力。
@@ -664,12 +665,12 @@ window.vetta.capabilities.invoke({
 1. `ctx.fs` 已改为使用 Foundation Filesystem Capability Token；继续迁移 `ctx.images` 等 facade。
 2. Plugin Adapter 已将 `fs.read`、`fs.write` 展开为独立 Capability Grant；后续权限继续按同一方式显式映射。
 3. `ui.slot.*`、`app.actions.register` 等继续留在 Plugin Adapter。
-4. `PluginOfficialApi.agent`、`general`、`projects`、`downloads`、`scheduler`、`webhook`、`knowledge`、`batchTasks`、`updater`、`skills` 和 `shortcuts` 已迁移为独立 Domain Capability；继续迁移其余稳定的 Desktop 领域服务，并保留兼容 facade。
+4. `PluginOfficialApi.agent`、`general`、`im`、`projects`、`downloads`、`scheduler`、`webhook`、`knowledge`、`batchTasks`、`updater`、`skills` 和 `shortcuts` 已迁移为独立 Domain Capability；继续迁移其余稳定的 Desktop 领域服务，并保留兼容 facade。
 
 ### 阶段五：Action 迁移
 
 1. Action Runtime 继续维护 Catalog、effect、approval 和 Schema。
-2. Agent 设置、通用设置、项目、下载、调度、Webhook、知识库、批量任务、应用更新、技能管理与快捷键管理相关 Action provider 已通过 Plugin facade 调用 Domain Capability；其余 provider 按领域逐步迁移。
+2. Agent 设置、通用设置、IM 桥接、项目、下载、调度、Webhook、知识库、批量任务、应用更新、技能管理与快捷键管理相关 Action provider 已通过 Plugin facade 调用 Domain Capability；其余 provider 按领域逐步迁移。
 3. 插件 Action handler 已使用 Plugin provider 自己的 Capability Session。
 4. 已验证 Action caller 身份和权限不会传递给 provider；后续新增 Action transport 必须保留该回归测试。
 

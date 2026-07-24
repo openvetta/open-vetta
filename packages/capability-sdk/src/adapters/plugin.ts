@@ -11,6 +11,7 @@ import {
 	DOMAIN_BATCH_TASK_CAPABILITIES,
 	DOMAIN_DOWNLOAD_CAPABILITIES,
 	DOMAIN_GENERAL_SETTINGS_CAPABILITIES,
+	DOMAIN_IM_CAPABILITIES,
 	DOMAIN_KNOWLEDGE_CAPABILITIES,
 	DOMAIN_PROJECT_CAPABILITIES,
 	DOMAIN_QUICK_PANEL_CAPABILITIES,
@@ -23,6 +24,9 @@ import {
 	type DownloadItem,
 	type GeneralExecutionMode,
 	type GeneralSettingsSnapshot,
+	type ImLogEntry,
+	type ImRuntimeStatus,
+	type ImStatusSnapshot,
 	type InstalledSkill,
 	type KnowledgeBase,
 	type KnowledgeFileStatuses,
@@ -60,6 +64,18 @@ import {
 } from "../foundation.js";
 
 const PLUGIN_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,63}$/;
+
+function parseImAgentModelKey(modelKey: string, reasoningLevel?: string) {
+	const slash = modelKey.indexOf("/");
+	if (slash <= 0 || slash === modelKey.length - 1) {
+		throw new Error("IM agent model key must use the provider/model format");
+	}
+	return {
+		provider: modelKey.slice(0, slash),
+		model: modelKey.slice(slash + 1),
+		...(reasoningLevel ? { reasoningLevel } : {}),
+	};
+}
 
 export const PLUGIN_CAPABILITY_PERMISSIONS = {
 	FILESYSTEM_READ: "fs.read",
@@ -124,6 +140,11 @@ export class PluginCapabilityAdapter {
 						createCapabilityGrant(DOMAIN_GENERAL_SETTINGS_CAPABILITIES.SET_NOTIFICATIONS),
 						createCapabilityGrant(DOMAIN_GENERAL_SETTINGS_CAPABILITIES.SET_DEFAULT_EXECUTION_MODE),
 						createCapabilityGrant(DOMAIN_GENERAL_SETTINGS_CAPABILITIES.SET_WORKSPACE),
+						createCapabilityGrant(DOMAIN_IM_CAPABILITIES.GET_STATUS),
+						createCapabilityGrant(DOMAIN_IM_CAPABILITIES.LIST_LOGS),
+						createCapabilityGrant(DOMAIN_IM_CAPABILITIES.SET_ENABLED),
+						createCapabilityGrant(DOMAIN_IM_CAPABILITIES.RESTART),
+						createCapabilityGrant(DOMAIN_IM_CAPABILITIES.SET_AGENT_MODEL),
 						createCapabilityGrant(DOMAIN_BATCH_TASK_CAPABILITIES.LIST_PROJECTS),
 						createCapabilityGrant(DOMAIN_BATCH_TASK_CAPABILITIES.GET_PROJECT),
 						createCapabilityGrant(DOMAIN_BATCH_TASK_CAPABILITIES.CREATE_PROJECT),
@@ -327,6 +348,28 @@ export class PluginCapabilityAdapter {
 	setWorkspace(sessionId: string, path: string): Promise<WorkspaceSettingInput> {
 		return this.client(sessionId, { official: true }).invoke(DOMAIN_GENERAL_SETTINGS_CAPABILITIES.SET_WORKSPACE, {
 			path,
+		});
+	}
+
+	getImStatus(sessionId: string): Promise<ImStatusSnapshot> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_IM_CAPABILITIES.GET_STATUS, {});
+	}
+
+	listImLogs(sessionId: string, limit: number): Promise<ImLogEntry[]> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_IM_CAPABILITIES.LIST_LOGS, { limit });
+	}
+
+	setImEnabled(sessionId: string, enabled: boolean): Promise<ImRuntimeStatus> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_IM_CAPABILITIES.SET_ENABLED, { enabled });
+	}
+
+	restartIm(sessionId: string): Promise<ImRuntimeStatus> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_IM_CAPABILITIES.RESTART, {});
+	}
+
+	setImAgentModel(sessionId: string, modelKey: string | null, reasoningLevel?: string): Promise<ImRuntimeStatus> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_IM_CAPABILITIES.SET_AGENT_MODEL, {
+			agentModel: modelKey === null ? null : parseImAgentModelKey(modelKey, reasoningLevel),
 		});
 	}
 

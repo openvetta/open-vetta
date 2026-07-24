@@ -9,6 +9,9 @@ import type {
 	DefaultExecutionModeSettingInput,
 	GeneralExecutionMode,
 	GeneralSettingsSnapshot,
+	ImLogEntry,
+	ImRuntimeStatus,
+	ImStatusSnapshot,
 	InstalledSkill,
 	KnowledgeBase,
 	KnowledgeFileStatuses,
@@ -477,6 +480,14 @@ export interface DesktopPluginCapabilityAgentSettingsApi {
 	setExperimental(sessionId: string, input: AgentExperimentalSettingsUpdate): Promise<AgentExperimentalSettings>;
 }
 
+export interface DesktopPluginCapabilityImApi {
+	getStatus(sessionId: string): Promise<ImStatusSnapshot>;
+	listLogs(sessionId: string, limit: number): Promise<ImLogEntry[]>;
+	setEnabled(sessionId: string, enabled: boolean): Promise<ImRuntimeStatus>;
+	restart(sessionId: string): Promise<ImRuntimeStatus>;
+	setAgentModel(sessionId: string, modelKey: string | null, reasoningLevel?: string): Promise<ImRuntimeStatus>;
+}
+
 export interface DesktopPluginCapabilityBatchTasksApi {
 	listProjects(sessionId: string): Promise<BatchProject[]>;
 	getProject(sessionId: string, projectId: string): Promise<BatchProject>;
@@ -594,6 +605,7 @@ export interface DesktopPluginInternalCapabilitiesApi {
 	batchTasks: DesktopPluginCapabilityBatchTasksApi;
 	filesystem: DesktopPluginCapabilityFilesystemApi;
 	generalSettings: DesktopPluginCapabilityGeneralSettingsApi;
+	im: DesktopPluginCapabilityImApi;
 	downloads: DesktopPluginCapabilityDownloadsApi;
 	knowledge: DesktopPluginCapabilityKnowledgeApi;
 	projects: DesktopPluginCapabilityProjectsApi;
