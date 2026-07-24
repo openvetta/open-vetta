@@ -262,7 +262,7 @@
     },
     "packages/desktop-app": {
       "name": "@vetta/desktop-app",
-      "version": "0.5.8",
+      "version": "0.5.9",
       "dependencies": {
         "@dagrejs/dagre": "^3.0.0",
         "@fontsource-variable/geist": "^5.2.8",
@@ -817,6 +817,7 @@
         "@vetta/theme-sdk": "workspace:*",
         "@vetta/theme-ui": "workspace:*",
         "@vetta/ui": "workspace:*",
+        "chart.js": "4.5.0",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "gsap": "^3.15.0",
@@ -827,6 +828,7 @@
         "next-intl": "^4.13.2",
         "radix-ui": "^1.6.2",
         "react": "^19.2.3",
+        "react-chartjs-2": "5.3.0",
         "react-dom": "^19.2.3",
         "tailwind-merge": "^3.6.0",
         "tailwindcss": "^4.1.18",
