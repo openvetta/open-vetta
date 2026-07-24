@@ -40,7 +40,7 @@ export function InputActionBarView({ className, model }: InputActionBarViewProps
 			animate={{ y: 0, opacity: 1 }}
 			transition={{ type: "spring", stiffness: 440, damping: 36, mass: 0.9 }}
 			className={cn(
-				"input-ledge relative z-0 mx-auto w-[93%] flex flex-wrap gap-0.5 rounded-b-[14px] bg-card/70 px-3 pb-1",
+				"input-ledge relative z-0 mx-auto w-[93%] flex flex-wrap gap-0.5 rounded-b-[14px] bg-card/70 px-3 pt-1 pb-1",
 				surface?.rootClassName,
 				className,
 			)}
@@ -62,7 +62,7 @@ export function InputActionBarView({ className, model }: InputActionBarViewProps
 						className={cn(
 							"flex items-center gap-1.5 rounded-lg px-2 py-0.5 text-[12px] font-medium transition-colors",
 							model.knowledge.active
-								? "text-primary"
+								? "bg-primary/10 text-primary"
 								: "text-muted-foreground hover:bg-foreground/5 hover:text-foreground",
 						)}
 					>
@@ -88,7 +88,7 @@ export function InputActionBarView({ className, model }: InputActionBarViewProps
 						className={cn(
 							"flex items-center gap-1.5 rounded-lg px-2 py-0.5 text-[12px] font-medium transition-colors",
 							item.active
-								? "text-primary"
+								? "bg-primary/10 text-primary"
 								: "text-muted-foreground hover:bg-foreground/5 hover:text-foreground",
 						)}
 					>
