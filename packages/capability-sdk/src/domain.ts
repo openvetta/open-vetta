@@ -11,6 +11,27 @@ export {
 	type DownloadStatus,
 } from "./domain/download.js";
 export {
+	DOMAIN_KNOWLEDGE_CAPABILITIES,
+	KNOWLEDGE_NODE_TYPES,
+	KNOWLEDGE_PROCESS_STATUSES,
+	KNOWLEDGE_SCAN_REASONS,
+	type KnowledgeAddFilesInput,
+	type KnowledgeBase,
+	type KnowledgeDeleteEntryInput,
+	type KnowledgeFileStatus,
+	type KnowledgeFileStatuses,
+	type KnowledgeNameInput,
+	type KnowledgeNode,
+	type KnowledgeNodeType,
+	type KnowledgeProcessingSettings,
+	type KnowledgeProcessingUpdate,
+	type KnowledgeProcessStatus,
+	type KnowledgeRenameInput,
+	type KnowledgeScanReason,
+	type KnowledgeScanResult,
+	type KnowledgeSetProcessingInput,
+} from "./domain/knowledge.js";
+export {
 	DOMAIN_PROJECT_CAPABILITIES,
 	type ProjectCreateInput,
 	type ProjectEntry,

@@ -1,5 +1,10 @@
 import type {
 	DownloadItem as CapabilityDownloadItem,
+	KnowledgeBase,
+	KnowledgeFileStatuses,
+	KnowledgeProcessingSettings,
+	KnowledgeProcessingUpdate,
+	KnowledgeScanResult,
 	ProjectEntry,
 	ProjectListResult,
 	SchedulerCommandResult,
@@ -458,6 +463,21 @@ export interface DesktopPluginCapabilityDownloadsApi {
 	cancel(sessionId: string, id: string): Promise<void>;
 }
 
+export interface DesktopPluginCapabilityKnowledgeApi {
+	listBases(sessionId: string): Promise<KnowledgeBase[]>;
+	listFileStatuses(sessionId: string): Promise<KnowledgeFileStatuses>;
+	isProcessing(sessionId: string): Promise<boolean>;
+	getProcessing(sessionId: string): Promise<KnowledgeProcessingSettings>;
+	createBase(sessionId: string, name: string): Promise<void>;
+	renameBase(sessionId: string, name: string, newName: string): Promise<void>;
+	deleteBase(sessionId: string, name: string): Promise<void>;
+	addFiles(sessionId: string, kbId: string, paths: string[], move: boolean): Promise<void>;
+	deleteEntry(sessionId: string, kbId: string, relPath: string): Promise<void>;
+	scanNow(sessionId: string): Promise<KnowledgeScanResult>;
+	retryFailed(sessionId: string): Promise<KnowledgeScanResult>;
+	setProcessing(sessionId: string, data: KnowledgeProcessingUpdate): Promise<KnowledgeProcessingSettings>;
+}
+
 export interface DesktopPluginCapabilitySchedulerApi {
 	listTasks(sessionId: string): Promise<SchedulerTask[]>;
 	getTask(sessionId: string, taskId: string): Promise<SchedulerTask>;
@@ -487,6 +507,7 @@ export interface DesktopPluginInternalCapabilitiesApi {
 	closeSession(sessionId: string): Promise<void>;
 	filesystem: DesktopPluginCapabilityFilesystemApi;
 	downloads: DesktopPluginCapabilityDownloadsApi;
+	knowledge: DesktopPluginCapabilityKnowledgeApi;
 	projects: DesktopPluginCapabilityProjectsApi;
 	scheduler: DesktopPluginCapabilitySchedulerApi;
 	sessions: DesktopPluginCapabilitySessionsApi;

@@ -30,6 +30,30 @@ export function createPluginsApi(ipc: IpcRenderer): Pick<DesktopApi, "plugins"> 
 					list: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.DOWNLOAD_LIST, sessionId),
 					cancel: (sessionId, id) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.DOWNLOAD_CANCEL, sessionId, id),
 				},
+				knowledge: {
+					listBases: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.KNOWLEDGE_BASE_LIST, sessionId),
+					listFileStatuses: (sessionId) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.KNOWLEDGE_FILE_STATUS_LIST, sessionId),
+					isProcessing: (sessionId) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.KNOWLEDGE_PROCESSING_STATUS_GET, sessionId),
+					getProcessing: (sessionId) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.KNOWLEDGE_PROCESSING_SETTINGS_GET, sessionId),
+					createBase: (sessionId, name) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.KNOWLEDGE_BASE_CREATE, sessionId, name),
+					renameBase: (sessionId, name, newName) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.KNOWLEDGE_BASE_RENAME, sessionId, name, newName),
+					deleteBase: (sessionId, name) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.KNOWLEDGE_BASE_DELETE, sessionId, name),
+					addFiles: (sessionId, kbId, paths, move) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.KNOWLEDGE_ENTRY_ADD_FILES, sessionId, kbId, paths, move),
+					deleteEntry: (sessionId, kbId, relPath) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.KNOWLEDGE_ENTRY_DELETE, sessionId, kbId, relPath),
+					scanNow: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.KNOWLEDGE_PROCESSING_SCAN, sessionId),
+					retryFailed: (sessionId) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.KNOWLEDGE_PROCESSING_RETRY_FAILED, sessionId),
+					setProcessing: (sessionId, data) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.KNOWLEDGE_PROCESSING_SETTINGS_SET, sessionId, data),
+				},
 				projects: {
 					list: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.PROJECT_LIST, sessionId),
 					create: (sessionId, name, path) =>

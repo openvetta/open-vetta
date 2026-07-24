@@ -6,36 +6,7 @@
  */
 
 import { ipcMain } from "electron";
-import {
-	recordKnowledgeBaseClearWiki,
-	recordKnowledgeBaseFilesAdded,
-	recordKnowledgeBaseFilesDeleted,
-	recordKnowledgeBaseManualScan,
-	recordKnowledgeBaseRetryFailed,
-} from "../app-monitor/app-monitor-service.js";
-import { readDesktopConfig } from "../ipc/fs.js";
-import { getAppLogger } from "../logger.js";
-import {
-	isKnowledgeProcessing,
-	reloadKnowledgePoller,
-	retryFailedKnowledge,
-	runKnowledgeRound,
-	scheduleKnowledgeBaseCurrentSnapshot,
-} from "./poller.js";
-import {
-	addFilesToKnowledgeBase,
-	createKnowledgeBase,
-	deleteKnowledgeBase,
-	deleteKnowledgeEntry,
-	listKnowledgeBases,
-	listKnowledgeDir,
-	renameKnowledgeBase,
-	renameKnowledgeEntry,
-} from "./raws-fs.js";
-import { getKnowledgeFileStatuses } from "./status.js";
-import { clearAllWiki, clearProcessingRecords, deleteWikiForEntries } from "./wiki-ops.js";
-
-const log = getAppLogger("kb-ipc");
+import { getKnowledgeService } from "./knowledge-service.js";
 
 const CHANNELS = {
 	SCAN_NOW: "vetta:kb:scan-now",
@@ -57,69 +28,27 @@ const CHANNELS = {
 } as const;
 
 export function registerKnowledgeIpc(): void {
-	ipcMain.handle(CHANNELS.SCAN_NOW, async () => {
-		log.info("manual scan triggered");
-		recordKnowledgeBaseManualScan();
-		// 手动整理与定时一致：用配置的加工模型与并发数（即使「永不自动加工」也能手动跑）。
-		const kb = (await readDesktopConfig()).knowledgeBase;
-		return runKnowledgeRound(kb?.processingModelKey, kb?.agentConcurrency ?? 3, kb?.processingModelReasoningLevel);
-	});
-	ipcMain.handle(CHANNELS.RETRY_FAILED, async () => {
-		log.info("retry failed knowledge triggered");
-		recordKnowledgeBaseRetryFailed();
-		const kb = (await readDesktopConfig()).knowledgeBase;
-		return retryFailedKnowledge(kb?.processingModelKey, kb?.agentConcurrency ?? 3, kb?.processingModelReasoningLevel);
-	});
-	ipcMain.handle(CHANNELS.RELOAD, async () => {
-		await reloadKnowledgePoller();
-		scheduleKnowledgeBaseCurrentSnapshot();
-	});
-
-	ipcMain.handle(CHANNELS.IS_PROCESSING, async () => isKnowledgeProcessing());
-	ipcMain.handle(CHANNELS.LIST, async () => listKnowledgeBases());
-	ipcMain.handle(CHANNELS.LIST_DIR, async (_e, kbId: string, relPath: string) =>
-		listKnowledgeDir(kbId, relPath ?? ""),
+	const service = getKnowledgeService();
+	ipcMain.handle(CHANNELS.SCAN_NOW, () => service.scanNow());
+	ipcMain.handle(CHANNELS.RETRY_FAILED, () => service.retryFailed());
+	ipcMain.handle(CHANNELS.RELOAD, () => service.reload());
+	ipcMain.handle(CHANNELS.IS_PROCESSING, () => service.isProcessing());
+	ipcMain.handle(CHANNELS.LIST, () => service.listBases());
+	ipcMain.handle(CHANNELS.LIST_DIR, (_e, kbId: string, relPath: string) => service.listDirectory(kbId, relPath ?? ""));
+	ipcMain.handle(CHANNELS.STATUSES, () => service.listFileStatuses());
+	ipcMain.handle(CHANNELS.ADD_FILES, (_e, kbId: string, sourcePaths: string[], move: boolean) =>
+		service.addFiles(kbId, sourcePaths, move),
 	);
-	ipcMain.handle(CHANNELS.STATUSES, async () => getKnowledgeFileStatuses());
-	ipcMain.handle(CHANNELS.ADD_FILES, async (_e, kbId: string, sourcePaths: string[], move: boolean) => {
-		await addFilesToKnowledgeBase(kbId, sourcePaths, move);
-		recordKnowledgeBaseFilesAdded(sourcePaths.length);
-		scheduleKnowledgeBaseCurrentSnapshot();
-	});
-	ipcMain.handle(CHANNELS.DELETE_ENTRY, async (_e, kbId: string, relPath: string) => {
-		await deleteKnowledgeEntry(kbId, relPath);
-		recordKnowledgeBaseFilesDeleted(1);
-		scheduleKnowledgeBaseCurrentSnapshot();
-	});
-	ipcMain.handle(CHANNELS.RENAME_ENTRY, async (_e, kbId: string, relPath: string, newName: string) => {
-		await renameKnowledgeEntry(kbId, relPath, newName);
-		scheduleKnowledgeBaseCurrentSnapshot();
-	});
-	ipcMain.handle(CHANNELS.CREATE, async (_e, name: string) => {
-		await createKnowledgeBase(name);
-		scheduleKnowledgeBaseCurrentSnapshot();
-	});
-	ipcMain.handle(CHANNELS.DELETE, async (_e, name: string) => {
-		await deleteKnowledgeBase(name);
-		scheduleKnowledgeBaseCurrentSnapshot();
-	});
-	ipcMain.handle(CHANNELS.RENAME, async (_e, oldName: string, newName: string) => {
-		await renameKnowledgeBase(oldName, newName);
-		scheduleKnowledgeBaseCurrentSnapshot();
-	});
-	ipcMain.handle(CHANNELS.CLEAR_WIKI, async () => {
-		log.info("clear all wiki triggered");
-		await clearAllWiki();
-		recordKnowledgeBaseClearWiki();
-		scheduleKnowledgeBaseCurrentSnapshot();
-	});
-	ipcMain.handle(CHANNELS.CLEAR_RECORDS, async () => {
-		log.info("clear processing records triggered");
-		await clearProcessingRecords();
-	});
-	ipcMain.handle(CHANNELS.DELETE_WIKI, async (_e, kbId: string, relPaths: string[]) => {
-		await deleteWikiForEntries(kbId, relPaths);
-	});
+	ipcMain.handle(CHANNELS.DELETE_ENTRY, (_e, kbId: string, relPath: string) => service.deleteEntry(kbId, relPath));
+	ipcMain.handle(CHANNELS.RENAME_ENTRY, (_e, kbId: string, relPath: string, newName: string) =>
+		service.renameEntry(kbId, relPath, newName),
+	);
+	ipcMain.handle(CHANNELS.CREATE, (_e, name: string) => service.createBase(name));
+	ipcMain.handle(CHANNELS.DELETE, (_e, name: string) => service.deleteBase(name));
+	ipcMain.handle(CHANNELS.RENAME, (_e, oldName: string, newName: string) => service.renameBase(oldName, newName));
+	ipcMain.handle(CHANNELS.CLEAR_WIKI, () => service.clearWiki());
+	ipcMain.handle(CHANNELS.CLEAR_RECORDS, () => service.clearRecords());
+	ipcMain.handle(CHANNELS.DELETE_WIKI, (_e, kbId: string, relPaths: string[]) => service.deleteWiki(kbId, relPaths));
 }
 
 export function unregisterKnowledgeIpc(): void {

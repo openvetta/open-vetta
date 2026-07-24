@@ -4,6 +4,7 @@ import {
 	CapabilityError,
 	type Disposable,
 	DOMAIN_DOWNLOAD_CAPABILITIES,
+	DOMAIN_KNOWLEDGE_CAPABILITIES,
 	DOMAIN_PROJECT_CAPABILITIES,
 	DOMAIN_SCHEDULER_CAPABILITIES,
 	DOMAIN_SESSION_CAPABILITIES,
@@ -13,6 +14,7 @@ import { readDesktopConfig, writeDesktopConfig } from "../config/desktop-config-
 import { listRuntimeSessionProjects, listSessionHistory } from "../conversations/session-query-service.js";
 import { getDesktopDownloadService } from "../downloads/download-service.js";
 import { allowProjectRoot, createFilesystemDirectory } from "../filesystem/filesystem-service.js";
+import { getKnowledgeService } from "../knowledge/knowledge-service.js";
 import { ProjectService } from "../projects/project-service.js";
 import { getDesktopSchedulerService } from "../scheduler/scheduler-service.js";
 import { getWebhookManager } from "../webhook/index.js";
@@ -20,6 +22,7 @@ import { getWebhookManager } from "../webhook/index.js";
 const DOMAIN_PROJECT_PROVIDER_OWNER = "vetta.domain.project";
 const DOMAIN_SESSION_PROVIDER_OWNER = "vetta.domain.session";
 const DOMAIN_DOWNLOAD_PROVIDER_OWNER = "vetta.domain.download";
+const DOMAIN_KNOWLEDGE_PROVIDER_OWNER = "vetta.domain.knowledge";
 const DOMAIN_SCHEDULER_PROVIDER_OWNER = "vetta.domain.scheduler";
 const DOMAIN_WEBHOOK_PROVIDER_OWNER = "vetta.domain.webhook";
 
@@ -31,6 +34,7 @@ function assertNotAborted(signal: AbortSignal): void {
 
 export function registerDesktopDomainProviders(registry: CapabilityRegistry): Disposable {
 	const downloads = getDesktopDownloadService();
+	const knowledge = getKnowledgeService();
 	const scheduler = getDesktopSchedulerService();
 	const webhooks = getWebhookManager();
 	const projects = new ProjectService({
@@ -108,6 +112,80 @@ export function registerDesktopDomainProviders(registry: CapabilityRegistry): Di
 			execute: async ({ id }, context) => {
 				assertNotAborted(context.signal);
 				downloads.cancel(id);
+			},
+		}),
+	]);
+	const knowledgeRegistration = registry.registerOwner(DOMAIN_KNOWLEDGE_PROVIDER_OWNER, [
+		bindCapability(DOMAIN_KNOWLEDGE_CAPABILITIES.LIST_BASES, {
+			execute: async (_input, context) => {
+				assertNotAborted(context.signal);
+				return knowledge.listBases();
+			},
+		}),
+		bindCapability(DOMAIN_KNOWLEDGE_CAPABILITIES.LIST_FILE_STATUSES, {
+			execute: async (_input, context) => {
+				assertNotAborted(context.signal);
+				return knowledge.listFileStatuses();
+			},
+		}),
+		bindCapability(DOMAIN_KNOWLEDGE_CAPABILITIES.GET_PROCESSING_STATUS, {
+			execute: async (_input, context) => {
+				assertNotAborted(context.signal);
+				return knowledge.isProcessing();
+			},
+		}),
+		bindCapability(DOMAIN_KNOWLEDGE_CAPABILITIES.GET_PROCESSING_SETTINGS, {
+			execute: async (_input, context) => {
+				assertNotAborted(context.signal);
+				return knowledge.getProcessing();
+			},
+		}),
+		bindCapability(DOMAIN_KNOWLEDGE_CAPABILITIES.CREATE_BASE, {
+			execute: async ({ name }, context) => {
+				assertNotAborted(context.signal);
+				await knowledge.createBase(name);
+			},
+		}),
+		bindCapability(DOMAIN_KNOWLEDGE_CAPABILITIES.RENAME_BASE, {
+			execute: async ({ name, newName }, context) => {
+				assertNotAborted(context.signal);
+				await knowledge.renameBase(name, newName);
+			},
+		}),
+		bindCapability(DOMAIN_KNOWLEDGE_CAPABILITIES.DELETE_BASE, {
+			execute: async ({ name }, context) => {
+				assertNotAborted(context.signal);
+				await knowledge.deleteBase(name);
+			},
+		}),
+		bindCapability(DOMAIN_KNOWLEDGE_CAPABILITIES.ADD_FILES, {
+			execute: async ({ kbId, paths, move }, context) => {
+				assertNotAborted(context.signal);
+				await knowledge.addFiles(kbId, paths, move);
+			},
+		}),
+		bindCapability(DOMAIN_KNOWLEDGE_CAPABILITIES.DELETE_ENTRY, {
+			execute: async ({ kbId, relPath }, context) => {
+				assertNotAborted(context.signal);
+				await knowledge.deleteEntry(kbId, relPath);
+			},
+		}),
+		bindCapability(DOMAIN_KNOWLEDGE_CAPABILITIES.SCAN_NOW, {
+			execute: async (_input, context) => {
+				assertNotAborted(context.signal);
+				return knowledge.scanNow();
+			},
+		}),
+		bindCapability(DOMAIN_KNOWLEDGE_CAPABILITIES.RETRY_FAILED, {
+			execute: async (_input, context) => {
+				assertNotAborted(context.signal);
+				return knowledge.retryFailed();
+			},
+		}),
+		bindCapability(DOMAIN_KNOWLEDGE_CAPABILITIES.SET_PROCESSING_SETTINGS, {
+			execute: async ({ data }, context) => {
+				assertNotAborted(context.signal);
+				return knowledge.setProcessing(data);
 			},
 		}),
 	]);
@@ -221,6 +299,7 @@ export function registerDesktopDomainProviders(registry: CapabilityRegistry): Di
 		dispose: () => {
 			webhookRegistration.dispose();
 			schedulerRegistration.dispose();
+			knowledgeRegistration.dispose();
 			downloadRegistration.dispose();
 			sessionRegistration.dispose();
 			projectRegistration.dispose();

@@ -10,6 +10,7 @@ import { PLUGIN_CAPABILITY_PERMISSIONS, PluginCapabilityAdapter } from "../src/a
 import { CAPABILITY_ERROR_CODES, type CapabilityId, type CapabilityToken } from "../src/contracts.js";
 import {
 	DOMAIN_DOWNLOAD_CAPABILITIES,
+	DOMAIN_KNOWLEDGE_CAPABILITIES,
 	DOMAIN_PROJECT_CAPABILITIES,
 	DOMAIN_SCHEDULER_CAPABILITIES,
 	DOMAIN_SESSION_CAPABILITIES,
@@ -84,6 +85,31 @@ function outputFor(capabilityId: CapabilityId): unknown {
 				completedAt: 2,
 			},
 		];
+	}
+	if (capabilityId === DOMAIN_KNOWLEDGE_CAPABILITIES.LIST_BASES.id) {
+		return [
+			{
+				id: "default_kb",
+				name: "default_kb",
+				updatedAt: 1,
+				isDefault: true,
+				nodes: [],
+			},
+		];
+	}
+	if (capabilityId === DOMAIN_KNOWLEDGE_CAPABILITIES.LIST_FILE_STATUSES.id) return {};
+	if (capabilityId === DOMAIN_KNOWLEDGE_CAPABILITIES.GET_PROCESSING_STATUS.id) return false;
+	if (
+		capabilityId === DOMAIN_KNOWLEDGE_CAPABILITIES.GET_PROCESSING_SETTINGS.id ||
+		capabilityId === DOMAIN_KNOWLEDGE_CAPABILITIES.SET_PROCESSING_SETTINGS.id
+	) {
+		return { enabled: true, pollIntervalMinutes: 5, agentConcurrency: 3, ocrConcurrency: 1 };
+	}
+	if (
+		capabilityId === DOMAIN_KNOWLEDGE_CAPABILITIES.SCAN_NOW.id ||
+		capabilityId === DOMAIN_KNOWLEDGE_CAPABILITIES.RETRY_FAILED.id
+	) {
+		return { skipped: true, reason: "no-model" };
 	}
 	if (
 		capabilityId === DOMAIN_SCHEDULER_CAPABILITIES.LIST_TASKS.id ||
@@ -244,6 +270,7 @@ describe("PluginCapabilityAdapter", () => {
 
 		expect(access.sessions[0]?.grants.map((grant) => grant.capabilityId)).toEqual([
 			...Object.values(DOMAIN_DOWNLOAD_CAPABILITIES).map((capability) => capability.id),
+			...Object.values(DOMAIN_KNOWLEDGE_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_PROJECT_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_SESSION_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_SCHEDULER_CAPABILITIES).map((capability) => capability.id),
@@ -277,6 +304,13 @@ describe("PluginCapabilityAdapter", () => {
 			},
 		]);
 		await expect(adapter.cancelDownload(sessionId, "download")).resolves.toBeUndefined();
+		await expect(adapter.listKnowledgeBases(sessionId)).resolves.toHaveLength(1);
+		await expect(adapter.setKnowledgeProcessing(sessionId, { processingModelKey: null })).resolves.toEqual({
+			enabled: true,
+			pollIntervalMinutes: 5,
+			agentConcurrency: 3,
+			ocrConcurrency: 1,
+		});
 		await expect(adapter.listScheduledTasks(sessionId)).resolves.toHaveLength(1);
 		await expect(adapter.runScheduledTask(sessionId, "task")).resolves.toEqual({
 			status: "accepted",
@@ -292,6 +326,9 @@ describe("PluginCapabilityAdapter", () => {
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
 		expect(() => adapter.listRuntimeProjects(sessionId)).toThrowError(
+			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
+		);
+		expect(() => adapter.listKnowledgeBases(sessionId)).toThrowError(
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
 		expect(() => adapter.listScheduledTasks(sessionId)).toThrowError(
@@ -318,6 +355,9 @@ describe("PluginCapabilityAdapter", () => {
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
 		expect(() => adapter.listDownloads(sessionId)).toThrowError(
+			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
+		);
+		expect(() => adapter.listKnowledgeBases(sessionId)).toThrowError(
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
 		expect(() => adapter.listScheduledTasks(sessionId)).toThrowError(
