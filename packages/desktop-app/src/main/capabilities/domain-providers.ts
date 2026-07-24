@@ -3,6 +3,7 @@ import {
 	CAPABILITY_ERROR_CODES,
 	CapabilityError,
 	type Disposable,
+	DOMAIN_AGENT_SETTINGS_CAPABILITIES,
 	DOMAIN_BATCH_TASK_CAPABILITIES,
 	DOMAIN_DOWNLOAD_CAPABILITIES,
 	DOMAIN_GENERAL_SETTINGS_CAPABILITIES,
@@ -16,6 +17,7 @@ import {
 	DOMAIN_UPDATER_CAPABILITIES,
 	DOMAIN_WEBHOOK_CAPABILITIES,
 } from "@vetta/capability-sdk";
+import { getDesktopAgentSettingsService } from "../agent-settings/agent-settings-service.js";
 import { getDesktopBatchTaskService } from "../batch-tasks/batch-task-service.js";
 import { readDesktopConfig, writeDesktopConfig } from "../config/desktop-config-store.js";
 import { listRuntimeSessionProjects, listSessionHistory } from "../conversations/session-query-service.js";
@@ -31,6 +33,7 @@ import { getAppVersion, updaterService } from "../updater.js";
 import { getWebhookManager } from "../webhook/index.js";
 
 const DOMAIN_BATCH_TASK_PROVIDER_OWNER = "vetta.domain.batch-task";
+const DOMAIN_AGENT_SETTINGS_PROVIDER_OWNER = "vetta.domain.agent-settings";
 const DOMAIN_GENERAL_SETTINGS_PROVIDER_OWNER = "vetta.domain.general-settings";
 const DOMAIN_PROJECT_PROVIDER_OWNER = "vetta.domain.project";
 const DOMAIN_SESSION_PROVIDER_OWNER = "vetta.domain.session";
@@ -50,6 +53,7 @@ function assertNotAborted(signal: AbortSignal): void {
 }
 
 export function registerDesktopDomainProviders(registry: CapabilityRegistry): Disposable {
+	const agentSettings = getDesktopAgentSettingsService();
 	const batchTasks = getDesktopBatchTaskService();
 	const downloads = getDesktopDownloadService();
 	const generalSettings = getDesktopGeneralSettingsService();
@@ -105,6 +109,20 @@ export function registerDesktopDomainProviders(registry: CapabilityRegistry): Di
 			execute: async ({ path }, context) => {
 				assertNotAborted(context.signal);
 				await projects.remove(path);
+			},
+		}),
+	]);
+	const agentSettingsRegistration = registry.registerOwner(DOMAIN_AGENT_SETTINGS_PROVIDER_OWNER, [
+		bindCapability(DOMAIN_AGENT_SETTINGS_CAPABILITIES.GET_EXPERIMENTAL, {
+			execute: async (_input, context) => {
+				assertNotAborted(context.signal);
+				return agentSettings.getExperimental();
+			},
+		}),
+		bindCapability(DOMAIN_AGENT_SETTINGS_CAPABILITIES.SET_EXPERIMENTAL, {
+			execute: async (input, context) => {
+				assertNotAborted(context.signal);
+				return agentSettings.setExperimental(input);
 			},
 		}),
 	]);
@@ -570,6 +588,7 @@ export function registerDesktopDomainProviders(registry: CapabilityRegistry): Di
 			sessionRegistration.dispose();
 			projectRegistration.dispose();
 			generalSettingsRegistration.dispose();
+			agentSettingsRegistration.dispose();
 		},
 	};
 }

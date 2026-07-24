@@ -9,6 +9,12 @@ export function createPluginsApi(ipc: IpcRenderer): Pick<DesktopApi, "plugins"> 
 			internalCapabilities: {
 				openSession: (pluginId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.OPEN_SESSION, pluginId),
 				closeSession: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.CLOSE_SESSION, sessionId),
+				agentSettings: {
+					getExperimental: (sessionId) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.AGENT_SETTINGS_EXPERIMENTAL_GET, sessionId),
+					setExperimental: (sessionId, input) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.AGENT_SETTINGS_EXPERIMENTAL_SET, sessionId, input),
+				},
 				generalSettings: {
 					get: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.GENERAL_SETTINGS_GET, sessionId),
 					setNotifications: (sessionId, enabled) =>

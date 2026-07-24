@@ -64,6 +64,14 @@ export function registerPluginCapabilitiesIpc(): () => void {
 	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.CLOSE_SESSION, (_event, sessionId: unknown) =>
 		adapter.closeSession(requireString(sessionId, "sessionId")),
 	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.AGENT_SETTINGS_EXPERIMENTAL_GET, (_event, sessionId: unknown) =>
+		adapter.getAgentExperimental(requireString(sessionId, "sessionId")),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.AGENT_SETTINGS_EXPERIMENTAL_SET,
+		(_event, sessionId: unknown, input: unknown) =>
+			adapter.setAgentExperimental(requireString(sessionId, "sessionId"), input),
+	);
 	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.GENERAL_SETTINGS_GET, (_event, sessionId: unknown) =>
 		adapter.getGeneralSettings(requireString(sessionId, "sessionId")),
 	);

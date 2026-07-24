@@ -1,25 +1,18 @@
-import type { PluginOfficialApi, PluginOfficialExperimentalSettings } from "@vetta-org/plugin-sdk";
+import type { PluginOfficialApi } from "@vetta-org/plugin-sdk";
 
-function normalizeExperimental(
-	config: Awaited<ReturnType<typeof window.vetta.config.get>>,
-): PluginOfficialExperimentalSettings {
-	return {
-		vettaCli: config.experimental?.vettaCli !== false,
-		promptPrediction: config.experimental?.promptPrediction !== false,
-		agentSkills: config.experimental?.agentSkills !== false,
-	};
-}
-
-export function createOfficialAgentApi(assertOfficial: () => void): PluginOfficialApi["agent"] {
+export function createOfficialAgentApi(
+	assertOfficial: () => void,
+	capabilitySessionId: string,
+): PluginOfficialApi["agent"] {
+	const agentSettings = window.vetta.plugins.internalCapabilities.agentSettings;
 	return {
 		getExperimental: async () => {
 			assertOfficial();
-			return normalizeExperimental(await window.vetta.config.get());
+			return agentSettings.getExperimental(capabilitySessionId);
 		},
 		setExperimental: async (input) => {
 			assertOfficial();
-			await window.vetta.config.set({ experimental: input });
-			return normalizeExperimental(await window.vetta.config.get());
+			return agentSettings.setExperimental(capabilitySessionId, input);
 		},
 	};
 }

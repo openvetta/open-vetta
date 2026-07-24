@@ -2,9 +2,12 @@ import { randomUUID } from "node:crypto";
 import { type CapabilityAccessHandle, type CapabilityAccessSessionFactory, createCapabilityGrant } from "../access.js";
 import { CAPABILITY_ERROR_CODES, CapabilityError } from "../contracts.js";
 import {
+	type AgentExperimentalSettings,
+	type AgentExperimentalSettingsUpdate,
 	type BatchProject,
 	type BatchTaskCommandResult,
 	type DefaultExecutionModeSettingInput,
+	DOMAIN_AGENT_SETTINGS_CAPABILITIES,
 	DOMAIN_BATCH_TASK_CAPABILITIES,
 	DOMAIN_DOWNLOAD_CAPABILITIES,
 	DOMAIN_GENERAL_SETTINGS_CAPABILITIES,
@@ -115,6 +118,8 @@ export class PluginCapabilityAdapter {
 				: []),
 			...(official
 				? [
+						createCapabilityGrant(DOMAIN_AGENT_SETTINGS_CAPABILITIES.GET_EXPERIMENTAL),
+						createCapabilityGrant(DOMAIN_AGENT_SETTINGS_CAPABILITIES.SET_EXPERIMENTAL),
 						createCapabilityGrant(DOMAIN_GENERAL_SETTINGS_CAPABILITIES.GET),
 						createCapabilityGrant(DOMAIN_GENERAL_SETTINGS_CAPABILITIES.SET_NOTIFICATIONS),
 						createCapabilityGrant(DOMAIN_GENERAL_SETTINGS_CAPABILITIES.SET_DEFAULT_EXECUTION_MODE),
@@ -287,6 +292,19 @@ export class PluginCapabilityAdapter {
 
 	listProjects(sessionId: string): Promise<ProjectListResult> {
 		return this.client(sessionId, { official: true }).invoke(DOMAIN_PROJECT_CAPABILITIES.LIST, {});
+	}
+
+	getAgentExperimental(sessionId: string): Promise<AgentExperimentalSettings> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_AGENT_SETTINGS_CAPABILITIES.GET_EXPERIMENTAL, {});
+	}
+
+	setAgentExperimental(sessionId: string, input: unknown): Promise<AgentExperimentalSettings> {
+		const parsedInput: AgentExperimentalSettingsUpdate =
+			DOMAIN_AGENT_SETTINGS_CAPABILITIES.SET_EXPERIMENTAL.parseInput(input);
+		return this.client(sessionId, { official: true }).invoke(
+			DOMAIN_AGENT_SETTINGS_CAPABILITIES.SET_EXPERIMENTAL,
+			parsedInput,
+		);
 	}
 
 	getGeneralSettings(sessionId: string): Promise<GeneralSettingsSnapshot> {
