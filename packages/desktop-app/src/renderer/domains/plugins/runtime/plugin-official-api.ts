@@ -32,7 +32,7 @@ export function createPluginOfficialApi(plugin: InstalledPlugin, capabilitySessi
 		updater: createOfficialUpdaterApi(assertOfficial, capabilitySessionId),
 		webhook: createOfficialWebhookApi(assertOfficial, capabilitySessionId),
 		skills: createOfficialSkillsApi(assertOfficial, capabilitySessionId),
-		shortcuts: createOfficialShortcutsApi(assertOfficial),
+		shortcuts: createOfficialShortcutsApi(assertOfficial, capabilitySessionId),
 		im: createOfficialImApi(assertOfficial),
 		mcp: createOfficialMcpApi(assertOfficial),
 		models: createOfficialModelsApi(assertOfficial),

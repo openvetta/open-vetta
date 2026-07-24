@@ -12,6 +12,9 @@ import type {
 	KnowledgeScanResult,
 	ProjectEntry,
 	ProjectListResult,
+	QuickPanelPostSendBehavior,
+	QuickPanelSettings,
+	QuickPanelTrigger,
 	SchedulerCommandResult,
 	SchedulerExecutionRecord,
 	SchedulerTask,
@@ -19,6 +22,9 @@ import type {
 	SchedulerTaskUpdateData,
 	SessionHistoryEntry,
 	SessionRuntimeProject,
+	ShortcutBindingResetResult,
+	ShortcutBindingsResult,
+	ShortcutSettings,
 	SkillInfo,
 	SkillSetEnabledResult,
 	SkillType,
@@ -499,6 +505,15 @@ export interface DesktopPluginCapabilitySkillsApi {
 	uninstall(sessionId: string, name: string, type?: SkillType): Promise<void>;
 }
 
+export interface DesktopPluginCapabilityShortcutsApi {
+	getSettings(sessionId: string): Promise<ShortcutSettings>;
+	setBinding(sessionId: string, id: string, shortcut: string): Promise<ShortcutBindingsResult>;
+	resetBinding(sessionId: string, id: string): Promise<ShortcutBindingResetResult>;
+	resetAllBindings(sessionId: string): Promise<ShortcutBindingsResult>;
+	setQuickPanelTrigger(sessionId: string, trigger: QuickPanelTrigger): Promise<QuickPanelSettings>;
+	setQuickPanelPostSendBehavior(sessionId: string, behavior: QuickPanelPostSendBehavior): Promise<QuickPanelSettings>;
+}
+
 export interface DesktopPluginCapabilityDownloadsApi {
 	list(sessionId: string): Promise<CapabilityDownloadItem[]>;
 	cancel(sessionId: string, id: string): Promise<void>;
@@ -563,6 +578,7 @@ export interface DesktopPluginInternalCapabilitiesApi {
 	projects: DesktopPluginCapabilityProjectsApi;
 	scheduler: DesktopPluginCapabilitySchedulerApi;
 	sessions: DesktopPluginCapabilitySessionsApi;
+	shortcuts: DesktopPluginCapabilityShortcutsApi;
 	skills: DesktopPluginCapabilitySkillsApi;
 	updater: DesktopPluginCapabilityUpdaterApi;
 	webhook: DesktopPluginCapabilityWebhookApi;

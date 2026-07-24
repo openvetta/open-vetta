@@ -13,8 +13,10 @@ import {
 	DOMAIN_DOWNLOAD_CAPABILITIES,
 	DOMAIN_KNOWLEDGE_CAPABILITIES,
 	DOMAIN_PROJECT_CAPABILITIES,
+	DOMAIN_QUICK_PANEL_CAPABILITIES,
 	DOMAIN_SCHEDULER_CAPABILITIES,
 	DOMAIN_SESSION_CAPABILITIES,
+	DOMAIN_SHORTCUT_CAPABILITIES,
 	DOMAIN_SKILL_CAPABILITIES,
 	DOMAIN_UPDATER_CAPABILITIES,
 	DOMAIN_WEBHOOK_CAPABILITIES,
@@ -118,6 +120,31 @@ function outputFor(capabilityId: CapabilityId): unknown {
 		};
 	}
 	if (capabilityId === DOMAIN_SKILL_CAPABILITIES.SET_ENABLED.id) return { name: "review", enabled: false };
+	if (capabilityId === DOMAIN_SHORTCUT_CAPABILITIES.GET_SETTINGS.id) {
+		return {
+			bindings: [
+				{
+					id: "new-session",
+					defaultShortcut: "mod+n",
+					shortcut: "mod+n",
+					isDefault: true,
+				},
+			],
+			quickPanel: { trigger: "none", postSendBehavior: "foreground" },
+		};
+	}
+	if (
+		capabilityId === DOMAIN_SHORTCUT_CAPABILITIES.SET_BINDING.id ||
+		capabilityId === DOMAIN_SHORTCUT_CAPABILITIES.RESET_ALL_BINDINGS.id
+	) {
+		return { bindings: [] };
+	}
+	if (capabilityId === DOMAIN_SHORTCUT_CAPABILITIES.RESET_BINDING.id) {
+		return { bindings: [], shortcut: "mod+n" };
+	}
+	if (Object.values(DOMAIN_QUICK_PANEL_CAPABILITIES).some((capability) => capability.id === capabilityId)) {
+		return { trigger: "mod", postSendBehavior: "foreground" };
+	}
 	if (capabilityId === DOMAIN_DOWNLOAD_CAPABILITIES.LIST.id) {
 		return [
 			{
@@ -331,6 +358,8 @@ describe("PluginCapabilityAdapter", () => {
 			...Object.values(DOMAIN_PROJECT_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_SESSION_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_SKILL_CAPABILITIES).map((capability) => capability.id),
+			...Object.values(DOMAIN_SHORTCUT_CAPABILITIES).map((capability) => capability.id),
+			...Object.values(DOMAIN_QUICK_PANEL_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_SCHEDULER_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_WEBHOOK_CAPABILITIES).map((capability) => capability.id),
 		]);
@@ -361,6 +390,26 @@ describe("PluginCapabilityAdapter", () => {
 			enabled: false,
 		});
 		await expect(adapter.uninstallSkill(sessionId, "review")).resolves.toBeUndefined();
+		await expect(adapter.getShortcutSettings(sessionId)).resolves.toHaveProperty(
+			"quickPanel.postSendBehavior",
+			"foreground",
+		);
+		await expect(adapter.setShortcutBinding(sessionId, "new-session", "mod+shift+n")).resolves.toEqual({
+			bindings: [],
+		});
+		await expect(adapter.resetShortcutBinding(sessionId, "new-session")).resolves.toEqual({
+			bindings: [],
+			shortcut: "mod+n",
+		});
+		await expect(adapter.resetAllShortcutBindings(sessionId)).resolves.toEqual({ bindings: [] });
+		await expect(adapter.setQuickPanelTrigger(sessionId, "mod")).resolves.toEqual({
+			trigger: "mod",
+			postSendBehavior: "foreground",
+		});
+		await expect(adapter.setQuickPanelPostSendBehavior(sessionId, "background")).resolves.toEqual({
+			trigger: "mod",
+			postSendBehavior: "foreground",
+		});
 		await expect(adapter.listDownloads(sessionId)).resolves.toEqual([
 			{
 				id: "download",
@@ -411,6 +460,9 @@ describe("PluginCapabilityAdapter", () => {
 		expect(() => adapter.listSkills(sessionId)).toThrowError(
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
+		expect(() => adapter.getShortcutSettings(sessionId)).toThrowError(
+			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
+		);
 		expect(() => adapter.listKnowledgeBases(sessionId)).toThrowError(
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
@@ -444,6 +496,9 @@ describe("PluginCapabilityAdapter", () => {
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
 		expect(() => adapter.listSkills(sessionId)).toThrowError(
+			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
+		);
+		expect(() => adapter.getShortcutSettings(sessionId)).toThrowError(
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
 		expect(() => adapter.listDownloads(sessionId)).toThrowError(

@@ -35,6 +35,20 @@ function optionalSkillType(value: unknown): "skill" | "scene" | undefined {
 	return value;
 }
 
+function requireQuickPanelTrigger(value: unknown): "none" | "mod" | "alt" | "shift" {
+	if (value !== "none" && value !== "mod" && value !== "alt" && value !== "shift") {
+		throw new Error("trigger must be none, mod, alt, or shift");
+	}
+	return value;
+}
+
+function requireQuickPanelBehavior(value: unknown): "foreground" | "background" {
+	if (value !== "foreground" && value !== "background") {
+		throw new Error("behavior must be foreground or background");
+	}
+	return value;
+}
+
 export function registerPluginCapabilitiesIpc(): () => void {
 	const adapter = getDesktopCapabilityHost().adapters.plugin;
 	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.OPEN_SESSION, (_event, pluginId: unknown) =>
@@ -263,6 +277,35 @@ export function registerPluginCapabilitiesIpc(): () => void {
 				requireString(sessionId, "sessionId"),
 				requireString(name, "name"),
 				optionalSkillType(type),
+			),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.SHORTCUT_SETTINGS_GET, (_event, sessionId: unknown) =>
+		adapter.getShortcutSettings(requireString(sessionId, "sessionId")),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.SHORTCUT_BINDING_SET,
+		(_event, sessionId: unknown, id: unknown, shortcut: unknown) =>
+			adapter.setShortcutBinding(
+				requireString(sessionId, "sessionId"),
+				requireString(id, "id"),
+				requireText(shortcut, "shortcut"),
+			),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.SHORTCUT_BINDING_RESET, (_event, sessionId: unknown, id: unknown) =>
+		adapter.resetShortcutBinding(requireString(sessionId, "sessionId"), requireString(id, "id")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.SHORTCUT_BINDING_RESET_ALL, (_event, sessionId: unknown) =>
+		adapter.resetAllShortcutBindings(requireString(sessionId, "sessionId")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.QUICK_PANEL_TRIGGER_SET, (_event, sessionId: unknown, trigger: unknown) =>
+		adapter.setQuickPanelTrigger(requireString(sessionId, "sessionId"), requireQuickPanelTrigger(trigger)),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.QUICK_PANEL_POST_SEND_BEHAVIOR_SET,
+		(_event, sessionId: unknown, behavior: unknown) =>
+			adapter.setQuickPanelPostSendBehavior(
+				requireString(sessionId, "sessionId"),
+				requireQuickPanelBehavior(behavior),
 			),
 	);
 	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.DOWNLOAD_LIST, (_event, sessionId: unknown) =>

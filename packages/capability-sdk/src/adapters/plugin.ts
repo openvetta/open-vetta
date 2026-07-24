@@ -8,8 +8,10 @@ import {
 	DOMAIN_DOWNLOAD_CAPABILITIES,
 	DOMAIN_KNOWLEDGE_CAPABILITIES,
 	DOMAIN_PROJECT_CAPABILITIES,
+	DOMAIN_QUICK_PANEL_CAPABILITIES,
 	DOMAIN_SCHEDULER_CAPABILITIES,
 	DOMAIN_SESSION_CAPABILITIES,
+	DOMAIN_SHORTCUT_CAPABILITIES,
 	DOMAIN_SKILL_CAPABILITIES,
 	DOMAIN_UPDATER_CAPABILITIES,
 	DOMAIN_WEBHOOK_CAPABILITIES,
@@ -21,11 +23,17 @@ import {
 	type KnowledgeScanResult,
 	type ProjectEntry,
 	type ProjectListResult,
+	type QuickPanelPostSendBehavior,
+	type QuickPanelSettings,
+	type QuickPanelTrigger,
 	type SchedulerCommandResult,
 	type SchedulerExecutionRecord,
 	type SchedulerTask,
 	type SessionHistoryEntry,
 	type SessionRuntimeProject,
+	type ShortcutBindingResetResult,
+	type ShortcutBindingsResult,
+	type ShortcutSettings,
 	type SkillInfo,
 	type SkillSetEnabledResult,
 	type SkillType,
@@ -152,6 +160,12 @@ export class PluginCapabilityAdapter {
 						createCapabilityGrant(DOMAIN_SKILL_CAPABILITIES.LIST_INSTALLED),
 						createCapabilityGrant(DOMAIN_SKILL_CAPABILITIES.SET_ENABLED),
 						createCapabilityGrant(DOMAIN_SKILL_CAPABILITIES.UNINSTALL),
+						createCapabilityGrant(DOMAIN_SHORTCUT_CAPABILITIES.GET_SETTINGS),
+						createCapabilityGrant(DOMAIN_SHORTCUT_CAPABILITIES.SET_BINDING),
+						createCapabilityGrant(DOMAIN_SHORTCUT_CAPABILITIES.RESET_BINDING),
+						createCapabilityGrant(DOMAIN_SHORTCUT_CAPABILITIES.RESET_ALL_BINDINGS),
+						createCapabilityGrant(DOMAIN_QUICK_PANEL_CAPABILITIES.SET_TRIGGER),
+						createCapabilityGrant(DOMAIN_QUICK_PANEL_CAPABILITIES.SET_POST_SEND_BEHAVIOR),
 						createCapabilityGrant(DOMAIN_SCHEDULER_CAPABILITIES.LIST_TASKS),
 						createCapabilityGrant(DOMAIN_SCHEDULER_CAPABILITIES.GET_TASK),
 						createCapabilityGrant(DOMAIN_SCHEDULER_CAPABILITIES.LIST_HISTORY),
@@ -326,6 +340,39 @@ export class PluginCapabilityAdapter {
 		return this.client(sessionId, { official: true }).invoke(DOMAIN_SKILL_CAPABILITIES.UNINSTALL, {
 			name,
 			type: resolvedType,
+		});
+	}
+
+	getShortcutSettings(sessionId: string): Promise<ShortcutSettings> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_SHORTCUT_CAPABILITIES.GET_SETTINGS, {});
+	}
+
+	setShortcutBinding(sessionId: string, id: string, shortcut: string): Promise<ShortcutBindingsResult> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_SHORTCUT_CAPABILITIES.SET_BINDING, {
+			id,
+			shortcut,
+		});
+	}
+
+	resetShortcutBinding(sessionId: string, id: string): Promise<ShortcutBindingResetResult> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_SHORTCUT_CAPABILITIES.RESET_BINDING, {
+			id,
+		});
+	}
+
+	resetAllShortcutBindings(sessionId: string): Promise<ShortcutBindingsResult> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_SHORTCUT_CAPABILITIES.RESET_ALL_BINDINGS, {});
+	}
+
+	setQuickPanelTrigger(sessionId: string, trigger: QuickPanelTrigger): Promise<QuickPanelSettings> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_QUICK_PANEL_CAPABILITIES.SET_TRIGGER, {
+			trigger,
+		});
+	}
+
+	setQuickPanelPostSendBehavior(sessionId: string, behavior: QuickPanelPostSendBehavior): Promise<QuickPanelSettings> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_QUICK_PANEL_CAPABILITIES.SET_POST_SEND_BEHAVIOR, {
+			behavior,
 		});
 	}
 
