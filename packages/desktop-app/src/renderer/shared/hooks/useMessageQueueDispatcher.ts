@@ -1,7 +1,7 @@
 import { appendError, nextId } from "@domains/chat/services/chat-service";
 import { waitForPluginHostReady } from "@domains/plugins/runtime/plugin-events";
 import { activeSessionAtom, type ChatMessage, chatMessagesAtom } from "@shared/store/atoms";
-import { dequeueHeadAtom } from "@shared/store/message-queue-atoms";
+import { bumpQueuedDispatchSeq, dequeueHeadAtom } from "@shared/store/message-queue-atoms";
 import { getDefaultStore } from "jotai";
 import { useEffect } from "react";
 
@@ -23,6 +23,9 @@ export function useMessageQueueDispatcher(): void {
 			const store = getDefaultStore();
 			const head = store.set(dequeueHeadAtom, sessionId);
 			if (!head) return;
+			// 标记发生了「跨到下一轮」的队列派发：本回合 agent_end 的过期整体重拉据此跳过，
+			// 让下方乐观气泡不被冲掉，交由下一轮自己的 agent_end 安全重拉。
+			bumpQueuedDispatchSeq(sessionId);
 			if (store.get(activeSessionAtom)?.runtimeId === sessionId) {
 				const msg: ChatMessage = {
 					id: nextId("user"),
