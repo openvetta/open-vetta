@@ -306,8 +306,8 @@ export const pluginTurnCardsAtom = atom<RegisteredTurnCard[]>([]);
 /**
  * The image a plugin (image-gen) bound as the "edit target" via
  * `ui.setEditImageAttachment`. Rendered as a thumbnail capsule in the AI input
- * bar's top capsule strip; consumed at send time → `metadata.editImageId`, then
- * cleared (one-shot). `null` when nothing is attached.
+ * bar's top capsule strip; its plugin-owned hidden instruction is consumed at
+ * send time, then cleared (one-shot). `null` when nothing is attached.
  */
 export const editImageAttachmentAtom = atom<PluginImageRef | null>(null);
 

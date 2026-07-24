@@ -5,17 +5,27 @@ import type {
 	PluginAppActionApproval,
 	PluginAppActionRegistration,
 	PluginCommandRunOptions,
-	PluginEditImageInput,
-	PluginGenerateImageInput,
 	PluginInstallOptions,
+	PluginNetworkRequest,
 	PluginPermission,
+	PluginPutBlobInput,
 } from "../../preload/api-types/plugins.js";
 import { recordAppMonitorEvent } from "../app-monitor/app-monitor-service.js";
 import { getAppLogger } from "../logger.js";
 import { runPluginCommand } from "../plugins/command-runner.js";
-import { editImage, generateImage, imageLineage, sessionLineages } from "../plugins/image-service.js";
 import type { PluginActionService } from "../plugins/plugin-action-service.js";
 import { startPluginDevWatch, stopPluginDevWatch } from "../plugins/plugin-dev-watch.js";
+import { requestForPlugin } from "../plugins/plugin-network-service.js";
+import {
+	getPluginBlobRef,
+	listPluginFiles,
+	putPluginBlob,
+	readPluginBlob,
+	readPluginFile,
+	readPluginJson,
+	writePluginFile,
+	writePluginJson,
+} from "../plugins/plugin-storage-service.js";
 import {
 	beginDynamicAgentContributionLoad,
 	buildAgentPluginRuntimeConfig,
@@ -144,7 +154,7 @@ function asAgentToolRegistration(value: unknown): {
 	const parameters = asRecord(input.parameters, "agent tool parameters");
 	const timeoutMs =
 		typeof input.timeoutMs === "number" && Number.isFinite(input.timeoutMs) && input.timeoutMs > 0
-			? Math.min(Math.floor(input.timeoutMs), 120_000)
+			? Math.min(Math.floor(input.timeoutMs), 300_000)
 			: undefined;
 	return {
 		id,
@@ -637,24 +647,35 @@ export function registerPluginsIpc(pluginActionService: PluginActionService): ()
 			contents.send("vetta:plugins:settings-changed", { pluginId, values: effective });
 		}
 	});
-	ipcMain.handle("vetta:plugins:images:generate", (_event, id: unknown, input: unknown) =>
-		generateImage(asPluginId(id), input as PluginGenerateImageInput),
-	);
-	ipcMain.handle("vetta:plugins:images:edit", (_event, id: unknown, input: unknown) =>
-		editImage(asPluginId(id), input as PluginEditImageInput),
-	);
-	ipcMain.handle("vetta:plugins:images:lineage", (_event, id: unknown, imageId: unknown) => {
-		if (typeof imageId !== "string" || imageId.trim().length === 0) {
-			throw new Error("Invalid image id");
-		}
-		return imageLineage(asPluginId(id), imageId.trim());
+	ipcMain.handle("vetta:plugins:network:request", (_event, id: unknown, request: unknown) => {
+		asPluginId(id);
+		return requestForPlugin(request as PluginNetworkRequest);
 	});
-	ipcMain.handle("vetta:plugins:images:session-lineages", (_event, id: unknown, sessionId: unknown) => {
-		if (typeof sessionId !== "string" || sessionId.trim().length === 0) {
-			throw new Error("Invalid session id");
-		}
-		return sessionLineages(asPluginId(id), sessionId.trim());
+	ipcMain.handle("vetta:plugins:storage:read-json", (_event, id: unknown, key: unknown) =>
+		readPluginJson(asPluginId(id), asPluginId(key)),
+	);
+	ipcMain.handle("vetta:plugins:storage:write-json", (_event, id: unknown, key: unknown, value: unknown) =>
+		writePluginJson(asPluginId(id), asPluginId(key), value),
+	);
+	ipcMain.handle("vetta:plugins:storage:list", (_event, id: unknown, prefix: unknown) =>
+		listPluginFiles(asPluginId(id), prefix === undefined ? undefined : asPluginId(prefix)),
+	);
+	ipcMain.handle("vetta:plugins:storage:read-file", (_event, id: unknown, path: unknown) =>
+		readPluginFile(asPluginId(id), asPluginId(path)),
+	);
+	ipcMain.handle("vetta:plugins:storage:write-file", (_event, id: unknown, path: unknown, data: unknown) => {
+		if (typeof data !== "string") throw new Error("Invalid plugin storage data");
+		return writePluginFile(asPluginId(id), asPluginId(path), data);
 	});
+	ipcMain.handle("vetta:plugins:storage:put-blob", (_event, id: unknown, input: unknown) =>
+		putPluginBlob(asPluginId(id), input as PluginPutBlobInput),
+	);
+	ipcMain.handle("vetta:plugins:storage:read-blob", (_event, id: unknown, blobId: unknown) =>
+		readPluginBlob(asPluginId(id), asPluginId(blobId)),
+	);
+	ipcMain.handle("vetta:plugins:storage:get-blob-ref", (_event, id: unknown, blobId: unknown) =>
+		getPluginBlobRef(asPluginId(id), asPluginId(blobId)),
+	);
 
 	return () => {
 		ipcMain.removeHandler("vetta:plugins:list");
@@ -688,10 +709,15 @@ export function registerPluginsIpc(pluginActionService: PluginActionService): ()
 		ipcMain.removeHandler("vetta:plugins:system-prompt-provider-unregister");
 		ipcMain.removeHandler("vetta:plugins:get-settings");
 		ipcMain.removeHandler("vetta:plugins:set-settings");
-		ipcMain.removeHandler("vetta:plugins:images:generate");
-		ipcMain.removeHandler("vetta:plugins:images:edit");
-		ipcMain.removeHandler("vetta:plugins:images:lineage");
-		ipcMain.removeHandler("vetta:plugins:images:session-lineages");
+		ipcMain.removeHandler("vetta:plugins:network:request");
+		ipcMain.removeHandler("vetta:plugins:storage:read-json");
+		ipcMain.removeHandler("vetta:plugins:storage:write-json");
+		ipcMain.removeHandler("vetta:plugins:storage:list");
+		ipcMain.removeHandler("vetta:plugins:storage:read-file");
+		ipcMain.removeHandler("vetta:plugins:storage:write-file");
+		ipcMain.removeHandler("vetta:plugins:storage:put-blob");
+		ipcMain.removeHandler("vetta:plugins:storage:read-blob");
+		ipcMain.removeHandler("vetta:plugins:storage:get-blob-ref");
 		pluginActionService.dispose();
 	};
 }

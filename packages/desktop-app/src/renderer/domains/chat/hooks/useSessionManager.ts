@@ -1149,10 +1149,11 @@ export function useSessionManager(): SessionManagerResult {
 			if (options?.metadata && Object.keys(options.metadata).length > 0) {
 				promptReq.metadata = { ...options.metadata };
 			}
-			// Merge metadata contributed by active plugin input actions (e.g. the
-			// image-generation toggle sets { imageMode: true } for this turn).
+			// Merge metadata and hidden instructions contributed by active plugin
+			// input actions.
 			const pluginStore = getDefaultStore();
 			const usedInputActions: Parameters<typeof recordInputActionsUsed>[0] = [];
+			const pluginInstructions: string[] = [];
 			const activeActionIds = pluginStore.get(activeInputActionIdsAtom);
 			if (activeActionIds.size > 0) {
 				for (const action of pluginStore.get(pluginInputActionsAtom)) {
@@ -1160,6 +1161,15 @@ export function useSessionManager(): SessionManagerResult {
 					const decoration = action.decoratePrompt?.();
 					if (decoration?.metadata) {
 						promptReq.metadata = { ...promptReq.metadata, ...decoration.metadata };
+					}
+					if (decoration?.instructions) {
+						pluginInstructions.push(
+							...decoration.instructions.filter(
+								(instruction) => typeof instruction === "string" && instruction.trim().length > 0,
+							),
+						);
+					}
+					if (decoration?.metadata || decoration?.instructions) {
 						usedInputActions.push({ actionId: action.actionId, actionKind: "plugin" });
 					}
 				}
@@ -1173,14 +1183,18 @@ export function useSessionManager(): SessionManagerResult {
 					actionKind: "builtin",
 				});
 			}
-			// Image edit attachment (image-gen preview card → ui.setEditImageAttachment):
-			// inject the source image id so this turn edits that exact image, mark the
-			// in-flight turn for the preview swiper, then clear the attachment (one-shot).
+			// Plugin-owned attachment guidance is opaque to the host. The attachment
+			// remains one-shot and its id is retained only for in-flight card state.
 			const editAttachment = pluginStore.get(editImageAttachmentAtom);
 			pluginStore.set(pendingEditImageIdAtom, editAttachment?.id ?? null);
 			if (editAttachment) {
-				promptReq.metadata = { ...promptReq.metadata, editImageId: editAttachment.id };
+				if (editAttachment.promptInstruction?.trim()) {
+					pluginInstructions.push(editAttachment.promptInstruction.trim());
+				}
 				pluginStore.set(editImageAttachmentAtom, null);
+			}
+			if (pluginInstructions.length > 0) {
+				promptReq.metadata = { ...promptReq.metadata, pluginInstructions };
 			}
 			recordInputActionsUsed(usedInputActions);
 			// streaming 中：把组装好的完整 promptReq 快照入队，等当前回合自然 agent_end 后

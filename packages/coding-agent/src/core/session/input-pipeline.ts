@@ -241,40 +241,16 @@ export class InputPipeline {
 			});
 		}
 
-		// Soft image intent: generate_image / edit_image stay on the tool list
-		// whenever scope allows (no hard strip). Optional metadata only injects a
-		// model-visible intent amplifier for this turn.
-		// Two cases:
-		//  - editImageId present → user picked a specific image to edit: force
-		//    edit_image with that exact id as source.
-		//  - imageMode only → user toggled 图像生成: strongly prefer producing an
-		//    image; agent self-decides generate vs edit from the prompt.
-		const editImageId =
-			typeof options?.metadata?.editImageId === "string" && options.metadata.editImageId.trim().length > 0
-				? options.metadata.editImageId.trim()
-				: undefined;
-		if (editImageId) {
+		const pluginInstructions = Array.isArray(options?.metadata?.pluginInstructions)
+			? options.metadata.pluginInstructions.filter(
+					(instruction): instruction is string => typeof instruction === "string" && instruction.trim().length > 0,
+				)
+			: [];
+		for (const instruction of pluginInstructions) {
 			messages.push({
 				role: "custom",
-				customType: "image_mode_instruction",
-				content:
-					`用户从图像预览里选定了一张图要编辑（图像 id：${editImageId}）。` +
-					`请把用户的请求理解成一句具体的修改指令，然后调用 edit_image 工具，` +
-					`sourceImageId 必须传 ${editImageId}，prompt 传修改描述。不要调用 generate_image，` +
-					`也不要只用文字描述。`,
-				display: false,
-				timestamp: Date.now(),
-			});
-		} else if (options?.metadata?.imageMode === true) {
-			messages.push({
-				role: "custom",
-				customType: "image_mode_instruction",
-				content:
-					"用户已开启「图像生成」意图：本轮要实际产出图像，禁止只写文字描述或绘画步骤。" +
-					"请自行判断并调用相应工具：" +
-					"若是全新主题/全新画面，调用 generate_image（先把请求优化成具体、生动的绘图 prompt）；" +
-					"若是在最近生成的那张图基础上做修改（改背景/调色/增删元素等），调用 edit_image，" +
-					"sourceImageId 取上下文里最近一次 <vetta-images> 标记中的图像 id。",
+				customType: "plugin_prompt_instruction",
+				content: instruction.trim(),
 				display: false,
 				timestamp: Date.now(),
 			});

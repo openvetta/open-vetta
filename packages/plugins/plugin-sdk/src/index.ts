@@ -132,12 +132,19 @@ export type {
 	PluginCommandRunResult,
 	PluginCommandApi,
 } from "./command.js";
+export type { PluginImageRef } from "./images.js";
 export type {
-	PluginImageRef,
-	PluginGenerateImageInput,
-	PluginEditImageInput,
-	PluginImagesApi,
-} from "./images.js";
+	PluginNetworkApi,
+	PluginNetworkBody,
+	PluginNetworkRequest,
+	PluginNetworkResponse,
+} from "./network.js";
+export type {
+	PluginPutBlobInput,
+	PluginStorageApi,
+	PluginStoredBlob,
+	PluginStoredBlobRef,
+} from "./storage.js";
 export type { PluginSettingsApi } from "./settings.js";
 
 // i18n

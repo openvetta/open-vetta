@@ -210,7 +210,8 @@
 			"fsRead": "Read files",
 			"fsWrite": "Write files",
 			"networkFetch": "Access network",
-			"imagesGenerate": "Generate images",
+			"storageRead": "Read private plugin data",
+			"storageWrite": "Write private plugin data",
 			"settingsRead": "Read settings",
 			"settingsWrite": "Modify settings"
 		}

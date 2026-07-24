@@ -36,13 +36,14 @@ import type {
 	PluginGlobalSlotContribution,
 	PluginI18nApi,
 	PluginImageRef,
-	PluginImagesApi,
 	PluginInputActionContribution,
 	PluginLocales,
+	PluginNetworkApi,
 	PluginNotifyOptions,
 	PluginOpenActivityTabOptions,
 	PluginPermission,
 	PluginSettingsApi,
+	PluginStorageApi,
 	PluginToolCallSlotContribution,
 	PluginTurnCardContribution,
 } from "@vetta-org/plugin-sdk";
@@ -317,24 +318,50 @@ function createSettingsApi(
 	};
 }
 
-function createImagesApi(plugin: InstalledPlugin): PluginImagesApi {
-	const guard = (): void => createPermissionApi(plugin).require("images.generate");
+function createNetworkApi(plugin: InstalledPlugin): PluginNetworkApi {
 	return {
-		generate: (input) => {
-			guard();
-			return window.vetta.plugins.generateImage(plugin.id, input);
+		request: (request) => {
+			createPermissionApi(plugin).require("network.fetch");
+			return window.vetta.plugins.networkRequest(plugin.id, request);
 		},
-		edit: (input) => {
-			guard();
-			return window.vetta.plugins.editImage(plugin.id, input);
+	};
+}
+
+function createStorageApi(plugin: InstalledPlugin): PluginStorageApi {
+	const requireRead = (): void => createPermissionApi(plugin).require("storage.read");
+	const requireWrite = (): void => createPermissionApi(plugin).require("storage.write");
+	return {
+		readJson: (key) => {
+			requireRead();
+			return window.vetta.plugins.storageReadJson(plugin.id, key);
 		},
-		lineage: (imageId) => {
-			guard();
-			return window.vetta.plugins.imageLineage(plugin.id, imageId);
+		writeJson: (key, value) => {
+			requireWrite();
+			return window.vetta.plugins.storageWriteJson(plugin.id, key, value);
 		},
-		sessionLineages: (sessionId) => {
-			guard();
-			return window.vetta.plugins.sessionLineages(plugin.id, sessionId);
+		list: (prefix) => {
+			requireRead();
+			return window.vetta.plugins.storageList(plugin.id, prefix);
+		},
+		readFile: (path) => {
+			requireRead();
+			return window.vetta.plugins.storageReadFile(plugin.id, path);
+		},
+		writeFile: (path, data) => {
+			requireWrite();
+			return window.vetta.plugins.storageWriteFile(plugin.id, path, data);
+		},
+		putBlob: (input) => {
+			requireWrite();
+			return window.vetta.plugins.storagePutBlob(plugin.id, input);
+		},
+		readBlob: (id) => {
+			requireRead();
+			return window.vetta.plugins.storageReadBlob(plugin.id, id);
+		},
+		getBlobRef: (id) => {
+			requireRead();
+			return window.vetta.plugins.storageGetBlobRef(plugin.id, id);
 		},
 	};
 }
@@ -688,9 +715,8 @@ function createContext(
 		createPermissionApi(plugin).require("ui.slot.input-action");
 		const store = getDefaultStore();
 		store.set(editImageAttachmentAtom, ref ?? null);
-		// Attaching an image to edit implies image intent: activate this plugin's
-		// input action(s) so the 图像生成 toggle reflects active and the turn carries
-		// imageMode (soft intent amplifier; tools are also available without the toggle).
+		// An attachment activates this plugin's input action so its hidden prompt
+		// instructions are contributed to the next turn.
 		if (ref) {
 			const myActionIds = store
 				.get(pluginInputActionsAtom)
@@ -1025,7 +1051,8 @@ function createContext(
 			},
 		},
 		official: createPluginOfficialApi(plugin, capabilitySessionId),
-		images: createImagesApi(plugin),
+		network: createNetworkApi(plugin),
+		storage: createStorageApi(plugin),
 		settings: settingsApi,
 		i18n: createI18nApi(plugin),
 		getAgentMode: () => getDefaultStore().get(agentModeAtom),

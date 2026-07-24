@@ -9,17 +9,13 @@ import {
 	type ConversationScenario,
 	type CreateAgentSessionOptions,
 	createAgentSession,
-	createEditImageTool,
-	createGenerateImageTool,
 	DEFAULT_SCENARIO,
 	type ExtensionUIContext,
-	type ImageToolBackend,
 	loadEntriesFromFile,
 	type ModelRegistry,
 	type SessionInfo,
 	SessionManager,
 	type SubagentSnapshot,
-	type ToolDefinition,
 } from "@vetta/coding-agent";
 import type {
 	AgentPluginContinuationInvoker,
@@ -99,7 +95,6 @@ export class RuntimeHost implements SessionFacade {
 	private readonly macosSandboxExecPath: string | undefined;
 	private readonly serverUrl: string | undefined;
 	private readonly modelRegistry: ModelRegistry | undefined;
-	private readonly imageBackend: ImageToolBackend | undefined;
 	private userConfirmationHandler:
 		| ((request: RuntimeUserConfirmationRequest, signal?: AbortSignal) => Promise<boolean>)
 		| undefined;
@@ -121,7 +116,6 @@ export class RuntimeHost implements SessionFacade {
 		this.macosSandboxExecPath = options.macosSandboxExecPath;
 		this.serverUrl = options.serverUrl;
 		this.modelRegistry = options.modelRegistry;
-		this.imageBackend = options.imageBackend;
 		this.userConfirmationHandler = options.userConfirmationHandler;
 		this.userQuestionHandler = options.userQuestionHandler;
 		this.userSandboxGrantHandler = options.userSandboxGrantHandler;
@@ -344,7 +338,7 @@ export class RuntimeHost implements SessionFacade {
 		const effectiveCwd = config.cwd ?? process.cwd();
 		const sessionIdRef: { current?: string } = {};
 		const baseCustomTools = this.resolveExecutionModeTools(executionMode, effectiveCwd, () => sessionIdRef.current);
-		const customTools = this.withImageTools(baseCustomTools);
+		const customTools = baseCustomTools;
 		debugPluginAgent("runtime createSession start", {
 			enableAgentPlugins: config.enableAgentPlugins === true,
 			hasPluginToolInvoker: this.pluginToolInvoker != null,
@@ -525,7 +519,7 @@ export class RuntimeHost implements SessionFacade {
 		}
 
 		const cwd = handle.session.sessionManager.getCwd() ?? process.cwd();
-		const customTools = this.withImageTools(this.resolveExecutionModeTools(mode, cwd, () => sessionId));
+		const customTools = this.resolveExecutionModeTools(mode, cwd, () => sessionId);
 		sessionAny.reconfigureCustomTools(customTools);
 		handle.executionMode = mode;
 	}
@@ -1163,22 +1157,6 @@ export class RuntimeHost implements SessionFacade {
 				true,
 			);
 		}
-	}
-
-	/**
-	 * Append the host image tools (generate_image / edit_image) onto a base
-	 * custom-tool list. MUST be used by every path that (re)builds a session's
-	 * customTools — both createSession and setExecutionMode — because
-	 * reconfigureCustomTools replaces (not merges) the tool list, so a mode
-	 * switch would otherwise permanently drop the image tools mid-session.
-	 */
-	private withImageTools(base: CreateAgentSessionOptions["customTools"]): CreateAgentSessionOptions["customTools"] {
-		if (!this.imageBackend) return base;
-		return [
-			...(base ?? []),
-			createGenerateImageTool(this.imageBackend) as unknown as ToolDefinition,
-			createEditImageTool(this.imageBackend) as unknown as ToolDefinition,
-		];
 	}
 
 	private resolveExecutionModeTools(

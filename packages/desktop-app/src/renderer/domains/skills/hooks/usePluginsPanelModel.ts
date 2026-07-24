@@ -37,7 +37,8 @@ export const PERMISSION_LABEL_KEYS = {
 	"fs.read": "plugin.permission.fsRead",
 	"fs.write": "plugin.permission.fsWrite",
 	"network.fetch": "plugin.permission.networkFetch",
-	"images.generate": "plugin.permission.imagesGenerate",
+	"storage.read": "plugin.permission.storageRead",
+	"storage.write": "plugin.permission.storageWrite",
 	"settings.read": "plugin.permission.settingsRead",
 	"settings.write": "plugin.permission.settingsWrite",
 } as const satisfies Record<PluginPermission, string>;

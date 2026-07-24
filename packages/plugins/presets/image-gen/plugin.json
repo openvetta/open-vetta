@@ -1,7 +1,7 @@
 {
 	"id": "image-gen",
 	"name": "%plugin.name%",
-	"version": "0.1.14",
+	"version": "0.1.15",
 	"pluginApiVersion": "^1.0.0",
 	"runtime": "module-federation",
 	"entry": "dist/mf-manifest.json",
@@ -17,7 +17,12 @@
 		"ui.slot.message",
 		"ui.slot.activity-tab",
 		"ui.slot.global",
-		"images.generate"
+		"agent.tools.register",
+		"agent.toolHandler.execute",
+		"network.fetch",
+		"storage.read",
+		"storage.write",
+		"fs.read"
 	],
 	"contributes": {
 		"settings": [

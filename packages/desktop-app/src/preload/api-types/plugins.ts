@@ -85,7 +85,8 @@ export type PluginPermission =
 	| "fs.read"
 	| "fs.write"
 	| "network.fetch"
-	| "images.generate"
+	| "storage.read"
+	| "storage.write"
 	| "settings.read"
 	| "settings.write";
 
@@ -728,22 +729,60 @@ export interface DesktopPluginsApi {
 	onSettingsChanged(listener: (payload: { pluginId: string; values: Record<string, unknown> }) => void): () => void;
 	/** Fired when plugins are installed/uninstalled/enabled/reloaded (host should re-load remotes). */
 	onPluginsChanged(listener: () => void): () => void;
-	/** Text-to-image via the main-process image service (out-of-band stored). */
-	generateImage(pluginId: string, input: PluginGenerateImageInput): Promise<PluginImageResult[]>;
-	/** Image-to-image edit, producing the next version in a lineage. */
-	editImage(pluginId: string, input: PluginEditImageInput): Promise<PluginImageResult[]>;
-	/** The edit lineage (base image + its edits, oldest first) for an image. */
-	imageLineage(pluginId: string, imageId: string): Promise<PluginImageResult[]>;
-	/** Every edit lineage this session touched, newest first; each lineage oldest→newest. */
-	sessionLineages(pluginId: string, sessionId: string): Promise<PluginImageResult[][]>;
+	networkRequest<T = unknown>(pluginId: string, request: PluginNetworkRequest): Promise<PluginNetworkResponse<T>>;
+	storageReadJson<T>(pluginId: string, key: string): Promise<T | null>;
+	storageWriteJson(pluginId: string, key: string, value: unknown): Promise<void>;
+	storageList(pluginId: string, prefix?: string): Promise<string[]>;
+	storageReadFile(pluginId: string, path: string): Promise<string | null>;
+	storageWriteFile(pluginId: string, path: string, data: string): Promise<void>;
+	storagePutBlob(pluginId: string, input: PluginPutBlobInput): Promise<PluginStoredBlobRef>;
+	storageReadBlob(pluginId: string, id: string): Promise<PluginStoredBlob | null>;
+	storageGetBlobRef(pluginId: string, id: string): Promise<PluginStoredBlobRef | null>;
 }
 
-export interface PluginImageResult {
+export type PluginNetworkBody =
+	| { type: "json"; value: unknown }
+	| {
+			type: "multipart";
+			fields?: Record<string, string>;
+			files?: Array<{
+				fieldName: string;
+				fileName: string;
+				mimeType: string;
+				data: string;
+			}>;
+	  };
+
+export interface PluginNetworkRequest {
+	url: string;
+	method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+	headers?: Record<string, string>;
+	body?: PluginNetworkBody;
+	responseType?: "json" | "text" | "base64";
+	timeoutMs?: number;
+}
+
+export interface PluginNetworkResponse<T = unknown> {
+	status: number;
+	headers: Record<string, string>;
+	body: T;
+}
+
+export interface PluginPutBlobInput {
+	id?: string;
+	data: string;
+	mimeType: string;
+}
+
+export interface PluginStoredBlobRef {
 	id: string;
 	url: string;
 	mimeType: string;
-	/** Edit-lineage root id (base image + all its edits share one rootId). */
-	rootId: string;
+}
+
+export interface PluginStoredBlob {
+	data: string;
+	mimeType: string;
 }
 
 export interface PluginCommandRunOptions {
@@ -756,21 +795,6 @@ export interface PluginCommandRunResult {
 	stdout: string;
 	stderr: string;
 	exitCode: number | null;
-}
-
-export interface PluginGenerateImageInput {
-	prompt: string;
-	/** Output size (e.g. "1024x1024"), decided by the agent and forwarded to the model. */
-	size?: string;
-	sessionId?: string;
-}
-
-export interface PluginEditImageInput {
-	prompt: string;
-	source: { imageId: string } | { data: string; mimeType: string };
-	/** Output size (e.g. "1024x1024"); defaults to the service default when omitted. */
-	size?: string;
-	sessionId?: string;
 }
 
 import type { FsEntry, FsFileRef, FsStatResult } from "../fs-types.js";

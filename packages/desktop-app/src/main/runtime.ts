@@ -1,13 +1,11 @@
 import { existsSync, readFileSync } from "node:fs";
-import { readFile } from "node:fs/promises";
-import { extname, join } from "node:path";
+import { join } from "node:path";
 import { AuthStorage, getAgentDir, ModelRegistry } from "@vetta/coding-agent";
 import { RuntimeHost } from "../../../runtime-core/src/index.js";
 import { getBuiltinSkillPaths } from "./builtin-skills.js";
 import { readDesktopConfig } from "./config/desktop-config-store.js";
 import { DEFAULT_SERVER_URL } from "./constants.js";
 import { getDesktopUserQuestionBroker } from "./conversations/user-question-broker.js";
-import { editImage, generateImage, IMAGE_GEN_PLUGIN_ID } from "./plugins/image-service.js";
 import { getAvailableLinuxBubblewrapPath, getAvailableMacosSandboxExecPath } from "./sandbox/capability.js";
 import { resolveWindowsSandboxHostBinary } from "./sandbox/windows-binary-resolver.js";
 
@@ -17,21 +15,6 @@ import { resolveWindowsSandboxHostBinary } from "./sandbox/windows-binary-resolv
 // 导致点击跳转走向 Welcome 页（见定时任务历史跳转 bug）。
 let sharedRuntime: RuntimeHost | null = null;
 let sharedModelRegistry: ModelRegistry | null = null;
-
-/** 由文件扩展名推断图片 MIME（图改图源图喂给后端时需要正确的 mimeType）。 */
-function mimeFromExt(filePath: string): string {
-	switch (extname(filePath).toLowerCase()) {
-		case ".jpg":
-		case ".jpeg":
-			return "image/jpeg";
-		case ".webp":
-			return "image/webp";
-		case ".gif":
-			return "image/gif";
-		default:
-			return "image/png";
-	}
-}
 
 /**
  * 直接从 settings.json 读 serverToken。
@@ -102,28 +85,6 @@ export function getSharedRuntime(): RuntimeHost {
 			// 共享 ModelRegistry：去掉 createSession 的 5s 远程 fetch 阻塞。
 			modelRegistry: getOrCreateSharedModelRegistry(),
 			userQuestionHandler: getDesktopUserQuestionBroker().handle,
-			imageBackend: {
-				generate: (input) => generateImage(IMAGE_GEN_PLUGIN_ID, input),
-				edit: async (input) => {
-					// 源图二选一：sourceImagePath（用户上传/本地图片，按字节喂给后端的 base64 分支）
-					// 优先于 sourceImageId（Vetta 已生成图像，按图库 id 解析）。
-					let source: { imageId: string } | { data: string; mimeType: string };
-					if (input.sourceImagePath) {
-						const buffer = await readFile(input.sourceImagePath);
-						source = { data: buffer.toString("base64"), mimeType: mimeFromExt(input.sourceImagePath) };
-					} else if (input.sourceImageId) {
-						source = { imageId: input.sourceImageId };
-					} else {
-						throw new Error("edit 需要 sourceImageId 或 sourceImagePath");
-					}
-					return editImage(IMAGE_GEN_PLUGIN_ID, {
-						prompt: input.prompt,
-						source,
-						size: input.size,
-						sessionId: input.sessionId,
-					});
-				},
-			},
 		});
 	}
 	return sharedRuntime;
