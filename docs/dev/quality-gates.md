@@ -51,6 +51,23 @@ knip.config.ts                 Knip（可选）
 | `test:changed` | 默认比较 `origin/dev`；`--base origin/main` 可改基线 |
 | `deadcode` / `deadcode:report` | Knip 严格 / 仅报告 |
 
+### 单测覆盖率（可选，不进门禁）
+
+根依赖 `@vitest/coverage-v8`（与 `vitest` 3.x 对齐）。**默认 `test` / husky / `check` / CI 均不启用**覆盖率。
+
+按需在包根执行：
+
+```bash
+bun run --cwd packages/coding-agent test:coverage
+bun run --cwd packages/desktop-app test:coverage
+```
+
+- 报告目录：包内 `coverage/`（已 gitignore）；含 text / html / lcov
+- 分母：`src/**/*.{ts,tsx}`（诚实全量；desktop 总百分比低是现状，不是配置错误）
+- `reportOnFailure: true`：单测失败仍会出报告（coding-agent 在 Windows 上仍有已知基线失败）
+- 不设全局 thresholds；不进 husky / `check` / CI；UI 验收仍用 `verify:ui:*`
+- `@vitest/coverage-v8` 主版本须与根 `vitest` 对齐（当前均为 3.2.x）
+
 ## 包边界规则（`check-package-boundaries`）
 
 依赖方向与 README 一致：**应用 → runtime-\* / coding-agent / agent / ai**；核心库不感知宿主。
