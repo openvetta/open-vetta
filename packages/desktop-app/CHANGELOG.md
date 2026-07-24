@@ -116,6 +116,9 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **侧边栏窄宽时工作模式徽章仅显示 icon**：顶栏「编程/Work」徽章在侧栏很窄时（Mac < 168px / 其他 < 200px）隐藏文案与箭头，只保留模式 icon，避免与折叠按钮挤叠错位。
+
+
 - **只读外观/导航不再误弹授权**：`appearance.theme` 的 `help`/`get` 与 `navigation.open` 的 `help` 原先挂在 `effect: write` 上，本地 Action RPC 一律要审批。现拆出只读 `appearance.query`、`navigation.query`；`appearance.theme` / `navigation.open` 仅保留真正写操作。
 - **会话页多行输入退格时 MessageList 抖动**：输入框变短量高时曾把 `textarea` 临时设为 `height: 0`，flex 列里 MessageList 瞬时变高导致 `scrollTop` 被夹低，贴底 lerp 再追回。现量高期间锁定输入区父级 `minHeight`，并在列表视口尺寸变化且 stick-to-bottom 时立即贴底。
 - **桌宠首次出现落在屏幕中心**：全屏 workArea 叠加后默认 `contentOffset` 为中心，右下角仅靠 `did-finish-load` 的 `set-content-offset` IPC，易与 React 监听注册竞态导致消息丢失。现加载时直接计算右下角 offset 并写入入口 URL，渲染端首帧即读取初始位置。
