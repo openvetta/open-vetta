@@ -272,7 +272,7 @@ export function PetApp(): JSX.Element {
 
 	return (
 		<div
-			className="fixed inset-0 flex cursor-move items-center justify-center overflow-hidden bg-transparent"
+			className="fixed inset-0 flex items-center justify-center overflow-hidden bg-transparent"
 			onPointerDown={handlePointerDown}
 			onPointerMove={handlePointerMove}
 			onPointerLeave={handlePointerLeave}
@@ -284,7 +284,7 @@ export function PetApp(): JSX.Element {
 				windowSize={windowSize}
 			/>
 			<div
-				className="relative flex items-center justify-center"
+				className="relative flex cursor-move items-center justify-center"
 				style={{
 					width: `${videoSize.width}px`,
 					height: `${videoSize.height}px`,
