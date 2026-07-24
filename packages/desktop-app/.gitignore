@@ -14,5 +14,5 @@
 # appshot-helper 编译产物（scripts/build-appshot-helper.js 生成）
 /resources/appshot/
 
-# WebdriverIO Electron E2E 运行时数据
+# WebdriverIO Electron E2E runtime data
 /.wdio-electron-user-data/

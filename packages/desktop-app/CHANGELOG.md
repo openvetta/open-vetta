@@ -6,7 +6,9 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
-- **WebdriverIO Electron E2E 脚手架**：接入 `@wdio/electron-service`，默认以未打包入口 `dist/main/index.js` 跑 smoke（`bun run test:e2e`）；`VETTA_E2E_PACKAGED=1` / `bun run test:e2e:packaged` 可对 `release/*-unpacked` 二进制做安装包级冒烟。配置见 `wdio.conf.ts`，用例见 `e2e/`。
+- **WebdriverIO Electron E2E scaffold**: `@wdio/electron-service` with unpackaged smoke via `dist/main/index.js` (`bun run test:e2e`); `VETTA_E2E_PACKAGED=1` / `bun run test:e2e:packaged` for `release/*-unpacked` binaries. See `wdio.conf.ts` and `e2e/`.
+- **Electron E2E batch-1 smoke**: boot contract (ready / version / main window `index.html`), `VETTA_E2E`·`VETTA_HOME`·userData isolation, and `dialog.showOpenDialog` mock probe; no product UI coverage.
+
 - **edit 锚点模式的专属渲染**：diff 卡片统计行新增紫色「锚点编辑」徽章（`DiffPreviewView.modeBadge`）标识本次修改走锚点模式；流式阶段（diff 尚未产出）不再空白，新降级视图逐条展示锚点目标（`42:ab` 紫色 chip）、动作（替换该行/替换区间/插入到其后/删除）与新文本预览；文案接入 i18n（zh/en）。锚点模式参数（`edits` 数组）纳入工具卡片可展开判定。
 
 - **内置「图表渲染」系统插件（chart-renderer）**：收编原第三方插件为 preset，随 App 发布（common / tenant-b 租户）。Agent 调用 `render_chart` 传入标准 Chart.js `type`/`data`（或 `charts` 数组，最多 4 个），图表渲染在工具调用下方；随包附带 `chart-renderer` skill；`agent_mode: ["work"]`，Coding 模式下整体不可见；文案接入插件 i18n（zh/en）。
