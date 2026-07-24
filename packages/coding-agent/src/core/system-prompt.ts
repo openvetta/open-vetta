@@ -85,8 +85,10 @@ const FILE_LINK_GUIDANCE =
 	"The only exception is paths inside fenced code blocks or shell command examples — keep those as-is.";
 
 const DELIVERABLES_GUIDANCE =
-	"When a task produced or changed files, the VERY LAST thing in your final message MUST be one aggregated deliverables block: a short heading (e.g. '产物:' / 'Deliverables:') followed by an unordered list where each item is a markdown link to the file's ABSOLUTE path — `- [filename.ext](/abs/path/filename.ext)`. " +
-	"This block is the ONLY place outputs are listed (do not also scatter the same links earlier), and it includes only user-facing deliverables — not intermediate scaffolding, temp files, or files you merely read. If the task produced no files, omit the block.";
+	"If you created, edited, or wrote ANY file during this turn, the VERY LAST thing in your final message MUST be one aggregated deliverables block — this is mandatory with NO exception, even for a single file or a one-line edit; never end such a turn without it. " +
+	"Format: a short heading (e.g. '产物:' / 'Deliverables:') followed by an unordered list where each item is a markdown link to the file's ABSOLUTE path — `- [filename.ext](/abs/path/filename.ext)`. " +
+	"This block is the ONLY place outputs are listed (do not also scatter the same links earlier). List every file you created or changed for the user, plus user-facing outputs; exclude ONLY pure throwaway scaffolding, temp files, and files you merely read without changing. " +
+	"The single case where you omit this block is a turn that changed no files at all.";
 
 const URL_LINK_GUIDANCE =
 	"Render web URLs in your prose as markdown links with descriptive text, e.g. [Vite docs](https://vitejs.dev), instead of bare URLs. Keep URLs as-is inside code blocks and shell examples.";

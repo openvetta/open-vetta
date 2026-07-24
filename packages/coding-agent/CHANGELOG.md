@@ -7,7 +7,7 @@
 
 ### Changed
 
-- **Coding 模式补齐末尾「交付物清单」指令，与 Work 对齐**：Work 模式(`work.md`)本就要求回答结尾放一个 **Deliverables** 无序列表段(`- ` 前缀、禁数字有序列表)、每项文件的绝对路径可点链接，Coding 模式(`coding.md`)此前只有「关键观察」段、末尾文件清单仅靠全局 `DELIVERABLES_GUIDANCE` 兜底、遵从度较弱。现于 observations 段之后补上同款显式指令(尾部顺序 渲染产物 → 关键观察 → 交付物清单)，让「本次改动了哪些文件」在两模式下都稳定以可点无序列表呈现。
+- **结尾「交付物清单」升级为强制约束，Coding 模式补齐并更精确**：全局 `DELIVERABLES_GUIDANCE` 措辞由「任务产生/改动文件时…」收紧为「本轮只要 created/edited/wrote 过任何文件，结尾就必须给交付物块，单文件/一行改动也不例外，唯一豁免是整轮没改任何文件」。Coding 模式(`coding.md`)此前只有「关键观察」段、末尾文件清单仅靠全局兜底、遵从度弱，现于 observations 后补同款强制指令，且**每项文件加一句极简改动说明**（`- [name.ext](/abs/path) — 改了啥`），比 Work 模式（纯文件名清单，面向非技术用户）更精确。尾部顺序统一为 渲染产物 → 关键观察 → 交付物清单，让「本次改动了哪些文件、各改了啥」在两模式下都稳定以可点无序列表呈现。
 - **系统提示词瘦身与场景化裁剪**：桌面渲染契约类 guideline（文件徽章链接、「产物:」交付块、URL 描述性链接）改为按对话场景注入——`cli` 场景剔除（终端无徽章/卡片渲染，省约 1.7k 常驻字符），桌面场景与未传 scenario 的 SDK 直调行为不变。同时压缩长文案（文件徽章/产物块两条各砍约 40% 字数、`VETTA_CLI_GUIDANCE` 16 条合并为 8 条、MCP 段真假 markdown 两分支合一），语义约束不变；文件名保真规则收敛为单一常量（原 guidelines 与 custom-prompt 分支各写一份）。新增 Project Context 头部的 AGENTS.md 作用域规范（就近目录树生效、深层覆盖浅层、用户对话指令最高）。
 - **自渲染工具的 `md_intro` 软引导改为按上下文的决策树**：原先只让模型写「一句话 headline」，导致引导过于草率、放不下标题+背景。现在 schema description 与 coding/work 两个 mode 的系统提示词统一改为按产物上下文决定结构——卡片自带标题时只写一句话结论且不重复标题；产物无标题/需背景时用加粗标题行+一两句正文；内联小产物一句话即可。`md_intro` 仍是单个 markdown 字符串（渲染层与插件零改动），`maxLength` 由 200 放宽到 600。
 - **Vitest 依赖上收到 monorepo 根**：本包不再声明 `devDependencies.vitest`，改用根目录统一版本；包内仍保留 `vitest.config.ts` 与 `"test": "vitest --run"`。
