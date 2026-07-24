@@ -131,7 +131,8 @@ export function createWindow(): BrowserWindow {
 	const loadPromise = devServerUrl ? mainWindow.loadURL(devServerUrl) : mainWindow.loadFile(rendererPath);
 	void loadPromise
 		.then(() => {
-			if (app.isPackaged || !mainWindow || mainWindow.isDestroyed()) return;
+			// E2E（VETTA_E2E=1）不自动开 DevTools，避免额外窗口干扰 WebdriverIO 焦点。
+			if (app.isPackaged || process.env.VETTA_E2E === "1" || !mainWindow || mainWindow.isDestroyed()) return;
 			mainWindow.webContents.openDevTools({ mode: "detach", activate: true });
 			windowLog.info("open-devtools", { opened: mainWindow.webContents.isDevToolsOpened() });
 		})

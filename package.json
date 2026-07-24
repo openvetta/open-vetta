@@ -109,6 +109,7 @@
 		"koffi": "^2.15.1"
 	},
 	"overrides": {
-		"rimraf": "6.1.2"
+		"rimraf": "6.1.2",
+		"@wdio/native-utils": "2.5.0"
 	}
 }
