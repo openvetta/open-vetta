@@ -49,6 +49,13 @@ function requireQuickPanelBehavior(value: unknown): "foreground" | "background" 
 	return value;
 }
 
+function requireExecutionMode(value: unknown): "sandbox" | "full-access" {
+	if (value !== "sandbox" && value !== "full-access") {
+		throw new Error("mode must be sandbox or full-access");
+	}
+	return value;
+}
+
 export function registerPluginCapabilitiesIpc(): () => void {
 	const adapter = getDesktopCapabilityHost().adapters.plugin;
 	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.OPEN_SESSION, (_event, pluginId: unknown) =>
@@ -56,6 +63,24 @@ export function registerPluginCapabilitiesIpc(): () => void {
 	);
 	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.CLOSE_SESSION, (_event, sessionId: unknown) =>
 		adapter.closeSession(requireString(sessionId, "sessionId")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.GENERAL_SETTINGS_GET, (_event, sessionId: unknown) =>
+		adapter.getGeneralSettings(requireString(sessionId, "sessionId")),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.GENERAL_SETTINGS_NOTIFICATIONS_SET,
+		(_event, sessionId: unknown, enabled: unknown) =>
+			adapter.setNotifications(requireString(sessionId, "sessionId"), requireBoolean(enabled, "enabled")),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.GENERAL_SETTINGS_DEFAULT_EXECUTION_MODE_SET,
+		(_event, sessionId: unknown, mode: unknown) =>
+			adapter.setDefaultExecutionMode(requireString(sessionId, "sessionId"), requireExecutionMode(mode)),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.GENERAL_SETTINGS_WORKSPACE_SET,
+		(_event, sessionId: unknown, path: unknown) =>
+			adapter.setWorkspace(requireString(sessionId, "sessionId"), requireString(path, "path")),
 	);
 	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.BATCH_PROJECT_LIST, (_event, sessionId: unknown) =>
 		adapter.listBatchProjects(requireString(sessionId, "sessionId")),

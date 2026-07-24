@@ -34,6 +34,21 @@ export {
 	type DownloadStatus,
 } from "./domain/download.js";
 export {
+	type DefaultExecutionModeSettingInput,
+	DOMAIN_GENERAL_SETTINGS_CAPABILITIES,
+	GENERAL_EXECUTION_MODES,
+	type GeneralExecutionMode,
+	type GeneralSettingsSnapshot,
+	type NotificationsSettingInput,
+	SANDBOX_BACKENDS,
+	SANDBOX_STATUSES,
+	type SandboxBackend,
+	type SandboxCapabilitySnapshot,
+	type SandboxFeatures,
+	type SandboxStatus,
+	type WorkspaceSettingInput,
+} from "./domain/general-settings.js";
+export {
 	DOMAIN_KNOWLEDGE_CAPABILITIES,
 	KNOWLEDGE_NODE_TYPES,
 	KNOWLEDGE_PROCESS_STATUSES,

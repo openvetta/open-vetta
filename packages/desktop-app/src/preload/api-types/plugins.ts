@@ -4,12 +4,16 @@ import type {
 	BatchProjectUpdateData,
 	BatchTaskCommandResult,
 	DownloadItem as CapabilityDownloadItem,
+	DefaultExecutionModeSettingInput,
+	GeneralExecutionMode,
+	GeneralSettingsSnapshot,
 	InstalledSkill,
 	KnowledgeBase,
 	KnowledgeFileStatuses,
 	KnowledgeProcessingSettings,
 	KnowledgeProcessingUpdate,
 	KnowledgeScanResult,
+	NotificationsSettingInput,
 	ProjectEntry,
 	ProjectListResult,
 	QuickPanelPostSendBehavior,
@@ -35,6 +39,7 @@ import type {
 	WebhookProviderDescriptor,
 	WebhookSendResult,
 	WebhookUpdateData,
+	WorkspaceSettingInput,
 } from "@vetta/capability-sdk";
 
 export type PluginPermission =
@@ -458,6 +463,13 @@ export interface DesktopPluginCapabilityFilesystemApi {
 	listFilesRecursive(sessionId: string, path: string): Promise<FsFileRef[]>;
 }
 
+export interface DesktopPluginCapabilityGeneralSettingsApi {
+	get(sessionId: string): Promise<GeneralSettingsSnapshot>;
+	setNotifications(sessionId: string, enabled: boolean): Promise<NotificationsSettingInput>;
+	setDefaultExecutionMode(sessionId: string, mode: GeneralExecutionMode): Promise<DefaultExecutionModeSettingInput>;
+	setWorkspace(sessionId: string, path: string): Promise<WorkspaceSettingInput>;
+}
+
 export interface DesktopPluginCapabilityBatchTasksApi {
 	listProjects(sessionId: string): Promise<BatchProject[]>;
 	getProject(sessionId: string, projectId: string): Promise<BatchProject>;
@@ -573,6 +585,7 @@ export interface DesktopPluginInternalCapabilitiesApi {
 	closeSession(sessionId: string): Promise<void>;
 	batchTasks: DesktopPluginCapabilityBatchTasksApi;
 	filesystem: DesktopPluginCapabilityFilesystemApi;
+	generalSettings: DesktopPluginCapabilityGeneralSettingsApi;
 	downloads: DesktopPluginCapabilityDownloadsApi;
 	knowledge: DesktopPluginCapabilityKnowledgeApi;
 	projects: DesktopPluginCapabilityProjectsApi;

@@ -1,41 +1,28 @@
 import type { PluginOfficialApi } from "@vetta-org/plugin-sdk";
 
-function isAbsolutePath(path: string): boolean {
-	return path.startsWith("/") || /^[a-zA-Z]:[\\/]/.test(path) || path.startsWith("\\\\");
-}
-
-export function createOfficialGeneralApi(assertOfficial: () => void): PluginOfficialApi["general"] {
+export function createOfficialGeneralApi(
+	assertOfficial: () => void,
+	capabilitySessionId: string,
+): PluginOfficialApi["general"] {
+	const generalSettings = window.vetta.plugins.internalCapabilities.generalSettings;
 	return {
 		getSettings: async () => {
 			assertOfficial();
-			const config = await window.vetta.config.get();
-			return {
-				workspacePath: config.workspacePath,
-				defaultExecutionMode: config.defaultExecutionMode,
-				notificationsEnabled: config.notificationsEnabled !== false,
-				debugMode: Boolean(config.debugMode),
-				sandbox: config.sandbox ?? config.linuxSandbox,
-			};
+			return generalSettings.get(capabilitySessionId);
 		},
 		setSettings: async (input) => {
 			assertOfficial();
 			if (input.operation === "set-notifications") {
-				if (typeof input.enabled !== "boolean") throw new Error("enabled must be a boolean");
-				await window.vetta.config.set({ notificationsEnabled: input.enabled });
-				return { operation: input.operation, enabled: input.enabled };
+				const result = await generalSettings.setNotifications(capabilitySessionId, input.enabled);
+				return { operation: input.operation, enabled: result.enabled };
 			}
 			if (input.operation === "set-execution-mode") {
-				if (input.mode !== "sandbox" && input.mode !== "full-access") {
-					throw new Error("mode must be sandbox or full-access");
-				}
-				await window.vetta.config.set({ defaultExecutionMode: input.mode });
-				return { operation: input.operation, mode: input.mode };
+				const result = await generalSettings.setDefaultExecutionMode(capabilitySessionId, input.mode);
+				return { operation: input.operation, mode: result.mode };
 			}
 			if (input.operation === "set-workspace") {
-				const path = typeof input.path === "string" ? input.path.trim() : "";
-				if (!isAbsolutePath(path)) throw new Error("workspace path must be absolute");
-				await window.vetta.config.set({ workspacePath: path });
-				return { operation: input.operation, path };
+				const result = await generalSettings.setWorkspace(capabilitySessionId, input.path);
+				return { operation: input.operation, path: result.path };
 			}
 			throw new Error("Unsupported general settings operation");
 		},
