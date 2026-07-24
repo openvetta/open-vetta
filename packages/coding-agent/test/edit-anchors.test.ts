@@ -149,6 +149,48 @@ describe("edit tool anchor mode", () => {
 		).rejects.toThrow(/malformed/);
 	});
 
+	test("bare hash (missing line prefix) is recovered when unique in file", async () => {
+		// 模型常把 `2:1kg2→` 里的 `2:` 当展示前缀丢掉、只传哈希
+		await tool().execute("t", {
+			path: file,
+			edits: [{ anchor: anchorLineHash("const b = 2;"), new_text: "const b = 20;" }],
+		});
+		expect(readFileSync(file, "utf-8").split("\n")[1]).toBe("const b = 20;");
+	});
+
+	test("bare hash matching multiple lines is rejected with a targeted error", async () => {
+		writeFileSync(file, ["x", "y", "z", "y"].join("\n"));
+		await expect(
+			tool().execute("t", { path: file, edits: [{ anchor: anchorLineHash("y"), new_text: "Y" }] }),
+		).rejects.toThrow(/bare hash.*matches 2 lines/);
+	});
+
+	test("bare hash matching no line is rejected with a targeted error", async () => {
+		await expect(tool().execute("t", { path: file, edits: [{ anchor: "zzzz", new_text: "x" }] })).rejects.toThrow(
+			/bare hash.*matches no line/,
+		);
+	});
+
+	test("bare line number (missing hash) is rejected with a targeted error", async () => {
+		await expect(tool().execute("t", { path: file, edits: [{ anchor: "2", new_text: "x" }] })).rejects.toThrow(
+			/bare line number/,
+		);
+	});
+
+	test("bare hash works for end_anchor too", async () => {
+		await tool().execute("t", {
+			path: file,
+			edits: [
+				{
+					anchor: anchorFor("const b = 2;", 2),
+					end_anchor: anchorLineHash("const d = 4;"),
+					new_text: "",
+				},
+			],
+		});
+		expect(readFileSync(file, "utf-8")).toBe("const a = 1;\nconst e = 5;");
+	});
+
 	test("mode exclusivity and missing payload", async () => {
 		await expect(
 			tool().execute("t", { path: file, oldText: "const a = 1;", newText: "x", edits: [] }),

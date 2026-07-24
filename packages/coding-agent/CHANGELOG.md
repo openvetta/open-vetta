@@ -14,6 +14,7 @@
 
 ### Fixed
 
+- **锚点编辑容忍「只传哈希」的常见误用**：模型常把 read 输出 `101:ahs8→` 里的 `101:` 当纯展示前缀丢掉、只传哈希 `ahs8`，原先一律报 malformed。现降级找回：纯哈希在全文件唯一命中时照常接受（哈希本身仍来自工具输出，身份不丢）；多个命中（无法消歧）或纯数字（丢的是哈希）给针对性报错而非笼统 malformed。同步把 edit/read 工具描述与报错里的锚点示例从失真的 2 位哈希（`42:ab`）统一为真实的 4 位格式，并明示「行号是锚点的一部分，不是展示装饰」。
 - **锚点找回不再把重复行的多次编辑坍缩到同一行（重复片段根因）**：`validateAnchor` 漂移找回原先在 ±20 行半径内「就近取胜」，遇到空行 / 重复 `}` 等同内容行时会把不同编辑目标解析到同一行，多次编辑后产生重复片段、被迫整文件重写。现改为——行号精确命中仍直接信任（常态好路径），但漂移找回时半径内出现 ≥2 个同哈希候选即判 `stale`（原子拒绝并回传新鲜锚点），绝不静默猜行。配套把锚点哈希从 2 位 base36（1296 取值）加宽到 4 位（约 168 万），使不同内容行在窗口内的偶然碰撞可忽略、歧义判定只对真正的重复行触发；`parseAnchor` 放宽为接受 2..8 位哈希（兼容历史锚点）。`edit` 批量重叠检查补上「两处编辑落到同一行即冲突」的兜底。
 - **bash/shell 命令工具不再双双激活**：场景解析原先把 `bash` 与 `shell` 同时激活，每轮请求多发一份无用的命令工具 schema（约 1.5k token；mac/linux 上 `shell` 是 PowerShell 版本、根本不可用）。改为非本平台的命令工具 `scope_use` 置空（注册但默认不激活），显式 tools 名单仍可强制启用。
 - **工具的 `description.txt` 从未真正生效**：`loadToolDescription` 原先在运行时按 `import.meta.url` 读同目录的 `description.txt`，但本包会被 desktop-app 的 vite 打进 main bundle、也会被 `bun build --compile` 打进单文件二进制，两种形态下该路径都不指向源码目录；`copy-assets` 也没把这些文件拷进 `dist`。于是 26 份工具说明书全部静默退回代码里的一行 fallback（`catch` 吞掉异常，无日志、check 与测试均无感）。改为构建期内联（`scripts/generate-tool-descriptions.mjs` → `src/core/tools/descriptions-data.ts`），与 personas / modes 同一套做法，运行时零文件系统依赖；调用点由 `import.meta.url` 改为显式工具目录名。此修复会显著增加 system prompt 长度（约 35KB / 9–12k token）。

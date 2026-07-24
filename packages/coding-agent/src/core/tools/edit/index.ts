@@ -2,7 +2,14 @@ import { type Static, Type } from "@sinclair/typebox";
 import { constants } from "fs";
 import { access as fsAccess, readFile as fsReadFile, writeFile as fsWriteFile } from "fs/promises";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
-import { parseAnchor, renderAnchorRegion, validateAnchor } from "../anchors.js";
+import {
+	ANCHOR_SEPARATOR,
+	findHashLines,
+	type ParsedAnchor,
+	parseAnchor,
+	renderAnchorRegion,
+	validateAnchor,
+} from "../anchors.js";
 import { loadToolDescription } from "../description.js";
 import {
 	detectLineEnding,
@@ -19,7 +26,7 @@ import { toolCallDescriptionSchema } from "../tool-call-description.js";
 const anchorEditSchema = Type.Object({
 	anchor: Type.String({
 		description:
-			'Start anchor "line:hash" copied VERBATIM from read/grep/edit output (e.g. "42:ab"). Never fabricate.',
+			'Start anchor: the WHOLE "line:hash" prefix copied VERBATIM from read/grep/edit output (e.g. "42:h7x2" — the line number is part of the anchor). Never fabricate.',
 	}),
 	end_anchor: Type.Optional(
 		Type.String({
@@ -99,6 +106,38 @@ interface ResolvedAnchorEdit {
 }
 
 /**
+ * 解析锚点，带降级找回：模型常把 `101:ahs8→` 里的 `101:` 当纯展示前缀丢掉、只传哈希
+ * `ahs8`（cat -n 心智模型）。哈希本身仍是从工具输出复制的身份，全文件唯一命中时照常
+ * 接受；多个命中（无法消歧）或纯数字（丢的是哈希）则给针对性报错，绝不猜。
+ */
+function parseAnchorLenient(lines: string[], raw: string, label: string): ParsedAnchor {
+	const parsed = parseAnchor(raw);
+	if (parsed) return parsed;
+	const cleaned = raw.split(ANCHOR_SEPARATOR, 1)[0]?.trim() ?? "";
+	if (/^\d+$/.test(cleaned)) {
+		throw new Error(
+			`${label} "${raw}" looks like a bare line number — the ":hash" part is required. Anchors are the WHOLE "line:hash" prefix from read/grep/edit output (e.g. "42:h7x2"); copy it verbatim.`,
+		);
+	}
+	if (/^[0-9a-z]{2,8}$/.test(cleaned)) {
+		const hits = findHashLines(lines, cleaned);
+		if (hits.length === 1) {
+			return { line: hits[0], hash: cleaned };
+		}
+		const detail =
+			hits.length === 0
+				? "matches no line in the file"
+				: `matches ${hits.length} lines (${hits.slice(0, 5).join(", ")}${hits.length > 5 ? ", …" : ""}) and cannot be disambiguated`;
+		throw new Error(
+			`${label} "${raw}" is a bare hash without the "line:" prefix and ${detail}. Anchors are the WHOLE "line:hash" prefix from read/grep/edit output (e.g. "42:h7x2" from a read line "42:h7x2→…"); the line number is part of the anchor — copy it verbatim.`,
+		);
+	}
+	throw new Error(
+		`${label} "${raw}" is malformed. Anchors look like "42:h7x2" and must be copied verbatim from read/grep/edit output.`,
+	);
+}
+
+/**
  * 锚点批量编辑（原子）：
  * 1. 全部锚点先解析+校验（行号漂移在半径内按哈希找回；任一 stale → 整批拒绝，
  *    错误里回传各目标附近的新鲜锚点供立刻重试）；
@@ -136,12 +175,7 @@ async function executeAnchorEdits(
 	const staleReports: string[] = [];
 	for (let i = 0; i < edits.length; i++) {
 		const edit = edits[i];
-		const startAnchor = parseAnchor(edit.anchor);
-		if (!startAnchor) {
-			throw new Error(
-				`edits[${i}].anchor "${edit.anchor}" is malformed. Anchors look like "42:ab" and must be copied verbatim from read/grep/edit output.`,
-			);
-		}
+		const startAnchor = parseAnchorLenient(lines, edit.anchor, `edits[${i}].anchor`);
 		if (edit.insert_after && edit.end_anchor !== undefined) {
 			throw new Error(`edits[${i}]: insert_after cannot be combined with end_anchor.`);
 		}
@@ -154,10 +188,7 @@ async function executeAnchorEdits(
 		}
 		let endLine = startValidation.line;
 		if (edit.end_anchor !== undefined) {
-			const endAnchor = parseAnchor(edit.end_anchor);
-			if (!endAnchor) {
-				throw new Error(`edits[${i}].end_anchor "${edit.end_anchor}" is malformed. Anchors look like "42:ab".`);
-			}
+			const endAnchor = parseAnchorLenient(lines, edit.end_anchor, `edits[${i}].end_anchor`);
 			const endValidation = validateAnchor(lines, endAnchor);
 			if (endValidation.status === "stale") {
 				staleReports.push(
