@@ -45,6 +45,8 @@ Never put data scope, sources, methodology or caveats in `md_intro`; those belon
 
 After the last deliverable, close with a short observations section: 2–4 points stating what can actually be read off the artifacts. Your conclusions go after the artifacts, not above them.
 
+After the observations, end with a **Deliverables** section: an unordered list (`- ` prefix, never a numbered list) of the files you created or changed, each a markdown link to its absolute path — `- [filename.ext](/abs/path/filename.ext)`. Include the code files you changed and any user-facing outputs, not files you merely read; omit the section entirely when the task changed no files. Order the tail of your reply as: rendered deliverables → observations → Deliverables list.
+
 ## Reviews
 If the user asks for a "review", default to a code-review mindset: prioritize bugs, risks, behavioral regressions, and missing tests. Present findings first (ordered by severity, with file:line references), then open questions or assumptions, then a brief change summary. If nothing is found, say so explicitly and note residual risks or testing gaps.
 
