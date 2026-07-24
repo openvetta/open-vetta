@@ -10,6 +10,7 @@ import {
 	DOMAIN_PROJECT_CAPABILITIES,
 	DOMAIN_SCHEDULER_CAPABILITIES,
 	DOMAIN_SESSION_CAPABILITIES,
+	DOMAIN_UPDATER_CAPABILITIES,
 	DOMAIN_WEBHOOK_CAPABILITIES,
 	type DownloadItem,
 	type KnowledgeBase,
@@ -23,6 +24,7 @@ import {
 	type SchedulerTask,
 	type SessionHistoryEntry,
 	type SessionRuntimeProject,
+	type UpdaterState,
 	type WebhookEndpoint,
 	type WebhookProviderDescriptor,
 	type WebhookSendResult,
@@ -113,6 +115,13 @@ export class PluginCapabilityAdapter {
 						createCapabilityGrant(DOMAIN_BATCH_TASK_CAPABILITIES.RESET_FAILED_TASKS),
 						createCapabilityGrant(DOMAIN_DOWNLOAD_CAPABILITIES.LIST),
 						createCapabilityGrant(DOMAIN_DOWNLOAD_CAPABILITIES.CANCEL),
+						createCapabilityGrant(DOMAIN_UPDATER_CAPABILITIES.GET_STATE),
+						createCapabilityGrant(DOMAIN_UPDATER_CAPABILITIES.GET_CURRENT_VERSION),
+						createCapabilityGrant(DOMAIN_UPDATER_CAPABILITIES.CHECK),
+						createCapabilityGrant(DOMAIN_UPDATER_CAPABILITIES.DOWNLOAD),
+						createCapabilityGrant(DOMAIN_UPDATER_CAPABILITIES.INSTALL),
+						createCapabilityGrant(DOMAIN_UPDATER_CAPABILITIES.DISMISS),
+						createCapabilityGrant(DOMAIN_UPDATER_CAPABILITIES.CANCEL),
 						createCapabilityGrant(DOMAIN_KNOWLEDGE_CAPABILITIES.LIST_BASES),
 						createCapabilityGrant(DOMAIN_KNOWLEDGE_CAPABILITIES.LIST_FILE_STATUSES),
 						createCapabilityGrant(DOMAIN_KNOWLEDGE_CAPABILITIES.GET_PROCESSING_STATUS),
@@ -285,6 +294,34 @@ export class PluginCapabilityAdapter {
 
 	cancelDownload(sessionId: string, id: string): Promise<undefined> {
 		return this.client(sessionId, { official: true }).invoke(DOMAIN_DOWNLOAD_CAPABILITIES.CANCEL, { id });
+	}
+
+	getUpdaterState(sessionId: string): Promise<UpdaterState> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_UPDATER_CAPABILITIES.GET_STATE, {});
+	}
+
+	getUpdaterCurrentVersion(sessionId: string): Promise<string> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_UPDATER_CAPABILITIES.GET_CURRENT_VERSION, {});
+	}
+
+	checkUpdater(sessionId: string): Promise<UpdaterState> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_UPDATER_CAPABILITIES.CHECK, {});
+	}
+
+	downloadUpdater(sessionId: string): Promise<UpdaterState> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_UPDATER_CAPABILITIES.DOWNLOAD, {});
+	}
+
+	installUpdater(sessionId: string): Promise<undefined> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_UPDATER_CAPABILITIES.INSTALL, {});
+	}
+
+	dismissUpdater(sessionId: string): Promise<undefined> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_UPDATER_CAPABILITIES.DISMISS, {});
+	}
+
+	cancelUpdater(sessionId: string): Promise<undefined> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_UPDATER_CAPABILITIES.CANCEL, {});
 	}
 
 	listBatchProjects(sessionId: string): Promise<BatchProject[]> {

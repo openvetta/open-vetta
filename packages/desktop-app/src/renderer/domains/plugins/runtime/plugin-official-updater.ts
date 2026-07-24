@@ -1,34 +1,38 @@
 import type { PluginOfficialApi } from "@vetta-org/plugin-sdk";
 
-export function createOfficialUpdaterApi(assertOfficial: () => void): PluginOfficialApi["updater"] {
+export function createOfficialUpdaterApi(
+	assertOfficial: () => void,
+	capabilitySessionId: string,
+): PluginOfficialApi["updater"] {
+	const updater = window.vetta.plugins.internalCapabilities.updater;
 	return {
 		getState: async () => {
 			assertOfficial();
-			return window.vetta.updater.getState();
+			return updater.getState(capabilitySessionId);
 		},
 		getCurrentVersion: async () => {
 			assertOfficial();
-			return window.vetta.updater.getCurrentVersion();
+			return updater.getCurrentVersion(capabilitySessionId);
 		},
 		check: async () => {
 			assertOfficial();
-			return window.vetta.updater.check();
+			return updater.check(capabilitySessionId);
 		},
 		download: async () => {
 			assertOfficial();
-			return window.vetta.updater.download();
+			return updater.download(capabilitySessionId);
 		},
 		install: async () => {
 			assertOfficial();
-			await window.vetta.updater.install();
+			await updater.install(capabilitySessionId);
 		},
 		dismiss: async () => {
 			assertOfficial();
-			await window.vetta.updater.dismiss();
+			await updater.dismiss(capabilitySessionId);
 		},
 		cancel: async () => {
 			assertOfficial();
-			await window.vetta.updater.cancel();
+			await updater.cancel(capabilitySessionId);
 		},
 	};
 }

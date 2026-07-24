@@ -93,6 +93,12 @@ export {
 	type SessionRuntimeProject,
 } from "./domain/session.js";
 export {
+	DOMAIN_UPDATER_CAPABILITIES,
+	UPDATER_PHASES,
+	type UpdaterPhase,
+	type UpdaterState,
+} from "./domain/updater.js";
+export {
 	DOMAIN_WEBHOOK_CAPABILITIES,
 	WEBHOOK_KINDS,
 	WEBHOOK_MESSAGE_LEVELS,
