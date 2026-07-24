@@ -5,17 +5,23 @@ import {
 	type Disposable,
 	DOMAIN_DOWNLOAD_CAPABILITIES,
 	DOMAIN_PROJECT_CAPABILITIES,
+	DOMAIN_SCHEDULER_CAPABILITIES,
 	DOMAIN_SESSION_CAPABILITIES,
+	DOMAIN_WEBHOOK_CAPABILITIES,
 } from "@vetta/capability-sdk";
 import { readDesktopConfig, writeDesktopConfig } from "../config/desktop-config-store.js";
 import { listRuntimeSessionProjects, listSessionHistory } from "../conversations/session-query-service.js";
 import { getDesktopDownloadService } from "../downloads/download-service.js";
 import { allowProjectRoot, createFilesystemDirectory } from "../filesystem/filesystem-service.js";
 import { ProjectService } from "../projects/project-service.js";
+import { getDesktopSchedulerService } from "../scheduler/scheduler-service.js";
+import { getWebhookManager } from "../webhook/index.js";
 
 const DOMAIN_PROJECT_PROVIDER_OWNER = "vetta.domain.project";
 const DOMAIN_SESSION_PROVIDER_OWNER = "vetta.domain.session";
 const DOMAIN_DOWNLOAD_PROVIDER_OWNER = "vetta.domain.download";
+const DOMAIN_SCHEDULER_PROVIDER_OWNER = "vetta.domain.scheduler";
+const DOMAIN_WEBHOOK_PROVIDER_OWNER = "vetta.domain.webhook";
 
 function assertNotAborted(signal: AbortSignal): void {
 	if (signal.aborted) {
@@ -25,6 +31,8 @@ function assertNotAborted(signal: AbortSignal): void {
 
 export function registerDesktopDomainProviders(registry: CapabilityRegistry): Disposable {
 	const downloads = getDesktopDownloadService();
+	const scheduler = getDesktopSchedulerService();
+	const webhooks = getWebhookManager();
 	const projects = new ProjectService({
 		allowProjectRoot,
 		createDirectory: createFilesystemDirectory,
@@ -103,8 +111,116 @@ export function registerDesktopDomainProviders(registry: CapabilityRegistry): Di
 			},
 		}),
 	]);
+	const schedulerRegistration = registry.registerOwner(DOMAIN_SCHEDULER_PROVIDER_OWNER, [
+		bindCapability(DOMAIN_SCHEDULER_CAPABILITIES.LIST_TASKS, {
+			execute: async (_input, context) => {
+				assertNotAborted(context.signal);
+				return scheduler.listTasks();
+			},
+		}),
+		bindCapability(DOMAIN_SCHEDULER_CAPABILITIES.GET_TASK, {
+			execute: async ({ taskId }, context) => {
+				assertNotAborted(context.signal);
+				return scheduler.getTask(taskId);
+			},
+		}),
+		bindCapability(DOMAIN_SCHEDULER_CAPABILITIES.LIST_HISTORY, {
+			execute: async ({ taskId }, context) => {
+				assertNotAborted(context.signal);
+				return scheduler.getHistory(taskId);
+			},
+		}),
+		bindCapability(DOMAIN_SCHEDULER_CAPABILITIES.CREATE_TASK, {
+			execute: async ({ data }, context) => {
+				assertNotAborted(context.signal);
+				return scheduler.createTask({ ...data });
+			},
+		}),
+		bindCapability(DOMAIN_SCHEDULER_CAPABILITIES.UPDATE_TASK, {
+			execute: async ({ taskId, data }, context) => {
+				assertNotAborted(context.signal);
+				return scheduler.updateTask(taskId, { ...data });
+			},
+		}),
+		bindCapability(DOMAIN_SCHEDULER_CAPABILITIES.DELETE_TASK, {
+			execute: async ({ taskId }, context) => {
+				assertNotAborted(context.signal);
+				return scheduler.deleteTask(taskId);
+			},
+		}),
+		bindCapability(DOMAIN_SCHEDULER_CAPABILITIES.SET_ENABLED, {
+			execute: async ({ taskId, enabled }, context) => {
+				assertNotAborted(context.signal);
+				return scheduler.setEnabled(taskId, enabled);
+			},
+		}),
+		bindCapability(DOMAIN_SCHEDULER_CAPABILITIES.RUN_TASK, {
+			execute: async ({ taskId }, context) => {
+				assertNotAborted(context.signal);
+				return scheduler.runNow(taskId);
+			},
+		}),
+		bindCapability(DOMAIN_SCHEDULER_CAPABILITIES.ABORT_TASK, {
+			execute: async ({ taskId }, context) => {
+				assertNotAborted(context.signal);
+				return scheduler.abort(taskId);
+			},
+		}),
+	]);
+	const webhookRegistration = registry.registerOwner(DOMAIN_WEBHOOK_PROVIDER_OWNER, [
+		bindCapability(DOMAIN_WEBHOOK_CAPABILITIES.LIST_ENDPOINTS, {
+			execute: async (_input, context) => {
+				assertNotAborted(context.signal);
+				return webhooks.list();
+			},
+		}),
+		bindCapability(DOMAIN_WEBHOOK_CAPABILITIES.LIST_PROVIDERS, {
+			execute: async (_input, context) => {
+				assertNotAborted(context.signal);
+				return webhooks.listProviderDescriptors();
+			},
+		}),
+		bindCapability(DOMAIN_WEBHOOK_CAPABILITIES.CREATE_ENDPOINT, {
+			execute: async ({ data }, context) => {
+				assertNotAborted(context.signal);
+				return webhooks.create({ ...data });
+			},
+		}),
+		bindCapability(DOMAIN_WEBHOOK_CAPABILITIES.UPDATE_ENDPOINT, {
+			execute: async ({ id, data }, context) => {
+				assertNotAborted(context.signal);
+				return webhooks.update(id, { ...data });
+			},
+		}),
+		bindCapability(DOMAIN_WEBHOOK_CAPABILITIES.DELETE_ENDPOINT, {
+			execute: async ({ id }, context) => {
+				assertNotAborted(context.signal);
+				webhooks.delete(id);
+			},
+		}),
+		bindCapability(DOMAIN_WEBHOOK_CAPABILITIES.SET_ENABLED, {
+			execute: async ({ id, enabled }, context) => {
+				assertNotAborted(context.signal);
+				return webhooks.setEnabled(id, enabled);
+			},
+		}),
+		bindCapability(DOMAIN_WEBHOOK_CAPABILITIES.TEST_ENDPOINT, {
+			execute: async ({ id }, context) => {
+				assertNotAborted(context.signal);
+				return webhooks.test(id);
+			},
+		}),
+		bindCapability(DOMAIN_WEBHOOK_CAPABILITIES.SEND_MESSAGE, {
+			execute: async ({ id, message }, context) => {
+				assertNotAborted(context.signal);
+				return webhooks.send(id, { ...message });
+			},
+		}),
+	]);
 	return {
 		dispose: () => {
+			webhookRegistration.dispose();
+			schedulerRegistration.dispose();
 			downloadRegistration.dispose();
 			sessionRegistration.dispose();
 			projectRegistration.dispose();

@@ -2,8 +2,19 @@ import type {
 	DownloadItem as CapabilityDownloadItem,
 	ProjectEntry,
 	ProjectListResult,
+	SchedulerCommandResult,
+	SchedulerExecutionRecord,
+	SchedulerTask,
+	SchedulerTaskCreateData,
+	SchedulerTaskUpdateData,
 	SessionHistoryEntry,
 	SessionRuntimeProject,
+	WebhookCreateData,
+	WebhookEndpoint,
+	WebhookMessage,
+	WebhookProviderDescriptor,
+	WebhookSendResult,
+	WebhookUpdateData,
 } from "@vetta/capability-sdk";
 
 export type PluginPermission =
@@ -447,6 +458,29 @@ export interface DesktopPluginCapabilityDownloadsApi {
 	cancel(sessionId: string, id: string): Promise<void>;
 }
 
+export interface DesktopPluginCapabilitySchedulerApi {
+	listTasks(sessionId: string): Promise<SchedulerTask[]>;
+	getTask(sessionId: string, taskId: string): Promise<SchedulerTask>;
+	listHistory(sessionId: string, taskId: string): Promise<SchedulerExecutionRecord[]>;
+	createTask(sessionId: string, data: SchedulerTaskCreateData): Promise<SchedulerTask>;
+	updateTask(sessionId: string, taskId: string, data: SchedulerTaskUpdateData): Promise<SchedulerTask>;
+	deleteTask(sessionId: string, taskId: string): Promise<SchedulerCommandResult>;
+	setEnabled(sessionId: string, taskId: string, enabled: boolean): Promise<SchedulerTask>;
+	runTask(sessionId: string, taskId: string): Promise<SchedulerCommandResult>;
+	abortTask(sessionId: string, taskId: string): Promise<SchedulerCommandResult>;
+}
+
+export interface DesktopPluginCapabilityWebhookApi {
+	listEndpoints(sessionId: string): Promise<WebhookEndpoint[]>;
+	listProviders(sessionId: string): Promise<WebhookProviderDescriptor[]>;
+	createEndpoint(sessionId: string, data: WebhookCreateData): Promise<WebhookEndpoint>;
+	updateEndpoint(sessionId: string, id: string, data: WebhookUpdateData): Promise<WebhookEndpoint>;
+	deleteEndpoint(sessionId: string, id: string): Promise<void>;
+	setEnabled(sessionId: string, id: string, enabled: boolean): Promise<WebhookEndpoint>;
+	testEndpoint(sessionId: string, id: string): Promise<WebhookSendResult>;
+	sendMessage(sessionId: string, id: string, message: WebhookMessage): Promise<WebhookSendResult>;
+}
+
 /** @internal Host bridge used to implement the public plugin-sdk facade. */
 export interface DesktopPluginInternalCapabilitiesApi {
 	openSession(pluginId: string): Promise<string>;
@@ -454,7 +488,9 @@ export interface DesktopPluginInternalCapabilitiesApi {
 	filesystem: DesktopPluginCapabilityFilesystemApi;
 	downloads: DesktopPluginCapabilityDownloadsApi;
 	projects: DesktopPluginCapabilityProjectsApi;
+	scheduler: DesktopPluginCapabilitySchedulerApi;
 	sessions: DesktopPluginCapabilitySessionsApi;
+	webhook: DesktopPluginCapabilityWebhookApi;
 }
 
 export interface DesktopPluginsApi {

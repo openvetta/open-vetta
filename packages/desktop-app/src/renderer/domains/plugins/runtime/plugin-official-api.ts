@@ -30,7 +30,7 @@ export function createPluginOfficialApi(plugin: InstalledPlugin, capabilitySessi
 		agent: createOfficialAgentApi(assertOfficial),
 		downloads: createOfficialDownloadsApi(assertOfficial, capabilitySessionId),
 		updater: createOfficialUpdaterApi(assertOfficial),
-		webhook: createOfficialWebhookApi(assertOfficial),
+		webhook: createOfficialWebhookApi(assertOfficial, capabilitySessionId),
 		skills: createOfficialSkillsApi(assertOfficial),
 		shortcuts: createOfficialShortcutsApi(assertOfficial),
 		im: createOfficialImApi(assertOfficial),
@@ -40,7 +40,7 @@ export function createPluginOfficialApi(plugin: InstalledPlugin, capabilitySessi
 		plugins: createOfficialPluginsApi(assertOfficial),
 		knowledge: createOfficialKnowledgeApi(assertOfficial),
 		batchTasks: createOfficialBatchTasksApi(assertOfficial),
-		scheduler: createOfficialSchedulerApi(assertOfficial),
+		scheduler: createOfficialSchedulerApi(assertOfficial, capabilitySessionId),
 		appearance: createOfficialAppearanceApi(assertOfficial),
 		navigation: createOfficialNavigationApi(assertOfficial),
 	};

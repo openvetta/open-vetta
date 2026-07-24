@@ -61,7 +61,7 @@ import { disposeSharedRuntime, getSharedRuntime } from "./runtime.js";
 import { getRuntimeManager } from "./runtimes/manager.js";
 import { initializeSandboxCapability } from "./sandbox/capability.js";
 import { initScheduler, scheduleTaskInCron, unscheduleTaskInCron } from "./scheduler/scheduler.js";
-import { SchedulerService } from "./scheduler/scheduler-service.js";
+import { initializeDesktopSchedulerService } from "./scheduler/scheduler-service.js";
 import { initializeMainTelemetry, shutdownMainTelemetry } from "./telemetry/index.js";
 import { registerThemeProtocol, THEME_PROTOCOL_PRIVILEGE } from "./themes/theme-protocol.js";
 import {
@@ -560,7 +560,7 @@ if (!gotSingleLock) {
 		mainWindow.on("unmaximize", sendWindowMaximizedChanged);
 		const actionApprovalBroker = new ActionApprovalBroker(mainWindow.webContents);
 		const batchTaskService = new BatchTaskService(getSharedRuntime);
-		const schedulerService = new SchedulerService({
+		const schedulerService = initializeDesktopSchedulerService({
 			getRuntime: getSharedRuntime,
 			scheduleTask: scheduleTaskInCron,
 			unscheduleTask: unscheduleTaskInCron,

@@ -4,12 +4,20 @@ import { CAPABILITY_ERROR_CODES, CapabilityError } from "../contracts.js";
 import {
 	DOMAIN_DOWNLOAD_CAPABILITIES,
 	DOMAIN_PROJECT_CAPABILITIES,
+	DOMAIN_SCHEDULER_CAPABILITIES,
 	DOMAIN_SESSION_CAPABILITIES,
+	DOMAIN_WEBHOOK_CAPABILITIES,
 	type DownloadItem,
 	type ProjectEntry,
 	type ProjectListResult,
+	type SchedulerCommandResult,
+	type SchedulerExecutionRecord,
+	type SchedulerTask,
 	type SessionHistoryEntry,
 	type SessionRuntimeProject,
+	type WebhookEndpoint,
+	type WebhookProviderDescriptor,
+	type WebhookSendResult,
 } from "../domain.js";
 import {
 	type FilesystemEntry,
@@ -89,6 +97,23 @@ export class PluginCapabilityAdapter {
 						createCapabilityGrant(DOMAIN_PROJECT_CAPABILITIES.REMOVE),
 						createCapabilityGrant(DOMAIN_SESSION_CAPABILITIES.LIST),
 						createCapabilityGrant(DOMAIN_SESSION_CAPABILITIES.LIST_RUNTIME_PROJECTS),
+						createCapabilityGrant(DOMAIN_SCHEDULER_CAPABILITIES.LIST_TASKS),
+						createCapabilityGrant(DOMAIN_SCHEDULER_CAPABILITIES.GET_TASK),
+						createCapabilityGrant(DOMAIN_SCHEDULER_CAPABILITIES.LIST_HISTORY),
+						createCapabilityGrant(DOMAIN_SCHEDULER_CAPABILITIES.CREATE_TASK),
+						createCapabilityGrant(DOMAIN_SCHEDULER_CAPABILITIES.UPDATE_TASK),
+						createCapabilityGrant(DOMAIN_SCHEDULER_CAPABILITIES.DELETE_TASK),
+						createCapabilityGrant(DOMAIN_SCHEDULER_CAPABILITIES.SET_ENABLED),
+						createCapabilityGrant(DOMAIN_SCHEDULER_CAPABILITIES.RUN_TASK),
+						createCapabilityGrant(DOMAIN_SCHEDULER_CAPABILITIES.ABORT_TASK),
+						createCapabilityGrant(DOMAIN_WEBHOOK_CAPABILITIES.LIST_ENDPOINTS),
+						createCapabilityGrant(DOMAIN_WEBHOOK_CAPABILITIES.LIST_PROVIDERS),
+						createCapabilityGrant(DOMAIN_WEBHOOK_CAPABILITIES.CREATE_ENDPOINT),
+						createCapabilityGrant(DOMAIN_WEBHOOK_CAPABILITIES.UPDATE_ENDPOINT),
+						createCapabilityGrant(DOMAIN_WEBHOOK_CAPABILITIES.DELETE_ENDPOINT),
+						createCapabilityGrant(DOMAIN_WEBHOOK_CAPABILITIES.SET_ENABLED),
+						createCapabilityGrant(DOMAIN_WEBHOOK_CAPABILITIES.TEST_ENDPOINT),
+						createCapabilityGrant(DOMAIN_WEBHOOK_CAPABILITIES.SEND_MESSAGE),
 					]
 				: []),
 		];
@@ -223,6 +248,87 @@ export class PluginCapabilityAdapter {
 
 	cancelDownload(sessionId: string, id: string): Promise<undefined> {
 		return this.client(sessionId, { official: true }).invoke(DOMAIN_DOWNLOAD_CAPABILITIES.CANCEL, { id });
+	}
+
+	listScheduledTasks(sessionId: string): Promise<SchedulerTask[]> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_SCHEDULER_CAPABILITIES.LIST_TASKS, {});
+	}
+
+	getScheduledTask(sessionId: string, taskId: string): Promise<SchedulerTask> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_SCHEDULER_CAPABILITIES.GET_TASK, { taskId });
+	}
+
+	listScheduledTaskHistory(sessionId: string, taskId: string): Promise<SchedulerExecutionRecord[]> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_SCHEDULER_CAPABILITIES.LIST_HISTORY, {
+			taskId,
+		});
+	}
+
+	createScheduledTask(sessionId: string, data: unknown): Promise<SchedulerTask> {
+		const input = DOMAIN_SCHEDULER_CAPABILITIES.CREATE_TASK.parseInput({ data });
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_SCHEDULER_CAPABILITIES.CREATE_TASK, input);
+	}
+
+	updateScheduledTask(sessionId: string, taskId: string, data: unknown): Promise<SchedulerTask> {
+		const input = DOMAIN_SCHEDULER_CAPABILITIES.UPDATE_TASK.parseInput({ taskId, data });
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_SCHEDULER_CAPABILITIES.UPDATE_TASK, input);
+	}
+
+	deleteScheduledTask(sessionId: string, taskId: string): Promise<SchedulerCommandResult> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_SCHEDULER_CAPABILITIES.DELETE_TASK, { taskId });
+	}
+
+	setScheduledTaskEnabled(sessionId: string, taskId: string, enabled: boolean): Promise<SchedulerTask> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_SCHEDULER_CAPABILITIES.SET_ENABLED, {
+			taskId,
+			enabled,
+		});
+	}
+
+	runScheduledTask(sessionId: string, taskId: string): Promise<SchedulerCommandResult> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_SCHEDULER_CAPABILITIES.RUN_TASK, { taskId });
+	}
+
+	abortScheduledTask(sessionId: string, taskId: string): Promise<SchedulerCommandResult> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_SCHEDULER_CAPABILITIES.ABORT_TASK, { taskId });
+	}
+
+	listWebhookEndpoints(sessionId: string): Promise<WebhookEndpoint[]> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_WEBHOOK_CAPABILITIES.LIST_ENDPOINTS, {});
+	}
+
+	listWebhookProviders(sessionId: string): Promise<WebhookProviderDescriptor[]> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_WEBHOOK_CAPABILITIES.LIST_PROVIDERS, {});
+	}
+
+	createWebhookEndpoint(sessionId: string, data: unknown): Promise<WebhookEndpoint> {
+		const input = DOMAIN_WEBHOOK_CAPABILITIES.CREATE_ENDPOINT.parseInput({ data });
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_WEBHOOK_CAPABILITIES.CREATE_ENDPOINT, input);
+	}
+
+	updateWebhookEndpoint(sessionId: string, id: string, data: unknown): Promise<WebhookEndpoint> {
+		const input = DOMAIN_WEBHOOK_CAPABILITIES.UPDATE_ENDPOINT.parseInput({ id, data });
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_WEBHOOK_CAPABILITIES.UPDATE_ENDPOINT, input);
+	}
+
+	deleteWebhookEndpoint(sessionId: string, id: string): Promise<undefined> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_WEBHOOK_CAPABILITIES.DELETE_ENDPOINT, { id });
+	}
+
+	setWebhookEndpointEnabled(sessionId: string, id: string, enabled: boolean): Promise<WebhookEndpoint> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_WEBHOOK_CAPABILITIES.SET_ENABLED, {
+			id,
+			enabled,
+		});
+	}
+
+	testWebhookEndpoint(sessionId: string, id: string): Promise<WebhookSendResult> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_WEBHOOK_CAPABILITIES.TEST_ENDPOINT, { id });
+	}
+
+	sendWebhookMessage(sessionId: string, id: string, message: unknown): Promise<WebhookSendResult> {
+		const input = DOMAIN_WEBHOOK_CAPABILITIES.SEND_MESSAGE.parseInput({ id, message });
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_WEBHOOK_CAPABILITIES.SEND_MESSAGE, input);
 	}
 
 	private client(sessionId: string, requirement: PluginCapabilityRequirement): CapabilityAccessHandle["client"] {

@@ -12,6 +12,11 @@ function optionalString(value: unknown, field: string): string | undefined {
 	return requireString(value, field);
 }
 
+function requireBoolean(value: unknown, field: string): boolean {
+	if (typeof value !== "boolean") throw new Error(`${field} must be a boolean`);
+	return value;
+}
+
 export function registerPluginCapabilitiesIpc(): () => void {
 	const adapter = getDesktopCapabilityHost().adapters.plugin;
 	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.OPEN_SESSION, (_event, pluginId: unknown) =>
@@ -119,6 +124,77 @@ export function registerPluginCapabilitiesIpc(): () => void {
 	);
 	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.DOWNLOAD_CANCEL, (_event, sessionId: unknown, id: unknown) =>
 		adapter.cancelDownload(requireString(sessionId, "sessionId"), requireString(id, "id")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.SCHEDULER_TASK_LIST, (_event, sessionId: unknown) =>
+		adapter.listScheduledTasks(requireString(sessionId, "sessionId")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.SCHEDULER_TASK_GET, (_event, sessionId: unknown, taskId: unknown) =>
+		adapter.getScheduledTask(requireString(sessionId, "sessionId"), requireString(taskId, "taskId")),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.SCHEDULER_TASK_HISTORY_LIST,
+		(_event, sessionId: unknown, taskId: unknown) =>
+			adapter.listScheduledTaskHistory(requireString(sessionId, "sessionId"), requireString(taskId, "taskId")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.SCHEDULER_TASK_CREATE, (_event, sessionId: unknown, data: unknown) =>
+		adapter.createScheduledTask(requireString(sessionId, "sessionId"), data),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.SCHEDULER_TASK_UPDATE,
+		(_event, sessionId: unknown, taskId: unknown, data: unknown) =>
+			adapter.updateScheduledTask(requireString(sessionId, "sessionId"), requireString(taskId, "taskId"), data),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.SCHEDULER_TASK_DELETE, (_event, sessionId: unknown, taskId: unknown) =>
+		adapter.deleteScheduledTask(requireString(sessionId, "sessionId"), requireString(taskId, "taskId")),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.SCHEDULER_TASK_SET_ENABLED,
+		(_event, sessionId: unknown, taskId: unknown, enabled: unknown) =>
+			adapter.setScheduledTaskEnabled(
+				requireString(sessionId, "sessionId"),
+				requireString(taskId, "taskId"),
+				requireBoolean(enabled, "enabled"),
+			),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.SCHEDULER_TASK_RUN, (_event, sessionId: unknown, taskId: unknown) =>
+		adapter.runScheduledTask(requireString(sessionId, "sessionId"), requireString(taskId, "taskId")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.SCHEDULER_TASK_ABORT, (_event, sessionId: unknown, taskId: unknown) =>
+		adapter.abortScheduledTask(requireString(sessionId, "sessionId"), requireString(taskId, "taskId")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.WEBHOOK_ENDPOINT_LIST, (_event, sessionId: unknown) =>
+		adapter.listWebhookEndpoints(requireString(sessionId, "sessionId")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.WEBHOOK_PROVIDER_LIST, (_event, sessionId: unknown) =>
+		adapter.listWebhookProviders(requireString(sessionId, "sessionId")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.WEBHOOK_ENDPOINT_CREATE, (_event, sessionId: unknown, data: unknown) =>
+		adapter.createWebhookEndpoint(requireString(sessionId, "sessionId"), data),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.WEBHOOK_ENDPOINT_UPDATE,
+		(_event, sessionId: unknown, id: unknown, data: unknown) =>
+			adapter.updateWebhookEndpoint(requireString(sessionId, "sessionId"), requireString(id, "id"), data),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.WEBHOOK_ENDPOINT_DELETE, (_event, sessionId: unknown, id: unknown) =>
+		adapter.deleteWebhookEndpoint(requireString(sessionId, "sessionId"), requireString(id, "id")),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.WEBHOOK_ENDPOINT_SET_ENABLED,
+		(_event, sessionId: unknown, id: unknown, enabled: unknown) =>
+			adapter.setWebhookEndpointEnabled(
+				requireString(sessionId, "sessionId"),
+				requireString(id, "id"),
+				requireBoolean(enabled, "enabled"),
+			),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.WEBHOOK_ENDPOINT_TEST, (_event, sessionId: unknown, id: unknown) =>
+		adapter.testWebhookEndpoint(requireString(sessionId, "sessionId"), requireString(id, "id")),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.WEBHOOK_ENDPOINT_SEND,
+		(_event, sessionId: unknown, id: unknown, message: unknown) =>
+			adapter.sendWebhookMessage(requireString(sessionId, "sessionId"), requireString(id, "id"), message),
 	);
 
 	return () => {

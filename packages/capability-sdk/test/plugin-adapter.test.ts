@@ -11,7 +11,9 @@ import { CAPABILITY_ERROR_CODES, type CapabilityId, type CapabilityToken } from 
 import {
 	DOMAIN_DOWNLOAD_CAPABILITIES,
 	DOMAIN_PROJECT_CAPABILITIES,
+	DOMAIN_SCHEDULER_CAPABILITIES,
 	DOMAIN_SESSION_CAPABILITIES,
+	DOMAIN_WEBHOOK_CAPABILITIES,
 } from "../src/domain.js";
 import { FOUNDATION_FILESYSTEM_CAPABILITIES } from "../src/foundation.js";
 
@@ -84,11 +86,76 @@ function outputFor(capabilityId: CapabilityId): unknown {
 		];
 	}
 	if (
+		capabilityId === DOMAIN_SCHEDULER_CAPABILITIES.LIST_TASKS.id ||
+		capabilityId === DOMAIN_SCHEDULER_CAPABILITIES.GET_TASK.id ||
+		capabilityId === DOMAIN_SCHEDULER_CAPABILITIES.CREATE_TASK.id ||
+		capabilityId === DOMAIN_SCHEDULER_CAPABILITIES.UPDATE_TASK.id ||
+		capabilityId === DOMAIN_SCHEDULER_CAPABILITIES.SET_ENABLED.id
+	) {
+		const task = {
+			id: "task",
+			name: "Daily",
+			prompt: "Run",
+			cron: "0 9 * * *",
+			isOnce: false,
+			enabled: true,
+			cwd: "C:/workspace",
+			createdAt: 1,
+			updatedAt: 1,
+			lastRunAt: null,
+			lastRunStatus: null,
+		};
+		return capabilityId === DOMAIN_SCHEDULER_CAPABILITIES.LIST_TASKS.id ? [task] : task;
+	}
+	if (capabilityId === DOMAIN_SCHEDULER_CAPABILITIES.LIST_HISTORY.id) return [];
+	if (
+		capabilityId === DOMAIN_SCHEDULER_CAPABILITIES.DELETE_TASK.id ||
+		capabilityId === DOMAIN_SCHEDULER_CAPABILITIES.RUN_TASK.id ||
+		capabilityId === DOMAIN_SCHEDULER_CAPABILITIES.ABORT_TASK.id
+	) {
+		return { status: "accepted", taskId: "task" };
+	}
+	if (
 		capabilityId === DOMAIN_PROJECT_CAPABILITIES.CREATE.id ||
 		capabilityId === DOMAIN_PROJECT_CAPABILITIES.OPEN.id ||
 		capabilityId === DOMAIN_PROJECT_CAPABILITIES.RENAME.id
 	) {
 		return { path: "C:/workspace/demo", name: "demo" };
+	}
+	if (capabilityId === DOMAIN_WEBHOOK_CAPABILITIES.LIST_ENDPOINTS.id) {
+		return [
+			{
+				id: "endpoint",
+				kind: "feishu",
+				name: "Release",
+				enabled: true,
+				createdAt: "2026-01-01T00:00:00.000Z",
+				updatedAt: "2026-01-01T00:00:00.000Z",
+			},
+		];
+	}
+	if (capabilityId === DOMAIN_WEBHOOK_CAPABILITIES.LIST_PROVIDERS.id) {
+		return [{ kind: "feishu", displayName: "Feishu" }];
+	}
+	if (
+		capabilityId === DOMAIN_WEBHOOK_CAPABILITIES.CREATE_ENDPOINT.id ||
+		capabilityId === DOMAIN_WEBHOOK_CAPABILITIES.UPDATE_ENDPOINT.id ||
+		capabilityId === DOMAIN_WEBHOOK_CAPABILITIES.SET_ENABLED.id
+	) {
+		return {
+			id: "endpoint",
+			kind: "feishu",
+			name: "Release",
+			enabled: true,
+			createdAt: "2026-01-01T00:00:00.000Z",
+			updatedAt: "2026-01-01T00:00:00.000Z",
+		};
+	}
+	if (
+		capabilityId === DOMAIN_WEBHOOK_CAPABILITIES.TEST_ENDPOINT.id ||
+		capabilityId === DOMAIN_WEBHOOK_CAPABILITIES.SEND_MESSAGE.id
+	) {
+		return { ok: true };
 	}
 	return undefined;
 }
@@ -179,6 +246,8 @@ describe("PluginCapabilityAdapter", () => {
 			...Object.values(DOMAIN_DOWNLOAD_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_PROJECT_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_SESSION_CAPABILITIES).map((capability) => capability.id),
+			...Object.values(DOMAIN_SCHEDULER_CAPABILITIES).map((capability) => capability.id),
+			...Object.values(DOMAIN_WEBHOOK_CAPABILITIES).map((capability) => capability.id),
 		]);
 		await expect(adapter.listProjects(sessionId)).resolves.toEqual({
 			workspacePath: "C:/workspace",
@@ -208,12 +277,27 @@ describe("PluginCapabilityAdapter", () => {
 			},
 		]);
 		await expect(adapter.cancelDownload(sessionId, "download")).resolves.toBeUndefined();
+		await expect(adapter.listScheduledTasks(sessionId)).resolves.toHaveLength(1);
+		await expect(adapter.runScheduledTask(sessionId, "task")).resolves.toEqual({
+			status: "accepted",
+			taskId: "task",
+		});
+		await expect(adapter.listWebhookEndpoints(sessionId)).resolves.toHaveLength(1);
+		await expect(adapter.sendWebhookMessage(sessionId, "endpoint", { text: "hello" })).resolves.toEqual({
+			ok: true,
+		});
 
 		official = false;
 		expect(() => adapter.listProjects(sessionId)).toThrowError(
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
 		expect(() => adapter.listRuntimeProjects(sessionId)).toThrowError(
+			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
+		);
+		expect(() => adapter.listScheduledTasks(sessionId)).toThrowError(
+			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
+		);
+		expect(() => adapter.listWebhookEndpoints(sessionId)).toThrowError(
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
 	});
@@ -234,6 +318,12 @@ describe("PluginCapabilityAdapter", () => {
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
 		expect(() => adapter.listDownloads(sessionId)).toThrowError(
+			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
+		);
+		expect(() => adapter.listScheduledTasks(sessionId)).toThrowError(
+			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
+		);
+		expect(() => adapter.listWebhookEndpoints(sessionId)).toThrowError(
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
 	});
