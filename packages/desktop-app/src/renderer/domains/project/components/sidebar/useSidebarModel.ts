@@ -12,7 +12,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useTranslation } from "react-i18next";
 import type { NavIndicatorBounds, SidebarModel, SidebarNavItem, SidebarProps } from "./types";
 
-const MIN_WIDTH = 160;
+const MIN_WIDTH = 180;
 const MAX_WIDTH = 400;
 
 // label 在渲染期由 t(labelKey) 解析（模块级常量不存中文，见 AGENTS.md i18n 规范）。

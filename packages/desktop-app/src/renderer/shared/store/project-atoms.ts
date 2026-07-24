@@ -99,12 +99,15 @@ export const expandedProjectsAtom = atom<Set<string>>(new Set<string>());
 export const sessionsMapAtom = atom<Map<string, SessionInfo[]>>(new Map<string, SessionInfo[]>());
 
 export const SIDEBAR_WIDTH_STORAGE_KEY = "vetta-sidebar-width";
-const SIDEBAR_WIDTH_DEFAULT = 220;
+export const SIDEBAR_WIDTH_DEFAULT = 220;
+/** 与 useSidebarModel.MIN_WIDTH 保持一致 */
+export const SIDEBAR_WIDTH_MIN = 180;
 const readSidebarWidth = (): number => {
 	const raw = localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY);
 	if (raw == null) return SIDEBAR_WIDTH_DEFAULT;
 	const n = Number(raw);
-	return Number.isFinite(n) && n > 0 ? n : SIDEBAR_WIDTH_DEFAULT;
+	if (!Number.isFinite(n) || n <= 0) return SIDEBAR_WIDTH_DEFAULT;
+	return Math.max(SIDEBAR_WIDTH_MIN, n);
 };
 export const sidebarWidthAtom = atom<number>(readSidebarWidth());
 export const sidebarFilterAtom = atom<SidebarFilter>("all");

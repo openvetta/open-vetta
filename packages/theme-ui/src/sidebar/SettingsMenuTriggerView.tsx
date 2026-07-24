@@ -15,17 +15,18 @@ export interface SettingsMenuTriggerViewProps extends ComponentPropsWithoutRef<"
 function ClawBadge({ title }: { title?: string }): JSX.Element {
 	return (
 		<span
-			className="relative flex h-5 shrink-0 items-center gap-1 rounded-full bg-secondary px-1.5 text-[10px] font-medium leading-none text-secondary-foreground"
+			className="relative flex h-5 max-w-full shrink-0 items-center gap-1 rounded-full bg-secondary px-1.5 text-[10px] font-medium leading-none text-secondary-foreground"
 			title={title}
 		>
-			<span className="relative flex h-1 w-1">
+			<span className="relative flex h-1 w-1 shrink-0">
 				<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-secondary-foreground opacity-70" />
 				<span className="relative inline-flex h-1 w-1 rounded-full bg-secondary-foreground" />
 			</span>
-			Claw
+			<span className="truncate">Claw</span>
 		</span>
 	);
 }
+
 
 export const SettingsMenuTriggerView = forwardRef<HTMLButtonElement, SettingsMenuTriggerViewProps>(
 	function SettingsMenuTriggerView(
@@ -37,7 +38,8 @@ export const SettingsMenuTriggerView = forwardRef<HTMLButtonElement, SettingsMen
 				ref={ref}
 				type="button"
 				className={cn(
-					"no-drag flex w-full items-center gap-2 rounded-lg px-2.5 py-[6px] text-[12px] font-medium transition-colors",
+					// min-w-0：昵称过长时在 flex 底栏中可收缩，右侧 MessageCenter 不被挤出
+					"no-drag flex w-full min-w-0 items-center gap-2 rounded-lg px-2.5 py-[6px] text-[12px] font-medium transition-colors",
 					open ? "bg-accent text-foreground" : "text-foreground hover:bg-accent/50",
 					className,
 				)}
@@ -45,14 +47,15 @@ export const SettingsMenuTriggerView = forwardRef<HTMLButtonElement, SettingsMen
 			>
 				{userLabel ? (
 					<>
-						{avatar}
-						<span className="truncate">{userLabel}</span>
+						{/* avatar 与 Claw 不收缩；昵称 truncate 吃掉多余宽度 */}
+						<span className="shrink-0">{avatar}</span>
+						<span className="min-w-0 flex-1 truncate text-left">{userLabel}</span>
 						{clawOnline && <ClawBadge title={clawTitle} />}
 					</>
 				) : (
 					<>
-						<span className="icon-[solar--settings-linear] h-3.5 w-3.5" />
-						<span className="truncate">{settingsFallbackLabel}</span>
+						<span className="icon-[solar--settings-linear] h-3.5 w-3.5 shrink-0" />
+						<span className="min-w-0 flex-1 truncate text-left">{settingsFallbackLabel}</span>
 						{clawOnline && <ClawBadge title={clawTitle} />}
 					</>
 				)}
