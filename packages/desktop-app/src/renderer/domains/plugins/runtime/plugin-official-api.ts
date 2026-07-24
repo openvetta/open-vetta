@@ -27,7 +27,7 @@ export function createPluginOfficialApi(plugin: InstalledPlugin, capabilitySessi
 
 	return {
 		general: createOfficialGeneralApi(assertOfficial, capabilitySessionId),
-		agent: createOfficialAgentApi(assertOfficial),
+		agent: createOfficialAgentApi(assertOfficial, capabilitySessionId),
 		downloads: createOfficialDownloadsApi(assertOfficial, capabilitySessionId),
 		updater: createOfficialUpdaterApi(assertOfficial, capabilitySessionId),
 		webhook: createOfficialWebhookApi(assertOfficial, capabilitySessionId),

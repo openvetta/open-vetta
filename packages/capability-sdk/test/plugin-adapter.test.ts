@@ -9,6 +9,7 @@ import type {
 import { PLUGIN_CAPABILITY_PERMISSIONS, PluginCapabilityAdapter } from "../src/adapters/plugin.js";
 import { CAPABILITY_ERROR_CODES, type CapabilityId, type CapabilityToken } from "../src/contracts.js";
 import {
+	DOMAIN_AGENT_SETTINGS_CAPABILITIES,
 	DOMAIN_BATCH_TASK_CAPABILITIES,
 	DOMAIN_DOWNLOAD_CAPABILITIES,
 	DOMAIN_GENERAL_SETTINGS_CAPABILITIES,
@@ -60,6 +61,12 @@ function outputFor(capabilityId: CapabilityId): unknown {
 	}
 	if (capabilityId === FOUNDATION_FILESYSTEM_CAPABILITIES.STAT.id) return null;
 	if (capabilityId === FOUNDATION_FILESYSTEM_CAPABILITIES.LIST_FILES_RECURSIVE.id) return [];
+	if (
+		capabilityId === DOMAIN_AGENT_SETTINGS_CAPABILITIES.GET_EXPERIMENTAL.id ||
+		capabilityId === DOMAIN_AGENT_SETTINGS_CAPABILITIES.SET_EXPERIMENTAL.id
+	) {
+		return { vettaCli: true, promptPrediction: false, agentSkills: true };
+	}
 	if (capabilityId === DOMAIN_GENERAL_SETTINGS_CAPABILITIES.GET.id) {
 		return {
 			workspacePath: "C:/workspace",
@@ -366,6 +373,7 @@ describe("PluginCapabilityAdapter", () => {
 		const sessionId = adapter.openSession("official");
 
 		expect(access.sessions[0]?.grants.map((grant) => grant.capabilityId)).toEqual([
+			...Object.values(DOMAIN_AGENT_SETTINGS_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_GENERAL_SETTINGS_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_BATCH_TASK_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_DOWNLOAD_CAPABILITIES).map((capability) => capability.id),
@@ -379,6 +387,16 @@ describe("PluginCapabilityAdapter", () => {
 			...Object.values(DOMAIN_SCHEDULER_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_WEBHOOK_CAPABILITIES).map((capability) => capability.id),
 		]);
+		await expect(adapter.getAgentExperimental(sessionId)).resolves.toEqual({
+			vettaCli: true,
+			promptPrediction: false,
+			agentSkills: true,
+		});
+		await expect(adapter.setAgentExperimental(sessionId, { promptPrediction: true })).resolves.toEqual({
+			vettaCli: true,
+			promptPrediction: false,
+			agentSkills: true,
+		});
 		await expect(adapter.getGeneralSettings(sessionId)).resolves.toHaveProperty("workspacePath", "C:/workspace");
 		await expect(adapter.setNotifications(sessionId, false)).resolves.toEqual({ enabled: false });
 		await expect(adapter.setDefaultExecutionMode(sessionId, "sandbox")).resolves.toEqual({ mode: "sandbox" });
@@ -468,6 +486,9 @@ describe("PluginCapabilityAdapter", () => {
 		});
 
 		official = false;
+		expect(() => adapter.getAgentExperimental(sessionId)).toThrowError(
+			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
+		);
 		expect(() => adapter.getGeneralSettings(sessionId)).toThrowError(
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
@@ -509,6 +530,9 @@ describe("PluginCapabilityAdapter", () => {
 		const sessionId = adapter.openSession("community");
 
 		expect(access.sessions[0]?.grants).toEqual([]);
+		expect(() => adapter.getAgentExperimental(sessionId)).toThrowError(
+			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
+		);
 		expect(() => adapter.getGeneralSettings(sessionId)).toThrowError(
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);

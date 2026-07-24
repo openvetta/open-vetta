@@ -1,6 +1,8 @@
 export const PLUGIN_CAPABILITY_CHANNELS = {
 	OPEN_SESSION: "vetta:plugins:capabilities:open-session",
 	CLOSE_SESSION: "vetta:plugins:capabilities:close-session",
+	AGENT_SETTINGS_EXPERIMENTAL_GET: "vetta:plugins:capabilities:agent-settings:experimental:get",
+	AGENT_SETTINGS_EXPERIMENTAL_SET: "vetta:plugins:capabilities:agent-settings:experimental:set",
 	GENERAL_SETTINGS_GET: "vetta:plugins:capabilities:general-settings:get",
 	GENERAL_SETTINGS_NOTIFICATIONS_SET: "vetta:plugins:capabilities:general-settings:notifications:set",
 	GENERAL_SETTINGS_DEFAULT_EXECUTION_MODE_SET:

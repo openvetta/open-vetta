@@ -4,6 +4,11 @@ import { CAPABILITY_PREFIXES } from "./contracts.js";
 export const VETTA_DOMAIN_CAPABILITY_PREFIX = CAPABILITY_PREFIXES.VETTA_DOMAIN;
 
 export {
+	type AgentExperimentalSettings,
+	type AgentExperimentalSettingsUpdate,
+	DOMAIN_AGENT_SETTINGS_CAPABILITIES,
+} from "./domain/agent-settings.js";
+export {
 	BATCH_COMMAND_STATUSES,
 	BATCH_EXECUTION_MODES,
 	BATCH_SKILL_TYPES,

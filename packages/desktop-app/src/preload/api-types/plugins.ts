@@ -1,4 +1,6 @@
 import type {
+	AgentExperimentalSettings,
+	AgentExperimentalSettingsUpdate,
 	BatchProject,
 	BatchProjectCreateData,
 	BatchProjectUpdateData,
@@ -470,6 +472,11 @@ export interface DesktopPluginCapabilityGeneralSettingsApi {
 	setWorkspace(sessionId: string, path: string): Promise<WorkspaceSettingInput>;
 }
 
+export interface DesktopPluginCapabilityAgentSettingsApi {
+	getExperimental(sessionId: string): Promise<AgentExperimentalSettings>;
+	setExperimental(sessionId: string, input: AgentExperimentalSettingsUpdate): Promise<AgentExperimentalSettings>;
+}
+
 export interface DesktopPluginCapabilityBatchTasksApi {
 	listProjects(sessionId: string): Promise<BatchProject[]>;
 	getProject(sessionId: string, projectId: string): Promise<BatchProject>;
@@ -583,6 +590,7 @@ export interface DesktopPluginCapabilityWebhookApi {
 export interface DesktopPluginInternalCapabilitiesApi {
 	openSession(pluginId: string): Promise<string>;
 	closeSession(sessionId: string): Promise<void>;
+	agentSettings: DesktopPluginCapabilityAgentSettingsApi;
 	batchTasks: DesktopPluginCapabilityBatchTasksApi;
 	filesystem: DesktopPluginCapabilityFilesystemApi;
 	generalSettings: DesktopPluginCapabilityGeneralSettingsApi;
