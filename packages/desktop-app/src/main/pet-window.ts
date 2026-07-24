@@ -648,7 +648,15 @@ export function setPetMousePassthrough(enabled: boolean): void {
 	if (enabled && windowMoveSession) return;
 	if (isMousePassthroughEnabled === enabled) return;
 	isMousePassthroughEnabled = enabled;
-	win.setIgnoreMouseEvents(enabled, { forward: true });
+	// 穿透时不要用 { forward: true }：forward 仍会把 mousemove 送进桌宠页，
+	// 全屏透明层的 CSS cursor（如 cursor-move）会与下层主窗口光标互相抢写，
+	// 表现为鼠标移动时在 move/default 之间闪烁。命中检测改由主进程
+	// syncPetMousePassthroughForCursor 轮询 screen 光标 + video hitbox 完成。
+	if (enabled) {
+		win.setIgnoreMouseEvents(true);
+	} else {
+		win.setIgnoreMouseEvents(false);
+	}
 }
 
 export function setPetVideoHitbox(hitbox: PetVideoHitbox | undefined): void {
