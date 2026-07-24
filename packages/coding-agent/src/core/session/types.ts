@@ -180,8 +180,8 @@ export interface PromptOptions {
 	/**
 	 * Per-turn metadata carried from the host's PromptRequest. Not sent to the
 	 * model as content; consumed in the input pipeline:
-	 * - `{ imageMode: true }` — soft isolation: injects a hidden image intent
-	 *   instruction; image tools stay available by scope even without it.
+	 * - `{ pluginInstructions: string[] }` — hidden instructions contributed by
+	 *   active plugins for this turn.
 	 * - `{ knowledgeMode: true }` — hard isolation: exposes kb-read tools and
 	 *   injects a hidden “prefer knowledge base” instruction; without it those
 	 *   tools are stripped for this turn (except kb-processing scenario).

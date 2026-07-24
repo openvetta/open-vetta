@@ -5,10 +5,11 @@ import type { PluginConversationApi } from "./conversation.js";
 import type { Disposable } from "./disposable.js";
 import type { PluginFsApi } from "./fs.js";
 import type { PluginI18nApi } from "./i18n.js";
-import type { PluginImagesApi } from "./images.js";
+import type { PluginNetworkApi } from "./network.js";
 import type { PluginOfficialApi } from "./official.js";
 import type { PluginPermission } from "./permissions.js";
 import type { PluginSettingsApi } from "./settings.js";
+import type { PluginStorageApi } from "./storage.js";
 import type { PluginUiApi } from "./ui.js";
 
 export interface PluginPermissionApi {
@@ -32,7 +33,8 @@ export interface PluginContext {
 	official: PluginOfficialApi;
 	fs: PluginFsApi;
 	command: PluginCommandApi;
-	images: PluginImagesApi;
+	network: PluginNetworkApi;
+	storage: PluginStorageApi;
 	settings: PluginSettingsApi;
 	i18n: PluginI18nApi;
 	/** 当前工作模式（agent_mode 轴）。开发者据此做模式定制。见 ADR-0046。 */

@@ -295,13 +295,6 @@ export {
 	SubagentTypeRegistry,
 	WORKFLOW_SYSTEM_PROMPT,
 } from "./core/subagents/index.js";
-export {
-	createEditImageTool,
-	createGenerateImageTool,
-	type GenerateImageToolDetails,
-	type ImageToolBackend,
-	type ImageToolRef,
-} from "./core/tools/generate-image/index.js";
 // Tools
 export {
 	type AskUserQuestionAnswer,

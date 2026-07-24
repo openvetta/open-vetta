@@ -26,6 +26,7 @@ export type PluginPermission =
 	| "fs.read"
 	| "fs.write"
 	| "network.fetch"
-	| "images.generate"
+	| "storage.read"
+	| "storage.write"
 	| "settings.read"
 	| "settings.write";

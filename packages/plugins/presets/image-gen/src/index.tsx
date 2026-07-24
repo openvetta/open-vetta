@@ -11,11 +11,12 @@ import {
 } from "@vetta-org/plugin-sdk";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import "./style.css";
+import { createImageRepository, type ImageRepository } from "./image-repository";
+import { registerImageTools } from "./image-tools";
 
 /**
  * Card type this plugin renders. Both this renderer registration and the
- * coding-agent image tools' `details.cards` descriptors agree on this exact
- * string (globally unique, plugin-namespaced).
+ * plugin-owned image tools' card descriptors agree on this exact string.
  */
 const PREVIEW_CARD_TYPE = "image-gen:preview";
 
@@ -35,6 +36,7 @@ interface ImageCardPayload {
 // / session switch. Picking a target goes through ui.setEditImageAttachment.
 
 let pluginCtx: PluginContext | null = null;
+let imageRepository: ImageRepository | null = null;
 
 /** Reactive edit lineage (oldest → newest) for an image id. */
 // Module-level lineage cache. Critical for virtualization: the message list
@@ -55,14 +57,14 @@ function useLineage(imageId: string | undefined): PluginImageRef[] {
 	// lineage, and every card must re-evaluate (so a superseded turn self-hides).
 	const { isStreaming } = useActiveConversation();
 	useEffect(() => {
-		if (!imageId || !pluginCtx) {
+		if (!imageId || !imageRepository) {
 			setLineage([]);
 			return;
 		}
 		const cached = lineageCache.get(imageId);
 		if (cached) setLineage(cached); // paint cached synchronously; refetch reconciles
 		let cancelled = false;
-		void pluginCtx.images
+		void imageRepository
 			.lineage(imageId)
 			.then((refs) => {
 				const next = refs.length > 0 ? refs : [];
@@ -425,7 +427,17 @@ function ImagePreviewCard({ descriptor, pending }: PluginCardProps) {
 
 	// Toggle: clicking 编辑 on the already-attached image clears it; otherwise attach.
 	const onEdit = (ref: PluginImageRef): void => {
-		pluginCtx?.ui.setEditImageAttachment(ref.id === attachedId ? null : ref);
+		pluginCtx?.ui.setEditImageAttachment(
+			ref.id === attachedId
+				? null
+				: {
+						...ref,
+						promptInstruction:
+							`The user selected image id ${ref.id} for editing. ` +
+							`Call edit_image with sourceImageId="${ref.id}" and the user's requested change. ` +
+							"Do not call generate_image and do not answer with text only.",
+					},
+		);
 	};
 
 	// In-flight edit: this turn is producing the next version — show the lineage
@@ -685,12 +697,12 @@ function GenHistoryPanel() {
 	const reqId = useRef(0);
 
 	const refetch = useCallback(() => {
-		if (!sessionId || !pluginCtx) {
+		if (!sessionId || !imageRepository) {
 			setLineages([]);
 			return;
 		}
 		const my = ++reqId.current;
-		void pluginCtx.images
+		void imageRepository
 			.sessionLineages(sessionId)
 			.then((result) => {
 				if (my === reqId.current) setLineages(result);
@@ -844,6 +856,8 @@ export default definePlugin({
 		// could run after re-activate() and permanently null the ctx live components
 		// read, breaking 编辑/生成. The next activate() re-sets it.
 		pluginCtx = ctx;
+		imageRepository = createImageRepository(ctx.storage);
+		registerImageTools(ctx, imageRepository);
 		ctx.ui.registerInputAction({
 			id: "image-mode",
 			label: "%action.imageMode.label%",
@@ -861,7 +875,12 @@ export default definePlugin({
 					return false;
 				}
 			},
-			decoratePrompt: () => ({ metadata: { imageMode: true } }),
+			decoratePrompt: () => ({
+				instructions: [
+					"The user enabled image creation for this turn. Produce an actual image instead of only describing one. " +
+						"Use generate_image for a new scene, or edit_image when the request modifies a recent generated image.",
+				],
+			}),
 		});
 		ctx.ui.registerGlobalSlot({ id: "settings-guard", component: SettingsGuardDialog });
 		ctx.ui.registerCardRenderer({

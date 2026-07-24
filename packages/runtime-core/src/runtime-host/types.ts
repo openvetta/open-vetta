@@ -1,4 +1,4 @@
-import type { AgentSession, ConversationScenario, ImageToolBackend, ModelRegistry } from "@vetta/coding-agent";
+import type { AgentSession, ConversationScenario, ModelRegistry } from "@vetta/coding-agent";
 import type {
 	AgentPluginRuntimeConfig,
 	RuntimeSandboxGrantDecision,
@@ -84,11 +84,4 @@ export interface RuntimeHostOptions {
 	 * 后台刷新，以及 `reloadServerAuth` 在登录/登出时的同步刷新。
 	 */
 	modelRegistry?: ModelRegistry;
-	/**
-	 * 宿主图像后端。注入后，每个 session 会拿到 generate_image / edit_image 两个
-	 * 内置工具（customTools）：图像模式轮次 agent 自感知调 generate_image（文生图）
-	 * 或 edit_image（图改图）。coding-agent 不依赖宿主实现，desktop 把它接到主进程
-	 * 图像服务。
-	 */
-	imageBackend?: ImageToolBackend;
 }

@@ -642,8 +642,8 @@ export interface PromptRequest {
 	 * Per-turn metadata bag carried alongside the prompt. Not sent to the model
 	 * as content; consumed host-side / by the input pipeline. Opaque pass-through.
 	 * Known keys (coding-agent):
-	 * - `{ imageMode: true }` — soft isolation: hidden image intent instruction;
-	 *   image tools remain available by scope without it.
+	 * - `{ pluginInstructions: string[] }` — hidden per-turn instructions
+	 *   contributed by active plugins.
 	 * - `{ knowledgeMode: true }` — hard isolation: exposes kb-read tools + hidden
 	 *   knowledge-prefer instruction; without it those tools are stripped per turn.
 	 */

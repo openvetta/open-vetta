@@ -94,11 +94,13 @@ export interface PluginOpenActivityTabOptions {
 
 /**
  * Decoration a plugin contributes to the next outgoing prompt while its input
- * action is active. `metadata` is shallow-merged into the prompt request's
- * `metadata` bag, which the agent turn can read (e.g. `{ imageMode: true }`).
+ * action is active. `metadata` is shallow-merged into the prompt request and
+ * `instructions` are appended as hidden, model-visible guidance.
  */
 export interface PluginPromptDecoration {
 	metadata?: Record<string, unknown>;
+	/** Hidden plugin-owned instructions appended to the next agent turn. */
+	instructions?: string[];
 }
 
 /**
@@ -325,10 +327,10 @@ export interface PluginUiApi {
 	/**
 	 * Bind (or clear, with `null`) an image as the "edit target" for the next
 	 * outgoing prompt. The host renders it as a thumbnail capsule in the AI input
-	 * bar's top capsule strip and, at send time, injects `metadata.editImageId`
-	 * (the ref's id) so this turn edits that image. One-shot: cleared after the
-	 * prompt is sent (or when the user closes the capsule). Only the image
-	 * reference (id/url) crosses over — bytes stay out-of-band.
+	 * bar's top capsule strip and contributes the ref's optional hidden prompt
+	 * instruction at send time. One-shot: cleared after the prompt is sent (or
+	 * when the user closes the capsule). Only the image reference crosses over —
+	 * bytes stay out-of-band.
 	 */
 	setEditImageAttachment(ref: PluginImageRef | null): void;
 	/**
