@@ -33,6 +33,22 @@ export function createPluginsApi(ipc: IpcRenderer): Pick<DesktopApi, "plugins"> 
 					setAgentModel: (sessionId, modelKey, reasoningLevel) =>
 						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.IM_AGENT_MODEL_SET, sessionId, modelKey, reasoningLevel),
 				},
+				models: {
+					list: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.MODEL_LIST, sessionId),
+					getConfig: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.MODEL_CONFIG_GET, sessionId),
+					getProvider: (sessionId, provider) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.MODEL_PROVIDER_GET, sessionId, provider),
+					probe: (sessionId, provider, model) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.MODEL_PROBE, sessionId, provider, model),
+					validateModelKey: (sessionId, modelKey, operation) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.MODEL_KEY_VALIDATE, sessionId, modelKey, operation),
+					setDefault: (sessionId, modelKey) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.MODEL_DEFAULT_SET, sessionId, modelKey),
+					upsertProvider: (sessionId, provider, data) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.MODEL_PROVIDER_UPSERT, sessionId, provider, data),
+					removeProvider: (sessionId, provider) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.MODEL_PROVIDER_REMOVE, sessionId, provider),
+				},
 				batchTasks: {
 					listProjects: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.BATCH_PROJECT_LIST, sessionId),
 					getProject: (sessionId, projectId) =>

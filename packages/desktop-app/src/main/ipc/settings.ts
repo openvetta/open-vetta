@@ -6,8 +6,9 @@ import { app, BrowserWindow, ipcMain, powerMonitor } from "electron";
 import type { RefreshOutcome } from "../../preload/api.js";
 import { DEFAULT_SERVER_URL, DEFAULT_SITE_URL } from "../constants.js";
 import { getAppLogger } from "../logger.js";
+import { getDesktopModelSettingsService } from "../models/model-settings-host.js";
+import type { ModelsConfig, ProviderConfig } from "../models/model-settings-service.js";
 import { peekSharedRuntime } from "../runtime.js";
-import { type ModelsConfig, type ProviderConfig, readModelsConfig, writeModelsConfig } from "./fs.js";
 
 const settingsLog = getAppLogger("settings");
 
@@ -327,9 +328,10 @@ export async function syncProviderTemplates(): Promise<ProviderTemplatesResult> 
 	const result = await fetchProviderTemplates();
 	if (result.templates.length > 0) {
 		try {
-			const config = await readModelsConfig();
+			const models = getDesktopModelSettingsService();
+			const config = await models.getConfig();
 			if (mergeAdoptedTemplates(config, result.templates)) {
-				await writeModelsConfig(config);
+				await models.replaceConfig(config);
 			}
 		} catch (err) {
 			settingsLog.warn("mergeAdoptedTemplates failed:", err);

@@ -24,9 +24,12 @@ describe("createOfficialImApi", () => {
 			restart: vi.fn().mockResolvedValue(runtime),
 			setAgentModel: vi.fn().mockResolvedValue(runtime),
 		};
+		const models = {
+			validateModelKey: vi.fn().mockResolvedValue(undefined),
+		};
 		Object.defineProperty(globalThis, "window", {
 			configurable: true,
-			value: { vetta: { plugins: { internalCapabilities: { im } } } },
+			value: { vetta: { plugins: { internalCapabilities: { im, models } } } },
 		});
 		const assertOfficial = vi.fn();
 		const api = createOfficialImApi(assertOfficial, "capability-session");
@@ -36,12 +39,14 @@ describe("createOfficialImApi", () => {
 		await expect(api.setEnabled(true)).resolves.toEqual({ status: runtime });
 		await expect(api.restart()).resolves.toEqual({ status: runtime });
 		await expect(api.setAgentModel("openai/gpt-5", "high")).resolves.toEqual({ status: runtime });
+		await expect(api.assertModelKeyExists("openai/gpt-5")).resolves.toBeUndefined();
 
-		expect(assertOfficial).toHaveBeenCalledTimes(5);
+		expect(assertOfficial).toHaveBeenCalledTimes(6);
 		expect(im.getStatus).toHaveBeenCalledWith("capability-session");
 		expect(im.listLogs).toHaveBeenCalledWith("capability-session", 50);
 		expect(im.setEnabled).toHaveBeenCalledWith("capability-session", true);
 		expect(im.restart).toHaveBeenCalledWith("capability-session");
 		expect(im.setAgentModel).toHaveBeenCalledWith("capability-session", "openai/gpt-5", "high");
+		expect(models.validateModelKey).toHaveBeenCalledWith("capability-session", "openai/gpt-5", "set-agent-model");
 	});
 });

@@ -15,6 +15,7 @@ import {
 	DOMAIN_GENERAL_SETTINGS_CAPABILITIES,
 	DOMAIN_IM_CAPABILITIES,
 	DOMAIN_KNOWLEDGE_CAPABILITIES,
+	DOMAIN_MODEL_CAPABILITIES,
 	DOMAIN_PROJECT_CAPABILITIES,
 	DOMAIN_QUICK_PANEL_CAPABILITIES,
 	DOMAIN_SCHEDULER_CAPABILITIES,
@@ -102,6 +103,34 @@ function outputFor(capabilityId: CapabilityId): unknown {
 		capabilityId === DOMAIN_IM_CAPABILITIES.SET_AGENT_MODEL.id
 	) {
 		return imRuntime;
+	}
+	if (capabilityId === DOMAIN_MODEL_CAPABILITIES.LIST.id) {
+		return {
+			defaultModel: "openai/gpt-5",
+			providers: [
+				{
+					id: "openai",
+					displayName: "OpenAI",
+					hasApiKey: true,
+					modelCount: 1,
+					models: [{ id: "gpt-5", reasoning: true }],
+				},
+			],
+		};
+	}
+	if (capabilityId === DOMAIN_MODEL_CAPABILITIES.GET_CONFIG.id) {
+		return {
+			defaultModel: "openai/gpt-5",
+			providers: { openai: { apiKey: "***", models: [{ id: "gpt-5" }] } },
+		};
+	}
+	if (capabilityId === DOMAIN_MODEL_CAPABILITIES.GET_PROVIDER.id) {
+		return { provider: "openai", apiKey: "***", models: [{ id: "gpt-5" }] };
+	}
+	if (capabilityId === DOMAIN_MODEL_CAPABILITIES.PROBE.id) return { ok: true };
+	if (capabilityId === DOMAIN_MODEL_CAPABILITIES.SET_DEFAULT.id) return { defaultModel: "openai/gpt-5" };
+	if (capabilityId === DOMAIN_MODEL_CAPABILITIES.UPSERT_PROVIDER.id) {
+		return { apiKey: "***", models: [{ id: "gpt-5" }] };
 	}
 	if (
 		capabilityId === DOMAIN_BATCH_TASK_CAPABILITIES.LIST_PROJECTS.id ||
@@ -398,6 +427,7 @@ describe("PluginCapabilityAdapter", () => {
 			...Object.values(DOMAIN_AGENT_SETTINGS_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_GENERAL_SETTINGS_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_IM_CAPABILITIES).map((capability) => capability.id),
+			...Object.values(DOMAIN_MODEL_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_BATCH_TASK_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_DOWNLOAD_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_UPDATER_CAPABILITIES).map((capability) => capability.id),
@@ -439,6 +469,12 @@ describe("PluginCapabilityAdapter", () => {
 		expect(() => adapter.setImAgentModel(sessionId, "invalid", "high")).toThrowError(
 			"IM agent model key must use the provider/model format",
 		);
+		await expect(adapter.listModels(sessionId)).resolves.toHaveProperty("defaultModel", "openai/gpt-5");
+		await expect(adapter.getModelProvider(sessionId, "openai")).resolves.toHaveProperty("apiKey", "***");
+		await expect(adapter.validateModelKey(sessionId, "openai/gpt-5")).resolves.toBeUndefined();
+		await expect(adapter.setDefaultModel(sessionId, "openai/gpt-5")).resolves.toEqual({
+			defaultModel: "openai/gpt-5",
+		});
 		await expect(adapter.listBatchProjects(sessionId)).resolves.toHaveLength(1);
 		await expect(adapter.resumeBatchTask(sessionId, "C:/workspace/Batch", "task")).resolves.toEqual({
 			status: "accepted",
@@ -533,6 +569,9 @@ describe("PluginCapabilityAdapter", () => {
 		expect(() => adapter.getImStatus(sessionId)).toThrowError(
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
+		expect(() => adapter.listModels(sessionId)).toThrowError(
+			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
+		);
 		expect(() => adapter.listBatchProjects(sessionId)).toThrowError(
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
@@ -578,6 +617,9 @@ describe("PluginCapabilityAdapter", () => {
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
 		expect(() => adapter.getImStatus(sessionId)).toThrowError(
+			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
+		);
+		expect(() => adapter.listModels(sessionId)).toThrowError(
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
 		expect(() => adapter.listBatchProjects(sessionId)).toThrowError(

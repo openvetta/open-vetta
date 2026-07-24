@@ -91,6 +91,25 @@ export {
 	type KnowledgeSetProcessingInput,
 } from "./domain/knowledge.js";
 export {
+	DOMAIN_MODEL_CAPABILITIES,
+	type ModelConfigSnapshot,
+	type ModelCost,
+	type ModelDefaultInput,
+	type ModelDefaultResult,
+	type ModelDefinitionDetail,
+	type ModelKeyValidationInput,
+	type ModelListResult,
+	type ModelProbeInput,
+	type ModelProbeResult,
+	type ModelProviderConfigSnapshot,
+	type ModelProviderDetail,
+	type ModelProviderInput,
+	type ModelProviderSummary,
+	type ModelProviderUpsertData,
+	type ModelProviderUpsertInput,
+	type ModelSummary,
+} from "./domain/model.js";
+export {
 	DOMAIN_PROJECT_CAPABILITIES,
 	type ProjectCreateInput,
 	type ProjectEntry,

@@ -1,6 +1,6 @@
 import { resolveConfigValue, resolveHeaders } from "@vetta/coding-agent/core/resolve-config-value.js";
 import { net } from "electron";
-import { readModelsConfig } from "../ipc/fs.js";
+import { getDesktopModelSettingsService } from "./model-settings-host.js";
 
 /**
  * 拉取本地自定义 provider 的 `GET {baseUrl}/models`（OpenAI 兼容接口），
@@ -14,7 +14,7 @@ import { readModelsConfig } from "../ipc/fs.js";
  * 网络栈，绕开 macOS 15 本地网络权限限制。
  */
 export async function fetchProviderModels(providerName: string): Promise<{ models: string[]; error?: string }> {
-	const config = await readModelsConfig();
+	const config = await getDesktopModelSettingsService().getConfig();
 	const provider = config.providers[providerName];
 	if (!provider) return { models: [], error: `provider "${providerName}" 不在本地 models.json` };
 	if (!provider.baseUrl) return { models: [], error: `provider "${providerName}" 缺 baseUrl` };

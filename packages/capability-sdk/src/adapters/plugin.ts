@@ -13,6 +13,7 @@ import {
 	DOMAIN_GENERAL_SETTINGS_CAPABILITIES,
 	DOMAIN_IM_CAPABILITIES,
 	DOMAIN_KNOWLEDGE_CAPABILITIES,
+	DOMAIN_MODEL_CAPABILITIES,
 	DOMAIN_PROJECT_CAPABILITIES,
 	DOMAIN_QUICK_PANEL_CAPABILITIES,
 	DOMAIN_SCHEDULER_CAPABILITIES,
@@ -32,6 +33,12 @@ import {
 	type KnowledgeFileStatuses,
 	type KnowledgeProcessingSettings,
 	type KnowledgeScanResult,
+	type ModelConfigSnapshot,
+	type ModelDefaultResult,
+	type ModelListResult,
+	type ModelProbeResult,
+	type ModelProviderConfigSnapshot,
+	type ModelProviderDetail,
 	type NotificationsSettingInput,
 	type ProjectEntry,
 	type ProjectListResult,
@@ -145,6 +152,14 @@ export class PluginCapabilityAdapter {
 						createCapabilityGrant(DOMAIN_IM_CAPABILITIES.SET_ENABLED),
 						createCapabilityGrant(DOMAIN_IM_CAPABILITIES.RESTART),
 						createCapabilityGrant(DOMAIN_IM_CAPABILITIES.SET_AGENT_MODEL),
+						createCapabilityGrant(DOMAIN_MODEL_CAPABILITIES.LIST),
+						createCapabilityGrant(DOMAIN_MODEL_CAPABILITIES.GET_CONFIG),
+						createCapabilityGrant(DOMAIN_MODEL_CAPABILITIES.GET_PROVIDER),
+						createCapabilityGrant(DOMAIN_MODEL_CAPABILITIES.PROBE),
+						createCapabilityGrant(DOMAIN_MODEL_CAPABILITIES.VALIDATE_KEY),
+						createCapabilityGrant(DOMAIN_MODEL_CAPABILITIES.SET_DEFAULT),
+						createCapabilityGrant(DOMAIN_MODEL_CAPABILITIES.UPSERT_PROVIDER),
+						createCapabilityGrant(DOMAIN_MODEL_CAPABILITIES.REMOVE_PROVIDER),
 						createCapabilityGrant(DOMAIN_BATCH_TASK_CAPABILITIES.LIST_PROJECTS),
 						createCapabilityGrant(DOMAIN_BATCH_TASK_CAPABILITIES.GET_PROJECT),
 						createCapabilityGrant(DOMAIN_BATCH_TASK_CAPABILITIES.CREATE_PROJECT),
@@ -370,6 +385,50 @@ export class PluginCapabilityAdapter {
 	setImAgentModel(sessionId: string, modelKey: string | null, reasoningLevel?: string): Promise<ImRuntimeStatus> {
 		return this.client(sessionId, { official: true }).invoke(DOMAIN_IM_CAPABILITIES.SET_AGENT_MODEL, {
 			agentModel: modelKey === null ? null : parseImAgentModelKey(modelKey, reasoningLevel),
+		});
+	}
+
+	listModels(sessionId: string): Promise<ModelListResult> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_MODEL_CAPABILITIES.LIST, {});
+	}
+
+	getModelConfig(sessionId: string): Promise<ModelConfigSnapshot> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_MODEL_CAPABILITIES.GET_CONFIG, {});
+	}
+
+	getModelProvider(sessionId: string, provider: string): Promise<ModelProviderDetail> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_MODEL_CAPABILITIES.GET_PROVIDER, { provider });
+	}
+
+	probeModel(sessionId: string, provider: string, model: string): Promise<ModelProbeResult> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_MODEL_CAPABILITIES.PROBE, {
+			provider,
+			model,
+		});
+	}
+
+	validateModelKey(sessionId: string, modelKey: string, operation?: string): Promise<undefined> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_MODEL_CAPABILITIES.VALIDATE_KEY, {
+			modelKey,
+			...(operation === undefined ? {} : { operation }),
+		});
+	}
+
+	setDefaultModel(sessionId: string, modelKey: string): Promise<ModelDefaultResult> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_MODEL_CAPABILITIES.SET_DEFAULT, { modelKey });
+	}
+
+	upsertModelProvider(sessionId: string, provider: string, data: unknown): Promise<ModelProviderConfigSnapshot> {
+		const input = DOMAIN_MODEL_CAPABILITIES.UPSERT_PROVIDER.parseInput({
+			provider,
+			data,
+		});
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_MODEL_CAPABILITIES.UPSERT_PROVIDER, input);
+	}
+
+	removeModelProvider(sessionId: string, provider: string): Promise<undefined> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_MODEL_CAPABILITIES.REMOVE_PROVIDER, {
+			provider,
 		});
 	}
 

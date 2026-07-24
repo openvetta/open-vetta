@@ -35,7 +35,7 @@ export function createPluginOfficialApi(plugin: InstalledPlugin, capabilitySessi
 		shortcuts: createOfficialShortcutsApi(assertOfficial, capabilitySessionId),
 		im: createOfficialImApi(assertOfficial, capabilitySessionId),
 		mcp: createOfficialMcpApi(assertOfficial),
-		models: createOfficialModelsApi(assertOfficial),
+		models: createOfficialModelsApi(assertOfficial, capabilitySessionId),
 		projects: createOfficialProjectsApi(assertOfficial, capabilitySessionId),
 		plugins: createOfficialPluginsApi(assertOfficial),
 		knowledge: createOfficialKnowledgeApi(assertOfficial, capabilitySessionId),
