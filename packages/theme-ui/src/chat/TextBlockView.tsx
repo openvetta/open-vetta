@@ -156,6 +156,29 @@ function useStreamingDisplayText(text: string, active: boolean): StreamingDispla
 			}, delayMs);
 		}
 
+		/**
+		 * Non-tail mode (e.g. marketing story drives its own char reveal):
+		 * mirror `text` immediately. Do not 500ms-batch catch-up — that dumps
+		 * the whole backlog as one flash on top of the host’s progressive text.
+		 */
+		if (!active) {
+			if (rafRef.current !== null) {
+				cancelAnimationFrame(rafRef.current);
+				rafRef.current = null;
+			}
+			clearRevealTimer();
+			clearSettleTimer();
+			displayRef.current = text;
+			setDisplayText(text);
+			setAnimateChunks(false);
+			lastRevealRef.current = null;
+			wasActiveRef.current = active;
+			return () => {
+				clearRevealTimer();
+				clearSettleTimer();
+			};
+		}
+
 		if (!text.startsWith(displayRef.current)) {
 			if (rafRef.current !== null) {
 				cancelAnimationFrame(rafRef.current);
@@ -189,14 +212,11 @@ function useStreamingDisplayText(text: string, active: boolean): StreamingDispla
 			}
 			lastRevealRef.current = timestamp;
 
+			// Catch up to the host target for this interval (chunk animation via rehype).
 			const next = target;
 			displayRef.current = next;
 			setAnimateChunks(true);
 			setDisplayText(next);
-
-			if (!active) {
-				scheduleSettle();
-			}
 		}
 
 		if (active && !wasActiveRef.current && displayRef.current.length >= text.length) {
@@ -206,15 +226,9 @@ function useStreamingDisplayText(text: string, active: boolean): StreamingDispla
 			lastRevealRef.current = null;
 		}
 		wasActiveRef.current = active;
-		if (active) {
-			clearRevealTimer();
-			clearSettleTimer();
-			setAnimateChunks(true);
-		} else if (displayRef.current.length < text.length) {
-			setAnimateChunks(true);
-		} else {
-			scheduleSettle();
-		}
+		clearRevealTimer();
+		clearSettleTimer();
+		setAnimateChunks(true);
 
 		if (rafRef.current === null && displayRef.current.length < text.length) {
 			const previousReveal = lastRevealRef.current;
