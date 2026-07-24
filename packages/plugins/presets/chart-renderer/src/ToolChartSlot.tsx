@@ -14,7 +14,7 @@ type ChartArgs = {
 export function ToolChartSlot({ toolCall }: PluginToolCallSlotProps) {
 	const { t } = useTranslation();
 	const args = (toolCall.args && typeof toolCall.args === "object" ? toolCall.args : {}) as ChartArgs;
-	const rawCharts = args.charts ?? (args.data ? [args] : []);
+	const rawCharts = Array.isArray(args.charts) ? args.charts : args.data ? [args] : [];
 	const payload =
 		rawCharts.length > 0
 			? {
