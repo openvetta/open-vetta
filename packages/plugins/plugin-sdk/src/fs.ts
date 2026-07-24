@@ -23,9 +23,16 @@ export interface PluginFsReadResult {
 	encoding: "utf8" | "base64";
 }
 
+export interface PluginFsBinaryReadResult {
+	data: string;
+	mimeType: string;
+	size: number;
+}
+
 export interface PluginFsApi {
 	readDir(dirPath: string): Promise<PluginFsEntry[]>;
 	readFile(filePath: string): Promise<PluginFsReadResult>;
+	readBinaryFile(filePath: string): Promise<PluginFsBinaryReadResult>;
 	/** Pass `encoding: "base64"` to write binary payloads (decoded from base64 text). */
 	writeFile(filePath: string, content: string, encoding?: "utf8" | "base64"): Promise<void>;
 	stat(filePath: string): Promise<PluginFsStatResult | null>;

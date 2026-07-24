@@ -1,5 +1,5 @@
 import type { ConversationMessage, ConversationState, PluginConversationApi } from "./conversation.js";
-import type { PluginImageRef } from "./images.js";
+import type { PluginPromptAttachment } from "./prompt-attachment.js";
 
 // ─── Host bridge ───
 //
@@ -12,7 +12,7 @@ import type { PluginImageRef } from "./images.js";
 export interface PluginHostBridge {
 	useActiveConversation(): ConversationState;
 	useConversationMessages(): ConversationMessage[];
-	useEditImageAttachment(): PluginImageRef | null;
+	usePromptAttachment(): PluginPromptAttachment | null;
 	/** Reactive: the host's current locale code (e.g. "zh"). */
 	useLocale(): string;
 	conversation: PluginConversationApi;

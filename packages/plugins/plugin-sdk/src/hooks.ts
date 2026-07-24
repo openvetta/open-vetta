@@ -3,7 +3,7 @@ import type { ConversationMessage, ConversationState } from "./conversation.js";
 import { requireBridge } from "./host-bridge.js";
 import type { PluginLocales, PluginTranslate } from "./i18n.js";
 import { resolveCatalogKey } from "./i18n.js";
-import type { PluginImageRef } from "./images.js";
+import type { PluginPromptAttachment } from "./prompt-attachment.js";
 
 // ─── i18n context (host-provided, per plugin) ───
 
@@ -57,11 +57,9 @@ export function useConversationMessages(): ConversationMessage[] {
 }
 
 /**
- * Reactive: the image currently bound as the edit target via
- * `ui.setEditImageAttachment` (or null). Single source of truth for the
- * "selected for edit" highlight — clears automatically when the host drops the
- * attachment (send, capsule close, or session switch).
+ * Reactive: the plugin-owned one-shot context attached to the next prompt.
+ * Clears automatically after send, capsule close, or session switch.
  */
-export function useEditImageAttachment(): PluginImageRef | null {
-	return requireBridge().useEditImageAttachment();
+export function usePromptAttachment(): PluginPromptAttachment | null {
+	return requireBridge().usePromptAttachment();
 }

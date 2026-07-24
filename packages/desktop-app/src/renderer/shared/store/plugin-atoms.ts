@@ -3,9 +3,9 @@ import type {
 	PluginActivityTabContribution,
 	PluginCardRendererContribution,
 	PluginFilePreviewContribution,
-	PluginImageRef,
 	PluginInputActionContribution,
 	PluginLocales,
+	PluginPromptAttachment,
 	PluginToolCallSlotContribution,
 	PluginTurnCardContribution,
 } from "@vetta-org/plugin-sdk";
@@ -304,18 +304,12 @@ export interface RegisteredTurnCard {
 export const pluginTurnCardsAtom = atom<RegisteredTurnCard[]>([]);
 
 /**
- * The image a plugin (image-gen) bound as the "edit target" via
- * `ui.setEditImageAttachment`. Rendered as a thumbnail capsule in the AI input
- * bar's top capsule strip; its plugin-owned hidden instruction is consumed at
- * send time, then cleared (one-shot). `null` when nothing is attached.
+ * Plugin-owned one-shot context for the next outgoing prompt. The host renders
+ * its label/icon in the input bar, merges metadata and hidden instructions at
+ * send time, then clears it. `null` when nothing is attached.
  */
-export const editImageAttachmentAtom = atom<PluginImageRef | null>(null);
+export interface RegisteredPromptAttachment extends PluginPromptAttachment {
+	ownerPluginId: string;
+}
 
-/**
- * The source image id of the current in-flight edit turn (set at send when an
- * edit attachment was present, reset on each send). Lets the card host
- * mark the generating message as editing that image's lineage — so its preview
- * card shows the full version swiper with a leading "generating" skeleton, and
- * the prior message's duplicate card self-hides.
- */
-export const pendingEditImageIdAtom = atom<string | null>(null);
+export const promptAttachmentAtom = atom<RegisteredPromptAttachment | null>(null);

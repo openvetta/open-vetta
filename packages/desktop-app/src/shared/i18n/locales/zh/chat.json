@@ -261,7 +261,6 @@
 			"appshotThumbnailAlt": "截图",
 			"appshotPreview": "预览截图",
 			"appshotIconAlt": "应用图标",
-			"editImage": "编辑选中图片",
 			"removeDefault": "点击移除",
 			"removeImage": "移除图片",
 			"removeTooltip": "{{path}}\n点击移除"

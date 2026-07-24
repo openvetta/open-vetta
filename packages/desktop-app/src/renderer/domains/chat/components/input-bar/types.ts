@@ -20,7 +20,6 @@ export interface InputBarProps {
 
 export interface InputBarLabels {
 	capsule: {
-		editImage: string;
 		removeDefault: string;
 		removeImage: string;
 		removeTooltip: (path: string) => string;
@@ -108,7 +107,9 @@ export interface InputBarModel {
 	atOpen: boolean;
 	drawerItems: InputBarDrawerItem[];
 	drawerActiveTab: string | null;
-	hasEditImageAttachment: boolean;
+	hasPromptAttachment: boolean;
+	promptAttachmentIcon?: string;
+	promptAttachmentLabel?: string;
 	/** Latest user message replacement pending (applied on send). */
 	pendingMessageEdit: boolean;
 	pendingEditHint: string;
@@ -132,7 +133,7 @@ export interface InputBarModel {
 		removeImage: (id: string) => void;
 		removeSkill: () => void;
 		removeFile: (path: string) => void;
-		removeEditImage: () => void;
+		removePromptAttachment: () => void;
 		removeAppshot: () => void;
 		openImagePreview: (index: number) => void;
 		handlePlusClick: () => void;

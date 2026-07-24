@@ -14,7 +14,7 @@
 | [permissions.md](./permissions.md) | 权限完整清单、门控点、声明/授权流程 |
 | [ui-slots.md](./ui-slots.md) | **notify 全局 Toast** / 文件预览（**含大文件 getUrl 规范**）/ 全局浮层 / 活动 Tab / 输入栏动作 / **Turn 卡** / **Tool-call 槽** |
 | [message-cards.md](./message-cards.md) | 消息卡片：`details.cards`、`registerCardRenderer`、`pendingFor`、跨轮去重 |
-| [conversation-and-agent.md](./conversation-and-agent.md) | 对话、registerTool、**command.run**、fs、images、settings、**i18n**、**工作模式 getAgentMode** |
+| [conversation-and-agent.md](./conversation-and-agent.md) | 对话、registerTool、**command.run**、fs、network、storage、settings、**i18n**、**工作模式 getAgentMode** |
 | [app-actions.md](./app-actions.md) | 动态 App Action：JSON Schema、审批、生命周期、取消与独立发布 |
 | [system-plugins.md](./system-plugins.md) | 系统插件（presets）、租户打包 |
 | [styling-and-pitfalls.md](./styling-and-pitfalls.md) | 样式、MF 顶层 JSX 陷阱、缓存与 version bump |
@@ -39,7 +39,8 @@
 | 注册 App Action | `ctx.appActions.register` | `app.actions.register` + `app.actionHandler.execute` | [app-actions](./app-actions.md) |
 | 跑宿主命令 | `ctx.command.run` + 清单 `commands` | `agent.command.run` | [conversation-and-agent](./conversation-and-agent.md#命令执行-command) |
 | 读写文件 | `ctx.fs.*` | `fs.read` / `fs.write` | [conversation-and-agent](./conversation-and-agent.md#文件-api) |
-| 图像生成 / 编辑 | `ctx.images.*` | `images.generate` | [conversation-and-agent](./conversation-and-agent.md#图像-api) |
+| 宿主代理网络请求 | `ctx.network.request` | `network.fetch` | [conversation-and-agent](./conversation-and-agent.md#网络-api) |
+| 插件私有持久化 | `ctx.storage.*` | `storage.read` / `storage.write` | [conversation-and-agent](./conversation-and-agent.md#插件私有存储-api) |
 | 读自身设置 | `ctx.settings.*` | 无 | [conversation-and-agent](./conversation-and-agent.md#设置-api) |
 | 插件 i18n | `ctx.i18n` / `useTranslation` + `locales/` | 无（catalog 随包） | [conversation-and-agent](./conversation-and-agent.md#插件-i18n) / [manifest](./manifest.md#i18n) |
 | 新会话引导词 | `plugin.json` `guidingWords` | 无 | [manifest](./manifest.md#guidingwords引导词) |

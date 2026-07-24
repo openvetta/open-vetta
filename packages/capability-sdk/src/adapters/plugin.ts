@@ -66,11 +66,16 @@ import {
 	type WorkspaceSettingInput,
 } from "../domain.js";
 import {
+	type CapabilityJsonValue,
 	type FilesystemEntry,
 	type FilesystemFileRef,
+	type FilesystemReadBinaryFileResult,
 	type FilesystemReadFileResult,
 	type FilesystemStatResult,
 	FOUNDATION_FILESYSTEM_CAPABILITIES,
+	FOUNDATION_PLUGIN_NETWORK_CAPABILITIES,
+	FOUNDATION_PLUGIN_STORAGE_CAPABILITIES,
+	parseCapabilityJsonValue,
 } from "../foundation.js";
 
 const PLUGIN_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,63}$/;
@@ -90,6 +95,9 @@ function parseImAgentModelKey(modelKey: string, reasoningLevel?: string) {
 export const PLUGIN_CAPABILITY_PERMISSIONS = {
 	FILESYSTEM_READ: "fs.read",
 	FILESYSTEM_WRITE: "fs.write",
+	NETWORK_FETCH: "network.fetch",
+	STORAGE_READ: "storage.read",
+	STORAGE_WRITE: "storage.write",
 } as const;
 
 export interface PluginCapabilityAdapterOptions {
@@ -129,6 +137,7 @@ export class PluginCapabilityAdapter {
 				? [
 						createCapabilityGrant(FOUNDATION_FILESYSTEM_CAPABILITIES.READ_DIRECTORY),
 						createCapabilityGrant(FOUNDATION_FILESYSTEM_CAPABILITIES.READ_FILE),
+						createCapabilityGrant(FOUNDATION_FILESYSTEM_CAPABILITIES.READ_BINARY_FILE),
 						createCapabilityGrant(FOUNDATION_FILESYSTEM_CAPABILITIES.STAT),
 						createCapabilityGrant(FOUNDATION_FILESYSTEM_CAPABILITIES.LIST_FILES_RECURSIVE),
 					]
@@ -141,6 +150,15 @@ export class PluginCapabilityAdapter {
 						createCapabilityGrant(FOUNDATION_FILESYSTEM_CAPABILITIES.MOVE),
 						createCapabilityGrant(FOUNDATION_FILESYSTEM_CAPABILITIES.CREATE_DIRECTORY),
 					]
+				: []),
+			...(permissions.has(PLUGIN_CAPABILITY_PERMISSIONS.NETWORK_FETCH)
+				? [createCapabilityGrant(FOUNDATION_PLUGIN_NETWORK_CAPABILITIES.REQUEST)]
+				: []),
+			...(permissions.has(PLUGIN_CAPABILITY_PERMISSIONS.STORAGE_READ)
+				? [createCapabilityGrant(FOUNDATION_PLUGIN_STORAGE_CAPABILITIES.READ)]
+				: []),
+			...(permissions.has(PLUGIN_CAPABILITY_PERMISSIONS.STORAGE_WRITE)
+				? [createCapabilityGrant(FOUNDATION_PLUGIN_STORAGE_CAPABILITIES.WRITE)]
 				: []),
 			...(official
 				? [
@@ -285,6 +303,13 @@ export class PluginCapabilityAdapter {
 		);
 	}
 
+	readBinaryFile(sessionId: string, path: string): Promise<FilesystemReadBinaryFileResult> {
+		return this.client(sessionId, { permission: PLUGIN_CAPABILITY_PERMISSIONS.FILESYSTEM_READ }).invoke(
+			FOUNDATION_FILESYSTEM_CAPABILITIES.READ_BINARY_FILE,
+			{ path },
+		);
+	}
+
 	writeFile(sessionId: string, path: string, content: string, encoding?: "utf8" | "base64"): Promise<undefined> {
 		return this.client(sessionId, { permission: PLUGIN_CAPABILITY_PERMISSIONS.FILESYSTEM_WRITE }).invoke(
 			FOUNDATION_FILESYSTEM_CAPABILITIES.WRITE_FILE,
@@ -332,6 +357,32 @@ export class PluginCapabilityAdapter {
 			FOUNDATION_FILESYSTEM_CAPABILITIES.LIST_FILES_RECURSIVE,
 			{ path },
 		);
+	}
+
+	requestNetwork(sessionId: string, request: unknown): Promise<CapabilityJsonValue> {
+		const session = this.session(sessionId, { permission: PLUGIN_CAPABILITY_PERMISSIONS.NETWORK_FETCH });
+		return session.access.client.invoke(FOUNDATION_PLUGIN_NETWORK_CAPABILITIES.REQUEST, {
+			pluginId: session.pluginId,
+			payload: parseCapabilityJsonValue(request),
+		});
+	}
+
+	readStorage(sessionId: string, operation: string, payload: unknown): Promise<CapabilityJsonValue> {
+		const session = this.session(sessionId, { permission: PLUGIN_CAPABILITY_PERMISSIONS.STORAGE_READ });
+		return session.access.client.invoke(FOUNDATION_PLUGIN_STORAGE_CAPABILITIES.READ, {
+			pluginId: session.pluginId,
+			operation,
+			payload: parseCapabilityJsonValue(payload),
+		});
+	}
+
+	writeStorage(sessionId: string, operation: string, payload: unknown): Promise<CapabilityJsonValue> {
+		const session = this.session(sessionId, { permission: PLUGIN_CAPABILITY_PERMISSIONS.STORAGE_WRITE });
+		return session.access.client.invoke(FOUNDATION_PLUGIN_STORAGE_CAPABILITIES.WRITE, {
+			pluginId: session.pluginId,
+			operation,
+			payload: parseCapabilityJsonValue(payload),
+		});
 	}
 
 	listProjects(sessionId: string): Promise<ProjectListResult> {
@@ -856,6 +907,10 @@ export class PluginCapabilityAdapter {
 	}
 
 	private client(sessionId: string, requirement: PluginCapabilityRequirement): CapabilityAccessHandle["client"] {
+		return this.session(sessionId, requirement).access.client;
+	}
+
+	private session(sessionId: string, requirement: PluginCapabilityRequirement): PluginCapabilitySession {
 		const session = this.sessions.get(sessionId);
 		if (!session || session.access.isRevoked()) {
 			throw new CapabilityError(CAPABILITY_ERROR_CODES.SESSION_REVOKED, "Plugin capability session is not active");
@@ -872,6 +927,6 @@ export class PluginCapabilityAdapter {
 				`Plugin capability permission denied: ${requirement.permission}`,
 			);
 		}
-		return session.access.client;
+		return session;
 	}
 }

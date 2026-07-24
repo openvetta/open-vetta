@@ -123,6 +123,7 @@ export type {
 export type {
 	PluginFsEntry,
 	PluginFsFileRef,
+	PluginFsBinaryReadResult,
 	PluginFsStatResult,
 	PluginFsReadResult,
 	PluginFsApi,
@@ -133,6 +134,7 @@ export type {
 	PluginCommandApi,
 } from "./command.js";
 export type { PluginImageRef } from "./images.js";
+export type { PluginPromptAttachment } from "./prompt-attachment.js";
 export type {
 	PluginNetworkApi,
 	PluginNetworkBody,
@@ -175,5 +177,5 @@ export {
 	useTranslation,
 	useActiveConversation,
 	useConversationMessages,
-	useEditImageAttachment,
+	usePromptAttachment,
 } from "./hooks.js";

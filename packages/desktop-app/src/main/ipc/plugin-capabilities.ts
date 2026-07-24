@@ -292,6 +292,9 @@ export function registerPluginCapabilitiesIpc(): () => void {
 	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.FS_READ_FILE, (_event, sessionId: unknown, path: unknown) =>
 		adapter.readFile(requireString(sessionId, "sessionId"), requireString(path, "path")),
 	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.FS_READ_BINARY_FILE, (_event, sessionId: unknown, path: unknown) =>
+		adapter.readBinaryFile(requireString(sessionId, "sessionId"), requireString(path, "path")),
+	);
 	ipcMain.handle(
 		PLUGIN_CAPABILITY_CHANNELS.FS_WRITE_FILE,
 		(_event, sessionId: unknown, path: unknown, content: unknown, encoding: unknown) => {

@@ -103,6 +103,8 @@ export function createPluginsApi(ipc: IpcRenderer): Pick<DesktopApi, "plugins"> 
 					readDirectory: (sessionId, path) =>
 						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.FS_READ_DIRECTORY, sessionId, path),
 					readFile: (sessionId, path) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.FS_READ_FILE, sessionId, path),
+					readBinaryFile: (sessionId, path) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.FS_READ_BINARY_FILE, sessionId, path),
 					writeFile: (sessionId, path, content, encoding) =>
 						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.FS_WRITE_FILE, sessionId, path, content, encoding),
 					stat: (sessionId, path) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.FS_STAT, sessionId, path),
@@ -284,17 +286,17 @@ export function createPluginsApi(ipc: IpcRenderer): Pick<DesktopApi, "plugins"> 
 				ipc.invoke("vetta:plugins:system-prompt-response", requestId, result),
 			getSettings: (id) => ipc.invoke("vetta:plugins:get-settings", id),
 			setSettings: (id, values) => ipc.invoke("vetta:plugins:set-settings", id, values),
-			networkRequest: (pluginId, request) => ipc.invoke("vetta:plugins:network:request", pluginId, request),
-			storageReadJson: (pluginId, key) => ipc.invoke("vetta:plugins:storage:read-json", pluginId, key),
-			storageWriteJson: (pluginId, key, value) =>
-				ipc.invoke("vetta:plugins:storage:write-json", pluginId, key, value),
-			storageList: (pluginId, prefix) => ipc.invoke("vetta:plugins:storage:list", pluginId, prefix),
-			storageReadFile: (pluginId, path) => ipc.invoke("vetta:plugins:storage:read-file", pluginId, path),
-			storageWriteFile: (pluginId, path, data) =>
-				ipc.invoke("vetta:plugins:storage:write-file", pluginId, path, data),
-			storagePutBlob: (pluginId, input) => ipc.invoke("vetta:plugins:storage:put-blob", pluginId, input),
-			storageReadBlob: (pluginId, id) => ipc.invoke("vetta:plugins:storage:read-blob", pluginId, id),
-			storageGetBlobRef: (pluginId, id) => ipc.invoke("vetta:plugins:storage:get-blob-ref", pluginId, id),
+			networkRequest: (sessionId, request) => ipc.invoke("vetta:plugins:network:request", sessionId, request),
+			storageReadJson: (sessionId, key) => ipc.invoke("vetta:plugins:storage:read-json", sessionId, key),
+			storageWriteJson: (sessionId, key, value) =>
+				ipc.invoke("vetta:plugins:storage:write-json", sessionId, key, value),
+			storageList: (sessionId, prefix) => ipc.invoke("vetta:plugins:storage:list", sessionId, prefix),
+			storageReadFile: (sessionId, path) => ipc.invoke("vetta:plugins:storage:read-file", sessionId, path),
+			storageWriteFile: (sessionId, path, data) =>
+				ipc.invoke("vetta:plugins:storage:write-file", sessionId, path, data),
+			storagePutBlob: (sessionId, input) => ipc.invoke("vetta:plugins:storage:put-blob", sessionId, input),
+			storageReadBlob: (sessionId, id) => ipc.invoke("vetta:plugins:storage:read-blob", sessionId, id),
+			storageGetBlobRef: (sessionId, id) => ipc.invoke("vetta:plugins:storage:get-blob-ref", sessionId, id),
 			onSettingsChanged: (listener) => {
 				const handler = (
 					_event: IpcRendererEvent,

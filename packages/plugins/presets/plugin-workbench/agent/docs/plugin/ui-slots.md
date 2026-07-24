@@ -236,7 +236,7 @@ ctx.ui.openActivityTab(tabId, options?: { width?: number | "max" });
 
 ## 输入栏动作 registerInputAction
 
-在 AI 输入栏下方加一个**开关型动作按钮**（toggle）。激活时，宿主在每次发送前调用 `decoratePrompt()` 把元数据合并进外发 prompt。
+在 AI 输入栏下方加一个**开关型动作按钮**（toggle）。激活时，宿主在每次发送前调用 `decoratePrompt()`，把元数据和插件隐藏指令合并进外发 prompt。
 
 - 权限：`ui.slot.input-action`（缺权限**抛错**）
 - **`scope_use` fail-closed**；与 `requiresActiveTool` **取「与」**才显示
@@ -252,7 +252,10 @@ interface PluginInputActionContribution {
   /** 见下文「插件贡献硬隔离」 */
   hardIsolation?: boolean;
   onToggle?(active: boolean): boolean | void;  // 返回 false 可否决激活
-  decoratePrompt?(): { metadata?: Record<string, unknown> } | void;
+  decoratePrompt?(): {
+    metadata?: Record<string, unknown>;
+    instructions?: string[];
+  } | void;
 }
 ```
 
@@ -269,13 +272,15 @@ ctx.ui.registerInputAction({
       return false;
     }
   },
-  decoratePrompt: () => ({ metadata: { imageMode: true } }),
+  decoratePrompt: () => ({
+    instructions: ["Produce an actual image this turn by calling the appropriate plugin tool."],
+  }),
 });
 ```
 
 ### 软隔离 vs 硬隔离（内置对照）
 
-- **图像生成（软）**：工具不因 toggle 关闭而剥离；`imageMode` 只注入隐形意图提示。
+- **图像生成（软）**：工具不因 toggle 关闭而剥离；插件通过 `instructions` 加强本轮图像意图。
 - **知识检索（硬，宿主内置）**：未开 toggle 时本轮剥离 `kb-read` 工具。
 
 ### 插件贡献硬隔离 hardIsolation
@@ -289,7 +294,7 @@ ctx.ui.registerInputAction({
 
 `requiresActiveTool`：badge 跟随工具 `scope_use`，避免工具被场景屏蔽时仍显示无效开关。
 
-配套：`setEditImageAttachment`（编辑目标胶囊）、`previewImage`（全屏预览）——见 [conversation-and-agent 图像 API](./conversation-and-agent.md#图像-api)。
+配套：`setPromptAttachment`（通用一次性 prompt 上下文胶囊）、`previewImage`（全屏图片预览）——见 [conversation-and-agent 私有存储 API](./conversation-and-agent.md#插件私有存储-api)。
 
 ## 工具行内渲染 registerToolCallSlot
 

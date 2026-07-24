@@ -24,7 +24,9 @@ export interface PluginNetworkRequest {
 }
 
 export interface PluginNetworkResponse<T = unknown> {
+	ok: boolean;
 	status: number;
+	statusText: string;
 	headers: Record<string, string>;
 	body: T;
 }

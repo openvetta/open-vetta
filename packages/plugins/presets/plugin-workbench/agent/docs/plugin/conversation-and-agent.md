@@ -1,4 +1,4 @@
-# 对话 / Agent / 命令 / 文件 / 图像 / 设置 / i18n API
+# 对话 / Agent / 命令 / 文件 / 网络 / 存储 / 设置 / i18n API
 
 `ctx` 上除 UI 注册外的能力出口，以及配套 React hook。
 
@@ -11,7 +11,8 @@ interface PluginContext {
   agent: PluginAgentApi;
   command: PluginCommandApi;  // 见「命令执行」
   fs: PluginFsApi;
-  images: PluginImagesApi;
+  network: PluginNetworkApi;
+  storage: PluginStorageApi;
   settings: PluginSettingsApi;
   i18n: PluginI18nApi;        // 见「插件 i18n」
   getAgentMode(): AgentMode;  // 当前工作模式，见「工作模式」
@@ -38,8 +39,6 @@ function Sidebar() {
   return <div>{convo.isStreaming ? "生成中…" : `${messages.length} 条消息`}</div>;
 }
 ```
-
-> 取**活动会话的 sessionId**：从 `convo.sessionPath` 里嵌的 UUID 解析（session 文件名里的 UUID）。`ctx.images.sessionLineages` 等需要它。
 
 ## 对话：事件
 
@@ -279,6 +278,7 @@ const { stdout, exitCode } = await ctx.command.run("git", ["status", "--porcelai
 interface PluginFsApi {
   readDir(dirPath): Promise<PluginFsEntry[]>;                 // fs.read
   readFile(filePath): Promise<{ content: string; encoding: "utf8" | "base64" }>; // fs.read
+  readBinaryFile(filePath): Promise<{ data: string; mimeType: string; size: number }>; // fs.read
   writeFile(filePath, content: string, encoding?: "utf8" | "base64"): Promise<void>; // fs.write；base64 写二进制
   stat(filePath): Promise<{ size; modifiedAt; createdAt } | null>; // fs.read
   rename(oldPath, newPath): Promise<void>;                   // fs.write
@@ -292,28 +292,53 @@ interface PluginFsApi {
 
 同一份 `fs` API 也通过工具 handler 的 `host.fs` 暴露给 agent 工具 handler。
 
-## 图像 API
+## 网络 API
 
-`ctx.images` 路由到宿主主进程图像服务（与 agent 内置图像工具**同一份实现**）。需要 `images.generate`。图像字节存 out-of-band，返回**引用**（`PluginImageRef { id, url, mimeType?, rootId? }`，`url` 是可直接作 `<img src>` 的宿主媒体 URL）。
+`ctx.network.request` 通过宿主主进程发起 HTTP(S) 请求，避免 renderer CORS 差异。需要 `network.fetch`；请求与响应各最多 32 MiB，超时最多 300 秒。调用绑定当前插件的 capability session，插件 id 不由 renderer 传入。
 
 ```ts
-interface PluginImagesApi {
-  generate(input: { prompt: string; size?: string; sessionId?: string }): Promise<PluginImageRef[]>;
-  edit(input: {
-    prompt: string;
-    source: { imageId: string } | { data: string; mimeType: string }; // 续 lineage 或上传字节
-    sessionId?: string;
-  }): Promise<PluginImageRef[]>;
-  lineage(imageId: string): Promise<PluginImageRef[]>;          // 该图的编辑谱系（旧→新）
-  sessionLineages(sessionId: string): Promise<PluginImageRef[][]>; // 会话所有谱系（新谱系在前；每谱系旧→新）
-}
+const response = await ctx.network.request<{ data: unknown[] }>({
+  url: "https://api.example.com/v1/items",
+  method: "POST",
+  headers: { Authorization: `Bearer ${apiKey}` },
+  body: { type: "json", value: { query: "example" } },
+  responseType: "json", // "json" | "text" | "base64"
+  timeoutMs: 30_000,
+});
 ```
 
-配套：
+`body.type` 也可取 `"multipart"`，通过 `fields` 和 base64 `files` 组装表单。API 返回 `{ ok, status, statusText, headers, body }`，非 2xx 不自动抛错；JSON 错误响应若不是合法 JSON，会以文本返回。响应按流读取，超过上限会立即中止。
 
-- `ctx.ui.setEditImageAttachment(ref | null)`：把某图绑为下一轮 prompt 的「编辑目标」，宿主在输入栏顶部渲染缩略图胶囊，发送时注入 `metadata.editImageId`（一次性）。需要 `ui.slot.input-action`。
-- `ctx.ui.previewImage(ref, group?)`：打开宿主全屏图片预览器（传 `group` 作图片组，带缩略图条与翻页）。
-- `useEditImageAttachment()` hook：响应式读当前编辑目标（「选中编辑」高亮的唯一真相源，发送 / 关闭胶囊 / 切会话时自动清）。
+## 插件私有存储 API
+
+`ctx.storage` 是按插件 id 隔离的持久化命名空间，物理目录为 `~/.vetta/plugin-data/<plugin-id>/`。JSON 和普通文件路径均为插件根目录下的相对路径；路径穿越会被宿主拒绝。调用绑定当前插件的 capability session，不能伪造其他插件 id。
+
+```ts
+await ctx.storage.writeJson("records/item.json", { id: "item" }); // storage.write
+const record = await ctx.storage.readJson("records/item.json");   // storage.read
+const keys = await ctx.storage.list("records");
+
+const blob = await ctx.storage.putBlob({
+  data: base64Bytes,
+  mimeType: "image/png",
+});
+// blob: { id, mimeType, url }；url 可直接给宿主媒体组件使用
+const bytes = await ctx.storage.readBlob(blob.id);
+const ref = await ctx.storage.getBlobRef(blob.id);
+```
+
+- `storage.read` 门控 `readJson`、`list`、`readFile`、`readBlob`、`getBlobRef`。
+- `storage.write` 门控 `writeJson`、`writeFile`、`putBlob`。
+- JSON 与 blob 元数据使用原子替换写入；blob 字节不进入 LLM 上下文。
+- blob 按声明的 MIME 类型通过宿主媒体 URL 提供，不限定为图片。
+
+图片生成、供应商协议、编辑谱系等属于插件业务，应由插件基于 `ctx.network`、`ctx.storage` 与 `ctx.agent.registerTool` 组合实现。宿主只保留两类通用 UI 能力：
+
+- `ctx.ui.setPromptAttachment(attachment | null)`：绑定下一轮的一次性插件上下文。`attachment` 包含 `id`、`label`、可选 `icon`、`instructions[]` 和 `metadata`；宿主展示胶囊、发送时合并内容并清除。
+- `usePromptAttachment()`：响应式读取当前插件 prompt attachment，可用于插件卡片的选中态。
+- `ctx.ui.previewImage(ref, group?)`：打开宿主全屏图片预览器。
+
+`readBinaryFile` 用于需要原始字节的本地文件流程：宿主做路径校验、32 MiB 限额和内容签名 MIME 嗅探，不复用文本预览的编码判断。
 
 ## 设置 API
 

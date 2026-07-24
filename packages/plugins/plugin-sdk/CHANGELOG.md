@@ -7,10 +7,13 @@ All notable changes to `@vetta-org/plugin-sdk` are documented in this file.
 ### Breaking Changes
 
 - Replaced the image-specific `PluginContext.images` / `images.generate` surface with generic `PluginContext.network` and plugin-private `PluginContext.storage` capabilities and their `network.fetch`, `storage.read`, and `storage.write` permissions.
+- Replaced image-specific prompt attachment APIs with `PluginUiApi.setPromptAttachment()` and `usePromptAttachment()`.
 
 ### Added
 
-- Added hidden per-turn prompt instructions through `PluginPromptDecoration.instructions` and `PluginImageRef.promptInstruction`, allowing plugins to own intent guidance without coding-agent domain metadata.
+- Added hidden per-turn prompt instructions through `PluginPromptDecoration.instructions` and generic `PluginPromptAttachment.instructions`, allowing plugins to own intent guidance without coding-agent domain metadata.
+- Added `PluginFsApi.readBinaryFile()` for bounded, host-validated binary reads with MIME detection.
+- Added `ok` and `statusText` to host-mediated network responses.
 
 ## [0.0.4] — 2026-07-23
 

@@ -18,7 +18,7 @@ ctx.permissions.require("fs.read");  // 缺则抛 Plugin permission denied: fs.r
 
 不同注册点对「声明了但未授权」的处理不同：
 
-- **抛错（require）**：`registerInputAction`、`registerCardRenderer`、`registerToolCallSlot`、`registerTurnCard`、`openActivityTab`、`setEditImageAttachment`、`agent.registerContinuationProvider`、`agent.registerSystemPromptProvider`、`conversation.*`、`fs.*`、`images.*`、`command.run`。缺权限直接抛 `Plugin permission denied: <permission>`，中断该次调用。
+- **抛错（require）**：`registerInputAction`、`registerCardRenderer`、`registerToolCallSlot`、`registerTurnCard`、`openActivityTab`、`setPromptAttachment`、`agent.registerContinuationProvider`、`agent.registerSystemPromptProvider`、`conversation.*`、`fs.*`、`network.*`、`storage.*`、`command.run`。缺权限直接抛 `Plugin permission denied: <permission>`，中断该次调用。
 - **跳过 + 警告（warn+noop）**：`registerGlobalSlot`、`registerFilePreview`、`registerActivityTab`、`agent.registerTool`、`appActions.register`。缺权限时静默跳过该贡献并打 `console.warn`，**不影响**插件其它已授权能力。
 
 > 设计上一个缺失权限不应拖垮插件的其它能力——`activate()` 里建议把可选能力的注册各自独立，避免一处 throw 掉整段。
@@ -30,7 +30,7 @@ ctx.permissions.require("fs.read");  // 缺则抛 Plugin permission denied: fs.r
 | `ui.slot.global` | `ctx.ui.registerGlobalSlot()` | [ui-slots](./ui-slots.md#全局浮层-registerglobalslot) |
 | `ui.slot.file-preview` | `ctx.ui.registerFilePreview()` | [ui-slots](./ui-slots.md#文件预览-registerfilepreview) |
 | `ui.slot.activity-tab` | `registerActivityTab` / `openActivityTab` | [ui-slots](./ui-slots.md#活动面板-tab-registeractivitytab) |
-| `ui.slot.input-action` | `registerInputAction` / `setEditImageAttachment` | [ui-slots](./ui-slots.md#输入栏动作-registerinputaction) |
+| `ui.slot.input-action` | `registerInputAction` / `setPromptAttachment` | [ui-slots](./ui-slots.md#输入栏动作-registerinputaction) |
 | `ui.slot.message` | `ctx.ui.registerCardRenderer()` | [message-cards](./message-cards.md) |
 | `ui.slot.tool-call` | `ctx.ui.registerToolCallSlot()` | [ui-slots](./ui-slots.md#工具行内渲染-registertoolcallslot) |
 | `ui.slot.turn-card` | `ctx.ui.registerTurnCard()` | [ui-slots](./ui-slots.md#本轮-turn-卡-registerturncard) |
@@ -49,7 +49,9 @@ ctx.permissions.require("fs.read");  // 缺则抛 Plugin permission denied: fs.r
 | `app.actionHandler.execute` | Action handler 被本地 Action RPC 调用时执行 | 同上 |
 | `fs.read` | `readDir` / `readFile` / `stat` / `listFilesRecursive` | [conversation-and-agent](./conversation-and-agent.md#文件-api) |
 | `fs.write` | `writeFile` / `rename` / `delete` / `move` / `createDirectory` | 同上 |
-| `images.generate` | `ctx.images.generate/edit/lineage/sessionLineages` | [conversation-and-agent](./conversation-and-agent.md#图像-api) |
+| `network.fetch` | `ctx.network.request` | [conversation-and-agent](./conversation-and-agent.md#网络-api) |
+| `storage.read` | `ctx.storage.readJson/list/readFile/readBlob/getBlobRef` | [conversation-and-agent](./conversation-and-agent.md#插件私有存储-api) |
+| `storage.write` | `ctx.storage.writeJson/writeFile/putBlob` | 同上 |
 
 > `ctx.settings` / `ctx.i18n` / **`ctx.ui.notify`** **不需要权限**——分别读本插件设置命名空间、本插件 catalog、以及向宿主右下角推送 Toast（含错误堆栈复制）。错误上报规范见 [ui-slots → notify](./ui-slots.md#全局通知-notify)。
 
@@ -57,7 +59,7 @@ ctx.permissions.require("fs.read");  // 缺则抛 Plugin permission denied: fs.r
 
 `PluginPermission` 联合里还包含以下值，目前是**声明了但还没对应能力 API** 的占位符，现在声明它们不会解锁任何功能：
 
-`agent.systemPrompt.read`、`agent.state.read`、`agent.state.write`、`agent.runtime.configure`、`network.fetch`、`settings.read`、`settings.write`。
+`agent.systemPrompt.read`、`agent.state.read`、`agent.state.write`、`agent.runtime.configure`、`settings.read`、`settings.write`。
 
 ## 最小授权原则
 

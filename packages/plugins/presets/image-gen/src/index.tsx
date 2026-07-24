@@ -6,7 +6,7 @@ import {
 	type PluginImageRef,
 	type PluginPendingToolCall,
 	useActiveConversation,
-	useEditImageAttachment,
+	usePromptAttachment,
 	useTranslation,
 } from "@vetta-org/plugin-sdk";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
@@ -31,9 +31,9 @@ interface ImageCardPayload {
 // ─── Plugin-internal shared state ───
 // The preview swiper lives in the same Module Federation instance across all
 // messages. The "currently attached for edit" image is host state (read via
-// useEditImageAttachment) — a single source of truth shared with the input-bar
+// usePromptAttachment) — a single source of truth shared with the input-bar
 // capsule, so the swiper highlight clears automatically on send / capsule close
-// / session switch. Picking a target goes through ui.setEditImageAttachment.
+// / session switch. Picking a target goes through ui.setPromptAttachment.
 
 let pluginCtx: PluginContext | null = null;
 let imageRepository: ImageRepository | null = null;
@@ -413,6 +413,7 @@ function ArrowButton({ dir, visible, onClick }: { dir: "left" | "right"; visible
 // component no longer self-hides superseded turns.
 
 function ImagePreviewCard({ descriptor, pending }: PluginCardProps) {
+	const { t } = useTranslation();
 	const payload = (descriptor.payload ?? {}) as ImageCardPayload;
 	const refs = payload.images;
 	const editingImageId = payload.editingImageId;
@@ -421,21 +422,24 @@ function ImagePreviewCard({ descriptor, pending }: PluginCardProps) {
 	const baseId = editingImageId ?? refs?.[0]?.id;
 	const lineage = useLineage(baseId);
 	// Single source of truth for the highlight — the host edit-attachment atom.
-	const attachedId = useEditImageAttachment()?.id ?? null;
+	const attachedId = usePromptAttachment()?.id ?? null;
 
 	const versions = lineage.length > 0 ? lineage : (refs ?? []);
 
 	// Toggle: clicking 编辑 on the already-attached image clears it; otherwise attach.
 	const onEdit = (ref: PluginImageRef): void => {
-		pluginCtx?.ui.setEditImageAttachment(
+		pluginCtx?.ui.setPromptAttachment(
 			ref.id === attachedId
 				? null
 				: {
-						...ref,
-						promptInstruction:
+						id: ref.id,
+						label: t("ui.action.edit"),
+						icon: "icon-[solar--gallery-linear]",
+						instructions: [
 							`The user selected image id ${ref.id} for editing. ` +
-							`Call edit_image with sourceImageId="${ref.id}" and the user's requested change. ` +
-							"Do not call generate_image and do not answer with text only.",
+								`Call edit_image with sourceImageId="${ref.id}" and the user's requested change. ` +
+								"Do not call generate_image and do not answer with text only.",
+						],
 					},
 		);
 	};
@@ -692,7 +696,7 @@ function GenHistoryPanel() {
 	const { t } = useTranslation();
 	const { sessionPath, isStreaming } = useActiveConversation();
 	const sessionId = useMemo(() => sessionIdFromPath(sessionPath), [sessionPath]);
-	const attachedId = useEditImageAttachment()?.id ?? null;
+	const attachedId = usePromptAttachment()?.id ?? null;
 	const [lineages, setLineages] = useState<PluginImageRef[][]>([]);
 	const reqId = useRef(0);
 

@@ -23,7 +23,6 @@ import {
 	conversationBucketCwd,
 	currentScenarioAtom,
 	defaultConversationCwdAtom,
-	editImageAttachmentAtom,
 	inlineFilePreviewAtom,
 	inputValueAtom,
 	isCompactingAtom,
@@ -35,9 +34,9 @@ import {
 	mentionedFilesAtom,
 	modelSupportsImagesAtom,
 	openSessionFnRef,
-	pendingEditImageIdAtom,
 	pendingMessageEditAtom,
 	pluginInputActionsAtom,
+	promptAttachmentAtom,
 	promptPredictingAtom,
 	promptSuggestionsAtom,
 	reasoningByModelAtom,
@@ -1183,15 +1182,18 @@ export function useSessionManager(): SessionManagerResult {
 					actionKind: "builtin",
 				});
 			}
-			// Plugin-owned attachment guidance is opaque to the host. The attachment
-			// remains one-shot and its id is retained only for in-flight card state.
-			const editAttachment = pluginStore.get(editImageAttachmentAtom);
-			pluginStore.set(pendingEditImageIdAtom, editAttachment?.id ?? null);
-			if (editAttachment) {
-				if (editAttachment.promptInstruction?.trim()) {
-					pluginInstructions.push(editAttachment.promptInstruction.trim());
+			// Plugin-owned attachment guidance is opaque to the host and one-shot.
+			const promptAttachment = pluginStore.get(promptAttachmentAtom);
+			if (promptAttachment) {
+				if (promptAttachment.metadata) {
+					promptReq.metadata = { ...promptReq.metadata, ...promptAttachment.metadata };
 				}
-				pluginStore.set(editImageAttachmentAtom, null);
+				pluginInstructions.push(
+					...(promptAttachment.instructions ?? []).filter(
+						(instruction) => typeof instruction === "string" && instruction.trim().length > 0,
+					),
+				);
+				pluginStore.set(promptAttachmentAtom, null);
 			}
 			if (pluginInstructions.length > 0) {
 				promptReq.metadata = { ...promptReq.metadata, pluginInstructions };

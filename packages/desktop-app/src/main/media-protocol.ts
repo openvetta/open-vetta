@@ -1,7 +1,8 @@
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
-import { extname, resolve } from "node:path";
+import { extname, isAbsolute, join, relative, resolve } from "node:path";
 import { Readable } from "node:stream";
+import { getVettaHomePath } from "@vetta/action-rpc";
 import { type CustomScheme, protocol } from "electron";
 import { assertPathReadableForPreview } from "./ipc/fs.js";
 
@@ -45,6 +46,13 @@ const MEDIA_MIME: Record<string, string> = {
 	ppt: "application/vnd.ms-powerpoint",
 	pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 };
+const MIME_TYPE_PATTERN = /^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*$/i;
+const PLUGIN_DATA_ROOT = resolve(join(getVettaHomePath(), "plugin-data"));
+
+function isPluginDataPath(path: string): boolean {
+	const relation = relative(PLUGIN_DATA_ROOT, resolve(path));
+	return relation === "" || (!relation.startsWith("..") && !isAbsolute(relation));
+}
 
 /**
  * 特权声明须在 app ready 之前随其他自定义 scheme 由 main.ts 合并注册
@@ -80,12 +88,17 @@ export function registerMediaProtocolHandler(): void {
 	protocol.handle(MEDIA_PROTOCOL_SCHEME, async (request) => {
 		let filePath: string;
 		let mediaKind: string | null = null;
+		let declaredMimeType: string | null = null;
 		try {
 			const url = new URL(request.url);
 			const rawPath = url.searchParams.get("path");
 			if (!rawPath) return new Response("Missing path", { status: 400 });
 			mediaKind = url.searchParams.get("kind");
 			filePath = resolve(rawPath);
+			const requestedMimeType = url.searchParams.get("mime");
+			if (requestedMimeType && isPluginDataPath(filePath) && MIME_TYPE_PATTERN.test(requestedMimeType)) {
+				declaredMimeType = requestedMimeType;
+			}
 			// 与 fs IPC 预览读取同一道沙箱边界：防止渲染进程借本协议任意读取磁盘文件
 			assertPathReadableForPreview(filePath);
 		} catch {
@@ -103,7 +116,8 @@ export function registerMediaProtocolHandler(): void {
 
 		const ext = extname(filePath).slice(1).toLowerCase();
 		const contentType =
-			ext === "webm" && mediaKind === "video" ? "video/webm" : (MEDIA_MIME[ext] ?? "application/octet-stream");
+			declaredMimeType ??
+			(ext === "webm" && mediaKind === "video" ? "video/webm" : (MEDIA_MIME[ext] ?? "application/octet-stream"));
 		const baseHeaders: Record<string, string> = {
 			"Content-Type": contentType,
 			"Accept-Ranges": "bytes",
