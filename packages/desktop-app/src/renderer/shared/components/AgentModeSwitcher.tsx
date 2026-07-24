@@ -12,7 +12,7 @@ export const AGENT_MODE_ICONS: Record<AgentMode, string> = {
 
 /**
  * 工作模式分段切换器（agent_mode 轴，见 ADR-0046）。
- * 顶栏 badge popover、底部设置菜单、新会话页三处共用。
+ * 顶栏 badge popover、底部设置菜单等处共用（新会话页使用独立 AgentModeIconToggle）。
  * 容器（背景）为 outline 描边、无填充；选中项为实心滑块。圆角走主题 --radius（rounded-lg/md）。
  */
 export function AgentModeSwitcher({ className }: { className?: string }): JSX.Element {
