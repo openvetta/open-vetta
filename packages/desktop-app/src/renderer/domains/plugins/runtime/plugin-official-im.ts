@@ -1,8 +1,8 @@
 import type { PluginOfficialApi } from "@vetta-org/plugin-sdk";
-import { assertOfficialModelKeyExists } from "./plugin-official-models";
 
 export function createOfficialImApi(assertOfficial: () => void, capabilitySessionId: string): PluginOfficialApi["im"] {
 	const im = window.vetta.plugins.internalCapabilities.im;
+	const models = window.vetta.plugins.internalCapabilities.models;
 	return {
 		getStatus: async () => {
 			assertOfficial();
@@ -26,7 +26,7 @@ export function createOfficialImApi(assertOfficial: () => void, capabilitySessio
 		},
 		assertModelKeyExists: async (modelKey) => {
 			assertOfficial();
-			await assertOfficialModelKeyExists(modelKey, "set-agent-model");
+			await models.validateModelKey(capabilitySessionId, modelKey, "set-agent-model");
 		},
 	};
 }

@@ -63,6 +63,8 @@ import {
 } from "../filesystem/filesystem-service.js";
 import { validateMcpConfig } from "../mcp-config-validation.js";
 import { fetchProviderModels } from "../models/fetch-models.js";
+import { getDesktopModelSettingsService } from "../models/model-settings-host.js";
+import type { ModelsConfig } from "../models/model-settings-service.js";
 import { probeModelProvider } from "../models/probe.js";
 import { openExternalUrl } from "../open-external.js";
 import { getLinuxSandboxCapability, getSandboxCapability, type SandboxCapability } from "../sandbox/capability.js";
@@ -87,7 +89,6 @@ export interface DesktopConfigSnapshot extends DesktopConfig {
 	knowledgeProcessingCwd: string;
 }
 
-const MODELS_CONFIG_PATH = join(getVettaHomePath(), "agent", "models.json");
 const MCP_CONFIG_PATH = join(getVettaHomePath(), "agent", "mcp.json");
 export {
 	type AppshotConfig,
@@ -111,49 +112,6 @@ export {
 	writeDesktopConfig,
 };
 
-// ─── Models config (providers & models) ───
-
-export interface ModelsConfig {
-	defaultModel?: string;
-	providers: Record<string, ProviderConfig>;
-}
-
-export interface ProviderConfig {
-	baseUrl?: string;
-	apiKey?: string;
-	api?: string;
-	headers?: Record<string, string>;
-	authHeader?: boolean;
-	/** 供应商显示名(如 "DeepSeek"),UI 分组用;无则回退 provider 标识。 */
-	displayName?: string;
-	/** "template" = 由[[预设模板]]采纳而来,在线合并时会被服务端数据覆写(仅保留 apiKey)。 */
-	source?: "template";
-	/** 对应服务端模板的 provider 标识,仅 source==="template" 时存在。 */
-	templateId?: string;
-	/** 供应商图标 symbol(见 CONTEXT.md「icon symbol」)。 */
-	icon?: string;
-	models?: ModelDefinition[];
-	modelOverrides?: Record<string, Record<string, unknown>>;
-}
-
-export interface ModelDefinition {
-	id: string;
-	name?: string;
-	api?: string;
-	reasoning?: boolean;
-	/** 该模型支持的推理档位 value 列表；为空/未设时客户端回退到 api 类型内置预设。 */
-	reasoningLevels?: string[];
-	/** 用户未选过档位时的默认档。 */
-	defaultReasoningLevel?: string;
-	input?: string[];
-	contextWindow?: number;
-	maxTokens?: number;
-	/** 价格($/百万 tokens),见 [[预设模板]] 价格展示。 */
-	cost?: { input: number; output: number; cacheRead: number; cacheWrite: number };
-}
-
-const DEFAULT_MODELS_CONFIG: ModelsConfig = { providers: {} };
-
 // ─── MCP config ───
 
 export type McpServerCommonConfig = McpServerCommonConfigData;
@@ -175,31 +133,6 @@ export async function readMcpConfig(): Promise<McpConfig> {
 
 export async function writeMcpConfig(config: McpConfig): Promise<void> {
 	atomicWriteJSON(MCP_CONFIG_PATH, config);
-}
-
-/** 去掉已下线的 peripheral 字段，避免读写路径继续保留死配置。 */
-function stripLegacyPeripheralFields(config: ModelsConfig): ModelsConfig {
-	const next = { ...config } as ModelsConfig & {
-		peripheralModel?: unknown;
-		peripheralModelReasoningLevel?: unknown;
-	};
-	delete next.peripheralModel;
-	delete next.peripheralModelReasoningLevel;
-	return next;
-}
-
-export async function readModelsConfig(): Promise<ModelsConfig> {
-	try {
-		const raw = await readFile(MODELS_CONFIG_PATH, "utf8");
-		const parsed = JSON.parse(raw) as Partial<ModelsConfig>;
-		return stripLegacyPeripheralFields({ ...DEFAULT_MODELS_CONFIG, ...parsed });
-	} catch {
-		return { ...DEFAULT_MODELS_CONFIG };
-	}
-}
-
-export async function writeModelsConfig(config: ModelsConfig): Promise<void> {
-	atomicWriteJSON(MODELS_CONFIG_PATH, stripLegacyPeripheralFields(config));
 }
 
 const CHANNELS = {
@@ -239,6 +172,7 @@ function assertNonEmptyString(value: unknown, fieldName: string): asserts value 
 export { allowProjectRoot, assertPathReadableForPreview } from "../filesystem/filesystem-service.js";
 
 export function registerFsIpc(): () => void {
+	const models = getDesktopModelSettingsService();
 	const shortcuts = getDesktopShortcutService();
 	ipcMain.handle(CHANNELS.READ_DIR, async (_event, dirPath: unknown): Promise<FsEntry[]> => {
 		assertNonEmptyString(dirPath, "dirPath");
@@ -459,16 +393,12 @@ export function registerFsIpc(): () => void {
 	});
 
 	ipcMain.handle(CHANNELS.MODELS_GET, async (): Promise<ModelsConfig> => {
-		return readModelsConfig();
+		return models.getConfig();
 	});
 
 	ipcMain.handle(CHANNELS.MODELS_SET, async (_event, config: unknown) => {
 		if (typeof config !== "object" || config === null) throw new Error("Invalid models config");
-		await writeModelsConfig(config as ModelsConfig);
-		// 写入 models.json 后立即刷新共享 ModelRegistry，
-		// 使 API Key 等修改在下次模型调用时即时生效，无需重启应用。
-		const { getOrCreateSharedModelRegistry } = await import("../runtime.js");
-		await getOrCreateSharedModelRegistry().refresh();
+		await models.replaceConfig(config as ModelsConfig);
 	});
 
 	ipcMain.handle(CHANNELS.MODELS_PROBE, async (_event, ref: { provider: string; model: string }) => {
@@ -588,6 +518,8 @@ export function registerFsIpc(): () => void {
 		ipcMain.removeHandler(CHANNELS.CONFIG_SET);
 		ipcMain.removeHandler(CHANNELS.MODELS_GET);
 		ipcMain.removeHandler(CHANNELS.MODELS_SET);
+		ipcMain.removeHandler(CHANNELS.MODELS_PROBE);
+		ipcMain.removeHandler(CHANNELS.MODELS_FETCH_PROVIDER_MODELS);
 		ipcMain.removeHandler(CHANNELS.MCP_GET);
 		ipcMain.removeHandler(CHANNELS.MCP_SET);
 		ipcMain.removeHandler(CHANNELS.MCP_LOGIN);

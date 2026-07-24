@@ -121,6 +121,44 @@ export function registerPluginCapabilitiesIpc(): () => void {
 				reasoningLevel === undefined ? undefined : requireText(reasoningLevel, "reasoningLevel"),
 			),
 	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.MODEL_LIST, (_event, sessionId: unknown) =>
+		adapter.listModels(requireString(sessionId, "sessionId")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.MODEL_CONFIG_GET, (_event, sessionId: unknown) =>
+		adapter.getModelConfig(requireString(sessionId, "sessionId")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.MODEL_PROVIDER_GET, (_event, sessionId: unknown, provider: unknown) =>
+		adapter.getModelProvider(requireString(sessionId, "sessionId"), requireString(provider, "provider")),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.MODEL_PROBE,
+		(_event, sessionId: unknown, provider: unknown, model: unknown) =>
+			adapter.probeModel(
+				requireString(sessionId, "sessionId"),
+				requireString(provider, "provider"),
+				requireString(model, "model"),
+			),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.MODEL_KEY_VALIDATE,
+		(_event, sessionId: unknown, modelKey: unknown, operation: unknown) =>
+			adapter.validateModelKey(
+				requireString(sessionId, "sessionId"),
+				requireString(modelKey, "modelKey"),
+				optionalString(operation, "operation"),
+			),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.MODEL_DEFAULT_SET, (_event, sessionId: unknown, modelKey: unknown) =>
+		adapter.setDefaultModel(requireString(sessionId, "sessionId"), requireString(modelKey, "modelKey")),
+	);
+	ipcMain.handle(
+		PLUGIN_CAPABILITY_CHANNELS.MODEL_PROVIDER_UPSERT,
+		(_event, sessionId: unknown, provider: unknown, data: unknown) =>
+			adapter.upsertModelProvider(requireString(sessionId, "sessionId"), requireString(provider, "provider"), data),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.MODEL_PROVIDER_REMOVE, (_event, sessionId: unknown, provider: unknown) =>
+		adapter.removeModelProvider(requireString(sessionId, "sessionId"), requireString(provider, "provider")),
+	);
 	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.BATCH_PROJECT_LIST, (_event, sessionId: unknown) =>
 		adapter.listBatchProjects(requireString(sessionId, "sessionId")),
 	);

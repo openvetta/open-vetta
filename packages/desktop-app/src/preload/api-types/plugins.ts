@@ -18,6 +18,13 @@ import type {
 	KnowledgeProcessingSettings,
 	KnowledgeProcessingUpdate,
 	KnowledgeScanResult,
+	ModelConfigSnapshot,
+	ModelDefaultResult,
+	ModelListResult,
+	ModelProbeResult,
+	ModelProviderConfigSnapshot,
+	ModelProviderDetail,
+	ModelProviderUpsertData,
 	NotificationsSettingInput,
 	ProjectEntry,
 	ProjectListResult,
@@ -488,6 +495,21 @@ export interface DesktopPluginCapabilityImApi {
 	setAgentModel(sessionId: string, modelKey: string | null, reasoningLevel?: string): Promise<ImRuntimeStatus>;
 }
 
+export interface DesktopPluginCapabilityModelsApi {
+	list(sessionId: string): Promise<ModelListResult>;
+	getConfig(sessionId: string): Promise<ModelConfigSnapshot>;
+	getProvider(sessionId: string, provider: string): Promise<ModelProviderDetail>;
+	probe(sessionId: string, provider: string, model: string): Promise<ModelProbeResult>;
+	validateModelKey(sessionId: string, modelKey: string, operation?: string): Promise<void>;
+	setDefault(sessionId: string, modelKey: string): Promise<ModelDefaultResult>;
+	upsertProvider(
+		sessionId: string,
+		provider: string,
+		data: ModelProviderUpsertData,
+	): Promise<ModelProviderConfigSnapshot>;
+	removeProvider(sessionId: string, provider: string): Promise<void>;
+}
+
 export interface DesktopPluginCapabilityBatchTasksApi {
 	listProjects(sessionId: string): Promise<BatchProject[]>;
 	getProject(sessionId: string, projectId: string): Promise<BatchProject>;
@@ -606,6 +628,7 @@ export interface DesktopPluginInternalCapabilitiesApi {
 	filesystem: DesktopPluginCapabilityFilesystemApi;
 	generalSettings: DesktopPluginCapabilityGeneralSettingsApi;
 	im: DesktopPluginCapabilityImApi;
+	models: DesktopPluginCapabilityModelsApi;
 	downloads: DesktopPluginCapabilityDownloadsApi;
 	knowledge: DesktopPluginCapabilityKnowledgeApi;
 	projects: DesktopPluginCapabilityProjectsApi;
