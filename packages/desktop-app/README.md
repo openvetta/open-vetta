@@ -39,17 +39,19 @@ Main-process sourcemaps are disabled by default to keep startup builds fast. Set
 Uses WebdriverIO + `@wdio/electron-service` (see `wdio.conf.ts`, `e2e/`).
 
 ```bash
-# 1) 构建 main / preload / renderer 产物
+# 1) Build main / preload / renderer artifacts
 bun run build
 
-# 2) 未打包入口冒烟（默认，使用 dist/main/index.js）
+# 2) Unpackaged smoke (default: dist/main/index.js)
 bun run test:e2e
 
-# 或对 electron-builder 解包二进制冒烟
-bun run pack:win:test   # 或 pack:linux:test / 对应平台
+# Or smoke against electron-builder unpacked binary
+bun run pack:win:test   # or pack:linux:test / platform equivalent
 bun run test:e2e:packaged
 ```
 
-运行时会设置 `VETTA_E2E=1`、`VETTA_CONFIG_DIR=.vetta-e2e`，并用 `.wdio-electron-user-data` 隔离 Chromium 用户数据。
-Agent 日常 UI 自验仍走仓库根目录的 `verify:ui:*`（Playwright）；本套件面向正式 E2E / CI。
+Runtime sets `VETTA_E2E=1`, `VETTA_CONFIG_DIR=.vetta-e2e`, and isolates Chromium profile under `.wdio-electron-user-data`.
+Day-to-day agent UI verification still uses repo-root `verify:ui:*` (Playwright); this suite targets formal E2E / CI.
+
+Current `e2e/smoke.e2e.ts` batch-1 covers boot only: main-process ready/version, main window `index.html`, config/userData isolation, and a `dialog` mock probe. It does not cover login, chat, or other product flows.
 

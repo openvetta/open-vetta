@@ -10,7 +10,7 @@ const userDataDir = path.join(packageRoot, ".wdio-electron-user-data");
 const configDirName = ".vetta-e2e";
 const require = createRequire(import.meta.url);
 
-/** 设为 `1` 时使用 electron-builder 打包产物（`release/*-unpacked`），否则用未打包入口。 */
+/** Set to `1` to use electron-builder unpacked output (`release/*-unpacked`). */
 const usePackaged = process.env.VETTA_E2E_PACKAGED === "1";
 
 function resolvePackagedBinaryPath(): string {
@@ -29,10 +29,10 @@ function resolvePackagedBinaryPath(): string {
 	if (!found) {
 		throw new Error(
 			[
-				"未找到 Electron 打包二进制。请先执行对应平台的 pack 脚本，例如：",
+				"Packaged Electron binary not found. Run a pack script for this platform first, e.g.:",
 				"  bun run pack:win:test",
 				"  bun run pack:linux:test",
-				`已尝试路径：\n${candidates.map((p) => `  - ${p}`).join("\n")}`,
+				`Tried:\n${candidates.map((p) => `  - ${p}`).join("\n")}`,
 			].join("\n"),
 		);
 	}
@@ -40,16 +40,17 @@ function resolvePackagedBinaryPath(): string {
 }
 
 /**
- * 解析 node_modules/electron 真实可执行文件路径。
- * 不用 appEntryPoint：@wdio/electron-service 会拼 node_modules/.bin/electron，
- * 在 bun 下是 .CMD 包装脚本，Chromedriver 无法作为 chrome binary 启动。
+ * Resolve the real electron executable under node_modules/electron.
+ * Avoid official `appEntryPoint` mode: @wdio/electron-service points at
+ * node_modules/.bin/electron, which is a .CMD shim under bun and cannot be
+ * used as Chromedriver's chrome binary.
  */
 function resolveElectronBinaryPath(): string {
-	// electron 包在 Node 侧 require 时返回 dist 内二进制绝对路径
+	// The electron package exports the absolute path to its dist binary when required from Node.
 	const electronBinary = require("electron") as string;
 	if (!electronBinary || !existsSync(electronBinary)) {
 		throw new Error(
-			`未找到 electron 二进制（got: ${String(electronBinary)}）。请在 packages/desktop-app 安装 electron 依赖。`,
+			`Electron binary not found (got: ${String(electronBinary)}). Install the electron dependency in packages/desktop-app.`,
 		);
 	}
 	return electronBinary;
@@ -70,29 +71,29 @@ function resolveElectronServiceOptions(): {
 
 	if (!existsSync(mainEntry)) {
 		throw new Error(
-			`未找到主进程产物 ${mainEntry}。请先在 packages/desktop-app 执行 bun run build（或至少 build:main + preload + renderer）。`,
+			`Main-process build artifact missing: ${mainEntry}. Run bun run build in packages/desktop-app first (or at least build:main + preload + renderer).`,
 		);
 	}
 
 	return {
 		appBinaryPath: resolveElectronBinaryPath(),
-		// 等价于官方 appEntryPoint 模式：electron --app=<main>
+		// Equivalent to official appEntryPoint mode: electron --app=<main>
 		appArgs: [`--app=${mainEntry}`, ...isolationArgs],
 	};
 }
 
-// Electron 子进程继承本进程 env：隔离配置目录，并关闭开发态 DevTools。
+// Child Electron inherits these: isolated config dir + skip dev DevTools.
 process.env.VETTA_E2E = "1";
 process.env.VETTA_CONFIG_DIR = process.env.VETTA_CONFIG_DIR ?? configDirName;
-// 配置落在用户主目录下的 VETTA_CONFIG_DIR；user-data-dir 仅隔离 Chromium 配置。
+// App data roots under VETTA_HOME; user-data-dir only isolates Chromium profile.
 process.env.VETTA_HOME = process.env.VETTA_HOME ?? path.join(homedir(), configDirName);
 
 const electronServiceOptions = resolveElectronServiceOptions();
 
-/** 主 tsconfig 排除本文件；运行时由 @wdio/cli 加载。 */
+/** Excluded from the package tsconfig; loaded by @wdio/cli at runtime. */
 export const config = {
 	runner: "local",
-	// 从 packages/desktop-app 解析，避免 monorepo 根目录 cwd 干扰
+	// Resolve from packages/desktop-app so monorepo root cwd does not matter.
 	rootDir: packageRoot,
 	specs: ["./e2e/**/*.e2e.ts"],
 	exclude: [],
