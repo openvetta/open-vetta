@@ -11,6 +11,7 @@ import { CAPABILITY_ERROR_CODES, type CapabilityId, type CapabilityToken } from 
 import {
 	DOMAIN_BATCH_TASK_CAPABILITIES,
 	DOMAIN_DOWNLOAD_CAPABILITIES,
+	DOMAIN_GENERAL_SETTINGS_CAPABILITIES,
 	DOMAIN_KNOWLEDGE_CAPABILITIES,
 	DOMAIN_PROJECT_CAPABILITIES,
 	DOMAIN_QUICK_PANEL_CAPABILITIES,
@@ -59,6 +60,20 @@ function outputFor(capabilityId: CapabilityId): unknown {
 	}
 	if (capabilityId === FOUNDATION_FILESYSTEM_CAPABILITIES.STAT.id) return null;
 	if (capabilityId === FOUNDATION_FILESYSTEM_CAPABILITIES.LIST_FILES_RECURSIVE.id) return [];
+	if (capabilityId === DOMAIN_GENERAL_SETTINGS_CAPABILITIES.GET.id) {
+		return {
+			workspacePath: "C:/workspace",
+			defaultExecutionMode: "full-access",
+			notificationsEnabled: true,
+			debugMode: false,
+			sandbox: { status: "available", backend: "windows-host", platform: "win32" },
+		};
+	}
+	if (capabilityId === DOMAIN_GENERAL_SETTINGS_CAPABILITIES.SET_NOTIFICATIONS.id) return { enabled: false };
+	if (capabilityId === DOMAIN_GENERAL_SETTINGS_CAPABILITIES.SET_DEFAULT_EXECUTION_MODE.id) {
+		return { mode: "sandbox" };
+	}
+	if (capabilityId === DOMAIN_GENERAL_SETTINGS_CAPABILITIES.SET_WORKSPACE.id) return { path: "C:/next" };
 	if (
 		capabilityId === DOMAIN_BATCH_TASK_CAPABILITIES.LIST_PROJECTS.id ||
 		capabilityId === DOMAIN_BATCH_TASK_CAPABILITIES.GET_PROJECT.id ||
@@ -351,6 +366,7 @@ describe("PluginCapabilityAdapter", () => {
 		const sessionId = adapter.openSession("official");
 
 		expect(access.sessions[0]?.grants.map((grant) => grant.capabilityId)).toEqual([
+			...Object.values(DOMAIN_GENERAL_SETTINGS_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_BATCH_TASK_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_DOWNLOAD_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_UPDATER_CAPABILITIES).map((capability) => capability.id),
@@ -363,6 +379,10 @@ describe("PluginCapabilityAdapter", () => {
 			...Object.values(DOMAIN_SCHEDULER_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_WEBHOOK_CAPABILITIES).map((capability) => capability.id),
 		]);
+		await expect(adapter.getGeneralSettings(sessionId)).resolves.toHaveProperty("workspacePath", "C:/workspace");
+		await expect(adapter.setNotifications(sessionId, false)).resolves.toEqual({ enabled: false });
+		await expect(adapter.setDefaultExecutionMode(sessionId, "sandbox")).resolves.toEqual({ mode: "sandbox" });
+		await expect(adapter.setWorkspace(sessionId, "C:/next")).resolves.toEqual({ path: "C:/next" });
 		await expect(adapter.listBatchProjects(sessionId)).resolves.toHaveLength(1);
 		await expect(adapter.resumeBatchTask(sessionId, "C:/workspace/Batch", "task")).resolves.toEqual({
 			status: "accepted",
@@ -448,6 +468,9 @@ describe("PluginCapabilityAdapter", () => {
 		});
 
 		official = false;
+		expect(() => adapter.getGeneralSettings(sessionId)).toThrowError(
+			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
+		);
 		expect(() => adapter.listBatchProjects(sessionId)).toThrowError(
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
@@ -486,6 +509,9 @@ describe("PluginCapabilityAdapter", () => {
 		const sessionId = adapter.openSession("community");
 
 		expect(access.sessions[0]?.grants).toEqual([]);
+		expect(() => adapter.getGeneralSettings(sessionId)).toThrowError(
+			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
+		);
 		expect(() => adapter.listBatchProjects(sessionId)).toThrowError(
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);

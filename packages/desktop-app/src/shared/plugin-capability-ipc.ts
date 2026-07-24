@@ -1,6 +1,11 @@
 export const PLUGIN_CAPABILITY_CHANNELS = {
 	OPEN_SESSION: "vetta:plugins:capabilities:open-session",
 	CLOSE_SESSION: "vetta:plugins:capabilities:close-session",
+	GENERAL_SETTINGS_GET: "vetta:plugins:capabilities:general-settings:get",
+	GENERAL_SETTINGS_NOTIFICATIONS_SET: "vetta:plugins:capabilities:general-settings:notifications:set",
+	GENERAL_SETTINGS_DEFAULT_EXECUTION_MODE_SET:
+		"vetta:plugins:capabilities:general-settings:default-execution-mode:set",
+	GENERAL_SETTINGS_WORKSPACE_SET: "vetta:plugins:capabilities:general-settings:workspace:set",
 	FS_READ_DIRECTORY: "vetta:plugins:capabilities:fs:read-directory",
 	FS_READ_FILE: "vetta:plugins:capabilities:fs:read-file",
 	FS_WRITE_FILE: "vetta:plugins:capabilities:fs:write-file",

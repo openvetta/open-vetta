@@ -5,6 +5,7 @@ import {
 	type Disposable,
 	DOMAIN_BATCH_TASK_CAPABILITIES,
 	DOMAIN_DOWNLOAD_CAPABILITIES,
+	DOMAIN_GENERAL_SETTINGS_CAPABILITIES,
 	DOMAIN_KNOWLEDGE_CAPABILITIES,
 	DOMAIN_PROJECT_CAPABILITIES,
 	DOMAIN_QUICK_PANEL_CAPABILITIES,
@@ -20,6 +21,7 @@ import { readDesktopConfig, writeDesktopConfig } from "../config/desktop-config-
 import { listRuntimeSessionProjects, listSessionHistory } from "../conversations/session-query-service.js";
 import { getDesktopDownloadService } from "../downloads/download-service.js";
 import { allowProjectRoot, createFilesystemDirectory } from "../filesystem/filesystem-service.js";
+import { getDesktopGeneralSettingsService } from "../general-settings/general-settings-service.js";
 import { getKnowledgeService } from "../knowledge/knowledge-service.js";
 import { ProjectService } from "../projects/project-service.js";
 import { getDesktopSchedulerService } from "../scheduler/scheduler-service.js";
@@ -29,6 +31,7 @@ import { getAppVersion, updaterService } from "../updater.js";
 import { getWebhookManager } from "../webhook/index.js";
 
 const DOMAIN_BATCH_TASK_PROVIDER_OWNER = "vetta.domain.batch-task";
+const DOMAIN_GENERAL_SETTINGS_PROVIDER_OWNER = "vetta.domain.general-settings";
 const DOMAIN_PROJECT_PROVIDER_OWNER = "vetta.domain.project";
 const DOMAIN_SESSION_PROVIDER_OWNER = "vetta.domain.session";
 const DOMAIN_SKILL_PROVIDER_OWNER = "vetta.domain.skill";
@@ -49,6 +52,7 @@ function assertNotAborted(signal: AbortSignal): void {
 export function registerDesktopDomainProviders(registry: CapabilityRegistry): Disposable {
 	const batchTasks = getDesktopBatchTaskService();
 	const downloads = getDesktopDownloadService();
+	const generalSettings = getDesktopGeneralSettingsService();
 	const knowledge = getKnowledgeService();
 	const scheduler = getDesktopSchedulerService();
 	const shortcuts = getDesktopShortcutService();
@@ -101,6 +105,32 @@ export function registerDesktopDomainProviders(registry: CapabilityRegistry): Di
 			execute: async ({ path }, context) => {
 				assertNotAborted(context.signal);
 				await projects.remove(path);
+			},
+		}),
+	]);
+	const generalSettingsRegistration = registry.registerOwner(DOMAIN_GENERAL_SETTINGS_PROVIDER_OWNER, [
+		bindCapability(DOMAIN_GENERAL_SETTINGS_CAPABILITIES.GET, {
+			execute: async (_input, context) => {
+				assertNotAborted(context.signal);
+				return generalSettings.getSettings();
+			},
+		}),
+		bindCapability(DOMAIN_GENERAL_SETTINGS_CAPABILITIES.SET_NOTIFICATIONS, {
+			execute: async ({ enabled }, context) => {
+				assertNotAborted(context.signal);
+				return generalSettings.setNotifications(enabled);
+			},
+		}),
+		bindCapability(DOMAIN_GENERAL_SETTINGS_CAPABILITIES.SET_DEFAULT_EXECUTION_MODE, {
+			execute: async ({ mode }, context) => {
+				assertNotAborted(context.signal);
+				return generalSettings.setDefaultExecutionMode(mode);
+			},
+		}),
+		bindCapability(DOMAIN_GENERAL_SETTINGS_CAPABILITIES.SET_WORKSPACE, {
+			execute: async ({ path }, context) => {
+				assertNotAborted(context.signal);
+				return generalSettings.setWorkspace(path);
 			},
 		}),
 	]);
@@ -539,6 +569,7 @@ export function registerDesktopDomainProviders(registry: CapabilityRegistry): Di
 			skillRegistration.dispose();
 			sessionRegistration.dispose();
 			projectRegistration.dispose();
+			generalSettingsRegistration.dispose();
 		},
 	};
 }

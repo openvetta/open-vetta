@@ -9,6 +9,15 @@ export function createPluginsApi(ipc: IpcRenderer): Pick<DesktopApi, "plugins"> 
 			internalCapabilities: {
 				openSession: (pluginId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.OPEN_SESSION, pluginId),
 				closeSession: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.CLOSE_SESSION, sessionId),
+				generalSettings: {
+					get: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.GENERAL_SETTINGS_GET, sessionId),
+					setNotifications: (sessionId, enabled) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.GENERAL_SETTINGS_NOTIFICATIONS_SET, sessionId, enabled),
+					setDefaultExecutionMode: (sessionId, mode) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.GENERAL_SETTINGS_DEFAULT_EXECUTION_MODE_SET, sessionId, mode),
+					setWorkspace: (sessionId, path) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.GENERAL_SETTINGS_WORKSPACE_SET, sessionId, path),
+				},
 				batchTasks: {
 					listProjects: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.BATCH_PROJECT_LIST, sessionId),
 					getProject: (sessionId, projectId) =>

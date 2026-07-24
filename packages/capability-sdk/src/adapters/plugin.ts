@@ -4,8 +4,10 @@ import { CAPABILITY_ERROR_CODES, CapabilityError } from "../contracts.js";
 import {
 	type BatchProject,
 	type BatchTaskCommandResult,
+	type DefaultExecutionModeSettingInput,
 	DOMAIN_BATCH_TASK_CAPABILITIES,
 	DOMAIN_DOWNLOAD_CAPABILITIES,
+	DOMAIN_GENERAL_SETTINGS_CAPABILITIES,
 	DOMAIN_KNOWLEDGE_CAPABILITIES,
 	DOMAIN_PROJECT_CAPABILITIES,
 	DOMAIN_QUICK_PANEL_CAPABILITIES,
@@ -16,11 +18,14 @@ import {
 	DOMAIN_UPDATER_CAPABILITIES,
 	DOMAIN_WEBHOOK_CAPABILITIES,
 	type DownloadItem,
+	type GeneralExecutionMode,
+	type GeneralSettingsSnapshot,
 	type InstalledSkill,
 	type KnowledgeBase,
 	type KnowledgeFileStatuses,
 	type KnowledgeProcessingSettings,
 	type KnowledgeScanResult,
+	type NotificationsSettingInput,
 	type ProjectEntry,
 	type ProjectListResult,
 	type QuickPanelPostSendBehavior,
@@ -41,6 +46,7 @@ import {
 	type WebhookEndpoint,
 	type WebhookProviderDescriptor,
 	type WebhookSendResult,
+	type WorkspaceSettingInput,
 } from "../domain.js";
 import {
 	type FilesystemEntry,
@@ -109,6 +115,10 @@ export class PluginCapabilityAdapter {
 				: []),
 			...(official
 				? [
+						createCapabilityGrant(DOMAIN_GENERAL_SETTINGS_CAPABILITIES.GET),
+						createCapabilityGrant(DOMAIN_GENERAL_SETTINGS_CAPABILITIES.SET_NOTIFICATIONS),
+						createCapabilityGrant(DOMAIN_GENERAL_SETTINGS_CAPABILITIES.SET_DEFAULT_EXECUTION_MODE),
+						createCapabilityGrant(DOMAIN_GENERAL_SETTINGS_CAPABILITIES.SET_WORKSPACE),
 						createCapabilityGrant(DOMAIN_BATCH_TASK_CAPABILITIES.LIST_PROJECTS),
 						createCapabilityGrant(DOMAIN_BATCH_TASK_CAPABILITIES.GET_PROJECT),
 						createCapabilityGrant(DOMAIN_BATCH_TASK_CAPABILITIES.CREATE_PROJECT),
@@ -277,6 +287,29 @@ export class PluginCapabilityAdapter {
 
 	listProjects(sessionId: string): Promise<ProjectListResult> {
 		return this.client(sessionId, { official: true }).invoke(DOMAIN_PROJECT_CAPABILITIES.LIST, {});
+	}
+
+	getGeneralSettings(sessionId: string): Promise<GeneralSettingsSnapshot> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_GENERAL_SETTINGS_CAPABILITIES.GET, {});
+	}
+
+	setNotifications(sessionId: string, enabled: boolean): Promise<NotificationsSettingInput> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_GENERAL_SETTINGS_CAPABILITIES.SET_NOTIFICATIONS, {
+			enabled,
+		});
+	}
+
+	setDefaultExecutionMode(sessionId: string, mode: GeneralExecutionMode): Promise<DefaultExecutionModeSettingInput> {
+		return this.client(sessionId, { official: true }).invoke(
+			DOMAIN_GENERAL_SETTINGS_CAPABILITIES.SET_DEFAULT_EXECUTION_MODE,
+			{ mode },
+		);
+	}
+
+	setWorkspace(sessionId: string, path: string): Promise<WorkspaceSettingInput> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_GENERAL_SETTINGS_CAPABILITIES.SET_WORKSPACE, {
+			path,
+		});
 	}
 
 	createProject(sessionId: string, name: string, path?: string): Promise<ProjectEntry> {
