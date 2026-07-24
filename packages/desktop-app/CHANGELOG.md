@@ -66,6 +66,9 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **新会话页 Work/Coding 切换**：移到问候语标题上方；选中段在 icon 右侧展示 Label（Work/Coding），未选中仅保留 icon；选中高亮改为按钮自身背景（宽度随文案伸缩）。
+
+
 - **官方插件项目管理接入 Domain Capability**：`PluginOfficialApi.projects` 通过七个独立项目能力令牌、宿主项目 Provider 和 Capability Session 调用；仅官方且当前启用的插件获得精确 Grant，项目业务从 renderer 桥接收口到主进程服务。
 - **Work 模式不再把失败的工具调用冒泡到阶段组外**：失败调用与普通调用一样留在阶段组内折叠，展开阶段仍可查看，避免非技术用户在对话流里看到看不懂的红色工具卡。插件自定义 UI 工具与 error 块（模型/请求级报错）仍单独渲染。
 - **通用设置分区合并**：设置 → 通用由 6 个单行分区收拢为 3 组——「基础」（工作区 / 沙盒 / 通知）、「应用」（版本更新 / 引导）、「开发者」（调试模式 / 导出诊断包），减少卡片与标题占位。
@@ -116,7 +119,10 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
-- **侧边栏窄宽时工作模式徽章仅显示 icon**：顶栏「编程/Work」徽章在侧栏很窄时（Mac < 168px / 其他 < 200px）隐藏文案与箭头，只保留模式 icon，避免与折叠按钮挤叠错位。
+- **侧边栏窄宽自适应**：最小宽度 180px；顶栏工作模式徽章按 actions 可用空间在「icon+文案」与「仅 icon」间切换（拉宽后可恢复文案），折叠按钮始终可见；底栏长昵称 truncate，Claw/消息中心不被裁切。
+
+
+
 
 
 - **只读外观/导航不再误弹授权**：`appearance.theme` 的 `help`/`get` 与 `navigation.open` 的 `help` 原先挂在 `effect: write` 上，本地 Action RPC 一律要审批。现拆出只读 `appearance.query`、`navigation.query`；`appearance.theme` / `navigation.open` 仅保留真正写操作。

@@ -42,26 +42,29 @@ export function SidebarTopBar({
 	return (
 		<div
 			className={cn(
-				"flex h-11 shrink-0 items-center justify-between",
+				"flex h-11 min-w-0 shrink-0 items-center justify-between gap-1",
 				!floating && "drag-region",
 				className,
 			)}
 			style={{ paddingLeft: isMac ? 78 : 12, paddingRight: 6 }}
 		>
+			{/* brand 只占内容宽；Mac 常为空，避免 flex-1 吃掉 actions 的测量空间 */}
 			{isMac ? (
-				<div className={cn("flex min-w-0 items-center", classNames?.brand)}>{brandTrailing}</div>
+				<div className={cn("flex min-w-0 shrink items-center overflow-hidden", classNames?.brand)}>
+					{brandTrailing}
+				</div>
 			) : (
-				<div className={cn("flex min-w-0 items-center gap-2", classNames?.brand)}>
-					<img
-						src="./icon.png"
-						alt="Vetta"
-						className="h-5 w-5 shrink-0 rounded-[5px]"
-					/>
+				<div className={cn("flex min-w-0 shrink items-center gap-2 overflow-hidden", classNames?.brand)}>
+					<img src="./icon.png" alt="Vetta" className="h-5 w-5 shrink-0 rounded-[5px]" />
 					<span className="truncate text-[13px] font-semibold text-foreground">Vetta</span>
 					{brandTrailing}
 				</div>
 			)}
-			<div className={cn("flex items-center gap-1", classNames?.actions)}>
+			{/*
+			 * flex-1：actions 始终吃掉剩余宽度。
+			 * 这样 badge 收成 icon 后父级宽度仍随侧栏拉宽而变大，才能恢复全文案。
+			 */}
+			<div className={cn("flex min-w-0 flex-1 items-center justify-end gap-1", classNames?.actions)}>
 				{agentModeSlot}
 				{imOnline && (
 					<button
@@ -69,7 +72,7 @@ export function SidebarTopBar({
 						onClick={onOpenClawSettings}
 						title={labels.clawConnected}
 						className={cn(
-							"no-drag relative flex h-5 items-center gap-1 rounded-full bg-secondary px-1.5 text-[10px] font-medium text-secondary-foreground transition-colors hover:bg-secondary/80",
+							"no-drag relative flex h-5 shrink-0 items-center gap-1 rounded-full bg-secondary px-1.5 text-[10px] font-medium text-secondary-foreground transition-colors hover:bg-secondary/80",
 							classNames?.clawButton,
 						)}
 					>
@@ -86,7 +89,7 @@ export function SidebarTopBar({
 						onClick={onCollapse}
 						title={labels.hide}
 						className={cn(
-							"no-drag flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+							"no-drag flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
 							classNames?.collapseButton,
 						)}
 					>
