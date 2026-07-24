@@ -23,6 +23,75 @@ import {
 import { isKnowledgeWikiPath, isProtectedSkillOrScenePath, resolveExistingPath } from "../path-utils.js";
 import { toolCallDescriptionSchema } from "../tool-call-description.js";
 
+const CLOSING_LINE_PATTERNS = {
+	curly: /^}+.*$/,
+	square: /^\]+.*$/,
+	jsx: /^(?:<\/[A-Za-z][\w.:-]*\s*>|<\/\s*>).*$/,
+} as const;
+
+type ClosingLineKind = keyof typeof CLOSING_LINE_PATTERNS;
+
+function closingLineKind(line: string): ClosingLineKind | undefined {
+	const trimmed = line.trim();
+	return (Object.entries(CLOSING_LINE_PATTERNS) as Array<[ClosingLineKind, RegExp]>).find(([, pattern]) =>
+		pattern.test(trimmed),
+	)?.[0];
+}
+
+function withoutCommentsStringsAndRegex(text: string): string {
+	return text.replace(
+		/(?:\/(?![*/])(?:\\.|[^/\\\n])+\/[dgimsuvy]*)|(?:\/\*[\s\S]*?\*\/|\/\/[^\n]*)|(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)/g,
+		"",
+	);
+}
+
+function hasUnclosedJsxTag(text: string): boolean {
+	const stack: string[] = [];
+	const tagPattern = /<(\/)?([A-Za-z][\w.:-]*)(?:\s[^<>]*?)?(\/?)>|<(\/?)\s*>/g;
+	const codeOnly = withoutCommentsStringsAndRegex(text);
+	for (const match of codeOnly.matchAll(tagPattern)) {
+		const [, closing, name, selfClosing, fragmentClosing] = match;
+		if (name === undefined) {
+			if (fragmentClosing) {
+				if (stack.at(-1) === "<>") stack.pop();
+			} else {
+				stack.push("<>");
+			}
+		} else if (!selfClosing) {
+			if (!closing) {
+				stack.push(name);
+			} else if (stack.at(-1) === name) {
+				stack.pop();
+			}
+		}
+	}
+	return stack.length > 0;
+}
+
+function hasUnclosedStructuralTail(text: string, kind: ClosingLineKind): boolean {
+	if (kind === "jsx") return hasUnclosedJsxTag(text);
+	const [opening, closing] = kind === "curly" ? ["{", "}"] : ["[", "]"];
+	const codeOnly = withoutCommentsStringsAndRegex(text);
+	let depth = 0;
+	for (const character of codeOnly) {
+		if (character === opening) depth++;
+		if (character === closing) depth--;
+	}
+	return depth > 0;
+}
+
+function dropsStructuralClosingLine(lines: string[], edit: ResolvedAnchorEdit): boolean {
+	if (edit.insertAfter || edit.newText.length === 0) return false;
+	const originalKind = closingLineKind(lines[edit.endLine - 1]);
+	if (!originalKind) return false;
+	if (hasUnclosedStructuralTail(edit.newText, originalKind)) return true;
+	// Single-line replacement of a structural closer must still end with the same closer kind.
+	if (edit.startLine !== edit.endLine) return false;
+	const replacementLines = edit.newText.split(/\r?\n/).filter((line) => line.trim().length > 0);
+	const replacementLastLine = replacementLines[replacementLines.length - 1];
+	return replacementLastLine === undefined || closingLineKind(replacementLastLine) !== originalKind;
+}
+
 const anchorEditSchema = Type.Object({
 	anchor: Type.String({
 		description:
@@ -30,7 +99,8 @@ const anchorEditSchema = Type.Object({
 	}),
 	end_anchor: Type.Optional(
 		Type.String({
-			description: "Inclusive end anchor of the replaced range. Omit to target the single anchor line.",
+			description:
+				"Inclusive end anchor: its entire line is replaced too. If that line contains a closing brace, bracket, or JSX tag that should remain, include it in new_text.",
 		}),
 	),
 	new_text: Type.String({
@@ -216,6 +286,15 @@ async function executeAnchorEdits(
 	if (staleReports.length > 0) {
 		throw new Error(
 			`Anchor edit rejected — ${staleReports.length} of ${edits.length} anchor(s) failed; NO changes were made (edits are atomic).\n\n${staleReports.join("\n\n")}\n\nRetry the FULL batch using the fresh anchors above. Never fabricate or reuse stale anchors.`,
+		);
+	}
+
+	for (const edit of resolved) {
+		if (!dropsStructuralClosingLine(lines, edit)) continue;
+		const originalClosingLine = lines[edit.endLine - 1].trim();
+		const context = renderAnchorRegion(lines, edit.endLine);
+		throw new Error(
+			`Anchor replacement rejected: the inclusive range ends with structural closing line ${JSON.stringify(originalClosingLine)}, but new_text leaves that structure unclosed. This usually means new_text dropped the range's closing tail. Include the complete closing line and retry the FULL batch, or use an explicit empty new_text to delete the range.\nFresh anchors around the closing line:\n${context}`,
 		);
 	}
 
