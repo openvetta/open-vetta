@@ -1,4 +1,5 @@
 import type {
+	DownloadItem as CapabilityDownloadItem,
 	ProjectEntry,
 	ProjectListResult,
 	SessionHistoryEntry,
@@ -441,11 +442,17 @@ export interface DesktopPluginCapabilitySessionsApi {
 	listRuntimeProjects(sessionId: string): Promise<SessionRuntimeProject[]>;
 }
 
+export interface DesktopPluginCapabilityDownloadsApi {
+	list(sessionId: string): Promise<CapabilityDownloadItem[]>;
+	cancel(sessionId: string, id: string): Promise<void>;
+}
+
 /** @internal Host bridge used to implement the public plugin-sdk facade. */
 export interface DesktopPluginInternalCapabilitiesApi {
 	openSession(pluginId: string): Promise<string>;
 	closeSession(sessionId: string): Promise<void>;
 	filesystem: DesktopPluginCapabilityFilesystemApi;
+	downloads: DesktopPluginCapabilityDownloadsApi;
 	projects: DesktopPluginCapabilityProjectsApi;
 	sessions: DesktopPluginCapabilitySessionsApi;
 }

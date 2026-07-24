@@ -1,14 +1,18 @@
 import type { PluginOfficialApi } from "@vetta-org/plugin-sdk";
 
-export function createOfficialDownloadsApi(assertOfficial: () => void): PluginOfficialApi["downloads"] {
+export function createOfficialDownloadsApi(
+	assertOfficial: () => void,
+	capabilitySessionId: string,
+): PluginOfficialApi["downloads"] {
+	const downloads = window.vetta.plugins.internalCapabilities.downloads;
 	return {
 		list: async () => {
 			assertOfficial();
-			return window.vetta.downloads.list();
+			return downloads.list(capabilitySessionId);
 		},
 		cancel: async (id) => {
 			assertOfficial();
-			await window.vetta.downloads.cancel(id);
+			await downloads.cancel(capabilitySessionId, id);
 		},
 	};
 }
