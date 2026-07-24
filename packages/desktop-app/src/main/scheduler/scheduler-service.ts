@@ -296,3 +296,16 @@ export class SchedulerService {
 		for (const handler of this.changeHandlers) handler();
 	}
 }
+
+let desktopSchedulerService: SchedulerService | undefined;
+
+export function initializeDesktopSchedulerService(dependencies: SchedulerServiceDependencies): SchedulerService {
+	if (desktopSchedulerService) throw new Error("Desktop scheduler service is already initialized");
+	desktopSchedulerService = new SchedulerService(dependencies);
+	return desktopSchedulerService;
+}
+
+export function getDesktopSchedulerService(): SchedulerService {
+	if (!desktopSchedulerService) throw new Error("Desktop scheduler service is not initialized");
+	return desktopSchedulerService;
+}

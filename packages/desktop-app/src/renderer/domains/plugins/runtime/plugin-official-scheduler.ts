@@ -1,28 +1,30 @@
 import type { PluginOfficialApi } from "@vetta-org/plugin-sdk";
 
-export function createOfficialSchedulerApi(assertOfficial: () => void): PluginOfficialApi["scheduler"] {
+export function createOfficialSchedulerApi(
+	assertOfficial: () => void,
+	capabilitySessionId: string,
+): PluginOfficialApi["scheduler"] {
+	const scheduler = window.vetta.plugins.internalCapabilities.scheduler;
 	return {
 		listTasks: async () => {
 			assertOfficial();
-			return window.vetta.scheduler.getTasks();
+			return scheduler.listTasks(capabilitySessionId);
 		},
 		getTask: async (taskId) => {
 			assertOfficial();
-			const task = (await window.vetta.scheduler.getTasks()).find((item) => item.id === taskId);
-			if (!task) throw new Error(`Scheduled task not found: ${taskId}`);
-			return task;
+			return scheduler.getTask(capabilitySessionId, taskId);
 		},
 		listTaskIds: async () => {
 			assertOfficial();
-			return (await window.vetta.scheduler.getTasks()).map((item) => item.id);
+			return (await scheduler.listTasks(capabilitySessionId)).map((item) => item.id);
 		},
 		getHistory: async (taskId) => {
 			assertOfficial();
-			return window.vetta.scheduler.getRecords(taskId);
+			return scheduler.listHistory(capabilitySessionId, taskId);
 		},
 		createTask: async (data) => {
 			assertOfficial();
-			return window.vetta.scheduler.createTask({ ...data, enabled: data.enabled ?? true });
+			return scheduler.createTask(capabilitySessionId, { ...data, enabled: data.enabled ?? true });
 		},
 		updateTask: async (taskId, data) => {
 			assertOfficial();
@@ -32,32 +34,25 @@ export function createOfficialSchedulerApi(assertOfficial: () => void): PluginOf
 				...("modelKey" in data ? { modelKey: modelKey ?? undefined } : {}),
 				...("skill" in data ? { skill: skill ?? undefined } : {}),
 			};
-			await window.vetta.scheduler.updateTask(taskId, patch);
-			const task = (await window.vetta.scheduler.getTasks()).find((item) => item.id === taskId);
-			if (!task) throw new Error(`Scheduled task not found: ${taskId}`);
-			return task;
+			return scheduler.updateTask(capabilitySessionId, taskId, patch);
 		},
 		deleteTask: async (taskId) => {
 			assertOfficial();
-			await window.vetta.scheduler.deleteTask(taskId);
+			await scheduler.deleteTask(capabilitySessionId, taskId);
 			return { taskId, operation: "delete" };
 		},
 		setEnabled: async (taskId, enabled) => {
 			assertOfficial();
-			if (enabled) await window.vetta.scheduler.updateTask(taskId, { enabled: true });
-			else await window.vetta.scheduler.disableTask(taskId);
-			const task = (await window.vetta.scheduler.getTasks()).find((item) => item.id === taskId);
-			if (!task) throw new Error(`Scheduled task not found: ${taskId}`);
-			return task;
+			return scheduler.setEnabled(capabilitySessionId, taskId, enabled);
 		},
 		runNow: async (taskId) => {
 			assertOfficial();
-			await window.vetta.scheduler.runTaskNow(taskId);
+			await scheduler.runTask(capabilitySessionId, taskId);
 			return { taskId, operation: "run-now" };
 		},
 		abort: async (taskId) => {
 			assertOfficial();
-			await window.vetta.scheduler.abortTask(taskId);
+			await scheduler.abortTask(capabilitySessionId, taskId);
 			return { taskId, operation: "abort" };
 		},
 	};

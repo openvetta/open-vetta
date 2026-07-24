@@ -1,45 +1,42 @@
-import type { PluginOfficialApi, PluginOfficialWebhookEndpoint } from "@vetta-org/plugin-sdk";
+import type { PluginOfficialApi } from "@vetta-org/plugin-sdk";
 
-function requireWebhookEndpoint(
-	result: Awaited<ReturnType<typeof window.vetta.webhook.create>>,
-): PluginOfficialWebhookEndpoint {
-	if (!result.ok || !result.endpoint) throw new Error(result.error ?? "Webhook operation failed");
-	return result.endpoint;
-}
-
-export function createOfficialWebhookApi(assertOfficial: () => void): PluginOfficialApi["webhook"] {
+export function createOfficialWebhookApi(
+	assertOfficial: () => void,
+	capabilitySessionId: string,
+): PluginOfficialApi["webhook"] {
+	const webhook = window.vetta.plugins.internalCapabilities.webhook;
 	return {
 		list: async () => {
 			assertOfficial();
-			return window.vetta.webhook.list();
+			return webhook.listEndpoints(capabilitySessionId);
 		},
 		listProviders: async () => {
 			assertOfficial();
-			return window.vetta.webhook.listProviders();
+			return webhook.listProviders(capabilitySessionId);
 		},
 		create: async (input) => {
 			assertOfficial();
-			return requireWebhookEndpoint(await window.vetta.webhook.create(input));
+			return webhook.createEndpoint(capabilitySessionId, input);
 		},
 		update: async (id, input) => {
 			assertOfficial();
-			return requireWebhookEndpoint(await window.vetta.webhook.update(id, input));
+			return webhook.updateEndpoint(capabilitySessionId, id, input);
 		},
 		setEnabled: async (id, enabled) => {
 			assertOfficial();
-			return requireWebhookEndpoint(await window.vetta.webhook.toggle(id, enabled));
+			return webhook.setEnabled(capabilitySessionId, id, enabled);
 		},
 		delete: async (id) => {
 			assertOfficial();
-			await window.vetta.webhook.delete(id);
+			await webhook.deleteEndpoint(capabilitySessionId, id);
 		},
 		test: async (id) => {
 			assertOfficial();
-			return window.vetta.webhook.test(id);
+			return webhook.testEndpoint(capabilitySessionId, id);
 		},
 		send: async (id, message) => {
 			assertOfficial();
-			return window.vetta.webhook.send(id, message);
+			return webhook.sendMessage(capabilitySessionId, id, message);
 		},
 	};
 }

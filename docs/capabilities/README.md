@@ -608,11 +608,11 @@ window.vetta.capabilities.invoke({
 
 ### 当前落地状态
 
-当前已经实现五条端到端链路：
+当前已经实现七条端到端链路：
 
-- `packages/capability-sdk` 提供 Capability ID、Token、基础存储与文件能力、项目/会话/下载领域能力、Grant、稳定错误码，以及宿主内置的 Theme、Plugin Adapter。
+- `packages/capability-sdk` 提供 Capability ID、Token、基础存储与文件能力、项目/会话/下载/调度/Webhook 领域能力、Grant、稳定错误码，以及宿主内置的 Theme、Plugin Adapter。
 - `packages/capability-runtime` 提供 Foundation/Domain 双 Registry、Capability Hub、Provider 原子替换、替换或卸载时的在途调用中止、精确 Grant、AccessSession、namespace constraint 和审计事件。
-- `packages/desktop-app/src/main/capabilities` 提供 Desktop Capability Host、基础存储/文件 Provider、项目/会话/下载领域 Provider 和原生后端装配；原 IPC 与 Capability Provider 复用同一领域服务实现。
+- `packages/desktop-app/src/main/capabilities` 提供 Desktop Capability Host、基础存储/文件 Provider、项目/会话/下载/调度/Webhook 领域 Provider 和原生后端装配；原 IPC 与 Capability Provider 复用同一领域服务实现。
 - Desktop Capability Host 单例持有 Theme Adapter 和 Plugin Adapter；IPC 只复用实例，不重复创建或负责销毁。
 - Theme Storage 主进程路径已经迁移为 `Theme SDK facade -> 宿主桥接 -> 内置 Theme Adapter -> AccessSession -> Foundation Storage Capability -> 现有持久化后端`。
 - Theme SDK、renderer storage hook、preload API、IPC channel 和磁盘格式保持兼容。
@@ -620,11 +620,13 @@ window.vetta.capabilities.invoke({
 - Plugin Adapter 将 `fs.read` 和 `fs.write` 精确展开为各文件 Capability Grant；每次调用都会核验当前有效插件权限，同一插件重新激活时自动撤销旧 session。
 - 官方插件的项目管理已迁移为 `PluginOfficialApi projects facade -> Preload/IPC 桥接 -> Plugin Adapter -> AccessSession -> Domain Project/Session Capability -> 项目与会话服务`；七个项目操作和两个会话查询分别使用精确 Grant，公开 facade 保持兼容，不再直连 `window.vetta.session.*`。
 - 官方插件的下载查询与取消已迁移为 `PluginOfficialApi downloads facade -> Preload/IPC 桥接 -> Plugin Adapter -> AccessSession -> Domain Download Capability -> 下载服务`；原 Downloads IPC 与 Provider 共用单例服务，公开 facade 和下载持久化格式保持兼容。
-- Plugin Action provider 的调用边界已有回归测试：Action caller 的来源、request id 和授权上下文不会转发给 provider；provider 被禁用后调用立即被拒绝。项目相关 Action 最终只使用该 Plugin 自己的 Capability Session。
+- 官方插件的调度任务管理已迁移为 `PluginOfficialApi scheduler facade -> Preload/IPC 桥接 -> Plugin Adapter -> AccessSession -> Domain Scheduler Capability -> SchedulerService`；九个操作使用独立 Grant，`listTaskIds` 由任务列表派生，调度引擎和原 Scheduler IPC 继续复用同一个服务实例。
+- 官方插件的 Webhook 管理已迁移为 `PluginOfficialApi webhook facade -> Preload/IPC 桥接 -> Plugin Adapter -> AccessSession -> Domain Webhook Capability -> WebhookManager`；端点与 Provider 查询、端点增删改、启停、测试和发送分别使用精确 Grant，原 Webhook IPC 与 Provider 继续复用同一个服务实例。
+- Plugin Action provider 的调用边界已有回归测试：Action caller 的来源、request id 和授权上下文不会转发给 provider；provider 被禁用后调用立即被拒绝。项目、下载、调度和 Webhook 相关 Action 最终只使用该 Plugin 自己的 Capability Session。
 
 尚未迁移：
 
-- Plugin 的 `ctx.images` 等其他 facade，以及 `PluginOfficialApi` 中除项目管理和下载外的领域服务。
+- Plugin 的 `ctx.images` 等其他 facade，以及 `PluginOfficialApi` 中除项目管理、下载、调度和 Webhook 外的领域服务。
 - 其他 App Action provider 使用的领域服务。
 - 其他基础能力与项目以外的领域能力。
 - 不可信扩展的进程级隔离。
@@ -654,12 +656,12 @@ window.vetta.capabilities.invoke({
 1. `ctx.fs` 已改为使用 Foundation Filesystem Capability Token；继续迁移 `ctx.images` 等 facade。
 2. Plugin Adapter 已将 `fs.read`、`fs.write` 展开为独立 Capability Grant；后续权限继续按同一方式显式映射。
 3. `ui.slot.*`、`app.actions.register` 等继续留在 Plugin Adapter。
-4. `PluginOfficialApi.projects` 和 `PluginOfficialApi.downloads` 已迁移为独立 Domain Capability；继续迁移其余稳定的 Desktop 领域服务，并保留兼容 facade。
+4. `PluginOfficialApi.projects`、`downloads`、`scheduler` 和 `webhook` 已迁移为独立 Domain Capability；继续迁移其余稳定的 Desktop 领域服务，并保留兼容 facade。
 
 ### 阶段五：Action 迁移
 
 1. Action Runtime 继续维护 Catalog、effect、approval 和 Schema。
-2. 项目与下载相关 Action provider 已通过 Plugin facade 调用 Domain Capability；其余 provider 按领域逐步迁移。
+2. 项目、下载、调度与 Webhook 相关 Action provider 已通过 Plugin facade 调用 Domain Capability；其余 provider 按领域逐步迁移。
 3. 插件 Action handler 已使用 Plugin provider 自己的 Capability Session。
 4. 已验证 Action caller 身份和权限不会传递给 provider；后续新增 Action transport 必须保留该回归测试。
 
