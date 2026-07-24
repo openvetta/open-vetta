@@ -3,11 +3,12 @@ import type { Transition } from "motion/react";
 import type { JSX, ReactNode } from "react";
 import { memo, useId, useState } from "react";
 
-const SEGMENT_INITIAL = { opacity: 0, y: 4 };
+/** Slide-up + fade for new message segments (not typewriter). */
+const SEGMENT_INITIAL = { opacity: 0, y: 16 };
 const SEGMENT_ANIMATE = { opacity: 1, y: 0 };
 const SEGMENT_TRANSITION = {
-	duration: 0.18,
-	ease: [0.25, 0.1, 0.25, 1] as const,
+	duration: 0.36,
+	ease: [0.22, 1, 0.36, 1] as const,
 } satisfies Transition;
 const COLLAPSE_INITIAL = { height: 0, opacity: 0 };
 const COLLAPSE_ANIMATE = { height: "auto", opacity: 1 };
@@ -98,9 +99,14 @@ export const SegmentShell = memo(function SegmentShell({
 	children,
 }: SegmentShellProps): JSX.Element | null {
 	if (!children) return null;
-	if (!animateIn) return <>{children}</>;
+	// Always the same wrapper so flipping animateIn does not remount children
+	// (that remount dumped the whole segment as one flash).
 	return (
-		<motion.div initial={SEGMENT_INITIAL} animate={SEGMENT_ANIMATE} transition={SEGMENT_TRANSITION}>
+		<motion.div
+			initial={animateIn ? SEGMENT_INITIAL : false}
+			animate={SEGMENT_ANIMATE}
+			transition={SEGMENT_TRANSITION}
+		>
 			{children}
 		</motion.div>
 	);
