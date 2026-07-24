@@ -123,6 +123,14 @@ export function createPluginsApi(ipc: IpcRenderer): Pick<DesktopApi, "plugins"> 
 					listRuntimeProjects: (sessionId) =>
 						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.SESSION_LIST_RUNTIME_PROJECTS, sessionId),
 				},
+				skills: {
+					list: (sessionId, cwd) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.SKILL_LIST, sessionId, cwd),
+					listInstalled: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.SKILL_INSTALLED_LIST, sessionId),
+					setEnabled: (sessionId, name, enabled) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.SKILL_INSTALLED_SET_ENABLED, sessionId, name, enabled),
+					uninstall: (sessionId, name, type) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.SKILL_INSTALLED_UNINSTALL, sessionId, name, type),
+				},
 				scheduler: {
 					listTasks: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.SCHEDULER_TASK_LIST, sessionId),
 					getTask: (sessionId, taskId) =>

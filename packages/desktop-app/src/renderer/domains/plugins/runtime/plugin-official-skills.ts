@@ -1,30 +1,26 @@
-import type { PluginOfficialApi, PluginOfficialInstalledSkill } from "@vetta-org/plugin-sdk";
+import type { PluginOfficialApi } from "@vetta-org/plugin-sdk";
 
-export function createOfficialSkillsApi(assertOfficial: () => void): PluginOfficialApi["skills"] {
+export function createOfficialSkillsApi(
+	assertOfficial: () => void,
+	capabilitySessionId: string,
+): PluginOfficialApi["skills"] {
+	const skills = window.vetta.plugins.internalCapabilities.skills;
 	return {
 		list: async (cwd) => {
 			assertOfficial();
-			return window.vetta.skills.list(cwd);
+			return skills.list(capabilitySessionId, cwd);
 		},
 		getManifest: async () => {
 			assertOfficial();
-			return (await window.vetta.skills.getMarketManifest()) as Record<string, PluginOfficialInstalledSkill>;
+			return skills.listInstalled(capabilitySessionId);
 		},
 		setEnabled: async (name, enabled) => {
 			assertOfficial();
-			const manifest = await window.vetta.skills.getMarketManifest();
-			const entry = manifest[name];
-			if (!entry) throw new Error(`Installed skill/scene not found: ${name}`);
-			if (Boolean(entry.enabled) !== enabled) await window.vetta.skills.toggle(name);
-			return { name, enabled };
+			return skills.setEnabled(capabilitySessionId, name, enabled);
 		},
 		uninstall: async (name, type) => {
 			assertOfficial();
-			const manifest = await window.vetta.skills.getMarketManifest();
-			const entry = manifest[name];
-			if (!entry) throw new Error(`Installed skill/scene not found: ${name}`);
-			const resolvedType = type ?? (entry.type === "scene" ? "scene" : "skill");
-			await window.vetta.skills.uninstall(name, resolvedType);
+			await skills.uninstall(capabilitySessionId, name, type);
 		},
 	};
 }

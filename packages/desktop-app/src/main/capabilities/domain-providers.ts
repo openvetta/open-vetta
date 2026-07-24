@@ -9,6 +9,7 @@ import {
 	DOMAIN_PROJECT_CAPABILITIES,
 	DOMAIN_SCHEDULER_CAPABILITIES,
 	DOMAIN_SESSION_CAPABILITIES,
+	DOMAIN_SKILL_CAPABILITIES,
 	DOMAIN_UPDATER_CAPABILITIES,
 	DOMAIN_WEBHOOK_CAPABILITIES,
 } from "@vetta/capability-sdk";
@@ -20,12 +21,14 @@ import { allowProjectRoot, createFilesystemDirectory } from "../filesystem/files
 import { getKnowledgeService } from "../knowledge/knowledge-service.js";
 import { ProjectService } from "../projects/project-service.js";
 import { getDesktopSchedulerService } from "../scheduler/scheduler-service.js";
+import { getDesktopSkillService } from "../skills/skill-service.js";
 import { getAppVersion, updaterService } from "../updater.js";
 import { getWebhookManager } from "../webhook/index.js";
 
 const DOMAIN_BATCH_TASK_PROVIDER_OWNER = "vetta.domain.batch-task";
 const DOMAIN_PROJECT_PROVIDER_OWNER = "vetta.domain.project";
 const DOMAIN_SESSION_PROVIDER_OWNER = "vetta.domain.session";
+const DOMAIN_SKILL_PROVIDER_OWNER = "vetta.domain.skill";
 const DOMAIN_DOWNLOAD_PROVIDER_OWNER = "vetta.domain.download";
 const DOMAIN_UPDATER_PROVIDER_OWNER = "vetta.domain.updater";
 const DOMAIN_KNOWLEDGE_PROVIDER_OWNER = "vetta.domain.knowledge";
@@ -43,6 +46,7 @@ export function registerDesktopDomainProviders(registry: CapabilityRegistry): Di
 	const downloads = getDesktopDownloadService();
 	const knowledge = getKnowledgeService();
 	const scheduler = getDesktopSchedulerService();
+	const skills = getDesktopSkillService();
 	const webhooks = getWebhookManager();
 	const projects = new ProjectService({
 		allowProjectRoot,
@@ -209,6 +213,32 @@ export function registerDesktopDomainProviders(registry: CapabilityRegistry): Di
 			execute: async (_input, context) => {
 				assertNotAborted(context.signal);
 				return listRuntimeSessionProjects();
+			},
+		}),
+	]);
+	const skillRegistration = registry.registerOwner(DOMAIN_SKILL_PROVIDER_OWNER, [
+		bindCapability(DOMAIN_SKILL_CAPABILITIES.LIST, {
+			execute: async ({ cwd }, context) => {
+				assertNotAborted(context.signal);
+				return skills.list(cwd);
+			},
+		}),
+		bindCapability(DOMAIN_SKILL_CAPABILITIES.LIST_INSTALLED, {
+			execute: async (_input, context) => {
+				assertNotAborted(context.signal);
+				return skills.getManifest();
+			},
+		}),
+		bindCapability(DOMAIN_SKILL_CAPABILITIES.SET_ENABLED, {
+			execute: async ({ name, enabled }, context) => {
+				assertNotAborted(context.signal);
+				return skills.setEnabled(name, enabled);
+			},
+		}),
+		bindCapability(DOMAIN_SKILL_CAPABILITIES.UNINSTALL, {
+			execute: async ({ name, type }, context) => {
+				assertNotAborted(context.signal);
+				await skills.uninstall(name, type);
 			},
 		}),
 	]);
@@ -458,6 +488,7 @@ export function registerDesktopDomainProviders(registry: CapabilityRegistry): Di
 			updaterRegistration.dispose();
 			downloadRegistration.dispose();
 			batchTaskRegistration.dispose();
+			skillRegistration.dispose();
 			sessionRegistration.dispose();
 			projectRegistration.dispose();
 		},

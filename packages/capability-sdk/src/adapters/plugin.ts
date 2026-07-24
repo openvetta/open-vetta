@@ -10,9 +10,11 @@ import {
 	DOMAIN_PROJECT_CAPABILITIES,
 	DOMAIN_SCHEDULER_CAPABILITIES,
 	DOMAIN_SESSION_CAPABILITIES,
+	DOMAIN_SKILL_CAPABILITIES,
 	DOMAIN_UPDATER_CAPABILITIES,
 	DOMAIN_WEBHOOK_CAPABILITIES,
 	type DownloadItem,
+	type InstalledSkill,
 	type KnowledgeBase,
 	type KnowledgeFileStatuses,
 	type KnowledgeProcessingSettings,
@@ -24,6 +26,9 @@ import {
 	type SchedulerTask,
 	type SessionHistoryEntry,
 	type SessionRuntimeProject,
+	type SkillInfo,
+	type SkillSetEnabledResult,
+	type SkillType,
 	type UpdaterState,
 	type WebhookEndpoint,
 	type WebhookProviderDescriptor,
@@ -143,6 +148,10 @@ export class PluginCapabilityAdapter {
 						createCapabilityGrant(DOMAIN_PROJECT_CAPABILITIES.REMOVE),
 						createCapabilityGrant(DOMAIN_SESSION_CAPABILITIES.LIST),
 						createCapabilityGrant(DOMAIN_SESSION_CAPABILITIES.LIST_RUNTIME_PROJECTS),
+						createCapabilityGrant(DOMAIN_SKILL_CAPABILITIES.LIST),
+						createCapabilityGrant(DOMAIN_SKILL_CAPABILITIES.LIST_INSTALLED),
+						createCapabilityGrant(DOMAIN_SKILL_CAPABILITIES.SET_ENABLED),
+						createCapabilityGrant(DOMAIN_SKILL_CAPABILITIES.UNINSTALL),
 						createCapabilityGrant(DOMAIN_SCHEDULER_CAPABILITIES.LIST_TASKS),
 						createCapabilityGrant(DOMAIN_SCHEDULER_CAPABILITIES.GET_TASK),
 						createCapabilityGrant(DOMAIN_SCHEDULER_CAPABILITIES.LIST_HISTORY),
@@ -286,6 +295,38 @@ export class PluginCapabilityAdapter {
 
 	listRuntimeProjects(sessionId: string): Promise<SessionRuntimeProject[]> {
 		return this.client(sessionId, { official: true }).invoke(DOMAIN_SESSION_CAPABILITIES.LIST_RUNTIME_PROJECTS, {});
+	}
+
+	listSkills(sessionId: string, cwd?: string): Promise<SkillInfo[]> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_SKILL_CAPABILITIES.LIST, {
+			...(cwd === undefined ? {} : { cwd }),
+		});
+	}
+
+	listInstalledSkills(sessionId: string): Promise<Record<string, InstalledSkill>> {
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_SKILL_CAPABILITIES.LIST_INSTALLED, {});
+	}
+
+	async setSkillEnabled(sessionId: string, name: string, enabled: boolean): Promise<SkillSetEnabledResult> {
+		const manifest = await this.listInstalledSkills(sessionId);
+		const entry = manifest[name];
+		if (!entry) throw new Error(`Installed skill/scene not found: ${name}`);
+		if (entry.enabled === enabled) return { name, enabled };
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_SKILL_CAPABILITIES.SET_ENABLED, {
+			name,
+			enabled,
+		});
+	}
+
+	async uninstallSkill(sessionId: string, name: string, type?: SkillType): Promise<undefined> {
+		const manifest = await this.listInstalledSkills(sessionId);
+		const entry = manifest[name];
+		if (!entry) throw new Error(`Installed skill/scene not found: ${name}`);
+		const resolvedType = type ?? (entry.type === "scene" ? "scene" : "skill");
+		return this.client(sessionId, { official: true }).invoke(DOMAIN_SKILL_CAPABILITIES.UNINSTALL, {
+			name,
+			type: resolvedType,
+		});
 	}
 
 	listDownloads(sessionId: string): Promise<DownloadItem[]> {
