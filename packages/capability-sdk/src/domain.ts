@@ -39,6 +39,27 @@ export interface ProjectPathInput {
 	readonly path: string;
 }
 
+export interface SessionListInput {
+	readonly cwd: string;
+}
+
+export interface SessionRuntimeProject {
+	readonly cwd: string;
+	readonly sessionCount: number;
+}
+
+export interface SessionHistoryEntry {
+	readonly id: string;
+	readonly path: string;
+	readonly cwd: string;
+	readonly name?: string;
+	readonly firstMessage: string;
+	readonly modifiedAt: number;
+	readonly lastMessagePreview?: string;
+	readonly parentSessionPath?: string;
+	readonly parentEntryId?: string;
+}
+
 function parseInputRecord(value: unknown): Record<string, unknown> {
 	if (typeof value !== "object" || value === null || Array.isArray(value)) {
 		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_INPUT, "Capability input must be an object");
@@ -71,6 +92,20 @@ function parseRequiredOutputString(input: Record<string, unknown>, field: string
 	const value = input[field];
 	if (typeof value !== "string") {
 		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_OUTPUT, `Capability output ${field} must be a string`);
+	}
+	return value;
+}
+
+function parseOptionalOutputString(input: Record<string, unknown>, field: string): string | undefined {
+	const value = input[field];
+	if (value === undefined) return undefined;
+	return parseRequiredOutputString(input, field);
+}
+
+function parseRequiredOutputNumber(input: Record<string, unknown>, field: string): number {
+	const value = input[field];
+	if (typeof value !== "number" || !Number.isFinite(value)) {
+		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_OUTPUT, `Capability output ${field} must be a number`);
 	}
 	return value;
 }
@@ -149,6 +184,59 @@ function parseVoidOutput(value: unknown): undefined {
 	return undefined;
 }
 
+function parseSessionListInput(value: unknown): SessionListInput {
+	const input = parseInputRecord(value);
+	return { cwd: parseRequiredInputString(input, "cwd") };
+}
+
+function parseSessionRuntimeProject(value: unknown): SessionRuntimeProject {
+	const project = parseOutputRecord(value);
+	const sessionCount = parseRequiredOutputNumber(project, "sessionCount");
+	if (!Number.isInteger(sessionCount) || sessionCount < 0) {
+		throw new CapabilityError(
+			CAPABILITY_ERROR_CODES.INVALID_OUTPUT,
+			"Capability output sessionCount must be a non-negative integer",
+		);
+	}
+	return {
+		cwd: parseRequiredOutputString(project, "cwd"),
+		sessionCount,
+	};
+}
+
+function parseSessionRuntimeProjects(value: unknown): SessionRuntimeProject[] {
+	if (!Array.isArray(value)) {
+		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_OUTPUT, "Capability output must be an array");
+	}
+	return value.map(parseSessionRuntimeProject);
+}
+
+function parseSessionHistoryEntry(value: unknown): SessionHistoryEntry {
+	const entry = parseOutputRecord(value);
+	const name = parseOptionalOutputString(entry, "name");
+	const lastMessagePreview = parseOptionalOutputString(entry, "lastMessagePreview");
+	const parentSessionPath = parseOptionalOutputString(entry, "parentSessionPath");
+	const parentEntryId = parseOptionalOutputString(entry, "parentEntryId");
+	return {
+		id: parseRequiredOutputString(entry, "id"),
+		path: parseRequiredOutputString(entry, "path"),
+		cwd: parseRequiredOutputString(entry, "cwd"),
+		...(name === undefined ? {} : { name }),
+		firstMessage: parseRequiredOutputString(entry, "firstMessage"),
+		modifiedAt: parseRequiredOutputNumber(entry, "modifiedAt"),
+		...(lastMessagePreview === undefined ? {} : { lastMessagePreview }),
+		...(parentSessionPath === undefined ? {} : { parentSessionPath }),
+		...(parentEntryId === undefined ? {} : { parentEntryId }),
+	};
+}
+
+function parseSessionHistory(value: unknown): SessionHistoryEntry[] {
+	if (!Array.isArray(value)) {
+		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_OUTPUT, "Capability output must be an array");
+	}
+	return value.map(parseSessionHistoryEntry);
+}
+
 export const DOMAIN_PROJECT_CAPABILITIES = {
 	LIST: defineCapability<Record<string, never>, ProjectListResult>({
 		id: "cap.domain.vetta.project.list",
@@ -205,5 +293,24 @@ export const DOMAIN_PROJECT_CAPABILITIES = {
 		version: 1,
 		parseInput: parseProjectPathInput,
 		parseOutput: parseVoidOutput,
+	}),
+} as const;
+
+export const DOMAIN_SESSION_CAPABILITIES = {
+	LIST: defineCapability<SessionListInput, SessionHistoryEntry[]>({
+		id: "cap.domain.vetta.session.list",
+		kind: "query",
+		layer: CAPABILITY_LAYERS.DOMAIN,
+		version: 1,
+		parseInput: parseSessionListInput,
+		parseOutput: parseSessionHistory,
+	}),
+	LIST_RUNTIME_PROJECTS: defineCapability<Record<string, never>, SessionRuntimeProject[]>({
+		id: "cap.domain.vetta.session.runtime-project.list",
+		kind: "query",
+		layer: CAPABILITY_LAYERS.DOMAIN,
+		version: 1,
+		parseInput: parseEmptyInput,
+		parseOutput: parseSessionRuntimeProjects,
 	}),
 } as const;

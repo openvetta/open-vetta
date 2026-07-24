@@ -108,6 +108,12 @@ export function registerPluginCapabilitiesIpc(): () => void {
 	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.PROJECT_REMOVE, (_event, sessionId: unknown, path: unknown) =>
 		adapter.removeProject(requireString(sessionId, "sessionId"), requireString(path, "path")),
 	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.SESSION_LIST, (_event, sessionId: unknown, cwd: unknown) =>
+		adapter.listSessions(requireString(sessionId, "sessionId"), requireString(cwd, "cwd")),
+	);
+	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.SESSION_LIST_RUNTIME_PROJECTS, (_event, sessionId: unknown) =>
+		adapter.listRuntimeProjects(requireString(sessionId, "sessionId")),
+	);
 
 	return () => {
 		for (const channel of Object.values(PLUGIN_CAPABILITY_CHANNELS)) ipcMain.removeHandler(channel);

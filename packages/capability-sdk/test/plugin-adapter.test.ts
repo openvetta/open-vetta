@@ -8,7 +8,7 @@ import type {
 } from "../src/access.js";
 import { PLUGIN_CAPABILITY_PERMISSIONS, PluginCapabilityAdapter } from "../src/adapters/plugin.js";
 import { CAPABILITY_ERROR_CODES, type CapabilityId, type CapabilityToken } from "../src/contracts.js";
-import { DOMAIN_PROJECT_CAPABILITIES } from "../src/domain.js";
+import { DOMAIN_PROJECT_CAPABILITIES, DOMAIN_SESSION_CAPABILITIES } from "../src/domain.js";
 import { FOUNDATION_FILESYSTEM_CAPABILITIES } from "../src/foundation.js";
 
 class RecordingAccessFactory implements CapabilityAccessSessionFactory {
@@ -49,6 +49,20 @@ function outputFor(capabilityId: CapabilityId): unknown {
 	if (capabilityId === FOUNDATION_FILESYSTEM_CAPABILITIES.LIST_FILES_RECURSIVE.id) return [];
 	if (capabilityId === DOMAIN_PROJECT_CAPABILITIES.LIST.id) {
 		return { workspacePath: "C:/workspace", projects: [], archivedProjects: [] };
+	}
+	if (capabilityId === DOMAIN_SESSION_CAPABILITIES.LIST.id) {
+		return [
+			{
+				id: "session",
+				path: "C:/workspace/.vetta/sessions/session.jsonl",
+				cwd: "C:/workspace",
+				firstMessage: "hello",
+				modifiedAt: 1,
+			},
+		];
+	}
+	if (capabilityId === DOMAIN_SESSION_CAPABILITIES.LIST_RUNTIME_PROJECTS.id) {
+		return [{ cwd: "C:/workspace", sessionCount: 1 }];
 	}
 	if (
 		capabilityId === DOMAIN_PROJECT_CAPABILITIES.CREATE.id ||
@@ -133,7 +147,7 @@ describe("PluginCapabilityAdapter", () => {
 		await expect(adapter.writeFile(sessionId, "C:/project/empty.txt", "")).resolves.toBeUndefined();
 	});
 
-	it("grants project capabilities only to official plugins and rechecks trust on every invocation", async () => {
+	it("grants official domain capabilities only to official plugins and rechecks trust", async () => {
 		const access = new RecordingAccessFactory();
 		let official = true;
 		const adapter = new PluginCapabilityAdapter(access, {
@@ -142,22 +156,35 @@ describe("PluginCapabilityAdapter", () => {
 		});
 		const sessionId = adapter.openSession("official");
 
-		expect(access.sessions[0]?.grants.map((grant) => grant.capabilityId)).toEqual(
-			Object.values(DOMAIN_PROJECT_CAPABILITIES).map((capability) => capability.id),
-		);
+		expect(access.sessions[0]?.grants.map((grant) => grant.capabilityId)).toEqual([
+			...Object.values(DOMAIN_PROJECT_CAPABILITIES).map((capability) => capability.id),
+			...Object.values(DOMAIN_SESSION_CAPABILITIES).map((capability) => capability.id),
+		]);
 		await expect(adapter.listProjects(sessionId)).resolves.toEqual({
 			workspacePath: "C:/workspace",
 			projects: [],
 			archivedProjects: [],
 		});
+		await expect(adapter.listSessions(sessionId, "C:/workspace")).resolves.toEqual([
+			{
+				id: "session",
+				path: "C:/workspace/.vetta/sessions/session.jsonl",
+				cwd: "C:/workspace",
+				firstMessage: "hello",
+				modifiedAt: 1,
+			},
+		]);
 
 		official = false;
 		expect(() => adapter.listProjects(sessionId)).toThrowError(
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
+		expect(() => adapter.listRuntimeProjects(sessionId)).toThrowError(
+			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
+		);
 	});
 
-	it("does not grant project capabilities to non-official plugins", () => {
+	it("does not grant official domain capabilities to non-official plugins", () => {
 		const access = new RecordingAccessFactory();
 		const adapter = new PluginCapabilityAdapter(access, {
 			isOfficialPlugin: () => false,
@@ -167,6 +194,9 @@ describe("PluginCapabilityAdapter", () => {
 
 		expect(access.sessions[0]?.grants).toEqual([]);
 		expect(() => adapter.listProjects(sessionId)).toThrowError(
+			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
+		);
+		expect(() => adapter.listSessions(sessionId, "C:/workspace")).toThrowError(
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
 	});

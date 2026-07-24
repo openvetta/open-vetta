@@ -4,12 +4,15 @@ import {
 	CapabilityError,
 	type Disposable,
 	DOMAIN_PROJECT_CAPABILITIES,
+	DOMAIN_SESSION_CAPABILITIES,
 } from "@vetta/capability-sdk";
 import { readDesktopConfig, writeDesktopConfig } from "../config/desktop-config-store.js";
+import { listRuntimeSessionProjects, listSessionHistory } from "../conversations/session-query-service.js";
 import { allowProjectRoot, createFilesystemDirectory } from "../filesystem/filesystem-service.js";
 import { ProjectService } from "../projects/project-service.js";
 
 const DOMAIN_PROJECT_PROVIDER_OWNER = "vetta.domain.project";
+const DOMAIN_SESSION_PROVIDER_OWNER = "vetta.domain.session";
 
 function assertNotAborted(signal: AbortSignal): void {
 	if (signal.aborted) {
@@ -24,7 +27,7 @@ export function registerDesktopDomainProviders(registry: CapabilityRegistry): Di
 		readConfig: readDesktopConfig,
 		writeConfig: writeDesktopConfig,
 	});
-	return registry.registerOwner(DOMAIN_PROJECT_PROVIDER_OWNER, [
+	const projectRegistration = registry.registerOwner(DOMAIN_PROJECT_PROVIDER_OWNER, [
 		bindCapability(DOMAIN_PROJECT_CAPABILITIES.LIST, {
 			execute: async (_input, context) => {
 				assertNotAborted(context.signal);
@@ -68,4 +71,24 @@ export function registerDesktopDomainProviders(registry: CapabilityRegistry): Di
 			},
 		}),
 	]);
+	const sessionRegistration = registry.registerOwner(DOMAIN_SESSION_PROVIDER_OWNER, [
+		bindCapability(DOMAIN_SESSION_CAPABILITIES.LIST, {
+			execute: async ({ cwd }, context) => {
+				assertNotAborted(context.signal);
+				return listSessionHistory(cwd);
+			},
+		}),
+		bindCapability(DOMAIN_SESSION_CAPABILITIES.LIST_RUNTIME_PROJECTS, {
+			execute: async (_input, context) => {
+				assertNotAborted(context.signal);
+				return listRuntimeSessionProjects();
+			},
+		}),
+	]);
+	return {
+		dispose: () => {
+			sessionRegistration.dispose();
+			projectRegistration.dispose();
+		},
+	};
 }
