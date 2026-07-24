@@ -13,6 +13,4 @@ export interface PluginImageRef {
 	 * latest message producing a given rootId renders the version swiper.
 	 */
 	rootId?: string;
-	/** Hidden plugin-owned guidance contributed when attached to a prompt. */
-	promptInstruction?: string;
 }

@@ -90,14 +90,6 @@ function result(kind: "generated" | "edited", images: PluginImageRef[]): Record<
 	};
 }
 
-function mimeTypeForPath(path: string): string {
-	const extension = path.split(".").at(-1)?.toLowerCase();
-	if (extension === "jpg" || extension === "jpeg") return "image/jpeg";
-	if (extension === "webp") return "image/webp";
-	if (extension === "gif") return "image/gif";
-	return "image/png";
-}
-
 export function registerImageTools(ctx: PluginContext, repository: ImageRepository): void {
 	ctx.agent.registerTool<GenerateImageInput>({
 		id: "generate-image",
@@ -144,13 +136,13 @@ export function registerImageTools(ctx: PluginContext, repository: ImageReposito
 				? await repository.read(input.sourceImageId)
 				: null;
 			const localSource = input.sourceImagePath
-				? await host.fs.readFile(input.sourceImagePath)
+				? await host.fs.readBinaryFile(input.sourceImagePath)
 				: null;
 			const source = generatedSource ??
 				(localSource
 					? {
-							data: localSource.content,
-							mimeType: mimeTypeForPath(input.sourceImagePath ?? ""),
+							data: localSource.data,
+							mimeType: localSource.mimeType,
 						}
 					: null);
 			if (!source) throw new Error("Image source was not found");

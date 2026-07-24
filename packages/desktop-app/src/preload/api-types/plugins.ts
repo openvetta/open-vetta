@@ -470,6 +470,7 @@ export interface PluginHandlerInvocationResult<T> {
 export interface DesktopPluginCapabilityFilesystemApi {
 	readDirectory(sessionId: string, path: string): Promise<FsEntry[]>;
 	readFile(sessionId: string, path: string): Promise<{ content: string; encoding: "utf8" | "base64" }>;
+	readBinaryFile(sessionId: string, path: string): Promise<{ data: string; mimeType: string; size: number }>;
 	writeFile(sessionId: string, path: string, content: string, encoding?: "utf8" | "base64"): Promise<void>;
 	stat(sessionId: string, path: string): Promise<FsStatResult | null>;
 	rename(sessionId: string, oldPath: string, newPath: string): Promise<void>;
@@ -729,15 +730,15 @@ export interface DesktopPluginsApi {
 	onSettingsChanged(listener: (payload: { pluginId: string; values: Record<string, unknown> }) => void): () => void;
 	/** Fired when plugins are installed/uninstalled/enabled/reloaded (host should re-load remotes). */
 	onPluginsChanged(listener: () => void): () => void;
-	networkRequest<T = unknown>(pluginId: string, request: PluginNetworkRequest): Promise<PluginNetworkResponse<T>>;
-	storageReadJson<T>(pluginId: string, key: string): Promise<T | null>;
-	storageWriteJson(pluginId: string, key: string, value: unknown): Promise<void>;
-	storageList(pluginId: string, prefix?: string): Promise<string[]>;
-	storageReadFile(pluginId: string, path: string): Promise<string | null>;
-	storageWriteFile(pluginId: string, path: string, data: string): Promise<void>;
-	storagePutBlob(pluginId: string, input: PluginPutBlobInput): Promise<PluginStoredBlobRef>;
-	storageReadBlob(pluginId: string, id: string): Promise<PluginStoredBlob | null>;
-	storageGetBlobRef(pluginId: string, id: string): Promise<PluginStoredBlobRef | null>;
+	networkRequest<T = unknown>(sessionId: string, request: PluginNetworkRequest): Promise<PluginNetworkResponse<T>>;
+	storageReadJson<T>(sessionId: string, key: string): Promise<T | null>;
+	storageWriteJson(sessionId: string, key: string, value: unknown): Promise<void>;
+	storageList(sessionId: string, prefix?: string): Promise<string[]>;
+	storageReadFile(sessionId: string, path: string): Promise<string | null>;
+	storageWriteFile(sessionId: string, path: string, data: string): Promise<void>;
+	storagePutBlob(sessionId: string, input: PluginPutBlobInput): Promise<PluginStoredBlobRef>;
+	storageReadBlob(sessionId: string, id: string): Promise<PluginStoredBlob | null>;
+	storageGetBlobRef(sessionId: string, id: string): Promise<PluginStoredBlobRef | null>;
 }
 
 export type PluginNetworkBody =
@@ -763,7 +764,9 @@ export interface PluginNetworkRequest {
 }
 
 export interface PluginNetworkResponse<T = unknown> {
+	ok: boolean;
 	status: number;
+	statusText: string;
 	headers: Record<string, string>;
 	body: T;
 }

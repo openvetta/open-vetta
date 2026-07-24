@@ -261,7 +261,6 @@
 			"appshotThumbnailAlt": "Screenshot",
 			"appshotPreview": "Preview screenshot",
 			"appshotIconAlt": "App icon",
-			"editImage": "Edit selected image",
 			"removeDefault": "Click to remove",
 			"removeImage": "Remove image",
 			"removeTooltip": "{{path}}\nClick to remove"

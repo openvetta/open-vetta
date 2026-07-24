@@ -9,7 +9,6 @@ import {
 	activityPanelTabByProjectAtom,
 	attachedImagesAtom,
 	appshotAttachmentAtom,
-	editImageAttachmentAtom,
 	focusInputRequestAtom,
 	getTodoItemsForSession,
 	inputValueAtom,
@@ -18,6 +17,7 @@ import {
 	pendingMessageEditAtom,
 	pendingQuestionsAtom,
 	promptSuggestionsAtom,
+	promptAttachmentAtom,
 	sandboxPermissionDrawerAtom,
 	selectedSkillAtom,
 	todoItemsBySessionAtom,
@@ -130,7 +130,7 @@ export function useInputBarModel({
 	const [attachedImages, setAttachedImages] = useAtom(attachedImagesAtom);
 	const [selectedSkill, setSelectedSkill] = useAtom(selectedSkillAtom);
 	const [mentionedFiles, setMentionedFiles] = useAtom(mentionedFilesAtom);
-	const [editImageAttachment, setEditImageAttachment] = useAtom(editImageAttachmentAtom);
+	const [promptAttachment, setPromptAttachment] = useAtom(promptAttachmentAtom);
 	const [appshotAttachment, setAppshotAttachment] = useAtom(appshotAttachmentAtom);
 	const [pendingMessageEdit, setPendingMessageEdit] = useAtom(pendingMessageEditAtom);
 	const focusInputRequest = useAtomValue(focusInputRequestAtom);
@@ -169,7 +169,7 @@ export function useInputBarModel({
 	const hasCapsules =
 		Boolean(selectedSkill) ||
 		mentionedFiles.length > 0 ||
-		Boolean(editImageAttachment) ||
+		Boolean(promptAttachment) ||
 		Boolean(appshotAttachment) ||
 		Boolean(pendingMessageEdit);
 
@@ -726,7 +726,9 @@ export function useInputBarModel({
 		atOpen,
 		drawerItems,
 		drawerActiveTab,
-		hasEditImageAttachment: Boolean(editImageAttachment),
+		hasPromptAttachment: Boolean(promptAttachment),
+		promptAttachmentIcon: promptAttachment?.icon,
+		promptAttachmentLabel: promptAttachment?.label,
 		pendingMessageEdit: Boolean(pendingMessageEdit),
 		pendingEditHint: t("messageList.edit.pendingHint"),
 		cancelPendingEditLabel: t("messageList.interrupt.cancel"),
@@ -734,7 +736,6 @@ export function useInputBarModel({
 		contextMenu,
 		labels: {
 			capsule: {
-				editImage: t("inputBar.capsule.editImage"),
 				removeDefault: t("inputBar.capsule.removeDefault"),
 				removeImage: t("inputBar.capsule.removeImage"),
 				removeTooltip: (path) => t("inputBar.capsule.removeTooltip", { path }),
@@ -770,7 +771,7 @@ export function useInputBarModel({
 			removeImage,
 			removeSkill: handleRemoveSkill,
 			removeFile: handleRemoveFile,
-			removeEditImage: () => setEditImageAttachment(null),
+			removePromptAttachment: () => setPromptAttachment(null),
 			removeAppshot: () => setAppshotAttachment(null),
 			openImagePreview,
 			handlePlusClick,

@@ -10,14 +10,13 @@ import {
 	authUserAtom,
 	contextUsageAtom,
 	currentScenarioAtom,
-	editImageAttachmentAtom,
 	emptySessionInputActionState,
 	inputValueAtom,
 	lastActiveSessionAtom,
 	mentionedFilesAtom,
 	newSessionPageVisibilityAtom,
 	pageHeaderTitleHiddenAtom,
-	pendingEditImageIdAtom,
+	promptAttachmentAtom,
 	selectedSkillAtom,
 	sessionExecutionModeAtom,
 } from "@shared/store/atoms";
@@ -86,8 +85,7 @@ export function useNewSessionPageModel(): NewSessionPageModel {
 	const setContextUsage = useSetAtom(contextUsageAtom);
 	const setActiveSession = useSetAtom(activeSessionAtom);
 	const setLastActiveSession = useSetAtom(lastActiveSessionAtom);
-	const setEditImageAttachment = useSetAtom(editImageAttachmentAtom);
-	const setPendingEditImageId = useSetAtom(pendingEditImageIdAtom);
+	const setPromptAttachment = useSetAtom(promptAttachmentAtom);
 	const setCurrentScenario = useSetAtom(currentScenarioAtom);
 	const setActiveToolNames = useSetAtom(activeToolNamesAtom);
 	const authUser = useAtomValue(authUserAtom);
@@ -106,9 +104,8 @@ export function useNewSessionPageModel(): NewSessionPageModel {
 		setSelectedSkill(null);
 		setMentionedFiles([]);
 		setAttachedImages([]);
-		// 释放一次性的图像编辑 attach，避免别处选中的编辑目标带进新会话。
-		setEditImageAttachment(null);
-		setPendingEditImageId(null);
+		// 释放一次性的插件 prompt attachment，避免带进新会话。
+		setPromptAttachment(null);
 		// 清空 input-action / 知识检索工作集，并关掉 hardIsolation contribution mode。
 		// 各既有会话的持久化状态仍在 sessionInputActionStateMap，切回可恢复。
 		applyInputActionWorkingState(emptySessionInputActionState());
@@ -131,8 +128,7 @@ export function useNewSessionPageModel(): NewSessionPageModel {
 		setSelectedSkill,
 		setMentionedFiles,
 		setAttachedImages,
-		setEditImageAttachment,
-		setPendingEditImageId,
+		setPromptAttachment,
 		setCurrentScenario,
 		setActiveToolNames,
 		setContextUsage,

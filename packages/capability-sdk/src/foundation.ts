@@ -61,14 +61,30 @@ export interface FilesystemReadFileResult {
 	readonly encoding: "utf8" | "base64";
 }
 
+export interface FilesystemReadBinaryFileResult {
+	readonly data: string;
+	readonly mimeType: string;
+	readonly size: number;
+}
+
 export interface FilesystemStatResult {
 	readonly size: number;
 	readonly modifiedAt: number;
 	readonly createdAt: number;
 }
 
+export interface PluginScopedCapabilityInput {
+	readonly pluginId: string;
+	readonly payload: CapabilityJsonValue;
+}
+
+export interface PluginStorageCapabilityInput extends PluginScopedCapabilityInput {
+	readonly operation: string;
+}
+
 const STORAGE_NAMESPACE_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/;
 const STORAGE_KEY_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/;
+const PLUGIN_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 
 function parseJsonValueInternal(value: unknown, seen: Set<object>): CapabilityJsonValue {
 	if (value === null || typeof value === "boolean" || typeof value === "string") return value;
@@ -202,6 +218,27 @@ function parseWriteFileInput(value: unknown): FilesystemWriteFileInput {
 	};
 }
 
+function parsePluginScopedInput(value: unknown): PluginScopedCapabilityInput {
+	const input = parseRecord(value);
+	const pluginId = input.pluginId;
+	if (typeof pluginId !== "string" || !PLUGIN_ID_PATTERN.test(pluginId)) {
+		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_INPUT, "Invalid plugin id");
+	}
+	return {
+		pluginId,
+		payload: parseCapabilityJsonValue(input.payload),
+	};
+}
+
+function parsePluginStorageInput(value: unknown): PluginStorageCapabilityInput {
+	const input = parseRecord(value);
+	const scoped = parsePluginScopedInput(input);
+	return {
+		...scoped,
+		operation: parseRequiredString(input, "operation"),
+	};
+}
+
 function parseOutputRecord(value: unknown): Record<string, unknown> {
 	if (typeof value !== "object" || value === null || Array.isArray(value)) {
 		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_OUTPUT, "Capability output must be an object");
@@ -270,6 +307,15 @@ function parseFilesystemReadFileResult(value: unknown): FilesystemReadFileResult
 	return {
 		content: parseOutputString(result, "content"),
 		encoding: result.encoding,
+	};
+}
+
+function parseFilesystemReadBinaryFileResult(value: unknown): FilesystemReadBinaryFileResult {
+	const result = parseOutputRecord(value);
+	return {
+		data: parseOutputString(result, "data"),
+		mimeType: parseOutputString(result, "mimeType"),
+		size: parseOutputNumber(result, "size"),
 	};
 }
 
@@ -342,6 +388,14 @@ export const FOUNDATION_FILESYSTEM_CAPABILITIES = {
 		parseInput: parsePathInput,
 		parseOutput: parseFilesystemReadFileResult,
 	}),
+	READ_BINARY_FILE: defineCapability<FilesystemPathInput, FilesystemReadBinaryFileResult>({
+		id: "cap.foundation.vetta.fs.read-binary-file",
+		kind: "query",
+		layer: CAPABILITY_LAYERS.FOUNDATION,
+		version: 1,
+		parseInput: parsePathInput,
+		parseOutput: parseFilesystemReadBinaryFileResult,
+	}),
 	WRITE_FILE: defineCapability<FilesystemWriteFileInput, undefined>({
 		id: "cap.foundation.vetta.fs.write-file",
 		kind: "command",
@@ -397,5 +451,35 @@ export const FOUNDATION_FILESYSTEM_CAPABILITIES = {
 		version: 1,
 		parseInput: parsePathInput,
 		parseOutput: parseFilesystemFileRefs,
+	}),
+} as const;
+
+export const FOUNDATION_PLUGIN_NETWORK_CAPABILITIES = {
+	REQUEST: defineCapability<PluginScopedCapabilityInput, CapabilityJsonValue>({
+		id: "cap.foundation.vetta.plugin.network.request",
+		kind: "command",
+		layer: CAPABILITY_LAYERS.FOUNDATION,
+		version: 1,
+		parseInput: parsePluginScopedInput,
+		parseOutput: parseCapabilityJsonValue,
+	}),
+} as const;
+
+export const FOUNDATION_PLUGIN_STORAGE_CAPABILITIES = {
+	READ: defineCapability<PluginStorageCapabilityInput, CapabilityJsonValue>({
+		id: "cap.foundation.vetta.plugin.storage.read",
+		kind: "query",
+		layer: CAPABILITY_LAYERS.FOUNDATION,
+		version: 1,
+		parseInput: parsePluginStorageInput,
+		parseOutput: parseCapabilityJsonValue,
+	}),
+	WRITE: defineCapability<PluginStorageCapabilityInput, CapabilityJsonValue>({
+		id: "cap.foundation.vetta.plugin.storage.write",
+		kind: "command",
+		layer: CAPABILITY_LAYERS.FOUNDATION,
+		version: 1,
+		parseInput: parsePluginStorageInput,
+		parseOutput: parseCapabilityJsonValue,
 	}),
 } as const;

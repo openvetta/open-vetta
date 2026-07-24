@@ -6,26 +6,14 @@ import type {
 	PluginAppActionRegistration,
 	PluginCommandRunOptions,
 	PluginInstallOptions,
-	PluginNetworkRequest,
 	PluginPermission,
-	PluginPutBlobInput,
 } from "../../preload/api-types/plugins.js";
 import { recordAppMonitorEvent } from "../app-monitor/app-monitor-service.js";
+import { getDesktopCapabilityHost } from "../capabilities/capability-host.js";
 import { getAppLogger } from "../logger.js";
 import { runPluginCommand } from "../plugins/command-runner.js";
 import type { PluginActionService } from "../plugins/plugin-action-service.js";
 import { startPluginDevWatch, stopPluginDevWatch } from "../plugins/plugin-dev-watch.js";
-import { requestForPlugin } from "../plugins/plugin-network-service.js";
-import {
-	getPluginBlobRef,
-	listPluginFiles,
-	putPluginBlob,
-	readPluginBlob,
-	readPluginFile,
-	readPluginJson,
-	writePluginFile,
-	writePluginJson,
-} from "../plugins/plugin-storage-service.js";
 import {
 	beginDynamicAgentContributionLoad,
 	buildAgentPluginRuntimeConfig,
@@ -378,6 +366,7 @@ function countRemoved(previous: readonly string[], next: readonly string[]): num
 }
 
 export function registerPluginsIpc(pluginActionService: PluginActionService): () => void {
+	const capabilityAdapter = getDesktopCapabilityHost().adapters.plugin;
 	// 插件级 agent_mode 硬闸的 renderer 侧：白名单外的插件对渲染层完全不可见
 	// （工作台列表 + UI 贡献 + bundle 均不出现）。见 ADR-0046。
 	ipcMain.handle("vetta:plugins:list", async () => {
@@ -647,34 +636,38 @@ export function registerPluginsIpc(pluginActionService: PluginActionService): ()
 			contents.send("vetta:plugins:settings-changed", { pluginId, values: effective });
 		}
 	});
-	ipcMain.handle("vetta:plugins:network:request", (_event, id: unknown, request: unknown) => {
-		asPluginId(id);
-		return requestForPlugin(request as PluginNetworkRequest);
+	ipcMain.handle("vetta:plugins:network:request", (_event, sessionId: unknown, request: unknown) => {
+		return capabilityAdapter.requestNetwork(asPluginId(sessionId), request);
 	});
-	ipcMain.handle("vetta:plugins:storage:read-json", (_event, id: unknown, key: unknown) =>
-		readPluginJson(asPluginId(id), asPluginId(key)),
+	ipcMain.handle("vetta:plugins:storage:read-json", (_event, sessionId: unknown, key: unknown) =>
+		capabilityAdapter.readStorage(asPluginId(sessionId), "read-json", { key: asPluginId(key) }),
 	);
-	ipcMain.handle("vetta:plugins:storage:write-json", (_event, id: unknown, key: unknown, value: unknown) =>
-		writePluginJson(asPluginId(id), asPluginId(key), value),
+	ipcMain.handle("vetta:plugins:storage:write-json", (_event, sessionId: unknown, key: unknown, value: unknown) =>
+		capabilityAdapter.writeStorage(asPluginId(sessionId), "write-json", { key: asPluginId(key), value }),
 	);
-	ipcMain.handle("vetta:plugins:storage:list", (_event, id: unknown, prefix: unknown) =>
-		listPluginFiles(asPluginId(id), prefix === undefined ? undefined : asPluginId(prefix)),
+	ipcMain.handle("vetta:plugins:storage:list", (_event, sessionId: unknown, prefix: unknown) =>
+		capabilityAdapter.readStorage(asPluginId(sessionId), "list", {
+			...(prefix === undefined ? {} : { prefix: asPluginId(prefix) }),
+		}),
 	);
-	ipcMain.handle("vetta:plugins:storage:read-file", (_event, id: unknown, path: unknown) =>
-		readPluginFile(asPluginId(id), asPluginId(path)),
+	ipcMain.handle("vetta:plugins:storage:read-file", (_event, sessionId: unknown, path: unknown) =>
+		capabilityAdapter.readStorage(asPluginId(sessionId), "read-file", { path: asPluginId(path) }),
 	);
-	ipcMain.handle("vetta:plugins:storage:write-file", (_event, id: unknown, path: unknown, data: unknown) => {
+	ipcMain.handle("vetta:plugins:storage:write-file", (_event, sessionId: unknown, path: unknown, data: unknown) => {
 		if (typeof data !== "string") throw new Error("Invalid plugin storage data");
-		return writePluginFile(asPluginId(id), asPluginId(path), data);
+		return capabilityAdapter.writeStorage(asPluginId(sessionId), "write-file", {
+			path: asPluginId(path),
+			data,
+		});
 	});
-	ipcMain.handle("vetta:plugins:storage:put-blob", (_event, id: unknown, input: unknown) =>
-		putPluginBlob(asPluginId(id), input as PluginPutBlobInput),
+	ipcMain.handle("vetta:plugins:storage:put-blob", (_event, sessionId: unknown, input: unknown) =>
+		capabilityAdapter.writeStorage(asPluginId(sessionId), "put-blob", input),
 	);
-	ipcMain.handle("vetta:plugins:storage:read-blob", (_event, id: unknown, blobId: unknown) =>
-		readPluginBlob(asPluginId(id), asPluginId(blobId)),
+	ipcMain.handle("vetta:plugins:storage:read-blob", (_event, sessionId: unknown, blobId: unknown) =>
+		capabilityAdapter.readStorage(asPluginId(sessionId), "read-blob", { id: asPluginId(blobId) }),
 	);
-	ipcMain.handle("vetta:plugins:storage:get-blob-ref", (_event, id: unknown, blobId: unknown) =>
-		getPluginBlobRef(asPluginId(id), asPluginId(blobId)),
+	ipcMain.handle("vetta:plugins:storage:get-blob-ref", (_event, sessionId: unknown, blobId: unknown) =>
+		capabilityAdapter.readStorage(asPluginId(sessionId), "get-blob-ref", { id: asPluginId(blobId) }),
 	);
 
 	return () => {

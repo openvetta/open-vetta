@@ -28,6 +28,7 @@ export const PLUGIN_CAPABILITY_CHANNELS = {
 	MCP_SERVER_REMOVE: "vetta:plugins:capabilities:mcp:server:remove",
 	FS_READ_DIRECTORY: "vetta:plugins:capabilities:fs:read-directory",
 	FS_READ_FILE: "vetta:plugins:capabilities:fs:read-file",
+	FS_READ_BINARY_FILE: "vetta:plugins:capabilities:fs:read-binary-file",
 	FS_WRITE_FILE: "vetta:plugins:capabilities:fs:write-file",
 	FS_STAT: "vetta:plugins:capabilities:fs:stat",
 	FS_RENAME: "vetta:plugins:capabilities:fs:rename",

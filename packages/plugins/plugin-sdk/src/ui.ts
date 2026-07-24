@@ -2,6 +2,7 @@ import type { ComponentType, ReactNode } from "react";
 import type { ConversationMessage } from "./conversation.js";
 import type { Disposable } from "./disposable.js";
 import type { PluginImageRef } from "./images.js";
+import type { PluginPromptAttachment } from "./prompt-attachment.js";
 import type { ConversationScenario } from "./scenario.js";
 
 export interface PluginGlobalSlotContribution {
@@ -325,14 +326,11 @@ export interface PluginUiApi {
 	 */
 	openActivityTab(tabId: string, options?: PluginOpenActivityTabOptions): void;
 	/**
-	 * Bind (or clear, with `null`) an image as the "edit target" for the next
-	 * outgoing prompt. The host renders it as a thumbnail capsule in the AI input
-	 * bar's top capsule strip and contributes the ref's optional hidden prompt
-	 * instruction at send time. One-shot: cleared after the prompt is sent (or
-	 * when the user closes the capsule). Only the image reference crosses over —
-	 * bytes stay out-of-band.
+	 * Bind or clear plugin-owned one-shot context for the next outgoing prompt.
+	 * The host renders its label/icon, merges metadata and hidden instructions,
+	 * then clears it after send or when the user closes the capsule.
 	 */
-	setEditImageAttachment(ref: PluginImageRef | null): void;
+	setPromptAttachment(attachment: PluginPromptAttachment | null): void;
 	/**
 	 * Open the host's global full-screen image previewer for the given image.
 	 * Only the image reference (id/url) crosses over — bytes stay out-of-band.

@@ -6,7 +6,7 @@
 
 - **输入栏「图像生成」开关（软隔离）**：插件通过 `PluginPromptDecoration.instructions` 注入本轮隐藏意图。**未开启时**插件注册的工具仍可用；开启则加强引导。agent 按 prompt 语义自行决定调用 `generate_image`（全新画面）还是 `edit_image`（修改已有图像）。
 - **消息下方版本 swiper**：在生成图像的那条消息下横向排列该图编辑谱系的全部版本（超出可左右翻看），每张 hover 出「编辑」「导出」。同一谱系只在最新一条消息下渲染，生成中时最前面插入「生成中」骨架卡。
-- **图改图统一从输入栏触发**：点某张图的「编辑」icon → 该图作为编辑目标 attach 到输入栏顶部胶囊（`ui.setEditImageAttachment`），ref 携带插件拥有的隐藏编辑指令，agent 调用 `edit_image` 以该图为 source。一次性，发送后释放。
+- **图改图统一从输入栏触发**：点某张图的「编辑」icon → 插件通过 `ui.setPromptAttachment` 绑定一次性编辑上下文，宿主只展示通用胶囊并在发送时合并隐藏指令，agent 调用 `edit_image` 以该图为 source。
 
 ## 配置（插件设置）
 
@@ -30,4 +30,4 @@
 
 ## 架构
 
-插件拥有供应商适配、`generate_image` / `edit_image` 工具、隐藏提示、持久化记录和编辑谱系；desktop 只提供通用的 `ctx.network` 与 `ctx.storage`。旧版 `~/.vetta/plugin-images/image-gen/index.json` 会由插件一次性迁移并保留 image id。详见 `docs/adr/0048-image-generation-owned-by-plugin-generic-network-storage.md`。
+插件拥有供应商适配、`generate_image` / `edit_image` 工具、隐藏提示、持久化记录和编辑谱系；desktop 只提供受 capability session 约束的 `ctx.network`、`ctx.storage`、`ctx.fs.readBinaryFile` 与通用 prompt attachment。私有数据写入 `~/.vetta/plugin-data/image-gen/`；旧版 `plugin-images` 数据会复制后迁移并保留 image id。详见 `docs/adr/0048-image-generation-owned-by-plugin-generic-network-storage.md`。

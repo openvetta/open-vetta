@@ -1,10 +1,10 @@
 import {
 	activeSessionAtom,
 	chatMessagesAtom,
-	editImageAttachmentAtom,
 	inputValueAtom,
 	isStreamingAtom,
 	languageAtom,
+	promptAttachmentAtom,
 	selectedModelAtom,
 } from "@shared/store/atoms";
 import type { Message } from "@vetta/ai";
@@ -23,7 +23,7 @@ import type {
 	PluginConversationApi,
 	PluginDynamicSystemPromptOperation,
 	PluginHostBridge,
-	PluginImageRef,
+	PluginPromptAttachment,
 	PluginSystemPromptProviderHandler,
 } from "@vetta-org/plugin-sdk";
 import { __setPluginHostBridge, PluginAppActionError } from "@vetta-org/plugin-sdk";
@@ -535,8 +535,8 @@ function useConversationMessages(): ConversationMessage[] {
 	);
 }
 
-function useEditImageAttachment(): PluginImageRef | null {
-	return useAtomValue(editImageAttachmentAtom);
+function usePromptAttachment(): PluginPromptAttachment | null {
+	return useAtomValue(promptAttachmentAtom);
 }
 
 function useLocale(): string {
@@ -547,7 +547,7 @@ function useLocale(): string {
 export const pluginHostBridge: PluginHostBridge = {
 	useActiveConversation,
 	useConversationMessages,
-	useEditImageAttachment,
+	usePromptAttachment,
 	useLocale,
 	conversation,
 };

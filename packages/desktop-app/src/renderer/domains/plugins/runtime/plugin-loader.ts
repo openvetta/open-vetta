@@ -12,11 +12,11 @@ import {
 	activityPanelTabByProjectAtom,
 	agentModeAtom,
 	attachedPluginTabsAtom,
-	editImageAttachmentAtom,
 	filePreviewAtom,
 	languageAtom,
 	persistCurrentInputActionState,
 	pluginInputActionsAtom,
+	promptAttachmentAtom,
 	setActivityPanelWidthAtom,
 } from "@shared/store/atoms";
 import { showToast } from "@shared/store/toast-atoms";
@@ -42,6 +42,7 @@ import type {
 	PluginNotifyOptions,
 	PluginOpenActivityTabOptions,
 	PluginPermission,
+	PluginPromptAttachment,
 	PluginSettingsApi,
 	PluginStorageApi,
 	PluginToolCallSlotContribution,
@@ -257,6 +258,10 @@ function createFsApi(plugin: InstalledPlugin, capabilitySessionId: string): Plug
 			permissions.require("fs.read");
 			return filesystem.readFile(capabilitySessionId, filePath);
 		},
+		readBinaryFile: (filePath) => {
+			permissions.require("fs.read");
+			return filesystem.readBinaryFile(capabilitySessionId, filePath);
+		},
 		writeFile: (filePath, content, encoding) => {
 			permissions.require("fs.write");
 			return filesystem.writeFile(capabilitySessionId, filePath, content, encoding);
@@ -318,50 +323,50 @@ function createSettingsApi(
 	};
 }
 
-function createNetworkApi(plugin: InstalledPlugin): PluginNetworkApi {
+function createNetworkApi(plugin: InstalledPlugin, capabilitySessionId: string): PluginNetworkApi {
 	return {
 		request: (request) => {
 			createPermissionApi(plugin).require("network.fetch");
-			return window.vetta.plugins.networkRequest(plugin.id, request);
+			return window.vetta.plugins.networkRequest(capabilitySessionId, request);
 		},
 	};
 }
 
-function createStorageApi(plugin: InstalledPlugin): PluginStorageApi {
+function createStorageApi(plugin: InstalledPlugin, capabilitySessionId: string): PluginStorageApi {
 	const requireRead = (): void => createPermissionApi(plugin).require("storage.read");
 	const requireWrite = (): void => createPermissionApi(plugin).require("storage.write");
 	return {
 		readJson: (key) => {
 			requireRead();
-			return window.vetta.plugins.storageReadJson(plugin.id, key);
+			return window.vetta.plugins.storageReadJson(capabilitySessionId, key);
 		},
 		writeJson: (key, value) => {
 			requireWrite();
-			return window.vetta.plugins.storageWriteJson(plugin.id, key, value);
+			return window.vetta.plugins.storageWriteJson(capabilitySessionId, key, value);
 		},
 		list: (prefix) => {
 			requireRead();
-			return window.vetta.plugins.storageList(plugin.id, prefix);
+			return window.vetta.plugins.storageList(capabilitySessionId, prefix);
 		},
 		readFile: (path) => {
 			requireRead();
-			return window.vetta.plugins.storageReadFile(plugin.id, path);
+			return window.vetta.plugins.storageReadFile(capabilitySessionId, path);
 		},
 		writeFile: (path, data) => {
 			requireWrite();
-			return window.vetta.plugins.storageWriteFile(plugin.id, path, data);
+			return window.vetta.plugins.storageWriteFile(capabilitySessionId, path, data);
 		},
 		putBlob: (input) => {
 			requireWrite();
-			return window.vetta.plugins.storagePutBlob(plugin.id, input);
+			return window.vetta.plugins.storagePutBlob(capabilitySessionId, input);
 		},
 		readBlob: (id) => {
 			requireRead();
-			return window.vetta.plugins.storageReadBlob(plugin.id, id);
+			return window.vetta.plugins.storageReadBlob(capabilitySessionId, id);
 		},
 		getBlobRef: (id) => {
 			requireRead();
-			return window.vetta.plugins.storageGetBlobRef(plugin.id, id);
+			return window.vetta.plugins.storageGetBlobRef(capabilitySessionId, id);
 		},
 	};
 }
@@ -711,25 +716,32 @@ function createContext(
 		}
 		openPluginActivityTab(plugin.id, tabId, options?.width);
 	};
-	const setEditImageAttachment = (ref: PluginImageRef | null): void => {
+	const setPromptAttachment = (attachment: PluginPromptAttachment | null): void => {
 		createPermissionApi(plugin).require("ui.slot.input-action");
 		const store = getDefaultStore();
-		store.set(editImageAttachmentAtom, ref ?? null);
+		if (attachment === null) {
+			if (store.get(promptAttachmentAtom)?.ownerPluginId === plugin.id) {
+				store.set(promptAttachmentAtom, null);
+			}
+			return;
+		}
+		if (!attachment.id.trim() || !attachment.label.trim()) {
+			throw new Error("Prompt attachment id and label are required");
+		}
+		store.set(promptAttachmentAtom, { ...attachment, ownerPluginId: plugin.id });
 		// An attachment activates this plugin's input action so its hidden prompt
 		// instructions are contributed to the next turn.
-		if (ref) {
-			const myActionIds = store
-				.get(pluginInputActionsAtom)
-				.filter((action) => action.pluginId === plugin.id)
-				.map((action) => action.actionId);
-			if (myActionIds.length > 0) {
-				store.set(activeInputActionIdsAtom, (prev) => {
-					const next = new Set(prev);
-					for (const id of myActionIds) next.add(id);
-					return next;
-				});
-				persistCurrentInputActionState(store.get(activeSessionAtom)?.sessionPath);
-			}
+		const myActionIds = store
+			.get(pluginInputActionsAtom)
+			.filter((action) => action.pluginId === plugin.id)
+			.map((action) => action.actionId);
+		if (myActionIds.length > 0) {
+			store.set(activeInputActionIdsAtom, (prev) => {
+				const next = new Set(prev);
+				for (const id of myActionIds) next.add(id);
+				return next;
+			});
+			persistCurrentInputActionState(store.get(activeSessionAtom)?.sessionPath);
 		}
 	};
 	const previewImage = (ref: PluginImageRef, group?: PluginImageRef[]): void => {
@@ -811,7 +823,7 @@ function createContext(
 			registerToolCallSlot,
 			registerTurnCard,
 			openActivityTab,
-			setEditImageAttachment,
+			setPromptAttachment,
 			previewImage,
 			openPluginSettings,
 			notify,
@@ -1051,8 +1063,8 @@ function createContext(
 			},
 		},
 		official: createPluginOfficialApi(plugin, capabilitySessionId),
-		network: createNetworkApi(plugin),
-		storage: createStorageApi(plugin),
+		network: createNetworkApi(plugin, capabilitySessionId),
+		storage: createStorageApi(plugin, capabilitySessionId),
 		settings: settingsApi,
 		i18n: createI18nApi(plugin),
 		getAgentMode: () => getDefaultStore().get(agentModeAtom),

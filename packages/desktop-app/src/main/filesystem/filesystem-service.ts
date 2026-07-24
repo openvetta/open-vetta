@@ -23,6 +23,7 @@ const BINARY_EXTENSIONS = new Set([
 	"pptx",
 ]);
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_BINARY_FILE_SIZE = 32 * 1024 * 1024;
 const HIDDEN_FILES = new Set([".DS_Store", "Thumbs.db", "desktop.ini"]);
 const RECURSIVE_IGNORED_DIRS = new Set([
 	"node_modules",
@@ -122,6 +123,35 @@ export async function readFilesystemFile(filePath: string): Promise<{ content: s
 		return { content: buffer.toString("base64"), encoding: "base64" };
 	}
 	return { content: await readFile(resolved, "utf8"), encoding: "utf8" };
+}
+
+function detectBinaryMimeType(buffer: Buffer): string {
+	if (buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) {
+		return "image/png";
+	}
+	if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return "image/jpeg";
+	const signature = buffer.subarray(0, 6).toString("ascii");
+	if (signature === "GIF87a" || signature === "GIF89a") return "image/gif";
+	if (buffer.subarray(0, 4).toString("ascii") === "RIFF" && buffer.subarray(8, 12).toString("ascii") === "WEBP") {
+		return "image/webp";
+	}
+	return "application/octet-stream";
+}
+
+export async function readFilesystemBinaryFile(
+	filePath: string,
+): Promise<{ data: string; mimeType: string; size: number }> {
+	assertPathReadableForPreview(filePath);
+	const resolved = resolve(filePath);
+	const stats = await stat(resolved);
+	if (!stats.isFile()) throw new Error("Path is not a file");
+	if (stats.size > MAX_BINARY_FILE_SIZE) throw new Error("Binary file too large (>32 MB)");
+	const buffer = await readFile(resolved);
+	return {
+		data: buffer.toString("base64"),
+		mimeType: detectBinaryMimeType(buffer),
+		size: buffer.byteLength,
+	};
 }
 
 export async function writeFilesystemFile(

@@ -6,16 +6,15 @@ import {
 	chatMessagesAtom,
 	closeInlineFilePreviewAtom,
 	defaultConversationCwdAtom,
-	editImageAttachmentAtom,
 	emptySessionInputActionState,
 	getProjectDisplayName,
 	inlineFilePreviewContextReadonlyAtom,
 	isStreamingAtom,
 	loadInputActionStateForSession,
 	pageHeaderTitleAtom,
-	pendingEditImageIdAtom,
 	persistCurrentInputActionState,
 	persistInputActionStateForSession,
+	promptAttachmentAtom,
 	sessionDisplayLabel,
 	sessionsMapAtom,
 	syncHardIsolationContributionModes,
@@ -38,8 +37,7 @@ export function useChatViewModel(): ChatViewModelResult {
 	const closeInlinePreview = useSetAtom(closeInlineFilePreviewAtom);
 	const defaultCwd = useAtomValue(defaultConversationCwdAtom);
 	const sessionsMap = useAtomValue(sessionsMapAtom);
-	const setEditImageAttachment = useSetAtom(editImageAttachmentAtom);
-	const setPendingEditImageId = useSetAtom(pendingEditImageIdAtom);
+	const setPromptAttachment = useSetAtom(promptAttachmentAtom);
 
 	// 按 sessionPath 恢复 / 切换 AI 输入栏 toggle（插件 input-action + 知识检索）。
 	// undefined = 尚未挂载；null = 无有效 sessionPath（新建页或 early open 的空 path）。
@@ -68,9 +66,8 @@ export function useChatViewModel(): ChatViewModelResult {
 
 		if (prevPath === nextPath) return;
 
-		// 编辑目标是一次性 attach，不跨会话。
-		setEditImageAttachment(null);
-		setPendingEditImageId(null);
+		// 插件 prompt attachment 是一次性的，不跨会话。
+		setPromptAttachment(null);
 
 		if (prevPath) {
 			persistCurrentInputActionState(prevPath);
@@ -90,7 +87,7 @@ export function useChatViewModel(): ChatViewModelResult {
 		}
 
 		prevSessionPathRef.current = nextPath;
-	}, [activeSession?.sessionPath, setEditImageAttachment, setPendingEditImageId]);
+	}, [activeSession?.sessionPath, setPromptAttachment]);
 
 	const [pinned, setPinned] = useState(false);
 	const [exporting, setExporting] = useState(false);

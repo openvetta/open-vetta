@@ -253,9 +253,9 @@ export function InputBarView({ model, className, classNames }: InputBarViewProps
 											)}
 										</AnimatePresence>
 
-										{/* 附件第3行：元数据胶囊（改图 + skill/scene badge） */}
+										{/* 附件第3行：插件上下文 + skill/scene badge */}
 										<AnimatePresence initial={false}>
-											{(model.hasEditImageAttachment || model.selectedSkill) && (
+											{(model.hasPromptAttachment || model.selectedSkill) && (
 												<motion.div
 													key="meta-row"
 													initial={COLLAPSE_INITIAL}
@@ -264,14 +264,14 @@ export function InputBarView({ model, className, classNames }: InputBarViewProps
 													transition={SOFT}
 													className="flex flex-wrap items-center gap-1.5"
 												>
-													{model.hasEditImageAttachment && (
+													{model.hasPromptAttachment && model.promptAttachmentLabel && (
 														<InputBarCapsule
-															key="edit-image-capsule"
-															icon="icon-[solar--gallery-linear]"
-															label={model.labels.capsule.editImage}
+															key="plugin-prompt-attachment"
+															icon={model.promptAttachmentIcon ?? "icon-[solar--paperclip-linear]"}
+															label={model.promptAttachmentLabel}
 															labels={model.labels.capsule}
 															tone="primary"
-															onRemove={model.actions.removeEditImage}
+															onRemove={model.actions.removePromptAttachment}
 														/>
 													)}
 													{model.selectedSkill && (
