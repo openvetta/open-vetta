@@ -1,15 +1,7 @@
-import { CAPABILITY_ERROR_CODES, CAPABILITY_LAYERS, CapabilityError, defineCapability } from "../contracts.js";
-import {
-	parseEmptyInput,
-	parseInputRecord,
-	parseOptionalOutputNumber,
-	parseOptionalOutputString,
-	parseOutputRecord,
-	parseRequiredInputBoolean,
-	parseRequiredInputString,
-	parseRequiredOutputBoolean,
-	parseRequiredOutputString,
-} from "./parse-helpers.js";
+import { type Static, Type } from "@sinclair/typebox";
+import { createCapabilityCatalog } from "../catalog.js";
+import { CAPABILITY_LAYERS, defineCapability } from "../contracts.js";
+import { defineCapabilityInputSchema, defineCapabilityOutputSchema } from "../schema.js";
 
 export const GENERAL_EXECUTION_MODES = {
 	SANDBOX: "sandbox",
@@ -29,172 +21,116 @@ export const SANDBOX_BACKENDS = {
 	WINDOWS_HOST: "windows-host",
 } as const;
 
-export type GeneralExecutionMode = (typeof GENERAL_EXECUTION_MODES)[keyof typeof GENERAL_EXECUTION_MODES];
-export type SandboxStatus = (typeof SANDBOX_STATUSES)[keyof typeof SANDBOX_STATUSES];
-export type SandboxBackend = (typeof SANDBOX_BACKENDS)[keyof typeof SANDBOX_BACKENDS] | null;
+const generalSettingsEmptyInputType = Type.Unsafe<Record<string, never>>({
+	type: "object",
+	additionalProperties: false,
+});
 
-export interface SandboxFeatures {
-	readonly readRoots: boolean;
-	readonly writeRoots: boolean;
-	readonly denyRead: boolean;
-	readonly denyWrite: boolean;
-	readonly tempRootIsolation: boolean;
-	readonly networkIsolation: boolean;
-	readonly processTreeKill: boolean;
-	readonly passiveProbe: boolean;
-	readonly activeProbe: boolean;
-}
+const generalExecutionModeType = Type.Union([
+	Type.Literal(GENERAL_EXECUTION_MODES.SANDBOX),
+	Type.Literal(GENERAL_EXECUTION_MODES.FULL_ACCESS),
+]);
 
-export interface SandboxCapabilitySnapshot {
-	readonly status: SandboxStatus;
-	readonly backend: SandboxBackend;
-	readonly platform: string;
-	readonly binaryPath?: string;
-	readonly reason?: string;
-	readonly details?: string;
-	readonly checkedAt?: number;
-	readonly features?: SandboxFeatures;
-}
+const sandboxStatusType = Type.Union([
+	Type.Literal(SANDBOX_STATUSES.UNKNOWN),
+	Type.Literal(SANDBOX_STATUSES.AVAILABLE),
+	Type.Literal(SANDBOX_STATUSES.UNAVAILABLE),
+]);
 
-export interface GeneralSettingsSnapshot {
-	readonly workspacePath: string;
-	readonly defaultExecutionMode: GeneralExecutionMode;
-	readonly notificationsEnabled: boolean;
-	readonly debugMode: boolean;
-	readonly sandbox: SandboxCapabilitySnapshot;
-}
+const sandboxBackendType = Type.Union([
+	Type.Literal(SANDBOX_BACKENDS.BUNDLED_BWRAP),
+	Type.Literal(SANDBOX_BACKENDS.SYSTEM_BWRAP),
+	Type.Literal(SANDBOX_BACKENDS.MACOS_SEATBELT),
+	Type.Literal(SANDBOX_BACKENDS.WINDOWS_HOST),
+	Type.Null(),
+]);
 
-export interface NotificationsSettingInput {
-	readonly enabled: boolean;
-}
+const sandboxFeaturesType = Type.Object(
+	{
+		readRoots: Type.Boolean(),
+		writeRoots: Type.Boolean(),
+		denyRead: Type.Boolean(),
+		denyWrite: Type.Boolean(),
+		tempRootIsolation: Type.Boolean(),
+		networkIsolation: Type.Boolean(),
+		processTreeKill: Type.Boolean(),
+		passiveProbe: Type.Boolean(),
+		activeProbe: Type.Boolean(),
+	},
+	{ additionalProperties: false },
+);
 
-export interface DefaultExecutionModeSettingInput {
-	readonly mode: GeneralExecutionMode;
-}
+const sandboxCapabilitySnapshotType = Type.Object(
+	{
+		status: sandboxStatusType,
+		backend: sandboxBackendType,
+		platform: Type.String(),
+		binaryPath: Type.Optional(Type.String()),
+		reason: Type.Optional(Type.String()),
+		details: Type.Optional(Type.String()),
+		checkedAt: Type.Optional(Type.Number()),
+		features: Type.Optional(sandboxFeaturesType),
+	},
+	{ additionalProperties: false },
+);
 
-export interface WorkspaceSettingInput {
-	readonly path: string;
-}
+const generalSettingsSnapshotType = Type.Object(
+	{
+		workspacePath: Type.String(),
+		defaultExecutionMode: generalExecutionModeType,
+		notificationsEnabled: Type.Boolean(),
+		debugMode: Type.Boolean(),
+		sandbox: sandboxCapabilitySnapshotType,
+	},
+	{ additionalProperties: false },
+);
 
-function parseEnum<Value extends string>(
-	value: unknown,
-	values: readonly Value[],
-	field: string,
-	code: typeof CAPABILITY_ERROR_CODES.INVALID_INPUT | typeof CAPABILITY_ERROR_CODES.INVALID_OUTPUT,
-): Value {
-	if (typeof value !== "string" || !values.includes(value as Value)) {
-		throw new CapabilityError(code, `Capability ${field} is invalid`);
-	}
-	return value as Value;
-}
+const notificationsSettingType = Type.Object(
+	{
+		enabled: Type.Boolean(),
+	},
+	{ additionalProperties: false },
+);
 
-function parseSandboxFeatures(value: unknown): SandboxFeatures {
-	const features = parseOutputRecord(value);
-	return {
-		readRoots: parseRequiredOutputBoolean(features, "readRoots"),
-		writeRoots: parseRequiredOutputBoolean(features, "writeRoots"),
-		denyRead: parseRequiredOutputBoolean(features, "denyRead"),
-		denyWrite: parseRequiredOutputBoolean(features, "denyWrite"),
-		tempRootIsolation: parseRequiredOutputBoolean(features, "tempRootIsolation"),
-		networkIsolation: parseRequiredOutputBoolean(features, "networkIsolation"),
-		processTreeKill: parseRequiredOutputBoolean(features, "processTreeKill"),
-		passiveProbe: parseRequiredOutputBoolean(features, "passiveProbe"),
-		activeProbe: parseRequiredOutputBoolean(features, "activeProbe"),
-	};
-}
+const defaultExecutionModeSettingType = Type.Object(
+	{
+		mode: generalExecutionModeType,
+	},
+	{ additionalProperties: false },
+);
 
-function parseSandboxCapability(value: unknown): SandboxCapabilitySnapshot {
-	const sandbox = parseOutputRecord(value);
-	const backend =
-		sandbox.backend === null
-			? null
-			: parseEnum(
-					sandbox.backend,
-					Object.values(SANDBOX_BACKENDS),
-					"output sandbox.backend",
-					CAPABILITY_ERROR_CODES.INVALID_OUTPUT,
-				);
-	const features = sandbox.features === undefined ? undefined : parseSandboxFeatures(sandbox.features);
-	const binaryPath = parseOptionalOutputString(sandbox, "binaryPath");
-	const reason = parseOptionalOutputString(sandbox, "reason");
-	const details = parseOptionalOutputString(sandbox, "details");
-	const checkedAt = parseOptionalOutputNumber(sandbox, "checkedAt");
-	return {
-		status: parseEnum(
-			sandbox.status,
-			Object.values(SANDBOX_STATUSES),
-			"output sandbox.status",
-			CAPABILITY_ERROR_CODES.INVALID_OUTPUT,
-		),
-		backend,
-		platform: parseRequiredOutputString(sandbox, "platform"),
-		...(binaryPath === undefined ? {} : { binaryPath }),
-		...(reason === undefined ? {} : { reason }),
-		...(details === undefined ? {} : { details }),
-		...(checkedAt === undefined ? {} : { checkedAt }),
-		...(features === undefined ? {} : { features }),
-	};
-}
+const workspaceSettingInputType = Type.Object(
+	{
+		path: Type.String({ pattern: "\\S" }),
+	},
+	{ additionalProperties: false },
+);
 
-function parseGeneralSettingsSnapshot(value: unknown): GeneralSettingsSnapshot {
-	const settings = parseOutputRecord(value);
-	return {
-		workspacePath: parseRequiredOutputString(settings, "workspacePath"),
-		defaultExecutionMode: parseEnum(
-			settings.defaultExecutionMode,
-			Object.values(GENERAL_EXECUTION_MODES),
-			"output defaultExecutionMode",
-			CAPABILITY_ERROR_CODES.INVALID_OUTPUT,
-		),
-		notificationsEnabled: parseRequiredOutputBoolean(settings, "notificationsEnabled"),
-		debugMode: parseRequiredOutputBoolean(settings, "debugMode"),
-		sandbox: parseSandboxCapability(settings.sandbox),
-	};
-}
+const workspaceSettingOutputType = Type.Object(
+	{
+		path: Type.String(),
+	},
+	{ additionalProperties: false },
+);
 
-function parseNotificationsSetting(value: unknown): NotificationsSettingInput {
-	const input = parseInputRecord(value);
-	return { enabled: parseRequiredInputBoolean(input, "enabled") };
-}
+export type GeneralExecutionMode = Static<typeof generalExecutionModeType>;
+export type SandboxStatus = Static<typeof sandboxStatusType>;
+export type SandboxBackend = Static<typeof sandboxBackendType>;
+export type SandboxFeatures = Readonly<Static<typeof sandboxFeaturesType>>;
+export type SandboxCapabilitySnapshot = Readonly<Static<typeof sandboxCapabilitySnapshotType>>;
+export type GeneralSettingsSnapshot = Readonly<Static<typeof generalSettingsSnapshotType>>;
+export type NotificationsSettingInput = Readonly<Static<typeof notificationsSettingType>>;
+export type DefaultExecutionModeSettingInput = Readonly<Static<typeof defaultExecutionModeSettingType>>;
+export type WorkspaceSettingInput = Readonly<Static<typeof workspaceSettingInputType>>;
 
-function parseNotificationsSettingOutput(value: unknown): NotificationsSettingInput {
-	const output = parseOutputRecord(value);
-	return { enabled: parseRequiredOutputBoolean(output, "enabled") };
-}
-
-function parseDefaultExecutionModeSetting(value: unknown): DefaultExecutionModeSettingInput {
-	const input = parseInputRecord(value);
-	return {
-		mode: parseEnum(
-			input.mode,
-			Object.values(GENERAL_EXECUTION_MODES),
-			"field mode",
-			CAPABILITY_ERROR_CODES.INVALID_INPUT,
-		),
-	};
-}
-
-function parseDefaultExecutionModeSettingOutput(value: unknown): DefaultExecutionModeSettingInput {
-	const output = parseOutputRecord(value);
-	return {
-		mode: parseEnum(
-			output.mode,
-			Object.values(GENERAL_EXECUTION_MODES),
-			"output mode",
-			CAPABILITY_ERROR_CODES.INVALID_OUTPUT,
-		),
-	};
-}
-
-function parseWorkspaceSetting(value: unknown): WorkspaceSettingInput {
-	const input = parseInputRecord(value);
-	return { path: parseRequiredInputString(input, "path") };
-}
-
-function parseWorkspaceSettingOutput(value: unknown): WorkspaceSettingInput {
-	const output = parseOutputRecord(value);
-	return { path: parseRequiredOutputString(output, "path") };
-}
+const generalSettingsEmptyInputSchema = defineCapabilityInputSchema(generalSettingsEmptyInputType);
+const generalSettingsSnapshotSchema = defineCapabilityOutputSchema(generalSettingsSnapshotType, { clean: true });
+const notificationsSettingInputSchema = defineCapabilityInputSchema(notificationsSettingType, { clean: true });
+const notificationsSettingOutputSchema = defineCapabilityOutputSchema(notificationsSettingType, { clean: true });
+const defaultExecutionModeInputSchema = defineCapabilityInputSchema(defaultExecutionModeSettingType, { clean: true });
+const defaultExecutionModeOutputSchema = defineCapabilityOutputSchema(defaultExecutionModeSettingType, { clean: true });
+const workspaceSettingInputSchema = defineCapabilityInputSchema(workspaceSettingInputType, { clean: true });
+const workspaceSettingOutputSchema = defineCapabilityOutputSchema(workspaceSettingOutputType, { clean: true });
 
 export const DOMAIN_GENERAL_SETTINGS_CAPABILITIES = {
 	GET: defineCapability<Record<string, never>, GeneralSettingsSnapshot>({
@@ -202,31 +138,35 @@ export const DOMAIN_GENERAL_SETTINGS_CAPABILITIES = {
 		kind: "query",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseEmptyInput,
-		parseOutput: parseGeneralSettingsSnapshot,
+		input: generalSettingsEmptyInputSchema,
+		output: generalSettingsSnapshotSchema,
 	}),
 	SET_NOTIFICATIONS: defineCapability<NotificationsSettingInput, NotificationsSettingInput>({
 		id: "cap.domain.vetta.general-settings.notifications.set",
 		kind: "command",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseNotificationsSetting,
-		parseOutput: parseNotificationsSettingOutput,
+		input: notificationsSettingInputSchema,
+		output: notificationsSettingOutputSchema,
 	}),
 	SET_DEFAULT_EXECUTION_MODE: defineCapability<DefaultExecutionModeSettingInput, DefaultExecutionModeSettingInput>({
 		id: "cap.domain.vetta.general-settings.default-execution-mode.set",
 		kind: "command",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseDefaultExecutionModeSetting,
-		parseOutput: parseDefaultExecutionModeSettingOutput,
+		input: defaultExecutionModeInputSchema,
+		output: defaultExecutionModeOutputSchema,
 	}),
 	SET_WORKSPACE: defineCapability<WorkspaceSettingInput, WorkspaceSettingInput>({
 		id: "cap.domain.vetta.general-settings.workspace.set",
 		kind: "command",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseWorkspaceSetting,
-		parseOutput: parseWorkspaceSettingOutput,
+		input: workspaceSettingInputSchema,
+		output: workspaceSettingOutputSchema,
 	}),
 } as const;
+
+export const DOMAIN_GENERAL_SETTINGS_CAPABILITY_CATALOG = createCapabilityCatalog(
+	Object.values(DOMAIN_GENERAL_SETTINGS_CAPABILITIES),
+);

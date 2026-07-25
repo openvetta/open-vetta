@@ -43,6 +43,7 @@ export {
 export {
 	type DefaultExecutionModeSettingInput,
 	DOMAIN_GENERAL_SETTINGS_CAPABILITIES,
+	DOMAIN_GENERAL_SETTINGS_CAPABILITY_CATALOG,
 	GENERAL_EXECUTION_MODES,
 	type GeneralExecutionMode,
 	type GeneralSettingsSnapshot,
