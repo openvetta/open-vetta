@@ -1,15 +1,15 @@
+import { type Static, Type } from "@sinclair/typebox";
+import { createCapabilityCatalog } from "../catalog.js";
 import { CAPABILITY_LAYERS, defineCapability } from "../contracts.js";
-import { type CapabilityJsonValue, parseCapabilityJsonValue } from "./json.js";
-import { parseInputRecord } from "./parse-helpers.js";
+import { defineCapabilityInputSchema, defineCapabilityOutputSchema } from "../schema.js";
+import { CAPABILITY_JSON_VALUE_TYPE, type CapabilityJsonValue } from "./json.js";
 
-export interface NetworkRequestInput {
-	readonly request: CapabilityJsonValue;
-}
+const networkRequestInputType = Type.Object({ request: CAPABILITY_JSON_VALUE_TYPE });
 
-function parseNetworkRequestInput(value: unknown): NetworkRequestInput {
-	const input = parseInputRecord(value);
-	return { request: parseCapabilityJsonValue(input.request) };
-}
+export type NetworkRequestInput = Readonly<Static<typeof networkRequestInputType>>;
+
+const networkRequestInputSchema = defineCapabilityInputSchema(networkRequestInputType, { clean: true });
+const networkRequestOutputSchema = defineCapabilityOutputSchema(CAPABILITY_JSON_VALUE_TYPE);
 
 export const FOUNDATION_NETWORK_CAPABILITIES = {
 	REQUEST: defineCapability<NetworkRequestInput, CapabilityJsonValue>({
@@ -17,7 +17,11 @@ export const FOUNDATION_NETWORK_CAPABILITIES = {
 		kind: "command",
 		layer: CAPABILITY_LAYERS.FOUNDATION,
 		version: 1,
-		parseInput: parseNetworkRequestInput,
-		parseOutput: parseCapabilityJsonValue,
+		input: networkRequestInputSchema,
+		output: networkRequestOutputSchema,
 	}),
 } as const;
+
+export const FOUNDATION_NETWORK_CAPABILITY_CATALOG = createCapabilityCatalog(
+	Object.values(FOUNDATION_NETWORK_CAPABILITIES),
+);

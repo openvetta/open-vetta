@@ -232,3 +232,4 @@ export {
 	type WebhookUpdateData,
 	type WebhookUpdateInput,
 } from "./domain/webhook.js";
+export { DOMAIN_CAPABILITY_CATALOG } from "./domain-catalog.js";

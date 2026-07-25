@@ -90,6 +90,25 @@ function collectCapabilityIdLiterals(filePath, text) {
 	return capabilityIds;
 }
 
+function usesDesktopPluginGlobal(filePath, text) {
+	const sourceFile = ts.createSourceFile(filePath, text, ts.ScriptTarget.Latest, true, scriptKind(filePath));
+	let found = false;
+	const visit = (node) => {
+		if (
+			ts.isPropertyAccessExpression(node) &&
+			node.name.text === "vetta" &&
+			ts.isIdentifier(node.expression) &&
+			node.expression.text === "window"
+		) {
+			found = true;
+			return;
+		}
+		ts.forEachChild(node, visit);
+	};
+	visit(sourceFile);
+	return found;
+}
+
 function forbiddenAppId(specifier) {
 	const normalized = specifier.replaceAll("\\", "/");
 	for (const packageName of ["@vetta/desktop-app", "@vetta/cli-app", "@vetta/site", "shadcn-admin"]) {
@@ -122,6 +141,14 @@ function checkPluginDesktopDeepImport(posixPath, specifiers, findings) {
 	if (!isPluginPackageFile(posixPath)) return;
 	if (specifiers.some((specifier) => specifier.includes("desktop-app/src/") || specifier.startsWith("@/main/"))) {
 		findings.push(`${posixPath}: plugins must not deep-import desktop-app internals`);
+	}
+}
+
+function checkPluginDesktopGlobal(posixPath, text, findings) {
+	if (!isPluginPackageFile(posixPath) || posixPath.endsWith(".d.ts")) return;
+	if (posixPath.startsWith("packages/plugins/presets/plugin-workbench/")) return;
+	if (usesDesktopPluginGlobal(posixPath, text)) {
+		findings.push(`${posixPath}: plugins must use the public plugin SDK instead of window.vetta`);
 	}
 }
 
@@ -159,9 +186,26 @@ function checkPublicSystemSdkImports(posixPath, specifiers, findings) {
 }
 
 function checkRawCapabilityIds(posixPath, text, findings) {
-	if (posixPath.startsWith("packages/capability-sdk/src/")) return;
+	const isCapabilityDefinition =
+		posixPath === "packages/capability-sdk/src/contracts.ts" ||
+		posixPath.startsWith("packages/capability-sdk/src/domain/") ||
+		posixPath.startsWith("packages/capability-sdk/src/foundation/");
+	if (isCapabilityDefinition) return;
 	for (const capabilityId of collectCapabilityIdLiterals(posixPath, text)) {
 		findings.push(`${posixPath}: import a capability token instead of using raw id ${capabilityId}`);
+	}
+}
+
+function checkCapabilitySchemaDefinitions(posixPath, text, findings) {
+	const isCapabilityDefinition =
+		posixPath.startsWith("packages/capability-sdk/src/domain/") ||
+		posixPath.startsWith("packages/capability-sdk/src/foundation/");
+	if (!isCapabilityDefinition || !text.includes("defineCapability<")) return;
+	if (/\bparse(?:Input|Output)\s*:/.test(text)) {
+		findings.push(`${posixPath}: capability tokens must use schema-backed input and output definitions`);
+	}
+	if (!text.includes("createCapabilityCatalog")) {
+		findings.push(`${posixPath}: capability definition files must publish a generated catalog`);
 	}
 }
 
@@ -171,9 +215,11 @@ export function findPackageBoundaryViolations(posixPath, text) {
 	checkForbiddenAppImports(posixPath, specifiers, findings);
 	checkTestTreeImports(posixPath, specifiers, findings);
 	checkPluginDesktopDeepImport(posixPath, specifiers, findings);
+	checkPluginDesktopGlobal(posixPath, text, findings);
 	checkCapabilityLayerImports(posixPath, specifiers, findings);
 	checkPublicSystemSdkImports(posixPath, specifiers, findings);
 	checkRawCapabilityIds(posixPath, text, findings);
+	checkCapabilitySchemaDefinitions(posixPath, text, findings);
 	return findings;
 }
 

@@ -1,10 +1,13 @@
 import {
 	CAPABILITY_ERROR_CODES,
+	CAPABILITY_PUBLISHERS,
 	CapabilityError,
 	type CapabilityExecutionContext,
 	type CapabilityId,
 	type CapabilityLayer,
+	type CapabilityModule,
 	type CapabilityToken,
+	capabilityPublisherFromId,
 	type Disposable,
 } from "@vetta/capability-sdk";
 import type { CapabilityProviderBinding } from "./provider.js";
@@ -14,6 +17,18 @@ interface ProviderEntry {
 	readonly controller: AbortController;
 	readonly generation: symbol;
 	readonly ownerId: string;
+}
+
+export const CAPABILITY_MODULE_TRUST_LEVELS = {
+	BUILT_IN: "built-in",
+	EXTERNAL: "external",
+} as const;
+
+export type CapabilityModuleTrustLevel =
+	(typeof CAPABILITY_MODULE_TRUST_LEVELS)[keyof typeof CAPABILITY_MODULE_TRUST_LEVELS];
+
+export interface CapabilityModuleRegistrationOptions {
+	readonly trust?: CapabilityModuleTrustLevel;
 }
 
 function combineSignals(
@@ -50,6 +65,61 @@ export class CapabilityRegistry {
 			.sort();
 	}
 
+	registerModule(
+		module: CapabilityModule,
+		bindings: readonly CapabilityProviderBinding[],
+		options: CapabilityModuleRegistrationOptions = {},
+	): Disposable {
+		const trust = options.trust ?? CAPABILITY_MODULE_TRUST_LEVELS.EXTERNAL;
+		if (module.publisher === CAPABILITY_PUBLISHERS.VETTA && trust !== CAPABILITY_MODULE_TRUST_LEVELS.BUILT_IN) {
+			throw new CapabilityError(
+				CAPABILITY_ERROR_CODES.RESERVED_PUBLISHER,
+				`Capability publisher ${CAPABILITY_PUBLISHERS.VETTA} is reserved for built-in modules`,
+			);
+		}
+
+		const declaredCapabilities = new Map(module.capabilities.map((capability) => [capability.id, capability]));
+		if (bindings.length !== declaredCapabilities.size) {
+			throw new CapabilityError(
+				CAPABILITY_ERROR_CODES.INVALID_MODULE,
+				`Capability module ${module.id} must bind every declared capability exactly once`,
+			);
+		}
+		for (const capability of module.capabilities) {
+			if (capability.layer !== this.layer) {
+				throw new CapabilityError(
+					CAPABILITY_ERROR_CODES.LAYER_MISMATCH,
+					`Capability ${capability.id} cannot register in the ${this.layer} registry`,
+				);
+			}
+			if (capabilityPublisherFromId(capability.id) !== module.publisher) {
+				throw new CapabilityError(
+					CAPABILITY_ERROR_CODES.PUBLISHER_MISMATCH,
+					`Capability ${capability.id} does not belong to publisher ${module.publisher}`,
+				);
+			}
+		}
+		const boundIds = new Set<CapabilityId>();
+		for (const binding of bindings) {
+			const declared = declaredCapabilities.get(binding.token.id);
+			if (
+				declared === undefined ||
+				declared.layer !== binding.token.layer ||
+				declared.version !== binding.token.version ||
+				boundIds.has(binding.token.id)
+			) {
+				throw new CapabilityError(
+					CAPABILITY_ERROR_CODES.INVALID_MODULE,
+					`Capability module ${module.id} contains an undeclared, incompatible, or duplicate binding`,
+				);
+			}
+			boundIds.add(binding.token.id);
+		}
+
+		return this.registerOwner(`module:${module.publisher}:${module.id}`, bindings);
+	}
+
+	/** Low-level registration for host-owned provider groups. External modules must use registerModule. */
 	registerOwner(ownerId: string, bindings: readonly CapabilityProviderBinding[]): Disposable {
 		if (ownerId.trim().length === 0) throw new Error("Capability provider owner id is required");
 		const nextIds = new Set<CapabilityId>();

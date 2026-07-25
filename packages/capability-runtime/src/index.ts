@@ -13,4 +13,9 @@ export {
 } from "./constraints.js";
 export { CapabilityHub } from "./hub.js";
 export { bindCapability, type CapabilityProviderBinding } from "./provider.js";
-export { CapabilityRegistry } from "./registry.js";
+export {
+	CAPABILITY_MODULE_TRUST_LEVELS,
+	type CapabilityModuleRegistrationOptions,
+	type CapabilityModuleTrustLevel,
+	CapabilityRegistry,
+} from "./registry.js";

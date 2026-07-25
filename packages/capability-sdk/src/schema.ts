@@ -17,7 +17,7 @@ export type CapabilityJsonValue =
 export type CapabilityJsonSchema = boolean | CapabilityJsonObject;
 
 export interface CapabilitySchema<Value> {
-	readonly jsonSchema?: CapabilityJsonSchema;
+	readonly jsonSchema: CapabilityJsonSchema;
 	readonly parse: (value: unknown) => Value;
 }
 

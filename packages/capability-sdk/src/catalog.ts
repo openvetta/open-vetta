@@ -20,9 +20,6 @@ export function createCapabilityCatalog(
 				throw new Error(`Capability catalog contains duplicate id: ${capability.id}`);
 			}
 			ids.add(capability.id);
-			if (capability.input.jsonSchema === undefined || capability.output.jsonSchema === undefined) {
-				throw new Error(`Capability catalog requires input and output schemas: ${capability.id}`);
-			}
 			return Object.freeze({
 				id: capability.id,
 				inputSchema: capability.input.jsonSchema,
