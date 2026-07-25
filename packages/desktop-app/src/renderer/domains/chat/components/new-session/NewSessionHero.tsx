@@ -91,20 +91,20 @@ export function DefaultNewSessionHero({
 				{/* 欢迎语上方的引导 badge 轮播 */}
 				<GuideBadgeSwiper mounted={mounted} />
 
-				{/* 标题行：工作模式切换在问候语上方，右侧 BotAvatar */}
+				{/* 标题行：问候语 + 工作模式切换，右侧 BotAvatar */}
 				<div className="flex w-full items-center justify-between gap-4">
 					<div className="flex min-w-0 flex-col">
-						<div className="mb-1.5">
+						<div className="flex min-w-0 items-center gap-2.5">
+							<motion.h1
+								initial={{ opacity: 0, y: 8 }}
+								animate={{ opacity: 1, y: 0 }}
+								transition={{ duration: 0.5, delay: 0.1, ease: easeOut }}
+								className="min-w-0 truncate bg-gradient-to-br from-primary via-primary to-primary/30 bg-clip-text text-[24px] font-semibold tracking-[-0.02em] text-transparent"
+							>
+								{greetingTitle}
+							</motion.h1>
 							<AgentModeIconToggle />
 						</div>
-						<motion.h1
-							initial={{ opacity: 0, y: 8 }}
-							animate={{ opacity: 1, y: 0 }}
-							transition={{ duration: 0.5, delay: 0.1, ease: easeOut }}
-							className="min-w-0 truncate bg-gradient-to-br from-primary via-primary to-primary/30 bg-clip-text text-[24px] font-semibold tracking-[-0.02em] text-transparent"
-						>
-							{greetingTitle}
-						</motion.h1>
 						<motion.p
 							initial={{ opacity: 0 }}
 							animate={{ opacity: 1 }}
