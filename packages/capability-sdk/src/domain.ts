@@ -58,6 +58,7 @@ export {
 } from "./domain/general-settings.js";
 export {
 	DOMAIN_IM_CAPABILITIES,
+	DOMAIN_IM_CAPABILITY_CATALOG,
 	IM_LOG_LEVELS,
 	IM_TRANSPORT_STATUSES,
 	IM_TRANSPORTS,

@@ -1,4 +1,4 @@
-import type { StaticDecode, TSchema } from "@sinclair/typebox";
+import { KindGuard, type StaticDecode, type TSchema } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import { CAPABILITY_ERROR_CODES, CapabilityError } from "./contracts.js";
 
@@ -62,10 +62,33 @@ function removeUndefinedProperties(value: unknown): void {
 	}
 }
 
+function cleanCapabilityValueBySchema(schema: TSchema, value: unknown): unknown {
+	if (KindGuard.IsUnion(schema)) {
+		for (const member of schema.anyOf) {
+			const candidate = cleanCapabilityValueBySchema(member, Value.Clone(value));
+			if (Value.Check(member, candidate)) return candidate;
+		}
+		return Value.Clean(schema, value);
+	}
+
+	if (KindGuard.IsObject(schema) && typeof value === "object" && value !== null && !Array.isArray(value)) {
+		const record = value as Record<string, unknown>;
+		for (const [key, propertySchema] of Object.entries(schema.properties)) {
+			if (Object.hasOwn(record, key)) record[key] = cleanCapabilityValueBySchema(propertySchema, record[key]);
+		}
+	} else if (KindGuard.IsArray(schema) && Array.isArray(value)) {
+		for (let index = 0; index < value.length; index += 1) {
+			value[index] = cleanCapabilityValueBySchema(schema.items, value[index]);
+		}
+	}
+
+	return Value.Clean(schema, value);
+}
+
 function cleanCapabilityValue(schema: TSchema, value: unknown): unknown {
 	const cloned = Value.Clone(value);
 	removeUndefinedProperties(cloned);
-	return Value.Clean(schema, cloned);
+	return cleanCapabilityValueBySchema(schema, cloned);
 }
 
 function defineTypeBoxCapabilitySchema<Schema extends TSchema>(
