@@ -7,7 +7,7 @@ import type {
 	CapabilityInvokeOptions,
 } from "../src/access.js";
 import { CAPABILITY_CONSTRAINT_KINDS } from "../src/access.js";
-import { PLUGIN_CAPABILITY_PERMISSIONS, PluginCapabilityAdapter } from "../src/adapters/plugin.js";
+import { PLUGIN_CAPABILITY_PERMISSIONS, PluginCapabilityAdapter } from "../src/adapters/plugin/index.js";
 import { CAPABILITY_ERROR_CODES, type CapabilityId, type CapabilityToken } from "../src/contracts.js";
 import {
 	DOMAIN_AGENT_SETTINGS_CAPABILITIES,
