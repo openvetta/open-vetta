@@ -13,6 +13,11 @@ export interface PluginAgentToolApi {
 export interface PluginAgentToolRegistration<TInput = unknown> {
 	id: string;
 	name?: string;
+	/**
+	 * Host UI display name for this tool (e.g. Work-mode tool headers).
+	 * Supports `%catalogKey%` resolved against the plugin's locales; bare strings
+	 * are used as literals. Not sent to the model — use {@link description} for that.
+	 */
 	label?: string;
 	description: string;
 	parameters: PluginJsonSchema;

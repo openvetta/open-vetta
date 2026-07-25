@@ -19,6 +19,8 @@
 	"settings.model.title": "Image Model",
 	"settings.model.description": "Image generation model name",
 	"action.imageMode.label": "Image",
+	"tool.generate_image": "Generate image",
+	"tool.edit_image": "Edit image",
 	"card.preview.title": "Image",
 	"tab.history.label": "Generation History",
 	"ui.skeleton.processing": "Processing image",

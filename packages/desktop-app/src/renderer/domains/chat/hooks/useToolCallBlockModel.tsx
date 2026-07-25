@@ -2,6 +2,9 @@ import {
 	activeSessionAtom,
 	backgroundTasksBySessionAtom,
 	getBackgroundTasksForSession,
+	languageAtom,
+	pluginAgentToolLabelsAtom,
+	pluginI18nByIdAtom,
 	pluginToolCallSlotsAtom,
 	type ToolCallBlock,
 } from "@shared/store/atoms";
@@ -55,6 +58,10 @@ export function useToolCallBlockModel(block: ToolCallBlock, exportMode = false, 
 	const generatedId = useId();
 	const panelId = exportMode ? `export-tool-${generatedId}` : undefined;
 	const toolCallSlots = useAtomValue(pluginToolCallSlotsAtom);
+	// Subscribe so Work-mode labels re-resolve when language or plugin catalogs change.
+	useAtomValue(languageAtom);
+	useAtomValue(pluginAgentToolLabelsAtom);
+	useAtomValue(pluginI18nByIdAtom);
 	const pluginRenderer = useMemo(
 		() => toolCallSlots.find((slot) => slot.toolName === block.toolName),
 		[toolCallSlots, block.toolName],

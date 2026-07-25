@@ -11,6 +11,7 @@ All notable changes to `@vetta-org/plugin-sdk` are documented in this file.
 
 ### Added
 
+- Documented `PluginAgentToolRegistration.label` as host-only UI display name supporting `%catalogKey%` plugin i18n (not sent to the model).
 - Added hidden per-turn prompt instructions through `PluginPromptDecoration.instructions` and generic `PluginPromptAttachment.instructions`, allowing plugins to own intent guidance without coding-agent domain metadata.
 - Added `PluginFsApi.readBinaryFile()` for bounded, host-validated binary reads with MIME detection.
 - Added `ok` and `statusText` to host-mediated network responses.
