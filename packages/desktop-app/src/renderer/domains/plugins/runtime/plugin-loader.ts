@@ -15,8 +15,10 @@ import {
 	filePreviewAtom,
 	languageAtom,
 	persistCurrentInputActionState,
+	pluginAgentToolLabelsAtom,
 	pluginInputActionsAtom,
 	promptAttachmentAtom,
+	type RegisteredAgentToolLabel,
 	setActivityPanelWidthAtom,
 } from "@shared/store/atoms";
 import { showToast } from "@shared/store/toast-atoms";
@@ -78,6 +80,42 @@ export interface LoadedPlugin {
 	toolCallSlots: PluginToolCallSlotContribution[];
 	turnCards: PluginTurnCardContribution[];
 	dispose(): Promise<void>;
+}
+
+/**
+ * Mirror `registerTool({ label })` into the chat display table.
+ * First registration wins on tool-name collision; only the owning plugin can clear.
+ */
+function setAgentToolLabel(pluginId: string, toolName: string, label: string | null): void {
+	getDefaultStore().set(pluginAgentToolLabelsAtom, (prev) => {
+		const existing = prev[toolName];
+		if (label == null) {
+			if (!existing || existing.pluginId !== pluginId) return prev;
+			const next = { ...prev };
+			delete next[toolName];
+			return next;
+		}
+		if (existing && existing.pluginId !== pluginId) return prev;
+		if (existing?.label === label) return prev;
+		const entry: RegisteredAgentToolLabel = { pluginId, toolName, label };
+		return { ...prev, [toolName]: entry };
+	});
+}
+
+/** Drop all tool labels owned by a plugin (unload / failed activate). */
+function clearAgentToolLabelsForPlugin(pluginId: string): void {
+	getDefaultStore().set(pluginAgentToolLabelsAtom, (prev) => {
+		let changed = false;
+		const next: Record<string, RegisteredAgentToolLabel> = {};
+		for (const [name, entry] of Object.entries(prev)) {
+			if (entry.pluginId === pluginId) {
+				changed = true;
+				continue;
+			}
+			next[name] = entry;
+		}
+		return changed ? next : prev;
+	});
 }
 
 /**
@@ -863,10 +901,14 @@ function createContext(
 					handler: registration.handler as PluginAgentToolHandler,
 					api: { fs, conversation },
 				});
+				const label =
+					typeof registration.label === "string" && registration.label.trim().length > 0
+						? registration.label.trim()
+						: undefined;
 				const payload: PluginAgentToolRegistration = {
 					id: toolId,
 					name: toolName,
-					label: registration.label,
+					label,
 					description: registration.description,
 					parameters: registration.parameters as Record<string, unknown>,
 					handlerId,
@@ -880,6 +922,7 @@ function createContext(
 					rendersCard: hasToolCallSlot(toolName) || undefined,
 				};
 				registeredAgentTools.set(toolName, payload);
+				if (label) setAgentToolLabel(plugin.id, toolName, label);
 				const registrationPromise = window.vetta.plugins
 					.registerAgentTool(plugin.id, payload)
 					.then(() => {
@@ -895,12 +938,15 @@ function createContext(
 						// Do not fail the whole plugin load — UI contributions
 						// (activity tabs, slots) should still activate.
 						handlerHandle.dispose();
+						if (label) setAgentToolLabel(plugin.id, toolName, null);
 						console.error(`Plugin ${plugin.id} failed to register agent tool ${toolId}`, error);
 					});
 				pendingRuntimeRegistrations.push(registrationPromise);
 				return {
 					dispose: () => {
 						handlerHandle.dispose();
+						registeredAgentTools.delete(toolName);
+						if (label) setAgentToolLabel(plugin.id, toolName, null);
 						void window.vetta.plugins.unregisterAgentTool(plugin.id, toolId, activationId);
 					},
 				};
@@ -1158,6 +1204,7 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 		cardRenderers.splice(0, cardRenderers.length);
 		toolCallSlots.splice(0, toolCallSlots.length);
 		turnCards.splice(0, turnCards.length);
+		clearAgentToolLabelsForPlugin(plugin.id);
 		onChanged();
 	};
 	let definition: PluginDefinition | undefined;

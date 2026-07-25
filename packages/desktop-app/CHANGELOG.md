@@ -4,6 +4,10 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ## [Unreleased] — 内测版（未公证）
 
+### Changed
+
+- **插件 agent 工具展示名走注册 label**：`registerTool({ label })` 直接写入展示表（支持 `%catalogKey%`）；Work 模式工具头优先用该 label，`generate_image` / `edit_image` 文案从宿主 `chat.toolLabel.alias` 迁到 image-gen 插件 catalog。
+
 ### Added
 
 - **WebdriverIO Electron E2E scaffold**: `@wdio/electron-service` with unpackaged smoke via `dist/main/index.js` (`bun run test:e2e`); `VETTA_E2E_PACKAGED=1` / `bun run test:e2e:packaged` for `release/*-unpacked` binaries. See `wdio.conf.ts` and `e2e/`.

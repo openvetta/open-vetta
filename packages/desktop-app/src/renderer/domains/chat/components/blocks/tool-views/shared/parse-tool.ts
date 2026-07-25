@@ -1,5 +1,7 @@
 import { i18n } from "@shared/i18n";
-import type { ToolCallBlock } from "@shared/store/atoms";
+import { languageAtom, pluginAgentToolLabelsAtom, pluginI18nByIdAtom, type ToolCallBlock } from "@shared/store/atoms";
+import { resolvePluginText } from "@vetta-org/plugin-sdk";
+import { getDefaultStore } from "jotai";
 import { shortenPath } from "./format";
 
 /** Parse MCP tool name: mcp_serverName_toolName */
@@ -25,11 +27,28 @@ function getToolCallDescription(args: Record<string, unknown>): string {
 }
 
 /**
- * 系统工具名对普通用户不可读（`invoke_skill`、`edit`…），映射到 i18n 语义别名。
+ * Resolve a plugin-registered tool UI label (supports `%catalogKey%`).
+ * Returns null when no plugin registered a label for this tool name.
+ */
+function resolvePluginToolLabel(name: string): string | null {
+	const store = getDefaultStore();
+	const registered = store.get(pluginAgentToolLabelsAtom)[name];
+	if (!registered?.label) return null;
+	const entry = store.get(pluginI18nByIdAtom)[registered.pluginId];
+	const locale = store.get(languageAtom);
+	const resolved = resolvePluginText(registered.label, entry?.locales ?? {}, locale, entry?.defaultLocale ?? "zh");
+	return resolved.trim().length > 0 ? resolved : null;
+}
+
+/**
+ * 系统工具名对普通用户不可读（`invoke_skill`、`edit`…），映射到语义别名。
+ * 优先用插件 `registerTool({ label })`（含 `%key%` 插件 i18n）；否则回退宿主
+ * `chat:toolLabel.alias.*`；都没有则原样返回技术名。
  * 只替换工具名本身；agent 写的 description / 参数 detail 照旧拼在后面。
- * 未登记的工具名（含 MCP 工具）原样返回。
  */
 export function toolAlias(name: string): string {
+	const fromPlugin = resolvePluginToolLabel(name);
+	if (fromPlugin) return fromPlugin;
 	return i18n.t(`chat:toolLabel.alias.${name}`, { defaultValue: name });
 }
 

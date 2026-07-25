@@ -1,5 +1,7 @@
 import type { ThinkingBlock, ToolCallBlock } from "@shared/store/atoms";
+import { languageAtom, pluginAgentToolLabelsAtom, pluginI18nByIdAtom } from "@shared/store/atoms";
 import { ErrorBlockView, ProgressGroupRow, ProgressGroupView, SegmentShell } from "@vetta/theme-ui/chat";
+import { useAtomValue } from "jotai";
 import { memo } from "react";
 import { useTranslation } from "react-i18next";
 import { TextBlockView } from "../blocks/TextBlock";
@@ -24,6 +26,10 @@ interface StageRowProps {
 
 const StageRow = memo(function StageRow({ block, exportMode }: StageRowProps) {
 	const [expanded, toggle] = useExpansion(`row:${block.toolCallId}`);
+	// Re-resolve plugin tool labels when language / catalogs / registrations change.
+	useAtomValue(languageAtom);
+	useAtomValue(pluginAgentToolLabelsAtom);
+	useAtomValue(pluginI18nByIdAtom);
 	return (
 		<ProgressGroupRow
 			text={rowText(block)}

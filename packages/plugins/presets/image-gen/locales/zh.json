@@ -19,6 +19,8 @@
 	"settings.model.title": "图像模型",
 	"settings.model.description": "图像生成模型名称",
 	"action.imageMode.label": "图像生成",
+	"tool.generate_image": "生成图片",
+	"tool.edit_image": "编辑图片",
 	"card.preview.title": "图像",
 	"tab.history.label": "生图历史",
 	"ui.skeleton.processing": "图像处理中",

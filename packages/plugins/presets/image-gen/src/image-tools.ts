@@ -94,7 +94,7 @@ export function registerImageTools(ctx: PluginContext, repository: ImageReposito
 	ctx.agent.registerTool<GenerateImageInput>({
 		id: "generate-image",
 		name: "generate_image",
-		label: "Generate Image",
+		label: "%tool.generate_image%",
 		description:
 			"Generate an actual new image from text. Use only when the user wants an image produced, then optimize the request into a detailed prompt.",
 		parameters: generateParameters,
@@ -110,7 +110,7 @@ export function registerImageTools(ctx: PluginContext, repository: ImageReposito
 	ctx.agent.registerTool<EditImageInput>({
 		id: "edit-image",
 		name: "edit_image",
-		label: "Edit Image",
+		label: "%tool.edit_image%",
 		description:
 			"Edit a specific existing image. Use sourceImageId for a previously generated image or sourceImagePath for a local file, never both.",
 		parameters: editParameters,

@@ -286,6 +286,20 @@ export interface RegisteredToolCallSlot {
 /** Tool-call renderers keyed by `toolName`. First registered renderer wins. */
 export const pluginToolCallSlotsAtom = atom<RegisteredToolCallSlot[]>([]);
 
+/**
+ * Labels from `registerTool({ label })`, keyed by LLM tool name.
+ * Written directly at registration (not republished via PluginGlobalSlotHost).
+ * Chat headers resolve `%key%` against the owning plugin catalog.
+ */
+export interface RegisteredAgentToolLabel {
+	pluginId: string;
+	toolName: string;
+	/** May be `%catalogKey%` or a literal. */
+	label: string;
+}
+
+export const pluginAgentToolLabelsAtom = atom<Record<string, RegisteredAgentToolLabel>>({});
+
 /** A turn-card contribution registered by a loaded plugin（消息列表底部插槽）. */
 export interface RegisteredTurnCard {
 	pluginId: string;
