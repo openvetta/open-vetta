@@ -608,16 +608,17 @@ window.vetta.capabilities.invoke({
 
 ### 当前落地状态
 
-当前已经实现十七条端到端链路：
+当前已经实现能力基础设施及多条端到端链路：
 
-- `packages/capability-sdk` 提供 Capability ID、Token、基础存储与文件能力、Agent 设置/通用设置/IM 桥接/模型配置/MCP 配置/项目/会话/下载/调度/Webhook/知识库/批量任务/应用更新/技能管理/全局快捷键/快捷面板领域能力、Grant、稳定错误码，以及宿主内置的 Theme、Plugin Adapter。
+- `packages/capability-sdk` 提供 Capability ID、Token、基础存储/文件/网络能力、Agent 设置/通用设置/IM 桥接/模型配置/MCP 配置/项目/会话/下载/调度/Webhook/知识库/批量任务/应用更新/技能管理/全局快捷键/快捷面板领域能力、Grant、稳定错误码，以及宿主内置的 Theme、Plugin Adapter。
 - `packages/capability-runtime` 提供 Foundation/Domain 双 Registry、Capability Hub、Provider 原子替换、替换或卸载时的在途调用中止、精确 Grant、AccessSession、namespace constraint 和审计事件。
-- `packages/desktop-app/src/main/capabilities` 提供 Desktop Capability Host、基础存储/文件 Provider、Agent 设置/通用设置/IM 桥接/模型配置/MCP 配置/项目/会话/下载/调度/Webhook/知识库/批量任务/应用更新/技能管理/全局快捷键/快捷面板领域 Provider 和原生后端装配；已抽取领域服务的原 IPC 与 Capability Provider 复用同一实现，通用配置桥则与领域服务共享底层 config store。
+- `packages/desktop-app/src/main/capabilities` 提供 Desktop Capability Host、基础存储/文件/网络 Provider、Agent 设置/通用设置/IM 桥接/模型配置/MCP 配置/项目/会话/下载/调度/Webhook/知识库/批量任务/应用更新/技能管理/全局快捷键/快捷面板领域 Provider 和原生后端装配；已抽取领域服务的原 IPC 与 Capability Provider 复用同一实现，通用配置桥则与领域服务共享底层 config store。
 - Desktop Capability Host 单例持有 Theme Adapter 和 Plugin Adapter；IPC 只复用实例，不重复创建或负责销毁。
 - Theme Storage 主进程路径已经迁移为 `Theme SDK facade -> 宿主桥接 -> 内置 Theme Adapter -> AccessSession -> Foundation Storage Capability -> 现有持久化后端`。
 - Theme SDK、renderer storage hook、preload API、IPC channel 和磁盘格式保持兼容。
 - Plugin `ctx.fs` 已迁移为 `plugin-sdk facade -> Plugin Loader/Preload/IPC 桥接 -> 内置 Plugin Adapter -> AccessSession -> Foundation Filesystem Capability -> 文件服务`，公开 `PluginFsApi` 保持兼容。
 - Plugin Adapter 将 `fs.read` 和 `fs.write` 精确展开为各文件 Capability Grant；每次调用都会核验当前有效插件权限，同一插件重新激活时自动撤销旧 session。
+- Plugin `ctx.network` 和 `ctx.storage` 已迁移为 `plugin-sdk facade -> Plugin Loader/Preload/IPC 桥接 -> 内置 Plugin Adapter -> AccessSession -> Foundation Network/Storage Capability -> 网络与私有存储后端`。`network.fetch` 映射为通用网络请求 Grant；`storage.read`、`storage.write` 按 JSON、文件和 Blob 操作展开为独立 Grant，并通过 namespace constraint 固定到当前插件。Capability 契约与 Provider 不接收 Plugin 身份，公开 facade 和既有磁盘格式保持兼容。
 - 官方插件的 Agent 实验设置已迁移为 `PluginOfficialApi agent facade -> Preload/IPC 桥接 -> Plugin Adapter -> AccessSession -> Domain Agent Settings Capability -> AgentSettingsService`；读取与局部更新使用两个精确 Grant，局部更新在主进程单次读写中完成并返回完整规范化快照。Desktop UI 的通用 Config IPC 保持兼容并共享同一个 config store；公开 `plugin-sdk` 签名保持兼容，不再直连 `window.vetta.config.*`。
 - 官方插件的通用设置已迁移为 `PluginOfficialApi general facade -> Preload/IPC 桥接 -> Plugin Adapter -> AccessSession -> Domain General Settings Capability -> GeneralSettingsService`；读取设置、设置通知、设置默认执行模式和设置工作区分别使用精确 Grant。工作区路径校验、持久化与文件根授权集中在主进程单例服务中，Desktop UI 的通用 Config IPC 保持兼容并共享同一个 config store；公开 `plugin-sdk` 签名保持兼容，不再直连 `window.vetta.config.*`。
 - 官方插件的 IM 桥接管理已迁移为 `PluginOfficialApi im facade -> Preload/IPC 桥接 -> Plugin Adapter -> AccessSession -> Domain IM Capability -> ImHost`；状态、日志、启停、重启和 Agent 模型设置分别使用精确 Grant，Capability Provider 与原 IM IPC 复用同一个 `ImHost` 单例。状态契约只返回 App ID 等公开摘要，不返回 App Secret、Verification Token、Encrypt Key 等凭据；`assertModelKeyExists` 复用同一 Plugin Capability Session 下的 Models 领域能力。
@@ -636,10 +637,10 @@ window.vetta.capabilities.invoke({
 
 尚未迁移：
 
-- Plugin 的 `ctx.images` 等其他 facade，以及 `PluginOfficialApi` 中除 Agent 设置、通用设置、IM 桥接、模型配置、MCP 配置、项目管理、下载、调度、Webhook、知识库、批量任务、应用更新、技能管理和快捷键管理外的领域服务。
+- `PluginOfficialApi.plugins` 属于 Plugin 系统自己的安装、启停、卸载和重载业务，不应定义为 Domain Capability；后续需要改为由宿主侧 Plugin Adapter 使用绑定 Session 完成 official 校验，再调用现有 Plugin 管理服务。
 - `PluginOfficialApi.appearance` 的主题目录、DOM 状态、Jotai 和 localStorage 操作属于 renderer host 能力，不能通过主进程反向调用 renderer 强行接入当前 Capability Host；后续需要先建立独立的 renderer capability provider/host 边界，再迁移外观 facade。系统原生主题与语言可在该边界确定后拆为独立能力。
-- 其他 App Action provider 使用的领域服务。
-- 其他基础能力与项目以外的领域能力。
+- `PluginOfficialApi.navigation` 的目录解析与页面跳转同样位于 renderer；应在 renderer host 边界稳定后判断哪些操作保留为 Plugin 系统 facade，哪些操作提升为稳定的应用领域能力。
+- 后续新引入、且确实需要跨系统复用的基础能力与领域能力。
 - 不可信扩展的进程级隔离。
 
 ### 阶段一：契约和 Registry
@@ -664,10 +665,10 @@ window.vetta.capabilities.invoke({
 
 ### 阶段四：Plugin 迁移
 
-1. `ctx.fs` 已改为使用 Foundation Filesystem Capability Token；继续迁移 `ctx.images` 等 facade。
-2. Plugin Adapter 已将 `fs.read`、`fs.write` 展开为独立 Capability Grant；后续权限继续按同一方式显式映射。
+1. `ctx.fs`、`ctx.network` 和 `ctx.storage` 已改为使用 Foundation Capability Token；图像生成业务由插件拥有，不再保留 `ctx.images` 或宿主图像领域能力。
+2. Plugin Adapter 已将 `fs.read`、`fs.write`、`network.fetch`、`storage.read` 和 `storage.write` 展开为独立 Capability Grant；Storage Grant 使用 namespace constraint 固定到当前插件，后续权限继续按同一方式显式映射。
 3. `ui.slot.*`、`app.actions.register` 等继续留在 Plugin Adapter。
-4. `PluginOfficialApi.agent`、`general`、`im`、`models`、`mcp`、`projects`、`downloads`、`scheduler`、`webhook`、`knowledge`、`batchTasks`、`updater`、`skills` 和 `shortcuts` 已迁移为独立 Domain Capability；继续迁移其余稳定的 Desktop 领域服务，并保留兼容 facade。
+4. `PluginOfficialApi.agent`、`general`、`im`、`models`、`mcp`、`projects`、`downloads`、`scheduler`、`webhook`、`knowledge`、`batchTasks`、`updater`、`skills` 和 `shortcuts` 已迁移为独立 Domain Capability；新增稳定 Desktop 领域服务时继续保留兼容 facade。
 
 ### 阶段五：Action 迁移
 

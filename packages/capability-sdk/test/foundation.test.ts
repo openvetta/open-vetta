@@ -1,0 +1,79 @@
+import { describe, expect, it } from "vitest";
+import { CAPABILITY_ERROR_CODES, CAPABILITY_PREFIXES } from "../src/contracts.js";
+import { FOUNDATION_NETWORK_CAPABILITIES, FOUNDATION_STORAGE_CAPABILITIES } from "../src/foundation.js";
+
+describe("network and namespaced storage foundation capabilities", () => {
+	it("uses one system-agnostic capability id per operation", () => {
+		expect(FOUNDATION_NETWORK_CAPABILITIES.REQUEST.id).toBe(`${CAPABILITY_PREFIXES.VETTA_FOUNDATION}network.request`);
+		expect(
+			[
+				FOUNDATION_STORAGE_CAPABILITIES.READ_JSON,
+				FOUNDATION_STORAGE_CAPABILITIES.WRITE_JSON,
+				FOUNDATION_STORAGE_CAPABILITIES.LIST,
+				FOUNDATION_STORAGE_CAPABILITIES.READ_FILE,
+				FOUNDATION_STORAGE_CAPABILITIES.WRITE_FILE,
+				FOUNDATION_STORAGE_CAPABILITIES.PUT_BLOB,
+				FOUNDATION_STORAGE_CAPABILITIES.READ_BLOB,
+				FOUNDATION_STORAGE_CAPABILITIES.GET_BLOB_REF,
+			].map((capability) => capability.id),
+		).toEqual([
+			`${CAPABILITY_PREFIXES.VETTA_FOUNDATION}storage.read-json`,
+			`${CAPABILITY_PREFIXES.VETTA_FOUNDATION}storage.write-json`,
+			`${CAPABILITY_PREFIXES.VETTA_FOUNDATION}storage.list`,
+			`${CAPABILITY_PREFIXES.VETTA_FOUNDATION}storage.read-file`,
+			`${CAPABILITY_PREFIXES.VETTA_FOUNDATION}storage.write-file`,
+			`${CAPABILITY_PREFIXES.VETTA_FOUNDATION}storage.put-blob`,
+			`${CAPABILITY_PREFIXES.VETTA_FOUNDATION}storage.read-blob`,
+			`${CAPABILITY_PREFIXES.VETTA_FOUNDATION}storage.get-blob-ref`,
+		]);
+	});
+
+	it("validates namespaced JSON, file, and blob inputs", () => {
+		expect(
+			FOUNDATION_STORAGE_CAPABILITIES.READ_JSON.parseInput({
+				namespace: "image-gen",
+				key: "records/item.json",
+			}),
+		).toEqual({ namespace: "image-gen", key: "records/item.json" });
+		expect(
+			FOUNDATION_STORAGE_CAPABILITIES.PUT_BLOB.parseInput({
+				namespace: "image-gen",
+				blob: { id: "image", data: "ZGF0YQ==", mimeType: "image/png" },
+			}),
+		).toEqual({
+			namespace: "image-gen",
+			blob: { id: "image", data: "ZGF0YQ==", mimeType: "image/png" },
+		});
+		expect(() =>
+			FOUNDATION_STORAGE_CAPABILITIES.READ_FILE.parseInput({
+				namespace: "../escape",
+				path: "image.png",
+			}),
+		).toThrowError(expect.objectContaining({ code: CAPABILITY_ERROR_CODES.INVALID_INPUT }));
+		expect(() =>
+			FOUNDATION_STORAGE_CAPABILITIES.WRITE_JSON.parseInput({
+				namespace: "image-gen",
+				key: "records/item.json",
+			}),
+		).toThrowError(expect.objectContaining({ code: CAPABILITY_ERROR_CODES.INVALID_INPUT }));
+	});
+
+	it("validates structured blob outputs", () => {
+		expect(
+			FOUNDATION_STORAGE_CAPABILITIES.PUT_BLOB.parseOutput({
+				id: "image",
+				url: "vetta-media://local/image",
+				mimeType: "image/png",
+			}),
+		).toEqual({
+			id: "image",
+			url: "vetta-media://local/image",
+			mimeType: "image/png",
+		});
+		expect(() =>
+			FOUNDATION_STORAGE_CAPABILITIES.READ_BLOB.parseOutput({
+				data: "ZGF0YQ==",
+			}),
+		).toThrowError(expect.objectContaining({ code: CAPABILITY_ERROR_CODES.INVALID_OUTPUT }));
+	});
+});

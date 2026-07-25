@@ -6,6 +6,7 @@ import type {
 	CapabilityAccessSessionOptions,
 	CapabilityInvokeOptions,
 } from "../src/access.js";
+import { CAPABILITY_CONSTRAINT_KINDS } from "../src/access.js";
 import { PLUGIN_CAPABILITY_PERMISSIONS, PluginCapabilityAdapter } from "../src/adapters/plugin.js";
 import { CAPABILITY_ERROR_CODES, type CapabilityId, type CapabilityToken } from "../src/contracts.js";
 import {
@@ -26,9 +27,14 @@ import {
 	DOMAIN_UPDATER_CAPABILITIES,
 	DOMAIN_WEBHOOK_CAPABILITIES,
 } from "../src/domain.js";
-import { FOUNDATION_FILESYSTEM_CAPABILITIES } from "../src/foundation.js";
+import {
+	FOUNDATION_FILESYSTEM_CAPABILITIES,
+	FOUNDATION_NETWORK_CAPABILITIES,
+	FOUNDATION_STORAGE_CAPABILITIES,
+} from "../src/foundation.js";
 
 class RecordingAccessFactory implements CapabilityAccessSessionFactory {
+	readonly invocations: Array<{ readonly capabilityId: CapabilityId; readonly input: unknown }> = [];
 	readonly sessions: CapabilityAccessSessionOptions[] = [];
 
 	createSession(options: CapabilityAccessSessionOptions): CapabilityAccessHandle {
@@ -38,11 +44,12 @@ class RecordingAccessFactory implements CapabilityAccessSessionFactory {
 		const client: AuthorizedCapabilityClient = {
 			invoke: async <Input, Output>(
 				capability: CapabilityToken<Input, Output>,
-				_input: Input,
+				input: Input,
 				_options?: CapabilityInvokeOptions,
 			): Promise<Output> => {
 				if (revoked) throw new Error("revoked");
 				if (!grants.has(capability.id)) throw new Error(`missing grant: ${capability.id}`);
+				this.invocations.push({ capabilityId: capability.id, input });
 				return capability.parseOutput(outputFor(capability.id));
 			},
 		};
@@ -64,6 +71,21 @@ function outputFor(capabilityId: CapabilityId): unknown {
 	}
 	if (capabilityId === FOUNDATION_FILESYSTEM_CAPABILITIES.STAT.id) return null;
 	if (capabilityId === FOUNDATION_FILESYSTEM_CAPABILITIES.LIST_FILES_RECURSIVE.id) return [];
+	if (capabilityId === FOUNDATION_NETWORK_CAPABILITIES.REQUEST.id) {
+		return { status: 200, headers: {}, body: { ok: true } };
+	}
+	if (capabilityId === FOUNDATION_STORAGE_CAPABILITIES.READ_JSON.id) return { ok: true };
+	if (capabilityId === FOUNDATION_STORAGE_CAPABILITIES.LIST.id) return ["records/item.json"];
+	if (capabilityId === FOUNDATION_STORAGE_CAPABILITIES.READ_FILE.id) return "ZGF0YQ==";
+	if (
+		capabilityId === FOUNDATION_STORAGE_CAPABILITIES.PUT_BLOB.id ||
+		capabilityId === FOUNDATION_STORAGE_CAPABILITIES.GET_BLOB_REF.id
+	) {
+		return { id: "blob", url: "vetta-media://local/blob", mimeType: "image/png" };
+	}
+	if (capabilityId === FOUNDATION_STORAGE_CAPABILITIES.READ_BLOB.id) {
+		return { data: "ZGF0YQ==", mimeType: "image/png" };
+	}
 	if (
 		capabilityId === DOMAIN_AGENT_SETTINGS_CAPABILITIES.GET_EXPERIMENTAL.id ||
 		capabilityId === DOMAIN_AGENT_SETTINGS_CAPABILITIES.SET_EXPERIMENTAL.id
@@ -371,6 +393,7 @@ describe("PluginCapabilityAdapter", () => {
 		expect(grantedIds).toEqual([
 			FOUNDATION_FILESYSTEM_CAPABILITIES.READ_DIRECTORY.id,
 			FOUNDATION_FILESYSTEM_CAPABILITIES.READ_FILE.id,
+			FOUNDATION_FILESYSTEM_CAPABILITIES.READ_BINARY_FILE.id,
 			FOUNDATION_FILESYSTEM_CAPABILITIES.STAT.id,
 			FOUNDATION_FILESYSTEM_CAPABILITIES.LIST_FILES_RECURSIVE.id,
 		]);
@@ -379,6 +402,98 @@ describe("PluginCapabilityAdapter", () => {
 			encoding: "utf8",
 		});
 		expect(() => adapter.writeFile(sessionId, "C:/project/file.txt", "data")).toThrowError(
+			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
+		);
+	});
+
+	it("maps network and namespaced storage permissions to exact capability grants", async () => {
+		const access = new RecordingAccessFactory();
+		let permissions: readonly string[] = [
+			PLUGIN_CAPABILITY_PERMISSIONS.NETWORK_FETCH,
+			PLUGIN_CAPABILITY_PERMISSIONS.STORAGE_READ,
+			PLUGIN_CAPABILITY_PERMISSIONS.STORAGE_WRITE,
+		];
+		const adapter = new PluginCapabilityAdapter(access, {
+			isOfficialPlugin: () => false,
+			resolvePermissions: () => permissions,
+		});
+
+		const sessionId = adapter.openSession("storage-user");
+		const namespaceConstraint = {
+			kind: CAPABILITY_CONSTRAINT_KINDS.NAMESPACE,
+			value: "storage-user",
+		};
+
+		expect(access.sessions[0]?.grants).toEqual([
+			{ capabilityId: FOUNDATION_NETWORK_CAPABILITIES.REQUEST.id },
+			{
+				capabilityId: FOUNDATION_STORAGE_CAPABILITIES.READ_JSON.id,
+				constraints: [namespaceConstraint],
+			},
+			{
+				capabilityId: FOUNDATION_STORAGE_CAPABILITIES.LIST.id,
+				constraints: [namespaceConstraint],
+			},
+			{
+				capabilityId: FOUNDATION_STORAGE_CAPABILITIES.READ_FILE.id,
+				constraints: [namespaceConstraint],
+			},
+			{
+				capabilityId: FOUNDATION_STORAGE_CAPABILITIES.READ_BLOB.id,
+				constraints: [namespaceConstraint],
+			},
+			{
+				capabilityId: FOUNDATION_STORAGE_CAPABILITIES.GET_BLOB_REF.id,
+				constraints: [namespaceConstraint],
+			},
+			{
+				capabilityId: FOUNDATION_STORAGE_CAPABILITIES.WRITE_JSON.id,
+				constraints: [namespaceConstraint],
+			},
+			{
+				capabilityId: FOUNDATION_STORAGE_CAPABILITIES.WRITE_FILE.id,
+				constraints: [namespaceConstraint],
+			},
+			{
+				capabilityId: FOUNDATION_STORAGE_CAPABILITIES.PUT_BLOB.id,
+				constraints: [namespaceConstraint],
+			},
+		]);
+
+		await expect(adapter.requestNetwork(sessionId, { url: "https://example.com" })).resolves.toHaveProperty(
+			"status",
+			200,
+		);
+		await expect(adapter.readStorageJson(sessionId, "records/item.json")).resolves.toEqual({ ok: true });
+		await expect(adapter.writeStorageJson(sessionId, "records/item.json", { ok: true })).resolves.toBeUndefined();
+		await expect(
+			adapter.putStorageBlob(sessionId, { id: "blob", data: "ZGF0YQ==", mimeType: "image/png" }),
+		).resolves.toHaveProperty("id", "blob");
+
+		expect(access.invocations).toEqual([
+			{
+				capabilityId: FOUNDATION_NETWORK_CAPABILITIES.REQUEST.id,
+				input: { request: { url: "https://example.com" } },
+			},
+			{
+				capabilityId: FOUNDATION_STORAGE_CAPABILITIES.READ_JSON.id,
+				input: { namespace: "storage-user", key: "records/item.json" },
+			},
+			{
+				capabilityId: FOUNDATION_STORAGE_CAPABILITIES.WRITE_JSON.id,
+				input: { namespace: "storage-user", key: "records/item.json", value: { ok: true } },
+			},
+			{
+				capabilityId: FOUNDATION_STORAGE_CAPABILITIES.PUT_BLOB.id,
+				input: {
+					namespace: "storage-user",
+					blob: { id: "blob", data: "ZGF0YQ==", mimeType: "image/png" },
+				},
+			},
+		]);
+
+		permissions = [];
+		expect(() => adapter.readStorageJson(sessionId, "records/item.json")).toThrowError(
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
 	});

@@ -1,5 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { type CapabilityAccessHandle, type CapabilityAccessSessionFactory, createCapabilityGrant } from "../access.js";
+import {
+	CAPABILITY_CONSTRAINT_KINDS,
+	type CapabilityAccessHandle,
+	type CapabilityAccessSessionFactory,
+	createCapabilityGrant,
+} from "../access.js";
 import { CAPABILITY_ERROR_CODES, CapabilityError } from "../contracts.js";
 import {
 	type AgentExperimentalSettings,
@@ -73,9 +78,11 @@ import {
 	type FilesystemReadFileResult,
 	type FilesystemStatResult,
 	FOUNDATION_FILESYSTEM_CAPABILITIES,
-	FOUNDATION_PLUGIN_NETWORK_CAPABILITIES,
-	FOUNDATION_PLUGIN_STORAGE_CAPABILITIES,
+	FOUNDATION_NETWORK_CAPABILITIES,
+	FOUNDATION_STORAGE_CAPABILITIES,
 	parseCapabilityJsonValue,
+	type StorageBlob,
+	type StorageBlobRef,
 } from "../foundation.js";
 
 const PLUGIN_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,63}$/;
@@ -132,6 +139,12 @@ export class PluginCapabilityAdapter {
 		if (previousSessionId) this.closeSession(previousSessionId);
 
 		const sessionId = randomUUID();
+		const storageConstraints = [
+			{
+				kind: CAPABILITY_CONSTRAINT_KINDS.NAMESPACE,
+				value: pluginId,
+			},
+		] as const;
 		const grants = [
 			...(permissions.has(PLUGIN_CAPABILITY_PERMISSIONS.FILESYSTEM_READ)
 				? [
@@ -152,13 +165,39 @@ export class PluginCapabilityAdapter {
 					]
 				: []),
 			...(permissions.has(PLUGIN_CAPABILITY_PERMISSIONS.NETWORK_FETCH)
-				? [createCapabilityGrant(FOUNDATION_PLUGIN_NETWORK_CAPABILITIES.REQUEST)]
+				? [createCapabilityGrant(FOUNDATION_NETWORK_CAPABILITIES.REQUEST)]
 				: []),
 			...(permissions.has(PLUGIN_CAPABILITY_PERMISSIONS.STORAGE_READ)
-				? [createCapabilityGrant(FOUNDATION_PLUGIN_STORAGE_CAPABILITIES.READ)]
+				? [
+						createCapabilityGrant(FOUNDATION_STORAGE_CAPABILITIES.READ_JSON, {
+							constraints: storageConstraints,
+						}),
+						createCapabilityGrant(FOUNDATION_STORAGE_CAPABILITIES.LIST, {
+							constraints: storageConstraints,
+						}),
+						createCapabilityGrant(FOUNDATION_STORAGE_CAPABILITIES.READ_FILE, {
+							constraints: storageConstraints,
+						}),
+						createCapabilityGrant(FOUNDATION_STORAGE_CAPABILITIES.READ_BLOB, {
+							constraints: storageConstraints,
+						}),
+						createCapabilityGrant(FOUNDATION_STORAGE_CAPABILITIES.GET_BLOB_REF, {
+							constraints: storageConstraints,
+						}),
+					]
 				: []),
 			...(permissions.has(PLUGIN_CAPABILITY_PERMISSIONS.STORAGE_WRITE)
-				? [createCapabilityGrant(FOUNDATION_PLUGIN_STORAGE_CAPABILITIES.WRITE)]
+				? [
+						createCapabilityGrant(FOUNDATION_STORAGE_CAPABILITIES.WRITE_JSON, {
+							constraints: storageConstraints,
+						}),
+						createCapabilityGrant(FOUNDATION_STORAGE_CAPABILITIES.WRITE_FILE, {
+							constraints: storageConstraints,
+						}),
+						createCapabilityGrant(FOUNDATION_STORAGE_CAPABILITIES.PUT_BLOB, {
+							constraints: storageConstraints,
+						}),
+					]
 				: []),
 			...(official
 				? [
@@ -360,29 +399,79 @@ export class PluginCapabilityAdapter {
 	}
 
 	requestNetwork(sessionId: string, request: unknown): Promise<CapabilityJsonValue> {
-		const session = this.session(sessionId, { permission: PLUGIN_CAPABILITY_PERMISSIONS.NETWORK_FETCH });
-		return session.access.client.invoke(FOUNDATION_PLUGIN_NETWORK_CAPABILITIES.REQUEST, {
-			pluginId: session.pluginId,
-			payload: parseCapabilityJsonValue(request),
-		});
+		return this.client(sessionId, { permission: PLUGIN_CAPABILITY_PERMISSIONS.NETWORK_FETCH }).invoke(
+			FOUNDATION_NETWORK_CAPABILITIES.REQUEST,
+			{
+				request: parseCapabilityJsonValue(request),
+			},
+		);
 	}
 
-	readStorage(sessionId: string, operation: string, payload: unknown): Promise<CapabilityJsonValue> {
+	readStorageJson(sessionId: string, key: string): Promise<CapabilityJsonValue> {
 		const session = this.session(sessionId, { permission: PLUGIN_CAPABILITY_PERMISSIONS.STORAGE_READ });
-		return session.access.client.invoke(FOUNDATION_PLUGIN_STORAGE_CAPABILITIES.READ, {
-			pluginId: session.pluginId,
-			operation,
-			payload: parseCapabilityJsonValue(payload),
+		return session.access.client.invoke(FOUNDATION_STORAGE_CAPABILITIES.READ_JSON, {
+			namespace: session.pluginId,
+			key,
 		});
 	}
 
-	writeStorage(sessionId: string, operation: string, payload: unknown): Promise<CapabilityJsonValue> {
-		const session = this.session(sessionId, { permission: PLUGIN_CAPABILITY_PERMISSIONS.STORAGE_WRITE });
-		return session.access.client.invoke(FOUNDATION_PLUGIN_STORAGE_CAPABILITIES.WRITE, {
-			pluginId: session.pluginId,
-			operation,
-			payload: parseCapabilityJsonValue(payload),
+	listStorage(sessionId: string, prefix?: string): Promise<string[]> {
+		const session = this.session(sessionId, { permission: PLUGIN_CAPABILITY_PERMISSIONS.STORAGE_READ });
+		return session.access.client.invoke(FOUNDATION_STORAGE_CAPABILITIES.LIST, {
+			namespace: session.pluginId,
+			...(prefix === undefined ? {} : { prefix }),
 		});
+	}
+
+	readStorageFile(sessionId: string, path: string): Promise<string | null> {
+		const session = this.session(sessionId, { permission: PLUGIN_CAPABILITY_PERMISSIONS.STORAGE_READ });
+		return session.access.client.invoke(FOUNDATION_STORAGE_CAPABILITIES.READ_FILE, {
+			namespace: session.pluginId,
+			path,
+		});
+	}
+
+	readStorageBlob(sessionId: string, id: string): Promise<StorageBlob | null> {
+		const session = this.session(sessionId, { permission: PLUGIN_CAPABILITY_PERMISSIONS.STORAGE_READ });
+		return session.access.client.invoke(FOUNDATION_STORAGE_CAPABILITIES.READ_BLOB, {
+			namespace: session.pluginId,
+			id,
+		});
+	}
+
+	getStorageBlobRef(sessionId: string, id: string): Promise<StorageBlobRef | null> {
+		const session = this.session(sessionId, { permission: PLUGIN_CAPABILITY_PERMISSIONS.STORAGE_READ });
+		return session.access.client.invoke(FOUNDATION_STORAGE_CAPABILITIES.GET_BLOB_REF, {
+			namespace: session.pluginId,
+			id,
+		});
+	}
+
+	writeStorageJson(sessionId: string, key: string, value: unknown): Promise<undefined> {
+		const session = this.session(sessionId, { permission: PLUGIN_CAPABILITY_PERMISSIONS.STORAGE_WRITE });
+		return session.access.client.invoke(FOUNDATION_STORAGE_CAPABILITIES.WRITE_JSON, {
+			namespace: session.pluginId,
+			key,
+			value: parseCapabilityJsonValue(value),
+		});
+	}
+
+	writeStorageFile(sessionId: string, path: string, data: string): Promise<undefined> {
+		const session = this.session(sessionId, { permission: PLUGIN_CAPABILITY_PERMISSIONS.STORAGE_WRITE });
+		return session.access.client.invoke(FOUNDATION_STORAGE_CAPABILITIES.WRITE_FILE, {
+			namespace: session.pluginId,
+			path,
+			data,
+		});
+	}
+
+	putStorageBlob(sessionId: string, input: unknown): Promise<StorageBlobRef> {
+		const session = this.session(sessionId, { permission: PLUGIN_CAPABILITY_PERMISSIONS.STORAGE_WRITE });
+		const parsedInput = FOUNDATION_STORAGE_CAPABILITIES.PUT_BLOB.parseInput({
+			namespace: session.pluginId,
+			blob: input,
+		});
+		return session.access.client.invoke(FOUNDATION_STORAGE_CAPABILITIES.PUT_BLOB, parsedInput);
 	}
 
 	listProjects(sessionId: string): Promise<ProjectListResult> {
