@@ -41,4 +41,7 @@ export interface PluginFsApi {
 	move(sourcePath: string, destDir: string): Promise<void>;
 	createDirectory(dirPath: string): Promise<void>;
 	listFilesRecursive(rootPath: string): Promise<PluginFsFileRef[]>;
+	/** Watch one directory for host-debounced changes. Requires `fs.read`. */
+	watchDirectory(dirPath: string, listener: (changedPath: string) => void): Disposable;
 }
+import type { Disposable } from "./disposable.js";

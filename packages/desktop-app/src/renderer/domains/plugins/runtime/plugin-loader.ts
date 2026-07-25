@@ -329,6 +329,20 @@ function createFsApi(plugin: InstalledPlugin, capabilitySessionId: string): Plug
 			permissions.require("fs.read");
 			return filesystem.listFilesRecursive(capabilitySessionId, rootPath);
 		},
+		watchDirectory: (dirPath, listener) => {
+			permissions.require("fs.read");
+			const unsubscribe = window.vetta.fs.onDirChanged(listener);
+			void window.vetta.fs.watchDir(dirPath).catch((error: unknown) => {
+				unsubscribe();
+				console.error(`Plugin ${plugin.id} failed to watch directory ${dirPath}`, error);
+			});
+			return {
+				dispose: () => {
+					unsubscribe();
+					void window.vetta.fs.unwatchDir(dirPath);
+				},
+			};
+		},
 	};
 }
 
@@ -810,6 +824,16 @@ function createContext(
 			search: { section: `plugin-${plugin.id}` },
 		});
 	};
+	const captureRegion: PluginContext["ui"]["captureRegion"] = (rect, defaultFileName) => {
+		createPermissionApi(plugin).require("ui.slot.activity-tab");
+		if (![rect.x, rect.y, rect.width, rect.height].every(Number.isFinite) || rect.width <= 0 || rect.height <= 0) {
+			throw new Error("captureRegion() requires a finite rectangle with positive dimensions");
+		}
+		if (defaultFileName.trim().length === 0) {
+			throw new Error("captureRegion() default file name is required");
+		}
+		return window.vetta.window.captureRegion(rect, defaultFileName);
+	};
 	const notify = (options: PluginNotifyOptions): void => {
 		if (options == null || typeof options !== "object" || typeof options.message !== "string") {
 			throw new Error("notify() requires { message: string }");
@@ -865,6 +889,7 @@ function createContext(
 			setPromptAttachment,
 			previewImage,
 			openPluginSettings,
+			captureRegion,
 			notify,
 		},
 		conversation,

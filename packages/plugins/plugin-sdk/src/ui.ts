@@ -93,6 +93,13 @@ export interface PluginOpenActivityTabOptions {
 	width?: number | "max";
 }
 
+export interface PluginCaptureRegion {
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+}
+
 /**
  * Decoration a plugin contributes to the next outgoing prompt while its input
  * action is active. `metadata` is shallow-merged into the prompt request and
@@ -345,6 +352,12 @@ export interface PluginUiApi {
 	 * The host owns the navigation; the plugin only asks to jump there.
 	 */
 	openPluginSettings(): void;
+	/**
+	 * Capture a rectangle in the current Vetta window and open the host save
+	 * dialog. Coordinates use renderer DIP values such as getBoundingClientRect().
+	 * Requires `ui.slot.activity-tab`.
+	 */
+	captureRegion(rect: PluginCaptureRegion, defaultFileName: string): Promise<string | null>;
 	/**
 	 * Show a global toast in the host UI (bottom-right). No permission required.
 	 * Prefer this over swallowing errors into opaque UI copy: pass `error` so

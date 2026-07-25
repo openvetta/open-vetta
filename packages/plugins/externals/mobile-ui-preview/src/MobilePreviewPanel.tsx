@@ -1,4 +1,4 @@
-import { useActivityTab, useTranslation } from "@vetta-org/plugin-sdk";
+import { type PluginFsFileRef, useActivityTab, useTranslation } from "@vetta-org/plugin-sdk";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AndroidMockup, AndroidTabMockup, IPadMockup, IPhoneMockup } from "react-device-mockup";
 import { DEFAULT_DEVICE_ID, DEVICE_PRESETS, findDevice, type DevicePreset } from "./devices";
@@ -78,7 +78,7 @@ export function MobilePreviewPanel() {
 		() => localStorage.getItem(STORAGE_DEVICE) ?? DEFAULT_DEVICE_ID,
 	);
 	const [landscape, setLandscape] = useState<boolean>(() => localStorage.getItem(STORAGE_LANDSCAPE) === "1");
-	const [files, setFiles] = useState<VettaFsFileRef[]>([]);
+	const [files, setFiles] = useState<PluginFsFileRef[]>([]);
 	const [selectedRel, setSelectedRel] = useState<string | null>(null);
 	const [reloadKey, setReloadKey] = useState(0);
 
@@ -90,7 +90,11 @@ export function MobilePreviewPanel() {
 			return;
 		}
 		try {
-			const all = await window.vetta.fs.listFilesRecursive(cwd);
+			const all = await getPluginCtx()?.fs.listFilesRecursive(cwd);
+			if (!all) {
+				setFiles([]);
+				return;
+			}
 			setFiles(all.filter((f) => isHtmlFile(f.name)));
 		} catch {
 			setFiles([]);
@@ -113,14 +117,10 @@ export function MobilePreviewPanel() {
 	useEffect(() => {
 		if (!selectedPath) return;
 		const dir = dirOf(selectedPath);
-		void window.vetta.fs.watchDir(dir);
-		const off = window.vetta.fs.onDirChanged((changed) => {
+		const watch = getPluginCtx()?.fs.watchDirectory(dir, (changed) => {
 			if (changed === dir) setReloadKey((k) => k + 1);
 		});
-		return () => {
-			off();
-			void window.vetta.fs.unwatchDir(dir);
-		};
+		return () => watch?.dispose();
 	}, [selectedPath]);
 
 	const onSelectHtml = useCallback(
@@ -160,7 +160,7 @@ export function MobilePreviewPanel() {
 		await new Promise((resolve) => setTimeout(resolve, 80));
 		const rect = deviceEl.getBoundingClientRect();
 		const name = `${device.label.replace(/\s+/g, "-")}-${landscape ? "landscape" : "portrait"}.png`;
-		await window.vetta.window.captureRegion(
+		await getPluginCtx()?.ui.captureRegion(
 			{ x: rect.left, y: rect.top, width: rect.width, height: rect.height },
 			name,
 		);
