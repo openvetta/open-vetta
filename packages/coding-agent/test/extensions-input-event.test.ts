@@ -6,7 +6,7 @@ import { AuthStorage } from "../src/core/auth-storage.js";
 import { discoverAndLoadExtensions } from "../src/core/extensions/loader.js";
 import { ExtensionRunner } from "../src/core/extensions/runner.js";
 import { ModelRegistry } from "../src/core/model-registry.js";
-import { SessionManager } from "../src/core/session-manager.js";
+import { SessionManager } from "../src/core/session-manager/index.js";
 
 describe("Input Event", () => {
 	let tempDir: string;

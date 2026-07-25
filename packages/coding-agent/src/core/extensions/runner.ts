@@ -8,7 +8,7 @@ import { type Theme, theme } from "../../modes/interactive/theme/theme.js";
 import type { ResourceDiagnostic } from "../diagnostics.js";
 import type { KeyAction, KeybindingsConfig, KeyId } from "../keybindings.js";
 import type { ModelRegistry } from "../model-registry.js";
-import type { SessionManager } from "../session-manager.js";
+import type { SessionManager } from "../session-manager/index.js";
 import type {
 	BeforeAgentStartEvent,
 	BeforeAgentStartEventResult,

@@ -6,7 +6,7 @@
  */
 
 import type { AgentMessage } from "@vetta/agent-core";
-import type { CustomEntry, SessionManager } from "../session-manager.js";
+import type { CustomEntry, SessionManager } from "../session-manager/index.js";
 import { TODO_SNAPSHOT_TYPE, type TodoSnapshot, type TodoStore } from "../todo-store.js";
 
 /** Restore todo state from the latest todo_snapshot in the session branch. */

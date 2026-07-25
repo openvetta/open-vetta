@@ -23,7 +23,7 @@ import {
 	type SessionEntry,
 	type SessionMessageEntry,
 	type ThinkingLevelChangeEntry,
-} from "../src/core/session-manager.js";
+} from "../src/core/session-manager/index.js";
 
 // ============================================================================
 // Test fixtures

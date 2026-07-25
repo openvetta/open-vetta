@@ -15,7 +15,7 @@ import type {
 	SessionBeforeTreeResult,
 	TreePreparation,
 } from "../extensions/index.js";
-import type { BranchSummaryEntry, SessionManager } from "../session-manager.js";
+import type { BranchSummaryEntry, SessionManager } from "../session-manager/index.js";
 import type { ModelController } from "./model-controller.js";
 import type { QueueController } from "./queue-controller.js";
 import type { SessionContext } from "./session-context.js";

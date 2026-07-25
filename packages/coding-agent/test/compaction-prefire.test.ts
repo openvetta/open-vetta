@@ -8,7 +8,7 @@ import {
 	type PrefireCache,
 	shouldPrefire,
 } from "../src/core/compaction/index.js";
-import type { SessionEntry } from "../src/core/session-manager.js";
+import type { SessionEntry } from "../src/core/session-manager/index.js";
 
 function entry(id: string, type = "message"): SessionEntry {
 	return { id, type } as unknown as SessionEntry;

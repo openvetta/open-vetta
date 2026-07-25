@@ -250,7 +250,7 @@ export {
 	SessionManager,
 	type SessionMessageEntry,
 	type ThinkingLevelChangeEntry,
-} from "./core/session-manager.js";
+} from "./core/session-manager/index.js";
 export {
 	type CompactionSettings,
 	type ImageSettings,

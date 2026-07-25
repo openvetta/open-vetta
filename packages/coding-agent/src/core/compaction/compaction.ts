@@ -14,7 +14,7 @@ import {
 	createCompactionSummaryMessage,
 	createCustomMessage,
 } from "../messages.js";
-import type { CompactionEntry, SessionEntry } from "../session-manager.js";
+import type { CompactionEntry, SessionEntry } from "../session-manager/index.js";
 import {
 	computeFileLists,
 	createFileOps,

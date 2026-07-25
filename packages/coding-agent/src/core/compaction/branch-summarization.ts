@@ -14,7 +14,7 @@ import {
 	createCompactionSummaryMessage,
 	createCustomMessage,
 } from "../messages.js";
-import type { ReadonlySessionManager, SessionEntry } from "../session-manager.js";
+import type { ReadonlySessionManager, SessionEntry } from "../session-manager/index.js";
 import { estimateTokens } from "./compaction.js";
 import {
 	computeFileLists,

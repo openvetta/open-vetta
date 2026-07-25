@@ -10,7 +10,7 @@
  * 无需额外事件监听。缓存仅存内存（会话重载后重新预热）。
  */
 
-import type { SessionEntry } from "../session-manager.js";
+import type { SessionEntry } from "../session-manager/index.js";
 import type { CompactionResult, CompactionSettings } from "./compaction.js";
 import { getCompactThreshold } from "./compaction.js";
 

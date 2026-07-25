@@ -16,7 +16,7 @@ import type { AgentSessionEvent } from "../agent-session.js";
 import type { ExtensionRunner } from "../extensions/index.js";
 import type { EcosystemHookRuntime } from "../hooks/index.js";
 import type { ModelRegistry } from "../model-registry.js";
-import type { SessionManager } from "../session-manager.js";
+import type { SessionManager } from "../session-manager/index.js";
 import type { SettingsManager } from "../settings-manager.js";
 
 export interface SessionContext {

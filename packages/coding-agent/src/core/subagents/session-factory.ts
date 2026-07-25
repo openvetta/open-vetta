@@ -9,7 +9,7 @@
 
 import type { AgentTool } from "@vetta/agent-core";
 import type { AgentSession } from "../agent-session.js";
-import { SessionManager } from "../session-manager.js";
+import { SessionManager } from "../session-manager/index.js";
 import { createTodoTool } from "../tools/todo/index.js";
 import { seedForkContext } from "./fork-context.js";
 import { ensureSubagentDir, resolveSubagentDir } from "./persistence.js";

@@ -45,7 +45,7 @@ import type {
 	ReadonlySessionManager,
 	SessionEntry,
 	SessionManager,
-} from "../session-manager.js";
+} from "../session-manager/index.js";
 import type { SlashCommandInfo } from "../slash-commands.js";
 import type { BashOperations } from "../tools/bash/index.js";
 import type { EditToolDetails } from "../tools/edit/index.js";
