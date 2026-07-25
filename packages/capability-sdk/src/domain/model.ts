@@ -1,412 +1,214 @@
-import { CAPABILITY_ERROR_CODES, CAPABILITY_LAYERS, CapabilityError, defineCapability } from "../contracts.js";
+import { type Static, Type } from "@sinclair/typebox";
+import { createCapabilityCatalog } from "../catalog.js";
+import { CAPABILITY_LAYERS, defineCapability } from "../contracts.js";
 import {
-	parseEmptyInput,
-	parseInputRecord,
-	parseOptionalOutputNumber,
-	parseOptionalOutputString,
-	parseOutputRecord,
-	parseRequiredInputString,
-	parseRequiredOutputBoolean,
-	parseRequiredOutputNumber,
-	parseRequiredOutputString,
-	parseVoidOutput,
-} from "./parse-helpers.js";
+	defineCapabilityInputSchema,
+	defineCapabilityNoOutputSchema,
+	defineCapabilityOutputSchema,
+} from "../schema.js";
 
-export interface ModelSummary {
-	id: string;
-	name?: string;
-	api?: string;
-	reasoning?: boolean;
-}
+const modelEmptyInputType = Type.Unsafe<Record<string, never>>({
+	type: "object",
+	additionalProperties: false,
+});
 
-export interface ModelProviderSummary {
-	id: string;
-	displayName: string;
-	baseUrl?: string;
-	api?: string;
-	hasApiKey: boolean;
-	modelCount: number;
-	models: ModelSummary[];
-}
+const modelStringMapType = Type.Record(Type.String(), Type.String());
 
-export interface ModelListResult {
-	defaultModel: string | null;
-	providers: ModelProviderSummary[];
-}
+const modelSummaryType = Type.Object(
+	{
+		id: Type.String(),
+		name: Type.Optional(Type.String()),
+		api: Type.Optional(Type.String()),
+		reasoning: Type.Optional(Type.Boolean()),
+	},
+	{ additionalProperties: false },
+);
 
-export interface ModelCost {
-	input: number;
-	output: number;
-	cacheRead: number;
-	cacheWrite: number;
-}
+const modelProviderSummaryType = Type.Object(
+	{
+		id: Type.String(),
+		displayName: Type.String(),
+		baseUrl: Type.Optional(Type.String()),
+		api: Type.Optional(Type.String()),
+		hasApiKey: Type.Boolean(),
+		modelCount: Type.Number(),
+		models: Type.Array(modelSummaryType),
+	},
+	{ additionalProperties: false },
+);
 
-export interface ModelDefinitionDetail {
-	id: string;
-	modelId?: string;
-	name?: string;
-	api?: string;
-	reasoning?: boolean;
-	reasoningLevels?: string[];
-	defaultReasoningLevel?: string;
-	input?: string[];
-	contextWindow?: number;
-	maxTokens?: number;
-	cost?: ModelCost;
-}
+const modelListResultType = Type.Object(
+	{
+		defaultModel: Type.Union([Type.String(), Type.Null()]),
+		providers: Type.Array(modelProviderSummaryType),
+	},
+	{ additionalProperties: false },
+);
 
-export interface ModelProviderConfigSnapshot {
-	baseUrl?: string;
-	apiKey?: string;
-	api?: string;
-	displayName?: string;
-	authHeader?: boolean;
-	headers?: Record<string, string>;
-	models?: ModelDefinitionDetail[];
-}
+const modelCostType = Type.Object(
+	{
+		input: Type.Number(),
+		output: Type.Number(),
+		cacheRead: Type.Number(),
+		cacheWrite: Type.Number(),
+	},
+	{ additionalProperties: false },
+);
 
-export interface ModelConfigSnapshot {
-	defaultModel?: string;
-	providers: Record<string, ModelProviderConfigSnapshot>;
-}
+const modelDefinitionDetailType = Type.Object(
+	{
+		id: Type.String(),
+		modelId: Type.Optional(Type.String()),
+		name: Type.Optional(Type.String()),
+		api: Type.Optional(Type.String()),
+		reasoning: Type.Optional(Type.Boolean()),
+		reasoningLevels: Type.Optional(Type.Array(Type.String())),
+		defaultReasoningLevel: Type.Optional(Type.String()),
+		input: Type.Optional(Type.Array(Type.String())),
+		contextWindow: Type.Optional(Type.Number()),
+		maxTokens: Type.Optional(Type.Number()),
+		cost: Type.Optional(modelCostType),
+	},
+	{ additionalProperties: false },
+);
 
-export interface ModelProviderInput {
-	provider: string;
-}
+const modelProviderConfigFields = {
+	baseUrl: Type.Optional(Type.String()),
+	apiKey: Type.Optional(Type.String()),
+	api: Type.Optional(Type.String()),
+	displayName: Type.Optional(Type.String()),
+	authHeader: Type.Optional(Type.Boolean()),
+	headers: Type.Optional(modelStringMapType),
+	models: Type.Optional(Type.Array(modelDefinitionDetailType)),
+};
 
-export interface ModelProviderDetail extends ModelProviderConfigSnapshot {
-	provider: string;
-}
+const modelProviderConfigSnapshotType = Type.Object(modelProviderConfigFields, { additionalProperties: false });
 
-export interface ModelProbeInput {
-	provider: string;
-	model: string;
-}
+const modelConfigSnapshotType = Type.Object(
+	{
+		defaultModel: Type.Optional(Type.String()),
+		providers: Type.Record(Type.String(), modelProviderConfigSnapshotType),
+	},
+	{ additionalProperties: false },
+);
 
-export interface ModelProbeResult {
-	ok: boolean;
-	message?: string;
-	error?: string;
-}
+const modelProviderInputType = Type.Object(
+	{
+		provider: Type.String({ pattern: "\\S" }),
+	},
+	{ additionalProperties: false },
+);
 
-export interface ModelKeyValidationInput {
-	modelKey: string;
-	operation?: string;
-}
+const modelProviderDetailType = Type.Object(
+	{
+		provider: Type.String(),
+		...modelProviderConfigFields,
+	},
+	{ additionalProperties: false },
+);
 
-export interface ModelDefaultInput {
-	modelKey: string;
-}
+const modelProbeInputType = Type.Object(
+	{
+		provider: Type.String({ pattern: "\\S" }),
+		model: Type.String({ pattern: "\\S" }),
+	},
+	{ additionalProperties: false },
+);
 
-export interface ModelDefaultResult {
-	defaultModel: string;
-}
+const modelProbeResultType = Type.Object(
+	{
+		ok: Type.Boolean(),
+		message: Type.Optional(Type.String()),
+		error: Type.Optional(Type.String()),
+	},
+	{ additionalProperties: false },
+);
 
-export interface ModelProviderUpsertData {
-	baseUrl?: string;
-	apiKey?: string;
-	api?: string;
-	displayName?: string;
-	authHeader?: boolean;
-	headers?: Record<string, string>;
-	models?: Array<{
-		id: string;
-		name?: string;
-		api?: string;
-		reasoning?: boolean;
-		contextWindow?: number;
-		maxTokens?: number;
-	}>;
-}
+const modelKeyValidationInputType = Type.Object(
+	{
+		modelKey: Type.String({ pattern: "\\S" }),
+		operation: Type.Optional(Type.String()),
+	},
+	{ additionalProperties: false },
+);
 
-export interface ModelProviderUpsertInput {
-	provider: string;
-	data: ModelProviderUpsertData;
-}
+const modelDefaultInputType = Type.Object(
+	{
+		modelKey: Type.String({ pattern: "\\S" }),
+	},
+	{ additionalProperties: false },
+);
 
-function invalidInput(message: string): never {
-	throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_INPUT, message);
-}
+const modelDefaultResultType = Type.Object(
+	{
+		defaultModel: Type.String(),
+	},
+	{ additionalProperties: false },
+);
 
-function invalidOutput(message: string): never {
-	throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_OUTPUT, message);
-}
+const modelProviderUpsertModelType = Type.Object(
+	{
+		id: Type.String({ pattern: "\\S" }),
+		name: Type.Optional(Type.String()),
+		api: Type.Optional(Type.String()),
+		reasoning: Type.Optional(Type.Boolean()),
+		contextWindow: Type.Optional(Type.Number()),
+		maxTokens: Type.Optional(Type.Number()),
+	},
+	{ additionalProperties: false },
+);
 
-function parseOptionalInputBoolean(record: Record<string, unknown>, field: string): boolean | undefined {
-	const value = record[field];
-	if (value === undefined) return undefined;
-	if (typeof value !== "boolean") invalidInput(`Capability field ${field} must be a boolean`);
-	return value;
-}
+const modelProviderUpsertDataType = Type.Object(
+	{
+		baseUrl: Type.Optional(Type.String()),
+		apiKey: Type.Optional(Type.String()),
+		api: Type.Optional(Type.String()),
+		displayName: Type.Optional(Type.String()),
+		authHeader: Type.Optional(Type.Boolean()),
+		headers: Type.Optional(modelStringMapType),
+		models: Type.Optional(Type.Array(modelProviderUpsertModelType)),
+	},
+	{ additionalProperties: false },
+);
 
-function parseOptionalInputText(record: Record<string, unknown>, field: string): string | undefined {
-	const value = record[field];
-	if (value === undefined) return undefined;
-	if (typeof value !== "string") invalidInput(`Capability field ${field} must be a string`);
-	return value;
-}
+const modelProviderUpsertInputType = Type.Object(
+	{
+		provider: Type.String({ pattern: "\\S" }),
+		data: modelProviderUpsertDataType,
+	},
+	{ additionalProperties: false },
+);
 
-function parseOptionalOutputBoolean(record: Record<string, unknown>, field: string): boolean | undefined {
-	const value = record[field];
-	if (value === undefined) return undefined;
-	if (typeof value !== "boolean") invalidOutput(`Capability output ${field} must be a boolean`);
-	return value;
-}
+export type ModelSummary = Static<typeof modelSummaryType>;
+export type ModelProviderSummary = Static<typeof modelProviderSummaryType>;
+export type ModelListResult = Static<typeof modelListResultType>;
+export type ModelCost = Static<typeof modelCostType>;
+export type ModelDefinitionDetail = Static<typeof modelDefinitionDetailType>;
+export type ModelProviderConfigSnapshot = Static<typeof modelProviderConfigSnapshotType>;
+export type ModelConfigSnapshot = Static<typeof modelConfigSnapshotType>;
+export type ModelProviderInput = Static<typeof modelProviderInputType>;
+export type ModelProviderDetail = Static<typeof modelProviderDetailType>;
+export type ModelProbeInput = Static<typeof modelProbeInputType>;
+export type ModelProbeResult = Static<typeof modelProbeResultType>;
+export type ModelKeyValidationInput = Static<typeof modelKeyValidationInputType>;
+export type ModelDefaultInput = Static<typeof modelDefaultInputType>;
+export type ModelDefaultResult = Static<typeof modelDefaultResultType>;
+export type ModelProviderUpsertData = Static<typeof modelProviderUpsertDataType>;
+export type ModelProviderUpsertInput = Static<typeof modelProviderUpsertInputType>;
 
-function parseStringMap(
-	value: unknown,
-	code: typeof CAPABILITY_ERROR_CODES.INVALID_INPUT | typeof CAPABILITY_ERROR_CODES.INVALID_OUTPUT,
-	field: string,
-): Record<string, string> {
-	if (typeof value !== "object" || value === null || Array.isArray(value)) {
-		throw new CapabilityError(code, `Capability ${field} must be a string map`);
-	}
-	const result: Record<string, string> = {};
-	for (const [key, entry] of Object.entries(value)) {
-		if (typeof entry !== "string") {
-			throw new CapabilityError(code, `Capability ${field}.${key} must be a string`);
-		}
-		result[key] = entry;
-	}
-	return result;
-}
-
-function parseOutputStringArray(value: unknown, field: string): string[] {
-	if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string")) {
-		invalidOutput(`Capability output ${field} must be an array of strings`);
-	}
-	return [...value];
-}
-
-function parseModelCost(value: unknown): ModelCost {
-	const cost = parseOutputRecord(value);
-	return {
-		input: parseRequiredOutputNumber(cost, "input"),
-		output: parseRequiredOutputNumber(cost, "output"),
-		cacheRead: parseRequiredOutputNumber(cost, "cacheRead"),
-		cacheWrite: parseRequiredOutputNumber(cost, "cacheWrite"),
-	};
-}
-
-function parseModelDefinitionOutput(value: unknown): ModelDefinitionDetail {
-	const model = parseOutputRecord(value);
-	const modelId = parseOptionalOutputString(model, "modelId");
-	const name = parseOptionalOutputString(model, "name");
-	const api = parseOptionalOutputString(model, "api");
-	const reasoning = parseOptionalOutputBoolean(model, "reasoning");
-	const reasoningLevels =
-		model.reasoningLevels === undefined
-			? undefined
-			: parseOutputStringArray(model.reasoningLevels, "model.reasoningLevels");
-	const defaultReasoningLevel = parseOptionalOutputString(model, "defaultReasoningLevel");
-	const input = model.input === undefined ? undefined : parseOutputStringArray(model.input, "model.input");
-	const contextWindow = parseOptionalOutputNumber(model, "contextWindow");
-	const maxTokens = parseOptionalOutputNumber(model, "maxTokens");
-	const cost = model.cost === undefined ? undefined : parseModelCost(model.cost);
-	return {
-		id: parseRequiredOutputString(model, "id"),
-		...(modelId === undefined ? {} : { modelId }),
-		...(name === undefined ? {} : { name }),
-		...(api === undefined ? {} : { api }),
-		...(reasoning === undefined ? {} : { reasoning }),
-		...(reasoningLevels === undefined ? {} : { reasoningLevels }),
-		...(defaultReasoningLevel === undefined ? {} : { defaultReasoningLevel }),
-		...(input === undefined ? {} : { input }),
-		...(contextWindow === undefined ? {} : { contextWindow }),
-		...(maxTokens === undefined ? {} : { maxTokens }),
-		...(cost === undefined ? {} : { cost }),
-	};
-}
-
-function parseProviderConfigOutput(value: unknown): ModelProviderConfigSnapshot {
-	const provider = parseOutputRecord(value);
-	const baseUrl = parseOptionalOutputString(provider, "baseUrl");
-	const apiKey = parseOptionalOutputString(provider, "apiKey");
-	const api = parseOptionalOutputString(provider, "api");
-	const displayName = parseOptionalOutputString(provider, "displayName");
-	const authHeader = parseOptionalOutputBoolean(provider, "authHeader");
-	const headers =
-		provider.headers === undefined
-			? undefined
-			: parseStringMap(provider.headers, CAPABILITY_ERROR_CODES.INVALID_OUTPUT, "output headers");
-	if (provider.models !== undefined && !Array.isArray(provider.models)) {
-		invalidOutput("Capability output models must be an array");
-	}
-	const models =
-		provider.models === undefined ? undefined : provider.models.map((model) => parseModelDefinitionOutput(model));
-	return {
-		...(baseUrl === undefined ? {} : { baseUrl }),
-		...(apiKey === undefined ? {} : { apiKey }),
-		...(api === undefined ? {} : { api }),
-		...(displayName === undefined ? {} : { displayName }),
-		...(authHeader === undefined ? {} : { authHeader }),
-		...(headers === undefined ? {} : { headers }),
-		...(models === undefined ? {} : { models }),
-	};
-}
-
-function parseModelSummary(value: unknown): ModelSummary {
-	const model = parseOutputRecord(value);
-	const name = parseOptionalOutputString(model, "name");
-	const api = parseOptionalOutputString(model, "api");
-	const reasoning = parseOptionalOutputBoolean(model, "reasoning");
-	return {
-		id: parseRequiredOutputString(model, "id"),
-		...(name === undefined ? {} : { name }),
-		...(api === undefined ? {} : { api }),
-		...(reasoning === undefined ? {} : { reasoning }),
-	};
-}
-
-function parseModelProviderSummary(value: unknown): ModelProviderSummary {
-	const provider = parseOutputRecord(value);
-	if (!Array.isArray(provider.models)) invalidOutput("Capability output provider.models must be an array");
-	const baseUrl = parseOptionalOutputString(provider, "baseUrl");
-	const api = parseOptionalOutputString(provider, "api");
-	return {
-		id: parseRequiredOutputString(provider, "id"),
-		displayName: parseRequiredOutputString(provider, "displayName"),
-		...(baseUrl === undefined ? {} : { baseUrl }),
-		...(api === undefined ? {} : { api }),
-		hasApiKey: parseRequiredOutputBoolean(provider, "hasApiKey"),
-		modelCount: parseRequiredOutputNumber(provider, "modelCount"),
-		models: provider.models.map((model) => parseModelSummary(model)),
-	};
-}
-
-function parseModelListResult(value: unknown): ModelListResult {
-	const result = parseOutputRecord(value);
-	if (result.defaultModel !== null && typeof result.defaultModel !== "string") {
-		invalidOutput("Capability output defaultModel must be a string or null");
-	}
-	if (!Array.isArray(result.providers)) invalidOutput("Capability output providers must be an array");
-	return {
-		defaultModel: result.defaultModel,
-		providers: result.providers.map((provider) => parseModelProviderSummary(provider)),
-	};
-}
-
-function parseModelConfigSnapshot(value: unknown): ModelConfigSnapshot {
-	const snapshot = parseOutputRecord(value);
-	const defaultModel = parseOptionalOutputString(snapshot, "defaultModel");
-	const providers = parseOutputRecord(snapshot.providers);
-	const parsedProviders: Record<string, ModelProviderConfigSnapshot> = {};
-	for (const [provider, config] of Object.entries(providers)) {
-		parsedProviders[provider] = parseProviderConfigOutput(config);
-	}
-	return {
-		...(defaultModel === undefined ? {} : { defaultModel }),
-		providers: parsedProviders,
-	};
-}
-
-function parseProviderInput(value: unknown): ModelProviderInput {
-	const input = parseInputRecord(value);
-	return { provider: parseRequiredInputString(input, "provider") };
-}
-
-function parseProviderDetail(value: unknown): ModelProviderDetail {
-	const output = parseOutputRecord(value);
-	return {
-		provider: parseRequiredOutputString(output, "provider"),
-		...parseProviderConfigOutput(output),
-	};
-}
-
-function parseProbeInput(value: unknown): ModelProbeInput {
-	const input = parseInputRecord(value);
-	return {
-		provider: parseRequiredInputString(input, "provider"),
-		model: parseRequiredInputString(input, "model"),
-	};
-}
-
-function parseProbeResult(value: unknown): ModelProbeResult {
-	const output = parseOutputRecord(value);
-	const message = parseOptionalOutputString(output, "message");
-	const error = parseOptionalOutputString(output, "error");
-	return {
-		ok: parseRequiredOutputBoolean(output, "ok"),
-		...(message === undefined ? {} : { message }),
-		...(error === undefined ? {} : { error }),
-	};
-}
-
-function parseModelKeyValidationInput(value: unknown): ModelKeyValidationInput {
-	const input = parseInputRecord(value);
-	const operation = parseOptionalInputText(input, "operation");
-	return {
-		modelKey: parseRequiredInputString(input, "modelKey"),
-		...(operation === undefined ? {} : { operation }),
-	};
-}
-
-function parseModelDefaultInput(value: unknown): ModelDefaultInput {
-	const input = parseInputRecord(value);
-	return { modelKey: parseRequiredInputString(input, "modelKey") };
-}
-
-function parseModelDefaultResult(value: unknown): ModelDefaultResult {
-	const output = parseOutputRecord(value);
-	return { defaultModel: parseRequiredOutputString(output, "defaultModel") };
-}
-
-function parseProviderUpsertModel(value: unknown): NonNullable<ModelProviderUpsertData["models"]>[number] {
-	const model = parseInputRecord(value);
-	const name = parseOptionalInputText(model, "name");
-	const api = parseOptionalInputText(model, "api");
-	const reasoning = parseOptionalInputBoolean(model, "reasoning");
-	const contextWindow = model.contextWindow;
-	const maxTokens = model.maxTokens;
-	if (contextWindow !== undefined && (typeof contextWindow !== "number" || !Number.isFinite(contextWindow))) {
-		invalidInput("Capability field models.contextWindow must be a number");
-	}
-	if (maxTokens !== undefined && (typeof maxTokens !== "number" || !Number.isFinite(maxTokens))) {
-		invalidInput("Capability field models.maxTokens must be a number");
-	}
-	return {
-		id: parseRequiredInputString(model, "id"),
-		...(name === undefined ? {} : { name }),
-		...(api === undefined ? {} : { api }),
-		...(reasoning === undefined ? {} : { reasoning }),
-		...(contextWindow === undefined ? {} : { contextWindow }),
-		...(maxTokens === undefined ? {} : { maxTokens }),
-	};
-}
-
-function parseProviderUpsertData(value: unknown): ModelProviderUpsertData {
-	const data = parseInputRecord(value);
-	const baseUrl = parseOptionalInputText(data, "baseUrl");
-	const apiKey = parseOptionalInputText(data, "apiKey");
-	const api = parseOptionalInputText(data, "api");
-	const displayName = parseOptionalInputText(data, "displayName");
-	const authHeader = parseOptionalInputBoolean(data, "authHeader");
-	const headers =
-		data.headers === undefined
-			? undefined
-			: parseStringMap(data.headers, CAPABILITY_ERROR_CODES.INVALID_INPUT, "field headers");
-	if (data.models !== undefined && !Array.isArray(data.models)) {
-		invalidInput("Capability field models must be an array");
-	}
-	const models = data.models === undefined ? undefined : data.models.map((model) => parseProviderUpsertModel(model));
-	return {
-		...(baseUrl === undefined ? {} : { baseUrl }),
-		...(apiKey === undefined ? {} : { apiKey }),
-		...(api === undefined ? {} : { api }),
-		...(displayName === undefined ? {} : { displayName }),
-		...(authHeader === undefined ? {} : { authHeader }),
-		...(headers === undefined ? {} : { headers }),
-		...(models === undefined ? {} : { models }),
-	};
-}
-
-function parseProviderUpsertInput(value: unknown): ModelProviderUpsertInput {
-	const input = parseInputRecord(value);
-	return {
-		provider: parseRequiredInputString(input, "provider"),
-		data: parseProviderUpsertData(input.data),
-	};
-}
+const modelEmptyInputSchema = defineCapabilityInputSchema(modelEmptyInputType);
+const modelListOutputSchema = defineCapabilityOutputSchema(modelListResultType, { clean: true });
+const modelConfigOutputSchema = defineCapabilityOutputSchema(modelConfigSnapshotType, { clean: true });
+const modelProviderInputSchema = defineCapabilityInputSchema(modelProviderInputType, { clean: true });
+const modelProviderDetailOutputSchema = defineCapabilityOutputSchema(modelProviderDetailType, { clean: true });
+const modelProbeInputSchema = defineCapabilityInputSchema(modelProbeInputType, { clean: true });
+const modelProbeOutputSchema = defineCapabilityOutputSchema(modelProbeResultType, { clean: true });
+const modelKeyValidationInputSchema = defineCapabilityInputSchema(modelKeyValidationInputType, { clean: true });
+const modelNoOutputSchema = defineCapabilityNoOutputSchema();
+const modelDefaultInputSchema = defineCapabilityInputSchema(modelDefaultInputType, { clean: true });
+const modelDefaultOutputSchema = defineCapabilityOutputSchema(modelDefaultResultType, { clean: true });
+const modelProviderUpsertInputSchema = defineCapabilityInputSchema(modelProviderUpsertInputType, { clean: true });
+const modelProviderConfigOutputSchema = defineCapabilityOutputSchema(modelProviderConfigSnapshotType, { clean: true });
 
 export const DOMAIN_MODEL_CAPABILITIES = {
 	LIST: defineCapability<Record<string, never>, ModelListResult>({
@@ -414,63 +216,65 @@ export const DOMAIN_MODEL_CAPABILITIES = {
 		kind: "query",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseEmptyInput,
-		parseOutput: parseModelListResult,
+		input: modelEmptyInputSchema,
+		output: modelListOutputSchema,
 	}),
 	GET_CONFIG: defineCapability<Record<string, never>, ModelConfigSnapshot>({
 		id: "cap.domain.vetta.model.config.get",
 		kind: "query",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseEmptyInput,
-		parseOutput: parseModelConfigSnapshot,
+		input: modelEmptyInputSchema,
+		output: modelConfigOutputSchema,
 	}),
 	GET_PROVIDER: defineCapability<ModelProviderInput, ModelProviderDetail>({
 		id: "cap.domain.vetta.model.provider.get",
 		kind: "query",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseProviderInput,
-		parseOutput: parseProviderDetail,
+		input: modelProviderInputSchema,
+		output: modelProviderDetailOutputSchema,
 	}),
 	PROBE: defineCapability<ModelProbeInput, ModelProbeResult>({
 		id: "cap.domain.vetta.model.probe",
 		kind: "query",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseProbeInput,
-		parseOutput: parseProbeResult,
+		input: modelProbeInputSchema,
+		output: modelProbeOutputSchema,
 	}),
 	VALIDATE_KEY: defineCapability<ModelKeyValidationInput, undefined>({
 		id: "cap.domain.vetta.model.key.validate",
 		kind: "query",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseModelKeyValidationInput,
-		parseOutput: parseVoidOutput,
+		input: modelKeyValidationInputSchema,
+		output: modelNoOutputSchema,
 	}),
 	SET_DEFAULT: defineCapability<ModelDefaultInput, ModelDefaultResult>({
 		id: "cap.domain.vetta.model.default.set",
 		kind: "command",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseModelDefaultInput,
-		parseOutput: parseModelDefaultResult,
+		input: modelDefaultInputSchema,
+		output: modelDefaultOutputSchema,
 	}),
 	UPSERT_PROVIDER: defineCapability<ModelProviderUpsertInput, ModelProviderConfigSnapshot>({
 		id: "cap.domain.vetta.model.provider.upsert",
 		kind: "command",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseProviderUpsertInput,
-		parseOutput: parseProviderConfigOutput,
+		input: modelProviderUpsertInputSchema,
+		output: modelProviderConfigOutputSchema,
 	}),
 	REMOVE_PROVIDER: defineCapability<ModelProviderInput, undefined>({
 		id: "cap.domain.vetta.model.provider.remove",
 		kind: "command",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseProviderInput,
-		parseOutput: parseVoidOutput,
+		input: modelProviderInputSchema,
+		output: modelNoOutputSchema,
 	}),
 } as const;
+
+export const DOMAIN_MODEL_CAPABILITY_CATALOG = createCapabilityCatalog(Object.values(DOMAIN_MODEL_CAPABILITIES));
