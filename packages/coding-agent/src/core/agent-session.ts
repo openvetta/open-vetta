@@ -56,7 +56,7 @@ import type {
 	PromptOptions,
 	PromptResourceRef,
 } from "./session/types.js";
-import type { BranchSummaryEntry, SessionManager } from "./session-manager.js";
+import type { BranchSummaryEntry, SessionManager } from "./session-manager/index.js";
 import type { SettingsManager } from "./settings-manager.js";
 import { createDefaultSubagentTypeRegistry, SubagentCoordinator, type SubagentSnapshot } from "./subagents/index.js";
 import type { AgentPluginRuntimeConfig } from "./system-prompt.js";
@@ -599,7 +599,7 @@ export class AgentSession {
 	}
 
 	/** Full branch entries from root to current leaf (for UI history display). */
-	getSessionBranch(): import("./session-manager.js").SessionEntry[] {
+	getSessionBranch(): import("./session-manager/index.js").SessionEntry[] {
 		return this.sessionManager.getBranch();
 	}
 

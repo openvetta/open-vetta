@@ -17,7 +17,7 @@ import { findInitialModel } from "./model-resolver.js";
 import type { ResourceLoader } from "./resource-loader.js";
 import { DefaultResourceLoader } from "./resource-loader.js";
 import type { ConversationScenario } from "./session/tool-scope.js";
-import { SessionManager } from "./session-manager.js";
+import { SessionManager } from "./session-manager/index.js";
 import { SettingsManager } from "./settings-manager.js";
 import {
 	createDefaultSubagentSessionFactory,

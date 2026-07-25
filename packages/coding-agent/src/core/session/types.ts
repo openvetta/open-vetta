@@ -22,7 +22,7 @@ import type {
 import type { EcosystemHookAdapterFactory } from "../hooks/index.js";
 import type { ModelRegistry } from "../model-registry.js";
 import type { ResourceLoader } from "../resource-loader.js";
-import type { SessionManager } from "../session-manager.js";
+import type { SessionManager } from "../session-manager/index.js";
 import type { SettingsManager } from "../settings-manager.js";
 import type { SubagentSessionFactory, SubagentSnapshot, SubagentTypeRegistry } from "../subagents/index.js";
 import type {

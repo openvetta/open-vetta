@@ -4,8 +4,8 @@ import { basename, join } from "path";
 import { APP_NAME, getExportTemplateDir } from "../../config.js";
 import { getResolvedThemeColors, getThemeExportColors } from "../../modes/interactive/theme/theme.js";
 import type { ToolInfo } from "../extensions/types.js";
-import type { SessionEntry } from "../session-manager.js";
-import { SessionManager } from "../session-manager.js";
+import type { SessionEntry } from "../session-manager/index.js";
+import { SessionManager } from "../session-manager/index.js";
 
 /**
  * Interface for rendering custom tools to HTML.

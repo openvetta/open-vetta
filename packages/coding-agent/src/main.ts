@@ -29,7 +29,7 @@ import { resolveCliModel, resolveModelScope, type ScopedModel } from "./core/mod
 import { DefaultPackageManager } from "./core/package-manager.js";
 import { DefaultResourceLoader } from "./core/resource-loader.js";
 import { type CreateAgentSessionOptions, createAgentSession } from "./core/sdk.js";
-import { SessionLockError, SessionManager } from "./core/session-manager.js";
+import { SessionLockError, SessionManager } from "./core/session-manager/index.js";
 import { SettingsManager } from "./core/settings-manager.js";
 import { time } from "./core/timings.js";
 import { allTools } from "./core/tools/index.js";
