@@ -209,6 +209,7 @@ export {
 } from "./domain/updater.js";
 export {
 	DOMAIN_WEBHOOK_CAPABILITIES,
+	DOMAIN_WEBHOOK_CAPABILITY_CATALOG,
 	WEBHOOK_KINDS,
 	WEBHOOK_MESSAGE_LEVELS,
 	type WebhookCreateData,

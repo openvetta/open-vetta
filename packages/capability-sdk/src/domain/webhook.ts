@@ -1,15 +1,11 @@
-import { CAPABILITY_ERROR_CODES, CAPABILITY_LAYERS, CapabilityError, defineCapability } from "../contracts.js";
+import { type Static, Type } from "@sinclair/typebox";
+import { createCapabilityCatalog } from "../catalog.js";
+import { CAPABILITY_LAYERS, defineCapability } from "../contracts.js";
 import {
-	parseEmptyInput,
-	parseInputRecord,
-	parseOptionalOutputString,
-	parseOutputRecord,
-	parseRequiredInputBoolean,
-	parseRequiredInputString,
-	parseRequiredOutputBoolean,
-	parseRequiredOutputString,
-	parseVoidOutput,
-} from "./parse-helpers.js";
+	defineCapabilityInputSchema,
+	defineCapabilityNoOutputSchema,
+	defineCapabilityOutputSchema,
+} from "../schema.js";
 
 export const WEBHOOK_KINDS = {
 	FEISHU: "feishu",
@@ -23,308 +19,178 @@ export const WEBHOOK_MESSAGE_LEVELS = {
 	SUCCESS: "success",
 } as const;
 
-export type WebhookKind = (typeof WEBHOOK_KINDS)[keyof typeof WEBHOOK_KINDS];
-export type WebhookMessageLevel = (typeof WEBHOOK_MESSAGE_LEVELS)[keyof typeof WEBHOOK_MESSAGE_LEVELS];
+const webhookEmptyInputType = Type.Unsafe<Record<string, never>>({
+	type: "object",
+	additionalProperties: false,
+});
 
-export interface WebhookFeishuOptions {
-	readonly mentionAll?: boolean;
-}
+const webhookKindType = Type.Union([Type.Literal(WEBHOOK_KINDS.FEISHU), Type.Literal(WEBHOOK_KINDS.DINGTALK)]);
 
-export interface WebhookDingtalkOptions {
-	readonly mentionAll?: boolean;
-	readonly atMobiles?: string[];
-	readonly keyword?: string;
-}
+const webhookMessageLevelType = Type.Union([
+	Type.Literal(WEBHOOK_MESSAGE_LEVELS.INFO),
+	Type.Literal(WEBHOOK_MESSAGE_LEVELS.WARN),
+	Type.Literal(WEBHOOK_MESSAGE_LEVELS.ERROR),
+	Type.Literal(WEBHOOK_MESSAGE_LEVELS.SUCCESS),
+]);
 
-export interface WebhookEndpoint {
-	readonly id: string;
-	readonly kind: WebhookKind;
-	readonly name: string;
-	readonly enabled: boolean;
-	readonly createdAt: string;
-	readonly updatedAt: string;
-	readonly urlMask?: string;
-	readonly hasSignSecret?: boolean;
-	readonly feishu?: WebhookFeishuOptions;
-	readonly dingtalk?: WebhookDingtalkOptions;
-}
+const webhookNonBlankInputStringType = Type.String({ pattern: "\\S" });
 
-export interface WebhookProviderDescriptor {
-	readonly kind: WebhookKind;
-	readonly displayName: string;
-	readonly iconClass?: string;
-}
+const webhookFeishuOptionsType = Type.Object(
+	{
+		mentionAll: Type.Optional(Type.Boolean()),
+	},
+	{ additionalProperties: false },
+);
 
-export interface WebhookCreateData {
-	readonly kind: WebhookKind;
-	readonly name: string;
-	readonly webhookUrl: string;
-	readonly signSecret?: string;
-	readonly enabled?: boolean;
-	readonly feishu?: WebhookFeishuOptions;
-	readonly dingtalk?: WebhookDingtalkOptions;
-}
+const webhookDingtalkOptionsType = Type.Object(
+	{
+		mentionAll: Type.Optional(Type.Boolean()),
+		atMobiles: Type.Optional(Type.Array(Type.String())),
+		keyword: Type.Optional(Type.String()),
+	},
+	{ additionalProperties: false },
+);
 
-export interface WebhookUpdateData {
-	readonly name?: string;
-	readonly enabled?: boolean;
-	readonly webhookUrl?: string;
-	readonly signSecret?: string;
-	readonly feishu?: WebhookFeishuOptions;
-	readonly dingtalk?: WebhookDingtalkOptions;
-}
+const webhookEndpointType = Type.Object(
+	{
+		id: Type.String(),
+		kind: webhookKindType,
+		name: Type.String(),
+		enabled: Type.Boolean(),
+		createdAt: Type.String(),
+		updatedAt: Type.String(),
+		urlMask: Type.Optional(Type.String()),
+		hasSignSecret: Type.Optional(Type.Boolean()),
+		feishu: Type.Optional(webhookFeishuOptionsType),
+		dingtalk: Type.Optional(webhookDingtalkOptionsType),
+	},
+	{ additionalProperties: false },
+);
 
-export interface WebhookMessage {
-	readonly title?: string;
-	readonly text: string;
-	readonly level?: WebhookMessageLevel;
-}
+const webhookProviderDescriptorType = Type.Object(
+	{
+		kind: webhookKindType,
+		displayName: Type.String(),
+		iconClass: Type.Optional(Type.String()),
+	},
+	{ additionalProperties: false },
+);
 
-export interface WebhookSendResult {
-	readonly ok: boolean;
-	readonly error?: string;
-}
+/** Create allows empty display name (legacy); webhookUrl must be non-blank. */
+const webhookCreateDataType = Type.Object(
+	{
+		kind: webhookKindType,
+		name: Type.String(),
+		webhookUrl: webhookNonBlankInputStringType,
+		signSecret: Type.Optional(Type.String()),
+		enabled: Type.Optional(Type.Boolean()),
+		feishu: Type.Optional(webhookFeishuOptionsType),
+		dingtalk: Type.Optional(webhookDingtalkOptionsType),
+	},
+	{ additionalProperties: false },
+);
 
-export interface WebhookIdInput {
-	readonly id: string;
-}
+/**
+ * Partial update. `signSecret: ""` is valid (explicit clear).
+ * `minProperties: 1` rejects empty patches; undefined keys are stripped when clean is enabled.
+ */
+const webhookUpdateDataType = Type.Object(
+	{
+		name: Type.Optional(webhookNonBlankInputStringType),
+		enabled: Type.Optional(Type.Boolean()),
+		webhookUrl: Type.Optional(webhookNonBlankInputStringType),
+		signSecret: Type.Optional(Type.String()),
+		feishu: Type.Optional(webhookFeishuOptionsType),
+		dingtalk: Type.Optional(webhookDingtalkOptionsType),
+	},
+	{ additionalProperties: false, minProperties: 1 },
+);
 
-export interface WebhookCreateInput {
-	readonly data: WebhookCreateData;
-}
+const webhookMessageType = Type.Object(
+	{
+		title: Type.Optional(Type.String()),
+		text: Type.String(),
+		level: Type.Optional(webhookMessageLevelType),
+	},
+	{ additionalProperties: false },
+);
 
-export interface WebhookUpdateInput {
-	readonly id: string;
-	readonly data: WebhookUpdateData;
-}
+const webhookSendResultType = Type.Object(
+	{
+		ok: Type.Boolean(),
+		error: Type.Optional(Type.String()),
+	},
+	{ additionalProperties: false },
+);
 
-export interface WebhookSetEnabledInput {
-	readonly id: string;
-	readonly enabled: boolean;
-}
+const webhookIdInputType = Type.Object(
+	{
+		id: webhookNonBlankInputStringType,
+	},
+	{ additionalProperties: false },
+);
 
-export interface WebhookSendInput {
-	readonly id: string;
-	readonly message: WebhookMessage;
-}
+const webhookCreateInputType = Type.Object(
+	{
+		data: webhookCreateDataType,
+	},
+	{ additionalProperties: false },
+);
 
-const WEBHOOK_DATA_KEYS = new Set(["name", "enabled", "webhookUrl", "signSecret", "feishu", "dingtalk"]);
+const webhookUpdateInputType = Type.Object(
+	{
+		id: webhookNonBlankInputStringType,
+		data: webhookUpdateDataType,
+	},
+	{ additionalProperties: false },
+);
 
-function parseInputString(value: unknown, field: string): string {
-	if (typeof value !== "string") {
-		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_INPUT, `Capability field ${field} must be a string`);
-	}
-	return value;
-}
+const webhookSetEnabledInputType = Type.Object(
+	{
+		id: webhookNonBlankInputStringType,
+		enabled: Type.Boolean(),
+	},
+	{ additionalProperties: false },
+);
 
-function parseWebhookKind(value: unknown, output: boolean): WebhookKind {
-	if (typeof value !== "string" || !Object.values(WEBHOOK_KINDS).includes(value as WebhookKind)) {
-		throw new CapabilityError(
-			output ? CAPABILITY_ERROR_CODES.INVALID_OUTPUT : CAPABILITY_ERROR_CODES.INVALID_INPUT,
-			"Webhook kind is invalid",
-		);
-	}
-	return value as WebhookKind;
-}
+const webhookSendInputType = Type.Object(
+	{
+		id: webhookNonBlankInputStringType,
+		message: webhookMessageType,
+	},
+	{ additionalProperties: false },
+);
 
-function parseWebhookLevel(value: unknown, output: boolean): WebhookMessageLevel {
-	if (typeof value !== "string" || !Object.values(WEBHOOK_MESSAGE_LEVELS).includes(value as WebhookMessageLevel)) {
-		throw new CapabilityError(
-			output ? CAPABILITY_ERROR_CODES.INVALID_OUTPUT : CAPABILITY_ERROR_CODES.INVALID_INPUT,
-			"Webhook message level is invalid",
-		);
-	}
-	return value as WebhookMessageLevel;
-}
+export type WebhookKind = Static<typeof webhookKindType>;
+export type WebhookMessageLevel = Static<typeof webhookMessageLevelType>;
+export type WebhookFeishuOptions = Readonly<Static<typeof webhookFeishuOptionsType>>;
+export type WebhookDingtalkOptions = Readonly<Static<typeof webhookDingtalkOptionsType>>;
+export type WebhookEndpoint = Readonly<Static<typeof webhookEndpointType>>;
+export type WebhookProviderDescriptor = Readonly<Static<typeof webhookProviderDescriptorType>>;
+export type WebhookCreateData = Readonly<Static<typeof webhookCreateDataType>>;
+export type WebhookUpdateData = Readonly<Static<typeof webhookUpdateDataType>>;
+export type WebhookMessage = Readonly<Static<typeof webhookMessageType>>;
+export type WebhookSendResult = Readonly<Static<typeof webhookSendResultType>>;
+export type WebhookIdInput = Readonly<Static<typeof webhookIdInputType>>;
+export type WebhookCreateInput = Readonly<Static<typeof webhookCreateInputType>>;
+export type WebhookUpdateInput = Readonly<Static<typeof webhookUpdateInputType>>;
+export type WebhookSetEnabledInput = Readonly<Static<typeof webhookSetEnabledInputType>>;
+export type WebhookSendInput = Readonly<Static<typeof webhookSendInputType>>;
 
-function parseStringArray(value: unknown, output: boolean): string[] {
-	if (!Array.isArray(value) || !value.every((entry) => typeof entry === "string")) {
-		throw new CapabilityError(
-			output ? CAPABILITY_ERROR_CODES.INVALID_OUTPUT : CAPABILITY_ERROR_CODES.INVALID_INPUT,
-			"Webhook mobile list must be an array of strings",
-		);
-	}
-	return [...value];
-}
-
-function parseFeishuOptions(value: unknown, output: boolean): WebhookFeishuOptions {
-	const options = output ? parseOutputRecord(value) : parseInputRecord(value);
-	if (!Object.keys(options).every((key) => key === "mentionAll")) {
-		throw new CapabilityError(
-			output ? CAPABILITY_ERROR_CODES.INVALID_OUTPUT : CAPABILITY_ERROR_CODES.INVALID_INPUT,
-			"Webhook Feishu options contain unknown fields",
-		);
-	}
-	if (options.mentionAll === undefined) return {};
-	if (typeof options.mentionAll !== "boolean") {
-		throw new CapabilityError(
-			output ? CAPABILITY_ERROR_CODES.INVALID_OUTPUT : CAPABILITY_ERROR_CODES.INVALID_INPUT,
-			"Webhook Feishu mentionAll must be a boolean",
-		);
-	}
-	return { mentionAll: options.mentionAll };
-}
-
-function parseDingtalkOptions(value: unknown, output: boolean): WebhookDingtalkOptions {
-	const options = output ? parseOutputRecord(value) : parseInputRecord(value);
-	if (!Object.keys(options).every((key) => key === "mentionAll" || key === "atMobiles" || key === "keyword")) {
-		throw new CapabilityError(
-			output ? CAPABILITY_ERROR_CODES.INVALID_OUTPUT : CAPABILITY_ERROR_CODES.INVALID_INPUT,
-			"Webhook DingTalk options contain unknown fields",
-		);
-	}
-	const result: WebhookDingtalkOptions = {};
-	if (options.mentionAll !== undefined) {
-		if (typeof options.mentionAll !== "boolean") {
-			throw new CapabilityError(
-				output ? CAPABILITY_ERROR_CODES.INVALID_OUTPUT : CAPABILITY_ERROR_CODES.INVALID_INPUT,
-				"Webhook DingTalk mentionAll must be a boolean",
-			);
-		}
-		Object.assign(result, { mentionAll: options.mentionAll });
-	}
-	if (options.atMobiles !== undefined)
-		Object.assign(result, { atMobiles: parseStringArray(options.atMobiles, output) });
-	if (options.keyword !== undefined) {
-		Object.assign(result, {
-			keyword: output ? parseRequiredOutputString(options, "keyword") : parseInputString(options.keyword, "keyword"),
-		});
-	}
-	return result;
-}
-
-function parseWebhookCreateData(value: unknown): WebhookCreateData {
-	const data = parseInputRecord(value);
-	const allowedKeys = new Set(["kind", ...WEBHOOK_DATA_KEYS]);
-	if (!Object.keys(data).every((key) => allowedKeys.has(key))) {
-		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_INPUT, "Webhook create data contains unknown fields");
-	}
-	const signSecret = data.signSecret === undefined ? undefined : parseInputString(data.signSecret, "signSecret");
-	const enabled = data.enabled === undefined ? undefined : parseRequiredInputBoolean(data, "enabled");
-	const feishu = data.feishu === undefined ? undefined : parseFeishuOptions(data.feishu, false);
-	const dingtalk = data.dingtalk === undefined ? undefined : parseDingtalkOptions(data.dingtalk, false);
-	return {
-		kind: parseWebhookKind(data.kind, false),
-		name: parseInputString(data.name, "name"),
-		webhookUrl: parseRequiredInputString(data, "webhookUrl"),
-		...(signSecret === undefined ? {} : { signSecret }),
-		...(enabled === undefined ? {} : { enabled }),
-		...(feishu === undefined ? {} : { feishu }),
-		...(dingtalk === undefined ? {} : { dingtalk }),
-	};
-}
-
-function parseWebhookUpdateData(value: unknown): WebhookUpdateData {
-	const data = parseInputRecord(value);
-	if (Object.keys(data).length === 0 || !Object.keys(data).every((key) => WEBHOOK_DATA_KEYS.has(key))) {
-		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_INPUT, "Webhook update fields are invalid");
-	}
-	const result: WebhookUpdateData = {};
-	if (data.name !== undefined) Object.assign(result, { name: parseRequiredInputString(data, "name") });
-	if (data.enabled !== undefined) Object.assign(result, { enabled: parseRequiredInputBoolean(data, "enabled") });
-	if (data.webhookUrl !== undefined) {
-		Object.assign(result, { webhookUrl: parseRequiredInputString(data, "webhookUrl") });
-	}
-	if (data.signSecret !== undefined) {
-		Object.assign(result, { signSecret: parseInputString(data.signSecret, "signSecret") });
-	}
-	if (data.feishu !== undefined) Object.assign(result, { feishu: parseFeishuOptions(data.feishu, false) });
-	if (data.dingtalk !== undefined) Object.assign(result, { dingtalk: parseDingtalkOptions(data.dingtalk, false) });
-	return result;
-}
-
-function parseWebhookIdInput(value: unknown): WebhookIdInput {
-	const input = parseInputRecord(value);
-	return { id: parseRequiredInputString(input, "id") };
-}
-
-function parseWebhookCreateInput(value: unknown): WebhookCreateInput {
-	const input = parseInputRecord(value);
-	return { data: parseWebhookCreateData(input.data) };
-}
-
-function parseWebhookUpdateInput(value: unknown): WebhookUpdateInput {
-	const input = parseInputRecord(value);
-	return { id: parseRequiredInputString(input, "id"), data: parseWebhookUpdateData(input.data) };
-}
-
-function parseWebhookSetEnabledInput(value: unknown): WebhookSetEnabledInput {
-	const input = parseInputRecord(value);
-	return { id: parseRequiredInputString(input, "id"), enabled: parseRequiredInputBoolean(input, "enabled") };
-}
-
-function parseWebhookMessage(value: unknown): WebhookMessage {
-	const message = parseInputRecord(value);
-	if (!Object.keys(message).every((key) => key === "title" || key === "text" || key === "level")) {
-		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_INPUT, "Webhook message contains unknown fields");
-	}
-	const title = message.title === undefined ? undefined : parseInputString(message.title, "title");
-	const level = message.level === undefined ? undefined : parseWebhookLevel(message.level, false);
-	return {
-		...(title === undefined ? {} : { title }),
-		text: parseInputString(message.text, "text"),
-		...(level === undefined ? {} : { level }),
-	};
-}
-
-function parseWebhookSendInput(value: unknown): WebhookSendInput {
-	const input = parseInputRecord(value);
-	return { id: parseRequiredInputString(input, "id"), message: parseWebhookMessage(input.message) };
-}
-
-function parseWebhookEndpoint(value: unknown): WebhookEndpoint {
-	const endpoint = parseOutputRecord(value);
-	const urlMask = parseOptionalOutputString(endpoint, "urlMask");
-	const hasSignSecret =
-		endpoint.hasSignSecret === undefined ? undefined : parseRequiredOutputBoolean(endpoint, "hasSignSecret");
-	const feishu = endpoint.feishu === undefined ? undefined : parseFeishuOptions(endpoint.feishu, true);
-	const dingtalk = endpoint.dingtalk === undefined ? undefined : parseDingtalkOptions(endpoint.dingtalk, true);
-	return {
-		id: parseRequiredOutputString(endpoint, "id"),
-		kind: parseWebhookKind(endpoint.kind, true),
-		name: parseRequiredOutputString(endpoint, "name"),
-		enabled: parseRequiredOutputBoolean(endpoint, "enabled"),
-		createdAt: parseRequiredOutputString(endpoint, "createdAt"),
-		updatedAt: parseRequiredOutputString(endpoint, "updatedAt"),
-		...(urlMask === undefined ? {} : { urlMask }),
-		...(hasSignSecret === undefined ? {} : { hasSignSecret }),
-		...(feishu === undefined ? {} : { feishu }),
-		...(dingtalk === undefined ? {} : { dingtalk }),
-	};
-}
-
-function parseWebhookEndpoints(value: unknown): WebhookEndpoint[] {
-	if (!Array.isArray(value)) {
-		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_OUTPUT, "Capability output must be an array");
-	}
-	return value.map(parseWebhookEndpoint);
-}
-
-function parseWebhookProvider(value: unknown): WebhookProviderDescriptor {
-	const provider = parseOutputRecord(value);
-	const iconClass = parseOptionalOutputString(provider, "iconClass");
-	return {
-		kind: parseWebhookKind(provider.kind, true),
-		displayName: parseRequiredOutputString(provider, "displayName"),
-		...(iconClass === undefined ? {} : { iconClass }),
-	};
-}
-
-function parseWebhookProviders(value: unknown): WebhookProviderDescriptor[] {
-	if (!Array.isArray(value)) {
-		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_OUTPUT, "Capability output must be an array");
-	}
-	return value.map(parseWebhookProvider);
-}
-
-function parseWebhookSendResult(value: unknown): WebhookSendResult {
-	const result = parseOutputRecord(value);
-	const error = parseOptionalOutputString(result, "error");
-	return {
-		ok: parseRequiredOutputBoolean(result, "ok"),
-		...(error === undefined ? {} : { error }),
-	};
-}
+const webhookEmptyInputSchema = defineCapabilityInputSchema(webhookEmptyInputType);
+const webhookEndpointsOutputSchema = defineCapabilityOutputSchema(Type.Array(webhookEndpointType), { clean: true });
+const webhookProvidersOutputSchema = defineCapabilityOutputSchema(Type.Array(webhookProviderDescriptorType), {
+	clean: true,
+});
+const webhookCreateInputSchema = defineCapabilityInputSchema(webhookCreateInputType, { clean: true });
+const webhookEndpointOutputSchema = defineCapabilityOutputSchema(webhookEndpointType, { clean: true });
+// clean strips `name: undefined` while keeping `signSecret: ""` for explicit secret clear.
+const webhookUpdateInputSchema = defineCapabilityInputSchema(webhookUpdateInputType, { clean: true });
+const webhookIdInputSchema = defineCapabilityInputSchema(webhookIdInputType, { clean: true });
+const webhookSetEnabledInputSchema = defineCapabilityInputSchema(webhookSetEnabledInputType, { clean: true });
+const webhookSendResultOutputSchema = defineCapabilityOutputSchema(webhookSendResultType, { clean: true });
+const webhookSendInputSchema = defineCapabilityInputSchema(webhookSendInputType, { clean: true });
+const webhookNoOutputSchema = defineCapabilityNoOutputSchema();
 
 export const DOMAIN_WEBHOOK_CAPABILITIES = {
 	LIST_ENDPOINTS: defineCapability<Record<string, never>, WebhookEndpoint[]>({
@@ -332,63 +198,65 @@ export const DOMAIN_WEBHOOK_CAPABILITIES = {
 		kind: "query",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseEmptyInput,
-		parseOutput: parseWebhookEndpoints,
+		input: webhookEmptyInputSchema,
+		output: webhookEndpointsOutputSchema,
 	}),
 	LIST_PROVIDERS: defineCapability<Record<string, never>, WebhookProviderDescriptor[]>({
 		id: "cap.domain.vetta.webhook.provider.list",
 		kind: "query",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseEmptyInput,
-		parseOutput: parseWebhookProviders,
+		input: webhookEmptyInputSchema,
+		output: webhookProvidersOutputSchema,
 	}),
 	CREATE_ENDPOINT: defineCapability<WebhookCreateInput, WebhookEndpoint>({
 		id: "cap.domain.vetta.webhook.endpoint.create",
 		kind: "command",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseWebhookCreateInput,
-		parseOutput: parseWebhookEndpoint,
+		input: webhookCreateInputSchema,
+		output: webhookEndpointOutputSchema,
 	}),
 	UPDATE_ENDPOINT: defineCapability<WebhookUpdateInput, WebhookEndpoint>({
 		id: "cap.domain.vetta.webhook.endpoint.update",
 		kind: "command",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseWebhookUpdateInput,
-		parseOutput: parseWebhookEndpoint,
+		input: webhookUpdateInputSchema,
+		output: webhookEndpointOutputSchema,
 	}),
 	DELETE_ENDPOINT: defineCapability<WebhookIdInput, undefined>({
 		id: "cap.domain.vetta.webhook.endpoint.delete",
 		kind: "command",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseWebhookIdInput,
-		parseOutput: parseVoidOutput,
+		input: webhookIdInputSchema,
+		output: webhookNoOutputSchema,
 	}),
 	SET_ENABLED: defineCapability<WebhookSetEnabledInput, WebhookEndpoint>({
 		id: "cap.domain.vetta.webhook.endpoint.set-enabled",
 		kind: "command",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseWebhookSetEnabledInput,
-		parseOutput: parseWebhookEndpoint,
+		input: webhookSetEnabledInputSchema,
+		output: webhookEndpointOutputSchema,
 	}),
 	TEST_ENDPOINT: defineCapability<WebhookIdInput, WebhookSendResult>({
 		id: "cap.domain.vetta.webhook.endpoint.test",
 		kind: "command",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseWebhookIdInput,
-		parseOutput: parseWebhookSendResult,
+		input: webhookIdInputSchema,
+		output: webhookSendResultOutputSchema,
 	}),
 	SEND_MESSAGE: defineCapability<WebhookSendInput, WebhookSendResult>({
 		id: "cap.domain.vetta.webhook.endpoint.send",
 		kind: "command",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseWebhookSendInput,
-		parseOutput: parseWebhookSendResult,
+		input: webhookSendInputSchema,
+		output: webhookSendResultOutputSchema,
 	}),
 } as const;
+
+export const DOMAIN_WEBHOOK_CAPABILITY_CATALOG = createCapabilityCatalog(Object.values(DOMAIN_WEBHOOK_CAPABILITIES));
