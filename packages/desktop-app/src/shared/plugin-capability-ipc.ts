@@ -111,3 +111,12 @@ export const PLUGIN_CAPABILITY_CHANNELS = {
 	WEBHOOK_ENDPOINT_TEST: "vetta:plugins:capabilities:webhook:endpoint:test",
 	WEBHOOK_ENDPOINT_SEND: "vetta:plugins:capabilities:webhook:endpoint:send",
 } as const;
+
+export const PLUGIN_SYSTEM_CHANNELS = {
+	LIST: "vetta:plugins:system:list",
+	INSTALL_FROM_URL: "vetta:plugins:system:install-from-url",
+	INSTALL_FROM_PATH: "vetta:plugins:system:install-from-path",
+	UNINSTALL: "vetta:plugins:system:uninstall",
+	SET_ENABLED: "vetta:plugins:system:set-enabled",
+	RELOAD: "vetta:plugins:system:reload",
+} as const;

@@ -632,6 +632,19 @@ export interface DesktopPluginCapabilityWebhookApi {
 	sendMessage(sessionId: string, id: string, message: WebhookMessage): Promise<WebhookSendResult>;
 }
 
+export interface DesktopPluginSystemApi {
+	list(sessionId: string): Promise<InstalledPlugin[]>;
+	installFromUrl(sessionId: string, url: string): Promise<InstalledPlugin>;
+	installFromPath(
+		sessionId: string,
+		path: string,
+		options?: { grantedPermissions?: string[]; enable?: boolean },
+	): Promise<InstalledPlugin>;
+	uninstall(sessionId: string, id: string): Promise<void>;
+	setEnabled(sessionId: string, id: string, enabled: boolean): Promise<InstalledPlugin>;
+	reload(sessionId: string, id: string): Promise<InstalledPlugin>;
+}
+
 /** @internal Host bridge used to implement the public plugin-sdk facade. */
 export interface DesktopPluginInternalCapabilitiesApi {
 	openSession(pluginId: string): Promise<string>;
@@ -650,6 +663,7 @@ export interface DesktopPluginInternalCapabilitiesApi {
 	sessions: DesktopPluginCapabilitySessionsApi;
 	shortcuts: DesktopPluginCapabilityShortcutsApi;
 	skills: DesktopPluginCapabilitySkillsApi;
+	pluginSystem: DesktopPluginSystemApi;
 	updater: DesktopPluginCapabilityUpdaterApi;
 	webhook: DesktopPluginCapabilityWebhookApi;
 }

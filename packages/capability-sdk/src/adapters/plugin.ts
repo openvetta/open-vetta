@@ -995,6 +995,10 @@ export class PluginCapabilityAdapter {
 		);
 	}
 
+	assertOfficialSession(sessionId: string): void {
+		this.session(sessionId, { official: true });
+	}
+
 	private client(sessionId: string, requirement: PluginCapabilityRequirement): CapabilityAccessHandle["client"] {
 		return this.session(sessionId, requirement).access.client;
 	}
