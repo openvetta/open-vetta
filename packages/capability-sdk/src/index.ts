@@ -11,6 +11,7 @@ export {
 	type CapabilityInvokeOptions,
 	createCapabilityGrant,
 } from "./access.js";
+export { type CapabilityCatalogEntry, createCapabilityCatalog } from "./catalog.js";
 export {
 	type AnyCapabilityToken,
 	CAPABILITY_ERROR_CODES,
@@ -34,3 +35,13 @@ export {
 } from "./contracts.js";
 export * from "./domain.js";
 export * from "./foundation.js";
+export {
+	type CapabilityJsonObject,
+	type CapabilityJsonSchema,
+	type CapabilityJsonValue,
+	type CapabilitySchema,
+	type CapabilityTypeBoxSchemaOptions,
+	defineCapabilityInputSchema,
+	defineCapabilityNoOutputSchema,
+	defineCapabilityOutputSchema,
+} from "./schema.js";

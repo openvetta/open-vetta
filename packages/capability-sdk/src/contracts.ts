@@ -1,3 +1,5 @@
+import type { CapabilitySchema } from "./schema.js";
+
 declare const capabilityIdBrand: unique symbol;
 declare const capabilityTypes: unique symbol;
 
@@ -34,12 +36,14 @@ export const CAPABILITY_ERROR_CODES = {
 } as const;
 
 export type CapabilityErrorCode = (typeof CAPABILITY_ERROR_CODES)[keyof typeof CAPABILITY_ERROR_CODES];
-export type CapabilityParser<Value> = (value: unknown) => Value;
+export type CapabilityParser<Value> = CapabilitySchema<Value>["parse"];
 
 export interface CapabilityToken<Input, Output> {
 	readonly id: CapabilityId;
+	readonly input: CapabilitySchema<Input>;
 	readonly kind: "query" | "command" | "event";
 	readonly layer: CapabilityLayer;
+	readonly output: CapabilitySchema<Output>;
 	readonly version: number;
 	readonly parseInput: CapabilityParser<Input>;
 	readonly parseOutput: CapabilityParser<Output>;
@@ -51,14 +55,29 @@ export interface CapabilityToken<Input, Output> {
 
 export type AnyCapabilityToken = CapabilityToken<unknown, unknown>;
 
-export interface CapabilityDefinition<Input, Output> {
+interface CapabilityDefinitionBase<Input, Output> {
 	readonly id: string;
 	readonly kind: CapabilityToken<Input, Output>["kind"];
 	readonly layer: CapabilityLayer;
 	readonly version: number;
+}
+
+interface ParserCapabilityDefinition<Input, Output> {
+	readonly input?: never;
+	readonly output?: never;
 	readonly parseInput: CapabilityParser<Input>;
 	readonly parseOutput: CapabilityParser<Output>;
 }
+
+interface SchemaCapabilityDefinition<Input, Output> {
+	readonly input: CapabilitySchema<Input>;
+	readonly output: CapabilitySchema<Output>;
+	readonly parseInput?: never;
+	readonly parseOutput?: never;
+}
+
+export type CapabilityDefinition<Input, Output> = CapabilityDefinitionBase<Input, Output> &
+	(ParserCapabilityDefinition<Input, Output> | SchemaCapabilityDefinition<Input, Output>);
 
 export interface CapabilityExecutionContext {
 	readonly signal: AbortSignal;
@@ -122,12 +141,24 @@ export function defineCapability<Input, Output>(
 			`Capability ${id} must declare a positive integer version`,
 		);
 	}
+	const input =
+		definition.input ??
+		Object.freeze({
+			parse: definition.parseInput,
+		});
+	const output =
+		definition.output ??
+		Object.freeze({
+			parse: definition.parseOutput,
+		});
 	return Object.freeze({
 		id,
+		input,
 		kind: definition.kind,
 		layer: definition.layer,
+		output,
 		version: definition.version,
-		parseInput: definition.parseInput,
-		parseOutput: definition.parseOutput,
+		parseInput: input.parse,
+		parseOutput: output.parse,
 	});
 }

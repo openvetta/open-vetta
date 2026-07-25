@@ -33,6 +33,7 @@ export {
 } from "./domain/batch-task.js";
 export {
 	DOMAIN_DOWNLOAD_CAPABILITIES,
+	DOMAIN_DOWNLOAD_CAPABILITY_CATALOG,
 	DOWNLOAD_STATUSES,
 	type DownloadCancelInput,
 	type DownloadItem,
