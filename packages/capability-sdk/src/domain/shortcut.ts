@@ -1,12 +1,7 @@
-import { CAPABILITY_ERROR_CODES, CAPABILITY_LAYERS, CapabilityError, defineCapability } from "../contracts.js";
-import {
-	parseEmptyInput,
-	parseInputRecord,
-	parseOutputRecord,
-	parseRequiredInputString,
-	parseRequiredOutputBoolean,
-	parseRequiredOutputString,
-} from "./parse-helpers.js";
+import { type Static, Type } from "@sinclair/typebox";
+import { createCapabilityCatalog } from "../catalog.js";
+import { CAPABILITY_LAYERS, defineCapability } from "../contracts.js";
+import { defineCapabilityInputSchema, defineCapabilityOutputSchema } from "../schema.js";
 
 export const QUICK_PANEL_TRIGGERS = {
 	NONE: "none",
@@ -20,145 +15,116 @@ export const QUICK_PANEL_POST_SEND_BEHAVIORS = {
 	BACKGROUND: "background",
 } as const;
 
-export type QuickPanelTrigger = (typeof QUICK_PANEL_TRIGGERS)[keyof typeof QUICK_PANEL_TRIGGERS];
-export type QuickPanelPostSendBehavior =
-	(typeof QUICK_PANEL_POST_SEND_BEHAVIORS)[keyof typeof QUICK_PANEL_POST_SEND_BEHAVIORS];
+const shortcutEmptyInputType = Type.Unsafe<Record<string, never>>({
+	type: "object",
+	additionalProperties: false,
+});
 
-export interface ShortcutBinding {
-	readonly id: string;
-	readonly defaultShortcut: string;
-	readonly shortcut: string;
-	readonly isDefault: boolean;
-}
+const quickPanelTriggerType = Type.Union([
+	Type.Literal(QUICK_PANEL_TRIGGERS.NONE),
+	Type.Literal(QUICK_PANEL_TRIGGERS.MOD),
+	Type.Literal(QUICK_PANEL_TRIGGERS.ALT),
+	Type.Literal(QUICK_PANEL_TRIGGERS.SHIFT),
+]);
 
-export interface QuickPanelSettings {
-	readonly trigger: QuickPanelTrigger;
-	readonly postSendBehavior: QuickPanelPostSendBehavior;
-}
+const quickPanelPostSendBehaviorType = Type.Union([
+	Type.Literal(QUICK_PANEL_POST_SEND_BEHAVIORS.FOREGROUND),
+	Type.Literal(QUICK_PANEL_POST_SEND_BEHAVIORS.BACKGROUND),
+]);
 
-export interface ShortcutSettings {
-	readonly bindings: ShortcutBinding[];
-	readonly quickPanel: QuickPanelSettings;
-}
+const shortcutBindingType = Type.Object(
+	{
+		id: Type.String(),
+		defaultShortcut: Type.String(),
+		shortcut: Type.String(),
+		isDefault: Type.Boolean(),
+	},
+	{ additionalProperties: false },
+);
 
-export interface ShortcutBindingInput {
-	readonly id: string;
-	readonly shortcut: string;
-}
+const quickPanelSettingsType = Type.Object(
+	{
+		trigger: quickPanelTriggerType,
+		postSendBehavior: quickPanelPostSendBehaviorType,
+	},
+	{ additionalProperties: false },
+);
 
-export interface ShortcutActionInput {
-	readonly id: string;
-}
+const shortcutSettingsType = Type.Object(
+	{
+		bindings: Type.Array(shortcutBindingType),
+		quickPanel: quickPanelSettingsType,
+	},
+	{ additionalProperties: false },
+);
 
-export interface ShortcutBindingsResult {
-	readonly bindings: ShortcutBinding[];
-}
+const shortcutBindingInputType = Type.Object(
+	{
+		id: Type.String({ pattern: "\\S" }),
+		shortcut: Type.String(),
+	},
+	{ additionalProperties: false },
+);
 
-export interface ShortcutBindingResetResult extends ShortcutBindingsResult {
-	readonly shortcut: string;
-}
+const shortcutActionInputType = Type.Object(
+	{
+		id: Type.String({ pattern: "\\S" }),
+	},
+	{ additionalProperties: false },
+);
 
-export interface QuickPanelTriggerInput {
-	readonly trigger: QuickPanelTrigger;
-}
+const shortcutBindingsResultType = Type.Object(
+	{
+		bindings: Type.Array(shortcutBindingType),
+	},
+	{ additionalProperties: false },
+);
 
-export interface QuickPanelPostSendBehaviorInput {
-	readonly behavior: QuickPanelPostSendBehavior;
-}
+const shortcutBindingResetResultType = Type.Object(
+	{
+		bindings: Type.Array(shortcutBindingType),
+		shortcut: Type.String(),
+	},
+	{ additionalProperties: false },
+);
 
-function parseEnumInput<Value extends string>(value: unknown, values: readonly Value[], field: string): Value {
-	if (typeof value !== "string" || !values.includes(value as Value)) {
-		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_INPUT, `Capability field ${field} is invalid`);
-	}
-	return value as Value;
-}
+const quickPanelTriggerInputType = Type.Object(
+	{
+		trigger: quickPanelTriggerType,
+	},
+	{ additionalProperties: false },
+);
 
-function parseEnumOutput<Value extends string>(value: unknown, values: readonly Value[], field: string): Value {
-	if (typeof value !== "string" || !values.includes(value as Value)) {
-		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_OUTPUT, `Capability output ${field} is invalid`);
-	}
-	return value as Value;
-}
+const quickPanelPostSendBehaviorInputType = Type.Object(
+	{
+		behavior: quickPanelPostSendBehaviorType,
+	},
+	{ additionalProperties: false },
+);
 
-function parseShortcutBinding(value: unknown): ShortcutBinding {
-	const binding = parseOutputRecord(value);
-	return {
-		id: parseRequiredOutputString(binding, "id"),
-		defaultShortcut: parseRequiredOutputString(binding, "defaultShortcut"),
-		shortcut: parseRequiredOutputString(binding, "shortcut"),
-		isDefault: parseRequiredOutputBoolean(binding, "isDefault"),
-	};
-}
+export type QuickPanelTrigger = Static<typeof quickPanelTriggerType>;
+export type QuickPanelPostSendBehavior = Static<typeof quickPanelPostSendBehaviorType>;
+export type ShortcutBinding = Readonly<Static<typeof shortcutBindingType>>;
+export type QuickPanelSettings = Readonly<Static<typeof quickPanelSettingsType>>;
+export type ShortcutSettings = Readonly<Static<typeof shortcutSettingsType>>;
+export type ShortcutBindingInput = Readonly<Static<typeof shortcutBindingInputType>>;
+export type ShortcutActionInput = Readonly<Static<typeof shortcutActionInputType>>;
+export type ShortcutBindingsResult = Readonly<Static<typeof shortcutBindingsResultType>>;
+export type ShortcutBindingResetResult = Readonly<Static<typeof shortcutBindingResetResultType>>;
+export type QuickPanelTriggerInput = Readonly<Static<typeof quickPanelTriggerInputType>>;
+export type QuickPanelPostSendBehaviorInput = Readonly<Static<typeof quickPanelPostSendBehaviorInputType>>;
 
-function parseShortcutBindings(value: unknown): ShortcutBinding[] {
-	if (!Array.isArray(value)) {
-		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_OUTPUT, "Capability bindings must be an array");
-	}
-	return value.map(parseShortcutBinding);
-}
-
-function parseQuickPanelSettings(value: unknown): QuickPanelSettings {
-	const settings = parseOutputRecord(value);
-	return {
-		trigger: parseEnumOutput(settings.trigger, Object.values(QUICK_PANEL_TRIGGERS), "quickPanel.trigger"),
-		postSendBehavior: parseEnumOutput(
-			settings.postSendBehavior,
-			Object.values(QUICK_PANEL_POST_SEND_BEHAVIORS),
-			"quickPanel.postSendBehavior",
-		),
-	};
-}
-
-function parseShortcutSettings(value: unknown): ShortcutSettings {
-	const settings = parseOutputRecord(value);
-	return {
-		bindings: parseShortcutBindings(settings.bindings),
-		quickPanel: parseQuickPanelSettings(settings.quickPanel),
-	};
-}
-
-function parseShortcutBindingInput(value: unknown): ShortcutBindingInput {
-	const input = parseInputRecord(value);
-	if (typeof input.shortcut !== "string") {
-		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_INPUT, "Capability field shortcut must be a string");
-	}
-	return {
-		id: parseRequiredInputString(input, "id"),
-		shortcut: input.shortcut,
-	};
-}
-
-function parseShortcutActionInput(value: unknown): ShortcutActionInput {
-	const input = parseInputRecord(value);
-	return { id: parseRequiredInputString(input, "id") };
-}
-
-function parseShortcutBindingsResult(value: unknown): ShortcutBindingsResult {
-	const result = parseOutputRecord(value);
-	return { bindings: parseShortcutBindings(result.bindings) };
-}
-
-function parseShortcutBindingResetResult(value: unknown): ShortcutBindingResetResult {
-	const result = parseOutputRecord(value);
-	return {
-		bindings: parseShortcutBindings(result.bindings),
-		shortcut: parseRequiredOutputString(result, "shortcut"),
-	};
-}
-
-function parseQuickPanelTriggerInput(value: unknown): QuickPanelTriggerInput {
-	const input = parseInputRecord(value);
-	return {
-		trigger: parseEnumInput(input.trigger, Object.values(QUICK_PANEL_TRIGGERS), "trigger"),
-	};
-}
-
-function parseQuickPanelPostSendBehaviorInput(value: unknown): QuickPanelPostSendBehaviorInput {
-	const input = parseInputRecord(value);
-	return {
-		behavior: parseEnumInput(input.behavior, Object.values(QUICK_PANEL_POST_SEND_BEHAVIORS), "behavior"),
-	};
-}
+const shortcutEmptyInputSchema = defineCapabilityInputSchema(shortcutEmptyInputType);
+const shortcutSettingsOutputSchema = defineCapabilityOutputSchema(shortcutSettingsType, { clean: true });
+const shortcutBindingInputSchema = defineCapabilityInputSchema(shortcutBindingInputType, { clean: true });
+const shortcutBindingsOutputSchema = defineCapabilityOutputSchema(shortcutBindingsResultType, { clean: true });
+const shortcutActionInputSchema = defineCapabilityInputSchema(shortcutActionInputType, { clean: true });
+const shortcutBindingResetOutputSchema = defineCapabilityOutputSchema(shortcutBindingResetResultType, { clean: true });
+const quickPanelTriggerInputSchema = defineCapabilityInputSchema(quickPanelTriggerInputType, { clean: true });
+const quickPanelPostSendBehaviorInputSchema = defineCapabilityInputSchema(quickPanelPostSendBehaviorInputType, {
+	clean: true,
+});
+const quickPanelSettingsOutputSchema = defineCapabilityOutputSchema(quickPanelSettingsType, { clean: true });
 
 export const DOMAIN_SHORTCUT_CAPABILITIES = {
 	GET_SETTINGS: defineCapability<Record<string, never>, ShortcutSettings>({
@@ -166,34 +132,36 @@ export const DOMAIN_SHORTCUT_CAPABILITIES = {
 		kind: "query",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseEmptyInput,
-		parseOutput: parseShortcutSettings,
+		input: shortcutEmptyInputSchema,
+		output: shortcutSettingsOutputSchema,
 	}),
 	SET_BINDING: defineCapability<ShortcutBindingInput, ShortcutBindingsResult>({
 		id: "cap.domain.vetta.shortcut.binding.set",
 		kind: "command",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseShortcutBindingInput,
-		parseOutput: parseShortcutBindingsResult,
+		input: shortcutBindingInputSchema,
+		output: shortcutBindingsOutputSchema,
 	}),
 	RESET_BINDING: defineCapability<ShortcutActionInput, ShortcutBindingResetResult>({
 		id: "cap.domain.vetta.shortcut.binding.reset",
 		kind: "command",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseShortcutActionInput,
-		parseOutput: parseShortcutBindingResetResult,
+		input: shortcutActionInputSchema,
+		output: shortcutBindingResetOutputSchema,
 	}),
 	RESET_ALL_BINDINGS: defineCapability<Record<string, never>, ShortcutBindingsResult>({
 		id: "cap.domain.vetta.shortcut.binding.reset-all",
 		kind: "command",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseEmptyInput,
-		parseOutput: parseShortcutBindingsResult,
+		input: shortcutEmptyInputSchema,
+		output: shortcutBindingsOutputSchema,
 	}),
 } as const;
+
+export const DOMAIN_SHORTCUT_CAPABILITY_CATALOG = createCapabilityCatalog(Object.values(DOMAIN_SHORTCUT_CAPABILITIES));
 
 export const DOMAIN_QUICK_PANEL_CAPABILITIES = {
 	SET_TRIGGER: defineCapability<QuickPanelTriggerInput, QuickPanelSettings>({
@@ -201,15 +169,19 @@ export const DOMAIN_QUICK_PANEL_CAPABILITIES = {
 		kind: "command",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseQuickPanelTriggerInput,
-		parseOutput: parseQuickPanelSettings,
+		input: quickPanelTriggerInputSchema,
+		output: quickPanelSettingsOutputSchema,
 	}),
 	SET_POST_SEND_BEHAVIOR: defineCapability<QuickPanelPostSendBehaviorInput, QuickPanelSettings>({
 		id: "cap.domain.vetta.quick-panel.post-send-behavior.set",
 		kind: "command",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseQuickPanelPostSendBehaviorInput,
-		parseOutput: parseQuickPanelSettings,
+		input: quickPanelPostSendBehaviorInputSchema,
+		output: quickPanelSettingsOutputSchema,
 	}),
 } as const;
+
+export const DOMAIN_QUICK_PANEL_CAPABILITY_CATALOG = createCapabilityCatalog(
+	Object.values(DOMAIN_QUICK_PANEL_CAPABILITIES),
+);
