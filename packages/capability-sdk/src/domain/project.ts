@@ -1,102 +1,91 @@
-import { CAPABILITY_ERROR_CODES, CAPABILITY_LAYERS, CapabilityError, defineCapability } from "../contracts.js";
+import { type Static, Type } from "@sinclair/typebox";
+import { createCapabilityCatalog } from "../catalog.js";
+import { CAPABILITY_LAYERS, defineCapability } from "../contracts.js";
 import {
-	parseEmptyInput,
-	parseInputRecord,
-	parseOptionalInputString,
-	parseOutputRecord,
-	parseRequiredInputString,
-	parseRequiredOutputString,
-	parseVoidOutput,
-} from "./parse-helpers.js";
+	defineCapabilityInputSchema,
+	defineCapabilityNoOutputSchema,
+	defineCapabilityOutputSchema,
+} from "../schema.js";
 
-export interface ProjectEntry {
-	readonly path: string;
-	readonly name?: string;
-}
+const projectEmptyInputType = Type.Unsafe<Record<string, never>>({
+	type: "object",
+	additionalProperties: false,
+});
 
-export interface ProjectListResult {
-	readonly workspacePath: string;
-	readonly projects: readonly ProjectEntry[];
-	readonly archivedProjects: readonly ProjectEntry[];
-}
+const projectNonBlankInputStringType = Type.String({ pattern: "\\S" });
 
-export interface ProjectCreateInput {
-	readonly name: string;
-	readonly path?: string;
-}
+const projectEntryType = Type.Object(
+	{
+		path: Type.String(),
+		name: Type.Optional(Type.String()),
+	},
+	{ additionalProperties: false },
+);
 
-export interface ProjectOpenInput {
-	readonly path: string;
-	readonly name?: string;
-}
+export type ProjectEntry = Readonly<Static<typeof projectEntryType>>;
 
-export interface ProjectRenameInput {
-	readonly path: string;
-	readonly name: string;
-}
+const projectEntriesType = Type.Array(projectEntryType);
 
-export interface ProjectPathInput {
-	readonly path: string;
-}
+const projectListResultType = Type.Object(
+	{
+		workspacePath: Type.String(),
+		projects: projectEntriesType,
+		archivedProjects: projectEntriesType,
+	},
+	{ additionalProperties: false },
+);
 
-function parseProjectEntry(value: unknown): ProjectEntry {
-	const entry = parseOutputRecord(value);
-	const name = entry.name;
-	if (name !== undefined && typeof name !== "string") {
-		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_OUTPUT, "Capability output name must be a string");
+const projectCreateInputType = Type.Object(
+	{
+		name: projectNonBlankInputStringType,
+		path: Type.Optional(projectNonBlankInputStringType),
+	},
+	{ additionalProperties: false },
+);
+
+const projectOpenInputType = Type.Object(
+	{
+		path: projectNonBlankInputStringType,
+		name: Type.Optional(projectNonBlankInputStringType),
+	},
+	{ additionalProperties: false },
+);
+
+const projectRenameInputType = Type.Object(
+	{
+		path: projectNonBlankInputStringType,
+		name: projectNonBlankInputStringType,
+	},
+	{ additionalProperties: false },
+);
+
+const projectPathInputType = Type.Object(
+	{
+		path: projectNonBlankInputStringType,
+	},
+	{ additionalProperties: false },
+);
+
+type ProjectListResultValue = Static<typeof projectListResultType>;
+export type ProjectListResult = Readonly<
+	Omit<ProjectListResultValue, "projects" | "archivedProjects"> & {
+		readonly projects: readonly ProjectEntry[];
+		readonly archivedProjects: readonly ProjectEntry[];
 	}
-	return {
-		path: parseRequiredOutputString(entry, "path"),
-		...(name === undefined ? {} : { name }),
-	};
-}
+>;
+export type ProjectCreateInput = Readonly<Static<typeof projectCreateInputType>>;
+export type ProjectOpenInput = Readonly<Static<typeof projectOpenInputType>>;
+export type ProjectRenameInput = Readonly<Static<typeof projectRenameInputType>>;
+export type ProjectPathInput = Readonly<Static<typeof projectPathInputType>>;
 
-function parseProjectEntries(value: unknown): ProjectEntry[] {
-	if (!Array.isArray(value)) {
-		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_OUTPUT, "Capability output must be an array");
-	}
-	return value.map(parseProjectEntry);
-}
-
-function parseProjectListResult(value: unknown): ProjectListResult {
-	const result = parseOutputRecord(value);
-	return {
-		workspacePath: parseRequiredOutputString(result, "workspacePath"),
-		projects: parseProjectEntries(result.projects),
-		archivedProjects: parseProjectEntries(result.archivedProjects),
-	};
-}
-
-function parseProjectCreateInput(value: unknown): ProjectCreateInput {
-	const input = parseInputRecord(value);
-	const path = parseOptionalInputString(input, "path");
-	return {
-		name: parseRequiredInputString(input, "name"),
-		...(path === undefined ? {} : { path }),
-	};
-}
-
-function parseProjectOpenInput(value: unknown): ProjectOpenInput {
-	const input = parseInputRecord(value);
-	const name = parseOptionalInputString(input, "name");
-	return {
-		path: parseRequiredInputString(input, "path"),
-		...(name === undefined ? {} : { name }),
-	};
-}
-
-function parseProjectRenameInput(value: unknown): ProjectRenameInput {
-	const input = parseInputRecord(value);
-	return {
-		path: parseRequiredInputString(input, "path"),
-		name: parseRequiredInputString(input, "name"),
-	};
-}
-
-function parseProjectPathInput(value: unknown): ProjectPathInput {
-	const input = parseInputRecord(value);
-	return { path: parseRequiredInputString(input, "path") };
-}
+const projectEmptyInputSchema = defineCapabilityInputSchema(projectEmptyInputType);
+const projectEntryOutputSchema = defineCapabilityOutputSchema(projectEntryType, { clean: true });
+const projectListOutputSchema = defineCapabilityOutputSchema(projectListResultType, { clean: true });
+const projectCreateInputSchema = defineCapabilityInputSchema(projectCreateInputType, { clean: true });
+const projectOpenInputSchema = defineCapabilityInputSchema(projectOpenInputType, { clean: true });
+const projectRenameInputSchema = defineCapabilityInputSchema(projectRenameInputType, { clean: true });
+const projectPathInputSchema = defineCapabilityInputSchema(projectPathInputType, { clean: true });
+const projectNoOutputSchema = defineCapabilityNoOutputSchema();
 
 export const DOMAIN_PROJECT_CAPABILITIES = {
 	LIST: defineCapability<Record<string, never>, ProjectListResult>({
@@ -104,55 +93,57 @@ export const DOMAIN_PROJECT_CAPABILITIES = {
 		kind: "query",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseEmptyInput,
-		parseOutput: parseProjectListResult,
+		input: projectEmptyInputSchema,
+		output: projectListOutputSchema,
 	}),
 	CREATE: defineCapability<ProjectCreateInput, ProjectEntry>({
 		id: "cap.domain.vetta.project.create",
 		kind: "command",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseProjectCreateInput,
-		parseOutput: parseProjectEntry,
+		input: projectCreateInputSchema,
+		output: projectEntryOutputSchema,
 	}),
 	OPEN: defineCapability<ProjectOpenInput, ProjectEntry>({
 		id: "cap.domain.vetta.project.open",
 		kind: "command",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseProjectOpenInput,
-		parseOutput: parseProjectEntry,
+		input: projectOpenInputSchema,
+		output: projectEntryOutputSchema,
 	}),
 	RENAME: defineCapability<ProjectRenameInput, ProjectEntry>({
 		id: "cap.domain.vetta.project.rename",
 		kind: "command",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseProjectRenameInput,
-		parseOutput: parseProjectEntry,
+		input: projectRenameInputSchema,
+		output: projectEntryOutputSchema,
 	}),
 	ARCHIVE: defineCapability<ProjectPathInput, undefined>({
 		id: "cap.domain.vetta.project.archive",
 		kind: "command",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseProjectPathInput,
-		parseOutput: parseVoidOutput,
+		input: projectPathInputSchema,
+		output: projectNoOutputSchema,
 	}),
 	UNARCHIVE: defineCapability<ProjectPathInput, undefined>({
 		id: "cap.domain.vetta.project.unarchive",
 		kind: "command",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseProjectPathInput,
-		parseOutput: parseVoidOutput,
+		input: projectPathInputSchema,
+		output: projectNoOutputSchema,
 	}),
 	REMOVE: defineCapability<ProjectPathInput, undefined>({
 		id: "cap.domain.vetta.project.remove",
 		kind: "command",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseProjectPathInput,
-		parseOutput: parseVoidOutput,
+		input: projectPathInputSchema,
+		output: projectNoOutputSchema,
 	}),
 } as const;
+
+export const DOMAIN_PROJECT_CAPABILITY_CATALOG = createCapabilityCatalog(Object.values(DOMAIN_PROJECT_CAPABILITIES));

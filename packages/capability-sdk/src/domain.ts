@@ -126,6 +126,7 @@ export {
 } from "./domain/model.js";
 export {
 	DOMAIN_PROJECT_CAPABILITIES,
+	DOMAIN_PROJECT_CAPABILITY_CATALOG,
 	type ProjectCreateInput,
 	type ProjectEntry,
 	type ProjectListResult,
