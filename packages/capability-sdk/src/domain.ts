@@ -96,6 +96,7 @@ export {
 } from "./domain/knowledge.js";
 export {
 	DOMAIN_MCP_CAPABILITIES,
+	DOMAIN_MCP_CAPABILITY_CATALOG,
 	MCP_SERVER_TYPES,
 	type McpHttpServerUpsertData,
 	type McpServerDetail,
