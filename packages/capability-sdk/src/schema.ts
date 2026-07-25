@@ -24,11 +24,15 @@ export interface CapabilitySchema<Value> {
 export interface CapabilityTypeBoxSchemaOptions {
 	/** Preserve legacy parser behavior that accepts but removes excess object properties. */
 	readonly clean?: boolean;
+	/** Keep explicitly present `undefined` properties while cleaning other excess properties. */
+	readonly preserveUndefinedProperties?: boolean;
 }
 
 const capabilitySchemaSkipClean = Symbol("capability.schema.skip-clean");
+const capabilitySchemaRejectExcess = Symbol("capability.schema.reject-excess");
 
 type CapabilityCleanBoundarySchema = TSchema & {
+	readonly [capabilitySchemaRejectExcess]?: true;
 	readonly [capabilitySchemaSkipClean]?: true;
 };
 
@@ -38,6 +42,15 @@ type CapabilityCleanBoundarySchema = TSchema & {
  */
 export function skipCapabilitySchemaClean<Schema extends TSchema>(schema: Schema): Schema {
 	Object.defineProperty(schema, capabilitySchemaSkipClean, { enumerable: true, value: true });
+	return schema;
+}
+
+/**
+ * Keeps excess properties at this schema level so `additionalProperties: false`
+ * rejects them, while known nested properties remain eligible for cleanup.
+ */
+export function rejectCapabilitySchemaExcess<Schema extends TSchema>(schema: Schema): Schema {
+	Object.defineProperty(schema, capabilitySchemaRejectExcess, { enumerable: true, value: true });
 	return schema;
 }
 
@@ -90,6 +103,7 @@ function cleanCapabilityValueBySchema(schema: TSchema, value: unknown): unknown 
 
 	if (KindGuard.IsObject(schema) && typeof value === "object" && value !== null && !Array.isArray(value)) {
 		const record = value as Record<string, unknown>;
+		const rejectExcess = (schema as CapabilityCleanBoundarySchema)[capabilitySchemaRejectExcess] === true;
 		for (const key of Object.getOwnPropertyNames(record)) {
 			if (Object.hasOwn(schema.properties, key)) {
 				const propertySchema = schema.properties[key];
@@ -98,6 +112,7 @@ function cleanCapabilityValueBySchema(schema: TSchema, value: unknown): unknown 
 				}
 				continue;
 			}
+			if (rejectExcess) continue;
 			if (KindGuard.IsSchema(schema.additionalProperties) && Value.Check(schema.additionalProperties, record[key])) {
 				record[key] = cleanCapabilityValueBySchema(schema.additionalProperties, record[key]);
 				continue;
@@ -117,9 +132,9 @@ function cleanCapabilityValueBySchema(schema: TSchema, value: unknown): unknown 
 	return Value.Clean(schema, value);
 }
 
-function cleanCapabilityValue(schema: TSchema, value: unknown): unknown {
+function cleanCapabilityValue(schema: TSchema, value: unknown, preserveUndefinedProperties: boolean): unknown {
 	const cloned = Value.Clone(value);
-	removeUndefinedProperties(cloned);
+	if (!preserveUndefinedProperties) removeUndefinedProperties(cloned);
 	return cleanCapabilityValueBySchema(schema, cloned);
 }
 
@@ -133,7 +148,9 @@ function defineTypeBoxCapabilitySchema<Schema extends TSchema>(
 		jsonSchema: cloneJsonSchema(schema),
 		parse: (value: unknown): StaticDecode<Schema> => {
 			try {
-				const candidate = options.clean ? cleanCapabilityValue(schema, value) : value;
+				const candidate = options.clean
+					? cleanCapabilityValue(schema, value, options.preserveUndefinedProperties === true)
+					: value;
 				return Value.Decode(schema, candidate);
 			} catch (cause) {
 				throw new CapabilityError(errorCode, message, { cause });
