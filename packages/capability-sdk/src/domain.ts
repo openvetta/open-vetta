@@ -183,6 +183,7 @@ export {
 } from "./domain/shortcut.js";
 export {
 	DOMAIN_SKILL_CAPABILITIES,
+	DOMAIN_SKILL_CAPABILITY_CATALOG,
 	INSTALLED_SKILL_SOURCES,
 	type InstalledSkill,
 	type InstalledSkillSource,
