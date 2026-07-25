@@ -73,18 +73,57 @@ export interface FilesystemStatResult {
 	readonly createdAt: number;
 }
 
-export interface PluginScopedCapabilityInput {
-	readonly pluginId: string;
-	readonly payload: CapabilityJsonValue;
+export interface NetworkRequestInput {
+	readonly request: CapabilityJsonValue;
 }
 
-export interface PluginStorageCapabilityInput extends PluginScopedCapabilityInput {
-	readonly operation: string;
+export interface StorageJsonReadInput extends StorageGetAllInput {
+	readonly key: string;
+}
+
+export interface StorageJsonWriteInput extends StorageJsonReadInput {
+	readonly value: CapabilityJsonValue;
+}
+
+export interface StorageListInput extends StorageGetAllInput {
+	readonly prefix?: string;
+}
+
+export interface StorageFileReadInput extends StorageGetAllInput {
+	readonly path: string;
+}
+
+export interface StorageFileWriteInput extends StorageFileReadInput {
+	readonly data: string;
+}
+
+export interface StorageBlobWrite {
+	readonly id?: string;
+	readonly data: string;
+	readonly mimeType: string;
+}
+
+export interface StorageBlobPutInput extends StorageGetAllInput {
+	readonly blob: StorageBlobWrite;
+}
+
+export interface StorageBlobReadInput extends StorageGetAllInput {
+	readonly id: string;
+}
+
+export interface StorageBlobRef {
+	readonly id: string;
+	readonly url: string;
+	readonly mimeType: string;
+}
+
+export interface StorageBlob {
+	readonly data: string;
+	readonly mimeType: string;
 }
 
 const STORAGE_NAMESPACE_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/;
 const STORAGE_KEY_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/;
-const PLUGIN_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 
 function parseJsonValueInternal(value: unknown, seen: Set<object>): CapabilityJsonValue {
 	if (value === null || typeof value === "boolean" || typeof value === "string") return value;
@@ -218,24 +257,83 @@ function parseWriteFileInput(value: unknown): FilesystemWriteFileInput {
 	};
 }
 
-function parsePluginScopedInput(value: unknown): PluginScopedCapabilityInput {
+function parseNetworkRequestInput(value: unknown): NetworkRequestInput {
 	const input = parseRecord(value);
-	const pluginId = input.pluginId;
-	if (typeof pluginId !== "string" || !PLUGIN_ID_PATTERN.test(pluginId)) {
-		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_INPUT, "Invalid plugin id");
-	}
+	return { request: parseCapabilityJsonValue(input.request) };
+}
+
+function parseStorageJsonReadInput(value: unknown): StorageJsonReadInput {
+	const input = parseRecord(value);
 	return {
-		pluginId,
-		payload: parseCapabilityJsonValue(input.payload),
+		namespace: parseNamespace(input.namespace),
+		key: parseRequiredString(input, "key"),
 	};
 }
 
-function parsePluginStorageInput(value: unknown): PluginStorageCapabilityInput {
+function parseStorageJsonWriteInput(value: unknown): StorageJsonWriteInput {
 	const input = parseRecord(value);
-	const scoped = parsePluginScopedInput(input);
 	return {
-		...scoped,
-		operation: parseRequiredString(input, "operation"),
+		namespace: parseNamespace(input.namespace),
+		key: parseRequiredString(input, "key"),
+		value: parseCapabilityJsonValue(input.value),
+	};
+}
+
+function parseStorageListInput(value: unknown): StorageListInput {
+	const input = parseRecord(value);
+	const prefix = input.prefix;
+	if (prefix !== undefined && (typeof prefix !== "string" || prefix.length === 0)) {
+		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_INPUT, "Storage prefix must be a non-empty string");
+	}
+	return {
+		namespace: parseNamespace(input.namespace),
+		...(prefix === undefined ? {} : { prefix }),
+	};
+}
+
+function parseStorageFileReadInput(value: unknown): StorageFileReadInput {
+	const input = parseRecord(value);
+	return {
+		namespace: parseNamespace(input.namespace),
+		path: parseRequiredString(input, "path"),
+	};
+}
+
+function parseStorageFileWriteInput(value: unknown): StorageFileWriteInput {
+	const input = parseRecord(value);
+	return {
+		namespace: parseNamespace(input.namespace),
+		path: parseRequiredString(input, "path"),
+		data: parseRequiredString(input, "data"),
+	};
+}
+
+function parseStorageBlobWrite(value: unknown): StorageBlobWrite {
+	const input = parseRecord(value);
+	const id = input.id;
+	if (id !== undefined && (typeof id !== "string" || id.length === 0)) {
+		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_INPUT, "Storage blob id must be a non-empty string");
+	}
+	return {
+		...(id === undefined ? {} : { id }),
+		data: parseRequiredString(input, "data"),
+		mimeType: parseRequiredString(input, "mimeType"),
+	};
+}
+
+function parseStorageBlobPutInput(value: unknown): StorageBlobPutInput {
+	const input = parseRecord(value);
+	return {
+		namespace: parseNamespace(input.namespace),
+		blob: parseStorageBlobWrite(input.blob),
+	};
+}
+
+function parseStorageBlobReadInput(value: unknown): StorageBlobReadInput {
+	const input = parseRecord(value);
+	return {
+		namespace: parseNamespace(input.namespace),
+		id: parseRequiredString(input, "id"),
 	};
 }
 
@@ -329,6 +427,43 @@ function parseFilesystemStatResult(value: unknown): FilesystemStatResult | null 
 	};
 }
 
+function parseNullableOutputString(value: unknown): string | null {
+	if (value === null) return null;
+	if (typeof value !== "string") {
+		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_OUTPUT, "Capability output must be a string or null");
+	}
+	return value;
+}
+
+function parseOutputStrings(value: unknown): string[] {
+	if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
+		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_OUTPUT, "Capability output must be a string array");
+	}
+	return value;
+}
+
+function parseStorageBlobRef(value: unknown): StorageBlobRef {
+	const result = parseOutputRecord(value);
+	return {
+		id: parseOutputString(result, "id"),
+		url: parseOutputString(result, "url"),
+		mimeType: parseOutputString(result, "mimeType"),
+	};
+}
+
+function parseNullableStorageBlobRef(value: unknown): StorageBlobRef | null {
+	return value === null ? null : parseStorageBlobRef(value);
+}
+
+function parseNullableStorageBlob(value: unknown): StorageBlob | null {
+	if (value === null) return null;
+	const result = parseOutputRecord(value);
+	return {
+		data: parseOutputString(result, "data"),
+		mimeType: parseOutputString(result, "mimeType"),
+	};
+}
+
 function parseVoidOutput(value: unknown): undefined {
 	if (value !== undefined) {
 		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_OUTPUT, "Capability output must be undefined");
@@ -368,6 +503,70 @@ export const FOUNDATION_STORAGE_CAPABILITIES = {
 		version: 1,
 		parseInput: parseGetAllInput,
 		parseOutput: parseCapabilityJsonMap,
+	}),
+	READ_JSON: defineCapability<StorageJsonReadInput, CapabilityJsonValue>({
+		id: "cap.foundation.vetta.storage.read-json",
+		kind: "query",
+		layer: CAPABILITY_LAYERS.FOUNDATION,
+		version: 1,
+		parseInput: parseStorageJsonReadInput,
+		parseOutput: parseCapabilityJsonValue,
+	}),
+	WRITE_JSON: defineCapability<StorageJsonWriteInput, undefined>({
+		id: "cap.foundation.vetta.storage.write-json",
+		kind: "command",
+		layer: CAPABILITY_LAYERS.FOUNDATION,
+		version: 1,
+		parseInput: parseStorageJsonWriteInput,
+		parseOutput: parseVoidOutput,
+	}),
+	LIST: defineCapability<StorageListInput, string[]>({
+		id: "cap.foundation.vetta.storage.list",
+		kind: "query",
+		layer: CAPABILITY_LAYERS.FOUNDATION,
+		version: 1,
+		parseInput: parseStorageListInput,
+		parseOutput: parseOutputStrings,
+	}),
+	READ_FILE: defineCapability<StorageFileReadInput, string | null>({
+		id: "cap.foundation.vetta.storage.read-file",
+		kind: "query",
+		layer: CAPABILITY_LAYERS.FOUNDATION,
+		version: 1,
+		parseInput: parseStorageFileReadInput,
+		parseOutput: parseNullableOutputString,
+	}),
+	WRITE_FILE: defineCapability<StorageFileWriteInput, undefined>({
+		id: "cap.foundation.vetta.storage.write-file",
+		kind: "command",
+		layer: CAPABILITY_LAYERS.FOUNDATION,
+		version: 1,
+		parseInput: parseStorageFileWriteInput,
+		parseOutput: parseVoidOutput,
+	}),
+	PUT_BLOB: defineCapability<StorageBlobPutInput, StorageBlobRef>({
+		id: "cap.foundation.vetta.storage.put-blob",
+		kind: "command",
+		layer: CAPABILITY_LAYERS.FOUNDATION,
+		version: 1,
+		parseInput: parseStorageBlobPutInput,
+		parseOutput: parseStorageBlobRef,
+	}),
+	READ_BLOB: defineCapability<StorageBlobReadInput, StorageBlob | null>({
+		id: "cap.foundation.vetta.storage.read-blob",
+		kind: "query",
+		layer: CAPABILITY_LAYERS.FOUNDATION,
+		version: 1,
+		parseInput: parseStorageBlobReadInput,
+		parseOutput: parseNullableStorageBlob,
+	}),
+	GET_BLOB_REF: defineCapability<StorageBlobReadInput, StorageBlobRef | null>({
+		id: "cap.foundation.vetta.storage.get-blob-ref",
+		kind: "query",
+		layer: CAPABILITY_LAYERS.FOUNDATION,
+		version: 1,
+		parseInput: parseStorageBlobReadInput,
+		parseOutput: parseNullableStorageBlobRef,
 	}),
 } as const;
 
@@ -454,32 +653,13 @@ export const FOUNDATION_FILESYSTEM_CAPABILITIES = {
 	}),
 } as const;
 
-export const FOUNDATION_PLUGIN_NETWORK_CAPABILITIES = {
-	REQUEST: defineCapability<PluginScopedCapabilityInput, CapabilityJsonValue>({
-		id: "cap.foundation.vetta.plugin.network.request",
+export const FOUNDATION_NETWORK_CAPABILITIES = {
+	REQUEST: defineCapability<NetworkRequestInput, CapabilityJsonValue>({
+		id: "cap.foundation.vetta.network.request",
 		kind: "command",
 		layer: CAPABILITY_LAYERS.FOUNDATION,
 		version: 1,
-		parseInput: parsePluginScopedInput,
-		parseOutput: parseCapabilityJsonValue,
-	}),
-} as const;
-
-export const FOUNDATION_PLUGIN_STORAGE_CAPABILITIES = {
-	READ: defineCapability<PluginStorageCapabilityInput, CapabilityJsonValue>({
-		id: "cap.foundation.vetta.plugin.storage.read",
-		kind: "query",
-		layer: CAPABILITY_LAYERS.FOUNDATION,
-		version: 1,
-		parseInput: parsePluginStorageInput,
-		parseOutput: parseCapabilityJsonValue,
-	}),
-	WRITE: defineCapability<PluginStorageCapabilityInput, CapabilityJsonValue>({
-		id: "cap.foundation.vetta.plugin.storage.write",
-		kind: "command",
-		layer: CAPABILITY_LAYERS.FOUNDATION,
-		version: 1,
-		parseInput: parsePluginStorageInput,
+		parseInput: parseNetworkRequestInput,
 		parseOutput: parseCapabilityJsonValue,
 	}),
 } as const;

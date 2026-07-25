@@ -6,8 +6,7 @@ import {
 	type CapabilityJsonValue,
 	type Disposable,
 	FOUNDATION_FILESYSTEM_CAPABILITIES,
-	FOUNDATION_PLUGIN_NETWORK_CAPABILITIES,
-	FOUNDATION_PLUGIN_STORAGE_CAPABILITIES,
+	FOUNDATION_NETWORK_CAPABILITIES,
 	FOUNDATION_STORAGE_CAPABILITIES,
 	parseCapabilityJsonValue,
 } from "@vetta/capability-sdk";
@@ -24,16 +23,16 @@ import {
 	statFilesystemPath,
 	writeFilesystemFile,
 } from "../filesystem/filesystem-service.js";
-import { requestForPlugin } from "../plugins/plugin-network-service.js";
+import { requestForPlugin as requestNetwork } from "../plugins/plugin-network-service.js";
 import {
-	getPluginBlobRef,
-	listPluginFiles,
-	putPluginBlob,
-	readPluginBlob,
-	readPluginFile,
-	readPluginJson,
-	writePluginFile,
-	writePluginJson,
+	getPluginBlobRef as getNamespacedBlobRef,
+	listPluginFiles as listNamespacedFiles,
+	putPluginBlob as putNamespacedBlob,
+	readPluginBlob as readNamespacedBlob,
+	readPluginFile as readNamespacedFile,
+	readPluginJson as readNamespacedJson,
+	writePluginFile as writeNamespacedFile,
+	writePluginJson as writeNamespacedJson,
 } from "../plugins/plugin-storage-service.js";
 import {
 	clearThemeStorage,
@@ -44,7 +43,7 @@ import {
 
 const FOUNDATION_STORAGE_PROVIDER_OWNER = "vetta.foundation.storage";
 const FOUNDATION_FILESYSTEM_PROVIDER_OWNER = "vetta.foundation.filesystem";
-const FOUNDATION_PLUGIN_PROVIDER_OWNER = "vetta.foundation.plugin";
+const FOUNDATION_NETWORK_STORAGE_PROVIDER_OWNER = "vetta.foundation.network-storage";
 
 interface NamespacedStorageBackend {
 	clear(namespace: string): Promise<CapabilityJsonMap>;
@@ -72,21 +71,6 @@ function assertNotAborted(signal: AbortSignal): void {
 	if (signal.aborted) {
 		throw new CapabilityError(CAPABILITY_ERROR_CODES.ABORTED, "Capability invocation was aborted");
 	}
-}
-
-function asPayloadRecord(value: CapabilityJsonValue): Record<string, CapabilityJsonValue> {
-	if (typeof value !== "object" || value === null || Array.isArray(value)) {
-		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_INPUT, "Plugin capability payload must be an object");
-	}
-	return value;
-}
-
-function payloadString(payload: Record<string, CapabilityJsonValue>, field: string): string {
-	const value = payload[field];
-	if (typeof value !== "string" || value.length === 0) {
-		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_INPUT, `Plugin capability ${field} must be a string`);
-	}
-	return value;
 }
 
 export function registerDesktopFoundationProviders(registry: CapabilityRegistry): Disposable {
@@ -178,86 +162,69 @@ export function registerDesktopFoundationProviders(registry: CapabilityRegistry)
 			},
 		}),
 	]);
-	const pluginRegistration = registry.registerOwner(FOUNDATION_PLUGIN_PROVIDER_OWNER, [
-		bindCapability(FOUNDATION_PLUGIN_NETWORK_CAPABILITIES.REQUEST, {
-			execute: async ({ payload }, context) => {
+	const networkStorageRegistration = registry.registerOwner(FOUNDATION_NETWORK_STORAGE_PROVIDER_OWNER, [
+		bindCapability(FOUNDATION_NETWORK_CAPABILITIES.REQUEST, {
+			execute: async ({ request }, context) => {
 				assertNotAborted(context.signal);
-				const response = await requestForPlugin(
-					payload as unknown as Parameters<typeof requestForPlugin>[0],
+				const response = await requestNetwork(
+					request as unknown as Parameters<typeof requestNetwork>[0],
 					context.signal,
 				);
 				return parseCapabilityJsonValue(response);
 			},
 		}),
-		bindCapability(FOUNDATION_PLUGIN_STORAGE_CAPABILITIES.READ, {
-			execute: async ({ pluginId, operation, payload }, context) => {
+		bindCapability(FOUNDATION_STORAGE_CAPABILITIES.READ_JSON, {
+			execute: async ({ namespace, key }, context) => {
 				assertNotAborted(context.signal);
-				const input = asPayloadRecord(payload);
-				if (operation === "read-json") {
-					return (await readPluginJson<CapabilityJsonValue>(pluginId, payloadString(input, "key"))) ?? null;
-				}
-				if (operation === "list") {
-					const prefix = input.prefix;
-					if (prefix !== undefined && typeof prefix !== "string") {
-						throw new CapabilityError(
-							CAPABILITY_ERROR_CODES.INVALID_INPUT,
-							"Plugin storage prefix must be a string",
-						);
-					}
-					return listPluginFiles(pluginId, prefix);
-				}
-				if (operation === "read-file") {
-					return (await readPluginFile(pluginId, payloadString(input, "path"))) ?? null;
-				}
-				if (operation === "read-blob") {
-					return parseCapabilityJsonValue((await readPluginBlob(pluginId, payloadString(input, "id"))) ?? null);
-				}
-				if (operation === "get-blob-ref") {
-					return parseCapabilityJsonValue((await getPluginBlobRef(pluginId, payloadString(input, "id"))) ?? null);
-				}
-				throw new CapabilityError(
-					CAPABILITY_ERROR_CODES.INVALID_INPUT,
-					`Unknown plugin storage read: ${operation}`,
-				);
+				return (await readNamespacedJson<CapabilityJsonValue>(namespace, key)) ?? null;
 			},
 		}),
-		bindCapability(FOUNDATION_PLUGIN_STORAGE_CAPABILITIES.WRITE, {
-			execute: async ({ pluginId, operation, payload }, context) => {
+		bindCapability(FOUNDATION_STORAGE_CAPABILITIES.WRITE_JSON, {
+			execute: async ({ namespace, key, value }, context) => {
 				assertNotAborted(context.signal);
-				const input = asPayloadRecord(payload);
-				if (operation === "write-json") {
-					if (!Object.hasOwn(input, "value")) {
-						throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_INPUT, "Plugin storage value is required");
-					}
-					await writePluginJson(pluginId, payloadString(input, "key"), input.value);
-					return null;
-				}
-				if (operation === "write-file") {
-					await writePluginFile(pluginId, payloadString(input, "path"), payloadString(input, "data"));
-					return null;
-				}
-				if (operation === "put-blob") {
-					const id = input.id;
-					if (id !== undefined && typeof id !== "string") {
-						throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_INPUT, "Plugin blob id must be a string");
-					}
-					const ref = await putPluginBlob(pluginId, {
-						...(id === undefined ? {} : { id }),
-						data: payloadString(input, "data"),
-						mimeType: payloadString(input, "mimeType"),
-					});
-					return parseCapabilityJsonValue(ref);
-				}
-				throw new CapabilityError(
-					CAPABILITY_ERROR_CODES.INVALID_INPUT,
-					`Unknown plugin storage write: ${operation}`,
-				);
+				await writeNamespacedJson(namespace, key, value);
+			},
+		}),
+		bindCapability(FOUNDATION_STORAGE_CAPABILITIES.LIST, {
+			execute: async ({ namespace, prefix }, context) => {
+				assertNotAborted(context.signal);
+				return listNamespacedFiles(namespace, prefix);
+			},
+		}),
+		bindCapability(FOUNDATION_STORAGE_CAPABILITIES.READ_FILE, {
+			execute: async ({ namespace, path }, context) => {
+				assertNotAborted(context.signal);
+				return readNamespacedFile(namespace, path);
+			},
+		}),
+		bindCapability(FOUNDATION_STORAGE_CAPABILITIES.WRITE_FILE, {
+			execute: async ({ namespace, path, data }, context) => {
+				assertNotAborted(context.signal);
+				await writeNamespacedFile(namespace, path, data);
+			},
+		}),
+		bindCapability(FOUNDATION_STORAGE_CAPABILITIES.PUT_BLOB, {
+			execute: async ({ namespace, blob }, context) => {
+				assertNotAborted(context.signal);
+				return putNamespacedBlob(namespace, blob);
+			},
+		}),
+		bindCapability(FOUNDATION_STORAGE_CAPABILITIES.READ_BLOB, {
+			execute: async ({ namespace, id }, context) => {
+				assertNotAborted(context.signal);
+				return readNamespacedBlob(namespace, id);
+			},
+		}),
+		bindCapability(FOUNDATION_STORAGE_CAPABILITIES.GET_BLOB_REF, {
+			execute: async ({ namespace, id }, context) => {
+				assertNotAborted(context.signal);
+				return getNamespacedBlobRef(namespace, id);
 			},
 		}),
 	]);
 	return {
 		dispose: () => {
-			pluginRegistration.dispose();
+			networkStorageRegistration.dispose();
 			filesystemRegistration.dispose();
 			storageRegistration.dispose();
 		},
