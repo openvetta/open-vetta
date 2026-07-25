@@ -111,6 +111,7 @@ export {
 } from "./domain/mcp.js";
 export {
 	DOMAIN_MODEL_CAPABILITIES,
+	DOMAIN_MODEL_CAPABILITY_CATALOG,
 	type ModelConfigSnapshot,
 	type ModelCost,
 	type ModelDefaultInput,
