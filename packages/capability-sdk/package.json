@@ -36,6 +36,9 @@
 		"build": "tsgo -p tsconfig.build.json",
 		"test": "bunx vitest --run"
 	},
+	"dependencies": {
+		"@sinclair/typebox": "^0.34.41"
+	},
 	"devDependencies": {
 		"@types/node": "^22.10.5",
 		"typescript": "^5.9.2"

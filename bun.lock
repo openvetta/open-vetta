@@ -167,6 +167,9 @@
     "packages/capability-sdk": {
       "name": "@vetta/capability-sdk",
       "version": "0.0.1",
+      "dependencies": {
+        "@sinclair/typebox": "^0.34.41",
+      },
       "devDependencies": {
         "@types/node": "^22.10.5",
         "typescript": "^5.9.2",
