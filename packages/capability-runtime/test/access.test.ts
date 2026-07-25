@@ -2,6 +2,8 @@ import {
 	CAPABILITY_CONSTRAINT_KINDS,
 	CAPABILITY_ERROR_CODES,
 	createCapabilityGrant,
+	type FilesystemReadFileResult,
+	FOUNDATION_FILESYSTEM_CAPABILITIES,
 	FOUNDATION_STORAGE_CAPABILITIES,
 } from "@vetta/capability-sdk";
 import { describe, expect, it } from "vitest";
@@ -40,9 +42,19 @@ describe("CapabilityAccessController", () => {
 		await expect(handle.client.invoke(NAMESPACED_CAPABILITY, { namespace: "denied" })).rejects.toMatchObject({
 			code: CAPABILITY_ERROR_CODES.INVALID_CONSTRAINT,
 		});
+		await expect(
+			handle.client.invoke(FOUNDATION_STORAGE_CAPABILITIES.SET, {
+				namespace: "allowed",
+				key: "key",
+				value: true,
+			}),
+		).rejects.toMatchObject({
+			code: CAPABILITY_ERROR_CODES.ACCESS_DENIED,
+		});
 		expect(audit.map(({ decision, reason }) => ({ decision, reason }))).toEqual([
 			{ decision: "allow", reason: "granted" },
 			{ decision: "deny", reason: "invalid-constraint" },
+			{ decision: "deny", reason: "missing-grant" },
 		]);
 	});
 
@@ -66,5 +78,51 @@ describe("CapabilityAccessController", () => {
 		await expect(expired.client.invoke(NAMESPACED_CAPABILITY, { namespace: "value" })).rejects.toMatchObject({
 			code: CAPABILITY_ERROR_CODES.SESSION_EXPIRED,
 		});
+
+		const expiredGrant = access.createSession({
+			subject: { id: "subject", sessionId: "expired-grant" },
+			grants: [createCapabilityGrant(NAMESPACED_CAPABILITY, { expiresAt: Date.now() - 1 })],
+		});
+		await expect(expiredGrant.client.invoke(NAMESPACED_CAPABILITY, { namespace: "value" })).rejects.toMatchObject({
+			code: CAPABILITY_ERROR_CODES.ACCESS_DENIED,
+		});
+	});
+
+	it("propagates request and session cancellation", async () => {
+		const immediateAccess = createAccess();
+		const immediateHandle = immediateAccess.createSession({
+			subject: { id: "subject", sessionId: "request-abort" },
+			grants: [createCapabilityGrant(NAMESPACED_CAPABILITY)],
+		});
+		const requestController = new AbortController();
+		requestController.abort();
+		await expect(
+			immediateHandle.client.invoke(
+				NAMESPACED_CAPABILITY,
+				{ namespace: "value" },
+				{ signal: requestController.signal },
+			),
+		).rejects.toMatchObject({ code: CAPABILITY_ERROR_CODES.ABORTED });
+
+		const hub = new CapabilityHub();
+		const readFileCapability = FOUNDATION_FILESYSTEM_CAPABILITIES.READ_FILE;
+		hub.foundation.registerOwner("cancellation", [
+			bindCapability(readFileCapability, {
+				execute: (_input, executionContext) =>
+					new Promise<FilesystemReadFileResult>((_resolve, reject) => {
+						executionContext.signal.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+					}),
+			}),
+		]);
+		const access = new CapabilityAccessController(hub);
+		const handle = access.createSession({
+			subject: { id: "subject", sessionId: "session-abort" },
+			grants: [createCapabilityGrant(readFileCapability)],
+		});
+		const invocation = handle.client.invoke(readFileCapability, { path: "value" });
+
+		handle.revoke();
+
+		await expect(invocation).rejects.toMatchObject({ code: CAPABILITY_ERROR_CODES.ABORTED });
 	});
 });

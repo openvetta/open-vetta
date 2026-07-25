@@ -131,4 +131,30 @@ describe("package boundary analysis", () => {
 		expect(findPackageBoundaryViolations(libFile, source)).toHaveLength(1);
 		expect(findPackageBoundaryViolations("packages/ai/src/example.test.ts", source)).toEqual([]);
 	});
+
+	it("allows raw capability ids only in capability definition modules", () => {
+		const source = 'const id = "cap.domain.vetta.example.read";';
+		expect(findPackageBoundaryViolations("packages/capability-sdk/src/domain/example.ts", source)).toEqual([]);
+		expect(findPackageBoundaryViolations("packages/capability-sdk/src/adapters/example.ts", source)).toHaveLength(1);
+	});
+
+	it("requires schema-backed capability definitions with generated catalogs", () => {
+		const source = `
+			const TOKEN = defineCapability<Input, Output>({
+				parseInput: parse,
+				parseOutput: parse,
+			});
+		`;
+		expect(findPackageBoundaryViolations("packages/capability-sdk/src/foundation/example.ts", source)).toHaveLength(
+			2,
+		);
+	});
+
+	it("blocks Desktop globals in ordinary plugins while preserving the built-in workbench exception", () => {
+		const source = "window.vetta.fs.readFile(path);";
+		expect(findPackageBoundaryViolations("packages/plugins/externals/example/src/index.ts", source)).toHaveLength(1);
+		expect(findPackageBoundaryViolations("packages/plugins/presets/plugin-workbench/src/index.ts", source)).toEqual(
+			[],
+		);
+	});
 });

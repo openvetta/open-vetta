@@ -292,8 +292,11 @@ export interface CapabilityModule {
 	readonly publisher: string;
 	readonly version: string;
 	readonly capabilities: readonly CapabilityToken<unknown, unknown>[];
-	registerProviders(registry: CapabilityRegistry): Disposable;
 }
+
+const registration = registry.registerModule(module, bindings, {
+	trust: CAPABILITY_MODULE_TRUST_LEVELS.BUILT_IN,
+});
 ```
 
 注册规则：
@@ -306,6 +309,10 @@ export interface CapabilityModule {
 - 模块卸载或替换时取消进行中的调用并注销 Provider。
 - Capability ID 保持稳定，breaking change 通过契约版本处理。
 - 新注册能力默认没有任何 Grant。
+
+`registerModule()` 会在修改 Registry 前一次性校验模块元数据、publisher、layer、声明的 Token
+与 Provider binding。`vetta` publisher 只接受宿主明确标记为 `built-in` 的模块。宿主自身按资源聚合的
+Provider 可以使用低层 `registerOwner()`；外部 Capability Module 必须使用 `registerModule()`。
 
 普通 Plugin、Theme 不因使用扩展系统而自动获得注册底层 Provider 的资格。是否允许某个系统贡献 Capability Module，由对应系统适配层单独决定。
 
@@ -611,13 +618,14 @@ window.vetta.capabilities.invoke({
 当前已经实现能力基础设施及多条端到端链路：
 
 - `packages/capability-sdk` 提供 Capability ID、Token、基础存储/文件/网络能力、Agent 设置/通用设置/IM 桥接/模型配置/MCP 配置/项目/会话/下载/调度/Webhook/知识库/批量任务/应用更新/技能管理/全局快捷键/快捷面板领域能力、Grant、稳定错误码，以及宿主内置的 Theme、Plugin Adapter。
-- Capability Token 已支持以 TypeBox Schema 作为静态类型、运行时 parser 与 JSON Schema 的单一来源，并由 Token 生成不包含执行函数的只读 Catalog。当前已声明的领域 Capability Token 已全部完成迁移；TypeBox 校验错误会转换为稳定 Capability 错误码，`undefined` 输出使用独立的无载荷 Schema，Catalog 会拒绝缺少输入或输出 Schema 的 Token。
-- `packages/capability-runtime` 提供 Foundation/Domain 双 Registry、Capability Hub、Provider 原子替换、替换或卸载时的在途调用中止、精确 Grant、AccessSession、namespace constraint 和审计事件。
+- Capability Token 已统一使用 TypeBox Schema 作为静态类型、运行时 parser 与 JSON Schema 的单一来源，并由 Token 生成不包含执行函数的只读 Catalog。当前已声明的 23 个 Foundation Token 和 98 个 Domain Token 已全部完成迁移；TypeBox 校验错误会转换为稳定 Capability 错误码，`undefined` 输出使用独立的无载荷 Schema，Token 定义在类型层强制提供输入和输出 Schema。
+- Foundation、Domain 聚合 Catalog 以及公开文档由 Token 自动生成；完整 Schema 见 [`catalog.json`](catalog.json)，可读目录见 [`catalog.md`](catalog.md)。质量门禁会拒绝过期的生成文件、手写 parser Token 和未发布 Catalog 的能力定义文件。
+- `packages/capability-runtime` 提供 Foundation/Domain 双 Registry、Capability Hub、Provider 原子替换、替换或卸载时的在途调用中止、Capability Module/publisher 校验、精确 Grant、AccessSession、namespace constraint 和审计事件。
 - `packages/desktop-app/src/main/capabilities` 提供 Desktop Capability Host、基础存储/文件/网络 Provider、Agent 设置/通用设置/IM 桥接/模型配置/MCP 配置/项目/会话/下载/调度/Webhook/知识库/批量任务/应用更新/技能管理/全局快捷键/快捷面板领域 Provider 和原生后端装配；已抽取领域服务的原 IPC 与 Capability Provider 复用同一实现，通用配置桥则与领域服务共享底层 config store。
 - Desktop Capability Host 单例持有 Theme Adapter 和 Plugin Adapter；IPC 只复用实例，不重复创建或负责销毁。
 - Theme Storage 主进程路径已经迁移为 `Theme SDK facade -> 宿主桥接 -> 内置 Theme Adapter -> AccessSession -> Foundation Storage Capability -> 现有持久化后端`。
 - Theme SDK、renderer storage hook、preload API、IPC channel 和磁盘格式保持兼容。
-- Plugin `ctx.fs` 已迁移为 `plugin-sdk facade -> Plugin Loader/Preload/IPC 桥接 -> 内置 Plugin Adapter -> AccessSession -> Foundation Filesystem Capability -> 文件服务`，公开 `PluginFsApi` 保持兼容。
+- Plugin `ctx.fs` 的读写与元数据操作已迁移为 `plugin-sdk facade -> Plugin Loader/Preload/IPC 桥接 -> 内置 Plugin Adapter -> AccessSession -> Foundation Filesystem Capability -> 文件服务`；目录监听作为 Plugin 系统订阅 facade 由 `PluginFsApi.watchDirectory()` 统一封装并检查 `fs.read`，普通插件源码不再直接访问 Desktop preload API。
 - Plugin Adapter 将 `fs.read` 和 `fs.write` 精确展开为各文件 Capability Grant；每次调用都会核验当前有效插件权限，同一插件重新激活时自动撤销旧 session。
 - Plugin `ctx.network` 和 `ctx.storage` 已迁移为 `plugin-sdk facade -> Plugin Loader/Preload/IPC 桥接 -> 内置 Plugin Adapter -> AccessSession -> Foundation Network/Storage Capability -> 网络与私有存储后端`。`network.fetch` 映射为通用网络请求 Grant；`storage.read`、`storage.write` 按 JSON、文件和 Blob 操作展开为独立 Grant，并通过 namespace constraint 固定到当前插件。Capability 契约与 Provider 不接收 Plugin 身份，公开 facade 和既有磁盘格式保持兼容。
 - 官方插件的 Agent 实验设置已迁移为 `PluginOfficialApi agent facade -> Preload/IPC 桥接 -> Plugin Adapter -> AccessSession -> Domain Agent Settings Capability -> AgentSettingsService`；读取与局部更新使用两个精确 Grant，局部更新在主进程单次读写中完成并返回完整规范化快照。Desktop UI 的通用 Config IPC 保持兼容并共享同一个 config store；公开 `plugin-sdk` 签名保持兼容，不再直连 `window.vetta.config.*`。
@@ -636,6 +644,7 @@ window.vetta.capabilities.invoke({
 - 官方插件的快捷键管理已迁移为 `PluginOfficialApi shortcuts facade -> Preload/IPC 桥接 -> Plugin Adapter -> AccessSession -> Domain Shortcut/Quick Panel Capability -> ShortcutService`；绑定查询、设置、单项重置、全部重置、快捷面板触发键和发送后行为分别使用精确 Grant，原 Config/Quick Panel IPC 与 Provider 共用同一个服务单例。同步的动作目录仍由 Plugin 系统 facade 从宿主共享的静态应用目录派生，不进入能力契约。
 - `PluginOfficialApi.plugins` 属于 Plugin 系统自己的安装、启停、卸载和重载业务，不定义为 Domain Capability；当前通过绑定 `capabilitySessionId` 的 Plugin System IPC 调用，宿主侧 Plugin Adapter 在每次操作前重新校验 Session 和 official 状态，再复用 Desktop 插件管理副作用。
 - `PluginOfficialApi.appearance` 与 `PluginOfficialApi.navigation` 已迁移到独立的 Renderer Capability Host。Plugin Loader 在主进程 Capability Session 创建后使用同一个 `capabilitySessionId` 绑定 renderer Session，并在插件卸载、重载或激活失败时同步撤销；外观的 DOM/Jotai/localStorage 操作和导航目录/跳转继续保留在 renderer Plugin 系统 facade 内，但同步、异步调用都必须经过 active + official Session 校验。
+- `Plugin Workbench` 是随宿主发布的内置插件开发管理工具，需要安装、授权、热重载、开发监听和保存对话框等宿主管理接口，因此是普通第三方插件不得复制的显式例外；质量守卫会阻止其他 preset/external 插件直接访问 `window.vetta`。
 - Plugin Action provider 的调用边界已有回归测试：Action caller 的来源、request id 和授权上下文不会转发给 provider；provider 被禁用后调用立即被拒绝。Agent 设置、通用设置、IM 桥接、模型配置、MCP 配置、项目、下载、调度、Webhook、知识库、批量任务、应用更新、技能管理和快捷键管理相关 Action 最终只使用该 Plugin 自己的 Capability Session。
 
 后续工作：
@@ -673,14 +682,14 @@ window.vetta.capabilities.invoke({
 ### 阶段五：Action 迁移
 
 1. Action Runtime 继续维护 Catalog、effect、approval 和 Schema。
-2. Agent 设置、通用设置、IM 桥接、模型配置、MCP 配置、项目、下载、调度、Webhook、知识库、批量任务、应用更新、技能管理与快捷键管理相关 Action provider 已通过 Plugin facade 调用 Domain Capability；其余 provider 按领域逐步迁移。
+2. Agent 设置、通用设置、IM 桥接、模型配置、MCP 配置、项目、下载、调度、Webhook、知识库、批量任务、应用更新、技能管理与快捷键管理相关 Action provider 已通过 Plugin facade 调用 Domain Capability；Plugin 管理、外观与导航按系统业务边界保留在 Plugin/Renderer facade，当前没有待迁移的 Domain Action provider。
 3. 插件 Action handler 已使用 Plugin provider 自己的 Capability Session。
 4. 已验证 Action caller 身份和权限不会传递给 provider；后续新增 Action transport 必须保留该回归测试。
 
 ## 11. 验收标准
 
 - 宿主、Provider 和内部 Adapter 调用能力时引用 Capability Token，不直接写 Capability ID 字符串。
-- Plugin、Theme、Action 开发者只使用对应系统 SDK，不接触内部 Adapter、Grant 或 Authorized Client。
+- 普通 Plugin、Theme、Action 开发者只使用对应系统 SDK，不接触 Desktop preload、内部 Adapter、Grant 或 Authorized Client；随宿主发布的 Plugin Workbench 是显式的宿主管理工具例外。
 - 基础能力使用 `cap.foundation.*`，领域能力使用 `cap.domain.*`。
 - Foundation 和 Domain 使用两套 Registry，并由统一 Hub 路由。
 - 领域能力可以依赖基础能力，基础能力不能依赖领域能力。

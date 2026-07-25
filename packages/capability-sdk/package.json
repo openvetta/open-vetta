@@ -32,6 +32,8 @@
 	},
 	"files": ["dist"],
 	"scripts": {
+		"catalog:check": "bun run scripts/generate-catalog.ts --check",
+		"catalog:generate": "bun run scripts/generate-catalog.ts",
 		"clean": "rm -rf dist",
 		"build": "tsgo -p tsconfig.build.json",
 		"test": "bunx vitest --run"

@@ -5,6 +5,7 @@
 import { runBun } from "./lib.mjs";
 
 const steps = [
+	["packages/capability-sdk/scripts/generate-catalog.ts", "--check"],
 	["scripts/quality/check-private-keys.mjs"],
 	["scripts/quality/check-conflict-markers.mjs"],
 	["scripts/quality/check-package-boundaries.mjs"],
