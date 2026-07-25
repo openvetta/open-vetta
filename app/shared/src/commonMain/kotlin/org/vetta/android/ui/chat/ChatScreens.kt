@@ -24,7 +24,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material3.AssistChip
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
@@ -36,6 +42,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -60,14 +67,16 @@ import org.vetta.android.domain.session.MessageStatus
 import org.vetta.android.ui.components.EmptyState
 import org.vetta.android.ui.components.VettaErrorBanner
 import org.vetta.android.ui.i18n.Str
-import org.vetta.android.ui.icons.VettaIcons
 import org.vetta.android.ui.media.imageBitmapFromBase64
 import org.vetta.android.ui.media.rememberImagePicker
+import org.vetta.android.ui.navigation.ChatSurface
+import org.vetta.android.ui.theme.vettaExtra
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
     title: String,
+    surface: ChatSurface,
     messages: List<LocalMessage>,
     draft: String,
     pendingImages: List<MessageImage>,
@@ -79,15 +88,12 @@ fun ChatScreen(
     onDraftChange: (String) -> Unit,
     onSend: () -> Unit,
     onStop: () -> Unit,
-    onOpenDrawer: () -> Unit,
-    onOpenMe: () -> Unit,
-    onNewChat: () -> Unit,
+    onBack: () -> Unit,
     onOpenModelPicker: () -> Unit,
     onCloseModelPicker: () -> Unit,
     onSelectModel: (LlmModel) -> Unit,
     onErrorAction: (UiErrorAction) -> Unit,
     onDismissError: () -> Unit,
-    onSuggestion: (String) -> Unit,
     onImagesPicked: (List<MessageImage>) -> Unit,
     onRemovePendingImage: (String) -> Unit,
 ) {
@@ -126,40 +132,48 @@ fun ChatScreen(
             (draft.isNotBlank() || pendingImages.isNotEmpty())
 
     Scaffold(
+        containerColor = MaterialTheme.vettaExtra.pageBackground,
         topBar = {
             TopAppBar(
                 title = {
                     Column {
                         Text(title, maxLines = 1, style = MaterialTheme.typography.titleMedium)
-                        if (isStreaming) {
-                            Text(
-                                Str.streaming,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
+                        Text(
+                            if (isStreaming) {
+                                Str.streaming
+                            } else if (surface == ChatSurface.Desktop) {
+                                Str.generatedByDesktop
+                            } else {
+                                selectedModel?.name ?: Str.channelCloud
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.vettaExtra.secondaryText,
+                        )
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onOpenDrawer) {
-                        Icon(VettaIcons.Menu, contentDescription = Str.sessions)
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = Str.back)
                     }
                 },
                 actions = {
-                    TextButton(onClick = onOpenModelPicker) {
-                        Text(
-                            selectedModel?.name ?: Str.selectModel,
-                            maxLines = 1,
-                            style = MaterialTheme.typography.labelLarge,
-                        )
+                    if (surface == ChatSurface.Cloud) {
+                        TextButton(onClick = onOpenModelPicker) {
+                            Text(
+                                selectedModel?.name ?: Str.selectModel,
+                                maxLines = 1,
+                                style = MaterialTheme.typography.labelLarge,
+                            )
+                        }
                     }
-                    IconButton(onClick = onNewChat) {
-                        Icon(VettaIcons.Add, contentDescription = Str.newChat)
-                    }
-                    IconButton(onClick = onOpenMe) {
-                        Icon(VettaIcons.Person, contentDescription = Str.me)
+                    IconButton(onClick = { }) {
+                        Icon(Icons.Default.MoreHoriz, contentDescription = null)
                     }
                 },
+                colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.vettaExtra.pageBackground,
+                    ),
             )
         },
         bottomBar = {
@@ -193,6 +207,15 @@ fun ChatScreen(
                     onStop = onStop,
                     onAttach = launchPicker,
                 )
+                Text(
+                    text = if (surface == ChatSurface.Desktop) Str.generatedByDesktop else Str.generatedByCloud,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.vettaExtra.secondaryText,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
+                )
             }
         },
     ) { padding ->
@@ -208,20 +231,9 @@ fun ChatScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     EmptyState(
-                        title = Str.emptyHomeGreeting,
-                        subtitle = Str.emptyHomeHint,
+                        title = if (surface == ChatSurface.Cloud) Str.useCloudAi else Str.pairDesktop,
+                        subtitle = Str.noSessionsHint,
                     )
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                    ) {
-                        listOf(Str.suggestion1, Str.suggestion2, Str.suggestion3).forEach { tip ->
-                            AssistChip(
-                                onClick = { onSuggestion(tip) },
-                                label = { Text(tip, maxLines = 1) },
-                            )
-                        }
-                    }
                 }
             } else {
                 LazyColumn(
@@ -345,7 +357,7 @@ private fun PendingImageRow(
                             .size(28.dp),
                 ) {
                     Icon(
-                        VettaIcons.Close,
+                        Icons.Default.Close,
                         contentDescription = Str.removeAttachment,
                         modifier = Modifier.size(16.dp),
                     )
@@ -479,7 +491,7 @@ private fun InputDock(
             verticalAlignment = Alignment.Bottom,
         ) {
             IconButton(onClick = onAttach, enabled = !isStreaming) {
-                Icon(VettaIcons.Attach, contentDescription = Str.attach)
+                Icon(Icons.Default.AttachFile, contentDescription = Str.attach)
             }
             Box(
                 modifier =
@@ -512,11 +524,11 @@ private fun InputDock(
             Spacer(Modifier.width(4.dp))
             if (isStreaming) {
                 FilledIconButton(onClick = onStop) {
-                    Icon(VettaIcons.Stop, contentDescription = Str.stop)
+                    Icon(Icons.Default.Stop, contentDescription = Str.stop)
                 }
             } else {
                 FilledIconButton(onClick = onSend, enabled = sendEnabled) {
-                    Icon(VettaIcons.Send, contentDescription = Str.send)
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = Str.send)
                 }
             }
         }

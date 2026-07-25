@@ -24,6 +24,9 @@ import org.vetta.android.domain.chat.shouldClearPendingImagesOnSessionChange
 import org.vetta.android.domain.error.ErrorMapper
 import org.vetta.android.domain.error.UiError
 import org.vetta.android.domain.error.UiErrorAction
+import org.vetta.android.domain.device.DemoDevices
+import org.vetta.android.domain.device.DesktopDevice
+import org.vetta.android.domain.device.SessionListItem
 import org.vetta.android.domain.session.LocalMessage
 import org.vetta.android.domain.session.MessageImage
 import org.vetta.android.domain.session.MessageStatus
@@ -31,11 +34,14 @@ import org.vetta.android.domain.session.SessionStore
 import org.vetta.android.domain.session.nowEpochMs
 import org.vetta.android.ui.i18n.Str
 import org.vetta.android.ui.navigation.AppRoute
+import org.vetta.android.ui.navigation.ChatSurface
+import org.vetta.android.ui.navigation.MainTab
 import kotlin.random.Random
 
 data class AppUiState(
     val bootstrapped: Boolean = false,
     val route: AppRoute = AppRoute.Boot,
+    val mainTab: MainTab = MainTab.Home,
     val themeMode: ThemeMode = ThemeMode.System,
     val serverUrl: String = "",
     val user: User? = null,
@@ -47,7 +53,6 @@ data class AppUiState(
     val draft: String = "",
     val pendingImages: List<MessageImage> = emptyList(),
     val isStreaming: Boolean = false,
-    val sessionsDrawerOpen: Boolean = false,
     val modelPickerOpen: Boolean = false,
     val globalError: UiError? = null,
     val authError: UiError? = null,
@@ -55,6 +60,11 @@ data class AppUiState(
     val loginModeEmail: Boolean = true,
     val catalogLoading: Boolean = false,
     val passwordVisible: Boolean = false,
+    val sessionQuery: String = "",
+    val sessionFilterIndex: Int = 0,
+    val discoverChannelIndex: Int = 0,
+    val newConversationChannelIndex: Int = 0,
+    val devices: List<DesktopDevice> = DemoDevices.all,
 )
 
 class AppViewModel(
@@ -155,20 +165,22 @@ class AppViewModel(
                     subscription = sub,
                     models = models,
                     selectedModelId = selected,
-                    route = AppRoute.Chat(routeSession),
+                    route = AppRoute.Main(MainTab.Home),
+                    mainTab = MainTab.Home,
                     currentSessionId = routeSession,
                     catalogLoading = false,
                 )
             }
             if (routeSession != null) {
-                attachSession(routeSession)
+                // 保留 last session 引用，进入主页后用户可从最近会话打开
             }
         } catch (t: Throwable) {
             _state.update {
                 it.copy(
                     bootstrapped = true,
                     catalogLoading = false,
-                    route = AppRoute.Chat(null),
+                    route = AppRoute.Main(MainTab.Home),
+                    mainTab = MainTab.Home,
                     globalError = ErrorMapper.from(t),
                 )
             }
@@ -181,17 +193,60 @@ class AppViewModel(
 
     fun openServerSetup() = navigate(AppRoute.ServerSetup)
 
-    fun openMe() = navigate(AppRoute.Me)
-
     fun openPlan() = navigate(AppRoute.Plan)
 
     fun openSettings() = navigate(AppRoute.Settings)
 
-    fun openChat(sessionId: String?) {
+    fun selectMainTab(tab: MainTab) {
+        _state.update {
+            it.copy(
+                mainTab = tab,
+                route = AppRoute.Main(tab),
+                authError = null,
+            )
+        }
+    }
+
+    fun openDeviceDetail(deviceId: String) = navigate(AppRoute.DeviceDetail(deviceId))
+
+    fun openNewConversation(channelIndex: Int = 0) {
+        _state.update { it.copy(newConversationChannelIndex = channelIndex) }
+        navigate(AppRoute.NewConversation())
+    }
+
+    fun setNewConversationChannel(index: Int) {
+        _state.update { it.copy(newConversationChannelIndex = index) }
+    }
+
+    fun setDiscoverChannel(index: Int) {
+        _state.update { it.copy(discoverChannelIndex = index) }
+    }
+
+    fun setSessionQuery(query: String) {
+        _state.update { it.copy(sessionQuery = query) }
+    }
+
+    fun setSessionFilter(index: Int) {
+        _state.update { it.copy(sessionFilterIndex = index) }
+    }
+
+    fun openChat(
+        sessionId: String?,
+        surface: ChatSurface = ChatSurface.Cloud,
+        title: String = "",
+        deviceId: String? = null,
+    ) {
         val previousSessionId = _state.value.currentSessionId
         val clearPending =
             shouldClearPendingImagesOnSessionChange(previousSessionId, sessionId)
-        navigate(AppRoute.Chat(sessionId))
+        navigate(
+            AppRoute.Chat(
+                sessionId = sessionId,
+                surface = surface,
+                title = title,
+                deviceId = deviceId,
+            ),
+        )
         if (sessionId != null) {
             attachSession(sessionId, clearPendingImages = clearPending)
         } else {
@@ -205,24 +260,47 @@ class AppViewModel(
                 )
             }
         }
-        setDrawer(false)
     }
 
+    fun openCloudChat(sessionId: String? = null) {
+        openChat(sessionId = sessionId, surface = ChatSurface.Cloud, title = Str.channelCloud)
+    }
+
+    fun openFilesContext(deviceId: String) = navigate(AppRoute.FilesContext(deviceId))
+
     fun navigateBackFromSecondary() {
-        val sessionId = _state.value.currentSessionId
-        navigate(AppRoute.Chat(sessionId))
+        navigate(AppRoute.Main(_state.value.mainTab))
     }
 
     private fun navigate(route: AppRoute) {
         _state.update { it.copy(route = route, authError = null) }
     }
 
-    fun setDrawer(open: Boolean) {
-        _state.update { it.copy(sessionsDrawerOpen = open) }
-    }
-
     fun setModelPicker(open: Boolean) {
         _state.update { it.copy(modelPickerOpen = open) }
+    }
+
+    fun sessionListItems(): List<SessionListItem> =
+        container.sessionStore.sessions.value.map { s ->
+            SessionListItem(
+                id = s.id,
+                title = s.title,
+                subtitle = s.modelName.orEmpty(),
+                sourceLabel = s.modelName?.takeIf { it.isNotBlank() } ?: Str.filterCloud,
+                timeLabel = relativeTime(s.updatedAtEpochMs),
+                isCloud = true,
+            )
+        }
+
+    private fun relativeTime(epochMs: Long): String {
+        val delta = (nowEpochMs() - epochMs).coerceAtLeast(0)
+        val minutes = delta / 60_000
+        return when {
+            minutes < 1 -> "刚刚"
+            minutes < 60 -> "${minutes} 分钟前"
+            minutes < 60 * 24 -> "${minutes / 60} 小时前"
+            else -> "${minutes / (60 * 24)} 天前"
+        }
     }
 
     fun setLoginModeEmail(email: Boolean) {
@@ -348,7 +426,7 @@ class AppViewModel(
                 pendingImages = emptyList(),
                 isStreaming = false,
                 route = AppRoute.Login,
-                sessionsDrawerOpen = false,
+                mainTab = MainTab.Home,
                 modelPickerOpen = false,
                 authError =
                     message?.let {
@@ -396,7 +474,29 @@ class AppViewModel(
             container.preferences.lastSessionId = session.id
             drafts[session.id] = ""
             _state.update { it.copy(pendingImages = emptyList()) }
-            openChat(session.id)
+            openChat(
+                sessionId = session.id,
+                surface = ChatSurface.Cloud,
+                title = session.title,
+            )
+        }
+    }
+
+    fun startDesktopConversation(deviceId: String) {
+        viewModelScope.launch {
+            val device = DemoDevices.find(deviceId)
+            val session =
+                container.sessionStore.createSession(
+                    title = device?.let { "与 ${it.name} 的对话" } ?: SessionStore.DEFAULT_TITLE,
+                    modelId = currentModel()?.id,
+                    modelName = currentModel()?.name,
+                )
+            openChat(
+                sessionId = session.id,
+                surface = ChatSurface.Desktop,
+                title = session.title,
+                deviceId = deviceId,
+            )
         }
     }
 
@@ -411,7 +511,7 @@ class AppViewModel(
                 container.preferences.lastSessionId = null
             }
             if (_state.value.currentSessionId == sessionId) {
-                openChat(null)
+                navigateBackFromSecondary()
             }
         }
     }
@@ -454,10 +554,18 @@ class AppViewModel(
                 sessionId = session.id
                 container.preferences.lastSessionId = sessionId
                 attachSession(sessionId)
+                val surface =
+                    (_state.value.route as? AppRoute.Chat)?.surface ?: ChatSurface.Cloud
                 _state.update {
                     it.copy(
                         currentSessionId = sessionId,
-                        route = AppRoute.Chat(sessionId),
+                        route =
+                            AppRoute.Chat(
+                                sessionId = sessionId,
+                                surface = surface,
+                                title = (_state.value.route as? AppRoute.Chat)?.title.orEmpty(),
+                                deviceId = (_state.value.route as? AppRoute.Chat)?.deviceId,
+                            ),
                     )
                 }
             }

@@ -2,17 +2,12 @@ package org.vetta.android.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.rememberDrawerState
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -20,19 +15,26 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
-import kotlinx.coroutines.launch
 import org.vetta.android.app.AppContainer
-import org.vetta.android.domain.session.SessionStore
+import org.vetta.android.domain.device.DemoDevices
 import org.vetta.android.ui.auth.LoginScreen
 import org.vetta.android.ui.auth.ServerSetupScreen
 import org.vetta.android.ui.auth.WelcomeScreen
 import org.vetta.android.ui.chat.ChatScreen
 import org.vetta.android.ui.components.LoadingBlock
+import org.vetta.android.ui.components.VettaBottomBar
+import org.vetta.android.ui.connect.DeviceDetailScreen
+import org.vetta.android.ui.connect.DiscoverConnectScreen
+import org.vetta.android.ui.connect.NewConversationScreen
+import org.vetta.android.ui.home.HomeScreen
+import org.vetta.android.ui.i18n.Str
 import org.vetta.android.ui.me.MeScreen
 import org.vetta.android.ui.me.PlanScreen
+import org.vetta.android.ui.me.SettingsScreen
 import org.vetta.android.ui.navigation.AppRoute
-import org.vetta.android.ui.sessions.SessionsDrawerContent
-import org.vetta.android.ui.settings.SettingsScreen
+import org.vetta.android.ui.navigation.ChatSurface
+import org.vetta.android.ui.navigation.MainTab
+import org.vetta.android.ui.sessions.SessionsScreen
 import org.vetta.android.ui.theme.VettaTheme
 import kotlin.reflect.KClass
 
@@ -54,9 +56,7 @@ private class AppViewModelFactory(
 @Composable
 fun RootApp(container: AppContainer = LocalAppContainer.current) {
     val vm: AppViewModel =
-        viewModel(
-            factory = remember(container) { AppViewModelFactory(container) },
-        )
+        viewModel(factory = remember(container) { AppViewModelFactory(container) })
     val state by vm.state.collectAsState()
     val sessions by vm.sessions.collectAsState()
 
@@ -97,87 +97,144 @@ fun RootApp(container: AppContainer = LocalAppContainer.current) {
                         if (state.user != null) vm.openSettings() else vm.openWelcome()
                     },
                 )
-            is AppRoute.Chat -> {
-                val drawerState = rememberDrawerState(DrawerValue.Closed)
-                val scope = rememberCoroutineScope()
-                var sessionQuery by remember { mutableStateOf("") }
-
-                LaunchedEffect(state.sessionsDrawerOpen) {
-                    if (state.sessionsDrawerOpen) drawerState.open() else drawerState.close()
-                }
-                LaunchedEffect(drawerState.currentValue) {
-                    val open = drawerState.currentValue == DrawerValue.Open
-                    if (open != state.sessionsDrawerOpen) {
-                        vm.setDrawer(open)
-                    }
-                }
-
-                ModalNavigationDrawer(
-                    drawerState = drawerState,
-                    drawerContent = {
-                        SessionsDrawerContent(
-                            sessions = sessions,
-                            currentSessionId = state.currentSessionId,
-                            query = sessionQuery,
-                            onQueryChange = { sessionQuery = it },
-                            onNewChat = {
-                                vm.newChat()
-                                scope.launch { drawerState.close() }
-                            },
-                            onOpenSession = { id ->
-                                vm.openChat(id)
-                                scope.launch { drawerState.close() }
-                            },
-                            onDeleteSession = vm::deleteSession,
-                            onRenameSession = vm::renameSession,
+            is AppRoute.Main -> {
+                Scaffold(
+                    bottomBar = {
+                        VettaBottomBar(
+                            selected = state.mainTab,
+                            onSelect = vm::selectMainTab,
                         )
                     },
-                ) {
-                    val selected =
-                        state.models.firstOrNull { it.id == state.selectedModelId }
-                            ?: state.models.firstOrNull()
-                    val title =
-                        sessions.firstOrNull { it.id == state.currentSessionId }?.title
-                            ?: SessionStore.DEFAULT_TITLE
-
-                    ChatScreen(
-                        title = title,
-                        messages = state.messages,
-                        draft = state.draft,
-                        pendingImages = state.pendingImages,
-                        isStreaming = state.isStreaming,
-                        models = state.models,
-                        selectedModel = selected,
-                        modelPickerOpen = state.modelPickerOpen,
-                        globalError = state.globalError,
-                        onDraftChange = vm::onDraftChange,
-                        onSend = vm::sendMessage,
-                        onStop = vm::stopStreaming,
-                        onOpenDrawer = { vm.setDrawer(true) },
-                        onOpenMe = vm::openMe,
-                        onNewChat = vm::newChat,
-                        onOpenModelPicker = { vm.setModelPicker(true) },
-                        onCloseModelPicker = { vm.setModelPicker(false) },
-                        onSelectModel = vm::selectModel,
-                        onErrorAction = vm::handleErrorAction,
-                        onDismissError = vm::clearGlobalError,
-                        onSuggestion = { tip ->
-                            vm.onDraftChange(tip)
-                        },
-                        onImagesPicked = vm::addPendingImages,
-                        onRemovePendingImage = vm::removePendingImage,
+                ) { padding ->
+                    Box(Modifier.padding(padding).fillMaxSize()) {
+                        when (state.mainTab) {
+                            MainTab.Home ->
+                                HomeScreen(
+                                    primaryDevice =
+                                        state.devices.firstOrNull {
+                                            it.status == org.vetta.android.domain.device.DeviceStatus.Online
+                                        },
+                                    recentSessions = vm.sessionListItems().take(5),
+                                    onOpenDevice = vm::openDeviceDetail,
+                                    onOpenSessions = { vm.selectMainTab(MainTab.Sessions) },
+                                    onOpenSession = { id ->
+                                        val item = vm.sessionListItems().firstOrNull { it.id == id }
+                                        vm.openChat(
+                                            sessionId = id,
+                                            surface = if (item?.isCloud == false) ChatSurface.Desktop else ChatSurface.Cloud,
+                                            title = item?.title.orEmpty(),
+                                        )
+                                    },
+                                    onNewConversation = { vm.openNewConversation(0) },
+                                    onUseCloudAi = { vm.openNewConversation(1) },
+                                )
+                            MainTab.Sessions ->
+                                SessionsScreen(
+                                    sessions = vm.sessionListItems(),
+                                    query = state.sessionQuery,
+                                    filterIndex = state.sessionFilterIndex,
+                                    onQueryChange = vm::setSessionQuery,
+                                    onFilterChange = vm::setSessionFilter,
+                                    onOpenSession = { item ->
+                                        vm.openChat(
+                                            sessionId = item.id,
+                                            surface = if (item.isCloud) ChatSurface.Cloud else ChatSurface.Desktop,
+                                            title = item.title,
+                                        )
+                                    },
+                                )
+                            MainTab.Discover ->
+                                DiscoverConnectScreen(
+                                    devices = state.devices,
+                                    channelIndex = state.discoverChannelIndex,
+                                    onChannelChange = vm::setDiscoverChannel,
+                                    onOpenDevice = vm::openDeviceDetail,
+                                    onConnectManual = { /* UI 占位：后续接真实发现协议 */ },
+                                    onUseCloud = {
+                                        vm.openNewConversation(1)
+                                    },
+                                )
+                            MainTab.Me ->
+                                MeScreen(
+                                    user = state.user,
+                                    subscription = state.subscription,
+                                    onlineDeviceCount =
+                                        state.devices.count {
+                                            it.status == org.vetta.android.domain.device.DeviceStatus.Online
+                                        },
+                                    onOpenPlan = vm::openPlan,
+                                    onOpenSettings = vm::openSettings,
+                                    onOpenDevices = { vm.selectMainTab(MainTab.Discover) },
+                                    onLogout = vm::logout,
+                                )
+                        }
+                    }
+                }
+            }
+            is AppRoute.DeviceDetail -> {
+                val device = DemoDevices.find(route.deviceId) ?: state.devices.firstOrNull()
+                if (device == null) {
+                    vm.navigateBackFromSecondary()
+                } else {
+                    DeviceDetailScreen(
+                        device = device,
+                        onBack = vm::navigateBackFromSecondary,
+                        onDisconnect = vm::navigateBackFromSecondary,
+                        onNewChat = { vm.startDesktopConversation(device.id) },
+                        onOpenFiles = { vm.openFilesContext(device.id) },
                     )
                 }
             }
-            AppRoute.Me ->
-                MeScreen(
-                    user = state.user,
-                    subscription = state.subscription,
+            is AppRoute.NewConversation ->
+                NewConversationScreen(
+                    devices = state.devices,
+                    channelIndex = state.newConversationChannelIndex,
+                    onChannelChange = vm::setNewConversationChannel,
                     onBack = vm::navigateBackFromSecondary,
-                    onOpenPlan = vm::openPlan,
-                    onOpenSettings = vm::openSettings,
-                    onLogout = vm::logout,
+                    onStartDesktop = { deviceId, _, _ ->
+                        vm.startDesktopConversation(deviceId)
+                    },
+                    onStartCloud = {
+                        vm.newChat()
+                    },
                 )
+            is AppRoute.Chat -> {
+                val selected =
+                    state.models.firstOrNull { it.id == state.selectedModelId }
+                        ?: state.models.firstOrNull()
+                val title =
+                    route.title.ifBlank {
+                        sessions.firstOrNull { it.id == state.currentSessionId }?.title
+                            ?: if (route.surface == ChatSurface.Cloud) Str.channelCloud else Str.pairDesktop
+                    }
+                ChatScreen(
+                    title = title,
+                    surface = route.surface,
+                    messages = state.messages,
+                    draft = state.draft,
+                    pendingImages = state.pendingImages,
+                    isStreaming = state.isStreaming,
+                    models = state.models,
+                    selectedModel = selected,
+                    modelPickerOpen = state.modelPickerOpen,
+                    globalError = state.globalError,
+                    onDraftChange = vm::onDraftChange,
+                    onSend = vm::sendMessage,
+                    onStop = vm::stopStreaming,
+                    onBack = vm::navigateBackFromSecondary,
+                    onOpenModelPicker = { vm.setModelPicker(true) },
+                    onCloseModelPicker = { vm.setModelPicker(false) },
+                    onSelectModel = vm::selectModel,
+                    onErrorAction = vm::handleErrorAction,
+                    onDismissError = vm::clearGlobalError,
+                    onImagesPicked = vm::addPendingImages,
+                    onRemovePendingImage = vm::removePendingImage,
+                )
+            }
+            is AppRoute.FilesContext -> {
+                // 设计图中的文件/上下文页：先占位回退
+                vm.navigateBackFromSecondary()
+            }
             AppRoute.Plan ->
                 PlanScreen(
                     subscription = state.subscription,

@@ -2,6 +2,7 @@ package org.vetta.android.ui.auth
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -9,11 +10,20 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeContentPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.Computer
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -23,6 +33,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,15 +41,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import org.vetta.android.domain.error.UiError
+import org.vetta.android.ui.components.PrimaryBlackButton
 import org.vetta.android.ui.components.VettaErrorBanner
 import org.vetta.android.ui.i18n.Str
-import org.vetta.android.ui.icons.VettaIcons
+import org.vetta.android.ui.theme.vettaExtra
 
 @Composable
 fun WelcomeScreen(
@@ -50,25 +63,49 @@ fun WelcomeScreen(
             Modifier
                 .fillMaxSize()
                 .safeContentPadding()
-                .padding(horizontal = 24.dp),
+                .padding(horizontal = 24.dp)
+                .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.Start,
     ) {
-        Text(Str.appName, style = MaterialTheme.typography.headlineLarge)
+        Text(Str.welcomeTitle, style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(12.dp))
-        Text(Str.welcomeTitle, style = MaterialTheme.typography.titleLarge)
-        Spacer(Modifier.height(8.dp))
         Text(
             Str.welcomeSubtitle,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.vettaExtra.secondaryText,
         )
-        Spacer(Modifier.height(32.dp))
-        Button(onClick = onLogin, modifier = Modifier.fillMaxWidth()) {
-            Text(Str.getStarted)
-        }
+        Spacer(Modifier.height(28.dp))
+        FeatureRow(Icons.Default.Computer, Str.featureDesktop, Str.featureDesktopDesc)
+        FeatureRow(Icons.Default.Cloud, Str.featureCloud, Str.featureCloudDesc)
+        FeatureRow(Icons.Default.Schedule, Str.featureStatus, Str.featureStatusDesc)
+        FeatureRow(Icons.Default.Lock, Str.featureSecure, Str.featureSecureDesc)
+        Spacer(Modifier.height(28.dp))
+        PrimaryBlackButton(text = Str.getStarted, onClick = onLogin)
         TextButton(onClick = onServerSetup, modifier = Modifier.align(Alignment.End)) {
-            Text(Str.advancedServer)
+            Text(Str.advancedServer, color = MaterialTheme.vettaExtra.secondaryText)
+        }
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun FeatureRow(
+    icon: ImageVector,
+    title: String,
+    desc: String,
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 10.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp))
+        Spacer(Modifier.width(12.dp))
+        Column {
+            Text(title, style = MaterialTheme.typography.titleSmall)
+            Spacer(Modifier.height(2.dp))
+            Text(desc, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.vettaExtra.secondaryText)
         }
     }
 }
@@ -92,14 +129,19 @@ fun LoginScreen(
     var password by remember { mutableStateOf("") }
 
     Scaffold(
+        containerColor = MaterialTheme.vettaExtra.pageBackground,
         topBar = {
             TopAppBar(
-                title = { Text(Str.loginTitle) },
+                title = { Text(Str.loginTitle, style = MaterialTheme.typography.titleMedium) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(VettaIcons.Back, contentDescription = Str.back)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = Str.back)
                     }
                 },
+                colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.vettaExtra.pageBackground,
+                    ),
             )
         },
     ) { padding ->
@@ -115,13 +157,13 @@ fun LoginScreen(
             Text(
                 Str.loginSubtitle,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.vettaExtra.secondaryText,
             )
             Spacer(Modifier.height(8.dp))
             Text(
                 "${Str.serverHint}：$serverUrl",
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.vettaExtra.secondaryText,
             )
             Spacer(Modifier.height(16.dp))
             if (error != null) {
@@ -139,6 +181,7 @@ fun LoginScreen(
                         keyboardType = if (loginModeEmail) KeyboardType.Email else KeyboardType.Text,
                         imeAction = ImeAction.Next,
                     ),
+                shape = MaterialTheme.shapes.medium,
             )
             Spacer(Modifier.height(12.dp))
             OutlinedTextField(
@@ -152,7 +195,7 @@ fun LoginScreen(
                 trailingIcon = {
                     IconButton(onClick = { onTogglePassword(!passwordVisible) }) {
                         Icon(
-                            if (passwordVisible) VettaIcons.VisibilityOff else VettaIcons.Visibility,
+                            if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                             contentDescription =
                                 if (passwordVisible) Str.hidePassword else Str.showPassword,
                         )
@@ -171,15 +214,14 @@ fun LoginScreen(
                             }
                         },
                     ),
+                shape = MaterialTheme.shapes.medium,
             )
             Spacer(Modifier.height(20.dp))
-            Button(
+            PrimaryBlackButton(
+                text = if (loading) Str.loggingIn else Str.loginAction,
                 onClick = { onLogin(account.trim(), password) },
                 enabled = !loading && account.isNotBlank() && password.isNotBlank(),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(if (loading) Str.loggingIn else Str.loginAction)
-            }
+            )
             TextButton(
                 onClick = { onToggleMode(!loginModeEmail) },
                 modifier = Modifier.align(Alignment.End),
@@ -205,14 +247,19 @@ fun ServerSetupScreen(
 ) {
     var value by remember(serverUrl) { mutableStateOf(serverUrl) }
     Scaffold(
+        containerColor = MaterialTheme.vettaExtra.pageBackground,
         topBar = {
             TopAppBar(
-                title = { Text(Str.server) },
+                title = { Text(Str.server, style = MaterialTheme.typography.titleMedium) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(VettaIcons.Back, contentDescription = Str.back)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = Str.back)
                     }
                 },
+                colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.vettaExtra.pageBackground,
+                    ),
             )
         },
     ) { padding ->
@@ -225,7 +272,7 @@ fun ServerSetupScreen(
             Text(
                 Str.serverUrlHint,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.vettaExtra.secondaryText,
             )
             Spacer(Modifier.height(12.dp))
             OutlinedTextField(
@@ -234,15 +281,14 @@ fun ServerSetupScreen(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 label = { Text(Str.serverUrl) },
+                shape = MaterialTheme.shapes.medium,
             )
             Spacer(Modifier.height(20.dp))
-            Button(
+            PrimaryBlackButton(
+                text = Str.save,
                 onClick = { onSave(value) },
                 enabled = value.isNotBlank(),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(Str.save)
-            }
+            )
         }
     }
 }

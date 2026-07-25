@@ -1,14 +1,22 @@
 package org.vetta.android.ui.i18n
 
 /**
- * 用户可见文案集中处。后续可替换为真正的 multiplatform i18n，而不改调用点。
- * 原则见仓库 docs/user-facing-copy.md：说结果，不说实现。
+ * 用户可见文案。对齐设计图「AI 应用 APP 与 Desktop 无缝对接」。
  */
 object Str {
     const val appName = "Vetta"
 
-    const val welcomeTitle = "用好 AI，不必背负沉重学习负担"
-    const val welcomeSubtitle = "登录后即可开始对话，与桌面共用同一套账号与额度"
+    // Welcome / marketing
+    const val welcomeTitle = "AI 应用 APP\n与 Desktop 无缝对接"
+    const val welcomeSubtitle = "连接您的 Desktop 客户端，随时随地查看状态、同步对话、继续工作，或直接使用云端 AI 服务。"
+    const val featureDesktop = "对接 Desktop"
+    const val featureDesktopDesc = "局域网或远程连接，实时查看与管理"
+    const val featureCloud = "云端 AI"
+    const val featureCloudDesc = "无需电脑，直接使用云端 AI 能力"
+    const val featureStatus = "状态总览"
+    const val featureStatusDesc = "快速查看连接状态、会话与任务"
+    const val featureSecure = "安全同步"
+    const val featureSecureDesc = "端到端加密，保障数据安全"
     const val getStarted = "登录"
     const val advancedServer = "服务器设置"
 
@@ -21,24 +29,81 @@ object Str {
     const val showPassword = "显示密码"
     const val hidePassword = "隐藏密码"
     const val serverHint = "服务器"
-    const val accountLogin = "账号密码登录"
     const val useAccountLogin = "使用账号登录"
     const val useEmailLogin = "使用邮箱登录"
     const val account = "账号"
 
-    const val sessions = "对话"
-    const val newChat = "新对话"
-    const val searchSessions = "搜索对话"
-    const val noSessions = "还没有对话"
-    const val noSessionsHint = "从下面开始第一句，或点「新对话」"
+    // Tabs
+    const val tabHome = "首页"
+    const val tabSessions = "会话"
+    const val tabDiscover = "发现"
+    const val tabMe = "我的"
+
+    // Home
+    const val myDevices = "我的设备"
+    const val connected = "已连接"
+    const val disconnected = "未连接"
+    const val online = "在线"
+    const val offline = "离线"
+    const val recentSessions = "最近会话"
+    const val viewAll = "查看全部"
+    const val quickStart = "快速开始"
+    const val newConversation = "新建对话"
+    const val useCloudAi = "使用云端 AI"
+    const val notifications = "通知"
+
+    // Sessions
+    const val sessionsTitle = "会话"
+    const val searchSessions = "搜索会话"
+    const val filterAll = "全部"
+    const val filterDesktop = "Desktop"
+    const val filterCloud = "云端 AI"
+    const val filterFavorite = "收藏"
+    const val noSessions = "还没有会话"
+    const val noSessionsHint = "从首页新建对话，或连接 Desktop 后继续工作"
     const val rename = "重命名"
     const val delete = "删除"
-    const val deleteSessionConfirm = "删除后无法恢复，确定删除这个对话？"
+    const val deleteSessionConfirm = "删除后无法恢复，确定删除这个会话？"
     const val cancel = "取消"
     const val confirm = "确定"
     const val save = "保存"
 
-    const val chatPlaceholder = "输入消息…"
+    // Connect / Discover
+    const val connectTitle = "连接"
+    const val channelLan = "局域网"
+    const val channelRemote = "远程连接"
+    const val channelCloud = "云端 AI"
+    const val lanDevices = "局域网设备"
+    const val manualConnect = "手动连接"
+    const val hostPlaceholder = "输入 IP 地址或主机名"
+    const val connectAction = "连接"
+    const val howToConnect = "如何在 Desktop 启用连接？"
+    const val discoverTitle = "发现"
+    const val discoverSubtitle = "连接 Desktop，或直接使用云端 AI"
+
+    // Device detail
+    const val deviceConnected = "已连接"
+    const val duration = "连接时长"
+    const val latency = "延迟"
+    const val disconnect = "断开连接"
+    const val desktopPreview = "桌面预览"
+    const val systemInfo = "系统信息"
+    const val quickActions = "快捷操作"
+    const val sendFile = "发送文件"
+    const val clipboard = "剪贴板"
+    const val terminal = "终端"
+    const val power = "关机/重启"
+
+    // New conversation
+    const val selectDevice = "选择设备"
+    const val pairDesktop = "对接 Desktop"
+    const val sessionSettings = "会话设置"
+    const val historySync = "同步历史对话"
+    const val syncFilesContext = "同步文件与上下文"
+    const val startConversation = "开始对话"
+
+    // Chat
+    const val chatPlaceholder = "发送消息…"
     const val send = "发送"
     const val stop = "停止"
     const val retry = "重试"
@@ -46,18 +111,37 @@ object Str {
     const val copied = "已复制"
     const val attach = "添加图片"
     const val removeAttachment = "移除图片"
-    const val regenerate = "重新生成"
     const val model = "模型"
     const val selectModel = "选择模型"
     const val noModels = "暂无可用模型"
     const val noModelsHint = "可能是方案未开通或服务暂不可用，请查看套餐"
     const val streaming = "正在回复"
     const val newContent = "有新内容"
+    const val generatedByDesktop = "由 Desktop 生成"
+    const val generatedByCloud = "由云端 AI 生成"
     const val openPlan = "查看套餐"
-    const val emptyHomeGreeting = "今天想聊点什么？"
-    const val emptyHomeHint = "选择模型后直接发送；对话会保存在本机"
 
+    // Files
+    const val files = "文件"
+    const val context = "上下文"
+    const val projectFiles = "项目文件"
+    const val conversationContext = "对话上下文"
+    const val manageContext = "管理上下文"
+    const val filesSynced = "已挂载文件"
+    const val sessionCount = "会话轮数"
+
+    // Me
     const val me = "我的"
+    const val accountAndDevices = "账户与设备"
+    const val connectedDevices = "已连接设备"
+    const val authManagement = "授权管理"
+    const val settings = "设置"
+    const val notificationSettings = "通知设置"
+    const val privacySecurity = "隐私与安全"
+    const val generalSettings = "通用设置"
+    const val aboutSection = "关于"
+    const val helpFeedback = "帮助与反馈"
+    const val aboutUs = "关于我们"
     const val plan = "套餐与额度"
     const val planActive = "使用中"
     const val planInactive = "暂无有效方案"
@@ -69,11 +153,8 @@ object Str {
     const val windowWeek = "本周"
     const val windowMonth = "本月"
     const val logout = "退出登录"
-    const val logoutConfirm = "退出后需重新登录。本机对话默认保留。"
-    const val logoutAndClear = "退出并清除本机对话"
-    const val nickname = "昵称"
-
-    const val settings = "设置"
+    const val logoutConfirm = "退出后需重新登录。本机会话默认保留。"
+    const val logoutAndClear = "退出并清除本机会话"
     const val appearance = "外观"
     const val themeSystem = "跟随系统"
     const val themeLight = "浅色"
@@ -87,14 +168,11 @@ object Str {
     const val close = "关闭"
 
     const val loading = "加载中…"
-    const val offline = "网络暂不可用"
+    const val offlineNetwork = "网络暂不可用"
     const val errorGeneric = "出错了"
     const val actionRetry = "重试"
     const val actionRelogin = "重新登录"
     const val actionOpenPlan = "查看套餐"
     const val actionOpenSettings = "打开设置"
-
-    const val suggestion1 = "帮我理清一个思路"
-    const val suggestion2 = "用简洁中文解释一个概念"
-    const val suggestion3 = "帮我改一封邮件草稿"
+    const val comingSoon = "即将推出"
 }
