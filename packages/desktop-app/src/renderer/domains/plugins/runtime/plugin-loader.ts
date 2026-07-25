@@ -62,6 +62,7 @@ import {
 	registerPluginSystemPromptHandler,
 } from "./plugin-host-bridge";
 import { createPluginOfficialApi } from "./plugin-official-api";
+import { pluginRendererCapabilityHost } from "./plugin-renderer-capability-host";
 import { createPluginRuntimeShared } from "./plugin-shared-modules";
 
 export interface LoadedPlugin {
@@ -1108,7 +1109,7 @@ function createContext(
 				};
 			},
 		},
-		official: createPluginOfficialApi(plugin, capabilitySessionId),
+		official: createPluginOfficialApi(capabilitySessionId),
 		network: createNetworkApi(plugin, capabilitySessionId),
 		storage: createStorageApi(plugin, capabilitySessionId),
 		settings: settingsApi,
@@ -1214,6 +1215,7 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 		if (capabilitySessionId === undefined) return;
 		const sessionId = capabilitySessionId;
 		capabilitySessionId = undefined;
+		pluginRendererCapabilityHost.closeSession(sessionId);
 		await window.vetta.plugins.internalCapabilities.closeSession(sessionId);
 	};
 	try {
@@ -1228,6 +1230,7 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 		const settingsApi = createSettingsApi(plugin, initialSettings, disposers);
 		const pendingRuntimeRegistrations: Promise<void>[] = [];
 		capabilitySessionId = await window.vetta.plugins.internalCapabilities.openSession(plugin.id);
+		pluginRendererCapabilityHost.bindSession(capabilitySessionId, plugin);
 		const context = createContext(
 			plugin,
 			slots,

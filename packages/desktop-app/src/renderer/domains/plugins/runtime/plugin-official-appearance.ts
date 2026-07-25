@@ -5,6 +5,7 @@ import { cursorStyleAtom, resolvedThemeAtom, themeModeAtom, themeNameAtom } from
 import { applyTheme, MODE_STORAGE_KEY, type ResolvedMode, THEME_STORAGE_KEY } from "../../../shared/theme/apply";
 import { type CursorStyle, getStoredCursorStyle, setStoredCursorStyle } from "../../../shared/theme/cursor";
 import { DEFAULT_THEME_ID, resolveThemeId, THEME_MAP, THEMES } from "../../../shared/theme/themes";
+import { pluginRendererCapabilityHost } from "./plugin-renderer-capability-host";
 
 function currentLanguage(): "zh" | "en" {
 	return i18n.language?.startsWith("en") ? "en" : "zh";
@@ -127,27 +128,15 @@ export async function setOfficialLanguage(language: "zh" | "en"): Promise<unknow
 	return { type: "set-language", language };
 }
 
-export function createOfficialAppearanceApi(assertOfficial: () => void): PluginOfficialApi["appearance"] {
+export function createOfficialAppearanceApi(capabilitySessionId: string): PluginOfficialApi["appearance"] {
 	return {
-		help: async () => {
-			assertOfficial();
-			return getOfficialAppearanceHelp();
-		},
-		get: async () => {
-			assertOfficial();
-			return getOfficialAppearanceState();
-		},
-		set: async (input) => {
-			assertOfficial();
-			return setOfficialAppearance(input);
-		},
-		setLanguage: async (language) => {
-			assertOfficial();
-			return setOfficialLanguage(language);
-		},
-		listThemeIds: () => {
-			assertOfficial();
-			return listOfficialThemeIds();
-		},
+		help: () => pluginRendererCapabilityHost.invokeOfficial(capabilitySessionId, () => getOfficialAppearanceHelp()),
+		get: () => pluginRendererCapabilityHost.invokeOfficial(capabilitySessionId, () => getOfficialAppearanceState()),
+		set: (input) =>
+			pluginRendererCapabilityHost.invokeOfficial(capabilitySessionId, () => setOfficialAppearance(input)),
+		setLanguage: (language) =>
+			pluginRendererCapabilityHost.invokeOfficial(capabilitySessionId, () => setOfficialLanguage(language)),
+		listThemeIds: () =>
+			pluginRendererCapabilityHost.invokeOfficial(capabilitySessionId, () => listOfficialThemeIds()),
 	};
 }
