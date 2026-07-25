@@ -34,15 +34,6 @@ function ImageIcon() {
 	);
 }
 
-function dirOf(path: string): string {
-	const i = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
-	return i <= 0 ? path : path.slice(0, i);
-}
-
-function samePath(a: string, b: string): boolean {
-	return a.replace(/\\/g, "/").replace(/\/+$/, "") === b.replace(/\\/g, "/").replace(/\/+$/, "");
-}
-
 // 把 drawio XML 渲染进隔离 iframe：内联 viewer 引擎，离线可用，并把 drawio 的
 // 全局变量/CSS 与宿主隔开。渲染前置 mxClient.NO_FO=true，让标签走 SVG <text>
 // 而非 foreignObject —— 既稳定显示，也让导出的 PNG 带上文字。
@@ -178,21 +169,11 @@ function DrawioPreview({ file }: PluginFilePreviewProps) {
 		return load();
 	}, [load]);
 
-	// 监听文件所在目录，drawio 文件被改写时实时重读刷新（宿主侧已做 300ms 防抖）。
+	// 文件被改写时实时重读刷新（宿主侧已做 300ms 防抖）。
 	useEffect(() => {
-		const path = file.path;
-		const bridge = window.vetta?.fs;
-		if (!path || !bridge) return;
-		const dir = dirOf(path);
-		void bridge.watchDir(dir);
-		const unsub = bridge.onDirChanged((changed) => {
-			if (samePath(changed, dir)) load();
-		});
-		return () => {
-			unsub();
-			void bridge.unwatchDir(dir);
-		};
-	}, [file.path, load]);
+		const watch = file.watch(load);
+		return () => watch.dispose();
+	}, [file, load]);
 
 	// state / mode 变化后重渲染 iframe。
 	useEffect(() => {

@@ -29,6 +29,7 @@ export type {
 	PluginFilePreviewProps,
 	PluginFilePreviewContribution,
 	PluginActivityTabContribution,
+	PluginCaptureRegion,
 	PluginOpenActivityTabOptions,
 	PluginPromptDecoration,
 	PluginInputActionContribution,

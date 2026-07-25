@@ -10,7 +10,7 @@
 		"expose": "./plugin"
 	},
 	"styles": ["dist/style.css"],
-	"permissions": ["ui.slot.activity-tab", "agent.session.write", "agent.skills.control"],
+	"permissions": ["ui.slot.activity-tab", "agent.session.write", "agent.skills.control", "fs.read"],
 	"agent": {
 		"skillPaths": ["agent/skills/mobile-ui-design"]
 	},
