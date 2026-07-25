@@ -26,6 +26,21 @@ export interface CapabilityTypeBoxSchemaOptions {
 	readonly clean?: boolean;
 }
 
+const capabilitySchemaSkipClean = Symbol("capability.schema.skip-clean");
+
+type CapabilityCleanBoundarySchema = TSchema & {
+	readonly [capabilitySchemaSkipClean]?: true;
+};
+
+/**
+ * Keeps a nested schema untouched during excess-property cleanup so its own
+ * validation rules, such as `additionalProperties: false`, remain strict.
+ */
+export function skipCapabilitySchemaClean<Schema extends TSchema>(schema: Schema): Schema {
+	Object.defineProperty(schema, capabilitySchemaSkipClean, { enumerable: true, value: true });
+	return schema;
+}
+
 function cloneJsonValue(value: unknown): CapabilityJsonValue {
 	if (value === null || typeof value === "boolean" || typeof value === "string") return value;
 	if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -63,23 +78,40 @@ function removeUndefinedProperties(value: unknown): void {
 }
 
 function cleanCapabilityValueBySchema(schema: TSchema, value: unknown): unknown {
+	if ((schema as CapabilityCleanBoundarySchema)[capabilitySchemaSkipClean]) return value;
+
 	if (KindGuard.IsUnion(schema)) {
 		for (const member of schema.anyOf) {
 			const candidate = cleanCapabilityValueBySchema(member, Value.Clone(value));
 			if (Value.Check(member, candidate)) return candidate;
 		}
-		return Value.Clean(schema, value);
+		return value;
 	}
 
 	if (KindGuard.IsObject(schema) && typeof value === "object" && value !== null && !Array.isArray(value)) {
 		const record = value as Record<string, unknown>;
-		for (const [key, propertySchema] of Object.entries(schema.properties)) {
-			if (Object.hasOwn(record, key)) record[key] = cleanCapabilityValueBySchema(propertySchema, record[key]);
+		for (const key of Object.getOwnPropertyNames(record)) {
+			if (Object.hasOwn(schema.properties, key)) {
+				const propertySchema = schema.properties[key];
+				if (propertySchema !== undefined) {
+					record[key] = cleanCapabilityValueBySchema(propertySchema, record[key]);
+				}
+				continue;
+			}
+			if (KindGuard.IsSchema(schema.additionalProperties) && Value.Check(schema.additionalProperties, record[key])) {
+				record[key] = cleanCapabilityValueBySchema(schema.additionalProperties, record[key]);
+				continue;
+			}
+			Reflect.deleteProperty(record, key);
 		}
-	} else if (KindGuard.IsArray(schema) && Array.isArray(value)) {
+		return record;
+	}
+
+	if (KindGuard.IsArray(schema) && Array.isArray(value)) {
 		for (let index = 0; index < value.length; index += 1) {
 			value[index] = cleanCapabilityValueBySchema(schema.items, value[index]);
 		}
+		return value;
 	}
 
 	return Value.Clean(schema, value);

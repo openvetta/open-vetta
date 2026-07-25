@@ -31,6 +31,7 @@ export {
 	type BatchTaskResumeInput,
 	type BatchTaskStatus,
 	DOMAIN_BATCH_TASK_CAPABILITIES,
+	DOMAIN_BATCH_TASK_CAPABILITY_CATALOG,
 } from "./domain/batch-task.js";
 export {
 	DOMAIN_DOWNLOAD_CAPABILITIES,
