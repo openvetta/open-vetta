@@ -7,6 +7,10 @@
 ## 文档索引
 
 - [架构现状与问题评估](./01-architecture-assessment.md) — 当前运行链路、量化证据、问题优先级、目标边界与渐进式重构建议。
+- [内核与能力边界分析](./02-core-boundary-analysis.md) — 从模型原语出发，定义 Agent、Session、Capability、Adapter、Infrastructure 与 Profile 的边界。
+- [“内核 + 能力编排”重构方案](./03-kernel-capability-refactoring-solution.md) — 目标架构、核心合同、能力迁移方式、实施阶段、测试策略与完成标准。
+
+建议按编号顺序阅读：先确认当前问题，再统一内核定义，最后评审实施方案。
 
 ## 使用说明
 
