@@ -611,7 +611,7 @@ window.vetta.capabilities.invoke({
 当前已经实现能力基础设施及多条端到端链路：
 
 - `packages/capability-sdk` 提供 Capability ID、Token、基础存储/文件/网络能力、Agent 设置/通用设置/IM 桥接/模型配置/MCP 配置/项目/会话/下载/调度/Webhook/知识库/批量任务/应用更新/技能管理/全局快捷键/快捷面板领域能力、Grant、稳定错误码，以及宿主内置的 Theme、Plugin Adapter。
-- Capability Token 已支持以 TypeBox Schema 作为静态类型、运行时 parser 与 JSON Schema 的单一来源，并由 Token 生成不包含执行函数的只读 Catalog。Agent 设置、通用设置、IM 桥接、模型配置、MCP 配置、项目、会话、下载、调度、Webhook、批量任务、应用更新、技能管理、全局快捷键和快捷面板领域已完成迁移；TypeBox 校验错误会转换为稳定 Capability 错误码，`undefined` 输出使用独立的无载荷 Schema，Catalog 会拒绝缺少输入或输出 Schema 的 Token。
+- Capability Token 已支持以 TypeBox Schema 作为静态类型、运行时 parser 与 JSON Schema 的单一来源，并由 Token 生成不包含执行函数的只读 Catalog。当前已声明的领域 Capability Token 已全部完成迁移；TypeBox 校验错误会转换为稳定 Capability 错误码，`undefined` 输出使用独立的无载荷 Schema，Catalog 会拒绝缺少输入或输出 Schema 的 Token。
 - `packages/capability-runtime` 提供 Foundation/Domain 双 Registry、Capability Hub、Provider 原子替换、替换或卸载时的在途调用中止、精确 Grant、AccessSession、namespace constraint 和审计事件。
 - `packages/desktop-app/src/main/capabilities` 提供 Desktop Capability Host、基础存储/文件/网络 Provider、Agent 设置/通用设置/IM 桥接/模型配置/MCP 配置/项目/会话/下载/调度/Webhook/知识库/批量任务/应用更新/技能管理/全局快捷键/快捷面板领域 Provider 和原生后端装配；已抽取领域服务的原 IPC 与 Capability Provider 复用同一实现，通用配置桥则与领域服务共享底层 config store。
 - Desktop Capability Host 单例持有 Theme Adapter 和 Plugin Adapter；IPC 只复用实例，不重复创建或负责销毁。
@@ -638,9 +638,8 @@ window.vetta.capabilities.invoke({
 - `PluginOfficialApi.appearance` 与 `PluginOfficialApi.navigation` 已迁移到独立的 Renderer Capability Host。Plugin Loader 在主进程 Capability Session 创建后使用同一个 `capabilitySessionId` 绑定 renderer Session，并在插件卸载、重载或激活失败时同步撤销；外观的 DOM/Jotai/localStorage 操作和导航目录/跳转继续保留在 renderer Plugin 系统 facade 内，但同步、异步调用都必须经过 active + official Session 校验。
 - Plugin Action provider 的调用边界已有回归测试：Action caller 的来源、request id 和授权上下文不会转发给 provider；provider 被禁用后调用立即被拒绝。Agent 设置、通用设置、IM 桥接、模型配置、MCP 配置、项目、下载、调度、Webhook、知识库、批量任务、应用更新、技能管理和快捷键管理相关 Action 最终只使用该 Plugin 自己的 Capability Session。
 
-尚未迁移：
+后续工作：
 
-- Agent 设置、通用设置、IM 桥接、模型配置、MCP 配置、项目、会话、下载、调度、Webhook、批量任务、应用更新、技能管理、全局快捷键和快捷面板领域之外的现有 Capability Token 尚未迁移到 TypeBox Schema，也尚未进入公开 Catalog；后续按领域逐步迁移，并保持静态类型、parser 与 JSON Schema 同源定义。
 - 后续新引入、且确实需要跨系统复用的基础能力与领域能力。
 - 不可信扩展的进程级隔离。
 
