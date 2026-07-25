@@ -7,6 +7,7 @@ export {
 	type AgentExperimentalSettings,
 	type AgentExperimentalSettingsUpdate,
 	DOMAIN_AGENT_SETTINGS_CAPABILITIES,
+	DOMAIN_AGENT_SETTINGS_CAPABILITY_CATALOG,
 } from "./domain/agent-settings.js";
 export {
 	BATCH_COMMAND_STATUSES,
