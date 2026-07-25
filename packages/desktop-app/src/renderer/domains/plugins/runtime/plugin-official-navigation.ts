@@ -6,6 +6,7 @@ import {
 	type SettingsSectionRegistration,
 	type SettingsTabRegistration,
 } from "../../settings/registry";
+import { pluginRendererCapabilityHost } from "./plugin-renderer-capability-host";
 
 interface StaticNavigationTarget {
 	id: string;
@@ -316,21 +317,16 @@ export function openOfficialHashPath(hashPath: string): void {
 	window.location.hash = `#${hashPath}`;
 }
 
-export function createOfficialNavigationApi(assertOfficial: () => void): PluginOfficialApi["navigation"] {
+export function createOfficialNavigationApi(capabilitySessionId: string): PluginOfficialApi["navigation"] {
 	return {
-		help: () => {
-			assertOfficial();
-			return getOfficialNavigationHelp();
-		},
-		resolveOpen: (input) => {
-			assertOfficial();
-			return resolveOfficialNavigationOpen(input);
-		},
-		open: async (input) => {
-			assertOfficial();
-			const target = resolveOfficialNavigationOpen(input);
-			openOfficialHashPath(target.hashPath);
-			return { type: "open", resolved: target.resolved };
-		},
+		help: () => pluginRendererCapabilityHost.invokeOfficial(capabilitySessionId, () => getOfficialNavigationHelp()),
+		resolveOpen: (input) =>
+			pluginRendererCapabilityHost.invokeOfficial(capabilitySessionId, () => resolveOfficialNavigationOpen(input)),
+		open: (input) =>
+			pluginRendererCapabilityHost.invokeOfficial(capabilitySessionId, async () => {
+				const target = resolveOfficialNavigationOpen(input);
+				openOfficialHashPath(target.hashPath);
+				return { type: "open", resolved: target.resolved };
+			}),
 	};
 }
