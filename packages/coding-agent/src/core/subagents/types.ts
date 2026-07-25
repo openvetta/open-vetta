@@ -9,6 +9,7 @@
 import type { AgentMessage, AgentTool, ThinkingLevel } from "@vetta/agent-core";
 import type { Model } from "@vetta/ai";
 import type { EcosystemHookRuntime } from "../hooks/index.js";
+import type { ModelRegistry } from "../model-registry.js";
 import type { ConversationScenario } from "../session/tool-scope.js";
 
 /** Stable builtin type id for the read-only explorer (first shipped type). */
@@ -84,6 +85,11 @@ export interface SubagentParentContext {
 	model: Model<any>;
 	thinkingLevel: ThinkingLevel;
 	agentDir?: string;
+	/**
+	 * Parent's live model registry (remote token + loaded remote models).
+	 * Must be shared so children can resolve keys for cloud providers like vetta-go.
+	 */
+	modelRegistry?: ModelRegistry;
 	/** Live MCP tools from the parent session (proxy, not re-spawned). */
 	parentMcpTools: ReadonlyArray<AgentTool>;
 	/**
@@ -179,6 +185,8 @@ export interface SubagentCoordinatorOptions {
 	scenario: ConversationScenario;
 	getModel: () => Model<any> | undefined;
 	getThinkingLevel: () => ThinkingLevel;
+	/** Parent ModelRegistry so child sessions share remote auth / loaded models. */
+	getModelRegistry?: () => ModelRegistry;
 	getParentMcpTools: () => ReadonlyArray<AgentTool>;
 	/** Parent branch context for fork-seeding (types with `forkParentContext`). */
 	getParentContextMessages?: () => AgentMessage[];

@@ -63,6 +63,7 @@ export class SubagentCoordinator {
 	private readonly scenario: SubagentCoordinatorOptions["scenario"];
 	private readonly getModel: SubagentCoordinatorOptions["getModel"];
 	private readonly getThinkingLevel: SubagentCoordinatorOptions["getThinkingLevel"];
+	private readonly getModelRegistry?: SubagentCoordinatorOptions["getModelRegistry"];
 	private readonly getParentMcpTools: SubagentCoordinatorOptions["getParentMcpTools"];
 	private readonly getParentContextMessages?: SubagentCoordinatorOptions["getParentContextMessages"];
 	private readonly agentDir?: string;
@@ -85,6 +86,7 @@ export class SubagentCoordinator {
 		this.scenario = options.scenario;
 		this.getModel = options.getModel;
 		this.getThinkingLevel = options.getThinkingLevel;
+		this.getModelRegistry = options.getModelRegistry;
 		this.getParentMcpTools = options.getParentMcpTools;
 		this.getParentContextMessages = options.getParentContextMessages;
 		this.agentDir = options.agentDir;
@@ -297,6 +299,7 @@ export class SubagentCoordinator {
 				model,
 				thinkingLevel: this.getThinkingLevel(),
 				agentDir: this.agentDir,
+				modelRegistry: this.getModelRegistry?.(),
 				parentMcpTools: this.getParentMcpTools(),
 				forkContextMessages,
 			},
@@ -631,6 +634,7 @@ export class SubagentCoordinator {
 					model,
 					thinkingLevel: this.getThinkingLevel(),
 					agentDir: this.agentDir,
+					modelRegistry: this.getModelRegistry?.(),
 					parentMcpTools: this.getParentMcpTools(),
 				},
 				typeDef,
