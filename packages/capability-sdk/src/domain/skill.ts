@@ -1,16 +1,11 @@
-import { CAPABILITY_ERROR_CODES, CAPABILITY_LAYERS, CapabilityError, defineCapability } from "../contracts.js";
+import { type Static, Type } from "@sinclair/typebox";
+import { createCapabilityCatalog } from "../catalog.js";
+import { CAPABILITY_LAYERS, defineCapability } from "../contracts.js";
 import {
-	parseEmptyInput,
-	parseInputRecord,
-	parseOptionalInputString,
-	parseOptionalOutputString,
-	parseOutputRecord,
-	parseRequiredInputBoolean,
-	parseRequiredInputString,
-	parseRequiredOutputBoolean,
-	parseRequiredOutputString,
-	parseVoidOutput,
-} from "./parse-helpers.js";
+	defineCapabilityInputSchema,
+	defineCapabilityNoOutputSchema,
+	defineCapabilityOutputSchema,
+} from "../schema.js";
 
 export const SKILL_TYPES = {
 	SKILL: "skill",
@@ -22,138 +17,94 @@ export const INSTALLED_SKILL_SOURCES = {
 	CUSTOM: "custom",
 } as const;
 
-export type SkillType = (typeof SKILL_TYPES)[keyof typeof SKILL_TYPES];
-export type InstalledSkillSource = (typeof INSTALLED_SKILL_SOURCES)[keyof typeof INSTALLED_SKILL_SOURCES];
+const skillEmptyInputType = Type.Unsafe<Record<string, never>>({
+	type: "object",
+	additionalProperties: false,
+});
 
-export interface SkillInfo {
-	readonly name: string;
-	readonly alias?: string;
-	readonly description: string;
-	readonly source: string;
-	readonly type: SkillType;
-}
+const skillTypeType = Type.Union([Type.Literal(SKILL_TYPES.SKILL), Type.Literal(SKILL_TYPES.SCENE)]);
+const installedSkillSourceType = Type.Union([
+	Type.Literal(INSTALLED_SKILL_SOURCES.MARKET),
+	Type.Literal(INSTALLED_SKILL_SOURCES.CUSTOM),
+]);
+const skillNonBlankInputStringType = Type.String({ pattern: "\\S" });
 
-export interface InstalledSkill {
-	readonly name: string;
-	readonly version: string;
-	readonly installedAt: string;
-	readonly source: InstalledSkillSource;
-	readonly enabled: boolean;
-	readonly type?: SkillType;
-	readonly alias?: string;
-	readonly marketDescription?: string;
-	readonly description?: string;
-}
+const skillInfoType = Type.Object(
+	{
+		name: Type.String(),
+		alias: Type.Optional(Type.String()),
+		description: Type.String(),
+		source: Type.String(),
+		type: skillTypeType,
+	},
+	{ additionalProperties: false },
+);
 
-export interface SkillListInput {
-	readonly cwd?: string;
-}
+const installedSkillType = Type.Object(
+	{
+		name: Type.String(),
+		version: Type.String(),
+		installedAt: Type.String(),
+		source: installedSkillSourceType,
+		enabled: Type.Boolean(),
+		type: Type.Optional(skillTypeType),
+		alias: Type.Optional(Type.String()),
+		marketDescription: Type.Optional(Type.String()),
+		description: Type.Optional(Type.String()),
+	},
+	{ additionalProperties: false },
+);
 
-export interface SkillSetEnabledInput {
-	readonly name: string;
-	readonly enabled: boolean;
-}
+const skillListInputType = Type.Object(
+	{
+		cwd: Type.Optional(skillNonBlankInputStringType),
+	},
+	{ additionalProperties: false },
+);
 
-export interface SkillSetEnabledResult {
-	readonly name: string;
-	readonly enabled: boolean;
-}
+const skillSetEnabledInputType = Type.Object(
+	{
+		name: skillNonBlankInputStringType,
+		enabled: Type.Boolean(),
+	},
+	{ additionalProperties: false },
+);
 
-export interface SkillUninstallInput {
-	readonly name: string;
-	readonly type?: SkillType;
-}
+const skillSetEnabledResultType = Type.Object(
+	{
+		name: Type.String(),
+		enabled: Type.Boolean(),
+	},
+	{ additionalProperties: false },
+);
 
-function parseSkillType(value: unknown, code: typeof CAPABILITY_ERROR_CODES.INVALID_INPUT): SkillType;
-function parseSkillType(value: unknown, code: typeof CAPABILITY_ERROR_CODES.INVALID_OUTPUT): SkillType;
-function parseSkillType(
-	value: unknown,
-	code: typeof CAPABILITY_ERROR_CODES.INVALID_INPUT | typeof CAPABILITY_ERROR_CODES.INVALID_OUTPUT,
-): SkillType {
-	if (typeof value !== "string" || !Object.values(SKILL_TYPES).includes(value as SkillType)) {
-		throw new CapabilityError(code, "Capability skill type is invalid");
-	}
-	return value as SkillType;
-}
+const skillUninstallInputType = Type.Object(
+	{
+		name: skillNonBlankInputStringType,
+		type: Type.Optional(skillTypeType),
+	},
+	{ additionalProperties: false },
+);
 
-function parseSkillInfo(value: unknown): SkillInfo {
-	const skill = parseOutputRecord(value);
-	const alias = parseOptionalOutputString(skill, "alias");
-	return {
-		name: parseRequiredOutputString(skill, "name"),
-		...(alias === undefined ? {} : { alias }),
-		description: parseRequiredOutputString(skill, "description"),
-		source: parseRequiredOutputString(skill, "source"),
-		type: parseSkillType(skill.type, CAPABILITY_ERROR_CODES.INVALID_OUTPUT),
-	};
-}
+export type SkillType = Static<typeof skillTypeType>;
+export type InstalledSkillSource = Static<typeof installedSkillSourceType>;
+export type SkillInfo = Readonly<Static<typeof skillInfoType>>;
+export type InstalledSkill = Readonly<Static<typeof installedSkillType>>;
+export type SkillListInput = Readonly<Static<typeof skillListInputType>>;
+export type SkillSetEnabledInput = Readonly<Static<typeof skillSetEnabledInputType>>;
+export type SkillSetEnabledResult = Readonly<Static<typeof skillSetEnabledResultType>>;
+export type SkillUninstallInput = Readonly<Static<typeof skillUninstallInputType>>;
 
-function parseSkillList(value: unknown): SkillInfo[] {
-	if (!Array.isArray(value)) {
-		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_OUTPUT, "Capability output must be an array");
-	}
-	return value.map(parseSkillInfo);
-}
-
-function parseInstalledSkill(value: unknown): InstalledSkill {
-	const skill = parseOutputRecord(value);
-	const source = skill.source;
-	if (typeof source !== "string" || !Object.values(INSTALLED_SKILL_SOURCES).includes(source as InstalledSkillSource)) {
-		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_OUTPUT, "Capability installed skill source is invalid");
-	}
-	const type =
-		skill.type === undefined ? undefined : parseSkillType(skill.type, CAPABILITY_ERROR_CODES.INVALID_OUTPUT);
-	const alias = parseOptionalOutputString(skill, "alias");
-	const marketDescription = parseOptionalOutputString(skill, "marketDescription");
-	const description = parseOptionalOutputString(skill, "description");
-	return {
-		name: parseRequiredOutputString(skill, "name"),
-		version: parseRequiredOutputString(skill, "version"),
-		installedAt: parseRequiredOutputString(skill, "installedAt"),
-		source: source as InstalledSkillSource,
-		enabled: parseRequiredOutputBoolean(skill, "enabled"),
-		...(type === undefined ? {} : { type }),
-		...(alias === undefined ? {} : { alias }),
-		...(marketDescription === undefined ? {} : { marketDescription }),
-		...(description === undefined ? {} : { description }),
-	};
-}
-
-function parseInstalledSkills(value: unknown): Record<string, InstalledSkill> {
-	const manifest = parseOutputRecord(value);
-	return Object.fromEntries(Object.entries(manifest).map(([name, skill]) => [name, parseInstalledSkill(skill)]));
-}
-
-function parseSkillListInput(value: unknown): SkillListInput {
-	const input = parseInputRecord(value);
-	const cwd = parseOptionalInputString(input, "cwd");
-	return cwd === undefined ? {} : { cwd };
-}
-
-function parseSkillSetEnabledInput(value: unknown): SkillSetEnabledInput {
-	const input = parseInputRecord(value);
-	return {
-		name: parseRequiredInputString(input, "name"),
-		enabled: parseRequiredInputBoolean(input, "enabled"),
-	};
-}
-
-function parseSkillSetEnabledResult(value: unknown): SkillSetEnabledResult {
-	const result = parseOutputRecord(value);
-	return {
-		name: parseRequiredOutputString(result, "name"),
-		enabled: parseRequiredOutputBoolean(result, "enabled"),
-	};
-}
-
-function parseSkillUninstallInput(value: unknown): SkillUninstallInput {
-	const input = parseInputRecord(value);
-	const type = input.type === undefined ? undefined : parseSkillType(input.type, CAPABILITY_ERROR_CODES.INVALID_INPUT);
-	return {
-		name: parseRequiredInputString(input, "name"),
-		...(type === undefined ? {} : { type }),
-	};
-}
+const skillListInputSchema = defineCapabilityInputSchema(skillListInputType, { clean: true });
+const skillListOutputSchema = defineCapabilityOutputSchema(Type.Array(skillInfoType), { clean: true });
+const skillEmptyInputSchema = defineCapabilityInputSchema(skillEmptyInputType);
+const installedSkillsOutputSchema = defineCapabilityOutputSchema(Type.Record(Type.String(), installedSkillType), {
+	clean: true,
+});
+const skillSetEnabledInputSchema = defineCapabilityInputSchema(skillSetEnabledInputType, { clean: true });
+const skillSetEnabledOutputSchema = defineCapabilityOutputSchema(skillSetEnabledResultType, { clean: true });
+const skillUninstallInputSchema = defineCapabilityInputSchema(skillUninstallInputType, { clean: true });
+const skillNoOutputSchema = defineCapabilityNoOutputSchema();
 
 export const DOMAIN_SKILL_CAPABILITIES = {
 	LIST: defineCapability<SkillListInput, SkillInfo[]>({
@@ -161,31 +112,33 @@ export const DOMAIN_SKILL_CAPABILITIES = {
 		kind: "query",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseSkillListInput,
-		parseOutput: parseSkillList,
+		input: skillListInputSchema,
+		output: skillListOutputSchema,
 	}),
 	LIST_INSTALLED: defineCapability<Record<string, never>, Record<string, InstalledSkill>>({
 		id: "cap.domain.vetta.skill.installed.list",
 		kind: "query",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseEmptyInput,
-		parseOutput: parseInstalledSkills,
+		input: skillEmptyInputSchema,
+		output: installedSkillsOutputSchema,
 	}),
 	SET_ENABLED: defineCapability<SkillSetEnabledInput, SkillSetEnabledResult>({
 		id: "cap.domain.vetta.skill.installed.set-enabled",
 		kind: "command",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseSkillSetEnabledInput,
-		parseOutput: parseSkillSetEnabledResult,
+		input: skillSetEnabledInputSchema,
+		output: skillSetEnabledOutputSchema,
 	}),
 	UNINSTALL: defineCapability<SkillUninstallInput, undefined>({
 		id: "cap.domain.vetta.skill.installed.uninstall",
 		kind: "command",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseSkillUninstallInput,
-		parseOutput: parseVoidOutput,
+		input: skillUninstallInputSchema,
+		output: skillNoOutputSchema,
 	}),
 } as const;
+
+export const DOMAIN_SKILL_CAPABILITY_CATALOG = createCapabilityCatalog(Object.values(DOMAIN_SKILL_CAPABILITIES));
