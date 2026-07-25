@@ -77,7 +77,7 @@ await ctx.conversation.abort();                          // 中断当前轮
 interface PluginAgentToolRegistration<TInput = unknown> {
   id: string;                 // 插件内唯一
   name?: string;              // LLM 可见工具名（默认取 id）
-  label?: string;
+  label?: string;             // 宿主 UI 展示名（Work 工具头等）。可用 %catalogKey%；不发给模型
   description: string;        // 进系统提示词的 Available tools，写清楚何时用
   parameters: object;         // JSON Schema（可用 TypeBox 产出）
   scope_use?: string[];       // 允许出现的对话场景（见下）。fail-closed：缺省/空 = 任何场景都不出现

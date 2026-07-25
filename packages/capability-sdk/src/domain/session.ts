@@ -1,87 +1,53 @@
-import { CAPABILITY_ERROR_CODES, CAPABILITY_LAYERS, CapabilityError, defineCapability } from "../contracts.js";
-import {
-	parseEmptyInput,
-	parseInputRecord,
-	parseOptionalOutputString,
-	parseOutputRecord,
-	parseRequiredInputString,
-	parseRequiredOutputNumber,
-	parseRequiredOutputString,
-} from "./parse-helpers.js";
+import { type Static, Type } from "@sinclair/typebox";
+import { createCapabilityCatalog } from "../catalog.js";
+import { CAPABILITY_LAYERS, defineCapability } from "../contracts.js";
+import { defineCapabilityInputSchema, defineCapabilityOutputSchema } from "../schema.js";
 
-export interface SessionListInput {
-	readonly cwd: string;
-}
+const sessionEmptyInputType = Type.Unsafe<Record<string, never>>({
+	type: "object",
+	additionalProperties: false,
+});
 
-export interface SessionRuntimeProject {
-	readonly cwd: string;
-	readonly sessionCount: number;
-}
+const sessionListInputType = Type.Object(
+	{
+		cwd: Type.String({ pattern: "\\S" }),
+	},
+	{ additionalProperties: false },
+);
 
-export interface SessionHistoryEntry {
-	readonly id: string;
-	readonly path: string;
-	readonly cwd: string;
-	readonly name?: string;
-	readonly firstMessage: string;
-	readonly modifiedAt: number;
-	readonly lastMessagePreview?: string;
-	readonly parentSessionPath?: string;
-	readonly parentEntryId?: string;
-}
+const sessionRuntimeProjectType = Type.Object(
+	{
+		cwd: Type.String(),
+		sessionCount: Type.Integer({ minimum: 0 }),
+	},
+	{ additionalProperties: false },
+);
 
-function parseSessionListInput(value: unknown): SessionListInput {
-	const input = parseInputRecord(value);
-	return { cwd: parseRequiredInputString(input, "cwd") };
-}
+const sessionHistoryEntryType = Type.Object(
+	{
+		id: Type.String(),
+		path: Type.String(),
+		cwd: Type.String(),
+		name: Type.Optional(Type.String()),
+		firstMessage: Type.String(),
+		modifiedAt: Type.Number(),
+		lastMessagePreview: Type.Optional(Type.String()),
+		parentSessionPath: Type.Optional(Type.String()),
+		parentEntryId: Type.Optional(Type.String()),
+	},
+	{ additionalProperties: false },
+);
 
-function parseSessionRuntimeProject(value: unknown): SessionRuntimeProject {
-	const project = parseOutputRecord(value);
-	const sessionCount = parseRequiredOutputNumber(project, "sessionCount");
-	if (!Number.isInteger(sessionCount) || sessionCount < 0) {
-		throw new CapabilityError(
-			CAPABILITY_ERROR_CODES.INVALID_OUTPUT,
-			"Capability output sessionCount must be a non-negative integer",
-		);
-	}
-	return {
-		cwd: parseRequiredOutputString(project, "cwd"),
-		sessionCount,
-	};
-}
+export type SessionListInput = Readonly<Static<typeof sessionListInputType>>;
+export type SessionRuntimeProject = Readonly<Static<typeof sessionRuntimeProjectType>>;
+export type SessionHistoryEntry = Readonly<Static<typeof sessionHistoryEntryType>>;
 
-function parseSessionRuntimeProjects(value: unknown): SessionRuntimeProject[] {
-	if (!Array.isArray(value)) {
-		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_OUTPUT, "Capability output must be an array");
-	}
-	return value.map(parseSessionRuntimeProject);
-}
-
-function parseSessionHistoryEntry(value: unknown): SessionHistoryEntry {
-	const entry = parseOutputRecord(value);
-	const name = parseOptionalOutputString(entry, "name");
-	const lastMessagePreview = parseOptionalOutputString(entry, "lastMessagePreview");
-	const parentSessionPath = parseOptionalOutputString(entry, "parentSessionPath");
-	const parentEntryId = parseOptionalOutputString(entry, "parentEntryId");
-	return {
-		id: parseRequiredOutputString(entry, "id"),
-		path: parseRequiredOutputString(entry, "path"),
-		cwd: parseRequiredOutputString(entry, "cwd"),
-		...(name === undefined ? {} : { name }),
-		firstMessage: parseRequiredOutputString(entry, "firstMessage"),
-		modifiedAt: parseRequiredOutputNumber(entry, "modifiedAt"),
-		...(lastMessagePreview === undefined ? {} : { lastMessagePreview }),
-		...(parentSessionPath === undefined ? {} : { parentSessionPath }),
-		...(parentEntryId === undefined ? {} : { parentEntryId }),
-	};
-}
-
-function parseSessionHistory(value: unknown): SessionHistoryEntry[] {
-	if (!Array.isArray(value)) {
-		throw new CapabilityError(CAPABILITY_ERROR_CODES.INVALID_OUTPUT, "Capability output must be an array");
-	}
-	return value.map(parseSessionHistoryEntry);
-}
+const sessionEmptyInputSchema = defineCapabilityInputSchema(sessionEmptyInputType);
+const sessionListInputSchema = defineCapabilityInputSchema(sessionListInputType, { clean: true });
+const sessionRuntimeProjectsOutputSchema = defineCapabilityOutputSchema(Type.Array(sessionRuntimeProjectType), {
+	clean: true,
+});
+const sessionHistoryOutputSchema = defineCapabilityOutputSchema(Type.Array(sessionHistoryEntryType), { clean: true });
 
 export const DOMAIN_SESSION_CAPABILITIES = {
 	LIST: defineCapability<SessionListInput, SessionHistoryEntry[]>({
@@ -89,15 +55,17 @@ export const DOMAIN_SESSION_CAPABILITIES = {
 		kind: "query",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseSessionListInput,
-		parseOutput: parseSessionHistory,
+		input: sessionListInputSchema,
+		output: sessionHistoryOutputSchema,
 	}),
 	LIST_RUNTIME_PROJECTS: defineCapability<Record<string, never>, SessionRuntimeProject[]>({
 		id: "cap.domain.vetta.session.runtime-project.list",
 		kind: "query",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		parseInput: parseEmptyInput,
-		parseOutput: parseSessionRuntimeProjects,
+		input: sessionEmptyInputSchema,
+		output: sessionRuntimeProjectsOutputSchema,
 	}),
 } as const;
+
+export const DOMAIN_SESSION_CAPABILITY_CATALOG = createCapabilityCatalog(Object.values(DOMAIN_SESSION_CAPABILITIES));

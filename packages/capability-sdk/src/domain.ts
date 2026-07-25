@@ -159,6 +159,7 @@ export {
 } from "./domain/scheduler.js";
 export {
 	DOMAIN_SESSION_CAPABILITIES,
+	DOMAIN_SESSION_CAPABILITY_CATALOG,
 	type SessionHistoryEntry,
 	type SessionListInput,
 	type SessionRuntimeProject,
