@@ -90,13 +90,14 @@ function removeUndefinedProperties(value: unknown): void {
 	}
 }
 
-function cleanCapabilityValueBySchema(schema: TSchema, value: unknown): unknown {
+function cleanCapabilityValueBySchema(schema: TSchema, value: unknown, parentReferences: TSchema[]): unknown {
 	if ((schema as CapabilityCleanBoundarySchema)[capabilitySchemaSkipClean]) return value;
+	const references = schema.$id === undefined ? parentReferences : [...parentReferences, schema];
 
 	if (KindGuard.IsUnion(schema)) {
 		for (const member of schema.anyOf) {
-			const candidate = cleanCapabilityValueBySchema(member, Value.Clone(value));
-			if (Value.Check(member, candidate)) return candidate;
+			const candidate = cleanCapabilityValueBySchema(member, Value.Clone(value), references);
+			if (Value.Check(member, references, candidate)) return candidate;
 		}
 		return value;
 	}
@@ -108,13 +109,16 @@ function cleanCapabilityValueBySchema(schema: TSchema, value: unknown): unknown 
 			if (Object.hasOwn(schema.properties, key)) {
 				const propertySchema = schema.properties[key];
 				if (propertySchema !== undefined) {
-					record[key] = cleanCapabilityValueBySchema(propertySchema, record[key]);
+					record[key] = cleanCapabilityValueBySchema(propertySchema, record[key], references);
 				}
 				continue;
 			}
 			if (rejectExcess) continue;
-			if (KindGuard.IsSchema(schema.additionalProperties) && Value.Check(schema.additionalProperties, record[key])) {
-				record[key] = cleanCapabilityValueBySchema(schema.additionalProperties, record[key]);
+			if (
+				KindGuard.IsSchema(schema.additionalProperties) &&
+				Value.Check(schema.additionalProperties, references, record[key])
+			) {
+				record[key] = cleanCapabilityValueBySchema(schema.additionalProperties, record[key], references);
 				continue;
 			}
 			Reflect.deleteProperty(record, key);
@@ -124,18 +128,18 @@ function cleanCapabilityValueBySchema(schema: TSchema, value: unknown): unknown 
 
 	if (KindGuard.IsArray(schema) && Array.isArray(value)) {
 		for (let index = 0; index < value.length; index += 1) {
-			value[index] = cleanCapabilityValueBySchema(schema.items, value[index]);
+			value[index] = cleanCapabilityValueBySchema(schema.items, value[index], references);
 		}
 		return value;
 	}
 
-	return Value.Clean(schema, value);
+	return Value.Clean(schema, references, value);
 }
 
 function cleanCapabilityValue(schema: TSchema, value: unknown, preserveUndefinedProperties: boolean): unknown {
 	const cloned = Value.Clone(value);
 	if (!preserveUndefinedProperties) removeUndefinedProperties(cloned);
-	return cleanCapabilityValueBySchema(schema, cloned);
+	return cleanCapabilityValueBySchema(schema, cloned, []);
 }
 
 function defineTypeBoxCapabilitySchema<Schema extends TSchema>(
