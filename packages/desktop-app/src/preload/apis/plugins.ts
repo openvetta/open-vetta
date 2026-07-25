@@ -1,5 +1,5 @@
 import type { IpcRenderer, IpcRendererEvent } from "electron";
-import { PLUGIN_CAPABILITY_CHANNELS } from "../../shared/plugin-capability-ipc.js";
+import { PLUGIN_CAPABILITY_CHANNELS, PLUGIN_SYSTEM_CHANNELS } from "../../shared/plugin-capability-ipc.js";
 import type { DesktopApi } from "../api.js";
 import { onIpcEvent } from "./helper.js";
 
@@ -181,6 +181,16 @@ export function createPluginsApi(ipc: IpcRenderer): Pick<DesktopApi, "plugins"> 
 						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.SKILL_INSTALLED_SET_ENABLED, sessionId, name, enabled),
 					uninstall: (sessionId, name, type) =>
 						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.SKILL_INSTALLED_UNINSTALL, sessionId, name, type),
+				},
+				pluginSystem: {
+					list: (sessionId) => ipc.invoke(PLUGIN_SYSTEM_CHANNELS.LIST, sessionId),
+					installFromUrl: (sessionId, url) => ipc.invoke(PLUGIN_SYSTEM_CHANNELS.INSTALL_FROM_URL, sessionId, url),
+					installFromPath: (sessionId, path, options) =>
+						ipc.invoke(PLUGIN_SYSTEM_CHANNELS.INSTALL_FROM_PATH, sessionId, path, options),
+					uninstall: (sessionId, id) => ipc.invoke(PLUGIN_SYSTEM_CHANNELS.UNINSTALL, sessionId, id),
+					setEnabled: (sessionId, id, enabled) =>
+						ipc.invoke(PLUGIN_SYSTEM_CHANNELS.SET_ENABLED, sessionId, id, enabled),
+					reload: (sessionId, id) => ipc.invoke(PLUGIN_SYSTEM_CHANNELS.RELOAD, sessionId, id),
 				},
 				shortcuts: {
 					getSettings: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.SHORTCUT_SETTINGS_GET, sessionId),

@@ -8,6 +8,7 @@ import type {
 	PluginInstallOptions,
 	PluginPermission,
 } from "../../preload/api-types/plugins.js";
+import { PLUGIN_SYSTEM_CHANNELS } from "../../shared/plugin-capability-ipc.js";
 import { recordAppMonitorEvent } from "../app-monitor/app-monitor-service.js";
 import { getDesktopCapabilityHost } from "../capabilities/capability-host.js";
 import { getAppLogger } from "../logger.js";
@@ -365,14 +366,109 @@ function countRemoved(previous: readonly string[], next: readonly string[]): num
 	return previous.filter((item) => !after.has(item)).length;
 }
 
+async function listVisiblePlugins(): Promise<InstalledPlugin[]> {
+	const mode = (await readDesktopConfig()).agentMode ?? "work";
+	return listPlugins().filter((plugin) => pluginVisibleInAgentMode(plugin, mode));
+}
+
+async function installFromUrl(url: unknown, options: unknown): Promise<InstalledPlugin> {
+	if (typeof url !== "string" || url.trim().length === 0) {
+		throw new Error("Invalid plugin URL");
+	}
+	const plugin = await installPluginFromUrl(url.trim(), asOptions(options));
+	recordPluginResourceEvent({
+		plugin,
+		operation: isFreshPluginInstall(plugin) ? "installed" : "updated",
+	});
+	refreshAgentPlugins();
+	return plugin;
+}
+
+async function installFromPath(path: unknown, options: unknown): Promise<InstalledPlugin> {
+	if (typeof path !== "string" || path.trim().length === 0) {
+		throw new Error("Invalid plugin path");
+	}
+	const plugin = await installPluginFromPath(path.trim(), asOptions(options));
+	recordPluginResourceEvent({
+		plugin,
+		operation: isFreshPluginInstall(plugin) ? "installed" : "updated",
+	});
+	refreshAgentPlugins();
+	return plugin;
+}
+
+function uninstallInstalledPlugin(pluginActionService: PluginActionService, id: unknown): void {
+	const pluginId = asPluginId(id);
+	const plugin = listPlugins().find((candidate) => candidate.id === pluginId);
+	// 卸载前停掉 dev 热更新（vite watch 子进程 + dist 监听）。
+	stopPluginDevWatch(pluginId);
+	uninstallPlugin(pluginId);
+	pluginActionService.clear(pluginId);
+	refreshAgentPlugins();
+	if (plugin) recordPluginResourceEvent({ plugin, operation: "uninstalled" });
+}
+
+function setInstalledPluginEnabled(
+	pluginActionService: PluginActionService,
+	id: unknown,
+	enabled: unknown,
+): InstalledPlugin {
+	const pluginId = asPluginId(id);
+	// 禁用即停 dev 热更新：否则被禁用的插件仍常驻 vite watch，且每次保存都触发全表重载。
+	if (enabled !== true) stopPluginDevWatch(pluginId);
+	const plugin = setPluginEnabled(pluginId, enabled === true);
+	if (!plugin.enabled) pluginActionService.clear(pluginId);
+	refreshAgentPlugins();
+	recordPluginResourceEvent({ plugin, operation: plugin.enabled ? "enabled" : "disabled" });
+	return plugin;
+}
+
+function grantInstalledPluginPermissions(id: unknown, permissions: unknown): InstalledPlugin {
+	const pluginId = asPluginId(id);
+	const previous = listPlugins().find((candidate) => candidate.id === pluginId)?.grantedPermissions ?? [];
+	const plugin = grantPluginPermissions(pluginId, asPermissions(permissions));
+	refreshAgentPlugins();
+	recordPluginResourceEvent({
+		plugin,
+		operation: "permissions-granted",
+		permissionCount: countAdded(previous, plugin.grantedPermissions),
+	});
+	return plugin;
+}
+
+function reloadInstalledPlugin(id: unknown): InstalledPlugin {
+	const plugin = reloadPlugin(asPluginId(id));
+	refreshAgentPlugins();
+	recordPluginResourceEvent({ plugin, operation: "reloaded" });
+	return plugin;
+}
+
+async function installOfficialPluginFromPath(
+	pluginActionService: PluginActionService,
+	path: unknown,
+	options: unknown,
+): Promise<InstalledPlugin> {
+	const normalized = asOptions(options);
+	const enable = normalized?.enable !== false;
+	let plugin = await installFromPath(path, {
+		source: "archive",
+		grantedPermissions: normalized?.grantedPermissions,
+		enable,
+	});
+	if (
+		(!normalized?.grantedPermissions || normalized.grantedPermissions.length === 0) &&
+		plugin.permissions.length > 0
+	) {
+		plugin = grantInstalledPluginPermissions(plugin.id, plugin.permissions);
+	}
+	return setInstalledPluginEnabled(pluginActionService, plugin.id, enable);
+}
+
 export function registerPluginsIpc(pluginActionService: PluginActionService): () => void {
 	const capabilityAdapter = getDesktopCapabilityHost().adapters.plugin;
 	// 插件级 agent_mode 硬闸的 renderer 侧：白名单外的插件对渲染层完全不可见
 	// （工作台列表 + UI 贡献 + bundle 均不出现）。见 ADR-0046。
-	ipcMain.handle("vetta:plugins:list", async () => {
-		const mode = (await readDesktopConfig()).agentMode ?? "work";
-		return listPlugins().filter((plugin) => pluginVisibleInAgentMode(plugin, mode));
-	});
+	ipcMain.handle("vetta:plugins:list", () => listVisiblePlugins());
 	ipcMain.handle("vetta:plugins:install-from-archive", async (_event, archiveBuffer: unknown, options: unknown) => {
 		const plugin = await installPluginFromArchive(asArchiveBuffer(archiveBuffer), asOptions(options));
 		recordPluginResourceEvent({
@@ -381,31 +477,12 @@ export function registerPluginsIpc(pluginActionService: PluginActionService): ()
 		});
 		return plugin;
 	});
-	ipcMain.handle("vetta:plugins:install-from-url", (_event, url: unknown, options: unknown) => {
-		if (typeof url !== "string" || url.trim().length === 0) {
-			throw new Error("Invalid plugin URL");
-		}
-		return installPluginFromUrl(url.trim(), asOptions(options)).then((plugin) => {
-			recordPluginResourceEvent({
-				plugin,
-				operation: isFreshPluginInstall(plugin) ? "installed" : "updated",
-			});
-			refreshAgentPlugins();
-			return plugin;
-		});
-	});
-	ipcMain.handle("vetta:plugins:install-from-path", async (_event, path: unknown, options: unknown) => {
-		if (typeof path !== "string" || path.trim().length === 0) {
-			throw new Error("Invalid plugin path");
-		}
-		const plugin = await installPluginFromPath(path.trim(), asOptions(options));
-		recordPluginResourceEvent({
-			plugin,
-			operation: isFreshPluginInstall(plugin) ? "installed" : "updated",
-		});
-		refreshAgentPlugins();
-		return plugin;
-	});
+	ipcMain.handle("vetta:plugins:install-from-url", (_event, url: unknown, options: unknown) =>
+		installFromUrl(url, options),
+	);
+	ipcMain.handle("vetta:plugins:install-from-path", (_event, path: unknown, options: unknown) =>
+		installFromPath(path, options),
+	);
 	ipcMain.handle("vetta:plugins:register-mode-gate", (_event, id: unknown) => {
 		registerPluginModeGate(asPluginId(id));
 		refreshAgentPlugins();
@@ -414,38 +491,15 @@ export function registerPluginsIpc(pluginActionService: PluginActionService): ()
 		setPluginContributionMode(asPluginId(id), active === true);
 		refreshAgentPlugins();
 	});
-	ipcMain.handle("vetta:plugins:uninstall", (_event, id: unknown) => {
-		const pluginId = asPluginId(id);
-		const plugin = listPlugins().find((candidate) => candidate.id === pluginId);
-		// 卸载前停掉 dev 热更新（vite watch 子进程 + dist 监听）。
-		stopPluginDevWatch(pluginId);
-		uninstallPlugin(pluginId);
-		pluginActionService.clear(pluginId);
-		refreshAgentPlugins();
-		if (plugin) recordPluginResourceEvent({ plugin, operation: "uninstalled" });
-	});
-	ipcMain.handle("vetta:plugins:set-enabled", (_event, id: unknown, enabled: unknown) => {
-		const pluginId = asPluginId(id);
-		// 禁用即停 dev 热更新：否则被禁用的插件仍常驻 vite watch，且每次保存都触发全表重载。
-		if (enabled !== true) stopPluginDevWatch(pluginId);
-		const plugin = setPluginEnabled(pluginId, enabled === true);
-		if (!plugin.enabled) pluginActionService.clear(pluginId);
-		refreshAgentPlugins();
-		recordPluginResourceEvent({ plugin, operation: plugin.enabled ? "enabled" : "disabled" });
-		return plugin;
-	});
-	ipcMain.handle("vetta:plugins:grant-permissions", (_event, id: unknown, permissions: unknown) => {
-		const pluginId = asPluginId(id);
-		const previous = listPlugins().find((candidate) => candidate.id === pluginId)?.grantedPermissions ?? [];
-		const plugin = grantPluginPermissions(pluginId, asPermissions(permissions));
-		refreshAgentPlugins();
-		recordPluginResourceEvent({
-			plugin,
-			operation: "permissions-granted",
-			permissionCount: countAdded(previous, plugin.grantedPermissions),
-		});
-		return plugin;
-	});
+	ipcMain.handle("vetta:plugins:uninstall", (_event, id: unknown) =>
+		uninstallInstalledPlugin(pluginActionService, id),
+	);
+	ipcMain.handle("vetta:plugins:set-enabled", (_event, id: unknown, enabled: unknown) =>
+		setInstalledPluginEnabled(pluginActionService, id, enabled),
+	);
+	ipcMain.handle("vetta:plugins:grant-permissions", (_event, id: unknown, permissions: unknown) =>
+		grantInstalledPluginPermissions(id, permissions),
+	);
 	ipcMain.handle("vetta:plugins:revoke-permissions", (_event, id: unknown, permissions: unknown) => {
 		const pluginId = asPluginId(id);
 		const previous = listPlugins().find((candidate) => candidate.id === pluginId)?.grantedPermissions ?? [];
@@ -496,11 +550,33 @@ export function registerPluginsIpc(pluginActionService: PluginActionService): ()
 				(options ?? undefined) as PluginCommandRunOptions | undefined,
 			),
 	);
-	ipcMain.handle("vetta:plugins:reload", (_event, id: unknown) => {
-		const plugin = reloadPlugin(asPluginId(id));
-		refreshAgentPlugins();
-		recordPluginResourceEvent({ plugin, operation: "reloaded" });
-		return plugin;
+	ipcMain.handle("vetta:plugins:reload", (_event, id: unknown) => reloadInstalledPlugin(id));
+	ipcMain.handle(PLUGIN_SYSTEM_CHANNELS.LIST, (_event, sessionId: unknown) => {
+		capabilityAdapter.assertOfficialSession(asPluginId(sessionId));
+		return listVisiblePlugins();
+	});
+	ipcMain.handle(PLUGIN_SYSTEM_CHANNELS.INSTALL_FROM_URL, (_event, sessionId: unknown, url: unknown) => {
+		capabilityAdapter.assertOfficialSession(asPluginId(sessionId));
+		return installFromUrl(url, undefined);
+	});
+	ipcMain.handle(
+		PLUGIN_SYSTEM_CHANNELS.INSTALL_FROM_PATH,
+		(_event, sessionId: unknown, path: unknown, options: unknown) => {
+			capabilityAdapter.assertOfficialSession(asPluginId(sessionId));
+			return installOfficialPluginFromPath(pluginActionService, path, options);
+		},
+	);
+	ipcMain.handle(PLUGIN_SYSTEM_CHANNELS.UNINSTALL, (_event, sessionId: unknown, id: unknown) => {
+		capabilityAdapter.assertOfficialSession(asPluginId(sessionId));
+		return uninstallInstalledPlugin(pluginActionService, id);
+	});
+	ipcMain.handle(PLUGIN_SYSTEM_CHANNELS.SET_ENABLED, (_event, sessionId: unknown, id: unknown, enabled: unknown) => {
+		capabilityAdapter.assertOfficialSession(asPluginId(sessionId));
+		return setInstalledPluginEnabled(pluginActionService, id, enabled);
+	});
+	ipcMain.handle(PLUGIN_SYSTEM_CHANNELS.RELOAD, (_event, sessionId: unknown, id: unknown) => {
+		capabilityAdapter.assertOfficialSession(asPluginId(sessionId));
+		return reloadInstalledPlugin(id);
 	});
 	ipcMain.handle("vetta:plugins:dev-watch-start", (_event, id: unknown, projectDir: unknown) => {
 		const pluginId = asPluginId(id);
@@ -706,6 +782,7 @@ export function registerPluginsIpc(pluginActionService: PluginActionService): ()
 		ipcMain.removeHandler("vetta:plugins:storage:put-blob");
 		ipcMain.removeHandler("vetta:plugins:storage:read-blob");
 		ipcMain.removeHandler("vetta:plugins:storage:get-blob-ref");
+		for (const channel of Object.values(PLUGIN_SYSTEM_CHANNELS)) ipcMain.removeHandler(channel);
 		pluginActionService.dispose();
 	};
 }

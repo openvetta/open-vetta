@@ -554,6 +554,7 @@ describe("PluginCapabilityAdapter", () => {
 		});
 		const sessionId = adapter.openSession("official");
 
+		expect(() => adapter.assertOfficialSession(sessionId)).not.toThrow();
 		expect(access.sessions[0]?.grants.map((grant) => grant.capabilityId)).toEqual([
 			...Object.values(DOMAIN_AGENT_SETTINGS_CAPABILITIES).map((capability) => capability.id),
 			...Object.values(DOMAIN_GENERAL_SETTINGS_CAPABILITIES).map((capability) => capability.id),
@@ -701,6 +702,9 @@ describe("PluginCapabilityAdapter", () => {
 		});
 
 		official = false;
+		expect(() => adapter.assertOfficialSession(sessionId)).toThrowError(
+			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
+		);
 		expect(() => adapter.getAgentExperimental(sessionId)).toThrowError(
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
@@ -754,6 +758,9 @@ describe("PluginCapabilityAdapter", () => {
 		const sessionId = adapter.openSession("community");
 
 		expect(access.sessions[0]?.grants).toEqual([]);
+		expect(() => adapter.assertOfficialSession(sessionId)).toThrowError(
+			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
+		);
 		expect(() => adapter.getAgentExperimental(sessionId)).toThrowError(
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);

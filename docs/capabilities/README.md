@@ -633,11 +633,11 @@ window.vetta.capabilities.invoke({
 - 官方插件的应用更新管理已迁移为 `PluginOfficialApi updater facade -> Preload/IPC 桥接 -> Plugin Adapter -> AccessSession -> Domain Updater Capability -> UpdaterService`；状态与当前版本查询、检查、下载、安装、稍后处理和取消共七个操作分别使用精确 Grant，原 Updater IPC 与 Provider 共用同一个服务实例，Desktop UI 的状态事件仍保留为内部订阅通道。
 - 官方插件的技能管理已迁移为 `PluginOfficialApi skills facade -> Preload/IPC 桥接 -> Plugin Adapter -> AccessSession -> Domain Skill Capability -> SkillService`；技能发现、已安装清单、启停和卸载分别使用精确 Grant，原 Skills IPC 与 Provider 共用同一个服务单例，市场安装和自定义导入仍保留在原系统流程中。
 - 官方插件的快捷键管理已迁移为 `PluginOfficialApi shortcuts facade -> Preload/IPC 桥接 -> Plugin Adapter -> AccessSession -> Domain Shortcut/Quick Panel Capability -> ShortcutService`；绑定查询、设置、单项重置、全部重置、快捷面板触发键和发送后行为分别使用精确 Grant，原 Config/Quick Panel IPC 与 Provider 共用同一个服务单例。同步的动作目录仍由 Plugin 系统 facade 从宿主共享的静态应用目录派生，不进入能力契约。
+- `PluginOfficialApi.plugins` 属于 Plugin 系统自己的安装、启停、卸载和重载业务，不定义为 Domain Capability；当前通过绑定 `capabilitySessionId` 的 Plugin System IPC 调用，宿主侧 Plugin Adapter 在每次操作前重新校验 Session 和 official 状态，再复用 Desktop 插件管理副作用。
 - Plugin Action provider 的调用边界已有回归测试：Action caller 的来源、request id 和授权上下文不会转发给 provider；provider 被禁用后调用立即被拒绝。Agent 设置、通用设置、IM 桥接、模型配置、MCP 配置、项目、下载、调度、Webhook、知识库、批量任务、应用更新、技能管理和快捷键管理相关 Action 最终只使用该 Plugin 自己的 Capability Session。
 
 尚未迁移：
 
-- `PluginOfficialApi.plugins` 属于 Plugin 系统自己的安装、启停、卸载和重载业务，不应定义为 Domain Capability；后续需要改为由宿主侧 Plugin Adapter 使用绑定 Session 完成 official 校验，再调用现有 Plugin 管理服务。
 - `PluginOfficialApi.appearance` 的主题目录、DOM 状态、Jotai 和 localStorage 操作属于 renderer host 能力，不能通过主进程反向调用 renderer 强行接入当前 Capability Host；后续需要先建立独立的 renderer capability provider/host 边界，再迁移外观 facade。系统原生主题与语言可在该边界确定后拆为独立能力。
 - `PluginOfficialApi.navigation` 的目录解析与页面跳转同样位于 renderer；应在 renderer host 边界稳定后判断哪些操作保留为 Plugin 系统 facade，哪些操作提升为稳定的应用领域能力。
 - 后续新引入、且确实需要跨系统复用的基础能力与领域能力。
