@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CAPABILITY_ERROR_CODES, CAPABILITY_PREFIXES } from "../../src/contracts.js";
-import { DOMAIN_UPDATER_CAPABILITIES, UPDATER_PHASES } from "../../src/domain.js";
+import { DOMAIN_UPDATER_CAPABILITIES, DOMAIN_UPDATER_CAPABILITY_CATALOG, UPDATER_PHASES } from "../../src/domain.js";
 
 describe("updater domain capabilities", () => {
 	it("uses one stable id per updater operation", () => {
@@ -25,6 +25,7 @@ describe("updater domain capabilities", () => {
 				downloadedBytes: 5,
 				totalBytes: 10,
 				pendingInstall: false,
+				ignored: true,
 			}),
 		).toEqual({
 			phase: UPDATER_PHASES.DOWNLOADING,
@@ -43,5 +44,36 @@ describe("updater domain capabilities", () => {
 				pendingInstall: false,
 			}),
 		).toThrowError(expect.objectContaining({ code: CAPABILITY_ERROR_CODES.INVALID_OUTPUT }));
+		expect(() =>
+			DOMAIN_UPDATER_CAPABILITIES.GET_STATE.parseOutput({
+				phase: UPDATER_PHASES.DOWNLOADING,
+				currentVersion: "1.0.0",
+				downloadedBytes: -1,
+				pendingInstall: false,
+			}),
+		).toThrowError(expect.objectContaining({ code: CAPABILITY_ERROR_CODES.INVALID_OUTPUT }));
+		expect(() => DOMAIN_UPDATER_CAPABILITIES.CHECK.parseInput({ force: true })).toThrowError(
+			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.INVALID_INPUT }),
+		);
+		expect(() => DOMAIN_UPDATER_CAPABILITIES.INSTALL.parseOutput(null)).toThrowError(
+			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.INVALID_OUTPUT }),
+		);
+	});
+
+	it("publishes updater constraints in its catalog", () => {
+		expect(DOMAIN_UPDATER_CAPABILITY_CATALOG).toHaveLength(7);
+		expect(DOMAIN_UPDATER_CAPABILITY_CATALOG[0]?.outputSchema).toMatchObject({
+			type: "object",
+			additionalProperties: false,
+			required: ["phase", "currentVersion", "pendingInstall"],
+			properties: {
+				progress: { type: "number", minimum: 0, maximum: 1 },
+				downloadedBytes: { type: "number", minimum: 0 },
+				totalBytes: { type: "number", minimum: 0 },
+			},
+		});
+		expect(DOMAIN_UPDATER_CAPABILITY_CATALOG[1]?.outputSchema).toEqual({ type: "string" });
+		expect(DOMAIN_UPDATER_CAPABILITY_CATALOG[4]?.outputSchema).toBe(false);
+		expect(() => JSON.stringify(DOMAIN_UPDATER_CAPABILITY_CATALOG)).not.toThrow();
 	});
 });

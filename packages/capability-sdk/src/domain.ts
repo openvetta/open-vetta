@@ -194,6 +194,7 @@ export {
 } from "./domain/skill.js";
 export {
 	DOMAIN_UPDATER_CAPABILITIES,
+	DOMAIN_UPDATER_CAPABILITY_CATALOG,
 	UPDATER_PHASES,
 	type UpdaterPhase,
 	type UpdaterState,
