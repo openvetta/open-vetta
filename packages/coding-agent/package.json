@@ -35,6 +35,10 @@
 		"./core/resolve-config-value.js": {
 			"types": "./dist/core/resolve-config-value.d.ts",
 			"import": "./dist/core/resolve-config-value.js"
+		},
+		"./core/host/executable-resolver.js": {
+			"types": "./dist/core/host/executable-resolver.d.ts",
+			"import": "./dist/core/host/executable-resolver.js"
 		}
 	},
 	"files": [

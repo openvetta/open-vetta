@@ -98,6 +98,10 @@ Hosts that manage downloads can implement the same Port by delegating to their
 own downloader. The resolver is called at tool execution time, so a host can
 replace or remove a binary without rebuilding the Runtime Snapshot.
 
+The legacy coding-agent downloader is exposed as a dedicated adapter at
+`@vetta/coding-agent/core/host/executable-resolver.js`; importing this adapter
+does not make Runtime Tools depend on coding-agent.
+
 The registry supports dynamic `register()` and `unregister()`. The Feature keeps
 a long-lived Model Call Contribution Provider. Before every LLM call it reads
 the latest versioned membership snapshot, so a registry change does not

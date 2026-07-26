@@ -25,6 +25,7 @@
 | [15-runtime-find.md](./08-implementation-log/15-runtime-find.md) | Find 行为兼容、空 scope 与显式 Tool Loop 接入 |
 | [16-runtime-glob.md](./08-implementation-log/16-runtime-glob.md) | Glob 行为兼容、绝对模式与 `.gitignore` Tool Loop 接入 |
 | [17-host-executable-resolver.md](./08-implementation-log/17-host-executable-resolver.md) | 宿主 `rg`/`fd` 解析 Port 与 Runtime 注入 |
+| [18-coding-agent-executable-adapter.md](./08-implementation-log/18-coding-agent-executable-adapter.md) | 旧 `ensureTool` 到 Resolver Port 的宿主适配 |
 
 ## 维护约定
 
