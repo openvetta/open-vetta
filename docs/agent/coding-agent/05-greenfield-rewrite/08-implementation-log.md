@@ -21,6 +21,7 @@
 | [11-coding-tool-catalog.md](./08-implementation-log/11-coding-tool-catalog.md) | 动态 Coding Tool Catalog 与 Feature 解耦 |
 | [12-model-call-frame.md](./08-implementation-log/12-model-call-frame.md) | Model Call Frame 与实时能力校验 |
 | [13-capability-lifecycle.md](./08-implementation-log/13-capability-lifecycle.md) | 稳定能力绑定、生命周期与在途执行仲裁 |
+| [14-runtime-grep.md](./08-implementation-log/14-runtime-grep.md) | Grep 行为兼容、独立 Runtime 实现与 Tool Loop 接入 |
 
 ## 维护约定
 

@@ -21,6 +21,7 @@ import {
 	createCodingToolsFeature,
 	createCurrentTimeTool,
 	createCurrentTimeToolRegistration,
+	createGrepToolRegistration,
 	createLsToolRegistration,
 	createReadToolRegistration,
 	InMemoryCodingToolRegistry,
@@ -497,6 +498,57 @@ describe("greenfield coding tools feature", () => {
 				content: [{ type: "text", text: "alpha.txt" }],
 			});
 			expect(await resolveTools(compiled.snapshot)).toEqual(["ls"]);
+			await compiled.dispose();
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	});
+
+	it("runs the migrated grep tool through the real agent-core tool loop", async () => {
+		const directory = mkdtempSync(join(tmpdir(), "runtime-tools-feature-grep-"));
+		try {
+			writeFileSync(join(directory, "message.txt"), "before\nneedle line\nafter");
+			const registry = new InMemoryCodingToolRegistry([createGrepToolRegistration(directory, { rgPath: "rg" })]);
+			const compiled = await compileCatalogSnapshot(registry);
+			const responses = [
+				assistantMessage(
+					[
+						{
+							type: "toolCall",
+							id: "tool-call-grep",
+							name: "grep",
+							arguments: { pattern: "needle", path: "message.txt" },
+						},
+					],
+					"toolUse",
+				),
+				assistantMessage([{ type: "text", text: "Search complete." }]),
+			];
+			let responseIndex = 0;
+			const engine = new AgentCoreTurnEngine({
+				model: model(),
+				streamFn: () => {
+					const response = responses[responseIndex];
+					responseIndex += 1;
+					if (!response) throw new Error("Missing recorded response");
+					return new RecordedAssistantStream(response);
+				},
+			});
+
+			const events = await collectEngineEvents(engine, compiled.snapshot);
+			const toolResult = events.find(
+				(
+					event,
+				): event is Extract<TurnEngineEvent, { type: "message" }> & {
+					readonly message: Extract<Message, { role: "toolResult" }>;
+				} => event.type === "message" && event.message.role === "toolResult",
+			)?.message;
+
+			expect(await resolveTools(compiled.snapshot)).toEqual(["grep"]);
+			expect(toolResult).toMatchObject({
+				isError: false,
+				content: [{ type: "text", text: expect.stringMatching(/^message\.txt:2:[0-9a-z]{4}: needle line$/) }],
+			});
 			await compiled.dispose();
 		} finally {
 			rmSync(directory, { recursive: true, force: true });

@@ -41,6 +41,18 @@ export {
 	createCurrentTimeToolRegistration,
 } from "./tools/current-time/index.js";
 export {
+	createGrepTool,
+	createGrepToolRegistration,
+	GREP_TOOL_CATEGORY,
+	GREP_TOOL_DESCRIPTION,
+	GREP_TOOL_SCOPES,
+	type GrepOperations,
+	type GrepToolDetails,
+	type GrepToolInput,
+	GrepToolInputSchema,
+	type GrepToolOptions,
+} from "./tools/grep/index.js";
+export {
 	createLsTool,
 	createLsToolRegistration,
 	LS_TOOL_CATEGORY,

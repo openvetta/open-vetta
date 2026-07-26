@@ -135,6 +135,17 @@ registration.scopeUse = []
 该工具就跳过执行合同。排序、目录后缀、dotfile、entry limit、字节截断、错误、自定义
 Operations 和取消时点都必须独立验证。
 
+`grep` 的迁移合同至少覆盖：
+
+- 单文件和目录搜索的相对路径输出。
+- regex、literal、ignoreCase、glob、context 和 limit。
+- `path:line:hash: content` 匹配行与 `path-line:hash- context` 上下文行。
+- `.gitignore`、隐藏文件、空结果和路径不存在错误。
+- 匹配数量、总字节数和单行长度限制及 details/notices。
+- ripgrep 进程启动失败、提前取消和执行中取消。
+- `GrepOperations` 的远程文件读取替换，不把 SSH、文件系统或下载器实现带入 Runtime。
+- 通过真实 Agent Core Tool Loop 执行，而不是只直接调用 `execute()`。
+
 动态 Tool Catalog 还必须覆盖：
 
 - 初始注册排序确定且成员快照冻结。

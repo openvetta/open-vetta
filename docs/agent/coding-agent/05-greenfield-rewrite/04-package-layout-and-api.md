@@ -57,6 +57,11 @@ packages/runtime-tools/src/
         description.ts
         registration.ts
         index.ts
+      grep/
+        grep-tool.ts
+        description.ts
+        registration.ts
+        index.ts
       ls/
         ls-tool.ts
         description.ts
