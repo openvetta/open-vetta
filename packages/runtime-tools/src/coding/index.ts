@@ -33,6 +33,15 @@ export {
 	type CommandToolName,
 } from "./shared/command-tool.js";
 export {
+	type CommandSpawnContext,
+	type CommandSpawnHook,
+	createForegroundCommandToolExecutor,
+	DEFAULT_COMMAND_BLOCK_UNTIL_SEC,
+	type ForegroundCommandExecutorOptions,
+	type ForegroundCommandOperations,
+	type ForegroundCommandToolDetails,
+} from "./shared/foreground-command-executor.js";
+export {
 	CODING_TOOL_SCOPES,
 	type CodingToolActivation,
 	type CodingToolCategory,

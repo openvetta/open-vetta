@@ -1,8 +1,8 @@
-import { createLegacyCommandToolExecutor } from "@vetta/coding-agent/adapters/runtime-tools/command-executor.js";
 import {
+	createCodingAgentForegroundCommandHost,
 	createToolExecutableResolver,
 	type EnsureTool,
-} from "@vetta/coding-agent/adapters/runtime-tools/executable-resolver.js";
+} from "@vetta/coding-agent/host";
 import {
 	type AgentFeatureDefinition,
 	type AgentProfile,
@@ -19,6 +19,7 @@ import {
 	createCodingToolsFeature,
 	createCurrentTimeToolRegistration,
 	createFindToolRegistration,
+	createForegroundCommandToolExecutor,
 	createGlobToolRegistration,
 	createGrepToolRegistration,
 	createLsToolRegistration,
@@ -51,7 +52,8 @@ export function createCodingToolsRuntimeComposition(
 	options: CodingToolsRuntimeCompositionOptions = {},
 ): CodingToolsRuntimeComposition {
 	const cwd = options.cwd ?? process.cwd();
-	const commandExecutor = options.commandExecutor ?? createLegacyCommandToolExecutor();
+	const commandExecutor =
+		options.commandExecutor ?? createForegroundCommandToolExecutor(createCodingAgentForegroundCommandHost(cwd));
 	const executableResolver = createToolExecutableResolver(options.ensureTool);
 	const registry = new InMemoryCodingToolRegistry([
 		createCurrentTimeToolRegistration(),

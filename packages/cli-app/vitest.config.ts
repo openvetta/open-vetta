@@ -1,28 +1,24 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
+const codingAgentSrc = fileURLToPath(new URL("../coding-agent/src", import.meta.url));
+
 export default defineConfig({
 	resolve: {
 		alias: [
+			// Stable public host surface (package exports "./host")
 			{
-				find: /^@vetta\/coding-agent\/adapters\/runtime-tools\/command-executor\.js$/,
-				replacement: fileURLToPath(
-					new URL("../coding-agent/src/adapters/runtime-tools/command-executor.ts", import.meta.url),
-				),
+				find: "@vetta/coding-agent/host",
+				replacement: fileURLToPath(new URL("../coding-agent/src/adapters/runtime-tools/index.ts", import.meta.url)),
 			},
+			// Deep imports use ESM ".js" suffix; map to monorepo TypeScript sources
 			{
-				find: /^@vetta\/coding-agent\/adapters\/runtime-tools\/executable-resolver\.js$/,
-				replacement: fileURLToPath(
-				new URL("../coding-agent/src/adapters/runtime-tools/executable-resolver.ts", import.meta.url),
-				),
+				find: /^@vetta\/coding-agent\/(.+)\.js$/,
+				replacement: `${codingAgentSrc}/$1.ts`,
 			},
 			{
 				find: "@vetta/coding-agent",
 				replacement: fileURLToPath(new URL("../coding-agent/src/index.ts", import.meta.url)),
-			},
-			{
-				find: "@vetta/coding-agent/",
-				replacement: fileURLToPath(new URL("../coding-agent/src/", import.meta.url)),
 			},
 			{
 				find: "@vetta/runtime-core/kernel",

@@ -34,6 +34,7 @@
 | [24-tool-profile-differential-gate.md](./08-implementation-log/24-tool-profile-differential-gate.md) | 旧新 Tool Profile 差分门禁与兼容导出审计 |
 | [25-capability-aware-tool-activation.md](./08-implementation-log/25-capability-aware-tool-activation.md) | Tool requires/capabilities 激活合同 |
 | [26-command-tool-port-and-compatibility-adapter.md](./08-implementation-log/26-command-tool-port-and-compatibility-adapter.md) | Bash/Shell Port、兼容适配器与 Profile 接入 |
+| [27-independent-foreground-command-executor.md](./08-implementation-log/27-independent-foreground-command-executor.md) | 独立 Runtime 前台命令执行器与宿主进程适配 |
 
 ## 维护约定
 

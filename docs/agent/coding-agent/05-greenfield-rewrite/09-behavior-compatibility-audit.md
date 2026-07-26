@@ -240,7 +240,7 @@ Runtime 提供的本地 Adapter 只检查受管 bin 目录和 PATH，不下载�
 不会进入 Runtime Tool。当前已在 `coding-agent` 增加
 `createToolExecutableResolver`，以 `silent: true` 委托旧 `ensureTool`，形成不改变旧下载
 行为的结构适配。适配器位于 `adapters/runtime-tools`，并通过
-`@vetta/coding-agent/adapters/runtime-tools/executable-resolver.js` 作为组合层入口提供；
+`@vetta/coding-agent/host` 作为组合层稳定入口提供；
 旧的 `core/host` 子路径保留为迁移期转发入口。
 
 `grep/find` 在注入解析器时于每次执行解析 `rg`/`fd`，因此宿主可以在运行时替换或移除可执行
@@ -385,44 +385,51 @@ Runtime glob 直接声明 `glob` 和 `ignore`，不再通过 `coding-agent` 的�
 这只是命令执行迁移的前置合同；`bash/shell/task_output/task_stop` 尚未标记为 Runtime
 迁移完成。
 
-### 2.10 `bash/shell` 命令执行 Port 与兼容适配器
+### 2.10 `bash/shell` 命令执行 Port 与独立前台执行器
 
 旧 `bash` 不是单纯的 `spawn` 包装。它同时拥有命令前缀、环境覆盖、路径修正、输出更新、
 尾部截断、完整输出文件、超时/取消、受保护目录检查、后台任务和自动转后台。直接在
 Runtime Tools 重写其中一部分会形成新的功能实现，而不是架构迁移。
 
-本阶段采用 Anti-corruption Adapter：
+迁移先以 Anti-corruption Adapter 建立完整 Port，再由差分合同把前台行为移入 Runtime：
 
 ```text
 Runtime bash/shell Definition + Registration
   -> CommandToolExecutor Port
-  -> coding-agent LegacyCommandToolExecutor Adapter
-  -> 现有 bash/shell 完整执行行为
+  -> Runtime ForegroundCommandExecutor
+  -> ForegroundCommandOperations Port
+  -> coding-agent Local Process Adapter
 ```
 
 Runtime Tools 现在独立拥有：
 
 - bash/shell 各自的工具目录、TypeBox Schema、TypeScript description 和 Registration。
 - `CommandToolExecutor` Port，不导入 coding-agent。
+- 命令前缀、spawn context、路径修正、流式 update、GB18030 fallback、尾部截断、完整输出临时
+  文件、退出码与超时/取消错误文本。
+- 受保护 skill/scene 目录的前后快照、变化检测和告警文本。
 - Windows 默认 shell、其他平台默认 bash 的互斥 scope。
 - Runtime 执行上下文到 Port 的转发。
 
-coding-agent 的适配器负责将 Port 请求映射到现有 `createBashTool/createShellTool`，因此命令
-前缀、spawn hook、后台任务、路径修正、输出截断、取消和保护目录行为没有被重新实现或删减。
-CLI 过渡 Composition Root 已注册 bash 和 shell，但旧产品 CLI 入口仍未切换。
+coding-agent 的新宿主适配器只负责本地进程能力：选择 shell、补齐受管 bin 环境、加入
+PowerShell UTF-8 前缀、spawn 子进程以及在超时/取消时终止进程树。CLI 过渡 Composition Root
+默认组合该 Adapter 与 Runtime 前台执行器，不再调用旧 `createBashTool/createShellTool`。
+`LegacyCommandToolExecutor` 仍作为迁移期兼容入口保留；旧产品 CLI 入口也仍未切换。
 
 兼容性证据：
 
 - bash/shell 的 name、label、完整 description、TypeBox Schema、category 和当前平台 scope
   与旧工具逐字段相等。
-- 成功输出、details、流式 update、非零退出错误和无后台能力时的错误逐项比较。
+- 成功输出、details、流式 update、命令前缀、spawn hook 和环境覆盖逐项比较。
+- 非零退出、显式超时、取消和无后台能力时的错误逐项比较。
+- CJK 空格路径修正、2000 行尾部截断和受保护目录告警逐项比较。
 - Windows/Unix scope 矩阵验证同一时刻只默认暴露一个命令工具。
-- 真实本地前台命令通过 Runtime Definition、Command Port 和旧适配器执行成功。
+- 真实本地前台命令通过 Runtime Definition、独立前台执行器和本地进程 Adapter 执行成功。
 - 7 个旧会话场景的 Composition Root Tool Profile 差分继续为零。
 
-该阶段完成的是命令工具的 Runtime 边界和过渡接线，不代表旧执行实现已经删除。下一阶段必须
-用参数化合同逐步替换兼容适配器内部；在超时、取消、截断、路径修正、保护目录和后台任务
-全部差分通过前，不能把 bash/shell 标记为独立 Runtime 实现。
+该阶段完成的是前台路径，不代表整个 bash/shell 已迁移。`run_in_background`、前台命令软等待后
+自动转后台、任务通知以及 `task_output/task_stop` 仍由旧后台任务体系承载，不能并入当前前台
+Operations。完成后台服务 Port 和相同差分门禁前，旧 bash/shell 完整实现仍不可删除。
 
 ## 3. 已实施模块审计
 
@@ -432,9 +439,9 @@ CLI 过渡 Composition Root 已注册 bash 和 shell，但旧产品 CLI 入口�
 | `read` Tool | 独立实现、旧新行为合同和真实 Tool Loop 已通过 | 独立可执行宿主的 Photon WASM 产物打包尚未验证 | 工具模块迁移完成；生产宿主不可切换 |
 | `ls` Tool | 独立实现、旧新行为合同、空 scope 和 Feature 显式激活 Tool Loop 已通过 | 生产宿主尚未装配新 Profile | 工具模块迁移完成；默认不激活 |
 | `glob` Tool | 独立实现、绝对 pattern、`.gitignore` 和真实 Tool Loop 合同已通过 | 生产宿主尚未装配新 Profile | 工具模块迁移完成；全 scope 暴露保持旧语义 |
-| `bash/shell` Tool | Runtime Definition、Registration、Command Port、旧执行适配器、平台 scope 和过渡 Composition Root 已通过 | 执行行为仍由 coding-agent 兼容适配器提供；独立 Runtime 前台/后台实现尚未迁移 | 架构边界已接入；旧执行实现不可删除 |
+| `bash/shell` Tool | Runtime Definition、Registration、Command Port、独立前台执行器、本地进程 Adapter、平台 scope 和过渡 Composition Root 已通过 | 后台执行、软等待自动转后台、任务通知和 task 工具尚未迁移 | 前台模块迁移完成；旧完整实现仍不可删除 |
 | 宿主可执行文件解析 | Runtime Port、本地 PATH/managed-bin Adapter、grep/find 注入合同、旧 ensureTool 适配、网络/归档合同和 cli-app Composition Root 已通过 | 真实 GitHub 网络、最终独立可执行发布物和完整 Tool Profile 迁移尚未完成；包根兼容导出必须继续保留 | 新 Profile 可并行验证；旧宿主仍不可切换 |
-| Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope/explicit 激活和 requires/capabilities，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；current_time/read/ls/grep/find/glob 已形成独立注册，bash/shell 已通过兼容 Port 注册，全部进入全场景 Profile 差分门禁 | edit/write/tree 等未迁移，bash/shell 独立执行尚未迁移，生产 Profile 尚未切换 | 动态编排边界完成；整体能力未完成 |
+| Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope/explicit 激活和 requires/capabilities，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；current_time/read/ls/grep/find/glob 已形成独立注册，bash/shell 前台路径已独立，全部进入全场景 Profile 差分门禁 | edit/write/tree、命令后台任务等未迁移，生产 Profile 尚未切换 | 动态编排边界完成；整体能力未完成 |
 | `AgentSession` | 新状态机可执行 | 活动 Turn 输入目前拒绝；旧系统具有 queue、follow-up、steering 语义 | 不可切换 |
 | Turn Pipeline | 固定阶段和持久化检查点已实现 | 输入队列、完整观察事件和恢复闭环未完成 | 不可切换 |
 | `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环、每次模型调用刷新 Model Call Frame 已通过 | Kernel 只映射完成消息；旧 UI 需要流式 text/thinking/tool progress 事件 | 不可切换宿主 |
@@ -477,12 +484,12 @@ side effects
 
 ## 5. 下一步
 
-`current_time`、`read`、`ls`、`grep`、`find`、`glob`、bash/shell 兼容 Port、requires/capabilities 和动态注册/激活编排合同已经建立。
+`current_time`、`read`、`ls`、`grep`、`find`、`glob`、bash/shell 独立前台执行、requires/capabilities 和动态注册/激活编排合同已经建立。
 宿主适配器已从 `core/host` 调整到 `adapters/runtime-tools`，并建立了不触发网络的基础
 `ensureTool` 行为合同、下载计划合同、归档安装合同、网络边界合同和 cli-app 过渡
 Composition Root。新旧 Tool Profile 已对全部场景建立差分门禁；runtime-tools 包根兼容导出
-因仍承载未迁移工具而保留。下一阶段应先用差分合同替换 bash/shell 兼容适配器的前台执行，
-再接入后台任务服务和 `task_output/task_stop`；之后迁移 write/edit/tree 并完成 CLI/桌面入口适配，
+因仍承载未迁移工具而保留。下一阶段应为后台任务建立独立 Service Port，迁移显式后台执行、
+软等待自动转后台、任务通知和 `task_output/task_stop`；之后迁移 write/edit/tree 并完成 CLI/桌面入口适配，
 最后根据完整 Profile 差分结果设计兼容入口迁移；真实 GitHub 网络、最终独立可执行发布物和
 其他外部依赖的产物级解析/打包测试仍需单独执行，重点覆盖下载、并发解析、版本锁定、离线
 模式和 Windows/Unix 产物。生产 Profile 接线时由组合根创建 Registry；

@@ -36,17 +36,13 @@
 			"types": "./dist/core/resolve-config-value.d.ts",
 			"import": "./dist/core/resolve-config-value.js"
 		},
+		"./host": {
+			"types": "./dist/adapters/runtime-tools/index.d.ts",
+			"import": "./dist/adapters/runtime-tools/index.js"
+		},
 		"./core/host/executable-resolver.js": {
 			"types": "./dist/core/host/executable-resolver.d.ts",
 			"import": "./dist/core/host/executable-resolver.js"
-		},
-		"./adapters/runtime-tools/executable-resolver.js": {
-			"types": "./dist/adapters/runtime-tools/executable-resolver.d.ts",
-			"import": "./dist/adapters/runtime-tools/executable-resolver.js"
-		},
-		"./adapters/runtime-tools/command-executor.js": {
-			"types": "./dist/adapters/runtime-tools/command-executor.d.ts",
-			"import": "./dist/adapters/runtime-tools/command-executor.js"
 		}
 	},
 	"files": [
