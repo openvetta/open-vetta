@@ -44,12 +44,25 @@ packages/runtime-storage/src/
 
 packages/runtime-tools/src/
   coding/
+    shared/
+      anchors.ts
+      path-resolution.ts
+      text-decoding.ts
+      truncation.ts
     tool-registration.ts
     tools/
       current-time/
         current-time-tool.ts
         description.ts
         registration.ts
+        index.ts
+      read/
+        read-tool.ts
+        description.ts
+        registration.ts
+        image-mime.ts
+        image-resize.ts
+        photon.ts
         index.ts
     coding-tools-feature.ts
     index.ts
@@ -86,6 +99,24 @@ packages/coding-agent/src/
 
 每个工具使用独立 `tools/<tool-name>/` 目录。模型可见描述使用 `description.ts` 导出常量，
 不在工具实现中内联长字符串，也不重复旧实现的 `description.txt -> generated TS` 构建步骤。
+
+工具可以依赖包内纯行为模块，但不能通过共享模块重新形成“工具大全”。当前 read 提取的
+路径解析、文本解码、锚点和截断只包含无状态算法；文件系统、图片解码和 Runtime 合同仍由
+read 自己装配。后续工具只有在确实共享同一行为合同时才复用这些模块。
+
+read 对外暴露两类 Port：
+
+```text
+ReadOperations
+  stat / readFile / detectMime
+
+ReadImageProcessor
+  processImage
+```
+
+默认 Adapter 保持旧文件系统、`file-type` 和 Photon/WASM 行为，测试或其他宿主可以注入实现。
+Port 的目的仅是隔离环境依赖，不允许 Adapter 修改模型可见结果。新实现不从
+`coding-agent` 导入任何生产代码。
 
 工具执行定义与 Coding 产品注册元数据必须分离：
 

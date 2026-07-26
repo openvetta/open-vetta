@@ -21,3 +21,20 @@ export {
 	createCurrentTimeTool,
 	createCurrentTimeToolRegistration,
 } from "./tools/current-time/index.js";
+export {
+	createReadTool,
+	createReadToolRegistration,
+	type ImageResizeFailure,
+	type ImageResizeOptions,
+	type ImageResizeResult,
+	READ_TOOL_CATEGORY,
+	READ_TOOL_DESCRIPTION,
+	READ_TOOL_SCOPES,
+	type ReadImageProcessor,
+	type ReadOperations,
+	type ReadToolDetails,
+	type ReadToolInput,
+	ReadToolInputSchema,
+	type ReadToolOptions,
+	type ResizedImage,
+} from "./tools/read/index.js";

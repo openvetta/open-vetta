@@ -95,6 +95,21 @@ Adapter 只转换调用参数，不修改结果、错误或进度。合同记录
 迁移期间允许测试把旧实现作为行为 Oracle，但新生产源码禁止导入旧包。删除旧代码前，需要把
 差分 fixture 固化为不依赖旧实现的合同期望，保证旧 Oracle 删除后仍能持续防止行为回退。
 
+复杂工具先建立参数化 Behavior Contract，再接入成对差分。以 read 为例：
+
+```text
+Read Behavior Contract
+  <- Legacy Read Adapter（先建立行为基线）
+  <- Runtime Read Adapter（实现后运行同一合同）
+
+Tool Compatibility Contract
+  <- 再比较旧新完整 definition、registration 和 execution observation
+```
+
+Behavior Contract 不能只覆盖纯文本 happy path。read 至少覆盖 UTF-8/GB18030、空文件、相对/
+绝对/`~` 路径、Unicode 与模糊路径、offset/limit、锚点、行/字节截断、图片魔数、默认图片
+处理、关闭缩放、二进制提示、自定义 Read Operations 和取消时点。
+
 ## 6. 上下文策略测试
 
 - 无需压缩时保持消息语义和顺序。

@@ -265,7 +265,7 @@
     },
     "packages/desktop-app": {
       "name": "@vetta/desktop-app",
-      "version": "0.5.9",
+      "version": "0.5.11",
       "dependencies": {
         "@dagrejs/dagre": "^3.0.0",
         "@fontsource-variable/geist": "^5.2.8",
@@ -611,7 +611,7 @@
     },
     "packages/plugins/presets/image-gen": {
       "name": "@vetta/plugin-image-gen",
-      "version": "0.1.10",
+      "version": "0.1.15",
       "devDependencies": {
         "@iconify-json/solar": "^1.2.5",
         "@iconify/tailwind4": "^1.0.6",
@@ -799,9 +799,11 @@
       "name": "@vetta/runtime-tools",
       "version": "0.0.1",
       "dependencies": {
+        "@silvia-odwyer/photon-node": "^0.3.4",
         "@sinclair/typebox": "^0.34.41",
         "@vetta/coding-agent": "workspace:*",
         "@vetta/runtime-core": "workspace:*",
+        "file-type": "^21.1.1",
       },
       "devDependencies": {
         "@types/node": "^22.10.5",

@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { type AssistantMessage, type AssistantMessageEvent, EventStream, type Message, type Model } from "@vetta/ai";
 import {
 	AgentCoreTurnEngine,
@@ -14,6 +17,9 @@ import {
 	createCodingToolsFeature,
 	createCurrentTimeTool,
 	createCurrentTimeToolRegistration,
+	createReadToolRegistration,
+	READ_TOOL_CATEGORY,
+	READ_TOOL_SCOPES,
 	selectCodingToolsForScope,
 } from "../../src/coding/index.js";
 
@@ -96,13 +102,14 @@ function assistantMessage(
 	};
 }
 
-function profile(now: () => Date): AgentProfile {
+function profile(now: () => Date, cwd = process.cwd()): AgentProfile {
 	return {
 		id: "coding",
 		instructions: [],
 		features: [
 			createCodingToolsFeature({
 				scope: "project",
+				cwd,
 				currentTime: { now },
 			}),
 		],
@@ -118,11 +125,11 @@ function profile(now: () => Date): AgentProfile {
 	};
 }
 
-async function compileSnapshot(now: () => Date) {
+async function compileSnapshot(now: () => Date, cwd = process.cwd()) {
 	const compiler = new FeatureCompiler({
 		idGenerator: new SnapshotIdGenerator(),
 	});
-	return compiler.compile(profile(now), new AbortController().signal);
+	return compiler.compile(profile(now, cwd), new AbortController().signal);
 }
 
 async function collectEngineEvents(
@@ -151,6 +158,7 @@ async function collectEngineEvents(
 describe("greenfield coding tools feature", () => {
 	it("keeps scenario exposure metadata outside the runtime tool definition", () => {
 		const registration = createCurrentTimeToolRegistration();
+		const readRegistration = createReadToolRegistration(process.cwd());
 		const projectOnlyRegistration = {
 			...registration,
 			scopeUse: ["project"] as const,
@@ -162,6 +170,10 @@ describe("greenfield coding tools feature", () => {
 		expect(selectCodingToolsForScope([projectOnlyRegistration], "conversation")).toEqual([]);
 		expect(registration.tool).not.toHaveProperty("scopeUse");
 		expect(registration.tool).not.toHaveProperty("category");
+		expect(readRegistration.category).toBe(READ_TOOL_CATEGORY);
+		expect(readRegistration.scopeUse).toEqual(READ_TOOL_SCOPES);
+		expect(readRegistration.tool).not.toHaveProperty("scopeUse");
+		expect(readRegistration.tool).not.toHaveProperty("category");
 	});
 
 	it("provides a deterministic TypeBox-backed current time tool", async () => {
@@ -244,6 +256,7 @@ describe("greenfield coding tools feature", () => {
 		);
 
 		expect(compiled.snapshot.tools.has("current_time")).toBe(true);
+		expect(compiled.snapshot.tools.has("read")).toBe(true);
 		expect(toolResult).toMatchObject({
 			isError: false,
 			content: [{ type: "text", text: "2026-07-26 14:30:45" }],
@@ -254,6 +267,55 @@ describe("greenfield coding tools feature", () => {
 			stopReason: "stop",
 		});
 		await compiled.dispose();
+	});
+
+	it("runs read through the compiled feature and real agent-core tool loop", async () => {
+		const directory = mkdtempSync(join(tmpdir(), "runtime-tools-feature-read-"));
+		try {
+			writeFileSync(join(directory, "message.txt"), "hello from read");
+			const compiled = await compileSnapshot(() => new Date(2026, 6, 26, 14, 30, 45), directory);
+			const responses = [
+				assistantMessage(
+					[
+						{
+							type: "toolCall",
+							id: "tool-call-read",
+							name: "read",
+							arguments: { path: "message.txt" },
+						},
+					],
+					"toolUse",
+				),
+				assistantMessage([{ type: "text", text: "Read complete." }]),
+			];
+			let responseIndex = 0;
+			const engine = new AgentCoreTurnEngine({
+				model: model(),
+				streamFn: () => {
+					const response = responses[responseIndex];
+					responseIndex += 1;
+					if (!response) throw new Error("Missing recorded response");
+					return new RecordedAssistantStream(response);
+				},
+			});
+
+			const events = await collectEngineEvents(engine, compiled.snapshot);
+			const toolResult = events.find(
+				(
+					event,
+				): event is Extract<TurnEngineEvent, { type: "message" }> & {
+					readonly message: Extract<Message, { role: "toolResult" }>;
+				} => event.type === "message" && event.message.role === "toolResult",
+			)?.message;
+
+			expect(toolResult).toMatchObject({
+				isError: false,
+				content: [{ type: "text", text: expect.stringMatching(/^1:[0-9a-z]{4}→hello from read$/) }],
+			});
+			await compiled.dispose();
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
 	});
 
 	it("preserves the legacy schema behavior for additional model arguments", async () => {

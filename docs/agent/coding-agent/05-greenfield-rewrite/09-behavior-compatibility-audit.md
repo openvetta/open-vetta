@@ -60,12 +60,44 @@ Kernel 绑定 Coding 场景词汇，也避免把 Agent Profile ID 错当作会�
 `packages/coding-agent/test/tools.test.ts` 中的 read 行为用例以及路径模糊、图片处理、
 锚点相关测试同时运行在旧新实现上。
 
+现已提取参数化 Read Behavior Contract，并先由旧实现作为 Oracle 运行。基线覆盖：
+
+- 完整定义关键字段、scope 和 category。
+- UTF-8、GB18030、空文件与不存在文件。
+- 相对、绝对、`~`、Unicode 空格、CJK 空格模糊匹配。
+- macOS AM/PM 窄空格、NFD、弯引号及组合路径。
+- offset、limit、行锚点、行数截断、字节截断和 continuation notice。
+- 图片魔数、默认 Photon 处理、关闭自动缩放和伪图片扩展。
+- 已知扩展与无扩展二进制提示。
+- 自定义 Read Operations、调用顺序、提前取消和执行中取消。
+
+合同运行时确认了 Windows 下 `~` 展开会保留 `/` 的旧混合分隔符。该细节暂时作为行为基线
+保留，不能在架构迁移中顺手标准化。
+
+现已在 `runtime-tools/coding/tools/read` 完成独立 Runtime 实现。生产源码不导入旧
+`coding-agent`，路径解析、文本解码、锚点和截断位于包内纯行为模块；文件系统与 MIME 检测
+通过 `ReadOperations` 注入，图片处理通过 `ReadImageProcessor` 注入。默认实现仍使用
+`file-type` 和 Photon/WASM，不以抽象为由删除图片能力。
+
+兼容性证据：
+
+- 旧实现和新实现同时运行同一组 18 项 Read Behavior Contract。
+- 旧新 name、label、完整 description、TypeBox Schema、scope 和 category 完全比较。
+- 锚点、行截断、字节截断和二进制提示执行结果进行逐字节比较。
+- 默认图片处理、关闭自动缩放、伪图片扩展和可注入图片处理器均有测试。
+- 新 read 已通过真实 `AgentCoreTurnEngine` Tool Loop 读取相对路径文件。
+
+新 read 已加入 Greenfield Coding Tools Feature；包根旧 `createReadTool` 和当前生产入口仍
+保持不变。工具模块运行时行为已完成迁移，但独立可执行宿主的 Photon WASM 复制/定位尚未
+进行产物级验证，因此仍是未来生产宿主切换的门禁，不能仅凭模块测试删除旧打包链路。
+
 ## 3. 已实施模块审计
 
 | 模块 | 当前状态 | 与旧行为的差距 | 切换结论 |
 | --- | --- | --- | --- |
 | `current_time` Tool | 定义、执行和注册行为已差分验证 | 无已知 Tool 级差距 | Tool 级迁移完成；Feature 仍不可整体切换 |
-| Coding Tools Feature | 仅贡献 `current_time` | read/edit/write/search/process 等未迁移 | 未完成 |
+| `read` Tool | 独立实现、旧新行为合同和真实 Tool Loop 已通过 | 独立可执行宿主的 Photon WASM 产物打包尚未验证 | 工具模块迁移完成；生产宿主不可切换 |
+| Coding Tools Feature | 贡献 `current_time` 和 `read` | edit/write/search/process 等未迁移 | 未完成 |
 | `AgentSession` | 新状态机可执行 | 活动 Turn 输入目前拒绝；旧系统具有 queue、follow-up、steering 语义 | 不可切换 |
 | Turn Pipeline | 固定阶段和持久化检查点已实现 | 输入队列、完整观察事件和恢复闭环未完成 | 不可切换 |
 | `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环通过 | Kernel 只映射完成消息；旧 UI 需要流式 text/thinking/tool progress 事件 | 不可切换宿主 |
@@ -108,7 +140,9 @@ side effects
 
 ## 5. 下一步
 
-通用 Tool Compatibility Contract 和 `current_time` 适配已经建立。下一阶段把现有 read
-测试拆成共享 fixture，先让旧 read 单独通过完整合同，覆盖文本、GB18030、图片、二进制提示、
-offset/limit、锚点、路径模糊匹配、取消及自定义 Read Operations。随后在不导入旧
-`coding-agent` 源码的前提下实现新 read，并让旧新实现同时通过该合同。
+通用 Tool Compatibility Contract、`current_time` 和 `read` 的独立实现已经建立。下一阶段
+优先为 `ls` 提取旧行为矩阵并建立参数化合同，再实现独立 Runtime Tool；它可以按真实合同
+复用路径和截断纯模块，但不能为了复用而改变旧输出。随后再迁移 `grep`，逐步形成只读工具组。
+
+生产切换前还必须增加宿主产物级测试，验证 Photon WASM 在现有独立可执行打包方式中的复制与
+定位行为。该验证属于 Host Adapter/Packaging Gate，不应重新塞回 read 的领域实现。

@@ -29,14 +29,27 @@ The package root temporarily keeps the built-in tool exports from
 - `codingTools`
 - `readOnlyTools`
 - individual tool factories such as `createReadTool`, `createBashTool`, `createTreeTool`
-- `createCodingToolsFeature` and `createCurrentTimeTool` from
+- `createCodingToolsFeature`, `createCurrentTimeTool`, and `createReadTool` from
   `@vetta/runtime-tools/coding`
-- `createCurrentTimeToolRegistration` and `selectCodingToolsForScope` for
+- `createCurrentTimeToolRegistration`, `createReadToolRegistration`, and
+  `selectCodingToolsForScope` for
   composing scenario-specific Coding Tool snapshots
 
 Greenfield tools are only published after their model-visible schema,
 description, results, errors, side effects, and path behavior pass differential
 tests against the legacy implementation.
+
+The greenfield `read` implementation and the legacy implementation run the same
+18-case behavior contract covering text, GB18030, path fallbacks, anchors,
+truncation, images, binary hints, injected operations, and cancellation. Their
+definitions, registrations, text results, and binary hints are also compared
+directly. The greenfield Coding Tools Feature now contributes both
+`current_time` and `read`.
+
+The package root `createReadTool` remains the legacy compatibility export.
+Import `createReadTool` from `@vetta/runtime-tools/coding` to use the independent
+Runtime implementation. Production hosts have not switched to the greenfield
+Feature yet.
 
 Each tool has its own `src/coding/tools/<tool-name>/` directory. Model-visible
 descriptions are exported from `description.ts` files so bundlers receive plain

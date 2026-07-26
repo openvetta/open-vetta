@@ -6,12 +6,15 @@ import {
 	selectCodingToolsForScope,
 } from "./tool-registration.js";
 import { type CurrentTimeToolOptions, createCurrentTimeToolRegistration } from "./tools/current-time/index.js";
+import { createReadToolRegistration, type ReadToolOptions } from "./tools/read/index.js";
 
 export const CODING_TOOLS_FEATURE_ID = "coding-tools";
 
 export interface CodingToolsFeatureOptions {
 	readonly scope?: CodingToolScope;
+	readonly cwd?: string;
 	readonly currentTime?: CurrentTimeToolOptions;
+	readonly read?: ReadToolOptions;
 }
 
 export function createCodingToolsFeature(options: CodingToolsFeatureOptions = {}): AgentFeatureDefinition {
@@ -21,6 +24,7 @@ export function createCodingToolsFeature(options: CodingToolsFeatureOptions = {}
 			context.signal.throwIfAborted();
 			const registrations: readonly CodingToolRegistration[] = [
 				createCurrentTimeToolRegistration(options.currentTime),
+				createReadToolRegistration(options.cwd ?? process.cwd(), options.read),
 			];
 			const tools = selectCodingToolsForScope(registrations, options.scope ?? DEFAULT_CODING_TOOL_SCOPE);
 			return {
