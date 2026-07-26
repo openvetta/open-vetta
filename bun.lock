@@ -799,10 +799,13 @@
       "name": "@vetta/runtime-tools",
       "version": "0.0.1",
       "dependencies": {
+        "@sinclair/typebox": "^0.34.41",
         "@vetta/coding-agent": "workspace:*",
+        "@vetta/runtime-core": "workspace:*",
       },
       "devDependencies": {
         "@types/node": "^22.10.5",
+        "@vetta/ai": "workspace:*",
         "typescript": "^5.9.2",
       },
     },

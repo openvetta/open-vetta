@@ -40,6 +40,7 @@
 			"@vetta/markdown": ["./packages/markdown/src/index.ts"],
 			"@vetta/markdown/*": ["./packages/markdown/src/*"],
 			"@vetta/runtime-tools": ["./packages/runtime-tools/src/index.ts"],
+			"@vetta/runtime-tools/coding": ["./packages/runtime-tools/src/coding/index.ts"],
 			"@vetta/runtime-tools/*": ["./packages/runtime-tools/src/*"],
 			"@vetta/runtime-mcp": ["./packages/runtime-mcp/src/index.ts"],
 			"@vetta/runtime-mcp/*": ["./packages/runtime-mcp/src/*"],

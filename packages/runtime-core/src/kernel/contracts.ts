@@ -12,19 +12,19 @@ export interface InstructionBlock {
 	readonly priority: number;
 }
 
-export interface RuntimeToolDefinition {
+export interface RuntimeToolDefinition<TInput extends object = Readonly<Record<string, unknown>>> {
 	readonly name: string;
 	readonly label: string;
 	readonly description: string;
 	readonly inputSchema: Readonly<Record<string, unknown>>;
-	execute(request: RuntimeToolExecutionRequest): Promise<RuntimeToolResult>;
+	execute(request: RuntimeToolExecutionRequest<TInput>): Promise<RuntimeToolResult>;
 }
 
-export interface RuntimeToolExecutionRequest {
+export interface RuntimeToolExecutionRequest<TInput extends object = Readonly<Record<string, unknown>>> {
 	readonly sessionId: string;
 	readonly turnId: string;
 	readonly toolCallId: string;
-	readonly input: Readonly<Record<string, unknown>>;
+	readonly input: Readonly<TInput>;
 	readonly signal: AbortSignal;
 	readonly onUpdate?: (result: RuntimeToolResult) => void;
 	readonly reportPhase?: (label: string) => void;

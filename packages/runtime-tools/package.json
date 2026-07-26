@@ -1,0 +1,33 @@
+{
+	"name": "@vetta/runtime-tools",
+	"version": "0.0.1",
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		},
+		"./coding": {
+			"types": "./dist/coding/index.d.ts",
+			"import": "./dist/coding/index.js"
+		}
+	},
+	"files": ["dist"],
+	"scripts": {
+		"clean": "rm -rf dist",
+		"build": "tsgo -p tsconfig.build.json",
+		"test": "bunx vitest --run"
+	},
+	"dependencies": {
+		"@sinclair/typebox": "^0.34.41",
+		"@vetta/coding-agent": "workspace:*",
+		"@vetta/runtime-core": "workspace:*"
+	},
+	"devDependencies": {
+		"@vetta/ai": "workspace:*",
+		"typescript": "^5.9.2",
+		"@types/node": "^22.10.5"
+	}
+}

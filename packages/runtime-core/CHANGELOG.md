@@ -24,6 +24,7 @@ All notable changes to `@vetta/runtime-core` are documented in this file.
 
 ### Changed
 
+- **Runtime Tool 输入类型泛型化**：`RuntimeToolDefinition<TInput>` 与 `RuntimeToolExecutionRequest<TInput>` 可从 TypeBox Schema 保留具体工具参数类型；异构 Runtime Snapshot 边界仍统一擦除为只读对象合同。
 - **Tool Schema 完整冻结**：Feature Compiler 发布 Snapshot 前深拷贝并递归冻结 Tool JSON Schema，避免嵌套 Schema 在 Turn 执行期间被外部修改。
 - **图像工具生命周期归插件（ADR-0048）**：移除 `RuntimeHostOptions.imageBackend` 与 RuntimeHost 的内置 `generate_image` / `edit_image` 注入；图像插件改用动态插件工具注册，禁用插件即可完整移除能力。
 - **`RuntimeHost` 按职责拆分到 `src/runtime-host/`**：原 ~1.7k 行单文件拆为 `runtime-host`（会话编排）、`session-events`（事件映射）、`history`（历史/分支）、`peripheral-tasks`（自动标题/输入预测）、`plugin-debug`、`types`；包根 `index.ts` 从目录入口导出，对外 API 不变。

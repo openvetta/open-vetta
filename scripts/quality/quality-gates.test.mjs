@@ -164,6 +164,7 @@ describe("package boundary analysis", () => {
 		expect(
 			findPackageBoundaryViolations("packages/runtime-storage/src/conversation/example.ts", source),
 		).toHaveLength(1);
+		expect(findPackageBoundaryViolations("packages/runtime-tools/src/coding/example.ts", source)).toHaveLength(1);
 		expect(findPackageBoundaryViolations("packages/runtime-core/src/runtime-host/example.ts", source)).toEqual([]);
 	});
 
