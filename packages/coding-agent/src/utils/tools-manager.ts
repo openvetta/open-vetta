@@ -258,10 +258,21 @@ const TERMUX_PACKAGES: Record<string, string> = {
 	rg: "ripgrep",
 };
 
+export interface EnsureToolDependencies {
+	readonly getPath: (tool: ToolExecutableName) => string | null;
+	readonly isOffline: () => boolean;
+	readonly platform: () => string;
+	readonly download: (tool: ToolExecutableName) => Promise<string>;
+}
+
 // Ensure a tool is available, downloading if necessary
 // Returns the path to the tool, or null if unavailable
-export async function ensureTool(tool: "fd" | "rg", silent: boolean = false): Promise<string | undefined> {
-	const existingPath = getToolPath(tool);
+export async function ensureToolWithDependencies(
+	tool: ToolExecutableName,
+	silent: boolean,
+	dependencies: EnsureToolDependencies,
+): Promise<string | undefined> {
+	const existingPath = dependencies.getPath(tool);
 	if (existingPath) {
 		return existingPath;
 	}
@@ -269,7 +280,7 @@ export async function ensureTool(tool: "fd" | "rg", silent: boolean = false): Pr
 	const config = TOOLS[tool];
 	if (!config) return undefined;
 
-	if (isOfflineModeEnabled()) {
+	if (dependencies.isOffline()) {
 		if (!silent) {
 			console.log(chalk.yellow(`${config.name} not found. Offline mode enabled, skipping download.`));
 		}
@@ -278,7 +289,7 @@ export async function ensureTool(tool: "fd" | "rg", silent: boolean = false): Pr
 
 	// On Android/Termux, Linux binaries don't work due to Bionic libc incompatibility.
 	// Users must install via pkg.
-	if (platform() === "android") {
+	if (dependencies.platform() === "android") {
 		const pkgName = TERMUX_PACKAGES[tool] ?? tool;
 		if (!silent) {
 			console.log(chalk.yellow(`${config.name} not found. Install with: pkg install ${pkgName}`));
@@ -292,7 +303,7 @@ export async function ensureTool(tool: "fd" | "rg", silent: boolean = false): Pr
 	}
 
 	try {
-		const path = await downloadTool(tool);
+		const path = await dependencies.download(tool);
 		if (!silent) {
 			console.log(chalk.dim(`${config.name} installed to ${path}`));
 		}
@@ -310,6 +321,17 @@ export type EnsureTool = (tool: ToolExecutableName, silent?: boolean) => Promise
 
 export interface ToolExecutableResolver {
 	readonly resolve: (tool: ToolExecutableName) => Promise<string | undefined>;
+}
+
+const defaultEnsureToolDependencies: EnsureToolDependencies = {
+	getPath: getToolPath,
+	isOffline: isOfflineModeEnabled,
+	platform,
+	download: downloadTool,
+};
+
+export async function ensureTool(tool: ToolExecutableName, silent: boolean = false): Promise<string | undefined> {
+	return ensureToolWithDependencies(tool, silent, defaultEnsureToolDependencies);
 }
 
 /**

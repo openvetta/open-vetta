@@ -26,6 +26,7 @@
 | [16-runtime-glob.md](./08-implementation-log/16-runtime-glob.md) | Glob 行为兼容、绝对模式与 `.gitignore` Tool Loop 接入 |
 | [17-host-executable-resolver.md](./08-implementation-log/17-host-executable-resolver.md) | 宿主 `rg`/`fd` 解析 Port 与 Runtime 注入 |
 | [18-coding-agent-executable-adapter.md](./08-implementation-log/18-coding-agent-executable-adapter.md) | 旧 `ensureTool` 到 Resolver Port 的宿主适配 |
+| [19-host-adapter-boundary-and-behavior-tests.md](./08-implementation-log/19-host-adapter-boundary-and-behavior-tests.md) | 宿主适配器目录边界与 `ensureTool` 行为合同 |
 
 ## 维护约定
 

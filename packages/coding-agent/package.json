@@ -39,6 +39,10 @@
 		"./core/host/executable-resolver.js": {
 			"types": "./dist/core/host/executable-resolver.d.ts",
 			"import": "./dist/core/host/executable-resolver.js"
+		},
+		"./adapters/runtime-tools/executable-resolver.js": {
+			"types": "./dist/adapters/runtime-tools/executable-resolver.d.ts",
+			"import": "./dist/adapters/runtime-tools/executable-resolver.js"
 		}
 	},
 	"files": [

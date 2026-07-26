@@ -5,4 +5,4 @@ export {
 	ensureToolWithDependencies,
 	type ToolExecutableName,
 	type ToolExecutableResolver,
-} from "../../adapters/runtime-tools/executable-resolver.js";
+} from "../../utils/tools-manager.js";
