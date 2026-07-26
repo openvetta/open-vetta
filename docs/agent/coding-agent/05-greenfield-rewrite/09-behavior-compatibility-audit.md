@@ -331,6 +331,35 @@ Runtime glob 直接声明 `glob` 和 `ignore`，不再通过 `coding-agent` 的�
 - Runtime glob 已通过真实 Agent Core Tool Loop，并保持全 scope 暴露行为。
 - 取消语义按旧实现保留：自定义 Operations 收到已取消 Signal；默认 glob 在执行层处理取消。
 
+### 2.8 Tool Profile 差分门禁
+
+过渡 Composition Root 不能只验证默认 CLI 场景，因为工具可见性由场景决定。现已把旧
+`resolveActiveToolNames` 作为迁移 Oracle，对 `ALL_SCENARIOS` 中的 7 个场景逐一比较：
+
+```text
+旧 Tool Factory
+  -> scope_use
+  -> resolveActiveToolNames
+  -> active names
+
+新 Tool Registration
+  -> scopeUse
+  -> CodingToolsFeature
+  -> Model Call Contribution
+  -> active names
+```
+
+当前已迁移的 `current_time/read/ls/glob/grep/find` 在所有场景的最终激活集合完全一致。
+`current_time/read/glob/grep` 保持全场景默认激活，`ls/find` 保持空 scope，且后两者仍可由
+新 Composition Root 显式激活。比较发生在模型调用贡献层，而不是只比较 Registry 元数据，
+因此能发现 Feature 编排、默认 scope 或 Provider 输出造成的可观察差异。
+
+同时审计了 `@vetta/runtime-tools` 包根：仓库内源码和测试当前没有直接消费者，但包根仍是已
+发布的公共入口，并继续转发尚未迁移的 `bash/edit/write/tree` 等工具。新 Runtime 只有上述
+6 个工具，直接删除或改写根导出会造成公开 API 和功能缺失。因此本阶段保留兼容导出，不用
+“仓库内无人引用”替代公共兼容性判断。只有剩余工具完成行为差分迁移、产品 Composition Root
+能够提供等价 Profile，并形成明确迁移窗口后，才能拆除该入口。
+
 ## 3. 已实施模块审计
 
 | 模块 | 当前状态 | 与旧行为的差距 | 切换结论 |
@@ -339,8 +368,8 @@ Runtime glob 直接声明 `glob` 和 `ignore`，不再通过 `coding-agent` 的�
 | `read` Tool | 独立实现、旧新行为合同和真实 Tool Loop 已通过 | 独立可执行宿主的 Photon WASM 产物打包尚未验证 | 工具模块迁移完成；生产宿主不可切换 |
 | `ls` Tool | 独立实现、旧新行为合同、空 scope 和 Feature 显式激活 Tool Loop 已通过 | 生产宿主尚未装配新 Profile | 工具模块迁移完成；默认不激活 |
 | `glob` Tool | 独立实现、绝对 pattern、`.gitignore` 和真实 Tool Loop 合同已通过 | 生产宿主尚未装配新 Profile | 工具模块迁移完成；全 scope 暴露保持旧语义 |
-| 宿主可执行文件解析 | Runtime Port、本地 PATH/managed-bin Adapter、grep/find 注入合同、旧 ensureTool 适配、网络/归档合同和 cli-app Composition Root 已通过 | 真实 GitHub 网络、最终独立可执行发布物和 runtime-tools 根兼容导出拆分尚未完成 | 新 Profile 可并行验证；旧宿主仍不可切换 |
-| Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope/explicit 激活，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；current_time/read/ls/grep/find/glob 已形成独立注册和 Tool Loop 合同 | edit/write/search/process 等未迁移，生产 Profile 尚未装配 Registry | 动态编排边界完成；整体能力未完成 |
+| 宿主可执行文件解析 | Runtime Port、本地 PATH/managed-bin Adapter、grep/find 注入合同、旧 ensureTool 适配、网络/归档合同和 cli-app Composition Root 已通过 | 真实 GitHub 网络、最终独立可执行发布物和完整 Tool Profile 迁移尚未完成；包根兼容导出必须继续保留 | 新 Profile 可并行验证；旧宿主仍不可切换 |
+| Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope/explicit 激活，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；current_time/read/ls/grep/find/glob 已形成独立注册、Tool Loop 合同和全场景 Profile 差分门禁 | edit/write/search/process 等未迁移，生产 Profile 尚未装配 Registry | 动态编排边界完成；整体能力未完成 |
 | `AgentSession` | 新状态机可执行 | 活动 Turn 输入目前拒绝；旧系统具有 queue、follow-up、steering 语义 | 不可切换 |
 | Turn Pipeline | 固定阶段和持久化检查点已实现 | 输入队列、完整观察事件和恢复闭环未完成 | 不可切换 |
 | `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环、每次模型调用刷新 Model Call Frame 已通过 | Kernel 只映射完成消息；旧 UI 需要流式 text/thinking/tool progress 事件 | 不可切换宿主 |
@@ -386,10 +415,11 @@ side effects
 `current_time`、`read`、`ls`、`grep`、`find`、`glob` 和动态注册/激活编排合同已经建立。
 宿主适配器已从 `core/host` 调整到 `adapters/runtime-tools`，并建立了不触发网络的基础
 `ensureTool` 行为合同、下载计划合同、归档安装合同、网络边界合同和 cli-app 过渡
-Composition Root。下一阶段应完成 runtime-tools 包根兼容导出拆分、新旧 Tool Profile 差分和
-CLI/桌面入口适配，再考虑把产品级 Composition Root 上移回 coding-agent；真实 GitHub 网络、
-最终独立可执行发布物和其他外部依赖的产物级解析/打包测试仍需单独执行，重点覆盖下载、
-并发解析、版本锁定、离线模式和 Windows/Unix 产物。生产 Profile 接线时由组合根创建 Registry；
+Composition Root。新旧 Tool Profile 已对全部场景建立差分门禁；runtime-tools 包根兼容导出
+因仍承载未迁移工具而保留。下一阶段应先迁移 Profile 缺失工具，再完成 CLI/桌面入口适配，
+最后根据完整 Profile 差分结果设计兼容入口迁移；真实 GitHub 网络、最终独立可执行发布物和
+其他外部依赖的产物级解析/打包测试仍需单独执行，重点覆盖下载、并发解析、版本锁定、离线
+模式和 Windows/Unix 产物。生产 Profile 接线时由组合根创建 Registry；
 普通 Catalog 成员变化直接在下一次模型调用生效，不再触发全 Profile 重编译。
 
 生产切换前还必须增加宿主产物级测试，验证 Photon WASM 在现有独立可执行打包方式中的复制与

@@ -1,4 +1,14 @@
+import {
+	ALL_SCENARIOS,
+	createFindTool,
+	createGlobTool,
+	createGrepTool,
+	createLsTool,
+	createReadTool,
+} from "@vetta/coding-agent";
 import { describe, expect, it } from "vitest";
+import { resolveActiveToolNames } from "../../coding-agent/src/core/session/tool-scope.js";
+import { createCurrentTimeTool } from "../../coding-agent/src/core/tools/current-time/index.js";
 import { createCodingToolsRuntimeComposition } from "../src/runtime-tools-composition.js";
 
 describe("CLI Runtime Tools Composition Root", () => {
@@ -47,6 +57,38 @@ describe("CLI Runtime Tools Composition Root", () => {
 				signal: new AbortController().signal,
 			});
 			expect(contribution.tools?.map(({ name }) => name)).toEqual(["find", "ls"]);
+		} finally {
+			await compiled.dispose();
+		}
+	});
+
+	it.each(ALL_SCENARIOS)("matches the legacy active tool profile for %s", async (scenario) => {
+		const cwd = "C:/workspace";
+		const legacyTools = [
+			createCurrentTimeTool(),
+			createReadTool(cwd),
+			createLsTool(cwd),
+			createGlobTool(cwd),
+			createGrepTool(cwd),
+			createFindTool(cwd),
+		];
+		const legacyToolNames = resolveActiveToolNames(scenario, legacyTools, new Set()).sort();
+		const composition = createCodingToolsRuntimeComposition({
+			cwd,
+			activation: { mode: "scope", scope: scenario },
+			ensureTool: async () => undefined,
+		});
+
+		const compiled = await composition.compile();
+		try {
+			const provider = compiled.snapshot.modelCallProviders?.[0];
+			if (!provider) throw new Error("expected coding tools model call provider");
+			const contribution = await provider.contribute({
+				profileId: composition.profile.id,
+				signal: new AbortController().signal,
+			});
+			const runtimeToolNames = contribution.tools?.map(({ name }) => name).sort();
+			expect(runtimeToolNames).toEqual(legacyToolNames);
 		} finally {
 			await compiled.dispose();
 		}
