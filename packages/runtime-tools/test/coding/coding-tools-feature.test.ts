@@ -8,7 +8,14 @@ import {
 	type TurnEngineEvent,
 } from "@vetta/runtime-core/kernel";
 import { describe, expect, it } from "vitest";
-import { createCodingToolsFeature, createCurrentTimeTool } from "../../src/coding/index.js";
+import {
+	CURRENT_TIME_TOOL_CATEGORY,
+	CURRENT_TIME_TOOL_SCOPES,
+	createCodingToolsFeature,
+	createCurrentTimeTool,
+	createCurrentTimeToolRegistration,
+	selectCodingToolsForScope,
+} from "../../src/coding/index.js";
 
 class SnapshotIdGenerator implements IdGenerator {
 	next(scope: "snapshot" | "turn"): string {
@@ -95,6 +102,7 @@ function profile(now: () => Date): AgentProfile {
 		instructions: [],
 		features: [
 			createCodingToolsFeature({
+				scope: "project",
 				currentTime: { now },
 			}),
 		],
@@ -141,6 +149,21 @@ async function collectEngineEvents(
 }
 
 describe("greenfield coding tools feature", () => {
+	it("keeps scenario exposure metadata outside the runtime tool definition", () => {
+		const registration = createCurrentTimeToolRegistration();
+		const projectOnlyRegistration = {
+			...registration,
+			scopeUse: ["project"] as const,
+		};
+
+		expect(registration.category).toBe(CURRENT_TIME_TOOL_CATEGORY);
+		expect(registration.scopeUse).toEqual(CURRENT_TIME_TOOL_SCOPES);
+		expect(selectCodingToolsForScope([registration], "project").map(({ name }) => name)).toEqual(["current_time"]);
+		expect(selectCodingToolsForScope([projectOnlyRegistration], "conversation")).toEqual([]);
+		expect(registration.tool).not.toHaveProperty("scopeUse");
+		expect(registration.tool).not.toHaveProperty("category");
+	});
+
 	it("provides a deterministic TypeBox-backed current time tool", async () => {
 		const tool = createCurrentTimeTool({
 			now: () => new Date(2026, 6, 26, 14, 30, 45),

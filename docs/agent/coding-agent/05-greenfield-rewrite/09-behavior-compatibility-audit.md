@@ -30,10 +30,16 @@
 | JSON Schema | 未声明 `additionalProperties: false` | 拒绝额外字段 | 已恢复旧 Schema |
 | 已取消 Signal 下直接调用 | 仍返回时间 | 在时间源调用前抛出 | 已恢复旧直接执行语义 |
 
-现已增加旧新差分测试，直接比较名称、label、完整描述、Schema 和固定时间下的执行结果。
+现已增加旧新差分合同，直接比较名称、label、完整描述、Schema、固定时间执行结果、
+已取消直接调用、update、phase、`scope_use` 和 `category`。全部旧会话场景还会分别运行
+旧 `resolveActiveToolNames` 与新注册选择器，比较最终激活工具集合。
 
-仍未完成的是注册层兼容：旧工具的 `scope_use` 和 `category` 尚未由新 Coding Profile 表达。
-因此当前只能认定“工具定义与执行行为兼容”，不能认定生产注册链路已经迁移。
+注册元数据没有加入通用 `RuntimeToolDefinition`。新 `CodingToolRegistration` 在 Coding
+能力层持有 `scopeUse` 和 `category`，组合根把会话场景传给 `CodingToolsFeature`。这避免
+Kernel 绑定 Coding 场景词汇，也避免把 Agent Profile ID 错当作会话场景。
+
+因此 `current_time` 可以认定为工具定义、执行和注册行为兼容；但完整 Coding Tools Feature
+仍缺少其他旧工具，不能整体切换生产入口。
 
 ### 2.2 `read`
 
@@ -58,7 +64,7 @@
 
 | 模块 | 当前状态 | 与旧行为的差距 | 切换结论 |
 | --- | --- | --- | --- |
-| `current_time` Tool | 工具行为已差分验证 | Profile scope/category 尚未表达 | 不可单独切换生产注册 |
+| `current_time` Tool | 定义、执行和注册行为已差分验证 | 无已知 Tool 级差距 | Tool 级迁移完成；Feature 仍不可整体切换 |
 | Coding Tools Feature | 仅贡献 `current_time` | read/edit/write/search/process 等未迁移 | 未完成 |
 | `AgentSession` | 新状态机可执行 | 活动 Turn 输入目前拒绝；旧系统具有 queue、follow-up、steering 语义 | 不可切换 |
 | Turn Pipeline | 固定阶段和持久化检查点已实现 | 输入队列、完整观察事件和恢复闭环未完成 | 不可切换 |
@@ -102,7 +108,7 @@ side effects
 
 ## 5. 下一步
 
-下一阶段不直接重写 read。先把现有 read 测试整理成可复用的 Tool Compatibility Contract，
-覆盖文本、GB18030、图片、二进制提示、offset/limit、锚点、路径模糊匹配、取消及自定义
-Read Operations。随后在不导入旧 `coding-agent` 源码的前提下实现新 read，并让旧新实现
-同时通过该合同。
+通用 Tool Compatibility Contract 和 `current_time` 适配已经建立。下一阶段把现有 read
+测试拆成共享 fixture，先让旧 read 单独通过完整合同，覆盖文本、GB18030、图片、二进制提示、
+offset/limit、锚点、路径模糊匹配、取消及自定义 Read Operations。随后在不导入旧
+`coding-agent` 源码的前提下实现新 read，并让旧新实现同时通过该合同。

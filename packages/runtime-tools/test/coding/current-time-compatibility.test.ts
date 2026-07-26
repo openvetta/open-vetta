@@ -1,43 +1,100 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { ALL_SCENARIOS, resolveActiveToolNames } from "../../../coding-agent/src/core/session/tool-scope.js";
 import { createCurrentTimeTool as createLegacyCurrentTimeTool } from "../../../coding-agent/src/core/tools/current-time/index.js";
-import { createCurrentTimeTool } from "../../src/coding/index.js";
+import {
+	type CurrentTimeToolInput,
+	createCurrentTimeToolRegistration,
+	selectCodingToolsForScope,
+} from "../../src/coding/index.js";
+import {
+	defineToolCompatibilityContract,
+	type ToolCompatibilitySubject,
+} from "./compatibility/tool-compatibility-contract.js";
 
 afterEach(() => {
 	vi.useRealTimers();
 });
 
-describe("current_time legacy compatibility", () => {
-	it("keeps the model-visible definition and execution result unchanged", async () => {
-		vi.useFakeTimers();
-		vi.setSystemTime(new Date(2026, 6, 26, 14, 30, 45));
-		const legacyTool = createLegacyCurrentTimeTool();
-		const runtimeTool = createCurrentTimeTool();
+function createLegacySubject(): ToolCompatibilitySubject<CurrentTimeToolInput> {
+	const tool = createLegacyCurrentTimeTool();
+	return {
+		definition: {
+			name: tool.name,
+			label: tool.label,
+			description: tool.description,
+			schema: tool.parameters,
+			scopeUse: tool.scope_use ?? [],
+			category: tool.category ?? "",
+		},
+		execute(request) {
+			return tool.execute("legacy-call", request.input, request.signal, (update) => request.onUpdate(update), {
+				phase: request.reportPhase,
+			});
+		},
+	};
+}
 
-		expect({
-			name: runtimeTool.name,
-			label: runtimeTool.label,
-			description: runtimeTool.description,
-			schema: runtimeTool.inputSchema,
-		}).toEqual({
-			name: legacyTool.name,
-			label: legacyTool.label,
-			description: legacyTool.description,
-			schema: legacyTool.parameters,
-		});
+function createRuntimeSubject(): ToolCompatibilitySubject<CurrentTimeToolInput> {
+	const registration = createCurrentTimeToolRegistration();
+	return {
+		definition: {
+			name: registration.tool.name,
+			label: registration.tool.label,
+			description: registration.tool.description,
+			schema: registration.tool.inputSchema,
+			scopeUse: registration.scopeUse,
+			category: registration.category,
+		},
+		execute(request) {
+			return registration.tool.execute({
+				sessionId: "session-1",
+				turnId: "turn-1",
+				toolCallId: "runtime-call",
+				input: request.input,
+				signal: request.signal,
+				onUpdate: request.onUpdate,
+				reportPhase: request.reportPhase,
+			});
+		},
+	};
+}
 
-		const legacyResult = await legacyTool.execute("legacy-call", {
-			description: "Check the time",
-		});
-		const runtimeResult = await runtimeTool.execute({
-			sessionId: "session-1",
-			turnId: "turn-1",
-			toolCallId: "runtime-call",
+defineToolCompatibilityContract<CurrentTimeToolInput>({
+	toolName: "current_time",
+	createLegacy: createLegacySubject,
+	createRuntime: createRuntimeSubject,
+	executionCases: [
+		{
+			name: "successful",
 			input: {
 				description: "Check the time",
 			},
-			signal: new AbortController().signal,
-		});
+			setup() {
+				vi.useFakeTimers();
+				vi.setSystemTime(new Date(2026, 6, 26, 14, 30, 45));
+			},
+		},
+		{
+			name: "already-aborted direct",
+			input: {},
+			alreadyAborted: true,
+			setup() {
+				vi.useFakeTimers();
+				vi.setSystemTime(new Date(2026, 6, 26, 14, 30, 45));
+			},
+		},
+	],
+});
 
-		expect(runtimeResult).toEqual(legacyResult);
+describe("current_time scope compatibility", () => {
+	it("selects the same active tool set for every legacy conversation scenario", () => {
+		const legacyTool = createLegacyCurrentTimeTool();
+		const runtimeRegistration = createCurrentTimeToolRegistration();
+
+		for (const scenario of ALL_SCENARIOS) {
+			const legacyNames = resolveActiveToolNames(scenario, [legacyTool], new Set());
+			const runtimeNames = selectCodingToolsForScope([runtimeRegistration], scenario).map(({ name }) => name);
+			expect(runtimeNames).toEqual(legacyNames);
+		}
 	});
 });

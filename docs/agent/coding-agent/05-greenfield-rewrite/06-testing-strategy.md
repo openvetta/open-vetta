@@ -74,11 +74,26 @@ definition
 - 路径、编码、截断、取消和平台差异。
 - Profile、scope、权限和默认启用条件。
 
+工具迁移使用统一的 Tool Compatibility Contract。旧工具与 Runtime Tool 先适配到同一测试观察面，
+Adapter 只转换调用参数，不修改结果、错误或进度。合同记录并比较：
+
+- definition：name、label、description、Schema。
+- registration：scope、category 和最终激活集合。
+- execution：fulfilled/rejected、content、details、update 和 phase。
+- cancellation：相同取消时点下的结果或错误。
+
+注册兼容不能只比较 `scope_use` 数组；必须把每个旧会话场景分别送入旧选择器和新选择器，
+比较最终工具名集合。参数校验兼容还必须经过真实 Agent Core Tool Loop，不能只直接调用
+`execute()`。
+
 新增更严格的校验、缩小路径范围、删除格式支持或改变取消行为也属于功能变化，不能以“更安全”
 或“更简单”为理由混入架构重写。确需改变时必须单独记录差异、迁移方式和批准结论。
 
 只有旧新差分合同全部通过，能力才可以标记为“已迁移”并接入生产 Profile。新实现尚不完整时，
 保持旧实现工作，不发布一个同名但能力缩减的替代品。
+
+迁移期间允许测试把旧实现作为行为 Oracle，但新生产源码禁止导入旧包。删除旧代码前，需要把
+差分 fixture 固化为不依赖旧实现的合同期望，保证旧 Oracle 删除后仍能持续防止行为回退。
 
 ## 6. 上下文策略测试
 

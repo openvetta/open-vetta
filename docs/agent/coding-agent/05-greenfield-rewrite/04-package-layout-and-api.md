@@ -44,19 +44,15 @@ packages/runtime-storage/src/
 
 packages/runtime-tools/src/
   coding/
+    tool-registration.ts
     tools/
       current-time/
         current-time-tool.ts
         description.ts
+        registration.ts
         index.ts
     coding-tools-feature.ts
     index.ts
-  read/
-  write/
-  edit/
-  search/
-  process/
-  coding-tools-feature.ts
   index.ts
 
 packages/runtime-mcp/src/
@@ -90,6 +86,21 @@ packages/coding-agent/src/
 
 每个工具使用独立 `tools/<tool-name>/` 目录。模型可见描述使用 `description.ts` 导出常量，
 不在工具实现中内联长字符串，也不重复旧实现的 `description.txt -> generated TS` 构建步骤。
+
+工具执行定义与 Coding 产品注册元数据必须分离：
+
+```text
+RuntimeToolDefinition
+  name / label / description / inputSchema / execute
+
+CodingToolRegistration
+  tool / scopeUse / category
+```
+
+`RuntimeToolDefinition` 属于通用 Kernel 合同，不认识 `project`、`im-claw` 或 `cli`。
+`scopeUse` 和 `category` 位于 `runtime-tools/coding` 注册层，由组合根把会话场景传给
+`CodingToolsFeature` 后筛选。Agent Profile ID 与会话场景是两个概念，不能通过比较
+`profileId === scope` 隐式绑定。
 
 ## 2. 公开 API 收缩
 
