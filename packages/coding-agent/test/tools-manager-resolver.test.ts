@@ -1,10 +1,11 @@
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
 	createToolExecutableResolver,
 	type EnsureToolDependencies,
 	ensureToolWithDependencies,
 } from "../src/adapters/runtime-tools/executable-resolver.js";
-import { createToolDownloadPlan } from "../src/utils/tools-manager.js";
+import { createToolDownloadPlan, installToolArchive, type ToolArchiveOperations } from "../src/utils/tools-manager.js";
 
 function createDependencies(overrides: Partial<EnsureToolDependencies> = {}): EnsureToolDependencies {
 	return {
@@ -140,5 +141,138 @@ describe("tool download plans", () => {
 				toolsDirectory: "C:/vetta/bin",
 			}),
 		).toBeUndefined();
+	});
+});
+
+describe("tool archive installation", () => {
+	it("finds nested binaries, makes Unix binaries executable, and cleans up", async () => {
+		const plan = createToolDownloadPlan({
+			tool: "fd",
+			version: "1.0.0",
+			platform: "darwin",
+			architecture: "arm64",
+			toolsDirectory: "C:/vetta/bin",
+		});
+		if (!plan) throw new Error("expected a download plan");
+
+		const extractDirectory = "C:/vetta/extract-fd";
+		const nestedBinary = join(extractDirectory, "fd-v1.0.0", plan.binaryFileName);
+		const calls: string[] = [];
+		const operations: ToolArchiveOperations = {
+			extractTarGz: (archivePath, directory, assetName) => {
+				calls.push(`tar:${archivePath}:${directory}:${assetName}`);
+			},
+			extractZip: async () => {
+				throw new Error("zip should not be used");
+			},
+			fileExists: () => false,
+			findBinary: () => nestedBinary,
+			moveFile: (sourcePath, destinationPath) => calls.push(`move:${sourcePath}:${destinationPath}`),
+			makeExecutable: (path) => calls.push(`chmod:${path}`),
+			removeFile: (path) => calls.push(`remove-file:${path}`),
+			removeDirectory: (path) => calls.push(`remove-directory:${path}`),
+		};
+
+		await expect(
+			installToolArchive({
+				plan,
+				extractDirectory,
+				platform: "darwin",
+				operations,
+			}),
+		).resolves.toBe(plan.binaryPath);
+		expect(calls).toEqual([
+			`tar:${plan.archivePath}:${extractDirectory}:${plan.assetName}`,
+			`move:${nestedBinary}:${plan.binaryPath}`,
+			`chmod:${plan.binaryPath}`,
+			`remove-file:${plan.archivePath}`,
+			`remove-directory:${extractDirectory}`,
+		]);
+	});
+
+	it("uses zip archives on Windows without changing executable permissions", async () => {
+		const plan = createToolDownloadPlan({
+			tool: "rg",
+			version: "14.1.0",
+			platform: "win32",
+			architecture: "x64",
+			toolsDirectory: "C:/vetta/bin",
+		});
+		if (!plan) throw new Error("expected a download plan");
+
+		const extractDirectory = "C:/vetta/extract-rg";
+		const extractedBinary = join(extractDirectory, plan.binaryFileName);
+		const calls: string[] = [];
+		const operations: ToolArchiveOperations = {
+			extractTarGz: () => {
+				throw new Error("tar should not be used");
+			},
+			extractZip: async (archivePath, directory) => {
+				calls.push(`zip:${archivePath}:${directory}`);
+			},
+			fileExists: (path) => path === extractedBinary,
+			findBinary: () => {
+				throw new Error("recursive lookup should not be needed");
+			},
+			moveFile: (sourcePath, destinationPath) => calls.push(`move:${sourcePath}:${destinationPath}`),
+			makeExecutable: () => {
+				throw new Error("Windows binaries should not be chmod'ed");
+			},
+			removeFile: (path) => calls.push(`remove-file:${path}`),
+			removeDirectory: (path) => calls.push(`remove-directory:${path}`),
+		};
+
+		await expect(
+			installToolArchive({
+				plan,
+				extractDirectory,
+				platform: "win32",
+				operations,
+			}),
+		).resolves.toBe(plan.binaryPath);
+		expect(calls).toEqual([
+			`zip:${plan.archivePath}:${extractDirectory}`,
+			`move:${extractedBinary}:${plan.binaryPath}`,
+			`remove-file:${plan.archivePath}`,
+			`remove-directory:${extractDirectory}`,
+		]);
+	});
+
+	it("cleans up the archive and extraction directory when the binary is missing", async () => {
+		const plan = createToolDownloadPlan({
+			tool: "rg",
+			version: "14.1.0",
+			platform: "linux",
+			architecture: "x64",
+			toolsDirectory: "C:/vetta/bin",
+		});
+		if (!plan) throw new Error("expected a download plan");
+
+		const extractDirectory = "C:/vetta/extract-rg";
+		const cleanup: string[] = [];
+		const operations: ToolArchiveOperations = {
+			extractTarGz: () => {},
+			extractZip: async () => {},
+			fileExists: () => false,
+			findBinary: () => null,
+			moveFile: () => {
+				throw new Error("move should not be attempted");
+			},
+			makeExecutable: () => {
+				throw new Error("chmod should not be attempted");
+			},
+			removeFile: (path) => cleanup.push(`file:${path}`),
+			removeDirectory: (path) => cleanup.push(`directory:${path}`),
+		};
+
+		await expect(
+			installToolArchive({
+				plan,
+				extractDirectory,
+				platform: "linux",
+				operations,
+			}),
+		).rejects.toThrow(`Binary not found in archive: expected ${plan.binaryFileName} under ${extractDirectory}`);
+		expect(cleanup).toEqual([`file:${plan.archivePath}`, `directory:${extractDirectory}`]);
 	});
 });

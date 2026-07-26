@@ -258,6 +258,8 @@ Runtime 提供的本地 Adapter 只检查受管 bin 目录和 PATH，不下载�
   `undefined`；grep/find 执行合同确认每次执行都会重新调用 Resolver，不依赖旧解析结果。
 - 宿主下载计划合同覆盖 fd/rg 在 macOS、Linux、Windows 下的版本、架构、扩展名、归档
   路径和 GitHub 下载 URL；不触发网络或解压。
+- `installToolArchive` 合同覆盖 tar.gz/zip 分支、嵌套二进制定位、Unix chmod、Windows
+  不 chmod，以及成功和失败时的归档/临时目录清理。
 - Runtime 源码没有新增 `coding-agent` 或下载器导入。
 
 ### 2.6 `find`
@@ -378,7 +380,7 @@ side effects
 
 `current_time`、`read`、`ls`、`grep`、`find`、`glob` 和动态注册/激活编排合同已经建立。
 宿主适配器已从 `core/host` 调整到 `adapters/runtime-tools`，并建立了不触发网络的基础
-`ensureTool` 行为合同和下载计划合同。下一阶段应完成 `rg`、`fd`、Photon 和其他外部依赖的产物级解析/打包测试，重点覆盖下载、
+`ensureTool` 行为合同、下载计划合同和归档安装合同。下一阶段应完成 `rg`、`fd`、Photon 和其他外部依赖的产物级解析/打包测试，重点覆盖下载、
 并发解析、版本锁定、离线模式和 Windows/Unix 产物。生产 Profile 接线时由组合根创建 Registry；
 普通 Catalog 成员变化直接在下一次模型调用生效，不再触发全 Profile 重编译。
 

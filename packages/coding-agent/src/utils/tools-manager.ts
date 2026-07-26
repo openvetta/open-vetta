@@ -208,6 +208,81 @@ function findBinaryRecursively(rootDir: string, binaryFileName: string): string 
 	return null;
 }
 
+export interface ToolArchiveOperations {
+	readonly extractTarGz: (archivePath: string, extractDirectory: string, assetName: string) => void;
+	readonly extractZip: (archivePath: string, extractDirectory: string) => Promise<void>;
+	readonly fileExists: (path: string) => boolean;
+	readonly findBinary: (rootDirectory: string, binaryFileName: string) => string | null;
+	readonly moveFile: (sourcePath: string, destinationPath: string) => void;
+	readonly makeExecutable: (path: string) => void;
+	readonly removeFile: (path: string) => void;
+	readonly removeDirectory: (path: string) => void;
+}
+
+export interface InstallToolArchiveOptions {
+	readonly plan: ToolDownloadPlan;
+	readonly extractDirectory: string;
+	readonly platform: NodeJS.Platform;
+	readonly operations: ToolArchiveOperations;
+}
+
+export async function installToolArchive(options: InstallToolArchiveOptions): Promise<string> {
+	const { plan, extractDirectory, operations } = options;
+
+	try {
+		if (plan.assetName.endsWith(".tar.gz")) {
+			operations.extractTarGz(plan.archivePath, extractDirectory, plan.assetName);
+		} else if (plan.assetName.endsWith(".zip")) {
+			await operations.extractZip(plan.archivePath, extractDirectory);
+		} else {
+			throw new Error(`Unsupported archive format: ${plan.assetName}`);
+		}
+
+		const extractedDirectory = join(extractDirectory, plan.assetName.replace(/\.(tar\.gz|zip)$/, ""));
+		const extractedBinaryCandidates = [
+			join(extractedDirectory, plan.binaryFileName),
+			join(extractDirectory, plan.binaryFileName),
+		];
+		let extractedBinary = extractedBinaryCandidates.find((candidate) => operations.fileExists(candidate));
+
+		if (!extractedBinary) {
+			extractedBinary = operations.findBinary(extractDirectory, plan.binaryFileName) ?? undefined;
+		}
+
+		if (extractedBinary) {
+			operations.moveFile(extractedBinary, plan.binaryPath);
+		} else {
+			throw new Error(`Binary not found in archive: expected ${plan.binaryFileName} under ${extractDirectory}`);
+		}
+
+		if (options.platform !== "win32") {
+			operations.makeExecutable(plan.binaryPath);
+		}
+	} finally {
+		operations.removeFile(plan.archivePath);
+		operations.removeDirectory(extractDirectory);
+	}
+
+	return plan.binaryPath;
+}
+
+const defaultToolArchiveOperations: ToolArchiveOperations = {
+	extractTarGz: (archivePath, extractDirectory, assetName) => {
+		const extractResult = spawnSync("tar", ["xzf", archivePath, "-C", extractDirectory], { stdio: "pipe" });
+		if (extractResult.error || extractResult.status !== 0) {
+			const errMsg = extractResult.error?.message ?? extractResult.stderr?.toString().trim() ?? "unknown error";
+			throw new Error(`Failed to extract ${assetName}: ${errMsg}`);
+		}
+	},
+	extractZip: (archivePath, extractDirectory) => extractZip(archivePath, { dir: extractDirectory }),
+	fileExists: existsSync,
+	findBinary: findBinaryRecursively,
+	moveFile: renameSync,
+	makeExecutable: (path) => chmodSync(path, 0o755),
+	removeFile: (path) => rmSync(path, { force: true }),
+	removeDirectory: (path) => rmSync(path, { recursive: true, force: true }),
+};
+
 // Download and install a tool
 async function downloadTool(tool: "fd" | "rg"): Promise<string> {
 	const config = TOOLS[tool];
@@ -245,49 +320,12 @@ async function downloadTool(tool: "fd" | "rg"): Promise<string> {
 	);
 	mkdirSync(extractDir, { recursive: true });
 
-	try {
-		if (plan.assetName.endsWith(".tar.gz")) {
-			const extractResult = spawnSync("tar", ["xzf", plan.archivePath, "-C", extractDir], { stdio: "pipe" });
-			if (extractResult.error || extractResult.status !== 0) {
-				const errMsg = extractResult.error?.message ?? extractResult.stderr?.toString().trim() ?? "unknown error";
-				throw new Error(`Failed to extract ${plan.assetName}: ${errMsg}`);
-			}
-		} else if (plan.assetName.endsWith(".zip")) {
-			await extractZip(plan.archivePath, { dir: extractDir });
-		} else {
-			throw new Error(`Unsupported archive format: ${plan.assetName}`);
-		}
-
-		// Find the binary in extracted files. Some archives contain files directly
-		// at root, others nest under a versioned subdirectory.
-		const extractedDir = join(extractDir, plan.assetName.replace(/\.(tar\.gz|zip)$/, ""));
-		const extractedBinaryCandidates = [
-			join(extractedDir, plan.binaryFileName),
-			join(extractDir, plan.binaryFileName),
-		];
-		let extractedBinary = extractedBinaryCandidates.find((candidate) => existsSync(candidate));
-
-		if (!extractedBinary) {
-			extractedBinary = findBinaryRecursively(extractDir, plan.binaryFileName) ?? undefined;
-		}
-
-		if (extractedBinary) {
-			renameSync(extractedBinary, plan.binaryPath);
-		} else {
-			throw new Error(`Binary not found in archive: expected ${plan.binaryFileName} under ${extractDir}`);
-		}
-
-		// Make executable (Unix only)
-		if (plat !== "win32") {
-			chmodSync(plan.binaryPath, 0o755);
-		}
-	} finally {
-		// Cleanup
-		rmSync(plan.archivePath, { force: true });
-		rmSync(extractDir, { recursive: true, force: true });
-	}
-
-	return plan.binaryPath;
+	return installToolArchive({
+		plan,
+		extractDirectory: extractDir,
+		platform: plat,
+		operations: defaultToolArchiveOperations,
+	});
 }
 
 // Termux package names for tools
