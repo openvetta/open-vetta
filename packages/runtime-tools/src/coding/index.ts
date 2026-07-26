@@ -26,6 +26,21 @@ export {
 	type LocalCodingToolExecutableResolverOptions,
 } from "./host/index.js";
 export {
+	type BackgroundCommandExecutorOptions,
+	type BackgroundCommandToolDetails,
+	createBackgroundCommandToolExecutor,
+} from "./shared/background-command-executor.js";
+export type {
+	BackgroundCommandEvent,
+	BackgroundCommandService,
+	BackgroundCommandSnapshot,
+	BackgroundCommandStatus,
+	BackgroundCommandStopReason,
+	ReadBackgroundCommandOutputOptions,
+	SpawnBackgroundCommandOptions,
+} from "./shared/background-command-service.js";
+export { buildBackgroundCommandNotification } from "./shared/background-command-service.js";
+export {
 	type CommandToolExecutor,
 	type CommandToolExecutorRequest,
 	type CommandToolInput,
@@ -150,3 +165,27 @@ export {
 	type ShellToolOptions,
 	type ShellToolRegistrationOptions,
 } from "./tools/shell/index.js";
+export {
+	createTaskOutputTool,
+	createTaskOutputToolRegistration,
+	TASK_OUTPUT_TOOL_CATEGORY,
+	TASK_OUTPUT_TOOL_DESCRIPTION,
+	TASK_OUTPUT_TOOL_REQUIRES,
+	TASK_OUTPUT_TOOL_SCOPES,
+	type TaskOutputToolDetails,
+	type TaskOutputToolInput,
+	TaskOutputToolInputSchema,
+	type TaskOutputToolOptions,
+} from "./tools/task-output/index.js";
+export {
+	createTaskStopTool,
+	createTaskStopToolRegistration,
+	TASK_STOP_TOOL_CATEGORY,
+	TASK_STOP_TOOL_DESCRIPTION,
+	TASK_STOP_TOOL_REQUIRES,
+	TASK_STOP_TOOL_SCOPES,
+	type TaskStopToolDetails,
+	type TaskStopToolInput,
+	TaskStopToolInputSchema,
+	type TaskStopToolOptions,
+} from "./tools/task-stop/index.js";

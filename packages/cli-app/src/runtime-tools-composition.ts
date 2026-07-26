@@ -1,4 +1,5 @@
 import {
+	createCodingAgentBackgroundCommandService,
 	createCodingAgentForegroundCommandHost,
 	createToolExecutableResolver,
 	type EnsureTool,
@@ -12,9 +13,11 @@ import {
 	RandomIdGenerator,
 } from "@vetta/runtime-core/kernel";
 import {
+	type BackgroundCommandService,
 	type CodingToolActivation,
 	type CodingToolExecutableResolver,
 	type CommandToolExecutor,
+	createBackgroundCommandToolExecutor,
 	createBashToolRegistration,
 	createCodingToolsFeature,
 	createCurrentTimeToolRegistration,
@@ -25,12 +28,15 @@ import {
 	createLsToolRegistration,
 	createReadToolRegistration,
 	createShellToolRegistration,
+	createTaskOutputToolRegistration,
+	createTaskStopToolRegistration,
 	InMemoryCodingToolRegistry,
 } from "@vetta/runtime-tools/coding";
 
 export interface CodingToolsRuntimeCompositionOptions {
 	readonly cwd?: string;
 	readonly activation?: CodingToolActivation;
+	readonly backgroundService?: BackgroundCommandService;
 	readonly commandExecutor?: CommandToolExecutor;
 	readonly ensureTool?: EnsureTool;
 	readonly tokenBudget?: number;
@@ -39,6 +45,7 @@ export interface CodingToolsRuntimeCompositionOptions {
 
 export interface CodingToolsRuntimeComposition {
 	readonly cwd: string;
+	readonly backgroundService?: BackgroundCommandService;
 	readonly commandExecutor: CommandToolExecutor;
 	readonly executableResolver: CodingToolExecutableResolver;
 	readonly registry: InMemoryCodingToolRegistry;
@@ -46,20 +53,38 @@ export interface CodingToolsRuntimeComposition {
 	readonly profile: AgentProfile;
 	readonly compiler: FeatureCompiler;
 	readonly compile: (signal?: AbortSignal) => Promise<CompiledRuntimeSnapshot>;
+	readonly dispose: () => void;
 }
 
 export function createCodingToolsRuntimeComposition(
 	options: CodingToolsRuntimeCompositionOptions = {},
 ): CodingToolsRuntimeComposition {
 	const cwd = options.cwd ?? process.cwd();
+	const commandHost = createCodingAgentForegroundCommandHost(cwd);
+	const backgroundService =
+		options.backgroundService ?? (options.commandExecutor ? undefined : createCodingAgentBackgroundCommandService());
+	const foregroundExecutor = createForegroundCommandToolExecutor(commandHost);
 	const commandExecutor =
-		options.commandExecutor ?? createForegroundCommandToolExecutor(createCodingAgentForegroundCommandHost(cwd));
+		options.commandExecutor ??
+		(backgroundService
+			? createBackgroundCommandToolExecutor({
+					...commandHost,
+					foregroundExecutor,
+					backgroundService,
+				})
+			: foregroundExecutor);
 	const executableResolver = createToolExecutableResolver(options.ensureTool);
 	const registry = new InMemoryCodingToolRegistry([
 		createCurrentTimeToolRegistration(),
 		createReadToolRegistration(cwd),
 		createBashToolRegistration(cwd, { executor: commandExecutor }),
 		createShellToolRegistration(cwd, { executor: commandExecutor }),
+		...(backgroundService
+			? [
+					createTaskOutputToolRegistration({ backgroundService }),
+					createTaskStopToolRegistration({ backgroundService }),
+				]
+			: []),
 		createLsToolRegistration(cwd),
 		createGlobToolRegistration(cwd),
 		createGrepToolRegistration(cwd, { executableResolver }),
@@ -67,7 +92,11 @@ export function createCodingToolsRuntimeComposition(
 	]);
 	const feature = createCodingToolsFeature({
 		catalog: registry,
-		activation: options.activation ?? { mode: "scope", scope: "cli" },
+		activation:
+			options.activation ??
+			(backgroundService
+				? { mode: "scope", scope: "cli", capabilities: new Set(["bg-tasks"]) }
+				: { mode: "scope", scope: "cli" }),
 	});
 	const profile: AgentProfile = {
 		id: "coding-tools-runtime",
@@ -87,6 +116,7 @@ export function createCodingToolsRuntimeComposition(
 
 	return {
 		cwd,
+		backgroundService,
 		commandExecutor,
 		executableResolver,
 		registry,
@@ -94,5 +124,6 @@ export function createCodingToolsRuntimeComposition(
 		profile,
 		compiler,
 		compile: (signal = new AbortController().signal) => compiler.compile(profile, signal),
+		dispose: () => backgroundService?.dispose(),
 	};
 }

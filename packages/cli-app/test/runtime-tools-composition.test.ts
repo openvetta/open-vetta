@@ -1,5 +1,6 @@
 import {
 	ALL_SCENARIOS,
+	BackgroundTaskManager,
 	createBashTool,
 	createFindTool,
 	createGlobTool,
@@ -7,6 +8,8 @@ import {
 	createLsTool,
 	createReadTool,
 	createShellTool,
+	createTaskOutputTool,
+	createTaskStopTool,
 } from "@vetta/coding-agent";
 import { describe, expect, it } from "vitest";
 import { resolveActiveToolNames } from "../../coding-agent/src/core/session/tool-scope.js";
@@ -39,13 +42,14 @@ describe("CLI Runtime Tools Composition Root", () => {
 			const contribution = await provider.contribute(modelCallContext());
 			expect(contribution.tools?.map(({ name }) => name)).toEqual(
 				process.platform === "win32"
-					? ["current_time", "glob", "grep", "read", "shell"]
-					: ["bash", "current_time", "glob", "grep", "read"],
+					? ["current_time", "glob", "grep", "read", "shell", "task_output", "task_stop"]
+					: ["bash", "current_time", "glob", "grep", "read", "task_output", "task_stop"],
 			);
 			await expect(composition.executableResolver.resolve("rg")).resolves.toBeUndefined();
 			expect(calls).toEqual([{ tool: "rg", silent: true }]);
 		} finally {
 			await compiled.dispose();
+			composition.dispose();
 		}
 	});
 
@@ -67,11 +71,13 @@ describe("CLI Runtime Tools Composition Root", () => {
 			expect(contribution.tools?.map(({ name }) => name)).toEqual(["find", "ls"]);
 		} finally {
 			await compiled.dispose();
+			composition.dispose();
 		}
 	});
 
 	it.each(ALL_SCENARIOS)("matches the legacy active tool profile for %s", async (scenario) => {
 		const cwd = "C:/workspace";
+		const backgroundTasks = new BackgroundTaskManager();
 		const legacyTools = [
 			createCurrentTimeTool(),
 			createReadTool(cwd),
@@ -81,15 +87,17 @@ describe("CLI Runtime Tools Composition Root", () => {
 			createGlobTool(cwd),
 			createGrepTool(cwd),
 			createFindTool(cwd),
+			createTaskOutputTool({ getManager: () => backgroundTasks }),
+			createTaskStopTool({ getManager: () => backgroundTasks }),
 		];
 		const legacyToolNames = resolveActiveToolNames(
 			scenario,
 			legacyTools as unknown as Parameters<typeof resolveActiveToolNames>[1],
-			new Set(),
+			new Set(["bg-tasks"]),
 		).sort();
 		const composition = createCodingToolsRuntimeComposition({
 			cwd,
-			activation: { mode: "scope", scope: scenario },
+			activation: { mode: "scope", scope: scenario, capabilities: new Set(["bg-tasks"]) },
 			ensureTool: async () => undefined,
 		});
 
@@ -102,6 +110,7 @@ describe("CLI Runtime Tools Composition Root", () => {
 			expect(runtimeToolNames).toEqual(legacyToolNames);
 		} finally {
 			await compiled.dispose();
+			composition.dispose();
 		}
 	});
 });

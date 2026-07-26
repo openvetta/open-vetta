@@ -375,17 +375,21 @@ Runtime glob 直接声明 `glob` 和 `ignore`，不再通过 `coding-agent` 的�
   工具选择语义。
 - Catalog Snapshot 冻结 requires 数组，避免注册对象被外部修改。
 
-当前用 `bg-tasks` 合成测试注册覆盖以下行为：
+除合成测试外，Runtime `task_output/task_stop` 现已使用 `requires: ["bg-tasks"]` 注册并进入
+过渡 Composition Root。合同覆盖以下行为：
 
 - 没有能力时，scope 激活不暴露工具。
 - 增加能力后，下一次 Model Call 立即暴露工具。
 - 移除能力后，下一次 Model Call 立即隐藏工具。
 - explicit 和 additionally-enabled 仍可选中工具。
+- `bg-tasks` 可用时，7 个场景的新旧 Tool Profile 都包含相同的 task 工具。
+- 能力不可用或自定义 Command Executor 未提供后台 Service 时，不注册脱离命令执行器的孤立
+  task 工具。
 
-这只是命令执行迁移的前置合同；`bash/shell/task_output/task_stop` 尚未标记为 Runtime
-迁移完成。
+`task_output/task_stop` 的定义、Schema、增量读取和停止结果已迁到 Runtime；底层任务进程与
+日志生命周期仍通过宿主 Adapter 委托旧 `BackgroundTaskManager`。
 
-### 2.10 `bash/shell` 命令执行 Port 与独立前台执行器
+### 2.10 `bash/shell` 命令执行 Port、前台执行器与后台协调
 
 旧 `bash` 不是单纯的 `spawn` 包装。它同时拥有命令前缀、环境覆盖、路径修正、输出更新、
 尾部截断、完整输出文件、超时/取消、受保护目录检查、后台任务和自动转后台。直接在
@@ -396,9 +400,9 @@ Runtime Tools 重写其中一部分会形成新的功能实现，而不是架构
 ```text
 Runtime bash/shell Definition + Registration
   -> CommandToolExecutor Port
-  -> Runtime ForegroundCommandExecutor
-  -> ForegroundCommandOperations Port
-  -> coding-agent Local Process Adapter
+  -> Runtime ForegroundCommandExecutor / BackgroundCommandExecutor
+  -> ForegroundCommandOperations / BackgroundCommandService Port
+  -> coding-agent Host Adapters
 ```
 
 Runtime Tools 现在独立拥有：
@@ -408,6 +412,9 @@ Runtime Tools 现在独立拥有：
 - 命令前缀、spawn context、路径修正、流式 update、GB18030 fallback、尾部截断、完整输出临时
   文件、退出码与超时/取消错误文本。
 - 受保护 skill/scene 目录的前后快照、变化检测和告警文本。
+- 显式后台结果、软等待自动提升、后台完成内联结果、事件到流式 update 的映射。
+- 后台通知 XML 的纯格式化合同。
+- `task_output/task_stop` 的独立目录、TypeScript description、TypeBox Schema 和 Registration。
 - Windows 默认 shell、其他平台默认 bash 的互斥 scope。
 - Runtime 执行上下文到 Port 的转发。
 
@@ -415,6 +422,11 @@ coding-agent 的新宿主适配器只负责本地进程能力：选择 shell、�
 PowerShell UTF-8 前缀、spawn 子进程以及在超时/取消时终止进程树。CLI 过渡 Composition Root
 默认组合该 Adapter 与 Runtime 前台执行器，不再调用旧 `createBashTool/createShellTool`。
 `LegacyCommandToolExecutor` 仍作为迁移期兼容入口保留；旧产品 CLI 入口也仍未切换。
+
+后台路径采用更窄的宿主边界：Runtime 只依赖 `BackgroundCommandService` 的 spawn、wait、事件
+订阅、通知订阅、输出读取、stop 和 dispose。coding-agent Adapter 当前把这些操作映射到旧
+`BackgroundTaskManager`，并保留其通知抑制规则、读取游标、停止原因、shell 和进程树行为。
+因此 Runtime 已不依赖该具体类，但底层任务引擎尚未独立实现。
 
 兼容性证据：
 
@@ -425,11 +437,15 @@ PowerShell UTF-8 前缀、spawn 子进程以及在超时/取消时终止进程�
 - CJK 空格路径修正、2000 行尾部截断和受保护目录告警逐项比较。
 - Windows/Unix scope 矩阵验证同一时刻只默认暴露一个命令工具。
 - 真实本地前台命令通过 Runtime Definition、独立前台执行器和本地进程 Adapter 执行成功。
+- 显式后台、短命令内联完成、软等待自动提升、失败退出和行数截断与旧实现逐项比较。
+- 完成通知、内联完成时通知抑制、提升后通知和通知 XML 与旧实现相等。
+- `task_output` 定义、Registration、完整读取、增量游标和无新增输出结果相等。
+- `task_stop` 对运行中、已完成和不存在任务的结果、停止原因与旧实现相等。
 - 7 个旧会话场景的 Composition Root Tool Profile 差分继续为零。
 
-该阶段完成的是前台路径，不代表整个 bash/shell 已迁移。`run_in_background`、前台命令软等待后
-自动转后台、任务通知以及 `task_output/task_stop` 仍由旧后台任务体系承载，不能并入当前前台
-Operations。完成后台服务 Port 和相同差分门禁前，旧 bash/shell 完整实现仍不可删除。
+当前前台行为与后台协调已经由 Runtime 拥有，但旧 `BackgroundTaskManager` 仍负责实际后台
+进程、日志文件、状态存储和通知仲裁。只有在同一 Service Port 后实现独立任务引擎并通过现有
+差分合同后，才能删除旧 bash/shell 的完整后台实现。
 
 ## 3. 已实施模块审计
 
@@ -439,9 +455,9 @@ Operations。完成后台服务 Port 和相同差分门禁前，旧 bash/shell �
 | `read` Tool | 独立实现、旧新行为合同和真实 Tool Loop 已通过 | 独立可执行宿主的 Photon WASM 产物打包尚未验证 | 工具模块迁移完成；生产宿主不可切换 |
 | `ls` Tool | 独立实现、旧新行为合同、空 scope 和 Feature 显式激活 Tool Loop 已通过 | 生产宿主尚未装配新 Profile | 工具模块迁移完成；默认不激活 |
 | `glob` Tool | 独立实现、绝对 pattern、`.gitignore` 和真实 Tool Loop 合同已通过 | 生产宿主尚未装配新 Profile | 工具模块迁移完成；全 scope 暴露保持旧语义 |
-| `bash/shell` Tool | Runtime Definition、Registration、Command Port、独立前台执行器、本地进程 Adapter、平台 scope 和过渡 Composition Root 已通过 | 后台执行、软等待自动转后台、任务通知和 task 工具尚未迁移 | 前台模块迁移完成；旧完整实现仍不可删除 |
+| `bash/shell` Tool | Runtime Definition、Registration、前台执行器、后台协调、task 工具、通知格式、本地 Host Adapter、平台 scope 和过渡 Composition Root 已通过 | 底层后台任务引擎仍由旧 `BackgroundTaskManager` Adapter 提供 | Tool 协调层迁移完成；旧后台引擎仍不可删除 |
 | 宿主可执行文件解析 | Runtime Port、本地 PATH/managed-bin Adapter、grep/find 注入合同、旧 ensureTool 适配、网络/归档合同和 cli-app Composition Root 已通过 | 真实 GitHub 网络、最终独立可执行发布物和完整 Tool Profile 迁移尚未完成；包根兼容导出必须继续保留 | 新 Profile 可并行验证；旧宿主仍不可切换 |
-| Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope/explicit 激活和 requires/capabilities，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；current_time/read/ls/grep/find/glob 已形成独立注册，bash/shell 前台路径已独立，全部进入全场景 Profile 差分门禁 | edit/write/tree、命令后台任务等未迁移，生产 Profile 尚未切换 | 动态编排边界完成；整体能力未完成 |
+| Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope/explicit 激活和 requires/capabilities，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；current_time/read/ls/grep/find/glob/bash/shell/task_output/task_stop 已进入全场景 Profile 差分门禁 | edit/write/tree 未迁移，后台任务底层引擎和生产 Profile 尚未切换 | 动态编排边界完成；整体能力未完成 |
 | `AgentSession` | 新状态机可执行 | 活动 Turn 输入目前拒绝；旧系统具有 queue、follow-up、steering 语义 | 不可切换 |
 | Turn Pipeline | 固定阶段和持久化检查点已实现 | 输入队列、完整观察事件和恢复闭环未完成 | 不可切换 |
 | `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环、每次模型调用刷新 Model Call Frame 已通过 | Kernel 只映射完成消息；旧 UI 需要流式 text/thinking/tool progress 事件 | 不可切换宿主 |
@@ -484,12 +500,13 @@ side effects
 
 ## 5. 下一步
 
-`current_time`、`read`、`ls`、`grep`、`find`、`glob`、bash/shell 独立前台执行、requires/capabilities 和动态注册/激活编排合同已经建立。
+`current_time`、`read`、`ls`、`grep`、`find`、`glob`、bash/shell 前后台协调、task 工具、requires/capabilities 和动态注册/激活编排合同已经建立。
 宿主适配器已从 `core/host` 调整到 `adapters/runtime-tools`，并建立了不触发网络的基础
 `ensureTool` 行为合同、下载计划合同、归档安装合同、网络边界合同和 cli-app 过渡
 Composition Root。新旧 Tool Profile 已对全部场景建立差分门禁；runtime-tools 包根兼容导出
-因仍承载未迁移工具而保留。下一阶段应为后台任务建立独立 Service Port，迁移显式后台执行、
-软等待自动转后台、任务通知和 `task_output/task_stop`；之后迁移 write/edit/tree 并完成 CLI/桌面入口适配，
+因仍承载未迁移工具而保留。下一阶段应在现有 `BackgroundCommandService` Port 后实现 Runtime
+独立任务生命周期引擎，并把 shell spawn、日志存储和进程树终止降为宿主 Operations；差分通过
+后再迁移 write/edit/tree 并完成 CLI/桌面入口适配，
 最后根据完整 Profile 差分结果设计兼容入口迁移；真实 GitHub 网络、最终独立可执行发布物和
 其他外部依赖的产物级解析/打包测试仍需单独执行，重点覆盖下载、并发解析、版本锁定、离线
 模式和 Windows/Unix 产物。生产 Profile 接线时由组合根创建 Registry；

@@ -5,6 +5,14 @@
  */
 
 export {
+	createCodingAgentBackgroundCommandService,
+	type RuntimeBackgroundCommandEvent,
+	type RuntimeBackgroundCommandService,
+	type RuntimeBackgroundCommandSnapshot,
+	type RuntimeBackgroundCommandStatus,
+	type RuntimeBackgroundCommandStopReason,
+} from "./background-command-service.js";
+export {
 	createLegacyCommandToolExecutor,
 	type LegacyCommandToolExecutorOptions,
 	type RuntimeCommandToolExecutor,
