@@ -42,6 +42,33 @@ describe("runtime grep tool", () => {
 		expect(selectCodingToolsForScope([runtime], "project").map(({ name }) => name)).toEqual(["grep"]);
 	});
 
+	it("uses an injected host resolver without downloading or discovering tools itself", async () => {
+		const resolvedTools: string[] = [];
+		const runtime = createGrepTool(process.cwd(), {
+			operations: {
+				isDirectory: () => true,
+				readFile: () => "",
+			},
+			executableResolver: {
+				resolve: async (tool) => {
+					resolvedTools.push(tool);
+					return undefined;
+				},
+			},
+		});
+
+		await expect(
+			runtime.execute({
+				sessionId: "session-1",
+				turnId: "turn-1",
+				toolCallId: "runtime-grep",
+				input: { pattern: "never-called" },
+				signal: new AbortController().signal,
+			}),
+		).rejects.toThrow("ripgrep (rg) is not available and could not be downloaded");
+		expect(resolvedTools).toEqual(["rg"]);
+	});
+
 	it("preserves matching output, context lines, anchors, and limit notices", async () => {
 		const directory = mkdtempSync(join(tmpdir(), "runtime-tools-grep-"));
 		temporaryDirectories.push(directory);

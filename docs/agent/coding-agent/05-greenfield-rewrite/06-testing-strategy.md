@@ -166,6 +166,14 @@ Operations 和取消时点都必须独立验证。
 - `GlobOperations` 的宿主或远程搜索替换，以及 `glob`/`ignore` 的直接 Runtime 依赖。
 - 旧新实现定义、注册元数据和结果差分，并通过真实 Agent Core Tool Loop 执行。
 
+宿主可执行文件解析 Port 还必须覆盖：
+
+- 受管 bin 目录优先于 PATH。
+- Windows `.exe` 后缀和 Unix 命令名。
+- PATH 命令不可用时返回 `undefined`，不在 Runtime 内触发下载。
+- `grep/find` 注入解析器后分别请求 `rg`/`fd`，未注入时保持旧默认路径。
+- Resolver 在执行时解析，不要求重建 Runtime Snapshot。
+
 动态 Tool Catalog 还必须覆盖：
 
 - 初始注册排序确定且成员快照冻结。

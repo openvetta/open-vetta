@@ -11,6 +11,7 @@ The package root temporarily keeps the built-in tool exports from
 - TypeBox-backed Runtime Tool definitions
 - coding tool registration metadata and scenario selection
 - the greenfield Coding Tools Feature
+- host executable resolution Port for `rg` and `fd`
 - transitional re-exports of legacy coding tools
 
 ## What It Does Not Own
@@ -19,6 +20,7 @@ The package root temporarily keeps the built-in tool exports from
 - agent state
 - app-specific permission UX
 - model or provider selection
+- downloading or updating host executables
 
 ## Who Depends On It
 
@@ -78,6 +80,23 @@ createCodingToolsFeature({
 	activation: { mode: "scope", scope: "project" },
 });
 ```
+
+Host executable discovery follows the same boundary. A host may inject a
+`CodingToolExecutableResolver` into grep/find; the Runtime receives only the
+resolved path and never downloads or updates binaries:
+
+```ts
+const executableResolver = createLocalCodingToolExecutableResolver({
+	binDirectory: managedBinDirectory,
+});
+
+createGrepToolRegistration(cwd, { executableResolver });
+createFindToolRegistration(cwd, { executableResolver });
+```
+
+Hosts that manage downloads can implement the same Port by delegating to their
+own downloader. The resolver is called at tool execution time, so a host can
+replace or remove a binary without rebuilding the Runtime Snapshot.
 
 The registry supports dynamic `register()` and `unregister()`. The Feature keeps
 a long-lived Model Call Contribution Provider. Before every LLM call it reads

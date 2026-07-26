@@ -20,6 +20,12 @@ export {
 	createCodingToolsFeature,
 } from "./coding-tools-feature.js";
 export {
+	type CodingToolExecutable,
+	type CodingToolExecutableResolver,
+	createLocalCodingToolExecutableResolver,
+	type LocalCodingToolExecutableResolverOptions,
+} from "./host/index.js";
+export {
 	CODING_TOOL_SCOPES,
 	type CodingToolActivation,
 	type CodingToolCategory,

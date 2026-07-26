@@ -4,6 +4,7 @@ import { basename, relative } from "node:path";
 import { createInterface } from "node:readline";
 import { type Static, Type } from "@sinclair/typebox";
 import type { RuntimeToolDefinition, RuntimeToolResult } from "@vetta/runtime-core/kernel";
+import type { CodingToolExecutableResolver } from "../../host/executable-resolver.js";
 import { anchorLineHash } from "../../shared/anchors.js";
 import { resolveExistingPath } from "../../shared/path-resolution.js";
 import { formatSize, type TruncationResult, truncateHead } from "../../shared/truncation.js";
@@ -48,6 +49,7 @@ export interface GrepOperations {
 export interface GrepToolOptions {
 	readonly operations?: GrepOperations;
 	readonly rgPath?: string;
+	readonly executableResolver?: CodingToolExecutableResolver;
 }
 
 interface RipgrepMatchEvent {
@@ -93,9 +95,14 @@ export function createGrepTool(cwd: string, options: GrepToolOptions = {}): Runt
 			if (request.input.glob) args.push("--glob", request.input.glob);
 			args.push(request.input.pattern, searchPath);
 
+			const resolvedRgPath = options.executableResolver ? await options.executableResolver.resolve("rg") : rgPath;
+			if (!resolvedRgPath) {
+				throw new Error("ripgrep (rg) is not available and could not be downloaded");
+			}
+
 			return runRipgrep({
 				args,
-				rgPath,
+				rgPath: resolvedRgPath,
 				isDirectory,
 				searchPath,
 				operations,

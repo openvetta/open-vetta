@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { basename, relative } from "node:path";
 import { type Static, Type } from "@sinclair/typebox";
 import type { RuntimeToolDefinition, RuntimeToolResult } from "@vetta/runtime-core/kernel";
+import type { CodingToolExecutableResolver } from "../../host/executable-resolver.js";
 import { resolveExistingPath } from "../../shared/path-resolution.js";
 import { formatSize, type TruncationResult, truncateHead } from "../../shared/truncation.js";
 import { FIND_TOOL_DESCRIPTION } from "./description.js";
@@ -43,6 +44,7 @@ export interface FindOperations {
 export interface FindToolOptions {
 	readonly operations?: FindOperations;
 	readonly fdPath?: string;
+	readonly executableResolver?: CodingToolExecutableResolver;
 }
 
 const defaultFindOperations: FindOperations = {
@@ -73,8 +75,12 @@ export function createFindTool(cwd: string, options: FindToolOptions = {}): Runt
 				});
 				return formatResults(results, searchPath, limit);
 			}
+			const resolvedFdPath = options.executableResolver ? await options.executableResolver.resolve("fd") : fdPath;
+			if (!resolvedFdPath) {
+				throw new Error("fd is not available and could not be downloaded");
+			}
 			return runFd({
-				fdPath,
+				fdPath: resolvedFdPath,
 				pattern: request.input.pattern,
 				searchPath,
 				limit,

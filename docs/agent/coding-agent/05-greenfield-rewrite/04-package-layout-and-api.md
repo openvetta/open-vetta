@@ -49,6 +49,9 @@ packages/runtime-tools/src/
       path-resolution.ts
       text-decoding.ts
       truncation.ts
+    host/
+      executable-resolver.ts
+      index.ts
     coding-tool-catalog.ts
     tool-registration.ts
     tools/

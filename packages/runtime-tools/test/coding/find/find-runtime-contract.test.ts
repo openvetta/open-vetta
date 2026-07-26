@@ -49,6 +49,29 @@ describe("runtime find tool", () => {
 		expect(selectCodingToolsForScope([runtime], "project")).toEqual([]);
 	});
 
+	it("uses an injected host resolver without downloading or discovering tools itself", async () => {
+		const resolvedTools: string[] = [];
+		const runtime = createFindTool(process.cwd(), {
+			executableResolver: {
+				resolve: async (tool) => {
+					resolvedTools.push(tool);
+					return undefined;
+				},
+			},
+		});
+
+		await expect(
+			runtime.execute({
+				sessionId: "session-1",
+				turnId: "turn-1",
+				toolCallId: "runtime-find",
+				input: { pattern: "*.ts" },
+				signal: new AbortController().signal,
+			}),
+		).rejects.toThrow("fd is not available and could not be downloaded");
+		expect(resolvedTools).toEqual(["fd"]);
+	});
+
 	it("preserves custom operation results, relative paths, and empty results", async () => {
 		const legacy = createLegacyFindTool("C:/workspace", { operations: operations() });
 		const runtime = createFindTool("C:/workspace", { operations: operations() });

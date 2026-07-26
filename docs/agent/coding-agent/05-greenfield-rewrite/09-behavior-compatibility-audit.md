@@ -215,6 +215,40 @@ Runtime 实现不导入旧 `coding-agent`，默认使用宿主 PATH 中的 `rg`�
 - Runtime grep 已通过真实 Agent Core Tool Loop。
 - 取消在 Runtime Tool 边界生效，未把取消处理移入宿主下载器。
 
+### 2.5.1 宿主可执行文件解析
+
+审计发现旧 `ensureTool` 把三个职责混在一起：
+
+```text
+PATH / managed-bin discovery
+  + download / version selection
+  + user-facing logging
+```
+
+Runtime grep/find 只需要第一项的结果，不应导入旧下载器。因此新增通用
+`CodingToolExecutableResolver`：
+
+```text
+Host resolver
+  -> Promise<string | undefined>
+  -> Runtime grep/find
+  -> spawn rg/fd
+```
+
+Runtime 提供的本地 Adapter 只检查受管 bin 目录和 PATH，不下载、不修改文件、不输出日志。
+宿主如果仍需要自动下载，可以在 Composition Root 实现同一 Port 并委托旧下载器；下载策略
+不会进入 Runtime Tool。
+
+`grep/find` 在注入解析器时于每次执行解析 `rg`/`fd`，因此宿主可以在运行时替换或移除可执行
+文件，而不需要重建 Runtime Snapshot。未注入解析器时仍使用原有 `rg`/`fd` 默认命令名，
+保证迁移期间的直接调用行为不变。
+
+证据：
+
+- 本地 Adapter 覆盖受管 bin 优先、PATH fallback、Windows 后缀和不可用返回。
+- grep/find 合同测试确认解析器分别收到 `rg`/`fd`，不可用时保留原错误文本。
+- Runtime 源码没有新增 `coding-agent` 或下载器导入。
+
 ### 2.6 `find`
 
 旧 find 的重要行为不是“默认激活”，而是注册存在但 `scope_use: []`。Runtime 迁移保留这一
@@ -287,6 +321,7 @@ Runtime glob 直接声明 `glob` 和 `ignore`，不再通过 `coding-agent` 的�
 | `read` Tool | 独立实现、旧新行为合同和真实 Tool Loop 已通过 | 独立可执行宿主的 Photon WASM 产物打包尚未验证 | 工具模块迁移完成；生产宿主不可切换 |
 | `ls` Tool | 独立实现、旧新行为合同、空 scope 和 Feature 显式激活 Tool Loop 已通过 | 生产宿主尚未装配新 Profile | 工具模块迁移完成；默认不激活 |
 | `glob` Tool | 独立实现、绝对 pattern、`.gitignore` 和真实 Tool Loop 合同已通过 | 生产宿主尚未装配新 Profile | 工具模块迁移完成；全 scope 暴露保持旧语义 |
+| 宿主可执行文件解析 | Runtime Port、本地 PATH/managed-bin Adapter、grep/find 注入合同已通过 | Composition Root 尚未把旧下载器适配到新 Profile，产物级下载/打包未验证 | Port 完成；宿主切换阻断 |
 | Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope/explicit 激活，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；current_time/read/ls/grep/find/glob 已形成独立注册和 Tool Loop 合同 | edit/write/search/process 等未迁移，生产 Profile 尚未装配 Registry | 动态编排边界完成；整体能力未完成 |
 | `AgentSession` | 新状态机可执行 | 活动 Turn 输入目前拒绝；旧系统具有 queue、follow-up、steering 语义 | 不可切换 |
 | Turn Pipeline | 固定阶段和持久化检查点已实现 | 输入队列、完整观察事件和恢复闭环未完成 | 不可切换 |
@@ -331,8 +366,8 @@ side effects
 ## 5. 下一步
 
 `current_time`、`read`、`ls`、`grep`、`find`、`glob` 和动态注册/激活编排合同已经建立。
-下一阶段应继续迁移下一个只读能力或进入宿主可执行解析/打包层，把 `rg`、`fd`、Photon 和
-其他外部依赖统一收敛到 Composition Root。生产 Profile 接线时由组合根创建 Registry；
+下一阶段应把旧 `ensureTool` 适配为宿主侧 `CodingToolExecutableResolver`，并完成 `rg`、`fd`、
+Photon 和其他外部依赖的产物级解析/打包测试。生产 Profile 接线时由组合根创建 Registry；
 普通 Catalog 成员变化直接在下一次模型调用生效，不再触发全 Profile 重编译。
 
 生产切换前还必须增加宿主产物级测试，验证 Photon WASM 在现有独立可执行打包方式中的复制与
