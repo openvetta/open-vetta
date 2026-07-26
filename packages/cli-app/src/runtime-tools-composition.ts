@@ -1,5 +1,5 @@
 import {
-	createCodingAgentBackgroundCommandService,
+	createCodingAgentBackgroundCommandHost,
 	createCodingAgentForegroundCommandHost,
 	createToolExecutableResolver,
 	type EnsureTool,
@@ -17,6 +17,7 @@ import {
 	type CodingToolActivation,
 	type CodingToolExecutableResolver,
 	type CommandToolExecutor,
+	createBackgroundCommandService,
 	createBackgroundCommandToolExecutor,
 	createBashToolRegistration,
 	createCodingToolsFeature,
@@ -62,7 +63,8 @@ export function createCodingToolsRuntimeComposition(
 	const cwd = options.cwd ?? process.cwd();
 	const commandHost = createCodingAgentForegroundCommandHost(cwd);
 	const backgroundService =
-		options.backgroundService ?? (options.commandExecutor ? undefined : createCodingAgentBackgroundCommandService());
+		options.backgroundService ??
+		(options.commandExecutor ? undefined : createBackgroundCommandService(createCodingAgentBackgroundCommandHost()));
 	const foregroundExecutor = createForegroundCommandToolExecutor(commandHost);
 	const commandExecutor =
 		options.commandExecutor ??

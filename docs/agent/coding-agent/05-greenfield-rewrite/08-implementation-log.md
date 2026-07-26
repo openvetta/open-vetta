@@ -36,6 +36,7 @@
 | [26-command-tool-port-and-compatibility-adapter.md](./08-implementation-log/26-command-tool-port-and-compatibility-adapter.md) | Bash/Shell Port、兼容适配器与 Profile 接入 |
 | [27-independent-foreground-command-executor.md](./08-implementation-log/27-independent-foreground-command-executor.md) | 独立 Runtime 前台命令执行器与宿主进程适配 |
 | [28-background-command-service-and-task-tools.md](./08-implementation-log/28-background-command-service-and-task-tools.md) | 后台命令 Service Port、Runtime 协调与 Task Tools |
+| [29-runtime-background-command-lifecycle.md](./08-implementation-log/29-runtime-background-command-lifecycle.md) | Runtime 后台任务生命周期与低层宿主端口 |
 
 ## 维护约定
 

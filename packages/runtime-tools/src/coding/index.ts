@@ -31,6 +31,15 @@ export {
 	createBackgroundCommandToolExecutor,
 } from "./shared/background-command-executor.js";
 export type {
+	BackgroundCommandHost,
+	BackgroundCommandOutput,
+	BackgroundCommandOutputStore,
+	BackgroundCommandProcess,
+	BackgroundCommandProcessOperations,
+	SpawnBackgroundCommandProcessOptions,
+} from "./shared/background-command-host.js";
+export { createBackgroundCommandService } from "./shared/background-command-lifecycle.js";
+export type {
 	BackgroundCommandEvent,
 	BackgroundCommandService,
 	BackgroundCommandSnapshot,
