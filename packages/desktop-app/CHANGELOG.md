@@ -6,6 +6,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **侧边栏「对话」空状态**：无会话时由单行「暂无对话」改为图标 + 标题 + 引导说明；对话 tab 提供「开始新对话」CTA，且空态下头部「+」始终可见；Claw tab 单独说明如何产生记录。
 - **插件 agent 工具展示名走注册 label**：`registerTool({ label })` 直接写入展示表（支持 `%catalogKey%`）；Work 模式工具头优先用该 label，`generate_image` / `edit_image` 文案从宿主 `chat.toolLabel.alias` 迁到 image-gen 插件 catalog。
 
 ### Added

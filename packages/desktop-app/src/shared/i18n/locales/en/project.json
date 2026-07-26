@@ -25,7 +25,12 @@
 			"scrollToBottom": "Scroll to bottom"
 		},
 		"defaultConversation": {
-			"noConversations": "No conversations"
+			"noConversations": "No conversations",
+			"emptyTitle": "No conversations yet",
+			"emptyDescription": "Start a new chat and it will show up here",
+			"emptyAction": "Start a chat",
+			"emptyClawTitle": "No Claw records yet",
+			"emptyClawDescription": "Chat with Claw via WeChat, Feishu, and other channels to see records here"
 		},
 		"session": {
 			"forkedTooltip": "Forked from another session"

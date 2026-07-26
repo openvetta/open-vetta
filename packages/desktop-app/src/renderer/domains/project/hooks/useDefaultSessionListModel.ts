@@ -29,6 +29,7 @@ interface UseDefaultSessionListModelArgs {
 	activeSessionPath: string;
 	cwd: string;
 	filter: DefaultConversationFilter;
+	onNewSession?: () => void;
 	onRenameSession: (cwd: string, sessionPath: string, name: string) => void;
 	onSelectSession: (cwd: string, sessionPath: string) => void;
 	sessions: SessionInfo[];
@@ -38,6 +39,7 @@ export function useDefaultSessionListModel({
 	activeSessionPath,
 	cwd,
 	filter,
+	onNewSession,
 	onRenameSession,
 	onSelectSession,
 	sessions,
@@ -75,6 +77,7 @@ export function useDefaultSessionListModel({
 
 	const hasMore = sorted.length > DEFAULT_VISIBLE_DEFAULT_SESSIONS;
 	const hiddenCount = sorted.length - DEFAULT_VISIBLE_DEFAULT_SESSIONS;
+	const isClaw = filter === "claw";
 
 	const allViews: DefaultSessionListItemView[] = useMemo(
 		() =>
@@ -102,19 +105,31 @@ export function useDefaultSessionListModel({
 
 	const visibleViews = showAll ? allViews : allViews.slice(0, DEFAULT_VISIBLE_DEFAULT_SESSIONS);
 
+	const emptyLabels = isClaw
+		? {
+				emptyTitle: t("sidebar.defaultConversation.emptyClawTitle"),
+				emptyDescription: t("sidebar.defaultConversation.emptyClawDescription"),
+			}
+		: {
+				emptyTitle: t("sidebar.defaultConversation.emptyTitle"),
+				emptyDescription: t("sidebar.defaultConversation.emptyDescription"),
+				emptyAction: t("sidebar.defaultConversation.emptyAction"),
+			};
+
 	return {
-		contextMenuEnabled: filter !== "claw",
+		contextMenuEnabled: !isClaw,
 		hasMore,
 		labels: {
 			collapse: t("sidebar.projects.collapseSessions"),
 			expand: t("sidebar.projects.expandMore", { count: hiddenCount }),
-			empty: t("sidebar.defaultConversation.noConversations"),
+			...emptyLabels,
 		},
 		sessions: allViews,
 		showAll,
 		totalCount: sorted.length,
 		visibleSessions: visibleViews,
 		actions: {
+			emptyAction: !isClaw && onNewSession ? onNewSession : undefined,
 			openContextMenu: (event: React.MouseEvent, session: SessionInfo) => {
 				setContextMenu({ x: event.clientX, y: event.clientY, session });
 			},
