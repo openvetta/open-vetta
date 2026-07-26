@@ -20,6 +20,11 @@ export interface DefaultConversationSectionViewProps {
 	onOpenContextMenu: (event: React.MouseEvent) => void;
 	quickScrollLabels: QuickScrollLabels;
 	showNewSession: boolean;
+	/**
+	 * When the conversation list is empty, keep header actions visible so users
+	 * can discover “new session” without hovering the row.
+	 */
+	actionsAlwaysVisible?: boolean;
 }
 
 export function DefaultConversationSectionView({
@@ -34,7 +39,12 @@ export function DefaultConversationSectionView({
 	onOpenContextMenu,
 	quickScrollLabels,
 	showNewSession,
+	actionsAlwaysVisible = false,
 }: DefaultConversationSectionViewProps): JSX.Element {
+	const actionButtonClass = actionsAlwaysVisible
+		? "flex items-center justify-center rounded-md p-1.5 text-foreground opacity-70 transition-opacity hover:bg-accent hover:opacity-100"
+		: "flex items-center justify-center rounded-md p-1.5 text-foreground opacity-0 transition-opacity hover:bg-accent group-hover:opacity-60 group-hover:hover:opacity-100";
+
 	return (
 		<div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", className)}>
 			<div
@@ -47,7 +57,7 @@ export function DefaultConversationSectionView({
 						type="button"
 						title={labels.more}
 						onClick={onMoreClick}
-						className="flex items-center justify-center rounded-md p-1.5 text-foreground opacity-0 transition-opacity hover:bg-accent group-hover:opacity-60 group-hover:hover:opacity-100"
+						className={actionButtonClass}
 					>
 						<span className="icon-[solar--menu-dots-linear] h-4 w-4" />
 					</button>
@@ -56,7 +66,7 @@ export function DefaultConversationSectionView({
 							type="button"
 							title={labels.newSession}
 							onClick={onNewSession}
-							className="flex items-center justify-center rounded-md p-1.5 text-foreground opacity-0 transition-opacity hover:bg-accent group-hover:opacity-60 group-hover:hover:opacity-100"
+							className={actionButtonClass}
 						>
 							<span className="icon-[solar--add-square-outline] h-4 w-4" />
 						</button>

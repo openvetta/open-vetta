@@ -9,6 +9,7 @@ interface DefaultSessionListProps {
 	cwd: string;
 	filter: DefaultConversationFilter;
 	onBeforeSelect: () => boolean | Promise<void>;
+	onNewSession?: () => void;
 	onRenameSession: (cwd: string, sessionPath: string, name: string) => void;
 	onSelectSession: (cwd: string, sessionPath: string) => void;
 	scrollParent: HTMLElement | null;
@@ -25,6 +26,7 @@ export const DefaultSessionList = memo(function DefaultSessionList(
 			className={props.className}
 			hasMore={model.hasMore}
 			labels={model.labels}
+			onEmptyAction={model.actions.emptyAction}
 			onToggleShowAll={model.actions.toggleShowAll}
 			scrollParent={props.scrollParent}
 			sessions={model.sessions}
