@@ -71,6 +71,39 @@ const TOOLS: Record<string, ToolConfig> = {
 	},
 };
 
+export interface ToolDownloadPlanOptions {
+	readonly tool: ToolExecutableName;
+	readonly version: string;
+	readonly platform: NodeJS.Platform;
+	readonly architecture: string;
+	readonly toolsDirectory: string;
+}
+
+export interface ToolDownloadPlan {
+	readonly assetName: string;
+	readonly archivePath: string;
+	readonly binaryFileName: string;
+	readonly binaryPath: string;
+	readonly downloadUrl: string;
+}
+
+export function createToolDownloadPlan(options: ToolDownloadPlanOptions): ToolDownloadPlan | undefined {
+	const config = TOOLS[options.tool];
+	if (!config) return undefined;
+
+	const assetName = config.getAssetName(options.version, options.platform, options.architecture);
+	if (!assetName) return undefined;
+
+	const binaryFileName = `${config.binaryName}${options.platform === "win32" ? ".exe" : ""}`;
+	return {
+		assetName,
+		archivePath: join(options.toolsDirectory, assetName),
+		binaryFileName,
+		binaryPath: join(options.toolsDirectory, binaryFileName),
+		downloadUrl: `https://github.com/${config.repo}/releases/download/${config.tagPrefix}${options.version}/${assetName}`,
+	};
+}
+
 // Check if a command exists in PATH by trying to run it
 function commandExists(cmd: string): boolean {
 	try {
@@ -187,21 +220,22 @@ async function downloadTool(tool: "fd" | "rg"): Promise<string> {
 	const version = await getLatestVersion(config.repo);
 
 	// Get asset name for this platform
-	const assetName = config.getAssetName(version, plat, architecture);
-	if (!assetName) {
+	const plan = createToolDownloadPlan({
+		tool,
+		version,
+		platform: plat,
+		architecture,
+		toolsDirectory: TOOLS_DIR,
+	});
+	if (!plan) {
 		throw new Error(`Unsupported platform: ${plat}/${architecture}`);
 	}
 
 	// Create tools directory
 	mkdirSync(TOOLS_DIR, { recursive: true });
 
-	const downloadUrl = `https://github.com/${config.repo}/releases/download/${config.tagPrefix}${version}/${assetName}`;
-	const archivePath = join(TOOLS_DIR, assetName);
-	const binaryExt = plat === "win32" ? ".exe" : "";
-	const binaryPath = join(TOOLS_DIR, config.binaryName + binaryExt);
-
 	// Download
-	await downloadFile(downloadUrl, archivePath);
+	await downloadFile(plan.downloadUrl, plan.archivePath);
 
 	// Extract into a unique temp directory. fd and rg downloads can run concurrently
 	// during startup, so sharing a fixed directory causes races.
@@ -212,46 +246,48 @@ async function downloadTool(tool: "fd" | "rg"): Promise<string> {
 	mkdirSync(extractDir, { recursive: true });
 
 	try {
-		if (assetName.endsWith(".tar.gz")) {
-			const extractResult = spawnSync("tar", ["xzf", archivePath, "-C", extractDir], { stdio: "pipe" });
+		if (plan.assetName.endsWith(".tar.gz")) {
+			const extractResult = spawnSync("tar", ["xzf", plan.archivePath, "-C", extractDir], { stdio: "pipe" });
 			if (extractResult.error || extractResult.status !== 0) {
 				const errMsg = extractResult.error?.message ?? extractResult.stderr?.toString().trim() ?? "unknown error";
-				throw new Error(`Failed to extract ${assetName}: ${errMsg}`);
+				throw new Error(`Failed to extract ${plan.assetName}: ${errMsg}`);
 			}
-		} else if (assetName.endsWith(".zip")) {
-			await extractZip(archivePath, { dir: extractDir });
+		} else if (plan.assetName.endsWith(".zip")) {
+			await extractZip(plan.archivePath, { dir: extractDir });
 		} else {
-			throw new Error(`Unsupported archive format: ${assetName}`);
+			throw new Error(`Unsupported archive format: ${plan.assetName}`);
 		}
 
 		// Find the binary in extracted files. Some archives contain files directly
 		// at root, others nest under a versioned subdirectory.
-		const binaryFileName = config.binaryName + binaryExt;
-		const extractedDir = join(extractDir, assetName.replace(/\.(tar\.gz|zip)$/, ""));
-		const extractedBinaryCandidates = [join(extractedDir, binaryFileName), join(extractDir, binaryFileName)];
+		const extractedDir = join(extractDir, plan.assetName.replace(/\.(tar\.gz|zip)$/, ""));
+		const extractedBinaryCandidates = [
+			join(extractedDir, plan.binaryFileName),
+			join(extractDir, plan.binaryFileName),
+		];
 		let extractedBinary = extractedBinaryCandidates.find((candidate) => existsSync(candidate));
 
 		if (!extractedBinary) {
-			extractedBinary = findBinaryRecursively(extractDir, binaryFileName) ?? undefined;
+			extractedBinary = findBinaryRecursively(extractDir, plan.binaryFileName) ?? undefined;
 		}
 
 		if (extractedBinary) {
-			renameSync(extractedBinary, binaryPath);
+			renameSync(extractedBinary, plan.binaryPath);
 		} else {
-			throw new Error(`Binary not found in archive: expected ${binaryFileName} under ${extractDir}`);
+			throw new Error(`Binary not found in archive: expected ${plan.binaryFileName} under ${extractDir}`);
 		}
 
 		// Make executable (Unix only)
 		if (plat !== "win32") {
-			chmodSync(binaryPath, 0o755);
+			chmodSync(plan.binaryPath, 0o755);
 		}
 	} finally {
 		// Cleanup
-		rmSync(archivePath, { force: true });
+		rmSync(plan.archivePath, { force: true });
 		rmSync(extractDir, { recursive: true, force: true });
 	}
 
-	return binaryPath;
+	return plan.binaryPath;
 }
 
 // Termux package names for tools

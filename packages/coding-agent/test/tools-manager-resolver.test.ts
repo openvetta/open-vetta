@@ -4,6 +4,7 @@ import {
 	type EnsureToolDependencies,
 	ensureToolWithDependencies,
 } from "../src/adapters/runtime-tools/executable-resolver.js";
+import { createToolDownloadPlan } from "../src/utils/tools-manager.js";
 
 function createDependencies(overrides: Partial<EnsureToolDependencies> = {}): EnsureToolDependencies {
 	return {
@@ -93,5 +94,51 @@ describe("ensureTool host behavior", () => {
 			},
 		});
 		await expect(ensureToolWithDependencies("rg", true, failedDependencies)).resolves.toBeUndefined();
+	});
+});
+
+describe("tool download plans", () => {
+	it.each([
+		["fd", "1.0.0", "darwin", "arm64", "fd-v1.0.0-aarch64-apple-darwin.tar.gz", "fd"],
+		["fd", "1.0.0", "win32", "x64", "fd-v1.0.0-x86_64-pc-windows-msvc.zip", "fd.exe"],
+		["rg", "14.1.0", "linux", "arm64", "ripgrep-14.1.0-aarch64-unknown-linux-gnu.tar.gz", "rg"],
+		["rg", "14.1.0", "linux", "x64", "ripgrep-14.1.0-x86_64-unknown-linux-musl.tar.gz", "rg"],
+	] as const)(
+		"creates a stable %s %s %s/%s plan",
+		(tool, version, platform, architecture, assetName, binaryFileName) => {
+			const plan = createToolDownloadPlan({
+				tool,
+				version,
+				platform,
+				architecture,
+				toolsDirectory: "C:/vetta/bin",
+			});
+
+			expect({
+				...plan,
+				archivePath: plan?.archivePath.replace(/\\/g, "/"),
+				binaryPath: plan?.binaryPath.replace(/\\/g, "/"),
+			}).toEqual({
+				assetName,
+				archivePath: `C:/vetta/bin/${assetName}`,
+				binaryFileName,
+				binaryPath: `C:/vetta/bin/${binaryFileName}`,
+				downloadUrl: `https://github.com/${
+					tool === "fd" ? "sharkdp/fd" : "BurntSushi/ripgrep"
+				}/releases/download/${tool === "fd" ? "v" : ""}${version}/${assetName}`,
+			});
+		},
+	);
+
+	it("returns no plan for unsupported platforms", () => {
+		expect(
+			createToolDownloadPlan({
+				tool: "rg",
+				version: "14.1.0",
+				platform: "freebsd",
+				architecture: "x64",
+				toolsDirectory: "C:/vetta/bin",
+			}),
+		).toBeUndefined();
 	});
 });

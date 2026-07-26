@@ -28,6 +28,7 @@
 | [18-coding-agent-executable-adapter.md](./08-implementation-log/18-coding-agent-executable-adapter.md) | 旧 `ensureTool` 到 Resolver Port 的宿主适配 |
 | [19-host-adapter-boundary-and-behavior-tests.md](./08-implementation-log/19-host-adapter-boundary-and-behavior-tests.md) | 宿主适配器目录边界与 `ensureTool` 行为合同 |
 | [20-runtime-executable-re-resolution.md](./08-implementation-log/20-runtime-executable-re-resolution.md) | Runtime 可执行文件实时重解析合同 |
+| [21-host-download-plan-contract.md](./08-implementation-log/21-host-download-plan-contract.md) | 宿主下载计划与跨平台产物合同 |
 
 ## 维护约定
 
