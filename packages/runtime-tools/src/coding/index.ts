@@ -1,14 +1,22 @@
 export {
+	type CodingToolCatalog,
+	type CodingToolCatalogSnapshot,
+	type CodingToolRegistry,
+	InMemoryCodingToolRegistry,
+} from "./coding-tool-catalog.js";
+export {
 	CODING_TOOLS_FEATURE_ID,
 	type CodingToolsFeatureOptions,
 	createCodingToolsFeature,
 } from "./coding-tools-feature.js";
 export {
 	CODING_TOOL_SCOPES,
+	type CodingToolActivation,
 	type CodingToolCategory,
 	type CodingToolRegistration,
 	type CodingToolScope,
 	DEFAULT_CODING_TOOL_SCOPE,
+	selectCodingTools,
 	selectCodingToolsForScope,
 } from "./tool-registration.js";
 export {
@@ -21,6 +29,19 @@ export {
 	createCurrentTimeTool,
 	createCurrentTimeToolRegistration,
 } from "./tools/current-time/index.js";
+export {
+	createLsTool,
+	createLsToolRegistration,
+	LS_TOOL_CATEGORY,
+	LS_TOOL_DESCRIPTION,
+	LS_TOOL_SCOPES,
+	type LsOperations,
+	type LsStat,
+	type LsToolDetails,
+	type LsToolInput,
+	LsToolInputSchema,
+	type LsToolOptions,
+} from "./tools/ls/index.js";
 export {
 	createReadTool,
 	createReadToolRegistration,

@@ -49,10 +49,16 @@ packages/runtime-tools/src/
       path-resolution.ts
       text-decoding.ts
       truncation.ts
+    coding-tool-catalog.ts
     tool-registration.ts
     tools/
       current-time/
         current-time-tool.ts
+        description.ts
+        registration.ts
+        index.ts
+      ls/
+        ls-tool.ts
         description.ts
         registration.ts
         index.ts
@@ -129,9 +135,56 @@ CodingToolRegistration
 ```
 
 `RuntimeToolDefinition` 属于通用 Kernel 合同，不认识 `project`、`im-claw` 或 `cli`。
-`scopeUse` 和 `category` 位于 `runtime-tools/coding` 注册层，由组合根把会话场景传给
-`CodingToolsFeature` 后筛选。Agent Profile ID 与会话场景是两个概念，不能通过比较
-`profileId === scope` 隐式绑定。
+`scopeUse` 和 `category` 位于 `runtime-tools/coding` 注册层。组合根创建工具注册并放入
+`CodingToolRegistry`，Feature 只读取一个版本化 Catalog Snapshot 后筛选。Agent Profile ID
+与会话场景是两个概念，不能通过比较 `profileId === scope` 隐式绑定。
+
+空 `scopeUse` 也必须保留其语义。旧 `ls` 使用空数组表达“工具可用，但默认不在任何场景
+激活”。迁移后不能为了让测试容易通过而把它改成全场景默认启用。Catalog 持有完整注册集合，
+Runtime Snapshot 只包含当前激活的 Tool；激活状态不能进入 `RuntimeToolDefinition`。
+
+`CodingToolsFeatureOptions` 不暴露具体工具 Options：
+
+```ts
+interface CodingToolsFeatureOptions {
+	readonly catalog: CodingToolCatalog;
+	readonly activation?: CodingToolActivation;
+}
+```
+
+工具自己的依赖在注册时注入：
+
+```text
+createReadToolRegistration(cwd, readOptions)
+createLsToolRegistration(cwd, lsOptions)
+  -> CodingToolRegistry.register()
+  -> CodingToolCatalog.snapshot()
+  -> CodingToolsFeature
+  -> RuntimeSnapshot
+```
+
+Catalog 把读取能力与修改能力分开：
+
+```text
+CodingToolCatalog
+  snapshot()
+
+CodingToolRegistry extends CodingToolCatalog
+  register()
+  unregister()
+```
+
+Feature 只依赖只读 Catalog，不能注册或删除工具。Registry 每次有效修改增加版本并使后续
+Catalog Snapshot 反映新成员；旧 Catalog Snapshot 和已经编译的 Runtime Snapshot 保持不变。
+动态变化的发布流程是“注册变化 -> 重新编译 -> AtomicRuntimeSnapshotProvider.swap()”，不能
+直接修改活动 Turn 持有的 Snapshot。
+
+激活合同分为两种：
+
+- `mode: "scope"`：按场景默认激活，可用 `additionallyEnabledToolNames` 增加空 scope 工具。
+- `mode: "explicit"`：显式工具名集合完全替代场景默认集合。
+
+未知工具名 fail-closed，不会凭空创建工具。
 
 ## 2. 公开 API 收缩
 

@@ -29,10 +29,12 @@ The package root temporarily keeps the built-in tool exports from
 - `codingTools`
 - `readOnlyTools`
 - individual tool factories such as `createReadTool`, `createBashTool`, `createTreeTool`
-- `createCodingToolsFeature`, `createCurrentTimeTool`, and `createReadTool` from
+- `createCodingToolsFeature`, `createCurrentTimeTool`, `createReadTool`, and
+  `createLsTool` from
   `@vetta/runtime-tools/coding`
-- `createCurrentTimeToolRegistration`, `createReadToolRegistration`, and
-  `selectCodingToolsForScope` for
+- `createCurrentTimeToolRegistration`, `createReadToolRegistration`,
+  `createLsToolRegistration`, `InMemoryCodingToolRegistry`,
+  `selectCodingTools`, and `selectCodingToolsForScope` for
   composing scenario-specific Coding Tool snapshots
 
 Greenfield tools are only published after their model-visible schema,
@@ -51,11 +53,42 @@ Import `createReadTool` from `@vetta/runtime-tools/coding` to use the independen
 Runtime implementation. Production hosts have not switched to the greenfield
 Feature yet.
 
+The greenfield and legacy `ls` implementations run the same 15-case behavior
+contract. It covers definition metadata, dotfiles, directory suffixes,
+case-insensitive sorting, path fallbacks, default/custom entry limits, byte
+truncation, injected operations, errors, and cancellation.
+
+Legacy `ls` has an empty `scope_use`, meaning it is available for explicit
+selection but inactive by default. Its greenfield registration preserves that
+empty scope. Register it in a `CodingToolRegistry`, then use scope activation or
+an explicit tool-name set when creating the Coding Tools Feature.
+
+Tool-specific options belong to the registration composition root, not
+`CodingToolsFeatureOptions`:
+
+```ts
+const registry = new InMemoryCodingToolRegistry([
+	createCurrentTimeToolRegistration(),
+	createReadToolRegistration(cwd, readOptions),
+	createLsToolRegistration(cwd, lsOptions),
+]);
+
+createCodingToolsFeature({
+	catalog: registry,
+	activation: { mode: "scope", scope: "project" },
+});
+```
+
+The registry supports dynamic `register()` and `unregister()`. Each Feature
+compilation binds one versioned membership snapshot. After a registry change,
+the composition root compiles and atomically publishes a new Runtime Snapshot;
+an already running turn keeps its existing Snapshot lease.
+
 Each tool has its own `src/coding/tools/<tool-name>/` directory. Model-visible
 descriptions are exported from `description.ts` files so bundlers receive plain
 TypeScript modules without a text-file generation step.
 
 Runtime Tool definitions stay scenario-agnostic. Coding-only metadata such as
-legacy `scope_use` and `category` lives in registrations, and the composition
-root passes the conversation scope to `createCodingToolsFeature`. Agent Profile
-IDs are not treated as conversation scopes.
+legacy `scope_use` and `category` lives in registrations. The composition root
+owns the registry, tool-specific dependencies, and activation mode. Agent
+Profile IDs are not treated as conversation scopes.

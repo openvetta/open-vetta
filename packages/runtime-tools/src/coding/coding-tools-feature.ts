@@ -1,32 +1,21 @@
 import type { AgentFeatureDefinition } from "@vetta/runtime-core/kernel";
-import {
-	type CodingToolRegistration,
-	type CodingToolScope,
-	DEFAULT_CODING_TOOL_SCOPE,
-	selectCodingToolsForScope,
-} from "./tool-registration.js";
-import { type CurrentTimeToolOptions, createCurrentTimeToolRegistration } from "./tools/current-time/index.js";
-import { createReadToolRegistration, type ReadToolOptions } from "./tools/read/index.js";
+import type { CodingToolCatalog } from "./coding-tool-catalog.js";
+import { type CodingToolActivation, selectCodingTools } from "./tool-registration.js";
 
 export const CODING_TOOLS_FEATURE_ID = "coding-tools";
 
 export interface CodingToolsFeatureOptions {
-	readonly scope?: CodingToolScope;
-	readonly cwd?: string;
-	readonly currentTime?: CurrentTimeToolOptions;
-	readonly read?: ReadToolOptions;
+	readonly catalog: CodingToolCatalog;
+	readonly activation?: CodingToolActivation;
 }
 
-export function createCodingToolsFeature(options: CodingToolsFeatureOptions = {}): AgentFeatureDefinition {
+export function createCodingToolsFeature(options: CodingToolsFeatureOptions): AgentFeatureDefinition {
 	return {
 		id: CODING_TOOLS_FEATURE_ID,
 		async prepare(context) {
 			context.signal.throwIfAborted();
-			const registrations: readonly CodingToolRegistration[] = [
-				createCurrentTimeToolRegistration(options.currentTime),
-				createReadToolRegistration(options.cwd ?? process.cwd(), options.read),
-			];
-			const tools = selectCodingToolsForScope(registrations, options.scope ?? DEFAULT_CODING_TOOL_SCOPE);
+			const catalogSnapshot = options.catalog.snapshot();
+			const tools = selectCodingTools(catalogSnapshot.registrations, options.activation ?? { mode: "scope" });
 			return {
 				async contribute(contributionContext) {
 					contributionContext.signal.throwIfAborted();

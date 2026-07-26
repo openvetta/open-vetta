@@ -55,7 +55,7 @@ function tryFuzzyFilenameMatch(absolutePath: string): string | undefined {
 	return undefined;
 }
 
-export function resolveReadPath(filePath: string, cwd: string): string {
+export function resolveExistingPath(filePath: string, cwd: string): string {
 	const resolved = resolveToCwd(filePath, cwd);
 	if (fileExists(resolved)) {
 		return resolved;
@@ -83,3 +83,5 @@ export function resolveReadPath(filePath: string, cwd: string): string {
 
 	return tryFuzzyFilenameMatch(resolved) ?? resolved;
 }
+
+export const resolveReadPath = resolveExistingPath;

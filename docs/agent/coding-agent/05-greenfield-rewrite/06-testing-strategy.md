@@ -110,6 +110,34 @@ Behavior Contract 不能只覆盖纯文本 happy path。read 至少覆盖 UTF-8/
 绝对/`~` 路径、Unicode 与模糊路径、offset/limit、锚点、行/字节截断、图片魔数、默认图片
 处理、关闭缩放、二进制提示、自定义 Read Operations 和取消时点。
 
+默认不激活的工具还必须区分“实现兼容”和“默认暴露兼容”。以 ls 为例：
+
+```text
+Ls Behavior Contract
+  <- Legacy Ls Adapter
+  <- Runtime Ls Adapter
+
+registration.scopeUse = []
+  -> 所有场景默认激活集合均不包含 ls
+  -> 显式选择后仍能进入真实 Agent Core Tool Loop
+```
+
+不能用“新工具已经实现”为理由把空 `scope_use` 改成全场景，也不能因为默认 Snapshot 不包含
+该工具就跳过执行合同。排序、目录后缀、dotfile、entry limit、字节截断、错误、自定义
+Operations 和取消时点都必须独立验证。
+
+动态 Tool Catalog 还必须覆盖：
+
+- 初始注册排序确定且成员快照冻结。
+- register/unregister 只影响后续 Catalog 版本。
+- 重名注册 fail-fast，失败不能增加版本。
+- scope 模式保持默认暴露，并允许显式追加空 scope 工具。
+- explicit 模式替代场景默认集合。
+- 未知工具名 fail-closed。
+- Catalog 修改后，旧编译 Snapshot 的工具集合保持不变。
+- 使用同一 Catalog 重新编译后，新 Snapshot 才看到注册变化。
+- 显式激活的空 scope 工具能够通过真实 Agent Core Tool Loop。
+
 ## 6. 上下文策略测试
 
 - 无需压缩时保持消息语义和顺序。

@@ -91,13 +91,70 @@ Kernel 绑定 Coding 场景词汇，也避免把 Agent Profile ID 错当作会�
 保持不变。工具模块运行时行为已完成迁移，但独立可执行宿主的 Photon WASM 复制/定位尚未
 进行产物级验证，因此仍是未来生产宿主切换的门禁，不能仅凭模块测试删除旧打包链路。
 
+### 2.3 `ls`
+
+旧 `ls` 不只是本地 `readdir` 包装，还包含以下可观察合同：
+
+- 基于 cwd 的相对路径、绝对路径、`~`、Unicode 空格与模糊路径解析。
+- macOS AM/PM 窄空格、NFD、弯引号及组合路径 fallback。
+- 大小写不敏感排序、dotfile 保留和目录 `/` 后缀。
+- 默认 500 项、自定义 Number limit 和 50KB 头部截断。
+- entry limit 与 byte limit 的既定提示及 `LsToolDetails`。
+- 单项 stat 失败时跳过、目录读取失败时的错误包装。
+- 自定义 `LsOperations` 调用顺序。
+- 提前取消和执行中取消。
+
+现已完成独立 Runtime 实现，并让旧、新实现同时运行同一组 15 项 Ls Behavior Contract。
+另有差分测试逐字段比较完整定义、注册元数据、所有场景的最终激活集合和典型执行结果；显式
+选择的 Runtime ls 已通过真实 `AgentCoreTurnEngine` Tool Loop。
+
+审计确认旧 `ls.scope_use` 是空数组。按旧 fail-closed 语义，它表示工具存在于可用工具集，
+但默认不在任何场景激活。新 `LS_TOOL_SCOPES` 保持空数组，Coding Tools Feature 即使持有该
+注册也不会把 `ls` 放入默认 Snapshot。将它改成全场景会扩大模型能力，属于功能变化。
+
+旧实现还有一个非理想但已存在的取消行为：执行中取消会先拒绝调用 Promise，但已经开始的
+Operations 仍会继续运行。新实现按合同保留该行为。若未来要让取消真正停止 Operations，
+必须单独设计可取消 Port 并作为行为变更处理，不能夹带在本轮架构迁移中。
+
+### 2.4 动态 Coding Tool Catalog
+
+此前 `CodingToolsFeatureOptions` 逐项暴露 `currentTime`、`read` 和 `ls` Options，导致每迁移
+一个工具都必须修改 Feature，并让能力编排层绑定具体实现。这一结构已替换为：
+
+```text
+Tool Factory + Tool Options
+  -> CodingToolRegistration
+  -> CodingToolRegistry
+  -> versioned Catalog Snapshot
+  -> Activation
+  -> CodingToolsFeature
+  -> Runtime Snapshot
+```
+
+`CodingToolCatalog` 只暴露 `snapshot()`；`CodingToolRegistry` 才暴露 `register()` 和
+`unregister()`。Feature 依赖只读接口，因此不能在 prepare/contribute 中改变全局工具目录。
+
+激活支持：
+
+- scope 默认集合。
+- scope 默认集合加显式工具名。
+- 完全显式工具名集合。
+
+未知名称不会绕过注册表。`ls` 现在可以通过显式激活进入 Feature 和真实 Tool Loop，同时空
+scope 的默认不激活行为保持不变。
+
+注册变化只影响后续 Catalog 版本。Feature prepare 绑定当时的成员快照，已经编译的 Runtime
+Snapshot 不受后续 register/unregister 影响。生产宿主未来负责在注册变化后重新编译并调用
+`AtomicRuntimeSnapshotProvider.swap()`；当前 Turn 继续持有旧 lease。
+
 ## 3. 已实施模块审计
 
 | 模块 | 当前状态 | 与旧行为的差距 | 切换结论 |
 | --- | --- | --- | --- |
 | `current_time` Tool | 定义、执行和注册行为已差分验证 | 无已知 Tool 级差距 | Tool 级迁移完成；Feature 仍不可整体切换 |
 | `read` Tool | 独立实现、旧新行为合同和真实 Tool Loop 已通过 | 独立可执行宿主的 Photon WASM 产物打包尚未验证 | 工具模块迁移完成；生产宿主不可切换 |
-| Coding Tools Feature | 贡献 `current_time` 和 `read` | edit/write/search/process 等未迁移 | 未完成 |
+| `ls` Tool | 独立实现、旧新行为合同、空 scope 和 Feature 显式激活 Tool Loop 已通过 | 生产宿主尚未接线 Catalog 变化后的重编译/交换 | 工具模块迁移完成；默认不激活 |
+| Coding Tools Feature | 只依赖版本化 Catalog 与 scope/explicit 激活策略 | edit/write/search/process 等未迁移，生产 Profile 尚未装配 Registry | 编排边界完成；整体能力未完成 |
 | `AgentSession` | 新状态机可执行 | 活动 Turn 输入目前拒绝；旧系统具有 queue、follow-up、steering 语义 | 不可切换 |
 | Turn Pipeline | 固定阶段和持久化检查点已实现 | 输入队列、完整观察事件和恢复闭环未完成 | 不可切换 |
 | `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环通过 | Kernel 只映射完成消息；旧 UI 需要流式 text/thinking/tool progress 事件 | 不可切换宿主 |
@@ -140,9 +197,9 @@ side effects
 
 ## 5. 下一步
 
-通用 Tool Compatibility Contract、`current_time` 和 `read` 的独立实现已经建立。下一阶段
-优先为 `ls` 提取旧行为矩阵并建立参数化合同，再实现独立 Runtime Tool；它可以按真实合同
-复用路径和截断纯模块，但不能为了复用而改变旧输出。随后再迁移 `grep`，逐步形成只读工具组。
+`current_time`、`read`、`ls` 和动态注册/激活编排合同已经建立。下一阶段为 `grep` 提取旧
+行为矩阵并实现独立 Runtime Tool，逐步形成只读工具组。生产 Profile 接线时必须由组合根
+创建 Registry，并负责 Catalog 变化后的重新编译与原子 Snapshot 交换。
 
 生产切换前还必须增加宿主产物级测试，验证 Photon WASM 在现有独立可执行打包方式中的复制与
 定位行为。该验证属于 Host Adapter/Packaging Gate，不应重新塞回 read 的领域实现。

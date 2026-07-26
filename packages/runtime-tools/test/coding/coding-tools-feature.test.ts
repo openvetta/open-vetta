@@ -12,12 +12,18 @@ import {
 } from "@vetta/runtime-core/kernel";
 import { describe, expect, it } from "vitest";
 import {
+	type CodingToolActivation,
+	type CodingToolCatalog,
 	CURRENT_TIME_TOOL_CATEGORY,
 	CURRENT_TIME_TOOL_SCOPES,
 	createCodingToolsFeature,
 	createCurrentTimeTool,
 	createCurrentTimeToolRegistration,
+	createLsToolRegistration,
 	createReadToolRegistration,
+	InMemoryCodingToolRegistry,
+	LS_TOOL_CATEGORY,
+	LS_TOOL_SCOPES,
 	READ_TOOL_CATEGORY,
 	READ_TOOL_SCOPES,
 	selectCodingToolsForScope,
@@ -102,15 +108,25 @@ function assistantMessage(
 	};
 }
 
-function profile(now: () => Date, cwd = process.cwd()): AgentProfile {
+function createDefaultRegistry(now: () => Date, cwd = process.cwd()): InMemoryCodingToolRegistry {
+	return new InMemoryCodingToolRegistry([
+		createCurrentTimeToolRegistration({ now }),
+		createReadToolRegistration(cwd),
+		createLsToolRegistration(cwd),
+	]);
+}
+
+function profile(
+	catalog: CodingToolCatalog,
+	activation: CodingToolActivation = { mode: "scope", scope: "project" },
+): AgentProfile {
 	return {
 		id: "coding",
 		instructions: [],
 		features: [
 			createCodingToolsFeature({
-				scope: "project",
-				cwd,
-				currentTime: { now },
+				catalog,
+				activation,
 			}),
 		],
 		contextStrategy: new PassthroughContextStrategy(),
@@ -126,10 +142,17 @@ function profile(now: () => Date, cwd = process.cwd()): AgentProfile {
 }
 
 async function compileSnapshot(now: () => Date, cwd = process.cwd()) {
+	return compileCatalogSnapshot(createDefaultRegistry(now, cwd));
+}
+
+async function compileCatalogSnapshot(
+	catalog: CodingToolCatalog,
+	activation: CodingToolActivation = { mode: "scope", scope: "project" },
+) {
 	const compiler = new FeatureCompiler({
 		idGenerator: new SnapshotIdGenerator(),
 	});
-	return compiler.compile(profile(now, cwd), new AbortController().signal);
+	return compiler.compile(profile(catalog, activation), new AbortController().signal);
 }
 
 async function collectEngineEvents(
@@ -159,6 +182,7 @@ describe("greenfield coding tools feature", () => {
 	it("keeps scenario exposure metadata outside the runtime tool definition", () => {
 		const registration = createCurrentTimeToolRegistration();
 		const readRegistration = createReadToolRegistration(process.cwd());
+		const lsRegistration = createLsToolRegistration(process.cwd());
 		const projectOnlyRegistration = {
 			...registration,
 			scopeUse: ["project"] as const,
@@ -174,6 +198,11 @@ describe("greenfield coding tools feature", () => {
 		expect(readRegistration.scopeUse).toEqual(READ_TOOL_SCOPES);
 		expect(readRegistration.tool).not.toHaveProperty("scopeUse");
 		expect(readRegistration.tool).not.toHaveProperty("category");
+		expect(lsRegistration.category).toBe(LS_TOOL_CATEGORY);
+		expect(lsRegistration.scopeUse).toEqual(LS_TOOL_SCOPES);
+		expect(selectCodingToolsForScope([lsRegistration], "project")).toEqual([]);
+		expect(lsRegistration.tool).not.toHaveProperty("scopeUse");
+		expect(lsRegistration.tool).not.toHaveProperty("category");
 	});
 
 	it("provides a deterministic TypeBox-backed current time tool", async () => {
@@ -257,6 +286,7 @@ describe("greenfield coding tools feature", () => {
 
 		expect(compiled.snapshot.tools.has("current_time")).toBe(true);
 		expect(compiled.snapshot.tools.has("read")).toBe(true);
+		expect(compiled.snapshot.tools.has("ls")).toBe(false);
 		expect(toolResult).toMatchObject({
 			isError: false,
 			content: [{ type: "text", text: "2026-07-26 14:30:45" }],
@@ -312,6 +342,90 @@ describe("greenfield coding tools feature", () => {
 				isError: false,
 				content: [{ type: "text", text: expect.stringMatching(/^1:[0-9a-z]{4}→hello from read$/) }],
 			});
+			await compiled.dispose();
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	});
+
+	it("binds catalog membership to each feature compilation", async () => {
+		const directory = mkdtempSync(join(tmpdir(), "runtime-tools-feature-catalog-"));
+		try {
+			const registry = new InMemoryCodingToolRegistry([
+				createCurrentTimeToolRegistration({
+					now: () => new Date(2026, 6, 26, 14, 30, 45),
+				}),
+				createReadToolRegistration(directory),
+			]);
+			const beforeChange = await compileCatalogSnapshot(registry);
+
+			expect(registry.unregister("read")).toBe(true);
+			registry.register({
+				...createLsToolRegistration(directory),
+				scopeUse: ["project"],
+			});
+			const afterChange = await compileCatalogSnapshot(registry);
+
+			expect([...beforeChange.snapshot.tools.keys()]).toEqual(["current_time", "read"]);
+			expect([...afterChange.snapshot.tools.keys()]).toEqual(["current_time", "ls"]);
+			expect([...beforeChange.snapshot.tools.keys()]).toEqual(["current_time", "read"]);
+			await beforeChange.dispose();
+			await afterChange.dispose();
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	});
+
+	it("runs an explicitly selected ls tool through the real agent-core tool loop", async () => {
+		const directory = mkdtempSync(join(tmpdir(), "runtime-tools-feature-ls-"));
+		try {
+			writeFileSync(join(directory, "alpha.txt"), "alpha");
+			const compiled = await compileCatalogSnapshot(
+				createDefaultRegistry(() => new Date(), directory),
+				{
+					mode: "explicit",
+					toolNames: ["ls"],
+				},
+			);
+			const responses = [
+				assistantMessage(
+					[
+						{
+							type: "toolCall",
+							id: "tool-call-ls",
+							name: "ls",
+							arguments: { path: "." },
+						},
+					],
+					"toolUse",
+				),
+				assistantMessage([{ type: "text", text: "List complete." }]),
+			];
+			let responseIndex = 0;
+			const engine = new AgentCoreTurnEngine({
+				model: model(),
+				streamFn: () => {
+					const response = responses[responseIndex];
+					responseIndex += 1;
+					if (!response) throw new Error("Missing recorded response");
+					return new RecordedAssistantStream(response);
+				},
+			});
+
+			const events = await collectEngineEvents(engine, compiled.snapshot);
+			const toolResult = events.find(
+				(
+					event,
+				): event is Extract<TurnEngineEvent, { type: "message" }> & {
+					readonly message: Extract<Message, { role: "toolResult" }>;
+				} => event.type === "message" && event.message.role === "toolResult",
+			)?.message;
+
+			expect(toolResult).toMatchObject({
+				isError: false,
+				content: [{ type: "text", text: "alpha.txt" }],
+			});
+			expect([...compiled.snapshot.tools.keys()]).toEqual(["ls"]);
 			await compiled.dispose();
 		} finally {
 			rmSync(directory, { recursive: true, force: true });
