@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from "motion/react";
-import { useState } from "react";
+import type { ChangeEvent, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MultiplierTag } from "@shared/components/ModelSelect/MultiplierTag";
 import { ProviderIcon } from "@shared/components/provider-icon";
 import {
@@ -17,6 +18,12 @@ import { cn } from "@shared/lib/utils";
 import { ThemeSurface } from "@vetta/theme-ui/appearance";
 import type { ModelSelectorViewProps } from "./types";
 
+const MODEL_ITEM_SELECTOR = "[data-model-key]";
+
+function normalizeSearchValue(value: string): string {
+	return value.trim().toLocaleLowerCase();
+}
+
 export function ModelSelectorView({
 	selectedModel,
 	selectedOption,
@@ -32,9 +39,84 @@ export function ModelSelectorView({
 }: ModelSelectorViewProps): JSX.Element {
 	const [open, setOpen] = useState(false);
 	const [reasoningOpen, setReasoningOpen] = useState(false);
+	const [searchQuery, setSearchQuery] = useState("");
+	const searchInputRef = useRef<HTMLInputElement>(null);
+	const modelListRef = useRef<HTMLDivElement>(null);
+
+	const filteredGroups = useMemo(() => {
+		const query = normalizeSearchValue(searchQuery);
+		if (!query) return groups;
+
+		return groups.flatMap((group) => {
+			const models = group.models.filter((model) =>
+				[
+					model.displayName,
+					model.modelId,
+					model.provider,
+					group.label,
+					...(model.tags ?? []),
+				].some((value) => normalizeSearchValue(value).includes(query)),
+			);
+			return models.length > 0 ? [{ ...group, models }] : [];
+		});
+	}, [groups, searchQuery]);
+
+	const handleOpenChange = useCallback((nextOpen: boolean) => {
+		setOpen(nextOpen);
+		if (!nextOpen) {
+			setReasoningOpen(false);
+			setSearchQuery("");
+		}
+	}, []);
+
+	useEffect(() => {
+		if (!open) return;
+
+		const frame = requestAnimationFrame(() => {
+			searchInputRef.current?.focus();
+			if (!selectedModel) return;
+			const selectedItem = Array.from(
+				modelListRef.current?.querySelectorAll<HTMLElement>(MODEL_ITEM_SELECTOR) ?? [],
+			).find((item) => item.dataset.modelKey === selectedModel);
+			selectedItem?.scrollIntoView({ block: "nearest" });
+		});
+
+		return () => cancelAnimationFrame(frame);
+	}, [open, selectedModel]);
+
+	const handleSearchChange = (event: ChangeEvent<HTMLInputElement>) => {
+		setSearchQuery(event.target.value);
+	};
+
+	const handleSearchKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+		if (event.key === "Escape") return;
+		event.stopPropagation();
+
+		if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+		const items = Array.from(modelListRef.current?.querySelectorAll<HTMLElement>(MODEL_ITEM_SELECTOR) ?? []);
+		const target = event.key === "ArrowDown" ? items[0] : items[items.length - 1];
+		if (!target) return;
+		event.preventDefault();
+		target.focus();
+	};
+
+	const handleSearchClick = (event: ReactMouseEvent<HTMLInputElement | HTMLButtonElement>) => {
+		event.stopPropagation();
+	};
+
+	const handleClearSearch = (event: ReactMouseEvent<HTMLButtonElement>) => {
+		event.stopPropagation();
+		setSearchQuery("");
+		searchInputRef.current?.focus();
+	};
+
+	const handleModelSelect = (key: string) => {
+		onModelSelect(key);
+		setSearchQuery("");
+	};
 
 	return (
-		<DropdownMenu open={open} onOpenChange={setOpen}>
+		<DropdownMenu open={open} onOpenChange={handleOpenChange}>
 			<DropdownMenuTrigger asChild>
 				<button
 					type="button"
@@ -56,7 +138,10 @@ export function ModelSelectorView({
 						forceMount
 						asChild
 						align="start"
-						className={cn("max-h-[300px] min-w-[220px] max-w-[320px] overflow-visible p-0", classNames?.content)}
+						className={cn(
+							"w-[min(28rem,calc(100vw-2rem))] min-w-[260px] max-w-[28rem] overflow-visible p-0",
+							classNames?.content,
+						)}
 						style={{ animation: "none" }}
 					>
 						<motion.div
@@ -69,10 +154,38 @@ export function ModelSelectorView({
 								<ThemeSurface slot="chat.modelSelectorMenu" />
 								<div
 									className={cn(
-										"relative z-10 max-h-[300px] overflow-y-auto overflow-x-hidden rounded-[inherit] p-1",
+										"relative z-10 flex max-h-[min(420px,65vh)] flex-col overflow-hidden rounded-[inherit] p-1",
 										classNames?.contentInner,
 									)}
 								>
+									<div className="shrink-0 p-1">
+										<div className="relative" onKeyDown={handleSearchKeyDown}>
+											<span
+												aria-hidden="true"
+												className="icon-[solar--magnifer-linear] pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+											/>
+											<input
+												ref={searchInputRef}
+												type="search"
+												value={searchQuery}
+												onChange={handleSearchChange}
+												onClick={handleSearchClick}
+												placeholder={labels.searchPlaceholder}
+												aria-label={labels.searchPlaceholder}
+												className="h-8 w-full rounded-md border border-border/60 bg-background/70 pl-8 pr-8 text-xs text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-primary/15"
+											/>
+											{searchQuery && (
+												<button
+													type="button"
+													onClick={handleClearSearch}
+													aria-label={labels.clearSearch}
+													className="absolute right-1.5 top-1/2 inline-flex size-5 -translate-y-1/2 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+												>
+													<span aria-hidden="true" className="icon-[solar--close-circle-linear] size-3.5" />
+												</button>
+											)}
+										</div>
+									</div>
 									{menuLevels.length > 0 && (
 										<>
 											<DropdownMenuSub open={reasoningOpen} onOpenChange={setReasoningOpen}>
@@ -122,8 +235,9 @@ export function ModelSelectorView({
 											<DropdownMenuSeparator />
 										</>
 									)}
-									<DropdownMenuLabel>{labels.modelHeader}</DropdownMenuLabel>
-									{groups.map((group) => (
+									<div ref={modelListRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+										<DropdownMenuLabel>{labels.modelHeader}</DropdownMenuLabel>
+										{filteredGroups.map((group) => (
 										<div key={group.provider}>
 											<div
 												className={cn(
@@ -142,8 +256,14 @@ export function ModelSelectorView({
 											{group.models.map((model) => (
 												<DropdownMenuItem
 													key={model.key}
-													className={classNames?.item}
-													onSelect={() => onModelSelect(model.key)}
+													data-model-key={model.key}
+													aria-current={model.key === selectedModel ? "true" : undefined}
+													className={cn(
+														"rounded-md",
+														model.key === selectedModel && "bg-accent text-accent-foreground",
+														classNames?.item,
+													)}
+													onSelect={() => handleModelSelect(model.key)}
 												>
 													<span className="min-w-0 flex-1 truncate">{model.displayName}</span>
 													<MultiplierTag multiplier={model.multiplier} />
@@ -163,7 +283,15 @@ export function ModelSelectorView({
 												</DropdownMenuItem>
 											))}
 										</div>
-									))}
+										))}
+										{filteredGroups.length === 0 && (
+											<div className="flex min-h-32 flex-col items-center justify-center px-6 py-8 text-center">
+												<span aria-hidden="true" className="icon-[solar--magnifer-linear] mb-2 size-5 text-muted-foreground" />
+												<p className="text-sm font-medium text-foreground">{labels.noResults}</p>
+												<p className="mt-1 text-xs text-muted-foreground">{labels.noResultsHint}</p>
+											</div>
+										)}
+									</div>
 								</div>
 							</div>
 						</motion.div>

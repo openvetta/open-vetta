@@ -51,7 +51,16 @@ export function PageHeaderContent({
 				</AnimatePresence>
 				{model.leftSlot}
 				{!model.titleHidden && <ThemePageHeaderTitle title={model.title} className={classNames?.title} />}
-				{model.titleBadge}
+				{typeof model.titleBadge === "string" ? (
+					<span
+						className="max-w-[min(40vw,22rem)] truncate text-[11px] font-normal text-muted-foreground/55"
+						title={model.titleBadge}
+					>
+						{model.titleBadge}
+					</span>
+				) : (
+					model.titleBadge
+				)}
 			</div>
 			<ThemePageHeaderWindowActions className={classNames?.actions} trailing={windowControls}>
 				{model.rightSlot}

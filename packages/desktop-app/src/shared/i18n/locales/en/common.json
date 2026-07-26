@@ -928,6 +928,10 @@
 	},
 	"modelSelect": {
 		"placeholder": "Select model",
+		"searchPlaceholder": "Search models or providers",
+		"clearSearch": "Clear search",
+		"noResults": "No models found",
+		"noResultsHint": "Try another model name, ID, or provider",
 		"unset": "Not set",
 		"defaultBadge": "Default",
 		"visionBadge": "vision",

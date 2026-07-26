@@ -17,6 +17,7 @@ const PREVIEW_CARD_TYPE = "image-gen:preview";
 const IMAGE_REFS_OPEN = "<vetta-images>";
 const IMAGE_REFS_CLOSE = "</vetta-images>";
 const SCOPE_USE = ["im-claw", "conversation", "project", "cli"] as const;
+const HISTORY_TAB_ID = "history";
 
 const sizeSchema = {
 	type: "string",
@@ -103,6 +104,7 @@ export function registerImageTools(ctx: PluginContext, repository: ImageReposito
 		handler: async ({ session, trigger }) => {
 			const bytes = await generateImage(ctx.network, ctx.settings, trigger.input);
 			const image = await repository.persist(bytes, { sessionId: session.id });
+			ctx.ui.openActivityTab(HISTORY_TAB_ID);
 			return result("generated", [image]);
 		},
 	});
@@ -160,6 +162,7 @@ export function registerImageTools(ctx: PluginContext, repository: ImageReposito
 				parent: input.sourceImageId,
 				sessionId: session.id,
 			});
+			ctx.ui.openActivityTab(HISTORY_TAB_ID);
 			return result("edited", [image]);
 		},
 	});
