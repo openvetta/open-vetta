@@ -34,6 +34,7 @@
 			"!**/node_modules/**/*",
 			"!**/test-sessions.ts",
 			"!**/models.generated.ts",
+			"!**/routeTree.gen.ts",
 			"!**/personas-data.ts",
 			"!**/modes-data.ts",
 			"!**/descriptions-data.ts",
