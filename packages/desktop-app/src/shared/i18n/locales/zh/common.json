@@ -928,6 +928,10 @@
 	},
 	"modelSelect": {
 		"placeholder": "选择模型",
+		"searchPlaceholder": "搜索模型或供应商",
+		"clearSearch": "清除搜索",
+		"noResults": "未找到模型",
+		"noResultsHint": "请尝试其他模型名称、ID 或供应商",
 		"unset": "未设置",
 		"defaultBadge": "默认",
 		"visionBadge": "vision",

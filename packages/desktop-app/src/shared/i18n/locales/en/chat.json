@@ -437,7 +437,9 @@
 		"sceneInstallPrompt": "Click to install and use",
 		"skillScrollLeft": "Scroll left",
 		"skillScrollRight": "Scroll right",
-		"subtitle": "I can help you get work done. What can I do for you?"
+		"subtitle": "I can help you get work done. What can I do for you?",
+		"defaultContext": "General conversation",
+		"projectContext": "Project · {{name}}"
 	},
 	"questionPanel": {
 		"keyboardHint": "↑↓ Navigate · Space select · ←→ Switch · Enter next",

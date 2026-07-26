@@ -2,6 +2,10 @@ import type { ModelOption } from "@shared/components/ModelSelect/useModelOptions
 
 export interface ModelSelectorLabels {
 	placeholder: string;
+	searchPlaceholder: string;
+	clearSearch: string;
+	noResults: string;
+	noResultsHint: string;
 	reasoningHeader: string;
 	modelHeader: string;
 	cloudOnly: string;

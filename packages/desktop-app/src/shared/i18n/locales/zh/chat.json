@@ -437,7 +437,9 @@
 		"sceneInstallPrompt": "点击安装并使用",
 		"skillScrollLeft": "向左",
 		"skillScrollRight": "向右",
-		"subtitle": "我可以帮助你处理工作，有什么我可以帮你的吗？"
+		"subtitle": "我可以帮助你处理工作，有什么我可以帮你的吗？",
+		"defaultContext": "普通会话",
+		"projectContext": "项目 · {{name}}"
 	},
 	"questionPanel": {
 		"keyboardHint": "↑↓ 选择 · 空格选中 · ←→ 切换 · Enter 下一题",

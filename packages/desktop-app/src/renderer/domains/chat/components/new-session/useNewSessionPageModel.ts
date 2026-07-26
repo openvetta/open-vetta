@@ -10,12 +10,16 @@ import {
 	authUserAtom,
 	contextUsageAtom,
 	currentScenarioAtom,
+	defaultConversationCwdAtom,
 	emptySessionInputActionState,
 	inputValueAtom,
 	lastActiveSessionAtom,
 	mentionedFilesAtom,
 	newSessionPageVisibilityAtom,
+	pageHeaderTitleAtom,
+	pageHeaderTitleBadgeAtom,
 	pageHeaderTitleHiddenAtom,
+	projectsAtom,
 	promptAttachmentAtom,
 	selectedSkillAtom,
 	sessionExecutionModeAtom,
@@ -23,6 +27,7 @@ import {
 import { useParams } from "@tanstack/react-router";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { startTransition, useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useSessionManager } from "../../hooks/useSessionManager";
 import type { GuidingGroup, SceneActionState, SceneItem, SkillSelection } from "./types";
 import { useNewSessionResources } from "./useNewSessionResources";
@@ -68,8 +73,17 @@ interface NewSessionPageModel {
 }
 
 export function useNewSessionPageModel(): NewSessionPageModel {
+	const { t } = useTranslation(["common", "chat"]);
 	const { cwd } = useParams({ strict: false }) as { cwd: string };
 	const decodedCwd = decodeURIComponent(cwd);
+	const defaultConversationCwd = useAtomValue(defaultConversationCwdAtom);
+	const projects = useAtomValue(projectsAtom);
+	const project = projects.find((candidate) => candidate.cwd === decodedCwd);
+	const contextName = project?.name ?? decodedCwd.split(/[\\/]/).filter(Boolean).pop() ?? decodedCwd;
+	const contextLabel =
+		project?.isDefault || decodedCwd === defaultConversationCwd
+			? t("chat:newSession.defaultContext")
+			: t("chat:newSession.projectContext", { name: contextName });
 
 	const [renderHero, setRenderHero] = useState(false);
 	const [mounted, setMounted] = useState(false);
@@ -81,6 +95,8 @@ export function useNewSessionPageModel(): NewSessionPageModel {
 	const setInputValue = useSetAtom(inputValueAtom);
 	const setAttachedImages = useSetAtom(attachedImagesAtom);
 	const setMentionedFiles = useSetAtom(mentionedFilesAtom);
+	const setHeaderTitle = useSetAtom(pageHeaderTitleAtom);
+	const setHeaderTitleBadge = useSetAtom(pageHeaderTitleBadgeAtom);
 	const setHeaderTitleHidden = useSetAtom(pageHeaderTitleHiddenAtom);
 	const setContextUsage = useSetAtom(contextUsageAtom);
 	const setActiveSession = useSetAtom(activeSessionAtom);
@@ -136,11 +152,16 @@ export function useNewSessionPageModel(): NewSessionPageModel {
 		setLastActiveSession,
 	]);
 
-	// 本页隐藏顶栏标题（左上角 label）。
 	useEffect(() => {
-		setHeaderTitleHidden(true);
-		return () => setHeaderTitleHidden(false);
-	}, [setHeaderTitleHidden]);
+		setHeaderTitle(t("appShell.routeTitles.chat"));
+		setHeaderTitleBadge(contextLabel);
+		setHeaderTitleHidden(false);
+		return () => {
+			setHeaderTitle("");
+			setHeaderTitleBadge(null);
+			setHeaderTitleHidden(false);
+		};
+	}, [contextLabel, setHeaderTitle, setHeaderTitleBadge, setHeaderTitleHidden, t]);
 
 	useEffect(() => {
 		// decodedCwd 是路由切换的 hero 重播 key；effect body 不需要读取其值。

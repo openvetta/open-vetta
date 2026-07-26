@@ -12,6 +12,7 @@ import {
 	activityPanelTabByProjectAtom,
 	activityPanelWidthAtom,
 	activityTabOrderAtom,
+	attachedPluginTabsAtom,
 	backgroundTasksBySessionAtom,
 	browserUrlBySessionAtom,
 	currentScenarioAtom,
@@ -60,6 +61,7 @@ export function useActivityPanelModel({
 	const narrow = useNarrowScreen();
 	const activeSession = useAtomValue(activeSessionAtom);
 	const browserUrlMap = useAtomValue(browserUrlBySessionAtom);
+	const attachedPluginTabsMap = useAtomValue(attachedPluginTabsAtom);
 	const browserUrl = getBrowserUrlForSession(browserUrlMap, activeSession?.sessionPath ?? null);
 	const [width, setWidth] = useAtom(activityPanelWidthAtom);
 	const [isResizing, setIsResizing] = useState(false);
@@ -97,6 +99,10 @@ export function useActivityPanelModel({
 	const activeInputActionIds = useAtomValue(activeInputActionIdsAtom);
 	const trPlugin = usePluginTextResolver();
 	const currentScenario = useAtomValue(currentScenarioAtom);
+	const attachedPluginTabKeys = useMemo(
+		() => new Set(cwd ? (attachedPluginTabsMap.get(cwd) ?? []) : []),
+		[attachedPluginTabsMap, cwd],
+	);
 	/** Plugin ids whose hard-isolation toggle is currently off (ADR-0041). */
 	const hardIsolationOffPluginIds = useMemo(() => {
 		const off = new Set<string>();
@@ -111,10 +117,13 @@ export function useActivityPanelModel({
 		() =>
 			enablePluginTabs && currentScenario !== null
 				? registeredPluginTabs.filter(
-						(tab) => tab.scope_use?.includes(currentScenario) && !hardIsolationOffPluginIds.has(tab.pluginId),
+						(tab) =>
+							tab.scope_use?.includes(currentScenario) &&
+							!hardIsolationOffPluginIds.has(tab.pluginId) &&
+							attachedPluginTabKeys.has(`${tab.pluginId}:${tab.tabId}`),
 					)
 				: [],
-		[enablePluginTabs, registeredPluginTabs, currentScenario, hardIsolationOffPluginIds],
+		[enablePluginTabs, registeredPluginTabs, currentScenario, hardIsolationOffPluginIds, attachedPluginTabKeys],
 	);
 	const [hiddenTabsMap, setHiddenTabsMap] = useAtom(hiddenActivityTabsAtom);
 	const [tabOrderMap, setTabOrderMap] = useAtom(activityTabOrderAtom);
@@ -175,12 +184,14 @@ export function useActivityPanelModel({
 			icon: tab.icon,
 			removable: !NON_HIDEABLE_TABS.has(tab.key),
 		}));
-		base.push({
-			key: "browser",
-			label: t("browser.tab"),
-			icon: "icon-[mdi--web]",
-			removable: true,
-		});
+		if (browserUrl) {
+			base.push({
+				key: "browser",
+				label: t("browser.tab"),
+				icon: "icon-[mdi--web]",
+				removable: true,
+			});
+		}
 		if (todoItems.length > 0) {
 			const done = todoItems.filter((item) => item.status === "done").length;
 			base.push({
@@ -239,6 +250,7 @@ export function useActivityPanelModel({
 		workflows,
 		debugMode,
 		pluginTabContribs,
+		browserUrl,
 		trPlugin,
 		t,
 	]);
