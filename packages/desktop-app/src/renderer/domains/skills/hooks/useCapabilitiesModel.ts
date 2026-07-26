@@ -64,6 +64,8 @@ export interface CapabilityMineGroup {
 	items: CapabilityItem[];
 }
 
+export type CapabilityDetailSecondaryKind = "disable" | "remove" | "configure";
+
 export interface CapabilitiesModel {
 	scope: CapabilityScope;
 	setScope: (scope: CapabilityScope) => void;
@@ -76,6 +78,12 @@ export interface CapabilitiesModel {
 	refreshing: boolean;
 	errors: string[];
 	mcp: McpSettingsModel;
+	/** 右侧统一详情当前项（skill / connector 共用） */
+	selectedDetail: CapabilityItem | null;
+	openDetail: (item: CapabilityItem) => void;
+	closeDetail: () => void;
+	runPrimaryAction: (item: CapabilityItem) => void;
+	runSecondaryAction: (item: CapabilityItem, kind: CapabilityDetailSecondaryKind) => void;
 	add: (item: CapabilityItem) => void;
 	remove: (item: CapabilityItem) => void;
 	toggle: (item: CapabilityItem) => void;
@@ -83,6 +91,7 @@ export interface CapabilitiesModel {
 	configure: (item: ConnectorCapability) => void;
 	edit: (item: ConnectorCapability) => void;
 	revokeAuthorization: (item: ConnectorCapability) => void;
+	/** @deprecated 使用 openDetail；保留兼容旧调用 */
 	preview: (item: SkillCapability) => void;
 	refresh: () => void;
 }
@@ -102,7 +111,6 @@ interface UseCapabilitiesModelOptions {
 	onInstallSkill: (skill: MergedSkill) => void;
 	onToggleSkill: (name: string) => void;
 	onUninstallSkill: (name: string, type: "skill" | "scene") => void;
-	onPreviewSkill: (skill: MergedSkill) => void;
 	onRefreshSkills: () => void;
 }
 
@@ -183,13 +191,13 @@ export function useCapabilitiesModel({
 	onInstallSkill,
 	onToggleSkill,
 	onUninstallSkill,
-	onPreviewSkill,
 	onRefreshSkills,
 }: UseCapabilitiesModelOptions): CapabilitiesModel {
 	const { t } = useTranslation("settings");
 	const [scope, setScope] = useState<CapabilityScope>(() =>
 		sectionId?.includes("server-list") ? "mine" : "discover",
 	);
+	const [selectedDetailId, setSelectedDetailId] = useState<string | null>(null);
 	const mcp = useMcpSettingsModel();
 	const remote = useRemoteMcpSectionModel({
 		onAdd: mcp.onAddRemoteServer,
@@ -375,6 +383,76 @@ export function useCapabilitiesModel({
 		[remote.error, skillError],
 	);
 
+	// 详情选中项：优先当前列表；不在列表时（筛选后）仍尽量从 skill/connector 全集还原
+	const selectedDetail = useMemo((): CapabilityItem | null => {
+		if (!selectedDetailId) return null;
+		const fromItems = items.find((entry) => entry.id === selectedDetailId);
+		if (fromItems) return fromItems;
+		const skillMatch = skills
+			.map((skill) => toSkillCapability(skill, actionStates))
+			.find((entry) => entry.id === selectedDetailId);
+		if (skillMatch) return skillMatch;
+		const connectorMatch = [...connectorCapabilities.discover, ...connectorCapabilities.mine].find(
+			(entry) => entry.id === selectedDetailId,
+		);
+		return connectorMatch ?? null;
+	}, [actionStates, connectorCapabilities, items, selectedDetailId, skills]);
+
+	const openDetail = useCallback((item: CapabilityItem) => {
+		setSelectedDetailId(item.id);
+	}, []);
+
+	const closeDetail = useCallback(() => {
+		setSelectedDetailId(null);
+	}, []);
+
+	const runPrimaryAction = useCallback(
+		(item: CapabilityItem) => {
+			if (item.readonly) return;
+			if (item.needsUpdate && item.installed) {
+				add(item);
+				return;
+			}
+			if (!item.installed) {
+				add(item);
+				return;
+			}
+			if (item.setupRequired && item.driver === "connector") {
+				setup(item);
+				return;
+			}
+			if (!item.enabled) {
+				toggle(item);
+			}
+		},
+		[add, setup, toggle],
+	);
+
+	const runSecondaryAction = useCallback(
+		(item: CapabilityItem, kind: CapabilityDetailSecondaryKind) => {
+			if (kind === "disable") {
+				if (item.enabled) toggle(item);
+				return;
+			}
+			if (kind === "configure" && item.driver === "connector") {
+				if (item.canConfigure) {
+					mcp.onConfigureBuiltinSecrets(item.name);
+					return;
+				}
+				if (item.usesOAuth) {
+					if (item.authorized) void mcp.onRevokeOAuth(item.name);
+					else void mcp.onAuthorizeOAuth(item.name);
+				}
+				return;
+			}
+			if (kind === "remove") {
+				remove(item);
+				setSelectedDetailId(null);
+			}
+		},
+		[mcp, remove, toggle],
+	);
+
 	return {
 		scope,
 		setScope,
@@ -385,6 +463,11 @@ export function useCapabilitiesModel({
 		refreshing: skillLoading || remote.loading,
 		errors,
 		mcp,
+		selectedDetail,
+		openDetail,
+		closeDetail,
+		runPrimaryAction,
+		runSecondaryAction,
 		add,
 		remove,
 		toggle,
@@ -394,7 +477,7 @@ export function useCapabilitiesModel({
 		revokeAuthorization: (item) => {
 			void mcp.onRevokeOAuth(item.name);
 		},
-		preview: (item) => onPreviewSkill(item.skill),
+		preview: (item) => openDetail(item),
 		refresh,
 	};
 }
