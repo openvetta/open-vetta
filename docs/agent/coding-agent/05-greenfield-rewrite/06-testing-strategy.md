@@ -146,6 +146,16 @@ Operations 和取消时点都必须独立验证。
 - `GrepOperations` 的远程文件读取替换，不把 SSH、文件系统或下载器实现带入 Runtime。
 - 通过真实 Agent Core Tool Loop 执行，而不是只直接调用 `execute()`。
 
+`find` 的迁移合同至少覆盖：
+
+- `pattern`、`path`、`limit` 的 Schema 和默认值。
+- 单目录下的相对路径化、Windows 分隔符、目录尾部 `/`。
+- 隐藏文件、`.gitignore`、`node_modules`/`.git` 排除。
+- 空结果、路径不存在、fd 启动失败和取消。
+- 结果上限、总字节截断、notice 和 `FindToolDetails`。
+- `FindOperations.glob` 的远程或沙箱实现替换。
+- 空 `scope_use` 在所有场景默认不激活，但 explicit activation 能通过真实 Tool Loop。
+
 动态 Tool Catalog 还必须覆盖：
 
 - 初始注册排序确定且成员快照冻结。

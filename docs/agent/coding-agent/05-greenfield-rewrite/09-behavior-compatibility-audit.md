@@ -215,6 +215,39 @@ Runtime 实现不导入旧 `coding-agent`，默认使用宿主 PATH 中的 `rg`�
 - Runtime grep 已通过真实 Agent Core Tool Loop。
 - 取消在 Runtime Tool 边界生效，未把取消处理移入宿主下载器。
 
+### 2.6 `find`
+
+旧 find 的重要行为不是“默认激活”，而是注册存在但 `scope_use: []`。Runtime 迁移保留这一
+fail-closed 语义：
+
+```text
+Find Registration
+  scopeUse = []
+  -> 所有 scope 默认不暴露
+  -> explicit activation 才进入 Model Call Frame
+```
+
+实现拆分为：
+
+- `FindOperations.exists`：路径存在检查。
+- `FindOperations.glob`：本地 glob、远程搜索或沙箱搜索的替换边界。
+- `FindToolOptions.fdPath`：宿主管理的 fd 可执行文件路径。
+- Runtime find：路径解析、相对化、结果限制、截断和标准结果。
+
+已保留的可观察合同包括：
+
+- 完整描述、TypeBox Schema、`scope_use: []` 和 `category: "core"`。
+- glob pattern、默认路径和 limit。
+- 绝对路径转换为搜索根下的相对路径。
+- 隐藏文件和 `.gitignore` 过滤交由 fd/Operations 遵守。
+- 空结果 `No files found matching pattern`。
+- 结果上限提示、字节截断 details 和路径错误。
+- explicit activation 后通过真实 Agent Core Tool Loop。
+
+Runtime find 不导入 `coding-agent` 的 fd 下载器，也没有因为迁移方便而把空 scope 改成
+全场景默认激活。当前实现已经完成 Tool 级差分和新 Kernel 链路验证，但生产宿主仍需要
+单独完成 fd 的下载、版本、打包和定位测试。
+
 ## 3. 已实施模块审计
 
 | 模块 | 当前状态 | 与旧行为的差距 | 切换结论 |
@@ -222,7 +255,7 @@ Runtime 实现不导入旧 `coding-agent`，默认使用宿主 PATH 中的 `rg`�
 | `current_time` Tool | 定义、执行和注册行为已差分验证 | 无已知 Tool 级差距 | Tool 级迁移完成；Feature 仍不可整体切换 |
 | `read` Tool | 独立实现、旧新行为合同和真实 Tool Loop 已通过 | 独立可执行宿主的 Photon WASM 产物打包尚未验证 | 工具模块迁移完成；生产宿主不可切换 |
 | `ls` Tool | 独立实现、旧新行为合同、空 scope 和 Feature 显式激活 Tool Loop 已通过 | 生产宿主尚未装配新 Profile | 工具模块迁移完成；默认不激活 |
-| Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope/explicit 激活，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；current_time/read/ls/grep 已形成独立注册和 Tool Loop 合同 | edit/write/search/process 等未迁移，生产 Profile 尚未装配 Registry | 动态编排边界完成；整体能力未完成 |
+| Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope/explicit 激活，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；current_time/read/ls/grep/find 已形成独立注册和 Tool Loop 合同 | edit/write/search/process 等未迁移，生产 Profile 尚未装配 Registry | 动态编排边界完成；整体能力未完成 |
 | `AgentSession` | 新状态机可执行 | 活动 Turn 输入目前拒绝；旧系统具有 queue、follow-up、steering 语义 | 不可切换 |
 | Turn Pipeline | 固定阶段和持久化检查点已实现 | 输入队列、完整观察事件和恢复闭环未完成 | 不可切换 |
 | `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环、每次模型调用刷新 Model Call Frame 已通过 | Kernel 只映射完成消息；旧 UI 需要流式 text/thinking/tool progress 事件 | 不可切换宿主 |
@@ -265,8 +298,8 @@ side effects
 
 ## 5. 下一步
 
-`current_time`、`read`、`ls`、`grep` 和动态注册/激活编排合同已经建立。下一阶段为 `glob`
-或 `find` 提取旧行为矩阵并实现独立 Runtime Tool，继续形成只读工具组。生产 Profile 接线
+`current_time`、`read`、`ls`、`grep`、`find` 和动态注册/激活编排合同已经建立。下一阶段
+为 `glob` 提取旧行为矩阵并实现独立 Runtime Tool，继续形成只读工具组。生产 Profile 接线
 时由组合根创建 Registry；普通 Catalog 成员变化直接在下一次模型调用生效，不再触发全
 Profile 重编译。
 

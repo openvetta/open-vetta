@@ -41,6 +41,18 @@ export {
 	createCurrentTimeToolRegistration,
 } from "./tools/current-time/index.js";
 export {
+	createFindTool,
+	createFindToolRegistration,
+	FIND_TOOL_CATEGORY,
+	FIND_TOOL_DESCRIPTION,
+	FIND_TOOL_SCOPES,
+	type FindOperations,
+	type FindToolDetails,
+	type FindToolInput,
+	FindToolInputSchema,
+	type FindToolOptions,
+} from "./tools/find/index.js";
+export {
 	createGrepTool,
 	createGrepToolRegistration,
 	GREP_TOOL_CATEGORY,
