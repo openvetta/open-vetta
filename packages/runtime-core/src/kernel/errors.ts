@@ -5,6 +5,7 @@ export const KERNEL_ERROR_CODES = {
 	TURN_FAILED: "turn_failed",
 	FEATURE_CONFIGURATION: "feature_configuration",
 	FEATURE_CONFLICT: "feature_conflict",
+	SNAPSHOT_PROVIDER_CLOSED: "snapshot_provider_closed",
 } as const;
 
 export type KernelErrorCode = (typeof KERNEL_ERROR_CODES)[keyof typeof KERNEL_ERROR_CODES];
@@ -37,4 +38,8 @@ export function featureConfigurationError(message: string): KernelError {
 
 export function featureConflictError(message: string): KernelError {
 	return new KernelError(KERNEL_ERROR_CODES.FEATURE_CONFLICT, message);
+}
+
+export function snapshotProviderClosedError(): KernelError {
+	return new KernelError(KERNEL_ERROR_CODES.SNAPSHOT_PROVIDER_CLOSED, "Runtime snapshot provider is closed");
 }

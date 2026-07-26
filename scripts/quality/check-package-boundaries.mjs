@@ -209,11 +209,14 @@ function checkCapabilitySchemaDefinitions(posixPath, text, findings) {
 	}
 }
 
-function checkGreenfieldKernelImports(posixPath, specifiers, findings) {
-	if (!posixPath.startsWith("packages/runtime-core/src/kernel/")) return;
+function checkGreenfieldRuntimeImports(posixPath, specifiers, findings) {
+	const isGreenfieldRuntime =
+		posixPath.startsWith("packages/runtime-core/src/kernel/") ||
+		posixPath.startsWith("packages/runtime-storage/src/conversation/");
+	if (!isGreenfieldRuntime) return;
 	for (const specifier of specifiers) {
 		if (specifier === "@vetta/coding-agent" || specifier.startsWith("@vetta/coding-agent/")) {
-			findings.push(`${posixPath}: greenfield runtime kernel must not import coding-agent (${specifier})`);
+			findings.push(`${posixPath}: greenfield runtime modules must not import coding-agent (${specifier})`);
 		}
 	}
 }
@@ -229,7 +232,7 @@ export function findPackageBoundaryViolations(posixPath, text) {
 	checkPublicSystemSdkImports(posixPath, specifiers, findings);
 	checkRawCapabilityIds(posixPath, text, findings);
 	checkCapabilitySchemaDefinitions(posixPath, text, findings);
-	checkGreenfieldKernelImports(posixPath, specifiers, findings);
+	checkGreenfieldRuntimeImports(posixPath, specifiers, findings);
 	return findings;
 }
 

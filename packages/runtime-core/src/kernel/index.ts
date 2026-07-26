@@ -27,6 +27,7 @@ export type {
 	ObserverFailedEvent,
 	PreparedContext,
 	RuntimeSnapshot,
+	RuntimeSnapshotLease,
 	RuntimeSnapshotProvider,
 	RuntimeToolDefinition,
 	SessionInput,
@@ -60,7 +61,9 @@ export {
 	type KernelErrorCode,
 	sessionBusyError,
 	sessionClosedError,
+	snapshotProviderClosedError,
 	turnProtocolError,
 } from "./errors.js";
 export { FeatureCompiler, type FeatureCompilerOptions } from "./feature-compiler.js";
+export { AtomicRuntimeSnapshotProvider } from "./runtime-snapshot-provider.js";
 export { TurnPipeline, type TurnPipelineOptions } from "./turn-pipeline.js";

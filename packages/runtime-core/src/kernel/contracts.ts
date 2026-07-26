@@ -76,8 +76,13 @@ export interface RuntimeSnapshot {
 	readonly observers: readonly TurnObserver[];
 }
 
+export interface RuntimeSnapshotLease {
+	readonly snapshot: RuntimeSnapshot;
+	release(): Promise<void>;
+}
+
 export interface RuntimeSnapshotProvider {
-	getCurrent(): Promise<RuntimeSnapshot>;
+	acquire(): Promise<RuntimeSnapshotLease>;
 }
 
 export interface FeaturePrepareContext {

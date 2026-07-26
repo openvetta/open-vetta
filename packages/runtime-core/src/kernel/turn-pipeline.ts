@@ -8,6 +8,7 @@ import type {
 	KernelEvent,
 	MessageAppendedEvent,
 	RuntimeSnapshot,
+	RuntimeSnapshotLease,
 	RuntimeSnapshotProvider,
 	SessionInput,
 	StoredConversation,
@@ -65,13 +66,15 @@ export class TurnPipeline {
 			started: false,
 			messages: [],
 		};
+		let snapshotLease: RuntimeSnapshotLease | undefined;
 
 		try {
 			await this.enterStage(sessionId, turnId, "admission");
 			signal.throwIfAborted();
 
 			await this.enterStage(sessionId, turnId, "snapshot_binding");
-			const snapshot = await this.snapshotProvider.getCurrent();
+			snapshotLease = await this.snapshotProvider.acquire();
+			const snapshot = snapshotLease.snapshot;
 			state.snapshot = snapshot;
 			signal.throwIfAborted();
 
@@ -215,6 +218,8 @@ export class TurnPipeline {
 				error: normalized,
 				messages: state.messages,
 			};
+		} finally {
+			await this.releaseSnapshotSafely(snapshotLease, sessionId, turnId);
 		}
 	}
 
@@ -316,6 +321,26 @@ export class TurnPipeline {
 			await this.eventSink.publish(event);
 		} catch {
 			// Event sinks are observational and cannot change turn semantics.
+		}
+	}
+
+	private async releaseSnapshotSafely(
+		lease: RuntimeSnapshotLease | undefined,
+		sessionId: string,
+		turnId: string,
+	): Promise<void> {
+		if (!lease) return;
+		try {
+			await lease.release();
+		} catch (error) {
+			await this.publishSafely({
+				type: "observer.failed",
+				sessionId,
+				turnId,
+				observerId: "runtime-snapshot-provider",
+				error: errorMessage(error),
+				timestamp: this.clock.now(),
+			});
 		}
 	}
 }

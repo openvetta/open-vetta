@@ -6,6 +6,7 @@ import type {
 	IdGenerator,
 	PreparedContext,
 	RuntimeSnapshot,
+	RuntimeSnapshotLease,
 	RuntimeSnapshotProvider,
 } from "./contracts.js";
 
@@ -38,7 +39,10 @@ export class PassthroughContextStrategy implements ContextStrategy {
 export class StaticRuntimeSnapshotProvider implements RuntimeSnapshotProvider {
 	constructor(private readonly snapshot: RuntimeSnapshot) {}
 
-	async getCurrent(): Promise<RuntimeSnapshot> {
-		return this.snapshot;
+	async acquire(): Promise<RuntimeSnapshotLease> {
+		return {
+			snapshot: this.snapshot,
+			async release() {},
+		};
 	}
 }

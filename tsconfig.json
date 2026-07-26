@@ -23,6 +23,7 @@
 			"@vetta/ecosystem-adapter/*": ["./packages/ecosystem-adapter/src/*"],
 			"@sinclair/typebox": ["./node_modules/@sinclair/typebox"],
 			"@vetta/runtime-core": ["./packages/runtime-core/src/index.ts"],
+			"@vetta/runtime-core/kernel": ["./packages/runtime-core/src/kernel/index.ts"],
 			"@vetta/runtime-core/*": ["./packages/runtime-core/src/*"],
 			"@vetta/action-rpc": ["./packages/action-rpc/src/index.ts"],
 			"@vetta/action-rpc/*": ["./packages/action-rpc/src/*"],
