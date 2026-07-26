@@ -7,6 +7,8 @@ import { arch, platform } from "os";
 import { join } from "path";
 import { APP_NAME, getBinDir } from "../config.js";
 
+export type ToolExecutableName = "fd" | "rg";
+
 const TOOLS_DIR = getBinDir();
 const NETWORK_TIMEOUT_MS = 30000;
 const NETWORK_RETRY_COUNT = 2;
@@ -316,13 +318,6 @@ export async function ensureToolWithDependencies(
 	}
 }
 
-export type ToolExecutableName = "fd" | "rg";
-export type EnsureTool = (tool: ToolExecutableName, silent?: boolean) => Promise<string | undefined>;
-
-export interface ToolExecutableResolver {
-	readonly resolve: (tool: ToolExecutableName) => Promise<string | undefined>;
-}
-
 const defaultEnsureToolDependencies: EnsureToolDependencies = {
 	getPath: getToolPath,
 	isOffline: isOfflineModeEnabled,
@@ -332,14 +327,4 @@ const defaultEnsureToolDependencies: EnsureToolDependencies = {
 
 export async function ensureTool(tool: ToolExecutableName, silent: boolean = false): Promise<string | undefined> {
 	return ensureToolWithDependencies(tool, silent, defaultEnsureToolDependencies);
-}
-
-/**
- * Adapt the legacy downloader to the Runtime executable resolver Port.
- * The Runtime receives only the resolved path; download policy stays here.
- */
-export function createToolExecutableResolver(ensure: EnsureTool = ensureTool): ToolExecutableResolver {
-	return {
-		resolve: (tool) => ensure(tool, true),
-	};
 }

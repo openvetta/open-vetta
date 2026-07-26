@@ -254,6 +254,8 @@ Runtime 提供的本地 Adapter 只检查受管 bin 目录和 PATH，不下载�
 - coding-agent Adapter 测试确认每次解析静默委托 `ensureTool`，并透传路径或 `undefined`。
 - `ensureToolWithDependencies` 行为测试确认受管路径优先、离线/Termux 不下载、下载成功
   透传路径以及下载失败返回 `undefined`；测试不触发真实网络。
+- Runtime Host Resolver 测试确认受管文件移除后会回退到 PATH，再次移除 PATH 工具后返回
+  `undefined`；grep/find 执行合同确认每次执行都会重新调用 Resolver，不依赖旧解析结果。
 - Runtime 源码没有新增 `coding-agent` 或下载器导入。
 
 ### 2.6 `find`

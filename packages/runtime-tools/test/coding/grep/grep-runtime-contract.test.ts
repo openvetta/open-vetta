@@ -69,6 +69,36 @@ describe("runtime grep tool", () => {
 		expect(resolvedTools).toEqual(["rg"]);
 	});
 
+	it("resolves the executable again after a runtime availability change", async () => {
+		let resolutions = 0;
+		const runtime = createGrepTool(process.cwd(), {
+			operations: {
+				isDirectory: () => true,
+				readFile: () => "",
+			},
+			executableResolver: {
+				resolve: async () => {
+					resolutions += 1;
+					return undefined;
+				},
+			},
+		});
+
+		for (let attempt = 0; attempt < 2; attempt += 1) {
+			await expect(
+				runtime.execute({
+					sessionId: "session-1",
+					turnId: `turn-${attempt}`,
+					toolCallId: `runtime-grep-${attempt}`,
+					input: { pattern: "never-called" },
+					signal: new AbortController().signal,
+				}),
+			).rejects.toThrow("ripgrep (rg) is not available and could not be downloaded");
+		}
+
+		expect(resolutions).toBe(2);
+	});
+
 	it("preserves matching output, context lines, anchors, and limit notices", async () => {
 		const directory = mkdtempSync(join(tmpdir(), "runtime-tools-grep-"));
 		temporaryDirectories.push(directory);

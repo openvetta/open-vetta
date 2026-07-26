@@ -45,4 +45,22 @@ describe("coding tool executable resolver", () => {
 		await expect(resolver.resolve("rg")).resolves.toBeUndefined();
 		await expect(resolver.resolve("fd")).resolves.toBeUndefined();
 	});
+
+	it("rechecks managed binaries and PATH on every resolution", async () => {
+		let managedAvailable = true;
+		let pathAvailable = true;
+		const resolver = createLocalCodingToolExecutableResolver({
+			binDirectory: "C:/vetta/bin",
+			platform: "win32",
+			fileExists: () => managedAvailable,
+			commandExists: () => pathAvailable,
+		});
+
+		const managedPath = await resolver.resolve("rg");
+		expect(managedPath?.replace(/\\/g, "/")).toBe("C:/vetta/bin/rg.exe");
+		managedAvailable = false;
+		await expect(resolver.resolve("rg")).resolves.toBe("rg");
+		pathAvailable = false;
+		await expect(resolver.resolve("rg")).resolves.toBeUndefined();
+	});
 });

@@ -72,6 +72,32 @@ describe("runtime find tool", () => {
 		expect(resolvedTools).toEqual(["fd"]);
 	});
 
+	it("resolves the executable again after a runtime availability change", async () => {
+		let resolutions = 0;
+		const runtime = createFindTool(process.cwd(), {
+			executableResolver: {
+				resolve: async () => {
+					resolutions += 1;
+					return undefined;
+				},
+			},
+		});
+
+		for (let attempt = 0; attempt < 2; attempt += 1) {
+			await expect(
+				runtime.execute({
+					sessionId: "session-1",
+					turnId: `turn-${attempt}`,
+					toolCallId: `runtime-find-${attempt}`,
+					input: { pattern: "*.ts" },
+					signal: new AbortController().signal,
+				}),
+			).rejects.toThrow("fd is not available and could not be downloaded");
+		}
+
+		expect(resolutions).toBe(2);
+	});
+
 	it("preserves custom operation results, relative paths, and empty results", async () => {
 		const legacy = createLegacyFindTool("C:/workspace", { operations: operations() });
 		const runtime = createFindTool("C:/workspace", { operations: operations() });
