@@ -24,10 +24,11 @@ export function createCodingToolsFeature(options: CodingToolsFeatureOptions): Ag
 						catalogSnapshot.registrations,
 						options.activation ?? { mode: "scope" },
 					);
+					const selectedNames = new Set(registrations.map(({ tool }) => tool.name));
 					return {
-						tools: registrations.map((registration) =>
-							guardCodingToolRegistration(options.catalog, registration),
-						),
+						tools: catalogSnapshot.entries
+							.filter(({ binding }) => selectedNames.has(binding.capabilityId))
+							.map((entry) => guardCodingToolRegistration(options.catalog, entry)),
 					};
 				},
 			};

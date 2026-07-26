@@ -26,6 +26,8 @@ describe("coding tool registry", () => {
 		expect(Object.isFrozen(snapshot.registrations[0])).toBe(true);
 		expect(Object.isFrozen(snapshot.registrations[0]?.tool)).toBe(true);
 		expect(Object.isFrozen(snapshot.registrations[0]?.scopeUse)).toBe(true);
+		expect(Object.isFrozen(snapshot.entries)).toBe(true);
+		expect(Object.isFrozen(snapshot.entries[0]?.binding)).toBe(true);
 	});
 
 	it("registers and unregisters without mutating older snapshots", () => {
@@ -129,6 +131,166 @@ describe("coding tool registry", () => {
 		});
 		expect(replacementExecutions).toBe(0);
 	});
+
+	it("uses stable binding values instead of catalog entry object identity", async () => {
+		const registry = new InMemoryCodingToolRegistry([registration("stable", ["project"])], {
+			sourceId: "test-catalog",
+		});
+		const entry = registry.resolve("stable");
+		if (!entry) throw new Error("Missing stable entry");
+
+		const result = await registry.execute(
+			{ ...entry.binding },
+			{
+				sessionId: "session-1",
+				turnId: "turn-1",
+				toolCallId: "tool-call-1",
+				input: {},
+				signal: new AbortController().signal,
+			},
+		);
+
+		expect(entry.binding).toEqual({
+			sourceId: "test-catalog",
+			capabilityId: "stable",
+			revision: "1",
+		});
+		expect(result.content).toEqual([{ type: "text", text: "stable" }]);
+	});
+
+	it("deactivates future calls without invalidating the stable revision", async () => {
+		const registry = new InMemoryCodingToolRegistry([registration("toggle", ["project"])]);
+		const advertised = registry.resolve("toggle");
+		if (!advertised) throw new Error("Missing toggle entry");
+		const guarded = guardCodingToolRegistration(registry, advertised);
+
+		expect(registry.deactivate("toggle")).toBe(true);
+		expect(registry.snapshot().registrations).toEqual([]);
+		await expect(execute(guarded)).rejects.toMatchObject({
+			code: CODING_TOOL_AVAILABILITY_ERROR_CODES.DEACTIVATED,
+			details: {
+				code: CODING_TOOL_AVAILABILITY_ERROR_CODES.DEACTIVATED,
+				retryable: true,
+			},
+		});
+
+		expect(registry.activate("toggle")).toBe(true);
+		expect(registry.resolve("toggle")?.binding).toEqual(advertised.binding);
+		expect((await execute(guarded)).content).toEqual([{ type: "text", text: "toggle" }]);
+	});
+
+	it("revokes old bindings and aborts their in-flight executions", async () => {
+		let markStarted: (() => void) | undefined;
+		const started = new Promise<void>((resolve) => {
+			markStarted = resolve;
+		});
+		const registry = new InMemoryCodingToolRegistry([
+			{
+				...registration("revocable", ["project"]),
+				tool: {
+					...registration("revocable", ["project"]).tool,
+					async execute(request) {
+						markStarted?.();
+						await new Promise<void>((_resolve, reject) => {
+							request.signal.addEventListener("abort", () => reject(request.signal.reason), { once: true });
+						});
+						return { content: [] };
+					},
+				},
+			},
+		]);
+		const advertised = registry.resolve("revocable");
+		if (!advertised) throw new Error("Missing revocable entry");
+		const guarded = guardCodingToolRegistration(registry, advertised);
+		const execution = execute(guarded);
+
+		await started;
+		expect(registry.revoke("revocable", { reason: "security policy changed" })).toBe(true);
+		await expect(execution).rejects.toMatchObject({
+			code: CODING_TOOL_AVAILABILITY_ERROR_CODES.REVOKED,
+			details: {
+				code: CODING_TOOL_AVAILABILITY_ERROR_CODES.REVOKED,
+				retryable: false,
+			},
+		});
+		expect(registry.resolve("revocable")?.binding.revision).not.toBe(advertised.binding.revision);
+	});
+
+	it("discards a late result when the revoked implementation ignores cancellation", async () => {
+		let finish: (() => void) | undefined;
+		let markStarted: (() => void) | undefined;
+		const started = new Promise<void>((resolve) => {
+			markStarted = resolve;
+		});
+		const finished = new Promise<void>((resolve) => {
+			finish = resolve;
+		});
+		const baseRegistration = registration("ignores-cancellation", ["project"]);
+		const registry = new InMemoryCodingToolRegistry([
+			{
+				...baseRegistration,
+				tool: {
+					...baseRegistration.tool,
+					async execute() {
+						markStarted?.();
+						await finished;
+						return { content: [{ type: "text", text: "late success" }] };
+					},
+				},
+			},
+		]);
+		const advertised = registry.resolve("ignores-cancellation");
+		if (!advertised) throw new Error("Missing ignores-cancellation entry");
+		const execution = execute(guardCodingToolRegistration(registry, advertised));
+
+		await started;
+		expect(registry.revoke("ignores-cancellation")).toBe(true);
+		finish?.();
+
+		await expect(execution).rejects.toMatchObject({
+			code: CODING_TOOL_AVAILABILITY_ERROR_CODES.REVOKED,
+			details: {
+				code: CODING_TOOL_AVAILABILITY_ERROR_CODES.REVOKED,
+				retryable: false,
+			},
+		});
+	});
+
+	it("allows in-flight executions to finish after deactivate or unregister", async () => {
+		for (const operation of ["deactivate", "unregister"] as const) {
+			let finish: (() => void) | undefined;
+			let markStarted: (() => void) | undefined;
+			const started = new Promise<void>((resolve) => {
+				markStarted = resolve;
+			});
+			const finished = new Promise<void>((resolve) => {
+				finish = resolve;
+			});
+			const registry = new InMemoryCodingToolRegistry([
+				{
+					...registration(operation, ["project"]),
+					tool: {
+						...registration(operation, ["project"]).tool,
+						async execute(request) {
+							markStarted?.();
+							await finished;
+							expect(request.signal.aborted).toBe(false);
+							return { content: [{ type: "text", text: operation }] };
+						},
+					},
+				},
+			]);
+			const advertised = registry.resolve(operation);
+			if (!advertised) throw new Error(`Missing ${operation} entry`);
+			const execution = execute(guardCodingToolRegistration(registry, advertised));
+
+			await started;
+			expect(registry[operation](operation)).toBe(true);
+			finish?.();
+
+			expect((await execution).content).toEqual([{ type: "text", text: operation }]);
+		}
+	});
 });
 
 describe("coding tool activation", () => {
@@ -198,4 +360,14 @@ class ClassBackedTool implements RuntimeToolDefinition {
 			content: [{ type: "text" as const, text: this.output }],
 		};
 	}
+}
+
+function execute(tool: RuntimeToolDefinition) {
+	return tool.execute({
+		sessionId: "session-1",
+		turnId: "turn-1",
+		toolCallId: "tool-call-1",
+		input: {},
+		signal: new AbortController().signal,
+	});
 }

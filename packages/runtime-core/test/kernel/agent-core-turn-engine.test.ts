@@ -12,6 +12,7 @@ import {
 	AgentCoreTurnEngine,
 	type RuntimeSnapshot,
 	type RuntimeToolDefinition,
+	RuntimeToolExecutionError,
 	type ToolPolicyRequest,
 	type TurnEngineEvent,
 } from "../../src/kernel/index.js";
@@ -341,6 +342,55 @@ describe("AgentCoreTurnEngine", () => {
 		expect(toolResult).toMatchObject({
 			isError: true,
 			content: [{ type: "text", text: "Tool execution denied by policy: write" }],
+		});
+	});
+
+	it("bridges structured runtime tool errors into agent tool results", async () => {
+		const tool: RuntimeToolDefinition = {
+			name: "dynamic",
+			label: "Dynamic",
+			description: "Dynamic tool",
+			inputSchema: { type: "object" },
+			async execute() {
+				throw new RuntimeToolExecutionError("Dynamic tool was revoked", {
+					code: "dynamic_tool_revoked",
+					retryable: false,
+					metadata: { toolName: "dynamic" },
+				});
+			},
+		};
+		const responses = [
+			assistantMessage([{ type: "toolCall", id: "tool-call-1", name: "dynamic", arguments: {} }], "toolUse"),
+			assistantMessage([{ type: "text", text: "recovered" }]),
+		];
+		let responseIndex = 0;
+		const engine = new AgentCoreTurnEngine({
+			model: model(),
+			streamFn: () => {
+				const response = responses[responseIndex];
+				responseIndex += 1;
+				if (!response) throw new Error("Missing recorded response");
+				return new RecordedAssistantStream(response);
+			},
+		});
+
+		const events = await collect(engine, snapshot({ tools: [tool] }));
+		const toolResult = events.find(
+			(
+				event,
+			): event is Extract<TurnEngineEvent, { type: "message" }> & {
+				readonly message: Extract<Message, { role: "toolResult" }>;
+			} => event.type === "message" && event.message.role === "toolResult",
+		)?.message;
+
+		expect(toolResult).toMatchObject({
+			isError: true,
+			content: [{ type: "text", text: "Dynamic tool was revoked" }],
+			details: {
+				code: "dynamic_tool_revoked",
+				retryable: false,
+				metadata: { toolName: "dynamic" },
+			},
 		});
 	});
 

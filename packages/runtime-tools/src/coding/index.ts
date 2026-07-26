@@ -5,10 +5,14 @@ export {
 	guardCodingToolRegistration,
 } from "./coding-tool-availability.js";
 export {
+	type CodingToolAvailabilityState,
 	type CodingToolCatalog,
+	type CodingToolCatalogEntry,
 	type CodingToolCatalogSnapshot,
 	type CodingToolRegistry,
+	type CodingToolRevokeOptions,
 	InMemoryCodingToolRegistry,
+	type InMemoryCodingToolRegistryOptions,
 } from "./coding-tool-catalog.js";
 export {
 	CODING_TOOLS_FEATURE_ID,

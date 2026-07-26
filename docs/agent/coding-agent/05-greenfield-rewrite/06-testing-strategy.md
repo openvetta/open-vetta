@@ -138,6 +138,7 @@ Operations 和取消时点都必须独立验证。
 动态 Tool Catalog 还必须覆盖：
 
 - 初始注册排序确定且成员快照冻结。
+- Entry 中的 Capability Binding 按值稳定，不依赖工具对象引用。
 - register/unregister 只影响后续 Catalog 版本。
 - 重名注册 fail-fast，失败不能增加版本。
 - scope 模式保持默认暴露，并允许显式追加空 scope 工具。
@@ -147,6 +148,13 @@ Operations 和取消时点都必须独立验证。
 - 模型已经看到工具后将其注销，执行前返回标准错误而不调用旧实现。
 - 同名工具替换后，旧调用不能误路由到新实现。
 - 已经开始的工具执行不因普通 unregister 隐式中断。
+- deactivate 隐藏能力、拒绝新调用，但不轮换 revision 或中断在途执行；activate 后旧绑定
+  恢复可用。
+- revoke 轮换 revision、协作取消所有在途执行，并把不可重试结构化错误传到最终 Tool
+  Result。
+- unregister 后同名重新注册必须产生新 revision，旧绑定不能复活。
+- Catalog 必须原子完成状态校验和 in-flight 登记，避免 revoke 穿过校验/执行间隙。
+- 普通 Error 保持既有空 details；只有明确的 Runtime Tool Error 才进入结构化错误桥。
 - 显式激活的空 scope 工具能够通过真实 Agent Core Tool Loop。
 
 ## 7. 上下文策略测试

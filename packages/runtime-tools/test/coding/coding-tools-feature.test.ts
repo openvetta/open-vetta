@@ -433,6 +433,13 @@ describe("greenfield coding tools feature", () => {
 			expect(toolResult).toMatchObject({
 				isError: true,
 				content: [{ type: "text", text: "Coding tool is no longer available: read" }],
+				details: {
+					code: "coding_tool_unavailable",
+					retryable: true,
+					metadata: {
+						toolName: "read",
+					},
+				},
 			});
 			await compiled.dispose();
 		} finally {

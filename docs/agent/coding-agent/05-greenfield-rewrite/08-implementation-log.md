@@ -20,6 +20,7 @@
 | [10-runtime-ls.md](./08-implementation-log/10-runtime-ls.md) | 独立 Runtime Ls 与默认暴露兼容 |
 | [11-coding-tool-catalog.md](./08-implementation-log/11-coding-tool-catalog.md) | 动态 Coding Tool Catalog 与 Feature 解耦 |
 | [12-model-call-frame.md](./08-implementation-log/12-model-call-frame.md) | Model Call Frame 与实时能力校验 |
+| [13-capability-lifecycle.md](./08-implementation-log/13-capability-lifecycle.md) | 稳定能力绑定、生命周期与在途执行仲裁 |
 
 ## 维护约定
 

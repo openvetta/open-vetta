@@ -6,7 +6,7 @@ All notable changes to `@vetta/runtime-tools` are documented in this file.
 
 ### Breaking Changes
 
-- **CodingToolCatalog 实时查询合同**：只读 Catalog 新增 `resolve(toolName)`；Coding Tools 不再写入编译期 `RuntimeSnapshot.tools`，改为通过 Model Call Contribution 在每次模型调用前物化。
+- **CodingToolCatalog 执行仲裁合同**：`resolve(toolName)` 返回带稳定 Capability Binding 的 Catalog Entry，只读 Catalog 新增 `execute(binding, request)`；Coding Tools 不再写入编译期 `RuntimeSnapshot.tools`，改为通过 Model Call Contribution 在每次模型调用前物化。
 
 ### Added
 
@@ -16,10 +16,12 @@ All notable changes to `@vetta/runtime-tools` are documented in this file.
 - **Greenfield Read Tool**：新增独立 Runtime read、Coding 注册和可注入文件/图片 Port，并在旧新差分验证通过后接入 Greenfield Coding Tools Feature；包根旧工具兼容导出和生产入口保持不变。
 - **Greenfield Ls Tool**：新增独立 Runtime ls、参数化旧新行为合同和可注入目录 Operations；保留旧工具空 `scope_use` 的默认不激活语义，并通过真实 Agent Core Tool Loop 验证显式执行。
 - **动态 Coding Tool Catalog**：新增版本化 `CodingToolCatalog`、可变 `CodingToolRegistry`、注册/注销、重名冲突和 scope/显式激活选择；每次模型调用读取不可变成员视图。
+- **Coding Tool 生命周期与在途执行跟踪**：Registry 新增 activate、deactivate 和 revoke；deactivate 只阻止新调用，revoke 会轮换 revision、协作取消在途执行并返回结构化不可重试错误，unregister 不隐式终止已经开始的副作用。
 
 ### Changed
 
 - **Coding Tool 调用级动态解析**：Coding Tools Feature 不再在 prepare 时固定 Catalog 成员；每次模型调用读取最新注册集合，执行前再次校验工具仍存在且定义未替换，普通注册变化无需全量重编译 Runtime Snapshot。
+- **Coding Tool 绑定改用稳定 revision**：模型调用 Frame 保存 `sourceId + capabilityId + revision`，不再以 JavaScript 对象引用判断工具是否替换；Catalog 原子完成状态校验和在途执行登记。
 - **Coding Tools Feature 装配边界**：`CodingToolsFeatureOptions` 不再逐项暴露 current_time/read/ls Options，改为接收只读 Catalog 与激活策略；工具依赖和 Options 由组合根创建注册对象时注入。
 
 ### Fixed

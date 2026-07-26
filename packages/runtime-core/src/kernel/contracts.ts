@@ -12,6 +12,12 @@ export interface InstructionBlock {
 	readonly priority: number;
 }
 
+export interface CapabilityBinding {
+	readonly sourceId: string;
+	readonly capabilityId: string;
+	readonly revision: string;
+}
+
 export interface RuntimeToolDefinition<TInput extends object = Readonly<Record<string, unknown>>> {
 	readonly name: string;
 	readonly label: string;

@@ -2,6 +2,7 @@ import {
 	type AgentLoopConfig,
 	type AgentMessage,
 	type AgentTool,
+	AgentToolExecutionError,
 	agentLoopContinue,
 	type StreamFn,
 } from "@vetta/agent-core";
@@ -15,6 +16,7 @@ import type {
 } from "./contracts.js";
 import { turnProtocolError } from "./errors.js";
 import { composeModelCallSystemPrompt, resolveModelCallFrame } from "./model-call-frame.js";
+import { RuntimeToolExecutionError } from "./tool-execution-error.js";
 
 export interface AgentCoreTurnEngineOptions {
 	readonly model: Model<Api>;
@@ -113,20 +115,27 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 					throw new Error(`Tool execution denied by policy: ${tool.name}`);
 				}
 
-				const result = await tool.execute({
-					sessionId: request.sessionId,
-					turnId: request.turnId,
-					toolCallId,
-					input,
-					signal: executionSignal,
-					onUpdate: onUpdate
-						? (update) => {
-								onUpdate(toAgentToolResult(update));
-							}
-						: undefined,
-					reportPhase: context?.phase,
-				});
-				return toAgentToolResult(result);
+				try {
+					const result = await tool.execute({
+						sessionId: request.sessionId,
+						turnId: request.turnId,
+						toolCallId,
+						input,
+						signal: executionSignal,
+						onUpdate: onUpdate
+							? (update) => {
+									onUpdate(toAgentToolResult(update));
+								}
+							: undefined,
+						reportPhase: context?.phase,
+					});
+					return toAgentToolResult(result);
+				} catch (error) {
+					if (error instanceof RuntimeToolExecutionError) {
+						throw new AgentToolExecutionError(error.message, error.details, { cause: error });
+					}
+					throw error;
+				}
 			},
 		};
 	}

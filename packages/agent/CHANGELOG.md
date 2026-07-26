@@ -15,6 +15,7 @@
 
 ### Added
 
+- 新增 `AgentToolExecutionError`：工具适配层可以向 `ToolResultMessage.details` 传递稳定错误码、可重试标记和结构化元数据，不再只能依赖错误文本判断运行时能力变化。
 - **模型调用级动态上下文**：`AgentLoopConfig.resolveCallContext` 在每次 LLM 调用前刷新 system prompt 与 tools；同一 Agent Loop 的后续模型调用可以看到受控的运行时能力变化。
 - 将 Agent 自然停止点的自动续跑钩子明确为异步 `continuationProvider`，底层 `AgentLoopConfig` 对应改为 `getContinuationMessages`；普通 `followUp()` 消息队列语义保持不变。
 - 新增平台无关 tracing 接入点：`AgentOptions` / `AgentLoopConfig` 可传入 `RuntimeTracer`，agent loop 会把 agent run、LLM generation、tool call 映射为 observation，并上报 token usage、cost、错误与工具耗时；正文捕获由 `tracing.captureContent` 显式控制。

@@ -160,6 +160,26 @@ scope 的默认不激活行为保持不变。
 Skill、提示词和 MCP Tool 可以通过同一动态 Provider 合同在后续模型调用刷新；但对应具体
 Feature 尚未迁移，不能把通用合同误记为 Skill/MCP 功能已经完成。
 
+上一阶段执行前校验以 `resolve(toolName)` 返回的 registration 对象引用判断定义是否变化。
+对象引用不是跨 Adapter、序列化或重建 Catalog 后稳定的能力身份，也无法表达 deactivate 与
+revoke 的不同语义。现已改为：
+
+- Model Call Frame 捕获 `sourceId + capabilityId + revision` 稳定绑定。
+- Catalog Snapshot、Frame 和执行 Guard 即使复制 Entry，也按绑定值判断同一版本。
+- Catalog `execute()` 原子完成实时状态校验与 in-flight 登记，不把 TOCTOU 竞态留给
+  Feature。
+- deactivate 只停止后续暴露和新执行，普通 unregister 不终止已开始操作。
+- revoke 明确表示权限/安全撤销，轮换 revision 并协作取消所有在途执行。
+- revoke 后即使底层实现忽略取消并返回，Catalog 也丢弃结果；已经产生的外部副作用仍不能
+  自动回滚。
+
+能力不可用错误现在保留稳定 `code`、`retryable` 和 `metadata`，经 runtime-core Adapter
+传到 Agent Tool Result。普通工具错误仍保持旧文本和空 details，不把所有异常强行分类。
+
+对应合同覆盖稳定绑定副本、deactivate/activate、revoke、unregister、注销后同名重注册、
+执行中生命周期变化和结构化错误端到端桥接。以上变化只改变能力编排和错误表达，不修改
+current_time、read、ls 的模型描述、Schema、输出、路径、取消或副作用合同。
+
 ## 3. 已实施模块审计
 
 | 模块 | 当前状态 | 与旧行为的差距 | 切换结论 |
@@ -167,7 +187,7 @@ Feature 尚未迁移，不能把通用合同误记为 Skill/MCP 功能已经完�
 | `current_time` Tool | 定义、执行和注册行为已差分验证 | 无已知 Tool 级差距 | Tool 级迁移完成；Feature 仍不可整体切换 |
 | `read` Tool | 独立实现、旧新行为合同和真实 Tool Loop 已通过 | 独立可执行宿主的 Photon WASM 产物打包尚未验证 | 工具模块迁移完成；生产宿主不可切换 |
 | `ls` Tool | 独立实现、旧新行为合同、空 scope 和 Feature 显式激活 Tool Loop 已通过 | 生产宿主尚未装配新 Profile | 工具模块迁移完成；默认不激活 |
-| Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope/explicit 激活，并实时校验执行可用性 | edit/write/search/process 等未迁移，生产 Profile 尚未装配 Registry | 动态编排边界完成；整体能力未完成 |
+| Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope/explicit 激活，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister | edit/write/search/process 等未迁移，生产 Profile 尚未装配 Registry | 动态编排边界完成；整体能力未完成 |
 | `AgentSession` | 新状态机可执行 | 活动 Turn 输入目前拒绝；旧系统具有 queue、follow-up、steering 语义 | 不可切换 |
 | Turn Pipeline | 固定阶段和持久化检查点已实现 | 输入队列、完整观察事件和恢复闭环未完成 | 不可切换 |
 | `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环、每次模型调用刷新 Model Call Frame 已通过 | Kernel 只映射完成消息；旧 UI 需要流式 text/thinking/tool progress 事件 | 不可切换宿主 |

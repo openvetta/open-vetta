@@ -88,7 +88,7 @@ RuntimeSnapshot 静态贡献 + ModelCallContributionProvider 动态贡献
 -> ModelCallFrame
 -> AgentCoreTurnEngine 转为 AgentTool
 -> ToolPolicy.authorize
--> 动态 Catalog 再校验工具仍存在且定义未替换
+-> 动态 Catalog 按 CapabilityBinding 原子校验并登记执行
 -> RuntimeToolDefinition.execute
 -> ToolResultMessage
 -> 下一次模型调用
@@ -118,6 +118,48 @@ RuntimeSnapshot 静态贡献 + ModelCallContributionProvider 动态贡献
 执行的工具由 `AbortSignal` 和显式 revoke 策略控制；普通 deactivate 不应隐式终止已有
 副作用。Skill 文件被删除后，下一次贡献应停止注入内容和资源能力，但已经发送给模型的内容
 不能“反向遗忘”。
+
+模型看到的能力使用稳定绑定，而不是 JavaScript 对象引用：
+
+```ts
+export interface CapabilityBinding {
+	readonly sourceId: string;
+	readonly capabilityId: string;
+	readonly revision: string;
+}
+```
+
+- `sourceId` 标识能力目录，例如 Coding Tools、MCP Server 或 Skill Registry。
+- `capabilityId` 标识该目录中的逻辑能力。
+- `revision` 标识会影响调用兼容性的定义版本。
+- Catalog Snapshot 只复制轻量 Entry 视图；只有发生注册、替换、撤销等有效变化时才创建新
+  revision，不因每次模型调用重新物化 Frame 而轮换。
+
+执行不能实现成 `resolve() -> await -> tool.execute()` 两个分离的公共步骤，否则在校验后、
+登记执行前发生 revoke 会形成竞态。只读 Catalog 必须提供单一执行仲裁入口：
+
+```text
+Catalog.execute(binding, request)
+  -> 同步读取当前 Entry
+  -> 校验 state 与 revision
+  -> 登记 in-flight execution
+  -> 合并 Turn AbortSignal 与 revoke AbortSignal
+  -> 调用当前实现
+  -> 清理 in-flight execution
+```
+
+能力生命周期语义：
+
+| 操作 | 后续 Frame | 尚未开始的旧绑定 | 已开始执行 | revision |
+| --- | --- | --- | --- | --- |
+| `activate` | 暴露 | 可执行 | 不影响 | 保持 |
+| `deactivate` | 隐藏 | 拒绝，可重试 | 继续 | 保持 |
+| `revoke` | 隐藏 | 拒绝，不可重试 | 协作取消并丢弃结果 | 轮换 |
+| `unregister` | 移除 | 拒绝，可重试 | 继续 | 删除 |
+
+这里的 revoke 是明确的安全/权限动作，不是普通热更新。它通过 `AbortSignal` 请求底层操作
+停止；对于不响应取消的实现，Catalog 仍会丢弃其最终结果，但无法回滚已经产生的外部副作用。
+因此具有不可逆副作用的工具仍需自身实现幂等、事务或补偿边界。
 
 Pipeline 的每个阶段接收明确输入并返回明确输出。输出在语义上只读，不携带可由任意模块写入的共享 `metadata`：
 

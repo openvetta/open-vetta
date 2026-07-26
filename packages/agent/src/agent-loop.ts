@@ -13,6 +13,7 @@ import {
 	validateToolArguments,
 } from "@vetta/ai";
 import type { RuntimeObservation, RuntimeObservationUpdate } from "@vetta/runtime-telemetry";
+import { AgentToolExecutionError } from "./tool-execution-error.js";
 import type {
 	AgentContext,
 	AgentEvent,
@@ -482,7 +483,7 @@ async function executeToolCalls(
 		} catch (e) {
 			result = {
 				content: [{ type: "text", text: e instanceof Error ? e.message : String(e) }],
-				details: {},
+				details: e instanceof AgentToolExecutionError ? e.details : {},
 			};
 			isError = true;
 		}

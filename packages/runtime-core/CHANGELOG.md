@@ -6,6 +6,7 @@ All notable changes to `@vetta/runtime-core` are documented in this file.
 
 ### Added
 
+- **Capability Binding 与结构化 Tool Error**：新增按 `sourceId + capabilityId + revision` 标识模型所见能力的稳定绑定，以及从 Runtime Tool 到 Agent Tool Result 的结构化错误桥接。
 - **Model Call Frame**：新增动态贡献合同与调用级 Frame 解析；Feature 实例保持长生命周期，而提示词和工具在每次模型调用前重新物化。
 - **Agent Core Turn Engine Adapter**：新增 `AgentCoreTurnEngine`，将不可变 Runtime Snapshot、标准消息、模型流、Tool Loop、Tool Policy 和取消信号映射到 `@vetta/agent-core`；Runtime Tool 合同补充可取消执行、进度和阶段回报。
 - **引用计数 Runtime Snapshot Provider**：新增 `AtomicRuntimeSnapshotProvider` 和 acquire/release lease；Snapshot 热更新只影响后续 Turn，retired Feature 资源在所有活动 Turn 释放后再 dispose。

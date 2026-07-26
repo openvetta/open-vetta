@@ -2,7 +2,8 @@ import { Type } from "@sinclair/typebox";
 import { type AssistantMessage, type AssistantMessageEvent, EventStream, type Message, type Model } from "@vetta/ai";
 import { describe, expect, it } from "vitest";
 import { agentLoopContinue } from "../src/agent-loop.js";
-import type { AgentContext, AgentLoopConfig, AgentMessage, AgentTool } from "../src/types.js";
+import { AgentToolExecutionError } from "../src/tool-execution-error.js";
+import type { AgentContext, AgentEvent, AgentLoopConfig, AgentMessage, AgentTool } from "../src/types.js";
 
 class RecordedAssistantStream extends EventStream<AssistantMessageEvent, AssistantMessage> {
 	constructor(message: AssistantMessage) {
@@ -81,6 +82,59 @@ describe("dynamic call context", () => {
 		]);
 		expect(toolExecutions).toBe(1);
 		expect(resolutionIndex).toBe(2);
+	});
+
+	it("preserves structured tool error details in the tool result", async () => {
+		const toolSchema = Type.Object({});
+		const tool: AgentTool<typeof toolSchema, Record<string, never>> = {
+			name: "failing",
+			label: "Failing",
+			description: "Fails with structured details",
+			parameters: toolSchema,
+			async execute() {
+				throw new AgentToolExecutionError("Capability is unavailable", {
+					code: "capability_unavailable",
+					retryable: true,
+					metadata: { capabilityId: "failing" },
+				});
+			},
+		};
+		const context: AgentContext = {
+			systemPrompt: "",
+			messages: [{ role: "user", content: "start", timestamp: 1 }],
+			tools: [tool],
+		};
+		const config: AgentLoopConfig = {
+			model: model(),
+			convertToLlm,
+		};
+		let responseIndex = 0;
+		const stream = agentLoopContinue(context, config, undefined, () => {
+			const response =
+				responseIndex === 0
+					? assistantMessage([{ type: "toolCall", id: "tool-call-1", name: "failing", arguments: {} }], "toolUse")
+					: assistantMessage([{ type: "text", text: "recovered" }]);
+			responseIndex += 1;
+			return new RecordedAssistantStream(response);
+		});
+		const events: AgentEvent[] = [];
+
+		for await (const event of stream) {
+			events.push(event);
+		}
+
+		const toolResult = events.find((event) => event.type === "message_end" && event.message.role === "toolResult");
+		expect(toolResult).toMatchObject({
+			message: {
+				isError: true,
+				content: [{ type: "text", text: "Capability is unavailable" }],
+				details: {
+					code: "capability_unavailable",
+					retryable: true,
+					metadata: { capabilityId: "failing" },
+				},
+			},
+		});
 	});
 });
 

@@ -171,9 +171,13 @@ Catalog 把读取能力与修改能力分开：
 CodingToolCatalog
   snapshot()
   resolve(toolName)
+  execute(binding, request)
 
 CodingToolRegistry extends CodingToolCatalog
   register()
+  activate()
+  deactivate()
+  revoke()
   unregister()
 ```
 
@@ -188,9 +192,31 @@ register / unregister
 ```
 
 因此工具成员变化不需要重新 prepare 全部 Feature，也不需要重建 Runtime Snapshot。
-`resolve(toolName)` 只用于执行前的实时校验：若工具已删除则返回可恢复错误；若同名工具已替换，
-旧 Schema 产生的调用不能误路由到新实现。Feature 拓扑、Context Strategy 或 Observer 变化
-仍通过重新编译和 `AtomicRuntimeSnapshotProvider.swap()` 发布。
+`resolve(toolName)` 返回包含 `CapabilityBinding` 的只读 Entry，供 Model Call Frame 建立执行
+句柄；真正执行必须调用 `execute(binding, request)`，由 Catalog 在一个同步临界区内校验
+source、capability、revision 和状态并登记 in-flight execution。若工具已删除则返回可恢复
+错误；若同名工具已替换，旧 Schema 产生的调用不能误路由到新实现。Feature 拓扑、
+Context Strategy 或 Observer 变化仍通过重新编译和
+`AtomicRuntimeSnapshotProvider.swap()` 发布。
+
+Catalog Entry 状态分为 `active`、`deactivated` 和 `revoked`。Snapshot 只公开 active Entry：
+
+- `deactivate` 隐藏能力并拒绝尚未开始的调用，不终止在途执行，后续 `activate` 复用原
+  revision。
+- `revoke` 用于权限或安全撤销，轮换 revision 并通过执行跟踪器协作取消所有在途调用。
+- `unregister` 删除成员，但不把普通热卸载误解为强制取消已经开始的副作用。
+- 同名工具注销后重新注册会获得新 revision，旧绑定稳定返回 definition changed。
+
+运行时错误通过稳定结构传递：
+
+```text
+CodingToolAvailabilityError
+  -> RuntimeToolExecutionError { code, retryable, metadata }
+  -> AgentToolExecutionError
+  -> ToolResultMessage.details
+```
+
+错误文本仍保留给模型和日志；宿主、重试策略和测试使用结构化 details，不解析自然语言。
 
 激活合同分为两种：
 

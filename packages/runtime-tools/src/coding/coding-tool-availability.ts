@@ -1,51 +1,64 @@
-import type { RuntimeToolDefinition } from "@vetta/runtime-core/kernel";
-import type { CodingToolCatalog } from "./coding-tool-catalog.js";
-import type { CodingToolRegistration } from "./tool-registration.js";
+import {
+	type CapabilityBinding,
+	type RuntimeToolDefinition,
+	RuntimeToolExecutionError,
+} from "@vetta/runtime-core/kernel";
+import type { CodingToolCatalog, CodingToolCatalogEntry } from "./coding-tool-catalog.js";
 
 export const CODING_TOOL_AVAILABILITY_ERROR_CODES = {
 	UNAVAILABLE: "coding_tool_unavailable",
 	DEFINITION_CHANGED: "coding_tool_definition_changed",
+	DEACTIVATED: "coding_tool_deactivated",
+	REVOKED: "coding_tool_revoked",
 } as const;
 
 export type CodingToolAvailabilityErrorCode =
 	(typeof CODING_TOOL_AVAILABILITY_ERROR_CODES)[keyof typeof CODING_TOOL_AVAILABILITY_ERROR_CODES];
 
-export class CodingToolAvailabilityError extends Error {
+export class CodingToolAvailabilityError extends RuntimeToolExecutionError {
 	readonly code: CodingToolAvailabilityErrorCode;
 	readonly toolName: string;
+	readonly binding: CapabilityBinding;
 
-	constructor(code: CodingToolAvailabilityErrorCode, toolName: string, message: string) {
-		super(message);
+	constructor(code: CodingToolAvailabilityErrorCode, binding: CapabilityBinding) {
+		super(errorMessage(code, binding.capabilityId), {
+			code,
+			retryable: isRetryable(code),
+			metadata: {
+				toolName: binding.capabilityId,
+				binding,
+			},
+		});
 		this.name = "CodingToolAvailabilityError";
 		this.code = code;
-		this.toolName = toolName;
+		this.toolName = binding.capabilityId;
+		this.binding = binding;
 	}
 }
 
 export function guardCodingToolRegistration(
 	catalog: CodingToolCatalog,
-	registration: CodingToolRegistration,
+	entry: CodingToolCatalogEntry,
 ): RuntimeToolDefinition {
-	const advertisedTool = registration.tool;
 	return {
-		...advertisedTool,
-		async execute(request) {
-			const current = catalog.resolve(advertisedTool.name);
-			if (!current) {
-				throw new CodingToolAvailabilityError(
-					CODING_TOOL_AVAILABILITY_ERROR_CODES.UNAVAILABLE,
-					advertisedTool.name,
-					`Coding tool is no longer available: ${advertisedTool.name}`,
-				);
-			}
-			if (current !== registration) {
-				throw new CodingToolAvailabilityError(
-					CODING_TOOL_AVAILABILITY_ERROR_CODES.DEFINITION_CHANGED,
-					advertisedTool.name,
-					`Coding tool definition changed after it was advertised: ${advertisedTool.name}`,
-				);
-			}
-			return advertisedTool.execute(request);
-		},
+		...entry.registration.tool,
+		execute: (request) => catalog.execute(entry.binding, request),
 	};
+}
+
+function isRetryable(code: CodingToolAvailabilityErrorCode): boolean {
+	return code !== CODING_TOOL_AVAILABILITY_ERROR_CODES.REVOKED;
+}
+
+function errorMessage(code: CodingToolAvailabilityErrorCode, toolName: string): string {
+	switch (code) {
+		case CODING_TOOL_AVAILABILITY_ERROR_CODES.UNAVAILABLE:
+			return `Coding tool is no longer available: ${toolName}`;
+		case CODING_TOOL_AVAILABILITY_ERROR_CODES.DEFINITION_CHANGED:
+			return `Coding tool definition changed after it was advertised: ${toolName}`;
+		case CODING_TOOL_AVAILABILITY_ERROR_CODES.DEACTIVATED:
+			return `Coding tool was deactivated after it was advertised: ${toolName}`;
+		case CODING_TOOL_AVAILABILITY_ERROR_CODES.REVOKED:
+			return `Coding tool was revoked: ${toolName}`;
+	}
 }

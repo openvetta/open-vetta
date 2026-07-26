@@ -6,6 +6,7 @@ export type {
 	AgentProfile,
 	AgentSessionState,
 	AppendResult,
+	CapabilityBinding,
 	Clock,
 	CompactionRecord,
 	CompiledRuntimeSnapshot,
@@ -74,4 +75,8 @@ export {
 export { FeatureCompiler, type FeatureCompilerOptions } from "./feature-compiler.js";
 export { composeModelCallSystemPrompt, resolveModelCallFrame } from "./model-call-frame.js";
 export { AtomicRuntimeSnapshotProvider } from "./runtime-snapshot-provider.js";
+export {
+	RuntimeToolExecutionError,
+	type RuntimeToolExecutionErrorDetails,
+} from "./tool-execution-error.js";
 export { TurnPipeline, type TurnPipelineOptions } from "./turn-pipeline.js";
