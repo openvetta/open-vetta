@@ -1,0 +1,389 @@
+import {
+	type AssistantMessage,
+	type AssistantMessageEvent,
+	type Context,
+	EventStream,
+	type Message,
+	type Model,
+	type UserMessage,
+} from "@vetta/ai";
+import { describe, expect, it } from "vitest";
+import {
+	AgentCoreTurnEngine,
+	type RuntimeSnapshot,
+	type RuntimeToolDefinition,
+	type ToolPolicyRequest,
+	type TurnEngineEvent,
+} from "../../src/kernel/index.js";
+
+class RecordedAssistantStream extends EventStream<AssistantMessageEvent, AssistantMessage> {
+	constructor(message: AssistantMessage) {
+		super(
+			(event) => event.type === "done" || event.type === "error",
+			(event) => {
+				if (event.type === "done") return event.message;
+				if (event.type === "error") return event.error;
+				throw new Error("Unexpected assistant event");
+			},
+		);
+		queueMicrotask(() => {
+			if (message.stopReason === "error" || message.stopReason === "aborted") {
+				this.push({ type: "error", reason: message.stopReason, error: message });
+				return;
+			}
+			this.push({
+				type: "done",
+				reason: message.stopReason,
+				message,
+			});
+		});
+	}
+}
+
+class ManualAssistantStream extends EventStream<AssistantMessageEvent, AssistantMessage> {
+	constructor() {
+		super(
+			(event) => event.type === "done" || event.type === "error",
+			(event) => {
+				if (event.type === "done") return event.message;
+				if (event.type === "error") return event.error;
+				throw new Error("Unexpected assistant event");
+			},
+		);
+	}
+}
+
+function model(): Model<"openai-responses"> {
+	return {
+		id: "recorded-model",
+		name: "Recorded Model",
+		api: "openai-responses",
+		provider: "openai",
+		baseUrl: "https://example.invalid",
+		reasoning: false,
+		input: ["text"],
+		cost: {
+			input: 0,
+			output: 0,
+			cacheRead: 0,
+			cacheWrite: 0,
+		},
+		contextWindow: 8_000,
+		maxTokens: 1_000,
+	};
+}
+
+function userMessage(text: string): UserMessage {
+	return {
+		role: "user",
+		content: text,
+		timestamp: 1,
+	};
+}
+
+function assistantMessage(
+	content: AssistantMessage["content"],
+	stopReason: AssistantMessage["stopReason"] = "stop",
+): AssistantMessage {
+	return {
+		role: "assistant",
+		content,
+		api: "openai-responses",
+		provider: "openai",
+		model: "recorded-model",
+		usage: {
+			input: 1,
+			output: 1,
+			cacheRead: 0,
+			cacheWrite: 0,
+			totalTokens: 2,
+			cost: {
+				input: 0,
+				output: 0,
+				cacheRead: 0,
+				cacheWrite: 0,
+				total: 0,
+			},
+		},
+		stopReason,
+		timestamp: 2,
+	};
+}
+
+function snapshot(options?: {
+	readonly tools?: readonly RuntimeToolDefinition[];
+	readonly authorize?: (request: ToolPolicyRequest, signal: AbortSignal) => Promise<boolean>;
+}): RuntimeSnapshot {
+	return {
+		id: "snapshot-1",
+		instructions: [
+			{ id: "base", content: "Base instruction", priority: 0 },
+			{ id: "feature", content: "Feature instruction", priority: 1 },
+		],
+		tools: new Map((options?.tools ?? []).map((tool) => [tool.name, tool])),
+		contextProviders: [],
+		contextStrategy: {
+			async prepare(input) {
+				return {
+					messages: input.messages,
+					estimatedTokens: 0,
+				};
+			},
+		},
+		toolPolicy: {
+			authorize:
+				options?.authorize ??
+				(async (_request, signal) => {
+					signal.throwIfAborted();
+					return true;
+				}),
+		},
+		tokenBudget: 8_000,
+		reservedOutputTokens: 1_000,
+		observers: [],
+	};
+}
+
+async function collect(
+	engine: AgentCoreTurnEngine,
+	runtimeSnapshot: RuntimeSnapshot,
+	signal: AbortSignal = new AbortController().signal,
+): Promise<TurnEngineEvent[]> {
+	const events: TurnEngineEvent[] = [];
+	for await (const event of engine.execute({
+		sessionId: "session-1",
+		turnId: "turn-1",
+		snapshot: runtimeSnapshot,
+		messages: [userMessage("hello")],
+		signal,
+	})) {
+		events.push(event);
+	}
+	return events;
+}
+
+describe("AgentCoreTurnEngine", () => {
+	it("maps immutable runtime input to agent-core and emits canonical terminal events", async () => {
+		const contexts: Context[] = [];
+		const sessionIds: Array<string | undefined> = [];
+		const engine = new AgentCoreTurnEngine({
+			model: model(),
+			streamOptions: {
+				temperature: 0.2,
+			},
+			streamFn: (_model, context, options) => {
+				contexts.push(context);
+				sessionIds.push(options?.sessionId);
+				expect(options?.temperature).toBe(0.2);
+				return new RecordedAssistantStream(assistantMessage([{ type: "text", text: "done" }]));
+			},
+		});
+
+		const events = await collect(engine, snapshot());
+
+		expect(contexts).toHaveLength(1);
+		expect(contexts[0].systemPrompt).toBe("Base instruction\n\nFeature instruction");
+		expect(contexts[0].messages).toEqual([userMessage("hello")]);
+		expect(sessionIds).toEqual(["session-1"]);
+		expect(events).toEqual([
+			{
+				type: "message",
+				message: assistantMessage([{ type: "text", text: "done" }]),
+			},
+			{
+				type: "completed",
+				stopReason: "stop",
+			},
+		]);
+	});
+
+	it("runs the agent-core tool loop through runtime policy and execution contracts", async () => {
+		const policyRequests: ToolPolicyRequest[] = [];
+		const executionInputs: Readonly<Record<string, unknown>>[] = [];
+		const phases: string[] = [];
+		const tool: RuntimeToolDefinition = {
+			name: "echo",
+			label: "Echo",
+			description: "Echo a value",
+			inputSchema: {
+				type: "object",
+				properties: {
+					value: { type: "string" },
+				},
+				required: ["value"],
+				additionalProperties: false,
+			},
+			async execute(request) {
+				executionInputs.push(request.input);
+				request.onUpdate?.({
+					content: [{ type: "text", text: "working" }],
+				});
+				request.reportPhase?.("executing");
+				phases.push("executed");
+				return {
+					content: [{ type: "text", text: `echo:${String(request.input.value)}` }],
+					details: { echoed: request.input.value },
+				};
+			},
+		};
+		const responses = [
+			assistantMessage(
+				[
+					{
+						type: "toolCall",
+						id: "tool-call-1",
+						name: "echo",
+						arguments: { value: "hello" },
+					},
+				],
+				"toolUse",
+			),
+			assistantMessage([{ type: "text", text: "finished" }]),
+		];
+		const contexts: Context[] = [];
+		let responseIndex = 0;
+		const engine = new AgentCoreTurnEngine({
+			model: model(),
+			streamFn: (_model, context) => {
+				contexts.push({
+					...context,
+					messages: [...context.messages],
+				});
+				const response = responses[responseIndex];
+				responseIndex += 1;
+				if (!response) throw new Error("Missing recorded response");
+				return new RecordedAssistantStream(response);
+			},
+		});
+
+		const events = await collect(
+			engine,
+			snapshot({
+				tools: [tool],
+				async authorize(request, signal) {
+					signal.throwIfAborted();
+					policyRequests.push(request);
+					return true;
+				},
+			}),
+		);
+
+		expect(policyRequests).toEqual([
+			{
+				sessionId: "session-1",
+				turnId: "turn-1",
+				toolName: "echo",
+				input: { value: "hello" },
+			},
+		]);
+		expect(executionInputs).toEqual([{ value: "hello" }]);
+		expect(phases).toEqual(["executed"]);
+		expect(contexts).toHaveLength(2);
+		expect(contexts[1].messages.map((message) => message.role)).toEqual(["user", "assistant", "toolResult"]);
+		expect(events.map((event) => (event.type === "message" ? event.message.role : event.type))).toEqual([
+			"assistant",
+			"toolResult",
+			"assistant",
+			"completed",
+		]);
+		expect(events.at(-1)).toEqual({
+			type: "completed",
+			stopReason: "stop",
+		});
+	});
+
+	it("turns policy rejection into a tool error without calling the implementation", async () => {
+		let executionCount = 0;
+		const tool: RuntimeToolDefinition = {
+			name: "write",
+			label: "Write",
+			description: "Write a value",
+			inputSchema: {
+				type: "object",
+			},
+			async execute() {
+				executionCount += 1;
+				return { content: [] };
+			},
+		};
+		const responses = [
+			assistantMessage([{ type: "toolCall", id: "tool-call-1", name: "write", arguments: {} }], "toolUse"),
+			assistantMessage([{ type: "text", text: "not written" }]),
+		];
+		let responseIndex = 0;
+		const engine = new AgentCoreTurnEngine({
+			model: model(),
+			streamFn: () => {
+				const response = responses[responseIndex];
+				responseIndex += 1;
+				if (!response) throw new Error("Missing recorded response");
+				return new RecordedAssistantStream(response);
+			},
+		});
+
+		const events = await collect(
+			engine,
+			snapshot({
+				tools: [tool],
+				async authorize() {
+					return false;
+				},
+			}),
+		);
+
+		expect(executionCount).toBe(0);
+		const messages = events
+			.filter((event): event is Extract<TurnEngineEvent, { type: "message" }> => event.type === "message")
+			.map(({ message }) => message);
+		const toolResult = messages.find(
+			(message): message is Extract<Message, { role: "toolResult" }> => message.role === "toolResult",
+		);
+		expect(toolResult).toMatchObject({
+			isError: true,
+			content: [{ type: "text", text: "Tool execution denied by policy: write" }],
+		});
+	});
+
+	it("forwards the request cancellation signal to the model stream", async () => {
+		const controller = new AbortController();
+		let markStarted: (() => void) | undefined;
+		const started = new Promise<void>((resolve) => {
+			markStarted = resolve;
+		});
+		const engine = new AgentCoreTurnEngine({
+			model: model(),
+			streamFn: (_model, _context, options) => {
+				expect(options?.signal).toBe(controller.signal);
+				const stream = new ManualAssistantStream();
+				options?.signal?.addEventListener(
+					"abort",
+					() => {
+						stream.push({
+							type: "error",
+							reason: "aborted",
+							error: assistantMessage([{ type: "text", text: "cancelled" }], "aborted"),
+						});
+					},
+					{ once: true },
+				);
+				markStarted?.();
+				return stream;
+			},
+		});
+
+		const result = collect(engine, snapshot(), controller.signal);
+		await started;
+		controller.abort("cancelled by test");
+
+		expect(await result).toEqual([
+			{
+				type: "message",
+				message: assistantMessage([{ type: "text", text: "cancelled" }], "aborted"),
+			},
+			{
+				type: "completed",
+				stopReason: "aborted",
+			},
+		]);
+	});
+});

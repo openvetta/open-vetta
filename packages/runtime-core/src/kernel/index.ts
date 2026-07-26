@@ -1,3 +1,4 @@
+export { AgentCoreTurnEngine, type AgentCoreTurnEngineOptions } from "./agent-core-turn-engine.js";
 export { AgentSession, type CreateAgentSessionOptions, createAgentSession } from "./agent-session.js";
 export type {
 	AgentFeature,
@@ -30,6 +31,8 @@ export type {
 	RuntimeSnapshotLease,
 	RuntimeSnapshotProvider,
 	RuntimeToolDefinition,
+	RuntimeToolExecutionRequest,
+	RuntimeToolResult,
 	SessionInput,
 	StoredConversation,
 	StoredSessionEvent,

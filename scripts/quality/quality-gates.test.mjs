@@ -166,4 +166,25 @@ describe("package boundary analysis", () => {
 		).toHaveLength(1);
 		expect(findPackageBoundaryViolations("packages/runtime-core/src/runtime-host/example.ts", source)).toEqual([]);
 	});
+
+	it("keeps agent-core below runtime and product packages", () => {
+		expect(
+			findPackageBoundaryViolations(
+				"packages/agent/src/example.ts",
+				'import { TurnPipeline } from "@vetta/runtime-core/kernel";',
+			),
+		).toHaveLength(1);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/agent/src/example.ts",
+				'import { createCodingAgent } from "@vetta/coding-agent";',
+			),
+		).toHaveLength(1);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/runtime-core/src/kernel/agent-core-turn-engine.ts",
+				'import { agentLoopContinue } from "@vetta/agent-core";',
+			),
+		).toEqual([]);
+	});
 });

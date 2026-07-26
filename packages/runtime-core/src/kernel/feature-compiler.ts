@@ -180,8 +180,26 @@ function freezeInstruction(instruction: InstructionBlock): InstructionBlock {
 function freezeTool(tool: RuntimeToolDefinition): RuntimeToolDefinition {
 	return Object.freeze({
 		...tool,
-		inputSchema: Object.freeze({ ...tool.inputSchema }),
+		inputSchema: freezeJsonObject(tool.inputSchema),
 	});
+}
+
+function freezeJsonObject(value: Readonly<Record<string, unknown>>): Readonly<Record<string, unknown>> {
+	const copy: Record<string, unknown> = {};
+	for (const [key, entry] of Object.entries(value)) {
+		copy[key] = freezeJsonValue(entry);
+	}
+	return Object.freeze(copy);
+}
+
+function freezeJsonValue(value: unknown): unknown {
+	if (Array.isArray(value)) {
+		return Object.freeze(value.map(freezeJsonValue));
+	}
+	if (value !== null && typeof value === "object") {
+		return freezeJsonObject(value as Readonly<Record<string, unknown>>);
+	}
+	return value;
 }
 
 function createCompiledSnapshot(

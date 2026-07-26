@@ -149,6 +149,27 @@ describe("FileConversationRepository", () => {
 		expect((await repository.load("session-1")).version).toBe(0);
 	});
 
+	it("rejects structurally invalid events at the repository boundary", async () => {
+		const { repository } = await createRepository();
+		await repository.create({
+			sessionId: "session-1",
+			createdAt: 100,
+		});
+		const invalidEvent = {
+			...message("session-1", "turn-1", "hello"),
+			message: {
+				role: "unexpected",
+				content: "invalid",
+				timestamp: 2,
+			},
+		} as unknown as StoredSessionEvent;
+
+		await expect(repository.append("session-1", 0, [invalidEvent])).rejects.toMatchObject({
+			code: CONVERSATION_STORAGE_ERROR_CODES.INVALID_EVENT,
+		});
+		expect((await repository.load("session-1")).version).toBe(0);
+	});
+
 	it("writes snapshots only at the current conversation version", async () => {
 		const { repository, rootDir } = await createRepository();
 		await repository.create({
@@ -195,6 +216,36 @@ describe("FileConversationRepository", () => {
 		const conversationFile = (await readdir(rootDir)).find((file) => file.endsWith(".conversation.jsonl"));
 		expect(conversationFile).toBeDefined();
 		await appendFile(join(rootDir, conversationFile ?? ""), '{"recordType":"conversation.event"', "utf8");
+
+		await expect(repository.load("session-1")).rejects.toMatchObject({
+			code: CONVERSATION_STORAGE_ERROR_CODES.CORRUPT,
+		});
+	});
+
+	it("detects a complete JSON record with an invalid domain payload", async () => {
+		const { repository, rootDir } = await createRepository();
+		await repository.create({
+			sessionId: "session-1",
+			createdAt: 100,
+		});
+		const conversationFile = (await readdir(rootDir)).find((file) => file.endsWith(".conversation.jsonl"));
+		expect(conversationFile).toBeDefined();
+		await appendFile(
+			join(rootDir, conversationFile ?? ""),
+			`${JSON.stringify({
+				recordType: "conversation.event",
+				schemaVersion: 1,
+				sequence: 1,
+				event: {
+					type: "turn.completed",
+					sessionId: "session-1",
+					turnId: "turn-1",
+					stopReason: "invented",
+					timestamp: 3,
+				},
+			})}\n`,
+			"utf8",
+		);
 
 		await expect(repository.load("session-1")).rejects.toMatchObject({
 			code: CONVERSATION_STORAGE_ERROR_CODES.CORRUPT,

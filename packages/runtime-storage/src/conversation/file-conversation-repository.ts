@@ -12,28 +12,16 @@ import type {
 	StoredSessionEvent,
 } from "@vetta/runtime-core/kernel";
 import { CONVERSATION_STORAGE_ERROR_CODES, ConversationStorageError } from "./errors.js";
-
-const CONVERSATION_SCHEMA_VERSION = 1;
-
-interface ConversationFileHeader {
-	readonly recordType: "conversation.header";
-	readonly schemaVersion: typeof CONVERSATION_SCHEMA_VERSION;
-	readonly sessionId: string;
-	readonly createdAt: number;
-}
-
-interface ConversationEventRecord {
-	readonly recordType: "conversation.event";
-	readonly schemaVersion: typeof CONVERSATION_SCHEMA_VERSION;
-	readonly sequence: number;
-	readonly event: StoredSessionEvent;
-}
-
-interface ConversationSnapshotRecord {
-	readonly recordType: "conversation.snapshot";
-	readonly schemaVersion: typeof CONVERSATION_SCHEMA_VERSION;
-	readonly snapshot: ConversationSnapshot;
-}
+import {
+	CONVERSATION_SCHEMA_VERSION,
+	type ConversationEventRecord,
+	type ConversationFileHeader,
+	type ConversationSnapshotRecord,
+	isConversationEventRecord,
+	isConversationFileHeader,
+	isConversationSnapshot,
+	isStoredSessionEvent,
+} from "./record-schema.js";
 
 export interface FileConversationRepositoryOptions {
 	readonly rootDir: string;
@@ -121,6 +109,12 @@ export class FileConversationRepository implements ConversationRepository {
 	async saveSnapshot(sessionId: string, snapshot: ConversationSnapshot): Promise<void> {
 		this.assertOpen();
 		await this.exclusive(sessionId, async () => {
+			if (!isConversationSnapshot(snapshot)) {
+				throw new ConversationStorageError(
+					CONVERSATION_STORAGE_ERROR_CODES.INVALID_EVENT,
+					`Snapshot for ${sessionId} does not match the conversation snapshot schema`,
+				);
+			}
 			if (snapshot.sessionId !== sessionId) {
 				throw new ConversationStorageError(
 					CONVERSATION_STORAGE_ERROR_CODES.INVALID_EVENT,
@@ -178,7 +172,7 @@ export class FileConversationRepository implements ConversationRepository {
 
 		const records = parseRecords(text, sessionId);
 		const [header, ...events] = records;
-		if (!isConversationHeader(header) || header.sessionId !== sessionId) {
+		if (!isConversationFileHeader(header) || header.sessionId !== sessionId) {
 			throw corruptConversation(sessionId, "missing or mismatched header");
 		}
 
@@ -269,57 +263,13 @@ function parseRecords(text: string, sessionId: string): unknown[] {
 	});
 }
 
-function isConversationHeader(value: unknown): value is ConversationFileHeader {
-	return (
-		isObject(value) &&
-		value.recordType === "conversation.header" &&
-		value.schemaVersion === CONVERSATION_SCHEMA_VERSION &&
-		typeof value.sessionId === "string" &&
-		typeof value.createdAt === "number"
-	);
-}
-
-function isConversationEventRecord(value: unknown): value is ConversationEventRecord {
-	return (
-		isObject(value) &&
-		value.recordType === "conversation.event" &&
-		value.schemaVersion === CONVERSATION_SCHEMA_VERSION &&
-		typeof value.sequence === "number" &&
-		isStoredSessionEvent(value.event)
-	);
-}
-
-function isStoredSessionEvent(value: unknown): value is StoredSessionEvent {
-	if (
-		!isObject(value) ||
-		typeof value.type !== "string" ||
-		typeof value.sessionId !== "string" ||
-		typeof value.turnId !== "string" ||
-		typeof value.timestamp !== "number"
-	) {
-		return false;
-	}
-	switch (value.type) {
-		case "turn.started":
-			return typeof value.snapshotId === "string";
-		case "message.appended":
-			return isObject(value.message) && typeof value.message.role === "string";
-		case "context.compacted":
-			return isObject(value.record) && typeof value.record.id === "string";
-		case "turn.completed":
-			return typeof value.stopReason === "string";
-		case "turn.cancelled":
-			return value.reason === undefined || typeof value.reason === "string";
-		case "turn.failed":
-			return (
-				isObject(value.error) && typeof value.error.code === "string" && typeof value.error.message === "string"
-			);
-		default:
-			return false;
-	}
-}
-
 function validateEvent(sessionId: string, event: StoredSessionEvent): void {
+	if (!isStoredSessionEvent(event)) {
+		throw new ConversationStorageError(
+			CONVERSATION_STORAGE_ERROR_CODES.INVALID_EVENT,
+			`Event for ${sessionId} does not match the stored session event schema`,
+		);
+	}
 	if (event.sessionId !== sessionId) {
 		throw new ConversationStorageError(
 			CONVERSATION_STORAGE_ERROR_CODES.INVALID_EVENT,

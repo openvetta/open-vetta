@@ -221,6 +221,17 @@ function checkGreenfieldRuntimeImports(posixPath, specifiers, findings) {
 	}
 }
 
+function checkAgentCoreImports(posixPath, specifiers, findings) {
+	if (!posixPath.startsWith("packages/agent/src/")) return;
+	for (const specifier of specifiers) {
+		const importsRuntimeCore = specifier === "@vetta/runtime-core" || specifier.startsWith("@vetta/runtime-core/");
+		const importsCodingAgent = specifier === "@vetta/coding-agent" || specifier.startsWith("@vetta/coding-agent/");
+		if (importsRuntimeCore || importsCodingAgent) {
+			findings.push(`${posixPath}: agent-core must not import runtime or product packages (${specifier})`);
+		}
+	}
+}
+
 export function findPackageBoundaryViolations(posixPath, text) {
 	const findings = [];
 	const specifiers = collectImportSpecifiers(posixPath, text);
@@ -233,6 +244,7 @@ export function findPackageBoundaryViolations(posixPath, text) {
 	checkRawCapabilityIds(posixPath, text, findings);
 	checkCapabilitySchemaDefinitions(posixPath, text, findings);
 	checkGreenfieldRuntimeImports(posixPath, specifiers, findings);
+	checkAgentCoreImports(posixPath, specifiers, findings);
 	return findings;
 }
 

@@ -21,6 +21,7 @@
 		"test": "bunx vitest --run"
 	},
 	"dependencies": {
+		"@sinclair/typebox": "^0.34.41",
 		"@vetta/coding-agent": "workspace:*",
 		"@vetta/runtime-core": "workspace:*"
 	},

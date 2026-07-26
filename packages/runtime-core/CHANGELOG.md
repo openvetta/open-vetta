@@ -6,6 +6,7 @@ All notable changes to `@vetta/runtime-core` are documented in this file.
 
 ### Added
 
+- **Agent Core Turn Engine Adapter**：新增 `AgentCoreTurnEngine`，将不可变 Runtime Snapshot、标准消息、模型流、Tool Loop、Tool Policy 和取消信号映射到 `@vetta/agent-core`；Runtime Tool 合同补充可取消执行、进度和阶段回报。
 - **引用计数 Runtime Snapshot Provider**：新增 `AtomicRuntimeSnapshotProvider` 和 acquire/release lease；Snapshot 热更新只影响后续 Turn，retired Feature 资源在所有活动 Turn 释放后再 dispose。
 - **隔离的 Greenfield Kernel 入口**：新增 `@vetta/runtime-core/kernel`，提供 Session 状态机、固定阶段 Typed Turn Pipeline、确定性 Feature Compiler、不可变 Runtime Snapshot 及存储、上下文和 Turn Engine Port；旧 `RuntimeHost` 生产入口保持不变。
 - **`SubagentInfo` 增加 `queued` 状态、`todoProgress` 与 `title`**：透传 coding-agent 工作流子代理（ADR-0044）的排队状态、todo 进度与人类可读标题给宿主 UI。
@@ -23,6 +24,7 @@ All notable changes to `@vetta/runtime-core` are documented in this file.
 
 ### Changed
 
+- **Tool Schema 完整冻结**：Feature Compiler 发布 Snapshot 前深拷贝并递归冻结 Tool JSON Schema，避免嵌套 Schema 在 Turn 执行期间被外部修改。
 - **图像工具生命周期归插件（ADR-0048）**：移除 `RuntimeHostOptions.imageBackend` 与 RuntimeHost 的内置 `generate_image` / `edit_image` 注入；图像插件改用动态插件工具注册，禁用插件即可完整移除能力。
 - **`RuntimeHost` 按职责拆分到 `src/runtime-host/`**：原 ~1.7k 行单文件拆为 `runtime-host`（会话编排）、`session-events`（事件映射）、`history`（历史/分支）、`peripheral-tasks`（自动标题/输入预测）、`plugin-debug`、`types`；包根 `index.ts` 从目录入口导出，对外 API 不变。
 - **周边任务自动选模 + 失败轮转**：`autoTitleSession` / `nextPromptSuggestions` 不再依赖用户配置的「全局/周边模型」。改为优先使用当前会话模型，再从 `ModelRegistry.getAvailable()` 补足候选（最多 3 个）；调用失败或无可用结果时进程内冷却该模型并轮转下一个。无可用凭证时静默跳过。

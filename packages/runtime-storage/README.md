@@ -12,6 +12,7 @@ available from `@vetta/runtime-storage/conversation`.
 - auth storage exports
 - settings storage exports
 - versioned file Conversation Repository
+- TypeBox runtime validation for persisted conversation records
 
 ## What It Does Not Own
 

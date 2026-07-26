@@ -1,4 +1,4 @@
-import type { Message, StopReason, UserMessage } from "@vetta/ai";
+import type { ImageContent, Message, StopReason, TextContent, UserMessage } from "@vetta/ai";
 
 export type AgentSessionState = "idle" | "running" | "cancelling" | "closing" | "closed";
 
@@ -14,8 +14,25 @@ export interface InstructionBlock {
 
 export interface RuntimeToolDefinition {
 	readonly name: string;
+	readonly label: string;
 	readonly description: string;
 	readonly inputSchema: Readonly<Record<string, unknown>>;
+	execute(request: RuntimeToolExecutionRequest): Promise<RuntimeToolResult>;
+}
+
+export interface RuntimeToolExecutionRequest {
+	readonly sessionId: string;
+	readonly turnId: string;
+	readonly toolCallId: string;
+	readonly input: Readonly<Record<string, unknown>>;
+	readonly signal: AbortSignal;
+	readonly onUpdate?: (result: RuntimeToolResult) => void;
+	readonly reportPhase?: (label: string) => void;
+}
+
+export interface RuntimeToolResult {
+	readonly content: readonly (TextContent | ImageContent)[];
+	readonly details?: unknown;
 }
 
 export interface ToolPolicyRequest {

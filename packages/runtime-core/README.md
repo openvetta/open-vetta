@@ -13,6 +13,8 @@ entry until downstream adapters are ready to switch.
 - state snapshots and session history listing
 - isolated Session state machine, Typed Turn Pipeline and Feature Compiler under `./kernel`
 - acquire/release Runtime Snapshot lifecycle with atomic Turn-boundary switching
+- `AgentCoreTurnEngine` adapter for the `@vetta/agent-core` model and tool loop
+- runtime-owned tool execution and policy contracts
 
 ## What It Does Not Own
 
@@ -32,4 +34,5 @@ entry until downstream adapters are ready to switch.
 - session event and state contracts from `src/contracts.ts`
 - shared runtime error helpers
 - `@vetta/runtime-core/kernel` for the new `AgentSession`, `TurnPipeline`,
-  `FeatureCompiler`, `AtomicRuntimeSnapshotProvider` and Port contracts
+  `FeatureCompiler`, `AtomicRuntimeSnapshotProvider`, `AgentCoreTurnEngine` and
+  Port contracts

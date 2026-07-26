@@ -139,8 +139,12 @@ describe("FeatureCompiler", () => {
 		});
 		const duplicateTool = {
 			name: "read",
+			label: "Read",
 			description: "Read a file",
 			inputSchema: {},
+			async execute() {
+				return { content: [] };
+			},
 		};
 
 		await expect(
@@ -185,6 +189,14 @@ describe("FeatureCompiler", () => {
 		const compiler = new FeatureCompiler({
 			idGenerator: new SnapshotIdGenerator(),
 		});
+		const inputSchema = {
+			type: "object",
+			properties: {
+				path: {
+					type: "string",
+				},
+			},
+		};
 		const compiled = await compiler.compile(
 			profile([
 				feature({
@@ -194,8 +206,12 @@ describe("FeatureCompiler", () => {
 						tools: [
 							{
 								name: "read",
+								label: "Read",
 								description: "Read a file",
-								inputSchema: { type: "object" },
+								inputSchema,
+								async execute() {
+									return { content: [] };
+								},
 							},
 						],
 					},
@@ -209,6 +225,18 @@ describe("FeatureCompiler", () => {
 		expect(Object.isFrozen(compiled.snapshot.contextProviders)).toBe(true);
 		expect(Object.isFrozen(compiled.snapshot.observers)).toBe(true);
 		expect(compiled.snapshot.tools.get("read")?.description).toBe("Read a file");
+		const compiledInputSchema = compiled.snapshot.tools.get("read")?.inputSchema;
+		expect(Object.isFrozen(compiledInputSchema)).toBe(true);
+		expect(Object.isFrozen(compiledInputSchema?.properties)).toBe(true);
+		expect(Object.isFrozen((compiledInputSchema?.properties as Record<string, unknown>)?.path)).toBe(true);
+		inputSchema.properties.path.type = "number";
+		expect(
+			(
+				(compiledInputSchema?.properties as Record<string, Record<string, unknown>> | undefined)?.path as
+					| Record<string, unknown>
+					| undefined
+			)?.type,
+		).toBe("string");
 		expect("set" in compiled.snapshot.tools).toBe(false);
 
 		await compiled.dispose();

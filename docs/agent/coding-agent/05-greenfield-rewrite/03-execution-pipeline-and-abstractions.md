@@ -78,6 +78,26 @@ flowchart TD
 
 因此不能把 Tool Loop 拆成一串只能执行一次的普通 Stage，也不能让外部 Feature 接管循环控制权。
 
+Tool 的定义与执行属于 Runtime 合同，`agent-core` Adapter 只做协议转换：
+
+```text
+RuntimeToolDefinition
+-> AgentCoreTurnEngine 转为 AgentTool
+-> ToolPolicy.authorize
+-> RuntimeToolDefinition.execute
+-> ToolResultMessage
+-> 下一次模型调用
+```
+
+边界约束：
+
+- Runtime Tool 必须接收 `sessionId`、`turnId`、`toolCallId` 和 `AbortSignal`。
+- Tool Policy 必须先于工具实现执行，拒绝结果转换成标准错误 Tool Result。
+- Tool Schema 在 Runtime Snapshot 发布时深拷贝并递归冻结。
+- `AgentCoreTurnEngine` 由组合根注入模型与 Stream 实现，不读取 Model Registry 或全局 Session。
+- Execution 阶段只持久化完成的 Assistant / Tool Result 消息；流式 delta 属于观察事件，不作为会话事实重复写入。
+- `agent-core` 不得反向导入 `runtime-core` 或 `coding-agent`。
+
 Pipeline 的每个阶段接收明确输入并返回明确输出。输出在语义上只读，不携带可由任意模块写入的共享 `metadata`：
 
 ```ts
@@ -271,3 +291,26 @@ Pipeline 不假设整个 Turn 是一个长数据库事务。它使用明确的�
 3. Finalization 写入完成、失败或取消终止事件。
 
 这样进程中断后可以根据事件日志判断 Turn 停止在哪个阶段，而不是依赖内存状态猜测。
+
+## 7. 运行时类型校验策略
+
+TypeScript 类型只约束编译期，不能信任来自模型、磁盘、网络、插件或 RPC 的运行时数据。Schema 校验放在不可信数据第一次进入领域模型的边界，校验成功后内部代码使用稳定类型，不在每一层重复 parse。
+
+本架构采用以下选择：
+
+| 边界 | Schema 方案 | 原因 |
+| --- | --- | --- |
+| Tool 参数 | TypeBox / JSON Schema | Schema 需要直接发送给模型 Provider，并由 agent-core/AJV 校验 |
+| Conversation JSONL / Snapshot | TypeBox | 需要静态类型、运行时检查和可版本化的 JSON Schema 语义 |
+| MCP Tool Schema | JSON Schema 转 TypeBox 或安全包装 | MCP 原生提供 JSON Schema，不能要求 Server 使用 Zod |
+| Host 表单或复杂配置转换 | 按宿主需要选择 Zod | 只有需要 preprocess、transform 或既有 Zod 生态时才引入 |
+| Kernel 内部对象 | TypeScript 合同 | 已经过入口校验，不重复增加运行时 Schema 层 |
+
+约束：
+
+- Kernel 和底层 Runtime 不同时维护 TypeBox、Zod 两套等价 Schema。
+- Tool、存储和协议 Schema 必须与对应 schema version 一起演进。
+- JSON 解析成功不等于领域对象合法；仍需校验 Message role、StopReason、Event discriminant 和嵌套字段。
+- Repository 的公开写入方法也执行运行时校验，因为调用方可能来自 JavaScript、插件或版本不一致的包。
+- 校验失败在写入侧返回稳定 `INVALID_EVENT`，在读取侧视为 `CORRUPT`，不能携带半合法对象进入 Kernel。
+- Schema 只负责结构和基础约束；事件顺序、Session ID 一致性、乐观版本等领域不变量仍由 Repository 显式代码校验。
