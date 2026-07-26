@@ -79,10 +79,15 @@ createCodingToolsFeature({
 });
 ```
 
-The registry supports dynamic `register()` and `unregister()`. Each Feature
-compilation binds one versioned membership snapshot. After a registry change,
-the composition root compiles and atomically publishes a new Runtime Snapshot;
-an already running turn keeps its existing Snapshot lease.
+The registry supports dynamic `register()` and `unregister()`. The Feature keeps
+a long-lived Model Call Contribution Provider. Before every LLM call it reads
+the latest versioned membership snapshot, so a registry change does not
+recompile the Runtime Snapshot or reinitialize unrelated Features.
+
+An advertised Coding Tool is resolved against the live Catalog immediately
+before execution. Removal produces a recoverable tool error. Replacing a tool
+under the same name cannot route an old-schema call into the new implementation.
+The next LLM call receives the refreshed tool list.
 
 Each tool has its own `src/coding/tools/<tool-name>/` directory. Model-visible
 descriptions are exported from `description.ts` files so bundlers receive plain

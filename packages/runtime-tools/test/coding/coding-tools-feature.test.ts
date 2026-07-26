@@ -8,6 +8,8 @@ import {
 	FeatureCompiler,
 	type IdGenerator,
 	PassthroughContextStrategy,
+	type RuntimeSnapshot,
+	resolveModelCallFrame,
 	type TurnEngineEvent,
 } from "@vetta/runtime-core/kernel";
 import { describe, expect, it } from "vitest";
@@ -178,6 +180,15 @@ async function collectEngineEvents(
 	return events;
 }
 
+async function resolveTools(runtimeSnapshot: RuntimeSnapshot): Promise<readonly string[]> {
+	const frame = await resolveModelCallFrame(runtimeSnapshot, {
+		sessionId: "session-1",
+		turnId: "turn-1",
+		signal: new AbortController().signal,
+	});
+	return [...frame.tools.keys()];
+}
+
 describe("greenfield coding tools feature", () => {
 	it("keeps scenario exposure metadata outside the runtime tool definition", () => {
 		const registration = createCurrentTimeToolRegistration();
@@ -284,9 +295,7 @@ describe("greenfield coding tools feature", () => {
 			(message): message is Extract<Message, { role: "toolResult" }> => message.role === "toolResult",
 		);
 
-		expect(compiled.snapshot.tools.has("current_time")).toBe(true);
-		expect(compiled.snapshot.tools.has("read")).toBe(true);
-		expect(compiled.snapshot.tools.has("ls")).toBe(false);
+		expect(await resolveTools(compiled.snapshot)).toEqual(["current_time", "read"]);
 		expect(toolResult).toMatchObject({
 			isError: false,
 			content: [{ type: "text", text: "2026-07-26 14:30:45" }],
@@ -348,7 +357,7 @@ describe("greenfield coding tools feature", () => {
 		}
 	});
 
-	it("binds catalog membership to each feature compilation", async () => {
+	it("reflects catalog membership changes without recompiling the feature", async () => {
 		const directory = mkdtempSync(join(tmpdir(), "runtime-tools-feature-catalog-"));
 		try {
 			const registry = new InMemoryCodingToolRegistry([
@@ -357,20 +366,75 @@ describe("greenfield coding tools feature", () => {
 				}),
 				createReadToolRegistration(directory),
 			]);
-			const beforeChange = await compileCatalogSnapshot(registry);
+			const compiled = await compileCatalogSnapshot(registry);
 
+			expect(await resolveTools(compiled.snapshot)).toEqual(["current_time", "read"]);
 			expect(registry.unregister("read")).toBe(true);
 			registry.register({
 				...createLsToolRegistration(directory),
 				scopeUse: ["project"],
 			});
-			const afterChange = await compileCatalogSnapshot(registry);
 
-			expect([...beforeChange.snapshot.tools.keys()]).toEqual(["current_time", "read"]);
-			expect([...afterChange.snapshot.tools.keys()]).toEqual(["current_time", "ls"]);
-			expect([...beforeChange.snapshot.tools.keys()]).toEqual(["current_time", "read"]);
-			await beforeChange.dispose();
-			await afterChange.dispose();
+			expect(await resolveTools(compiled.snapshot)).toEqual(["current_time", "ls"]);
+			expect(compiled.snapshot.id).toBe("snapshot-1");
+			await compiled.dispose();
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	});
+
+	it("rejects a tool removed after advertisement and refreshes the next model call", async () => {
+		const directory = mkdtempSync(join(tmpdir(), "runtime-tools-feature-live-removal-"));
+		try {
+			writeFileSync(join(directory, "message.txt"), "must not be read");
+			const registry = new InMemoryCodingToolRegistry([
+				createCurrentTimeToolRegistration(),
+				createReadToolRegistration(directory),
+			]);
+			const compiled = await compileCatalogSnapshot(registry);
+			const advertisedTools: string[][] = [];
+			let responseIndex = 0;
+			const engine = new AgentCoreTurnEngine({
+				model: model(),
+				streamFn: (_model, context) => {
+					advertisedTools.push((context.tools ?? []).map(({ name }) => name));
+					if (responseIndex === 0) {
+						expect(registry.unregister("read")).toBe(true);
+					}
+					const response =
+						responseIndex === 0
+							? assistantMessage(
+									[
+										{
+											type: "toolCall",
+											id: "tool-call-read",
+											name: "read",
+											arguments: { path: "message.txt" },
+										},
+									],
+									"toolUse",
+								)
+							: assistantMessage([{ type: "text", text: "Read was removed." }]);
+					responseIndex += 1;
+					return new RecordedAssistantStream(response);
+				},
+			});
+
+			const events = await collectEngineEvents(engine, compiled.snapshot);
+			const toolResult = events.find(
+				(
+					event,
+				): event is Extract<TurnEngineEvent, { type: "message" }> & {
+					readonly message: Extract<Message, { role: "toolResult" }>;
+				} => event.type === "message" && event.message.role === "toolResult",
+			)?.message;
+
+			expect(advertisedTools).toEqual([["current_time", "read"], ["current_time"]]);
+			expect(toolResult).toMatchObject({
+				isError: true,
+				content: [{ type: "text", text: "Coding tool is no longer available: read" }],
+			});
+			await compiled.dispose();
 		} finally {
 			rmSync(directory, { recursive: true, force: true });
 		}
@@ -425,7 +489,7 @@ describe("greenfield coding tools feature", () => {
 				isError: false,
 				content: [{ type: "text", text: "alpha.txt" }],
 			});
-			expect([...compiled.snapshot.tools.keys()]).toEqual(["ls"]);
+			expect(await resolveTools(compiled.snapshot)).toEqual(["ls"]);
 			await compiled.dispose();
 		} finally {
 			rmSync(directory, { recursive: true, force: true });

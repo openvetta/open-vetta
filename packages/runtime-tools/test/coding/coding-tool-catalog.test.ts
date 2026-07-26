@@ -1,8 +1,10 @@
 import type { RuntimeToolDefinition } from "@vetta/runtime-core/kernel";
 import { describe, expect, it } from "vitest";
 import {
+	CODING_TOOL_AVAILABILITY_ERROR_CODES,
 	type CodingToolRegistration,
 	type CodingToolScope,
+	guardCodingToolRegistration,
 	InMemoryCodingToolRegistry,
 	selectCodingTools,
 } from "../../src/coding/index.js";
@@ -91,6 +93,41 @@ describe("coding tool registry", () => {
 		});
 
 		expect(result.content).toEqual([{ type: "text", text: "class-tool" }]);
+	});
+
+	it("does not route an advertised call to a replacement with the same name", async () => {
+		let replacementExecutions = 0;
+		const registry = new InMemoryCodingToolRegistry([registration("replaceable", ["project"])]);
+		const advertised = registry.resolve("replaceable");
+		if (!advertised) throw new Error("Missing advertised registration");
+		const guarded = guardCodingToolRegistration(registry, advertised);
+
+		expect(registry.unregister("replaceable")).toBe(true);
+		const replacement = registration("replaceable", ["project"]);
+		registry.register({
+			...replacement,
+			tool: {
+				...replacement.tool,
+				async execute() {
+					replacementExecutions += 1;
+					return { content: [] };
+				},
+			},
+		});
+
+		await expect(
+			guarded.execute({
+				sessionId: "session-1",
+				turnId: "turn-1",
+				toolCallId: "tool-call-1",
+				input: {},
+				signal: new AbortController().signal,
+			}),
+		).rejects.toMatchObject({
+			code: CODING_TOOL_AVAILABILITY_ERROR_CODES.DEFINITION_CHANGED,
+			toolName: "replaceable",
+		});
+		expect(replacementExecutions).toBe(0);
 	});
 });
 

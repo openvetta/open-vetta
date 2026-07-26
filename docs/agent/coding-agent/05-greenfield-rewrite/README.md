@@ -14,7 +14,8 @@
 - 新公开 API 只暴露稳定合同，不暴露 Manager、Registry 等实现对象。
 - `coding-agent` 退回 Coding Profile 与 Composition Root。
 - `runtime-core + agent-core + ai` 形成稳定内核。
-- Tool、MCP、Skill、知识库等通过 Agent Feature 参与 Runtime Snapshot 编译。
+- Tool、MCP、Skill、知识库等通过 Agent Feature 建立长生命周期资源，并通过
+  Model Call Contribution 在每次模型调用前物化动态能力。
 - IM、CLI、RPC、Desktop 只消费稳定 Session API。
 
 ## 文档索引

@@ -270,6 +270,20 @@ async function streamAssistantResponse(
 	streamFn?: StreamFn,
 	traceParent?: RuntimeObservation,
 ): Promise<AssistantMessage> {
+	if (config.resolveCallContext) {
+		signal?.throwIfAborted();
+		const resolved = await config.resolveCallContext(
+			{
+				systemPrompt: context.systemPrompt,
+				messages: context.messages,
+				tools: context.tools,
+			},
+			signal,
+		);
+		context.systemPrompt = resolved.systemPrompt;
+		context.tools = resolved.tools ? [...resolved.tools] : undefined;
+	}
+
 	// Apply context transform if configured (AgentMessage[] → AgentMessage[])
 	let messages = context.messages;
 	if (config.transformContext) {

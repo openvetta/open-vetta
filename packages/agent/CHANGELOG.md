@@ -15,6 +15,7 @@
 
 ### Added
 
+- **模型调用级动态上下文**：`AgentLoopConfig.resolveCallContext` 在每次 LLM 调用前刷新 system prompt 与 tools；同一 Agent Loop 的后续模型调用可以看到受控的运行时能力变化。
 - 将 Agent 自然停止点的自动续跑钩子明确为异步 `continuationProvider`，底层 `AgentLoopConfig` 对应改为 `getContinuationMessages`；普通 `followUp()` 消息队列语义保持不变。
 - 新增平台无关 tracing 接入点：`AgentOptions` / `AgentLoopConfig` 可传入 `RuntimeTracer`，agent loop 会把 agent run、LLM generation、tool call 映射为 observation，并上报 token usage、cost、错误与工具耗时；正文捕获由 `tracing.captureContent` 显式控制。
 - 完善 tracing payload：LLM generation input 记录 system prompt、消息和工具定义结构，tool observation 记录工具描述/schema 与调用参数结构；root agent observation 改为运行摘要，避免和 generation 输入/输出重复。

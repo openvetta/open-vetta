@@ -128,11 +128,13 @@ Tool Factory + Tool Options
   -> versioned Catalog Snapshot
   -> Activation
   -> CodingToolsFeature
-  -> Runtime Snapshot
+  -> ModelCallContributionProvider
+  -> Model Call Frame
 ```
 
-`CodingToolCatalog` 只暴露 `snapshot()`；`CodingToolRegistry` 才暴露 `register()` 和
-`unregister()`。Feature 依赖只读接口，因此不能在 prepare/contribute 中改变全局工具目录。
+`CodingToolCatalog` 暴露成员 `snapshot()` 和执行前只读查询 `resolve()`；
+`CodingToolRegistry` 才暴露 `register()` 和 `unregister()`。Feature 依赖只读接口，因此
+不能在 prepare/contribute 中改变全局工具目录。
 
 激活支持：
 
@@ -143,9 +145,20 @@ Tool Factory + Tool Options
 未知名称不会绕过注册表。`ls` 现在可以通过显式激活进入 Feature 和真实 Tool Loop，同时空
 scope 的默认不激活行为保持不变。
 
-注册变化只影响后续 Catalog 版本。Feature prepare 绑定当时的成员快照，已经编译的 Runtime
-Snapshot 不受后续 register/unregister 影响。生产宿主未来负责在注册变化后重新编译并调用
-`AtomicRuntimeSnapshotProvider.swap()`；当前 Turn 继续持有旧 lease。
+原设计让 Feature prepare 绑定 Catalog 成员，并要求每次工具变化都重新编译整个 Profile。
+这会重新 prepare 所有 Feature，也会让当前 Turn 通过旧函数引用继续执行已注销工具。现已
+修正为：
+
+- Feature prepare 只创建一个长生命周期 `ModelCallContributionProvider`。
+- 每次模型调用前读取最新 Catalog 并生成不可变 Model Call Frame。
+- Catalog 变化不重新编译 Runtime Snapshot，不重新初始化未变化的 Feature。
+- 模型已经看到工具后，如果工具在执行前被删除，调用返回错误 Tool Result。
+- 同名工具被替换时，旧 Schema 产生的调用不会路由到新实现。
+- 下一次模型调用立即看到新工具清单。
+
+一次已经发出的模型请求仍然使用发送时的提示词和 Tool Schema，这是不可消除的物理边界。
+Skill、提示词和 MCP Tool 可以通过同一动态 Provider 合同在后续模型调用刷新；但对应具体
+Feature 尚未迁移，不能把通用合同误记为 Skill/MCP 功能已经完成。
 
 ## 3. 已实施模块审计
 
@@ -153,12 +166,12 @@ Snapshot 不受后续 register/unregister 影响。生产宿主未来负责在�
 | --- | --- | --- | --- |
 | `current_time` Tool | 定义、执行和注册行为已差分验证 | 无已知 Tool 级差距 | Tool 级迁移完成；Feature 仍不可整体切换 |
 | `read` Tool | 独立实现、旧新行为合同和真实 Tool Loop 已通过 | 独立可执行宿主的 Photon WASM 产物打包尚未验证 | 工具模块迁移完成；生产宿主不可切换 |
-| `ls` Tool | 独立实现、旧新行为合同、空 scope 和 Feature 显式激活 Tool Loop 已通过 | 生产宿主尚未接线 Catalog 变化后的重编译/交换 | 工具模块迁移完成；默认不激活 |
-| Coding Tools Feature | 只依赖版本化 Catalog 与 scope/explicit 激活策略 | edit/write/search/process 等未迁移，生产 Profile 尚未装配 Registry | 编排边界完成；整体能力未完成 |
+| `ls` Tool | 独立实现、旧新行为合同、空 scope 和 Feature 显式激活 Tool Loop 已通过 | 生产宿主尚未装配新 Profile | 工具模块迁移完成；默认不激活 |
+| Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope/explicit 激活，并实时校验执行可用性 | edit/write/search/process 等未迁移，生产 Profile 尚未装配 Registry | 动态编排边界完成；整体能力未完成 |
 | `AgentSession` | 新状态机可执行 | 活动 Turn 输入目前拒绝；旧系统具有 queue、follow-up、steering 语义 | 不可切换 |
 | Turn Pipeline | 固定阶段和持久化检查点已实现 | 输入队列、完整观察事件和恢复闭环未完成 | 不可切换 |
-| `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环通过 | Kernel 只映射完成消息；旧 UI 需要流式 text/thinking/tool progress 事件 | 不可切换宿主 |
-| Runtime Snapshot | 编译、冻结、lease 和原子交换已实现 | Coding Profile 的完整默认能力与 scope 尚未编译 | 不可替代旧工具注册 |
+| `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环、每次模型调用刷新 Model Call Frame 已通过 | Kernel 只映射完成消息；旧 UI 需要流式 text/thinking/tool progress 事件 | 不可切换宿主 |
+| Runtime Snapshot | 编译、冻结、lease、原子交换和动态 Model Call Provider 已实现 | Coding Profile 的完整默认能力与 scope 尚未装配 | 不可替代旧工具注册 |
 | Conversation Repository | 新格式 create/load/append/save 已实现 | 旧 JSONL importer、Snapshot 读取、分支、未完成 Turn 恢复和跨进程锁未完成 | 不可读取并替代旧会话 |
 | Context Strategy | 目前只有 passthrough 基础实现 | 旧 compaction、prefire、microcompact 和摘要行为未迁移 | 不可切换长会话 |
 | MCP / Skill / Knowledge / Subagent | 尚未迁移 | 旧能力全部缺失 | 不可切换对应 Profile |
@@ -198,8 +211,8 @@ side effects
 ## 5. 下一步
 
 `current_time`、`read`、`ls` 和动态注册/激活编排合同已经建立。下一阶段为 `grep` 提取旧
-行为矩阵并实现独立 Runtime Tool，逐步形成只读工具组。生产 Profile 接线时必须由组合根
-创建 Registry，并负责 Catalog 变化后的重新编译与原子 Snapshot 交换。
+行为矩阵并实现独立 Runtime Tool，逐步形成只读工具组。生产 Profile 接线时由组合根创建
+Registry；普通 Catalog 成员变化直接在下一次模型调用生效，不再触发全 Profile 重编译。
 
 生产切换前还必须增加宿主产物级测试，验证 Photon WASM 在现有独立可执行打包方式中的复制与
 定位行为。该验证属于 Host Adapter/Packaging Gate，不应重新塞回 read 的领域实现。

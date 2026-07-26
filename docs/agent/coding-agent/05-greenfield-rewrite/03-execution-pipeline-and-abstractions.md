@@ -4,13 +4,14 @@
 
 新内核采用 Pipeline 思想，但不是把整个 Agent 实现成可以任意插入 `next()` 的通用中间件链。
 
-执行架构分为四个相互独立的部分：
+执行架构分为五个相互独立的部分：
 
 ```text
 Session State Machine   控制 Session 生命周期、并发、排队和取消
 Turn Pipeline           控制一次 Turn 的固定数据处理阶段
 Tool Loop               控制模型与 Tool Call / Tool Result 的循环
 Feature Compiler        把 Profile 和 Feature 编译成不可变 RuntimeSnapshot
+Model Call Frame        在每次模型调用前物化当时有效的提示词和工具清单
 ```
 
 其中：
@@ -18,7 +19,8 @@ Feature Compiler        把 Profile 和 Feature 编译成不可变 RuntimeSnapsh
 - Session State Machine 是控制面。
 - Turn Pipeline 是数据面。
 - Tool Loop 是 Pipeline 中 Execution 阶段的循环执行器。
-- Feature Compiler 是配置面，不参与当前 Turn 的动态调度。
+- Feature Compiler 是配置面，只建立 Feature 拓扑和长生命周期资源。
+- Model Call Frame 是动态能力面，允许同一 Turn 的后续模型调用看到受控变化。
 
 ## 2. Typed Turn Pipeline
 
@@ -43,7 +45,8 @@ Admission
    - 决定排队、拒绝或 steering。
 2. **Snapshot Binding**
    - 绑定当前有效 `RuntimeSnapshot`。
-   - 一个 Turn 结束前不能切换快照。
+   - 一个 Turn 结束前不切换 Feature 拓扑、Context Strategy、Observer 和资源生命周期。
+   - Snapshot 中的 `ModelCallContributionProvider` 可以在每次模型调用前重新物化动态能力。
 3. **Conversation Loading**
    - 从 `ConversationRepository` 加载所需事件和 Snapshot。
    - 不向后续阶段暴露文件路径或数据库连接。
@@ -81,9 +84,11 @@ flowchart TD
 Tool 的定义与执行属于 Runtime 合同，`agent-core` Adapter 只做协议转换：
 
 ```text
-RuntimeToolDefinition
+RuntimeSnapshot 静态贡献 + ModelCallContributionProvider 动态贡献
+-> ModelCallFrame
 -> AgentCoreTurnEngine 转为 AgentTool
 -> ToolPolicy.authorize
+-> 动态 Catalog 再校验工具仍存在且定义未替换
 -> RuntimeToolDefinition.execute
 -> ToolResultMessage
 -> 下一次模型调用
@@ -93,10 +98,26 @@ RuntimeToolDefinition
 
 - Runtime Tool 必须接收 `sessionId`、`turnId`、`toolCallId` 和 `AbortSignal`。
 - Tool Policy 必须先于工具实现执行，拒绝结果转换成标准错误 Tool Result。
-- Tool Schema 在 Runtime Snapshot 发布时深拷贝并递归冻结。
+- 静态 Tool Schema 在 Runtime Snapshot 发布时深拷贝并递归冻结；动态 Tool Schema 在
+  Model Call Frame 物化时执行相同处理。
 - `AgentCoreTurnEngine` 由组合根注入模型与 Stream 实现，不读取 Model Registry 或全局 Session。
 - Execution 阶段只持久化完成的 Assistant / Tool Result 消息；流式 delta 属于观察事件，不作为会话事实重复写入。
 - `agent-core` 不得反向导入 `runtime-core` 或 `coding-agent`。
+
+一次模型请求发出后，已发送的提示词、Skill 内容和 Tool Schema 无法撤回。运行时变化采用
+以下明确边界：
+
+```text
+模型调用 N 发出
+  -> 该调用继续使用 Frame N
+  -> 工具真正执行前检查实时可用性
+  -> 模型调用 N+1 重新物化 Frame N+1
+```
+
+因此，普通工具注销会阻止尚未开始的旧调用，但不靠修改已经发送的模型请求实现。已经开始
+执行的工具由 `AbortSignal` 和显式 revoke 策略控制；普通 deactivate 不应隐式终止已有
+副作用。Skill 文件被删除后，下一次贡献应停止注入内容和资源能力，但已经发送给模型的内容
+不能“反向遗忘”。
 
 Pipeline 的每个阶段接收明确输入并返回明确输出。输出在语义上只读，不携带可由任意模块写入的共享 `metadata`：
 
@@ -128,11 +149,12 @@ pipeline.use(async (context, next) => {
 - 任意模块修改 messages、tools、instructions 和停止结果。
 - 取消和错误传播无法局部推理。
 - Feature 之间通过共享 context 形成隐藏依赖。
-- 当前 Turn 被运行期配置变化污染。
+- 运行期配置通过无类型共享对象任意污染当前执行。
 
 确实需要扩展的行为必须进入明确合同：
 
 - 新上下文来源使用 `ContextProvider`。
+- 每次模型调用需要刷新的提示词、Skill 和工具清单使用 `ModelCallContributionProvider`。
 - 上下文预算和压缩使用 `ContextStrategy`。
 - 模型可调用行为使用 `ToolDefinition`。
 - 工具权限使用 `ToolPolicy`。

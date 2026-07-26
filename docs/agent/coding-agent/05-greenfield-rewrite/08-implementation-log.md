@@ -19,6 +19,7 @@
 | [09-runtime-read.md](./08-implementation-log/09-runtime-read.md) | 独立 Runtime Read 与 Feature 接入 |
 | [10-runtime-ls.md](./08-implementation-log/10-runtime-ls.md) | 独立 Runtime Ls 与默认暴露兼容 |
 | [11-coding-tool-catalog.md](./08-implementation-log/11-coding-tool-catalog.md) | 动态 Coding Tool Catalog 与 Feature 解耦 |
+| [12-model-call-frame.md](./08-implementation-log/12-model-call-frame.md) | Model Call Frame 与实时能力校验 |
 
 ## 维护约定
 

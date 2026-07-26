@@ -45,9 +45,18 @@
 - Feature 冲突时报错。
 - prepare 中途失败时释放已创建资源。
 - 新快照失败时旧快照继续可用。
-- 当前 Turn 不受热更新影响。
+- Feature 拓扑热更新不改变已绑定 Turn 的生命周期资源。
 
-## 4. Feature 合同测试
+## 4. Model Call Frame 测试
+
+- 每次模型调用前重新执行动态 Contribution Provider。
+- 只修改动态提示词或工具时，不重新 prepare Feature。
+- 同一 Turn 的下一次模型调用能够看到新提示词、工具和 Skill 贡献。
+- 已经发送的模型调用保持其原 Frame。
+- 动态贡献与静态贡献发生重名时 fail-fast。
+- Frame 的 instructions、tools 和 Tool Schema 对调用方不可修改。
+
+## 5. Feature 合同测试
 
 为所有 Feature 运行统一测试套件：
 
@@ -62,7 +71,7 @@ definition
 
 单独 Feature 不能依赖完整 Desktop 才能测试。
 
-## 5. 行为兼容差分测试
+## 6. 行为兼容差分测试
 
 重写迁移默认只允许内部结构变化。每个旧能力必须把同一组 fixture 同时送入旧实现和新实现，
 比较：
@@ -134,11 +143,13 @@ Operations 和取消时点都必须独立验证。
 - scope 模式保持默认暴露，并允许显式追加空 scope 工具。
 - explicit 模式替代场景默认集合。
 - 未知工具名 fail-closed。
-- Catalog 修改后，旧编译 Snapshot 的工具集合保持不变。
-- 使用同一 Catalog 重新编译后，新 Snapshot 才看到注册变化。
+- Catalog 修改后，不重新编译 Feature，下一次 Model Call Frame 即看到变化。
+- 模型已经看到工具后将其注销，执行前返回标准错误而不调用旧实现。
+- 同名工具替换后，旧调用不能误路由到新实现。
+- 已经开始的工具执行不因普通 unregister 隐式中断。
 - 显式激活的空 scope 工具能够通过真实 Agent Core Tool Loop。
 
-## 6. 上下文策略测试
+## 7. 上下文策略测试
 
 - 无需压缩时保持消息语义和顺序。
 - Token 预算不足时返回确定结果。
@@ -149,7 +160,7 @@ Operations 和取消时点都必须独立验证。
 - cancel 能停止摘要模型调用。
 - Compaction Record 可以独立序列化和恢复。
 
-## 7. 存储测试
+## 8. 存储测试
 
 - 旧会话只读导入。
 - 新会话追加和恢复。
@@ -166,7 +177,7 @@ Operations 和取消时点都必须独立验证。
 
 不要长期双写两种格式。双写会让故障恢复和回滚语义变得不可判定。
 
-## 8. Adapter 测试
+## 9. Adapter 测试
 
 - SDK 输入输出合同。
 - RPC 协议 fixture。
@@ -175,7 +186,7 @@ Operations 和取消时点都必须独立验证。
 - IM 重试不会重复提交同一个 Turn。
 - 断线重连只恢复事件订阅，不重放副作用。
 
-## 9. 架构守卫
+## 10. 架构守卫
 
 增加自动检查：
 
@@ -185,12 +196,14 @@ Operations 和取消时点都必须独立验证。
 - Feature 禁止导入具体 Adapter。
 - Tool 实现禁止直接访问全局 Session。
 - `RuntimeSnapshot` 贡献不能在发布后修改。
+- 动态 Tool 执行不得绕过 Catalog 实时校验。
+- Model Call Provider 不得重新创建无变化的 MCP 连接、文件监听器等长生命周期资源。
 - 禁止公开通用 `pipeline.use()`、`next()` 或可写共享 metadata。
 - `ContextStrategy` 禁止导入具体 Repository 实现。
 - `ConversationRepository` 接口禁止暴露文件路径或数据库连接。
 - 除 Composition Root 外，业务包禁止直接构造 Port 的生产实现。
 
-## 10. 验证命令
+## 11. 验证命令
 
 每轮代码修改：
 

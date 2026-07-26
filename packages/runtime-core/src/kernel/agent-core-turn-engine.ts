@@ -14,6 +14,7 @@ import type {
 	TurnEngineRequest,
 } from "./contracts.js";
 import { turnProtocolError } from "./errors.js";
+import { composeModelCallSystemPrompt, resolveModelCallFrame } from "./model-call-frame.js";
 
 export interface AgentCoreTurnEngineOptions {
 	readonly model: Model<Api>;
@@ -33,7 +34,7 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 		request.signal.throwIfAborted();
 		const stream = agentLoopContinue(
 			{
-				systemPrompt: composeSystemPrompt(request),
+				systemPrompt: composeModelCallSystemPrompt(request.snapshot),
 				messages: [...request.messages],
 				tools: [...request.snapshot.tools.values()].map((tool) => this.toAgentTool(tool, request)),
 			},
@@ -72,6 +73,18 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 			sessionId: request.sessionId,
 			getApiKey: this.options.getApiKey,
 			convertToLlm: convertToLlm,
+			resolveCallContext: async (_context, signal) => {
+				const executionSignal = signal ?? request.signal;
+				const frame = await resolveModelCallFrame(request.snapshot, {
+					sessionId: request.sessionId,
+					turnId: request.turnId,
+					signal: executionSignal,
+				});
+				return {
+					systemPrompt: composeModelCallSystemPrompt(frame),
+					tools: [...frame.tools.values()].map((tool) => this.toAgentTool(tool, request)),
+				};
+			},
 		};
 	}
 
@@ -117,13 +130,6 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 			},
 		};
 	}
-}
-
-function composeSystemPrompt(request: TurnEngineRequest): string {
-	return request.snapshot.instructions
-		.map(({ content }) => content)
-		.filter((content) => content.length > 0)
-		.join("\n\n");
 }
 
 function convertToLlm(messages: AgentMessage[]): Message[] {

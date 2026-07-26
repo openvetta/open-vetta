@@ -1,4 +1,10 @@
 export {
+	CODING_TOOL_AVAILABILITY_ERROR_CODES,
+	CodingToolAvailabilityError,
+	type CodingToolAvailabilityErrorCode,
+	guardCodingToolRegistration,
+} from "./coding-tool-availability.js";
+export {
 	type CodingToolCatalog,
 	type CodingToolCatalogSnapshot,
 	type CodingToolRegistry,
@@ -16,6 +22,7 @@ export {
 	type CodingToolRegistration,
 	type CodingToolScope,
 	DEFAULT_CODING_TOOL_SCOPE,
+	selectCodingToolRegistrations,
 	selectCodingTools,
 	selectCodingToolsForScope,
 } from "./tool-registration.js";

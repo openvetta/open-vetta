@@ -25,6 +25,10 @@ export type {
 	InstructionBlock,
 	KernelEvent,
 	MessageAppendedEvent,
+	ModelCallContribution,
+	ModelCallContributionContext,
+	ModelCallContributionProvider,
+	ModelCallFrame,
 	ObserverFailedEvent,
 	PreparedContext,
 	RuntimeSnapshot,
@@ -68,5 +72,6 @@ export {
 	turnProtocolError,
 } from "./errors.js";
 export { FeatureCompiler, type FeatureCompilerOptions } from "./feature-compiler.js";
+export { composeModelCallSystemPrompt, resolveModelCallFrame } from "./model-call-frame.js";
 export { AtomicRuntimeSnapshotProvider } from "./runtime-snapshot-provider.js";
 export { TurnPipeline, type TurnPipelineOptions } from "./turn-pipeline.js";

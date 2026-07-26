@@ -1,6 +1,7 @@
 import type { AgentFeatureDefinition } from "@vetta/runtime-core/kernel";
+import { guardCodingToolRegistration } from "./coding-tool-availability.js";
 import type { CodingToolCatalog } from "./coding-tool-catalog.js";
-import { type CodingToolActivation, selectCodingTools } from "./tool-registration.js";
+import { type CodingToolActivation, selectCodingToolRegistrations } from "./tool-registration.js";
 
 export const CODING_TOOLS_FEATURE_ID = "coding-tools";
 
@@ -14,12 +15,26 @@ export function createCodingToolsFeature(options: CodingToolsFeatureOptions): Ag
 		id: CODING_TOOLS_FEATURE_ID,
 		async prepare(context) {
 			context.signal.throwIfAborted();
-			const catalogSnapshot = options.catalog.snapshot();
-			const tools = selectCodingTools(catalogSnapshot.registrations, options.activation ?? { mode: "scope" });
+			const modelCallProvider = {
+				id: CODING_TOOLS_FEATURE_ID,
+				async contribute(callContext: { readonly signal: AbortSignal }) {
+					callContext.signal.throwIfAborted();
+					const catalogSnapshot = options.catalog.snapshot();
+					const registrations = selectCodingToolRegistrations(
+						catalogSnapshot.registrations,
+						options.activation ?? { mode: "scope" },
+					);
+					return {
+						tools: registrations.map((registration) =>
+							guardCodingToolRegistration(options.catalog, registration),
+						),
+					};
+				},
+			};
 			return {
 				async contribute(contributionContext) {
 					contributionContext.signal.throwIfAborted();
-					return { tools };
+					return { modelCallProviders: [modelCallProvider] };
 				},
 				async dispose() {},
 			};

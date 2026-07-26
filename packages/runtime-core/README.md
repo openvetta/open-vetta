@@ -12,7 +12,8 @@ entry until downstream adapters are ready to switch.
 - runtime-safe event contract for hosts
 - state snapshots and session history listing
 - isolated Session state machine, Typed Turn Pipeline and Feature Compiler under `./kernel`
-- acquire/release Runtime Snapshot lifecycle with atomic Turn-boundary switching
+- acquire/release Runtime Snapshot lifecycle with atomic Feature-topology switching
+- per-model-call prompt and tool materialization through Model Call Contribution Providers
 - `AgentCoreTurnEngine` adapter for the `@vetta/agent-core` model and tool loop
 - runtime-owned tool execution and policy contracts
 

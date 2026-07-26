@@ -81,10 +81,32 @@ export interface ContextStrategy {
 	prepare(input: ContextPreparationInput, signal: AbortSignal): Promise<PreparedContext>;
 }
 
+export interface ModelCallContributionContext {
+	readonly sessionId: string;
+	readonly turnId: string;
+	readonly signal: AbortSignal;
+}
+
+export interface ModelCallContribution {
+	readonly instructions?: readonly InstructionBlock[];
+	readonly tools?: readonly RuntimeToolDefinition[];
+}
+
+export interface ModelCallContributionProvider {
+	readonly id: string;
+	contribute(context: ModelCallContributionContext): Promise<ModelCallContribution>;
+}
+
+export interface ModelCallFrame {
+	readonly instructions: readonly InstructionBlock[];
+	readonly tools: ReadonlyMap<string, RuntimeToolDefinition>;
+}
+
 export interface RuntimeSnapshot {
 	readonly id: string;
 	readonly instructions: readonly InstructionBlock[];
 	readonly tools: ReadonlyMap<string, RuntimeToolDefinition>;
+	readonly modelCallProviders?: readonly ModelCallContributionProvider[];
 	readonly contextProviders: readonly ContextProvider[];
 	readonly contextStrategy: ContextStrategy;
 	readonly toolPolicy: ToolPolicy;
@@ -116,6 +138,7 @@ export interface FeatureContribution {
 	readonly tools?: readonly RuntimeToolDefinition[];
 	readonly contextProviders?: readonly ContextProvider[];
 	readonly observers?: readonly TurnObserver[];
+	readonly modelCallProviders?: readonly ModelCallContributionProvider[];
 }
 
 export interface AgentFeature {

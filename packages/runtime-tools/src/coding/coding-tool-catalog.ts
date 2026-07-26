@@ -8,6 +8,7 @@ export interface CodingToolCatalogSnapshot {
 
 export interface CodingToolCatalog {
 	snapshot(): CodingToolCatalogSnapshot;
+	resolve(toolName: string): CodingToolRegistration | undefined;
 }
 
 export interface CodingToolRegistry extends CodingToolCatalog {
@@ -52,6 +53,10 @@ export class InMemoryCodingToolRegistry implements CodingToolRegistry {
 			registrations: Object.freeze(registrations),
 		});
 		return this.cachedSnapshot;
+	}
+
+	resolve(toolName: string): CodingToolRegistration | undefined {
+		return this.registrationsByName.get(toolName);
 	}
 
 	private addInitialRegistration(registration: CodingToolRegistration): void {

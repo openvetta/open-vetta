@@ -17,6 +17,17 @@ export type StreamFn = (
 	...args: Parameters<typeof streamSimple>
 ) => ReturnType<typeof streamSimple> | Promise<ReturnType<typeof streamSimple>>;
 
+export interface AgentCallContextRequest {
+	readonly systemPrompt: string;
+	readonly messages: readonly AgentMessage[];
+	readonly tools?: NonNullable<AgentContext["tools"]>;
+}
+
+export interface AgentCallContext {
+	readonly systemPrompt: string;
+	readonly tools?: NonNullable<AgentContext["tools"]>;
+}
+
 /**
  * Configuration for the agent loop.
  */
@@ -68,6 +79,14 @@ export interface AgentLoopConfig extends SimpleStreamOptions {
 	 * ```
 	 */
 	transformContext?: (messages: AgentMessage[], signal?: AbortSignal) => Promise<AgentMessage[]>;
+
+	/**
+	 * Resolves the system prompt and tools immediately before each LLM call.
+	 *
+	 * This keeps a single agent run responsive to runtime capability changes
+	 * without mutating the message history or restarting the loop.
+	 */
+	resolveCallContext?: (context: AgentCallContextRequest, signal?: AbortSignal) => Promise<AgentCallContext>;
 
 	/**
 	 * Resolves an API key dynamically for each LLM call.

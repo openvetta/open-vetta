@@ -136,12 +136,13 @@ CodingToolRegistration
 
 `RuntimeToolDefinition` 属于通用 Kernel 合同，不认识 `project`、`im-claw` 或 `cli`。
 `scopeUse` 和 `category` 位于 `runtime-tools/coding` 注册层。组合根创建工具注册并放入
-`CodingToolRegistry`，Feature 只读取一个版本化 Catalog Snapshot 后筛选。Agent Profile ID
-与会话场景是两个概念，不能通过比较 `profileId === scope` 隐式绑定。
+`CodingToolRegistry`，Feature 在每次模型调用前读取一个版本化 Catalog Snapshot 后筛选。
+Agent Profile ID 与会话场景是两个概念，不能通过比较 `profileId === scope` 隐式绑定。
 
 空 `scopeUse` 也必须保留其语义。旧 `ls` 使用空数组表达“工具可用，但默认不在任何场景
 激活”。迁移后不能为了让测试容易通过而把它改成全场景默认启用。Catalog 持有完整注册集合，
-Runtime Snapshot 只包含当前激活的 Tool；激活状态不能进入 `RuntimeToolDefinition`。
+Model Call Frame 只包含该次模型调用激活的 Tool；激活状态不能进入
+`RuntimeToolDefinition`。
 
 `CodingToolsFeatureOptions` 不暴露具体工具 Options：
 
@@ -160,7 +161,8 @@ createLsToolRegistration(cwd, lsOptions)
   -> CodingToolRegistry.register()
   -> CodingToolCatalog.snapshot()
   -> CodingToolsFeature
-  -> RuntimeSnapshot
+  -> ModelCallContributionProvider
+  -> ModelCallFrame
 ```
 
 Catalog 把读取能力与修改能力分开：
@@ -168,6 +170,7 @@ Catalog 把读取能力与修改能力分开：
 ```text
 CodingToolCatalog
   snapshot()
+  resolve(toolName)
 
 CodingToolRegistry extends CodingToolCatalog
   register()
@@ -175,9 +178,19 @@ CodingToolRegistry extends CodingToolCatalog
 ```
 
 Feature 只依赖只读 Catalog，不能注册或删除工具。Registry 每次有效修改增加版本并使后续
-Catalog Snapshot 反映新成员；旧 Catalog Snapshot 和已经编译的 Runtime Snapshot 保持不变。
-动态变化的发布流程是“注册变化 -> 重新编译 -> AtomicRuntimeSnapshotProvider.swap()”，不能
-直接修改活动 Turn 持有的 Snapshot。
+Catalog Snapshot 反映新成员。Feature prepare 只创建长生命周期的
+`ModelCallContributionProvider`，不绑定某一版成员列表：
+
+```text
+register / unregister
+  -> Catalog version 变化
+  -> 下一次模型调用重新物化 Model Call Frame
+```
+
+因此工具成员变化不需要重新 prepare 全部 Feature，也不需要重建 Runtime Snapshot。
+`resolve(toolName)` 只用于执行前的实时校验：若工具已删除则返回可恢复错误；若同名工具已替换，
+旧 Schema 产生的调用不能误路由到新实现。Feature 拓扑、Context Strategy 或 Observer 变化
+仍通过重新编译和 `AtomicRuntimeSnapshotProvider.swap()` 发布。
 
 激活合同分为两种：
 
