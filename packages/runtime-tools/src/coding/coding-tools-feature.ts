@@ -1,5 +1,5 @@
 import type { AgentFeatureDefinition } from "@vetta/runtime-core/kernel";
-import { type CurrentTimeToolOptions, createCurrentTimeTool } from "./current-time-tool.js";
+import { type CurrentTimeToolOptions, createCurrentTimeTool } from "./tools/current-time/index.js";
 
 export const CODING_TOOLS_FEATURE_ID = "coding-tools";
 

@@ -9,4 +9,4 @@ export {
 	CurrentTimeToolInputSchema,
 	type CurrentTimeToolOptions,
 	createCurrentTimeTool,
-} from "./current-time-tool.js";
+} from "./tools/current-time/index.js";

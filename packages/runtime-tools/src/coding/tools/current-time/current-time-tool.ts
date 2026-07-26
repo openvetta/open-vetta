@@ -1,17 +1,15 @@
 import { type Static, Type } from "@sinclair/typebox";
 import type { RuntimeToolDefinition } from "@vetta/runtime-core/kernel";
+import { CURRENT_TIME_TOOL_DESCRIPTION } from "./description.js";
 
-export const CurrentTimeToolInputSchema = Type.Object(
-	{
-		description: Type.Optional(
-			Type.String({
-				description: "Brief user-facing reason for this tool call.",
-				maxLength: 100,
-			}),
-		),
-	},
-	{ additionalProperties: false },
-);
+export const CurrentTimeToolInputSchema = Type.Object({
+	description: Type.Optional(
+		Type.String({
+			description: "Brief user-facing reason for this tool call (max 100 chars).",
+			maxLength: 100,
+		}),
+	),
+});
 
 export type CurrentTimeToolInput = Static<typeof CurrentTimeToolInputSchema>;
 
@@ -31,12 +29,10 @@ export function createCurrentTimeTool(
 	return {
 		name: "current_time",
 		label: "Current Time",
-		description: "Get the current system time in YYYY-MM-DD HH:mm:ss format.",
+		description: CURRENT_TIME_TOOL_DESCRIPTION,
 		inputSchema: CurrentTimeToolInputSchema,
-		async execute(request) {
-			request.signal.throwIfAborted();
+		async execute(_request) {
 			const timestamp = formatDateTime(now());
-			request.signal.throwIfAborted();
 			return {
 				content: [{ type: "text", text: timestamp }],
 				details: {

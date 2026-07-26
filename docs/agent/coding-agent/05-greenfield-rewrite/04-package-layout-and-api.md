@@ -44,7 +44,11 @@ packages/runtime-storage/src/
 
 packages/runtime-tools/src/
   coding/
-    current-time-tool.ts
+    tools/
+      current-time/
+        current-time-tool.ts
+        description.ts
+        index.ts
     coding-tools-feature.ts
     index.ts
   read/
@@ -80,7 +84,12 @@ packages/coding-agent/src/
 
 迁移期间允许包根继续导出旧工具，但新实现只从明确的
 `@vetta/runtime-tools/coding` 子入口发布。每迁移一个工具，都必须先在该目录形成
-独立实现和 Feature 合同测试，不能从新子入口转发 `coding-agent`。
+独立实现和 Feature 合同测试，不能从新子入口转发 `coding-agent`。合同测试必须同时运行
+旧实现与新实现，比较 Schema、模型描述、结果、错误和副作用；只完成其中一部分时不能公开
+同名工具。
+
+每个工具使用独立 `tools/<tool-name>/` 目录。模型可见描述使用 `description.ts` 导出常量，
+不在工具实现中内联长字符串，也不重复旧实现的 `description.txt -> generated TS` 构建步骤。
 
 ## 2. 公开 API 收缩
 

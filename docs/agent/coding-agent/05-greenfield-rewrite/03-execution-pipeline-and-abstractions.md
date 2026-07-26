@@ -190,6 +190,10 @@ const agent = createCodingAgent({
 
 Kernel 只能看到 Port，不知道实际绑定的是文件、SQLite、远程服务、摘要压缩或 Fake 实现。
 
+Port 只改变依赖方向，不能静默改变产品语义。例如把旧 read 的“相对 cwd、允许绝对路径和
+`~`”改成“只能读取 Workspace Root”，属于权限和功能变化，不是文件系统抽象。此类变化
+必须单独提出并获得批准，不能夹带在架构迁移中。
+
 ## 5. 上下文压缩边界
 
 上下文压缩属于 `Context Preparation` 阶段的策略，不是 Session Manager 的附属方法，也不是能够直接改写会话历史的 Extension Hook。

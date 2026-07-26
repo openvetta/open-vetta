@@ -162,33 +162,37 @@ describe("greenfield coding tools feature", () => {
 		});
 		expect(tool.inputSchema).toMatchObject({
 			type: "object",
-			additionalProperties: false,
+			properties: {
+				description: {
+					type: "string",
+					maxLength: 100,
+				},
+			},
 		});
+		expect(tool.inputSchema).not.toHaveProperty("additionalProperties");
 	});
 
-	it("honors cancellation before invoking the time source", async () => {
+	it("preserves the legacy current-time behavior for an already-aborted direct call", async () => {
 		let invocationCount = 0;
 		const tool = createCurrentTimeTool({
 			now() {
 				invocationCount += 1;
-				return new Date();
+				return new Date(2026, 6, 26, 14, 30, 45);
 			},
 		});
 		const controller = new AbortController();
 		controller.abort();
 
-		await expect(
-			tool.execute({
-				sessionId: "session-1",
-				turnId: "turn-1",
-				toolCallId: "tool-call-1",
-				input: {},
-				signal: controller.signal,
-			}),
-		).rejects.toMatchObject({
-			name: "AbortError",
+		const result = await tool.execute({
+			sessionId: "session-1",
+			turnId: "turn-1",
+			toolCallId: "tool-call-1",
+			input: {},
+			signal: controller.signal,
 		});
-		expect(invocationCount).toBe(0);
+
+		expect(invocationCount).toBe(1);
+		expect(result.content).toEqual([{ type: "text", text: "2026-07-26 14:30:45" }]);
 	});
 
 	it("runs the compiled feature through the real agent-core tool loop", async () => {
@@ -229,11 +233,11 @@ describe("greenfield coding tools feature", () => {
 		await compiled.dispose();
 	});
 
-	it("rejects invalid model arguments before the runtime tool executes", async () => {
+	it("preserves the legacy schema behavior for additional model arguments", async () => {
 		let invocationCount = 0;
 		const compiled = await compileSnapshot(() => {
 			invocationCount += 1;
-			return new Date();
+			return new Date(2026, 6, 26, 14, 30, 45);
 		});
 		const responses = [
 			assistantMessage(
@@ -247,7 +251,7 @@ describe("greenfield coding tools feature", () => {
 				],
 				"toolUse",
 			),
-			assistantMessage([{ type: "text", text: "The arguments were invalid." }]),
+			assistantMessage([{ type: "text", text: "It is 14:30:45." }]),
 		];
 		let responseIndex = 0;
 		const engine = new AgentCoreTurnEngine({
@@ -269,11 +273,10 @@ describe("greenfield coding tools feature", () => {
 			} => event.type === "message" && event.message.role === "toolResult",
 		)?.message;
 
-		expect(invocationCount).toBe(0);
-		expect(toolResult?.isError).toBe(true);
-		expect(toolResult?.content[0]).toMatchObject({
-			type: "text",
-			text: expect.stringContaining('Validation failed for tool "current_time"'),
+		expect(invocationCount).toBe(1);
+		expect(toolResult).toMatchObject({
+			isError: false,
+			content: [{ type: "text", text: "2026-07-26 14:30:45" }],
 		});
 		await compiled.dispose();
 	});
