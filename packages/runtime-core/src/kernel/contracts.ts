@@ -1,0 +1,308 @@
+import type { Message, StopReason, UserMessage } from "@vetta/ai";
+
+export type AgentSessionState = "idle" | "running" | "cancelling" | "closing" | "closed";
+
+export interface SessionInput {
+	readonly message: UserMessage;
+}
+
+export interface InstructionBlock {
+	readonly id: string;
+	readonly content: string;
+	readonly priority: number;
+}
+
+export interface RuntimeToolDefinition {
+	readonly name: string;
+	readonly description: string;
+	readonly inputSchema: Readonly<Record<string, unknown>>;
+}
+
+export interface ToolPolicyRequest {
+	readonly sessionId: string;
+	readonly turnId: string;
+	readonly toolName: string;
+	readonly input: unknown;
+}
+
+export interface ToolPolicy {
+	authorize(request: ToolPolicyRequest, signal: AbortSignal): Promise<boolean>;
+}
+
+export interface ContextProviderInput {
+	readonly sessionId: string;
+	readonly turnId: string;
+	readonly conversation: StoredConversation;
+	readonly input: SessionInput;
+}
+
+export interface ContextProvider {
+	readonly id: string;
+	provide(input: ContextProviderInput, signal: AbortSignal): Promise<readonly Message[]>;
+}
+
+export interface CompactionRecord {
+	readonly id: string;
+	readonly sourceMessageCount: number;
+	readonly resultMessageCount: number;
+	readonly summary?: string;
+}
+
+export interface ContextPreparationInput {
+	readonly messages: readonly Message[];
+	readonly tokenBudget: number;
+	readonly reservedOutputTokens: number;
+}
+
+export interface PreparedContext {
+	readonly messages: readonly Message[];
+	readonly estimatedTokens: number;
+	readonly compaction?: CompactionRecord;
+}
+
+export interface ContextStrategy {
+	prepare(input: ContextPreparationInput, signal: AbortSignal): Promise<PreparedContext>;
+}
+
+export interface RuntimeSnapshot {
+	readonly id: string;
+	readonly instructions: readonly InstructionBlock[];
+	readonly tools: ReadonlyMap<string, RuntimeToolDefinition>;
+	readonly contextProviders: readonly ContextProvider[];
+	readonly contextStrategy: ContextStrategy;
+	readonly toolPolicy: ToolPolicy;
+	readonly tokenBudget: number;
+	readonly reservedOutputTokens: number;
+	readonly observers: readonly TurnObserver[];
+}
+
+export interface RuntimeSnapshotProvider {
+	getCurrent(): Promise<RuntimeSnapshot>;
+}
+
+export interface FeaturePrepareContext {
+	readonly signal: AbortSignal;
+}
+
+export interface FeatureContributionContext {
+	readonly profileId: string;
+	readonly signal: AbortSignal;
+}
+
+export interface FeatureContribution {
+	readonly instructions?: readonly InstructionBlock[];
+	readonly tools?: readonly RuntimeToolDefinition[];
+	readonly contextProviders?: readonly ContextProvider[];
+	readonly observers?: readonly TurnObserver[];
+}
+
+export interface AgentFeature {
+	contribute(context: FeatureContributionContext): Promise<FeatureContribution>;
+	dispose(): Promise<void>;
+}
+
+export interface AgentFeatureDefinition {
+	readonly id: string;
+	readonly dependencies?: readonly string[];
+	readonly conflicts?: readonly string[];
+	prepare(context: FeaturePrepareContext): Promise<AgentFeature>;
+}
+
+export interface AgentProfile {
+	readonly id: string;
+	readonly instructions: readonly InstructionBlock[];
+	readonly features: readonly AgentFeatureDefinition[];
+	readonly contextStrategy: ContextStrategy;
+	readonly toolPolicy: ToolPolicy;
+	readonly tokenBudget: number;
+	readonly reservedOutputTokens: number;
+}
+
+export interface CompiledRuntimeSnapshot {
+	readonly snapshot: RuntimeSnapshot;
+	dispose(): Promise<void>;
+}
+
+export interface ConversationMetadata {
+	readonly sessionId: string;
+	readonly createdAt: number;
+	readonly version: number;
+}
+
+export interface StoredConversation extends ConversationMetadata {
+	readonly messages: readonly Message[];
+	readonly events: readonly StoredSessionEvent[];
+}
+
+export interface CreateConversationInput {
+	readonly sessionId: string;
+	readonly createdAt: number;
+}
+
+export interface AppendResult {
+	readonly version: number;
+}
+
+export interface ConversationRepository {
+	create(input: CreateConversationInput): Promise<ConversationMetadata>;
+	load(sessionId: string): Promise<StoredConversation>;
+	append(sessionId: string, expectedVersion: number, events: readonly StoredSessionEvent[]): Promise<AppendResult>;
+	saveSnapshot(sessionId: string, snapshot: ConversationSnapshot): Promise<void>;
+	close(): Promise<void>;
+}
+
+export interface ConversationSnapshot {
+	readonly sessionId: string;
+	readonly version: number;
+	readonly messages: readonly Message[];
+	readonly createdAt: number;
+}
+
+export interface TurnStartedEvent {
+	readonly type: "turn.started";
+	readonly sessionId: string;
+	readonly turnId: string;
+	readonly snapshotId: string;
+	readonly timestamp: number;
+}
+
+export interface MessageAppendedEvent {
+	readonly type: "message.appended";
+	readonly sessionId: string;
+	readonly turnId: string;
+	readonly message: Message;
+	readonly timestamp: number;
+}
+
+export interface ContextCompactedEvent {
+	readonly type: "context.compacted";
+	readonly sessionId: string;
+	readonly turnId: string;
+	readonly record: CompactionRecord;
+	readonly timestamp: number;
+}
+
+export interface TurnCompletedEvent {
+	readonly type: "turn.completed";
+	readonly sessionId: string;
+	readonly turnId: string;
+	readonly stopReason: StopReason;
+	readonly timestamp: number;
+}
+
+export interface TurnCancelledEvent {
+	readonly type: "turn.cancelled";
+	readonly sessionId: string;
+	readonly turnId: string;
+	readonly reason?: string;
+	readonly timestamp: number;
+}
+
+export interface TurnFailedEvent {
+	readonly type: "turn.failed";
+	readonly sessionId: string;
+	readonly turnId: string;
+	readonly error: {
+		readonly code: string;
+		readonly message: string;
+	};
+	readonly timestamp: number;
+}
+
+export type StoredSessionEvent =
+	| TurnStartedEvent
+	| MessageAppendedEvent
+	| ContextCompactedEvent
+	| TurnCompletedEvent
+	| TurnCancelledEvent
+	| TurnFailedEvent;
+
+export type TurnPipelineStage =
+	| "admission"
+	| "snapshot_binding"
+	| "conversation_loading"
+	| "context_assembly"
+	| "context_preparation"
+	| "execution"
+	| "finalization";
+
+export interface TurnPipelineStageEvent {
+	readonly type: "pipeline.stage";
+	readonly sessionId: string;
+	readonly turnId: string;
+	readonly stage: TurnPipelineStage;
+	readonly timestamp: number;
+}
+
+export interface ObserverFailedEvent {
+	readonly type: "observer.failed";
+	readonly sessionId: string;
+	readonly turnId: string;
+	readonly observerId: string;
+	readonly error: string;
+	readonly timestamp: number;
+}
+
+export type KernelEvent = StoredSessionEvent | TurnPipelineStageEvent | ObserverFailedEvent;
+
+export interface EventSink {
+	publish(event: KernelEvent): Promise<void>;
+}
+
+export interface TurnObserver {
+	readonly id: string;
+	observe(event: StoredSessionEvent, signal: AbortSignal): Promise<void>;
+}
+
+export interface TurnEngineRequest {
+	readonly sessionId: string;
+	readonly turnId: string;
+	readonly snapshot: RuntimeSnapshot;
+	readonly messages: readonly Message[];
+	readonly signal: AbortSignal;
+}
+
+export type TurnEngineEvent =
+	| {
+			readonly type: "message";
+			readonly message: Message;
+	  }
+	| {
+			readonly type: "completed";
+			readonly stopReason: StopReason;
+	  };
+
+export interface TurnEnginePort {
+	execute(request: TurnEngineRequest): AsyncIterable<TurnEngineEvent>;
+}
+
+export interface Clock {
+	now(): number;
+}
+
+export interface IdGenerator {
+	next(scope: "snapshot" | "turn"): string;
+}
+
+export type TurnResult =
+	| {
+			readonly status: "completed";
+			readonly turnId: string;
+			readonly stopReason: StopReason;
+			readonly messages: readonly Message[];
+	  }
+	| {
+			readonly status: "cancelled";
+			readonly turnId: string;
+			readonly reason?: string;
+			readonly messages: readonly Message[];
+	  }
+	| {
+			readonly status: "failed";
+			readonly turnId: string;
+			readonly error: {
+				readonly code: string;
+				readonly message: string;
+			};
+			readonly messages: readonly Message[];
+	  };

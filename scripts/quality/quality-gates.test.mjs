@@ -157,4 +157,10 @@ describe("package boundary analysis", () => {
 			[],
 		);
 	});
+
+	it("keeps the greenfield runtime kernel independent from coding-agent", () => {
+		const source = 'import { AgentSession } from "@vetta/coding-agent";';
+		expect(findPackageBoundaryViolations("packages/runtime-core/src/kernel/example.ts", source)).toHaveLength(1);
+		expect(findPackageBoundaryViolations("packages/runtime-core/src/runtime-host/example.ts", source)).toEqual([]);
+	});
 });

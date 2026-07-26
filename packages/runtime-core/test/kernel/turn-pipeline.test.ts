@@ -1,0 +1,433 @@
+import type { AssistantMessage, Message, UserMessage } from "@vetta/ai";
+import { describe, expect, it } from "vitest";
+import {
+	type Clock,
+	type ContextStrategy,
+	type ConversationMetadata,
+	type ConversationRepository,
+	type ConversationSnapshot,
+	type CreateConversationInput,
+	createAgentSession,
+	type EventSink,
+	type IdGenerator,
+	KERNEL_ERROR_CODES,
+	type KernelEvent,
+	type PreparedContext,
+	type RuntimeSnapshot,
+	StaticRuntimeSnapshotProvider,
+	type StoredConversation,
+	type StoredSessionEvent,
+	type TurnEnginePort,
+	type TurnEngineRequest,
+	TurnPipeline,
+} from "../../src/kernel/index.js";
+
+class TestClock implements Clock {
+	private current = 100;
+
+	now(): number {
+		this.current += 1;
+		return this.current;
+	}
+}
+
+class TestIdGenerator implements IdGenerator {
+	private current = 0;
+
+	next(): string {
+		this.current += 1;
+		return `turn-${this.current}`;
+	}
+}
+
+class CollectingEventSink implements EventSink {
+	readonly events: KernelEvent[] = [];
+
+	async publish(event: KernelEvent): Promise<void> {
+		this.events.push(event);
+	}
+}
+
+class InMemoryConversationRepository implements ConversationRepository {
+	private readonly conversations = new Map<string, StoredConversation>();
+
+	async create(input: CreateConversationInput): Promise<ConversationMetadata> {
+		if (this.conversations.has(input.sessionId)) {
+			throw new Error(`Conversation already exists: ${input.sessionId}`);
+		}
+		const conversation: StoredConversation = {
+			sessionId: input.sessionId,
+			createdAt: input.createdAt,
+			version: 0,
+			messages: [],
+			events: [],
+		};
+		this.conversations.set(input.sessionId, conversation);
+		return conversation;
+	}
+
+	async load(sessionId: string): Promise<StoredConversation> {
+		const conversation = this.conversations.get(sessionId);
+		if (!conversation) throw new Error(`Conversation not found: ${sessionId}`);
+		return conversation;
+	}
+
+	async append(
+		sessionId: string,
+		expectedVersion: number,
+		events: readonly StoredSessionEvent[],
+	): Promise<{ readonly version: number }> {
+		const conversation = await this.load(sessionId);
+		if (conversation.version !== expectedVersion) {
+			throw new Error(`Version mismatch: expected ${expectedVersion}, received ${conversation.version}`);
+		}
+		const messages = [...conversation.messages];
+		for (const event of events) {
+			if (event.type === "message.appended") messages.push(event.message);
+		}
+		const version = expectedVersion + events.length;
+		this.conversations.set(sessionId, {
+			...conversation,
+			version,
+			messages,
+			events: [...conversation.events, ...events],
+		});
+		return { version };
+	}
+
+	async saveSnapshot(_sessionId: string, _snapshot: ConversationSnapshot): Promise<void> {}
+
+	async close(): Promise<void> {}
+}
+
+class RecordingContextStrategy implements ContextStrategy {
+	readonly inputs: Message[][] = [];
+
+	async prepare(input: Parameters<ContextStrategy["prepare"]>[0], signal: AbortSignal): Promise<PreparedContext> {
+		signal.throwIfAborted();
+		this.inputs.push([...input.messages]);
+		return {
+			messages: input.messages,
+			estimatedTokens: input.messages.length,
+		};
+	}
+}
+
+class CompletingTurnEngine implements TurnEnginePort {
+	readonly requests: TurnEngineRequest[] = [];
+
+	constructor(private readonly response: AssistantMessage) {}
+
+	async *execute(request: TurnEngineRequest): AsyncIterable<{
+		readonly type: "message" | "completed";
+		readonly message?: Message;
+		readonly stopReason?: "stop";
+	}> {
+		this.requests.push(request);
+		yield {
+			type: "message",
+			message: this.response,
+		};
+		yield {
+			type: "completed",
+			stopReason: "stop",
+		};
+	}
+}
+
+function userMessage(text: string): UserMessage {
+	return {
+		role: "user",
+		content: text,
+		timestamp: 1,
+	};
+}
+
+function assistantMessage(text: string): AssistantMessage {
+	return {
+		role: "assistant",
+		content: [{ type: "text", text }],
+		api: "openai-responses",
+		provider: "openai",
+		model: "test-model",
+		usage: {
+			input: 1,
+			output: 1,
+			cacheRead: 0,
+			cacheWrite: 0,
+			totalTokens: 2,
+			cost: {
+				input: 0,
+				output: 0,
+				cacheRead: 0,
+				cacheWrite: 0,
+				total: 0,
+			},
+		},
+		stopReason: "stop",
+		timestamp: 2,
+	};
+}
+
+function snapshot(contextStrategy: ContextStrategy, overrides?: Partial<RuntimeSnapshot>): RuntimeSnapshot {
+	return {
+		id: "snapshot-1",
+		instructions: [],
+		tools: new Map(),
+		contextProviders: [],
+		contextStrategy,
+		toolPolicy: {
+			async authorize() {
+				return true;
+			},
+		},
+		tokenBudget: 8_000,
+		reservedOutputTokens: 1_000,
+		observers: [],
+		...overrides,
+	};
+}
+
+async function createHarness(options?: {
+	readonly turnEngine?: TurnEnginePort;
+	readonly contextStrategy?: ContextStrategy;
+	readonly runtimeSnapshot?: RuntimeSnapshot;
+	readonly eventSink?: EventSink;
+}) {
+	const repository = new InMemoryConversationRepository();
+	const contextStrategy = options?.contextStrategy ?? new RecordingContextStrategy();
+	const turnEngine = options?.turnEngine ?? new CompletingTurnEngine(assistantMessage("done"));
+	const eventSink = options?.eventSink ?? new CollectingEventSink();
+	const pipeline = new TurnPipeline({
+		repository,
+		snapshotProvider: new StaticRuntimeSnapshotProvider(options?.runtimeSnapshot ?? snapshot(contextStrategy)),
+		turnEngine,
+		eventSink,
+		clock: new TestClock(),
+		idGenerator: new TestIdGenerator(),
+	});
+	const session = await createAgentSession({
+		id: "session-1",
+		pipeline,
+	});
+	return {
+		contextStrategy,
+		eventSink,
+		repository,
+		session,
+		turnEngine,
+	};
+}
+
+describe("greenfield runtime kernel", () => {
+	it("runs the typed pipeline in its fixed order and persists canonical events", async () => {
+		const harness = await createHarness();
+		const result = await harness.session.send({
+			message: userMessage("hello"),
+		});
+
+		expect(result.status).toBe("completed");
+		expect(harness.session.state).toBe("idle");
+
+		const liveEvents = (harness.eventSink as CollectingEventSink).events;
+		expect(liveEvents.filter((event) => event.type === "pipeline.stage").map((event) => event.stage)).toEqual([
+			"admission",
+			"snapshot_binding",
+			"conversation_loading",
+			"context_assembly",
+			"context_preparation",
+			"execution",
+			"finalization",
+		]);
+
+		const conversation = await harness.repository.load("session-1");
+		expect(conversation.messages.map((message) => message.role)).toEqual(["user", "assistant"]);
+		expect(conversation.events.map((event) => event.type)).toEqual([
+			"turn.started",
+			"message.appended",
+			"message.appended",
+			"turn.completed",
+		]);
+	});
+
+	it("assembles provider context before the current input and binds one snapshot", async () => {
+		const contextStrategy = new RecordingContextStrategy();
+		const providerMessage = userMessage("provider context");
+		const runtimeSnapshot = snapshot(contextStrategy, {
+			contextProviders: [
+				{
+					id: "test-provider",
+					async provide() {
+						return [providerMessage];
+					},
+				},
+			],
+		});
+		const engine = new CompletingTurnEngine(assistantMessage("done"));
+		const harness = await createHarness({
+			contextStrategy,
+			runtimeSnapshot,
+			turnEngine: engine,
+		});
+
+		await harness.session.send({
+			message: userMessage("current input"),
+		});
+
+		expect(contextStrategy.inputs[0].map((message) => message.role)).toEqual(["user", "user"]);
+		expect((contextStrategy.inputs[0][0] as UserMessage).content).toBe("provider context");
+		expect((contextStrategy.inputs[0][1] as UserMessage).content).toBe("current input");
+		expect(engine.requests[0].snapshot.id).toBe("snapshot-1");
+	});
+
+	it("fails a turn when the engine omits its terminal event", async () => {
+		const engine: TurnEnginePort = {
+			async *execute() {
+				yield {
+					type: "message",
+					message: assistantMessage("partial"),
+				};
+			},
+		};
+		const harness = await createHarness({ turnEngine: engine });
+		const result = await harness.session.send({
+			message: userMessage("hello"),
+		});
+
+		expect(result).toMatchObject({
+			status: "failed",
+			error: {
+				code: KERNEL_ERROR_CODES.TURN_PROTOCOL,
+			},
+		});
+		const conversation = await harness.repository.load("session-1");
+		expect(conversation.events.at(-1)?.type).toBe("turn.failed");
+	});
+
+	it("rejects concurrent sends and persists cancellation", async () => {
+		let markStarted: (() => void) | undefined;
+		const started = new Promise<void>((resolve) => {
+			markStarted = resolve;
+		});
+		const engine: TurnEnginePort = {
+			async *execute(request) {
+				markStarted?.();
+				await waitForAbort(request.signal);
+				yield {
+					type: "completed",
+					stopReason: "stop",
+				};
+			},
+		};
+		const harness = await createHarness({ turnEngine: engine });
+		const firstTurn = harness.session.send({
+			message: userMessage("first"),
+		});
+		await started;
+
+		await expect(
+			harness.session.send({
+				message: userMessage("second"),
+			}),
+		).rejects.toMatchObject({
+			code: KERNEL_ERROR_CODES.SESSION_BUSY,
+		});
+
+		await harness.session.cancel("user cancelled");
+		const result = await firstTurn;
+		expect(result).toMatchObject({
+			status: "cancelled",
+			reason: "user cancelled",
+		});
+		expect(harness.session.state).toBe("idle");
+		const conversation = await harness.repository.load("session-1");
+		expect(conversation.events.at(-1)?.type).toBe("turn.cancelled");
+	});
+
+	it("closes an active session by cancelling its turn", async () => {
+		let markStarted: (() => void) | undefined;
+		const started = new Promise<void>((resolve) => {
+			markStarted = resolve;
+		});
+		const engine: TurnEnginePort = {
+			async *execute(request) {
+				markStarted?.();
+				await waitForAbort(request.signal);
+				yield {
+					type: "completed",
+					stopReason: "stop",
+				};
+			},
+		};
+		const harness = await createHarness({ turnEngine: engine });
+		const turn = harness.session.send({
+			message: userMessage("hello"),
+		});
+		await started;
+
+		await harness.session.close();
+		const result = await turn;
+
+		expect(result.status).toBe("cancelled");
+		expect(harness.session.state).toBe("closed");
+		await expect(
+			harness.session.send({
+				message: userMessage("after close"),
+			}),
+		).rejects.toMatchObject({
+			code: KERNEL_ERROR_CODES.SESSION_CLOSED,
+		});
+	});
+
+	it("isolates observer and event sink failures from turn semantics", async () => {
+		const contextStrategy = new RecordingContextStrategy();
+		const runtimeSnapshot = snapshot(contextStrategy, {
+			observers: [
+				{
+					id: "broken-observer",
+					async observe() {
+						throw new Error("observer failed");
+					},
+				},
+			],
+		});
+		const eventSink: EventSink = {
+			async publish() {
+				throw new Error("sink failed");
+			},
+		};
+		const harness = await createHarness({
+			contextStrategy,
+			runtimeSnapshot,
+			eventSink,
+		});
+
+		const result = await harness.session.send({
+			message: userMessage("hello"),
+		});
+
+		expect(result.status).toBe("completed");
+		expect(harness.session.state).toBe("idle");
+	});
+});
+
+function waitForAbort(signal: AbortSignal): Promise<void> {
+	return new Promise((resolve, reject) => {
+		if (signal.aborted) {
+			reject(abortError());
+			return;
+		}
+		const onAbort = () => {
+			signal.removeEventListener("abort", onAbort);
+			reject(abortError());
+		};
+		signal.addEventListener("abort", onAbort, { once: true });
+		void resolve;
+	});
+}
+
+function abortError(): Error {
+	const error = new Error("Aborted");
+	error.name = "AbortError";
+	return error;
+}
