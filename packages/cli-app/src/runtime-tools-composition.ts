@@ -1,3 +1,4 @@
+import { createLegacyCommandToolExecutor } from "@vetta/coding-agent/adapters/runtime-tools/command-executor.js";
 import {
 	createToolExecutableResolver,
 	type EnsureTool,
@@ -13,6 +14,8 @@ import {
 import {
 	type CodingToolActivation,
 	type CodingToolExecutableResolver,
+	type CommandToolExecutor,
+	createBashToolRegistration,
 	createCodingToolsFeature,
 	createCurrentTimeToolRegistration,
 	createFindToolRegistration,
@@ -20,12 +23,14 @@ import {
 	createGrepToolRegistration,
 	createLsToolRegistration,
 	createReadToolRegistration,
+	createShellToolRegistration,
 	InMemoryCodingToolRegistry,
 } from "@vetta/runtime-tools/coding";
 
 export interface CodingToolsRuntimeCompositionOptions {
 	readonly cwd?: string;
 	readonly activation?: CodingToolActivation;
+	readonly commandExecutor?: CommandToolExecutor;
 	readonly ensureTool?: EnsureTool;
 	readonly tokenBudget?: number;
 	readonly reservedOutputTokens?: number;
@@ -33,6 +38,7 @@ export interface CodingToolsRuntimeCompositionOptions {
 
 export interface CodingToolsRuntimeComposition {
 	readonly cwd: string;
+	readonly commandExecutor: CommandToolExecutor;
 	readonly executableResolver: CodingToolExecutableResolver;
 	readonly registry: InMemoryCodingToolRegistry;
 	readonly feature: AgentFeatureDefinition;
@@ -45,10 +51,13 @@ export function createCodingToolsRuntimeComposition(
 	options: CodingToolsRuntimeCompositionOptions = {},
 ): CodingToolsRuntimeComposition {
 	const cwd = options.cwd ?? process.cwd();
+	const commandExecutor = options.commandExecutor ?? createLegacyCommandToolExecutor();
 	const executableResolver = createToolExecutableResolver(options.ensureTool);
 	const registry = new InMemoryCodingToolRegistry([
 		createCurrentTimeToolRegistration(),
 		createReadToolRegistration(cwd),
+		createBashToolRegistration(cwd, { executor: commandExecutor }),
+		createShellToolRegistration(cwd, { executor: commandExecutor }),
 		createLsToolRegistration(cwd),
 		createGlobToolRegistration(cwd),
 		createGrepToolRegistration(cwd, { executableResolver }),
@@ -76,6 +85,7 @@ export function createCodingToolsRuntimeComposition(
 
 	return {
 		cwd,
+		commandExecutor,
 		executableResolver,
 		registry,
 		feature,

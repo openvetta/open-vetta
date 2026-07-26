@@ -1,15 +1,25 @@
 import {
 	ALL_SCENARIOS,
+	createBashTool,
 	createFindTool,
 	createGlobTool,
 	createGrepTool,
 	createLsTool,
 	createReadTool,
+	createShellTool,
 } from "@vetta/coding-agent";
 import { describe, expect, it } from "vitest";
 import { resolveActiveToolNames } from "../../coding-agent/src/core/session/tool-scope.js";
 import { createCurrentTimeTool } from "../../coding-agent/src/core/tools/current-time/index.js";
 import { createCodingToolsRuntimeComposition } from "../src/runtime-tools-composition.js";
+
+function modelCallContext(signal = new AbortController().signal) {
+	return {
+		sessionId: "session-1",
+		turnId: "turn-1",
+		signal,
+	};
+}
 
 describe("CLI Runtime Tools Composition Root", () => {
 	it("registers and compiles the default CLI coding tools without downloading", async () => {
@@ -26,11 +36,12 @@ describe("CLI Runtime Tools Composition Root", () => {
 		try {
 			const provider = compiled.snapshot.modelCallProviders?.[0];
 			if (!provider) throw new Error("expected coding tools model call provider");
-			const contribution = await provider.contribute({
-				profileId: composition.profile.id,
-				signal: new AbortController().signal,
-			});
-			expect(contribution.tools?.map(({ name }) => name)).toEqual(["current_time", "glob", "grep", "read"]);
+			const contribution = await provider.contribute(modelCallContext());
+			expect(contribution.tools?.map(({ name }) => name)).toEqual(
+				process.platform === "win32"
+					? ["current_time", "glob", "grep", "read", "shell"]
+					: ["bash", "current_time", "glob", "grep", "read"],
+			);
 			await expect(composition.executableResolver.resolve("rg")).resolves.toBeUndefined();
 			expect(calls).toEqual([{ tool: "rg", silent: true }]);
 		} finally {
@@ -52,10 +63,7 @@ describe("CLI Runtime Tools Composition Root", () => {
 		try {
 			const provider = compiled.snapshot.modelCallProviders?.[0];
 			if (!provider) throw new Error("expected coding tools model call provider");
-			const contribution = await provider.contribute({
-				profileId: composition.profile.id,
-				signal: new AbortController().signal,
-			});
+			const contribution = await provider.contribute(modelCallContext());
 			expect(contribution.tools?.map(({ name }) => name)).toEqual(["find", "ls"]);
 		} finally {
 			await compiled.dispose();
@@ -67,12 +75,18 @@ describe("CLI Runtime Tools Composition Root", () => {
 		const legacyTools = [
 			createCurrentTimeTool(),
 			createReadTool(cwd),
+			createBashTool(cwd),
+			createShellTool(cwd),
 			createLsTool(cwd),
 			createGlobTool(cwd),
 			createGrepTool(cwd),
 			createFindTool(cwd),
 		];
-		const legacyToolNames = resolveActiveToolNames(scenario, legacyTools, new Set()).sort();
+		const legacyToolNames = resolveActiveToolNames(
+			scenario,
+			legacyTools as unknown as Parameters<typeof resolveActiveToolNames>[1],
+			new Set(),
+		).sort();
 		const composition = createCodingToolsRuntimeComposition({
 			cwd,
 			activation: { mode: "scope", scope: scenario },
@@ -83,10 +97,7 @@ describe("CLI Runtime Tools Composition Root", () => {
 		try {
 			const provider = compiled.snapshot.modelCallProviders?.[0];
 			if (!provider) throw new Error("expected coding tools model call provider");
-			const contribution = await provider.contribute({
-				profileId: composition.profile.id,
-				signal: new AbortController().signal,
-			});
+			const contribution = await provider.contribute(modelCallContext());
 			const runtimeToolNames = contribution.tools?.map(({ name }) => name).sort();
 			expect(runtimeToolNames).toEqual(legacyToolNames);
 		} finally {

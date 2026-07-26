@@ -12,6 +12,7 @@
 	"scripts": {
 		"clean": "rm -rf dist",
 		"build": "tsgo -p tsconfig.build.json",
+		"typecheck": "tsgo --noEmit -p tsconfig.json",
 		"test": "bunx vitest --run"
 	},
 	"dependencies": {

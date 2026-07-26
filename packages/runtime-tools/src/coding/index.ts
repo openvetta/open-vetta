@@ -26,6 +26,13 @@ export {
 	type LocalCodingToolExecutableResolverOptions,
 } from "./host/index.js";
 export {
+	type CommandToolExecutor,
+	type CommandToolExecutorRequest,
+	type CommandToolInput,
+	CommandToolInputSchema,
+	type CommandToolName,
+} from "./shared/command-tool.js";
+export {
 	CODING_TOOL_SCOPES,
 	type CodingToolActivation,
 	type CodingToolCategory,
@@ -36,6 +43,17 @@ export {
 	selectCodingTools,
 	selectCodingToolsForScope,
 } from "./tool-registration.js";
+export {
+	BASH_TOOL_CATEGORY,
+	BASH_TOOL_DESCRIPTION,
+	type BashToolInput,
+	BashToolInputSchema,
+	type BashToolOptions,
+	type BashToolRegistrationOptions,
+	createBashTool,
+	createBashToolRegistration,
+	getBashToolScopes,
+} from "./tools/bash/index.js";
 export {
 	CURRENT_TIME_TOOL_CATEGORY,
 	CURRENT_TIME_TOOL_SCOPES,
@@ -112,3 +130,14 @@ export {
 	type ReadToolOptions,
 	type ResizedImage,
 } from "./tools/read/index.js";
+export {
+	createShellTool,
+	createShellToolRegistration,
+	getShellToolScopes,
+	SHELL_TOOL_CATEGORY,
+	SHELL_TOOL_DESCRIPTION,
+	type ShellToolInput,
+	ShellToolInputSchema,
+	type ShellToolOptions,
+	type ShellToolRegistrationOptions,
+} from "./tools/shell/index.js";

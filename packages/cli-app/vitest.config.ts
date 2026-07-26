@@ -5,6 +5,12 @@ export default defineConfig({
 	resolve: {
 		alias: [
 			{
+				find: /^@vetta\/coding-agent\/adapters\/runtime-tools\/command-executor\.js$/,
+				replacement: fileURLToPath(
+					new URL("../coding-agent/src/adapters/runtime-tools/command-executor.ts", import.meta.url),
+				),
+			},
+			{
 				find: /^@vetta\/coding-agent\/adapters\/runtime-tools\/executable-resolver\.js$/,
 				replacement: fileURLToPath(
 				new URL("../coding-agent/src/adapters/runtime-tools/executable-resolver.ts", import.meta.url),

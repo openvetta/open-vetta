@@ -74,6 +74,7 @@
 		"packages/runtime-storage/src/**/*",
 		"packages/runtime-telemetry/src/**/*",
 		"packages/cli-app/src/**/*",
+		"packages/cli-app/test/**/*",
 		"packages/toolkit/src/**/*",
 		"packages/coding-agent/examples/**/*"
 	],
