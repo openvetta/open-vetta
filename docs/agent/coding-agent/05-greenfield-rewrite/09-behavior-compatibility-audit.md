@@ -260,6 +260,11 @@ Runtime 提供的本地 Adapter 只检查受管 bin 目录和 PATH，不下载�
   路径和 GitHub 下载 URL；不触发网络或解压。
 - `installToolArchive` 合同覆盖 tar.gz/zip 分支、嵌套二进制定位、Unix chmod、Windows
   不 chmod，以及成功和失败时的归档/临时目录清理。
+- 网络边界合同覆盖 GitHub 版本响应解析、HTTP 503、瞬时 TypeError 重试、HTTP 404 不重试；
+  本地真实 tar.gz 产物验证覆盖实际归档、安装二进制内容和 staging 清理。
+- `cli-app` 已建立过渡 Composition Root，使用 coding-agent Adapter 创建 Runtime Resolver，
+  注册 current_time/read/ls/glob/grep/find，并通过 FeatureCompiler 生成新 Profile；旧
+  CLI 入口仍未切换。
 - Runtime 源码没有新增 `coding-agent` 或下载器导入。
 
 ### 2.6 `find`
@@ -334,7 +339,7 @@ Runtime glob 直接声明 `glob` 和 `ignore`，不再通过 `coding-agent` 的�
 | `read` Tool | 独立实现、旧新行为合同和真实 Tool Loop 已通过 | 独立可执行宿主的 Photon WASM 产物打包尚未验证 | 工具模块迁移完成；生产宿主不可切换 |
 | `ls` Tool | 独立实现、旧新行为合同、空 scope 和 Feature 显式激活 Tool Loop 已通过 | 生产宿主尚未装配新 Profile | 工具模块迁移完成；默认不激活 |
 | `glob` Tool | 独立实现、绝对 pattern、`.gitignore` 和真实 Tool Loop 合同已通过 | 生产宿主尚未装配新 Profile | 工具模块迁移完成；全 scope 暴露保持旧语义 |
-| 宿主可执行文件解析 | Runtime Port、本地 PATH/managed-bin Adapter、grep/find 注入合同、旧 ensureTool 适配和基础宿主策略测试已通过 | 产物级下载/打包、并发解析和版本锁定尚未验证 | Port 与旧适配完成；宿主切换阻断 |
+| 宿主可执行文件解析 | Runtime Port、本地 PATH/managed-bin Adapter、grep/find 注入合同、旧 ensureTool 适配、网络/归档合同和 cli-app Composition Root 已通过 | 真实 GitHub 网络、最终独立可执行发布物和 runtime-tools 根兼容导出拆分尚未完成 | 新 Profile 可并行验证；旧宿主仍不可切换 |
 | Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope/explicit 激活，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；current_time/read/ls/grep/find/glob 已形成独立注册和 Tool Loop 合同 | edit/write/search/process 等未迁移，生产 Profile 尚未装配 Registry | 动态编排边界完成；整体能力未完成 |
 | `AgentSession` | 新状态机可执行 | 活动 Turn 输入目前拒绝；旧系统具有 queue、follow-up、steering 语义 | 不可切换 |
 | Turn Pipeline | 固定阶段和持久化检查点已实现 | 输入队列、完整观察事件和恢复闭环未完成 | 不可切换 |
@@ -380,7 +385,10 @@ side effects
 
 `current_time`、`read`、`ls`、`grep`、`find`、`glob` 和动态注册/激活编排合同已经建立。
 宿主适配器已从 `core/host` 调整到 `adapters/runtime-tools`，并建立了不触发网络的基础
-`ensureTool` 行为合同、下载计划合同和归档安装合同。下一阶段应完成 `rg`、`fd`、Photon 和其他外部依赖的产物级解析/打包测试，重点覆盖下载、
+`ensureTool` 行为合同、下载计划合同、归档安装合同、网络边界合同和 cli-app 过渡
+Composition Root。下一阶段应完成 runtime-tools 包根兼容导出拆分、新旧 Tool Profile 差分和
+CLI/桌面入口适配，再考虑把产品级 Composition Root 上移回 coding-agent；真实 GitHub 网络、
+最终独立可执行发布物和其他外部依赖的产物级解析/打包测试仍需单独执行，重点覆盖下载、
 并发解析、版本锁定、离线模式和 Windows/Unix 产物。生产 Profile 接线时由组合根创建 Registry；
 普通 Catalog 成员变化直接在下一次模型调用生效，不再触发全 Profile 重编译。
 

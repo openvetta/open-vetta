@@ -71,6 +71,15 @@ const TOOLS: Record<string, ToolConfig> = {
 	},
 };
 
+export interface ToolHttpResponse {
+	readonly ok: boolean;
+	readonly status: number;
+	readonly json: () => Promise<unknown>;
+	readonly arrayBuffer: () => Promise<ArrayBuffer>;
+}
+
+export type ToolHttpRequest = (url: string, init?: RequestInit) => Promise<ToolHttpResponse>;
+
 export interface ToolDownloadPlanOptions {
 	readonly tool: ToolExecutableName;
 	readonly version: string;
@@ -134,9 +143,16 @@ export function getToolPath(tool: "fd" | "rg"): string | null {
 	return null;
 }
 
+export function parseLatestReleaseVersion(payload: unknown): string {
+	if (!payload || typeof payload !== "object" || !("tag_name" in payload) || typeof payload.tag_name !== "string") {
+		throw new Error("GitHub API response missing tag_name");
+	}
+	return payload.tag_name.replace(/^v/, "");
+}
+
 // Fetch latest release version from GitHub
-async function getLatestVersion(repo: string): Promise<string> {
-	const response = await fetch(`https://api.github.com/repos/${repo}/releases/latest`, {
+export async function fetchLatestVersion(repo: string, request: ToolHttpRequest = fetch): Promise<string> {
+	const response = await request(`https://api.github.com/repos/${repo}/releases/latest`, {
 		headers: { "User-Agent": `${APP_NAME}-coding-agent` },
 		signal: AbortSignal.timeout(NETWORK_TIMEOUT_MS),
 	});
@@ -145,8 +161,7 @@ async function getLatestVersion(repo: string): Promise<string> {
 		throw new Error(`GitHub API error: ${response.status}`);
 	}
 
-	const data = (await response.json()) as { tag_name: string };
-	return data.tag_name.replace(/^v/, "");
+	return parseLatestReleaseVersion(await response.json());
 }
 
 function isRetryableDownloadError(error: unknown): boolean {
@@ -162,12 +177,26 @@ function wait(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+export interface ToolDownloadRetryOptions {
+	readonly retryCount?: number;
+	readonly retryDelayMs?: number;
+	readonly timeoutMs?: number;
+}
+
 // Download a file from URL
-async function downloadFile(url: string, dest: string): Promise<void> {
-	for (let attempt = 0; attempt <= NETWORK_RETRY_COUNT; attempt++) {
+export async function downloadFileWithRetry(
+	url: string,
+	dest: string,
+	request: ToolHttpRequest = fetch,
+	options: ToolDownloadRetryOptions = {},
+): Promise<void> {
+	const retryCount = options.retryCount ?? NETWORK_RETRY_COUNT;
+	const retryDelayMs = options.retryDelayMs ?? NETWORK_RETRY_DELAY_MS;
+	const timeoutMs = options.timeoutMs ?? NETWORK_TIMEOUT_MS;
+	for (let attempt = 0; attempt <= retryCount; attempt++) {
 		try {
-			const response = await fetch(url, {
-				signal: AbortSignal.timeout(NETWORK_TIMEOUT_MS),
+			const response = await request(url, {
+				signal: AbortSignal.timeout(timeoutMs),
 			});
 
 			if (!response.ok) {
@@ -178,10 +207,10 @@ async function downloadFile(url: string, dest: string): Promise<void> {
 			await writeFile(dest, new Uint8Array(bytes));
 			return;
 		} catch (error) {
-			if (attempt >= NETWORK_RETRY_COUNT || !isRetryableDownloadError(error)) {
+			if (attempt >= retryCount || !isRetryableDownloadError(error)) {
 				throw error;
 			}
-			await wait(NETWORK_RETRY_DELAY_MS * (attempt + 1));
+			await wait(retryDelayMs * (attempt + 1));
 		}
 	}
 }
@@ -292,7 +321,7 @@ async function downloadTool(tool: "fd" | "rg"): Promise<string> {
 	const architecture = arch();
 
 	// Get latest version
-	const version = await getLatestVersion(config.repo);
+	const version = await fetchLatestVersion(config.repo);
 
 	// Get asset name for this platform
 	const plan = createToolDownloadPlan({
@@ -310,7 +339,7 @@ async function downloadTool(tool: "fd" | "rg"): Promise<string> {
 	mkdirSync(TOOLS_DIR, { recursive: true });
 
 	// Download
-	await downloadFile(plan.downloadUrl, plan.archivePath);
+	await downloadFileWithRetry(plan.downloadUrl, plan.archivePath);
 
 	// Extract into a unique temp directory. fd and rg downloads can run concurrently
 	// during startup, so sharing a fixed directory causes races.

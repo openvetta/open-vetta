@@ -3,6 +3,12 @@ import { fileURLToPath } from "node:url";
 import { parseActionCommand, runActionCommand } from "./action-command.js";
 import { parseDebugCommand, runDebugCommand } from "./debug-command.js";
 
+export {
+	type CodingToolsRuntimeComposition,
+	type CodingToolsRuntimeCompositionOptions,
+	createCodingToolsRuntimeComposition,
+} from "./runtime-tools-composition.js";
+
 const HELP_TEXT = `Usage:
   vetta [options] [@files...] [messages...]
   vetta action <subcommand> [options]

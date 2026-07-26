@@ -30,6 +30,7 @@
 | [20-runtime-executable-re-resolution.md](./08-implementation-log/20-runtime-executable-re-resolution.md) | Runtime 可执行文件实时重解析合同 |
 | [21-host-download-plan-contract.md](./08-implementation-log/21-host-download-plan-contract.md) | 宿主下载计划与跨平台产物合同 |
 | [22-host-archive-installation-contract.md](./08-implementation-log/22-host-archive-installation-contract.md) | 宿主归档安装与清理合同 |
+| [23-network-artifact-and-composition-root.md](./08-implementation-log/23-network-artifact-and-composition-root.md) | 网络边界、独立产物验证与 CLI Composition Root |
 
 ## 维护约定
 

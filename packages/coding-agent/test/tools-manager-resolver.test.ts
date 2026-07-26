@@ -1,3 +1,15 @@
+import { spawnSync } from "node:child_process";
+import {
+	chmodSync,
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	renameSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -5,7 +17,15 @@ import {
 	type EnsureToolDependencies,
 	ensureToolWithDependencies,
 } from "../src/adapters/runtime-tools/executable-resolver.js";
-import { createToolDownloadPlan, installToolArchive, type ToolArchiveOperations } from "../src/utils/tools-manager.js";
+import {
+	createToolDownloadPlan,
+	downloadFileWithRetry,
+	fetchLatestVersion,
+	installToolArchive,
+	parseLatestReleaseVersion,
+	type ToolArchiveOperations,
+	type ToolHttpResponse,
+} from "../src/utils/tools-manager.js";
 
 function createDependencies(overrides: Partial<EnsureToolDependencies> = {}): EnsureToolDependencies {
 	return {
@@ -274,5 +294,156 @@ describe("tool archive installation", () => {
 			}),
 		).rejects.toThrow(`Binary not found in archive: expected ${plan.binaryFileName} under ${extractDirectory}`);
 		expect(cleanup).toEqual([`file:${plan.archivePath}`, `directory:${extractDirectory}`]);
+	});
+});
+
+describe("tool network boundaries", () => {
+	it("parses release versions with and without a v prefix", () => {
+		expect(parseLatestReleaseVersion({ tag_name: "v1.2.3" })).toBe("1.2.3");
+		expect(parseLatestReleaseVersion({ tag_name: "14.1.0" })).toBe("14.1.0");
+		expect(() => parseLatestReleaseVersion({ tag_name: 14 })).toThrow("missing tag_name");
+	});
+
+	it("fetches and parses the latest release response", async () => {
+		let requestedUrl = "";
+		const request = async (url: string): Promise<ToolHttpResponse> => {
+			requestedUrl = url;
+			return {
+				ok: true,
+				status: 200,
+				json: async () => ({ tag_name: "v1.2.3" }),
+				arrayBuffer: async () => new ArrayBuffer(0),
+			};
+		};
+
+		await expect(fetchLatestVersion("sharkdp/fd", request)).resolves.toBe("1.2.3");
+		expect(requestedUrl).toBe("https://api.github.com/repos/sharkdp/fd/releases/latest");
+	});
+
+	it("does not retry HTTP errors from the release endpoint", async () => {
+		let requests = 0;
+		const request = async (): Promise<ToolHttpResponse> => {
+			requests += 1;
+			return {
+				ok: false,
+				status: 503,
+				json: async () => ({}),
+				arrayBuffer: async () => new ArrayBuffer(0),
+			};
+		};
+
+		await expect(fetchLatestVersion("BurntSushi/ripgrep", request)).rejects.toThrow("GitHub API error: 503");
+		expect(requests).toBe(1);
+	});
+
+	it("retries transient download failures and writes the successful response", async () => {
+		const directory = mkdtempSync(join(tmpdir(), "coding-agent-download-"));
+		const destination = join(directory, "tool.archive");
+		let requests = 0;
+		const request = async (): Promise<ToolHttpResponse> => {
+			requests += 1;
+			if (requests < 3) throw new TypeError("temporary network failure");
+			return {
+				ok: true,
+				status: 200,
+				json: async () => ({}),
+				arrayBuffer: async () => Uint8Array.from([1, 2, 3]).buffer,
+			};
+		};
+
+		try {
+			await downloadFileWithRetry("https://example.test/tool", destination, request, {
+				retryDelayMs: 0,
+			});
+			expect(requests).toBe(3);
+			expect(readFileSync(destination)).toEqual(Buffer.from([1, 2, 3]));
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	});
+
+	it("does not retry non-success download responses", async () => {
+		let requests = 0;
+		const request = async (): Promise<ToolHttpResponse> => {
+			requests += 1;
+			return {
+				ok: false,
+				status: 404,
+				json: async () => ({}),
+				arrayBuffer: async () => new ArrayBuffer(0),
+			};
+		};
+
+		await expect(
+			downloadFileWithRetry("https://example.test/missing", "C:/missing.archive", request, {
+				retryDelayMs: 0,
+			}),
+		).rejects.toThrow("Failed to download: 404");
+		expect(requests).toBe(1);
+	});
+
+	it("installs a real locally-created tar.gz artifact and cleans staging files", async () => {
+		const rootDirectory = mkdtempSync(join(tmpdir(), "coding-agent-artifact-"));
+		const toolsDirectory = join(rootDirectory, "bin");
+		const sourceDirectory = join(rootDirectory, "source");
+		const extractDirectory = join(rootDirectory, "extract");
+		mkdirSync(toolsDirectory, { recursive: true });
+		mkdirSync(sourceDirectory, { recursive: true });
+		mkdirSync(extractDirectory, { recursive: true });
+
+		const plan = createToolDownloadPlan({
+			tool: "fd",
+			version: "1.0.0",
+			platform: "linux",
+			architecture: "x64",
+			toolsDirectory,
+		});
+		if (!plan) throw new Error("expected a download plan");
+
+		const packageDirectory = plan.assetName.replace(/\.tar\.gz$/, "");
+		const sourcePackageDirectory = join(sourceDirectory, packageDirectory);
+		mkdirSync(sourcePackageDirectory, { recursive: true });
+		const sourceBinary = join(sourcePackageDirectory, plan.binaryFileName);
+		writeFileSync(sourceBinary, Buffer.from("fake fd executable"));
+
+		try {
+			const archiveResult = spawnSync("tar", ["-czf", plan.archivePath, "-C", sourceDirectory, packageDirectory], {
+				encoding: "utf8",
+			});
+			expect(archiveResult.status, archiveResult.stderr).toBe(0);
+
+			await expect(
+				installToolArchive({
+					plan,
+					extractDirectory,
+					platform: "linux",
+					operations: {
+						extractTarGz: (archivePath, directory, assetName) => {
+							const result = spawnSync("tar", ["xzf", archivePath, "-C", directory], {
+								encoding: "utf8",
+							});
+							if (result.status !== 0) {
+								throw new Error(`Failed to extract ${assetName}: ${result.stderr}`);
+							}
+						},
+						extractZip: async () => {
+							throw new Error("zip should not be used");
+						},
+						fileExists: existsSync,
+						findBinary: () => null,
+						moveFile: renameSync,
+						makeExecutable: (path) => chmodSync(path, 0o755),
+						removeFile: (path) => rmSync(path, { force: true }),
+						removeDirectory: (path) => rmSync(path, { recursive: true, force: true }),
+					},
+				}),
+			).resolves.toBe(plan.binaryPath);
+
+			expect(readFileSync(plan.binaryPath)).toEqual(Buffer.from("fake fd executable"));
+			expect(existsSync(plan.archivePath)).toBe(false);
+			expect(existsSync(extractDirectory)).toBe(false);
+		} finally {
+			rmSync(rootDirectory, { recursive: true, force: true });
+		}
 	});
 });
