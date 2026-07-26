@@ -248,6 +248,37 @@ Runtime find 不导入 `coding-agent` 的 fd 下载器，也没有因为迁移�
 全场景默认激活。当前实现已经完成 Tool 级差分和新 Kernel 链路验证，但生产宿主仍需要
 单独完成 fd 的下载、版本、打包和定位测试。
 
+### 2.7 `glob`
+
+旧 glob 比 find 更依赖路径和输出细节。Runtime 迁移保留以下行为：
+
+- 完整模型描述、TypeBox Schema、全 scope `scope_use` 和 `category: "core"`。
+- 绝对 glob pattern 的静态前缀拆分，以及基于搜索根的相对 pattern 执行。
+- 相对路径输出、目录结果尾部 `/`、重复结果去重和 limit 截断。
+- 隐藏文件包含、`.git` 排除、层级 `.gitignore` 匹配和取消传递。
+- 空结果、路径不存在、非目录路径、50KB 头部截断和 `GlobToolDetails`。
+
+实现拆分为：
+
+```text
+GlobOperations.isDirectory / glob
+  -> Runtime glob
+  -> CodingToolRegistration
+  -> Catalog / Model Call Frame
+  -> AgentCoreTurnEngine Tool Loop
+```
+
+Runtime glob 直接声明 `glob` 和 `ignore`，不再通过 `coding-agent` 的传递依赖或下载器
+取得实现。组合根仍可注入 `GlobOperations`，用于远程、沙箱或受限文件系统；默认实现只
+负责本地 glob、`.gitignore` 过滤和结果格式化。
+
+证据：
+
+- 旧实现与 Runtime 实现定义、注册元数据和自定义 Operations 结果逐字段比较。
+- 临时工作区验证绝对 pattern、目录标记、去重和 `.gitignore`。
+- Runtime glob 已通过真实 Agent Core Tool Loop，并保持全 scope 暴露行为。
+- 取消语义按旧实现保留：自定义 Operations 收到已取消 Signal；默认 glob 在执行层处理取消。
+
 ## 3. 已实施模块审计
 
 | 模块 | 当前状态 | 与旧行为的差距 | 切换结论 |
@@ -255,7 +286,8 @@ Runtime find 不导入 `coding-agent` 的 fd 下载器，也没有因为迁移�
 | `current_time` Tool | 定义、执行和注册行为已差分验证 | 无已知 Tool 级差距 | Tool 级迁移完成；Feature 仍不可整体切换 |
 | `read` Tool | 独立实现、旧新行为合同和真实 Tool Loop 已通过 | 独立可执行宿主的 Photon WASM 产物打包尚未验证 | 工具模块迁移完成；生产宿主不可切换 |
 | `ls` Tool | 独立实现、旧新行为合同、空 scope 和 Feature 显式激活 Tool Loop 已通过 | 生产宿主尚未装配新 Profile | 工具模块迁移完成；默认不激活 |
-| Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope/explicit 激活，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；current_time/read/ls/grep/find 已形成独立注册和 Tool Loop 合同 | edit/write/search/process 等未迁移，生产 Profile 尚未装配 Registry | 动态编排边界完成；整体能力未完成 |
+| `glob` Tool | 独立实现、绝对 pattern、`.gitignore` 和真实 Tool Loop 合同已通过 | 生产宿主尚未装配新 Profile | 工具模块迁移完成；全 scope 暴露保持旧语义 |
+| Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope/explicit 激活，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；current_time/read/ls/grep/find/glob 已形成独立注册和 Tool Loop 合同 | edit/write/search/process 等未迁移，生产 Profile 尚未装配 Registry | 动态编排边界完成；整体能力未完成 |
 | `AgentSession` | 新状态机可执行 | 活动 Turn 输入目前拒绝；旧系统具有 queue、follow-up、steering 语义 | 不可切换 |
 | Turn Pipeline | 固定阶段和持久化检查点已实现 | 输入队列、完整观察事件和恢复闭环未完成 | 不可切换 |
 | `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环、每次模型调用刷新 Model Call Frame 已通过 | Kernel 只映射完成消息；旧 UI 需要流式 text/thinking/tool progress 事件 | 不可切换宿主 |
@@ -298,10 +330,10 @@ side effects
 
 ## 5. 下一步
 
-`current_time`、`read`、`ls`、`grep`、`find` 和动态注册/激活编排合同已经建立。下一阶段
-为 `glob` 提取旧行为矩阵并实现独立 Runtime Tool，继续形成只读工具组。生产 Profile 接线
-时由组合根创建 Registry；普通 Catalog 成员变化直接在下一次模型调用生效，不再触发全
-Profile 重编译。
+`current_time`、`read`、`ls`、`grep`、`find`、`glob` 和动态注册/激活编排合同已经建立。
+下一阶段应继续迁移下一个只读能力或进入宿主可执行解析/打包层，把 `rg`、`fd`、Photon 和
+其他外部依赖统一收敛到 Composition Root。生产 Profile 接线时由组合根创建 Registry；
+普通 Catalog 成员变化直接在下一次模型调用生效，不再触发全 Profile 重编译。
 
 生产切换前还必须增加宿主产物级测试，验证 Photon WASM 在现有独立可执行打包方式中的复制与
 定位行为。该验证属于 Host Adapter/Packaging Gate，不应重新塞回 read 的领域实现。

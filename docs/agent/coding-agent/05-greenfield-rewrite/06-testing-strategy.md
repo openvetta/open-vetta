@@ -156,6 +156,16 @@ Operations 和取消时点都必须独立验证。
 - `FindOperations.glob` 的远程或沙箱实现替换。
 - 空 `scope_use` 在所有场景默认不激活，但 explicit activation 能通过真实 Tool Loop。
 
+`glob` 的迁移合同至少覆盖：
+
+- `pattern`、`path`、`limit`、`description` 的 Schema 和默认值。
+- 绝对模式拆分、搜索根解析、相对路径输出和目录尾部 `/`。
+- 重复结果去重、隐藏文件、`.gitignore` 和 `.git` 排除。
+- 空结果、路径不存在、非目录路径和取消。
+- 结果上限、50KB 头部截断、notice 和 `GlobToolDetails`。
+- `GlobOperations` 的宿主或远程搜索替换，以及 `glob`/`ignore` 的直接 Runtime 依赖。
+- 旧新实现定义、注册元数据和结果差分，并通过真实 Agent Core Tool Loop 执行。
+
 动态 Tool Catalog 还必须覆盖：
 
 - 初始注册排序确定且成员快照冻结。

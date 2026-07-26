@@ -804,6 +804,8 @@
         "@vetta/coding-agent": "workspace:*",
         "@vetta/runtime-core": "workspace:*",
         "file-type": "^21.1.1",
+        "glob": "^13.0.1",
+        "ignore": "^7.0.5",
       },
       "devDependencies": {
         "@types/node": "^22.10.5",

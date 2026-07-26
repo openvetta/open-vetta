@@ -12,5 +12,10 @@ export default defineConfig({
 	},
 	test: {
 		environment: "node",
+		server: {
+			deps: {
+				external: ["glob", "ignore"],
+			},
+		},
 	},
 });

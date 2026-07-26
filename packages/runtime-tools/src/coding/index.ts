@@ -53,6 +53,18 @@ export {
 	type FindToolOptions,
 } from "./tools/find/index.js";
 export {
+	createGlobTool,
+	createGlobToolRegistration,
+	GLOB_TOOL_CATEGORY,
+	GLOB_TOOL_DESCRIPTION,
+	GLOB_TOOL_SCOPES,
+	type GlobOperations,
+	type GlobToolDetails,
+	type GlobToolInput,
+	GlobToolInputSchema,
+	type GlobToolOptions,
+} from "./tools/glob/index.js";
+export {
 	createGrepTool,
 	createGrepToolRegistration,
 	GREP_TOOL_CATEGORY,

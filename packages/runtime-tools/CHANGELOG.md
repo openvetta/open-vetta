@@ -17,6 +17,7 @@ All notable changes to `@vetta/runtime-tools` are documented in this file.
 - **Greenfield Ls Tool**：新增独立 Runtime ls、参数化旧新行为合同和可注入目录 Operations；保留旧工具空 `scope_use` 的默认不激活语义，并通过真实 Agent Core Tool Loop 验证显式执行。
 - **Greenfield Grep Tool**：新增独立 Runtime grep、TS 描述、注册层和可注入文件读取边界；保留 ripgrep 搜索、上下文、锚点、匹配限制、截断和取消合同。
 - **Greenfield Find Tool**：新增独立 Runtime find、TS 描述、注册层和可注入 glob 边界；保留空 `scope_use`、路径相对化、`.gitignore`、结果限制、截断和显式激活合同。
+- **Greenfield Glob Tool**：新增独立 Runtime glob、TS 描述、注册层和可注入 glob Operations；保留绝对模式、相对路径、目录标记、`.gitignore`、去重、结果限制和截断合同。
 - **动态 Coding Tool Catalog**：新增版本化 `CodingToolCatalog`、可变 `CodingToolRegistry`、注册/注销、重名冲突和 scope/显式激活选择；每次模型调用读取不可变成员视图。
 - **Coding Tool 生命周期与在途执行跟踪**：Registry 新增 activate、deactivate 和 revoke；deactivate 只阻止新调用，revoke 会轮换 revision、协作取消在途执行并返回结构化不可重试错误，unregister 不隐式终止已经开始的副作用。
 
@@ -27,6 +28,7 @@ All notable changes to `@vetta/runtime-tools` are documented in this file.
 - **Coding Tools Feature 装配边界**：`CodingToolsFeatureOptions` 不再逐项暴露 current_time/read/ls Options，改为接收只读 Catalog 与激活策略；工具依赖和 Options 由组合根创建注册对象时注入。
 - **Grep 宿主依赖边界**：Runtime grep 不再导入 `coding-agent` 的 `ensureTool` 下载器；组合根通过 `rgPath` 注入宿主可执行路径，Runtime 包只负责搜索协议和结果格式化。
 - **Find 宿主依赖边界**：Runtime find 不再导入 `coding-agent` 的 `ensureTool` 下载器；组合根通过 `fdPath` 注入宿主可执行路径，Runtime 包只负责路径匹配协议和结果格式化。
+- **Glob 宿主依赖边界**：Runtime glob 不再导入 `coding-agent` 的 glob 实现；Runtime 包直接声明 `glob`/`ignore` 依赖，宿主只负责提供工作目录和可选 Operations。
 
 ### Fixed
 

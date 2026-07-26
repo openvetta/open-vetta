@@ -22,6 +22,7 @@ import {
 	createCurrentTimeTool,
 	createCurrentTimeToolRegistration,
 	createFindToolRegistration,
+	createGlobToolRegistration,
 	createGrepToolRegistration,
 	createLsToolRegistration,
 	createReadToolRegistration,
@@ -607,6 +608,69 @@ describe("greenfield coding tools feature", () => {
 		expect(toolResult).toMatchObject({
 			isError: false,
 			content: [{ type: "text", text: "src/index.ts\ntest/index.test.ts" }],
+		});
+		await compiled.dispose();
+	});
+
+	it("runs the migrated glob tool through explicit activation and the real agent-core tool loop", async () => {
+		const registry = new InMemoryCodingToolRegistry([
+			createGlobToolRegistration("C:/workspace", {
+				operations: {
+					isDirectory: () => true,
+					glob: (pattern, cwd, options) => {
+						expect(pattern).toBe("**/*.ts");
+						expect(cwd.replace(/\\/g, "/")).toBe("C:/workspace");
+						expect(options.limit).toBe(100);
+						return ["C:/workspace/src/index.ts", "C:/workspace/test/index.test.ts"];
+					},
+				},
+			}),
+		]);
+		const compiled = await compileCatalogSnapshot(registry, {
+			mode: "explicit",
+			toolNames: ["glob"],
+		});
+		const responses = [
+			assistantMessage(
+				[
+					{
+						type: "toolCall",
+						id: "tool-call-glob",
+						name: "glob",
+						arguments: { pattern: "**/*.ts", path: "." },
+					},
+				],
+				"toolUse",
+			),
+			assistantMessage([{ type: "text", text: "Search complete." }]),
+		];
+		let responseIndex = 0;
+		const engine = new AgentCoreTurnEngine({
+			model: model(),
+			streamFn: () => {
+				const response = responses[responseIndex];
+				responseIndex += 1;
+				if (!response) throw new Error("Missing recorded response");
+				return new RecordedAssistantStream(response);
+			},
+		});
+
+		const events = await collectEngineEvents(engine, compiled.snapshot);
+		const toolResult = events.find(
+			(
+				event,
+			): event is Extract<TurnEngineEvent, { type: "message" }> & {
+				readonly message: Extract<Message, { role: "toolResult" }>;
+			} => event.type === "message" && event.message.role === "toolResult",
+		)?.message;
+
+		expect(await resolveTools(compiled.snapshot)).toEqual(["glob"]);
+		expect(toolResult).toMatchObject({
+			isError: false,
+			content: [{ type: "text", text: "src/index.ts\ntest/index.test.ts" }],
+			details: {
+				numFiles: 2,
+			},
 		});
 		await compiled.dispose();
 	});

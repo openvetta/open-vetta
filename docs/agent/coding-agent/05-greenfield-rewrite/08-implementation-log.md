@@ -23,6 +23,7 @@
 | [13-capability-lifecycle.md](./08-implementation-log/13-capability-lifecycle.md) | 稳定能力绑定、生命周期与在途执行仲裁 |
 | [14-runtime-grep.md](./08-implementation-log/14-runtime-grep.md) | Grep 行为兼容、独立 Runtime 实现与 Tool Loop 接入 |
 | [15-runtime-find.md](./08-implementation-log/15-runtime-find.md) | Find 行为兼容、空 scope 与显式 Tool Loop 接入 |
+| [16-runtime-glob.md](./08-implementation-log/16-runtime-glob.md) | Glob 行为兼容、绝对模式与 `.gitignore` Tool Loop 接入 |
 
 ## 维护约定
 
