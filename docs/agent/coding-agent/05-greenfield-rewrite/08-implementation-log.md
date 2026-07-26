@@ -32,6 +32,7 @@
 | [22-host-archive-installation-contract.md](./08-implementation-log/22-host-archive-installation-contract.md) | 宿主归档安装与清理合同 |
 | [23-network-artifact-and-composition-root.md](./08-implementation-log/23-network-artifact-and-composition-root.md) | 网络边界、独立产物验证与 CLI Composition Root |
 | [24-tool-profile-differential-gate.md](./08-implementation-log/24-tool-profile-differential-gate.md) | 旧新 Tool Profile 差分门禁与兼容导出审计 |
+| [25-capability-aware-tool-activation.md](./08-implementation-log/25-capability-aware-tool-activation.md) | Tool requires/capabilities 激活合同 |
 
 ## 维护约定
 

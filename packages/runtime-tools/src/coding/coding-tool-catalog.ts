@@ -198,6 +198,7 @@ function freezeRegistration(registration: CodingToolRegistration): CodingToolReg
 	return Object.freeze({
 		tool: freezeToolDefinition(registration.tool),
 		scopeUse: Object.freeze([...registration.scopeUse]),
+		requires: registration.requires ? Object.freeze([...registration.requires]) : undefined,
 		category: registration.category,
 	});
 }

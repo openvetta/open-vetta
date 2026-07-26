@@ -13,6 +13,9 @@ import {
 	type TurnEngineEvent,
 } from "@vetta/runtime-core/kernel";
 import { describe, expect, it } from "vitest";
+import { BackgroundTaskManager } from "../../../coding-agent/src/core/background-tasks/index.js";
+import { ALL_SCENARIOS, resolveActiveToolNames } from "../../../coding-agent/src/core/session/tool-scope.js";
+import { createTaskOutputTool } from "../../../coding-agent/src/core/tools/task-output/index.js";
 import {
 	type CodingToolActivation,
 	type CodingToolCatalog,
@@ -31,6 +34,7 @@ import {
 	LS_TOOL_SCOPES,
 	READ_TOOL_CATEGORY,
 	READ_TOOL_SCOPES,
+	selectCodingToolRegistrations,
 	selectCodingToolsForScope,
 } from "../../src/coding/index.js";
 
@@ -217,6 +221,92 @@ describe("greenfield coding tools feature", () => {
 		expect(selectCodingToolsForScope([lsRegistration], "project")).toEqual([]);
 		expect(lsRegistration.tool).not.toHaveProperty("scopeUse");
 		expect(lsRegistration.tool).not.toHaveProperty("category");
+	});
+
+	it("filters required capabilities during scope activation and refreshes them per model call", async () => {
+		const capabilities = new Set<string>();
+		const baseRegistration = createCurrentTimeToolRegistration();
+		const requiredRegistration = {
+			...baseRegistration,
+			tool: {
+				...baseRegistration.tool,
+				name: "background_only",
+			},
+			requires: ["bg-tasks"] as const,
+		};
+		const registry = new InMemoryCodingToolRegistry([requiredRegistration]);
+		const compiled = await compileCatalogSnapshot(registry, {
+			mode: "scope",
+			scope: "project",
+			capabilities,
+		});
+
+		try {
+			expect(await resolveTools(compiled.snapshot)).toEqual([]);
+			capabilities.add("bg-tasks");
+			expect(await resolveTools(compiled.snapshot)).toEqual(["background_only"]);
+			capabilities.delete("bg-tasks");
+			expect(await resolveTools(compiled.snapshot)).toEqual([]);
+		} finally {
+			await compiled.dispose();
+		}
+	});
+
+	it("keeps explicit and additionally-enabled tools available without required capabilities", () => {
+		const baseRegistration = createCurrentTimeToolRegistration();
+		const requiredRegistration = {
+			...baseRegistration,
+			tool: {
+				...baseRegistration.tool,
+				name: "background_only",
+			},
+			requires: ["bg-tasks"] as const,
+		};
+
+		expect(selectCodingToolsForScope([requiredRegistration], "project")).toEqual([]);
+		expect(
+			selectCodingToolRegistrations([requiredRegistration], {
+				mode: "scope",
+				scope: "project",
+				additionallyEnabledToolNames: ["background_only"],
+			}).map(({ tool }) => tool.name),
+		).toEqual(["background_only"]);
+		expect(
+			selectCodingToolRegistrations([requiredRegistration], {
+				mode: "explicit",
+				toolNames: ["background_only"],
+			}).map(({ tool }) => tool.name),
+		).toEqual(["background_only"]);
+	});
+
+	it("matches the legacy requires contract for background task tools", () => {
+		const manager = new BackgroundTaskManager();
+		const legacyTool = createTaskOutputTool({ getManager: () => manager });
+		const baseRegistration = createCurrentTimeToolRegistration();
+		const runtimeRegistration = {
+			...baseRegistration,
+			tool: {
+				...baseRegistration.tool,
+				name: legacyTool.name,
+			},
+			requires: ["bg-tasks"] as const,
+		};
+
+		for (const scenario of ALL_SCENARIOS) {
+			expect(
+				selectCodingToolRegistrations([runtimeRegistration], {
+					mode: "scope",
+					scope: scenario,
+				}).map(({ tool }) => tool.name),
+			).toEqual(resolveActiveToolNames(scenario, [legacyTool], new Set()));
+			expect(
+				selectCodingToolRegistrations([runtimeRegistration], {
+					mode: "scope",
+					scope: scenario,
+					capabilities: new Set(["bg-tasks"]),
+				}).map(({ tool }) => tool.name),
+			).toEqual(resolveActiveToolNames(scenario, [legacyTool], new Set(["bg-tasks"])));
+		}
 	});
 
 	it("provides a deterministic TypeBox-backed current time tool", async () => {

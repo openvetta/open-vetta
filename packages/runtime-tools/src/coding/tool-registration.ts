@@ -28,6 +28,12 @@ export type CodingToolCategory =
 export interface CodingToolRegistration<TInput extends object = Readonly<Record<string, unknown>>> {
 	readonly tool: RuntimeToolDefinition<TInput>;
 	readonly scopeUse: readonly CodingToolScope[];
+	/**
+	 * Session capabilities required for normal scope activation.
+	 * Explicit and additionally-enabled activations intentionally bypass this
+	 * filter, matching the legacy explicit-tool contract.
+	 */
+	readonly requires?: readonly string[];
 	readonly category: CodingToolCategory;
 }
 
@@ -36,6 +42,7 @@ export type CodingToolActivation =
 			readonly mode: "scope";
 			readonly scope?: CodingToolScope;
 			readonly additionallyEnabledToolNames?: readonly string[];
+			readonly capabilities?: ReadonlySet<string>;
 	  }
 	| {
 			readonly mode: "explicit";
@@ -60,14 +67,19 @@ export function selectCodingToolRegistrations(
 
 	const scope = activation.scope ?? DEFAULT_CODING_TOOL_SCOPE;
 	const additionallyEnabled = new Set(activation.additionallyEnabledToolNames ?? []);
+	const capabilities = activation.capabilities ?? new Set<string>();
 	return registrations.filter(
-		(registration) => registration.scopeUse.includes(scope) || additionallyEnabled.has(registration.tool.name),
+		(registration) =>
+			additionallyEnabled.has(registration.tool.name) ||
+			(registration.scopeUse.includes(scope) &&
+				(registration.requires ?? []).every((capability) => capabilities.has(capability))),
 	);
 }
 
 export function selectCodingToolsForScope(
 	registrations: readonly CodingToolRegistration[],
 	scope: CodingToolScope,
+	capabilities: ReadonlySet<string> = new Set<string>(),
 ): readonly RuntimeToolDefinition[] {
-	return selectCodingTools(registrations, { mode: "scope", scope });
+	return selectCodingTools(registrations, { mode: "scope", scope, capabilities });
 }

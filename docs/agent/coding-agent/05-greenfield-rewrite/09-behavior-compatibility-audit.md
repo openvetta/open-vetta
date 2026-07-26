@@ -360,6 +360,31 @@ Runtime glob 直接声明 `glob` 和 `ignore`，不再通过 `coding-agent` 的�
 “仓库内无人引用”替代公共兼容性判断。只有剩余工具完成行为差分迁移、产品 Composition Root
 能够提供等价 Profile，并形成明确迁移窗口后，才能拆除该入口。
 
+### 2.9 `requires` 与会话能力激活
+
+旧 Runtime Manager 在按场景解析工具后，还会根据会话能力过滤工具。例如后台任务关闭时，
+`task_output` 和 `task_stop` 不应进入普通 scope 的 Model Call Frame。此前新
+`CodingToolRegistration` 只有 `scopeUse`，无法表达这一层合同。
+
+现已补充：
+
+- Registration 的可选 `requires` 能力列表。
+- scope 激活的 `capabilities` 集合。
+- 每次 Model Call 重新读取 capabilities，因此不需要重编译 Runtime Snapshot。
+- `additionallyEnabledToolNames` 和 explicit activation 继续绕过 requires，保持旧的显式
+  工具选择语义。
+- Catalog Snapshot 冻结 requires 数组，避免注册对象被外部修改。
+
+当前用 `bg-tasks` 合成测试注册覆盖以下行为：
+
+- 没有能力时，scope 激活不暴露工具。
+- 增加能力后，下一次 Model Call 立即暴露工具。
+- 移除能力后，下一次 Model Call 立即隐藏工具。
+- explicit 和 additionally-enabled 仍可选中工具。
+
+这只是命令执行迁移的前置合同；`bash/shell/task_output/task_stop` 尚未标记为 Runtime
+迁移完成。
+
 ## 3. 已实施模块审计
 
 | 模块 | 当前状态 | 与旧行为的差距 | 切换结论 |
@@ -369,7 +394,7 @@ Runtime glob 直接声明 `glob` 和 `ignore`，不再通过 `coding-agent` 的�
 | `ls` Tool | 独立实现、旧新行为合同、空 scope 和 Feature 显式激活 Tool Loop 已通过 | 生产宿主尚未装配新 Profile | 工具模块迁移完成；默认不激活 |
 | `glob` Tool | 独立实现、绝对 pattern、`.gitignore` 和真实 Tool Loop 合同已通过 | 生产宿主尚未装配新 Profile | 工具模块迁移完成；全 scope 暴露保持旧语义 |
 | 宿主可执行文件解析 | Runtime Port、本地 PATH/managed-bin Adapter、grep/find 注入合同、旧 ensureTool 适配、网络/归档合同和 cli-app Composition Root 已通过 | 真实 GitHub 网络、最终独立可执行发布物和完整 Tool Profile 迁移尚未完成；包根兼容导出必须继续保留 | 新 Profile 可并行验证；旧宿主仍不可切换 |
-| Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope/explicit 激活，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；current_time/read/ls/grep/find/glob 已形成独立注册、Tool Loop 合同和全场景 Profile 差分门禁 | edit/write/search/process 等未迁移，生产 Profile 尚未装配 Registry | 动态编排边界完成；整体能力未完成 |
+| Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope/explicit 激活和 requires/capabilities，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；current_time/read/ls/grep/find/glob 已形成独立注册、Tool Loop 合同和全场景 Profile 差分门禁 | edit/write/search/process 等未迁移，生产 Profile 尚未装配 Registry | 动态编排边界完成；整体能力未完成 |
 | `AgentSession` | 新状态机可执行 | 活动 Turn 输入目前拒绝；旧系统具有 queue、follow-up、steering 语义 | 不可切换 |
 | Turn Pipeline | 固定阶段和持久化检查点已实现 | 输入队列、完整观察事件和恢复闭环未完成 | 不可切换 |
 | `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环、每次模型调用刷新 Model Call Frame 已通过 | Kernel 只映射完成消息；旧 UI 需要流式 text/thinking/tool progress 事件 | 不可切换宿主 |
@@ -412,7 +437,7 @@ side effects
 
 ## 5. 下一步
 
-`current_time`、`read`、`ls`、`grep`、`find`、`glob` 和动态注册/激活编排合同已经建立。
+`current_time`、`read`、`ls`、`grep`、`find`、`glob`、requires/capabilities 和动态注册/激活编排合同已经建立。
 宿主适配器已从 `core/host` 调整到 `adapters/runtime-tools`，并建立了不触发网络的基础
 `ensureTool` 行为合同、下载计划合同、归档安装合同、网络边界合同和 cli-app 过渡
 Composition Root。新旧 Tool Profile 已对全部场景建立差分门禁；runtime-tools 包根兼容导出
