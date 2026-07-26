@@ -155,19 +155,17 @@ function InstalledMoreMenu({
 				</Button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="end" className="w-44">
+				<DropdownMenuItem onSelect={() => model.openDetail(item)}>
+					<span className="icon-[solar--eye-linear] h-3.5 w-3.5" />
+					{t("capabilities.actions.viewDetails")}
+				</DropdownMenuItem>
 				{item.driver === "skill" ? (
-					<>
-						<DropdownMenuItem onSelect={() => model.preview(item)}>
-							<span className="icon-[solar--eye-linear] h-3.5 w-3.5" />
-							{t("capabilities.actions.viewDetails")}
+					item.needsUpdate ? (
+						<DropdownMenuItem onSelect={() => model.add(item)}>
+							<span className="icon-[solar--refresh-linear] h-3.5 w-3.5" />
+							{t("capabilities.actions.update")}
 						</DropdownMenuItem>
-						{item.needsUpdate && (
-							<DropdownMenuItem onSelect={() => model.add(item)}>
-								<span className="icon-[solar--refresh-linear] h-3.5 w-3.5" />
-								{t("capabilities.actions.update")}
-							</DropdownMenuItem>
-						)}
-					</>
+					) : null
 				) : (
 					<ConnectorMenuItems item={item} model={model} />
 				)}
@@ -229,14 +227,12 @@ export function CapabilityCard({
 	model: CapabilitiesModel;
 }): JSX.Element {
 	const { t } = useTranslation("skills");
-	const previewable = item.driver === "skill";
 
 	return (
 		<div
-			onClick={previewable ? () => model.preview(item) : undefined}
+			onClick={() => model.openDetail(item)}
 			className={cn(
-				"group relative flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors duration-200 hover:bg-accent/60",
-				previewable && "cursor-pointer",
+				"group relative flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 transition-colors duration-200 hover:bg-accent/60",
 				!item.enabled && item.installed && "opacity-75",
 			)}
 		>

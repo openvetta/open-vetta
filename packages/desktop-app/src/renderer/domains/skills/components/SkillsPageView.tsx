@@ -124,7 +124,6 @@ export function SkillsPageView({ model }: { model: SkillsPageModel }): JSX.Eleme
 							onInstallSkill={handleInstall}
 							onToggleSkill={handleToggle}
 							onUninstallSkill={handleUninstall}
-							onPreviewSkill={setSelectedSkill}
 							onRefreshSkills={refreshCapabilities}
 						/>
 					) : loading ? (

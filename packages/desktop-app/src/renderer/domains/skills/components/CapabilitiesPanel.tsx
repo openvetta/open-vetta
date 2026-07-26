@@ -13,6 +13,7 @@ import {
 import { AddCapabilityMenu } from "./AddCapabilityMenu";
 import { CapabilitiesBanner } from "./CapabilitiesBanner";
 import { CapabilityCard } from "./CapabilityCard";
+import { CapabilityDetailDrawer } from "./detail/CapabilityDetailDrawer";
 
 export interface CapabilitiesPanelHandle {
 	openCustomCapability: () => void;
@@ -33,7 +34,6 @@ interface CapabilitiesPanelProps {
 	onInstallSkill: (skill: MergedSkill) => void;
 	onToggleSkill: (name: string) => void;
 	onUninstallSkill: (name: string, type: "skill" | "scene") => void;
-	onPreviewSkill: (skill: MergedSkill) => void;
 	onRefreshSkills: () => void;
 }
 
@@ -175,6 +175,11 @@ export const CapabilitiesPanel = forwardRef<CapabilitiesPanelHandle, Capabilitie
 					</div>
 				</div>
 
+				<CapabilityDetailDrawer
+					item={model.selectedDetail}
+					model={model}
+					onClose={model.closeDetail}
+				/>
 				<ManualMcpDialog model={model.mcp} />
 				<McpEditDrawer model={model.mcp} />
 				<BuiltinMcpSecretsDialog
