@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { resolveAbilityDetailContent } from "../../lib/ability-presentation";
 import type { AbilitiesModel, AbilityItem } from "../../types";
 import { AbilityDetailEnter } from "./AbilityDetailEnter";
-import { ABILITY_DETAIL_ASIDE_BUTTON_CLASS, AbilityDetailHeader } from "./AbilityDetailHeader";
+import { AbilityDetailHeader } from "./AbilityDetailHeader";
 import { AbilityMarkdownBody } from "./AbilityMarkdownBody";
 import { AbilityMetaList } from "./AbilityMetaList";
 import { AbilityShowcaseList } from "./AbilityShowcaseList";
@@ -75,9 +75,8 @@ export function AbilityDetailView({
 		if (item.type === "plugin" && item.permissions.length > 0) {
 			return (
 				<Button
-					variant="outline"
+					variant="secondary"
 					size="lg"
-					className={ABILITY_DETAIL_ASIDE_BUTTON_CLASS}
 					onClick={() => setPermissionsDialogOpen(true)}
 				>
 					<span className="icon-[solar--shield-keyhole-linear] h-4 w-4" />
@@ -88,9 +87,8 @@ export function AbilityDetailView({
 		if (item.type === "mcp" && item.canConfigure) {
 			return (
 				<Button
-					variant="outline"
+					variant="secondary"
 					size="lg"
-					className={ABILITY_DETAIL_ASIDE_BUTTON_CLASS}
 					disabled={item.busy}
 					onClick={() => model.configure(item)}
 				>
@@ -102,9 +100,8 @@ export function AbilityDetailView({
 		if (item.type === "mcp" && item.canEdit) {
 			return (
 				<Button
-					variant="outline"
+					variant="secondary"
 					size="lg"
-					className={ABILITY_DETAIL_ASIDE_BUTTON_CLASS}
 					disabled={item.busy}
 					onClick={() => model.edit(item)}
 				>
