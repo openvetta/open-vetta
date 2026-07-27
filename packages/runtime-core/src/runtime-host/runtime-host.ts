@@ -11,7 +11,6 @@ import {
 	type ModelRegistry,
 	type SessionInfo,
 	SessionManager,
-	type SubagentSnapshot,
 } from "@vetta/coding-agent";
 import type {
 	AgentPluginContinuationInvoker,
@@ -55,7 +54,11 @@ import {
 	type RuntimeSessionCreateOptions,
 } from "./session-backend.js";
 import { baseSessionEvent, lifecycleSessionEvent } from "./session-events.js";
-import type { RuntimeSessionEventStream, RuntimeSessionHostInteractionContext } from "./session-ports.js";
+import type {
+	RuntimeSessionEventStream,
+	RuntimeSessionHostInteractionContext,
+	RuntimeSubagentSnapshot,
+} from "./session-ports.js";
 import type { InFlightBuffer, RunningChangedReason, RuntimeHostOptions, SessionHandle } from "./types.js";
 
 export type { RunningChangedReason, RuntimeHostOptions } from "./types.js";
@@ -222,9 +225,7 @@ export class RuntimeHost implements SessionFacade {
 	clearFinishedBackgroundTasks(sessionId: string): number {
 		const handle = this.sessions.get(sessionId);
 		if (!handle) return 0;
-		const bash = handle.session.backgroundTasks.clearFinished();
-		const subagents = handle.session.clearFinishedSubagents();
-		return bash + subagents;
+		return handle.backgroundWorkController.clearFinished();
 	}
 
 	/**
@@ -234,7 +235,7 @@ export class RuntimeHost implements SessionFacade {
 	killBackgroundTask(sessionId: string, taskId: string): boolean {
 		const handle = this.sessions.get(sessionId);
 		if (!handle) return false;
-		return handle.session.backgroundTasks.kill(taskId, "user");
+		return handle.backgroundWorkController.killTask(taskId);
 	}
 
 	/**
@@ -244,20 +245,20 @@ export class RuntimeHost implements SessionFacade {
 	listBackgroundTasks(sessionId: string): BackgroundTaskInfo[] {
 		const handle = this.sessions.get(sessionId);
 		if (!handle) return [];
-		return handle.session.backgroundTasks.list();
+		return [...handle.backgroundWorkController.readTasks()];
 	}
 
 	/** Full subagent snapshot for UI rehydrate (same role as listBackgroundTasks). */
-	listSubagents(sessionId: string): SubagentSnapshot[] {
+	listSubagents(sessionId: string): RuntimeSubagentSnapshot[] {
 		const handle = this.sessions.get(sessionId);
 		if (!handle) return [];
-		return [...handle.session.listSubagents()];
+		return [...handle.backgroundWorkController.readSubagents()];
 	}
 
-	interruptSubagent(sessionId: string, target: string): SubagentSnapshot | undefined {
+	interruptSubagent(sessionId: string, target: string): RuntimeSubagentSnapshot | undefined {
 		const handle = this.sessions.get(sessionId);
 		if (!handle) return undefined;
-		return handle.session.interruptSubagent(target);
+		return handle.backgroundWorkController.interruptSubagent(target);
 	}
 
 	/**
@@ -417,6 +418,8 @@ export class RuntimeHost implements SessionFacade {
 			hostInteraction,
 			executionController,
 			workspaceView,
+			backgroundWorkController,
+			todoController,
 			modelController,
 			modelView,
 			corePorts,
@@ -432,6 +435,8 @@ export class RuntimeHost implements SessionFacade {
 			hostInteraction,
 			executionController,
 			workspaceView,
+			backgroundWorkController,
+			todoController,
 			modelController,
 			modelView,
 			...corePorts,
@@ -669,11 +674,7 @@ export class RuntimeHost implements SessionFacade {
 	 */
 	async clearTodos(sessionId: string): Promise<boolean> {
 		const handle = this.requireSession(sessionId);
-		const store = handle.session.todoStore;
-		if (store.isLocked()) return false;
-		if (store.getAll().length === 0) return false;
-		store.clear();
-		return true;
+		return handle.todoController.clear();
 	}
 
 	subscribe(sessionId: string, handler: (event: SessionEvent) => void): () => void {
@@ -682,7 +683,7 @@ export class RuntimeHost implements SessionFacade {
 
 		// Push current todo state so late subscribers (e.g., user navigating into
 		// an already-running session) see the todo panel immediately.
-		const todoItems = handle.session.todoStore.getAll();
+		const todoItems = handle.todoController.readItems();
 		if (todoItems.length > 0) {
 			handler({
 				...baseSessionEvent(sessionId, "agent"),

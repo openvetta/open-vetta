@@ -1,6 +1,7 @@
 import type { ThinkingLevel } from "@vetta/agent-core";
 import type { Api, Message, Model } from "@vetta/ai";
 import type {
+	BackgroundTaskInfo,
 	HistoryEntry,
 	PromptRequest,
 	RuntimeSandboxGrantDecision,
@@ -8,6 +9,8 @@ import type {
 	SessionEvent,
 	SessionExecutionMode,
 	SessionStateSnapshot,
+	SubagentInfo,
+	TodoItem,
 } from "../contracts.js";
 
 /** 会话身份与资源释放；不承载宿主 UI 绑定或业务外围能力。 */
@@ -124,6 +127,34 @@ export interface RuntimeSessionExecutionController {
 /** Session 工作目录只读视图；目录创建和修复仍由宿主负责。 */
 export interface RuntimeSessionWorkspaceView {
 	readWorkingDirectory(): string | undefined;
+}
+
+export interface RuntimeSubagentUsageSnapshot {
+	readonly input: number;
+	readonly output: number;
+	readonly cacheRead: number;
+	readonly cacheWrite: number;
+	readonly costTotal: number;
+}
+
+/** 保留旧宿主重放所需的完整子代理快照，包括事件投影之外的 usage。 */
+export interface RuntimeSubagentSnapshot extends SubagentInfo {
+	readonly usage: RuntimeSubagentUsageSnapshot;
+}
+
+/** 后台 bash 与 subagent 的统一宿主控制面；对应现有后台工作面板。 */
+export interface RuntimeSessionBackgroundWorkController {
+	clearFinished(): number;
+	killTask(taskId: string): boolean;
+	readTasks(): readonly BackgroundTaskInfo[];
+	readSubagents(): readonly RuntimeSubagentSnapshot[];
+	interruptSubagent(target: string): RuntimeSubagentSnapshot | undefined;
+}
+
+/** Todo 状态读取与受锁保护的清空命令。 */
+export interface RuntimeSessionTodoController {
+	readItems(): readonly TodoItem[];
+	clear(): boolean;
 }
 
 export interface RuntimeSessionCorePorts {

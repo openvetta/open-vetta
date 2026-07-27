@@ -10,6 +10,7 @@ import type {
 } from "../contracts.js";
 import type { RuntimeHostSessionBackend, RuntimeSession, RuntimeSessionBackend } from "./session-backend.js";
 import type {
+	RuntimeSessionBackgroundWorkController,
 	RuntimeSessionEventStream,
 	RuntimeSessionExecutionController,
 	RuntimeSessionHistoryController,
@@ -19,6 +20,7 @@ import type {
 	RuntimeSessionModelController,
 	RuntimeSessionModelView,
 	RuntimeSessionStateReader,
+	RuntimeSessionTodoController,
 	RuntimeSessionTurnControl,
 	RuntimeSessionWorkspaceView,
 } from "./session-ports.js";
@@ -31,6 +33,8 @@ export interface SessionHandle {
 	hostInteraction: RuntimeSessionHostInteraction;
 	executionController: RuntimeSessionExecutionController;
 	workspaceView: RuntimeSessionWorkspaceView;
+	backgroundWorkController: RuntimeSessionBackgroundWorkController;
+	todoController: RuntimeSessionTodoController;
 	modelController: RuntimeSessionModelController;
 	modelView: RuntimeSessionModelView;
 	turnControl: RuntimeSessionTurnControl;

@@ -2,6 +2,7 @@ import type { Api, Model } from "@vetta/ai";
 import type { AgentSessionEvent } from "@vetta/coding-agent";
 import { describe, expect, it, vi } from "vitest";
 import {
+	type BackgroundTaskInfo,
 	type HistoryEntry,
 	RuntimeHost,
 	type RuntimeHostSessionAssembly,
@@ -10,7 +11,9 @@ import {
 	type RuntimeSessionBackend,
 	type RuntimeSessionCorePorts,
 	type RuntimeSessionCreateOptions,
+	type RuntimeSubagentSnapshot,
 	type SessionEvent,
+	type TodoItem,
 } from "../../src/index.js";
 
 function createSessionDouble() {
@@ -21,6 +24,15 @@ function createSessionDouble() {
 	const abort = vi.fn(async () => {});
 	const getCwd = vi.fn(() => undefined);
 	const reconfigureCustomTools = vi.fn();
+	const clearFinishedBackgroundTasks = vi.fn(() => 0);
+	const killBackgroundTask = vi.fn(() => false);
+	const listBackgroundTasks = vi.fn(() => []);
+	const listSubagents = vi.fn(() => []);
+	const interruptSubagent = vi.fn(() => undefined);
+	const clearFinishedSubagents = vi.fn(() => 0);
+	const getTodos = vi.fn(() => []);
+	const isTodoLocked = vi.fn(() => false);
+	const clearTodos = vi.fn();
 	const session = {
 		sessionId: "session-from-backend",
 		sessionFile: "session.jsonl",
@@ -39,8 +51,18 @@ function createSessionDouble() {
 		getContextUsage: () => ({ percent: 25, contextWindow: 8_000 }),
 		getActiveToolNames: () => ["read"],
 		todoStore: {
-			getAll: () => [],
+			getAll: getTodos,
+			isLocked: isTodoLocked,
+			clear: clearTodos,
 		},
+		backgroundTasks: {
+			clearFinished: clearFinishedBackgroundTasks,
+			kill: killBackgroundTask,
+			list: listBackgroundTasks,
+		},
+		listSubagents,
+		interruptSubagent,
+		clearFinishedSubagents,
 		prompt,
 		agent: {
 			continue: continueTurn,
@@ -65,6 +87,15 @@ function createSessionDouble() {
 		abort,
 		getCwd,
 		reconfigureCustomTools,
+		clearFinishedBackgroundTasks,
+		killBackgroundTask,
+		listBackgroundTasks,
+		listSubagents,
+		interruptSubagent,
+		clearFinishedSubagents,
+		getTodos,
+		isTodoLocked,
+		clearTodos,
 		emit: (event: AgentSessionEvent) => {
 			for (const listener of listeners) listener(event);
 		},
@@ -214,6 +245,36 @@ describe("RuntimeHost session backend boundary", () => {
 		const isBusy = vi.fn(() => busy);
 		const reconfigureExecution = vi.fn();
 		const readWorkingDirectory = vi.fn(() => undefined);
+		const backgroundTask: BackgroundTaskInfo = {
+			id: "task-1",
+			command: "echo work",
+			cwd: "C:/workspace",
+			status: "running",
+			outputFile: "C:/workspace/task.log",
+			exitCode: undefined,
+			startedAt: 1,
+			tail: "work",
+		};
+		const subagent: RuntimeSubagentSnapshot = {
+			id: "agent-1",
+			taskName: "worker",
+			path: "/worker",
+			agentType: "coding",
+			status: "running",
+			task: "work",
+			parentSessionId: "assembly-session",
+			startedAt: 2,
+			generation: 0,
+			usage: { input: 1, output: 2, cacheRead: 3, cacheWrite: 4, costTotal: 0.5 },
+		};
+		const todoItems: TodoItem[] = [{ id: 1, content: "work", status: "pending" }];
+		const clearFinishedWork = vi.fn(() => 3);
+		const killTask = vi.fn(() => true);
+		const readTasks = vi.fn(() => [backgroundTask]);
+		const readSubagents = vi.fn(() => [subagent]);
+		const interruptWorkSubagent = vi.fn(() => subagent);
+		const readTodoItems = vi.fn(() => todoItems);
+		const clearTodoItems = vi.fn(() => true);
 		const backend = new RecordingAssemblyBackend({
 			session: sessionDouble.session,
 			lifecycle: {
@@ -233,12 +294,22 @@ describe("RuntimeHost session backend boundary", () => {
 			hostInteraction: { bind: bindHostInteraction },
 			executionController: { isBusy, reconfigure: reconfigureExecution },
 			workspaceView: { readWorkingDirectory },
+			backgroundWorkController: {
+				clearFinished: clearFinishedWork,
+				killTask,
+				readTasks,
+				readSubagents,
+				interruptSubagent: interruptWorkSubagent,
+			},
+			todoController: { readItems: readTodoItems, clear: clearTodoItems },
 			modelController: { selectModel, setThinkingLevel, refreshAuth },
 			modelView: { readCurrentModel, refreshAvailableModels, readAvailableModels, resolveApiKey },
 			corePorts,
 		});
 		const host = new RuntimeHost({ sessionBackend: backend, getDefaultExecutionMode: () => "full-access" });
 		const { sessionId } = await host.createSession();
+		const replayedEvents: SessionEvent[] = [];
+		const unsubscribe = host.subscribe(sessionId, (event) => replayedEvents.push(event));
 
 		await host.prompt(sessionId, {
 			text: "through port",
@@ -256,6 +327,8 @@ describe("RuntimeHost session backend boundary", () => {
 		expect(sessionId).toBe("assembly-session");
 		expect(bindHostInteraction).toHaveBeenCalledOnce();
 		expect(readWorkingDirectory).toHaveBeenCalledOnce();
+		expect(replayedEvents.map((event) => event.type)).toEqual(["session.lifecycle", "todo_update"]);
+		expect(replayedEvents[1]).toMatchObject({ type: "todo_update", items: todoItems });
 		expect(prompt).toHaveBeenCalledWith({
 			text: "through port",
 			images: undefined,
@@ -298,6 +371,19 @@ describe("RuntimeHost session backend boundary", () => {
 		expect(forkSession).toHaveBeenCalledWith("fork-entry");
 		expect(setName).toHaveBeenNthCalledWith(1, "renamed by id");
 		expect(setName).toHaveBeenNthCalledWith(2, "renamed by path");
+		expect(host.listBackgroundTasks(sessionId)).toEqual([backgroundTask]);
+		expect(host.listSubagents(sessionId)).toEqual([subagent]);
+		expect(host.killBackgroundTask(sessionId, "task-1")).toBe(true);
+		expect(host.interruptSubagent(sessionId, "worker")).toEqual(subagent);
+		expect(host.clearFinishedBackgroundTasks(sessionId)).toBe(3);
+		expect(await host.clearTodos(sessionId)).toBe(true);
+		expect(killTask).toHaveBeenCalledWith("task-1");
+		expect(interruptWorkSubagent).toHaveBeenCalledWith("worker");
+		expect(clearFinishedWork).toHaveBeenCalledOnce();
+		expect(clearTodoItems).toHaveBeenCalledOnce();
+		expect(sessionDouble.listBackgroundTasks).not.toHaveBeenCalled();
+		expect(sessionDouble.listSubagents).not.toHaveBeenCalled();
+		expect(sessionDouble.getTodos).not.toHaveBeenCalled();
 
 		await host.setExecutionMode(sessionId, "sandbox");
 		expect(reconfigureExecution).toHaveBeenCalledWith({
@@ -323,6 +409,7 @@ describe("RuntimeHost session backend boundary", () => {
 		expect(sessionDouble.session.bindExtensions).not.toHaveBeenCalled();
 
 		await host.disposeSession(sessionId);
+		unsubscribe();
 		expect(dispose).toHaveBeenCalledOnce();
 		expect(sessionDouble.session.dispose).not.toHaveBeenCalled();
 	});

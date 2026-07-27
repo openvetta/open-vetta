@@ -25,6 +25,7 @@ export {
 export { mapGreenfieldKernelEventToSessionEvents } from "./greenfield-session-events.js";
 export {
 	createLegacyRuntimeSessionCorePorts,
+	LegacyRuntimeSessionBackgroundWorkController,
 	LegacyRuntimeSessionEventStream,
 	LegacyRuntimeSessionExecutionController,
 	LegacyRuntimeSessionHistoryController,
@@ -34,6 +35,7 @@ export {
 	LegacyRuntimeSessionModelController,
 	LegacyRuntimeSessionModelView,
 	LegacyRuntimeSessionStateReader,
+	LegacyRuntimeSessionTodoController,
 	LegacyRuntimeSessionTurnControl,
 	LegacyRuntimeSessionWorkspaceView,
 } from "./legacy-session-ports.js";
@@ -55,6 +57,7 @@ export { mapRuntimeSessionObservationEvent } from "./session-events.js";
 export type {
 	RuntimeExecutionModeUpdate,
 	RuntimeModelSelectionStrategy,
+	RuntimeSessionBackgroundWorkController,
 	RuntimeSessionCorePorts,
 	RuntimeSessionEventStream,
 	RuntimeSessionExecutionController,
@@ -67,8 +70,11 @@ export type {
 	RuntimeSessionModelView,
 	RuntimeSessionState,
 	RuntimeSessionStateReader,
+	RuntimeSessionTodoController,
 	RuntimeSessionTurnControl,
 	RuntimeSessionWorkspaceView,
+	RuntimeSubagentSnapshot,
+	RuntimeSubagentUsageSnapshot,
 	RuntimeTurnPrompt,
 } from "./session-ports.js";
 export type { RunningChangedReason, RuntimeHostOptions } from "./types.js";

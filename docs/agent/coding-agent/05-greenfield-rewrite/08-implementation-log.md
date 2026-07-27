@@ -53,6 +53,7 @@
 | [43-session-model-view.md](./08-implementation-log/43-session-model-view.md) | 模型只读视图、外围候选行为基线与 Assembly 交付 |
 | [44-session-host-interaction.md](./08-implementation-log/44-session-host-interaction.md) | 独立宿主交互合同、旧 Extension UI 适配与重绑定语义 |
 | [45-session-execution-and-workspace.md](./08-implementation-log/45-session-execution-and-workspace.md) | 工作目录视图、执行模式控制与旧工具重配置适配 |
+| [46-session-work-management.md](./08-implementation-log/46-session-work-management.md) | 后台工作、subagent、todo 稳定合同与 Assembly 交付 |
 
 ## 维护约定
 

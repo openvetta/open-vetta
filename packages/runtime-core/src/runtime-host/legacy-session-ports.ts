@@ -9,6 +9,7 @@ import { mapAgentSessionEvent } from "./session-events.js";
 import type {
 	RuntimeExecutionModeUpdate,
 	RuntimeModelSelectionStrategy,
+	RuntimeSessionBackgroundWorkController,
 	RuntimeSessionCorePorts,
 	RuntimeSessionEventStream,
 	RuntimeSessionExecutionController,
@@ -21,8 +22,10 @@ import type {
 	RuntimeSessionModelView,
 	RuntimeSessionState,
 	RuntimeSessionStateReader,
+	RuntimeSessionTodoController,
 	RuntimeSessionTurnControl,
 	RuntimeSessionWorkspaceView,
+	RuntimeSubagentSnapshot,
 	RuntimeTurnPrompt,
 } from "./session-ports.js";
 
@@ -274,6 +277,48 @@ export class LegacyRuntimeSessionWorkspaceView implements RuntimeSessionWorkspac
 
 	readWorkingDirectory(): string | undefined {
 		return this.session.sessionManager.getCwd();
+	}
+}
+
+export class LegacyRuntimeSessionBackgroundWorkController implements RuntimeSessionBackgroundWorkController {
+	constructor(private readonly session: RuntimeSession) {}
+
+	clearFinished(): number {
+		const backgroundTasks = this.session.backgroundTasks.clearFinished();
+		const subagents = this.session.clearFinishedSubagents();
+		return backgroundTasks + subagents;
+	}
+
+	killTask(taskId: string): boolean {
+		return this.session.backgroundTasks.kill(taskId, "user");
+	}
+
+	readTasks(): ReturnType<RuntimeSessionBackgroundWorkController["readTasks"]> {
+		return [...this.session.backgroundTasks.list()];
+	}
+
+	readSubagents(): readonly RuntimeSubagentSnapshot[] {
+		return [...this.session.listSubagents()];
+	}
+
+	interruptSubagent(target: string): RuntimeSubagentSnapshot | undefined {
+		return this.session.interruptSubagent(target);
+	}
+}
+
+export class LegacyRuntimeSessionTodoController implements RuntimeSessionTodoController {
+	constructor(private readonly session: RuntimeSession) {}
+
+	readItems(): ReturnType<RuntimeSessionTodoController["readItems"]> {
+		return [...this.session.todoStore.getAll()];
+	}
+
+	clear(): boolean {
+		const store = this.session.todoStore;
+		if (store.isLocked()) return false;
+		if (store.getAll().length === 0) return false;
+		store.clear();
+		return true;
 	}
 }
 

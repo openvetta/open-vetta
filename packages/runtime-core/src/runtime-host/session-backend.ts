@@ -1,6 +1,7 @@
 import { type AgentSession, type CreateAgentSessionOptions, createAgentSession } from "@vetta/coding-agent";
 import {
 	createLegacyRuntimeSessionCorePorts,
+	LegacyRuntimeSessionBackgroundWorkController,
 	LegacyRuntimeSessionExecutionController,
 	LegacyRuntimeSessionHistoryController,
 	LegacyRuntimeSessionHistoryReader,
@@ -8,9 +9,11 @@ import {
 	LegacyRuntimeSessionIdentityLifecycle,
 	LegacyRuntimeSessionModelController,
 	LegacyRuntimeSessionModelView,
+	LegacyRuntimeSessionTodoController,
 	LegacyRuntimeSessionWorkspaceView,
 } from "./legacy-session-ports.js";
 import type {
+	RuntimeSessionBackgroundWorkController,
 	RuntimeSessionCorePorts,
 	RuntimeSessionExecutionController,
 	RuntimeSessionHistoryController,
@@ -19,6 +22,7 @@ import type {
 	RuntimeSessionIdentityLifecycle,
 	RuntimeSessionModelController,
 	RuntimeSessionModelView,
+	RuntimeSessionTodoController,
 	RuntimeSessionWorkspaceView,
 } from "./session-ports.js";
 
@@ -51,6 +55,8 @@ export interface RuntimeHostSessionAssembly {
 	readonly hostInteraction: RuntimeSessionHostInteraction;
 	readonly executionController: RuntimeSessionExecutionController;
 	readonly workspaceView: RuntimeSessionWorkspaceView;
+	readonly backgroundWorkController: RuntimeSessionBackgroundWorkController;
+	readonly todoController: RuntimeSessionTodoController;
 	readonly modelController: RuntimeSessionModelController;
 	readonly modelView: RuntimeSessionModelView;
 	readonly corePorts: RuntimeSessionCorePorts;
@@ -99,6 +105,8 @@ export function createLegacyRuntimeHostSessionAssembly(session: RuntimeSession):
 		hostInteraction: new LegacyRuntimeSessionHostInteraction(session),
 		executionController: new LegacyRuntimeSessionExecutionController(session),
 		workspaceView: new LegacyRuntimeSessionWorkspaceView(session),
+		backgroundWorkController: new LegacyRuntimeSessionBackgroundWorkController(session),
+		todoController: new LegacyRuntimeSessionTodoController(session),
 		modelController: new LegacyRuntimeSessionModelController(session),
 		modelView: new LegacyRuntimeSessionModelView(session),
 		corePorts: createLegacyRuntimeSessionCorePorts(session),
