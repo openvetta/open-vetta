@@ -10,4 +10,10 @@
  * - types.ts             共享类型
  */
 export { RuntimeHost } from "./runtime-host.js";
+export type {
+	RuntimeSession,
+	RuntimeSessionBackend,
+	RuntimeSessionCreateOptions,
+} from "./session-backend.js";
+export { LegacyCodingAgentSessionBackend } from "./session-backend.js";
 export type { RunningChangedReason, RuntimeHostOptions } from "./types.js";

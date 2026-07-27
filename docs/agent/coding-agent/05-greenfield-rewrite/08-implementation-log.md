@@ -40,6 +40,7 @@
 | [30-runtime-dir-tree.md](./08-implementation-log/30-runtime-dir-tree.md) | Dir Tree 行为兼容、独立 Runtime 实现与 Profile 接入 |
 | [31-runtime-write.md](./08-implementation-log/31-runtime-write.md) | Write 行为兼容、宿主路径策略与独立 Runtime 实现 |
 | [32-runtime-edit.md](./08-implementation-log/32-runtime-edit.md) | Edit 双模式行为兼容、纯编辑引擎与独立 Runtime 实现 |
+| [33-runtime-session-backend-boundary.md](./08-implementation-log/33-runtime-session-backend-boundary.md) | RuntimeHost 可注入 Session Backend 创建边界与旧实现适配器 |
 
 ## 维护约定
 

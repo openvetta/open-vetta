@@ -64,4 +64,9 @@ export type {
 	UsageUpdateEvent,
 } from "./contracts.js";
 export { RUNTIME_ERROR_CODES, runtimeError } from "./errors.js";
-export { RuntimeHost } from "./runtime-host/index.js";
+export type {
+	RuntimeSession,
+	RuntimeSessionBackend,
+	RuntimeSessionCreateOptions,
+} from "./runtime-host/index.js";
+export { LegacyCodingAgentSessionBackend, RuntimeHost } from "./runtime-host/index.js";

@@ -4,11 +4,8 @@ import { resolve as resolvePath } from "node:path";
 import type { ThinkingLevel } from "@vetta/agent-core";
 import type { Message } from "@vetta/ai";
 import {
-	type AgentSession,
 	type SessionEntry as CodingSessionEntry,
 	type ConversationScenario,
-	type CreateAgentSessionOptions,
-	createAgentSession,
 	DEFAULT_SCENARIO,
 	type ExtensionUIContext,
 	loadEntriesFromFile,
@@ -52,6 +49,12 @@ import { buildSandboxToolDefinitions } from "../execution-mode/sandbox-tools.js"
 import { branchFromFileEntries, entriesToHistory } from "./history.js";
 import { generateAutoTitle, generateNextPromptSuggestions } from "./peripheral-tasks.js";
 import { debugPluginAgent, summarizeAgentPlugins } from "./plugin-debug.js";
+import {
+	LegacyCodingAgentSessionBackend,
+	type RuntimeSession,
+	type RuntimeSessionBackend,
+	type RuntimeSessionCreateOptions,
+} from "./session-backend.js";
 import { baseSessionEvent, lifecycleSessionEvent, mapAgentSessionEvent } from "./session-events.js";
 import type { InFlightBuffer, RunningChangedReason, RuntimeHostOptions, SessionHandle } from "./types.js";
 
@@ -95,6 +98,7 @@ export class RuntimeHost implements SessionFacade {
 	private readonly macosSandboxExecPath: string | undefined;
 	private readonly serverUrl: string | undefined;
 	private readonly modelRegistry: ModelRegistry | undefined;
+	private readonly sessionBackend: RuntimeSessionBackend;
 	private userConfirmationHandler:
 		| ((request: RuntimeUserConfirmationRequest, signal?: AbortSignal) => Promise<boolean>)
 		| undefined;
@@ -116,6 +120,7 @@ export class RuntimeHost implements SessionFacade {
 		this.macosSandboxExecPath = options.macosSandboxExecPath;
 		this.serverUrl = options.serverUrl;
 		this.modelRegistry = options.modelRegistry;
+		this.sessionBackend = options.sessionBackend ?? new LegacyCodingAgentSessionBackend();
 		this.userConfirmationHandler = options.userConfirmationHandler;
 		this.userQuestionHandler = options.userQuestionHandler;
 		this.userSandboxGrantHandler = options.userSandboxGrantHandler;
@@ -344,7 +349,7 @@ export class RuntimeHost implements SessionFacade {
 			hasPluginToolInvoker: this.pluginToolInvoker != null,
 			...summarizeAgentPlugins(config.agentPlugins),
 		});
-		const options: CreateAgentSessionOptions = {
+		const options: RuntimeSessionCreateOptions = {
 			cwd: config.cwd,
 			agentDir: config.agentDir,
 			sessionManager,
@@ -403,7 +408,7 @@ export class RuntimeHost implements SessionFacade {
 			modelRegistry: this.modelRegistry,
 		};
 
-		const { session } = await createAgentSession(options);
+		const session = await this.sessionBackend.create(options);
 		const sessionId = session.sessionId;
 		sessionIdRef.current = sessionId;
 		await session.bindExtensions({ uiContext: this.createExtensionUIContext(sessionIdRef) });
@@ -441,7 +446,7 @@ export class RuntimeHost implements SessionFacade {
 	 * buffer regardless of whether any external subscriber is connected. Replayed
 	 * by `subscribe()` so a re-subscribing renderer sees prior in-flight content.
 	 */
-	private attachInFlightBuffer(sessionId: string, session: AgentSession): void {
+	private attachInFlightBuffer(sessionId: string, session: RuntimeSession): void {
 		const buffer: InFlightBuffer = {
 			turnStartedAt: 0,
 			text: "",
@@ -511,8 +516,8 @@ export class RuntimeHost implements SessionFacade {
 		if (handle.executionMode === mode) return;
 		this.assertCanSwitchExecutionMode(handle);
 
-		const sessionAny = handle.session as AgentSession & {
-			reconfigureCustomTools?: (customTools: CreateAgentSessionOptions["customTools"]) => void;
+		const sessionAny = handle.session as RuntimeSession & {
+			reconfigureCustomTools?: (customTools: RuntimeSessionCreateOptions["customTools"]) => void;
 		};
 		if (typeof sessionAny.reconfigureCustomTools !== "function") {
 			throw runtimeError("INTERNAL_ERROR", "Session does not support execution mode reconfiguration.", false);
@@ -1163,7 +1168,7 @@ export class RuntimeHost implements SessionFacade {
 		executionMode: SessionExecutionMode,
 		cwd: string,
 		getSessionId: () => string | undefined,
-	): CreateAgentSessionOptions["customTools"] {
+	): RuntimeSessionCreateOptions["customTools"] {
 		if (executionMode !== "sandbox") return undefined;
 		return buildSandboxToolDefinitions({
 			cwd,

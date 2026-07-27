@@ -1,4 +1,4 @@
-import type { AgentSession, ConversationScenario, ModelRegistry } from "@vetta/coding-agent";
+import type { ConversationScenario, ModelRegistry } from "@vetta/coding-agent";
 import type {
 	AgentPluginRuntimeConfig,
 	RuntimeSandboxGrantDecision,
@@ -8,9 +8,10 @@ import type {
 	RuntimeUserQuestionResult,
 	SessionExecutionMode,
 } from "../contracts.js";
+import type { RuntimeSession, RuntimeSessionBackend } from "./session-backend.js";
 
 export interface SessionHandle {
-	session: AgentSession;
+	session: RuntimeSession;
 	executionMode: SessionExecutionMode;
 	agentPluginsEnabled: boolean;
 	pendingAgentPlugins: AgentPluginRuntimeConfig | undefined;
@@ -55,6 +56,11 @@ export interface InFlightBuffer {
 export type RunningChangedReason = "agent_end" | "aborted" | "error";
 
 export interface RuntimeHostOptions {
+	/**
+	 * 会话创建后端。默认使用 LegacyCodingAgentSessionBackend，因此不改变现有
+	 * production 行为；测试和后续 greenfield 迁移可在组合根显式注入其他实现。
+	 */
+	sessionBackend?: RuntimeSessionBackend;
 	getDefaultExecutionMode?: () => SessionExecutionMode | Promise<SessionExecutionMode>;
 	additionalSkillPaths?: string[];
 	sandboxHostPath?: string;
