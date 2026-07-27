@@ -5,10 +5,9 @@ import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { CapabilitiesTour } from "@shared/tour";
 import { SettingsAiAssist } from "../../settings/ai-assist";
-import type { AbilitiesModel, AbilityScope } from "../types";
+import { ABILITY_CATEGORY_UNCATEGORIZED, type AbilitiesModel, type AbilityScope } from "../types";
 import { AbilitiesBanner } from "./AbilitiesBanner";
 import { AbilityCard } from "./AbilityCard";
-import { AbilityFilterBar } from "./AbilityFilterBar";
 import { AbilityMcpDialogs } from "./AbilityMcpDialogs";
 import { AddAbilityMenu } from "./AddAbilityMenu";
 
@@ -99,8 +98,6 @@ export function AbilitiesPageView({ model }: { model: AbilitiesModel }): JSX.Ele
 						</div>
 					</div>
 
-					<AbilityFilterBar model={model} />
-
 					{model.errors.length > 0 && (
 						<div className="flex items-start gap-2 rounded-lg bg-muted/60 px-3 py-2 text-[12px] text-muted-foreground/70">
 							<span className="icon-[solar--info-circle-linear] mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -136,9 +133,25 @@ export function AbilitiesPageView({ model }: { model: AbilitiesModel }): JSX.Ele
 								</div>
 							</div>
 						) : (
-							<div className="grid grid-cols-2 gap-x-3 gap-y-0.5 lg:grid-cols-3">
-								{model.items.map((item) => (
-									<AbilityCard key={item.id} item={item} model={model} />
+							<div className="flex flex-col gap-6">
+								{model.groups.map((group) => (
+									<section key={group.category} className="flex flex-col gap-2">
+										<div className="flex items-baseline gap-2">
+											<h2 className="text-[13px] font-semibold text-foreground/90">
+												{group.category === ABILITY_CATEGORY_UNCATEGORIZED
+													? t("group.uncategorized")
+													: group.category}
+											</h2>
+											<span className="text-[11px] tabular-nums text-muted-foreground/50">
+												{group.items.length}
+											</span>
+										</div>
+										<div className="grid grid-cols-2 gap-x-3 gap-y-0.5 lg:grid-cols-3">
+											{group.items.map((item) => (
+												<AbilityCard key={item.id} item={item} model={model} />
+											))}
+										</div>
+									</section>
 								))}
 							</div>
 						)}

@@ -9,13 +9,7 @@ import type { BuiltinMcpPreset } from "../settings/mcp/builtin-mcp-presets";
 
 export type AbilityScope = "discover" | "mine";
 
-/** 类型筛选轴取值；`all` 为不过滤。 */
-export type AbilityTypeFilter = AbilityType | "all";
-
-export const ABILITY_TYPES: readonly AbilityType[] = ["skill", "scene", "mcp", "plugin", "bundle"];
-
-/** 分类筛选轴：`all` 为不过滤，`uncategorized` 为未分类。 */
-export const ABILITY_CATEGORY_ALL = "__all__";
+/** 分组 key：无分类的条目归到这一组。 */
 export const ABILITY_CATEGORY_UNCATEGORIZED = "__uncategorized__";
 
 export interface AbilityBase {
@@ -95,6 +89,12 @@ export interface BundleAbility extends AbilityBase {
 
 export type AbilityItem = SkillAbility | McpAbility | PluginAbility | BundleAbility;
 
+/** 列表分组：按能力分类聚合，`category` 为 `ABILITY_CATEGORY_UNCATEGORIZED` 时表示未分类。 */
+export interface AbilityGroup {
+	category: string;
+	items: AbilityItem[];
+}
+
 /** Banner 轮播图标源（与「发现」列表同源）。 */
 export interface AbilityBannerIcon {
 	id: string;
@@ -106,18 +106,12 @@ export interface AbilityBannerIcon {
 export interface AbilitiesModel {
 	scope: AbilityScope;
 	setScope: (scope: AbilityScope) => void;
-	typeFilter: AbilityTypeFilter;
-	setTypeFilter: (value: AbilityTypeFilter) => void;
-	categoryFilter: string;
-	setCategoryFilter: (value: string) => void;
 	searchQuery: string;
 	setSearchQuery: (value: string) => void;
-	/** 当前 scope 下可选的分类（含未分类），已去重排序。 */
-	categories: string[];
-	/** 当前 scope 下各 type 的条目数，用于类型筛选计数。 */
-	typeCounts: Record<AbilityType, number>;
-	/** 经 scope + 分类 + 类型 + 搜索过滤后的结果。 */
+	/** 经 scope + 搜索过滤后的结果。 */
 	items: AbilityItem[];
+	/** items 按分类聚合；分类名升序，未分类置底。 */
+	groups: AbilityGroup[];
 	/** 未经任何过滤的全集，供详情页按 id 查找。 */
 	allItems: AbilityItem[];
 	bannerIcons: AbilityBannerIcon[];

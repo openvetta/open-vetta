@@ -1,8 +1,7 @@
 /**
- * 能力页统一模型：数据源（useAbilityData）+ 操作层（useAbilityActions）+ 正交两轴过滤。
+ * 能力页统一模型：数据源（useAbilityData）+ 操作层（useAbilityActions）+ 搜索过滤。
  * 五种 type 共用同一份条目集合，列表页与详情页都从这里取。
  */
-import type { AbilityType } from "@shared/lib/api";
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { usePluginTextResolver } from "../../plugins/runtime/plugin-i18n";
@@ -15,14 +14,12 @@ import {
 	type LocalAbilityState,
 } from "../lib/build-ability-items";
 import {
-	ABILITY_CATEGORY_ALL,
 	ABILITY_CATEGORY_UNCATEGORIZED,
-	ABILITY_TYPES,
 	type AbilitiesModel,
 	type AbilityBannerIcon,
+	type AbilityGroup,
 	type AbilityItem,
 	type AbilityScope,
-	type AbilityTypeFilter,
 } from "../types";
 import { useAbilityActions } from "./useAbilityActions";
 import { useAbilityData } from "./useAbilityData";
@@ -43,8 +40,6 @@ function matchesScope(item: AbilityItem, scope: AbilityScope): boolean {
 export function useAbilitiesModel(): AbilitiesModel {
 	const { t } = useTranslation("settings");
 	const [scope, setScope] = useState<AbilityScope>("discover");
-	const [typeFilter, setTypeFilter] = useState<AbilityTypeFilter>("all");
-	const [categoryFilter, setCategoryFilter] = useState<string>(ABILITY_CATEGORY_ALL);
 	const [searchQuery, setSearchQuery] = useState("");
 
 	const data = useAbilityData();
@@ -84,37 +79,31 @@ export function useAbilitiesModel(): AbilitiesModel {
 
 	const scoped = useMemo(() => allItems.filter((item) => matchesScope(item, scope)), [allItems, scope]);
 
-	const categories = useMemo(() => {
-		const named = new Set<string>();
-		let hasUncategorized = false;
-		for (const item of scoped) {
-			if (item.category) named.add(item.category);
-			else hasUncategorized = true;
-		}
-		const sorted = Array.from(named).sort((a, b) => a.localeCompare(b));
-		return hasUncategorized ? [...sorted, ABILITY_CATEGORY_UNCATEGORIZED] : sorted;
-	}, [scoped]);
-
-	const typeCounts = useMemo(() => {
-		const counts = Object.fromEntries(ABILITY_TYPES.map((type) => [type, 0])) as Record<AbilityType, number>;
-		for (const item of scoped) counts[item.type] += 1;
-		return counts;
-	}, [scoped]);
-
 	const items = useMemo(() => {
 		const normalized = searchQuery.trim().toLowerCase();
 		return scoped
 			.filter((item) => {
-				if (typeFilter !== "all" && item.type !== typeFilter) return false;
-				if (categoryFilter !== ABILITY_CATEGORY_ALL) {
-					const itemCategory = item.category || ABILITY_CATEGORY_UNCATEGORIZED;
-					if (itemCategory !== categoryFilter) return false;
-				}
 				if (!normalized) return true;
 				return item.searchTerms.some((term) => term.toLowerCase().includes(normalized));
 			})
 			.sort(compareAbilities);
-	}, [categoryFilter, scoped, searchQuery, typeFilter]);
+	}, [scoped, searchQuery]);
+
+	const groups = useMemo<AbilityGroup[]>(() => {
+		const byCategory = new Map<string, AbilityItem[]>();
+		for (const item of items) {
+			const key = item.category || ABILITY_CATEGORY_UNCATEGORIZED;
+			const bucket = byCategory.get(key);
+			if (bucket) bucket.push(item);
+			else byCategory.set(key, [item]);
+		}
+		const uncategorized = byCategory.get(ABILITY_CATEGORY_UNCATEGORIZED);
+		byCategory.delete(ABILITY_CATEGORY_UNCATEGORIZED);
+		const sorted = Array.from(byCategory.entries())
+			.sort(([a], [b]) => a.localeCompare(b))
+			.map(([category, list]) => ({ category, items: list }));
+		return uncategorized ? [...sorted, { category: ABILITY_CATEGORY_UNCATEGORIZED, items: uncategorized }] : sorted;
+	}, [items]);
 
 	const bannerIcons = useMemo<AbilityBannerIcon[]>(
 		() =>
@@ -132,15 +121,10 @@ export function useAbilitiesModel(): AbilitiesModel {
 	return {
 		scope,
 		setScope,
-		typeFilter,
-		setTypeFilter,
-		categoryFilter,
-		setCategoryFilter,
 		searchQuery,
 		setSearchQuery,
-		categories,
-		typeCounts,
 		items,
+		groups,
 		allItems,
 		bannerIcons,
 		loading: data.loading || mcp.config === null,
