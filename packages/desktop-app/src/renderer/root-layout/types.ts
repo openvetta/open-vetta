@@ -12,5 +12,6 @@ export interface RootLayoutModel {
 	narrow: boolean;
 	onOpenSession: SidebarProps["onOpenSession"];
 	overlayOpen: boolean;
+	routePending: boolean;
 	sidebarCollapsed: boolean;
 }

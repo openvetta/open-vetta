@@ -1,5 +1,6 @@
 import { Outlet } from "@tanstack/react-router";
 import { ThemeSurface } from "@vetta/theme-ui/appearance";
+import { RouteContentLoadingView } from "@vetta/theme-ui/app";
 import { AppFrame, MainContentFrame, SidebarDock, SidebarOverlay } from "@vetta/theme-ui/layout";
 import { useThemeComponent, useThemeSurface } from "@vetta/theme-sdk";
 import { useCallback } from "react";
@@ -26,6 +27,7 @@ export function RootLayoutView({ model }: RootLayoutViewProps): JSX.Element {
 		narrow,
 		onOpenSession,
 		overlayOpen,
+		routePending,
 		sidebarCollapsed,
 	} = model;
 	const showSidebar = pageLayout !== "app";
@@ -67,11 +69,11 @@ export function RootLayoutView({ model }: RootLayoutViewProps): JSX.Element {
 				)}
 				{pageLayout === "app" ? (
 					<div className="flex min-h-0 min-w-[320px] flex-1 overflow-visible">
-						<Outlet />
+						{routePending ? <RouteContentLoadingView /> : <Outlet />}
 					</div>
 				) : (
 					<MainContentFrame header={pageHeader}>
-						<Outlet />
+						{routePending ? <RouteContentLoadingView /> : <Outlet />}
 					</MainContentFrame>
 				)}
 				<RootGlobalOverlays />

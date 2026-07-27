@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useRef, type JSX, type ReactNode } from "react";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { ShowMoreSessionsButton } from "../sidebar/ShowMoreSessionsButton";
+import { ProjectSessionsLoadingView } from "./ProjectSessionsLoadingView";
 import {
 	VIRTUAL_SESSION_OVERSCAN,
 	VIRTUAL_SESSION_ROW_HEIGHT,
@@ -22,6 +23,7 @@ export interface ProjectSessionsViewProps<T extends ProjectSessionsViewItem> {
 	empty: ReactNode;
 	expanded: boolean;
 	hasMore: boolean;
+	loading?: boolean;
 	labels: ProjectSessionsViewLabels;
 	onToggleShowAll: () => void;
 	/** Scroll parent for Virtuoso when showAll. */
@@ -35,6 +37,7 @@ export function ProjectSessionsView<T extends ProjectSessionsViewItem>({
 	empty,
 	expanded,
 	hasMore,
+	loading = false,
 	labels,
 	onToggleShowAll,
 	scrollParent,
@@ -60,7 +63,9 @@ export function ProjectSessionsView<T extends ProjectSessionsViewItem>({
 					style={{ overflow: "hidden" }}
 				>
 					<div className="mt-px space-y-px">
-						{sessions.length === 0 ? (
+						{loading ? (
+							<ProjectSessionsLoadingView />
+						) : sessions.length === 0 ? (
 							empty
 						) : useVirtual ? (
 							<Virtuoso

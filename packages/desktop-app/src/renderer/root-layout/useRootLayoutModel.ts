@@ -405,6 +405,10 @@ export function useRootLayoutModel(): RootLayoutModel {
 		narrow,
 		onOpenSession: openSession,
 		overlayOpen,
+		routePending:
+			currentPath === "/" &&
+			!activeSession &&
+			(sessionRestoreState !== "complete" || Boolean(defaultConversationCwd)),
 		sidebarCollapsed,
 	};
 }

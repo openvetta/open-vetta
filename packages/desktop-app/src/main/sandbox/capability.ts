@@ -1,4 +1,4 @@
-import { type SpawnSyncReturns, spawnSync } from "node:child_process";
+import { execFile, spawnSync } from "node:child_process";
 import { accessSync, constants, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { isAbsolute, join, resolve as resolvePath } from "node:path";
@@ -55,11 +55,19 @@ interface WindowsHostCapabilitiesJson {
 	limitedReasons: string[];
 }
 
+interface WindowsProbeResult {
+	status: number | null;
+	stdout: string;
+	stderr: string;
+	error?: NodeJS.ErrnoException;
+}
+
 let sandboxCapability: SandboxCapability = {
 	status: "unknown",
 	backend: null,
 	platform: process.platform,
 };
+let sandboxInitializationPromise: Promise<SandboxCapability> | undefined;
 
 function buildLinuxProbeArgs(commandPath: string): string[] {
 	const args: string[] = ["--die-with-parent", "--new-session", "--unshare-pid", "--unshare-ipc", "--unshare-uts"];
@@ -185,13 +193,39 @@ function windowsFeaturesFromCapabilities(
 	};
 }
 
-function readWindowsHostCapabilities(
+function runWindowsHostCommand(
 	hostPath: string,
-): WindowsHostCapabilitiesJson | { error: string; details: string } {
-	const result = spawnSync(hostPath, ["--capabilities", "--json"], {
-		encoding: "utf-8",
-		timeout: 5000,
+	args: string[],
+	options: { cwd?: string; timeout: number },
+): Promise<WindowsProbeResult> {
+	return new Promise((resolve) => {
+		execFile(
+			hostPath,
+			args,
+			{
+				cwd: options.cwd,
+				encoding: "utf-8",
+				timeout: options.timeout,
+				windowsHide: true,
+			},
+			(error, stdout, stderr) => {
+				const errorCode = error?.code;
+				const status = error ? (typeof errorCode === "number" ? errorCode : null) : 0;
+				resolve({
+					status,
+					stdout,
+					stderr,
+					...(error && status === null ? { error: error as NodeJS.ErrnoException } : {}),
+				});
+			},
+		);
 	});
+}
+
+async function readWindowsHostCapabilities(
+	hostPath: string,
+): Promise<WindowsHostCapabilitiesJson | { error: string; details: string }> {
+	const result = await runWindowsHostCommand(hostPath, ["--capabilities", "--json"], { timeout: 5000 });
 	if (result.error) {
 		return {
 			error:
@@ -254,7 +288,7 @@ function runWindowsProbeCommand(options: {
 	commandCwd?: string;
 	denyReadPath?: string;
 	denyWritePath?: string;
-}): SpawnSyncReturns<string> {
+}): Promise<WindowsProbeResult> {
 	const cmdPath = resolveWindowsProbeCommandPath();
 	const commandCwd = options.commandCwd ?? options.workspaceRoot;
 	const readRoots = [options.workspaceRoot, options.tempRoot];
@@ -282,14 +316,13 @@ function runWindowsProbeCommand(options: {
 	if (options.denyReadPath) args.push("--deny-read-path", options.denyReadPath);
 	if (options.denyWritePath) args.push("--deny-write-path", options.denyWritePath);
 	args.push("--", cmdPath, "/d", "/s", "/c", options.command);
-	return spawnSync(options.hostPath, args, {
+	return runWindowsHostCommand(options.hostPath, args, {
 		cwd: commandCwd,
-		encoding: "utf-8",
 		timeout: WINDOWS_PROBE_TIMEOUT_MS,
 	});
 }
 
-function probeWindowsSandbox(): SandboxCapability {
+async function probeWindowsSandbox(): Promise<SandboxCapability> {
 	const resolved = resolveWindowsSandboxHostBinary();
 	if (!resolved) {
 		return {
@@ -302,7 +335,7 @@ function probeWindowsSandbox(): SandboxCapability {
 		};
 	}
 
-	const capabilities = readWindowsHostCapabilities(resolved.path);
+	const capabilities = await readWindowsHostCapabilities(resolved.path);
 	if ("error" in capabilities) {
 		return {
 			status: "unavailable",
@@ -337,7 +370,7 @@ function probeWindowsSandbox(): SandboxCapability {
 		mkdirSync(tempRoot, { recursive: true });
 
 		const workspaceFile = join(workspaceRoot, "ok.txt");
-		const workspaceWrite = runWindowsProbeCommand({
+		const workspaceWrite = await runWindowsProbeCommand({
 			hostPath: resolved.path,
 			workspaceRoot,
 			tempRoot,
@@ -357,7 +390,7 @@ function probeWindowsSandbox(): SandboxCapability {
 		}
 
 		const outsideFile = join(outsideRoot, "no.txt");
-		const outsideWrite = runWindowsProbeCommand({
+		const outsideWrite = await runWindowsProbeCommand({
 			hostPath: resolved.path,
 			workspaceRoot,
 			tempRoot,
@@ -377,7 +410,7 @@ function probeWindowsSandbox(): SandboxCapability {
 		}
 
 		const tempFile = join(tempRoot, "temp.txt");
-		const tempWrite = runWindowsProbeCommand({
+		const tempWrite = await runWindowsProbeCommand({
 			hostPath: resolved.path,
 			workspaceRoot,
 			tempRoot,
@@ -398,7 +431,7 @@ function probeWindowsSandbox(): SandboxCapability {
 		}
 
 		const denyWriteFile = join(workspaceRoot, "deny.txt");
-		const denyWrite = runWindowsProbeCommand({
+		const denyWrite = await runWindowsProbeCommand({
 			hostPath: resolved.path,
 			workspaceRoot,
 			tempRoot,
@@ -422,7 +455,7 @@ function probeWindowsSandbox(): SandboxCapability {
 		const secretFile = join(workspaceRoot, "secret.txt");
 		writeFileSync(secretFile, "secret", "utf8");
 		if (capabilities.denyRead) {
-			const denyReadResult = runWindowsProbeCommand({
+			const denyReadResult = await runWindowsProbeCommand({
 				hostPath: resolved.path,
 				workspaceRoot,
 				tempRoot,
@@ -569,7 +602,7 @@ function probeMacosSandbox(): SandboxCapability {
 	};
 }
 
-export async function initializeSandboxCapability(): Promise<SandboxCapability> {
+async function probeSandboxCapability(): Promise<SandboxCapability> {
 	try {
 		if (process.platform === "linux") {
 			sandboxCapability = probeLinuxSandbox();
@@ -580,7 +613,7 @@ export async function initializeSandboxCapability(): Promise<SandboxCapability> 
 			return sandboxCapability;
 		}
 		if (process.platform === "win32") {
-			sandboxCapability = probeWindowsSandbox();
+			sandboxCapability = await probeWindowsSandbox();
 			return sandboxCapability;
 		}
 
@@ -604,6 +637,14 @@ export async function initializeSandboxCapability(): Promise<SandboxCapability> 
 		};
 		return sandboxCapability;
 	}
+}
+
+export function initializeSandboxCapability(): Promise<SandboxCapability> {
+	if (sandboxInitializationPromise) return sandboxInitializationPromise;
+	sandboxInitializationPromise = probeSandboxCapability().finally(() => {
+		sandboxInitializationPromise = undefined;
+	});
+	return sandboxInitializationPromise;
 }
 
 export async function initializeLinuxSandboxCapability(): Promise<LinuxSandboxCapability> {
