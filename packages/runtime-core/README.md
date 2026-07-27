@@ -25,6 +25,7 @@ entry until downstream adapters are ready to switch.
 - backend-provided Model Controller for selection, thinking level and session-scoped auth refresh
 - backend-provided read-only Model View for input capabilities and peripheral model selection
 - backend-provided Host Interaction binding without exposing the legacy extension UI protocol
+- backend-provided Workspace View and Execution Controller without exposing SessionManager or custom tool types
 - runtime-owned tool execution and policy contracts
 
 ## What It Does Not Own
@@ -49,6 +50,7 @@ entry until downstream adapters are ready to switch.
 - `RuntimeSessionModelController` for model selection and model-related write configuration
 - `RuntimeSessionModelView` for current/available models and credential lookup without exposing the registry
 - `RuntimeSessionHostInteraction` for rebinding confirmation and sandbox-grant capabilities
+- `RuntimeSessionWorkspaceView` and `RuntimeSessionExecutionController` for cwd lookup, busy-state guards and mode changes
 - `RuntimeHostSessionAssembly` and `RuntimeHostSessionBackend` for explicit composition-root capability delivery
 - `GreenfieldRuntimeSessionBackend` for parallel Kernel composition without impersonating the legacy session
 - `resumeAgentSession` and `ConversationRecoveryPolicy` for recovery without model or tool replay

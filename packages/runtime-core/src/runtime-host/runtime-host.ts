@@ -52,7 +52,6 @@ import {
 	asRuntimeHostSessionBackend,
 	LegacyCodingAgentSessionBackend,
 	type RuntimeHostSessionBackend,
-	type RuntimeSession,
 	type RuntimeSessionCreateOptions,
 } from "./session-backend.js";
 import { baseSessionEvent, lifecycleSessionEvent } from "./session-events.js";
@@ -416,6 +415,8 @@ export class RuntimeHost implements SessionFacade {
 			historyReader,
 			historyController,
 			hostInteraction,
+			executionController,
+			workspaceView,
 			modelController,
 			modelView,
 			corePorts,
@@ -429,6 +430,8 @@ export class RuntimeHost implements SessionFacade {
 			historyReader,
 			historyController,
 			hostInteraction,
+			executionController,
+			workspaceView,
 			modelController,
 			modelView,
 			...corePorts,
@@ -532,16 +535,13 @@ export class RuntimeHost implements SessionFacade {
 		if (handle.executionMode === mode) return;
 		this.assertCanSwitchExecutionMode(handle);
 
-		const sessionAny = handle.session as RuntimeSession & {
-			reconfigureCustomTools?: (customTools: RuntimeSessionCreateOptions["customTools"]) => void;
-		};
-		if (typeof sessionAny.reconfigureCustomTools !== "function") {
-			throw runtimeError("INTERNAL_ERROR", "Session does not support execution mode reconfiguration.", false);
-		}
-
-		const cwd = handle.session.sessionManager.getCwd() ?? process.cwd();
-		const customTools = this.resolveExecutionModeTools(mode, cwd, () => sessionId);
-		sessionAny.reconfigureCustomTools(customTools);
+		handle.executionController.reconfigure({
+			mode,
+			sessionId,
+			sandboxHostPath: this.sandboxHostPath,
+			linuxBubblewrapPath: this.linuxBubblewrapPath,
+			macosSandboxExecPath: this.macosSandboxExecPath,
+		});
 		handle.executionMode = mode;
 	}
 
@@ -598,7 +598,7 @@ export class RuntimeHost implements SessionFacade {
 
 		// Session cwd (esp. desktop ADR-0007 per-session dirs) may have been deleted
 		// while the handle stayed open (clear-artifacts, manual cleanup). Heal before tools run.
-		const sessionCwd = handle.session.sessionManager.getCwd();
+		const sessionCwd = handle.workspaceView.readWorkingDirectory();
 		if (sessionCwd) {
 			try {
 				await mkdir(sessionCwd, { recursive: true });
@@ -1083,7 +1083,7 @@ export class RuntimeHost implements SessionFacade {
 
 	private async applyPendingAgentPlugins(sessionId: string, handle: SessionHandle): Promise<void> {
 		if (!handle.agentPluginsEnabled || !handle.hasPendingAgentPlugins) return;
-		if (handle.session.isStreaming || handle.session.isBashRunning) return;
+		if (handle.executionController.isBusy()) return;
 		debugPluginAgent("runtime deferred reconfigure apply", { sessionId });
 		const pendingAgentPlugins = handle.pendingAgentPlugins;
 		handle.pendingAgentPlugins = undefined;
@@ -1105,7 +1105,7 @@ export class RuntimeHost implements SessionFacade {
 	 */
 	private applyPendingAgentMode(handle: SessionHandle): void {
 		if (!handle.hasPendingAgentMode) return;
-		if (handle.session.isStreaming || handle.session.isBashRunning) return;
+		if (handle.executionController.isBusy()) return;
 		const pendingAgentMode = handle.pendingAgentMode;
 		handle.pendingAgentMode = undefined;
 		handle.hasPendingAgentMode = false;
@@ -1114,7 +1114,7 @@ export class RuntimeHost implements SessionFacade {
 	}
 
 	private assertCanSwitchExecutionMode(handle: SessionHandle): void {
-		if (handle.session.isStreaming || handle.session.isBashRunning) {
+		if (handle.executionController.isBusy()) {
 			throw runtimeError(
 				"EXECUTION_MODE_SWITCH_BLOCKED",
 				"Cannot switch execution mode while the agent is running.",

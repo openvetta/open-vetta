@@ -19,6 +19,8 @@ function createSessionDouble() {
 	const prompt = vi.fn(async () => {});
 	const continueTurn = vi.fn(async () => {});
 	const abort = vi.fn(async () => {});
+	const getCwd = vi.fn(() => undefined);
+	const reconfigureCustomTools = vi.fn();
 	const session = {
 		sessionId: "session-from-backend",
 		sessionFile: "session.jsonl",
@@ -30,7 +32,7 @@ function createSessionDouble() {
 			{ role: "custom", customType: "hidden", content: "internal", display: false, timestamp: 2 },
 		],
 		sessionManager: {
-			getCwd: () => undefined,
+			getCwd,
 			getHeader: () => ({ parentSession: "parent.jsonl", parentEntryId: "entry-1" }),
 			appendCustomEntry: vi.fn(),
 		},
@@ -44,6 +46,7 @@ function createSessionDouble() {
 			continue: continueTurn,
 		},
 		abort,
+		reconfigureCustomTools,
 		bindExtensions: vi.fn(async () => {}),
 		subscribe: vi.fn((listener: (event: AgentSessionEvent) => void) => {
 			listeners.add(listener);
@@ -60,6 +63,8 @@ function createSessionDouble() {
 		prompt,
 		continueTurn,
 		abort,
+		getCwd,
+		reconfigureCustomTools,
 		emit: (event: AgentSessionEvent) => {
 			for (const listener of listeners) listener(event);
 		},
@@ -205,6 +210,10 @@ describe("RuntimeHost session backend boundary", () => {
 		const forkSession = vi.fn(() => ({ path: "fork.jsonl", text: "fork text" }));
 		const setName = vi.fn();
 		const bindHostInteraction = vi.fn(async () => {});
+		let busy = false;
+		const isBusy = vi.fn(() => busy);
+		const reconfigureExecution = vi.fn();
+		const readWorkingDirectory = vi.fn(() => undefined);
 		const backend = new RecordingAssemblyBackend({
 			session: sessionDouble.session,
 			lifecycle: {
@@ -222,6 +231,8 @@ describe("RuntimeHost session backend boundary", () => {
 				setName,
 			},
 			hostInteraction: { bind: bindHostInteraction },
+			executionController: { isBusy, reconfigure: reconfigureExecution },
+			workspaceView: { readWorkingDirectory },
 			modelController: { selectModel, setThinkingLevel, refreshAuth },
 			modelView: { readCurrentModel, refreshAvailableModels, readAvailableModels, resolveApiKey },
 			corePorts,
@@ -244,6 +255,7 @@ describe("RuntimeHost session backend boundary", () => {
 		expect(backend.calls).toHaveLength(1);
 		expect(sessionId).toBe("assembly-session");
 		expect(bindHostInteraction).toHaveBeenCalledOnce();
+		expect(readWorkingDirectory).toHaveBeenCalledOnce();
 		expect(prompt).toHaveBeenCalledWith({
 			text: "through port",
 			images: undefined,
@@ -286,6 +298,23 @@ describe("RuntimeHost session backend boundary", () => {
 		expect(forkSession).toHaveBeenCalledWith("fork-entry");
 		expect(setName).toHaveBeenNthCalledWith(1, "renamed by id");
 		expect(setName).toHaveBeenNthCalledWith(2, "renamed by path");
+
+		await host.setExecutionMode(sessionId, "sandbox");
+		expect(reconfigureExecution).toHaveBeenCalledWith({
+			mode: "sandbox",
+			sessionId,
+			sandboxHostPath: undefined,
+			linuxBubblewrapPath: undefined,
+			macosSandboxExecPath: undefined,
+		});
+		expect(host.getState(sessionId).executionMode).toBe("sandbox");
+		busy = true;
+		await expect(host.setExecutionMode(sessionId, "full-access")).rejects.toMatchObject({
+			code: "EXECUTION_MODE_SWITCH_BLOCKED",
+		});
+		expect(reconfigureExecution).toHaveBeenCalledOnce();
+		expect(sessionDouble.reconfigureCustomTools).not.toHaveBeenCalled();
+		expect(sessionDouble.getCwd).not.toHaveBeenCalled();
 
 		const reopened = await host.createSession({ sessionPath: "assembly.jsonl" });
 		expect(reopened).toEqual({ sessionId });

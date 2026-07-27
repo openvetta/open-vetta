@@ -1,13 +1,17 @@
 import type { Message } from "@vetta/ai";
 import type { AgentSessionEvent, ExtensionUIContext } from "@vetta/coding-agent";
 import type { HistoryEntry, SessionEvent } from "../contracts.js";
+import { runtimeError } from "../errors.js";
+import { buildSandboxToolDefinitions } from "../execution-mode/sandbox-tools.js";
 import { entriesToHistory } from "./history.js";
 import type { RuntimeSession } from "./session-backend.js";
 import { mapAgentSessionEvent } from "./session-events.js";
 import type {
+	RuntimeExecutionModeUpdate,
 	RuntimeModelSelectionStrategy,
 	RuntimeSessionCorePorts,
 	RuntimeSessionEventStream,
+	RuntimeSessionExecutionController,
 	RuntimeSessionHistoryController,
 	RuntimeSessionHistoryReader,
 	RuntimeSessionHostInteraction,
@@ -18,6 +22,7 @@ import type {
 	RuntimeSessionState,
 	RuntimeSessionStateReader,
 	RuntimeSessionTurnControl,
+	RuntimeSessionWorkspaceView,
 	RuntimeTurnPrompt,
 } from "./session-ports.js";
 
@@ -233,6 +238,42 @@ export class LegacyRuntimeSessionHostInteraction implements RuntimeSessionHostIn
 
 	async bind(context: RuntimeSessionHostInteractionContext): Promise<void> {
 		await this.session.bindExtensions({ uiContext: createLegacyExtensionUIContext(context) });
+	}
+}
+
+export class LegacyRuntimeSessionExecutionController implements RuntimeSessionExecutionController {
+	constructor(private readonly session: RuntimeSession) {}
+
+	isBusy(): boolean {
+		return this.session.isStreaming || this.session.isBashRunning;
+	}
+
+	reconfigure(update: RuntimeExecutionModeUpdate): void {
+		const reconfigure = (this.session as Partial<Pick<RuntimeSession, "reconfigureCustomTools">>)
+			.reconfigureCustomTools;
+		if (typeof reconfigure !== "function") {
+			throw runtimeError("INTERNAL_ERROR", "Session does not support execution mode reconfiguration.", false);
+		}
+		const cwd = this.session.sessionManager.getCwd() ?? process.cwd();
+		const customTools =
+			update.mode === "sandbox"
+				? buildSandboxToolDefinitions({
+						cwd,
+						windowsSandboxHostPath: update.sandboxHostPath,
+						linuxBubblewrapPath: update.linuxBubblewrapPath,
+						macosSandboxExecPath: update.macosSandboxExecPath,
+						getSessionId: () => update.sessionId,
+					})
+				: undefined;
+		reconfigure.call(this.session, customTools);
+	}
+}
+
+export class LegacyRuntimeSessionWorkspaceView implements RuntimeSessionWorkspaceView {
+	constructor(private readonly session: RuntimeSession) {}
+
+	readWorkingDirectory(): string | undefined {
+		return this.session.sessionManager.getCwd();
 	}
 }
 

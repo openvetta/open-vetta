@@ -1,21 +1,25 @@
 import { type AgentSession, type CreateAgentSessionOptions, createAgentSession } from "@vetta/coding-agent";
 import {
 	createLegacyRuntimeSessionCorePorts,
+	LegacyRuntimeSessionExecutionController,
 	LegacyRuntimeSessionHistoryController,
 	LegacyRuntimeSessionHistoryReader,
 	LegacyRuntimeSessionHostInteraction,
 	LegacyRuntimeSessionIdentityLifecycle,
 	LegacyRuntimeSessionModelController,
 	LegacyRuntimeSessionModelView,
+	LegacyRuntimeSessionWorkspaceView,
 } from "./legacy-session-ports.js";
 import type {
 	RuntimeSessionCorePorts,
+	RuntimeSessionExecutionController,
 	RuntimeSessionHistoryController,
 	RuntimeSessionHistoryReader,
 	RuntimeSessionHostInteraction,
 	RuntimeSessionIdentityLifecycle,
 	RuntimeSessionModelController,
 	RuntimeSessionModelView,
+	RuntimeSessionWorkspaceView,
 } from "./session-ports.js";
 
 /**
@@ -45,6 +49,8 @@ export interface RuntimeHostSessionAssembly {
 	readonly historyReader: RuntimeSessionHistoryReader;
 	readonly historyController: RuntimeSessionHistoryController;
 	readonly hostInteraction: RuntimeSessionHostInteraction;
+	readonly executionController: RuntimeSessionExecutionController;
+	readonly workspaceView: RuntimeSessionWorkspaceView;
 	readonly modelController: RuntimeSessionModelController;
 	readonly modelView: RuntimeSessionModelView;
 	readonly corePorts: RuntimeSessionCorePorts;
@@ -91,6 +97,8 @@ export function createLegacyRuntimeHostSessionAssembly(session: RuntimeSession):
 		historyReader: new LegacyRuntimeSessionHistoryReader(session),
 		historyController: new LegacyRuntimeSessionHistoryController(session),
 		hostInteraction: new LegacyRuntimeSessionHostInteraction(session),
+		executionController: new LegacyRuntimeSessionExecutionController(session),
+		workspaceView: new LegacyRuntimeSessionWorkspaceView(session),
 		modelController: new LegacyRuntimeSessionModelController(session),
 		modelView: new LegacyRuntimeSessionModelView(session),
 		corePorts: createLegacyRuntimeSessionCorePorts(session),

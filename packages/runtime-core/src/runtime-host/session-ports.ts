@@ -6,6 +6,7 @@ import type {
 	RuntimeSandboxGrantDecision,
 	RuntimeSandboxGrantRequest,
 	SessionEvent,
+	SessionExecutionMode,
 	SessionStateSnapshot,
 } from "../contracts.js";
 
@@ -103,6 +104,26 @@ export interface RuntimeSessionHostInteractionContext {
 /** 将当前宿主交互能力绑定到会话；同路径复用时允许重新绑定。 */
 export interface RuntimeSessionHostInteraction {
 	bind(context: RuntimeSessionHostInteractionContext): Promise<void>;
+}
+
+/** 执行模式更新所需的宿主环境；不暴露旧 customTools 实现类型。 */
+export interface RuntimeExecutionModeUpdate {
+	readonly mode: SessionExecutionMode;
+	readonly sessionId: string;
+	readonly sandboxHostPath?: string;
+	readonly linuxBubblewrapPath?: string;
+	readonly macosSandboxExecPath?: string;
+}
+
+/** 执行忙碌态与模式重配置边界；具体工具构造留在实现适配器。 */
+export interface RuntimeSessionExecutionController {
+	isBusy(): boolean;
+	reconfigure(update: RuntimeExecutionModeUpdate): void;
+}
+
+/** Session 工作目录只读视图；目录创建和修复仍由宿主负责。 */
+export interface RuntimeSessionWorkspaceView {
+	readWorkingDirectory(): string | undefined;
 }
 
 export interface RuntimeSessionCorePorts {
