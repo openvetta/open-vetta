@@ -1,10 +1,10 @@
-import { BotAvatar } from "@shared/components/BotAvatar";
 import { Popover, PopoverContent, PopoverTrigger } from "@vetta/ui";
 import { cn } from "@shared/lib/utils";
 import type { CursorStyle } from "@shared/theme/cursor";
 import type { ThemeDef } from "@shared/theme/tokens";
 import { type MouseEvent, useState } from "react";
 import { SettingsAiAssist } from "../ai-assist";
+import appearanceMascot from "../assets/appearance-mascot.webp";
 import themeLock from "../assets/theme-lock.webp";
 import { SETTINGS_SECTION } from "../registry";
 import { SettingHeading } from "@vetta/theme-ui/settings";
@@ -312,7 +312,7 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 				<SettingsAiAssist tabId="appearance" />
 			</div>
 
-			{/* 语言区 + 右侧空白放 bot avatar（外观模式上方）；右侧留白避免 pacing 活动区超出内容宽度 */}
+			{/* 语言区 + 右侧外观吉祥物 */}
 			<div className="mb-6 flex items-center gap-4 pr-10">
 				<div className="min-w-0 flex-1">
 					<SettingHeading title={model.labels.sections.language} section={SETTINGS_SECTION["appearance-language"]} className="mb-1" />
@@ -321,7 +321,13 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 				</div>
 				{!model.narrow && (
 					<div className="flex h-[100px] w-[120px] shrink-0 items-center justify-center">
-						<BotAvatar pacing size="lg" />
+						<img
+							aria-hidden="true"
+							alt=""
+							className="pointer-events-none h-[100px] w-auto select-none object-contain"
+							draggable={false}
+							src={appearanceMascot}
+						/>
 					</div>
 				)}
 			</div>
