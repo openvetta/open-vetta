@@ -119,13 +119,15 @@ export function DefaultNewSessionHero({
 							{subtitle}
 						</motion.p>
 					</div>
-					<img
-						aria-hidden="true"
-						alt=""
-						className="h-16 w-32 shrink-0 select-none object-contain object-right"
-						draggable={false}
-						src="./new-session/ferret.webp"
-					/>
+					<div aria-hidden="true" className="relative h-16 w-32 shrink-0">
+						<span className="absolute inset-x-0 bottom-0 h-px bg-border/80" />
+						<img
+							alt=""
+							className="relative z-10 h-full w-full select-none object-contain object-right"
+							draggable={false}
+							src="./new-session/ferret.webp"
+						/>
+					</div>
 				</div>
 				{showSceneCarousel && (
 					<ThemedSceneCarousel
