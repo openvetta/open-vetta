@@ -37,6 +37,12 @@ export interface McpManagerOptions {
 	debug?: boolean;
 	/** Whether MCP is globally enabled */
 	enabled?: boolean;
+	/**
+	 * Built-in servers shipped with the host, keyed by runtime name.
+	 * Invisible to the user: never persisted to mcp.json, never listed as an
+	 * installable ability. Names must not contain `_` (see plugin-mcp.ts).
+	 */
+	builtinServers?: Record<string, McpServerConfig>;
 }
 
 /**
@@ -55,6 +61,16 @@ export class McpManager {
 	 * Never written to user/project mcp.json; reconciled via setPluginServers.
 	 */
 	private pluginServers = new Map<string, McpServerConfig>();
+	/**
+	 * Built-in MCP servers shipped with the host (fourth config source).
+	 *
+	 * Like plugin servers these live in memory only — never written to
+	 * user/project mcp.json. The difference is intent: built-ins are part of the
+	 * product, not something the user installed, so they are invisible in the
+	 * abilities marketplace and cannot be removed by editing config. They are
+	 * seeded once at construction rather than reconciled over time.
+	 */
+	private builtinServers = new Map<string, McpServerConfig>();
 	/** Fingerprint of pluginServers for combined hasConfigChanged / reload. */
 	private pluginFingerprint = fingerprintPluginMcpServers([]);
 
@@ -64,6 +80,15 @@ export class McpManager {
 		this.debug = options.debug || false;
 		this.configLoader = new McpConfigLoader(this.projectRoot, this.agentDir);
 
+		for (const [name, config] of Object.entries(options.builtinServers ?? {})) {
+			// 与插件 MCP 同一条约束：工具适配器按第一个 `_` 切分 server 名
+			if (!name || name.includes("_")) {
+				this.log(`Rejecting builtin MCP server with invalid name: ${name}`);
+				continue;
+			}
+			this.builtinServers.set(name, config);
+		}
+
 		this.state = {
 			servers: new Map(),
 			enabled: options.enabled !== undefined ? options.enabled : true,
@@ -71,12 +96,18 @@ export class McpManager {
 	}
 
 	/**
-	 * Merge file-based config with in-memory plugin servers.
-	 * Plugin runtime names win on collision (they are namespaced).
+	 * Merge file-based config with in-memory builtin + plugin servers.
+	 * Built-ins are applied first so a user's mcp.json entry of the same name
+	 * still wins — we ship a default, we don't seize the name. Plugin runtime
+	 * names win last (they are namespaced with `plugin-`, so no real collision).
 	 */
 	private loadEffectiveConfig(): McpConfig {
 		const merged = this.configLoader.loadMerged();
-		const mcpServers: Record<string, McpServerConfig> = { ...merged.mcpServers };
+		const mcpServers: Record<string, McpServerConfig> = {};
+		for (const [name, config] of this.builtinServers) {
+			mcpServers[name] = config;
+		}
+		Object.assign(mcpServers, merged.mcpServers);
 		for (const [name, config] of this.pluginServers) {
 			mcpServers[name] = config;
 		}
@@ -84,6 +115,7 @@ export class McpManager {
 	}
 
 	private combinedSignature(): string {
+		// builtinServers 在构造时定死、生命周期内不变，故不进签名
 		return `${this.configLoader.getMergedSignature()}|plugin:${this.pluginFingerprint}`;
 	}
 

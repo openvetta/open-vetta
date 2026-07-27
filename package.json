@@ -23,6 +23,7 @@
 		"packages/action-rpc",
 		"packages/runtime-tools",
 		"packages/runtime-mcp",
+		"packages/vetta-mcp",
 		"packages/runtime-storage",
 		"packages/runtime-telemetry",
 		"packages/toolkit",
