@@ -64,7 +64,10 @@ interface NewSessionPageModel {
 	onSceneClick: (scene: SceneItem) => void;
 	onSelectSkill: (skill: SkillInfo) => void;
 	onSend: () => Promise<void>;
-	renderHero: boolean;
+	/** 资源未就绪且对应区块仍开启时，预留高度避免异步插入抖动。 */
+	reserveGuidingWords: boolean;
+	reserveSceneSlot: boolean;
+	reserveSkillBadges: boolean;
 	sceneActions: Record<string, SceneActionState>;
 	scenes: SceneItem[];
 	selectedSkill: SkillSelection;
@@ -85,7 +88,7 @@ export function useNewSessionPageModel(): NewSessionPageModel {
 			? t("chat:newSession.defaultContext")
 			: t("chat:newSession.projectContext", { name: contextName });
 
-	const [renderHero, setRenderHero] = useState(false);
+	// Hero 首帧即挂载（仅用 opacity 入场），避免 idle 延迟插入导致输入栏被顶动。
 	const [mounted, setMounted] = useState(false);
 	const [avatarAutoplay, setAvatarAutoplay] = useState(false);
 	const [selectedSkill, setSelectedSkill] = useAtom(selectedSkillAtom);
@@ -110,7 +113,10 @@ export function useNewSessionPageModel(): NewSessionPageModel {
 	const pageVisibility = useAtomValue(newSessionPageVisibilityAtom);
 	const { openSession, sendMessage, abortMessage } = useSessionManager();
 	const isShort = useShortViewport();
-	const { guidingGroups, loadResources, scenes, skillBadges } = useNewSessionResources(decodedCwd, token);
+	const { guidingGroups, loadResources, resourcesLoaded, scenes, skillBadges } = useNewSessionResources(
+		decodedCwd,
+		token,
+	);
 
 	// 进入页面时清空上下文输入态，避免从别处带过来未发的内容。
 	useEffect(() => {
@@ -166,16 +172,8 @@ export function useNewSessionPageModel(): NewSessionPageModel {
 	useEffect(() => {
 		// decodedCwd 是路由切换的 hero 重播 key；effect body 不需要读取其值。
 		void decodedCwd;
-		setRenderHero(false);
 		setMounted(false);
 		setAvatarAutoplay(false);
-		return scheduleIdle(() => {
-			startTransition(() => setRenderHero(true));
-		}, 160);
-	}, [decodedCwd]);
-
-	useEffect(() => {
-		if (!renderHero) return;
 		const mountTimer = window.setTimeout(() => {
 			startTransition(() => setMounted(true));
 		}, 30);
@@ -186,14 +184,15 @@ export function useNewSessionPageModel(): NewSessionPageModel {
 			window.clearTimeout(mountTimer);
 			window.clearTimeout(autoplayTimer);
 		};
-	}, [renderHero]);
+	}, [decodedCwd]);
 
 	useEffect(() => {
+		// 首帧先画出固定槽位，再在 idle 时拉资源；数据一次落盘替换占位，避免分批插入。
 		return scheduleIdle(() => {
 			startTransition(() => {
 				void loadResources();
 			});
-		}, 240);
+		}, 120);
 	}, [loadResources]);
 
 	const setSceneAction = useCallback((name: string, state: SceneActionState) => {
@@ -300,7 +299,10 @@ export function useNewSessionPageModel(): NewSessionPageModel {
 		onSceneClick: handleSceneClick,
 		onSelectSkill: handleSelectSkill,
 		onSend: handleSend,
-		renderHero,
+		// 仅对设置中仍开启的区块预留高度；隐藏的区块不占位。
+		reserveGuidingWords: !resourcesLoaded && pageVisibility.showGuidingWords,
+		reserveSceneSlot: !resourcesLoaded && pageVisibility.showSceneCards,
+		reserveSkillBadges: !resourcesLoaded && pageVisibility.showSkillBadges,
 		sceneActions,
 		scenes: pageVisibility.showSceneCards ? scenes : [],
 		selectedSkill,
