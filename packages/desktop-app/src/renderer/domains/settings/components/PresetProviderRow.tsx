@@ -16,6 +16,7 @@ export function PresetProviderRow({
 	onDraftKeyChange,
 	onAdopt,
 	onRemove,
+	onRefreshModels,
 }: {
 	row: PresetProviderRowModel;
 	draftKey: string;
@@ -26,6 +27,7 @@ export function PresetProviderRow({
 	onDraftKeyChange: (rowId: string, key: string) => void;
 	onAdopt: (row: PresetProviderRowModel) => Promise<void>;
 	onRemove: (row: PresetProviderRowModel) => Promise<void>;
+	onRefreshModels: (row: PresetProviderRowModel) => Promise<void>;
 }): JSX.Element {
 	return (
 		<PresetProviderRowView
@@ -38,6 +40,7 @@ export function PresetProviderRow({
 			onDraftKeyChange={(key) => onDraftKeyChange(row.id, key)}
 			onAdopt={() => void onAdopt(row)}
 			onRemove={() => void onRemove(row)}
+			onRefreshModels={() => void onRefreshModels(row)}
 			icon={<ProviderIcon symbol={row.icon} className="h-7 w-7 shrink-0" />}
 			modelsList={<PresetProviderModelsList row={row} labels={labels} />}
 		/>

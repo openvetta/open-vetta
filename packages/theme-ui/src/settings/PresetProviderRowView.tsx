@@ -10,6 +10,9 @@ export interface PresetProviderRowModelView {
 	readonly adopted: boolean;
 	readonly offline: boolean;
 	readonly models: readonly unknown[];
+	readonly refreshing: boolean;
+	readonly syncedAtLabel: string | null;
+	readonly modelsError: string | null;
 }
 
 export interface PresetProviderRowViewLabels {
@@ -25,6 +28,8 @@ export interface PresetProviderRowViewLabels {
 	readonly apiKeyDirect: (name: string) => string;
 	readonly apiKeyPlaceholder: string;
 	readonly save: string;
+	readonly refreshModels: string;
+	readonly refreshingModels: string;
 }
 
 export interface PresetProviderRowViewProps {
@@ -37,6 +42,7 @@ export interface PresetProviderRowViewProps {
 	readonly onDraftKeyChange: (key: string) => void;
 	readonly onAdopt: () => void;
 	readonly onRemove: () => void;
+	readonly onRefreshModels: () => void;
 	readonly icon: ReactNode;
 	readonly modelsList?: ReactNode;
 }
@@ -51,6 +57,7 @@ export function PresetProviderRowView({
 	onDraftKeyChange,
 	onAdopt,
 	onRemove,
+	onRefreshModels,
 	icon,
 	modelsList,
 }: PresetProviderRowViewProps): JSX.Element {
@@ -93,7 +100,11 @@ export function PresetProviderRowView({
 						</div>
 						<div className="mt-0.5 truncate text-[11px] text-muted-foreground">
 							{labels.modelsCount(row.models.length)}
+							{row.syncedAtLabel ? ` · ${row.syncedAtLabel}` : ""}
 						</div>
+						{row.modelsError && (
+							<div className="mt-0.5 truncate text-[11px] text-amber-400">{row.modelsError}</div>
+						)}
 					</div>
 				</button>
 
@@ -127,6 +138,19 @@ export function PresetProviderRowView({
 
 				{row.adopted && (
 					<div className="flex shrink-0 items-center gap-1">
+						{/* 已下线的旧条目不在内置目录里,拉不到上游模型,不给刷新入口。 */}
+						{!row.offline && (
+							<Button
+								variant="ghost"
+								size="icon-sm"
+								onClick={onRefreshModels}
+								disabled={row.refreshing}
+								title={row.refreshing ? labels.refreshingModels : labels.refreshModels}
+								className="text-muted-foreground hover:text-foreground"
+							>
+								<span className={cn("icon-[mdi--refresh] h-3.5 w-3.5", row.refreshing && "animate-spin")} />
+							</Button>
+						)}
 						<Button variant="ghost" size="sm" onClick={onToggleEditor}>
 							{row.isOpen ? labels.collapse : labels.changeKey}
 						</Button>

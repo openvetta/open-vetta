@@ -165,7 +165,9 @@ export function createSystemApi(
 			get: () => ipc.invoke("vetta:models:get"),
 			set: (config) => ipc.invoke("vetta:models:set", config),
 			fetchRemote: () => ipc.invoke("vetta:models:fetch-remote"),
-			fetchTemplates: () => ipc.invoke("vetta:models:fetch-templates"),
+			listPresets: () => ipc.invoke("vetta:models:list-presets"),
+			refreshPresetModels: (providerId, apiKey) =>
+				ipc.invoke("vetta:models:refresh-preset-models", providerId, apiKey),
 			probe: (ref) => ipc.invoke("vetta:models:probe", ref),
 			fetchProviderModels: (providerName) => ipc.invoke("vetta:models:fetch-provider-models", providerName),
 		},
