@@ -12,7 +12,7 @@ import { useTranslation } from "react-i18next";
 import { useAbilityText } from "../hooks/useAbilityText";
 import type { AbilitiesModel, AbilityItem, McpAbility } from "../types";
 import { AbilityIcon } from "./AbilityIcon";
-import { AbilityStatusBadges, AbilityTypeBadge } from "./AbilityBadges";
+import { AbilityStatusBadges } from "./AbilityBadges";
 
 function McpMenuItems({ item, model }: { item: McpAbility; model: AbilitiesModel }): JSX.Element {
 	const { t } = useTranslation("abilities");
@@ -127,7 +127,7 @@ export function AbilityCard({ item, model }: { item: AbilityItem; model: Abiliti
 	const { title, description } = useAbilityText()(item);
 
 	const openDetail = (): void => {
-		void navigate({ to: "/abilities/$type/$slug", params: { type: item.type, slug: item.slug } });
+		void navigate({ to: "/abilities", search: { detail: item.id } });
 	};
 
 	return (
@@ -142,7 +142,6 @@ export function AbilityCard({ item, model }: { item: AbilityItem; model: Abiliti
 			<div className="min-w-0 flex-1">
 				<div className="flex min-w-0 flex-wrap items-center gap-1.5">
 					<h3 className="truncate text-[13px] font-semibold text-foreground">{title}</h3>
-					<AbilityTypeBadge item={item} />
 					<AbilityStatusBadges item={item} />
 				</div>
 				<p className="mt-0.5 truncate text-[11px] leading-relaxed text-muted-foreground/70">

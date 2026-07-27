@@ -1,46 +1,22 @@
+import { BotAvatar } from "@vetta/theme-ui/shared";
 import { cn } from "@vetta/ui";
-import { useState } from "react";
 import type { AbilityShowcaseCanvas } from "@shared/lib/api";
 
 /**
- * 呈现模板：chat-over-canvas
- * 参考能力详情示意——左侧产品画布 CSS mock + 右侧对话气泡（非真实截图）。
+ * 呈现模板：chat-over-canvas / chat-thread
+ * 左侧是悬浮的产品窗口 mock（CSS 构图，非真实截图），右侧是对话；
+ * 底色走 --primary 的渐变舞台，保证浅色 / 深色都成立。
  */
 
-function BrandAvatar({
-	iconUrl,
-	brandName,
-}: {
-	iconUrl?: string;
-	brandName?: string;
-}): JSX.Element {
-	const [failed, setFailed] = useState(false);
-	const showImage = Boolean(iconUrl) && !failed;
-
+/** 悬浮窗口外壳：顶栏 + 内容，靠阴影和 ring 拉出层次。 */
+function MockWindow({ children }: { children: JSX.Element }): JSX.Element {
 	return (
-		<div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-background shadow-sm ring-1 ring-border/60">
-			{showImage && iconUrl ? (
-				<img
-					src={iconUrl}
-					alt={brandName ?? ""}
-					className="h-full w-full object-contain p-0.5"
-					onError={() => setFailed(true)}
-				/>
-			) : (
-				<span className="icon-[solar--magic-stick-3-bold] h-3.5 w-3.5 text-primary" />
-			)}
-		</div>
-	);
-}
-
-/** 画布外壳：窗口点 + 内容区。左侧插画统一走这里，保持克制。 */
-function CanvasFrame({ children }: { children: JSX.Element }): JSX.Element {
-	return (
-		<div className="flex h-full min-h-[148px] flex-col gap-2.5 p-3.5">
-			<div className="flex items-center gap-1.5">
-				<span className="h-1.5 w-1.5 rounded-full bg-foreground/20" />
-				<span className="h-1.5 w-1.5 rounded-full bg-foreground/15" />
-				<span className="h-1.5 w-1.5 rounded-full bg-foreground/10" />
+		<div className="overflow-hidden rounded-xl bg-background/85 shadow-[0_20px_44px_-20px_rgb(0_0_0/0.6)] ring-1 ring-border/70 backdrop-blur-sm">
+			<div className="flex items-center gap-1.5 border-b border-border/50 bg-foreground/[0.04] px-2.5 py-1.5">
+				<span className="h-1.5 w-1.5 rounded-full bg-foreground/25" />
+				<span className="h-1.5 w-1.5 rounded-full bg-foreground/18" />
+				<span className="h-1.5 w-1.5 rounded-full bg-foreground/12" />
+				<div className="ml-1.5 h-1.5 w-14 rounded-full bg-foreground/10" />
 			</div>
 			{children}
 		</div>
@@ -49,80 +25,124 @@ function CanvasFrame({ children }: { children: JSX.Element }): JSX.Element {
 
 function DesignCanvas(): JSX.Element {
 	return (
-		<CanvasFrame>
-			<div className="relative min-h-0 flex-1 rounded-lg bg-foreground/[0.04] p-2.5 ring-1 ring-foreground/8">
-				<div className="flex h-full gap-2">
-					<div className="h-full w-1/2 rounded-md bg-gradient-to-br from-primary/30 to-primary/10" />
-					<div className="flex h-full flex-1 flex-col gap-2">
-						<div className="flex-1 rounded-md bg-foreground/8" />
-						<div className="h-1/3 rounded-md bg-foreground/5" />
-					</div>
+		<MockWindow>
+			<div className="flex flex-col gap-1.5 p-2">
+				{/* 主视觉 */}
+				<div className="relative h-10 overflow-hidden rounded-lg bg-gradient-to-br from-primary/60 via-primary/25 to-transparent">
+					<div className="absolute -right-4 -top-6 h-16 w-16 rounded-full bg-background/20 blur-md" />
+					<div className="absolute bottom-2 left-2 h-1.5 w-16 rounded-full bg-background/50" />
+					<div className="absolute bottom-2 left-20 h-1.5 w-8 rounded-full bg-background/30" />
 				</div>
-				{/* 选区框 */}
-				<div className="pointer-events-none absolute inset-x-2.5 bottom-2.5 top-1/2 rounded-md border border-dashed border-primary/40" />
+				<div className="flex gap-2">
+					<div className="h-6 flex-1 rounded-lg bg-foreground/8 ring-1 ring-border/40" />
+					<div className="h-6 w-8 rounded-lg bg-foreground/5 ring-1 ring-border/40" />
+				</div>
+				<div className="flex items-center gap-1.5">
+					<span className="h-2.5 w-2.5 rounded-full bg-primary/70" />
+					<span className="h-2.5 w-2.5 rounded-full bg-sky-400/60" />
+					<span className="h-2.5 w-2.5 rounded-full bg-violet-400/60" />
+					<div className="ml-1 h-1.5 flex-1 rounded-full bg-foreground/8" />
+				</div>
 			</div>
-		</CanvasFrame>
+		</MockWindow>
 	);
 }
 
 function CodeCanvas(): JSX.Element {
-	const lines = ["w-[70%]", "w-[86%]", "w-[52%]", "w-[74%]", "w-[38%]"];
+	const lines = [
+		{ w: "w-[68%]", c: "bg-primary/45" },
+		{ w: "w-[84%]", c: "bg-foreground/14" },
+		{ w: "w-[52%]", c: "bg-sky-400/45" },
+		{ w: "w-[76%]", c: "bg-foreground/12" },
+		{ w: "w-[44%]", c: "bg-violet-400/45" },
+		{ w: "w-[62%]", c: "bg-foreground/10" },
+	];
 	return (
-		<CanvasFrame>
-			<div className="flex min-h-0 flex-1 gap-2.5 rounded-lg bg-foreground/[0.04] p-2.5 ring-1 ring-foreground/8">
-				<div className="w-px shrink-0 bg-foreground/10" />
-				<div className="flex min-w-0 flex-1 flex-col justify-center gap-2.5">
-					{lines.map((width, index) => (
-						<div
-							key={width}
-							className={cn(
-								"h-1.5 rounded-full",
-								width,
-								index === 2 ? "bg-primary/45" : "bg-foreground/12",
-							)}
-						/>
+		<MockWindow>
+			<div className="flex gap-2 p-2">
+				<div className="flex w-2 shrink-0 flex-col gap-1.5 pt-[3px]">
+					{lines.map((line) => (
+						<span key={line.w} className="h-1 rounded-full bg-foreground/12" />
+					))}
+				</div>
+				<div className="flex min-w-0 flex-1 flex-col gap-1.5">
+					{lines.map((line, index) => (
+						<div key={line.w} className="relative">
+							{index === 2 ? (
+								<span className="absolute -inset-x-1.5 -inset-y-1 rounded bg-primary/10 ring-1 ring-primary/20" />
+							) : null}
+							<div className={cn("relative h-1.5 rounded-full", line.w, line.c)} />
+						</div>
 					))}
 				</div>
 			</div>
-		</CanvasFrame>
+		</MockWindow>
 	);
 }
 
 function DocsCanvas(): JSX.Element {
 	return (
-		<CanvasFrame>
-			<div className="flex min-h-0 flex-1 flex-col gap-2.5 rounded-lg bg-foreground/[0.04] p-3 ring-1 ring-foreground/8">
-				<div className="h-2 w-2/5 rounded-full bg-foreground/25" />
+		<MockWindow>
+			<div className="flex flex-col gap-1.5 p-2">
+				<div className="h-2 w-1/2 rounded-full bg-foreground/30" />
 				<div className="space-y-1.5">
-					<div className="h-1.5 w-full rounded-full bg-foreground/10" />
-					<div className="h-1.5 w-5/6 rounded-full bg-foreground/10" />
+					<div className="h-1.5 w-full rounded-full bg-foreground/12" />
+					<div className="h-1.5 w-[88%] rounded-full bg-foreground/10" />
 				</div>
-				<div className="mt-auto space-y-1.5">
-					<div className="flex items-center gap-2">
-						<span className="h-2.5 w-2.5 rounded-sm bg-primary/40" />
-						<div className="h-1.5 w-1/2 rounded-full bg-foreground/12" />
+				<div className="rounded-lg bg-gradient-to-br from-primary/15 to-transparent p-2 ring-1 ring-border/40">
+					<div className="flex items-center gap-1.5">
+						<span className="h-2.5 w-2.5 rounded-sm bg-primary/70" />
+						<div className="h-1.5 w-1/2 rounded-full bg-foreground/14" />
 					</div>
-					<div className="flex items-center gap-2">
-						<span className="h-2.5 w-2.5 rounded-sm ring-1 ring-foreground/15" />
+					<div className="mt-1.5 flex items-center gap-1.5">
+						<span className="h-2.5 w-2.5 rounded-sm ring-1 ring-border/60" />
 						<div className="h-1.5 w-2/3 rounded-full bg-foreground/8" />
 					</div>
 				</div>
 			</div>
-		</CanvasFrame>
+		</MockWindow>
 	);
 }
 
 function GenericCanvas(): JSX.Element {
 	return (
-		<CanvasFrame>
-			<div className="flex min-h-0 flex-1 flex-col gap-2 rounded-lg bg-foreground/[0.04] p-2.5 ring-1 ring-foreground/8">
-				<div className="flex-1 rounded-md bg-gradient-to-br from-primary/25 to-transparent" />
+		<MockWindow>
+			<div className="flex flex-col gap-1.5 p-2">
+				{/* 面积图 */}
+				<div className="relative h-11 overflow-hidden rounded-lg bg-foreground/[0.04] ring-1 ring-border/40">
+					<svg viewBox="0 0 120 48" preserveAspectRatio="none" className="h-full w-full" aria-hidden>
+						<title>trend</title>
+						<defs>
+							<linearGradient id="showcase-area" x1="0" y1="0" x2="0" y2="1">
+								<stop offset="0%" stopColor="currentColor" stopOpacity="0.45" />
+								<stop offset="100%" stopColor="currentColor" stopOpacity="0" />
+							</linearGradient>
+						</defs>
+						<g className="text-primary">
+							<path d="M0 38 L20 30 L40 34 L60 18 L80 24 L100 10 L120 16 L120 48 L0 48 Z" fill="url(#showcase-area)" />
+							<path
+								d="M0 38 L20 30 L40 34 L60 18 L80 24 L100 10 L120 16"
+								fill="none"
+								stroke="currentColor"
+								strokeOpacity="0.8"
+								strokeWidth="1.5"
+								strokeLinejoin="round"
+							/>
+						</g>
+					</svg>
+				</div>
 				<div className="flex gap-2">
-					<div className="h-6 flex-1 rounded-md bg-foreground/8" />
-					<div className="h-6 w-1/3 rounded-md bg-foreground/5" />
+					<div className="flex-1 rounded-lg bg-foreground/8 p-2 ring-1 ring-border/40">
+						<div className="h-1.5 w-2/3 rounded-full bg-foreground/20" />
+						<div className="mt-1.5 h-1.5 w-1/3 rounded-full bg-primary/50" />
+					</div>
+					<div className="flex-1 rounded-lg bg-foreground/8 p-2 ring-1 ring-border/40">
+						<div className="h-1.5 w-1/2 rounded-full bg-foreground/20" />
+						<div className="mt-1.5 h-1.5 w-2/5 rounded-full bg-sky-400/50" />
+					</div>
 				</div>
 			</div>
-		</CanvasFrame>
+		</MockWindow>
 	);
 }
 
@@ -139,65 +159,77 @@ function CanvasByMotif({ motif }: { motif: AbilityShowcaseCanvas }): JSX.Element
 	}
 }
 
+/** 渐变舞台：primary 光晕 + 细网格，四角自然淡出。 */
+function ShowcaseStage({ children }: { children: JSX.Element }): JSX.Element {
+	return (
+		<div className="relative overflow-hidden rounded-2xl ring-1 ring-border/60">
+			<div className="absolute inset-0 bg-gradient-to-br from-primary/12 via-background to-background" aria-hidden />
+			<div
+				className="absolute -left-16 -top-24 h-56 w-56 rounded-full blur-3xl"
+				style={{ background: "color-mix(in srgb, var(--primary) 30%, transparent)" }}
+				aria-hidden
+			/>
+			<div
+				className="absolute -bottom-28 -right-10 h-56 w-56 rounded-full blur-3xl"
+				style={{ background: "color-mix(in srgb, var(--primary) 14%, transparent)" }}
+				aria-hidden
+			/>
+			<div
+				className="absolute inset-0 opacity-50"
+				style={{
+					backgroundImage:
+						"linear-gradient(to right, color-mix(in srgb, var(--border) 60%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in srgb, var(--border) 60%, transparent) 1px, transparent 1px)",
+					backgroundSize: "16px 16px",
+					maskImage: "radial-gradient(ellipse at 30% 20%, black, transparent 75%)",
+					WebkitMaskImage: "radial-gradient(ellipse at 30% 20%, black, transparent 75%)",
+				}}
+				aria-hidden
+			/>
+			<div className="relative">{children}</div>
+		</div>
+	);
+}
+
+function ChatBubbles({
+	userPrompt,
+	assistantReply,
+}: {
+	userPrompt: string;
+	assistantReply: string;
+}): JSX.Element {
+	return (
+		<div className="flex flex-col justify-center gap-2">
+			<div className="ml-auto max-w-[92%] rounded-2xl rounded-br-md bg-background/85 px-3 py-2 text-[11.5px] leading-relaxed text-foreground shadow-sm ring-1 ring-border/60 backdrop-blur-sm">
+				{userPrompt}
+			</div>
+			<div className="flex items-start gap-2">
+				<BotAvatar className="mt-1" />
+				<div className="min-w-0 flex-1 rounded-2xl rounded-tl-md bg-primary/12 px-3 py-2 text-[11.5px] leading-relaxed text-foreground shadow-sm ring-1 ring-primary/25 backdrop-blur-sm">
+					{assistantReply}
+				</div>
+			</div>
+		</div>
+	);
+}
+
 export function ShowcaseChatOverCanvas({
 	userPrompt,
 	assistantReply,
 	canvas,
-	brandIconUrl,
-	brandName,
 }: {
 	userPrompt: string;
 	assistantReply: string;
 	canvas: AbilityShowcaseCanvas;
-	brandIconUrl?: string;
-	brandName?: string;
 }): JSX.Element {
 	return (
-		<section
-			className="relative overflow-hidden rounded-xl ring-1 ring-border/50"
-			aria-label="ability-showcase-chat-over-canvas"
-		>
-			{/* 舞台底 + 细网格（color-mix，兼容 --primary 为 rgb()） */}
-			<div className="absolute inset-0 bg-gradient-to-br from-muted via-background to-background" aria-hidden />
-			<div
-				className="absolute inset-0 opacity-80"
-				style={{
-					backgroundImage:
-						"radial-gradient(ellipse at top left, color-mix(in srgb, var(--primary) 18%, transparent), transparent 55%)",
-				}}
-				aria-hidden
-			/>
-			<div
-				className="absolute inset-0 opacity-40"
-				style={{
-					backgroundImage:
-						"linear-gradient(to right, color-mix(in srgb, var(--border) 55%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in srgb, var(--border) 55%, transparent) 1px, transparent 1px)",
-					backgroundSize: "14px 14px",
-				}}
-				aria-hidden
-			/>
-
-			<div className="relative grid grid-cols-[1.05fr_0.95fr] gap-0 sm:min-h-[168px]">
-				{/* 左：产品画布 mock */}
-				<div className="relative border-r border-border/40 bg-foreground/[0.03]">
-					<div className="relative text-foreground">
-						<CanvasByMotif motif={canvas} />
-					</div>
+		<section aria-label="ability-showcase-chat-over-canvas">
+			<ShowcaseStage>
+				{/* 左侧 mock 只做点缀，篇幅让给对话 */}
+				<div className="grid grid-cols-[0.62fr_1.38fr] items-center gap-3 p-3">
+					<CanvasByMotif motif={canvas} />
+					<ChatBubbles userPrompt={userPrompt} assistantReply={assistantReply} />
 				</div>
-
-				{/* 右：对话气泡层 */}
-				<div className="relative flex flex-col justify-center gap-2.5 p-3">
-					<div className="ml-auto max-w-[95%] rounded-2xl rounded-tr-md bg-background/90 px-2.5 py-2 text-[11px] leading-relaxed text-foreground shadow-md ring-1 ring-border/50 backdrop-blur-sm">
-						{userPrompt}
-					</div>
-					<div className="flex max-w-[98%] items-start gap-2">
-						<BrandAvatar iconUrl={brandIconUrl} brandName={brandName} />
-						<div className="min-w-0 flex-1 rounded-2xl rounded-tl-md bg-primary/15 px-2.5 py-2 text-[11px] leading-relaxed text-foreground/95 shadow-md ring-1 ring-primary/20 backdrop-blur-sm">
-							{assistantReply}
-						</div>
-					</div>
-				</div>
-			</div>
+			</ShowcaseStage>
 		</section>
 	);
 }
@@ -205,32 +237,17 @@ export function ShowcaseChatOverCanvas({
 export function ShowcaseChatThread({
 	userPrompt,
 	assistantReply,
-	brandIconUrl,
-	brandName,
 }: {
 	userPrompt: string;
 	assistantReply: string;
-	brandIconUrl?: string;
-	brandName?: string;
 }): JSX.Element {
 	return (
-		<section className="overflow-hidden rounded-xl border border-border/50 bg-muted/30 p-3">
-			<div className="flex flex-col gap-2.5">
-				<div className="flex items-start gap-2">
-					<div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-background/80 ring-1 ring-border/60">
-						<span className="icon-[solar--user-rounded-bold] h-3.5 w-3.5 text-muted-foreground" />
-					</div>
-					<div className="min-w-0 flex-1 rounded-lg rounded-tl-sm bg-background/70 px-2.5 py-2 text-[11px] leading-relaxed text-foreground/90 ring-1 ring-border/40">
-						{userPrompt}
-					</div>
+		<section aria-label="ability-showcase-chat-thread">
+			<ShowcaseStage>
+				<div className="p-3">
+					<ChatBubbles userPrompt={userPrompt} assistantReply={assistantReply} />
 				</div>
-				<div className="flex items-start gap-2">
-					<BrandAvatar iconUrl={brandIconUrl} brandName={brandName} />
-					<div className="min-w-0 flex-1 rounded-lg rounded-tl-sm bg-primary/10 px-2.5 py-2 text-[11px] leading-relaxed text-foreground/90 ring-1 ring-primary/15">
-						{assistantReply}
-					</div>
-				</div>
-			</div>
+			</ShowcaseStage>
 		</section>
 	);
 }

@@ -1,8 +1,9 @@
 import { cn } from "@vetta/ui";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { AbilityContributedMcp, AbilityContributedSkill } from "@shared/lib/api";
+import type { AbilityContributedMcp, AbilityContributedSkill, AbilityType } from "@shared/lib/api";
 import type { PluginAbility } from "../../types";
+import { AbilityIcon } from "../AbilityIcon";
 
 /** 超过这个条数就折叠，避免插件带一堆 server/skill 时详情页被撑爆。 */
 const COLLAPSED_LIMIT = 5;
@@ -24,35 +25,29 @@ export function PluginContributionsSection({ item }: { item: PluginAbility }): J
 	if (mcpServers.length === 0 && skills.length === 0) return null;
 
 	return (
-		<div>
-			<div className="mb-2 flex items-center gap-2 text-[13px] font-semibold text-foreground">
-				{t("plugin.contributions")}
-				<span className="text-[11px] font-normal text-muted-foreground">{t("plugin.contributionsHint")}</span>
-			</div>
-			<div className="flex flex-col gap-3">
-				{mcpServers.length > 0 ? (
-					<ContributionGroup
-						label={t("plugin.contributedMcp")}
-						icon="icon-[solar--server-2-linear]"
-						items={mcpServers.map((server) => ({
-							key: server.name,
-							title: server.display_name?.trim() || server.name,
-							description: server.description,
-						}))}
-					/>
-				) : null}
-				{skills.length > 0 ? (
-					<ContributionGroup
-						label={t("plugin.contributedSkills")}
-						icon="icon-[solar--bolt-linear]"
-						items={skills.map((skill: AbilityContributedSkill) => ({
-							key: skill.name,
-							title: skill.alias?.trim() || skill.name,
-							description: skill.description,
-						}))}
-					/>
-				) : null}
-			</div>
+		<div className="flex flex-col gap-3">
+			{mcpServers.length > 0 ? (
+				<ContributionGroup
+					label={t("plugin.contributedMcp")}
+					type="mcp"
+					items={mcpServers.map((server) => ({
+						key: server.name,
+						title: server.display_name?.trim() || server.name,
+						description: server.description,
+					}))}
+				/>
+			) : null}
+			{skills.length > 0 ? (
+				<ContributionGroup
+					label={t("plugin.contributedSkills")}
+					type="skill"
+					items={skills.map((skill: AbilityContributedSkill) => ({
+						key: skill.name,
+						title: skill.alias?.trim() || skill.name,
+						description: skill.description,
+					}))}
+				/>
+			) : null}
 		</div>
 	);
 }
@@ -61,15 +56,16 @@ interface ContributionEntry {
 	key: string;
 	title: string;
 	description?: string;
+	icon?: string;
 }
 
 function ContributionGroup({
 	label,
-	icon,
+	type,
 	items,
 }: {
 	label: string;
-	icon: string;
+	type: AbilityType;
 	items: ContributionEntry[];
 }): JSX.Element {
 	const { t } = useTranslation("abilities");
@@ -80,38 +76,43 @@ function ContributionGroup({
 	return (
 		<div>
 			<div className="mb-1.5 text-[11px] uppercase tracking-wide text-muted-foreground/60">{label}</div>
-			<div className="flex flex-col gap-1.5">
+			{/* 一张卡片装下整组，条目之间只用分隔线 */}
+			<div className="overflow-hidden rounded-lg border border-border bg-background/50">
 				{visible.map((entry) => (
-					<div key={entry.key} className="rounded-lg border border-border bg-background/50 px-2.5 py-2">
-						<div className="flex items-center gap-1.5 text-[12px] font-medium text-foreground">
-							<span className={`${icon} h-3.5 w-3.5 shrink-0 text-muted-foreground`} />
-							{entry.title}
+					<div
+						key={entry.key}
+						className="flex items-center gap-2.5 border-b border-border/60 px-2.5 py-2 last:border-b-0"
+					>
+						{/* 与能力广场卡片同一套图标样式：bundle 详情里会引用真实的 skill / mcp */}
+						<AbilityIcon icon={entry.icon} type={type} className="h-8 w-8" iconClassName="h-4 w-4" />
+						<div className="min-w-0 flex-1">
+							<div className="truncate text-[12px] font-medium text-foreground">{entry.title}</div>
+							{entry.description ? (
+								<div className="mt-0.5 line-clamp-2 text-[11px] leading-relaxed text-muted-foreground">
+									{entry.description}
+								</div>
+							) : null}
 						</div>
-						{entry.description ? (
-							<div className="mt-0.5 pl-5 text-[11px] leading-relaxed text-muted-foreground">
-								{entry.description}
-							</div>
-						) : null}
 					</div>
 				))}
+				{collapsible ? (
+					<button
+						type="button"
+						className="flex w-full items-center justify-center gap-1 border-t border-border/60 px-2.5 py-1.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
+						onClick={() => setExpanded((prev) => !prev)}
+					>
+						<span
+							className={cn(
+								"icon-[solar--alt-arrow-down-linear] h-3 w-3 transition-transform",
+								expanded && "rotate-180",
+							)}
+						/>
+						{expanded
+							? t("plugin.collapseList")
+							: t("plugin.expandList", { count: items.length - COLLAPSED_LIMIT })}
+					</button>
+				) : null}
 			</div>
-			{collapsible ? (
-				<button
-					type="button"
-					className="mt-1.5 flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
-					onClick={() => setExpanded((prev) => !prev)}
-				>
-					<span
-						className={cn(
-							"icon-[solar--alt-arrow-down-linear] h-3 w-3 transition-transform",
-							expanded && "rotate-180",
-						)}
-					/>
-					{expanded
-						? t("plugin.collapseList")
-						: t("plugin.expandList", { count: items.length - COLLAPSED_LIMIT })}
-				</button>
-			) : null}
 		</div>
 	);
 }

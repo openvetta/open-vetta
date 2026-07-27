@@ -22,7 +22,7 @@ export function BundleMembersSection({
 
 	return (
 		<section className="flex flex-col gap-3">
-			<h2 className="text-[13px] font-semibold text-foreground">
+			<h2 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/60">
 				{t("bundle.members", { count: item.members.length })}
 			</h2>
 			<ul className="flex flex-col gap-1.5">
@@ -37,8 +37,8 @@ export function BundleMembersSection({
 								disabled={!navigable}
 								onClick={() =>
 									void navigate({
-										to: "/abilities/$type/$slug",
-										params: { type: member.type, slug: member.slug },
+										to: "/abilities",
+										search: { detail: `${member.type}:${member.slug}` },
 									})
 								}
 								className={cn(

@@ -83,7 +83,6 @@
 		"reloaded": "Reloaded {{name}} {{version}}"
 	},
 	"detail": {
-		"back": "Back",
 		"noContent": "No further description. Add it and use it straight from chat.",
 		"notFound": "Ability not found — it may have been delisted or removed.",
 		"status": {
@@ -122,6 +121,9 @@
 		},
 		"reloadable": "Reloadable to {{version}}",
 		"permissions": "Permissions",
+		"permissionsDialog": "Permission settings",
+		"permissionsDialogHint": "Turning one off blocks the plugin from using that capability.",
+		"permissionsNotInstalledHint": "Permissions declared by this plugin — adjustable once installed.",
 		"permissionsSystemHint": "Granted automatically for system plugins, not editable",
 		"noPermissions": "This plugin declares no permissions.",
 		"commands": "Executable commands",
@@ -187,7 +189,7 @@
 		"settingsWrite": "Modify settings"
 	},
 	"meta": {
-		"title": "Details",
+		"title": "Other",
 		"homepage": "Website",
 		"repository": "Repository",
 		"docs": "Documentation",

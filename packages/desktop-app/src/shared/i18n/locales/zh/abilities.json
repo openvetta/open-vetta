@@ -83,7 +83,6 @@
 		"reloaded": "已重载 {{name}} {{version}}"
 	},
 	"detail": {
-		"back": "返回",
 		"noContent": "暂无更多介绍。添加后即可在对话中使用该能力。",
 		"notFound": "没有找到这个能力，它可能已下架或被移除。",
 		"status": {
@@ -122,6 +121,9 @@
 		},
 		"reloadable": "可重载到 {{version}}",
 		"permissions": "权限",
+		"permissionsDialog": "权限配置",
+		"permissionsDialogHint": "关闭某项后，插件调用对应能力时会被拦截。",
+		"permissionsNotInstalledHint": "以下为插件声明的权限，安装后可逐项调整。",
 		"permissionsSystemHint": "系统插件自动授予，不可更改",
 		"noPermissions": "该插件没有声明权限。",
 		"commands": "可执行命令",
@@ -187,7 +189,7 @@
 		"settingsWrite": "修改设置"
 	},
 	"meta": {
-		"title": "元信息",
+		"title": "其他",
 		"homepage": "官方网站",
 		"repository": "代码仓库",
 		"docs": "文档",
