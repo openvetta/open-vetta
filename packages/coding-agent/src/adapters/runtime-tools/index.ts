@@ -22,6 +22,10 @@ export {
 	type RuntimeCommandToolResult,
 } from "./command-executor.js";
 export {
+	createCodingAgentEditPathPolicy,
+	type RuntimeEditPathPolicy,
+} from "./edit-path-policy.js";
+export {
 	createToolExecutableResolver,
 	type EnsureTool,
 	type EnsureToolDependencies,

@@ -1,5 +1,6 @@
 import {
 	createCodingAgentBackgroundCommandHost,
+	createCodingAgentEditPathPolicy,
 	createCodingAgentForegroundCommandHost,
 	createCodingAgentWritePathPolicy,
 	createToolExecutableResolver,
@@ -23,6 +24,7 @@ import {
 	createBashToolRegistration,
 	createCodingToolsFeature,
 	createCurrentTimeToolRegistration,
+	createEditToolRegistration,
 	createFindToolRegistration,
 	createForegroundCommandToolExecutor,
 	createGlobToolRegistration,
@@ -82,6 +84,7 @@ export function createCodingToolsRuntimeComposition(
 	const registry = new InMemoryCodingToolRegistry([
 		createCurrentTimeToolRegistration(),
 		createReadToolRegistration(cwd),
+		createEditToolRegistration(cwd, { pathPolicy: createCodingAgentEditPathPolicy(cwd) }),
 		createBashToolRegistration(cwd, { executor: commandExecutor }),
 		createShellToolRegistration(cwd, { executor: commandExecutor }),
 		...(backgroundService

@@ -349,15 +349,15 @@ Runtime glob 直接声明 `glob` 和 `ignore`，不再通过 `coding-agent` 的�
   -> active names
 ```
 
-当前已迁移的 `current_time/read/ls/glob/grep/find/tree/write` 在所有场景的最终激活集合完全一致。
-`current_time/read/glob/grep/tree/write` 保持全场景默认激活，`ls/find` 保持空 scope，且后两者仍可由
+当前已迁移的 `current_time/read/ls/glob/grep/find/tree/write/edit` 在所有场景的最终激活集合完全一致。
+`current_time/read/glob/grep/tree/write/edit` 保持全场景默认激活，`ls/find` 保持空 scope，且后两者仍可由
 新 Composition Root 显式激活。比较发生在模型调用贡献层，而不是只比较 Registry 元数据，
 因此能发现 Feature 编排、默认 scope 或 Provider 输出造成的可观察差异。
 
 同时审计了 `@vetta/runtime-tools` 包根：仓库内源码和测试当前没有直接消费者，但包根仍是已
-发布的公共入口，并继续转发旧工具 Factory 和单例。Coding 子路径已有独立 tree/write，但
-edit 尚未迁移，直接删除或改写根导出仍会造成公开 API 和功能缺失。因此本阶段保留兼容导出，不用
-“仓库内无人引用”替代公共兼容性判断。只有剩余工具完成行为差分迁移、产品 Composition Root
+发布的公共入口，并继续转发旧工具 Factory 和单例。Coding 子路径已有独立 tree/write/edit，但
+产品 Composition Root 尚未切换，直接删除或改写根导出仍会造成公开 API 和生产功能缺失。因此本阶段
+保留兼容导出，不用“仓库内无人引用”替代公共兼容性判断。只有产品 Composition Root
 能够提供等价 Profile，并形成明确迁移窗口后，才能拆除该入口。
 
 ### 2.9 `requires` 与会话能力激活
@@ -523,6 +523,43 @@ Runtime 保留 TypeBox schema、路径解析和模糊重定向、执行顺序、
 - 执行前、创建目录后和文件写入中的取消行为，以及 mkdir/write 错误传播均由合同测试覆盖。
 - Runtime Tools 全量测试 166 项通过；CLI Composition Root 9 项通过；7 个场景的 Tool Profile 差分为零。
 
+### 2.13 `edit`
+
+旧 `edit` 同时承载锚点批量编辑和精确文本替换，不能简化为 `String.replace`。迁移识别出的完整合同
+包括：
+
+- 锚点解析、纯哈希降级、漂移找回、歧义与 stale 判定。
+- 多编辑原子校验、范围重叠检查、行号增量补偿和新鲜锚点回执。
+- 防止无意丢弃 `}`、`]`、JSX/Fragment 关闭行的结构闭合保护。
+- 精确匹配优先，以及尾部空白、智能引号、Unicode 横线和特殊空格的模糊匹配。
+- 文本唯一性、无变化检测、UTF-8 BOM、LF/CRLF 保持和既有 unified diff details。
+- 现有路径模糊解析、Skill/Scene 与 Knowledge Wiki 保护、文件访问顺序和协作式取消。
+
+实现拆分为：
+
+```text
+Edit Tool / TypeBox Schema / Registration
+  -> anchor-edit pure engine
+  -> exact-text transformation + diff
+  -> EditOperations.access / readFile / writeFile
+  -> required EditPathPolicy
+
+Coding Agent host adapter
+  -> legacy path protection + rejection messages
+```
+
+共享锚点模块在原有 read/grep 哈希与渲染能力上补齐 parse、validate、漂移恢复和区域回执；编辑算法不
+依赖文件系统。Runtime 的 `EditPathPolicy` 只接收通用拒绝原因，不感知 Skill、Scene 或 Knowledge
+Wiki；该 Port 与 write 一样是必需依赖，没有静默放行默认值。`diff` 作为 Runtime Tools 的直接依赖
+声明，不再依赖旧 Coding Agent 的传递安装。
+
+兼容性证据：
+
+- 22 项旧/新差分合同逐字段比较定义、schema、scope、成功结果、错误文本、文件内容和 Operations。
+- 29 项旧锚点测试继续通过；既有 tools 测试中的 edit、模糊匹配、BOM 和换行相关用例均通过。
+- Runtime Tools 全量测试 17 个文件、188 项通过；CLI Composition Root 9 项通过。
+- 7 个场景的 Tool Profile 加入 edit 后差分继续为零。
+
 ## 3. 已实施模块审计
 
 | 模块 | 当前状态 | 与旧行为的差距 | 切换结论 |
@@ -533,9 +570,10 @@ Runtime 保留 TypeBox schema、路径解析和模糊重定向、执行顺序、
 | `glob` Tool | 独立实现、绝对 pattern、`.gitignore` 和真实 Tool Loop 合同已通过 | 生产宿主尚未装配新 Profile | 工具模块迁移完成；全 scope 暴露保持旧语义 |
 | `dir_tree` Tool | 独立 Runtime Tool、树模型、fd Operations/Resolver、限制合同和全场景 Profile 差分已通过 | 旧 AgentSession 和生产入口仍使用旧 Tool Factory | 工具模块迁移完成；旧生产入口尚不可删除 |
 | `write` Tool | 独立 Runtime Tool、WriteOperations、必需的宿主 WritePathPolicy、路径/取消/错误合同和全场景 Profile 差分已通过 | 旧 AgentSession 和生产入口仍使用旧 Tool Factory | 工具模块迁移完成；旧生产入口尚不可删除 |
+| `edit` Tool | 独立 Runtime Tool、双模式纯编辑引擎、EditOperations、必需的宿主 EditPathPolicy、22 项差分合同和全场景 Profile 差分已通过 | 旧 AgentSession 和生产入口仍使用旧 Tool Factory | 工具模块迁移完成；旧生产入口尚不可删除 |
 | `bash/shell` Tool | Runtime Definition、Registration、前台执行器、后台协调、独立后台生命周期、task 工具、通知格式、低层 Host Adapter、平台 scope 和过渡 Composition Root 已通过 | 旧 AgentSession 和生产入口仍使用旧工具/Manager | 新 Runtime 工具链迁移完成；旧生产路径尚不可删除 |
 | 宿主可执行文件解析 | Runtime Port、本地 PATH/managed-bin Adapter、grep/find 注入合同、旧 ensureTool 适配、网络/归档合同和 cli-app Composition Root 已通过 | 真实 GitHub 网络、最终独立可执行发布物和完整 Tool Profile 迁移尚未完成；包根兼容导出必须继续保留 | 新 Profile 可并行验证；旧宿主仍不可切换 |
-| Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope/explicit 激活和 requires/capabilities，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；current_time/read/ls/grep/find/glob/tree/write/bash/shell/task_output/task_stop 已进入全场景 Profile 差分门禁 | edit 未迁移，生产 Profile 尚未切换 | 动态编排边界完成；整体能力未完成 |
+| Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope/explicit 激活和 requires/capabilities，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；current_time/read/ls/grep/find/glob/tree/write/edit/bash/shell/task_output/task_stop 已进入全场景 Profile 差分门禁 | 生产 Profile 尚未切换 | 动态编排与当前默认工具迁移完成；生产接入未完成 |
 | `AgentSession` | 新状态机可执行 | 活动 Turn 输入目前拒绝；旧系统具有 queue、follow-up、steering 语义 | 不可切换 |
 | Turn Pipeline | 固定阶段和持久化检查点已实现 | 输入队列、完整观察事件和恢复闭环未完成 | 不可切换 |
 | `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环、每次模型调用刷新 Model Call Frame 已通过 | Kernel 只映射完成消息；旧 UI 需要流式 text/thinking/tool progress 事件 | 不可切换宿主 |
@@ -583,9 +621,9 @@ side effects
 `ensureTool` 行为合同、下载计划合同、归档安装合同、网络边界合同和 cli-app 过渡
 Composition Root。新旧 Tool Profile 已对全部场景建立差分门禁；runtime-tools 包根兼容导出
 因仍承载未迁移工具而保留。Runtime 后台任务生命周期引擎及 shell spawn、日志存储和进程树
-终止的低层宿主 Operations 已完成并通过差分。dir_tree 的独立实现、fd Port，以及 write 的独立
-Runtime 实现、宿主路径策略和全场景差分均已完成。下一阶段应按行为合同迁移 edit，
-再完成 CLI/桌面入口与旧 AgentSession 事件适配，
+终止的低层宿主 Operations 已完成并通过差分。dir_tree、write 和 edit 的独立 Runtime 实现、宿主
+Port 及全场景差分均已完成。下一阶段应审计并接入实际 CLI/桌面生产 Composition Root 与旧
+AgentSession 事件适配，
 最后根据完整 Profile 差分结果设计兼容入口迁移；真实 GitHub 网络、最终独立可执行发布物和
 其他外部依赖的产物级解析/打包测试仍需单独执行，重点覆盖下载、并发解析、版本锁定、离线
 模式和 Windows/Unix 产物。生产 Profile 接线时由组合根创建 Registry；

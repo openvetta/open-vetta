@@ -25,12 +25,14 @@
 		"@sinclair/typebox": "^0.34.41",
 		"@vetta/coding-agent": "workspace:*",
 		"@vetta/runtime-core": "workspace:*",
+		"diff": "^8.0.2",
 		"file-type": "^21.1.1",
 		"glob": "^13.0.1",
 		"ignore": "^7.0.5"
 	},
 	"devDependencies": {
 		"@vetta/ai": "workspace:*",
+		"@types/diff": "^7.0.2",
 		"typescript": "^5.9.2",
 		"@types/node": "^22.10.5"
 	}

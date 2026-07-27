@@ -2,6 +2,7 @@ import {
 	ALL_SCENARIOS,
 	BackgroundTaskManager,
 	createBashTool,
+	createEditTool,
 	createFindTool,
 	createGlobTool,
 	createGrepTool,
@@ -44,8 +45,30 @@ describe("CLI Runtime Tools Composition Root", () => {
 			const contribution = await provider.contribute(modelCallContext());
 			expect(contribution.tools?.map(({ name }) => name)).toEqual(
 				process.platform === "win32"
-					? ["current_time", "dir_tree", "glob", "grep", "read", "shell", "task_output", "task_stop", "write"]
-					: ["bash", "current_time", "dir_tree", "glob", "grep", "read", "task_output", "task_stop", "write"],
+					? [
+							"current_time",
+							"dir_tree",
+							"edit",
+							"glob",
+							"grep",
+							"read",
+							"shell",
+							"task_output",
+							"task_stop",
+							"write",
+						]
+					: [
+							"bash",
+							"current_time",
+							"dir_tree",
+							"edit",
+							"glob",
+							"grep",
+							"read",
+							"task_output",
+							"task_stop",
+							"write",
+						],
 			);
 			await expect(composition.executableResolver.resolve("rg")).resolves.toBeUndefined();
 			expect(calls).toEqual([{ tool: "rg", silent: true }]);
@@ -83,6 +106,7 @@ describe("CLI Runtime Tools Composition Root", () => {
 		const legacyTools = [
 			createCurrentTimeTool(),
 			createReadTool(cwd),
+			createEditTool(cwd),
 			createBashTool(cwd),
 			createShellTool(cwd),
 			createLsTool(cwd),

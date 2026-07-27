@@ -98,6 +98,21 @@ export {
 	createCurrentTimeToolRegistration,
 } from "./tools/current-time/index.js";
 export {
+	type AnchorEditInput,
+	AnchorEditInputSchema,
+	createEditTool,
+	createEditToolRegistration,
+	EDIT_TOOL_CATEGORY,
+	EDIT_TOOL_DESCRIPTION,
+	EDIT_TOOL_SCOPES,
+	type EditOperations,
+	type EditPathPolicy,
+	type EditToolDetails,
+	type EditToolInput,
+	EditToolInputSchema,
+	type EditToolOptions,
+} from "./tools/edit/index.js";
+export {
 	createFindTool,
 	createFindToolRegistration,
 	FIND_TOOL_CATEGORY,
