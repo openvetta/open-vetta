@@ -57,6 +57,7 @@
 | [47-session-runtime-configuration.md](./08-implementation-log/47-session-runtime-configuration.md) | 输入队列模式、插件运行时配置与 agent mode 的统一配置边界 |
 | [48-raw-session-handle-removal.md](./08-implementation-log/48-raw-session-handle-removal.md) | 裸 Session 句柄移除、结构门禁与创建/存储边界审计 |
 | [49-session-creation-and-storage-boundary.md](./08-implementation-log/49-session-creation-and-storage-boundary.md) | Runtime-owned 创建请求、离线 Catalog、文件历史与共享模型服务 |
+| [50-greenfield-session-projection.md](./08-implementation-log/50-greenfield-session-projection.md) | Greenfield 同步会话投影、真实 Core Assembly 与文件恢复集成 |
 
 ## 维护约定
 

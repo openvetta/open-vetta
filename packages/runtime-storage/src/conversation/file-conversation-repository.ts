@@ -36,6 +36,11 @@ export class FileConversationRepository implements ConversationRepository {
 		this.rootDir = resolve(options.rootDir);
 	}
 
+	/** Stable absolute path used by a composition root as the session identity path. */
+	resolveConversationPath(sessionId: string): string {
+		return this.conversationPath(sessionId);
+	}
+
 	async create(input: CreateConversationInput): Promise<ConversationMetadata> {
 		this.assertOpen();
 		return this.exclusive(input.sessionId, async () => {

@@ -213,6 +213,7 @@ function checkCapabilitySchemaDefinitions(posixPath, text, findings) {
 function checkGreenfieldRuntimeImports(posixPath, specifiers, findings) {
 	const isGreenfieldRuntime =
 		posixPath.startsWith("packages/runtime-core/src/kernel/") ||
+		posixPath.startsWith("packages/runtime-core/src/runtime-host/greenfield-") ||
 		posixPath.startsWith("packages/runtime-storage/src/conversation/") ||
 		posixPath.startsWith("packages/runtime-tools/src/coding/");
 	if (!isGreenfieldRuntime) return;

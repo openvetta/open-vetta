@@ -65,7 +65,7 @@ function completed(sessionId: string, turnId: string): TurnCompletedEvent {
 
 describe("FileConversationRepository", () => {
 	it("creates, appends and reloads a versioned conversation", async () => {
-		const { repository } = await createRepository();
+		const { repository, rootDir } = await createRepository();
 		await repository.create({
 			sessionId: "session/with unsafe path",
 			createdAt: 100,
@@ -91,6 +91,10 @@ describe("FileConversationRepository", () => {
 			"message.appended",
 			"turn.completed",
 		]);
+		const conversationFile = (await readdir(rootDir)).find((file) => file.endsWith(".conversation.jsonl"));
+		expect(repository.resolveConversationPath("session/with unsafe path")).toBe(
+			join(rootDir, conversationFile ?? ""),
+		);
 	});
 
 	it("persists data across repository instances", async () => {

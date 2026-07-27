@@ -13,6 +13,7 @@ available from `@vetta/runtime-storage/conversation`.
 - settings storage exports
 - versioned file Conversation Repository
 - TypeBox runtime validation for persisted conversation records
+- stable absolute conversation path resolution for runtime session identity
 
 ## What It Does Not Own
 
@@ -29,3 +30,4 @@ available from `@vetta/runtime-storage/conversation`.
 - compatibility storage exports from the package root
 - `FileConversationRepository` and stable storage errors from
   `@vetta/runtime-storage/conversation`
+- `FileConversationRepository.resolveConversationPath()` for composition-owned identity metadata

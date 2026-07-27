@@ -20,9 +20,16 @@ export {
 	GreenfieldRuntimeSession,
 	GreenfieldRuntimeSessionBackend,
 	type GreenfieldRuntimeSessionBackendOptions,
+	type GreenfieldRuntimeSessionCoreAssembly,
 	type GreenfieldRuntimeSessionState,
 } from "./greenfield-session-backend.js";
 export { mapGreenfieldKernelEventToSessionEvents } from "./greenfield-session-events.js";
+export {
+	type GreenfieldRuntimeDynamicState,
+	type GreenfieldRuntimeSessionIdentity,
+	type GreenfieldRuntimeStateSource,
+	GreenfieldSessionProjection,
+} from "./greenfield-session-projection.js";
 export {
 	createLegacyRuntimeSessionCorePorts,
 	LegacyRuntimeSessionBackgroundWorkController,

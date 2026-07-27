@@ -149,7 +149,12 @@ function createBackend(
 						},
 					});
 					const session = await createAgentSession({ id: options.id, pipeline });
-					return { session, repository, dispose };
+					return {
+						session,
+						repository,
+						dispose,
+						...runtimeAssemblyDetails(options.id),
+					};
 				},
 				async resume() {
 					throw new Error("Resume is not configured for this test harness");
@@ -207,6 +212,48 @@ describe("GreenfieldRuntimeSessionBackend", () => {
 		expect((await session.getMessages()).map((message) => message.role)).toEqual(["user", "assistant", "assistant"]);
 	});
 
+	it("exposes synchronous lifecycle, workspace, turn, event and state core ports", async () => {
+		const { backend } = createBackend(new CompletingTurnEngine());
+		const session = await backend.create({ id: "session-1" });
+		const assembly = session.createCoreAssembly();
+		const events: SessionEvent[] = [];
+		assembly.corePorts.eventStream.subscribe((event) => events.push(event));
+
+		expect(assembly.lifecycle).toMatchObject({
+			sessionId: "session-1",
+			sessionPath: "sessions/session-1.conversation.jsonl",
+		});
+		expect(assembly.workspaceView.readWorkingDirectory()).toBe("workspace/session-1");
+		expect(assembly.corePorts.stateReader.readState()).toMatchObject({
+			thinkingLevel: "off",
+			isStreaming: false,
+			messageCount: 0,
+			contextPercent: null,
+			contextWindow: 8_000,
+			activeToolNames: ["read"],
+		});
+
+		await assembly.corePorts.turnControl.prompt({ text: "hello" });
+
+		expect(assembly.corePorts.stateReader.readMessages().map((message) => message.role)).toEqual([
+			"user",
+			"assistant",
+		]);
+		expect(assembly.corePorts.stateReader.readState()).toMatchObject({
+			isStreaming: false,
+			messageCount: 2,
+		});
+		expect(events.map((event) => event.type)).toEqual([
+			"session.lifecycle",
+			"message.final",
+			"usage.update",
+			"session.lifecycle",
+		]);
+
+		await assembly.lifecycle.dispose();
+		await expect(session.getMessages()).rejects.toMatchObject({ code: "session_closed" });
+	});
+
 	it("uses the explicit resume factory path and publishes interrupted recovery", async () => {
 		const repository = new InMemoryConversationRepository();
 		await repository.create({ sessionId: "session-1", createdAt: 1 });
@@ -232,7 +279,7 @@ describe("GreenfieldRuntimeSessionBackend", () => {
 				idGenerator: { next: () => "unused-turn-id" },
 			});
 			const session = await resumeAgentSession({ id: options.id, pipeline });
-			return { session, repository };
+			return { session, repository, ...runtimeAssemblyDetails(options.id) };
 		});
 		const backend = new GreenfieldRuntimeSessionBackend<TestCreateOptions>({
 			promptAdapter: new RecordingPromptAdapter(),
@@ -319,6 +366,24 @@ function snapshot(): RuntimeSnapshot {
 		tokenBudget: 8_000,
 		reservedOutputTokens: 1_000,
 		observers: [],
+	};
+}
+
+function runtimeAssemblyDetails(sessionId: string) {
+	return {
+		identity: {
+			cwd: `workspace/${sessionId}`,
+			sessionPath: `sessions/${sessionId}.conversation.jsonl`,
+		},
+		stateSource: {
+			read: () => ({
+				model: undefined,
+				thinkingLevel: "off" as const,
+				contextPercent: null,
+				contextWindow: 8_000,
+				activeToolNames: ["read"],
+			}),
+		},
 	};
 }
 
