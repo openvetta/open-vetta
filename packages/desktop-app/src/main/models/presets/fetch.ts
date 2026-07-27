@@ -1,6 +1,5 @@
 import type { ModelDefinition } from "../model-settings-service.js";
 import type { PresetProviderDef } from "./catalog.js";
-import { enrichModel } from "./metadata.js";
 
 /** 注入的 fetch 实现——运行时传 electron 的 net.fetch,测试里传桩。 */
 export type FetchImpl = (url: string, init?: RequestInit) => Promise<Response>;
@@ -14,7 +13,8 @@ export interface PresetModelsResult {
 const MAX_PAGES = 10;
 
 /**
- * 按预设服务商各自的 `/models` 接口拉取可用模型。
+ * 按预设服务商各自的 `/models` 接口拉取可用模型。只解析接口自己给的字段;
+ * 价格、上下文长度等缺失元数据由调用方经 models.dev 目录补齐(见 models-dev.ts)。
  * 任一步失败都返回 `{ models: [], error }`,由调用方决定是保留旧快照还是提示用户。
  */
 export async function fetchPresetModels(
@@ -25,10 +25,7 @@ export async function fetchPresetModels(
 ): Promise<PresetModelsResult> {
 	try {
 		const raw = await fetchByAdapter(def, apiKey, fetchImpl, signal);
-		const models = raw
-			.filter((model) => def.isChatModel(model.id))
-			.map((model) => enrichModel(def.id, model))
-			.sort((a, b) => a.id.localeCompare(b.id));
+		const models = raw.filter((model) => def.isChatModel(model.id)).sort((a, b) => a.id.localeCompare(b.id));
 		if (models.length === 0) return { models: [], error: "接口未返回可识别的模型" };
 		return { models };
 	} catch (err) {

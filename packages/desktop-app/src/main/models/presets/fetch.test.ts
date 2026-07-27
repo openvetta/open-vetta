@@ -62,11 +62,11 @@ describe("fetchPresetModels", () => {
 			contextWindow: 200000,
 			maxTokens: 64000,
 		});
-		// 接口不给价格,由内置静态表补齐。
-		expect(opus?.cost).toEqual({ input: 15, output: 75, cacheRead: 1.5, cacheWrite: 18.75 });
+		// 接口不给价格,fetch 层也不猜——由 models.dev 目录在 sync 层补。
+		expect(opus?.cost).toBeUndefined();
 	});
 
-	it("过滤 OpenAI 的非对话模型并补齐静态元数据", async () => {
+	it("过滤 OpenAI 的非对话模型", async () => {
 		const fetchImpl = stubFetch(() => ({
 			data: [
 				{ id: "gpt-5.1" },
@@ -80,7 +80,6 @@ describe("fetchPresetModels", () => {
 		const result = await fetchPresetModels(def("openai"), "sk-test", fetchImpl);
 
 		expect(result.models.map((model) => model.id)).toEqual(["gpt-4.1-mini", "gpt-5.1"]);
-		expect(result.models[1]).toMatchObject({ reasoning: true, contextWindow: 400000 });
 	});
 
 	it("解析 Kimi 返回的能力位", async () => {
@@ -130,7 +129,6 @@ describe("fetchPresetModels", () => {
 			contextWindow: 1048576,
 			maxTokens: 65536,
 			reasoning: true,
-			input: ["text", "image"],
 		});
 	});
 

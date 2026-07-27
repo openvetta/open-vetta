@@ -1,13 +1,19 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { getVettaHomePath } from "@vetta/action-rpc";
+import { atomicWriteJSON } from "@vetta/toolkit/atomic-write";
 import { net } from "electron";
 import { getAppLogger } from "../../logger.js";
 import { getDesktopModelSettingsService } from "../model-settings-host.js";
 import type { ModelsConfig } from "../model-settings-service.js";
 import { getPresetProvider, PRESET_PROVIDERS } from "./catalog.js";
 import { fetchPresetModels, type PresetModelsResult } from "./fetch.js";
+import { enrichFromCatalog, fetchModelsDevCatalog, isCatalogFresh, type ModelsDevCatalog } from "./models-dev.js";
 
 const presetLog = getAppLogger("preset-providers");
 
 const FETCH_TIMEOUT_MS = 15_000;
+const CATALOG_PATH = join(getVettaHomePath(), "agent", "models-dev-cache.json");
 /** 后台同步间隔:12 小时。上游模型目录变动没那么快,再密就是白烧流量。 */
 const AUTO_SYNC_INTERVAL_MS = 12 * 60 * 60 * 1000;
 
@@ -30,9 +36,44 @@ export function listPresetProviders(): PresetProviderInfo[] {
 	}));
 }
 
+/** 进程内缓存,避免同一次同步里六家各拉一遍 3MB 的目录。 */
+let catalogMemo: ModelsDevCatalog | null = null;
+
+async function readCatalogCache(): Promise<ModelsDevCatalog | null> {
+	try {
+		return JSON.parse(await readFile(CATALOG_PATH, "utf8")) as ModelsDevCatalog;
+	} catch {
+		return null;
+	}
+}
+
 /**
- * 拉取某预设服务商的模型列表。只读不写——由渲染层拿到结果后连同 key 一起落盘,
- * 避免主进程与渲染层各写一次 models.json。
+ * 取 models.dev 目录:内存 → 磁盘缓存 → 网络。过期或拉取失败都退回旧缓存,
+ * 一份都没有就返回 null(此时只展示各家接口自己给的字段,不显示价格)。
+ */
+async function getModelsDevCatalog(): Promise<ModelsDevCatalog | null> {
+	const now = Date.now();
+	if (isCatalogFresh(catalogMemo, now)) return catalogMemo;
+	catalogMemo ??= await readCatalogCache();
+	if (isCatalogFresh(catalogMemo, now)) return catalogMemo;
+
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+	try {
+		const fresh = await fetchModelsDevCatalog(net.fetch, now, controller.signal);
+		catalogMemo = fresh;
+		atomicWriteJSON(CATALOG_PATH, fresh);
+	} catch (err) {
+		presetLog.warn("拉取 models.dev 目录失败，改用缓存：", err);
+	} finally {
+		clearTimeout(timer);
+	}
+	return catalogMemo;
+}
+
+/**
+ * 拉取某预设服务商的模型列表,并用 models.dev 目录补齐价格/上下文等接口不返回的字段。
+ * 只读不写——由渲染层拿到结果后连同 key 一起落盘,避免主进程与渲染层各写一次 models.json。
  *
  * apiKey 缺省时读 models.json 里已保存的 key(手动刷新场景)。
  */
@@ -49,11 +90,16 @@ export async function refreshPresetModels(providerId: string, apiKey?: string): 
 
 	const controller = new AbortController();
 	const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+	let result: PresetModelsResult;
 	try {
-		return await fetchPresetModels(def, key, net.fetch, controller.signal);
+		result = await fetchPresetModels(def, key, net.fetch, controller.signal);
 	} finally {
 		clearTimeout(timer);
 	}
+	if (result.models.length === 0) return result;
+
+	const catalog = await getModelsDevCatalog();
+	return { ...result, models: result.models.map((model) => enrichFromCatalog(catalog, def.id, model)) };
 }
 
 /** models.json 里由预设采纳而来、且填了 key 的条目。 */
