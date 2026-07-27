@@ -12,6 +12,10 @@
 		"./kernel": {
 			"types": "./dist/kernel/index.d.ts",
 			"import": "./dist/kernel/index.js"
+		},
+		"./conversation": {
+			"types": "./dist/conversation/index.d.ts",
+			"import": "./dist/conversation/index.js"
 		}
 	},
 	"files": ["dist"],

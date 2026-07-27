@@ -39,6 +39,11 @@ describe("FileConversationRepository Greenfield projection", () => {
 			"user",
 			"assistant",
 		]);
+		const createdHistory = createdAssembly.historyReader.readHistory();
+		expect(createdHistory).toMatchObject([
+			{ type: "message", entryId: "event-2", parentId: null, message: { role: "user" } },
+			{ type: "message", entryId: "event-3", parentId: "event-2", message: { role: "assistant" } },
+		]);
 		expect(createdAssembly.lifecycle.sessionPath).toMatch(/\.conversation\.jsonl$/);
 		await createdAssembly.lifecycle.dispose();
 
@@ -53,6 +58,7 @@ describe("FileConversationRepository Greenfield projection", () => {
 			"user",
 			"assistant",
 		]);
+		expect(resumedAssembly.historyReader.readHistory()).toEqual(createdHistory);
 		expect(resumedAssembly.lifecycle.sessionPath).toBe(createdAssembly.lifecycle.sessionPath);
 		await resumedAssembly.lifecycle.dispose();
 	});
@@ -100,6 +106,7 @@ async function createAssembly(
 	return {
 		session,
 		repository,
+		conversationDocumentReader: repository,
 		identity: {
 			cwd: rootDir,
 			sessionPath: repository.resolveConversationPath(sessionId),

@@ -12,6 +12,8 @@ available from `@vetta/runtime-storage/conversation`.
 - auth storage exports
 - settings storage exports
 - versioned file Conversation Repository
+- strict native Conversation V1/V2 reading and V2 document-entry envelopes
+- read-only Legacy v1-v3 Session JSONL import into the Runtime Conversation Document
 - TypeBox runtime validation for persisted conversation records
 - stable absolute conversation path resolution for runtime session identity
 
@@ -31,3 +33,4 @@ available from `@vetta/runtime-storage/conversation`.
 - `FileConversationRepository` and stable storage errors from
   `@vetta/runtime-storage/conversation`
 - `FileConversationRepository.resolveConversationPath()` for composition-owned identity metadata
+- `FileConversationRepository.readDocument()` and `LegacySessionDocumentReader` for native and Legacy history reads

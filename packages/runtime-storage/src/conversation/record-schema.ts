@@ -1,7 +1,8 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 
-export const CONVERSATION_SCHEMA_VERSION = 1;
+export const LEGACY_CONVERSATION_SCHEMA_VERSION = 1;
+export const CONVERSATION_SCHEMA_VERSION = 2;
 
 const TextContentSchema = Type.Object(
 	{
@@ -206,25 +207,68 @@ export const StoredSessionEventSchema = Type.Union([
 	TurnFailedEventSchema,
 ]);
 
-export const ConversationFileHeaderSchema = Type.Object(
+const ConversationFileHeaderSchemaV1 = Type.Object(
 	{
 		recordType: Type.Literal("conversation.header"),
-		schemaVersion: Type.Literal(CONVERSATION_SCHEMA_VERSION),
+		schemaVersion: Type.Literal(LEGACY_CONVERSATION_SCHEMA_VERSION),
 		sessionId: Type.String(),
 		createdAt: Type.Number(),
 	},
 	{ additionalProperties: false },
 );
 
-export const ConversationEventRecordSchema = Type.Object(
+export const CurrentConversationFileHeaderSchema = Type.Object(
+	{
+		recordType: Type.Literal("conversation.header"),
+		schemaVersion: Type.Literal(CONVERSATION_SCHEMA_VERSION),
+		sessionId: Type.String(),
+		createdAt: Type.Number(),
+		cwd: Type.Optional(Type.String()),
+		parentSessionPath: Type.Optional(Type.String()),
+		parentEntryId: Type.Optional(Type.String()),
+	},
+	{ additionalProperties: false },
+);
+
+export const ConversationFileHeaderSchema = Type.Union([
+	ConversationFileHeaderSchemaV1,
+	CurrentConversationFileHeaderSchema,
+]);
+
+const ConversationEventRecordSchemaV1 = Type.Object(
 	{
 		recordType: Type.Literal("conversation.event"),
-		schemaVersion: Type.Literal(CONVERSATION_SCHEMA_VERSION),
+		schemaVersion: Type.Literal(LEGACY_CONVERSATION_SCHEMA_VERSION),
 		sequence: Type.Integer({ minimum: 1 }),
 		event: StoredSessionEventSchema,
 	},
 	{ additionalProperties: false },
 );
+
+export const ConversationDocumentEntryReferenceSchema = Type.Object(
+	{
+		id: Type.String(),
+		parentId: Type.Union([Type.String(), Type.Null()]),
+		timestamp: Type.String(),
+	},
+	{ additionalProperties: false },
+);
+
+export const CurrentConversationEventRecordSchema = Type.Object(
+	{
+		recordType: Type.Literal("conversation.event"),
+		schemaVersion: Type.Literal(CONVERSATION_SCHEMA_VERSION),
+		sequence: Type.Integer({ minimum: 1 }),
+		event: StoredSessionEventSchema,
+		documentEntry: Type.Union([ConversationDocumentEntryReferenceSchema, Type.Null()]),
+	},
+	{ additionalProperties: false },
+);
+
+export const ConversationEventRecordSchema = Type.Union([
+	ConversationEventRecordSchemaV1,
+	CurrentConversationEventRecordSchema,
+]);
 
 export const ConversationSnapshotSchema = Type.Object(
 	{
@@ -245,15 +289,17 @@ export const ConversationSnapshotRecordSchema = Type.Object(
 	{ additionalProperties: false },
 );
 
-export type ConversationFileHeader = Static<typeof ConversationFileHeaderSchema>;
-export type ConversationEventRecord = Static<typeof ConversationEventRecordSchema>;
+export type ConversationFileHeader = Static<typeof CurrentConversationFileHeaderSchema>;
+export type ReadConversationFileHeader = Static<typeof ConversationFileHeaderSchema>;
+export type ConversationEventRecord = Static<typeof CurrentConversationEventRecordSchema>;
+export type ReadConversationEventRecord = Static<typeof ConversationEventRecordSchema>;
 export type ConversationSnapshotRecord = Static<typeof ConversationSnapshotRecordSchema>;
 
-export function isConversationFileHeader(value: unknown): value is ConversationFileHeader {
+export function isConversationFileHeader(value: unknown): value is ReadConversationFileHeader {
 	return Value.Check(ConversationFileHeaderSchema, value);
 }
 
-export function isConversationEventRecord(value: unknown): value is ConversationEventRecord {
+export function isConversationEventRecord(value: unknown): value is ReadConversationEventRecord {
 	return Value.Check(ConversationEventRecordSchema, value);
 }
 

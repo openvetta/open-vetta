@@ -1,4 +1,4 @@
-import { appendFile, mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { appendFile, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type {
@@ -95,6 +95,57 @@ describe("FileConversationRepository", () => {
 		expect(repository.resolveConversationPath("session/with unsafe path")).toBe(
 			join(rootDir, conversationFile ?? ""),
 		);
+		const records = (await readFile(repository.resolveConversationPath("session/with unsafe path"), "utf8"))
+			.trim()
+			.split("\n")
+			.map((line) => JSON.parse(line) as unknown);
+		expect(records).toMatchObject([
+			{ recordType: "conversation.header", schemaVersion: 2 },
+			{ recordType: "conversation.event", schemaVersion: 2, documentEntry: null },
+			{
+				recordType: "conversation.event",
+				schemaVersion: 2,
+				documentEntry: { id: "event-2", parentId: null },
+			},
+			{ recordType: "conversation.event", schemaVersion: 2, documentEntry: null },
+		]);
+		const document = await repository.readDocument("session/with unsafe path");
+		expect(document).toMatchObject({
+			revision: 3,
+			activeLeafId: "event-2",
+			entries: [{ id: "event-2", parentId: null, type: "message" }],
+		});
+	});
+
+	it("reads existing v1 records without rewriting them", async () => {
+		const { repository } = await createRepository();
+		const sessionId = "legacy-native-v1";
+		await repository.create({ sessionId, createdAt: 100 });
+		await writeFile(
+			repository.resolveConversationPath(sessionId),
+			`${JSON.stringify({
+				recordType: "conversation.header",
+				schemaVersion: 1,
+				sessionId,
+				createdAt: 100,
+			})}\n${JSON.stringify({
+				recordType: "conversation.event",
+				schemaVersion: 1,
+				sequence: 1,
+				event: message(sessionId, "turn-1", "v1 message"),
+			})}\n`,
+			"utf8",
+		);
+
+		expect((await repository.load(sessionId)).messages).toHaveLength(1);
+		expect(await repository.readDocument(sessionId)).toMatchObject({
+			revision: 1,
+			activeLeafId: "event-1",
+			entries: [{ id: "event-1", message: { content: "v1 message" } }],
+		});
+		await repository.append(sessionId, 1, [completed(sessionId, "turn-1")]);
+		const stored = await readFile(repository.resolveConversationPath(sessionId), "utf8");
+		expect(stored).not.toContain('"schemaVersion":2');
 	});
 
 	it("persists data across repository instances", async () => {
@@ -194,7 +245,7 @@ describe("FileConversationRepository", () => {
 		const stored = await readFile(join(rootDir, snapshotFile ?? ""), "utf8");
 		expect(JSON.parse(stored)).toMatchObject({
 			recordType: "conversation.snapshot",
-			schemaVersion: 1,
+			schemaVersion: 2,
 			snapshot: {
 				sessionId: "session-1",
 				version: 1,
@@ -238,8 +289,9 @@ describe("FileConversationRepository", () => {
 			join(rootDir, conversationFile ?? ""),
 			`${JSON.stringify({
 				recordType: "conversation.event",
-				schemaVersion: 1,
+				schemaVersion: 2,
 				sequence: 1,
+				documentEntry: null,
 				event: {
 					type: "turn.completed",
 					sessionId: "session-1",
@@ -247,6 +299,30 @@ describe("FileConversationRepository", () => {
 					stopReason: "invented",
 					timestamp: 3,
 				},
+			})}\n`,
+			"utf8",
+		);
+
+		await expect(repository.load("session-1")).rejects.toMatchObject({
+			code: CONVERSATION_STORAGE_ERROR_CODES.CORRUPT,
+		});
+	});
+
+	it("rejects a v2 document entry whose parent is not present", async () => {
+		const { repository } = await createRepository();
+		await repository.create({ sessionId: "session-1", createdAt: 100 });
+		await appendFile(
+			repository.resolveConversationPath("session-1"),
+			`${JSON.stringify({
+				recordType: "conversation.event",
+				schemaVersion: 2,
+				sequence: 1,
+				documentEntry: {
+					id: "event-1",
+					parentId: "missing",
+					timestamp: "2026-01-01T00:00:00.000Z",
+				},
+				event: message("session-1", "turn-1", "hello"),
 			})}\n`,
 			"utf8",
 		);

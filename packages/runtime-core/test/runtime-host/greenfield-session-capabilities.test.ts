@@ -9,7 +9,7 @@ type CapabilityStatus = "implemented" | "missing";
  */
 const GREENFIELD_CAPABILITY_MATRIX = {
 	lifecycle: "implemented",
-	historyReader: "missing",
+	historyReader: "implemented",
 	historyController: "missing",
 	hostInteraction: "missing",
 	executionController: "missing",
@@ -28,7 +28,7 @@ describe("Greenfield RuntimeHost capability matrix", () => {
 			.filter(([, status]) => status === "implemented")
 			.map(([name]) => name);
 
-		expect(implemented).toEqual(["lifecycle", "workspaceView", "corePorts"]);
-		expect(Object.values(GREENFIELD_CAPABILITY_MATRIX).filter((status) => status === "missing")).toHaveLength(9);
+		expect(implemented).toEqual(["lifecycle", "historyReader", "workspaceView", "corePorts"]);
+		expect(Object.values(GREENFIELD_CAPABILITY_MATRIX).filter((status) => status === "missing")).toHaveLength(8);
 	});
 });

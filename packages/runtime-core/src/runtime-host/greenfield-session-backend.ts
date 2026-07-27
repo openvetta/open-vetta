@@ -1,5 +1,6 @@
 import type { Message } from "@vetta/ai";
-import type { PromptRequest, SessionEvent } from "../contracts.js";
+import type { HistoryEntry, PromptRequest, SessionEvent } from "../contracts.js";
+import type { ConversationDocumentReader } from "../conversation/document.js";
 import type { AgentSession } from "../kernel/agent-session.js";
 import type {
 	AgentSessionState,
@@ -23,6 +24,7 @@ import {
 import type { RuntimeSessionBackend } from "./session-backend.js";
 import type {
 	RuntimeSessionCorePorts,
+	RuntimeSessionHistoryReader,
 	RuntimeSessionIdentityLifecycle,
 	RuntimeSessionState,
 	RuntimeSessionWorkspaceView,
@@ -45,6 +47,7 @@ export interface GreenfieldPromptAdapter {
 export interface GreenfieldRuntimeAssembly {
 	readonly session: AgentSession;
 	readonly repository: ConversationRepository;
+	readonly conversationDocumentReader: ConversationDocumentReader;
 	readonly identity: GreenfieldRuntimeSessionIdentity;
 	readonly stateSource: GreenfieldRuntimeStateSource;
 	/** 由组合根释放 Session 之外的独占资源；共享 Repository 不应在这里关闭。 */
@@ -73,6 +76,7 @@ export interface GreenfieldRuntimeSessionState {
 /** Greenfield 当前真实具备的 RuntimeHost 核心能力；不包含尚未迁移的外围 Port。 */
 export interface GreenfieldRuntimeSessionCoreAssembly {
 	readonly lifecycle: RuntimeSessionIdentityLifecycle;
+	readonly historyReader: RuntimeSessionHistoryReader;
 	readonly workspaceView: RuntimeSessionWorkspaceView;
 	readonly corePorts: RuntimeSessionCorePorts;
 }
@@ -165,6 +169,11 @@ export class GreenfieldRuntimeSession {
 		return this.projection.readMessages();
 	}
 
+	readHistory(): readonly HistoryEntry[] {
+		this.assertOpen();
+		return this.projection.readHistory();
+	}
+
 	createCoreAssembly(): GreenfieldRuntimeSessionCoreAssembly {
 		this.assertOpen();
 		return {
@@ -172,6 +181,9 @@ export class GreenfieldRuntimeSession {
 				sessionId: this.sessionId,
 				sessionPath: this.identity.sessionPath,
 				dispose: () => this.dispose(),
+			},
+			historyReader: {
+				readHistory: () => this.readHistory(),
 			},
 			workspaceView: {
 				readWorkingDirectory: () => this.identity.cwd,
@@ -240,8 +252,11 @@ export class GreenfieldRuntimeSessionBackend<TCreateOptions>
 		const eventSink = new GreenfieldSessionEventSink();
 		const assembly = await this.options.runtimeFactory[operation](options, eventSink);
 		try {
-			const conversation = await assembly.repository.load(assembly.session.id);
-			const projection = new GreenfieldSessionProjection(conversation);
+			const [conversation, document] = await Promise.all([
+				assembly.repository.load(assembly.session.id),
+				assembly.conversationDocumentReader.readDocument(assembly.session.id),
+			]);
+			const projection = new GreenfieldSessionProjection(conversation, document);
 			eventSink.bindProjection(projection);
 			eventSink.finishInitialization();
 			return new GreenfieldRuntimeSession(assembly, this.options.promptAdapter, eventSink, projection);

@@ -1,0 +1,25 @@
+export {
+	applyStoredEventToConversationDocument,
+	type ConversationDocument,
+	type ConversationDocumentBranchSummaryEntry,
+	type ConversationDocumentCompactionEntry,
+	type ConversationDocumentCustomEntry,
+	type ConversationDocumentCustomMessageEntry,
+	type ConversationDocumentEntry,
+	type ConversationDocumentEntryBase,
+	type ConversationDocumentEntryReference,
+	type ConversationDocumentIdentity,
+	type ConversationDocumentLabelEntry,
+	type ConversationDocumentMessageEntry,
+	type ConversationDocumentModelEntry,
+	type ConversationDocumentReader,
+	type ConversationDocumentSessionInfoEntry,
+	type ConversationDocumentThinkingLevelEntry,
+	type ConversationDocumentToolTimingEntry,
+	createEmptyConversationDocument,
+	nativeConversationEntryId,
+} from "./document.js";
+export {
+	projectConversationDocumentHistory,
+	selectConversationDocumentBranch,
+} from "./history-projection.js";

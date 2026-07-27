@@ -1,6 +1,11 @@
 import type { AssistantMessage, UserMessage } from "@vetta/ai";
 import { describe, expect, it, vi } from "vitest";
 import type { PromptRequest, SessionEvent } from "../../src/contracts.js";
+import {
+	applyStoredEventToConversationDocument,
+	type ConversationDocument,
+	createEmptyConversationDocument,
+} from "../../src/conversation/index.js";
 import type {
 	ConversationMetadata,
 	ConversationRepository,
@@ -45,6 +50,16 @@ class InMemoryConversationRepository implements ConversationRepository {
 		const conversation = this.conversations.get(sessionId);
 		if (!conversation) throw new Error(`Conversation not found: ${sessionId}`);
 		return conversation;
+	}
+
+	async readDocument(sessionId: string): Promise<ConversationDocument> {
+		const conversation = await this.load(sessionId);
+		let document = createEmptyConversationDocument({ sessionId, createdAt: conversation.createdAt });
+		for (let index = 0; index < conversation.events.length; index += 1) {
+			const event = conversation.events[index];
+			if (event) document = applyStoredEventToConversationDocument(document, event, index + 1);
+		}
+		return document;
 	}
 
 	async append(
@@ -152,6 +167,7 @@ function createBackend(
 					return {
 						session,
 						repository,
+						conversationDocumentReader: repository,
 						dispose,
 						...runtimeAssemblyDetails(options.id),
 					};
@@ -249,6 +265,10 @@ describe("GreenfieldRuntimeSessionBackend", () => {
 			"usage.update",
 			"session.lifecycle",
 		]);
+		expect(assembly.historyReader.readHistory()).toMatchObject([
+			{ type: "message", entryId: "event-2", parentId: null, message: { role: "user" } },
+			{ type: "message", entryId: "event-3", parentId: "event-2", message: { role: "assistant" } },
+		]);
 
 		await assembly.lifecycle.dispose();
 		await expect(session.getMessages()).rejects.toMatchObject({ code: "session_closed" });
@@ -279,7 +299,7 @@ describe("GreenfieldRuntimeSessionBackend", () => {
 				idGenerator: { next: () => "unused-turn-id" },
 			});
 			const session = await resumeAgentSession({ id: options.id, pipeline });
-			return { session, repository, ...runtimeAssemblyDetails(options.id) };
+			return { session, repository, conversationDocumentReader: repository, ...runtimeAssemblyDetails(options.id) };
 		});
 		const backend = new GreenfieldRuntimeSessionBackend<TestCreateOptions>({
 			promptAdapter: new RecordingPromptAdapter(),

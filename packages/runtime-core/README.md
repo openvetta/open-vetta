@@ -18,6 +18,7 @@ entry until downstream adapters are ready to switch.
 - session-owned steering/follow-up queues with configurable consumption modes
 - explicit Greenfield session backend for prompt/continue/abort, mapped events and repository-backed state
 - synchronous Greenfield message/state projection with genuine lifecycle, workspace and core session ports
+- runtime-owned Conversation Document and synchronous Greenfield history projection
 - explicit create/resume paths with fail-closed interrupted Turn recovery and optimistic versioning
 - narrow RuntimeHost Turn Control, Event Stream and State Read ports with a legacy compatibility adapter
 - port-only RuntimeHost session assemblies with create-only backend compatibility and no raw legacy session handle
@@ -63,6 +64,7 @@ entry until downstream adapters are ready to switch.
 - `RuntimeHostSessionAssembly` and `RuntimeHostSessionBackend` for explicit port-only composition-root capability delivery
 - `GreenfieldRuntimeSessionBackend` for parallel Kernel composition without impersonating the legacy session
 - `GreenfieldRuntimeSessionCoreAssembly` and `GreenfieldSessionProjection` for the implemented Greenfield core subset
+- `@vetta/runtime-core/conversation` for the tree-shaped history read model, reader port and host history projection
 - `resumeAgentSession` and `ConversationRecoveryPolicy` for recovery without model or tool replay
 - `RuntimeSessionObservationEvent` and Greenfield Kernel-to-`SessionEvent` adapters
 - session event and state contracts from `src/contracts.ts`

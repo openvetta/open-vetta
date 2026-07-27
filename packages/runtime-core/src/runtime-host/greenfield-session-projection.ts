@@ -1,4 +1,7 @@
 import type { Message } from "@vetta/ai";
+import type { HistoryEntry } from "../contracts.js";
+import { applyStoredEventToConversationDocument, type ConversationDocument } from "../conversation/document.js";
+import { projectConversationDocumentHistory } from "../conversation/history-projection.js";
 import type { StoredConversation, StoredSessionEvent } from "../kernel/contracts.js";
 import type { RuntimeSessionState } from "./session-ports.js";
 
@@ -29,10 +32,22 @@ export interface GreenfieldRuntimeStateSource {
 export class GreenfieldSessionProjection {
 	private readonly sessionId: string;
 	private readonly messages: Message[];
+	private document: ConversationDocument;
 
-	constructor(conversation: StoredConversation) {
+	constructor(conversation: StoredConversation, document: ConversationDocument) {
+		if (conversation.sessionId !== document.identity.sessionId) {
+			throw new Error(
+				`Conversation ${conversation.sessionId} does not match document ${document.identity.sessionId}`,
+			);
+		}
+		if (conversation.version !== document.revision) {
+			throw new Error(
+				`Conversation version ${conversation.version} does not match document revision ${document.revision}`,
+			);
+		}
 		this.sessionId = conversation.sessionId;
 		this.messages = [...conversation.messages];
+		this.document = document;
 	}
 
 	apply(event: StoredSessionEvent): void {
@@ -42,6 +57,7 @@ export class GreenfieldSessionProjection {
 		if (event.type === "message.appended") {
 			this.messages.push(event.message);
 		}
+		this.document = applyStoredEventToConversationDocument(this.document, event, this.document.revision + 1);
 	}
 
 	readMessages(): readonly Message[] {
@@ -50,5 +66,9 @@ export class GreenfieldSessionProjection {
 
 	readMessageCount(): number {
 		return this.messages.length;
+	}
+
+	readHistory(): readonly HistoryEntry[] {
+		return projectConversationDocumentHistory(this.document);
 	}
 }
