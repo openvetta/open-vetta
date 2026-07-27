@@ -1,6 +1,6 @@
 import type { JSX } from "react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@vetta/ui";
 import { cn } from "@vetta/ui";
+import { MotionSelect } from "./MotionSelect";
 import { SettingRow, SettingSection, type SettingSectionMeta } from "./SettingChrome";
 
 export interface QuickPanelOptionView {
@@ -42,34 +42,23 @@ export function QuickPanelSettingsSectionView({
 	return (
 		<SettingSection section={section} title={sectionTitle}>
 			<SettingRow title={triggerTitle} description={triggerDescription}>
-				<Select value={trigger} onValueChange={onTriggerChange}>
-					<SelectTrigger size="sm" className="h-8 min-w-[150px] border-border/70 bg-background/50 text-[12px]">
-						<SelectValue />
-					</SelectTrigger>
-					<SelectContent>
-						{triggerOptions.map((option) => (
-							<SelectItem key={option.value} value={option.value} className="text-[12px]">
-								{option.label}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
+				<MotionSelect
+					value={trigger}
+					onValueChange={onTriggerChange}
+					options={triggerOptions}
+					triggerClassName="min-w-[150px]"
+				/>
 			</SettingRow>
 
 			<SettingRow title={behaviorTitle} description={behaviorDescription} border={false}>
 				<div className={cn("transition-opacity", behaviorDisabled && "pointer-events-none opacity-40")}>
-					<Select value={behavior} onValueChange={onBehaviorChange}>
-						<SelectTrigger size="sm" className="h-8 min-w-[120px] border-border/70 bg-background/50 text-[12px]">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							{behaviorOptions.map((option) => (
-								<SelectItem key={option.value} value={option.value} className="text-[12px]">
-									{option.label}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
+					<MotionSelect
+						value={behavior}
+						onValueChange={onBehaviorChange}
+						options={behaviorOptions}
+						triggerClassName="min-w-[120px]"
+						disabled={behaviorDisabled}
+					/>
 				</div>
 			</SettingRow>
 		</SettingSection>

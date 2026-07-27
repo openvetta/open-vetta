@@ -11,6 +11,9 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **设置页下拉统一为 `MotionSelect`（修关闭空白）**：根因是 Radix `SelectValue` 依赖已挂载 `SelectItem` portal 文案，条件卸载 Content 后触发器空白。`MotionSelect` 改回 Popover + 显式 label（原 Agent 交互 + motion），关闭时文字仍显示；通用/快捷面板/Appshot/成就/知识库/插件/模型表单/外观语言/Agent 人设全部统一；`@vetta/ui` Select 默认皮仍产品化，供非设置场景。
+- **外观设置鼠标指针卡片**：改为固定两列布局，置于主题色上方；卡片加高（约 72px）并放大预览图标，说明文案最多两行。
+- **外观设置选中边框统一为 1px 细线**：模式 / 界面主题 / 主题色 / 鼠标指针卡片去掉 `ring-2` + `ring-offset`；选中只改 `border-primary/50`（可叠浅底 `bg-primary/10`），**不再叠 ring**，避免 border+ring 视觉上变粗。
 - **侧边栏「对话」空状态**：无会话时由单行「暂无对话」改为图标 + 标题 + 引导说明；对话 tab 提供「开始新对话」CTA，且空态下头部「+」始终可见；Claw tab 单独说明如何产生记录。
 - **插件 agent 工具展示名走注册 label**：`registerTool({ label })` 直接写入展示表（支持 `%catalogKey%`）；Work 模式工具头优先用该 label，`generate_image` / `edit_image` 文案从宿主 `chat.toolLabel.alias` 迁到 image-gen 插件 catalog。
 

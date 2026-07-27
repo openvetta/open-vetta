@@ -17,6 +17,8 @@ export interface SidebarTopBarLabels {
 export interface SidebarTopBarProps {
 	/** 顶栏 actions 区插槽（如工作模式徽章 popover）。渲染在折叠按钮之前。 */
 	agentModeSlot?: ReactNode;
+	/** Host-provided brand icon. */
+	brandIcon?: ReactNode;
 	/** Host-provided brand trailing content (e.g. connected SidebarUpdateButton). */
 	brandTrailing?: ReactNode;
 	className?: string;
@@ -30,6 +32,7 @@ export interface SidebarTopBarProps {
 
 export function SidebarTopBar({
 	agentModeSlot,
+	brandIcon,
 	brandTrailing,
 	className,
 	classNames,
@@ -55,7 +58,9 @@ export function SidebarTopBar({
 				</div>
 			) : (
 				<div className={cn("flex min-w-0 shrink items-center gap-2 overflow-hidden", classNames?.brand)}>
-					<img src="./icon.png" alt="Vetta" className="h-5 w-5 shrink-0 rounded-[5px]" />
+					{brandIcon ?? (
+						<img src="./icon.png" alt="Vetta" className="h-5 w-5 shrink-0 rounded-[5px]" />
+					)}
 					<span className="truncate text-[13px] font-semibold text-foreground">Vetta</span>
 					{brandTrailing}
 				</div>

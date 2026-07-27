@@ -1,17 +1,9 @@
-
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@vetta/ui";
 import { Switch } from "@vetta/ui";
 import { cn } from "@shared/lib/utils";
 import { openExternalLink } from "@shared/lib/open-external-link";
 import { SettingsAiAssist } from "../ai-assist";
 import type { PluginSettingFieldModel, PluginsSettingsModel } from "./usePluginsSettingsModel";
-import { SettingRow, SettingSection } from "@vetta/theme-ui/settings";
+import { MotionSelect, SettingRow, SettingSection } from "@vetta/theme-ui/settings";
 
 const URL_PATTERN = /(https?:\/\/[^\s]+)/g;
 
@@ -87,18 +79,13 @@ function SettingControl({
 			);
 		case "enum":
 			return (
-				<Select value={typeof value === "string" ? value : ""} onValueChange={(next) => onChange(next)}>
-					<SelectTrigger size="sm" className="h-8 min-w-[160px] text-[12px]">
-						<SelectValue placeholder={pleaseSelect} />
-					</SelectTrigger>
-					<SelectContent>
-						{(schema.enum ?? []).map((option) => (
-							<SelectItem key={option} value={option} className="text-[12px]">
-								{option}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
+				<MotionSelect
+					value={typeof value === "string" ? value : ""}
+					onValueChange={(next) => onChange(next)}
+					placeholder={pleaseSelect}
+					triggerClassName="min-w-[160px]"
+					options={(schema.enum ?? []).map((option) => ({ value: option, label: option }))}
+				/>
 			);
 		default:
 			return (
