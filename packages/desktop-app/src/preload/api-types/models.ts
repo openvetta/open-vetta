@@ -17,6 +17,8 @@ export interface ModelsConfigData {
 			templateId?: string;
 			/** 供应商图标 symbol(见 CONTEXT.md「icon symbol」),客户端按此解析内置图标。可选。 */
 			icon?: string;
+			/** 预设服务商模型列表最近一次从上游 /models 同步的时间(ISO)。 */
+			modelsSyncedAt?: string;
 			models?: Array<{
 				id: string;
 				/** 上游 API 真实模型名。远程渠道下 id=网关路由 key、modelId=上游真名；缺省回退 id。 */
@@ -42,29 +44,25 @@ export interface RemoteProvidersResult {
 	error?: string;
 }
 
-/** 单个[[预设模板]]供应商:服务端下发的目录条目,不含 key。 */
-export interface ProviderTemplate {
-	/** 模板标识(= provider key),持久化时写入 templateId。 */
+/** 单个[[预设服务商]]:客户端内置目录条目,不含 key。 */
+export interface PresetProviderInfo {
+	/** 预设标识(= provider key),持久化时写入 templateId。 */
 	id: string;
 	displayName: string;
 	api: string;
-	baseUrl?: string;
-	/** 供应商图标 symbol,可选。 */
-	icon?: string;
-	models: Array<{
-		id: string;
-		name?: string;
-		api?: string;
-		reasoning?: boolean;
-		input?: string[];
-		contextWindow?: number;
-		maxTokens?: number;
-		cost?: { input: number; output: number; cacheRead: number; cacheWrite: number };
-	}>;
+	baseUrl: string;
+	/** 供应商图标 symbol。 */
+	icon: string;
+	/** 未填 key 时展示的种子模型;填 key 后由上游 /models 拉取的列表取代。 */
+	seedModels: NonNullable<ModelsConfigData["providers"][string]["models"]>;
 }
 
-export interface ProviderTemplatesResult {
-	templates: ProviderTemplate[];
+export interface PresetProvidersResult {
+	providers: PresetProviderInfo[];
+}
+
+export interface PresetModelsResult {
+	models: NonNullable<ModelsConfigData["providers"][string]["models"]>;
 	error?: string;
 }
 
@@ -72,8 +70,10 @@ export interface DesktopModelsApi {
 	get(): Promise<ModelsConfigData>;
 	set(config: ModelsConfigData): Promise<void>;
 	fetchRemote(): Promise<RemoteProvidersResult>;
-	/** 拉取服务端[[预设模板]]目录(公开免登录),并就地在线合并已采纳条目的元数据。 */
-	fetchTemplates(): Promise<ProviderTemplatesResult>;
+	/** 读取客户端内置的[[预设服务商]]目录(无网络请求)。 */
+	listPresets(): Promise<PresetProvidersResult>;
+	/** 按 key 拉取某预设服务商上游 `/models` 的模型列表。只拉不写,由调用方落盘。 */
+	refreshPresetModels(providerId: string, apiKey?: string): Promise<PresetModelsResult>;
 	/** 探测某 (provider, model) 的 baseUrl 是否可达(本地 models.json 优先,回退云端目录)。仅判可达性,任何 HTTP 响应都算通。 */
 	probe(ref: { provider: string; model: string }): Promise<{ ok: boolean; message?: string; error?: string }>;
 	/** 拉取本地自定义 provider 的 `GET {baseUrl}/models`,返回上游模型 id 列表,用于快速填写模型配置。 */

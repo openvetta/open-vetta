@@ -27,6 +27,8 @@ export interface ProviderConfig {
 	source?: "template";
 	templateId?: string;
 	icon?: string;
+	/** 预设服务商模型列表最近一次从上游 /models 同步的时间(ISO)。 */
+	modelsSyncedAt?: string;
 	models?: ModelDefinition[];
 	modelOverrides?: Record<string, Record<string, unknown>>;
 }

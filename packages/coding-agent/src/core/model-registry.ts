@@ -142,6 +142,7 @@ const ProviderConfigSchema = Type.Object({
 	source: Type.Optional(Type.String()),
 	templateId: Type.Optional(Type.String()),
 	icon: Type.Optional(Type.String()),
+	modelsSyncedAt: Type.Optional(Type.String()),
 	displayName: Type.Optional(Type.String()),
 	models: Type.Optional(Type.Array(ModelDefinitionSchema)),
 	modelOverrides: Type.Optional(Type.Record(Type.String(), ModelOverrideSchema)),

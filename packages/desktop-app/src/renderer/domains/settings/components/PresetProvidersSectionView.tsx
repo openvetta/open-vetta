@@ -23,6 +23,7 @@ export function PresetProvidersSectionView({ model }: { model: PresetProvidersSe
 					onDraftKeyChange={model.onDraftKeyChange}
 					onAdopt={model.onAdopt}
 					onRemove={model.onRemove}
+					onRefreshModels={model.onRefreshModels}
 				/>
 			))}
 		/>
