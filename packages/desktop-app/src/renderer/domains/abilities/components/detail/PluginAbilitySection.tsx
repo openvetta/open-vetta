@@ -2,6 +2,7 @@ import { Button, Switch } from "@vetta/ui";
 import { useTranslation } from "react-i18next";
 import { PLUGIN_PERMISSION_LABEL_KEYS, pluginSourceLabelKey } from "../../lib/plugin-permission-labels";
 import type { AbilitiesModel, PluginAbility } from "../../types";
+import { PluginContributionsSection } from "./PluginContributionsSection";
 
 /**
  * plugin 专属区块：权限与命令开关。
@@ -19,7 +20,10 @@ export function PluginAbilitySection({
 	const isSystem = plugin?.source === "system";
 	const editable = plugin !== null && !isSystem;
 
-	if (item.permissions.length === 0 && item.commands.length === 0 && !plugin) return null;
+	const contributions = item.market?.config.contributions;
+	const hasContributions = Boolean(contributions?.mcp_servers?.length || contributions?.skills?.length);
+
+	if (item.permissions.length === 0 && item.commands.length === 0 && !hasContributions && !plugin) return null;
 
 	return (
 		<section className="flex flex-col gap-5">
@@ -47,6 +51,8 @@ export function PluginAbilitySection({
 					</Button>
 				</div>
 			) : null}
+
+			<PluginContributionsSection item={item} />
 
 			<div>
 				<div className="mb-2 flex items-center gap-2 text-[13px] font-semibold text-foreground">

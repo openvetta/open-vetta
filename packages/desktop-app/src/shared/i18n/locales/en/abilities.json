@@ -128,7 +128,11 @@
 		"permissionsSystemHint": "Granted automatically for system plugins, not editable",
 		"noPermissions": "This plugin declares no permissions.",
 		"commands": "Executable commands",
-		"commandsHint": "Disabling blocks calls from the plugin"
+		"commandsHint": "Disabling blocks calls from the plugin",
+		"contributions": "Included in this plugin",
+		"contributionsHint": "Installed and removed together with the plugin",
+		"contributedMcp": "MCP servers",
+		"contributedSkills": "Skills"
 	},
 	"mcp": {
 		"title": "Connection setup",

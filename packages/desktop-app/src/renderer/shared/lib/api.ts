@@ -351,8 +351,31 @@ export interface AbilityConfig {
 	api_version?: string;
 	permissions?: string[];
 	commands?: string[];
+	/**
+	 * type=plugin：插件内聚的 MCP server 与 skill（ADR-0040），上传时从 zip 解析。
+	 * 纯展示——运行时装配仍由客户端读安装目录的 plugin.json 完成。
+	 */
+	contributions?: AbilityPluginContributions;
 	/** type=bundle：成员清单。 */
 	members?: AbilityMember[];
+}
+
+/** 插件内聚的 agent 贡献（对用户不可见地随插件生死，故需在装之前列清楚）。 */
+export interface AbilityPluginContributions {
+	mcp_servers?: AbilityContributedMcp[];
+	skills?: AbilityContributedSkill[];
+}
+
+export interface AbilityContributedMcp {
+	name: string;
+	display_name?: string;
+	description?: string;
+}
+
+export interface AbilityContributedSkill {
+	name: string;
+	alias?: string;
+	description?: string;
 }
 
 export type AbilityShowcaseTemplate = "chat-over-canvas" | "chat-thread";
