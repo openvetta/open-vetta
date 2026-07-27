@@ -96,6 +96,8 @@ export type {
 	ModelsProvidersSectionViewProps,
 } from "./ModelsProvidersSectionView";
 export { ModelsProvidersSectionView } from "./ModelsProvidersSectionView";
+export type { MotionSelectOption, MotionSelectProps } from "./MotionSelect";
+export { MotionSelect } from "./MotionSelect";
 export type {
 	PermissionItemView,
 	PermissionStatusView,
@@ -150,9 +152,12 @@ export type {
 	SettingsAiAssistDialogViewProps,
 } from "./SettingsAiAssistDialogView";
 export { SettingsAiAssistDialogView } from "./SettingsAiAssistDialogView";
+export { SettingsContentLoadingView } from "./SettingsContentLoadingView";
 export {
 	CheckboxField,
 	InputField,
+	SETTINGS_SELECT_ITEM_CLASS,
+	SETTINGS_SELECT_TRIGGER_CLASS,
 	SelectField,
 	TextareaField,
 } from "./SettingsFormFields";
@@ -170,6 +175,16 @@ export type {
 	SubscriptionWindowViewModel,
 } from "./SubscriptionCardsView";
 export { SubscriptionCardsView } from "./SubscriptionCardsView";
+export type { SettingsEnterItemProps } from "./settingsEnter";
+export {
+	SETTINGS_ENTER_DELAY_CHILDREN,
+	SETTINGS_ENTER_DURATION,
+	SETTINGS_ENTER_EASE,
+	SETTINGS_ENTER_STAGGER,
+	SettingsEnterItem,
+	SettingsTabEnter,
+	useSettingsEnterDelay,
+} from "./settingsEnter";
 export type {
 	TeamDetailViewData,
 	TeamDetailViewLabels,

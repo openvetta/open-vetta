@@ -10,6 +10,9 @@ const guidingEase = [0.22, 1, 0.36, 1] as const;
 const WORD_SLOT_CLASS = "h-8";
 const WORD_LIST_MIN_H_CLASS = "min-h-24";
 
+/** 整块引导词区（含 mt-5 + 组标题 + 3 词槽）的外层预留高度，供 host 加载占位使用。 */
+export const NEW_SESSION_GUIDING_WORDS_SLOT_MIN_H_CLASS = "min-h-[9.5rem]";
+
 export function DefaultGuidingWords({
 	className,
 	groups,

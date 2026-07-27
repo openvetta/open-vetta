@@ -6,6 +6,7 @@ import {
 	VIRTUAL_SESSION_ROW_HEIGHT,
 } from "./types";
 import { useActiveSessionAutoScroll } from "./useActiveSessionAutoScroll";
+import { ProjectSessionsLoadingView } from "./ProjectSessionsLoadingView";
 
 export interface DefaultSessionListViewItem {
 	active?: boolean;
@@ -15,13 +16,20 @@ export interface DefaultSessionListViewItem {
 export interface DefaultSessionListViewLabels {
 	collapse: string;
 	expand: string;
-	empty: string;
+	/** Primary empty-state line. */
+	emptyTitle: string;
+	/** Guidance under the title. */
+	emptyDescription: string;
+	/** Optional CTA label; omit when no action (e.g. Claw filter). */
+	emptyAction?: string;
 }
 
 export interface DefaultSessionListViewProps<T extends DefaultSessionListViewItem> {
 	className?: string;
 	hasMore: boolean;
 	labels: DefaultSessionListViewLabels;
+	loading?: boolean;
+	onEmptyAction?: () => void;
 	onToggleShowAll: () => void;
 	renderSession: (session: T) => ReactNode;
 	scrollParent: HTMLElement | null;
@@ -36,6 +44,8 @@ export function DefaultSessionListView<T extends DefaultSessionListViewItem>({
 	className,
 	hasMore,
 	labels,
+	loading = false,
+	onEmptyAction,
 	onToggleShowAll,
 	renderSession,
 	scrollParent,
@@ -48,12 +58,35 @@ export function DefaultSessionListView<T extends DefaultSessionListViewItem>({
 	const activeIndex = sessions.findIndex((session) => session.active);
 	const activeKey = activeIndex >= 0 ? sessions[activeIndex]?.key : undefined;
 	useActiveSessionAutoScroll({ activeIndex, activeKey, scrollParent, virtuosoRef });
+	if (loading) return <ProjectSessionsLoadingView />;
 
 	if (totalCount === 0) {
+		const showAction = Boolean(labels.emptyAction && onEmptyAction);
 		return (
-			<p className={cn("px-2.5 py-1.5 text-[11px] text-muted-foreground/60", className)}>
-				{labels.empty}
-			</p>
+			<div
+				className={cn(
+					"flex flex-col items-center gap-2.5 px-3 py-8 text-center",
+					className,
+				)}
+			>
+				<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted/60">
+					<span className="icon-[solar--chat-round-line-linear] h-5 w-5 text-muted-foreground/70" />
+				</div>
+				<div className="flex flex-col gap-1">
+					<p className="text-[12px] font-medium text-foreground/80">{labels.emptyTitle}</p>
+					<p className="text-[11px] leading-relaxed text-muted-foreground">{labels.emptyDescription}</p>
+				</div>
+				{showAction && (
+					<button
+						type="button"
+						onClick={onEmptyAction}
+						className="mt-0.5 inline-flex items-center gap-1 rounded-md bg-primary/10 px-2.5 py-1.5 text-[11px] font-medium text-primary transition-colors hover:bg-primary/15"
+					>
+						<span className="icon-[solar--add-circle-linear] h-3.5 w-3.5 shrink-0" />
+						{labels.emptyAction}
+					</button>
+				)}
+			</div>
 		);
 	}
 

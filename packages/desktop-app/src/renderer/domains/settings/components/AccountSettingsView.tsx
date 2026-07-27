@@ -1,10 +1,10 @@
 import { UserAvatar } from "@shared/components/UserAvatar";
 import {
+	SettingsEnterItem,
 	SubscriptionCardsView,
 	TokenActivityChartView,
 } from "@vetta/theme-ui/settings";
 import { Button, Dialog, DialogContent, DialogTitle } from "@vetta/ui";
-import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { SubscriptionCards } from "./SubscriptionCards";
 import { TokenActivityChart } from "./TokenActivityChart";
@@ -61,12 +61,7 @@ export function AccountSettingsView({ model }: AccountSettingsViewProps): JSX.El
 
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 pt-2 pb-6">
-			<motion.div
-				className="mb-8 flex items-center gap-5"
-				initial={{ opacity: 0, y: 10 }}
-				animate={{ opacity: 1, y: 0 }}
-				transition={{ type: "spring", stiffness: 300, damping: 26 }}
-			>
+			<SettingsEnterItem className="mb-8 flex items-center gap-5">
 				<div className="relative shrink-0">
 					<div className="rounded-2xl bg-gradient-to-br from-primary/40 to-primary/10 p-[2px]">
 						<UserAvatar
@@ -110,13 +105,15 @@ export function AccountSettingsView({ model }: AccountSettingsViewProps): JSX.El
 						</div>
 					)}
 				</div>
-			</motion.div>
+			</SettingsEnterItem>
 
-			<SubscriptionCards />
+			<SettingsEnterItem>
+				<SubscriptionCards />
+			</SettingsEnterItem>
 
-			<div className="mb-6">
+			<SettingsEnterItem className="mb-6">
 				<TokenActivityChart />
-			</div>
+			</SettingsEnterItem>
 
 			<Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
 				<DialogContent

@@ -29,6 +29,9 @@ export interface ProjectsPanelModel {
 	imCwd: string;
 	noOtherProjects: boolean;
 	projectSessions: (cwd: string) => SessionInfo[];
+	projectSessionsLoading: (cwd: string) => boolean;
+	projectsLoading: boolean;
+	defaultSessionsLoading: boolean;
 	showBatchGroup: boolean;
 	actions: {
 		archiveProject(cwd: string): void;

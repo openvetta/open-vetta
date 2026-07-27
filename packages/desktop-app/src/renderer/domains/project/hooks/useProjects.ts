@@ -7,9 +7,11 @@ import {
 	type Project,
 	type ProjectType,
 	projectsAtom,
+	projectsInitializedAtom,
 	type SessionInfo,
 	scheduledRecordsVersionAtom,
 	scheduledSessionPathsAtom,
+	sessionLoadingCwdsAtom,
 	sessionsMapAtom,
 	workspacePathAtom,
 } from "@shared/store/atoms";
@@ -31,10 +33,13 @@ let didAutoExpand = false;
 // emits a state_patch (i.e. an IM message just created or updated a session).
 let imSubscribed = false;
 let sessionListSubscribed = false;
+const sessionLoadPromises = new Map<string, Promise<void>>();
 
 export function useProjects() {
 	const [projects, setProjects] = useAtom(projectsAtom);
+	const [projectsInitialized, setProjectsInitialized] = useAtom(projectsInitializedAtom);
 	const [sessionsMap, setSessionsMap] = useAtom(sessionsMapAtom);
+	const [sessionLoadingCwds, setSessionLoadingCwds] = useAtom(sessionLoadingCwdsAtom);
 	const scheduledSessionPaths = useAtomValue(scheduledSessionPathsAtom);
 	const setScheduledSessionPaths = useSetAtom(scheduledSessionPathsAtom);
 	const setScheduledRecordsVersion = useSetAtom(scheduledRecordsVersionAtom);
@@ -44,29 +49,45 @@ export function useProjects() {
 	const defaultImConversationCwd = useAtomValue(defaultImConversationCwdAtom);
 
 	const loadSessions = useCallback(
-		async (cwd: string) => {
-			const sessions = (await window.vetta.session.listSessions(cwd)) as SessionInfo[];
-			setSessionsMap((prev) => {
-				// 定时 / 新建 session 的 name、以及发送瞬间写入的乐观 firstMessage，在 assistant
-				// 首条落盘前磁盘可能仍是空 name + "(no messages)"。若直接覆盖会让侧栏/标题
-				// 闪回「未命名会话」。用上一次已知的非空 name / 可用 firstMessage 兜底。
-				const prevByPath = new Map((prev.get(cwd) ?? []).map((s) => [s.path, s]));
-				const merged = sessions.map((s) => {
-					const known = prevByPath.get(s.path);
-					if (!known) return s;
-					let next = s;
-					if (!s.name && known.name) {
-						next = { ...next, name: known.name };
-					}
-					if (!isUsableFirstMessage(s.firstMessage) && isUsableFirstMessage(known.firstMessage)) {
-						next = { ...next, firstMessage: known.firstMessage };
-					}
-					return next;
+		(cwd: string): Promise<void> => {
+			const activeLoad = sessionLoadPromises.get(cwd);
+			if (activeLoad) return activeLoad;
+			setSessionLoadingCwds((prev) => new Set(prev).add(cwd));
+			const loadPromise = window.vetta.session
+				.listSessions(cwd)
+				.then((sessions: SessionInfo[]) =>
+					setSessionsMap((prev) => {
+						// 定时 / 新建 session 的 name、以及发送瞬间写入的乐观 firstMessage，在 assistant
+						// 首条落盘前磁盘可能仍是空 name + "(no messages)"。若直接覆盖会让侧栏/标题
+						// 闪回「未命名会话」。用上一次已知的非空 name / 可用 firstMessage 兜底。
+						const prevByPath = new Map((prev.get(cwd) ?? []).map((s) => [s.path, s]));
+						const merged = sessions.map((s) => {
+							const known = prevByPath.get(s.path);
+							if (!known) return s;
+							let next = s;
+							if (!s.name && known.name) {
+								next = { ...next, name: known.name };
+							}
+							if (!isUsableFirstMessage(s.firstMessage) && isUsableFirstMessage(known.firstMessage)) {
+								next = { ...next, firstMessage: known.firstMessage };
+							}
+							return next;
+						});
+						return new Map([...prev, [cwd, merged]]);
+					}),
+				)
+				.finally(() => {
+					sessionLoadPromises.delete(cwd);
+					setSessionLoadingCwds((prev) => {
+						const next = new Set(prev);
+						next.delete(cwd);
+						return next;
+					});
 				});
-				return new Map([...prev, [cwd, merged]]);
-			});
+			sessionLoadPromises.set(cwd, loadPromise);
+			return loadPromise;
 		},
-		[setSessionsMap],
+		[setSessionLoadingCwds, setSessionsMap],
 	);
 
 	// Keep a ref to loadSessions so the IM subscription (set up once at module
@@ -77,6 +98,8 @@ export function useProjects() {
 	defaultCwdRef.current = defaultConversationCwd;
 	const imCwdRef = useRef(defaultImConversationCwd);
 	imCwdRef.current = defaultImConversationCwd;
+	const expandedProjectsRef = useRef(expandedProjects);
+	expandedProjectsRef.current = expandedProjects;
 	useEffect(() => {
 		if (!imSubscribed) {
 			imSubscribed = true;
@@ -126,53 +149,53 @@ export function useProjects() {
 	}, [setSessionsMap]);
 
 	const refreshProjects = useCallback(async () => {
-		// Read project list from app-specific config file (not shared with CLI)
-		const config = await window.vetta.config.get();
-		const entries = config.projects.map((entry) => ({ cwd: entry.path, name: entry.name, sessionCount: 0 }));
+		try {
+			// Read project list from app-specific config file (not shared with CLI)
+			const config = await window.vetta.config.get();
+			const entries = config.projects.map((entry) => ({ cwd: entry.path, name: entry.name, sessionCount: 0 }));
 
-		// Read meta.json for each project in parallel to determine type
-		const metaResults = await Promise.all(
-			entries.map(async (entry) => {
-				const meta = await window.vetta.project.readMeta(entry.cwd);
-				const rawType = meta?.type as string | undefined;
-				const type: ProjectType = rawType === "batch" ? rawType : "normal";
-				return { ...entry, type };
-			}),
-		);
+			// Read meta.json for each project in parallel to determine type
+			const metaResults = await Promise.all(
+				entries.map(async (entry) => {
+					const meta = await window.vetta.project.readMeta(entry.cwd);
+					const rawType = meta?.type as string | undefined;
+					const type: ProjectType = rawType === "batch" ? rawType : "normal";
+					return { ...entry, type };
+				}),
+			);
 
-		// 虚拟注入默认「对话」项目，置于最前，且过滤掉用户误手动加入的同名条目。
-		const defaultCwd = config.defaultConversationCwd ?? "";
-		const filtered = defaultCwd ? metaResults.filter((p) => p.cwd !== defaultCwd) : metaResults;
-		const all: Project[] = defaultCwd
-			? [
-					{
-						cwd: defaultCwd,
-						name: DEFAULT_CONVERSATION_PROJECT_NAME,
-						sessionCount: 0,
-						type: "normal" as const,
-						isDefault: true,
-					},
-					...filtered,
-				]
-			: filtered;
-		setProjects(all);
+			// 虚拟注入默认「对话」项目，置于最前，且过滤掉用户误手动加入的同名条目。
+			const defaultCwd = config.defaultConversationCwd ?? "";
+			const filtered = defaultCwd ? metaResults.filter((p) => p.cwd !== defaultCwd) : metaResults;
+			const all: Project[] = defaultCwd
+				? [
+						{
+							cwd: defaultCwd,
+							name: DEFAULT_CONVERSATION_PROJECT_NAME,
+							sessionCount: 0,
+							type: "normal" as const,
+							isDefault: true,
+						},
+						...filtered,
+					]
+				: filtered;
+			setProjects(all);
 
-		// Load sessions for each project (含默认项目)
-		for (const project of all) {
-			void loadSessions(project.cwd);
+			// 首屏只加载默认会话与已展开项目；其它项目在展开时局部加载。
+			const projectCwds = new Set(all.map((project) => project.cwd));
+			const cwdsToLoad = new Set([...expandedProjectsRef.current].filter((cwd) => projectCwds.has(cwd)));
+			if (defaultCwd) cwdsToLoad.add(defaultCwd);
+
+			if (!didAutoExpand && all.length > 0) {
+				didAutoExpand = true;
+				setExpandedProjects(new Set<string>([all[0].cwd]));
+				cwdsToLoad.add(all[0].cwd);
+			}
+			for (const cwd of cwdsToLoad) void loadSessions(cwd);
+		} finally {
+			setProjectsInitialized(true);
 		}
-
-		// Claw tab 的 sessions 存放在独立 cwd 下（ADR-0005），单独拉一遍 —— 它不在 `all`
-		// 项目列表里，但「对话」project 的 Claw tab 需要读到。
-		const imCwd = config.defaultImConversationCwd ?? "";
-		if (imCwd) void loadSessions(imCwd);
-
-		if (!didAutoExpand && all.length > 0) {
-			didAutoExpand = true;
-			setExpandedProjects(new Set<string>([all[0].cwd]));
-			await loadSessions(all[0].cwd);
-		}
-	}, [setProjects, setExpandedProjects, loadSessions]);
+	}, [loadSessions, setExpandedProjects, setProjects, setProjectsInitialized]);
 
 	/** Create a new project directory in workspace and add to config; returns resolved cwd. */
 	const createProject = useCallback(
@@ -419,7 +442,9 @@ export function useProjects() {
 
 	return {
 		projects,
+		projectsInitialized,
 		sessionsMap,
+		sessionLoadingCwds,
 		expandedProjects,
 		refreshProjects,
 		loadSessions,

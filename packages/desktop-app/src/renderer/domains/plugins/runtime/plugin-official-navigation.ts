@@ -41,22 +41,22 @@ const STATIC_TARGETS: readonly StaticNavigationTarget[] = [
 	{
 		id: "skills",
 		title: "能力",
-		description: "能力与连接器（MCP）管理页面。",
-		hashPath: "/skills",
-		aliases: ["技能", "能力", "扩展", "skill marketplace", "技能广场", "场景"],
+		description: "能力页：Skill / 场景 / MCP / 插件 / 能力套装统一管理。",
+		hashPath: "/abilities",
+		aliases: ["技能", "能力", "扩展", "skill marketplace", "技能广场", "场景", "abilities"],
 	},
 	{
 		id: "plugins",
 		title: "插件",
-		description: "安装、启用与管理应用插件。",
-		hashPath: "/plugins",
+		description: "插件已并入能力页，按类型筛选即可。",
+		hashPath: "/abilities",
 		aliases: ["插件", "plugin", "plugins"],
 	},
 	{
 		id: "connectors",
 		title: "连接器",
 		description: "MCP 连接器管理，为 AI 接入外部工具。",
-		hashPath: "/skills?tab=connector",
+		hashPath: "/abilities",
 		aliases: ["MCP", "mcp", "MCP 管理", "连接器", "connectors"],
 	},
 	{
@@ -106,14 +106,12 @@ function buildSettingsHashPath(tab: string, section?: string): string {
 	return `/settings/${encodeURIComponent(tab)}${query ? `?${query}` : ""}`;
 }
 
-function buildConnectorsHashPath(section?: string): string {
-	const search = new URLSearchParams();
-	search.set("tab", "connector");
-	if (section) {
-		search.set("section", section);
-		search.set("nav", String(Date.now()));
-	}
-	return `/skills?${search.toString()}`;
+/**
+ * 连接器已并入能力页（ADR-0049），该页按能力条目组织、不再有可定位的 section，
+ * 故不带 section/nav 查询参数——它们此处无人消费。
+ */
+function buildConnectorsHashPath(): string {
+	return "/abilities";
 }
 
 function isMcpSettingsTarget(tabKey?: string, section?: SettingsSectionRegistration): boolean {
@@ -229,7 +227,7 @@ export function resolveOfficialNavigationOpen(input: { target: string; tab?: str
 	if (target === "mcp" || isMcpSettingsTarget(input.tab ? normalizeTarget(input.tab) : undefined, explicitSection)) {
 		const section = explicitSection?.tab === "mcp" ? explicitSection : undefined;
 		return {
-			hashPath: buildConnectorsHashPath(section?.id),
+			hashPath: buildConnectorsHashPath(),
 			resolved: {
 				kind: section ? "connectors-section" : "connectors",
 				tab: "mcp",
@@ -242,7 +240,7 @@ export function resolveOfficialNavigationOpen(input: { target: string; tab?: str
 	if (targetSection) {
 		if (targetSection.tab === "mcp") {
 			return {
-				hashPath: buildConnectorsHashPath(targetSection.id),
+				hashPath: buildConnectorsHashPath(),
 				resolved: {
 					kind: "connectors-section",
 					tab: "mcp",
@@ -270,7 +268,7 @@ export function resolveOfficialNavigationOpen(input: { target: string; tab?: str
 		if (isMcpSettingsTarget(tabKey, explicitSection)) {
 			const section = explicitSection?.tab === "mcp" ? explicitSection : undefined;
 			return {
-				hashPath: buildConnectorsHashPath(section?.id),
+				hashPath: buildConnectorsHashPath(),
 				resolved: {
 					kind: section ? "connectors-section" : "connectors",
 					tab: "mcp",

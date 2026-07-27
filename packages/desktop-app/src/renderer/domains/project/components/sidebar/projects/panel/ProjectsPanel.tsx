@@ -3,7 +3,7 @@ import {
 	SIDEBAR_PROJECTS_SPLIT_MAX,
 	sidebarProjectsSplitRatioAtom,
 } from "@shared/store/atoms";
-import { ProjectsPanelView } from "@vetta/theme-ui/project";
+import { ProjectsLoadingView, ProjectsPanelView } from "@vetta/theme-ui/project";
 import { useAtom } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -138,12 +138,14 @@ export function ProjectsPanel(props: ProjectsPanelProps): JSX.Element {
 				listClassName={props.defaultSessionListClassName}
 				project={model.defaultProject}
 				sessions={model.defaultSessions}
+				sessionsLoading={model.defaultSessionsLoading}
 				onNewSession={model.actions.defaultNewSession}
 				onBeforeSelectSession={handleDefaultSessionInteract}
 				onRenameSession={model.actions.renameSession}
 				onSelectSession={model.actions.defaultSelectSession}
 			/>
 		) : null;
+	if (model.projectsLoading) return <ProjectsLoadingView />;
 
 	return (
 		<ProjectsPanelView

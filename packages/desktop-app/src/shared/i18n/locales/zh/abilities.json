@@ -1,0 +1,198 @@
+{
+	"page": {
+		"title": "能力",
+		"subtitle": "给 agent 加点本事：技能、场景、MCP、插件与能力套装"
+	},
+	"banner": {
+		"title": "发现更多能力",
+		"description": "选择想要实现的功能，添加后即可在对话中使用"
+	},
+	"loading": "加载中…",
+	"type": {
+		"skill": "技能",
+		"scene": "场景",
+		"mcp": "MCP",
+		"plugin": "插件",
+		"bundle": "套装"
+	},
+	"scope": {
+		"discover": "发现",
+		"mine": "我的"
+	},
+	"group": {
+		"uncategorized": "未分类"
+	},
+	"search": {
+		"placeholder": "搜索能力"
+	},
+	"status": {
+		"setupRequired": "需要配置",
+		"updateAvailable": "可更新",
+		"custom": "自定义",
+		"builtin": "内置",
+		"readonly": "只读"
+	},
+	"card": {
+		"noDescription": "暂无能力说明"
+	},
+	"actions": {
+		"add": "添加",
+		"update": "更新",
+		"finishSetup": "完成配置",
+		"connectAccount": "连接账户",
+		"disconnectAccount": "断开账户",
+		"configure": "配置凭证",
+		"edit": "编辑配置",
+		"viewDetails": "查看详情",
+		"remove": "移除能力",
+		"enable": "启用能力",
+		"disable": "停用能力",
+		"more": "更多操作",
+		"refresh": "刷新",
+		"reload": "重载",
+		"cancel": "取消"
+	},
+	"add": {
+		"trigger": "添加能力",
+		"title": "选择添加方式",
+		"importSkill": "导入技能压缩包",
+		"importSkillHint": "从本地 zip、tar.gz 或 tgz 压缩包安装",
+		"addMcp": "手动添加 MCP",
+		"addMcpHint": "手动配置 stdio 或 HTTP MCP 服务"
+	},
+	"empty": {
+		"noMatch": "没有匹配的能力",
+		"noMatchHint": "试试换个关键词",
+		"discover": "暂时没有可发现的能力",
+		"mine": "还没有添加能力",
+		"hint": "稍后刷新，或通过上方「添加能力」导入"
+	},
+	"error": {
+		"loadFailed": "能力列表加载失败",
+		"downloadFailed": "下载失败：{{status}}",
+		"notLoggedIn": "请先登录后再安装能力",
+		"membersUnavailable": "以下成员暂不可用，未能安装：{{names}}",
+		"partial": "部分能力暂时无法加载：{{error}}"
+	},
+	"message": {
+		"installed": "已安装 {{name}}",
+		"setupRequired": "{{name}} 还需完成配置后才会添加",
+		"uninstalled": "已移除 {{name}}",
+		"uninstalledCount": "已移除 {{count}} 项能力",
+		"imported": "已导入 {{name}}",
+		"reloaded": "已重载 {{name}} {{version}}"
+	},
+	"detail": {
+		"noContent": "暂无更多介绍。添加后即可在对话中使用该能力。",
+		"notFound": "没有找到这个能力，它可能已下架或被移除。",
+		"status": {
+			"available": "未添加",
+			"setup_required": "需配置",
+			"disabled": "已停用",
+			"enabled": "已启用",
+			"readonly": "只读"
+		},
+		"primary": {
+			"add": "添加能力",
+			"update": "更新能力",
+			"setup": "完成设置",
+			"enable": "启用能力"
+		},
+		"secondary": {
+			"disable": "停用",
+			"configure": "配置",
+			"remove": "移除"
+		},
+		"meta": {
+			"author": "作者",
+			"version": "版本",
+			"localVersion": "本地版本",
+			"downloads": "下载量",
+			"license": "许可"
+		}
+	},
+	"plugin": {
+		"currentVersion": "当前版本",
+		"source": {
+			"label": "来源",
+			"remote": "远程安装",
+			"system": "系统内置",
+			"local": "本地 zip"
+		},
+		"reloadable": "可重载到 {{version}}",
+		"permissions": "权限",
+		"permissionsDialog": "权限配置",
+		"permissionsDialogHint": "关闭某项后，插件调用对应能力时会被拦截。",
+		"permissionsNotInstalledHint": "以下为插件声明的权限，安装后可逐项调整。",
+		"permissionsSystemHint": "系统插件自动授予，不可更改",
+		"noPermissions": "该插件没有声明权限。",
+		"commands": "可执行命令",
+		"commandsHint": "关闭后插件调用将被拦截",
+		"contributions": "本插件提供",
+		"contributionsHint": "随插件一同安装与移除",
+		"contributedMcp": "MCP 服务",
+		"contributedSkills": "技能",
+		"expandList": "展开其余 {{count}} 项",
+		"collapseList": "收起"
+	},
+	"mcp": {
+		"title": "连接配置",
+		"secretsLead": "该连接需要以下凭证，配置后方可使用：",
+		"oauth": "账户授权",
+		"oauthAuthorized": "已授权",
+		"oauthNotAuthorized": "尚未授权"
+	},
+	"bundle": {
+		"members": "包含 {{count}} 项能力",
+		"inline": "内联",
+		"missing": "已下架",
+		"memberInstalled": "已安装",
+		"memberNotInstalled": "未安装",
+		"uninstall": {
+			"title": "卸载能力套装",
+			"description": "「{{name}}」本身没有产物，卸载即移除下列成员。可取消勾选保留其中一部分。",
+			"nothing": "该套装当前没有可卸载的成员。",
+			"confirm": "卸载 {{count}} 项"
+		}
+	},
+	"permission": {
+		"uiSlotGlobal": "全局 UI Slot",
+		"uiSlotFilePreview": "文件预览 Slot",
+		"uiSlotActivityTab": "活动面板 Tab",
+		"uiSlotInputAction": "输入栏动作 Slot",
+		"uiSlotMessage": "消息下方 Slot",
+		"uiSlotToolCall": "工具调用渲染 Slot",
+		"uiSlotTurnCard": "回合卡片 Slot",
+		"agentSessionRead": "读取 Agent 会话",
+		"agentSessionWrite": "修改 Agent 会话",
+		"agentCommandRun": "执行 Agent 命令",
+		"agentSystemPromptRead": "读取 Agent 系统提示词",
+		"agentSystemPromptWrite": "修改 Agent 系统提示词",
+		"agentSystemPromptFullControl": "完全控制 Agent 系统提示词",
+		"agentSkillsControl": "控制 Agent 技能加载",
+		"agentMcpControl": "提供插件内聚 MCP 服务",
+		"agentToolsControl": "控制 Agent 工具加载",
+		"agentToolsRegister": "注册 Agent 工具",
+		"agentToolHandlerExecute": "执行插件工具处理器",
+		"agentStateRead": "读取插件 Agent 状态",
+		"agentStateWrite": "写入插件 Agent 状态",
+		"agentContinuationRegister": "注册 Agent 自动续跑策略",
+		"agentRuntimeConfigure": "配置 Agent 运行时",
+		"appActionsRegister": "注册应用 Action",
+		"appActionHandlerExecute": "执行插件 Action 处理器",
+		"fsRead": "读取文件",
+		"fsWrite": "写入文件",
+		"networkFetch": "访问网络",
+		"storageRead": "读取插件私有数据",
+		"storageWrite": "写入插件私有数据",
+		"settingsRead": "读取设置",
+		"settingsWrite": "修改设置"
+	},
+	"meta": {
+		"title": "其他",
+		"homepage": "官方网站",
+		"repository": "代码仓库",
+		"docs": "文档",
+		"license": "开源协议"
+	}
+}

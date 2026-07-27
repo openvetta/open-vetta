@@ -653,3 +653,37 @@ _Avoid_: 把工作流称作「后台任务」（那是 background-tasks 标签�
 ### 工作流标签卡
 
 活动面板新增的标签卡（有工作流时才出现，带运行中计数 badge）：顶部是工作流切换条，下方是选中工作流的 **1:1 只读 MessageList**（与主会话消息渲染同构，实时流式，不可输入）。与 background-tasks 标签卡职责互斥：后者继续只管后台 bash 与 explorer，工作流不在其中重复出现。
+
+### Ability（能力）
+
+平台侧**可分发扩展单元的统一概念**：Skill / Scene / MCP Server / Plugin / Bundle 在服务端收敛为**一张 `abilities` 表**、靠 `type` 判别，在 desktop 收敛为**一个「能力」列表 + 一套详情页**。
+
+**统一只发生在「数据存放」与「概念呈现」两层，刻意不统一物理分发与安装**：skill 装 `~/.vetta/skills/`、scene 装 `~/.vetta/scene/`、plugin 装 `~/.vetta/plugins/`、MCP 写进 `~/.vetta/agent/mcp.json` 的一个 key ——三条安装轨道原样保留，因为它们本来就是三种不同的运行时机制。scene 是这一模式的既有先例：服务端与 skill 同表同归档，仅客户端目录不同。
+
+标识为 `(type, slug)` 联合唯一，引用形式 `"skill:figma-ui"`。不来自市场的内置能力（`skill-presets`、系统插件）采用不会与市场冲突的 slug 命名空间，因此无需去重或优先级判定。
+
+**与 [[Capability（授权契约）]] 是完全不同的东西**，不要因中文都能读作「能力」而混用。
+
+### Capability（授权契约）
+
+`@vetta/capability-sdk` / `@vetta/capability-runtime` 里的权限契约层：Capability ID、Grant、access session、constraint、audit（见 `docs/capabilities/README.md`）。回答的是「某个 subject 能否调用某个宿主能力出口」。
+
+中文正式叫法为**「授权契约」**，把「能力」这个中文词让给 [[Ability（能力）]]，避免 desktop 市场条目与授权层同名不可分辨。
+
+### bundle（能力套装）
+
+`type = bundle` 的 [[Ability（能力）]]：一组**各自独立可用**的能力的松散组合。自身**永远无产物**（`artifact_key` 恒空），安装 = 逐成员走各自既有安装轨道，不引入任何新的打包/解包机制。
+
+成员以 `(type, slug)` 引用已上架的能力行为主；只有 **mcp** 允许「私有内联」（内联一段 config），因为 mcp 本就无产物。skill / scene / plugin 成员必须是引用——一旦允许内联带产物的成员，bundle 就要长出自己的打包格式与校验解包逻辑。
+
+**bundle 不可嵌套 bundle**。可被组合的 type 只有 `skill / scene / plugin / mcp`，成员集合恒为一层，不存在递归展开。
+
+**与 [[插件内聚]] 的判据**：bundle 是**松散**组合，成员对用户可见、可单独安装/卸载/启停；plugin 内聚（ADR-0040 的 `agent.mcpServers`、`agent.skillPaths`）是**紧耦合**，成员对用户不可见、随插件生死。要发「不单独上架的 skill/MCP」，答案是打进 plugin，不是塞进 bundle。
+
+### 能力安装台账
+
+`~/.vetta/abilities.json`，desktop 侧记录「装了哪些 [[Ability（能力）]]、什么版本」的**单一索引**，键为 `<type>:<slug>`。
+
+它**只是索引，不是安装位置**：skill / scene / plugin 的产物与 mcp 的配置仍分别落在各自既有位置，台账不复制内容。存在的理由是统一「已安装 / 版本 / 是否可更新」的判定——在它之前这三件事分别来自 skill 目录下的 manifest、`plugins-manifest.json`、以及「`mcp.json` 里有没有这个 key」，其中 mcp 连版本都没有，导致 admin 改了市场 MCP 的 config 后存量用户永远收不到更新。
+
+[[bundle（能力套装）]] **不进台账**：它的安装态、启用态、可更新态全部由成员派生，因此不存在台账与实际状态漂移的可能。

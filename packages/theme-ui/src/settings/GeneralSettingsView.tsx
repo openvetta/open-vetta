@@ -1,13 +1,6 @@
 import type { JSX, ReactNode } from "react";
-import {
-	Button,
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-	Switch,
-} from "@vetta/ui";
+import { Button, Switch } from "@vetta/ui";
+import { MotionSelect } from "./MotionSelect";
 import { SettingRow, SettingSection, type SettingSectionMeta } from "./SettingChrome";
 
 export interface GeneralSettingsViewLabels {
@@ -114,24 +107,20 @@ export function GeneralSettingsView({
 					</div>
 				</SettingRow>
 				<SettingRow title={labels.sandboxTitle} description={labels.sandboxDescription}>
-					<Select value={executionMode} onValueChange={onExecutionModeChange}>
-						<SelectTrigger size="sm" className="h-8 min-w-[120px] border-border/70 bg-background/50 text-[12px]">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value="full-access" className="text-[12px]">
-								{labels.fullAccess}
-							</SelectItem>
-							<SelectItem
-								value="sandbox"
-								className="text-[12px]"
-								disabled={Boolean(sandboxUnavailableReason)}
-								title={sandboxUnavailableReason ?? undefined}
-							>
-								{labels.useSandbox}
-							</SelectItem>
-						</SelectContent>
-					</Select>
+					<MotionSelect
+						value={executionMode}
+						onValueChange={onExecutionModeChange}
+						triggerClassName="min-w-[120px]"
+						options={[
+							{ value: "full-access", label: labels.fullAccess },
+							{
+								value: "sandbox",
+								label: labels.useSandbox,
+								disabled: Boolean(sandboxUnavailableReason),
+								title: sandboxUnavailableReason ?? undefined,
+							},
+						]}
+					/>
 				</SettingRow>
 				<SettingRow
 					title={labels.systemNotifications}

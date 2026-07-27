@@ -1,4 +1,5 @@
 import type { RefreshOutcome } from "@preload/api";
+import { i18n } from "@shared/i18n";
 
 let cachedBaseUrl: string | undefined;
 
@@ -324,100 +325,189 @@ export async function fetchUsageSeries(token: string, days: 7 | 30 | 90 | 365 = 
 	});
 }
 
-// ─── Market Skills ───
+// ─── Market Abilities（ADR-0049：Skill / Scene / MCP / Plugin / Bundle 统一为 Ability） ───
 
-export interface MarketSkillInfo {
+export type AbilityType = "skill" | "scene" | "mcp" | "plugin" | "bundle";
+/** bundle 不允许嵌套，成员集合恒为一层。 */
+export type AbilityMemberType = Exclude<AbilityType, "bundle">;
+
+export interface AbilityMember {
+	type: AbilityMemberType;
+	slug: string;
+	/** 仅 mcp 私有内联成员才有；有它就没有展开字段。 */
+	inline?: Record<string, unknown>;
+	/** 引用的成员当前是否仍在库；内联成员恒 false。 */
+	exists: boolean;
 	name: string;
-	alias: string;
+	icon: string;
+	version: string;
+}
+
+/** raw.config：客户端运行时读，按 type 取不同字段。 */
+export interface AbilityConfig {
+	/** type=mcp：原样写入 `~/.vetta/agent/mcp.json` 的配置块。 */
+	mcp?: Record<string, unknown>;
+	/** type=plugin：以 zip 内 plugin.json 为准，admin 不可改。 */
+	api_version?: string;
+	permissions?: string[];
+	commands?: string[];
+	/**
+	 * type=plugin：插件内聚的 MCP server 与 skill（ADR-0040），上传时从 zip 解析。
+	 * 纯展示——运行时装配仍由客户端读安装目录的 plugin.json 完成。
+	 */
+	contributions?: AbilityPluginContributions;
+	/** type=bundle：成员清单。 */
+	members?: AbilityMember[];
+}
+
+/** 插件内聚的 agent 贡献（对用户不可见地随插件生死，故需在装之前列清楚）。 */
+export interface AbilityPluginContributions {
+	mcp_servers?: AbilityContributedMcp[];
+	skills?: AbilityContributedSkill[];
+}
+
+export interface AbilityContributedMcp {
+	name: string;
+	display_name?: string;
+	description?: string;
+}
+
+export interface AbilityContributedSkill {
+	name: string;
+	alias?: string;
+	description?: string;
+}
+
+export type AbilityShowcaseTemplate = "chat-over-canvas" | "chat-thread";
+export type AbilityShowcaseCanvas = "design" | "code" | "docs" | "generic";
+
+export interface AbilityShowcase {
+	template: AbilityShowcaseTemplate;
+	user_prompt: string;
+	assistant_reply: string;
+	/** 仅 chat-over-canvas 有意义。 */
+	canvas?: AbilityShowcaseCanvas;
+	brand_icon_url?: string;
+	brand_name?: string;
+}
+
+/** 预置元信息键，label 由客户端按 locale 解析。 */
+export type AbilityMetaKey = "homepage" | "repository" | "docs" | "license";
+
+/**
+ * 一条元信息。刻意是**有序数组**的元素而非对象键值——对象的键顺序在序列化时
+ * 不保证，会让详情页字段顺序随机跳动；数组顺序即运营排定的展示顺序。
+ */
+export interface AbilityMetaEntry {
+	/** 预置键；非空时 label 走 i18n，忽略 label 字段。 */
+	key?: AbilityMetaKey;
+	/** 自定义条目的展示名，仅在无 key 时使用，原样显示不翻译。 */
+	label?: string;
+	/** 展示值；http(s):// 开头渲染为可点击链接。 */
+	value: string;
+}
+
+/** raw.detail.i18n[locale]：整体覆盖，不与默认值合并。 */
+export interface AbilityDetailLocale {
+	name?: string;
+	description?: string;
+	content?: string;
+	showcases?: AbilityShowcase[];
+	meta?: AbilityMetaEntry[];
+}
+
+/** raw.detail：详情页读，运营随时改。 */
+export interface AbilityDetail {
+	showcases?: AbilityShowcase[];
+	/** 元信息条目（官网 / 开源协议 / 自定义…），按数组顺序展示。 */
+	meta?: AbilityMetaEntry[];
+	/** markdown 正文。 */
+	content?: string;
+	i18n?: Record<string, AbilityDetailLocale>;
+}
+
+export interface MarketAbility {
+	/** 机器标识，与 type 联合唯一。 */
+	slug: string;
+	type: AbilityType;
+	name: string;
 	description: string;
 	license: string;
-	type: "skill" | "scene";
 	version: string;
 	author: string;
-	tags: string[];
-	category: string;
-	/** 空=默认；solar:xxx-bold；外部 URL；或 /api/v1/skill-icons/:id */
+	/** 四态：空=默认 / solar:xxx-bold / http(s) 外链 / 已解析的绝对图 URL */
 	icon: string;
-	/** 归档包 sha256，安装前校验用；归档机制之前上传的存量技能为空 */
-	sha256: string;
-	download_count: number;
-}
-
-export async function fetchMarketSkills(token: string): Promise<MarketSkillInfo[]> {
-	const items = await request<MarketSkillInfo[]>("/skills/market", {
-		headers: authHeaders(token),
-	});
-	return Promise.all(
-		(items ?? []).map(async (item) => {
-			const icon = await resolveMarketIconUrl(item.icon);
-			return { ...item, icon: icon ?? "" };
-		}),
-	);
-}
-
-export async function downloadSkill(token: string, name: string): Promise<ArrayBuffer> {
-	const serverUrl = await window.vetta.settings.getServerUrl();
-	const resp = await fetch(`${serverUrl}/skills/${name}/download`, {
-		headers: authHeaders(token),
-	});
-	if (!resp.ok) throw new Error(`下载失败: ${resp.status}`);
-	return resp.arrayBuffer();
-}
-
-export async function fetchSkillInfo(token: string, name: string): Promise<MarketSkillInfo> {
-	return request<MarketSkillInfo>(`/skills/${name}/info`, {
-		headers: authHeaders(token),
-	});
-}
-
-// ─── Market Plugins ───
-
-export interface MarketPluginInfo {
-	plugin_id: string;
-	name: string;
-	version: string;
-	description: string;
-	author: string;
-	plugin_api_version: string;
-	permissions: string[];
+	/** 分类名（服务端已 resolve），未分类为空串。 */
+	category: string;
 	tags: string[];
-	/** zip 包 sha256，安装前校验用；摘要机制之前上传的存量插件为空 */
+	/** 产物摘要，安装前校验；mcp / bundle 恒为空。 */
 	sha256: string;
 	download_count: number;
+	config: AbilityConfig;
+	detail: AbilityDetail;
+	updated_at: string;
 }
 
-export async function fetchMarketPlugins(token: string): Promise<MarketPluginInfo[]> {
-	return request<MarketPluginInfo[]>("/plugins/market", {
+function normalizeAbility(item: MarketAbility, icon: string | undefined): MarketAbility {
+	return {
+		...item,
+		icon: icon ?? "",
+		tags: item.tags ?? [],
+		config: item.config ?? {},
+		detail: item.detail ?? {},
+	};
+}
+
+/** 一次返回五种 type 的已上架能力。 */
+export async function fetchMarketAbilities(token: string): Promise<MarketAbility[]> {
+	const items = await request<MarketAbility[]>("/abilities/market", {
 		headers: authHeaders(token),
 	});
+	return Promise.all((items ?? []).map(async (item) => normalizeAbility(item, await resolveMarketIconUrl(item.icon))));
 }
 
-export async function downloadPlugin(token: string, id: string): Promise<ArrayBuffer> {
+export async function fetchAbilityInfo(token: string, type: AbilityType, slug: string): Promise<MarketAbility> {
+	const item = await request<MarketAbility>(
+		`/abilities/${encodeURIComponent(type)}/${encodeURIComponent(slug)}/info`,
+		{ headers: authHeaders(token) },
+	);
+	return normalizeAbility(item, await resolveMarketIconUrl(item.icon));
+}
+
+/** mcp / bundle 无产物，服务端直接 400——调用前请自行判断 type。 */
+export async function downloadAbility(token: string, type: AbilityType, slug: string): Promise<ArrayBuffer> {
 	const serverUrl = await window.vetta.settings.getServerUrl();
-	const resp = await fetch(`${serverUrl}/plugins/${id}/download`, {
+	const resp = await fetch(`${serverUrl}/abilities/${encodeURIComponent(type)}/${encodeURIComponent(slug)}/download`, {
 		headers: authHeaders(token),
 	});
-	if (!resp.ok) throw new Error(`下载失败: ${resp.status}`);
+	if (!resp.ok) throw new Error(i18n.t("abilities:error.downloadFailed", { status: resp.status }));
 	return resp.arrayBuffer();
 }
 
-export async function fetchPluginInfo(token: string, id: string): Promise<MarketPluginInfo> {
-	return request<MarketPluginInfo>(`/plugins/${id}/info`, {
-		headers: authHeaders(token),
-	});
-}
+// ─── MCP 配置适配（能力 → mcp.json 条目） ───
 
-// ─── Remote MCP Servers ───
-
+/** mcp 设置页消费的服务器形状：由 MarketAbility 适配而来，不再是独立市场实体。 */
 export interface MarketMcpServer {
-	id: number;
+	/** 列表渲染用的稳定标识，取 ability slug。 */
+	id: string;
 	name: string;
 	display_name: string;
 	description: string;
-	/** 图标：外部 URL，或相对路径 `/api/v1/mcp-servers/:id/icon` */
+	/** 已解析为可直接渲染的图标值。 */
 	icon?: string;
-	/** 由管理员维护的原样配置，直接作为 mcpServers[name] 写入本地 mcp.json */
+	/** 直接作为 mcpServers[name] 写入本地 mcp.json 的原样配置。 */
 	config: Record<string, unknown>;
+}
+
+export function abilityToMarketMcpServer(ability: MarketAbility): MarketMcpServer {
+	return {
+		id: ability.slug,
+		name: ability.slug,
+		display_name: ability.name,
+		description: ability.description,
+		icon: ability.icon || undefined,
+		config: ability.config.mcp ?? {},
+	};
 }
 
 /**
@@ -452,24 +542,6 @@ export async function resolveMarketIconUrl(icon: string | undefined | null): Pro
 		}
 	}
 	return `${base}/${trimmed}`;
-}
-
-/** @deprecated 使用 resolveMarketIconUrl */
-export async function resolveMarketMcpIconUrl(icon: string | undefined | null): Promise<string | undefined> {
-	return resolveMarketIconUrl(icon);
-}
-
-export async function fetchMarketMcpServers(token: string): Promise<MarketMcpServer[]> {
-	const items = await request<MarketMcpServer[]>("/mcp-servers/market", {
-		headers: authHeaders(token),
-	});
-	// 并行解析图标绝对地址（上传图标多为 /api/v1/mcp-servers/:id/icon）
-	return Promise.all(
-		(items ?? []).map(async (item) => {
-			const icon = await resolveMarketMcpIconUrl(item.icon);
-			return { ...item, icon: icon || undefined };
-		}),
-	);
 }
 
 // ─── Notifications (站内信, ADR-0018) ───

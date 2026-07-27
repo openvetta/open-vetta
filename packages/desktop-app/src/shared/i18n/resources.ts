@@ -2,6 +2,7 @@
 // 由各自 Vite bundle 把 JSON 内联——零运行时 fs、零 async、不闪。新增语言/ns =
 // 在此加一条 import + 在 resources 里加一项。
 
+import enAbilities from "./locales/en/abilities.json";
 import enAutomation from "./locales/en/automation.json";
 import enBatchTasks from "./locales/en/batch-tasks.json";
 import enChat from "./locales/en/chat.json";
@@ -12,6 +13,7 @@ import enPet from "./locales/en/pet.json";
 import enProject from "./locales/en/project.json";
 import enSettings from "./locales/en/settings.json";
 import enSkills from "./locales/en/skills.json";
+import zhAbilities from "./locales/zh/abilities.json";
 import zhAutomation from "./locales/zh/automation.json";
 import zhBatchTasks from "./locales/zh/batch-tasks.json";
 import zhChat from "./locales/zh/chat.json";
@@ -33,6 +35,7 @@ export const resources = {
 		settings: zhSettings,
 		message: zhMessage,
 		skills: zhSkills,
+		abilities: zhAbilities,
 		"batch-tasks": zhBatchTasks,
 		automation: zhAutomation,
 	},
@@ -45,6 +48,7 @@ export const resources = {
 		settings: enSettings,
 		message: enMessage,
 		skills: enSkills,
+		abilities: enAbilities,
 		"batch-tasks": enBatchTasks,
 		automation: enAutomation,
 	},

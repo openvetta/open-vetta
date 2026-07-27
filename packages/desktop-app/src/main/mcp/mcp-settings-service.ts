@@ -9,6 +9,7 @@ import type {
 	McpServerConfigData,
 	McpStdioServerConfigData,
 } from "../../preload/api-types/mcp.js";
+import { recordAbilityInstall, removeAbilityLedgerEntry } from "../abilities/ability-ledger.js";
 import { validateMcpConfig } from "../mcp-config-validation.js";
 
 export interface McpSettingsServiceOptions {
@@ -114,7 +115,15 @@ export class McpSettingsService {
 		return redactServer(name, server);
 	}
 
-	async upsert(name: string, data: McpServerUpsertData): Promise<McpServerDetail> {
+	/**
+	 * @param options.abilityVersion 市场能力的版本号；给出时写入能力安装台账（ADR-0049）。
+	 * 用户手工添加的 server 不是市场能力，不传则不进台账。
+	 */
+	async upsert(
+		name: string,
+		data: McpServerUpsertData,
+		options?: { abilityVersion?: string },
+	): Promise<McpServerDetail> {
 		return this.runMutation(async () => {
 			const config = await this.options.readConfig();
 			const existing = config.mcpServers[name];
@@ -150,6 +159,7 @@ export class McpSettingsService {
 					mcpServers: { ...config.mcpServers, [name]: next },
 				}),
 			);
+			if (options?.abilityVersion) recordAbilityInstall("mcp", name, options.abilityVersion);
 			return redactServer(name, next);
 		});
 	}
@@ -177,6 +187,7 @@ export class McpSettingsService {
 			const mcpServers = { ...config.mcpServers };
 			delete mcpServers[name];
 			await this.options.writeConfig({ mcpServers });
+			removeAbilityLedgerEntry("mcp", name);
 		});
 	}
 

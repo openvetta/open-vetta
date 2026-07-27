@@ -14,6 +14,7 @@ export function XianxiaNewSessionHero({
 	greetingTitle,
 	mounted,
 	onSceneClick,
+	reserveSceneSlot = false,
 	sceneActions,
 	sceneLabels,
 	scenes,
@@ -24,6 +25,8 @@ export function XianxiaNewSessionHero({
 	...props
 }: NewSessionHeroProps): JSX.Element {
 	void _avatarAutoplay;
+	const showSceneCarousel = scenes.length > 0;
+	const showScenePlaceholder = !showSceneCarousel && reserveSceneSlot;
 
 	return (
 		<div className={cn("mb-3 flex w-full max-w-2xl flex-col items-start", className)} {...props}>
@@ -52,7 +55,7 @@ export function XianxiaNewSessionHero({
 					</motion.p>
 				</div>
 
-				{scenes.length > 0 && (
+				{showSceneCarousel && (
 					<XianxiaSceneCarousel
 						actions={sceneActions}
 						labels={sceneLabels}
@@ -61,6 +64,7 @@ export function XianxiaNewSessionHero({
 						selected={selected}
 					/>
 				)}
+				{showScenePlaceholder && <div aria-hidden className="mt-6 w-full min-h-[5.75rem]" />}
 			</motion.div>
 		</div>
 	);

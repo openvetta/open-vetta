@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { getVettaHomePath } from "@vetta/action-rpc";
 import { DefaultResourceLoader } from "@vetta/coding-agent";
 import type { AppMonitorResourceOperation } from "../../preload/api-types/app-monitor.js";
+import { removeAbilityLedgerEntry } from "../abilities/ability-ledger.js";
 import { recordAppMonitorEvent } from "../app-monitor/app-monitor-service.js";
 import { getBuiltinSkillPaths, isBuiltinSkillFile, readBuiltinSkillsManifest } from "../builtin-skills.js";
 import { readDesktopConfig } from "../config/desktop-config-store.js";
@@ -199,8 +200,12 @@ export class SkillService {
 			ensureDirWritable(skillDir);
 			await rm(skillDir, { recursive: true, force: true });
 		}
-		delete manifest[name];
-		writeSkillsManifest(manifest);
+		// 清单是扁平 map：同名的 skill 与 scene 共用一个键，卸载其一不能删掉另一种类型的记录
+		if (!previous || (previous.type === "scene" ? "scene" : "skill") === itemType) {
+			delete manifest[name];
+			writeSkillsManifest(manifest);
+		}
+		removeAbilityLedgerEntry(itemType, name);
 		recordSkillResourceEvent({
 			name,
 			type: itemType,

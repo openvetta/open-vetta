@@ -78,7 +78,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ## Code Quality
 - No `any` types unless absolutely necessary
 - Check node_modules for external API type definitions instead of guessing
-- **NEVER use inline imports** - no `await import("./foo.js")`, no `import("pkg").Type` in type positions, no dynamic imports for types. Always use standard top-level imports.
+- **NEVER use inline imports for types** - no `import("pkg").Type` in type positions and no dynamic imports used only to obtain types. Runtime `import()` is allowed only for deliberate code splitting or lazy loading; ordinary dependencies must still use standard top-level imports.
 - NEVER remove or downgrade code to fix type errors from outdated dependencies; upgrade the dependency instead
 - Always ask before removing functionality or code that appears to be intentional
 - Never hardcode key checks with, eg. `matchesKey(keyData, "ctrl+x")`. All keybindings must be configurable. Add default to matching object (`DEFAULT_EDITOR_KEYBINDINGS` or `DEFAULT_APP_KEYBINDINGS`)
@@ -103,7 +103,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - Use Bun for package management and scripts (`bun`/`bunx`) unless the user explicitly asks for npm.
 - During a code task, use `bun run check:quick` for fast feedback on every changed file. It covers committed branch differences, staged, unstaged, and untracked files, but intentionally does not typecheck.
 - After completing one round of code changes (not after every edit, and not for documentation-only changes), run `bun run check` once with full output. Fix all errors, warnings, and infos before handing off or opening a PR.
-- Root `bun run check` runs full Biome, monorepo `tsgo --noEmit`, **desktop-app** `tsc --noEmit` (`packages/desktop-app/tsconfig.json`), and quality guards (`check:guards`) in parallel. Do not skip desktop by only running `tsc`/`tsgo` at repo root without `-p packages/desktop-app/tsconfig.json`.
+- Root `bun run check` runs full Biome, monorepo `tsgo --noEmit`, **desktop-app** `tsc --noEmit` (`packages/desktop-app/tsconfig.json`), **admin** `tsc -b` (`packages/admin`), and quality guards (`check:guards`) in parallel. Do not skip desktop by only running `tsc`/`tsgo` at repo root without `-p packages/desktop-app/tsconfig.json`. desktop-app and admin are **not** in the root `tsconfig.json` `include` — they are only typechecked via their own project configs, so dropping either from `check:types` silently stops checking them.
 - Quality gates (layered): see `docs/dev/quality-gates.md`. Husky pre-commit runs **fast** `check:precommit` (staged Biome + key/conflict guards) only; full typecheck is **not** in the hook — still run `bun run check` before PR.
 - Prefer targeted tests: `bun run test:pkg <ai|agent|coding-agent|ecosystem-adapter>` or `bun run test:changed`. `bun run test:unit` runs those four packages. Root `bun run test` still runs all workspace packages that define `test`.
 - Note: `bun run check` does not run tests. Optional dead-code report: `bun run deadcode:report` (Knip; not part of `check`).

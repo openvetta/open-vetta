@@ -83,7 +83,7 @@ export function useNotificationMessageListModel(): NotificationMessageListModel 
 			title: notification.title,
 			body: notification.body,
 			read: notification.read,
-			relativeTime: formatRelativeTime(notification.created_at),
+			relativeTime: formatRelativeTime(notification.created_at, t),
 		})),
 		onMarkAllRead: handleReadAll,
 		onClearRead: handleClearRead,

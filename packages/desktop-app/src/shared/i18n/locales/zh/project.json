@@ -25,7 +25,12 @@
 			"scrollToBottom": "滚动到底部"
 		},
 		"defaultConversation": {
-			"noConversations": "暂无对话"
+			"noConversations": "暂无对话",
+			"emptyTitle": "还没有对话",
+			"emptyDescription": "开始一段新对话后，历史会显示在这里",
+			"emptyAction": "开始新对话",
+			"emptyClawTitle": "还没有 Claw 记录",
+			"emptyClawDescription": "通过微信、飞书等渠道与 Claw 对话后，记录会出现在这里"
 		},
 		"session": {
 			"forkedTooltip": "由其他会话分叉而来"
@@ -47,12 +52,12 @@
 		},
 		"time": {
 			"justNow": "刚刚",
-			"minutes": "{{count}} 分钟",
-			"hours": "{{count}} 小时",
-			"days": "{{count}} 天",
-			"weeks": "{{count}} 周",
-			"months": "{{count}} 个月",
-			"years": "{{count}} 年"
+			"minutes": "{{n}}分",
+			"hours": "{{n}}时",
+			"days": "{{n}}天",
+			"weeks": "{{n}}周",
+			"months": "{{n}}月",
+			"years": "{{n}}年"
 		}
 	},
 	"filterTabs": {

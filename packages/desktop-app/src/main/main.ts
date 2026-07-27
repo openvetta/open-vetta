@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { URL } from "node:url";
 import { getVettaHomePath, VETTA_HOME_ENV } from "@vetta/action-rpc";
-import { app, dialog, ipcMain, nativeImage, nativeTheme, protocol, session, shell } from "electron";
+import { app, type BrowserWindow, dialog, ipcMain, nativeImage, nativeTheme, protocol, session, shell } from "electron";
 import { ActionApprovalBroker } from "./app-actions/approval-broker.js";
 import { createAppActionSystem } from "./app-actions/index.js";
 import { createActionRpcRuntime } from "./app-actions/rpc.js";
@@ -12,6 +12,7 @@ import { APP_ASSET_PROTOCOL_PRIVILEGE, registerAppAssetProtocol } from "./app-as
 import { createAppDebugRuntime } from "./app-debug/index.js";
 import { createDebugRpcRuntime } from "./app-debug/rpc.js";
 import { configureRendererCdp } from "./app-debug/ui/renderer-cdp.js";
+import { registerAppLifecycleIpc } from "./app-lifecycle.js";
 import { initializeAppMonitor, shutdownAppMonitor } from "./app-monitor/app-monitor-service.js";
 import { initializeDesktopBatchTaskService } from "./batch-tasks/batch-task-service.js";
 import { parseActionCliCommand, runActionCliCommand } from "./cli/action-command.js";
@@ -72,7 +73,7 @@ import {
 	setHideToTrayOnClose,
 } from "./tray-manager.js";
 import { getAppVersion, updaterService } from "./updater.js";
-import { createWindow, getMainWindow, setMainWindow, showMainWindow } from "./window-manager.js";
+import { createWindow, getMainWindow, loadMainWindow, setMainWindow, showMainWindow } from "./window-manager.js";
 
 // 启动早期修复 GUI 进程的 PATH(补回 homebrew 等登录 shell 路径),必须先于
 // RuntimeManager.applyEnv() 与 coding-agent 的 bash 执行。详见 fix-path.ts。
@@ -217,6 +218,50 @@ let teardownSchedulerIpc: (() => void) | undefined;
 let teardownBatchTasksIpc: (() => void) | undefined;
 let localRpcServer: DesktopLocalRpcServerHandle | undefined;
 
+function attachMainWindowLifecycle(mainWindow: BrowserWindow): void {
+	const sendWindowMaximizedChanged = () => {
+		mainWindow.webContents.send("vetta:window:maximized-changed", mainWindow.isMaximized());
+	};
+	mainWindow.on("maximize", sendWindowMaximizedChanged);
+	mainWindow.on("unmaximize", sendWindowMaximizedChanged);
+
+	// On macOS: close button hides window (follows macOS platform convention)
+	// On Windows/Linux: close button hides to tray
+	mainWindow.on("close", (event) => {
+		if (isMac) {
+			const appAny = app as typeof app & { isQuitting?: boolean };
+			if (!appAny.isQuitting) {
+				event.preventDefault();
+				getMainWindow()?.hide();
+				return;
+			}
+		} else if (getHideToTrayOnClose() && getTray()) {
+			const appAny = app as typeof app & { isQuitting?: boolean };
+			if (!appAny.isQuitting) {
+				event.preventDefault();
+				getMainWindow()?.hide();
+				rebuildTrayContextMenu();
+			}
+		}
+	});
+
+	mainWindow.on("closed", () => {
+		setMainWindow(null);
+		if (ipcTeardown) {
+			teardownAllIpc(ipcTeardown);
+			ipcTeardown = undefined;
+		}
+		if (teardownSchedulerIpc) {
+			teardownSchedulerIpc();
+			teardownSchedulerIpc = undefined;
+		}
+		if (teardownBatchTasksIpc) {
+			teardownBatchTasksIpc();
+			teardownBatchTasksIpc = undefined;
+		}
+	});
+}
+
 // Register custom protocol for OAuth callback
 // Windows dev mode: must pass electron.exe path and app entry as args,
 // otherwise the URL gets interpreted as a module path.
@@ -331,6 +376,7 @@ if (!gotSingleLock) {
 		// 若晚于 createWindow 注册会与异步 page-load 抢跑、读到 undefined 回落错语言（首帧闪）。
 		// i18n IPC 与具体窗口无关（广播给全部窗口），故脱离 registerAllIpc 独立早注册、app 级常驻。
 		registerI18nIpc();
+		const appLifecycle = registerAppLifecycleIpc();
 
 		// 必须放在 whenReady 之后：早于 ready 调用时主进程 bundle identity
 		// 尚未在 launchd/TCC 子系统注册，syscall 关联不到 com.vetta.desktop，
@@ -343,6 +389,28 @@ if (!gotSingleLock) {
 		registerPluginProtocols();
 		registerThemeProtocol();
 		registerAppAssetProtocol();
+
+		// 媒体流协议 handler（scheme 已在 ready 前声明特权）
+		registerMediaProtocolHandler();
+		// 静态文件协议 handler（ADR-0027）
+		registerFileProtocolHandler();
+
+		// 直接加载真实 renderer，但先保持窗口隐藏。renderer 恢复持久化主题并绘制
+		// theme-ui 启动骨架后通知主进程，再显示窗口，避免独立启动页与最终主题脱节。
+		const rendererBootStartedAt = Date.now();
+		const mainWindow = createWindow();
+		attachMainWindowLifecycle(mainWindow);
+		void loadMainWindow(mainWindow);
+		const rendererBootPaintPromise = appLifecycle.waitForRendererBootPaint();
+		void rendererBootPaintPromise.then((result) => {
+			if (mainWindow.isDestroyed()) return;
+			mainWindow.show();
+			mainLog.info("renderer boot frame visible", {
+				durationMs: Date.now() - rendererBootStartedAt,
+				result,
+			});
+		});
+
 		// 开发模式：每次启动清空 HTTP 缓存。插件资源走 vetta-plugin://，remoteEntry.js
 		// 是固定文件名，Chromium 会启发式缓存它——重编译后旧缓存仍 pin 着旧 chunk，
 		// 重启也不清（持久化在 userData）。dev 下清缓存代价是重新拉一次本地资源，可忽略；
@@ -353,14 +421,15 @@ if (!gotSingleLock) {
 		// 提前发现系统插件（ADR-0024）：填充 id 集合供协议解析，staging 不完整时早告警。
 		discoverSystemPlugins();
 
-		// 媒体流协议 handler（scheme 已在 ready 前声明特权）
-		registerMediaProtocolHandler();
-		// 静态文件协议 handler（ADR-0027）
-		registerFileProtocolHandler();
-
-		if (process.platform === "linux" || process.platform === "darwin" || process.platform === "win32") {
+		const initializeSandbox = async (): Promise<void> => {
+			const sandboxProbeStartedAt = Date.now();
 			const capability = await initializeSandboxCapability();
-			mainLog.info("sandbox startup probe", capability);
+			mainLog.info("sandbox startup probe", capability, { durationMs: Date.now() - sandboxProbeStartedAt });
+		};
+		// Linux/macOS 的 RuntimeHost 需要探测结果提供 sandbox 可执行文件路径；Windows
+		// 可直接解析内置 host，因此主动能力探测可以移到窗口首帧之后。
+		if (process.platform === "linux" || process.platform === "darwin") {
+			await initializeSandbox();
 		}
 
 		// 开发模式下覆盖 About 面板信息，避免显示 Electron 框架版本
@@ -516,62 +585,74 @@ if (!gotSingleLock) {
 
 		// 托管运行时(ADR-0011):首启从内置 vendor 拷贝 node/python 到 ~/.vetta/runtimes,
 		// 再把它们 + 国内镜像源注入全局 process.env。必须早于 getImHost().bootstrap()——
-		// IM sidecar 继承本进程 env,coding-agent bash 子进程才能拿到托管运行时与镜像源。
-		// 只做零网络的 vendor 拷贝,失败不阻断启动(面板可手动获取/升级)。
-		try {
-			const runtimeManager = getRuntimeManager();
-			await runtimeManager.initialize();
-			runtimeManager.applyEnv();
-		} catch (err) {
-			mainLog.error("runtime manager init failed", err);
-		}
-
-		try {
-			let vettaAppPath: string;
-			let vettaCliPath: string;
-			if (app.isPackaged) {
-				vettaAppPath = process.execPath;
-				vettaCliPath = packagedCliAppPath;
-			} else {
-				vettaAppPath = await ensureDevCliShim({
-					appRoot,
-					electronPath: process.execPath,
-					mainEntryPath: devMainEntryPath,
-				});
-				vettaCliPath = await ensureDevVettaCliShim({
-					appRoot,
-					cliAppRoot: join(appRoot, "..", "cli-app"),
-				});
+		// 快速应用已经存在的托管运行时路径；vendor seed、系统探测和 shim 修复放到
+		// 首帧之后执行，避免这些维护工作阻塞窗口出现。
+		const runtimeManager = getRuntimeManager();
+		runtimeManager.applyEnv();
+		const initializeManagedRuntimeAndCli = async (): Promise<void> => {
+			try {
+				const runtimeStartedAt = Date.now();
+				await runtimeManager.initialize();
+				runtimeManager.applyEnv();
+				mainLog.info("runtime startup initialization complete", { durationMs: Date.now() - runtimeStartedAt });
+			} catch (err) {
+				mainLog.error("runtime manager init failed", err);
 			}
-			process.env.VETTA_DESKTOP_EXE = vettaAppPath;
-			process.env.VETTA_CLI_APP_PATH = vettaCliPath;
-			await ensureVettaCommandShim(vettaCliPath);
-			await persistVettaCliPaths({ vettaAppPath, vettaCliAppPath: vettaCliPath });
-		} catch (err) {
-			mainLog.error("failed to install vetta CLI paths", err);
-		}
+
+			try {
+				let vettaAppPath: string;
+				let vettaCliPath: string;
+				if (app.isPackaged) {
+					vettaAppPath = process.execPath;
+					vettaCliPath = packagedCliAppPath;
+				} else {
+					vettaAppPath = await ensureDevCliShim({
+						appRoot,
+						electronPath: process.execPath,
+						mainEntryPath: devMainEntryPath,
+					});
+					vettaCliPath = await ensureDevVettaCliShim({
+						appRoot,
+						cliAppRoot: join(appRoot, "..", "cli-app"),
+					});
+				}
+				process.env.VETTA_DESKTOP_EXE = vettaAppPath;
+				process.env.VETTA_CLI_APP_PATH = vettaCliPath;
+				await ensureVettaCommandShim(vettaCliPath);
+				await persistVettaCliPaths({ vettaAppPath, vettaCliAppPath: vettaCliPath });
+			} catch (err) {
+				mainLog.error("failed to install vetta CLI paths", err);
+			}
+		};
 
 		await initializeAppMonitor();
-		const mainWindow = createWindow();
-		const sendWindowMaximizedChanged = () => {
-			mainWindow.webContents.send("vetta:window:maximized-changed", mainWindow.isMaximized());
-		};
-		mainWindow.on("maximize", sendWindowMaximizedChanged);
-		mainWindow.on("unmaximize", sendWindowMaximizedChanged);
+		if (mainWindow.isDestroyed()) return;
 		const actionApprovalBroker = new ActionApprovalBroker(mainWindow.webContents);
 		const batchTaskService = initializeDesktopBatchTaskService(getSharedRuntime);
+		const batchTaskReadyPromise = batchTaskService.initialize();
 		const schedulerService = initializeDesktopSchedulerService({
 			getRuntime: getSharedRuntime,
 			scheduleTask: scheduleTaskInCron,
 			unscheduleTask: unscheduleTaskInCron,
 		});
-		await batchTaskService.initialize();
 		const actionSystem = createAppActionSystem(actionApprovalBroker);
 		const pluginActionService = new PluginActionService(mainWindow.webContents, actionSystem.catalog);
 
 		// Register IPC handlers
 		ipcTeardown = registerAllIpc(mainWindow.webContents, { actionApprovalBroker, pluginActionService });
-		teardownBatchTasksIpc = registerBatchTasksIpc(mainWindow.webContents, batchTaskService);
+		teardownBatchTasksIpc = registerBatchTasksIpc(mainWindow.webContents, batchTaskService, batchTaskReadyPromise);
+		appLifecycle.markReady();
+		void rendererBootPaintPromise.then(() => {
+			const deferredStartupTimer = setTimeout(() => {
+				void (async () => {
+					await initializeManagedRuntimeAndCli();
+					if (process.platform === "win32") await initializeSandbox();
+				})().catch((error: unknown) => {
+					mainLog.error("deferred startup initialization failed", error);
+				});
+			}, 500);
+			deferredStartupTimer.unref?.();
+		});
 		initializePetWindow();
 		startPetIdleGuard();
 		// 快捷面板：预创建隐藏窗口（按需 show/hide，不每次重建），随后据配置启停双击功能键监听。
@@ -607,43 +688,6 @@ if (!gotSingleLock) {
 		// 启动 Updater：恢复 pending-install + 后台检查一次
 		updaterService.setMainWindow(mainWindow);
 		void updaterService.onAppReady();
-
-		// On macOS: close button hides window (follows macOS platform convention)
-		// On Windows/Linux: close button hides to tray
-		mainWindow.on("close", (event) => {
-			if (isMac) {
-				const appAny = app as typeof app & { isQuitting?: boolean };
-				if (!appAny.isQuitting) {
-					event.preventDefault();
-					getMainWindow()?.hide();
-					return;
-				}
-			} else if (getHideToTrayOnClose() && getTray()) {
-				const appAny = app as typeof app & { isQuitting?: boolean };
-				if (!appAny.isQuitting) {
-					event.preventDefault();
-					getMainWindow()?.hide();
-					rebuildTrayContextMenu();
-					return;
-				}
-			}
-		});
-
-		mainWindow.on("closed", () => {
-			setMainWindow(null);
-			if (ipcTeardown) {
-				teardownAllIpc(ipcTeardown);
-				ipcTeardown = undefined;
-			}
-			if (teardownSchedulerIpc) {
-				teardownSchedulerIpc();
-				teardownSchedulerIpc = undefined;
-			}
-			if (teardownBatchTasksIpc) {
-				teardownBatchTasksIpc();
-				teardownBatchTasksIpc = undefined;
-			}
-		});
 
 		// 创建托盘/状态栏图标（三平台均启用；行为差异见 tray-manager.ts）
 		createTray();

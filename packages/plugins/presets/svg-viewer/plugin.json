@@ -1,6 +1,7 @@
 {
 	"id": "svg-viewer",
 	"name": "%plugin.name%",
+	"icon": "solar:ruler-pen-bold",
 	"version": "0.1.1",
 	"defaultLocale": "zh",
 	"pluginApiVersion": "^1.0.0",

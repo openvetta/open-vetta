@@ -17,6 +17,7 @@ interface DefaultConversationSectionProps {
 	onSelectSession: (cwd: string, sessionPath: string) => void;
 	project: Project;
 	sessions: SessionInfo[];
+	sessionsLoading: boolean;
 }
 
 export function DefaultConversationSection(
@@ -29,8 +30,11 @@ export function DefaultConversationSection(
 		onNewSession: props.onNewSession,
 	});
 
+	const isEmpty = !props.sessionsLoading && props.sessions.length === 0;
+
 	return (
 		<DefaultConversationSectionView
+			actionsAlwaysVisible={isEmpty && model.showNewSession}
 			className={props.className}
 			filterSelect={<DefaultConversationFilterSelect />}
 			labels={model.labels}
@@ -41,10 +45,12 @@ export function DefaultConversationSection(
 					cwd={props.project.cwd}
 					filter={props.defaultConversationFilter}
 					onBeforeSelect={props.onBeforeSelectSession}
+					onNewSession={model.actions.newSession}
 					scrollParent={model.listScrollEl}
 					onRenameSession={props.onRenameSession}
 					onSelectSession={props.onSelectSession}
 					sessions={props.sessions}
+					loading={props.sessionsLoading}
 				/>
 			}
 			listScrollElement={model.listScrollEl}

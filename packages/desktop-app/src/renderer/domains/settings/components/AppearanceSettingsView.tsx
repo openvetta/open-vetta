@@ -1,13 +1,12 @@
-import { BotAvatar } from "@shared/components/BotAvatar";
-import { Popover, PopoverContent, PopoverTrigger } from "@vetta/ui";
 import { cn } from "@shared/lib/utils";
 import type { CursorStyle } from "@shared/theme/cursor";
 import type { ThemeDef } from "@shared/theme/tokens";
-import { type MouseEvent, useState } from "react";
+import type { MouseEvent } from "react";
 import { SettingsAiAssist } from "../ai-assist";
+import appearanceMascot from "../assets/appearance-mascot.webp";
 import themeLock from "../assets/theme-lock.webp";
 import { SETTINGS_SECTION } from "../registry";
-import { SettingHeading } from "@vetta/theme-ui/settings";
+import { MotionSelect, SettingHeading } from "@vetta/theme-ui/settings";
 import type {
 	AppearanceCursorOption,
 	AppearanceLanguageOption,
@@ -18,6 +17,23 @@ import type {
 
 type ThemeMode = AppearanceModeOption["value"];
 
+function languageOptionLabel(option: AppearanceLanguageOption): JSX.Element {
+	return (
+		<span className="flex min-w-0 items-center gap-1.5">
+			<span
+				className={cn(
+					option.value === "system" ? "icon-[mdi--monitor]" : "icon-[mdi--translate]",
+					"h-4 w-4 shrink-0 text-muted-foreground",
+				)}
+			/>
+			<span className="min-w-0 truncate">
+				<span className="font-medium text-foreground">{option.native}</span>
+				<span className="ml-1.5 text-[11px] font-normal text-muted-foreground">{option.alt}</span>
+			</span>
+		</span>
+	);
+}
+
 function LanguageSelect({
 	language,
 	languages,
@@ -27,65 +43,16 @@ function LanguageSelect({
 	languages: AppearanceLanguageOption[];
 	onSelect: (lang: AppearanceLanguageOption["value"]) => void;
 }): JSX.Element {
-	const [open, setOpen] = useState(false);
-	const current = languages.find((l) => l.value === language) ?? languages[0];
 	return (
-		<Popover open={open} onOpenChange={setOpen}>
-			<PopoverTrigger asChild>
-				<button
-					type="button"
-					className={cn(
-						"flex h-9 w-[260px] items-center gap-2 rounded-lg border px-3 text-[13px] transition-colors",
-						open ? "border-primary/70 bg-accent/40" : "border-border hover:border-primary/40 hover:bg-accent/30",
-					)}
-				>
-					<span
-						className={cn(
-							language === "system" ? "icon-[mdi--monitor]" : "icon-[mdi--translate]",
-							"h-4 w-4 shrink-0 text-muted-foreground",
-						)}
-					/>
-					<span className="flex-1 truncate text-left">
-						<span className="font-medium text-foreground">{current.native}</span>
-						<span className="ml-1.5 text-[11px] text-muted-foreground">{current.alt}</span>
-					</span>
-					<span
-						className={cn(
-							"icon-[mdi--chevron-down] h-4 w-4 shrink-0 text-muted-foreground transition-transform",
-							open && "rotate-180",
-						)}
-					/>
-				</button>
-			</PopoverTrigger>
-			<PopoverContent align="start" sideOffset={6} className="w-[260px] rounded-lg border border-border p-1">
-				{languages.map((l) => (
-					<button
-						key={l.value}
-						type="button"
-						onClick={() => {
-							setOpen(false);
-							onSelect(l.value);
-						}}
-						className={cn(
-							"flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors",
-							language === l.value ? "bg-accent text-foreground" : "text-foreground hover:bg-accent/60",
-						)}
-					>
-						<span
-							className={cn(
-								l.value === "system" ? "icon-[mdi--monitor]" : "icon-[mdi--translate]",
-								"h-4 w-4 shrink-0 text-muted-foreground",
-							)}
-						/>
-						<span className="flex-1 truncate text-left">
-							<span className="font-medium">{l.native}</span>
-							<span className="ml-1.5 text-[11px] text-muted-foreground">{l.alt}</span>
-						</span>
-						{language === l.value && <span className="icon-[mdi--check] h-4 w-4 shrink-0 text-primary" />}
-					</button>
-				))}
-			</PopoverContent>
-		</Popover>
+		<MotionSelect
+			value={language}
+			onValueChange={(next) => onSelect(next as AppearanceLanguageOption["value"])}
+			triggerClassName="w-[260px]"
+			options={languages.map((option) => ({
+				value: option.value,
+				label: languageOptionLabel(option),
+			}))}
+		/>
 	);
 }
 
@@ -97,9 +64,12 @@ function SelectionCheckBadge(): JSX.Element {
 	);
 }
 
-/** 与主题色 ThemeCard 一致：active 时 ring 与卡片之间留 ring-offset 间隙 */
-const SELECTION_ACTIVE_RING = "ring-2 ring-primary ring-offset-2 ring-offset-background";
-const SELECTION_IDLE_RING = "ring-1 ring-border/60 hover:ring-primary/50";
+/**
+ * 选中态只改 border 颜色（1px），不要叠 ring——border + ring-inset 会叠成约 2px 双线。
+ * 与 ImChannelCard 等设置页一致：idle/active 都走同一根 border。
+ */
+const SELECTION_ACTIVE = "border-primary/50 bg-primary/10";
+const SELECTION_IDLE = "border-border/60 hover:border-primary/40 hover:bg-accent/40";
 
 function ModeCard({
 	mode,
@@ -121,8 +91,8 @@ function ModeCard({
 			type="button"
 			onClick={(event) => onSelect(mode, event)}
 			className={cn(
-				"group relative flex items-center gap-2.5 rounded-lg bg-card px-3 py-2 text-left transition-all",
-				active ? SELECTION_ACTIVE_RING : cn(SELECTION_IDLE_RING, "hover:bg-accent/40"),
+				"group relative flex items-center gap-2.5 rounded-lg border bg-card px-3 py-2 text-left transition-all",
+				active ? SELECTION_ACTIVE : SELECTION_IDLE,
 			)}
 		>
 			<span className={cn(icon, "h-4 w-4 shrink-0", active ? "text-primary" : "text-muted-foreground")} />
@@ -162,8 +132,9 @@ function ThemeCard({
 		>
 			<div
 				className={cn(
-					"relative aspect-[16/9] w-full overflow-hidden rounded-lg transition-all",
-					active ? SELECTION_ACTIVE_RING : "ring-1 ring-border/60 group-hover:ring-primary/50",
+					// 主题色预览本身带底色，选中只改 1px border 色，不叠 ring / bg
+					"relative aspect-[16/9] w-full overflow-hidden rounded-lg border transition-all",
+					active ? "border-primary/50" : "border-border/60 group-hover:border-primary/40",
 				)}
 				style={{ background: palette.background }}
 			>
@@ -243,9 +214,8 @@ function UiThemeCard({
 			disabled={disabled}
 			onClick={onSelect}
 			className={cn(
-				// overflow-hidden 放在内层，避免裁切 active 的 ring-offset 间隙
-				"group relative rounded-xl bg-card text-left transition-all",
-				active ? SELECTION_ACTIVE_RING : cn(SELECTION_IDLE_RING, "hover:bg-accent/40"),
+				"group relative rounded-xl border bg-card text-left transition-all",
+				active ? SELECTION_ACTIVE : SELECTION_IDLE,
 				disabled && "cursor-not-allowed",
 			)}
 		>
@@ -284,20 +254,21 @@ function CursorStyleCard({
 			type="button"
 			onClick={() => onSelect(id)}
 			className={cn(
-				"group relative flex items-center gap-2.5 rounded-lg bg-card px-3 py-2 text-left transition-all",
-				active ? SELECTION_ACTIVE_RING : cn(SELECTION_IDLE_RING, "hover:bg-accent/40"),
+				// 两列宽卡：略增高预览区，与上方主题卡节奏一致
+				"group relative flex min-h-[72px] items-center gap-3 rounded-xl border bg-card px-3.5 py-3 text-left transition-all",
+				active ? SELECTION_ACTIVE : SELECTION_IDLE,
 			)}
 		>
-			<div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted/80">
+			<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-muted/80">
 				{preview ? (
-					<img src={preview} alt="" className="h-5 w-5 object-contain" draggable={false} />
+					<img src={preview} alt="" className="h-7 w-7 object-contain" draggable={false} />
 				) : (
-					<span className={cn(icon, "h-4 w-4", active ? "text-primary" : "text-muted-foreground")} />
+					<span className={cn(icon, "h-5 w-5", active ? "text-primary" : "text-muted-foreground")} />
 				)}
 			</div>
 			<div className="min-w-0 flex-1 pr-5">
-				<div className="text-[12px] font-medium text-foreground">{label}</div>
-				<div className="truncate text-[11px] text-muted-foreground">{hint}</div>
+				<div className="text-[13px] font-medium text-foreground">{label}</div>
+				<div className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-muted-foreground">{hint}</div>
 			</div>
 			{active && <SelectionCheckBadge />}
 		</button>
@@ -312,7 +283,7 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 				<SettingsAiAssist tabId="appearance" />
 			</div>
 
-			{/* 语言区 + 右侧空白放 bot avatar（外观模式上方）；右侧留白避免 pacing 活动区超出内容宽度 */}
+			{/* 语言区 + 右侧外观吉祥物 */}
 			<div className="mb-6 flex items-center gap-4 pr-10">
 				<div className="min-w-0 flex-1">
 					<SettingHeading title={model.labels.sections.language} section={SETTINGS_SECTION["appearance-language"]} className="mb-1" />
@@ -321,7 +292,13 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 				</div>
 				{!model.narrow && (
 					<div className="flex h-[100px] w-[120px] shrink-0 items-center justify-center">
-						<BotAvatar pacing size="lg" />
+						<img
+							aria-hidden="true"
+							alt=""
+							className="pointer-events-none h-[100px] w-auto select-none object-contain"
+							draggable={false}
+							src={appearanceMascot}
+						/>
 					</div>
 				)}
 			</div>
@@ -354,6 +331,20 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 				</div>
 			)}
 
+			{/* 鼠标指针：两列卡片，置于主题色上方 */}
+			<div className="mb-6">
+				<SettingHeading title={model.labels.sections.cursor} section={SETTINGS_SECTION["appearance-cursor"]} className="mb-3" />
+				<div className="grid grid-cols-2 gap-3">
+					{model.cursorOptions.map((option) => (
+						<CursorStyleCard
+							key={option.id}
+							{...option}
+							onSelect={model.actions.setCursorStyle}
+						/>
+					))}
+				</div>
+			</div>
+
 			{model.activeUiThemeId === "default" && (
 				<div className="mb-6">
 					<SettingHeading title={model.labels.sections.theme} section={SETTINGS_SECTION["appearance-theme"]} className="mb-3" />
@@ -369,19 +360,6 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 					</div>
 				</div>
 			)}
-
-			<div className="mb-6">
-				<SettingHeading title={model.labels.sections.cursor} section={SETTINGS_SECTION["appearance-cursor"]} className="mb-3" />
-				<div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4">
-					{model.cursorOptions.map((option) => (
-						<CursorStyleCard
-							key={option.id}
-							{...option}
-							onSelect={model.actions.setCursorStyle}
-						/>
-					))}
-				</div>
-			</div>
 		</div>
 	);
 }

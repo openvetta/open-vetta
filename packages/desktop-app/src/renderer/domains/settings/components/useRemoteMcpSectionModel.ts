@@ -1,4 +1,4 @@
-import { fetchMarketMcpServers, type MarketMcpServer } from "@shared/lib/api";
+import { abilityToMarketMcpServer, fetchMarketAbilities, type MarketMcpServer } from "@shared/lib/api";
 import { authTokenAtom } from "@shared/store/auth-atoms";
 import { useAtomValue } from "jotai";
 import { useCallback, useEffect, useState } from "react";
@@ -35,9 +35,10 @@ export function useRemoteMcpSectionModel({
 		}
 		setLoading(true);
 		setError(null);
-		void fetchMarketMcpServers(token)
+		// MCP 已并入统一的能力市场（ADR-0049），这里只取 type=mcp 的行再适配成 mcp.json 条目。
+		void fetchMarketAbilities(token)
 			.then((list) => {
-				setItems(list);
+				setItems(list.filter((entry) => entry.type === "mcp").map(abilityToMarketMcpServer));
 				setError(null);
 			})
 			.catch((err: Error) => {

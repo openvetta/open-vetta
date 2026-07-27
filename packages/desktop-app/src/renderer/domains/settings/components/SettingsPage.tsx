@@ -1,28 +1,45 @@
 import { useThemeSurface } from "@vetta/theme-sdk/appearance";
+import { SettingsContentLoadingView, SettingsTabEnter } from "@vetta/theme-ui/settings";
 import type { SettingsTab } from "@shared/store/atoms";
-import { AccountSettings } from "./AccountSettings";
-import { AgentSettings } from "./AgentSettings";
-import { AppearanceSettings } from "./AppearanceSettings";
-import { AppshotSettings } from "./AppshotSettings";
-import { ArchivedProjectsSettings } from "./ArchivedProjectsSettings";
-import { EnvironmentSettings } from "./EnvironmentSettings";
-import { GeneralSettings } from "./GeneralSettings";
-import { ImBridgeSettings } from "./ImBridgeSettings";
-import { KnowledgeBaseSettings } from "./KnowledgeBaseSettings";
-import { ModelsSettings } from "./ModelsSettings";
-import { NewSessionSettings } from "./NewSessionSettings";
-import { PermissionsSettings } from "./PermissionsSettings";
-import { PetSettings } from "./PetSettings";
-import { PluginsSettings } from "./PluginsSettings";
+import { lazy, Suspense, type ComponentType, type LazyExoticComponent } from "react";
 import { SettingsPageView } from "./SettingsPageView";
-import { ShortcutsSettings } from "./ShortcutsSettings";
-import { TeamSettings } from "./TeamSettings";
 import { useSettingsPageModel } from "./useSettingsPageModel";
-import { WebhookSettings } from "./WebhookSettings";
 import "./settings-highlight.css";
 
+const AccountSettings = lazy(async () => ({ default: (await import("./AccountSettings")).AccountSettings }));
+const AgentSettings = lazy(async () => ({ default: (await import("./AgentSettings")).AgentSettings }));
+const AppearanceSettings = lazy(async () => ({
+	default: (await import("./AppearanceSettings")).AppearanceSettings,
+}));
+const AppshotSettings = lazy(async () => ({ default: (await import("./AppshotSettings")).AppshotSettings }));
+const ArchivedProjectsSettings = lazy(async () => ({
+	default: (await import("./ArchivedProjectsSettings")).ArchivedProjectsSettings,
+}));
+const EnvironmentSettings = lazy(async () => ({
+	default: (await import("./EnvironmentSettings")).EnvironmentSettings,
+}));
+const GeneralSettings = lazy(async () => ({ default: (await import("./GeneralSettings")).GeneralSettings }));
+const ImBridgeSettings = lazy(async () => ({ default: (await import("./ImBridgeSettings")).ImBridgeSettings }));
+const KnowledgeBaseSettings = lazy(async () => ({
+	default: (await import("./KnowledgeBaseSettings")).KnowledgeBaseSettings,
+}));
+const ModelsSettings = lazy(async () => ({ default: (await import("./ModelsSettings")).ModelsSettings }));
+const NewSessionSettings = lazy(async () => ({
+	default: (await import("./NewSessionSettings")).NewSessionSettings,
+}));
+const PermissionsSettings = lazy(async () => ({
+	default: (await import("./PermissionsSettings")).PermissionsSettings,
+}));
+const PetSettings = lazy(async () => ({ default: (await import("./PetSettings")).PetSettings }));
+const PluginsSettings = lazy(async () => ({ default: (await import("./PluginsSettings")).PluginsSettings }));
+const ShortcutsSettings = lazy(async () => ({
+	default: (await import("./ShortcutsSettings")).ShortcutsSettings,
+}));
+const TeamSettings = lazy(async () => ({ default: (await import("./TeamSettings")).TeamSettings }));
+const WebhookSettings = lazy(async () => ({ default: (await import("./WebhookSettings")).WebhookSettings }));
+
 /** MCP 已迁至扩展 → 连接器；`mcp` 保留在 SettingsTab 供 analytics / 旧链接重定向，此处不渲染。 */
-const SETTINGS_CONTENT: { [K in Exclude<SettingsTab, "mcp">]: () => JSX.Element } = {
+const SETTINGS_CONTENT: Record<Exclude<SettingsTab, "mcp">, LazyExoticComponent<ComponentType>> = {
 	general: GeneralSettings,
 	appearance: AppearanceSettings,
 	account: AccountSettings,
@@ -48,9 +65,18 @@ export function SettingsPage(): JSX.Element {
 	const Content =
 		model.activeTab === "mcp" ? SETTINGS_CONTENT.general : SETTINGS_CONTENT[model.activeTab];
 
+	const activeTab = model.activeTab === "mcp" ? "general" : model.activeTab;
+
 	return (
 		<SettingsPageView
-			content={<Content />}
+			content={
+				<Suspense fallback={<SettingsContentLoadingView />}>
+					{/* key=tab：切换侧栏时重挂载，触发 SettingsEnterItem stagger 与 CSS 兜底入场 */}
+					<SettingsTabEnter key={activeTab} className="settings-tab-enter w-full min-h-0">
+						<Content />
+					</SettingsTabEnter>
+				</Suspense>
+			}
 			contentSurfaceRootClassName={contentSurface?.rootClassName}
 			model={model}
 		/>

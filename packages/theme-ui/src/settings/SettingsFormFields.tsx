@@ -1,5 +1,15 @@
 import type { JSX, KeyboardEvent } from "react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@vetta/ui";
+import { cn } from "@vetta/ui";
+import { MotionSelect } from "./MotionSelect";
+
+/**
+ * @deprecated 基础 Select 已产品化；设置页请优先 {@link MotionSelect}。
+ * 保留空串兼容旧 `cn(SETTINGS_SELECT_TRIGGER_CLASS, …)` 调用。
+ */
+export const SETTINGS_SELECT_TRIGGER_CLASS = "";
+
+/** @deprecated 见上。 */
+export const SETTINGS_SELECT_ITEM_CLASS = "";
 
 export function SelectField({
 	value,
@@ -11,21 +21,12 @@ export function SelectField({
 	options: { value: string; label: string }[];
 }): JSX.Element {
 	return (
-		<Select value={value} onValueChange={onChange}>
-			<SelectTrigger
-				size="sm"
-				className="h-8 w-full border-input bg-secondary text-[12px] hover:bg-accent dark:bg-secondary dark:hover:bg-accent"
-			>
-				<SelectValue />
-			</SelectTrigger>
-			<SelectContent position="popper" align="start">
-				{options.map((option) => (
-					<SelectItem key={option.value} value={option.value} className="text-[12px]">
-						{option.label}
-					</SelectItem>
-				))}
-			</SelectContent>
-		</Select>
+		<MotionSelect
+			value={value}
+			onValueChange={onChange}
+			options={options}
+			triggerClassName="w-full"
+		/>
 	);
 }
 
@@ -55,7 +56,7 @@ export function InputField({
 			onBlur={onBlur}
 			onKeyDown={onKeyDown}
 			placeholder={placeholder}
-			className="h-8 w-full rounded-lg border border-input bg-secondary px-3 text-[12px] text-foreground placeholder:text-muted-foreground/40 outline-none transition-colors hover:bg-accent focus:border-ring disabled:cursor-not-allowed disabled:opacity-50"
+			className="h-8 w-full rounded-lg border border-border bg-card px-2.5 text-[12px] font-medium text-foreground placeholder:text-muted-foreground/40 outline-none transition-colors hover:bg-accent focus-visible:border-border focus-visible:ring-1 focus-visible:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-50"
 		/>
 	);
 }
@@ -77,7 +78,7 @@ export function TextareaField({
 			onChange={(e) => onChange(e.target.value)}
 			placeholder={placeholder}
 			rows={rows}
-			className="w-full resize-none rounded-lg border border-input bg-secondary px-3 py-2 font-mono text-[12px] text-foreground placeholder:text-muted-foreground/40 outline-none transition-colors hover:bg-accent focus:border-ring"
+			className="w-full resize-none rounded-lg border border-border bg-card px-2.5 py-2 font-mono text-[12px] text-foreground placeholder:text-muted-foreground/40 outline-none transition-colors hover:bg-accent focus-visible:border-border focus-visible:ring-1 focus-visible:ring-primary/30"
 		/>
 	);
 }
@@ -96,9 +97,10 @@ export function CheckboxField({
 			<button
 				type="button"
 				onClick={() => onChange(!checked)}
-				className={`flex h-4 w-4 items-center justify-center rounded border transition-colors ${
-					checked ? "border-primary bg-primary" : "border-input bg-secondary hover:bg-accent"
-				}`}
+				className={cn(
+					"flex h-4 w-4 items-center justify-center rounded border transition-colors",
+					checked ? "border-primary bg-primary" : "border-border bg-card hover:bg-accent",
+				)}
 			>
 				{checked && <span className="icon-[mdi--check] h-3 w-3 text-primary-foreground" />}
 			</button>

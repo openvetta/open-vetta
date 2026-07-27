@@ -164,7 +164,7 @@ export function XianxiaSceneCarousel({
 				ref={scrollRef}
 				onScroll={updateEdges}
 				className={cn(
-					"no-scrollbar flex snap-x snap-mandatory gap-2.5 overflow-x-auto py-1",
+					"no-scrollbar flex min-h-[5.75rem] snap-x snap-mandatory gap-2.5 overflow-x-auto py-1",
 					scrollMaskClass(canPrev, canNext),
 				)}
 			>
