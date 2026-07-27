@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { AssistantMessage, UserMessage } from "@vetta/ai";
+import type { AssistantMessage, Message, UserMessage } from "@vetta/ai";
 import { afterEach, describe, expect, it } from "vitest";
 import {
 	createAgentSession,
@@ -11,6 +11,7 @@ import {
 	StaticRuntimeSnapshotProvider,
 	type TurnEngineEvent,
 	type TurnEnginePort,
+	type TurnEngineRequest,
 	TurnPipeline,
 } from "../../../runtime-core/src/kernel/index.js";
 import { GreenfieldRuntimeSessionBackend } from "../../../runtime-core/src/runtime-host/index.js";
@@ -62,9 +63,94 @@ describe("FileConversationRepository Greenfield projection", () => {
 		expect(resumedAssembly.lifecycle.sessionPath).toBe(createdAssembly.lifecycle.sessionPath);
 		await resumedAssembly.lifecycle.dispose();
 	});
+
+	it("persists history control and sends only the selected branch to the turn engine", async () => {
+		const rootDir = await mkdtemp(join(tmpdir(), "vetta-greenfield-history-"));
+		temporaryRoots.push(rootDir);
+		const turnEngine = new RecordingTurnEngine();
+		const backend = createBackend(rootDir, turnEngine);
+		const session = await backend.create({ id: "session-1" });
+		const assembly = session.createCoreAssembly();
+
+		await assembly.corePorts.turnControl.prompt({ text: "first" });
+		expect(await assembly.historyController.navigateForEdit("event-2")).toEqual({
+			text: "first",
+			cancelled: false,
+		});
+		expect(assembly.corePorts.stateReader.readMessages()).toEqual([]);
+
+		await assembly.corePorts.turnControl.prompt({ text: "replacement" });
+		expect(await assembly.historyController.switchBranch("event-2")).toEqual({ leafId: "event-3" });
+		await assembly.corePorts.turnControl.prompt({ text: "old follow-up" });
+		expect(turnEngine.inputs.map((messages) => messages.map(messageText))).toEqual([
+			["first"],
+			["replacement"],
+			["first", "persisted response", "old follow-up"],
+		]);
+
+		expect(await assembly.historyController.switchBranch("event-6")).toEqual({ leafId: "event-7" });
+		expect(assembly.corePorts.stateReader.readMessages().map(messageText)).toEqual([
+			"replacement",
+			"persisted response",
+		]);
+		expect(await assembly.historyController.replaceLastUserMessage("event-6")).toEqual({ leafId: null });
+
+		await assembly.corePorts.turnControl.prompt({ text: "final" });
+		await assembly.historyController.setName("renamed session");
+		const fork = await assembly.historyController.forkSession("event-14");
+		expect(fork.text).toBe("final");
+		expect(fork.path).toMatch(/\.conversation\.jsonl$/);
+		await assembly.lifecycle.dispose();
+
+		const resumed = await backend.resume({ id: "session-1" });
+		const resumedAssembly = resumed.createCoreAssembly();
+		expect(resumedAssembly.corePorts.stateReader.readMessages().map(messageText)).toEqual([
+			"final",
+			"persisted response",
+		]);
+		const repository = new FileConversationRepository({ rootDir });
+		expect(await repository.readDocument("session-1")).toMatchObject({
+			journalVersion: 16,
+			revision: 13,
+			name: "renamed session",
+			activeLeafId: "event-15",
+		});
+		await repository.close();
+		await resumedAssembly.lifecycle.dispose();
+	});
+
+	it("preserves runtime rename while a turn is active", async () => {
+		const rootDir = await mkdtemp(join(tmpdir(), "vetta-greenfield-rename-"));
+		temporaryRoots.push(rootDir);
+		const turnEngine = new BlockingTurnEngine();
+		const session = await createBackend(rootDir, turnEngine).create({ id: "session-1" });
+		const assembly = session.createCoreAssembly();
+		const prompt = assembly.corePorts.turnControl.prompt({ text: "running" });
+		await turnEngine.started;
+
+		try {
+			await assembly.historyController.setName("  renamed while running  ");
+		} finally {
+			turnEngine.finish();
+		}
+		await prompt;
+
+		const repository = new FileConversationRepository({ rootDir });
+		expect(await repository.readDocument("session-1")).toMatchObject({
+			journalVersion: 4,
+			revision: 3,
+			name: "renamed while running",
+			activeLeafId: "event-3",
+		});
+		await repository.close();
+		await assembly.lifecycle.dispose();
+	});
 });
 
-function createBackend(rootDir: string): GreenfieldRuntimeSessionBackend<{ readonly id: string }> {
+function createBackend(
+	rootDir: string,
+	turnEngine: TurnEnginePort = new CompletingTurnEngine(),
+): GreenfieldRuntimeSessionBackend<{ readonly id: string }> {
 	return new GreenfieldRuntimeSessionBackend({
 		promptAdapter: {
 			async prepare(request) {
@@ -72,8 +158,8 @@ function createBackend(rootDir: string): GreenfieldRuntimeSessionBackend<{ reado
 			},
 		},
 		runtimeFactory: {
-			create: (options, eventSink) => createAssembly("create", rootDir, options.id, eventSink),
-			resume: (options, eventSink) => createAssembly("resume", rootDir, options.id, eventSink),
+			create: (options, eventSink) => createAssembly("create", rootDir, options.id, eventSink, turnEngine),
+			resume: (options, eventSink) => createAssembly("resume", rootDir, options.id, eventSink, turnEngine),
 		},
 	});
 }
@@ -83,13 +169,14 @@ async function createAssembly(
 	rootDir: string,
 	sessionId: string,
 	eventSink: EventSink,
+	turnEngine: TurnEnginePort,
 ) {
 	let turnIndex = 0;
 	const repository = new FileConversationRepository({ rootDir });
 	const pipeline = new TurnPipeline({
 		repository,
 		snapshotProvider: new StaticRuntimeSnapshotProvider(snapshot()),
-		turnEngine: new CompletingTurnEngine(),
+		turnEngine,
 		eventSink,
 		clock: { now: () => Date.now() },
 		idGenerator: {
@@ -106,7 +193,7 @@ async function createAssembly(
 	return {
 		session,
 		repository,
-		conversationDocumentReader: repository,
+		conversationDocumentStore: repository,
 		identity: {
 			cwd: rootDir,
 			sessionPath: repository.resolveConversationPath(sessionId),
@@ -126,6 +213,43 @@ async function createAssembly(
 
 class CompletingTurnEngine implements TurnEnginePort {
 	async *execute(): AsyncIterable<TurnEngineEvent> {
+		yield { type: "message", message: assistantMessage("persisted response") };
+		yield { type: "completed", stopReason: "stop" };
+	}
+}
+
+class RecordingTurnEngine implements TurnEnginePort {
+	readonly inputs: Message[][] = [];
+
+	async *execute(request: TurnEngineRequest): AsyncIterable<TurnEngineEvent> {
+		this.inputs.push([...request.messages]);
+		yield { type: "message", message: assistantMessage("persisted response") };
+		yield { type: "completed", stopReason: "stop" };
+	}
+}
+
+class BlockingTurnEngine implements TurnEnginePort {
+	readonly started: Promise<void>;
+	private readonly released: Promise<void>;
+	private markStarted: () => void = () => {};
+	private release: () => void = () => {};
+
+	constructor() {
+		this.started = new Promise((resolve) => {
+			this.markStarted = resolve;
+		});
+		this.released = new Promise((resolve) => {
+			this.release = resolve;
+		});
+	}
+
+	finish(): void {
+		this.release();
+	}
+
+	async *execute(): AsyncIterable<TurnEngineEvent> {
+		this.markStarted();
+		await this.released;
 		yield { type: "message", message: assistantMessage("persisted response") };
 		yield { type: "completed", stopReason: "stop" };
 	}
@@ -175,4 +299,12 @@ function assistantMessage(text: string): AssistantMessage {
 		stopReason: "stop",
 		timestamp: 2,
 	};
+}
+
+function messageText(message: Message): string {
+	if (typeof message.content === "string") return message.content;
+	return message.content
+		.filter((content) => content.type === "text")
+		.map((content) => content.text)
+		.join("");
 }

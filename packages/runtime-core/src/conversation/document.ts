@@ -97,10 +97,13 @@ export type ConversationDocumentEntry =
 
 export interface ConversationDocument {
 	readonly identity: ConversationDocumentIdentity;
-	/** Native journal sequence or imported Legacy entry count used to advance the read model. */
+	/** Number of persisted Kernel events already applied to this read model. */
+	readonly journalVersion: number;
+	/** Optimistic document revision; advances for message entries and document commands. */
 	readonly revision: number;
 	readonly entries: readonly ConversationDocumentEntry[];
 	readonly activeLeafId: string | null;
+	readonly name?: string;
 }
 
 export interface ConversationDocumentEntryReference {
@@ -114,7 +117,7 @@ export interface ConversationDocumentReader {
 }
 
 export function createEmptyConversationDocument(identity: ConversationDocumentIdentity): ConversationDocument {
-	return { identity, revision: 0, entries: [], activeLeafId: null };
+	return { identity, journalVersion: 0, revision: 0, entries: [], activeLeafId: null };
 }
 
 export function nativeConversationEntryId(sequence: number): string {
@@ -131,11 +134,11 @@ export function applyStoredEventToConversationDocument(
 	if (event.sessionId !== document.identity.sessionId) {
 		throw new Error(`Conversation document ${document.identity.sessionId} cannot apply event for ${event.sessionId}`);
 	}
-	if (sequence !== document.revision + 1) {
-		throw new Error(`Conversation document sequence ${sequence} does not follow revision ${document.revision}`);
+	if (sequence !== document.journalVersion + 1) {
+		throw new Error(`Conversation document journal sequence ${sequence} does not follow ${document.journalVersion}`);
 	}
 	if (event.type !== "message.appended") {
-		return { ...document, revision: sequence };
+		return { ...document, journalVersion: sequence };
 	}
 
 	const entryReference =
@@ -153,7 +156,8 @@ export function applyStoredEventToConversationDocument(
 	}
 	return {
 		...document,
-		revision: sequence,
+		journalVersion: sequence,
+		revision: document.revision + 1,
 		entries: [
 			...document.entries,
 			{

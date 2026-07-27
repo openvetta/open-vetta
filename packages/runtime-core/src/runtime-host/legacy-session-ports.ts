@@ -155,30 +155,31 @@ export class LegacyRuntimeSessionHistoryController implements RuntimeSessionHist
 		return { text: result.editorText ?? "", cancelled: false };
 	}
 
-	switchBranch(entryId: string): { leafId: string } {
+	switchBranch(entryId: string): Promise<{ leafId: string }> {
 		this.assertCanMutate("Cannot switch branch while the session is streaming");
-		return this.session.switchBranch(entryId);
+		return Promise.resolve(this.session.switchBranch(entryId));
 	}
 
-	deleteMessage(entryId: string): { leafId: string | null } {
+	deleteMessage(entryId: string): Promise<{ leafId: string | null }> {
 		this.assertCanMutate("Cannot delete a message while the session is streaming");
-		return this.session.deleteMessage(entryId);
+		return Promise.resolve(this.session.deleteMessage(entryId));
 	}
 
-	replaceLastUserMessage(entryId: string): { leafId: string | null } {
+	replaceLastUserMessage(entryId: string): Promise<{ leafId: string | null }> {
 		this.assertCanMutate("Cannot replace a message while the session is streaming");
 		const result = this.session.sessionManager.replaceLastUserMessage(entryId);
 		this.session.agent.replaceMessages(this.session.sessionManager.buildSessionContext().messages);
-		return result;
+		return Promise.resolve(result);
 	}
 
-	forkSession(entryId: string): { path: string; text: string } {
+	forkSession(entryId: string): Promise<{ path: string; text: string }> {
 		this.assertCanMutate("Cannot fork while the session is streaming");
-		return this.session.exportForkToNewFile(entryId);
+		return Promise.resolve(this.session.exportForkToNewFile(entryId));
 	}
 
-	setName(name: string): void {
+	setName(name: string): Promise<void> {
 		this.session.setSessionName(name);
+		return Promise.resolve();
 	}
 
 	private assertCanMutate(message: string): void {

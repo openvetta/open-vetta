@@ -1,4 +1,16 @@
 export {
+	applyConversationDocumentCommand,
+	type ConversationDocumentCommand,
+	type ConversationDocumentCommandResult,
+	type ConversationDocumentForkResult,
+	type ConversationDocumentStore,
+	conversationDocumentEntry,
+	extractConversationEntryText,
+	resolveConversationUserTurnTip,
+	selectConversationDocumentEntries,
+	selectConversationDocumentMessages,
+} from "./commands.js";
+export {
 	applyStoredEventToConversationDocument,
 	type ConversationDocument,
 	type ConversationDocumentBranchSummaryEntry,

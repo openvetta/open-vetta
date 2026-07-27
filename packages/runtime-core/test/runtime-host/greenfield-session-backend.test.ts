@@ -2,9 +2,16 @@ import type { AssistantMessage, UserMessage } from "@vetta/ai";
 import { describe, expect, it, vi } from "vitest";
 import type { PromptRequest, SessionEvent } from "../../src/contracts.js";
 import {
+	applyConversationDocumentCommand,
 	applyStoredEventToConversationDocument,
 	type ConversationDocument,
+	type ConversationDocumentCommand,
+	type ConversationDocumentCommandResult,
+	type ConversationDocumentForkResult,
+	conversationDocumentEntry,
 	createEmptyConversationDocument,
+	extractConversationEntryText,
+	selectConversationDocumentMessages,
 } from "../../src/conversation/index.js";
 import type {
 	ConversationMetadata,
@@ -33,6 +40,7 @@ interface TestCreateOptions {
 
 class InMemoryConversationRepository implements ConversationRepository {
 	private readonly conversations = new Map<string, StoredConversation>();
+	private readonly documents = new Map<string, ConversationDocument>();
 
 	async create(input: CreateConversationInput): Promise<ConversationMetadata> {
 		const conversation: StoredConversation = {
@@ -43,6 +51,10 @@ class InMemoryConversationRepository implements ConversationRepository {
 			events: [],
 		};
 		this.conversations.set(input.sessionId, conversation);
+		this.documents.set(
+			input.sessionId,
+			createEmptyConversationDocument({ sessionId: input.sessionId, createdAt: input.createdAt }),
+		);
 		return conversation;
 	}
 
@@ -53,13 +65,37 @@ class InMemoryConversationRepository implements ConversationRepository {
 	}
 
 	async readDocument(sessionId: string): Promise<ConversationDocument> {
-		const conversation = await this.load(sessionId);
-		let document = createEmptyConversationDocument({ sessionId, createdAt: conversation.createdAt });
-		for (let index = 0; index < conversation.events.length; index += 1) {
-			const event = conversation.events[index];
-			if (event) document = applyStoredEventToConversationDocument(document, event, index + 1);
-		}
+		const document = this.documents.get(sessionId);
+		if (!document) throw new Error(`Conversation document not found: ${sessionId}`);
 		return document;
+	}
+
+	async execute(
+		sessionId: string,
+		expectedRevision: number | null,
+		command: ConversationDocumentCommand,
+	): Promise<ConversationDocumentCommandResult> {
+		const document = await this.readDocument(sessionId);
+		if (expectedRevision !== null && document.revision !== expectedRevision) {
+			throw new Error("Document version mismatch");
+		}
+		const result = applyConversationDocumentCommand(document, command);
+		this.documents.set(sessionId, result.document);
+		const conversation = await this.load(sessionId);
+		this.conversations.set(sessionId, {
+			...conversation,
+			messages: selectConversationDocumentMessages(result.document),
+		});
+		return result;
+	}
+
+	async fork(sessionId: string, entryId: string): Promise<ConversationDocumentForkResult> {
+		const entry = conversationDocumentEntry(await this.readDocument(sessionId), entryId);
+		return {
+			sessionId: "forked-session",
+			path: "sessions/forked-session.jsonl",
+			text: extractConversationEntryText(entry),
+		};
 	}
 
 	async append(
@@ -69,15 +105,17 @@ class InMemoryConversationRepository implements ConversationRepository {
 	): Promise<{ readonly version: number }> {
 		const conversation = await this.load(sessionId);
 		if (conversation.version !== expectedVersion) throw new Error("Version mismatch");
-		const messages = [...conversation.messages];
-		for (const event of events) {
-			if (event.type === "message.appended") messages.push(event.message);
-		}
 		const version = expectedVersion + events.length;
+		let document = await this.readDocument(sessionId);
+		for (let index = 0; index < events.length; index += 1) {
+			const event = events[index];
+			if (event) document = applyStoredEventToConversationDocument(document, event, expectedVersion + index + 1);
+		}
+		this.documents.set(sessionId, document);
 		this.conversations.set(sessionId, {
 			...conversation,
 			version,
-			messages,
+			messages: selectConversationDocumentMessages(document),
 			events: [...conversation.events, ...events],
 		});
 		return { version };
@@ -167,7 +205,7 @@ function createBackend(
 					return {
 						session,
 						repository,
-						conversationDocumentReader: repository,
+						conversationDocumentStore: repository,
 						dispose,
 						...runtimeAssemblyDetails(options.id),
 					};
@@ -299,7 +337,7 @@ describe("GreenfieldRuntimeSessionBackend", () => {
 				idGenerator: { next: () => "unused-turn-id" },
 			});
 			const session = await resumeAgentSession({ id: options.id, pipeline });
-			return { session, repository, conversationDocumentReader: repository, ...runtimeAssemblyDetails(options.id) };
+			return { session, repository, conversationDocumentStore: repository, ...runtimeAssemblyDetails(options.id) };
 		});
 		const backend = new GreenfieldRuntimeSessionBackend<TestCreateOptions>({
 			promptAdapter: new RecordingPromptAdapter(),

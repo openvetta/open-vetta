@@ -4,6 +4,7 @@ import { join } from "node:path";
 import type {
 	ConversationSnapshot,
 	MessageAppendedEvent,
+	StoredConversation,
 	StoredSessionEvent,
 	TurnCompletedEvent,
 	TurnStartedEvent,
@@ -50,6 +51,32 @@ function message(sessionId: string, turnId: string, text: string): MessageAppend
 			timestamp: 2,
 		},
 		timestamp: 2,
+	};
+}
+
+function assistant(sessionId: string, turnId: string, text: string, timestamp = 3): MessageAppendedEvent {
+	return {
+		type: "message.appended",
+		sessionId,
+		turnId,
+		message: {
+			role: "assistant",
+			content: [{ type: "text", text }],
+			api: "openai-responses",
+			provider: "openai",
+			model: "test-model",
+			usage: {
+				input: 1,
+				output: 1,
+				cacheRead: 0,
+				cacheWrite: 0,
+				totalTokens: 2,
+				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+			},
+			stopReason: "stop",
+			timestamp,
+		},
+		timestamp,
 	};
 }
 
@@ -111,7 +138,8 @@ describe("FileConversationRepository", () => {
 		]);
 		const document = await repository.readDocument("session/with unsafe path");
 		expect(document).toMatchObject({
-			revision: 3,
+			journalVersion: 3,
+			revision: 1,
 			activeLeafId: "event-2",
 			entries: [{ id: "event-2", parentId: null, type: "message" }],
 		});
@@ -189,6 +217,140 @@ describe("FileConversationRepository", () => {
 			code: CONVERSATION_STORAGE_ERROR_CODES.VERSION_CONFLICT,
 		});
 		expect((await repository.load("session-1")).version).toBe(1);
+	});
+
+	it("persists branch mutations independently from the event journal", async () => {
+		const { repository, rootDir } = await createRepository();
+		const sessionId = "branching-session";
+		await repository.create({ sessionId, createdAt: 100 });
+		await repository.append(sessionId, 0, [
+			started(sessionId, "turn-1"),
+			message(sessionId, "turn-1", "root"),
+			assistant(sessionId, "turn-1", "root answer"),
+			completed(sessionId, "turn-1"),
+		]);
+		await repository.append(sessionId, 4, [
+			started(sessionId, "turn-2"),
+			message(sessionId, "turn-2", "old branch"),
+			assistant(sessionId, "turn-2", "old answer"),
+			completed(sessionId, "turn-2"),
+		]);
+
+		await repository.execute(sessionId, 4, { type: "active_leaf.set", entryId: "event-3" });
+		await repository.append(sessionId, 8, [
+			started(sessionId, "turn-3"),
+			message(sessionId, "turn-3", "new branch"),
+			assistant(sessionId, "turn-3", "new answer"),
+			completed(sessionId, "turn-3"),
+		]);
+		const selected = await repository.execute(sessionId, 7, {
+			type: "branch.select",
+			entryId: "event-6",
+		});
+
+		expect(selected).toMatchObject({ changed: true, leafId: "event-7" });
+		expect(await repository.readDocument(sessionId)).toMatchObject({
+			journalVersion: 12,
+			revision: 8,
+			activeLeafId: "event-7",
+		});
+		expect((await repository.load(sessionId)).messages.map(messageText)).toEqual([
+			"root",
+			"root answer",
+			"old branch",
+			"old answer",
+		]);
+
+		const reopened = new FileConversationRepository({ rootDir });
+		expect((await reopened.load(sessionId)).messages.map(messageText)).toEqual([
+			"root",
+			"root answer",
+			"old branch",
+			"old answer",
+		]);
+		await reopened.close();
+	});
+
+	it("serializes document commands across repository instances", async () => {
+		const { repository, rootDir } = await createRepository();
+		const sessionId = "document-concurrency";
+		await repository.create({ sessionId, createdAt: 100 });
+		await repository.append(sessionId, 0, [message(sessionId, "turn-1", "hello")]);
+		const secondRepository = new FileConversationRepository({ rootDir });
+
+		const results = await Promise.allSettled([
+			repository.execute(sessionId, 1, { type: "session.name.set", name: "first" }),
+			secondRepository.execute(sessionId, 1, { type: "session.name.set", name: "second" }),
+		]);
+
+		expect(results.filter(({ status }) => status === "fulfilled")).toHaveLength(1);
+		const rejected = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
+		expect(rejected?.reason).toMatchObject({
+			code: CONVERSATION_STORAGE_ERROR_CODES.DOCUMENT_VERSION_CONFLICT,
+		});
+		expect((await repository.readDocument(sessionId)).revision).toBe(2);
+		await secondRepository.close();
+	});
+
+	it("forks one user turn into an independently recoverable v2 conversation", async () => {
+		const { repository } = await createRepository();
+		const sessionId = "fork-source";
+		await repository.create({ sessionId, createdAt: 100 });
+		await repository.append(sessionId, 0, [
+			started(sessionId, "turn-1"),
+			message(sessionId, "turn-1", "fork me"),
+			assistant(sessionId, "turn-1", "forked answer"),
+			completed(sessionId, "turn-1"),
+		]);
+
+		const fork = await repository.fork(sessionId, "event-2");
+		const forkedConversation = await repository.load(fork.sessionId);
+		const forkedDocument = await repository.readDocument(fork.sessionId);
+
+		expect(fork).toMatchObject({ text: "fork me" });
+		expect(fork.path).toBe(repository.resolveConversationPath(fork.sessionId));
+		expect(forkedConversation.messages.map(messageText)).toEqual(["fork me", "forked answer"]);
+		expect(forkedDocument.identity).toMatchObject({
+			parentSessionPath: repository.resolveConversationPath(sessionId),
+			parentEntryId: "event-2",
+		});
+		expect(forkedDocument).toMatchObject({ journalVersion: 4, revision: 2, activeLeafId: "event-3" });
+	});
+
+	it("rejects document mutations for a v1 conversation", async () => {
+		const { repository } = await createRepository();
+		const sessionId = "read-only-v1";
+		await repository.create({ sessionId, createdAt: 100 });
+		await writeFile(
+			repository.resolveConversationPath(sessionId),
+			`${JSON.stringify({
+				recordType: "conversation.header",
+				schemaVersion: 1,
+				sessionId,
+				createdAt: 100,
+			})}\n`,
+			"utf8",
+		);
+
+		await expect(
+			repository.execute(sessionId, 0, { type: "session.name.set", name: "blocked" }),
+		).rejects.toMatchObject({ code: CONVERSATION_STORAGE_ERROR_CODES.READ_ONLY });
+	});
+
+	it("rejects an invalid document command at the TypeBox write boundary", async () => {
+		const { repository } = await createRepository();
+		await repository.create({ sessionId: "session-1", createdAt: 100 });
+		const invalidCommand = { type: "active_leaf.set", entryId: 42 } as unknown as Parameters<
+			FileConversationRepository["execute"]
+		>[2];
+
+		await expect(repository.execute("session-1", 0, invalidCommand)).rejects.toMatchObject({
+			code: CONVERSATION_STORAGE_ERROR_CODES.INVALID_COMMAND,
+		});
+		await expect(
+			repository.execute("session-1", null, { type: "active_leaf.set", entryId: null }),
+		).rejects.toMatchObject({ code: CONVERSATION_STORAGE_ERROR_CODES.INVALID_COMMAND });
+		expect(await repository.readDocument("session-1")).toMatchObject({ revision: 0, activeLeafId: null });
 	});
 
 	it("rejects events belonging to another session without changing the version", async () => {
@@ -308,6 +470,25 @@ describe("FileConversationRepository", () => {
 		});
 	});
 
+	it("rejects a persisted document operation that fails TypeBox validation", async () => {
+		const { repository } = await createRepository();
+		await repository.create({ sessionId: "session-1", createdAt: 100 });
+		await appendFile(
+			repository.resolveConversationPath("session-1"),
+			`${JSON.stringify({
+				recordType: "conversation.document.operation",
+				schemaVersion: 2,
+				revision: 1,
+				command: { type: "active_leaf.set", entryId: 42 },
+			})}\n`,
+			"utf8",
+		);
+
+		await expect(repository.readDocument("session-1")).rejects.toMatchObject({
+			code: CONVERSATION_STORAGE_ERROR_CODES.CORRUPT,
+		});
+	});
+
 	it("rejects a v2 document entry whose parent is not present", async () => {
 		const { repository } = await createRepository();
 		await repository.create({ sessionId: "session-1", createdAt: 100 });
@@ -345,3 +526,11 @@ describe("FileConversationRepository", () => {
 		});
 	});
 });
+
+function messageText(value: StoredConversation["messages"][number]): string {
+	if (typeof value.content === "string") return value.content;
+	return value.content
+		.filter((content) => content.type === "text")
+		.map((content) => content.text)
+		.join("");
+}

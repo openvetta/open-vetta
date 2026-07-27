@@ -83,9 +83,11 @@ export function parseLegacySessionDocument(content: string): ConversationDocumen
 			parentSessionPath: header.parentSession,
 			parentEntryId: header.parentEntryId,
 		},
+		journalVersion: 0,
 		revision: entries.length,
 		entries,
 		activeLeafId: findActiveLeafId(entries),
+		name: findSessionName(entries),
 	};
 }
 
@@ -226,6 +228,14 @@ function findActiveLeafId(entries: readonly ConversationDocumentEntry[]): string
 		if (entry && !hasChild.has(entry.id)) return entry.id;
 	}
 	return null;
+}
+
+function findSessionName(entries: readonly ConversationDocumentEntry[]): string | undefined {
+	for (let index = entries.length - 1; index >= 0; index -= 1) {
+		const entry = entries[index];
+		if (entry?.type === "session_info") return entry.name;
+	}
+	return undefined;
 }
 
 function parseTimestamp(value: string): number {

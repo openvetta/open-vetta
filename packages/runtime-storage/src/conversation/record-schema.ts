@@ -270,6 +270,54 @@ export const ConversationEventRecordSchema = Type.Union([
 	CurrentConversationEventRecordSchema,
 ]);
 
+export const ConversationDocumentCommandSchema = Type.Union([
+	Type.Object(
+		{
+			type: Type.Literal("active_leaf.set"),
+			entryId: Type.Union([Type.String(), Type.Null()]),
+		},
+		{ additionalProperties: false },
+	),
+	Type.Object(
+		{
+			type: Type.Literal("branch.select"),
+			entryId: Type.String(),
+		},
+		{ additionalProperties: false },
+	),
+	Type.Object(
+		{
+			type: Type.Literal("message.delete"),
+			entryId: Type.String(),
+		},
+		{ additionalProperties: false },
+	),
+	Type.Object(
+		{
+			type: Type.Literal("user_turn.replace"),
+			entryId: Type.String(),
+		},
+		{ additionalProperties: false },
+	),
+	Type.Object(
+		{
+			type: Type.Literal("session.name.set"),
+			name: Type.String(),
+		},
+		{ additionalProperties: false },
+	),
+]);
+
+export const ConversationDocumentOperationRecordSchema = Type.Object(
+	{
+		recordType: Type.Literal("conversation.document.operation"),
+		schemaVersion: Type.Literal(CONVERSATION_SCHEMA_VERSION),
+		revision: Type.Integer({ minimum: 1 }),
+		command: ConversationDocumentCommandSchema,
+	},
+	{ additionalProperties: false },
+);
+
 export const ConversationSnapshotSchema = Type.Object(
 	{
 		sessionId: Type.String(),
@@ -293,6 +341,7 @@ export type ConversationFileHeader = Static<typeof CurrentConversationFileHeader
 export type ReadConversationFileHeader = Static<typeof ConversationFileHeaderSchema>;
 export type ConversationEventRecord = Static<typeof CurrentConversationEventRecordSchema>;
 export type ReadConversationEventRecord = Static<typeof ConversationEventRecordSchema>;
+export type ConversationDocumentOperationRecord = Static<typeof ConversationDocumentOperationRecordSchema>;
 export type ConversationSnapshotRecord = Static<typeof ConversationSnapshotRecordSchema>;
 
 export function isConversationFileHeader(value: unknown): value is ReadConversationFileHeader {
@@ -301,6 +350,16 @@ export function isConversationFileHeader(value: unknown): value is ReadConversat
 
 export function isConversationEventRecord(value: unknown): value is ReadConversationEventRecord {
 	return Value.Check(ConversationEventRecordSchema, value);
+}
+
+export function isConversationDocumentOperationRecord(value: unknown): value is ConversationDocumentOperationRecord {
+	return Value.Check(ConversationDocumentOperationRecordSchema, value);
+}
+
+export function isConversationDocumentCommand(
+	value: unknown,
+): value is Static<typeof ConversationDocumentCommandSchema> {
+	return Value.Check(ConversationDocumentCommandSchema, value);
 }
 
 export function isConversationSnapshot(value: unknown): value is Static<typeof ConversationSnapshotSchema> {

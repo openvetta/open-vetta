@@ -906,7 +906,7 @@ export class RuntimeHost implements SessionFacade {
 		// SessionManager on the same file would deadlock against our own lock.
 		const existing = this.findHandleBySessionPath(sessionPath);
 		if (existing) {
-			existing.handle.historyController.setName(name);
+			await existing.handle.historyController.setName(name);
 			return;
 		}
 		await this.sessionCatalog.renameSession(sessionPath, name);
@@ -961,7 +961,9 @@ export class RuntimeHost implements SessionFacade {
 		// We already hold the live AgentSession — rename through it directly so
 		// we never open a second SessionManager (and second lock) on the file.
 		const handle = this.requireSession(sessionId);
-		handle.historyController.setName(name);
+		void handle.historyController.setName(name).catch((error) => {
+			console.error(`[RuntimeHost.renameSessionById] failed for ${sessionId}:`, error);
+		});
 	}
 
 	/**
@@ -973,7 +975,7 @@ export class RuntimeHost implements SessionFacade {
 		const handle = this.requireSession(sessionId);
 		const cleaned = await generateAutoTitle(handle.modelView, sessionId, userText, assistantText);
 		if (!cleaned) return null;
-		handle.historyController.setName(cleaned);
+		await handle.historyController.setName(cleaned);
 		return cleaned;
 	}
 

@@ -59,6 +59,7 @@
 | [49-session-creation-and-storage-boundary.md](./08-implementation-log/49-session-creation-and-storage-boundary.md) | Runtime-owned 创建请求、离线 Catalog、文件历史与共享模型服务 |
 | [50-greenfield-session-projection.md](./08-implementation-log/50-greenfield-session-projection.md) | Greenfield 同步会话投影、真实 Core Assembly 与文件恢复集成 |
 | [51-conversation-document-and-history-read.md](./08-implementation-log/51-conversation-document-and-history-read.md) | Conversation Document、原生 V2/Legacy 读取与 Greenfield History Reader |
+| [52-conversation-document-write-and-history-controller.md](./08-implementation-log/52-conversation-document-write-and-history-controller.md) | Conversation Document 写命令、并发边界与 Greenfield History Controller |
 
 ## 维护约定
 

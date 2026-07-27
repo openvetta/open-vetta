@@ -1,5 +1,6 @@
 import type { Message } from "@vetta/ai";
 import type { HistoryEntry } from "../contracts.js";
+import { applyConversationDocumentCommand, selectConversationDocumentMessages } from "../conversation/commands.js";
 import { applyStoredEventToConversationDocument, type ConversationDocument } from "../conversation/document.js";
 import { projectConversationDocumentHistory } from "../conversation/history-projection.js";
 import type { StoredConversation, StoredSessionEvent } from "../kernel/contracts.js";
@@ -40,9 +41,9 @@ export class GreenfieldSessionProjection {
 				`Conversation ${conversation.sessionId} does not match document ${document.identity.sessionId}`,
 			);
 		}
-		if (conversation.version !== document.revision) {
+		if (conversation.version !== document.journalVersion) {
 			throw new Error(
-				`Conversation version ${conversation.version} does not match document revision ${document.revision}`,
+				`Conversation version ${conversation.version} does not match document journal ${document.journalVersion}`,
 			);
 		}
 		this.sessionId = conversation.sessionId;
@@ -57,7 +58,28 @@ export class GreenfieldSessionProjection {
 		if (event.type === "message.appended") {
 			this.messages.push(event.message);
 		}
-		this.document = applyStoredEventToConversationDocument(this.document, event, this.document.revision + 1);
+		this.document = applyStoredEventToConversationDocument(this.document, event, this.document.journalVersion + 1);
+	}
+
+	replaceDocument(document: ConversationDocument): void {
+		if (document.identity.sessionId !== this.sessionId) {
+			throw new Error(`Projection ${this.sessionId} cannot use document for ${document.identity.sessionId}`);
+		}
+		if (document.journalVersion !== this.document.journalVersion) {
+			throw new Error(
+				`Document journal ${document.journalVersion} does not match projection ${this.document.journalVersion}`,
+			);
+		}
+		this.document = document;
+		this.messages.splice(0, this.messages.length, ...selectConversationDocumentMessages(document));
+	}
+
+	/** Apply the persisted commutative name command without replacing concurrently projected events. */
+	applyPersistedName(name: string): void {
+		this.document = applyConversationDocumentCommand(this.document, {
+			type: "session.name.set",
+			name,
+		}).document;
 	}
 
 	readMessages(): readonly Message[] {
@@ -70,5 +92,9 @@ export class GreenfieldSessionProjection {
 
 	readHistory(): readonly HistoryEntry[] {
 		return projectConversationDocumentHistory(this.document);
+	}
+
+	readDocument(): ConversationDocument {
+		return this.document;
 	}
 }

@@ -55,11 +55,16 @@ describe("LegacyRuntimeSessionHistoryController", () => {
 			text: "edit text",
 			cancelled: false,
 		});
-		expect(history.controller.switchBranch("branch-entry")).toEqual({ leafId: "branch-leaf" });
-		expect(history.controller.deleteMessage("delete-entry")).toEqual({ leafId: "delete-leaf" });
-		expect(history.controller.replaceLastUserMessage("replace-entry")).toEqual({ leafId: "replace-leaf" });
-		expect(history.controller.forkSession("fork-entry")).toEqual({ path: "fork.jsonl", text: "fork text" });
-		history.controller.setName("renamed");
+		await expect(history.controller.switchBranch("branch-entry")).resolves.toEqual({ leafId: "branch-leaf" });
+		await expect(history.controller.deleteMessage("delete-entry")).resolves.toEqual({ leafId: "delete-leaf" });
+		await expect(history.controller.replaceLastUserMessage("replace-entry")).resolves.toEqual({
+			leafId: "replace-leaf",
+		});
+		await expect(history.controller.forkSession("fork-entry")).resolves.toEqual({
+			path: "fork.jsonl",
+			text: "fork text",
+		});
+		await history.controller.setName("renamed");
 
 		expect(history.getEntry).toHaveBeenCalledWith("edit-entry");
 		expect(history.navigateTree).toHaveBeenCalledWith("edit-entry", { summarize: false });

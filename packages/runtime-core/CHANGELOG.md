@@ -6,6 +6,7 @@ All notable changes to `@vetta/runtime-core` are documented in this file.
 
 ### Added
 
+- **Conversation Document 写模型与 Greenfield History Controller**：新增独立 journal/document revision、Runtime-owned 历史命令与 Store Port；Greenfield 支持编辑导航、分支选择、删除、替换、fork 和运行中命名，活动分支会成为下一次 Turn 的真实模型上下文，默认 Legacy 生产入口保持不变。
 - **Conversation Document 与 Greenfield History Read**：新增独立 `@vetta/runtime-core/conversation` 会话树读模型、Kernel Event 增量投影和宿主历史纯投影；Greenfield Core Assembly 交付真实 `historyReader`，保留旧分支、marker 和 timing 读取语义，不提供历史写操作空实现。
 - **Greenfield Session Projection**：Greenfield Backend 在 create/resume 后从 Repository 初始化同步消息投影，并在持久化消息事件发布后增量更新；新增真实 Lifecycle、Workspace、Turn Control、Event Stream 和 State Reader Core Assembly、动态状态源与可执行能力矩阵，不为缺失的历史写操作、模型、Todo 或后台工作提供空实现。
 - **Session Creation and Storage Boundary**：新增不暴露 SessionManager/customTools/ModelRegistry 的 `RuntimeSessionCreateRequest`，以及独立 `RuntimeSessionCatalog`、`RuntimeSessionFileHistoryReader`、`RuntimeSharedModelController` 进程级合同和 Legacy Adapter；RuntimeHost 不再直接创建旧持久化对象、沙箱工具或操作静态 SessionManager/文件历史，同时保留 create-only Backend、JSONL 列表/重命名/删除、共享模型刷新和 sessionId 延迟绑定行为。

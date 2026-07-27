@@ -74,11 +74,11 @@ export interface RuntimeSessionHistoryReader {
  */
 export interface RuntimeSessionHistoryController {
 	navigateForEdit(entryId: string): Promise<{ text: string; cancelled: boolean }>;
-	switchBranch(entryId: string): { leafId: string };
-	deleteMessage(entryId: string): { leafId: string | null };
-	replaceLastUserMessage(entryId: string): { leafId: string | null };
-	forkSession(entryId: string): { path: string; text: string };
-	setName(name: string): void;
+	switchBranch(entryId: string): Promise<{ leafId: string }>;
+	deleteMessage(entryId: string): Promise<{ leafId: string | null }>;
+	replaceLastUserMessage(entryId: string): Promise<{ leafId: string | null }>;
+	forkSession(entryId: string): Promise<{ path: string; text: string }>;
+	setName(name: string): Promise<void>;
 }
 
 export type RuntimeModelSelectionStrategy = "if-changed" | "always";

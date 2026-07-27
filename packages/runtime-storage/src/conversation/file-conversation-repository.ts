@@ -3,12 +3,17 @@ import type { FileHandle } from "node:fs/promises";
 import { appendFile, mkdir, open, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import {
+	applyConversationDocumentCommand,
 	applyStoredEventToConversationDocument,
 	type ConversationDocument,
-	type ConversationDocumentEntryReference,
-	type ConversationDocumentReader,
-	createEmptyConversationDocument,
-	nativeConversationEntryId,
+	type ConversationDocumentCommand,
+	type ConversationDocumentCommandResult,
+	type ConversationDocumentForkResult,
+	type ConversationDocumentStore,
+	conversationDocumentEntry,
+	extractConversationEntryText,
+	resolveConversationUserTurnTip,
+	selectConversationDocumentEntries,
 } from "@vetta/runtime-core/conversation";
 import type {
 	AppendResult,
@@ -19,25 +24,34 @@ import type {
 	StoredConversation,
 	StoredSessionEvent,
 } from "@vetta/runtime-core/kernel";
+import {
+	conversationFromFile,
+	createDocumentEntryReference,
+	documentFromFile,
+	encodeConversationSessionId,
+	type ParsedConversationFile,
+	parseConversationFile,
+	serializeConversationLine,
+	validateConversationEvent,
+} from "./conversation-file-codec.js";
+import { acquireConversationFileLock } from "./conversation-file-lock.js";
 import { CONVERSATION_STORAGE_ERROR_CODES, ConversationStorageError } from "./errors.js";
+import { nodeErrorCode } from "./node-error-code.js";
 import {
 	CONVERSATION_SCHEMA_VERSION,
+	type ConversationDocumentOperationRecord,
 	type ConversationEventRecord,
 	type ConversationFileHeader,
 	type ConversationSnapshotRecord,
-	isConversationEventRecord,
-	isConversationFileHeader,
+	isConversationDocumentCommand,
 	isConversationSnapshot,
-	isStoredSessionEvent,
-	type ReadConversationEventRecord,
-	type ReadConversationFileHeader,
 } from "./record-schema.js";
 
 export interface FileConversationRepositoryOptions {
 	readonly rootDir: string;
 }
 
-export class FileConversationRepository implements ConversationRepository, ConversationDocumentReader {
+export class FileConversationRepository implements ConversationRepository, ConversationDocumentStore {
 	private readonly rootDir: string;
 	private readonly queues = new Map<string, Promise<void>>();
 	private closed = false;
@@ -65,7 +79,7 @@ export class FileConversationRepository implements ConversationRepository, Conve
 			let handle: FileHandle | undefined;
 			try {
 				handle = await open(path, "wx");
-				await handle.writeFile(serializeLine(header), "utf8");
+				await handle.writeFile(serializeConversationLine(header), "utf8");
 			} catch (error) {
 				if (nodeErrorCode(error) === "EEXIST") {
 					throw new ConversationStorageError(
@@ -88,35 +102,80 @@ export class FileConversationRepository implements ConversationRepository, Conve
 
 	async load(sessionId: string): Promise<StoredConversation> {
 		this.assertOpen();
-		return this.exclusive(sessionId, () => this.readConversation(sessionId));
+		return this.exclusive(sessionId, () => this.withFileLock(sessionId, () => this.readConversation(sessionId)));
 	}
 
 	async readDocument(sessionId: string): Promise<ConversationDocument> {
 		this.assertOpen();
-		return this.exclusive(sessionId, async () => {
-			const { header, eventRecords } = await this.readConversationFile(sessionId);
-			let document = createEmptyConversationDocument({
-				sessionId,
-				createdAt: header.createdAt,
-				...(header.schemaVersion === CONVERSATION_SCHEMA_VERSION
-					? {
-							cwd: header.cwd,
-							parentSessionPath: header.parentSessionPath,
-							parentEntryId: header.parentEntryId,
-						}
-					: {}),
-			});
-			for (const record of eventRecords) {
-				const reference = record.schemaVersion === CONVERSATION_SCHEMA_VERSION ? record.documentEntry : undefined;
-				document = applyStoredEventToConversationDocument(
-					document,
-					record.event,
-					record.sequence,
-					reference ?? undefined,
-				);
-			}
-			return document;
-		});
+		return this.exclusive(sessionId, () =>
+			this.withFileLock(sessionId, async () =>
+				documentFromFile(sessionId, await this.readConversationFile(sessionId)),
+			),
+		);
+	}
+
+	async execute(
+		sessionId: string,
+		expectedRevision: number | null,
+		command: ConversationDocumentCommand,
+	): Promise<ConversationDocumentCommandResult> {
+		this.assertOpen();
+		if (!isConversationDocumentCommand(command)) {
+			throw new ConversationStorageError(
+				CONVERSATION_STORAGE_ERROR_CODES.INVALID_COMMAND,
+				`Command for ${sessionId} does not match the conversation document command schema`,
+			);
+		}
+		if (expectedRevision === null && command.type !== "session.name.set") {
+			throw new ConversationStorageError(
+				CONVERSATION_STORAGE_ERROR_CODES.INVALID_COMMAND,
+				`Command ${command.type} requires an expected conversation document revision`,
+			);
+		}
+		return this.exclusive(sessionId, () =>
+			this.withFileLock(sessionId, async () => {
+				const file = await this.readConversationFile(sessionId);
+				if (file.header.schemaVersion !== CONVERSATION_SCHEMA_VERSION) {
+					throw new ConversationStorageError(
+						CONVERSATION_STORAGE_ERROR_CODES.READ_ONLY,
+						`Conversation ${sessionId} uses read-only schema version ${file.header.schemaVersion}`,
+					);
+				}
+				const document = documentFromFile(sessionId, file);
+				if (expectedRevision !== null && document.revision !== expectedRevision) {
+					throw new ConversationStorageError(
+						CONVERSATION_STORAGE_ERROR_CODES.DOCUMENT_VERSION_CONFLICT,
+						`Conversation document ${sessionId} is at revision ${document.revision}, expected ${expectedRevision}`,
+					);
+				}
+				const result = applyConversationDocumentCommand(document, command);
+				if (!result.changed) return result;
+				const record: ConversationDocumentOperationRecord = {
+					recordType: "conversation.document.operation",
+					schemaVersion: CONVERSATION_SCHEMA_VERSION,
+					revision: result.document.revision,
+					command,
+				};
+				await appendFile(this.conversationPath(sessionId), serializeConversationLine(record), "utf8");
+				return result;
+			}),
+		);
+	}
+
+	async fork(sessionId: string, entryId: string): Promise<ConversationDocumentForkResult> {
+		this.assertOpen();
+		return this.exclusive(sessionId, () =>
+			this.withFileLock(sessionId, async () => {
+				const file = await this.readConversationFile(sessionId);
+				if (file.header.schemaVersion !== CONVERSATION_SCHEMA_VERSION) {
+					throw new ConversationStorageError(
+						CONVERSATION_STORAGE_ERROR_CODES.READ_ONLY,
+						`Conversation ${sessionId} uses read-only schema version ${file.header.schemaVersion}`,
+					);
+				}
+				return this.writeFork(sessionId, entryId, file);
+			}),
+		);
 	}
 
 	async append(
@@ -125,87 +184,92 @@ export class FileConversationRepository implements ConversationRepository, Conve
 		events: readonly StoredSessionEvent[],
 	): Promise<AppendResult> {
 		this.assertOpen();
-		return this.exclusive(sessionId, async () => {
-			const file = await this.readConversationFile(sessionId);
-			const conversation = conversationFromFile(sessionId, file);
-			if (conversation.version !== expectedVersion) {
-				throw new ConversationStorageError(
-					CONVERSATION_STORAGE_ERROR_CODES.VERSION_CONFLICT,
-					`Conversation ${sessionId} is at version ${conversation.version}, expected ${expectedVersion}`,
-				);
-			}
-			for (const event of events) validateEvent(sessionId, event);
-			if (events.length === 0) return { version: expectedVersion };
+		return this.exclusive(sessionId, () =>
+			this.withFileLock(sessionId, async () => {
+				const file = await this.readConversationFile(sessionId);
+				const conversation = conversationFromFile(sessionId, file);
+				if (conversation.version !== expectedVersion) {
+					throw new ConversationStorageError(
+						CONVERSATION_STORAGE_ERROR_CODES.VERSION_CONFLICT,
+						`Conversation ${sessionId} is at version ${conversation.version}, expected ${expectedVersion}`,
+					);
+				}
+				for (const event of events) validateConversationEvent(sessionId, event);
+				if (events.length === 0) return { version: expectedVersion };
 
-			let parentId = lastNativeDocumentEntryId(file.eventRecords);
-			const records = events.map((event, index) => {
-				const sequence = expectedVersion + index + 1;
-				if (file.header.schemaVersion !== CONVERSATION_SCHEMA_VERSION) {
-					return {
+				let document = documentFromFile(sessionId, file);
+				const records = events.map((event, index) => {
+					const sequence = expectedVersion + index + 1;
+					if (file.header.schemaVersion !== CONVERSATION_SCHEMA_VERSION) {
+						return {
+							recordType: "conversation.event" as const,
+							schemaVersion: file.header.schemaVersion,
+							sequence,
+							event,
+						};
+					}
+					const documentEntry = createDocumentEntryReference(event, sequence, document.activeLeafId);
+					const record = {
 						recordType: "conversation.event" as const,
-						schemaVersion: file.header.schemaVersion,
+						schemaVersion: CONVERSATION_SCHEMA_VERSION,
 						sequence,
 						event,
-					};
-				}
-				const documentEntry = createDocumentEntryReference(event, sequence, parentId);
-				if (documentEntry) parentId = documentEntry.id;
+						documentEntry,
+					} satisfies ConversationEventRecord;
+					document = applyStoredEventToConversationDocument(document, event, sequence, documentEntry ?? undefined);
+					return record;
+				});
+				await appendFile(this.conversationPath(sessionId), records.map(serializeConversationLine).join(""), "utf8");
 				return {
-					recordType: "conversation.event" as const,
-					schemaVersion: CONVERSATION_SCHEMA_VERSION,
-					sequence,
-					event,
-					documentEntry,
-				} satisfies ConversationEventRecord;
-			});
-			await appendFile(this.conversationPath(sessionId), records.map(serializeLine).join(""), "utf8");
-			return {
-				version: expectedVersion + events.length,
-			};
-		});
+					version: expectedVersion + events.length,
+				};
+			}),
+		);
 	}
 
 	async saveSnapshot(sessionId: string, snapshot: ConversationSnapshot): Promise<void> {
 		this.assertOpen();
-		await this.exclusive(sessionId, async () => {
-			if (!isConversationSnapshot(snapshot)) {
-				throw new ConversationStorageError(
-					CONVERSATION_STORAGE_ERROR_CODES.INVALID_EVENT,
-					`Snapshot for ${sessionId} does not match the conversation snapshot schema`,
-				);
-			}
-			if (snapshot.sessionId !== sessionId) {
-				throw new ConversationStorageError(
-					CONVERSATION_STORAGE_ERROR_CODES.INVALID_EVENT,
-					`Snapshot session ${snapshot.sessionId} does not match ${sessionId}`,
-				);
-			}
-			const conversation = await this.readConversation(sessionId);
-			if (snapshot.version !== conversation.version) {
-				throw new ConversationStorageError(
-					CONVERSATION_STORAGE_ERROR_CODES.VERSION_CONFLICT,
-					`Snapshot version ${snapshot.version} does not match conversation version ${conversation.version}`,
-				);
-			}
-			await this.ensureRoot();
-			const record: ConversationSnapshotRecord = {
-				recordType: "conversation.snapshot",
-				schemaVersion: CONVERSATION_SCHEMA_VERSION,
-				snapshot,
-			};
-			const target = this.snapshotPath(sessionId);
-			const temporary = `${target}.${randomUUID()}.tmp`;
-			try {
-				await writeFile(temporary, `${JSON.stringify(record)}\n`, {
-					encoding: "utf8",
-					flag: "wx",
-				});
-				await rename(temporary, target);
-			} catch (error) {
-				await rm(temporary, { force: true });
-				throw error;
-			}
-		});
+		await this.exclusive(sessionId, () =>
+			this.withFileLock(sessionId, async () => {
+				if (!isConversationSnapshot(snapshot)) {
+					throw new ConversationStorageError(
+						CONVERSATION_STORAGE_ERROR_CODES.INVALID_EVENT,
+						`Snapshot for ${sessionId} does not match the conversation snapshot schema`,
+					);
+				}
+				if (snapshot.sessionId !== sessionId) {
+					throw new ConversationStorageError(
+						CONVERSATION_STORAGE_ERROR_CODES.INVALID_EVENT,
+						`Snapshot session ${snapshot.sessionId} does not match ${sessionId}`,
+					);
+				}
+				const conversation = await this.readConversation(sessionId);
+				if (snapshot.version !== conversation.version) {
+					throw new ConversationStorageError(
+						CONVERSATION_STORAGE_ERROR_CODES.VERSION_CONFLICT,
+						`Snapshot version ${snapshot.version} does not match conversation version ${conversation.version}`,
+					);
+				}
+				await this.ensureRoot();
+				const record: ConversationSnapshotRecord = {
+					recordType: "conversation.snapshot",
+					schemaVersion: CONVERSATION_SCHEMA_VERSION,
+					snapshot,
+				};
+				const target = this.snapshotPath(sessionId);
+				const temporary = `${target}.${randomUUID()}.tmp`;
+				try {
+					await writeFile(temporary, `${JSON.stringify(record)}\n`, {
+						encoding: "utf8",
+						flag: "wx",
+					});
+					await rename(temporary, target);
+				} catch (error) {
+					await rm(temporary, { force: true });
+					throw error;
+				}
+			}),
+		);
 	}
 
 	async close(): Promise<void> {
@@ -233,49 +297,88 @@ export class FileConversationRepository implements ConversationRepository, Conve
 			throw error;
 		}
 
-		const records = parseRecords(text, sessionId);
-		const [header, ...events] = records;
-		if (!isConversationFileHeader(header) || header.sessionId !== sessionId) {
-			throw corruptConversation(sessionId, "missing or mismatched header");
-		}
+		return parseConversationFile(text, sessionId);
+	}
 
-		const eventRecords: ReadConversationEventRecord[] = [];
-		const documentEntryIds = new Set<string>();
-		for (let index = 0; index < events.length; index += 1) {
-			const record = events[index];
-			if (!isConversationEventRecord(record)) {
-				throw corruptConversation(sessionId, `invalid event record at line ${index + 2}`);
-			}
-			if (record.schemaVersion !== header.schemaVersion) {
-				throw corruptConversation(sessionId, `event schema version does not match header at line ${index + 2}`);
-			}
-			const expectedSequence = index + 1;
-			if (record.sequence !== expectedSequence) {
-				throw corruptConversation(
-					sessionId,
-					`event sequence ${record.sequence} does not match expected ${expectedSequence}`,
-				);
-			}
-			validateEvent(sessionId, record.event);
-			if (record.schemaVersion === CONVERSATION_SCHEMA_VERSION) {
-				const hasDocumentEntry = record.documentEntry !== null;
-				if (hasDocumentEntry !== (record.event.type === "message.appended")) {
-					throw corruptConversation(sessionId, `event has inconsistent document entry at line ${index + 2}`);
-				}
-				if (record.documentEntry) {
-					if (documentEntryIds.has(record.documentEntry.id)) {
-						throw corruptConversation(sessionId, `duplicate document entry at line ${index + 2}`);
-					}
-					if (record.documentEntry.parentId && !documentEntryIds.has(record.documentEntry.parentId)) {
-						throw corruptConversation(sessionId, `unknown document parent at line ${index + 2}`);
-					}
-					documentEntryIds.add(record.documentEntry.id);
-				}
-			}
-			eventRecords.push(record);
+	private async writeFork(
+		sessionId: string,
+		entryId: string,
+		file: ParsedConversationFile,
+	): Promise<ConversationDocumentForkResult> {
+		const document = documentFromFile(sessionId, file);
+		const selectedEntry = conversationDocumentEntry(document, entryId);
+		const text = extractConversationEntryText(selectedEntry);
+		if (
+			selectedEntry.type !== "message" ||
+			!isObject(selectedEntry.message) ||
+			selectedEntry.message.role !== "user"
+		) {
+			throw new Error("Invalid entry ID for forking");
 		}
+		const tipId = resolveConversationUserTurnTip(document, entryId);
+		const branch = selectConversationDocumentEntries(document, tipId);
+		const selectedEntryIds = new Set(branch.map((entry) => entry.id));
+		const selectedTurnIds = new Set(
+			file.eventRecords.flatMap((record) => {
+				if (
+					record.schemaVersion === CONVERSATION_SCHEMA_VERSION &&
+					record.documentEntry &&
+					selectedEntryIds.has(record.documentEntry.id)
+				) {
+					return [record.event.turnId];
+				}
+				return [];
+			}),
+		);
+		const newSessionId = randomUUID();
+		const newPath = this.conversationPath(newSessionId);
+		const header: ConversationFileHeader = {
+			recordType: "conversation.header",
+			schemaVersion: CONVERSATION_SCHEMA_VERSION,
+			sessionId: newSessionId,
+			createdAt: Date.now(),
+			cwd: file.header.schemaVersion === CONVERSATION_SCHEMA_VERSION ? file.header.cwd : undefined,
+			parentSessionPath: this.conversationPath(sessionId),
+			parentEntryId: entryId,
+		};
+		const finalEntries = new Map(branch.map((entry) => [entry.id, entry]));
+		const records: ConversationEventRecord[] = [];
+		for (const source of file.eventRecords) {
+			if (!selectedTurnIds.has(source.event.turnId)) continue;
+			const sourceReference = source.schemaVersion === CONVERSATION_SCHEMA_VERSION ? source.documentEntry : null;
+			if (source.event.type === "message.appended" && !sourceReference) continue;
+			if (sourceReference && !selectedEntryIds.has(sourceReference.id)) continue;
+			const entry = sourceReference ? finalEntries.get(sourceReference.id) : undefined;
+			records.push({
+				recordType: "conversation.event",
+				schemaVersion: CONVERSATION_SCHEMA_VERSION,
+				sequence: records.length + 1,
+				event: { ...source.event, sessionId: newSessionId },
+				documentEntry: entry ? { id: entry.id, parentId: entry.parentId, timestamp: entry.timestamp } : null,
+			});
+		}
+		await this.ensureRoot();
+		let handle: FileHandle | undefined;
+		try {
+			handle = await open(newPath, "wx");
+			await handle.writeFile(
+				[serializeConversationLine(header), ...records.map(serializeConversationLine)].join(""),
+				"utf8",
+			);
+		} finally {
+			await handle?.close();
+		}
+		return { sessionId: newSessionId, path: newPath, text };
+	}
 
-		return { header, eventRecords };
+	private async withFileLock<T>(sessionId: string, operation: () => Promise<T>): Promise<T> {
+		await this.ensureRoot();
+		const release = await acquireConversationFileLock(this.lockPath(sessionId), sessionId);
+		try {
+			return await operation();
+		} finally {
+			await release();
+		}
 	}
 
 	private async ensureRoot(): Promise<void> {
@@ -283,11 +386,15 @@ export class FileConversationRepository implements ConversationRepository, Conve
 	}
 
 	private conversationPath(sessionId: string): string {
-		return join(this.rootDir, `${encodeSessionId(sessionId)}.conversation.jsonl`);
+		return join(this.rootDir, `${encodeConversationSessionId(sessionId)}.conversation.jsonl`);
 	}
 
 	private snapshotPath(sessionId: string): string {
-		return join(this.rootDir, `${encodeSessionId(sessionId)}.snapshot.json`);
+		return join(this.rootDir, `${encodeConversationSessionId(sessionId)}.snapshot.json`);
+	}
+
+	private lockPath(sessionId: string): string {
+		return `${this.conversationPath(sessionId)}.lock`;
 	}
 
 	private assertOpen(): void {
@@ -319,99 +426,6 @@ export class FileConversationRepository implements ConversationRepository, Conve
 	}
 }
 
-function parseRecords(text: string, sessionId: string): unknown[] {
-	if (!text.endsWith("\n")) {
-		throw corruptConversation(sessionId, "file does not end with a complete record");
-	}
-	const lines = text.slice(0, -1).split(/\r?\n/);
-	if (lines.some((line) => line.length === 0)) {
-		throw corruptConversation(sessionId, "file contains an empty record");
-	}
-	return lines.map((line, index) => {
-		try {
-			const parsed: unknown = JSON.parse(line);
-			return parsed;
-		} catch (error) {
-			throw corruptConversation(sessionId, `invalid JSON at line ${index + 1}`, error);
-		}
-	});
-}
-
-function validateEvent(sessionId: string, event: StoredSessionEvent): void {
-	if (!isStoredSessionEvent(event)) {
-		throw new ConversationStorageError(
-			CONVERSATION_STORAGE_ERROR_CODES.INVALID_EVENT,
-			`Event for ${sessionId} does not match the stored session event schema`,
-		);
-	}
-	if (event.sessionId !== sessionId) {
-		throw new ConversationStorageError(
-			CONVERSATION_STORAGE_ERROR_CODES.INVALID_EVENT,
-			`Event session ${event.sessionId} does not match ${sessionId}`,
-		);
-	}
-}
-
-function encodeSessionId(sessionId: string): string {
-	return Buffer.from(sessionId, "utf8").toString("base64url");
-}
-
-function serializeLine(value: ConversationFileHeader | ConversationEventRecord | ReadConversationEventRecord): string {
-	return `${JSON.stringify(value)}\n`;
-}
-
-interface ParsedConversationFile {
-	readonly header: ReadConversationFileHeader;
-	readonly eventRecords: readonly ReadConversationEventRecord[];
-}
-
-function conversationFromFile(sessionId: string, file: ParsedConversationFile): StoredConversation {
-	const events = file.eventRecords.map((record) => record.event);
-	return {
-		sessionId,
-		createdAt: file.header.createdAt,
-		version: events.length,
-		messages: events.flatMap((event) => (event.type === "message.appended" ? [event.message] : [])),
-		events,
-	};
-}
-
-function lastNativeDocumentEntryId(records: readonly ReadConversationEventRecord[]): string | null {
-	for (let index = records.length - 1; index >= 0; index -= 1) {
-		const record = records[index];
-		if (!record || record.event.type !== "message.appended") continue;
-		if (record.schemaVersion === CONVERSATION_SCHEMA_VERSION) return record.documentEntry?.id ?? null;
-		return nativeConversationEntryId(record.sequence);
-	}
-	return null;
-}
-
-function createDocumentEntryReference(
-	event: StoredSessionEvent,
-	sequence: number,
-	parentId: string | null,
-): ConversationDocumentEntryReference | null {
-	if (event.type !== "message.appended") return null;
-	return {
-		id: nativeConversationEntryId(sequence),
-		parentId,
-		timestamp: new Date(event.timestamp).toISOString(),
-	};
-}
-
 function isObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
-}
-
-function nodeErrorCode(error: unknown): string | undefined {
-	if (!isObject(error)) return undefined;
-	return typeof error.code === "string" ? error.code : undefined;
-}
-
-function corruptConversation(sessionId: string, details: string, cause?: unknown): ConversationStorageError {
-	return new ConversationStorageError(
-		CONVERSATION_STORAGE_ERROR_CODES.CORRUPT,
-		`Conversation ${sessionId} is corrupt: ${details}`,
-		cause === undefined ? undefined : { cause },
-	);
 }

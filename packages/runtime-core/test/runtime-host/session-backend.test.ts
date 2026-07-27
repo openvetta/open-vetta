@@ -296,11 +296,11 @@ describe("RuntimeHost session backend boundary", () => {
 			},
 		];
 		const navigateForEdit = vi.fn(async () => ({ text: "edit text", cancelled: false }));
-		const switchBranch = vi.fn(() => ({ leafId: "branch-leaf" }));
-		const deleteMessage = vi.fn(() => ({ leafId: "delete-leaf" }));
-		const replaceLastUserMessage = vi.fn(() => ({ leafId: "replace-leaf" }));
-		const forkSession = vi.fn(() => ({ path: "fork.jsonl", text: "fork text" }));
-		const setName = vi.fn();
+		const switchBranch = vi.fn(async () => ({ leafId: "branch-leaf" }));
+		const deleteMessage = vi.fn(async () => ({ leafId: "delete-leaf" }));
+		const replaceLastUserMessage = vi.fn(async () => ({ leafId: "replace-leaf" }));
+		const forkSession = vi.fn(async () => ({ path: "fork.jsonl", text: "fork text" }));
+		const setName = vi.fn(async () => {});
 		const bindHostInteraction = vi.fn(async () => {});
 		let busy = false;
 		const isBusy = vi.fn(() => busy);

@@ -1,6 +1,12 @@
 import type { Message } from "@vetta/ai";
 import type { HistoryEntry, PromptRequest, SessionEvent } from "../contracts.js";
-import type { ConversationDocumentReader } from "../conversation/document.js";
+import {
+	type ConversationDocumentCommand,
+	type ConversationDocumentCommandResult,
+	type ConversationDocumentStore,
+	conversationDocumentEntry,
+	extractConversationEntryText,
+} from "../conversation/index.js";
 import type { AgentSession } from "../kernel/agent-session.js";
 import type {
 	AgentSessionState,
@@ -24,6 +30,7 @@ import {
 import type { RuntimeSessionBackend } from "./session-backend.js";
 import type {
 	RuntimeSessionCorePorts,
+	RuntimeSessionHistoryController,
 	RuntimeSessionHistoryReader,
 	RuntimeSessionIdentityLifecycle,
 	RuntimeSessionState,
@@ -47,7 +54,7 @@ export interface GreenfieldPromptAdapter {
 export interface GreenfieldRuntimeAssembly {
 	readonly session: AgentSession;
 	readonly repository: ConversationRepository;
-	readonly conversationDocumentReader: ConversationDocumentReader;
+	readonly conversationDocumentStore: ConversationDocumentStore;
 	readonly identity: GreenfieldRuntimeSessionIdentity;
 	readonly stateSource: GreenfieldRuntimeStateSource;
 	/** 由组合根释放 Session 之外的独占资源；共享 Repository 不应在这里关闭。 */
@@ -77,6 +84,7 @@ export interface GreenfieldRuntimeSessionState {
 export interface GreenfieldRuntimeSessionCoreAssembly {
 	readonly lifecycle: RuntimeSessionIdentityLifecycle;
 	readonly historyReader: RuntimeSessionHistoryReader;
+	readonly historyController: RuntimeSessionHistoryController;
 	readonly workspaceView: RuntimeSessionWorkspaceView;
 	readonly corePorts: RuntimeSessionCorePorts;
 }
@@ -88,9 +96,11 @@ export class GreenfieldRuntimeSession {
 	private readonly eventSink: GreenfieldSessionEventSink;
 	private readonly identity: GreenfieldRuntimeSessionIdentity;
 	private readonly stateSource: GreenfieldRuntimeStateSource;
+	private readonly conversationDocumentStore: ConversationDocumentStore;
 	private readonly projection: GreenfieldSessionProjection;
 	private readonly disposeRuntime: (() => Promise<void>) | undefined;
 	private disposed = false;
+	private historyMutation = false;
 
 	constructor(
 		assembly: GreenfieldRuntimeAssembly,
@@ -104,6 +114,7 @@ export class GreenfieldRuntimeSession {
 		this.eventSink = eventSink;
 		this.identity = assembly.identity;
 		this.stateSource = assembly.stateSource;
+		this.conversationDocumentStore = assembly.conversationDocumentStore;
 		this.projection = projection;
 		const dispose = assembly.dispose;
 		this.disposeRuntime = dispose ? () => dispose.call(assembly) : undefined;
@@ -111,6 +122,7 @@ export class GreenfieldRuntimeSession {
 
 	async prompt(request: PromptRequest): Promise<SessionSendResult> {
 		this.assertOpen();
+		if (this.historyMutation) throw sessionBusyError();
 		if ((this.session.state === "running" || this.session.state === "cancelling") && !request.streamingBehavior) {
 			throw sessionBusyError();
 		}
@@ -121,6 +133,7 @@ export class GreenfieldRuntimeSession {
 
 	async continue(): Promise<TurnResult> {
 		this.assertOpen();
+		if (this.historyMutation) throw sessionBusyError();
 		return this.session.continue();
 	}
 
@@ -174,6 +187,65 @@ export class GreenfieldRuntimeSession {
 		return this.projection.readHistory();
 	}
 
+	async navigateForEdit(entryId: string): Promise<{ text: string; cancelled: boolean }> {
+		return this.withHistoryMutation("Cannot edit message while the session is streaming", async () => {
+			const entry = conversationDocumentEntry(this.projection.readDocument(), entryId);
+			const text = extractConversationEntryText(entry);
+			const editable =
+				entry.type === "custom_message" ||
+				(entry.type === "message" && isRecord(entry.message) && entry.message.role === "user");
+			await this.executeDocumentCommand({
+				type: "active_leaf.set",
+				entryId: editable ? entry.parentId : entry.id,
+			});
+			return { text, cancelled: false };
+		});
+	}
+
+	async switchBranch(entryId: string): Promise<{ leafId: string }> {
+		return this.withHistoryMutation("Cannot switch branch while the session is streaming", async () => {
+			const result = await this.executeDocumentCommand({ type: "branch.select", entryId });
+			if (!result.leafId) throw new Error(`Entry ${entryId} has no branch leaf`);
+			return { leafId: result.leafId };
+		});
+	}
+
+	async deleteMessage(entryId: string): Promise<{ leafId: string | null }> {
+		return this.withHistoryMutation("Cannot delete a message while the session is streaming", async () => {
+			const result = await this.executeDocumentCommand({ type: "message.delete", entryId });
+			return { leafId: result.leafId };
+		});
+	}
+
+	async replaceLastUserMessage(entryId: string): Promise<{ leafId: string | null }> {
+		return this.withHistoryMutation("Cannot replace a message while the session is streaming", async () => {
+			const result = await this.executeDocumentCommand({ type: "user_turn.replace", entryId });
+			return { leafId: result.leafId };
+		});
+	}
+
+	async forkSession(entryId: string): Promise<{ path: string; text: string }> {
+		return this.withHistoryMutation("Cannot fork while the session is streaming", async () => {
+			const result = await this.conversationDocumentStore.fork(this.sessionId, entryId);
+			return { path: result.path, text: result.text };
+		});
+	}
+
+	async setName(name: string): Promise<void> {
+		this.assertOpen();
+		if (this.historyMutation) throw new Error("Cannot rename while another history mutation is active");
+		this.historyMutation = true;
+		try {
+			await this.conversationDocumentStore.execute(this.sessionId, null, {
+				type: "session.name.set",
+				name,
+			});
+			this.projection.applyPersistedName(name);
+		} finally {
+			this.historyMutation = false;
+		}
+	}
+
 	createCoreAssembly(): GreenfieldRuntimeSessionCoreAssembly {
 		this.assertOpen();
 		return {
@@ -184,6 +256,14 @@ export class GreenfieldRuntimeSession {
 			},
 			historyReader: {
 				readHistory: () => this.readHistory(),
+			},
+			historyController: {
+				navigateForEdit: (entryId) => this.navigateForEdit(entryId),
+				switchBranch: (entryId) => this.switchBranch(entryId),
+				deleteMessage: (entryId) => this.deleteMessage(entryId),
+				replaceLastUserMessage: (entryId) => this.replaceLastUserMessage(entryId),
+				forkSession: (entryId) => this.forkSession(entryId),
+				setName: (name) => this.setName(name),
 			},
 			workspaceView: {
 				readWorkingDirectory: () => this.identity.cwd,
@@ -223,6 +303,28 @@ export class GreenfieldRuntimeSession {
 	private assertOpen(): void {
 		if (this.disposed) throw sessionClosedError();
 	}
+
+	private async executeDocumentCommand(
+		command: ConversationDocumentCommand,
+	): Promise<ConversationDocumentCommandResult> {
+		const document = this.projection.readDocument();
+		const result = await this.conversationDocumentStore.execute(this.sessionId, document.revision, command);
+		this.projection.replaceDocument(result.document);
+		return result;
+	}
+
+	private async withHistoryMutation<T>(message: string, operation: () => Promise<T>): Promise<T> {
+		this.assertOpen();
+		if (this.historyMutation || this.session.state === "running" || this.session.state === "cancelling") {
+			throw new Error(message);
+		}
+		this.historyMutation = true;
+		try {
+			return await operation();
+		} finally {
+			this.historyMutation = false;
+		}
+	}
 }
 
 /**
@@ -254,7 +356,7 @@ export class GreenfieldRuntimeSessionBackend<TCreateOptions>
 		try {
 			const [conversation, document] = await Promise.all([
 				assembly.repository.load(assembly.session.id),
-				assembly.conversationDocumentReader.readDocument(assembly.session.id),
+				assembly.conversationDocumentStore.readDocument(assembly.session.id),
 			]);
 			const projection = new GreenfieldSessionProjection(conversation, document);
 			eventSink.bindProjection(projection);
@@ -333,4 +435,8 @@ function isStoredSessionEvent(event: KernelEvent): event is StoredSessionEvent {
 		event.type === "turn.cancelled" ||
 		event.type === "turn.failed"
 	);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
