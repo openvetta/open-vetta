@@ -416,8 +416,19 @@ export interface AbilityDetailLocale {
 	meta?: AbilityMetaEntry[];
 }
 
-/** raw.detail：详情页读，运营随时改。 */
+/**
+ * raw.detail：全部展示信息的唯一真相源。
+ * 顶层字段为默认语言，i18n[locale] 覆盖其它语言，两者同构。
+ * MarketAbility 顶层的 name/description 等由服务端从这里投影而来，读哪个都一致。
+ */
 export interface AbilityDetail {
+	name?: string;
+	description?: string;
+	license?: string;
+	author?: string;
+	/** 空 / solar:xxx-bold / http(s):// */
+	icon?: string;
+	tags?: string[];
 	showcases?: AbilityShowcase[];
 	/** 元信息条目（官网 / 开源协议 / 自定义…），按数组顺序展示。 */
 	meta?: AbilityMetaEntry[];
