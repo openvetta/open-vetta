@@ -1,0 +1,134 @@
+{
+	"schemaVersion": 1,
+	"id": "notion",
+	"capabilityId": "connector:notion",
+	"header": {
+		"developerKey": "developer",
+		"tagsKey": "tags"
+	},
+	"sections": [
+		{
+			"id": "introduction",
+			"type": "intro",
+			"titleKey": "sections.introduction.title",
+			"bodyKey": "sections.introduction.body"
+		},
+		{
+			"id": "showcase",
+			"type": "showcase",
+			"template": "chat-over-canvas",
+			"canvas": "docs",
+			"userPromptKey": "sections.showcase.userPrompt",
+			"assistantReplyKey": "sections.showcase.assistantReply"
+		},
+		{
+			"id": "features",
+			"type": "featureList",
+			"titleKey": "sections.features.title",
+			"itemsKey": "sections.features.items"
+		},
+		{
+			"id": "scenarios",
+			"type": "scenarios",
+			"titleKey": "sections.scenarios.title",
+			"itemsKey": "sections.scenarios.items",
+			"icons": ["notes", "tasks", "document", "knowledge"]
+		},
+		{
+			"id": "permissions",
+			"type": "permissions",
+			"titleKey": "sections.permissions.title",
+			"leadKey": "sections.permissions.lead",
+			"itemsKey": "sections.permissions.items",
+			"showDetailLink": true
+		},
+		{
+			"id": "reviews",
+			"type": "reviews",
+			"titleKey": "sections.reviews.title",
+			"score": 4.6,
+			"count": 742,
+			"quotesKey": "sections.reviews.quotes"
+		}
+	],
+	"messages": {
+		"zh": {
+			"developer": "Notion",
+			"tags": ["知识", "笔记", "协作"],
+			"sections": {
+				"introduction": {
+					"title": "能力介绍",
+					"body": "连接你的 Notion 工作区，让 AI 阅读与整理笔记、页面和数据库内容，帮助检索信息与生成纪要。"
+				},
+				"showcase": {
+					"userPrompt": "帮我汇总这个项目页的待办",
+					"assistantReply": "已从页面与数据库中整理出待办清单…"
+				},
+				"features": {
+					"title": "主要功能",
+					"items": [
+						"读取工作区页面与数据库",
+						"检索笔记与项目文档",
+						"整理待办与会议纪要",
+						"辅助结构化知识整理"
+					]
+				},
+				"scenarios": {
+					"title": "适用场景",
+					"items": ["笔记检索", "待办汇总", "会议纪要", "知识库整理"]
+				},
+				"permissions": {
+					"title": "权限说明",
+					"lead": "为了提供更好的服务，Notion 需要以下权限：",
+					"items": ["读取你授权的页面与数据库", "在授权范围内访问工作区内容"]
+				},
+				"reviews": {
+					"title": "用户评价",
+					"quotes": ["从 Notion 拉上下文写总结非常方便。", "项目文档检索快了很多。"]
+				}
+			}
+		},
+		"en": {
+			"developer": "Notion",
+			"tags": ["Knowledge", "Notes", "Collaboration"],
+			"sections": {
+				"introduction": {
+					"title": "About",
+					"body": "Connect your Notion workspace so the AI can read and organize pages, notes, and databases—then help search and summarize."
+				},
+				"showcase": {
+					"userPrompt": "Summarize the todos on this project page",
+					"assistantReply": "Here’s a todo list pulled from the page and databases…"
+				},
+				"features": {
+					"title": "Key features",
+					"items": [
+						"Read workspace pages and databases",
+						"Search notes and project docs",
+						"Organize todos and meeting notes",
+						"Help structure knowledge bases"
+					]
+				},
+				"scenarios": {
+					"title": "Use cases",
+					"items": ["Note search", "Todo rollups", "Meeting notes", "Knowledge cleanup"]
+				},
+				"permissions": {
+					"title": "Permissions",
+					"lead": "Notion needs the following permissions:",
+					"items": [
+						"Read pages and databases you authorize",
+						"Access workspace content within the granted scope"
+					]
+				},
+				"reviews": {
+					"title": "Reviews",
+					"quotes": [
+						"Pulling Notion context for summaries is effortless.",
+						"Project docs are much easier to search."
+					]
+				}
+			}
+		}
+	}
+}

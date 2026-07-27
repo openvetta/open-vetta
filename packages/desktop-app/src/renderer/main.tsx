@@ -10,6 +10,7 @@ import { desktopThemeHost } from "./shared/theme/desktopThemeHost";
 import { ThemeRuntimeProvider } from "./shared/theme/runtime";
 import { ThemeColorOverrideBridge } from "./shared/theme/ThemeColorOverrideBridge";
 import { ThemeHostProvider } from "@vetta/theme-sdk";
+import { registerCapabilityDetailI18n } from "./domains/skills/detail/register-capability-detail-i18n";
 import { captureReactError, initializeRendererErrorMonitoring } from "./telemetry/error-monitoring";
 import { initializeProductAnalytics } from "./telemetry/product-analytics";
 import "./styles.css";
@@ -23,6 +24,7 @@ applyInitialTheme();
 applyStoredCursorStyle();
 // 同理：挂载前同步初始化 i18next（资源已内联，无 async），避免界面文案闪烁。
 initI18n();
+registerCapabilityDetailI18n(i18n);
 
 const rootElement = document.getElementById("root");
 if (!rootElement) {

@@ -1,11 +1,7 @@
 import type { TFunction } from "i18next";
 import type { CapabilityItem } from "../hooks/useCapabilitiesModel";
-import {
-	CATALOG_SCENARIO_ICONS,
-	CATALOG_SHOWCASE,
-	type CapabilityCatalogId,
-	resolveCapabilityCatalogId,
-} from "./catalog";
+import { getCapabilityDetailDocument } from "./documents";
+import { resolveCapabilityDetailDocument } from "./resolve-capability-detail";
 import type {
 	CapabilityDetailSection,
 	CapabilityDetailStatus,
@@ -14,10 +10,7 @@ import type {
 	CapabilitySecondaryActionKind,
 } from "./types";
 
-function readStringArray(value: unknown): string[] {
-	if (!Array.isArray(value)) return [];
-	return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
-}
+type SkillsTFunction = TFunction<"skills">;
 
 function resolveBrandIconUrl(item: CapabilityItem): string | undefined {
 	if (item.driver === "connector") return item.iconUrl;
@@ -35,135 +28,21 @@ function resolveBrandIconUrl(item: CapabilityItem): string | undefined {
 	return undefined;
 }
 
-function buildCatalogSections(
-	catalogId: CapabilityCatalogId,
-	t: TFunction,
-	item: CapabilityItem,
-): CapabilityDetailSection[] {
-	const base = `capabilities.detail.catalog.${catalogId}`;
-	const sections: CapabilityDetailSection[] = [];
-
-	const intro = t(`${base}.intro`, { defaultValue: "" });
-	if (intro) {
-		sections.push({
-			type: "intro",
-			title: t("capabilities.detail.section.intro"),
-			body: intro,
-		});
-	}
-
-	const userPrompt = t(`${base}.media.userPrompt`, { defaultValue: "" });
-	const assistantReply = t(`${base}.media.assistantReply`, { defaultValue: "" });
-	if (userPrompt && assistantReply) {
-		const showcase = CATALOG_SHOWCASE[catalogId];
-		const brandIconUrl = resolveBrandIconUrl(item);
-		const brandName = item.title;
-		if (showcase.template === "chat-over-canvas") {
-			sections.push({
-				type: "showcase",
-				template: "chat-over-canvas",
-				userPrompt,
-				assistantReply,
-				canvas: showcase.canvas,
-				brandIconUrl,
-				brandName,
-			});
-		} else {
-			sections.push({
-				type: "showcase",
-				template: "chat-thread",
-				userPrompt,
-				assistantReply,
-				brandIconUrl,
-				brandName,
-			});
-		}
-	}
-
-	const features = readStringArray(t(`${base}.features`, { returnObjects: true, defaultValue: [] }));
-	if (features.length > 0) {
-		sections.push({
-			type: "featureList",
-			title: t("capabilities.detail.section.features"),
-			items: features,
-		});
-	}
-
-	const rawScenarios = t(`${base}.scenarios`, { returnObjects: true, defaultValue: [] });
-	const scenarioIcons = CATALOG_SCENARIO_ICONS[catalogId];
-	if (Array.isArray(rawScenarios) && rawScenarios.length > 0) {
-		const items = rawScenarios
-			.map((entry, index) => {
-				// 兼容 string[] 或 { label }[]
-				const label =
-					typeof entry === "string"
-						? entry
-						: entry && typeof entry === "object" && typeof (entry as { label?: unknown }).label === "string"
-							? (entry as { label: string }).label
-							: "";
-				if (!label) return null;
-				return {
-					icon: scenarioIcons[index] ?? "icon-[solar--widget-2-linear]",
-					label,
-				};
-			})
-			.filter((entry): entry is { icon: string; label: string } => entry !== null);
-		if (items.length > 0) {
-			sections.push({
-				type: "scenarios",
-				title: t("capabilities.detail.section.scenarios"),
-				items,
-			});
-		}
-	}
-
-	const permLead = t(`${base}.permissions.lead`, { defaultValue: "" });
-	const permItems = readStringArray(t(`${base}.permissions.items`, { returnObjects: true, defaultValue: [] }));
-	if (permLead || permItems.length > 0) {
-		sections.push({
-			type: "permissions",
-			title: t("capabilities.detail.section.permissions"),
-			lead: permLead || undefined,
-			items: permItems,
-			showDetailLink: true,
-		});
-	}
-
-	const scoreRaw = t(`${base}.reviews.score`, { defaultValue: "" });
-	const countRaw = t(`${base}.reviews.count`, { defaultValue: "" });
-	const quotes = readStringArray(t(`${base}.reviews.quotes`, { returnObjects: true, defaultValue: [] }));
-	const score = Number(scoreRaw);
-	const count = Number(countRaw);
-	if (quotes.length > 0 || (Number.isFinite(score) && score > 0)) {
-		sections.push({
-			type: "reviews",
-			title: t("capabilities.detail.section.reviews"),
-			score: Number.isFinite(score) && score > 0 ? score : undefined,
-			count: Number.isFinite(count) && count > 0 ? count : undefined,
-			quotes,
-		});
-	}
-
-	return sections;
-}
-
-function buildFallbackSections(item: CapabilityItem, t: TFunction): CapabilityDetailSection[] {
+function buildFallbackSections(item: CapabilityItem, t: SkillsTFunction): CapabilityDetailSection[] {
 	const sections: CapabilityDetailSection[] = [];
 	const body = item.description.trim();
 	if (body) {
 		sections.push({
+			id: "introduction",
 			type: "intro",
 			title: t("capabilities.detail.section.intro"),
 			body,
 		});
 	}
 
-	if (item.driver === "skill" && item.skill.tags.length > 0) {
-		// tags 已在壳上展示；技能无更多 meta 时不重复
-	}
-
 	if (item.driver === "connector" && (item.canConfigure || item.usesOAuth || item.setupRequired)) {
 		sections.push({
+			id: "permissions",
 			type: "permissions",
 			title: t("capabilities.detail.section.permissions"),
 			lead: t("capabilities.detail.fallback.permissionsLead"),
@@ -178,6 +57,7 @@ function buildFallbackSections(item: CapabilityItem, t: TFunction): CapabilityDe
 
 	if (sections.length === 0) {
 		sections.push({
+			id: "introduction",
 			type: "intro",
 			title: t("capabilities.detail.section.intro"),
 			body: t("capabilities.detail.fallback.emptyBody"),
@@ -218,15 +98,7 @@ function resolveSecondaryActions(
 	return actions;
 }
 
-function resolveDeveloper(
-	item: CapabilityItem,
-	catalogId: CapabilityCatalogId | null,
-	t: TFunction,
-): string | undefined {
-	if (catalogId) {
-		const fromCatalog = t(`capabilities.detail.catalog.${catalogId}.developer`, { defaultValue: "" });
-		if (fromCatalog) return fromCatalog;
-	}
+function resolveFallbackDeveloper(item: CapabilityItem, t: SkillsTFunction): string | undefined {
 	if (item.driver === "skill") {
 		const author = item.skill.author?.trim();
 		if (author) return author;
@@ -240,24 +112,20 @@ function resolveDeveloper(
 	return undefined;
 }
 
-function resolveTags(item: CapabilityItem, catalogId: CapabilityCatalogId | null, t: TFunction): string[] {
-	if (catalogId) {
-		const tags = readStringArray(
-			t(`capabilities.detail.catalog.${catalogId}.tags`, { returnObjects: true, defaultValue: [] }),
-		);
-		if (tags.length > 0) return tags;
-	}
-	if (item.driver === "skill") return item.skill.tags.filter(Boolean);
-	return [];
+function resolveFallbackTags(item: CapabilityItem): string[] {
+	return item.driver === "skill" ? item.skill.tags.filter(Boolean) : [];
 }
 
-export function buildCapabilityDetailViewModel(item: CapabilityItem, t: TFunction): CapabilityDetailViewModel {
-	const catalogId = resolveCapabilityCatalogId(item.id);
+export function buildCapabilityDetailViewModel(item: CapabilityItem, t: SkillsTFunction): CapabilityDetailViewModel {
+	const document = getCapabilityDetailDocument(item.id);
+	const detail = document
+		? resolveCapabilityDetailDocument(document, t, {
+				iconUrl: resolveBrandIconUrl(item),
+				name: item.title,
+			})
+		: null;
 	const status = resolveStatus(item);
-	const sections = catalogId !== null ? buildCatalogSections(catalogId, t, item) : buildFallbackSections(item, t);
-
-	// catalog 生成失败时兜底
-	const resolvedSections = sections.length > 0 ? sections : buildFallbackSections(item, t);
+	const sections = detail?.sections.length ? detail.sections : buildFallbackSections(item, t);
 
 	const icon: CapabilityDetailViewModel["icon"] =
 		item.driver === "skill"
@@ -275,14 +143,14 @@ export function buildCapabilityDetailViewModel(item: CapabilityItem, t: TFunctio
 	return {
 		id: item.id,
 		title: item.title,
-		summary: item.description,
-		developer: resolveDeveloper(item, catalogId, t),
-		tags: resolveTags(item, catalogId, t),
+		summary: detail?.summary ?? item.description,
+		developer: detail?.developer ?? resolveFallbackDeveloper(item, t),
+		tags: detail?.tags.length ? detail.tags : resolveFallbackTags(item),
 		icon,
 		status,
 		primaryAction: resolvePrimaryAction(item, status),
 		secondaryActions: resolveSecondaryActions(item, status),
-		sections: resolvedSections,
+		sections,
 		busy: item.busy,
 		canOpenPermissionDetails,
 	};

@@ -126,9 +126,9 @@ export function CapabilityDetailShell({
 
 			<div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
 				<div className="flex flex-col gap-7">
-					{view.sections.map((section, index) => (
+					{view.sections.map((section) => (
 						<CapabilityDetailSectionView
-							key={`${section.type}-${index}`}
+							key={section.id}
 							section={section}
 							detailLinkLabel={t("capabilities.detail.section.viewPermissionDetails")}
 							reviewsCountLabel={
