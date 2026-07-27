@@ -85,17 +85,15 @@ export class AgentSession {
 			return this.queueInput(options.streamingBehavior, input);
 		}
 
-		this.currentState = "running";
-		const controller = new AbortController();
-		this.activeController = controller;
-		const turn = this.pipeline.run(this.id, input, controller.signal, this.inputQueue);
-		this.activeTurn = turn;
+		return this.startTurn(input);
+	}
 
-		try {
-			return await turn;
-		} finally {
-			this.finishActiveTurn();
+	async continue(): Promise<TurnResult> {
+		if (this.currentState === "closed" || this.currentState === "closing") {
+			throw sessionClosedError();
 		}
+		if (this.currentState !== "idle") throw sessionBusyError();
+		return this.startTurn();
 	}
 
 	steer(input: SessionInput): QueuedSessionInputResult {
@@ -141,6 +139,22 @@ export class AgentSession {
 			behavior,
 			pendingCount: this.inputQueue.enqueue(behavior, input),
 		};
+	}
+
+	private async startTurn(input?: SessionInput): Promise<TurnResult> {
+		this.currentState = "running";
+		const controller = new AbortController();
+		this.activeController = controller;
+		const turn = input
+			? this.pipeline.run(this.id, input, controller.signal, this.inputQueue)
+			: this.pipeline.continue(this.id, controller.signal, this.inputQueue);
+		this.activeTurn = turn;
+
+		try {
+			return await turn;
+		} finally {
+			this.finishActiveTurn();
+		}
 	}
 
 	private finishActiveTurn(): void {

@@ -11,6 +11,17 @@
  * - types.ts             共享类型
  */
 
+export {
+	type GreenfieldPreparedPrompt,
+	type GreenfieldPromptAdapter,
+	type GreenfieldPromptPreparationContext,
+	type GreenfieldRuntimeAssembly,
+	type GreenfieldRuntimeFactory,
+	GreenfieldRuntimeSession,
+	GreenfieldRuntimeSessionBackend,
+	type GreenfieldRuntimeSessionBackendOptions,
+	type GreenfieldRuntimeSessionState,
+} from "./greenfield-session-backend.js";
 export { mapGreenfieldKernelEventToSessionEvents } from "./greenfield-session-events.js";
 export { RuntimeHost } from "./runtime-host.js";
 export type {

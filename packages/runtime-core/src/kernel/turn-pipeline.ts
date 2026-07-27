@@ -66,6 +66,19 @@ export class TurnPipeline {
 		signal: AbortSignal,
 		inputQueue?: TurnInputQueue,
 	): Promise<TurnResult> {
+		return this.runTurn(sessionId, input, signal, inputQueue);
+	}
+
+	async continue(sessionId: string, signal: AbortSignal, inputQueue?: TurnInputQueue): Promise<TurnResult> {
+		return this.runTurn(sessionId, undefined, signal, inputQueue);
+	}
+
+	private async runTurn(
+		sessionId: string,
+		input: SessionInput | undefined,
+		signal: AbortSignal,
+		inputQueue: TurnInputQueue | undefined,
+	): Promise<TurnResult> {
 		const turnId = this.idGenerator.next("turn");
 		const state: MutableTurnState = {
 			version: 0,
@@ -90,7 +103,7 @@ export class TurnPipeline {
 			signal.throwIfAborted();
 
 			const startedAt = this.clock.now();
-			await this.append(sessionId, state, signal, [
+			const startEvents: StoredSessionEvent[] = [
 				{
 					type: "turn.started",
 					sessionId,
@@ -98,14 +111,17 @@ export class TurnPipeline {
 					snapshotId: snapshot.id,
 					timestamp: startedAt,
 				},
-				{
+			];
+			if (input) {
+				startEvents.push({
 					type: "message.appended",
 					sessionId,
 					turnId,
 					message: input.message,
 					timestamp: startedAt,
-				},
-			]);
+				});
+			}
+			await this.append(sessionId, state, signal, startEvents);
 			state.started = true;
 
 			await this.enterStage(sessionId, turnId, "context_assembly");
@@ -117,7 +133,9 @@ export class TurnPipeline {
 				input,
 				signal,
 			);
-			const assembledMessages = [...conversation.messages, ...providerMessages, input.message];
+			const assembledMessages = input
+				? [...conversation.messages, ...providerMessages, input.message]
+				: [...conversation.messages, ...providerMessages];
 
 			await this.enterStage(sessionId, turnId, "context_preparation");
 			const prepared = await snapshot.contextStrategy.prepare(
@@ -245,7 +263,7 @@ export class TurnPipeline {
 		sessionId: string,
 		turnId: string,
 		conversation: StoredConversation,
-		input: SessionInput,
+		input: SessionInput | undefined,
 		signal: AbortSignal,
 	): Promise<readonly Message[]> {
 		const messages: Message[] = [];

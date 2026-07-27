@@ -16,6 +16,7 @@ entry until downstream adapters are ready to switch.
 - per-model-call prompt and tool materialization through Model Call Contribution Providers
 - `AgentCoreTurnEngine` adapter for the `@vetta/agent-core` model and tool loop
 - session-owned steering/follow-up queues with configurable consumption modes
+- explicit Greenfield session backend for prompt/continue/abort, mapped events and repository-backed state
 - runtime-owned tool execution and policy contracts
 
 ## What It Does Not Own
@@ -34,6 +35,7 @@ entry until downstream adapters are ready to switch.
 
 - `RuntimeHost`
 - `RuntimeSessionBackend` and `LegacyCodingAgentSessionBackend` for composition-root session creation
+- `GreenfieldRuntimeSessionBackend` for parallel Kernel composition without impersonating the legacy session
 - `RuntimeSessionObservationEvent` and Greenfield Kernel-to-`SessionEvent` adapters
 - session event and state contracts from `src/contracts.ts`
 - shared runtime error helpers

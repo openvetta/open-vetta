@@ -306,6 +306,22 @@ describe("greenfield runtime kernel", () => {
 		expect(harness.session.pendingMessageCount).toBe(0);
 	});
 
+	it("continues from stored context without appending a synthetic user message", async () => {
+		const harness = await createHarness();
+
+		await harness.session.send({ message: userMessage("hello") });
+		const result = await harness.session.continue();
+
+		expect(result.status).toBe("completed");
+		expect((harness.contextStrategy as RecordingContextStrategy).inputs[1].map((message) => message.role)).toEqual([
+			"user",
+			"assistant",
+		]);
+		const conversation = await harness.repository.load("session-1");
+		expect(conversation.messages.map((message) => message.role)).toEqual(["user", "assistant", "assistant"]);
+		expect(conversation.events.filter((event) => event.type === "turn.started")).toHaveLength(2);
+	});
+
 	it("fails a turn when the engine omits its terminal event", async () => {
 		const engine: TurnEnginePort = {
 			async *execute() {

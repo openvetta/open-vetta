@@ -615,6 +615,33 @@ Session 拥有 enqueue、clear、模式和生命周期；Engine 只能在 Agent 
 TypeBox/Zod，因为输入已经越过外部协议边界并成为受信任的 Kernel 类型；运行时校验应放在后续 Backend
 Adapter 的外部 payload 边界。
 
+### 2.16 Greenfield Session Backend 与 Continue Turn
+
+审计确认阶段 33 的 `RuntimeSessionBackend` 只是返回旧 AgentSession 的创建工厂，并不是 prompt、事件、
+状态和外围能力的完整后端。RuntimeHost 仍直接依赖旧会话的模型、历史、Todo、后台任务、子代理、插件和
+分支接口。让 Greenfield 用类型断言或空实现满足该别名会隐藏功能缺失，因此没有这样接线。
+
+本阶段将创建工厂泛型化，并新增独立 `GreenfieldRuntimeSessionBackend`：
+
+```text
+PromptRequest -> required PromptAdapter -> Kernel Session
+KernelEvent -> per-session EventSink -> existing SessionEvent
+RuntimeFactory -> AgentSession + Repository + disposer
+```
+
+Greenfield 门面已经覆盖 prompt、continue、abort、事件订阅、状态/消息读取和释放。Prompt Adapter 与
+Runtime Factory 都是必需依赖，因此 Backend 不会自行猜测或忽略 PromptRef、附件、Skill、metadata、
+模型或 Profile。监听器失败被隔离，状态和消息来自 Repository；活动 Turn 的排队和 abort 保留沿用阶段
+35 合同。
+
+Kernel 新增真正的 continue Turn：它从已存上下文继续运行，只写 `turn.started`，不追加伪 user message；
+Context Provider 通过可选 input 区分 prompt 和 continue。测试确认一次 prompt 加一次 continue 的消息角色
+为 user/assistant/assistant。
+
+未完成 Turn 的恢复边界也已固定：create/resume 必须显式分离；resume 识别无终态的 started Turn 后以乐观
+版本追加 interrupted 终态；禁止自动重放模型或工具、禁止恢复进程内队列、禁止合成 user message；多个
+未闭合 Turn、顺序错误或版本冲突 fail closed。恢复执行器尚未实现，因此当前 Backend 仍只用于新建会话。
+
 ## 3. 已实施模块审计
 
 | 模块 | 当前状态 | 与旧行为的差距 | 切换结论 |
@@ -629,14 +656,15 @@ Adapter 的外部 payload 边界。
 | `bash/shell` Tool | Runtime Definition、Registration、前台执行器、后台协调、独立后台生命周期、task 工具、通知格式、低层 Host Adapter、平台 scope 和过渡 Composition Root 已通过 | 旧 AgentSession 和生产入口仍使用旧工具/Manager | 新 Runtime 工具链迁移完成；旧生产路径尚不可删除 |
 | 宿主可执行文件解析 | Runtime Port、本地 PATH/managed-bin Adapter、grep/find 注入合同、旧 ensureTool 适配、网络/归档合同和 cli-app Composition Root 已通过 | 真实 GitHub 网络、最终独立可执行发布物和完整 Tool Profile 迁移尚未完成；包根兼容导出必须继续保留 | 新 Profile 可并行验证；旧宿主仍不可切换 |
 | Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope/explicit 激活和 requires/capabilities，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；current_time/read/ls/grep/find/glob/tree/write/edit/bash/shell/task_output/task_stop 已进入全场景 Profile 差分门禁 | 生产 Profile 尚未切换 | 动态编排与当前默认工具迁移完成；生产接入未完成 |
-| `AgentSession` | 新状态机与活动 Turn steer/follow-up 队列已实现；支持逐条/全量模式、取消保留和关闭清理 | 尚未由 Greenfield Session Backend 适配旧 prompt/continue/abort 与状态查询 | 内核语义已具备；生产入口不可切换 |
-| Turn Pipeline | 固定阶段、持久化检查点、非持久化 Session observation envelope 和输入队列透传已实现 | 未完成 Turn 的 Repository 恢复闭环未完成 | 不可切换 |
+| `AgentSession` | 新状态机、活动 Turn 输入队列及无伪 user message 的 continue 已实现 | 尚缺 resume、旧外围能力和 RuntimeHost 能力 Port | 内核 Turn 语义已具备；生产入口不可切换 |
+| Turn Pipeline | 固定阶段、持久化检查点、非持久化 observation、输入队列透传及 continue 已实现 | 未完成 Turn 的 Repository 恢复执行器未完成 | 不可切换 |
 | `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环、动态 Model Call Frame、完整观察事件及 steer/follow-up 消费已通过 | 尚未由 Greenfield Session Backend 接入生产 RuntimeHost | 内核执行能力已具备；宿主仍不可切换 |
+| Greenfield Session Backend | 独立门面、必需 Prompt Adapter/Runtime Factory、prompt/continue/abort、事件、状态和释放合同已通过 | 当前 RuntimeHost 仍直接依赖旧 AgentSession 外围能力；resume 未实现 | 可并行组合测试；不能注入生产 RuntimeHost |
 | Runtime Snapshot | 编译、冻结、lease、原子交换和动态 Model Call Provider 已实现 | Coding Profile 的完整默认能力与 scope 尚未装配 | 不可替代旧工具注册 |
 | Conversation Repository | 新格式 create/load/append/save 已实现 | 旧 JSONL importer、Snapshot 读取、分支、未完成 Turn 恢复和跨进程锁未完成 | 不可读取并替代旧会话 |
 | Context Strategy | 目前只有 passthrough 基础实现 | 旧 compaction、prefire、microcompact 和摘要行为未迁移 | 不可切换长会话 |
 | MCP / Skill / Knowledge / Subagent | 尚未迁移 | 旧能力全部缺失 | 不可切换对应 Profile |
-| Desktop / CLI / RPC / IM Adapter | 已建立旧事件特征基线、独立 observation 合同、Greenfield `SessionEvent` 适配和内核输入队列语义；生产入口尚未切换 | Greenfield Backend、存储恢复和实际宿主接线尚未验证 | 不可切换入口 |
+| Desktop / CLI / RPC / IM Adapter | 已建立旧事件特征基线、独立 observation 合同、Greenfield `SessionEvent` 适配、输入队列及并行 Backend；生产入口尚未切换 | RuntimeHost 能力 Port、完整 Prompt Adapter、存储恢复和实际宿主接线尚未验证 | 不可切换入口 |
 
 上述差距目前没有影响生产，因为旧入口仍在使用旧实现。但它们是切换阻断项，不能因为新模块
 已有单元测试就视为功能迁移完成。
@@ -679,9 +707,10 @@ Composition Root。新旧 Tool Profile 已对全部场景建立差分门禁；ru
 终止的低层宿主 Operations 已完成并通过差分。dir_tree、write 和 edit 的独立 Runtime 实现、宿主
 Port 及全场景差分均已完成。旧 AgentSession 事件特征基线、独立 Session observation 合同、
 Greenfield 瞬时事件发布、现有 `SessionEvent` 适配，以及活动 Turn 的 steer/follow-up、队列模式与
-abort/error 仲裁也已完成。下一阶段应建立 Greenfield Session Backend，把 prompt/continue/abort、
-事件订阅和状态查询接到现有 RuntimeHost 后端合同，并先通过显式选择的并行组合根验证；在完成存储恢复
-与宿主兼容合同前不替换默认旧后端。最后根据完整 Profile 差分结果设计兼容入口迁移；
+abort/error 仲裁、无伪 user message 的 continue，以及显式 Greenfield 并行 Backend 也已完成。审计确认
+现有 RuntimeHost 仍直接绑定旧 AgentSession 的大量外围接口，下一阶段必须先按 Turn Control、Event、
+State/History 等能力拆分小 Port，并实现显式 resume 与 interrupted Turn Recovery；不能用 God Interface、
+类型断言或空实现强行接入。完成宿主兼容合同前不替换默认旧后端。最后根据完整 Profile 差分结果设计兼容入口迁移；
 真实 GitHub 网络、最终独立可执行发布物和
 其他外部依赖的产物级解析/打包测试仍需单独执行，重点覆盖下载、并发解析、版本锁定、离线
 模式和 Windows/Unix 产物。生产 Profile 接线时由组合根创建 Registry；

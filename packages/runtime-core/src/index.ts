@@ -65,11 +65,20 @@ export type {
 } from "./contracts.js";
 export { RUNTIME_ERROR_CODES, runtimeError } from "./errors.js";
 export type {
+	GreenfieldPreparedPrompt,
+	GreenfieldPromptAdapter,
+	GreenfieldPromptPreparationContext,
+	GreenfieldRuntimeAssembly,
+	GreenfieldRuntimeFactory,
+	GreenfieldRuntimeSessionBackendOptions,
+	GreenfieldRuntimeSessionState,
 	RuntimeSession,
 	RuntimeSessionBackend,
 	RuntimeSessionCreateOptions,
 } from "./runtime-host/index.js";
 export {
+	GreenfieldRuntimeSession,
+	GreenfieldRuntimeSessionBackend,
 	LegacyCodingAgentSessionBackend,
 	mapGreenfieldKernelEventToSessionEvents,
 	mapRuntimeSessionObservationEvent,

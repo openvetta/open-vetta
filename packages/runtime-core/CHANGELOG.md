@@ -6,6 +6,7 @@ All notable changes to `@vetta/runtime-core` are documented in this file.
 
 ### Added
 
+- **Greenfield Session Backend 与 Continue Turn**：新增显式并行的 Greenfield 后端、必需 Prompt Adapter、Kernel Runtime Factory、SessionEvent 订阅和 Repository 状态查询；Kernel 支持不追加伪用户消息的 continue Turn。默认 RuntimeHost 仍使用旧后端。
 - **Greenfield Session 活动 Turn 输入队列**：新增独立 steer/follow-up 队列、逐条/全量消费模式和窄化 `TurnInputQueue` 合同；Agent Core 在既有模型循环边界消费输入，取消或错误保留未消费队列，关闭 Session 时释放队列。
 - **独立 Session 观察事件与 Greenfield 宿主适配**：新增不依赖旧 `AgentSessionEvent` 的 `RuntimeSessionObservationEvent`；Agent Core Turn Engine 输出生命周期、文本/思考增量和工具生命周期，Turn Pipeline 以非持久化 envelope 发布，旧事件与 Greenfield Kernel Event 最终统一适配到现有 `SessionEvent`。
 - **RuntimeHost 会话后端创建边界**：新增可注入的 `RuntimeSessionBackend` 与默认 `LegacyCodingAgentSessionBackend`；生产默认行为保持不变，为后续 Greenfield Session Backend 并行接入建立组合根切换点。

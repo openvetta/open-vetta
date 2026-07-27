@@ -76,7 +76,7 @@ export interface ContextProviderInput {
 	readonly sessionId: string;
 	readonly turnId: string;
 	readonly conversation: StoredConversation;
-	readonly input: SessionInput;
+	readonly input?: SessionInput;
 }
 
 export interface ContextProvider {
