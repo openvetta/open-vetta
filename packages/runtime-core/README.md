@@ -19,6 +19,7 @@ entry until downstream adapters are ready to switch.
 - explicit Greenfield session backend for prompt/continue/abort, mapped events and repository-backed state
 - explicit create/resume paths with fail-closed interrupted Turn recovery and optimistic versioning
 - narrow RuntimeHost Turn Control, Event Stream and State Read ports with a legacy compatibility adapter
+- backend-provided RuntimeHost session assemblies with create-only backend compatibility
 - runtime-owned tool execution and policy contracts
 
 ## What It Does Not Own
@@ -38,6 +39,7 @@ entry until downstream adapters are ready to switch.
 - `RuntimeHost`
 - `RuntimeSessionBackend` and `LegacyCodingAgentSessionBackend` for composition-root session creation
 - `RuntimeSessionTurnControl`, `RuntimeSessionEventStream` and `RuntimeSessionStateReader` core host ports
+- `RuntimeHostSessionAssembly` and `RuntimeHostSessionBackend` for explicit composition-root capability delivery
 - `GreenfieldRuntimeSessionBackend` for parallel Kernel composition without impersonating the legacy session
 - `resumeAgentSession` and `ConversationRecoveryPolicy` for recovery without model or tool replay
 - `RuntimeSessionObservationEvent` and Greenfield Kernel-to-`SessionEvent` adapters

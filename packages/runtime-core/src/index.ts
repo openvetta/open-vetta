@@ -72,6 +72,8 @@ export type {
 	GreenfieldRuntimeFactory,
 	GreenfieldRuntimeSessionBackendOptions,
 	GreenfieldRuntimeSessionState,
+	RuntimeHostSessionAssembly,
+	RuntimeHostSessionBackend,
 	RuntimeSession,
 	RuntimeSessionBackend,
 	RuntimeSessionCorePorts,
@@ -83,6 +85,7 @@ export type {
 	RuntimeTurnPrompt,
 } from "./runtime-host/index.js";
 export {
+	asRuntimeHostSessionBackend,
 	createLegacyRuntimeSessionCorePorts,
 	GreenfieldRuntimeSession,
 	GreenfieldRuntimeSessionBackend,
@@ -93,6 +96,7 @@ export {
 	mapGreenfieldKernelEventToSessionEvents,
 	mapRuntimeSessionObservationEvent,
 	RuntimeHost,
+	RuntimeSessionBackendAssemblyAdapter,
 } from "./runtime-host/index.js";
 export type {
 	RuntimeSessionLifecyclePhase,

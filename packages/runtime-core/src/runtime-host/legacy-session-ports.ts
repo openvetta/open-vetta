@@ -38,12 +38,10 @@ export class LegacyRuntimeSessionTurnControl implements RuntimeSessionTurnContro
 /** 一个旧 Session 只建立一个底层订阅，映射一次后向多个 Port 订阅者扇出。 */
 export class LegacyRuntimeSessionEventStream implements RuntimeSessionEventStream {
 	private readonly listeners = new Set<(event: SessionEvent) => void>();
+	private readonly currentTurnStartedAt = new Map<string, number>();
 	private sourceUnsubscribe: (() => void) | undefined;
 
-	constructor(
-		private readonly session: RuntimeSession,
-		private readonly currentTurnStartedAt: Map<string, number>,
-	) {}
+	constructor(private readonly session: RuntimeSession) {}
 
 	subscribe(handler: (event: SessionEvent) => void): () => void {
 		this.listeners.add(handler);
@@ -98,13 +96,10 @@ export class LegacyRuntimeSessionStateReader implements RuntimeSessionStateReade
 	}
 }
 
-export function createLegacyRuntimeSessionCorePorts(
-	session: RuntimeSession,
-	currentTurnStartedAt: Map<string, number>,
-): RuntimeSessionCorePorts {
+export function createLegacyRuntimeSessionCorePorts(session: RuntimeSession): RuntimeSessionCorePorts {
 	return {
 		turnControl: new LegacyRuntimeSessionTurnControl(session),
-		eventStream: new LegacyRuntimeSessionEventStream(session, currentTurnStartedAt),
+		eventStream: new LegacyRuntimeSessionEventStream(session),
 		stateReader: new LegacyRuntimeSessionStateReader(session),
 	};
 }

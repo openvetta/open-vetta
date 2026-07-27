@@ -46,6 +46,7 @@
 | [36-greenfield-session-backend.md](./08-implementation-log/36-greenfield-session-backend.md) | Greenfield 并行后端、Continue Turn 与恢复边界 |
 | [37-session-resume-and-recovery.md](./08-implementation-log/37-session-resume-and-recovery.md) | 类型基线修复、显式 Session Resume 与未完成 Turn 恢复 |
 | [38-runtime-session-core-ports.md](./08-implementation-log/38-runtime-session-core-ports.md) | RuntimeHost Turn Control、Event Stream 与 State Read Port |
+| [39-runtime-session-backend-assembly.md](./08-implementation-log/39-runtime-session-backend-assembly.md) | Backend Assembly、旧 Backend 兼容适配与 Composition Root 解耦 |
 
 ## 维护约定
 

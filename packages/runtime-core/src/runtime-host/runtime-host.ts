@@ -47,13 +47,13 @@ import {
 } from "../execution-mode/sandbox-permissions.js";
 import { buildSandboxToolDefinitions } from "../execution-mode/sandbox-tools.js";
 import { branchFromFileEntries, entriesToHistory } from "./history.js";
-import { createLegacyRuntimeSessionCorePorts } from "./legacy-session-ports.js";
 import { generateAutoTitle, generateNextPromptSuggestions } from "./peripheral-tasks.js";
 import { debugPluginAgent, summarizeAgentPlugins } from "./plugin-debug.js";
 import {
+	asRuntimeHostSessionBackend,
 	LegacyCodingAgentSessionBackend,
+	type RuntimeHostSessionBackend,
 	type RuntimeSession,
-	type RuntimeSessionBackend,
 	type RuntimeSessionCreateOptions,
 } from "./session-backend.js";
 import { baseSessionEvent, lifecycleSessionEvent } from "./session-events.js";
@@ -100,7 +100,7 @@ export class RuntimeHost implements SessionFacade {
 	private readonly macosSandboxExecPath: string | undefined;
 	private readonly serverUrl: string | undefined;
 	private readonly modelRegistry: ModelRegistry | undefined;
-	private readonly sessionBackend: RuntimeSessionBackend;
+	private readonly sessionBackend: RuntimeHostSessionBackend;
 	private userConfirmationHandler:
 		| ((request: RuntimeUserConfirmationRequest, signal?: AbortSignal) => Promise<boolean>)
 		| undefined;
@@ -122,7 +122,9 @@ export class RuntimeHost implements SessionFacade {
 		this.macosSandboxExecPath = options.macosSandboxExecPath;
 		this.serverUrl = options.serverUrl;
 		this.modelRegistry = options.modelRegistry;
-		this.sessionBackend = options.sessionBackend ?? new LegacyCodingAgentSessionBackend();
+		this.sessionBackend = asRuntimeHostSessionBackend(
+			options.sessionBackend ?? new LegacyCodingAgentSessionBackend(),
+		);
 		this.userConfirmationHandler = options.userConfirmationHandler;
 		this.userQuestionHandler = options.userQuestionHandler;
 		this.userSandboxGrantHandler = options.userSandboxGrantHandler;
@@ -410,11 +412,10 @@ export class RuntimeHost implements SessionFacade {
 			modelRegistry: this.modelRegistry,
 		};
 
-		const session = await this.sessionBackend.create(options);
+		const { session, corePorts } = await this.sessionBackend.createAssembly(options);
 		const sessionId = session.sessionId;
 		sessionIdRef.current = sessionId;
 		await session.bindExtensions({ uiContext: this.createExtensionUIContext(sessionIdRef) });
-		const corePorts = createLegacyRuntimeSessionCorePorts(session, this.currentTurnStartedAt);
 		this.sessions.set(sessionId, {
 			session,
 			...corePorts,
@@ -466,6 +467,7 @@ export class RuntimeHost implements SessionFacade {
 		this.inFlightBuffers.set(sessionId, buffer);
 		const unsubscribe = eventStream.subscribe((event) => {
 			if (event.type === "session.lifecycle" && event.phase === "agent_start") {
+				this.currentTurnStartedAt.set(sessionId, event.timestamp);
 				buffer.turnStartedAt = event.timestamp;
 				buffer.text = "";
 				buffer.thinking = "";
@@ -480,6 +482,7 @@ export class RuntimeHost implements SessionFacade {
 				return;
 			}
 			if (event.type === "session.lifecycle" && event.phase === "agent_end") {
+				this.currentTurnStartedAt.delete(sessionId);
 				buffer.text = "";
 				buffer.thinking = "";
 				buffer.toolCallStarts = [];

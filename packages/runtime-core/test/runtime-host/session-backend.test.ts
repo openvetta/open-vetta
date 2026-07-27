@@ -2,8 +2,11 @@ import type { AgentSessionEvent } from "@vetta/coding-agent";
 import { describe, expect, it, vi } from "vitest";
 import {
 	RuntimeHost,
+	type RuntimeHostSessionAssembly,
+	type RuntimeHostSessionBackend,
 	type RuntimeSession,
 	type RuntimeSessionBackend,
+	type RuntimeSessionCorePorts,
 	type RuntimeSessionCreateOptions,
 	type SessionEvent,
 } from "../../src/index.js";
@@ -72,6 +75,17 @@ class RecordingSessionBackend implements RuntimeSessionBackend {
 	}
 }
 
+class RecordingAssemblyBackend implements RuntimeHostSessionBackend {
+	readonly calls: RuntimeSessionCreateOptions[] = [];
+
+	constructor(private readonly assembly: RuntimeHostSessionAssembly) {}
+
+	async createAssembly(options: RuntimeSessionCreateOptions): Promise<RuntimeHostSessionAssembly> {
+		this.calls.push(options);
+		return this.assembly;
+	}
+}
+
 describe("RuntimeHost session backend boundary", () => {
 	it("creates and registers a session through the injected backend without changing config semantics", async () => {
 		const { session } = createSessionDouble();
@@ -129,6 +143,62 @@ describe("RuntimeHost session backend boundary", () => {
 		});
 		expect(continueTurn).toHaveBeenCalledOnce();
 		expect(abort).toHaveBeenCalledOnce();
+	});
+
+	it("uses core ports supplied by an assembly backend without deriving legacy adapters", async () => {
+		const sessionDouble = createSessionDouble();
+		const prompt = vi.fn(async () => {});
+		const continueTurn = vi.fn(async () => {});
+		const abort = vi.fn(async () => {});
+		const eventListeners = new Set<(event: SessionEvent) => void>();
+		const corePorts: RuntimeSessionCorePorts = {
+			turnControl: { prompt, continue: continueTurn, abort },
+			eventStream: {
+				subscribe(handler) {
+					eventListeners.add(handler);
+					return () => eventListeners.delete(handler);
+				},
+			},
+			stateReader: {
+				readState: () => ({
+					model: undefined,
+					thinkingLevel: "off",
+					isStreaming: false,
+					messageCount: 7,
+					contextPercent: 50,
+					contextWindow: 16_000,
+					activeToolNames: ["assembly-tool"],
+				}),
+				readMessages: () => [{ role: "user", content: "from assembly", timestamp: 3 }],
+			},
+		};
+		const backend = new RecordingAssemblyBackend({ session: sessionDouble.session, corePorts });
+		const host = new RuntimeHost({ sessionBackend: backend, getDefaultExecutionMode: () => "full-access" });
+		const { sessionId } = await host.createSession();
+
+		await host.prompt(sessionId, { text: "through port" });
+		await host.continue(sessionId);
+		await host.abort(sessionId);
+
+		expect(backend.calls).toHaveLength(1);
+		expect(prompt).toHaveBeenCalledWith({
+			text: "through port",
+			images: undefined,
+			streamingBehavior: undefined,
+			promptRef: undefined,
+			attachments: undefined,
+			metadata: undefined,
+		});
+		expect(continueTurn).toHaveBeenCalledOnce();
+		expect(abort).toHaveBeenCalledOnce();
+		expect(sessionDouble.prompt).not.toHaveBeenCalled();
+		expect(sessionDouble.session.subscribe).not.toHaveBeenCalled();
+		expect(host.getState(sessionId)).toMatchObject({
+			messageCount: 7,
+			contextPercent: 50,
+			activeToolNames: ["assembly-tool"],
+		});
+		expect(host.getMessages(sessionId)).toEqual([{ role: "user", content: "from assembly", timestamp: 3 }]);
 	});
 
 	it("maps live events and replays the current text delta after resubscribe", async () => {

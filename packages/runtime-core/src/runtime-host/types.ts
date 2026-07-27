@@ -8,7 +8,7 @@ import type {
 	RuntimeUserQuestionResult,
 	SessionExecutionMode,
 } from "../contracts.js";
-import type { RuntimeSession, RuntimeSessionBackend } from "./session-backend.js";
+import type { RuntimeHostSessionBackend, RuntimeSession, RuntimeSessionBackend } from "./session-backend.js";
 import type {
 	RuntimeSessionEventStream,
 	RuntimeSessionStateReader,
@@ -69,7 +69,7 @@ export interface RuntimeHostOptions {
 	 * 会话创建后端。默认使用 LegacyCodingAgentSessionBackend，因此不改变现有
 	 * production 行为；测试和后续 greenfield 迁移可在组合根显式注入其他实现。
 	 */
-	sessionBackend?: RuntimeSessionBackend;
+	sessionBackend?: RuntimeSessionBackend | RuntimeHostSessionBackend;
 	getDefaultExecutionMode?: () => SessionExecutionMode | Promise<SessionExecutionMode>;
 	additionalSkillPaths?: string[];
 	sandboxHostPath?: string;

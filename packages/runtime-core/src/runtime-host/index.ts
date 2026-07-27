@@ -31,11 +31,17 @@ export {
 } from "./legacy-session-ports.js";
 export { RuntimeHost } from "./runtime-host.js";
 export type {
+	RuntimeHostSessionAssembly,
+	RuntimeHostSessionBackend,
 	RuntimeSession,
 	RuntimeSessionBackend,
 	RuntimeSessionCreateOptions,
 } from "./session-backend.js";
-export { LegacyCodingAgentSessionBackend } from "./session-backend.js";
+export {
+	asRuntimeHostSessionBackend,
+	LegacyCodingAgentSessionBackend,
+	RuntimeSessionBackendAssemblyAdapter,
+} from "./session-backend.js";
 export { mapRuntimeSessionObservationEvent } from "./session-events.js";
 export type {
 	RuntimeSessionCorePorts,

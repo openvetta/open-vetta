@@ -1,4 +1,6 @@
 import { type AgentSession, type CreateAgentSessionOptions, createAgentSession } from "@vetta/coding-agent";
+import { createLegacyRuntimeSessionCorePorts } from "./legacy-session-ports.js";
+import type { RuntimeSessionCorePorts } from "./session-ports.js";
 
 /**
  * 当前生产会话在 RuntimeHost 内部使用的会话合同。
@@ -21,10 +23,53 @@ export interface RuntimeSessionBackend<TCreateOptions = RuntimeSessionCreateOpti
 	create(options: TCreateOptions): Promise<TSession>;
 }
 
+export interface RuntimeHostSessionAssembly {
+	readonly session: RuntimeSession;
+	readonly corePorts: RuntimeSessionCorePorts;
+}
+
+/** RuntimeHost 的组合根合同：一次创建同时交付外围句柄与基础能力 Port。 */
+export interface RuntimeHostSessionBackend {
+	createAssembly(options: RuntimeSessionCreateOptions): Promise<RuntimeHostSessionAssembly>;
+}
+
+/** 将旧 create-only Backend 限制在兼容边界，RuntimeHost 不再自行判断 Session 实现。 */
+export class RuntimeSessionBackendAssemblyAdapter implements RuntimeHostSessionBackend {
+	constructor(private readonly backend: RuntimeSessionBackend) {}
+
+	async createAssembly(options: RuntimeSessionCreateOptions): Promise<RuntimeHostSessionAssembly> {
+		const session = await this.backend.create(options);
+		return {
+			session,
+			corePorts: createLegacyRuntimeSessionCorePorts(session),
+		};
+	}
+}
+
+export function asRuntimeHostSessionBackend(
+	backend: RuntimeSessionBackend | RuntimeHostSessionBackend,
+): RuntimeHostSessionBackend {
+	return isRuntimeHostSessionBackend(backend) ? backend : new RuntimeSessionBackendAssemblyAdapter(backend);
+}
+
 /** 保留现有生产行为的 coding-agent 兼容后端。 */
-export class LegacyCodingAgentSessionBackend implements RuntimeSessionBackend {
+export class LegacyCodingAgentSessionBackend implements RuntimeSessionBackend, RuntimeHostSessionBackend {
 	async create(options: RuntimeSessionCreateOptions): Promise<RuntimeSession> {
 		const { session } = await createAgentSession(options);
 		return session;
 	}
+
+	async createAssembly(options: RuntimeSessionCreateOptions): Promise<RuntimeHostSessionAssembly> {
+		const session = await this.create(options);
+		return {
+			session,
+			corePorts: createLegacyRuntimeSessionCorePorts(session),
+		};
+	}
+}
+
+function isRuntimeHostSessionBackend(
+	backend: RuntimeSessionBackend | RuntimeHostSessionBackend,
+): backend is RuntimeHostSessionBackend {
+	return "createAssembly" in backend && typeof backend.createAssembly === "function";
 }
