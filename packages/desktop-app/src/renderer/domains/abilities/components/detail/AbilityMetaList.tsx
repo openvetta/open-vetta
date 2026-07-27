@@ -21,24 +21,28 @@ export function AbilityMetaList({ meta }: { meta: AbilityMetaEntry[] | undefined
 	return (
 		<section>
 			<div className="mb-2 text-[13px] font-semibold text-foreground">{t("meta.title")}</div>
-			<dl className="flex flex-col gap-1.5">
-				{entries.map((entry, index) => (
-					<div
-						// 同一个预置键不会重复出现，但自定义条目可能重名，故带上索引
-						key={`${entry.key ?? entry.label ?? ""}-${index}`}
-						className="flex items-start gap-3 text-[12px]"
-					>
-						<dt className="w-20 shrink-0 text-muted-foreground/60">
-							{entry.key && entry.key in META_LABEL_KEYS
-								? t(META_LABEL_KEYS[entry.key])
-								: (entry.label ?? "")}
-						</dt>
-						<dd className="min-w-0 flex-1 break-words text-foreground">
-							<MetaValue value={entry.value} />
-						</dd>
-					</div>
-				))}
-			</dl>
+			<div className="overflow-hidden rounded-lg border border-border/60">
+				<table className="w-full table-fixed text-[12px]">
+					<tbody>
+						{entries.map((entry, index) => (
+							<tr
+								// 同一个预置键不会重复出现，但自定义条目可能重名，故带上索引
+								key={`${entry.key ?? entry.label ?? ""}-${index}`}
+								className="border-b border-border/50 last:border-b-0"
+							>
+								<th className="w-28 bg-muted/40 px-3 py-2 text-left align-top font-normal text-muted-foreground/70">
+									{entry.key && entry.key in META_LABEL_KEYS
+										? t(META_LABEL_KEYS[entry.key])
+										: (entry.label ?? "")}
+								</th>
+								<td className="break-words px-3 py-2 align-top text-foreground">
+									<MetaValue value={entry.value} />
+								</td>
+							</tr>
+						))}
+					</tbody>
+				</table>
+			</div>
 		</section>
 	);
 }

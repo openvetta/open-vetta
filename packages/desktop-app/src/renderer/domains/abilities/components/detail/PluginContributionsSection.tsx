@@ -1,6 +1,11 @@
+import { cn } from "@vetta/ui";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { AbilityContributedMcp, AbilityContributedSkill } from "@shared/lib/api";
 import type { PluginAbility } from "../../types";
+
+/** 超过这个条数就折叠，避免插件带一堆 server/skill 时详情页被撑爆。 */
+const COLLAPSED_LIMIT = 5;
 
 /**
  * 「本插件提供」：插件内聚的 MCP server 与 skill（ADR-0040 的 agent.mcpServers / agent.skillPaths）。
@@ -67,11 +72,16 @@ function ContributionGroup({
 	icon: string;
 	items: ContributionEntry[];
 }): JSX.Element {
+	const { t } = useTranslation("abilities");
+	const [expanded, setExpanded] = useState(false);
+	const collapsible = items.length > COLLAPSED_LIMIT;
+	const visible = collapsible && !expanded ? items.slice(0, COLLAPSED_LIMIT) : items;
+
 	return (
 		<div>
 			<div className="mb-1.5 text-[11px] uppercase tracking-wide text-muted-foreground/60">{label}</div>
 			<div className="flex flex-col gap-1.5">
-				{items.map((entry) => (
+				{visible.map((entry) => (
 					<div key={entry.key} className="rounded-lg border border-border bg-background/50 px-2.5 py-2">
 						<div className="flex items-center gap-1.5 text-[12px] font-medium text-foreground">
 							<span className={`${icon} h-3.5 w-3.5 shrink-0 text-muted-foreground`} />
@@ -85,6 +95,23 @@ function ContributionGroup({
 					</div>
 				))}
 			</div>
+			{collapsible ? (
+				<button
+					type="button"
+					className="mt-1.5 flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+					onClick={() => setExpanded((prev) => !prev)}
+				>
+					<span
+						className={cn(
+							"icon-[solar--alt-arrow-down-linear] h-3 w-3 transition-transform",
+							expanded && "rotate-180",
+						)}
+					/>
+					{expanded
+						? t("plugin.collapseList")
+						: t("plugin.expandList", { count: items.length - COLLAPSED_LIMIT })}
+				</button>
+			) : null}
 		</div>
 	);
 }

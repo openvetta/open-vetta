@@ -132,7 +132,9 @@
 		"contributions": "本插件提供",
 		"contributionsHint": "随插件一同安装与移除",
 		"contributedMcp": "MCP 服务",
-		"contributedSkills": "技能"
+		"contributedSkills": "技能",
+		"expandList": "展开其余 {{count}} 项",
+		"collapseList": "收起"
 	},
 	"mcp": {
 		"title": "连接配置",

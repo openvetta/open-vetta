@@ -132,7 +132,9 @@
 		"contributions": "Included in this plugin",
 		"contributionsHint": "Installed and removed together with the plugin",
 		"contributedMcp": "MCP servers",
-		"contributedSkills": "Skills"
+		"contributedSkills": "Skills",
+		"expandList": "Show {{count}} more",
+		"collapseList": "Show less"
 	},
 	"mcp": {
 		"title": "Connection setup",
