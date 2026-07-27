@@ -138,6 +138,12 @@ class RecordingAssemblyBackend implements RuntimeHostSessionBackend {
 }
 
 describe("RuntimeHost session backend boundary", () => {
+	it("does not expose the raw legacy session through the host assembly", () => {
+		const hasRawSession: "session" extends keyof RuntimeHostSessionAssembly ? true : false = false;
+
+		expect(hasRawSession).toBe(false);
+	});
+
 	it("creates and registers a session through the injected backend without changing config semantics", async () => {
 		const { session } = createSessionDouble();
 		const backend = new RecordingSessionBackend(session);
@@ -296,7 +302,6 @@ describe("RuntimeHost session backend boundary", () => {
 		});
 		const setConfigurationAgentMode = vi.fn();
 		const backend = new RecordingAssemblyBackend({
-			session: sessionDouble.session,
 			lifecycle: {
 				sessionId: "assembly-session",
 				sessionPath: "assembly.jsonl",

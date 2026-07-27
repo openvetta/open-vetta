@@ -19,7 +19,7 @@ entry until downstream adapters are ready to switch.
 - explicit Greenfield session backend for prompt/continue/abort, mapped events and repository-backed state
 - explicit create/resume paths with fail-closed interrupted Turn recovery and optimistic versioning
 - narrow RuntimeHost Turn Control, Event Stream and State Read ports with a legacy compatibility adapter
-- backend-provided RuntimeHost session assemblies with create-only backend compatibility
+- port-only RuntimeHost session assemblies with create-only backend compatibility and no raw legacy session handle
 - backend-provided Session Identity/Lifecycle and read-only History ports with legacy adapters
 - backend-provided History Controller for guarded edits, branches, forks and session naming
 - backend-provided Model Controller for selection, thinking level and session-scoped auth refresh
@@ -55,7 +55,7 @@ entry until downstream adapters are ready to switch.
 - `RuntimeSessionWorkspaceView` and `RuntimeSessionExecutionController` for cwd lookup, busy-state guards and mode changes
 - `RuntimeSessionBackgroundWorkController` and `RuntimeSessionTodoController` for background/subagent/todo host state
 - `RuntimeSessionConfigurationController` for dynamic session configuration without exposing the legacy session
-- `RuntimeHostSessionAssembly` and `RuntimeHostSessionBackend` for explicit composition-root capability delivery
+- `RuntimeHostSessionAssembly` and `RuntimeHostSessionBackend` for explicit port-only composition-root capability delivery
 - `GreenfieldRuntimeSessionBackend` for parallel Kernel composition without impersonating the legacy session
 - `resumeAgentSession` and `ConversationRecoveryPolicy` for recovery without model or tool replay
 - `RuntimeSessionObservationEvent` and Greenfield Kernel-to-`SessionEvent` adapters

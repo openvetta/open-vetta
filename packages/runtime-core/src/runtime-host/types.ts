@@ -8,7 +8,7 @@ import type {
 	RuntimeUserQuestionResult,
 	SessionExecutionMode,
 } from "../contracts.js";
-import type { RuntimeHostSessionBackend, RuntimeSession, RuntimeSessionBackend } from "./session-backend.js";
+import type { RuntimeHostSessionBackend, RuntimeSessionBackend } from "./session-backend.js";
 import type {
 	RuntimeSessionBackgroundWorkController,
 	RuntimeSessionConfigurationController,
@@ -27,7 +27,6 @@ import type {
 } from "./session-ports.js";
 
 export interface SessionHandle {
-	session: RuntimeSession;
 	lifecycle: RuntimeSessionIdentityLifecycle;
 	historyReader: RuntimeSessionHistoryReader;
 	historyController: RuntimeSessionHistoryController;

@@ -55,6 +55,7 @@
 | [45-session-execution-and-workspace.md](./08-implementation-log/45-session-execution-and-workspace.md) | 工作目录视图、执行模式控制与旧工具重配置适配 |
 | [46-session-work-management.md](./08-implementation-log/46-session-work-management.md) | 后台工作、subagent、todo 稳定合同与 Assembly 交付 |
 | [47-session-runtime-configuration.md](./08-implementation-log/47-session-runtime-configuration.md) | 输入队列模式、插件运行时配置与 agent mode 的统一配置边界 |
+| [48-raw-session-handle-removal.md](./08-implementation-log/48-raw-session-handle-removal.md) | 裸 Session 句柄移除、结构门禁与创建/存储边界审计 |
 
 ## 维护约定
 

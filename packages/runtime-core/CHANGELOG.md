@@ -41,6 +41,7 @@ All notable changes to `@vetta/runtime-core` are documented in this file.
 
 ### Changed
 
+- **RuntimeHost Assembly 移除裸 Session**：`RuntimeHostSessionAssembly` 与内部 `SessionHandle` 不再暴露或保存旧 `AgentSession`；Legacy Backend 仅在组合时用旧 Session 构造各项 Port，RuntimeHost 注册完成后只持有稳定能力合同，并增加类型门禁防止裸 Session 字段回流。
 - **Runtime Tool 输入类型泛型化**：`RuntimeToolDefinition<TInput>` 与 `RuntimeToolExecutionRequest<TInput>` 可从 TypeBox Schema 保留具体工具参数类型；异构 Runtime Snapshot 边界仍统一擦除为只读对象合同。
 - **Tool Schema 完整冻结**：Feature Compiler 发布 Snapshot 前深拷贝并递归冻结 Tool JSON Schema，避免嵌套 Schema 在 Turn 执行期间被外部修改。
 - **图像工具生命周期归插件（ADR-0048）**：移除 `RuntimeHostOptions.imageBackend` 与 RuntimeHost 的内置 `generate_image` / `edit_image` 注入；图像插件改用动态插件工具注册，禁用插件即可完整移除能力。

@@ -50,7 +50,6 @@ export interface RuntimeSessionBackend<TCreateOptions = RuntimeSessionCreateOpti
 }
 
 export interface RuntimeHostSessionAssembly {
-	readonly session: RuntimeSession;
 	readonly lifecycle: RuntimeSessionIdentityLifecycle;
 	readonly historyReader: RuntimeSessionHistoryReader;
 	readonly historyController: RuntimeSessionHistoryController;
@@ -101,7 +100,6 @@ export class LegacyCodingAgentSessionBackend implements RuntimeSessionBackend, R
 
 export function createLegacyRuntimeHostSessionAssembly(session: RuntimeSession): RuntimeHostSessionAssembly {
 	return {
-		session,
 		lifecycle: new LegacyRuntimeSessionIdentityLifecycle(session),
 		historyReader: new LegacyRuntimeSessionHistoryReader(session),
 		historyController: new LegacyRuntimeSessionHistoryController(session),

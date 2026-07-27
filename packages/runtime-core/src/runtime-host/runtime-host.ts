@@ -411,7 +411,6 @@ export class RuntimeHost implements SessionFacade {
 		};
 
 		const {
-			session,
 			lifecycle,
 			historyReader,
 			historyController,
@@ -429,7 +428,6 @@ export class RuntimeHost implements SessionFacade {
 		sessionIdRef.current = sessionId;
 		await hostInteraction.bind(this.createHostInteractionContext(sessionIdRef));
 		this.sessions.set(sessionId, {
-			session,
 			lifecycle,
 			historyReader,
 			historyController,
