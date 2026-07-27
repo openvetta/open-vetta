@@ -14,6 +14,7 @@ import type {
 	StoredConversation,
 	StoredSessionEvent,
 	TurnEnginePort,
+	TurnInputQueue,
 	TurnPipelineStage,
 	TurnResult,
 } from "./contracts.js";
@@ -59,7 +60,12 @@ export class TurnPipeline {
 		});
 	}
 
-	async run(sessionId: string, input: SessionInput, signal: AbortSignal): Promise<TurnResult> {
+	async run(
+		sessionId: string,
+		input: SessionInput,
+		signal: AbortSignal,
+		inputQueue?: TurnInputQueue,
+	): Promise<TurnResult> {
 		const turnId = this.idGenerator.next("turn");
 		const state: MutableTurnState = {
 			version: 0,
@@ -144,6 +150,7 @@ export class TurnPipeline {
 				snapshot,
 				messages: prepared.messages,
 				signal,
+				inputQueue,
 			})) {
 				signal.throwIfAborted();
 				if (stopReason) {

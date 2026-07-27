@@ -36,6 +36,7 @@ export type {
 	ModelCallFrame,
 	ObserverFailedEvent,
 	PreparedContext,
+	QueuedSessionInputResult,
 	RuntimeSessionObservationEnvelope,
 	RuntimeSnapshot,
 	RuntimeSnapshotLease,
@@ -44,6 +45,10 @@ export type {
 	RuntimeToolExecutionRequest,
 	RuntimeToolResult,
 	SessionInput,
+	SessionInputQueueMode,
+	SessionSendOptions,
+	SessionSendResult,
+	SessionStreamingBehavior,
 	StoredConversation,
 	StoredSessionEvent,
 	ToolPolicy,
@@ -53,6 +58,7 @@ export type {
 	TurnEnginePort,
 	TurnEngineRequest,
 	TurnFailedEvent,
+	TurnInputQueue,
 	TurnObserver,
 	TurnPipelineStage,
 	TurnPipelineStageEvent,
@@ -80,6 +86,11 @@ export {
 export { FeatureCompiler, type FeatureCompilerOptions } from "./feature-compiler.js";
 export { composeModelCallSystemPrompt, resolveModelCallFrame } from "./model-call-frame.js";
 export { AtomicRuntimeSnapshotProvider } from "./runtime-snapshot-provider.js";
+export {
+	type ClearedSessionInputs,
+	SessionInputQueue,
+	type SessionInputQueueOptions,
+} from "./session-input-queue.js";
 export {
 	RuntimeToolExecutionError,
 	type RuntimeToolExecutionErrorDetails,

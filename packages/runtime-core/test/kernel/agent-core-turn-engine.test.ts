@@ -13,8 +13,10 @@ import {
 	type RuntimeSnapshot,
 	type RuntimeToolDefinition,
 	RuntimeToolExecutionError,
+	SessionInputQueue,
 	type ToolPolicyRequest,
 	type TurnEngineEvent,
+	type TurnInputQueue,
 } from "../../src/kernel/index.js";
 
 class RecordedAssistantStream extends EventStream<AssistantMessageEvent, AssistantMessage> {
@@ -149,6 +151,7 @@ async function collect(
 	engine: AgentCoreTurnEngine,
 	runtimeSnapshot: RuntimeSnapshot,
 	signal: AbortSignal = new AbortController().signal,
+	inputQueue?: TurnInputQueue,
 ): Promise<TurnEngineEvent[]> {
 	const events: TurnEngineEvent[] = [];
 	for await (const event of engine.execute({
@@ -157,6 +160,7 @@ async function collect(
 		snapshot: runtimeSnapshot,
 		messages: [userMessage("hello")],
 		signal,
+		inputQueue,
 	})) {
 		events.push(event);
 	}
@@ -465,5 +469,77 @@ describe("AgentCoreTurnEngine", () => {
 				stopReason: "aborted",
 			},
 		]);
+	});
+
+	it("delivers steering before follow-up input and emits delivered user messages", async () => {
+		const queue = new SessionInputQueue();
+		const firstStream = new ManualAssistantStream();
+		const responses = [
+			assistantMessage([{ type: "text", text: "after steer" }]),
+			assistantMessage([{ type: "text", text: "after follow-up" }]),
+		];
+		const contexts: Context[] = [];
+		let callIndex = 0;
+		let markStarted: (() => void) | undefined;
+		const started = new Promise<void>((resolve) => {
+			markStarted = resolve;
+		});
+		const engine = new AgentCoreTurnEngine({
+			model: model(),
+			streamFn: (_model, context) => {
+				contexts.push({ ...context, messages: [...context.messages] });
+				if (callIndex === 0) {
+					callIndex += 1;
+					markStarted?.();
+					return firstStream;
+				}
+				const response = responses[callIndex - 1];
+				callIndex += 1;
+				if (!response) throw new Error("Missing recorded response");
+				return new RecordedAssistantStream(response);
+			},
+		});
+
+		const result = collect(engine, snapshot(), new AbortController().signal, queue);
+		await started;
+		queue.steer({ message: userMessage("steer") });
+		queue.followUp({ message: userMessage("follow-up") });
+		firstStream.push({
+			type: "done",
+			reason: "stop",
+			message: assistantMessage([{ type: "text", text: "first" }]),
+		});
+
+		const events = await result;
+		expect(contexts).toHaveLength(3);
+		expect(contexts[1].messages.map((message) => message.role)).toEqual(["user", "assistant", "user"]);
+		expect(contexts[2].messages.map((message) => message.role)).toEqual([
+			"user",
+			"assistant",
+			"user",
+			"assistant",
+			"user",
+		]);
+		expect(
+			events
+				.filter((event) => event.type !== "observation")
+				.map((event) => (event.type === "message" ? event.message.role : event.type)),
+		).toEqual(["assistant", "user", "assistant", "user", "assistant", "completed"]);
+		expect(queue.pendingCount).toBe(0);
+	});
+
+	it("does not consume follow-up input after an error terminal", async () => {
+		const queue = new SessionInputQueue();
+		queue.followUp({ message: userMessage("retry later") });
+		const engine = new AgentCoreTurnEngine({
+			model: model(),
+			streamFn: () => new RecordedAssistantStream(assistantMessage([{ type: "text", text: "failed" }], "error")),
+		});
+
+		const events = await collect(engine, snapshot(), new AbortController().signal, queue);
+
+		expect(events.at(-1)).toEqual({ type: "completed", stopReason: "error" });
+		expect(queue.pendingCount).toBe(1);
+		expect(queue.followUpInputs.map(({ message }) => message.content)).toEqual(["retry later"]);
 	});
 });

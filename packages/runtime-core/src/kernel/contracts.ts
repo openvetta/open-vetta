@@ -7,6 +7,25 @@ export interface SessionInput {
 	readonly message: UserMessage;
 }
 
+export type SessionInputQueueMode = "all" | "one-at-a-time";
+
+export type SessionStreamingBehavior = "steer" | "followUp";
+
+export interface SessionSendOptions {
+	readonly streamingBehavior?: SessionStreamingBehavior;
+}
+
+export interface QueuedSessionInputResult {
+	readonly status: "queued";
+	readonly behavior: SessionStreamingBehavior;
+	readonly pendingCount: number;
+}
+
+export interface TurnInputQueue {
+	takeSteering(): readonly UserMessage[];
+	takeFollowUps(): readonly UserMessage[];
+}
+
 export interface InstructionBlock {
 	readonly id: string;
 	readonly content: string;
@@ -325,6 +344,7 @@ export interface TurnEngineRequest {
 	readonly snapshot: RuntimeSnapshot;
 	readonly messages: readonly Message[];
 	readonly signal: AbortSignal;
+	readonly inputQueue?: TurnInputQueue;
 }
 
 export type TurnEngineEvent =
@@ -375,3 +395,5 @@ export type TurnResult =
 			};
 			readonly messages: readonly Message[];
 	  };
+
+export type SessionSendResult = TurnResult | QueuedSessionInputResult;

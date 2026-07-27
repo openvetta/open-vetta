@@ -54,7 +54,6 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 				yield { type: "observation", observation };
 			}
 			if (event.type !== "message_end" || !isRuntimeMessage(event.message)) continue;
-			if (event.message.role === "user") continue;
 			if (event.message.role === "assistant") {
 				finalAssistantMessage = event.message;
 			}
@@ -75,12 +74,15 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 	}
 
 	private createConfig(request: TurnEngineRequest): AgentLoopConfig {
+		const inputQueue = request.inputQueue;
 		return {
 			...this.options.streamOptions,
 			model: this.options.model,
 			sessionId: request.sessionId,
 			getApiKey: this.options.getApiKey,
 			convertToLlm: convertToLlm,
+			getSteeringMessages: inputQueue ? async () => [...inputQueue.takeSteering()] : undefined,
+			getContinuationMessages: inputQueue ? async () => [...inputQueue.takeFollowUps()] : undefined,
 			resolveCallContext: async (_context, signal) => {
 				const executionSignal = signal ?? request.signal;
 				const frame = await resolveModelCallFrame(request.snapshot, {

@@ -593,6 +593,28 @@ Greenfield Stored KernelEvent ────────────────�
 `context.compacted` 只有成功结果，尚不能单独表达 compaction start；MCP/Todo/后台任务/子代理的
 观察合同已经可以承载事件，但对应 Greenfield Feature 还未迁移。
 
+### 2.15 活动 Turn 输入并发
+
+旧实现将活动 Turn 的输入分为 steering 与 follow-up 两类。前者在模型/工具循环检查点进入上下文，
+后者只在自然响应结束后触发后续调用；assistant 以 aborted/error 结束时不会继续消费 follow-up。
+两类队列默认逐条 FIFO，也都支持一次消费全部。
+
+Greenfield 实现没有把队列塞入 Turn Pipeline 或具体 Provider，而是拆为：
+
+```text
+AgentSession -> SessionInputQueue -> TurnInputQueue Port -> AgentCoreTurnEngine
+```
+
+Session 拥有 enqueue、clear、模式和生命周期；Engine 只能在 Agent Core 已有检查点消费。排队回执不是
+持久事件，只有实际消费的 user message 才由 Engine 输出并经 Pipeline 写入 Repository。cancel/error
+保留未消费队列，close 清空队列。空闲状态携带 `streamingBehavior` 仍正常启动 Turn，活动状态未携带
+该字段仍返回 `SESSION_BUSY`。
+
+合同覆盖两类队列隔离、FIFO、one-at-a-time/all、运行时模式切换、活动 Turn 回执、取消保留、关闭清理、
+真实 Agent Core 的 steer 优先和自然结束 follow-up，以及 error 终态不消费 follow-up。本阶段没有引入
+TypeBox/Zod，因为输入已经越过外部协议边界并成为受信任的 Kernel 类型；运行时校验应放在后续 Backend
+Adapter 的外部 payload 边界。
+
 ## 3. 已实施模块审计
 
 | 模块 | 当前状态 | 与旧行为的差距 | 切换结论 |
@@ -607,14 +629,14 @@ Greenfield Stored KernelEvent ────────────────�
 | `bash/shell` Tool | Runtime Definition、Registration、前台执行器、后台协调、独立后台生命周期、task 工具、通知格式、低层 Host Adapter、平台 scope 和过渡 Composition Root 已通过 | 旧 AgentSession 和生产入口仍使用旧工具/Manager | 新 Runtime 工具链迁移完成；旧生产路径尚不可删除 |
 | 宿主可执行文件解析 | Runtime Port、本地 PATH/managed-bin Adapter、grep/find 注入合同、旧 ensureTool 适配、网络/归档合同和 cli-app Composition Root 已通过 | 真实 GitHub 网络、最终独立可执行发布物和完整 Tool Profile 迁移尚未完成；包根兼容导出必须继续保留 | 新 Profile 可并行验证；旧宿主仍不可切换 |
 | Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope/explicit 激活和 requires/capabilities，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；current_time/read/ls/grep/find/glob/tree/write/edit/bash/shell/task_output/task_stop 已进入全场景 Profile 差分门禁 | 生产 Profile 尚未切换 | 动态编排与当前默认工具迁移完成；生产接入未完成 |
-| `AgentSession` | 新状态机可执行 | 活动 Turn 输入目前拒绝；旧系统具有 queue、follow-up、steering 语义 | 不可切换 |
-| Turn Pipeline | 固定阶段、持久化检查点与非持久化 Session observation envelope 已实现 | 输入队列和恢复闭环未完成 | 不可切换 |
-| `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环、动态 Model Call Frame、生命周期、text/thinking delta 和完整工具观察事件已通过 | 尚未由 Greenfield Session Backend 接入生产 RuntimeHost | 事件能力已具备；宿主仍不可切换 |
+| `AgentSession` | 新状态机与活动 Turn steer/follow-up 队列已实现；支持逐条/全量模式、取消保留和关闭清理 | 尚未由 Greenfield Session Backend 适配旧 prompt/continue/abort 与状态查询 | 内核语义已具备；生产入口不可切换 |
+| Turn Pipeline | 固定阶段、持久化检查点、非持久化 Session observation envelope 和输入队列透传已实现 | 未完成 Turn 的 Repository 恢复闭环未完成 | 不可切换 |
+| `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环、动态 Model Call Frame、完整观察事件及 steer/follow-up 消费已通过 | 尚未由 Greenfield Session Backend 接入生产 RuntimeHost | 内核执行能力已具备；宿主仍不可切换 |
 | Runtime Snapshot | 编译、冻结、lease、原子交换和动态 Model Call Provider 已实现 | Coding Profile 的完整默认能力与 scope 尚未装配 | 不可替代旧工具注册 |
 | Conversation Repository | 新格式 create/load/append/save 已实现 | 旧 JSONL importer、Snapshot 读取、分支、未完成 Turn 恢复和跨进程锁未完成 | 不可读取并替代旧会话 |
 | Context Strategy | 目前只有 passthrough 基础实现 | 旧 compaction、prefire、microcompact 和摘要行为未迁移 | 不可切换长会话 |
 | MCP / Skill / Knowledge / Subagent | 尚未迁移 | 旧能力全部缺失 | 不可切换对应 Profile |
-| Desktop / CLI / RPC / IM Adapter | 已建立旧事件特征基线、独立 observation 合同和 Greenfield `SessionEvent` 适配；生产入口尚未切换 | steer/follow-up/队列、存储恢复和实际宿主接线尚未验证 | 不可切换入口 |
+| Desktop / CLI / RPC / IM Adapter | 已建立旧事件特征基线、独立 observation 合同、Greenfield `SessionEvent` 适配和内核输入队列语义；生产入口尚未切换 | Greenfield Backend、存储恢复和实际宿主接线尚未验证 | 不可切换入口 |
 
 上述差距目前没有影响生产，因为旧入口仍在使用旧实现。但它们是切换阻断项，不能因为新模块
 已有单元测试就视为功能迁移完成。
@@ -656,9 +678,10 @@ Composition Root。新旧 Tool Profile 已对全部场景建立差分门禁；ru
 因仍承载未迁移工具而保留。Runtime 后台任务生命周期引擎及 shell spawn、日志存储和进程树
 终止的低层宿主 Operations 已完成并通过差分。dir_tree、write 和 edit 的独立 Runtime 实现、宿主
 Port 及全场景差分均已完成。旧 AgentSession 事件特征基线、独立 Session observation 合同、
-Greenfield 瞬时事件发布和现有 `SessionEvent` 适配也已完成。下一阶段应补齐活动 Turn 的
-steer/follow-up/队列与 abort 语义，再建立 Greenfield Session Backend；在这些行为通过差分前
-不接入实际 CLI/桌面生产 Composition Root。最后根据完整 Profile 差分结果设计兼容入口迁移；
+Greenfield 瞬时事件发布、现有 `SessionEvent` 适配，以及活动 Turn 的 steer/follow-up、队列模式与
+abort/error 仲裁也已完成。下一阶段应建立 Greenfield Session Backend，把 prompt/continue/abort、
+事件订阅和状态查询接到现有 RuntimeHost 后端合同，并先通过显式选择的并行组合根验证；在完成存储恢复
+与宿主兼容合同前不替换默认旧后端。最后根据完整 Profile 差分结果设计兼容入口迁移；
 真实 GitHub 网络、最终独立可执行发布物和
 其他外部依赖的产物级解析/打包测试仍需单独执行，重点覆盖下载、并发解析、版本锁定、离线
 模式和 Windows/Unix 产物。生产 Profile 接线时由组合根创建 Registry；

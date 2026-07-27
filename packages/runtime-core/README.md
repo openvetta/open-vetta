@@ -15,6 +15,7 @@ entry until downstream adapters are ready to switch.
 - acquire/release Runtime Snapshot lifecycle with atomic Feature-topology switching
 - per-model-call prompt and tool materialization through Model Call Contribution Providers
 - `AgentCoreTurnEngine` adapter for the `@vetta/agent-core` model and tool loop
+- session-owned steering/follow-up queues with configurable consumption modes
 - runtime-owned tool execution and policy contracts
 
 ## What It Does Not Own

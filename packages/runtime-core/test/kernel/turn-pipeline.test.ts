@@ -297,6 +297,15 @@ describe("greenfield runtime kernel", () => {
 		expect(engine.requests[0].snapshot.id).toBe("snapshot-1");
 	});
 
+	it("starts a normal turn when streaming behavior is supplied while idle", async () => {
+		const harness = await createHarness();
+
+		const result = await harness.session.send({ message: userMessage("hello") }, { streamingBehavior: "followUp" });
+
+		expect(result.status).toBe("completed");
+		expect(harness.session.pendingMessageCount).toBe(0);
+	});
+
 	it("fails a turn when the engine omits its terminal event", async () => {
 		const engine: TurnEnginePort = {
 			async *execute() {
@@ -321,7 +330,7 @@ describe("greenfield runtime kernel", () => {
 		expect(conversation.events.at(-1)?.type).toBe("turn.failed");
 	});
 
-	it("rejects concurrent sends and persists cancellation", async () => {
+	it("requires an explicit concurrent-input behavior and retains queued input on cancellation", async () => {
 		let markStarted: (() => void) | undefined;
 		const started = new Promise<void>((resolve) => {
 			markStarted = resolve;
@@ -349,6 +358,30 @@ describe("greenfield runtime kernel", () => {
 		).rejects.toMatchObject({
 			code: KERNEL_ERROR_CODES.SESSION_BUSY,
 		});
+		await expect(
+			harness.session.send(
+				{
+					message: userMessage("steer"),
+				},
+				{ streamingBehavior: "steer" },
+			),
+		).resolves.toEqual({
+			status: "queued",
+			behavior: "steer",
+			pendingCount: 1,
+		});
+		await expect(
+			harness.session.send(
+				{
+					message: userMessage("follow-up"),
+				},
+				{ streamingBehavior: "followUp" },
+			),
+		).resolves.toEqual({
+			status: "queued",
+			behavior: "followUp",
+			pendingCount: 2,
+		});
 
 		await harness.session.cancel("user cancelled");
 		const result = await firstTurn;
@@ -357,6 +390,9 @@ describe("greenfield runtime kernel", () => {
 			reason: "user cancelled",
 		});
 		expect(harness.session.state).toBe("idle");
+		expect(harness.session.pendingMessageCount).toBe(2);
+		expect(harness.session.getSteeringMessages().map((message) => message.content)).toEqual(["steer"]);
+		expect(harness.session.getFollowUpMessages().map((message) => message.content)).toEqual(["follow-up"]);
 		const conversation = await harness.repository.load("session-1");
 		expect(conversation.events.at(-1)?.type).toBe("turn.cancelled");
 	});
@@ -381,12 +417,14 @@ describe("greenfield runtime kernel", () => {
 			message: userMessage("hello"),
 		});
 		await started;
+		harness.session.followUp({ message: userMessage("discard on close") });
 
 		await harness.session.close();
 		const result = await turn;
 
 		expect(result.status).toBe("cancelled");
 		expect(harness.session.state).toBe("closed");
+		expect(harness.session.pendingMessageCount).toBe(0);
 		await expect(
 			harness.session.send({
 				message: userMessage("after close"),
