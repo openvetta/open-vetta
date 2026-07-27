@@ -30,6 +30,7 @@ export {
 	LegacyRuntimeSessionHistoryReader,
 	LegacyRuntimeSessionIdentityLifecycle,
 	LegacyRuntimeSessionModelController,
+	LegacyRuntimeSessionModelView,
 	LegacyRuntimeSessionStateReader,
 	LegacyRuntimeSessionTurnControl,
 } from "./legacy-session-ports.js";
@@ -56,6 +57,7 @@ export type {
 	RuntimeSessionHistoryReader,
 	RuntimeSessionIdentityLifecycle,
 	RuntimeSessionModelController,
+	RuntimeSessionModelView,
 	RuntimeSessionState,
 	RuntimeSessionStateReader,
 	RuntimeSessionTurnControl,

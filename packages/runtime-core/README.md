@@ -23,6 +23,7 @@ entry until downstream adapters are ready to switch.
 - backend-provided Session Identity/Lifecycle and read-only History ports with legacy adapters
 - backend-provided History Controller for guarded edits, branches, forks and session naming
 - backend-provided Model Controller for selection, thinking level and session-scoped auth refresh
+- backend-provided read-only Model View for input capabilities and peripheral model selection
 - runtime-owned tool execution and policy contracts
 
 ## What It Does Not Own
@@ -45,6 +46,7 @@ entry until downstream adapters are ready to switch.
 - `RuntimeSessionIdentityLifecycle` and `RuntimeSessionHistoryReader` for identity, disposal and history projection
 - `RuntimeSessionHistoryController` for guarded history mutation and live-session naming
 - `RuntimeSessionModelController` for model selection and model-related write configuration
+- `RuntimeSessionModelView` for current/available models and credential lookup without exposing the registry
 - `RuntimeHostSessionAssembly` and `RuntimeHostSessionBackend` for explicit composition-root capability delivery
 - `GreenfieldRuntimeSessionBackend` for parallel Kernel composition without impersonating the legacy session
 - `resumeAgentSession` and `ConversationRecoveryPolicy` for recovery without model or tool replay

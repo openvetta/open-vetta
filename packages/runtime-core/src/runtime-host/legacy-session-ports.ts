@@ -12,6 +12,7 @@ import type {
 	RuntimeSessionHistoryReader,
 	RuntimeSessionIdentityLifecycle,
 	RuntimeSessionModelController,
+	RuntimeSessionModelView,
 	RuntimeSessionState,
 	RuntimeSessionStateReader,
 	RuntimeSessionTurnControl,
@@ -202,6 +203,26 @@ export class LegacyRuntimeSessionModelController implements RuntimeSessionModelC
 	async refreshAuth(token: string | undefined): Promise<void> {
 		this.session.modelRegistry.setServerToken(token);
 		await this.session.modelRegistry.loadRemoteModels();
+	}
+}
+
+export class LegacyRuntimeSessionModelView implements RuntimeSessionModelView {
+	constructor(private readonly session: RuntimeSession) {}
+
+	readCurrentModel(): ReturnType<RuntimeSessionModelView["readCurrentModel"]> {
+		return this.session.model;
+	}
+
+	refreshAvailableModels(): void {
+		this.session.modelRegistry.refresh();
+	}
+
+	readAvailableModels(): ReturnType<RuntimeSessionModelView["readAvailableModels"]> {
+		return [...this.session.modelRegistry.getAvailable()];
+	}
+
+	async resolveApiKey(model: Parameters<RuntimeSessionModelView["resolveApiKey"]>[0]): Promise<string | undefined> {
+		return this.session.modelRegistry.getApiKey(model);
 	}
 }
 

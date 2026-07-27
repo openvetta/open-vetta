@@ -1,3 +1,4 @@
+import type { Api, Model } from "@vetta/ai";
 import type { AgentSessionEvent } from "@vetta/coding-agent";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -162,6 +163,13 @@ describe("RuntimeHost session backend boundary", () => {
 			modelCalls.push(`thinking:${level}`);
 		});
 		const refreshAuth = vi.fn(async () => {});
+		const legacyImageModel = createTestModel("legacy", "image-model", ["text", "image"]);
+		const viewTextModel = createTestModel("view", "text-model", ["text"]);
+		Object.assign(sessionDouble.session, { model: legacyImageModel });
+		const readCurrentModel = vi.fn(() => viewTextModel);
+		const refreshAvailableModels = vi.fn();
+		const readAvailableModels = vi.fn((): Model<Api>[] => []);
+		const resolveApiKey = vi.fn(async () => undefined);
 		const eventListeners = new Set<(event: SessionEvent) => void>();
 		const corePorts: RuntimeSessionCorePorts = {
 			turnControl: { prompt, continue: continueTurn, abort },
@@ -213,6 +221,7 @@ describe("RuntimeHost session backend boundary", () => {
 				setName,
 			},
 			modelController: { selectModel, setThinkingLevel, refreshAuth },
+			modelView: { readCurrentModel, refreshAvailableModels, readAvailableModels, resolveApiKey },
 			corePorts,
 		});
 		const host = new RuntimeHost({ sessionBackend: backend, getDefaultExecutionMode: () => "full-access" });
@@ -222,6 +231,7 @@ describe("RuntimeHost session backend boundary", () => {
 			text: "through port",
 			modelKey: "provider/model",
 			reasoning: "high",
+			images: [{ type: "image", data: "base64", mimeType: "image/png" }],
 		});
 		await host.updateSettings(sessionId, { modelKey: "provider/settings-model", thinkingLevel: "medium" });
 		host.updateGlobalThinkingLevel("low");
@@ -247,6 +257,7 @@ describe("RuntimeHost session backend boundary", () => {
 		expect(setThinkingLevel).toHaveBeenNthCalledWith(2, "medium");
 		expect(setThinkingLevel).toHaveBeenNthCalledWith(3, "low");
 		expect(refreshAuth).toHaveBeenCalledWith("server-token");
+		expect(readCurrentModel).toHaveBeenCalledOnce();
 		expect(modelCalls.slice(0, 3)).toEqual(["select:provider/model:if-changed", "thinking:high", "prompt"]);
 		expect(sessionDouble.prompt).not.toHaveBeenCalled();
 		expect(sessionDouble.session.subscribe).not.toHaveBeenCalled();
@@ -372,6 +383,10 @@ describe("RuntimeHost session backend boundary", () => {
 		expect(host.getSessionPath(sessionId)).toBeUndefined();
 	});
 });
+
+function createTestModel(provider: string, id: string, input: Array<"text" | "image">): Model<Api> {
+	return { api: "openai-responses", provider, id, input } as Model<Api>;
+}
 
 function assistantMessage(stopReason: "error" | "aborted") {
 	return {

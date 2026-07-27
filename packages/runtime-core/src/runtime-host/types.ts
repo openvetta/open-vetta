@@ -15,6 +15,7 @@ import type {
 	RuntimeSessionHistoryReader,
 	RuntimeSessionIdentityLifecycle,
 	RuntimeSessionModelController,
+	RuntimeSessionModelView,
 	RuntimeSessionStateReader,
 	RuntimeSessionTurnControl,
 } from "./session-ports.js";
@@ -25,6 +26,7 @@ export interface SessionHandle {
 	historyReader: RuntimeSessionHistoryReader;
 	historyController: RuntimeSessionHistoryController;
 	modelController: RuntimeSessionModelController;
+	modelView: RuntimeSessionModelView;
 	turnControl: RuntimeSessionTurnControl;
 	eventStream: RuntimeSessionEventStream;
 	stateReader: RuntimeSessionStateReader;

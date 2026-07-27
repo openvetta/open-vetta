@@ -1,5 +1,5 @@
 import type { ThinkingLevel } from "@vetta/agent-core";
-import type { Message } from "@vetta/ai";
+import type { Api, Message, Model } from "@vetta/ai";
 import type { HistoryEntry, PromptRequest, SessionEvent, SessionStateSnapshot } from "../contracts.js";
 
 /** 会话身份与资源释放；不承载宿主 UI 绑定或业务外围能力。 */
@@ -75,6 +75,14 @@ export interface RuntimeSessionModelController {
 	selectModel(modelKey: string, strategy: RuntimeModelSelectionStrategy): Promise<void>;
 	setThinkingLevel(level: ThinkingLevel): void;
 	refreshAuth(token: string | undefined): Promise<void>;
+}
+
+/** 当前模型与候选解析的只读视图；不暴露可写 ModelRegistry。 */
+export interface RuntimeSessionModelView {
+	readCurrentModel(): Model<Api> | undefined;
+	refreshAvailableModels(): void;
+	readAvailableModels(): readonly Model<Api>[];
+	resolveApiKey(model: Model<Api>): Promise<string | undefined>;
 }
 
 export interface RuntimeSessionCorePorts {

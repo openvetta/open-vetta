@@ -411,7 +411,7 @@ export class RuntimeHost implements SessionFacade {
 			modelRegistry: this.modelRegistry,
 		};
 
-		const { session, lifecycle, historyReader, historyController, modelController, corePorts } =
+		const { session, lifecycle, historyReader, historyController, modelController, modelView, corePorts } =
 			await this.sessionBackend.createAssembly(options);
 		const sessionId = lifecycle.sessionId;
 		sessionIdRef.current = sessionId;
@@ -422,6 +422,7 @@ export class RuntimeHost implements SessionFacade {
 			historyReader,
 			historyController,
 			modelController,
+			modelView,
 			...corePorts,
 			executionMode,
 			agentPluginsEnabled: config.enableAgentPlugins === true,
@@ -601,7 +602,7 @@ export class RuntimeHost implements SessionFacade {
 		let images = request.images;
 		let text = request.text;
 		if (images && images.length > 0) {
-			const model = handle.session.model;
+			const model = handle.modelView.readCurrentModel();
 			if (!model?.input?.includes("image")) {
 				console.warn(
 					`[RuntimeHost.prompt] Model ${model?.id} does not support image input (input=${JSON.stringify(model?.input)}), stripping ${images.length} images`,
@@ -994,12 +995,7 @@ export class RuntimeHost implements SessionFacade {
 	 */
 	async autoTitleSession(sessionId: string, userText: string, assistantText: string): Promise<string | null> {
 		const handle = this.requireSession(sessionId);
-		const cleaned = await generateAutoTitle(
-			{ modelRegistry: handle.session.modelRegistry, sessionModel: handle.session.model },
-			sessionId,
-			userText,
-			assistantText,
-		);
+		const cleaned = await generateAutoTitle(handle.modelView, sessionId, userText, assistantText);
 		if (!cleaned) return null;
 		handle.historyController.setName(cleaned);
 		return cleaned;
@@ -1012,11 +1008,7 @@ export class RuntimeHost implements SessionFacade {
 	 */
 	async nextPromptSuggestions(sessionId: string, conversation: string): Promise<string[]> {
 		const handle = this.requireSession(sessionId);
-		return generateNextPromptSuggestions(
-			{ modelRegistry: handle.session.modelRegistry, sessionModel: handle.session.model },
-			sessionId,
-			conversation,
-		);
+		return generateNextPromptSuggestions(handle.modelView, sessionId, conversation);
 	}
 
 	async disposeSession(sessionId: string): Promise<void> {

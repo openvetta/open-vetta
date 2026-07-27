@@ -5,6 +5,7 @@ import {
 	LegacyRuntimeSessionHistoryReader,
 	LegacyRuntimeSessionIdentityLifecycle,
 	LegacyRuntimeSessionModelController,
+	LegacyRuntimeSessionModelView,
 } from "./legacy-session-ports.js";
 import type {
 	RuntimeSessionCorePorts,
@@ -12,6 +13,7 @@ import type {
 	RuntimeSessionHistoryReader,
 	RuntimeSessionIdentityLifecycle,
 	RuntimeSessionModelController,
+	RuntimeSessionModelView,
 } from "./session-ports.js";
 
 /**
@@ -41,6 +43,7 @@ export interface RuntimeHostSessionAssembly {
 	readonly historyReader: RuntimeSessionHistoryReader;
 	readonly historyController: RuntimeSessionHistoryController;
 	readonly modelController: RuntimeSessionModelController;
+	readonly modelView: RuntimeSessionModelView;
 	readonly corePorts: RuntimeSessionCorePorts;
 }
 
@@ -85,6 +88,7 @@ export function createLegacyRuntimeHostSessionAssembly(session: RuntimeSession):
 		historyReader: new LegacyRuntimeSessionHistoryReader(session),
 		historyController: new LegacyRuntimeSessionHistoryController(session),
 		modelController: new LegacyRuntimeSessionModelController(session),
+		modelView: new LegacyRuntimeSessionModelView(session),
 		corePorts: createLegacyRuntimeSessionCorePorts(session),
 	};
 }
