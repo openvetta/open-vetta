@@ -345,9 +345,9 @@ export function registerSettingsIpc(): () => void {
 		return fetchRemoteProviders();
 	});
 
-	// 预设服务商目录内置在客户端(见 ADR-0015),这里只做同步返回,不发任何网络请求。
-	ipcMain.handle("vetta:models:list-presets", () => {
-		return { providers: listPresetProviders() };
+	// 预设服务商目录内置在客户端(见 ADR-0050);模型清单取自 models.dev 公共目录,免 key 可见。
+	ipcMain.handle("vetta:models:list-presets", async () => {
+		return { providers: await listPresetProviders() };
 	});
 
 	// 手动刷新某预设服务商的模型列表:只拉不写,由渲染层连同 key 一起落盘。

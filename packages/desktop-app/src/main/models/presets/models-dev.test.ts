@@ -35,6 +35,21 @@ const RAW_API_JSON = {
 			},
 		},
 	},
+	google: {
+		models: {
+			"gemini-3.5-flash": {
+				name: "Gemini 3.5 Flash",
+				modalities: { input: ["text", "image"], output: ["text"] },
+				limit: { context: 1048576, output: 65536 },
+				cost: { input: 1.5, output: 9, cache_read: 0.15 },
+			},
+			// 视频生成模型:输出模态里没有 text,应当被裁掉。
+			"veo-3.1-generate-preview": {
+				name: "Veo 3.1",
+				modalities: { input: ["text", "image"], output: ["video"] },
+			},
+		},
+	},
 	// 不在预设六家里,应当被裁掉。
 	somebody: { models: { "x-1": { name: "X" } } },
 };
@@ -51,7 +66,9 @@ describe("models.dev 目录", () => {
 	it("只保留预设六家并折算成 ModelDefinition", async () => {
 		const catalog = await fetchCatalog();
 
-		expect(Object.keys(catalog.providers).sort()).toEqual(["claude", "deepseek"]);
+		expect(Object.keys(catalog.providers).sort()).toEqual(["claude", "deepseek", "gemini"]);
+		// 不吐文本的模型(视频/音乐/图像生成)不进目录。
+		expect(Object.keys(catalog.providers.gemini)).toEqual(["gemini-3.5-flash"]);
 		expect(catalog.providers.deepseek["deepseek-v4-flash"]).toEqual({
 			id: "deepseek-v4-flash",
 			name: "DeepSeek V4 Flash",

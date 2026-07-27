@@ -943,7 +943,7 @@
   "refreshingModels": "正在刷新模型列表…",
   "syncedAt": "同步于 {{time}}",
   "neverSynced": "尚未同步模型列表",
-  "fillKeyToLoadModels": "填入 Key 后拉取模型",
+  "catalogModels": "公共目录，填入 Key 后按账号刷新",
   "collapseModels": "收起模型",
   "viewModels": "查看模型与价格",
   "deprecated": "已下线",
