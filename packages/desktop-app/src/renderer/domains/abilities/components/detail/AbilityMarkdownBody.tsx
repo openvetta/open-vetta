@@ -12,8 +12,9 @@ export function AbilityMarkdownBody({ content }: { content: string }): JSX.Eleme
 
 	if (!content.trim()) return null;
 
+	// MarkdownPreviewView 自带 p-4，详情页正文不需要内边距
 	return (
-		<section className="text-[13px] leading-relaxed">
+		<section className="text-[13px] leading-relaxed [&_.markdown-body]:p-0">
 			<MarkdownPreviewView content={content} theme={theme} onOpenExternal={onOpenExternal} />
 		</section>
 	);

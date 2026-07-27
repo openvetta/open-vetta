@@ -11,13 +11,15 @@ import type { AbilityItem } from "../../types";
 import { AbilityIcon } from "../AbilityIcon";
 import { AbilityStatusBadges, AbilityTypeBadge } from "../AbilityBadges";
 
-/** 通用壳层：图标 / 标题 / 作者 / 版本 / 状态 / 主次 CTA。 */
+/** 通用壳层：返回 / 图标 / 标题 / 作者 / 版本 / 状态 / 描述 / 主次 CTA。 */
 export function AbilityDetailHeader({
 	item,
+	onBack,
 	onPrimary,
 	onSecondary,
 }: {
 	item: AbilityItem;
+	onBack: () => void;
 	onPrimary: () => void;
 	onSecondary: (kind: AbilitySecondaryAction) => void;
 }): JSX.Element {
@@ -29,6 +31,12 @@ export function AbilityDetailHeader({
 
 	return (
 		<div className="border-b border-border/60 pb-6">
+			{/* 返回按钮与图标左对齐：抵消 size=sm 的 px-2.5 */}
+			<Button variant="ghost" size="sm" className="-ml-2.5 mb-3" onClick={onBack}>
+				<span className="icon-[solar--alt-arrow-left-linear] h-3.5 w-3.5" />
+				{t("detail.back")}
+			</Button>
+
 			<div className="flex items-start gap-4">
 				<AbilityIcon icon={item.icon} type={item.type} className="h-14 w-14 rounded-2xl" iconClassName="h-7 w-7" />
 				<div className="min-w-0 flex-1">
@@ -49,11 +57,7 @@ export function AbilityDetailHeader({
 						<AbilityStatusBadges item={item} />
 					</div>
 
-					{description ? (
-						<p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">{description}</p>
-					) : null}
-
-					<dl className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground/70">
+					<dl className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground/70">
 						{item.author ? (
 							<span>
 								<dt className="inline">{t("detail.meta.author")}</dt>
@@ -85,21 +89,26 @@ export function AbilityDetailHeader({
 							</span>
 						) : null}
 					</dl>
-
-					{item.tags.length > 0 ? (
-						<div className="mt-3 flex flex-wrap gap-1.5">
-							{item.tags.map((tag) => (
-								<span
-									key={tag}
-									className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary/90"
-								>
-									{tag}
-								</span>
-							))}
-						</div>
-					) : null}
 				</div>
 			</div>
+
+			{/* 描述与标签落在图标下方，与图标左对齐 */}
+			{description ? (
+				<p className="mt-4 text-[13px] leading-relaxed text-muted-foreground">{description}</p>
+			) : null}
+
+			{item.tags.length > 0 ? (
+				<div className="mt-3 flex flex-wrap gap-1.5">
+					{item.tags.map((tag) => (
+						<span
+							key={tag}
+							className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary/90"
+						>
+							{tag}
+						</span>
+					))}
+				</div>
+			) : null}
 
 			{primary !== "none" ? (
 				<div className="mt-5">
