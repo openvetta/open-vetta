@@ -1,6 +1,6 @@
 import { BuiltinMcpSecretsDialog } from "../../settings/components/BuiltinMcpSecretsDialog";
 import { ManualMcpDialog } from "../../settings/components/ManualMcpDialog";
-import { McpEditDrawer } from "../../settings/components/McpEditDrawer";
+import { McpEditDialog } from "../../settings/components/McpEditDialog";
 import type { McpSettingsModel } from "../../settings/components/useMcpSettingsModel";
 
 /** mcp 轨道自带的三个编辑器，列表页与详情页都要挂载。 */
@@ -8,7 +8,7 @@ export function AbilityMcpDialogs({ mcp }: { mcp: McpSettingsModel }): JSX.Eleme
 	return (
 		<>
 			<ManualMcpDialog model={mcp} />
-			<McpEditDrawer model={mcp} />
+			<McpEditDialog model={mcp} />
 			<BuiltinMcpSecretsDialog
 				open={mcp.secretsDialogPreset !== null}
 				preset={mcp.secretsDialogPreset}

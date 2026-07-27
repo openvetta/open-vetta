@@ -3,8 +3,9 @@ import { useTranslation } from "react-i18next";
 import type { AbilitiesModel, McpAbility } from "../../types";
 
 /**
- * mcp 专属区块：凭证（secrets）与 OAuth 授权状态。
- * 具体表单仍复用设置页既有的 BuiltinMcpSecretsDialog / McpEditDrawer。
+ * mcp 专属区块：凭证（secrets）清单与 OAuth 授权状态。
+ * 「配置凭证 / 编辑配置」的入口在头部主 CTA 旁，表单复用设置页的
+ * BuiltinMcpSecretsDialog / McpEditDialog。
  */
 export function McpAbilitySection({
 	item,
@@ -57,21 +58,6 @@ export function McpAbilitySection({
 					</Button>
 				</div>
 			) : null}
-
-			<div className="flex flex-wrap gap-2">
-				{item.canConfigure ? (
-					<Button variant="outline" size="sm" disabled={item.busy} onClick={() => model.configure(item)}>
-						<span className="icon-[solar--key-minimalistic-square-linear] h-3.5 w-3.5" />
-						{t("actions.configure")}
-					</Button>
-				) : null}
-				{item.canEdit ? (
-					<Button variant="outline" size="sm" disabled={item.busy} onClick={() => model.edit(item)}>
-						<span className="icon-[solar--pen-2-linear] h-3.5 w-3.5" />
-						{t("actions.edit")}
-					</Button>
-				) : null}
-			</div>
 		</section>
 	);
 }

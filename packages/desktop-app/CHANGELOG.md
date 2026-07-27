@@ -28,6 +28,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 - **能力详情由独立页改为侧边抽屉**：`/abilities/$type/$slug` 重定向到 `/abilities?detail=<type>:<slug>`，详情在能力页内以抽屉呈现——宽屏右侧 60vw，窄屏（≤768px）改为底部弹出 85vh；深链与浏览器返回键仍可用，列表与详情共用同一个 model 实例，安装 / 启停结果直接反映到身后的列表。场景页与 bundle 成员的跳转一并改走该 search 参数。
 - **能力详情页版式调整**：作者/版本/许可移到标题下方，描述与标签移到图标下方通栏，面板内不再有返回按钮（遮罩 / Esc 关闭）；页尾区块（插件、MCP、套装、其他）与正文之间只用分隔线，小标题统一为 11px 大写 muted；插件权限改为三列纯文本清单（不再是卡片与开关），授予与否移到主 CTA 右侧「权限配置」按钮弹出的弹窗；插件内聚的 MCP / 技能列表收进单张卡片，条目用分隔线分隔、图标复用能力广场的 `AbilityIcon`、描述最多两行，超过 5 条折叠；「其他」（原元信息）改为标签-值两栏；markdown 正文去掉内边距；页面块级元素按序 `opacity + y` 入场，`prefers-reduced-motion` 下关闭。
+- **能力详情动作区统一**：主 CTA 改 `variant="primary"`，「权限配置 / 配置凭证 / 编辑配置 / 停用 / 移除」全部与主按钮同排，统一为主题色描边（移除保留破坏色）并补上图标；MCP 详情不再在正文底部重复一排按钮。
+- **编辑 MCP 由右侧抽屉改为弹窗**：`McpEditDrawer` → `McpEditDialog`，与「手动添加 MCP」同一套 `Dialog` 形态；能力详情本身已是抽屉，避免抽屉套抽屉。设置页与能力页共用该组件。
 - **能力头图 showcase 改版**：渐变舞台（primary 光晕 + 淡出细网格）+ 悬浮窗口 mock（design / code / docs / generic 四种主题），对话占更大篇幅，回复方头像改用 `BotAvatar`；配色全部走 `--primary` / `--border`，浅色深色都成立。
 - **侧边栏「对话」空状态**：无会话时由单行「暂无对话」改为图标 + 标题 + 引导说明；对话 tab 提供「开始新对话」CTA，且空态下头部「+」始终可见；Claw tab 单独说明如何产生记录。
 - **插件 agent 工具展示名走注册 label**：`registerTool({ label })` 直接写入展示表（支持 `%catalogKey%`）；Work 模式工具头优先用该 label，`generate_image` / `edit_image` 文案从宿主 `chat.toolLabel.alias` 迁到 image-gen 插件 catalog。
