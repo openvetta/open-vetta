@@ -79,6 +79,8 @@ export type {
 	RuntimeSessionCorePorts,
 	RuntimeSessionCreateOptions,
 	RuntimeSessionEventStream,
+	RuntimeSessionHistoryReader,
+	RuntimeSessionIdentityLifecycle,
 	RuntimeSessionState,
 	RuntimeSessionStateReader,
 	RuntimeSessionTurnControl,
@@ -86,11 +88,14 @@ export type {
 } from "./runtime-host/index.js";
 export {
 	asRuntimeHostSessionBackend,
+	createLegacyRuntimeHostSessionAssembly,
 	createLegacyRuntimeSessionCorePorts,
 	GreenfieldRuntimeSession,
 	GreenfieldRuntimeSessionBackend,
 	LegacyCodingAgentSessionBackend,
 	LegacyRuntimeSessionEventStream,
+	LegacyRuntimeSessionHistoryReader,
+	LegacyRuntimeSessionIdentityLifecycle,
 	LegacyRuntimeSessionStateReader,
 	LegacyRuntimeSessionTurnControl,
 	mapGreenfieldKernelEventToSessionEvents,

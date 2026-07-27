@@ -1,6 +1,14 @@
 import { type AgentSession, type CreateAgentSessionOptions, createAgentSession } from "@vetta/coding-agent";
-import { createLegacyRuntimeSessionCorePorts } from "./legacy-session-ports.js";
-import type { RuntimeSessionCorePorts } from "./session-ports.js";
+import {
+	createLegacyRuntimeSessionCorePorts,
+	LegacyRuntimeSessionHistoryReader,
+	LegacyRuntimeSessionIdentityLifecycle,
+} from "./legacy-session-ports.js";
+import type {
+	RuntimeSessionCorePorts,
+	RuntimeSessionHistoryReader,
+	RuntimeSessionIdentityLifecycle,
+} from "./session-ports.js";
 
 /**
  * 当前生产会话在 RuntimeHost 内部使用的会话合同。
@@ -25,6 +33,8 @@ export interface RuntimeSessionBackend<TCreateOptions = RuntimeSessionCreateOpti
 
 export interface RuntimeHostSessionAssembly {
 	readonly session: RuntimeSession;
+	readonly lifecycle: RuntimeSessionIdentityLifecycle;
+	readonly historyReader: RuntimeSessionHistoryReader;
 	readonly corePorts: RuntimeSessionCorePorts;
 }
 
@@ -39,10 +49,7 @@ export class RuntimeSessionBackendAssemblyAdapter implements RuntimeHostSessionB
 
 	async createAssembly(options: RuntimeSessionCreateOptions): Promise<RuntimeHostSessionAssembly> {
 		const session = await this.backend.create(options);
-		return {
-			session,
-			corePorts: createLegacyRuntimeSessionCorePorts(session),
-		};
+		return createLegacyRuntimeHostSessionAssembly(session);
 	}
 }
 
@@ -61,11 +68,17 @@ export class LegacyCodingAgentSessionBackend implements RuntimeSessionBackend, R
 
 	async createAssembly(options: RuntimeSessionCreateOptions): Promise<RuntimeHostSessionAssembly> {
 		const session = await this.create(options);
-		return {
-			session,
-			corePorts: createLegacyRuntimeSessionCorePorts(session),
-		};
+		return createLegacyRuntimeHostSessionAssembly(session);
 	}
+}
+
+export function createLegacyRuntimeHostSessionAssembly(session: RuntimeSession): RuntimeHostSessionAssembly {
+	return {
+		session,
+		lifecycle: new LegacyRuntimeSessionIdentityLifecycle(session),
+		historyReader: new LegacyRuntimeSessionHistoryReader(session),
+		corePorts: createLegacyRuntimeSessionCorePorts(session),
+	};
 }
 
 function isRuntimeHostSessionBackend(

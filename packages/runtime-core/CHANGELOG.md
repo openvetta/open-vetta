@@ -6,6 +6,7 @@ All notable changes to `@vetta/runtime-core` are documented in this file.
 
 ### Added
 
+- **Runtime Session 身份、生命周期与历史读取 Port**：新增 `RuntimeSessionIdentityLifecycle`、`RuntimeSessionHistoryReader` 及旧 Session 适配器，并由 Backend Assembly 显式交付；RuntimeHost 的 sessionId/path/dispose 与完整历史读取不再直接依赖旧 AgentSession，行为保持不变。
 - **Runtime Session Backend Assembly**：新增显式交付旧外围句柄与 Core Ports 的 `RuntimeHostSessionAssembly` / Backend 合同；RuntimeHost 不再自行创建 Legacy Ports，原 create-only Backend 通过独立兼容适配器继续工作。
 - **Runtime Session 基础能力 Port**：新增独立 Turn Control、Event Stream 与 State Reader 合同及旧 Session 适配器；RuntimeHost 的 prompt/continue/abort、事件订阅和状态读取不再直接依赖旧 AgentSession，外围能力和生产行为保持不变。
 - **显式 Session Resume 与未完成 Turn 恢复**：新增 `resumeAgentSession`、`ConversationRecoveryPolicy` 和 Greenfield Backend resume 路径；唯一未闭合 Turn 通过乐观版本追加稳定的 `turn_interrupted` 终态，非法事件序列 fail closed，且不重放模型、工具或进程内输入队列。

@@ -1,5 +1,12 @@
 import type { Message } from "@vetta/ai";
-import type { PromptRequest, SessionEvent, SessionStateSnapshot } from "../contracts.js";
+import type { HistoryEntry, PromptRequest, SessionEvent, SessionStateSnapshot } from "../contracts.js";
+
+/** 会话身份与资源释放；不承载宿主 UI 绑定或业务外围能力。 */
+export interface RuntimeSessionIdentityLifecycle {
+	readonly sessionId: string;
+	readonly sessionPath: string | undefined;
+	dispose(): Promise<void>;
+}
 
 /** RuntimeHost 完成宿主预处理后交给 Turn 执行边界的输入。 */
 export interface RuntimeTurnPrompt {
@@ -40,6 +47,11 @@ export type RuntimeSessionState = Pick<
 export interface RuntimeSessionStateReader {
 	readState(): RuntimeSessionState;
 	readMessages(): readonly Message[];
+}
+
+/** 当前活动分支的宿主稳定历史投影，只读且不负责分支导航。 */
+export interface RuntimeSessionHistoryReader {
+	readHistory(): readonly HistoryEntry[];
 }
 
 export interface RuntimeSessionCorePorts {

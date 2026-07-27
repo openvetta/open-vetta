@@ -1,16 +1,35 @@
 import type { Message } from "@vetta/ai";
 import type { AgentSessionEvent } from "@vetta/coding-agent";
-import type { SessionEvent } from "../contracts.js";
+import type { HistoryEntry, SessionEvent } from "../contracts.js";
+import { entriesToHistory } from "./history.js";
 import type { RuntimeSession } from "./session-backend.js";
 import { mapAgentSessionEvent } from "./session-events.js";
 import type {
 	RuntimeSessionCorePorts,
 	RuntimeSessionEventStream,
+	RuntimeSessionHistoryReader,
+	RuntimeSessionIdentityLifecycle,
 	RuntimeSessionState,
 	RuntimeSessionStateReader,
 	RuntimeSessionTurnControl,
 	RuntimeTurnPrompt,
 } from "./session-ports.js";
+
+export class LegacyRuntimeSessionIdentityLifecycle implements RuntimeSessionIdentityLifecycle {
+	constructor(private readonly session: RuntimeSession) {}
+
+	get sessionId(): string {
+		return this.session.sessionId;
+	}
+
+	get sessionPath(): string | undefined {
+		return this.session.sessionFile;
+	}
+
+	async dispose(): Promise<void> {
+		await this.session.dispose();
+	}
+}
 
 export class LegacyRuntimeSessionTurnControl implements RuntimeSessionTurnControl {
 	constructor(private readonly session: RuntimeSession) {}
@@ -93,6 +112,15 @@ export class LegacyRuntimeSessionStateReader implements RuntimeSessionStateReade
 		return this.session.messages.filter((message): message is Message => {
 			return message.role === "user" || message.role === "assistant" || message.role === "toolResult";
 		});
+	}
+}
+
+export class LegacyRuntimeSessionHistoryReader implements RuntimeSessionHistoryReader {
+	constructor(private readonly session: RuntimeSession) {}
+
+	readHistory(): readonly HistoryEntry[] {
+		const sessionManager = this.session.sessionManager;
+		return entriesToHistory(this.session.getSessionBranch(), { allEntries: sessionManager.getEntries() });
 	}
 }
 

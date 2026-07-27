@@ -302,7 +302,7 @@ export class RuntimeHost implements SessionFacade {
 	private findHandleBySessionPath(sessionPath: string): { sessionId: string; handle: SessionHandle } | undefined {
 		const target = resolvePath(sessionPath);
 		for (const [sessionId, handle] of this.sessions) {
-			const openPath = handle.session.sessionFile;
+			const openPath = handle.lifecycle.sessionPath;
 			if (openPath && resolvePath(openPath) === target) {
 				return { sessionId, handle };
 			}
@@ -412,12 +412,14 @@ export class RuntimeHost implements SessionFacade {
 			modelRegistry: this.modelRegistry,
 		};
 
-		const { session, corePorts } = await this.sessionBackend.createAssembly(options);
-		const sessionId = session.sessionId;
+		const { session, lifecycle, historyReader, corePorts } = await this.sessionBackend.createAssembly(options);
+		const sessionId = lifecycle.sessionId;
 		sessionIdRef.current = sessionId;
 		await session.bindExtensions({ uiContext: this.createExtensionUIContext(sessionIdRef) });
 		this.sessions.set(sessionId, {
 			session,
+			lifecycle,
+			historyReader,
 			...corePorts,
 			executionMode,
 			agentPluginsEnabled: config.enableAgentPlugins === true,
@@ -432,7 +434,7 @@ export class RuntimeHost implements SessionFacade {
 			sessionId,
 			agentPluginsEnabled: config.enableAgentPlugins === true,
 		});
-		this.attachInFlightBuffer(sessionId, session.sessionFile, corePorts.eventStream);
+		this.attachInFlightBuffer(sessionId, lifecycle.sessionPath, corePorts.eventStream);
 
 		// Stale-while-revalidate：当前的远程 model 数据已就绪可用（来自启动预热
 		// 或上一次刷新），这里再 fire-and-forget 一次刷新，不 await。
@@ -837,9 +839,7 @@ export class RuntimeHost implements SessionFacade {
 
 	getFullHistory(sessionId: string): HistoryEntry[] {
 		const handle = this.requireSession(sessionId);
-		const sm = handle.session.sessionManager;
-		const branch = handle.session.getSessionBranch();
-		return entriesToHistory(branch, { allEntries: sm.getEntries() });
+		return [...handle.historyReader.readHistory()];
 	}
 
 	/**
@@ -952,8 +952,8 @@ export class RuntimeHost implements SessionFacade {
 			this.inFlightBuffers.delete(existing.sessionId);
 			this.externalSubscribers.delete(existing.sessionId);
 			// session 销毁不是回合结束：传 sessionId 但不带 reason，避免触发出队。
-			this.markRunning(existing.handle.session.sessionFile, false, existing.sessionId);
-			existing.handle.session.dispose();
+			this.markRunning(existing.handle.lifecycle.sessionPath, false, existing.sessionId);
+			await existing.handle.lifecycle.dispose();
 			this.sessions.delete(existing.sessionId);
 		}
 		await rm(sessionPath, { force: true });
@@ -1019,7 +1019,7 @@ export class RuntimeHost implements SessionFacade {
 	getSessionPath(sessionId: string): string | undefined {
 		const handle = this.sessions.get(sessionId);
 		if (!handle) return undefined;
-		return handle.session.sessionFile;
+		return handle.lifecycle.sessionPath;
 	}
 
 	renameSessionById(sessionId: string, name: string): void {
@@ -1068,8 +1068,8 @@ export class RuntimeHost implements SessionFacade {
 		this.inFlightBuffers.delete(sessionId);
 		this.externalSubscribers.delete(sessionId);
 		// session 销毁不是回合结束：传 sessionId 但不带 reason，避免触发出队。
-		this.markRunning(handle.session.sessionFile, false, sessionId);
-		handle.session.dispose();
+		this.markRunning(handle.lifecycle.sessionPath, false, sessionId);
+		await handle.lifecycle.dispose();
 		this.sessions.delete(sessionId);
 		this.currentTurnStartedAt.delete(sessionId);
 		clearSessionGrants(sessionId);
@@ -1084,7 +1084,7 @@ export class RuntimeHost implements SessionFacade {
 		for (const [sessionId, handle] of this.sessions) {
 			try {
 				this.detachSessionEventStreams(sessionId);
-				handle.session.dispose();
+				await handle.lifecycle.dispose();
 			} catch (err) {
 				console.error(`[RuntimeHost.disposeAllSessions] failed to dispose ${sessionId}:`, err);
 			}

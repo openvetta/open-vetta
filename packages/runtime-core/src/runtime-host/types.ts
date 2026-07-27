@@ -11,12 +11,16 @@ import type {
 import type { RuntimeHostSessionBackend, RuntimeSession, RuntimeSessionBackend } from "./session-backend.js";
 import type {
 	RuntimeSessionEventStream,
+	RuntimeSessionHistoryReader,
+	RuntimeSessionIdentityLifecycle,
 	RuntimeSessionStateReader,
 	RuntimeSessionTurnControl,
 } from "./session-ports.js";
 
 export interface SessionHandle {
 	session: RuntimeSession;
+	lifecycle: RuntimeSessionIdentityLifecycle;
+	historyReader: RuntimeSessionHistoryReader;
 	turnControl: RuntimeSessionTurnControl;
 	eventStream: RuntimeSessionEventStream;
 	stateReader: RuntimeSessionStateReader;

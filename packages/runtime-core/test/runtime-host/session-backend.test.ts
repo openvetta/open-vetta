@@ -1,6 +1,7 @@
 import type { AgentSessionEvent } from "@vetta/coding-agent";
 import { describe, expect, it, vi } from "vitest";
 import {
+	type HistoryEntry,
 	RuntimeHost,
 	type RuntimeHostSessionAssembly,
 	type RuntimeHostSessionBackend,
@@ -147,6 +148,7 @@ describe("RuntimeHost session backend boundary", () => {
 
 	it("uses core ports supplied by an assembly backend without deriving legacy adapters", async () => {
 		const sessionDouble = createSessionDouble();
+		const dispose = vi.fn(async () => {});
 		const prompt = vi.fn(async () => {});
 		const continueTurn = vi.fn(async () => {});
 		const abort = vi.fn(async () => {});
@@ -172,7 +174,22 @@ describe("RuntimeHost session backend boundary", () => {
 				readMessages: () => [{ role: "user", content: "from assembly", timestamp: 3 }],
 			},
 		};
-		const backend = new RecordingAssemblyBackend({ session: sessionDouble.session, corePorts });
+		const history: HistoryEntry[] = [
+			{
+				type: "message",
+				message: { role: "user", content: "assembly history", timestamp: 4 },
+			},
+		];
+		const backend = new RecordingAssemblyBackend({
+			session: sessionDouble.session,
+			lifecycle: {
+				sessionId: "assembly-session",
+				sessionPath: "assembly.jsonl",
+				dispose,
+			},
+			historyReader: { readHistory: () => history },
+			corePorts,
+		});
 		const host = new RuntimeHost({ sessionBackend: backend, getDefaultExecutionMode: () => "full-access" });
 		const { sessionId } = await host.createSession();
 
@@ -181,6 +198,7 @@ describe("RuntimeHost session backend boundary", () => {
 		await host.abort(sessionId);
 
 		expect(backend.calls).toHaveLength(1);
+		expect(sessionId).toBe("assembly-session");
 		expect(prompt).toHaveBeenCalledWith({
 			text: "through port",
 			images: undefined,
@@ -199,6 +217,12 @@ describe("RuntimeHost session backend boundary", () => {
 			activeToolNames: ["assembly-tool"],
 		});
 		expect(host.getMessages(sessionId)).toEqual([{ role: "user", content: "from assembly", timestamp: 3 }]);
+		expect(host.getSessionPath(sessionId)).toBe("assembly.jsonl");
+		expect(host.getFullHistory(sessionId)).toEqual(history);
+
+		await host.disposeSession(sessionId);
+		expect(dispose).toHaveBeenCalledOnce();
+		expect(sessionDouble.session.dispose).not.toHaveBeenCalled();
 	});
 
 	it("maps live events and replays the current text delta after resubscribe", async () => {
