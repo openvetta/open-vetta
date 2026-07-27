@@ -171,6 +171,16 @@ export type {
 	SubscriptionWindowViewModel,
 } from "./SubscriptionCardsView";
 export { SubscriptionCardsView } from "./SubscriptionCardsView";
+export type { SettingsEnterItemProps } from "./settingsEnter";
+export {
+	SETTINGS_ENTER_DELAY_CHILDREN,
+	SETTINGS_ENTER_DURATION,
+	SETTINGS_ENTER_EASE,
+	SETTINGS_ENTER_STAGGER,
+	SettingsEnterItem,
+	SettingsTabEnter,
+	useSettingsEnterDelay,
+} from "./settingsEnter";
 export type {
 	TeamDetailViewData,
 	TeamDetailViewLabels,
