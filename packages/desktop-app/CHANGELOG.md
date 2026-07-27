@@ -11,6 +11,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **设置页元素入场动画**：切换设置侧栏 tab 时，标题 / `SettingSection` 卡片等块级元素按序 `opacity + y` 入场（stagger ≈50ms，遵循 DESIGN.md §5.1）；`prefers-reduced-motion` 下关闭；未走 `SettingSection` 的裸标题等由 CSS 兜底。
 - **能力统一详情侧栏（声明式 JSON）**：能力列表点击 skill / 连接器共用右侧 Drawer；Figma / GitHub / Notion 各自由一个经运行时 schema 校验的 JSON 文档定义 section、模板与中英文资源，宿主继续掌管状态及添加/启用/配置 CTA；未配置详情文档的能力使用元数据降级展示。非官方可执行 UI。
 - **能力详情呈现模板 `chat-over-canvas`**：参考图中的「演示区」非静态图片，由宿主 CSS 画布 mock（design/code/docs）+ 对话气泡组合；catalog 仅选 template 与 canvas motif。
 - **WebdriverIO Electron E2E scaffold**: `@wdio/electron-service` with unpackaged smoke via `dist/main/index.js` (`bun run test:e2e`); `VETTA_E2E_PACKAGED=1` / `bun run test:e2e:packaged` for `release/*-unpacked` binaries. See `wdio.conf.ts` and `e2e/`.
