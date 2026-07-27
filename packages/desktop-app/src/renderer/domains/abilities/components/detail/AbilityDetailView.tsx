@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { resolveAbilityDetailContent } from "../../lib/ability-presentation";
 import type { AbilitiesModel, AbilityItem } from "../../types";
 import { AbilityDetailEnter } from "./AbilityDetailEnter";
-import { AbilityDetailHeader } from "./AbilityDetailHeader";
+import { ABILITY_DETAIL_ASIDE_BUTTON_CLASS, AbilityDetailHeader } from "./AbilityDetailHeader";
 import { AbilityMarkdownBody } from "./AbilityMarkdownBody";
 import { AbilityMetaList } from "./AbilityMetaList";
 import { AbilityShowcaseList } from "./AbilityShowcaseList";
@@ -70,6 +70,52 @@ export function AbilityDetailView({
 		}
 	};
 
+	// 主 CTA 右侧的次要入口：插件是权限配置，mcp 是凭证 / 配置编辑。
+	const primaryAside = ((): JSX.Element | undefined => {
+		if (item.type === "plugin" && item.permissions.length > 0) {
+			return (
+				<Button
+					variant="outline"
+					size="lg"
+					className={ABILITY_DETAIL_ASIDE_BUTTON_CLASS}
+					onClick={() => setPermissionsDialogOpen(true)}
+				>
+					<span className="icon-[solar--shield-keyhole-linear] h-4 w-4" />
+					{t("plugin.permissionsDialog")}
+				</Button>
+			);
+		}
+		if (item.type === "mcp" && item.canConfigure) {
+			return (
+				<Button
+					variant="outline"
+					size="lg"
+					className={ABILITY_DETAIL_ASIDE_BUTTON_CLASS}
+					disabled={item.busy}
+					onClick={() => model.configure(item)}
+				>
+					<span className="icon-[solar--key-minimalistic-square-linear] h-4 w-4" />
+					{t("actions.configure")}
+				</Button>
+			);
+		}
+		if (item.type === "mcp" && item.canEdit) {
+			return (
+				<Button
+					variant="outline"
+					size="lg"
+					className={ABILITY_DETAIL_ASIDE_BUTTON_CLASS}
+					disabled={item.busy}
+					onClick={() => model.edit(item)}
+				>
+					<span className="icon-[solar--pen-2-linear] h-4 w-4" />
+					{t("actions.edit")}
+				</Button>
+			);
+		}
+		return undefined;
+	})();
+
 	// 滚动与内边距由外层容器（AbilityDetailSheet）负责，这里只排内容列。
 	return (
 		<div className="flex w-full flex-col gap-7">
@@ -78,14 +124,7 @@ export function AbilityDetailView({
 					item={item}
 					onPrimary={handlePrimary}
 					onSecondary={handleSecondary}
-					primaryAside={
-						item.type === "plugin" && item.permissions.length > 0 ? (
-							<Button variant="outline" size="lg" onClick={() => setPermissionsDialogOpen(true)}>
-								<span className="icon-[solar--shield-keyhole-linear] h-4 w-4" />
-								{t("plugin.permissionsDialog")}
-							</Button>
-						) : undefined
-					}
+					primaryAside={primaryAside}
 				/>
 			</AbilityDetailEnter>
 

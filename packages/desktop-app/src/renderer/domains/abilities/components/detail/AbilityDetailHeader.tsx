@@ -12,6 +12,16 @@ import type { AbilityItem } from "../../types";
 import { AbilityIcon } from "../AbilityIcon";
 import { AbilityStatusBadges, AbilityTypeBadge } from "../AbilityBadges";
 
+/** 主 CTA 之外的动作统一走这套主题色描边样式（权限配置 / 配置凭证 / 停用…）。 */
+export const ABILITY_DETAIL_ASIDE_BUTTON_CLASS =
+	"border-primary/30 text-primary hover:bg-primary/10 hover:text-primary";
+
+const SECONDARY_ICONS: Record<AbilitySecondaryAction, string> = {
+	disable: "icon-[solar--pause-circle-linear]",
+	configure: "icon-[solar--key-minimalistic-square-linear]",
+	remove: "icon-[solar--trash-bin-trash-linear]",
+};
+
 /** 通用壳层：图标 / 标题 / 作者 / 版本 / 状态 / 描述 / 主次 CTA。 */
 export function AbilityDetailHeader({
 	item,
@@ -106,10 +116,16 @@ export function AbilityDetailHeader({
 				</div>
 			) : null}
 
-			{primary !== "none" || primaryAside ? (
-				<div className="mt-5 flex items-center gap-2">
+			{primary !== "none" || primaryAside || secondaries.length > 0 ? (
+				<div className="mt-5 flex flex-wrap items-center gap-2">
 					{primary !== "none" ? (
-						<Button className="flex-1" size="lg" disabled={item.busy} onClick={onPrimary}>
+						<Button
+							variant="primary"
+							className="min-w-40 flex-1"
+							size="lg"
+							disabled={item.busy}
+							onClick={onPrimary}
+						>
 							{item.busy ? (
 								<span className="icon-[solar--refresh-linear] h-4 w-4 animate-spin" />
 							) : (
@@ -119,20 +135,20 @@ export function AbilityDetailHeader({
 						</Button>
 					) : null}
 					{primaryAside}
-				</div>
-			) : null}
-
-			{secondaries.length > 0 ? (
-				<div className="mt-3 flex flex-wrap gap-2">
 					{secondaries.map((kind) => (
 						<Button
 							key={kind}
-							variant="ghost"
-							size="sm"
+							variant="outline"
+							size="lg"
 							disabled={item.busy}
-							className={cn(kind === "remove" && "text-destructive hover:text-destructive")}
+							className={cn(
+								kind === "remove"
+									? "border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+									: ABILITY_DETAIL_ASIDE_BUTTON_CLASS,
+							)}
 							onClick={() => onSecondary(kind)}
 						>
+							<span className={cn("h-4 w-4", SECONDARY_ICONS[kind])} />
 							{t(`detail.secondary.${kind}`)}
 						</Button>
 					))}
