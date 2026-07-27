@@ -22,6 +22,7 @@ entry until downstream adapters are ready to switch.
 - backend-provided RuntimeHost session assemblies with create-only backend compatibility
 - backend-provided Session Identity/Lifecycle and read-only History ports with legacy adapters
 - backend-provided History Controller for guarded edits, branches, forks and session naming
+- backend-provided Model Controller for selection, thinking level and session-scoped auth refresh
 - runtime-owned tool execution and policy contracts
 
 ## What It Does Not Own
@@ -43,6 +44,7 @@ entry until downstream adapters are ready to switch.
 - `RuntimeSessionTurnControl`, `RuntimeSessionEventStream` and `RuntimeSessionStateReader` core host ports
 - `RuntimeSessionIdentityLifecycle` and `RuntimeSessionHistoryReader` for identity, disposal and history projection
 - `RuntimeSessionHistoryController` for guarded history mutation and live-session naming
+- `RuntimeSessionModelController` for model selection and model-related write configuration
 - `RuntimeHostSessionAssembly` and `RuntimeHostSessionBackend` for explicit composition-root capability delivery
 - `GreenfieldRuntimeSessionBackend` for parallel Kernel composition without impersonating the legacy session
 - `resumeAgentSession` and `ConversationRecoveryPolicy` for recovery without model or tool replay

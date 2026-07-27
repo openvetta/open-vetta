@@ -29,6 +29,7 @@ export {
 	LegacyRuntimeSessionHistoryController,
 	LegacyRuntimeSessionHistoryReader,
 	LegacyRuntimeSessionIdentityLifecycle,
+	LegacyRuntimeSessionModelController,
 	LegacyRuntimeSessionStateReader,
 	LegacyRuntimeSessionTurnControl,
 } from "./legacy-session-ports.js";
@@ -48,11 +49,13 @@ export {
 } from "./session-backend.js";
 export { mapRuntimeSessionObservationEvent } from "./session-events.js";
 export type {
+	RuntimeModelSelectionStrategy,
 	RuntimeSessionCorePorts,
 	RuntimeSessionEventStream,
 	RuntimeSessionHistoryController,
 	RuntimeSessionHistoryReader,
 	RuntimeSessionIdentityLifecycle,
+	RuntimeSessionModelController,
 	RuntimeSessionState,
 	RuntimeSessionStateReader,
 	RuntimeSessionTurnControl,

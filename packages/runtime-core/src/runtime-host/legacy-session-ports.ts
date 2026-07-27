@@ -5,11 +5,13 @@ import { entriesToHistory } from "./history.js";
 import type { RuntimeSession } from "./session-backend.js";
 import { mapAgentSessionEvent } from "./session-events.js";
 import type {
+	RuntimeModelSelectionStrategy,
 	RuntimeSessionCorePorts,
 	RuntimeSessionEventStream,
 	RuntimeSessionHistoryController,
 	RuntimeSessionHistoryReader,
 	RuntimeSessionIdentityLifecycle,
+	RuntimeSessionModelController,
 	RuntimeSessionState,
 	RuntimeSessionStateReader,
 	RuntimeSessionTurnControl,
@@ -171,6 +173,35 @@ export class LegacyRuntimeSessionHistoryController implements RuntimeSessionHist
 		if (this.session.isStreaming || this.session.isBashRunning) {
 			throw new Error(message);
 		}
+	}
+}
+
+export class LegacyRuntimeSessionModelController implements RuntimeSessionModelController {
+	constructor(private readonly session: RuntimeSession) {}
+
+	async selectModel(modelKey: string, strategy: RuntimeModelSelectionStrategy): Promise<void> {
+		const [provider, ...rest] = modelKey.split("/");
+		const modelId = rest.join("/");
+		const registry = this.session.modelRegistry;
+		const available = registry.getAvailable();
+		const model =
+			available.find((candidate) => candidate.provider === provider && candidate.id === modelId) ??
+			registry.find(provider, modelId);
+		if (!model) return;
+		if (strategy === "if-changed") {
+			const current = this.session.model;
+			if (current?.provider === provider && current.id === modelId) return;
+		}
+		await this.session.setModel(model);
+	}
+
+	setThinkingLevel(level: Parameters<RuntimeSessionModelController["setThinkingLevel"]>[0]): void {
+		this.session.setThinkingLevel(level);
+	}
+
+	async refreshAuth(token: string | undefined): Promise<void> {
+		this.session.modelRegistry.setServerToken(token);
+		await this.session.modelRegistry.loadRemoteModels();
 	}
 }
 

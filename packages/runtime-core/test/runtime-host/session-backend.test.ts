@@ -149,9 +149,19 @@ describe("RuntimeHost session backend boundary", () => {
 	it("uses core ports supplied by an assembly backend without deriving legacy adapters", async () => {
 		const sessionDouble = createSessionDouble();
 		const dispose = vi.fn(async () => {});
-		const prompt = vi.fn(async () => {});
+		const modelCalls: string[] = [];
+		const prompt = vi.fn(async () => {
+			modelCalls.push("prompt");
+		});
 		const continueTurn = vi.fn(async () => {});
 		const abort = vi.fn(async () => {});
+		const selectModel = vi.fn(async (modelKey: string, strategy: string) => {
+			modelCalls.push(`select:${modelKey}:${strategy}`);
+		});
+		const setThinkingLevel = vi.fn((level: string) => {
+			modelCalls.push(`thinking:${level}`);
+		});
+		const refreshAuth = vi.fn(async () => {});
 		const eventListeners = new Set<(event: SessionEvent) => void>();
 		const corePorts: RuntimeSessionCorePorts = {
 			turnControl: { prompt, continue: continueTurn, abort },
@@ -202,12 +212,20 @@ describe("RuntimeHost session backend boundary", () => {
 				forkSession,
 				setName,
 			},
+			modelController: { selectModel, setThinkingLevel, refreshAuth },
 			corePorts,
 		});
 		const host = new RuntimeHost({ sessionBackend: backend, getDefaultExecutionMode: () => "full-access" });
 		const { sessionId } = await host.createSession();
 
-		await host.prompt(sessionId, { text: "through port" });
+		await host.prompt(sessionId, {
+			text: "through port",
+			modelKey: "provider/model",
+			reasoning: "high",
+		});
+		await host.updateSettings(sessionId, { modelKey: "provider/settings-model", thinkingLevel: "medium" });
+		host.updateGlobalThinkingLevel("low");
+		await host.reloadServerAuth("server-token");
 		await host.continue(sessionId);
 		await host.abort(sessionId);
 
@@ -223,6 +241,13 @@ describe("RuntimeHost session backend boundary", () => {
 		});
 		expect(continueTurn).toHaveBeenCalledOnce();
 		expect(abort).toHaveBeenCalledOnce();
+		expect(selectModel).toHaveBeenNthCalledWith(1, "provider/model", "if-changed");
+		expect(selectModel).toHaveBeenNthCalledWith(2, "provider/settings-model", "always");
+		expect(setThinkingLevel).toHaveBeenNthCalledWith(1, "high");
+		expect(setThinkingLevel).toHaveBeenNthCalledWith(2, "medium");
+		expect(setThinkingLevel).toHaveBeenNthCalledWith(3, "low");
+		expect(refreshAuth).toHaveBeenCalledWith("server-token");
+		expect(modelCalls.slice(0, 3)).toEqual(["select:provider/model:if-changed", "thinking:high", "prompt"]);
 		expect(sessionDouble.prompt).not.toHaveBeenCalled();
 		expect(sessionDouble.session.subscribe).not.toHaveBeenCalled();
 		expect(host.getState(sessionId)).toMatchObject({

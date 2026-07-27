@@ -1,3 +1,4 @@
+import type { ThinkingLevel } from "@vetta/agent-core";
 import type { Message } from "@vetta/ai";
 import type { HistoryEntry, PromptRequest, SessionEvent, SessionStateSnapshot } from "../contracts.js";
 
@@ -65,6 +66,15 @@ export interface RuntimeSessionHistoryController {
 	replaceLastUserMessage(entryId: string): { leafId: string | null };
 	forkSession(entryId: string): { path: string; text: string };
 	setName(name: string): void;
+}
+
+export type RuntimeModelSelectionStrategy = "if-changed" | "always";
+
+/** 模型与思考等级的写配置边界；不提供外围推理任务所需的模型只读视图。 */
+export interface RuntimeSessionModelController {
+	selectModel(modelKey: string, strategy: RuntimeModelSelectionStrategy): Promise<void>;
+	setThinkingLevel(level: ThinkingLevel): void;
+	refreshAuth(token: string | undefined): Promise<void>;
 }
 
 export interface RuntimeSessionCorePorts {

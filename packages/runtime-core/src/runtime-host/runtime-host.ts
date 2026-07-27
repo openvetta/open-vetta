@@ -283,10 +283,9 @@ export class RuntimeHost implements SessionFacade {
 		}
 		const handles = Array.from(this.sessions.values());
 		await Promise.all(
-			handles.map(async ({ session }) => {
+			handles.map(async ({ modelController }) => {
 				try {
-					session.modelRegistry.setServerToken(token);
-					await session.modelRegistry.loadRemoteModels();
+					await modelController.refreshAuth(token);
 				} catch (err) {
 					console.warn("[RuntimeHost] reloadServerAuth failed for session:", err);
 				}
@@ -412,7 +411,7 @@ export class RuntimeHost implements SessionFacade {
 			modelRegistry: this.modelRegistry,
 		};
 
-		const { session, lifecycle, historyReader, historyController, corePorts } =
+		const { session, lifecycle, historyReader, historyController, modelController, corePorts } =
 			await this.sessionBackend.createAssembly(options);
 		const sessionId = lifecycle.sessionId;
 		sessionIdRef.current = sessionId;
@@ -422,6 +421,7 @@ export class RuntimeHost implements SessionFacade {
 			lifecycle,
 			historyReader,
 			historyController,
+			modelController,
 			...corePorts,
 			executionMode,
 			agentPluginsEnabled: config.enableAgentPlugins === true,
@@ -570,8 +570,6 @@ export class RuntimeHost implements SessionFacade {
 		// Ensure the session model matches the requested model BEFORE prompting,
 		// so the model actually used is always the one the UI displays.
 		if (request.modelKey) {
-			const [provider, ...rest] = request.modelKey.split("/");
-			const modelId = rest.join("/");
 			// getAvailable() filters out providers where authStorage.hasAuth() is
 			// false. Local custom providers (e.g. a self-hosted qwen-local) can
 			// fail that check even when fully configured in models.json — the
@@ -579,23 +577,14 @@ export class RuntimeHost implements SessionFacade {
 			// host-process scenarios race with it. Fall back to find() so an
 			// explicit user selection isn't silently dropped; if auth is truly
 			// missing, the provider request itself will return a clean error.
-			const available = handle.session.modelRegistry.getAvailable();
-			const model =
-				available.find((m) => m.provider === provider && m.id === modelId) ??
-				handle.session.modelRegistry.find(provider, modelId);
-			if (model) {
-				const current = handle.session.model;
-				if (!current || current.provider !== provider || current.id !== modelId) {
-					await handle.session.setModel(model);
-				}
-			}
+			await handle.modelController.selectModel(request.modelKey, "if-changed");
 		}
 
 		// Apply the per-turn reasoning level (rides alongside modelKey) BEFORE prompting so
 		// the model and its chosen effort stay consistent. setModel above re-clamps thinking
 		// to the new model, so this must run after it.
 		if (request.reasoning) {
-			handle.session.setThinkingLevel(request.reasoning);
+			handle.modelController.setThinkingLevel(request.reasoning);
 		}
 
 		// Session cwd (esp. desktop ADR-0007 per-session dirs) may have been deleted
@@ -785,20 +774,12 @@ export class RuntimeHost implements SessionFacade {
 	async updateSettings(sessionId: string, partialSettings: SettingsPatch): Promise<void> {
 		const handle = this.requireSession(sessionId);
 		if (partialSettings.modelKey) {
-			const [provider, ...rest] = partialSettings.modelKey.split("/");
-			const modelId = rest.join("/");
 			// 见 prompt() 中的同名注释：getAvailable() 会因为 hasAuth 误判把本地 provider 过滤
 			// 掉，导致用户的显式选择被静默丢弃。先尝试 available，再回退到 registry.find()。
-			const available = handle.session.modelRegistry.getAvailable();
-			const model =
-				available.find((m) => m.provider === provider && m.id === modelId) ??
-				handle.session.modelRegistry.find(provider, modelId);
-			if (model) {
-				await handle.session.setModel(model);
-			}
+			await handle.modelController.selectModel(partialSettings.modelKey, "always");
 		}
 		if (partialSettings.thinkingLevel) {
-			handle.session.setThinkingLevel(partialSettings.thinkingLevel);
+			handle.modelController.setThinkingLevel(partialSettings.thinkingLevel);
 		}
 		if (partialSettings.steeringMode) {
 			handle.session.setSteeringMode(partialSettings.steeringMode);
@@ -810,7 +791,7 @@ export class RuntimeHost implements SessionFacade {
 
 	updateGlobalThinkingLevel(level: ThinkingLevel): void {
 		for (const handle of this.sessions.values()) {
-			handle.session.setThinkingLevel(level);
+			handle.modelController.setThinkingLevel(level);
 		}
 	}
 
