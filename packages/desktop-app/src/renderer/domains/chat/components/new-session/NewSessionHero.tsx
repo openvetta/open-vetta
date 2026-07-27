@@ -1,7 +1,6 @@
 import { useCallback } from "react";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
-import { BotAvatar } from "@shared/components/BotAvatar";
 import { cn } from "@shared/lib/utils";
 import { useThemeComponent } from "@vetta/theme-sdk";
 import type { NewSessionHeroProps, NewSessionSceneItem } from "@vetta/theme-ui";
@@ -68,7 +67,7 @@ export function NewSessionHero({
 }
 
 export function DefaultNewSessionHero({
-	avatarAutoplay,
+	avatarAutoplay: _avatarAutoplay,
 	className,
 	greetingTitle,
 	mounted,
@@ -97,7 +96,7 @@ export function DefaultNewSessionHero({
 				{/* 欢迎语上方的引导 badge 轮播 */}
 				<GuideBadgeSwiper mounted={mounted} />
 
-				{/* 标题行：问候语 + 工作模式切换，右侧 BotAvatar */}
+				{/* 标题行：问候语 + 工作模式切换，右侧新会话吉祥物 */}
 				<div className="flex w-full items-center justify-between gap-4">
 					<div className="flex min-w-0 flex-col">
 						<div className="flex min-w-0 items-center gap-2.5">
@@ -120,7 +119,13 @@ export function DefaultNewSessionHero({
 							{subtitle}
 						</motion.p>
 					</div>
-					<BotAvatar size="lg" autoplay={avatarAutoplay} />
+					<img
+						aria-hidden="true"
+						alt=""
+						className="h-16 w-32 shrink-0 select-none object-contain object-right"
+						draggable={false}
+						src="./new-session/ferret.webp"
+					/>
 				</div>
 				{showSceneCarousel && (
 					<ThemedSceneCarousel
