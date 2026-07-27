@@ -1,5 +1,5 @@
 import { useThemeSurface } from "@vetta/theme-sdk/appearance";
-import { SettingsContentLoadingView } from "@vetta/theme-ui/settings";
+import { SettingsContentLoadingView, SettingsTabEnter } from "@vetta/theme-ui/settings";
 import type { SettingsTab } from "@shared/store/atoms";
 import { lazy, Suspense, type ComponentType, type LazyExoticComponent } from "react";
 import { SettingsPageView } from "./SettingsPageView";
@@ -65,11 +65,16 @@ export function SettingsPage(): JSX.Element {
 	const Content =
 		model.activeTab === "mcp" ? SETTINGS_CONTENT.general : SETTINGS_CONTENT[model.activeTab];
 
+	const activeTab = model.activeTab === "mcp" ? "general" : model.activeTab;
+
 	return (
 		<SettingsPageView
 			content={
 				<Suspense fallback={<SettingsContentLoadingView />}>
-					<Content />
+					{/* key=tab：切换侧栏时重挂载，触发 SettingsEnterItem stagger 与 CSS 兜底入场 */}
+					<SettingsTabEnter key={activeTab} className="settings-tab-enter w-full min-h-0">
+						<Content />
+					</SettingsTabEnter>
 				</Suspense>
 			}
 			contentSurfaceRootClassName={contentSurface?.rootClassName}
