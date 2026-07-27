@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getPresetProvider, getSeedModels, PRESET_PROVIDERS } from "./catalog.js";
+import { getPresetProvider } from "./catalog.js";
 import { type FetchImpl, fetchPresetModels } from "./fetch.js";
 
 function jsonResponse(body: unknown, init?: { ok?: boolean; status?: number }): Response {
@@ -150,15 +150,5 @@ describe("fetchPresetModels", () => {
 
 		expect(result.models).toEqual([]);
 		expect(result.error).toBeTruthy();
-	});
-});
-
-describe("preset catalog", () => {
-	it("每个预设都有可用的种子模型", () => {
-		for (const provider of PRESET_PROVIDERS) {
-			const seeds = getSeedModels(provider);
-			expect(seeds.length).toBeGreaterThan(0);
-			expect(seeds.every((model) => model.id.length > 0)).toBe(true);
-		}
 	});
 });

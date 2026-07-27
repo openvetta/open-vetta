@@ -8,13 +8,15 @@
 - `openai-compatible`：`GET {baseUrl}/models`，Bearer；OpenAI / DeepSeek / Z.ai 只返回 id，Kimi 额外给 `context_length` / `supports_reasoning` / `supports_image_in`，一并解析（多余字段对其它家无害）。
 - `gemini`：`GET {baseUrl}/models?key=`，`pageToken` 分页，按 `supportedGenerationMethods` 含 `generateContent` 过滤，给 `inputTokenLimit` / `outputTokenLimit` / `thinking`。
 
+**客户端不内置任何默认模型清单。** 未填 key 的预设服务商模型数就是 0，行内提示「填入 Key 后拉取模型」。内置清单必然随各家发版腐烂，展示一份过期型号比不展示更糟；模型只从上游 `/models` 来。
+
 **接口不给的字段用内置静态表补，接口给了的一律以接口为准**（`metadata.ts`，按模型 id 正则匹配）。价格只能来自这张表——没有一家 `/models` 返回价格；匹配不到就不显示价格，不臆造。这是 ADR-0015「纯动态 /models 拿不到能力元数据」那条否决理由的正解：动态拿 id + 静态补能力，而不是二选一。
 
 **持久化沿用 snapshot-on-key**：填 key 即落成 `models.json` 里的普通 provider 条目（`source:"template"` + `templateId`），新增 `modelsSyncedAt` 记录同步时间。拉取只在主进程发生且**只拉不写**，由渲染层连同 key 一起落盘，避免两处各写一次 `models.json`；后台定时同步例外，它直接经 `ModelSettingsService` 写回。
 
 ## Consequences
 
-- 冷启动断网也有预设服务商可选（展示内置种子模型），「免配置」承诺在离线下成立。
+- 冷启动断网也有预设服务商列表可选，但模型列表要等填 key 且联网拉取成功后才有——「免配置」在离线下只成立到服务商这一层。
 - 服务端不再能推送新模型或修正配置；换来的是模型列表跟着服务商自己走，比人工维护的目录更新更快。
 - 内置价格表会过期。只覆盖主流模型族，宁可不显示也不显示错的；新模型价格需要跟版本发布走。
 - 早期由服务端模板采纳、现已不在内置目录里的条目仍展示（标记「已下线」），但不提供刷新入口。

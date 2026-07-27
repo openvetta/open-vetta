@@ -11,7 +11,7 @@ export interface PresetProviderRowModelView {
 	readonly offline: boolean;
 	readonly models: readonly unknown[];
 	readonly refreshing: boolean;
-	readonly syncedAtLabel: string | null;
+	readonly statusLabel: string | null;
 	readonly modelsError: string | null;
 }
 
@@ -100,7 +100,7 @@ export function PresetProviderRowView({
 						</div>
 						<div className="mt-0.5 truncate text-[11px] text-muted-foreground">
 							{labels.modelsCount(row.models.length)}
-							{row.syncedAtLabel ? ` · ${row.syncedAtLabel}` : ""}
+							{row.statusLabel ? ` · ${row.statusLabel}` : ""}
 						</div>
 						{row.modelsError && (
 							<div className="mt-0.5 truncate text-[11px] text-amber-400">{row.modelsError}</div>

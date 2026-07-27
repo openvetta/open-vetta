@@ -53,8 +53,6 @@ export interface PresetProviderInfo {
 	baseUrl: string;
 	/** 供应商图标 symbol。 */
 	icon: string;
-	/** 未填 key 时展示的种子模型;填 key 后由上游 /models 拉取的列表取代。 */
-	seedModels: NonNullable<ModelsConfigData["providers"][string]["models"]>;
 }
 
 export interface PresetProvidersResult {

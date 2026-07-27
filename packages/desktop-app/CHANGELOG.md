@@ -11,7 +11,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
-- **预设服务商改为客户端内置 + 模型列表动态拉取（ADR-0050）**：Claude / OpenAI / DeepSeek / Z.ai(GLM) / Kimi / Gemini 六家的 `baseUrl`、`api`、图标内置在客户端，不再依赖服务端 `/providers/templates.json`，离线冷启动也有预设可选。填入 key 后立即请求该家 `/models` 拉取真实模型列表（Anthropic / OpenAI 兼容 / Gemini 三套适配器，分别处理游标分页与能力位），之后每 12 小时后台同步一次，设置页每行提供手动刷新按钮并展示上次同步时间。接口不返回的上下文长度 / 视觉 / 思考能力与价格由内置静态表按模型 id 补齐，匹配不到则不显示价格。
+- **预设服务商改为客户端内置 + 模型列表动态拉取（ADR-0050）**：Claude / OpenAI / DeepSeek / Z.ai(GLM) / Kimi / Gemini 六家的 `baseUrl`、`api`、图标内置在客户端，不再依赖服务端 `/providers/templates.json`，离线冷启动也有预设服务商可选。客户端不内置任何默认模型清单——未填 key 时模型数为 0 并提示「填入 Key 后拉取模型」；填入 key 后立即请求该家 `/models` 拉取真实模型列表（Anthropic / OpenAI 兼容 / Gemini 三套适配器，分别处理游标分页与能力位），之后每 12 小时后台同步一次，设置页每行提供手动刷新按钮并展示上次同步时间。接口不返回的上下文长度 / 视觉 / 思考能力与价格由内置静态表按模型 id 补齐，匹配不到则不显示价格。
 - **能力（Ability）统一页与独立详情页（ADR-0049）**：Skill / 场景 / MCP / 插件 / 能力套装（bundle）合并为一个 `/abilities` 列表，筛选轴改为正交两条——分类（用途）与类型（五种 type）；「发现」/「我的」两个 scope 保留。新增 `/abilities/$type/$slug` 独立详情页（不再是侧边 Drawer，返回走 history.back）：通用壳层（图标/标题/作者/版本/状态/主次 CTA）+ `raw.detail.content` 的 markdown 正文 + `showcases` 结构化头图（沿用 `chat-over-canvas` / `chat-thread` 宿主呈现模板）+ type 专属区块（plugin → 权限与命令开关，mcp → 凭证与 OAuth，bundle → 成员列表可逐个跳详情）。
 - **能力套装（bundle）**：恒无产物，`installed` / `enabled` / `needsUpdate` 全部由成员派生；卸载弹确认框列出将被卸载的成员并允许逐项取消勾选。
 - **安装态改读安装台账**：`installed` / 本地版本 / 可更新一律取 `~/.vetta/abilities.json`，五种 type 共用同一套更新检测；`enabled` 仍回各自运行时（skills 清单 / mcp.json / 插件注册表）。

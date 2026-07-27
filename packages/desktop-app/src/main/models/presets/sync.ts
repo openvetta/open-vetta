@@ -2,7 +2,7 @@ import { net } from "electron";
 import { getAppLogger } from "../../logger.js";
 import { getDesktopModelSettingsService } from "../model-settings-host.js";
 import type { ModelsConfig } from "../model-settings-service.js";
-import { getPresetProvider, getSeedModels, PRESET_PROVIDERS } from "./catalog.js";
+import { getPresetProvider, PRESET_PROVIDERS } from "./catalog.js";
 import { fetchPresetModels, type PresetModelsResult } from "./fetch.js";
 
 const presetLog = getAppLogger("preset-providers");
@@ -18,8 +18,6 @@ export interface PresetProviderInfo {
 	api: string;
 	baseUrl: string;
 	icon: string;
-	/** 未采纳时展示用的种子模型。 */
-	seedModels: ReturnType<typeof getSeedModels>;
 }
 
 export function listPresetProviders(): PresetProviderInfo[] {
@@ -29,7 +27,6 @@ export function listPresetProviders(): PresetProviderInfo[] {
 		api: def.api,
 		baseUrl: def.baseUrl,
 		icon: def.icon,
-		seedModels: getSeedModels(def),
 	}));
 }
 
