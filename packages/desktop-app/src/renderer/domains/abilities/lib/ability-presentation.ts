@@ -41,13 +41,15 @@ export interface AbilityDetailContent {
 	showcases: AbilityShowcase[];
 	/** 元信息条目，按运营排定的顺序。 */
 	meta: AbilityMetaEntry[];
-	/** locale 覆盖后的展示名 / 简介；未覆盖时为 undefined。 */
+	/** 当前 locale 下的展示名 / 简介；detail 未提供时为 undefined，由调用方回落条目自身字段。 */
 	name?: string;
 	description?: string;
 }
 
 /**
  * `raw.detail` 的 locale 解析：`i18n[locale]` 命中即整体替换该字段，不与默认值合并。
+ *
+ * 展示字段收进 detail 后，覆盖块与默认值同构，取值统一为 `i18n[locale] ?? 顶层`。
  */
 export function resolveAbilityDetailContent(detail: AbilityDetail | undefined, locale: string): AbilityDetailContent {
 	const base = detail ?? {};
@@ -56,7 +58,7 @@ export function resolveAbilityDetailContent(detail: AbilityDetail | undefined, l
 		content: override?.content ?? base.content ?? "",
 		showcases: override?.showcases ?? base.showcases ?? [],
 		meta: override?.meta ?? base.meta ?? [],
-		name: override?.name,
-		description: override?.description,
+		name: override?.name ?? base.name,
+		description: override?.description ?? base.description,
 	};
 }
