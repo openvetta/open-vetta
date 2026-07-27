@@ -153,6 +153,16 @@ export class TurnPipeline {
 					stopReason = event.stopReason;
 					continue;
 				}
+				if (event.type === "observation") {
+					await this.publishSafely({
+						type: "session.observation",
+						sessionId,
+						turnId,
+						observation: event.observation,
+						timestamp: event.observation.timestamp ?? this.clock.now(),
+					});
+					continue;
+				}
 
 				const storedEvent: MessageAppendedEvent = {
 					type: "message.appended",

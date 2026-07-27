@@ -41,6 +41,7 @@
 | [31-runtime-write.md](./08-implementation-log/31-runtime-write.md) | Write 行为兼容、宿主路径策略与独立 Runtime 实现 |
 | [32-runtime-edit.md](./08-implementation-log/32-runtime-edit.md) | Edit 双模式行为兼容、纯编辑引擎与独立 Runtime 实现 |
 | [33-runtime-session-backend-boundary.md](./08-implementation-log/33-runtime-session-backend-boundary.md) | RuntimeHost 可注入 Session Backend 创建边界与旧实现适配器 |
+| [34-session-observation-and-greenfield-events.md](./08-implementation-log/34-session-observation-and-greenfield-events.md) | 旧会话事件特征基线、独立观察合同与 Greenfield SessionEvent 适配 |
 
 ## 维护约定
 

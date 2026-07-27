@@ -6,6 +6,7 @@ All notable changes to `@vetta/runtime-core` are documented in this file.
 
 ### Added
 
+- **独立 Session 观察事件与 Greenfield 宿主适配**：新增不依赖旧 `AgentSessionEvent` 的 `RuntimeSessionObservationEvent`；Agent Core Turn Engine 输出生命周期、文本/思考增量和工具生命周期，Turn Pipeline 以非持久化 envelope 发布，旧事件与 Greenfield Kernel Event 最终统一适配到现有 `SessionEvent`。
 - **RuntimeHost 会话后端创建边界**：新增可注入的 `RuntimeSessionBackend` 与默认 `LegacyCodingAgentSessionBackend`；生产默认行为保持不变，为后续 Greenfield Session Backend 并行接入建立组合根切换点。
 - **Capability Binding 与结构化 Tool Error**：新增按 `sourceId + capabilityId + revision` 标识模型所见能力的稳定绑定，以及从 Runtime Tool 到 Agent Tool Result 的结构化错误桥接。
 - **Model Call Frame**：新增动态贡献合同与调用级 Frame 解析；Feature 实例保持长生命周期，而提示词和工具在每次模型调用前重新物化。

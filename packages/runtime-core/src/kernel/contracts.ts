@@ -1,4 +1,5 @@
 import type { ImageContent, Message, StopReason, TextContent, UserMessage } from "@vetta/ai";
+import type { RuntimeSessionObservationEvent } from "../session-observation.js";
 
 export type AgentSessionState = "idle" | "running" | "cancelling" | "closing" | "closed";
 
@@ -294,7 +295,20 @@ export interface ObserverFailedEvent {
 	readonly timestamp: number;
 }
 
-export type KernelEvent = StoredSessionEvent | TurnPipelineStageEvent | ObserverFailedEvent;
+/** 瞬时会话观察事件；只发布给 EventSink，不进入 ConversationRepository。 */
+export interface RuntimeSessionObservationEnvelope {
+	readonly type: "session.observation";
+	readonly sessionId: string;
+	readonly turnId: string;
+	readonly observation: RuntimeSessionObservationEvent;
+	readonly timestamp: number;
+}
+
+export type KernelEvent =
+	| StoredSessionEvent
+	| TurnPipelineStageEvent
+	| ObserverFailedEvent
+	| RuntimeSessionObservationEnvelope;
 
 export interface EventSink {
 	publish(event: KernelEvent): Promise<void>;
@@ -314,6 +328,10 @@ export interface TurnEngineRequest {
 }
 
 export type TurnEngineEvent =
+	| {
+			readonly type: "observation";
+			readonly observation: RuntimeSessionObservationEvent;
+	  }
 	| {
 			readonly type: "message";
 			readonly message: Message;

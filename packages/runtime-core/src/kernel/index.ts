@@ -1,3 +1,7 @@
+export type {
+	RuntimeSessionLifecyclePhase,
+	RuntimeSessionObservationEvent,
+} from "../session-observation.js";
 export { AgentCoreTurnEngine, type AgentCoreTurnEngineOptions } from "./agent-core-turn-engine.js";
 export { AgentSession, type CreateAgentSessionOptions, createAgentSession } from "./agent-session.js";
 export type {
@@ -32,6 +36,7 @@ export type {
 	ModelCallFrame,
 	ObserverFailedEvent,
 	PreparedContext,
+	RuntimeSessionObservationEnvelope,
 	RuntimeSnapshot,
 	RuntimeSnapshotLease,
 	RuntimeSnapshotProvider,

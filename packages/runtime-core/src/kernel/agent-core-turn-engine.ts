@@ -1,4 +1,5 @@
 import {
+	type AgentEvent,
 	type AgentLoopConfig,
 	type AgentMessage,
 	type AgentTool,
@@ -7,6 +8,7 @@ import {
 	type StreamFn,
 } from "@vetta/agent-core";
 import { type Api, type Message, type Model, type SimpleStreamOptions, Type } from "@vetta/ai";
+import type { RuntimeSessionObservationEvent } from "../session-observation.js";
 import type {
 	RuntimeToolDefinition,
 	RuntimeToolResult,
@@ -47,6 +49,10 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 		let finalAssistantMessage: Extract<Message, { role: "assistant" }> | undefined;
 
 		for await (const event of stream) {
+			const observation = mapAgentCoreEventToObservation(event);
+			if (observation) {
+				yield { type: "observation", observation };
+			}
 			if (event.type !== "message_end" || !isRuntimeMessage(event.message)) continue;
 			if (event.message.role === "user") continue;
 			if (event.message.role === "assistant") {
@@ -139,6 +145,76 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 			},
 		};
 	}
+}
+
+function mapAgentCoreEventToObservation(event: AgentEvent): RuntimeSessionObservationEvent | undefined {
+	if (
+		event.type === "agent_start" ||
+		event.type === "agent_end" ||
+		event.type === "turn_start" ||
+		event.type === "turn_end"
+	) {
+		return { type: "lifecycle", phase: event.type, source: "runtime-core" };
+	}
+	if (event.type === "message_update" && event.assistantMessageEvent.type === "text_delta") {
+		return { type: "message.delta", delta: event.assistantMessageEvent.delta, source: "agent" };
+	}
+	if (event.type === "message_update" && event.assistantMessageEvent.type === "thinking_delta") {
+		return { type: "thinking.delta", delta: event.assistantMessageEvent.delta, source: "agent" };
+	}
+	if (event.type === "message_update" && event.assistantMessageEvent.type === "toolcall_start") {
+		const toolCall = event.assistantMessageEvent.partial.content[event.assistantMessageEvent.contentIndex];
+		if (toolCall?.type !== "toolCall") return undefined;
+		return {
+			type: "toolcall.start",
+			toolCallId: String(toolCall.id ?? ""),
+			toolName: String(toolCall.name ?? ""),
+			source: "agent",
+		};
+	}
+	if (event.type === "tool_execution_start") {
+		return {
+			type: "tool.start",
+			toolCallId: event.toolCallId,
+			toolName: event.toolName,
+			args: event.args,
+			startedAt: event.startedAt,
+			source: "tool",
+		};
+	}
+	if (event.type === "tool_execution_update") {
+		return {
+			type: "tool.update",
+			toolCallId: event.toolCallId,
+			toolName: event.toolName,
+			partialResult: event.partialResult,
+			source: "tool",
+		};
+	}
+	if (event.type === "tool_execution_phase") {
+		return {
+			type: "tool.phase",
+			toolCallId: event.toolCallId,
+			toolName: event.toolName,
+			label: event.label,
+			atMs: event.atMs,
+			source: "tool",
+		};
+	}
+	if (event.type === "tool_execution_end") {
+		return {
+			type: "tool.end",
+			toolCallId: event.toolCallId,
+			toolName: event.toolName,
+			isError: event.isError,
+			result: event.result,
+			startedAt: event.startedAt,
+			durationMs: event.durationMs,
+			phases: event.phases,
+			source: "tool",
+		};
+	}
+	return undefined;
 }
 
 function convertToLlm(messages: AgentMessage[]): Message[] {

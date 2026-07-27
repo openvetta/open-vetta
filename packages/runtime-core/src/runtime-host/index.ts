@@ -3,12 +3,15 @@
  *
  * 目录职责：
  * - runtime-host.ts      会话生命周期与编排（SessionFacade）
- * - session-events.ts    AgentSessionEvent → SessionEvent 映射
+ * - session-events.ts    旧事件 → Session Observation → SessionEvent 映射
+ * - greenfield-session-events.ts  KernelEvent → SessionEvent 映射
  * - history.ts           会话历史 / 分支 / turn timing 解析
  * - peripheral-tasks.ts  自动标题、输入预测（轻量 LLM + 失败轮转）
  * - plugin-debug.ts      插件调试日志
  * - types.ts             共享类型
  */
+
+export { mapGreenfieldKernelEventToSessionEvents } from "./greenfield-session-events.js";
 export { RuntimeHost } from "./runtime-host.js";
 export type {
 	RuntimeSession,
@@ -16,4 +19,5 @@ export type {
 	RuntimeSessionCreateOptions,
 } from "./session-backend.js";
 export { LegacyCodingAgentSessionBackend } from "./session-backend.js";
+export { mapRuntimeSessionObservationEvent } from "./session-events.js";
 export type { RunningChangedReason, RuntimeHostOptions } from "./types.js";

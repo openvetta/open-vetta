@@ -33,6 +33,7 @@ entry until downstream adapters are ready to switch.
 
 - `RuntimeHost`
 - `RuntimeSessionBackend` and `LegacyCodingAgentSessionBackend` for composition-root session creation
+- `RuntimeSessionObservationEvent` and Greenfield Kernel-to-`SessionEvent` adapters
 - session event and state contracts from `src/contracts.ts`
 - shared runtime error helpers
 - `@vetta/runtime-core/kernel` for the new `AgentSession`, `TurnPipeline`,

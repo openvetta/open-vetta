@@ -69,4 +69,13 @@ export type {
 	RuntimeSessionBackend,
 	RuntimeSessionCreateOptions,
 } from "./runtime-host/index.js";
-export { LegacyCodingAgentSessionBackend, RuntimeHost } from "./runtime-host/index.js";
+export {
+	LegacyCodingAgentSessionBackend,
+	mapGreenfieldKernelEventToSessionEvents,
+	mapRuntimeSessionObservationEvent,
+	RuntimeHost,
+} from "./runtime-host/index.js";
+export type {
+	RuntimeSessionLifecyclePhase,
+	RuntimeSessionObservationEvent,
+} from "./session-observation.js";

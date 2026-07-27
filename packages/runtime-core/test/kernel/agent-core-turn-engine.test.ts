@@ -186,7 +186,14 @@ describe("AgentCoreTurnEngine", () => {
 		expect(contexts[0].systemPrompt).toBe("Base instruction\n\nFeature instruction");
 		expect(contexts[0].messages).toEqual([userMessage("hello")]);
 		expect(sessionIds).toEqual(["session-1"]);
-		expect(events).toEqual([
+		expect(
+			events
+				.filter((event): event is Extract<TurnEngineEvent, { type: "observation" }> => event.type === "observation")
+				.map((event) =>
+					event.observation.type === "lifecycle" ? event.observation.phase : event.observation.type,
+				),
+		).toEqual(["agent_start", "turn_start", "turn_end", "agent_end"]);
+		expect(events.filter((event) => event.type !== "observation")).toEqual([
 			{
 				type: "message",
 				message: assistantMessage([{ type: "text", text: "done" }]),
@@ -281,11 +288,26 @@ describe("AgentCoreTurnEngine", () => {
 		expect(phases).toEqual(["executed"]);
 		expect(contexts).toHaveLength(2);
 		expect(contexts[1].messages.map((message) => message.role)).toEqual(["user", "assistant", "toolResult"]);
-		expect(events.map((event) => (event.type === "message" ? event.message.role : event.type))).toEqual([
-			"assistant",
-			"toolResult",
-			"assistant",
-			"completed",
+		expect(
+			events
+				.filter((event) => event.type !== "observation")
+				.map((event) => (event.type === "message" ? event.message.role : event.type)),
+		).toEqual(["assistant", "toolResult", "assistant", "completed"]);
+		expect(
+			events
+				.filter((event): event is Extract<TurnEngineEvent, { type: "observation" }> => event.type === "observation")
+				.map((event) => event.observation.type),
+		).toEqual([
+			"lifecycle",
+			"lifecycle",
+			"tool.start",
+			"tool.update",
+			"tool.phase",
+			"tool.end",
+			"lifecycle",
+			"lifecycle",
+			"lifecycle",
+			"lifecycle",
 		]);
 		expect(events.at(-1)).toEqual({
 			type: "completed",
@@ -425,7 +447,15 @@ describe("AgentCoreTurnEngine", () => {
 		await started;
 		controller.abort("cancelled by test");
 
-		expect(await result).toEqual([
+		const events = await result;
+		expect(
+			events
+				.filter((event): event is Extract<TurnEngineEvent, { type: "observation" }> => event.type === "observation")
+				.map((event) =>
+					event.observation.type === "lifecycle" ? event.observation.phase : event.observation.type,
+				),
+		).toEqual(["agent_start", "turn_start", "turn_end", "agent_end"]);
+		expect(events.filter((event) => event.type !== "observation")).toEqual([
 			{
 				type: "message",
 				message: assistantMessage([{ type: "text", text: "cancelled" }], "aborted"),

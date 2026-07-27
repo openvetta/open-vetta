@@ -17,6 +17,7 @@ import {
 	StaticRuntimeSnapshotProvider,
 	type StoredConversation,
 	type StoredSessionEvent,
+	type TurnEngineEvent,
 	type TurnEnginePort,
 	type TurnEngineRequest,
 	TurnPipeline,
@@ -118,12 +119,16 @@ class CompletingTurnEngine implements TurnEnginePort {
 
 	constructor(private readonly response: AssistantMessage) {}
 
-	async *execute(request: TurnEngineRequest): AsyncIterable<{
-		readonly type: "message" | "completed";
-		readonly message?: Message;
-		readonly stopReason?: "stop";
-	}> {
+	async *execute(request: TurnEngineRequest): AsyncIterable<TurnEngineEvent> {
 		this.requests.push(request);
+		yield {
+			type: "observation",
+			observation: {
+				type: "message.delta",
+				delta: "partial",
+				source: "agent",
+			},
+		};
 		yield {
 			type: "message",
 			message: this.response,
@@ -238,6 +243,18 @@ describe("greenfield runtime kernel", () => {
 			"context_preparation",
 			"execution",
 			"finalization",
+		]);
+		expect(liveEvents.filter((event) => event.type === "session.observation")).toMatchObject([
+			{
+				type: "session.observation",
+				sessionId: "session-1",
+				turnId: "turn-1",
+				observation: {
+					type: "message.delta",
+					delta: "partial",
+					source: "agent",
+				},
+			},
 		]);
 
 		const conversation = await harness.repository.load("session-1");

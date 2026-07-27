@@ -560,6 +560,39 @@ Wiki；该 Port 与 write 一样是必需依赖，没有静默放行默认值。
 - Runtime Tools 全量测试 17 个文件、188 项通过；CLI Composition Root 9 项通过。
 - 7 个场景的 Tool Profile 加入 edit 后差分继续为零。
 
+### 2.14 Session 观察事件与 Greenfield 宿主适配
+
+旧 `RuntimeHost` 原先直接把 `AgentSessionEvent` 映射成宿主 `SessionEvent`，Greenfield Kernel
+则只输出最终消息，导致 Desktop 所需的 text/thinking delta、工具生命周期和回合生命周期没有
+稳定迁移边界。本阶段改为：
+
+```text
+旧 AgentSessionEvent ─┐
+                      ├─> RuntimeSessionObservationEvent ─> SessionEvent
+Greenfield TurnEngine ┘               │
+                                      └─ transient EventSink envelope（不落盘）
+Greenfield Stored KernelEvent ─────────────────────────────> SessionEvent
+```
+
+已固定和实现的合同：
+
+- 旧事件特征测试覆盖生命周期与 timing 落盘、text/thinking/toolcall delta、assistant final、usage、
+  provider error、abort、工具 start/update/phase/end、Todo、后台任务、子代理、compaction、MCP reload
+  和 retry。
+- `RuntimeSessionObservationEvent` 不依赖旧 `coding-agent.AgentSessionEvent`，也不包含宿主生成的
+  `eventId/sessionId/schemaVersion`。
+- `AgentCoreTurnEngine` 输出 agent/turn 生命周期、文本与思考增量、toolcall start 和工具执行
+  生命周期；最终 assistant/toolResult 仍使用 `message` 事件交给 Pipeline 持久化。
+- `TurnPipeline` 把 observation 包装为 `session.observation` 并只发布到 `EventSink`，不会写入
+  `ConversationRepository` 或 Snapshot。
+- Greenfield Adapter 将 observation、持久化 assistant message、cancel/failure 和 compaction
+  结果统一转换为现有 `SessionEvent`，宿主消费者不需要直接理解 Kernel 内部事件。
+
+仍存在的差距：Greenfield 会话尚未装配到 `RuntimeHost`；新 Repository 目前不能计算旧
+`getContextUsage()`，所以 Greenfield usage 暂以 `contextPercent: null/contextWindow: 0` 表示未知；
+`context.compacted` 只有成功结果，尚不能单独表达 compaction start；MCP/Todo/后台任务/子代理的
+观察合同已经可以承载事件，但对应 Greenfield Feature 还未迁移。
+
 ## 3. 已实施模块审计
 
 | 模块 | 当前状态 | 与旧行为的差距 | 切换结论 |
@@ -575,13 +608,13 @@ Wiki；该 Port 与 write 一样是必需依赖，没有静默放行默认值。
 | 宿主可执行文件解析 | Runtime Port、本地 PATH/managed-bin Adapter、grep/find 注入合同、旧 ensureTool 适配、网络/归档合同和 cli-app Composition Root 已通过 | 真实 GitHub 网络、最终独立可执行发布物和完整 Tool Profile 迁移尚未完成；包根兼容导出必须继续保留 | 新 Profile 可并行验证；旧宿主仍不可切换 |
 | Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope/explicit 激活和 requires/capabilities，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；current_time/read/ls/grep/find/glob/tree/write/edit/bash/shell/task_output/task_stop 已进入全场景 Profile 差分门禁 | 生产 Profile 尚未切换 | 动态编排与当前默认工具迁移完成；生产接入未完成 |
 | `AgentSession` | 新状态机可执行 | 活动 Turn 输入目前拒绝；旧系统具有 queue、follow-up、steering 语义 | 不可切换 |
-| Turn Pipeline | 固定阶段和持久化检查点已实现 | 输入队列、完整观察事件和恢复闭环未完成 | 不可切换 |
-| `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环、每次模型调用刷新 Model Call Frame 已通过 | Kernel 只映射完成消息；旧 UI 需要流式 text/thinking/tool progress 事件 | 不可切换宿主 |
+| Turn Pipeline | 固定阶段、持久化检查点与非持久化 Session observation envelope 已实现 | 输入队列和恢复闭环未完成 | 不可切换 |
+| `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环、动态 Model Call Frame、生命周期、text/thinking delta 和完整工具观察事件已通过 | 尚未由 Greenfield Session Backend 接入生产 RuntimeHost | 事件能力已具备；宿主仍不可切换 |
 | Runtime Snapshot | 编译、冻结、lease、原子交换和动态 Model Call Provider 已实现 | Coding Profile 的完整默认能力与 scope 尚未装配 | 不可替代旧工具注册 |
 | Conversation Repository | 新格式 create/load/append/save 已实现 | 旧 JSONL importer、Snapshot 读取、分支、未完成 Turn 恢复和跨进程锁未完成 | 不可读取并替代旧会话 |
 | Context Strategy | 目前只有 passthrough 基础实现 | 旧 compaction、prefire、microcompact 和摘要行为未迁移 | 不可切换长会话 |
 | MCP / Skill / Knowledge / Subagent | 尚未迁移 | 旧能力全部缺失 | 不可切换对应 Profile |
-| Desktop / CLI / RPC / IM Adapter | 尚未切换 | 事件、交互和协议兼容尚未差分验证 | 不可切换入口 |
+| Desktop / CLI / RPC / IM Adapter | 已建立旧事件特征基线、独立 observation 合同和 Greenfield `SessionEvent` 适配；生产入口尚未切换 | steer/follow-up/队列、存储恢复和实际宿主接线尚未验证 | 不可切换入口 |
 
 上述差距目前没有影响生产，因为旧入口仍在使用旧实现。但它们是切换阻断项，不能因为新模块
 已有单元测试就视为功能迁移完成。
@@ -622,9 +655,11 @@ side effects
 Composition Root。新旧 Tool Profile 已对全部场景建立差分门禁；runtime-tools 包根兼容导出
 因仍承载未迁移工具而保留。Runtime 后台任务生命周期引擎及 shell spawn、日志存储和进程树
 终止的低层宿主 Operations 已完成并通过差分。dir_tree、write 和 edit 的独立 Runtime 实现、宿主
-Port 及全场景差分均已完成。下一阶段应审计并接入实际 CLI/桌面生产 Composition Root 与旧
-AgentSession 事件适配，
-最后根据完整 Profile 差分结果设计兼容入口迁移；真实 GitHub 网络、最终独立可执行发布物和
+Port 及全场景差分均已完成。旧 AgentSession 事件特征基线、独立 Session observation 合同、
+Greenfield 瞬时事件发布和现有 `SessionEvent` 适配也已完成。下一阶段应补齐活动 Turn 的
+steer/follow-up/队列与 abort 语义，再建立 Greenfield Session Backend；在这些行为通过差分前
+不接入实际 CLI/桌面生产 Composition Root。最后根据完整 Profile 差分结果设计兼容入口迁移；
+真实 GitHub 网络、最终独立可执行发布物和
 其他外部依赖的产物级解析/打包测试仍需单独执行，重点覆盖下载、并发解析、版本锁定、离线
 模式和 Windows/Unix 产物。生产 Profile 接线时由组合根创建 Registry；
 普通 Catalog 成员变化直接在下一次模型调用生效，不再触发全 Profile 重编译。
