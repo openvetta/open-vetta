@@ -2,6 +2,7 @@ import type { Api, Model } from "@vetta/ai";
 import type { AgentSessionEvent } from "@vetta/coding-agent";
 import { describe, expect, it, vi } from "vitest";
 import {
+	type AgentPluginRuntimeConfig,
 	type BackgroundTaskInfo,
 	type HistoryEntry,
 	RuntimeHost,
@@ -33,6 +34,10 @@ function createSessionDouble() {
 	const getTodos = vi.fn(() => []);
 	const isTodoLocked = vi.fn(() => false);
 	const clearTodos = vi.fn();
+	const setSteeringMode = vi.fn();
+	const setFollowUpMode = vi.fn();
+	const reconfigureAgentPlugins = vi.fn(async () => {});
+	const setAgentMode = vi.fn();
 	const session = {
 		sessionId: "session-from-backend",
 		sessionFile: "session.jsonl",
@@ -69,6 +74,10 @@ function createSessionDouble() {
 		},
 		abort,
 		reconfigureCustomTools,
+		setSteeringMode,
+		setFollowUpMode,
+		reconfigureAgentPlugins,
+		setAgentMode,
 		bindExtensions: vi.fn(async () => {}),
 		subscribe: vi.fn((listener: (event: AgentSessionEvent) => void) => {
 			listeners.add(listener);
@@ -96,6 +105,10 @@ function createSessionDouble() {
 		getTodos,
 		isTodoLocked,
 		clearTodos,
+		setSteeringMode,
+		setFollowUpMode,
+		reconfigureAgentPlugins,
+		setAgentMode,
 		emit: (event: AgentSessionEvent) => {
 			for (const listener of listeners) listener(event);
 		},
@@ -275,6 +288,13 @@ describe("RuntimeHost session backend boundary", () => {
 		const interruptWorkSubagent = vi.fn(() => subagent);
 		const readTodoItems = vi.fn(() => todoItems);
 		const clearTodoItems = vi.fn(() => true);
+		const setConfigurationSteeringMode = vi.fn();
+		const setConfigurationFollowUpMode = vi.fn();
+		let pluginConfigurationFailure: Error | undefined;
+		const reconfigureConfigurationPlugins = vi.fn(async () => {
+			if (pluginConfigurationFailure) throw pluginConfigurationFailure;
+		});
+		const setConfigurationAgentMode = vi.fn();
 		const backend = new RecordingAssemblyBackend({
 			session: sessionDouble.session,
 			lifecycle: {
@@ -302,14 +322,21 @@ describe("RuntimeHost session backend boundary", () => {
 				interruptSubagent: interruptWorkSubagent,
 			},
 			todoController: { readItems: readTodoItems, clear: clearTodoItems },
+			configurationController: {
+				setSteeringMode: setConfigurationSteeringMode,
+				setFollowUpMode: setConfigurationFollowUpMode,
+				reconfigureAgentPlugins: reconfigureConfigurationPlugins,
+				setAgentMode: setConfigurationAgentMode,
+			},
 			modelController: { selectModel, setThinkingLevel, refreshAuth },
 			modelView: { readCurrentModel, refreshAvailableModels, readAvailableModels, resolveApiKey },
 			corePorts,
 		});
 		const host = new RuntimeHost({ sessionBackend: backend, getDefaultExecutionMode: () => "full-access" });
-		const { sessionId } = await host.createSession();
+		const { sessionId } = await host.createSession({ enableAgentPlugins: true });
 		const replayedEvents: SessionEvent[] = [];
 		const unsubscribe = host.subscribe(sessionId, (event) => replayedEvents.push(event));
+		host.setGlobalAgentMode("review");
 
 		await host.prompt(sessionId, {
 			text: "through port",
@@ -317,7 +344,12 @@ describe("RuntimeHost session backend boundary", () => {
 			reasoning: "high",
 			images: [{ type: "image", data: "base64", mimeType: "image/png" }],
 		});
-		await host.updateSettings(sessionId, { modelKey: "provider/settings-model", thinkingLevel: "medium" });
+		await host.updateSettings(sessionId, {
+			modelKey: "provider/settings-model",
+			thinkingLevel: "medium",
+			steeringMode: "all",
+			followUpMode: "one-at-a-time",
+		});
 		host.updateGlobalThinkingLevel("low");
 		await host.reloadServerAuth("server-token");
 		await host.continue(sessionId);
@@ -345,6 +377,9 @@ describe("RuntimeHost session backend boundary", () => {
 		expect(setThinkingLevel).toHaveBeenNthCalledWith(2, "medium");
 		expect(setThinkingLevel).toHaveBeenNthCalledWith(3, "low");
 		expect(refreshAuth).toHaveBeenCalledWith("server-token");
+		expect(setConfigurationSteeringMode).toHaveBeenCalledWith("all");
+		expect(setConfigurationFollowUpMode).toHaveBeenCalledWith("one-at-a-time");
+		expect(setConfigurationAgentMode).toHaveBeenCalledWith("review");
 		expect(readCurrentModel).toHaveBeenCalledOnce();
 		expect(modelCalls.slice(0, 3)).toEqual(["select:provider/model:if-changed", "thinking:high", "prompt"]);
 		expect(sessionDouble.prompt).not.toHaveBeenCalled();
@@ -384,6 +419,38 @@ describe("RuntimeHost session backend boundary", () => {
 		expect(sessionDouble.listBackgroundTasks).not.toHaveBeenCalled();
 		expect(sessionDouble.listSubagents).not.toHaveBeenCalled();
 		expect(sessionDouble.getTodos).not.toHaveBeenCalled();
+		expect(sessionDouble.setSteeringMode).not.toHaveBeenCalled();
+		expect(sessionDouble.setFollowUpMode).not.toHaveBeenCalled();
+		expect(sessionDouble.reconfigureAgentPlugins).not.toHaveBeenCalled();
+		expect(sessionDouble.setAgentMode).not.toHaveBeenCalled();
+
+		const firstPluginConfig: AgentPluginRuntimeConfig = {
+			skillPathContributions: [{ pluginId: "plugin-1", paths: ["C:/skills/one"] }],
+		};
+		const pluginError = new Error("plugin reconfigure failed");
+		host.reconfigureAgentPlugins(firstPluginConfig);
+		pluginConfigurationFailure = pluginError;
+		await expect(host.continue(sessionId)).rejects.toBe(pluginError);
+		expect(continueTurn).toHaveBeenCalledOnce();
+		pluginConfigurationFailure = undefined;
+		await host.continue(sessionId);
+		expect(reconfigureConfigurationPlugins).toHaveBeenNthCalledWith(1, firstPluginConfig);
+		expect(reconfigureConfigurationPlugins).toHaveBeenNthCalledWith(2, firstPluginConfig);
+
+		const delayedPluginConfig: AgentPluginRuntimeConfig = {
+			skillPathContributions: [{ pluginId: "plugin-2", paths: ["C:/skills/two"] }],
+		};
+		busy = true;
+		host.reconfigureAgentPlugins(delayedPluginConfig);
+		host.setGlobalAgentMode("planning");
+		await host.continue(sessionId);
+		expect(reconfigureConfigurationPlugins).toHaveBeenCalledTimes(2);
+		expect(setConfigurationAgentMode).toHaveBeenCalledOnce();
+		busy = false;
+		await host.continue(sessionId);
+		expect(reconfigureConfigurationPlugins).toHaveBeenNthCalledWith(3, delayedPluginConfig);
+		expect(setConfigurationAgentMode).toHaveBeenNthCalledWith(2, "planning");
+		expect(continueTurn).toHaveBeenCalledTimes(4);
 
 		await host.setExecutionMode(sessionId, "sandbox");
 		expect(reconfigureExecution).toHaveBeenCalledWith({

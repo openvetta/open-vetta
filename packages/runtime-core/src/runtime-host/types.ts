@@ -11,6 +11,7 @@ import type {
 import type { RuntimeHostSessionBackend, RuntimeSession, RuntimeSessionBackend } from "./session-backend.js";
 import type {
 	RuntimeSessionBackgroundWorkController,
+	RuntimeSessionConfigurationController,
 	RuntimeSessionEventStream,
 	RuntimeSessionExecutionController,
 	RuntimeSessionHistoryController,
@@ -35,6 +36,7 @@ export interface SessionHandle {
 	workspaceView: RuntimeSessionWorkspaceView;
 	backgroundWorkController: RuntimeSessionBackgroundWorkController;
 	todoController: RuntimeSessionTodoController;
+	configurationController: RuntimeSessionConfigurationController;
 	modelController: RuntimeSessionModelController;
 	modelView: RuntimeSessionModelView;
 	turnControl: RuntimeSessionTurnControl;

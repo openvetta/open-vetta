@@ -1,6 +1,6 @@
 import type { Message } from "@vetta/ai";
 import type { AgentSessionEvent, ExtensionUIContext } from "@vetta/coding-agent";
-import type { HistoryEntry, SessionEvent } from "../contracts.js";
+import type { AgentPluginRuntimeConfig, HistoryEntry, SessionEvent } from "../contracts.js";
 import { runtimeError } from "../errors.js";
 import { buildSandboxToolDefinitions } from "../execution-mode/sandbox-tools.js";
 import { entriesToHistory } from "./history.js";
@@ -10,6 +10,7 @@ import type {
 	RuntimeExecutionModeUpdate,
 	RuntimeModelSelectionStrategy,
 	RuntimeSessionBackgroundWorkController,
+	RuntimeSessionConfigurationController,
 	RuntimeSessionCorePorts,
 	RuntimeSessionEventStream,
 	RuntimeSessionExecutionController,
@@ -319,6 +320,26 @@ export class LegacyRuntimeSessionTodoController implements RuntimeSessionTodoCon
 		if (store.getAll().length === 0) return false;
 		store.clear();
 		return true;
+	}
+}
+
+export class LegacyRuntimeSessionConfigurationController implements RuntimeSessionConfigurationController {
+	constructor(private readonly session: RuntimeSession) {}
+
+	setSteeringMode(mode: Parameters<RuntimeSessionConfigurationController["setSteeringMode"]>[0]): void {
+		this.session.setSteeringMode(mode);
+	}
+
+	setFollowUpMode(mode: Parameters<RuntimeSessionConfigurationController["setFollowUpMode"]>[0]): void {
+		this.session.setFollowUpMode(mode);
+	}
+
+	async reconfigureAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | undefined): Promise<void> {
+		await this.session.reconfigureAgentPlugins(agentPlugins);
+	}
+
+	setAgentMode(mode: string | undefined): void {
+		this.session.setAgentMode(mode);
 	}
 }
 

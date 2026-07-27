@@ -2,6 +2,7 @@ import { type AgentSession, type CreateAgentSessionOptions, createAgentSession }
 import {
 	createLegacyRuntimeSessionCorePorts,
 	LegacyRuntimeSessionBackgroundWorkController,
+	LegacyRuntimeSessionConfigurationController,
 	LegacyRuntimeSessionExecutionController,
 	LegacyRuntimeSessionHistoryController,
 	LegacyRuntimeSessionHistoryReader,
@@ -14,6 +15,7 @@ import {
 } from "./legacy-session-ports.js";
 import type {
 	RuntimeSessionBackgroundWorkController,
+	RuntimeSessionConfigurationController,
 	RuntimeSessionCorePorts,
 	RuntimeSessionExecutionController,
 	RuntimeSessionHistoryController,
@@ -57,6 +59,7 @@ export interface RuntimeHostSessionAssembly {
 	readonly workspaceView: RuntimeSessionWorkspaceView;
 	readonly backgroundWorkController: RuntimeSessionBackgroundWorkController;
 	readonly todoController: RuntimeSessionTodoController;
+	readonly configurationController: RuntimeSessionConfigurationController;
 	readonly modelController: RuntimeSessionModelController;
 	readonly modelView: RuntimeSessionModelView;
 	readonly corePorts: RuntimeSessionCorePorts;
@@ -107,6 +110,7 @@ export function createLegacyRuntimeHostSessionAssembly(session: RuntimeSession):
 		workspaceView: new LegacyRuntimeSessionWorkspaceView(session),
 		backgroundWorkController: new LegacyRuntimeSessionBackgroundWorkController(session),
 		todoController: new LegacyRuntimeSessionTodoController(session),
+		configurationController: new LegacyRuntimeSessionConfigurationController(session),
 		modelController: new LegacyRuntimeSessionModelController(session),
 		modelView: new LegacyRuntimeSessionModelView(session),
 		corePorts: createLegacyRuntimeSessionCorePorts(session),

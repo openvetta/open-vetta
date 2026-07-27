@@ -26,6 +26,7 @@ export { mapGreenfieldKernelEventToSessionEvents } from "./greenfield-session-ev
 export {
 	createLegacyRuntimeSessionCorePorts,
 	LegacyRuntimeSessionBackgroundWorkController,
+	LegacyRuntimeSessionConfigurationController,
 	LegacyRuntimeSessionEventStream,
 	LegacyRuntimeSessionExecutionController,
 	LegacyRuntimeSessionHistoryController,
@@ -58,6 +59,7 @@ export type {
 	RuntimeExecutionModeUpdate,
 	RuntimeModelSelectionStrategy,
 	RuntimeSessionBackgroundWorkController,
+	RuntimeSessionConfigurationController,
 	RuntimeSessionCorePorts,
 	RuntimeSessionEventStream,
 	RuntimeSessionExecutionController,
@@ -66,6 +68,7 @@ export type {
 	RuntimeSessionHostInteraction,
 	RuntimeSessionHostInteractionContext,
 	RuntimeSessionIdentityLifecycle,
+	RuntimeSessionInputQueueMode,
 	RuntimeSessionModelController,
 	RuntimeSessionModelView,
 	RuntimeSessionState,

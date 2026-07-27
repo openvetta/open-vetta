@@ -1,6 +1,7 @@
 import type { ThinkingLevel } from "@vetta/agent-core";
 import type { Api, Message, Model } from "@vetta/ai";
 import type {
+	AgentPluginRuntimeConfig,
 	BackgroundTaskInfo,
 	HistoryEntry,
 	PromptRequest,
@@ -9,6 +10,7 @@ import type {
 	SessionEvent,
 	SessionExecutionMode,
 	SessionStateSnapshot,
+	SettingsPatch,
 	SubagentInfo,
 	TodoItem,
 } from "../contracts.js";
@@ -155,6 +157,16 @@ export interface RuntimeSessionBackgroundWorkController {
 export interface RuntimeSessionTodoController {
 	readItems(): readonly TodoItem[];
 	clear(): boolean;
+}
+
+export type RuntimeSessionInputQueueMode = NonNullable<SettingsPatch["steeringMode"]>;
+
+/** 已创建会话的动态配置命令；延迟应用与忙碌态策略仍由 RuntimeHost 编排。 */
+export interface RuntimeSessionConfigurationController {
+	setSteeringMode(mode: RuntimeSessionInputQueueMode): void;
+	setFollowUpMode(mode: RuntimeSessionInputQueueMode): void;
+	reconfigureAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | undefined): Promise<void>;
+	setAgentMode(mode: string | undefined): void;
 }
 
 export interface RuntimeSessionCorePorts {

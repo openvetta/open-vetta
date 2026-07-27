@@ -420,6 +420,7 @@ export class RuntimeHost implements SessionFacade {
 			workspaceView,
 			backgroundWorkController,
 			todoController,
+			configurationController,
 			modelController,
 			modelView,
 			corePorts,
@@ -437,6 +438,7 @@ export class RuntimeHost implements SessionFacade {
 			workspaceView,
 			backgroundWorkController,
 			todoController,
+			configurationController,
 			modelController,
 			modelView,
 			...corePorts,
@@ -792,10 +794,10 @@ export class RuntimeHost implements SessionFacade {
 			handle.modelController.setThinkingLevel(partialSettings.thinkingLevel);
 		}
 		if (partialSettings.steeringMode) {
-			handle.session.setSteeringMode(partialSettings.steeringMode);
+			handle.configurationController.setSteeringMode(partialSettings.steeringMode);
 		}
 		if (partialSettings.followUpMode) {
-			handle.session.setFollowUpMode(partialSettings.followUpMode);
+			handle.configurationController.setFollowUpMode(partialSettings.followUpMode);
 		}
 	}
 
@@ -1090,7 +1092,7 @@ export class RuntimeHost implements SessionFacade {
 		handle.pendingAgentPlugins = undefined;
 		handle.hasPendingAgentPlugins = false;
 		try {
-			await handle.session.reconfigureAgentPlugins(pendingAgentPlugins);
+			await handle.configurationController.reconfigureAgentPlugins(pendingAgentPlugins);
 		} catch (error) {
 			if (!handle.hasPendingAgentPlugins) {
 				handle.pendingAgentPlugins = pendingAgentPlugins;
@@ -1111,7 +1113,7 @@ export class RuntimeHost implements SessionFacade {
 		handle.pendingAgentMode = undefined;
 		handle.hasPendingAgentMode = false;
 		handle.agentMode = pendingAgentMode;
-		handle.session.setAgentMode(pendingAgentMode);
+		handle.configurationController.setAgentMode(pendingAgentMode);
 	}
 
 	private assertCanSwitchExecutionMode(handle: SessionHandle): void {

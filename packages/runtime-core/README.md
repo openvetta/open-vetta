@@ -27,6 +27,7 @@ entry until downstream adapters are ready to switch.
 - backend-provided Host Interaction binding without exposing the legacy extension UI protocol
 - backend-provided Workspace View and Execution Controller without exposing SessionManager or custom tool types
 - backend-provided Background Work and Todo controllers with runtime-owned host snapshots
+- backend-provided Session Configuration Controller for input queue modes, plugin runtime configuration and agent mode
 - runtime-owned tool execution and policy contracts
 
 ## What It Does Not Own
@@ -53,6 +54,7 @@ entry until downstream adapters are ready to switch.
 - `RuntimeSessionHostInteraction` for rebinding confirmation and sandbox-grant capabilities
 - `RuntimeSessionWorkspaceView` and `RuntimeSessionExecutionController` for cwd lookup, busy-state guards and mode changes
 - `RuntimeSessionBackgroundWorkController` and `RuntimeSessionTodoController` for background/subagent/todo host state
+- `RuntimeSessionConfigurationController` for dynamic session configuration without exposing the legacy session
 - `RuntimeHostSessionAssembly` and `RuntimeHostSessionBackend` for explicit composition-root capability delivery
 - `GreenfieldRuntimeSessionBackend` for parallel Kernel composition without impersonating the legacy session
 - `resumeAgentSession` and `ConversationRecoveryPolicy` for recovery without model or tool replay
