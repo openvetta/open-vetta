@@ -37,6 +37,7 @@
 | [27-independent-foreground-command-executor.md](./08-implementation-log/27-independent-foreground-command-executor.md) | 独立 Runtime 前台命令执行器与宿主进程适配 |
 | [28-background-command-service-and-task-tools.md](./08-implementation-log/28-background-command-service-and-task-tools.md) | 后台命令 Service Port、Runtime 协调与 Task Tools |
 | [29-runtime-background-command-lifecycle.md](./08-implementation-log/29-runtime-background-command-lifecycle.md) | Runtime 后台任务生命周期与低层宿主端口 |
+| [30-runtime-dir-tree.md](./08-implementation-log/30-runtime-dir-tree.md) | Dir Tree 行为兼容、独立 Runtime 实现与 Profile 接入 |
 
 ## 维护约定
 

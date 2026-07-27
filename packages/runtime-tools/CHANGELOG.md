@@ -18,6 +18,7 @@ All notable changes to `@vetta/runtime-tools` are documented in this file.
 - **Greenfield Grep Tool**：新增独立 Runtime grep、TS 描述、注册层和可注入文件读取边界；保留 ripgrep 搜索、上下文、锚点、匹配限制、截断和取消合同。
 - **Greenfield Find Tool**：新增独立 Runtime find、TS 描述、注册层和可注入 glob 边界；保留空 `scope_use`、路径相对化、`.gitignore`、结果限制、截断和显式激活合同。
 - **Greenfield Glob Tool**：新增独立 Runtime glob、TS 描述、注册层和可注入 glob Operations；保留绝对模式、相对路径、目录标记、`.gitignore`、去重、结果限制和截断合同。
+- **Greenfield Dir Tree Tool**：新增独立 Runtime dir_tree、TS 描述、树模型、注册层和可注入 fd Operations；保留层级、排序、子节点计数、深度、节点/扫描/字节限制和全场景暴露合同。
 - **宿主可执行文件解析 Port**：新增 `CodingToolExecutableResolver` 及本地 PATH/受管 bin 目录 Adapter；Runtime 不负责下载、版本选择或日志输出。
 - **动态 Coding Tool Catalog**：新增版本化 `CodingToolCatalog`、可变 `CodingToolRegistry`、注册/注销、重名冲突和 scope/显式激活选择；每次模型调用读取不可变成员视图。
 - **Coding Tool 生命周期与在途执行跟踪**：Registry 新增 activate、deactivate 和 revoke；deactivate 只阻止新调用，revoke 会轮换 revision、协作取消在途执行并返回结构化不可重试错误，unregister 不隐式终止已经开始的副作用。

@@ -225,13 +225,13 @@ PATH / managed-bin discovery
   + user-facing logging
 ```
 
-Runtime grep/find 只需要第一项的结果，不应导入旧下载器。因此新增通用
+Runtime grep/find/tree 只需要第一项的结果，不应导入旧下载器。因此新增通用
 `CodingToolExecutableResolver`：
 
 ```text
 Host resolver
   -> Promise<string | undefined>
-  -> Runtime grep/find
+  -> Runtime grep/find/tree
   -> spawn rg/fd
 ```
 
@@ -243,14 +243,14 @@ Runtime 提供的本地 Adapter 只检查受管 bin 目录和 PATH，不下载�
 `@vetta/coding-agent/host` 作为组合层稳定入口提供；
 旧的 `core/host` 子路径保留为迁移期转发入口。
 
-`grep/find` 在注入解析器时于每次执行解析 `rg`/`fd`，因此宿主可以在运行时替换或移除可执行
+`grep/find/tree` 在注入解析器时于每次执行解析 `rg`/`fd`，因此宿主可以在运行时替换或移除可执行
 文件，而不需要重建 Runtime Snapshot。未注入解析器时仍使用原有 `rg`/`fd` 默认命令名，
 保证迁移期间的直接调用行为不变。
 
 证据：
 
 - 本地 Adapter 覆盖受管 bin 优先、PATH fallback、Windows 后缀和不可用返回。
-- grep/find 合同测试确认解析器分别收到 `rg`/`fd`，不可用时保留原错误文本。
+- grep/find/tree 合同测试确认解析器分别收到 `rg`/`fd`，不可用时保留原错误文本。
 - coding-agent Adapter 测试确认每次解析静默委托 `ensureTool`，并透传路径或 `undefined`。
 - `ensureToolWithDependencies` 行为测试确认受管路径优先、离线/Termux 不下载、下载成功
   透传路径以及下载失败返回 `undefined`；测试不触发真实网络。
@@ -263,7 +263,7 @@ Runtime 提供的本地 Adapter 只检查受管 bin 目录和 PATH，不下载�
 - 网络边界合同覆盖 GitHub 版本响应解析、HTTP 503、瞬时 TypeError 重试、HTTP 404 不重试；
   本地真实 tar.gz 产物验证覆盖实际归档、安装二进制内容和 staging 清理。
 - `cli-app` 已建立过渡 Composition Root，使用 coding-agent Adapter 创建 Runtime Resolver，
-  注册 current_time/read/ls/glob/grep/find/bash/shell，并通过 FeatureCompiler 生成新 Profile；旧
+  注册 current_time/read/ls/glob/grep/find/tree/bash/shell，并通过 FeatureCompiler 生成新 Profile；旧
   CLI 入口仍未切换。
 - Runtime 源码没有新增 `coding-agent` 或下载器导入。
 
@@ -349,14 +349,14 @@ Runtime glob 直接声明 `glob` 和 `ignore`，不再通过 `coding-agent` 的�
   -> active names
 ```
 
-当前已迁移的 `current_time/read/ls/glob/grep/find` 在所有场景的最终激活集合完全一致。
-`current_time/read/glob/grep` 保持全场景默认激活，`ls/find` 保持空 scope，且后两者仍可由
+当前已迁移的 `current_time/read/ls/glob/grep/find/tree` 在所有场景的最终激活集合完全一致。
+`current_time/read/glob/grep/tree` 保持全场景默认激活，`ls/find` 保持空 scope，且后两者仍可由
 新 Composition Root 显式激活。比较发生在模型调用贡献层，而不是只比较 Registry 元数据，
 因此能发现 Feature 编排、默认 scope 或 Provider 输出造成的可观察差异。
 
 同时审计了 `@vetta/runtime-tools` 包根：仓库内源码和测试当前没有直接消费者，但包根仍是已
-发布的公共入口，并继续转发尚未迁移的 `bash/edit/write/tree` 等工具。新 Runtime 只有上述
-6 个工具，直接删除或改写根导出会造成公开 API 和功能缺失。因此本阶段保留兼容导出，不用
+发布的公共入口，并继续转发旧工具 Factory 和单例。Coding 子路径已有独立 tree，但
+edit/write 尚未迁移，直接删除或改写根导出仍会造成公开 API 和功能缺失。因此本阶段保留兼容导出，不用
 “仓库内无人引用”替代公共兼容性判断。只有剩余工具完成行为差分迁移、产品 Composition Root
 能够提供等价 Profile，并形成明确迁移窗口后，才能拆除该入口。
 
@@ -455,6 +455,40 @@ create/append/read/close。新 Composition Root 不再实例化或依赖旧 `Bac
 进程与文件系统能力。旧 `AgentSession` 尚未切换，因此旧 bash/shell 和
 `BackgroundTaskManager` 仍不可删除，后续只能在完整生产 Profile 与会话事件适配完成后移除。
 
+### 2.11 `dir_tree`
+
+旧 `dir_tree` 不是文件系统递归包装。它分别执行 fd 目录扫描和文件扫描，再在内存中重建树，
+因此其行为合同同时包含扫描参数与渲染算法：
+
+- 完整 TypeScript description、TypeBox Schema、全场景 scope 和 `core` category。
+- 路径模糊解析、存在性检查和目录类型检查。
+- fd 的目录/文件双扫描、`.gitignore` 默认语义、hidden 开关和额外 exclude pattern。
+- 目录优先、同类名称不区分大小写排序，以及 `[D]/[F]`、即时子目录/文件计数和 node type tag。
+- `maxDepth`、node limit、scan limit 和 50KB output limit 的独立 details 与组合提示。
+- directory-only 模式、fd 不可用、非零/null 退出和提前取消错误文本。
+
+新实现拆分为：
+
+```text
+Tree Tool / TypeBox Schema / Registration
+  -> TreeOperations.exists / stat / runFd
+  -> CodingToolExecutableResolver.resolve("fd")
+  -> tree model parse / rebuild / sort / render
+  -> Runtime truncation and details
+```
+
+纯树模型与 Tool 编排分别位于独立模块。Runtime 不导入旧 `ensureTool`；Composition Root 注入
+现有宿主 Resolver，并在每次执行重新解析 fd，所以运行时移除或恢复 fd 不要求重编译 Snapshot。
+描述已由 `.txt` 迁为 TypeScript 常量，但内容、Schema 和模型可见工具名没有变化。
+
+兼容性证据：
+
+- 旧、新定义与 Registration 元数据逐字段比较。
+- 同一 Operations fixture 比较完整结果和每次 fd 参数。
+- 合同覆盖层级、排序、计数、node tag、directory-only、参数取整和四类限制。
+- 路径不存在、非目录、fd 不可用、目录/文件扫描失败和提前取消错误相等。
+- 7 个场景的 Composition Root Tool Profile 加入 tree 后差分继续为零。
+
 ## 3. 已实施模块审计
 
 | 模块 | 当前状态 | 与旧行为的差距 | 切换结论 |
@@ -463,9 +497,10 @@ create/append/read/close。新 Composition Root 不再实例化或依赖旧 `Bac
 | `read` Tool | 独立实现、旧新行为合同和真实 Tool Loop 已通过 | 独立可执行宿主的 Photon WASM 产物打包尚未验证 | 工具模块迁移完成；生产宿主不可切换 |
 | `ls` Tool | 独立实现、旧新行为合同、空 scope 和 Feature 显式激活 Tool Loop 已通过 | 生产宿主尚未装配新 Profile | 工具模块迁移完成；默认不激活 |
 | `glob` Tool | 独立实现、绝对 pattern、`.gitignore` 和真实 Tool Loop 合同已通过 | 生产宿主尚未装配新 Profile | 工具模块迁移完成；全 scope 暴露保持旧语义 |
+| `dir_tree` Tool | 独立 Runtime Tool、树模型、fd Operations/Resolver、限制合同和全场景 Profile 差分已通过 | 旧 AgentSession 和生产入口仍使用旧 Tool Factory | 工具模块迁移完成；旧生产入口尚不可删除 |
 | `bash/shell` Tool | Runtime Definition、Registration、前台执行器、后台协调、独立后台生命周期、task 工具、通知格式、低层 Host Adapter、平台 scope 和过渡 Composition Root 已通过 | 旧 AgentSession 和生产入口仍使用旧工具/Manager | 新 Runtime 工具链迁移完成；旧生产路径尚不可删除 |
 | 宿主可执行文件解析 | Runtime Port、本地 PATH/managed-bin Adapter、grep/find 注入合同、旧 ensureTool 适配、网络/归档合同和 cli-app Composition Root 已通过 | 真实 GitHub 网络、最终独立可执行发布物和完整 Tool Profile 迁移尚未完成；包根兼容导出必须继续保留 | 新 Profile 可并行验证；旧宿主仍不可切换 |
-| Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope/explicit 激活和 requires/capabilities，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；current_time/read/ls/grep/find/glob/bash/shell/task_output/task_stop 已进入全场景 Profile 差分门禁 | edit/write/tree 未迁移，生产 Profile 尚未切换 | 动态编排边界完成；整体能力未完成 |
+| Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope/explicit 激活和 requires/capabilities，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；current_time/read/ls/grep/find/glob/tree/bash/shell/task_output/task_stop 已进入全场景 Profile 差分门禁 | edit/write 未迁移，生产 Profile 尚未切换 | 动态编排边界完成；整体能力未完成 |
 | `AgentSession` | 新状态机可执行 | 活动 Turn 输入目前拒绝；旧系统具有 queue、follow-up、steering 语义 | 不可切换 |
 | Turn Pipeline | 固定阶段和持久化检查点已实现 | 输入队列、完整观察事件和恢复闭环未完成 | 不可切换 |
 | `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环、每次模型调用刷新 Model Call Frame 已通过 | Kernel 只映射完成消息；旧 UI 需要流式 text/thinking/tool progress 事件 | 不可切换宿主 |
@@ -513,7 +548,8 @@ side effects
 `ensureTool` 行为合同、下载计划合同、归档安装合同、网络边界合同和 cli-app 过渡
 Composition Root。新旧 Tool Profile 已对全部场景建立差分门禁；runtime-tools 包根兼容导出
 因仍承载未迁移工具而保留。Runtime 后台任务生命周期引擎及 shell spawn、日志存储和进程树
-终止的低层宿主 Operations 已完成并通过差分。下一阶段应按行为合同逐项迁移 write/edit/tree，
+终止的低层宿主 Operations 已完成并通过差分。dir_tree 的独立实现、fd Port 和全场景差分也已
+完成。下一阶段应按行为合同逐项迁移 write/edit，
 再完成 CLI/桌面入口与旧 AgentSession 事件适配，
 最后根据完整 Profile 差分结果设计兼容入口迁移；真实 GitHub 网络、最终独立可执行发布物和
 其他外部依赖的产物级解析/打包测试仍需单独执行，重点覆盖下载、并发解析、版本锁定、离线

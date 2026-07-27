@@ -198,3 +198,15 @@ export {
 	TaskStopToolInputSchema,
 	type TaskStopToolOptions,
 } from "./tools/task-stop/index.js";
+export {
+	createTreeTool,
+	createTreeToolRegistration,
+	TREE_TOOL_CATEGORY,
+	TREE_TOOL_DESCRIPTION,
+	TREE_TOOL_SCOPES,
+	type TreeOperations,
+	type TreeToolDetails,
+	type TreeToolInput,
+	TreeToolInputSchema,
+	type TreeToolOptions,
+} from "./tools/tree/index.js";

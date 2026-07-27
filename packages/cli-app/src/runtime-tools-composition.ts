@@ -31,6 +31,7 @@ import {
 	createShellToolRegistration,
 	createTaskOutputToolRegistration,
 	createTaskStopToolRegistration,
+	createTreeToolRegistration,
 	InMemoryCodingToolRegistry,
 } from "@vetta/runtime-tools/coding";
 
@@ -91,6 +92,7 @@ export function createCodingToolsRuntimeComposition(
 		createGlobToolRegistration(cwd),
 		createGrepToolRegistration(cwd, { executableResolver }),
 		createFindToolRegistration(cwd, { executableResolver }),
+		createTreeToolRegistration(cwd, { executableResolver }),
 	]);
 	const feature = createCodingToolsFeature({
 		catalog: registry,
