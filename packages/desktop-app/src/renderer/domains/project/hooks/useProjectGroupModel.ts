@@ -53,7 +53,7 @@ export function useProjectGroupModel({
 	project,
 	sessions,
 }: UseProjectGroupModelArgs) {
-	const { t } = useTranslation("project");
+	const { t, i18n } = useTranslation("project");
 	const sortedSessions = useMemo(() => [...sessions].sort((a, b) => b.modifiedAt - a.modifiedAt), [sessions]);
 	const [, setContextMenu] = useAtom(sessionContextMenuAtom);
 	const [, setProjectContextMenu] = useAtom(projectContextMenuAtom);
@@ -95,35 +95,37 @@ export function useProjectGroupModel({
 	const projectType = project.type;
 	const projectBadge = getProjectBadge(project, projectType, t);
 
-	const sessionViews: ProjectGroupSessionView[] = useMemo(
-		() =>
-			visibleSessions.map((session) => {
-				const isSessionActive = activeSessionPath === session.path;
-				const isRunning = runningSessionPaths.has(session.path);
-				const isSchedule =
-					scheduledSessionPaths.has(session.path) ||
-					scheduledBasenames.has(session.path.slice(session.path.lastIndexOf("/") + 1));
-				return {
-					key: session.path,
-					path: session.path,
-					label: sessionDisplayLabel(session),
-					timeLabel: relativeTime(session.modifiedAt),
-					active: isSessionActive,
-					renaming: renamingSessionPath === session.path,
-					running: isRunning,
-					scheduled: isSchedule,
-					session,
-				};
-			}),
-		[
-			activeSessionPath,
-			renamingSessionPath,
-			runningSessionPaths,
-			scheduledBasenames,
-			scheduledSessionPaths,
-			visibleSessions,
-		],
-	);
+	// t 在 changeLanguage 后可能保持同一引用；读 i18n.language 强制语言切换时重算 timeLabel。
+	const sessionViews: ProjectGroupSessionView[] = useMemo(() => {
+		void i18n.language;
+		return visibleSessions.map((session) => {
+			const isSessionActive = activeSessionPath === session.path;
+			const isRunning = runningSessionPaths.has(session.path);
+			const isSchedule =
+				scheduledSessionPaths.has(session.path) ||
+				scheduledBasenames.has(session.path.slice(session.path.lastIndexOf("/") + 1));
+			return {
+				key: session.path,
+				path: session.path,
+				label: sessionDisplayLabel(session),
+				timeLabel: relativeTime(session.modifiedAt, t),
+				active: isSessionActive,
+				renaming: renamingSessionPath === session.path,
+				running: isRunning,
+				scheduled: isSchedule,
+				session,
+			};
+		});
+	}, [
+		activeSessionPath,
+		i18n.language,
+		renamingSessionPath,
+		runningSessionPaths,
+		scheduledBasenames,
+		scheduledSessionPaths,
+		t,
+		visibleSessions,
+	]);
 
 	return {
 		displayName,

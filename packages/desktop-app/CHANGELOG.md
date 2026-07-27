@@ -24,6 +24,11 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 - **能力详情的结构化 section 体系**：`CapabilityDetailSections` 的 featureList / scenarios / permissions / reviews 与 `catalog.ts` 中 Figma / GitHub / Notion 的客户端硬编码正文按 ADR-0049 作废，正文改由服务端下发 markdown。
 - **插件独立入口**：`PluginsPage` / `PluginsPanel` / `PluginCard` / `PluginDetailSheet` 及侧边栏「插件」导航项删除；插件的 dev 热更新、devLinks、从路径安装等开发者功能保持不变。
 
+### Fixed
+
+- **侧边栏会话相对时间 i18n**：会话列表 `timeLabel` 改为经 `useTranslation` 的 `t` 渲染（`project:sidebar.time.*`，插值用 `n` 避免 `count` 复数解析），并在列表 `useMemo` 中依赖 `i18n.language`，切换界面语言后时间文案立即更新；消息中心相对时间同步改为 `message:time.*` + `n`。
+- **侧边栏会话时间简写**：相对时间改为紧凑文案（zh：`5分`/`3时`/`2天`；en：`5m`/`3h`/`2d`），适配侧栏窄列。
+
 ### Changed
 
 - **能力详情由独立页改为侧边抽屉**：`/abilities/$type/$slug` 重定向到 `/abilities?detail=<type>:<slug>`，详情在能力页内以抽屉呈现——宽屏右侧 60vw，窄屏（≤768px）改为底部弹出 85vh；深链与浏览器返回键仍可用，列表与详情共用同一个 model 实例，安装 / 启停结果直接反映到身后的列表。场景页与 bundle 成员的跳转一并改走该 search 参数。
@@ -31,6 +36,9 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 - **能力详情动作区统一**：主 CTA 改 `variant="primary"`，「权限配置 / 配置凭证 / 编辑配置 / 停用 / 移除」全部与主按钮同排，统一为主题色描边（移除保留破坏色）并补上图标；MCP 详情不再在正文底部重复一排按钮。
 - **编辑 MCP 由右侧抽屉改为弹窗**：`McpEditDrawer` → `McpEditDialog`，与「手动添加 MCP」同一套 `Dialog` 形态；能力详情本身已是抽屉，避免抽屉套抽屉。设置页与能力页共用该组件。
 - **能力头图 showcase 改版**：渐变舞台（primary 光晕 + 淡出细网格）+ 悬浮窗口 mock（design / code / docs / generic 四种主题），对话占更大篇幅，回复方头像改用 `BotAvatar`；配色全部走 `--primary` / `--border`，浅色深色都成立。
+- **设置页下拉统一为 `MotionSelect`（修关闭空白）**：根因是 Radix `SelectValue` 依赖已挂载 `SelectItem` portal 文案，条件卸载 Content 后触发器空白。`MotionSelect` 改回 Popover + 显式 label（原 Agent 交互 + motion），关闭时文字仍显示；通用/快捷面板/Appshot/成就/知识库/插件/模型表单/外观语言/Agent 人设全部统一；`@vetta/ui` Select 默认皮仍产品化，供非设置场景。
+- **外观设置鼠标指针卡片**：改为固定两列布局，置于主题色上方；卡片加高（约 72px）并放大预览图标，说明文案最多两行。
+- **外观设置选中边框统一为 1px 细线**：模式 / 界面主题 / 主题色 / 鼠标指针卡片去掉 `ring-2` + `ring-offset`；选中只改 `border-primary/50`（可叠浅底 `bg-primary/10`），**不再叠 ring**，避免 border+ring 视觉上变粗。
 - **侧边栏「对话」空状态**：无会话时由单行「暂无对话」改为图标 + 标题 + 引导说明；对话 tab 提供「开始新对话」CTA，且空态下头部「+」始终可见；Claw tab 单独说明如何产生记录。
 - **插件 agent 工具展示名走注册 label**：`registerTool({ label })` 直接写入展示表（支持 `%catalogKey%`）；Work 模式工具头优先用该 label，`generate_image` / `edit_image` 文案从宿主 `chat.toolLabel.alias` 迁到 image-gen 插件 catalog。
 

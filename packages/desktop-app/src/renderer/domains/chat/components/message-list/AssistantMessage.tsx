@@ -1,5 +1,5 @@
-import { BotAvatar } from "@shared/components/BotAvatar";
 import type { ChatMessage } from "@shared/store/atoms";
+import vettaAvatar from "@shared/assets/vetta-avatar.webp";
 import { useThemeSurface } from "@vetta/theme-sdk/appearance";
 import {
 	AssistantMessageView,
@@ -115,7 +115,15 @@ export const AssistantMessage = memo(function AssistantMessage({
 			conclusionText={conclusionText}
 			fold={fold}
 			labels={labels}
-			botAvatar={<BotAvatar active={isCurrentlyStreaming} />}
+			botAvatar={
+				<img
+					aria-hidden="true"
+					alt=""
+					className="h-5 w-5 shrink-0 select-none object-contain"
+					draggable={false}
+					src={vettaAvatar}
+				/>
+			}
 			segments={
 				hasBlocks ? (
 					<>

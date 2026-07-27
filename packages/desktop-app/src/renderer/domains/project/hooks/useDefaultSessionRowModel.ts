@@ -40,7 +40,7 @@ export function useDefaultSessionRowModel({
 		renaming,
 		running,
 		scheduled,
-		timeLabel: relativeTime(session.modifiedAt),
+		timeLabel: relativeTime(session.modifiedAt, t),
 		onOpenContextMenu: (event) => onOpenContextMenu(event, session),
 		onRename,
 		onRenameDone,
