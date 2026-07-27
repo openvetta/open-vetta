@@ -10,7 +10,9 @@ import type {
 import {
 	createAgentSession,
 	type EventSink,
+	KERNEL_ERROR_CODES,
 	type RuntimeSnapshot,
+	resumeAgentSession,
 	StaticRuntimeSnapshotProvider,
 	type StoredConversation,
 	type StoredSessionEvent,
@@ -149,6 +151,9 @@ function createBackend(
 					const session = await createAgentSession({ id: options.id, pipeline });
 					return { session, repository, dispose };
 				},
+				async resume() {
+					throw new Error("Resume is not configured for this test harness");
+				},
 			},
 		}),
 		dispose,
@@ -200,6 +205,57 @@ describe("GreenfieldRuntimeSessionBackend", () => {
 
 		expect(result.status).toBe("completed");
 		expect((await session.getMessages()).map((message) => message.role)).toEqual(["user", "assistant", "assistant"]);
+	});
+
+	it("uses the explicit resume factory path and publishes interrupted recovery", async () => {
+		const repository = new InMemoryConversationRepository();
+		await repository.create({ sessionId: "session-1", createdAt: 1 });
+		await repository.append("session-1", 0, [
+			{
+				type: "turn.started",
+				sessionId: "session-1",
+				turnId: "turn-interrupted",
+				snapshotId: "snapshot-1",
+				timestamp: 2,
+			},
+		]);
+		const create = vi.fn(async () => {
+			throw new Error("Create must not be used while resuming");
+		});
+		const resume = vi.fn(async (options: TestCreateOptions, eventSink: EventSink) => {
+			const pipeline = new TurnPipeline({
+				repository,
+				snapshotProvider: new StaticRuntimeSnapshotProvider(snapshot()),
+				turnEngine: new CompletingTurnEngine(),
+				eventSink,
+				clock: { now: () => 3 },
+				idGenerator: { next: () => "unused-turn-id" },
+			});
+			const session = await resumeAgentSession({ id: options.id, pipeline });
+			return { session, repository };
+		});
+		const backend = new GreenfieldRuntimeSessionBackend<TestCreateOptions>({
+			promptAdapter: new RecordingPromptAdapter(),
+			runtimeFactory: { create, resume },
+		});
+
+		const session = await backend.resume({ id: "session-1" });
+		const events: SessionEvent[] = [];
+		session.subscribe((event) => events.push(event));
+		const conversation = await repository.load("session-1");
+
+		expect(create).not.toHaveBeenCalled();
+		expect(resume).toHaveBeenCalledOnce();
+		expect(conversation.events.at(-1)).toMatchObject({
+			type: "turn.failed",
+			error: { code: KERNEL_ERROR_CODES.TURN_INTERRUPTED },
+		});
+		expect(events.map((event) => event.type)).toEqual(["error", "session.lifecycle"]);
+		expect(events[0]).toMatchObject({
+			type: "error",
+			error: { code: KERNEL_ERROR_CODES.TURN_INTERRUPTED },
+		});
+		expect(events[1]).toMatchObject({ type: "session.lifecycle", phase: "agent_end" });
 	});
 
 	it("queues explicit concurrent input and retains it after abort", async () => {

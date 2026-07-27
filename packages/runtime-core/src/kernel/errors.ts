@@ -3,6 +3,7 @@ export const KERNEL_ERROR_CODES = {
 	SESSION_CLOSED: "session_closed",
 	TURN_PROTOCOL: "turn_protocol",
 	TURN_FAILED: "turn_failed",
+	TURN_INTERRUPTED: "turn_interrupted",
 	FEATURE_CONFIGURATION: "feature_configuration",
 	FEATURE_CONFLICT: "feature_conflict",
 	SNAPSHOT_PROVIDER_CLOSED: "snapshot_provider_closed",

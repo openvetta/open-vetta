@@ -69,6 +69,14 @@ export type ToolCategory =
 	| "memory"
 	| "external";
 
+/** resolveActiveToolNames 只消费激活元数据，不要求工具的参数 Schema 或 execute 方差兼容。 */
+export interface ToolActivationMetadata {
+	readonly name: string;
+	readonly scope_use?: readonly string[];
+	readonly requires?: readonly string[];
+	readonly agent_mode?: readonly string[];
+}
+
 /**
  * 解析某场景下应激活的工具名集合。
  * @param scenario 当前对话场景。
@@ -78,7 +86,7 @@ export type ToolCategory =
  */
 export function resolveActiveToolNames(
 	scenario: ConversationScenario,
-	tools: AgentTool[],
+	tools: readonly ToolActivationMetadata[],
 	capabilities: ReadonlySet<string>,
 	mode?: string,
 ): string[] {

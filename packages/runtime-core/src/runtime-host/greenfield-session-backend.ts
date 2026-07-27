@@ -39,6 +39,7 @@ export interface GreenfieldRuntimeAssembly {
 
 export interface GreenfieldRuntimeFactory<TCreateOptions> {
 	create(options: TCreateOptions, eventSink: EventSink): Promise<GreenfieldRuntimeAssembly>;
+	resume(options: TCreateOptions, eventSink: EventSink): Promise<GreenfieldRuntimeAssembly>;
 }
 
 export interface GreenfieldRuntimeSessionBackendOptions<TCreateOptions> {
@@ -155,31 +156,61 @@ export class GreenfieldRuntimeSessionBackend<TCreateOptions>
 	async create(options: TCreateOptions): Promise<GreenfieldRuntimeSession> {
 		const eventSink = new GreenfieldSessionEventSink();
 		const assembly = await this.options.runtimeFactory.create(options, eventSink);
+		eventSink.finishInitialization();
+		return new GreenfieldRuntimeSession(assembly, this.options.promptAdapter, eventSink);
+	}
+
+	async resume(options: TCreateOptions): Promise<GreenfieldRuntimeSession> {
+		const eventSink = new GreenfieldSessionEventSink();
+		const assembly = await this.options.runtimeFactory.resume(options, eventSink);
+		eventSink.finishInitialization();
 		return new GreenfieldRuntimeSession(assembly, this.options.promptAdapter, eventSink);
 	}
 }
 
 class GreenfieldSessionEventSink implements EventSink {
 	private readonly listeners = new Set<(event: SessionEvent) => void>();
+	private readonly initializationEvents: SessionEvent[] = [];
+	private initializing = true;
 
 	async publish(event: KernelEvent): Promise<void> {
 		for (const mapped of mapGreenfieldKernelEventToSessionEvents(event)) {
-			for (const listener of this.listeners) {
-				try {
-					listener(mapped);
-				} catch {
-					// Session observers are isolated from turn execution and from each other.
-				}
+			if (this.initializing) {
+				this.initializationEvents.push(mapped);
+				continue;
 			}
+			this.notifyListeners(mapped);
 		}
 	}
 
 	subscribe(handler: (event: SessionEvent) => void): () => void {
 		this.listeners.add(handler);
+		for (const event of this.initializationEvents.splice(0)) {
+			try {
+				handler(event);
+			} catch {
+				// Session observers are isolated from initialization recovery events.
+			}
+		}
 		return () => this.listeners.delete(handler);
+	}
+
+	finishInitialization(): void {
+		this.initializing = false;
 	}
 
 	clear(): void {
 		this.listeners.clear();
+		this.initializationEvents.length = 0;
+	}
+
+	private notifyListeners(event: SessionEvent): void {
+		for (const listener of this.listeners) {
+			try {
+				listener(event);
+			} catch {
+				// Session observers are isolated from turn execution and from each other.
+			}
+		}
 	}
 }

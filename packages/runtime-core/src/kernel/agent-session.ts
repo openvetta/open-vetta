@@ -42,6 +42,12 @@ export class AgentSession {
 		return session;
 	}
 
+	static async resume(options: CreateAgentSessionOptions): Promise<AgentSession> {
+		const session = new AgentSession(options);
+		await options.pipeline.resumeSession(options.id);
+		return session;
+	}
+
 	get state(): AgentSessionState {
 		return this.currentState;
 	}
@@ -166,4 +172,8 @@ export class AgentSession {
 
 export async function createAgentSession(options: CreateAgentSessionOptions): Promise<AgentSession> {
 	return AgentSession.create(options);
+}
+
+export async function resumeAgentSession(options: CreateAgentSessionOptions): Promise<AgentSession> {
+	return AgentSession.resume(options);
 }

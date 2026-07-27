@@ -18,6 +18,7 @@ import type {
 	TurnPipelineStage,
 	TurnResult,
 } from "./contracts.js";
+import { type ConversationRecoveryPolicy, FailInterruptedTurnRecoveryPolicy } from "./conversation-recovery.js";
 import { KERNEL_ERROR_CODES, KernelError, turnProtocolError } from "./errors.js";
 
 export interface TurnPipelineOptions {
@@ -27,6 +28,7 @@ export interface TurnPipelineOptions {
 	readonly eventSink: EventSink;
 	readonly clock: Clock;
 	readonly idGenerator: IdGenerator;
+	readonly recoveryPolicy?: ConversationRecoveryPolicy;
 }
 
 interface MutableTurnState {
@@ -43,6 +45,7 @@ export class TurnPipeline {
 	private readonly eventSink: EventSink;
 	private readonly clock: Clock;
 	private readonly idGenerator: IdGenerator;
+	private readonly recoveryPolicy: ConversationRecoveryPolicy;
 
 	constructor(options: TurnPipelineOptions) {
 		this.repository = options.repository;
@@ -51,6 +54,7 @@ export class TurnPipeline {
 		this.eventSink = options.eventSink;
 		this.clock = options.clock;
 		this.idGenerator = options.idGenerator;
+		this.recoveryPolicy = options.recoveryPolicy ?? new FailInterruptedTurnRecoveryPolicy();
 	}
 
 	async createSession(sessionId: string): Promise<void> {
@@ -58,6 +62,25 @@ export class TurnPipeline {
 			sessionId,
 			createdAt: this.clock.now(),
 		});
+	}
+
+	async resumeSession(sessionId: string): Promise<void> {
+		const conversation = await this.repository.load(sessionId);
+		const plan = this.recoveryPolicy.plan(conversation);
+		if (plan.status === "ready") return;
+
+		const event: StoredSessionEvent = {
+			type: "turn.failed",
+			sessionId,
+			turnId: plan.turnId,
+			error: {
+				code: KERNEL_ERROR_CODES.TURN_INTERRUPTED,
+				message: "Turn interrupted before the session was resumed",
+			},
+			timestamp: this.clock.now(),
+		};
+		await this.repository.append(sessionId, conversation.version, [event]);
+		await this.publishSafely(event);
 	}
 
 	async run(

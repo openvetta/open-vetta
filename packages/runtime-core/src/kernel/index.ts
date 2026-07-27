@@ -3,7 +3,12 @@ export type {
 	RuntimeSessionObservationEvent,
 } from "../session-observation.js";
 export { AgentCoreTurnEngine, type AgentCoreTurnEngineOptions } from "./agent-core-turn-engine.js";
-export { AgentSession, type CreateAgentSessionOptions, createAgentSession } from "./agent-session.js";
+export {
+	AgentSession,
+	type CreateAgentSessionOptions,
+	createAgentSession,
+	resumeAgentSession,
+} from "./agent-session.js";
 export type {
 	AgentFeature,
 	AgentFeatureDefinition,
@@ -65,6 +70,11 @@ export type {
 	TurnResult,
 	TurnStartedEvent,
 } from "./contracts.js";
+export {
+	type ConversationRecoveryPlan,
+	type ConversationRecoveryPolicy,
+	FailInterruptedTurnRecoveryPolicy,
+} from "./conversation-recovery.js";
 export {
 	NoopEventSink,
 	PassthroughContextStrategy,

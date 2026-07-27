@@ -44,6 +44,7 @@
 | [34-session-observation-and-greenfield-events.md](./08-implementation-log/34-session-observation-and-greenfield-events.md) | 旧会话事件特征基线、独立观察合同与 Greenfield SessionEvent 适配 |
 | [35-session-input-concurrency.md](./08-implementation-log/35-session-input-concurrency.md) | 活动 Turn 的 steer、follow-up、队列模式与终态仲裁 |
 | [36-greenfield-session-backend.md](./08-implementation-log/36-greenfield-session-backend.md) | Greenfield 并行后端、Continue Turn 与恢复边界 |
+| [37-session-resume-and-recovery.md](./08-implementation-log/37-session-resume-and-recovery.md) | 类型基线修复、显式 Session Resume 与未完成 Turn 恢复 |
 
 ## 维护约定
 
