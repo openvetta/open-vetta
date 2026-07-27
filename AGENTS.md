@@ -78,7 +78,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ## Code Quality
 - No `any` types unless absolutely necessary
 - Check node_modules for external API type definitions instead of guessing
-- **NEVER use inline imports** - no `await import("./foo.js")`, no `import("pkg").Type` in type positions, no dynamic imports for types. Always use standard top-level imports.
+- **NEVER use inline imports for types** - no `import("pkg").Type` in type positions and no dynamic imports used only to obtain types. Runtime `import()` is allowed only for deliberate code splitting or lazy loading; ordinary dependencies must still use standard top-level imports.
 - NEVER remove or downgrade code to fix type errors from outdated dependencies; upgrade the dependency instead
 - Always ask before removing functionality or code that appears to be intentional
 - Never hardcode key checks with, eg. `matchesKey(keyData, "ctrl+x")`. All keybindings must be configurable. Add default to matching object (`DEFAULT_EDITOR_KEYBINDINGS` or `DEFAULT_APP_KEYBINDINGS`)

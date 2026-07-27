@@ -27,7 +27,9 @@ export function useProjectsPanelModel({
 	const { t } = useTranslation("project");
 	const {
 		projects,
+		projectsInitialized,
 		sessionsMap,
+		sessionLoadingCwds,
 		expandedProjects,
 		expandProject,
 		collapseProject,
@@ -397,12 +399,18 @@ export function useProjectsPanelModel({
 		defaultConversationFilter,
 		defaultProject,
 		defaultSessions,
+		defaultSessionsLoading:
+			defaultConversationFilter === "claw"
+				? Boolean(imCwd && sessionLoadingCwds.has(imCwd))
+				: Boolean(defaultProject && sessionLoadingCwds.has(defaultProject.cwd)),
 		expandedBatchProjects,
 		expandedProjects,
 		filteredProjects,
 		imCwd,
 		noOtherProjects,
 		projectSessions: (cwd) => sessionsMap.get(cwd) ?? EMPTY_SESSIONS,
+		projectSessionsLoading: (cwd) => sessionLoadingCwds.has(cwd),
+		projectsLoading: !projectsInitialized,
 		showBatchGroup,
 		actions: {
 			archiveProject: (cwd) => {

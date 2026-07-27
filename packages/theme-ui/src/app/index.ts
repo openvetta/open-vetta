@@ -9,3 +9,5 @@ declare module "@vetta/theme-sdk" {
 
 export type { AppBackgroundProps } from "./AppBackground";
 export { AppBackground } from "./AppBackground";
+export { AppBootLoadingView } from "./AppBootLoadingView";
+export { RouteContentLoadingView } from "./RouteContentLoadingView";
