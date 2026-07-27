@@ -44,7 +44,7 @@ export function useDefaultSessionListModel({
 	onSelectSession,
 	sessions,
 }: UseDefaultSessionListModelArgs) {
-	const { t } = useTranslation("project");
+	const { t, i18n } = useTranslation("project");
 	const sorted = useMemo(() => [...sessions].sort((a, b) => b.modifiedAt - a.modifiedAt), [sessions]);
 	const [, setContextMenu] = useAtom(sessionContextMenuAtom);
 	const [renamingSessionPath, setRenamingSessionPath] = useAtom(renamingSessionPathAtom);
@@ -79,29 +79,38 @@ export function useDefaultSessionListModel({
 	const hiddenCount = sorted.length - DEFAULT_VISIBLE_DEFAULT_SESSIONS;
 	const isClaw = filter === "claw";
 
-	const allViews: DefaultSessionListItemView[] = useMemo(
-		() =>
-			sorted.map((session) => {
-				const isActive = activeSessionPath === session.path;
-				const isRenaming = renamingSessionPath === session.path;
-				const isRunning = runningSessionPaths.has(session.path);
-				const isSchedule =
-					scheduledSessionPaths.has(session.path) ||
-					scheduledBasenames.has(session.path.slice(session.path.lastIndexOf("/") + 1));
-				return {
-					key: session.path,
-					path: session.path,
-					label: sessionDisplayLabel(session),
-					timeLabel: relativeTime(session.modifiedAt),
-					active: isActive,
-					renaming: isRenaming,
-					running: isRunning,
-					scheduled: isSchedule,
-					session,
-				};
-			}),
-		[activeSessionPath, renamingSessionPath, runningSessionPaths, scheduledBasenames, scheduledSessionPaths, sorted],
-	);
+	// t 在 changeLanguage 后可能保持同一引用；读 i18n.language 强制语言切换时重算 timeLabel。
+	const allViews: DefaultSessionListItemView[] = useMemo(() => {
+		void i18n.language;
+		return sorted.map((session) => {
+			const isActive = activeSessionPath === session.path;
+			const isRenaming = renamingSessionPath === session.path;
+			const isRunning = runningSessionPaths.has(session.path);
+			const isSchedule =
+				scheduledSessionPaths.has(session.path) ||
+				scheduledBasenames.has(session.path.slice(session.path.lastIndexOf("/") + 1));
+			return {
+				key: session.path,
+				path: session.path,
+				label: sessionDisplayLabel(session),
+				timeLabel: relativeTime(session.modifiedAt, t),
+				active: isActive,
+				renaming: isRenaming,
+				running: isRunning,
+				scheduled: isSchedule,
+				session,
+			};
+		});
+	}, [
+		activeSessionPath,
+		i18n.language,
+		renamingSessionPath,
+		runningSessionPaths,
+		scheduledBasenames,
+		scheduledSessionPaths,
+		sorted,
+		t,
+	]);
 
 	const visibleViews = showAll ? allViews : allViews.slice(0, DEFAULT_VISIBLE_DEFAULT_SESSIONS);
 
