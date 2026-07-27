@@ -5,7 +5,7 @@ import type {
 	McpStdioServerConfigData,
 } from "@preload/api.js";
 import type { MarketMcpServer } from "@shared/lib/api";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	type BuiltinMcpPreset,
@@ -19,6 +19,9 @@ import {
 	serverUsesOAuth,
 } from "../mcp/builtin-mcp-presets";
 import { recordSettingsUsage } from "./recordSettingsUsage";
+
+/** 内置预设的添加结果：需要密钥 / 浏览器授权时只弹引导，此时并未写入 mcp.json。 */
+export type McpBuiltinAddResult = "installed" | "needs-setup";
 
 export type McpEditMode = "visual" | "json";
 export type McpTransportType = "stdio" | "http";
@@ -70,7 +73,11 @@ export interface McpSettingsModel {
 	secretsDialogMode: "add" | "configure";
 	/** 连接引导 Dialog 内的错误（如 OAuth 失败） */
 	secretsDialogError: string | null;
-	onAddBuiltinServer: (preset: BuiltinMcpPreset) => Promise<void>;
+	/** `abilityVersion` 给出时（市场 MCP 能力）写入安装台账。 */
+	onAddBuiltinServer: (
+		preset: BuiltinMcpPreset,
+		options?: { abilityVersion?: string },
+	) => Promise<McpBuiltinAddResult>;
 	onConfigureBuiltinSecrets: (name: string) => void;
 	onCloseSecretsDialog: () => void;
 	onConfirmSecretsDialog: (values: Record<string, string>) => Promise<void>;
@@ -84,7 +91,8 @@ export interface McpSettingsModel {
 	onAuthorizeOAuth: (name: string) => Promise<void>;
 	/** 清除 OAuth 凭证 */
 	onRevokeOAuth: (name: string) => Promise<void>;
-	onAddRemoteServer: (server: MarketMcpServer) => Promise<void>;
+	/** `abilityVersion` 给出时（市场 MCP 能力）写入安装台账。 */
+	onAddRemoteServer: (server: MarketMcpServer, options?: { abilityVersion?: string }) => Promise<void>;
 	onRemoveRemoteServer: (name: string) => Promise<void>;
 	onJsonSave: () => Promise<void>;
 }
@@ -127,6 +135,13 @@ export function useMcpSettingsModel(): McpSettingsModel {
 	const [secretsDialogAuthorizing, setSecretsDialogAuthorizing] = useState(false);
 	const [oauthAuthByName, setOauthAuthByName] = useState<Record<string, boolean>>({});
 	const [oauthBusyName, setOauthBusyName] = useState<string | null>(null);
+	/**
+	 * 最新一次落盘的配置。批量安装（能力套装）在一个 await 循环里连写多次，
+	 * 中途不会重渲染，闭包里的 `config` 是旧快照——按它算下一份配置会互相覆盖。
+	 */
+	const configRef = useRef<McpConfigData | null>(null);
+	/** 引导 Dialog 完成后补记台账用的市场版本。 */
+	const pendingAbilityVersionRef = useRef<string | undefined>(undefined);
 
 	const refreshOAuthStatus = useCallback(async (cfg: McpConfigData | null) => {
 		if (!cfg) {
@@ -146,6 +161,7 @@ export function useMcpSettingsModel(): McpSettingsModel {
 
 	useEffect(() => {
 		void window.vetta.mcp.get().then((loadedConfig) => {
+			configRef.current = loadedConfig;
 			setConfig(loadedConfig);
 			setJsonText(JSON.stringify(loadedConfig, null, 2));
 			void refreshOAuthStatus(loadedConfig);
@@ -157,6 +173,7 @@ export function useMcpSettingsModel(): McpSettingsModel {
 			setSaving(true);
 			try {
 				await window.vetta.mcp.set(newConfig);
+				configRef.current = newConfig;
 				setConfig(newConfig);
 				setJsonText(JSON.stringify(newConfig, null, 2));
 				void refreshOAuthStatus(newConfig);
@@ -184,7 +201,8 @@ export function useMcpSettingsModel(): McpSettingsModel {
 	}, [secretsDialogAuthorizing]);
 
 	const writeBuiltinPreset = useCallback(
-		async (preset: BuiltinMcpPreset, secretValues?: Record<string, string>) => {
+		async (preset: BuiltinMcpPreset, secretValues?: Record<string, string>, abilityVersion?: string) => {
+			const config = configRef.current;
 			if (!config) return;
 			const targetName =
 				secretsDialogMode === "configure" && secretsDialogTargetName ? secretsDialogTargetName : preset.name;
@@ -229,6 +247,7 @@ export function useMcpSettingsModel(): McpSettingsModel {
 						oauthScopes: next.oauthScopes,
 					});
 					await saveConfig(nextConfig);
+					await recordMcpAbilityInstall(targetName, abilityVersion);
 					recordSettingsUsage({
 						tab: "mcp",
 						action: "added",
@@ -263,6 +282,7 @@ export function useMcpSettingsModel(): McpSettingsModel {
 			setBusyPresetName(preset.name);
 			try {
 				await saveConfig(nextConfig);
+				await recordMcpAbilityInstall(targetName, abilityVersion);
 				recordSettingsUsage({
 					tab: "mcp",
 					action: secretsDialogMode === "configure" ? "updated" : "added",
@@ -274,7 +294,7 @@ export function useMcpSettingsModel(): McpSettingsModel {
 				setBusyPresetName(null);
 			}
 		},
-		[closeSecretsDialog, config, saveConfig, secretsDialogMode, secretsDialogTargetName, t],
+		[closeSecretsDialog, saveConfig, secretsDialogMode, secretsDialogTargetName, t],
 	);
 
 	const authorizeOAuth = useCallback(
@@ -339,21 +359,23 @@ export function useMcpSettingsModel(): McpSettingsModel {
 	);
 
 	const addBuiltinServer = useCallback(
-		async (preset: BuiltinMcpPreset) => {
-			if (!config) return;
+		async (preset: BuiltinMcpPreset, options?: { abilityVersion?: string }): Promise<McpBuiltinAddResult> => {
+			if (!configRef.current) return "needs-setup";
 			// 必填密钥 / 浏览器授权说明：都先弹引导，避免用户不知道下一步
 			if (presetRequiresSecrets(preset) || presetUsesBrowserAuth(preset)) {
+				pendingAbilityVersionRef.current = options?.abilityVersion;
 				setSecretsDialogMode("add");
 				setSecretsDialogTargetName(preset.name);
 				setSecretsDialogInitial(undefined);
 				setSecretsDialogError(null);
 				setSecretsDialogAuthorizing(false);
 				setSecretsDialogPreset(preset);
-				return;
+				return "needs-setup";
 			}
-			await writeBuiltinPreset(preset);
+			await writeBuiltinPreset(preset, undefined, options?.abilityVersion);
+			return "installed";
 		},
-		[config, writeBuiltinPreset],
+		[writeBuiltinPreset],
 	);
 
 	const configureBuiltinSecrets = useCallback(
@@ -374,28 +396,35 @@ export function useMcpSettingsModel(): McpSettingsModel {
 	const confirmSecretsDialog = useCallback(
 		async (values: Record<string, string>) => {
 			if (!secretsDialogPreset) return;
-			await writeBuiltinPreset(secretsDialogPreset, values);
+			await writeBuiltinPreset(secretsDialogPreset, values, pendingAbilityVersionRef.current);
+			pendingAbilityVersionRef.current = undefined;
 		},
 		[secretsDialogPreset, writeBuiltinPreset],
 	);
 
 	const addRemoteServer = useCallback(
-		async (server: MarketMcpServer) => {
+		async (server: MarketMcpServer, options?: { abilityVersion?: string }) => {
+			const config = configRef.current;
 			if (!config) return;
-			const newServers = { ...config.mcpServers, [server.name]: marketToServer(server) };
+			// 升级/重加时按字段合并，保留用户本地填的密钥、headers、停用与自动批准状态
+			const merged = mergeMarketServer(config.mcpServers[server.name], marketToServer(server));
+			const newServers = { ...config.mcpServers, [server.name]: merged };
 			await saveConfig({ ...config, mcpServers: newServers });
+			await recordMcpAbilityInstall(server.name, options?.abilityVersion);
 			recordSettingsUsage({ tab: "mcp", action: "added", target: "market-server" });
 		},
-		[config, saveConfig],
+		[saveConfig],
 	);
 
 	const removeServer = useCallback(
 		async (name: string) => {
+			const config = configRef.current;
 			if (!config) return;
 			const newServers = { ...config.mcpServers };
+			const existing = config.mcpServers[name];
 			delete newServers[name];
 			// 删除配置时一并清掉 OAuth 凭证，避免残留 token
-			if (serverUsesOAuth(name, config.mcpServers[name]!)) {
+			if (existing && serverUsesOAuth(name, existing)) {
 				try {
 					await window.vetta.mcp.logout(name);
 				} catch {
@@ -409,11 +438,12 @@ export function useMcpSettingsModel(): McpSettingsModel {
 			}
 			recordSettingsUsage({ tab: "mcp", action: "deleted", target: "server" });
 		},
-		[config, editingServer, saveConfig],
+		[editingServer, saveConfig],
 	);
 
 	const handleToggleDisabled = useCallback(
 		async (name: string) => {
+			const config = configRef.current;
 			if (!config) return;
 			const server = config.mcpServers[name];
 			if (!server) return;
@@ -426,7 +456,7 @@ export function useMcpSettingsModel(): McpSettingsModel {
 			});
 			recordSettingsUsage({ tab: "mcp", action: server.disabled ? "enabled" : "disabled", target: "server" });
 		},
-		[config, saveConfig],
+		[saveConfig],
 	);
 
 	const toggleEditServer = useCallback(
@@ -644,6 +674,48 @@ function formToServer(form: McpServerFormState): McpServerConfigData {
 	if (startupTimeout && !Number.isNaN(startupTimeout)) config.startupTimeout = startupTimeout;
 	if (form.debug) config.debug = true;
 	return config;
+}
+
+/**
+ * 市场 MCP 落盘后补记安装台账（ADR-0049）。mcp.json 由本模块整份覆写，
+ * 主进程侧的 upsert 不在这条路径上，故显式补记，否则「可更新」永远不会出现。
+ */
+async function recordMcpAbilityInstall(name: string, abilityVersion: string | undefined): Promise<void> {
+	if (!abilityVersion?.trim()) return;
+	await window.vetta.abilities.recordMcpInstall(name, abilityVersion);
+}
+
+/**
+ * 用市场配置更新一个已存在的 server：市场声明的字段以市场为准，
+ * 用户本地补充的字段（额外 env / headers、disabled、autoApprove 等）原样保留。
+ * 传输方式变了则无法保留，直接采用市场配置。
+ */
+function mergeMarketServer(existing: McpServerConfigData | undefined, next: McpServerConfigData): McpServerConfigData {
+	if (!existing) return next;
+	const localOnly = {
+		...(existing.disabled === undefined ? {} : { disabled: existing.disabled }),
+		...(existing.autoApprove === undefined ? {} : { autoApprove: [...existing.autoApprove] }),
+	};
+	if (isHttpMcpServerConfigData(existing) && isHttpMcpServerConfigData(next)) {
+		const headers = { ...existing.headers, ...next.headers };
+		return {
+			...existing,
+			...next,
+			...localOnly,
+			...(Object.keys(headers).length > 0 ? { headers } : {}),
+		};
+	}
+	if (!isHttpMcpServerConfigData(existing) && !isHttpMcpServerConfigData(next)) {
+		const env = { ...existing.env, ...next.env };
+		return {
+			...existing,
+			...next,
+			...localOnly,
+			...(Object.keys(env).length > 0 ? { env } : {}),
+		};
+	}
+	// 传输方式发生变化，本地字段无从对应
+	return next;
 }
 
 function marketToServer(server: MarketMcpServer): McpServerConfigData {

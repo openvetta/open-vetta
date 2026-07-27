@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 import "./telemetry.js";
 import type { DesktopApi } from "./api.js";
+import { createAbilitiesApi } from "./apis/abilities.js";
 import { createActionApprovalApi } from "./apis/action-approval.js";
 import { createAppMonitorApi } from "./apis/app-monitor.js";
 import { createAppshotApi } from "./apis/appshot.js";
@@ -35,6 +36,7 @@ for (const eventName of ["keydown", "mousedown", "mousemove", "touchstart", "whe
 }
 
 const api: DesktopApi = {
+	...createAbilitiesApi(ipcRenderer),
 	...createActionApprovalApi(ipcRenderer),
 	...createAppMonitorApi(ipcRenderer),
 	...createSessionApi(ipcRenderer),

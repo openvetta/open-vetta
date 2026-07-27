@@ -19,7 +19,7 @@ describe("createOfficialNavigationApi", () => {
 
 		expect(navigation.help()).toHaveProperty("type", "help");
 		expect(navigation.resolveOpen({ target: "plugins" })).toMatchObject({
-			hashPath: "/plugins",
+			hashPath: "/abilities",
 			resolved: { kind: "page", id: "plugins" },
 		});
 

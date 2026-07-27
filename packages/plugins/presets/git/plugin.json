@@ -1,6 +1,7 @@
 {
 	"id": "git",
 	"name": "%plugin.name%",
+	"icon": "solar:branching-paths-up-bold",
 	"version": "0.2.8",
 	"agent_mode": ["coding"],
 	"defaultLocale": "zh",

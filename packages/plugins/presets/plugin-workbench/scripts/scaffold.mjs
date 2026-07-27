@@ -68,6 +68,7 @@ const files = {
 			permissions: [],
 			description: args.name,
 			author: "Vetta User",
+			icon: "solar:widget-add-bold",
 			guidingWords: [],
 		},
 		null,

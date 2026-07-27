@@ -4,6 +4,24 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ## [Unreleased] — 内测版（未公证）
 
+### Breaking Changes
+
+- **`/skills` 与 `/plugins` 路由移除**：两者重定向到 `/abilities`（`/skills?tab=scene` 仍去 `/scenes`）。渲染层不再有独立插件页与插件卡片/详情 Drawer。
+- **市场接口收敛为 `/abilities/*`**：`fetchMarketSkills` / `fetchMarketPlugins` / `fetchMarketMcpServers` 与 `downloadSkill` / `downloadPlugin` / `fetchSkillInfo` / `fetchPluginInfo` 由 `fetchMarketAbilities` / `fetchAbilityInfo` / `downloadAbility` 取代。
+
+### Added
+
+- **能力（Ability）统一页与独立详情页（ADR-0049）**：Skill / 场景 / MCP / 插件 / 能力套装（bundle）合并为一个 `/abilities` 列表，筛选轴改为正交两条——分类（用途）与类型（五种 type）；「发现」/「我的」两个 scope 保留。新增 `/abilities/$type/$slug` 独立详情页（不再是侧边 Drawer，返回走 history.back）：通用壳层（图标/标题/作者/版本/状态/主次 CTA）+ `raw.detail.content` 的 markdown 正文 + `showcases` 结构化头图（沿用 `chat-over-canvas` / `chat-thread` 宿主呈现模板）+ type 专属区块（plugin → 权限与命令开关，mcp → 凭证与 OAuth，bundle → 成员列表可逐个跳详情）。
+- **能力套装（bundle）**：恒无产物，`installed` / `enabled` / `needsUpdate` 全部由成员派生；卸载弹确认框列出将被卸载的成员并允许逐项取消勾选。
+- **安装态改读安装台账**：`installed` / 本地版本 / 可更新一律取 `~/.vetta/abilities.json`，五种 type 共用同一套更新检测；`enabled` 仍回各自运行时（skills 清单 / mcp.json / 插件注册表）。
+- **`abilities` i18n 命名空间**：能力页与详情页文案（含插件权限展示名）全部走 i18n，zh / en 双份 catalog。
+- **插件条目的名称/描述走 NLS catalog 解析**：`plugin.json` 的 `name` / `description` 可以是 `%key%` 占位符（ADR-0033），能力卡片与详情页统一经插件自带 catalog 解析后再展示，不再直接渲染原始占位符；未安装的市场条目没有本地 catalog，由服务端在上传时解析好下发。
+
+### Removed
+
+- **能力详情的结构化 section 体系**：`CapabilityDetailSections` 的 featureList / scenarios / permissions / reviews 与 `catalog.ts` 中 Figma / GitHub / Notion 的客户端硬编码正文按 ADR-0049 作废，正文改由服务端下发 markdown。
+- **插件独立入口**：`PluginsPage` / `PluginsPanel` / `PluginCard` / `PluginDetailSheet` 及侧边栏「插件」导航项删除；插件的 dev 热更新、devLinks、从路径安装等开发者功能保持不变。
+
 ### Changed
 
 - **侧边栏「对话」空状态**：无会话时由单行「暂无对话」改为图标 + 标题 + 引导说明；对话 tab 提供「开始新对话」CTA，且空态下头部「+」始终可见；Claw tab 单独说明如何产生记录。
@@ -11,8 +29,6 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
-- **能力统一详情侧栏（声明式 JSON）**：能力列表点击 skill / 连接器共用右侧 Drawer；壳层展示状态与添加/启用/配置 CTA，正文按白名单 section（介绍、showcase 呈现模板、功能、场景、权限、评价）渲染；Figma / GitHub / Notion 内置 catalog，其余能力用描述降级。非官方可执行 UI。
-- **能力详情呈现模板 `chat-over-canvas`**：参考图中的「演示区」非静态图片，由宿主 CSS 画布 mock（design/code/docs）+ 对话气泡组合；catalog 仅选 template 与 canvas motif。
 - **WebdriverIO Electron E2E scaffold**: `@wdio/electron-service` with unpackaged smoke via `dist/main/index.js` (`bun run test:e2e`); `VETTA_E2E_PACKAGED=1` / `bun run test:e2e:packaged` for `release/*-unpacked` binaries. See `wdio.conf.ts` and `e2e/`.
 - **Electron E2E batch-1 smoke**: boot contract (ready / version / main window `index.html`), `VETTA_E2E`·`VETTA_HOME`·userData isolation, and `dialog.showOpenDialog` mock probe; no product UI coverage.
 

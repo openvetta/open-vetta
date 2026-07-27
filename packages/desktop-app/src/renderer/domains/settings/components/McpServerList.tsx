@@ -86,7 +86,9 @@ function McpDiscoverBody({
 				<BuiltinMcpSection
 					variant="discover"
 					addedNames={model.addedServerNames}
-					onAdd={model.onAddBuiltinServer}
+					onAdd={(preset) => {
+						void model.onAddBuiltinServer(preset);
+					}}
 					onRemove={model.onRemoveRemoteServer}
 					busyName={model.busyPresetName}
 				/>
