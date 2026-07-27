@@ -27,7 +27,7 @@ interface RawModel {
 	name?: string;
 	reasoning?: boolean;
 	reasoning_options?: Array<{ type?: string; values?: string[] }>;
-	modalities?: { input?: string[] };
+	modalities?: { input?: string[]; output?: string[] };
 	limit?: { context?: number; output?: number };
 	cost?: { input?: number; output?: number; cache_read?: number; cache_write?: number };
 }
@@ -67,6 +67,9 @@ function shrink(body: Record<string, { models?: Record<string, RawModel> }>): Mo
 		if (!models) continue;
 		const entries: Record<string, ModelDefinition> = {};
 		for (const [id, raw] of Object.entries(models)) {
+			// 只留会吐文本的模型:滤掉视频(veo)、音乐(lyria)、TTS、纯图像生成等。
+			// 与带 key 时 Gemini 按 generateContent 过滤的口径一致。
+			if (raw.modalities?.output && !raw.modalities.output.includes("text")) continue;
 			entries[id] = toModelDefinition(id, raw);
 		}
 		providers[presetId] = entries;

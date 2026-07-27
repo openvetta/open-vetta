@@ -5,8 +5,8 @@ import { atomicWriteJSON } from "@vetta/toolkit/atomic-write";
 import { net } from "electron";
 import { getAppLogger } from "../../logger.js";
 import { getDesktopModelSettingsService } from "../model-settings-host.js";
-import type { ModelsConfig } from "../model-settings-service.js";
-import { getPresetProvider, PRESET_PROVIDERS } from "./catalog.js";
+import type { ModelDefinition, ModelsConfig } from "../model-settings-service.js";
+import { getPresetProvider, PRESET_PROVIDERS, type PresetProviderDef } from "./catalog.js";
 import { fetchPresetModels, type PresetModelsResult } from "./fetch.js";
 import { enrichFromCatalog, fetchModelsDevCatalog, isCatalogFresh, type ModelsDevCatalog } from "./models-dev.js";
 
@@ -24,16 +24,33 @@ export interface PresetProviderInfo {
 	api: string;
 	baseUrl: string;
 	icon: string;
+	/** 公共目录里该家的模型(免 key 可见)。填 key 后由账号实际可用的 /models 结果取代。 */
+	catalogModels: ModelDefinition[];
 }
 
-export function listPresetProviders(): PresetProviderInfo[] {
+/**
+ * 预设服务商目录。模型清单来自 models.dev(公开、免 key),让用户填 key 前就能看到
+ * 各家有什么、多少钱;拉不到目录则模型为空——不内置任何会腐烂的默认清单。
+ */
+export async function listPresetProviders(): Promise<PresetProviderInfo[]> {
+	const catalog = await getModelsDevCatalog();
 	return PRESET_PROVIDERS.map((def) => ({
 		id: def.id,
 		displayName: def.displayName,
 		api: def.api,
 		baseUrl: def.baseUrl,
 		icon: def.icon,
+		catalogModels: catalogModelsFor(catalog, def),
 	}));
+}
+
+function catalogModelsFor(catalog: ModelsDevCatalog | null, def: PresetProviderDef): ModelDefinition[] {
+	const models = catalog?.providers[def.id];
+	if (!models) return [];
+	return Object.values(models)
+		.filter((model) => def.isChatModel(model.id))
+		.map((model) => enrichFromCatalog(catalog, def.id, model))
+		.sort((a, b) => a.id.localeCompare(b.id));
 }
 
 /** 进程内缓存,避免同一次同步里六家各拉一遍 3MB 的目录。 */
@@ -118,6 +135,8 @@ function adoptedPresetIds(config: ModelsConfig): string[] {
  * 单个失败静默跳过(保留本地快照),不影响其它服务商。
  */
 export async function syncAdoptedPresets(): Promise<void> {
+	// 先热一遍公共目录:即便一家都没启用,设置页也要能免 key 列出各家模型。
+	await getModelsDevCatalog();
 	const service = getDesktopModelSettingsService();
 	const config = await service.getConfig();
 	const ids = adoptedPresetIds(config);

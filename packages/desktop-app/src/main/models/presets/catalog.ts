@@ -14,7 +14,10 @@ export interface PresetProviderDef {
 	readonly isChatModel: (id: string) => boolean;
 }
 
-const NON_CHAT = /embedding|embed|whisper|tts|audio|realtime|moderation|dall-e|image|transcribe|rerank|vision-ocr/i;
+// live / realtime 走独立的双向流式接口,veo / lyria / imagen 是视频音乐图像生成模型,
+// 都不能当普通对话模型用,一并滤掉。
+const NON_CHAT =
+	/embedding|embed|whisper|tts|audio|realtime|-live-|moderation|dall-e|image|transcribe|rerank|vision-ocr|veo-|lyria|imagen/i;
 
 export const PRESET_PROVIDERS: readonly PresetProviderDef[] = [
 	{

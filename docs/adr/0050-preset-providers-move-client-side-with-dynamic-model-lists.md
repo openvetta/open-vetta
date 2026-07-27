@@ -8,7 +8,7 @@
 - `openai-compatible`：`GET {baseUrl}/models`，Bearer；OpenAI / DeepSeek / Z.ai 只返回 id，Kimi 额外给 `context_length` / `supports_reasoning` / `supports_image_in`，一并解析（多余字段对其它家无害）。
 - `gemini`：`GET {baseUrl}/models?key=`，`pageToken` 分页，按 `supportedGenerationMethods` 含 `generateContent` 过滤，给 `inputTokenLimit` / `outputTokenLimit` / `thinking`。
 
-**客户端不内置任何默认模型清单。** 未填 key 的预设服务商模型数就是 0，行内提示「填入 Key 后拉取模型」。内置清单必然随各家发版腐烂，展示一份过期型号比不展示更糟；模型只从上游 `/models` 来。
+**客户端不内置任何默认模型清单**——内置清单必然随各家发版腐烂。未填 key 时展示 models.dev 公共目录里该家的模型（免 key 可拉），标注「公共目录，填入 Key 后按账号刷新」；填 key 后由该账号实际可用的 `/models` 结果取代。两条路径共用同一套非对话模型过滤（embedding / TTS / 图像视频音乐生成 / realtime）。
 
 **接口不给的字段用 [models.dev](https://models.dev/api.json) 目录补，接口给了的一律以接口为准**（`models-dev.ts`）。没有一家 `/models` 返回价格，OpenAI / DeepSeek / GLM 连上下文长度都不给。曾用手写静态表按模型 id 正则补，两个月不到就全错（v3 时代的 DeepSeek 价格套在 v4 上、`^gpt-5` 规则套在 gpt-5.6-sol 上），**手写表本身就是错误来源**，遂改为拉一份跟各家发版更新的社区目录：随模型列表一起同步、裁到六家后落 `~/.vetta/agent/models-dev-cache.json`，12 小时 TTL，拉不到退回缓存，一份都没有就只展示接口字段——绝不显示猜的价格。
 

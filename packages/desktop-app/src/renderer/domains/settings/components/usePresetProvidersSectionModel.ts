@@ -130,8 +130,8 @@ export function usePresetProvidersSectionModel({
 			api: preset.api,
 			baseUrl: preset.baseUrl,
 			icon: preset.icon,
-			// 模型列表只来自上游 /models:未填 key 时为空,不展示任何内置默认模型。
-			models: config.providers[preset.id]?.models ?? [],
+			// 已启用的用账号实际可用的 /models 结果,未启用的展示 models.dev 公共目录。
+			models: config.providers[preset.id]?.models ?? preset.catalogModels,
 			offline: false,
 		}));
 
@@ -156,7 +156,7 @@ export function usePresetProvidersSectionModel({
 					? syncedAt
 						? t("syncedAt", { time: formatSyncedAt(syncedAt, i18n.language) })
 						: t("neverSynced")
-					: t("fillKeyToLoadModels"),
+					: t("catalogModels"),
 				modelsError: modelsErrors[row.id] ?? null,
 			};
 		});
