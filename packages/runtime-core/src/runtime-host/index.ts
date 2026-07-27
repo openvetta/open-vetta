@@ -40,13 +40,20 @@ export {
 	LegacyRuntimeSessionTurnControl,
 	LegacyRuntimeSessionWorkspaceView,
 } from "./legacy-session-ports.js";
+export {
+	LegacyRuntimeSessionCatalog,
+	LegacyRuntimeSessionFileHistoryReader,
+	LegacyRuntimeSharedModelController,
+} from "./legacy-session-services.js";
 export { RuntimeHost } from "./runtime-host.js";
 export type {
 	RuntimeHostSessionAssembly,
 	RuntimeHostSessionBackend,
 	RuntimeSession,
+	RuntimeSessionAskUserQuestionCapability,
 	RuntimeSessionBackend,
 	RuntimeSessionCreateOptions,
+	RuntimeSessionCreateRequest,
 } from "./session-backend.js";
 export {
 	asRuntimeHostSessionBackend,
@@ -80,4 +87,9 @@ export type {
 	RuntimeSubagentUsageSnapshot,
 	RuntimeTurnPrompt,
 } from "./session-ports.js";
+export type {
+	RuntimeSessionCatalog,
+	RuntimeSessionFileHistoryReader,
+	RuntimeSharedModelController,
+} from "./session-services.js";
 export type { RunningChangedReason, RuntimeHostOptions } from "./types.js";

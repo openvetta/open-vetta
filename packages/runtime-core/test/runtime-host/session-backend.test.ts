@@ -12,6 +12,7 @@ import {
 	type RuntimeSessionBackend,
 	type RuntimeSessionCorePorts,
 	type RuntimeSessionCreateOptions,
+	type RuntimeSessionCreateRequest,
 	type RuntimeSubagentSnapshot,
 	type SessionEvent,
 	type TodoItem,
@@ -127,12 +128,12 @@ class RecordingSessionBackend implements RuntimeSessionBackend {
 }
 
 class RecordingAssemblyBackend implements RuntimeHostSessionBackend {
-	readonly calls: RuntimeSessionCreateOptions[] = [];
+	readonly calls: RuntimeSessionCreateRequest[] = [];
 
 	constructor(private readonly assembly: RuntimeHostSessionAssembly) {}
 
-	async createAssembly(options: RuntimeSessionCreateOptions): Promise<RuntimeHostSessionAssembly> {
-		this.calls.push(options);
+	async createAssembly(request: RuntimeSessionCreateRequest): Promise<RuntimeHostSessionAssembly> {
+		this.calls.push(request);
 		return this.assembly;
 	}
 }
@@ -140,16 +141,28 @@ class RecordingAssemblyBackend implements RuntimeHostSessionBackend {
 describe("RuntimeHost session backend boundary", () => {
 	it("does not expose the raw legacy session through the host assembly", () => {
 		const hasRawSession: "session" extends keyof RuntimeHostSessionAssembly ? true : false = false;
+		const hasLegacyCreationObjects: Extract<
+			keyof RuntimeSessionCreateRequest,
+			"sessionManager" | "customTools" | "modelRegistry"
+		> extends never
+			? false
+			: true = false;
 
 		expect(hasRawSession).toBe(false);
+		expect(hasLegacyCreationObjects).toBe(false);
 	});
 
 	it("creates and registers a session through the injected backend without changing config semantics", async () => {
 		const { session } = createSessionDouble();
 		const backend = new RecordingSessionBackend(session);
+		const userQuestionHandler = vi.fn(async () => ({
+			cancelled: false,
+			answers: [{ question: "Choose", answers: ["A"] }],
+		}));
 		const host = new RuntimeHost({
 			sessionBackend: backend,
 			getDefaultExecutionMode: () => "full-access",
+			userQuestionHandler,
 		});
 
 		const result = await host.createSession({
@@ -157,6 +170,7 @@ describe("RuntimeHost session backend boundary", () => {
 			agentMode: "coding",
 			enableBackgroundTasks: true,
 			includeAgentSkills: false,
+			askUserQuestion: true,
 		});
 
 		expect(result).toEqual({ sessionId: "session-from-backend" });
@@ -171,6 +185,17 @@ describe("RuntimeHost session backend boundary", () => {
 		});
 		expect(session.bindExtensions).toHaveBeenCalledOnce();
 		expect(session.subscribe).toHaveBeenCalledOnce();
+		const questionResult = await backend.calls[0]?.askUserQuestion?.ask({
+			questions: [{ question: "Choose", header: "Choice", options: [{ label: "A", description: "A" }] }],
+		});
+		expect(questionResult).toEqual({
+			cancelled: false,
+			answers: [{ question: "Choose", answers: ["A"] }],
+		});
+		expect(userQuestionHandler).toHaveBeenCalledWith(
+			expect.objectContaining({ sessionId: "session-from-backend" }),
+			undefined,
+		);
 	});
 
 	it("preserves prompt, continue and abort delegation semantics", async () => {
@@ -200,6 +225,23 @@ describe("RuntimeHost session backend boundary", () => {
 		});
 		expect(continueTurn).toHaveBeenCalledOnce();
 		expect(abort).toHaveBeenCalledOnce();
+	});
+
+	it("uses the injected shared model controller for process-level refresh", async () => {
+		const { session } = createSessionDouble();
+		const refreshAuth = vi.fn(async () => {});
+		const refreshInBackground = vi.fn();
+		const host = new RuntimeHost({
+			sessionBackend: new RecordingSessionBackend(session),
+			sharedModelController: { refreshAuth, refreshInBackground },
+			getDefaultExecutionMode: () => "full-access",
+		});
+
+		await host.createSession();
+		await host.reloadServerAuth("server-token");
+
+		expect(refreshInBackground).toHaveBeenCalledOnce();
+		expect(refreshAuth).toHaveBeenCalledWith("server-token");
 	});
 
 	it("uses core ports supplied by an assembly backend without deriving legacy adapters", async () => {
@@ -361,6 +403,14 @@ describe("RuntimeHost session backend boundary", () => {
 		await host.abort(sessionId);
 
 		expect(backend.calls).toHaveLength(1);
+		expect(backend.calls[0]).toMatchObject({
+			executionMode: "full-access",
+			enableSubagents: true,
+			getSessionId: expect.any(Function),
+		});
+		expect(backend.calls[0]).not.toHaveProperty("sessionManager");
+		expect(backend.calls[0]).not.toHaveProperty("customTools");
+		expect(backend.calls[0]).not.toHaveProperty("modelRegistry");
 		expect(sessionId).toBe("assembly-session");
 		expect(bindHostInteraction).toHaveBeenCalledOnce();
 		expect(readWorkingDirectory).toHaveBeenCalledOnce();

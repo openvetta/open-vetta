@@ -6,6 +6,7 @@ All notable changes to `@vetta/runtime-core` are documented in this file.
 
 ### Added
 
+- **Session Creation and Storage Boundary**：新增不暴露 SessionManager/customTools/ModelRegistry 的 `RuntimeSessionCreateRequest`，以及独立 `RuntimeSessionCatalog`、`RuntimeSessionFileHistoryReader`、`RuntimeSharedModelController` 进程级合同和 Legacy Adapter；RuntimeHost 不再直接创建旧持久化对象、沙箱工具或操作静态 SessionManager/文件历史，同时保留 create-only Backend、JSONL 列表/重命名/删除、共享模型刷新和 sessionId 延迟绑定行为。
 - **Runtime Session Configuration Port**：新增统一的 `RuntimeSessionConfigurationController` 与旧 Session 适配器，由 Backend Assembly 显式交付 steering/follow-up 输入模式、插件运行时配置和 agent mode 命令；RuntimeHost 不再直接调用旧 AgentSession，并保留 turn 边界延迟应用、busy 跳过、插件失败恢复 pending 后重试及 settings 非空更新语义。
 - **Runtime Session Work Management Port**：新增 `RuntimeSessionBackgroundWorkController`、`RuntimeSessionTodoController` 及保留完整 usage 的 runtime-owned subagent snapshot，由 Backend Assembly 显式交付；RuntimeHost 的后台 bash/subagent 列举、终止、联合清理和 todo 回放/受锁清空不再直接依赖旧 AgentSession/TodoStore，原返回值、复制和用户终止语义保持不变。
 - **Runtime Session Execution / Workspace Port**：新增 `RuntimeSessionWorkspaceView` 与不暴露旧 custom tools 类型的 `RuntimeSessionExecutionController`，由 Backend Assembly 显式交付；RuntimeHost 的工作目录读取、执行忙碌态判断和在线模式重配置不再直接依赖旧 AgentSession/SessionManager，并保留目录自愈、全局切换预检、沙箱工具重建及不支持动态重配置时的错误行为。

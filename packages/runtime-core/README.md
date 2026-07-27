@@ -20,6 +20,7 @@ entry until downstream adapters are ready to switch.
 - explicit create/resume paths with fail-closed interrupted Turn recovery and optimistic versioning
 - narrow RuntimeHost Turn Control, Event Stream and State Read ports with a legacy compatibility adapter
 - port-only RuntimeHost session assemblies with create-only backend compatibility and no raw legacy session handle
+- runtime-owned session creation requests translated to legacy SDK options only inside composition adapters
 - backend-provided Session Identity/Lifecycle and read-only History ports with legacy adapters
 - backend-provided History Controller for guarded edits, branches, forks and session naming
 - backend-provided Model Controller for selection, thinking level and session-scoped auth refresh
@@ -28,6 +29,7 @@ entry until downstream adapters are ready to switch.
 - backend-provided Workspace View and Execution Controller without exposing SessionManager or custom tool types
 - backend-provided Background Work and Todo controllers with runtime-owned host snapshots
 - backend-provided Session Configuration Controller for input queue modes, plugin runtime configuration and agent mode
+- process-level Session Catalog, direct file history reader and shared model controller ports with legacy adapters
 - runtime-owned tool execution and policy contracts
 
 ## What It Does Not Own
@@ -46,6 +48,7 @@ entry until downstream adapters are ready to switch.
 
 - `RuntimeHost`
 - `RuntimeSessionBackend` and `LegacyCodingAgentSessionBackend` for composition-root session creation
+- `RuntimeSessionCreateRequest` for backend-neutral creation without SessionManager, custom tools or ModelRegistry
 - `RuntimeSessionTurnControl`, `RuntimeSessionEventStream` and `RuntimeSessionStateReader` core host ports
 - `RuntimeSessionIdentityLifecycle` and `RuntimeSessionHistoryReader` for identity, disposal and history projection
 - `RuntimeSessionHistoryController` for guarded history mutation and live-session naming
@@ -55,6 +58,7 @@ entry until downstream adapters are ready to switch.
 - `RuntimeSessionWorkspaceView` and `RuntimeSessionExecutionController` for cwd lookup, busy-state guards and mode changes
 - `RuntimeSessionBackgroundWorkController` and `RuntimeSessionTodoController` for background/subagent/todo host state
 - `RuntimeSessionConfigurationController` for dynamic session configuration without exposing the legacy session
+- `RuntimeSessionCatalog`, `RuntimeSessionFileHistoryReader` and `RuntimeSharedModelController` for process-level services
 - `RuntimeHostSessionAssembly` and `RuntimeHostSessionBackend` for explicit port-only composition-root capability delivery
 - `GreenfieldRuntimeSessionBackend` for parallel Kernel composition without impersonating the legacy session
 - `resumeAgentSession` and `ConversationRecoveryPolicy` for recovery without model or tool replay

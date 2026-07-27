@@ -1,4 +1,4 @@
-import type { ConversationScenario, ModelRegistry } from "@vetta/coding-agent";
+import type { ModelRegistry } from "@vetta/coding-agent";
 import type {
 	AgentPluginRuntimeConfig,
 	RuntimeSandboxGrantDecision,
@@ -6,6 +6,7 @@ import type {
 	RuntimeUserConfirmationRequest,
 	RuntimeUserQuestionRequest,
 	RuntimeUserQuestionResult,
+	SessionConfig,
 	SessionExecutionMode,
 } from "../contracts.js";
 import type { RuntimeHostSessionBackend, RuntimeSessionBackend } from "./session-backend.js";
@@ -25,6 +26,11 @@ import type {
 	RuntimeSessionTurnControl,
 	RuntimeSessionWorkspaceView,
 } from "./session-ports.js";
+import type {
+	RuntimeSessionCatalog,
+	RuntimeSessionFileHistoryReader,
+	RuntimeSharedModelController,
+} from "./session-services.js";
 
 export interface SessionHandle {
 	lifecycle: RuntimeSessionIdentityLifecycle;
@@ -46,7 +52,7 @@ export interface SessionHandle {
 	pendingAgentPlugins: AgentPluginRuntimeConfig | undefined;
 	hasPendingAgentPlugins: boolean;
 	/** 本会话解析后的对话场景（缺省回落 DEFAULT_SCENARIO），getState 回传给 renderer。 */
-	scenario: ConversationScenario;
+	scenario: NonNullable<SessionConfig["scenario"]>;
 	/** 当前生效的工作模式（agent_mode 轴）。undefined = 不过滤。见 ADR-0046。 */
 	agentMode: string | undefined;
 	/** 全局切换 mode 时挂起，于下一个 turn 边界 apply（避免 streaming 中途换工具集）。 */
@@ -91,6 +97,12 @@ export interface RuntimeHostOptions {
 	 * production 行为；测试和后续 greenfield 迁移可在组合根显式注入其他实现。
 	 */
 	sessionBackend?: RuntimeSessionBackend | RuntimeHostSessionBackend;
+	/** 离线会话列表、重命名和文件删除；默认保留旧 SessionManager 行为。 */
+	sessionCatalog?: RuntimeSessionCatalog;
+	/** 不获取写锁的同步会话文件读取器；默认读取旧 JSONL 格式。 */
+	sessionFileHistoryReader?: RuntimeSessionFileHistoryReader;
+	/** 进程级共享模型资源；自定义 Backend 可注入不依赖旧 ModelRegistry 的实现。 */
+	sharedModelController?: RuntimeSharedModelController;
 	getDefaultExecutionMode?: () => SessionExecutionMode | Promise<SessionExecutionMode>;
 	additionalSkillPaths?: string[];
 	sandboxHostPath?: string;

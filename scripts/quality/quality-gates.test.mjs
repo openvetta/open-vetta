@@ -168,6 +168,19 @@ describe("package boundary analysis", () => {
 		expect(findPackageBoundaryViolations("packages/runtime-core/src/runtime-host/example.ts", source)).toEqual([]);
 	});
 
+	it("keeps RuntimeHost composition on runtime-owned contracts", () => {
+		const source = 'import { SessionManager } from "@vetta/coding-agent";';
+		expect(
+			findPackageBoundaryViolations("packages/runtime-core/src/runtime-host/runtime-host.ts", source),
+		).toHaveLength(1);
+		expect(
+			findPackageBoundaryViolations("packages/runtime-core/src/runtime-host/session-services.ts", source),
+		).toHaveLength(1);
+		expect(
+			findPackageBoundaryViolations("packages/runtime-core/src/runtime-host/legacy-session-services.ts", source),
+		).toEqual([]);
+	});
+
 	it("keeps agent-core below runtime and product packages", () => {
 		expect(
 			findPackageBoundaryViolations(

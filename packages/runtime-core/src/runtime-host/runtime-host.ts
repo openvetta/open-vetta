@@ -1,17 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, rm } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { resolve as resolvePath } from "node:path";
 import type { ThinkingLevel } from "@vetta/agent-core";
 import type { Message } from "@vetta/ai";
-import {
-	type SessionEntry as CodingSessionEntry,
-	type ConversationScenario,
-	DEFAULT_SCENARIO,
-	loadEntriesFromFile,
-	type ModelRegistry,
-	type SessionInfo,
-	SessionManager,
-} from "@vetta/coding-agent";
 import type {
 	AgentPluginContinuationInvoker,
 	AgentPluginRuntimeConfig,
@@ -43,15 +34,18 @@ import {
 	revokeAllSessionGrants,
 	revokeSessionGrant,
 } from "../execution-mode/sandbox-permissions.js";
-import { buildSandboxToolDefinitions } from "../execution-mode/sandbox-tools.js";
-import { branchFromFileEntries, entriesToHistory } from "./history.js";
+import {
+	LegacyRuntimeSessionCatalog,
+	LegacyRuntimeSessionFileHistoryReader,
+	LegacyRuntimeSharedModelController,
+} from "./legacy-session-services.js";
 import { generateAutoTitle, generateNextPromptSuggestions } from "./peripheral-tasks.js";
 import { debugPluginAgent, summarizeAgentPlugins } from "./plugin-debug.js";
 import {
 	asRuntimeHostSessionBackend,
 	LegacyCodingAgentSessionBackend,
 	type RuntimeHostSessionBackend,
-	type RuntimeSessionCreateOptions,
+	type RuntimeSessionCreateRequest,
 } from "./session-backend.js";
 import { baseSessionEvent, lifecycleSessionEvent } from "./session-events.js";
 import type {
@@ -59,9 +53,16 @@ import type {
 	RuntimeSessionHostInteractionContext,
 	RuntimeSubagentSnapshot,
 } from "./session-ports.js";
+import type {
+	RuntimeSessionCatalog,
+	RuntimeSessionFileHistoryReader,
+	RuntimeSharedModelController,
+} from "./session-services.js";
 import type { InFlightBuffer, RunningChangedReason, RuntimeHostOptions, SessionHandle } from "./types.js";
 
 export type { RunningChangedReason, RuntimeHostOptions } from "./types.js";
+
+const DEFAULT_RUNTIME_SCENARIO: NonNullable<SessionConfig["scenario"]> = "cli";
 
 /**
  * 运行时宿主：会话生命周期、事件订阅、执行模式与沙箱授权的编排层。
@@ -100,8 +101,10 @@ export class RuntimeHost implements SessionFacade {
 	private readonly linuxBubblewrapPath: string | undefined;
 	private readonly macosSandboxExecPath: string | undefined;
 	private readonly serverUrl: string | undefined;
-	private readonly modelRegistry: ModelRegistry | undefined;
 	private readonly sessionBackend: RuntimeHostSessionBackend;
+	private readonly sessionCatalog: RuntimeSessionCatalog;
+	private readonly sessionFileHistoryReader: RuntimeSessionFileHistoryReader;
+	private readonly sharedModelController: RuntimeSharedModelController | undefined;
 	private userConfirmationHandler:
 		| ((request: RuntimeUserConfirmationRequest, signal?: AbortSignal) => Promise<boolean>)
 		| undefined;
@@ -122,9 +125,14 @@ export class RuntimeHost implements SessionFacade {
 		this.linuxBubblewrapPath = options.linuxBubblewrapPath;
 		this.macosSandboxExecPath = options.macosSandboxExecPath;
 		this.serverUrl = options.serverUrl;
-		this.modelRegistry = options.modelRegistry;
+		this.sessionCatalog = options.sessionCatalog ?? new LegacyRuntimeSessionCatalog();
+		this.sessionFileHistoryReader = options.sessionFileHistoryReader ?? new LegacyRuntimeSessionFileHistoryReader();
+		this.sharedModelController =
+			options.sharedModelController ??
+			(options.modelRegistry ? new LegacyRuntimeSharedModelController(options.modelRegistry) : undefined);
 		this.sessionBackend = asRuntimeHostSessionBackend(
-			options.sessionBackend ?? new LegacyCodingAgentSessionBackend(),
+			options.sessionBackend ?? new LegacyCodingAgentSessionBackend(options.modelRegistry),
+			options.modelRegistry,
 		);
 		this.userConfirmationHandler = options.userConfirmationHandler;
 		this.userQuestionHandler = options.userQuestionHandler;
@@ -270,11 +278,9 @@ export class RuntimeHost implements SessionFacade {
 	 * 兼容旧模式（无共享 registry）：遍历每个 session 的 registry。
 	 */
 	async reloadServerAuth(token: string | undefined): Promise<void> {
-		if (this.modelRegistry) {
+		if (this.sharedModelController) {
 			try {
-				this.modelRegistry.setServerToken(token);
-				// 没 token 时 loadRemoteModels 内部直接早退；有 token 时拉一次最新。
-				await this.modelRegistry.loadRemoteModels();
+				await this.sharedModelController.refreshAuth(token);
 			} catch (err) {
 				console.warn("[RuntimeHost] reloadServerAuth (shared) failed:", err);
 			}
@@ -332,34 +338,25 @@ export class RuntimeHost implements SessionFacade {
 			}
 		}
 
-		const sessionManager =
-			config.sessionPath && config.sessionPath.trim().length > 0
-				? SessionManager.open(config.sessionPath)
-				: config.cwd
-					? SessionManager.create(config.cwd, config.sessionDir)
-					: undefined;
-
 		const requestedMode = config.executionMode;
 		const defaultMode = await this.getDefaultExecutionMode();
 		const executionMode = requestedMode ?? defaultMode;
-		const effectiveCwd = config.cwd ?? process.cwd();
 		const sessionIdRef: { current?: string } = {};
-		const baseCustomTools = this.resolveExecutionModeTools(executionMode, effectiveCwd, () => sessionIdRef.current);
-		const customTools = baseCustomTools;
 		debugPluginAgent("runtime createSession start", {
 			enableAgentPlugins: config.enableAgentPlugins === true,
 			hasPluginToolInvoker: this.pluginToolInvoker != null,
 			...summarizeAgentPlugins(config.agentPlugins),
 		});
-		const options: RuntimeSessionCreateOptions = {
+		const request: RuntimeSessionCreateRequest = {
 			cwd: config.cwd,
 			agentDir: config.agentDir,
-			sessionManager,
+			sessionPath: config.sessionPath,
+			sessionDir: config.sessionDir,
 			model: config.model,
 			thinkingLevel: config.thinkingLevel,
 			scenario: config.scenario,
 			agentMode: config.agentMode,
-			customTools,
+			executionMode,
 			appendSystemPrompt: config.appendSystemPrompt,
 			env: config.env,
 			enableBackgroundTasks: config.enableBackgroundTasks,
@@ -405,9 +402,10 @@ export class RuntimeHost implements SessionFacade {
 						}
 					: undefined,
 			serverUrl: this.serverUrl,
-			// 传入共享 registry，sdk 内部就会跳过它自己的远程 fetch 分支
-			// （sdk.ts: `if (!options.modelRegistry) { ... loadRemoteModels() }`）。
-			modelRegistry: this.modelRegistry,
+			sandboxHostPath: this.sandboxHostPath,
+			linuxBubblewrapPath: this.linuxBubblewrapPath,
+			macosSandboxExecPath: this.macosSandboxExecPath,
+			getSessionId: () => sessionIdRef.current,
 		};
 
 		const {
@@ -423,7 +421,7 @@ export class RuntimeHost implements SessionFacade {
 			modelController,
 			modelView,
 			corePorts,
-		} = await this.sessionBackend.createAssembly(options);
+		} = await this.sessionBackend.createAssembly(request);
 		const sessionId = lifecycle.sessionId;
 		sessionIdRef.current = sessionId;
 		await hostInteraction.bind(this.createHostInteractionContext(sessionIdRef));
@@ -444,7 +442,7 @@ export class RuntimeHost implements SessionFacade {
 			agentPluginsEnabled: config.enableAgentPlugins === true,
 			pendingAgentPlugins: undefined,
 			hasPendingAgentPlugins: false,
-			scenario: config.scenario ?? DEFAULT_SCENARIO,
+			scenario: config.scenario ?? DEFAULT_RUNTIME_SCENARIO,
 			agentMode: config.agentMode,
 			pendingAgentMode: undefined,
 			hasPendingAgentMode: false,
@@ -461,9 +459,7 @@ export class RuntimeHost implements SessionFacade {
 		// - 未登录时该方法立即早退，无副作用；
 		// - 任何错误已在 doLoadRemoteModels 内静默吞掉，不会扩散。
 		// 效果：用户每次 createSession 都会触发一次"下一次会更新"的后台刷新。
-		if (this.modelRegistry) {
-			void this.modelRegistry.loadRemoteModels();
-		}
+		this.sharedModelController?.refreshInBackground();
 		return { sessionId };
 	}
 
@@ -842,10 +838,7 @@ export class RuntimeHost implements SessionFacade {
 	 * writing to the same file.
 	 */
 	readSessionHistoryFromFile(path: string): { history: HistoryEntry[] } {
-		const fileEntries = loadEntriesFromFile(path);
-		const branch = branchFromFileEntries(fileEntries);
-		const allEntries = fileEntries.filter((e): e is CodingSessionEntry => e.type !== "session");
-		return { history: entriesToHistory(branch, { allEntries }) };
+		return this.sessionFileHistoryReader.read(path);
 	}
 
 	/**
@@ -885,30 +878,11 @@ export class RuntimeHost implements SessionFacade {
 	}
 
 	async listProjects(): Promise<ProjectInfo[]> {
-		const sessions = await SessionManager.listAll();
-		const byCwd = new Map<string, number>();
-		for (const session of sessions) {
-			const key = session.cwd || process.cwd();
-			byCwd.set(key, (byCwd.get(key) ?? 0) + 1);
-		}
-		return Array.from(byCwd.entries())
-			.map(([cwd, sessionCount]) => ({ cwd, sessionCount }))
-			.sort((a, b) => a.cwd.localeCompare(b.cwd));
+		return [...(await this.sessionCatalog.listProjects())];
 	}
 
 	async listSessions(cwd: string, sessionDir?: string): Promise<SessionHistoryInfo[]> {
-		const sessions = await SessionManager.list(cwd, sessionDir);
-		return sessions.map((session: SessionInfo) => ({
-			id: session.id,
-			path: session.path,
-			cwd: session.cwd,
-			name: session.name,
-			firstMessage: session.firstMessage,
-			modifiedAt: session.modified.getTime(),
-			lastMessagePreview: session.lastMessagePreview,
-			parentSessionPath: session.parentSessionPath,
-			parentEntryId: session.parentEntryId,
-		}));
+		return [...(await this.sessionCatalog.listSessions(cwd, sessionDir))];
 	}
 
 	async deleteSession(sessionPath: string): Promise<void> {
@@ -924,9 +898,7 @@ export class RuntimeHost implements SessionFacade {
 			await existing.handle.lifecycle.dispose();
 			this.sessions.delete(existing.sessionId);
 		}
-		await rm(sessionPath, { force: true });
-		// Clean up any orphaned sentinel lock file (sibling .lock).
-		await rm(`${sessionPath}.lock`, { force: true });
+		await this.sessionCatalog.deleteSessionArtifacts(sessionPath);
 	}
 
 	async renameSession(sessionPath: string, name: string): Promise<void> {
@@ -937,12 +909,7 @@ export class RuntimeHost implements SessionFacade {
 			existing.handle.historyController.setName(name);
 			return;
 		}
-		const manager = SessionManager.open(sessionPath);
-		try {
-			manager.appendSessionInfo(name);
-		} finally {
-			manager.close();
-		}
+		await this.sessionCatalog.renameSession(sessionPath, name);
 	}
 
 	/** Snapshot of session paths whose agent loop is currently active. */
@@ -1124,21 +1091,6 @@ export class RuntimeHost implements SessionFacade {
 		}
 	}
 
-	private resolveExecutionModeTools(
-		executionMode: SessionExecutionMode,
-		cwd: string,
-		getSessionId: () => string | undefined,
-	): RuntimeSessionCreateOptions["customTools"] {
-		if (executionMode !== "sandbox") return undefined;
-		return buildSandboxToolDefinitions({
-			cwd,
-			windowsSandboxHostPath: this.sandboxHostPath,
-			linuxBubblewrapPath: this.linuxBubblewrapPath,
-			macosSandboxExecPath: this.macosSandboxExecPath,
-			getSessionId,
-		});
-	}
-
 	private createHostInteractionContext(sessionIdRef: { current?: string }): RuntimeSessionHostInteractionContext {
 		return {
 			confirm: async (title, message, signal) => {
@@ -1176,7 +1128,7 @@ export class RuntimeHost implements SessionFacade {
 }
 
 /** Subagents first ship on interactive roots only (docs/agent/vetta). */
-function shouldEnableSubagents(scenario: ConversationScenario | undefined): boolean {
-	const s = scenario ?? DEFAULT_SCENARIO;
+function shouldEnableSubagents(scenario: SessionConfig["scenario"]): boolean {
+	const s = scenario ?? DEFAULT_RUNTIME_SCENARIO;
 	return s === "conversation" || s === "project" || s === "cli";
 }

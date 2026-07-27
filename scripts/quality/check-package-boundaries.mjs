@@ -6,6 +6,7 @@
  * - Core/runtime/libs must not import desktop-app, admin, site, cli-app
  * - plugins/** must not deep-import desktop-app internals
  * - packages must not import another package's test/ tree
+ * - RuntimeHost orchestration/contracts must not import coding-agent adapters
  *
  * Usage:
  *   bun run scripts/quality/check-package-boundaries.mjs
@@ -222,6 +223,18 @@ function checkGreenfieldRuntimeImports(posixPath, specifiers, findings) {
 	}
 }
 
+function checkRuntimeHostCompositionImports(posixPath, specifiers, findings) {
+	const isRuntimeHostComposition =
+		posixPath === "packages/runtime-core/src/runtime-host/runtime-host.ts" ||
+		posixPath === "packages/runtime-core/src/runtime-host/session-services.ts";
+	if (!isRuntimeHostComposition) return;
+	for (const specifier of specifiers) {
+		if (specifier === "@vetta/coding-agent" || specifier.startsWith("@vetta/coding-agent/")) {
+			findings.push(`${posixPath}: RuntimeHost composition must use runtime-owned contracts (${specifier})`);
+		}
+	}
+}
+
 function checkAgentCoreImports(posixPath, specifiers, findings) {
 	if (!posixPath.startsWith("packages/agent/src/")) return;
 	for (const specifier of specifiers) {
@@ -245,6 +258,7 @@ export function findPackageBoundaryViolations(posixPath, text) {
 	checkRawCapabilityIds(posixPath, text, findings);
 	checkCapabilitySchemaDefinitions(posixPath, text, findings);
 	checkGreenfieldRuntimeImports(posixPath, specifiers, findings);
+	checkRuntimeHostCompositionImports(posixPath, specifiers, findings);
 	checkAgentCoreImports(posixPath, specifiers, findings);
 	return findings;
 }
