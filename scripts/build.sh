@@ -48,6 +48,7 @@ build_layer0() {
   build_pkg packages/toolkit
   build_pkg packages/plugins/plugin-sdk
   build_pkg packages/plugins/plugin-vite
+  build_pkg packages/vetta-mcp
 }
 
 # ── Layer 1: depends on layer 0 ──

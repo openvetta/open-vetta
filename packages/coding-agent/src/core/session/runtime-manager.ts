@@ -26,6 +26,7 @@ import {
 	wrapToolsWithExtensions,
 } from "../extensions/index.js";
 import { wrapToolsWithEcosystemHooks } from "../hooks/index.js";
+import { buildBuiltinMcpServers } from "../mcp/builtin-mcp.js";
 import { createMcpManager, type McpManager } from "../mcp/index.js";
 import type { ResourceExtensionPaths, ResourceLoader } from "../resource-loader.js";
 import type { SubagentCoordinator } from "../subagents/index.js";
@@ -237,6 +238,8 @@ export class RuntimeManager {
 			projectRoot: this.ctx.cwd,
 			debug: this._mcpDebug,
 			enabled: true,
+			// 宿主自带、用户无感：不写 mcp.json，也不在能力市场里露面
+			builtinServers: buildBuiltinMcpServers(),
 		});
 
 		// Initialize MCP servers asynchronously, then rebuild runtime to include MCP tools.
