@@ -47,6 +47,7 @@ import {
 } from "../execution-mode/sandbox-permissions.js";
 import { buildSandboxToolDefinitions } from "../execution-mode/sandbox-tools.js";
 import { branchFromFileEntries, entriesToHistory } from "./history.js";
+import { createLegacyRuntimeSessionCorePorts } from "./legacy-session-ports.js";
 import { generateAutoTitle, generateNextPromptSuggestions } from "./peripheral-tasks.js";
 import { debugPluginAgent, summarizeAgentPlugins } from "./plugin-debug.js";
 import {
@@ -55,7 +56,8 @@ import {
 	type RuntimeSessionBackend,
 	type RuntimeSessionCreateOptions,
 } from "./session-backend.js";
-import { baseSessionEvent, lifecycleSessionEvent, mapAgentSessionEvent } from "./session-events.js";
+import { baseSessionEvent, lifecycleSessionEvent } from "./session-events.js";
+import type { RuntimeSessionEventStream } from "./session-ports.js";
 import type { InFlightBuffer, RunningChangedReason, RuntimeHostOptions, SessionHandle } from "./types.js";
 
 export type { RunningChangedReason, RuntimeHostOptions } from "./types.js";
@@ -70,7 +72,7 @@ export class RuntimeHost implements SessionFacade {
 	private inFlightBuffers = new Map<string, InFlightBuffer>();
 	private inFlightUnsubscribers = new Map<string, () => void>();
 	/**
-	 * 外部订阅者表。`subscribe()` 在挂到 session.subscribe 的同时把 handler 也
+	 * 外部订阅者表。`subscribe()` 在挂到 Event Stream 的同时把 handler 也
 	 * 登记在这里，方便 RuntimeHost 自己注入合成事件（例如 prompt 同步抛错时
 	 * 把 error 事件广播出去，否则错误只会以 IPC reject 形式回到调用方，
 	 * 一旦调用方没 try/catch 就被静默吞掉）。
@@ -78,7 +80,7 @@ export class RuntimeHost implements SessionFacade {
 	private externalSubscribers = new Map<string, Set<(event: SessionEvent) => void>>();
 	/**
 	 * session 级订阅清理函数。一个 session 只应挂一次
-	 * handle.session.subscribe()，后续 subscribe() 调用只把 handler
+	 * handle.eventStream.subscribe()，后续 subscribe() 调用只把 handler
 	 * 追加到 externalSubscribers 中，由同一个 session 级监听器广播。
 	 */
 	private sessionSubscriptions = new Map<string, () => void>();
@@ -412,8 +414,10 @@ export class RuntimeHost implements SessionFacade {
 		const sessionId = session.sessionId;
 		sessionIdRef.current = sessionId;
 		await session.bindExtensions({ uiContext: this.createExtensionUIContext(sessionIdRef) });
+		const corePorts = createLegacyRuntimeSessionCorePorts(session, this.currentTurnStartedAt);
 		this.sessions.set(sessionId, {
 			session,
+			...corePorts,
 			executionMode,
 			agentPluginsEnabled: config.enableAgentPlugins === true,
 			pendingAgentPlugins: undefined,
@@ -427,7 +431,7 @@ export class RuntimeHost implements SessionFacade {
 			sessionId,
 			agentPluginsEnabled: config.enableAgentPlugins === true,
 		});
-		this.attachInFlightBuffer(sessionId, session);
+		this.attachInFlightBuffer(sessionId, session.sessionFile, corePorts.eventStream);
 
 		// Stale-while-revalidate：当前的远程 model 数据已就绪可用（来自启动预热
 		// 或上一次刷新），这里再 fire-and-forget 一次刷新，不 await。
@@ -446,41 +450,45 @@ export class RuntimeHost implements SessionFacade {
 	 * buffer regardless of whether any external subscriber is connected. Replayed
 	 * by `subscribe()` so a re-subscribing renderer sees prior in-flight content.
 	 */
-	private attachInFlightBuffer(sessionId: string, session: RuntimeSession): void {
+	private attachInFlightBuffer(
+		sessionId: string,
+		sessionPath: string | undefined,
+		eventStream: RuntimeSessionEventStream,
+	): void {
 		const buffer: InFlightBuffer = {
 			turnStartedAt: 0,
 			text: "",
 			thinking: "",
 			toolCallStarts: [],
 			isActive: false,
+			terminalReason: undefined,
 		};
 		this.inFlightBuffers.set(sessionId, buffer);
-		const unsubscribe = session.subscribe((event) => {
-			if (event.type === "agent_start") {
-				buffer.turnStartedAt = Date.now();
+		const unsubscribe = eventStream.subscribe((event) => {
+			if (event.type === "session.lifecycle" && event.phase === "agent_start") {
+				buffer.turnStartedAt = event.timestamp;
 				buffer.text = "";
 				buffer.thinking = "";
 				buffer.toolCallStarts = [];
 				buffer.isActive = true;
-				this.markRunning(session.sessionFile, true, sessionId);
+				buffer.terminalReason = undefined;
+				this.markRunning(sessionPath, true, sessionId);
 				return;
 			}
-			if (event.type === "agent_end") {
+			if (event.type === "session.lifecycle" && event.phase === "aborted") {
+				buffer.terminalReason = "aborted";
+				return;
+			}
+			if (event.type === "session.lifecycle" && event.phase === "agent_end") {
 				buffer.text = "";
 				buffer.thinking = "";
 				buffer.toolCallStarts = [];
 				buffer.isActive = false;
-				// 区分自然结束 / abort / error：agent-loop 保证 agent_end 的 messages
-				// 末条恒为 assistant，stopReason 即回合结局。仅自然结束（非 aborted/error）
-				// 透传 "agent_end" reason，触发 renderer 侧队列出队。
-				const last = event.messages.at(-1);
-				const stopReason = last?.role === "assistant" ? last.stopReason : undefined;
-				const reason: RunningChangedReason =
-					stopReason === "aborted" ? "aborted" : stopReason === "error" ? "error" : "agent_end";
-				this.markRunning(session.sessionFile, false, sessionId, reason);
+				this.markRunning(sessionPath, false, sessionId, buffer.terminalReason ?? "agent_end");
+				buffer.terminalReason = undefined;
 				return;
 			}
-			if (event.type === "message_end") {
+			if (event.type === "message.final") {
 				// Each LLM call inside a multi-step turn ends with message_end and
 				// its content gets persisted to history. The chat draft in the UI
 				// keeps accumulating across calls, but the buffer should reset so
@@ -488,24 +496,16 @@ export class RuntimeHost implements SessionFacade {
 				buffer.text = "";
 				buffer.thinking = "";
 				buffer.toolCallStarts = [];
+				if (event.message.role === "assistant") {
+					if (event.message.stopReason === "aborted") buffer.terminalReason = "aborted";
+					else if (event.message.stopReason === "error") buffer.terminalReason = "error";
+				}
 				return;
 			}
-			if (event.type === "message_update") {
-				const sub = event.assistantMessageEvent;
-				if (sub.type === "text_delta") {
-					buffer.text += sub.delta;
-				} else if (sub.type === "thinking_delta") {
-					buffer.thinking += sub.delta;
-				} else if (sub.type === "toolcall_start") {
-					const idx = sub.contentIndex;
-					const tc = sub.partial?.content?.[idx];
-					if (tc && tc.type === "toolCall") {
-						buffer.toolCallStarts.push({
-							toolCallId: String(tc.id ?? ""),
-							toolName: String(tc.name ?? ""),
-						});
-					}
-				}
+			if (event.type === "message.delta") buffer.text += event.delta;
+			else if (event.type === "thinking.delta") buffer.thinking += event.delta;
+			else if (event.type === "toolcall.start") {
+				buffer.toolCallStarts.push({ toolCallId: event.toolCallId, toolName: event.toolName });
 			}
 		});
 		this.inFlightUnsubscribers.set(sessionId, unsubscribe);
@@ -618,12 +618,12 @@ export class RuntimeHost implements SessionFacade {
 			}
 		}
 		try {
-			await handle.session.prompt(text, {
+			await handle.turnControl.prompt({
+				text,
 				images,
 				streamingBehavior: request.streamingBehavior,
 				promptRef: request.promptRef,
 				attachments: request.attachments,
-				source: "extension",
 				metadata: request.metadata,
 			});
 		} catch (err) {
@@ -650,12 +650,12 @@ export class RuntimeHost implements SessionFacade {
 		const handle = this.requireSession(sessionId);
 		await this.applyPendingAgentPlugins(sessionId, handle);
 		this.applyPendingAgentMode(handle);
-		await handle.session.agent.continue();
+		await handle.turnControl.continue();
 	}
 
 	async abort(sessionId: string): Promise<void> {
 		const handle = this.requireSession(sessionId);
-		await handle.session.abort();
+		await handle.turnControl.abort();
 	}
 
 	/**
@@ -732,16 +732,11 @@ export class RuntimeHost implements SessionFacade {
 		// 避免多个 runtime.subscribe() 调用创建多个 AgentSession 监听器，
 		// 导致 mapEvent 中的副作用（如 persistAssistantTurnTiming）重复执行。
 		if (!this.sessionSubscriptions.has(sessionId)) {
-			const unsubscribeSession = handle.session.subscribe((event) => {
-				const mapped = mapAgentSessionEvent(sessionId, event, handle.session, {
-					currentTurnStartedAt: this.currentTurnStartedAt,
-				});
+			const unsubscribeSession = handle.eventStream.subscribe((event) => {
 				const subs = this.externalSubscribers.get(sessionId);
 				if (!subs) return;
 				for (const sub of subs) {
-					for (const m of mapped) {
-						sub(m);
-					}
+					sub(event);
 				}
 			});
 			this.sessionSubscriptions.set(sessionId, unsubscribeSession);
@@ -814,30 +809,27 @@ export class RuntimeHost implements SessionFacade {
 
 	getState(sessionId: string): SessionStateSnapshot {
 		const handle = this.requireSession(sessionId);
-		const contextUsage = handle.session.getContextUsage();
-		const header = handle.session.sessionManager.getHeader();
+		const state = handle.stateReader.readState();
 		return {
 			sessionId,
-			model: handle.session.model,
-			thinkingLevel: handle.session.thinkingLevel,
+			model: state.model,
+			thinkingLevel: state.thinkingLevel,
 			executionMode: handle.executionMode,
-			isStreaming: handle.session.isStreaming,
+			isStreaming: state.isStreaming,
 			currentTurnStartedAt: this.currentTurnStartedAt.get(sessionId),
-			messageCount: handle.session.messages.length,
-			contextPercent: contextUsage?.percent ?? null,
-			contextWindow: contextUsage?.contextWindow ?? 0,
-			activeToolNames: handle.session.getActiveToolNames(),
+			messageCount: state.messageCount,
+			contextPercent: state.contextPercent,
+			contextWindow: state.contextWindow,
+			activeToolNames: [...state.activeToolNames],
 			scenario: handle.scenario,
-			parentSessionPath: header?.parentSession,
-			parentEntryId: header?.parentEntryId,
+			parentSessionPath: state.parentSessionPath,
+			parentEntryId: state.parentEntryId,
 		};
 	}
 
 	getMessages(sessionId: string): Message[] {
 		const handle = this.requireSession(sessionId);
-		return handle.session.messages.filter((message): message is Message => {
-			return message.role === "user" || message.role === "assistant" || message.role === "toolResult";
-		});
+		return [...handle.stateReader.readMessages()];
 	}
 
 	getFullHistory(sessionId: string): HistoryEntry[] {
@@ -953,9 +945,9 @@ export class RuntimeHost implements SessionFacade {
 		// lock is released and the in-memory handle does not outlive the file.
 		const existing = this.findHandleBySessionPath(sessionPath);
 		if (existing) {
-			this.inFlightUnsubscribers.get(existing.sessionId)?.();
-			this.inFlightUnsubscribers.delete(existing.sessionId);
+			this.detachSessionEventStreams(existing.sessionId);
 			this.inFlightBuffers.delete(existing.sessionId);
+			this.externalSubscribers.delete(existing.sessionId);
 			// session 销毁不是回合结束：传 sessionId 但不带 reason，避免触发出队。
 			this.markRunning(existing.handle.session.sessionFile, false, existing.sessionId);
 			existing.handle.session.dispose();
@@ -1069,8 +1061,7 @@ export class RuntimeHost implements SessionFacade {
 	async disposeSession(sessionId: string): Promise<void> {
 		const handle = this.sessions.get(sessionId);
 		if (!handle) return;
-		this.inFlightUnsubscribers.get(sessionId)?.();
-		this.inFlightUnsubscribers.delete(sessionId);
+		this.detachSessionEventStreams(sessionId);
 		this.inFlightBuffers.delete(sessionId);
 		this.externalSubscribers.delete(sessionId);
 		// session 销毁不是回合结束：传 sessionId 但不带 reason，避免触发出队。
@@ -1089,7 +1080,7 @@ export class RuntimeHost implements SessionFacade {
 	async disposeAllSessions(): Promise<void> {
 		for (const [sessionId, handle] of this.sessions) {
 			try {
-				this.inFlightUnsubscribers.get(sessionId)?.();
+				this.detachSessionEventStreams(sessionId);
 				handle.session.dispose();
 			} catch (err) {
 				console.error(`[RuntimeHost.disposeAllSessions] failed to dispose ${sessionId}:`, err);
@@ -1120,6 +1111,13 @@ export class RuntimeHost implements SessionFacade {
 			throw runtimeError("SESSION_NOT_FOUND", `Session not found: ${sessionId}`, false);
 		}
 		return handle;
+	}
+
+	private detachSessionEventStreams(sessionId: string): void {
+		this.sessionSubscriptions.get(sessionId)?.();
+		this.sessionSubscriptions.delete(sessionId);
+		this.inFlightUnsubscribers.get(sessionId)?.();
+		this.inFlightUnsubscribers.delete(sessionId);
 	}
 
 	private async applyPendingAgentPlugins(sessionId: string, handle: SessionHandle): Promise<void> {

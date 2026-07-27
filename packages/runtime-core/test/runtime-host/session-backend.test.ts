@@ -16,10 +16,21 @@ function createSessionDouble() {
 	const abort = vi.fn(async () => {});
 	const session = {
 		sessionId: "session-from-backend",
-		sessionFile: undefined,
+		sessionFile: "session.jsonl",
+		model: undefined,
+		thinkingLevel: "off",
+		isStreaming: false,
+		messages: [
+			{ role: "user", content: "visible", timestamp: 1 },
+			{ role: "custom", customType: "hidden", content: "internal", display: false, timestamp: 2 },
+		],
 		sessionManager: {
 			getCwd: () => undefined,
+			getHeader: () => ({ parentSession: "parent.jsonl", parentEntryId: "entry-1" }),
+			appendCustomEntry: vi.fn(),
 		},
+		getContextUsage: () => ({ percent: 25, contextWindow: 8_000 }),
+		getActiveToolNames: () => ["read"],
 		todoStore: {
 			getAll: () => [],
 		},
@@ -142,13 +153,60 @@ describe("RuntimeHost session backend boundary", () => {
 			"message.delta",
 		]);
 		unsubscribeFirst();
-		expect(unsubscribers[1]).toHaveBeenCalledOnce();
+		expect(session.subscribe).toHaveBeenCalledOnce();
+		expect(unsubscribers[0]).not.toHaveBeenCalled();
 
 		const replayedEvents: SessionEvent[] = [];
 		host.subscribe(sessionId, (event) => replayedEvents.push(event));
 
 		expect(replayedEvents.map((event) => event.type)).toEqual(["session.lifecycle", "message.delta"]);
 		expect(replayedEvents[1]).toMatchObject({ type: "message.delta", delta: "partial" });
+		expect(session.subscribe).toHaveBeenCalledOnce();
+	});
+
+	it("reads the public state and messages through the state port without changing their shape", async () => {
+		const { session } = createSessionDouble();
+		const host = new RuntimeHost({
+			sessionBackend: new RecordingSessionBackend(session),
+			getDefaultExecutionMode: () => "full-access",
+		});
+		const { sessionId } = await host.createSession({ scenario: "cli" });
+
+		expect(host.getState(sessionId)).toMatchObject({
+			sessionId,
+			thinkingLevel: "off",
+			executionMode: "full-access",
+			isStreaming: false,
+			messageCount: 2,
+			contextPercent: 25,
+			contextWindow: 8_000,
+			activeToolNames: ["read"],
+			scenario: "cli",
+			parentSessionPath: "parent.jsonl",
+			parentEntryId: "entry-1",
+		});
+		expect(host.getMessages(sessionId)).toEqual([{ role: "user", content: "visible", timestamp: 1 }]);
+	});
+
+	it.each(["error", "aborted"] as const)("preserves the %s running-change terminal reason", async (stopReason) => {
+		const { session, emit } = createSessionDouble();
+		const host = new RuntimeHost({
+			sessionBackend: new RecordingSessionBackend(session),
+			getDefaultExecutionMode: () => "full-access",
+		});
+		const changes: Array<{ running: boolean; reason: string | undefined }> = [];
+		host.onRunningChanged((_path, running, _sessionId, reason) => changes.push({ running, reason }));
+		await host.createSession();
+		const message = assistantMessage(stopReason);
+
+		emit({ type: "agent_start" });
+		emit({ type: "message_end", message } as AgentSessionEvent);
+		emit({ type: "agent_end", messages: [message] } as AgentSessionEvent);
+
+		expect(changes).toEqual([
+			{ running: true, reason: undefined },
+			{ running: false, reason: stopReason },
+		]);
 	});
 
 	it("releases the injected backend session and its permanent subscription", async () => {
@@ -158,6 +216,7 @@ describe("RuntimeHost session backend boundary", () => {
 			getDefaultExecutionMode: () => "full-access",
 		});
 		const { sessionId } = await host.createSession();
+		host.subscribe(sessionId, () => {});
 
 		await host.disposeSession(sessionId);
 
@@ -166,3 +225,23 @@ describe("RuntimeHost session backend boundary", () => {
 		expect(host.getSessionPath(sessionId)).toBeUndefined();
 	});
 });
+
+function assistantMessage(stopReason: "error" | "aborted") {
+	return {
+		role: "assistant" as const,
+		content: [{ type: "text" as const, text: stopReason }],
+		api: "openai-responses" as const,
+		provider: "openai",
+		model: "test-model",
+		usage: {
+			input: 1,
+			output: 1,
+			cacheRead: 0,
+			cacheWrite: 0,
+			totalTokens: 2,
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+		},
+		stopReason,
+		timestamp: 2,
+	};
+}

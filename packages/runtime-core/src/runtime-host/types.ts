@@ -9,9 +9,17 @@ import type {
 	SessionExecutionMode,
 } from "../contracts.js";
 import type { RuntimeSession, RuntimeSessionBackend } from "./session-backend.js";
+import type {
+	RuntimeSessionEventStream,
+	RuntimeSessionStateReader,
+	RuntimeSessionTurnControl,
+} from "./session-ports.js";
 
 export interface SessionHandle {
 	session: RuntimeSession;
+	turnControl: RuntimeSessionTurnControl;
+	eventStream: RuntimeSessionEventStream;
+	stateReader: RuntimeSessionStateReader;
 	executionMode: SessionExecutionMode;
 	agentPluginsEnabled: boolean;
 	pendingAgentPlugins: AgentPluginRuntimeConfig | undefined;
@@ -46,6 +54,7 @@ export interface InFlightBuffer {
 	thinking: string;
 	toolCallStarts: Array<{ toolCallId: string; toolName: string }>;
 	isActive: boolean;
+	terminalReason: RunningChangedReason | undefined;
 }
 
 /**

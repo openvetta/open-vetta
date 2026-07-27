@@ -23,6 +23,12 @@ export {
 	type GreenfieldRuntimeSessionState,
 } from "./greenfield-session-backend.js";
 export { mapGreenfieldKernelEventToSessionEvents } from "./greenfield-session-events.js";
+export {
+	createLegacyRuntimeSessionCorePorts,
+	LegacyRuntimeSessionEventStream,
+	LegacyRuntimeSessionStateReader,
+	LegacyRuntimeSessionTurnControl,
+} from "./legacy-session-ports.js";
 export { RuntimeHost } from "./runtime-host.js";
 export type {
 	RuntimeSession,
@@ -31,4 +37,12 @@ export type {
 } from "./session-backend.js";
 export { LegacyCodingAgentSessionBackend } from "./session-backend.js";
 export { mapRuntimeSessionObservationEvent } from "./session-events.js";
+export type {
+	RuntimeSessionCorePorts,
+	RuntimeSessionEventStream,
+	RuntimeSessionState,
+	RuntimeSessionStateReader,
+	RuntimeSessionTurnControl,
+	RuntimeTurnPrompt,
+} from "./session-ports.js";
 export type { RunningChangedReason, RuntimeHostOptions } from "./types.js";
