@@ -6,6 +6,7 @@ import type { AbilitiesModel, AbilityItem } from "../../types";
 import { AbilityMcpDialogs } from "../AbilityMcpDialogs";
 import { AbilityDetailHeader } from "./AbilityDetailHeader";
 import { AbilityMarkdownBody } from "./AbilityMarkdownBody";
+import { AbilityMetaList } from "./AbilityMetaList";
 import { AbilityShowcaseList } from "./AbilityShowcaseList";
 import { BundleMembersSection } from "./BundleMembersSection";
 import { BundleUninstallDialog } from "./BundleUninstallDialog";
@@ -97,6 +98,8 @@ export function AbilityDetailView({
 					) : (
 						<p className="text-[13px] leading-relaxed text-muted-foreground">{t("detail.noContent")}</p>
 					)}
+
+					<AbilityMetaList meta={detail.meta} />
 
 					{item.type === "plugin" ? <PluginAbilitySection item={item} model={model} /> : null}
 					{item.type === "mcp" ? <McpAbilitySection item={item} model={model} /> : null}
