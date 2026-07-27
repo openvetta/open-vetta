@@ -1,20 +1,52 @@
 import { createRootRoute, createRoute, createRouter, createHashHistory } from "@tanstack/react-router";
+import { lazy } from "react";
+import { RouteContentLoadingView } from "@vetta/theme-ui/app";
 import { RootLayout } from "./App";
-import { ChatPage } from "./domains/chat/components/ChatPage";
-import { NewSessionPage } from "./domains/chat/components/NewSessionPage";
-import { SessionViewerPage } from "./domains/chat/components/SessionViewerPage";
-import { AutomationPage } from "./domains/scheduler/components/AutomationPage";
-import { BatchTasksPage } from "./domains/batch-tasks/components/BatchTasksPage";
-import { SkillsPage } from "./domains/skills/components/SkillsPage";
-import { ScenesPage } from "./domains/skills/components/ScenesPage";
-import { PluginsPage } from "./domains/skills/components/PluginsPage";
-import { SettingsPage } from "./domains/settings/components/SettingsPage";
-import { ProjectDetailPage } from "./domains/project/components/ProjectDetailPage";
-import { DownloadsPage } from "./domains/downloads/components/DownloadsPage";
-import { KnowledgeBasePage } from "./domains/knowledge-base/components/KnowledgeBasePage";
-import { KnowledgeBaseListPage } from "./domains/knowledge-base/components/KnowledgeBaseListPage";
 import { RouteErrorPage } from "./shared/components/RouteErrorPage";
-import { ThemePageRoute, THEME_PAGE_ROUTE_PATH } from "./shared/theme/pages";
+import { THEME_PAGE_ROUTE_PATH } from "./shared/theme/pages/themePageRegistry";
+
+const ChatPage = lazy(async () => ({
+	default: (await import("./domains/chat/components/ChatPage")).ChatPage,
+}));
+const NewSessionPage = lazy(async () => ({
+	default: (await import("./domains/chat/components/NewSessionPage")).NewSessionPage,
+}));
+const SessionViewerPage = lazy(async () => ({
+	default: (await import("./domains/chat/components/SessionViewerPage")).SessionViewerPage,
+}));
+const AutomationPage = lazy(async () => ({
+	default: (await import("./domains/scheduler/components/AutomationPage")).AutomationPage,
+}));
+const BatchTasksPage = lazy(async () => ({
+	default: (await import("./domains/batch-tasks/components/BatchTasksPage")).BatchTasksPage,
+}));
+const SkillsPage = lazy(async () => ({
+	default: (await import("./domains/skills/components/SkillsPage")).SkillsPage,
+}));
+const ScenesPage = lazy(async () => ({
+	default: (await import("./domains/skills/components/ScenesPage")).ScenesPage,
+}));
+const PluginsPage = lazy(async () => ({
+	default: (await import("./domains/skills/components/PluginsPage")).PluginsPage,
+}));
+const SettingsPage = lazy(async () => ({
+	default: (await import("./domains/settings/components/SettingsPage")).SettingsPage,
+}));
+const ProjectDetailPage = lazy(async () => ({
+	default: (await import("./domains/project/components/ProjectDetailPage")).ProjectDetailPage,
+}));
+const DownloadsPage = lazy(async () => ({
+	default: (await import("./domains/downloads/components/DownloadsPage")).DownloadsPage,
+}));
+const KnowledgeBasePage = lazy(async () => ({
+	default: (await import("./domains/knowledge-base/components/KnowledgeBasePage")).KnowledgeBasePage,
+}));
+const KnowledgeBaseListPage = lazy(async () => ({
+	default: (await import("./domains/knowledge-base/components/KnowledgeBaseListPage")).KnowledgeBaseListPage,
+}));
+const ThemePageRoute = lazy(async () => ({
+	default: (await import("./shared/theme/pages/ThemePageRoute")).ThemePageRoute,
+}));
 
 const rootRoute = createRootRoute({
 	component: RootLayout,
@@ -154,6 +186,7 @@ export const router = createRouter({
 	history: createHashHistory(),
 	defaultNotFoundComponent: ChatPage,
 	defaultErrorComponent: RouteErrorPage,
+	defaultPendingComponent: RouteContentLoadingView,
 });
 
 declare module "@tanstack/react-router" {

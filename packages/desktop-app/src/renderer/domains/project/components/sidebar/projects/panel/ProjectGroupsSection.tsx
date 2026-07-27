@@ -21,6 +21,7 @@ export function ProjectGroupsSection({
 					scrollParent={scrollParent}
 					sessions={model.projectSessions(project.cwd)}
 					isExpanded={model.expandedProjects.has(project.cwd)}
+					sessionsLoading={model.projectSessionsLoading(project.cwd)}
 					isActive={model.actions.isProjectActive(project.cwd)}
 					activeSessionPath={model.activeSessionPath}
 					onExpand={model.actions.expandProject}
@@ -40,6 +41,7 @@ export function ProjectGroupsSection({
 						scrollParent={scrollParent}
 						sessions={sessions}
 						isExpanded={model.expandedBatchProjects.has(project.cwd)}
+						sessionsLoading={false}
 						isActive={model.actions.isProjectActive(project.cwd)}
 						activeSessionPath={model.activeSessionPath}
 						onExpand={model.actions.expandBatchProject}

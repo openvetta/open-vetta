@@ -1,5 +1,6 @@
 import type { DesktopThemePackage } from "@preload/api";
 import { DEFAULT_THEME_MODULE, ThemeProvider, type ThemeModule } from "@vetta/theme-sdk";
+import { AppBootLoadingView } from "@vetta/theme-ui/app";
 import {
 	createContext,
 	type ErrorInfo,
@@ -135,7 +136,9 @@ export function ThemeRuntimeProvider({ children }: { children: ReactNode }): JSX
 							))}
 							{children}
 						</>
-					) : null}
+					) : (
+						<AppBootLoadingView />
+					)}
 				</ThemeErrorBoundary>
 			</ThemeProvider>
 		</ThemeRuntimeContext.Provider>
