@@ -16,6 +16,7 @@ interface NewSessionHeroHostProps {
 	greetingTitle: string;
 	mounted: boolean;
 	onSceneClick: (scene: SceneItem) => void;
+	reserveSceneSlot?: boolean;
 	sceneActions: Record<string, SceneActionState>;
 	scenes: SceneItem[];
 	selectedSkill: SkillSelection;
@@ -28,6 +29,7 @@ export function NewSessionHero({
 	greetingTitle,
 	mounted,
 	onSceneClick,
+	reserveSceneSlot = false,
 	sceneActions,
 	scenes,
 	selectedSkill,
@@ -51,6 +53,7 @@ export function NewSessionHero({
 			greetingTitle={greetingTitle}
 			mounted={mounted}
 			onSceneClick={handleSceneClick}
+			reserveSceneSlot={reserveSceneSlot}
 			sceneActions={sceneActions}
 			sceneLabels={{
 				installPrompt: t("newSession.sceneInstallPrompt"),
@@ -70,6 +73,7 @@ export function DefaultNewSessionHero({
 	greetingTitle,
 	mounted,
 	onSceneClick,
+	reserveSceneSlot = false,
 	sceneActions,
 	sceneLabels,
 	scenes,
@@ -79,6 +83,8 @@ export function DefaultNewSessionHero({
 }: NewSessionHeroProps): JSX.Element {
 	// 继续走 carousel override，避免只覆盖 scene carousel 时被 hero 默认实现绕过。
 	const ThemedSceneCarousel = useThemeComponent("chat.newSessionSceneCarousel", DefaultSceneCarousel);
+	const showSceneCarousel = scenes.length > 0;
+	const showScenePlaceholder = !showSceneCarousel && reserveSceneSlot;
 
 	return (
 		<div className={cn("mb-3 flex w-full max-w-2xl flex-col items-start", className)} {...props}>
@@ -116,13 +122,19 @@ export function DefaultNewSessionHero({
 					</div>
 					<BotAvatar size="lg" autoplay={avatarAutoplay} />
 				</div>
-				{scenes.length > 0 && (
+				{showSceneCarousel && (
 					<ThemedSceneCarousel
 						actions={sceneActions}
 						labels={sceneLabels}
 						onSceneClick={onSceneClick}
 						scenes={scenes}
 						selected={selected}
+					/>
+				)}
+				{showScenePlaceholder && (
+					<div
+						aria-hidden
+						className="mt-6 w-full min-h-[5.75rem]"
 					/>
 				)}
 			</motion.div>

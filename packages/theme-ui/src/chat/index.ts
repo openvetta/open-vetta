@@ -64,9 +64,18 @@ export type { ContextRingViewProps } from "./ContextRingView";
 export { CIRCUMFERENCE as CONTEXT_RING_CIRCUMFERENCE, ContextRingView } from "./ContextRingView";
 export type { CopyIconButtonLabels, CopyIconButtonProps } from "./CopyIconButton";
 export { CopyIconButton } from "./CopyIconButton";
-export { DefaultGuidingWords } from "./DefaultGuidingWords";
-export { DefaultSceneCarousel } from "./DefaultSceneCarousel";
-export { DefaultSkillBadgeRow } from "./DefaultSkillBadgeRow";
+export {
+	DefaultGuidingWords,
+	NEW_SESSION_GUIDING_WORDS_SLOT_MIN_H_CLASS,
+} from "./DefaultGuidingWords";
+export {
+	DefaultSceneCarousel,
+	NEW_SESSION_SCENE_SLOT_MIN_H_CLASS,
+} from "./DefaultSceneCarousel";
+export {
+	DefaultSkillBadgeRow,
+	NEW_SESSION_SKILL_BADGE_SLOT_MIN_H_CLASS,
+} from "./DefaultSkillBadgeRow";
 export type { DrawerCardProps, DrawerTab } from "./DrawerCard";
 export { DrawerCard } from "./DrawerCard";
 export type {

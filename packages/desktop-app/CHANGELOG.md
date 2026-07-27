@@ -126,6 +126,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **新会话页内容异步出现时布局抖动**：hero 延迟挂载与技能/场景/引导词分批 setState 导致区块插入时页面跳动。现 hero 首帧即占位（仅 opacity 入场）、资源一次落盘，并在加载中为场景/技能/引导词预留高度；主列仍保持整块 `justify-center` 垂直居中（避免把输入栏单独钉中线造成整体偏上）。
 - **侧边栏窄宽自适应**：最小宽度 180px；顶栏工作模式徽章按 actions 可用空间在「icon+文案」与「仅 icon」间切换（拉宽后可恢复文案），折叠按钮始终可见；底栏长昵称 truncate，Claw/消息中心不被裁切。
 
 
