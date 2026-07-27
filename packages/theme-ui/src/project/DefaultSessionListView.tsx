@@ -6,6 +6,7 @@ import {
 	VIRTUAL_SESSION_ROW_HEIGHT,
 } from "./types";
 import { useActiveSessionAutoScroll } from "./useActiveSessionAutoScroll";
+import { ProjectSessionsLoadingView } from "./ProjectSessionsLoadingView";
 
 export interface DefaultSessionListViewItem {
 	active?: boolean;
@@ -27,6 +28,7 @@ export interface DefaultSessionListViewProps<T extends DefaultSessionListViewIte
 	className?: string;
 	hasMore: boolean;
 	labels: DefaultSessionListViewLabels;
+	loading?: boolean;
 	onEmptyAction?: () => void;
 	onToggleShowAll: () => void;
 	renderSession: (session: T) => ReactNode;
@@ -42,6 +44,7 @@ export function DefaultSessionListView<T extends DefaultSessionListViewItem>({
 	className,
 	hasMore,
 	labels,
+	loading = false,
 	onEmptyAction,
 	onToggleShowAll,
 	renderSession,
@@ -55,6 +58,7 @@ export function DefaultSessionListView<T extends DefaultSessionListViewItem>({
 	const activeIndex = sessions.findIndex((session) => session.active);
 	const activeKey = activeIndex >= 0 ? sessions[activeIndex]?.key : undefined;
 	useActiveSessionAutoScroll({ activeIndex, activeKey, scrollParent, virtuosoRef });
+	if (loading) return <ProjectSessionsLoadingView />;
 
 	if (totalCount === 0) {
 		const showAction = Boolean(labels.emptyAction && onEmptyAction);

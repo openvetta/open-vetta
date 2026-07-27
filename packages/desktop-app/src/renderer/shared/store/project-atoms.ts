@@ -95,8 +95,10 @@ export function isImSession(session: Pick<SessionInfo, "cwd">, imCwd: string): b
 export type SidebarFilter = "all" | "normal" | "batch";
 
 export const projectsAtom = atom<Project[]>([]);
+export const projectsInitializedAtom = atom<boolean>(false);
 export const expandedProjectsAtom = atom<Set<string>>(new Set<string>());
 export const sessionsMapAtom = atom<Map<string, SessionInfo[]>>(new Map<string, SessionInfo[]>());
+export const sessionLoadingCwdsAtom = atom<Set<string>>(new Set<string>());
 
 export const SIDEBAR_WIDTH_STORAGE_KEY = "vetta-sidebar-width";
 export const SIDEBAR_WIDTH_DEFAULT = 220;

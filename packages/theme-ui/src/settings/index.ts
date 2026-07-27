@@ -150,6 +150,7 @@ export type {
 	SettingsAiAssistDialogViewProps,
 } from "./SettingsAiAssistDialogView";
 export { SettingsAiAssistDialogView } from "./SettingsAiAssistDialogView";
+export { SettingsContentLoadingView } from "./SettingsContentLoadingView";
 export {
 	CheckboxField,
 	InputField,

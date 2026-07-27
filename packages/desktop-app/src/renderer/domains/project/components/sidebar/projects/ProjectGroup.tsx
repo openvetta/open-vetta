@@ -7,6 +7,7 @@ interface ProjectGroupProps {
 	project: Project;
 	scrollParent: HTMLElement | null;
 	sessions: SessionInfo[];
+	sessionsLoading: boolean;
 	isExpanded: boolean;
 	isActive?: boolean;
 	activeSessionPath: string;
@@ -48,6 +49,7 @@ export const ProjectGroup = memo(function ProjectGroup(props: ProjectGroupProps)
 			sessions={{
 				expanded: model.expanded,
 				hasMore: model.hasMoreSessions,
+				loading: props.sessionsLoading,
 				labels: model.showMoreLabels,
 				onToggleShowAll: model.actions.toggleShowAll,
 				scrollParent: props.scrollParent,
