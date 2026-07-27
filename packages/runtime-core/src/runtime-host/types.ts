@@ -13,6 +13,7 @@ import type {
 	RuntimeSessionEventStream,
 	RuntimeSessionHistoryController,
 	RuntimeSessionHistoryReader,
+	RuntimeSessionHostInteraction,
 	RuntimeSessionIdentityLifecycle,
 	RuntimeSessionModelController,
 	RuntimeSessionModelView,
@@ -25,6 +26,7 @@ export interface SessionHandle {
 	lifecycle: RuntimeSessionIdentityLifecycle;
 	historyReader: RuntimeSessionHistoryReader;
 	historyController: RuntimeSessionHistoryController;
+	hostInteraction: RuntimeSessionHostInteraction;
 	modelController: RuntimeSessionModelController;
 	modelView: RuntimeSessionModelView;
 	turnControl: RuntimeSessionTurnControl;

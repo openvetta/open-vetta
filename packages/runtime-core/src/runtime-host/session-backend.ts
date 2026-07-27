@@ -3,6 +3,7 @@ import {
 	createLegacyRuntimeSessionCorePorts,
 	LegacyRuntimeSessionHistoryController,
 	LegacyRuntimeSessionHistoryReader,
+	LegacyRuntimeSessionHostInteraction,
 	LegacyRuntimeSessionIdentityLifecycle,
 	LegacyRuntimeSessionModelController,
 	LegacyRuntimeSessionModelView,
@@ -11,6 +12,7 @@ import type {
 	RuntimeSessionCorePorts,
 	RuntimeSessionHistoryController,
 	RuntimeSessionHistoryReader,
+	RuntimeSessionHostInteraction,
 	RuntimeSessionIdentityLifecycle,
 	RuntimeSessionModelController,
 	RuntimeSessionModelView,
@@ -42,6 +44,7 @@ export interface RuntimeHostSessionAssembly {
 	readonly lifecycle: RuntimeSessionIdentityLifecycle;
 	readonly historyReader: RuntimeSessionHistoryReader;
 	readonly historyController: RuntimeSessionHistoryController;
+	readonly hostInteraction: RuntimeSessionHostInteraction;
 	readonly modelController: RuntimeSessionModelController;
 	readonly modelView: RuntimeSessionModelView;
 	readonly corePorts: RuntimeSessionCorePorts;
@@ -87,6 +90,7 @@ export function createLegacyRuntimeHostSessionAssembly(session: RuntimeSession):
 		lifecycle: new LegacyRuntimeSessionIdentityLifecycle(session),
 		historyReader: new LegacyRuntimeSessionHistoryReader(session),
 		historyController: new LegacyRuntimeSessionHistoryController(session),
+		hostInteraction: new LegacyRuntimeSessionHostInteraction(session),
 		modelController: new LegacyRuntimeSessionModelController(session),
 		modelView: new LegacyRuntimeSessionModelView(session),
 		corePorts: createLegacyRuntimeSessionCorePorts(session),

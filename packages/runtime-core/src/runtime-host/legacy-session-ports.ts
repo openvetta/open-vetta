@@ -1,5 +1,5 @@
 import type { Message } from "@vetta/ai";
-import type { AgentSessionEvent } from "@vetta/coding-agent";
+import type { AgentSessionEvent, ExtensionUIContext } from "@vetta/coding-agent";
 import type { HistoryEntry, SessionEvent } from "../contracts.js";
 import { entriesToHistory } from "./history.js";
 import type { RuntimeSession } from "./session-backend.js";
@@ -10,6 +10,8 @@ import type {
 	RuntimeSessionEventStream,
 	RuntimeSessionHistoryController,
 	RuntimeSessionHistoryReader,
+	RuntimeSessionHostInteraction,
+	RuntimeSessionHostInteractionContext,
 	RuntimeSessionIdentityLifecycle,
 	RuntimeSessionModelController,
 	RuntimeSessionModelView,
@@ -224,6 +226,43 @@ export class LegacyRuntimeSessionModelView implements RuntimeSessionModelView {
 	async resolveApiKey(model: Parameters<RuntimeSessionModelView["resolveApiKey"]>[0]): Promise<string | undefined> {
 		return this.session.modelRegistry.getApiKey(model);
 	}
+}
+
+export class LegacyRuntimeSessionHostInteraction implements RuntimeSessionHostInteraction {
+	constructor(private readonly session: RuntimeSession) {}
+
+	async bind(context: RuntimeSessionHostInteractionContext): Promise<void> {
+		await this.session.bindExtensions({ uiContext: createLegacyExtensionUIContext(context) });
+	}
+}
+
+function createLegacyExtensionUIContext(context: RuntimeSessionHostInteractionContext): ExtensionUIContext {
+	return {
+		select: async () => undefined,
+		confirm: (title, message, options) => context.confirm(title, message, options?.signal),
+		input: async () => undefined,
+		notify: () => {},
+		onTerminalInput: () => () => {},
+		setStatus: () => {},
+		setWorkingMessage: () => {},
+		setWidget: () => {},
+		setFooter: () => {},
+		setHeader: () => {},
+		setTitle: () => {},
+		custom: async () => undefined as never,
+		pasteToEditor: () => {},
+		setEditorText: () => {},
+		getEditorText: () => "",
+		editor: async () => undefined,
+		setEditorComponent: () => {},
+		theme: {} as ExtensionUIContext["theme"],
+		getAllThemes: () => [],
+		getTheme: () => undefined,
+		setTheme: () => ({ success: false, error: "Desktop runtime theme switching is unavailable." }),
+		getToolsExpanded: () => false,
+		setToolsExpanded: () => {},
+		requestSandboxGrant: (request) => context.requestSandboxGrant(request),
+	};
 }
 
 export function createLegacyRuntimeSessionCorePorts(session: RuntimeSession): RuntimeSessionCorePorts {

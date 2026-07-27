@@ -7,7 +7,6 @@ import {
 	type SessionEntry as CodingSessionEntry,
 	type ConversationScenario,
 	DEFAULT_SCENARIO,
-	type ExtensionUIContext,
 	loadEntriesFromFile,
 	type ModelRegistry,
 	type SessionInfo,
@@ -57,7 +56,7 @@ import {
 	type RuntimeSessionCreateOptions,
 } from "./session-backend.js";
 import { baseSessionEvent, lifecycleSessionEvent } from "./session-events.js";
-import type { RuntimeSessionEventStream } from "./session-ports.js";
+import type { RuntimeSessionEventStream, RuntimeSessionHostInteractionContext } from "./session-ports.js";
 import type { InFlightBuffer, RunningChangedReason, RuntimeHostOptions, SessionHandle } from "./types.js";
 
 export type { RunningChangedReason, RuntimeHostOptions } from "./types.js";
@@ -326,9 +325,9 @@ export class RuntimeHost implements SessionFacade {
 					existing.handle.pendingAgentPlugins = this.withAdditionalSkillPaths(config.agentPlugins);
 					existing.handle.hasPendingAgentPlugins = true;
 				}
-				await existing.handle.session.bindExtensions({
-					uiContext: this.createExtensionUIContext({ current: existing.sessionId }),
-				});
+				await existing.handle.hostInteraction.bind(
+					this.createHostInteractionContext({ current: existing.sessionId }),
+				);
 				return { sessionId: existing.sessionId };
 			}
 		}
@@ -411,16 +410,25 @@ export class RuntimeHost implements SessionFacade {
 			modelRegistry: this.modelRegistry,
 		};
 
-		const { session, lifecycle, historyReader, historyController, modelController, modelView, corePorts } =
-			await this.sessionBackend.createAssembly(options);
+		const {
+			session,
+			lifecycle,
+			historyReader,
+			historyController,
+			hostInteraction,
+			modelController,
+			modelView,
+			corePorts,
+		} = await this.sessionBackend.createAssembly(options);
 		const sessionId = lifecycle.sessionId;
 		sessionIdRef.current = sessionId;
-		await session.bindExtensions({ uiContext: this.createExtensionUIContext(sessionIdRef) });
+		await hostInteraction.bind(this.createHostInteractionContext(sessionIdRef));
 		this.sessions.set(sessionId, {
 			session,
 			lifecycle,
 			historyReader,
 			historyController,
+			hostInteraction,
 			modelController,
 			modelView,
 			...corePorts,
@@ -1130,12 +1138,11 @@ export class RuntimeHost implements SessionFacade {
 		});
 	}
 
-	private createExtensionUIContext(sessionIdRef: { current?: string }): ExtensionUIContext {
+	private createHostInteractionContext(sessionIdRef: { current?: string }): RuntimeSessionHostInteractionContext {
 		return {
-			select: async () => undefined,
-			confirm: async (title, message, opts) => {
+			confirm: async (title, message, signal) => {
 				const handler = this.userConfirmationHandler;
-				if (!handler || opts?.signal?.aborted) return false;
+				if (!handler || signal?.aborted) return false;
 				return handler(
 					{
 						requestId: randomUUID(),
@@ -1143,30 +1150,9 @@ export class RuntimeHost implements SessionFacade {
 						title,
 						message,
 					},
-					opts?.signal,
+					signal,
 				);
 			},
-			input: async () => undefined,
-			notify: () => {},
-			onTerminalInput: () => () => {},
-			setStatus: () => {},
-			setWorkingMessage: () => {},
-			setWidget: () => {},
-			setFooter: () => {},
-			setHeader: () => {},
-			setTitle: () => {},
-			custom: async () => undefined as never,
-			pasteToEditor: () => {},
-			setEditorText: () => {},
-			getEditorText: () => "",
-			editor: async () => undefined,
-			setEditorComponent: () => {},
-			theme: {} as ExtensionUIContext["theme"],
-			getAllThemes: () => [],
-			getTheme: () => undefined,
-			setTheme: () => ({ success: false, error: "Desktop runtime theme switching is unavailable." }),
-			getToolsExpanded: () => false,
-			setToolsExpanded: () => {},
 			requestSandboxGrant: async (request) => {
 				const handler = this.userSandboxGrantHandler;
 				if (!handler) return "deny";

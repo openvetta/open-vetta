@@ -1,6 +1,13 @@
 import type { ThinkingLevel } from "@vetta/agent-core";
 import type { Api, Message, Model } from "@vetta/ai";
-import type { HistoryEntry, PromptRequest, SessionEvent, SessionStateSnapshot } from "../contracts.js";
+import type {
+	HistoryEntry,
+	PromptRequest,
+	RuntimeSandboxGrantDecision,
+	RuntimeSandboxGrantRequest,
+	SessionEvent,
+	SessionStateSnapshot,
+} from "../contracts.js";
 
 /** 会话身份与资源释放；不承载宿主 UI 绑定或业务外围能力。 */
 export interface RuntimeSessionIdentityLifecycle {
@@ -83,6 +90,19 @@ export interface RuntimeSessionModelView {
 	refreshAvailableModels(): void;
 	readAvailableModels(): readonly Model<Api>[];
 	resolveApiKey(model: Model<Api>): Promise<string | undefined>;
+}
+
+/** 单次宿主绑定提供的交互能力；不泄漏 coding-agent 的完整 UI 协议。 */
+export interface RuntimeSessionHostInteractionContext {
+	confirm(title: string, message: string, signal?: AbortSignal): Promise<boolean>;
+	requestSandboxGrant(
+		request: Omit<RuntimeSandboxGrantRequest, "requestId" | "sessionId">,
+	): Promise<RuntimeSandboxGrantDecision>;
+}
+
+/** 将当前宿主交互能力绑定到会话；同路径复用时允许重新绑定。 */
+export interface RuntimeSessionHostInteraction {
+	bind(context: RuntimeSessionHostInteractionContext): Promise<void>;
 }
 
 export interface RuntimeSessionCorePorts {

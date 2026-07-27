@@ -51,6 +51,7 @@
 | [41-session-history-controller.md](./08-implementation-log/41-session-history-controller.md) | History 写操作行为基线、Controller Port 与 Assembly 交付 |
 | [42-session-model-controller.md](./08-implementation-log/42-session-model-controller.md) | 模型选择行为基线、Model Controller 与 Assembly 交付 |
 | [43-session-model-view.md](./08-implementation-log/43-session-model-view.md) | 模型只读视图、外围候选行为基线与 Assembly 交付 |
+| [44-session-host-interaction.md](./08-implementation-log/44-session-host-interaction.md) | 独立宿主交互合同、旧 Extension UI 适配与重绑定语义 |
 
 ## 维护约定
 

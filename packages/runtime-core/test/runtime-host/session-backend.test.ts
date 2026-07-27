@@ -204,6 +204,7 @@ describe("RuntimeHost session backend boundary", () => {
 		const replaceLastUserMessage = vi.fn(() => ({ leafId: "replace-leaf" }));
 		const forkSession = vi.fn(() => ({ path: "fork.jsonl", text: "fork text" }));
 		const setName = vi.fn();
+		const bindHostInteraction = vi.fn(async () => {});
 		const backend = new RecordingAssemblyBackend({
 			session: sessionDouble.session,
 			lifecycle: {
@@ -220,6 +221,7 @@ describe("RuntimeHost session backend boundary", () => {
 				forkSession,
 				setName,
 			},
+			hostInteraction: { bind: bindHostInteraction },
 			modelController: { selectModel, setThinkingLevel, refreshAuth },
 			modelView: { readCurrentModel, refreshAvailableModels, readAvailableModels, resolveApiKey },
 			corePorts,
@@ -241,6 +243,7 @@ describe("RuntimeHost session backend boundary", () => {
 
 		expect(backend.calls).toHaveLength(1);
 		expect(sessionId).toBe("assembly-session");
+		expect(bindHostInteraction).toHaveBeenCalledOnce();
 		expect(prompt).toHaveBeenCalledWith({
 			text: "through port",
 			images: undefined,
@@ -283,6 +286,12 @@ describe("RuntimeHost session backend boundary", () => {
 		expect(forkSession).toHaveBeenCalledWith("fork-entry");
 		expect(setName).toHaveBeenNthCalledWith(1, "renamed by id");
 		expect(setName).toHaveBeenNthCalledWith(2, "renamed by path");
+
+		const reopened = await host.createSession({ sessionPath: "assembly.jsonl" });
+		expect(reopened).toEqual({ sessionId });
+		expect(backend.calls).toHaveLength(1);
+		expect(bindHostInteraction).toHaveBeenCalledTimes(2);
+		expect(sessionDouble.session.bindExtensions).not.toHaveBeenCalled();
 
 		await host.disposeSession(sessionId);
 		expect(dispose).toHaveBeenCalledOnce();
