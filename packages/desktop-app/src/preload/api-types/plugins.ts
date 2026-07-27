@@ -199,6 +199,12 @@ export interface PluginManifest {
 	description?: string;
 	author?: string;
 	/**
+	 * 插件图标，三态口径（与能力市场统一）：
+	 * 省略 = 用默认图标；`solar:xxx-bold` 等 Iconify 名与 `http(s)://` 外链原样透传给渲染层；
+	 * 其余按包内相对路径处理，宿主转成带 cache key 的 `vetta-plugin://` URL。
+	 */
+	icon?: string;
+	/**
 	 * 声明式引导词：开新会话欢迎页主动建议的提示语。点击即以该文本立即发起一轮。
 	 * 与命令式 `ctx.ui.register*` 不同——纯静态清单数据、无权限位、无运行时注册（ADR-0003）。
 	 */
@@ -268,6 +274,11 @@ export interface InstalledPlugin {
 	settingsSchema?: PluginSettingSchema[];
 	description?: string;
 	author?: string;
+	/**
+	 * 见 PluginManifest.icon —— 已解析为可直接渲染的值：Iconify 名 / 外链原样，
+	 * 包内相对路径已转成带 cache key 的 `vetta-plugin://` URL。未声明图标时为 undefined。
+	 */
+	iconUrl?: string;
 	/** 见 PluginManifest.guidingWords —— NewSessionPage 欢迎页消费。 */
 	guidingWords?: string[];
 	/** 缺译回退 locale（见 PluginManifest.defaultLocale）。 */

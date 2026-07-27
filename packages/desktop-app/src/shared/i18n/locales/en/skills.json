@@ -1,26 +1,11 @@
 {
 	"tabs": {
-		"scene": "Scenes",
-		"capability": "Capabilities",
-		"skill": "Skills",
-		"plugin": "Plugins",
-		"connector": "Connectors"
+		"scene": "Scenes"
 	},
 	"typeNoun": {
-		"scene": "scenes",
-		"capability": "capabilities",
-		"skill": "skills",
-		"plugin": "plugins",
-		"connector": "connectors"
+		"scene": "scenes"
 	},
 	"subtitle": "Install and enable the capabilities you need to give Vetta more expertise",
-	"subtitleCapability": "Choose what you want to accomplish without worrying about the technology behind it",
-	"subtitleConnector": "Manage MCP connectors to give the AI web, docs, and external tools",
-	"subtitlePlugin": "Install, enable, and configure app plugins to extend Vetta's UI and capabilities",
-	"banner": {
-		"title": "Extend Vetta with professional capabilities",
-		"description": "From writing and productivity to design and data analysis—pick what you need and enable it in one click."
-	},
 	"search": {
 		"placeholder": "Search {{noun}}..."
 	},
@@ -28,205 +13,7 @@
 		"install": "Install",
 		"use": "Use",
 		"update": "Update",
-		"uninstall": "Uninstall",
-		"reload": "Reload",
-		"importSkill": "Import skill",
-		"importPlugin": "Import plugin"
-	},
-	"capabilities": {
-		"scope": {
-			"discover": "Discover",
-			"mine": "Mine",
-			"discoverTitle": "Discover capabilities",
-			"discoverHint": "Choose what you want to accomplish and add it when needed",
-			"mineTitle": "My capabilities",
-			"mineHint": "Manage capabilities already added to Vetta"
-		},
-		"add": {
-			"trigger": "Add capability",
-			"title": "Choose how to add it",
-			"importSkill": "Import a Skill capability",
-			"importSkillHint": "Install from a local zip, tar.gz, or tgz archive",
-			"addConnector": "Add an MCP capability",
-			"addConnectorHint": "Manually configure a stdio or HTTP MCP server"
-		},
-		"status": {
-			"added": "Added",
-			"setupRequired": "Setup required",
-			"updateAvailable": "Update available",
-			"custom": "Custom",
-			"readonly": "Read-only"
-		},
-		"actions": {
-			"add": "Add",
-			"update": "Update",
-			"finishSetup": "Finish setup",
-			"connectAccount": "Connect account",
-			"disconnectAccount": "Disconnect account",
-			"configure": "Configure credentials",
-			"edit": "Edit configuration",
-			"viewDetails": "View details",
-			"remove": "Remove capability",
-			"enable": "Enable capability",
-			"disable": "Disable capability",
-			"more": "More actions",
-			"refresh": "Refresh"
-		},
-		"card": {
-			"noDescription": "No capability description",
-			"usageCount": "{{count}} downloads"
-		},
-		"empty": {
-			"noMatch": "No matching capabilities",
-			"noMatchHint": "Try describing the function differently",
-			"discover": "No capabilities to discover yet",
-			"mine": "No capabilities added yet",
-			"hint": "Refresh later or add one from the top-right menu"
-		},
-		"error": {
-			"partial": "Some capabilities could not be loaded: {{error}}"
-		},
-		"detail": {
-			"status": {
-				"available": "Not enabled",
-				"setup_required": "Setup required",
-				"disabled": "Disabled",
-				"enabled": "Enabled",
-				"readonly": "Read-only"
-			},
-			"primary": {
-				"add": "Add capability",
-				"enable": "Enable capability",
-				"setup": "Finish setup",
-				"update": "Update capability"
-			},
-			"secondary": {
-				"disable": "Disable",
-				"remove": "Remove",
-				"configure": "Configure"
-			},
-			"section": {
-				"intro": "About",
-				"features": "Key features",
-				"scenarios": "Use cases",
-				"permissions": "Permissions",
-				"reviews": "Reviews",
-				"viewPermissionDetails": "View permission details →"
-			},
-			"developerLabel": "Developer: {{name}}",
-			"developer": {
-				"builtin": "Built into Vetta",
-				"market": "Marketplace",
-				"local": "Local",
-				"agent": "Generic Agent"
-			},
-			"reviewsFromCount": "From {{count}} users",
-			"fallback": {
-				"emptyBody": "No more details yet. Add it to start using this capability in chat.",
-				"permissionsLead": "To work well, this capability may need the following permissions:",
-				"permissionOAuth": "Connect your account (authorize secure access to related data)",
-				"permissionSecrets": "Configure access credentials (such as an API key)"
-			},
-			"catalog": {
-				"figma": {
-					"developer": "Figma",
-					"tags": ["Design", "Collaboration", "Productivity"],
-					"intro": "Connect your Figma account so the AI can read design files, components, styles, and comments—then help analyze designs, extract specs, or suggest improvements.",
-					"media": {
-						"userPrompt": "Help me analyze the design system on this page",
-						"assistantReply": "Sure — here’s an analysis of this page…"
-					},
-					"features": [
-						"Read files, pages, components, and styles",
-						"Understand structure and layout",
-						"Extract colors, type, and spacing specs",
-						"Generate design analysis and improvement ideas",
-						"Parse FigJam boards"
-					],
-					"scenarios": ["Design review", "Extract design specs", "Prep design-to-code", "Team knowledge sharing"],
-					"permissions": {
-						"lead": "Figma needs the following permissions:",
-						"items": [
-							"Read your files and pages",
-							"Read components, styles, and comments",
-							"Read teams and projects (optional)"
-						]
-					},
-					"reviews": {
-						"score": "4.8",
-						"count": "1256",
-						"quotes": [
-							"Design analysis is spot on and saves me a lot of time.",
-							"Pulling specs straight from the file is so convenient.",
-							"Collaboration with the team leveled up."
-						]
-					}
-				},
-				"github": {
-					"developer": "GitHub",
-					"tags": ["Engineering", "Collaboration", "Code"],
-					"intro": "Connect GitHub so the AI can work with Issues, PRs, and repository context—for reviews, debugging, and team coordination.",
-					"media": {
-						"userPrompt": "Summarize the risk of this PR",
-						"assistantReply": "I reviewed the diff and related Issues. Main risks are…"
-					},
-					"features": [
-						"Read repositories, Issues, and Pull Requests",
-						"Assist code review and change summaries",
-						"Search discussion history and context",
-						"Help draft Issues and PR descriptions"
-					],
-					"scenarios": ["Code review", "Debugging", "Team coordination", "Issue / PR drafting"],
-					"permissions": {
-						"lead": "GitHub needs the following permissions:",
-						"items": [
-							"Access repositories you authorize",
-							"Read Issues and Pull Requests",
-							"Write collaborative updates within the granted scope"
-						]
-					},
-					"reviews": {
-						"score": "4.7",
-						"count": "980",
-						"quotes": [
-							"PR summaries save real time.",
-							"Great for debugging with Issue context."
-						]
-					}
-				},
-				"notion": {
-					"developer": "Notion",
-					"tags": ["Knowledge", "Notes", "Collaboration"],
-					"intro": "Connect your Notion workspace so the AI can read and organize pages, notes, and databases—then help search and summarize.",
-					"media": {
-						"userPrompt": "Summarize the todos on this project page",
-						"assistantReply": "Here’s a todo list pulled from the page and databases…"
-					},
-					"features": [
-						"Read workspace pages and databases",
-						"Search notes and project docs",
-						"Organize todos and meeting notes",
-						"Help structure knowledge bases"
-					],
-					"scenarios": ["Note search", "Todo rollups", "Meeting notes", "Knowledge cleanup"],
-					"permissions": {
-						"lead": "Notion needs the following permissions:",
-						"items": [
-							"Read pages and databases you authorize",
-							"Access workspace content within the granted scope"
-						]
-					},
-					"reviews": {
-						"score": "4.6",
-						"count": "742",
-						"quotes": [
-							"Pulling Notion context for summaries is effortless.",
-							"Project docs are much easier to search."
-						]
-					}
-				}
-			}
-		}
+		"uninstall": "Uninstall"
 	},
 	"loading": "Loading...",
 	"card": {
@@ -245,117 +32,21 @@
 		"agentSkill": "General Agent Skill",
 		"custom": "Custom",
 		"uncategorized": "Uncategorized",
-		"systemPlugins": "System plugins",
 		"enabledCount": "{{n}} enabled"
 	},
 	"empty": {
 		"noMatch": "No matching results",
 		"noMatchHint": "Try a different keyword",
 		"none": "No {{noun}} available",
-		"noneHint": "Check back later",
-		"noPlugins": "No plugins available yet",
-		"pluginsHint": "Install from a local zip, or check the marketplace later",
-		"pluginsHintGuest": "Sign in to browse the plugin marketplace"
+		"noneHint": "Check back later"
 	},
 	"error": {
 		"loadFailed": "Failed to load",
-		"partialFallback": "{{error}}. Showing only installed {{noun}}",
-		"notLoggedIn": "Not signed in, cannot install plugin"
+		"partialFallback": "{{error}}. Showing only installed {{noun}}"
 	},
 	"import": {
 		"failed": "Import failed: {{error}}",
 		"unknownError": "Unknown error"
-	},
-	"detail": {
-		"name": "Name",
-		"type": "Type",
-		"version": "Version",
-		"author": "Author",
-		"downloads": "Downloads",
-		"description": "Description",
-		"notInstalledHint": "This capability has not been added yet. The information above is a metadata preview. Add it to view the full details."
-	},
-	"plugin": {
-		"status": {
-			"enabled": "Enabled",
-			"disabled": "Disabled",
-			"notInstalled": "Not installed"
-		},
-		"badge": {
-			"system": "System",
-			"custom": "Custom",
-			"new": "New",
-			"updatable": "Update v{{version}}"
-		},
-		"source": {
-			"remote": "Remote install",
-			"system": "Built-in",
-			"local": "Local zip"
-		},
-		"detail": {
-			"title": "Plugin details",
-			"subtitle": "View and configure \"{{name}}\"",
-			"reloadable": "Reloadable to {{version}}",
-			"newVersion": "New version v{{version}} in marketplace",
-			"current": "Current v{{version}}",
-			"currentVersion": "Current version",
-			"source": "Source",
-			"author": "Author",
-			"enablePlugin": "Enable plugin",
-			"permissions": "Permissions",
-			"permissionsSystemHint": "Granted automatically for system plugins, not editable",
-			"noPermissions": "This plugin declares no permissions.",
-			"commands": "Executable commands",
-			"commandsHint": "Disabling blocks calls from the plugin"
-		},
-		"message": {
-			"installed": "Installed {{name}} {{version}}",
-			"enabled": "Plugin enabled.",
-			"disabled": "Plugin disabled.",
-			"permissionGranted": "Permission granted.",
-			"permissionRevoked": "Permission revoked.",
-			"commandEnabled": "Command enabled.",
-			"commandDisabled": "Command disabled.",
-			"reloaded": "Reloaded {{name}} {{version}}",
-			"uninstalled": "Plugin uninstalled."
-		},
-		"confirm": {
-			"uninstallTitle": "Uninstall plugin",
-			"uninstallMessage": "Uninstall plugin \"{{name}}\"? Its UI will be removed immediately."
-		},
-		"permission": {
-			"uiSlotGlobal": "Global UI slot",
-			"uiSlotFilePreview": "File preview slot",
-			"uiSlotActivityTab": "Activity panel tab",
-			"uiSlotInputAction": "Input bar action slot",
-			"uiSlotMessage": "Below-message slot",
-			"uiSlotToolCall": "Tool call render slot",
-			"uiSlotTurnCard": "Turn card slot",
-			"agentSessionRead": "Read agent session",
-			"agentSessionWrite": "Modify agent session",
-			"agentCommandRun": "Run agent commands",
-			"agentSystemPromptRead": "Read agent system prompt",
-			"agentSystemPromptWrite": "Modify agent system prompt",
-			"agentSystemPromptFullControl": "Full control of agent system prompt",
-			"agentSkillsControl": "Control agent skill loading",
-			"agentMcpControl": "Provide plugin-scoped MCP servers",
-			"agentToolsControl": "Control agent tool loading",
-			"agentToolsRegister": "Register agent tools",
-			"agentToolHandlerExecute": "Execute plugin tool handlers",
-			"agentStateRead": "Read plugin agent state",
-			"agentStateWrite": "Write plugin agent state",
-			"agentContinuationRegister": "Register agent auto-continuation policy",
-			"agentRuntimeConfigure": "Configure agent runtime",
-			"appActionsRegister": "Register app actions",
-			"appActionHandlerExecute": "Execute plugin action handlers",
-			"fsRead": "Read files",
-			"fsWrite": "Write files",
-			"networkFetch": "Access network",
-			"storageRead": "Read private plugin data",
-			"storageWrite": "Write private plugin data",
-			"settingsRead": "Read settings",
-			"settingsWrite": "Modify settings"
-		}
 	},
 	"tour": {
 		"capabilities": {

@@ -1,13 +1,13 @@
-import { createRootRoute, createRoute, createRouter, createHashHistory } from "@tanstack/react-router";
+import { createRootRoute, createRoute, createRouter, createHashHistory, redirect } from "@tanstack/react-router";
 import { RootLayout } from "./App";
+import { AbilitiesPage } from "./domains/abilities/components/AbilitiesPage";
+import { AbilityDetailPage } from "./domains/abilities/components/detail/AbilityDetailPage";
 import { ChatPage } from "./domains/chat/components/ChatPage";
 import { NewSessionPage } from "./domains/chat/components/NewSessionPage";
 import { SessionViewerPage } from "./domains/chat/components/SessionViewerPage";
 import { AutomationPage } from "./domains/scheduler/components/AutomationPage";
 import { BatchTasksPage } from "./domains/batch-tasks/components/BatchTasksPage";
-import { SkillsPage } from "./domains/skills/components/SkillsPage";
 import { ScenesPage } from "./domains/skills/components/ScenesPage";
-import { PluginsPage } from "./domains/skills/components/PluginsPage";
 import { SettingsPage } from "./domains/settings/components/SettingsPage";
 import { ProjectDetailPage } from "./domains/project/components/ProjectDetailPage";
 import { DownloadsPage } from "./domains/downloads/components/DownloadsPage";
@@ -38,27 +38,28 @@ const batchTasksRoute = createRoute({
 	component: BatchTasksPage,
 });
 
-const skillsRoute = createRoute({
+const abilitiesRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: "/abilities",
+	component: AbilitiesPage,
+});
+
+/** 独立详情页（不再是侧边 Drawer）；scene 卡片也共用这条路由。 */
+const abilityDetailRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: "/abilities/$type/$slug",
+	component: AbilityDetailPage,
+});
+
+/** 旧深链：/skills?tab=scene 仍去场景页，其余一律并入能力页（ADR-0049）。 */
+const skillsRedirectRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	path: "/skills",
-	component: SkillsPage,
-	validateSearch: (search: Record<string, unknown>) => {
-		// skill / connector 为历史深链，页面内统一映射到 capability；plugin / scene 会重定向。
-		const tab =
-			search.tab === "scene" ||
-			search.tab === "capability" ||
-			search.tab === "skill" ||
-			search.tab === "plugin" ||
-			search.tab === "connector"
-				? search.tab
-				: undefined;
-		const section = typeof search.section === "string" ? search.section : undefined;
-		const nav = typeof search.nav === "string" ? search.nav : undefined;
-		return {
-			...(tab ? { tab } : {}),
-			...(section ? { section } : {}),
-			...(nav ? { nav } : {}),
-		};
+	validateSearch: (search: Record<string, unknown>) => ({
+		...(typeof search.tab === "string" ? { tab: search.tab } : {}),
+	}),
+	beforeLoad: ({ search }) => {
+		throw redirect({ to: search.tab === "scene" ? "/scenes" : "/abilities", replace: true });
 	},
 });
 
@@ -68,10 +69,12 @@ const scenesRoute = createRoute({
 	component: ScenesPage,
 });
 
-const pluginsRoute = createRoute({
+const pluginsRedirectRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	path: "/plugins",
-	component: PluginsPage,
+	beforeLoad: () => {
+		throw redirect({ to: "/abilities", replace: true });
+	},
 });
 
 const knowledgeRoute = createRoute({
@@ -138,9 +141,11 @@ const routeTree = rootRoute.addChildren([
 	batchTasksRoute,
 	knowledgeRoute,
 	knowledgeListRoute,
-	skillsRoute,
+	abilitiesRoute,
+	abilityDetailRoute,
+	skillsRedirectRoute,
 	scenesRoute,
-	pluginsRoute,
+	pluginsRedirectRoute,
 	settingsTabRoute,
 	projectDetailRoute,
 	downloadsRoute,

@@ -36,10 +36,15 @@ const PRIMARY_NAV_ITEMS = [
 		icon: "icon-[solar--library-linear]",
 		badgeKey: "sidebar.nav.betaBadge",
 	},
-	{ type: "route", path: "/skills" as const, labelKey: "sidebar.nav.skills", icon: "icon-[solar--widget-5-linear]" },
+	{
+		type: "route",
+		path: "/abilities" as const,
+		labelKey: "sidebar.nav.skills",
+		icon: "icon-[solar--widget-5-linear]",
+	},
 ] as const;
 
-// 「更多」收纳：批量任务 / 场景 / 插件。
+// 「更多」收纳：批量任务 / 场景。插件已并入能力页（ADR-0049），不再有独立入口。
 const MORE_NAV_ITEMS = [
 	{
 		type: "route",
@@ -53,12 +58,6 @@ const MORE_NAV_ITEMS = [
 		labelKey: "sidebar.nav.scenes",
 		icon: "icon-[solar--clapperboard-open-linear]",
 	},
-	{
-		type: "route",
-		path: "/plugins" as const,
-		labelKey: "sidebar.nav.plugins",
-		icon: "icon-[solar--plug-circle-linear]",
-	},
 ] as const;
 
 function getNavIndicatorBounds(element: HTMLButtonElement): NavIndicatorBounds {
@@ -71,7 +70,8 @@ function getNavIndicatorBounds(element: HTMLButtonElement): NavIndicatorBounds {
 }
 
 function isRouteActive(path: string, currentPath: string): boolean {
-	if (path === "/knowledge") {
+	// 能力详情页（/abilities/$type/$slug）仍算能力入口高亮。
+	if (path === "/knowledge" || path === "/abilities") {
 		return currentPath === path || currentPath.startsWith(`${path}/`);
 	}
 	return currentPath === path;

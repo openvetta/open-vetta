@@ -54,7 +54,7 @@
 		"verify:ui:debug": "bun run --cwd packages/desktop-app verify:ui:debug",
 		"check:lint": "bunx @biomejs/biome check --error-on-warnings .",
 		"check:lint:fix": "bunx @biomejs/biome check --write --error-on-warnings .",
-		"check:types": "tsgo --noEmit && bunx tsc --noEmit -p packages/desktop-app/tsconfig.json",
+		"check:types": "tsgo --noEmit && bunx tsc --noEmit -p packages/desktop-app/tsconfig.json && bun run --cwd packages/admin check",
 		"check:guards": "bun run scripts/quality/check-guards.mjs",
 		"check:staged": "bunx @biomejs/biome check --write --error-on-warnings --staged --no-errors-on-unmatched",
 		"check:precommit": "bun run scripts/quality/precommit.mjs",

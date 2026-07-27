@@ -26,6 +26,7 @@ import type {
 	PluginPermission,
 	PluginSettingSchema,
 } from "../../preload/api-types/plugins.js";
+import { recordAbilityInstall, removeAbilityLedgerEntry } from "../abilities/ability-ledger.js";
 import { getAppLogger } from "../logger.js";
 import { verifySha256 } from "../utils/integrity.js";
 
@@ -473,6 +474,32 @@ function validateRelativePath(value: string, fieldName: string): string {
 	return normalized;
 }
 
+/** Iconify 图标名：`solar:magic-stick-3-bold` 这种 `<集合>:<图标>` 形态。 */
+const ICONIFY_ICON_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*:[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/**
+ * 图标三态判定：Iconify 名与 `http(s)://` 外链原样透传给渲染层；
+ * 其余一律当包内相对路径交给 validateRelativePath（含盘符的绝对路径会被它拒绝）。
+ */
+function isPassthroughIconRef(icon: string): boolean {
+	return icon.startsWith("http://") || icon.startsWith("https://") || ICONIFY_ICON_PATTERN.test(icon);
+}
+
+function parseIconRef(value: unknown): string | undefined {
+	if (value === undefined) return undefined;
+	const icon = assertString(value, "icon");
+	return isPassthroughIconRef(icon) ? icon : validateRelativePath(icon, "icon");
+}
+
+/**
+ * manifest.icon → InstalledPlugin.iconUrl。相对路径才经 URL 构造器（自带 ?v= cache key，
+ * 规避 Chromium 对 vetta-plugin:// 资源的缓存），Iconify/外链原样返回。
+ */
+function resolveIconUrl(icon: string | undefined, toUrl: (relativePath: string) => string): string | undefined {
+	if (!icon) return undefined;
+	return isPassthroughIconRef(icon) ? icon : toUrl(icon);
+}
+
 function parseManifest(raw: unknown): PluginManifest {
 	if (raw == null || typeof raw !== "object") {
 		throw new Error("Missing plugin.json");
@@ -512,6 +539,7 @@ function parseManifest(raw: unknown): PluginManifest {
 		contributes: settings ? { settings } : undefined,
 		description: typeof input.description === "string" ? input.description : undefined,
 		author: typeof input.author === "string" ? input.author : undefined,
+		icon: parseIconRef(input.icon),
 		guidingWords:
 			input.guidingWords === undefined ? undefined : assertStringArray(input.guidingWords, "guidingWords"),
 		defaultLocale: parseDefaultLocale(input.defaultLocale),
@@ -690,6 +718,10 @@ function installedFromManifest(
 			),
 		),
 	);
+	// 与 entryUrl/styleUrls 同源：已安装过就沿用 activeVersion 的图标 URL，避免指向未生效的新版本。
+	const iconUrl = previous
+		? previous.iconUrl
+		: resolveIconUrl(manifest.icon, (path) => toPluginUrl(manifest.id, activeVersion, path));
 	const declaredCommands = manifest.commands ?? [];
 	// Fresh install enables all declared commands by default; the user can toggle
 	// any of them off later. A reinstall preserves the prior allow set.
@@ -716,6 +748,7 @@ function installedFromManifest(
 		settingsSchema: manifest.contributes?.settings,
 		description: manifest.description,
 		author: manifest.author,
+		iconUrl,
 		guidingWords: manifest.guidingWords,
 		defaultLocale: manifest.defaultLocale ?? "zh",
 		locales,
@@ -900,6 +933,7 @@ function applyDevOverlay(plugin: InstalledPlugin): InstalledPlugin {
 		agent: manifest.agent,
 		agent_mode: manifest.agent_mode,
 		styleUrls: (manifest.styles ?? []).map((style) => toDevPluginUrl(plugin.id, style, link.reloadToken)),
+		iconUrl: resolveIconUrl(manifest.icon, (path) => toDevPluginUrl(plugin.id, path, link.reloadToken)),
 		guidingWords: manifest.guidingWords,
 		defaultLocale: manifest.defaultLocale ?? "zh",
 		locales: link.locales,
@@ -1389,6 +1423,7 @@ function systemInstalledFromManifest(
 		settingsSchema: manifest.contributes?.settings,
 		description: manifest.description,
 		author: manifest.author,
+		iconUrl: resolveIconUrl(manifest.icon, (path) => toSystemPluginUrl(manifest.id, path, manifest.version)),
 		guidingWords: manifest.guidingWords,
 		defaultLocale: manifest.defaultLocale ?? "zh",
 		locales,
@@ -1544,6 +1579,8 @@ export async function installPluginFromArchive(
 		}
 		registry[manifest.id] = installed;
 		writeRegistry(registry);
+		// 能力安装台账（ADR-0049）：记生效中的版本；升级要等 reloadPlugin 切到 pendingVersion 后才改写。
+		recordAbilityInstall("plugin", installed.id, installed.activeVersion);
 		broadcastPluginsChanged();
 		return installed;
 	} finally {
@@ -1591,6 +1628,7 @@ export function uninstallPlugin(id: string): void {
 	const registry = readRegistry();
 	delete registry[id];
 	writeRegistry(registry);
+	removeAbilityLedgerEntry("plugin", id);
 	rmSync(join(pluginsBaseDir, id), { recursive: true, force: true });
 	broadcastPluginsChanged();
 }
@@ -1738,6 +1776,11 @@ export function reloadPlugin(id: string): InstalledPlugin {
 	plugin.styleUrls = (manifest.styles ?? []).map(
 		(style) => `${toPluginUrl(plugin.id, plugin.activeVersion, style)}&reload=${reloadToken}`,
 	);
+	// activeVersion 在上面已切到 pendingVersion，图标 URL 必须跟着重算（安装时刻意沿用了旧值）。
+	plugin.iconUrl = resolveIconUrl(
+		manifest.icon,
+		(path) => `${toPluginUrl(plugin.id, plugin.activeVersion, path)}&reload=${reloadToken}`,
+	);
 	// 重载到新版本时同步命令声明，并把用户授权裁剪到新声明集合内（避免授权指向已移除的命令、
 	// 或新增命令因 declaredCommands 陈旧而永远无法授权）。
 	plugin.declaredCommands = manifest.commands ?? [];
@@ -1747,6 +1790,8 @@ export function reloadPlugin(id: string): InstalledPlugin {
 	plugin.rootPath = computePluginRootPath(plugin.id, plugin.source, plugin.activeVersion);
 	plugin.updatedAt = new Date().toISOString();
 	writeRegistry(registry);
+	// activeVersion 已切到 pendingVersion，台账（ADR-0049）跟着改写为实际生效的版本。
+	recordAbilityInstall("plugin", plugin.id, plugin.activeVersion);
 	// dev 链接期间：注册表照常应用 pendingVersion（否则「应用到 Vetta」的新版本会被
 	// 吞掉，关热更新后回落旧版本），但返回值与广播叠加 dev 快照（资源仍从工程加载）。
 	if (devLinks.has(id)) {

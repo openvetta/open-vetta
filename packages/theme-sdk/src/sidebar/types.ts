@@ -55,7 +55,8 @@ export interface SidebarNavItem {
 	readonly key: string;
 	readonly label?: string;
 	readonly labelKey?: SidebarLabelKey;
-	readonly path?: "/automation" | "/batch-tasks" | "/knowledge" | "/skills" | "/scenes" | "/plugins";
+	/** `/skills` 与 `/plugins` 为旧入口，现已重定向到 `/abilities`（ADR-0049）。 */
+	readonly path?: "/automation" | "/batch-tasks" | "/knowledge" | "/abilities" | "/skills" | "/scenes" | "/plugins";
 	readonly title?: string;
 	readonly titleLabelKey?: SidebarLabelKey;
 	readonly type: "custom" | "new-session" | "route";

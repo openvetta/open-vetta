@@ -1,6 +1,6 @@
 import type { InstalledSkill, SkillInfo } from "@preload/api";
-import type { MarketSkillInfo } from "@shared/lib/api";
-import { fetchMarketSkills } from "@shared/lib/api";
+import type { MarketAbility } from "@shared/lib/api";
+import { fetchMarketAbilities } from "@shared/lib/api";
 import { useCallback, useMemo, useState } from "react";
 import { SCENE_STATE_RANK } from "./constants";
 import type { SceneCardState } from "./SceneCard";
@@ -15,7 +15,7 @@ interface UseNewSessionResourcesResult {
 
 export function useNewSessionResources(decodedCwd: string, token: string | null): UseNewSessionResourcesResult {
 	const [skills, setSkills] = useState<SkillInfo[]>([]);
-	const [marketScenes, setMarketScenes] = useState<MarketSkillInfo[]>([]);
+	const [marketScenes, setMarketScenes] = useState<MarketAbility[]>([]);
 	const [manifest, setManifest] = useState<Record<string, InstalledSkill>>({});
 	const [guidingGroups, setGuidingGroups] = useState<GuidingGroup[]>([]);
 
@@ -47,7 +47,10 @@ export function useNewSessionResources(decodedCwd: string, token: string | null)
 			return;
 		}
 		try {
-			const [market, mani] = await Promise.all([fetchMarketSkills(token), window.vetta.skills.getMarketManifest()]);
+			const [market, mani] = await Promise.all([
+				fetchMarketAbilities(token),
+				window.vetta.skills.getMarketManifest(),
+			]);
 			setMarketScenes(market.filter((s) => s.type === "scene"));
 			setManifest(mani);
 		} catch {
@@ -65,12 +68,12 @@ export function useNewSessionResources(decodedCwd: string, token: string | null)
 			map.set(s.name, { name: s.name, alias: s.alias, description: s.description, state: "active" });
 		}
 		for (const ms of marketScenes) {
-			if (map.has(ms.name)) continue;
-			const local = manifest[ms.name];
+			if (map.has(ms.slug)) continue;
+			const local = manifest[ms.slug];
 			const state: SceneCardState = local ? (local.enabled ? "active" : "disabled") : "uninstalled";
-			map.set(ms.name, {
-				name: ms.name,
-				alias: ms.alias,
+			map.set(ms.slug, {
+				name: ms.slug,
+				alias: ms.name,
 				description: ms.description,
 				state,
 				version: ms.version,

@@ -6,6 +6,7 @@ import { dirname, join, sep } from "node:path";
 import { getVettaHomePath } from "@vetta/action-rpc";
 import AdmZip from "adm-zip";
 import { ipcMain } from "electron";
+import { recordAbilityInstall } from "../abilities/ability-ledger.js";
 import { getBuiltinSkillPaths } from "../builtin-skills.js";
 import { buildAgentPluginRuntimeConfig } from "../plugins/plugin-store.js";
 import {
@@ -225,6 +226,8 @@ export function registerSkillsIpc(): () => void {
 				marketDescription: metaObj.marketDescription,
 			};
 			writeSkillsManifest(manifest);
+			// 能力安装台账（ADR-0049）：只记索引，产物仍在 skills/ 或 scene/ 下。
+			recordAbilityInstall(itemType, name, version);
 			recordSkillResourceEvent({
 				name,
 				type: itemType,
@@ -344,6 +347,7 @@ export function registerSkillsIpc(): () => void {
 				description: fm.description,
 			};
 			writeSkillsManifest(manifest);
+			recordAbilityInstall("skill", fm.name, fm.version || "0.0.0");
 			recordSkillResourceEvent({
 				name: fm.name,
 				type: "skill",

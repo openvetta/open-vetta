@@ -35,6 +35,7 @@ export const NAMESPACES = [
 	"settings",
 	"message",
 	"skills",
+	"abilities",
 	"batch-tasks",
 	"automation",
 ] as const;
