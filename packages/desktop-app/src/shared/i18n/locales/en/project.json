@@ -51,13 +51,13 @@
 			"clearConfirm": "Clear"
 		},
 		"time": {
-			"justNow": "Just now",
-			"minutes": "{{count}} min",
-			"hours": "{{count}} hr",
-			"days": "{{count}} d",
-			"weeks": "{{count}} wk",
-			"months": "{{count}} mo",
-			"years": "{{count}} yr"
+			"justNow": "now",
+			"minutes": "{{n}}m",
+			"hours": "{{n}}h",
+			"days": "{{n}}d",
+			"weeks": "{{n}}w",
+			"months": "{{n}}mo",
+			"years": "{{n}}y"
 		}
 	},
 	"filterTabs": {

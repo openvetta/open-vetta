@@ -1,5 +1,5 @@
 import type { JSX, ReactNode } from "react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@vetta/ui";
+import { MotionSelect } from "./MotionSelect";
 import { SettingRow, SettingSection, type SettingSectionMeta } from "./SettingChrome";
 
 export type AppshotPermissionStatusView = "granted" | "denied" | "unknown";
@@ -90,18 +90,12 @@ export function AppshotSettingsView({
 
 			<SettingSection title={labels.sectionShortcut} section={gestureSection}>
 				<SettingRow title={labels.shortcutTitle} description={labels.shortcutDescription} border={false}>
-					<Select value={gestureValue} onValueChange={onGestureChange}>
-						<SelectTrigger size="sm" className="h-8 min-w-[150px] border-border/70 bg-background/50 text-[12px]">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							{gestureOptions.map((option) => (
-								<SelectItem key={option.value} value={option.value} className="text-[12px]">
-									{option.label}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
+					<MotionSelect
+						value={gestureValue}
+						onValueChange={onGestureChange}
+						options={gestureOptions}
+						triggerClassName="min-w-[150px]"
+					/>
 				</SettingRow>
 			</SettingSection>
 
