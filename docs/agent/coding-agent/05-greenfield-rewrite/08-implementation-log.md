@@ -38,6 +38,7 @@
 | [28-background-command-service-and-task-tools.md](./08-implementation-log/28-background-command-service-and-task-tools.md) | 后台命令 Service Port、Runtime 协调与 Task Tools |
 | [29-runtime-background-command-lifecycle.md](./08-implementation-log/29-runtime-background-command-lifecycle.md) | Runtime 后台任务生命周期与低层宿主端口 |
 | [30-runtime-dir-tree.md](./08-implementation-log/30-runtime-dir-tree.md) | Dir Tree 行为兼容、独立 Runtime 实现与 Profile 接入 |
+| [31-runtime-write.md](./08-implementation-log/31-runtime-write.md) | Write 行为兼容、宿主路径策略与独立 Runtime 实现 |
 
 ## 维护约定
 

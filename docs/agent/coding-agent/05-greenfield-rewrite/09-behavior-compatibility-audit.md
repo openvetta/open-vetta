@@ -349,14 +349,14 @@ Runtime glob 直接声明 `glob` 和 `ignore`，不再通过 `coding-agent` 的�
   -> active names
 ```
 
-当前已迁移的 `current_time/read/ls/glob/grep/find/tree` 在所有场景的最终激活集合完全一致。
-`current_time/read/glob/grep/tree` 保持全场景默认激活，`ls/find` 保持空 scope，且后两者仍可由
+当前已迁移的 `current_time/read/ls/glob/grep/find/tree/write` 在所有场景的最终激活集合完全一致。
+`current_time/read/glob/grep/tree/write` 保持全场景默认激活，`ls/find` 保持空 scope，且后两者仍可由
 新 Composition Root 显式激活。比较发生在模型调用贡献层，而不是只比较 Registry 元数据，
 因此能发现 Feature 编排、默认 scope 或 Provider 输出造成的可观察差异。
 
 同时审计了 `@vetta/runtime-tools` 包根：仓库内源码和测试当前没有直接消费者，但包根仍是已
-发布的公共入口，并继续转发旧工具 Factory 和单例。Coding 子路径已有独立 tree，但
-edit/write 尚未迁移，直接删除或改写根导出仍会造成公开 API 和功能缺失。因此本阶段保留兼容导出，不用
+发布的公共入口，并继续转发旧工具 Factory 和单例。Coding 子路径已有独立 tree/write，但
+edit 尚未迁移，直接删除或改写根导出仍会造成公开 API 和功能缺失。因此本阶段保留兼容导出，不用
 “仓库内无人引用”替代公共兼容性判断。只有剩余工具完成行为差分迁移、产品 Composition Root
 能够提供等价 Profile，并形成明确迁移窗口后，才能拆除该入口。
 
@@ -489,6 +489,40 @@ Tree Tool / TypeBox Schema / Registration
 - 路径不存在、非目录、fd 不可用、目录/文件扫描失败和提前取消错误相等。
 - 7 个场景的 Composition Root Tool Profile 加入 tree 后差分继续为零。
 
+### 2.12 `write`
+
+旧 `write` 不只是一次 `writeFile`。它还负责路径归一化、模糊路径重定向、父目录创建、Skill/Scene
+保护、知识库 Wiki 保护、取消传播和稳定结果文本。迁移必须完整保留这些可观察行为，但不能让独立
+Runtime 反向依赖 Coding Agent 的业务策略。
+
+本阶段将职责拆为三层：
+
+```text
+Runtime write
+  -> resolveToCwd / resolveWritablePath
+  -> required WritePathPolicy
+  -> WriteOperations.mkdir / writeFile
+
+Coding Agent host adapter
+  -> legacy Skill/Scene protection
+  -> legacy Knowledge Wiki protection
+```
+
+Runtime 保留 TypeBox schema、路径解析和模糊重定向、执行顺序、取消检查、错误传播以及通用结果封装；
+宿主适配器注入原有路径保护规则及拒绝文本；`WriteOperations` 隔离真实文件系统副作用。`WritePathPolicy` 是
+必需依赖，不提供静默放行的默认值，避免其他 Composition Root 直接创建工具时意外绕过宿主保护。
+该 Port 只返回通用的拒绝原因，不向 Runtime 暴露 Skill、Scene 或 Knowledge Wiki 概念。
+
+兼容性证据：
+
+- 工具名、描述、参数 schema、scope 和 core 标记与旧实现一致。
+- 相对路径、绝对路径、`~`、Unicode 内容、模糊目标重定向及重定向提示保持一致。
+- 仍先递归创建父目录，再原样写入内容；成功文本继续使用 JavaScript `content.length`，没有借重构改变
+  旧有的 UTF-16 code unit 计数语义。
+- `.vetta/skills`、`.agents/skills`、Scene 和知识库 Wiki 保护继续返回原有工具结果，不改为抛错。
+- 执行前、创建目录后和文件写入中的取消行为，以及 mkdir/write 错误传播均由合同测试覆盖。
+- Runtime Tools 全量测试 166 项通过；CLI Composition Root 9 项通过；7 个场景的 Tool Profile 差分为零。
+
 ## 3. 已实施模块审计
 
 | 模块 | 当前状态 | 与旧行为的差距 | 切换结论 |
@@ -498,9 +532,10 @@ Tree Tool / TypeBox Schema / Registration
 | `ls` Tool | 独立实现、旧新行为合同、空 scope 和 Feature 显式激活 Tool Loop 已通过 | 生产宿主尚未装配新 Profile | 工具模块迁移完成；默认不激活 |
 | `glob` Tool | 独立实现、绝对 pattern、`.gitignore` 和真实 Tool Loop 合同已通过 | 生产宿主尚未装配新 Profile | 工具模块迁移完成；全 scope 暴露保持旧语义 |
 | `dir_tree` Tool | 独立 Runtime Tool、树模型、fd Operations/Resolver、限制合同和全场景 Profile 差分已通过 | 旧 AgentSession 和生产入口仍使用旧 Tool Factory | 工具模块迁移完成；旧生产入口尚不可删除 |
+| `write` Tool | 独立 Runtime Tool、WriteOperations、必需的宿主 WritePathPolicy、路径/取消/错误合同和全场景 Profile 差分已通过 | 旧 AgentSession 和生产入口仍使用旧 Tool Factory | 工具模块迁移完成；旧生产入口尚不可删除 |
 | `bash/shell` Tool | Runtime Definition、Registration、前台执行器、后台协调、独立后台生命周期、task 工具、通知格式、低层 Host Adapter、平台 scope 和过渡 Composition Root 已通过 | 旧 AgentSession 和生产入口仍使用旧工具/Manager | 新 Runtime 工具链迁移完成；旧生产路径尚不可删除 |
 | 宿主可执行文件解析 | Runtime Port、本地 PATH/managed-bin Adapter、grep/find 注入合同、旧 ensureTool 适配、网络/归档合同和 cli-app Composition Root 已通过 | 真实 GitHub 网络、最终独立可执行发布物和完整 Tool Profile 迁移尚未完成；包根兼容导出必须继续保留 | 新 Profile 可并行验证；旧宿主仍不可切换 |
-| Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope/explicit 激活和 requires/capabilities，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；current_time/read/ls/grep/find/glob/tree/bash/shell/task_output/task_stop 已进入全场景 Profile 差分门禁 | edit/write 未迁移，生产 Profile 尚未切换 | 动态编排边界完成；整体能力未完成 |
+| Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope/explicit 激活和 requires/capabilities，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；current_time/read/ls/grep/find/glob/tree/write/bash/shell/task_output/task_stop 已进入全场景 Profile 差分门禁 | edit 未迁移，生产 Profile 尚未切换 | 动态编排边界完成；整体能力未完成 |
 | `AgentSession` | 新状态机可执行 | 活动 Turn 输入目前拒绝；旧系统具有 queue、follow-up、steering 语义 | 不可切换 |
 | Turn Pipeline | 固定阶段和持久化检查点已实现 | 输入队列、完整观察事件和恢复闭环未完成 | 不可切换 |
 | `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环、每次模型调用刷新 Model Call Frame 已通过 | Kernel 只映射完成消息；旧 UI 需要流式 text/thinking/tool progress 事件 | 不可切换宿主 |
@@ -548,8 +583,8 @@ side effects
 `ensureTool` 行为合同、下载计划合同、归档安装合同、网络边界合同和 cli-app 过渡
 Composition Root。新旧 Tool Profile 已对全部场景建立差分门禁；runtime-tools 包根兼容导出
 因仍承载未迁移工具而保留。Runtime 后台任务生命周期引擎及 shell spawn、日志存储和进程树
-终止的低层宿主 Operations 已完成并通过差分。dir_tree 的独立实现、fd Port 和全场景差分也已
-完成。下一阶段应按行为合同逐项迁移 write/edit，
+终止的低层宿主 Operations 已完成并通过差分。dir_tree 的独立实现、fd Port，以及 write 的独立
+Runtime 实现、宿主路径策略和全场景差分均已完成。下一阶段应按行为合同迁移 edit，
 再完成 CLI/桌面入口与旧 AgentSession 事件适配，
 最后根据完整 Profile 差分结果设计兼容入口迁移；真实 GitHub 网络、最终独立可执行发布物和
 其他外部依赖的产物级解析/打包测试仍需单独执行，重点覆盖下载、并发解析、版本锁定、离线

@@ -1,6 +1,7 @@
 import {
 	createCodingAgentBackgroundCommandHost,
 	createCodingAgentForegroundCommandHost,
+	createCodingAgentWritePathPolicy,
 	createToolExecutableResolver,
 	type EnsureTool,
 } from "@vetta/coding-agent/host";
@@ -32,6 +33,7 @@ import {
 	createTaskOutputToolRegistration,
 	createTaskStopToolRegistration,
 	createTreeToolRegistration,
+	createWriteToolRegistration,
 	InMemoryCodingToolRegistry,
 } from "@vetta/runtime-tools/coding";
 
@@ -93,6 +95,7 @@ export function createCodingToolsRuntimeComposition(
 		createGrepToolRegistration(cwd, { executableResolver }),
 		createFindToolRegistration(cwd, { executableResolver }),
 		createTreeToolRegistration(cwd, { executableResolver }),
+		createWriteToolRegistration(cwd, { pathPolicy: createCodingAgentWritePathPolicy(cwd) }),
 	]);
 	const feature = createCodingToolsFeature({
 		catalog: registry,

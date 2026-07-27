@@ -11,6 +11,7 @@ import {
 	createTaskOutputTool,
 	createTaskStopTool,
 	createTreeTool,
+	createWriteTool,
 } from "@vetta/coding-agent";
 import { describe, expect, it } from "vitest";
 import { resolveActiveToolNames } from "../../coding-agent/src/core/session/tool-scope.js";
@@ -43,8 +44,8 @@ describe("CLI Runtime Tools Composition Root", () => {
 			const contribution = await provider.contribute(modelCallContext());
 			expect(contribution.tools?.map(({ name }) => name)).toEqual(
 				process.platform === "win32"
-					? ["current_time", "dir_tree", "glob", "grep", "read", "shell", "task_output", "task_stop"]
-					: ["bash", "current_time", "dir_tree", "glob", "grep", "read", "task_output", "task_stop"],
+					? ["current_time", "dir_tree", "glob", "grep", "read", "shell", "task_output", "task_stop", "write"]
+					: ["bash", "current_time", "dir_tree", "glob", "grep", "read", "task_output", "task_stop", "write"],
 			);
 			await expect(composition.executableResolver.resolve("rg")).resolves.toBeUndefined();
 			expect(calls).toEqual([{ tool: "rg", silent: true }]);
@@ -89,6 +90,7 @@ describe("CLI Runtime Tools Composition Root", () => {
 			createGrepTool(cwd),
 			createFindTool(cwd),
 			createTreeTool(cwd),
+			createWriteTool(cwd),
 			createTaskOutputTool({ getManager: () => backgroundTasks }),
 			createTaskStopTool({ getManager: () => backgroundTasks }),
 		];

@@ -34,3 +34,7 @@ export {
 	createCodingAgentForegroundCommandHost,
 	type RuntimeForegroundCommandOperations,
 } from "./foreground-command-operations.js";
+export {
+	createCodingAgentWritePathPolicy,
+	type RuntimeWritePathPolicy,
+} from "./write-path-policy.js";

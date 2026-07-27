@@ -210,3 +210,15 @@ export {
 	TreeToolInputSchema,
 	type TreeToolOptions,
 } from "./tools/tree/index.js";
+export {
+	createWriteTool,
+	createWriteToolRegistration,
+	WRITE_TOOL_CATEGORY,
+	WRITE_TOOL_DESCRIPTION,
+	WRITE_TOOL_SCOPES,
+	type WriteOperations,
+	type WritePathPolicy,
+	type WriteToolInput,
+	WriteToolInputSchema,
+	type WriteToolOptions,
+} from "./tools/write/index.js";

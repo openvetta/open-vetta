@@ -20,7 +20,7 @@ function expandPath(filePath: string): string {
 	return normalized;
 }
 
-function resolveToCwd(filePath: string, cwd: string): string {
+export function resolveToCwd(filePath: string, cwd: string): string {
 	const expanded = expandPath(filePath);
 	if (isAbsolute(expanded)) {
 		return expanded;
@@ -82,6 +82,13 @@ export function resolveExistingPath(filePath: string, cwd: string): string {
 	}
 
 	return tryFuzzyFilenameMatch(resolved) ?? resolved;
+}
+
+export function resolveWritablePath(filePath: string, cwd: string): string {
+	const resolved = resolveToCwd(filePath, cwd);
+	if (fileExists(resolved)) return resolved;
+	const corrected = resolveExistingPath(filePath, cwd);
+	return corrected !== resolved && fileExists(corrected) ? corrected : resolved;
 }
 
 export const resolveReadPath = resolveExistingPath;
