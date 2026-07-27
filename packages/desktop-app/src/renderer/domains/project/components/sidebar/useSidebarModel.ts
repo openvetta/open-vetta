@@ -70,7 +70,7 @@ function getNavIndicatorBounds(element: HTMLButtonElement): NavIndicatorBounds {
 }
 
 function isRouteActive(path: string, currentPath: string): boolean {
-	// 能力详情页（/abilities/$type/$slug）仍算能力入口高亮。
+	// 子路径（知识库详情、能力旧详情深链）仍算父入口高亮。
 	if (path === "/knowledge" || path === "/abilities") {
 		return currentPath === path || currentPath.startsWith(`${path}/`);
 	}

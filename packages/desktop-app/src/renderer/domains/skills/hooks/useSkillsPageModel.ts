@@ -130,7 +130,7 @@ export interface SkillsPageModel {
 	handleInstall: (skill: MergedSkill) => void;
 	handleToggle: (name: string) => void;
 	handleUninstall: (name: string, type: "skill" | "scene") => void;
-	/** 场景详情统一走 /abilities/$type/$slug 独立详情页（ADR-0049）。 */
+	/** 场景详情统一走能力页的详情抽屉（/abilities?detail=<type>:<slug>）。 */
 	handlePreview: (skill: MergedSkill) => void;
 	handleFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
 }
@@ -249,7 +249,7 @@ export function useSkillsPageModel(): SkillsPageModel {
 
 	const handlePreview = useCallback(
 		(skill: MergedSkill) => {
-			void navigate({ to: "/abilities/$type/$slug", params: { type: skill.type, slug: skill.name } });
+			void navigate({ to: "/abilities", search: { detail: `${skill.type}:${skill.name}` } });
 		},
 		[navigate],
 	);

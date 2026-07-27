@@ -1,4 +1,5 @@
 import { Button, cn } from "@vetta/ui";
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	resolveAbilityPrimaryAction,
@@ -11,17 +12,18 @@ import type { AbilityItem } from "../../types";
 import { AbilityIcon } from "../AbilityIcon";
 import { AbilityStatusBadges, AbilityTypeBadge } from "../AbilityBadges";
 
-/** 通用壳层：返回 / 图标 / 标题 / 作者 / 版本 / 状态 / 描述 / 主次 CTA。 */
+/** 通用壳层：图标 / 标题 / 作者 / 版本 / 状态 / 描述 / 主次 CTA。 */
 export function AbilityDetailHeader({
 	item,
-	onBack,
 	onPrimary,
 	onSecondary,
+	primaryAside,
 }: {
 	item: AbilityItem;
-	onBack: () => void;
 	onPrimary: () => void;
 	onSecondary: (kind: AbilitySecondaryAction) => void;
+	/** 主 CTA 右侧的次要动作（如插件的权限配置入口）。 */
+	primaryAside?: ReactNode;
 }): JSX.Element {
 	const { t } = useTranslation("abilities");
 	const { title, description } = useAbilityText()(item);
@@ -31,12 +33,6 @@ export function AbilityDetailHeader({
 
 	return (
 		<div className="border-b border-border/60 pb-6">
-			{/* 返回按钮与图标左对齐：抵消 size=sm 的 px-2.5 */}
-			<Button variant="ghost" size="sm" className="-ml-2.5 mb-3" onClick={onBack}>
-				<span className="icon-[solar--alt-arrow-left-linear] h-3.5 w-3.5" />
-				{t("detail.back")}
-			</Button>
-
 			<div className="flex items-start gap-4">
 				<AbilityIcon icon={item.icon} type={item.type} className="h-14 w-14 rounded-2xl" iconClassName="h-7 w-7" />
 				<div className="min-w-0 flex-1">
@@ -110,16 +106,19 @@ export function AbilityDetailHeader({
 				</div>
 			) : null}
 
-			{primary !== "none" ? (
-				<div className="mt-5">
-					<Button className="w-full" size="lg" disabled={item.busy} onClick={onPrimary}>
-						{item.busy ? (
-							<span className="icon-[solar--refresh-linear] h-4 w-4 animate-spin" />
-						) : (
-							<span className="icon-[solar--play-circle-bold] h-4 w-4" />
-						)}
-						{t(`detail.primary.${primary}`)}
-					</Button>
+			{primary !== "none" || primaryAside ? (
+				<div className="mt-5 flex items-center gap-2">
+					{primary !== "none" ? (
+						<Button className="flex-1" size="lg" disabled={item.busy} onClick={onPrimary}>
+							{item.busy ? (
+								<span className="icon-[solar--refresh-linear] h-4 w-4 animate-spin" />
+							) : (
+								<span className="icon-[solar--play-circle-bold] h-4 w-4" />
+							)}
+							{t(`detail.primary.${primary}`)}
+						</Button>
+					) : null}
+					{primaryAside}
 				</div>
 			) : null}
 

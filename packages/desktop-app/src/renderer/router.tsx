@@ -23,9 +23,6 @@ const BatchTasksPage = lazy(async () => ({
 const AbilitiesPage = lazy(async () => ({
 	default: (await import("./domains/abilities/components/AbilitiesPage")).AbilitiesPage,
 }));
-const AbilityDetailPage = lazy(async () => ({
-	default: (await import("./domains/abilities/components/detail/AbilityDetailPage")).AbilityDetailPage,
-}));
 const ScenesPage = lazy(async () => ({
 	default: (await import("./domains/skills/components/ScenesPage")).ScenesPage,
 }));
@@ -70,17 +67,27 @@ const batchTasksRoute = createRoute({
 	component: BatchTasksPage,
 });
 
+/** 能力详情是页内右侧抽屉，由 `?detail=<type>:<slug>` 驱动（返回键即关闭）。 */
 const abilitiesRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	path: "/abilities",
 	component: AbilitiesPage,
+	validateSearch: (search: Record<string, unknown>) => ({
+		...(typeof search.detail === "string" ? { detail: search.detail } : {}),
+	}),
 });
 
-/** 独立详情页（不再是侧边 Drawer）；scene 卡片也共用这条路由。 */
-const abilityDetailRoute = createRoute({
+/** 旧深链：曾经的独立详情页改为能力页抽屉。 */
+const abilityDetailRedirectRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	path: "/abilities/$type/$slug",
-	component: AbilityDetailPage,
+	beforeLoad: ({ params }) => {
+		throw redirect({
+			to: "/abilities",
+			search: { detail: `${params.type}:${params.slug}` },
+			replace: true,
+		});
+	},
 });
 
 /** 旧深链：/skills?tab=scene 仍去场景页，其余一律并入能力页（ADR-0049）。 */
@@ -174,7 +181,7 @@ const routeTree = rootRoute.addChildren([
 	knowledgeRoute,
 	knowledgeListRoute,
 	abilitiesRoute,
-	abilityDetailRoute,
+	abilityDetailRedirectRoute,
 	skillsRedirectRoute,
 	scenesRoute,
 	pluginsRedirectRoute,

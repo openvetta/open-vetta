@@ -5,8 +5,8 @@ import type { AbilitiesModel, PluginAbility } from "../../types";
 import { PluginContributionsSection } from "./PluginContributionsSection";
 
 /**
- * plugin 专属区块：权限与命令开关。
- * 未安装时只读展示 manifest 声明；系统插件权限自动授予、不可改。
+ * plugin 专属区块：权限清单（只读）与命令开关。
+ * 权限的授予与否移到头部的「权限配置」弹窗；系统插件权限自动授予、不可改。
  */
 export function PluginAbilitySection({
 	item,
@@ -55,7 +55,7 @@ export function PluginAbilitySection({
 			<PluginContributionsSection item={item} />
 
 			<div>
-				<div className="mb-2 flex items-center gap-2 text-[13px] font-semibold text-foreground">
+				<div className="mb-2 flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/60">
 					{t("plugin.permissions")}
 					{isSystem ? (
 						<span className="text-[11px] font-normal text-muted-foreground">
@@ -63,32 +63,26 @@ export function PluginAbilitySection({
 						</span>
 					) : null}
 				</div>
+				{/* 只列清单，不做卡片；授予与否在头部的「权限配置」弹窗里改 */}
 				{item.permissions.length > 0 ? (
-					<div className="grid grid-cols-2 gap-1.5">
+					<div className="grid grid-cols-3 gap-x-4 gap-y-1">
 						{item.permissions.map((permission) => (
-							<label
-								key={permission}
-								className="flex items-center justify-between gap-2 rounded-lg border border-border bg-background/50 px-2.5 py-2"
-							>
-								<span className="min-w-0 flex-1 text-[12px] text-foreground">
+							<div key={permission} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+								<span className="icon-[solar--shield-check-linear] h-3 w-3 shrink-0 text-muted-foreground/50" />
+								<span className="min-w-0 flex-1 truncate">
 									{t(PLUGIN_PERMISSION_LABEL_KEYS[permission])}
 								</span>
-								<Switch
-									checked={editable ? item.grantedPermissions.includes(permission) : true}
-									disabled={!editable || item.busy}
-									onCheckedChange={(checked) => model.setPluginPermission(item, permission, checked)}
-								/>
-							</label>
+							</div>
 						))}
 					</div>
 				) : (
-					<div className="text-[12px] text-muted-foreground">{t("plugin.noPermissions")}</div>
+					<div className="text-[11px] text-muted-foreground">{t("plugin.noPermissions")}</div>
 				)}
 			</div>
 
 			{item.commands.length > 0 ? (
 				<div>
-					<div className="mb-2 flex items-center gap-2 text-[13px] font-semibold text-foreground">
+					<div className="mb-2 flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/60">
 						{t("plugin.commands")}
 						<span className="text-[11px] font-normal text-muted-foreground">{t("plugin.commandsHint")}</span>
 					</div>
