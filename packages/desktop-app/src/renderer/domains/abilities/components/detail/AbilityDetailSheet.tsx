@@ -42,7 +42,7 @@ export function AbilityDetailSheet({
 			}}
 		>
 			{/* 宽屏右侧占 60vw，窄屏改为底部弹出占 85vh；宽高都用百分比跟随窗口 */}
-			<DrawerContent className="flex flex-col border-l-0 data-[vaul-drawer-direction=bottom]:mt-0 data-[vaul-drawer-direction=bottom]:h-[85vh] data-[vaul-drawer-direction=bottom]:max-h-[85vh] data-[vaul-drawer-direction=right]:h-full data-[vaul-drawer-direction=right]:max-h-screen data-[vaul-drawer-direction=right]:w-[60vw] data-[vaul-drawer-direction=right]:sm:max-w-none">
+			<DrawerContent className="flex flex-col border-l-0 outline-none focus-visible:outline-none data-[vaul-drawer-direction=bottom]:mt-0 data-[vaul-drawer-direction=bottom]:h-[85vh] data-[vaul-drawer-direction=bottom]:max-h-[85vh] data-[vaul-drawer-direction=right]:h-full data-[vaul-drawer-direction=right]:max-h-screen data-[vaul-drawer-direction=right]:w-[60vw] data-[vaul-drawer-direction=right]:sm:max-w-none">
 				{/* 标题由详情正文自己呈现，这里只喂无障碍读屏 */}
 				<DrawerTitle className="sr-only">{item ? item.title : t("detail.notFound")}</DrawerTitle>
 				<DrawerDescription className="sr-only">{item?.description ?? ""}</DrawerDescription>
