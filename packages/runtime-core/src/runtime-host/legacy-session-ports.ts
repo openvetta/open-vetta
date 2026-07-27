@@ -7,6 +7,7 @@ import { mapAgentSessionEvent } from "./session-events.js";
 import type {
 	RuntimeSessionCorePorts,
 	RuntimeSessionEventStream,
+	RuntimeSessionHistoryController,
 	RuntimeSessionHistoryReader,
 	RuntimeSessionIdentityLifecycle,
 	RuntimeSessionState,
@@ -121,6 +122,55 @@ export class LegacyRuntimeSessionHistoryReader implements RuntimeSessionHistoryR
 	readHistory(): readonly HistoryEntry[] {
 		const sessionManager = this.session.sessionManager;
 		return entriesToHistory(this.session.getSessionBranch(), { allEntries: sessionManager.getEntries() });
+	}
+}
+
+export class LegacyRuntimeSessionHistoryController implements RuntimeSessionHistoryController {
+	constructor(private readonly session: RuntimeSession) {}
+
+	async navigateForEdit(entryId: string): Promise<{ text: string; cancelled: boolean }> {
+		this.assertCanMutate("Cannot edit message while the session is streaming");
+		const entry = this.session.sessionManager.getEntry(entryId);
+		if (!entry) {
+			throw new Error(`Entry ${entryId} not found`);
+		}
+		const result = await this.session.navigateTree(entryId, { summarize: false });
+		if (result.cancelled) {
+			return { text: "", cancelled: true };
+		}
+		return { text: result.editorText ?? "", cancelled: false };
+	}
+
+	switchBranch(entryId: string): { leafId: string } {
+		this.assertCanMutate("Cannot switch branch while the session is streaming");
+		return this.session.switchBranch(entryId);
+	}
+
+	deleteMessage(entryId: string): { leafId: string | null } {
+		this.assertCanMutate("Cannot delete a message while the session is streaming");
+		return this.session.deleteMessage(entryId);
+	}
+
+	replaceLastUserMessage(entryId: string): { leafId: string | null } {
+		this.assertCanMutate("Cannot replace a message while the session is streaming");
+		const result = this.session.sessionManager.replaceLastUserMessage(entryId);
+		this.session.agent.replaceMessages(this.session.sessionManager.buildSessionContext().messages);
+		return result;
+	}
+
+	forkSession(entryId: string): { path: string; text: string } {
+		this.assertCanMutate("Cannot fork while the session is streaming");
+		return this.session.exportForkToNewFile(entryId);
+	}
+
+	setName(name: string): void {
+		this.session.setSessionName(name);
+	}
+
+	private assertCanMutate(message: string): void {
+		if (this.session.isStreaming || this.session.isBashRunning) {
+			throw new Error(message);
+		}
 	}
 }
 

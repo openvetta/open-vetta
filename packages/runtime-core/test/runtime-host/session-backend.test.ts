@@ -180,6 +180,12 @@ describe("RuntimeHost session backend boundary", () => {
 				message: { role: "user", content: "assembly history", timestamp: 4 },
 			},
 		];
+		const navigateForEdit = vi.fn(async () => ({ text: "edit text", cancelled: false }));
+		const switchBranch = vi.fn(() => ({ leafId: "branch-leaf" }));
+		const deleteMessage = vi.fn(() => ({ leafId: "delete-leaf" }));
+		const replaceLastUserMessage = vi.fn(() => ({ leafId: "replace-leaf" }));
+		const forkSession = vi.fn(() => ({ path: "fork.jsonl", text: "fork text" }));
+		const setName = vi.fn();
 		const backend = new RecordingAssemblyBackend({
 			session: sessionDouble.session,
 			lifecycle: {
@@ -188,6 +194,14 @@ describe("RuntimeHost session backend boundary", () => {
 				dispose,
 			},
 			historyReader: { readHistory: () => history },
+			historyController: {
+				navigateForEdit,
+				switchBranch,
+				deleteMessage,
+				replaceLastUserMessage,
+				forkSession,
+				setName,
+			},
 			corePorts,
 		});
 		const host = new RuntimeHost({ sessionBackend: backend, getDefaultExecutionMode: () => "full-access" });
@@ -219,6 +233,20 @@ describe("RuntimeHost session backend boundary", () => {
 		expect(host.getMessages(sessionId)).toEqual([{ role: "user", content: "from assembly", timestamp: 3 }]);
 		expect(host.getSessionPath(sessionId)).toBe("assembly.jsonl");
 		expect(host.getFullHistory(sessionId)).toEqual(history);
+		expect(await host.navigateForEdit(sessionId, "edit-entry")).toEqual({ text: "edit text", cancelled: false });
+		expect(await host.switchBranch(sessionId, "branch-entry")).toEqual({ leafId: "branch-leaf" });
+		expect(await host.deleteMessage(sessionId, "delete-entry")).toEqual({ leafId: "delete-leaf" });
+		expect(await host.replaceLastUserMessage(sessionId, "replace-entry")).toEqual({ leafId: "replace-leaf" });
+		expect(await host.forkSession(sessionId, "fork-entry")).toEqual({ path: "fork.jsonl", text: "fork text" });
+		host.renameSessionById(sessionId, "renamed by id");
+		await host.renameSession("assembly.jsonl", "renamed by path");
+		expect(navigateForEdit).toHaveBeenCalledWith("edit-entry");
+		expect(switchBranch).toHaveBeenCalledWith("branch-entry");
+		expect(deleteMessage).toHaveBeenCalledWith("delete-entry");
+		expect(replaceLastUserMessage).toHaveBeenCalledWith("replace-entry");
+		expect(forkSession).toHaveBeenCalledWith("fork-entry");
+		expect(setName).toHaveBeenNthCalledWith(1, "renamed by id");
+		expect(setName).toHaveBeenNthCalledWith(2, "renamed by path");
 
 		await host.disposeSession(sessionId);
 		expect(dispose).toHaveBeenCalledOnce();

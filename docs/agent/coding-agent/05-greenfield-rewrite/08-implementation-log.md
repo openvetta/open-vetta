@@ -48,6 +48,7 @@
 | [38-runtime-session-core-ports.md](./08-implementation-log/38-runtime-session-core-ports.md) | RuntimeHost Turn Control、Event Stream 与 State Read Port |
 | [39-runtime-session-backend-assembly.md](./08-implementation-log/39-runtime-session-backend-assembly.md) | Backend Assembly、旧 Backend 兼容适配与 Composition Root 解耦 |
 | [40-session-identity-lifecycle-and-history-read.md](./08-implementation-log/40-session-identity-lifecycle-and-history-read.md) | Session Identity/Lifecycle、History Read Port 与 Assembly 交付 |
+| [41-session-history-controller.md](./08-implementation-log/41-session-history-controller.md) | History 写操作行为基线、Controller Port 与 Assembly 交付 |
 
 ## 维护约定
 

@@ -412,7 +412,8 @@ export class RuntimeHost implements SessionFacade {
 			modelRegistry: this.modelRegistry,
 		};
 
-		const { session, lifecycle, historyReader, corePorts } = await this.sessionBackend.createAssembly(options);
+		const { session, lifecycle, historyReader, historyController, corePorts } =
+			await this.sessionBackend.createAssembly(options);
 		const sessionId = lifecycle.sessionId;
 		sessionIdRef.current = sessionId;
 		await session.bindExtensions({ uiContext: this.createExtensionUIContext(sessionIdRef) });
@@ -420,6 +421,7 @@ export class RuntimeHost implements SessionFacade {
 			session,
 			lifecycle,
 			historyReader,
+			historyController,
 			...corePorts,
 			executionMode,
 			agentPluginsEnabled: config.enableAgentPlugins === true,
@@ -862,47 +864,25 @@ export class RuntimeHost implements SessionFacade {
 	 */
 	async navigateForEdit(sessionId: string, entryId: string): Promise<{ text: string; cancelled: boolean }> {
 		const handle = this.requireSession(sessionId);
-		if (handle.session.isStreaming || handle.session.isBashRunning) {
-			throw new Error("Cannot edit message while the session is streaming");
-		}
-		const entry = handle.session.sessionManager.getEntry(entryId);
-		if (!entry) {
-			throw new Error(`Entry ${entryId} not found`);
-		}
-		const result = await handle.session.navigateTree(entryId, { summarize: false });
-		if (result.cancelled) {
-			return { text: "", cancelled: true };
-		}
-		return { text: result.editorText ?? "", cancelled: false };
+		return handle.historyController.navigateForEdit(entryId);
 	}
 
 	/** Switch leaf to the tip of another branch (same session file). */
 	async switchBranch(sessionId: string, entryId: string): Promise<{ leafId: string }> {
 		const handle = this.requireSession(sessionId);
-		if (handle.session.isStreaming || handle.session.isBashRunning) {
-			throw new Error("Cannot switch branch while the session is streaming");
-		}
-		return handle.session.switchBranch(entryId);
+		return handle.historyController.switchBranch(entryId);
 	}
 
 	/** Delete one message while retaining the rest of the active branch. */
 	async deleteMessage(sessionId: string, entryId: string): Promise<{ leafId: string | null }> {
 		const handle = this.requireSession(sessionId);
-		if (handle.session.isStreaming || handle.session.isBashRunning) {
-			throw new Error("Cannot delete a message while the session is streaming");
-		}
-		return handle.session.deleteMessage(entryId);
+		return handle.historyController.deleteMessage(entryId);
 	}
 
 	/** Remove the active branch's last user turn so the next prompt replaces it in place. */
 	async replaceLastUserMessage(sessionId: string, entryId: string): Promise<{ leafId: string | null }> {
 		const handle = this.requireSession(sessionId);
-		if (handle.session.isStreaming || handle.session.isBashRunning) {
-			throw new Error("Cannot replace a message while the session is streaming");
-		}
-		const result = handle.session.sessionManager.replaceLastUserMessage(entryId);
-		handle.session.agent.replaceMessages(handle.session.sessionManager.buildSessionContext().messages);
-		return result;
+		return handle.historyController.replaceLastUserMessage(entryId);
 	}
 
 	/**
@@ -910,10 +890,7 @@ export class RuntimeHost implements SessionFacade {
 	 */
 	async forkSession(sessionId: string, entryId: string): Promise<{ path: string; text: string }> {
 		const handle = this.requireSession(sessionId);
-		if (handle.session.isStreaming || handle.session.isBashRunning) {
-			throw new Error("Cannot fork while the session is streaming");
-		}
-		return handle.session.exportForkToNewFile(entryId);
+		return handle.historyController.forkSession(entryId);
 	}
 
 	async listProjects(): Promise<ProjectInfo[]> {
@@ -966,7 +943,7 @@ export class RuntimeHost implements SessionFacade {
 		// SessionManager on the same file would deadlock against our own lock.
 		const existing = this.findHandleBySessionPath(sessionPath);
 		if (existing) {
-			existing.handle.session.setSessionName(name);
+			existing.handle.historyController.setName(name);
 			return;
 		}
 		const manager = SessionManager.open(sessionPath);
@@ -1026,7 +1003,7 @@ export class RuntimeHost implements SessionFacade {
 		// We already hold the live AgentSession — rename through it directly so
 		// we never open a second SessionManager (and second lock) on the file.
 		const handle = this.requireSession(sessionId);
-		handle.session.setSessionName(name);
+		handle.historyController.setName(name);
 	}
 
 	/**
@@ -1043,7 +1020,7 @@ export class RuntimeHost implements SessionFacade {
 			assistantText,
 		);
 		if (!cleaned) return null;
-		handle.session.setSessionName(cleaned);
+		handle.historyController.setName(cleaned);
 		return cleaned;
 	}
 

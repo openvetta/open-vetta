@@ -1,11 +1,13 @@
 import { type AgentSession, type CreateAgentSessionOptions, createAgentSession } from "@vetta/coding-agent";
 import {
 	createLegacyRuntimeSessionCorePorts,
+	LegacyRuntimeSessionHistoryController,
 	LegacyRuntimeSessionHistoryReader,
 	LegacyRuntimeSessionIdentityLifecycle,
 } from "./legacy-session-ports.js";
 import type {
 	RuntimeSessionCorePorts,
+	RuntimeSessionHistoryController,
 	RuntimeSessionHistoryReader,
 	RuntimeSessionIdentityLifecycle,
 } from "./session-ports.js";
@@ -35,6 +37,7 @@ export interface RuntimeHostSessionAssembly {
 	readonly session: RuntimeSession;
 	readonly lifecycle: RuntimeSessionIdentityLifecycle;
 	readonly historyReader: RuntimeSessionHistoryReader;
+	readonly historyController: RuntimeSessionHistoryController;
 	readonly corePorts: RuntimeSessionCorePorts;
 }
 
@@ -77,6 +80,7 @@ export function createLegacyRuntimeHostSessionAssembly(session: RuntimeSession):
 		session,
 		lifecycle: new LegacyRuntimeSessionIdentityLifecycle(session),
 		historyReader: new LegacyRuntimeSessionHistoryReader(session),
+		historyController: new LegacyRuntimeSessionHistoryController(session),
 		corePorts: createLegacyRuntimeSessionCorePorts(session),
 	};
 }

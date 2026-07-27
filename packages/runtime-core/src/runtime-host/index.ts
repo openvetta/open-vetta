@@ -26,6 +26,7 @@ export { mapGreenfieldKernelEventToSessionEvents } from "./greenfield-session-ev
 export {
 	createLegacyRuntimeSessionCorePorts,
 	LegacyRuntimeSessionEventStream,
+	LegacyRuntimeSessionHistoryController,
 	LegacyRuntimeSessionHistoryReader,
 	LegacyRuntimeSessionIdentityLifecycle,
 	LegacyRuntimeSessionStateReader,
@@ -49,6 +50,7 @@ export { mapRuntimeSessionObservationEvent } from "./session-events.js";
 export type {
 	RuntimeSessionCorePorts,
 	RuntimeSessionEventStream,
+	RuntimeSessionHistoryController,
 	RuntimeSessionHistoryReader,
 	RuntimeSessionIdentityLifecycle,
 	RuntimeSessionState,

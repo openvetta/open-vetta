@@ -54,6 +54,19 @@ export interface RuntimeSessionHistoryReader {
 	readHistory(): readonly HistoryEntry[];
 }
 
+/**
+ * 会话历史和元数据的安全写命令；实现必须保留活动 Turn 互斥、分支持久化和
+ * Agent 上下文同步语义。
+ */
+export interface RuntimeSessionHistoryController {
+	navigateForEdit(entryId: string): Promise<{ text: string; cancelled: boolean }>;
+	switchBranch(entryId: string): { leafId: string };
+	deleteMessage(entryId: string): { leafId: string | null };
+	replaceLastUserMessage(entryId: string): { leafId: string | null };
+	forkSession(entryId: string): { path: string; text: string };
+	setName(name: string): void;
+}
+
 export interface RuntimeSessionCorePorts {
 	readonly turnControl: RuntimeSessionTurnControl;
 	readonly eventStream: RuntimeSessionEventStream;
