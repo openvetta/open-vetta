@@ -128,7 +128,11 @@
 		"permissionsSystemHint": "系统插件自动授予，不可更改",
 		"noPermissions": "该插件没有声明权限。",
 		"commands": "可执行命令",
-		"commandsHint": "关闭后插件调用将被拦截"
+		"commandsHint": "关闭后插件调用将被拦截",
+		"contributions": "本插件提供",
+		"contributionsHint": "随插件一同安装与移除",
+		"contributedMcp": "MCP 服务",
+		"contributedSkills": "技能"
 	},
 	"mcp": {
 		"title": "连接配置",

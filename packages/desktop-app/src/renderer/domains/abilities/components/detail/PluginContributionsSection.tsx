@@ -1,0 +1,108 @@
+import { useTranslation } from "react-i18next";
+import type { AbilityContributedMcp, AbilityContributedSkill } from "@shared/lib/api";
+import type { PluginAbility } from "../../types";
+
+/**
+ * 「本插件提供」：插件内聚的 MCP server 与 skill（ADR-0040 的 agent.mcpServers / agent.skillPaths）。
+ *
+ * 这些成员随插件生死、对用户不可单独安装卸载（与 bundle 的松散组合相对，见 ADR-0049），
+ * 所以必须在**装之前**就列清楚，否则用户无从判断这个插件到底带来了什么。
+ *
+ * 数据来自服务端上传时对 zip 的解析（market.config.contributions）；
+ * 未上架、仅本地安装的插件若用内联 server map 声明，则从 manifest 兜底取名。
+ */
+export function PluginContributionsSection({ item }: { item: PluginAbility }): JSX.Element | null {
+	const { t } = useTranslation("abilities");
+	const mcpServers = resolveMcpServers(item);
+	const skills = item.market?.config.contributions?.skills ?? [];
+
+	if (mcpServers.length === 0 && skills.length === 0) return null;
+
+	return (
+		<div>
+			<div className="mb-2 flex items-center gap-2 text-[13px] font-semibold text-foreground">
+				{t("plugin.contributions")}
+				<span className="text-[11px] font-normal text-muted-foreground">{t("plugin.contributionsHint")}</span>
+			</div>
+			<div className="flex flex-col gap-3">
+				{mcpServers.length > 0 ? (
+					<ContributionGroup
+						label={t("plugin.contributedMcp")}
+						icon="icon-[solar--server-2-linear]"
+						items={mcpServers.map((server) => ({
+							key: server.name,
+							title: server.display_name?.trim() || server.name,
+							description: server.description,
+						}))}
+					/>
+				) : null}
+				{skills.length > 0 ? (
+					<ContributionGroup
+						label={t("plugin.contributedSkills")}
+						icon="icon-[solar--bolt-linear]"
+						items={skills.map((skill: AbilityContributedSkill) => ({
+							key: skill.name,
+							title: skill.alias?.trim() || skill.name,
+							description: skill.description,
+						}))}
+					/>
+				) : null}
+			</div>
+		</div>
+	);
+}
+
+interface ContributionEntry {
+	key: string;
+	title: string;
+	description?: string;
+}
+
+function ContributionGroup({
+	label,
+	icon,
+	items,
+}: {
+	label: string;
+	icon: string;
+	items: ContributionEntry[];
+}): JSX.Element {
+	return (
+		<div>
+			<div className="mb-1.5 text-[11px] uppercase tracking-wide text-muted-foreground/60">{label}</div>
+			<div className="flex flex-col gap-1.5">
+				{items.map((entry) => (
+					<div key={entry.key} className="rounded-lg border border-border bg-background/50 px-2.5 py-2">
+						<div className="flex items-center gap-1.5 text-[12px] font-medium text-foreground">
+							<span className={`${icon} h-3.5 w-3.5 shrink-0 text-muted-foreground`} />
+							{entry.title}
+						</div>
+						{entry.description ? (
+							<div className="mt-0.5 pl-5 text-[11px] leading-relaxed text-muted-foreground">
+								{entry.description}
+							</div>
+						) : null}
+					</div>
+				))}
+			</div>
+		</div>
+	);
+}
+
+/**
+ * 服务端解析结果优先；缺失时对**内联** server map 兜底取名。
+ * 路径式声明（"./.mcp.json"）无法在渲染层解析——那份文件在安装目录里，
+ * 渲染进程不读磁盘，故只能依赖服务端解析。
+ */
+function resolveMcpServers(item: PluginAbility): AbilityContributedMcp[] {
+	const fromMarket = item.market?.config.contributions?.mcp_servers;
+	if (fromMarket && fromMarket.length > 0) return fromMarket;
+
+	const declared = item.plugin?.agent?.mcpServers;
+	if (!declared || typeof declared === "string") return [];
+	return Object.entries(declared).map(([name, config]) => ({
+		name,
+		display_name: typeof config.displayName === "string" ? config.displayName : undefined,
+		description: typeof config.description === "string" ? config.description : undefined,
+	}));
+}
