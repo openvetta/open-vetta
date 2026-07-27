@@ -943,6 +943,7 @@
   "refreshingModels": "Refreshing model list…",
   "syncedAt": "Synced {{time}}",
   "neverSynced": "Model list not synced yet",
+  "fillKeyToLoadModels": "Enter a key to load models",
   "collapseModels": "Collapse models",
   "viewModels": "View models & pricing",
   "deprecated": "Deprecated",

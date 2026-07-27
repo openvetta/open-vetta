@@ -28,8 +28,8 @@ export interface PresetProviderRow {
 	isOpen: boolean;
 	isExpanded: boolean;
 	refreshing: boolean;
-	/** 模型列表最近一次同步时间的展示文案;从未同步则为 null。 */
-	syncedAtLabel: string | null;
+	/** 模型数右侧的次要文案:已启用显示同步时间,未启用提示填 key。 */
+	statusLabel: string | null;
 	/** 该行最近一次拉取模型失败的原因。 */
 	modelsError: string | null;
 }
@@ -130,8 +130,8 @@ export function usePresetProvidersSectionModel({
 			api: preset.api,
 			baseUrl: preset.baseUrl,
 			icon: preset.icon,
-			// 已启用的展示实际拉到的模型列表,未启用的展示种子列表。
-			models: config.providers[preset.id]?.models ?? preset.seedModels,
+			// 模型列表只来自上游 /models:未填 key 时为空,不展示任何内置默认模型。
+			models: config.providers[preset.id]?.models ?? [],
 			offline: false,
 		}));
 
@@ -152,11 +152,11 @@ export function usePresetProvidersSectionModel({
 				isOpen: openId === row.id,
 				isExpanded: expandedId === row.id,
 				refreshing: refreshingId === row.id,
-				syncedAtLabel: adopted
+				statusLabel: adopted
 					? syncedAt
 						? t("syncedAt", { time: formatSyncedAt(syncedAt, i18n.language) })
 						: t("neverSynced")
-					: null,
+					: t("fillKeyToLoadModels"),
 				modelsError: modelsErrors[row.id] ?? null,
 			};
 		});
@@ -191,7 +191,7 @@ export function usePresetProvidersSectionModel({
 			if (!key) return;
 			setSaving(true);
 			try {
-				// 填 key 的同时立刻拉一次上游模型列表;拉失败就先落种子/旧快照,行内提示错误。
+				// 填 key 的同时立刻拉一次上游模型列表;拉失败就先落旧快照(通常为空),行内提示错误。
 				const fetched = row.offline ? { models: [], error: undefined } : await refreshModels(row.id, key);
 				const entry: ProviderEntry = {
 					source: "template",
