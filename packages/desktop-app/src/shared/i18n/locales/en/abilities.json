@@ -186,5 +186,12 @@
 		"storageWrite": "Write private plugin data",
 		"settingsRead": "Read settings",
 		"settingsWrite": "Modify settings"
+	},
+	"meta": {
+		"title": "Details",
+		"homepage": "Website",
+		"repository": "Repository",
+		"docs": "Documentation",
+		"license": "License"
 	}
 }

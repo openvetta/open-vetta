@@ -2,7 +2,7 @@
  * 呈现期常量与解析：图标三态判定、type 的图标 class、详情文案的 locale 覆盖。
  * 模块级常量只存 i18n key / icon class，中文一律在渲染期由 t() 解析。
  */
-import type { AbilityDetail, AbilityShowcase, AbilityType } from "@shared/lib/api";
+import type { AbilityDetail, AbilityMetaEntry, AbilityShowcase, AbilityType } from "@shared/lib/api";
 
 /** type → 卡片角标图标 class（写在 TS 中便于 UnoCSS 扫描）。 */
 export const ABILITY_TYPE_ICON: Record<AbilityType, string> = {
@@ -39,6 +39,8 @@ export interface AbilityDetailContent {
 	/** markdown 正文；可能为空。 */
 	content: string;
 	showcases: AbilityShowcase[];
+	/** 元信息条目，按运营排定的顺序。 */
+	meta: AbilityMetaEntry[];
 	/** locale 覆盖后的展示名 / 简介；未覆盖时为 undefined。 */
 	name?: string;
 	description?: string;
@@ -53,6 +55,7 @@ export function resolveAbilityDetailContent(detail: AbilityDetail | undefined, l
 	return {
 		content: override?.content ?? base.content ?? "",
 		showcases: override?.showcases ?? base.showcases ?? [],
+		meta: override?.meta ?? base.meta ?? [],
 		name: override?.name,
 		description: override?.description,
 	};

@@ -15,6 +15,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 - **能力套装（bundle）**：恒无产物，`installed` / `enabled` / `needsUpdate` 全部由成员派生；卸载弹确认框列出将被卸载的成员并允许逐项取消勾选。
 - **安装态改读安装台账**：`installed` / 本地版本 / 可更新一律取 `~/.vetta/abilities.json`，五种 type 共用同一套更新检测；`enabled` 仍回各自运行时（skills 清单 / mcp.json / 插件注册表）。
 - **`abilities` i18n 命名空间**：能力页与详情页文案（含插件权限展示名）全部走 i18n，zh / en 双份 catalog。
+- **能力详情的元信息表**：详情页新增元信息区块，展示官网 / 代码仓库 / 文档 / 开源协议及运营自定义条目，顺序由 admin 排定。预置项的名称走 i18n（zh / en），自定义项按运营填写原样显示；`http(s)://` 开头的值渲染为可点击链接。
 - **插件详情展示内聚的 MCP 与技能**：插件详情页新增「本插件提供」区块，列出该插件经 `agent.mcpServers` / `agent.skillPaths` 自带的 MCP server 与 skill（名称 + 简介），未安装时同样可见。数据来自服务端上传时对 zip 的解析；仅本地安装且用内联 server map 声明的插件从 manifest 兜底取名。
 - **插件条目的名称/描述走 NLS catalog 解析**：`plugin.json` 的 `name` / `description` 可以是 `%key%` 占位符（ADR-0033），能力卡片与详情页统一经插件自带 catalog 解析后再展示，不再直接渲染原始占位符；未安装的市场条目没有本地 catalog，由服务端在上传时解析好下发。
 

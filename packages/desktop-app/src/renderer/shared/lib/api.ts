@@ -391,17 +391,36 @@ export interface AbilityShowcase {
 	brand_name?: string;
 }
 
+/** 预置元信息键，label 由客户端按 locale 解析。 */
+export type AbilityMetaKey = "homepage" | "repository" | "docs" | "license";
+
+/**
+ * 一条元信息。刻意是**有序数组**的元素而非对象键值——对象的键顺序在序列化时
+ * 不保证，会让详情页字段顺序随机跳动；数组顺序即运营排定的展示顺序。
+ */
+export interface AbilityMetaEntry {
+	/** 预置键；非空时 label 走 i18n，忽略 label 字段。 */
+	key?: AbilityMetaKey;
+	/** 自定义条目的展示名，仅在无 key 时使用，原样显示不翻译。 */
+	label?: string;
+	/** 展示值；http(s):// 开头渲染为可点击链接。 */
+	value: string;
+}
+
 /** raw.detail.i18n[locale]：整体覆盖，不与默认值合并。 */
 export interface AbilityDetailLocale {
 	name?: string;
 	description?: string;
 	content?: string;
 	showcases?: AbilityShowcase[];
+	meta?: AbilityMetaEntry[];
 }
 
 /** raw.detail：详情页读，运营随时改。 */
 export interface AbilityDetail {
 	showcases?: AbilityShowcase[];
+	/** 元信息条目（官网 / 开源协议 / 自定义…），按数组顺序展示。 */
+	meta?: AbilityMetaEntry[];
 	/** markdown 正文。 */
 	content?: string;
 	i18n?: Record<string, AbilityDetailLocale>;
