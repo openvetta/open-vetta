@@ -27,10 +27,15 @@ import type { AbilityItem, BundleAbility, McpAbility, PluginAbility, SkillAbilit
 
 /**
  * 解析插件 manifest 里的 `%key%` NLS 占位符（ADR-0033）。已装插件走它自带的
- * catalog；未装的市场条目没有 catalog，回落为裸 key —— 那种情况由服务端在上传时
- * 就把占位符解析成真实文案来兜底，客户端这里不做二次猜测。
+ * catalog（第三参，来自 InstalledPlugin）；未装的市场条目没有 catalog，回落为裸
+ * key —— 那种情况由服务端在上传时就把占位符解析成真实文案来兜底，客户端这里不做
+ * 二次猜测。
  */
-export type PluginTextResolver = (pluginId: string, raw: string | undefined) => string;
+export type PluginTextResolver = (
+	pluginId: string,
+	raw: string | undefined,
+	catalog?: { locales: InstalledPlugin["locales"]; defaultLocale: string },
+) => string;
 
 export interface LocalAbilityState {
 	ledger: AbilityLedger;
@@ -284,9 +289,11 @@ export function buildPluginAbilities(
 		const id = abilityId("plugin", slug);
 		const isSystem = plugin?.source === "system";
 		const localVersion = ledgerVersion(ledger, "plugin", slug) ?? plugin?.activeVersion;
-		// manifest 的 name/description 可能是 `%key%` NLS 占位符（ADR-0033），必须过 catalog 解析
-		const title = trPlugin(slug, plugin?.name ?? entry?.name) || slug;
-		const description = trPlugin(slug, plugin?.description ?? entry?.description);
+		// manifest 的 name/description 可能是 `%key%` NLS 占位符（ADR-0033），必须过 catalog 解析。
+		// 已装插件一律用它自带的 catalog：注册表只有已启用且加载成功的插件，刚装完（默认未启用）
+		// 查不到就会把裸 key 显示成名字。
+		const title = trPlugin(slug, plugin?.name ?? entry?.name, plugin ?? undefined) || slug;
+		const description = trPlugin(slug, plugin?.description ?? entry?.description, plugin ?? undefined);
 		return {
 			type: "plugin",
 			id,

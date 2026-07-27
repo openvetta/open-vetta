@@ -1,8 +1,14 @@
+import type { InstalledPlugin } from "@preload/api";
 import type { AbilityMember, MarketAbility } from "@shared/lib/api";
 import type { TFunction } from "i18next";
 import { describe, expect, it } from "vitest";
 import type { AbilityItem, McpAbility } from "../types";
-import { buildBundleAbilities, type LocalAbilityState } from "./build-ability-items";
+import {
+	buildBundleAbilities,
+	buildPluginAbilities,
+	type LocalAbilityState,
+	type PluginTextResolver,
+} from "./build-ability-items";
 
 const t = ((key: string) => key) as unknown as TFunction<"settings">;
 
@@ -68,6 +74,55 @@ function installedSkill(slug: string): AbilityItem {
 		searchTerms: [],
 	};
 }
+
+/**
+ * 复刻 usePluginTextResolver 的解析语义，且**注册表为空**——这正是插件已安装但尚未
+ * 启用（或加载失败）时的真实状态：注册表只收录已加载的插件。
+ */
+const trPlugin: PluginTextResolver = (_pluginId, raw, catalog) => {
+	if (raw == null) return "";
+	const key = /^%(.+)%$/.exec(raw)?.[1];
+	if (!key) return raw;
+	const locales = catalog?.locales ?? {};
+	return locales[catalog?.defaultLocale ?? "zh"]?.[key] ?? key;
+};
+
+function installedPlugin(overrides?: Partial<InstalledPlugin>): InstalledPlugin {
+	return {
+		id: "cowart-vetta",
+		name: "%plugin.name%",
+		description: "%plugin.description%",
+		version: "0.1.7",
+		activeVersion: "0.1.7",
+		pluginApiVersion: "^1.0.0",
+		runtime: "module-federation",
+		entryUrl: "vetta-plugin://cowart-vetta/mf-manifest.json",
+		styleUrls: [],
+		permissions: [],
+		grantedPermissions: [],
+		declaredCommands: [],
+		grantedCommandNames: [],
+		defaultLocale: "zh",
+		locales: { zh: { "plugin.name": "Cowart 画布", "plugin.description": "无限画布能力包" } },
+		enabled: false,
+		required: false,
+		installedAt: "",
+		updatedAt: "",
+		source: "remote",
+		trustLevel: "community",
+		rootPath: "",
+		...overrides,
+	};
+}
+
+describe("buildPluginAbilities", () => {
+	it("resolves manifest NLS placeholders from the plugin's own catalog when it is installed but not enabled", () => {
+		const items = buildPluginAbilities([], createState({ plugins: [installedPlugin()] }), trPlugin);
+
+		expect(items[0]?.title).toBe("Cowart 画布");
+		expect(items[0]?.description).toBe("无限画布能力包");
+	});
+});
 
 describe("buildBundleAbilities", () => {
 	it("synthesizes an item for a private inline mcp member so it can be installed", () => {
