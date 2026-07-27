@@ -11,6 +11,11 @@ export interface NewSessionPageLayoutViewProps {
 	readonly themedBackground?: ReactNode;
 }
 
+/**
+ * 新会话页主列布局：整块内容垂直居中（hero + 技能 + 输入 + 引导词作为一体）。
+ * 防抖依赖 host 侧预留槽位与资源一次落盘，而不是把输入栏单独钉在视口中线
+ * （后者会让上方 hero 把视觉重心整体顶上去）。
+ */
 export function NewSessionPageLayoutView({
 	background,
 	dropZone,

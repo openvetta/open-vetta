@@ -71,6 +71,11 @@ export interface NewSessionHeroProps extends Omit<ComponentPropsWithoutRef<"div"
 	readonly greetingTitle: string;
 	readonly mounted: boolean;
 	readonly onSceneClick: (scene: NewSessionSceneItem) => void;
+	/**
+	 * 资源尚未返回时预留场景轮播高度，避免 scenes 从空变为有数据时把输入栏顶下去。
+	 * 加载完成且确实无场景时由 host 置 false，槽位收回。
+	 */
+	readonly reserveSceneSlot?: boolean;
 	readonly sceneActions: Readonly<Record<string, NewSessionSceneActionState>>;
 	/** 场景轮播文案（host 已 i18n）；主题若复用场景轮播应透传。 */
 	readonly sceneLabels: NewSessionSceneCarouselLabels;

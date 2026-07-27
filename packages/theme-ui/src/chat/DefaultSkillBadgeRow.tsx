@@ -5,6 +5,9 @@ import { cn } from "@vetta/ui";
 import type { NewSessionSkillBadgeRowProps } from "./NewSession";
 import { SkillCard } from "./SkillCard";
 
+/** 技能徽章行高度占位（与加载中预留槽对齐）。 */
+export const NEW_SESSION_SKILL_BADGE_SLOT_MIN_H_CLASS = "min-h-9";
+
 /**
  * Skill pill row with horizontal scroll and edge arrows.
  * No enter animation (sits above input bar).
@@ -49,7 +52,7 @@ export function DefaultSkillBadgeRow({
 			<div
 				ref={scrollRef}
 				onScroll={updateEdges}
-				className="no-scrollbar flex items-center gap-1.5 overflow-x-auto px-1 py-1"
+				className={`no-scrollbar flex items-center gap-1.5 overflow-x-auto px-1 py-1 ${NEW_SESSION_SKILL_BADGE_SLOT_MIN_H_CLASS}`}
 			>
 				{skills.map((s) => {
 					const active = selected?.name === s.name && selected?.type === "skill";

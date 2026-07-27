@@ -7,6 +7,9 @@ import { SceneCard } from "./SceneCard";
 
 const easeOut = [0.16, 1, 0.3, 1] as const;
 
+/** 场景卡常见高度（标题 + 两行描述 + meta）占位，与 DefaultNewSessionHero 预留槽对齐。 */
+export const NEW_SESSION_SCENE_SLOT_MIN_H_CLASS = "min-h-[5.75rem]";
+
 /**
  * Props-driven scene carousel (3 cards per view). Host resolves i18n labels.
  * Width follows outer left-aligned column (max-w-2xl); horizontal scroll + hover arrows.
@@ -57,7 +60,7 @@ export function DefaultSceneCarousel({
 				<div
 					ref={scrollRef}
 					onScroll={updateEdges}
-					className="no-scrollbar flex snap-x snap-mandatory gap-2 overflow-x-auto py-1"
+					className={`no-scrollbar flex snap-x snap-mandatory gap-2 overflow-x-auto py-1 ${NEW_SESSION_SCENE_SLOT_MIN_H_CLASS}`}
 				>
 					{scenes.map((s) => {
 						const action = actions[s.name] ?? "idle";
