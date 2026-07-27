@@ -1,24 +1,36 @@
 import { KnowledgeHowItWorksDialog } from "@shared/components/KnowledgeHowItWorksDialog";
 import { ModelSelect } from "@shared/components/ModelSelect";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@vetta/ui";
 import { Switch } from "@vetta/ui";
 import { cn } from "@shared/lib/utils";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { SettingsAiAssist } from "../ai-assist";
 import { SETTINGS_SECTION } from "../registry";
-import { SettingRow, SettingSection } from "@vetta/theme-ui/settings";
+import { MotionSelect, SettingRow, SettingSection } from "@vetta/theme-ui/settings";
 import type { KnowledgeBaseSettingsModel } from "./useKnowledgeBaseSettingsModel";
 
 export function KnowledgeBaseSettingsView({ model }: { model: KnowledgeBaseSettingsModel }): JSX.Element {
 	const [howItWorksOpen, setHowItWorksOpen] = useState(false);
 	const btnClass =
 		"inline-flex items-center gap-1.5 rounded-md border border-input bg-secondary px-2.5 py-1 text-[12px] text-foreground transition-colors hover:bg-accent disabled:opacity-50";
+
+	const intervalOptions = useMemo(
+		() => [
+			...model.intervalOptions.map((minutes) => ({
+				value: String(minutes),
+				label: model.labels.everyNMinutes(minutes),
+			})),
+			{ value: String(model.neverInterval), label: model.labels.never },
+		],
+		[model.intervalOptions, model.labels, model.neverInterval],
+	);
+	const concurrencyOptions = useMemo(
+		() =>
+			model.agentConcurrencyOptions.map((count) => ({
+				value: String(count),
+				label: model.labels.parallelN(count),
+			})),
+		[model.agentConcurrencyOptions, model.labels],
+	);
 
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 pt-2 pb-4">
@@ -46,39 +58,22 @@ export function KnowledgeBaseSettingsView({ model }: { model: KnowledgeBaseSetti
 					<Switch checked={model.enabled} onCheckedChange={model.actions.toggle} />
 				</SettingRow>
 				<SettingRow title={model.labels.interval} description={model.labels.intervalDescription}>
-					<Select value={String(model.interval)} onValueChange={model.actions.changeInterval} disabled={!model.enabled}>
-						<SelectTrigger className="h-7 min-w-[120px] px-2 py-1 text-[12px]">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							{model.intervalOptions.map((minutes) => (
-								<SelectItem key={minutes} value={String(minutes)} className="text-[12px]">
-									{model.labels.everyNMinutes(minutes)}
-								</SelectItem>
-							))}
-							<SelectItem value={String(model.neverInterval)} className="text-[12px]">
-								{model.labels.never}
-							</SelectItem>
-						</SelectContent>
-					</Select>
+					<MotionSelect
+						value={String(model.interval)}
+						onValueChange={model.actions.changeInterval}
+						options={intervalOptions}
+						disabled={!model.enabled}
+						triggerClassName="min-w-[120px]"
+					/>
 				</SettingRow>
 				<SettingRow title={model.labels.parallel} description={model.labels.parallelDescription}>
-					<Select
+					<MotionSelect
 						value={String(model.agentConcurrency)}
 						onValueChange={model.actions.changeAgentConcurrency}
+						options={concurrencyOptions}
 						disabled={!model.enabled}
-					>
-						<SelectTrigger className="h-7 min-w-[120px] px-2 py-1 text-[12px]">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							{model.agentConcurrencyOptions.map((count) => (
-								<SelectItem key={count} value={String(count)} className="text-[12px]">
-									{model.labels.parallelN(count)}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
+						triggerClassName="min-w-[120px]"
+					/>
 				</SettingRow>
 				<SettingRow title={model.labels.model} description={model.labels.modelDescription} border={false}>
 					{/* 不用 flex-wrap + basis-full：会把右侧撑满整行，左侧标题被压成单字竖列 */}
@@ -90,7 +85,7 @@ export function KnowledgeBaseSettingsView({ model }: { model: KnowledgeBaseSetti
 								disabled={!model.enabled}
 								placeholder={model.labels.selectModel}
 								triggerClassName={cn(
-									"w-[220px] max-w-full",
+									"h-8 w-[220px] max-w-full rounded-lg border-border bg-card px-2.5 text-[12px] font-medium hover:bg-accent data-[state=open]:bg-accent",
 									model.enabled && !model.modelKey && "border-amber-500/50",
 								)}
 								reasoning={{ value: model.reasoningLevel || undefined, onChange: model.actions.changeReasoning }}

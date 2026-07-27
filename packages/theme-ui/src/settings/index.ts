@@ -96,6 +96,8 @@ export type {
 	ModelsProvidersSectionViewProps,
 } from "./ModelsProvidersSectionView";
 export { ModelsProvidersSectionView } from "./ModelsProvidersSectionView";
+export type { MotionSelectOption, MotionSelectProps } from "./MotionSelect";
+export { MotionSelect } from "./MotionSelect";
 export type {
 	PermissionItemView,
 	PermissionStatusView,
@@ -154,6 +156,8 @@ export { SettingsContentLoadingView } from "./SettingsContentLoadingView";
 export {
 	CheckboxField,
 	InputField,
+	SETTINGS_SELECT_ITEM_CLASS,
+	SETTINGS_SELECT_TRIGGER_CLASS,
 	SelectField,
 	TextareaField,
 } from "./SettingsFormFields";
