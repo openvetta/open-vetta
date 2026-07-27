@@ -13,17 +13,15 @@ export type CapabilitySecondaryActionKind = "disable" | "remove" | "configure";
 
 /**
  * 演示画布母题：决定 chat-over-canvas 背景假 UI 的样式。
- * 宿主实现，catalog 只选 id。
+ * 宿主实现，能力详情 JSON 只选择 id。
  */
 export type ShowcaseCanvasMotif = "design" | "code" | "docs" | "generic";
 
-/** 呈现模板 id（宿主白名单） */
-export type ShowcaseTemplateId = "chat-over-canvas" | "chat-thread";
-
 /** 解析后的 section（文案已解析为展示字符串） */
 export type CapabilityDetailSection =
-	| { type: "intro"; title?: string; body: string }
+	| { id: string; type: "intro"; title?: string; body: string }
 	| {
+			id: string;
 			type: "showcase";
 			/** 参考图风格：左侧产品画布 mock + 右侧对话气泡 */
 			template: "chat-over-canvas";
@@ -35,6 +33,7 @@ export type CapabilityDetailSection =
 			brandName?: string;
 	  }
 	| {
+			id: string;
 			type: "showcase";
 			/** 纯对话线程（无画布） */
 			template: "chat-thread";
@@ -44,6 +43,7 @@ export type CapabilityDetailSection =
 			brandName?: string;
 	  }
 	| {
+			id: string;
 			type: "media";
 			title?: string;
 			kind: "image";
@@ -51,16 +51,19 @@ export type CapabilityDetailSection =
 			alt?: string;
 	  }
 	| {
+			id: string;
 			type: "featureList";
 			title?: string;
 			items: string[];
 	  }
 	| {
+			id: string;
 			type: "scenarios";
 			title?: string;
 			items: Array<{ icon?: string; label: string }>;
 	  }
 	| {
+			id: string;
 			type: "permissions";
 			title?: string;
 			lead?: string;
@@ -69,20 +72,13 @@ export type CapabilityDetailSection =
 			showDetailLink?: boolean;
 	  }
 	| {
+			id: string;
 			type: "reviews";
 			title?: string;
 			score?: number;
 			count?: number;
 			quotes: string[];
 	  };
-
-/** 可序列化的详情文档（catalog / 未来服务端字段） */
-export interface CapabilityDetailDoc {
-	schemaVersion: 1;
-	developer?: string;
-	tags?: string[];
-	sections: CapabilityDetailSection[];
-}
 
 export interface CapabilityDetailViewModel {
 	id: string;

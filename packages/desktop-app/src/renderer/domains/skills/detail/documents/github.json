@@ -1,0 +1,136 @@
+{
+	"schemaVersion": 1,
+	"id": "github",
+	"capabilityId": "connector:github",
+	"header": {
+		"developerKey": "developer",
+		"tagsKey": "tags"
+	},
+	"sections": [
+		{
+			"id": "introduction",
+			"type": "intro",
+			"titleKey": "sections.introduction.title",
+			"bodyKey": "sections.introduction.body"
+		},
+		{
+			"id": "showcase",
+			"type": "showcase",
+			"template": "chat-over-canvas",
+			"canvas": "code",
+			"userPromptKey": "sections.showcase.userPrompt",
+			"assistantReplyKey": "sections.showcase.assistantReply"
+		},
+		{
+			"id": "features",
+			"type": "featureList",
+			"titleKey": "sections.features.title",
+			"itemsKey": "sections.features.items"
+		},
+		{
+			"id": "scenarios",
+			"type": "scenarios",
+			"titleKey": "sections.scenarios.title",
+			"itemsKey": "sections.scenarios.items",
+			"icons": ["code", "issue", "review", "document"]
+		},
+		{
+			"id": "permissions",
+			"type": "permissions",
+			"titleKey": "sections.permissions.title",
+			"leadKey": "sections.permissions.lead",
+			"itemsKey": "sections.permissions.items",
+			"showDetailLink": true
+		},
+		{
+			"id": "reviews",
+			"type": "reviews",
+			"titleKey": "sections.reviews.title",
+			"score": 4.7,
+			"count": 980,
+			"quotesKey": "sections.reviews.quotes"
+		}
+	],
+	"messages": {
+		"zh": {
+			"developer": "GitHub",
+			"tags": ["开发", "协作", "代码"],
+			"sections": {
+				"introduction": {
+					"title": "能力介绍",
+					"body": "连接你的 GitHub，让 AI 读写 Issue、PR 与仓库上下文，辅助代码评审、问题排查与协作沟通。"
+				},
+				"showcase": {
+					"userPrompt": "帮我总结这个 PR 的改动风险",
+					"assistantReply": "好的，我先看了 diff 与相关 Issue，主要风险点如下…"
+				},
+				"features": {
+					"title": "主要功能",
+					"items": [
+						"读取仓库、Issue 与 Pull Request",
+						"辅助代码评审与变更摘要",
+						"检索历史讨论与相关上下文",
+						"协助创建或更新 Issue / PR 描述"
+					]
+				},
+				"scenarios": {
+					"title": "适用场景",
+					"items": ["代码评审", "问题排查", "协作沟通", "Issue / PR 起草"]
+				},
+				"permissions": {
+					"title": "权限说明",
+					"lead": "为了提供更好的服务，GitHub 需要以下权限：",
+					"items": [
+						"访问你授权范围内的仓库",
+						"读取 Issue 与 Pull Request",
+						"在授权范围内进行协作写入（如创建评论）"
+					]
+				},
+				"reviews": {
+					"title": "用户评价",
+					"quotes": ["PR 摘要很省时间。", "结合 Issue 上下文排查问题很顺手。"]
+				}
+			}
+		},
+		"en": {
+			"developer": "GitHub",
+			"tags": ["Engineering", "Collaboration", "Code"],
+			"sections": {
+				"introduction": {
+					"title": "About",
+					"body": "Connect GitHub so the AI can work with Issues, PRs, and repository context—for reviews, debugging, and team coordination."
+				},
+				"showcase": {
+					"userPrompt": "Summarize the risk of this PR",
+					"assistantReply": "I reviewed the diff and related Issues. Main risks are…"
+				},
+				"features": {
+					"title": "Key features",
+					"items": [
+						"Read repositories, Issues, and Pull Requests",
+						"Assist code review and change summaries",
+						"Search discussion history and context",
+						"Help draft Issues and PR descriptions"
+					]
+				},
+				"scenarios": {
+					"title": "Use cases",
+					"items": ["Code review", "Debugging", "Team coordination", "Issue / PR drafting"]
+				},
+				"permissions": {
+					"title": "Permissions",
+					"lead": "GitHub needs the following permissions:",
+					"items": [
+						"Access repositories you authorize",
+						"Read Issues and Pull Requests",
+						"Write collaborative updates within the granted scope"
+					]
+				},
+				"reviews": {
+					"title": "Reviews",
+					"quotes": ["PR summaries save real time.", "Great for debugging with Issue context."]
+				}
+			}
+		}
+	}
+}

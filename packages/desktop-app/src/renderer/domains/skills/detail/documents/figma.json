@@ -1,0 +1,142 @@
+{
+	"schemaVersion": 1,
+	"id": "figma",
+	"capabilityId": "connector:figma",
+	"header": {
+		"developerKey": "developer",
+		"tagsKey": "tags"
+	},
+	"sections": [
+		{
+			"id": "introduction",
+			"type": "intro",
+			"titleKey": "sections.introduction.title",
+			"bodyKey": "sections.introduction.body"
+		},
+		{
+			"id": "showcase",
+			"type": "showcase",
+			"template": "chat-over-canvas",
+			"canvas": "design",
+			"userPromptKey": "sections.showcase.userPrompt",
+			"assistantReplyKey": "sections.showcase.assistantReply"
+		},
+		{
+			"id": "features",
+			"type": "featureList",
+			"titleKey": "sections.features.title",
+			"itemsKey": "sections.features.items"
+		},
+		{
+			"id": "scenarios",
+			"type": "scenarios",
+			"titleKey": "sections.scenarios.title",
+			"itemsKey": "sections.scenarios.items",
+			"icons": ["document", "design", "code", "collaboration"]
+		},
+		{
+			"id": "permissions",
+			"type": "permissions",
+			"titleKey": "sections.permissions.title",
+			"leadKey": "sections.permissions.lead",
+			"itemsKey": "sections.permissions.items",
+			"showDetailLink": true
+		},
+		{
+			"id": "reviews",
+			"type": "reviews",
+			"titleKey": "sections.reviews.title",
+			"score": 4.8,
+			"count": 1256,
+			"quotesKey": "sections.reviews.quotes"
+		}
+	],
+	"messages": {
+		"zh": {
+			"developer": "Figma 官方",
+			"tags": ["设计", "协作", "效率"],
+			"sections": {
+				"introduction": {
+					"title": "能力介绍",
+					"body": "连接你的 Figma 帐号，让 AI 可以读取你的设计稿、组件、样式与注释，帮助你进行设计分析、提取信息或生成建议。"
+				},
+				"showcase": {
+					"userPrompt": "帮我分析这个页面的设计规范",
+					"assistantReply": "好的，以下是对该页面的设计分析…"
+				},
+				"features": {
+					"title": "主要功能",
+					"items": [
+						"读取文件、页面、组件与样式",
+						"理解设计结构与布局",
+						"提取颜色、字体与间距等设计标注",
+						"生成设计分析与优化建议",
+						"支持 FigJam 内容解析（白板）"
+					]
+				},
+				"scenarios": {
+					"title": "适用场景",
+					"items": ["设计评审与分析", "设计规范提取", "设计到代码的准备", "团队协作与知识共享"]
+				},
+				"permissions": {
+					"title": "权限说明",
+					"lead": "为了提供更好的服务，Figma 需要以下权限：",
+					"items": ["读取你的文件与页面", "读取组件、样式与注释", "读取团队与项目（可选）"]
+				},
+				"reviews": {
+					"title": "用户评价",
+					"quotes": [
+						"设计分析太准了，节省了我很多时间！",
+						"能够直接从设计稿提取信息，太方便了。",
+						"和团队协作效率提高了一个档次。"
+					]
+				}
+			}
+		},
+		"en": {
+			"developer": "Figma",
+			"tags": ["Design", "Collaboration", "Productivity"],
+			"sections": {
+				"introduction": {
+					"title": "About",
+					"body": "Connect your Figma account so the AI can read design files, components, styles, and comments—then help analyze designs, extract specs, or suggest improvements."
+				},
+				"showcase": {
+					"userPrompt": "Help me analyze the design system on this page",
+					"assistantReply": "Sure — here’s an analysis of this page…"
+				},
+				"features": {
+					"title": "Key features",
+					"items": [
+						"Read files, pages, components, and styles",
+						"Understand structure and layout",
+						"Extract colors, type, and spacing specs",
+						"Generate design analysis and improvement ideas",
+						"Parse FigJam boards"
+					]
+				},
+				"scenarios": {
+					"title": "Use cases",
+					"items": ["Design review", "Extract design specs", "Prep design-to-code", "Team knowledge sharing"]
+				},
+				"permissions": {
+					"title": "Permissions",
+					"lead": "Figma needs the following permissions:",
+					"items": [
+						"Read your files and pages",
+						"Read components, styles, and comments",
+						"Read teams and projects (optional)"
+					]
+				},
+				"reviews": {
+					"title": "Reviews",
+					"quotes": [
+						"Design analysis is spot on and saves me a lot of time.",
+						"Pulling specs straight from the file is so convenient.",
+						"Collaboration with the team leveled up."
+					]
+				}
+			}
+		}
+	}
+}
