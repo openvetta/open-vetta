@@ -1,4 +1,5 @@
 import type { DesktopActionApprovalApi } from "./api-types/action-approval.js";
+import type { DesktopAppLifecycleApi } from "./api-types/app-lifecycle.js";
 import type { DesktopAppMonitorApi } from "./api-types/app-monitor.js";
 import type { DesktopAppshotApi } from "./api-types/appshot.js";
 import type { DesktopAuthApi } from "./api-types/auth.js";
@@ -39,6 +40,7 @@ import type { DesktopWebhookApi } from "./api-types/webhook.js";
 import type { DesktopFsApi } from "./fs-types.js";
 
 export type * from "./api-types/action-approval.js";
+export type * from "./api-types/app-lifecycle.js";
 export type * from "./api-types/app-monitor.js";
 export type * from "./api-types/appshot.js";
 export type * from "./api-types/auth.js";
@@ -70,6 +72,7 @@ export type * from "./api-types/webhook.js";
 
 export interface DesktopApi {
 	actionApproval: DesktopActionApprovalApi;
+	appLifecycle: DesktopAppLifecycleApi;
 	appMonitor: DesktopAppMonitorApi;
 	session: DesktopSessionApi;
 	dialog: DesktopDialogApi;

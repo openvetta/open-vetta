@@ -45,6 +45,7 @@ export function createWindow(): BrowserWindow {
 	mainWindow = new BrowserWindow({
 		width: 1280,
 		height: 800,
+		show: false,
 		// 最小尺寸：低于此值会过度收缩导致布局不可用。窄屏响应式在此宽度下仍生效。
 		minWidth: 380,
 		minHeight: 600,
@@ -128,24 +129,40 @@ export function createWindow(): BrowserWindow {
 		return { action: "deny" };
 	});
 
-	const loadPromise = devServerUrl ? mainWindow.loadURL(devServerUrl) : mainWindow.loadFile(rendererPath);
-	void loadPromise
-		.then(() => {
-			// E2E (VETTA_E2E=1): skip auto DevTools so extra windows do not steal WebdriverIO focus.
-			if (app.isPackaged || process.env.VETTA_E2E === "1" || !mainWindow || mainWindow.isDestroyed()) return;
-			mainWindow.webContents.openDevTools({ mode: "detach", activate: true });
-			windowLog.info("open-devtools", { opened: mainWindow.webContents.isDevToolsOpened() });
-		})
-		.catch((error: unknown) => {
-			windowLog.error(devServerUrl ? "loadURL failed" : "loadFile failed", error);
-		});
-
 	return mainWindow;
+}
+
+export async function loadMainWindow(win: BrowserWindow): Promise<void> {
+	if (win.isDestroyed()) return;
+	const windowLog = getAppLogger("window");
+	const rendererPath = join(resDir, "renderer/index.html");
+	const startedAt = Date.now();
+	try {
+		if (devServerUrl) {
+			await win.loadURL(devServerUrl);
+		} else {
+			await win.loadFile(rendererPath);
+		}
+		windowLog.info("main-renderer-ready", { durationMs: Date.now() - startedAt });
+		// E2E (VETTA_E2E=1): skip auto DevTools so extra windows do not steal WebdriverIO focus.
+		if (app.isPackaged || process.env.VETTA_E2E === "1" || win.isDestroyed()) return;
+		win.webContents.openDevTools({ mode: "detach", activate: true });
+		windowLog.info("open-devtools", { opened: win.webContents.isDevToolsOpened() });
+	} catch (error) {
+		windowLog.error(devServerUrl ? "loadURL failed" : "loadFile failed", error);
+	}
 }
 
 export function showMainWindow(): BrowserWindow {
 	if (!mainWindow || mainWindow.isDestroyed()) {
-		return createWindow();
+		const win = createWindow();
+		win.once("ready-to-show", () => {
+			if (win.isDestroyed()) return;
+			win.show();
+			win.focus();
+		});
+		void loadMainWindow(win);
+		return win;
 	}
 
 	// macOS 上仅靠 BrowserWindow.focus() 无法将后台应用带到前台，
