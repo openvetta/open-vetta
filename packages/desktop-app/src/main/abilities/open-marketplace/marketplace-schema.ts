@@ -43,9 +43,9 @@ const detailSchema = detailLocaleSchema.extend({
 	i18n: z.record(z.string(), detailLocaleSchema).optional(),
 });
 
-export const marketplaceAbilitySchema = z
+const sourceSchema = z.object({ path: z.string().min(1) }).passthrough();
+const abilityBaseSchema = z
 	.object({
-		type: z.enum(["skill", "scene"]),
 		slug: z.string().regex(SLUG_PATTERN),
 		name: z.string().min(1),
 		description: z.string().default(""),
@@ -57,9 +57,46 @@ export const marketplaceAbilitySchema = z
 		category: z.string().default(""),
 		tags: z.array(z.string()).default([]),
 		detail: detailSchema.default({}),
-		source: z.object({ path: z.string().min(1) }).passthrough(),
 	})
 	.passthrough();
+
+const skillAbilitySchema = abilityBaseSchema.extend({
+	type: z.literal("skill"),
+	source: sourceSchema,
+	config: z.object({}).passthrough().default({}),
+});
+const sceneAbilitySchema = abilityBaseSchema.extend({
+	type: z.literal("scene"),
+	source: sourceSchema,
+	config: z.object({}).passthrough().default({}),
+});
+const pluginAbilitySchema = abilityBaseSchema.extend({
+	type: z.literal("plugin"),
+	source: sourceSchema,
+	config: z
+		.object({
+			api_version: z.string().optional(),
+			permissions: z.array(z.string()).optional(),
+			commands: z.array(z.string()).optional(),
+		})
+		.passthrough()
+		.default({}),
+});
+const bundleMemberSchema = z.object({
+	type: z.enum(["skill", "scene", "plugin"]),
+	slug: z.string().regex(SLUG_PATTERN),
+});
+const bundleAbilitySchema = abilityBaseSchema.extend({
+	type: z.literal("bundle"),
+	config: z.object({ members: z.array(bundleMemberSchema).min(1) }).passthrough(),
+});
+
+export const marketplaceAbilitySchema = z.discriminatedUnion("type", [
+	skillAbilitySchema,
+	sceneAbilitySchema,
+	pluginAbilitySchema,
+	bundleAbilitySchema,
+]);
 
 export const marketplaceManifestSchema = z
 	.object({
@@ -94,7 +131,23 @@ export function parseMarketplaceManifest(input: unknown): MarketplaceManifest {
 	for (const ability of manifest.abilities) {
 		if (seen.has(ability.slug)) throw new Error(`Duplicate ability slug in marketplace: ${ability.slug}`);
 		seen.add(ability.slug);
-		ability.source.path = normalizeMarketplaceSourcePath(ability.source.path);
+		if (ability.type !== "bundle") {
+			ability.source.path = normalizeMarketplaceSourcePath(ability.source.path);
+		}
+	}
+	const bySlug = new Map(manifest.abilities.map((ability) => [ability.slug, ability]));
+	for (const ability of manifest.abilities) {
+		if (ability.type !== "bundle") continue;
+		const memberIds = new Set<string>();
+		for (const member of ability.config.members) {
+			const memberId = `${member.type}:${member.slug}`;
+			if (memberIds.has(memberId)) throw new Error(`Duplicate bundle member: ${memberId}`);
+			memberIds.add(memberId);
+			const target = bySlug.get(member.slug);
+			if (!target || target.type !== member.type) {
+				throw new Error(`Bundle member not found in marketplace: ${memberId}`);
+			}
+		}
 	}
 	return manifest;
 }

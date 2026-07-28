@@ -123,6 +123,25 @@ describe("buildPluginAbilities", () => {
 		expect(items[0]?.title).toBe("Cowart 画布");
 		expect(items[0]?.description).toBe("无限画布能力包");
 	});
+
+	it("preserves GitHub marketplace origin for open plugin installation", () => {
+		const ability = {
+			...createBundle([]),
+			type: "plugin" as const,
+			slug: "open-plugin",
+			origin: {
+				kind: "github-marketplace" as const,
+				sourceId: "test-source",
+				marketplace: "vetta-open-abilities",
+				marketplaceVersion: "2026.07.3",
+				repository: "https://github.com/example/vetta-abilities",
+			},
+		};
+
+		const items = buildPluginAbilities([ability], createState(), trPlugin);
+
+		expect(items[0]?.origin).toEqual(ability.origin);
+	});
 });
 
 describe("buildSkillAbilities", () => {

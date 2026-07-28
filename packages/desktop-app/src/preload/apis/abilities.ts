@@ -1,5 +1,6 @@
 import type { IpcRenderer } from "electron";
 import type { DesktopApi } from "../api.js";
+import { onIpcVoidEvent } from "./helper.js";
 
 export function createAbilitiesApi(ipc: IpcRenderer): Pick<DesktopApi, "abilities"> {
 	return {
@@ -15,6 +16,8 @@ export function createAbilitiesApi(ipc: IpcRenderer): Pick<DesktopApi, "abilitie
 			updateMarketplaceSource: (id, input) => ipc.invoke("vetta:abilities:update-marketplace-source", id, input),
 			removeMarketplaceSource: (id) => ipc.invoke("vetta:abilities:remove-marketplace-source", id),
 			refreshMarketplaceSource: (id) => ipc.invoke("vetta:abilities:refresh-marketplace-source", id),
+			onOpenMarketplacesUpdated: (handler) =>
+				onIpcVoidEvent(ipc, "vetta:abilities:open-marketplaces-updated", handler),
 			installOpenAbility: (type, slug, sourceId) =>
 				ipc.invoke("vetta:abilities:install-open-ability", type, slug, sourceId),
 		},
