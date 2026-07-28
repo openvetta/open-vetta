@@ -56,8 +56,6 @@ export interface PresetProvidersSectionLabels {
 	refreshModels: string;
 	refreshingModels: string;
 	refreshCatalog: string;
-	showAllModels: string;
-	showAllModelsHint: string;
 }
 
 export interface PresetProvidersSectionModel {
@@ -74,10 +72,6 @@ export interface PresetProvidersSectionModel {
 	onAdopt: (row: PresetProviderRow) => Promise<void>;
 	onRemove: (row: PresetProviderRow) => Promise<void>;
 	onRefreshModels: (row: PresetProviderRow) => Promise<void>;
-	/** 「显示全部模型」开关。关闭时每个系列只留最新一档。 */
-	showAllModels: boolean;
-	togglingShowAll: boolean;
-	onToggleShowAllModels: (showAll: boolean) => Promise<void>;
 	/** 手动重拉公共目录(models.dev)。 */
 	refreshingCatalog: boolean;
 	onRefreshCatalog: () => Promise<void>;
@@ -101,8 +95,6 @@ export function usePresetProvidersSectionModel({
 	const [saving, setSaving] = useState(false);
 	const [refreshingId, setRefreshingId] = useState<string | null>(null);
 	const [modelsErrors, setModelsErrors] = useState<Record<string, string>>({});
-	const [showAllModels, setShowAllModels] = useState(false);
-	const [togglingShowAll, setTogglingShowAll] = useState(false);
 	const [refreshingCatalog, setRefreshingCatalog] = useState(false);
 
 	const load = useCallback(async () => {
@@ -111,7 +103,6 @@ export function usePresetProvidersSectionModel({
 		try {
 			const result = await window.vetta.models.listPresets();
 			setPresets(result.providers);
-			setShowAllModels(result.showAllModels);
 			// 公共目录连缓存都没有时把原因摆出来,别让用户对着 0 个模型猜。
 			if (result.catalogError) {
 				console.error(
@@ -271,41 +262,6 @@ export function usePresetProvidersSectionModel({
 		[config, saveConfig],
 	);
 
-	/**
-	 * 切换「显示全部模型」。开关落主进程(后台定时同步也读它),然后重新列一遍公共目录,
-	 * 并把已启用服务商的模型列表按新口径重新拉取落盘——否则 models.json 与开关不一致,
-	 * 模型选择器还是旧的那一份。
-	 */
-	const toggleShowAllModels = useCallback(
-		async (next: boolean): Promise<void> => {
-			setTogglingShowAll(true);
-			try {
-				await window.vetta.models.setPresetShowAllModels(next);
-				setShowAllModels(next);
-				const listed = await window.vetta.models.listPresets();
-				setPresets(listed.providers);
-
-				const adopted = Object.entries(config.providers).filter(
-					([, provider]) => provider.source === "template" && provider.apiKey,
-				);
-				if (adopted.length === 0) return;
-				const refreshed = await Promise.all(adopted.map(async ([id]) => ({ id, result: await refreshModels(id) })));
-				const providers = { ...config.providers };
-				let changed = false;
-				for (const { id, result } of refreshed) {
-					const provider = providers[id];
-					if (!provider || result.models.length === 0) continue;
-					providers[id] = { ...provider, models: result.models, modelsSyncedAt: new Date().toISOString() };
-					changed = true;
-				}
-				if (changed) await saveConfig({ ...config, providers });
-			} finally {
-				setTogglingShowAll(false);
-			}
-		},
-		[config, saveConfig],
-	);
-
 	/** 手动重拉公共目录:清冷却强制重试,失败把原文打进控制台并显示出来。 */
 	const refreshCatalog = useCallback(async (): Promise<void> => {
 		setRefreshingCatalog(true);
@@ -370,8 +326,6 @@ export function usePresetProvidersSectionModel({
 			refreshModels: t("refreshModels"),
 			refreshingModels: t("refreshingModels"),
 			refreshCatalog: t("refreshCatalog"),
-			showAllModels: t("showAllModels"),
-			showAllModelsHint: t("showAllModelsHint"),
 		},
 		onToggleExpanded: handleToggleExpanded,
 		onToggleEditor: handleToggleEditor,
@@ -379,9 +333,6 @@ export function usePresetProvidersSectionModel({
 		onAdopt: adopt,
 		onRemove: remove,
 		onRefreshModels: refresh,
-		showAllModels,
-		togglingShowAll,
-		onToggleShowAllModels: toggleShowAllModels,
 		refreshingCatalog,
 		onRefreshCatalog: refreshCatalog,
 	};
