@@ -1,0 +1,342 @@
+import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
+import { mkdir, mkdtemp, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { dirname, isAbsolute, join, posix, relative, resolve, sep } from "node:path";
+import { getVettaHomePath } from "@vetta/action-rpc";
+import AdmZip from "adm-zip";
+import type {
+	GitHubMarketplaceOrigin,
+	OpenMarketplaceAbility,
+	OpenMarketplaceSnapshot,
+} from "../../../preload/api-types/abilities.js";
+import { type MarketplaceManifest, parseMarketplaceManifest } from "./marketplace-schema.js";
+import { validateSkillPackage } from "./skill-package.js";
+
+const DEFAULT_REPOSITORY = "https://github.com/flower0wine/vetta-abilities";
+const DEFAULT_ARCHIVE_URL = `${DEFAULT_REPOSITORY}/archive/refs/heads/main.zip`;
+const DEFAULT_SYNC_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const MAX_ARCHIVE_BYTES = 25 * 1024 * 1024;
+const MAX_UNCOMPRESSED_BYTES = 100 * 1024 * 1024;
+const MAX_ARCHIVE_ENTRIES = 10_000;
+const DOWNLOAD_TIMEOUT_MS = 15_000;
+
+type FetchArchive = (url: string, init?: RequestInit) => Promise<Response>;
+type InstallAbility = (
+	snapshotRoot: string,
+	ability: MarketplaceManifest["abilities"][number],
+	origin: GitHubMarketplaceOrigin,
+) => Promise<void>;
+
+interface OpenMarketplaceState {
+	marketplaceVersion: string;
+	archiveSha256: string;
+	syncedAt: string;
+}
+
+export interface OpenMarketplaceServiceOptions {
+	rootDir?: string;
+	archiveUrl?: string;
+	repository?: string;
+	fetchArchive?: FetchArchive;
+	now?: () => Date;
+	syncIntervalMs?: number;
+	installAbility?: InstallAbility;
+}
+
+function isContained(parent: string, target: string): boolean {
+	const pathFromParent = relative(parent, target);
+	return (
+		pathFromParent === "" ||
+		(!pathFromParent.startsWith(`..${sep}`) && pathFromParent !== ".." && !isAbsolute(pathFromParent))
+	);
+}
+
+function parseState(input: unknown): OpenMarketplaceState | null {
+	if (input == null || typeof input !== "object" || Array.isArray(input)) return null;
+	const state = input as Record<string, unknown>;
+	if (
+		typeof state.marketplaceVersion !== "string" ||
+		typeof state.archiveSha256 !== "string" ||
+		typeof state.syncedAt !== "string"
+	) {
+		return null;
+	}
+	return {
+		marketplaceVersion: state.marketplaceVersion,
+		archiveSha256: state.archiveSha256,
+		syncedAt: state.syncedAt,
+	};
+}
+
+function normalizeArchiveEntryPath(value: string): string {
+	const slashPath = value.replace(/\\/g, "/");
+	if (!slashPath || slashPath.includes("\0") || slashPath.startsWith("/") || /^[a-zA-Z]:\//.test(slashPath)) {
+		throw new Error(`Unsafe archive path: ${value}`);
+	}
+	const normalized = posix.normalize(slashPath).replace(/\/$/, "");
+	if (!normalized || normalized === "." || normalized === ".." || normalized.startsWith("../")) {
+		throw new Error(`Unsafe archive path: ${value}`);
+	}
+	return normalized;
+}
+
+function toOpenMarketplaceAbility(
+	manifest: MarketplaceManifest,
+	ability: MarketplaceManifest["abilities"][number],
+): OpenMarketplaceAbility {
+	const origin: GitHubMarketplaceOrigin = {
+		kind: "github-marketplace",
+		marketplace: manifest.name,
+		marketplaceVersion: manifest.marketplaceVersion,
+		repository: manifest.repository,
+	};
+	const meta = [...(ability.detail.meta ?? [])];
+	if (!meta.some((entry) => entry.key === "repository")) {
+		meta.push({ key: "repository", value: manifest.repository });
+	}
+	return {
+		slug: ability.slug,
+		type: ability.type,
+		name: ability.name,
+		description: ability.description,
+		license: ability.license,
+		version: ability.version,
+		configVersion: ability.configVersion,
+		author: ability.author,
+		icon: ability.icon,
+		category: ability.category,
+		tags: ability.tags,
+		detail: { ...ability.detail, meta },
+		origin,
+	};
+}
+
+export class OpenMarketplaceService {
+	private readonly rootDir: string;
+	private readonly archiveUrl: string;
+	private readonly repository: string;
+	private readonly fetchArchive: FetchArchive;
+	private readonly now: () => Date;
+	private readonly syncIntervalMs: number;
+	private readonly installAbilityOverride?: InstallAbility;
+
+	constructor(options: OpenMarketplaceServiceOptions = {}) {
+		this.rootDir = options.rootDir ?? join(getVettaHomePath(), "open-marketplace");
+		this.repository = options.repository ?? process.env.VETTA_OPEN_MARKETPLACE_REPOSITORY ?? DEFAULT_REPOSITORY;
+		this.archiveUrl = options.archiveUrl ?? process.env.VETTA_OPEN_MARKETPLACE_ARCHIVE_URL ?? DEFAULT_ARCHIVE_URL;
+		this.fetchArchive = options.fetchArchive ?? fetch;
+		this.now = options.now ?? (() => new Date());
+		this.syncIntervalMs = options.syncIntervalMs ?? DEFAULT_SYNC_INTERVAL_MS;
+		this.installAbilityOverride = options.installAbility;
+	}
+
+	async list(): Promise<OpenMarketplaceSnapshot> {
+		const cached = await this.readCachedSnapshot();
+		if (cached && !cached.stale) return cached;
+		return this.refresh();
+	}
+
+	async refresh(): Promise<OpenMarketplaceSnapshot> {
+		try {
+			return await this.sync();
+		} catch {
+			const cached = await this.readCachedSnapshot();
+			return cached
+				? { ...cached, stale: true, error: "sync-failed" }
+				: {
+						abilities: [],
+						marketplaceVersion: null,
+						repository: this.repository,
+						syncedAt: null,
+						stale: true,
+						error: "sync-failed",
+					};
+		}
+	}
+
+	async install(type: "skill" | "scene", slug: string): Promise<void> {
+		const active = await this.readActiveMarketplace();
+		if (!active) throw new Error("No validated open marketplace snapshot is available");
+		const ability = active.manifest.abilities.find((entry) => entry.type === type && entry.slug === slug);
+		if (!ability) throw new Error(`Open ability not found: ${type}:${slug}`);
+		const installAbility =
+			this.installAbilityOverride ??
+			(await import("./open-marketplace-production.js")).installOpenMarketplaceAbilityInDesktop;
+		await installAbility(active.snapshotRoot, ability, {
+			kind: "github-marketplace",
+			marketplace: active.manifest.name,
+			marketplaceVersion: active.manifest.marketplaceVersion,
+			repository: active.manifest.repository,
+		});
+	}
+
+	private get statePath(): string {
+		return join(this.rootDir, "state.json");
+	}
+
+	private get snapshotsDir(): string {
+		return join(this.rootDir, "snapshots");
+	}
+
+	private async readState(): Promise<OpenMarketplaceState | null> {
+		try {
+			return parseState(JSON.parse(await readFile(this.statePath, "utf-8")) as unknown);
+		} catch {
+			return null;
+		}
+	}
+
+	private async readActiveMarketplace(): Promise<{
+		state: OpenMarketplaceState;
+		snapshotRoot: string;
+		manifest: MarketplaceManifest;
+	} | null> {
+		const state = await this.readState();
+		if (!state) return null;
+		const snapshotRoot = join(this.snapshotsDir, state.marketplaceVersion);
+		try {
+			const raw: unknown = JSON.parse(await readFile(join(snapshotRoot, ".vetta", "marketplace.json"), "utf-8"));
+			const manifest = parseMarketplaceManifest(raw);
+			if (manifest.marketplaceVersion !== state.marketplaceVersion) return null;
+			return { state, snapshotRoot, manifest };
+		} catch {
+			return null;
+		}
+	}
+
+	private async readCachedSnapshot(): Promise<OpenMarketplaceSnapshot | null> {
+		const active = await this.readActiveMarketplace();
+		if (!active) return null;
+		const elapsed = this.now().getTime() - Date.parse(active.state.syncedAt);
+		return {
+			abilities: active.manifest.abilities.map((ability) => toOpenMarketplaceAbility(active.manifest, ability)),
+			marketplaceVersion: active.manifest.marketplaceVersion,
+			repository: active.manifest.repository,
+			syncedAt: active.state.syncedAt,
+			stale: !Number.isFinite(elapsed) || elapsed >= this.syncIntervalMs,
+		};
+	}
+
+	private async downloadArchive(): Promise<Buffer> {
+		const controller = new AbortController();
+		const timer = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
+		try {
+			const response = await this.fetchArchive(this.archiveUrl, {
+				headers: { Accept: "application/zip", "User-Agent": "Vetta-Desktop" },
+				redirect: "follow",
+				signal: controller.signal,
+			});
+			if (!response.ok) throw new Error(`Open marketplace download failed: ${response.status}`);
+			const declaredLength = Number(response.headers.get("content-length"));
+			if (Number.isFinite(declaredLength) && declaredLength > MAX_ARCHIVE_BYTES) {
+				throw new Error("Open marketplace archive is too large");
+			}
+			const buffer = Buffer.from(await response.arrayBuffer());
+			if (buffer.byteLength > MAX_ARCHIVE_BYTES) throw new Error("Open marketplace archive is too large");
+			return buffer;
+		} finally {
+			clearTimeout(timer);
+		}
+	}
+
+	private async extractArchive(buffer: Buffer, targetDir: string): Promise<void> {
+		const archive = new AdmZip(buffer);
+		const entries = archive.getEntries();
+		if (entries.length > MAX_ARCHIVE_ENTRIES) throw new Error("Open marketplace archive has too many entries");
+		let uncompressedBytes = 0;
+		for (const entry of entries) {
+			uncompressedBytes += entry.header.size;
+			if (uncompressedBytes > MAX_UNCOMPRESSED_BYTES) {
+				throw new Error("Open marketplace archive expands beyond the size limit");
+			}
+			if ((entry.header.flags & 1) !== 0) throw new Error("Encrypted archive entries are not supported");
+			const unixType = (entry.attr >>> 16) & 0o170000;
+			if (unixType === 0o120000) throw new Error("Symlink archive entries are not allowed");
+			const entryPath = normalizeArchiveEntryPath(entry.entryName);
+			const destination = resolve(targetDir, entryPath);
+			if (!isContained(targetDir, destination)) throw new Error(`Unsafe archive path: ${entry.entryName}`);
+			if (entry.isDirectory) {
+				await mkdir(destination, { recursive: true });
+				continue;
+			}
+			await mkdir(dirname(destination), { recursive: true });
+			await writeFile(destination, entry.getData(), { flag: "wx" });
+		}
+	}
+
+	private async locateMarketplaceRoot(unpackedDir: string): Promise<string> {
+		if (existsSync(join(unpackedDir, ".vetta", "marketplace.json"))) return unpackedDir;
+		const entries = await readdir(unpackedDir, { withFileTypes: true });
+		const candidates = entries
+			.filter((entry) => entry.isDirectory())
+			.map((entry) => join(unpackedDir, entry.name))
+			.filter((dir) => existsSync(join(dir, ".vetta", "marketplace.json")));
+		if (candidates.length !== 1) throw new Error("Archive must contain exactly one .vetta/marketplace.json");
+		return candidates[0];
+	}
+
+	private async sync(): Promise<OpenMarketplaceSnapshot> {
+		await mkdir(this.rootDir, { recursive: true });
+		await mkdir(this.snapshotsDir, { recursive: true });
+		const temporaryRoot = await mkdtemp(join(this.rootDir, "sync-"));
+		try {
+			const buffer = await this.downloadArchive();
+			const archiveSha256 = createHash("sha256").update(buffer).digest("hex");
+			const unpackedDir = join(temporaryRoot, "unpacked");
+			await mkdir(unpackedDir, { recursive: true });
+			await this.extractArchive(buffer, unpackedDir);
+			const marketplaceRoot = await this.locateMarketplaceRoot(unpackedDir);
+			const manifestRaw: unknown = JSON.parse(
+				await readFile(join(marketplaceRoot, ".vetta", "marketplace.json"), "utf-8"),
+			);
+			const manifest = parseMarketplaceManifest(manifestRaw);
+			for (const ability of manifest.abilities) {
+				const sourceDir = resolve(marketplaceRoot, ability.source.path);
+				if (!isContained(marketplaceRoot, sourceDir))
+					throw new Error(`Unsafe ability source: ${ability.source.path}`);
+				validateSkillPackage(sourceDir, ability);
+			}
+
+			const previousState = await this.readState();
+			if (
+				previousState?.marketplaceVersion === manifest.marketplaceVersion &&
+				previousState.archiveSha256 !== archiveSha256
+			) {
+				throw new Error("Marketplace content changed without a marketplaceVersion update");
+			}
+			const destination = join(this.snapshotsDir, manifest.marketplaceVersion);
+			const canReuseDestination =
+				previousState?.marketplaceVersion === manifest.marketplaceVersion &&
+				previousState.archiveSha256 === archiveSha256 &&
+				existsSync(destination);
+			if (!canReuseDestination) {
+				await rm(destination, { recursive: true, force: true });
+				await rename(marketplaceRoot, destination);
+			}
+			const state: OpenMarketplaceState = {
+				marketplaceVersion: manifest.marketplaceVersion,
+				archiveSha256,
+				syncedAt: this.now().toISOString(),
+			};
+			const temporaryStatePath = join(temporaryRoot, "state.json");
+			await writeFile(temporaryStatePath, JSON.stringify(state, null, 2), "utf-8");
+			await rename(temporaryStatePath, this.statePath);
+			return {
+				abilities: manifest.abilities.map((ability) => toOpenMarketplaceAbility(manifest, ability)),
+				marketplaceVersion: manifest.marketplaceVersion,
+				repository: manifest.repository,
+				syncedAt: state.syncedAt,
+				stale: false,
+			};
+		} finally {
+			await rm(temporaryRoot, { recursive: true, force: true });
+		}
+	}
+}
+
+let desktopOpenMarketplaceService: OpenMarketplaceService | undefined;
+
+export function getOpenMarketplaceService(): OpenMarketplaceService {
+	desktopOpenMarketplaceService ??= new OpenMarketplaceService();
+	return desktopOpenMarketplaceService;
+}

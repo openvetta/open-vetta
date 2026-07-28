@@ -30,7 +30,8 @@
 		"updateAvailable": "可更新",
 		"custom": "自定义",
 		"builtin": "内置",
-		"readonly": "只读"
+		"readonly": "只读",
+		"openSource": "开源"
 	},
 	"card": {
 		"noDescription": "暂无能力说明"
@@ -72,7 +73,8 @@
 		"downloadFailed": "下载失败：{{status}}",
 		"notLoggedIn": "请先登录后再安装能力",
 		"membersUnavailable": "以下成员暂不可用，未能安装：{{names}}",
-		"partial": "部分能力暂时无法加载：{{error}}"
+		"partial": "部分能力暂时无法加载：{{error}}",
+		"openMarketplaceSyncFailed": "开源能力同步失败，已保留上次可用内容"
 	},
 	"message": {
 		"installed": "已安装 {{name}}",

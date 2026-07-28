@@ -30,7 +30,8 @@
 		"updateAvailable": "Update available",
 		"custom": "Custom",
 		"builtin": "Built-in",
-		"readonly": "Read-only"
+		"readonly": "Read-only",
+		"openSource": "Open source"
 	},
 	"card": {
 		"noDescription": "No description"
@@ -72,7 +73,8 @@
 		"downloadFailed": "Download failed: {{status}}",
 		"notLoggedIn": "Sign in before installing abilities",
 		"membersUnavailable": "These members are unavailable and were not installed: {{names}}",
-		"partial": "Some abilities could not be loaded: {{error}}"
+		"partial": "Some abilities could not be loaded: {{error}}",
+		"openMarketplaceSyncFailed": "Open abilities could not be synced; the last usable snapshot was kept"
 	},
 	"message": {
 		"installed": "Installed {{name}}",

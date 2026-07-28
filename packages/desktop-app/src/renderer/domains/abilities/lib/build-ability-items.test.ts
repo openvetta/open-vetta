@@ -6,6 +6,7 @@ import type { AbilityItem, McpAbility } from "../types";
 import {
 	buildBundleAbilities,
 	buildPluginAbilities,
+	buildSkillAbilities,
 	type LocalAbilityState,
 	type PluginTextResolver,
 } from "./build-ability-items";
@@ -121,6 +122,26 @@ describe("buildPluginAbilities", () => {
 
 		expect(items[0]?.title).toBe("Cowart 画布");
 		expect(items[0]?.description).toBe("无限画布能力包");
+	});
+});
+
+describe("buildSkillAbilities", () => {
+	it("preserves GitHub marketplace origin for install routing", () => {
+		const ability = {
+			...createBundle([]),
+			type: "skill" as const,
+			slug: "open-skill",
+			origin: {
+				kind: "github-marketplace" as const,
+				marketplace: "vetta-open-abilities",
+				marketplaceVersion: "2026.07.1",
+				repository: "https://github.com/example/vetta-abilities",
+			},
+		};
+
+		const items = buildSkillAbilities([ability], createState());
+
+		expect(items[0]?.origin).toEqual(ability.origin);
 	});
 });
 

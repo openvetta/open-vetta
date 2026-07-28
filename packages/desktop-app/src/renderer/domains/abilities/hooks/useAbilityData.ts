@@ -2,13 +2,14 @@
  * 能力页的原始数据源：市场行 + 安装台账 + 三条安装轨道的本地状态。
  * 只负责取数与刷新，条目组装在 lib/build-ability-items.ts。
  */
-import type { AbilityLedger, InstalledPlugin, InstalledSkill, SkillInfo } from "@preload/api";
+import type { AbilityLedger, InstalledPlugin, InstalledSkill, OpenMarketplaceSnapshot, SkillInfo } from "@preload/api";
 import { i18n } from "@shared/i18n";
 import type { MarketAbility } from "@shared/lib/api";
 import { fetchMarketAbilities } from "@shared/lib/api";
 import { authTokenAtom } from "@shared/store/atoms";
 import { useAtomValue } from "jotai";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { mergeAbilityCatalogs } from "../lib/merge-ability-catalogs";
 
 export interface AbilityData {
 	market: MarketAbility[];
@@ -29,7 +30,14 @@ function isReadonlySkillSource(source: string): boolean {
 
 export function useAbilityData(): AbilityData {
 	const token = useAtomValue(authTokenAtom);
-	const [market, setMarket] = useState<MarketAbility[]>([]);
+	const [serverMarket, setServerMarket] = useState<MarketAbility[]>([]);
+	const [openMarketplace, setOpenMarketplace] = useState<OpenMarketplaceSnapshot>({
+		abilities: [],
+		marketplaceVersion: null,
+		repository: "",
+		syncedAt: null,
+		stale: true,
+	});
 	const [ledger, setLedger] = useState<AbilityLedger>({});
 	const [skillManifest, setSkillManifest] = useState<Record<string, InstalledSkill>>({});
 	const [localSkills, setLocalSkills] = useState<SkillInfo[]>([]);
@@ -38,44 +46,72 @@ export function useAbilityData(): AbilityData {
 	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	const refresh = useCallback(() => {
-		setRefreshing(true);
-		const local = Promise.all([
-			window.vetta.abilities.getLedger(),
-			window.vetta.skills.getMarketManifest(),
-			window.vetta.skills.list(),
-			window.vetta.plugins.list(),
-		]).then(([nextLedger, manifest, skills, installedPlugins]) => {
-			setLedger(nextLedger);
-			setSkillManifest(manifest);
-			setLocalSkills(skills.filter((skill) => isReadonlySkillSource(skill.source)));
-			setPlugins(installedPlugins);
-		});
+	const load = useCallback(
+		(forceOpenMarketplaceRefresh: boolean) => {
+			setRefreshing(true);
+			const local = Promise.all([
+				window.vetta.abilities.getLedger(),
+				window.vetta.skills.getMarketManifest(),
+				window.vetta.skills.list(),
+				window.vetta.plugins.list(),
+			]);
 
-		const remote = token
-			? fetchMarketAbilities(token).then((list) => {
-					setMarket(list);
-					setError(null);
+			const remote = token ? fetchMarketAbilities(token) : Promise.resolve([]);
+			const open = forceOpenMarketplaceRefresh
+				? window.vetta.abilities.refreshOpenMarketplace()
+				: window.vetta.abilities.listOpenMarketplace();
+
+			void Promise.allSettled([local, remote, open])
+				.then(([localResult, remoteResult, openResult]) => {
+					const errors: string[] = [];
+					if (localResult.status === "fulfilled") {
+						const [nextLedger, manifest, skills, installedPlugins] = localResult.value;
+						setLedger(nextLedger);
+						setSkillManifest(manifest);
+						setLocalSkills(skills.filter((skill) => isReadonlySkillSource(skill.source)));
+						setPlugins(installedPlugins);
+					} else {
+						errors.push(
+							localResult.reason instanceof Error
+								? localResult.reason.message
+								: i18n.t("abilities:error.loadFailed"),
+						);
+					}
+					if (remoteResult.status === "fulfilled") {
+						setServerMarket(remoteResult.value);
+					} else {
+						errors.push(
+							remoteResult.reason instanceof Error
+								? remoteResult.reason.message
+								: i18n.t("abilities:error.loadFailed"),
+						);
+					}
+					if (openResult.status === "fulfilled") {
+						setOpenMarketplace(openResult.value);
+						if (openResult.value.error) errors.push(i18n.t("abilities:error.openMarketplaceSyncFailed"));
+					} else {
+						errors.push(i18n.t("abilities:error.openMarketplaceSyncFailed"));
+					}
+					setError(errors.length > 0 ? errors.join("; ") : null);
 				})
-			: Promise.resolve().then(() => {
-					// 未登录：仅展示本地已安装 / 内置能力，不报错。
-					setMarket([]);
-					setError(null);
+				.finally(() => {
+					setLoading(false);
+					setRefreshing(false);
 				});
+		},
+		[token],
+	);
 
-		void Promise.all([local, remote])
-			.catch((err: Error) => {
-				setError(err.message || i18n.t("abilities:error.loadFailed"));
-			})
-			.finally(() => {
-				setLoading(false);
-				setRefreshing(false);
-			});
-	}, [token]);
+	const refresh = useCallback(() => load(true), [load]);
 
 	useEffect(() => {
-		refresh();
-	}, [refresh]);
+		load(false);
+	}, [load]);
+
+	const market = useMemo(
+		() => mergeAbilityCatalogs(serverMarket, openMarketplace.abilities, openMarketplace.syncedAt),
+		[openMarketplace.abilities, openMarketplace.syncedAt, serverMarket],
+	);
 
 	return { market, ledger, skillManifest, localSkills, plugins, loading, refreshing, error, refresh };
 }

@@ -22,6 +22,11 @@ export function AbilityStatusBadges({ item }: { item: AbilityItem }): JSX.Elemen
 	const { t } = useTranslation("abilities");
 	return (
 		<>
+			{item.origin?.kind === "github-marketplace" && (
+				<span className="inline-flex shrink-0 items-center rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">
+					{t("status.openSource")}
+				</span>
+			)}
 			{item.setupRequired && (
 				<span className="inline-flex shrink-0 items-center rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">
 					{t("status.setupRequired")}
