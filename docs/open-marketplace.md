@@ -38,7 +38,7 @@ Plugin 的 `source.path` 指向一个可直接安装的插件目录。目录至�
 }
 ```
 
-Bundle 没有 `source` 和独立安装产物，只声明同一 Manifest 中的成员。当前成员只支持 `skill`、`scene` 和 `plugin`，不允许嵌套 Bundle。
+Bundle 没有 `source` 和独立安装产物，只声明同一 Manifest 中的成员。当前成员只支持 `skill`、`scene` 和 `plugin`，不允许嵌套 Bundle。安装和卸载时均由用户在确认弹窗中选择成员，不强制一次处理全部成员。
 
 ```json
 {
