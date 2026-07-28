@@ -61,8 +61,12 @@ export interface PresetProvidersResult {
 	providers: PresetProviderInfo[];
 	/** 是否展示各家全部模型;false(默认) = 每个系列只留最新一档。 */
 	showAllModels: boolean;
-	/** 公共目录一份都没拿到时的原因(连缓存都没有)。 */
+	/** 公共目录最近一次拉取失败的原因。仅在退到随包快照时给出。 */
 	catalogError?: string;
+	/** 当前目录数据来自哪里:实拉/缓存 = live,随包内置快照 = snapshot。 */
+	catalogSource: "live" | "snapshot";
+	/** 当前目录数据的抓取时间(ISO)。 */
+	catalogFetchedAt?: string;
 }
 
 export interface PresetModelsResult {

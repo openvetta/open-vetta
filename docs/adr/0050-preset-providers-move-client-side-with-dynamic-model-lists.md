@@ -16,6 +16,8 @@
 
 **接口不给的字段用 [models.dev](https://models.dev/api.json) 目录补，接口给了的一律以接口为准**（`models-dev.ts`）。没有一家 `/models` 返回价格，OpenAI / DeepSeek / GLM 连上下文长度都不给。曾用手写静态表按模型 id 正则补，两个月不到就全错（v3 时代的 DeepSeek 价格套在 v4 上、`^gpt-5` 规则套在 gpt-5.6-sol 上），**手写表本身就是错误来源**，遂改为拉一份跟各家发版更新的社区目录：随模型列表一起同步、裁到六家后落 `~/.vetta/agent/models-dev-cache.json`，12 小时 TTL，拉不到退回缓存，一份都没有就只展示接口字段——绝不显示猜的价格。
 
+**目录带一份随包快照兜底。** 国内网络下 `models.dev` 常在 TLS 握手阶段被直接掐断（`net::ERR_CONNECTION_CLOSED`），新装用户既没磁盘缓存也拉不到，结果是六家各 0 个模型——比数据旧得多的问题。故把目录快照作为生成物提交进仓库（`models-dev-snapshot.generated.ts`，`bun run snapshot:models-dev` 重新生成），随 main bundle 打包。取数顺序：内存 → 磁盘缓存 → **随包快照**，同时后台拉线上数据，拉到就覆盖。快照是自动生成、带抓取时间、且必然被线上数据顶替，与「不手写清单」并不矛盾；退到快照且确实拉失败时，设置页会说明当前用的是哪一份、生成于何时。快照的 `version` 必须与 `CATALOG_VERSION` 一致（有测试挡着），否则运行时会整份丢弃、兜底形同虚设。
+
 这是 ADR-0015「纯动态 `/models` 拿不到能力元数据」那条否决理由的正解：动态拿 id + 目录补能力，而不是二选一。代价是多一个第三方目录依赖，但它不是发布链路的一环——挂了只影响价格展示，模型照常可用。
 
 **持久化沿用 snapshot-on-key**：填 key 即落成 `models.json` 里的普通 provider 条目（`source:"template"` + `templateId`），新增 `modelsSyncedAt` 记录同步时间。拉取只在主进程发生且**只拉不写**，由渲染层连同 key 一起落盘，避免两处各写一次 `models.json`；后台定时同步例外，它直接经 `ModelSettingsService` 写回。

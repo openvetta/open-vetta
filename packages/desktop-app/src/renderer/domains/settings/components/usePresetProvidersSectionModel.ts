@@ -114,8 +114,12 @@ export function usePresetProvidersSectionModel({
 			setShowAllModels(result.showAllModels);
 			// 公共目录连缓存都没有时把原因摆出来,别让用户对着 0 个模型猜。
 			if (result.catalogError) {
-				console.error("[preset-providers] models.dev 公共目录不可用：", result.catalogError);
-				setError(`${t("catalogUnavailable")}（${result.catalogError}）`);
+				console.error(
+					`[preset-providers] models.dev 公共目录不可达，已退到随包快照（${result.catalogFetchedAt ?? "?"}）：`,
+					result.catalogError,
+				);
+				const time = result.catalogFetchedAt ? formatSyncedAt(result.catalogFetchedAt, i18n.language) : "?";
+				setError(`${t("catalogUnavailable", { time })}（${result.catalogError}）`);
 			} else {
 				setError(null);
 			}
@@ -124,7 +128,7 @@ export function usePresetProvidersSectionModel({
 		} finally {
 			setLoading(false);
 		}
-	}, [t]);
+	}, [i18n.language, t]);
 
 	useEffect(() => {
 		void load();
@@ -313,14 +317,12 @@ export function usePresetProvidersSectionModel({
 				console.error("[preset-providers] 刷新 models.dev 目录失败：", result.error);
 			}
 			await load();
-			if (!result.ok) setError(`${t("catalogUnavailable")}（${result.error ?? "未知错误"}）`);
 		} catch (err) {
 			console.error("[preset-providers] 刷新 models.dev 目录异常：", err);
-			setError(`${t("catalogUnavailable")}（${err instanceof Error ? err.message : String(err)}）`);
 		} finally {
 			setRefreshingCatalog(false);
 		}
-	}, [load, t]);
+	}, [load]);
 
 	const remove = useCallback(
 		async (row: PresetProviderRow): Promise<void> => {

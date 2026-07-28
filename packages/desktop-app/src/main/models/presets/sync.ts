@@ -16,6 +16,7 @@ import {
 	type ModelsDevCatalog,
 	selectLatestModels,
 } from "./models-dev.js";
+import { MODELS_DEV_SNAPSHOT } from "./models-dev-snapshot.generated.js";
 import { getShowAllPresetModels, setShowAllPresetModels } from "./preferences.js";
 
 const presetLog = getAppLogger("preset-providers");
@@ -40,8 +41,12 @@ export interface PresetProvidersResult {
 	providers: PresetProviderInfo[];
 	/** 是否展示各家全部模型;false = 每个系列只留最新一档。 */
 	showAllModels: boolean;
-	/** 公共目录一份都没拿到时的原因。有缓存(哪怕过期)就没有这个字段。 */
+	/** 公共目录最近一次拉取失败的原因。仅在退到随包快照时给出——有实拉数据就不打扰。 */
 	catalogError?: string;
+	/** 当前目录数据来自哪里,便于排查「模型怎么和线上对不上」。 */
+	catalogSource: "live" | "snapshot";
+	/** 当前目录数据的抓取时间(ISO)。 */
+	catalogFetchedAt?: string;
 }
 
 /**
@@ -55,9 +60,13 @@ export async function listPresetProviders(): Promise<PresetProvidersResult> {
 	const catalog = await getCachedCatalog();
 	if (!isCatalogFresh(catalog, Date.now())) void refreshCatalogInBackground();
 	const showAllModels = getShowAllPresetModels();
+	const snapshot = isSnapshot(catalog);
 	return {
 		showAllModels,
-		catalogError: catalogError(catalog),
+		catalogSource: snapshot ? "snapshot" : "live",
+		catalogFetchedAt: catalog?.fetchedAt,
+		// 只有退到快照且确实拉失败过才提示:平时用快照(还没轮到刷新)不该报错。
+		...(snapshot && catalogLastError ? { catalogError: catalogLastError } : {}),
 		providers: PRESET_PROVIDERS.map((def) => ({
 			id: def.id,
 			displayName: def.displayName,
@@ -143,10 +152,15 @@ async function readCatalogCache(): Promise<ModelsDevCatalog | null> {
 	}
 }
 
-/** 只读缓存(内存 → 磁盘),不碰网络。过期的也照用——过期目录远好过没有目录。 */
+/**
+ * 只读本地目录(内存 → 磁盘缓存 → 随包快照),不碰网络。过期的也照用——过期目录远好过没有目录。
+ *
+ * 快照是最后一道兜底:国内网络下 models.dev 常在 TLS 阶段被直接掐断(net::ERR_CONNECTION_CLOSED),
+ * 新装用户既没缓存也拉不到,没有快照就只能对着 0 个模型干瞪眼。
+ */
 async function getCachedCatalog(): Promise<ModelsDevCatalog | null> {
 	catalogMemo ??= await readCatalogCache();
-	return catalogMemo;
+	return catalogMemo ?? MODELS_DEV_SNAPSHOT;
 }
 
 /**
@@ -176,7 +190,8 @@ async function ensureCatalog(): Promise<ModelsDevCatalog | null> {
 			clearTimeout(timer);
 			catalogInFlight = null;
 		}
-		return catalogMemo;
+		// 拉失败时同样退到快照,别让下游拿着 null 去补元数据(那会连价格都没有)。
+		return catalogMemo ?? MODELS_DEV_SNAPSHOT;
 	})();
 	return catalogInFlight;
 }
@@ -191,10 +206,9 @@ function describeFetchError(err: unknown): string {
 	return String(err);
 }
 
-/** 目录拿不到时给渲染层的原因(有可用缓存就不算错误)。 */
-function catalogError(catalog: ModelsDevCatalog | null): string | undefined {
-	if (catalog) return undefined;
-	return catalogLastError ?? undefined;
+/** 用的是不是随包快照——快照的 fetchedAt 是生成时刻,与实拉数据一模一样,只能按引用认。 */
+function isSnapshot(catalog: ModelsDevCatalog | null): boolean {
+	return catalog === MODELS_DEV_SNAPSHOT;
 }
 
 /**
