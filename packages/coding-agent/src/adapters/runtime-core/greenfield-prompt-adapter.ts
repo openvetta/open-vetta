@@ -1,4 +1,5 @@
 import type { ImageContent, UserMessage } from "@vetta/ai";
+import type { EcosystemHookRuntime } from "@vetta/ecosystem-adapter/hooks";
 import type {
 	GreenfieldPreparedPrompt,
 	GreenfieldPromptAdapter,
@@ -30,16 +31,19 @@ export type CodingAgentPromptResourceResolver = (
 export interface CodingAgentGreenfieldPromptAdapterOptions {
 	readonly now?: () => number;
 	readonly resolvePromptResource?: CodingAgentPromptResourceResolver;
+	readonly hookRuntime?: EcosystemHookRuntime;
 }
 
 /** 将 coding-agent 宿主语义翻译成业务无关的 Kernel 输入。 */
 export class CodingAgentGreenfieldPromptAdapter implements GreenfieldPromptAdapter {
 	private readonly now: () => number;
 	private readonly resolvePromptResource: CodingAgentPromptResourceResolver | undefined;
+	private readonly hookRuntime: EcosystemHookRuntime | undefined;
 
 	constructor(options: CodingAgentGreenfieldPromptAdapterOptions = {}) {
 		this.now = options.now ?? Date.now;
 		this.resolvePromptResource = options.resolvePromptResource;
+		this.hookRuntime = options.hookRuntime;
 	}
 
 	async prepare(
@@ -47,12 +51,15 @@ export class CodingAgentGreenfieldPromptAdapter implements GreenfieldPromptAdapt
 		context: GreenfieldPromptPreparationContext,
 	): Promise<GreenfieldPreparedPrompt> {
 		const expansion = await this.expandPrompt(request, context);
+		const hookContexts = await this.runPromptHooks(expansion.text);
 		const timestamp = this.now();
 		const attachmentContext = request.attachments?.length
 			? buildPromptAttachmentContext(request.attachments)
 			: undefined;
 		const queuedInjection = context.queueing
-			? [attachmentContext, expansion.skillInjection, expansion.sceneInjection].filter(isNonEmptyString).join("\n\n")
+			? [...hookContexts, attachmentContext, expansion.skillInjection, expansion.sceneInjection]
+					.filter(isNonEmptyString)
+					.join("\n\n")
 			: "";
 		const text = queuedInjection ? `${queuedInjection}\n\n${expansion.text}` : expansion.text;
 		const content: Array<{ readonly type: "text"; readonly text: string } | ImageContent> = [
@@ -64,7 +71,12 @@ export class CodingAgentGreenfieldPromptAdapter implements GreenfieldPromptAdapt
 			content,
 			timestamp,
 		};
-		const contextRecords = context.queueing ? [] : this.buildContext(request, expansion);
+		const contextRecords = context.queueing
+			? []
+			: [
+					...hookContexts.map((content) => hiddenContext("ecosystem_hook_context", content)),
+					...this.buildContext(request, expansion),
+				];
 		return {
 			input: {
 				message,
@@ -72,6 +84,21 @@ export class CodingAgentGreenfieldPromptAdapter implements GreenfieldPromptAdapt
 			},
 			options: { streamingBehavior: request.streamingBehavior },
 		};
+	}
+
+	private async runPromptHooks(prompt: string): Promise<readonly string[]> {
+		if (!this.hookRuntime) return [];
+		const sessionStart = await this.hookRuntime.runPendingSessionStart();
+		if (sessionStart?.shouldStop || sessionStart?.shouldBlock) {
+			throw new Error(
+				sessionStart.stopReason ?? sessionStart.blockReason ?? "Session start blocked by ecosystem hook",
+			);
+		}
+		const promptSubmit = await this.hookRuntime.runUserPromptSubmit(prompt);
+		if (promptSubmit.shouldStop || promptSubmit.shouldBlock) {
+			throw new Error(promptSubmit.stopReason ?? promptSubmit.blockReason ?? "Prompt blocked by ecosystem hook");
+		}
+		return [...(sessionStart?.additionalContexts ?? []), ...promptSubmit.additionalContexts];
 	}
 
 	private async expandPrompt(

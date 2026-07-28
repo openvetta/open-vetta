@@ -650,6 +650,33 @@ Context Provider 通过可选 input 区分 prompt 和 continue。测试确认一
 未闭合 Turn、顺序错误或版本冲突 fail closed。恢复执行器和真实文件 Repository 集成已经实现并验证；
 当前切换阻断来自完整历史图、旧 JSONL 兼容和外围 Assembly 能力，而不是 resume 本身。
 
+### 2.17 Session-local Ecosystem Hook Runtime
+
+旧 Greenfield 组合只有 Stop Hook 局部 invoker，没有保证 Prompt、Tool、Stop 与 Session lifecycle 共享
+同一 Runtime。该结构会割裂 SessionStart pending 状态、Stop continuation 计数和 Hook 配置。本阶段改为：
+
+```text
+one EcosystemHookRuntime per Session
+  -> Prompt SessionStart / UserPromptSubmit
+  -> final Model Call Tool surface
+  -> Stop continuation
+  -> SessionEnd dispose
+```
+
+Tool Hook 包装发生在动态插件、MCP、Todo 等能力完成调用级组合之后，因此运行时新增或撤销工具会在下一次
+Model Call 自然生效。Greenfield wrapper 复用旧 `wrapToolsWithEcosystemHooks()`，并用差分合同验证输入改写、
+MCP descriptor、Post feedback、additional context、真实执行失败和 Pre 阻断，没有复制第二套 Hook 语义。
+
+Tool Hook additional context 不直接写 Repository。Runtime Core 新增 Session-local append-only context
+边界，Turn Pipeline 在 toolResult 等持久消息之后、Turn 终态之前，以同一 revision 序列追加
+`context.appended`。记录只有在持久化成功后才从 Buffer 移除，Turn 结束清理残留，避免跨 Turn 泄漏。与旧
+运行语义一致，这些内容不会倒灌到已执行中的 Tool Loop，而会对下一个外部 Turn 可见。
+
+Prompt 合同覆盖 SessionStart/UserPromptSubmit 顺序、阻断与空闲/排队注入顺序；CLI 真实组合覆盖
+create/resume source、静态及动态工具、Stop continuation、context 持久化和幂等 SessionEnd。尚未接入
+Pre/PostCompact、PermissionRequest、SubagentStart/SubagentStop，以及只有真实宿主切换操作才能表达的
+`new_session`/`switch_session`/`fork_session` SessionEnd 原因。
+
 ## 3. 已实施模块审计
 
 | 模块 | 当前状态 | 与旧行为的差距 | 切换结论 |
@@ -665,14 +692,15 @@ Context Provider 通过可选 input 区分 prompt 和 continue。测试确认一
 | 宿主可执行文件解析 | Runtime Port、本地 PATH/managed-bin Adapter、grep/find 注入合同、旧 ensureTool 适配、网络/归档合同和 cli-app Composition Root 已通过 | 真实 GitHub 网络、最终独立可执行发布物和完整 Tool Profile 迁移尚未完成；包根兼容导出必须继续保留 | 新 Profile 可并行验证；旧宿主仍不可切换 |
 | Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope/explicit 激活和 requires/capabilities，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；current_time/read/ls/grep/find/glob/tree/write/edit/bash/shell/task_output/task_stop 已进入全场景 Profile 差分门禁 | 生产 Profile 尚未切换 | 动态编排与当前默认工具迁移完成；生产接入未完成 |
 | `AgentSession` | 新状态机、活动 Turn 输入队列、无伪 user message 的 continue 与显式 resume 已实现 | 尚缺旧外围能力的 Greenfield 实现 | 内核 Turn/恢复语义已具备；生产入口不可切换 |
-| Turn Pipeline | 固定阶段、持久化检查点、非持久化 observation、输入队列、continue、recovery 和独立 Turn Model Binding 已实现 | 完整生产 Composition Root 尚未接入 | 不可切换 |
+| Turn Pipeline | 固定阶段、持久化检查点、非持久化 observation、输入队列、continue、recovery、独立 Turn Model Binding 和 Session-local 运行期 Context 串行持久化已实现 | 完整生产 Composition Root 尚未接入 | 不可切换 |
 | `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环、动态 Model Call Frame、完整观察事件、输入队列消费和 Turn model binding 已通过 | 尚未由真实 Greenfield Composition Root 接入生产 RuntimeHost | 内核执行能力已具备；宿主仍不可切换 |
-| Greenfield Session Backend | 独立门面、必需 Prompt Adapter/Runtime Factory、同步投影、显式 resume，以及 Lifecycle/History/Model/Workspace/Core Ports 共 7 项能力已通过 | Host Interaction、Execution、Configuration、Todo、Background Work 等 5 项能力未实现；模型配置尚未持久化 | 可并行组合测试；不能注入生产 RuntimeHost |
+| Greenfield Session Backend | 独立门面、必需 Prompt Adapter/Runtime Factory、同步投影、显式 resume、Session-local Todo/Hook Runtime，以及 Lifecycle/History/Model/Workspace/Core Ports 已通过 | Host Interaction、Execution、Configuration、Background Work 等外围能力未实现；模型配置尚未持久化 | 可并行组合测试；不能注入生产 RuntimeHost |
 | Runtime Snapshot | 编译、冻结、lease、原子交换和动态 Model Call Provider 已实现 | Coding Profile 的完整默认能力与 scope 尚未装配 | 不可替代旧工具注册 |
 | Conversation Repository | V2 create/load/append/save、树形 Document 读写、活动分支、fork、跨实例文件锁和 Legacy importer 已实现 | Legacy/V1 历史结构写命令保持只读；模型配置尚无异步持久化合同 | 不可直接替代全部旧会话写路径 |
 | Context Strategy | 目前只有 passthrough 基础实现 | 旧 compaction、prefire、microcompact 和摘要行为未迁移 | 不可切换长会话 |
-| MCP / Skill / Knowledge / Subagent | 尚未迁移 | 旧能力全部缺失 | 不可切换对应 Profile |
-| Desktop / CLI / RPC / IM Adapter | RuntimeHost 已完全通过稳定 Ports 编排；Greenfield 已具备 observation、SessionEvent、输入队列、同步 Core Projection 和真实文件恢复 | Greenfield 完整 Assembly、Prompt Adapter、旧存储兼容和实际宿主接线尚未完成 | 不可切换入口 |
+| MCP / Skill / Knowledge / Subagent | Session 级 Skill/Scene Prompt、MCP 渐进披露与现有 Knowledge 工具来源已进入并行组合 | Subagent Runtime 未迁移；尚未形成完整生产 Profile | 不可切换对应生产 Profile |
+| Ecosystem Hook Runtime | 每 Session 唯一实例已贯通 Prompt、最终动态 Tool Surface、Stop、运行期 Context 和 dispose | Pre/PostCompact、PermissionRequest、Subagent Hook 与宿主切换原因未接入 | 并行组合已验证；默认生产入口不变 |
+| Desktop / CLI / RPC / IM Adapter | RuntimeHost 已完全通过稳定 Ports 编排；CLI Greenfield Composition Root 已具备真实模型、Prompt、动态能力、Todo、Hook、Continuation、SessionEvent 和文件恢复 | Greenfield 完整 Assembly、旧存储兼容及 Desktop/RPC/IM 实际宿主接线尚未完成 | 不可切换默认入口 |
 
 上述差距目前没有影响生产，因为旧入口仍在使用旧实现。但它们是切换阻断项，不能因为新模块
 已有单元测试就视为功能迁移完成。
@@ -707,25 +735,20 @@ side effects
 
 ## 5. 下一步
 
-`current_time`、`read`、`ls`、`grep`、`find`、`glob`、bash/shell 前后台协调、task 工具、requires/capabilities 和动态注册/激活编排合同已经建立。
-宿主适配器已从 `core/host` 调整到 `adapters/runtime-tools`，并建立了不触发网络的基础
-`ensureTool` 行为合同、下载计划合同、归档安装合同、网络边界合同和 cli-app 过渡
-Composition Root。新旧 Tool Profile 已对全部场景建立差分门禁；runtime-tools 包根兼容导出
-因仍承载未迁移工具而保留。Runtime 后台任务生命周期引擎及 shell spawn、日志存储和进程树
-终止的低层宿主 Operations 已完成并通过差分。dir_tree、write 和 edit 的独立 Runtime 实现、宿主
-Port 及全场景差分均已完成。旧 AgentSession 事件特征基线、独立 Session observation 合同、
-Greenfield 瞬时事件发布、现有 `SessionEvent` 适配，以及活动 Turn 的 steer/follow-up、队列模式与
-abort/error 仲裁、无伪 user message 的 continue、显式 Greenfield 并行 Backend、Runtime-owned 创建请求、
-RuntimeHost 全量稳定 Ports、Greenfield 同步 Core Projection、Conversation Document 读写、真实文件恢复，
-以及共享 Controller/View/State/Turn 的 Model Runtime 也已完成。下一阶段应建立真实 Greenfield Runtime
-Composition Root，用宿主 Adapter 实现 Model Catalog 与 Credential Resolver，并让同一 Model Runtime 注入
-Session Assembly 和 Turn Pipeline；随后再按行为基线补齐剩余 5 项 Assembly 能力。模型配置持久化必须使用
-显式异步合同，不能在同步 setter 中 fire-and-forget。不能用伪造 ID、固定零值、类型断言或空实现强行接入。
-完整 Assembly 就绪前不替换默认旧后端。最后根据完整 Profile 差分结果设计兼容入口迁移；
-真实 GitHub 网络、最终独立可执行发布物和
-其他外部依赖的产物级解析/打包测试仍需单独执行，重点覆盖下载、并发解析、版本锁定、离线
-模式和 Windows/Unix 产物。生产 Profile 接线时由组合根创建 Registry；
-普通 Catalog 成员变化直接在下一次模型调用生效，不再触发全 Profile 重编译。
+工具、动态能力、Session/Conversation、真实模型与 Prompt、Todo、Plugin、Continuation 以及
+Session-local Ecosystem Hook Runtime 的并行 Greenfield 组合已经建立。Hook Runtime 目前贯通
+SessionStart/UserPromptSubmit、最终动态 Tool Surface、Stop、运行期 Context 持久化和 dispose；默认旧
+AgentSession 与生产宿主入口保持不变。
+
+下一阶段应迁移真实 Context Strategy/Compaction 纵向切片。先从旧实现提取 context usage、prefire、
+microcompact、摘要、失败、取消和持久化行为矩阵，再让同一 Greenfield Session Hook Runtime 接入
+PreCompact/PostCompact。不能为了触发 Hook 伪造压缩事件，也不能把旧 AgentSession 压缩器整体下沉到
+Runtime Core。随后再按真实能力边界迁移 PermissionRequest、Subagent Runtime 和剩余 Assembly Port。
+
+模型配置持久化仍必须使用显式异步合同，不能在同步 setter 中 fire-and-forget；完整 Assembly 就绪前不
+替换默认旧后端。最终生产切换仍需完整 Profile 差分、旧存储兼容和 Desktop/RPC/IM 宿主验证。真实 GitHub
+网络、最终独立可执行发布物和其他外部依赖的产物级解析/打包测试也需单独执行，重点覆盖下载、并发解析、
+版本锁定、离线模式和 Windows/Unix 产物。
 
 生产切换前还必须增加宿主产物级测试，验证 Photon WASM 在现有独立可执行打包方式中的复制与
 定位行为。该验证属于 Host Adapter/Packaging Gate，不应重新塞回 read 的领域实现。

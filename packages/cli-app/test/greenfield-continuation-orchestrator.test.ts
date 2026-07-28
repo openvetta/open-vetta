@@ -13,6 +13,9 @@ import {
 	type CodingAgentModelRegistrySource,
 	type CodingAgentPluginRuntimeSource,
 	CodingAgentTodoRuntime,
+	type EcosystemHookEvent,
+	emptyHookDispatchOutcome,
+	type HookDispatchOutcome,
 } from "@vetta/coding-agent/runtime-host/greenfield";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -84,7 +87,13 @@ describe("Greenfield continuation orchestration", () => {
 			}),
 			createPluginRuntime: () => pluginRuntime,
 			createTodoRuntime: () => todoRuntime,
-			createStopHookInvoker: () => stopHook,
+			additionalHookAdapterFactories: [
+				async () => ({
+					id: "test-stop-hook",
+					supports: (event) => event.eventName === "Stop",
+					dispatch: async (event) => stopHookOutcome(event, stopHook),
+				}),
+			],
 			streamFn: (_model, context) => {
 				modelCalls.push([...context.messages]);
 				if (responseIndex === 1) {
@@ -131,6 +140,19 @@ describe("Greenfield continuation orchestration", () => {
 		await session.dispose();
 	});
 });
+
+async function stopHookOutcome(
+	event: EcosystemHookEvent,
+	stopHook: (message: string | null) => Promise<readonly string[]>,
+): Promise<HookDispatchOutcome> {
+	if (event.eventName !== "Stop") return emptyHookDispatchOutcome();
+	const continuationFragments = await stopHook(event.lastAssistantMessage);
+	return {
+		...emptyHookDispatchOutcome(),
+		shouldBlock: continuationFragments.length > 0,
+		continuationFragments: [...continuationFragments],
+	};
+}
 
 class RecordedAssistantStream extends EventStream<AssistantMessageEvent, AssistantMessage> {
 	constructor(message: AssistantMessage) {

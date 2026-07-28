@@ -1,3 +1,4 @@
+import type { EcosystemHookRuntime } from "@vetta/ecosystem-adapter/hooks";
 import type {
 	InstructionBlock,
 	ModelCallFrame,
@@ -11,6 +12,7 @@ import {
 	renderSystemPromptDraft,
 	type SystemPromptDraft,
 } from "../../core/system-prompt.js";
+import { wrapRuntimeToolsWithEcosystemHooks } from "./greenfield-hook-tool-wrapper.js";
 import type { CodingAgentPluginRunOrchestrator } from "./greenfield-plugin-run-orchestrator.js";
 import type { CodingAgentPluginToolRuntime } from "./greenfield-plugin-tool-runtime.js";
 
@@ -30,6 +32,7 @@ export interface CodingAgentModelCallFrameComposerOptions {
 	readonly readAvailableTools?: () => ReadonlyMap<string, RuntimeToolDefinition>;
 	readonly pluginRunOrchestrator?: CodingAgentPluginRunOrchestrator;
 	readonly pluginToolRuntime?: CodingAgentPluginToolRuntime;
+	readonly hookRuntime?: EcosystemHookRuntime;
 }
 
 export interface CodingAgentMcpPromptState {
@@ -87,6 +90,7 @@ export class CodingAgentModelCallFrameComposer implements ModelCallFrameComposer
 			createDraft,
 		});
 		const draft = pluginFrame?.draft ?? createDraft(activeToolNames);
+		const tools = pluginFrame?.tools ?? effectiveContext.frame.tools;
 		return {
 			instructions: [
 				{
@@ -95,7 +99,7 @@ export class CodingAgentModelCallFrameComposer implements ModelCallFrameComposer
 					priority: 0,
 				},
 			],
-			tools: pluginFrame?.tools ?? effectiveContext.frame.tools,
+			tools: this.options.hookRuntime ? wrapRuntimeToolsWithEcosystemHooks(tools, this.options.hookRuntime) : tools,
 		};
 	}
 }

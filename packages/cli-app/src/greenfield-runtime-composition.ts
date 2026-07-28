@@ -12,13 +12,15 @@ import {
 	CodingAgentPluginToolRuntime,
 	type CodingAgentPromptResourceResolver,
 	CodingAgentStopHookContinuationSource,
-	type CodingAgentStopHookInvoker,
 	type CodingAgentSystemPromptOptionsResolver,
 	CodingAgentTodoContinuationSource,
 	CodingAgentTodoRuntime,
 	createCodingAgentPromptRuntime,
 	createCodingAgentTodoRuntimeFeature,
 	createCodingAgentTodoRuntimeToolRegistration,
+	createEcosystemHookRuntime,
+	type EcosystemHookAdapterFactory,
+	type HookConfigLayer,
 } from "@vetta/coding-agent/runtime-host/greenfield";
 import {
 	ComposedGreenfieldRuntimeFactory,
@@ -91,10 +93,11 @@ export interface GreenfieldRuntimeCompositionOptions {
 	) => CodingAgentPluginRuntimeSource | undefined;
 	/** 为每个 Session 创建唯一 Todo Runtime；Tool、Continuation、Scene 与 Controller 共享它。 */
 	readonly createTodoRuntime?: (sessionOptions: GreenfieldCliSessionOptions) => CodingAgentTodoRuntime;
-	/** 为每个 Session 绑定既有 Ecosystem Stop Hook bridge。 */
-	readonly createStopHookInvoker?: (
-		sessionOptions: GreenfieldCliSessionOptions,
-	) => CodingAgentStopHookInvoker | undefined;
+	/** 追加到每个 Session 内置 Codex/Claude Hook Adapter 之后。 */
+	readonly additionalHookAdapterFactories?: readonly EcosystemHookAdapterFactory[];
+	/** 显式 Hook 配置层；未提供时由内置 Adapter 使用各自默认发现规则。 */
+	readonly hookConfigLayers?: readonly HookConfigLayer[];
+	readonly maxStopHookContinuations?: number;
 }
 
 export interface GreenfieldRuntimeComposition {
@@ -161,6 +164,7 @@ export async function createGreenfieldRuntimeComposition(
 	const repository = new FileConversationRepository({ rootDir: options.conversationDir });
 	const capabilityCompositions = new Set<RuntimeCapabilityComposition>();
 	const todoRuntimes = new Set<CodingAgentTodoRuntime>();
+	const hookSessionDisposers = new Set<() => Promise<void>>();
 	const modelAdapter = new CodingAgentModelRegistryAdapter(options.modelRegistry);
 	const stateActivation =
 		effectiveActivation.mode === "scope"
@@ -171,7 +175,7 @@ export async function createGreenfieldRuntimeComposition(
 			: effectiveActivation;
 	const runtimeFactory = new ComposedGreenfieldRuntimeFactory<GreenfieldCliSessionOptions>({
 		streamFn: options.streamFn,
-		async createResources(sessionOptions) {
+		async createResources(sessionOptions, resourceContext) {
 			const synchronizer = mcpSynchronizer;
 			const mcpController = synchronizer
 				? createMcpDeferredToolController({
@@ -206,6 +210,46 @@ export async function createGreenfieldRuntimeComposition(
 						],
 					};
 			const sessionCwd = sessionOptions.cwd ?? cwd;
+			const modelRuntime = new GreenfieldRuntimeModel({
+				initialModel: options.initialModel,
+				initialThinkingLevel: options.initialThinkingLevel,
+				catalog: modelAdapter,
+				credentials: modelAdapter,
+			});
+			const hookRuntime = createEcosystemHookRuntime({
+				host: {
+					cwd: sessionCwd,
+					getSessionId: () => sessionOptions.sessionId,
+					getTranscriptPath: () => repository.resolveConversationPath(sessionOptions.sessionId),
+					getModelId: () => modelRuntime.readCurrentModel().id,
+					abortCurrentRun: resourceContext.abortCurrentRun,
+					recordAdditionalContexts: (contexts) => {
+						resourceContext.contextAppender.append(
+							contexts.map((content) => ({
+								type: "ecosystem-hook-context",
+								content: [{ type: "text", text: content }],
+								modelVisible: true,
+								display: false,
+							})),
+						);
+					},
+				},
+				initialSessionStartSource: resourceContext.operation === "create" ? "startup" : "resume",
+				additionalAdapterFactories: options.additionalHookAdapterFactories,
+				configLayers: options.hookConfigLayers,
+				maxStopContinuations: options.maxStopHookContinuations,
+			});
+			let hookSessionEnded = false;
+			const endHookSession = async (): Promise<void> => {
+				if (hookSessionEnded) return;
+				hookSessionEnded = true;
+				hookSessionDisposers.delete(endHookSession);
+				try {
+					await hookRuntime.runSessionEnd("dispose");
+				} catch (error) {
+					console.warn("[ecosystem-hooks] SessionEnd failed during Greenfield dispose", error);
+				}
+			};
 			const pluginRuntime = options.createPluginRuntime?.(sessionOptions);
 			const pluginRunOrchestrator = pluginRuntime
 				? new CodingAgentPluginRunOrchestrator({
@@ -235,10 +279,7 @@ export async function createGreenfieldRuntimeComposition(
 						})
 					: undefined;
 			const todoContinuationSource = new CodingAgentTodoContinuationSource({ state: todoRuntime });
-			const stopHookInvoker = options.createStopHookInvoker?.(sessionOptions);
-			const stopHookContinuationSource = stopHookInvoker
-				? new CodingAgentStopHookContinuationSource({ invoke: stopHookInvoker })
-				: undefined;
+			const stopHookContinuationSource = new CodingAgentStopHookContinuationSource({ hookRuntime });
 			const continuationOrchestrator = new CodingAgentContinuationOrchestrator({
 				todo: todoContinuationSource,
 				plugin: pluginRunOrchestrator,
@@ -280,6 +321,7 @@ export async function createGreenfieldRuntimeComposition(
 						]),
 					pluginRunOrchestrator,
 					pluginToolRuntime,
+					hookRuntime,
 					resolveSystemPromptOptions: async (context) => {
 						const promptOptions = await resolveSystemPromptOptions(context);
 						return {
@@ -303,15 +345,11 @@ export async function createGreenfieldRuntimeComposition(
 				throw error;
 			}
 			capabilityCompositions.add(capabilities);
-			const modelRuntime = new GreenfieldRuntimeModel({
-				initialModel: options.initialModel,
-				initialThinkingLevel: options.initialThinkingLevel,
-				catalog: modelAdapter,
-				credentials: modelAdapter,
-			});
+			hookSessionDisposers.add(endHookSession);
 			const promptAdapter = new CodingAgentGreenfieldPromptAdapter({
 				resolvePromptResource:
 					options.createPromptResourceResolver?.(sessionOptions, todoRuntime) ?? options.resolvePromptResource,
+				hookRuntime,
 			});
 			return {
 				sessionId: sessionOptions.sessionId,
@@ -355,6 +393,7 @@ export async function createGreenfieldRuntimeComposition(
 					},
 				},
 				async dispose() {
+					await endHookSession();
 					if (mcpControllers.get(sessionOptions.sessionId) === mcpController) {
 						mcpControllers.delete(sessionOptions.sessionId);
 					}
@@ -376,11 +415,13 @@ export async function createGreenfieldRuntimeComposition(
 			if (disposed) return;
 			disposed = true;
 			const capabilityResults = await Promise.allSettled([
+				...[...hookSessionDisposers].map((disposeHookSession) => disposeHookSession()),
 				...[...todoRuntimes].map((runtime) => runtime.dispose()),
 				...[...capabilityCompositions].map((capabilities) => capabilities.close()),
 			]);
 			capabilityCompositions.clear();
 			todoRuntimes.clear();
+			hookSessionDisposers.clear();
 			mcpControllers.clear();
 			await repository.close();
 			mcpSynchronizer?.dispose();

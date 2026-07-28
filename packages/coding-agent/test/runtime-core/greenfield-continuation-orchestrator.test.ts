@@ -103,9 +103,11 @@ describe("CodingAgentStopHookContinuationSource", () => {
 		const invocations: Array<{ readonly text: string | null; readonly signal: AbortSignal }> = [];
 		const source = new CodingAgentStopHookContinuationSource({
 			now: () => 77,
-			invoke: async (text, signal) => {
-				invocations.push({ text, signal });
-				return ["first fragment", "second fragment"];
+			hookRuntime: {
+				runStop: async (text, signal) => {
+					invocations.push({ text, signal: signal ?? new AbortController().signal });
+					return ["first fragment", "second fragment"];
+				},
 			},
 		});
 		const context = continuationContext("turn-1", [

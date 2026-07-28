@@ -11,6 +11,7 @@ import type {
 	RuntimeSnapshotLease,
 	RuntimeSnapshotProvider,
 	RuntimeTurnModelBindingProvider,
+	SessionContextRecord,
 	SessionInput,
 	StoredConversation,
 	StoredSessionEvent,
@@ -21,6 +22,7 @@ import type {
 } from "./contracts.js";
 import { type ConversationRecoveryPolicy, FailInterruptedTurnRecoveryPolicy } from "./conversation-recovery.js";
 import { KERNEL_ERROR_CODES, KernelError, turnProtocolError } from "./errors.js";
+import type { RuntimeSessionContextBuffer } from "./session-context-buffer.js";
 
 export interface TurnPipelineOptions {
 	readonly repository: ConversationRepository;
@@ -31,6 +33,7 @@ export interface TurnPipelineOptions {
 	readonly clock: Clock;
 	readonly idGenerator: IdGenerator;
 	readonly recoveryPolicy?: ConversationRecoveryPolicy;
+	readonly runtimeContext?: RuntimeSessionContextBuffer;
 }
 
 interface MutableTurnState {
@@ -49,6 +52,7 @@ export class TurnPipeline {
 	private readonly clock: Clock;
 	private readonly idGenerator: IdGenerator;
 	private readonly recoveryPolicy: ConversationRecoveryPolicy;
+	private readonly runtimeContext: RuntimeSessionContextBuffer | undefined;
 
 	constructor(options: TurnPipelineOptions) {
 		this.repository = options.repository;
@@ -59,6 +63,7 @@ export class TurnPipeline {
 		this.clock = options.clock;
 		this.idGenerator = options.idGenerator;
 		this.recoveryPolicy = options.recoveryPolicy ?? new FailInterruptedTurnRecoveryPolicy();
+		this.runtimeContext = options.runtimeContext;
 	}
 
 	async createSession(sessionId: string): Promise<void> {
@@ -244,6 +249,7 @@ export class TurnPipeline {
 				};
 				await this.append(sessionId, state, signal, [storedEvent]);
 				state.messages.push(event.message);
+				await this.appendRuntimeContext(sessionId, turnId, state, signal);
 			}
 
 			if (!stopReason) {
@@ -251,6 +257,7 @@ export class TurnPipeline {
 			}
 
 			await this.enterStage(sessionId, turnId, "finalization");
+			await this.appendRuntimeContext(sessionId, turnId, state, signal);
 			await this.append(sessionId, state, signal, [
 				{
 					type: "turn.completed",
@@ -300,6 +307,7 @@ export class TurnPipeline {
 				messages: state.messages,
 			};
 		} finally {
+			this.runtimeContext?.clear();
 			await this.releaseSnapshotSafely(snapshotLease, sessionId, turnId);
 		}
 	}
@@ -352,6 +360,7 @@ export class TurnPipeline {
 	): Promise<void> {
 		if (!state.started) return;
 		try {
+			await this.appendRuntimeContext(sessionId, turnId, state, signal);
 			await this.append(sessionId, state, signal, [event]);
 		} catch (error) {
 			await this.publishSafely({
@@ -363,6 +372,29 @@ export class TurnPipeline {
 				timestamp: this.clock.now(),
 			});
 		}
+	}
+
+	private async appendRuntimeContext(
+		sessionId: string,
+		turnId: string,
+		state: MutableTurnState,
+		signal: AbortSignal,
+	): Promise<void> {
+		await this.runtimeContext?.flush(async (records) => {
+			const timestamp = this.clock.now();
+			await this.append(
+				sessionId,
+				state,
+				signal,
+				records.map((record: SessionContextRecord) => ({
+					type: "context.appended" as const,
+					sessionId,
+					turnId,
+					record,
+					timestamp,
+				})),
+			);
+		});
 	}
 
 	private async enterStage(sessionId: string, turnId: string, stage: TurnPipelineStage): Promise<void> {

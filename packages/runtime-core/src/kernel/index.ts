@@ -111,6 +111,11 @@ export {
 } from "./runtime-capability-composition.js";
 export { AtomicRuntimeSnapshotProvider } from "./runtime-snapshot-provider.js";
 export {
+	BufferedRuntimeSessionContext,
+	type RuntimeSessionContextAppender,
+	type RuntimeSessionContextBuffer,
+} from "./session-context-buffer.js";
+export {
 	type ClearedSessionInputs,
 	SessionInputQueue,
 	type SessionInputQueueOptions,

@@ -27,6 +27,7 @@ export {
 	ComposedGreenfieldRuntimeFactory,
 	type ComposedGreenfieldRuntimeFactoryOptions,
 	type GreenfieldRuntimeOperation,
+	type GreenfieldRuntimeResourceContext,
 	type GreenfieldRuntimeResources,
 } from "./greenfield-runtime-factory.js";
 export {

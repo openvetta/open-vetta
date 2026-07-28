@@ -3,12 +3,14 @@ import type { SimpleStreamOptions } from "@vetta/ai";
 import type { ConversationDocumentStore } from "../conversation/index.js";
 import {
 	AgentCoreTurnEngine,
+	BufferedRuntimeSessionContext,
 	type Clock,
 	type ConversationRepository,
 	createAgentSession,
 	type EventSink,
 	type IdGenerator,
 	RandomIdGenerator,
+	type RuntimeSessionContextAppender,
 	type RuntimeSnapshotProvider,
 	resumeAgentSession,
 	type SessionInputQueueMode,
@@ -30,6 +32,12 @@ import type { RuntimeSessionTodoController } from "./session-ports.js";
 
 export type GreenfieldRuntimeOperation = "create" | "resume";
 
+export interface GreenfieldRuntimeResourceContext {
+	readonly operation: GreenfieldRuntimeOperation;
+	readonly contextAppender: RuntimeSessionContextAppender;
+	abortCurrentRun(): void;
+}
+
 export interface GreenfieldRuntimeResources {
 	readonly sessionId: string;
 	readonly repository: ConversationRepository;
@@ -47,7 +55,10 @@ export interface GreenfieldRuntimeResources {
 }
 
 export interface ComposedGreenfieldRuntimeFactoryOptions<TCreateOptions> {
-	createResources(options: TCreateOptions, operation: GreenfieldRuntimeOperation): Promise<GreenfieldRuntimeResources>;
+	createResources(
+		options: TCreateOptions,
+		context: GreenfieldRuntimeResourceContext,
+	): Promise<GreenfieldRuntimeResources>;
 	readonly streamFn?: StreamFn;
 	readonly streamOptions?: Omit<SimpleStreamOptions, "sessionId" | "signal">;
 	readonly clock?: Clock;
@@ -84,7 +95,13 @@ export class ComposedGreenfieldRuntimeFactory<TCreateOptions> implements Greenfi
 		options: TCreateOptions,
 		eventSink: EventSink,
 	): Promise<GreenfieldRuntimeAssembly> {
-		const resources = await this.options.createResources(options, operation);
+		const runtimeContext = new BufferedRuntimeSessionContext();
+		let abortCurrentRun = (): void => {};
+		const resources = await this.options.createResources(options, {
+			operation,
+			contextAppender: runtimeContext,
+			abortCurrentRun: () => abortCurrentRun(),
+		});
 		try {
 			const turnEngine = new AgentCoreTurnEngine({
 				streamFn: this.options.streamFn,
@@ -99,6 +116,7 @@ export class ComposedGreenfieldRuntimeFactory<TCreateOptions> implements Greenfi
 				eventSink,
 				clock: this.clock,
 				idGenerator: this.idGenerator,
+				runtimeContext,
 			});
 			const sessionOptions = {
 				id: resources.sessionId,
@@ -110,6 +128,11 @@ export class ComposedGreenfieldRuntimeFactory<TCreateOptions> implements Greenfi
 				operation === "create"
 					? await createAgentSession(sessionOptions)
 					: await resumeAgentSession(sessionOptions);
+			abortCurrentRun = () => {
+				void session.cancel().catch((error) => {
+					console.warn("[runtime-core] failed to abort Greenfield session", error);
+				});
+			};
 			const dispose = resources.dispose;
 			return {
 				session,
@@ -124,6 +147,7 @@ export class ComposedGreenfieldRuntimeFactory<TCreateOptions> implements Greenfi
 				dispose: dispose ? () => dispose.call(resources) : undefined,
 			};
 		} catch (error) {
+			runtimeContext.clear();
 			await resources.dispose?.();
 			throw error;
 		}

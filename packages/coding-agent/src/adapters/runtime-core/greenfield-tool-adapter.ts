@@ -1,6 +1,8 @@
 import type { Static, TSchema } from "@sinclair/typebox";
 import type { RuntimeToolDefinition } from "@vetta/runtime-core/kernel";
+import type { EcosystemHookAwareTool } from "../../core/hooks/tool-wrapper.js";
 import type { CodingAgentTool, ConversationScenario, ToolCategory } from "../../core/session/tool-scope.js";
+import type { EcosystemHookAwareRuntimeTool } from "./greenfield-hook-tool-wrapper.js";
 
 export interface CodingAgentRuntimeToolRegistration {
 	readonly tool: RuntimeToolDefinition;
@@ -17,22 +19,25 @@ export interface CodingAgentRuntimeToolRegistration {
 export function adaptCodingAgentToolRegistration<TParameters extends TSchema, TDetails>(
 	tool: CodingAgentTool<TParameters, TDetails>,
 ): CodingAgentRuntimeToolRegistration {
-	return {
-		tool: {
-			name: tool.name,
-			label: tool.label,
-			description: tool.description,
-			inputSchema: tool.parameters,
-			async execute(request) {
-				return tool.execute(
-					request.toolCallId,
-					request.input as Static<TParameters>,
-					request.signal,
-					request.onUpdate,
-					request.reportPhase ? { phase: request.reportPhase } : undefined,
-				);
-			},
+	const hookMetadata = (tool as CodingAgentTool<TParameters, TDetails> & EcosystemHookAwareTool).ecosystemHook;
+	const runtimeTool: EcosystemHookAwareRuntimeTool = {
+		name: tool.name,
+		label: tool.label,
+		description: tool.description,
+		inputSchema: tool.parameters,
+		ecosystemHook: hookMetadata,
+		async execute(request) {
+			return tool.execute(
+				request.toolCallId,
+				request.input as Static<TParameters>,
+				request.signal,
+				request.onUpdate,
+				request.reportPhase ? { phase: request.reportPhase } : undefined,
+			);
 		},
+	};
+	return {
+		tool: runtimeTool,
 		scopeUse: tool.scope_use ?? [],
 		requires: tool.requires,
 		category: isToolCategory(tool.category) ? tool.category : "external",

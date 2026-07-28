@@ -1,8 +1,20 @@
 export {
+	createEcosystemHookRuntime,
+	type EcosystemHookAdapterFactory,
+	type EcosystemHookEvent,
+	emptyHookDispatchOutcome,
+	type HookConfigLayer,
+	type HookDispatchOutcome,
+} from "@vetta/ecosystem-adapter";
+export {
 	CodingAgentContinuationOrchestrator,
 	type CodingAgentContinuationOrchestratorOptions,
 	type CodingAgentContinuationSource,
 } from "./greenfield-continuation-orchestrator.js";
+export {
+	type EcosystemHookAwareRuntimeTool,
+	wrapRuntimeToolsWithEcosystemHooks,
+} from "./greenfield-hook-tool-wrapper.js";
 export {
 	type CodingAgentDeferredMcpTool,
 	createCodingAgentToolSearchRuntimeTool,
@@ -57,7 +69,6 @@ export {
 export {
 	CodingAgentStopHookContinuationSource,
 	type CodingAgentStopHookContinuationSourceOptions,
-	type CodingAgentStopHookInvoker,
 } from "./greenfield-stop-hook-continuation-source.js";
 export {
 	CodingAgentTodoContinuationSource,

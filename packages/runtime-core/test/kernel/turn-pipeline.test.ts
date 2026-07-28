@@ -1,6 +1,7 @@
 import type { AssistantMessage, Message, UserMessage } from "@vetta/ai";
 import { describe, expect, it } from "vitest";
 import {
+	BufferedRuntimeSessionContext,
 	type Clock,
 	type ContextStrategy,
 	type ConversationMetadata,
@@ -13,6 +14,7 @@ import {
 	KERNEL_ERROR_CODES,
 	type KernelEvent,
 	type PreparedContext,
+	type RuntimeSessionContextBuffer,
 	type RuntimeSnapshot,
 	StaticRuntimeSnapshotProvider,
 	type StoredConversation,
@@ -85,6 +87,13 @@ class InMemoryConversationRepository implements ConversationRepository {
 		const messages = [...conversation.messages];
 		for (const event of events) {
 			if (event.type === "message.appended") messages.push(event.message);
+			if (event.type === "context.appended" && event.record.modelVisible) {
+				messages.push({
+					role: "user",
+					content: event.record.content,
+					timestamp: event.timestamp,
+				});
+			}
 		}
 		const version = expectedVersion + events.length;
 		this.conversations.set(sessionId, {
@@ -198,6 +207,7 @@ async function createHarness(options?: {
 	readonly contextStrategy?: ContextStrategy;
 	readonly runtimeSnapshot?: RuntimeSnapshot;
 	readonly eventSink?: EventSink;
+	readonly runtimeContext?: RuntimeSessionContextBuffer;
 }) {
 	const repository = new InMemoryConversationRepository();
 	const contextStrategy = options?.contextStrategy ?? new RecordingContextStrategy();
@@ -210,6 +220,7 @@ async function createHarness(options?: {
 		eventSink,
 		clock: new TestClock(),
 		idGenerator: new TestIdGenerator(),
+		runtimeContext: options?.runtimeContext,
 	});
 	const session = await createAgentSession({
 		id: "session-1",
@@ -331,6 +342,59 @@ describe("greenfield runtime kernel", () => {
 			"message.appended",
 			"turn.completed",
 		]);
+	});
+
+	it("serializes runtime context after tool results and exposes it to the next external turn", async () => {
+		const runtimeContext = new BufferedRuntimeSessionContext();
+		let execution = 0;
+		const engine: TurnEnginePort = {
+			async *execute() {
+				execution += 1;
+				if (execution === 1) {
+					runtimeContext.append([
+						{
+							type: "tool-hook-context",
+							content: "remember this",
+							modelVisible: true,
+							display: false,
+						},
+					]);
+					yield {
+						type: "message",
+						message: {
+							role: "toolResult",
+							toolCallId: "call-1",
+							toolName: "test",
+							content: [{ type: "text", text: "tool done" }],
+							isError: false,
+							timestamp: 2,
+						},
+					};
+				}
+				yield {
+					type: "message",
+					message: assistantMessage(`done-${execution}`),
+				};
+				yield { type: "completed", stopReason: "stop" };
+			},
+		};
+		const contextStrategy = new RecordingContextStrategy();
+		const harness = await createHarness({ contextStrategy, runtimeContext, turnEngine: engine });
+
+		await harness.session.send({ message: userMessage("first") });
+		const firstConversation = await harness.repository.load("session-1");
+		expect(firstConversation.events.map(({ type }) => type)).toEqual([
+			"turn.started",
+			"message.appended",
+			"message.appended",
+			"context.appended",
+			"message.appended",
+			"turn.completed",
+		]);
+		expect(contextStrategy.inputs[0].map((message) => message.content)).not.toContain("remember this");
+
+		await harness.session.send({ message: userMessage("second") });
+		expect(contextStrategy.inputs[1].map((message) => message.content)).toContain("remember this");
 	});
 
 	it("starts a normal turn when streaming behavior is supplied while idle", async () => {

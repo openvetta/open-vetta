@@ -6,6 +6,7 @@ All notable changes to `@vetta/runtime-core` are documented in this file.
 
 ### Added
 
+- **Session-local 运行期 Context 追加边界**：新增 append-only Context Port 与 Pipeline-owned Buffer；产品 Hook 等运行期贡献只能提交通用 context record，由 Turn Pipeline 在持久消息之后及终态之前串行写入同一 Repository revision，避免产品适配器直接写会话存储或与消息事件竞争。
 - **Greenfield Conversation Document Participant**：新增产品状态参与者与通用 `custom.append` 命令，Session 在初始化、分支写命令和安全的持久化事件边界同步参与者；Greenfield Core Assembly 交付真实 Todo Controller，但 Runtime Core 不解释 Todo 快照结构。
 - **动态能力组合与通用 Turn Context**：新增 Session 级 `RuntimeCapabilityComposition`，以 newest-wins 编译和引用计数 lease 原子替换结构性能力；`SessionInput` 支持可持久化、可区分模型/UI 可见性的通用 context record，Conversation Document 分别投影模型历史和聊天历史，调用级贡献可读取当前 Turn input。
 - **Greenfield 通用 Runtime Factory 与精确模型凭证绑定**：新增可注入 Repository、Snapshot、Model Runtime 和会话投影资源的组合工厂，统一创建/恢复 AgentSession、TurnPipeline 与 Turn Engine；模型凭证按 Turn 冻结的精确模型解析，prompt 切模与 reasoning 在当前 Turn 绑定前生效。

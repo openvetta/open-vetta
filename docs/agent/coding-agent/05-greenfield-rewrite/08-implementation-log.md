@@ -75,6 +75,7 @@
 | [65-session-local-plugin-tool-runtime.md](./08-implementation-log/65-session-local-plugin-tool-runtime.md) | Session-local Plugin Tool Runtime、动态撤销与同 Turn Effect |
 | [66-product-continuation-orchestrator.md](./08-implementation-log/66-product-continuation-orchestrator.md) | 产品级 Continuation Orchestrator 与 Todo/Plugin/Stop Hook 收敛 |
 | [67-session-local-todo-runtime.md](./08-implementation-log/67-session-local-todo-runtime.md) | Session-local Todo Runtime、分支持久化与 Controller 纵向切片 |
+| [68-session-local-ecosystem-hook-runtime.md](./08-implementation-log/68-session-local-ecosystem-hook-runtime.md) | Session-local Ecosystem Hook Runtime、运行期 Context 串行持久化与生命周期收敛 |
 
 ## 维护约定
 

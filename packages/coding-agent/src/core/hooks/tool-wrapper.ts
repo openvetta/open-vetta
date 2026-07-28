@@ -6,7 +6,10 @@ export type EcosystemHookAwareTool = AgentTool & { ecosystemHook?: EcosystemTool
 
 const HOOK_BLOCKED = Symbol("ecosystemHookBlocked");
 
-export function wrapToolsWithEcosystemHooks(tools: AgentTool[], hooks: EcosystemHookRuntime): AgentTool[] {
+export function wrapToolsWithEcosystemHooks<TParameters extends TSchema, TDetails>(
+	tools: AgentTool<TParameters, TDetails>[],
+	hooks: EcosystemHookRuntime,
+): AgentTool<TParameters, TDetails>[] {
 	return tools.map((tool) => wrapTool(tool, hooks));
 }
 

@@ -12,7 +12,9 @@ import {
 import type {
 	CodingAgentModelRegistrySource,
 	CodingAgentPluginRuntimeSource,
+	EcosystemHookEvent,
 } from "@vetta/coding-agent/runtime-host/greenfield";
+import { emptyHookDispatchOutcome } from "@vetta/coding-agent/runtime-host/greenfield";
 import { afterEach, describe, expect, it } from "vitest";
 import {
 	createGreenfieldRuntimeComposition,
@@ -41,6 +43,7 @@ describe("Greenfield Plugin Tool runtime composition", () => {
 			readonly messages: readonly Message[];
 			readonly tools: readonly string[];
 		}> = [];
+		const hookEvents: EcosystemHookEvent[] = [];
 		const pluginRuntime: CodingAgentPluginRuntimeSource = {
 			readAgentPlugins: () => ({
 				toolContributions: [
@@ -109,6 +112,16 @@ describe("Greenfield Plugin Tool runtime composition", () => {
 				scenario: "cli",
 			}),
 			createPluginRuntime: () => pluginRuntime,
+			additionalHookAdapterFactories: [
+				async () => ({
+					id: "plugin-tool-test-hook",
+					supports: (event) => event.eventName === "PreToolUse" || event.eventName === "PostToolUse",
+					async dispatch(event) {
+						hookEvents.push(event);
+						return emptyHookDispatchOutcome();
+					},
+				}),
+			],
 			streamFn: (_model, context) => {
 				modelCalls.push({
 					prompt: context.systemPrompt,
@@ -138,6 +151,16 @@ describe("Greenfield Plugin Tool runtime composition", () => {
 		expect(modelCalls[1]?.prompt).toContain("Artifact tool completed");
 		expect(modelCalls[2]?.messages.map(messageText)).toContain("verify artifact");
 		expect(session.readState().activeToolNames).toEqual(["plugin_artifact"]);
+		expect(
+			hookEvents.map((event) => ({
+				eventName: event.eventName,
+				toolName:
+					event.eventName === "PreToolUse" || event.eventName === "PostToolUse" ? event.tool.hostName : undefined,
+			})),
+		).toEqual([
+			{ eventName: "PreToolUse", toolName: "plugin_artifact" },
+			{ eventName: "PostToolUse", toolName: "plugin_artifact" },
+		]);
 
 		const messages = await session.getMessages();
 		const toolResult = messages.find((message) => message.role === "toolResult");
