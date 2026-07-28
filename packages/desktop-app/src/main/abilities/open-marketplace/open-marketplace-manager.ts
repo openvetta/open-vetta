@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto";
 import { join } from "node:path";
-import { getVettaHomePath } from "@vetta/action-rpc";
 import type {
 	AddMarketplaceSourceInput,
 	MarketplaceSource,
@@ -9,6 +8,7 @@ import type {
 	OpenMarketplaceSourceSnapshot,
 	UpdateMarketplaceSourceInput,
 } from "../../../preload/api-types/abilities.js";
+import { getApplicationCacheService } from "../../cache/application-cache-service.js";
 import { MarketplaceSourceStore } from "./marketplace-source-store.js";
 import { DEFAULT_MARKETPLACE_SOURCE_ID, OpenMarketplaceService } from "./open-marketplace-service.js";
 
@@ -40,8 +40,9 @@ export class OpenMarketplaceManager {
 	private readonly updateListeners = new Set<(sourceId: string) => void>();
 
 	constructor(options: OpenMarketplaceManagerOptions) {
+		const marketplaceCache = getApplicationCacheService().namespace("marketplace");
 		this.store = options.store ?? new MarketplaceSourceStore();
-		this.cacheRoot = options.cacheRoot ?? join(getVettaHomePath(), "open-marketplaces", "cache");
+		this.cacheRoot = options.cacheRoot ?? marketplaceCache.rootDir;
 		this.workerFactory =
 			options.workerFactory ??
 			((source, cacheRoot, onBackgroundUpdate) =>
@@ -53,6 +54,9 @@ export class OpenMarketplaceManager {
 					archiveUrl: source.archiveUrl,
 					appVersion: options.appVersion,
 					onBackgroundUpdate,
+					createTemporaryDirectory: options.cacheRoot
+						? undefined
+						: () => marketplaceCache.createTemporaryDirectory("sync"),
 				}));
 	}
 
