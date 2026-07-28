@@ -155,11 +155,6 @@ function createBackend(
 	turnEngine: TurnEnginePort = new CompletingTurnEngine(),
 ): GreenfieldRuntimeSessionBackend<{ readonly id: string }> {
 	return new GreenfieldRuntimeSessionBackend({
-		promptAdapter: {
-			async prepare(request) {
-				return { input: { message: userMessage(request.text) } };
-			},
-		},
 		runtimeFactory: {
 			create: (options, eventSink) => createAssembly("create", rootDir, options.id, eventSink, turnEngine),
 			resume: (options, eventSink) => createAssembly("resume", rootDir, options.id, eventSink, turnEngine),
@@ -212,6 +207,11 @@ async function createAssembly(
 		session,
 		repository,
 		conversationDocumentStore: repository,
+		promptAdapter: {
+			async prepare(request: { readonly text: string }) {
+				return { input: { message: userMessage(request.text) } };
+			},
+		},
 		modelRuntime,
 		identity: {
 			cwd: rootDir,

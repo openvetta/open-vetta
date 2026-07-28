@@ -191,7 +191,6 @@ function createBackend(
 ) {
 	return {
 		backend: new GreenfieldRuntimeSessionBackend<TestCreateOptions>({
-			promptAdapter,
 			runtimeFactory: {
 				async create(options: TestCreateOptions, eventSink: EventSink) {
 					let turnIndex = 0;
@@ -216,6 +215,7 @@ function createBackend(
 						session,
 						repository,
 						conversationDocumentStore: repository,
+						promptAdapter,
 						dispose,
 						...details,
 					};
@@ -384,10 +384,15 @@ describe("GreenfieldRuntimeSessionBackend", () => {
 				idGenerator: { next: () => "unused-turn-id" },
 			});
 			const session = await resumeAgentSession({ id: options.id, pipeline });
-			return { session, repository, conversationDocumentStore: repository, ...details };
+			return {
+				session,
+				repository,
+				conversationDocumentStore: repository,
+				promptAdapter: new RecordingPromptAdapter(),
+				...details,
+			};
 		});
 		const backend = new GreenfieldRuntimeSessionBackend<TestCreateOptions>({
-			promptAdapter: new RecordingPromptAdapter(),
 			runtimeFactory: { create, resume },
 		});
 

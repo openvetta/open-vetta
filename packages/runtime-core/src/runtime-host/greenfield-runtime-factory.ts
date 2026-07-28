@@ -16,7 +16,11 @@ import {
 	TurnPipeline,
 } from "../kernel/index.js";
 import type { GreenfieldRuntimeModelRuntime } from "./greenfield-model-runtime.js";
-import type { GreenfieldRuntimeAssembly, GreenfieldRuntimeFactory } from "./greenfield-session-backend.js";
+import type {
+	GreenfieldPromptAdapter,
+	GreenfieldRuntimeAssembly,
+	GreenfieldRuntimeFactory,
+} from "./greenfield-session-backend.js";
 import type {
 	GreenfieldRuntimeSessionIdentity,
 	GreenfieldRuntimeStateSource,
@@ -28,6 +32,7 @@ export interface GreenfieldRuntimeResources {
 	readonly sessionId: string;
 	readonly repository: ConversationRepository;
 	readonly conversationDocumentStore: ConversationDocumentStore;
+	readonly promptAdapter: GreenfieldPromptAdapter;
 	readonly snapshotProvider: RuntimeSnapshotProvider;
 	readonly modelRuntime: GreenfieldRuntimeModelRuntime;
 	readonly identity: GreenfieldRuntimeSessionIdentity;
@@ -106,6 +111,7 @@ export class ComposedGreenfieldRuntimeFactory<TCreateOptions> implements Greenfi
 				session,
 				repository: resources.repository,
 				conversationDocumentStore: resources.conversationDocumentStore,
+				promptAdapter: resources.promptAdapter,
 				modelRuntime: resources.modelRuntime,
 				identity: resources.identity,
 				stateSource: resources.stateSource,

@@ -46,7 +46,7 @@ export interface SkillExpansionResult {
 
 /** Dependencies required to expand skill/scene commands. */
 export interface SkillExpansionDeps {
-	resourceLoader: ResourceLoader;
+	resourceLoader: Pick<ResourceLoader, "getSkills">;
 	todoStore: TodoStore;
 	/** Emit an error (typically via the extension runner). Best-effort. */
 	emitError?: (error: { extensionPath: string; event: string; error: string }) => void;

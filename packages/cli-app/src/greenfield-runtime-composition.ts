@@ -1,4 +1,6 @@
+import { createKbFilterByTagsTool, createKbListTagsTool } from "@vetta/coding-agent";
 import {
+	adaptCodingAgentToolRegistration,
 	CodingAgentGreenfieldPromptAdapter,
 	CodingAgentModelRegistryAdapter,
 	type CodingAgentModelRegistrySource,
@@ -10,7 +12,16 @@ import {
 	GreenfieldRuntimeSessionBackend,
 	type SessionConfig,
 } from "@vetta/runtime-core";
-import { type AgentCoreTurnEngineOptions, RuntimeCapabilityComposition } from "@vetta/runtime-core/kernel";
+import {
+	type AgentCoreTurnEngineOptions,
+	type ModelCallContributionContext,
+	RuntimeCapabilityComposition,
+} from "@vetta/runtime-core/kernel";
+import {
+	createMcpRuntimeToolSynchronizer,
+	type McpRuntimeToolSource,
+	type McpRuntimeToolSynchronizer,
+} from "@vetta/runtime-mcp";
 import { FileConversationRepository } from "@vetta/runtime-storage/conversation";
 import { type CodingToolActivation, selectCodingToolRegistrations } from "@vetta/runtime-tools/coding";
 import {
@@ -32,9 +43,17 @@ export interface GreenfieldRuntimeCompositionOptions {
 	readonly initialThinkingLevel: NonNullable<SessionConfig["thinkingLevel"]>;
 	readonly cwd?: string;
 	readonly activation?: CodingToolActivation;
+	readonly knowledgeEnabled?: boolean;
+	readonly knowledgeRoot?: string;
+	readonly mcpSource?: McpRuntimeToolSource;
 	readonly streamFn?: AgentCoreTurnEngineOptions["streamFn"];
 	readonly tokenBudget?: number;
 	readonly reservedOutputTokens?: number;
+	/** 优先使用会话工厂，避免有状态 ResourceLoader / TodoStore 被多个 Session 共享。 */
+	readonly createPromptResourceResolver?: (
+		sessionOptions: GreenfieldCliSessionOptions,
+	) => CodingAgentPromptResourceResolver;
+	/** 无状态解析器的兼容入口。 */
 	readonly resolvePromptResource?: CodingAgentPromptResourceResolver;
 }
 
@@ -54,20 +73,50 @@ export async function createGreenfieldRuntimeComposition(
 	options: GreenfieldRuntimeCompositionOptions,
 ): Promise<GreenfieldRuntimeComposition> {
 	const cwd = options.cwd ?? process.cwd();
+	const effectiveActivation = options.activation ?? ({ mode: "scope", scope: "cli" } satisfies CodingToolActivation);
+	const knowledgeAvailable = options.knowledgeEnabled ?? process.env.VETTA_KNOWLEDGE_DISABLED !== "1";
+	let backgroundTasksAvailable = false;
+	let mcpSynchronizer: McpRuntimeToolSynchronizer | undefined;
 	const tools = createCodingToolsRuntimeComposition({
 		cwd,
-		activation: options.activation,
+		activation: effectiveActivation,
+		resolveActivation: (context) =>
+			resolveTurnToolActivation(effectiveActivation, context, {
+				backgroundTasksAvailable,
+				knowledgeAvailable,
+			}),
+		refreshCatalog: () => mcpSynchronizer?.refresh(),
+		filterRegistration: (registration, context) =>
+			registration.category !== "kb-read" ||
+			isKnowledgeToolEnabled(effectiveActivation, context, knowledgeAvailable),
+		additionalRegistrations: [
+			adaptCodingAgentToolRegistration(createKbListTagsTool(options.knowledgeRoot)),
+			adaptCodingAgentToolRegistration(createKbFilterByTagsTool(options.knowledgeRoot)),
+		],
 		tokenBudget: options.tokenBudget,
 		reservedOutputTokens: options.reservedOutputTokens,
 	});
+	backgroundTasksAvailable = tools.backgroundService !== undefined;
+	mcpSynchronizer = options.mcpSource
+		? createMcpRuntimeToolSynchronizer(options.mcpSource, tools.registry)
+		: undefined;
+	try {
+		await mcpSynchronizer?.refresh();
+	} catch (error) {
+		mcpSynchronizer?.dispose();
+		tools.dispose();
+		throw error;
+	}
 	const repository = new FileConversationRepository({ rootDir: options.conversationDir });
 	const capabilityCompositions = new Set<RuntimeCapabilityComposition>();
 	const modelAdapter = new CodingAgentModelRegistryAdapter(options.modelRegistry);
-	const effectiveActivation =
-		options.activation ??
-		(tools.backgroundService
-			? { mode: "scope" as const, scope: "cli", capabilities: new Set(["bg-tasks"]) }
-			: { mode: "scope" as const, scope: "cli" });
+	const stateActivation =
+		effectiveActivation.mode === "scope"
+			? withCapabilities(effectiveActivation, [
+					...(backgroundTasksAvailable ? ["bg-tasks"] : []),
+					...(knowledgeAvailable && effectiveActivation.scope === "kb-processing" ? ["knowledge"] : []),
+				])
+			: effectiveActivation;
 	const runtimeFactory = new ComposedGreenfieldRuntimeFactory<GreenfieldCliSessionOptions>({
 		streamFn: options.streamFn,
 		async createResources(sessionOptions) {
@@ -86,6 +135,10 @@ export async function createGreenfieldRuntimeComposition(
 				sessionId: sessionOptions.sessionId,
 				repository,
 				conversationDocumentStore: repository,
+				promptAdapter: new CodingAgentGreenfieldPromptAdapter({
+					resolvePromptResource:
+						options.createPromptResourceResolver?.(sessionOptions) ?? options.resolvePromptResource,
+				}),
 				snapshotProvider: capabilities,
 				modelRuntime,
 				identity: {
@@ -99,8 +152,16 @@ export async function createGreenfieldRuntimeComposition(
 						contextPercent: null,
 						contextWindow: modelRuntime.readCurrentModel().contextWindow,
 						activeToolNames: selectCodingToolRegistrations(
-							tools.registry.snapshot().registrations,
-							effectiveActivation,
+							tools.registry
+								.snapshot()
+								.registrations.filter(
+									({ category }) =>
+										category !== "kb-read" ||
+										(knowledgeAvailable &&
+											effectiveActivation.mode === "scope" &&
+											effectiveActivation.scope === "kb-processing"),
+								),
+							stateActivation,
 						).map(({ tool }) => tool.name),
 					}),
 				},
@@ -111,12 +172,7 @@ export async function createGreenfieldRuntimeComposition(
 			};
 		},
 	});
-	const backend = new GreenfieldRuntimeSessionBackend({
-		runtimeFactory,
-		promptAdapter: new CodingAgentGreenfieldPromptAdapter({
-			resolvePromptResource: options.resolvePromptResource,
-		}),
-	});
+	const backend = new GreenfieldRuntimeSessionBackend({ runtimeFactory });
 
 	let disposed = false;
 	return {
@@ -130,6 +186,7 @@ export async function createGreenfieldRuntimeComposition(
 			);
 			capabilityCompositions.clear();
 			await repository.close();
+			mcpSynchronizer?.dispose();
 			tools.dispose();
 			const errors = capabilityResults
 				.filter((result): result is PromiseRejectedResult => result.status === "rejected")
@@ -139,4 +196,40 @@ export async function createGreenfieldRuntimeComposition(
 			}
 		},
 	};
+}
+
+function resolveTurnToolActivation(
+	base: CodingToolActivation,
+	context: ModelCallContributionContext,
+	availability: {
+		readonly backgroundTasksAvailable: boolean;
+		readonly knowledgeAvailable: boolean;
+	},
+): CodingToolActivation {
+	if (base.mode === "explicit") return base;
+	const capabilities = new Set(base.capabilities);
+	if (availability.backgroundTasksAvailable) capabilities.add("bg-tasks");
+	if (isKnowledgeToolEnabled(base, context, availability.knowledgeAvailable)) {
+		capabilities.add("knowledge");
+	}
+	return { ...base, capabilities };
+}
+
+function isKnowledgeToolEnabled(
+	base: CodingToolActivation,
+	context: ModelCallContributionContext,
+	knowledgeAvailable: boolean,
+): boolean {
+	if (!knowledgeAvailable) return false;
+	return (
+		(base.mode === "scope" && base.scope === "kb-processing") ||
+		context.input?.context?.some(({ type }) => type === "knowledge_mode_instruction") === true
+	);
+}
+
+function withCapabilities(base: Extract<CodingToolActivation, { mode: "scope" }>, added: readonly string[]) {
+	return {
+		...base,
+		capabilities: new Set([...(base.capabilities ?? []), ...added]),
+	} satisfies CodingToolActivation;
 }

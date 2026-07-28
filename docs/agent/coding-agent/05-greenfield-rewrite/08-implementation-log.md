@@ -64,6 +64,7 @@
 | [54-runtime-core-dependency-inversion.md](./08-implementation-log/54-runtime-core-dependency-inversion.md) | Runtime Core 依赖倒置、Legacy Adapter 上移与显式生产组合 |
 | [55-greenfield-parallel-runtime-composition.md](./08-implementation-log/55-greenfield-parallel-runtime-composition.md) | Greenfield 通用 Factory、模型/Prompt Adapter 与 CLI 并行真实组合 |
 | [56-dynamic-capability-and-prompt-context.md](./08-implementation-log/56-dynamic-capability-and-prompt-context.md) | 动态能力组合、通用 Turn Context 与 Prompt 输入等价 |
+| [57-session-dynamic-capability-sources.md](./08-implementation-log/57-session-dynamic-capability-sources.md) | 会话级动态 Skill/Scene、Knowledge 与 MCP 能力源适配 |
 
 ## 维护约定
 

@@ -2,9 +2,16 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type Api, type AssistantMessage, type AssistantMessageEvent, EventStream, type Model } from "@vetta/ai";
+import {
+	adaptMcpTool,
+	type IMcpClient,
+	type McpServerInstance,
+	type McpTool,
+} from "@vetta/coding-agent/core/mcp/index.js";
 import type { CodingAgentModelRegistrySource } from "@vetta/coding-agent/runtime-host/greenfield";
+import type { McpRuntimeToolSource } from "@vetta/runtime-mcp";
 import { FileConversationRepository } from "@vetta/runtime-storage/conversation";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	createGreenfieldRuntimeComposition,
 	type GreenfieldRuntimeComposition,
@@ -120,6 +127,144 @@ describe("Greenfield runtime composition", () => {
 
 		expect(toolLists).toEqual([["read"], []]);
 		expect(session.readState().activeToolNames).toEqual([]);
+		await session.dispose();
+	});
+
+	it("registers legacy-equivalent knowledge tools while keeping host availability fail-closed", async () => {
+		const enabledConversations = await createTemporaryDirectory("greenfield-runtime-knowledge-enabled-");
+		const enabledModelTools: string[][] = [];
+		const enabled = await createGreenfieldRuntimeComposition({
+			conversationDir: enabledConversations,
+			modelRegistry: modelRegistry(),
+			initialModel: MODEL,
+			initialThinkingLevel: "off",
+			knowledgeEnabled: true,
+			streamFn: (_model, context) => {
+				enabledModelTools.push((context.tools ?? []).map(({ name }) => name));
+				return new RecordedAssistantStream(assistantMessage([{ type: "text", text: "done" }]));
+			},
+		});
+		compositions.push(enabled);
+		const enabledSession = await enabled.backend.create({ sessionId: "knowledge-enabled" });
+
+		await enabledSession.prompt({ text: "normal" });
+		await enabledSession.prompt({ text: "search knowledge", metadata: { knowledgeMode: true } });
+		expect(enabledModelTools[0]).not.toEqual(expect.arrayContaining(["kb_list_available_tags", "kb_filter_by_tags"]));
+		expect(enabledModelTools[1]).toEqual(expect.arrayContaining(["kb_list_available_tags", "kb_filter_by_tags"]));
+		await enabledSession.dispose();
+
+		const disabledConversations = await createTemporaryDirectory("greenfield-runtime-knowledge-disabled-");
+		const disabledModelTools: string[][] = [];
+		const disabled = await createGreenfieldRuntimeComposition({
+			conversationDir: disabledConversations,
+			modelRegistry: modelRegistry(),
+			initialModel: MODEL,
+			initialThinkingLevel: "off",
+			knowledgeEnabled: false,
+			streamFn: (_model, context) => {
+				disabledModelTools.push((context.tools ?? []).map(({ name }) => name));
+				return new RecordedAssistantStream(assistantMessage([{ type: "text", text: "done" }]));
+			},
+		});
+		compositions.push(disabled);
+		const disabledSession = await disabled.backend.create({ sessionId: "knowledge-disabled" });
+
+		await disabledSession.prompt({
+			text: "search unavailable knowledge",
+			metadata: { knowledgeMode: true },
+		});
+		expect(disabledModelTools[0]).not.toEqual(
+			expect.arrayContaining(["kb_list_available_tags", "kb_filter_by_tags"]),
+		);
+		expect(disabled.tools.registry.snapshot().registrations.map(({ tool }) => tool.name)).toEqual(
+			expect.arrayContaining(["kb_list_available_tags", "kb_filter_by_tags"]),
+		);
+		await disabledSession.dispose();
+	});
+
+	it("creates stateful prompt resource resolvers per session", async () => {
+		const conversations = await createTemporaryDirectory("greenfield-runtime-session-resolvers-");
+		const createPromptResourceResolver = vi.fn((sessionOptions: { readonly sessionId: string }) => {
+			return (text: string) => ({
+				text,
+				skillInjection: `<skill>${sessionOptions.sessionId}</skill>`,
+			});
+		});
+		const composition = await createGreenfieldRuntimeComposition({
+			conversationDir: conversations,
+			modelRegistry: modelRegistry(),
+			initialModel: MODEL,
+			initialThinkingLevel: "off",
+			createPromptResourceResolver,
+		});
+		compositions.push(composition);
+
+		const first = await composition.backend.create({ sessionId: "first-session" });
+		const second = await composition.backend.create({ sessionId: "second-session" });
+
+		expect(createPromptResourceResolver.mock.calls.map(([options]) => options.sessionId)).toEqual([
+			"first-session",
+			"second-session",
+		]);
+		await first.dispose();
+		await second.dispose();
+	});
+
+	it("synchronizes MCP additions and removals before each model call", async () => {
+		const conversations = await createTemporaryDirectory("greenfield-runtime-mcp-");
+		const tool: McpTool = {
+			name: "lookup",
+			description: "Lookup a value",
+			inputSchema: { type: "object", properties: {} },
+		};
+		const client = createMcpClient();
+		const adaptedTool = adaptMcpTool(tool, client, "search");
+		let available = true;
+		const server: McpServerInstance = {
+			name: "search",
+			config: { command: "test" },
+			status: "ready",
+			client,
+			tools: [tool],
+			resources: [],
+			startedAt: new Date(1),
+		};
+		const reloadIfChanged = vi.fn(async () => false);
+		const mcpSource: McpRuntimeToolSource = {
+			reloadIfChanged,
+			getServers: () => (available ? [server] : []),
+			getTools: () => (available ? [adaptedTool] : []),
+		};
+		const modelTools: string[][] = [];
+		const composition = await createGreenfieldRuntimeComposition({
+			conversationDir: conversations,
+			modelRegistry: modelRegistry(),
+			initialModel: MODEL,
+			initialThinkingLevel: "off",
+			mcpSource,
+			streamFn: (_model, context) => {
+				modelTools.push((context.tools ?? []).map(({ name }) => name));
+				return new RecordedAssistantStream(assistantMessage([{ type: "text", text: "done" }]));
+			},
+		});
+		compositions.push(composition);
+		const session = await composition.backend.create({ sessionId: "mcp-session" });
+		expect(session.readState().activeToolNames).toContain("mcp_search_lookup");
+		const initialBinding = composition.tools.registry.resolve("mcp_search_lookup")?.binding;
+
+		await session.prompt({ text: "unchanged MCP" });
+		expect(modelTools[0]).toContain("mcp_search_lookup");
+		expect(composition.tools.registry.resolve("mcp_search_lookup")?.binding).toEqual(initialBinding);
+
+		available = false;
+		await session.prompt({ text: "without MCP" });
+		expect(modelTools[1]).not.toContain("mcp_search_lookup");
+		expect(composition.tools.registry.resolve("mcp_search_lookup")).toBeUndefined();
+
+		available = true;
+		await session.prompt({ text: "with MCP again" });
+		expect(modelTools[2]).toContain("mcp_search_lookup");
+		expect(reloadIfChanged).toHaveBeenCalledTimes(4);
 		await session.dispose();
 	});
 
@@ -307,3 +452,27 @@ const MODEL: Model<Api> = {
 	contextWindow: 8_000,
 	maxTokens: 1_000,
 };
+
+function createMcpClient(): IMcpClient {
+	return {
+		async initialize() {
+			throw new Error("Not used");
+		},
+		async listTools() {
+			throw new Error("Not used");
+		},
+		async callTool() {
+			return { content: [{ type: "text", text: "result" }] };
+		},
+		async listResources() {
+			throw new Error("Not used");
+		},
+		async readResource() {
+			throw new Error("Not used");
+		},
+		async listPrompts() {
+			throw new Error("Not used");
+		},
+		async close() {},
+	};
+}

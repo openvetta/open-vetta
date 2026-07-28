@@ -59,6 +59,7 @@ export interface GreenfieldRuntimeAssembly {
 	readonly session: AgentSession;
 	readonly repository: ConversationRepository;
 	readonly conversationDocumentStore: ConversationDocumentStore;
+	readonly promptAdapter: GreenfieldPromptAdapter;
 	readonly modelRuntime: GreenfieldRuntimeModelRuntime;
 	readonly identity: GreenfieldRuntimeSessionIdentity;
 	readonly stateSource: GreenfieldRuntimeStateSource;
@@ -73,7 +74,6 @@ export interface GreenfieldRuntimeFactory<TCreateOptions> {
 
 export interface GreenfieldRuntimeSessionBackendOptions<TCreateOptions> {
 	readonly runtimeFactory: GreenfieldRuntimeFactory<TCreateOptions>;
-	readonly promptAdapter: GreenfieldPromptAdapter;
 }
 
 export interface GreenfieldRuntimeSessionState {
@@ -112,13 +112,12 @@ export class GreenfieldRuntimeSession {
 
 	constructor(
 		assembly: GreenfieldRuntimeAssembly,
-		promptAdapter: GreenfieldPromptAdapter,
 		eventSink: GreenfieldSessionEventSink,
 		projection: GreenfieldSessionProjection,
 	) {
 		this.sessionId = assembly.session.id;
 		this.session = assembly.session;
-		this.promptAdapter = promptAdapter;
+		this.promptAdapter = assembly.promptAdapter;
 		this.eventSink = eventSink;
 		this.modelRuntime = assembly.modelRuntime;
 		this.identity = assembly.identity;
@@ -397,7 +396,7 @@ export class GreenfieldRuntimeSessionBackend<TCreateOptions>
 			const projection = new GreenfieldSessionProjection(conversation, document);
 			eventSink.bindProjection(projection);
 			eventSink.finishInitialization();
-			return new GreenfieldRuntimeSession(assembly, this.options.promptAdapter, eventSink, projection);
+			return new GreenfieldRuntimeSession(assembly, eventSink, projection);
 		} catch (error) {
 			try {
 				await assembly.session.close();

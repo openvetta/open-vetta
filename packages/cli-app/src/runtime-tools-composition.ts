@@ -17,7 +17,11 @@ import {
 import {
 	type BackgroundCommandService,
 	type CodingToolActivation,
+	type CodingToolActivationResolver,
+	type CodingToolCatalogRefresher,
 	type CodingToolExecutableResolver,
+	type CodingToolRegistration,
+	type CodingToolRegistrationFilter,
 	type CommandToolExecutor,
 	createBackgroundCommandService,
 	createBackgroundCommandToolExecutor,
@@ -42,9 +46,13 @@ import {
 export interface CodingToolsRuntimeCompositionOptions {
 	readonly cwd?: string;
 	readonly activation?: CodingToolActivation;
+	readonly resolveActivation?: CodingToolActivationResolver;
+	readonly refreshCatalog?: CodingToolCatalogRefresher;
+	readonly filterRegistration?: CodingToolRegistrationFilter;
 	readonly backgroundService?: BackgroundCommandService;
 	readonly commandExecutor?: CommandToolExecutor;
 	readonly ensureTool?: EnsureTool;
+	readonly additionalRegistrations?: readonly CodingToolRegistration[];
 	readonly tokenBudget?: number;
 	readonly reservedOutputTokens?: number;
 }
@@ -99,9 +107,13 @@ export function createCodingToolsRuntimeComposition(
 		createFindToolRegistration(cwd, { executableResolver }),
 		createTreeToolRegistration(cwd, { executableResolver }),
 		createWriteToolRegistration(cwd, { pathPolicy: createCodingAgentWritePathPolicy(cwd) }),
+		...(options.additionalRegistrations ?? []),
 	]);
 	const feature = createCodingToolsFeature({
 		catalog: registry,
+		resolveActivation: options.resolveActivation,
+		refreshCatalog: options.refreshCatalog,
+		filterRegistration: options.filterRegistration,
 		activation:
 			options.activation ??
 			(backgroundService

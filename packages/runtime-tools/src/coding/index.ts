@@ -16,6 +16,9 @@ export {
 } from "./coding-tool-catalog.js";
 export {
 	CODING_TOOLS_FEATURE_ID,
+	type CodingToolActivationResolver,
+	type CodingToolCatalogRefresher,
+	type CodingToolRegistrationFilter,
 	type CodingToolsFeatureOptions,
 	createCodingToolsFeature,
 } from "./coding-tools-feature.js";

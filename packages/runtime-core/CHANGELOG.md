@@ -48,6 +48,7 @@ All notable changes to `@vetta/runtime-core` are documented in this file.
 
 ### Changed
 
+- **Greenfield Prompt Adapter 改为 Session 所有**：Adapter 由每个 Runtime Assembly 独立交付，不再由 Backend 全局共享，使 ResourceLoader、TodoStore 等有状态 Prompt 资源可按会话隔离。
 - **Runtime Core 依赖倒置**：生产源码不再导入 `@vetta/coding-agent`；Legacy Session、历史、事件和平台沙箱工具适配器移至 `@vetta/coding-agent/runtime-host`，Desktop 通过显式 Composition Root 保持原生产行为。`RuntimeHost` 不再隐式创建具体 Backend/Catalog/History Reader，缺失组合时返回明确错误。
 - **RuntimeHost Assembly 移除裸 Session**：`RuntimeHostSessionAssembly` 与内部 `SessionHandle` 不再暴露或保存旧 `AgentSession`；Legacy Backend 仅在组合时用旧 Session 构造各项 Port，RuntimeHost 注册完成后只持有稳定能力合同，并增加类型门禁防止裸 Session 字段回流。
 - **Runtime Tool 输入类型泛型化**：`RuntimeToolDefinition<TInput>` 与 `RuntimeToolExecutionRequest<TInput>` 可从 TypeBox Schema 保留具体工具参数类型；异构 Runtime Snapshot 边界仍统一擦除为只读对象合同。

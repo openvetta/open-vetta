@@ -2,6 +2,7 @@
 
 ### Added
 
+- **Greenfield 会话级动态能力适配**：新增真实 ResourceLoader/TodoStore Prompt resolver 与旧 AgentTool 到 RuntimeTool 的协议适配；Skill/Scene 文件变化在下一 Prompt 生效，Scene 继续使用会话独占 TodoStore，Knowledge/MCP 可复用既有工具实现而无需复制业务逻辑。
 - **Greenfield 模型与 Prompt 窄适配入口**：新增 `@vetta/coding-agent/runtime-host/greenfield`，将现有 ModelRegistry 适配为 Runtime Catalog/Credential Port；Prompt Adapter 保留文本、图片、streaming、结构化 Skill/Scene、附件、知识模式与设置协助的输入语义，通过可注入资源解析端口和通用持久化 context 与具体 Kernel 实现解耦。
 - **RuntimeHost Legacy Adapter 与显式组合入口**：新增 `@vetta/coding-agent/runtime-host`，集中承载旧 `AgentSession`、SessionManager、ModelRegistry、历史/事件和平台沙箱工具到 Runtime Core Port 的兼容适配；`createLegacyRuntimeHostOptions()` 为 Desktop 等宿主一次组装完整旧行为。
 - **Runtime 可执行文件解析适配器**：新增 `createToolExecutableResolver`，将旧 `ensureTool` 以静默解析方式适配为 Runtime `rg`/`fd` Resolver Port；下载、版本选择和失败策略仍由 coding-agent 宿主拥有。

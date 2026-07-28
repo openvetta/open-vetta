@@ -24,6 +24,7 @@ export interface CodingAgentPromptResourceExpansion {
 export type CodingAgentPromptResourceResolver = (
 	text: string,
 	promptRef: PromptResourceRef,
+	context: GreenfieldPromptPreparationContext,
 ) => Promise<CodingAgentPromptResourceExpansion> | CodingAgentPromptResourceExpansion;
 
 export interface CodingAgentGreenfieldPromptAdapterOptions {
@@ -45,7 +46,7 @@ export class CodingAgentGreenfieldPromptAdapter implements GreenfieldPromptAdapt
 		request: PromptRequest,
 		context: GreenfieldPromptPreparationContext,
 	): Promise<GreenfieldPreparedPrompt> {
-		const expansion = await this.expandPrompt(request);
+		const expansion = await this.expandPrompt(request, context);
 		const timestamp = this.now();
 		const attachmentContext = request.attachments?.length
 			? buildPromptAttachmentContext(request.attachments)
@@ -73,7 +74,10 @@ export class CodingAgentGreenfieldPromptAdapter implements GreenfieldPromptAdapt
 		};
 	}
 
-	private async expandPrompt(request: PromptRequest): Promise<CodingAgentPromptResourceExpansion> {
+	private async expandPrompt(
+		request: PromptRequest,
+		context: GreenfieldPromptPreparationContext,
+	): Promise<CodingAgentPromptResourceExpansion> {
 		if (!request.promptRef) return { text: request.text };
 		if (/^\/(?:skill|scene):/.test(request.text)) {
 			throw new Error("Prompt must not contain a Skill / Scene command when promptRef is provided");
@@ -82,7 +86,7 @@ export class CodingAgentGreenfieldPromptAdapter implements GreenfieldPromptAdapt
 		if (!name) throw new Error("Prompt resource name must not be empty");
 		const promptRef = { ...request.promptRef, name };
 		return this.resolvePromptResource
-			? this.resolvePromptResource(request.text, promptRef)
+			? this.resolvePromptResource(request.text, promptRef, context)
 			: { text: request.text, promptRef };
 	}
 

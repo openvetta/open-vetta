@@ -13,6 +13,14 @@ export {
 	type CodingAgentPromptResourceResolver,
 } from "./greenfield-prompt-adapter.js";
 export {
+	type CodingAgentPromptResourceResolverOptions,
+	createCodingAgentPromptResourceResolver,
+} from "./greenfield-prompt-resource-resolver.js";
+export {
+	adaptCodingAgentToolRegistration,
+	type CodingAgentRuntimeToolRegistration,
+} from "./greenfield-tool-adapter.js";
+export {
 	ASSISTANT_TURN_TIMING_TYPE,
 	branchFromFileEntries,
 	type EntriesToHistoryOptions,

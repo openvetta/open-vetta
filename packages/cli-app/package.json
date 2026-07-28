@@ -19,6 +19,7 @@
 		"@vetta/action-rpc": "workspace:*",
 		"@vetta/coding-agent": "workspace:*",
 		"@vetta/runtime-core": "workspace:*",
+		"@vetta/runtime-mcp": "workspace:*",
 		"@vetta/runtime-storage": "workspace:*",
 		"@vetta/runtime-tools": "workspace:*",
 		"zod": "^4.4.3"
