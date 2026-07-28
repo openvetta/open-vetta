@@ -9,6 +9,7 @@ export {
 	scoreCodingAgentDeferredMcpTools,
 } from "./greenfield-mcp-deferred-adapter.js";
 export {
+	type CodingAgentMcpPromptState,
 	CodingAgentModelCallFrameComposer,
 	type CodingAgentModelCallFrameComposerOptions,
 	type CodingAgentModelCallPromptContext,
@@ -29,6 +30,15 @@ export {
 	type CodingAgentPromptResourceResolverOptions,
 	createCodingAgentPromptResourceResolver,
 } from "./greenfield-prompt-resource-resolver.js";
+export {
+	type CodingAgentPromptMemoryState,
+	type CodingAgentPromptResourceSource,
+	CodingAgentPromptRuntime,
+	type CodingAgentPromptRuntimeOptions,
+	type CodingAgentPromptSettingsSource,
+	type CreateCodingAgentPromptRuntimeOptions,
+	createCodingAgentPromptRuntime,
+} from "./greenfield-prompt-runtime.js";
 export {
 	adaptCodingAgentToolRegistration,
 	type CodingAgentRuntimeToolRegistration,

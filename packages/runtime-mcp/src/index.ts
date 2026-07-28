@@ -14,6 +14,7 @@ export type { McpServerInstance, McpTool } from "@vetta/coding-agent/core/mcp/ty
 export {
 	createMcpDeferredToolController,
 	DEFAULT_MCP_DEFERRED_THRESHOLD,
+	type McpDeferredFeatureOptions,
 	type McpDeferredPromptState,
 	McpDeferredToolController,
 	type McpDeferredToolControllerOptions,

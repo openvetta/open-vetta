@@ -69,6 +69,8 @@
 | [59-workspace-build-order-type-gate.md](./08-implementation-log/59-workspace-build-order-type-gate.md) | Workspace 构建顺序纠偏与类型门禁补漏 |
 | [60-desktop-workspace-prerequisite-graph.md](./08-implementation-log/60-desktop-workspace-prerequisite-graph.md) | Desktop 前置构建图纠偏与 `TS5055` 回归门禁 |
 | [61-model-call-frame-composer-and-prompt-parity.md](./08-implementation-log/61-model-call-frame-composer-and-prompt-parity.md) | Model Call Frame Composer 与调用级 Prompt 等价切片 |
+| [62-session-prompt-runtime-and-unified-draft.md](./08-implementation-log/62-session-prompt-runtime-and-unified-draft.md) | Session Prompt Runtime、统一 Prompt Draft 与 MCP 单通道 |
+| [63-cli-typecheck-and-build-surface-gate.md](./08-implementation-log/63-cli-typecheck-and-build-surface-gate.md) | CLI 显式类型门禁与 Build Surface 声明消费验证 |
 
 ## 维护约定
 

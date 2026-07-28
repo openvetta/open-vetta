@@ -5,6 +5,7 @@ import {
 	CodingAgentModelCallFrameComposer,
 	CodingAgentModelRegistryAdapter,
 	type CodingAgentModelRegistrySource,
+	CodingAgentPromptRuntime,
 } from "../../src/adapters/runtime-core/index.js";
 import { buildSystemPrompt } from "../../src/core/system-prompt.js";
 
@@ -211,7 +212,7 @@ describe("Greenfield coding-agent adapters", () => {
 				messages: [{ role: "user", content: "inspect", timestamp: 1 }],
 				modelBinding: { model: MODEL },
 				frame: {
-					instructions: [{ id: "stale", content: "stale", priority: 0 }],
+					instructions: [],
 					tools: new Map([["read", readTool]]),
 				},
 			});
@@ -234,6 +235,128 @@ describe("Greenfield coding-agent adapters", () => {
 		} finally {
 			vi.useRealTimers();
 		}
+	});
+
+	it("merges ordered Feature instructions into the structured prompt and rejects block collisions", async () => {
+		const composer = new CodingAgentModelCallFrameComposer({
+			resolveSystemPromptOptions: () => ({
+				customPrompt: "Base prompt",
+				cwd: "C:\\workspace",
+			}),
+		});
+		const context = {
+			sessionId: "session-1",
+			turnId: "turn-1",
+			signal: new AbortController().signal,
+			messages: [{ role: "user" as const, content: "inspect", timestamp: 1 }],
+			frame: {
+				instructions: [
+					{ id: "feature.after", content: "After feature", priority: 650 },
+					{ id: "feature.before", content: "Before feature", priority: 450 },
+				],
+				tools: new Map(),
+			},
+		};
+
+		const frame = await composer.compose(context);
+		const prompt = frame.instructions[0]?.content ?? "";
+		expect(prompt.indexOf("Before feature")).toBeLessThan(prompt.indexOf("After feature"));
+		expect(prompt).toContain("Base prompt");
+
+		await expect(
+			composer.compose({
+				...context,
+				frame: {
+					instructions: [{ id: "core.tools", content: "collision", priority: 1 }],
+					tools: new Map(),
+				},
+			}),
+		).rejects.toThrow("Duplicate Coding Agent system prompt block id: core.tools");
+	});
+
+	it("reads mutable Resource, Settings, Mode and Memory state per model call without sharing sessions", () => {
+		let firstBasePrompt = "First session prompt v1";
+		let firstPersonalization = "First persona v1";
+		let firstMode: string | undefined = "work";
+		let firstMemory = "First memory v1";
+		const firstRefresh = vi.fn();
+		const firstReloadPersonalization = vi.fn();
+		const first = new CodingAgentPromptRuntime({
+			cwd: "C:\\first",
+			scenario: "cli",
+			resourceLoader: {
+				getSystemPrompt: () => firstBasePrompt,
+				getAppendSystemPrompt: () => ["First append"],
+				getAgentsFiles: () => ({
+					agentsFiles: [{ path: "C:\\first\\AGENTS.md", content: "First repository instruction" }],
+				}),
+				getSkills: () => ({ skills: [], diagnostics: [] }),
+				refreshSkillsIfChanged: firstRefresh,
+			},
+			settingsManager: {
+				reloadPersonalizationSettings: firstReloadPersonalization,
+				getPersonalization: () => ({ personaId: "default", customPrompt: firstPersonalization }),
+			},
+			readAgentMode: () => firstMode,
+			readMemory: () => ({
+				enabled: true,
+				file: "C:\\first\\MEMORY.md",
+				snapshot: firstMemory,
+				charLimit: 4_000,
+			}),
+		});
+		const second = new CodingAgentPromptRuntime({
+			cwd: "C:\\second",
+			scenario: "cli",
+			resourceLoader: {
+				getSystemPrompt: () => "Second session prompt",
+				getAppendSystemPrompt: () => [],
+				getAgentsFiles: () => ({ agentsFiles: [] }),
+				getSkills: () => ({ skills: [], diagnostics: [] }),
+				refreshSkillsIfChanged: () => false,
+			},
+			settingsManager: {
+				reloadPersonalizationSettings() {},
+				getPersonalization: () => ({ personaId: "default", customPrompt: "Second persona" }),
+			},
+		});
+		const context = {
+			sessionId: "first",
+			turnId: "turn-1",
+			signal: new AbortController().signal,
+			messages: [],
+			frame: { instructions: [], tools: new Map() },
+			activeToolNames: ["read"],
+		};
+
+		const firstCall = first.resolve(context);
+		firstBasePrompt = "First session prompt v2";
+		firstPersonalization = "First persona v2";
+		firstMode = undefined;
+		firstMemory = "First memory v2";
+		const secondCall = first.resolve(context);
+		const isolatedCall = second.resolve({ ...context, sessionId: "second" });
+
+		expect(firstCall).toMatchObject({
+			customPrompt: "First session prompt v1",
+			appendSystemPrompt: "First append",
+			contextFiles: [{ content: "First repository instruction" }],
+			memory: expect.stringContaining("First memory v1"),
+			personalization: "First persona v1",
+		});
+		expect(firstCall.modePrompt).toBeTruthy();
+		expect(secondCall).toMatchObject({
+			customPrompt: "First session prompt v2",
+			memory: expect.stringContaining("First memory v2"),
+			personalization: "First persona v2",
+		});
+		expect(secondCall.modePrompt).toBe("");
+		expect(isolatedCall).toMatchObject({
+			customPrompt: "Second session prompt",
+			personalization: "Second persona",
+		});
+		expect(firstRefresh).toHaveBeenCalledTimes(2);
+		expect(firstReloadPersonalization).toHaveBeenCalledTimes(2);
 	});
 });
 

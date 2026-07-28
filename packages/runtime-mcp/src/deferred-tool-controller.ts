@@ -15,6 +15,10 @@ export interface McpDeferredToolControllerOptions {
 	readonly explicitToolNames?: ReadonlySet<string>;
 }
 
+export interface McpDeferredFeatureOptions {
+	readonly includePromptInstruction?: boolean;
+}
+
 export interface McpDeferredPromptState {
 	readonly tools: readonly McpRuntimeToolDescriptor[];
 	readonly deferred: boolean;
@@ -67,7 +71,7 @@ export class McpDeferredToolController {
 		};
 	}
 
-	createFeature(): AgentFeatureDefinition {
+	createFeature(options: McpDeferredFeatureOptions = {}): AgentFeatureDefinition {
 		const controller = this;
 		const toolSearch = createCodingAgentToolSearchRuntimeTool((query, maxResults) => this.search(query, maxResults));
 		return {
@@ -82,7 +86,7 @@ export class McpDeferredToolController {
 									contribute: async (context) => {
 										context.signal.throwIfAborted();
 										if (context.sessionId !== controller.options.sessionId) return {};
-										return controller.contribute(toolSearch);
+										return controller.contribute(toolSearch, options.includePromptInstruction ?? true);
 									},
 								},
 							],
@@ -94,9 +98,12 @@ export class McpDeferredToolController {
 		};
 	}
 
-	private contribute(toolSearch: ReturnType<typeof createCodingAgentToolSearchRuntimeTool>): ModelCallContribution {
+	private contribute(
+		toolSearch: ReturnType<typeof createCodingAgentToolSearchRuntimeTool>,
+		includePromptInstruction: boolean,
+	): ModelCallContribution {
 		const tools = this.instructionTools();
-		const instruction = this.createInstruction(tools);
+		const instruction = includePromptInstruction ? this.createInstruction(tools) : undefined;
 		return {
 			instructions: instruction ? [instruction] : [],
 			tools: this.isDeferred() ? [toolSearch] : [],

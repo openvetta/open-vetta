@@ -1,9 +1,15 @@
 import type {
+	InstructionBlock,
 	ModelCallFrame,
 	ModelCallFrameComposer,
 	ModelCallFrameCompositionContext,
 } from "@vetta/runtime-core/kernel";
-import { type BuildSystemPromptOptions, buildSystemPrompt } from "../../core/system-prompt.js";
+import {
+	type BuildSystemPromptOptions,
+	buildSystemPromptDraft,
+	renderSystemPromptDraft,
+	type SystemPromptDraft,
+} from "../../core/system-prompt.js";
 
 export type CodingAgentSystemPromptOptions = Omit<BuildSystemPromptOptions, "selectedTools">;
 
@@ -17,6 +23,15 @@ export type CodingAgentSystemPromptOptionsResolver = (
 
 export interface CodingAgentModelCallFrameComposerOptions {
 	readonly resolveSystemPromptOptions: CodingAgentSystemPromptOptionsResolver;
+	readonly readMcpPromptState?: () => CodingAgentMcpPromptState;
+}
+
+export interface CodingAgentMcpPromptState {
+	readonly tools: readonly {
+		readonly name: string;
+		readonly description: string;
+	}[];
+	readonly deferred: boolean;
 }
 
 /**
@@ -36,19 +51,45 @@ export class CodingAgentModelCallFrameComposer implements ModelCallFrameComposer
 			activeToolNames,
 		});
 		context.signal.throwIfAborted();
-		const systemPrompt = buildSystemPrompt({
+		const mcpPromptState = this.options.readMcpPromptState?.();
+		const draft = buildSystemPromptDraft({
 			...promptOptions,
 			selectedTools: activeToolNames,
+			...(mcpPromptState
+				? {
+						mcpTools: mcpPromptState.tools.map(({ name, description }) => ({ name, description })),
+						mcpDeferred: mcpPromptState.deferred,
+					}
+				: {}),
 		});
+		appendFeatureInstructions(draft, context.frame.instructions);
 		return {
 			instructions: [
 				{
 					id: "coding-agent.system-prompt",
-					content: systemPrompt,
+					content: renderSystemPromptDraft(draft),
 					priority: 0,
 				},
 			],
 			tools: context.frame.tools,
 		};
+	}
+}
+
+function appendFeatureInstructions(draft: SystemPromptDraft, instructions: readonly InstructionBlock[]): void {
+	const blockIds = new Set(draft.blocks.map(({ id }) => id));
+	for (const instruction of instructions) {
+		if (blockIds.has(instruction.id)) {
+			throw new Error(`Duplicate Coding Agent system prompt block id: ${instruction.id}`);
+		}
+		blockIds.add(instruction.id);
+		draft.blocks.push({
+			id: instruction.id,
+			type: "plugin",
+			source: { kind: "plugin", pluginId: `feature:${instruction.id}` },
+			content: instruction.content,
+			priority: instruction.priority,
+			enabled: instruction.content.length > 0,
+		});
 	}
 }

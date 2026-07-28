@@ -213,6 +213,41 @@ describe("Greenfield runtime composition", () => {
 		await second.dispose();
 	});
 
+	it("creates a real Resource and Settings prompt runtime for each Greenfield session", async () => {
+		const conversations = await createTemporaryDirectory("greenfield-runtime-real-prompt-");
+		const agentDir = await createTemporaryDirectory("greenfield-runtime-agent-dir-");
+		const firstWorkspace = await createTemporaryDirectory("greenfield-runtime-first-workspace-");
+		const secondWorkspace = await createTemporaryDirectory("greenfield-runtime-second-workspace-");
+		await writeFile(join(firstWorkspace, "AGENTS.md"), "First session repository instruction", "utf8");
+		await writeFile(join(secondWorkspace, "AGENTS.md"), "Second session repository instruction", "utf8");
+		const systemPrompts: string[] = [];
+		const composition = await createGreenfieldRuntimeComposition({
+			conversationDir: conversations,
+			modelRegistry: modelRegistry(),
+			initialModel: MODEL,
+			initialThinkingLevel: "off",
+			agentDir,
+			activation: { mode: "explicit", toolNames: [] },
+			streamFn: (_model, context) => {
+				systemPrompts.push(context.systemPrompt ?? "");
+				return new RecordedAssistantStream(assistantMessage([{ type: "text", text: "done" }]));
+			},
+		});
+		compositions.push(composition);
+		const first = await composition.backend.create({ sessionId: "real-prompt-first", cwd: firstWorkspace });
+		const second = await composition.backend.create({ sessionId: "real-prompt-second", cwd: secondWorkspace });
+
+		await first.prompt({ text: "first" });
+		await second.prompt({ text: "second" });
+
+		expect(systemPrompts[0]).toContain("First session repository instruction");
+		expect(systemPrompts[0]).not.toContain("Second session repository instruction");
+		expect(systemPrompts[1]).toContain("Second session repository instruction");
+		expect(systemPrompts[1]).not.toContain("First session repository instruction");
+		await first.dispose();
+		await second.dispose();
+	});
+
 	it("recompiles the Coding Agent system prompt from current call tools and session-local options", async () => {
 		const conversations = await createTemporaryDirectory("greenfield-runtime-system-prompt-");
 		const calls: Array<{
@@ -434,7 +469,7 @@ describe("Greenfield runtime composition", () => {
 		const second = await composition.backend.create({ sessionId: "deferred-second" });
 
 		await first.prompt({ text: "activate topic 15" });
-		expect(modelCalls[0]?.systemPrompt).toBe(renderCodingAgentMcpToolsInstruction(fixture.descriptors, true));
+		expect(modelCalls[0]?.systemPrompt).toContain(renderCodingAgentMcpToolsInstruction(fixture.descriptors, true));
 		expect(modelCalls[0]?.messages).toEqual(["activate topic 15"]);
 		expect(modelCalls[0]?.tools.map(({ name }) => name)).toEqual(["tool_search"]);
 		expect(modelCalls[1]?.tools.map(({ name }) => name)).toEqual(["mcp_search_tool_15", "tool_search"]);
@@ -445,7 +480,7 @@ describe("Greenfield runtime composition", () => {
 
 		fixture.setAvailable(false);
 		await first.prompt({ text: "after removal" });
-		expect(modelCalls[3]?.systemPrompt).toBe("");
+		expect(modelCalls[3]?.systemPrompt).not.toContain("mcp_search_tool_15");
 		expect(modelCalls[3]?.tools).toEqual([]);
 
 		fixture.setAvailable(true);
@@ -484,12 +519,8 @@ describe("Greenfield runtime composition", () => {
 
 		await session.prompt({ text: "use the selected MCP tool" });
 
-		expect(calls).toEqual([
-			{
-				systemPrompt: renderCodingAgentMcpToolsInstruction([fixture.descriptors[15]!], false),
-				tools: ["mcp_search_tool_15"],
-			},
-		]);
+		expect(calls[0]?.systemPrompt).toContain(renderCodingAgentMcpToolsInstruction([fixture.descriptors[15]!], false));
+		expect(calls[0]?.tools).toEqual(["mcp_search_tool_15"]);
 		await session.dispose();
 	});
 
@@ -525,6 +556,7 @@ describe("Greenfield runtime composition", () => {
 		expect(calls[0]?.systemPrompt).toContain("# MCP (Model Context Protocol) Tools");
 		expect(calls[0]?.systemPrompt).toContain("**mcp_search_tool_15**: Lookup topic-15");
 		expect(calls[0]?.systemPrompt).toContain("**MCP tool usage (deferred)**");
+		expect(calls[0]?.systemPrompt?.match(/# MCP \(Model Context Protocol\) Tools/g)).toHaveLength(1);
 		expect(calls[0]?.mcpTools).toEqual(["tool_search"]);
 
 		fixture.setAvailable(false);

@@ -22,12 +22,21 @@ import {
 } from "../system-prompt.js";
 import type { ConversationScenario } from "./tool-scope.js";
 
+export interface PersonalizationSettingsSource {
+	getPersonalization(): { personaId: string; customPrompt: string };
+}
+
+export type SystemPromptResourceSource = Pick<
+	ResourceLoader,
+	"getAgentsFiles" | "getAppendSystemPrompt" | "getSkills" | "getSystemPrompt"
+>;
+
 /**
  * Build the personalization (persona + custom instructions) append block.
  * Order: persona first, custom instructions second; default persona contributes
  * an empty string. Returns undefined when both are empty.
  */
-export function buildPersonalizationBlock(settingsManager: SettingsManager): string | undefined {
+export function buildPersonalizationBlock(settingsManager: PersonalizationSettingsSource): string | undefined {
 	const { personaId, customPrompt } = settingsManager.getPersonalization();
 	const parts: string[] = [];
 	const personaPrompt = getPersonaPrompt(personaId);
@@ -63,8 +72,27 @@ export interface SystemPromptDeps {
 	mcpDeferred?: boolean;
 }
 
-function resolveSystemPromptOptions(deps: SystemPromptDeps): BuildSystemPromptOptions {
-	const validToolNames = deps.toolNames.filter((name) => deps.baseToolRegistry.has(name));
+export interface SystemPromptSourceDeps {
+	toolNames: readonly string[];
+	resourceLoader: SystemPromptResourceSource;
+	mcpManager: McpManager | undefined;
+	cwd: string;
+	settingsManager: PersonalizationSettingsSource;
+	memoryMode: boolean;
+	memoryFile: string | undefined;
+	memorySnapshot: string;
+	memoryCharLimit: number;
+	/** 当前工作模式（agent_mode 轴）。解析出模式专用 system prompt block。见 ADR-0046。 */
+	agentMode?: string;
+	agentPlugins?: AgentPluginRuntimeConfig;
+	/** 当前对话场景。用于裁剪仅对 UI 渲染有意义的 guideline（cli 场景剔除渲染契约）。 */
+	scenario?: ConversationScenario;
+	/** MCP 渐进披露模式：true 时提示词列全量 MCP 索引（含未激活）并引导 tool_search 激活。 */
+	mcpDeferred?: boolean;
+}
+
+export function resolveSystemPromptOptionsFromSources(deps: SystemPromptSourceDeps): BuildSystemPromptOptions {
+	const validToolNames = [...deps.toolNames];
 	const loaderSystemPrompt = deps.resourceLoader.getSystemPrompt();
 	const loaderAppendSystemPrompt = deps.resourceLoader.getAppendSystemPrompt();
 	const appendSystemPrompt = loaderAppendSystemPrompt.length > 0 ? loaderAppendSystemPrompt.join("\n\n") : undefined;
@@ -108,6 +136,13 @@ function resolveSystemPromptOptions(deps: SystemPromptDeps): BuildSystemPromptOp
 		scenario: deps.scenario,
 		mcpDeferred: deps.mcpDeferred,
 	};
+}
+
+function resolveSystemPromptOptions(deps: SystemPromptDeps): BuildSystemPromptOptions {
+	return resolveSystemPromptOptionsFromSources({
+		...deps,
+		toolNames: deps.toolNames.filter((name) => deps.baseToolRegistry.has(name)),
+	});
 }
 
 /** Rebuild the base system prompt from current session state. */

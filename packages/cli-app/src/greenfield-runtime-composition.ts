@@ -7,6 +7,7 @@ import {
 	type CodingAgentModelRegistrySource,
 	type CodingAgentPromptResourceResolver,
 	type CodingAgentSystemPromptOptionsResolver,
+	createCodingAgentPromptRuntime,
 } from "@vetta/coding-agent/runtime-host/greenfield";
 import {
 	ComposedGreenfieldRuntimeFactory,
@@ -37,6 +38,7 @@ import {
 export interface GreenfieldCliSessionOptions {
 	readonly sessionId: string;
 	readonly cwd?: string;
+	readonly agentMode?: string;
 	readonly parentSessionPath?: string;
 	readonly parentEntryId?: string;
 }
@@ -47,6 +49,7 @@ export interface GreenfieldRuntimeCompositionOptions {
 	readonly initialModel: NonNullable<SessionConfig["model"]>;
 	readonly initialThinkingLevel: NonNullable<SessionConfig["thinkingLevel"]>;
 	readonly cwd?: string;
+	readonly agentDir?: string;
 	readonly activation?: CodingToolActivation;
 	readonly knowledgeEnabled?: boolean;
 	readonly knowledgeRoot?: string;
@@ -158,36 +161,41 @@ export async function createGreenfieldRuntimeComposition(
 			const baseProfile: AgentProfile = mcpController
 				? {
 						...tools.profile,
-						features: [...tools.profile.features, mcpController.createFeature()],
+						features: [
+							...tools.profile.features,
+							mcpController.createFeature({ includePromptInstruction: false }),
+						],
 					}
 				: tools.profile;
-			const resolveSystemPromptOptions =
+			const sessionCwd = sessionOptions.cwd ?? cwd;
+			const injectedSystemPromptOptionsResolver =
 				options.createSystemPromptOptionsResolver?.(sessionOptions) ?? options.resolveSystemPromptOptions;
-			const profile: AgentProfile = resolveSystemPromptOptions
-				? {
-						...baseProfile,
-						modelCallFrameComposer: new CodingAgentModelCallFrameComposer({
-							resolveSystemPromptOptions: async (context) => {
-								const promptOptions = await resolveSystemPromptOptions(context);
-								const mcpPrompt = mcpController?.readPromptState();
-								const promptOptionsWithCwd = {
-									...promptOptions,
-									cwd: promptOptions.cwd ?? sessionOptions.cwd ?? cwd,
-								};
-								return mcpPrompt
-									? {
-											...promptOptionsWithCwd,
-											mcpTools: mcpPrompt.tools.map(({ name, description }) => ({
-												name,
-												description,
-											})),
-											mcpDeferred: mcpPrompt.deferred,
-										}
-									: promptOptionsWithCwd;
-							},
-						}),
-					}
-				: baseProfile;
+			const promptRuntime = injectedSystemPromptOptionsResolver
+				? undefined
+				: await createCodingAgentPromptRuntime({
+						cwd: sessionCwd,
+						agentDir: options.agentDir,
+						scenario: "cli",
+						readAgentMode: () => sessionOptions.agentMode,
+					});
+			const resolveSystemPromptOptions =
+				injectedSystemPromptOptionsResolver ?? promptRuntime?.resolveSystemPromptOptions;
+			if (!resolveSystemPromptOptions) {
+				throw new Error("Coding Agent system prompt resolver was not created");
+			}
+			const profile: AgentProfile = {
+				...baseProfile,
+				modelCallFrameComposer: new CodingAgentModelCallFrameComposer({
+					readMcpPromptState: mcpController ? () => mcpController.readPromptState() : undefined,
+					resolveSystemPromptOptions: async (context) => {
+						const promptOptions = await resolveSystemPromptOptions(context);
+						return {
+							...promptOptions,
+							cwd: promptOptions.cwd ?? sessionCwd,
+						};
+					},
+				}),
+			};
 			let capabilities: RuntimeCapabilityComposition;
 			try {
 				capabilities = await RuntimeCapabilityComposition.create({
