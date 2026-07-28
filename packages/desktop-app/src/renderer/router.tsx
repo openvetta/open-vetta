@@ -2,15 +2,14 @@ import { createRootRoute, createRoute, createRouter, createHashHistory, redirect
 import { lazy } from "react";
 import { RouteContentLoadingView } from "@vetta/theme-ui/app";
 import { RootLayout } from "./App";
+import { loadNewSessionPage } from "./domains/chat/components/loadNewSessionPage";
 import { RouteErrorPage } from "./shared/components/RouteErrorPage";
 import { THEME_PAGE_ROUTE_PATH } from "./shared/theme/pages/themePageRegistry";
 
 const ChatPage = lazy(async () => ({
 	default: (await import("./domains/chat/components/ChatPage")).ChatPage,
 }));
-const NewSessionPage = lazy(async () => ({
-	default: (await import("./domains/chat/components/NewSessionPage")).NewSessionPage,
-}));
+const NewSessionPage = lazy(loadNewSessionPage);
 const SessionViewerPage = lazy(async () => ({
 	default: (await import("./domains/chat/components/SessionViewerPage")).SessionViewerPage,
 }));

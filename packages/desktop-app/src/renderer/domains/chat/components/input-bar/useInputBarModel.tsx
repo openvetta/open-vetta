@@ -205,6 +205,7 @@ export function useInputBarModel({
 	}, [sandboxPermission]);
 
 	const prevValueLenRef = useRef(inputValue.length);
+	const resizeRafRef = useRef<number | null>(null);
 	/**
 	 * Auto-resize the textarea to content height.
 	 *
@@ -235,9 +236,27 @@ export function useInputBarModel({
 		el.style.height = `${Math.max(MIN_HEIGHT, Math.min(el.scrollHeight, MAX_HEIGHT))}px`;
 	}, []);
 
+	const scheduleResize = useCallback(() => {
+		if (resizeRafRef.current !== null) return;
+		// Layout measurement is visual follow-up work: coalesce rapid input to at most once per frame.
+		resizeRafRef.current = window.requestAnimationFrame(() => {
+			resizeRafRef.current = null;
+			resize();
+		});
+	}, [resize]);
+
 	useEffect(() => {
-		resize();
-	}, [inputValue, resize]);
+		scheduleResize();
+	}, [inputValue, scheduleResize]);
+
+	useEffect(() => {
+		return () => {
+			if (resizeRafRef.current !== null) {
+				window.cancelAnimationFrame(resizeRafRef.current);
+				resizeRafRef.current = null;
+			}
+		};
+	}, []);
 
 	useEffect(() => {
 		if (hasSession && !isStreaming) {
@@ -647,6 +666,22 @@ export function useInputBarModel({
 		})();
 	}, [closeContextMenu, contextMenuState, hasSession, inputValue, setInputValue]);
 
+	const removePromptAttachment = useCallback(() => {
+		setPromptAttachment(null);
+	}, [setPromptAttachment]);
+
+	const removeAppshot = useCallback(() => {
+		setAppshotAttachment(null);
+	}, [setAppshotAttachment]);
+
+	const cancelPendingEdit = useCallback(() => {
+		setPendingMessageEdit(null);
+		setInputValue("");
+		setSelectedSkill(null);
+		setMentionedFiles([]);
+		setAppshotAttachment(null);
+	}, [setAppshotAttachment, setInputValue, setMentionedFiles, setPendingMessageEdit, setSelectedSkill]);
+
 	const defaultPlaceholders = useMemo(() => {
 		const raw = t("inputBar.placeholder.defaults", { returnObjects: true });
 		const list = Array.isArray(raw) ? (raw as string[]) : [];
@@ -679,6 +714,32 @@ export function useInputBarModel({
 			placeholderRotating: defaultPlaceholders.length > 1,
 		};
 	}, [hasSession, isStreaming, showPlaceholder, firstSuggestion, defaultPlaceholders, t]);
+
+	const labels = useMemo<InputBarModel["labels"]>(
+		() => ({
+			capsule: {
+				removeDefault: t("inputBar.capsule.removeDefault"),
+				removeImage: t("inputBar.capsule.removeImage"),
+				removeTooltip: (path) => t("inputBar.capsule.removeTooltip", { path }),
+			},
+			hint: {
+				send: t("inputBar.hint.send"),
+				newline: t("inputBar.hint.newline"),
+			},
+			permission: {
+				deny: t("inputBar.permission.deny"),
+				allow: t("inputBar.permission.allow"),
+				allowSession: t("inputBar.permission.allowSession"),
+			},
+			toolbar: {
+				skills: t("inputBar.toolbar.skills"),
+				addImage: t("inputBar.toolbar.addImage"),
+				attachFile: t("inputBar.toolbar.attachFile"),
+				queue: t("inputBar.drawer.queueLabel"),
+			},
+		}),
+		[t],
+	);
 
 	const contextMenu: InputBarContextMenuViewProps | null = contextMenuState
 		? {
@@ -734,28 +795,7 @@ export function useInputBarModel({
 		cancelPendingEditLabel: t("messageList.interrupt.cancel"),
 		textareaRef,
 		contextMenu,
-		labels: {
-			capsule: {
-				removeDefault: t("inputBar.capsule.removeDefault"),
-				removeImage: t("inputBar.capsule.removeImage"),
-				removeTooltip: (path) => t("inputBar.capsule.removeTooltip", { path }),
-			},
-			hint: {
-				send: t("inputBar.hint.send"),
-				newline: t("inputBar.hint.newline"),
-			},
-			permission: {
-				deny: t("inputBar.permission.deny"),
-				allow: t("inputBar.permission.allow"),
-				allowSession: t("inputBar.permission.allowSession"),
-			},
-			toolbar: {
-				skills: t("inputBar.toolbar.skills"),
-				addImage: t("inputBar.toolbar.addImage"),
-				attachFile: t("inputBar.toolbar.attachFile"),
-				queue: t("inputBar.drawer.queueLabel"),
-			},
-		},
+		labels,
 		actions: {
 			setFocused: setIsFocused,
 			setDrawerActiveTab,
@@ -771,21 +811,15 @@ export function useInputBarModel({
 			removeImage,
 			removeSkill: handleRemoveSkill,
 			removeFile: handleRemoveFile,
-			removePromptAttachment: () => setPromptAttachment(null),
-			removeAppshot: () => setAppshotAttachment(null),
+			removePromptAttachment,
+			removeAppshot,
 			openImagePreview,
 			handlePlusClick,
 			handleSelectImages,
 			handleSelectFiles,
 			handleSend,
 			handleAbort,
-			cancelPendingEdit: () => {
-				setPendingMessageEdit(null);
-				setInputValue("");
-				setSelectedSkill(null);
-				setMentionedFiles([]);
-				setAppshotAttachment(null);
-			},
+			cancelPendingEdit,
 		},
 	};
 }

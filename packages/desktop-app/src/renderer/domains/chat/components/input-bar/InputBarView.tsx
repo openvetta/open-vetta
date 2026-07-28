@@ -1,27 +1,19 @@
-import { useMemo } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { useThemeComponent } from "@vetta/theme-sdk";
 import { useThemeSurface } from "@vetta/theme-sdk/appearance";
 import { ThemeSurface } from "@vetta/theme-ui/appearance";
 import { InputBarContextMenuView, InputBarPlaceholder } from "@vetta/theme-ui/chat";
-import { DrawerCard, type DrawerTab } from "@shared/components/DrawerCard";
-import { QueueCard } from "@shared/components/QueueCard";
-import { TodoCard } from "@shared/components/TodoCard";
 import { SlashPanel } from "../SlashPanel";
 import { AtPanel } from "../AtPanel";
 import { ActionButtonBar } from "../ActionButtonBar";
 import { InputActionBar } from "../InputActionBar";
-import { ModelSelector } from "../ModelSelector";
-import { ExecutionModeSelector } from "../ExecutionModeSelector";
-import { ContextRing } from "../ContextRing";
 import { QuestionPanel } from "../QuestionPanel";
-import { SendButton } from "../SendButton";
 import { AppshotCard } from "../AppshotCard";
 import { InputBarBackground } from "./InputBarBackground";
 import { InputBarCapsule } from "./InputBarCapsule";
-import { InputBarToolbarButton } from "./InputBarToolbarButton";
-import { SandboxPermissionCard } from "./SandboxPermissionCard";
+import { InputBarDrawer } from "./InputBarDrawer";
+import { InputBarToolbar } from "./InputBarToolbar";
 import type { InputBarViewProps } from "./types";
 import "../InputBar.css";
 
@@ -35,16 +27,9 @@ const COLLAPSE_ANIMATE = { height: "auto", opacity: 1 };
 const COLLAPSE_EXIT = { height: 0, opacity: 0 };
 const IMAGE_INITIAL = { scale: 0.8, opacity: 0 };
 const IMAGE_ANIMATE = { scale: 1, opacity: 1 };
-const TOOLBAR_BUTTON_HOVER = { scale: 1.06 };
-const TOOLBAR_BUTTON_TAP = { scale: 0.92 };
-const SEND_HINT_INITIAL = { opacity: 0, y: 2 };
-const SEND_HINT_ANIMATE = { opacity: 1, y: 0 };
 
 export function InputBarView({ model, className, classNames }: InputBarViewProps): JSX.Element {
 	const surface = useThemeSurface("chat.inputBar");
-	const toolbarLeftSurface = useThemeSurface("chat.inputBarToolbarLeft");
-	const toolbarRightSurface = useThemeSurface("chat.inputBarToolbarRight");
-	const ThemedDrawerCard = useThemeComponent("chat.inputDrawer", DrawerCard);
 	const ThemedInputBarBackground = useThemeComponent(
 		"chat.inputBarBackground",
 		InputBarBackground,
@@ -52,39 +37,6 @@ export function InputBarView({ model, className, classNames }: InputBarViewProps
 	const ThemedInputBarPlaceholder = useThemeComponent(
 		"chat.inputBarPlaceholder",
 		InputBarPlaceholder,
-	);
-	const drawerTabs = useMemo(
-		(): DrawerTab[] =>
-			model.drawerItems.map((item) => {
-				if (item.kind === "sandbox-permission") {
-					return {
-						id: item.id,
-						label: item.label,
-						color: "bg-amber-500",
-						desc: item.desc,
-						pulsing: item.pulsing,
-						content: <SandboxPermissionCard labels={model.labels.permission} request={item.request} />,
-					};
-				}
-				if (item.kind === "queue") {
-					return {
-						id: item.id,
-						label: item.label,
-						color: "bg-primary",
-						desc: item.desc,
-						content: <QueueCard runtimeId={item.runtimeId} onSendNow={item.onSendNow} />,
-					};
-				}
-				return {
-					id: item.id,
-					label: item.label,
-					color: "bg-emerald-500",
-					desc: item.desc,
-					pulsing: item.pulsing,
-					content: <TodoCard items={item.items} compact onViewMore={item.onViewMore} />,
-				};
-			}),
-		[model.drawerItems, model.labels.permission],
 	);
 
 	const cardClass = [
@@ -141,10 +93,11 @@ export function InputBarView({ model, className, classNames }: InputBarViewProps
 
 				<ActionButtonBar />
 
-				<ThemedDrawerCard
-					tabs={drawerTabs}
+				<InputBarDrawer
+					items={model.drawerItems}
 					activeTabId={model.drawerActiveTab}
 					onActiveTabChange={model.actions.setDrawerActiveTab}
+					permissionLabels={model.labels.permission}
 				/>
 
 				<div style={{ opacity: model.hasSession ? 1 : 0.55 }} className={cardClass}>
@@ -350,92 +303,20 @@ export function InputBarView({ model, className, classNames }: InputBarViewProps
 							</div>
 						</div>
 
-						<div
-							className={[
-								"flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-2 pb-2 pt-1 sm:px-2.5",
-								classNames?.toolbar,
-							]
-								.filter(Boolean)
-								.join(" ")}
-						>
-							<div
-								className={[
-									"flex min-w-0 flex-shrink items-center gap-0.5",
-									toolbarLeftSurface?.rootClassName,
-								]
-									.filter(Boolean)
-									.join(" ")}
-								data-theme-surface-root="chat.inputBarToolbarLeft"
-							>
-								<InputBarToolbarButton
-									icon="icon-[solar--add-circle-linear]"
-									title={model.labels.toolbar.skills}
-									disabled={!model.hasSession}
-									onClick={model.actions.handlePlusClick}
-									active={model.slashOpen}
-								/>
-								<InputBarToolbarButton
-									icon="icon-[solar--gallery-linear]"
-									title={model.labels.toolbar.addImage}
-									disabled={!model.hasSession}
-									onClick={() => void model.actions.handleSelectImages()}
-								/>
-								<InputBarToolbarButton
-									icon="icon-[solar--paperclip-linear]"
-									title={model.labels.toolbar.attachFile}
-									disabled={!model.hasSession}
-									onClick={() => void model.actions.handleSelectFiles()}
-								/>
-								<div className="ml-1 h-4 w-px shrink-0 bg-border/70" />
-								<div className="min-w-0 flex-shrink">
-									<ExecutionModeSelector />
-								</div>
-							</div>
-
-							<div
-								className={[
-									"ml-auto flex min-w-0 flex-shrink items-center gap-1",
-									toolbarRightSurface?.rootClassName,
-								]
-									.filter(Boolean)
-									.join(" ")}
-								data-theme-surface-root="chat.inputBarToolbarRight"
-							>
-								<div className="min-w-0 flex-shrink">
-									<ModelSelector />
-								</div>
-								<ContextRing className="mr-1" />
-								<motion.span
-									key={model.isStreaming ? "s" : model.isEmpty ? "e" : "n"}
-									initial={SEND_HINT_INITIAL}
-									animate={SEND_HINT_ANIMATE}
-									transition={SOFT}
-									className="mx-1 hidden text-[10.5px] text-muted-foreground/50 select-none md:inline"
-								>
-									{model.isStreaming ? "" : model.isEmpty ? model.labels.hint.send : model.labels.hint.newline}
-								</motion.span>
-								{model.isStreaming && !model.isEmpty ? (
-									<motion.button
-										type="button"
-										onClick={model.actions.handleSend}
-										whileHover={TOOLBAR_BUTTON_HOVER}
-										whileTap={TOOLBAR_BUTTON_TAP}
-										transition={SPRING}
-										title={model.labels.toolbar.queue}
-										className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground"
-									>
-										<span className="icon-[solar--add-square-linear] h-[18px] w-[18px]" />
-									</motion.button>
-								) : (
-									<SendButton
-										canSend={model.canSend}
-										isStreaming={model.isStreaming}
-										onSend={model.actions.handleSend}
-										onAbort={model.actions.handleAbort}
-									/>
-								)}
-							</div>
-						</div>
+						<InputBarToolbar
+							canSend={model.canSend}
+							className={classNames?.toolbar}
+							hasSession={model.hasSession}
+							isEmpty={model.isEmpty}
+							isStreaming={model.isStreaming}
+							labels={model.labels}
+							onAbort={model.actions.handleAbort}
+							onPlusClick={model.actions.handlePlusClick}
+							onSelectFiles={model.actions.handleSelectFiles}
+							onSelectImages={model.actions.handleSelectImages}
+							onSend={model.actions.handleSend}
+							slashOpen={model.slashOpen}
+						/>
 					</div>
 				</div>
 

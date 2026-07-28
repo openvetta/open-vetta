@@ -1,0 +1,133 @@
+import { useThemeSurface } from "@vetta/theme-sdk/appearance";
+import { memo } from "react";
+import { motion } from "motion/react";
+import { ContextRing } from "../ContextRing";
+import { ExecutionModeSelector } from "../ExecutionModeSelector";
+import { ModelSelector } from "../ModelSelector";
+import { SendButton } from "../SendButton";
+import { InputBarToolbarButton } from "./InputBarToolbarButton";
+import type { InputBarLabels } from "./types";
+
+const SPRING = { type: "spring" as const, stiffness: 460, damping: 32, mass: 0.9 };
+const TOOLBAR_BUTTON_HOVER = { scale: 1.06 };
+const TOOLBAR_BUTTON_TAP = { scale: 0.92 };
+const SEND_HINT_INITIAL = { opacity: 0, y: 2 };
+const SEND_HINT_ANIMATE = { opacity: 1, y: 0 };
+const SOFT = { duration: 0.18, ease: [0.22, 0.61, 0.36, 1] as const };
+
+interface InputBarToolbarProps {
+	canSend: boolean;
+	className?: string;
+	hasSession: boolean;
+	isEmpty: boolean;
+	isStreaming: boolean;
+	labels: Pick<InputBarLabels, "hint" | "toolbar">;
+	onAbort: () => void;
+	onPlusClick: () => void;
+	onSelectFiles: () => Promise<void>;
+	onSelectImages: () => Promise<void>;
+	onSend: () => void;
+	slashOpen: boolean;
+}
+
+export const InputBarToolbar = memo(function InputBarToolbar({
+	canSend,
+	className,
+	hasSession,
+	isEmpty,
+	isStreaming,
+	labels,
+	onAbort,
+	onPlusClick,
+	onSelectFiles,
+	onSelectImages,
+	onSend,
+	slashOpen,
+}: InputBarToolbarProps): JSX.Element {
+	const toolbarLeftSurface = useThemeSurface("chat.inputBarToolbarLeft");
+	const toolbarRightSurface = useThemeSurface("chat.inputBarToolbarRight");
+
+	return (
+		<div
+			className={[
+				"flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-2 pb-2 pt-1 sm:px-2.5",
+				className,
+			]
+				.filter(Boolean)
+				.join(" ")}
+		>
+			<div
+				className={[
+					"flex min-w-0 flex-shrink items-center gap-0.5",
+					toolbarLeftSurface?.rootClassName,
+				]
+					.filter(Boolean)
+					.join(" ")}
+				data-theme-surface-root="chat.inputBarToolbarLeft"
+			>
+				<InputBarToolbarButton
+					icon="icon-[solar--add-circle-linear]"
+					title={labels.toolbar.skills}
+					disabled={!hasSession}
+					onClick={onPlusClick}
+					active={slashOpen}
+				/>
+				<InputBarToolbarButton
+					icon="icon-[solar--gallery-linear]"
+					title={labels.toolbar.addImage}
+					disabled={!hasSession}
+					onClick={() => void onSelectImages()}
+				/>
+				<InputBarToolbarButton
+					icon="icon-[solar--paperclip-linear]"
+					title={labels.toolbar.attachFile}
+					disabled={!hasSession}
+					onClick={() => void onSelectFiles()}
+				/>
+				<div className="ml-1 h-4 w-px shrink-0 bg-border/70" />
+				<div className="min-w-0 flex-shrink">
+					<ExecutionModeSelector />
+				</div>
+			</div>
+
+			<div
+				className={[
+					"ml-auto flex min-w-0 flex-shrink items-center gap-1",
+					toolbarRightSurface?.rootClassName,
+				]
+					.filter(Boolean)
+					.join(" ")}
+				data-theme-surface-root="chat.inputBarToolbarRight"
+			>
+				<div className="min-w-0 flex-shrink">
+					<ModelSelector />
+				</div>
+				<ContextRing className="mr-1" />
+				<motion.span
+					key={isStreaming ? "s" : isEmpty ? "e" : "n"}
+					initial={SEND_HINT_INITIAL}
+					animate={SEND_HINT_ANIMATE}
+					transition={SOFT}
+					className="mx-1 hidden text-[10.5px] text-muted-foreground/50 select-none md:inline"
+				>
+					{isStreaming ? "" : isEmpty ? labels.hint.send : labels.hint.newline}
+				</motion.span>
+				{isStreaming && !isEmpty ? (
+					<motion.button
+						type="button"
+						onClick={onSend}
+						whileHover={TOOLBAR_BUTTON_HOVER}
+						whileTap={TOOLBAR_BUTTON_TAP}
+						transition={SPRING}
+						title={labels.toolbar.queue}
+						className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground"
+					>
+						<span className="icon-[solar--add-square-linear] h-[18px] w-[18px]" />
+					</motion.button>
+				) : (
+					<SendButton canSend={canSend} isStreaming={isStreaming} onSend={onSend} onAbort={onAbort} />
+				)}
+			</div>
+		</div>
+	);
+});
