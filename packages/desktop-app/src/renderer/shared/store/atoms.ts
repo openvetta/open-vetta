@@ -9,7 +9,6 @@ export * from "./browser-atoms";
 export * from "./chat-atoms";
 export * from "./debug-atoms";
 export * from "./deploy-mode-atoms";
-export * from "./downloads-atoms";
 export * from "./file-atoms";
 export * from "./file-preview-atoms";
 export * from "./knowledge-base-atoms";

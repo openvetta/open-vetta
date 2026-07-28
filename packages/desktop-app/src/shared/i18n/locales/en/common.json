@@ -735,7 +735,6 @@
 			"skills": "Capabilities",
 			"plugins": "Plugins",
 			"connectors": "Connectors",
-			"downloads": "Downloads",
 			"settings": "Settings"
 		}
 	},
@@ -912,7 +911,6 @@
 			"plugins": "Plugins",
 			"settings": "Settings",
 			"project": "Project Details",
-			"downloads": "Downloads",
 			"chat": "Chat"
 		},
 		"sidebarTrigger": {

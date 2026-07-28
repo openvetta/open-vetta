@@ -1,9 +1,19 @@
 import type { PresetError } from "@preload/api.js";
 import type { TFunction } from "i18next";
 
-/** 密钥被上游拒绝——调用方据此拒绝启用该服务商。 */
+/** 上游用来表达「这把 key 不行」的状态码(Gemini 走 ?key=,无效 key 返回 400)。 */
+const AUTH_STATUSES = new Set([400, 401, 403]);
+
+/**
+ * 密钥被上游拒绝——调用方据此拒绝启用该服务商。
+ *
+ * 也认 `http-status` + 认证状态码:主进程与渲染层是分别打包的,用户跑着旧主进程时
+ * 拿不到 invalid-key,不该因此把无效 key 放行。
+ */
 export function isInvalidKey(error: PresetError | undefined): error is PresetError {
-	return error?.code === "invalid-key";
+	if (!error) return false;
+	if (error.code === "invalid-key") return true;
+	return error.code === "http-status" && AUTH_STATUSES.has(Number(error.params?.status));
 }
 
 /**
