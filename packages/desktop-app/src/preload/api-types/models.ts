@@ -59,8 +59,6 @@ export interface PresetProviderInfo {
 
 export interface PresetProvidersResult {
 	providers: PresetProviderInfo[];
-	/** 是否展示各家全部模型;false(默认) = 每个系列只留最新一档。 */
-	showAllModels: boolean;
 	/** 公共目录最近一次拉取失败的原因。仅在退到随包快照时给出。 */
 	catalogError?: string;
 	/** 当前目录数据来自哪里:实拉/缓存 = live,随包内置快照 = snapshot。 */
@@ -84,8 +82,6 @@ export interface DesktopModelsApi {
 	refreshPresetModels(providerId: string, apiKey?: string): Promise<PresetModelsResult>;
 	/** 手动刷新 models.dev 公共目录(清掉失败冷却强制重拉),失败时返回可读的错误原文。 */
 	refreshPresetCatalog(): Promise<{ ok: boolean; error?: string; modelCount: number }>;
-	/** 切换「显示全部模型」。关闭时每个系列只保留最新一档,调用方切换后需重新拉取落盘。 */
-	setPresetShowAllModels(showAll: boolean): Promise<void>;
 	/** 公共目录后台刷新到新数据时触发,收到后重新 listPresets 即可。返回取消订阅函数。 */
 	onPresetsUpdated(handler: () => void): () => void;
 	/** 探测某 (provider, model) 的 baseUrl 是否可达(本地 models.json 优先,回退云端目录)。仅判可达性,任何 HTTP 响应都算通。 */

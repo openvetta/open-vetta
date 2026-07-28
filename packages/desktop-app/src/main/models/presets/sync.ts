@@ -17,7 +17,6 @@ import {
 	selectLatestModels,
 } from "./models-dev.js";
 import { MODELS_DEV_SNAPSHOT } from "./models-dev-snapshot.generated.js";
-import { getShowAllPresetModels, setShowAllPresetModels } from "./preferences.js";
 
 const presetLog = getAppLogger("preset-providers");
 
@@ -39,8 +38,6 @@ export interface PresetProviderInfo {
 
 export interface PresetProvidersResult {
 	providers: PresetProviderInfo[];
-	/** 是否展示各家全部模型;false = 每个系列只留最新一档。 */
-	showAllModels: boolean;
 	/** 公共目录最近一次拉取失败的原因。仅在退到随包快照时给出——有实拉数据就不打扰。 */
 	catalogError?: string;
 	/** 当前目录数据来自哪里,便于排查「模型怎么和线上对不上」。 */
@@ -59,10 +56,8 @@ export interface PresetProvidersResult {
 export async function listPresetProviders(): Promise<PresetProvidersResult> {
 	const catalog = await getCachedCatalog();
 	if (!isCatalogFresh(catalog, Date.now())) void refreshCatalogInBackground();
-	const showAllModels = getShowAllPresetModels();
 	const snapshot = isSnapshot(catalog);
 	return {
-		showAllModels,
 		catalogSource: snapshot ? "snapshot" : "live",
 		catalogFetchedAt: catalog?.fetchedAt,
 		// 只有退到快照且确实拉失败过才提示:平时用快照(还没轮到刷新)不该报错。
@@ -73,23 +68,19 @@ export async function listPresetProviders(): Promise<PresetProvidersResult> {
 			api: def.api,
 			baseUrl: def.baseUrl,
 			icon: def.icon,
-			catalogModels: catalogModelsFor(catalog, def, showAllModels),
+			catalogModels: catalogModelsFor(catalog, def),
 		})),
 	};
 }
 
-function catalogModelsFor(
-	catalog: ModelsDevCatalog | null,
-	def: PresetProviderDef,
-	showAllModels: boolean,
-): ModelDefinition[] {
+function catalogModelsFor(catalog: ModelsDevCatalog | null, def: PresetProviderDef): ModelDefinition[] {
 	const entries = catalog?.providers[def.id];
 	if (!entries) return [];
 	const models = Object.values(entries)
 		.filter((entry) => def.isChatModel(entry.model.id))
 		.map((entry) => enrichFromCatalog(catalog, def.id, entry.model))
 		.sort((a, b) => a.id.localeCompare(b.id));
-	return showAllModels ? models : selectLatestModels(catalog, def.id, models, Date.now());
+	return selectLatestModels(catalog, def.id, models, Date.now());
 }
 
 /**
@@ -124,11 +115,6 @@ async function refreshCatalogInBackground(): Promise<void> {
 	for (const win of BrowserWindow.getAllWindows()) {
 		if (!win.isDestroyed()) win.webContents.send("vetta:models:presets-updated");
 	}
-}
-
-/** 切换「显示全部模型」。调用方切换后需重新拉取/落盘,这里只管落偏好。 */
-export function setPresetShowAllModels(showAll: boolean): void {
-	setShowAllPresetModels(showAll);
 }
 
 /** 进程内缓存,避免同一次同步里六家各拉一遍 3MB 的目录。 */
@@ -240,7 +226,7 @@ export async function refreshPresetModels(providerId: string, apiKey?: string): 
 
 	const catalog = await ensureCatalog();
 	const enriched = result.models.map((model) => enrichFromCatalog(catalog, def.id, model));
-	const models = getShowAllPresetModels() ? enriched : selectLatestModels(catalog, def.id, enriched, Date.now());
+	const models = selectLatestModels(catalog, def.id, enriched, Date.now());
 	return { ...result, models };
 }
 

@@ -1,5 +1,5 @@
 import type { JSX, ReactNode } from "react";
-import { Button, cn, Switch } from "@vetta/ui";
+import { Button, cn } from "@vetta/ui";
 import { SettingSection, type SettingSectionMeta } from "./SettingChrome";
 
 export interface PresetProvidersSectionViewLabels {
@@ -7,8 +7,6 @@ export interface PresetProvidersSectionViewLabels {
 	readonly loading: string;
 	readonly noPresetProviders: string;
 	readonly refreshCatalog: string;
-	readonly showAllModels: string;
-	readonly showAllModelsHint: string;
 }
 
 export interface PresetProvidersSectionViewProps {
@@ -18,9 +16,6 @@ export interface PresetProvidersSectionViewProps {
 	readonly hasRows: boolean;
 	readonly loading: boolean;
 	readonly rows: ReactNode;
-	readonly showAllModels: boolean;
-	readonly togglingShowAll: boolean;
-	readonly onToggleShowAllModels: (showAll: boolean) => void;
 	readonly refreshingCatalog: boolean;
 	readonly onRefreshCatalog: () => void;
 }
@@ -32,37 +27,30 @@ export function PresetProvidersSectionView({
 	hasRows,
 	loading,
 	rows,
-	showAllModels,
-	togglingShowAll,
-	onToggleShowAllModels,
 	refreshingCatalog,
 	onRefreshCatalog,
 }: PresetProvidersSectionViewProps): JSX.Element {
 	return (
 		<div className="mt-6">
-			<SettingSection section={section} title={labels.title}>
-				<div className="flex items-center justify-between gap-4 border-b border-border px-5 py-3">
-					<div className="min-w-0">
-						<div className="text-[13px] text-foreground">{labels.showAllModels}</div>
-						<div className="mt-0.5 text-[11px] text-muted-foreground">{labels.showAllModelsHint}</div>
-					</div>
-					<div className="flex shrink-0 items-center gap-2">
+			<SettingSection
+				section={section}
+				title={
+					<div className="flex items-center justify-between gap-3">
+						<span>{labels.title}</span>
 						<Button
 							variant="ghost"
-							size="sm"
+							size="icon-sm"
 							onClick={onRefreshCatalog}
 							disabled={refreshingCatalog}
 							title={labels.refreshCatalog}
-							className="gap-1.5 text-muted-foreground hover:text-foreground"
+							aria-label={labels.refreshCatalog}
+							className="text-muted-foreground hover:text-foreground"
 						>
-							<span
-								className={cn("icon-[mdi--refresh] h-3.5 w-3.5", refreshingCatalog && "animate-spin")}
-							/>
-							{labels.refreshCatalog}
+							<span className={cn("icon-[mdi--refresh] h-4 w-4", refreshingCatalog && "animate-spin")} />
 						</Button>
-						<Switch checked={showAllModels} disabled={togglingShowAll} onCheckedChange={onToggleShowAllModels} />
 					</div>
-				</div>
+				}
+			>
 				{/* 有行也要显示:目录不可达时六家都在、但都是 0 个模型,不说原因用户只能干猜。 */}
 				{error && (
 					<div className="flex items-start gap-2 border-b border-border px-5 py-3 text-[12px] text-amber-400">
