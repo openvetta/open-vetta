@@ -4,8 +4,11 @@ import type { RuntimeSessionObservationEvent } from "../session-observation.js";
 import { ContextCompactionCommitter } from "./context-compaction-committer.js";
 import type {
 	Clock,
+	ContextCompactionCommitResult,
 	ContextCompactionRecord,
 	ContextProvider,
+	ConversationContinuationResult,
+	ConversationContinuationStore,
 	ConversationRepository,
 	EventSink,
 	IdGenerator,
@@ -26,6 +29,7 @@ import type {
 	TurnInputQueue,
 	TurnPipelineStage,
 	TurnResult,
+	TurnSessionIdentity,
 } from "./contracts.js";
 import { type ConversationRecoveryPolicy, FailInterruptedTurnRecoveryPolicy } from "./conversation-recovery.js";
 import { KERNEL_ERROR_CODES, KernelError, turnProtocolError } from "./errors.js";
@@ -43,9 +47,13 @@ export interface TurnPipelineOptions {
 	readonly runtimeContext?: RuntimeSessionContextBuffer;
 	readonly conversationDocumentReader?: ConversationDocumentReader;
 	readonly contextCompactionCommitter?: ContextCompactionCommitter;
+	readonly conversationContinuationStore?: ConversationContinuationStore;
+	readonly onConversationContinued?: (result: ConversationContinuationResult) => Promise<void> | void;
 }
 
 interface MutableTurnState {
+	sessionId: string;
+	readonly identity: TurnSessionIdentity;
 	version: number;
 	started: boolean;
 	snapshot?: RuntimeSnapshot;
@@ -53,7 +61,6 @@ interface MutableTurnState {
 }
 
 interface ContextCheckpointPreparation {
-	readonly sessionId: string;
 	readonly turnId: string;
 	readonly snapshot: RuntimeSnapshot;
 	readonly modelBinding?: RuntimeTurnModelBinding;
@@ -75,6 +82,10 @@ export class TurnPipeline {
 	private readonly runtimeContext: RuntimeSessionContextBuffer | undefined;
 	private readonly conversationDocumentReader: ConversationDocumentReader | undefined;
 	private readonly contextCompactionCommitter: ContextCompactionCommitter;
+	private readonly conversationContinuationStore: ConversationContinuationStore | undefined;
+	private readonly onConversationContinued:
+		| ((result: ConversationContinuationResult) => Promise<void> | void)
+		| undefined;
 
 	constructor(options: TurnPipelineOptions) {
 		this.repository = options.repository;
@@ -87,6 +98,8 @@ export class TurnPipeline {
 		this.recoveryPolicy = options.recoveryPolicy ?? new FailInterruptedTurnRecoveryPolicy();
 		this.runtimeContext = options.runtimeContext;
 		this.conversationDocumentReader = options.conversationDocumentReader;
+		this.conversationContinuationStore = options.conversationContinuationStore;
+		this.onConversationContinued = options.onConversationContinued;
 		this.contextCompactionCommitter =
 			options.contextCompactionCommitter ??
 			new ContextCompactionCommitter({
@@ -124,26 +137,33 @@ export class TurnPipeline {
 	}
 
 	async run(
-		sessionId: string,
+		sessionIdentity: string | TurnSessionIdentity,
 		input: SessionInput,
 		signal: AbortSignal,
 		inputQueue?: TurnInputQueue,
 	): Promise<TurnResult> {
-		return this.runTurn(sessionId, input, signal, inputQueue);
+		return this.runTurn(sessionIdentity, input, signal, inputQueue);
 	}
 
-	async continue(sessionId: string, signal: AbortSignal, inputQueue?: TurnInputQueue): Promise<TurnResult> {
-		return this.runTurn(sessionId, undefined, signal, inputQueue);
+	async continue(
+		sessionIdentity: string | TurnSessionIdentity,
+		signal: AbortSignal,
+		inputQueue?: TurnInputQueue,
+	): Promise<TurnResult> {
+		return this.runTurn(sessionIdentity, undefined, signal, inputQueue);
 	}
 
 	private async runTurn(
-		sessionId: string,
+		sessionIdentity: string | TurnSessionIdentity,
 		input: SessionInput | undefined,
 		signal: AbortSignal,
 		inputQueue: TurnInputQueue | undefined,
 	): Promise<TurnResult> {
+		const identity = normalizeSessionIdentity(sessionIdentity);
 		const turnId = this.idGenerator.next("turn");
 		const state: MutableTurnState = {
+			sessionId: identity.sessionId,
+			identity,
 			version: 0,
 			started: false,
 			messages: [],
@@ -151,19 +171,19 @@ export class TurnPipeline {
 		let snapshotLease: RuntimeSnapshotLease | undefined;
 
 		try {
-			await this.enterStage(sessionId, turnId, "admission");
+			await this.enterStage(state.sessionId, turnId, "admission");
 			signal.throwIfAborted();
 
-			await this.enterStage(sessionId, turnId, "snapshot_binding");
+			await this.enterStage(state.sessionId, turnId, "snapshot_binding");
 			snapshotLease = await this.snapshotProvider.acquire();
 			const snapshot = snapshotLease.snapshot;
 			const modelBinding = this.modelBindingProvider?.bind();
 			state.snapshot = snapshot;
 			signal.throwIfAborted();
 
-			await this.enterStage(sessionId, turnId, "conversation_loading");
-			const conversation = await this.repository.load(sessionId);
-			const conversationDocument = await this.conversationDocumentReader?.readDocument(sessionId);
+			await this.enterStage(state.sessionId, turnId, "conversation_loading");
+			const conversation = await this.repository.load(state.sessionId);
+			const conversationDocument = await this.conversationDocumentReader?.readDocument(state.sessionId);
 			state.version = conversation.version;
 			signal.throwIfAborted();
 
@@ -171,7 +191,7 @@ export class TurnPipeline {
 			const startEvents: StoredSessionEvent[] = [
 				{
 					type: "turn.started",
-					sessionId,
+					sessionId: state.sessionId,
 					turnId,
 					snapshotId: snapshot.id,
 					timestamp: startedAt,
@@ -181,7 +201,7 @@ export class TurnPipeline {
 				for (const record of input.context ?? []) {
 					startEvents.push({
 						type: "context.appended",
-						sessionId,
+						sessionId: state.sessionId,
 						turnId,
 						record,
 						timestamp: startedAt,
@@ -189,19 +209,19 @@ export class TurnPipeline {
 				}
 				startEvents.push({
 					type: "message.appended",
-					sessionId,
+					sessionId: state.sessionId,
 					turnId,
 					message: input.message,
 					timestamp: startedAt,
 				});
 			}
-			await this.append(sessionId, state, signal, startEvents);
+			await this.append(state, signal, startEvents);
 			state.started = true;
 
-			await this.enterStage(sessionId, turnId, "context_assembly");
+			await this.enterStage(state.sessionId, turnId, "context_assembly");
 			const providerMessages = await this.collectProviderMessages(
 				snapshot.contextProviders,
-				sessionId,
+				state.sessionId,
 				turnId,
 				conversation,
 				input,
@@ -218,9 +238,9 @@ export class TurnPipeline {
 				? [...conversation.messages, ...providerMessages, ...(inputContextMessages ?? []), input.message]
 				: [...conversation.messages, ...providerMessages];
 
-			await this.enterStage(sessionId, turnId, "context_preparation");
+			await this.enterStage(state.sessionId, turnId, "context_preparation");
 			const preparationInput = {
-				sessionId,
+				sessionId: state.sessionId,
 				turnId,
 				messages: assembledMessages,
 				historyMessages: conversation.messages,
@@ -231,32 +251,28 @@ export class TurnPipeline {
 				modelBinding,
 				document: conversationDocument,
 				reportObservation: (observation: RuntimeSessionObservationEvent) =>
-					this.publishObservation(sessionId, turnId, observation),
+					this.publishObservation(state.sessionId, turnId, observation),
 			};
 			const prepared = await snapshot.contextStrategy.prepare(preparationInput, signal);
 			signal.throwIfAborted();
 
 			if (prepared.compaction) {
-				const document = await this.commitCompaction(
-					sessionId,
-					turnId,
-					prepared.compaction,
-					state,
-					signal,
-					snapshot,
-				);
-				await snapshot.contextStrategy.onCompactionCommitted?.(
+				const document = await this.commitCompaction(turnId, prepared.compaction, state, signal, snapshot);
+				const commitResult = await snapshot.contextStrategy.onCompactionCommitted?.(
 					prepared.compaction,
 					preparationInput,
 					signal,
 					document,
 				);
+				await this.continueAfterCompaction(commitResult, turnId, state, signal);
 			}
 
-			await this.enterStage(sessionId, turnId, "execution");
+			await this.enterStage(state.sessionId, turnId, "execution");
 			let stopReason: StopReason | undefined;
 			for await (const event of this.turnEngine.execute({
-				sessionId,
+				get sessionId() {
+					return state.sessionId;
+				},
 				turnId,
 				snapshot,
 				modelBinding,
@@ -273,7 +289,6 @@ export class TurnPipeline {
 					try {
 						signal.throwIfAborted();
 						const result = await this.prepareContextCheckpoint({
-							sessionId,
 							turnId,
 							snapshot,
 							modelBinding,
@@ -295,32 +310,32 @@ export class TurnPipeline {
 					continue;
 				}
 				if (event.type === "observation") {
-					await this.publishObservation(sessionId, turnId, event.observation);
+					await this.publishObservation(state.sessionId, turnId, event.observation);
 					continue;
 				}
 
 				const storedEvent: MessageAppendedEvent = {
 					type: "message.appended",
-					sessionId,
+					sessionId: state.sessionId,
 					turnId,
 					message: event.message,
 					timestamp: this.clock.now(),
 				};
-				await this.append(sessionId, state, signal, [storedEvent]);
+				await this.append(state, signal, [storedEvent]);
 				state.messages.push(event.message);
-				await this.appendRuntimeContext(sessionId, turnId, state, signal);
+				await this.appendRuntimeContext(turnId, state, signal);
 			}
 
 			if (!stopReason) {
 				throw turnProtocolError("Turn engine completed without a terminal event");
 			}
 
-			await this.enterStage(sessionId, turnId, "finalization");
-			await this.appendRuntimeContext(sessionId, turnId, state, signal);
-			await this.append(sessionId, state, signal, [
+			await this.enterStage(state.sessionId, turnId, "finalization");
+			await this.appendRuntimeContext(turnId, state, signal);
+			await this.append(state, signal, [
 				{
 					type: "turn.completed",
-					sessionId,
+					sessionId: state.sessionId,
 					turnId,
 					stopReason,
 					timestamp: this.clock.now(),
@@ -329,6 +344,7 @@ export class TurnPipeline {
 
 			return {
 				status: "completed",
+				sessionId: state.sessionId,
 				turnId,
 				stopReason,
 				messages: state.messages,
@@ -336,15 +352,16 @@ export class TurnPipeline {
 		} catch (error) {
 			if (signal.aborted || isAbortError(error)) {
 				const reason = abortReason(signal);
-				await this.appendTerminalSafely(sessionId, turnId, state, signal, {
+				await this.appendTerminalSafely(turnId, state, signal, {
 					type: "turn.cancelled",
-					sessionId,
+					sessionId: state.sessionId,
 					turnId,
 					reason,
 					timestamp: this.clock.now(),
 				});
 				return {
 					status: "cancelled",
+					sessionId: state.sessionId,
 					turnId,
 					reason,
 					messages: state.messages,
@@ -352,33 +369,34 @@ export class TurnPipeline {
 			}
 
 			const normalized = normalizeError(error);
-			await this.appendTerminalSafely(sessionId, turnId, state, signal, {
+			await this.appendTerminalSafely(turnId, state, signal, {
 				type: "turn.failed",
-				sessionId,
+				sessionId: state.sessionId,
 				turnId,
 				error: normalized,
 				timestamp: this.clock.now(),
 			});
 			return {
 				status: "failed",
+				sessionId: state.sessionId,
 				turnId,
 				error: normalized,
 				messages: state.messages,
 			};
 		} finally {
 			this.runtimeContext?.clear();
-			await this.releaseSnapshotSafely(snapshotLease, sessionId, turnId);
+			await this.releaseSnapshotSafely(snapshotLease, state.sessionId, turnId);
 		}
 	}
 
 	private async prepareContextCheckpoint(
 		checkpoint: ContextCheckpointPreparation,
 	): Promise<TurnEngineContextCheckpointResult | undefined> {
-		const { request, sessionId, signal, snapshot, state, turnId } = checkpoint;
-		const conversation = await this.repository.load(sessionId);
-		const currentDocument = await this.conversationDocumentReader?.readDocument(sessionId);
+		const { request, signal, snapshot, state, turnId } = checkpoint;
+		const conversation = await this.repository.load(state.sessionId);
+		const currentDocument = await this.conversationDocumentReader?.readDocument(state.sessionId);
 		const preparationInput = {
-			sessionId,
+			sessionId: state.sessionId,
 			turnId,
 			messages: request.messages,
 			historyMessages: conversation.messages,
@@ -391,7 +409,7 @@ export class TurnPipeline {
 			modelBinding: checkpoint.modelBinding,
 			document: currentDocument,
 			reportObservation: (observation: RuntimeSessionObservationEvent) =>
-				this.publishObservation(sessionId, turnId, observation),
+				this.publishObservation(state.sessionId, turnId, observation),
 		} as const;
 		const prepared = await snapshot.contextStrategy.prepare(preparationInput, signal);
 		signal.throwIfAborted();
@@ -401,25 +419,19 @@ export class TurnPipeline {
 			return { messages: prepared.messages };
 		}
 
-		const committedDocument = await this.commitCompaction(
-			sessionId,
-			turnId,
-			prepared.compaction,
-			state,
-			signal,
-			snapshot,
-		);
+		const committedDocument = await this.commitCompaction(turnId, prepared.compaction, state, signal, snapshot);
 		const commitResult = await snapshot.contextStrategy.onCompactionCommitted?.(
 			prepared.compaction,
 			preparationInput,
 			signal,
 			committedDocument,
 		);
+		await this.continueAfterCompaction(commitResult, turnId, state, signal);
 		const transformedMessages =
 			snapshot.modelCallContextTransformer && checkpoint.modelBinding
 				? await snapshot.modelCallContextTransformer.transform(
 						{
-							sessionId,
+							sessionId: state.sessionId,
 							turnId,
 							messages: prepared.messages,
 							modelBinding: checkpoint.modelBinding,
@@ -439,7 +451,6 @@ export class TurnPipeline {
 	}
 
 	private async commitCompaction(
-		sessionId: string,
 		turnId: string,
 		record: ContextCompactionRecord,
 		state: MutableTurnState,
@@ -447,7 +458,7 @@ export class TurnPipeline {
 		snapshot: RuntimeSnapshot,
 	): Promise<ConversationDocument | undefined> {
 		const result = await this.contextCompactionCommitter.commit({
-			sessionId,
+			sessionId: state.sessionId,
 			turnId,
 			expectedVersion: state.version,
 			record,
@@ -456,6 +467,75 @@ export class TurnPipeline {
 		});
 		state.version = result.version;
 		return result.document;
+	}
+
+	private async continueAfterCompaction(
+		commitResult: ContextCompactionCommitResult | undefined,
+		turnId: string,
+		state: MutableTurnState,
+		signal: AbortSignal,
+	): Promise<void> {
+		const directive = commitResult?.continuation;
+		if (!directive) return;
+		const store = this.conversationContinuationStore;
+		if (!store) throw turnProtocolError("Context strategy requested continuation without a continuation store");
+		const snapshot = state.snapshot;
+		if (!snapshot) throw turnProtocolError("Conversation continuation requires a bound runtime snapshot");
+		signal.throwIfAborted();
+
+		const sourceSessionId = state.sessionId;
+		const sourceVersion = state.version;
+		const result = await store.continueConversation({
+			sourceSessionId,
+			expectedVersion: sourceVersion,
+			turnId,
+			snapshotId: snapshot.id,
+			reason: directive.reason,
+			timestamp: this.clock.now(),
+		});
+		if (
+			result.sourceSessionId !== sourceSessionId ||
+			result.sourceVersion !== sourceVersion + 1 ||
+			result.transferredEvent.sessionId !== sourceSessionId ||
+			result.transferredEvent.turnId !== turnId ||
+			result.transferredEvent.targetSessionId !== result.sessionId ||
+			result.transferredEvent.reason !== directive.reason ||
+			result.continuedEvent.sessionId !== result.sessionId ||
+			result.continuedEvent.turnId !== turnId ||
+			result.continuedEvent.sourceSessionId !== sourceSessionId ||
+			result.continuedEvent.snapshotId !== snapshot.id ||
+			result.continuedEvent.reason !== directive.reason ||
+			result.seedConversation.sessionId !== result.sessionId ||
+			result.seedDocument.identity.sessionId !== result.sessionId ||
+			result.seedConversation.version !== 0 ||
+			result.seedDocument.journalVersion !== 0 ||
+			result.version !== 1
+		) {
+			throw turnProtocolError("Conversation continuation store returned an inconsistent transition");
+		}
+
+		await this.publishSafely(result.transferredEvent);
+		await this.notifyObserversSafely(snapshot, result.transferredEvent, signal);
+
+		state.identity.transition(result.sessionId);
+		state.sessionId = result.sessionId;
+		state.version = 0;
+		await this.publishSafely({
+			type: "conversation.continued",
+			sourceSessionId,
+			sourceSessionPath: result.sourceSessionPath,
+			sessionId: result.sessionId,
+			sessionPath: result.sessionPath,
+			turnId,
+			reason: directive.reason,
+			conversation: result.seedConversation,
+			document: result.seedDocument,
+			timestamp: result.continuedEvent.timestamp,
+		});
+		await this.publishSafely(result.continuedEvent);
+		state.version = result.version;
+		await this.onConversationContinued?.(result);
+		await this.notifyObserversSafely(snapshot, result.continuedEvent, signal);
 	}
 
 	private async collectProviderMessages(
@@ -484,12 +564,11 @@ export class TurnPipeline {
 	}
 
 	private async append(
-		sessionId: string,
 		state: MutableTurnState,
 		signal: AbortSignal,
 		events: readonly StoredSessionEvent[],
 	): Promise<void> {
-		const result = await this.repository.append(sessionId, state.version, events);
+		const result = await this.repository.append(state.sessionId, state.version, events);
 		state.version = result.version;
 		for (const event of events) {
 			await this.publishSafely(event);
@@ -498,7 +577,6 @@ export class TurnPipeline {
 	}
 
 	private async appendTerminalSafely(
-		sessionId: string,
 		turnId: string,
 		state: MutableTurnState,
 		signal: AbortSignal,
@@ -506,12 +584,12 @@ export class TurnPipeline {
 	): Promise<void> {
 		if (!state.started) return;
 		try {
-			await this.appendRuntimeContext(sessionId, turnId, state, signal);
-			await this.append(sessionId, state, signal, [event]);
+			await this.appendRuntimeContext(turnId, state, signal);
+			await this.append(state, signal, [event]);
 		} catch (error) {
 			await this.publishSafely({
 				type: "observer.failed",
-				sessionId,
+				sessionId: state.sessionId,
 				turnId,
 				observerId: "conversation-repository",
 				error: errorMessage(error),
@@ -520,21 +598,15 @@ export class TurnPipeline {
 		}
 	}
 
-	private async appendRuntimeContext(
-		sessionId: string,
-		turnId: string,
-		state: MutableTurnState,
-		signal: AbortSignal,
-	): Promise<void> {
+	private async appendRuntimeContext(turnId: string, state: MutableTurnState, signal: AbortSignal): Promise<void> {
 		await this.runtimeContext?.flush(async (records) => {
 			const timestamp = this.clock.now();
 			await this.append(
-				sessionId,
 				state,
 				signal,
 				records.map((record: SessionContextRecord) => ({
 					type: "context.appended" as const,
-					sessionId,
+					sessionId: state.sessionId,
 					turnId,
 					record,
 					timestamp,
@@ -643,4 +715,17 @@ function normalizeError(error: unknown): { readonly code: string; readonly messa
 
 function errorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
+}
+
+function normalizeSessionIdentity(identity: string | TurnSessionIdentity): TurnSessionIdentity {
+	if (typeof identity !== "string") return identity;
+	let sessionId = identity;
+	return {
+		get sessionId() {
+			return sessionId;
+		},
+		transition(nextSessionId) {
+			sessionId = nextSessionId;
+		},
+	};
 }

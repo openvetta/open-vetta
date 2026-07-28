@@ -27,6 +27,7 @@ export class FailInterruptedTurnRecoveryPolicy implements ConversationRecoveryPo
 
 			switch (event.type) {
 				case "turn.started":
+				case "turn.continued":
 					if (activeTurnId) {
 						throw turnProtocolError(
 							`Conversation ${conversation.sessionId} starts turn ${event.turnId} before turn ${activeTurnId} terminates`,
@@ -58,6 +59,7 @@ export class FailInterruptedTurnRecoveryPolicy implements ConversationRecoveryPo
 				case "turn.completed":
 				case "turn.cancelled":
 				case "turn.failed":
+				case "turn.transferred":
 					assertActiveTurn(conversation.sessionId, activeTurnId, event.turnId, event.type);
 					activeTurnId = undefined;
 					break;

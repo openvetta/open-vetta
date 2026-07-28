@@ -2,6 +2,7 @@
 
 ### Added
 
+- **Greenfield Memory Rollover 产品编排**：新增 Session-local Coding Agent Orchestrator，复用既有冻结 MEMORY 提示词、memory Tool、约 70% 自动压缩策略、best-effort MEMORY flush 与 JOURNAL；压缩后只通过 Runtime Core 的通用 continuation directive 保持同一 Turn 跨 Conversation 续接，memory-mode 默认关闭。
 - **Greenfield 手动压缩与 Extension 兼容**：Session-local Context Runtime 新增手动压缩 Port，保留自定义指令、既有错误、Pre/PostCompact、Extension 覆盖/取消、`session_compact` 回调和自动压缩开关；Extension Runner 通过窄 Adapter 留在 Coding Agent，持久化统一交给 Runtime Core。
 - **Greenfield 模型调用级 Compaction Orchestrator**：Session-local Context Runtime 现在可在同一 Tool Loop 跨阈值时提交摘要，并在同模型 error overflow 或 silent overflow 后保留错误历史、从重试上下文移除错误并自动恢复一次；Provider transient context、prefire、熔断、Pre/PostCompact 与恢复期间 steering/follow-up 语义保持旧行为。
 - **Greenfield Session-local Context Runtime**：每个 Greenfield Session 复用既有阈值、摘要、prefire、microcompact 与熔断算法，持有唯一上下文状态；阈值压缩经 Conversation Document 持久化，Pre/PostCompact 使用同一 Hook Runtime，microcompact 在每次模型调用前执行且不改写历史，create/resume 均可恢复 context usage。

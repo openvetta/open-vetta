@@ -3,10 +3,23 @@ import type { SessionEvent } from "../contracts.js";
 import { runtimeError } from "../errors.js";
 import type { KernelEvent } from "../kernel/contracts.js";
 import type { RuntimeSessionObservationEvent } from "../session-observation.js";
-import { mapRuntimeSessionObservationEvent } from "./session-events.js";
+import { baseSessionEvent, mapRuntimeSessionObservationEvent } from "./session-events.js";
 
 /** 将 Greenfield Kernel EventSink 事件适配为现有宿主 SessionEvent。 */
 export function mapGreenfieldKernelEventToSessionEvents(event: KernelEvent): SessionEvent[] {
+	if (event.type === "conversation.continued") {
+		return [
+			{
+				...baseSessionEvent(event.sessionId, "runtime-core", event.timestamp),
+				type: "session.path_changed",
+				previousSessionId: event.sourceSessionId,
+				previousPath: event.sourceSessionPath,
+				path: event.sessionPath,
+				reason: event.reason,
+			},
+		];
+	}
+
 	if (event.type === "session.observation") {
 		return [mapRuntimeSessionObservationEvent(event.sessionId, event.observation, event.timestamp)];
 	}

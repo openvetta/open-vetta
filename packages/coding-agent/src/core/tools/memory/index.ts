@@ -1,6 +1,6 @@
 import { Type } from "@sinclair/typebox";
-import type { ToolDefinition } from "../../extensions/types.js";
 import { applyMemoryOperation, DEFAULT_MEMORY_CHAR_LIMIT, type MemoryState } from "../../memory/memory-store.js";
+import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 import { toolCallDescriptionSchema } from "../tool-call-description.js";
 
@@ -36,7 +36,7 @@ export interface MemoryToolDetails {
 export function createMemoryTool(
 	memoryFile: string,
 	limit: number = DEFAULT_MEMORY_CHAR_LIMIT,
-): ToolDefinition<typeof memorySchema, MemoryToolDetails> {
+): CodingAgentTool<typeof memorySchema, MemoryToolDetails> {
 	const fallbackDescription =
 		"Save or update durable, cross-session memory in MEMORY.md (frozen into the system prompt at session start). " +
 		"Use it to remember who the user is, their preferences, ongoing projects, key decisions, and lessons learned. " +

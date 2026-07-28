@@ -152,6 +152,19 @@ const TurnStartedEventSchema = Type.Object(
 	{ additionalProperties: false },
 );
 
+const TurnContinuedEventSchema = Type.Object(
+	{
+		type: Type.Literal("turn.continued"),
+		sessionId: Type.String(),
+		turnId: Type.String(),
+		sourceSessionId: Type.String(),
+		snapshotId: Type.String(),
+		reason: Type.String(),
+		timestamp: Type.Number(),
+	},
+	{ additionalProperties: false },
+);
+
 const MessageAppendedEventSchema = Type.Object(
 	{
 		type: Type.Literal("message.appended"),
@@ -235,14 +248,28 @@ const TurnFailedEventSchema = Type.Object(
 	{ additionalProperties: false },
 );
 
+const TurnTransferredEventSchema = Type.Object(
+	{
+		type: Type.Literal("turn.transferred"),
+		sessionId: Type.String(),
+		turnId: Type.String(),
+		targetSessionId: Type.String(),
+		reason: Type.String(),
+		timestamp: Type.Number(),
+	},
+	{ additionalProperties: false },
+);
+
 export const StoredSessionEventSchema = Type.Union([
 	TurnStartedEventSchema,
+	TurnContinuedEventSchema,
 	MessageAppendedEventSchema,
 	ContextAppendedEventSchema,
 	ContextCompactedEventSchema,
 	TurnCompletedEventSchema,
 	TurnCancelledEventSchema,
 	TurnFailedEventSchema,
+	TurnTransferredEventSchema,
 ]);
 
 const ConversationFileHeaderSchemaV1 = Type.Object(
@@ -366,6 +393,139 @@ export const ConversationDocumentOperationRecordSchema = Type.Object(
 	{ additionalProperties: false },
 );
 
+const ConversationDocumentEntryBaseSchema = {
+	id: Type.String(),
+	parentId: Type.Union([Type.String(), Type.Null()]),
+	timestamp: Type.String(),
+};
+
+const ToolPhaseSchema = Type.Object(
+	{
+		label: Type.String(),
+		atMs: Type.Number(),
+	},
+	{ additionalProperties: false },
+);
+
+export const ConversationDocumentEntrySchema = Type.Union([
+	Type.Object(
+		{
+			...ConversationDocumentEntryBaseSchema,
+			type: Type.Literal("message"),
+			message: ConversationMessageSchema,
+		},
+		{ additionalProperties: false },
+	),
+	Type.Object(
+		{
+			...ConversationDocumentEntryBaseSchema,
+			type: Type.Literal("compaction"),
+			summary: Type.String(),
+			firstKeptEntryId: Type.String(),
+			tokensBefore: Type.Number({ minimum: 0 }),
+			details: Type.Optional(Type.Unknown()),
+			fromHook: Type.Optional(Type.Boolean()),
+			summaryMessage: Type.Optional(UserMessageSchema),
+			reason: Type.Optional(
+				Type.Union([Type.Literal("manual"), Type.Literal("threshold"), Type.Literal("overflow")]),
+			),
+		},
+		{ additionalProperties: false },
+	),
+	Type.Object(
+		{
+			...ConversationDocumentEntryBaseSchema,
+			type: Type.Literal("branch_summary"),
+			fromId: Type.String(),
+			summary: Type.String(),
+			details: Type.Optional(Type.Unknown()),
+			fromHook: Type.Optional(Type.Boolean()),
+		},
+		{ additionalProperties: false },
+	),
+	Type.Object(
+		{
+			...ConversationDocumentEntryBaseSchema,
+			type: Type.Literal("custom"),
+			customType: Type.String(),
+			data: Type.Optional(Type.Unknown()),
+		},
+		{ additionalProperties: false },
+	),
+	Type.Object(
+		{
+			...ConversationDocumentEntryBaseSchema,
+			type: Type.Literal("custom_message"),
+			customType: Type.String(),
+			content: Type.Unknown(),
+			details: Type.Optional(Type.Unknown()),
+			display: Type.Boolean(),
+			modelVisible: Type.Optional(Type.Boolean()),
+		},
+		{ additionalProperties: false },
+	),
+	Type.Object(
+		{
+			...ConversationDocumentEntryBaseSchema,
+			type: Type.Literal("thinking_level_change"),
+			thinkingLevel: Type.String(),
+		},
+		{ additionalProperties: false },
+	),
+	Type.Object(
+		{
+			...ConversationDocumentEntryBaseSchema,
+			type: Type.Literal("model_change"),
+			provider: Type.String(),
+			modelId: Type.String(),
+		},
+		{ additionalProperties: false },
+	),
+	Type.Object(
+		{
+			...ConversationDocumentEntryBaseSchema,
+			type: Type.Literal("label"),
+			targetId: Type.String(),
+			label: Type.Optional(Type.String()),
+		},
+		{ additionalProperties: false },
+	),
+	Type.Object(
+		{
+			...ConversationDocumentEntryBaseSchema,
+			type: Type.Literal("session_info"),
+			name: Type.Optional(Type.String()),
+		},
+		{ additionalProperties: false },
+	),
+	Type.Object(
+		{
+			...ConversationDocumentEntryBaseSchema,
+			type: Type.Literal("tool_timing"),
+			toolCallId: Type.String(),
+			toolName: Type.String(),
+			startedAt: Type.Number(),
+			durationMs: Type.Number(),
+			phases: Type.Array(ToolPhaseSchema),
+		},
+		{ additionalProperties: false },
+	),
+]);
+
+export const ConversationContinuationSeedRecordSchema = Type.Object(
+	{
+		recordType: Type.Literal("conversation.continuation.seed"),
+		schemaVersion: Type.Literal(CONVERSATION_SCHEMA_VERSION),
+		sourceSessionId: Type.String(),
+		sourceSessionPath: Type.String(),
+		sourceEntryId: Type.String(),
+		reason: Type.String(),
+		entries: Type.Array(ConversationDocumentEntrySchema),
+		activeLeafId: Type.Union([Type.String(), Type.Null()]),
+	},
+	{ additionalProperties: false },
+);
+
 export const ConversationSnapshotSchema = Type.Object(
 	{
 		sessionId: Type.String(),
@@ -390,6 +550,7 @@ export type ReadConversationFileHeader = Static<typeof ConversationFileHeaderSch
 export type ConversationEventRecord = Static<typeof CurrentConversationEventRecordSchema>;
 export type ReadConversationEventRecord = Static<typeof ConversationEventRecordSchema>;
 export type ConversationDocumentOperationRecord = Static<typeof ConversationDocumentOperationRecordSchema>;
+export type ConversationContinuationSeedRecord = Static<typeof ConversationContinuationSeedRecordSchema>;
 export type ConversationSnapshotRecord = Static<typeof ConversationSnapshotRecordSchema>;
 
 export function isConversationFileHeader(value: unknown): value is ReadConversationFileHeader {
@@ -402,6 +563,10 @@ export function isConversationEventRecord(value: unknown): value is ReadConversa
 
 export function isConversationDocumentOperationRecord(value: unknown): value is ConversationDocumentOperationRecord {
 	return Value.Check(ConversationDocumentOperationRecordSchema, value);
+}
+
+export function isConversationContinuationSeedRecord(value: unknown): value is ConversationContinuationSeedRecord {
+	return Value.Check(ConversationContinuationSeedRecordSchema, value);
 }
 
 export function isConversationDocumentCommand(

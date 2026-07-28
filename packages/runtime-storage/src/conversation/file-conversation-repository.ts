@@ -8,22 +8,29 @@ import {
 	type ConversationDocument,
 	type ConversationDocumentCommand,
 	type ConversationDocumentCommandResult,
+	type ConversationDocumentEntry,
 	type ConversationDocumentForkResult,
 	type ConversationDocumentStore,
 	conversationDocumentEntry,
 	createEmptyConversationDocument,
+	createSeededConversationDocument,
 	extractConversationEntryText,
 	resolveConversationUserTurnTip,
 	selectConversationDocumentEntries,
+	selectConversationDocumentModelMessages,
 } from "@vetta/runtime-core/conversation";
-import type {
-	AppendResult,
-	ConversationMetadata,
-	ConversationRepository,
-	ConversationSnapshot,
-	CreateConversationInput,
-	StoredConversation,
-	StoredSessionEvent,
+import {
+	type AppendResult,
+	type ContinueConversationInput,
+	type ConversationContinuationResult,
+	type ConversationContinuationStore,
+	type ConversationMetadata,
+	type ConversationRepository,
+	type ConversationSnapshot,
+	type CreateConversationInput,
+	FailInterruptedTurnRecoveryPolicy,
+	type StoredConversation,
+	type StoredSessionEvent,
 } from "@vetta/runtime-core/kernel";
 import {
 	conversationFromFile,
@@ -40,10 +47,12 @@ import { CONVERSATION_STORAGE_ERROR_CODES, ConversationStorageError } from "./er
 import { nodeErrorCode } from "./node-error-code.js";
 import {
 	CONVERSATION_SCHEMA_VERSION,
+	type ConversationContinuationSeedRecord,
 	type ConversationDocumentOperationRecord,
 	type ConversationEventRecord,
 	type ConversationFileHeader,
 	type ConversationSnapshotRecord,
+	isConversationContinuationSeedRecord,
 	isConversationDocumentCommand,
 	isConversationSnapshot,
 } from "./record-schema.js";
@@ -52,7 +61,9 @@ export interface FileConversationRepositoryOptions {
 	readonly rootDir: string;
 }
 
-export class FileConversationRepository implements ConversationRepository, ConversationDocumentStore {
+export class FileConversationRepository
+	implements ConversationRepository, ConversationDocumentStore, ConversationContinuationStore
+{
 	private readonly rootDir: string;
 	private readonly queues = new Map<string, Promise<void>>();
 	private closed = false;
@@ -175,6 +186,160 @@ export class FileConversationRepository implements ConversationRepository, Conve
 					);
 				}
 				return this.writeFork(sessionId, entryId, file);
+			}),
+		);
+	}
+
+	async continueConversation(input: ContinueConversationInput): Promise<ConversationContinuationResult> {
+		this.assertOpen();
+		return this.exclusive(input.sourceSessionId, () =>
+			this.withFileLock(input.sourceSessionId, async () => {
+				const sourceFile = await this.readConversationFile(input.sourceSessionId);
+				if (sourceFile.header.schemaVersion !== CONVERSATION_SCHEMA_VERSION) {
+					throw new ConversationStorageError(
+						CONVERSATION_STORAGE_ERROR_CODES.READ_ONLY,
+						`Conversation ${input.sourceSessionId} uses read-only schema version ${sourceFile.header.schemaVersion}`,
+					);
+				}
+				const sourceConversation = conversationFromFile(input.sourceSessionId, sourceFile);
+				if (sourceConversation.version !== input.expectedVersion) {
+					throw new ConversationStorageError(
+						CONVERSATION_STORAGE_ERROR_CODES.VERSION_CONFLICT,
+						`Conversation ${input.sourceSessionId} is at version ${sourceConversation.version}, expected ${input.expectedVersion}`,
+					);
+				}
+				const recoveryPlan = new FailInterruptedTurnRecoveryPolicy().plan(sourceConversation);
+				if (recoveryPlan.status !== "interrupt" || recoveryPlan.turnId !== input.turnId) {
+					throw new ConversationStorageError(
+						CONVERSATION_STORAGE_ERROR_CODES.INVALID_COMMAND,
+						`Conversation ${sourceConversation.sessionId} cannot continue inactive turn ${input.turnId}`,
+					);
+				}
+
+				const sourceDocument = documentFromFile(input.sourceSessionId, sourceFile);
+				const carried = buildContinuationEntries(sourceDocument);
+				if (!carried) {
+					throw new ConversationStorageError(
+						CONVERSATION_STORAGE_ERROR_CODES.INVALID_COMMAND,
+						`Conversation ${input.sourceSessionId} has no compaction boundary to continue from`,
+					);
+				}
+
+				const sessionId = randomUUID();
+				const sourceSessionPath = this.conversationPath(input.sourceSessionId);
+				const sessionPath = this.conversationPath(sessionId);
+				const header: ConversationFileHeader = {
+					recordType: "conversation.header",
+					schemaVersion: CONVERSATION_SCHEMA_VERSION,
+					sessionId,
+					createdAt: input.timestamp,
+					cwd: sourceFile.header.cwd,
+					parentSessionPath: sourceSessionPath,
+					parentEntryId: carried.sourceEntryId,
+				};
+				const seedCandidate: unknown = {
+					recordType: "conversation.continuation.seed",
+					schemaVersion: CONVERSATION_SCHEMA_VERSION,
+					sourceSessionId: input.sourceSessionId,
+					sourceSessionPath,
+					sourceEntryId: carried.sourceEntryId,
+					reason: input.reason,
+					entries: carried.entries,
+					activeLeafId: carried.activeLeafId,
+				};
+				if (!isConversationContinuationSeedRecord(seedCandidate)) {
+					throw new ConversationStorageError(
+						CONVERSATION_STORAGE_ERROR_CODES.CORRUPT,
+						`Conversation ${input.sourceSessionId} produced an invalid continuation seed`,
+					);
+				}
+				const seed: ConversationContinuationSeedRecord = seedCandidate;
+				const continuedEvent = {
+					type: "turn.continued",
+					sessionId,
+					turnId: input.turnId,
+					sourceSessionId: input.sourceSessionId,
+					snapshotId: input.snapshotId,
+					reason: input.reason,
+					timestamp: input.timestamp,
+				} as const;
+				const continuedRecord = {
+					recordType: "conversation.event",
+					schemaVersion: CONVERSATION_SCHEMA_VERSION,
+					sequence: 1,
+					event: continuedEvent,
+					documentEntry: null,
+				} satisfies ConversationEventRecord;
+				const transferredEvent = {
+					type: "turn.transferred",
+					sessionId: input.sourceSessionId,
+					turnId: input.turnId,
+					targetSessionId: sessionId,
+					reason: input.reason,
+					timestamp: input.timestamp,
+				} as const;
+				const transferredRecord = {
+					recordType: "conversation.event",
+					schemaVersion: CONVERSATION_SCHEMA_VERSION,
+					sequence: input.expectedVersion + 1,
+					event: transferredEvent,
+					documentEntry: null,
+				} satisfies ConversationEventRecord;
+				validateConversationEvent(sessionId, continuedEvent);
+				validateConversationEvent(input.sourceSessionId, transferredEvent);
+
+				const seedDocument = createSeededConversationDocument(
+					{
+						sessionId,
+						createdAt: input.timestamp,
+						cwd: header.cwd,
+						parentSessionPath: sourceSessionPath,
+						parentEntryId: carried.sourceEntryId,
+					},
+					carried.entries,
+					carried.activeLeafId,
+				);
+				const seedConversation: StoredConversation = {
+					sessionId,
+					createdAt: input.timestamp,
+					version: 0,
+					messages: selectConversationDocumentModelMessages(seedDocument),
+					events: [],
+				};
+
+				await this.ensureRoot();
+				let handle: FileHandle | undefined;
+				try {
+					handle = await open(sessionPath, "wx");
+					await handle.writeFile(
+						[
+							serializeConversationLine(header),
+							serializeConversationLine(seed),
+							serializeConversationLine(continuedRecord),
+						].join(""),
+						"utf8",
+					);
+					await handle.close();
+					handle = undefined;
+					await appendFile(sourceSessionPath, serializeConversationLine(transferredRecord), "utf8");
+				} catch (error) {
+					await handle?.close();
+					await rm(sessionPath, { force: true });
+					throw error;
+				}
+
+				return {
+					sourceSessionId: input.sourceSessionId,
+					sourceSessionPath,
+					sourceVersion: input.expectedVersion + 1,
+					sessionId,
+					sessionPath,
+					version: 1,
+					seedConversation,
+					seedDocument,
+					transferredEvent,
+					continuedEvent,
+				};
 			}),
 		);
 	}
@@ -483,4 +648,72 @@ export class FileConversationRepository implements ConversationRepository, Conve
 
 function isObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
+}
+
+function buildContinuationEntries(document: ConversationDocument): {
+	readonly sourceEntryId: string;
+	readonly entries: readonly ConversationDocumentEntry[];
+	readonly activeLeafId: string | null;
+} | null {
+	const branch = selectConversationDocumentEntries(document);
+	let compactionIndex = -1;
+	for (let index = branch.length - 1; index >= 0; index -= 1) {
+		const entry = branch[index];
+		if (entry?.type === "compaction" && entry.summaryMessage) {
+			compactionIndex = index;
+			break;
+		}
+	}
+	if (compactionIndex < 0) return null;
+	const compaction = branch[compactionIndex];
+	if (!compaction || compaction.type !== "compaction") return null;
+	const firstKeptIndex = branch.findIndex((entry) => entry.id === compaction.firstKeptEntryId);
+	if (firstKeptIndex < 0 || firstKeptIndex >= compactionIndex) {
+		throw new ConversationStorageError(
+			CONVERSATION_STORAGE_ERROR_CODES.CORRUPT,
+			`Conversation ${document.identity.sessionId} has an invalid compaction kept tail`,
+		);
+	}
+	const carried = [compaction, ...branch.slice(firstKeptIndex, compactionIndex), ...branch.slice(compactionIndex + 1)];
+	const targetIds = new Map(carried.map((entry, index) => [entry.id, `seed-${index + 1}`]));
+	const entries: ConversationDocumentEntry[] = [];
+	let parentId: string | null = null;
+	for (const source of carried) {
+		const id = targetIds.get(source.id);
+		if (!id) throw new Error(`Continuation entry ID was not allocated for ${source.id}`);
+		const entry = rewriteContinuationEntry(source, id, parentId, targetIds);
+		entries.push(entry);
+		parentId = id;
+	}
+	const first = entries[0];
+	if (!first || first.type !== "compaction") {
+		throw new Error("Continuation seed must start with a compaction entry");
+	}
+	const firstKeptEntryId = entries[1]?.id ?? first.id;
+	entries[0] = { ...first, firstKeptEntryId };
+	return {
+		sourceEntryId: compaction.id,
+		entries,
+		activeLeafId: entries.at(-1)?.id ?? null,
+	};
+}
+
+function rewriteContinuationEntry(
+	entry: ConversationDocumentEntry,
+	id: string,
+	parentId: string | null,
+	targetIds: ReadonlyMap<string, string>,
+): ConversationDocumentEntry {
+	switch (entry.type) {
+		case "compaction":
+			return { ...entry, id, parentId };
+		case "branch_summary":
+			return { ...entry, id, parentId, fromId: targetIds.get(entry.fromId) ?? entry.fromId };
+		case "label":
+			return { ...entry, id, parentId, targetId: targetIds.get(entry.targetId) ?? entry.targetId };
+		case "tool_timing":
+			return { ...entry, id, parentId, phases: [...entry.phases] };
+		default:
+			return { ...entry, id, parentId };
+	}
 }

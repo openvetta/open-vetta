@@ -7,6 +7,7 @@ import type {
 	SessionSendResult,
 	SessionStreamingBehavior,
 	TurnResult,
+	TurnSessionIdentity,
 } from "./contracts.js";
 import { sessionBusyError, sessionClosedError } from "./errors.js";
 import { type ClearedSessionInputs, SessionInputQueue } from "./session-input-queue.js";
@@ -20,7 +21,7 @@ export interface CreateAgentSessionOptions {
 }
 
 export class AgentSession {
-	readonly id: string;
+	private readonly identity: MutableTurnSessionIdentity;
 	private readonly pipeline: TurnPipeline;
 	private readonly inputQueue: SessionInputQueue;
 	private currentState: AgentSessionState = "idle";
@@ -28,7 +29,7 @@ export class AgentSession {
 	private activeTurn: Promise<TurnResult> | undefined;
 
 	private constructor(options: CreateAgentSessionOptions) {
-		this.id = options.id;
+		this.identity = new MutableTurnSessionIdentity(options.id);
 		this.pipeline = options.pipeline;
 		this.inputQueue = new SessionInputQueue({
 			steeringMode: options.steeringMode,
@@ -50,6 +51,10 @@ export class AgentSession {
 
 	get state(): AgentSessionState {
 		return this.currentState;
+	}
+
+	get id(): string {
+		return this.identity.sessionId;
 	}
 
 	get pendingMessageCount(): number {
@@ -152,8 +157,8 @@ export class AgentSession {
 		const controller = new AbortController();
 		this.activeController = controller;
 		const turn = input
-			? this.pipeline.run(this.id, input, controller.signal, this.inputQueue)
-			: this.pipeline.continue(this.id, controller.signal, this.inputQueue);
+			? this.pipeline.run(this.identity, input, controller.signal, this.inputQueue)
+			: this.pipeline.continue(this.identity, controller.signal, this.inputQueue);
 		this.activeTurn = turn;
 
 		try {
@@ -167,6 +172,23 @@ export class AgentSession {
 		this.activeController = undefined;
 		this.activeTurn = undefined;
 		this.currentState = this.currentState === "closing" ? "closed" : "idle";
+	}
+}
+
+class MutableTurnSessionIdentity implements TurnSessionIdentity {
+	private currentSessionId: string;
+
+	constructor(sessionId: string) {
+		this.currentSessionId = sessionId;
+	}
+
+	get sessionId(): string {
+		return this.currentSessionId;
+	}
+
+	transition(sessionId: string): void {
+		if (!sessionId) throw new Error("Conversation continuation requires a target session ID");
+		this.currentSessionId = sessionId;
 	}
 }
 

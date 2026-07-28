@@ -79,6 +79,8 @@
 | [69-session-local-context-runtime.md](./08-implementation-log/69-session-local-context-runtime.md) | Session-local Context Runtime、原生压缩投影与逐调用 microcompact |
 | [70-model-call-compaction-orchestrator.md](./08-implementation-log/70-model-call-compaction-orchestrator.md) | 模型调用级压缩检查点、同 Turn 阈值与 overflow 自动恢复 |
 | [71-session-manual-compaction.md](./08-implementation-log/71-session-manual-compaction.md) | Session 手动压缩、Extension 兼容与统一持久化提交边界 |
+| [72-cross-conversation-turn-continuation.md](./08-implementation-log/72-cross-conversation-turn-continuation.md) | 跨 Conversation Turn 续接事务、运行时身份与宿主路径重绑定 |
+| [73-memory-rollover-orchestrator.md](./08-implementation-log/73-memory-rollover-orchestrator.md) | Memory Rollover 产品编排、既有 MEMORY/Tool/JOURNAL 复用与默认关闭接线 |
 
 ## 维护约定
 

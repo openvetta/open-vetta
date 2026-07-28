@@ -2,8 +2,10 @@ import {
 	applyConversationDocumentCommand,
 	applyStoredEventToConversationDocument,
 	type ConversationDocument,
+	type ConversationDocumentEntry,
 	type ConversationDocumentEntryReference,
 	createEmptyConversationDocument,
+	createSeededConversationDocument,
 	nativeConversationEntryId,
 	selectConversationDocumentModelMessages,
 } from "@vetta/runtime-core/conversation";
@@ -11,9 +13,11 @@ import type { StoredConversation, StoredSessionEvent } from "@vetta/runtime-core
 import { CONVERSATION_STORAGE_ERROR_CODES, ConversationStorageError } from "./errors.js";
 import {
 	CONVERSATION_SCHEMA_VERSION,
+	type ConversationContinuationSeedRecord,
 	type ConversationDocumentOperationRecord,
 	type ConversationEventRecord,
 	type ConversationFileHeader,
+	isConversationContinuationSeedRecord,
 	isConversationDocumentOperationRecord,
 	isConversationEventRecord,
 	isConversationFileHeader,
@@ -26,6 +30,7 @@ type ConversationBodyRecord = ReadConversationEventRecord | ConversationDocument
 
 export interface ParsedConversationFile {
 	readonly header: ReadConversationFileHeader;
+	readonly continuationSeed?: ConversationContinuationSeedRecord;
 	readonly records: readonly ConversationBodyRecord[];
 	readonly eventRecords: readonly ReadConversationEventRecord[];
 }
@@ -40,9 +45,29 @@ export function parseConversationFile(text: string, sessionId: string): ParsedCo
 	const eventRecords: ReadConversationEventRecord[] = [];
 	const conversationRecords: ConversationBodyRecord[] = [];
 	const documentEntryIds = new Set<string>();
+	let continuationSeed: ConversationContinuationSeedRecord | undefined;
 	let expectedEventSequence = 1;
 	for (let index = 0; index < body.length; index += 1) {
 		const record = body[index];
+		if (isConversationContinuationSeedRecord(record)) {
+			if (
+				header.schemaVersion !== CONVERSATION_SCHEMA_VERSION ||
+				index !== 0 ||
+				continuationSeed ||
+				header.parentSessionPath !== record.sourceSessionPath ||
+				header.parentEntryId !== record.sourceEntryId
+			) {
+				throw corruptConversation(sessionId, `invalid continuation seed at line ${index + 2}`);
+			}
+			continuationSeed = record;
+			for (const entry of record.entries) {
+				if (documentEntryIds.has(entry.id)) {
+					throw corruptConversation(sessionId, `duplicate continuation entry at line ${index + 2}`);
+				}
+				documentEntryIds.add(entry.id);
+			}
+			continue;
+		}
 		if (isConversationDocumentOperationRecord(record)) {
 			if (header.schemaVersion !== CONVERSATION_SCHEMA_VERSION) {
 				throw corruptConversation(sessionId, `document operation is not supported at line ${index + 2}`);
@@ -89,7 +114,7 @@ export function parseConversationFile(text: string, sessionId: string): ParsedCo
 		conversationRecords.push(record);
 	}
 
-	return { header, records: conversationRecords, eventRecords };
+	return { header, continuationSeed, records: conversationRecords, eventRecords };
 }
 
 export function validateConversationEvent(sessionId: string, event: StoredSessionEvent): void {
@@ -116,6 +141,7 @@ export function serializeConversationLine(
 		| ConversationFileHeader
 		| ConversationEventRecord
 		| ReadConversationEventRecord
+		| ConversationContinuationSeedRecord
 		| ConversationDocumentOperationRecord,
 ): string {
 	return `${JSON.stringify(value)}\n`;
@@ -134,7 +160,7 @@ export function conversationFromFile(sessionId: string, file: ParsedConversation
 }
 
 export function documentFromFile(sessionId: string, file: ParsedConversationFile): ConversationDocument {
-	let document = createEmptyConversationDocument({
+	const identity = {
 		sessionId,
 		createdAt: file.header.createdAt,
 		...(file.header.schemaVersion === CONVERSATION_SCHEMA_VERSION
@@ -144,7 +170,14 @@ export function documentFromFile(sessionId: string, file: ParsedConversationFile
 					parentEntryId: file.header.parentEntryId,
 				}
 			: {}),
-	});
+	};
+	let document = file.continuationSeed
+		? createSeededConversationDocument(
+				identity,
+				file.continuationSeed.entries as readonly ConversationDocumentEntry[],
+				file.continuationSeed.activeLeafId,
+			)
+		: createEmptyConversationDocument(identity);
 	try {
 		for (const record of file.records) {
 			if (record.recordType === "conversation.event") {

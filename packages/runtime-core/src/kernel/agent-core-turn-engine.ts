@@ -110,7 +110,9 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 			...this.options.streamOptions,
 			...(request.modelBinding ? { reasoning: request.modelBinding.reasoning } : {}),
 			model,
-			sessionId: request.sessionId,
+			get sessionId() {
+				return request.sessionId;
+			},
 			getApiKey,
 			convertToLlm: convertToLlm,
 			contextCheckpoints: request.contextCheckpoints,

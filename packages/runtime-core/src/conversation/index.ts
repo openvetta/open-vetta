@@ -30,6 +30,7 @@ export {
 	type ConversationDocumentThinkingLevelEntry,
 	type ConversationDocumentToolTimingEntry,
 	createEmptyConversationDocument,
+	createSeededConversationDocument,
 	nativeConversationEntryId,
 } from "./document.js";
 export {

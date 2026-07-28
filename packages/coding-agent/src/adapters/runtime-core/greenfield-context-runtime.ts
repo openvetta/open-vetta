@@ -45,6 +45,7 @@ import {
 import { COMPACTION_SUMMARY_PREFIX, COMPACTION_SUMMARY_SUFFIX } from "../../core/messages.js";
 import type { CompactionEntry, SessionEntry } from "../../core/session-manager/index.js";
 import type { CodingAgentCompactionExtensionRuntime } from "./greenfield-compaction-extension-runtime.js";
+import type { CodingAgentMemoryCompactionPolicy } from "./greenfield-memory-rollover-orchestrator.js";
 
 type ContextHookRuntime = Pick<EcosystemHookRuntime, "markSessionStart" | "runPostCompact" | "runPreCompact">;
 
@@ -60,6 +61,7 @@ export interface CodingAgentGreenfieldContextRuntimeOptions {
 		signal: AbortSignal,
 	) => Promise<CompactionResult>;
 	readonly extensionRuntime?: CodingAgentCompactionExtensionRuntime;
+	readonly memoryRollover?: CodingAgentMemoryCompactionPolicy;
 	readonly now?: () => number;
 }
 
@@ -84,6 +86,7 @@ export class CodingAgentGreenfieldContextRuntime
 	private readonly resolveSettings: () => CompactionSettings;
 	private readonly generateCompaction: NonNullable<CodingAgentGreenfieldContextRuntimeOptions["generateCompaction"]>;
 	private readonly extensionRuntime: CodingAgentCompactionExtensionRuntime | undefined;
+	private readonly memoryRollover: CodingAgentMemoryCompactionPolicy | undefined;
 	private readonly now: () => number;
 	private readonly circuitBreaker = new CompactionCircuitBreaker();
 	private prefireCache: PrefireCache | undefined;
@@ -101,6 +104,7 @@ export class CodingAgentGreenfieldContextRuntime
 			((preparation, model, apiKey, customInstructions, signal) =>
 				compact(preparation, model, apiKey, customInstructions, signal));
 		this.extensionRuntime = options.extensionRuntime;
+		this.memoryRollover = options.memoryRollover;
 		this.now = options.now ?? Date.now;
 	}
 
@@ -117,7 +121,8 @@ export class CodingAgentGreenfieldContextRuntime
 		const reason = input.reason ?? "turn_start";
 		const model = input.modelBinding?.model;
 		const contextWindow = model?.contextWindow ?? input.tokenBudget;
-		const settings = this.readSettings();
+		const baseSettings = this.readSettings();
+		const settings = this.memoryRollover?.adjustCompactionSettings(baseSettings, contextWindow) ?? baseSettings;
 		const overflow =
 			(reason === "assistant_error" || reason === "assistant_result") &&
 			input.recoveryAttempt === 0 &&
@@ -175,6 +180,12 @@ export class CodingAgentGreenfieldContextRuntime
 				});
 				return unchanged(callMessages, assembledTokens);
 			}
+			await this.memoryRollover?.beforeCompaction({
+				preparation,
+				model,
+				apiKey,
+				signal,
+			});
 
 			const extensionResult = await this.extensionRuntime?.beforeCompaction({
 				preparation,
@@ -225,7 +236,11 @@ export class CodingAgentGreenfieldContextRuntime
 		const outcome = await this.hookRuntime.runPostCompact("auto", signal);
 		this.hookRuntime.markSessionStart("compact");
 		this.circuitBreaker.recordSuccess();
-		return { continueExecution: !outcome.shouldStop };
+		const continuation = this.memoryRollover?.continuationAfterCompaction();
+		return {
+			continueExecution: !outcome.shouldStop,
+			...(continuation ? { continuation } : {}),
+		};
 	}
 
 	async compactManual(input: ManualContextCompactionInput, signal: AbortSignal): Promise<ContextCompactionRecord> {

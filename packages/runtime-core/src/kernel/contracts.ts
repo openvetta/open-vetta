@@ -168,6 +168,13 @@ export interface ContextStrategy {
 export interface ContextCompactionCommitResult {
 	/** false 仅阻止错误恢复重试；已经提交的压缩事实不会回滚。 */
 	readonly continueExecution: boolean;
+	/** 产品策略可请求在提交压缩事实后续接到新的持久化 Conversation。 */
+	readonly continuation?: ConversationContinuationDirective;
+}
+
+export interface ConversationContinuationDirective {
+	/** Kernel 不解释具体产品模式，仅将原因透传给持久化与宿主观察面。 */
+	readonly reason: string;
 }
 
 export interface ManualContextCompactionInput {
@@ -381,6 +388,34 @@ export interface ConversationRepository {
 	close(): Promise<void>;
 }
 
+export interface ContinueConversationInput {
+	readonly sourceSessionId: string;
+	readonly expectedVersion: number;
+	readonly turnId: string;
+	readonly snapshotId: string;
+	readonly reason: string;
+	readonly timestamp: number;
+}
+
+export interface ConversationContinuationResult {
+	readonly sourceSessionId: string;
+	readonly sourceSessionPath?: string;
+	readonly sourceVersion: number;
+	readonly sessionId: string;
+	readonly sessionPath?: string;
+	readonly version: number;
+	/** 目标文件写入 turn.continued 前的投影，用于运行时无重读地原子重绑定。 */
+	readonly seedConversation: StoredConversation;
+	readonly seedDocument: ConversationDocument;
+	readonly transferredEvent: TurnTransferredEvent;
+	readonly continuedEvent: TurnContinuedEvent;
+}
+
+/** 跨 Conversation 续接的持久化事务；具体文件、数据库或远端实现留在 Storage Adapter。 */
+export interface ConversationContinuationStore {
+	continueConversation(input: ContinueConversationInput): Promise<ConversationContinuationResult>;
+}
+
 export interface ConversationSnapshot {
 	readonly sessionId: string;
 	readonly version: number;
@@ -448,14 +483,37 @@ export interface TurnFailedEvent {
 	readonly timestamp: number;
 }
 
+/** 源 Conversation 的终止事实；同一 Turn 已转移到另一个持久化实体。 */
+export interface TurnTransferredEvent {
+	readonly type: "turn.transferred";
+	readonly sessionId: string;
+	readonly turnId: string;
+	readonly targetSessionId: string;
+	readonly reason: string;
+	readonly timestamp: number;
+}
+
+/** 目标 Conversation 的起始事实；不是新的 Turn。 */
+export interface TurnContinuedEvent {
+	readonly type: "turn.continued";
+	readonly sessionId: string;
+	readonly turnId: string;
+	readonly sourceSessionId: string;
+	readonly snapshotId: string;
+	readonly reason: string;
+	readonly timestamp: number;
+}
+
 export type StoredSessionEvent =
 	| TurnStartedEvent
+	| TurnContinuedEvent
 	| MessageAppendedEvent
 	| ContextAppendedEvent
 	| ContextCompactedEvent
 	| TurnCompletedEvent
 	| TurnCancelledEvent
-	| TurnFailedEvent;
+	| TurnFailedEvent
+	| TurnTransferredEvent;
 
 export type TurnPipelineStage =
 	| "admission"
@@ -492,11 +550,26 @@ export interface RuntimeSessionObservationEnvelope {
 	readonly timestamp: number;
 }
 
+/** 瞬时续接事件；目标 seed 已持久化，但该事件本身不写入 Conversation。 */
+export interface ConversationContinuedEvent {
+	readonly type: "conversation.continued";
+	readonly sourceSessionId: string;
+	readonly sourceSessionPath?: string;
+	readonly sessionId: string;
+	readonly sessionPath?: string;
+	readonly turnId: string;
+	readonly reason: string;
+	readonly conversation: StoredConversation;
+	readonly document: ConversationDocument;
+	readonly timestamp: number;
+}
+
 export type KernelEvent =
 	| StoredSessionEvent
 	| TurnPipelineStageEvent
 	| ObserverFailedEvent
-	| RuntimeSessionObservationEnvelope;
+	| RuntimeSessionObservationEnvelope
+	| ConversationContinuedEvent;
 
 export interface EventSink {
 	publish(event: KernelEvent): Promise<void>;
@@ -565,21 +638,30 @@ export interface IdGenerator {
 	next(scope: "snapshot" | "turn"): string;
 }
 
+/** AgentSession 与 TurnPipeline 共享的可变持久化身份；仅允许由续接事务更新。 */
+export interface TurnSessionIdentity {
+	readonly sessionId: string;
+	transition(sessionId: string): void;
+}
+
 export type TurnResult =
 	| {
 			readonly status: "completed";
+			readonly sessionId: string;
 			readonly turnId: string;
 			readonly stopReason: StopReason;
 			readonly messages: readonly Message[];
 	  }
 	| {
 			readonly status: "cancelled";
+			readonly sessionId: string;
 			readonly turnId: string;
 			readonly reason?: string;
 			readonly messages: readonly Message[];
 	  }
 	| {
 			readonly status: "failed";
+			readonly sessionId: string;
 			readonly turnId: string;
 			readonly error: {
 				readonly code: string;

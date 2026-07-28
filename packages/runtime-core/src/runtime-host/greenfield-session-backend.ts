@@ -109,12 +109,10 @@ export interface GreenfieldRuntimeSessionCoreAssembly {
 }
 
 export class GreenfieldRuntimeSession {
-	readonly sessionId: string;
 	private readonly session: AgentSession;
 	private readonly promptAdapter: GreenfieldPromptAdapter;
 	private readonly eventSink: GreenfieldSessionEventSink;
 	private readonly modelRuntime: GreenfieldRuntimeModelRuntime;
-	private readonly identity: GreenfieldRuntimeSessionIdentity;
 	private readonly stateSource: GreenfieldRuntimeStateSource;
 	private readonly conversationDocumentStore: ConversationDocumentStore;
 	private readonly projection: GreenfieldSessionProjection;
@@ -130,12 +128,10 @@ export class GreenfieldRuntimeSession {
 		eventSink: GreenfieldSessionEventSink,
 		projection: GreenfieldSessionProjection,
 	) {
-		this.sessionId = assembly.session.id;
 		this.session = assembly.session;
 		this.promptAdapter = assembly.promptAdapter;
 		this.eventSink = eventSink;
 		this.modelRuntime = assembly.modelRuntime;
-		this.identity = assembly.identity;
 		this.stateSource = assembly.stateSource;
 		this.conversationDocumentStore = assembly.conversationDocumentStore;
 		this.projection = projection;
@@ -144,6 +140,10 @@ export class GreenfieldRuntimeSession {
 		this.contextController = assembly.contextController;
 		const dispose = assembly.dispose;
 		this.disposeRuntime = dispose ? () => dispose.call(assembly) : undefined;
+	}
+
+	get sessionId(): string {
+		return this.session.id;
 	}
 
 	async prompt(request: PromptRequest): Promise<SessionSendResult> {
@@ -202,6 +202,7 @@ export class GreenfieldRuntimeSession {
 	readState(): RuntimeSessionState {
 		this.assertOpen();
 		const dynamic = this.stateSource.read();
+		const identity = this.eventSink.readIdentity();
 		return {
 			model: this.modelRuntime.readCurrentModel(),
 			thinkingLevel: this.modelRuntime.readThinkingLevel(),
@@ -209,8 +210,8 @@ export class GreenfieldRuntimeSession {
 			activeToolNames: [...dynamic.activeToolNames],
 			isStreaming: this.session.state === "running" || this.session.state === "cancelling",
 			messageCount: this.projection.readMessageCount(),
-			parentSessionPath: this.identity.parentSessionPath,
-			parentEntryId: this.identity.parentEntryId,
+			parentSessionPath: identity.parentSessionPath,
+			parentEntryId: identity.parentEntryId,
 		};
 	}
 
@@ -287,10 +288,15 @@ export class GreenfieldRuntimeSession {
 
 	createCoreAssembly(): GreenfieldRuntimeSessionCoreAssembly {
 		this.assertOpen();
+		const runtimeSession = this;
 		return {
 			lifecycle: {
-				sessionId: this.sessionId,
-				sessionPath: this.identity.sessionPath,
+				get sessionId() {
+					return runtimeSession.sessionId;
+				},
+				get sessionPath() {
+					return runtimeSession.eventSink.readIdentity().sessionPath;
+				},
 				dispose: () => this.dispose(),
 			},
 			historyReader: {
@@ -307,7 +313,7 @@ export class GreenfieldRuntimeSession {
 			modelController: this.modelRuntime,
 			modelView: this.modelRuntime,
 			workspaceView: {
-				readWorkingDirectory: () => this.identity.cwd,
+				readWorkingDirectory: () => this.eventSink.readIdentity().cwd,
 			},
 			todoController: this.todoController,
 			contextController: this.contextController,
@@ -455,6 +461,7 @@ export class GreenfieldRuntimeSessionBackend<TCreateOptions>
 			]);
 			const projection = new GreenfieldSessionProjection(conversation, document);
 			eventSink.bindProjection(projection);
+			eventSink.bindIdentity(assembly.identity);
 			eventSink.bindDocumentParticipants(assembly.documentParticipants ?? []);
 			const runtimeSession = new GreenfieldRuntimeSession(assembly, eventSink, projection);
 			await runtimeSession.initializeDocumentParticipants(document);
@@ -475,10 +482,23 @@ class GreenfieldSessionEventSink implements EventSink {
 	private readonly listeners = new Set<(event: SessionEvent) => void>();
 	private readonly initializationEvents: SessionEvent[] = [];
 	private documentParticipants: readonly GreenfieldRuntimeDocumentParticipant[] = [];
+	private identity: GreenfieldRuntimeSessionIdentity = {};
 	private projection: GreenfieldSessionProjection | undefined;
 	private initializing = true;
 
 	async publish(event: KernelEvent): Promise<void> {
+		if (event.type === "conversation.continued") {
+			this.projection?.replaceConversation(event.conversation, event.document);
+			this.identity = {
+				cwd: event.document.identity.cwd,
+				sessionPath: event.sessionPath,
+				parentSessionPath: event.document.identity.parentSessionPath,
+				parentEntryId: event.document.identity.parentEntryId,
+			};
+			for (const participant of this.documentParticipants) {
+				await participant.onDocumentChanged(event.document);
+			}
+		}
 		if (isStoredSessionEvent(event)) {
 			this.projection?.apply(event);
 			for (const participant of this.documentParticipants) {
@@ -514,6 +534,14 @@ class GreenfieldSessionEventSink implements EventSink {
 		this.projection = projection;
 	}
 
+	bindIdentity(identity: GreenfieldRuntimeSessionIdentity): void {
+		this.identity = { ...identity };
+	}
+
+	readIdentity(): GreenfieldRuntimeSessionIdentity {
+		return this.identity;
+	}
+
 	bindDocumentParticipants(participants: readonly GreenfieldRuntimeDocumentParticipant[]): void {
 		this.documentParticipants = participants;
 	}
@@ -537,12 +565,14 @@ class GreenfieldSessionEventSink implements EventSink {
 function isStoredSessionEvent(event: KernelEvent): event is StoredSessionEvent {
 	return (
 		event.type === "turn.started" ||
+		event.type === "turn.continued" ||
 		event.type === "message.appended" ||
 		event.type === "context.appended" ||
 		event.type === "context.compacted" ||
 		event.type === "turn.completed" ||
 		event.type === "turn.cancelled" ||
-		event.type === "turn.failed"
+		event.type === "turn.failed" ||
+		event.type === "turn.transferred"
 	);
 }
 

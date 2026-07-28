@@ -408,6 +408,39 @@ Pipeline 不假设整个 Turn 是一个长数据库事务。它使用明确的�
 
 这样进程中断后可以根据事件日志判断 Turn 停止在哪个阶段，而不是依赖内存状态猜测。
 
+### 6.1 跨 Conversation 续接
+
+rollover 不是普通 `append`，也不是新的 Turn。它创建新的持久化实体、改变 Session 身份并让
+同一 Tool Loop 继续执行，因此使用独立 `ConversationContinuationStore`：
+
+```text
+source Conversation
+  context.compacted
+  turn.transferred ───────────────┐
+                                  │ same turnId / snapshotId
+target Conversation               │
+  continuation seed               │
+  turn.continued <────────────────┘
+  message / tool result
+  turn.completed | cancelled | failed
+```
+
+约束：
+
+- Context Strategy 只能在压缩提交后返回通用 continuation directive；它不能创建文件或修改
+  Session ID。
+- Storage Adapter 原子校验源版本、活动 Turn 和最近压缩边界，目标只携带摘要与 kept tail。
+- `turn.transferred` 是源会话终态，`turn.continued` 是目标会话起点；目标不得伪造
+  `turn.started`。
+- Pipeline 在存储事务成功后重绑定活动 Session 身份，后续 Tool、Policy、Prompt Provider、
+  Observer 和终态都使用目标 `sessionId`。
+- 瞬时 `conversation.continued` 只负责运行时投影、路径和宿主事件切换，不再次写入日志。
+- 进程在跨文件写入窗口中崩溃时，恢复策略只把仍未闭合的 Turn 标记为 interrupted，不自动
+  重放模型或工具；外部副作用不会被重复执行。
+
+该边界是通用会话能力，不包含 MEMORY flush、JOURNAL 或 IM 策略。产品 Orchestrator 决定何时
+请求续接，Runtime Core 只执行协议，Runtime Storage 只实现持久化事务。
+
 ## 7. 运行时类型校验策略
 
 TypeScript 类型只约束编译期，不能信任来自模型、磁盘、网络、插件或 RPC 的运行时数据。Schema 校验放在不可信数据第一次进入领域模型的边界，校验成功后内部代码使用稳定类型，不在每一层重复 parse。

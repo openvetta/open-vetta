@@ -6,6 +6,8 @@ import {
 	BufferedRuntimeSessionContext,
 	type Clock,
 	ContextCompactionCommitter,
+	type ConversationContinuationResult,
+	type ConversationContinuationStore,
 	type ConversationRepository,
 	createAgentSession,
 	type EventSink,
@@ -45,6 +47,7 @@ export interface GreenfieldRuntimeResources {
 	readonly sessionId: string;
 	readonly repository: ConversationRepository;
 	readonly conversationDocumentStore: ConversationDocumentStore;
+	readonly conversationContinuationStore?: ConversationContinuationStore;
 	readonly promptAdapter: GreenfieldPromptAdapter;
 	readonly snapshotProvider: RuntimeSnapshotProvider;
 	readonly modelRuntime: GreenfieldRuntimeModelRuntime;
@@ -55,6 +58,7 @@ export interface GreenfieldRuntimeResources {
 	readonly contextRuntime?: ManualContextCompactionRuntime;
 	readonly steeringMode?: SessionInputQueueMode;
 	readonly followUpMode?: SessionInputQueueMode;
+	onConversationContinued?(result: ConversationContinuationResult): Promise<void> | void;
 	dispose?(): Promise<void>;
 }
 
@@ -129,6 +133,10 @@ export class ComposedGreenfieldRuntimeFactory<TCreateOptions> implements Greenfi
 				runtimeContext,
 				conversationDocumentReader: resources.conversationDocumentStore,
 				contextCompactionCommitter,
+				conversationContinuationStore: resources.conversationContinuationStore,
+				onConversationContinued: resources.onConversationContinued
+					? (result) => resources.onConversationContinued?.(result)
+					: undefined,
 			});
 			const sessionOptions = {
 				id: resources.sessionId,

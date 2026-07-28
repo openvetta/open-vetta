@@ -125,6 +125,41 @@ export function createEmptyConversationDocument(identity: ConversationDocumentId
 	return { identity, journalVersion: 0, revision: 0, entries: [], activeLeafId: null };
 }
 
+/** 从经过 Storage 边界校验的续接 seed 重建目标 Conversation Document。 */
+export function createSeededConversationDocument(
+	identity: ConversationDocumentIdentity,
+	entries: readonly ConversationDocumentEntry[],
+	activeLeafId: string | null,
+): ConversationDocument {
+	const byId = new Map<string, ConversationDocumentEntry>();
+	for (const entry of entries) {
+		if (byId.has(entry.id)) throw new Error(`Conversation document entry already exists: ${entry.id}`);
+		byId.set(entry.id, entry);
+	}
+	for (const entry of entries) {
+		if (entry.parentId && !byId.has(entry.parentId)) {
+			throw new Error(`Conversation document parent does not exist: ${entry.parentId}`);
+		}
+		const ancestors = new Set<string>([entry.id]);
+		let parentId = entry.parentId;
+		while (parentId) {
+			if (ancestors.has(parentId)) throw new Error(`Conversation document contains a cycle at ${parentId}`);
+			ancestors.add(parentId);
+			parentId = byId.get(parentId)?.parentId ?? null;
+		}
+	}
+	if (activeLeafId && !byId.has(activeLeafId)) {
+		throw new Error(`Conversation document active leaf does not exist: ${activeLeafId}`);
+	}
+	return {
+		identity,
+		journalVersion: 0,
+		revision: entries.length,
+		entries: [...entries],
+		activeLeafId,
+	};
+}
+
 export function nativeConversationEntryId(sequence: number): string {
 	return `event-${sequence}`;
 }

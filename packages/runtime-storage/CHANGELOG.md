@@ -6,6 +6,7 @@ All notable changes to `@vetta/runtime-storage` are documented in this file.
 
 ### Added
 
+- **跨 Conversation 续接事务**：`FileConversationRepository` 可从最近原生压缩边界创建带血缘的目标会话，TypeBox 校验 continuation seed 并重写 carried tail identity；源会话以 `turn.transferred` 闭合、目标会话以 `turn.continued` 延续同一 Turn，版本冲突不会留下目标文件，重开后保持摘要与尾部模型投影。
 - **Turn 外手动压缩持久化**：Conversation V2 Schema 允许 `reason: "manual"` 的 `context.compacted` 不携带 `turnId`，并在关闭、重开后继续投影为相同的摘要与保留尾部；活动 Turn 内的压缩协议仍由 Runtime Core 严格校验。
 - **原生 Context Compaction 持久化**：Conversation V2 TypeBox Schema 支持摘要消息、保留边界、token 用量和触发原因，并将压缩记录投影为分支节点；旧计数型 `context.compacted` 记录继续可读且不改变历史分支。
 - **分支级 Custom Document Entry 持久化**：V2 Repository 支持 TypeBox 校验的 `custom.append` operation、事件 parent 对 custom entry 的完整性校验及 fork 重放，为 Todo 等产品状态提供不泄漏业务类型的会话内持久化边界。

@@ -31,7 +31,7 @@ export interface GreenfieldRuntimeStateSource {
  * 既有同步读取 API 改成异步，也不会在每次读取时重新访问文件。
  */
 export class GreenfieldSessionProjection {
-	private readonly sessionId: string;
+	private sessionId: string;
 	private readonly messages: Message[];
 	private document: ConversationDocument;
 
@@ -74,6 +74,13 @@ export class GreenfieldSessionProjection {
 		this.messages.splice(0, this.messages.length, ...selectConversationDocumentMessages(document));
 	}
 
+	replaceConversation(conversation: StoredConversation, document: ConversationDocument): void {
+		assertMatchingConversation(conversation, document);
+		this.sessionId = conversation.sessionId;
+		this.document = document;
+		this.messages.splice(0, this.messages.length, ...selectConversationDocumentMessages(document));
+	}
+
 	readMessages(): readonly Message[] {
 		return [...this.messages];
 	}
@@ -88,5 +95,16 @@ export class GreenfieldSessionProjection {
 
 	readDocument(): ConversationDocument {
 		return this.document;
+	}
+}
+
+function assertMatchingConversation(conversation: StoredConversation, document: ConversationDocument): void {
+	if (conversation.sessionId !== document.identity.sessionId) {
+		throw new Error(`Conversation ${conversation.sessionId} does not match document ${document.identity.sessionId}`);
+	}
+	if (conversation.version !== document.journalVersion) {
+		throw new Error(
+			`Conversation version ${conversation.version} does not match document journal ${document.journalVersion}`,
+		);
 	}
 }

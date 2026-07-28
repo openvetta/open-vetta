@@ -278,6 +278,14 @@ export interface SessionLifecycleEvent extends SessionEventBase {
 	phase: "created" | "agent_start" | "turn_start" | "turn_end" | "agent_end" | "aborted";
 }
 
+export interface SessionPathChangedEvent extends SessionEventBase {
+	type: "session.path_changed";
+	previousSessionId: string;
+	previousPath?: string;
+	path?: string;
+	reason: string;
+}
+
 export interface MessageDeltaEvent extends SessionEventBase {
 	type: "message.delta";
 	delta: string;
@@ -527,6 +535,7 @@ export interface RuntimeSandboxGrantInfo {
 
 export type SessionEvent =
 	| SessionLifecycleEvent
+	| SessionPathChangedEvent
 	| MessageDeltaEvent
 	| ThinkingDeltaEvent
 	| MessageFinalEvent

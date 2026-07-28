@@ -117,11 +117,11 @@ export function selectConversationDocumentModelMessages(document: ConversationDo
 
 	const compaction = branch[compactionIndex];
 	if (compaction.type !== "compaction" || !compaction.summaryMessage) return branch.flatMap(projectModelMessages);
-	const firstKeptIndex = branch
-		.slice(0, compactionIndex)
-		.findIndex((entry) => entry.id === compaction.firstKeptEntryId);
-	if (firstKeptIndex < 0) {
-		throw new Error(`Compaction first kept entry is not before the compaction: ${compaction.firstKeptEntryId}`);
+	const firstKeptIndex = branch.findIndex((entry) => entry.id === compaction.firstKeptEntryId);
+	if (firstKeptIndex < 0)
+		throw new Error(`Compaction first kept entry does not exist: ${compaction.firstKeptEntryId}`);
+	if (firstKeptIndex > compactionIndex) {
+		return [compaction.summaryMessage, ...branch.slice(firstKeptIndex).flatMap(projectModelMessages)];
 	}
 	return [
 		compaction.summaryMessage,

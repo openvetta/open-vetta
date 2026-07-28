@@ -704,8 +704,9 @@ Pre/PostCompact 使用第 68 轮的同一 Hook Runtime。microcompact 每次模�
 Observer，在 create/resume 时从投影恢复用量，运行中采用有效 assistant usage，CLI 状态不再返回未知比例。
 
 第 70 轮已把 Layer 2 threshold/prefire 与 provider overflow 自动恢复接入模型调用检查点，详见下一节。
-第 71 轮已补齐手动压缩和 Extension 自定义压缩，详见 `2.20`。memory-mode 的
-flush/rollover/JOURNAL 仍未迁移，因此完整长会话生产路径仍不可切换。
+第 71 轮已补齐手动压缩和 Extension 自定义压缩，详见 `2.20`。第 72 轮建立通用的跨
+Conversation Turn 续接事务，详见 `2.21`；memory-mode 的 flush、触发策略和 JOURNAL 仍未
+迁移，因此完整长会话生产路径仍不可切换。
 
 ### 2.19 模型调用级 Compaction Orchestrator
 
@@ -771,6 +772,68 @@ Extension Runner 通过窄 Adapter 留在 Coding Agent：`session_before_compact
 自动压缩开关、无额外手动 SessionEvent，以及 CLI 真实 Composition Root。旧 `AgentSession.compact()`
 生产路径保持不变。
 
+### 2.21 跨 Conversation Turn 续接
+
+旧 memory-mode 会在自动压缩完成后立刻创建新会话文件，并让当前 Tool Loop 继续写入新文件。
+该行为不能实现为第二个 `turn.started`，也不能只替换路径。第 72 轮建立以下通用协议：
+
+```text
+source: context.compacted -> turn.transferred
+target: continuation seed -> turn.continued -> same Turn terminal
+```
+
+源 transfer 是终态，目标 continued 是同一 `turnId/snapshotId` 的活动起点。Storage 在源
+version 与文件锁下提取最近 compaction 和 kept tail，使用 TypeBox 校验 seed，并保存
+`parentSessionPath/parentEntryId`。Pipeline 在事务成功后更新共享 Session Identity，后续模型调用、
+工具、Policy、Prompt Provider、Observer 和终态都读取目标 ID。
+
+Greenfield 投影先用 target seed 替换事实源，再应用已落盘的 `turn.continued`；宿主收到
+`session.path_changed`，Lifecycle path、History 命令和 Document Participant 同步切换。恢复策略
+不会自动重放任何一侧的模型或工具：source transfer 已闭合，未闭合 target 只会被标记为
+interrupted。
+
+本轮只迁移通用事务边界，没有启用 memory-mode，没有改变压缩阈值，也没有迁移 MEMORY flush、
+memory tool、JOURNAL 或日期 cwd。旧生产 `SessionManager.rolloverToNewFile()` 保持不变。
+
+### 2.22 Memory Rollover 产品 Orchestrator
+
+第 73 轮在 Coding Agent Adapter 层新增 Session-local Memory Rollover Orchestrator，复用旧 memory
+store、flush、journal 和 Tool，并只向 Runtime Core 提供压缩设置调整与通用 continuation directive：
+
+```text
+memory-mode Session
+  -> frozen MEMORY prompt snapshot
+  -> existing memory Tool
+  -> 70% auto-compaction policy
+  -> best-effort MEMORY flush
+  -> generic cross-Conversation continuation
+  -> completed-turn / rollover JOURNAL
+```
+
+已恢复的旧行为：
+
+- Session 启动时冻结 MEMORY 内容，运行期 Tool 修改只影响后续 Session。
+- memory Tool 的描述、TypeBox Schema、文件操作与字符限制继续使用既有实现。
+- 自动压缩使用 `minFreePercent >= 30` 和 `reserveTokens >= ceil(contextWindow * 0.3)`；手动压缩不应用
+  memory 阈值、flush 或 rollover。
+- flush 输入是即将被摘要丢弃的消息前缀，失败不阻止压缩。
+- rollover 通过第 72 轮事务保持同一 Turn；源文件以 `turn.transferred` 结束，目标文件从
+  `turn.continued` 继续。
+- 每个成功 Turn 写一条 JOURNAL，成功 rollover 写摘要段落；文件副作用失败不改变 Turn 结果。
+- `memoryMode` 默认关闭，未启用 Session 不增加工具、提示词或 JOURNAL。
+
+Kernel 和 Storage 没有新增 MEMORY/JOURNAL 概念。内部编排继续使用 TypeScript 合同；memory Tool
+参数和 continuation 持久数据沿用既有 TypeBox 校验，没有在受信任内部对象上重复引入 Zod。
+
+仍有三个切换阻断项：
+
+1. 旧 RPC/IM 的主动 `flush_memory` 能力尚未形成 Greenfield 宿主 Port。
+2. 旧实现会先完成 rollover，再运行 Extension committed 回调和 PostCompact Hook；当前 Greenfield
+   continuation 在 `onCompactionCommitted()` 返回后才执行，因此回调相对 Conversation 切换的顺序仍有
+   差异。
+3. 默认生产 Desktop/RPC/IM/CLI 入口仍使用旧 `AgentSession`，本轮只为并行 Greenfield 组合增加显式
+   memory-mode 配置。
+
 ## 3. 已实施模块审计
 
 | 模块 | 当前状态 | 与旧行为的差距 | 切换结论 |
@@ -785,13 +848,13 @@ Extension Runner 通过窄 Adapter 留在 Coding Agent：`session_before_compact
 | `bash/shell` Tool | Runtime Definition、Registration、前台执行器、后台协调、独立后台生命周期、task 工具、通知格式、低层 Host Adapter、平台 scope 和过渡 Composition Root 已通过 | 旧 AgentSession 和生产入口仍使用旧工具/Manager | 新 Runtime 工具链迁移完成；旧生产路径尚不可删除 |
 | 宿主可执行文件解析 | Runtime Port、本地 PATH/managed-bin Adapter、grep/find 注入合同、旧 ensureTool 适配、网络/归档合同和 cli-app Composition Root 已通过 | 真实 GitHub 网络、最终独立可执行发布物和完整 Tool Profile 迁移尚未完成；包根兼容导出必须继续保留 | 新 Profile 可并行验证；旧宿主仍不可切换 |
 | Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope/explicit 激活和 requires/capabilities，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；current_time/read/ls/grep/find/glob/tree/write/edit/bash/shell/task_output/task_stop 已进入全场景 Profile 差分门禁 | 生产 Profile 尚未切换 | 动态编排与当前默认工具迁移完成；生产接入未完成 |
-| `AgentSession` | 新状态机、活动 Turn 输入队列、无伪 user message 的 continue 与显式 resume 已实现 | 尚缺旧外围能力的 Greenfield 实现 | 内核 Turn/恢复语义已具备；生产入口不可切换 |
-| Turn Pipeline | 固定阶段、模型调用请求—应答检查点、持久化压缩提交、非持久化 observation、输入队列、continue、recovery、独立 Turn Model Binding 和 Session-local 运行期 Context 串行持久化已实现 | 完整生产 Composition Root 尚未接入 | 不可切换 |
+| `AgentSession` | 新状态机、活动 Turn 输入队列、无伪 user message 的 continue、显式 resume 与同 Turn 持久化身份重绑定已实现 | 尚缺旧外围能力的 Greenfield 实现 | 内核 Turn/恢复语义已具备；生产入口不可切换 |
+| Turn Pipeline | 固定阶段、模型调用请求—应答检查点、持久化压缩提交、跨 Conversation 续接、非持久化 observation、输入队列、continue、recovery、独立 Turn Model Binding 和 Session-local 运行期 Context 串行持久化已实现 | 完整生产 Composition Root 尚未接入 | 不可切换 |
 | `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环、动态 Model Call Frame、完整观察事件、输入队列、Context checkpoint 桥接和 Turn model binding 已通过 | 尚未由真实 Greenfield Composition Root 接入生产 RuntimeHost | 内核执行能力已具备；宿主仍不可切换 |
-| Greenfield Session Backend | 独立门面、必需 Prompt Adapter/Runtime Factory、同步投影、显式 resume、Session-local Todo/Hook/Context Runtime、手动压缩 Controller，以及 Lifecycle/History/Model/Workspace/Core Ports 已通过 | Host Interaction、Execution、Configuration、Background Work 等外围能力未实现；模型配置尚未持久化 | 可并行组合测试；不能注入生产 RuntimeHost |
+| Greenfield Session Backend | 独立门面、必需 Prompt Adapter/Runtime Factory、可重绑定投影与路径、显式 resume、Session-local Todo/Hook/Context Runtime、手动压缩 Controller，以及 Lifecycle/History/Model/Workspace/Core Ports 已通过 | Host Interaction、Execution、Configuration、Background Work 等外围能力未实现；模型配置尚未持久化 | 可并行组合测试；不能注入生产 RuntimeHost |
 | Runtime Snapshot | 编译、冻结、lease、原子交换和动态 Model Call Provider 已实现 | Coding Profile 的完整默认能力与 scope 尚未装配 | 不可替代旧工具注册 |
-| Conversation Repository | V2 create/load/append/save、树形 Document 读写、活动分支、fork、跨实例文件锁和 Legacy importer 已实现 | Legacy/V1 历史结构写命令保持只读；模型配置尚无异步持久化合同 | 不可直接替代全部旧会话写路径 |
-| Context Strategy | Session-local Runtime 已接入原生摘要持久化、重开投影、外部/同 Turn threshold/prefire、逐模型调用 microcompact、error/silent overflow 单次恢复、手动/Extension 压缩、Pre/PostCompact 和 usage 状态 | 尚缺 memory-mode flush/rollover/JOURNAL | 标准长会话切片可并行验证；完整生产路径仍不可切换 |
+| Conversation Repository | V2 create/load/append/save、树形 Document 读写、活动分支、fork、跨实例文件锁、跨 Conversation seed/transfer/continued 事务和 Legacy importer 已实现 | Legacy/V1 历史结构写命令保持只读；跨文件崩溃 orphan reconciliation 与模型配置异步持久化尚未实现 | 不可直接替代全部旧会话写路径 |
+| Context Strategy | Session-local Runtime 已接入原生摘要持久化、重开投影、外部/同 Turn threshold/prefire、逐模型调用 microcompact、error/silent overflow 单次恢复、手动/Extension 压缩、Pre/PostCompact 和 usage 状态；Coding Agent Memory Orchestrator 已接入冻结 Prompt、既有 Tool、70% 策略、flush、通用 rollover 与 JOURNAL | 尚缺主动 `flush_memory` Port；PostCompact/Extension 相对 rollover 的时序未完全等价 | memory-mode 可并行验证；完整生产路径仍不可切换 |
 | MCP / Skill / Knowledge / Subagent | Session 级 Skill/Scene Prompt、MCP 渐进披露与现有 Knowledge 工具来源已进入并行组合 | Subagent Runtime 未迁移；尚未形成完整生产 Profile | 不可切换对应生产 Profile |
 | Ecosystem Hook Runtime | 每 Session 唯一实例已贯通 Prompt、最终动态 Tool Surface、Stop、运行期 Context、自动/手动 Pre/PostCompact 和 dispose | PermissionRequest、Subagent Hook 与宿主切换原因未接入 | 并行组合已验证；默认生产入口不变 |
 | Desktop / CLI / RPC / IM Adapter | RuntimeHost 已完全通过稳定 Ports 编排；CLI Greenfield Composition Root 已具备真实模型、Prompt、动态能力、Todo、Hook、Continuation、SessionEvent 和文件恢复 | Greenfield 完整 Assembly、旧存储兼容及 Desktop/RPC/IM 实际宿主接线尚未完成 | 不可切换默认入口 |
@@ -836,10 +899,14 @@ AgentSession 与生产宿主入口保持不变。
 
 模型调用检查点的 Compaction Orchestrator 已覆盖同 Turn Tool Loop 阈值、error/silent overflow 单次
 恢复、取消和 steering/follow-up 仲裁；手动压缩 Session Port 与 Extension 自定义摘要也已共享同一
-持久提交路径，Extension Runner 继续留在 Coding Agent 产品层。下一阶段应迁移 memory-mode 的 MEMORY
-flush、rollover 和 JOURNAL，但必须拆成独立 Orchestrator，不能塞进 Runtime Core 或与标准
-Context Strategy 混成一个类。随后再按真实能力边界迁移 PermissionRequest、Subagent Runtime 和剩余
-Assembly Port。
+持久提交路径。Coding Agent Memory Rollover Orchestrator 现在复用旧冻结 Prompt、memory Tool、约 70%
+阈值、MEMORY flush 和 JOURNAL，并通过通用事务保持同一 Turn 切换 Conversation；默认仍关闭。
+
+下一阶段应合并处理 continuation 事务后的通用回调时序和按需 MEMORY flush 宿主 Port：先用旧新差分
+测试固定 rollover、Extension committed、PostCompact 与 stop 的相对顺序，再调整协议，不能把
+Extension Runner、MEMORY/JOURNAL 或 IM 策略下沉到 Runtime Core/Storage。时序等价后，再让真实 CLI/IM
+宿主以显式配置接入 Greenfield memory-mode；默认生产入口仍不切换。随后再按真实能力边界迁移
+PermissionRequest、Subagent Runtime 和剩余 Assembly Port。
 
 模型配置持久化仍必须使用显式异步合同，不能在同步 setter 中 fire-and-forget；完整 Assembly 就绪前不
 替换默认旧后端。最终生产切换仍需完整 Profile 差分、旧存储兼容和 Desktop/RPC/IM 宿主验证。真实 GitHub
