@@ -41,9 +41,13 @@ describe("translatePresetError", () => {
 		expect(message).toBe("api.deepseek.com 返回 401 Unauthorized");
 	});
 
-	it("只有 invalid-key 会拦下启用", () => {
+	it("识别密钥被拒:含旧主进程回的 http-status + 认证状态码", () => {
 		expect(isInvalidKey({ code: "invalid-key" })).toBe(true);
-		expect(isInvalidKey({ code: "http-status" })).toBe(false);
+		// 旧主进程没有 invalid-key,只回 http-status——不能因此把无效 key 放行。
+		expect(isInvalidKey({ code: "http-status", params: { status: 401 } })).toBe(true);
+		expect(isInvalidKey({ code: "http-status", params: { status: 403 } })).toBe(true);
+		expect(isInvalidKey({ code: "http-status", params: { status: 400 } })).toBe(true);
+		expect(isInvalidKey({ code: "http-status", params: { status: 503 } })).toBe(false);
 		expect(isInvalidKey({ code: "timeout" })).toBe(false);
 		expect(isInvalidKey(undefined)).toBe(false);
 	});

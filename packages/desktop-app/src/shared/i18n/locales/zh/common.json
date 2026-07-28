@@ -735,7 +735,6 @@
 			"skills": "能力",
 			"plugins": "插件",
 			"connectors": "连接器",
-			"downloads": "下载中心",
 			"settings": "设置"
 		}
 	},
@@ -912,7 +911,6 @@
 			"plugins": "插件",
 			"settings": "设置",
 			"project": "项目详情",
-			"downloads": "下载中心",
 			"chat": "对话"
 		},
 		"sidebarTrigger": {

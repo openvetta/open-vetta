@@ -15,17 +15,24 @@ export function formatExpiry(iso?: string): string | null {
 	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-/** 距离 resetAt 的倒计时，形如「3小时12分后重置」；已过期则提示即将重置。 */
-export function formatResetCountdown(iso: string, now: number): string {
+/** 倒计时的 i18n key 与插值参数。文案由调用方在渲染期 t() 出来。 */
+export type ResetCountdown =
+	| { key: "subResetImminent"; params?: undefined }
+	| { key: "subResetInDays"; params: { days: number; hours: number } }
+	| { key: "subResetInHours"; params: { hours: number; mins: number } }
+	| { key: "subResetInMinutes"; params: { mins: number } };
+
+/** 距离 resetAt 的倒计时;已过期给「即将重置」。iso 非法时返回 null(不展示)。 */
+export function getResetCountdown(iso: string, now: number): ResetCountdown | null {
 	const target = new Date(iso).getTime();
-	if (Number.isNaN(target)) return "";
+	if (Number.isNaN(target)) return null;
 	const diff = target - now;
-	if (diff <= 0) return "即将重置";
+	if (diff <= 0) return { key: "subResetImminent" };
 	const totalMin = Math.floor(diff / 60000);
 	const days = Math.floor(totalMin / 1440);
 	const hours = Math.floor((totalMin % 1440) / 60);
 	const mins = totalMin % 60;
-	if (days > 0) return `${days}天${hours}小时后重置`;
-	if (hours > 0) return `${hours}小时${mins}分后重置`;
-	return `${mins}分后重置`;
+	if (days > 0) return { key: "subResetInDays", params: { days, hours } };
+	if (hours > 0) return { key: "subResetInHours", params: { hours, mins } };
+	return { key: "subResetInMinutes", params: { mins } };
 }

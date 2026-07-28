@@ -211,38 +211,34 @@ export function usePresetProvidersSectionModel({
 			if (!key) return;
 			setSaving(true);
 			try {
-				// 填 key 的同时立刻拉一次上游模型列表,顺带当作密钥校验。
-				const fetched = row.offline ? { models: [], error: undefined } : await refreshModels(row.id, key);
-				// 上游明确拒绝这把 key:不落盘、不启用,面板与草稿保留让用户改。
-				// 其它失败(网络不通/超时)判定不了 key 对错,照常保存,模型列表稍后刷新即可。
-				if (isInvalidKey(fetched.error)) {
-					showToast({
-						variant: "error",
-						title: t("keyRejected", { provider: row.displayName }),
-						message: `${translatePresetError(fetched.error, t)} ${t("keyRejectedHint")}`,
-						durationMs: 8000,
-					});
-					setModelsErrors((prev) => withError(prev, row.id, fetched.error, t));
+				// 填 key 即校验:拉不到模型一律不落盘、不启用。
+				// 预设服务商全是云端 API,拉不通时启用它也没有任何模型可用;放行「非认证类失败」
+				// 会让用户以为已生效,还得自己去发现它是个空壳。面板与草稿保留,改完再点一次即可。
+				// 已下线的旧条目不在内置目录里,没有可校验的上游,只改 key 不校验。
+				const fetched = row.offline ? null : await refreshModels(row.id, key);
+				if (fetched && (fetched.error || fetched.models.length === 0)) {
+					const error = fetched.error ?? { code: "empty-models" as const };
+					notifyKeyRejected(row.displayName, error, t);
+					setModelsErrors((prev) => withError(prev, row.id, error, t));
 					return;
 				}
-				const entry: ProviderEntry = {
-					source: "template",
-					templateId: row.id,
-					displayName: row.displayName,
-					icon: row.icon,
-					api: row.api,
-					baseUrl: row.baseUrl,
-					apiKey: key,
-					models: fetched.models.length > 0 ? fetched.models : row.models,
-					...(fetched.models.length > 0 ? { modelsSyncedAt: new Date().toISOString() } : {}),
-				};
-				setModelsErrors((prev) => withError(prev, row.id, fetched.error, t));
-				if (fetched.error) {
-					notifyPresetError(row.displayName, fetched.error, t);
-				}
+				setModelsErrors((prev) => withError(prev, row.id, undefined, t));
 				await saveConfig({
 					...config,
-					providers: { ...config.providers, [row.id]: entry },
+					providers: {
+						...config.providers,
+						[row.id]: {
+							source: "template",
+							templateId: row.id,
+							displayName: row.displayName,
+							icon: row.icon,
+							api: row.api,
+							baseUrl: row.baseUrl,
+							apiKey: key,
+							models: fetched?.models ?? row.models,
+							...(fetched ? { modelsSyncedAt: new Date().toISOString() } : {}),
+						},
+					},
 				});
 				setOpenId((current) => (current === row.id ? null : current));
 				setDraftKeys((prev) => {
@@ -403,6 +399,16 @@ function notifyPresetError(provider: string, error: PresetError, t: TFunction<"s
 	// 密钥被拒是最常见也最需要一眼认出的失败,不能淹没在笼统的「拉取失败」标题里。
 	const title = isInvalidKey(error) ? t("keyRejected", { provider }) : t("modelsRefreshFailed", { provider });
 	showToast({ variant: "error", title, message: translatePresetError(error, t), durationMs: 8000 });
+}
+
+/** 启用被挡下时的提示。必须说清「没保存」,否则用户会以为已经生效。 */
+function notifyKeyRejected(provider: string, error: PresetError, t: TFunction<"settings">): void {
+	showToast({
+		variant: "error",
+		title: isInvalidKey(error) ? t("keyRejected", { provider }) : t("keyNotVerified", { provider }),
+		message: `${translatePresetError(error, t)} ${t("keyRejectedHint")}`,
+		durationMs: 8000,
+	});
 }
 
 function withError(
