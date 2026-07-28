@@ -84,6 +84,27 @@ function catalogModelsFor(
 }
 
 /**
+ * 手动刷新公共目录:清掉失败冷却强制重拉,把真实错误原样回给渲染层。
+ * 目录拉不到时用户只能看到 0 个模型,必须有一条能自助重试并看到原因的路径。
+ */
+export async function refreshPresetCatalog(): Promise<{ ok: boolean; error?: string; modelCount: number }> {
+	catalogRetryAfter = 0;
+	const started = Date.now();
+	const catalog = await ensureCatalog();
+	const elapsed = Date.now() - started;
+	const modelCount = catalog
+		? Object.values(catalog.providers).reduce((sum, models) => sum + Object.keys(models).length, 0)
+		: 0;
+	if (!catalog || catalogLastError) {
+		const error = catalogLastError ?? "未知错误";
+		presetLog.warn(`手动刷新 models.dev 目录失败（${elapsed}ms）：${error}`);
+		return { ok: false, error: `${error}（耗时 ${elapsed}ms）`, modelCount };
+	}
+	presetLog.info(`手动刷新 models.dev 目录成功（${elapsed}ms，${modelCount} 个模型）`);
+	return { ok: true, modelCount };
+}
+
+/**
  * 后台刷新目录,拿到新数据后广播给渲染层——设置页据此重新列一遍,
  * 不必让用户盯着 0 个模型手动重试。
  */
@@ -149,7 +170,7 @@ async function ensureCatalog(): Promise<ModelsDevCatalog | null> {
 			atomicWriteJSON(CATALOG_PATH, fresh);
 		} catch (err) {
 			catalogRetryAfter = Date.now() + CATALOG_RETRY_COOLDOWN_MS;
-			catalogLastError = err instanceof Error ? err.message : String(err);
+			catalogLastError = describeFetchError(err);
 			presetLog.warn("拉取 models.dev 目录失败，改用缓存：", err);
 		} finally {
 			clearTimeout(timer);
@@ -158,6 +179,16 @@ async function ensureCatalog(): Promise<ModelsDevCatalog | null> {
 		return catalogMemo;
 	})();
 	return catalogInFlight;
+}
+
+/** 把网络异常翻成能定位问题的一行字:超时/TLS/DNS 在原始 message 里长得都差不多。 */
+function describeFetchError(err: unknown): string {
+	if (err instanceof Error) {
+		if (err.name === "AbortError") return `请求超时（${FETCH_TIMEOUT_MS / 1000}s）`;
+		const cause = err.cause instanceof Error ? `：${err.cause.message}` : "";
+		return `${err.name}: ${err.message}${cause}`;
+	}
+	return String(err);
 }
 
 /** 目录拿不到时给渲染层的原因(有可用缓存就不算错误)。 */

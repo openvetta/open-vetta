@@ -55,6 +55,7 @@ export interface PresetProvidersSectionLabels {
 	perMillionTokens: string;
 	refreshModels: string;
 	refreshingModels: string;
+	refreshCatalog: string;
 	showAllModels: string;
 	showAllModelsHint: string;
 }
@@ -77,6 +78,9 @@ export interface PresetProvidersSectionModel {
 	showAllModels: boolean;
 	togglingShowAll: boolean;
 	onToggleShowAllModels: (showAll: boolean) => Promise<void>;
+	/** 手动重拉公共目录(models.dev)。 */
+	refreshingCatalog: boolean;
+	onRefreshCatalog: () => Promise<void>;
 }
 
 export function usePresetProvidersSectionModel({
@@ -99,6 +103,7 @@ export function usePresetProvidersSectionModel({
 	const [modelsErrors, setModelsErrors] = useState<Record<string, string>>({});
 	const [showAllModels, setShowAllModels] = useState(false);
 	const [togglingShowAll, setTogglingShowAll] = useState(false);
+	const [refreshingCatalog, setRefreshingCatalog] = useState(false);
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -108,7 +113,12 @@ export function usePresetProvidersSectionModel({
 			setPresets(result.providers);
 			setShowAllModels(result.showAllModels);
 			// 公共目录连缓存都没有时把原因摆出来,别让用户对着 0 个模型猜。
-			setError(result.catalogError ? t("catalogUnavailable") : null);
+			if (result.catalogError) {
+				console.error("[preset-providers] models.dev 公共目录不可用：", result.catalogError);
+				setError(`${t("catalogUnavailable")}（${result.catalogError}）`);
+			} else {
+				setError(null);
+			}
 		} catch {
 			setError(t("fetchFailed"));
 		} finally {
@@ -292,6 +302,26 @@ export function usePresetProvidersSectionModel({
 		[config, saveConfig],
 	);
 
+	/** 手动重拉公共目录:清冷却强制重试,失败把原文打进控制台并显示出来。 */
+	const refreshCatalog = useCallback(async (): Promise<void> => {
+		setRefreshingCatalog(true);
+		try {
+			const result = await window.vetta.models.refreshPresetCatalog();
+			if (result.ok) {
+				console.info(`[preset-providers] models.dev 目录已更新，共 ${result.modelCount} 个模型`);
+			} else {
+				console.error("[preset-providers] 刷新 models.dev 目录失败：", result.error);
+			}
+			await load();
+			if (!result.ok) setError(`${t("catalogUnavailable")}（${result.error ?? "未知错误"}）`);
+		} catch (err) {
+			console.error("[preset-providers] 刷新 models.dev 目录异常：", err);
+			setError(`${t("catalogUnavailable")}（${err instanceof Error ? err.message : String(err)}）`);
+		} finally {
+			setRefreshingCatalog(false);
+		}
+	}, [load, t]);
+
 	const remove = useCallback(
 		async (row: PresetProviderRow): Promise<void> => {
 			const providers = { ...config.providers };
@@ -337,6 +367,7 @@ export function usePresetProvidersSectionModel({
 			perMillionTokens: t("perMillionTokens"),
 			refreshModels: t("refreshModels"),
 			refreshingModels: t("refreshingModels"),
+			refreshCatalog: t("refreshCatalog"),
 			showAllModels: t("showAllModels"),
 			showAllModelsHint: t("showAllModelsHint"),
 		},
@@ -349,6 +380,8 @@ export function usePresetProvidersSectionModel({
 		showAllModels,
 		togglingShowAll,
 		onToggleShowAllModels: toggleShowAllModels,
+		refreshingCatalog,
+		onRefreshCatalog: refreshCatalog,
 	};
 }
 

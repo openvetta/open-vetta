@@ -1,11 +1,12 @@
 import type { JSX, ReactNode } from "react";
-import { Switch } from "@vetta/ui";
+import { Button, cn, Switch } from "@vetta/ui";
 import { SettingSection, type SettingSectionMeta } from "./SettingChrome";
 
 export interface PresetProvidersSectionViewLabels {
 	readonly title: string;
 	readonly loading: string;
 	readonly noPresetProviders: string;
+	readonly refreshCatalog: string;
 	readonly showAllModels: string;
 	readonly showAllModelsHint: string;
 }
@@ -20,6 +21,8 @@ export interface PresetProvidersSectionViewProps {
 	readonly showAllModels: boolean;
 	readonly togglingShowAll: boolean;
 	readonly onToggleShowAllModels: (showAll: boolean) => void;
+	readonly refreshingCatalog: boolean;
+	readonly onRefreshCatalog: () => void;
 }
 
 export function PresetProvidersSectionView({
@@ -32,6 +35,8 @@ export function PresetProvidersSectionView({
 	showAllModels,
 	togglingShowAll,
 	onToggleShowAllModels,
+	refreshingCatalog,
+	onRefreshCatalog,
 }: PresetProvidersSectionViewProps): JSX.Element {
 	return (
 		<div className="mt-6">
@@ -41,7 +46,22 @@ export function PresetProvidersSectionView({
 						<div className="text-[13px] text-foreground">{labels.showAllModels}</div>
 						<div className="mt-0.5 text-[11px] text-muted-foreground">{labels.showAllModelsHint}</div>
 					</div>
-					<Switch checked={showAllModels} disabled={togglingShowAll} onCheckedChange={onToggleShowAllModels} />
+					<div className="flex shrink-0 items-center gap-2">
+						<Button
+							variant="ghost"
+							size="sm"
+							onClick={onRefreshCatalog}
+							disabled={refreshingCatalog}
+							title={labels.refreshCatalog}
+							className="gap-1.5 text-muted-foreground hover:text-foreground"
+						>
+							<span
+								className={cn("icon-[mdi--refresh] h-3.5 w-3.5", refreshingCatalog && "animate-spin")}
+							/>
+							{labels.refreshCatalog}
+						</Button>
+						<Switch checked={showAllModels} disabled={togglingShowAll} onCheckedChange={onToggleShowAllModels} />
+					</div>
 				</div>
 				{/* 有行也要显示:目录不可达时六家都在、但都是 0 个模型,不说原因用户只能干猜。 */}
 				{error && (

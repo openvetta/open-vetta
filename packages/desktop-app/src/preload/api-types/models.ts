@@ -78,6 +78,8 @@ export interface DesktopModelsApi {
 	listPresets(): Promise<PresetProvidersResult>;
 	/** 按 key 拉取某预设服务商上游 `/models` 的模型列表。只拉不写,由调用方落盘。 */
 	refreshPresetModels(providerId: string, apiKey?: string): Promise<PresetModelsResult>;
+	/** 手动刷新 models.dev 公共目录(清掉失败冷却强制重拉),失败时返回可读的错误原文。 */
+	refreshPresetCatalog(): Promise<{ ok: boolean; error?: string; modelCount: number }>;
 	/** 切换「显示全部模型」。关闭时每个系列只保留最新一档,调用方切换后需重新拉取落盘。 */
 	setPresetShowAllModels(showAll: boolean): Promise<void>;
 	/** 公共目录后台刷新到新数据时触发,收到后重新 listPresets 即可。返回取消订阅函数。 */

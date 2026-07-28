@@ -168,6 +168,7 @@ export function createSystemApi(
 			listPresets: () => ipc.invoke("vetta:models:list-presets"),
 			refreshPresetModels: (providerId, apiKey) =>
 				ipc.invoke("vetta:models:refresh-preset-models", providerId, apiKey),
+			refreshPresetCatalog: () => ipc.invoke("vetta:models:refresh-preset-catalog"),
 			setPresetShowAllModels: (showAll) => ipc.invoke("vetta:models:set-preset-show-all", showAll),
 			onPresetsUpdated: (handler) => onIpcVoidEvent(ipc, "vetta:models:presets-updated", handler),
 			probe: (ref) => ipc.invoke("vetta:models:probe", ref),
