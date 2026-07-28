@@ -35,6 +35,10 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **「让 Vetta 帮您配置」不再自动跳转对话页**：提交后在当前设置页后台创建会话并发送协助 prompt，侧栏高亮对应新会话；同时用一颗主色小球从 CTA 飞向该会话行作引导（`prefers-reduced-motion` 时跳过动效）。用户可自行点击侧栏会话进入聊天。
+- **设置 AI 协助飞球起点对齐弹窗提交**：小球在点击提交瞬间从弹窗内发送按钮位置出现并短暂停留，会话创建与侧栏刷新在后台进行，就绪后再飞向对应会话行；不再等 `openSession`/`sendMessage` 结束后才出球。
+- **设置 AI 协助弹窗与飞球动效**：提交后弹窗与会话创建解耦（截取起点后即关，可随时再开再关）；发送不绑定会话 busy/streaming，可连续发起多个协助会话（后台串行建会话+发消息）；飞球用 **GSAP** 单段二次抛物线 `MotionPath`（`M0,0 Q…`，弧高约 20% 路程 / 峰值约 72–148px，`ease: none`），侧栏目标短轮询/列表兜底。
+- **桌面端补齐 tw-animate 与 Radix open/closed 变体**：`styles.css` 引入 `tw-animate-css`，并将 `data-open`/`data-closed` 映射到 `data-state`，使 Popover 等开关过渡真正生效；AI 协助面板关闭改为约 220ms 淡出+缩放上移。
 - **桌宠设置隐藏「桌宠装饰」分区**：设置页暂不展示装饰网格；`PetSettingsView` 组件、装饰数据与 section 注册保留，`showDecorationSection` 改回即可恢复。
 - **设置等场景模型选择面板对齐新会话**：共享 `ModelSelect`（Claw / 知识库 / 定时任务 / 批量任务 / 审批等）下拉改为与聊天 `ModelSelectorView` 同款——搜索框、入场动效、分组与选中态、徽章色与宽幅列表；触发器仍可由调用方自定义。
 - **能力详情由独立页改为侧边抽屉**：`/abilities/$type/$slug` 重定向到 `/abilities?detail=<type>:<slug>`，详情在能力页内以抽屉呈现——宽屏右侧 60vw，窄屏（≤768px）改为底部弹出 85vh；深链与浏览器返回键仍可用，列表与详情共用同一个 model 实例，安装 / 启停结果直接反映到身后的列表。场景页与 bundle 成员的跳转一并改走该 search 参数。
