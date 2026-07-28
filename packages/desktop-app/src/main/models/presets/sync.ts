@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { getVettaHomePath } from "@vetta/action-rpc";
 import { atomicWriteJSON } from "@vetta/toolkit/atomic-write";
-import { net } from "electron";
+import { BrowserWindow, net } from "electron";
 import { getAppLogger } from "../../logger.js";
 import { getDesktopModelSettingsService } from "../model-settings-host.js";
 import type { ModelDefinition, ModelsConfig } from "../model-settings-service.js";
@@ -40,17 +40,24 @@ export interface PresetProvidersResult {
 	providers: PresetProviderInfo[];
 	/** 是否展示各家全部模型;false = 每个系列只留最新一档。 */
 	showAllModels: boolean;
+	/** 公共目录一份都没拿到时的原因。有缓存(哪怕过期)就没有这个字段。 */
+	catalogError?: string;
 }
 
 /**
  * 预设服务商目录。模型清单来自 models.dev(公开、免 key),让用户填 key 前就能看到
  * 各家有什么、多少钱;拉不到目录则模型为空——不内置任何会腐烂的默认清单。
+ *
+ * **只读缓存,绝不在这里等网络**:设置页每次打开都会调它,让 UI 干等一次 3MB 下载
+ * (目录不可达时还要等满超时)是不可接受的。缓存过期时在后台刷新,拉到了广播给渲染层。
  */
 export async function listPresetProviders(): Promise<PresetProvidersResult> {
-	const catalog = await getModelsDevCatalog();
+	const catalog = await getCachedCatalog();
+	if (!isCatalogFresh(catalog, Date.now())) void refreshCatalogInBackground();
 	const showAllModels = getShowAllPresetModels();
 	return {
 		showAllModels,
+		catalogError: catalogError(catalog),
 		providers: PRESET_PROVIDERS.map((def) => ({
 			id: def.id,
 			displayName: def.displayName,
@@ -76,6 +83,19 @@ function catalogModelsFor(
 	return showAllModels ? models : selectLatestModels(catalog, def.id, models, Date.now());
 }
 
+/**
+ * 后台刷新目录,拿到新数据后广播给渲染层——设置页据此重新列一遍,
+ * 不必让用户盯着 0 个模型手动重试。
+ */
+async function refreshCatalogInBackground(): Promise<void> {
+	const before = catalogMemo;
+	const catalog = await ensureCatalog();
+	if (!catalog || catalog === before) return;
+	for (const win of BrowserWindow.getAllWindows()) {
+		if (!win.isDestroyed()) win.webContents.send("vetta:models:presets-updated");
+	}
+}
+
 /** 切换「显示全部模型」。调用方切换后需重新拉取/落盘,这里只管落偏好。 */
 export function setPresetShowAllModels(showAll: boolean): void {
 	setShowAllPresetModels(showAll);
@@ -83,6 +103,14 @@ export function setPresetShowAllModels(showAll: boolean): void {
 
 /** 进程内缓存,避免同一次同步里六家各拉一遍 3MB 的目录。 */
 let catalogMemo: ModelsDevCatalog | null = null;
+/** 单飞:并发调用共用同一次网络请求。 */
+let catalogInFlight: Promise<ModelsDevCatalog | null> | null = null;
+/** 失败退避的截止时刻。目录不可达时反复重试只会让每次开设置页都卡满超时。 */
+let catalogRetryAfter = 0;
+let catalogLastError: string | null = null;
+
+/** 拉取失败后的冷却时间。 */
+const CATALOG_RETRY_COOLDOWN_MS = 10 * 60 * 1000;
 
 async function readCatalogCache(): Promise<ModelsDevCatalog | null> {
 	try {
@@ -94,28 +122,48 @@ async function readCatalogCache(): Promise<ModelsDevCatalog | null> {
 	}
 }
 
-/**
- * 取 models.dev 目录:内存 → 磁盘缓存 → 网络。过期或拉取失败都退回旧缓存,
- * 一份都没有就返回 null(此时只展示各家接口自己给的字段,不显示价格)。
- */
-async function getModelsDevCatalog(): Promise<ModelsDevCatalog | null> {
-	const now = Date.now();
-	if (isCatalogFresh(catalogMemo, now)) return catalogMemo;
+/** 只读缓存(内存 → 磁盘),不碰网络。过期的也照用——过期目录远好过没有目录。 */
+async function getCachedCatalog(): Promise<ModelsDevCatalog | null> {
 	catalogMemo ??= await readCatalogCache();
-	if (isCatalogFresh(catalogMemo, now)) return catalogMemo;
-
-	const controller = new AbortController();
-	const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-	try {
-		const fresh = await fetchModelsDevCatalog(net.fetch, now, controller.signal);
-		catalogMemo = fresh;
-		atomicWriteJSON(CATALOG_PATH, fresh);
-	} catch (err) {
-		presetLog.warn("拉取 models.dev 目录失败，改用缓存：", err);
-	} finally {
-		clearTimeout(timer);
-	}
 	return catalogMemo;
+}
+
+/**
+ * 取 models.dev 目录,必要时走网络。缓存还新鲜就直接用;过期或没有才拉,
+ * 拉失败退回旧缓存并进入冷却——目录不可达时不能让每次调用都干等一次超时。
+ */
+async function ensureCatalog(): Promise<ModelsDevCatalog | null> {
+	const now = Date.now();
+	const cached = await getCachedCatalog();
+	if (isCatalogFresh(cached, now)) return cached;
+	if (now < catalogRetryAfter) return cached;
+	if (catalogInFlight) return catalogInFlight;
+
+	catalogInFlight = (async () => {
+		const controller = new AbortController();
+		const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+		try {
+			const fresh = await fetchModelsDevCatalog(net.fetch, now, controller.signal);
+			catalogMemo = fresh;
+			catalogLastError = null;
+			atomicWriteJSON(CATALOG_PATH, fresh);
+		} catch (err) {
+			catalogRetryAfter = Date.now() + CATALOG_RETRY_COOLDOWN_MS;
+			catalogLastError = err instanceof Error ? err.message : String(err);
+			presetLog.warn("拉取 models.dev 目录失败，改用缓存：", err);
+		} finally {
+			clearTimeout(timer);
+			catalogInFlight = null;
+		}
+		return catalogMemo;
+	})();
+	return catalogInFlight;
+}
+
+/** 目录拿不到时给渲染层的原因(有可用缓存就不算错误)。 */
+function catalogError(catalog: ModelsDevCatalog | null): string | undefined {
+	if (catalog) return undefined;
+	return catalogLastError ?? undefined;
 }
 
 /**
@@ -145,7 +193,7 @@ export async function refreshPresetModels(providerId: string, apiKey?: string): 
 	}
 	if (result.models.length === 0) return result;
 
-	const catalog = await getModelsDevCatalog();
+	const catalog = await ensureCatalog();
 	const enriched = result.models.map((model) => enrichFromCatalog(catalog, def.id, model));
 	const models = getShowAllPresetModels() ? enriched : selectLatestModels(catalog, def.id, enriched, Date.now());
 	return { ...result, models };
@@ -168,7 +216,7 @@ function adoptedPresetIds(config: ModelsConfig): string[] {
  */
 export async function syncAdoptedPresets(): Promise<void> {
 	// 先热一遍公共目录:即便一家都没启用,设置页也要能免 key 列出各家模型。
-	await getModelsDevCatalog();
+	await ensureCatalog();
 	const service = getDesktopModelSettingsService();
 	const config = await service.getConfig();
 	const ids = adoptedPresetIds(config);

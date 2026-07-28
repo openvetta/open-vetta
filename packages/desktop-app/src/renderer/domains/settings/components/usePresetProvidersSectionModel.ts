@@ -36,7 +36,6 @@ export interface PresetProviderRow {
 
 export interface PresetProvidersSectionLabels {
 	title: string;
-	clickRetry: string;
 	loading: string;
 	noPresetProviders: string;
 	enabled: string;
@@ -108,6 +107,8 @@ export function usePresetProvidersSectionModel({
 			const result = await window.vetta.models.listPresets();
 			setPresets(result.providers);
 			setShowAllModels(result.showAllModels);
+			// 公共目录连缓存都没有时把原因摆出来,别让用户对着 0 个模型猜。
+			setError(result.catalogError ? t("catalogUnavailable") : null);
 		} catch {
 			setError(t("fetchFailed"));
 		} finally {
@@ -117,6 +118,8 @@ export function usePresetProvidersSectionModel({
 
 	useEffect(() => {
 		void load();
+		// 目录是后台刷新的:拉到新数据后重新列一遍,不必让用户手动重试。
+		return window.vetta.models.onPresetsUpdated(() => void load());
 	}, [load]);
 
 	const rows = useMemo(() => {
@@ -315,7 +318,6 @@ export function usePresetProvidersSectionModel({
 		saving,
 		labels: {
 			title: t("presetProviders"),
-			clickRetry: t("clickRetry"),
 			loading: t("loading"),
 			noPresetProviders: t("noPresetProviders"),
 			enabled: t("enabled"),

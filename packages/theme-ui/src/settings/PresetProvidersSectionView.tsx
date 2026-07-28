@@ -4,7 +4,6 @@ import { SettingSection, type SettingSectionMeta } from "./SettingChrome";
 
 export interface PresetProvidersSectionViewLabels {
 	readonly title: string;
-	readonly clickRetry: string;
 	readonly loading: string;
 	readonly noPresetProviders: string;
 	readonly showAllModels: string;
@@ -44,10 +43,11 @@ export function PresetProvidersSectionView({
 					</div>
 					<Switch checked={showAllModels} disabled={togglingShowAll} onCheckedChange={onToggleShowAllModels} />
 				</div>
-				{error && !hasRows && (
-					<div className="flex items-center gap-2 px-5 py-3 text-[12px] text-amber-400">
-						<span className="icon-[mdi--alert-circle-outline] h-3.5 w-3.5 shrink-0" />
-						{error}，{labels.clickRetry}
+				{/* 有行也要显示:目录不可达时六家都在、但都是 0 个模型,不说原因用户只能干猜。 */}
+				{error && (
+					<div className="flex items-start gap-2 border-b border-border px-5 py-3 text-[12px] text-amber-400">
+						<span className="icon-[mdi--alert-circle-outline] mt-0.5 h-3.5 w-3.5 shrink-0" />
+						<span className="min-w-0">{error}</span>
 					</div>
 				)}
 				{!hasRows && !error && (
