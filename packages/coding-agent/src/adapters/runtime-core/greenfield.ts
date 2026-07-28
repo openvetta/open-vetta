@@ -17,6 +17,14 @@ export {
 	type CodingAgentModelRegistrySource,
 } from "./greenfield-model-registry-adapter.js";
 export {
+	type CodingAgentPluginFrameComposition,
+	type CodingAgentPluginFrameCompositionInput,
+	type CodingAgentPluginProviderFailure,
+	CodingAgentPluginRunOrchestrator,
+	type CodingAgentPluginRunOrchestratorOptions,
+	type CodingAgentPluginRuntimeSource,
+} from "./greenfield-plugin-run-orchestrator.js";
+export {
 	CodingAgentGreenfieldPromptAdapter,
 	type CodingAgentGreenfieldPromptAdapterOptions,
 	type CodingAgentPromptResourceExpansion,

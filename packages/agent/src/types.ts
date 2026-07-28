@@ -117,7 +117,7 @@ export interface AgentLoopConfig extends SimpleStreamOptions {
 	 * Use this for automatic continuation policies. User-queued follow-up messages
 	 * are managed separately by Agent.followUp().
 	 */
-	getContinuationMessages?: () => Promise<AgentMessage[]>;
+	getContinuationMessages?: (messages: readonly AgentMessage[], signal?: AbortSignal) => Promise<AgentMessage[]>;
 }
 
 export interface AgentTracingOptions {

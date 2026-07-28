@@ -11,6 +11,10 @@ export default defineConfig({
 				replacement: fileURLToPath(new URL("../ai/src/index.ts", import.meta.url)),
 			},
 			{
+				find: "@vetta/agent-core",
+				replacement: fileURLToPath(new URL("../agent/src/index.ts", import.meta.url)),
+			},
+			{
 				find: "@vetta/coding-agent/runtime-host/greenfield",
 				replacement: fileURLToPath(
 					new URL("../coding-agent/src/adapters/runtime-core/greenfield.ts", import.meta.url),

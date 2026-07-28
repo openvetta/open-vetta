@@ -24,6 +24,8 @@ export type {
 	ContextProvider,
 	ContextProviderInput,
 	ContextStrategy,
+	ContinuationPolicy,
+	ContinuationPolicyContext,
 	ConversationMetadata,
 	ConversationRepository,
 	ConversationSnapshot,

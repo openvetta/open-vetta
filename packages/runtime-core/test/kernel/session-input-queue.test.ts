@@ -55,4 +55,14 @@ describe("SessionInputQueue", () => {
 		expect(cleared.followUps.map(({ message }) => message.content)).toEqual(["follow-up"]);
 		expect(queue.pendingCount).toBe(0);
 	});
+
+	it("appends policy-produced messages to the ordinary follow-up queue", () => {
+		const queue = new SessionInputQueue();
+		queue.followUp(input("user follow-up"));
+		queue.enqueueFollowUps([input("policy follow-up").message]);
+
+		expect(queue.takeFollowUps().map((message) => message.content)).toEqual(["user follow-up"]);
+		expect(queue.takeFollowUps().map((message) => message.content)).toEqual(["policy follow-up"]);
+		expect(queue.pendingCount).toBe(0);
+	});
 });

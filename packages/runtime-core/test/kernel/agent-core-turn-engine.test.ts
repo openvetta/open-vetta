@@ -10,6 +10,7 @@ import {
 import { describe, expect, it } from "vitest";
 import {
 	AgentCoreTurnEngine,
+	type ContinuationPolicy,
 	type ModelCallFrameComposer,
 	type RuntimeSnapshot,
 	type RuntimeToolDefinition,
@@ -118,6 +119,7 @@ function snapshot(options?: {
 	readonly tools?: readonly RuntimeToolDefinition[];
 	readonly authorize?: (request: ToolPolicyRequest, signal: AbortSignal) => Promise<boolean>;
 	readonly modelCallFrameComposer?: ModelCallFrameComposer;
+	readonly continuationPolicy?: ContinuationPolicy;
 }): RuntimeSnapshot {
 	return {
 		id: "snapshot-1",
@@ -127,6 +129,7 @@ function snapshot(options?: {
 		],
 		tools: new Map((options?.tools ?? []).map((tool) => [tool.name, tool])),
 		modelCallFrameComposer: options?.modelCallFrameComposer,
+		continuationPolicy: options?.continuationPolicy,
 		contextProviders: [],
 		contextStrategy: {
 			async prepare(input) {
@@ -556,4 +559,60 @@ describe("AgentCoreTurnEngine", () => {
 		expect(queue.pendingCount).toBe(1);
 		expect(queue.followUpInputs.map(({ message }) => message.content)).toEqual(["retry later"]);
 	});
+
+	it("appends policy continuations behind user follow-ups and preserves one-at-a-time delivery", async () => {
+		const queue = new SessionInputQueue();
+		queue.followUp({ message: userMessage("user follow-up") });
+		const policyContexts: Message[][] = [];
+		let policyDelivered = false;
+		const responses = [
+			assistantMessage([{ type: "text", text: "first" }]),
+			assistantMessage([{ type: "text", text: "after user" }]),
+			assistantMessage([{ type: "text", text: "after policy" }]),
+		];
+		let responseIndex = 0;
+		const contexts: Context[] = [];
+		const engine = new AgentCoreTurnEngine({
+			model: model(),
+			streamFn: (_model, context) => {
+				contexts.push({ ...context, messages: [...context.messages] });
+				const response = responses[responseIndex];
+				responseIndex += 1;
+				if (!response) throw new Error("Missing recorded response");
+				return new RecordedAssistantStream(response);
+			},
+		});
+
+		await collect(
+			engine,
+			snapshot({
+				continuationPolicy: {
+					async collect(context) {
+						policyContexts.push([...context.messages]);
+						if (policyDelivered) return [];
+						policyDelivered = true;
+						return [userMessage("policy follow-up")];
+					},
+				},
+			}),
+			new AbortController().signal,
+			queue,
+		);
+
+		expect(contexts.map(({ messages }) => messages.map((message) => messageText(message)))).toEqual([
+			["hello"],
+			["hello", "first", "user follow-up"],
+			["hello", "first", "user follow-up", "after user", "policy follow-up"],
+		]);
+		expect(policyContexts[0]?.map(({ role }) => role)).toEqual(["user", "assistant"]);
+		expect(queue.pendingCount).toBe(0);
+	});
 });
+
+function messageText(message: Message): string {
+	if (typeof message.content === "string") return message.content;
+	return message.content
+		.filter((block): block is Extract<(typeof message.content)[number], { type: "text" }> => block.type === "text")
+		.map(({ text }) => text)
+		.join("");
+}

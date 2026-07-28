@@ -43,6 +43,7 @@ export interface QueuedSessionInputResult {
 export interface TurnInputQueue {
 	takeSteering(): readonly UserMessage[];
 	takeFollowUps(): readonly UserMessage[];
+	enqueueFollowUps(messages: readonly UserMessage[]): void;
 }
 
 export interface InstructionBlock {
@@ -173,12 +174,31 @@ export interface ModelCallFrameComposer {
 	compose(context: ModelCallFrameCompositionContext): Promise<ModelCallFrame>;
 }
 
+export interface ContinuationPolicyContext {
+	readonly sessionId: string;
+	readonly turnId: string;
+	readonly signal: AbortSignal;
+	readonly messages: readonly Message[];
+	readonly modelBinding?: RuntimeTurnModelBinding;
+}
+
+/**
+ * Profile 独占的自然停止续跑策略。
+ *
+ * Kernel 不解释 Todo、Plugin 或 Hook 等产品语义；策略只返回需要进入普通
+ * follow-up 队列的用户消息。
+ */
+export interface ContinuationPolicy {
+	collect(context: ContinuationPolicyContext): Promise<readonly UserMessage[]>;
+}
+
 export interface RuntimeSnapshot {
 	readonly id: string;
 	readonly instructions: readonly InstructionBlock[];
 	readonly tools: ReadonlyMap<string, RuntimeToolDefinition>;
 	readonly modelCallProviders?: readonly ModelCallContributionProvider[];
 	readonly modelCallFrameComposer?: ModelCallFrameComposer;
+	readonly continuationPolicy?: ContinuationPolicy;
 	readonly contextProviders: readonly ContextProvider[];
 	readonly contextStrategy: ContextStrategy;
 	readonly toolPolicy: ToolPolicy;
@@ -240,6 +260,7 @@ export interface AgentProfile {
 	readonly instructions: readonly InstructionBlock[];
 	readonly features: readonly AgentFeatureDefinition[];
 	readonly modelCallFrameComposer?: ModelCallFrameComposer;
+	readonly continuationPolicy?: ContinuationPolicy;
 	readonly contextStrategy: ContextStrategy;
 	readonly toolPolicy: ToolPolicy;
 	readonly tokenBudget: number;

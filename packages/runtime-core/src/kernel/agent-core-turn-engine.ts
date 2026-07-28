@@ -93,7 +93,23 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 			getApiKey,
 			convertToLlm: convertToLlm,
 			getSteeringMessages: inputQueue ? async () => [...inputQueue.takeSteering()] : undefined,
-			getContinuationMessages: inputQueue ? async () => [...inputQueue.takeFollowUps()] : undefined,
+			getContinuationMessages:
+				inputQueue || request.snapshot.continuationPolicy
+					? async (messages, signal) => {
+							const executionSignal = signal ?? request.signal;
+							const policyMessages =
+								(await request.snapshot.continuationPolicy?.collect({
+									sessionId: request.sessionId,
+									turnId: request.turnId,
+									signal: executionSignal,
+									messages: messages.filter(isRuntimeMessage),
+									modelBinding: request.modelBinding,
+								})) ?? [];
+							if (!inputQueue) return [...policyMessages];
+							inputQueue.enqueueFollowUps(policyMessages);
+							return [...inputQueue.takeFollowUps()];
+						}
+					: undefined,
 			resolveCallContext: async (_context, signal) => {
 				const executionSignal = signal ?? request.signal;
 				const frame = await resolveModelCallFrame(request.snapshot, {

@@ -74,6 +74,12 @@ export class SessionInputQueue implements TurnInputQueue {
 		return this.take(this.followUpQueue, this.currentFollowUpMode).map((input) => input.message);
 	}
 
+	enqueueFollowUps(messages: readonly SessionInput["message"][]): void {
+		for (const message of messages) {
+			this.followUpQueue.push({ message });
+		}
+	}
+
 	clear(): ClearedSessionInputs {
 		return {
 			steering: this.steeringQueue.splice(0),

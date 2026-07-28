@@ -160,6 +160,7 @@ function createSnapshot(
 		tools: new ImmutableReadonlyMap(tools.map((tool) => [tool.name, tool])),
 		modelCallProviders: Object.freeze(modelCallProviders),
 		modelCallFrameComposer: profile.modelCallFrameComposer,
+		continuationPolicy: profile.continuationPolicy,
 		contextProviders: Object.freeze(contextProviders),
 		contextStrategy: profile.contextStrategy,
 		toolPolicy: profile.toolPolicy,

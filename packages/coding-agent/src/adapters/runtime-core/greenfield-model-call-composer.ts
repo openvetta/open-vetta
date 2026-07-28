@@ -3,6 +3,7 @@ import type {
 	ModelCallFrame,
 	ModelCallFrameComposer,
 	ModelCallFrameCompositionContext,
+	RuntimeToolDefinition,
 } from "@vetta/runtime-core/kernel";
 import {
 	type BuildSystemPromptOptions,
@@ -10,6 +11,7 @@ import {
 	renderSystemPromptDraft,
 	type SystemPromptDraft,
 } from "../../core/system-prompt.js";
+import type { CodingAgentPluginRunOrchestrator } from "./greenfield-plugin-run-orchestrator.js";
 
 export type CodingAgentSystemPromptOptions = Omit<BuildSystemPromptOptions, "selectedTools">;
 
@@ -24,6 +26,8 @@ export type CodingAgentSystemPromptOptionsResolver = (
 export interface CodingAgentModelCallFrameComposerOptions {
 	readonly resolveSystemPromptOptions: CodingAgentSystemPromptOptionsResolver;
 	readonly readMcpPromptState?: () => CodingAgentMcpPromptState;
+	readonly readAvailableTools?: () => ReadonlyMap<string, RuntimeToolDefinition>;
+	readonly pluginRunOrchestrator?: CodingAgentPluginRunOrchestrator;
 }
 
 export interface CodingAgentMcpPromptState {
@@ -52,17 +56,26 @@ export class CodingAgentModelCallFrameComposer implements ModelCallFrameComposer
 		});
 		context.signal.throwIfAborted();
 		const mcpPromptState = this.options.readMcpPromptState?.();
-		const draft = buildSystemPromptDraft({
-			...promptOptions,
-			selectedTools: activeToolNames,
-			...(mcpPromptState
-				? {
-						mcpTools: mcpPromptState.tools.map(({ name, description }) => ({ name, description })),
-						mcpDeferred: mcpPromptState.deferred,
-					}
-				: {}),
+		const createDraft = (selectedTools: readonly string[]): SystemPromptDraft => {
+			const draft = buildSystemPromptDraft({
+				...promptOptions,
+				selectedTools: [...selectedTools],
+				...(mcpPromptState
+					? {
+							mcpTools: mcpPromptState.tools.map(({ name, description }) => ({ name, description })),
+							mcpDeferred: mcpPromptState.deferred,
+						}
+					: {}),
+			});
+			appendFeatureInstructions(draft, context.frame.instructions);
+			return draft;
+		};
+		const pluginFrame = await this.options.pluginRunOrchestrator?.compose({
+			context,
+			availableTools: this.options.readAvailableTools?.() ?? context.frame.tools,
+			createDraft,
 		});
-		appendFeatureInstructions(draft, context.frame.instructions);
+		const draft = pluginFrame?.draft ?? createDraft(activeToolNames);
 		return {
 			instructions: [
 				{
@@ -71,7 +84,7 @@ export class CodingAgentModelCallFrameComposer implements ModelCallFrameComposer
 					priority: 0,
 				},
 			],
-			tools: context.frame.tools,
+			tools: pluginFrame?.tools ?? context.frame.tools,
 		};
 	}
 }

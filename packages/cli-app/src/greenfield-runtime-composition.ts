@@ -5,6 +5,8 @@ import {
 	CodingAgentModelCallFrameComposer,
 	CodingAgentModelRegistryAdapter,
 	type CodingAgentModelRegistrySource,
+	CodingAgentPluginRunOrchestrator,
+	type CodingAgentPluginRuntimeSource,
 	type CodingAgentPromptResourceResolver,
 	type CodingAgentSystemPromptOptionsResolver,
 	createCodingAgentPromptRuntime,
@@ -29,7 +31,11 @@ import {
 	type McpRuntimeToolSynchronizer,
 } from "@vetta/runtime-mcp";
 import { FileConversationRepository } from "@vetta/runtime-storage/conversation";
-import { type CodingToolActivation, selectCodingToolRegistrations } from "@vetta/runtime-tools/coding";
+import {
+	type CodingToolActivation,
+	guardCodingToolRegistration,
+	selectCodingToolRegistrations,
+} from "@vetta/runtime-tools/coding";
 import {
 	type CodingToolsRuntimeComposition,
 	createCodingToolsRuntimeComposition,
@@ -69,6 +75,10 @@ export interface GreenfieldRuntimeCompositionOptions {
 	) => CodingAgentSystemPromptOptionsResolver;
 	/** 无状态系统提示词来源的兼容入口。 */
 	readonly resolveSystemPromptOptions?: CodingAgentSystemPromptOptionsResolver;
+	/** 为每个 Session 绑定动态 Plugin Provider 与 Continuation bridge。 */
+	readonly createPluginRuntime?: (
+		sessionOptions: GreenfieldCliSessionOptions,
+	) => CodingAgentPluginRuntimeSource | undefined;
 }
 
 export interface GreenfieldRuntimeComposition {
@@ -168,6 +178,17 @@ export async function createGreenfieldRuntimeComposition(
 					}
 				: tools.profile;
 			const sessionCwd = sessionOptions.cwd ?? cwd;
+			const pluginRuntime = options.createPluginRuntime?.(sessionOptions);
+			const pluginRunOrchestrator = pluginRuntime
+				? new CodingAgentPluginRunOrchestrator({
+						session: {
+							id: sessionOptions.sessionId,
+							cwd: sessionCwd,
+							scenario: "cli",
+						},
+						...pluginRuntime,
+					})
+				: undefined;
 			const injectedSystemPromptOptionsResolver =
 				options.createSystemPromptOptionsResolver?.(sessionOptions) ?? options.resolveSystemPromptOptions;
 			const promptRuntime = injectedSystemPromptOptionsResolver
@@ -177,6 +198,7 @@ export async function createGreenfieldRuntimeComposition(
 						agentDir: options.agentDir,
 						scenario: "cli",
 						readAgentMode: () => sessionOptions.agentMode,
+						readAgentPlugins: pluginRuntime?.readAgentPlugins,
 					});
 			const resolveSystemPromptOptions =
 				injectedSystemPromptOptionsResolver ?? promptRuntime?.resolveSystemPromptOptions;
@@ -185,13 +207,25 @@ export async function createGreenfieldRuntimeComposition(
 			}
 			const profile: AgentProfile = {
 				...baseProfile,
+				continuationPolicy: pluginRunOrchestrator,
 				modelCallFrameComposer: new CodingAgentModelCallFrameComposer({
 					readMcpPromptState: mcpController ? () => mcpController.readPromptState() : undefined,
+					readAvailableTools: () =>
+						new Map(
+							tools.registry
+								.snapshot()
+								.entries.map((entry) => [
+									entry.registration.tool.name,
+									guardCodingToolRegistration(tools.registry, entry),
+								]),
+						),
+					pluginRunOrchestrator,
 					resolveSystemPromptOptions: async (context) => {
 						const promptOptions = await resolveSystemPromptOptions(context);
 						return {
 							...promptOptions,
 							cwd: promptOptions.cwd ?? sessionCwd,
+							agentPlugins: promptOptions.agentPlugins ?? pluginRuntime?.readAgentPlugins(),
 						};
 					},
 				}),
@@ -233,13 +267,16 @@ export async function createGreenfieldRuntimeComposition(
 					read: () => ({
 						contextPercent: null,
 						contextWindow: modelRuntime.readCurrentModel().contextWindow,
-						activeToolNames: readActiveToolNames(
-							tools,
-							stateActivation,
-							knowledgeAvailable,
-							effectiveActivation,
-							mcpController,
-						),
+						activeToolNames: [
+							...(pluginRunOrchestrator?.readActiveToolNames() ??
+								readActiveToolNames(
+									tools,
+									stateActivation,
+									knowledgeAvailable,
+									effectiveActivation,
+									mcpController,
+								)),
+						],
 					}),
 				},
 				async dispose() {

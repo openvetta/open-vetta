@@ -222,7 +222,8 @@ async function runLoop(
 
 			// The agent reached a natural stopping point. Check whether queued
 			// follow-ups or an automatic continuation policy require another turn.
-			const continuationMessages = (await config.getContinuationMessages?.()) || [];
+			const continuationMessages =
+				(await config.getContinuationMessages?.([...currentContext.messages], signal)) || [];
 			if (continuationMessages.length > 0) {
 				// Set as pending so inner loop processes them
 				pendingMessages = continuationMessages;
