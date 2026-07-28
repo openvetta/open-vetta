@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
+import { WindowControls } from "@shared/app-shell/window-controls";
 import { cn } from "../../lib/utils";
 import { isMac } from "../../lib/platform";
-import { WindowControls } from "./WindowControls";
 
 export interface TitleBarProps {
 	className?: string;
@@ -15,14 +15,7 @@ export function TitleBar({ className, children }: TitleBarProps): JSX.Element | 
 
 	return (
 		<header className={cn("title-bar flex h-9 shrink-0 items-center bg-background/85 select-none", className)}>
-			<div className="drag-region flex flex-1 items-center gap-2 px-3">
-				<img
-					src="./icon.png"
-					alt="Vetta"
-					className="h-4 w-4 rounded-[4px]"
-				/>
-				<span className="text-[12px] font-medium text-foreground">Vetta</span>
-			</div>
+			<div className="drag-region flex flex-1 items-center px-3" />
 			{children}
 			<div className="flex items-center pr-1">
 				<WindowControls />

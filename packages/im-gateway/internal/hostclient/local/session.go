@@ -169,6 +169,14 @@ func (s *session) writeCommand(cmd hostclient.Command) error {
 	return nil
 }
 
+// SendNoReply implements hostclient.HostSession. Writes the command to
+// stdin and returns immediately without registering a pending channel.
+// Used for fire-and-forget host→agent commands like `host_response`,
+// which the agent consumes but does not echo back as a `response`.
+func (s *session) SendNoReply(_ context.Context, cmd hostclient.Command) error {
+	return s.writeCommand(cmd)
+}
+
 // Close implements hostclient.HostSession.
 func (s *session) Close() error {
 	s.closeOnce.Do(func() {

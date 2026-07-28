@@ -29,7 +29,7 @@ func TestFileStore_SaveAndReload(t *testing.T) {
 
 	if err := store.SetSession(context.Background(), SessionEntry{
 		UserID:      "user1",
-		ProjectID:   "proj1",
+		ChatID:      "proj1",
 		SessionPath: "/tmp/session1.jsonl",
 	}); err != nil {
 		t.Fatalf("SetSession: %v", err)
@@ -68,7 +68,7 @@ func TestFileStore_AtomicWrite_NoTempLeftBehind(t *testing.T) {
 	path := filepath.Join(dir, "state.json")
 	store := NewFileStore(path)
 	if err := store.SetSession(context.Background(), SessionEntry{
-		UserID: "u", ProjectID: "p", SessionPath: "/a",
+		UserID: "u", ChatID: "p", SessionPath: "/a",
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +87,7 @@ func TestFileStore_AtomicWrite_WellFormedJSON(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "state.json")
 	store := NewFileStore(path)
 	if err := store.SetSession(context.Background(), SessionEntry{
-		UserID: "u", ProjectID: "p", SessionPath: "/a",
+		UserID: "u", ChatID: "p", SessionPath: "/a",
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -116,7 +116,7 @@ func TestFileStore_ConcurrentSaves_Serialized(t *testing.T) {
 			defer wg.Done()
 			_ = store.SetSession(context.Background(), SessionEntry{
 				UserID:      "user",
-				ProjectID:   "proj",
+				ChatID:      "proj",
 				SessionPath: "/sessions/" + string(rune('a'+i%26)),
 			})
 		}(i)
@@ -142,7 +142,7 @@ func TestFileStore_PreservesOtherEntriesWhenSetting(t *testing.T) {
 	store := NewFileStore(path)
 
 	if err := store.SetSession(context.Background(), SessionEntry{
-		UserID: "u1", ProjectID: "p1", SessionPath: "/a",
+		UserID: "u1", ChatID: "p1", SessionPath: "/a",
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +150,7 @@ func TestFileStore_PreservesOtherEntriesWhenSetting(t *testing.T) {
 	// Fresh store reading the same file — must not lose u1/p1
 	store2 := NewFileStore(path)
 	if err := store2.SetSession(context.Background(), SessionEntry{
-		UserID: "u2", ProjectID: "p2", SessionPath: "/b",
+		UserID: "u2", ChatID: "p2", SessionPath: "/b",
 	}); err != nil {
 		t.Fatal(err)
 	}

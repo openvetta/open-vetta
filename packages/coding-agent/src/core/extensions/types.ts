@@ -8,12 +8,14 @@
  * - Interact with the user via UI primitives
  */
 
+import type { Static, TSchema } from "@sinclair/typebox";
 import type {
 	AgentMessage,
 	AgentToolResult,
 	AgentToolUpdateCallback,
 	ThinkingLevel,
-} from "@mariozechner/pi-agent-core";
+	ToolPhase,
+} from "@vetta/agent-core";
 import type {
 	Api,
 	AssistantMessageEvent,
@@ -26,34 +28,24 @@ import type {
 	SimpleStreamOptions,
 	TextContent,
 	ToolResultMessage,
-} from "@mariozechner/pi-ai";
-import type {
-	AutocompleteItem,
-	Component,
-	EditorComponent,
-	EditorTheme,
-	KeyId,
-	OverlayHandle,
-	OverlayOptions,
-	TUI,
-} from "@mariozechner/pi-tui";
-import type { Static, TSchema } from "@sinclair/typebox";
+} from "@vetta/ai";
 import type { Theme } from "../../modes/interactive/theme/theme.js";
 import type { BashResult } from "../bash-executor.js";
 import type { CompactionPreparation, CompactionResult } from "../compaction/index.js";
 import type { EventBus } from "../event-bus.js";
 import type { ExecOptions, ExecResult } from "../exec.js";
 import type { ReadonlyFooterDataProvider } from "../footer-data-provider.js";
-import type { KeybindingsManager } from "../keybindings.js";
+import type { KeybindingsManager, KeyId } from "../keybindings.js";
 import type { CustomMessage } from "../messages.js";
 import type { ModelRegistry } from "../model-registry.js";
+import type { ConversationScenario } from "../session/tool-scope.js";
 import type {
 	BranchSummaryEntry,
 	CompactionEntry,
 	ReadonlySessionManager,
 	SessionEntry,
 	SessionManager,
-} from "../session-manager.js";
+} from "../session-manager/index.js";
 import type { SlashCommandInfo } from "../slash-commands.js";
 import type { BashOperations } from "../tools/bash/index.js";
 import type { EditToolDetails } from "../tools/edit/index.js";
@@ -63,6 +55,8 @@ import type {
 	EditToolInput,
 	FindToolDetails,
 	FindToolInput,
+	GlobToolDetails,
+	GlobToolInput,
 	GrepToolDetails,
 	GrepToolInput,
 	LsToolDetails,
@@ -73,6 +67,15 @@ import type {
 	TreeToolInput,
 	WriteToolInput,
 } from "../tools/index.js";
+import type {
+	AutocompleteItem,
+	Component,
+	EditorComponent,
+	EditorTheme,
+	OverlayHandle,
+	OverlayOptions,
+	TUI,
+} from "./ui-types.js";
 
 export type { ExecOptions, ExecResult } from "../exec.js";
 export type { AppAction, KeybindingsManager } from "../keybindings.js";
@@ -237,6 +240,45 @@ export interface ExtensionUIContext {
 
 	/** Set tool output expansion state. */
 	setToolsExpanded(expanded: boolean): void;
+
+	/**
+	 * Request a sandbox-permission decision from the user.
+	 * Optional: hosts that haven't implemented the tri-state UI fall back to confirm().
+	 * Implementations must honor `sensitive: true` by suppressing the "allow for session" choice.
+	 */
+	requestSandboxGrant?(request: SandboxGrantPromptRequest): Promise<SandboxGrantDecision>;
+}
+
+export type SandboxGrantDecision = "deny" | "allow_once" | "allow_session";
+
+export interface SandboxGrantPromptRequest {
+	title: string;
+	message: string;
+	toolName: string;
+	capability: "file.read" | "file.write" | "network";
+	target: string;
+	resolvedTarget: string;
+	grantRoot?: string;
+	command?: string;
+	sensitive: boolean;
+}
+
+/**
+ * Input for ecosystem PermissionRequest hooks, fired only when a host permission UI
+ * is about to appear (e.g. sandbox grant). Not Claude wire vocabulary.
+ */
+export interface EcosystemPermissionHookRequest {
+	toolName: string;
+	toolInput: unknown;
+	/** Stable id suffix for this approval attempt (run summary / wire run_id). */
+	runIdSuffix: string;
+	signal?: AbortSignal;
+}
+
+export interface EcosystemPermissionHookResult {
+	/** Hook decided without showing UI. Undefined = fall through to host UI. */
+	decision?: "allow" | "deny";
+	message?: string;
 }
 
 // ============================================================================
@@ -287,6 +329,13 @@ export interface ExtensionContext {
 	compact(options?: CompactOptions): void;
 	/** Get the current effective system prompt. */
 	getSystemPrompt(): string;
+	/**
+	 * Optional ecosystem PermissionRequest gate. Host wires {@link EcosystemHookRuntime}
+	 * here; sandbox (and future permission UIs) call before prompting the user.
+	 */
+	requestEcosystemPermission?(
+		request: EcosystemPermissionHookRequest,
+	): Promise<EcosystemPermissionHookResult | undefined>;
 }
 
 /**
@@ -343,6 +392,14 @@ export interface ToolDefinition<TParams extends TSchema = TSchema, TDetails = un
 	description: string;
 	/** Parameter schema (TypeBox) */
 	parameters: TParams;
+
+	/**
+	 * 工具可用性元数据（见 AgentTool 同名字段）。host-custom / plugin / extension 工具
+	 * 经此声明可见场景；fail-closed：缺省/空 = 所有场景都不激活。透传到 wrapRegisteredTool。
+	 */
+	scope_use?: readonly ConversationScenario[];
+	requires?: string[];
+	category?: string;
 
 	/** Execute the tool. */
 	execute(
@@ -546,6 +603,7 @@ export interface ToolExecutionStartEvent {
 	toolCallId: string;
 	toolName: string;
 	args: any;
+	startedAt: number;
 }
 
 /** Fired during tool execution with partial/streaming output */
@@ -557,6 +615,18 @@ export interface ToolExecutionUpdateEvent {
 	partialResult: any;
 }
 
+/**
+ * Fired when a tool reports a phase boundary via ctx.phase(label) during execution.
+ * Out-of-band metadata — never sent to LLMs.
+ */
+export interface ToolExecutionPhaseEvent {
+	type: "tool_execution_phase";
+	toolCallId: string;
+	toolName: string;
+	label: string;
+	atMs: number;
+}
+
 /** Fired when a tool finishes executing */
 export interface ToolExecutionEndEvent {
 	type: "tool_execution_end";
@@ -564,6 +634,9 @@ export interface ToolExecutionEndEvent {
 	toolName: string;
 	result: any;
 	isError: boolean;
+	startedAt: number;
+	durationMs: number;
+	phases: ToolPhase[];
 }
 
 // ============================================================================
@@ -658,6 +731,11 @@ export interface FindToolCallEvent extends ToolCallEventBase {
 	input: FindToolInput;
 }
 
+export interface GlobToolCallEvent extends ToolCallEventBase {
+	toolName: "glob";
+	input: GlobToolInput;
+}
+
 export interface LsToolCallEvent extends ToolCallEventBase {
 	toolName: "ls";
 	input: LsToolInput;
@@ -680,6 +758,7 @@ export type ToolCallEvent =
 	| EditToolCallEvent
 	| WriteToolCallEvent
 	| GrepToolCallEvent
+	| GlobToolCallEvent
 	| FindToolCallEvent
 	| LsToolCallEvent
 	| DirTreeToolCallEvent
@@ -723,6 +802,11 @@ export interface FindToolResultEvent extends ToolResultEventBase {
 	details: FindToolDetails | undefined;
 }
 
+export interface GlobToolResultEvent extends ToolResultEventBase {
+	toolName: "glob";
+	details: GlobToolDetails | undefined;
+}
+
 export interface LsToolResultEvent extends ToolResultEventBase {
 	toolName: "ls";
 	details: LsToolDetails | undefined;
@@ -745,6 +829,7 @@ export type ToolResultEvent =
 	| EditToolResultEvent
 	| WriteToolResultEvent
 	| GrepToolResultEvent
+	| GlobToolResultEvent
 	| FindToolResultEvent
 	| LsToolResultEvent
 	| DirTreeToolResultEvent
@@ -768,6 +853,9 @@ export function isGrepToolResult(e: ToolResultEvent): e is GrepToolResultEvent {
 }
 export function isFindToolResult(e: ToolResultEvent): e is FindToolResultEvent {
 	return e.toolName === "find";
+}
+export function isGlobToolResult(e: ToolResultEvent): e is GlobToolResultEvent {
+	return e.toolName === "glob";
 }
 export function isLsToolResult(e: ToolResultEvent): e is LsToolResultEvent {
 	return e.toolName === "ls";
@@ -801,6 +889,7 @@ export function isToolCallEventType(toolName: "read", event: ToolCallEvent): eve
 export function isToolCallEventType(toolName: "edit", event: ToolCallEvent): event is EditToolCallEvent;
 export function isToolCallEventType(toolName: "write", event: ToolCallEvent): event is WriteToolCallEvent;
 export function isToolCallEventType(toolName: "grep", event: ToolCallEvent): event is GrepToolCallEvent;
+export function isToolCallEventType(toolName: "glob", event: ToolCallEvent): event is GlobToolCallEvent;
 export function isToolCallEventType(toolName: "find", event: ToolCallEvent): event is FindToolCallEvent;
 export function isToolCallEventType(toolName: "ls", event: ToolCallEvent): event is LsToolCallEvent;
 export function isToolCallEventType(toolName: "dir_tree", event: ToolCallEvent): event is DirTreeToolCallEvent;
@@ -827,6 +916,7 @@ export type ExtensionEvent =
 	| MessageEndEvent
 	| ToolExecutionStartEvent
 	| ToolExecutionUpdateEvent
+	| ToolExecutionPhaseEvent
 	| ToolExecutionEndEvent
 	| ModelSelectEvent
 	| UserBashEvent
@@ -964,6 +1054,7 @@ export interface ExtensionAPI {
 	on(event: "message_end", handler: ExtensionHandler<MessageEndEvent>): void;
 	on(event: "tool_execution_start", handler: ExtensionHandler<ToolExecutionStartEvent>): void;
 	on(event: "tool_execution_update", handler: ExtensionHandler<ToolExecutionUpdateEvent>): void;
+	on(event: "tool_execution_phase", handler: ExtensionHandler<ToolExecutionPhaseEvent>): void;
 	on(event: "tool_execution_end", handler: ExtensionHandler<ToolExecutionEndEvent>): void;
 	on(event: "model_select", handler: ExtensionHandler<ModelSelectEvent>): void;
 	on(event: "tool_call", handler: ExtensionHandler<ToolCallEvent, ToolCallEventResult>): void;

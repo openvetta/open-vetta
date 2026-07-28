@@ -1,11 +1,11 @@
-import type { AgentState } from "@mariozechner/pi-agent-core";
+import type { AgentState } from "@vetta/agent-core";
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import { basename, join } from "path";
 import { APP_NAME, getExportTemplateDir } from "../../config.js";
 import { getResolvedThemeColors, getThemeExportColors } from "../../modes/interactive/theme/theme.js";
 import type { ToolInfo } from "../extensions/types.js";
-import type { SessionEntry } from "../session-manager.js";
-import { SessionManager } from "../session-manager.js";
+import type { SessionEntry } from "../session-manager/index.js";
+import { SessionManager } from "../session-manager/index.js";
 
 /**
  * Interface for rendering custom tools to HTML.
@@ -171,7 +171,20 @@ function generateHtml(sessionData: SessionData, themeName?: string): string {
 }
 
 /** Built-in tool names that have custom rendering in template.js */
-const BUILTIN_TOOLS = new Set(["bash", "read", "write", "edit", "ls", "find", "grep", "dir_tree", "tree"]);
+const BUILTIN_TOOLS = new Set([
+	"bash",
+	"read",
+	"write",
+	"edit",
+	"ls",
+	"find",
+	"grep",
+	"dir_tree",
+	"tree",
+	"kb_write_page",
+	"kb_filter_by_tags",
+	"kb_list_available_tags",
+]);
 
 /**
  * Pre-render custom tools to HTML using their TUI renderers.

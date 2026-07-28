@@ -6,13 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"path/filepath"
-	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"vetta-im-gateway/internal/hostproto"
 	"vetta-im-gateway/internal/transport"
+	"vetta-im-gateway/internal/transport/wechat"
+	"vetta-im-gateway/internal/transport/wechat/ilink"
 )
 
 // stubTransport is a no-op transport that just blocks Start() until ctx
@@ -45,6 +46,9 @@ func (s *stubTransport) EditMessage(_ context.Context, _, _ string, _ transport.
 func (s *stubTransport) DeleteMessage(_ context.Context, _, _ string) error { return nil }
 func (s *stubTransport) ShowTyping(_ context.Context, _ string) error       { return nil }
 func (s *stubTransport) EndStream(_ context.Context, _, _ string) error     { return nil }
+func (s *stubTransport) SendAttachment(_ context.Context, _ string, _ transport.OutboundAttachment) (string, error) {
+	return "", nil
+}
 
 // stubBuilder returns a stubTransport ignoring the spec (allows tests
 // to bypass the feishu credential validation).
@@ -151,6 +155,8 @@ func (p *pipeReader) Read(b []byte) (int, error) {
 
 var errEOF = errors.New("EOF")
 
+const testConversationCwd = "/home/u/.vetta/conversation"
+
 // TestHost_InitTimeout asserts the sidecar exits non-zero when the parent
 // fails to send an init frame within the timeout.
 func TestHost_InitTimeout(t *testing.T) {
@@ -203,8 +209,8 @@ func TestHost_InitReadyShutdown(t *testing.T) {
 			AppID:     "stub-app",
 			AppSecret: "stub-secret",
 		},
-		Projects: []hostproto.ProjectEntry{{Path: "/tmp/example"}},
-		State:    nil,
+		ConversationCwd: testConversationCwd,
+		State:           nil,
 	}
 	data, err := hostproto.EncodeFrame(initFrame)
 	if err != nil {
@@ -235,6 +241,41 @@ func TestHost_InitReadyShutdown(t *testing.T) {
 	}
 }
 
+// TestHost_InitWithoutConversationCwd asserts the sidecar refuses to start
+// when the init frame omits conversationCwd — the gateway can't route
+// without knowing where sessions should live.
+func TestHost_InitWithoutConversationCwd(t *testing.T) {
+	in := newPipeReader()
+	out := &captureWriter{}
+
+	done := make(chan int, 1)
+	go func() {
+		done <- runHostWithIO(hostOptions{
+			stdin:          in,
+			stdout:         out,
+			buildTransport: stubBuilder,
+			initTimeout:    1 * time.Second,
+		})
+	}()
+
+	bad := hostproto.InitFrame{
+		Type:   hostproto.TypeInit,
+		Feishu: &hostproto.FeishuConfig{AppID: "x", AppSecret: "y"},
+		// ConversationCwd intentionally empty.
+	}
+	data, _ := hostproto.EncodeFrame(bad)
+	in.Write(data)
+
+	select {
+	case code := <-done:
+		if code == 0 {
+			t.Error("expected non-zero exit when conversationCwd is missing")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("runHostWithIO did not return")
+	}
+}
+
 // TestHost_StdinEOFShutdown asserts that closing stdin is equivalent to a
 // shutdown frame.
 func TestHost_StdinEOFShutdown(t *testing.T) {
@@ -253,9 +294,9 @@ func TestHost_StdinEOFShutdown(t *testing.T) {
 	}()
 
 	data, _ := hostproto.EncodeFrame(hostproto.InitFrame{
-		Type:     hostproto.TypeInit,
-		Feishu:   &hostproto.FeishuConfig{AppID: "x", AppSecret: "y"},
-		Projects: []hostproto.ProjectEntry{},
+		Type:            hostproto.TypeInit,
+		Feishu:          &hostproto.FeishuConfig{AppID: "x", AppSecret: "y"},
+		ConversationCwd: testConversationCwd,
 	})
 	in.Write(data)
 
@@ -272,62 +313,6 @@ func TestHost_StdinEOFShutdown(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatal("runHostWithIO did not return after stdin EOF")
 	}
-}
-
-// TestHost_ProjectsUpdate asserts the projects_update frame is processed.
-func TestHost_ProjectsUpdate(t *testing.T) {
-	in := newPipeReader()
-	out := &captureWriter{}
-
-	done := make(chan int, 1)
-	go func() {
-		done <- runHostWithIO(hostOptions{
-			stdin:          in,
-			stdout:         out,
-			buildTransport: stubBuilder,
-			initTimeout:    2 * time.Second,
-			shutdownGrace:  500 * time.Millisecond,
-		})
-	}()
-
-	initData, _ := hostproto.EncodeFrame(hostproto.InitFrame{
-		Type:     hostproto.TypeInit,
-		Feishu:   &hostproto.FeishuConfig{AppID: "x", AppSecret: "y"},
-		Projects: []hostproto.ProjectEntry{},
-	})
-	in.Write(initData)
-	waitForType(t, out, hostproto.TypeReady, 2*time.Second)
-
-	upd, _ := hostproto.EncodeFrame(hostproto.ProjectsUpdateFrame{
-		Type: hostproto.TypeProjectsUpdate,
-		Projects: []hostproto.ProjectEntry{
-			{Path: "/tmp/foo"},
-			{Path: "/tmp/bar", Name: "Bar"},
-		},
-	})
-	in.Write(upd)
-
-	// Verify the host emitted a "projects updated" log line.
-	deadline := time.Now().Add(2 * time.Second)
-	found := false
-	for time.Now().Before(deadline) && !found {
-		for _, ev := range out.Lines() {
-			if ev["type"] != hostproto.TypeLog {
-				continue
-			}
-			if msg, ok := ev["msg"].(string); ok && strings.Contains(msg, "projects updated") {
-				found = true
-				break
-			}
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-	if !found {
-		t.Errorf("did not see projects updated log; output:\n%s", out.Bytes())
-	}
-
-	in.Close()
-	<-done
 }
 
 // TestHost_BadInitFrameType verifies that the first non-init frame causes
@@ -394,7 +379,7 @@ func TestHost_WechatInitAwaitingBind(t *testing.T) {
 			Enabled:   true,
 			StatePath: statePath,
 		},
-		Projects: []hostproto.ProjectEntry{},
+		ConversationCwd: testConversationCwd,
 	}
 	data, err := hostproto.EncodeFrame(initFrame)
 	if err != nil {
@@ -466,7 +451,7 @@ func TestHost_WechatBindStartIgnoredWhenInactive(t *testing.T) {
 			AppID:     "stub",
 			AppSecret: "stub",
 		},
-		Projects: []hostproto.ProjectEntry{},
+		ConversationCwd: testConversationCwd,
 	}
 	data, _ := hostproto.EncodeFrame(initFrame)
 	in.Write(data)
@@ -492,5 +477,114 @@ func TestHost_WechatBindStartIgnoredWhenInactive(t *testing.T) {
 	case <-done:
 	case <-time.After(2 * time.Second):
 		t.Fatal("did not exit")
+	}
+}
+
+// TestHost_WechatSessionTimeoutRecovers asserts that when a previously-bound
+// wechat session is rejected by the server (errcode -14 → ErrSessionTimeout
+// from Start()), the host clears the dead credentials, drops back to
+// awaiting_bind, and KEEPS THE SIDECAR ALIVE so the user's next "扫码绑定"
+// click can deliver a wechat_bind_start frame. Regression: previously the
+// host treated this as a fatal transport error and exited, leaving the
+// desktop-app stuck on a spinner.
+func TestHost_WechatSessionTimeoutRecovers(t *testing.T) {
+	in := newPipeReader()
+	out := &captureWriter{}
+
+	// Seed a state file with non-empty credentials so the wechat
+	// coordinator gets constructed and LogoutAndClear has something to
+	// remove.
+	statePath := filepath.Join(t.TempDir(), "wechat.json")
+	store, err := wechat.NewStateStoreForCLI(statePath)
+	if err != nil {
+		t.Fatalf("NewStateStoreForCLI: %v", err)
+	}
+	if err := store.SetCredentials(ilink.Credentials{
+		BotToken:   "dead-token",
+		ILinkBotID: "expired-bot",
+		BaseURL:    "https://example.invalid",
+	}); err != nil {
+		t.Fatalf("seed creds: %v", err)
+	}
+
+	// Custom builder: returns a transport whose Start immediately
+	// returns ErrSessionTimeout. Simulates a -14 from getupdates.
+	builder := func(spec *buildSpec) (transport.Transport, error) {
+		if spec.Wechat == nil {
+			return newStubTransport("stub"), nil
+		}
+		return &stubTransport{name: "wechat", startErr: ilink.ErrSessionTimeout}, nil
+	}
+
+	done := make(chan int, 1)
+	go func() {
+		done <- runHostWithIO(hostOptions{
+			stdin:          in,
+			stdout:         out,
+			buildTransport: builder,
+			initTimeout:    2 * time.Second,
+			shutdownGrace:  500 * time.Millisecond,
+		})
+	}()
+
+	initFrame := hostproto.InitFrame{
+		Type: hostproto.TypeInit,
+		Wechat: &hostproto.WechatConfig{
+			Enabled:   true,
+			StatePath: statePath,
+		},
+		ConversationCwd: testConversationCwd,
+	}
+	data, _ := hostproto.EncodeFrame(initFrame)
+	in.Write(data)
+
+	waitForType(t, out, hostproto.TypeReady, 2*time.Second)
+
+	// After the transport's immediate failure the host should recover to
+	// awaiting_bind and emit wechat_unbound. Sidecar must stay alive.
+	deadline := time.Now().Add(3 * time.Second)
+	sawAwaiting := false
+	sawUnbound := false
+	for time.Now().Before(deadline) && !(sawAwaiting && sawUnbound) {
+		for _, ev := range out.Lines() {
+			if ev["type"] == hostproto.TypeStatus && ev["transport"] == hostproto.TransportStatusAwaitingBind {
+				sawAwaiting = true
+			}
+			if ev["type"] == hostproto.TypeWechatUnbound {
+				sawUnbound = true
+			}
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if !sawAwaiting {
+		t.Errorf("never saw awaiting_bind after session timeout. captured:\n%s", out.Bytes())
+	}
+	if !sawUnbound {
+		t.Errorf("never saw wechat_unbound after session timeout. captured:\n%s", out.Bytes())
+	}
+
+	// Sidecar must NOT have exited.
+	select {
+	case code := <-done:
+		t.Fatalf("sidecar exited early with code=%d after session timeout; should have recovered. captured:\n%s", code, out.Bytes())
+	case <-time.After(200 * time.Millisecond):
+	}
+
+	// Confirm dead credentials were cleared from disk.
+	freshStore, _ := wechat.NewStateStoreForCLI(statePath)
+	if freshStore.HasCredentials() {
+		t.Errorf("dead credentials should have been cleared from %s", statePath)
+	}
+
+	// Clean shutdown still works.
+	sd, _ := hostproto.EncodeFrame(hostproto.ShutdownFrame{Type: hostproto.TypeShutdown})
+	in.Write(sd)
+	select {
+	case code := <-done:
+		if code != 0 {
+			t.Errorf("exit code = %d, want 0", code)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("did not exit after shutdown frame")
 	}
 }

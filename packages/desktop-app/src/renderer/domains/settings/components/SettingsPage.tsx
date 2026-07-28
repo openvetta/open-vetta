@@ -1,90 +1,84 @@
-import { useNavigate, useParams } from "@tanstack/react-router";
-import { useAtomValue } from "jotai";
-import { useMemo } from "react";
-import { isPersonalModeAtom, type SettingsTab } from "@shared/store/atoms";
-import { authUserAtom } from "@shared/store/auth-atoms";
-import { cn } from "@shared/lib/utils";
-import { AccountSettings } from "./AccountSettings";
-import { GeneralSettings } from "./GeneralSettings";
-import { ImBridgeSettings } from "./ImBridgeSettings";
-import { ModelsSettings } from "./ModelsSettings";
-import { McpSettings } from "./McpSettings";
-import { ShortcutsSettings } from "./ShortcutsSettings";
-import { ArchivedProjectsSettings } from "./ArchivedProjectsSettings";
-import { TeamSettings } from "./TeamSettings";
+import { useThemeSurface } from "@vetta/theme-sdk/appearance";
+import { SettingsContentLoadingView, SettingsTabEnter } from "@vetta/theme-ui/settings";
+import type { SettingsTab } from "@shared/store/atoms";
+import { lazy, Suspense, type ComponentType, type LazyExoticComponent } from "react";
+import { SettingsPageView } from "./SettingsPageView";
+import { useSettingsPageModel } from "./useSettingsPageModel";
+import "./settings-highlight.css";
 
-const BASE_TABS: { key: SettingsTab; label: string; icon: string; personalOnly?: boolean; requireAuth?: boolean }[] = [
-	{ key: "general", label: "通用设置", icon: "icon-[mdi--cog-outline]" },
-	{ key: "account", label: "账户", icon: "icon-[mdi--account-outline]", requireAuth: true },
-	{ key: "team", label: "团队管理", icon: "icon-[mdi--account-group-outline]", personalOnly: true },
-	{ key: "models", label: "模型配置", icon: "icon-[mdi--brain]" },
-	{ key: "mcp", label: "MCP 服务器", icon: "icon-[mdi--server-outline]" },
-	{ key: "im", label: "IM 集成", icon: "icon-[mdi--message-text-outline]" },
-	{ key: "shortcuts", label: "快捷键", icon: "icon-[mdi--keyboard-outline]" },
-	{ key: "archive", label: "已归档", icon: "icon-[mdi--archive-outline]" },
-];
+const AccountSettings = lazy(async () => ({ default: (await import("./AccountSettings")).AccountSettings }));
+const AgentSettings = lazy(async () => ({ default: (await import("./AgentSettings")).AgentSettings }));
+const AppearanceSettings = lazy(async () => ({
+	default: (await import("./AppearanceSettings")).AppearanceSettings,
+}));
+const AppshotSettings = lazy(async () => ({ default: (await import("./AppshotSettings")).AppshotSettings }));
+const ArchivedProjectsSettings = lazy(async () => ({
+	default: (await import("./ArchivedProjectsSettings")).ArchivedProjectsSettings,
+}));
+const EnvironmentSettings = lazy(async () => ({
+	default: (await import("./EnvironmentSettings")).EnvironmentSettings,
+}));
+const GeneralSettings = lazy(async () => ({ default: (await import("./GeneralSettings")).GeneralSettings }));
+const ImBridgeSettings = lazy(async () => ({ default: (await import("./ImBridgeSettings")).ImBridgeSettings }));
+const KnowledgeBaseSettings = lazy(async () => ({
+	default: (await import("./KnowledgeBaseSettings")).KnowledgeBaseSettings,
+}));
+const ModelsSettings = lazy(async () => ({ default: (await import("./ModelsSettings")).ModelsSettings }));
+const NewSessionSettings = lazy(async () => ({
+	default: (await import("./NewSessionSettings")).NewSessionSettings,
+}));
+const PermissionsSettings = lazy(async () => ({
+	default: (await import("./PermissionsSettings")).PermissionsSettings,
+}));
+const PetSettings = lazy(async () => ({ default: (await import("./PetSettings")).PetSettings }));
+const PluginsSettings = lazy(async () => ({ default: (await import("./PluginsSettings")).PluginsSettings }));
+const ShortcutsSettings = lazy(async () => ({
+	default: (await import("./ShortcutsSettings")).ShortcutsSettings,
+}));
+const TeamSettings = lazy(async () => ({ default: (await import("./TeamSettings")).TeamSettings }));
+const WebhookSettings = lazy(async () => ({ default: (await import("./WebhookSettings")).WebhookSettings }));
 
-const SETTINGS_CONTENT: Record<SettingsTab, () => JSX.Element> = {
+/** MCP 已迁至扩展 → 连接器；`mcp` 保留在 SettingsTab 供 analytics / 旧链接重定向，此处不渲染。 */
+const SETTINGS_CONTENT: Record<Exclude<SettingsTab, "mcp">, LazyExoticComponent<ComponentType>> = {
 	general: GeneralSettings,
+	appearance: AppearanceSettings,
 	account: AccountSettings,
 	models: ModelsSettings,
-	mcp: McpSettings,
+	environment: EnvironmentSettings,
+	permissions: PermissionsSettings,
 	im: ImBridgeSettings,
+	webhook: WebhookSettings,
 	shortcuts: ShortcutsSettings,
+	appshot: AppshotSettings,
 	archive: ArchivedProjectsSettings,
 	team: TeamSettings,
+	context: AgentSettings,
+	plugins: PluginsSettings,
+	knowledge: KnowledgeBaseSettings,
+	pet: PetSettings,
+	newSession: NewSessionSettings,
 };
 
 export function SettingsPage(): JSX.Element {
-	const { tab: rawTab } = useParams({ strict: false }) as { tab?: string };
-	const navigate = useNavigate();
-	const isPersonal = useAtomValue(isPersonalModeAtom);
-	const authUser = useAtomValue(authUserAtom);
+	const model = useSettingsPageModel();
+	const contentSurface = useThemeSurface("settings.pageContent");
+	const Content =
+		model.activeTab === "mcp" ? SETTINGS_CONTENT.general : SETTINGS_CONTENT[model.activeTab];
 
-	const visibleTabs = useMemo(
-		() => BASE_TABS.filter((t) => (!t.personalOnly || isPersonal) && (!t.requireAuth || authUser)),
-		[isPersonal, authUser],
-	);
-	const validTabKeys = useMemo(() => new Set(visibleTabs.map((t) => t.key)), [visibleTabs]);
-
-	const tab: SettingsTab = rawTab && validTabKeys.has(rawTab as SettingsTab) ? (rawTab as SettingsTab) : "general";
-	const Content = SETTINGS_CONTENT[tab];
+	const activeTab = model.activeTab === "mcp" ? "general" : model.activeTab;
 
 	return (
-		<div className="flex h-full w-full flex-1 overflow-hidden">
-			{/* Settings sidebar */}
-			<div className="flex w-[200px] shrink-0 flex-col border-r border-border">
-				<div className="drag-region px-5 pb-4 pt-5">
-					<h1 className="text-[20px] font-bold tracking-[-0.02em] text-foreground">
-						设置
-					</h1>
-				</div>
-				<nav className="flex flex-col gap-0.5 px-2.5">
-					{visibleTabs.map(({ key, label, icon }) => (
-						<button
-							key={key}
-							type="button"
-							onClick={() => void navigate({ to: "/settings/$tab", params: { tab: key } })}
-							className={cn(
-								"flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[13px] font-medium transition-colors",
-								tab === key
-									? "bg-accent text-foreground"
-									: "text-foreground hover:bg-accent/50",
-							)}
-						>
-							<span className={cn(icon, "h-4 w-4 shrink-0")} />
-							{label}
-						</button>
-					))}
-				</nav>
-			</div>
-
-			{/* Settings content */}
-			<div className="flex flex-1 flex-col overflow-y-auto bg-background">
-				{/* Drag region */}
-				<div className="drag-region h-12 shrink-0" />
-				<Content />
-			</div>
-		</div>
+		<SettingsPageView
+			content={
+				<Suspense fallback={<SettingsContentLoadingView />}>
+					{/* key=tab：切换侧栏时重挂载，触发 SettingsEnterItem stagger 与 CSS 兜底入场 */}
+					<SettingsTabEnter key={activeTab} className="settings-tab-enter w-full min-h-0">
+						<Content />
+					</SettingsTabEnter>
+				</Suspense>
+			}
+			contentSurfaceRootClassName={contentSurface?.rootClassName}
+			model={model}
+		/>
 	);
 }

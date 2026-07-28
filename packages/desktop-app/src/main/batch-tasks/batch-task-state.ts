@@ -1,14 +1,19 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import type { SessionExecutionMode } from "../../../../runtime-core/src/index.js";
+import { getAppLogger } from "../logger.js";
 import { discoverBatchProjects } from "./batch-task-storage";
 
-export type BatchTaskStatus = "pending" | "running" | "paused" | "completed" | "failed";
+const log = getAppLogger("batch-state");
+
+export type BatchTaskStatus = "pending" | "running" | "completed" | "failed" | "paused";
 
 export interface BatchTaskState {
 	taskId: string;
 	status: BatchTaskStatus;
 	sessionId?: string;
 	sessionPath?: string;
+	executionMode?: SessionExecutionMode;
 	error?: string;
 	startedAt?: number;
 	completedAt?: number;
@@ -67,9 +72,7 @@ export async function getTaskState(projectDir: string, taskId: string): Promise<
 export async function saveTaskState(projectDir: string, taskId: string, state: BatchTaskState): Promise<void> {
 	const states = await loadProjectTaskStates(projectDir);
 	states[taskId] = state;
-	console.log(
-		`[BatchTaskState] State scheduled to save: project=${projectDir}, task=${taskId}, status=${state.status}`,
-	);
+	log.debug(`State scheduled to save: project=${projectDir}, task=${taskId}, status=${state.status}`);
 	scheduleFlush(projectDir);
 }
 
@@ -101,7 +104,7 @@ export async function updateTaskState(
 }
 
 export async function recoverRunningTasks(): Promise<void> {
-	console.log(`[BatchTaskState] recoverRunningTasks: checking for stale running tasks`);
+	log.info(`recoverRunningTasks: checking for stale running tasks`);
 	const projectDirs = await discoverBatchProjects();
 	let modified = false;
 
@@ -112,7 +115,7 @@ export async function recoverRunningTasks(): Promise<void> {
 		for (const taskId of Object.keys(states)) {
 			const state = states[taskId];
 			if (state.status === "running") {
-				console.log(`[BatchTaskState] Recovering stale task ${taskId} (project ${projectDir})`);
+				log.warn(`Recovering stale task ${taskId} (project ${projectDir})`);
 				state.status = "failed";
 				state.error = "应用异常退出";
 				state.completedAt = Date.now();
@@ -128,8 +131,8 @@ export async function recoverRunningTasks(): Promise<void> {
 	}
 
 	if (modified) {
-		console.log(`[BatchTaskState] Stale tasks recovered and saved`);
+		log.info(`Stale tasks recovered and saved`);
 	} else {
-		console.log(`[BatchTaskState] No stale running tasks found`);
+		log.info(`No stale running tasks found`);
 	}
 }

@@ -1,0 +1,207 @@
+import type { ComponentType, JSX } from "react";
+import { useMemo, useState } from "react";
+import type { CodePreviewProps } from "./CodePreview";
+import { CodePreview } from "./CodePreview";
+
+type Mode = "preview" | "code";
+
+export interface HtmlPreviewSegmentItem {
+	readonly key: Mode;
+	readonly label: string;
+}
+
+export interface HtmlPreviewViewLabels {
+	readonly preview: string;
+	readonly code: string;
+	readonly title: string;
+}
+
+export interface HtmlPreviewSegmentedControlProps {
+	readonly items: readonly HtmlPreviewSegmentItem[];
+	readonly value: Mode;
+	readonly onChange: (value: Mode) => void;
+}
+
+export interface HtmlPreviewViewProps {
+	readonly content: string;
+	readonly extension: string;
+	readonly theme: "light" | "dark";
+	readonly labels: HtmlPreviewViewLabels;
+	/** Host segmented control (desktop @shared). Defaults to simple button group. */
+	readonly SegmentedControl?: ComponentType<HtmlPreviewSegmentedControlProps>;
+	readonly CodePreviewComponent?: ComponentType<CodePreviewProps>;
+}
+
+function DefaultSegmentedControl({
+	items,
+	value,
+	onChange,
+}: HtmlPreviewSegmentedControlProps): JSX.Element {
+	return (
+		<div className="inline-flex rounded-lg border border-border/50 bg-muted/40 p-0.5">
+			{items.map((item) => (
+				<button
+					key={item.key}
+					type="button"
+					onClick={() => onChange(item.key)}
+					className={`rounded-md px-3 py-1 text-[12px] font-medium transition-colors ${
+						value === item.key
+							? "bg-background text-foreground shadow-sm"
+							: "text-muted-foreground hover:text-foreground"
+					}`}
+				>
+					{item.label}
+				</button>
+			))}
+		</div>
+	);
+}
+
+/**
+ * Match packages/site `globals.css` thin scrollbar (6px rounded thumb).
+ * Must live inside the iframe document — parent CSS never applies to srcDoc.
+ *
+ * Why body scroll (not the viewport root):
+ * On Windows Chromium, `::-webkit-scrollbar` often fails to style the
+ * documentElement/viewport scroller inside iframes, so the OS classic bar
+ * shows. Pin html height + scroll body so webkit pseudo-elements apply.
+ *
+ * Colors mirror site tokens (muted-foreground / primary @ 28% / 48%).
+ */
+function previewChromeStyle(theme: "light" | "dark"): string {
+	const thumb =
+		theme === "dark" ? "rgba(163, 163, 163, 0.28)" : "rgba(82, 82, 82, 0.28)";
+	const thumbHover =
+		theme === "dark" ? "rgba(255, 255, 255, 0.48)" : "rgba(24, 24, 27, 0.48)";
+	return `
+:root { color-scheme: ${theme}; }
+html {
+  height: 100%;
+  overflow: hidden;
+}
+/* Override preview HTML min-height:100vh so body is the scroller. */
+html body {
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: 100%;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  scrollbar-width: thin;
+  scrollbar-color: ${thumb} transparent;
+}
+/* Also style nested overflow nodes (match .vetta-app-ui * on the host). */
+html body * {
+  scrollbar-width: thin;
+  scrollbar-color: ${thumb} transparent;
+}
+html body::-webkit-scrollbar,
+html body *::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+html body::-webkit-scrollbar-track,
+html body *::-webkit-scrollbar-track {
+  background: transparent;
+}
+html body::-webkit-scrollbar-thumb,
+html body *::-webkit-scrollbar-thumb {
+  min-height: 48px;
+  border-radius: 999px;
+  background-color: ${thumb};
+}
+html body::-webkit-scrollbar-thumb:hover,
+html body *::-webkit-scrollbar-thumb:hover {
+  background-color: ${thumbHover};
+}
+html body::-webkit-scrollbar-corner,
+html body *::-webkit-scrollbar-corner {
+  background: transparent;
+}
+`.trim();
+}
+
+/**
+ * Inject chrome CSS into a full HTML document's <head> (last wins over page CSS).
+ * Prepending before <!DOCTYPE> is dropped by browsers and never applies.
+ */
+function injectPreviewChrome(content: string, theme: "light" | "dark"): string {
+	const styleTag = `<style data-preview-chrome>${previewChromeStyle(theme)}</style>`;
+	if (/<\/head>/i.test(content)) {
+		return content.replace(/<\/head>/i, `${styleTag}</head>`);
+	}
+	if (/<head(\s[^>]*)?>/i.test(content)) {
+		return content.replace(/<head(\s[^>]*)?>/i, (m) => `${m}${styleTag}`);
+	}
+	if (/<html(\s[^>]*)?>/i.test(content)) {
+		return content.replace(/<html(\s[^>]*)?>/i, (m) => `${m}<head>${styleTag}</head>`);
+	}
+	// Fragment / incomplete HTML — wrap so body rules still match.
+	return `<!DOCTYPE html><html><head>${styleTag}</head><body>${content}</body></html>`;
+}
+
+function HtmlPreviewFrame({
+	srcDoc,
+	theme,
+	title,
+}: {
+	readonly srcDoc: string;
+	readonly theme: "light" | "dark";
+	readonly title: string;
+}): JSX.Element {
+	const [loadedSrcDoc, setLoadedSrcDoc] = useState<string | null>(null);
+	const loaded = loadedSrcDoc === srcDoc;
+	const backgroundClass = theme === "dark" ? "bg-neutral-950" : "bg-white";
+
+	return (
+		<div
+			aria-busy={!loaded}
+			className={`relative min-h-0 w-full flex-1 ${backgroundClass}`}
+		>
+			<iframe
+				title={title}
+				srcDoc={srcDoc}
+				sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+				onLoad={() => setLoadedSrcDoc(srcDoc)}
+				className={`absolute inset-0 h-full w-full border-0 ${backgroundClass} ${
+					loaded ? "opacity-100" : "opacity-0"
+				}`}
+				style={{ colorScheme: theme }}
+			/>
+		</div>
+	);
+}
+
+export function HtmlPreviewView({
+	content,
+	extension,
+	theme,
+	labels,
+	SegmentedControl = DefaultSegmentedControl,
+	CodePreviewComponent = CodePreview,
+}: HtmlPreviewViewProps): JSX.Element {
+	const [mode, setMode] = useState<Mode>("preview");
+	const srcDoc = useMemo(() => injectPreviewChrome(content, theme), [content, theme]);
+	const toggleItems = useMemo<HtmlPreviewSegmentItem[]>(
+		() => [
+			{ key: "preview", label: labels.preview },
+			{ key: "code", label: labels.code },
+		],
+		[labels.code, labels.preview],
+	);
+
+	return (
+		<div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden">
+			<div className="flex shrink-0 items-center justify-center border-b border-border/40 px-4 py-2">
+				<SegmentedControl items={toggleItems} value={mode} onChange={setMode} />
+			</div>
+			{mode === "preview" ? (
+				// iframe ignores flex-grow in many engines — absolute fill matches parent height.
+				<HtmlPreviewFrame srcDoc={srcDoc} theme={theme} title={labels.title} />
+			) : (
+				<div className="min-h-0 w-full flex-1 overflow-y-auto">
+					<CodePreviewComponent content={content} extension={extension} theme={theme} />
+				</div>
+			)}
+		</div>
+	);
+}

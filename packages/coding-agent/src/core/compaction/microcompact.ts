@@ -6,8 +6,8 @@
  * Runs as a pure function on every LLM call via transformContext.
  */
 
-import type { AgentMessage } from "@mariozechner/pi-agent-core";
-import type { AssistantMessage, ToolResultMessage } from "@mariozechner/pi-ai";
+import type { AgentMessage } from "@vetta/agent-core";
+import type { AssistantMessage, ToolResultMessage } from "@vetta/ai";
 import type { BashExecutionMessage } from "../messages.js";
 
 export interface MicrocompactOptions {

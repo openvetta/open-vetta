@@ -1,15 +1,17 @@
-import type { AgentTool } from "@mariozechner/pi-agent-core";
 import { type Static, Type } from "@sinclair/typebox";
 import { spawnSync } from "child_process";
 import { existsSync } from "fs";
 import { globSync } from "glob";
 import path from "path";
 import { ensureTool } from "../../../utils/tools-manager.js";
+import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 import { resolveExistingPath } from "../path-utils.js";
+import { toolCallDescriptionSchema } from "../tool-call-description.js";
 import { DEFAULT_MAX_BYTES, formatSize, type TruncationResult, truncateHead } from "../truncate.js";
 
 const findSchema = Type.Object({
+	description: toolCallDescriptionSchema,
 	pattern: Type.String({
 		description: "Glob pattern to match files, e.g. '*.ts', '**/*.json', or 'src/**/*.spec.ts'",
 	}),
@@ -50,14 +52,16 @@ export interface FindToolOptions {
 	operations?: FindOperations;
 }
 
-export function createFindTool(cwd: string, options?: FindToolOptions): AgentTool<typeof findSchema> {
+export function createFindTool(cwd: string, options?: FindToolOptions): CodingAgentTool<typeof findSchema> {
 	const customOps = options?.operations;
 	const fallbackDescription = `Search for files by glob pattern. Returns matching file paths relative to the search directory. Respects .gitignore. Output is truncated to ${DEFAULT_LIMIT} results or ${DEFAULT_MAX_BYTES / 1024}KB (whichever is hit first).`;
-	const description = loadToolDescription(import.meta.url, fallbackDescription);
+	const description = loadToolDescription("find", fallbackDescription);
 
 	return {
 		name: "find",
 		label: "find",
+		scope_use: [],
+		category: "core",
 		description,
 		parameters: findSchema,
 		execute: async (

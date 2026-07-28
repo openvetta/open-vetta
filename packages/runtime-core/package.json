@@ -10,9 +10,10 @@
 		"build": "tsgo -p tsconfig.build.json"
 	},
 	"dependencies": {
-		"@vetta/coding-agent": "workspace:*",
-		"@mariozechner/pi-agent-core": "workspace:*",
-		"@mariozechner/pi-ai": "workspace:*"
+		"@vetta/action-rpc": "workspace:*",
+		"@vetta/agent-core": "workspace:*",
+		"@vetta/ai": "workspace:*",
+		"@vetta/coding-agent": "workspace:*"
 	},
 	"devDependencies": {
 		"typescript": "^5.9.2",

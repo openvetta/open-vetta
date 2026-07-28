@@ -1,3 +1,4 @@
+import type { Static, TSchema } from "@sinclair/typebox";
 import type {
 	AssistantMessageEvent,
 	ImageContent,
@@ -8,8 +9,8 @@ import type {
 	TextContent,
 	Tool,
 	ToolResultMessage,
-} from "@mariozechner/pi-ai";
-import type { Static, TSchema } from "@sinclair/typebox";
+} from "@vetta/ai";
+import type { RuntimeTracer } from "@vetta/runtime-telemetry";
 
 /** Stream function - can return sync or Promise for async config lookup */
 export type StreamFn = (
@@ -21,6 +22,8 @@ export type StreamFn = (
  */
 export interface AgentLoopConfig extends SimpleStreamOptions {
 	model: Model<any>;
+	tracer?: RuntimeTracer;
+	tracing?: AgentTracingOptions;
 
 	/**
 	 * Converts AgentMessage[] to LLM-compatible Message[] before each LLM call.
@@ -86,22 +89,39 @@ export interface AgentLoopConfig extends SimpleStreamOptions {
 	getSteeringMessages?: () => Promise<AgentMessage[]>;
 
 	/**
-	 * Returns follow-up messages to process after the agent would otherwise stop.
+	 * Returns continuation messages when the agent reaches a natural stopping point.
 	 *
 	 * Called when the agent has no more tool calls and no steering messages.
 	 * If messages are returned, they're added to the context and the agent
 	 * continues with another turn.
 	 *
-	 * Use this for follow-up messages that should wait until the agent finishes.
+	 * Use this for automatic continuation policies. User-queued follow-up messages
+	 * are managed separately by Agent.followUp().
 	 */
-	getFollowUpMessages?: () => Promise<AgentMessage[]>;
+	getContinuationMessages?: () => Promise<AgentMessage[]>;
 }
+
+export interface AgentTracingOptions {
+	captureContent?: boolean;
+	detail?: AgentTracingDetail;
+	metadata?: Record<string, unknown>;
+	userId?: string;
+	sessionId?: string;
+	traceName?: string;
+	tags?: string[];
+	version?: string;
+}
+
+export type AgentTracingDetail = "standard" | "agent";
 
 /**
  * Thinking/reasoning level for models that support it.
+ * The canonical values are the common ones; the type also accepts any string so a
+ * model can declare provider-specific levels (e.g. "none", "max"). "off" disables
+ * reasoning. Custom values are passed through to the provider verbatim.
  * Note: "xhigh" is only supported by OpenAI gpt-5.1-codex-max, gpt-5.2, gpt-5.2-codex, gpt-5.3, and gpt-5.3-codex models.
  */
-export type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
+export type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | (string & {});
 
 /**
  * Extensible interface for custom app messages.
@@ -153,15 +173,48 @@ export interface AgentToolResult<T> {
 // Callback for streaming tool execution updates
 export type AgentToolUpdateCallback<T = any> = (partialResult: AgentToolResult<T>) => void;
 
+// A timing phase reported by a tool via ctx.phase(label) during execution.
+// atMs is the offset (in milliseconds) from the tool's startedAt; each phase
+// implicitly ends when the next phase starts (or when execution ends).
+export interface ToolPhase {
+	label: string;
+	atMs: number;
+}
+
+// Out-of-band runtime hooks made available to a tool's execute() — purely
+// metadata reporting, never affects tool result content. Optional fourth-style
+// argument so existing tools that don't take ctx keep working.
+export interface ToolExecutionContext {
+	phase: (label: string) => void;
+}
+
 // AgentTool extends Tool but adds the execute function
-export interface AgentTool<TParameters extends TSchema = TSchema, TDetails = any> extends Tool<TParameters> {
+export interface AgentTool<TParameters extends TSchema = TSchema, TDetails = any, TScenario extends string = string>
+	extends Tool<TParameters> {
 	// A human-readable label for the tool to be displayed in UI
 	label: string;
+	/**
+	 * 工具可用性元数据（由上层消费者解释，agent 库本身不解读）。
+	 * - scope_use：允许出现的对话场景 slug 列表。**fail-closed**：缺省/空 = 所有场景都不可用
+	 *   （注册但不自动激活，仍可被显式 toggle 开启）。每个工具须显式声明。
+	 *   类型默认 `string`（agent-core 不绑定任何场景词汇）；上层消费者可通过 `TScenario`
+	 *   传入具体的场景联合（如 coding-agent 的 `ConversationScenario`）拿到补全/防拼写。
+	 * - requires：需要的会话能力 slug（如 "knowledge"/"bg-tasks"/"host:ask"）；全满足才激活。
+	 * - agent_mode：允许出现的工作模式 slug（如 "work"/"coding"）。**与 scope_use/requires 正交**
+	 *   的第三条过滤轴。缺省/空 = 通用（所有模式可用）。会话未指定模式时该轴不过滤。
+	 *   agent-core 不绑定任何模式词汇；上层消费者（coding-agent）定义具体的 `AgentMode` 联合。
+	 * - category：功能域分类，仅供分组/UI，不影响激活。
+	 */
+	scope_use?: readonly TScenario[];
+	requires?: string[];
+	agent_mode?: readonly string[];
+	category?: string;
 	execute: (
 		toolCallId: string,
 		params: Static<TParameters>,
 		signal?: AbortSignal,
 		onUpdate?: AgentToolUpdateCallback<TDetails>,
+		ctx?: ToolExecutionContext,
 	) => Promise<AgentToolResult<TDetails>>;
 }
 
@@ -189,6 +242,16 @@ export type AgentEvent =
 	| { type: "message_update"; message: AgentMessage; assistantMessageEvent: AssistantMessageEvent }
 	| { type: "message_end"; message: AgentMessage }
 	// Tool execution lifecycle
-	| { type: "tool_execution_start"; toolCallId: string; toolName: string; args: any }
+	| { type: "tool_execution_start"; toolCallId: string; toolName: string; args: any; startedAt: number }
 	| { type: "tool_execution_update"; toolCallId: string; toolName: string; args: any; partialResult: any }
-	| { type: "tool_execution_end"; toolCallId: string; toolName: string; result: any; isError: boolean };
+	| { type: "tool_execution_phase"; toolCallId: string; toolName: string; label: string; atMs: number }
+	| {
+			type: "tool_execution_end";
+			toolCallId: string;
+			toolName: string;
+			result: any;
+			isError: boolean;
+			startedAt: number;
+			durationMs: number;
+			phases: ToolPhase[];
+	  };

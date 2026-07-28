@@ -1,4 +1,8 @@
+import { DEFAULT_IM_CONVERSATION_CWD } from "../ipc/fs.js";
+import { getAppLogger } from "../logger.js";
+import { probeModelProvider } from "../models/probe.js";
 import { resolveImGatewayBinary } from "./binary-resolver.js";
+import { buildCodingAgentSpec } from "./coding-agent-spec.js";
 import {
 	defaultImConfig,
 	defaultImConfigPath,
@@ -12,7 +16,6 @@ import { defaultCredentialsPath, type ImCredentials, loadCredentials, saveCreden
 import type {
 	FeishuConfig,
 	LogEvent,
-	ProjectEntry,
 	SessionStateEntry,
 	WechatBindStatusEvent,
 	WechatBoundEvent,
@@ -22,7 +25,6 @@ import type {
 } from "./host-protocol.js";
 import { LogBuffer } from "./log-buffer.js";
 import { archiveLegacyFiles, detectLegacyImGateway, type LegacyDetection } from "./migration.js";
-import { loadDesktopProjects, watchDesktopProjects } from "./project-source.js";
 import { SidecarManager } from "./sidecar-manager.js";
 import { applyStatePatch, defaultImStatePath, type ImStateFile, loadImState, saveImState } from "./state-store.js";
 import { type ImBridgeStatus, StatusStore } from "./status-store.js";
@@ -41,6 +43,12 @@ import { type ImBridgeStatus, StatusStore } from "./status-store.js";
  * Single instance per process. Created in main.ts at app.whenReady() and
  * disposed via shutdownForQuit() in app.before-quit.
  */
+export interface ImAgentModelRef {
+	provider: string;
+	model: string;
+	reasoningLevel?: string;
+}
+
 export interface ImHostPublicConfig {
 	enabled: boolean;
 	transport: ImTransportSelector;
@@ -60,6 +68,9 @@ export interface ImHostPublicConfig {
 	// Retained for backwards compat with renderer; always false now that
 	// we no longer encrypt via safeStorage.
 	encryptionAvailable: boolean;
+	// Optional override telling IM-session coding-agent which model to
+	// use. Undefined → fall back to agent settings default.
+	agentModel?: ImAgentModelRef;
 }
 
 export interface SetConfigPayload {
@@ -75,6 +86,9 @@ export interface SetConfigPayload {
 		encryptKey?: string;
 		baseUrl?: string;
 	};
+	// `null` clears the override (use agent settings default).
+	// `undefined` (key omitted) preserves the existing value.
+	agentModel?: ImAgentModelRef | null;
 }
 
 export interface SetConfigResult {
@@ -98,18 +112,22 @@ export class ImHost {
 	readonly statusStore = new StatusStore();
 	readonly logBuffer = new LogBuffer(500);
 
+	private readonly logger = getAppLogger("sidecar", "im");
 	private config: ImConfig = defaultImConfig();
 	private credentials: ImCredentials = {};
-	private state: ImStateFile = { version: 1, sessions: [] };
-	private projects: ProjectEntry[] = [];
+	private state: ImStateFile = { version: 3, sessions: [] };
 
 	private manager: SidecarManager;
 	private binaryPath?: string;
-	private projectWatchUnsub?: () => void;
 
 	// Wechat bind subscribers. Multiple renderer windows may subscribe;
 	// each gets every event in arrival order.
 	private wechatBindHandlers: Set<(event: WechatBindEvent) => void> = new Set();
+
+	// Listeners notified after every state_patch is applied. The IPC layer
+	// uses this to broadcast "im session list changed" to the renderer so
+	// the sidebar refreshes without the user having to manually reload.
+	private stateChangeHandlers: Set<() => void> = new Set();
 
 	constructor() {
 		this.manager = new SidecarManager({
@@ -121,7 +139,7 @@ export class ImHost {
 					if (this.statusStore.get().transport !== "awaiting_bind") {
 						this.statusStore.patch({ transport: "online", lastError: undefined });
 					}
-					this.logBuffer.push({
+					this.pushLog({
 						type: "log",
 						level: "info",
 						msg: `sidecar ready ${event.transport} v${event.version}`,
@@ -136,7 +154,7 @@ export class ImHost {
 					});
 				},
 				onLog: (event) => {
-					this.logBuffer.push(event);
+					this.pushLog(event);
 				},
 				onMetric: (event) => {
 					if (event.name === "active_sessions") {
@@ -146,7 +164,7 @@ export class ImHost {
 				onStatePatch: (event) => {
 					this.state = applyStatePatch(this.state, {
 						userId: event.userId,
-						projectId: event.projectId,
+						chatId: event.chatId,
 						sessionPath: event.sessionPath,
 						updatedAt: event.updatedAt,
 					});
@@ -154,6 +172,13 @@ export class ImHost {
 						saveImState(this.state);
 					} catch (err) {
 						this.appendLog("warn", `state save failed: ${(err as Error).message}`);
+					}
+					for (const h of this.stateChangeHandlers) {
+						try {
+							h();
+						} catch (err) {
+							this.appendLog("warn", `state change handler threw: ${(err as Error).message}`);
+						}
 					}
 				},
 				onSpawned: (pid) => {
@@ -231,22 +256,8 @@ export class ImHost {
 		try {
 			this.state = loadImState();
 		} catch {
-			this.state = { version: 1, sessions: [] };
+			this.state = { version: 3, sessions: [] };
 		}
-
-		// Hydrate the project list from desktop-app's config and watch
-		// the file for changes. This is what makes /projects in feishu
-		// reflect what the user has pinned in the desktop UI.
-		try {
-			this.projects = loadDesktopProjects();
-		} catch {
-			this.projects = [];
-		}
-		this.projectWatchUnsub = watchDesktopProjects((projects) => {
-			this.projects = projects;
-			this.manager.updateProjects(projects);
-			this.appendLog("info", `desktop project list updated (${projects.length} projects)`);
-		});
 
 		if (this.config.enabled && this.hasRequiredCredentials()) {
 			await this.startSidecar();
@@ -331,13 +342,6 @@ export class ImHost {
 		}
 	}
 
-	/** Plug in or replace the project list. Used by desktop-app's project
-	 * source whenever the user adds/removes a project. */
-	setProjects(projects: ProjectEntry[]): void {
-		this.projects = projects;
-		this.manager.updateProjects(projects);
-	}
-
 	getPublicConfig(): ImHostPublicConfig {
 		return {
 			enabled: this.config.enabled,
@@ -356,6 +360,7 @@ export class ImHost {
 			},
 			transportMode: this.config.transportMode,
 			encryptionAvailable: false,
+			agentModel: this.config.agentModel,
 		};
 	}
 
@@ -365,6 +370,15 @@ export class ImHost {
 		// previous config so callers can update enabled / feishu without
 		// resetting the user's choice.
 		const nextTransport: ImTransportSelector = payload.transport ?? this.config.transport;
+
+		// agentModel handling: `undefined` in the payload means "no change",
+		// explicit `null` means "clear the override".
+		let nextAgentModel = this.config.agentModel;
+		if (payload.agentModel === null) {
+			nextAgentModel = undefined;
+		} else if (payload.agentModel !== undefined) {
+			nextAgentModel = payload.agentModel;
+		}
 
 		const nextConfig: ImConfig = {
 			enabled: payload.enabled,
@@ -377,7 +391,24 @@ export class ImHost {
 				: this.config.feishu,
 			wechat: this.config.wechat,
 			transportMode: "long-connection",
+			agentModel: nextAgentModel,
 		};
+
+		// Enabling the bridge requires a working agent model. Probe the
+		// configured provider's baseUrl so users get a fast actionable
+		// error instead of "Connection error." on every IM message. Done
+		// BEFORE persisting so a failed probe leaves the on-disk config
+		// untouched (enabled stays off).
+		const prevEnabled = this.config.enabled;
+		if (nextConfig.enabled && !prevEnabled) {
+			if (!nextConfig.agentModel) {
+				return { ok: false, error: "请先在「对话模型」里选择 IM 桥接使用的模型" };
+			}
+			const probe = await this.probeAgentModel(nextConfig.agentModel);
+			if (!probe.ok) {
+				return { ok: false, error: `模型连通性检查失败：${probe.error ?? "未知错误"}` };
+			}
+		}
 
 		// Update credentials only when the payload sent a feishu block.
 		const nextCreds: ImCredentials = { ...this.credentials };
@@ -426,8 +457,6 @@ export class ImHost {
 	}
 
 	async shutdownForQuit(): Promise<void> {
-		this.projectWatchUnsub?.();
-		this.projectWatchUnsub = undefined;
 		await this.manager.shutdownForQuit();
 	}
 
@@ -445,6 +474,16 @@ export class ImHost {
 
 	subscribeLog(handler: (event: LogEvent) => void): () => void {
 		return this.logBuffer.subscribe(handler);
+	}
+
+	/** Fire-and-forget notification that the IM routing table changed
+	 * (state_patch from sidecar). Subscribers typically reload the
+	 * affected project's session list. */
+	subscribeStateChange(handler: () => void): () => void {
+		this.stateChangeHandlers.add(handler);
+		return () => {
+			this.stateChangeHandlers.delete(handler);
+		};
 	}
 
 	getPaths(): { config: string; credentials: string; state: string; wechatState: string } {
@@ -502,6 +541,28 @@ export class ImHost {
 	 *   - wechat: always true — the sidecar boots into awaiting_bind when
 	 *     no credentials are present and waits for the user to scan a QR
 	 */
+	/**
+	 * Probe the given (provider, model)'s baseUrl to see if the model
+	 * server is reachable. Returns ok=true on a 2xx/4xx response (4xx
+	 * still proves the host answered — auth issue is a separate concern
+	 * and shouldn't block the bridge), ok=false on network / DNS / TLS
+	 * failures.
+	 *
+	 * Uses electron.net.fetch deliberately so we go through Chromium's
+	 * network stack and bypass macOS 15 LNP — the same reason the main
+	 * process swaps globalThis.fetch for the GUI session. We don't rely
+	 * on globalThis.fetch here because installChromiumFetchForMain might
+	 * not have run yet at probe time.
+	 *
+	 * Public so the renderer can re-probe on demand (test-connect button).
+	 */
+	async probeAgentModel(ref: {
+		provider: string;
+		model: string;
+	}): Promise<{ ok: boolean; message?: string; error?: string }> {
+		return probeModelProvider(ref);
+	}
+
 	private hasRequiredCredentials(): boolean {
 		if (this.config.transport === "wechat") {
 			return true;
@@ -531,21 +592,24 @@ export class ImHost {
 			this.binaryPath = resolveImGatewayBinary().path;
 			this.statusStore.patch({ binaryPath: this.binaryPath });
 		}
+		const codingAgent = buildCodingAgentSpec({ agentModel: this.config.agentModel });
 		// Send only the slot for the currently selected transport. The
 		// sidecar uses nil-discriminator to pick which to start.
 		if (this.config.transport === "wechat") {
 			return {
 				binaryPath: this.binaryPath,
 				wechat: this.buildWechatConfig(),
-				projects: this.projects,
+				conversationCwd: DEFAULT_IM_CONVERSATION_CWD,
 				state: this.stateAsEntries(),
+				codingAgent,
 			};
 		}
 		return {
 			binaryPath: this.binaryPath,
 			feishu: this.buildFeishuConfig(),
-			projects: this.projects,
+			conversationCwd: DEFAULT_IM_CONVERSATION_CWD,
 			state: this.stateAsEntries(),
+			codingAgent,
 		};
 	}
 
@@ -570,12 +634,18 @@ export class ImHost {
 	}
 
 	private appendLog(level: LogEvent["level"], msg: string): void {
-		this.logBuffer.push({
+		this.pushLog({
 			type: "log",
 			level,
 			msg,
 			time: new Date().toISOString(),
 		});
+	}
+
+	private pushLog(event: LogEvent): void {
+		const args = event.fields ? [event.msg, event.fields] : [event.msg];
+		this.logger[event.level](...args);
+		this.logBuffer.push(event);
 	}
 }
 

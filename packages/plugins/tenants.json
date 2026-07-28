@@ -1,0 +1,16 @@
+{
+  "default": "common",
+  "tenants": {
+    "common": [
+		"vetta-actions",
+      "guiding-words",
+      "image-gen",
+      "media-viewer",
+      "office-viewer",
+      "svg-viewer",
+      "chart-renderer",
+      "git",
+      "plugin-workbench"
+    ]
+  }
+}

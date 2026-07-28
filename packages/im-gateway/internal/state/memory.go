@@ -65,11 +65,11 @@ func (m *MemoryStore) Save(_ context.Context, state RouterState) error {
 	return nil
 }
 
-// GetSession looks up a single (user, project) entry.
-func (m *MemoryStore) GetSession(_ context.Context, userID, projectID string) (SessionEntry, bool, error) {
+// GetSession looks up a single (user, chat) entry.
+func (m *MemoryStore) GetSession(_ context.Context, userID, chatID string) (SessionEntry, bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	entry, ok := m.sessions[SessionKey(userID, projectID)]
+	entry, ok := m.sessions[SessionKey(userID, chatID)]
 	return entry, ok, nil
 }
 
@@ -77,7 +77,7 @@ func (m *MemoryStore) GetSession(_ context.Context, userID, projectID string) (S
 func (m *MemoryStore) SetSession(_ context.Context, entry SessionEntry) error {
 	entry.UpdatedAt = time.Now().UTC()
 	m.mu.Lock()
-	m.sessions[SessionKey(entry.UserID, entry.ProjectID)] = entry
+	m.sessions[SessionKey(entry.UserID, entry.ChatID)] = entry
 	hook := m.hook
 	m.mu.Unlock()
 	if hook != nil {

@@ -36,7 +36,6 @@ import (
 	"vetta-im-gateway/internal/hostclient"
 	hclocal "vetta-im-gateway/internal/hostclient/local"
 	"vetta-im-gateway/internal/logger"
-	"vetta-im-gateway/internal/projects"
 	"vetta-im-gateway/internal/router"
 	"vetta-im-gateway/internal/state"
 	"vetta-im-gateway/internal/transport"
@@ -170,11 +169,13 @@ func runStart(args []string) int {
 	}
 
 	stateStore := state.NewFileStore(cfg.Paths.State)
-	projectDir := projects.NewDesktopConfigDirectory(cfg.Paths.DesktopConfig)
 	hostClient := hclocal.New(hclocal.Options{
 		Bin:              cfg.HostClient.CodingAgentBin,
 		HandshakeTimeout: cfg.HostClient.HandshakeTimeout,
 		CloseTimeout:     cfg.HostClient.CloseTimeout,
+		// Standalone `start` mode is also wechat-aware: same im_send_attachment
+		// pipeline applies (see ADR-0006). Cheap to always enable.
+		EnableHostBridge: true,
 	})
 	pool := hostclient.NewProcessPool(hostClient, cfg.HostClient.PoolMaxSize)
 	defer func() {
@@ -183,7 +184,7 @@ func runStart(args []string) int {
 		}
 	}()
 
-	r := router.New(tr, command.NewRouter(), stateStore, projectDir, pool)
+	r := router.New(tr, command.NewRouter(), stateStore, pool, cfg.Paths.ConversationCwd)
 	defer r.Shutdown()
 
 	pidPath := filepath.Join(filepath.Dir(cfg.Paths.State), "im-gateway.pid")
@@ -227,11 +228,13 @@ func buildTransport(cfg *config.Config, creds *config.Credentials, log *zap.Logg
 			AppID:     creds.Feishu.AppID,
 			AppSecret: creds.Feishu.AppSecret,
 			Domain:    domain,
+			InboxDir:  cfg.Paths.ConversationCwd,
 		})
 	case config.TransportWechat:
 		opts := wechat.Options{
 			StatePath: cfg.Paths.WechatState,
 			Logger:    log,
+			InboxDir:  cfg.Paths.ConversationCwd,
 		}
 		if cfg.Transport.Wechat != nil {
 			opts.QuotaPerWindow = cfg.Transport.Wechat.QuotaPerWindow

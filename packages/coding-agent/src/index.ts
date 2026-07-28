@@ -2,6 +2,14 @@
 
 // Config paths
 export { DEFAULT_SERVER_URL, getAgentDir, VERSION } from "./config.js";
+// 工作模式（agent_mode 正交轴，见 ADR-0046）
+export {
+	type AgentMode,
+	ALL_AGENT_MODES,
+	DEFAULT_AGENT_MODE,
+	isAgentMode,
+	matchesAgentMode,
+} from "./core/agent-mode.js";
 export {
 	AgentSession,
 	type AgentSessionConfig,
@@ -10,6 +18,7 @@ export {
 	type ModelCycleResult,
 	type ParsedSkillBlock,
 	type PromptOptions,
+	type PromptResourceRef,
 	parseSkillBlock,
 	type SessionStats,
 } from "./core/agent-session.js";
@@ -23,6 +32,16 @@ export {
 	InMemoryAuthStorageBackend,
 	type OAuthCredential,
 } from "./core/auth-storage.js";
+// Background bash tasks (run_in_background)
+export {
+	type BackgroundTaskEndedBy,
+	type BackgroundTaskEvent,
+	type BackgroundTaskListener,
+	BackgroundTaskManager,
+	type BackgroundTaskSnapshot,
+	type BackgroundTaskStatus,
+	buildTaskNotification,
+} from "./core/background-tasks/index.js";
 // Compaction
 export {
 	type BranchPreparation,
@@ -46,6 +65,8 @@ export {
 	serializeConversation,
 	shouldCompact,
 } from "./core/compaction/index.js";
+// Concurrency limiter (shared by OCR throttle, kb write mutex, KB processing session pool)
+export { createLimiter, type Limiter } from "./core/concurrency-limit.js";
 export { createEventBus, type EventBus, type EventBusController } from "./core/event-bus.js";
 // Extension system
 export type {
@@ -82,7 +103,11 @@ export type {
 	ExtensionUIDialogOptions,
 	ExtensionWidgetOptions,
 	FindToolCallEvent,
+	FindToolResultEvent,
+	GlobToolCallEvent,
+	GlobToolResultEvent,
 	GrepToolCallEvent,
+	GrepToolResultEvent,
 	InputEvent,
 	InputEventResult,
 	InputSource,
@@ -130,6 +155,7 @@ export {
 	isDirTreeToolResult,
 	isEditToolResult,
 	isFindToolResult,
+	isGlobToolResult,
 	isGrepToolResult,
 	isLsToolResult,
 	isReadToolResult,
@@ -142,7 +168,14 @@ export {
 } from "./core/extensions/index.js";
 // Footer data provider (git branch + extension statuses - data not otherwise available to extensions)
 export type { ReadonlyFooterDataProvider } from "./core/footer-data-provider.js";
-export { convertToLlm } from "./core/messages.js";
+// Knowledge base core modules
+export * as knowledge from "./core/knowledge/index.js";
+export {
+	convertToLlm,
+	PROMPT_ATTACHMENT_CONTEXT_TYPE,
+	PROMPT_ATTACHMENT_REFERENCE_TYPE,
+	PROMPT_RESOURCE_REFERENCE_TYPE,
+} from "./core/messages.js";
 export { ModelRegistry } from "./core/model-registry.js";
 export type {
 	PackageManager,
@@ -153,6 +186,7 @@ export type {
 	ResolvedResource,
 } from "./core/package-manager.js";
 export { DefaultPackageManager } from "./core/package-manager.js";
+export { DEFAULT_PERSONA_ID, getPersonaPrompt, PERSONAS, type Persona } from "./core/personas.js";
 export type { ResourceCollision, ResourceDiagnostic, ResourceLoader } from "./core/resource-loader.js";
 export { DefaultResourceLoader } from "./core/resource-loader.js";
 // SDK for programmatic usage
@@ -165,17 +199,34 @@ export {
 	// Tool factories (for custom cwd)
 	createCodingTools,
 	createEditTool,
+	createExtractTextFromImgTool,
+	createExtractTextFromPdfTool,
 	createFindTool,
+	createGlobTool,
 	createGrepTool,
+	createHtmlToPdfTool,
 	createLsTool,
+	createProgressTool,
 	createReadOnlyTools,
 	createReadTool,
+	createRenderPdfPageTool,
+	createShellTool,
 	createTreeTool,
 	createWriteTool,
 	type PromptTemplate,
 	// Pre-built tools (use process.cwd())
 	readOnlyTools,
 } from "./core/sdk.js";
+// 对话场景与工具 scope（隔离的唯一轴）
+export {
+	ALL_SCENARIOS,
+	type CodingAgentTool,
+	type ConversationScenario,
+	DEFAULT_SCENARIO,
+	type ToolCapability,
+	type ToolCategory,
+} from "./core/session/tool-scope.js";
+export type { PromptAttachmentRef } from "./core/session/types.js";
 export {
 	type BranchSummaryEntry,
 	buildSessionContext,
@@ -185,6 +236,7 @@ export {
 	type CustomMessageEntry,
 	type FileEntry,
 	getLatestCompactionEntry,
+	loadEntriesFromFile,
 	type ModelChangeEntry,
 	migrateSessionEntries,
 	type NewSessionOptions,
@@ -198,11 +250,12 @@ export {
 	SessionManager,
 	type SessionMessageEntry,
 	type ThinkingLevelChangeEntry,
-} from "./core/session-manager.js";
+} from "./core/session-manager/index.js";
 export {
 	type CompactionSettings,
 	type ImageSettings,
 	type PackageSource,
+	type PersonalizationSettings,
 	type RetrySettings,
 	SettingsManager,
 } from "./core/settings-manager.js";
@@ -216,8 +269,44 @@ export {
 	type Skill,
 	type SkillFrontmatter,
 } from "./core/skills.js";
+// Subagents (extensible type registry; builtin explorer + workflow)
+export {
+	buildToolsForSubagentType,
+	createDefaultSubagentSessionFactory,
+	createDefaultSubagentTypeRegistry,
+	createEmptySubagentTypeRegistry,
+	createExplorerTypeDefinition,
+	createSubagentControlTools,
+	createWorkflowTypeDefinition,
+	DISPATCH_WORKFLOWS_MAX_BATCH,
+	EXPLORER_SYSTEM_PROMPT,
+	isValidTaskName,
+	SUBAGENT_CONTROL_TOOL_NAMES,
+	SUBAGENT_TYPE_EXPLORER,
+	SUBAGENT_TYPE_WORKFLOW,
+	type SubagentChildHandle,
+	SubagentCoordinator,
+	type SubagentSessionFactory,
+	type SubagentSnapshot,
+	type SubagentStatus,
+	type SubagentTodoProgress,
+	type SubagentTypeDefinition,
+	type SubagentTypeId,
+	SubagentTypeRegistry,
+	WORKFLOW_SYSTEM_PROMPT,
+} from "./core/subagents/index.js";
 // Tools
 export {
+	type AskUserQuestionAnswer,
+	type AskUserQuestionCapability,
+	type AskUserQuestionFn,
+	type AskUserQuestionItem,
+	type AskUserQuestionOption,
+	type AskUserQuestionRequest,
+	type AskUserQuestionResult,
+	type AskUserQuestionToolDetails,
+	type AskUserQuestionToolInput,
+	type AskUserQuestionToolOptions,
 	type BashOperations,
 	type BashSpawnContext,
 	type BashSpawnHook,
@@ -225,35 +314,71 @@ export {
 	type BashToolInput,
 	type BashToolOptions,
 	bashTool,
+	type CommandToolName,
 	codingTools,
+	createAskUserQuestionTool,
+	createTaskOutputTool,
+	createTaskStopTool,
+	createToolSearchTool,
 	DEFAULT_MAX_BYTES,
 	DEFAULT_MAX_LINES,
 	type EditOperations,
 	type EditToolDetails,
 	type EditToolInput,
 	type EditToolOptions,
+	type ExtractTextFromImgToolInput,
+	type ExtractTextFromPdfToolInput,
 	editTool,
+	extractTextFromImgTool,
+	extractTextFromPdfTool,
 	type FindOperations,
 	type FindToolDetails,
 	type FindToolInput,
 	type FindToolOptions,
 	findTool,
 	formatSize,
+	type GlobOperations,
+	type GlobToolDetails,
+	type GlobToolInput,
+	type GlobToolOptions,
 	type GrepOperations,
 	type GrepToolDetails,
 	type GrepToolInput,
 	type GrepToolOptions,
+	getDefaultCodingToolNames,
+	getDefaultCommandToolName,
+	globTool,
 	grepTool,
+	type HtmlToPdfToolInput,
+	htmlToPdfTool,
 	type LsOperations,
 	type LsToolDetails,
 	type LsToolInput,
 	type LsToolOptions,
 	lsTool,
+	type ProgressToolDetails,
+	type ProgressToolInput,
+	progressTool,
 	type ReadOperations,
 	type ReadToolDetails,
 	type ReadToolInput,
 	type ReadToolOptions,
+	type RenderPdfPageToolInput,
 	readTool,
+	renderPdfPageTool,
+	type ShellOperations,
+	type ShellSpawnContext,
+	type ShellSpawnHook,
+	type ShellToolDetails,
+	type ShellToolInput,
+	type ShellToolOptions,
+	shellTool,
+	type TaskOutputToolDetails,
+	type TaskOutputToolInput,
+	type TaskOutputToolOptions,
+	type TaskStopToolDetails,
+	type TaskStopToolInput,
+	type TaskStopToolOptions,
 	type ToolsOptions,
 	type TreeOperations,
 	type TreeToolDetails,
@@ -270,63 +395,36 @@ export {
 	type WriteToolOptions,
 	writeTool,
 } from "./core/tools/index.js";
+// Knowledge base tools
+export {
+	createKbFilterByTagsTool,
+	type KbFilterByTagsDetails,
+	type KbFilterByTagsInput,
+	kbFilterByTagsTool,
+} from "./core/tools/kb-filter-by-tags/index.js";
+export {
+	createKbListTagsTool,
+	type KbListTagsDetails,
+	type KbListTagsInput,
+	kbListTagsTool,
+} from "./core/tools/kb-list-tags/index.js";
+export {
+	createKbWritePageTool,
+	type KbWritePageDetails,
+	type KbWritePageInput,
+	kbWritePageTool,
+} from "./core/tools/kb-write-page/index.js";
 // Main entry point
 export { main } from "./main.js";
 // Run modes for programmatic SDK usage
 export {
-	InteractiveMode,
-	type InteractiveModeOptions,
 	type PrintModeOptions,
 	runPrintMode,
 	runRpcMode,
 } from "./modes/index.js";
-// UI components for extensions
-export {
-	ArminComponent,
-	AssistantMessageComponent,
-	appKey,
-	appKeyHint,
-	BashExecutionComponent,
-	BorderedLoader,
-	BranchSummaryMessageComponent,
-	CompactionSummaryMessageComponent,
-	CustomEditor,
-	CustomMessageComponent,
-	DynamicBorder,
-	ExtensionEditorComponent,
-	ExtensionInputComponent,
-	ExtensionSelectorComponent,
-	editorKey,
-	FooterComponent,
-	keyHint,
-	LoginDialogComponent,
-	ModelSelectorComponent,
-	OAuthSelectorComponent,
-	type RenderDiffOptions,
-	rawKeyHint,
-	renderDiff,
-	SessionSelectorComponent,
-	type SettingsCallbacks,
-	type SettingsConfig,
-	SettingsSelectorComponent,
-	ShowImagesSelectorComponent,
-	SkillInvocationMessageComponent,
-	ThemeSelectorComponent,
-	ThinkingSelectorComponent,
-	ToolExecutionComponent,
-	type ToolExecutionOptions,
-	TreeSelectorComponent,
-	truncateToVisualLines,
-	UserMessageComponent,
-	UserMessageSelectorComponent,
-	type VisualTruncateResult,
-} from "./modes/interactive/components/index.js";
-// Theme utilities for custom tools and extensions
+// Theme utilities for custom tools and extensions (terminal rendering helpers removed with the TUI product)
 export {
 	getLanguageFromPath,
-	getMarkdownTheme,
-	getSelectListTheme,
-	getSettingsListTheme,
 	highlightCode,
 	initTheme,
 	Theme,
@@ -336,4 +434,11 @@ export {
 export { copyToClipboard } from "./utils/clipboard.js";
 export { parseFrontmatter, stripFrontmatter } from "./utils/frontmatter.js";
 // Shell utilities
-export { getShellConfig } from "./utils/shell.js";
+export {
+	decodeTextBuffer,
+	getDefaultShellCommandPrefix,
+	getShellConfig,
+	isWindowsPowerShellShell,
+	prependCommandPrefixes,
+	WINDOWS_POWERSHELL_UTF8_COMMAND_PREFIX,
+} from "./utils/shell.js";

@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import chalk from "chalk";
-import { CONFIG_DIR_NAME, getAgentDir, getSceneDir } from "../config.js";
+import { CONFIG_DIR_NAME, getAgentDir, getSceneDir, getVettaHomePath } from "../config.js";
 import { loadThemeFromPath, type Theme } from "../modes/interactive/theme/theme.js";
 import type { ResourceDiagnostic } from "./diagnostics.js";
 
@@ -34,7 +34,19 @@ export interface ResourceLoader {
 	getAppendSystemPrompt(): string[];
 	getPathMetadata(): Map<string, PathMetadata>;
 	extendResources(paths: ResourceExtensionPaths): void;
+	/**
+	 * Replace additional skill roots (e.g. plugin skillPathContributions) and
+	 * reload skills without a full package-manager resolve.
+	 */
+	setAdditionalSkillPaths(paths: string[]): void;
 	reload(): Promise<void>;
+	/**
+	 * Detect on-disk changes under the currently tracked skill paths and reload
+	 * skills if anything has changed since the last fingerprint snapshot.
+	 * Returns true if skills were reloaded (caller should rebuild system prompt).
+	 * Cheap enough to call before every prompt — only stat()s entries.
+	 */
+	refreshSkillsIfChanged(): boolean;
 }
 
 function resolvePromptInput(input: string | undefined, description: string): string | undefined {
@@ -125,6 +137,8 @@ export interface DefaultResourceLoaderOptions {
 	noSkills?: boolean;
 	noPromptTemplates?: boolean;
 	noThemes?: boolean;
+	/** Discover generic Agent Skill dirs (`~/.agents/skills`, `<cwd>/.agents/skills`). Default: true. */
+	includeAgentSkills?: boolean;
 	systemPrompt?: string;
 	appendSystemPrompt?: string;
 	extensionsOverride?: (base: LoadExtensionsResult) => LoadExtensionsResult;
@@ -162,6 +176,7 @@ export class DefaultResourceLoader implements ResourceLoader {
 	private noSkills: boolean;
 	private noPromptTemplates: boolean;
 	private noThemes: boolean;
+	private includeAgentSkills: boolean;
 	private systemPromptSource?: string;
 	private appendSystemPromptSource?: string;
 	private extensionsOverride?: (base: LoadExtensionsResult) => LoadExtensionsResult;
@@ -197,6 +212,7 @@ export class DefaultResourceLoader implements ResourceLoader {
 	private lastSkillPaths: string[];
 	private lastPromptPaths: string[];
 	private lastThemePaths: string[];
+	private skillsFingerprint: string = "";
 
 	constructor(options: DefaultResourceLoaderOptions) {
 		this.cwd = options.cwd ?? process.cwd();
@@ -217,6 +233,7 @@ export class DefaultResourceLoader implements ResourceLoader {
 		this.noSkills = options.noSkills ?? false;
 		this.noPromptTemplates = options.noPromptTemplates ?? false;
 		this.noThemes = options.noThemes ?? false;
+		this.includeAgentSkills = options.includeAgentSkills ?? true;
 		this.systemPromptSource = options.systemPrompt;
 		this.appendSystemPromptSource = options.appendSystemPrompt;
 		this.extensionsOverride = options.extensionsOverride;
@@ -274,6 +291,28 @@ export class DefaultResourceLoader implements ResourceLoader {
 		return this.pathMetadata;
 	}
 
+	/**
+	 * Replace plugin/session-provided extra skill roots and reload skills.
+	 * Used when agent plugins reconfigure (skillPathContributions change).
+	 */
+	setAdditionalSkillPaths(paths: string[]): void {
+		const previousPaths = this.mergePaths([], this.additionalSkillPaths);
+		const nextPaths = this.mergePaths([], paths);
+		if (
+			previousPaths.length === nextPaths.length &&
+			previousPaths.every((path, index) => path === nextPaths[index])
+		) {
+			return;
+		}
+		const previous = new Set(previousPaths);
+		this.additionalSkillPaths = nextPaths;
+		// Drop previous additional paths, keep non-additional lastSkillPaths as base.
+		const basePaths = this.lastSkillPaths.filter((p) => !previous.has(resolve(p)));
+		this.lastSkillPaths = this.mergePaths(basePaths, this.additionalSkillPaths);
+		this.updateSkillsFromPaths(this.lastSkillPaths);
+		this.skillsFingerprint = this.computeSkillsFingerprint();
+	}
+
 	extendResources(paths: ResourceExtensionPaths): void {
 		const skillPaths = this.normalizeExtensionPaths(paths.skillPaths ?? []);
 		const promptPaths = this.normalizeExtensionPaths(paths.promptPaths ?? []);
@@ -285,6 +324,7 @@ export class DefaultResourceLoader implements ResourceLoader {
 				skillPaths.map((entry) => entry.path),
 			);
 			this.updateSkillsFromPaths(this.lastSkillPaths, skillPaths);
+			this.skillsFingerprint = this.computeSkillsFingerprint();
 		}
 
 		if (promptPaths.length > 0) {
@@ -414,6 +454,8 @@ export class DefaultResourceLoader implements ResourceLoader {
 		this.lastThemePaths = themePaths;
 		this.updateThemesFromPaths(themePaths);
 
+		this.skillsFingerprint = this.computeSkillsFingerprint();
+
 		for (const extension of this.extensionsResult.extensions) {
 			this.addDefaultMetadataForPath(extension.path);
 		}
@@ -434,6 +476,78 @@ export class DefaultResourceLoader implements ResourceLoader {
 		this.appendSystemPrompt = this.appendSystemPromptOverride
 			? this.appendSystemPromptOverride(baseAppend)
 			: baseAppend;
+	}
+
+	refreshSkillsIfChanged(): boolean {
+		if (this.lastSkillPaths.length === 0) {
+			return false;
+		}
+		const fingerprint = this.computeSkillsFingerprint();
+		if (fingerprint === this.skillsFingerprint) {
+			return false;
+		}
+		this.skillsFingerprint = fingerprint;
+		this.updateSkillsFromPaths(this.lastSkillPaths);
+		return true;
+	}
+
+	private computeSkillsFingerprint(): string {
+		const parts: string[] = [];
+		const visited = new Set<string>();
+		const walk = (target: string): void => {
+			let resolved: string;
+			try {
+				resolved = resolve(target);
+			} catch {
+				parts.push(`X:${target}`);
+				return;
+			}
+			if (visited.has(resolved)) return;
+			visited.add(resolved);
+			let stats: ReturnType<typeof statSync>;
+			try {
+				stats = statSync(resolved);
+			} catch {
+				parts.push(`X:${resolved}`);
+				return;
+			}
+			if (stats.isDirectory()) {
+				parts.push(`D:${resolved}:${stats.mtimeMs}`);
+				let entries: string[];
+				try {
+					entries = readdirSync(resolved);
+				} catch {
+					return;
+				}
+				entries.sort();
+				for (const name of entries) {
+					if (name.startsWith(".")) continue;
+					if (name === "node_modules") continue;
+					walk(join(resolved, name));
+				}
+			} else if (stats.isFile()) {
+				parts.push(`F:${resolved}:${stats.mtimeMs}:${stats.size}`);
+			}
+		};
+		for (const p of this.lastSkillPaths) {
+			walk(p);
+		}
+		// Generic Agent Skill dirs are scanned inside loadSkills (not via lastSkillPaths),
+		// so fingerprint them here too — otherwise edits there wouldn't trigger a reload.
+		if (this.includeAgentSkills) {
+			walk(join(homedir(), ".agents", "skills"));
+			walk(join(this.cwd, ".agents", "skills"));
+		}
+		// Market-skills manifest toggles which skills are active even when files
+		// don't change, so include it in the fingerprint.
+		const manifestPath = join(getVettaHomePath(), "skills-manifest.json");
+		try {
+			const stats = statSync(manifestPath);
+			parts.push(`M:${manifestPath}:${stats.mtimeMs}:${stats.size}`);
+		} catch {
+			parts.push(`M:none`);
+		}
+		return parts.join("\n");
 	}
 
 	private normalizeExtensionPaths(
@@ -458,6 +572,7 @@ export class DefaultResourceLoader implements ResourceLoader {
 				agentDir: this.agentDir,
 				skillPaths,
 				includeDefaults: false,
+				includeAgentSkills: this.includeAgentSkills,
 			});
 		}
 		// Mark skills loaded from scene directory as type='scene'
@@ -470,8 +585,8 @@ export class DefaultResourceLoader implements ResourceLoader {
 			}
 		}
 		// Filter out disabled market skills/scenes based on manifest
-		const marketSkillsDir = resolve(join(homedir(), ".vetta", "skills"));
-		const manifestPath = join(homedir(), ".vetta", "skills-manifest.json");
+		const marketSkillsDir = resolve(join(getVettaHomePath(), "skills"));
+		const manifestPath = join(getVettaHomePath(), "skills-manifest.json");
 		let disabledNames: Set<string> | undefined;
 		if (existsSync(manifestPath)) {
 			try {
@@ -511,6 +626,20 @@ export class DefaultResourceLoader implements ResourceLoader {
 		for (const skill of this.skills) {
 			this.addDefaultMetadataForPath(skill.filePath);
 		}
+
+		// 测试可观测：会话 skill 发现结果（主进程经 console patch 进 desktop main 日志）
+		const bySource: Record<string, number> = {};
+		for (const skill of this.skills) {
+			const source = skill.source ?? "unknown";
+			bySource[source] = (bySource[source] ?? 0) + 1;
+		}
+		console.info("[skills] loaded", {
+			cwd: this.cwd,
+			includeAgentSkills: this.includeAgentSkills,
+			total: this.skills.length,
+			bySource,
+			names: this.skills.map((s) => s.name),
+		});
 	}
 
 	private updatePromptsFromPaths(

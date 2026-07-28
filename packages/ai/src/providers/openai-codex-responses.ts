@@ -1,4 +1,4 @@
-// NEVER convert to top-level import - breaks browser/Vite builds (web-ui)
+// NEVER convert to top-level import - breaks browser/Vite builds
 let _os: typeof import("node:os") | null = null;
 if (typeof process !== "undefined" && (process.versions?.node || process.versions?.bun)) {
 	import("node:os").then((m) => {
@@ -46,7 +46,7 @@ const CODEX_RESPONSE_STATUSES = new Set<CodexResponseStatus>([
 // ============================================================================
 
 export interface OpenAICodexResponsesOptions extends StreamOptions {
-	reasoningEffort?: "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
+	reasoningEffort?: string;
 	reasoningSummary?: "auto" | "concise" | "detailed" | "off" | "on" | null;
 	textVerbosity?: "low" | "medium" | "high";
 }
@@ -87,11 +87,20 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
 			reject(new Error("Request was aborted"));
 			return;
 		}
-		const timeout = setTimeout(resolve, ms);
-		signal?.addEventListener("abort", () => {
+		let timeout: ReturnType<typeof setTimeout>;
+		const cleanup = () => {
 			clearTimeout(timeout);
+			signal?.removeEventListener("abort", onAbort);
+		};
+		const onAbort = () => {
+			cleanup();
 			reject(new Error("Request was aborted"));
-		});
+		};
+		timeout = setTimeout(() => {
+			cleanup();
+			resolve();
+		}, ms);
+		signal?.addEventListener("abort", onAbort, { once: true });
 	});
 }
 

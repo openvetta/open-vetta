@@ -5,32 +5,36 @@
  * createAgentSession() options. The SDK does the heavy lifting.
  */
 
-import { type ImageContent, modelsAreEqual, supportsXhigh } from "@mariozechner/pi-ai";
+import { type ImageContent, modelsAreEqual, supportsXhigh } from "@vetta/ai";
 import chalk from "chalk";
 import { createInterface } from "readline";
 import { type Args, parseArgs, printHelp } from "./cli/args.js";
-import { selectConfig } from "./cli/config-selector.js";
 import { processFileArguments } from "./cli/file-processor.js";
 import { listModels } from "./cli/list-models.js";
-import { selectSession } from "./cli/session-picker.js";
-import { APP_NAME, CONFIG_DIR_NAME, DEFAULT_SERVER_URL, getAgentDir, getModelsPath, VERSION } from "./config.js";
+import {
+	APP_NAME,
+	CONFIG_DIR_NAME,
+	DEFAULT_SERVER_URL,
+	ENV_SERVER_URL,
+	getAgentDir,
+	getModelsPath,
+	VERSION,
+} from "./config.js";
 import { AuthStorage } from "./core/auth-storage.js";
 import { DEFAULT_THINKING_LEVEL } from "./core/defaults.js";
 import { exportFromFile } from "./core/export-html/index.js";
 import type { LoadExtensionsResult } from "./core/extensions/index.js";
-import { KeybindingsManager } from "./core/keybindings.js";
 import { ModelRegistry } from "./core/model-registry.js";
 import { resolveCliModel, resolveModelScope, type ScopedModel } from "./core/model-resolver.js";
 import { DefaultPackageManager } from "./core/package-manager.js";
 import { DefaultResourceLoader } from "./core/resource-loader.js";
 import { type CreateAgentSessionOptions, createAgentSession } from "./core/sdk.js";
-import { SessionLockError, SessionManager } from "./core/session-manager.js";
+import { SessionLockError, SessionManager } from "./core/session-manager/index.js";
 import { SettingsManager } from "./core/settings-manager.js";
-import { printTimings, time } from "./core/timings.js";
+import { time } from "./core/timings.js";
 import { allTools } from "./core/tools/index.js";
-import { runMigrations, showDeprecationWarnings } from "./migrations.js";
-import { InteractiveMode, runPrintMode, runRpcMode } from "./modes/index.js";
-import { initTheme, stopThemeWatcher } from "./modes/interactive/theme/theme.js";
+import { runMigrations } from "./migrations.js";
+import { runPrintMode, runRpcMode } from "./modes/index.js";
 
 /**
  * Read all content from piped stdin.
@@ -513,30 +517,13 @@ function buildSessionOptions(
 		options.tools = parsed.tools.map((name) => allTools[name]);
 	}
 
-	return { options, cliThinkingFromModel };
-}
-
-async function handleConfigCommand(args: string[]): Promise<boolean> {
-	if (args[0] !== "config") {
-		return false;
+	// 对话场景（决定按 scope_use 激活哪些工具）。im-gateway 子进程传 --scenario im-claw；
+	// 不传则 SDK 用 DEFAULT_SCENARIO("cli")。
+	if (parsed.scenario) {
+		options.scenario = parsed.scenario;
 	}
 
-	const cwd = process.cwd();
-	const agentDir = getAgentDir();
-	const settingsManager = SettingsManager.create(cwd, agentDir);
-	reportSettingsErrors(settingsManager, "config command");
-	const packageManager = new DefaultPackageManager({ cwd, agentDir, settingsManager });
-
-	const resolvedPaths = await packageManager.resolve();
-
-	await selectConfig({
-		resolvedPaths,
-		settingsManager,
-		cwd,
-		agentDir,
-	});
-
-	process.exit(0);
+	return { options, cliThinkingFromModel };
 }
 
 export async function main(args: string[]) {
@@ -550,12 +537,8 @@ export async function main(args: string[]) {
 		return;
 	}
 
-	if (await handleConfigCommand(args)) {
-		return;
-	}
-
 	// Run migrations (pass cwd for project-local migrations)
-	const { migratedAuthProviders: migratedProviders, deprecationWarnings } = runMigrations(process.cwd());
+	runMigrations(process.cwd());
 
 	// First pass: parse args to get --extension paths
 	const firstPass = parseArgs(args);
@@ -568,8 +551,15 @@ export async function main(args: string[]) {
 	const authStorage = AuthStorage.create();
 	const modelRegistry = new ModelRegistry(authStorage, getModelsPath());
 
-	// Ensure serverUrl has a default value
-	let serverUrl = settingsManager.getServerUrl();
+	// Ensure serverUrl has a default value.
+	// 优先级：环境变量（宿主进程显式注入，权威）> settings.json（用户/历史持久化）
+	// > 内置 DEFAULT_SERVER_URL。
+	// desktop-app 等宿主通过 VETTA_SERVER_URL 把当前生效的 server 地址注入子进程；
+	// 否则一个曾在 dev/LAN 环境登录过的用户切到 prod 后，子进程会继续读 settings.json
+	// 里残留的 LAN 地址，导致 loadRemoteModels 401，远程 provider（vetta-go 等）
+	// 不会注册，IM 桥接 spawn 的 agent-rpc 子进程一启动就以 "Unknown provider" 退出。
+	const envServerUrl = process.env[ENV_SERVER_URL];
+	let serverUrl = envServerUrl || settingsManager.getServerUrl();
 	if (!serverUrl) {
 		settingsManager.setServerUrl(DEFAULT_SERVER_URL);
 		serverUrl = DEFAULT_SERVER_URL;
@@ -673,11 +663,11 @@ export async function main(args: string[]) {
 	const { initialMessage, initialImages } = await prepareInitialMessage(parsed, settingsManager.getImageAutoResize());
 	const isInteractive = !parsed.print && parsed.mode === undefined;
 	const mode = parsed.mode || "text";
-	initTheme(settingsManager.getTheme(), isInteractive);
 
-	// Show deprecation warnings in interactive mode
-	if (isInteractive && deprecationWarnings.length > 0) {
-		await showDeprecationWarnings(deprecationWarnings);
+	// 交互式终端模式已移除（不再随包发布 TUI 产品）。仅保留 print / rpc。
+	if (isInteractive) {
+		console.error(chalk.red("交互式终端模式已移除。请使用 --print 进行单次执行，或使用 Vetta 桌面应用。"));
+		process.exit(1);
 	}
 
 	let scopedModels: ScopedModel[] = [];
@@ -716,25 +706,12 @@ export async function main(args: string[]) {
 		failRpcStartupOnLock(err);
 	}
 
-	// Handle --resume: show session picker
+	// Handle --resume: 交互式会话选择器已随 TUI 移除。
 	if (parsed.resume) {
-		// Initialize keybindings so session picker respects user config
-		KeybindingsManager.create();
-
-		const selectedPath = await selectSession(
-			(onProgress) => SessionManager.list(cwd, parsed.sessionDir, onProgress),
-			SessionManager.listAll,
+		console.error(
+			chalk.red("--resume 的交互式会话选择已移除。请用 --continue 继续最近会话，或用 --session-dir 指定目录。"),
 		);
-		if (!selectedPath) {
-			console.log(chalk.dim("No session selected"));
-			stopThemeWatcher();
-			process.exit(0);
-		}
-		try {
-			sessionManager = SessionManager.open(selectedPath);
-		} catch (err) {
-			failRpcStartupOnLock(err);
-		}
+		process.exit(1);
 	}
 
 	const { options: sessionOptions, cliThinkingFromModel } = buildSessionOptions(
@@ -747,6 +724,16 @@ export async function main(args: string[]) {
 	sessionOptions.authStorage = authStorage;
 	sessionOptions.modelRegistry = modelRegistry;
 	sessionOptions.resourceLoader = resourceLoader;
+	// memory-mode (ADR-0009): honored only with an explicit MEMORY.md path or the
+	// --memory-mode switch, AND only in rpc mode. The entire memory system (tool,
+	// MEMORY.md injection, rollover, dated work log) is designed for the im-gateway
+	// RPC host driving the Claw conversation — it is the sole caller that passes
+	// these flags. Requiring rpc mode is defense-in-depth: it keeps the whole
+	// subsystem inert for desktop / TUI / CLI / other projects even if the flag
+	// were ever passed there by accident, so the memory tool is never registered
+	// outside Claw. See system-prompt.ts / rpc-mode.ts gates.
+	sessionOptions.memoryMode = mode === "rpc" && (parsed.memoryMode || parsed.memoryFile !== undefined);
+	sessionOptions.memoryFile = parsed.memoryFile;
 
 	// Handle CLI --api-key as runtime override (not persisted)
 	if (parsed.apiKey) {
@@ -760,9 +747,8 @@ export async function main(args: string[]) {
 	}
 
 	let session: Awaited<ReturnType<typeof createAgentSession>>["session"];
-	let modelFallbackMessage: Awaited<ReturnType<typeof createAgentSession>>["modelFallbackMessage"];
 	try {
-		({ session, modelFallbackMessage } = await createAgentSession(sessionOptions));
+		({ session } = await createAgentSession(sessionOptions));
 	} catch (err) {
 		failRpcStartupOnLock(err);
 		throw err; // unreachable: failRpcStartupOnLock either throws or exits
@@ -792,28 +778,7 @@ export async function main(args: string[]) {
 	}
 
 	if (mode === "rpc") {
-		await runRpcMode(session);
-	} else if (isInteractive) {
-		if (scopedModels.length > 0 && (parsed.verbose || !settingsManager.getQuietStartup())) {
-			const modelList = scopedModels
-				.map((sm) => {
-					const thinkingStr = sm.thinkingLevel ? `:${sm.thinkingLevel}` : "";
-					return `${sm.model.id}${thinkingStr}`;
-				})
-				.join(", ");
-			console.log(chalk.dim(`Model scope: ${modelList} ${chalk.gray("(Ctrl+P to cycle)")}`));
-		}
-
-		printTimings();
-		const mode = new InteractiveMode(session, {
-			migratedProviders,
-			modelFallbackMessage,
-			initialMessage,
-			initialImages,
-			initialMessages: parsed.messages,
-			verbose: parsed.verbose,
-		});
-		await mode.run();
+		await runRpcMode(session, { enableHostBridge: parsed.enableHostBridge });
 	} else {
 		await runPrintMode(session, {
 			mode,
@@ -821,7 +786,6 @@ export async function main(args: string[]) {
 			initialMessage,
 			initialImages,
 		});
-		stopThemeWatcher();
 		if (process.stdout.writableLength > 0) {
 			await new Promise<void>((resolve) => process.stdout.once("drain", resolve));
 		}

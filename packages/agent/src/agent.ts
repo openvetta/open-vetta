@@ -12,7 +12,20 @@ import {
 	type TextContent,
 	type ThinkingBudgets,
 	type Transport,
-} from "@mariozechner/pi-ai";
+} from "@vetta/ai";
+import type { RuntimeTracer } from "@vetta/runtime-telemetry";
+
+// NEVER convert to top-level import — agent 包可能被浏览器/Vite 消费者引用，
+// node:events 不存在于浏览器。和 openai-codex-responses.ts 处理 node:os 一致。
+type SetMaxListenersFn = (n: number, target: EventTarget) => void;
+let _setMaxListeners: SetMaxListenersFn | null = null;
+if (typeof process !== "undefined" && (process.versions?.node || process.versions?.bun)) {
+	import("node:events").then((m) => {
+		const fn = (m as unknown as { setMaxListeners?: SetMaxListenersFn }).setMaxListeners;
+		if (typeof fn === "function") _setMaxListeners = fn;
+	});
+}
+
 import { agentLoop, agentLoopContinue } from "./agent-loop.js";
 import type {
 	AgentContext,
@@ -21,6 +34,7 @@ import type {
 	AgentMessage,
 	AgentState,
 	AgentTool,
+	AgentTracingOptions,
 	StreamFn,
 	ThinkingLevel,
 } from "./types.js";
@@ -91,6 +105,16 @@ export interface AgentOptions {
 	 * Default: 60000 (60 seconds). Set to 0 to disable the cap.
 	 */
 	maxRetryDelayMs?: number;
+
+	/**
+	 * Optional platform-neutral tracer for agent, LLM, and tool observations.
+	 */
+	tracer?: RuntimeTracer;
+
+	/**
+	 * Tracing behavior. Content capture is disabled by default in hosts.
+	 */
+	tracing?: AgentTracingOptions;
 }
 
 export class Agent {
@@ -117,13 +141,15 @@ export class Agent {
 	public streamFn: StreamFn;
 	private _sessionId?: string;
 	public getApiKey?: (provider: string) => Promise<string | undefined> | string | undefined;
-	/** Optional callback invoked before follow-up queue is consumed. Return messages to inject. */
-	public followUpProvider?: () => AgentMessage[];
+	/** Called at a natural stopping point to decide whether the agent should continue. */
+	public continuationProvider?: (signal?: AbortSignal) => AgentMessage[] | Promise<AgentMessage[]>;
 	private runningPrompt?: Promise<void>;
 	private resolveRunningPrompt?: () => void;
 	private _thinkingBudgets?: ThinkingBudgets;
 	private _transport: Transport;
 	private _maxRetryDelayMs?: number;
+	private tracer?: RuntimeTracer;
+	private tracing?: AgentTracingOptions;
 
 	constructor(opts: AgentOptions = {}) {
 		this._state = { ...this._state, ...opts.initialState };
@@ -137,6 +163,8 @@ export class Agent {
 		this._thinkingBudgets = opts.thinkingBudgets;
 		this._transport = opts.transport ?? "sse";
 		this._maxRetryDelayMs = opts.maxRetryDelayMs;
+		this.tracer = opts.tracer;
+		this.tracing = opts.tracing;
 	}
 
 	/**
@@ -295,10 +323,10 @@ export class Agent {
 		return steering;
 	}
 
-	private dequeueFollowUpMessages(): AgentMessage[] {
-		// Allow external code to inject follow-up messages (e.g., todo continuation)
-		if (this.followUpProvider) {
-			const injected = this.followUpProvider();
+	private async collectContinuationMessages(signal?: AbortSignal): Promise<AgentMessage[]> {
+		// Allow external policies to keep the agent running (e.g., todo continuation).
+		if (this.continuationProvider) {
+			const injected = await this.continuationProvider(signal);
 			if (injected.length > 0) {
 				this.followUpQueue.push(...injected);
 			}
@@ -395,7 +423,7 @@ export class Agent {
 				return;
 			}
 
-			const queuedFollowUp = this.dequeueFollowUpMessages();
+			const queuedFollowUp = await this.collectContinuationMessages();
 			if (queuedFollowUp.length > 0) {
 				await this._runLoop(queuedFollowUp);
 				return;
@@ -421,6 +449,10 @@ export class Agent {
 		});
 
 		this.abortController = new AbortController();
+		// per-prompt signal 会被 stream(fetch+SDK)、并发 tool、sandbox、retry sleep 等
+		// 多个子系统共享。Node 默认 maxListeners=10，工具稍多就会误报 leak。配合
+		// 各处成对清理，这里把上限放开以避免告警与潜在 GC 压力。
+		_setMaxListeners?.(0, this.abortController.signal);
 		this._state.isStreaming = true;
 		this._state.streamMessage = null;
 		this._state.error = undefined;
@@ -442,6 +474,15 @@ export class Agent {
 			transport: this._transport,
 			thinkingBudgets: this._thinkingBudgets,
 			maxRetryDelayMs: this._maxRetryDelayMs,
+			tracer: this.tracer,
+			tracing: {
+				...this.tracing,
+				sessionId: this.tracing?.sessionId ?? this._sessionId,
+				metadata: {
+					...this.tracing?.metadata,
+					sessionId: this._sessionId,
+				},
+			},
 			convertToLlm: this.convertToLlm,
 			transformContext: this.transformContext,
 			getApiKey: this.getApiKey,
@@ -452,7 +493,7 @@ export class Agent {
 				}
 				return this.dequeueSteeringMessages();
 			},
-			getFollowUpMessages: async () => this.dequeueFollowUpMessages(),
+			getContinuationMessages: () => this.collectContinuationMessages(this.abortController?.signal),
 		};
 
 		let partial: AgentMessage | null = null;

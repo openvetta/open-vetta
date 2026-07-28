@@ -1,18 +1,27 @@
-import type { AgentTool } from "@mariozechner/pi-agent-core";
-import type { ImageContent, TextContent } from "@mariozechner/pi-ai";
 import { type Static, Type } from "@sinclair/typebox";
+import type { ImageContent, TextContent } from "@vetta/ai";
 import { constants } from "fs";
 import { access as fsAccess, readFile as fsReadFile } from "fs/promises";
 import nodePath from "path";
-import { formatDimensionNote, resizeImage } from "../../../utils/image-resize.js";
+import {
+	formatDimensionNote,
+	formatImageResizeFailureNote,
+	isImageResizeFailure,
+	resizeImageBuffer,
+} from "../../../utils/image-resize.js";
 import { detectSupportedImageMimeTypeFromFile } from "../../../utils/mime.js";
+import { decodeTextBuffer } from "../../../utils/shell.js";
+import type { CodingAgentTool } from "../../session/tool-scope.js";
+import { renderAnchoredLines } from "../anchors.js";
 import { loadToolDescription } from "../description.js";
 import { resolveReadPath } from "../path-utils.js";
+import { toolCallDescriptionSchema } from "../tool-call-description.js";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize, type TruncationResult, truncateHead } from "../truncate.js";
 
 const readSchema = Type.Object({
+	description: toolCallDescriptionSchema,
 	path: Type.String({
-		description: "Path to the file to read (relative/absolute), or a dir_tree path ID like @PATH_0001",
+		description: "Path to the file to read (relative or absolute)",
 	}),
 	offset: Type.Optional(Type.Number({ description: "Line number to start reading from (1-indexed)" })),
 	limit: Type.Optional(Type.Number({ description: "Maximum number of lines to read" })),
@@ -22,6 +31,18 @@ export type ReadToolInput = Static<typeof readSchema>;
 
 export interface ReadToolDetails {
 	truncation?: TruncationResult;
+	image?: {
+		originalPath: string;
+		originalMimeType: string;
+		originalSizeBytes: number;
+		originalWidth: number;
+		originalHeight: number;
+		processedMimeType: string;
+		processedSizeBytes: number;
+		processedWidth: number;
+		processedHeight: number;
+		wasResized: boolean;
+	};
 }
 
 /**
@@ -118,15 +139,17 @@ export interface ReadToolOptions {
 	operations?: ReadOperations;
 }
 
-export function createReadTool(cwd: string, options?: ReadToolOptions): AgentTool<typeof readSchema> {
+export function createReadTool(cwd: string, options?: ReadToolOptions): CodingAgentTool<typeof readSchema> {
 	const autoResizeImages = options?.autoResizeImages ?? true;
 	const ops = options?.operations ?? defaultReadOperations;
 	const fallbackDescription = `Read the contents of a file. Supports text files and images (jpg, png, gif, webp). Images are sent as attachments. For text files, output is truncated to ${DEFAULT_MAX_LINES} lines or ${DEFAULT_MAX_BYTES / 1024}KB (whichever is hit first). Use offset/limit for large files. When you need the full file, continue with offset until complete.`;
-	const description = loadToolDescription(import.meta.url, fallbackDescription);
+	const description = loadToolDescription("read", fallbackDescription);
 
 	return {
 		name: "read",
 		label: "read",
+		scope_use: ["im-claw", "conversation", "project", "batch", "automation", "kb-processing", "cli"],
+		category: "core",
 		description,
 		parameters: readSchema,
 		execute: async (
@@ -176,11 +199,16 @@ export function createReadTool(cwd: string, options?: ReadToolOptions): AgentToo
 							if (mimeType) {
 								// Read as image (binary)
 								const buffer = await ops.readFile(absolutePath);
-								const base64 = buffer.toString("base64");
 
 								if (autoResizeImages) {
 									// Resize image if needed
-									const resized = await resizeImage({ type: "image", data: base64, mimeType });
+									const resized = await resizeImageBuffer(buffer, mimeType);
+									if (isImageResizeFailure(resized)) {
+										content = [{ type: "text", text: formatImageResizeFailureNote(resized, absolutePath) }];
+										details = undefined;
+										resolve({ content, details });
+										return;
+									}
 									const dimensionNote = formatDimensionNote(resized);
 
 									let textNote = `Read image file [${resized.mimeType}]`;
@@ -192,12 +220,40 @@ export function createReadTool(cwd: string, options?: ReadToolOptions): AgentToo
 										{ type: "text", text: textNote },
 										{ type: "image", data: resized.data, mimeType: resized.mimeType },
 									];
+									details = {
+										image: {
+											originalPath: absolutePath,
+											originalMimeType: mimeType,
+											originalSizeBytes: buffer.length,
+											originalWidth: resized.originalWidth,
+											originalHeight: resized.originalHeight,
+											processedMimeType: resized.mimeType,
+											processedSizeBytes: Buffer.byteLength(resized.data, "base64"),
+											processedWidth: resized.width,
+											processedHeight: resized.height,
+											wasResized: resized.wasResized,
+										},
+									};
 								} else {
 									const textNote = `Read image file [${mimeType}]`;
 									content = [
 										{ type: "text", text: textNote },
-										{ type: "image", data: base64, mimeType },
+										{ type: "image", data: buffer.toString("base64"), mimeType },
 									];
+									details = {
+										image: {
+											originalPath: absolutePath,
+											originalMimeType: mimeType,
+											originalSizeBytes: buffer.length,
+											originalWidth: 0,
+											originalHeight: 0,
+											processedMimeType: mimeType,
+											processedSizeBytes: buffer.length,
+											processedWidth: 0,
+											processedHeight: 0,
+											wasResized: false,
+										},
+									};
 								}
 							} else {
 								// Read as text
@@ -217,7 +273,7 @@ export function createReadTool(cwd: string, options?: ReadToolOptions): AgentToo
 									return;
 								}
 
-								const textContent = buffer.toString("utf-8");
+								const textContent = decodeTextBuffer(buffer);
 								const allLines = textContent.split("\n");
 								const totalFileLines = allLines.length;
 
@@ -244,6 +300,11 @@ export function createReadTool(cwd: string, options?: ReadToolOptions): AgentToo
 								// Apply truncation (respects both line and byte limits)
 								const truncation = truncateHead(selectedContent);
 
+								// 文本行加锚点前缀（`N:hh→content`）：edit 锚点模式凭此定位。
+								// 在截断之后加，行/字节限额按原始内容计。
+								const anchorContent = (raw: string): string =>
+									renderAnchoredLines(raw.split("\n"), startLineDisplay).join("\n");
+
 								let outputText: string;
 
 								if (truncation.firstLineExceedsLimit) {
@@ -256,7 +317,7 @@ export function createReadTool(cwd: string, options?: ReadToolOptions): AgentToo
 									const endLineDisplay = startLineDisplay + truncation.outputLines - 1;
 									const nextOffset = endLineDisplay + 1;
 
-									outputText = truncation.content;
+									outputText = anchorContent(truncation.content);
 
 									if (truncation.truncatedBy === "lines") {
 										outputText += `\n\n[Showing lines ${startLineDisplay}-${endLineDisplay} of ${totalFileLines}. Use offset=${nextOffset} to continue.]`;
@@ -269,11 +330,11 @@ export function createReadTool(cwd: string, options?: ReadToolOptions): AgentToo
 									const remaining = allLines.length - (startLine + userLimitedLines);
 									const nextOffset = startLine + userLimitedLines + 1;
 
-									outputText = truncation.content;
+									outputText = anchorContent(truncation.content);
 									outputText += `\n\n[${remaining} more lines in file. Use offset=${nextOffset} to continue.]`;
 								} else {
 									// No truncation, no user limit exceeded
-									outputText = truncation.content;
+									outputText = anchorContent(truncation.content);
 								}
 
 								content = [{ type: "text", text: outputText }];
@@ -290,7 +351,7 @@ export function createReadTool(cwd: string, options?: ReadToolOptions): AgentToo
 							}
 
 							resolve({ content, details });
-						} catch (error: any) {
+						} catch (error: unknown) {
 							// Clean up abort handler
 							if (signal) {
 								signal.removeEventListener("abort", onAbort);

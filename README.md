@@ -6,15 +6,6 @@ Vetta 是一套面向企业与个人的 AI Agent 产品栈：在本地/桌面运
 
 > 仓库由 `@mariozechner/pi-ai` / `pi-mono` 演化而来，上游保留了通用的 LLM API 与 Agent Loop 能力；Vetta 在其基础上增加了桌面宿主（Electron）、业务后台（Go/Gin）、IM 旁路（Go）、管理台（React）以及批量任务、定时自动化、技能广场、工作流流转等企业侧能力。
 
-## 应用预览
-
-<p align="center">
-  <img src="docs/preview/p1.png" alt="Vetta 桌面应用预览 1" width="860" />
-</p>
-<p align="center">
-  <img src="docs/preview/p2.png" alt="Vetta 桌面应用预览 2" width="860" />
-</p>
-
 ---
 
 ## 快速开始
@@ -22,7 +13,10 @@ Vetta 是一套面向企业与个人的 AI Agent 产品栈：在本地/桌面运
 ```bash
 bun install                # 安装所有工作区依赖（需要 Bun 1.3+、Node 20+）
 bun run build              # 构建所有核心库（packages/ai 等）
-bun run check              # Biome 格式化 + 类型检查（改完代码必跑）
+bun run check              # Biome + 类型检查 + 架构守卫（开 PR 前必跑）
+bun run test:unit          # 核心库单元测试（ai/agent/coding-agent/ecosystem-adapter）
+bun run test:pkg ai        # 只跑单个包测试；test:pkg --list 查看可测包
+bun run test:changed       # 相对 origin/dev 只测变更触及的包
 
 # 应用
 bun run build:desktop      # 构建 Electron 桌面应用
@@ -33,6 +27,8 @@ bun run build:admin        # 构建 React 管理台
 cd packages/api && make run            # 启动业务 API
 cd packages/im-gateway && make build   # 构建 IM 旁路网关
 ```
+
+质量门禁分层、husky 快路径与守卫说明见 [docs/dev/quality-gates.md](docs/dev/quality-gates.md)。
 
 桌面应用入口：`packages/desktop-app`；API 服务入口：`packages/api/cmd/server/main.go`。
 
@@ -70,7 +66,7 @@ cd packages/im-gateway && make build   # 构建 IM 旁路网关
 | 包 | 职责 |
 |----|------|
 | [packages/runtime-core](packages/runtime-core) | `RuntimeHost` 与 Session Facade，面向桌面宿主的运行时事件契约 |
-| [packages/runtime-tools](packages/runtime-tools) | 内置工具重导出，供宿主复用（bash/edit/write/todo/current-time/invoke-skill/invoke-scene 等） |
+| [packages/runtime-tools](packages/runtime-tools) | 内置工具重导出，供宿主复用（bash/edit/write/todo/current-time/invoke-skill 等） |
 | [packages/runtime-storage](packages/runtime-storage) | 鉴权、会话、设置的存储原语 |
 | [packages/runtime-mcp](packages/runtime-mcp) | MCP Manager 与 MCP Runtime 绑定 |
 | [packages/runtime-telemetry](packages/runtime-telemetry) | 运行时日志与遥测抽象 |
@@ -213,6 +209,6 @@ vetta-mono/
 
 架构文档：
 
+- [`docs/capabilities/README.md`](docs/capabilities/README.md) — 基础/领域能力、直接基于 Capability ID 的通用权限层与系统适配层
 - [`docs/architecture-overview.md`](docs/architecture-overview.md) — 依赖方向、请求流、应用/运行时边界
 - [`docs/package-conventions.md`](docs/package-conventions.md) — 包与目录所有权约定
-

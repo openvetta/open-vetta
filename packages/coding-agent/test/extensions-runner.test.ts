@@ -11,7 +11,7 @@ import { discoverAndLoadExtensions } from "../src/core/extensions/loader.js";
 import { ExtensionRunner } from "../src/core/extensions/runner.js";
 import { DEFAULT_KEYBINDINGS, type KeyId } from "../src/core/keybindings.js";
 import { ModelRegistry } from "../src/core/model-registry.js";
-import { SessionManager } from "../src/core/session-manager.js";
+import { SessionManager } from "../src/core/session-manager/index.js";
 
 describe("ExtensionRunner", () => {
 	let tempDir: string;

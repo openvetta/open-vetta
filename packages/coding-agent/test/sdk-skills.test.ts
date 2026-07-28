@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createExtensionRuntime } from "../src/core/extensions/loader.js";
 import type { ResourceLoader } from "../src/core/resource-loader.js";
 import { createAgentSession } from "../src/core/sdk.js";
-import { SessionManager } from "../src/core/session-manager.js";
+import { SessionManager } from "../src/core/session-manager/index.js";
 
 describe("createAgentSession skills option", () => {
 	let tempDir: string;
@@ -60,7 +60,9 @@ This is a test skill.
 			getAppendSystemPrompt: () => [],
 			getPathMetadata: () => new Map(),
 			extendResources: () => {},
+			setAdditionalSkillPaths: () => {},
 			reload: async () => {},
+			refreshSkillsIfChanged: () => false,
 		};
 
 		const { session } = await createAgentSession({
@@ -95,7 +97,9 @@ This is a test skill.
 			getAppendSystemPrompt: () => [],
 			getPathMetadata: () => new Map(),
 			extendResources: () => {},
+			setAdditionalSkillPaths: () => {},
 			reload: async () => {},
+			refreshSkillsIfChanged: () => false,
 		};
 
 		const { session } = await createAgentSession({

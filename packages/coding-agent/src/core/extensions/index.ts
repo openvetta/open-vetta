@@ -43,6 +43,8 @@ export type {
 	CustomToolResultEvent,
 	DirTreeToolCallEvent,
 	DirTreeToolResultEvent,
+	EcosystemPermissionHookRequest,
+	EcosystemPermissionHookResult,
 	EditToolCallEvent,
 	EditToolResultEvent,
 	ExecOptions,
@@ -73,6 +75,8 @@ export type {
 	GetAllToolsHandler,
 	GetCommandsHandler,
 	GetThinkingLevelHandler,
+	GlobToolCallEvent,
+	GlobToolResultEvent,
 	GrepToolCallEvent,
 	GrepToolResultEvent,
 	// Events - Input
@@ -103,6 +107,8 @@ export type {
 	// Events - Resources
 	ResourcesDiscoverEvent,
 	ResourcesDiscoverResult,
+	SandboxGrantDecision,
+	SandboxGrantPromptRequest,
 	SendMessageHandler,
 	SendUserMessageHandler,
 	SessionBeforeCompactEvent,
@@ -133,6 +139,7 @@ export type {
 	ToolDefinition,
 	// Events - Tool Execution
 	ToolExecutionEndEvent,
+	ToolExecutionPhaseEvent,
 	ToolExecutionStartEvent,
 	ToolExecutionUpdateEvent,
 	ToolInfo,
@@ -155,6 +162,7 @@ export {
 	isDirTreeToolResult,
 	isEditToolResult,
 	isFindToolResult,
+	isGlobToolResult,
 	isGrepToolResult,
 	isLsToolResult,
 	isReadToolResult,

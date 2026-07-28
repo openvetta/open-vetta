@@ -9,7 +9,7 @@ import type {
 	ChatCompletionToolMessageParam,
 } from "openai/resources/chat/completions.js";
 import { getEnvApiKey } from "../env-api-keys.js";
-import { calculateCost, supportsXhigh } from "../models.js";
+import { calculateCost } from "../models.js";
 import type {
 	AssistantMessage,
 	Context,
@@ -30,7 +30,7 @@ import { AssistantMessageEventStream } from "../utils/event-stream.js";
 import { parseStreamingJson } from "../utils/json-parse.js";
 import { sanitizeSurrogates } from "../utils/sanitize-unicode.js";
 import { buildCopilotDynamicHeaders, hasCopilotVisionInput } from "./github-copilot-headers.js";
-import { buildBaseOptions, clampReasoning } from "./simple-options.js";
+import { buildBaseOptions } from "./simple-options.js";
 import { transformMessages } from "./transform-messages.js";
 
 /**
@@ -72,7 +72,8 @@ function hasToolHistory(messages: Message[]): boolean {
 
 export interface OpenAICompletionsOptions extends StreamOptions {
 	toolChoice?: "auto" | "none" | "required" | { type: "function"; function: { name: string } };
-	reasoningEffort?: "minimal" | "low" | "medium" | "high" | "xhigh";
+	/** Raw reasoning effort passed through to the provider's reasoning field (e.g. "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | provider-specific). */
+	reasoningEffort?: string;
 }
 
 export const streamOpenAICompletions: StreamFunction<"openai-completions", OpenAICompletionsOptions> = (
@@ -112,32 +113,40 @@ export const streamOpenAICompletions: StreamFunction<"openai-completions", OpenA
 			let currentBlock: TextContent | ThinkingContent | (ToolCall & { partialArgs?: string }) | null = null;
 			const blocks = output.content;
 			const blockIndex = () => blocks.length - 1;
+			// Stable lookup of in-progress toolCall blocks keyed by the protocol-level
+			// `tool_calls[].index`. Without this, a text/thinking delta between two
+			// chunks for the same tool call (or a placeholder-only frame) would cause
+			// the type-based switch below to mistakenly create a second block.
+			const toolCallByIndex = new Map<number, ToolCall & { partialArgs?: string }>();
 			const finishCurrentBlock = (block?: typeof currentBlock) => {
-				if (block) {
-					if (block.type === "text") {
-						stream.push({
-							type: "text_end",
-							contentIndex: blockIndex(),
-							content: block.text,
-							partial: output,
-						});
-					} else if (block.type === "thinking") {
-						stream.push({
-							type: "thinking_end",
-							contentIndex: blockIndex(),
-							content: block.thinking,
-							partial: output,
-						});
-					} else if (block.type === "toolCall") {
-						block.arguments = parseStreamingJson(block.partialArgs);
-						delete block.partialArgs;
-						stream.push({
-							type: "toolcall_end",
-							contentIndex: blockIndex(),
-							toolCall: block,
-							partial: output,
-						});
-					}
+				if (!block) return;
+				// Use the block's actual position in the array, not blocks.length-1.
+				// A toolCall block may be resurrected after text/thinking interleaves,
+				// in which case it is no longer the last-pushed block.
+				const idx = blocks.indexOf(block as (typeof blocks)[number]);
+				if (block.type === "text") {
+					stream.push({
+						type: "text_end",
+						contentIndex: idx,
+						content: block.text,
+						partial: output,
+					});
+				} else if (block.type === "thinking") {
+					stream.push({
+						type: "thinking_end",
+						contentIndex: idx,
+						content: block.thinking,
+						partial: output,
+					});
+				} else if (block.type === "toolCall") {
+					block.arguments = parseStreamingJson(block.partialArgs);
+					delete block.partialArgs;
+					stream.push({
+						type: "toolcall_end",
+						contentIndex: idx,
+						toolCall: block,
+						partial: output,
+					});
 				}
 			};
 
@@ -243,39 +252,60 @@ export const streamOpenAICompletions: StreamFunction<"openai-completions", OpenA
 
 					if (choice?.delta?.tool_calls) {
 						for (const toolCall of choice.delta.tool_calls) {
-							if (
-								!currentBlock ||
-								currentBlock.type !== "toolCall" ||
-								(toolCall.id && currentBlock.id !== toolCall.id)
-							) {
+							// OpenAI-compatible protocol: `index` is the authoritative
+							// identity for streaming tool_calls. Multiple deltas with the
+							// same index belong to the same tool call, regardless of any
+							// text/thinking deltas that interleave between them.
+							const idx = typeof toolCall.index === "number" ? toolCall.index : -1;
+							let block = idx >= 0 ? toolCallByIndex.get(idx) : undefined;
+
+							if (!block) {
+								// Some OpenAI-compatible servers (e.g. Qwen's compat
+								// endpoint) emit pure placeholder frames like
+								// `tool_calls: [{index: N}]` before any id/name/args
+								// arrive. Creating a block on such a frame would leave a
+								// permanent {id:"", name:""} toolCall in the message
+								// (because once it gets flushed by an interleaving text
+								// delta, no future frame is matched to it). Skip the
+								// placeholder; the next non-empty delta for this index
+								// will create the block.
+								const hasPayload = !!(toolCall.id || toolCall.function?.name || toolCall.function?.arguments);
+								if (!hasPayload) continue;
+
 								finishCurrentBlock(currentBlock);
-								currentBlock = {
+								block = {
 									type: "toolCall",
 									id: toolCall.id || "",
 									name: toolCall.function?.name || "",
 									arguments: {},
 									partialArgs: "",
 								};
-								output.content.push(currentBlock);
+								output.content.push(block);
+								if (idx >= 0) toolCallByIndex.set(idx, block);
+								currentBlock = block;
 								stream.push({ type: "toolcall_start", contentIndex: blockIndex(), partial: output });
+							} else if (currentBlock !== block) {
+								// Same index, but text/thinking interleaved since the
+								// previous delta for this tool call. End whatever block
+								// we were on and resume this one.
+								finishCurrentBlock(currentBlock);
+								currentBlock = block;
 							}
 
-							if (currentBlock.type === "toolCall") {
-								if (toolCall.id) currentBlock.id = toolCall.id;
-								if (toolCall.function?.name) currentBlock.name = toolCall.function.name;
-								let delta = "";
-								if (toolCall.function?.arguments) {
-									delta = toolCall.function.arguments;
-									currentBlock.partialArgs += toolCall.function.arguments;
-									currentBlock.arguments = parseStreamingJson(currentBlock.partialArgs);
-								}
-								stream.push({
-									type: "toolcall_delta",
-									contentIndex: blockIndex(),
-									delta,
-									partial: output,
-								});
+							if (toolCall.id) block.id = toolCall.id;
+							if (toolCall.function?.name) block.name = toolCall.function.name;
+							let delta = "";
+							if (toolCall.function?.arguments) {
+								delta = toolCall.function.arguments;
+								block.partialArgs = (block.partialArgs ?? "") + toolCall.function.arguments;
+								block.arguments = parseStreamingJson(block.partialArgs);
 							}
+							stream.push({
+								type: "toolcall_delta",
+								contentIndex: blocks.indexOf(block as (typeof blocks)[number]),
+								delta,
+								partial: output,
+							});
 						}
 					}
 
@@ -333,7 +363,8 @@ export const streamSimpleOpenAICompletions: StreamFunction<"openai-completions",
 	}
 
 	const base = buildBaseOptions(model, options, apiKey);
-	const reasoningEffort = supportsXhigh(model) ? options?.reasoning : clampReasoning(options?.reasoning);
+	// Reasoning is a passthrough value: the model only offers levels it supports, so no clamping.
+	const reasoningEffort = options?.reasoning;
 	const toolChoice = (options as OpenAICompletionsOptions | undefined)?.toolChoice;
 
 	return streamOpenAICompletions(model, context, {
@@ -423,24 +454,76 @@ function buildParams(model: Model<"openai-completions">, context: Context, optio
 		params.tool_choice = options.toolChoice;
 	}
 
-	if (compat.thinkingFormat === "zai" && model.reasoning) {
-		// Z.ai uses binary thinking: { type: "enabled" | "disabled" }
-		// Must explicitly disable since z.ai defaults to thinking enabled
+	// Whenever a non-default thinkingFormat is in effect (explicit user config or
+	// auto-detected z.ai), always emit the disable/enable hint so the user's "off"
+	// toggle is honored even when model.reasoning isn't set. The OpenAI-standard
+	// reasoning_effort branch keeps requiring model.reasoning to avoid sending
+	// unsupported params to vanilla OpenAI endpoints.
+	if (compat.thinkingFormat === "zai") {
+		// Z.ai / Zhipu GLM use thinking: { type: "enabled" | "disabled" } plus
+		// top-level reasoning_effort. Pass the configured level through verbatim
+		// (including "none" / "minimal" / "max") so service-side aliases and new
+		// native levels keep working; only omit effort when thinking is fully off.
 		(params as any).thinking = { type: options?.reasoningEffort ? "enabled" : "disabled" };
-	} else if (compat.thinkingFormat === "qwen" && model.reasoning) {
-		// Qwen uses enable_thinking: boolean + reasoning_effort for effort control
-		(params as any).enable_thinking = !!options?.reasoningEffort;
 		if (options?.reasoningEffort) {
-			params.reasoning_effort = options.reasoningEffort;
-		} else {
-			params.reasoning_effort = "none" as any;
+			params.reasoning_effort = options.reasoningEffort as any;
 		}
-	} else if (compat.thinkingFormat === "nvidia" && model.reasoning) {
+	} else if (compat.thinkingFormat === "qwen") {
+		// Qwen toggles thinking with a boolean flag, but different backends read it from
+		// different places, so emit BOTH spellings:
+		//   - DashScope (Model Studio) OpenAI-compatible reads a TOP-LEVEL `enable_thinking`.
+		//   - self-hosted vLLM / SGLang ignore the top-level flag and only honor
+		//     `chat_template_kwargs.enable_thinking`; the top-level one is silently dropped,
+		//     so "off" never disables thinking there unless we also send this form.
+		// reasoning_effort ("minimal" clamped up to "low" — Qwen has no "minimal") controls
+		// effort when enabled; omit it entirely when disabled, since Qwen has NO "none" value.
+		const qwenEffort = options?.reasoningEffort === "minimal" ? "low" : options?.reasoningEffort;
+		const thinkingEnabled = !!qwenEffort;
+		(params as any).enable_thinking = thinkingEnabled;
+		(params as any).chat_template_kwargs = { enable_thinking: thinkingEnabled };
+		if (qwenEffort) {
+			params.reasoning_effort = qwenEffort as any;
+		}
+	} else if (compat.thinkingFormat === "nvidia") {
 		// NVIDIA uses chat_template_kwargs: { enable_thinking: boolean }
 		(params as any).chat_template_kwargs = { enable_thinking: !!options?.reasoningEffort };
-	} else if (options?.reasoningEffort && model.reasoning && compat.supportsReasoningEffort) {
-		// OpenAI-style reasoning_effort
-		params.reasoning_effort = options.reasoningEffort;
+	} else if (compat.thinkingFormat === "deepseek") {
+		// DeepSeek v4 unified models use a `thinking` object: { type: "enabled" | "disabled",
+		// reasoning_effort }. reasoning_effort only accepts "high" | "max"; the effort is passed
+		// through per the model's configured levels. Absence of an effort disables thinking
+		// (equivalent to a non-thinking request / deepseek-chat).
+		if (options?.reasoningEffort) {
+			(params as any).thinking = { type: "enabled", reasoning_effort: options.reasoningEffort };
+		} else {
+			(params as any).thinking = { type: "disabled" };
+		}
+	} else if (model.reasoning && compat.supportsReasoningEffort) {
+		// OpenAI-style reasoning_effort. "off" is the unified disable-thinking entry point:
+		// the agent maps "off" → undefined reasoning, but some callers may pass the literal
+		// string "off".
+		const isOpenAIOfficial = model.baseUrl.includes("api.openai.com");
+		const isOff = !options?.reasoningEffort || options.reasoningEffort === "off";
+		if (isOff) {
+			// "none" is a gpt-5 / OpenAI-official-only disable value. Other chat-completions
+			// backends (DeepSeek, aggregating gateways, vLLM, …) don't accept "none" and simply
+			// ignore it — leaving thinking ON. So only emit "none" on genuine OpenAI endpoints;
+			// elsewhere omit the field so the backend falls back to its non-thinking default.
+			if (isOpenAIOfficial) {
+				params.reasoning_effort = "none" as any;
+			}
+		} else if (options?.reasoningEffort === "none") {
+			// Some backends explicitly declare "none" in their reasoningLevels. When the user
+			// picks it from the UI, the agent passes reasoning="none". Trust the user's choice
+			// and send it unguarded — the model owner has opted into the "none" level.
+			params.reasoning_effort = "none" as any;
+		} else {
+			// "minimal" is OpenAI gpt-5 / Responses-API specific; most chat-completions backends
+			// only accept low/medium/high/max/xhigh and return a 400 for "minimal". Clamp it up to
+			// "low" except on genuine OpenAI endpoints, so the lightest-thinking callers (auto-title,
+			// prompt suggestions) degrade instead of failing.
+			const effort = options.reasoningEffort;
+			params.reasoning_effort = (effort === "minimal" && !isOpenAIOfficial ? "low" : effort) as any;
+		}
 	}
 
 	// OpenRouter provider routing preferences
@@ -595,23 +678,28 @@ export function convertMessages(
 
 			// Handle thinking blocks
 			const thinkingBlocks = msg.content.filter((b) => b.type === "thinking") as ThinkingContent[];
-			// Filter out empty thinking blocks to avoid API validation errors
-			const nonEmptyThinkingBlocks = thinkingBlocks.filter((b) => b.thinking && b.thinking.trim().length > 0);
-			if (nonEmptyThinkingBlocks.length > 0) {
+			if (thinkingBlocks.length > 0) {
 				if (compat.requiresThinkingAsText) {
-					// Convert thinking blocks to plain text (no tags to avoid model mimicking them)
-					const thinkingText = nonEmptyThinkingBlocks.map((b) => b.thinking).join("\n\n");
-					const textContent = assistantMsg.content as Array<{ type: "text"; text: string }> | null;
-					if (textContent) {
-						textContent.unshift({ type: "text", text: thinkingText });
-					} else {
-						assistantMsg.content = [{ type: "text", text: thinkingText }];
+					const nonEmptyThinkingBlocks = thinkingBlocks.filter((b) => b.thinking && b.thinking.trim().length > 0);
+					if (nonEmptyThinkingBlocks.length > 0) {
+						// Convert thinking blocks to plain text (no tags to avoid model mimicking them)
+						const thinkingText = nonEmptyThinkingBlocks.map((b) => b.thinking).join("\n\n");
+						const textContent = assistantMsg.content as Array<{ type: "text"; text: string }> | null;
+						if (textContent) {
+							textContent.unshift({ type: "text", text: thinkingText });
+						} else {
+							assistantMsg.content = [{ type: "text", text: thinkingText }];
+						}
 					}
 				} else {
-					// Use the signature from the first thinking block if available (for llama.cpp server + gpt-oss)
-					const signature = nonEmptyThinkingBlocks[0].thinkingSignature;
-					if (signature && signature.length > 0) {
-						(assistantMsg as any)[signature] = nonEmptyThinkingBlocks.map((b) => b.thinking).join("\n");
+					// DeepSeek thinking mode rule: for assistant turns that include tool_calls,
+					// reasoning_content must be fully passed back in subsequent requests, otherwise
+					// the API returns 400. We therefore replay the field whenever any block carries
+					// a signature, even if the thinking text itself is empty/whitespace.
+					const sigBlock = thinkingBlocks.find((b) => b.thinkingSignature && b.thinkingSignature.length > 0);
+					if (sigBlock) {
+						const signature = sigBlock.thinkingSignature!;
+						(assistantMsg as any)[signature] = thinkingBlocks.map((b) => b.thinking ?? "").join("\n");
 					}
 				}
 			}
@@ -771,7 +859,8 @@ function detectCompat(model: Model<"openai-completions">): Required<OpenAIComple
 	const provider = model.provider;
 	const baseUrl = model.baseUrl;
 
-	const isZai = provider === "zai" || baseUrl.includes("api.z.ai");
+	const isZai =
+		provider === "zai" || provider === "zhipu" || baseUrl.includes("api.z.ai") || baseUrl.includes("bigmodel.cn");
 
 	const isNonStandard =
 		provider === "cerebras" ||
@@ -792,9 +881,17 @@ function detectCompat(model: Model<"openai-completions">): Required<OpenAIComple
 
 	const isMistral = provider === "mistral" || baseUrl.includes("mistral.ai");
 
+	// The `developer` role is OpenAI-specific (official reasoning models / Copilot proxy).
+	// Most OpenAI-compatible backends (vLLM, SGLang, Qwen, llama.cpp, …) only know
+	// system/user/assistant/tool and reject `developer` with "400 Unexpected message role".
+	// Default it on ONLY for endpoints known to support it; everything else falls back to
+	// the universally-accepted `system` role.
+	const supportsDeveloperRole =
+		provider === "openai" || provider === "github-copilot" || baseUrl.includes("api.openai.com");
+
 	return {
 		supportsStore: !isNonStandard,
-		supportsDeveloperRole: !isNonStandard,
+		supportsDeveloperRole,
 		supportsReasoningEffort: !isGrok && !isZai,
 		supportsUsageInStreaming: true,
 		maxTokensField: useMaxTokens ? "max_tokens" : "max_completion_tokens",

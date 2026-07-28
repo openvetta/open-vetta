@@ -237,6 +237,10 @@ function extractErrorMessage(errorText: string): string {
 
 /**
  * Sleep for a given number of milliseconds, respecting abort signal.
+ *
+ * Both the timeout and abort paths remove the listener, otherwise
+ * long-lived signals (one per agent turn, shared across many retries)
+ * accumulate listeners and trip MaxListenersExceededWarning.
  */
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
 	return new Promise((resolve, reject) => {
@@ -244,11 +248,20 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
 			reject(new Error("Request was aborted"));
 			return;
 		}
-		const timeout = setTimeout(resolve, ms);
-		signal?.addEventListener("abort", () => {
+		let timeout: ReturnType<typeof setTimeout>;
+		const cleanup = () => {
 			clearTimeout(timeout);
+			signal?.removeEventListener("abort", onAbort);
+		};
+		const onAbort = () => {
+			cleanup();
 			reject(new Error("Request was aborted"));
-		});
+		};
+		timeout = setTimeout(() => {
+			cleanup();
+			resolve();
+		}, ms);
+		signal?.addEventListener("abort", onAbort, { once: true });
 	});
 }
 

@@ -1,10 +1,13 @@
-import type { AgentTool } from "@mariozechner/pi-agent-core";
-import { Type } from "@sinclair/typebox";
+import { type Static, Type } from "@sinclair/typebox";
+import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
+import { toolCallDescriptionSchema } from "../tool-call-description.js";
 
-const currentTimeSchema = Type.Object({});
+const currentTimeSchema = Type.Object({
+	description: toolCallDescriptionSchema,
+});
 
-export type CurrentTimeToolInput = Record<string, never>;
+export type CurrentTimeToolInput = Static<typeof currentTimeSchema>;
 
 export interface CurrentTimeToolDetails {
 	timestamp: string;
@@ -20,13 +23,15 @@ function formatDateTime(date: Date): string {
 	return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
 
-export function createCurrentTimeTool(): AgentTool<typeof currentTimeSchema, CurrentTimeToolDetails> {
+export function createCurrentTimeTool(): CodingAgentTool<typeof currentTimeSchema, CurrentTimeToolDetails> {
 	const fallbackDescription = "Get the current system time. Returns the time in YYYY-MM-DD HH:mm:ss format.";
-	const description = loadToolDescription(import.meta.url, fallbackDescription);
+	const description = loadToolDescription("current-time", fallbackDescription);
 
 	return {
 		name: "current_time",
 		label: "Current Time",
+		scope_use: ["im-claw", "conversation", "project", "batch", "automation", "kb-processing", "cli"],
+		category: "core",
 		description,
 		parameters: currentTimeSchema,
 		execute: async (_toolCallId: string) => {

@@ -1,6 +1,7 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { createInterface, type Interface } from "node:readline";
 import {
+	type CodingAgentSpec,
 	decodeEvent,
 	EVENT_LOG,
 	EVENT_METRIC,
@@ -15,14 +16,12 @@ import {
 	type FeishuConfig,
 	FRAME_CONFIG_UPDATE,
 	FRAME_INIT,
-	FRAME_PROJECTS_UPDATE,
 	FRAME_SHUTDOWN,
 	FRAME_WECHAT_BIND_START,
 	FRAME_WECHAT_LOGOUT,
 	type LogEvent,
 	type MetricEvent,
 	type OutboundEvent,
-	type ProjectEntry,
 	type ReadyEvent,
 	type SessionStateEntry,
 	type StatePatchEvent,
@@ -92,8 +91,19 @@ export interface SidecarConfig {
 	binaryPath: string;
 	feishu?: FeishuConfig;
 	wechat?: WechatConfig;
-	projects: ProjectEntry[];
+	/**
+	 * Absolute cwd of desktop-app's default "对话" project. The sidecar
+	 * routes every IM session into this directory (see ADR-0004 +
+	 * CONTEXT.md → "conversation cwd"). Required.
+	 */
+	conversationCwd: string;
 	state: SessionStateEntry[];
+	/**
+	 * Tells the sidecar which binary + prefix args to use when spawning
+	 * coding-agent for each IM session. Required in production (no `vetta`
+	 * on PATH); the dev path populates it too so behavior matches.
+	 */
+	codingAgent?: CodingAgentSpec;
 }
 
 export interface SidecarManagerOptions {
@@ -148,52 +158,15 @@ export class SidecarManager {
 	}
 
 	/**
-	 * Reapply runtime configuration. If the active transport selection or
-	 * its credentials changed the sidecar is restarted; otherwise we just
-	 * push a projects_update.
-	 *
-	 * Switching the transport selector (feishu ↔ wechat) always restarts.
+	 * Reapply runtime configuration. Credential / transport / conversation
+	 * cwd changes always restart the sidecar — the gateway no longer has a
+	 * soft "runtime update" path (project list is gone, see ADR-0004).
 	 */
 	async applyConfig(next: SidecarConfig): Promise<void> {
-		const prev = this.currentConfig;
 		this.currentConfig = next;
-
-		const credsChanged =
-			!prev ||
-			Boolean(prev.feishu) !== Boolean(next.feishu) ||
-			Boolean(prev.wechat) !== Boolean(next.wechat) ||
-			(prev.feishu?.appId ?? "") !== (next.feishu?.appId ?? "") ||
-			(prev.feishu?.appSecret ?? "") !== (next.feishu?.appSecret ?? "") ||
-			(prev.feishu?.baseUrl ?? "") !== (next.feishu?.baseUrl ?? "") ||
-			(prev.wechat?.statePath ?? "") !== (next.wechat?.statePath ?? "") ||
-			(prev.wechat?.enabled ?? false) !== (next.wechat?.enabled ?? false);
-
-		if (credsChanged) {
-			await this.stopInternal();
-			this.restartAttempts = 0;
-			this.spawn();
-			return;
-		}
-
-		// Soft update: forward to running sidecar.
-		if (this.state.kind === "running") {
-			this.writeFrame({
-				type: FRAME_PROJECTS_UPDATE,
-				projects: next.projects,
-			});
-		}
-	}
-
-	/**
-	 * Push only an updated project list (no credential change).
-	 */
-	updateProjects(projects: ProjectEntry[]): void {
-		if (this.currentConfig) {
-			this.currentConfig = { ...this.currentConfig, projects };
-		}
-		if (this.state.kind === "running") {
-			this.writeFrame({ type: FRAME_PROJECTS_UPDATE, projects });
-		}
+		await this.stopInternal();
+		this.restartAttempts = 0;
+		this.spawn();
 	}
 
 	/** Manual restart triggered by the UI. Resets backoff. */
@@ -279,8 +252,9 @@ export class SidecarManager {
 			type: FRAME_INIT,
 			feishu: cfg.feishu,
 			wechat: cfg.wechat,
-			projects: cfg.projects,
+			conversationCwd: cfg.conversationCwd,
 			state: cfg.state,
+			codingAgent: cfg.codingAgent,
 		});
 	}
 

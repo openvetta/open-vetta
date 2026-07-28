@@ -5,11 +5,24 @@
  * lifecycle management, tool registration, and state management.
  */
 
-import type { AgentTool } from "@mariozechner/pi-agent-core";
+import type { AgentTool } from "@vetta/agent-core";
+import { getAgentDir } from "../../config.js";
 import { createMcpClient } from "./mcp-client.js";
 import { McpConfigLoader } from "./mcp-config.js";
+import { loginMcpDeviceFlow } from "./mcp-device-flow.js";
+import { isMcpAuthRequiredError } from "./mcp-http-client.js";
+import { loginHttpMcpServer, type OpenUrlHandler } from "./mcp-oauth-flow.js";
+import { clearMcpOAuthState, hasMcpOAuthTokens } from "./mcp-oauth-storage.js";
 import { adaptMcpTools } from "./mcp-tool-adapter.js";
-import type { McpManagerState, McpServerConfig, McpServerInstance, McpServerStatus } from "./types.js";
+import { fingerprintPluginMcpServers, type PluginMcpServerSpec } from "./plugin-mcp.js";
+import {
+	isHttpServerConfig,
+	type McpConfig,
+	type McpManagerState,
+	type McpServerConfig,
+	type McpServerInstance,
+	type McpServerStatus,
+} from "./types.js";
 
 const MCP_PROTOCOL_VERSION = "2024-11-05";
 const CLIENT_NAME = "vetta";
@@ -24,6 +37,12 @@ export interface McpManagerOptions {
 	debug?: boolean;
 	/** Whether MCP is globally enabled */
 	enabled?: boolean;
+	/**
+	 * Built-in servers shipped with the host, keyed by runtime name.
+	 * Invisible to the user: never persisted to mcp.json, never listed as an
+	 * installable ability. Names must not contain `_` (see plugin-mcp.ts).
+	 */
+	builtinServers?: Record<string, McpServerConfig>;
 }
 
 /**
@@ -33,17 +52,71 @@ export class McpManager {
 	private state: McpManagerState;
 	private configLoader: McpConfigLoader;
 	private projectRoot: string;
+	private agentDir: string;
 	private debug: boolean;
+	/** mcp.json 签名快照，用于 reloadIfChanged 的 fast-path 判等。 */
+	private lastSignature: string | undefined;
+	/**
+	 * Plugin-scoped MCP servers (third config source). Keyed by runtimeName.
+	 * Never written to user/project mcp.json; reconciled via setPluginServers.
+	 */
+	private pluginServers = new Map<string, McpServerConfig>();
+	/**
+	 * Built-in MCP servers shipped with the host (fourth config source).
+	 *
+	 * Like plugin servers these live in memory only — never written to
+	 * user/project mcp.json. The difference is intent: built-ins are part of the
+	 * product, not something the user installed, so they are invisible in the
+	 * abilities marketplace and cannot be removed by editing config. They are
+	 * seeded once at construction rather than reconciled over time.
+	 */
+	private builtinServers = new Map<string, McpServerConfig>();
+	/** Fingerprint of pluginServers for combined hasConfigChanged / reload. */
+	private pluginFingerprint = fingerprintPluginMcpServers([]);
 
 	constructor(options: McpManagerOptions = {}) {
 		this.projectRoot = options.projectRoot || process.cwd();
+		this.agentDir = options.agentDir || getAgentDir();
 		this.debug = options.debug || false;
-		this.configLoader = new McpConfigLoader(this.projectRoot, options.agentDir);
+		this.configLoader = new McpConfigLoader(this.projectRoot, this.agentDir);
+
+		for (const [name, config] of Object.entries(options.builtinServers ?? {})) {
+			// 与插件 MCP 同一条约束：工具适配器按第一个 `_` 切分 server 名
+			if (!name || name.includes("_")) {
+				this.log(`Rejecting builtin MCP server with invalid name: ${name}`);
+				continue;
+			}
+			this.builtinServers.set(name, config);
+		}
 
 		this.state = {
 			servers: new Map(),
 			enabled: options.enabled !== undefined ? options.enabled : true,
 		};
+	}
+
+	/**
+	 * Merge file-based config with in-memory builtin + plugin servers.
+	 * Built-ins are applied first so a user's mcp.json entry of the same name
+	 * still wins — we ship a default, we don't seize the name. Plugin runtime
+	 * names win last (they are namespaced with `plugin-`, so no real collision).
+	 */
+	private loadEffectiveConfig(): McpConfig {
+		const merged = this.configLoader.loadMerged();
+		const mcpServers: Record<string, McpServerConfig> = {};
+		for (const [name, config] of this.builtinServers) {
+			mcpServers[name] = config;
+		}
+		Object.assign(mcpServers, merged.mcpServers);
+		for (const [name, config] of this.pluginServers) {
+			mcpServers[name] = config;
+		}
+		return { mcpServers };
+	}
+
+	private combinedSignature(): string {
+		// builtinServers 在构造时定死、生命周期内不变，故不进签名
+		return `${this.configLoader.getMergedSignature()}|plugin:${this.pluginFingerprint}`;
 	}
 
 	/**
@@ -60,8 +133,8 @@ export class McpManager {
 			this.state.globalConfig = this.configLoader.loadGlobal() || undefined;
 			this.state.projectConfig = this.configLoader.loadProject() || undefined;
 
-			// Merge configurations
-			const mergedConfig = this.configLoader.loadMerged();
+			// Merge file + plugin configurations
+			const mergedConfig = this.loadEffectiveConfig();
 
 			// Initialize servers
 			const initPromises: Promise<void>[] = [];
@@ -76,6 +149,7 @@ export class McpManager {
 			// Wait for all servers to initialize (in parallel)
 			await Promise.allSettled(initPromises);
 
+			this.lastSignature = this.combinedSignature();
 			this.log(`Initialized ${this.state.servers.size} MCP servers`);
 		} catch (error) {
 			this.log(`Failed to initialize MCP servers: ${(error as Error).message}`);
@@ -102,7 +176,10 @@ export class McpManager {
 
 		try {
 			// Create and start client
-			const client = createMcpClient(name, config, { debug: this.debug || config.debug });
+			const client = createMcpClient(name, config, {
+				debug: this.debug || config.debug,
+				agentDir: this.agentDir,
+			});
 
 			instance.client = client;
 			instance.startedAt = new Date();
@@ -143,13 +220,102 @@ export class McpManager {
 			}
 
 			instance.status = "ready";
+			instance.error = undefined;
 			this.log(`Server ${name} is ready`);
 		} catch (error) {
+			if (isMcpAuthRequiredError(error)) {
+				instance.status = "needs_auth";
+				instance.error = (error as Error).message;
+				instance.client = undefined;
+				this.log(`Server ${name} needs OAuth authorization`);
+				return;
+			}
 			instance.status = "error";
 			instance.error = (error as Error).message;
 			this.log(`Failed to initialize server ${name}: ${instance.error}`);
 			// Don't throw - allow other servers to initialize
 		}
+	}
+
+	/**
+	 * Run browser OAuth for an HTTP MCP server, persist tokens, and reconnect.
+	 * Works even when the server is not currently in the manager (uses mcp.json).
+	 */
+	async loginServer(name: string, options?: { openUrl?: OpenUrlHandler }): Promise<void> {
+		const instance = this.state.servers.get(name);
+		const config = instance?.config ?? this.configLoader.loadMerged().mcpServers[name];
+		if (!config) {
+			throw new Error(`Server '${name}' not found`);
+		}
+		if (!isHttpServerConfig(config)) {
+			throw new Error(`Server '${name}' is not an HTTP MCP server (OAuth only applies to type:http)`);
+		}
+
+		if (config.oauthDeviceFlow) {
+			if (!config.oauthClientId) {
+				throw new Error(`Server '${name}' is missing oauthClientId for the device flow`);
+			}
+			await loginMcpDeviceFlow({
+				serverName: name,
+				serverUrl: config.url,
+				clientId: config.oauthClientId,
+				scopes: config.oauthScopes,
+				agentDir: this.agentDir,
+				openUrl: options?.openUrl,
+			});
+		} else {
+			await loginHttpMcpServer({
+				serverName: name,
+				serverUrl: config.url,
+				oauthClientId: config.oauthClientId,
+				agentDir: this.agentDir,
+				openUrl: options?.openUrl,
+			});
+		}
+
+		// Close any previous client and re-init
+		if (instance?.client) {
+			try {
+				await instance.client.close();
+			} catch {
+				// ignore
+			}
+		}
+		this.state.servers.delete(name);
+		if (!config.disabled) {
+			await this.initializeServer(name, config);
+		}
+	}
+
+	/**
+	 * Clear stored OAuth tokens for a server and mark it needs_auth / stopped.
+	 */
+	async logoutServer(name: string): Promise<void> {
+		clearMcpOAuthState(name, this.agentDir);
+		const instance = this.state.servers.get(name);
+		if (!instance) return;
+		if (instance.client) {
+			try {
+				await instance.client.close();
+			} catch {
+				// ignore
+			}
+		}
+		instance.client = undefined;
+		instance.tools = [];
+		instance.resources = [];
+		instance.serverInfo = undefined;
+		if (isHttpServerConfig(instance.config) && !instance.config.disabled) {
+			instance.status = "needs_auth";
+			instance.error = "OAuth credentials cleared";
+		} else {
+			instance.status = "stopped";
+		}
+	}
+
+	/** Whether the server has OAuth tokens on disk (not necessarily a live connection). */
+	hasAuthTokens(name: string): boolean {
+		return hasMcpOAuthTokens(name, this.agentDir);
 	}
 
 	/**
@@ -191,6 +357,7 @@ export class McpManager {
 			ready: [],
 			error: [],
 			stopped: [],
+			needs_auth: [],
 		};
 
 		for (const instance of this.state.servers.values()) {
@@ -213,7 +380,173 @@ export class McpManager {
 	}
 
 	/**
-	 * Reload configuration and restart servers
+	 * 仅探测：mcp.json 或插件 MCP 贡献是否自上次加载后发生变化。无副作用。
+	 * 用于 prompt 入口的 fast-path 判等。
+	 */
+	hasConfigChanged(): boolean {
+		if (!this.state.enabled) return false;
+		return this.lastSignature !== this.combinedSignature();
+	}
+
+	/**
+	 * Replace the plugin MCP contribution set and reconcile running servers.
+	 * Does not touch user/project mcp.json servers except on name collision
+	 * (plugin runtime names are namespaced with `plugin-`).
+	 *
+	 * @returns whether any server was started/stopped/restarted
+	 */
+	async setPluginServers(specs: readonly PluginMcpServerSpec[]): Promise<boolean> {
+		if (!this.state.enabled) {
+			this.pluginServers.clear();
+			this.pluginFingerprint = fingerprintPluginMcpServers([]);
+			return false;
+		}
+
+		const next = new Map<string, McpServerConfig>();
+		for (const spec of specs) {
+			if (!spec.runtimeName || spec.runtimeName.includes("_")) {
+				this.log(`Rejecting plugin MCP server with invalid runtimeName: ${spec.runtimeName}`);
+				continue;
+			}
+			next.set(spec.runtimeName, spec.config);
+		}
+
+		const nextFingerprint = fingerprintPluginMcpServers(
+			[...next.entries()].map(([runtimeName, config]) => ({ runtimeName, config })),
+		);
+		if (nextFingerprint === this.pluginFingerprint && this.mapsEqualConfig(this.pluginServers, next)) {
+			return false;
+		}
+
+		this.pluginServers = next;
+		this.pluginFingerprint = nextFingerprint;
+		this.log(`Plugin MCP set updated (${next.size} servers), reconciling`);
+		const changed = await this.reconcileToEffectiveConfig();
+		// Surface plugin MCP boot failures loudly — silent error status was the
+		// main reason "plugin tools missing" looked like injection never ran.
+		for (const instance of this.state.servers.values()) {
+			if (!instance.name.startsWith("plugin-")) continue;
+			if (instance.status === "error" || instance.status === "needs_auth") {
+				console.error(
+					`[MCP] Plugin server ${instance.name} status=${instance.status}: ${instance.error ?? "unknown"}`,
+				);
+			} else if (instance.status === "ready") {
+				this.log(`Plugin server ${instance.name} ready with ${instance.tools.length} tools`);
+			}
+		}
+		return changed;
+	}
+
+	private mapsEqualConfig(a: Map<string, McpServerConfig>, b: Map<string, McpServerConfig>): boolean {
+		if (a.size !== b.size) return false;
+		for (const [name, config] of a) {
+			const other = b.get(name);
+			if (!other || JSON.stringify(other) !== JSON.stringify(config)) return false;
+		}
+		return true;
+	}
+
+	/**
+	 * Diff-reconcile running servers against the effective (file + plugin) config.
+	 */
+	private async reconcileToEffectiveConfig(): Promise<boolean> {
+		let mergedConfig: McpConfig;
+		try {
+			mergedConfig = this.loadEffectiveConfig();
+		} catch (err) {
+			this.log(`Failed to load effective MCP config, keeping current state: ${(err as Error).message}`);
+			this.lastSignature = this.combinedSignature();
+			return false;
+		}
+
+		const oldNames = new Set(this.state.servers.keys());
+		const newNames = new Set(Object.keys(mergedConfig.mcpServers));
+		let changed = false;
+
+		for (const name of oldNames) {
+			if (!newNames.has(name)) {
+				const instance = this.state.servers.get(name);
+				if (instance?.client) {
+					try {
+						await instance.client.close();
+					} catch (err) {
+						this.log(`Error closing removed server ${name}: ${(err as Error).message}`);
+					}
+				}
+				this.state.servers.delete(name);
+				this.log(`Removed server: ${name}`);
+				changed = true;
+			}
+		}
+
+		const tasks: Promise<void>[] = [];
+		for (const [name, newConfig] of Object.entries(mergedConfig.mcpServers)) {
+			const oldInstance = this.state.servers.get(name);
+			const newDisabled = !!newConfig.disabled;
+
+			if (!oldInstance) {
+				if (!newDisabled) {
+					tasks.push(this.initializeServer(name, newConfig));
+					changed = true;
+				}
+				continue;
+			}
+
+			const oldConfigJson = JSON.stringify(oldInstance.config);
+			const newConfigJson = JSON.stringify(newConfig);
+			if (oldConfigJson === newConfigJson) {
+				continue;
+			}
+
+			if (oldInstance.client) {
+				try {
+					await oldInstance.client.close();
+				} catch (err) {
+					this.log(`Error closing changed server ${name}: ${(err as Error).message}`);
+				}
+			}
+			this.state.servers.delete(name);
+			changed = true;
+			if (!newDisabled) {
+				tasks.push(this.initializeServer(name, newConfig));
+			} else {
+				this.log(`Server ${name} is now disabled, kept stopped`);
+			}
+		}
+
+		await Promise.allSettled(tasks);
+
+		this.state.globalConfig = this.configLoader.loadGlobal() || undefined;
+		this.state.projectConfig = this.configLoader.loadProject() || undefined;
+		this.lastSignature = this.combinedSignature();
+
+		this.log(`Reconcile done, ${this.state.servers.size} servers active`);
+		return changed;
+	}
+
+	/**
+	 * 若 mcp.json 或插件 MCP 自上次加载以来发生变化，则按需重启变化的 server。
+	 *
+	 * Fast-path：组合签名相等直接返回 false，0 副作用。
+	 * Slow-path：diff 旧/新配置（含插件源），最小化重启。
+	 *
+	 * @returns 是否真的执行了重启（false = 配置未变 / MCP 关闭）
+	 */
+	async reloadIfChanged(): Promise<boolean> {
+		if (!this.state.enabled) return false;
+
+		const currentSignature = this.combinedSignature();
+		if (this.lastSignature !== undefined && this.lastSignature === currentSignature) {
+			return false;
+		}
+
+		this.log("MCP config changed, diff-reloading");
+		return this.reconcileToEffectiveConfig();
+	}
+
+	/**
+	 * Reload configuration and restart servers.
+	 * Preserves the current plugin server set (only re-reads mcp.json files).
 	 */
 	async reload(): Promise<void> {
 		this.log("Reloading MCP configuration");
@@ -221,10 +554,11 @@ export class McpManager {
 		// Stop all servers
 		await this.shutdown();
 
-		// Clear state
+		// Clear running instances only; keep pluginServers map
 		this.state.servers.clear();
+		this.lastSignature = undefined;
 
-		// Reinitialize
+		// Reinitialize (file + plugin)
 		await this.initialize();
 	}
 

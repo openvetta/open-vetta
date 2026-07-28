@@ -4,11 +4,10 @@
 	"description": "Coding agent CLI with read, bash, edit, write tools and session management",
 	"type": "module",
 	"piConfig": {
-		"name": "vetta",
-		"configDir": ".vetta"
+		"name": "vetta"
 	},
 	"bin": {
-		"vetta": "dist/cli.js"
+		"vetta-agent": "dist/cli.js"
 	},
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
@@ -32,6 +31,10 @@
 		"./core/mcp/types.js": {
 			"types": "./dist/core/mcp/types.d.ts",
 			"import": "./dist/core/mcp/types.js"
+		},
+		"./core/resolve-config-value.js": {
+			"types": "./dist/core/resolve-config-value.d.ts",
+			"import": "./dist/core/resolve-config-value.js"
 		}
 	},
 	"files": [
@@ -44,23 +47,30 @@
 	"scripts": {
 		"clean": "shx rm -rf dist",
 		"dev": "tsgo -p tsconfig.build.json --watch --preserveWatchOutput",
-		"build": "tsgo -p tsconfig.build.json && shx chmod +x dist/cli.js && bun run copy-assets",
+		"build": "bun run generate:personas && bun run generate:modes && bun run generate:descriptions && tsgo -p tsconfig.build.json && shx chmod +x dist/cli.js && bun run copy-assets",
+		"generate:personas": "node scripts/generate-personas.mjs",
+		"generate:modes": "node scripts/generate-modes.mjs",
+		"generate:descriptions": "node scripts/generate-tool-descriptions.mjs",
 		"build:binary": "bun run build && bun build --compile ./dist/cli.js --outfile dist/vetta && bun run copy-binary-assets",
 		"copy-assets": "shx mkdir -p dist/modes/interactive/theme && shx cp src/modes/interactive/theme/*.json dist/modes/interactive/theme/ && shx mkdir -p dist/core/export-html/vendor && shx cp src/core/export-html/template.html src/core/export-html/template.css src/core/export-html/template.js dist/core/export-html/ && shx cp src/core/export-html/vendor/*.js dist/core/export-html/vendor/",
 		"copy-binary-assets": "shx cp package.json dist/ && shx cp README.md dist/ && shx cp CHANGELOG.md dist/ && shx mkdir -p dist/theme && shx cp src/modes/interactive/theme/*.json dist/theme/ && shx mkdir -p dist/export-html/vendor && shx cp src/core/export-html/template.html dist/export-html/ && shx cp src/core/export-html/vendor/*.js dist/export-html/vendor/ && shx cp -r docs dist/ && shx cp -r examples dist/ && shx cp ../../node_modules/@silvia-odwyer/photon-node/photon_rs_bg.wasm dist/",
 		"test": "vitest --run",
+		"test:coverage": "vitest --run --coverage",
 		"prepublishOnly": "bun run clean && bun run build"
 	},
 	"dependencies": {
 		"@mariozechner/jiti": "^2.6.2",
-		"@mariozechner/pi-agent-core": "^0.55.3",
-		"@mariozechner/pi-ai": "^0.55.3",
-		"@mariozechner/pi-tui": "^0.55.3",
+		"@modelcontextprotocol/sdk": "^1.29.0",
+		"@silvia-odwyer/photon-node": "^0.3.4",
 		"@sinclair/typebox": "^0.34.41",
+		"@vetta/action-rpc": "workspace:*",
+		"@vetta/agent-core": "workspace:*",
+		"@vetta/ai": "workspace:*",
+		"@vetta/ecosystem-adapter": "workspace:*",
+		"@vetta/runtime-telemetry": "workspace:*",
+		"@vetta/vetta-mcp": "workspace:*",
 		"ajv": "^8.17.1",
 		"ajv-formats": "^3.0.1",
-		"strip-ansi": "^7.1.0",
-		"@silvia-odwyer/photon-node": "^0.3.4",
 		"chalk": "^5.5.0",
 		"cli-highlight": "^2.1.11",
 		"diff": "^8.0.2",
@@ -72,6 +82,7 @@
 		"marked": "^15.0.12",
 		"minimatch": "^10.1.1",
 		"proper-lockfile": "^4.1.2",
+		"strip-ansi": "^7.1.0",
 		"yaml": "^2.8.2"
 	},
 	"overrides": {
@@ -90,8 +101,7 @@
 		"@types/node": "^24.3.0",
 		"@types/proper-lockfile": "^4.1.4",
 		"shx": "^0.4.0",
-		"typescript": "^5.7.3",
-		"vitest": "^3.2.4"
+		"typescript": "^5.7.3"
 	},
 	"keywords": [
 		"coding-agent",

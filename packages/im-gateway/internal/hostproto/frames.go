@@ -9,12 +9,11 @@ import (
 // Frame type discriminators. Strings are the wire format.
 const (
 	// Inbound (parent → child)
-	TypeInit             = "init"
-	TypeConfigUpdate     = "config_update"
-	TypeProjectsUpdate   = "projects_update"
-	TypeShutdown         = "shutdown"
-	TypeWechatBindStart  = "wechat_bind_start"
-	TypeWechatLogout     = "wechat_logout"
+	TypeInit            = "init"
+	TypeConfigUpdate    = "config_update"
+	TypeShutdown        = "shutdown"
+	TypeWechatBindStart = "wechat_bind_start"
+	TypeWechatLogout    = "wechat_logout"
 
 	// Outbound (child → parent)
 	TypeReady            = "ready"
@@ -35,21 +34,11 @@ const (
 // no transport is running. The parent should drive the bind flow via
 // TypeWechatBindStart.
 const (
-	TransportStatusOffline       = "offline"
-	TransportStatusConnecting    = "connecting"
-	TransportStatusOnline        = "online"
-	TransportStatusError         = "error"
-	TransportStatusAwaitingBind  = "awaiting_bind"
-)
-
-// Wechat bind status values reported on TypeWechatBindStatus events.
-const (
-	WechatBindStatusScanned    = "scanned"
-	WechatBindStatusExpired    = "expired"     // a refresh follows in WechatQREvent
-	WechatBindStatusRedirected = "redirected"
-	WechatBindStatusConfirmed  = "confirmed"
-	WechatBindStatusFailed     = "failed"
-	WechatBindStatusCancelled  = "cancelled"
+	TransportStatusOffline      = "offline"
+	TransportStatusConnecting   = "connecting"
+	TransportStatusOnline       = "online"
+	TransportStatusError        = "error"
+	TransportStatusAwaitingBind = "awaiting_bind"
 )
 
 // FeishuConfig carries the credentials and options needed to spin up a
@@ -78,25 +67,20 @@ type WechatConfig struct {
 	StatePath string `json:"statePath,omitempty"`
 }
 
-// ProjectEntry mirrors projects.Project but uses JSON tags for the wire
-// format. Kept separate from internal types so the protocol stays free of
-// internal package imports.
-type ProjectEntry struct {
-	ID   string `json:"id,omitempty"`
-	Name string `json:"name,omitempty"`
-	Path string `json:"path"`
-}
-
-// SessionStateEntry mirrors a single (user, project) routing entry.
+// SessionStateEntry mirrors a single (im_user, chatID) routing entry.
 type SessionStateEntry struct {
 	UserID      string    `json:"userId"`
-	ProjectID   string    `json:"projectId"`
+	ChatID      string    `json:"chatId"`
 	SessionPath string    `json:"sessionPath,omitempty"`
 	UpdatedAt   time.Time `json:"updatedAt,omitzero"`
 }
 
 // InitFrame is the first frame the parent must send after spawn. The sidecar
 // blocks for up to 10s waiting for it; absence triggers a non-zero exit.
+//
+// ConversationCwd is the absolute cwd of desktop-app's virtual "对话" project
+// (DEFAULT_CONVERSATION_CWD in fs.ts). All IM sessions live under this cwd;
+// the gateway no longer carries a project list.
 //
 // The active transport is determined by which sub-config is non-nil:
 //
@@ -108,12 +92,54 @@ type SessionStateEntry struct {
 // Exactly one of Feishu / Wechat should be non-nil for a configured run;
 // neither yields the legacy "fall back to mock" behavior used in tests.
 type InitFrame struct {
-	Type     string              `json:"type"` // always TypeInit
-	Feishu   *FeishuConfig       `json:"feishu,omitempty"`
-	Wechat   *WechatConfig       `json:"wechat,omitempty"`
-	Projects []ProjectEntry      `json:"projects"`
-	State    []SessionStateEntry `json:"state"`
-	LogLevel string              `json:"logLevel,omitempty"` // debug|info|warn|error
+	Type            string              `json:"type"` // always TypeInit
+	Feishu          *FeishuConfig       `json:"feishu,omitempty"`
+	Wechat          *WechatConfig       `json:"wechat,omitempty"`
+	ConversationCwd string              `json:"conversationCwd"`
+	State           []SessionStateEntry `json:"state"`
+	LogLevel        string              `json:"logLevel,omitempty"` // debug|info|warn|error
+	// CodingAgent overrides how the sidecar invokes the coding-agent
+	// subprocess for IM sessions. When omitted, the sidecar falls back to
+	// looking up `vetta` on PATH — fine for dev (where `bun link` puts it
+	// there) but broken in production where the Vetta.app bundle does not
+	// install a global CLI. Desktop-app's host runtime populates this with
+	// the Vetta.app executable path + the `--agent-rpc` discriminator so
+	// the spawned Electron process short-circuits into coding-agent's main.
+	CodingAgent *CodingAgentSpec `json:"codingAgent,omitempty"`
+}
+
+// CodingAgentSpec describes the executable the sidecar should spawn for
+// each IM-session coding-agent subprocess. The final argv is:
+//
+//	[Bin, PrefixArgs..., "--mode", "rpc", "--cwd", <cwd>, ...]
+//
+// PrefixArgs is where the parent stuffs e.g. `--agent-rpc` (to switch
+// Vetta.app into CLI mode) or, in dev, the Electron main-entry path.
+type CodingAgentSpec struct {
+	Bin        string   `json:"bin"`
+	PrefixArgs []string `json:"prefixArgs,omitempty"`
+	// RunAsNode, when true, asks the sidecar to set ELECTRON_RUN_AS_NODE=1
+	// before spawning Bin. Windows packaged desktop builds use this to run
+	// the Electron executable as a Node runtime for coding-agent's CLI,
+	// because the normal GUI mode closes stdio before RPC can handshake.
+	RunAsNode bool `json:"runAsNode,omitempty"`
+	// PackageDir, when non-empty, is forwarded to the spawned subprocess
+	// as the `VETTA_PACKAGE_DIR` environment variable. The agent's
+	// `getPackageDir()` defaults to walking up `__dirname` to find
+	// `package.json` — which lands on the host bundle when coding-agent is
+	// Vite-bundled into Electron's main process. Setting this explicitly
+	// points at the staged assets dir so theme / template lookups
+	// resolve correctly.
+	PackageDir string `json:"packageDir,omitempty"`
+	// ServerURL, when non-empty, is forwarded to the spawned subprocess as
+	// the `VETTA_SERVER_URL` environment variable. coding-agent's main.ts
+	// otherwise reads serverUrl from `~/.vetta/agent/settings.json`, which
+	// may carry a stale LAN address (test env / fresh dev login residue)
+	// that produces 401 on the prod gateway. With this env present the
+	// agent ignores the settings residue and uses the host-injected URL.
+	// Desktop-app populates it with its compile-time DEFAULT_SERVER_URL so
+	// IM-session subprocesses talk to the same gateway the GUI does.
+	ServerURL string `json:"serverUrl,omitempty"`
 }
 
 // ConfigUpdateFrame replaces the active credentials and/or switches the
@@ -123,13 +149,6 @@ type ConfigUpdateFrame struct {
 	Type   string        `json:"type"` // always TypeConfigUpdate
 	Feishu *FeishuConfig `json:"feishu,omitempty"`
 	Wechat *WechatConfig `json:"wechat,omitempty"`
-}
-
-// ProjectsUpdateFrame replaces the in-memory project list without a
-// reconnect.
-type ProjectsUpdateFrame struct {
-	Type     string         `json:"type"` // always TypeProjectsUpdate
-	Projects []ProjectEntry `json:"projects"`
 }
 
 // ShutdownFrame requests graceful shutdown. Equivalent semantics to closing
@@ -184,9 +203,9 @@ type StatusEvent struct {
 // StatePatchEvent reports a routing-table mutation. Parent persists the
 // patch to its own state file.
 type StatePatchEvent struct {
-	Type      string    `json:"type"` // always TypeStatePatch
-	UserID    string    `json:"userId"`
-	ProjectID string    `json:"projectId"`
+	Type   string `json:"type"` // always TypeStatePatch
+	UserID string `json:"userId"`
+	ChatID string `json:"chatId"`
 	// SessionPath empty means "delete this entry". Non-empty means upsert.
 	SessionPath string    `json:"sessionPath"`
 	UpdatedAt   time.Time `json:"updatedAt"`
@@ -237,6 +256,16 @@ type WechatUnboundEvent struct {
 	Reason string `json:"reason,omitempty"`
 }
 
+// Wechat bind status values reported on TypeWechatBindStatus events.
+const (
+	WechatBindStatusScanned    = "scanned"
+	WechatBindStatusExpired    = "expired" // a refresh follows in WechatQREvent
+	WechatBindStatusRedirected = "redirected"
+	WechatBindStatusConfirmed  = "confirmed"
+	WechatBindStatusFailed     = "failed"
+	WechatBindStatusCancelled  = "cancelled"
+)
+
 // envelope is a minimal probe used to discriminate inbound frames before
 // dispatching to the typed decoder.
 type envelope struct {
@@ -245,7 +274,7 @@ type envelope struct {
 
 // DecodeInbound parses one line of NDJSON into the appropriate inbound
 // frame variant. Returns a typed pointer (*InitFrame, *ConfigUpdateFrame,
-// *ProjectsUpdateFrame, *ShutdownFrame) or an error.
+// *ShutdownFrame) or an error.
 func DecodeInbound(line []byte) (any, error) {
 	var env envelope
 	if err := json.Unmarshal(line, &env); err != nil {
@@ -262,12 +291,6 @@ func DecodeInbound(line []byte) (any, error) {
 		var f ConfigUpdateFrame
 		if err := json.Unmarshal(line, &f); err != nil {
 			return nil, fmt.Errorf("hostproto: parse config_update: %w", err)
-		}
-		return &f, nil
-	case TypeProjectsUpdate:
-		var f ProjectsUpdateFrame
-		if err := json.Unmarshal(line, &f); err != nil {
-			return nil, fmt.Errorf("hostproto: parse projects_update: %w", err)
 		}
 		return &f, nil
 	case TypeShutdown:

@@ -19,11 +19,16 @@ import type {
 	ExtensionUIDialogOptions,
 	ExtensionWidgetOptions,
 } from "../../core/extensions/index.js";
+import type { ToolDefinition } from "../../core/extensions/types.js";
+import { createImSendAttachmentTool, type ImHostBridge } from "../../core/tools/im-send-attachment/index.js";
+import { createMemoryTool } from "../../core/tools/memory/index.js";
 import { type Theme, theme } from "../interactive/theme/theme.js";
 import type {
 	RpcCommand,
 	RpcExtensionUIRequest,
 	RpcExtensionUIResponse,
+	RpcHostRequest,
+	RpcHostResponse,
 	RpcResponse,
 	RpcSessionState,
 	RpcSlashCommand,
@@ -38,13 +43,26 @@ export type {
 	RpcSessionState,
 } from "./rpc-types.js";
 
+export interface RunRpcModeOptions {
+	/** Register the im_send_attachment tool and accept host_response commands. */
+	enableHostBridge?: boolean;
+}
+
+/** How long a single host_request waits before failing the tool with a timeout. */
+const HOST_REQUEST_TIMEOUT_MS = 30_000;
+
 /**
  * Run in RPC mode.
  * Listens for JSON commands on stdin, outputs events and responses on stdout.
  */
-export async function runRpcMode(session: AgentSession): Promise<never> {
-	const output = (obj: RpcResponse | RpcExtensionUIRequest | object) => {
-		console.log(JSON.stringify(obj));
+export async function runRpcMode(session: AgentSession, options: RunRpcModeOptions = {}): Promise<never> {
+	const output = (obj: RpcResponse | RpcExtensionUIRequest | RpcHostRequest | object) => {
+		// Use process.stdout.write directly (not console.log) so callers
+		// that patch / hijack `console.*` for diagnostics don't swallow
+		// the RPC protocol stream. Specifically, desktop-app's agent-rpc
+		// CLI mode redirects every console method to stderr to keep stdout
+		// pristine for this exact NDJSON payload.
+		process.stdout.write(`${JSON.stringify(obj)}\n`);
 	};
 
 	const success = <T extends RpcCommand["type"]>(
@@ -273,6 +291,58 @@ export async function runRpcMode(session: AgentSession): Promise<never> {
 		},
 	});
 
+	// Pending host_request promises waiting for matching host_response on stdin.
+	const pendingHostRequests = new Map<
+		string,
+		{
+			resolve: (value: { messageId?: string }) => void;
+			reject: (error: Error) => void;
+			timer: ReturnType<typeof setTimeout>;
+		}
+	>();
+
+	// Custom tools registered for this RPC session. Both the host-bridge tool
+	// and the memory tool are IM-mode built-ins, gated independently. We collect
+	// them and call reconfigureCustomTools once so the runtime is rebuilt a
+	// single time. ToolDefinition is invariant in its TParams generic; the
+	// concrete schemas returned by the factories are narrower than the
+	// registry's `ToolDefinition<TSchema, unknown>` slot, so we cast to erase
+	// the narrowing — runtime is identical.
+	const customTools: ToolDefinition[] = [];
+
+	if (options.enableHostBridge) {
+		const bridge: ImHostBridge = {
+			sendAttachment(params) {
+				return new Promise<{ messageId?: string }>((resolve, reject) => {
+					const id = crypto.randomUUID();
+					const timer = setTimeout(() => {
+						pendingHostRequests.delete(id);
+						reject(new Error(`im_send_attachment: host did not respond within ${HOST_REQUEST_TIMEOUT_MS}ms`));
+					}, HOST_REQUEST_TIMEOUT_MS);
+					pendingHostRequests.set(id, { resolve, reject, timer });
+					output({
+						type: "host_request",
+						id,
+						method: "send_attachment",
+						params,
+					} as RpcHostRequest);
+				});
+			},
+		};
+		customTools.push(createImSendAttachmentTool(bridge) as unknown as ToolDefinition);
+	}
+
+	// memory tool (ADR-0009): gated by memory-mode, independent of host-bridge.
+	if (session.memoryMode && session.memoryFile) {
+		customTools.push(createMemoryTool(session.memoryFile, session.memoryCharLimit) as unknown as ToolDefinition);
+	}
+
+	if (customTools.length > 0) {
+		// reconfigureCustomTools rebuilds the runtime tool list synchronously;
+		// the agent sees these in the next turn's tool dispatch.
+		session.reconfigureCustomTools(customTools);
+	}
+
 	// Set up extensions with RPC-based UI context
 	await session.bindExtensions({
 		uiContext: createExtensionUIContext(),
@@ -460,6 +530,15 @@ export async function runRpcMode(session: AgentSession): Promise<never> {
 			}
 
 			// =================================================================
+			// Memory (ADR-0009)
+			// =================================================================
+
+			case "flush_memory": {
+				const written = await session.flushMemory();
+				return success(id, "flush_memory", { written });
+			}
+
+			// =================================================================
 			// Retry
 			// =================================================================
 
@@ -626,6 +705,24 @@ export async function runRpcMode(session: AgentSession): Promise<never> {
 				return;
 			}
 
+			// Handle host_response (reply to host_request issued by built-in tools).
+			if (parsed.type === "host_response") {
+				const response = parsed as RpcHostResponse;
+				const pending = pendingHostRequests.get(response.id);
+				if (!pending) {
+					return; // late / duplicate
+				}
+				pendingHostRequests.delete(response.id);
+				clearTimeout(pending.timer);
+				if (response.success) {
+					pending.resolve({ messageId: response.data?.messageId });
+				} else {
+					const code = response.errorCode ? ` [${response.errorCode}]` : "";
+					pending.reject(new Error(`${response.error}${code}`));
+				}
+				return;
+			}
+
 			// Handle regular commands
 			const command = parsed as RpcCommand;
 			const response = await handleCommand(command);
@@ -636,6 +733,15 @@ export async function runRpcMode(session: AgentSession): Promise<never> {
 		} catch (e: any) {
 			output(error(undefined, "parse", `Failed to parse command: ${e.message}`));
 		}
+	});
+
+	// Exit when the parent closes stdin. Without this, the process keeps
+	// running indefinitely after the parent dies (the `return new Promise(() => {})`
+	// below would otherwise block forever), leaving stale session-file locks
+	// that prevent the next sidecar from reusing the same .jsonl. See ADR-0004
+	// — im-gateway depends on this for clean reattach after a sidecar restart.
+	rl.on("close", () => {
+		process.exit(0);
 	});
 
 	// Keep process alive forever

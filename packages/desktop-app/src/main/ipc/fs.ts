@@ -1,165 +1,122 @@
-import type { FSWatcher, Stats } from "node:fs";
-import { readFileSync, watch } from "node:fs";
-import { copyFile, mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
-import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
+import type { FSWatcher } from "node:fs";
+import { watch } from "node:fs";
+import { readdir, stat } from "node:fs/promises";
+import { join, resolve } from "node:path";
+import {
+	clearMcpOAuthState,
+	hasMcpOAuthTokens,
+	loginHttpMcpServer,
+	loginMcpDeviceFlow,
+} from "@vetta/coding-agent/core/mcp/index.js";
 import { BrowserWindow, ipcMain } from "electron";
-import type { FsEntry } from "../../preload/fs-types.js";
-import { atomicWriteJSON } from "../utils/atomic-write.js";
+import type {
+	McpConfigData,
+	McpHttpServerConfigData,
+	McpServerCommonConfigData,
+	McpServerConfigData,
+	McpStdioServerConfigData,
+} from "../../preload/api-types/mcp.js";
+import type { FsEntry, FsFileRef } from "../../preload/fs-types.js";
+import {
+	type AppshotConfig,
+	type AppshotGesture,
+	DEFAULT_CONVERSATION_CWD,
+	DEFAULT_CONVERSATION_SESSION_DIR,
+	DEFAULT_IM_CONVERSATION_CWD,
+	DEFAULT_IM_CONVERSATION_SESSION_DIR,
+	type DesktopConfig,
+	type ExperimentalConfig,
+	expandTildePath,
+	KB_PROCESSING_CWD,
+	KB_PROCESSING_SESSION_DIR,
+	type KnowledgeBaseConfig,
+	type NewSessionPageConfig,
+	normalizeAgentMode,
+	normalizeAppshot,
+	normalizeExecutionMode,
+	normalizeExperimental,
+	normalizeKnowledgeBase,
+	normalizeNewSessionPage,
+	normalizeQuickPanel,
+	normalizeShortcuts,
+	type ProjectEntry,
+	persistVettaCliPaths,
+	type QuickPanelConfig,
+	type QuickPanelTrigger,
+	readConfigSync,
+	readDesktopConfig,
+	writeDesktopConfig,
+} from "../config/desktop-config-store.js";
+import {
+	allowProjectRoot,
+	createFilesystemDirectory,
+	deleteFilesystemPath,
+	listFilesystemFilesRecursive,
+	moveFilesystemPath,
+	readFilesystemDirectory,
+	readFilesystemFile,
+	renameFilesystemPath,
+	statFilesystemPath,
+	writeFilesystemFile,
+} from "../filesystem/filesystem-service.js";
+import { getDesktopMcpSettingsService, readMcpConfig, writeMcpConfig } from "../mcp/mcp-settings-service.js";
+import { fetchProviderModels } from "../models/fetch-models.js";
+import { getDesktopModelSettingsService } from "../models/model-settings-host.js";
+import type { ModelsConfig } from "../models/model-settings-service.js";
+import { probeModelProvider } from "../models/probe.js";
+import { openExternalUrl } from "../open-external.js";
+import { getLinuxSandboxCapability, getSandboxCapability, type SandboxCapability } from "../sandbox/capability.js";
+import { getDesktopShortcutService } from "../shortcuts/shortcut-service.js";
 
-// ─── Desktop app config ───
-
-export interface ProjectEntry {
-	path: string;
-	name?: string;
+export interface LinuxSandboxConfigState {
+	status: "unknown" | "available" | "unavailable";
+	backend: "bundled-bwrap" | "system-bwrap" | null;
+	reason?: string;
+	details?: string;
+	checkedAt?: number;
 }
 
-export interface DesktopConfig {
-	projects: ProjectEntry[];
-	archivedProjects: ProjectEntry[];
-	workspacePath: string;
-	debugMode?: boolean;
+export interface DesktopConfigSnapshot extends DesktopConfig {
+	sandbox: SandboxCapability;
+	linuxSandbox: LinuxSandboxConfigState;
+	/** 默认「对话」项目的绝对路径（~/.vetta/conversation），主进程已确保目录存在。 */
+	defaultConversationCwd: string;
+	/** im-gateway 自己的 cwd（~/.vetta/im-gateway/conversation）。Claw tab 据此判定一条 session 是否来自 IM。 */
+	defaultImConversationCwd: string;
+	/** 知识库加工特殊项目的绝对路径（~/.vetta/knowledges/processing_records）。 */
+	knowledgeProcessingCwd: string;
 }
 
-const CONFIG_PATH = join(homedir(), ".vetta", "desktop-config.json");
-const MODELS_CONFIG_PATH = join(homedir(), ".vetta", "agent", "models.json");
-const MCP_CONFIG_PATH = join(homedir(), ".vetta", "agent", "mcp.json");
-const DEFAULT_CONFIG: DesktopConfig = {
-	projects: [],
-	archivedProjects: [],
-	workspacePath: join(homedir(), ".vetta", "workspace"),
-	debugMode: false,
+export {
+	type AppshotConfig,
+	type AppshotGesture,
+	DEFAULT_CONVERSATION_CWD,
+	DEFAULT_CONVERSATION_SESSION_DIR,
+	DEFAULT_IM_CONVERSATION_CWD,
+	DEFAULT_IM_CONVERSATION_SESSION_DIR,
+	type DesktopConfig,
+	type ExperimentalConfig,
+	KB_PROCESSING_CWD,
+	KB_PROCESSING_SESSION_DIR,
+	type KnowledgeBaseConfig,
+	type NewSessionPageConfig,
+	persistVettaCliPaths,
+	type ProjectEntry,
+	type QuickPanelConfig,
+	type QuickPanelTrigger,
+	readConfigSync,
+	readDesktopConfig,
+	writeDesktopConfig,
 };
-
-/** Migrate legacy string[] format to ProjectEntry[] */
-function migrateProjectEntries(entries: unknown): ProjectEntry[] {
-	if (!Array.isArray(entries)) return [];
-	if (entries.length === 0) return [];
-	if (typeof entries[0] === "string") {
-		return (entries as string[]).map((p) => ({ path: p }));
-	}
-	return entries as ProjectEntry[];
-}
-
-async function readConfig(): Promise<DesktopConfig> {
-	try {
-		const raw = await readFile(CONFIG_PATH, "utf8");
-		const parsed = JSON.parse(raw) as Record<string, unknown>;
-		return {
-			projects: migrateProjectEntries(parsed.projects),
-			archivedProjects: migrateProjectEntries(parsed.archivedProjects),
-			workspacePath:
-				typeof parsed.workspacePath === "string" ? expandTilde(parsed.workspacePath) : DEFAULT_CONFIG.workspacePath,
-			debugMode: typeof parsed.debugMode === "boolean" ? parsed.debugMode : false,
-		};
-	} catch {
-		return { ...DEFAULT_CONFIG };
-	}
-}
-
-/** Sync version for use in hot paths (e.g. event callbacks) */
-export function readConfigSync(): DesktopConfig {
-	try {
-		const raw = readFileSync(CONFIG_PATH, "utf8");
-		const parsed = JSON.parse(raw) as Record<string, unknown>;
-		return {
-			projects: migrateProjectEntries(parsed.projects),
-			archivedProjects: migrateProjectEntries(parsed.archivedProjects),
-			workspacePath:
-				typeof parsed.workspacePath === "string" ? expandTilde(parsed.workspacePath) : DEFAULT_CONFIG.workspacePath,
-			debugMode: typeof parsed.debugMode === "boolean" ? parsed.debugMode : false,
-		};
-	} catch {
-		return { ...DEFAULT_CONFIG };
-	}
-}
-
-async function writeConfig(config: DesktopConfig): Promise<void> {
-	atomicWriteJSON(CONFIG_PATH, config);
-}
-
-function expandTilde(p: string): string {
-	if (p.startsWith("~/") || p === "~") {
-		return join(homedir(), p.slice(1));
-	}
-	return p;
-}
-
-// ─── Models config (providers & models) ───
-
-export interface ModelsConfig {
-	defaultModel?: string;
-	providers: Record<string, ProviderConfig>;
-}
-
-export interface ProviderConfig {
-	baseUrl?: string;
-	apiKey?: string;
-	api?: string;
-	headers?: Record<string, string>;
-	authHeader?: boolean;
-	models?: ModelDefinition[];
-	modelOverrides?: Record<string, Record<string, unknown>>;
-}
-
-export interface ModelDefinition {
-	id: string;
-	name?: string;
-	api?: string;
-	reasoning?: boolean;
-	input?: string[];
-	contextWindow?: number;
-	maxTokens?: number;
-}
-
-const DEFAULT_MODELS_CONFIG: ModelsConfig = { providers: {} };
+export { readMcpConfig, writeMcpConfig };
 
 // ─── MCP config ───
 
-export interface McpServerConfig {
-	command: string;
-	args?: string[];
-	env?: Record<string, string>;
-	cwd?: string;
-	disabled?: boolean;
-	autoApprove?: string[];
-	startupTimeout?: number;
-	debug?: boolean;
-}
-
-export interface McpConfig {
-	mcpServers: Record<string, McpServerConfig>;
-}
-
-const DEFAULT_MCP_CONFIG: McpConfig = { mcpServers: {} };
-
-async function readMcpConfig(): Promise<McpConfig> {
-	try {
-		const raw = await readFile(MCP_CONFIG_PATH, "utf8");
-		const parsed = JSON.parse(raw) as Partial<McpConfig>;
-		return { ...DEFAULT_MCP_CONFIG, ...parsed };
-	} catch {
-		return { ...DEFAULT_MCP_CONFIG };
-	}
-}
-
-async function writeMcpConfig(config: McpConfig): Promise<void> {
-	atomicWriteJSON(MCP_CONFIG_PATH, config);
-}
-
-async function readModelsConfig(): Promise<ModelsConfig> {
-	try {
-		const raw = await readFile(MODELS_CONFIG_PATH, "utf8");
-		const parsed = JSON.parse(raw) as Partial<ModelsConfig>;
-		return { ...DEFAULT_MODELS_CONFIG, ...parsed };
-	} catch {
-		return { ...DEFAULT_MODELS_CONFIG };
-	}
-}
-
-async function writeModelsConfig(config: ModelsConfig): Promise<void> {
-	atomicWriteJSON(MODELS_CONFIG_PATH, config);
-}
+export type McpServerCommonConfig = McpServerCommonConfigData;
+export type McpStdioServerConfig = McpStdioServerConfigData;
+export type McpHttpServerConfig = McpHttpServerConfigData;
+export type McpServerConfig = McpServerConfigData;
+export type McpConfig = McpConfigData;
 
 const CHANNELS = {
 	READ_DIR: "vetta:fs:read-dir",
@@ -171,6 +128,7 @@ const CHANNELS = {
 	MOVE: "vetta:fs:move",
 	CREATE_DIRECTORY: "vetta:fs:create-directory",
 	LIST_SUB_DIRS: "vetta:fs:list-sub-dirs",
+	LIST_FILES_RECURSIVE: "vetta:fs:list-files-recursive",
 	WATCH_DIR: "vetta:fs:watch-dir",
 	UNWATCH_DIR: "vetta:fs:unwatch-dir",
 	DIR_CHANGED: "vetta:fs:dir-changed",
@@ -178,21 +136,15 @@ const CHANNELS = {
 	CONFIG_SET: "vetta:config:set",
 	MODELS_GET: "vetta:models:get",
 	MODELS_SET: "vetta:models:set",
+	MODELS_PROBE: "vetta:models:probe",
+	MODELS_FETCH_PROVIDER_MODELS: "vetta:models:fetch-provider-models",
 	MCP_GET: "vetta:mcp:get",
 	MCP_SET: "vetta:mcp:set",
+	MCP_LOGIN: "vetta:mcp:login",
+	MCP_LOGOUT: "vetta:mcp:logout",
+	MCP_HAS_AUTH: "vetta:mcp:has-auth",
+	MCP_AUTH_STATUS: "vetta:mcp:auth-status",
 } as const;
-
-const BINARY_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "ico", "pdf", "docx"]);
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
-
-const HIDDEN_FILES = new Set([".DS_Store", "Thumbs.db", "desktop.ini"]);
-
-/** Set of project CWDs that are allowed for file operations */
-const allowedRoots = new Set<string>();
-
-export function allowProjectRoot(cwd: string): void {
-	allowedRoots.add(resolve(cwd));
-}
 
 function assertNonEmptyString(value: unknown, fieldName: string): asserts value is string {
 	if (typeof value !== "string" || value.trim().length === 0) {
@@ -200,168 +152,69 @@ function assertNonEmptyString(value: unknown, fieldName: string): asserts value 
 	}
 }
 
-function assertPathWithinProject(targetPath: string): void {
-	const normalizeForComparison = (value: string): string => {
-		const normalized = resolve(value);
-		return process.platform === "win32" ? normalized.toLowerCase() : normalized;
-	};
-	const resolved = normalizeForComparison(targetPath);
-	for (const root of allowedRoots) {
-		const normalizedRoot = normalizeForComparison(root);
-		const rel = relative(normalizedRoot, resolved);
-		const isWithinRoot = rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
-		if (isWithinRoot) {
-			return;
-		}
-	}
-	throw new Error("Path is outside any known project directory");
-}
+export { allowProjectRoot, assertPathReadableForPreview } from "../filesystem/filesystem-service.js";
 
 export function registerFsIpc(): () => void {
+	const mcp = getDesktopMcpSettingsService();
+	const models = getDesktopModelSettingsService();
+	const shortcuts = getDesktopShortcutService();
 	ipcMain.handle(CHANNELS.READ_DIR, async (_event, dirPath: unknown): Promise<FsEntry[]> => {
 		assertNonEmptyString(dirPath, "dirPath");
-		assertPathWithinProject(dirPath);
-
-		const resolved = resolve(dirPath);
-		const entries = await readdir(resolved, { withFileTypes: true });
-		const results: FsEntry[] = [];
-
-		for (const entry of entries) {
-			if (HIDDEN_FILES.has(entry.name) || entry.name.startsWith(".")) continue;
-			const fullPath = join(resolved, entry.name);
-			try {
-				const stats = await stat(fullPath);
-				results.push({
-					name: entry.name,
-					path: fullPath,
-					isDirectory: entry.isDirectory(),
-					size: stats.size,
-					modifiedAt: stats.mtimeMs,
-				});
-			} catch {
-				// Skip entries we can't stat (permission errors, broken symlinks, etc.)
-			}
-		}
-
-		// Sort: directories first, then by name (case-insensitive)
-		results.sort((a, b) => {
-			if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
-			return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
-		});
-
-		return results;
+		return readFilesystemDirectory(dirPath);
 	});
 
 	ipcMain.handle(
 		CHANNELS.READ_FILE,
 		async (_event, filePath: unknown): Promise<{ content: string; encoding: "utf8" | "base64" }> => {
 			assertNonEmptyString(filePath, "filePath");
-			assertPathWithinProject(filePath);
-
-			const resolved = resolve(filePath);
-			let stats: Stats;
-			try {
-				stats = await stat(resolved);
-			} catch (err: unknown) {
-				if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-					return { content: "", encoding: "utf8" };
-				}
-				throw err;
-			}
-			if (stats.size > MAX_FILE_SIZE) {
-				throw new Error("File too large to preview (>10 MB)");
-			}
-
-			const ext = extname(resolved).slice(1).toLowerCase();
-			if (BINARY_EXTENSIONS.has(ext)) {
-				const buffer = await readFile(resolved);
-				return { content: buffer.toString("base64"), encoding: "base64" };
-			}
-
-			const content = await readFile(resolved, "utf8");
-			return { content, encoding: "utf8" };
+			return readFilesystemFile(filePath);
 		},
 	);
 
-	ipcMain.handle(CHANNELS.WRITE_FILE, async (_event, filePath: unknown, content: unknown) => {
+	ipcMain.handle(CHANNELS.WRITE_FILE, async (_event, filePath: unknown, content: unknown, encoding: unknown) => {
 		assertNonEmptyString(filePath, "filePath");
 		if (typeof content !== "string") throw new Error("Invalid content");
-		assertPathWithinProject(filePath);
-		const resolved = resolve(filePath);
-		await mkdir(dirname(resolved), { recursive: true });
-		await writeFile(resolved, content, "utf8");
+		await writeFilesystemFile(filePath, content, encoding === "base64" ? "base64" : "utf8");
 	});
 
 	ipcMain.handle(
 		CHANNELS.STAT,
 		async (_event, filePath: unknown): Promise<{ size: number; modifiedAt: number; createdAt: number } | null> => {
 			assertNonEmptyString(filePath, "filePath");
-			assertPathWithinProject(filePath);
-			try {
-				const stats = await stat(resolve(filePath));
-				return { size: stats.size, modifiedAt: stats.mtimeMs, createdAt: stats.birthtimeMs };
-			} catch {
-				return null;
-			}
+			return statFilesystemPath(filePath);
 		},
 	);
 
 	ipcMain.handle(CHANNELS.RENAME, async (_event, oldPath: unknown, newPath: unknown) => {
 		assertNonEmptyString(oldPath, "oldPath");
 		assertNonEmptyString(newPath, "newPath");
-		assertPathWithinProject(oldPath);
-		assertPathWithinProject(newPath);
-		await rename(resolve(oldPath), resolve(newPath));
+		await renameFilesystemPath(oldPath, newPath);
 	});
 
 	ipcMain.handle(CHANNELS.DELETE, async (_event, targetPath: unknown) => {
 		assertNonEmptyString(targetPath, "targetPath");
-		assertPathWithinProject(targetPath);
-		await rm(resolve(targetPath), { recursive: true, force: true });
+		await deleteFilesystemPath(targetPath);
 	});
 
 	ipcMain.handle(CHANNELS.MOVE, async (_event, sourcePath: unknown, destDir: unknown) => {
 		assertNonEmptyString(sourcePath, "sourcePath");
 		assertNonEmptyString(destDir, "destDir");
-		assertPathWithinProject(sourcePath);
-		assertPathWithinProject(destDir);
-
-		const resolvedSource = resolve(sourcePath);
-		const resolvedDest = join(resolve(destDir), basename(resolvedSource));
-
-		try {
-			await rename(resolvedSource, resolvedDest);
-		} catch (err: unknown) {
-			// Cross-device move: copy + delete
-			if ((err as NodeJS.ErrnoException).code === "EXDEV") {
-				const srcStat = await stat(resolvedSource);
-				if (srcStat.isDirectory()) {
-					// For directories, use recursive copy
-					await mkdir(resolvedDest, { recursive: true });
-					const children = await readdir(resolvedSource, { withFileTypes: true });
-					for (const child of children) {
-						const childSrc = join(resolvedSource, child.name);
-						const childDest = join(resolvedDest, child.name);
-						await copyFile(childSrc, childDest);
-					}
-				} else {
-					await copyFile(resolvedSource, resolvedDest);
-				}
-				await rm(resolvedSource, { recursive: true, force: true });
-			} else {
-				throw err;
-			}
-		}
+		await moveFilesystemPath(sourcePath, destDir);
 	});
 
 	ipcMain.handle(CHANNELS.CREATE_DIRECTORY, async (_event, dirPath: unknown) => {
 		assertNonEmptyString(dirPath, "dirPath");
-		await mkdir(resolve(expandTilde(dirPath)), { recursive: true });
+		await createFilesystemDirectory(dirPath);
+	});
+
+	ipcMain.handle(CHANNELS.LIST_FILES_RECURSIVE, async (_event, rootPath: unknown): Promise<FsFileRef[]> => {
+		assertNonEmptyString(rootPath, "rootPath");
+		return listFilesystemFilesRecursive(rootPath);
 	});
 
 	ipcMain.handle(CHANNELS.LIST_SUB_DIRS, async (_event, dirPath: unknown): Promise<FsEntry[]> => {
 		assertNonEmptyString(dirPath, "dirPath");
-		const resolved = resolve(expandTilde(dirPath));
+		const resolved = resolve(expandTildePath(dirPath));
 		allowProjectRoot(resolved);
 		try {
 			const entries = await readdir(resolved, { withFileTypes: true });
@@ -393,7 +246,9 @@ export function registerFsIpc(): () => void {
 	// ─── Directory watchers ───
 
 	const DEBOUNCE_MS = 300;
-	const watchers = new Map<string, FSWatcher>();
+	// Ref-counted: multiple consumers (file tree, plugin previews) may watch the
+	// same directory. Only close the underlying watcher when the last releases it.
+	const watchers = new Map<string, { watcher: FSWatcher; count: number }>();
 	const debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 	function broadcastDirChanged(dirPath: string): void {
@@ -405,7 +260,11 @@ export function registerFsIpc(): () => void {
 	ipcMain.handle(CHANNELS.WATCH_DIR, async (_event, dirPath: unknown) => {
 		assertNonEmptyString(dirPath, "dirPath");
 		const resolved = resolve(dirPath);
-		if (watchers.has(resolved)) return;
+		const existing = watchers.get(resolved);
+		if (existing) {
+			existing.count++;
+			return;
+		}
 		try {
 			const watcher = watch(resolved, (_eventType) => {
 				// Debounce to avoid flooding on rapid changes
@@ -424,7 +283,7 @@ export function registerFsIpc(): () => void {
 				watchers.delete(resolved);
 				watcher.close();
 			});
-			watchers.set(resolved, watcher);
+			watchers.set(resolved, { watcher, count: 1 });
 		} catch {
 			// Ignore errors (directory may not exist or no permission)
 		}
@@ -433,65 +292,195 @@ export function registerFsIpc(): () => void {
 	ipcMain.handle(CHANNELS.UNWATCH_DIR, async (_event, dirPath: unknown) => {
 		assertNonEmptyString(dirPath, "dirPath");
 		const resolved = resolve(dirPath);
-		const watcher = watchers.get(resolved);
-		if (watcher) {
-			watcher.close();
-			watchers.delete(resolved);
-		}
-		const timer = debounceTimers.get(resolved);
-		if (timer) {
-			clearTimeout(timer);
-			debounceTimers.delete(resolved);
+		const entry = watchers.get(resolved);
+		if (entry) {
+			entry.count--;
+			if (entry.count <= 0) {
+				entry.watcher.close();
+				watchers.delete(resolved);
+				const timer = debounceTimers.get(resolved);
+				if (timer) {
+					clearTimeout(timer);
+					debounceTimers.delete(resolved);
+				}
+			}
 		}
 	});
 
-	ipcMain.handle(CHANNELS.CONFIG_GET, async (): Promise<DesktopConfig> => {
-		const config = await readConfig();
+	ipcMain.handle(CHANNELS.CONFIG_GET, async (): Promise<DesktopConfigSnapshot> => {
+		const config = await readDesktopConfig();
 		// Ensure all known paths are authorized for file operations
 		for (const p of config.projects) allowProjectRoot(p.path);
 		for (const p of config.archivedProjects) allowProjectRoot(p.path);
 		if (config.workspacePath) allowProjectRoot(config.workspacePath);
-		return config;
+		allowProjectRoot(DEFAULT_CONVERSATION_CWD);
+		allowProjectRoot(DEFAULT_IM_CONVERSATION_CWD);
+		allowProjectRoot(KB_PROCESSING_CWD);
+		return {
+			...config,
+			sandbox: getSandboxCapability(),
+			linuxSandbox: getLinuxSandboxCapability(),
+			defaultConversationCwd: DEFAULT_CONVERSATION_CWD,
+			defaultImConversationCwd: DEFAULT_IM_CONVERSATION_CWD,
+			knowledgeProcessingCwd: KB_PROCESSING_CWD,
+		};
 	});
 
 	ipcMain.handle(CHANNELS.CONFIG_SET, async (_event, config: unknown) => {
 		if (typeof config !== "object" || config === null) throw new Error("Invalid config");
-		const current = await readConfig();
+		const current = await readDesktopConfig();
 		const patch = config as Partial<DesktopConfig>;
 		const next: DesktopConfig = {
 			projects: patch.projects ?? current.projects,
 			archivedProjects: patch.archivedProjects ?? current.archivedProjects,
 			workspacePath: patch.workspacePath ?? current.workspacePath,
+			defaultExecutionMode:
+				patch.defaultExecutionMode !== undefined
+					? normalizeExecutionMode(patch.defaultExecutionMode)
+					: current.defaultExecutionMode,
+			agentMode: patch.agentMode !== undefined ? normalizeAgentMode(patch.agentMode) : current.agentMode,
 			debugMode: patch.debugMode ?? current.debugMode,
+			vettaAppPath: patch.vettaAppPath ?? current.vettaAppPath,
+			vettaCliAppPath: patch.vettaCliAppPath ?? current.vettaCliAppPath,
+			notificationsEnabled: patch.notificationsEnabled ?? current.notificationsEnabled,
+			language: patch.language ?? current.language,
+			experimental:
+				patch.experimental !== undefined
+					? normalizeExperimental({ ...current.experimental, ...patch.experimental })
+					: current.experimental,
+			knowledgeBase:
+				patch.knowledgeBase !== undefined
+					? normalizeKnowledgeBase({ ...current.knowledgeBase, ...patch.knowledgeBase })
+					: current.knowledgeBase,
+			// bindings 整表替换（支持 reset 删键）；GUI/Action 均传完整 map。
+			shortcuts: patch.shortcuts !== undefined ? normalizeShortcuts(patch.shortcuts) : current.shortcuts,
+			quickPanel:
+				patch.quickPanel !== undefined
+					? normalizeQuickPanel({ ...current.quickPanel, ...patch.quickPanel })
+					: current.quickPanel,
+			appshot:
+				patch.appshot !== undefined ? normalizeAppshot({ ...current.appshot, ...patch.appshot }) : current.appshot,
+			newSessionPage:
+				patch.newSessionPage !== undefined
+					? normalizeNewSessionPage({ ...current.newSessionPage, ...patch.newSessionPage })
+					: current.newSessionPage,
 		};
 		// Allow all known roots for file operations
 		for (const p of next.projects) allowProjectRoot(p.path);
 		for (const p of next.archivedProjects) allowProjectRoot(p.path);
 		if (next.workspacePath) allowProjectRoot(next.workspacePath);
-		await writeConfig(next);
+		await writeDesktopConfig(next);
+		if (patch.shortcuts !== undefined) {
+			const bindings = next.shortcuts?.bindings ?? {};
+			shortcuts.notifyBindingsChanged(bindings as Record<string, string>);
+		}
 	});
 
 	ipcMain.handle(CHANNELS.MODELS_GET, async (): Promise<ModelsConfig> => {
-		return readModelsConfig();
+		return models.getConfig();
 	});
 
 	ipcMain.handle(CHANNELS.MODELS_SET, async (_event, config: unknown) => {
 		if (typeof config !== "object" || config === null) throw new Error("Invalid models config");
-		await writeModelsConfig(config as ModelsConfig);
+		await models.replaceConfig(config as ModelsConfig);
+	});
+
+	ipcMain.handle(CHANNELS.MODELS_PROBE, async (_event, ref: { provider: string; model: string }) => {
+		return probeModelProvider(ref);
+	});
+
+	ipcMain.handle(CHANNELS.MODELS_FETCH_PROVIDER_MODELS, async (_event, providerName: unknown) => {
+		if (typeof providerName !== "string" || !providerName.trim()) throw new Error("Invalid provider name");
+		return fetchProviderModels(providerName.trim());
 	});
 
 	ipcMain.handle(CHANNELS.MCP_GET, async (): Promise<McpConfig> => {
-		return readMcpConfig();
+		return mcp.getConfig();
 	});
 
 	ipcMain.handle(CHANNELS.MCP_SET, async (_event, config: unknown) => {
-		if (typeof config !== "object" || config === null) throw new Error("Invalid MCP config");
-		await writeMcpConfig(config as McpConfig);
+		await mcp.replaceConfig(config);
+		// 不再在保存时 fan-out 重建所有 session。改为每个 session 在用户发
+		// prompt 时按需 diff-reload（见 AgentSession._maybeReloadMcpForPrompt）。
+		// 这样未使用的 session 不付出代价，且批量任务也能自然感知到变化。
+	});
+
+	ipcMain.handle(CHANNELS.MCP_LOGIN, async (_event, serverName: unknown, options?: unknown) => {
+		if (typeof serverName !== "string" || !serverName.trim()) {
+			throw new Error("Invalid server name");
+		}
+		const name = serverName.trim();
+		const opts = typeof options === "object" && options !== null ? (options as Record<string, unknown>) : {};
+		const optionUrl = typeof opts.url === "string" ? opts.url.trim() : "";
+		let oauthClientId = typeof opts.oauthClientId === "string" ? opts.oauthClientId.trim() : "";
+		let deviceFlow = opts.oauthDeviceFlow === true;
+		let scopes = typeof opts.oauthScopes === "string" ? opts.oauthScopes : "";
+
+		let serverUrl = optionUrl;
+		// Read mcp.json for anything not passed by the renderer (re-authorize path).
+		if (!serverUrl || !oauthClientId || !deviceFlow || !scopes) {
+			const config = await mcp.getConfig();
+			const server = config.mcpServers[name];
+			if (!serverUrl) {
+				if (!server) throw new Error(`MCP server '${name}' not found`);
+				if (server.type !== "http" || typeof server.url !== "string" || !server.url.trim()) {
+					throw new Error(`MCP server '${name}' is not a remote HTTP server`);
+				}
+				serverUrl = server.url.trim();
+			}
+			if (server?.type === "http") {
+				if (!oauthClientId && typeof server.oauthClientId === "string") oauthClientId = server.oauthClientId.trim();
+				if (!deviceFlow && server.oauthDeviceFlow === true) deviceFlow = true;
+				if (!scopes && typeof server.oauthScopes === "string") scopes = server.oauthScopes;
+			}
+		}
+
+		if (deviceFlow) {
+			if (!oauthClientId) throw new Error(`MCP server '${name}' is missing oauthClientId for the device flow`);
+			await loginMcpDeviceFlow({
+				serverName: name,
+				serverUrl,
+				clientId: oauthClientId,
+				scopes: scopes || undefined,
+				openUrl: (url) => openExternalUrl(url),
+			});
+			return;
+		}
+
+		await loginHttpMcpServer({
+			serverName: name,
+			serverUrl,
+			oauthClientId: oauthClientId || undefined,
+			openUrl: (url) => openExternalUrl(url),
+		});
+	});
+
+	ipcMain.handle(CHANNELS.MCP_LOGOUT, async (_event, serverName: unknown) => {
+		if (typeof serverName !== "string" || !serverName.trim()) {
+			throw new Error("Invalid server name");
+		}
+		clearMcpOAuthState(serverName.trim());
+	});
+
+	ipcMain.handle(CHANNELS.MCP_HAS_AUTH, async (_event, serverName: unknown): Promise<boolean> => {
+		if (typeof serverName !== "string" || !serverName.trim()) return false;
+		return hasMcpOAuthTokens(serverName.trim());
+	});
+
+	ipcMain.handle(CHANNELS.MCP_AUTH_STATUS, async (_event, serverNames: unknown): Promise<Record<string, boolean>> => {
+		if (!Array.isArray(serverNames)) return {};
+		const result: Record<string, boolean> = {};
+		for (const name of serverNames) {
+			if (typeof name === "string" && name.trim()) {
+				result[name.trim()] = hasMcpOAuthTokens(name.trim());
+			}
+		}
+		return result;
 	});
 
 	return () => {
 		// Close all directory watchers
-		for (const watcher of watchers.values()) watcher.close();
+		for (const entry of watchers.values()) entry.watcher.close();
 		watchers.clear();
 		for (const timer of debounceTimers.values()) clearTimeout(timer);
 		debounceTimers.clear();
@@ -506,13 +495,20 @@ export function registerFsIpc(): () => void {
 		ipcMain.removeHandler(CHANNELS.READ_DIR);
 		ipcMain.removeHandler(CHANNELS.CREATE_DIRECTORY);
 		ipcMain.removeHandler(CHANNELS.LIST_SUB_DIRS);
+		ipcMain.removeHandler(CHANNELS.LIST_FILES_RECURSIVE);
 		ipcMain.removeHandler(CHANNELS.WATCH_DIR);
 		ipcMain.removeHandler(CHANNELS.UNWATCH_DIR);
 		ipcMain.removeHandler(CHANNELS.CONFIG_GET);
 		ipcMain.removeHandler(CHANNELS.CONFIG_SET);
 		ipcMain.removeHandler(CHANNELS.MODELS_GET);
 		ipcMain.removeHandler(CHANNELS.MODELS_SET);
+		ipcMain.removeHandler(CHANNELS.MODELS_PROBE);
+		ipcMain.removeHandler(CHANNELS.MODELS_FETCH_PROVIDER_MODELS);
 		ipcMain.removeHandler(CHANNELS.MCP_GET);
 		ipcMain.removeHandler(CHANNELS.MCP_SET);
+		ipcMain.removeHandler(CHANNELS.MCP_LOGIN);
+		ipcMain.removeHandler(CHANNELS.MCP_LOGOUT);
+		ipcMain.removeHandler(CHANNELS.MCP_HAS_AUTH);
+		ipcMain.removeHandler(CHANNELS.MCP_AUTH_STATUS);
 	};
 }

@@ -2,6 +2,29 @@
 
 ## [Unreleased]
 
+### Added
+
+- 新增 `zai-openai-completions` 与 `zhipu-openai-completions` provider 变体，复用 OpenAI Chat Completions 流式实现并内置 GLM 思考控制：下发 `thinking: { type: "enabled" | "disabled" }`，启用时将模型配置的 `reasoning_effort`（含 `none` / `minimal` / `low` / `medium` / `high` / `max`）原样透传；同时新增 `zhipu` KnownProvider 与 `ZHIPU_API_KEY` 识别。
+- 新增 `openai-completions-deepseek` provider 变体（DeepSeek 直连），照搬 qwen/nvidia 的 thinkingFormat 模式：v4 统一模型（deepseek-v4-flash / deepseek-v4-pro）通过 `thinking: { type: "enabled" | "disabled", reasoning_effort }` 控制思考，`reasoning_effort` 取值 `high`/`max` 按模型配置透传；无推理请求时下发 `thinking: { type: "disabled" }`。reasoning 输出（`reasoning_content`）与工具轮的 reasoning 回传规则复用既有 `openai-completions` 逻辑。同时新增 `deepseek` KnownProvider 与 `DEEPSEEK_API_KEY` 环境变量识别。
+
+### Changed
+
+- **Vitest 依赖上收到 monorepo 根**：本包不再声明 `devDependencies.vitest`，改用根目录统一版本；包内仍保留 `vitest.config.ts` 与 `"test": "vitest --run"`。
+- `SimpleStreamOptions.reasoning` 由固定的 `ThinkingLevel` 联合类型放宽为任意字符串（保留 `ThinkingLevel` 字面量自动补全），以支持每模型自定义推理档位（如 OpenAI 的 `none`、DeepSeek 的 `max`）。`openai-completions` / `openai-responses` 及其衍生 v1 适配器（azure / codex）改为将档位值**原样透传**到 provider 的推理字段，移除 `supportsXhigh` / `clampReasoning` 的 xhigh 夹取——模型只提供自身支持的档位，由调用方保证取值合法。token 预算型 provider（Anthropic / Bedrock / Google）行为不变，仍按档位映射预算。
+
+### Fixed
+
+- 修复通过通用 `openai-completions` 通道接入的推理型 DeepSeek 模型（在 admin 里当普通 openai-completions 模型 + 勾选 reasoning 配置，而非内置 `openai-completions-deepseek`）思考档位选「关闭」仍然思考的回归。上一次改动把通用分支的「off」无条件归一为 `reasoning_effort: "none"` 下发给所有端点，但 `none` 是 OpenAI gpt-5 系专有的关思考值，DeepSeek / 聚合网关 / vLLM 等后端不认、直接忽略，导致思考关不掉。现仅在 `api.openai.com` 官方端点下发 `none`，其余端点的「off」恢复为省略 `reasoning_effort` 字段，让后端回落到非思考默认。
+- 修复自建 vLLM / SGLang 部署的 Qwen 模型思考档位选「关闭」仍然思考的回归。`qwen` thinkingFormat 分支此前只下发顶层 `enable_thinking`，而自建 vLLM/SGLang 只认 `chat_template_kwargs.enable_thinking`（顶层参数被静默丢弃），关闭指令对这类后端从未生效——之前是靠同时下发的 `reasoning_effort: "none"` 关掉的，`reasoning_effort: "none"` 被移除后彻底失效。改为同时下发顶层 `enable_thinking` 与 `chat_template_kwargs.enable_thinking`，兼顾 DashScope（读顶层）与自建 vLLM/SGLang（读 chat_template_kwargs）。
+- 修复通过通用 `openai-completions` 通道接入的自定义推理模型（如自建端点上的 qwen3.6）报 `400 Unexpected message role` 的问题。原 `detectCompat` 对所有非"已知非标准"端点默认 `supportsDeveloperRole: true`，导致带 `reasoning` 的模型把系统提示词以 OpenAI 专有的 `developer` 角色下发，而多数 OpenAI 兼容后端（vLLM、SGLang、Qwen、llama.cpp 等）的 chat template 只认 system/user/assistant/tool，直接 400。改为仅对真正支持 `developer` 的端点（`openai` provider、`github-copilot`、`api.openai.com`）默认开启，其余端点回落到通用的 `system` 角色。
+- 修复 `openai-completions` provider 把 `reasoning_effort: "minimal"` 原样下发给不支持该档位的后端（DeepSeek、聚合网关、vLLM 等，仅接受 low/medium/high/max/xhigh）导致 400 的问题。`minimal` 是 OpenAI gpt-5 / Responses API 专有档位，现仅在 `api.openai.com` 官方端点保留，其余端点降级为 `low`，使请求最轻量思考的调用方（自动标题、输入预测）优雅降级而非失败。
+- 修复 `google-gemini-cli` / `openai-codex-responses` / `github-copilot` OAuth 三处 `sleep` / `abortableSleep` 在 timeout 正常完成时不移除 abort listener 的缺陷。长生命周期（per-prompt）的 `AbortSignal` 在每次 retry 重试都会累计一个永久挂着的 abort listener，多轮工具调用 + 多次重试后即触发 `MaxListenersExceededWarning: 11 abort listeners added to [AbortSignal]`，并造成 closure 持有 reader/response/partial 等对象的隐性内存泄漏，长跑会拖垮主进程内存。修复：两个路径（abort 与正常 timeout 完成）都成对移除 listener，并把 `addEventListener` 加上 `{ once: true }` 作为防御。
+- 修复 `openai-completions` provider 在流式 tool_calls 拼装上的解析缺陷：原实现用 `currentBlock.type !== "toolCall"` + id 不一致来判断要不要建新块，对于 Qwen / 通义系等"在 tool_call 之间夹 text delta 或先发空占位帧 `tool_calls: [{index: N}]` 再补 id/name/arguments"的发包风格，会在最终 assistant message 里留下幽灵 `{id:"", name:"", arguments:{}}` 块；UI 历史回放时这些块会显示成无名工具。改为按 OpenAI 协议规定的 `tool_calls[].index` 作为身份标识：用 `Map<index, block>` 锁定，跨 text/thinking 切换也能把同一 index 的 delta 累积到同一个块；空占位帧（无 id 无 name 无 arguments）直接跳过不建块。同时把 `finishCurrentBlock` 的 `contentIndex` 改为 `blocks.indexOf(block)`，避免 toolCall 被中途切走后再回来时 emit 出错误的 contentIndex。
+- 修复"思考关闭"对自定义端点不生效的问题：
+  - `anthropic-messages` provider 当 `baseUrl`/`gatewayUrl` 不指向官方 Anthropic API 时（LM Studio 等 Anthropic 兼容层），始终下发 `thinking: { type: "disabled" }`，避免底层模型（如 Qwen）按默认思考行为输出 reasoning 内容。
+  - `openai-completions` provider 的 `zai`/`qwen`/`nvidia` thinking 格式分支不再要求 `model.reasoning: true`，确保自定义模型的"off"指令能下发为 `enable_thinking: false` / `thinking: { type: "disabled" }`。
+  - 副带：当用户启用思考且端点为非官方 Anthropic 兼容层时，即使模型未标 `reasoning: true` 也尝试以 budget 模式启用。
+
 ## [0.55.3] - 2026-03-06
 
 ## [0.55.2] - 2026-03-06
@@ -97,7 +120,7 @@
 ### Fixed
 
 - Set OpenAI Responses API requests to `store: false` by default to avoid server-side history logging ([#1308](https://github.com/badlogic/pi-mono/issues/1308))
-- Re-exported TypeBox `Type`, `Static`, and `TSchema` from `@mariozechner/pi-ai` to match documentation and avoid duplicate TypeBox type identity issues in pnpm setups ([#1338](https://github.com/badlogic/pi-mono/issues/1338))
+- Re-exported TypeBox `Type`, `Static`, and `TSchema` from `@vetta/ai` to match documentation and avoid duplicate TypeBox type identity issues in pnpm setups ([#1338](https://github.com/badlogic/pi-mono/issues/1338))
 - Fixed Bedrock adaptive thinking handling for Claude Opus 4.6 with interleaved thinking beta responses ([#1323](https://github.com/badlogic/pi-mono/pull/1323) by [@markusylisiurunen](https://github.com/markusylisiurunen))
 - Fixed `AWS_BEDROCK_SKIP_AUTH` environment detection to avoid `process` access in non-Node.js environments
 
@@ -548,7 +571,7 @@
 
 ### Breaking Changes
 
-- **Agent API moved**: All agent functionality (`agentLoop`, `agentLoopContinue`, `AgentContext`, `AgentEvent`, `AgentTool`, `AgentToolResult`, etc.) has moved to `@mariozechner/pi-agent-core`. Import from that package instead of `@mariozechner/pi-ai`.
+- **Agent API moved**: All agent functionality (`agentLoop`, `agentLoopContinue`, `AgentContext`, `AgentEvent`, `AgentTool`, `AgentToolResult`, etc.) has moved to `@vetta/agent-core`. Import from that package instead of `@vetta/ai`.
 
 ### Added
 

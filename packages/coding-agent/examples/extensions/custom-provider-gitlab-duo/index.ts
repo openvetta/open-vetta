@@ -20,7 +20,7 @@ import {
 	type SimpleStreamOptions,
 	streamSimpleAnthropic,
 	streamSimpleOpenAIResponses,
-} from "@mariozechner/pi-ai";
+} from "@vetta/ai";
 import type { ExtensionAPI } from "@vetta/coding-agent";
 
 // =============================================================================

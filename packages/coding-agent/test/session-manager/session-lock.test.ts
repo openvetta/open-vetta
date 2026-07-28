@@ -3,7 +3,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { acquireSessionLock, SessionLockError } from "../../src/core/session-lock.js";
-import { SessionManager } from "../../src/core/session-manager.js";
+import { SessionManager } from "../../src/core/session-manager/index.js";
 
 describe("acquireSessionLock", () => {
 	let tempDir: string;

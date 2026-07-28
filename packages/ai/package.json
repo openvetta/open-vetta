@@ -1,10 +1,20 @@
 {
-	"name": "@mariozechner/pi-ai",
-	"version": "0.55.3",
+	"name": "@vetta/ai",
+	"version": "0.0.1",
 	"description": "Unified LLM API with automatic model discovery and provider configuration",
 	"type": "module",
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		},
+		"./reasoning-presets": {
+			"types": "./dist/reasoning-presets.d.ts",
+			"default": "./dist/reasoning-presets.js"
+		}
+	},
 	"bin": {
 		"pi-ai": "./dist/cli.js"
 	},
@@ -58,7 +68,6 @@
 	},
 	"devDependencies": {
 		"@types/node": "^24.3.0",
-		"canvas": "^3.2.0",
-		"vitest": "^3.2.4"
+		"canvas": "^3.2.0"
 	}
 }

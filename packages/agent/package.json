@@ -1,6 +1,6 @@
 {
-	"name": "@mariozechner/pi-agent-core",
-	"version": "0.55.3",
+	"name": "@vetta/agent-core",
+	"version": "0.0.1",
 	"description": "General-purpose agent with transport abstraction, state management, and attachment support",
 	"type": "module",
 	"main": "./dist/index.js",
@@ -17,8 +17,9 @@
 		"prepublishOnly": "bun run clean && bun run build"
 	},
 	"dependencies": {
-		"@mariozechner/pi-ai": "^0.55.3",
-		"@sinclair/typebox": "^0.34.41"
+		"@vetta/ai": "workspace:*",
+		"@sinclair/typebox": "^0.34.41",
+		"@vetta/runtime-telemetry": "workspace:*"
 	},
 	"keywords": [
 		"ai",
@@ -39,7 +40,6 @@
 	},
 	"devDependencies": {
 		"@types/node": "^24.3.0",
-		"typescript": "^5.7.3",
-		"vitest": "^3.2.4"
+		"typescript": "^5.7.3"
 	}
 }

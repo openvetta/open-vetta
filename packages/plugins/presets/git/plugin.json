@@ -1,0 +1,20 @@
+{
+	"id": "git",
+	"name": "%plugin.name%",
+	"icon": "solar:branching-paths-up-bold",
+	"version": "0.2.8",
+	"agent_mode": ["coding"],
+	"defaultLocale": "zh",
+	"pluginApiVersion": "^1.0.0",
+	"runtime": "module-federation",
+	"entry": "dist/mf-manifest.json",
+	"moduleFederation": {
+		"remoteName": "git",
+		"expose": "./plugin"
+	},
+	"styles": ["dist/style.css"],
+	"permissions": ["ui.slot.activity-tab", "ui.slot.turn-card", "agent.session.read", "agent.command.run"],
+	"commands": ["git"],
+	"description": "%plugin.description%",
+	"author": "Vetta"
+}

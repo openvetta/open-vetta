@@ -1,6 +1,6 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { getVettaHomePath } from "@vetta/action-rpc";
 
 /**
  * Sensitive IM credentials. Persisted under
@@ -25,7 +25,7 @@ export interface ImCredentials {
 	};
 }
 
-const DEFAULT_DIR = join(homedir(), ".vetta", "desktop-app");
+const DEFAULT_DIR = join(getVettaHomePath(), "desktop-app");
 const DEFAULT_FILE = join(DEFAULT_DIR, "im-credentials.json");
 
 function ensureDir(): void {

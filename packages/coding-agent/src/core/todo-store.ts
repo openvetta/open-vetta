@@ -14,7 +14,20 @@ export interface TodoItem {
 	status: "pending" | "in_progress" | "done";
 }
 
-export type TodoSnapshot = TodoItem[];
+export type TodoLockSource = "scene";
+
+export interface TodoSnapshotEnvelope {
+	items: TodoItem[];
+	lockedBy: TodoLockSource | null;
+}
+
+/**
+ * Snapshot payload persisted in session JSONL.
+ *
+ * Legacy snapshots written before the lock mechanism are plain `TodoItem[]`.
+ * `restoreFromSnapshot` accepts both shapes for backward compatibility.
+ */
+export type TodoSnapshot = TodoSnapshotEnvelope | TodoItem[];
 
 export type TodoUpdateListener = (items: ReadonlyArray<TodoItem>) => void;
 
@@ -23,19 +36,20 @@ export const TODO_SNAPSHOT_TYPE = "todo_snapshot";
 export class TodoStore {
 	private items: TodoItem[] = [];
 	private nextId = 1;
+	private lockedBy: TodoLockSource | null = null;
 	private listeners: Set<TodoUpdateListener> = new Set();
 	/** Optional callback to persist snapshot to session JSONL */
-	private persistFn?: (snapshot: TodoSnapshot) => void;
+	private persistFn?: (snapshot: TodoSnapshotEnvelope) => void;
 
 	/**
 	 * @param persistFn Called on every mutation to write a snapshot to session JSONL.
 	 */
-	constructor(persistFn?: (snapshot: TodoSnapshot) => void) {
+	constructor(persistFn?: (snapshot: TodoSnapshotEnvelope) => void) {
 		this.persistFn = persistFn;
 	}
 
 	/** Replace persist function (e.g., after session switch). */
-	setPersistFn(fn: (snapshot: TodoSnapshot) => void): void {
+	setPersistFn(fn: (snapshot: TodoSnapshotEnvelope) => void): void {
 		this.persistFn = fn;
 	}
 
@@ -47,6 +61,14 @@ export class TodoStore {
 
 	get(id: number): TodoItem | undefined {
 		return this.items.find((t) => t.id === id);
+	}
+
+	isLocked(): boolean {
+		return this.lockedBy !== null;
+	}
+
+	getLockSource(): TodoLockSource | null {
+		return this.lockedBy;
 	}
 
 	// ── Mutations ─────────────────────────────────────────────
@@ -72,10 +94,18 @@ export class TodoStore {
 		return item;
 	}
 
-	/** Clear all items and reset ID counter. */
+	/** Clear all items, reset ID counter, and release any active lock. */
 	clear(): void {
 		this.items = [];
 		this.nextId = 1;
+		this.lockedBy = null;
+		this._afterMutation();
+	}
+
+	/** Lock the store so external creators (e.g., the LLM) cannot append items. */
+	lock(source: TodoLockSource): void {
+		if (this.lockedBy === source) return;
+		this.lockedBy = source;
 		this._afterMutation();
 	}
 
@@ -83,8 +113,11 @@ export class TodoStore {
 
 	/** Restore state from a persisted snapshot (e.g., on session resume). */
 	restoreFromSnapshot(snapshot: TodoSnapshot): void {
-		this.items = snapshot.map((item) => ({ ...item }));
+		const items = Array.isArray(snapshot) ? snapshot : snapshot.items;
+		const lockedBy = Array.isArray(snapshot) ? null : (snapshot.lockedBy ?? null);
+		this.items = items.map((item) => ({ ...item }));
 		this.nextId = this.items.length > 0 ? Math.max(...this.items.map((t) => t.id)) + 1 : 1;
+		this.lockedBy = lockedBy;
 		this._notify();
 	}
 
@@ -103,7 +136,10 @@ export class TodoStore {
 	}
 
 	private _persist(): void {
-		this.persistFn?.(this.items.map((item) => ({ ...item })));
+		this.persistFn?.({
+			items: this.items.map((item) => ({ ...item })),
+			lockedBy: this.lockedBy,
+		});
 	}
 
 	private _notify(): void {

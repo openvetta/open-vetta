@@ -3,6 +3,13 @@
  */
 
 export {
+	type AgentMode,
+	ALL_AGENT_MODES,
+	DEFAULT_AGENT_MODE,
+	isAgentMode,
+	matchesAgentMode,
+} from "./agent-mode.js";
+export {
 	AgentSession,
 	type AgentSessionConfig,
 	type AgentSessionEvent,
@@ -14,7 +21,6 @@ export {
 export { type BashExecutorOptions, type BashResult, executeBash, executeBashWithOperations } from "./bash-executor.js";
 export type { CompactionResult } from "./compaction/index.js";
 export { createEventBus, type EventBus, type EventBusController } from "./event-bus.js";
-
 // Extensions system
 export {
 	type AgentEndEvent,
@@ -59,3 +65,12 @@ export {
 	type TurnStartEvent,
 	wrapToolsWithExtensions,
 } from "./extensions/index.js";
+export {
+	ALL_SCENARIOS,
+	type CodingAgentTool,
+	type ConversationScenario,
+	DEFAULT_SCENARIO,
+	type ToolCapability,
+	type ToolCategory,
+} from "./session/tool-scope.js";
+export type { PromptAttachmentRef } from "./session/types.js";

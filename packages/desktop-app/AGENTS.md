@@ -87,6 +87,11 @@ src/
 
 ## **CRITICAL** 开发规范 **CRITICAL**
 
+### 0. UI 改动必读 DESIGN.md
+
+**修改 `src/renderer/**` 任何 `.tsx` / `.css`、`shared/components/ui/**`、或新增 `motion/react` 动画前，必须读 [`DESIGN.md`](./DESIGN.md)。**
+该文件定义颜色 token / 卡片阴影 / 圆角 / 间距 / 动画 / 图标 / 桌面端 drag-region 等的硬性规则，违反即视为不合格 PR。
+
 ### 1. 不要重复造轮子
 
 **UI 组件**：所有操作按钮（提交、保存、取消、删除、安装等）**必须**使用 `@shared/components/ui/button` 的 `Button` 组件，不要用原生 `<button>` 手写样式。Button 提供以下 variant：
@@ -130,6 +135,7 @@ src/
 - 使用项目 CSS 变量（`var(--text-1)`, `var(--hover)`, `var(--border)`, `var(--accent)` 等）
 - **不要**使用 Tailwind 语义色（`bg-primary`, `text-foreground` 等），这些未在项目中配置
 - shadcn 组件的样式已经对齐到项目 CSS 变量
+- 图标优先使用 solar 图标集（`icon-[solar--*-linear]`，统一 linear 风格），其次 mdi；详见 DESIGN.md §6
 
 ### 6. IPC 通信
 
@@ -138,18 +144,104 @@ src/
 - 在 `main/ipc/index.ts` 中注册
 - preload 层定义类型契约
 
+### 7. i18n 国际化（**面向用户的文案一律不硬编码**）
+
+本应用已接入 i18next + react-i18next（背景与架构见 [`docs/adr/0031`](../../docs/adr/0031-desktop-i18n-i18next-semantic-keys-main-owned-language.md)）。**所有面向用户的文案必须走 i18n，禁止硬编码中文字符串**——包括新写的代码和你改到的旧代码里新增的文案。
+
+**catalog 与命名空间**
+- 文案存 `src/shared/i18n/locales/{zh,en}/<ns>.json`，**zh 为准、en 后填**，缺译自动回退 zh（`fallbackLng=zh`，绝不暴露原始 key）。
+- 按 domain 分 ns：`common`（按钮等基础件）、`main`（主进程原生 UI）、`chat` / `settings` / … 各 domain 一个 ns。
+- key 用**语义点路径**，按组件/特性分组：`t("inputBar.placeholder.defaults")`、`t("newSession.subtitle")`。
+
+**怎么取文案**
+- React 组件：`const { t } = useTranslation("<ns>")`，用**裸 key**：`t("group.leaf")`。带插值：catalog 里写 `{{var}}`，调用 `t("k", { var })`。内嵌 JSX（含 `<b>`/`<a>` 等）用 `<Trans i18nKey="<ns>:k">…</Trans>`。跨 ns 取词用前缀并把该 ns 绑进 hook：`useTranslation(["chat","common"])` 后 `t("common:actions.cancel")`。
+- 非组件（`.ts` hook / service）：**不要用 `useTranslation`**，改 `import { i18n } from "@shared/i18n"` 然后 `i18n.t("<ns>:key")`（**带 ns 前缀**）。
+- 主进程（托盘菜单 / 系统通知 / 原生 dialog）：`import { mainT } from "../i18n/index.js"`，`mainT("tray.showWindow")`，文案进 `main` ns。
+
+**铁律**
+- **模块级常量不准存中文。** 形如 `const MODE_OPTIONS = [{ label: "沙盒受限" }]` 一律禁止——改成存 i18n key（或只留 `mode`/`icon`），渲染期用 `t()` 解析；或把常量挪进组件内。
+- key 写错 / 不存在会被 **tsc 拦下**（`i18next.d.ts` 基于 zh 资源做了类型增强，有自动补全）。
+- **新增 ns** 要在三处注册：`src/shared/i18n/config.ts` 的 `NAMESPACES`、`src/shared/i18n/resources.ts`、`src/renderer/shared/i18n/i18next.d.ts`。
+- **不抽**：代码注释、日志（`*.warn`/`console`）、发给 LLM 或协议/IPC channel 的串——保持原样。
+- 增量推进：尚未抽离的 domain 仍是硬编码中文，**改到这些 domain 时，新增文案必须走 i18n**，并尽量顺手把所在文件抽干净（流程：发现文案 → 给语义 key → 包 `t()`/`<Trans>` → 文案进对应 ns 的 zh.json）。
+
+## 日志规范
+
+desktop-app 的文本日志统一由 `src/main/logger.ts` 管理。新增或修改日志时，优先使用这里的入口，不要直接手写 `appendFileSync`、`console.log` 文件重定向，或重新实现独立轮转逻辑。
+
+### 日志位置
+
+```text
+~/.vetta/desktop-app/logs/
+├── main/YYYY-MM-DD.log
+├── render/YYYY-MM-DD.log
+└── im/YYYY-MM-DD.log
+```
+
+- `main/`：主进程日志，包含生命周期、诊断、窗口事件、IPC、runtime、action 等主进程模块。
+- `render/`：浏览器渲染进程日志。由 `BrowserWindow.webContents` 的 `console-message` 事件转发到主进程后写入。
+- `im/`：IM sidecar / im-gateway 相关日志。IM 设置页最近日志仍来自内存环形缓冲，但同一批日志也会持久化到这里。
+
+不要再把当天日志写到 `main.log`。旧版本遗留的 `~/.vetta/desktop-app/logs/main.log` 会在启动时迁移到 `main/legacy.*.migration.log`。
+
+### 使用方式
+
+```ts
+import { getAppLogger } from "./logger.js";
+
+const log = getAppLogger("window");
+log.info("created");
+
+const renderLog = getAppLogger("renderer", "render");
+renderLog.warn("renderer warning");
+
+const imLog = getAppLogger("sidecar", "im");
+imLog.debug("sidecar debug message");
+```
+
+- `scope`：模块名，只用于日志行标识，例如 `window`、`diagnostics`、`sidecar`。
+- `type`：日志分类，可选值为 `"main"`、`"render"`、`"im"`；默认是 `"main"`。
+
+日志行格式：
+
+```text
+[2026-06-10T14:03:22.123+08:00] [info] [window] created
+```
+
+### 轮转策略
+
+- 每条日志按北京时间写入对应日期文件。
+- 跨日时由 `electron-log` 的 `resolvePathFn` 自动切换到新的 `YYYY-MM-DD.log`，不通过定时器重命名当天文件。
+- 单文件超过 `5MB` 时触发大小轮转，归档文件仍留在同一分类目录下。
+- 最近 `10` 个日期会保留；同一天的所有轮转分片一起保留。
+- 如果大小轮转时重命名失败，会保留当前日志文件最后 `256KB`，避免清空整个日志文件。
+
+### 进程日志路径
+
+- 主进程启动诊断会调用 `configureAppLogging()` 和 `patchConsoleToAppLogger()`，把主进程 `console.log/info/warn/error` 转到 `main` 日志。新增主进程代码时优先使用显式 logger；只有临时诊断或已有代码路径可以继续走 `console.*`。
+- 渲染进程不要直接写主进程文件。当前路径是 `renderer console.* -> webContents console-message -> getAppLogger("renderer", "render")`，相关实现见 `src/main/window-manager.ts`。
+- IM sidecar 日志路径是 `im-gateway stdout NDJSON -> SidecarManager -> ImHost.pushLog()`，相关实现见 `src/main/im-host/sidecar-manager.ts`、`src/main/im-host/index.ts`、`src/main/im-host/log-buffer.ts`。`LogBuffer` 只负责 UI 最近日志展示，不负责持久化。
+
+### 日志注意事项
+
+- 不要记录 API key、Authorization、Cookie、IM App Secret、完整凭据或用户隐私内容。
+- 不要新增直接文件写入日志逻辑；需要新分类时先扩展 `AppLogType` 和 `APP_LOG_TYPES`。
+- 不要用 `main.log` 作为当前日志文件。
+- 不要依赖 `electron-log` 的内部 `File.reset()`、`File.crop()` 等非公开 API。
+- 文本日志和 AI 请求调试 JSON 分开管理；`debug-writer.ts` 的请求快照不属于文本日志轮转。
+
 ## 开发注意事项
 
 ### bun dev 前置依赖构建
 
-`desktop-app` 的主进程（`src/main/`）依赖 workspace 中的其他包（`@mariozechner/pi-ai`、`@mariozechner/pi-agent-core`、`@vetta/coding-agent` 等）。这些包的 `dist/` 目录必须先构建，否则 `build:main` 会报 "Failed to resolve entry for package" 错误。
+`desktop-app` 的主进程（`src/main/`）依赖 workspace 中的其他包（`@vetta/ai`、`@vetta/agent-core`、`@vetta/coding-agent` 等）。这些包的 `dist/` 目录必须先构建，否则 `build:main` 会报 "Failed to resolve entry for package" 错误。
 
 **首次运行或依赖变更后**，必须先执行以下构建命令：
 
 ```bash
 # 按依赖顺序构建 workspace 包
-cd packages/ai && bun run build              # @mariozechner/pi-ai
-cd packages/agent && bun run build            # @mariozechner/pi-agent-core
+cd packages/ai && bun run build              # @vetta/ai
+cd packages/agent && bun run build            # @vetta/agent-core
 cd packages/tui && bun run build             # @mariozechner/pi-tui
 cd packages/coding-agent && bun run build    # @vetta/coding-agent
 
@@ -162,4 +254,5 @@ cd packages/desktop-app && bun dev
 - 与 `admin` 包完全独立，可安全并行开发
 - 消费 `@vetta/runtime-core` 的事件契约，契约变更需同步适配
 - 主进程和渲染进程通过 IPC 通信，注意安全边界
-- desktop-app 的类型测试需要执行 lint 和 tsc 检查，根目录的检查不包含该项目的检查。
+- desktop-app 类型检查：仓库根目录 `bun run check` **已包含** `bunx tsc --noEmit -p packages/desktop-app/tsconfig.json`（在 Biome + monorepo `tsgo` 之后）。
+- 单独排查时也可：`cd packages/desktop-app && bunx tsc --noEmit`，或在仓库根目录 `bunx tsc --noEmit -p packages/desktop-app/tsconfig.json`。不要在仓库根目录裸跑 `bunx tsc --noEmit`（那会用根 tsconfig，**查不到** desktop-app / i18n 等类型错误）。

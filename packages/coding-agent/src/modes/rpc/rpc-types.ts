@@ -5,8 +5,8 @@
  * Responses and events are emitted as JSON lines on stdout.
  */
 
-import type { AgentMessage, ThinkingLevel } from "@mariozechner/pi-agent-core";
-import type { ImageContent, Model } from "@mariozechner/pi-ai";
+import type { AgentMessage, ThinkingLevel } from "@vetta/agent-core";
+import type { ImageContent, Model } from "@vetta/ai";
 import type { SessionStats } from "../../core/agent-session.js";
 import type { BashResult } from "../../core/bash-executor.js";
 import type { CompactionResult } from "../../core/compaction/index.js";
@@ -64,7 +64,11 @@ export type RpcCommand =
 	| { id?: string; type: "get_messages" }
 
 	// Commands (available for invocation via prompt)
-	| { id?: string; type: "get_commands" };
+	| { id?: string; type: "get_commands" }
+
+	// Memory (ADR-0009): consolidate durable facts from the current context into
+	// MEMORY.md on demand — e.g. before the host discards the session on /new.
+	| { id?: string; type: "flush_memory" };
 
 // ============================================================================
 // RPC Slash Command (for get_commands response)
@@ -159,6 +163,9 @@ export type RpcResponse =
 	// Compaction
 	| { id?: string; type: "response"; command: "compact"; success: true; data: CompactionResult }
 	| { id?: string; type: "response"; command: "set_auto_compaction"; success: true }
+
+	// Memory
+	| { id?: string; type: "response"; command: "flush_memory"; success: true; data: { written: number } }
 
 	// Retry
 	| { id?: string; type: "response"; command: "set_auto_retry"; success: true }
@@ -255,6 +262,32 @@ export type RpcExtensionUIResponse =
 	| { type: "extension_ui_response"; id: string; value: string }
 	| { type: "extension_ui_response"; id: string; confirmed: boolean }
 	| { type: "extension_ui_response"; id: string; cancelled: true };
+
+// ============================================================================
+// Host Bridge (agent → host reverse RPC)
+// ============================================================================
+//
+// Enabled only with `--mode rpc --enable-host-bridge`. Lets built-in tools
+// (currently `im_send_attachment`) call back into the host process — for
+// im-gateway that means "actually send this image/file via the IM
+// transport, return the messageId or a structured error". See docs/rpc.md.
+//
+// Wire shape mirrors the extension_ui_request / _response pair: stdout
+// carries `host_request`, stdin carries `host_response`, both correlate by
+// `id`. The tool's execute() body awaits its response with a 30s timeout.
+
+/** Request from agent to host (stdout). `method` reserved for future extension. */
+export type RpcHostRequest = {
+	type: "host_request";
+	id: string;
+	method: "send_attachment";
+	params: { path: string; kind: "image" | "file"; caption?: string };
+};
+
+/** Response from host back to agent (stdin). `id` echoes the request. */
+export type RpcHostResponse =
+	| { type: "host_response"; id: string; success: true; data?: { messageId?: string } }
+	| { type: "host_response"; id: string; success: false; error: string; errorCode?: string };
 
 // ============================================================================
 // Helper type for extracting command types

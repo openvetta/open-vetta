@@ -33,6 +33,14 @@ type HostSession interface {
 	// generate one if Cmd.ID is empty.
 	Send(ctx context.Context, cmd Command) (Response, error)
 
+	// SendNoReply delivers a command and returns immediately, without
+	// waiting for any response. Used for fire-and-forget host→agent
+	// messages such as `host_response` where the agent consumes the
+	// command but does not emit a `response` event back. Implementations
+	// MUST NOT register a pending entry for cmd.ID — doing so would leak
+	// a goroutine waiting on a channel that never resolves.
+	SendNoReply(ctx context.Context, cmd Command) error
+
 	// Events returns a stream of agent events. The channel is closed when
 	// the session is closed (either via Close() or because the underlying
 	// process exited unexpectedly). On unexpected exit a final event of
@@ -98,16 +106,24 @@ const (
 	AgentEventTypeToolExecutionStart = "tool_execution_start"
 	AgentEventTypeToolExecutionEnd   = "tool_execution_end"
 	AgentEventTypeError              = "error"
+	// AgentEventTypeSessionPathChanged is emitted by coding-agent in memory-mode
+	// when a session rollover switches the active .jsonl file (ADR-0009). The
+	// bridge forwards the new path to the router so routing state is repointed.
+	AgentEventTypeSessionPathChanged = "session_path_changed"
 )
 
 // Well-known command types matching rpc.md.
 const (
-	CommandTypePrompt        = "prompt"
-	CommandTypeAbort         = "abort"
-	CommandTypeNewSession    = "new_session"
-	CommandTypeSwitchSession = "switch_session"
-	CommandTypeGetState      = "get_state"
+	CommandTypePrompt         = "prompt"
+	CommandTypeAbort          = "abort"
+	CommandTypeNewSession     = "new_session"
+	CommandTypeSwitchSession  = "switch_session"
+	CommandTypeGetState       = "get_state"
 	CommandTypeSetSessionName = "set_session_name"
+	// CommandTypeFlushMemory asks coding-agent (memory-mode) to consolidate
+	// durable facts from the current context into MEMORY.md before the session
+	// is discarded — used by /new (ADR-0009). No-op when memory-mode is off.
+	CommandTypeFlushMemory = "flush_memory"
 )
 
 // LockHolder describes the process currently holding a session file lock,

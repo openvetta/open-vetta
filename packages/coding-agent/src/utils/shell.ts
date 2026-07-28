@@ -1,32 +1,58 @@
 import { existsSync } from "node:fs";
-import { delimiter } from "node:path";
+import { basename, delimiter } from "node:path";
 import { spawn, spawnSync } from "child_process";
 import { getBinDir, getSettingsPath } from "../config.js";
 import { SettingsManager } from "../core/settings-manager.js";
 
 let cachedShellConfig: { shell: string; args: string[] } | null = null;
 
-/**
- * Find bash executable on PATH (cross-platform)
- */
-function findBashOnPath(): string | null {
-	if (process.platform === "win32") {
-		// Windows: Use 'where' and verify file exists (where can return non-existent paths)
-		try {
-			const result = spawnSync("where", ["bash.exe"], { encoding: "utf-8", timeout: 5000 });
-			if (result.status === 0 && result.stdout) {
-				const firstMatch = result.stdout.trim().split(/\r?\n/)[0];
-				if (firstMatch && existsSync(firstMatch)) {
-					return firstMatch;
-				}
-			}
-		} catch {
-			// Ignore errors
-		}
-		return null;
-	}
+export const WINDOWS_POWERSHELL_UTF8_COMMAND_PREFIX = [
+	"[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)",
+	"$OutputEncoding = [System.Text.UTF8Encoding]::new($false)",
+	'$PSDefaultParameterValues["Get-Content:Encoding"] = "UTF8"',
+].join("\n");
 
-	// Unix: Use 'which' and trust its output (handles Termux and special filesystems)
+export function isWindowsPowerShellShell(shellPath: string): boolean {
+	const shellName = basename(shellPath).toLowerCase();
+	return (
+		shellName === "powershell.exe" || shellName === "powershell" || shellName === "pwsh.exe" || shellName === "pwsh"
+	);
+}
+
+export function getDefaultShellCommandPrefix(shellPath: string): string | undefined {
+	if (process.platform !== "win32") return undefined;
+	if (!isWindowsPowerShellShell(shellPath)) return undefined;
+	return WINDOWS_POWERSHELL_UTF8_COMMAND_PREFIX;
+}
+
+export function prependCommandPrefixes(command: string, prefixes: Array<string | undefined>): string {
+	const effectivePrefixes = prefixes.filter((prefix): prefix is string => Boolean(prefix?.trim()));
+	return [...effectivePrefixes, command].join("\n");
+}
+
+/**
+ * Find executable on PATH on Windows.
+ * Uses `where` and verifies that the path exists.
+ */
+function findExecutableOnWindows(command: string): string | null {
+	try {
+		const result = spawnSync("where", [command], { encoding: "utf-8", timeout: 5000 });
+		if (result.status === 0 && result.stdout) {
+			const firstMatch = result.stdout.trim().split(/\r?\n/)[0];
+			if (firstMatch && existsSync(firstMatch)) {
+				return firstMatch;
+			}
+		}
+	} catch {
+		// Ignore errors
+	}
+	return null;
+}
+
+/**
+ * Find bash executable on PATH (Unix only).
+ */
+function findBashOnPathUnix(): string | null {
 	try {
 		const result = spawnSync("which", ["bash"], { encoding: "utf-8", timeout: 5000 });
 		if (result.status === 0 && result.stdout) {
@@ -45,7 +71,7 @@ function findBashOnPath(): string | null {
  * Get shell configuration based on platform.
  * Resolution order:
  * 1. User-specified shellPath in settings.json
- * 2. On Windows: Git Bash in known locations, then bash on PATH
+ * 2. On Windows: pwsh.exe, then powershell.exe, then cmd.exe
  * 3. On Unix: /bin/bash, then bash on PATH, then fallback to sh
  */
 export function getShellConfig(): { shell: string; args: string[] } {
@@ -68,38 +94,30 @@ export function getShellConfig(): { shell: string; args: string[] } {
 	}
 
 	if (process.platform === "win32") {
-		// 2. Try Git Bash in known locations
-		const paths: string[] = [];
-		const programFiles = process.env.ProgramFiles;
-		if (programFiles) {
-			paths.push(`${programFiles}\\Git\\bin\\bash.exe`);
-		}
-		const programFilesX86 = process.env["ProgramFiles(x86)"];
-		if (programFilesX86) {
-			paths.push(`${programFilesX86}\\Git\\bin\\bash.exe`);
-		}
-
-		for (const path of paths) {
-			if (existsSync(path)) {
-				cachedShellConfig = { shell: path, args: ["-c"] };
-				return cachedShellConfig;
-			}
-		}
-
-		// 3. Fallback: search bash.exe on PATH (Cygwin, MSYS2, WSL, etc.)
-		const bashOnPath = findBashOnPath();
-		if (bashOnPath) {
-			cachedShellConfig = { shell: bashOnPath, args: ["-c"] };
+		// 2. Try PowerShell Core (pwsh)
+		const pwsh = findExecutableOnWindows("pwsh.exe");
+		if (pwsh) {
+			cachedShellConfig = {
+				shell: pwsh,
+				args: ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command"],
+			};
 			return cachedShellConfig;
 		}
 
-		throw new Error(
-			`No bash shell found. Options:\n` +
-				`  1. Install Git for Windows: https://git-scm.com/download/win\n` +
-				`  2. Add your bash to PATH (Cygwin, MSYS2, etc.)\n` +
-				`  3. Set shellPath in ${getSettingsPath()}\n\n` +
-				`Searched Git Bash in:\n${paths.map((p) => `  ${p}`).join("\n")}`,
-		);
+		// 3. Fallback to Windows PowerShell
+		const powershell = findExecutableOnWindows("powershell.exe");
+		if (powershell) {
+			cachedShellConfig = {
+				shell: powershell,
+				args: ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command"],
+			};
+			return cachedShellConfig;
+		}
+
+		// 4. Final fallback to cmd.exe
+		const cmd = findExecutableOnWindows("cmd.exe") ?? "cmd.exe";
+		cachedShellConfig = { shell: cmd, args: ["/d", "/s", "/c"] };
+		return cachedShellConfig;
 	}
 
 	// Unix: try /bin/bash, then bash on PATH, then fallback to sh
@@ -108,7 +126,7 @@ export function getShellConfig(): { shell: string; args: string[] } {
 		return cachedShellConfig;
 	}
 
-	const bashOnPath = findBashOnPath();
+	const bashOnPath = findBashOnPathUnix();
 	if (bashOnPath) {
 		cachedShellConfig = { shell: bashOnPath, args: ["-c"] };
 		return cachedShellConfig;
@@ -170,6 +188,15 @@ export function sanitizeBinaryOutput(str: string): string {
 			return true;
 		})
 		.join("");
+}
+
+export function decodeTextBuffer(buffer: Buffer): string {
+	try {
+		new TextDecoder("utf-8", { fatal: true }).decode(buffer);
+		return buffer.toString("utf-8");
+	} catch {
+		return new TextDecoder("gb18030").decode(buffer);
+	}
 }
 
 /**

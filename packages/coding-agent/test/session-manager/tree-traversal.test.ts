@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type CustomEntry, SessionManager } from "../../src/core/session-manager.js";
+import { type CustomEntry, SessionManager } from "../../src/core/session-manager/index.js";
 import { assistantMsg, userMsg } from "../utilities.js";
 
 describe("SessionManager append and tree traversal", () => {

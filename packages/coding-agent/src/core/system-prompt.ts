@@ -1,37 +1,358 @@
 /**
- * System prompt construction and project context loading
+ * System prompt construction and project context loading.
  */
 
-import { getDocsPath, getExamplesPath, getReadmePath } from "../config.js";
-import { formatScenesForPrompt, formatSkillsForPrompt, type Skill } from "./skills.js";
+import type { ConversationScenario } from "./session/tool-scope.js";
+import { formatSkillsForPrompt, type Skill } from "./skills.js";
 import { SUBCONSCIOUS } from "./subconscious.js";
 
 /** Tool descriptions for system prompt */
 const toolDescriptions: Record<string, string> = {
 	read: "Read file contents",
 	bash: "Execute bash commands (ls, grep, find, etc.)",
-	edit: "Make surgical edits to files (find exact text and replace)",
+	shell: "Execute shell commands (PowerShell on Windows by default)",
+	edit: "Make surgical edits to files — anchor mode (batch, atomic, anchors from read/grep output) or exact-text replace",
 	write: "Create or overwrite files",
 	grep: "Search file contents for patterns (respects .gitignore)",
+	glob: "Find files by glob pattern (respects .gitignore)",
 	find: "Find files by glob pattern (respects .gitignore)",
 	ls: "List directory contents",
 	dir_tree: "Render directory tree with [D]/[F] node types and child counts",
 	invoke_skill: "Invoke a skill by name to handle specialized tasks (e.g., PDF, DOCX processing)",
-	invoke_scene: "Invoke a scene by name when the user's message starts with /scene: prefix",
 	todo: "Plan and track progress on multi-step tasks with a todo list",
+	task_output: "Read incremental output of a background task started via bash/shell with run_in_background",
+	task_stop: "Terminate a running background task started via bash/shell with run_in_background",
 	current_time: "Get the current date and time (preferred over bash date/time commands)",
+	progress:
+		"Announce the current stage in plain language so the user sees readable steps instead of raw tool calls (Work mode only)",
+	ask_user_question:
+		"Ask the user multiple-choice questions and wait for their answers (clarify ambiguity, gather preferences, offer decisions)",
 	doc_to_pdf: "Convert .doc/.docx files to PDF using Microsoft Office or WPS Office",
+	html_to_pdf: "Convert HTML files to PDF using Vetta Desktop's PDF command-line mode",
+	extract_text_from_pdf:
+		"Extract text from a PDF (scanned or born-digital) via Vetta Desktop's local PP-OCRv5 OCR; uses the embedded text layer when present, otherwise OCRs each page",
+	extract_text_from_img:
+		"Extract text from a single image (PNG/JPG/WebP/BMP/GIF) via Vetta Desktop's local PP-OCRv5 OCR",
+	render_pdf_page:
+		"Render a single PDF page to a PNG (via pdftoppm) for visual inspection (seals/stamps, signatures, handwriting, layout); follow up with `read` on the returned PNG path. Use when the task needs a visual judgment OCR cannot make.",
+	kb_write_page:
+		"Create or update a knowledge base wiki page (closed frontmatter schema, stable id, upsert by id/source_hash, auto-refreshes tag/manifest caches)",
+	kb_filter_by_tags:
+		"Filter knowledge base wiki pages by tags using set algebra (all=AND, any=OR, none=NOT); a retrieval shortcut",
+	kb_list_available_tags: "List all tags in the knowledge base with page counts; call before kb_filter_by_tags",
+	tool_search: "Search the deferred MCP tool index by keyword and activate matching tools so they become callable",
 };
+
+export const VETTA_CLI_GUIDANCE = [
+	"Vetta CLI is your interface to the running Vetta Desktop app: use `vetta action` both to learn what Desktop can do and to operate it.",
+	'Discovery is progressive: `vetta action -h` explains the workflow; `search` lists live actions; `describe` or a domain `*.query` with `{"operation":"help"}` reveals inputs; then `run`.',
+	"Do not expect CLI help to list every parameter. Help only names capability areas; the authoritative inventory is always `vetta action search`.",
+	"Before using Vetta CLI, decide whether the user wants to inspect/operate the running app or wants a general feature explanation; only explain capabilities when explicitly asked for an introduction, and ask a concise clarifying question when intent is unclear.",
+	"When the user asks about Vetta Desktop app features, settings, pages, models, skills, projects, automation, knowledge, plugins, IM, or how to operate the app, you MUST start with `vetta action -h` and/or `vetta action search`, then describe/run as needed. Never answer by guessing from memory or by inspecting files under `.vetta`; local config files are not the app UX contract.",
+	"Do not memorize or guess detailed action parameters; get them from search/describe/help output, then call `vetta action run` directly.",
+	"Never show or quote Vetta CLI commands, arguments, or raw terminal output. Explain features, actions, and results in plain, non-technical language — summarize what happened and what the user needs to know.",
+	"Actions that require authorization automatically ask the user through Vetta Desktop while the command runs; do not ask for authorization beforehand, and do not retry after the user rejects.",
+].join(" ");
+
+/**
+ * 产物输出位置规则：用户未显式指定输出位置时，新文件/产物默认落在当前工作目录，
+ * 严禁默认写到桌面、家目录或工作目录之外的任意路径。
+ */
+export const OUTPUT_LOCATION_GUIDANCE =
+	"\n\n**Output location**: Unless the user explicitly specifies where to save output, create any new files, generated artifacts, exports, or downloads INSIDE the current working directory shown above (use a sensible subdirectory of it when grouping helps). " +
+	"NEVER default to the Desktop, the home directory, /tmp, or any path outside the current working directory. " +
+	"If the user gives only a bare filename with no directory, resolve it relative to the current working directory, not the Desktop.";
+
+const FINAL_ANSWER_ORDER_GUIDANCE =
+	"Before writing the final user-facing answer, complete all required tool calls and cleanup work, including validation, saving files, todo updates, and status updates. " +
+	"Once you begin the final answer, do not call more tools or perform additional actions. If more work is needed, do it first, then answer.";
+
+/** 文件名保真规则（buildGuidelines 与 custom-prompt 分支共用同一定义）。 */
+const FILENAME_FIDELITY_GUIDANCE =
+	"CRITICAL — File name fidelity: file names and paths are opaque byte strings — reproduce them EXACTLY as returned by tools (ls, find, dir_tree) or provided by the user; " +
+	"NEVER add, remove, or change any characters including spaces, dashes, underscores, or punctuation. " +
+	"When in doubt, run ls or find first to get the exact name, then copy it verbatim.";
+
+/**
+ * 桌面端渲染契约（文件徽章 / 产物块 / URL 链接）。这些是 UI 渲染约定而非模型行为指令，
+ * 仅在桌面场景注入；`cli` 场景（终端无徽章/卡片渲染）剔除以省常驻 token。
+ */
+const FILE_LINK_GUIDANCE =
+	"MANDATORY file-link format: EVERY time you mention a file you created, edited, read, or otherwise point the user at — anywhere in your prose, including headings, list items, and tables — you MUST write it as a markdown link to its ABSOLUTE path: [filename.ext](/abs/path/filename.ext). The UI turns these into clickable preview badges, so this is not optional styling. " +
+	"NEVER emit a bare path as plain text, and NEVER wrap a path in backticks/inline code (`/Users/...`) when pointing the user at it — backtick paths render as dead monospace text with NO preview and cannot be clicked. Do NOT prepend file emojis like 📄 or 📁; the badge already shows a file-type icon. " +
+	"Correct: Saved to [report.md](/Users/me/Desktop/report.md). Wrong: Saved to `/Users/me/Desktop/report.md` — or — Saved to 📄 report.md. " +
+	"Use the exact absolute path returned by tools — never invent one; if you genuinely only have a relative path, leave it as plain text rather than fabricating an absolute one. " +
+	"The only exception is paths inside fenced code blocks or shell command examples — keep those as-is.";
+
+const DELIVERABLES_GUIDANCE =
+	"If you created, edited, or wrote ANY file during this turn, the VERY LAST thing in your final message MUST be one aggregated deliverables block — this is mandatory with NO exception, even for a single file or a one-line edit; never end such a turn without it. " +
+	"Format: a short heading (e.g. '产物:' / 'Deliverables:') followed by an unordered list where each item is a markdown link to the file's ABSOLUTE path — `- [filename.ext](/abs/path/filename.ext)`. " +
+	"This block is the ONLY place outputs are listed (do not also scatter the same links earlier). List every file you created or changed for the user, plus user-facing outputs; exclude ONLY pure throwaway scaffolding, temp files, and files you merely read without changing. " +
+	"The single case where you omit this block is a turn that changed no files at all.";
+
+const URL_LINK_GUIDANCE =
+	"Render web URLs in your prose as markdown links with descriptive text, e.g. [Vite docs](https://vitejs.dev), instead of bare URLs. Keep URLs as-is inside code blocks and shell examples.";
 
 export interface McpToolInfo {
 	name: string;
 	description: string;
 }
 
+export type SystemPromptBlockType =
+	| "subconscious"
+	| "base"
+	| "tools"
+	| "mcp"
+	| "guidelines"
+	| "append"
+	| "context"
+	| "memory"
+	| "skills"
+	| "mode"
+	| "personalization"
+	| "footer"
+	| "plugin";
+
+export interface SystemPromptBlock {
+	id: string;
+	type: SystemPromptBlockType;
+	source: {
+		kind: "core" | "plugin";
+		pluginId?: string;
+	};
+	content: string;
+	priority: number;
+	enabled: boolean;
+}
+
+export interface SystemPromptDraft {
+	blocks: SystemPromptBlock[];
+	metadata: {
+		cwd: string;
+		dateTime: string;
+	};
+}
+
+export type SystemPromptBlockPatch = Partial<Omit<SystemPromptBlock, "id">>;
+
+export type SystemPromptOperation =
+	| { type: "addBlock"; block: SystemPromptBlock }
+	| { type: "replaceBlock"; blockId: string; block: SystemPromptBlock }
+	| { type: "updateBlock"; blockId: string; patch: SystemPromptBlockPatch }
+	| { type: "removeBlock"; blockId: string }
+	| { type: "setBlockEnabled"; blockId: string; enabled: boolean };
+
+export interface SystemPromptContribution {
+	pluginId: string;
+	operations: SystemPromptOperation[];
+}
+
+export interface SkillPathContribution {
+	pluginId: string;
+	paths: string[];
+}
+
+export interface ToolPolicyContribution {
+	pluginId: string;
+	allow?: string[];
+	deny?: string[];
+}
+
+export type JsonSchema = Record<string, unknown>;
+
+export interface AgentPluginToolContribution {
+	pluginId: string;
+	id: string;
+	name: string;
+	label?: string;
+	description: string;
+	parameters: JsonSchema;
+	handlerId: string;
+	timeoutMs?: number;
+	/** 允许出现的对话场景 slug（fail-closed：缺省/空 = 所有场景都不激活）。由插件 registerTool 声明。 */
+	scope_use?: string[];
+	/** 需要的会话能力 slug（如 "knowledge"）。 */
+	requires?: string[];
+	/** 允许出现的工作模式 slug（agent_mode 轴，缺省/空 = 通用）。见 ADR-0046。 */
+	agent_mode?: string[];
+	context?: { conversation?: "summary" | "messages" };
+	/**
+	 * 该工具带有宿主自渲染卡片（插件注册了 tool-call slot），其结果是用户当作答案来读的
+	 * 产物。宿主据此为它追加一个可选的 `md_intro` 参数：模型填的这段 markdown 会渲染在
+	 * 卡片正上方，作为产物的一句话说明。插件无需感知，宿主自动检测并注入。见 ADR-0047。
+	 */
+	rendersCard?: boolean;
+}
+
+export interface AgentPluginStateContribution {
+	pluginId: string;
+	id: string;
+	schema?: JsonSchema;
+	initialValue?: unknown;
+	persist?: boolean;
+}
+
+export interface AgentPluginContinuationContribution {
+	pluginId: string;
+	id: string;
+	handlerId: string;
+	timeoutMs?: number;
+	context?: { conversation?: "summary" | "messages" };
+}
+
+export interface AgentPluginSystemPromptProviderContribution {
+	pluginId: string;
+	id: string;
+	handlerId: string;
+	timeoutMs?: number;
+	context?: {
+		systemPrompt?: "none" | "blocks" | "rendered" | "full";
+		conversation?: "summary" | "messages";
+	};
+}
+
+export interface AgentPluginSystemPromptMessage {
+	role: string;
+	text: string;
+	timestamp?: number;
+	toolName?: string;
+}
+
+export interface AgentPluginSystemPromptInvocation {
+	pluginId: string;
+	providerId: string;
+	handlerId: string;
+	session: { id: string; cwd: string; scenario: string };
+	model: {
+		provider: string;
+		id: string;
+		api: string;
+		input: string[];
+		contextWindow?: number;
+		maxTokens?: number;
+	};
+	conversation: { messages: AgentPluginSystemPromptMessage[]; messageCount: number };
+	runtime: { activeToolNames: string[]; availableToolNames: string[]; runIndex: number };
+	trigger: { kind: "agent-run"; timestamp: number };
+	systemPrompt?: {
+		base: { blocks?: SystemPromptBlock[]; rendered?: string };
+		current: { blocks?: SystemPromptBlock[]; rendered?: string };
+	};
+}
+
+export type AgentPluginRuntimeEffect =
+	| SystemPromptOperation
+	| { type: "setToolEnabled"; toolName: string; enabled: boolean }
+	| { type: "requestContinuation"; result: AgentPluginContinuationResult };
+
+export interface AgentPluginHandlerResult<T> {
+	value: T;
+	effects: AgentPluginRuntimeEffect[];
+}
+
+export type AgentPluginSystemPromptInvoker = (
+	invocation: AgentPluginSystemPromptInvocation,
+	signal?: AbortSignal,
+) => Promise<AgentPluginRuntimeEffect[]>;
+
+/**
+ * Plugin-scoped MCP server config (aligned with `McpServerConfig`). Host resolves
+ * relative paths before injecting into the runtime.
+ */
+export type AgentPluginMcpServerConfig =
+	| {
+			type?: "stdio";
+			command: string;
+			args?: string[];
+			env?: Record<string, string>;
+			cwd?: string;
+			disabled?: boolean;
+			autoApprove?: string[];
+			startupTimeout?: number;
+			debug?: boolean;
+			displayName?: string;
+			description?: string;
+	  }
+	| {
+			type: "http";
+			url: string;
+			headers?: Record<string, string>;
+			oauthClientId?: string;
+			oauthDeviceFlow?: boolean;
+			oauthScopes?: string;
+			disabled?: boolean;
+			autoApprove?: string[];
+			startupTimeout?: number;
+			debug?: boolean;
+			displayName?: string;
+			description?: string;
+	  };
+
+export interface McpServerContribution {
+	pluginId: string;
+	localName: string;
+	/** Unique runtime key; must not contain `_` (tool name adapter constraint). */
+	runtimeName: string;
+	config: AgentPluginMcpServerConfig;
+	/** 该 server 的工具允许出现的工作模式 slug（agent_mode 轴，缺省/空 = 通用）。见 ADR-0046。 */
+	agent_mode?: string[];
+}
+
+export interface AgentPluginRuntimeConfig {
+	systemPromptContributions?: SystemPromptContribution[];
+	skillPathContributions?: SkillPathContribution[];
+	toolPolicyContributions?: ToolPolicyContribution[];
+	toolContributions?: AgentPluginToolContribution[];
+	stateContributions?: AgentPluginStateContribution[];
+	continuationContributions?: AgentPluginContinuationContribution[];
+	systemPromptProviderContributions?: AgentPluginSystemPromptProviderContribution[];
+	/** Plugin-scoped MCP (third source; never written to user mcp.json). */
+	mcpServerContributions?: McpServerContribution[];
+}
+
+export interface AgentPluginToolInvocation {
+	pluginId: string;
+	toolId: string;
+	toolName: string;
+	handlerId: string;
+	input: unknown;
+	session: AgentPluginSystemPromptInvocation["session"];
+	model: AgentPluginSystemPromptInvocation["model"];
+	conversation: AgentPluginSystemPromptInvocation["conversation"];
+	runtime: AgentPluginSystemPromptInvocation["runtime"];
+	trigger: { kind: "tool-call"; timestamp: number; toolCallId: string };
+}
+
+export type AgentPluginToolInvoker = (
+	invocation: AgentPluginToolInvocation,
+	signal?: AbortSignal,
+) => Promise<AgentPluginHandlerResult<unknown>>;
+
+export interface AgentPluginContinuationInvocation {
+	pluginId: string;
+	providerId: string;
+	handlerId: string;
+	session: AgentPluginSystemPromptInvocation["session"];
+	model: AgentPluginSystemPromptInvocation["model"];
+	conversation: AgentPluginSystemPromptInvocation["conversation"];
+	runtime: AgentPluginSystemPromptInvocation["runtime"];
+	trigger: { kind: "continuation"; timestamp: number };
+}
+
+export interface AgentPluginContinuationResult {
+	text: string;
+	idempotencyKey?: string;
+}
+
+export type AgentPluginContinuationInvoker = (
+	invocation: AgentPluginContinuationInvocation,
+	signal?: AbortSignal,
+) => Promise<AgentPluginHandlerResult<AgentPluginContinuationResult | null>>;
+
 export interface BuildSystemPromptOptions {
-	/** Custom system prompt (replaces default). */
+	/** Custom system prompt (replaces default body in the legacy flow). */
 	customPrompt?: string;
-	/** Tools to include in prompt. Default: [read, bash, edit, write, dir_tree] */
+	/** Tools to include in prompt. Default: [read, command-tool, edit, write, dir_tree] */
 	selectedTools?: string[];
 	/** Text to append to system prompt. */
 	appendSystemPrompt?: string;
@@ -43,23 +364,177 @@ export interface BuildSystemPromptOptions {
 	skills?: Skill[];
 	/** MCP tools available (from Model Context Protocol servers). */
 	mcpTools?: McpToolInfo[];
+	/** Pre-rendered persistent-memory block (memory-mode only, frozen snapshot). */
+	memory?: string;
+	/**
+	 * 个性化追加块（人设 + 自定义指令，调用方已按「人设在前、自定义在后」拼好）。
+	 * 拼在系统提示词末尾（date/cwd 页脚之前），recency 最高。
+	 */
+	personalization?: string;
+	/**
+	 * 工作模式专用系统提示词正文（getModePrompt 解析）。作为独立 `mode` block 注入，与 persona 正交。
+	 * 空/未传 = 不追加。见 ADR-0046。
+	 */
+	modePrompt?: string;
+	/** Runtime plugin contributions applied to the structured prompt draft before rendering. */
+	agentPlugins?: AgentPluginRuntimeConfig;
+	/**
+	 * 当前对话场景。用于裁剪仅对 UI 渲染有意义的 guideline（文件徽章/产物块/URL 链接）：
+	 * `cli` 场景剔除；未传（SDK 直调）保守保留，与旧行为一致。
+	 */
+	scenario?: ConversationScenario;
+	/**
+	 * MCP 渐进披露模式：true 时 mcpTools 是「未加载的索引」而非已激活工具，
+	 * MCP 段落改为引导经 tool_search 检索激活。
+	 */
+	mcpDeferred?: boolean;
 }
 
-/** Build the system prompt with tools, guidelines, and context */
-export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): string {
-	const {
-		customPrompt,
-		selectedTools,
-		appendSystemPrompt,
-		cwd,
-		contextFiles: providedContextFiles,
-		skills: providedSkills,
-		mcpTools: providedMcpTools,
-	} = options;
-	const resolvedCwd = cwd ?? process.cwd();
+function coreBlock(id: string, type: SystemPromptBlockType, content: string, priority: number): SystemPromptBlock {
+	return {
+		id,
+		type,
+		source: { kind: "core" },
+		content,
+		priority,
+		enabled: content.length > 0,
+	};
+}
 
+/**
+ * MCP 工具的完整 description 已随请求的 tools 数组下发，这里的清单只是索引；
+ * 只取首行摘要，避免长描述（如 Notion 单工具数千字符）在系统提示词里重复计费。
+ */
+function firstLine(text: string): string {
+	const line = text.split("\n", 1)[0]?.trim() ?? "";
+	return line.length > 200 ? `${line.slice(0, 200)}…` : line;
+}
+
+function renderMcpToolsSection(mcpTools: McpToolInfo[], markdownTools: boolean, mcpDeferred = false): string {
+	if (mcpTools.length === 0) {
+		return "";
+	}
+	const toolsList = mcpTools
+		.map((tool) =>
+			markdownTools
+				? `- **${tool.name}**: ${firstLine(tool.description)}`
+				: `- ${tool.name}: ${firstLine(tool.description)}`,
+		)
+		.join("\n");
+
+	const header = markdownTools
+		? "# MCP (Model Context Protocol) Tools\n\nThe following MCP tools are available from external servers:"
+		: "MCP (Model Context Protocol) tools:";
+
+	const usage = mcpDeferred
+		? '**MCP tool usage (deferred)**: the list above is an INDEX — these tools are not loaded into your tool list yet. Before calling one, activate it via the `tool_search` tool (keyword search over this index); activated tools stay callable for the rest of the session. Tool names are prefixed with "mcp_[servername]_". When the user explicitly asks to use a specific MCP server or tool, search for it by name and use it instead of a built-in equivalent.'
+		: '**MCP tool usage**: tool names are prefixed with "mcp_[servername]_" (e.g., mcp_filesystem_list_directory). When the user explicitly asks to use a specific MCP server or tool (e.g. "use filesystem MCP to list files"), you MUST use the corresponding MCP tool instead of a built-in equivalent.';
+
+	return `${header}
+
+${toolsList}
+
+${usage}`;
+}
+
+function renderContextFilesSection(contextFiles: Array<{ path: string; content: string }>): string {
+	if (contextFiles.length === 0) {
+		return "";
+	}
+	let content =
+		"# Project Context\n\nProject-specific instructions and guidelines:\n\n" +
+		"Scoping rules: each instruction file (AGENTS.md, CLAUDE.md, …) applies to the entire directory tree rooted at the folder that contains it. " +
+		"When instructions conflict, more deeply nested files take precedence over higher-level ones, and direct user instructions in the chat always override any instruction file.\n\n";
+	for (const { path: filePath, content: fileContent } of contextFiles) {
+		content += `## ${filePath}\n\n${fileContent}\n\n`;
+	}
+	return content.trimEnd();
+}
+
+function renderFooter(dateTime: string, cwd: string): string {
+	return `Current date and time: ${dateTime}
+Current working directory: ${cwd}${OUTPUT_LOCATION_GUIDANCE}`;
+}
+
+export function applySystemPromptOperation(
+	draft: SystemPromptDraft,
+	pluginId: string,
+	operation: SystemPromptOperation,
+): void {
+	switch (operation.type) {
+		case "addBlock":
+			draft.blocks.push({
+				...operation.block,
+				source: { kind: "plugin", pluginId },
+			});
+			return;
+		case "replaceBlock": {
+			const index = draft.blocks.findIndex((block) => block.id === operation.blockId);
+			const nextBlock: SystemPromptBlock = {
+				...operation.block,
+				id: operation.blockId,
+				source: { kind: "plugin", pluginId },
+			};
+			if (index >= 0) {
+				draft.blocks[index] = nextBlock;
+			} else {
+				draft.blocks.push(nextBlock);
+			}
+			return;
+		}
+		case "updateBlock": {
+			const block = draft.blocks.find((candidate) => candidate.id === operation.blockId);
+			if (block) {
+				Object.assign(block, operation.patch);
+			}
+			return;
+		}
+		case "removeBlock":
+			draft.blocks = draft.blocks.filter((block) => block.id !== operation.blockId);
+			return;
+		case "setBlockEnabled": {
+			const block = draft.blocks.find((candidate) => candidate.id === operation.blockId);
+			if (block) {
+				block.enabled = operation.enabled;
+			}
+			return;
+		}
+	}
+}
+
+export function applySystemPromptOperations(
+	draft: SystemPromptDraft,
+	pluginId: string,
+	operations: readonly SystemPromptOperation[],
+): SystemPromptDraft {
+	const nextDraft: SystemPromptDraft = {
+		blocks: draft.blocks.map((block) => ({ ...block, source: { ...block.source } })),
+		metadata: { ...draft.metadata },
+	};
+	for (const operation of operations) {
+		applySystemPromptOperation(nextDraft, pluginId, operation);
+	}
+	return nextDraft;
+}
+
+function applySystemPromptContributions(draft: SystemPromptDraft, config: AgentPluginRuntimeConfig | undefined): void {
+	for (const contribution of config?.systemPromptContributions ?? []) {
+		const nextDraft = applySystemPromptOperations(draft, contribution.pluginId, contribution.operations);
+		draft.blocks = nextDraft.blocks;
+	}
+}
+
+export function renderSystemPromptDraft(draft: SystemPromptDraft): string {
+	return draft.blocks
+		.filter((block) => block.enabled && block.content.length > 0)
+		.sort((a, b) => a.priority - b.priority || a.id.localeCompare(b.id))
+		.map((block) => block.content)
+		.join("\n\n");
+}
+
+function buildDateTime(): string {
 	const now = new Date();
-	const dateTime = now.toLocaleString("en-US", {
+	return now.toLocaleString("en-US", {
 		weekday: "long",
 		year: "numeric",
 		month: "long",
@@ -69,101 +544,34 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 		second: "2-digit",
 		timeZoneName: "short",
 	});
+}
 
-	const appendSection = appendSystemPrompt ? `\n\n${appendSystemPrompt}` : "";
-
-	const contextFiles = providedContextFiles ?? [];
-	const skills = providedSkills ?? [];
-	const mcpTools = providedMcpTools ?? [];
-
-	if (customPrompt) {
-		// 即使用户传入 customPrompt，也始终保留出厂潜意识，防止身份被绕过
-		let prompt = `${SUBCONSCIOUS}\n\n${customPrompt}`;
-
-		if (appendSection) {
-			prompt += appendSection;
-		}
-
-		// Append MCP tools section
-		if (mcpTools.length > 0) {
-			prompt += "\n\n# MCP (Model Context Protocol) Tools\n\n";
-			prompt += "The following MCP tools are available from external servers:\n\n";
-			for (const tool of mcpTools) {
-				prompt += `- **${tool.name}**: ${tool.description}\n`;
-			}
-			prompt += "\n**IMPORTANT - MCP Tool Usage:**\n";
-			prompt +=
-				'- When the user explicitly mentions "use [server-name] MCP" or "using [tool-name]", you MUST use the corresponding MCP tool\n';
-			prompt += '- MCP tools are prefixed with "mcp_[servername]_" (e.g., mcp_filesystem_list_directory)\n';
-			prompt += "- MCP tools may provide specialized functionality not available in built-in tools\n";
-			prompt +=
-				'- Example: If user says "use filesystem MCP to list files", use mcp_filesystem_list_directory instead of bash ls\n';
-		}
-
-		// Append project context files
-		if (contextFiles.length > 0) {
-			prompt += "\n\n# Project Context\n\n";
-			prompt += "Project-specific instructions and guidelines:\n\n";
-			for (const { path: filePath, content } of contextFiles) {
-				prompt += `## ${filePath}\n\n${content}\n\n`;
-			}
-		}
-
-		// Append skills section (if invoke_skill or read tool is available)
-		const canUseSkills = !selectedTools || selectedTools.includes("invoke_skill") || selectedTools.includes("read");
-		if (canUseSkills && skills.length > 0) {
-			prompt += formatSkillsForPrompt(skills);
-		}
-
-		// Append scenes section (if invoke_scene tool is available)
-		const canUseScenes = !selectedTools || selectedTools.includes("invoke_scene");
-		if (canUseScenes && skills.length > 0) {
-			prompt += formatScenesForPrompt(skills);
-		}
-
-		// Filename fidelity rule (applies to all prompts)
-		prompt += "\n\n**CRITICAL — File name fidelity**: ";
-		prompt +=
-			"File names and paths are opaque byte strings — reproduce them EXACTLY as returned by tools or provided by the user. ";
-		prompt += "NEVER add, remove, or change any characters including spaces, dashes, underscores, or punctuation. ";
-		prompt += "When in doubt, run ls or find first to get the exact name, then copy it verbatim. ";
-		prompt +=
-			"If dir_tree returns path IDs like @PATH_0001, prefer those IDs in tool path arguments instead of retyping filenames.";
-
-		// Add date/time and working directory last
-		prompt += `\nCurrent date and time: ${dateTime}`;
-		prompt += `\nCurrent working directory: ${resolvedCwd}`;
-
-		return prompt;
-	}
-
-	// Get absolute paths to documentation and examples
-	const readmePath = getReadmePath();
-	const docsPath = getDocsPath();
-	const examplesPath = getExamplesPath();
-
-	// Build tools list based on selected tools (only built-in tools with known descriptions)
-	const tools = (selectedTools || ["read", "bash", "edit", "write", "dir_tree"]).filter((t) => t in toolDescriptions);
-	const toolsList = tools.length > 0 ? tools.map((t) => `- ${t}: ${toolDescriptions[t]}`).join("\n") : "(none)";
-
-	// Build guidelines based on which tools are actually available
+function buildGuidelines(tools: string[], scenario?: ConversationScenario): string {
 	const guidelinesList: string[] = [];
-
-	const hasBash = tools.includes("bash");
+	// 渲染契约（徽章/产物块/URL 链接）只对有 UI 渲染的场景有意义；cli 场景剔除。
+	// scenario 未传（SDK 直调/测试）时保守保留，行为与旧版一致。
+	const hasUiRendering = scenario !== "cli";
+	const hasSelectedCommandTool = tools.includes("bash") || tools.includes("shell");
 	const hasEdit = tools.includes("edit");
 	const hasWrite = tools.includes("write");
 	const hasGrep = tools.includes("grep");
+	const hasGlob = tools.includes("glob");
 	const hasFind = tools.includes("find");
 	const hasLs = tools.includes("ls");
 	const hasDirTree = tools.includes("dir_tree");
 	const hasRead = tools.includes("read");
 
-	// File exploration guidelines
-	if (hasBash && !hasGrep && !hasFind && !hasLs && !hasDirTree) {
-		guidelinesList.push("Use bash for file operations like ls, rg, find");
-	} else if (hasBash && (hasGrep || hasFind || hasLs || hasDirTree)) {
+	if (hasSelectedCommandTool && !hasGrep && !hasGlob && !hasFind && !hasLs && !hasDirTree) {
+		guidelinesList.push("Use the shell tool for file operations like ls, rg, find");
+	} else if (hasSelectedCommandTool && (hasGrep || hasGlob || hasFind || hasLs || hasDirTree)) {
 		guidelinesList.push(
-			"Prefer grep/find/ls/dir_tree tools over bash for file exploration (faster, respects .gitignore)",
+			"Prefer grep/glob/find/ls/dir_tree tools over the shell tool for file exploration (faster, respects .gitignore)",
+		);
+	}
+
+	if (hasSelectedCommandTool) {
+		guidelinesList.push(
+			"Before bash/shell: if the process may not exit on its own (dev server, watcher, docker compose up without -d, make dev), MUST set run_in_background: true. Foreground blocks the entire agent turn until exit (or auto-promote after the soft wait).",
 		);
 	}
 
@@ -171,115 +579,156 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 		guidelinesList.push(
 			'ALWAYS use dir_tree (not bash "tree", "ls -R", "find", "fd", or "rg --files") whenever you need to view directory structure or explore a codebase. Only fall back to bash if dir_tree cannot fulfill the specific requirement (e.g., custom output formatting)',
 		);
+	}
+
+	if (tools.includes("dispatch_workflows")) {
 		guidelinesList.push(
-			'When dir_tree output includes path IDs like @PATH_0001, prefer these IDs as tool paths. In bash commands, wrap IDs in quotes (example: cat "@PATH_0001").',
+			"PARALLEL WORKFLOWS: this app can fan a complex task out to parallel workflow subagents via dispatch_workflows — each inherits a snapshot of this conversation and executes its own todo list concurrently. Proactively consider dispatching workflows whenever a task splits into independent, non-overlapping scopes (multi-module changes, batch generation, parallel research); do not wait for the user to ask. You are notified via <subagent_notification> as each finishes — after dispatching, NEVER sit in wait_agent: end your turn (or do other work) and react to notifications passively. When the user pauses workflows and later says continue, RESUME each interrupted workflow with followup_task (context and todo progress are preserved) — never re-dispatch them as new workflows.",
 		);
 	}
 
-	// current_time guideline
-	const hasCurrentTime = tools.includes("current_time");
-	if (hasCurrentTime) {
+	if (tools.includes("current_time")) {
 		guidelinesList.push(
 			'ALWAYS use current_time tool (not bash "date", "timedatectl", or other shell commands) when you need to know the current date or time. Only fall back to bash if current_time cannot fulfill the specific requirement (e.g., timezone conversion, date arithmetic)',
 		);
 	}
 
-	// Read before edit guideline
 	if (hasRead && hasEdit) {
 		guidelinesList.push("Use read to examine files before editing. You must use this tool instead of cat or sed.");
 	}
-
-	// Edit guideline
 	if (hasEdit) {
-		guidelinesList.push("Use edit for precise changes (old text must match exactly)");
+		guidelinesList.push(
+			"Use edit for precise changes. Prefer anchor mode: pass `edits` with the `line:hash` anchors from read/grep output (copy verbatim, never fabricate); the batch is atomic and stale-anchor errors return fresh anchors for immediate retry",
+		);
 	}
-
-	// Write guideline
 	if (hasWrite) {
 		guidelinesList.push("Use write only for new files or complete rewrites");
 	}
-
-	// Output guideline (only when actually writing or executing)
 	if (hasEdit || hasWrite) {
 		guidelinesList.push(
-			"When summarizing your actions, output plain text directly - do NOT use cat or bash to display what you did",
+			"When summarizing your actions, output plain text directly - do NOT use cat or shell commands to display what you did",
 		);
 	}
 
-	// Filename fidelity — LLMs tend to "prettify" filenames by inserting/removing spaces around punctuation
-	guidelinesList.push(
-		"CRITICAL: File names and paths are opaque byte strings — reproduce them EXACTLY as returned by tools (ls, find, dir_tree) or provided by the user. " +
-			"NEVER add, remove, or change any characters including spaces, dashes, underscores, or punctuation. " +
-			"When in doubt, run ls or find first to get the exact name, then copy it verbatim.",
-	);
-
-	// Always include these
+	guidelinesList.push(FILENAME_FIDELITY_GUIDANCE);
 	guidelinesList.push("Be concise in your responses");
-	guidelinesList.push("Show file paths clearly when working with files");
+	guidelinesList.push(FINAL_ANSWER_ORDER_GUIDANCE);
+	if (hasUiRendering) {
+		guidelinesList.push(FILE_LINK_GUIDANCE);
+		if (hasEdit || hasWrite || hasSelectedCommandTool) {
+			guidelinesList.push(DELIVERABLES_GUIDANCE);
+		}
+		guidelinesList.push(URL_LINK_GUIDANCE);
+	}
 	guidelinesList.push(
 		"When the user sends images inline in their message, analyze them directly using your vision capabilities. Do NOT try to locate or read them from disk - the image data is already embedded in the message",
 	);
 
-	const guidelines = guidelinesList.map((g) => `- ${g}`).join("\n");
+	return guidelinesList.map((guideline) => `- ${guideline}`).join("\n");
+}
 
-	// Build MCP tools list if any are available
-	let mcpToolsSection = "";
-	if (mcpTools.length > 0) {
-		const mcpToolsList = mcpTools.map((tool) => `- ${tool.name}: ${tool.description}`).join("\n");
-		mcpToolsSection = `\n\nMCP (Model Context Protocol) tools:
-${mcpToolsList}
-
-**IMPORTANT - MCP Tool Usage:**
-- When the user explicitly mentions "use [server-name] MCP" or "using [tool-name]", you MUST use the corresponding MCP tool
-- MCP tools are prefixed with "mcp_[servername]_" (e.g., mcp_filesystem_list_directory)
-- MCP tools may provide specialized functionality not available in built-in tools
-- Example: If user says "use filesystem MCP to list files", use mcp_filesystem_list_directory instead of bash ls`;
+function buildToolDescriptions(agentPlugins: AgentPluginRuntimeConfig | undefined): Record<string, string> {
+	const descriptions = { ...toolDescriptions };
+	for (const tool of agentPlugins?.toolContributions ?? []) {
+		descriptions[tool.name] = tool.description;
 	}
+	return descriptions;
+}
 
-	let prompt = `${SUBCONSCIOUS}
+function resolvePromptTools(
+	selectedTools: string[] | undefined,
+	defaultCommandTool: string,
+	toolDescriptionsByName: Record<string, string>,
+): string[] {
+	return (selectedTools || ["read", defaultCommandTool, "edit", "write", "dir_tree"]).filter(
+		(tool) => tool in toolDescriptionsByName,
+	);
+}
 
-Available tools:
-${toolsList}${mcpToolsSection}
+function renderToolsList(tools: string[], toolDescriptionsByName: Record<string, string>): string {
+	return tools.length > 0 ? tools.map((tool) => `- ${tool}: ${toolDescriptionsByName[tool]}`).join("\n") : "(none)";
+}
 
-Guidelines:
-${guidelines}
+/** Build the structured prompt draft with tools, guidelines, and context. */
+export function buildSystemPromptDraft(options: BuildSystemPromptOptions = {}): SystemPromptDraft {
+	const {
+		customPrompt,
+		selectedTools,
+		appendSystemPrompt,
+		cwd,
+		contextFiles: providedContextFiles,
+		skills: providedSkills,
+		mcpTools: providedMcpTools,
+		memory,
+		personalization,
+		modePrompt,
+		agentPlugins,
+		scenario,
+		mcpDeferred,
+	} = options;
+	const resolvedCwd = cwd ?? process.cwd();
+	const dateTime = buildDateTime();
+	const defaultCommandTool = process.platform === "win32" ? "shell" : "bash";
+	const contextFiles = providedContextFiles ?? [];
+	const skills = providedSkills ?? [];
+	const mcpTools = providedMcpTools ?? [];
+	const resolvedToolDescriptions = buildToolDescriptions(agentPlugins);
+	const tools = resolvePromptTools(selectedTools, defaultCommandTool, resolvedToolDescriptions);
+	const toolsList = renderToolsList(tools, resolvedToolDescriptions);
+	const blocks: SystemPromptBlock[] = [];
 
-Pi documentation (read only when the user asks about pi itself, its SDK, extensions, themes, skills, or TUI):
-- Main documentation: ${readmePath}
-- Additional docs: ${docsPath}
-- Examples: ${examplesPath} (extensions, custom tools, SDK)
-- When asked about: extensions (docs/extensions.md, examples/extensions/), themes (docs/themes.md), skills (docs/skills.md), prompt templates (docs/prompt-templates.md), TUI components (docs/tui.md), keybindings (docs/keybindings.md), SDK integrations (docs/sdk.md), custom providers (docs/custom-provider.md), adding models (docs/models.md), pi packages (docs/packages.md)
-- When working on pi topics, read the docs and examples, and follow .md cross-references before implementing
-- Always read pi .md files completely and follow links to related docs (e.g., tui.md for TUI API details)`;
-
-	if (appendSection) {
-		prompt += appendSection;
-	}
-
-	// Append project context files
-	if (contextFiles.length > 0) {
-		prompt += "\n\n# Project Context\n\n";
-		prompt += "Project-specific instructions and guidelines:\n\n";
-		for (const { path: filePath, content } of contextFiles) {
-			prompt += `## ${filePath}\n\n${content}\n\n`;
+	if (customPrompt) {
+		blocks.push(coreBlock("core.subconscious", "subconscious", SUBCONSCIOUS, 100));
+		blocks.push(coreBlock("core.base", "base", customPrompt, 200));
+		blocks.push(coreBlock("core.tools", "tools", `Available tools:\n${toolsList}`, 300));
+		blocks.push(coreBlock("core.append", "append", appendSystemPrompt ?? "", 400));
+		blocks.push(coreBlock("core.mcp", "mcp", renderMcpToolsSection(mcpTools, true, mcpDeferred), 500));
+		blocks.push(coreBlock("core.context", "context", renderContextFilesSection(contextFiles), 600));
+		blocks.push(coreBlock("core.memory", "memory", memory ?? "", 700));
+		const canUseSkills = !selectedTools || selectedTools.includes("invoke_skill") || selectedTools.includes("read");
+		if (canUseSkills && skills.length > 0) {
+			blocks.push(coreBlock("core.skills", "skills", formatSkillsForPrompt(skills), 800));
 		}
+		blocks.push(coreBlock("core.filename-fidelity", "guidelines", FILENAME_FIDELITY_GUIDANCE, 900));
+		blocks.push(coreBlock("core.final-answer-order", "guidelines", FINAL_ANSWER_ORDER_GUIDANCE, 950));
+		blocks.push(coreBlock("core.mode", "mode", modePrompt ?? "", 975));
+		blocks.push(coreBlock("core.personalization", "personalization", personalization ?? "", 1000));
+		blocks.push(coreBlock("core.footer", "footer", renderFooter(dateTime, resolvedCwd), 1100));
+		const draft: SystemPromptDraft = { blocks, metadata: { cwd: resolvedCwd, dateTime } };
+		applySystemPromptContributions(draft, agentPlugins);
+		return draft;
 	}
 
-	// Append skills section (if invoke_skill or read tool is available)
+	const mcpToolsSection = renderMcpToolsSection(mcpTools, false, mcpDeferred);
 	const hasInvokeSkill = tools.includes("invoke_skill");
+	const hasRead = tools.includes("read");
+
+	blocks.push(coreBlock("core.subconscious", "subconscious", SUBCONSCIOUS, 100));
+	blocks.push(
+		coreBlock(
+			"core.tools",
+			"tools",
+			`Available tools:\n${toolsList}${mcpToolsSection ? `\n\n${mcpToolsSection}` : ""}`,
+			200,
+		),
+	);
+	blocks.push(coreBlock("core.guidelines", "guidelines", `Guidelines:\n${buildGuidelines(tools, scenario)}\n`, 300));
+	blocks.push(coreBlock("core.append", "append", appendSystemPrompt ?? "", 400));
+	blocks.push(coreBlock("core.context", "context", renderContextFilesSection(contextFiles), 500));
+	blocks.push(coreBlock("core.memory", "memory", memory ?? "", 600));
 	if ((hasRead || hasInvokeSkill) && skills.length > 0) {
-		prompt += formatSkillsForPrompt(skills);
+		blocks.push(coreBlock("core.skills", "skills", formatSkillsForPrompt(skills), 700));
 	}
+	blocks.push(coreBlock("core.mode", "mode", modePrompt ?? "", 850));
+	blocks.push(coreBlock("core.personalization", "personalization", personalization ?? "", 900));
+	blocks.push(coreBlock("core.footer", "footer", renderFooter(dateTime, resolvedCwd), 1000));
 
-	// Append scenes section (if invoke_scene tool is available)
-	const hasInvokeScene = tools.includes("invoke_scene");
-	if (hasInvokeScene && skills.length > 0) {
-		prompt += formatScenesForPrompt(skills);
-	}
+	const draft: SystemPromptDraft = { blocks, metadata: { cwd: resolvedCwd, dateTime } };
+	applySystemPromptContributions(draft, agentPlugins);
+	return draft;
+}
 
-	// Add date/time and working directory last
-	prompt += `\nCurrent date and time: ${dateTime}`;
-	prompt += `\nCurrent working directory: ${resolvedCwd}`;
-
-	return prompt;
+/** Build the system prompt with tools, guidelines, and context. */
+export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): string {
+	return renderSystemPromptDraft(buildSystemPromptDraft(options));
 }

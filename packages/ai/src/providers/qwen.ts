@@ -2,8 +2,8 @@
  * Qwen OpenAI Completions provider.
  *
  * Inherits from openai-completions with Qwen-specific thinking control:
- *   - enable_thinking: boolean  (toggle thinking on/off)
- *   - reasoning_effort: "none" | "low" | "medium" | "high"  (effort level, "none" to disable)
+ *   - enable_thinking: boolean  (toggle thinking on/off; false disables thinking)
+ *   - reasoning_effort: "minimal" | "low" | "medium" | "high"  (effort level; Qwen has no "none")
  *
  * Both parameters are sent together for maximum compatibility.
  * Models registered with api "qwen-openai-completions" automatically get

@@ -67,6 +67,8 @@ export interface SkillFrontmatter {
 	name?: string;
 	alias?: string;
 	description?: string;
+	/** 工作模式白名单（agent_mode 轴）。缺省/空 = 通用。字符串或字符串数组。见 ADR-0046。 */
+	agent_mode?: string | string[];
 	"disable-model-invocation"?: boolean;
 	metadata?: {
 		type?: string;
@@ -85,12 +87,21 @@ export interface Skill {
 	baseDir: string;
 	source: string;
 	type: SkillType;
+	/** 工作模式白名单（agent_mode 轴）。undefined/空 = 通用。见 ADR-0046。 */
+	agentMode?: string[];
 	disableModelInvocation: boolean;
 }
 
 export interface LoadSkillsResult {
 	skills: Skill[];
 	diagnostics: ResourceDiagnostic[];
+}
+
+/** frontmatter agent_mode（string | string[]）→ 归一化的 string[]；空/无效 → undefined（= 通用）。 */
+function normalizeSkillAgentMode(raw: string | string[] | undefined): string[] | undefined {
+	if (raw === undefined) return undefined;
+	const arr = (Array.isArray(raw) ? raw : [raw]).map((m) => String(m).trim()).filter((m) => m.length > 0);
+	return arr.length > 0 ? arr : undefined;
 }
 
 /**
@@ -271,6 +282,7 @@ function loadSkillFromFile(
 		}
 
 		const skillType: SkillType = frontmatter.metadata?.type === "scene" ? "scene" : "skill";
+		const agentMode = normalizeSkillAgentMode(frontmatter.agent_mode);
 
 		return {
 			skill: {
@@ -281,6 +293,7 @@ function loadSkillFromFile(
 				baseDir: skillDir,
 				source,
 				type: skillType,
+				agentMode,
 				disableModelInvocation: frontmatter["disable-model-invocation"] === true,
 			},
 			diagnostics,
@@ -329,40 +342,6 @@ export function formatSkillsForPrompt(skills: Skill[]): string {
 	return lines.join("\n");
 }
 
-/**
- * Format scenes for inclusion in the system prompt.
- * Scenes are listed so the model knows to call invoke_scene when
- * the user's message starts with /scene: prefix.
- * The model is explicitly instructed NOT to invoke scenes on its own.
- */
-export function formatScenesForPrompt(skills: Skill[]): string {
-	const scenes = skills.filter((s) => s.type === "scene");
-
-	if (scenes.length === 0) {
-		return "";
-	}
-
-	const lines = [
-		"\n\n# Scenes",
-		"",
-		"When the user's message starts with /scene:<name>, you MUST call the invoke_scene tool with the scene's name IMMEDIATELY as your first action.",
-		"NEVER invoke a scene on your own initiative. Only invoke when the user explicitly references one via /scene: prefix.",
-		"",
-		"<available_scenes>",
-	];
-
-	for (const scene of scenes) {
-		lines.push("  <scene>");
-		lines.push(`    <name>${escapeXml(scene.name)}</name>`);
-		lines.push(`    <description>${escapeXml(scene.description)}</description>`);
-		lines.push("  </scene>");
-	}
-
-	lines.push("</available_scenes>");
-
-	return lines.join("\n");
-}
-
 function escapeXml(str: string): string {
 	return str
 		.replace(/&/g, "&amp;")
@@ -398,6 +377,12 @@ export interface LoadSkillsOptions {
 	skillPaths?: string[];
 	/** Include default skills directories. Default: true */
 	includeDefaults?: boolean;
+	/**
+	 * Include generic Agent Skill directories (`~/.agents/skills` and `<cwd>/.agents/skills`).
+	 * These follow the cross-agent convention (subdirectory `SKILL.md` only) and are tagged
+	 * `source = "agents-user"` / `"agents-project"`. Default: true.
+	 */
+	includeAgentSkills?: boolean;
 }
 
 function normalizePath(input: string): string {
@@ -418,7 +403,14 @@ function resolveSkillPath(p: string, cwd: string): string {
  * Returns skills and any validation diagnostics.
  */
 export function loadSkills(options: LoadSkillsOptions = {}): LoadSkillsResult {
-	const { cwd = process.cwd(), agentDir, sceneDir, skillPaths = [], includeDefaults = true } = options;
+	const {
+		cwd = process.cwd(),
+		agentDir,
+		sceneDir,
+		skillPaths = [],
+		includeDefaults = true,
+		includeAgentSkills = true,
+	} = options;
 
 	// Resolve agentDir - if not provided, use default from config
 	const resolvedAgentDir = agentDir ?? getAgentDir();
@@ -518,6 +510,14 @@ export function loadSkills(options: LoadSkillsOptions = {}): LoadSkillsResult {
 			const message = error instanceof Error ? error.message : "failed to read skill path";
 			allDiagnostics.push({ type: "warning", message, path: resolvedPath });
 		}
+	}
+
+	// Generic Agent Skill directories, loaded LAST so Vetta-native skills (user / project / scene)
+	// always win name collisions. Discovery follows the cross-agent convention: subdirectory
+	// SKILL.md only (no loose root .md), so skills authored for other agents drop in unchanged.
+	if (includeAgentSkills) {
+		addSkills(loadSkillsFromDirInternal(join(homedir(), ".agents", "skills"), "agents-user", false));
+		addSkills(loadSkillsFromDirInternal(resolve(cwd, ".agents", "skills"), "agents-project", false));
 	}
 
 	return {

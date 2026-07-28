@@ -14,7 +14,7 @@ import {
 	type SimpleStreamOptions,
 	type StopReason,
 	type ToolCall,
-} from "@mariozechner/pi-ai";
+} from "@vetta/ai";
 
 // Create stream class matching ProxyMessageEventStream
 class ProxyMessageEventStream extends EventStream<AssistantMessageEvent, AssistantMessage> {
@@ -114,7 +114,7 @@ export function streamProxy(model: Model<any>, context: Context, options: ProxyS
 		};
 
 		if (options.signal) {
-			options.signal.addEventListener("abort", abortHandler);
+			options.signal.addEventListener("abort", abortHandler, { once: true });
 		}
 
 		try {

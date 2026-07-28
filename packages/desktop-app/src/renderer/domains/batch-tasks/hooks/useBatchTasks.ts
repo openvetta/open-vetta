@@ -1,11 +1,25 @@
+import { useProjects } from "@domains/project/hooks/useProjects";
 import { pathBasename } from "@shared/lib/utils";
-import { batchProjectsAtom, expandedBatchProjectsAtom } from "@shared/store/atoms";
-import { useAtom } from "jotai";
+import {
+	batchProjectsAtom,
+	batchQueuedTaskIdsAtom,
+	type ExecutionModeOverride,
+	expandedBatchProjectsAtom,
+	type SelectedSkill,
+} from "@shared/store/atoms";
+import { useAtom, useSetAtom } from "jotai";
 import { useCallback, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 
 export function useBatchTasks() {
+	const { t } = useTranslation("batch-tasks");
 	const [projects, setProjects] = useAtom(batchProjectsAtom);
 	const [expandedProjects, setExpandedProjects] = useAtom(expandedBatchProjectsAtom);
+	const setQueuedTaskIds = useSetAtom(batchQueuedTaskIdsAtom);
+	// Batch project create/delete also mutates desktop-config.json (single
+	// source of sidebar truth), so we must refresh the config-driven project
+	// list whenever a batch CRUD lands.
+	const { refreshProjects: refreshConfigProjects } = useProjects();
 
 	const refreshProjects = useCallback(async () => {
 		const loadedProjects = await window.vetta.batchTasks.getProjects();
@@ -13,18 +27,41 @@ export function useBatchTasks() {
 	}, [setProjects]);
 
 	const createProject = useCallback(
-		async (data: { name: string; prompt: string; modelKey?: string; folders: string[]; concurrency: number }) => {
+		async (data: {
+			name: string;
+			prompt: string;
+			modelKey?: string;
+			executionMode?: ExecutionModeOverride;
+			folders: string[];
+			concurrency: number;
+			artifactPatterns?: string[];
+			notifyEnabled?: boolean;
+			timeoutMinutes?: number;
+			skill?: SelectedSkill;
+		}) => {
 			const project = await window.vetta.batchTasks.createProject(data);
 			setProjects((prev) => [...prev, project]);
+			await refreshConfigProjects();
 			return project;
 		},
-		[setProjects],
+		[setProjects, refreshConfigProjects],
 	);
 
 	const updateProject = useCallback(
 		async (
 			projectId: string,
-			data: { name?: string; prompt?: string; modelKey?: string; concurrency?: number; newFolders?: string[] },
+			data: {
+				name?: string;
+				prompt?: string;
+				modelKey?: string;
+				executionMode?: ExecutionModeOverride;
+				concurrency?: number;
+				artifactPatterns?: string[];
+				notifyEnabled?: boolean;
+				timeoutMinutes?: number;
+				newFolders?: string[];
+				skill?: SelectedSkill | null;
+			},
 		) => {
 			await window.vetta.batchTasks.updateProject(projectId, data);
 			setProjects((prev) =>
@@ -48,7 +85,12 @@ export function useBatchTasks() {
 						...(data.name !== undefined ? { name: data.name } : {}),
 						...(data.prompt !== undefined ? { prompt: data.prompt } : {}),
 						...(data.modelKey !== undefined ? { modelKey: data.modelKey } : {}),
+						...(data.executionMode !== undefined ? { executionMode: data.executionMode } : {}),
 						...(data.concurrency !== undefined ? { concurrency: data.concurrency } : {}),
+						...(data.artifactPatterns !== undefined ? { artifactPatterns: data.artifactPatterns } : {}),
+						...(data.notifyEnabled !== undefined ? { notifyEnabled: data.notifyEnabled } : {}),
+						...(data.timeoutMinutes !== undefined ? { timeoutMinutes: data.timeoutMinutes } : {}),
+						...(data.skill !== undefined ? { skill: data.skill ?? undefined } : {}),
 						tasks: [...p.tasks, ...newTasks],
 						updatedAt: Date.now(),
 					};
@@ -61,13 +103,14 @@ export function useBatchTasks() {
 	const deleteProject = useCallback(
 		async (projectId: string) => {
 			const project = projects.find((p) => p.id === projectId);
-			if (project?.tasks.some((t) => t.status === "running")) {
-				throw new Error("请先暂停所有任务");
+			if (project?.tasks.some((task) => task.status === "running")) {
+				throw new Error(t("error.stopFirst"));
 			}
 			await window.vetta.batchTasks.deleteProject(projectId);
 			setProjects((prev) => prev.filter((p) => p.id !== projectId));
+			await refreshConfigProjects();
 		},
-		[projects, setProjects],
+		[projects, setProjects, refreshConfigProjects, t],
 	);
 
 	const toggleProject = useCallback(
@@ -89,12 +132,20 @@ export function useBatchTasks() {
 		await window.vetta.batchTasks.runTask(projectId, taskId);
 	}, []);
 
-	const pauseTask = useCallback(async (projectId: string, taskId: string) => {
-		await window.vetta.batchTasks.pauseTask(projectId, taskId);
+	const retryTask = useCallback(async (projectId: string, taskId: string) => {
+		await window.vetta.batchTasks.retryTask(projectId, taskId);
+	}, []);
+
+	const stopTask = useCallback(async (projectId: string, taskId: string) => {
+		await window.vetta.batchTasks.stopTask(projectId, taskId);
 	}, []);
 
 	const resumeTask = useCallback(async (projectId: string, taskId: string) => {
 		await window.vetta.batchTasks.resumeTask(projectId, taskId);
+	}, []);
+
+	const resumeTaskWithText = useCallback(async (projectId: string, taskId: string, text: string) => {
+		await window.vetta.batchTasks.resumeTaskWithText(projectId, taskId, text);
 	}, []);
 
 	const deleteTask = useCallback(
@@ -109,18 +160,6 @@ export function useBatchTasks() {
 		[setProjects],
 	);
 
-	const batchRetryFailed = useCallback(async (projectId: string) => {
-		await window.vetta.batchTasks.batchRetryFailed(projectId);
-	}, []);
-
-	const batchPause = useCallback(async (projectId: string) => {
-		await window.vetta.batchTasks.batchPause(projectId);
-	}, []);
-
-	const batchResume = useCallback(async (projectId: string) => {
-		await window.vetta.batchTasks.batchResume(projectId);
-	}, []);
-
 	const batchDelete = useCallback(
 		async (projectId: string) => {
 			await window.vetta.batchTasks.batchDelete(projectId);
@@ -133,24 +172,59 @@ export function useBatchTasks() {
 		await window.vetta.batchTasks.deleteSession(sessionPath);
 	}, []);
 
-	const batchRunNeverExecuted = useCallback(async (projectId: string) => {
-		await window.vetta.batchTasks.batchRunNeverExecuted(projectId);
+	const batchStart = useCallback(async (projectId: string) => {
+		await window.vetta.batchTasks.batchStart(projectId);
 	}, []);
 
-	const batchRestartAll = useCallback(
+	const batchStop = useCallback(async (projectId: string) => {
+		await window.vetta.batchTasks.batchStop(projectId);
+	}, []);
+
+	const batchReset = useCallback(
 		async (projectId: string) => {
-			await window.vetta.batchTasks.batchRestartAll(projectId);
+			await window.vetta.batchTasks.batchReset(projectId);
 			await refreshProjects();
 		},
 		[refreshProjects],
 	);
 
+	const batchResetFailed = useCallback(async (projectId: string, taskIds: string[]) => {
+		await window.vetta.batchTasks.batchResetFailed(projectId, taskIds);
+	}, []);
+
 	useEffect(() => {
 		const unsubscribe = window.vetta.batchTasks.onTaskEvent((event) => {
-			console.log(`[BatchTaskRenderer] Event received: ${event.type}`, {
-				projectId: event.projectId,
-				taskId: event.taskId,
-			});
+			console.log(`[BatchTaskRenderer] Event received: ${event.type}`, event);
+
+			// 维护后端调度器排队中的 taskId 集合
+			if (event.type === "task.queued") {
+				setQueuedTaskIds((prev) => {
+					if (prev.has(event.taskId)) return prev;
+					const next = new Set(prev);
+					next.add(event.taskId);
+					return next;
+				});
+				return;
+			}
+			if (
+				event.type === "task.dequeued" ||
+				event.type === "task.started" ||
+				event.type === "task.completed" ||
+				event.type === "task.failed" ||
+				event.type === "task.reset" ||
+				event.type === "task.paused"
+			) {
+				setQueuedTaskIds((prev) => {
+					if (!prev.has(event.taskId)) return prev;
+					const next = new Set(prev);
+					next.delete(event.taskId);
+					return next;
+				});
+			}
+
+			// task.dequeued 不改 BatchTask 状态本身（status 已是 pending），只清 queued 集合
+			if (event.type === "task.dequeued") return;
+
 			setProjects((prev) =>
 				prev.map((p) => {
 					if (p.id !== event.projectId) return p;
@@ -164,6 +238,7 @@ export function useBatchTasks() {
 									status: "running" as const,
 									sessionId: event.sessionId,
 									sessionPath: event.sessionPath,
+									executionMode: event.executionMode,
 									updatedAt: Date.now(),
 								};
 							}
@@ -173,11 +248,25 @@ export function useBatchTasks() {
 							if (event.type === "task.failed") {
 								return { ...t, status: "failed" as const, error: event.error };
 							}
-							if (event.type === "task.paused") {
-								return { ...t, status: "paused" as const };
+							if (event.type === "task.reset") {
+								return {
+									...t,
+									status: "pending" as const,
+									sessionId: undefined,
+									sessionPath: undefined,
+									error: undefined,
+									updatedAt: Date.now(),
+								};
 							}
-							if (event.type === "task.resumed") {
-								return { ...t, status: "running" as const };
+							if (event.type === "task.paused") {
+								return {
+									...t,
+									status: "paused" as const,
+									sessionId: event.sessionId,
+									sessionPath: event.sessionPath,
+									executionMode: event.executionMode,
+									updatedAt: Date.now(),
+								};
 							}
 							return t;
 						}),
@@ -186,7 +275,7 @@ export function useBatchTasks() {
 			);
 		});
 		return unsubscribe;
-	}, [setProjects]);
+	}, [setProjects, setQueuedTaskIds]);
 
 	return {
 		projects,
@@ -197,15 +286,16 @@ export function useBatchTasks() {
 		deleteProject,
 		toggleProject,
 		runTask,
-		pauseTask,
+		retryTask,
+		stopTask,
 		resumeTask,
+		resumeTaskWithText,
 		deleteTask,
-		batchRetryFailed,
-		batchPause,
-		batchResume,
 		batchDelete,
 		deleteSession,
-		batchRunNeverExecuted,
-		batchRestartAll,
+		batchStart,
+		batchStop,
+		batchReset,
+		batchResetFailed,
 	};
 }

@@ -63,7 +63,8 @@ pi
 | xAI | `XAI_API_KEY` | `xai` |
 | OpenRouter | `OPENROUTER_API_KEY` | `openrouter` |
 | Vercel AI Gateway | `AI_GATEWAY_API_KEY` | `vercel-ai-gateway` |
-| ZAI | `ZAI_API_KEY` | `zai` |
+| Z.ai | `ZAI_API_KEY` | `zai` |
+| Zhipu | `ZHIPU_API_KEY` | `zhipu` |
 | OpenCode Zen | `OPENCODE_API_KEY` | `opencode` |
 | Hugging Face | `HF_TOKEN` | `huggingface` |
 | Kimi For Coding | `KIMI_API_KEY` | `kimi-coding` |

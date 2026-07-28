@@ -5,16 +5,16 @@
  * and after compaction the session is reloaded.
  */
 
-import type { AgentMessage } from "@mariozechner/pi-agent-core";
-import type { AssistantMessage, Model, Usage } from "@mariozechner/pi-ai";
-import { completeSimple } from "@mariozechner/pi-ai";
+import type { AgentMessage } from "@vetta/agent-core";
+import type { AssistantMessage, Model, Usage } from "@vetta/ai";
+import { completeSimple } from "@vetta/ai";
 import {
 	convertToLlm,
 	createBranchSummaryMessage,
 	createCompactionSummaryMessage,
 	createCustomMessage,
 } from "../messages.js";
-import type { CompactionEntry, SessionEntry } from "../session-manager.js";
+import type { CompactionEntry, SessionEntry } from "../session-manager/index.js";
 import {
 	computeFileLists,
 	createFileOps,

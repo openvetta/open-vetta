@@ -1,4 +1,4 @@
-// NEVER convert to top-level imports - breaks browser/Vite builds (web-ui)
+// NEVER convert to top-level imports - breaks browser/Vite builds
 let _existsSync: typeof import("node:fs").existsSync | null = null;
 let _homedir: typeof import("node:os").homedir | null = null;
 let _join: typeof import("node:path").join | null = null;
@@ -108,6 +108,7 @@ export function getEnvApiKey(provider: any): string | undefined {
 		openrouter: "OPENROUTER_API_KEY",
 		"vercel-ai-gateway": "AI_GATEWAY_API_KEY",
 		zai: "ZAI_API_KEY",
+		zhipu: "ZHIPU_API_KEY",
 		mistral: "MISTRAL_API_KEY",
 		minimax: "MINIMAX_API_KEY",
 		"minimax-cn": "MINIMAX_CN_API_KEY",
@@ -115,6 +116,7 @@ export function getEnvApiKey(provider: any): string | undefined {
 		opencode: "OPENCODE_API_KEY",
 		"kimi-coding": "KIMI_API_KEY",
 		qwen: "DASHSCOPE_API_KEY",
+		deepseek: "DEEPSEEK_API_KEY",
 	};
 
 	const envVar = envMap[provider];

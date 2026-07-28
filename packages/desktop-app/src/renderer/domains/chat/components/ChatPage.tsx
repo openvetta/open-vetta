@@ -1,16 +1,12 @@
-import { useAtomValue } from "jotai";
-import { activeSessionAtom } from "@shared/store/atoms";
-import { WelcomeScreen } from "@shared/components/WelcomeScreen";
+import { useChatPageModel } from "../hooks/useChatPageModel";
 import { useSessionManager } from "../hooks/useSessionManager";
-import { ChatView } from "./ChatView";
+import { ChatPageView } from "./chat-page/ChatPageView";
 
-export function ChatPage(): JSX.Element {
-	const activeSession = useAtomValue(activeSessionAtom);
-	const { sendMessage, abortMessage } = useSessionManager();
+export function ChatPage(): JSX.Element | null {
+	const model = useChatPageModel();
+	const { sendMessage, abortMessage, sendQueuedNow } = useSessionManager();
 
-	if (!activeSession) {
-		return <WelcomeScreen />;
-	}
-
-	return <ChatView onSend={sendMessage} onAbort={abortMessage} />;
+	return (
+		<ChatPageView model={model} onSend={sendMessage} onAbort={abortMessage} onSendQueued={sendQueuedNow} />
+	);
 }

@@ -6,18 +6,19 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"time"
 
 	"vetta-im-gateway/internal/command"
 	"vetta-im-gateway/internal/hostclient"
 	hclocal "vetta-im-gateway/internal/hostclient/local"
 	"vetta-im-gateway/internal/hostproto"
-	"vetta-im-gateway/internal/projects"
 	"vetta-im-gateway/internal/router"
 	"vetta-im-gateway/internal/state"
 	"vetta-im-gateway/internal/transport"
 	"vetta-im-gateway/internal/transport/feishu"
 	"vetta-im-gateway/internal/transport/wechat"
+	"vetta-im-gateway/internal/transport/wechat/ilink"
 )
 
 // transportBuilder constructs a transport.Transport from the active
@@ -31,11 +32,11 @@ type transportBuilder func(*buildSpec) (transport.Transport, error)
 // hostOptions configures runHostWithIO. Used so tests can inject mock IO
 // streams and a stub transport builder.
 type hostOptions struct {
-	stdin            io.Reader
-	stdout           io.Writer
-	buildTransport   transportBuilder
-	initTimeout      time.Duration
-	shutdownGrace    time.Duration
+	stdin          io.Reader
+	stdout         io.Writer
+	buildTransport transportBuilder
+	initTimeout    time.Duration
+	shutdownGrace  time.Duration
 }
 
 // runHost is the entry point for the embedded host mode. The sidecar reads
@@ -47,7 +48,7 @@ type hostOptions struct {
 //	parent spawns sidecar
 //	parent → child: init frame (within initTimeout)
 //	child  → parent: ready event
-//	... runtime: parent may send config_update / projects_update / shutdown ...
+//	... runtime: parent may send config_update / shutdown ...
 //	stdin EOF or shutdown frame → graceful close → exit 0
 //
 // Returns the process exit code.
@@ -104,25 +105,81 @@ func runHostWithIO(opts hostOptions) int {
 		fmt.Fprintf(os.Stderr, "im-gateway host: %v\n", err)
 		return 1
 	}
+	if initFrame.ConversationCwd == "" {
+		fmt.Fprintln(os.Stderr, "im-gateway host: init frame missing conversationCwd")
+		return 1
+	}
 
 	// 2. Build runtime components.
-	projectDir := projects.NewInjectedDirectory()
-	projectDir.Replace(projectsFromFrames(initFrame.Projects))
-
 	// State store with patch hook → forward to parent as state_patch events.
 	stateStore := state.NewMemoryStore(func(entry state.SessionEntry) {
 		_ = out.WriteFrame(hostproto.StatePatchEvent{
 			Type:        hostproto.TypeStatePatch,
 			UserID:      entry.UserID,
-			ProjectID:   entry.ProjectID,
+			ChatID:      entry.ChatID,
 			SessionPath: entry.SessionPath,
 			UpdatedAt:   entry.UpdatedAt,
 		})
 	})
 	stateStore.Replace(stateFromFrames(initFrame.State))
 
-	hostClient := hclocal.New(hclocal.Options{})
+	// Mirror desktop-app's resolveSessionDirForCwd convention: the IM
+	// conversation cwd stores its sessions under <cwd>/.vetta/sessions/
+	// instead of the global ~/.vetta/agent/sessions/<encoded-cwd>/. desktop-
+	// app's Claw tab reads from this same directory to render IM sessions
+	// read-only.
+	hclocalOpts := hclocal.Options{
+		SessionDir: filepath.Join(initFrame.ConversationCwd, ".vetta", "sessions"),
+		// Always enable the host-bridge channel in embedded mode: it's how
+		// im-gateway-driven sessions deliver IM attachments via
+		// im_send_attachment / host_request. Other agents (desktop, TUI,
+		// CLI) never set this flag and the tool stays invisible to them.
+		EnableHostBridge: true,
+		// memory-mode (ADR-0009): Claw is a fixed, single project, so memory is
+		// always on for the embedded gateway. MEMORY.md lives at the conversation
+		// root — a stable path independent of the per-day run cwd the router
+		// spawns the agent in. SessionDir above is likewise pinned to the root.
+		MemoryMode: true,
+		MemoryFile: filepath.Join(initFrame.ConversationCwd, "MEMORY.md"),
+	}
+	if initFrame.CodingAgent != nil && initFrame.CodingAgent.Bin != "" {
+		hclocalOpts.Bin = initFrame.CodingAgent.Bin
+		hclocalOpts.BinPrefixArgs = initFrame.CodingAgent.PrefixArgs
+		if initFrame.CodingAgent.RunAsNode {
+			if hclocalOpts.ExtraEnv == nil {
+				hclocalOpts.ExtraEnv = map[string]string{}
+			}
+			hclocalOpts.ExtraEnv["ELECTRON_RUN_AS_NODE"] = "1"
+		}
+		if initFrame.CodingAgent.PackageDir != "" {
+			if hclocalOpts.ExtraEnv == nil {
+				hclocalOpts.ExtraEnv = map[string]string{}
+			}
+			hclocalOpts.ExtraEnv["VETTA_PACKAGE_DIR"] = initFrame.CodingAgent.PackageDir
+		}
+		if initFrame.CodingAgent.ServerURL != "" {
+			if hclocalOpts.ExtraEnv == nil {
+				hclocalOpts.ExtraEnv = map[string]string{}
+			}
+			hclocalOpts.ExtraEnv["VETTA_SERVER_URL"] = initFrame.CodingAgent.ServerURL
+		}
+		emitLog("info", "coding-agent binary configured by parent",
+			map[string]any{
+				"bin":        initFrame.CodingAgent.Bin,
+				"prefixArgs": initFrame.CodingAgent.PrefixArgs,
+				"runAsNode":  initFrame.CodingAgent.RunAsNode,
+				"packageDir": initFrame.CodingAgent.PackageDir,
+				"serverUrl":  initFrame.CodingAgent.ServerURL,
+			})
+	}
+	hostClient := hclocal.New(hclocalOpts)
 	pool := hostclient.NewProcessPool(hostClient, 0)
+	// IM messages arrive sparsely. Keep coding-agent subprocesses warm
+	// between turns of the SAME chat is wasteful, and — worse — the
+	// subprocess holds the session-file lockfile for its entire lifetime,
+	// which would block desktop-app from opening that session in its
+	// sidebar. Close on idle.
+	pool.SetCloseOnIdle(true)
 
 	// 3. Build transport from injected config. errAwaitingBind is a
 	//    legitimate startup state for the wechat slot — we park the
@@ -149,15 +206,22 @@ func runHostWithIO(opts hostOptions) int {
 	if tr == nil {
 		tr = newPlaceholderTransport()
 	}
-	r := router.New(tr, command.NewRouter(), stateStore, projectDir, pool)
+	r := router.New(tr, command.NewRouter(), stateStore, pool, initFrame.ConversationCwd)
+	// Dated work log (ADR-0009): run each agent in <conversationCwd>/<date>/ so
+	// artifacts, inbound media, and JOURNAL.md group by day.
+	r.SetDatedCwd(true)
 
 	// 4. Start transport (or skip if awaiting bind).
 	tCtx, tCancel := context.WithCancel(context.Background())
 	var transportDone chan error
 	startTransport := func(t transport.Transport) {
+		// Emit "connecting" synchronously before spawning the start
+		// goroutine. Emitting from inside the goroutine races with the
+		// caller's subsequent "online" emit and can leave the renderer
+		// stuck on "connecting" if the goroutine is scheduled after.
+		emitStatus(hostproto.TransportStatusConnecting, "")
 		transportDone = make(chan error, 1)
 		go func(t transport.Transport, ctx context.Context, done chan error) {
-			emitStatus(hostproto.TransportStatusConnecting, "")
 			done <- t.Start(ctx, r)
 		}(t, tCtx, transportDone)
 	}
@@ -181,11 +245,11 @@ func runHostWithIO(opts hostOptions) int {
 	}
 	emitLog("info", "im-gateway host ready",
 		map[string]any{
-			"transport":     tr.Name(),
-			"version":       version,
-			"projects":      len(initFrame.Projects),
-			"state":         len(initFrame.State),
-			"awaitingBind":  awaitingBind,
+			"transport":       tr.Name(),
+			"version":         version,
+			"conversationCwd": initFrame.ConversationCwd,
+			"state":           len(initFrame.State),
+			"awaitingBind":    awaitingBind,
 		})
 
 	// 5b. Set up the wechat bind coordinator if wechat is the active
@@ -209,7 +273,6 @@ func runHostWithIO(opts hostOptions) int {
 	hostState := &hostRuntime{
 		out:        out,
 		stateStore: stateStore,
-		projectDir: projectDir,
 		emitLog:    emitLog,
 		emitStatus: emitStatus,
 		wcoord:     wcoord,
@@ -292,8 +355,27 @@ loop:
 			shutdownReason = "stdin error"
 			break loop
 		case err := <-transportDone:
-			trErr = err
 			transportDone = nil
+			// wechat session timeout (-14) is recoverable: the bot token is
+			// dead but the user can rescan. Clear the persisted credentials,
+			// drop back to a placeholder + awaiting_bind, and keep the
+			// sidecar alive so the next wechat_bind_start works.
+			if err != nil && errors.Is(err, ilink.ErrSessionTimeout) && hostState.wcoord != nil {
+				emitLog("warn", "wechat session expired, awaiting re-bind", map[string]any{"err": err.Error()})
+				if clearErr := hostState.wcoord.LogoutAndClear("session timeout"); clearErr != nil {
+					emitLog("error", "wechat clear after session timeout failed", map[string]any{"err": clearErr.Error()})
+				}
+				tCancel()
+				_ = tr.Stop()
+				newCtx, newCancel := context.WithCancel(context.Background())
+				tCtx = newCtx
+				tCancel = newCancel
+				tr = newPlaceholderTransport()
+				r.SetTransport(tr)
+				emitStatus(hostproto.TransportStatusAwaitingBind, "")
+				continue
+			}
+			trErr = err
 			if err != nil && !errors.Is(err, context.Canceled) {
 				emitLog("error", "transport stopped with error", map[string]any{"err": err.Error()})
 				emitStatus(hostproto.TransportStatusError, err.Error())
@@ -336,7 +418,6 @@ loop:
 type hostRuntime struct {
 	out        *hostproto.Writer
 	stateStore *state.MemoryStore
-	projectDir *projects.InjectedDirectory
 	emitLog    func(level, msg string, fields map[string]any)
 	emitStatus func(status, lastErr string)
 
@@ -387,11 +468,6 @@ func (h *hostRuntime) handleFrame(frame any) frameAction {
 			}
 		}
 		return frameAction{rebuild: true}
-
-	case *hostproto.ProjectsUpdateFrame:
-		h.projectDir.Replace(projectsFromFrames(f.Projects))
-		h.emitLog("info", "projects updated", map[string]any{"count": len(f.Projects)})
-		return frameAction{}
 
 	case *hostproto.WechatBindStartFrame:
 		if h.wcoord == nil {
@@ -454,6 +530,7 @@ func buildHostTransport(spec *buildSpec) (transport.Transport, error) {
 	if spec.Wechat != nil && spec.Wechat.Enabled {
 		tr, err := wechat.New(wechat.Options{
 			StatePath: spec.WechatStatePath,
+			InboxDir:  spec.ConversationCwd,
 		})
 		if err != nil {
 			if errors.Is(err, wechat.ErrNotBound) {
@@ -471,6 +548,7 @@ func buildHostTransport(spec *buildSpec) (transport.Transport, error) {
 			AppID:     spec.Feishu.AppID,
 			AppSecret: spec.Feishu.AppSecret,
 			Domain:    spec.Feishu.BaseURL,
+			InboxDir:  spec.ConversationCwd,
 		})
 	}
 	return nil, errors.New("build spec selects no transport")
@@ -504,24 +582,12 @@ func (placeholderTransport) DeleteMessage(_ context.Context, _, _ string) error 
 	return errors.New("placeholder transport: not bound")
 }
 func (placeholderTransport) ShowTyping(_ context.Context, _ string) error { return nil }
+func (placeholderTransport) SendAttachment(_ context.Context, _ string, _ transport.OutboundAttachment) (string, error) {
+	return "", errors.New("placeholder transport: not bound")
+}
 
 // Compile-time interface check.
 var _ transport.Transport = (*placeholderTransport)(nil)
-
-// projectsFromFrames converts hostproto wire entries into the internal
-// projects.Project shape. Path is the only required field; ID is derived
-// downstream if missing.
-func projectsFromFrames(in []hostproto.ProjectEntry) []projects.Project {
-	out := make([]projects.Project, 0, len(in))
-	for _, e := range in {
-		out = append(out, projects.Project{
-			ID:   e.ID,
-			Name: e.Name,
-			Path: e.Path,
-		})
-	}
-	return out
-}
 
 // stateFromFrames converts wire entries into RouterState for MemoryStore.
 func stateFromFrames(in []hostproto.SessionStateEntry) state.RouterState {
@@ -534,13 +600,12 @@ func stateFromFrames(in []hostproto.SessionStateEntry) state.RouterState {
 		if updated.IsZero() {
 			updated = time.Now().UTC()
 		}
-		out.Sessions[state.SessionKey(e.UserID, e.ProjectID)] = state.SessionEntry{
+		out.Sessions[state.SessionKey(e.UserID, e.ChatID)] = state.SessionEntry{
 			UserID:      e.UserID,
-			ProjectID:   e.ProjectID,
+			ChatID:      e.ChatID,
 			SessionPath: e.SessionPath,
 			UpdatedAt:   updated,
 		}
 	}
 	return out
 }
-

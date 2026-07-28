@@ -1,7 +1,9 @@
+import { mkdirSync, watch } from "node:fs";
 import { ipcMain, type WebContents } from "electron";
 import type { LogEvent } from "../im-host/host-protocol.js";
 import { getImHost, type SetConfigPayload, type WechatBindEvent } from "../im-host/index.js";
 import type { LegacyDetection } from "../im-host/migration.js";
+import { DEFAULT_IM_CONVERSATION_SESSION_DIR } from "./fs.js";
 
 const CHANNELS = {
 	GET_CONFIG: "vetta:im:get-config",
@@ -15,6 +17,7 @@ const CHANNELS = {
 	RESTART: "vetta:im:restart",
 	GET_RECENT_LOGS: "vetta:im:get-recent-logs",
 	GET_PATHS: "vetta:im:get-paths",
+	PROBE_AGENT_MODEL: "vetta:im:probe-agent-model",
 	DETECT_LEGACY: "vetta:im:detect-legacy",
 	IMPORT_LEGACY: "vetta:im:import-legacy",
 	WECHAT_START_BIND: "vetta:im:wechat:start-bind",
@@ -22,6 +25,10 @@ const CHANNELS = {
 	WECHAT_SUBSCRIBE: "vetta:im:wechat:subscribe",
 	WECHAT_UNSUBSCRIBE: "vetta:im:wechat:unsubscribe",
 	WECHAT_BIND_EVENT: "vetta:im:wechat:bind-event",
+	// Fire-and-forget broadcast: "something in the IM routing table
+	// changed, you may want to refresh." No payload, no subscription
+	// handshake — every webContents that wants it just listens.
+	SESSION_CHANGED: "vetta:im:session-changed",
 } as const;
 
 interface SubscriptionEntry {
@@ -36,6 +43,46 @@ let wechatCounter = 0;
 
 export function registerImIpc(webContents: WebContents): () => void {
 	const host = getImHost();
+
+	// Broadcast a "session list changed" ping after every sidecar
+	// state_patch so the renderer's sidebar can refresh without a manual
+	// reload. Lives outside the SUBSCRIBE_STATUS handshake on purpose:
+	// the renderer hooks this in App boot and never unsubscribes.
+	const sessionChangeUnsub = host.subscribeStateChange(() => {
+		if (webContents.isDestroyed()) return;
+		webContents.send(CHANNELS.SESSION_CHANGED);
+	});
+
+	// Belt-and-suspenders: also watch the IM sessions dir directly (ADR-0005
+	// 分家后 IM session 写到独立 cwd，桌面「对话」cwd 已不再有 IM 文件)。
+	// The sidecar's state_patch fires when im-gateway *learns* of a new
+	// session path, but for already-known (userID, chatID) pairs the patch
+	// is skipped, so a fresh .jsonl appearing on disk (e.g. after a stale
+	// state entry triggered a header eager-write at the same path) never
+	// reaches the renderer. The fs watcher closes that gap: any change
+	// under the sessions dir broadcasts the same refresh ping.
+	try {
+		mkdirSync(DEFAULT_IM_CONVERSATION_SESSION_DIR, { recursive: true });
+	} catch {
+		// best-effort; watcher attempt below will simply error and we skip
+	}
+	let fsDebounce: NodeJS.Timeout | undefined;
+	let fsWatcher: ReturnType<typeof watch> | undefined;
+	try {
+		fsWatcher = watch(DEFAULT_IM_CONVERSATION_SESSION_DIR, (_event, filename) => {
+			if (filename && !filename.endsWith(".jsonl")) return;
+			if (webContents.isDestroyed()) return;
+			if (fsDebounce) clearTimeout(fsDebounce);
+			fsDebounce = setTimeout(() => {
+				if (webContents.isDestroyed()) return;
+				webContents.send(CHANNELS.SESSION_CHANGED);
+			}, 80);
+		});
+	} catch {
+		// Watcher init can fail on some platforms (e.g. transient missing
+		// dir). State_patch path still works; the loss is just the
+		// real-time refresh fallback.
+	}
 
 	ipcMain.handle(CHANNELS.GET_CONFIG, () => {
 		return host.getPublicConfig();
@@ -107,6 +154,10 @@ export function registerImIpc(webContents: WebContents): () => void {
 		return host.getPaths();
 	});
 
+	ipcMain.handle(CHANNELS.PROBE_AGENT_MODEL, async (_event, ref: { provider: string; model: string }) => {
+		return host.probeAgentModel(ref);
+	});
+
 	ipcMain.handle(CHANNELS.DETECT_LEGACY, () => {
 		return host.detectLegacy();
 	});
@@ -158,6 +209,13 @@ export function registerImIpc(webContents: WebContents): () => void {
 	});
 
 	return () => {
+		sessionChangeUnsub();
+		if (fsDebounce) clearTimeout(fsDebounce);
+		try {
+			fsWatcher?.close();
+		} catch {
+			// ignore
+		}
 		ipcMain.removeHandler(CHANNELS.GET_CONFIG);
 		ipcMain.removeHandler(CHANNELS.SET_CONFIG);
 		ipcMain.removeHandler(CHANNELS.GET_STATUS);
@@ -167,6 +225,7 @@ export function registerImIpc(webContents: WebContents): () => void {
 		ipcMain.removeHandler(CHANNELS.RESTART);
 		ipcMain.removeHandler(CHANNELS.GET_RECENT_LOGS);
 		ipcMain.removeHandler(CHANNELS.GET_PATHS);
+		ipcMain.removeHandler(CHANNELS.PROBE_AGENT_MODEL);
 		ipcMain.removeHandler(CHANNELS.DETECT_LEGACY);
 		ipcMain.removeHandler(CHANNELS.IMPORT_LEGACY);
 		ipcMain.removeHandler(CHANNELS.WECHAT_START_BIND);

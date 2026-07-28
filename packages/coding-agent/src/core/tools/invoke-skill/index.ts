@@ -1,11 +1,13 @@
-import type { AgentTool } from "@mariozechner/pi-agent-core";
 import { type Static, Type } from "@sinclair/typebox";
 import { readFileSync } from "fs";
 import { stripFrontmatter } from "../../../utils/frontmatter.js";
+import type { CodingAgentTool } from "../../session/tool-scope.js";
 import type { Skill } from "../../skills.js";
 import { loadToolDescription } from "../description.js";
+import { toolCallDescriptionSchema } from "../tool-call-description.js";
 
 const invokeSkillSchema = Type.Object({
+	description: toolCallDescriptionSchema,
 	name: Type.String({
 		description: 'The exact skill name from <available_skills> (e.g., "pdf", "docx", "xlsx")',
 	}),
@@ -28,14 +30,16 @@ export interface InvokeSkillToolOptions {
 	getSkills: () => Skill[];
 }
 
-export function createInvokeSkillTool(options: InvokeSkillToolOptions): AgentTool<typeof invokeSkillSchema> {
+export function createInvokeSkillTool(options: InvokeSkillToolOptions): CodingAgentTool<typeof invokeSkillSchema> {
 	const fallbackDescription =
 		"Invoke a skill by name. Use this tool when the user's request matches a skill in <available_skills>.";
-	const description = loadToolDescription(import.meta.url, fallbackDescription);
+	const description = loadToolDescription("invoke-skill", fallbackDescription);
 
 	return {
 		name: "invoke_skill",
 		label: "invoke_skill",
+		scope_use: ["im-claw", "conversation", "project", "batch", "automation", "kb-processing", "cli"],
+		category: "agent-control",
 		description,
 		parameters: invokeSkillSchema,
 		execute: async (_toolCallId: string, { name, args }: { name: string; args?: string }) => {
@@ -46,6 +50,7 @@ export function createInvokeSkillTool(options: InvokeSkillToolOptions): AgentToo
 				const availableNames = skills
 					.filter((s) => !s.disableModelInvocation && s.type !== "scene")
 					.map((s) => s.name);
+				console.info("[skills] invoke miss", { name, available: availableNames.length });
 				return {
 					content: [
 						{
@@ -81,12 +86,19 @@ export function createInvokeSkillTool(options: InvokeSkillToolOptions): AgentToo
 					lines.push("", `User arguments: ${args}`);
 				}
 
+				console.info("[skills] invoke", {
+					name: skill.name,
+					source: skill.source,
+					path: skill.filePath,
+					hasArgs: Boolean(args),
+				});
 				return {
 					content: [{ type: "text" as const, text: lines.join("\n") }],
 					details: { skillName: skill.name, skillLocation: skill.filePath },
 				};
 			} catch (err) {
 				const message = err instanceof Error ? err.message : String(err);
+				console.info("[skills] invoke error", { name, path: skill.filePath, error: message });
 				return {
 					content: [
 						{

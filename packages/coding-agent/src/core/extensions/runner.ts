@@ -2,14 +2,13 @@
  * Extension runner - executes extensions and manages their lifecycle.
  */
 
-import type { AgentMessage } from "@mariozechner/pi-agent-core";
-import type { ImageContent, Model } from "@mariozechner/pi-ai";
-import type { KeyId } from "@mariozechner/pi-tui";
+import type { AgentMessage } from "@vetta/agent-core";
+import type { ImageContent, Model } from "@vetta/ai";
 import { type Theme, theme } from "../../modes/interactive/theme/theme.js";
 import type { ResourceDiagnostic } from "../diagnostics.js";
-import type { KeyAction, KeybindingsConfig } from "../keybindings.js";
+import type { KeyAction, KeybindingsConfig, KeyId } from "../keybindings.js";
 import type { ModelRegistry } from "../model-registry.js";
-import type { SessionManager } from "../session-manager.js";
+import type { SessionManager } from "../session-manager/index.js";
 import type {
 	BeforeAgentStartEvent,
 	BeforeAgentStartEventResult,
@@ -17,6 +16,8 @@ import type {
 	ContextEvent,
 	ContextEventResult,
 	ContextUsage,
+	EcosystemPermissionHookRequest,
+	EcosystemPermissionHookResult,
 	Extension,
 	ExtensionActions,
 	ExtensionCommandContext,
@@ -217,6 +218,9 @@ export class ExtensionRunner {
 	private shutdownHandler: ShutdownHandler = () => {};
 	private shortcutDiagnostics: ResourceDiagnostic[] = [];
 	private commandDiagnostics: ResourceDiagnostic[] = [];
+	private ecosystemPermissionHandler?: (
+		request: EcosystemPermissionHookRequest,
+	) => Promise<EcosystemPermissionHookResult | undefined>;
 
 	constructor(
 		extensions: Extension[],
@@ -231,6 +235,16 @@ export class ExtensionRunner {
 		this.cwd = cwd;
 		this.sessionManager = sessionManager;
 		this.modelRegistry = modelRegistry;
+	}
+
+	/**
+	 * Wire ecosystem PermissionRequest hooks into {@link ExtensionContext.requestEcosystemPermission}.
+	 * Called by RuntimeManager when sandbox (or other) permission UIs share this runner.
+	 */
+	setEcosystemPermissionHandler(
+		handler?: (request: EcosystemPermissionHookRequest) => Promise<EcosystemPermissionHookResult | undefined>,
+	): void {
+		this.ecosystemPermissionHandler = handler;
 	}
 
 	bindCore(actions: ExtensionActions, contextActions: ExtensionContextActions): void {
@@ -496,6 +510,7 @@ export class ExtensionRunner {
 	 */
 	createContext(): ExtensionContext {
 		const getModel = this.getModel;
+		const permissionHandler = this.ecosystemPermissionHandler;
 		return {
 			ui: this.uiContext,
 			hasUI: this.hasUI(),
@@ -512,6 +527,7 @@ export class ExtensionRunner {
 			getContextUsage: () => this.getContextUsageFn(),
 			compact: (options) => this.compactFn(options),
 			getSystemPrompt: () => this.getSystemPromptFn(),
+			requestEcosystemPermission: permissionHandler ? (request) => permissionHandler(request) : undefined,
 		};
 	}
 

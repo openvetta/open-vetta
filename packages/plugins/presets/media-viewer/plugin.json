@@ -1,0 +1,18 @@
+{
+	"id": "media-viewer",
+	"name": "%plugin.name%",
+	"icon": "solar:clapperboard-play-bold",
+	"version": "0.1.3",
+	"defaultLocale": "zh",
+	"pluginApiVersion": "^1.0.0",
+	"runtime": "module-federation",
+	"entry": "dist/mf-manifest.json",
+	"moduleFederation": {
+		"remoteName": "media_viewer",
+		"expose": "./plugin"
+	},
+	"styles": ["dist/style.css"],
+	"permissions": ["ui.slot.file-preview"],
+	"description": "%plugin.description%",
+	"author": "Vetta"
+}

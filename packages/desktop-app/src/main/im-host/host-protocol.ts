@@ -15,7 +15,6 @@
 
 export const FRAME_INIT = "init" as const;
 export const FRAME_CONFIG_UPDATE = "config_update" as const;
-export const FRAME_PROJECTS_UPDATE = "projects_update" as const;
 export const FRAME_SHUTDOWN = "shutdown" as const;
 export const FRAME_WECHAT_BIND_START = "wechat_bind_start" as const;
 export const FRAME_WECHAT_LOGOUT = "wechat_logout" as const;
@@ -60,15 +59,9 @@ export interface WechatConfig {
 	statePath?: string;
 }
 
-export interface ProjectEntry {
-	id?: string;
-	name?: string;
-	path: string;
-}
-
 export interface SessionStateEntry {
 	userId: string;
-	projectId: string;
+	chatId: string;
 	sessionPath?: string;
 	updatedAt?: string;
 }
@@ -82,25 +75,66 @@ export interface SessionStateEntry {
  * exactly one of `feishu` / `wechat` should be set per init / config_update
  * frame. The sidecar's buildHostTransport prefers wechat when both are set
  * but the parent should never rely on that.
+ *
+ * `conversationCwd` is the absolute cwd shared by all IM sessions
+ * (`DEFAULT_IM_CONVERSATION_CWD`, `~/.vetta/im-gateway/conversation`). It
+ * is physically separate from desktop-app's "对话" cwd (ADR-0005) so the
+ * two sides don't share sessions or generated artifacts.
  */
+/**
+ * Overrides how the sidecar invokes the coding-agent subprocess. When
+ * omitted, the sidecar falls back to `vetta` on PATH — only valid in dev
+ * where workspace linking puts it there. Production must populate this so
+ * the sidecar can spawn the packaged Vetta.app executable (which detects
+ * `--agent-rpc` in argv and short-circuits into coding-agent's main).
+ *
+ * Final argv: [bin, ...prefixArgs, "--mode", "rpc", "--cwd", <cwd>, ...].
+ */
+export interface CodingAgentSpec {
+	bin: string;
+	prefixArgs?: string[];
+	/**
+	 * When true, the sidecar sets `ELECTRON_RUN_AS_NODE=1` before spawning
+	 * `bin`. Windows packaged builds need this because the GUI Electron
+	 * executable closes stdio too early for the RPC protocol.
+	 */
+	runAsNode?: boolean;
+	/**
+	 * Forwarded to the spawned coding-agent subprocess as
+	 * `VETTA_PACKAGE_DIR`. The agent's `getPackageDir()` falls back to
+	 * walking up `__dirname` to find `package.json`, which lands on the
+	 * host bundle's tree once coding-agent is Vite-bundled into Electron's
+	 * main process. Setting this explicitly points at the staged
+	 * `coding-agent/` directory (resources in prod, workspace in dev) so
+	 * `getThemesDir()` / `getExportTemplateDir()` resolve correctly.
+	 */
+	packageDir?: string;
+	/**
+	 * Forwarded as `VETTA_SERVER_URL`. coding-agent's main.ts reads this env
+	 * ahead of `~/.vetta/agent/settings.json`, so an IM-session subprocess
+	 * uses the host's compile-time gateway URL instead of any stale
+	 * `serverUrl` left in the settings file (e.g. from a previous dev/LAN
+	 * login). Without it, prod desktop-app + stale settings produced
+	 * "Unknown provider" exits on the first IM message because remote model
+	 * loading 401'd against the wrong gateway.
+	 */
+	serverUrl?: string;
+}
+
 export interface InitFrame {
 	type: typeof FRAME_INIT;
 	feishu?: FeishuConfig;
 	wechat?: WechatConfig;
-	projects: ProjectEntry[];
+	conversationCwd: string;
 	state: SessionStateEntry[];
 	logLevel?: "debug" | "info" | "warn" | "error";
+	codingAgent?: CodingAgentSpec;
 }
 
 export interface ConfigUpdateFrame {
 	type: typeof FRAME_CONFIG_UPDATE;
 	feishu?: FeishuConfig;
 	wechat?: WechatConfig;
-}
-
-export interface ProjectsUpdateFrame {
-	type: typeof FRAME_PROJECTS_UPDATE;
-	projects: ProjectEntry[];
 }
 
 export interface ShutdownFrame {
@@ -125,13 +159,7 @@ export interface WechatLogoutFrame {
 	type: typeof FRAME_WECHAT_LOGOUT;
 }
 
-export type InboundFrame =
-	| InitFrame
-	| ConfigUpdateFrame
-	| ProjectsUpdateFrame
-	| ShutdownFrame
-	| WechatBindStartFrame
-	| WechatLogoutFrame;
+export type InboundFrame = InitFrame | ConfigUpdateFrame | ShutdownFrame | WechatBindStartFrame | WechatLogoutFrame;
 
 // =============================================================================
 // Outbound events (child → parent)
@@ -165,7 +193,7 @@ export interface StatusEvent {
 export interface StatePatchEvent {
 	type: typeof EVENT_STATE_PATCH;
 	userId: string;
-	projectId: string;
+	chatId: string;
 	sessionPath: string;
 	updatedAt: string;
 }

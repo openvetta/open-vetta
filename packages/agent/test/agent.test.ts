@@ -1,4 +1,4 @@
-import { type AssistantMessage, type AssistantMessageEvent, EventStream, getModel } from "@mariozechner/pi-ai";
+import { type AssistantMessage, type AssistantMessageEvent, EventStream, getModel, type Model } from "@vetta/ai";
 import { describe, expect, it } from "vitest";
 import { Agent } from "../src/index.js";
 
@@ -33,6 +33,21 @@ function createAssistantMessage(text: string): AssistantMessage {
 		},
 		stopReason: "stop",
 		timestamp: Date.now(),
+	};
+}
+
+function createMockModel(): Model<"openai-responses"> {
+	return {
+		id: "mock",
+		name: "Mock",
+		api: "openai-responses",
+		provider: "openai",
+		baseUrl: "https://example.invalid",
+		reasoning: false,
+		input: ["text"],
+		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+		contextWindow: 128_000,
+		maxTokens: 4096,
 	};
 }
 
@@ -266,6 +281,50 @@ describe("Agent", () => {
 
 		expect(hasQueuedFollowUp).toBe(true);
 		expect(agent.state.messages[agent.state.messages.length - 1].role).toBe("assistant");
+	});
+
+	it("should continue from an async continuation provider at a natural stopping point", async () => {
+		let responseCount = 0;
+		let providerCount = 0;
+		const agent = new Agent({
+			initialState: { model: createMockModel() },
+			streamFn: () => {
+				const stream = new MockAssistantStream();
+				responseCount++;
+				queueMicrotask(() => {
+					stream.push({
+						type: "done",
+						reason: "stop",
+						message: createAssistantMessage(`Response ${responseCount}`),
+					});
+				});
+				return stream;
+			},
+		});
+		agent.continuationProvider = async () => {
+			providerCount++;
+			if (providerCount > 1) return [];
+			return [
+				{
+					role: "user",
+					content: [{ type: "text", text: "Continue automatically" }],
+					timestamp: Date.now(),
+				},
+			];
+		};
+
+		await agent.prompt("Start");
+
+		expect(responseCount).toBe(2);
+		expect(providerCount).toBe(2);
+		expect(
+			agent.state.messages.some(
+				(message) =>
+					message.role === "user" &&
+					Array.isArray(message.content) &&
+					message.content.some((part) => part.type === "text" && part.text === "Continue automatically"),
+			),
+		).toBe(true);
 	});
 
 	it("continue() should keep one-at-a-time steering semantics from assistant tail", async () => {

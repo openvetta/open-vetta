@@ -2,8 +2,8 @@
  * Model resolution, scoping, and initial selection
  */
 
-import type { ThinkingLevel } from "@mariozechner/pi-agent-core";
-import { type Api, type KnownProvider, type Model, modelsAreEqual } from "@mariozechner/pi-ai";
+import type { ThinkingLevel } from "@vetta/agent-core";
+import { type Api, type KnownProvider, type Model, modelsAreEqual } from "@vetta/ai";
 import chalk from "chalk";
 import { minimatch } from "minimatch";
 import { isValidThinkingLevel } from "../cli/args.js";
@@ -28,6 +28,7 @@ export const defaultModelPerProvider: Record<KnownProvider, string> = {
 	groq: "openai/gpt-oss-120b",
 	cerebras: "zai-glm-4.6",
 	zai: "glm-4.6",
+	zhipu: "glm-4.6",
 	mistral: "devstral-medium-latest",
 	minimax: "MiniMax-M2.1",
 	"minimax-cn": "MiniMax-M2.1",
@@ -35,6 +36,7 @@ export const defaultModelPerProvider: Record<KnownProvider, string> = {
 	opencode: "claude-opus-4-6",
 	"kimi-coding": "kimi-k2-thinking",
 	qwen: "qwen3-coder",
+	deepseek: "deepseek-v4-flash",
 };
 
 export interface ScopedModel {

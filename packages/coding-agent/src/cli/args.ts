@@ -2,9 +2,10 @@
  * CLI argument parsing and help display
  */
 
-import type { ThinkingLevel } from "@mariozechner/pi-agent-core";
+import type { ThinkingLevel } from "@vetta/agent-core";
 import chalk from "chalk";
 import { APP_NAME, CONFIG_DIR_NAME, ENV_AGENT_DIR, ENV_PACKAGE_DIR, ENV_SHARE_VIEWER_URL } from "../config.js";
+import type { ConversationScenario } from "../core/session/tool-scope.js";
 import { allTools, type ToolName } from "../core/tools/index.js";
 
 export type Mode = "text" | "json" | "rpc";
@@ -40,6 +41,27 @@ export interface Args {
 	listModels?: string | true;
 	offline?: boolean;
 	verbose?: boolean;
+	/**
+	 * Enable the host-bridge channel in rpc mode. Registers the `im_send_attachment`
+	 * tool and lets it issue `host_request` events that the host (im-gateway)
+	 * answers via `host_response` commands. Only meaningful with `--mode rpc`.
+	 * See docs/rpc.md.
+	 */
+	enableHostBridge?: boolean;
+	/**
+	 * Enable memory-mode (ADR-0009): MEMORY.md cross-session memory injected as a
+	 * frozen system-prompt snapshot, the `memory` tool, session rollover replacing
+	 * the LLM compaction layer, and the dated work log. Only meaningful with
+	 * `--mode rpc`; im-gateway sets it for the Claw conversation cwd.
+	 */
+	memoryMode?: boolean;
+	/** Absolute path to MEMORY.md (run-cwd-independent). Defaults to <cwd>/MEMORY.md. */
+	memoryFile?: string;
+	/**
+	 * 对话场景 slug（决定按 scope_use 激活哪些工具）。im-gateway 子进程传 "im-claw"；
+	 * 不传则 SDK 用 DEFAULT_SCENARIO("cli")。
+	 */
+	scenario?: ConversationScenario;
 	messages: string[];
 	fileArgs: string[];
 	/** Unknown flags (potentially extension flags) - map of flag name to value */
@@ -49,7 +71,7 @@ export interface Args {
 const VALID_THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"] as const;
 
 export function isValidThinkingLevel(level: string): level is ThinkingLevel {
-	return VALID_THINKING_LEVELS.includes(level as ThinkingLevel);
+	return (VALID_THINKING_LEVELS as readonly string[]).includes(level);
 }
 
 export function parseArgs(args: string[], extensionFlags?: Map<string, { type: "boolean" | "string" }>): Args {
@@ -152,6 +174,14 @@ export function parseArgs(args: string[], extensionFlags?: Map<string, { type: "
 			}
 		} else if (arg === "--verbose") {
 			result.verbose = true;
+		} else if (arg === "--enable-host-bridge") {
+			result.enableHostBridge = true;
+		} else if (arg === "--memory-mode") {
+			result.memoryMode = true;
+		} else if (arg === "--memory-file" && i + 1 < args.length) {
+			result.memoryFile = args[++i];
+		} else if (arg === "--scenario" && i + 1 < args.length) {
+			result.scenario = args[++i] as ConversationScenario;
 		} else if (arg === "--offline") {
 			result.offline = true;
 		} else if (arg.startsWith("@")) {
@@ -177,7 +207,9 @@ export function parseArgs(args: string[], extensionFlags?: Map<string, { type: "
 }
 
 export function printHelp(): void {
-	console.log(`${chalk.bold(APP_NAME)} - AI coding assistant with read, bash, edit, write, dir_tree tools
+	const defaultCommandTool = process.platform === "win32" ? "shell" : "bash";
+	const defaultToolsList = `read,${defaultCommandTool},edit,write,grep,glob,dir_tree,doc_to_pdf,html_to_pdf,extract_text_from_pdf,extract_text_from_img,render_pdf_page,current_time`;
+	console.log(`${chalk.bold(APP_NAME)} - AI coding assistant with ${defaultToolsList} tools
 
 ${chalk.bold("Usage:")}
   ${APP_NAME} [options] [@files...] [messages...]
@@ -206,8 +238,8 @@ ${chalk.bold("Options:")}
   --models <patterns>            Comma-separated model patterns for Ctrl+P cycling
                                  Supports globs (anthropic/*, *sonnet*) and fuzzy matching
   --no-tools                     Disable all built-in tools
-  --tools <tools>                Comma-separated list of tools to enable (default: read,bash,edit,write,dir_tree)
-                                 Available: read, bash, edit, write, grep, find, ls, dir_tree
+  --tools <tools>                Comma-separated list of tools to enable (default: ${defaultToolsList})
+                                 Available: ${Object.keys(allTools).join(", ")}
   --thinking <level>             Set thinking level: off, minimal, low, medium, high, xhigh
   --extension, -e <path>         Load an extension file (can be used multiple times)
   --no-extensions, -ne           Disable extension discovery (explicit -e paths still work)
@@ -220,6 +252,9 @@ ${chalk.bold("Options:")}
   --export <file>                Export session file to HTML and exit
   --list-models [search]         List available models (with optional fuzzy search)
   --verbose                      Force verbose startup (overrides quietStartup setting)
+  --enable-host-bridge           (--mode rpc only) Register im_send_attachment and host_request RPC channel
+  --memory-mode                  (--mode rpc only) Enable MEMORY.md cross-session memory, memory tool, session rollover, dated work log (ADR-0009)
+  --memory-file <path>           Absolute path to MEMORY.md (default: <cwd>/MEMORY.md). Implies --memory-mode is honored only when set
   --offline                      Disable startup network operations (same as PI_OFFLINE=1)
   --help, -h                     Show this help
   --version, -v                  Show version number
@@ -267,7 +302,7 @@ ${chalk.bold("Examples:")}
   ${APP_NAME} --thinking high "Solve this complex problem"
 
   # Read-only mode (no file modifications possible)
-  ${APP_NAME} --tools read,grep,find,ls,dir_tree -p "Review the code in src/"
+  ${APP_NAME} --tools read,grep,glob,find,ls,dir_tree -p "Review the code in src/"
 
   # Export a session file to HTML
   ${APP_NAME} --export ~/${CONFIG_DIR_NAME}/agent/sessions/--path--/session.jsonl
@@ -288,7 +323,8 @@ ${chalk.bold("Environment Variables:")}
   XAI_API_KEY                      - xAI Grok API key
   OPENROUTER_API_KEY               - OpenRouter API key
   AI_GATEWAY_API_KEY               - Vercel AI Gateway API key
-  ZAI_API_KEY                      - ZAI API key
+  ZAI_API_KEY                      - Z.ai API key
+  ZHIPU_API_KEY                    - Zhipu API key
   MISTRAL_API_KEY                  - Mistral API key
   MINIMAX_API_KEY                  - MiniMax API key
   KIMI_API_KEY                     - Kimi For Coding API key
@@ -303,14 +339,24 @@ ${chalk.bold("Environment Variables:")}
   ${ENV_SHARE_VIEWER_URL.padEnd(32)} - Base URL for /share command (default: https://pi.dev/session/)
   PI_AI_ANTIGRAVITY_VERSION        - Override Antigravity User-Agent version (e.g., 1.23.0)
 
-${chalk.bold("Available Tools (default: read, bash, edit, write, dir_tree):")}
+${chalk.bold(`Available Tools (default: ${defaultToolsList}):`)}
   read   - Read file contents
   bash   - Execute bash commands
+  shell  - Execute shell commands (PowerShell on Windows by default)
   edit   - Edit files with find/replace
   write  - Write files (creates/overwrites)
-  grep   - Search file contents (read-only, off by default)
+  grep   - Search file contents
+  glob   - Find files by glob pattern
   find   - Find files by glob pattern (read-only, off by default)
   ls     - List directory contents (read-only, off by default)
   dir_tree - Show directory tree with [D]/[F] node types (read-only)
+  doc_to_pdf - Convert .doc/.docx files to PDF
+  html_to_pdf - Convert HTML files to PDF
+  extract_text_from_pdf - OCR a PDF (PP-OCRv5, scanned or born-digital) via Vetta Desktop
+  extract_text_from_img - OCR a single image (PNG/JPG/WebP/BMP/GIF) via Vetta Desktop
+  render_pdf_page - Render a PDF page to PNG for visual inspection (seals, signatures, layout); follow up with read
+  current_time - Get the current date and time
+  progress - Announce the current stage in plain language (Work mode only, display-only)
+  tool_search - Search and activate deferred MCP tools by keyword (auto-enabled when MCP tools exceed the disclosure threshold)
 `);
 }

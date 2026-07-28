@@ -9,17 +9,9 @@
 // ============================================================================
 
 /**
- * Configuration for a single MCP server
+ * Common fields shared by all MCP server transports
  */
-export interface McpServerConfig {
-	/** Command to execute (e.g., "npx", "node", "/path/to/binary") */
-	command: string;
-	/** Command arguments */
-	args?: string[];
-	/** Environment variables for the server process */
-	env?: Record<string, string>;
-	/** Working directory for the server process (supports ${PROJECT_ROOT} variable) */
-	cwd?: string;
+export interface McpServerCommonConfig {
 	/** Whether this server is disabled */
 	disabled?: boolean;
 	/** List of tool names that should be auto-approved without user confirmation */
@@ -28,6 +20,71 @@ export interface McpServerConfig {
 	startupTimeout?: number;
 	/** Whether to enable debug logging for this server */
 	debug?: boolean;
+	/** Optional human-readable label for UIs that list servers. The agent itself
+	 * keys servers by their object key; this field is purely cosmetic. */
+	displayName?: string;
+	/** Optional UI-only description (purely cosmetic, ignored by the agent). */
+	description?: string;
+}
+
+/**
+ * Configuration for an MCP server launched as a local child process (stdio transport)
+ */
+export interface McpStdioServerConfig extends McpServerCommonConfig {
+	/** Transport type. Omitting this field defaults to stdio for backwards compat. */
+	type?: "stdio";
+	/** Command to execute (e.g., "npx", "node", "/path/to/binary") */
+	command: string;
+	/** Command arguments */
+	args?: string[];
+	/** Environment variables for the server process */
+	env?: Record<string, string>;
+	/** Working directory for the server process (supports ${PROJECT_ROOT} variable) */
+	cwd?: string;
+}
+
+/**
+ * Configuration for an MCP server accessed over Streamable HTTP transport
+ */
+export interface McpHttpServerConfig extends McpServerCommonConfig {
+	type: "http";
+	/** Server endpoint URL (supports ${VAR} substitution) */
+	url: string;
+	/** Optional HTTP headers sent with every request (supports ${VAR} substitution) */
+	headers?: Record<string, string>;
+	/**
+	 * Pre-registered OAuth client_id for servers that do NOT support Dynamic Client
+	 * Registration (e.g. GitHub). Public client + PKCE, no client_secret. When set,
+	 * the OAuth flow seeds this client_id and skips DCR.
+	 */
+	oauthClientId?: string;
+	/**
+	 * Use the OAuth 2.0 Device Authorization Grant instead of the authorization-code
+	 * flow. Needed for providers that require a client_secret for the code flow but
+	 * allow the device flow with only a client_id (e.g. GitHub).
+	 */
+	oauthDeviceFlow?: boolean;
+	/** Space-separated OAuth scopes to request during the device flow. */
+	oauthScopes?: string;
+}
+
+/**
+ * Configuration for a single MCP server
+ */
+export type McpServerConfig = McpStdioServerConfig | McpHttpServerConfig;
+
+/**
+ * Returns true if the config uses the HTTP transport
+ */
+export function isHttpServerConfig(config: McpServerConfig): config is McpHttpServerConfig {
+	return config.type === "http";
+}
+
+/**
+ * Returns true if the config uses the stdio transport
+ */
+export function isStdioServerConfig(config: McpServerConfig): config is McpStdioServerConfig {
+	return config.type === undefined || config.type === "stdio";
 }
 
 /**
@@ -346,7 +403,7 @@ export interface IMcpClient {
 /**
  * MCP Server Status
  */
-export type McpServerStatus = "starting" | "ready" | "error" | "stopped";
+export type McpServerStatus = "starting" | "ready" | "error" | "stopped" | "needs_auth";
 
 /**
  * MCP Server Instance State
@@ -366,7 +423,7 @@ export interface McpServerInstance {
 	tools: McpTool[];
 	/** Available resources */
 	resources: McpResource[];
-	/** Error message if status is "error" */
+	/** Error message if status is "error" or "needs_auth" */
 	error?: string;
 	/** Process ID (if applicable) */
 	pid?: number;

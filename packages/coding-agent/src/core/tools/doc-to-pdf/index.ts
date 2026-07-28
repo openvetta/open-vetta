@@ -1,15 +1,17 @@
-import type { AgentTool } from "@mariozechner/pi-agent-core";
 import { type Static, Type } from "@sinclair/typebox";
 import { exec as execCb } from "child_process";
 import { constants, access as fsAccess } from "fs";
 import nodePath from "path";
 import { promisify } from "util";
+import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 import { resolveExistingPath, resolveToCwd } from "../path-utils.js";
+import { toolCallDescriptionSchema } from "../tool-call-description.js";
 
 const execAsync = promisify(execCb);
 
 const docToPdfSchema = Type.Object({
+	description: toolCallDescriptionSchema,
 	path: Type.String({
 		description: "Path to the .doc or .docx file to convert (relative/absolute)",
 	}),
@@ -226,22 +228,21 @@ export interface DocToPdfToolOptions {
 
 // ── Tool factory ──
 
-export function createDocToPdfTool(cwd: string, options?: DocToPdfToolOptions): AgentTool<typeof docToPdfSchema> {
+export function createDocToPdfTool(cwd: string, options?: DocToPdfToolOptions): CodingAgentTool<typeof docToPdfSchema> {
 	const ops = options?.operations ?? defaultOperations;
 	const fallbackDescription =
 		"Convert a .doc or .docx file to PDF using Microsoft Office or WPS Office installed on the system.";
-	const description = loadToolDescription(import.meta.url, fallbackDescription);
+	const description = loadToolDescription("doc-to-pdf", fallbackDescription);
 
 	return {
 		name: "doc_to_pdf",
 		label: "doc_to_pdf",
+		scope_use: ["im-claw", "conversation", "project", "batch", "automation", "kb-processing", "cli"],
+		agent_mode: ["work"],
+		category: "doc",
 		description,
 		parameters: docToPdfSchema,
-		execute: async (
-			_toolCallId: string,
-			{ path, output }: { path: string; output?: string },
-			signal?: AbortSignal,
-		) => {
+		execute: async (_toolCallId, { path, output }, signal, _onUpdate, ctx) => {
 			return new Promise<{ content: Array<{ type: "text"; text: string }>; details: undefined }>(
 				(resolve, reject) => {
 					if (signal?.aborted) {
@@ -261,6 +262,7 @@ export function createDocToPdfTool(cwd: string, options?: DocToPdfToolOptions): 
 
 					(async () => {
 						try {
+							ctx?.phase("locate");
 							// Resolve input path
 							const inputPath = resolveExistingPath(path, cwd);
 							const ext = nodePath.extname(inputPath).toLowerCase();
@@ -283,6 +285,7 @@ export function createDocToPdfTool(cwd: string, options?: DocToPdfToolOptions): 
 
 							if (aborted) return;
 
+							ctx?.phase("detect");
 							// Detect available backend
 							const backend = await ops.detect();
 							if (!backend) {
@@ -300,6 +303,7 @@ export function createDocToPdfTool(cwd: string, options?: DocToPdfToolOptions): 
 
 							if (aborted) return;
 
+							ctx?.phase("convert");
 							// Perform conversion
 							const resultPath = await ops.convert(inputPath, outputPath, backend);
 

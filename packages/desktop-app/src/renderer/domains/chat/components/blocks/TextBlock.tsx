@@ -1,105 +1,13 @@
+import { TextBlockView as ThemeTextBlockView } from "@vetta/theme-ui/chat";
 import { memo } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import type { Components } from "react-markdown";
+import { useTextBlockModel } from "../../hooks/useTextBlockModel";
 
-const components: Components = {
-	// Headings
-	h1: ({ children }) => (
-		<h1 className="mb-3 mt-4 text-[18px] font-bold leading-tight text-foreground">{children}</h1>
-	),
-	h2: ({ children }) => (
-		<h2 className="mb-2 mt-3.5 text-[16px] font-bold leading-tight text-foreground">{children}</h2>
-	),
-	h3: ({ children }) => (
-		<h3 className="mb-2 mt-3 text-[14px] font-semibold leading-tight text-foreground">{children}</h3>
-	),
-	h4: ({ children }) => (
-		<h4 className="mb-1.5 mt-2.5 text-[13px] font-semibold text-foreground">{children}</h4>
-	),
-
-	// Paragraphs
-	p: ({ children }) => (
-		<p className="my-1.5 text-[13px] leading-[1.6] text-foreground">{children}</p>
-	),
-
-	// Lists
-	ul: ({ children }) => (
-		<ul className="my-1.5 ml-4 list-disc space-y-0.5 text-[13px] leading-[1.6] text-foreground">{children}</ul>
-	),
-	ol: ({ children }) => (
-		<ol className="my-1.5 ml-4 list-decimal space-y-0.5 text-[13px] leading-[1.6] text-foreground">{children}</ol>
-	),
-	li: ({ children }) => <li className="pl-0.5">{children}</li>,
-
-	// Code
-	code: ({ className, children }) => {
-		const isBlock = className?.startsWith("language-");
-		if (isBlock) {
-			const lang = className?.replace("language-", "") ?? "";
-			return (
-				<div className="my-2 overflow-hidden rounded-lg border border-border bg-muted">
-					{lang && (
-						<div className="border-b border-border px-3 py-1 text-[10px] font-medium text-muted-foreground/50">
-							{lang}
-						</div>
-					)}
-					<pre className="overflow-x-auto p-3">
-						<code className="text-[12px] leading-[1.6] text-foreground">{children}</code>
-					</pre>
-				</div>
-			);
-		}
-		return (
-			<code className="rounded bg-muted px-1 py-0.5 text-[12px] text-foreground">
-				{children}
-			</code>
-		);
-	},
-	pre: ({ children }) => <>{children}</>,
-
-	// Blockquote
-	blockquote: ({ children }) => (
-		<blockquote className="my-2 border-l-2 border-primary/10 pl-3 text-[13px] italic text-muted-foreground">
-			{children}
-		</blockquote>
-	),
-
-	// Table
-	table: ({ children }) => (
-		<div className="my-2 overflow-x-auto rounded-lg border border-border">
-			<table className="w-full text-[12px]">{children}</table>
-		</div>
-	),
-	thead: ({ children }) => (
-		<thead className="border-b border-border bg-muted">{children}</thead>
-	),
-	th: ({ children }) => (
-		<th className="px-3 py-1.5 text-left font-semibold text-muted-foreground">{children}</th>
-	),
-	td: ({ children }) => (
-		<td className="border-t border-border px-3 py-1.5 text-foreground">{children}</td>
-	),
-
-	// Horizontal rule
-	hr: () => <hr className="my-3 border-border" />,
-
-	// Links
-	a: ({ href, children }) => (
-		<a href={href} className="text-chart-2 underline decoration-chart-2/30 hover:decoration-chart-2" target="_blank" rel="noopener noreferrer">
-			{children}
-		</a>
-	),
-
-	// Strong / em
-	strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
-	em: ({ children }) => <em className="italic">{children}</em>,
-};
-
-const remarkPlugins = [remarkGfm];
-
-interface TextBlockProps {
+interface MarkdownContentProps {
 	text: string;
+	/** 仅当本 block 是「正在 streaming 消息」的最后一个 text block 时为 true，
+	 * 启用分块渐现效果。 */
+	isStreamingTail?: boolean;
+	className?: string;
 }
 
 /**
@@ -107,12 +15,20 @@ interface TextBlockProps {
  * delta batching in useSessionManager (~16fps), so we render directly
  * without internal debounce to avoid layout jumps during streaming.
  */
-export const TextBlockView = memo(function TextBlockView({ text }: TextBlockProps) {
+export const MarkdownContent = memo(function MarkdownContent({
+	text,
+	isStreamingTail = false,
+	className,
+}: MarkdownContentProps) {
+	const model = useTextBlockModel();
 	return (
-		<div className="markdown-body break-words">
-			<ReactMarkdown remarkPlugins={remarkPlugins} components={components}>
-				{text}
-			</ReactMarkdown>
-		</div>
+		<ThemeTextBlockView
+			text={text}
+			isStreamingTail={isStreamingTail}
+			className={className}
+			{...model}
+		/>
 	);
 });
+
+export const TextBlockView = MarkdownContent;

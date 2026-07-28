@@ -55,8 +55,8 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("IM_GATEWAY_LOG_FILE"); v != "" {
 		cfg.Logging.File = v
 	}
-	if v := os.Getenv("IM_GATEWAY_DESKTOP_CONFIG"); v != "" {
-		cfg.Paths.DesktopConfig = v
+	if v := os.Getenv("IM_GATEWAY_CONVERSATION_CWD"); v != "" {
+		cfg.Paths.ConversationCwd = v
 	}
 	if v := os.Getenv("IM_GATEWAY_STATE"); v != "" {
 		cfg.Paths.State = v
@@ -98,8 +98,8 @@ func applyDefaults(cfg *Config) error {
 
 	vettaDir := filepath.Join(home, ".vetta")
 	gatewayDir := filepath.Join(vettaDir, "im-gateway")
-	if cfg.Paths.DesktopConfig == "" {
-		cfg.Paths.DesktopConfig = filepath.Join(vettaDir, "desktop-config.json")
+	if cfg.Paths.ConversationCwd == "" {
+		cfg.Paths.ConversationCwd = filepath.Join(gatewayDir, "conversation")
 	}
 	if cfg.Paths.State == "" {
 		cfg.Paths.State = filepath.Join(gatewayDir, "state.json")
@@ -110,7 +110,7 @@ func applyDefaults(cfg *Config) error {
 	if cfg.Paths.WechatState == "" {
 		cfg.Paths.WechatState = filepath.Join(gatewayDir, "wechat.json")
 	}
-	cfg.Paths.DesktopConfig = expandTilde(cfg.Paths.DesktopConfig, home)
+	cfg.Paths.ConversationCwd = expandTilde(cfg.Paths.ConversationCwd, home)
 	cfg.Paths.State = expandTilde(cfg.Paths.State, home)
 	cfg.Paths.LogsDir = expandTilde(cfg.Paths.LogsDir, home)
 	cfg.Paths.WechatState = expandTilde(cfg.Paths.WechatState, home)

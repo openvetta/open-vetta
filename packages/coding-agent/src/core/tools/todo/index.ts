@@ -1,11 +1,14 @@
-import type { AgentTool } from "@mariozechner/pi-agent-core";
 import { Type } from "@sinclair/typebox";
+import type { CodingAgentTool } from "../../session/tool-scope.js";
 import type { TodoStore } from "../../todo-store.js";
 import { loadToolDescription } from "../description.js";
+import { toolCallDescriptionSchema } from "../tool-call-description.js";
 
 const todoSchema = Type.Object({
-	action: Type.Union([Type.Literal("create"), Type.Literal("update"), Type.Literal("list")], {
-		description: 'Action to perform: "create" (add items), "update" (change status), or "list" (show all)',
+	description: toolCallDescriptionSchema,
+	action: Type.Union([Type.Literal("create"), Type.Literal("update"), Type.Literal("list"), Type.Literal("clear")], {
+		description:
+			'Action to perform: "create" (add items), "update" (change status), "list" (show all), or "clear" (abandon the current plan — only allowed for ad-hoc, non-locked lists)',
 	}),
 	items: Type.Optional(
 		Type.Array(Type.String(), {
@@ -51,13 +54,15 @@ function formatItems(store: TodoStore): string {
 	return lines.join("\n");
 }
 
-export function createTodoTool(options: TodoToolOptions): AgentTool<typeof todoSchema> {
+export function createTodoTool(options: TodoToolOptions): CodingAgentTool<typeof todoSchema> {
 	const fallbackDescription = "Manage a todo list to plan and track progress on multi-step tasks.";
-	const description = loadToolDescription(import.meta.url, fallbackDescription);
+	const description = loadToolDescription("todo", fallbackDescription);
 
 	return {
 		name: "todo",
 		label: "todo",
+		scope_use: ["im-claw", "conversation", "project", "batch", "automation", "kb-processing", "cli"],
+		category: "agent-control",
 		description,
 		parameters: todoSchema,
 		execute: async (
@@ -67,7 +72,7 @@ export function createTodoTool(options: TodoToolOptions): AgentTool<typeof todoS
 				items,
 				id,
 				status,
-			}: { action: "create" | "update" | "list"; items?: string[]; id?: number; status?: string },
+			}: { action: "create" | "update" | "list" | "clear"; items?: string[]; id?: number; status?: string },
 		) => {
 			const store = options.getTodoStore();
 
@@ -77,6 +82,35 @@ export function createTodoTool(options: TodoToolOptions): AgentTool<typeof todoS
 						return {
 							content: [
 								{ type: "text" as const, text: 'Error: action="create" requires a non-empty "items" array.' },
+							],
+							details: { action },
+						};
+					}
+					if (store.isLocked()) {
+						const source = store.getLockSource();
+						return {
+							content: [
+								{
+									type: "text" as const,
+									text:
+										`REJECTED: The todo list is locked by ${source ?? "the system"} and cannot accept new items.\n` +
+										`This list was prefilled from a scene's tasks.json and is the authoritative plan.\n` +
+										`Do NOT attempt to create additional todos. Work strictly through the existing items in order:\n` +
+										`call todo(action="list") to view them, then todo(action="update", id=N, status="in_progress"|"done").\n\n${formatItems(store)}`,
+								},
+							],
+							details: { action },
+						};
+					}
+					if (store.getAll().length > 0) {
+						return {
+							content: [
+								{
+									type: "text" as const,
+									text:
+										`REJECTED: A todo list already exists. Do not append a new plan to an existing plan.\n` +
+										`Call todo(action="list") to review the current plan. If the current plan is obsolete, call todo(action="clear") first, then create the new plan. If it is still relevant, continue updating the existing items.\n\n${formatItems(store)}`,
+								},
 							],
 							details: { action },
 						};
@@ -104,8 +138,10 @@ export function createTodoTool(options: TodoToolOptions): AgentTool<typeof todoS
 						};
 					}
 
-					// Before progressing any item, check for skipped earlier items
-					if (status === "in_progress" || status === "done") {
+					// Sequential order is enforced ONLY for locked (scene) lists — they are the
+					// authoritative plan and must be worked strictly in order. Ad-hoc lists are
+					// flexible: the model may reprioritize / update out of order.
+					if (store.isLocked() && (status === "in_progress" || status === "done")) {
 						const allItems = store.getAll();
 						const skipped = allItems.filter((i) => i.id < id && i.status !== "done");
 						if (skipped.length > 0) {
@@ -149,12 +185,45 @@ export function createTodoTool(options: TodoToolOptions): AgentTool<typeof todoS
 					};
 				}
 
+				case "clear": {
+					if (store.isLocked()) {
+						const source = store.getLockSource();
+						return {
+							content: [
+								{
+									type: "text" as const,
+									text:
+										`REJECTED: The todo list is locked by ${source ?? "the system"} and cannot be cleared.\n` +
+										`This list is the authoritative plan — work strictly through the existing items in order.\n\n${formatItems(store)}`,
+								},
+							],
+							details: { action },
+						};
+					}
+					if (store.getAll().length === 0) {
+						return {
+							content: [{ type: "text" as const, text: "Todo list is already empty." }],
+							details: { action },
+						};
+					}
+					store.clear();
+					return {
+						content: [
+							{
+								type: "text" as const,
+								text: 'Cleared all todo items. Create a fresh plan with todo(action="create") if the new direction needs one.',
+							},
+						],
+						details: { action },
+					};
+				}
+
 				default: {
 					return {
 						content: [
 							{
 								type: "text" as const,
-								text: `Error: unknown action "${action}". Use "create", "update", or "list".`,
+								text: `Error: unknown action "${action}". Use "create", "update", "list", or "clear".`,
 							},
 						],
 						details: { action: String(action) },

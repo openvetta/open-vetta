@@ -5,9 +5,10 @@
  * allowing MCP tools to be used in the agent system.
  */
 
-import type { AgentTool } from "@mariozechner/pi-agent-core";
-import type { ImageContent, TextContent } from "@mariozechner/pi-ai";
 import { type TSchema, Type } from "@sinclair/typebox";
+import type { AgentTool } from "@vetta/agent-core";
+import type { ImageContent, TextContent } from "@vetta/ai";
+import type { EcosystemHookAwareTool } from "../hooks/tool-wrapper.js";
 import type { IMcpClient, McpContent, McpTool } from "./types.js";
 
 /**
@@ -135,11 +136,20 @@ export function adaptMcpTool(mcpTool: McpTool, client: IMcpClient, serverName: s
 	const parameters = jsonSchemaToTypebox(mcpTool.inputSchema);
 
 	// Create AgentTool
-	const agentTool: AgentTool = {
+	const agentTool: EcosystemHookAwareTool = {
 		name: `mcp_${serverName}_${mcpTool.name}`,
 		label: `${serverName}: ${mcpTool.name}`,
 		description: mcpTool.description || `MCP tool from ${serverName}`,
 		parameters,
+		ecosystemHook: {
+			hostName: `mcp_${serverName}_${mcpTool.name}`,
+			kind: "mcp",
+			source: {
+				ecosystem: "mcp",
+				serverName,
+				originalName: mcpTool.name,
+			},
+		},
 
 		async execute(_toolCallId, params, _signal, _onUpdate) {
 			try {

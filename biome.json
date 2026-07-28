@@ -1,5 +1,5 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.4.11/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.3.5/schema.json",
 	"linter": {
 		"enabled": true,
 		"rules": {
@@ -25,15 +25,19 @@
 	},
 	"files": {
 		"includes": [
+			"package.json",
+			"knip.config.ts",
+			"scripts/quality/**/*.mjs",
 			"packages/*/src/**/*.ts",
 			"packages/*/test/**/*.ts",
 			"packages/coding-agent/examples/**/*.ts",
-			"packages/web-ui/src/**/*.ts",
-			"packages/web-ui/example/**/*.ts",
 			"!**/node_modules/**/*",
 			"!**/test-sessions.ts",
 			"!**/models.generated.ts",
-			"!packages/web-ui/src/app.css",
+			"!**/routeTree.gen.ts",
+			"!**/personas-data.ts",
+			"!**/modes-data.ts",
+			"!**/descriptions-data.ts",
 			"!!**/node_modules"
 		]
 	}

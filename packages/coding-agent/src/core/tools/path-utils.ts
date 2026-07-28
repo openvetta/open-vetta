@@ -1,68 +1,11 @@
 import { accessSync, constants, readdirSync } from "node:fs";
 import * as os from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve as resolvePath, sep } from "node:path";
-import { CONFIG_DIR_NAME, getAgentDir, getSceneDir } from "../../config.js";
+import { CONFIG_DIR_NAME, getAgentDir, getKnowledgeDir, getSceneDir, getVettaHomePath } from "../../config.js";
 
 const UNICODE_SPACES = /[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g;
 const NARROW_NO_BREAK_SPACE = "\u202F";
 const CJK_CHARS = /[\u3400-\u9fff\uf900-\ufaff]/;
-const PATH_ID_REGEX = /^@PATH_\d{4}$/i;
-
-const pathIdRegistry = new Map<string, string>();
-
-function getPathIdScope(cwd: string): string {
-	return resolvePath(cwd);
-}
-
-function getPathIdKey(scope: string, pathId: string): string {
-	return `${scope}::${pathId}`;
-}
-
-function normalizePathId(value: string): string | undefined {
-	const trimmed = value.trim();
-	if (!PATH_ID_REGEX.test(trimmed)) return undefined;
-	return trimmed.toUpperCase();
-}
-
-export interface PathIdEntry {
-	pathId: string;
-	absolutePath: string;
-}
-
-export function clearPathIds(cwd?: string): void {
-	if (!cwd) {
-		pathIdRegistry.clear();
-		return;
-	}
-
-	const scope = getPathIdScope(cwd);
-	const prefix = `${scope}::`;
-	for (const key of Array.from(pathIdRegistry.keys())) {
-		if (key.startsWith(prefix)) {
-			pathIdRegistry.delete(key);
-		}
-	}
-}
-
-export function replacePathIds(cwd: string, entries: PathIdEntry[]): void {
-	clearPathIds(cwd);
-	const scope = getPathIdScope(cwd);
-
-	for (const entry of entries) {
-		const normalizedPathId = normalizePathId(entry.pathId);
-		if (!normalizedPathId) continue;
-
-		const absolutePath = isAbsolute(entry.absolutePath) ? entry.absolutePath : resolvePath(cwd, entry.absolutePath);
-		pathIdRegistry.set(getPathIdKey(scope, normalizedPathId), absolutePath);
-	}
-}
-
-export function resolvePathId(pathId: string, cwd: string): string | undefined {
-	const normalizedPathId = normalizePathId(pathId);
-	if (!normalizedPathId) return undefined;
-	const scope = getPathIdScope(cwd);
-	return pathIdRegistry.get(getPathIdKey(scope, normalizedPathId));
-}
 
 function normalizeUnicodeSpaces(str: string): string {
 	return str.replace(UNICODE_SPACES, " ");
@@ -128,13 +71,7 @@ function isLikelyLiteralPath(value: string): boolean {
 	if (value.includes("$(") || value.includes("${") || value.includes("`")) return false;
 	if (/[|;&<>*?[\]{}]/.test(value)) return false;
 
-	if (
-		value.includes("/") ||
-		value.includes("\\") ||
-		value.startsWith(".") ||
-		value.startsWith("~") ||
-		value.startsWith("@")
-	) {
+	if (value.includes("/") || value.includes("\\") || value.startsWith(".") || value.startsWith("~")) {
 		return true;
 	}
 
@@ -215,16 +152,6 @@ export function rewriteQuotedPathLiterals(input: string, cwd: string): RewriteQu
 	// Replace from end to start so segment offsets remain valid.
 	for (let i = segments.length - 1; i >= 0; i--) {
 		const segment = segments[i];
-		const resolvedPathId = resolvePathId(segment.value, cwd);
-		if (resolvedPathId && fileExists(resolvedPathId)) {
-			const correctedLiteral = formatCorrectedPathLiteral(segment.value, resolvedPathId, cwd);
-			if (correctedLiteral !== segment.value) {
-				output = output.slice(0, segment.contentStart) + correctedLiteral + output.slice(segment.contentEnd);
-				pathCorrections.unshift({ original: segment.value, corrected: correctedLiteral });
-			}
-			continue;
-		}
-
 		if (!isLikelyLiteralPath(segment.value)) continue;
 
 		const resolvedOriginalPath = resolveToCwd(segment.value, cwd);
@@ -244,12 +171,8 @@ export function rewriteQuotedPathLiterals(input: string, cwd: string): RewriteQu
 	return { output, pathCorrections };
 }
 
-function normalizeAtPrefix(filePath: string): string {
-	return filePath.startsWith("@") ? filePath.slice(1) : filePath;
-}
-
 export function expandPath(filePath: string): string {
-	const normalized = normalizeUnicodeSpaces(normalizeAtPrefix(filePath));
+	const normalized = normalizeUnicodeSpaces(filePath);
 	if (normalized === "~") {
 		return os.homedir();
 	}
@@ -264,11 +187,6 @@ export function expandPath(filePath: string): string {
  * Handles ~ expansion and absolute paths.
  */
 export function resolveToCwd(filePath: string, cwd: string): string {
-	const resolvedPathId = resolvePathId(filePath, cwd);
-	if (resolvedPathId) {
-		return resolvedPathId;
-	}
-
 	const expanded = expandPath(filePath);
 	if (isAbsolute(expanded)) {
 		return expanded;
@@ -360,14 +278,18 @@ export function resolveReadPath(filePath: string, cwd: string): string {
  * - ~/.vetta/skills/
  * - ~/.vetta/scene/
  * - <cwd>/.vetta/skills/
+ * - ~/.agents/skills/        (generic Agent Skill convention)
+ * - <cwd>/.agents/skills/    (generic Agent Skill convention)
  */
 export function isProtectedSkillOrScenePath(absolutePath: string, cwd: string): boolean {
 	const resolved = resolvePath(absolutePath);
 	const protectedDirs = [
 		resolvePath(join(getAgentDir(), "skills")),
-		resolvePath(join(os.homedir(), CONFIG_DIR_NAME, "skills")),
+		resolvePath(join(getVettaHomePath(), "skills")),
 		resolvePath(getSceneDir()),
 		resolvePath(cwd, CONFIG_DIR_NAME, "skills"),
+		resolvePath(join(os.homedir(), ".agents", "skills")),
+		resolvePath(cwd, ".agents", "skills"),
 	];
 
 	for (const dir of protectedDirs) {
@@ -377,4 +299,21 @@ export function isProtectedSkillOrScenePath(absolutePath: string, cwd: string): 
 		}
 	}
 	return false;
+}
+
+// =============================================================================
+// Knowledge base wiki write-protection
+// =============================================================================
+
+/**
+ * 知识库 wiki/ 是 kb_write_page 独占的产物区（守封闭 frontmatter schema、分配稳定 id）。
+ * 通用 write/edit 绝不能往里写——否则会写出无/坏 frontmatter 的页，被 scanWikiPages 静默
+ * 丢弃，其源文件永远显示未加工 + 每轮重加工。跨平台路径前缀判定（不依赖仅 POSIX 的 OS 锁）。
+ * 注意：仅挡 wiki/ 产物区；解析脚本、临时文件、工具输出写到 cwd/tmp 等处不受影响。
+ */
+export function isKnowledgeWikiPath(absolutePath: string): boolean {
+	const resolved = resolvePath(absolutePath);
+	const wikiDir = resolvePath(join(getKnowledgeDir(), "wiki"));
+	const prefix = wikiDir.endsWith(sep) ? wikiDir : `${wikiDir}${sep}`;
+	return resolved === wikiDir || resolved.startsWith(prefix);
 }

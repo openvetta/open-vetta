@@ -2,6 +2,7 @@
  * Model registry - manages built-in and custom models, provides API key resolution.
  */
 
+import { type Static, Type } from "@sinclair/typebox";
 import {
 	type Api,
 	type AssistantMessageEventStream,
@@ -16,8 +17,7 @@ import {
 	registerApiProvider,
 	registerOAuthProvider,
 	type SimpleStreamOptions,
-} from "@mariozechner/pi-ai";
-import { type Static, Type } from "@sinclair/typebox";
+} from "@vetta/ai";
 import AjvModule from "ajv";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
@@ -26,6 +26,17 @@ import type { AuthStorage } from "./auth-storage.js";
 import { clearConfigValueCache, resolveConfigValue, resolveHeaders } from "./resolve-config-value.js";
 
 const Ajv = (AjvModule as any).default || AjvModule;
+
+// @vetta/ai 的 Model 类型归属 ai 泳道；此处按共享契约为其补充 modelId 声明，
+// 使远程渠道下发的「上游真名」在本包内被类型接住（id=网关路由 key、modelId=上游真名）。
+// 本地/内置模型可不设 modelId，匹配时回退到 id。
+declare module "@vetta/ai" {
+	// biome-ignore lint/correctness/noUnusedVariables: 模块增强必须与原声明类型参数名(TApi)一致才能合并，不能改名或加下划线
+	interface Model<TApi extends Api> {
+		/** 上游 API 真实模型名。远程渠道下 id=路由 key、modelId=上游真名；本地/内置模型可不设。 */
+		modelId?: string;
+	}
+}
 
 /**
  * Normalize common API type aliases to their registered names.
@@ -127,6 +138,12 @@ const ProviderConfigSchema = Type.Object({
 	headers: Type.Optional(Type.Record(Type.String(), Type.String())),
 	authHeader: Type.Optional(Type.Boolean()),
 	compat: Type.Optional(OpenAICompatSchema),
+	// 预设模板采纳标记(desktop 写入,coding-agent 仅需容忍不报错,复用同一份 models.json)。
+	source: Type.Optional(Type.String()),
+	templateId: Type.Optional(Type.String()),
+	icon: Type.Optional(Type.String()),
+	modelsSyncedAt: Type.Optional(Type.String()),
+	displayName: Type.Optional(Type.String()),
 	models: Type.Optional(Type.Array(ModelDefinitionSchema)),
 	modelOverrides: Type.Optional(Type.Record(Type.String(), ModelOverrideSchema)),
 });
@@ -155,7 +172,12 @@ interface CustomModelsResult {
 }
 
 function emptyCustomModelsResult(error?: string): CustomModelsResult {
-	return { models: [], overrides: new Map(), modelOverrides: new Map(), error };
+	return {
+		models: [],
+		overrides: new Map(),
+		modelOverrides: new Map(),
+		error,
+	};
 }
 
 function mergeCompat(
@@ -238,8 +260,12 @@ interface RemoteModelsConfig {
 		{
 			api: string;
 			baseUrl?: string;
+			// 服务端下发的 provider 级自定义请求头，随该 provider 的每次请求携带
+			headers?: Record<string, string>;
 			models: Array<{
 				id: string;
+				// 上游 API 真实模型名（远程渠道下 id=网关路由 key、modelId=上游真名）；缺省回退 id
+				modelId?: string;
 				name: string;
 				api?: string;
 				reasoning: boolean;
@@ -258,6 +284,14 @@ interface RemoteModelsConfig {
 export class ModelRegistry {
 	private models: Model<Api>[] = [];
 	private customProviderApiKeys: Map<string, string> = new Map();
+	/**
+	 * Provider names contributed by models.json or registerProvider() — i.e.
+	 * user-defined providers (typically pointing at local inference servers
+	 * like ollama / lm-studio). Tracked so getAvailable() can include their
+	 * models even when no API key is configured (local servers usually don't
+	 * require one).
+	 */
+	private customProviderNames: Set<string> = new Set();
 	private registeredProviders: Map<string, ProviderConfigInput> = new Map();
 	private loadError: string | undefined = undefined;
 	private remoteModels: Model<Api>[] = [];
@@ -266,6 +300,10 @@ export class ModelRegistry {
 	private serverUrl: string | undefined;
 	private _serverToken: string | undefined;
 	private _serverTokenGetter?: () => string | undefined;
+	/** Whether loadRemoteModels has been attempted with the current token. Reset by setServerToken. */
+	private remoteLoadAttempted = false;
+	/** Inflight loadRemoteModels promise for deduping concurrent calls. */
+	private remoteLoadInflight: Promise<"unauthorized" | undefined> | null = null;
 
 	constructor(
 		readonly authStorage: AuthStorage,
@@ -295,6 +333,9 @@ export class ModelRegistry {
 	 * Set the server token for authenticating remote model requests.
 	 */
 	setServerToken(token: string | undefined): void {
+		if (this._serverToken !== token) {
+			this.remoteLoadAttempted = false;
+		}
 		this._serverToken = token;
 	}
 
@@ -321,17 +362,34 @@ export class ModelRegistry {
 		if (!this.serverUrl) {
 			return undefined;
 		}
+		// 未登录（没有 server token）就不去打远程接口——既能省掉 5 秒的 fetch
+		// 阻塞，也避免给未登录用户发未授权请求。任何依赖远程 model 的代码路径
+		// 会在登录回调里再次触发本方法（ModelRegistry.setServerToken 会清掉
+		// remoteLoadAttempted，让 ensureRemoteLoaded 重新放行）。
+		if (!this.resolveServerToken()) {
+			return undefined;
+		}
+		if (this.remoteLoadInflight) {
+			return this.remoteLoadInflight;
+		}
+		this.remoteLoadInflight = this.doLoadRemoteModels().finally(() => {
+			this.remoteLoadInflight = null;
+		});
+		return this.remoteLoadInflight;
+	}
 
+	private async doLoadRemoteModels(): Promise<"unauthorized" | undefined> {
 		try {
-			const url = `${this.serverUrl.replace(/\/$/, "")}/providers/models.json`;
+			const url = `${this.serverUrl!.replace(/\/$/, "")}/providers/models.json`;
 			const controller = new AbortController();
 			const timeout = setTimeout(() => controller.abort(), 5000);
 
+			const token = this.resolveServerToken();
 			const response = await fetch(url, {
 				signal: controller.signal,
 				headers: {
 					Accept: "application/json",
-					...(this._serverToken ? { Authorization: `Bearer ${this._serverToken}` } : {}),
+					...(token ? { Authorization: `Bearer ${token}` } : {}),
 				},
 			});
 			clearTimeout(timeout);
@@ -353,6 +411,8 @@ export class ModelRegistry {
 			this.rebuildModels();
 		} catch {
 			// Silently fail - remote config is optional
+		} finally {
+			this.remoteLoadAttempted = true;
 		}
 		return undefined;
 	}
@@ -376,6 +436,8 @@ export class ModelRegistry {
 
 				models.push({
 					id: modelDef.id,
+					// 保留上游真名；缺省回退 id，供老会话按 modelId 兜底匹配
+					modelId: modelDef.modelId ?? modelDef.id,
 					name: modelDef.name || modelDef.id,
 					api: api as Api,
 					provider: providerName,
@@ -386,6 +448,8 @@ export class ModelRegistry {
 					cost: modelDef.cost ?? defaultCost,
 					contextWindow: modelDef.contextWindow ?? 128000,
 					maxTokens: modelDef.maxTokens ?? 16384,
+					// 透传 provider 级请求头（Vetta Go 服务标识分流），随每次上游请求发往网关
+					...(providerConfig.headers ? { headers: providerConfig.headers } : {}),
 				} as Model<Api>);
 			}
 		}
@@ -396,6 +460,7 @@ export class ModelRegistry {
 	/** Rebuild the full model list: built-in + remote + local custom */
 	private rebuildModels(): void {
 		this.customProviderApiKeys.clear();
+		this.customProviderNames.clear();
 		this.loadError = undefined;
 
 		const {
@@ -411,10 +476,12 @@ export class ModelRegistry {
 
 		const builtInModels = this.loadBuiltInModels(overrides, modelOverrides);
 
-		// Merge order: built-in -> remote -> local custom
-		// Remote models fill in between built-in and local
-		let combined = this.mergeCustomModels(builtInModels, this.remoteModels);
-		combined = this.mergeCustomModels(combined, customModels);
+		// Merge order: built-in -> local custom -> remote
+		// Remote models have the final say so server-side additions
+		// / updates are always visible without removing and re-adding
+		// the provider key.
+		let combined = this.mergeCustomModels(builtInModels, customModels);
+		combined = this.mergeCustomModels(combined, this.remoteModels);
 
 		// Let OAuth providers modify their models
 		for (const oauthProvider of this.authStorage.getOAuthProviders()) {
@@ -505,6 +572,13 @@ export class ModelRegistry {
 		try {
 			const content = readFileSync(modelsJsonPath, "utf-8");
 			const config: ModelsConfig = JSON.parse(content);
+			// 剥离已下线的「全局/周边模型」残留键，避免旧 models.json 校验失败。
+			const raw = config as ModelsConfig & {
+				peripheralModel?: unknown;
+				peripheralModelReasoningLevel?: unknown;
+			};
+			delete raw.peripheralModel;
+			delete raw.peripheralModelReasoningLevel;
 
 			// Validate schema
 			const ajv = new Ajv();
@@ -516,13 +590,28 @@ export class ModelRegistry {
 				return emptyCustomModelsResult(`Invalid models.json schema:\n${errors}\n\nFile: ${modelsJsonPath}`);
 			}
 
-			// Additional validation
-			this.validateConfig(config);
+			// Per-provider validation: collect errors instead of throwing on the
+			// first bad provider. Otherwise a single misconfigured entry (e.g. a
+			// local ollama provider without `apiKey`) used to wipe out every other
+			// custom provider in models.json — the user would see "No model
+			// selected" with no hint that their other providers were silently
+			// dropped.
+			const { skip, errors } = this.validateConfig(config);
+
+			const validConfig: ModelsConfig =
+				skip.size === 0
+					? config
+					: {
+							...config,
+							providers: Object.fromEntries(
+								Object.entries(config.providers).filter(([name]) => !skip.has(name)),
+							),
+						};
 
 			const overrides = new Map<string, ProviderOverride>();
 			const modelOverrides = new Map<string, Map<string, ModelOverride>>();
 
-			for (const [providerName, providerConfig] of Object.entries(config.providers)) {
+			for (const [providerName, providerConfig] of Object.entries(validConfig.providers)) {
 				// Apply provider-level baseUrl/headers/apiKey override to built-in models when configured.
 				if (providerConfig.baseUrl || providerConfig.headers || providerConfig.apiKey) {
 					overrides.set(providerName, {
@@ -542,7 +631,17 @@ export class ModelRegistry {
 				}
 			}
 
-			return { models: this.parseModels(config), overrides, modelOverrides, error: undefined };
+			const error =
+				errors.length > 0
+					? `Some providers in models.json were skipped:\n${errors.map((e) => `  - ${e}`).join("\n")}\n\nFile: ${modelsJsonPath}`
+					: undefined;
+
+			return {
+				models: this.parseModels(validConfig),
+				overrides,
+				modelOverrides,
+				error,
+			};
 		} catch (error) {
 			if (error instanceof SyntaxError) {
 				return emptyCustomModelsResult(`Failed to parse models.json: ${error.message}\n\nFile: ${modelsJsonPath}`);
@@ -553,44 +652,57 @@ export class ModelRegistry {
 		}
 	}
 
-	private validateConfig(config: ModelsConfig): void {
+	private validateConfig(config: ModelsConfig): { skip: Set<string>; errors: string[] } {
+		const skip = new Set<string>();
+		const errors: string[] = [];
 		for (const [providerName, providerConfig] of Object.entries(config.providers)) {
-			const hasProviderApi = !!providerConfig.api;
-			const models = providerConfig.models ?? [];
-			const hasModelOverrides =
-				providerConfig.modelOverrides && Object.keys(providerConfig.modelOverrides).length > 0;
+			try {
+				this.validateProvider(providerName, providerConfig);
+			} catch (e) {
+				errors.push(e instanceof Error ? e.message : String(e));
+				skip.add(providerName);
+			}
+		}
+		return { skip, errors };
+	}
 
-			if (models.length === 0) {
-				// Override-only config: needs baseUrl OR modelOverrides (or both)
-				if (!providerConfig.baseUrl && !hasModelOverrides) {
-					throw new Error(`Provider ${providerName}: must specify "baseUrl", "modelOverrides", or "models".`);
-				}
-			} else {
-				// Custom models are merged into provider models and require endpoint + auth.
-				if (!providerConfig.baseUrl) {
-					throw new Error(`Provider ${providerName}: "baseUrl" is required when defining custom models.`);
-				}
-				if (!providerConfig.apiKey) {
-					throw new Error(`Provider ${providerName}: "apiKey" is required when defining custom models.`);
-				}
+	private validateProvider(providerName: string, providerConfig: ModelsConfig["providers"][string]): void {
+		const hasProviderApi = !!providerConfig.api;
+		const models = providerConfig.models ?? [];
+		const hasModelOverrides = providerConfig.modelOverrides && Object.keys(providerConfig.modelOverrides).length > 0;
+
+		if (models.length === 0) {
+			// Override-only config: needs baseUrl OR modelOverrides (or both)
+			if (!providerConfig.baseUrl && !hasModelOverrides) {
+				throw new Error(`Provider ${providerName}: must specify "baseUrl", "modelOverrides", or "models".`);
+			}
+		} else {
+			// Custom models need an endpoint. apiKey is intentionally NOT required
+			// here — local inference servers (ollama / lm-studio / vLLM) don't use
+			// an API key. If the upstream actually rejects unauth'd requests, the
+			// caller will see a precise "No API key found for ..." error at request
+			// time (agent-session.ts), instead of having every other custom
+			// provider silently dropped from this models.json.
+			if (!providerConfig.baseUrl) {
+				throw new Error(`Provider ${providerName}: "baseUrl" is required when defining custom models.`);
+			}
+		}
+
+		for (const modelDef of models) {
+			const hasModelApi = !!modelDef.api;
+
+			if (!hasProviderApi && !hasModelApi) {
+				throw new Error(
+					`Provider ${providerName}, model ${modelDef.id}: no "api" specified. Set at provider or model level.`,
+				);
 			}
 
-			for (const modelDef of models) {
-				const hasModelApi = !!modelDef.api;
-
-				if (!hasProviderApi && !hasModelApi) {
-					throw new Error(
-						`Provider ${providerName}, model ${modelDef.id}: no "api" specified. Set at provider or model level.`,
-					);
-				}
-
-				if (!modelDef.id) throw new Error(`Provider ${providerName}: model missing "id"`);
-				// Validate contextWindow/maxTokens only if provided (they have defaults)
-				if (modelDef.contextWindow !== undefined && modelDef.contextWindow <= 0)
-					throw new Error(`Provider ${providerName}, model ${modelDef.id}: invalid contextWindow`);
-				if (modelDef.maxTokens !== undefined && modelDef.maxTokens <= 0)
-					throw new Error(`Provider ${providerName}, model ${modelDef.id}: invalid maxTokens`);
-			}
+			if (!modelDef.id) throw new Error(`Provider ${providerName}: model missing "id"`);
+			// Validate contextWindow/maxTokens only if provided (they have defaults)
+			if (modelDef.contextWindow !== undefined && modelDef.contextWindow <= 0)
+				throw new Error(`Provider ${providerName}, model ${modelDef.id}: invalid contextWindow`);
+			if (modelDef.maxTokens !== undefined && modelDef.maxTokens <= 0)
+				throw new Error(`Provider ${providerName}, model ${modelDef.id}: invalid maxTokens`);
 		}
 	}
 
@@ -600,6 +712,8 @@ export class ModelRegistry {
 		for (const [providerName, providerConfig] of Object.entries(config.providers)) {
 			const modelDefs = providerConfig.models ?? [];
 			if (modelDefs.length === 0) continue; // Override-only, no custom models
+
+			this.customProviderNames.add(providerName);
 
 			// Store API key config for fallback resolver
 			if (providerConfig.apiKey) {
@@ -657,11 +771,22 @@ export class ModelRegistry {
 	}
 
 	/**
-	 * Get only models that have auth configured.
-	 * Remote models are always included (auth is handled server-side or via local apiKey).
+	 * Get only models that are usable right now.
+	 *
+	 * - Remote models: always included (gateway handles auth via server JWT).
+	 * - Custom providers from models.json / registerProvider(): always included
+	 *   even without an API key. Local inference servers (ollama / lm-studio /
+	 *   vLLM) typically don't need one; for the few that do, the request will
+	 *   fail with a precise "No API key found for ..." at call time instead of
+	 *   silently being filtered out here (which produced the misleading
+	 *   "No model selected" error before the user had even chosen anything).
+	 * - Built-in providers: only when authStorage has an API key / OAuth
+	 *   credential / env var configured for them.
 	 */
 	getAvailable(): Model<Api>[] {
-		return this.models.filter((m) => this.isRemote(m) || this.authStorage.hasAuth(m.provider));
+		return this.models.filter(
+			(m) => this.isRemote(m) || this.customProviderNames.has(m.provider) || this.authStorage.hasAuth(m.provider),
+		);
 	}
 
 	/**
@@ -691,15 +816,34 @@ export class ModelRegistry {
 	}
 
 	/**
+	 * Placeholder returned for custom providers that have no configured key.
+	 * Local inference servers (ollama / lm-studio / vLLM) ignore Authorization
+	 * entirely; for those that don't, the upstream will reject the request
+	 * with its own precise error — much better than short-circuiting here as
+	 * "No API key found" when the user explicitly chose a local-only setup.
+	 */
+	private static readonly NO_AUTH_PLACEHOLDER = "no-auth-needed-for-local-provider";
+
+	/**
 	 * Get API key for a model.
 	 * Remote models use server JWT token instead of provider API key.
 	 */
 	async getApiKey(model: Model<Api>): Promise<string | undefined> {
 		const token = this.resolveServerToken();
+		await this.ensureRemoteLoaded(token);
 		if (this.isRemote(model) && token) {
 			return token;
 		}
-		return this.authStorage.getApiKey(model.provider);
+		const key = await this.authStorage.getApiKey(model.provider);
+		if (key) return key;
+		// Custom providers without a key fall through to a placeholder so
+		// downstream `if (!apiKey)` gates don't reject local-only setups. OAuth
+		// configs are excluded so a real refresh failure still surfaces as an
+		// auth error rather than being masked.
+		if (this.customProviderNames.has(model.provider) && !this.isUsingOAuth(model)) {
+			return ModelRegistry.NO_AUTH_PLACEHOLDER;
+		}
+		return undefined;
 	}
 
 	/**
@@ -708,10 +852,31 @@ export class ModelRegistry {
 	 */
 	async getApiKeyForProvider(provider: string): Promise<string | undefined> {
 		const token = this.resolveServerToken();
+		await this.ensureRemoteLoaded(token);
 		if (this.getRemoteProviders().has(provider) && token) {
 			return token;
 		}
-		return this.authStorage.getApiKey(provider);
+		const key = await this.authStorage.getApiKey(provider);
+		if (key) return key;
+		if (this.customProviderNames.has(provider)) {
+			const cred = this.authStorage.get(provider);
+			if (cred?.type !== "oauth") {
+				return ModelRegistry.NO_AUTH_PLACEHOLDER;
+			}
+		}
+		return undefined;
+	}
+
+	/**
+	 * If we have a server token but haven't yet successfully fetched remote
+	 * models with it (e.g. user logged in mid-session), trigger a load now so
+	 * isRemote() / getRemoteProviders() reflect server state.
+	 */
+	private async ensureRemoteLoaded(token: string | undefined): Promise<void> {
+		if (!token) return;
+		if (this.remoteModelKeys.size > 0) return;
+		if (this.remoteLoadAttempted) return;
+		await this.loadRemoteModels();
 	}
 
 	/**
@@ -765,6 +930,8 @@ export class ModelRegistry {
 		if (config.models && config.models.length > 0) {
 			// Full replacement: remove existing models for this provider
 			this.models = this.models.filter((m) => m.provider !== providerName);
+
+			this.customProviderNames.add(providerName);
 
 			// Validate required fields
 			if (!config.baseUrl) {

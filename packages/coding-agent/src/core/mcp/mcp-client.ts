@@ -5,28 +5,31 @@
  * handling communication with MCP servers.
  */
 
+import { HttpMcpClient } from "./mcp-http-client.js";
 import { McpProcess } from "./mcp-process.js";
-import type {
-	IMcpClient,
-	JsonRpcRequest,
-	JsonRpcResponse,
-	McpInitializeParams,
-	McpInitializeResult,
-	McpPromptsListResult,
-	McpResourceReadParams,
-	McpResourceReadResult,
-	McpResourcesListResult,
-	McpServerConfig,
-	McpToolCallParams,
-	McpToolCallResult,
-	McpToolsListResult,
+import {
+	type IMcpClient,
+	isHttpServerConfig,
+	type JsonRpcRequest,
+	type JsonRpcResponse,
+	type McpInitializeParams,
+	type McpInitializeResult,
+	type McpPromptsListResult,
+	type McpResourceReadParams,
+	type McpResourceReadResult,
+	type McpResourcesListResult,
+	type McpServerConfig,
+	type McpStdioServerConfig,
+	type McpToolCallParams,
+	type McpToolCallResult,
+	type McpToolsListResult,
 } from "./types.js";
 
 const DEFAULT_TIMEOUT_MS = 30000;
 
 export interface McpClientOptions {
-	/** Server configuration */
-	config: McpServerConfig;
+	/** Server configuration (stdio transport) */
+	config: McpStdioServerConfig;
 	/** Server name (for logging) */
 	name: string;
 	/** Enable debug logging */
@@ -41,7 +44,7 @@ export interface McpClientOptions {
 export class McpClient implements IMcpClient {
 	private process: McpProcess;
 	private name: string;
-	private config: McpServerConfig;
+	private config: McpStdioServerConfig;
 	private debug: boolean;
 	private timeout: number;
 	private nextId: number = 1;
@@ -327,12 +330,31 @@ interface PendingRequest {
 }
 
 /**
- * Helper function to create an MCP client
+ * Common surface returned by createMcpClient — implementations support both
+ * stdio child-process and HTTP transports.
  */
-export function createMcpClient(name: string, config: McpServerConfig, options?: Partial<McpClientOptions>): McpClient {
-	return new McpClient({
-		name,
-		config,
-		...options,
-	});
+export interface McpClientHandle extends IMcpClient {
+	getName(): string;
+	getPid(): number | undefined;
+	isClientInitialized(): boolean;
+}
+
+/**
+ * Helper function to create an MCP client, dispatching by transport type.
+ */
+export function createMcpClient(
+	name: string,
+	config: McpServerConfig,
+	options?: { debug?: boolean; timeout?: number; agentDir?: string },
+): McpClientHandle {
+	if (isHttpServerConfig(config)) {
+		return new HttpMcpClient({
+			name,
+			config,
+			debug: options?.debug,
+			timeout: options?.timeout,
+			agentDir: options?.agentDir,
+		});
+	}
+	return new McpClient({ name, config, debug: options?.debug, timeout: options?.timeout });
 }

@@ -2,7 +2,24 @@
 
 ## [Unreleased]
 
-## [0.55.3] - 2026-03-06
+### Changed
+
+- **Vitest 依赖上收到 monorepo 根**：本包不再声明 `devDependencies.vitest`，改用根目录统一版本；包内仍保留 `vitest.config.ts` 与 `"test": "vitest --run"`。
+- `AgentTool` 新增第三个泛型参数 `TScenario extends string = string`，`scope_use` 由 `string[]` 改为 `readonly TScenario[]`。向后兼容（默认 `string`，旧的 `AgentTool<P>` / `AgentTool<P, D>` 不受影响）；上层消费者可绑定具体的场景联合（如 coding-agent 的 `ConversationScenario`）以在声明 `scope_use` 时获得补全/拼写校验。agent-core 自身仍不绑定任何场景词汇、不解读该字段。
+
+### Fixed
+
+- 修复 `tracing.detail="agent"` 且 `tracing.captureContent=true` 时 root `agent.run` 仍只上报摘要，导致 Langfuse trace input/output 看不到用户消息、最终 assistant 输出、system prompt 与工具定义正文。
+- 修复 `proxy.ts` 的 `streamProxy` 在 abort listener 上未传 `{ once: true }`：abort 触发后 listener 仍残留到 finally 才被移除，并发 finally 路径异常下可能漏清理。补齐 `{ once: true }` 作为防御。
+- 主进程长跑时主流 `AbortSignal` 因外部库累积 abort listener 触发 `MaxListenersExceededWarning`（10 默认上限被多 turn / 多重试场景秒爆）：在 `Agent._runLoop` 创建 per-prompt `AbortController` 时调用 `events.setMaxListeners(0, signal)` 关闭单 signal 的告警阈值。Node 环境通过条件动态加载 `node:events`，浏览器 (web-ui) 自动跳过。配合 `@vetta/ai` 中三处 sleep 的成对 listener 清理，彻底解决 listener 泄漏告警与潜在 GC 压力。
+
+### Added
+
+- 将 Agent 自然停止点的自动续跑钩子明确为异步 `continuationProvider`，底层 `AgentLoopConfig` 对应改为 `getContinuationMessages`；普通 `followUp()` 消息队列语义保持不变。
+- 新增平台无关 tracing 接入点：`AgentOptions` / `AgentLoopConfig` 可传入 `RuntimeTracer`，agent loop 会把 agent run、LLM generation、tool call 映射为 observation，并上报 token usage、cost、错误与工具耗时；正文捕获由 `tracing.captureContent` 显式控制。
+- 完善 tracing payload：LLM generation input 记录 system prompt、消息和工具定义结构，tool observation 记录工具描述/schema 与调用参数结构；root agent observation 改为运行摘要，避免和 generation 输入/输出重复。
+- 新增 `tracing.detail`：默认 `agent` 只发送每次 run 的 root observation，并在 root output 聚合 LLM/tool 次数、token usage 与 cost，减少 Langfuse observation 列表噪音；设为 `standard` 时继续发送 agent/LLM/tool observations。
+- **`AgentTool.execute` 新增第五个可选参数 `ctx: ToolExecutionContext`，工具可上报阶段计时**：`ctx.phase(label)` 表示「从此刻起开始做 label 这一段」，下一次 `ctx.phase` 调用（或 tool_execution_end）隐含上一段结束。每次调用 push 一条 `tool_execution_phase` AgentEvent（含 `toolCallId / toolName / label / atMs`，`atMs` 是相对 startedAt 的偏移）。`tool_execution_start` 事件加 `startedAt`、`tool_execution_end` 加 `startedAt / durationMs / phases`。导出新类型 `ToolPhase` 与 `ToolExecutionContext`。旧工具不传 `ctx` 仍正常工作——`phases` 为空数组、startedAt/durationMs 仍由 agent-loop 计算并上报。设计意图：让上层（coding-agent / desktop-app）能持久化并 UI 展示工具内部分段耗时，同时通过把数据放在事件而非 result.content 里、由调用方决定如何存——保证 timing 不混进 LLM 上下文。
 
 ## [0.55.2] - 2026-03-06
 
@@ -233,7 +250,7 @@
 
 - **`UserMessageWithAttachments` and `Attachment` types removed**: Attachment handling is now the responsibility of the `convertToLlm` function.
 
-- **Agent loop moved from `@mariozechner/pi-ai`**: The `agentLoop`, `agentLoopContinue`, and related types have moved to this package. Import from `@mariozechner/pi-agent-core` instead.
+- **Agent loop moved from `@vetta/ai`**: The `agentLoop`, `agentLoopContinue`, and related types have moved to this package. Import from `@vetta/agent-core` instead.
 
 ### Added
 

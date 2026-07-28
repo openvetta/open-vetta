@@ -28,6 +28,41 @@ type Options struct {
 	// ExtraEnv is added to each subprocess's environment. Reserved for
 	// future use; current callers leave it empty.
 	ExtraEnv map[string]string
+
+	// SessionDir, when non-empty, is forwarded as `--session-dir`. The
+	// IM host runtime sets this to `<conversationCwd>/.vetta/sessions/`
+	// to match desktop-app's `resolveSessionDirForCwd` convention so
+	// IM-created session .jsonl files appear in the desktop sidebar
+	// under the default "对话" project. Empty → coding-agent falls back
+	// to `~/.vetta/agent/sessions/<encoded-cwd>/`.
+	SessionDir string
+
+	// BinPrefixArgs are prepended to the spawned subprocess's argv
+	// (after Bin, before --mode rpc). Desktop-app production uses this
+	// to inject `--agent-rpc`, the discriminator that flips Vetta.app
+	// into coding-agent CLI mode. In dev it carries the Electron main-
+	// entry path. Empty in `im-gateway start` standalone mode.
+	BinPrefixArgs []string
+
+	// EnableHostBridge appends `--enable-host-bridge` to the spawned
+	// coding-agent subprocess argv. The flag tells coding-agent to
+	// register the `im_send_attachment` tool and to accept `host_response`
+	// commands on stdin (see packages/coding-agent/docs/rpc.md and
+	// ADR-0006). Without it the agent has no way to call back into the
+	// IM transport — the tool is invisible to the LLM.
+	EnableHostBridge bool
+
+	// MemoryMode appends `--memory-mode` to the spawned coding-agent argv,
+	// enabling MEMORY.md cross-session memory, the `memory` tool, session
+	// rollover (replacing the LLM compaction layer), and the dated work log
+	// (ADR-0009). im-gateway sets it for the Claw conversation.
+	MemoryMode bool
+
+	// MemoryFile is forwarded as `--memory-file`. It must be an absolute,
+	// run-cwd-independent path (im-gateway sets it to
+	// `<conversationCwd>/MEMORY.md`) because the agent's run cwd is a daily
+	// date directory, not the conversation root. Only emitted when MemoryMode.
+	MemoryFile string
 }
 
 const (
@@ -71,7 +106,9 @@ var _ hostclient.HostClient = (*Client)(nil)
 //     by main.ts and return ErrSessionLocked. Otherwise return a generic
 //     error wrapping the captured stderr.
 func (c *Client) OpenSession(ctx context.Context, cwd, sessionPath string) (hostclient.HostSession, error) {
-	args := []string{"--mode", "rpc", "--cwd", cwd}
+	args := make([]string, 0, len(c.opts.BinPrefixArgs)+8)
+	args = append(args, c.opts.BinPrefixArgs...)
+	args = append(args, "--mode", "rpc", "--cwd", cwd)
 	// Empty sessionPath means "create a new session in this cwd". coding-agent
 	// expects --session to be omitted entirely in that case (passing it as
 	// empty string causes argument parsing errors). We capture the actual
@@ -79,6 +116,18 @@ func (c *Client) OpenSession(ctx context.Context, cwd, sessionPath string) (host
 	// get_state response, see session.handshake / session.resolvedSessionPath.
 	if sessionPath != "" {
 		args = append(args, "--session", sessionPath)
+	}
+	if c.opts.SessionDir != "" {
+		args = append(args, "--session-dir", c.opts.SessionDir)
+	}
+	if c.opts.EnableHostBridge {
+		args = append(args, "--enable-host-bridge")
+	}
+	if c.opts.MemoryMode {
+		args = append(args, "--memory-mode")
+		if c.opts.MemoryFile != "" {
+			args = append(args, "--memory-file", c.opts.MemoryFile)
+		}
 	}
 	cmd := exec.CommandContext(ctx, c.opts.Bin, args...)
 	// CRITICAL: explicitly set the subprocess's working directory.
@@ -173,6 +222,14 @@ func (s *session) handshake(ctx context.Context, timeout time.Duration) error {
 		default:
 		}
 		if errors.Is(err, context.DeadlineExceeded) {
+			// The subprocess is still alive (otherwise the s.exited branch
+			// above would have fired) but never answered get_state in time.
+			// Its stderr is the only window into why — surface it instead of
+			// swallowing it, so a child that hangs in startup (e.g. Electron
+			// sandbox/GPU init on Linux) is diagnosable without re-spawning.
+			if tail := s.tailStderr(); tail != "" {
+				return fmt.Errorf("hostclient/local: handshake timed out after %v; subprocess stderr: %s", timeout, tail)
+			}
 			return fmt.Errorf("hostclient/local: handshake timed out after %v", timeout)
 		}
 		return fmt.Errorf("hostclient/local: handshake failed: %w", err)

@@ -1,4 +1,4 @@
-import type { Transport } from "@mariozechner/pi-ai";
+import type { Transport } from "@vetta/ai";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
 import lockfile from "proper-lockfile";
@@ -28,8 +28,14 @@ export interface TerminalSettings {
 }
 
 export interface ImageSettings {
-	autoResize?: boolean; // default: true (resize images to 2000x2000 max for better model compatibility)
+	autoResize?: boolean; // default: true (resize images to 1280x1280 max for better model compatibility)
 	blockImages?: boolean; // default: false - when true, prevents all images from being sent to LLM providers
+	maxRecentImages?: number; // default: 2 - keep this many most-recent images in context, replace older with text placeholder. <=0 disables (keep all)
+}
+
+export interface PersonalizationSettings {
+	personaId?: string; // default: "default" (no-op). Selected persona id, resolved against the persona registry.
+	customPrompt?: string; // default: "" - free-text custom instructions appended on top of the persona
 }
 
 export interface ThinkingBudgetsSettings {
@@ -64,7 +70,7 @@ export interface Settings {
 	lastChangelogVersion?: string;
 	defaultProvider?: string;
 	defaultModel?: string;
-	defaultThinkingLevel?: "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
+	defaultThinkingLevel?: string;
 	transport?: TransportSetting; // default: "sse"
 	steeringMode?: "all" | "one-at-a-time";
 	followUpMode?: "all" | "one-at-a-time";
@@ -85,6 +91,7 @@ export interface Settings {
 	enableSkillCommands?: boolean; // default: true - register skills as /skill:name commands
 	terminal?: TerminalSettings;
 	images?: ImageSettings;
+	personalization?: PersonalizationSettings; // 全局个性化：人设选择 + 自定义指令，追加到系统提示词末尾
 	enabledModels?: string[]; // Model patterns for cycling (same format as --models CLI flag)
 	doubleEscapeAction?: "fork" | "tree" | "none"; // Action for double-escape with empty editor (default: "tree")
 	thinkingBudgets?: ThinkingBudgetsSettings; // Custom token budgets for thinking levels
@@ -360,6 +367,45 @@ export class SettingsManager {
 		this.settings = deepMergeSettings(this.globalSettings, this.projectSettings);
 	}
 
+	/**
+	 * Re-read only the `images` settings block from storage and refresh the
+	 * in-memory merged view. This is a cheap, targeted lazy-reload used at prompt
+	 * entry so a desktop "上下文策略" change (e.g. maxRecentImages) takes effect on
+	 * the session's next turn without a restart — mirrors the MCP/skills
+	 * lazy-reload-at-prompt pattern. Scoped to `images` so it never clobbers other
+	 * in-memory state (modified-field markers, session overrides).
+	 */
+	reloadImageSettings(): void {
+		const globalLoad = SettingsManager.tryLoadFromStorage(this.storage, "global");
+		if (!globalLoad.error) {
+			this.globalSettings.images = globalLoad.settings.images;
+		}
+		const projectLoad = SettingsManager.tryLoadFromStorage(this.storage, "project");
+		if (!projectLoad.error) {
+			this.projectSettings.images = projectLoad.settings.images;
+		}
+		this.settings = deepMergeSettings(this.globalSettings, this.projectSettings);
+	}
+
+	/**
+	 * Re-read only the `personalization` block from storage and refresh the merged
+	 * view. Cheap, targeted lazy-reload used at prompt entry so a desktop 个性化
+	 * change (人设 / 自定义指令) takes effect on the session's next turn without a
+	 * restart — mirrors reloadImageSettings / the MCP lazy-reload pattern. Scoped to
+	 * `personalization` so it never clobbers other in-memory state.
+	 */
+	reloadPersonalizationSettings(): void {
+		const globalLoad = SettingsManager.tryLoadFromStorage(this.storage, "global");
+		if (!globalLoad.error) {
+			this.globalSettings.personalization = globalLoad.settings.personalization;
+		}
+		const projectLoad = SettingsManager.tryLoadFromStorage(this.storage, "project");
+		if (!projectLoad.error) {
+			this.projectSettings.personalization = projectLoad.settings.personalization;
+		}
+		this.settings = deepMergeSettings(this.globalSettings, this.projectSettings);
+	}
+
 	/** Apply additional overrides on top of current settings */
 	applyOverrides(overrides: Partial<Settings>): void {
 		this.settings = deepMergeSettings(this.settings, overrides);
@@ -563,11 +609,11 @@ export class SettingsManager {
 		this.save();
 	}
 
-	getDefaultThinkingLevel(): "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | undefined {
+	getDefaultThinkingLevel(): string | undefined {
 		return this.settings.defaultThinkingLevel;
 	}
 
-	setDefaultThinkingLevel(level: "off" | "minimal" | "low" | "medium" | "high" | "xhigh"): void {
+	setDefaultThinkingLevel(level: string): void {
 		this.globalSettings.defaultThinkingLevel = level;
 		this.markModified("defaultThinkingLevel");
 		this.save();
@@ -853,6 +899,27 @@ export class SettingsManager {
 		this.globalSettings.images.blockImages = blocked;
 		this.markModified("images", "blockImages");
 		this.save();
+	}
+
+	getMaxRecentImages(): number {
+		return this.settings.images?.maxRecentImages ?? 2;
+	}
+
+	setMaxRecentImages(count: number): void {
+		if (!this.globalSettings.images) {
+			this.globalSettings.images = {};
+		}
+		this.globalSettings.images.maxRecentImages = count;
+		this.markModified("images", "maxRecentImages");
+		this.save();
+	}
+
+	/** 个性化配置，已应用默认值（personaId 缺省为 "default"，customPrompt 缺省为 ""）。 */
+	getPersonalization(): { personaId: string; customPrompt: string } {
+		return {
+			personaId: this.settings.personalization?.personaId ?? "default",
+			customPrompt: this.settings.personalization?.customPrompt ?? "",
+		};
 	}
 
 	getEnabledModels(): string[] | undefined {
