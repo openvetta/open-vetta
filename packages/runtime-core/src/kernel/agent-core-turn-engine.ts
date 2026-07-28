@@ -78,6 +78,7 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 
 	private createConfig(request: TurnEngineRequest): AgentLoopConfig {
 		const inputQueue = request.inputQueue;
+		const contextTransformer = request.snapshot.modelCallContextTransformer;
 		const model = request.modelBinding?.model ?? this.options.model;
 		if (!model) {
 			throw turnProtocolError("Agent Core turn requires a model binding");
@@ -92,6 +93,25 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 			sessionId: request.sessionId,
 			getApiKey,
 			convertToLlm: convertToLlm,
+			transformContext: contextTransformer
+				? async (messages, signal) => {
+						const executionSignal = signal ?? request.signal;
+						return [
+							...(await contextTransformer.transform(
+								{
+									sessionId: request.sessionId,
+									turnId: request.turnId,
+									messages: messages.filter(isRuntimeMessage),
+									modelBinding: request.modelBinding ?? {
+										model,
+										reasoning: this.options.streamOptions?.reasoning,
+									},
+								},
+								executionSignal,
+							)),
+						];
+					}
+				: undefined,
 			getSteeringMessages: inputQueue ? async () => [...inputQueue.takeSteering()] : undefined,
 			getContinuationMessages:
 				inputQueue || request.snapshot.continuationPolicy

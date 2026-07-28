@@ -104,19 +104,30 @@ export function selectConversationDocumentMessages(document: ConversationDocumen
 
 /** 选择活动分支上提供给模型的标准消息与显式可见上下文。 */
 export function selectConversationDocumentModelMessages(document: ConversationDocument): readonly Message[] {
-	return selectBranch(document.entries, document.activeLeafId).flatMap((entry) => {
-		if (entry.type === "message" && isMessage(entry.message)) return [entry.message];
-		if (entry.type !== "custom_message" || entry.modelVisible !== true || !isUserMessageContent(entry.content)) {
-			return [];
+	const branch = selectBranch(document.entries, document.activeLeafId);
+	let compactionIndex = -1;
+	for (let index = branch.length - 1; index >= 0; index -= 1) {
+		const entry = branch[index];
+		if (entry?.type === "compaction" && entry.summaryMessage !== undefined) {
+			compactionIndex = index;
+			break;
 		}
-		return [
-			{
-				role: "user",
-				content: entry.content,
-				timestamp: new Date(entry.timestamp).getTime(),
-			} satisfies UserMessage,
-		];
-	});
+	}
+	if (compactionIndex < 0) return branch.flatMap(projectModelMessages);
+
+	const compaction = branch[compactionIndex];
+	if (compaction.type !== "compaction" || !compaction.summaryMessage) return branch.flatMap(projectModelMessages);
+	const firstKeptIndex = branch
+		.slice(0, compactionIndex)
+		.findIndex((entry) => entry.id === compaction.firstKeptEntryId);
+	if (firstKeptIndex < 0) {
+		throw new Error(`Compaction first kept entry is not before the compaction: ${compaction.firstKeptEntryId}`);
+	}
+	return [
+		compaction.summaryMessage,
+		...branch.slice(firstKeptIndex, compactionIndex).flatMap(projectModelMessages),
+		...branch.slice(compactionIndex + 1).flatMap(projectModelMessages),
+	];
 }
 
 export function selectConversationDocumentEntries(
@@ -308,6 +319,20 @@ function extractText(value: unknown): string {
 		})
 		.map((item) => item.text)
 		.join("");
+}
+
+function projectModelMessages(entry: ConversationDocumentEntry): readonly Message[] {
+	if (entry.type === "message" && isMessage(entry.message)) return [entry.message];
+	if (entry.type !== "custom_message" || entry.modelVisible !== true || !isUserMessageContent(entry.content)) {
+		return [];
+	}
+	return [
+		{
+			role: "user",
+			content: entry.content,
+			timestamp: new Date(entry.timestamp).getTime(),
+		} satisfies UserMessage,
+	];
 }
 
 function isMessage(value: unknown): value is Message {

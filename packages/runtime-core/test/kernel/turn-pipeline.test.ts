@@ -1,6 +1,11 @@
 import type { AssistantMessage, Message, UserMessage } from "@vetta/ai";
 import { describe, expect, it } from "vitest";
 import {
+	type ConversationDocument,
+	type ConversationDocumentReader,
+	createEmptyConversationDocument,
+} from "../../src/conversation/index.js";
+import {
 	BufferedRuntimeSessionContext,
 	type Clock,
 	type ContextStrategy,
@@ -208,6 +213,7 @@ async function createHarness(options?: {
 	readonly runtimeSnapshot?: RuntimeSnapshot;
 	readonly eventSink?: EventSink;
 	readonly runtimeContext?: RuntimeSessionContextBuffer;
+	readonly conversationDocumentReader?: ConversationDocumentReader;
 }) {
 	const repository = new InMemoryConversationRepository();
 	const contextStrategy = options?.contextStrategy ?? new RecordingContextStrategy();
@@ -221,6 +227,7 @@ async function createHarness(options?: {
 		clock: new TestClock(),
 		idGenerator: new TestIdGenerator(),
 		runtimeContext: options?.runtimeContext,
+		conversationDocumentReader: options?.conversationDocumentReader,
 	});
 	const session = await createAgentSession({
 		id: "session-1",
@@ -339,6 +346,54 @@ describe("greenfield runtime kernel", () => {
 			"context.appended",
 			"context.appended",
 			"message.appended",
+			"message.appended",
+			"turn.completed",
+		]);
+	});
+
+	it("persists the current input atomically before committing a prepared compaction", async () => {
+		const document = createEmptyConversationDocument({ sessionId: "session-1", createdAt: 1 });
+		let preparedHistory: readonly Message[] = [];
+		let preparedDocument: ConversationDocument | undefined;
+		let committed = false;
+		const contextStrategy: ContextStrategy = {
+			async prepare(input) {
+				preparedHistory = input.historyMessages;
+				preparedDocument = input.document;
+				return {
+					messages: input.messages,
+					estimatedTokens: 1,
+					compaction: {
+						summary: "summary",
+						summaryMessage: userMessage("summary"),
+						firstKeptEntryId: "existing-entry",
+						tokensBefore: 10,
+						reason: "threshold",
+					},
+				};
+			},
+			async onCompactionCommitted() {
+				committed = true;
+			},
+		};
+		const harness = await createHarness({
+			contextStrategy,
+			conversationDocumentReader: {
+				async readDocument() {
+					return document;
+				},
+			},
+		});
+
+		await harness.session.send({ message: userMessage("current input") });
+
+		expect(preparedHistory).toEqual([]);
+		expect(preparedDocument).toBe(document);
+		expect(committed).toBe(true);
+		expect((await harness.repository.load("session-1")).events.map(({ type }) => type)).toEqual([
+			"turn.started",
+			"message.appended",
+			"context.compacted",
 			"message.appended",
 			"turn.completed",
 		]);

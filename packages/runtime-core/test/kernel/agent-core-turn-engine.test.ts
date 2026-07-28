@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 import {
 	AgentCoreTurnEngine,
 	type ContinuationPolicy,
+	type ModelCallContextTransformer,
 	type ModelCallFrameComposer,
 	type RuntimeSnapshot,
 	type RuntimeToolDefinition,
@@ -120,6 +121,7 @@ function snapshot(options?: {
 	readonly authorize?: (request: ToolPolicyRequest, signal: AbortSignal) => Promise<boolean>;
 	readonly modelCallFrameComposer?: ModelCallFrameComposer;
 	readonly continuationPolicy?: ContinuationPolicy;
+	readonly modelCallContextTransformer?: ModelCallContextTransformer;
 }): RuntimeSnapshot {
 	return {
 		id: "snapshot-1",
@@ -130,6 +132,7 @@ function snapshot(options?: {
 		tools: new Map((options?.tools ?? []).map((tool) => [tool.name, tool])),
 		modelCallFrameComposer: options?.modelCallFrameComposer,
 		continuationPolicy: options?.continuationPolicy,
+		modelCallContextTransformer: options?.modelCallContextTransformer,
 		contextProviders: [],
 		contextStrategy: {
 			async prepare(input) {
@@ -334,6 +337,64 @@ describe("AgentCoreTurnEngine", () => {
 			type: "completed",
 			stopReason: "stop",
 		});
+	});
+
+	it("applies the session context transformer before every model call without mutating persisted messages", async () => {
+		const transformedRoles: string[][] = [];
+		const contexts: Context[] = [];
+		const responses = [
+			assistantMessage(
+				[{ type: "toolCall", id: "tool-call-1", name: "echo", arguments: { value: "hello" } }],
+				"toolUse",
+			),
+			assistantMessage([{ type: "text", text: "finished" }]),
+		];
+		let responseIndex = 0;
+		const engine = new AgentCoreTurnEngine({
+			model: model(),
+			streamFn: (_model, context) => {
+				contexts.push({ ...context, messages: [...context.messages] });
+				const response = responses[responseIndex];
+				responseIndex += 1;
+				if (!response) throw new Error("Missing recorded response");
+				return new RecordedAssistantStream(response);
+			},
+		});
+		const runtimeSnapshot = snapshot({
+			tools: [
+				{
+					name: "echo",
+					label: "Echo",
+					description: "Echo",
+					inputSchema: { type: "object" },
+					async execute() {
+						return { content: [{ type: "text", text: "echoed" }] };
+					},
+				},
+			],
+			modelCallContextTransformer: {
+				async transform(input) {
+					transformedRoles.push(input.messages.map(({ role }) => role));
+					return [
+						{ role: "user", content: `transformed-${transformedRoles.length}`, timestamp: 0 },
+						...input.messages.slice(1),
+					];
+				},
+			},
+		});
+
+		const events = await collect(engine, runtimeSnapshot);
+
+		expect(transformedRoles).toEqual([["user"], ["user", "assistant", "toolResult"]]);
+		expect(contexts.map(({ messages }) => messageText(messages[0] as Message))).toEqual([
+			"transformed-1",
+			"transformed-2",
+		]);
+		expect(
+			events
+				.filter((event): event is Extract<TurnEngineEvent, { type: "message" }> => event.type === "message")
+				.map(({ message }) => message.role),
+		).toEqual(["assistant", "toolResult", "assistant"]);
 	});
 
 	it("turns policy rejection into a tool error without calling the implementation", async () => {

@@ -2,6 +2,7 @@
 
 ### Added
 
+- **Greenfield Session-local Context Runtime**：每个 Greenfield Session 复用既有阈值、摘要、prefire、microcompact 与熔断算法，持有唯一上下文状态；阈值压缩经 Conversation Document 持久化，Pre/PostCompact 使用同一 Hook Runtime，microcompact 在每次模型调用前执行且不改写历史，create/resume 均可恢复 context usage。
 - **Greenfield Session-local Ecosystem Hook Runtime**：每个 Greenfield Session 创建唯一 Hook Runtime，并贯通 SessionStart/UserPromptSubmit、最终动态 Tool Surface、Stop continuation 和 SessionEnd dispose；Tool Hook 复用旧 wrapper 的输入改写、MCP descriptor、PostToolUse/Failure 与附加上下文语义，运行期上下文经 Runtime Core 串行持久化，动态插件工具也在下一次 Model Call 自动获得 Hook。
 - **Greenfield Session-local Todo Runtime**：新增每会话唯一 Todo 状态所有者，由 Runtime Tool、Continuation、Scene Prompt、Session Controller 和 `todo_snapshot` 恢复共同使用；快照使用 TypeBox 校验并在 Tool Result/Turn 终态安全持久化，旧 Todo Tool 文案、锁定和顺序规则继续复用。
 - **Greenfield 会话级动态能力适配**：新增真实 ResourceLoader/TodoStore Prompt resolver 与旧 AgentTool 到 RuntimeTool 的协议适配；Skill/Scene 文件变化在下一 Prompt 生效，Scene 继续使用会话独占 TodoStore，Knowledge/MCP 可复用既有工具实现而无需复制业务逻辑。

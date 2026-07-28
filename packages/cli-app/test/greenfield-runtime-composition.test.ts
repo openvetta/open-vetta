@@ -85,9 +85,11 @@ describe("Greenfield runtime composition", () => {
 			{ model: MODEL, apiKey: "test-key", tools: ["read"] },
 			{ model: MODEL, apiKey: "test-key", tools: ["read"] },
 		]);
+		expect(session.readState()).toMatchObject({ contextPercent: 0.025, contextWindow: 8_000 });
 		await session.dispose();
 
 		const resumed = await composition.backend.resume({ sessionId: "session-1" });
+		expect(resumed.readState()).toMatchObject({ contextPercent: 0.025, contextWindow: 8_000 });
 		expect((await resumed.getMessages()).map(({ role }) => role)).toEqual([
 			"user",
 			"assistant",

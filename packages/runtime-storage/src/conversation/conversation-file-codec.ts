@@ -181,7 +181,11 @@ export function createDocumentEntryReference(
 }
 
 function isConversationDocumentEntryEvent(event: StoredSessionEvent): boolean {
-	return event.type === "message.appended" || event.type === "context.appended";
+	return (
+		event.type === "message.appended" ||
+		event.type === "context.appended" ||
+		(event.type === "context.compacted" && "firstKeptEntryId" in event.record)
+	);
 }
 
 function parseRecords(text: string, sessionId: string): unknown[] {

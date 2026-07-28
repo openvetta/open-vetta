@@ -145,7 +145,7 @@ function createSnapshot(
 	);
 	const observers = uniqueValues(
 		"observer",
-		contributions.flatMap((contribution) => contribution.observers ?? []),
+		[...(profile.observers ?? []), ...contributions.flatMap((contribution) => contribution.observers ?? [])],
 		({ id }) => id,
 	);
 	const modelCallProviders = uniqueValues(
@@ -161,6 +161,7 @@ function createSnapshot(
 		modelCallProviders: Object.freeze(modelCallProviders),
 		modelCallFrameComposer: profile.modelCallFrameComposer,
 		continuationPolicy: profile.continuationPolicy,
+		modelCallContextTransformer: profile.modelCallContextTransformer,
 		contextProviders: Object.freeze(contextProviders),
 		contextStrategy: profile.contextStrategy,
 		toolPolicy: profile.toolPolicy,

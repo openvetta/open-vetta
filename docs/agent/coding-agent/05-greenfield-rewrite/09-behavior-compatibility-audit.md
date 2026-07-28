@@ -677,6 +677,37 @@ create/resume source、静态及动态工具、Stop continuation、context 持�
 Pre/PostCompact、PermissionRequest、SubagentStart/SubagentStop，以及只有真实宿主切换操作才能表达的
 `new_session`/`switch_session`/`fork_session` SessionEnd 原因。
 
+### 2.18 Session-local Context Runtime 与原生压缩
+
+早期 Greenfield `ContextStrategy` 只是 passthrough，`context.compacted` 也只保存消息计数，无法确定
+活动分支切点或在重开后重建模型上下文。本阶段把持久压缩事实改为：
+
+```text
+exact summary message
+  + firstKeptEntryId
+  + tokensBefore / details / reason
+  -> Conversation Document compaction node
+  -> summary + kept tail model projection
+```
+
+完整聊天投影继续保留所有 user/assistant 消息。旧计数记录仍通过 TypeBox 联合 Schema 读取，但只推进
+journal，不改变分支。原生记录关闭并重开后恢复相同模型输入，摘要消息保存实际内容而不是按当前代码重新
+生成。
+
+Kernel 将可持久化的 Turn Context Strategy 与逐模型调用 transient Transformer 分开。Coding Agent 的
+Session-local Context Runtime 复用旧 threshold、prefire、摘要、microcompact 和 circuit breaker 算法；
+Pre/PostCompact 使用第 68 轮的同一 Hook Runtime。microcompact 每次模型调用执行且不改写 Repository，
+阈值摘要经 Pipeline 提交后才执行 Post Hook。成功 end 由持久 `context.compacted` 统一映射，避免重复事件。
+
+当前输入仍与 `turn.started` 原子写入；压缩决策使用写入前的 Document/历史，因此不把新 Prompt 摘入旧
+上下文。即时模型视图再补回 Provider 与当前输入 tail。Context Runtime 同时作为 Document Participant 与
+Observer，在 create/resume 时从投影恢复用量，运行中采用有效 assistant usage，CLI 状态不再返回未知比例。
+
+仍未达到完整旧行为等价：同一 Turn 的长 Tool Loop 只有 microcompact 在每次调用运行，Layer 2 threshold/
+prefire 尚未进入模型调用检查点；provider overflow 压缩自动重试、手动压缩、Extension 自定义压缩和
+memory-mode flush/rollover/JOURNAL 也未迁移。因此标准持久压缩切片可并行验证，但长会话生产路径仍不可
+切换。
+
 ## 3. 已实施模块审计
 
 | 模块 | 当前状态 | 与旧行为的差距 | 切换结论 |
@@ -697,7 +728,7 @@ Pre/PostCompact、PermissionRequest、SubagentStart/SubagentStop，以及只有�
 | Greenfield Session Backend | 独立门面、必需 Prompt Adapter/Runtime Factory、同步投影、显式 resume、Session-local Todo/Hook Runtime，以及 Lifecycle/History/Model/Workspace/Core Ports 已通过 | Host Interaction、Execution、Configuration、Background Work 等外围能力未实现；模型配置尚未持久化 | 可并行组合测试；不能注入生产 RuntimeHost |
 | Runtime Snapshot | 编译、冻结、lease、原子交换和动态 Model Call Provider 已实现 | Coding Profile 的完整默认能力与 scope 尚未装配 | 不可替代旧工具注册 |
 | Conversation Repository | V2 create/load/append/save、树形 Document 读写、活动分支、fork、跨实例文件锁和 Legacy importer 已实现 | Legacy/V1 历史结构写命令保持只读；模型配置尚无异步持久化合同 | 不可直接替代全部旧会话写路径 |
-| Context Strategy | 目前只有 passthrough 基础实现 | 旧 compaction、prefire、microcompact 和摘要行为未迁移 | 不可切换长会话 |
+| Context Strategy | Session-local Runtime 已接入原生摘要持久化、重开投影、外部 Turn threshold/prefire、逐模型调用 microcompact、Pre/PostCompact 和 usage 状态 | 尚缺同 Turn Layer 2 检查点、overflow retry、手动/Extension 压缩与 memory-mode rollover | 标准切片可并行验证；不可切换完整长会话 |
 | MCP / Skill / Knowledge / Subagent | Session 级 Skill/Scene Prompt、MCP 渐进披露与现有 Knowledge 工具来源已进入并行组合 | Subagent Runtime 未迁移；尚未形成完整生产 Profile | 不可切换对应生产 Profile |
 | Ecosystem Hook Runtime | 每 Session 唯一实例已贯通 Prompt、最终动态 Tool Surface、Stop、运行期 Context 和 dispose | Pre/PostCompact、PermissionRequest、Subagent Hook 与宿主切换原因未接入 | 并行组合已验证；默认生产入口不变 |
 | Desktop / CLI / RPC / IM Adapter | RuntimeHost 已完全通过稳定 Ports 编排；CLI Greenfield Composition Root 已具备真实模型、Prompt、动态能力、Todo、Hook、Continuation、SessionEvent 和文件恢复 | Greenfield 完整 Assembly、旧存储兼容及 Desktop/RPC/IM 实际宿主接线尚未完成 | 不可切换默认入口 |
@@ -740,10 +771,11 @@ Session-local Ecosystem Hook Runtime 的并行 Greenfield 组合已经建立。H
 SessionStart/UserPromptSubmit、最终动态 Tool Surface、Stop、运行期 Context 持久化和 dispose；默认旧
 AgentSession 与生产宿主入口保持不变。
 
-下一阶段应迁移真实 Context Strategy/Compaction 纵向切片。先从旧实现提取 context usage、prefire、
-microcompact、摘要、失败、取消和持久化行为矩阵，再让同一 Greenfield Session Hook Runtime 接入
-PreCompact/PostCompact。不能为了触发 Hook 伪造压缩事件，也不能把旧 AgentSession 压缩器整体下沉到
-Runtime Core。随后再按真实能力边界迁移 PermissionRequest、Subagent Runtime 和剩余 Assembly Port。
+下一阶段应补齐模型调用检查点的 Compaction Orchestrator：同 Turn Tool Loop 跨阈值、provider overflow
+后的压缩与自动重试、取消/单飞和排队输入必须先有独立合同，再增加手动压缩 Port。Extension 自定义压缩与
+memory-mode flush/rollover/JOURNAL 应继续作为产品能力层独立迁移，不能塞进 Runtime Core 或与标准
+Context Strategy 混成一个类。随后再按真实能力边界迁移 PermissionRequest、Subagent Runtime 和剩余
+Assembly Port。
 
 模型配置持久化仍必须使用显式异步合同，不能在同步 setter 中 fire-and-forget；完整 Assembly 就绪前不
 替换默认旧后端。最终生产切换仍需完整 Profile 差分、旧存储兼容和 Desktop/RPC/IM 宿主验证。真实 GitHub

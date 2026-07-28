@@ -8,6 +8,7 @@ import type {
 	TextContent,
 	UserMessage,
 } from "@vetta/ai";
+import type { ConversationDocument } from "../conversation/document.js";
 import type { RuntimeSessionObservationEvent } from "../session-observation.js";
 
 export type AgentSessionState = "idle" | "running" | "cancelling" | "closing" | "closed";
@@ -106,27 +107,67 @@ export interface ContextProvider {
 	provide(input: ContextProviderInput, signal: AbortSignal): Promise<readonly Message[]>;
 }
 
-export interface CompactionRecord {
+/** 早期 Greenfield V2 只记录计数；保留读取兼容，但不会改变 Conversation Document 投影。 */
+export interface LegacyCompactionRecord {
 	readonly id: string;
 	readonly sourceMessageCount: number;
 	readonly resultMessageCount: number;
 	readonly summary?: string;
 }
 
+/** 能够重建活动分支模型上下文的持久化压缩事实。 */
+export interface ContextCompactionRecord {
+	readonly summary: string;
+	readonly summaryMessage: UserMessage;
+	readonly firstKeptEntryId: string;
+	readonly tokensBefore: number;
+	readonly details?: unknown;
+	readonly fromHook?: boolean;
+	readonly reason: "manual" | "threshold" | "overflow";
+}
+
+export type CompactionRecord = LegacyCompactionRecord | ContextCompactionRecord;
+
 export interface ContextPreparationInput {
+	readonly sessionId: string;
+	readonly turnId: string;
+	/** Provider 与当前输入已经按模型可见顺序组装后的完整调用上下文。 */
 	readonly messages: readonly Message[];
+	/** 当前 Turn 输入写入前的持久化活动分支消息。 */
+	readonly historyMessages: readonly Message[];
 	readonly tokenBudget: number;
 	readonly reservedOutputTokens: number;
+	readonly modelBinding?: RuntimeTurnModelBinding;
+	/** 当前 Turn 输入写入前的活动 Conversation Document。 */
+	readonly document?: ConversationDocument;
+	reportObservation(observation: RuntimeSessionObservationEvent): Promise<void>;
 }
 
 export interface PreparedContext {
 	readonly messages: readonly Message[];
 	readonly estimatedTokens: number;
-	readonly compaction?: CompactionRecord;
+	readonly compaction?: ContextCompactionRecord;
 }
 
 export interface ContextStrategy {
 	prepare(input: ContextPreparationInput, signal: AbortSignal): Promise<PreparedContext>;
+	onCompactionCommitted?(
+		record: ContextCompactionRecord,
+		input: ContextPreparationInput,
+		signal: AbortSignal,
+	): Promise<void>;
+}
+
+export interface ModelCallContextTransformationInput {
+	readonly sessionId: string;
+	readonly turnId: string;
+	readonly messages: readonly Message[];
+	readonly modelBinding: RuntimeTurnModelBinding;
+}
+
+/** 每次 LLM 调用前运行的 transient 消息变换；结果不直接写入会话历史。 */
+export interface ModelCallContextTransformer {
+	transform(input: ModelCallContextTransformationInput, signal: AbortSignal): Promise<readonly Message[]>;
 }
 
 export interface ModelCallContributionContext {
@@ -201,6 +242,7 @@ export interface RuntimeSnapshot {
 	readonly modelCallProviders?: readonly ModelCallContributionProvider[];
 	readonly modelCallFrameComposer?: ModelCallFrameComposer;
 	readonly continuationPolicy?: ContinuationPolicy;
+	readonly modelCallContextTransformer?: ModelCallContextTransformer;
 	readonly contextProviders: readonly ContextProvider[];
 	readonly contextStrategy: ContextStrategy;
 	readonly toolPolicy: ToolPolicy;
@@ -261,8 +303,10 @@ export interface AgentProfile {
 	readonly id: string;
 	readonly instructions: readonly InstructionBlock[];
 	readonly features: readonly AgentFeatureDefinition[];
+	readonly observers?: readonly TurnObserver[];
 	readonly modelCallFrameComposer?: ModelCallFrameComposer;
 	readonly continuationPolicy?: ContinuationPolicy;
+	readonly modelCallContextTransformer?: ModelCallContextTransformer;
 	readonly contextStrategy: ContextStrategy;
 	readonly toolPolicy: ToolPolicy;
 	readonly tokenBudget: number;

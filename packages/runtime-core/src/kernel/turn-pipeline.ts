@@ -1,4 +1,6 @@
 import type { Message, StopReason } from "@vetta/ai";
+import type { ConversationDocumentReader } from "../conversation/document.js";
+import type { RuntimeSessionObservationEvent } from "../session-observation.js";
 import type {
 	Clock,
 	ContextProvider,
@@ -34,6 +36,7 @@ export interface TurnPipelineOptions {
 	readonly idGenerator: IdGenerator;
 	readonly recoveryPolicy?: ConversationRecoveryPolicy;
 	readonly runtimeContext?: RuntimeSessionContextBuffer;
+	readonly conversationDocumentReader?: ConversationDocumentReader;
 }
 
 interface MutableTurnState {
@@ -53,6 +56,7 @@ export class TurnPipeline {
 	private readonly idGenerator: IdGenerator;
 	private readonly recoveryPolicy: ConversationRecoveryPolicy;
 	private readonly runtimeContext: RuntimeSessionContextBuffer | undefined;
+	private readonly conversationDocumentReader: ConversationDocumentReader | undefined;
 
 	constructor(options: TurnPipelineOptions) {
 		this.repository = options.repository;
@@ -64,6 +68,7 @@ export class TurnPipeline {
 		this.idGenerator = options.idGenerator;
 		this.recoveryPolicy = options.recoveryPolicy ?? new FailInterruptedTurnRecoveryPolicy();
 		this.runtimeContext = options.runtimeContext;
+		this.conversationDocumentReader = options.conversationDocumentReader;
 	}
 
 	async createSession(sessionId: string): Promise<void> {
@@ -132,6 +137,7 @@ export class TurnPipeline {
 
 			await this.enterStage(sessionId, turnId, "conversation_loading");
 			const conversation = await this.repository.load(sessionId);
+			const conversationDocument = await this.conversationDocumentReader?.readDocument(sessionId);
 			state.version = conversation.version;
 			signal.throwIfAborted();
 
@@ -187,14 +193,19 @@ export class TurnPipeline {
 				: [...conversation.messages, ...providerMessages];
 
 			await this.enterStage(sessionId, turnId, "context_preparation");
-			const prepared = await snapshot.contextStrategy.prepare(
-				{
-					messages: assembledMessages,
-					tokenBudget: snapshot.tokenBudget,
-					reservedOutputTokens: snapshot.reservedOutputTokens,
-				},
-				signal,
-			);
+			const preparationInput = {
+				sessionId,
+				turnId,
+				messages: assembledMessages,
+				historyMessages: conversation.messages,
+				tokenBudget: snapshot.tokenBudget,
+				reservedOutputTokens: snapshot.reservedOutputTokens,
+				modelBinding,
+				document: conversationDocument,
+				reportObservation: (observation: RuntimeSessionObservationEvent) =>
+					this.publishObservation(sessionId, turnId, observation),
+			};
+			const prepared = await snapshot.contextStrategy.prepare(preparationInput, signal);
 			signal.throwIfAborted();
 
 			if (prepared.compaction) {
@@ -207,6 +218,7 @@ export class TurnPipeline {
 						timestamp: this.clock.now(),
 					},
 				]);
+				await snapshot.contextStrategy.onCompactionCommitted?.(prepared.compaction, preparationInput, signal);
 			}
 
 			await this.enterStage(sessionId, turnId, "execution");
@@ -230,13 +242,7 @@ export class TurnPipeline {
 					continue;
 				}
 				if (event.type === "observation") {
-					await this.publishSafely({
-						type: "session.observation",
-						sessionId,
-						turnId,
-						observation: event.observation,
-						timestamp: event.observation.timestamp ?? this.clock.now(),
-					});
+					await this.publishObservation(sessionId, turnId, event.observation);
 					continue;
 				}
 
@@ -404,6 +410,20 @@ export class TurnPipeline {
 			turnId,
 			stage,
 			timestamp: this.clock.now(),
+		});
+	}
+
+	private async publishObservation(
+		sessionId: string,
+		turnId: string,
+		observation: RuntimeSessionObservationEvent,
+	): Promise<void> {
+		await this.publishSafely({
+			type: "session.observation",
+			sessionId,
+			turnId,
+			observation,
+			timestamp: observation.timestamp ?? this.clock.now(),
 		});
 	}
 

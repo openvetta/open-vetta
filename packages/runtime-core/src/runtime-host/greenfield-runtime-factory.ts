@@ -117,6 +117,7 @@ export class ComposedGreenfieldRuntimeFactory<TCreateOptions> implements Greenfi
 				clock: this.clock,
 				idGenerator: this.idGenerator,
 				runtimeContext,
+				conversationDocumentReader: resources.conversationDocumentStore,
 			});
 			const sessionOptions = {
 				id: resources.sessionId,

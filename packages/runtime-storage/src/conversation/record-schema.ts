@@ -116,7 +116,7 @@ export const ConversationMessageSchema = Type.Union([
 	ToolResultMessageSchema,
 ]);
 
-const CompactionRecordSchema = Type.Object(
+const LegacyCompactionRecordSchema = Type.Object(
 	{
 		id: Type.String(),
 		sourceMessageCount: Type.Integer({ minimum: 0 }),
@@ -125,6 +125,21 @@ const CompactionRecordSchema = Type.Object(
 	},
 	{ additionalProperties: false },
 );
+
+const ContextCompactionRecordSchema = Type.Object(
+	{
+		summary: Type.String(),
+		summaryMessage: UserMessageSchema,
+		firstKeptEntryId: Type.String(),
+		tokensBefore: Type.Number({ minimum: 0 }),
+		details: Type.Optional(Type.Unknown()),
+		fromHook: Type.Optional(Type.Boolean()),
+		reason: Type.Union([Type.Literal("manual"), Type.Literal("threshold"), Type.Literal("overflow")]),
+	},
+	{ additionalProperties: false },
+);
+
+const CompactionRecordSchema = Type.Union([LegacyCompactionRecordSchema, ContextCompactionRecordSchema]);
 
 const TurnStartedEventSchema = Type.Object(
 	{

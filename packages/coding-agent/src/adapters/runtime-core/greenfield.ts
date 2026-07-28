@@ -7,6 +7,11 @@ export {
 	type HookDispatchOutcome,
 } from "@vetta/ecosystem-adapter";
 export {
+	type CodingAgentContextUsage,
+	CodingAgentGreenfieldContextRuntime,
+	type CodingAgentGreenfieldContextRuntimeOptions,
+} from "./greenfield-context-runtime.js";
+export {
 	CodingAgentContinuationOrchestrator,
 	type CodingAgentContinuationOrchestratorOptions,
 	type CodingAgentContinuationSource,

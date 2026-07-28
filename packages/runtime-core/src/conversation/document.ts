@@ -1,5 +1,6 @@
 import type { ToolPhase } from "@vetta/agent-core";
-import type { StoredSessionEvent } from "../kernel/contracts.js";
+import type { UserMessage } from "@vetta/ai";
+import type { ContextCompactionRecord, StoredSessionEvent } from "../kernel/contracts.js";
 
 export interface ConversationDocumentIdentity {
 	readonly sessionId: string;
@@ -28,6 +29,9 @@ export interface ConversationDocumentCompactionEntry extends ConversationDocumen
 	readonly tokensBefore: number;
 	readonly details?: unknown;
 	readonly fromHook?: boolean;
+	/** Native Greenfield records persist the exact model-visible summary message. */
+	readonly summaryMessage?: UserMessage;
+	readonly reason?: ContextCompactionRecord["reason"];
 }
 
 export interface ConversationDocumentBranchSummaryEntry extends ConversationDocumentEntryBase {
@@ -138,7 +142,7 @@ export function applyStoredEventToConversationDocument(
 	if (sequence !== document.journalVersion + 1) {
 		throw new Error(`Conversation document journal sequence ${sequence} does not follow ${document.journalVersion}`);
 	}
-	if (event.type !== "message.appended" && event.type !== "context.appended") {
+	if (event.type !== "message.appended" && event.type !== "context.appended" && !isPersistentCompactionEvent(event)) {
 		return { ...document, journalVersion: sequence };
 	}
 
@@ -154,6 +158,32 @@ export function applyStoredEventToConversationDocument(
 	}
 	if (entryReference.parentId && !document.entries.some((entry) => entry.id === entryReference.parentId)) {
 		throw new Error(`Conversation document parent does not exist: ${entryReference.parentId}`);
+	}
+	if (isPersistentCompactionEvent(event)) {
+		const activeBranchIds = new Set(selectBranchIds(document));
+		if (!activeBranchIds.has(event.record.firstKeptEntryId)) {
+			throw new Error(`Compaction first kept entry is not on the active branch: ${event.record.firstKeptEntryId}`);
+		}
+		return {
+			...document,
+			journalVersion: sequence,
+			revision: document.revision + 1,
+			entries: [
+				...document.entries,
+				{
+					type: "compaction",
+					...entryReference,
+					summary: event.record.summary,
+					summaryMessage: event.record.summaryMessage,
+					firstKeptEntryId: event.record.firstKeptEntryId,
+					tokensBefore: event.record.tokensBefore,
+					details: event.record.details,
+					fromHook: event.record.fromHook,
+					reason: event.record.reason,
+				},
+			],
+			activeLeafId: entryReference.id,
+		};
 	}
 	return {
 		...document,
@@ -179,4 +209,24 @@ export function applyStoredEventToConversationDocument(
 		],
 		activeLeafId: entryReference.id,
 	};
+}
+
+function isPersistentCompactionEvent(event: StoredSessionEvent): event is Extract<
+	StoredSessionEvent,
+	{ readonly type: "context.compacted" }
+> & {
+	readonly record: ContextCompactionRecord;
+} {
+	return event.type === "context.compacted" && "firstKeptEntryId" in event.record;
+}
+
+function selectBranchIds(document: ConversationDocument): readonly string[] {
+	const byId = new Map(document.entries.map((entry) => [entry.id, entry]));
+	const ids: string[] = [];
+	let current = document.activeLeafId ? byId.get(document.activeLeafId) : undefined;
+	while (current) {
+		ids.unshift(current.id);
+		current = current.parentId ? byId.get(current.parentId) : undefined;
+	}
+	return ids;
 }

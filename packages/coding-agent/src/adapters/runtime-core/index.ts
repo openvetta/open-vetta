@@ -11,6 +11,11 @@ export {
 	type LegacyRuntimeHostOptions,
 } from "./composition.js";
 export {
+	type CodingAgentContextUsage,
+	CodingAgentGreenfieldContextRuntime,
+	type CodingAgentGreenfieldContextRuntimeOptions,
+} from "./greenfield-context-runtime.js";
+export {
 	CodingAgentContinuationOrchestrator,
 	type CodingAgentContinuationOrchestratorOptions,
 	type CodingAgentContinuationSource,
