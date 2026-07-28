@@ -3,6 +3,7 @@ import { useMatches, useNavigate } from "@tanstack/react-router";
 import { getDefaultStore, useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../domains/auth/hooks/useAuth";
+import { loadNewSessionPage } from "../domains/chat/components/loadNewSessionPage";
 import { useAppInit } from "../domains/chat/hooks/useAppInit";
 import { useSessionManager } from "../domains/chat/hooks/useSessionManager";
 import { useNotificationInit } from "../domains/message/hooks/useNotificationInit";
@@ -90,10 +91,20 @@ export function useRootLayoutModel(): RootLayoutModel {
 	useMessageQueueDispatcher();
 	const { openSession, sendMessage } = useSessionManager();
 
+	// 没有待恢复会话时提前加载 NewSession 路由代码；侧栏项目/会话列表可继续独立加载。
+	// 页面本身仍等路由守卫确认后再挂载，避免其初始化 effect 清除待恢复记录。
+	useEffect(() => {
+		if (currentPath !== "/" || activeSession || lastActiveSession) return;
+		void loadNewSessionPage().catch((error: unknown) => {
+			console.warn("[RootLayout] preload new session page failed", error);
+		});
+	}, [currentPath, activeSession, lastActiveSession]);
+
 	// 刷新根路由时先用持久化的 cwd + sessionPath 重建 runtime session。
+	// 持久化定位信息已足够恢复，无需等待默认 cwd 或侧栏历史列表完成加载。
 	// runtimeId 不能跨 renderer 生命周期复用，必须重新走 openSession/session.create。
 	useEffect(() => {
-		if (currentPath !== "/" || !defaultConversationCwd || sessionRestoreAttemptedRef.current) {
+		if (currentPath !== "/" || sessionRestoreAttemptedRef.current) {
 			return;
 		}
 		sessionRestoreAttemptedRef.current = true;
@@ -109,15 +120,7 @@ export function useRootLayoutModel(): RootLayoutModel {
 				setLastActiveSession(null);
 			})
 			.finally(() => setSessionRestoreState("complete"));
-	}, [
-		currentPath,
-		defaultConversationCwd,
-		activeSession,
-		lastActiveSession,
-		openSession,
-		setActiveSession,
-		setLastActiveSession,
-	]);
+	}, [currentPath, activeSession, lastActiveSession, openSession, setActiveSession, setLastActiveSession]);
 
 	// 路由守卫：仅在确认没有可恢复会话后，才跳到默认「对话」项目的 NewSession 页。
 	useEffect(() => {
