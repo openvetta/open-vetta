@@ -53,18 +53,22 @@ build_layer0() {
 # ── Layer 1: depends on layer 0 ──
 build_layer1() {
   build_pkg packages/capability-runtime
+  build_pkg packages/runtime-core
+}
+
+# ── Layer 2: depends on runtime-core ──
+build_layer2() {
   build_pkg packages/coding-agent
 }
 
-# ── Layer 2: depends on coding-agent ──
-build_layer2() {
-  build_pkg packages/runtime-core
+# ── Layer 3: depends on coding-agent and runtime-core ──
+build_layer3() {
   build_pkg packages/runtime-tools
   build_pkg packages/runtime-storage
   build_pkg packages/runtime-mcp
 }
 
-# ── Layer 3: apps (depends on runtime-core) ──
+# ── Layer 4: apps ──
 build_apps() {
   build_pkg packages/cli-app
   build_pkg packages/desktop-app
@@ -92,6 +96,7 @@ build_libs() {
   build_layer0
   build_layer1
   build_layer2
+  build_layer3
 }
 
 build_all() {

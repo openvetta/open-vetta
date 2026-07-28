@@ -14,11 +14,14 @@ import {
 } from "@vetta/runtime-core";
 import {
 	type AgentCoreTurnEngineOptions,
+	type AgentProfile,
 	type ModelCallContributionContext,
 	RuntimeCapabilityComposition,
 } from "@vetta/runtime-core/kernel";
 import {
+	createMcpDeferredToolController,
 	createMcpRuntimeToolSynchronizer,
+	type McpDeferredToolController,
 	type McpRuntimeToolSource,
 	type McpRuntimeToolSynchronizer,
 } from "@vetta/runtime-mcp";
@@ -77,6 +80,7 @@ export async function createGreenfieldRuntimeComposition(
 	const knowledgeAvailable = options.knowledgeEnabled ?? process.env.VETTA_KNOWLEDGE_DISABLED !== "1";
 	let backgroundTasksAvailable = false;
 	let mcpSynchronizer: McpRuntimeToolSynchronizer | undefined;
+	const mcpControllers = new Map<string, McpDeferredToolController>();
 	const tools = createCodingToolsRuntimeComposition({
 		cwd,
 		activation: effectiveActivation,
@@ -85,10 +89,20 @@ export async function createGreenfieldRuntimeComposition(
 				backgroundTasksAvailable,
 				knowledgeAvailable,
 			}),
-		refreshCatalog: () => mcpSynchronizer?.refresh(),
-		filterRegistration: (registration, context) =>
-			registration.category !== "kb-read" ||
-			isKnowledgeToolEnabled(effectiveActivation, context, knowledgeAvailable),
+		refreshCatalog: async (context) => {
+			const snapshot = await mcpSynchronizer?.refresh();
+			if (snapshot) mcpControllers.get(context.sessionId)?.refresh(snapshot);
+		},
+		filterRegistration: (registration, context) => {
+			if (
+				registration.category === "kb-read" &&
+				!isKnowledgeToolEnabled(effectiveActivation, context, knowledgeAvailable)
+			) {
+				return false;
+			}
+			const controller = mcpControllers.get(context.sessionId);
+			return !controller?.isManagedTool(registration.tool.name) || controller.isToolVisible(registration.tool.name);
+		},
 		additionalRegistrations: [
 			adaptCodingAgentToolRegistration(createKbListTagsTool(options.knowledgeRoot)),
 			adaptCodingAgentToolRegistration(createKbFilterByTagsTool(options.knowledgeRoot)),
@@ -120,10 +134,35 @@ export async function createGreenfieldRuntimeComposition(
 	const runtimeFactory = new ComposedGreenfieldRuntimeFactory<GreenfieldCliSessionOptions>({
 		streamFn: options.streamFn,
 		async createResources(sessionOptions) {
-			const capabilities = await RuntimeCapabilityComposition.create({
-				initialProfile: tools.profile,
-				compiler: tools.compiler,
-			});
+			const synchronizer = mcpSynchronizer;
+			const mcpController = synchronizer
+				? createMcpDeferredToolController({
+						sessionId: sessionOptions.sessionId,
+						deferredEnabled: effectiveActivation.mode !== "explicit",
+						explicitToolNames:
+							effectiveActivation.mode === "explicit" ? new Set(effectiveActivation.toolNames) : undefined,
+					})
+				: undefined;
+			if (mcpController && synchronizer) {
+				mcpController.refresh(synchronizer.snapshot());
+				mcpControllers.set(sessionOptions.sessionId, mcpController);
+			}
+			const profile: AgentProfile = mcpController
+				? {
+						...tools.profile,
+						features: [...tools.profile.features, mcpController.createFeature()],
+					}
+				: tools.profile;
+			let capabilities: RuntimeCapabilityComposition;
+			try {
+				capabilities = await RuntimeCapabilityComposition.create({
+					initialProfile: profile,
+					compiler: tools.compiler,
+				});
+			} catch (error) {
+				if (mcpController) mcpControllers.delete(sessionOptions.sessionId);
+				throw error;
+			}
 			capabilityCompositions.add(capabilities);
 			const modelRuntime = new GreenfieldRuntimeModel({
 				initialModel: options.initialModel,
@@ -151,21 +190,19 @@ export async function createGreenfieldRuntimeComposition(
 					read: () => ({
 						contextPercent: null,
 						contextWindow: modelRuntime.readCurrentModel().contextWindow,
-						activeToolNames: selectCodingToolRegistrations(
-							tools.registry
-								.snapshot()
-								.registrations.filter(
-									({ category }) =>
-										category !== "kb-read" ||
-										(knowledgeAvailable &&
-											effectiveActivation.mode === "scope" &&
-											effectiveActivation.scope === "kb-processing"),
-								),
+						activeToolNames: readActiveToolNames(
+							tools,
 							stateActivation,
-						).map(({ tool }) => tool.name),
+							knowledgeAvailable,
+							effectiveActivation,
+							mcpController,
+						),
 					}),
 				},
 				async dispose() {
+					if (mcpControllers.get(sessionOptions.sessionId) === mcpController) {
+						mcpControllers.delete(sessionOptions.sessionId);
+					}
 					capabilityCompositions.delete(capabilities);
 					await capabilities.close();
 				},
@@ -185,6 +222,7 @@ export async function createGreenfieldRuntimeComposition(
 				[...capabilityCompositions].map((capabilities) => capabilities.close()),
 			);
 			capabilityCompositions.clear();
+			mcpControllers.clear();
 			await repository.close();
 			mcpSynchronizer?.dispose();
 			tools.dispose();
@@ -196,6 +234,29 @@ export async function createGreenfieldRuntimeComposition(
 			}
 		},
 	};
+}
+
+function readActiveToolNames(
+	tools: CodingToolsRuntimeComposition,
+	activation: CodingToolActivation,
+	knowledgeAvailable: boolean,
+	baseActivation: CodingToolActivation,
+	mcpController: McpDeferredToolController | undefined,
+): string[] {
+	const selected = selectCodingToolRegistrations(
+		tools.registry.snapshot().registrations.filter(({ category, tool }) => {
+			if (
+				category === "kb-read" &&
+				!(knowledgeAvailable && baseActivation.mode === "scope" && baseActivation.scope === "kb-processing")
+			) {
+				return false;
+			}
+			return !mcpController?.isManagedTool(tool.name) || mcpController.isToolVisible(tool.name);
+		}),
+		activation,
+	).map(({ tool }) => tool.name);
+	if (!mcpController?.isDeferred()) return selected;
+	return [...selected, "tool_search"];
 }
 
 function resolveTurnToolActivation(

@@ -410,7 +410,7 @@ function firstLine(text: string): string {
 	return line.length > 200 ? `${line.slice(0, 200)}…` : line;
 }
 
-function renderMcpToolsSection(mcpTools: McpToolInfo[], markdownTools: boolean, mcpDeferred = false): string {
+export function renderMcpToolsSection(mcpTools: McpToolInfo[], markdownTools: boolean, mcpDeferred = false): string {
 	if (mcpTools.length === 0) {
 		return "";
 	}

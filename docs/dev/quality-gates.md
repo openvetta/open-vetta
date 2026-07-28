@@ -26,6 +26,7 @@ scripts/quality/
   check-quick.mjs              按完整 Git 工作区差异做快速检查
   check-private-keys.mjs       私钥形态检测
   check-conflict-markers.mjs   未解决冲突标记
+  check-build-order.mjs        workspace 正式依赖构建顺序
   check-package-boundaries.mjs 库/插件不得依赖 app 宿主
   test-pkg.mjs                 按包名跑 vitest
   test-changed.mjs             按 git 变更和依赖图选包
@@ -39,7 +40,7 @@ knip.config.ts                 Knip（可选）
 |--------|------|
 | `check:lint` / `check:lint:fix` | Biome 只读检查 / 写回 |
 | `check:types` | `tsgo --noEmit` + desktop `tsc` |
-| `check:guards` | 私钥 + 冲突标记 + 包边界 |
+| `check:guards` | 私钥 + 冲突标记 + workspace 构建顺序 + 包边界 |
 | `check:staged` | 仅 staged Biome |
 | `check:precommit` | husky 使用的快路径 |
 | `check:quick` | 变更文件 Biome + 全量 guards；Biome 配置变化时自动回退全量 Biome |
@@ -79,6 +80,20 @@ bun run --cwd packages/desktop-app test:coverage
 - plugin presets/externals **deep-import** `desktop-app/src/**`
 
 `coding-agent/examples/**` 已排除。
+
+## Workspace 构建顺序（`check-build-order`）
+
+根 `scripts/build.sh` 与 Desktop 的 `packages/desktop-app/scripts/build-workspace-prereqs.mjs` 都必须先构建正式 workspace 依赖，再构建依赖方。守卫会分别检查：
+
+- 根脚本中的 `build_pkg` 顺序；
+- Desktop 前置构建脚本导出的分层；
+- 各包 `dependencies`、`optionalDependencies`、`peerDependencies` 中声明的 `workspace:*` 正式依赖。
+
+Desktop 前置构建脚本只维护参与构建的包和并行层，包之间的依赖直接从 manifest 推导，不再维护第二份容易过期的手写依赖图。
+
+`devDependencies` 不参与生产构建顺序：例如 `runtime-core` 的测试会引用 `coding-agent`，但 `runtime-core/src` 不依赖它；把测试边计入会制造不存在的生产依赖环。
+
+该守卫防止构建错误地读取上一次残留的 `dist/*.d.ts` 而偶然成功。新增 workspace 依赖后仍必须执行正常的 `bun install`；`bun install --lockfile-only` 只更新锁文件，不创建包级 workspace 链接。
 
 `test:changed` 会读取可测包的 `package.json` 自动计算下游依赖闭包。`package.json`、`bun.lock`、根 TypeScript/Biome 配置和 `scripts/quality/**` 变化会触发全部核心测试；无效基线会直接失败，不会静默跳过。
 
@@ -137,6 +152,7 @@ bun run deadcode:report
 ## 核查清单
 
 - [ ] `bun run check:guards` 通过  
+- [ ] 根构建脚本和 Desktop 前置构建脚本中，所有正式 workspace 依赖都先于依赖方
 - [ ] `bun run check:quick` 覆盖已提交、暂存、未暂存和未跟踪文件  
 - [ ] `bun run test:quality` 通过  
 - [ ] `bun run check:precommit` 在有 staged 文件时行为正确  

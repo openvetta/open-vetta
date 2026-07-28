@@ -12,6 +12,16 @@ export interface McpRuntimeToolRegistry {
 
 export type McpRuntimeToolSource = Pick<McpManager, "getServers" | "getTools" | "reloadIfChanged">;
 
+export interface McpRuntimeToolDescriptor {
+	readonly name: string;
+	readonly description: string;
+}
+
+export interface McpRuntimeToolSnapshot {
+	readonly revision: number;
+	readonly tools: readonly McpRuntimeToolDescriptor[];
+}
+
 /**
  * 在每次模型调用前把 MCP Manager 的当前工具集合增量同步到 Runtime registry。
  *
@@ -19,22 +29,30 @@ export type McpRuntimeToolSource = Pick<McpManager, "getServers" | "getTools" | 
  */
 export class McpRuntimeToolSynchronizer {
 	private readonly fingerprints = new Map<string, string>();
-	private pendingRefresh: Promise<void> | undefined;
+	private currentSnapshot: McpRuntimeToolSnapshot = Object.freeze({
+		revision: 0,
+		tools: Object.freeze([]),
+	});
+	private pendingRefresh: Promise<McpRuntimeToolSnapshot> | undefined;
 
 	constructor(
 		private readonly source: McpRuntimeToolSource,
 		private readonly registry: McpRuntimeToolRegistry,
 	) {}
 
-	async refresh(): Promise<void> {
+	async refresh(): Promise<McpRuntimeToolSnapshot> {
 		if (this.pendingRefresh) return this.pendingRefresh;
 		const refresh = this.refreshNow();
 		this.pendingRefresh = refresh;
 		try {
-			await refresh;
+			return await refresh;
 		} finally {
 			if (this.pendingRefresh === refresh) this.pendingRefresh = undefined;
 		}
+	}
+
+	snapshot(): McpRuntimeToolSnapshot {
+		return this.currentSnapshot;
 	}
 
 	dispose(): void {
@@ -42,9 +60,13 @@ export class McpRuntimeToolSynchronizer {
 			this.registry.unregister(toolName);
 		}
 		this.fingerprints.clear();
+		this.currentSnapshot = Object.freeze({
+			revision: this.currentSnapshot.revision + 1,
+			tools: Object.freeze([]),
+		});
 	}
 
-	private async refreshNow(): Promise<void> {
+	private async refreshNow(): Promise<McpRuntimeToolSnapshot> {
 		await this.source.reloadIfChanged();
 		const sourceFingerprints = buildSourceFingerprints(this.source);
 		const registrations = this.source.getTools().map((tool) => {
@@ -77,6 +99,20 @@ export class McpRuntimeToolSynchronizer {
 			this.registry.register(registration);
 			this.fingerprints.set(toolName, fingerprint);
 		}
+
+		const descriptors = registrations.map(({ tool }) =>
+			Object.freeze({
+				name: tool.name,
+				description: tool.description,
+			}),
+		);
+		if (!sameDescriptors(this.currentSnapshot.tools, descriptors)) {
+			this.currentSnapshot = Object.freeze({
+				revision: this.currentSnapshot.revision + 1,
+				tools: Object.freeze(descriptors),
+			});
+		}
+		return this.currentSnapshot;
 	}
 }
 
@@ -103,4 +139,14 @@ function buildSourceFingerprints(source: Pick<McpManager, "getServers">): Readon
 		}
 	}
 	return fingerprints;
+}
+
+function sameDescriptors(
+	current: readonly McpRuntimeToolDescriptor[],
+	next: readonly McpRuntimeToolDescriptor[],
+): boolean {
+	return (
+		current.length === next.length &&
+		current.every((tool, index) => tool.name === next[index]?.name && tool.description === next[index]?.description)
+	);
 }

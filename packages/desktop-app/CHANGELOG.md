@@ -26,6 +26,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **Workspace 前置构建顺序修复**：前置构建依赖由各包 manifest 的正式 workspace 依赖推导，确保 `runtime-core` 先于 `coding-agent` 构建；构建图脚本本身也纳入缓存哈希，避免陈旧声明文件导致 `TS5055`。
 - **侧边栏会话相对时间 i18n**：会话列表 `timeLabel` 改为经 `useTranslation` 的 `t` 渲染（`project:sidebar.time.*`，插值用 `n` 避免 `count` 复数解析），并在列表 `useMemo` 中依赖 `i18n.language`，切换界面语言后时间文案立即更新；消息中心相对时间同步改为 `message:time.*` + `n`。
 - **侧边栏会话时间简写**：相对时间改为紧凑文案（zh：`5分`/`3时`/`2天`；en：`5m`/`3h`/`2d`），适配侧栏窄列。
 

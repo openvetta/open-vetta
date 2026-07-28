@@ -65,6 +65,9 @@
 | [55-greenfield-parallel-runtime-composition.md](./08-implementation-log/55-greenfield-parallel-runtime-composition.md) | Greenfield 通用 Factory、模型/Prompt Adapter 与 CLI 并行真实组合 |
 | [56-dynamic-capability-and-prompt-context.md](./08-implementation-log/56-dynamic-capability-and-prompt-context.md) | 动态能力组合、通用 Turn Context 与 Prompt 输入等价 |
 | [57-session-dynamic-capability-sources.md](./08-implementation-log/57-session-dynamic-capability-sources.md) | 会话级动态 Skill/Scene、Knowledge 与 MCP 能力源适配 |
+| [58-mcp-progressive-disclosure-and-model-call-gate.md](./08-implementation-log/58-mcp-progressive-disclosure-and-model-call-gate.md) | MCP 会话级渐进披露与模型调用输入门禁 |
+| [59-workspace-build-order-type-gate.md](./08-implementation-log/59-workspace-build-order-type-gate.md) | Workspace 构建顺序纠偏与类型门禁补漏 |
+| [60-desktop-workspace-prerequisite-graph.md](./08-implementation-log/60-desktop-workspace-prerequisite-graph.md) | Desktop 前置构建图纠偏与 `TS5055` 回归门禁 |
 
 ## 维护约定
 

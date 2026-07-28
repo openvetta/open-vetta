@@ -3,6 +3,12 @@ export {
 	type LegacyRuntimeHostOptions,
 } from "./composition.js";
 export {
+	type CodingAgentDeferredMcpTool,
+	createCodingAgentToolSearchRuntimeTool,
+	renderCodingAgentMcpToolsInstruction,
+	scoreCodingAgentDeferredMcpTools,
+} from "./greenfield-mcp-deferred-adapter.js";
+export {
 	CodingAgentModelRegistryAdapter,
 	type CodingAgentModelRegistrySource,
 } from "./greenfield-model-registry-adapter.js";

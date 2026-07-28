@@ -1,4 +1,9 @@
 import { describe, expect, it } from "vitest";
+import {
+	findBuildOrderViolations,
+	findLayeredBuildOrderViolations,
+	parseBuildPackageOrder,
+} from "./check-build-order.mjs";
 import { findPackageBoundaryViolations } from "./check-package-boundaries.mjs";
 import { batchPaths, createQuickCheckPlan, isBiomeGlobalTrigger } from "./check-quick.mjs";
 import { changedFiles, expandTestablePackages, packagesFromPaths, parseBaseArgs, stagedFiles } from "./lib.mjs";
@@ -211,5 +216,77 @@ describe("package boundary analysis", () => {
 				'import { agentLoopContinue } from "@vetta/agent-core";',
 			),
 		).toEqual([]);
+	});
+});
+
+describe("workspace build order", () => {
+	it("parses package build calls once in declaration order", () => {
+		expect(
+			parseBuildPackageOrder(`
+				build_pkg packages/runtime-core
+				build_pkg packages/coding-agent
+				build_pkg packages/coding-agent
+			`),
+		).toEqual(["packages/runtime-core", "packages/coding-agent"]);
+	});
+
+	it("rejects a production dependency built after its consumer", () => {
+		const manifests = [
+			{
+				dir: "packages/runtime-core",
+				name: "@vetta/runtime-core",
+			},
+			{
+				dir: "packages/coding-agent",
+				name: "@vetta/coding-agent",
+				dependencies: { "@vetta/runtime-core": "workspace:*" },
+			},
+		];
+
+		expect(findBuildOrderViolations(["packages/coding-agent", "packages/runtime-core"], manifests)).toEqual([
+			"packages/coding-agent is built before its workspace dependency packages/runtime-core",
+		]);
+		expect(findBuildOrderViolations(["packages/runtime-core", "packages/coding-agent"], manifests)).toEqual([]);
+	});
+
+	it("ignores test-only dependency edges", () => {
+		const manifests = [
+			{
+				dir: "packages/runtime-core",
+				name: "@vetta/runtime-core",
+				devDependencies: { "@vetta/coding-agent": "workspace:*" },
+			},
+			{
+				dir: "packages/coding-agent",
+				name: "@vetta/coding-agent",
+			},
+		];
+
+		expect(findBuildOrderViolations(["packages/runtime-core", "packages/coding-agent"], manifests)).toEqual([]);
+	});
+
+	it("rejects parallel or reversed desktop prerequisite layers", () => {
+		const packageConfigs = {
+			"runtime-core": { dir: "packages/runtime-core" },
+			"coding-agent": { dir: "packages/coding-agent" },
+		};
+		const manifests = [
+			{
+				dir: "packages/runtime-core",
+				name: "@vetta/runtime-core",
+			},
+			{
+				dir: "packages/coding-agent",
+				name: "@vetta/coding-agent",
+				dependencies: { "@vetta/runtime-core": "workspace:*" },
+			},
+		];
+
+		expect(findLayeredBuildOrderViolations(packageConfigs, [["coding-agent"], ["runtime-core"]], manifests)).toEqual([
+			"coding-agent is not in a later build layer than its workspace dependency runtime-core",
+		]);
+		expect(findLayeredBuildOrderViolations(packageConfigs, [["runtime-core"], ["coding-agent"]], manifests)).toEqual(
+			[],
+		);
 	});
 });

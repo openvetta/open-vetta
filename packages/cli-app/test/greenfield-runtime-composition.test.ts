@@ -8,7 +8,10 @@ import {
 	type McpServerInstance,
 	type McpTool,
 } from "@vetta/coding-agent/core/mcp/index.js";
-import type { CodingAgentModelRegistrySource } from "@vetta/coding-agent/runtime-host/greenfield";
+import {
+	type CodingAgentModelRegistrySource,
+	renderCodingAgentMcpToolsInstruction,
+} from "@vetta/coding-agent/runtime-host/greenfield";
 import type { McpRuntimeToolSource } from "@vetta/runtime-mcp";
 import { FileConversationRepository } from "@vetta/runtime-storage/conversation";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -268,6 +271,125 @@ describe("Greenfield runtime composition", () => {
 		await session.dispose();
 	});
 
+	it("keeps deferred MCP activation session-local and refreshes the model-call contract", async () => {
+		const conversations = await createTemporaryDirectory("greenfield-runtime-deferred-mcp-");
+		const fixture = createMcpSourceFixture(16);
+		const modelCalls: Array<{
+			readonly systemPrompt: string | undefined;
+			readonly messages: string[];
+			readonly tools: Array<{
+				readonly name: string;
+				readonly description: string;
+				readonly inputSchema: Readonly<Record<string, unknown>>;
+			}>;
+		}> = [];
+		let responseIndex = 0;
+		const responses = [
+			assistantMessage(
+				[
+					{
+						type: "toolCall",
+						id: "search-1",
+						name: "tool_search",
+						arguments: { description: "Activate the matching MCP tool", query: "topic-15" },
+					},
+				],
+				"toolUse",
+			),
+			assistantMessage([{ type: "text", text: "activated" }]),
+			assistantMessage([{ type: "text", text: "isolated" }]),
+			assistantMessage([{ type: "text", text: "removed" }]),
+			assistantMessage([{ type: "text", text: "restored" }]),
+			assistantMessage([{ type: "text", text: "resumed" }]),
+		];
+		const composition = await createGreenfieldRuntimeComposition({
+			conversationDir: conversations,
+			modelRegistry: modelRegistry(),
+			initialModel: MODEL,
+			initialThinkingLevel: "off",
+			mcpSource: fixture.source,
+			streamFn: (_model, context) => {
+				modelCalls.push({
+					systemPrompt: context.systemPrompt,
+					messages: context.messages.map((message) => messageText(message)),
+					tools: (context.tools ?? [])
+						.filter(({ name }) => name === "tool_search" || name.startsWith("mcp_"))
+						.map(({ name, description, parameters }) => ({
+							name,
+							description,
+							inputSchema: parameters,
+						})),
+				});
+				const response = responses[responseIndex];
+				responseIndex += 1;
+				if (!response) throw new Error("Missing recorded response");
+				return new RecordedAssistantStream(response);
+			},
+		});
+		compositions.push(composition);
+		const first = await composition.backend.create({ sessionId: "deferred-first" });
+		const second = await composition.backend.create({ sessionId: "deferred-second" });
+
+		await first.prompt({ text: "activate topic 15" });
+		expect(modelCalls[0]?.systemPrompt).toBe(renderCodingAgentMcpToolsInstruction(fixture.descriptors, true));
+		expect(modelCalls[0]?.messages).toEqual(["activate topic 15"]);
+		expect(modelCalls[0]?.tools.map(({ name }) => name)).toEqual(["tool_search"]);
+		expect(modelCalls[1]?.tools.map(({ name }) => name)).toEqual(["mcp_search_tool_15", "tool_search"]);
+		expect(first.readState().activeToolNames).toEqual(expect.arrayContaining(["mcp_search_tool_15", "tool_search"]));
+
+		await second.prompt({ text: "do not inherit activation" });
+		expect(modelCalls[2]?.tools.map(({ name }) => name)).toEqual(["tool_search"]);
+
+		fixture.setAvailable(false);
+		await first.prompt({ text: "after removal" });
+		expect(modelCalls[3]?.systemPrompt).toBe("");
+		expect(modelCalls[3]?.tools).toEqual([]);
+
+		fixture.setAvailable(true);
+		await first.prompt({ text: "after restore" });
+		expect(modelCalls[4]?.tools.map(({ name }) => name)).toEqual(["mcp_search_tool_15", "tool_search"]);
+		await first.dispose();
+
+		const resumed = await composition.backend.resume({ sessionId: "deferred-first" });
+		await resumed.prompt({ text: "resume without ephemeral activation" });
+		expect(modelCalls[5]?.tools.map(({ name }) => name)).toEqual(["tool_search"]);
+		await resumed.dispose();
+		await second.dispose();
+	});
+
+	it("keeps explicit MCP activation eager above the deferred threshold", async () => {
+		const conversations = await createTemporaryDirectory("greenfield-runtime-explicit-mcp-");
+		const fixture = createMcpSourceFixture(16);
+		const calls: Array<{ readonly systemPrompt: string | undefined; readonly tools: string[] }> = [];
+		const composition = await createGreenfieldRuntimeComposition({
+			conversationDir: conversations,
+			modelRegistry: modelRegistry(),
+			initialModel: MODEL,
+			initialThinkingLevel: "off",
+			activation: { mode: "explicit", toolNames: ["mcp_search_tool_15"] },
+			mcpSource: fixture.source,
+			streamFn: (_model, context) => {
+				calls.push({
+					systemPrompt: context.systemPrompt,
+					tools: (context.tools ?? []).map(({ name }) => name),
+				});
+				return new RecordedAssistantStream(assistantMessage([{ type: "text", text: "done" }]));
+			},
+		});
+		compositions.push(composition);
+		const session = await composition.backend.create({ sessionId: "explicit-mcp" });
+
+		await session.prompt({ text: "use the selected MCP tool" });
+
+		expect(calls).toEqual([
+			{
+				systemPrompt: renderCodingAgentMcpToolsInstruction([fixture.descriptors[15]!], false),
+				tools: ["mcp_search_tool_15"],
+			},
+		]);
+		await session.dispose();
+	});
+
 	it("persists hidden prompt contributions while keeping the chat projection clean", async () => {
 		const conversations = await createTemporaryDirectory("greenfield-runtime-prompt-context-");
 		const modelInputs: string[][] = [];
@@ -474,5 +596,43 @@ function createMcpClient(): IMcpClient {
 			throw new Error("Not used");
 		},
 		async close() {},
+	};
+}
+
+function createMcpSourceFixture(toolCount: number): {
+	readonly source: McpRuntimeToolSource;
+	readonly descriptors: readonly { readonly name: string; readonly description: string }[];
+	readonly setAvailable: (available: boolean) => void;
+} {
+	const client = createMcpClient();
+	const tools: McpTool[] = Array.from({ length: toolCount }, (_, index) => ({
+		name: `tool_${index}`,
+		description: `Lookup topic-${index}`,
+		inputSchema: { type: "object", properties: {} },
+	}));
+	const adaptedTools = tools.map((tool) => adaptMcpTool(tool, client, "search"));
+	const server: McpServerInstance = {
+		name: "search",
+		config: { command: "test" },
+		status: "ready",
+		client,
+		tools,
+		resources: [],
+		startedAt: new Date(1),
+	};
+	let available = true;
+	return {
+		source: {
+			reloadIfChanged: async () => false,
+			getServers: () => (available ? [server] : []),
+			getTools: () => (available ? adaptedTools : []),
+		},
+		descriptors: tools.map(({ name, description }) => ({
+			name: `mcp_search_${name}`,
+			description: description ?? "",
+		})),
+		setAvailable(next) {
+			available = next;
+		},
 	};
 }
