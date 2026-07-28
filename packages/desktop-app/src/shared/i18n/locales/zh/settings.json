@@ -944,6 +944,7 @@
   "syncedAt": "同步于 {{time}}",
   "neverSynced": "尚未同步模型列表",
   "catalogModels": "公共目录，填入 Key 后按账号刷新",
+  "catalogUnavailable": "公共模型目录暂不可达，已启用的服务商仍可点刷新按钮直接向服务商拉取",
   "showAllModels": "显示全部模型",
   "showAllModelsHint": "关闭时每个系列只保留最新一档，隐藏历史版本",
   "collapseModels": "收起模型",
