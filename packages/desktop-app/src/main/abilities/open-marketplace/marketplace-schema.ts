@@ -1,8 +1,10 @@
 import { posix } from "node:path";
 import { z } from "zod";
+import { isValidAppVersion } from "./marketplace-compatibility.js";
 
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const VERSION_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+const appVersionSchema = z.string().trim().refine(isValidAppVersion, "Must be a semantic app version");
 
 const metaEntrySchema = z
 	.object({
@@ -66,7 +68,7 @@ export const marketplaceManifestSchema = z
 		displayName: z.string().min(1).optional(),
 		marketplaceVersion: z.string().regex(VERSION_PATTERN),
 		repository: z.string().url(),
-		minClientVersion: z.string().min(1).optional(),
+		minAppVersion: appVersionSchema,
 		abilities: z.array(marketplaceAbilitySchema),
 	})
 	.passthrough();

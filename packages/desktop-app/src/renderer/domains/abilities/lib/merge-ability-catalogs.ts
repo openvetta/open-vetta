@@ -1,4 +1,9 @@
-import type { GitHubMarketplaceOrigin, OpenMarketplaceAbility } from "@preload/api";
+import type {
+	AbilityLedger,
+	GitHubMarketplaceOrigin,
+	OpenMarketplaceAbility,
+	OpenMarketplaceSourceSnapshot,
+} from "@preload/api";
 import type { MarketAbility } from "@shared/lib/api";
 
 export type OpenCatalogMarketAbility = MarketAbility & {
@@ -28,19 +33,67 @@ function toMarketAbility(ability: OpenMarketplaceAbility, syncedAt: string | nul
 	};
 }
 
-/** 服务端市场优先；同 type + slug 的 GitHub 条目不覆盖服务端条目。 */
+function abilityId(ability: Pick<MarketAbility, "slug" | "type">): string {
+	return `${ability.type}:${ability.slug}`;
+}
+
+function matchesInstalledOrigin(ability: OpenMarketplaceAbility, origin: GitHubMarketplaceOrigin): boolean {
+	if (origin.sourceId) return ability.origin.sourceId === origin.sourceId;
+	return ability.origin.repository === origin.repository && ability.origin.marketplace === origin.marketplace;
+}
+
+/**
+ * 服务端默认优先；多个 GitHub 来源按来源优先级（snapshots 顺序）取第一项。
+ * 已安装的 GitHub 能力锁定原来源，避免同名服务端或其它来源在刷新后静默接管升级。
+ */
 export function mergeAbilityCatalogs(
 	serverAbilities: MarketAbility[],
-	openAbilities: OpenMarketplaceAbility[],
-	syncedAt: string | null,
+	snapshots: OpenMarketplaceSourceSnapshot[],
+	ledger: AbilityLedger,
 ): MarketAbility[] {
-	const seen = new Set(serverAbilities.map((ability) => `${ability.type}:${ability.slug}`));
-	const merged = [...serverAbilities];
-	for (const ability of openAbilities) {
-		const id = `${ability.type}:${ability.slug}`;
-		if (seen.has(id)) continue;
-		seen.add(id);
-		merged.push(toMarketAbility(ability, syncedAt));
+	const serverById = new Map<string, MarketAbility>();
+	const openById = new Map<string, Array<{ ability: OpenMarketplaceAbility; syncedAt: string | null }>>();
+	const orderedIds: string[] = [];
+	const seenIds = new Set<string>();
+
+	for (const ability of serverAbilities) {
+		const id = abilityId(ability);
+		if (!serverById.has(id)) serverById.set(id, ability);
+		if (!seenIds.has(id)) {
+			seenIds.add(id);
+			orderedIds.push(id);
+		}
+	}
+	for (const snapshot of snapshots) {
+		for (const ability of snapshot.abilities) {
+			const id = abilityId(ability);
+			const candidates = openById.get(id);
+			const candidate = { ability, syncedAt: snapshot.syncedAt };
+			if (candidates) candidates.push(candidate);
+			else openById.set(id, [candidate]);
+			if (!seenIds.has(id)) {
+				seenIds.add(id);
+				orderedIds.push(id);
+			}
+		}
+	}
+
+	const merged: MarketAbility[] = [];
+	for (const id of orderedIds) {
+		const installedOrigin = ledger[id]?.origin;
+		const candidates = openById.get(id) ?? [];
+		if (installedOrigin?.kind === "github-marketplace") {
+			const installedCandidate = candidates.find(({ ability }) => matchesInstalledOrigin(ability, installedOrigin));
+			if (installedCandidate) merged.push(toMarketAbility(installedCandidate.ability, installedCandidate.syncedAt));
+			continue;
+		}
+		const server = serverById.get(id);
+		if (server) {
+			merged.push(server);
+			continue;
+		}
+		const firstOpen = candidates[0];
+		if (firstOpen) merged.push(toMarketAbility(firstOpen.ability, firstOpen.syncedAt));
 	}
 	return merged;
 }

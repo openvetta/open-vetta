@@ -2,7 +2,7 @@
  * 能力页的原始数据源：市场行 + 安装台账 + 三条安装轨道的本地状态。
  * 只负责取数与刷新，条目组装在 lib/build-ability-items.ts。
  */
-import type { AbilityLedger, InstalledPlugin, InstalledSkill, OpenMarketplaceSnapshot, SkillInfo } from "@preload/api";
+import type { AbilityLedger, InstalledPlugin, InstalledSkill, OpenMarketplaceCatalog, SkillInfo } from "@preload/api";
 import { i18n } from "@shared/i18n";
 import type { MarketAbility } from "@shared/lib/api";
 import { fetchMarketAbilities } from "@shared/lib/api";
@@ -31,12 +31,11 @@ function isReadonlySkillSource(source: string): boolean {
 export function useAbilityData(): AbilityData {
 	const token = useAtomValue(authTokenAtom);
 	const [serverMarket, setServerMarket] = useState<MarketAbility[]>([]);
-	const [openMarketplace, setOpenMarketplace] = useState<OpenMarketplaceSnapshot>({
+	const [openMarketplace, setOpenMarketplace] = useState<OpenMarketplaceCatalog>({
+		sources: [],
+		snapshots: [],
 		abilities: [],
-		marketplaceVersion: null,
-		repository: "",
-		syncedAt: null,
-		stale: true,
+		failedSourceIds: [],
 	});
 	const [ledger, setLedger] = useState<AbilityLedger>({});
 	const [skillManifest, setSkillManifest] = useState<Record<string, InstalledSkill>>({});
@@ -58,8 +57,8 @@ export function useAbilityData(): AbilityData {
 
 			const remote = token ? fetchMarketAbilities(token) : Promise.resolve([]);
 			const open = forceOpenMarketplaceRefresh
-				? window.vetta.abilities.refreshOpenMarketplace()
-				: window.vetta.abilities.listOpenMarketplace();
+				? window.vetta.abilities.refreshOpenMarketplaces()
+				: window.vetta.abilities.listOpenMarketplaces();
 
 			void Promise.allSettled([local, remote, open])
 				.then(([localResult, remoteResult, openResult]) => {
@@ -88,7 +87,9 @@ export function useAbilityData(): AbilityData {
 					}
 					if (openResult.status === "fulfilled") {
 						setOpenMarketplace(openResult.value);
-						if (openResult.value.error) errors.push(i18n.t("abilities:error.openMarketplaceSyncFailed"));
+						if (openResult.value.failedSourceIds.length > 0) {
+							errors.push(i18n.t("abilities:error.openMarketplaceSyncFailed"));
+						}
 					} else {
 						errors.push(i18n.t("abilities:error.openMarketplaceSyncFailed"));
 					}
@@ -109,8 +110,8 @@ export function useAbilityData(): AbilityData {
 	}, [load]);
 
 	const market = useMemo(
-		() => mergeAbilityCatalogs(serverMarket, openMarketplace.abilities, openMarketplace.syncedAt),
-		[openMarketplace.abilities, openMarketplace.syncedAt, serverMarket],
+		() => mergeAbilityCatalogs(serverMarket, openMarketplace.snapshots, ledger),
+		[ledger, openMarketplace.snapshots, serverMarket],
 	);
 
 	return { market, ledger, skillManifest, localSkills, plugins, loading, refreshing, error, refresh };

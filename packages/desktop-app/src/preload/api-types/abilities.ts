@@ -7,6 +7,8 @@ export type AbilityLedgerType = "skill" | "scene" | "plugin" | "mcp";
 
 export interface GitHubMarketplaceOrigin {
 	kind: "github-marketplace";
+	/** 客户端配置的 Marketplace Source id；旧台账可能没有。 */
+	sourceId?: string;
 	marketplace: string;
 	marketplaceVersion: string;
 	repository: string;
@@ -76,6 +78,7 @@ export interface OpenMarketplaceAbility {
 }
 
 export interface OpenMarketplaceSnapshot {
+	sourceId: string;
 	abilities: OpenMarketplaceAbility[];
 	marketplaceVersion: string | null;
 	repository: string;
@@ -83,6 +86,45 @@ export interface OpenMarketplaceSnapshot {
 	stale: boolean;
 	/** 刷新失败但仍返回上次可用快照时携带。 */
 	error?: "sync-failed";
+}
+
+export interface MarketplaceSource {
+	id: string;
+	name: string;
+	type: "github";
+	repository: string;
+	archiveUrl: string;
+	ref: string;
+	enabled: boolean;
+	builtin: boolean;
+	autoUpdate: boolean;
+	priority: number;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface AddMarketplaceSourceInput {
+	repository: string;
+	name?: string;
+	ref?: string;
+}
+
+export interface UpdateMarketplaceSourceInput {
+	name?: string;
+	ref?: string;
+	enabled?: boolean;
+	autoUpdate?: boolean;
+}
+
+export interface OpenMarketplaceSourceSnapshot extends OpenMarketplaceSnapshot {
+	source: MarketplaceSource;
+}
+
+export interface OpenMarketplaceCatalog {
+	sources: MarketplaceSource[];
+	snapshots: OpenMarketplaceSourceSnapshot[];
+	abilities: OpenMarketplaceAbility[];
+	failedSourceIds: string[];
 }
 
 export interface DesktopAbilitiesApi {
@@ -98,6 +140,15 @@ export interface DesktopAbilitiesApi {
 	listOpenMarketplace(): Promise<OpenMarketplaceSnapshot>;
 	/** 强制从 GitHub 刷新，失败时返回最后一次可用快照。 */
 	refreshOpenMarketplace(): Promise<OpenMarketplaceSnapshot>;
+	/** 聚合所有已启用来源；搜索、筛选与分页均由客户端本地完成。 */
+	listOpenMarketplaces(): Promise<OpenMarketplaceCatalog>;
+	/** 强制刷新所有已启用来源，单个来源失败不会中止其它来源。 */
+	refreshOpenMarketplaces(): Promise<OpenMarketplaceCatalog>;
+	listMarketplaceSources(): Promise<MarketplaceSource[]>;
+	addMarketplaceSource(input: AddMarketplaceSourceInput): Promise<MarketplaceSource>;
+	updateMarketplaceSource(id: string, input: UpdateMarketplaceSourceInput): Promise<MarketplaceSource>;
+	removeMarketplaceSource(id: string): Promise<void>;
+	refreshMarketplaceSource(id: string): Promise<OpenMarketplaceSourceSnapshot>;
 	/** 从当前已校验快照安装 skill / scene。 */
-	installOpenAbility(type: "skill" | "scene", slug: string): Promise<void>;
+	installOpenAbility(type: "skill" | "scene", slug: string, sourceId?: string): Promise<void>;
 }

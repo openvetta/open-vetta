@@ -153,6 +153,13 @@ export function AbilitiesPageView({ model }: { model: AbilitiesModel }): JSX.Ele
 										</div>
 									</section>
 								))}
+								{model.hasMore && (
+									<div className="flex justify-center pt-2">
+										<Button variant="secondary" size="sm" onClick={model.loadMore}>
+											{t("actions.loadMore", { remaining: model.totalItems - model.items.length })}
+										</Button>
+									</div>
+								)}
 							</div>
 						)}
 					</div>

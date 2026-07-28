@@ -68,7 +68,7 @@ export function useAbilityActions({ mcp, refresh }: { mcp: McpSettingsModel; ref
 		async (item: AbilityItem): Promise<InstallOutcome> => {
 			if (item.type !== "skill" && item.type !== "scene") return "skipped";
 			if (item.origin?.kind === "github-marketplace") {
-				await window.vetta.abilities.installOpenAbility(item.type, item.slug);
+				await window.vetta.abilities.installOpenAbility(item.type, item.slug, item.origin.sourceId);
 				return "installed";
 			}
 			if (!token) throw new Error(i18n.t("abilities:error.notLoggedIn"));

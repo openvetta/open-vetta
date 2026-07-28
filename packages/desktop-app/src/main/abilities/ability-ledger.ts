@@ -61,6 +61,7 @@ function parseEntry(value: unknown): AbilityLedgerEntry | null {
 		) {
 			origin = {
 				kind: "github-marketplace",
+				...(typeof candidate.sourceId === "string" ? { sourceId: candidate.sourceId } : {}),
 				marketplace: candidate.marketplace,
 				marketplaceVersion: candidate.marketplaceVersion,
 				repository: candidate.repository,

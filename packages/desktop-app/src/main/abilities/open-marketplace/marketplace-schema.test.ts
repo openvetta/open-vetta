@@ -7,6 +7,7 @@ function validManifest(): Record<string, unknown> {
 		name: "vetta-open-abilities",
 		marketplaceVersion: "2026.07.1",
 		repository: "https://github.com/example/vetta-abilities",
+		minAppVersion: "0.5.11",
 		abilities: [
 			{
 				type: "skill",
@@ -21,7 +22,7 @@ function validManifest(): Record<string, unknown> {
 }
 
 describe("parseMarketplaceManifest", () => {
-	it("fills backward-compatible defaults for optional catalog fields", () => {
+	it("fills defaults for optional ability fields", () => {
 		const manifest = parseMarketplaceManifest(validManifest());
 
 		expect(manifest.abilities[0]).toMatchObject({
@@ -31,6 +32,14 @@ describe("parseMarketplaceManifest", () => {
 			tags: [],
 			detail: {},
 		});
+		expect(manifest.minAppVersion).toBe("0.5.11");
+	});
+
+	it("requires a valid minAppVersion", () => {
+		const missing = validManifest();
+		delete missing.minAppVersion;
+		expect(() => parseMarketplaceManifest(missing)).toThrow();
+		expect(() => parseMarketplaceManifest({ ...validManifest(), minAppVersion: "0.5" })).toThrow();
 	});
 
 	it("rejects source paths that escape the repository root", () => {
