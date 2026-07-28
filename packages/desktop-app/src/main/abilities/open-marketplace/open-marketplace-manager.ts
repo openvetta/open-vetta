@@ -16,10 +16,14 @@ interface MarketplaceWorker {
 	list(): Promise<OpenMarketplaceSnapshot>;
 	listCached(): Promise<OpenMarketplaceSnapshot>;
 	refresh(): Promise<OpenMarketplaceSnapshot>;
-	install(type: "skill" | "scene", slug: string): Promise<void>;
+	install(type: "skill" | "scene" | "plugin", slug: string): Promise<void>;
 }
 
-type MarketplaceWorkerFactory = (source: MarketplaceSource, cacheRoot: string) => MarketplaceWorker;
+type MarketplaceWorkerFactory = (
+	source: MarketplaceSource,
+	cacheRoot: string,
+	onBackgroundUpdate: () => void,
+) => MarketplaceWorker;
 
 export interface OpenMarketplaceManagerOptions {
 	appVersion: string;
@@ -33,13 +37,14 @@ export class OpenMarketplaceManager {
 	private readonly cacheRoot: string;
 	private readonly workerFactory: MarketplaceWorkerFactory;
 	private readonly workers = new Map<string, { fingerprint: string; worker: MarketplaceWorker }>();
+	private readonly updateListeners = new Set<(sourceId: string) => void>();
 
 	constructor(options: OpenMarketplaceManagerOptions) {
 		this.store = options.store ?? new MarketplaceSourceStore();
 		this.cacheRoot = options.cacheRoot ?? join(getVettaHomePath(), "open-marketplaces", "cache");
 		this.workerFactory =
 			options.workerFactory ??
-			((source, cacheRoot) =>
+			((source, cacheRoot, onBackgroundUpdate) =>
 				new OpenMarketplaceService({
 					rootDir: cacheRoot,
 					sourceId: source.id,
@@ -47,7 +52,13 @@ export class OpenMarketplaceManager {
 					repository: source.repository,
 					archiveUrl: source.archiveUrl,
 					appVersion: options.appVersion,
+					onBackgroundUpdate,
 				}));
+	}
+
+	subscribeToUpdates(listener: (sourceId: string) => void): () => void {
+		this.updateListeners.add(listener);
+		return () => this.updateListeners.delete(listener);
 	}
 
 	listSources(): MarketplaceSource[] {
@@ -92,7 +103,11 @@ export class OpenMarketplaceManager {
 		return this.listSource(id, true);
 	}
 
-	async install(type: "skill" | "scene", slug: string, sourceId = DEFAULT_MARKETPLACE_SOURCE_ID): Promise<void> {
+	async install(
+		type: "skill" | "scene" | "plugin",
+		slug: string,
+		sourceId = DEFAULT_MARKETPLACE_SOURCE_ID,
+	): Promise<void> {
 		const source = this.requireSource(sourceId);
 		if (!source.enabled) throw new Error(`Marketplace source is disabled: ${sourceId}`);
 		await this.workerFor(source).install(type, slug);
@@ -143,7 +158,9 @@ export class OpenMarketplaceManager {
 		const existing = this.workers.get(source.id);
 		if (existing?.fingerprint === fingerprint) return existing.worker;
 		const cacheRoot = join(this.cacheRoot, source.id, createHash("sha256").update(fingerprint).digest("hex"));
-		const worker = this.workerFactory(source, cacheRoot);
+		const worker = this.workerFactory(source, cacheRoot, () => {
+			for (const listener of this.updateListeners) listener(source.id);
+		});
 		this.workers.set(source.id, { fingerprint, worker });
 		return worker;
 	}

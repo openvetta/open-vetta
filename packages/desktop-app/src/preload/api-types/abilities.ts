@@ -61,9 +61,25 @@ export interface OpenMarketplaceDetail extends OpenMarketplaceDetailLocale {
 	i18n?: Record<string, OpenMarketplaceDetailLocale>;
 }
 
+export interface OpenMarketplaceBundleMember {
+	type: "skill" | "scene" | "plugin";
+	slug: string;
+	exists: boolean;
+	name: string;
+	icon: string;
+	version: string;
+}
+
+export interface OpenMarketplaceAbilityConfig {
+	api_version?: string;
+	permissions?: string[];
+	commands?: string[];
+	members?: OpenMarketplaceBundleMember[];
+}
+
 export interface OpenMarketplaceAbility {
 	slug: string;
-	type: "skill" | "scene";
+	type: "skill" | "scene" | "plugin" | "bundle";
 	name: string;
 	description: string;
 	license: string;
@@ -73,6 +89,7 @@ export interface OpenMarketplaceAbility {
 	icon: string;
 	category: string;
 	tags: string[];
+	config: OpenMarketplaceAbilityConfig;
 	detail: OpenMarketplaceDetail;
 	origin: GitHubMarketplaceOrigin;
 }
@@ -149,6 +166,8 @@ export interface DesktopAbilitiesApi {
 	updateMarketplaceSource(id: string, input: UpdateMarketplaceSourceInput): Promise<MarketplaceSource>;
 	removeMarketplaceSource(id: string): Promise<void>;
 	refreshMarketplaceSource(id: string): Promise<OpenMarketplaceSourceSnapshot>;
-	/** 从当前已校验快照安装 skill / scene。 */
-	installOpenAbility(type: "skill" | "scene", slug: string, sourceId?: string): Promise<void>;
+	/** 后台同步激活新快照时触发；调用方重新读取本地目录即可。 */
+	onOpenMarketplacesUpdated(handler: () => void): () => void;
+	/** 从当前已校验快照安装 skill / scene / plugin；bundle 由客户端逐成员安装。 */
+	installOpenAbility(type: "skill" | "scene" | "plugin", slug: string, sourceId?: string): Promise<void>;
 }

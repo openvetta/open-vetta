@@ -86,6 +86,11 @@ export function useAbilityActions({ mcp, refresh }: { mcp: McpSettingsModel; ref
 
 	const installPlugin = useCallback(
 		async (item: PluginAbility): Promise<InstallOutcome> => {
+			if (item.origin?.kind === "github-marketplace") {
+				await window.vetta.abilities.installOpenAbility("plugin", item.slug, item.origin.sourceId);
+				notifyPluginsChanged();
+				return "installed";
+			}
 			if (!token) throw new Error(i18n.t("abilities:error.notLoggedIn"));
 			const buffer = await downloadAbility(token, "plugin", item.slug);
 			await window.vetta.plugins.installFromArchive(buffer, {

@@ -321,6 +321,9 @@ export function buildPluginAbilities(
 			isCustom: plugin?.source === "archive",
 			isBuiltin: isSystem,
 			fromMarket: Boolean(entry),
+			origin:
+				(entry ? getOpenCatalogOrigin(entry) : undefined) ??
+				(ledger[id]?.origin?.kind === "github-marketplace" ? ledger[id].origin : undefined),
 			market: entry,
 			plugin,
 			permissions: plugin ? plugin.permissions : toPluginPermissions(entry?.config.permissions),

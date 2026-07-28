@@ -1,4 +1,4 @@
-import { app, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain } from "electron";
 import type { AddMarketplaceSourceInput, UpdateMarketplaceSourceInput } from "../../preload/api-types/abilities.js";
 import { readAbilityLedger, recordAbilityInstall } from "../abilities/ability-ledger.js";
 import { getOpenMarketplaceManager } from "../abilities/open-marketplace/open-marketplace-manager.js";
@@ -47,6 +47,11 @@ function parseUpdateSourceInput(value: unknown): UpdateMarketplaceSourceInput {
 
 export function registerAbilitiesIpc(): () => void {
 	const openMarketplace = getOpenMarketplaceManager(app.getVersion());
+	const unsubscribeFromUpdates = openMarketplace.subscribeToUpdates(() => {
+		for (const win of BrowserWindow.getAllWindows()) {
+			if (!win.isDestroyed()) win.webContents.send("vetta:abilities:open-marketplaces-updated");
+		}
+	});
 	// 一次性下发全量台账；读取时顺带剔除漂移条目（ADR-0049）。
 	ipcMain.handle("vetta:abilities:get-ledger", () => readAbilityLedger());
 	ipcMain.handle("vetta:abilities:list-open-marketplace", async () => {
@@ -75,8 +80,8 @@ export function registerAbilitiesIpc(): () => void {
 	ipcMain.handle(
 		"vetta:abilities:install-open-ability",
 		async (_event, type: unknown, slug: unknown, sourceId: unknown) => {
-			if ((type !== "skill" && type !== "scene") || typeof slug !== "string" || !slug.trim()) {
-				throw new Error("installOpenAbility requires a skill/scene type and non-empty slug");
+			if ((type !== "skill" && type !== "scene" && type !== "plugin") || typeof slug !== "string" || !slug.trim()) {
+				throw new Error("installOpenAbility requires a skill/scene/plugin type and non-empty slug");
 			}
 			const resolvedSourceId = sourceId === undefined ? undefined : requireString(sourceId, "sourceId");
 			await openMarketplace.install(type, slug, resolvedSourceId);
@@ -96,6 +101,7 @@ export function registerAbilitiesIpc(): () => void {
 	});
 
 	return () => {
+		unsubscribeFromUpdates();
 		ipcMain.removeHandler("vetta:abilities:get-ledger");
 		ipcMain.removeHandler("vetta:abilities:record-mcp-install");
 		ipcMain.removeHandler("vetta:abilities:list-open-marketplace");
