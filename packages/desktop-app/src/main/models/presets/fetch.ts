@@ -1,12 +1,13 @@
 import type { ModelDefinition } from "../model-settings-service.js";
 import type { PresetProviderDef } from "./catalog.js";
+import { type PresetError, PresetFetchError, toPresetError } from "./errors.js";
 
 /** 注入的 fetch 实现——运行时传 electron 的 net.fetch,测试里传桩。 */
 export type FetchImpl = (url: string, init?: RequestInit) => Promise<Response>;
 
 export interface PresetModelsResult {
 	models: ModelDefinition[];
-	error?: string;
+	error?: PresetError;
 }
 
 /** 多页拉取的上限,防止上游 token 循环把主进程拖死。 */
@@ -22,14 +23,15 @@ export async function fetchPresetModels(
 	apiKey: string,
 	fetchImpl: FetchImpl,
 	signal?: AbortSignal,
+	timeoutMs = 15_000,
 ): Promise<PresetModelsResult> {
 	try {
 		const raw = await fetchByAdapter(def, apiKey, fetchImpl, signal);
 		const models = raw.filter((model) => def.isChatModel(model.id)).sort((a, b) => a.id.localeCompare(b.id));
-		if (models.length === 0) return { models: [], error: "接口未返回可识别的模型" };
+		if (models.length === 0) return { models: [], error: { code: "empty-models" } };
 		return { models };
 	} catch (err) {
-		return { models: [], error: err instanceof Error ? err.message : String(err) };
+		return { models: [], error: toPresetError(err, timeoutMs) };
 	}
 }
 
@@ -55,7 +57,10 @@ function trimSlash(url: string): string {
 
 async function readJson(response: Response, url: string): Promise<unknown> {
 	if (!response.ok) {
-		throw new Error(`${new URL(url).host} 返回 ${response.status} ${response.statusText}`);
+		throw new PresetFetchError({
+			code: "http-status",
+			params: { host: new URL(url).host, status: response.status, statusText: response.statusText },
+		});
 	}
 	return response.json();
 }

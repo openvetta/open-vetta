@@ -7,6 +7,7 @@ import { getAppLogger } from "../../logger.js";
 import { getDesktopModelSettingsService } from "../model-settings-host.js";
 import type { ModelDefinition, ModelsConfig } from "../model-settings-service.js";
 import { getPresetProvider, PRESET_PROVIDERS, type PresetProviderDef } from "./catalog.js";
+import { type PresetError, toPresetError } from "./errors.js";
 import { fetchPresetModels, type PresetModelsResult } from "./fetch.js";
 import {
 	enrichFromCatalog,
@@ -39,7 +40,7 @@ export interface PresetProviderInfo {
 export interface PresetProvidersResult {
 	providers: PresetProviderInfo[];
 	/** 公共目录最近一次拉取失败的原因。仅在退到随包快照时给出——有实拉数据就不打扰。 */
-	catalogError?: string;
+	catalogError?: PresetError;
 	/** 当前目录数据来自哪里,便于排查「模型怎么和线上对不上」。 */
 	catalogSource: "live" | "snapshot";
 	/** 当前目录数据的抓取时间(ISO)。 */
@@ -87,7 +88,12 @@ function catalogModelsFor(catalog: ModelsDevCatalog | null, def: PresetProviderD
  * 手动刷新公共目录:清掉失败冷却强制重拉,把真实错误原样回给渲染层。
  * 目录拉不到时用户只能看到 0 个模型,必须有一条能自助重试并看到原因的路径。
  */
-export async function refreshPresetCatalog(): Promise<{ ok: boolean; error?: string; modelCount: number }> {
+export async function refreshPresetCatalog(): Promise<{
+	ok: boolean;
+	error?: PresetError;
+	elapsedMs: number;
+	modelCount: number;
+}> {
 	catalogRetryAfter = 0;
 	const started = Date.now();
 	const catalog = await ensureCatalog();
@@ -96,12 +102,12 @@ export async function refreshPresetCatalog(): Promise<{ ok: boolean; error?: str
 		? Object.values(catalog.providers).reduce((sum, models) => sum + Object.keys(models).length, 0)
 		: 0;
 	if (!catalog || catalogLastError) {
-		const error = catalogLastError ?? "未知错误";
-		presetLog.warn(`手动刷新 models.dev 目录失败（${elapsed}ms）：${error}`);
-		return { ok: false, error: `${error}（耗时 ${elapsed}ms）`, modelCount };
+		const error = catalogLastError ?? { code: "network" as const };
+		presetLog.warn(`手动刷新 models.dev 目录失败（${elapsed}ms）：${error.code} ${error.detail ?? ""}`);
+		return { ok: false, error, elapsedMs: elapsed, modelCount };
 	}
 	presetLog.info(`手动刷新 models.dev 目录成功（${elapsed}ms，${modelCount} 个模型）`);
-	return { ok: true, modelCount };
+	return { ok: true, elapsedMs: elapsed, modelCount };
 }
 
 /**
@@ -123,7 +129,7 @@ let catalogMemo: ModelsDevCatalog | null = null;
 let catalogInFlight: Promise<ModelsDevCatalog | null> | null = null;
 /** 失败退避的截止时刻。目录不可达时反复重试只会让每次开设置页都卡满超时。 */
 let catalogRetryAfter = 0;
-let catalogLastError: string | null = null;
+let catalogLastError: PresetError | null = null;
 
 /** 拉取失败后的冷却时间。 */
 const CATALOG_RETRY_COOLDOWN_MS = 10 * 60 * 1000;
@@ -170,7 +176,7 @@ async function ensureCatalog(): Promise<ModelsDevCatalog | null> {
 			atomicWriteJSON(CATALOG_PATH, fresh);
 		} catch (err) {
 			catalogRetryAfter = Date.now() + CATALOG_RETRY_COOLDOWN_MS;
-			catalogLastError = describeFetchError(err);
+			catalogLastError = toPresetError(err, FETCH_TIMEOUT_MS);
 			presetLog.warn("拉取 models.dev 目录失败，改用缓存：", err);
 		} finally {
 			clearTimeout(timer);
@@ -180,16 +186,6 @@ async function ensureCatalog(): Promise<ModelsDevCatalog | null> {
 		return catalogMemo ?? MODELS_DEV_SNAPSHOT;
 	})();
 	return catalogInFlight;
-}
-
-/** 把网络异常翻成能定位问题的一行字:超时/TLS/DNS 在原始 message 里长得都差不多。 */
-function describeFetchError(err: unknown): string {
-	if (err instanceof Error) {
-		if (err.name === "AbortError") return `请求超时（${FETCH_TIMEOUT_MS / 1000}s）`;
-		const cause = err.cause instanceof Error ? `：${err.cause.message}` : "";
-		return `${err.name}: ${err.message}${cause}`;
-	}
-	return String(err);
 }
 
 /** 用的是不是随包快照——快照的 fetchedAt 是生成时刻,与实拉数据一模一样,只能按引用认。 */
@@ -205,20 +201,20 @@ function isSnapshot(catalog: ModelsDevCatalog | null): boolean {
  */
 export async function refreshPresetModels(providerId: string, apiKey?: string): Promise<PresetModelsResult> {
 	const def = getPresetProvider(providerId);
-	if (!def) return { models: [], error: `未知预设服务商：${providerId}` };
+	if (!def) return { models: [], error: { code: "unknown-provider", params: { provider: providerId } } };
 
 	let key = apiKey?.trim();
 	if (!key) {
 		const config = await getDesktopModelSettingsService().getConfig();
 		key = config.providers[providerId]?.apiKey?.trim();
 	}
-	if (!key) return { models: [], error: "尚未填写 API Key" };
+	if (!key) return { models: [], error: { code: "missing-key" } };
 
 	const controller = new AbortController();
 	const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 	let result: PresetModelsResult;
 	try {
-		result = await fetchPresetModels(def, key, net.fetch, controller.signal);
+		result = await fetchPresetModels(def, key, net.fetch, controller.signal, FETCH_TIMEOUT_MS);
 	} finally {
 		clearTimeout(timer);
 	}
@@ -269,7 +265,9 @@ export async function syncAdoptedPresets(): Promise<void> {
 		const provider = latest.providers[id];
 		if (!provider || provider.source !== "template") continue;
 		if (result.error || result.models.length === 0) {
-			presetLog.warn(`同步预设服务商 ${id} 模型失败：${result.error ?? "空列表"}`);
+			presetLog.warn(
+				`同步预设服务商 ${id} 模型失败：${result.error?.code ?? "empty"} ${result.error?.detail ?? ""}`,
+			);
 			continue;
 		}
 		latest.providers[id] = { ...provider, models: result.models, modelsSyncedAt: syncedAt };
