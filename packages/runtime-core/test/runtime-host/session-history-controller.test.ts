@@ -1,9 +1,6 @@
+import { LegacyRuntimeSessionHistoryController, type RuntimeSession } from "@vetta/coding-agent/runtime-host";
 import { describe, expect, it, vi } from "vitest";
-import {
-	LegacyRuntimeSessionHistoryController,
-	type RuntimeSession,
-	type RuntimeSessionHistoryController,
-} from "../../src/index.js";
+import type { RuntimeSessionHistoryController } from "../../src/index.js";
 
 function createHistorySessionDouble(options: { isStreaming?: boolean; isBashRunning?: boolean } = {}) {
 	const getEntry = vi.fn((): { id: string } | undefined => ({ id: "edit-entry" }));

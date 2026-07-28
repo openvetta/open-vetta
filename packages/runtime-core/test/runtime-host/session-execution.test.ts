@@ -1,9 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
 import {
 	LegacyRuntimeSessionExecutionController,
 	LegacyRuntimeSessionWorkspaceView,
 	type RuntimeSession,
-} from "../../src/index.js";
+} from "@vetta/coding-agent/runtime-host";
+import { describe, expect, it, vi } from "vitest";
 
 function createExecutionSessionDouble(options: { isStreaming?: boolean; isBashRunning?: boolean } = {}) {
 	const reconfigureCustomTools = vi.fn();

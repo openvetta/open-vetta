@@ -1,8 +1,25 @@
 import type { ThinkingLevel, ToolPhase } from "@vetta/agent-core";
 import type { Message, Model } from "@vetta/ai";
-import type { ConversationScenario, PromptAttachmentRef, PromptResourceRef } from "@vetta/coding-agent";
 
-export type { PromptAttachmentRef, PromptResourceRef } from "@vetta/coding-agent";
+/** 对话场景 slug；RuntimeHost 与 Coding Profile 共享的稳定隔离轴。 */
+export type ConversationScenario =
+	| "im-claw"
+	| "conversation"
+	| "project"
+	| "batch"
+	| "automation"
+	| "kb-processing"
+	| "cli";
+
+export interface PromptResourceRef {
+	kind: "skill" | "scene";
+	name: string;
+}
+
+export interface PromptAttachmentRef {
+	kind: "file" | "directory" | "image";
+	path: string;
+}
 
 export type RuntimeEventSource = "runtime-core" | "agent" | "tool" | "mcp";
 

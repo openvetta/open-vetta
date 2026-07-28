@@ -34,19 +34,9 @@ import {
 	revokeAllSessionGrants,
 	revokeSessionGrant,
 } from "../execution-mode/sandbox-permissions.js";
-import {
-	LegacyRuntimeSessionCatalog,
-	LegacyRuntimeSessionFileHistoryReader,
-	LegacyRuntimeSharedModelController,
-} from "./legacy-session-services.js";
 import { generateAutoTitle, generateNextPromptSuggestions } from "./peripheral-tasks.js";
 import { debugPluginAgent, summarizeAgentPlugins } from "./plugin-debug.js";
-import {
-	asRuntimeHostSessionBackend,
-	LegacyCodingAgentSessionBackend,
-	type RuntimeHostSessionBackend,
-	type RuntimeSessionCreateRequest,
-} from "./session-backend.js";
+import type { RuntimeHostSessionBackend, RuntimeSessionCreateRequest } from "./session-backend.js";
 import { baseSessionEvent, lifecycleSessionEvent } from "./session-events.js";
 import type {
 	RuntimeSessionEventStream,
@@ -101,9 +91,9 @@ export class RuntimeHost implements SessionFacade {
 	private readonly linuxBubblewrapPath: string | undefined;
 	private readonly macosSandboxExecPath: string | undefined;
 	private readonly serverUrl: string | undefined;
-	private readonly sessionBackend: RuntimeHostSessionBackend;
-	private readonly sessionCatalog: RuntimeSessionCatalog;
-	private readonly sessionFileHistoryReader: RuntimeSessionFileHistoryReader;
+	private readonly sessionBackend: RuntimeHostSessionBackend | undefined;
+	private readonly sessionCatalog: RuntimeSessionCatalog | undefined;
+	private readonly sessionFileHistoryReader: RuntimeSessionFileHistoryReader | undefined;
 	private readonly sharedModelController: RuntimeSharedModelController | undefined;
 	private userConfirmationHandler:
 		| ((request: RuntimeUserConfirmationRequest, signal?: AbortSignal) => Promise<boolean>)
@@ -125,15 +115,10 @@ export class RuntimeHost implements SessionFacade {
 		this.linuxBubblewrapPath = options.linuxBubblewrapPath;
 		this.macosSandboxExecPath = options.macosSandboxExecPath;
 		this.serverUrl = options.serverUrl;
-		this.sessionCatalog = options.sessionCatalog ?? new LegacyRuntimeSessionCatalog();
-		this.sessionFileHistoryReader = options.sessionFileHistoryReader ?? new LegacyRuntimeSessionFileHistoryReader();
-		this.sharedModelController =
-			options.sharedModelController ??
-			(options.modelRegistry ? new LegacyRuntimeSharedModelController(options.modelRegistry) : undefined);
-		this.sessionBackend = asRuntimeHostSessionBackend(
-			options.sessionBackend ?? new LegacyCodingAgentSessionBackend(options.modelRegistry),
-			options.modelRegistry,
-		);
+		this.sessionCatalog = options.sessionCatalog;
+		this.sessionFileHistoryReader = options.sessionFileHistoryReader;
+		this.sharedModelController = options.sharedModelController;
+		this.sessionBackend = options.sessionBackend;
 		this.userConfirmationHandler = options.userConfirmationHandler;
 		this.userQuestionHandler = options.userQuestionHandler;
 		this.userSandboxGrantHandler = options.userSandboxGrantHandler;
@@ -421,7 +406,7 @@ export class RuntimeHost implements SessionFacade {
 			modelController,
 			modelView,
 			corePorts,
-		} = await this.sessionBackend.createAssembly(request);
+		} = await this.requireSessionBackend().createAssembly(request);
 		const sessionId = lifecycle.sessionId;
 		sessionIdRef.current = sessionId;
 		await hostInteraction.bind(this.createHostInteractionContext(sessionIdRef));
@@ -838,7 +823,7 @@ export class RuntimeHost implements SessionFacade {
 	 * writing to the same file.
 	 */
 	readSessionHistoryFromFile(path: string): { history: HistoryEntry[] } {
-		return this.sessionFileHistoryReader.read(path);
+		return this.requireSessionFileHistoryReader().read(path);
 	}
 
 	/**
@@ -878,11 +863,11 @@ export class RuntimeHost implements SessionFacade {
 	}
 
 	async listProjects(): Promise<ProjectInfo[]> {
-		return [...(await this.sessionCatalog.listProjects())];
+		return [...(await this.requireSessionCatalog().listProjects())];
 	}
 
 	async listSessions(cwd: string, sessionDir?: string): Promise<SessionHistoryInfo[]> {
-		return [...(await this.sessionCatalog.listSessions(cwd, sessionDir))];
+		return [...(await this.requireSessionCatalog().listSessions(cwd, sessionDir))];
 	}
 
 	async deleteSession(sessionPath: string): Promise<void> {
@@ -898,7 +883,7 @@ export class RuntimeHost implements SessionFacade {
 			await existing.handle.lifecycle.dispose();
 			this.sessions.delete(existing.sessionId);
 		}
-		await this.sessionCatalog.deleteSessionArtifacts(sessionPath);
+		await this.requireSessionCatalog().deleteSessionArtifacts(sessionPath);
 	}
 
 	async renameSession(sessionPath: string, name: string): Promise<void> {
@@ -909,7 +894,7 @@ export class RuntimeHost implements SessionFacade {
 			await existing.handle.historyController.setName(name);
 			return;
 		}
-		await this.sessionCatalog.renameSession(sessionPath, name);
+		await this.requireSessionCatalog().renameSession(sessionPath, name);
 	}
 
 	/** Snapshot of session paths whose agent loop is currently active. */
@@ -1042,6 +1027,42 @@ export class RuntimeHost implements SessionFacade {
 			throw runtimeError("SESSION_NOT_FOUND", `Session not found: ${sessionId}`, false);
 		}
 		return handle;
+	}
+
+	private requireSessionBackend(): RuntimeHostSessionBackend {
+		if (!this.sessionBackend) {
+			throw runtimeError(
+				"INTERNAL_ERROR",
+				"RuntimeHost requires an explicit sessionBackend composition.",
+				false,
+				"runtime",
+			);
+		}
+		return this.sessionBackend;
+	}
+
+	private requireSessionCatalog(): RuntimeSessionCatalog {
+		if (!this.sessionCatalog) {
+			throw runtimeError(
+				"INTERNAL_ERROR",
+				"RuntimeHost requires an explicit sessionCatalog composition.",
+				false,
+				"runtime",
+			);
+		}
+		return this.sessionCatalog;
+	}
+
+	private requireSessionFileHistoryReader(): RuntimeSessionFileHistoryReader {
+		if (!this.sessionFileHistoryReader) {
+			throw runtimeError(
+				"INTERNAL_ERROR",
+				"RuntimeHost requires an explicit sessionFileHistoryReader composition.",
+				false,
+				"runtime",
+			);
+		}
+		return this.sessionFileHistoryReader;
 	}
 
 	private detachSessionEventStreams(sessionId: string): void {

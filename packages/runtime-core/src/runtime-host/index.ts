@@ -37,43 +37,13 @@ export {
 	type GreenfieldRuntimeStateSource,
 	GreenfieldSessionProjection,
 } from "./greenfield-session-projection.js";
-export {
-	createLegacyRuntimeSessionCorePorts,
-	LegacyRuntimeSessionBackgroundWorkController,
-	LegacyRuntimeSessionConfigurationController,
-	LegacyRuntimeSessionEventStream,
-	LegacyRuntimeSessionExecutionController,
-	LegacyRuntimeSessionHistoryController,
-	LegacyRuntimeSessionHistoryReader,
-	LegacyRuntimeSessionHostInteraction,
-	LegacyRuntimeSessionIdentityLifecycle,
-	LegacyRuntimeSessionModelController,
-	LegacyRuntimeSessionModelView,
-	LegacyRuntimeSessionStateReader,
-	LegacyRuntimeSessionTodoController,
-	LegacyRuntimeSessionTurnControl,
-	LegacyRuntimeSessionWorkspaceView,
-} from "./legacy-session-ports.js";
-export {
-	LegacyRuntimeSessionCatalog,
-	LegacyRuntimeSessionFileHistoryReader,
-	LegacyRuntimeSharedModelController,
-} from "./legacy-session-services.js";
 export { RuntimeHost } from "./runtime-host.js";
 export type {
 	RuntimeHostSessionAssembly,
 	RuntimeHostSessionBackend,
-	RuntimeSession,
 	RuntimeSessionAskUserQuestionCapability,
 	RuntimeSessionBackend,
-	RuntimeSessionCreateOptions,
 	RuntimeSessionCreateRequest,
-} from "./session-backend.js";
-export {
-	asRuntimeHostSessionBackend,
-	createLegacyRuntimeHostSessionAssembly,
-	LegacyCodingAgentSessionBackend,
-	RuntimeSessionBackendAssemblyAdapter,
 } from "./session-backend.js";
 export { mapRuntimeSessionObservationEvent } from "./session-events.js";
 export type {

@@ -15,17 +15,10 @@
 
 import type { TSchema } from "@sinclair/typebox";
 import type { AgentTool } from "@vetta/agent-core";
+import type { ConversationScenario } from "@vetta/runtime-core";
 import { matchesAgentMode } from "../agent-mode.js";
 
-/** 对话场景 slug。隔离的唯一轴。 */
-export type ConversationScenario =
-	| "im-claw" // Claw IM 对话（im-gateway sidecar 起的子进程）
-	| "conversation" // 普通对话（~/.vetta/conversation）
-	| "project" // 普通项目中对话（用户自建项目）
-	| "batch" // 批量任务对话
-	| "automation" // 自动化任务对话（scheduler 定时触发）
-	| "kb-processing" // 知识库加工对话
-	| "cli"; // 裸 CLI / SDK 消费者（fallback，≈全开）
+export type { ConversationScenario } from "@vetta/runtime-core";
 
 export const ALL_SCENARIOS: readonly ConversationScenario[] = [
 	"im-claw",

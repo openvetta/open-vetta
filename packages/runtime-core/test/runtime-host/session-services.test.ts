@@ -4,15 +4,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ModelRegistry } from "@vetta/coding-agent";
 import { SessionManager } from "@vetta/coding-agent";
-import { describe, expect, it, vi } from "vitest";
 import {
 	LegacyRuntimeSessionCatalog,
 	LegacyRuntimeSessionFileHistoryReader,
 	LegacyRuntimeSharedModelController,
-	RuntimeHost,
-	type RuntimeSessionCatalog,
-	type RuntimeSessionFileHistoryReader,
-} from "../../src/index.js";
+} from "@vetta/coding-agent/runtime-host";
+import { describe, expect, it, vi } from "vitest";
+import { RuntimeHost, type RuntimeSessionCatalog, type RuntimeSessionFileHistoryReader } from "../../src/index.js";
 
 describe("runtime host process services", () => {
 	it("delegates shared model auth refresh and background refresh", async () => {

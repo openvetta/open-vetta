@@ -6,7 +6,7 @@
  * - Core/runtime/libs must not import desktop-app, admin, site, cli-app
  * - plugins/** must not deep-import desktop-app internals
  * - packages must not import another package's test/ tree
- * - RuntimeHost orchestration/contracts must not import coding-agent adapters
+ * - runtime-core production code must not import coding-agent adapters
  *
  * Usage:
  *   bun run scripts/quality/check-package-boundaries.mjs
@@ -212,8 +212,6 @@ function checkCapabilitySchemaDefinitions(posixPath, text, findings) {
 
 function checkGreenfieldRuntimeImports(posixPath, specifiers, findings) {
 	const isGreenfieldRuntime =
-		posixPath.startsWith("packages/runtime-core/src/kernel/") ||
-		posixPath.startsWith("packages/runtime-core/src/runtime-host/greenfield-") ||
 		posixPath.startsWith("packages/runtime-storage/src/conversation/") ||
 		posixPath.startsWith("packages/runtime-tools/src/coding/");
 	if (!isGreenfieldRuntime) return;
@@ -224,14 +222,11 @@ function checkGreenfieldRuntimeImports(posixPath, specifiers, findings) {
 	}
 }
 
-function checkRuntimeHostCompositionImports(posixPath, specifiers, findings) {
-	const isRuntimeHostComposition =
-		posixPath === "packages/runtime-core/src/runtime-host/runtime-host.ts" ||
-		posixPath === "packages/runtime-core/src/runtime-host/session-services.ts";
-	if (!isRuntimeHostComposition) return;
+function checkRuntimeCoreImports(posixPath, specifiers, findings) {
+	if (!posixPath.startsWith("packages/runtime-core/src/")) return;
 	for (const specifier of specifiers) {
 		if (specifier === "@vetta/coding-agent" || specifier.startsWith("@vetta/coding-agent/")) {
-			findings.push(`${posixPath}: RuntimeHost composition must use runtime-owned contracts (${specifier})`);
+			findings.push(`${posixPath}: runtime-core production code must not import coding-agent (${specifier})`);
 		}
 	}
 }
@@ -259,7 +254,7 @@ export function findPackageBoundaryViolations(posixPath, text) {
 	checkRawCapabilityIds(posixPath, text, findings);
 	checkCapabilitySchemaDefinitions(posixPath, text, findings);
 	checkGreenfieldRuntimeImports(posixPath, specifiers, findings);
-	checkRuntimeHostCompositionImports(posixPath, specifiers, findings);
+	checkRuntimeCoreImports(posixPath, specifiers, findings);
 	checkAgentCoreImports(posixPath, specifiers, findings);
 	return findings;
 }

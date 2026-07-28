@@ -1,34 +1,37 @@
 import type { Message } from "@vetta/ai";
-import type { AgentSessionEvent, ExtensionUIContext } from "@vetta/coding-agent";
-import type { AgentPluginRuntimeConfig, HistoryEntry, SessionEvent } from "../contracts.js";
-import { runtimeError } from "../errors.js";
-import { buildSandboxToolDefinitions } from "../execution-mode/sandbox-tools.js";
+import {
+	type AgentPluginRuntimeConfig,
+	type HistoryEntry,
+	type RuntimeExecutionModeUpdate,
+	type RuntimeModelSelectionStrategy,
+	type RuntimeSessionBackgroundWorkController,
+	type RuntimeSessionConfigurationController,
+	type RuntimeSessionCorePorts,
+	type RuntimeSessionEventStream,
+	type RuntimeSessionExecutionController,
+	type RuntimeSessionHistoryController,
+	type RuntimeSessionHistoryReader,
+	type RuntimeSessionHostInteraction,
+	type RuntimeSessionHostInteractionContext,
+	type RuntimeSessionIdentityLifecycle,
+	type RuntimeSessionModelController,
+	type RuntimeSessionModelView,
+	type RuntimeSessionState,
+	type RuntimeSessionStateReader,
+	type RuntimeSessionTodoController,
+	type RuntimeSessionTurnControl,
+	type RuntimeSessionWorkspaceView,
+	type RuntimeSubagentSnapshot,
+	type RuntimeTurnPrompt,
+	runtimeError,
+	type SessionEvent,
+} from "@vetta/runtime-core";
+import type { ExtensionUIContext } from "../../core/extensions/types.js";
+import type { AgentSessionEvent } from "../../core/session/types.js";
+import { buildSandboxToolDefinitions } from "./execution-mode/sandbox-tools.js";
 import { entriesToHistory } from "./history.js";
-import type { RuntimeSession } from "./session-backend.js";
+import type { RuntimeSession } from "./legacy-session-backend.js";
 import { mapAgentSessionEvent } from "./session-events.js";
-import type {
-	RuntimeExecutionModeUpdate,
-	RuntimeModelSelectionStrategy,
-	RuntimeSessionBackgroundWorkController,
-	RuntimeSessionConfigurationController,
-	RuntimeSessionCorePorts,
-	RuntimeSessionEventStream,
-	RuntimeSessionExecutionController,
-	RuntimeSessionHistoryController,
-	RuntimeSessionHistoryReader,
-	RuntimeSessionHostInteraction,
-	RuntimeSessionHostInteractionContext,
-	RuntimeSessionIdentityLifecycle,
-	RuntimeSessionModelController,
-	RuntimeSessionModelView,
-	RuntimeSessionState,
-	RuntimeSessionStateReader,
-	RuntimeSessionTodoController,
-	RuntimeSessionTurnControl,
-	RuntimeSessionWorkspaceView,
-	RuntimeSubagentSnapshot,
-	RuntimeTurnPrompt,
-} from "./session-ports.js";
 
 export class LegacyRuntimeSessionIdentityLifecycle implements RuntimeSessionIdentityLifecycle {
 	constructor(private readonly session: RuntimeSession) {}

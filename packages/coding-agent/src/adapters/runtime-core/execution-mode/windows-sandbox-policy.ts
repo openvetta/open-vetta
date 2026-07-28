@@ -1,7 +1,7 @@
 import { homedir } from "node:os";
 import { dirname, join, resolve as resolvePath } from "node:path";
 import { getVettaConfigDirName } from "@vetta/action-rpc";
-import type { SandboxShellGrant } from "./sandbox-permissions.js";
+import type { SandboxShellGrant } from "@vetta/runtime-core/sandbox";
 
 export interface SandboxPolicyConfig {
 	allowReadRoots: string[];

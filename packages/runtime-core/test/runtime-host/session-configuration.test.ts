@@ -1,9 +1,6 @@
+import { LegacyRuntimeSessionConfigurationController, type RuntimeSession } from "@vetta/coding-agent/runtime-host";
 import { describe, expect, it, vi } from "vitest";
-import {
-	type AgentPluginRuntimeConfig,
-	LegacyRuntimeSessionConfigurationController,
-	type RuntimeSession,
-} from "../../src/index.js";
+import type { AgentPluginRuntimeConfig } from "../../src/index.js";
 
 describe("LegacyRuntimeSessionConfigurationController", () => {
 	it("preserves all legacy dynamic configuration commands", async () => {

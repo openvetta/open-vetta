@@ -1,5 +1,5 @@
+import { LegacyRuntimeSessionModelController, type RuntimeSession } from "@vetta/coding-agent/runtime-host";
 import { describe, expect, it, vi } from "vitest";
-import { LegacyRuntimeSessionModelController, type RuntimeSession } from "../../src/index.js";
 
 function createModelSessionDouble(options: { currentModel?: { provider: string; id: string } } = {}) {
 	const availableModel = { provider: "available", id: "model/with/slash" };

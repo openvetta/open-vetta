@@ -1,4 +1,3 @@
-import type { ModelRegistry } from "@vetta/coding-agent";
 import type {
 	AgentPluginRuntimeConfig,
 	RuntimeSandboxGrantDecision,
@@ -9,7 +8,7 @@ import type {
 	SessionConfig,
 	SessionExecutionMode,
 } from "../contracts.js";
-import type { RuntimeHostSessionBackend, RuntimeSessionBackend } from "./session-backend.js";
+import type { RuntimeHostSessionBackend } from "./session-backend.js";
 import type {
 	RuntimeSessionBackgroundWorkController,
 	RuntimeSessionConfigurationController,
@@ -93,15 +92,15 @@ export type RunningChangedReason = "agent_end" | "aborted" | "error";
 
 export interface RuntimeHostOptions {
 	/**
-	 * 会话创建后端。默认使用 LegacyCodingAgentSessionBackend，因此不改变现有
-	 * production 行为；测试和后续 greenfield 迁移可在组合根显式注入其他实现。
+	 * 会话组合后端。生产宿主应在 Composition Root 显式注入；未注入时只有
+	 * 不涉及创建会话的目录/历史操作可用。
 	 */
-	sessionBackend?: RuntimeSessionBackend | RuntimeHostSessionBackend;
-	/** 离线会话列表、重命名和文件删除；默认保留旧 SessionManager 行为。 */
+	sessionBackend?: RuntimeHostSessionBackend;
+	/** 离线会话列表、重命名和文件删除。 */
 	sessionCatalog?: RuntimeSessionCatalog;
-	/** 不获取写锁的同步会话文件读取器；默认读取旧 JSONL 格式。 */
+	/** 不获取写锁的同步会话文件读取器。 */
 	sessionFileHistoryReader?: RuntimeSessionFileHistoryReader;
-	/** 进程级共享模型资源；自定义 Backend 可注入不依赖旧 ModelRegistry 的实现。 */
+	/** 进程级共享模型资源。 */
 	sharedModelController?: RuntimeSharedModelController;
 	getDefaultExecutionMode?: () => SessionExecutionMode | Promise<SessionExecutionMode>;
 	additionalSkillPaths?: string[];
@@ -123,13 +122,4 @@ export interface RuntimeHostOptions {
 	 * （env-injected URL）与 SDK 路径（硬编码 URL）"半边大脑"。
 	 */
 	serverUrl?: string;
-	/**
-	 * 进程级共享的 ModelRegistry。注入后每次 createSession 都复用同一份，
-	 * sdk 内部 `if (!options.modelRegistry)` 的远程 fetch 分支就会跳过——
-	 * 第一次发消息不再被 5s 的 `/providers/models.json` 阻塞。
-	 *
-	 * 仍然需要保证模型实时性：见 `createSession` 末尾的 stale-while-revalidate
-	 * 后台刷新，以及 `reloadServerAuth` 在登录/登出时的同步刷新。
-	 */
-	modelRegistry?: ModelRegistry;
 }

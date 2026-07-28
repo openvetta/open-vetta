@@ -4,16 +4,16 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { delimiter, isAbsolute, join } from "node:path";
 import { getVettaConfigDirName } from "@vetta/action-rpc";
+import { getSandboxShellGrant, type SandboxShellGrant } from "@vetta/runtime-core/sandbox";
+import type { ToolDefinition } from "../../../core/extensions/types.js";
 import {
 	createBashTool,
 	createEditTool,
 	createReadTool,
 	createWriteTool,
-	getShellConfig,
 	type ShellOperations,
-	type ToolDefinition,
-} from "@vetta/coding-agent";
-import { getSandboxShellGrant, type SandboxShellGrant } from "./sandbox-permissions.js";
+} from "../../../core/tools/index.js";
+import { getShellConfig } from "../../../utils/shell.js";
 import { wrapShellPermissionGuard, wrapWorkspaceGuard } from "./sandbox-tool-utils.js";
 
 const MACOS_ENV_WHITELIST = ["PATH", "LANG", "LC_ALL", "TERM", "VETTA_CLI_APP_PATH"] as const;

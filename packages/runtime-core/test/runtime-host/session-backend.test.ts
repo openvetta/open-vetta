@@ -1,5 +1,10 @@
 import type { Api, Model } from "@vetta/ai";
 import type { AgentSessionEvent } from "@vetta/coding-agent";
+import {
+	type RuntimeSession,
+	RuntimeSessionBackendAssemblyAdapter,
+	type RuntimeSessionCreateOptions,
+} from "@vetta/coding-agent/runtime-host";
 import { describe, expect, it, vi } from "vitest";
 import {
 	type AgentPluginRuntimeConfig,
@@ -8,10 +13,7 @@ import {
 	RuntimeHost,
 	type RuntimeHostSessionAssembly,
 	type RuntimeHostSessionBackend,
-	type RuntimeSession,
-	type RuntimeSessionBackend,
 	type RuntimeSessionCorePorts,
-	type RuntimeSessionCreateOptions,
 	type RuntimeSessionCreateRequest,
 	type RuntimeSubagentSnapshot,
 	type SessionEvent,
@@ -116,14 +118,21 @@ function createSessionDouble() {
 	};
 }
 
-class RecordingSessionBackend implements RuntimeSessionBackend {
+class RecordingSessionBackend implements RuntimeHostSessionBackend {
 	readonly calls: RuntimeSessionCreateOptions[] = [];
+	private readonly adapter: RuntimeSessionBackendAssemblyAdapter;
 
-	constructor(private readonly session: RuntimeSession) {}
+	constructor(session: RuntimeSession) {
+		this.adapter = new RuntimeSessionBackendAssemblyAdapter({
+			create: async (options: RuntimeSessionCreateOptions): Promise<RuntimeSession> => {
+				this.calls.push(options);
+				return session;
+			},
+		});
+	}
 
-	async create(options: RuntimeSessionCreateOptions): Promise<RuntimeSession> {
-		this.calls.push(options);
-		return this.session;
+	createAssembly(request: RuntimeSessionCreateRequest): Promise<RuntimeHostSessionAssembly> {
+		return this.adapter.createAssembly(request);
 	}
 }
 
@@ -150,6 +159,17 @@ describe("RuntimeHost session backend boundary", () => {
 
 		expect(hasRawSession).toBe(false);
 		expect(hasLegacyCreationObjects).toBe(false);
+	});
+
+	it("fails explicitly when no session composition was injected", async () => {
+		const host = new RuntimeHost();
+
+		await expect(host.createSession()).rejects.toMatchObject({
+			code: "INTERNAL_ERROR",
+			message: "RuntimeHost requires an explicit sessionBackend composition.",
+			retryable: false,
+			origin: "runtime",
+		});
 	});
 
 	it("creates and registers a session through the injected backend without changing config semantics", async () => {

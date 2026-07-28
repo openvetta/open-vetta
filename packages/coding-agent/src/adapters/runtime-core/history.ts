@@ -1,15 +1,17 @@
 import type { Message, TextContent } from "@vetta/ai";
+import type {
+	AssistantTurnTiming,
+	HistoryEntry,
+	HistoryMessageBranch,
+	PromptAttachmentRef,
+	PromptResourceRef,
+} from "@vetta/runtime-core";
 import {
-	type SessionEntry as CodingSessionEntry,
-	type CustomEntry,
-	type FileEntry,
 	PROMPT_ATTACHMENT_CONTEXT_TYPE,
 	PROMPT_ATTACHMENT_REFERENCE_TYPE,
 	PROMPT_RESOURCE_REFERENCE_TYPE,
-	type PromptAttachmentRef,
-	type PromptResourceRef,
-} from "@vetta/coding-agent";
-import type { AssistantTurnTiming, HistoryEntry, HistoryMessageBranch } from "../contracts.js";
+} from "../../core/messages.js";
+import type { SessionEntry as CodingSessionEntry, CustomEntry, FileEntry } from "../../core/session-manager/index.js";
 
 export const ASSISTANT_TURN_TIMING_TYPE = "vetta.assistant_turn_timing";
 

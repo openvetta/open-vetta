@@ -8,6 +8,7 @@
 import type { Agent, AgentEvent, AgentTool, ThinkingLevel } from "@vetta/agent-core";
 import type { ImageContent, Model } from "@vetta/ai";
 import type { HookConfigLayer } from "@vetta/ecosystem-adapter/hooks";
+import type { PromptAttachmentRef, PromptResourceRef } from "@vetta/runtime-core";
 import type { BackgroundTaskSnapshot } from "../background-tasks/index.js";
 import type { CompactionResult } from "../compaction/index.js";
 import type {
@@ -34,6 +35,8 @@ import type {
 import type { TodoItem } from "../todo-store.js";
 import type { AskUserQuestionCapability } from "../tools/index.js";
 import type { ConversationScenario } from "./tool-scope.js";
+
+export type { PromptAttachmentRef, PromptResourceRef } from "@vetta/runtime-core";
 
 /** Session-specific events that extend the core AgentEvent */
 export type AgentSessionEvent =
@@ -150,18 +153,6 @@ export interface ExtensionBindings {
 	commandContextActions?: ExtensionCommandContextActions;
 	shutdownHandler?: ShutdownHandler;
 	onError?: ExtensionErrorListener;
-}
-
-/** Options for AgentSession.prompt() */
-export interface PromptResourceRef {
-	kind: "skill" | "scene";
-	name: string;
-}
-
-/** Absolute filesystem reference attached to one user prompt. */
-export interface PromptAttachmentRef {
-	kind: "file" | "directory" | "image";
-	path: string;
 }
 
 export interface PromptOptions {

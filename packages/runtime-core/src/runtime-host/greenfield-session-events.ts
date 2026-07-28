@@ -1,9 +1,8 @@
-import type { Message } from "@vetta/ai";
+import type { Message, TextContent } from "@vetta/ai";
 import type { SessionEvent } from "../contracts.js";
 import { runtimeError } from "../errors.js";
 import type { KernelEvent } from "../kernel/contracts.js";
 import type { RuntimeSessionObservationEvent } from "../session-observation.js";
-import { extractAssistantText } from "./history.js";
 import { mapRuntimeSessionObservationEvent } from "./session-events.js";
 
 /** 将 Greenfield Kernel EventSink 事件适配为现有宿主 SessionEvent。 */
@@ -103,4 +102,12 @@ function assistantMessageObservations(
 	}
 
 	return observations;
+}
+
+function extractAssistantText(content: Message["content"]): string {
+	if (typeof content === "string") return content;
+	return content
+		.filter((item): item is TextContent => item.type === "text")
+		.map((item) => item.text)
+		.join("");
 }

@@ -40,6 +40,10 @@
 			"types": "./dist/adapters/runtime-tools/index.d.ts",
 			"import": "./dist/adapters/runtime-tools/index.js"
 		},
+		"./runtime-host": {
+			"types": "./dist/adapters/runtime-core/index.d.ts",
+			"import": "./dist/adapters/runtime-core/index.js"
+		},
 		"./core/host/executable-resolver.js": {
 			"types": "./dist/core/host/executable-resolver.d.ts",
 			"import": "./dist/core/host/executable-resolver.js"
@@ -75,6 +79,7 @@
 		"@vetta/agent-core": "workspace:*",
 		"@vetta/ai": "workspace:*",
 		"@vetta/ecosystem-adapter": "workspace:*",
+		"@vetta/runtime-core": "workspace:*",
 		"@vetta/runtime-telemetry": "workspace:*",
 		"ajv": "^8.17.1",
 		"ajv-formats": "^3.0.1",

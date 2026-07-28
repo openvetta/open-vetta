@@ -16,6 +16,10 @@
 		"./conversation": {
 			"types": "./dist/conversation/index.d.ts",
 			"import": "./dist/conversation/index.js"
+		},
+		"./sandbox": {
+			"types": "./dist/sandbox/index.d.ts",
+			"import": "./dist/sandbox/index.js"
 		}
 	},
 	"files": ["dist"],
@@ -27,10 +31,10 @@
 	"dependencies": {
 		"@vetta/action-rpc": "workspace:*",
 		"@vetta/agent-core": "workspace:*",
-		"@vetta/ai": "workspace:*",
-		"@vetta/coding-agent": "workspace:*"
+		"@vetta/ai": "workspace:*"
 	},
 	"devDependencies": {
+		"@vetta/coding-agent": "workspace:*",
 		"typescript": "^5.9.2",
 		"@types/node": "^22.10.5"
 	}

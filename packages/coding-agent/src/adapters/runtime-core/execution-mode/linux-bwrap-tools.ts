@@ -3,16 +3,16 @@ import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { delimiter, isAbsolute, join, resolve as resolvePath } from "node:path";
 import { getVettaHomePath } from "@vetta/action-rpc";
+import { getSandboxShellGrant, type SandboxShellGrant } from "@vetta/runtime-core/sandbox";
+import type { ToolDefinition } from "../../../core/extensions/types.js";
 import {
 	createBashTool,
 	createEditTool,
 	createReadTool,
 	createWriteTool,
-	getShellConfig,
 	type ShellOperations,
-	type ToolDefinition,
-} from "@vetta/coding-agent";
-import { getSandboxShellGrant, type SandboxShellGrant } from "./sandbox-permissions.js";
+} from "../../../core/tools/index.js";
+import { getShellConfig } from "../../../utils/shell.js";
 import { wrapShellPermissionGuard, wrapWorkspaceGuard } from "./sandbox-tool-utils.js";
 
 const LINUX_ENV_WHITELIST = [

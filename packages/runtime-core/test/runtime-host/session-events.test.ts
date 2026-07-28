@@ -1,8 +1,8 @@
 import type { AssistantMessage } from "@vetta/ai";
 import type { AgentSession, AgentSessionEvent } from "@vetta/coding-agent";
+import { mapAgentSessionEvent, mapAgentSessionEventToObservations } from "@vetta/coding-agent/runtime-host";
 import { describe, expect, it, vi } from "vitest";
 import type { SessionEvent } from "../../src/contracts.js";
-import { mapAgentSessionEvent, mapAgentSessionEventToObservations } from "../../src/runtime-host/session-events.js";
 
 function assistantMessage(stopReason: AssistantMessage["stopReason"] = "stop"): AssistantMessage {
 	return {

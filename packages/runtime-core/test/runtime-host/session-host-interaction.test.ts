@@ -1,10 +1,7 @@
 import type { ExtensionUIContext } from "@vetta/coding-agent";
+import { LegacyRuntimeSessionHostInteraction, type RuntimeSession } from "@vetta/coding-agent/runtime-host";
 import { describe, expect, it, vi } from "vitest";
-import {
-	LegacyRuntimeSessionHostInteraction,
-	type RuntimeSession,
-	type RuntimeSessionHostInteractionContext,
-} from "../../src/index.js";
+import type { RuntimeSessionHostInteractionContext } from "../../src/index.js";
 
 describe("LegacyRuntimeSessionHostInteraction", () => {
 	it("adapts independent host interactions to the legacy extension UI context", async () => {

@@ -1,13 +1,20 @@
 import { rm } from "node:fs/promises";
-import type { SessionEntry as CodingSessionEntry, ModelRegistry, SessionInfo } from "@vetta/coding-agent";
-import { loadEntriesFromFile, SessionManager } from "@vetta/coding-agent";
-import type { HistoryEntry, ProjectInfo, SessionHistoryInfo } from "../contracts.js";
-import { branchFromFileEntries, entriesToHistory } from "./history.js";
 import type {
+	HistoryEntry,
+	ProjectInfo,
 	RuntimeSessionCatalog,
 	RuntimeSessionFileHistoryReader,
 	RuntimeSharedModelController,
-} from "./session-services.js";
+	SessionHistoryInfo,
+} from "@vetta/runtime-core";
+import type { ModelRegistry } from "../../core/model-registry.js";
+import {
+	type SessionEntry as CodingSessionEntry,
+	loadEntriesFromFile,
+	type SessionInfo,
+	SessionManager,
+} from "../../core/session-manager/index.js";
+import { branchFromFileEntries, entriesToHistory } from "./history.js";
 
 export class LegacyRuntimeSharedModelController implements RuntimeSharedModelController {
 	constructor(private readonly modelRegistry: ModelRegistry) {}

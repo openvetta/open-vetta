@@ -3,16 +3,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ModelRegistry } from "@vetta/coding-agent";
 import { SessionManager } from "@vetta/coding-agent";
-import { describe, expect, it } from "vitest";
 import {
 	type RuntimeSession,
-	type RuntimeSessionBackend,
 	RuntimeSessionBackendAssemblyAdapter,
 	type RuntimeSessionCreateOptions,
-	type RuntimeSessionCreateRequest,
-} from "../../src/index.js";
+} from "@vetta/coding-agent/runtime-host";
+import { describe, expect, it } from "vitest";
+import type { RuntimeSessionBackend, RuntimeSessionCreateRequest } from "../../src/index.js";
 
-class CapturingLegacyBackend implements RuntimeSessionBackend {
+class CapturingLegacyBackend implements RuntimeSessionBackend<RuntimeSessionCreateOptions, RuntimeSession> {
 	options: RuntimeSessionCreateOptions | undefined;
 
 	async create(options: RuntimeSessionCreateOptions): Promise<RuntimeSession> {

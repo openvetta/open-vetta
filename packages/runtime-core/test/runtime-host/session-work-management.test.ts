@@ -1,12 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
 import {
-	type BackgroundTaskInfo,
 	LegacyRuntimeSessionBackgroundWorkController,
 	LegacyRuntimeSessionTodoController,
 	type RuntimeSession,
-	type RuntimeSubagentSnapshot,
-	type TodoItem,
-} from "../../src/index.js";
+} from "@vetta/coding-agent/runtime-host";
+import { describe, expect, it, vi } from "vitest";
+import type { BackgroundTaskInfo, RuntimeSubagentSnapshot, TodoItem } from "../../src/index.js";
 
 const backgroundTask: BackgroundTaskInfo = {
 	id: "task-1",

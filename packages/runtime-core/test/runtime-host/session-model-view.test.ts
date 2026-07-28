@@ -1,6 +1,7 @@
 import type { Api, Model } from "@vetta/ai";
+import { LegacyRuntimeSessionModelView, type RuntimeSession } from "@vetta/coding-agent/runtime-host";
 import { describe, expect, it, vi } from "vitest";
-import { LegacyRuntimeSessionModelView, type RuntimeSession, type RuntimeSessionModelView } from "../../src/index.js";
+import type { RuntimeSessionModelView } from "../../src/index.js";
 import { resolvePeripheralCandidates } from "../../src/runtime-host/peripheral-tasks.js";
 
 function createModel(provider: string, id: string): Model<Api> {

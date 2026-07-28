@@ -1,8 +1,8 @@
+import { branchFromFileEntries, entriesToHistory } from "@vetta/coding-agent/runtime-host";
 import { describe, expect, it } from "vitest";
 import { parseSessionEntries } from "../../../coding-agent/src/core/session-manager/format-compat.js";
 import type { SessionEntry } from "../../../coding-agent/src/core/session-manager/session-model.js";
 import { projectConversationDocumentHistory } from "../../../runtime-core/src/conversation/index.js";
-import { branchFromFileEntries, entriesToHistory } from "../../../runtime-core/src/runtime-host/history.js";
 import { parseLegacySessionDocument } from "../../src/conversation/index.js";
 
 describe("LegacySessionDocumentReader", () => {

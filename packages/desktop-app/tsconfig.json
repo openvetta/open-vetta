@@ -32,6 +32,7 @@
 			"@vetta/ecosystem-adapter/codex/hooks": ["../ecosystem-adapter/src/codex/hooks/index.ts"],
 			"@vetta/ecosystem-adapter/*": ["../ecosystem-adapter/src/*"],
 			"@vetta/coding-agent": ["../coding-agent/src/index.ts"],
+			"@vetta/coding-agent/runtime-host": ["../coding-agent/src/adapters/runtime-core/index.ts"],
 			"@vetta/coding-agent/*": ["../coding-agent/src/*"],
 			"@vetta/runtime-core": ["../runtime-core/src/index.ts"],
 			"@vetta/runtime-core/*": ["../runtime-core/src/*"],
