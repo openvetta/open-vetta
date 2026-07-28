@@ -56,6 +56,8 @@ export interface PresetProvidersSectionLabels {
 	perMillionTokens: string;
 	refreshModels: string;
 	refreshingModels: string;
+	showAllModels: string;
+	showAllModelsHint: string;
 }
 
 export interface PresetProvidersSectionModel {
@@ -72,6 +74,10 @@ export interface PresetProvidersSectionModel {
 	onAdopt: (row: PresetProviderRow) => Promise<void>;
 	onRemove: (row: PresetProviderRow) => Promise<void>;
 	onRefreshModels: (row: PresetProviderRow) => Promise<void>;
+	/** 「显示全部模型」开关。关闭时每个系列只留最新一档。 */
+	showAllModels: boolean;
+	togglingShowAll: boolean;
+	onToggleShowAllModels: (showAll: boolean) => Promise<void>;
 }
 
 export function usePresetProvidersSectionModel({
@@ -92,6 +98,8 @@ export function usePresetProvidersSectionModel({
 	const [saving, setSaving] = useState(false);
 	const [refreshingId, setRefreshingId] = useState<string | null>(null);
 	const [modelsErrors, setModelsErrors] = useState<Record<string, string>>({});
+	const [showAllModels, setShowAllModels] = useState(false);
+	const [togglingShowAll, setTogglingShowAll] = useState(false);
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -99,6 +107,7 @@ export function usePresetProvidersSectionModel({
 		try {
 			const result = await window.vetta.models.listPresets();
 			setPresets(result.providers);
+			setShowAllModels(result.showAllModels);
 		} catch {
 			setError(t("fetchFailed"));
 		} finally {
@@ -245,6 +254,41 @@ export function usePresetProvidersSectionModel({
 		[config, saveConfig],
 	);
 
+	/**
+	 * 切换「显示全部模型」。开关落主进程(后台定时同步也读它),然后重新列一遍公共目录,
+	 * 并把已启用服务商的模型列表按新口径重新拉取落盘——否则 models.json 与开关不一致,
+	 * 模型选择器还是旧的那一份。
+	 */
+	const toggleShowAllModels = useCallback(
+		async (next: boolean): Promise<void> => {
+			setTogglingShowAll(true);
+			try {
+				await window.vetta.models.setPresetShowAllModels(next);
+				setShowAllModels(next);
+				const listed = await window.vetta.models.listPresets();
+				setPresets(listed.providers);
+
+				const adopted = Object.entries(config.providers).filter(
+					([, provider]) => provider.source === "template" && provider.apiKey,
+				);
+				if (adopted.length === 0) return;
+				const refreshed = await Promise.all(adopted.map(async ([id]) => ({ id, result: await refreshModels(id) })));
+				const providers = { ...config.providers };
+				let changed = false;
+				for (const { id, result } of refreshed) {
+					const provider = providers[id];
+					if (!provider || result.models.length === 0) continue;
+					providers[id] = { ...provider, models: result.models, modelsSyncedAt: new Date().toISOString() };
+					changed = true;
+				}
+				if (changed) await saveConfig({ ...config, providers });
+			} finally {
+				setTogglingShowAll(false);
+			}
+		},
+		[config, saveConfig],
+	);
+
 	const remove = useCallback(
 		async (row: PresetProviderRow): Promise<void> => {
 			const providers = { ...config.providers };
@@ -291,6 +335,8 @@ export function usePresetProvidersSectionModel({
 			perMillionTokens: t("perMillionTokens"),
 			refreshModels: t("refreshModels"),
 			refreshingModels: t("refreshingModels"),
+			showAllModels: t("showAllModels"),
+			showAllModelsHint: t("showAllModelsHint"),
 		},
 		onToggleExpanded: handleToggleExpanded,
 		onToggleEditor: handleToggleEditor,
@@ -298,6 +344,9 @@ export function usePresetProvidersSectionModel({
 		onAdopt: adopt,
 		onRemove: remove,
 		onRefreshModels: refresh,
+		showAllModels,
+		togglingShowAll,
+		onToggleShowAllModels: toggleShowAllModels,
 	};
 }
 

@@ -8,7 +8,14 @@ import { getDesktopModelSettingsService } from "../model-settings-host.js";
 import type { ModelDefinition, ModelsConfig } from "../model-settings-service.js";
 import { getPresetProvider, PRESET_PROVIDERS, type PresetProviderDef } from "./catalog.js";
 import { fetchPresetModels, type PresetModelsResult } from "./fetch.js";
-import { enrichFromCatalog, fetchModelsDevCatalog, isCatalogFresh, type ModelsDevCatalog } from "./models-dev.js";
+import {
+	enrichFromCatalog,
+	fetchModelsDevCatalog,
+	isCatalogFresh,
+	type ModelsDevCatalog,
+	selectLatestModels,
+} from "./models-dev.js";
+import { getShowAllPresetModels, setShowAllPresetModels } from "./preferences.js";
 
 const presetLog = getAppLogger("preset-providers");
 
@@ -28,29 +35,49 @@ export interface PresetProviderInfo {
 	catalogModels: ModelDefinition[];
 }
 
+export interface PresetProvidersResult {
+	providers: PresetProviderInfo[];
+	/** 是否展示各家全部模型;false = 每个系列只留最新一档。 */
+	showAllModels: boolean;
+}
+
 /**
  * 预设服务商目录。模型清单来自 models.dev(公开、免 key),让用户填 key 前就能看到
  * 各家有什么、多少钱;拉不到目录则模型为空——不内置任何会腐烂的默认清单。
  */
-export async function listPresetProviders(): Promise<PresetProviderInfo[]> {
+export async function listPresetProviders(): Promise<PresetProvidersResult> {
 	const catalog = await getModelsDevCatalog();
-	return PRESET_PROVIDERS.map((def) => ({
-		id: def.id,
-		displayName: def.displayName,
-		api: def.api,
-		baseUrl: def.baseUrl,
-		icon: def.icon,
-		catalogModels: catalogModelsFor(catalog, def),
-	}));
+	const showAllModels = getShowAllPresetModels();
+	return {
+		showAllModels,
+		providers: PRESET_PROVIDERS.map((def) => ({
+			id: def.id,
+			displayName: def.displayName,
+			api: def.api,
+			baseUrl: def.baseUrl,
+			icon: def.icon,
+			catalogModels: catalogModelsFor(catalog, def, showAllModels),
+		})),
+	};
 }
 
-function catalogModelsFor(catalog: ModelsDevCatalog | null, def: PresetProviderDef): ModelDefinition[] {
-	const models = catalog?.providers[def.id];
-	if (!models) return [];
-	return Object.values(models)
-		.filter((model) => def.isChatModel(model.id))
-		.map((model) => enrichFromCatalog(catalog, def.id, model))
+function catalogModelsFor(
+	catalog: ModelsDevCatalog | null,
+	def: PresetProviderDef,
+	showAllModels: boolean,
+): ModelDefinition[] {
+	const entries = catalog?.providers[def.id];
+	if (!entries) return [];
+	const models = Object.values(entries)
+		.filter((entry) => def.isChatModel(entry.model.id))
+		.map((entry) => enrichFromCatalog(catalog, def.id, entry.model))
 		.sort((a, b) => a.id.localeCompare(b.id));
+	return showAllModels ? models : selectLatestModels(catalog, def.id, models, Date.now());
+}
+
+/** 切换「显示全部模型」。调用方切换后需重新拉取/落盘,这里只管落偏好。 */
+export function setPresetShowAllModels(showAll: boolean): void {
+	setShowAllPresetModels(showAll);
 }
 
 /** 进程内缓存,避免同一次同步里六家各拉一遍 3MB 的目录。 */
@@ -116,7 +143,9 @@ export async function refreshPresetModels(providerId: string, apiKey?: string): 
 	if (result.models.length === 0) return result;
 
 	const catalog = await getModelsDevCatalog();
-	return { ...result, models: result.models.map((model) => enrichFromCatalog(catalog, def.id, model)) };
+	const enriched = result.models.map((model) => enrichFromCatalog(catalog, def.id, model));
+	const models = getShowAllPresetModels() ? enriched : selectLatestModels(catalog, def.id, enriched, Date.now());
+	return { ...result, models };
 }
 
 /** models.json 里由预设采纳而来、且填了 key 的条目。 */
