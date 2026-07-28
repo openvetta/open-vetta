@@ -50,6 +50,7 @@
 		"disable": "Disable",
 		"more": "More actions",
 		"refresh": "Refresh",
+		"loadMore": "Load more ({{remaining}} remaining)",
 		"reload": "Reload",
 		"cancel": "Cancel"
 	},

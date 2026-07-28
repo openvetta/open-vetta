@@ -6,6 +6,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { usePluginTextResolver } from "../../plugins/runtime/plugin-i18n";
 import { useMcpSettingsModel } from "../../settings/components/useMcpSettingsModel";
+import { queryAbilityCatalog } from "../lib/ability-catalog-query";
 import {
 	buildBundleAbilities,
 	buildMcpAbilities,
@@ -24,23 +25,13 @@ import {
 import { useAbilityActions } from "./useAbilityActions";
 import { useAbilityData } from "./useAbilityData";
 
-/** 排序：待配置 > 可更新 > 已安装 > 热度 > 标题。 */
-function compareAbilities(a: AbilityItem, b: AbilityItem): number {
-	if (a.setupRequired !== b.setupRequired) return a.setupRequired ? -1 : 1;
-	if (a.needsUpdate !== b.needsUpdate) return a.needsUpdate ? -1 : 1;
-	if (a.installed !== b.installed) return a.installed ? -1 : 1;
-	if (a.downloadCount !== b.downloadCount) return b.downloadCount - a.downloadCount;
-	return a.title.localeCompare(b.title);
-}
-
-function matchesScope(item: AbilityItem, scope: AbilityScope): boolean {
-	return scope === "discover" ? item.fromMarket : item.installed;
-}
+const ABILITY_PAGE_SIZE = 60;
 
 export function useAbilitiesModel(): AbilitiesModel {
 	const { t } = useTranslation("settings");
 	const [scope, setScope] = useState<AbilityScope>("discover");
 	const [searchQuery, setSearchQuery] = useState("");
+	const [visiblePages, setVisiblePages] = useState(1);
 
 	const data = useAbilityData();
 	const trPlugin = usePluginTextResolver();
@@ -77,17 +68,26 @@ export function useAbilitiesModel(): AbilitiesModel {
 		return [...singles, ...buildBundleAbilities(data.market, singles, localState, t)];
 	}, [data.market, localState, t, trPlugin]);
 
-	const scoped = useMemo(() => allItems.filter((item) => matchesScope(item, scope)), [allItems, scope]);
+	const changeScope = useCallback((nextScope: AbilityScope) => {
+		setScope(nextScope);
+		setVisiblePages(1);
+	}, []);
+	const changeSearchQuery = useCallback((value: string) => {
+		setSearchQuery(value);
+		setVisiblePages(1);
+	}, []);
 
-	const items = useMemo(() => {
-		const normalized = searchQuery.trim().toLowerCase();
-		return scoped
-			.filter((item) => {
-				if (!normalized) return true;
-				return item.searchTerms.some((term) => term.toLowerCase().includes(normalized));
-			})
-			.sort(compareAbilities);
-	}, [scoped, searchQuery]);
+	const catalogPage = useMemo(
+		() =>
+			queryAbilityCatalog(allItems, {
+				scope,
+				keyword: searchQuery,
+				page: 1,
+				pageSize: visiblePages * ABILITY_PAGE_SIZE,
+			}),
+		[allItems, scope, searchQuery, visiblePages],
+	);
+	const items = catalogPage.items;
 
 	const groups = useMemo<AbilityGroup[]>(() => {
 		const byCategory = new Map<string, AbilityItem[]>();
@@ -120,10 +120,13 @@ export function useAbilitiesModel(): AbilitiesModel {
 
 	return {
 		scope,
-		setScope,
+		setScope: changeScope,
 		searchQuery,
-		setSearchQuery,
+		setSearchQuery: changeSearchQuery,
 		items,
+		totalItems: catalogPage.total,
+		hasMore: items.length < catalogPage.total,
+		loadMore: () => setVisiblePages((current) => current + 1),
 		groups,
 		allItems,
 		bannerIcons,

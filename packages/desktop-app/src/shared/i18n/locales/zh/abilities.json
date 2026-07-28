@@ -50,6 +50,7 @@
 		"disable": "停用能力",
 		"more": "更多操作",
 		"refresh": "刷新",
+		"loadMore": "加载更多（剩余 {{remaining}} 项）",
 		"reload": "重载",
 		"cancel": "取消"
 	},

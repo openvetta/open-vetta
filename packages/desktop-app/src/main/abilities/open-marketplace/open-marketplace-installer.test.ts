@@ -28,6 +28,7 @@ async function createFixture(version = "1.0.0"): Promise<{
 		name: "vetta-open-abilities",
 		marketplaceVersion: "2026.07.1",
 		repository: "https://github.com/example/vetta-abilities",
+		minAppVersion: "0.5.11",
 		abilities: [
 			{
 				type: "skill",

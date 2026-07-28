@@ -112,6 +112,10 @@ export interface AbilitiesModel {
 	setSearchQuery: (value: string) => void;
 	/** 经 scope + 搜索过滤后的结果。 */
 	items: AbilityItem[];
+	/** 经 scope + 搜索过滤后的总数；items 只包含当前已展开的本地分页。 */
+	totalItems: number;
+	hasMore: boolean;
+	loadMore: () => void;
 	/** items 按分类聚合；分类名升序，未分类置底。 */
 	groups: AbilityGroup[];
 	/** 未经任何过滤的全集，供详情页按 id 查找。 */

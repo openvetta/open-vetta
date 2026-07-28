@@ -9,11 +9,13 @@ import type {
 	OpenMarketplaceAbility,
 	OpenMarketplaceSnapshot,
 } from "../../../preload/api-types/abilities.js";
+import { isAppVersionCompatible, isValidAppVersion } from "./marketplace-compatibility.js";
 import { type MarketplaceManifest, parseMarketplaceManifest } from "./marketplace-schema.js";
 import { validateSkillPackage } from "./skill-package.js";
 
-const DEFAULT_REPOSITORY = "https://github.com/flower0wine/vetta-abilities";
-const DEFAULT_ARCHIVE_URL = `${DEFAULT_REPOSITORY}/archive/refs/heads/main.zip`;
+export const DEFAULT_MARKETPLACE_SOURCE_ID = "vetta-official";
+export const DEFAULT_MARKETPLACE_REPOSITORY = "https://github.com/flower0wine/vetta-abilities";
+export const DEFAULT_MARKETPLACE_ARCHIVE_URL = `${DEFAULT_MARKETPLACE_REPOSITORY}/archive/refs/heads/main.zip`;
 const DEFAULT_SYNC_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const MAX_ARCHIVE_BYTES = 25 * 1024 * 1024;
 const MAX_UNCOMPRESSED_BYTES = 100 * 1024 * 1024;
@@ -34,7 +36,9 @@ interface OpenMarketplaceState {
 }
 
 export interface OpenMarketplaceServiceOptions {
+	appVersion: string;
 	rootDir?: string;
+	sourceId?: string;
 	archiveUrl?: string;
 	repository?: string;
 	fetchArchive?: FetchArchive;
@@ -81,11 +85,13 @@ function normalizeArchiveEntryPath(value: string): string {
 }
 
 function toOpenMarketplaceAbility(
+	sourceId: string,
 	manifest: MarketplaceManifest,
 	ability: MarketplaceManifest["abilities"][number],
 ): OpenMarketplaceAbility {
 	const origin: GitHubMarketplaceOrigin = {
 		kind: "github-marketplace",
+		sourceId,
 		marketplace: manifest.name,
 		marketplaceVersion: manifest.marketplaceVersion,
 		repository: manifest.repository,
@@ -113,17 +119,26 @@ function toOpenMarketplaceAbility(
 
 export class OpenMarketplaceService {
 	private readonly rootDir: string;
+	private readonly sourceId: string;
 	private readonly archiveUrl: string;
 	private readonly repository: string;
+	private readonly appVersion: string;
 	private readonly fetchArchive: FetchArchive;
 	private readonly now: () => Date;
 	private readonly syncIntervalMs: number;
 	private readonly installAbilityOverride?: InstallAbility;
 
-	constructor(options: OpenMarketplaceServiceOptions = {}) {
+	constructor(options: OpenMarketplaceServiceOptions) {
 		this.rootDir = options.rootDir ?? join(getVettaHomePath(), "open-marketplace");
-		this.repository = options.repository ?? process.env.VETTA_OPEN_MARKETPLACE_REPOSITORY ?? DEFAULT_REPOSITORY;
-		this.archiveUrl = options.archiveUrl ?? process.env.VETTA_OPEN_MARKETPLACE_ARCHIVE_URL ?? DEFAULT_ARCHIVE_URL;
+		this.sourceId = options.sourceId ?? DEFAULT_MARKETPLACE_SOURCE_ID;
+		this.repository =
+			options.repository ?? process.env.VETTA_OPEN_MARKETPLACE_REPOSITORY ?? DEFAULT_MARKETPLACE_REPOSITORY;
+		this.archiveUrl =
+			options.archiveUrl ?? process.env.VETTA_OPEN_MARKETPLACE_ARCHIVE_URL ?? DEFAULT_MARKETPLACE_ARCHIVE_URL;
+		if (!isValidAppVersion(options.appVersion)) {
+			throw new Error(`Invalid desktop app version: ${options.appVersion}`);
+		}
+		this.appVersion = options.appVersion;
 		this.fetchArchive = options.fetchArchive ?? fetch;
 		this.now = options.now ?? (() => new Date());
 		this.syncIntervalMs = options.syncIntervalMs ?? DEFAULT_SYNC_INTERVAL_MS;
@@ -136,6 +151,19 @@ export class OpenMarketplaceService {
 		return this.refresh();
 	}
 
+	async listCached(): Promise<OpenMarketplaceSnapshot> {
+		return (
+			(await this.readCachedSnapshot()) ?? {
+				sourceId: this.sourceId,
+				abilities: [],
+				marketplaceVersion: null,
+				repository: this.repository,
+				syncedAt: null,
+				stale: true,
+			}
+		);
+	}
+
 	async refresh(): Promise<OpenMarketplaceSnapshot> {
 		try {
 			return await this.sync();
@@ -144,6 +172,7 @@ export class OpenMarketplaceService {
 			return cached
 				? { ...cached, stale: true, error: "sync-failed" }
 				: {
+						sourceId: this.sourceId,
 						abilities: [],
 						marketplaceVersion: null,
 						repository: this.repository,
@@ -164,6 +193,7 @@ export class OpenMarketplaceService {
 			(await import("./open-marketplace-production.js")).installOpenMarketplaceAbilityInDesktop;
 		await installAbility(active.snapshotRoot, ability, {
 			kind: "github-marketplace",
+			sourceId: this.sourceId,
 			marketplace: active.manifest.name,
 			marketplaceVersion: active.manifest.marketplaceVersion,
 			repository: active.manifest.repository,
@@ -198,9 +228,18 @@ export class OpenMarketplaceService {
 			const raw: unknown = JSON.parse(await readFile(join(snapshotRoot, ".vetta", "marketplace.json"), "utf-8"));
 			const manifest = parseMarketplaceManifest(raw);
 			if (manifest.marketplaceVersion !== state.marketplaceVersion) return null;
+			this.assertManifestCompatible(manifest);
 			return { state, snapshotRoot, manifest };
 		} catch {
 			return null;
+		}
+	}
+
+	private assertManifestCompatible(manifest: MarketplaceManifest): void {
+		if (!isAppVersionCompatible(this.appVersion, manifest.minAppVersion)) {
+			throw new Error(
+				`Marketplace ${manifest.marketplaceVersion} requires desktop app ${manifest.minAppVersion} or newer`,
+			);
 		}
 	}
 
@@ -209,7 +248,10 @@ export class OpenMarketplaceService {
 		if (!active) return null;
 		const elapsed = this.now().getTime() - Date.parse(active.state.syncedAt);
 		return {
-			abilities: active.manifest.abilities.map((ability) => toOpenMarketplaceAbility(active.manifest, ability)),
+			sourceId: this.sourceId,
+			abilities: active.manifest.abilities.map((ability) =>
+				toOpenMarketplaceAbility(this.sourceId, active.manifest, ability),
+			),
 			marketplaceVersion: active.manifest.marketplaceVersion,
 			repository: active.manifest.repository,
 			syncedAt: active.state.syncedAt,
@@ -290,6 +332,7 @@ export class OpenMarketplaceService {
 				await readFile(join(marketplaceRoot, ".vetta", "marketplace.json"), "utf-8"),
 			);
 			const manifest = parseMarketplaceManifest(manifestRaw);
+			this.assertManifestCompatible(manifest);
 			for (const ability of manifest.abilities) {
 				const sourceDir = resolve(marketplaceRoot, ability.source.path);
 				if (!isContained(marketplaceRoot, sourceDir))
@@ -322,7 +365,8 @@ export class OpenMarketplaceService {
 			await writeFile(temporaryStatePath, JSON.stringify(state, null, 2), "utf-8");
 			await rename(temporaryStatePath, this.statePath);
 			return {
-				abilities: manifest.abilities.map((ability) => toOpenMarketplaceAbility(manifest, ability)),
+				sourceId: this.sourceId,
+				abilities: manifest.abilities.map((ability) => toOpenMarketplaceAbility(this.sourceId, manifest, ability)),
 				marketplaceVersion: manifest.marketplaceVersion,
 				repository: manifest.repository,
 				syncedAt: state.syncedAt,
@@ -336,7 +380,7 @@ export class OpenMarketplaceService {
 
 let desktopOpenMarketplaceService: OpenMarketplaceService | undefined;
 
-export function getOpenMarketplaceService(): OpenMarketplaceService {
-	desktopOpenMarketplaceService ??= new OpenMarketplaceService();
+export function getOpenMarketplaceService(appVersion: string): OpenMarketplaceService {
+	desktopOpenMarketplaceService ??= new OpenMarketplaceService({ appVersion });
 	return desktopOpenMarketplaceService;
 }
