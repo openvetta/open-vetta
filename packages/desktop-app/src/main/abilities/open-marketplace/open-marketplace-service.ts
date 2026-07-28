@@ -16,6 +16,7 @@ import { validateSkillPackage } from "./skill-package.js";
 export const DEFAULT_MARKETPLACE_SOURCE_ID = "vetta-official";
 export const DEFAULT_MARKETPLACE_REPOSITORY = "https://github.com/flower0wine/vetta-abilities";
 export const DEFAULT_MARKETPLACE_ARCHIVE_URL = `${DEFAULT_MARKETPLACE_REPOSITORY}/archive/refs/heads/main.zip`;
+const STATE_SCHEMA_VERSION = 1;
 const DEFAULT_SYNC_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const MAX_ARCHIVE_BYTES = 25 * 1024 * 1024;
 const MAX_UNCOMPRESSED_BYTES = 100 * 1024 * 1024;
@@ -30,6 +31,11 @@ type InstallAbility = (
 ) => Promise<void>;
 
 interface OpenMarketplaceState {
+	schemaVersion: typeof STATE_SCHEMA_VERSION;
+	sourceId: string;
+	repository: string;
+	ref: string;
+	archiveUrl: string;
 	marketplaceVersion: string;
 	archiveSha256: string;
 	syncedAt: string;
@@ -39,6 +45,7 @@ export interface OpenMarketplaceServiceOptions {
 	appVersion: string;
 	rootDir?: string;
 	sourceId?: string;
+	sourceRef?: string;
 	archiveUrl?: string;
 	repository?: string;
 	fetchArchive?: FetchArchive;
@@ -59,6 +66,11 @@ function parseState(input: unknown): OpenMarketplaceState | null {
 	if (input == null || typeof input !== "object" || Array.isArray(input)) return null;
 	const state = input as Record<string, unknown>;
 	if (
+		state.schemaVersion !== STATE_SCHEMA_VERSION ||
+		typeof state.sourceId !== "string" ||
+		typeof state.repository !== "string" ||
+		typeof state.ref !== "string" ||
+		typeof state.archiveUrl !== "string" ||
 		typeof state.marketplaceVersion !== "string" ||
 		typeof state.archiveSha256 !== "string" ||
 		typeof state.syncedAt !== "string"
@@ -66,6 +78,11 @@ function parseState(input: unknown): OpenMarketplaceState | null {
 		return null;
 	}
 	return {
+		schemaVersion: STATE_SCHEMA_VERSION,
+		sourceId: state.sourceId,
+		repository: state.repository,
+		ref: state.ref,
+		archiveUrl: state.archiveUrl,
 		marketplaceVersion: state.marketplaceVersion,
 		archiveSha256: state.archiveSha256,
 		syncedAt: state.syncedAt,
@@ -120,6 +137,7 @@ function toOpenMarketplaceAbility(
 export class OpenMarketplaceService {
 	private readonly rootDir: string;
 	private readonly sourceId: string;
+	private readonly sourceRef: string;
 	private readonly archiveUrl: string;
 	private readonly repository: string;
 	private readonly appVersion: string;
@@ -131,10 +149,13 @@ export class OpenMarketplaceService {
 	constructor(options: OpenMarketplaceServiceOptions) {
 		this.rootDir = options.rootDir ?? join(getVettaHomePath(), "open-marketplace");
 		this.sourceId = options.sourceId ?? DEFAULT_MARKETPLACE_SOURCE_ID;
+		this.sourceRef = options.sourceRef ?? "main";
 		this.repository =
 			options.repository ?? process.env.VETTA_OPEN_MARKETPLACE_REPOSITORY ?? DEFAULT_MARKETPLACE_REPOSITORY;
 		this.archiveUrl =
-			options.archiveUrl ?? process.env.VETTA_OPEN_MARKETPLACE_ARCHIVE_URL ?? DEFAULT_MARKETPLACE_ARCHIVE_URL;
+			options.archiveUrl ??
+			process.env.VETTA_OPEN_MARKETPLACE_ARCHIVE_URL ??
+			`${this.repository}/archive/refs/heads/${this.sourceRef.split("/").map(encodeURIComponent).join("/")}.zip`;
 		if (!isValidAppVersion(options.appVersion)) {
 			throw new Error(`Invalid desktop app version: ${options.appVersion}`);
 		}
@@ -216,13 +237,22 @@ export class OpenMarketplaceService {
 		}
 	}
 
+	private matchesCurrentSource(state: OpenMarketplaceState): boolean {
+		return (
+			state.sourceId === this.sourceId &&
+			state.repository === this.repository &&
+			state.ref === this.sourceRef &&
+			state.archiveUrl === this.archiveUrl
+		);
+	}
+
 	private async readActiveMarketplace(): Promise<{
 		state: OpenMarketplaceState;
 		snapshotRoot: string;
 		manifest: MarketplaceManifest;
 	} | null> {
 		const state = await this.readState();
-		if (!state) return null;
+		if (!state || !this.matchesCurrentSource(state)) return null;
 		const snapshotRoot = join(this.snapshotsDir, state.marketplaceVersion);
 		try {
 			const raw: unknown = JSON.parse(await readFile(join(snapshotRoot, ".vetta", "marketplace.json"), "utf-8"));
@@ -341,22 +371,28 @@ export class OpenMarketplaceService {
 			}
 
 			const previousState = await this.readState();
+			const sameSourceState = previousState && this.matchesCurrentSource(previousState) ? previousState : null;
 			if (
-				previousState?.marketplaceVersion === manifest.marketplaceVersion &&
-				previousState.archiveSha256 !== archiveSha256
+				sameSourceState?.marketplaceVersion === manifest.marketplaceVersion &&
+				sameSourceState.archiveSha256 !== archiveSha256
 			) {
 				throw new Error("Marketplace content changed without a marketplaceVersion update");
 			}
 			const destination = join(this.snapshotsDir, manifest.marketplaceVersion);
 			const canReuseDestination =
-				previousState?.marketplaceVersion === manifest.marketplaceVersion &&
-				previousState.archiveSha256 === archiveSha256 &&
+				sameSourceState?.marketplaceVersion === manifest.marketplaceVersion &&
+				sameSourceState.archiveSha256 === archiveSha256 &&
 				existsSync(destination);
 			if (!canReuseDestination) {
 				await rm(destination, { recursive: true, force: true });
 				await rename(marketplaceRoot, destination);
 			}
 			const state: OpenMarketplaceState = {
+				schemaVersion: STATE_SCHEMA_VERSION,
+				sourceId: this.sourceId,
+				repository: this.repository,
+				ref: this.sourceRef,
+				archiveUrl: this.archiveUrl,
 				marketplaceVersion: manifest.marketplaceVersion,
 				archiveSha256,
 				syncedAt: this.now().toISOString(),

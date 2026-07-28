@@ -37,3 +37,9 @@ Desktop 从 GitHub 下载完整仓库归档，并在本地读取 `.vetta/marketp
 2. 每个 Manifest 都必须设置对应的 `minAppVersion`。
 3. 不从 GitHub 仓库执行 JavaScript 或其它迁移脚本。
 4. 发布前必须校验 Manifest、能力目录、能力版本和来源路径。
+
+## 本地缓存身份
+
+客户端将 `sourceId`、`repository`、`ref` 和 `archiveUrl` 共同作为市场来源身份。只有配置未被覆盖的内置默认来源继续使用原缓存目录，其余每一种来源配置都使用独立的指纹缓存目录；修改仓库、分支或归档地址后，不会继续读取旧配置的缓存。
+
+同一来源身份下，`marketplaceVersion` 对应的内容仍然不可变。来源身份发生变化时，即使新来源暂时使用相同的 `marketplaceVersion`，也允许下载并建立新的缓存快照。
