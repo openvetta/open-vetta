@@ -60,16 +60,32 @@ export interface PresetProviderInfo {
 export interface PresetProvidersResult {
 	providers: PresetProviderInfo[];
 	/** 公共目录最近一次拉取失败的原因。仅在退到随包快照时给出。 */
-	catalogError?: string;
+	catalogError?: PresetError;
 	/** 当前目录数据来自哪里:实拉/缓存 = live,随包内置快照 = snapshot。 */
 	catalogSource: "live" | "snapshot";
 	/** 当前目录数据的抓取时间(ISO)。 */
 	catalogFetchedAt?: string;
 }
 
+/** 预设链路的结构化错误码。文案由渲染层查 i18n,主进程不产出面向用户的中文。 */
+export type PresetErrorCode =
+	| "unknown-provider"
+	| "missing-key"
+	| "http-status"
+	| "empty-models"
+	| "timeout"
+	| "network";
+
+export interface PresetError {
+	code: PresetErrorCode;
+	params?: Record<string, string | number>;
+	/** 未翻译的原始错误信息,仅用于排查。 */
+	detail?: string;
+}
+
 export interface PresetModelsResult {
 	models: NonNullable<ModelsConfigData["providers"][string]["models"]>;
-	error?: string;
+	error?: PresetError;
 }
 
 export interface DesktopModelsApi {
@@ -81,7 +97,7 @@ export interface DesktopModelsApi {
 	/** 按 key 拉取某预设服务商上游 `/models` 的模型列表。只拉不写,由调用方落盘。 */
 	refreshPresetModels(providerId: string, apiKey?: string): Promise<PresetModelsResult>;
 	/** 手动刷新 models.dev 公共目录(清掉失败冷却强制重拉),失败时返回可读的错误原文。 */
-	refreshPresetCatalog(): Promise<{ ok: boolean; error?: string; modelCount: number }>;
+	refreshPresetCatalog(): Promise<{ ok: boolean; error?: PresetError; elapsedMs: number; modelCount: number }>;
 	/** 公共目录后台刷新到新数据时触发,收到后重新 listPresets 即可。返回取消订阅函数。 */
 	onPresetsUpdated(handler: () => void): () => void;
 	/** 探测某 (provider, model) 的 baseUrl 是否可达(本地 models.json 优先,回退云端目录)。仅判可达性,任何 HTTP 响应都算通。 */

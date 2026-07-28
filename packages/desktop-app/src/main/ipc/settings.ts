@@ -358,7 +358,7 @@ export function registerSettingsIpc(): () => void {
 	// 手动刷新某预设服务商的模型列表:只拉不写,由渲染层连同 key 一起落盘。
 	ipcMain.handle("vetta:models:refresh-preset-models", async (_event, providerId: unknown, apiKey: unknown) => {
 		if (typeof providerId !== "string" || !providerId.trim()) {
-			return { models: [], error: "providerId 缺失" };
+			return { models: [], error: { code: "unknown-provider", params: { provider: String(providerId) } } };
 		}
 		return refreshPresetModels(providerId.trim(), typeof apiKey === "string" ? apiKey : undefined);
 	});

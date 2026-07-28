@@ -138,7 +138,11 @@ describe("fetchPresetModels", () => {
 		const result = await fetchPresetModels(def("deepseek"), "bad-key", fetchImpl);
 
 		expect(result.models).toEqual([]);
-		expect(result.error).toContain("401");
+		// 结构化错误码 + 参数,文案由渲染层查 i18n(主进程不产出中文)。
+		expect(result.error).toEqual({
+			code: "http-status",
+			params: { host: "api.deepseek.com", status: 401, statusText: "OK" },
+		});
 	});
 
 	it("空列表算作错误,调用方据此保留旧快照", async () => {
@@ -147,6 +151,6 @@ describe("fetchPresetModels", () => {
 		const result = await fetchPresetModels(def("zai"), "sk-test", fetchImpl);
 
 		expect(result.models).toEqual([]);
-		expect(result.error).toBeTruthy();
+		expect(result.error).toEqual({ code: "empty-models" });
 	});
 });

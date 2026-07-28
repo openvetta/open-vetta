@@ -1,6 +1,9 @@
-import type { ModelsConfigData, PresetProviderInfo } from "@preload/api.js";
+import type { ModelsConfigData, PresetError, PresetProviderInfo } from "@preload/api.js";
+import { showToast } from "@shared/store/toast-atoms";
+import type { TFunction } from "i18next";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { translatePresetError } from "./translatePresetError";
 
 type ProviderEntry = ModelsConfigData["providers"][string];
 type ModelCost = { input: number; output: number; cacheRead: number; cacheWrite: number };
@@ -110,7 +113,7 @@ export function usePresetProvidersSectionModel({
 					result.catalogError,
 				);
 				const time = result.catalogFetchedAt ? formatSyncedAt(result.catalogFetchedAt, i18n.language) : "?";
-				setError(`${t("catalogUnavailable", { time })}（${result.catalogError}）`);
+				setError(`${t("catalogUnavailable", { time })} ${translatePresetError(result.catalogError, t)}`);
 			} else {
 				setError(null);
 			}
@@ -221,7 +224,10 @@ export function usePresetProvidersSectionModel({
 					models: fetched.models.length > 0 ? fetched.models : row.models,
 					...(fetched.models.length > 0 ? { modelsSyncedAt: new Date().toISOString() } : {}),
 				};
-				setModelsErrors((prev) => withError(prev, row.id, fetched.error));
+				setModelsErrors((prev) => withError(prev, row.id, fetched.error, t));
+				if (fetched.error) {
+					notifyPresetError(t("modelsRefreshFailed", { provider: row.displayName }), fetched.error, t);
+				}
 				await saveConfig({
 					...config,
 					providers: { ...config.providers, [row.id]: entry },
@@ -236,7 +242,7 @@ export function usePresetProvidersSectionModel({
 				setSaving(false);
 			}
 		},
-		[config, draftKeys, saveConfig],
+		[config, draftKeys, saveConfig, t],
 	);
 
 	const refresh = useCallback(
@@ -246,7 +252,10 @@ export function usePresetProvidersSectionModel({
 			setRefreshingId(row.id);
 			try {
 				const result = await refreshModels(row.id);
-				setModelsErrors((prev) => withError(prev, row.id, result.error));
+				setModelsErrors((prev) => withError(prev, row.id, result.error, t));
+				if (result.error) {
+					notifyPresetError(t("modelsRefreshFailed", { provider: row.displayName }), result.error, t);
+				}
 				if (result.models.length === 0) return;
 				await saveConfig({
 					...config,
@@ -259,7 +268,7 @@ export function usePresetProvidersSectionModel({
 				setRefreshingId(null);
 			}
 		},
-		[config, saveConfig],
+		[config, saveConfig, t],
 	);
 
 	/** 手动重拉公共目录:清冷却强制重试,失败把原文打进控制台并显示出来。 */
@@ -268,17 +277,25 @@ export function usePresetProvidersSectionModel({
 		try {
 			const result = await window.vetta.models.refreshPresetCatalog();
 			if (result.ok) {
-				console.info(`[preset-providers] models.dev 目录已更新，共 ${result.modelCount} 个模型`);
+				console.info(
+					`[preset-providers] models.dev 目录已更新，共 ${result.modelCount} 个模型（${result.elapsedMs}ms）`,
+				);
+				showToast({
+					variant: "success",
+					message: t("catalogRefreshed", { count: result.modelCount }),
+				});
 			} else {
 				console.error("[preset-providers] 刷新 models.dev 目录失败：", result.error);
+				notifyPresetError(t("catalogRefreshFailed"), result.error ?? { code: "network" }, t);
 			}
 			await load();
 		} catch (err) {
 			console.error("[preset-providers] 刷新 models.dev 目录异常：", err);
+			notifyPresetError(t("catalogRefreshFailed"), { code: "network", detail: String(err) }, t);
 		} finally {
 			setRefreshingCatalog(false);
 		}
-	}, [load]);
+	}, [load, t]);
 
 	const remove = useCallback(
 		async (row: PresetProviderRow): Promise<void> => {
@@ -287,7 +304,7 @@ export function usePresetProvidersSectionModel({
 			const defaultModel = config.defaultModel?.startsWith(`${row.id}/`) ? undefined : config.defaultModel;
 			await saveConfig({ ...config, defaultModel, providers });
 			if (openId === row.id) setOpenId(null);
-			setModelsErrors((prev) => withError(prev, row.id, undefined));
+			setModelsErrors((prev) => withError(prev, row.id, undefined, t));
 			setDraftKeys((prev) => {
 				if (!(row.id in prev)) return prev;
 				const next = { ...prev };
@@ -295,7 +312,7 @@ export function usePresetProvidersSectionModel({
 				return next;
 			});
 		},
-		[config, openId, saveConfig],
+		[config, openId, saveConfig, t],
 	);
 
 	return {
@@ -351,16 +368,26 @@ interface BaseRow {
 async function refreshModels(
 	providerId: string,
 	apiKey?: string,
-): Promise<{ models: NonNullable<ProviderEntry["models"]>; error?: string }> {
+): Promise<{ models: NonNullable<ProviderEntry["models"]>; error?: PresetError }> {
 	try {
 		return await window.vetta.models.refreshPresetModels(providerId, apiKey);
 	} catch (err) {
-		return { models: [], error: err instanceof Error ? err.message : String(err) };
+		return { models: [], error: { code: "network", detail: err instanceof Error ? err.message : String(err) } };
 	}
 }
 
-function withError(prev: Record<string, string>, id: string, error: string | undefined): Record<string, string> {
-	if (error) return { ...prev, [id]: error };
+/** 错误既进行内提示,也进全局通知——设置页可能已经滚走了,行内那行字看不见。 */
+function notifyPresetError(title: string, error: PresetError, t: TFunction<"settings">): void {
+	showToast({ variant: "error", title, message: translatePresetError(error, t), durationMs: 8000 });
+}
+
+function withError(
+	prev: Record<string, string>,
+	id: string,
+	error: PresetError | undefined,
+	t: TFunction<"settings">,
+): Record<string, string> {
+	if (error) return { ...prev, [id]: translatePresetError(error, t) };
 	if (!(id in prev)) return prev;
 	const next = { ...prev };
 	delete next[id];
