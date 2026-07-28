@@ -133,12 +133,12 @@ export function useAbilitiesModel(): AbilitiesModel {
 		loading: data.loading || mcp.config === null,
 		refreshing: data.refreshing,
 		errors,
-		message: actions.message,
 		importing: actions.importing,
 		mcp,
 		findById,
 		refresh: data.refresh,
 		install: actions.install,
+		installBundleMembers: actions.installBundleMembers,
 		uninstall: actions.uninstall,
 		toggle: actions.toggle,
 		setup: (item) => {
