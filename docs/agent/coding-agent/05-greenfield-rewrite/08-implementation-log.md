@@ -60,6 +60,7 @@
 | [50-greenfield-session-projection.md](./08-implementation-log/50-greenfield-session-projection.md) | Greenfield 同步会话投影、真实 Core Assembly 与文件恢复集成 |
 | [51-conversation-document-and-history-read.md](./08-implementation-log/51-conversation-document-and-history-read.md) | Conversation Document、原生 V2/Legacy 读取与 Greenfield History Reader |
 | [52-conversation-document-write-and-history-controller.md](./08-implementation-log/52-conversation-document-write-and-history-controller.md) | Conversation Document 写命令、并发边界与 Greenfield History Controller |
+| [53-greenfield-model-runtime-and-turn-binding.md](./08-implementation-log/53-greenfield-model-runtime-and-turn-binding.md) | Greenfield 模型事实源、抽象 Catalog/Credential Port 与 Turn 级模型绑定 |
 
 ## 维护约定
 

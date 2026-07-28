@@ -1,4 +1,13 @@
-import type { ImageContent, Message, StopReason, TextContent, UserMessage } from "@vetta/ai";
+import type {
+	Api,
+	ImageContent,
+	Message,
+	Model,
+	SimpleStreamOptions,
+	StopReason,
+	TextContent,
+	UserMessage,
+} from "@vetta/ai";
 import type { RuntimeSessionObservationEvent } from "../session-observation.js";
 
 export type AgentSessionState = "idle" | "running" | "cancelling" | "closing" | "closed";
@@ -148,6 +157,16 @@ export interface RuntimeSnapshotLease {
 
 export interface RuntimeSnapshotProvider {
 	acquire(): Promise<RuntimeSnapshotLease>;
+}
+
+/** 单次 Turn 使用的不可变模型选择；运行时切模只影响后续 bind。 */
+export interface RuntimeTurnModelBinding {
+	readonly model: Model<Api>;
+	readonly reasoning?: SimpleStreamOptions["reasoning"];
+}
+
+export interface RuntimeTurnModelBindingProvider {
+	bind(): RuntimeTurnModelBinding;
 }
 
 export interface FeaturePrepareContext {
@@ -342,6 +361,7 @@ export interface TurnEngineRequest {
 	readonly sessionId: string;
 	readonly turnId: string;
 	readonly snapshot: RuntimeSnapshot;
+	readonly modelBinding?: RuntimeTurnModelBinding;
 	readonly messages: readonly Message[];
 	readonly signal: AbortSignal;
 	readonly inputQueue?: TurnInputQueue;

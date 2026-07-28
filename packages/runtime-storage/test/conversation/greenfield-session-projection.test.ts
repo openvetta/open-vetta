@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { AssistantMessage, Message, UserMessage } from "@vetta/ai";
+import type { Api, AssistantMessage, Message, Model, UserMessage } from "@vetta/ai";
 import { afterEach, describe, expect, it } from "vitest";
 import {
 	createAgentSession,
@@ -14,7 +14,10 @@ import {
 	type TurnEngineRequest,
 	TurnPipeline,
 } from "../../../runtime-core/src/kernel/index.js";
-import { GreenfieldRuntimeSessionBackend } from "../../../runtime-core/src/runtime-host/index.js";
+import {
+	GreenfieldRuntimeModel,
+	GreenfieldRuntimeSessionBackend,
+} from "../../../runtime-core/src/runtime-host/index.js";
 import { FileConversationRepository } from "../../src/conversation/index.js";
 
 const temporaryRoots: string[] = [];
@@ -173,9 +176,24 @@ async function createAssembly(
 ) {
 	let turnIndex = 0;
 	const repository = new FileConversationRepository({ rootDir });
+	const modelRuntime = new GreenfieldRuntimeModel({
+		initialModel: TEST_MODEL,
+		initialThinkingLevel: "off",
+		catalog: {
+			refresh() {},
+			listAvailable: () => [TEST_MODEL],
+			find: (provider, modelId) =>
+				TEST_MODEL.provider === provider && TEST_MODEL.id === modelId ? TEST_MODEL : undefined,
+		},
+		credentials: {
+			resolve: async () => "test-key",
+			refreshAuth: async () => {},
+		},
+	});
 	const pipeline = new TurnPipeline({
 		repository,
 		snapshotProvider: new StaticRuntimeSnapshotProvider(snapshot()),
+		modelBindingProvider: modelRuntime,
 		turnEngine,
 		eventSink,
 		clock: { now: () => Date.now() },
@@ -194,14 +212,13 @@ async function createAssembly(
 		session,
 		repository,
 		conversationDocumentStore: repository,
+		modelRuntime,
 		identity: {
 			cwd: rootDir,
 			sessionPath: repository.resolveConversationPath(sessionId),
 		},
 		stateSource: {
 			read: () => ({
-				model: undefined,
-				thinkingLevel: "off" as const,
 				contextPercent: null,
 				contextWindow: 8_000,
 				activeToolNames: [] as string[],
@@ -210,6 +227,19 @@ async function createAssembly(
 		dispose: () => repository.close(),
 	};
 }
+
+const TEST_MODEL: Model<Api> = {
+	id: "test-model",
+	name: "Test Model",
+	api: "openai-responses",
+	provider: "test",
+	baseUrl: "https://example.test",
+	reasoning: false,
+	input: ["text"],
+	cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+	contextWindow: 8_000,
+	maxTokens: 1_000,
+};
 
 class CompletingTurnEngine implements TurnEnginePort {
 	async *execute(): AsyncIterable<TurnEngineEvent> {

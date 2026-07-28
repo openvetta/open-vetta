@@ -21,7 +21,8 @@ import { composeModelCallSystemPrompt, resolveModelCallFrame } from "./model-cal
 import { RuntimeToolExecutionError } from "./tool-execution-error.js";
 
 export interface AgentCoreTurnEngineOptions {
-	readonly model: Model<Api>;
+	/** 兼容静态组合；Greenfield 应通过 TurnEngineRequest.modelBinding 提供模型。 */
+	readonly model?: Model<Api>;
 	readonly streamOptions?: Omit<SimpleStreamOptions, "sessionId" | "signal">;
 	readonly streamFn?: StreamFn;
 	readonly getApiKey?: AgentLoopConfig["getApiKey"];
@@ -75,9 +76,14 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 
 	private createConfig(request: TurnEngineRequest): AgentLoopConfig {
 		const inputQueue = request.inputQueue;
+		const model = request.modelBinding?.model ?? this.options.model;
+		if (!model) {
+			throw turnProtocolError("Agent Core turn requires a model binding");
+		}
 		return {
 			...this.options.streamOptions,
-			model: this.options.model,
+			...(request.modelBinding ? { reasoning: request.modelBinding.reasoning } : {}),
+			model,
 			sessionId: request.sessionId,
 			getApiKey: this.options.getApiKey,
 			convertToLlm: convertToLlm,

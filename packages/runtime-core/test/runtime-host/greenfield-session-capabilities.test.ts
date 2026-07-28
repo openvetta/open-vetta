@@ -17,8 +17,8 @@ const GREENFIELD_CAPABILITY_MATRIX = {
 	backgroundWorkController: "missing",
 	todoController: "missing",
 	configurationController: "missing",
-	modelController: "missing",
-	modelView: "missing",
+	modelController: "implemented",
+	modelView: "implemented",
 	corePorts: "implemented",
 } as const satisfies Record<keyof RuntimeHostSessionAssembly, CapabilityStatus>;
 
@@ -28,7 +28,15 @@ describe("Greenfield RuntimeHost capability matrix", () => {
 			.filter(([, status]) => status === "implemented")
 			.map(([name]) => name);
 
-		expect(implemented).toEqual(["lifecycle", "historyReader", "historyController", "workspaceView", "corePorts"]);
-		expect(Object.values(GREENFIELD_CAPABILITY_MATRIX).filter((status) => status === "missing")).toHaveLength(7);
+		expect(implemented).toEqual([
+			"lifecycle",
+			"historyReader",
+			"historyController",
+			"workspaceView",
+			"modelController",
+			"modelView",
+			"corePorts",
+		]);
+		expect(Object.values(GREENFIELD_CAPABILITY_MATRIX).filter((status) => status === "missing")).toHaveLength(5);
 	});
 });

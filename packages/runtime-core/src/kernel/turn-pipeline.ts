@@ -10,6 +10,7 @@ import type {
 	RuntimeSnapshot,
 	RuntimeSnapshotLease,
 	RuntimeSnapshotProvider,
+	RuntimeTurnModelBindingProvider,
 	SessionInput,
 	StoredConversation,
 	StoredSessionEvent,
@@ -24,6 +25,7 @@ import { KERNEL_ERROR_CODES, KernelError, turnProtocolError } from "./errors.js"
 export interface TurnPipelineOptions {
 	readonly repository: ConversationRepository;
 	readonly snapshotProvider: RuntimeSnapshotProvider;
+	readonly modelBindingProvider?: RuntimeTurnModelBindingProvider;
 	readonly turnEngine: TurnEnginePort;
 	readonly eventSink: EventSink;
 	readonly clock: Clock;
@@ -41,6 +43,7 @@ interface MutableTurnState {
 export class TurnPipeline {
 	private readonly repository: ConversationRepository;
 	private readonly snapshotProvider: RuntimeSnapshotProvider;
+	private readonly modelBindingProvider: RuntimeTurnModelBindingProvider | undefined;
 	private readonly turnEngine: TurnEnginePort;
 	private readonly eventSink: EventSink;
 	private readonly clock: Clock;
@@ -50,6 +53,7 @@ export class TurnPipeline {
 	constructor(options: TurnPipelineOptions) {
 		this.repository = options.repository;
 		this.snapshotProvider = options.snapshotProvider;
+		this.modelBindingProvider = options.modelBindingProvider;
 		this.turnEngine = options.turnEngine;
 		this.eventSink = options.eventSink;
 		this.clock = options.clock;
@@ -117,6 +121,7 @@ export class TurnPipeline {
 			await this.enterStage(sessionId, turnId, "snapshot_binding");
 			snapshotLease = await this.snapshotProvider.acquire();
 			const snapshot = snapshotLease.snapshot;
+			const modelBinding = this.modelBindingProvider?.bind();
 			state.snapshot = snapshot;
 			signal.throwIfAborted();
 
@@ -189,6 +194,7 @@ export class TurnPipeline {
 				sessionId,
 				turnId,
 				snapshot,
+				modelBinding,
 				messages: prepared.messages,
 				signal,
 				inputQueue,

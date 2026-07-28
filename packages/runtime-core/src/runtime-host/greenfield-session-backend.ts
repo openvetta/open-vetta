@@ -21,6 +21,7 @@ import type {
 	TurnResult,
 } from "../kernel/contracts.js";
 import { sessionBusyError, sessionClosedError } from "../kernel/errors.js";
+import type { GreenfieldRuntimeModelRuntime } from "./greenfield-model-runtime.js";
 import { mapGreenfieldKernelEventToSessionEvents } from "./greenfield-session-events.js";
 import {
 	type GreenfieldRuntimeSessionIdentity,
@@ -33,6 +34,8 @@ import type {
 	RuntimeSessionHistoryController,
 	RuntimeSessionHistoryReader,
 	RuntimeSessionIdentityLifecycle,
+	RuntimeSessionModelController,
+	RuntimeSessionModelView,
 	RuntimeSessionState,
 	RuntimeSessionWorkspaceView,
 } from "./session-ports.js";
@@ -55,6 +58,7 @@ export interface GreenfieldRuntimeAssembly {
 	readonly session: AgentSession;
 	readonly repository: ConversationRepository;
 	readonly conversationDocumentStore: ConversationDocumentStore;
+	readonly modelRuntime: GreenfieldRuntimeModelRuntime;
 	readonly identity: GreenfieldRuntimeSessionIdentity;
 	readonly stateSource: GreenfieldRuntimeStateSource;
 	/** 由组合根释放 Session 之外的独占资源；共享 Repository 不应在这里关闭。 */
@@ -85,6 +89,8 @@ export interface GreenfieldRuntimeSessionCoreAssembly {
 	readonly lifecycle: RuntimeSessionIdentityLifecycle;
 	readonly historyReader: RuntimeSessionHistoryReader;
 	readonly historyController: RuntimeSessionHistoryController;
+	readonly modelController: RuntimeSessionModelController;
+	readonly modelView: RuntimeSessionModelView;
 	readonly workspaceView: RuntimeSessionWorkspaceView;
 	readonly corePorts: RuntimeSessionCorePorts;
 }
@@ -94,6 +100,7 @@ export class GreenfieldRuntimeSession {
 	private readonly session: AgentSession;
 	private readonly promptAdapter: GreenfieldPromptAdapter;
 	private readonly eventSink: GreenfieldSessionEventSink;
+	private readonly modelRuntime: GreenfieldRuntimeModelRuntime;
 	private readonly identity: GreenfieldRuntimeSessionIdentity;
 	private readonly stateSource: GreenfieldRuntimeStateSource;
 	private readonly conversationDocumentStore: ConversationDocumentStore;
@@ -112,6 +119,7 @@ export class GreenfieldRuntimeSession {
 		this.session = assembly.session;
 		this.promptAdapter = promptAdapter;
 		this.eventSink = eventSink;
+		this.modelRuntime = assembly.modelRuntime;
 		this.identity = assembly.identity;
 		this.stateSource = assembly.stateSource;
 		this.conversationDocumentStore = assembly.conversationDocumentStore;
@@ -168,6 +176,8 @@ export class GreenfieldRuntimeSession {
 		this.assertOpen();
 		const dynamic = this.stateSource.read();
 		return {
+			model: this.modelRuntime.readCurrentModel(),
+			thinkingLevel: this.modelRuntime.readThinkingLevel(),
 			...dynamic,
 			activeToolNames: [...dynamic.activeToolNames],
 			isStreaming: this.session.state === "running" || this.session.state === "cancelling",
@@ -265,6 +275,8 @@ export class GreenfieldRuntimeSession {
 				forkSession: (entryId) => this.forkSession(entryId),
 				setName: (name) => this.setName(name),
 			},
+			modelController: this.modelRuntime,
+			modelView: this.modelRuntime,
 			workspaceView: {
 				readWorkingDirectory: () => this.identity.cwd,
 			},

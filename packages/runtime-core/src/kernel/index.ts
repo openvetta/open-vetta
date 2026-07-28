@@ -49,6 +49,8 @@ export type {
 	RuntimeToolDefinition,
 	RuntimeToolExecutionRequest,
 	RuntimeToolResult,
+	RuntimeTurnModelBinding,
+	RuntimeTurnModelBindingProvider,
 	SessionInput,
 	SessionInputQueueMode,
 	SessionSendOptions,

@@ -1,4 +1,4 @@
-import type { AssistantMessage, UserMessage } from "@vetta/ai";
+import type { Api, AssistantMessage, Model, UserMessage } from "@vetta/ai";
 import { describe, expect, it, vi } from "vitest";
 import type { PromptRequest, SessionEvent } from "../../src/contracts.js";
 import {
@@ -32,7 +32,11 @@ import {
 	type TurnEnginePort,
 	TurnPipeline,
 } from "../../src/kernel/index.js";
-import { type GreenfieldPromptAdapter, GreenfieldRuntimeSessionBackend } from "../../src/runtime-host/index.js";
+import {
+	type GreenfieldPromptAdapter,
+	GreenfieldRuntimeModel,
+	GreenfieldRuntimeSessionBackend,
+} from "../../src/runtime-host/index.js";
 
 interface TestCreateOptions {
 	readonly id: string;
@@ -188,9 +192,11 @@ function createBackend(
 				async create(options: TestCreateOptions, eventSink: EventSink) {
 					let turnIndex = 0;
 					const repository = new InMemoryConversationRepository();
+					const details = runtimeAssemblyDetails(options.id);
 					const pipeline = new TurnPipeline({
 						repository,
 						snapshotProvider: new StaticRuntimeSnapshotProvider(snapshot()),
+						modelBindingProvider: details.modelRuntime,
 						turnEngine,
 						eventSink,
 						clock: { now: () => Date.now() },
@@ -207,7 +213,7 @@ function createBackend(
 						repository,
 						conversationDocumentStore: repository,
 						dispose,
-						...runtimeAssemblyDetails(options.id),
+						...details,
 					};
 				},
 				async resume() {
@@ -278,13 +284,23 @@ describe("GreenfieldRuntimeSessionBackend", () => {
 			sessionPath: "sessions/session-1.conversation.jsonl",
 		});
 		expect(assembly.workspaceView.readWorkingDirectory()).toBe("workspace/session-1");
+		expect(assembly.modelView.readCurrentModel()).toBe(TEST_MODEL);
 		expect(assembly.corePorts.stateReader.readState()).toMatchObject({
+			model: TEST_MODEL,
 			thinkingLevel: "off",
 			isStreaming: false,
 			messageCount: 0,
 			contextPercent: null,
 			contextWindow: 8_000,
 			activeToolNames: ["read"],
+		});
+
+		await assembly.modelController.selectModel("test/alternate-model", "always");
+		assembly.modelController.setThinkingLevel("high");
+		expect(assembly.modelView.readCurrentModel()).toBe(ALTERNATE_MODEL);
+		expect(assembly.corePorts.stateReader.readState()).toMatchObject({
+			model: ALTERNATE_MODEL,
+			thinkingLevel: "high",
 		});
 
 		await assembly.corePorts.turnControl.prompt({ text: "hello" });
@@ -328,16 +344,18 @@ describe("GreenfieldRuntimeSessionBackend", () => {
 			throw new Error("Create must not be used while resuming");
 		});
 		const resume = vi.fn(async (options: TestCreateOptions, eventSink: EventSink) => {
+			const details = runtimeAssemblyDetails(options.id);
 			const pipeline = new TurnPipeline({
 				repository,
 				snapshotProvider: new StaticRuntimeSnapshotProvider(snapshot()),
+				modelBindingProvider: details.modelRuntime,
 				turnEngine: new CompletingTurnEngine(),
 				eventSink,
 				clock: { now: () => 3 },
 				idGenerator: { next: () => "unused-turn-id" },
 			});
 			const session = await resumeAgentSession({ id: options.id, pipeline });
-			return { session, repository, conversationDocumentStore: repository, ...runtimeAssemblyDetails(options.id) };
+			return { session, repository, conversationDocumentStore: repository, ...details };
 		});
 		const backend = new GreenfieldRuntimeSessionBackend<TestCreateOptions>({
 			promptAdapter: new RecordingPromptAdapter(),
@@ -428,15 +446,29 @@ function snapshot(): RuntimeSnapshot {
 }
 
 function runtimeAssemblyDetails(sessionId: string) {
+	const catalog = {
+		refresh: vi.fn(),
+		listAvailable: () => [TEST_MODEL, ALTERNATE_MODEL],
+		find: (provider: string, modelId: string) =>
+			[TEST_MODEL, ALTERNATE_MODEL].find((model) => model.provider === provider && model.id === modelId),
+	};
+	const modelRuntime = new GreenfieldRuntimeModel({
+		initialModel: TEST_MODEL,
+		initialThinkingLevel: "off",
+		catalog,
+		credentials: {
+			resolve: async () => "test-key",
+			refreshAuth: async () => {},
+		},
+	});
 	return {
+		modelRuntime,
 		identity: {
 			cwd: `workspace/${sessionId}`,
 			sessionPath: `sessions/${sessionId}.conversation.jsonl`,
 		},
 		stateSource: {
 			read: () => ({
-				model: undefined,
-				thinkingLevel: "off" as const,
 				contextPercent: null,
 				contextWindow: 8_000,
 				activeToolNames: ["read"],
@@ -444,6 +476,26 @@ function runtimeAssemblyDetails(sessionId: string) {
 		},
 	};
 }
+
+const TEST_MODEL: Model<Api> = {
+	id: "test-model",
+	name: "Test Model",
+	api: "openai-responses",
+	provider: "test",
+	baseUrl: "https://example.test",
+	reasoning: false,
+	input: ["text"],
+	cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+	contextWindow: 8_000,
+	maxTokens: 1_000,
+};
+
+const ALTERNATE_MODEL: Model<Api> = {
+	...TEST_MODEL,
+	id: "alternate-model",
+	name: "Alternate Model",
+	reasoning: true,
+};
 
 function userMessage(text: string): UserMessage {
 	return { role: "user", content: text, timestamp: 1 };

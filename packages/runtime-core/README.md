@@ -27,6 +27,7 @@ entry until downstream adapters are ready to switch.
 - backend-provided History Controller for guarded edits, branches, forks and session naming
 - backend-provided Model Controller for selection, thinking level and session-scoped auth refresh
 - backend-provided read-only Model View for input capabilities and peripheral model selection
+- Greenfield session model fact source with abstract catalog/credential ports and immutable per-Turn model binding
 - backend-provided Host Interaction binding without exposing the legacy extension UI protocol
 - backend-provided Workspace View and Execution Controller without exposing SessionManager or custom tool types
 - backend-provided Background Work and Todo controllers with runtime-owned host snapshots
@@ -64,6 +65,7 @@ entry until downstream adapters are ready to switch.
 - `RuntimeHostSessionAssembly` and `RuntimeHostSessionBackend` for explicit port-only composition-root capability delivery
 - `GreenfieldRuntimeSessionBackend` for parallel Kernel composition without impersonating the legacy session
 - `GreenfieldRuntimeSessionCoreAssembly` and `GreenfieldSessionProjection` for the implemented Greenfield core subset
+- `GreenfieldRuntimeModelRuntime` and `GreenfieldRuntimeModel` for shared Controller/View/State/Turn model state
 - `@vetta/runtime-core/conversation` for the tree-shaped history read model, reader port and host history projection
 - `resumeAgentSession` and `ConversationRecoveryPolicy` for recovery without model or tool replay
 - `RuntimeSessionObservationEvent` and Greenfield Kernel-to-`SessionEvent` adapters

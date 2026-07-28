@@ -635,10 +635,11 @@ Runtime Factory 都是必需依赖，因此 Backend 不会自行猜测或忽略 
 35 合同。
 
 阶段 50 进一步增加同步 Greenfield Session Projection：create/resume 完成后先从 Repository 初始化，
-后续只在 `message.appended` 已持久化并发布时更新。Composition Root 必须提供真实 identity 与动态状态源；
-Greenfield 现已交付 Lifecycle、Workspace、Turn Control、Event Stream 和 State Reader Core Assembly。
-能力矩阵仍把 History、Model、Execution、Configuration、Todo 和 Background Work 标记为未实现，所以
-Greenfield Backend 仍不能直接注入完整 RuntimeHost。
+后续只在 `message.appended` 已持久化并发布时更新。阶段 51/52 补齐 Conversation Document 的树形读取、
+写命令和真实 History Reader/Controller。阶段 53 新增独立 Model Runtime：Model Controller、Model View、
+State Reader 与 Turn Pipeline 共享同一事实源，切模通过轻量冻结 binding 只影响后续 Turn，不重建
+Capability Snapshot。能力矩阵目前仍把 Host Interaction、Execution、Configuration、Todo 和 Background
+Work 标记为未实现，所以 Greenfield Backend 仍不能直接注入完整 RuntimeHost。
 
 Kernel 新增真正的 continue Turn：它从已存上下文继续运行，只写 `turn.started`，不追加伪 user message；
 Context Provider 通过可选 input 区分 prompt 和 continue。测试确认一次 prompt 加一次 continue 的消息角色
@@ -664,11 +665,11 @@ Context Provider 通过可选 input 区分 prompt 和 continue。测试确认一
 | 宿主可执行文件解析 | Runtime Port、本地 PATH/managed-bin Adapter、grep/find 注入合同、旧 ensureTool 适配、网络/归档合同和 cli-app Composition Root 已通过 | 真实 GitHub 网络、最终独立可执行发布物和完整 Tool Profile 迁移尚未完成；包根兼容导出必须继续保留 | 新 Profile 可并行验证；旧宿主仍不可切换 |
 | Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope/explicit 激活和 requires/capabilities，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；current_time/read/ls/grep/find/glob/tree/write/edit/bash/shell/task_output/task_stop 已进入全场景 Profile 差分门禁 | 生产 Profile 尚未切换 | 动态编排与当前默认工具迁移完成；生产接入未完成 |
 | `AgentSession` | 新状态机、活动 Turn 输入队列、无伪 user message 的 continue 与显式 resume 已实现 | 尚缺旧外围能力的 Greenfield 实现 | 内核 Turn/恢复语义已具备；生产入口不可切换 |
-| Turn Pipeline | 固定阶段、持久化检查点、非持久化 observation、输入队列透传、continue 与 interrupted recovery 已实现 | 完整历史图和旧存储兼容尚未接入 | 不可切换 |
-| `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环、动态 Model Call Frame、完整观察事件及 steer/follow-up 消费已通过 | 尚未由 Greenfield Session Backend 接入生产 RuntimeHost | 内核执行能力已具备；宿主仍不可切换 |
-| Greenfield Session Backend | 独立门面、必需 Prompt Adapter/Runtime Factory、同步消息/状态投影、显式 resume，以及 Lifecycle/Workspace/Core Ports 已通过 | 完整 Assembly 的 History、Model、Execution、Configuration、Todo、Background Work 等 9 项能力未实现 | 可并行组合测试；不能注入生产 RuntimeHost |
+| Turn Pipeline | 固定阶段、持久化检查点、非持久化 observation、输入队列、continue、recovery 和独立 Turn Model Binding 已实现 | 完整生产 Composition Root 尚未接入 | 不可切换 |
+| `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环、动态 Model Call Frame、完整观察事件、输入队列消费和 Turn model binding 已通过 | 尚未由真实 Greenfield Composition Root 接入生产 RuntimeHost | 内核执行能力已具备；宿主仍不可切换 |
+| Greenfield Session Backend | 独立门面、必需 Prompt Adapter/Runtime Factory、同步投影、显式 resume，以及 Lifecycle/History/Model/Workspace/Core Ports 共 7 项能力已通过 | Host Interaction、Execution、Configuration、Todo、Background Work 等 5 项能力未实现；模型配置尚未持久化 | 可并行组合测试；不能注入生产 RuntimeHost |
 | Runtime Snapshot | 编译、冻结、lease、原子交换和动态 Model Call Provider 已实现 | Coding Profile 的完整默认能力与 scope 尚未装配 | 不可替代旧工具注册 |
-| Conversation Repository | 新格式 create/load/append/save、稳定文件身份路径、真实文件同步投影恢复已实现 | 旧 JSONL importer、Snapshot 读取、分支和跨进程锁未完成 | 不可读取并替代旧会话 |
+| Conversation Repository | V2 create/load/append/save、树形 Document 读写、活动分支、fork、跨实例文件锁和 Legacy importer 已实现 | Legacy/V1 历史结构写命令保持只读；模型配置尚无异步持久化合同 | 不可直接替代全部旧会话写路径 |
 | Context Strategy | 目前只有 passthrough 基础实现 | 旧 compaction、prefire、microcompact 和摘要行为未迁移 | 不可切换长会话 |
 | MCP / Skill / Knowledge / Subagent | 尚未迁移 | 旧能力全部缺失 | 不可切换对应 Profile |
 | Desktop / CLI / RPC / IM Adapter | RuntimeHost 已完全通过稳定 Ports 编排；Greenfield 已具备 observation、SessionEvent、输入队列、同步 Core Projection 和真实文件恢复 | Greenfield 完整 Assembly、Prompt Adapter、旧存储兼容和实际宿主接线尚未完成 | 不可切换入口 |
@@ -715,10 +716,12 @@ Composition Root。新旧 Tool Profile 已对全部场景建立差分门禁；ru
 Port 及全场景差分均已完成。旧 AgentSession 事件特征基线、独立 Session observation 合同、
 Greenfield 瞬时事件发布、现有 `SessionEvent` 适配，以及活动 Turn 的 steer/follow-up、队列模式与
 abort/error 仲裁、无伪 user message 的 continue、显式 Greenfield 并行 Backend、Runtime-owned 创建请求、
-RuntimeHost 全量稳定 Ports，以及 Greenfield 同步 Core Projection 与真实文件恢复也已完成。下一阶段应扩展
-Greenfield 持久化事件和版本化 Schema，真实表达 entryId/parentId、活动 leaf、PromptRef/附件标记、
-compaction 元数据与会话血缘；再实现 History Reader/Controller、Catalog、旧 JSONL importer 和跨进程锁。
-不能用伪造 ID、固定零值、类型断言或空实现强行接入。完整 Assembly 就绪前不替换默认旧后端。最后根据完整 Profile 差分结果设计兼容入口迁移；
+RuntimeHost 全量稳定 Ports、Greenfield 同步 Core Projection、Conversation Document 读写、真实文件恢复，
+以及共享 Controller/View/State/Turn 的 Model Runtime 也已完成。下一阶段应建立真实 Greenfield Runtime
+Composition Root，用宿主 Adapter 实现 Model Catalog 与 Credential Resolver，并让同一 Model Runtime 注入
+Session Assembly 和 Turn Pipeline；随后再按行为基线补齐剩余 5 项 Assembly 能力。模型配置持久化必须使用
+显式异步合同，不能在同步 setter 中 fire-and-forget。不能用伪造 ID、固定零值、类型断言或空实现强行接入。
+完整 Assembly 就绪前不替换默认旧后端。最后根据完整 Profile 差分结果设计兼容入口迁移；
 真实 GitHub 网络、最终独立可执行发布物和
 其他外部依赖的产物级解析/打包测试仍需单独执行，重点覆盖下载、并发解析、版本锁定、离线
 模式和 Windows/Unix 产物。生产 Profile 接线时由组合根创建 Registry；
