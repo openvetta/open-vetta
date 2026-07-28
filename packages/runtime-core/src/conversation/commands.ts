@@ -6,6 +6,13 @@ export type ConversationDocumentCommand =
 	| { readonly type: "branch.select"; readonly entryId: string }
 	| { readonly type: "message.delete"; readonly entryId: string }
 	| { readonly type: "user_turn.replace"; readonly entryId: string }
+	| {
+			readonly type: "custom.append";
+			readonly entryId: string;
+			readonly customType: string;
+			readonly data?: unknown;
+			readonly timestamp: string;
+	  }
 	| { readonly type: "session.name.set"; readonly name: string };
 
 export interface ConversationDocumentCommandResult {
@@ -48,6 +55,8 @@ export function applyConversationDocumentCommand(
 			return deleteMessage(document, command.entryId, revision);
 		case "user_turn.replace":
 			return replaceLastUserTurn(document, command.entryId, revision);
+		case "custom.append":
+			return appendCustomEntry(document, command, revision);
 		case "session.name.set":
 			return changed({ ...document, revision, name: command.name.trim() });
 	}
@@ -187,6 +196,32 @@ function replaceLastUserTurn(
 			entry.parentId && rewritten.entries.some((candidate) => candidate.id === entry.parentId)
 				? entry.parentId
 				: null,
+	});
+}
+
+function appendCustomEntry(
+	document: ConversationDocument,
+	command: Extract<ConversationDocumentCommand, { readonly type: "custom.append" }>,
+	revision: number,
+): ConversationDocumentCommandResult {
+	if (document.entries.some((entry) => entry.id === command.entryId)) {
+		throw new Error(`Conversation document entry already exists: ${command.entryId}`);
+	}
+	return changed({
+		...document,
+		revision,
+		entries: [
+			...document.entries,
+			{
+				type: "custom",
+				id: command.entryId,
+				parentId: document.activeLeafId,
+				timestamp: command.timestamp,
+				customType: command.customType,
+				data: command.data,
+			},
+		],
+		activeLeafId: command.entryId,
 	});
 }
 

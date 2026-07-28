@@ -324,6 +324,16 @@ export const ConversationDocumentCommandSchema = Type.Union([
 	),
 	Type.Object(
 		{
+			type: Type.Literal("custom.append"),
+			entryId: Type.String(),
+			customType: Type.String(),
+			data: Type.Optional(Type.Unknown()),
+			timestamp: Type.String(),
+		},
+		{ additionalProperties: false },
+	),
+	Type.Object(
+		{
 			type: Type.Literal("session.name.set"),
 			name: Type.String(),
 		},

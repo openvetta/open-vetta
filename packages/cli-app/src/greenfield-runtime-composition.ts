@@ -15,8 +15,10 @@ import {
 	type CodingAgentStopHookInvoker,
 	type CodingAgentSystemPromptOptionsResolver,
 	CodingAgentTodoContinuationSource,
+	CodingAgentTodoRuntime,
 	createCodingAgentPromptRuntime,
-	type TodoContinuationState,
+	createCodingAgentTodoRuntimeFeature,
+	createCodingAgentTodoRuntimeToolRegistration,
 } from "@vetta/coding-agent/runtime-host/greenfield";
 import {
 	ComposedGreenfieldRuntimeFactory,
@@ -73,6 +75,7 @@ export interface GreenfieldRuntimeCompositionOptions {
 	/** 优先使用会话工厂，避免有状态 ResourceLoader / TodoStore 被多个 Session 共享。 */
 	readonly createPromptResourceResolver?: (
 		sessionOptions: GreenfieldCliSessionOptions,
+		todoRuntime: CodingAgentTodoRuntime,
 	) => CodingAgentPromptResourceResolver;
 	/** 无状态解析器的兼容入口。 */
 	readonly resolvePromptResource?: CodingAgentPromptResourceResolver;
@@ -86,10 +89,8 @@ export interface GreenfieldRuntimeCompositionOptions {
 	readonly createPluginRuntime?: (
 		sessionOptions: GreenfieldCliSessionOptions,
 	) => CodingAgentPluginRuntimeSource | undefined;
-	/** 为每个 Session 绑定 Todo 状态；该状态应与同 Session 的 Todo Tool 共享。 */
-	readonly createTodoContinuationState?: (
-		sessionOptions: GreenfieldCliSessionOptions,
-	) => TodoContinuationState | undefined;
+	/** 为每个 Session 创建唯一 Todo Runtime；Tool、Continuation、Scene 与 Controller 共享它。 */
+	readonly createTodoRuntime?: (sessionOptions: GreenfieldCliSessionOptions) => CodingAgentTodoRuntime;
 	/** 为每个 Session 绑定既有 Ecosystem Stop Hook bridge。 */
 	readonly createStopHookInvoker?: (
 		sessionOptions: GreenfieldCliSessionOptions,
@@ -159,6 +160,7 @@ export async function createGreenfieldRuntimeComposition(
 	}
 	const repository = new FileConversationRepository({ rootDir: options.conversationDir });
 	const capabilityCompositions = new Set<RuntimeCapabilityComposition>();
+	const todoRuntimes = new Set<CodingAgentTodoRuntime>();
 	const modelAdapter = new CodingAgentModelRegistryAdapter(options.modelRegistry);
 	const stateActivation =
 		effectiveActivation.mode === "scope"
@@ -183,15 +185,26 @@ export async function createGreenfieldRuntimeComposition(
 				mcpController.refresh(synchronizer.snapshot());
 				mcpControllers.set(sessionOptions.sessionId, mcpController);
 			}
+			const todoRuntime = options.createTodoRuntime?.(sessionOptions) ?? new CodingAgentTodoRuntime();
+			todoRuntimes.add(todoRuntime);
+			const todoRegistration = createCodingAgentTodoRuntimeToolRegistration(todoRuntime);
+			const todoEnabled = selectCodingToolRegistrations([todoRegistration], effectiveActivation).length > 0;
 			const baseProfile: AgentProfile = mcpController
 				? {
 						...tools.profile,
 						features: [
 							...tools.profile.features,
+							...(todoEnabled ? [createCodingAgentTodoRuntimeFeature(todoRegistration)] : []),
 							mcpController.createFeature({ includePromptInstruction: false }),
 						],
 					}
-				: tools.profile;
+				: {
+						...tools.profile,
+						features: [
+							...tools.profile.features,
+							...(todoEnabled ? [createCodingAgentTodoRuntimeFeature(todoRegistration)] : []),
+						],
+					};
 			const sessionCwd = sessionOptions.cwd ?? cwd;
 			const pluginRuntime = options.createPluginRuntime?.(sessionOptions);
 			const pluginRunOrchestrator = pluginRuntime
@@ -221,22 +234,16 @@ export async function createGreenfieldRuntimeComposition(
 								),
 						})
 					: undefined;
-			const todoContinuationState = options.createTodoContinuationState?.(sessionOptions);
-			const todoContinuationSource = todoContinuationState
-				? new CodingAgentTodoContinuationSource({ state: todoContinuationState })
-				: undefined;
+			const todoContinuationSource = new CodingAgentTodoContinuationSource({ state: todoRuntime });
 			const stopHookInvoker = options.createStopHookInvoker?.(sessionOptions);
 			const stopHookContinuationSource = stopHookInvoker
 				? new CodingAgentStopHookContinuationSource({ invoke: stopHookInvoker })
 				: undefined;
-			const continuationOrchestrator =
-				todoContinuationSource || pluginRunOrchestrator || stopHookContinuationSource
-					? new CodingAgentContinuationOrchestrator({
-							todo: todoContinuationSource,
-							plugin: pluginRunOrchestrator,
-							stopHook: stopHookContinuationSource,
-						})
-					: undefined;
+			const continuationOrchestrator = new CodingAgentContinuationOrchestrator({
+				todo: todoContinuationSource,
+				plugin: pluginRunOrchestrator,
+				stopHook: stopHookContinuationSource,
+			});
 			const injectedSystemPromptOptionsResolver =
 				options.createSystemPromptOptionsResolver?.(sessionOptions) ?? options.resolveSystemPromptOptions;
 			const promptRuntime = injectedSystemPromptOptionsResolver
@@ -259,14 +266,18 @@ export async function createGreenfieldRuntimeComposition(
 				modelCallFrameComposer: new CodingAgentModelCallFrameComposer({
 					readMcpPromptState: mcpController ? () => mcpController.readPromptState() : undefined,
 					readAvailableTools: () =>
-						new Map(
-							tools.registry
+						new Map([
+							...tools.registry
 								.snapshot()
-								.entries.map((entry) => [
-									entry.registration.tool.name,
-									guardCodingToolRegistration(tools.registry, entry),
-								]),
-						),
+								.entries.map(
+									(entry) =>
+										[
+											entry.registration.tool.name,
+											guardCodingToolRegistration(tools.registry, entry),
+										] as const,
+								),
+							...(todoEnabled ? [[todoRegistration.tool.name, todoRegistration.tool] as const] : []),
+						]),
 					pluginRunOrchestrator,
 					pluginToolRuntime,
 					resolveSystemPromptOptions: async (context) => {
@@ -287,6 +298,8 @@ export async function createGreenfieldRuntimeComposition(
 				});
 			} catch (error) {
 				if (mcpController) mcpControllers.delete(sessionOptions.sessionId);
+				todoRuntimes.delete(todoRuntime);
+				await todoRuntime.dispose();
 				throw error;
 			}
 			capabilityCompositions.add(capabilities);
@@ -296,16 +309,25 @@ export async function createGreenfieldRuntimeComposition(
 				catalog: modelAdapter,
 				credentials: modelAdapter,
 			});
+			const promptAdapter = new CodingAgentGreenfieldPromptAdapter({
+				resolvePromptResource:
+					options.createPromptResourceResolver?.(sessionOptions, todoRuntime) ?? options.resolvePromptResource,
+			});
 			return {
 				sessionId: sessionOptions.sessionId,
 				repository,
 				conversationDocumentStore: repository,
-				promptAdapter: new CodingAgentGreenfieldPromptAdapter({
-					resolvePromptResource:
-						options.createPromptResourceResolver?.(sessionOptions) ?? options.resolvePromptResource,
-				}),
+				promptAdapter: {
+					async prepare(request, context) {
+						const prepared = await promptAdapter.prepare(request, context);
+						await todoRuntime.flush();
+						return prepared;
+					},
+				},
 				snapshotProvider: capabilities,
 				modelRuntime,
+				documentParticipants: [todoRuntime],
+				todoController: todoRuntime,
 				identity: {
 					cwd: sessionOptions.cwd ?? cwd,
 					sessionPath: repository.resolveConversationPath(sessionOptions.sessionId),
@@ -313,10 +335,8 @@ export async function createGreenfieldRuntimeComposition(
 					parentEntryId: sessionOptions.parentEntryId,
 				},
 				stateSource: {
-					read: () => ({
-						contextPercent: null,
-						contextWindow: modelRuntime.readCurrentModel().contextWindow,
-						activeToolNames: [
+					read: () => {
+						const activeToolNames = [
 							...(pluginRunOrchestrator?.readActiveToolNames() ??
 								readActiveToolNames(
 									tools,
@@ -325,14 +345,22 @@ export async function createGreenfieldRuntimeComposition(
 									effectiveActivation,
 									mcpController,
 								)),
-						],
-					}),
+							...(todoEnabled ? [todoRegistration.tool.name] : []),
+						];
+						return {
+							contextPercent: null,
+							contextWindow: modelRuntime.readCurrentModel().contextWindow,
+							activeToolNames: [...new Set(activeToolNames)],
+						};
+					},
 				},
 				async dispose() {
 					if (mcpControllers.get(sessionOptions.sessionId) === mcpController) {
 						mcpControllers.delete(sessionOptions.sessionId);
 					}
 					capabilityCompositions.delete(capabilities);
+					todoRuntimes.delete(todoRuntime);
+					await todoRuntime.dispose();
 					await capabilities.close();
 				},
 			};
@@ -347,10 +375,12 @@ export async function createGreenfieldRuntimeComposition(
 		async dispose() {
 			if (disposed) return;
 			disposed = true;
-			const capabilityResults = await Promise.allSettled(
-				[...capabilityCompositions].map((capabilities) => capabilities.close()),
-			);
+			const capabilityResults = await Promise.allSettled([
+				...[...todoRuntimes].map((runtime) => runtime.dispose()),
+				...[...capabilityCompositions].map((capabilities) => capabilities.close()),
+			]);
 			capabilityCompositions.clear();
+			todoRuntimes.clear();
 			mcpControllers.clear();
 			await repository.close();
 			mcpSynchronizer?.dispose();
@@ -359,7 +389,7 @@ export async function createGreenfieldRuntimeComposition(
 				.filter((result): result is PromiseRejectedResult => result.status === "rejected")
 				.map(({ reason }) => reason);
 			if (errors.length > 0) {
-				throw new AggregateError(errors, "Failed to dispose one or more runtime capability compositions");
+				throw new AggregateError(errors, "Failed to dispose one or more Greenfield runtime resources");
 			}
 		},
 	};

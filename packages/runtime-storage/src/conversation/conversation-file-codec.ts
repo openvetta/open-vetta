@@ -47,6 +47,12 @@ export function parseConversationFile(text: string, sessionId: string): ParsedCo
 			if (header.schemaVersion !== CONVERSATION_SCHEMA_VERSION) {
 				throw corruptConversation(sessionId, `document operation is not supported at line ${index + 2}`);
 			}
+			if (record.command.type === "custom.append") {
+				if (documentEntryIds.has(record.command.entryId)) {
+					throw corruptConversation(sessionId, `duplicate document entry at line ${index + 2}`);
+				}
+				documentEntryIds.add(record.command.entryId);
+			}
 			conversationRecords.push(record);
 			continue;
 		}

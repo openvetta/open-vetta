@@ -65,6 +65,12 @@ export type {
 	ToolUpdateEvent,
 	UsageUpdateEvent,
 } from "./contracts.js";
+export {
+	applyConversationDocumentCommand,
+	type ConversationDocument,
+	createEmptyConversationDocument,
+	selectConversationDocumentEntries,
+} from "./conversation/index.js";
 export { RUNTIME_ERROR_CODES, runtimeError } from "./errors.js";
 export type {
 	ComposedGreenfieldRuntimeFactoryOptions,
@@ -72,6 +78,9 @@ export type {
 	GreenfieldPromptAdapter,
 	GreenfieldPromptPreparationContext,
 	GreenfieldRuntimeAssembly,
+	GreenfieldRuntimeCustomEntryInput,
+	GreenfieldRuntimeDocumentParticipant,
+	GreenfieldRuntimeDocumentParticipantContext,
 	GreenfieldRuntimeDynamicState,
 	GreenfieldRuntimeFactory,
 	GreenfieldRuntimeModelOptions,

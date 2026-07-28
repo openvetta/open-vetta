@@ -74,6 +74,7 @@
 | [64-dynamic-plugin-run-and-continuation-policy.md](./08-implementation-log/64-dynamic-plugin-run-and-continuation-policy.md) | 动态 Plugin Run Orchestrator 与通用 Continuation Policy |
 | [65-session-local-plugin-tool-runtime.md](./08-implementation-log/65-session-local-plugin-tool-runtime.md) | Session-local Plugin Tool Runtime、动态撤销与同 Turn Effect |
 | [66-product-continuation-orchestrator.md](./08-implementation-log/66-product-continuation-orchestrator.md) | 产品级 Continuation Orchestrator 与 Todo/Plugin/Stop Hook 收敛 |
+| [67-session-local-todo-runtime.md](./08-implementation-log/67-session-local-todo-runtime.md) | Session-local Todo Runtime、分支持久化与 Controller 纵向切片 |
 
 ## 维护约定
 

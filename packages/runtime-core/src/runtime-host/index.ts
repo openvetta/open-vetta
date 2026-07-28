@@ -11,6 +11,11 @@
  * - types.ts             共享类型
  */
 
+export type {
+	GreenfieldRuntimeCustomEntryInput,
+	GreenfieldRuntimeDocumentParticipant,
+	GreenfieldRuntimeDocumentParticipantContext,
+} from "./greenfield-document-participant.js";
 export {
 	GreenfieldRuntimeModel,
 	type GreenfieldRuntimeModelOptions,

@@ -1,6 +1,7 @@
 import type { Message } from "@vetta/ai";
 import type { HistoryEntry, PromptRequest, SessionEvent } from "../contracts.js";
 import {
+	type ConversationDocument,
 	type ConversationDocumentCommand,
 	type ConversationDocumentCommandResult,
 	type ConversationDocumentStore,
@@ -21,6 +22,10 @@ import type {
 	TurnResult,
 } from "../kernel/contracts.js";
 import { sessionBusyError, sessionClosedError } from "../kernel/errors.js";
+import type {
+	GreenfieldRuntimeDocumentParticipant,
+	GreenfieldRuntimeDocumentParticipantContext,
+} from "./greenfield-document-participant.js";
 import type { GreenfieldRuntimeModelRuntime } from "./greenfield-model-runtime.js";
 import { mapGreenfieldKernelEventToSessionEvents } from "./greenfield-session-events.js";
 import {
@@ -37,6 +42,7 @@ import type {
 	RuntimeSessionModelController,
 	RuntimeSessionModelView,
 	RuntimeSessionState,
+	RuntimeSessionTodoController,
 	RuntimeSessionWorkspaceView,
 } from "./session-ports.js";
 
@@ -63,6 +69,8 @@ export interface GreenfieldRuntimeAssembly {
 	readonly modelRuntime: GreenfieldRuntimeModelRuntime;
 	readonly identity: GreenfieldRuntimeSessionIdentity;
 	readonly stateSource: GreenfieldRuntimeStateSource;
+	readonly documentParticipants?: readonly GreenfieldRuntimeDocumentParticipant[];
+	readonly todoController?: RuntimeSessionTodoController;
 	/** 由组合根释放 Session 之外的独占资源；共享 Repository 不应在这里关闭。 */
 	dispose?(): Promise<void>;
 }
@@ -93,6 +101,7 @@ export interface GreenfieldRuntimeSessionCoreAssembly {
 	readonly modelController: RuntimeSessionModelController;
 	readonly modelView: RuntimeSessionModelView;
 	readonly workspaceView: RuntimeSessionWorkspaceView;
+	readonly todoController?: RuntimeSessionTodoController;
 	readonly corePorts: RuntimeSessionCorePorts;
 }
 
@@ -106,6 +115,8 @@ export class GreenfieldRuntimeSession {
 	private readonly stateSource: GreenfieldRuntimeStateSource;
 	private readonly conversationDocumentStore: ConversationDocumentStore;
 	private readonly projection: GreenfieldSessionProjection;
+	private readonly documentParticipants: readonly GreenfieldRuntimeDocumentParticipant[];
+	private readonly todoController: RuntimeSessionTodoController | undefined;
 	private readonly disposeRuntime: (() => Promise<void>) | undefined;
 	private disposed = false;
 	private historyMutation = false;
@@ -124,6 +135,8 @@ export class GreenfieldRuntimeSession {
 		this.stateSource = assembly.stateSource;
 		this.conversationDocumentStore = assembly.conversationDocumentStore;
 		this.projection = projection;
+		this.documentParticipants = assembly.documentParticipants ?? [];
+		this.todoController = assembly.todoController;
 		const dispose = assembly.dispose;
 		this.disposeRuntime = dispose ? () => dispose.call(assembly) : undefined;
 	}
@@ -255,11 +268,11 @@ export class GreenfieldRuntimeSession {
 		if (this.historyMutation) throw new Error("Cannot rename while another history mutation is active");
 		this.historyMutation = true;
 		try {
-			await this.conversationDocumentStore.execute(this.sessionId, null, {
+			const result = await this.conversationDocumentStore.execute(this.sessionId, null, {
 				type: "session.name.set",
 				name,
 			});
-			this.projection.applyPersistedName(name);
+			await this.applyDocumentResult(result);
 		} finally {
 			this.historyMutation = false;
 		}
@@ -289,6 +302,7 @@ export class GreenfieldRuntimeSession {
 			workspaceView: {
 				readWorkingDirectory: () => this.identity.cwd,
 			},
+			todoController: this.todoController,
 			corePorts: {
 				turnControl: {
 					prompt: async (request) => {
@@ -312,12 +326,33 @@ export class GreenfieldRuntimeSession {
 
 	async dispose(): Promise<void> {
 		if (this.disposed) return;
+		let participantError: unknown;
+		try {
+			await Promise.all(this.documentParticipants.map((participant) => participant.dispose?.()));
+		} catch (error) {
+			participantError = error;
+		}
 		this.disposed = true;
 		this.eventSink.clear();
 		try {
 			await this.session.close();
 		} finally {
 			await this.disposeRuntime?.();
+		}
+		if (participantError) throw participantError;
+	}
+
+	async initializeDocumentParticipants(document: ConversationDocument): Promise<void> {
+		const context: GreenfieldRuntimeDocumentParticipantContext = {
+			appendCustomEntry: async (entry) => {
+				await this.executeDocumentCommand({
+					type: "custom.append",
+					...entry,
+				});
+			},
+		};
+		for (const participant of this.documentParticipants) {
+			await participant.initialize(document, context);
 		}
 	}
 
@@ -342,10 +377,21 @@ export class GreenfieldRuntimeSession {
 	private async executeDocumentCommand(
 		command: ConversationDocumentCommand,
 	): Promise<ConversationDocumentCommandResult> {
-		const document = this.projection.readDocument();
+		const document = await this.conversationDocumentStore.readDocument(this.sessionId);
+		const projected = this.projection.readDocument();
+		if (document.revision !== projected.revision || document.journalVersion !== projected.journalVersion) {
+			this.projection.replaceDocument(document);
+		}
 		const result = await this.conversationDocumentStore.execute(this.sessionId, document.revision, command);
-		this.projection.replaceDocument(result.document);
+		await this.applyDocumentResult(result);
 		return result;
+	}
+
+	private async applyDocumentResult(result: ConversationDocumentCommandResult): Promise<void> {
+		this.projection.replaceDocument(result.document);
+		for (const participant of this.documentParticipants) {
+			await participant.onDocumentChanged(result.document);
+		}
 	}
 
 	private async withHistoryMutation<T>(message: string, operation: () => Promise<T>): Promise<T> {
@@ -395,8 +441,11 @@ export class GreenfieldRuntimeSessionBackend<TCreateOptions>
 			]);
 			const projection = new GreenfieldSessionProjection(conversation, document);
 			eventSink.bindProjection(projection);
+			eventSink.bindDocumentParticipants(assembly.documentParticipants ?? []);
+			const runtimeSession = new GreenfieldRuntimeSession(assembly, eventSink, projection);
+			await runtimeSession.initializeDocumentParticipants(document);
 			eventSink.finishInitialization();
-			return new GreenfieldRuntimeSession(assembly, eventSink, projection);
+			return runtimeSession;
 		} catch (error) {
 			try {
 				await assembly.session.close();
@@ -411,11 +460,17 @@ export class GreenfieldRuntimeSessionBackend<TCreateOptions>
 class GreenfieldSessionEventSink implements EventSink {
 	private readonly listeners = new Set<(event: SessionEvent) => void>();
 	private readonly initializationEvents: SessionEvent[] = [];
+	private documentParticipants: readonly GreenfieldRuntimeDocumentParticipant[] = [];
 	private projection: GreenfieldSessionProjection | undefined;
 	private initializing = true;
 
 	async publish(event: KernelEvent): Promise<void> {
-		if (isStoredSessionEvent(event)) this.projection?.apply(event);
+		if (isStoredSessionEvent(event)) {
+			this.projection?.apply(event);
+			for (const participant of this.documentParticipants) {
+				await participant.onSessionEvent?.(event);
+			}
+		}
 		for (const mapped of mapGreenfieldKernelEventToSessionEvents(event)) {
 			if (this.initializing) {
 				this.initializationEvents.push(mapped);
@@ -443,6 +498,10 @@ class GreenfieldSessionEventSink implements EventSink {
 
 	bindProjection(projection: GreenfieldSessionProjection): void {
 		this.projection = projection;
+	}
+
+	bindDocumentParticipants(participants: readonly GreenfieldRuntimeDocumentParticipant[]): void {
+		this.documentParticipants = participants;
 	}
 
 	clear(): void {

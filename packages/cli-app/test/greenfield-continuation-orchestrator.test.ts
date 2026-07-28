@@ -9,9 +9,10 @@ import {
 	type Message,
 	type Model,
 } from "@vetta/ai";
-import type {
-	CodingAgentModelRegistrySource,
-	CodingAgentPluginRuntimeSource,
+import {
+	type CodingAgentModelRegistrySource,
+	type CodingAgentPluginRuntimeSource,
+	CodingAgentTodoRuntime,
 } from "@vetta/coding-agent/runtime-host/greenfield";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -35,11 +36,7 @@ describe("Greenfield continuation orchestration", () => {
 	it("runs Todo, Plugin and Stop Hook continuations in legacy order", async () => {
 		const conversationDir = await mkdtemp(join(tmpdir(), "greenfield-continuation-"));
 		temporaryDirectories.push(conversationDir);
-		const items: Array<{
-			readonly id: number;
-			readonly content: string;
-			readonly status: "pending" | "in_progress" | "done";
-		}> = [{ id: 1, content: "Finish implementation", status: "pending" }];
+		const todoRuntime = new CodingAgentTodoRuntime();
 		const pluginInvocations: string[] = [];
 		const stopInvocations: Array<string | null> = [];
 		const modelCalls: Array<readonly Message[]> = [];
@@ -86,15 +83,12 @@ describe("Greenfield continuation orchestration", () => {
 				scenario: "cli",
 			}),
 			createPluginRuntime: () => pluginRuntime,
-			createTodoContinuationState: () => ({
-				getAll: () => items,
-				isLocked: () => false,
-			}),
+			createTodoRuntime: () => todoRuntime,
 			createStopHookInvoker: () => stopHook,
 			streamFn: (_model, context) => {
 				modelCalls.push([...context.messages]);
 				if (responseIndex === 1) {
-					items[0] = { ...items[0], status: "done" };
+					todoRuntime.getTodoStore().update(1, "done");
 				}
 				const response = responses[responseIndex];
 				responseIndex += 1;
@@ -107,6 +101,8 @@ describe("Greenfield continuation orchestration", () => {
 			sessionId: "continuation-session",
 			cwd: "C:\\workspace",
 		});
+		todoRuntime.getTodoStore().createMany(["Finish implementation"]);
+		await todoRuntime.flush();
 
 		await session.prompt({ text: "start" });
 

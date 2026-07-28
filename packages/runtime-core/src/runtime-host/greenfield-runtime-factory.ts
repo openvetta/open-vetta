@@ -15,6 +15,7 @@ import {
 	SystemClock,
 	TurnPipeline,
 } from "../kernel/index.js";
+import type { GreenfieldRuntimeDocumentParticipant } from "./greenfield-document-participant.js";
 import type { GreenfieldRuntimeModelRuntime } from "./greenfield-model-runtime.js";
 import type {
 	GreenfieldPromptAdapter,
@@ -25,6 +26,7 @@ import type {
 	GreenfieldRuntimeSessionIdentity,
 	GreenfieldRuntimeStateSource,
 } from "./greenfield-session-projection.js";
+import type { RuntimeSessionTodoController } from "./session-ports.js";
 
 export type GreenfieldRuntimeOperation = "create" | "resume";
 
@@ -37,6 +39,8 @@ export interface GreenfieldRuntimeResources {
 	readonly modelRuntime: GreenfieldRuntimeModelRuntime;
 	readonly identity: GreenfieldRuntimeSessionIdentity;
 	readonly stateSource: GreenfieldRuntimeStateSource;
+	readonly documentParticipants?: readonly GreenfieldRuntimeDocumentParticipant[];
+	readonly todoController?: RuntimeSessionTodoController;
 	readonly steeringMode?: SessionInputQueueMode;
 	readonly followUpMode?: SessionInputQueueMode;
 	dispose?(): Promise<void>;
@@ -115,6 +119,8 @@ export class ComposedGreenfieldRuntimeFactory<TCreateOptions> implements Greenfi
 				modelRuntime: resources.modelRuntime,
 				identity: resources.identity,
 				stateSource: resources.stateSource,
+				documentParticipants: resources.documentParticipants,
+				todoController: resources.todoController,
 				dispose: dispose ? () => dispose.call(resources) : undefined,
 			};
 		} catch (error) {

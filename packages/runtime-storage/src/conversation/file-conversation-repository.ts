@@ -11,6 +11,7 @@ import {
 	type ConversationDocumentForkResult,
 	type ConversationDocumentStore,
 	conversationDocumentEntry,
+	createEmptyConversationDocument,
 	extractConversationEntryText,
 	resolveConversationUserTurnTip,
 	selectConversationDocumentEntries,
@@ -342,20 +343,74 @@ export class FileConversationRepository implements ConversationRepository, Conve
 			parentEntryId: entryId,
 		};
 		const finalEntries = new Map(branch.map((entry) => [entry.id, entry]));
-		const records: ConversationEventRecord[] = [];
-		for (const source of file.eventRecords) {
+		const records: Array<ConversationEventRecord | ConversationDocumentOperationRecord> = [];
+		let targetDocument = createEmptyConversationDocument({
+			sessionId: newSessionId,
+			createdAt: header.createdAt,
+			cwd: header.cwd,
+			parentSessionPath: header.parentSessionPath,
+			parentEntryId: header.parentEntryId,
+		});
+		let eventSequence = 0;
+		for (const source of file.records) {
+			if (source.recordType === "conversation.document.operation") {
+				if (source.command.type !== "custom.append" || !selectedEntryIds.has(source.command.entryId)) {
+					continue;
+				}
+				const entry = finalEntries.get(source.command.entryId);
+				if (!entry || entry.type !== "custom") continue;
+				if (targetDocument.activeLeafId !== entry.parentId) {
+					const selected = applyConversationDocumentCommand(targetDocument, {
+						type: "active_leaf.set",
+						entryId: entry.parentId,
+					});
+					if (selected.changed) {
+						records.push({
+							recordType: "conversation.document.operation",
+							schemaVersion: CONVERSATION_SCHEMA_VERSION,
+							revision: selected.document.revision,
+							command: { type: "active_leaf.set", entryId: entry.parentId },
+						});
+						targetDocument = selected.document;
+					}
+				}
+				const command = {
+					type: "custom.append" as const,
+					entryId: entry.id,
+					customType: entry.customType,
+					data: entry.data,
+					timestamp: entry.timestamp,
+				};
+				const result = applyConversationDocumentCommand(targetDocument, command);
+				records.push({
+					recordType: "conversation.document.operation",
+					schemaVersion: CONVERSATION_SCHEMA_VERSION,
+					revision: result.document.revision,
+					command,
+				});
+				targetDocument = result.document;
+				continue;
+			}
 			if (!selectedTurnIds.has(source.event.turnId)) continue;
 			const sourceReference = source.schemaVersion === CONVERSATION_SCHEMA_VERSION ? source.documentEntry : null;
 			if (source.event.type === "message.appended" && !sourceReference) continue;
 			if (sourceReference && !selectedEntryIds.has(sourceReference.id)) continue;
 			const entry = sourceReference ? finalEntries.get(sourceReference.id) : undefined;
-			records.push({
+			eventSequence += 1;
+			const record = {
 				recordType: "conversation.event",
 				schemaVersion: CONVERSATION_SCHEMA_VERSION,
-				sequence: records.length + 1,
+				sequence: eventSequence,
 				event: { ...source.event, sessionId: newSessionId },
 				documentEntry: entry ? { id: entry.id, parentId: entry.parentId, timestamp: entry.timestamp } : null,
-			});
+			} satisfies ConversationEventRecord;
+			records.push(record);
+			targetDocument = applyStoredEventToConversationDocument(
+				targetDocument,
+				record.event,
+				record.sequence,
+				record.documentEntry ?? undefined,
+			);
 		}
 		await this.ensureRoot();
 		let handle: FileHandle | undefined;

@@ -65,6 +65,12 @@ export {
 	type TodoContinuationState,
 } from "./greenfield-todo-continuation-source.js";
 export {
+	CodingAgentTodoRuntime,
+	type CodingAgentTodoRuntimeOptions,
+	createCodingAgentTodoRuntimeFeature,
+	createCodingAgentTodoRuntimeToolRegistration,
+} from "./greenfield-todo-runtime.js";
+export {
 	adaptCodingAgentToolRegistration,
 	type CodingAgentRuntimeToolRegistration,
 } from "./greenfield-tool-adapter.js";
