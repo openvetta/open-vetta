@@ -866,6 +866,33 @@ Adapter 接入时使用现有协议校验边界。
 
 仍未完成的是默认生产 RPC/IM/CLI 接线和旧新宿主差分，而不是 Memory Orchestrator 内部时序。
 
+### 2.24 RPC 宿主反腐层与 Legacy 协议基线
+
+生产 RPC 原先在单个 `runRpcMode()` 内同时处理 JSONL、命令、Extension UI、Host Bridge、Tool 注册、
+进程生命周期和旧 `AgentSession` 字段。该入口无法直接接受 Greenfield Session；仅把
+`flushMemory(sessionId)` 塞进 switch 分支会重新形成具体实现耦合。
+
+第 75 轮将协议路径改为：
+
+```text
+JSONL Transport
+  -> TypeBox inbound frame validation
+  -> command dispatcher
+  -> grouped RpcSessionCapabilities
+  -> LegacyRpcSessionAdapter
+```
+
+Extension UI 与 Host Bridge 各自持有 request correlation 和关闭清理。全部命令 Schema 由受
+`RpcCommand["type"]` 约束的单一 Map 提供，TypeBox 只校验外部 JSONL；内部仍为 TypeScript 合同。
+`runRpcMode(session)` 和生产 `main()` 保持原签名与 Legacy 默认路径。
+
+无模型合同覆盖完整命令面、prompt 延迟失败、Memory、非法/未知 Frame、UI/Host timeout/dispose、
+JSONL 边界、事件透传、关闭清理和 Legacy 委托。现有真实 provider RPC 测试继续保留，但不再是重构的
+唯一验证手段。
+
+本轮只建立宿主接入缝，没有实现 Greenfield RPC Adapter。稳定 `SessionEvent` 到旧 wire event 的映射、
+IM Host Bridge Tool、恢复/rollover identity 和外围 Capability 仍是显式 opt-in 的阻断项。
+
 ## 3. 已实施模块审计
 
 | 模块 | 当前状态 | 与旧行为的差距 | 切换结论 |
@@ -889,7 +916,7 @@ Adapter 接入时使用现有协议校验边界。
 | Context Strategy | Session-local Runtime 已接入原生摘要持久化、重开投影、外部/同 Turn threshold/prefire、逐模型调用 microcompact、error/silent overflow 单次恢复、手动/Extension 压缩、Pre/PostCompact 和 usage 状态；Coding Agent Memory Orchestrator 已接入冻结 Prompt、既有 Tool、70% 策略、自动/主动 flush、通用 rollover、JOURNAL 与 rollover 后置 finalization | 默认生产 RPC/IM 尚未接入 Greenfield Controller | memory-mode 内部链路可并行验证；生产宿主仍不可切换 |
 | MCP / Skill / Knowledge / Subagent | Session 级 Skill/Scene Prompt、MCP 渐进披露与现有 Knowledge 工具来源已进入并行组合 | Subagent Runtime 未迁移；尚未形成完整生产 Profile | 不可切换对应生产 Profile |
 | Ecosystem Hook Runtime | 每 Session 唯一实例已贯通 Prompt、最终动态 Tool Surface、Stop、运行期 Context、自动/手动 Pre/PostCompact 和 dispose | PermissionRequest、Subagent Hook 与宿主切换原因未接入 | 并行组合已验证；默认生产入口不变 |
-| Desktop / CLI / RPC / IM Adapter | RuntimeHost 已完全通过稳定 Ports 编排；CLI Greenfield Composition Root 已具备真实模型、Prompt、动态能力、Todo、Hook、Continuation、SessionEvent、文件恢复和按活动 Session 的 Memory Flush 控制 | Greenfield 完整 Assembly、旧存储兼容及 Desktop/RPC/IM 实际宿主接线尚未完成 | 不可切换默认入口 |
+| Desktop / CLI / RPC / IM Adapter | RuntimeHost 已完全通过稳定 Ports 编排；CLI Greenfield Composition Root 已具备真实模型、Prompt、动态能力、Todo、Hook、Continuation、SessionEvent、文件恢复和按活动 Session 的 Memory Flush 控制；RPC 已拆出 JSONL、TypeBox 校验、命令分发、分组 Capability 与 Legacy Adapter | Greenfield RPC Capability Adapter、wire event 反向适配、完整 Assembly、旧存储兼容及 Desktop/IM 实际宿主接线尚未完成 | Legacy 默认路径不变；不可切换默认入口 |
 
 上述差距目前没有影响生产，因为旧入口仍在使用旧实现。但它们是切换阻断项，不能因为新模块
 已有单元测试就视为功能迁移完成。
@@ -938,10 +965,11 @@ continuation 事务后的成功/失败 finalization 已固定 rollover、Extensi
 的相对顺序；Coding Agent 产品层也已提供按活动 Session 的主动 Memory Flush Controller，没有把
 Extension Runner、MEMORY/JOURNAL 或 IM 策略下沉到 Runtime Core/Storage。
 
-下一阶段应让真实 RPC/IM 宿主以显式 opt-in 适配 Greenfield Memory Controller，并对
-`flush_memory`、`/new`、会话丢弃、rollover 后 flush、恢复会话和关闭竞态运行 Legacy/Greenfield 差分。
-默认生产入口仍不切换。宿主差分完成后，再按真实能力边界迁移 PermissionRequest、Subagent Runtime 和
-剩余 Assembly Port。
+RPC 已建立实现无关的分组 Capability、外部 Frame 校验和 Legacy Adapter。下一阶段应实现 Greenfield
+RPC Capability Adapter 与旧 wire event 反向适配，并为 IM 必需 Profile 接入 Host Bridge Tool；缺少必需
+Capability 时启动必须 fail closed。随后对 `flush_memory`、`/new`、会话丢弃、rollover 后 flush、恢复
+会话和关闭竞态运行 Legacy/Greenfield 差分。默认生产入口仍不切换。宿主差分完成后，再按真实能力边界
+迁移 PermissionRequest、Subagent Runtime 和剩余 Assembly Port。
 
 模型配置持久化仍必须使用显式异步合同，不能在同步 setter 中 fire-and-forget；完整 Assembly 就绪前不
 替换默认旧后端。最终生产切换仍需完整 Profile 差分、旧存储兼容和 Desktop/RPC/IM 宿主验证。真实 GitHub

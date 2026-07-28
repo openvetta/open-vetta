@@ -82,6 +82,7 @@
 | [72-cross-conversation-turn-continuation.md](./08-implementation-log/72-cross-conversation-turn-continuation.md) | 跨 Conversation Turn 续接事务、运行时身份与宿主路径重绑定 |
 | [73-memory-rollover-orchestrator.md](./08-implementation-log/73-memory-rollover-orchestrator.md) | Memory Rollover 产品编排、既有 MEMORY/Tool/JOURNAL 复用与默认关闭接线 |
 | [74-memory-rollover-finalization-and-flush-control.md](./08-implementation-log/74-memory-rollover-finalization-and-flush-control.md) | Rollover 后置时序兼容、continuation finalization 与主动 Memory Flush 控制 |
+| [75-rpc-host-anti-corruption-layer.md](./08-implementation-log/75-rpc-host-anti-corruption-layer.md) | RPC JSONL/校验/分发解耦、分组 Capability、Legacy Adapter 与无模型协议基线 |
 
 ## 维护约定
 

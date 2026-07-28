@@ -419,8 +419,11 @@ export { main } from "./main.js";
 // Run modes for programmatic SDK usage
 export {
 	type PrintModeOptions,
+	type RpcSessionCapabilities,
+	type RunRpcModeOptions,
 	runPrintMode,
 	runRpcMode,
+	runRpcModeWithCapabilities,
 } from "./modes/index.js";
 // Theme utilities for custom tools and extensions (terminal rendering helpers removed with the TUI product)
 export {
