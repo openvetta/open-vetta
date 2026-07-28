@@ -71,6 +71,8 @@ export interface RuntimeToolExecutionRequest<TInput extends object = Readonly<Re
 	readonly turnId: string;
 	readonly toolCallId: string;
 	readonly input: Readonly<TInput>;
+	/** 工具开始执行时的模型可见消息视图。 */
+	readonly messages?: readonly Message[];
 	readonly signal: AbortSignal;
 	readonly onUpdate?: (result: RuntimeToolResult) => void;
 	readonly reportPhase?: (label: string) => void;

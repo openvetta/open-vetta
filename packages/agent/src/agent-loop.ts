@@ -193,6 +193,7 @@ async function runLoop(
 				if (hasMoreToolCalls) {
 					const toolExecution = await executeToolCalls(
 						currentContext.tools,
+						currentContext.messages,
 						message,
 						signal,
 						stream,
@@ -406,6 +407,7 @@ async function streamAssistantResponse(
  */
 async function executeToolCalls(
 	tools: AgentTool<any>[] | undefined,
+	messages: readonly AgentMessage[],
 	assistantMessage: AssistantMessage,
 	signal: AbortSignal | undefined,
 	stream: EventStream<AgentEvent, AgentMessage[]>,
@@ -479,6 +481,7 @@ async function executeToolCalls(
 							atMs,
 						});
 					},
+					messages: [...messages],
 				},
 			);
 		} catch (e) {

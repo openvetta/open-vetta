@@ -13,6 +13,8 @@ import type {
 	AgentPluginRuntimeEffect,
 	AgentPluginSystemPromptInvocation,
 	AgentPluginSystemPromptInvoker,
+	AgentPluginToolInvocation,
+	AgentPluginToolInvoker,
 	SystemPromptDraft,
 	SystemPromptOperation,
 } from "../../core/system-prompt.js";
@@ -29,6 +31,7 @@ export interface CodingAgentPluginRuntimeSource {
 	readonly readAgentPlugins: () => AgentPluginRuntimeConfig | undefined;
 	readonly invokeSystemPrompt?: AgentPluginSystemPromptInvoker;
 	readonly invokeContinuation?: AgentPluginContinuationInvoker;
+	readonly invokeTool?: AgentPluginToolInvoker;
 }
 
 export interface CodingAgentPluginProviderFailure {
@@ -113,6 +116,29 @@ export class CodingAgentPluginRunOrchestrator implements ContinuationPolicy {
 
 	readActiveToolNames(): readonly string[] | undefined {
 		return this.activeTurn ? [...this.activeTurn.lastActiveToolNames] : undefined;
+	}
+
+	createToolHandlerContext(input: {
+		readonly turnId: string;
+		readonly messages: readonly Message[];
+		readonly modelBinding: ModelCallFrameCompositionContext["modelBinding"];
+		readonly includeMessages: boolean;
+	}): Pick<AgentPluginToolInvocation, "session" | "model" | "conversation" | "runtime"> {
+		const state = this.requireActiveTurn(input.turnId);
+		return {
+			session: this.options.session,
+			model: toPluginModel(input),
+			conversation: toPluginConversation(input.messages, input.includeMessages),
+			runtime: {
+				activeToolNames: [...state.lastActiveToolNames],
+				availableToolNames: [...state.lastAvailableToolNames],
+				runIndex: state.runIndex + 1,
+			},
+		};
+	}
+
+	commitToolEffects(turnId: string, pluginId: string, effects: readonly AgentPluginRuntimeEffect[]): void {
+		this.applyEffects(this.requireActiveTurn(turnId), pluginId, effects);
 	}
 
 	async compose(input: CodingAgentPluginFrameCompositionInput): Promise<CodingAgentPluginFrameComposition> {
@@ -201,6 +227,14 @@ export class CodingAgentPluginRunOrchestrator implements ContinuationPolicy {
 			lastAvailableToolNames: [],
 		};
 		this.nextRunIndex += 1;
+		return state;
+	}
+
+	private requireActiveTurn(turnId: string): PluginTurnState {
+		const state = this.activeTurn;
+		if (!state || state.turnId !== turnId) {
+			throw new Error(`Plugin tool execution does not belong to the active turn: ${turnId}`);
+		}
 		return state;
 	}
 

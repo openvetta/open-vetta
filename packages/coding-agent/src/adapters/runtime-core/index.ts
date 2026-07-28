@@ -29,6 +29,12 @@ export {
 	type CodingAgentPluginRuntimeSource,
 } from "./greenfield-plugin-run-orchestrator.js";
 export {
+	type CodingAgentPluginToolActivation,
+	CodingAgentPluginToolRuntime,
+	type CodingAgentPluginToolRuntimeOptions,
+	type CodingAgentPluginToolSurface,
+} from "./greenfield-plugin-tool-runtime.js";
+export {
 	CodingAgentGreenfieldPromptAdapter,
 	type CodingAgentGreenfieldPromptAdapterOptions,
 	type CodingAgentPromptResourceExpansion,

@@ -162,6 +162,7 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 						turnId: request.turnId,
 						toolCallId,
 						input,
+						messages: context?.messages?.filter(isRuntimeMessage),
 						signal: executionSignal,
 						onUpdate: onUpdate
 							? (update) => {

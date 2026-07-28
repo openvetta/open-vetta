@@ -205,6 +205,8 @@ export interface ToolPhase {
 // argument so existing tools that don't take ctx keep working.
 export interface ToolExecutionContext {
 	phase: (label: string) => void;
+	/** 当前工具调用发生时的完整 Agent 消息视图，包含触发该调用的 assistant 消息。 */
+	readonly messages?: readonly AgentMessage[];
 }
 
 // AgentTool extends Tool but adds the execute function

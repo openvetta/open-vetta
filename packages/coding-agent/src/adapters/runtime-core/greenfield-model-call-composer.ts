@@ -12,6 +12,7 @@ import {
 	type SystemPromptDraft,
 } from "../../core/system-prompt.js";
 import type { CodingAgentPluginRunOrchestrator } from "./greenfield-plugin-run-orchestrator.js";
+import type { CodingAgentPluginToolRuntime } from "./greenfield-plugin-tool-runtime.js";
 
 export type CodingAgentSystemPromptOptions = Omit<BuildSystemPromptOptions, "selectedTools">;
 
@@ -28,6 +29,7 @@ export interface CodingAgentModelCallFrameComposerOptions {
 	readonly readMcpPromptState?: () => CodingAgentMcpPromptState;
 	readonly readAvailableTools?: () => ReadonlyMap<string, RuntimeToolDefinition>;
 	readonly pluginRunOrchestrator?: CodingAgentPluginRunOrchestrator;
+	readonly pluginToolRuntime?: CodingAgentPluginToolRuntime;
 }
 
 export interface CodingAgentMcpPromptState {
@@ -49,9 +51,18 @@ export class CodingAgentModelCallFrameComposer implements ModelCallFrameComposer
 
 	async compose(context: ModelCallFrameCompositionContext): Promise<ModelCallFrame> {
 		context.signal.throwIfAborted();
-		const activeToolNames = [...context.frame.tools.keys()];
+		const baseAvailableTools = new Map(this.options.readAvailableTools?.() ?? context.frame.tools);
+		for (const [name, tool] of context.frame.tools) {
+			baseAvailableTools.set(name, tool);
+		}
+		const pluginToolSurface = this.options.pluginToolRuntime?.compose(context, baseAvailableTools);
+		const effectiveContext: ModelCallFrameCompositionContext = pluginToolSurface
+			? { ...context, frame: pluginToolSurface.frame }
+			: context;
+		const availableTools = pluginToolSurface?.availableTools ?? baseAvailableTools;
+		const activeToolNames = [...effectiveContext.frame.tools.keys()];
 		const promptOptions = await this.options.resolveSystemPromptOptions({
-			...context,
+			...effectiveContext,
 			activeToolNames,
 		});
 		context.signal.throwIfAborted();
@@ -67,12 +78,12 @@ export class CodingAgentModelCallFrameComposer implements ModelCallFrameComposer
 						}
 					: {}),
 			});
-			appendFeatureInstructions(draft, context.frame.instructions);
+			appendFeatureInstructions(draft, effectiveContext.frame.instructions);
 			return draft;
 		};
 		const pluginFrame = await this.options.pluginRunOrchestrator?.compose({
-			context,
-			availableTools: this.options.readAvailableTools?.() ?? context.frame.tools,
+			context: effectiveContext,
+			availableTools,
 			createDraft,
 		});
 		const draft = pluginFrame?.draft ?? createDraft(activeToolNames);
@@ -84,7 +95,7 @@ export class CodingAgentModelCallFrameComposer implements ModelCallFrameComposer
 					priority: 0,
 				},
 			],
-			tools: pluginFrame?.tools ?? context.frame.tools,
+			tools: pluginFrame?.tools ?? effectiveContext.frame.tools,
 		};
 	}
 }

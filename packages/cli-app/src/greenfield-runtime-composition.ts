@@ -7,6 +7,8 @@ import {
 	type CodingAgentModelRegistrySource,
 	CodingAgentPluginRunOrchestrator,
 	type CodingAgentPluginRuntimeSource,
+	type CodingAgentPluginToolActivation,
+	CodingAgentPluginToolRuntime,
 	type CodingAgentPromptResourceResolver,
 	type CodingAgentSystemPromptOptionsResolver,
 	createCodingAgentPromptRuntime,
@@ -189,6 +191,23 @@ export async function createGreenfieldRuntimeComposition(
 						...pluginRuntime,
 					})
 				: undefined;
+			const pluginToolRuntime =
+				pluginRuntime && pluginRunOrchestrator
+					? new CodingAgentPluginToolRuntime({
+							readAgentPlugins: pluginRuntime.readAgentPlugins,
+							invokeTool: pluginRuntime.invokeTool,
+							runOrchestrator: pluginRunOrchestrator,
+							shouldPreserveBaseTool: (toolName) => mcpController?.isManagedTool(toolName) === true,
+							resolveActivation: (context) =>
+								toPluginToolActivation(
+									resolveTurnToolActivation(effectiveActivation, context, {
+										backgroundTasksAvailable,
+										knowledgeAvailable,
+									}),
+									sessionOptions.agentMode,
+								),
+						})
+					: undefined;
 			const injectedSystemPromptOptionsResolver =
 				options.createSystemPromptOptionsResolver?.(sessionOptions) ?? options.resolveSystemPromptOptions;
 			const promptRuntime = injectedSystemPromptOptionsResolver
@@ -220,6 +239,7 @@ export async function createGreenfieldRuntimeComposition(
 								]),
 						),
 					pluginRunOrchestrator,
+					pluginToolRuntime,
 					resolveSystemPromptOptions: async (context) => {
 						const promptOptions = await resolveSystemPromptOptions(context);
 						return {
@@ -313,6 +333,22 @@ export async function createGreenfieldRuntimeComposition(
 				throw new AggregateError(errors, "Failed to dispose one or more runtime capability compositions");
 			}
 		},
+	};
+}
+
+function toPluginToolActivation(
+	activation: CodingToolActivation,
+	agentMode: string | undefined,
+): CodingAgentPluginToolActivation {
+	if (activation.mode === "explicit") {
+		return activation;
+	}
+	return {
+		mode: "scope",
+		scenario: activation.scope ?? "cli",
+		capabilities: activation.capabilities,
+		additionallyEnabledToolNames: activation.additionallyEnabledToolNames,
+		agentMode,
 	};
 }
 

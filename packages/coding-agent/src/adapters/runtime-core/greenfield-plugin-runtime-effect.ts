@@ -127,6 +127,13 @@ const ContinuationHandlerResultSchema = Type.Object(
 	},
 	{ additionalProperties: false },
 );
+const ToolHandlerResultSchema = Type.Object(
+	{
+		value: Type.Unknown(),
+		effects: RuntimeEffectsSchema,
+	},
+	{ additionalProperties: false },
+);
 
 export function validatePluginRuntimeEffects(value: unknown): readonly AgentPluginRuntimeEffect[] {
 	if (!Value.Check(RuntimeEffectsSchema, value)) {
@@ -142,4 +149,11 @@ export function validatePluginContinuationHandlerResult(
 		throw new Error("Plugin continuation provider returned an invalid result");
 	}
 	return value as AgentPluginHandlerResult<AgentPluginContinuationResult | null>;
+}
+
+export function validatePluginToolHandlerResult(value: unknown): AgentPluginHandlerResult<unknown> {
+	if (!Value.Check(ToolHandlerResultSchema, value)) {
+		throw new Error("Plugin tool returned an invalid result");
+	}
+	return value as AgentPluginHandlerResult<unknown>;
 }

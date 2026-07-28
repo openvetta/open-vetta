@@ -72,6 +72,7 @@
 | [62-session-prompt-runtime-and-unified-draft.md](./08-implementation-log/62-session-prompt-runtime-and-unified-draft.md) | Session Prompt Runtime、统一 Prompt Draft 与 MCP 单通道 |
 | [63-cli-typecheck-and-build-surface-gate.md](./08-implementation-log/63-cli-typecheck-and-build-surface-gate.md) | CLI 显式类型门禁与 Build Surface 声明消费验证 |
 | [64-dynamic-plugin-run-and-continuation-policy.md](./08-implementation-log/64-dynamic-plugin-run-and-continuation-policy.md) | 动态 Plugin Run Orchestrator 与通用 Continuation Policy |
+| [65-session-local-plugin-tool-runtime.md](./08-implementation-log/65-session-local-plugin-tool-runtime.md) | Session-local Plugin Tool Runtime、动态撤销与同 Turn Effect |
 
 ## 维护约定
 
