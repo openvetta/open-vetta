@@ -35,6 +35,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **桌宠设置隐藏「桌宠装饰」分区**：设置页暂不展示装饰网格；`PetSettingsView` 组件、装饰数据与 section 注册保留，`showDecorationSection` 改回即可恢复。
 - **设置等场景模型选择面板对齐新会话**：共享 `ModelSelect`（Claw / 知识库 / 定时任务 / 批量任务 / 审批等）下拉改为与聊天 `ModelSelectorView` 同款——搜索框、入场动效、分组与选中态、徽章色与宽幅列表；触发器仍可由调用方自定义。
 - **能力详情由独立页改为侧边抽屉**：`/abilities/$type/$slug` 重定向到 `/abilities?detail=<type>:<slug>`，详情在能力页内以抽屉呈现——宽屏右侧 60vw，窄屏（≤768px）改为底部弹出 85vh；深链与浏览器返回键仍可用，列表与详情共用同一个 model 实例，安装 / 启停结果直接反映到身后的列表。场景页与 bundle 成员的跳转一并改走该 search 参数。
 - **能力详情页版式调整**：作者/版本/许可移到标题下方，描述与标签移到图标下方通栏，面板内不再有返回按钮（遮罩 / Esc 关闭）；页尾区块（插件、MCP、套装、其他）与正文之间只用分隔线，小标题统一为 11px 大写 muted；插件权限改为三列纯文本清单（不再是卡片与开关），授予与否移到主 CTA 右侧「权限配置」按钮弹出的弹窗；插件内聚的 MCP / 技能列表收进单张卡片，条目用分隔线分隔、图标复用能力广场的 `AbilityIcon`、描述最多两行，超过 5 条折叠；「其他」（原元信息）改为标签-值两栏；markdown 正文去掉内边距；页面块级元素按序 `opacity + y` 入场，`prefers-reduced-motion` 下关闭。
