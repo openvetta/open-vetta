@@ -9,8 +9,8 @@ import { DEFAULT_SERVER_URL, DEFAULT_SITE_URL } from "../constants.js";
 import { getAppLogger } from "../logger.js";
 import {
 	listPresetProviders,
+	refreshPresetCatalog,
 	refreshPresetModels,
-	setPresetShowAllModels,
 	startPresetModelsAutoSync,
 } from "../models/presets/sync.js";
 import { peekSharedRuntime } from "../runtime.js";
@@ -355,17 +355,17 @@ export function registerSettingsIpc(): () => void {
 		return listPresetProviders();
 	});
 
-	// 「显示全部模型」开关。落 settings.json,后台定时同步也按它决定写哪些模型。
-	ipcMain.handle("vetta:models:set-preset-show-all", (_event, showAll: unknown) => {
-		setPresetShowAllModels(showAll === true);
-	});
-
 	// 手动刷新某预设服务商的模型列表:只拉不写,由渲染层连同 key 一起落盘。
 	ipcMain.handle("vetta:models:refresh-preset-models", async (_event, providerId: unknown, apiKey: unknown) => {
 		if (typeof providerId !== "string" || !providerId.trim()) {
-			return { models: [], error: "providerId 缺失" };
+			return { models: [], error: { code: "unknown-provider", params: { provider: String(providerId) } } };
 		}
 		return refreshPresetModels(providerId.trim(), typeof apiKey === "string" ? apiKey : undefined);
+	});
+
+	// 手动刷新公共目录:清掉失败冷却强制重拉,错误原样回给渲染层。
+	ipcMain.handle("vetta:models:refresh-preset-catalog", async () => {
+		return refreshPresetCatalog();
 	});
 
 	// 启动时同步一次已启用预设服务商的模型列表,之后每 12 小时一次。
@@ -394,7 +394,7 @@ export function registerSettingsIpc(): () => void {
 		ipcMain.removeHandler("vetta:settings:set-server-refresh-token");
 		ipcMain.removeHandler("vetta:models:fetch-remote");
 		ipcMain.removeHandler("vetta:models:list-presets");
-		ipcMain.removeHandler("vetta:models:set-preset-show-all");
+		ipcMain.removeHandler("vetta:models:refresh-preset-catalog");
 		ipcMain.removeHandler("vetta:models:refresh-preset-models");
 		ipcMain.removeHandler("vetta:subscription:status");
 		ipcMain.removeHandler("vetta:auth:refresh-token");

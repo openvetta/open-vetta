@@ -19,6 +19,7 @@
 		"build:ocr-preload": "vite build --config vite.ocr-preload.config.ts",
 		"build:ocr-runner": "vite build --config vite.ocr-runner.config.ts",
 		"build": "bun run build:presets && bun run build:themes && bun run build:preload && bun run build:ocr-preload && bun run build:renderer && bun run build:ocr-runner && bun run build:main",
+		"snapshot:models-dev": "bun run scripts/update-models-dev-snapshot.ts",
 		"prepare:windows": "node scripts/prepare-windows-prereqs.js",
 		"prepare:windows:dev": "node scripts/prepare-windows-prereqs.js --incremental",
 		"prepare:ocr-models": "node scripts/fetch-ocr-models.js",

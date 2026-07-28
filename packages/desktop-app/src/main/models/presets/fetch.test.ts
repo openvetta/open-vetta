@@ -132,13 +132,41 @@ describe("fetchPresetModels", () => {
 		});
 	});
 
-	it("HTTP 失败时返回错误而不是抛异常", async () => {
+	it("认证失败归为 invalid-key,调用方据此拒绝启用", async () => {
 		const fetchImpl = stubFetch(() => ({}), { ok: false, status: 401 });
 
 		const result = await fetchPresetModels(def("deepseek"), "bad-key", fetchImpl);
 
 		expect(result.models).toEqual([]);
-		expect(result.error).toContain("401");
+		// 结构化错误码 + 参数,文案由渲染层查 i18n(主进程不产出中文)。
+		expect(result.error).toEqual({ code: "invalid-key", params: { host: "api.deepseek.com", status: 401 } });
+	});
+
+	it("Gemini 的无效 key 是 400,同样算 invalid-key", async () => {
+		const fetchImpl = stubFetch(() => ({}), { ok: false, status: 400 });
+
+		const result = await fetchPresetModels(def("gemini"), "bad-key", fetchImpl);
+
+		expect(result.error).toEqual({
+			code: "invalid-key",
+			params: { host: "generativelanguage.googleapis.com", status: 400 },
+		});
+	});
+
+	it("Bearer 系的 400 不是认证问题,仍报 http-status", async () => {
+		const fetchImpl = stubFetch(() => ({}), { ok: false, status: 400 });
+
+		const result = await fetchPresetModels(def("openai"), "sk-test", fetchImpl);
+
+		expect(result.error).toMatchObject({ code: "http-status", params: { status: 400 } });
+	});
+
+	it("5xx 不是认证问题,不该拦下用户的 key", async () => {
+		const fetchImpl = stubFetch(() => ({}), { ok: false, status: 503 });
+
+		const result = await fetchPresetModels(def("claude"), "sk-test", fetchImpl);
+
+		expect(result.error).toMatchObject({ code: "http-status", params: { status: 503 } });
 	});
 
 	it("空列表算作错误,调用方据此保留旧快照", async () => {
@@ -147,6 +175,6 @@ describe("fetchPresetModels", () => {
 		const result = await fetchPresetModels(def("zai"), "sk-test", fetchImpl);
 
 		expect(result.models).toEqual([]);
-		expect(result.error).toBeTruthy();
+		expect(result.error).toEqual({ code: "empty-models" });
 	});
 });

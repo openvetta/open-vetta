@@ -81,6 +81,14 @@ export async function fetchModelsDevCatalog(
 	});
 	if (!response.ok) throw new Error(`models.dev 返回 ${response.status} ${response.statusText}`);
 	const body = (await response.json()) as Record<string, { models?: Record<string, RawModel> }>;
+	return buildCatalog(body, now);
+}
+
+/** 由 models.dev 原始 api.json 折算成目录。生成内置快照的脚本也走这里,口径必须一致。 */
+export function buildCatalog(
+	body: Record<string, { models?: Record<string, RawModel> }>,
+	now: number,
+): ModelsDevCatalog {
 	return { version: CATALOG_VERSION, fetchedAt: new Date(now).toISOString(), providers: shrink(body) };
 }
 

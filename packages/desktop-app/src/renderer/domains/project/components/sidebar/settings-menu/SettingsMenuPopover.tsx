@@ -6,7 +6,6 @@ import type { SettingsMenuModel } from "./types";
 import { SettingsMenuAccountSection } from "./SettingsMenuAccountSection";
 import { SettingsMenuAgentModeSection } from "./SettingsMenuAgentModeSection";
 import { SettingsMenuDivider } from "./SettingsMenuDivider";
-import { SettingsMenuDownloadsItem } from "./SettingsMenuDownloadsItem";
 import { SettingsMenuQuotaSection } from "./SettingsMenuQuotaSection";
 import { SettingsMenuThemeSection } from "./SettingsMenuThemeSection";
 
@@ -71,9 +70,6 @@ export function SettingsMenuPopover({ model }: SettingsMenuPopoverProps): JSX.El
 					</motion.div>
 					<motion.div variants={dividerVariants}>
 						<SettingsMenuDivider />
-					</motion.div>
-					<motion.div variants={itemVariants}>
-						<SettingsMenuDownloadsItem model={model} />
 					</motion.div>
 					<motion.div variants={itemVariants}>
 						<SettingsMenuSettingsItemHost model={model} />

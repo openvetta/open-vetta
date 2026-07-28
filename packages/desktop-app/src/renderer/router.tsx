@@ -32,9 +32,6 @@ const SettingsPage = lazy(async () => ({
 const ProjectDetailPage = lazy(async () => ({
 	default: (await import("./domains/project/components/ProjectDetailPage")).ProjectDetailPage,
 }));
-const DownloadsPage = lazy(async () => ({
-	default: (await import("./domains/downloads/components/DownloadsPage")).DownloadsPage,
-}));
 const KnowledgeBasePage = lazy(async () => ({
 	default: (await import("./domains/knowledge-base/components/KnowledgeBasePage")).KnowledgeBasePage,
 }));
@@ -150,12 +147,6 @@ const projectDetailRoute = createRoute({
 	component: ProjectDetailPage,
 });
 
-const downloadsRoute = createRoute({
-	getParentRoute: () => rootRoute,
-	path: "/downloads",
-	component: DownloadsPage,
-});
-
 const newSessionRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	path: "/new-session/$cwd",
@@ -187,7 +178,6 @@ const routeTree = rootRoute.addChildren([
 	pluginsRedirectRoute,
 	settingsTabRoute,
 	projectDetailRoute,
-	downloadsRoute,
 	newSessionRoute,
 	sessionViewerRoute,
 	themePageRoute,
