@@ -5,6 +5,7 @@ import {
 	enrichFromCatalog,
 	fetchModelsDevCatalog,
 	isCatalogFresh,
+	isCatalogUsable,
 	lookupCatalogModel,
 	type ModelsDevCatalog,
 	selectLatestModels,
@@ -95,6 +96,16 @@ describe("models.dev 目录", () => {
 		expect(isCatalogFresh(null, NOW)).toBe(false);
 	});
 
+	it("旧版本客户端写的缓存一律作废,不管多新鲜", async () => {
+		const catalog = await fetchCatalog();
+		// v1 的条目直接是模型对象(没有 model/family/releaseDate),读进来会炸在缺失字段上。
+		const stale = { fetchedAt: catalog.fetchedAt, providers: { claude: { "claude-x": { id: "claude-x" } } } };
+
+		expect(isCatalogUsable(stale as unknown as ModelsDevCatalog)).toBe(false);
+		expect(isCatalogFresh(stale as unknown as ModelsDevCatalog, NOW)).toBe(false);
+		expect(isCatalogUsable(catalog)).toBe(true);
+	});
+
 	it("查不到精确 id 时退化为去日期后缀与最长前缀匹配", async () => {
 		const catalog = await fetchCatalog();
 
@@ -131,6 +142,7 @@ describe("models.dev 目录", () => {
 
 describe("selectLatestModels", () => {
 	const catalog: ModelsDevCatalog = {
+		version: 2,
 		fetchedAt: new Date(NOW).toISOString(),
 		providers: {
 			openai: {

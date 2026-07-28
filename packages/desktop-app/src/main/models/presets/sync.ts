@@ -12,6 +12,7 @@ import {
 	enrichFromCatalog,
 	fetchModelsDevCatalog,
 	isCatalogFresh,
+	isCatalogUsable,
 	type ModelsDevCatalog,
 	selectLatestModels,
 } from "./models-dev.js";
@@ -85,7 +86,9 @@ let catalogMemo: ModelsDevCatalog | null = null;
 
 async function readCatalogCache(): Promise<ModelsDevCatalog | null> {
 	try {
-		return JSON.parse(await readFile(CATALOG_PATH, "utf8")) as ModelsDevCatalog;
+		const cached = JSON.parse(await readFile(CATALOG_PATH, "utf8")) as ModelsDevCatalog;
+		// 旧版本客户端写的缓存形状对不上,读进来会让后续解析炸在缺失字段上——直接丢弃重拉。
+		return isCatalogUsable(cached) ? cached : null;
 	} catch {
 		return null;
 	}

@@ -12,6 +12,13 @@ import type { FetchImpl } from "./fetch.js";
 const CATALOG_URL = "https://models.dev/api.json";
 /** 目录变动按天计,12 小时一拉,与预设模型列表同步节奏一致。 */
 export const CATALOG_TTL_MS = 12 * 60 * 60 * 1000;
+/**
+ * 缓存结构版本。**改动 CatalogEntry / providers 的形状必须 +1**——
+ * 磁盘缓存写在用户机器上,老版本客户端写的文件会被新代码原样读进来;
+ * 没有这个版本号时,一次结构调整就让旧缓存在 TTL 内被当成有效数据,
+ * 读到的条目缺字段,目录列表与后台同步一起静默失败。
+ */
+const CATALOG_VERSION = 2;
 
 /** 预设标识 → models.dev 的 provider key。 */
 const PROVIDER_KEYS: Record<string, string> = {
@@ -45,13 +52,19 @@ export interface CatalogEntry {
 
 /** 只保留六家、只保留用得上的字段——原始 api.json 有 170+ 家、3MB 出头。 */
 export interface ModelsDevCatalog {
+	version: number;
 	fetchedAt: string;
 	/** 预设标识 → 模型 id → 目录条目。 */
 	providers: Record<string, Record<string, CatalogEntry>>;
 }
 
+/** 版本不符(旧客户端写的缓存)一律视为不可用,重新拉取。 */
+export function isCatalogUsable(catalog: ModelsDevCatalog | null): boolean {
+	return catalog?.version === CATALOG_VERSION;
+}
+
 export function isCatalogFresh(catalog: ModelsDevCatalog | null, now: number): boolean {
-	if (!catalog) return false;
+	if (!isCatalogUsable(catalog) || !catalog) return false;
 	const fetchedAt = Date.parse(catalog.fetchedAt);
 	return Number.isFinite(fetchedAt) && now - fetchedAt < CATALOG_TTL_MS;
 }
@@ -68,7 +81,7 @@ export async function fetchModelsDevCatalog(
 	});
 	if (!response.ok) throw new Error(`models.dev 返回 ${response.status} ${response.statusText}`);
 	const body = (await response.json()) as Record<string, { models?: Record<string, RawModel> }>;
-	return { fetchedAt: new Date(now).toISOString(), providers: shrink(body) };
+	return { version: CATALOG_VERSION, fetchedAt: new Date(now).toISOString(), providers: shrink(body) };
 }
 
 function shrink(body: Record<string, { models?: Record<string, RawModel> }>): ModelsDevCatalog["providers"] {
