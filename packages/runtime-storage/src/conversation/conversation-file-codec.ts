@@ -5,7 +5,7 @@ import {
 	type ConversationDocumentEntryReference,
 	createEmptyConversationDocument,
 	nativeConversationEntryId,
-	selectConversationDocumentMessages,
+	selectConversationDocumentModelMessages,
 } from "@vetta/runtime-core/conversation";
 import type { StoredConversation, StoredSessionEvent } from "@vetta/runtime-core/kernel";
 import { CONVERSATION_STORAGE_ERROR_CODES, ConversationStorageError } from "./errors.js";
@@ -66,7 +66,7 @@ export function parseConversationFile(text: string, sessionId: string): ParsedCo
 		validateConversationEvent(sessionId, record.event);
 		if (record.schemaVersion === CONVERSATION_SCHEMA_VERSION) {
 			const hasDocumentEntry = record.documentEntry !== null;
-			if (hasDocumentEntry !== (record.event.type === "message.appended")) {
+			if (hasDocumentEntry !== isConversationDocumentEntryEvent(record.event)) {
 				throw corruptConversation(sessionId, `event has inconsistent document entry at line ${index + 2}`);
 			}
 			if (record.documentEntry) {
@@ -122,7 +122,7 @@ export function conversationFromFile(sessionId: string, file: ParsedConversation
 		sessionId,
 		createdAt: file.header.createdAt,
 		version: events.length,
-		messages: selectConversationDocumentMessages(document),
+		messages: selectConversationDocumentModelMessages(document),
 		events,
 	};
 }
@@ -166,12 +166,16 @@ export function createDocumentEntryReference(
 	sequence: number,
 	parentId: string | null,
 ): ConversationDocumentEntryReference | null {
-	if (event.type !== "message.appended") return null;
+	if (!isConversationDocumentEntryEvent(event)) return null;
 	return {
 		id: nativeConversationEntryId(sequence),
 		parentId,
 		timestamp: new Date(event.timestamp).toISOString(),
 	};
+}
+
+function isConversationDocumentEntryEvent(event: StoredSessionEvent): boolean {
+	return event.type === "message.appended" || event.type === "context.appended";
 }
 
 function parseRecords(text: string, sessionId: string): unknown[] {

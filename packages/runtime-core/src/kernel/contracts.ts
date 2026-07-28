@@ -12,8 +12,18 @@ import type { RuntimeSessionObservationEvent } from "../session-observation.js";
 
 export type AgentSessionState = "idle" | "running" | "cancelling" | "closing" | "closed";
 
+/** 由宿主适配器贡献的持久化上下文；Kernel 不解释业务类型。 */
+export interface SessionContextRecord {
+	readonly type: string;
+	readonly content: UserMessage["content"];
+	readonly modelVisible: boolean;
+	readonly display?: boolean;
+	readonly metadata?: unknown;
+}
+
 export interface SessionInput {
 	readonly message: UserMessage;
+	readonly context?: readonly SessionContextRecord[];
 }
 
 export type SessionInputQueueMode = "all" | "one-at-a-time";
@@ -120,6 +130,7 @@ export interface ModelCallContributionContext {
 	readonly sessionId: string;
 	readonly turnId: string;
 	readonly signal: AbortSignal;
+	readonly input?: SessionInput;
 }
 
 export interface ModelCallContribution {
@@ -264,6 +275,14 @@ export interface MessageAppendedEvent {
 	readonly timestamp: number;
 }
 
+export interface ContextAppendedEvent {
+	readonly type: "context.appended";
+	readonly sessionId: string;
+	readonly turnId: string;
+	readonly record: SessionContextRecord;
+	readonly timestamp: number;
+}
+
 export interface ContextCompactedEvent {
 	readonly type: "context.compacted";
 	readonly sessionId: string;
@@ -302,6 +321,7 @@ export interface TurnFailedEvent {
 export type StoredSessionEvent =
 	| TurnStartedEvent
 	| MessageAppendedEvent
+	| ContextAppendedEvent
 	| ContextCompactedEvent
 	| TurnCompletedEvent
 	| TurnCancelledEvent
@@ -365,6 +385,7 @@ export interface TurnEngineRequest {
 	readonly messages: readonly Message[];
 	readonly signal: AbortSignal;
 	readonly inputQueue?: TurnInputQueue;
+	readonly input?: SessionInput;
 }
 
 export type TurnEngineEvent =

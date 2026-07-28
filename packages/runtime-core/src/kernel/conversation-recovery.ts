@@ -35,6 +35,7 @@ export class FailInterruptedTurnRecoveryPolicy implements ConversationRecoveryPo
 					activeTurnId = event.turnId;
 					break;
 				case "message.appended":
+				case "context.appended":
 				case "context.compacted":
 					assertActiveTurn(conversation.sessionId, activeTurnId, event.turnId, event.type);
 					break;

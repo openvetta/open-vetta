@@ -297,6 +297,42 @@ describe("greenfield runtime kernel", () => {
 		expect(engine.requests[0].snapshot.id).toBe("snapshot-1");
 	});
 
+	it("persists generic context records and sends only model-visible records to the engine", async () => {
+		const contextStrategy = new RecordingContextStrategy();
+		const engine = new CompletingTurnEngine(assistantMessage("done"));
+		const harness = await createHarness({ contextStrategy, turnEngine: engine });
+
+		await harness.session.send({
+			context: [
+				{
+					type: "visible",
+					content: "model context",
+					modelVisible: true,
+					display: false,
+				},
+				{
+					type: "marker",
+					content: "",
+					modelVisible: false,
+					metadata: { id: "resource" },
+				},
+			],
+			message: userMessage("current input"),
+		});
+
+		expect(contextStrategy.inputs[0].map((message) => message.content)).toEqual(["model context", "current input"]);
+		expect(engine.requests[0].input?.context).toHaveLength(2);
+		const conversation = await harness.repository.load("session-1");
+		expect(conversation.events.map(({ type }) => type)).toEqual([
+			"turn.started",
+			"context.appended",
+			"context.appended",
+			"message.appended",
+			"message.appended",
+			"turn.completed",
+		]);
+	});
+
 	it("starts a normal turn when streaming behavior is supplied while idle", async () => {
 		const harness = await createHarness();
 

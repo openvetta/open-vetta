@@ -9,6 +9,7 @@ export {
 	resolveConversationUserTurnTip,
 	selectConversationDocumentEntries,
 	selectConversationDocumentMessages,
+	selectConversationDocumentModelMessages,
 } from "./commands.js";
 export {
 	applyStoredEventToConversationDocument,

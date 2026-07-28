@@ -2,6 +2,7 @@
 
 ### Added
 
+- **Greenfield 模型与 Prompt 窄适配入口**：新增 `@vetta/coding-agent/runtime-host/greenfield`，将现有 ModelRegistry 适配为 Runtime Catalog/Credential Port；Prompt Adapter 保留文本、图片、streaming、结构化 Skill/Scene、附件、知识模式与设置协助的输入语义，通过可注入资源解析端口和通用持久化 context 与具体 Kernel 实现解耦。
 - **RuntimeHost Legacy Adapter 与显式组合入口**：新增 `@vetta/coding-agent/runtime-host`，集中承载旧 `AgentSession`、SessionManager、ModelRegistry、历史/事件和平台沙箱工具到 Runtime Core Port 的兼容适配；`createLegacyRuntimeHostOptions()` 为 Desktop 等宿主一次组装完整旧行为。
 - **Runtime 可执行文件解析适配器**：新增 `createToolExecutableResolver`，将旧 `ensureTool` 以静默解析方式适配为 Runtime `rg`/`fd` Resolver Port；下载、版本选择和失败策略仍由 coding-agent 宿主拥有。
 - **外部生态 Hook `SessionEnd` / `PostToolUseFailure` 宿主接线**：`newSession` / `switchSession` / `fork` 在切换会话 id 前 `await runSessionEnd`（Vetta cause：`new_session` / `switch_session` / `fork_session`）；`dispose` best-effort `runSessionEnd("dispose")`（同步捕获 session 元数据）。Claude wire `reason` 仅在 ecosystem-adapter Claude profile 映射。工具 wrapper 在真实 `execute` 抛错后触发 `PostToolUseFailure`（`error` / `is_interrupt` / `duration_ms`），Pre/Post 阻断不计入失败；失败 hook 的 `additionalContext` / exit 2 反馈可进入模型上下文或错误消息。

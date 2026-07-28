@@ -6,6 +6,16 @@ const codingAgentSrc = fileURLToPath(new URL("../coding-agent/src", import.meta.
 export default defineConfig({
 	resolve: {
 		alias: [
+			{
+				find: "@vetta/ai",
+				replacement: fileURLToPath(new URL("../ai/src/index.ts", import.meta.url)),
+			},
+			{
+				find: "@vetta/coding-agent/runtime-host/greenfield",
+				replacement: fileURLToPath(
+					new URL("../coding-agent/src/adapters/runtime-core/greenfield.ts", import.meta.url),
+				),
+			},
 			// Stable public host surface (package exports "./host")
 			{
 				find: "@vetta/coding-agent/host",
@@ -23,6 +33,18 @@ export default defineConfig({
 			{
 				find: "@vetta/runtime-core/kernel",
 				replacement: fileURLToPath(new URL("../runtime-core/src/kernel/index.ts", import.meta.url)),
+			},
+			{
+				find: "@vetta/runtime-core/conversation",
+				replacement: fileURLToPath(new URL("../runtime-core/src/conversation/index.ts", import.meta.url)),
+			},
+			{
+				find: "@vetta/runtime-core",
+				replacement: fileURLToPath(new URL("../runtime-core/src/index.ts", import.meta.url)),
+			},
+			{
+				find: "@vetta/runtime-storage/conversation",
+				replacement: fileURLToPath(new URL("../runtime-storage/src/conversation/index.ts", import.meta.url)),
 			},
 			{
 				find: "@vetta/runtime-tools/coding",

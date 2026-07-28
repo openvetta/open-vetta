@@ -67,11 +67,17 @@ describe("Turn model binding", () => {
 
 	it("makes AgentCoreTurnEngine use the request binding instead of static model options", async () => {
 		const calls: Array<{ readonly model: Model<Api>; readonly reasoning: string | undefined }> = [];
+		const credentialModels: Model<Api>[] = [];
 		const engine = new AgentCoreTurnEngine({
 			model: INITIAL_MODEL,
 			streamOptions: { reasoning: "high" },
+			resolveApiKey: (model) => {
+				credentialModels.push(model);
+				return "binding-key";
+			},
 			streamFn: (model, _context, options) => {
 				calls.push({ model, reasoning: options?.reasoning });
+				expect(options?.apiKey).toBe("binding-key");
 				return new CompletedAssistantStream(assistantMessage(model));
 			},
 		});
@@ -89,6 +95,7 @@ describe("Turn model binding", () => {
 		}
 
 		expect(calls).toEqual([{ model: ALTERNATE_MODEL, reasoning: undefined }]);
+		expect(credentialModels).toEqual([ALTERNATE_MODEL]);
 		expect(events.at(-1)).toEqual({ type: "completed", stopReason: "stop" });
 	});
 });

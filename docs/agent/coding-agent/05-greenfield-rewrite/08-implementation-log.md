@@ -62,6 +62,8 @@
 | [52-conversation-document-write-and-history-controller.md](./08-implementation-log/52-conversation-document-write-and-history-controller.md) | Conversation Document 写命令、并发边界与 Greenfield History Controller |
 | [53-greenfield-model-runtime-and-turn-binding.md](./08-implementation-log/53-greenfield-model-runtime-and-turn-binding.md) | Greenfield 模型事实源、抽象 Catalog/Credential Port 与 Turn 级模型绑定 |
 | [54-runtime-core-dependency-inversion.md](./08-implementation-log/54-runtime-core-dependency-inversion.md) | Runtime Core 依赖倒置、Legacy Adapter 上移与显式生产组合 |
+| [55-greenfield-parallel-runtime-composition.md](./08-implementation-log/55-greenfield-parallel-runtime-composition.md) | Greenfield 通用 Factory、模型/Prompt Adapter 与 CLI 并行真实组合 |
+| [56-dynamic-capability-and-prompt-context.md](./08-implementation-log/56-dynamic-capability-and-prompt-context.md) | 动态能力组合、通用 Turn Context 与 Prompt 输入等价 |
 
 ## 维护约定
 

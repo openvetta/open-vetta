@@ -141,6 +141,15 @@ export class TurnPipeline {
 				},
 			];
 			if (input) {
+				for (const record of input.context ?? []) {
+					startEvents.push({
+						type: "context.appended",
+						sessionId,
+						turnId,
+						record,
+						timestamp: startedAt,
+					});
+				}
 				startEvents.push({
 					type: "message.appended",
 					sessionId,
@@ -161,8 +170,15 @@ export class TurnPipeline {
 				input,
 				signal,
 			);
+			const inputContextMessages = input?.context
+				?.filter(({ modelVisible }) => modelVisible)
+				.map((record) => ({
+					role: "user" as const,
+					content: record.content,
+					timestamp: startedAt,
+				}));
 			const assembledMessages = input
-				? [...conversation.messages, ...providerMessages, input.message]
+				? [...conversation.messages, ...providerMessages, ...(inputContextMessages ?? []), input.message]
 				: [...conversation.messages, ...providerMessages];
 
 			await this.enterStage(sessionId, turnId, "context_preparation");
@@ -198,6 +214,7 @@ export class TurnPipeline {
 				messages: prepared.messages,
 				signal,
 				inputQueue,
+				input,
 			})) {
 				signal.throwIfAborted();
 				if (stopReason) {

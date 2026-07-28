@@ -19,6 +19,12 @@ export {
 	type RuntimeModelCredentialResolver,
 } from "./greenfield-model-runtime.js";
 export {
+	ComposedGreenfieldRuntimeFactory,
+	type ComposedGreenfieldRuntimeFactoryOptions,
+	type GreenfieldRuntimeOperation,
+	type GreenfieldRuntimeResources,
+} from "./greenfield-runtime-factory.js";
+export {
 	type GreenfieldPreparedPrompt,
 	type GreenfieldPromptAdapter,
 	type GreenfieldPromptPreparationContext,

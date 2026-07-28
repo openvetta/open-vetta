@@ -26,6 +26,8 @@ export interface AgentCoreTurnEngineOptions {
 	readonly streamOptions?: Omit<SimpleStreamOptions, "sessionId" | "signal">;
 	readonly streamFn?: StreamFn;
 	readonly getApiKey?: AgentLoopConfig["getApiKey"];
+	/** Greenfield 按 Turn binding 的精确模型解析凭证，避免切模后读取另一个模型的凭证。 */
+	readonly resolveApiKey?: (model: Model<Api>) => Promise<string | undefined> | string | undefined;
 }
 
 export class AgentCoreTurnEngine implements TurnEnginePort {
@@ -80,12 +82,15 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 		if (!model) {
 			throw turnProtocolError("Agent Core turn requires a model binding");
 		}
+		const getApiKey = this.options.resolveApiKey
+			? (_provider: string) => this.options.resolveApiKey?.(model)
+			: this.options.getApiKey;
 		return {
 			...this.options.streamOptions,
 			...(request.modelBinding ? { reasoning: request.modelBinding.reasoning } : {}),
 			model,
 			sessionId: request.sessionId,
-			getApiKey: this.options.getApiKey,
+			getApiKey,
 			convertToLlm: convertToLlm,
 			getSteeringMessages: inputQueue ? async () => [...inputQueue.takeSteering()] : undefined,
 			getContinuationMessages: inputQueue ? async () => [...inputQueue.takeFollowUps()] : undefined,
@@ -95,6 +100,7 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 					sessionId: request.sessionId,
 					turnId: request.turnId,
 					signal: executionSignal,
+					input: request.input,
 				});
 				return {
 					systemPrompt: composeModelCallSystemPrompt(frame),

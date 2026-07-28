@@ -1,4 +1,4 @@
-import type { Message } from "@vetta/ai";
+import type { Message, UserMessage } from "@vetta/ai";
 import type { ConversationDocument, ConversationDocumentEntry } from "./document.js";
 
 export type ConversationDocumentCommand =
@@ -90,6 +90,23 @@ export function selectConversationDocumentMessages(document: ConversationDocumen
 	return selectBranch(document.entries, document.activeLeafId).flatMap((entry) => {
 		if (entry.type !== "message" || !isMessage(entry.message)) return [];
 		return [entry.message];
+	});
+}
+
+/** 选择活动分支上提供给模型的标准消息与显式可见上下文。 */
+export function selectConversationDocumentModelMessages(document: ConversationDocument): readonly Message[] {
+	return selectBranch(document.entries, document.activeLeafId).flatMap((entry) => {
+		if (entry.type === "message" && isMessage(entry.message)) return [entry.message];
+		if (entry.type !== "custom_message" || entry.modelVisible !== true || !isUserMessageContent(entry.content)) {
+			return [];
+		}
+		return [
+			{
+				role: "user",
+				content: entry.content,
+				timestamp: new Date(entry.timestamp).getTime(),
+			} satisfies UserMessage,
+		];
 	});
 }
 
@@ -261,6 +278,16 @@ function extractText(value: unknown): string {
 function isMessage(value: unknown): value is Message {
 	if (!isRecord(value)) return false;
 	return value.role === "user" || value.role === "assistant" || value.role === "toolResult";
+}
+
+function isUserMessageContent(value: unknown): value is UserMessage["content"] {
+	if (typeof value === "string") return true;
+	if (!Array.isArray(value)) return false;
+	return value.every((item) => {
+		if (!isRecord(item) || typeof item.type !== "string") return false;
+		if (item.type === "text") return typeof item.text === "string";
+		return item.type === "image" && typeof item.data === "string" && typeof item.mimeType === "string";
+	});
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

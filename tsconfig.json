@@ -13,6 +13,9 @@
 			"@vetta/coding-agent": ["./packages/coding-agent/src/index.ts"],
 			"@vetta/coding-agent/host": ["./packages/coding-agent/src/adapters/runtime-tools/index.ts"],
 			"@vetta/coding-agent/runtime-host": ["./packages/coding-agent/src/adapters/runtime-core/index.ts"],
+			"@vetta/coding-agent/runtime-host/greenfield": [
+				"./packages/coding-agent/src/adapters/runtime-core/greenfield.ts"
+			],
 			"@vetta/coding-agent/*": ["./packages/coding-agent/src/*"],
 			"@vetta/ai": ["./packages/ai/src/index.ts"],
 			"@vetta/ai/*": ["./packages/ai/src/*"],
@@ -49,6 +52,7 @@
 			"@vetta/runtime-mcp": ["./packages/runtime-mcp/src/index.ts"],
 			"@vetta/runtime-mcp/*": ["./packages/runtime-mcp/src/*"],
 			"@vetta/runtime-storage": ["./packages/runtime-storage/src/index.ts"],
+			"@vetta/runtime-storage/conversation": ["./packages/runtime-storage/src/conversation/index.ts"],
 			"@vetta/runtime-storage/*": ["./packages/runtime-storage/src/*"],
 			"@vetta/runtime-telemetry": ["./packages/runtime-telemetry/src/index.ts"],
 			"@vetta/runtime-telemetry/langfuse": ["./packages/runtime-telemetry/src/langfuse.ts"],

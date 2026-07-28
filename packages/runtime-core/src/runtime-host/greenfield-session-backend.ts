@@ -42,6 +42,7 @@ import type {
 
 export interface GreenfieldPromptPreparationContext {
 	readonly sessionId: string;
+	readonly queueing: boolean;
 }
 
 export interface GreenfieldPreparedPrompt {
@@ -134,7 +135,16 @@ export class GreenfieldRuntimeSession {
 		if ((this.session.state === "running" || this.session.state === "cancelling") && !request.streamingBehavior) {
 			throw sessionBusyError();
 		}
-		const prepared = await this.promptAdapter.prepare(request, { sessionId: this.sessionId });
+		if (request.modelKey) {
+			await this.modelRuntime.selectModel(request.modelKey, "if-changed");
+		}
+		if (request.reasoning) {
+			this.modelRuntime.setThinkingLevel(request.reasoning);
+		}
+		const prepared = await this.promptAdapter.prepare(this.normalizeImages(request), {
+			sessionId: this.sessionId,
+			queueing: this.session.state === "running" || this.session.state === "cancelling",
+		});
 		this.assertOpen();
 		return this.session.send(prepared.input, prepared.options ?? {});
 	}
@@ -316,6 +326,20 @@ export class GreenfieldRuntimeSession {
 		if (this.disposed) throw sessionClosedError();
 	}
 
+	private normalizeImages(request: PromptRequest): PromptRequest {
+		if (!request.images || request.images.length === 0) return request;
+		const model = this.modelRuntime.readCurrentModel();
+		if (model?.input?.includes("image")) return request;
+		return {
+			...request,
+			images: undefined,
+			text:
+				request.text === "(see attached images)"
+					? "(User attempted to send images, but the current model does not support image input. Please inform the user that this model cannot process images.)"
+					: request.text,
+		};
+	}
+
 	private async executeDocumentCommand(
 		command: ConversationDocumentCommand,
 	): Promise<ConversationDocumentCommandResult> {
@@ -442,6 +466,7 @@ function isStoredSessionEvent(event: KernelEvent): event is StoredSessionEvent {
 	return (
 		event.type === "turn.started" ||
 		event.type === "message.appended" ||
+		event.type === "context.appended" ||
 		event.type === "context.compacted" ||
 		event.type === "turn.completed" ||
 		event.type === "turn.cancelled" ||

@@ -67,6 +67,7 @@ export type {
 } from "./contracts.js";
 export { RUNTIME_ERROR_CODES, runtimeError } from "./errors.js";
 export type {
+	ComposedGreenfieldRuntimeFactoryOptions,
 	GreenfieldPreparedPrompt,
 	GreenfieldPromptAdapter,
 	GreenfieldPromptPreparationContext,
@@ -75,6 +76,8 @@ export type {
 	GreenfieldRuntimeFactory,
 	GreenfieldRuntimeModelOptions,
 	GreenfieldRuntimeModelRuntime,
+	GreenfieldRuntimeOperation,
+	GreenfieldRuntimeResources,
 	GreenfieldRuntimeSessionBackendOptions,
 	GreenfieldRuntimeSessionCoreAssembly,
 	GreenfieldRuntimeSessionIdentity,
@@ -116,6 +119,7 @@ export type {
 	RuntimeTurnPrompt,
 } from "./runtime-host/index.js";
 export {
+	ComposedGreenfieldRuntimeFactory,
 	GreenfieldRuntimeModel,
 	GreenfieldRuntimeSession,
 	GreenfieldRuntimeSessionBackend,

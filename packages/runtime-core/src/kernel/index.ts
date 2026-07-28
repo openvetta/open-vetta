@@ -19,6 +19,7 @@ export type {
 	Clock,
 	CompactionRecord,
 	CompiledRuntimeSnapshot,
+	ContextAppendedEvent,
 	ContextPreparationInput,
 	ContextProvider,
 	ContextProviderInput,
@@ -51,6 +52,7 @@ export type {
 	RuntimeToolResult,
 	RuntimeTurnModelBinding,
 	RuntimeTurnModelBindingProvider,
+	SessionContextRecord,
 	SessionInput,
 	SessionInputQueueMode,
 	SessionSendOptions,
@@ -97,6 +99,12 @@ export {
 } from "./errors.js";
 export { FeatureCompiler, type FeatureCompilerOptions } from "./feature-compiler.js";
 export { composeModelCallSystemPrompt, resolveModelCallFrame } from "./model-call-frame.js";
+export {
+	RuntimeCapabilityComposition,
+	type RuntimeCapabilityCompositionOptions,
+	type RuntimeCapabilityReconfigurationResult,
+	type RuntimeProfileCompiler,
+} from "./runtime-capability-composition.js";
 export { AtomicRuntimeSnapshotProvider } from "./runtime-snapshot-provider.js";
 export {
 	type ClearedSessionInputs,

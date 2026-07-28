@@ -4,6 +4,12 @@ import { parseActionCommand, runActionCommand } from "./action-command.js";
 import { parseDebugCommand, runDebugCommand } from "./debug-command.js";
 
 export {
+	createGreenfieldRuntimeComposition,
+	type GreenfieldCliSessionOptions,
+	type GreenfieldRuntimeComposition,
+	type GreenfieldRuntimeCompositionOptions,
+} from "./greenfield-runtime-composition.js";
+export {
 	type CodingToolsRuntimeComposition,
 	type CodingToolsRuntimeCompositionOptions,
 	createCodingToolsRuntimeComposition,

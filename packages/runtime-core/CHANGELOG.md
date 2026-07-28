@@ -6,6 +6,8 @@ All notable changes to `@vetta/runtime-core` are documented in this file.
 
 ### Added
 
+- **动态能力组合与通用 Turn Context**：新增 Session 级 `RuntimeCapabilityComposition`，以 newest-wins 编译和引用计数 lease 原子替换结构性能力；`SessionInput` 支持可持久化、可区分模型/UI 可见性的通用 context record，Conversation Document 分别投影模型历史和聊天历史，调用级贡献可读取当前 Turn input。
+- **Greenfield 通用 Runtime Factory 与精确模型凭证绑定**：新增可注入 Repository、Snapshot、Model Runtime 和会话投影资源的组合工厂，统一创建/恢复 AgentSession、TurnPipeline 与 Turn Engine；模型凭证按 Turn 冻结的精确模型解析，prompt 切模与 reasoning 在当前 Turn 绑定前生效。
 - **Greenfield Model Runtime 与 Turn 模型绑定**：新增抽象 Model Catalog/Credential Resolver、Session 级模型事实源和不可变 Turn Model Binding；Greenfield 的 Model Controller、Model View、State Reader 与实际 Turn 执行共享状态，运行时切模只影响后续 Turn且不重建 Capability Snapshot。
 - **Conversation Document 写模型与 Greenfield History Controller**：新增独立 journal/document revision、Runtime-owned 历史命令与 Store Port；Greenfield 支持编辑导航、分支选择、删除、替换、fork 和运行中命名，活动分支会成为下一次 Turn 的真实模型上下文，默认 Legacy 生产入口保持不变。
 - **Conversation Document 与 Greenfield History Read**：新增独立 `@vetta/runtime-core/conversation` 会话树读模型、Kernel Event 增量投影和宿主历史纯投影；Greenfield Core Assembly 交付真实 `historyReader`，保留旧分支、marker 和 timing 读取语义，不提供历史写操作空实现。

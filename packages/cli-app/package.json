@@ -19,10 +19,12 @@
 		"@vetta/action-rpc": "workspace:*",
 		"@vetta/coding-agent": "workspace:*",
 		"@vetta/runtime-core": "workspace:*",
+		"@vetta/runtime-storage": "workspace:*",
 		"@vetta/runtime-tools": "workspace:*",
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {
+		"@vetta/ai": "workspace:*",
 		"typescript": "^5.9.2",
 		"@types/node": "^22.10.5"
 	}

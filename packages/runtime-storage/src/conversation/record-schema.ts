@@ -148,6 +148,28 @@ const MessageAppendedEventSchema = Type.Object(
 	{ additionalProperties: false },
 );
 
+const SessionContextRecordSchema = Type.Object(
+	{
+		type: Type.String(),
+		content: Type.Union([Type.String(), Type.Array(Type.Union([TextContentSchema, ImageContentSchema]))]),
+		modelVisible: Type.Boolean(),
+		display: Type.Optional(Type.Boolean()),
+		metadata: Type.Optional(Type.Unknown()),
+	},
+	{ additionalProperties: false },
+);
+
+const ContextAppendedEventSchema = Type.Object(
+	{
+		type: Type.Literal("context.appended"),
+		sessionId: Type.String(),
+		turnId: Type.String(),
+		record: SessionContextRecordSchema,
+		timestamp: Type.Number(),
+	},
+	{ additionalProperties: false },
+);
+
 const ContextCompactedEventSchema = Type.Object(
 	{
 		type: Type.Literal("context.compacted"),
@@ -201,6 +223,7 @@ const TurnFailedEventSchema = Type.Object(
 export const StoredSessionEventSchema = Type.Union([
 	TurnStartedEventSchema,
 	MessageAppendedEventSchema,
+	ContextAppendedEventSchema,
 	ContextCompactedEventSchema,
 	TurnCompletedEventSchema,
 	TurnCancelledEventSchema,

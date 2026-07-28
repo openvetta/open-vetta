@@ -47,7 +47,7 @@ export class GreenfieldSessionProjection {
 			);
 		}
 		this.sessionId = conversation.sessionId;
-		this.messages = [...conversation.messages];
+		this.messages = [...selectConversationDocumentMessages(document)];
 		this.document = document;
 	}
 

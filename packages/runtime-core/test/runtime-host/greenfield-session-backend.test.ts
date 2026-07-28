@@ -169,10 +169,14 @@ class BlockingTurnEngine implements TurnEnginePort {
 }
 
 class RecordingPromptAdapter implements GreenfieldPromptAdapter {
-	readonly requests: Array<{ readonly request: PromptRequest; readonly sessionId: string }> = [];
+	readonly requests: Array<{
+		readonly request: PromptRequest;
+		readonly sessionId: string;
+		readonly queueing: boolean;
+	}> = [];
 
-	async prepare(request: PromptRequest, context: { readonly sessionId: string }) {
-		this.requests.push({ request, sessionId: context.sessionId });
+	async prepare(request: PromptRequest, context: { readonly sessionId: string; readonly queueing: boolean }) {
+		this.requests.push({ request, sessionId: context.sessionId, queueing: context.queueing });
 		return {
 			input: { message: userMessage(request.text) },
 			options: { streamingBehavior: request.streamingBehavior },
@@ -244,6 +248,7 @@ describe("GreenfieldRuntimeSessionBackend", () => {
 			{
 				request: { text: "hello", metadata: { source: "test" } },
 				sessionId: "session-1",
+				queueing: false,
 			},
 		]);
 		expect(events.map((event) => event.type)).toEqual([
@@ -259,6 +264,30 @@ describe("GreenfieldRuntimeSessionBackend", () => {
 			messageCount: 2,
 		});
 		expect((await session.getMessages()).map((message) => message.role)).toEqual(["user", "assistant"]);
+	});
+
+	it("applies requested model and reasoning before adapting the prompt and strips unsupported images", async () => {
+		const promptAdapter = new RecordingPromptAdapter();
+		const { backend } = createBackend(new CompletingTurnEngine(), promptAdapter);
+		const session = await backend.create({ id: "session-1" });
+
+		await session.prompt({
+			text: "(see attached images)",
+			images: [{ type: "image", data: "base64", mimeType: "image/png" }],
+			modelKey: "test/alternate-model",
+			reasoning: "medium",
+		});
+
+		expect(session.readState()).toMatchObject({
+			model: ALTERNATE_MODEL,
+			thinkingLevel: "medium",
+		});
+		expect(promptAdapter.requests[0]?.request).toMatchObject({
+			text: "(User attempted to send images, but the current model does not support image input. Please inform the user that this model cannot process images.)",
+			images: undefined,
+			modelKey: "test/alternate-model",
+			reasoning: "medium",
+		});
 	});
 
 	it("continues from persisted context without adding a user message", async () => {
@@ -401,6 +430,7 @@ describe("GreenfieldRuntimeSessionBackend", () => {
 
 		await expect(activeTurn).resolves.toMatchObject({ status: "cancelled", reason: "user cancelled" });
 		expect(promptAdapter.requests.map(({ request }) => request.text)).toEqual(["first", "later"]);
+		expect(promptAdapter.requests.map(({ queueing }) => queueing)).toEqual([false, true]);
 		expect(await session.getState()).toMatchObject({ state: "idle", pendingMessageCount: 1 });
 		expect(events.filter((event) => event.type === "session.lifecycle").map((event) => event.phase)).toEqual([
 			"aborted",
