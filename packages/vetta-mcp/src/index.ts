@@ -1,4 +1,6 @@
 export {
+	API_PREFIX,
+	apiUrl,
 	CREDENTIALS_FILENAME,
 	credentialsPath,
 	loadCredentials,

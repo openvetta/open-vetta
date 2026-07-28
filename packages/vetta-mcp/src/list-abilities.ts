@@ -5,7 +5,7 @@
  * 「过了没有 / 为什么被驳回」，否则被驳回的提交就成了黑洞。
  */
 
-import type { VettaCredentials } from "./credentials.js";
+import { apiUrl, type VettaCredentials } from "./credentials.js";
 
 export interface MyAbilitySummary {
 	slug: string;
@@ -49,7 +49,7 @@ export async function listMyAbilities(
 
 	let response: Response;
 	try {
-		response = await fetchImpl(`${credentials.baseUrl}/api/v1/abilities/mine`, {
+		response = await fetchImpl(apiUrl(credentials.baseUrl, "/abilities/mine"), {
 			headers: { Authorization: `Bearer ${credentials.token}` },
 		});
 	} catch (error) {

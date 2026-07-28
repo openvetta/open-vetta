@@ -7,7 +7,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { basename } from "node:path";
-import type { VettaCredentials } from "./credentials.js";
+import { apiUrl, type VettaCredentials } from "./credentials.js";
 import { ARTIFACT_TYPES, type UploadAbilityInput } from "./types.js";
 import { validateUploadInput } from "./validate.js";
 
@@ -86,7 +86,7 @@ export async function uploadAbility(
 
 	let response: Response;
 	try {
-		response = await fetchImpl(`${credentials.baseUrl}/api/v1/abilities/submit`, {
+		response = await fetchImpl(apiUrl(credentials.baseUrl, "/abilities/submit"), {
 			method: "POST",
 			headers: { Authorization: `Bearer ${credentials.token}` },
 			body: form,

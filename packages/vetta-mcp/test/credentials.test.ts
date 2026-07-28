@@ -2,13 +2,35 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { credentialsPath, loadCredentials, normalizeBaseUrl } from "../src/credentials.js";
+import { apiUrl, credentialsPath, loadCredentials, normalizeBaseUrl } from "../src/credentials.js";
 
 describe("normalizeBaseUrl", () => {
-	it("去掉结尾斜杠，避免拼出 //api/v1", () => {
+	it("去掉结尾斜杠", () => {
 		expect(normalizeBaseUrl("https://api.example.com/")).toBe("https://api.example.com");
 		expect(normalizeBaseUrl("https://api.example.com///")).toBe("https://api.example.com");
 		expect(normalizeBaseUrl("https://api.example.com")).toBe("https://api.example.com");
+	});
+
+	it("剥掉已带的 API 前缀", () => {
+		// desktop 注入的 VETTA_SERVER_URL 本身就带 /api/v1，不剥会拼成 /api/v1/api/v1/... 而 404
+		expect(normalizeBaseUrl("http://localhost:8080/api/v1")).toBe("http://localhost:8080");
+		expect(normalizeBaseUrl("http://localhost:8080/api/v1/")).toBe("http://localhost:8080");
+		expect(normalizeBaseUrl("https://api.vetta.dev/api/v2")).toBe("https://api.vetta.dev");
+	});
+
+	it("不误伤路径里别处的 api", () => {
+		expect(normalizeBaseUrl("https://example.com/api/v1/gateway")).toBe("https://example.com/api/v1/gateway");
+		expect(normalizeBaseUrl("https://example.com/myapi")).toBe("https://example.com/myapi");
+	});
+});
+
+describe("apiUrl", () => {
+	it("两种 baseUrl 写法拼出同一个地址", () => {
+		const want = "http://localhost:8080/api/v1/abilities/submit";
+		expect(apiUrl("http://localhost:8080", "/abilities/submit")).toBe(want);
+		expect(apiUrl("http://localhost:8080/api/v1", "/abilities/submit")).toBe(want);
+		expect(apiUrl("http://localhost:8080/api/v1/", "/abilities/submit")).toBe(want);
+		expect(apiUrl("http://localhost:8080/", "/abilities/submit")).toBe(want);
 	});
 });
 

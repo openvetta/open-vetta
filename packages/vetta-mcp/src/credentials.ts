@@ -56,7 +56,21 @@ export function loadCredentials(): VettaCredentials | null {
 	return { baseUrl: normalizeBaseUrl(baseUrl), token };
 }
 
-/** 去掉结尾斜杠，避免拼出 `//api/v1/...` 这种在部分网关上会 404 的路径。 */
+/**
+ * 归一 baseUrl 为**服务根**（不含 API 前缀），拼接一律由 apiUrl 负责。
+ *
+ * 必须容忍两种写法：desktop 注入的 `VETTA_SERVER_URL` 本身就带 `/api/v1`
+ * （见 `packages/desktop-app` 的 .env），而手工设 `VETTA_API_BASE_URL` 的人
+ * 通常只写到域名。两者不统一就会拼出 `/api/v1/api/v1/...` 而 404。
+ */
 export function normalizeBaseUrl(raw: string): string {
-	return raw.replace(/\/+$/, "");
+	return raw.replace(/\/+$/, "").replace(/\/api\/v\d+$/, "");
+}
+
+/** API 前缀。服务端所有业务端点都挂在这个前缀下。 */
+export const API_PREFIX = "/api/v1";
+
+/** 由服务根与端点路径拼出完整 URL。 */
+export function apiUrl(baseUrl: string, path: string): string {
+	return `${normalizeBaseUrl(baseUrl)}${API_PREFIX}${path}`;
 }

@@ -60,6 +60,15 @@ describe("uploadAbility", () => {
 		expect((calls[0].init.headers as Record<string, string>).Authorization).toBe("Bearer tok");
 	});
 
+	it("baseUrl 已带 /api/v1 时不重复拼前缀", async () => {
+		// desktop 主进程写下的凭据就是这种形状（VETTA_SERVER_URL 自带前缀）。
+		// 重复拼接会打到 /api/v1/api/v1/... 直接 404。
+		const { impl, calls } = stubFetch({ code: 0, data: {} });
+		await uploadAbility(pluginInput(), { baseUrl: "http://localhost:8080/api/v1", token: "tok" }, deps(impl));
+
+		expect(calls[0].url).toBe("http://localhost:8080/api/v1/abilities/submit");
+	});
+
 	it("管理员提交直接上架时文案不同", async () => {
 		const { impl } = stubFetch({ code: 0, data: { slug: "demo", review_status: "approved" } });
 		const result = await uploadAbility(pluginInput(), credentials, deps(impl));
