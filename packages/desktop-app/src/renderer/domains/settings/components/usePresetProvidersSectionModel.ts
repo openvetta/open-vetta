@@ -3,7 +3,7 @@ import { showToast } from "@shared/store/toast-atoms";
 import type { TFunction } from "i18next";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { translatePresetError } from "./translatePresetError";
+import { isInvalidKey, translatePresetError } from "./translatePresetError";
 
 type ProviderEntry = ModelsConfigData["providers"][string];
 type ModelCost = { input: number; output: number; cacheRead: number; cacheWrite: number };
@@ -211,8 +211,20 @@ export function usePresetProvidersSectionModel({
 			if (!key) return;
 			setSaving(true);
 			try {
-				// 填 key 的同时立刻拉一次上游模型列表;拉失败就先落旧快照(通常为空),行内提示错误。
+				// 填 key 的同时立刻拉一次上游模型列表,顺带当作密钥校验。
 				const fetched = row.offline ? { models: [], error: undefined } : await refreshModels(row.id, key);
+				// 上游明确拒绝这把 key:不落盘、不启用,面板与草稿保留让用户改。
+				// 其它失败(网络不通/超时)判定不了 key 对错,照常保存,模型列表稍后刷新即可。
+				if (isInvalidKey(fetched.error)) {
+					showToast({
+						variant: "error",
+						title: t("keyRejected", { provider: row.displayName }),
+						message: `${translatePresetError(fetched.error, t)} ${t("keyRejectedHint")}`,
+						durationMs: 8000,
+					});
+					setModelsErrors((prev) => withError(prev, row.id, fetched.error, t));
+					return;
+				}
 				const entry: ProviderEntry = {
 					source: "template",
 					templateId: row.id,
@@ -226,7 +238,7 @@ export function usePresetProvidersSectionModel({
 				};
 				setModelsErrors((prev) => withError(prev, row.id, fetched.error, t));
 				if (fetched.error) {
-					notifyPresetError(t("modelsRefreshFailed", { provider: row.displayName }), fetched.error, t);
+					notifyPresetError(row.displayName, fetched.error, t);
 				}
 				await saveConfig({
 					...config,
@@ -254,7 +266,7 @@ export function usePresetProvidersSectionModel({
 				const result = await refreshModels(row.id);
 				setModelsErrors((prev) => withError(prev, row.id, result.error, t));
 				if (result.error) {
-					notifyPresetError(t("modelsRefreshFailed", { provider: row.displayName }), result.error, t);
+					notifyPresetError(row.displayName, result.error, t);
 				}
 				if (result.models.length === 0) return;
 				await saveConfig({
@@ -286,12 +298,22 @@ export function usePresetProvidersSectionModel({
 				});
 			} else {
 				console.error("[preset-providers] 刷新 models.dev 目录失败：", result.error);
-				notifyPresetError(t("catalogRefreshFailed"), result.error ?? { code: "network" }, t);
+				showToast({
+					variant: "error",
+					title: t("catalogRefreshFailed"),
+					message: translatePresetError(result.error ?? { code: "network" }, t),
+					durationMs: 8000,
+				});
 			}
 			await load();
 		} catch (err) {
 			console.error("[preset-providers] 刷新 models.dev 目录异常：", err);
-			notifyPresetError(t("catalogRefreshFailed"), { code: "network", detail: String(err) }, t);
+			showToast({
+				variant: "error",
+				title: t("catalogRefreshFailed"),
+				message: translatePresetError({ code: "network", detail: String(err) }, t),
+				durationMs: 8000,
+			});
 		} finally {
 			setRefreshingCatalog(false);
 		}
@@ -377,7 +399,9 @@ async function refreshModels(
 }
 
 /** 错误既进行内提示,也进全局通知——设置页可能已经滚走了,行内那行字看不见。 */
-function notifyPresetError(title: string, error: PresetError, t: TFunction<"settings">): void {
+function notifyPresetError(provider: string, error: PresetError, t: TFunction<"settings">): void {
+	// 密钥被拒是最常见也最需要一眼认出的失败,不能淹没在笼统的「拉取失败」标题里。
+	const title = isInvalidKey(error) ? t("keyRejected", { provider }) : t("modelsRefreshFailed", { provider });
 	showToast({ variant: "error", title, message: translatePresetError(error, t), durationMs: 8000 });
 }
 

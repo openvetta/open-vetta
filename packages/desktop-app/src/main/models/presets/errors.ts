@@ -10,7 +10,9 @@ export type PresetErrorCode =
 	| "unknown-provider"
 	/** 该服务商还没填 API Key。 */
 	| "missing-key"
-	/** 上游返回非 2xx。params: host, status, statusText */
+	/** 上游认定这把 key 不可用(各家状态码不一,见 fetch.ts 的 authStatuses)。params: host, status */
+	| "invalid-key"
+	/** 上游返回其它非 2xx。params: host, status, statusText */
 	| "http-status"
 	/** 上游 200 但没有可识别的模型。 */
 	| "empty-models"
@@ -18,6 +20,11 @@ export type PresetErrorCode =
 	| "timeout"
 	/** 其它网络/解析失败,detail 带原文。 */
 	| "network";
+
+/** 密钥被上游拒绝——调用方据此拒绝启用该服务商。 */
+export function isInvalidKey(error: PresetError | undefined): error is PresetError {
+	return error?.code === "invalid-key";
+}
 
 export interface PresetError {
 	code: PresetErrorCode;
