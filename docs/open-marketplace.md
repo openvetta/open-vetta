@@ -40,6 +40,14 @@ Desktop 从 GitHub 下载完整仓库归档，并在本地读取 `.vetta/marketp
 
 ## 本地缓存身份
 
-客户端将 `sourceId`、`repository`、`ref` 和 `archiveUrl` 共同作为市场来源身份。只有配置未被覆盖的内置默认来源继续使用原缓存目录，其余每一种来源配置都使用独立的指纹缓存目录；修改仓库、分支或归档地址后，不会继续读取旧配置的缓存。
+客户端将 `sourceId`、`repository`、`ref` 和 `archiveUrl` 共同作为市场来源身份。每一种来源配置都使用独立的指纹缓存目录；修改仓库、分支或归档地址后，不会继续读取旧配置的缓存。
 
 同一来源身份下，`marketplaceVersion` 对应的内容仍然不可变。来源身份发生变化时，即使新来源暂时使用相同的 `marketplaceVersion`，也允许下载并建立新的缓存快照。
+
+## 内置来源配置
+
+内置 GitHub 来源不在代码中设置仓库地址，完全由环境变量提供：
+
+- `VETTA_OPEN_MARKETPLACE_REPOSITORY`：GitHub 仓库 URL；未设置时不创建内置来源。
+- `VETTA_OPEN_MARKETPLACE_REF`：分支或 ref，默认 `main`。
+- `VETTA_OPEN_MARKETPLACE_ARCHIVE_URL`：可选归档地址；未设置时根据仓库与 ref 推导。

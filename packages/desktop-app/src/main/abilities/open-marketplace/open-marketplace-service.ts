@@ -14,8 +14,6 @@ import { type MarketplaceManifest, parseMarketplaceManifest } from "./marketplac
 import { validateSkillPackage } from "./skill-package.js";
 
 export const DEFAULT_MARKETPLACE_SOURCE_ID = "vetta-official";
-export const DEFAULT_MARKETPLACE_REPOSITORY = "https://github.com/flower0wine/vetta-abilities";
-export const DEFAULT_MARKETPLACE_ARCHIVE_URL = `${DEFAULT_MARKETPLACE_REPOSITORY}/archive/refs/heads/main.zip`;
 const STATE_SCHEMA_VERSION = 1;
 const DEFAULT_SYNC_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const MAX_ARCHIVE_BYTES = 25 * 1024 * 1024;
@@ -149,12 +147,15 @@ export class OpenMarketplaceService {
 	constructor(options: OpenMarketplaceServiceOptions) {
 		this.rootDir = options.rootDir ?? join(getVettaHomePath(), "open-marketplace");
 		this.sourceId = options.sourceId ?? DEFAULT_MARKETPLACE_SOURCE_ID;
-		this.sourceRef = options.sourceRef ?? "main";
-		this.repository =
-			options.repository ?? process.env.VETTA_OPEN_MARKETPLACE_REPOSITORY ?? DEFAULT_MARKETPLACE_REPOSITORY;
+		this.sourceRef = options.sourceRef ?? process.env.VETTA_OPEN_MARKETPLACE_REF ?? "main";
+		const configuredRepository = options.repository ?? process.env.VETTA_OPEN_MARKETPLACE_REPOSITORY;
+		if (!configuredRepository?.trim()) {
+			throw new Error("Open marketplace repository is not configured");
+		}
+		this.repository = configuredRepository.trim().replace(/\/$/, "");
 		this.archiveUrl =
 			options.archiveUrl ??
-			process.env.VETTA_OPEN_MARKETPLACE_ARCHIVE_URL ??
+			(options.repository ? undefined : process.env.VETTA_OPEN_MARKETPLACE_ARCHIVE_URL) ??
 			`${this.repository}/archive/refs/heads/${this.sourceRef.split("/").map(encodeURIComponent).join("/")}.zip`;
 		if (!isValidAppVersion(options.appVersion)) {
 			throw new Error(`Invalid desktop app version: ${options.appVersion}`);
