@@ -15,6 +15,11 @@ export interface McpDeferredToolControllerOptions {
 	readonly explicitToolNames?: ReadonlySet<string>;
 }
 
+export interface McpDeferredPromptState {
+	readonly tools: readonly McpRuntimeToolDescriptor[];
+	readonly deferred: boolean;
+}
+
 /**
  * 保存单个 Session 的 MCP 渐进披露状态。
  *
@@ -53,6 +58,13 @@ export class McpDeferredToolController {
 		if (!this.isManagedTool(toolName)) return false;
 		if (this.isDeferred()) return this.activatedToolNames.has(toolName);
 		return this.explicitToolNames?.has(toolName) ?? true;
+	}
+
+	readPromptState(): McpDeferredPromptState {
+		return {
+			tools: this.instructionTools(),
+			deferred: this.isDeferred(),
+		};
 	}
 
 	createFeature(): AgentFeatureDefinition {

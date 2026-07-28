@@ -112,6 +112,43 @@ describe("FeatureCompiler", () => {
 		expect(lifecycle.slice(-3)).toEqual(["dispose:z-dependent", "dispose:base-feature", "dispose:alpha-independent"]);
 	});
 
+	it("orders instructions by priority and then id instead of feature insertion order", async () => {
+		const lifecycle: string[] = [];
+		const compiler = new FeatureCompiler({
+			idGenerator: new SnapshotIdGenerator(),
+		});
+		const compiled = await compiler.compile(
+			profile([
+				feature({
+					id: "first-feature",
+					lifecycle,
+					contribution: {
+						instructions: [
+							{ id: "z-same-priority", content: "Z", priority: 5 },
+							{ id: "highest-priority", content: "First", priority: -1 },
+						],
+					},
+				}),
+				feature({
+					id: "second-feature",
+					lifecycle,
+					contribution: {
+						instructions: [{ id: "a-same-priority", content: "A", priority: 5 }],
+					},
+				}),
+			]),
+			new AbortController().signal,
+		);
+
+		expect(compiled.snapshot.instructions.map(({ id }) => id)).toEqual([
+			"highest-priority",
+			"base",
+			"a-same-priority",
+			"z-same-priority",
+		]);
+		await compiled.dispose();
+	});
+
 	it("rejects dependency cycles before preparing resources", async () => {
 		const lifecycle: string[] = [];
 		const compiler = new FeatureCompiler({

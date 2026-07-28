@@ -40,6 +40,8 @@ export type {
 	ModelCallContributionContext,
 	ModelCallContributionProvider,
 	ModelCallFrame,
+	ModelCallFrameComposer,
+	ModelCallFrameCompositionContext,
 	ObserverFailedEvent,
 	PreparedContext,
 	QueuedSessionInputResult,

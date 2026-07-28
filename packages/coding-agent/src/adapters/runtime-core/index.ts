@@ -9,6 +9,13 @@ export {
 	scoreCodingAgentDeferredMcpTools,
 } from "./greenfield-mcp-deferred-adapter.js";
 export {
+	CodingAgentModelCallFrameComposer,
+	type CodingAgentModelCallFrameComposerOptions,
+	type CodingAgentModelCallPromptContext,
+	type CodingAgentSystemPromptOptions,
+	type CodingAgentSystemPromptOptionsResolver,
+} from "./greenfield-model-call-composer.js";
+export {
 	CodingAgentModelRegistryAdapter,
 	type CodingAgentModelRegistrySource,
 } from "./greenfield-model-registry-adapter.js";

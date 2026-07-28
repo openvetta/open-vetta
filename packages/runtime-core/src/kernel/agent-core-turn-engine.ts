@@ -101,6 +101,11 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 					turnId: request.turnId,
 					signal: executionSignal,
 					input: request.input,
+					messages: _context.messages.filter(isRuntimeMessage),
+					modelBinding: request.modelBinding ?? {
+						model,
+						reasoning: this.options.streamOptions?.reasoning,
+					},
 				});
 				return {
 					systemPrompt: composeModelCallSystemPrompt(frame),

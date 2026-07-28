@@ -2,9 +2,11 @@ import { createKbFilterByTagsTool, createKbListTagsTool } from "@vetta/coding-ag
 import {
 	adaptCodingAgentToolRegistration,
 	CodingAgentGreenfieldPromptAdapter,
+	CodingAgentModelCallFrameComposer,
 	CodingAgentModelRegistryAdapter,
 	type CodingAgentModelRegistrySource,
 	type CodingAgentPromptResourceResolver,
+	type CodingAgentSystemPromptOptionsResolver,
 } from "@vetta/coding-agent/runtime-host/greenfield";
 import {
 	ComposedGreenfieldRuntimeFactory,
@@ -58,6 +60,12 @@ export interface GreenfieldRuntimeCompositionOptions {
 	) => CodingAgentPromptResourceResolver;
 	/** 无状态解析器的兼容入口。 */
 	readonly resolvePromptResource?: CodingAgentPromptResourceResolver;
+	/** 为每个 Session 创建调用级系统提示词来源。 */
+	readonly createSystemPromptOptionsResolver?: (
+		sessionOptions: GreenfieldCliSessionOptions,
+	) => CodingAgentSystemPromptOptionsResolver;
+	/** 无状态系统提示词来源的兼容入口。 */
+	readonly resolveSystemPromptOptions?: CodingAgentSystemPromptOptionsResolver;
 }
 
 export interface GreenfieldRuntimeComposition {
@@ -147,12 +155,39 @@ export async function createGreenfieldRuntimeComposition(
 				mcpController.refresh(synchronizer.snapshot());
 				mcpControllers.set(sessionOptions.sessionId, mcpController);
 			}
-			const profile: AgentProfile = mcpController
+			const baseProfile: AgentProfile = mcpController
 				? {
 						...tools.profile,
 						features: [...tools.profile.features, mcpController.createFeature()],
 					}
 				: tools.profile;
+			const resolveSystemPromptOptions =
+				options.createSystemPromptOptionsResolver?.(sessionOptions) ?? options.resolveSystemPromptOptions;
+			const profile: AgentProfile = resolveSystemPromptOptions
+				? {
+						...baseProfile,
+						modelCallFrameComposer: new CodingAgentModelCallFrameComposer({
+							resolveSystemPromptOptions: async (context) => {
+								const promptOptions = await resolveSystemPromptOptions(context);
+								const mcpPrompt = mcpController?.readPromptState();
+								const promptOptionsWithCwd = {
+									...promptOptions,
+									cwd: promptOptions.cwd ?? sessionOptions.cwd ?? cwd,
+								};
+								return mcpPrompt
+									? {
+											...promptOptionsWithCwd,
+											mcpTools: mcpPrompt.tools.map(({ name, description }) => ({
+												name,
+												description,
+											})),
+											mcpDeferred: mcpPrompt.deferred,
+										}
+									: promptOptionsWithCwd;
+							},
+						}),
+					}
+				: baseProfile;
 			let capabilities: RuntimeCapabilityComposition;
 			try {
 				capabilities = await RuntimeCapabilityComposition.create({

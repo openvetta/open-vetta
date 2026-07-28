@@ -130,7 +130,9 @@ function createSnapshot(
 		"instruction",
 		[...profile.instructions, ...contributions.flatMap((contribution) => contribution.instructions ?? [])],
 		({ id }) => id,
-	).map(freezeInstruction);
+	)
+		.sort(compareInstruction)
+		.map(freezeInstruction);
 	const tools = uniqueValues(
 		"tool",
 		contributions.flatMap((contribution) => contribution.tools ?? []),
@@ -157,6 +159,7 @@ function createSnapshot(
 		instructions: Object.freeze(instructions),
 		tools: new ImmutableReadonlyMap(tools.map((tool) => [tool.name, tool])),
 		modelCallProviders: Object.freeze(modelCallProviders),
+		modelCallFrameComposer: profile.modelCallFrameComposer,
 		contextProviders: Object.freeze(contextProviders),
 		contextStrategy: profile.contextStrategy,
 		toolPolicy: profile.toolPolicy,
@@ -215,4 +218,11 @@ function compareString(left: string, right: string): number {
 	if (left < right) return -1;
 	if (left > right) return 1;
 	return 0;
+}
+
+function compareInstruction(
+	left: { readonly id: string; readonly priority: number },
+	right: { readonly id: string; readonly priority: number },
+): number {
+	return left.priority - right.priority || compareString(left.id, right.id);
 }

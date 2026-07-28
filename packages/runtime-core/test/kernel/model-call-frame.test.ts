@@ -3,7 +3,9 @@ import {
 	type AgentProfile,
 	FeatureCompiler,
 	type IdGenerator,
+	type ModelCallFrameCompositionContext,
 	PassthroughContextStrategy,
+	type RuntimeToolDefinition,
 	resolveModelCallFrame,
 } from "../../src/kernel/index.js";
 
@@ -21,7 +23,7 @@ describe("model call frame", () => {
 		let callContributionCount = 0;
 		const profile: AgentProfile = {
 			id: "coding",
-			instructions: [{ id: "base", content: "base", priority: 0 }],
+			instructions: [{ id: "base", content: "base", priority: 100 }],
 			features: [
 				{
 					id: "dynamic-instructions",
@@ -38,7 +40,7 @@ describe("model call frame", () => {
 												context.signal.throwIfAborted();
 												callContributionCount += 1;
 												return {
-													instructions: [{ id: "dynamic", content: prompt, priority: 1 }],
+													instructions: [{ id: "dynamic", content: prompt, priority: 10 }],
 												};
 											},
 										},
@@ -67,14 +69,94 @@ describe("model call frame", () => {
 		prompt = "dynamic-v2";
 		const second = await resolve(compiled.snapshot);
 
-		expect(first.instructions.map(({ content }) => content)).toEqual(["base", "dynamic-v1"]);
-		expect(second.instructions.map(({ content }) => content)).toEqual(["base", "dynamic-v2"]);
+		expect(first.instructions.map(({ content }) => content)).toEqual(["dynamic-v1", "base"]);
+		expect(second.instructions.map(({ content }) => content)).toEqual(["dynamic-v2", "base"]);
 		expect(compiled.snapshot.id).toBe("snapshot-1");
 		expect(prepareCount).toBe(1);
 		expect(featureContributionCount).toBe(1);
 		expect(callContributionCount).toBe(2);
 		expect(Object.isFrozen(second)).toBe(true);
 		expect(Object.isFrozen(second.instructions)).toBe(true);
+		await compiled.dispose();
+	});
+
+	it("runs one profile composer after contributions with the current messages and frozen candidate frame", async () => {
+		const contexts: ModelCallFrameCompositionContext[] = [];
+		const tool: RuntimeToolDefinition = {
+			name: "read",
+			label: "Read",
+			description: "Read a file",
+			inputSchema: { type: "object" },
+			async execute() {
+				return { content: [] };
+			},
+		};
+		const profile: AgentProfile = {
+			id: "coding",
+			instructions: [{ id: "base", content: "base", priority: 100 }],
+			features: [
+				{
+					id: "dynamic",
+					async prepare() {
+						return {
+							async contribute() {
+								return {
+									modelCallProviders: [
+										{
+											id: "dynamic",
+											async contribute() {
+												return {
+													instructions: [{ id: "dynamic", content: "dynamic", priority: 10 }],
+													tools: [tool],
+												};
+											},
+										},
+									],
+								};
+							},
+							async dispose() {},
+						};
+					},
+				},
+			],
+			modelCallFrameComposer: {
+				async compose(context) {
+					contexts.push(context);
+					return {
+						instructions: [{ id: "final", content: "final prompt", priority: 0 }],
+						tools: context.frame.tools,
+					};
+				},
+			},
+			contextStrategy: new PassthroughContextStrategy(),
+			toolPolicy: {
+				async authorize() {
+					return true;
+				},
+			},
+			tokenBudget: 8_000,
+			reservedOutputTokens: 1_000,
+		};
+		const compiled = await new FeatureCompiler({
+			idGenerator: new SnapshotIdGenerator(),
+		}).compile(profile, new AbortController().signal);
+		const messages = [{ role: "user" as const, content: "hello", timestamp: 1 }];
+
+		const frame = await resolveModelCallFrame(compiled.snapshot, {
+			sessionId: "session-1",
+			turnId: "turn-1",
+			signal: new AbortController().signal,
+			messages,
+		});
+
+		expect(contexts).toHaveLength(1);
+		expect(contexts[0]?.messages).toEqual(messages);
+		expect(contexts[0]?.frame.instructions.map(({ id }) => id)).toEqual(["dynamic", "base"]);
+		expect(contexts[0]?.frame.tools.get("read")?.description).toBe("Read a file");
+		expect(frame.instructions.map(({ content }) => content)).toEqual(["final prompt"]);
+		expect([...frame.tools.keys()]).toEqual(["read"]);
+		expect(Object.isFrozen(frame.instructions)).toBe(true);
+		expect(Object.isFrozen(frame.tools.get("read")?.inputSchema)).toBe(true);
 		await compiled.dispose();
 	});
 });

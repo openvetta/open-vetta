@@ -2,9 +2,11 @@ import type { Api, Model } from "@vetta/ai";
 import { describe, expect, it, vi } from "vitest";
 import {
 	CodingAgentGreenfieldPromptAdapter,
+	CodingAgentModelCallFrameComposer,
 	CodingAgentModelRegistryAdapter,
 	type CodingAgentModelRegistrySource,
 } from "../../src/adapters/runtime-core/index.js";
+import { buildSystemPrompt } from "../../src/core/system-prompt.js";
 
 describe("Greenfield coding-agent adapters", () => {
 	it("adapts ModelRegistry catalog, credentials and auth refresh without copying state", async () => {
@@ -143,6 +145,95 @@ describe("Greenfield coding-agent adapters", () => {
 				),
 			},
 		]);
+	});
+
+	it("compiles the exact legacy structured prompt from the current model-call tools and context", async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date("2026-07-28T06:00:00.000Z"));
+		try {
+			const promptOptions = {
+				cwd: "C:\\workspace",
+				appendSystemPrompt: "Appended instruction",
+				contextFiles: [{ path: "AGENTS.md", content: "Repository instruction" }],
+				modePrompt: "Work mode instruction",
+				personalization: "Persona instruction",
+				scenario: "cli" as const,
+				agentPlugins: {
+					systemPromptContributions: [
+						{
+							pluginId: "plugin-a",
+							operations: [
+								{
+									type: "addBlock" as const,
+									block: {
+										id: "plugin.extra",
+										type: "plugin" as const,
+										source: { kind: "plugin" as const, pluginId: "plugin-a" },
+										content: "Plugin static instruction",
+										priority: 875,
+										enabled: true,
+									},
+								},
+							],
+						},
+					],
+				},
+			};
+			const observed: Array<{
+				readonly activeToolNames: readonly string[];
+				readonly messageRoles: readonly string[];
+				readonly modelId: string | undefined;
+			}> = [];
+			const composer = new CodingAgentModelCallFrameComposer({
+				resolveSystemPromptOptions(context) {
+					observed.push({
+						activeToolNames: context.activeToolNames,
+						messageRoles: context.messages.map(({ role }) => role),
+						modelId: context.modelBinding?.model.id,
+					});
+					return promptOptions;
+				},
+			});
+			const readTool = {
+				name: "read",
+				label: "Read",
+				description: "Read a file",
+				inputSchema: { type: "object" },
+				async execute() {
+					return { content: [] };
+				},
+			};
+
+			const frame = await composer.compose({
+				sessionId: "session-1",
+				turnId: "turn-1",
+				signal: new AbortController().signal,
+				messages: [{ role: "user", content: "inspect", timestamp: 1 }],
+				modelBinding: { model: MODEL },
+				frame: {
+					instructions: [{ id: "stale", content: "stale", priority: 0 }],
+					tools: new Map([["read", readTool]]),
+				},
+			});
+
+			expect(observed).toEqual([
+				{
+					activeToolNames: ["read"],
+					messageRoles: ["user"],
+					modelId: "model",
+				},
+			]);
+			expect(frame.instructions).toEqual([
+				{
+					id: "coding-agent.system-prompt",
+					content: buildSystemPrompt({ ...promptOptions, selectedTools: ["read"] }),
+					priority: 0,
+				},
+			]);
+			expect([...frame.tools.keys()]).toEqual(["read"]);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });
 

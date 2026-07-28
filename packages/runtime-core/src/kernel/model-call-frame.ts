@@ -1,8 +1,10 @@
 import type {
+	InstructionBlock,
 	ModelCallContribution,
 	ModelCallContributionContext,
 	ModelCallFrame,
 	RuntimeSnapshot,
+	RuntimeToolDefinition,
 } from "./contracts.js";
 import { featureConflictError } from "./errors.js";
 import { freezeInstruction, freezeTool, ImmutableReadonlyMap } from "./runtime-values.js";
@@ -17,16 +19,34 @@ export async function resolveModelCallFrame(
 		contributions.push(await provider.contribute(context));
 	}
 
-	const instructions = uniqueValues(
-		"instruction",
+	const candidate = createModelCallFrame(
 		[...snapshot.instructions, ...contributions.flatMap((contribution) => contribution.instructions ?? [])],
-		({ id }) => id,
-	).map(freezeInstruction);
-	const tools = uniqueValues(
-		"tool",
 		[...snapshot.tools.values(), ...contributions.flatMap((contribution) => contribution.tools ?? [])],
-		({ name }) => name,
-	).map(freezeTool);
+	);
+	if (!snapshot.modelCallFrameComposer) return candidate;
+
+	context.signal.throwIfAborted();
+	const composed = await snapshot.modelCallFrameComposer.compose({
+		sessionId: context.sessionId,
+		turnId: context.turnId,
+		signal: context.signal,
+		input: context.input,
+		messages: context.messages ?? [],
+		modelBinding: context.modelBinding,
+		frame: candidate,
+	});
+	context.signal.throwIfAborted();
+	return createModelCallFrame(composed.instructions, [...composed.tools.values()]);
+}
+
+function createModelCallFrame(
+	instructionValues: readonly InstructionBlock[],
+	toolValues: readonly RuntimeToolDefinition[],
+): ModelCallFrame {
+	const instructions = uniqueValues("instruction", instructionValues, ({ id }) => id)
+		.sort(compareInstruction)
+		.map(freezeInstruction);
+	const tools = uniqueValues("tool", toolValues, ({ name }) => name).map(freezeTool);
 
 	return Object.freeze({
 		instructions: Object.freeze(instructions),
@@ -47,8 +67,16 @@ function uniqueValues<T>(kind: string, values: readonly T[], getId: (value: T) =
 }
 
 export function composeModelCallSystemPrompt(frame: Pick<ModelCallFrame, "instructions">): string {
-	return frame.instructions
+	return [...frame.instructions]
+		.sort(compareInstruction)
 		.map(({ content }) => content)
 		.filter((content) => content.length > 0)
 		.join("\n\n");
+}
+
+function compareInstruction(
+	left: { readonly id: string; readonly priority: number },
+	right: { readonly id: string; readonly priority: number },
+): number {
+	return left.priority - right.priority || left.id.localeCompare(right.id);
 }

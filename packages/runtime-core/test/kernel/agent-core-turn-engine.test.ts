@@ -10,6 +10,7 @@ import {
 import { describe, expect, it } from "vitest";
 import {
 	AgentCoreTurnEngine,
+	type ModelCallFrameComposer,
 	type RuntimeSnapshot,
 	type RuntimeToolDefinition,
 	RuntimeToolExecutionError,
@@ -116,6 +117,7 @@ function assistantMessage(
 function snapshot(options?: {
 	readonly tools?: readonly RuntimeToolDefinition[];
 	readonly authorize?: (request: ToolPolicyRequest, signal: AbortSignal) => Promise<boolean>;
+	readonly modelCallFrameComposer?: ModelCallFrameComposer;
 }): RuntimeSnapshot {
 	return {
 		id: "snapshot-1",
@@ -124,6 +126,7 @@ function snapshot(options?: {
 			{ id: "feature", content: "Feature instruction", priority: 1 },
 		],
 		tools: new Map((options?.tools ?? []).map((tool) => [tool.name, tool])),
+		modelCallFrameComposer: options?.modelCallFrameComposer,
 		contextProviders: [],
 		contextStrategy: {
 			async prepare(input) {
@@ -253,6 +256,8 @@ describe("AgentCoreTurnEngine", () => {
 			assistantMessage([{ type: "text", text: "finished" }]),
 		];
 		const contexts: Context[] = [];
+		const composerMessages: string[][] = [];
+		const composerModels: string[] = [];
 		let responseIndex = 0;
 		const engine = new AgentCoreTurnEngine({
 			model: model(),
@@ -272,6 +277,13 @@ describe("AgentCoreTurnEngine", () => {
 			engine,
 			snapshot({
 				tools: [tool],
+				modelCallFrameComposer: {
+					async compose(context) {
+						composerMessages.push(context.messages.map(({ role }) => role));
+						if (context.modelBinding) composerModels.push(context.modelBinding.model.id);
+						return context.frame;
+					},
+				},
 				async authorize(request, signal) {
 					signal.throwIfAborted();
 					policyRequests.push(request);
@@ -291,6 +303,8 @@ describe("AgentCoreTurnEngine", () => {
 		expect(executionInputs).toEqual([{ value: "hello" }]);
 		expect(phases).toEqual(["executed"]);
 		expect(contexts).toHaveLength(2);
+		expect(composerMessages).toEqual([["user"], ["user", "assistant", "toolResult"]]);
+		expect(composerModels).toEqual(["recorded-model", "recorded-model"]);
 		expect(contexts[1].messages.map((message) => message.role)).toEqual(["user", "assistant", "toolResult"]);
 		expect(
 			events

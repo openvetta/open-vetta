@@ -213,6 +213,109 @@ describe("Greenfield runtime composition", () => {
 		await second.dispose();
 	});
 
+	it("recompiles the Coding Agent system prompt from current call tools and session-local options", async () => {
+		const conversations = await createTemporaryDirectory("greenfield-runtime-system-prompt-");
+		const calls: Array<{
+			readonly systemPrompt: string | undefined;
+			readonly messages: readonly string[];
+			readonly tools: readonly {
+				readonly name: string;
+				readonly description: string;
+				readonly inputSchema: Readonly<Record<string, unknown>>;
+			}[];
+		}> = [];
+		const sourceCalls: Array<{
+			readonly sessionId: string;
+			readonly activeToolNames: readonly string[];
+			readonly messageRoles: readonly string[];
+			readonly modelId: string | undefined;
+		}> = [];
+		let personalization = "Persona version 1";
+		const createSystemPromptOptionsResolver = vi.fn(
+			(sessionOptions: { readonly sessionId: string; readonly cwd?: string }) => {
+				return (context: {
+					readonly activeToolNames: readonly string[];
+					readonly messages: readonly { readonly role: string }[];
+					readonly modelBinding?: { readonly model: { readonly id: string } };
+				}) => {
+					sourceCalls.push({
+						sessionId: sessionOptions.sessionId,
+						activeToolNames: context.activeToolNames,
+						messageRoles: context.messages.map(({ role }) => role),
+						modelId: context.modelBinding?.model.id,
+					});
+					return {
+						customPrompt: "Exact Coding Agent base prompt",
+						appendSystemPrompt: "Appended product instruction",
+						personalization,
+						cwd: sessionOptions.cwd,
+						scenario: "cli" as const,
+					};
+				};
+			},
+		);
+		const composition = await createGreenfieldRuntimeComposition({
+			conversationDir: conversations,
+			modelRegistry: modelRegistry(),
+			initialModel: MODEL,
+			initialThinkingLevel: "off",
+			cwd: "C:\\workspace",
+			activation: { mode: "explicit", toolNames: ["read"] },
+			createSystemPromptOptionsResolver,
+			streamFn: (_model, context) => {
+				calls.push({
+					systemPrompt: context.systemPrompt,
+					messages: context.messages.map((message) => messageText(message)),
+					tools: (context.tools ?? []).map(({ name, description, parameters }) => ({
+						name,
+						description,
+						inputSchema: jsonValue(parameters),
+					})),
+				});
+				return new RecordedAssistantStream(assistantMessage([{ type: "text", text: "done" }]));
+			},
+		});
+		compositions.push(composition);
+		const session = await composition.backend.create({
+			sessionId: "system-prompt-session",
+			cwd: "C:\\session-workspace",
+		});
+
+		await session.prompt({ text: "first" });
+		personalization = "Persona version 2";
+		await session.prompt({ text: "second" });
+
+		expect(createSystemPromptOptionsResolver).toHaveBeenCalledOnce();
+		expect(sourceCalls).toEqual([
+			{
+				sessionId: "system-prompt-session",
+				activeToolNames: ["read"],
+				messageRoles: ["user"],
+				modelId: "recorded-model",
+			},
+			{
+				sessionId: "system-prompt-session",
+				activeToolNames: ["read"],
+				messageRoles: ["user", "assistant", "user"],
+				modelId: "recorded-model",
+			},
+		]);
+		expect(calls[0]?.systemPrompt).toContain("Exact Coding Agent base prompt");
+		expect(calls[0]?.systemPrompt).toContain("Persona version 1");
+		expect(calls[0]?.systemPrompt).not.toContain("Persona version 2");
+		expect(calls[1]?.systemPrompt).toContain("Persona version 2");
+		expect(calls[1]?.messages).toEqual(["first", "done", "second"]);
+		const registeredRead = composition.tools.registry.resolve("read")?.registration.tool;
+		expect(calls[0]?.tools).toEqual([
+			{
+				name: "read",
+				description: registeredRead?.description,
+				inputSchema: jsonValue(registeredRead?.inputSchema),
+			},
+		]);
+		await session.dispose();
+	});
+
 	it("synchronizes MCP additions and removals before each model call", async () => {
 		const conversations = await createTemporaryDirectory("greenfield-runtime-mcp-");
 		const tool: McpTool = {
@@ -390,6 +493,48 @@ describe("Greenfield runtime composition", () => {
 		await session.dispose();
 	});
 
+	it("merges current session MCP discovery state into the composed Coding Agent prompt", async () => {
+		const conversations = await createTemporaryDirectory("greenfield-runtime-composed-mcp-");
+		const fixture = createMcpSourceFixture(16);
+		const calls: Array<{ readonly systemPrompt: string | undefined; readonly mcpTools: readonly string[] }> = [];
+		const composition = await createGreenfieldRuntimeComposition({
+			conversationDir: conversations,
+			modelRegistry: modelRegistry(),
+			initialModel: MODEL,
+			initialThinkingLevel: "off",
+			mcpSource: fixture.source,
+			resolveSystemPromptOptions: () => ({
+				customPrompt: "Composed Coding Agent prompt",
+				scenario: "cli",
+			}),
+			streamFn: (_model, context) => {
+				calls.push({
+					systemPrompt: context.systemPrompt,
+					mcpTools: (context.tools ?? [])
+						.map(({ name }) => name)
+						.filter((name) => name === "tool_search" || name.startsWith("mcp_")),
+				});
+				return new RecordedAssistantStream(assistantMessage([{ type: "text", text: "done" }]));
+			},
+		});
+		compositions.push(composition);
+		const session = await composition.backend.create({ sessionId: "composed-mcp" });
+
+		await session.prompt({ text: "discover tools" });
+		expect(calls[0]?.systemPrompt).toContain("Composed Coding Agent prompt");
+		expect(calls[0]?.systemPrompt).toContain("# MCP (Model Context Protocol) Tools");
+		expect(calls[0]?.systemPrompt).toContain("**mcp_search_tool_15**: Lookup topic-15");
+		expect(calls[0]?.systemPrompt).toContain("**MCP tool usage (deferred)**");
+		expect(calls[0]?.mcpTools).toEqual(["tool_search"]);
+
+		fixture.setAvailable(false);
+		await session.prompt({ text: "after removal" });
+		expect(calls[1]?.systemPrompt).toContain("Composed Coding Agent prompt");
+		expect(calls[1]?.systemPrompt).not.toContain("mcp_search_tool_15");
+		expect(calls[1]?.mcpTools).toEqual([]);
+		await session.dispose();
+	});
+
 	it("persists hidden prompt contributions while keeping the chat projection clean", async () => {
 		const conversations = await createTemporaryDirectory("greenfield-runtime-prompt-context-");
 		const modelInputs: string[][] = [];
@@ -560,6 +705,10 @@ function messageText(message: unknown): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function jsonValue<T>(value: T): T {
+	return JSON.parse(JSON.stringify(value)) as T;
 }
 
 const MODEL: Model<Api> = {

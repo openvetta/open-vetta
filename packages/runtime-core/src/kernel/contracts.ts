@@ -131,6 +131,10 @@ export interface ModelCallContributionContext {
 	readonly turnId: string;
 	readonly signal: AbortSignal;
 	readonly input?: SessionInput;
+	/** 当前模型调用已经积累的模型可见消息。 */
+	readonly messages?: readonly Message[];
+	/** 当前 Turn 的不可变模型绑定。 */
+	readonly modelBinding?: RuntimeTurnModelBinding;
 }
 
 export interface ModelCallContribution {
@@ -148,11 +152,33 @@ export interface ModelCallFrame {
 	readonly tools: ReadonlyMap<string, RuntimeToolDefinition>;
 }
 
+export interface ModelCallFrameCompositionContext {
+	readonly sessionId: string;
+	readonly turnId: string;
+	readonly signal: AbortSignal;
+	readonly input?: SessionInput;
+	readonly messages: readonly Message[];
+	readonly modelBinding?: RuntimeTurnModelBinding;
+	/** 已汇总静态和动态 Feature 贡献的只读候选 Frame。 */
+	readonly frame: ModelCallFrame;
+}
+
+/**
+ * Profile 独占的模型调用最终编译器。
+ *
+ * 每个 Profile 最多一个 Composer；它不是可串联 Middleware，只负责把已经汇总的候选
+ * Frame 编译成该产品最终交给模型的 Prompt 与工具集合。
+ */
+export interface ModelCallFrameComposer {
+	compose(context: ModelCallFrameCompositionContext): Promise<ModelCallFrame>;
+}
+
 export interface RuntimeSnapshot {
 	readonly id: string;
 	readonly instructions: readonly InstructionBlock[];
 	readonly tools: ReadonlyMap<string, RuntimeToolDefinition>;
 	readonly modelCallProviders?: readonly ModelCallContributionProvider[];
+	readonly modelCallFrameComposer?: ModelCallFrameComposer;
 	readonly contextProviders: readonly ContextProvider[];
 	readonly contextStrategy: ContextStrategy;
 	readonly toolPolicy: ToolPolicy;
@@ -213,6 +239,7 @@ export interface AgentProfile {
 	readonly id: string;
 	readonly instructions: readonly InstructionBlock[];
 	readonly features: readonly AgentFeatureDefinition[];
+	readonly modelCallFrameComposer?: ModelCallFrameComposer;
 	readonly contextStrategy: ContextStrategy;
 	readonly toolPolicy: ToolPolicy;
 	readonly tokenBudget: number;

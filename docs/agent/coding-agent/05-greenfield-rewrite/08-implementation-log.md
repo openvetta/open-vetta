@@ -68,6 +68,7 @@
 | [58-mcp-progressive-disclosure-and-model-call-gate.md](./08-implementation-log/58-mcp-progressive-disclosure-and-model-call-gate.md) | MCP 会话级渐进披露与模型调用输入门禁 |
 | [59-workspace-build-order-type-gate.md](./08-implementation-log/59-workspace-build-order-type-gate.md) | Workspace 构建顺序纠偏与类型门禁补漏 |
 | [60-desktop-workspace-prerequisite-graph.md](./08-implementation-log/60-desktop-workspace-prerequisite-graph.md) | Desktop 前置构建图纠偏与 `TS5055` 回归门禁 |
+| [61-model-call-frame-composer-and-prompt-parity.md](./08-implementation-log/61-model-call-frame-composer-and-prompt-parity.md) | Model Call Frame Composer 与调用级 Prompt 等价切片 |
 
 ## 维护约定
 
