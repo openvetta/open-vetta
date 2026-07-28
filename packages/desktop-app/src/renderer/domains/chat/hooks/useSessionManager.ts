@@ -117,17 +117,13 @@ export function useSessionManager(): SessionManagerResult {
 	const [activeSession, setActiveSession] = useAtom(activeSessionAtom);
 	const setChatMessages = useSetAtom(chatMessagesAtom);
 	const setActiveSessionStreaming = useSetAtom(activeSessionStreamingAtom);
-	const [inputValue, setInputValue] = useAtom(inputValueAtom);
+	const setInputValue = useSetAtom(inputValueAtom);
 	const [attachedImages, setAttachedImages] = useAtom(attachedImagesAtom);
 	const [selectedSkill, setSelectedSkill] = useAtom(selectedSkillAtom);
 	const [mentionedFiles, setMentionedFiles] = useAtom(mentionedFilesAtom);
 	const [appshotAttachment, setAppshotAttachment] = useAtom(appshotAttachmentAtom);
-	// 镜像输入相关 atom 到 ref：sendMessage 调用时读 ref.current，避免把这些高频变化
-	// 的值放进它的 useCallback 依赖。否则每打一个字 inputValue 一变，sendMessage 就换
-	// 身份 → 作为 onSend 一路传到 MessageList 的 Virtuoso footer，触发整块重挂载，footer
-	// 内的插件 turn 卡随之闪烁/重查。
-	const inputValueRef = useRef(inputValue);
-	inputValueRef.current = inputValue;
+	// 发送时直接读取输入 atom 快照，避免 useSessionManager 订阅每次按键。
+	// 这个 hook 同时挂在根布局和页面中；订阅会让这些宿主随输入重渲染整棵子树。
 	const attachedImagesRef = useRef(attachedImages);
 	attachedImagesRef.current = attachedImages;
 	const selectedSkillRef = useRef(selectedSkill);
@@ -895,8 +891,8 @@ export function useSessionManager(): SessionManagerResult {
 			// 读 ref 而非 state：允许在同一 tick 内先 openSession 再立即 sendMessage
 			// （例如 NewSessionPage 的"创建会话+发送"组合调用），避免 React 闭包拿到旧 null。
 			const session = activeSessionRef.current ?? activeSession;
-			// 读 ref 快照而非订阅值，使 sendMessage 身份在打字时保持稳定（见上方 ref 注释）。
-			const inputValue = inputValueRef.current;
+			// 不订阅输入 atom；调用时读取还能覆盖“先写草稿、同一流程立即发送”的场景。
+			const inputValue = getDefaultStore().get(inputValueAtom);
 			const attachedImages = attachedImagesRef.current;
 			const selectedSkill = selectedSkillRef.current;
 			const mentionedFiles = mentionedFilesRef.current;
@@ -1229,8 +1225,8 @@ export function useSessionManager(): SessionManagerResult {
 			await loadSessions(conversationBucketCwd(session.cwd, defaultConversationCwdRef.current));
 		},
 		[
-			// 输入相关值改为读 ref（inputValue/attachedImages/selectedSkill/mentionedFiles/
-			// selectedModel），不再入依赖，保证 sendMessage 身份在打字时稳定，避免下游
+			// 输入文本调用时读 store，其余输入相关值读 ref，不再入依赖，保证
+			// sendMessage 身份在打字时稳定，避免下游
 			// Virtuoso footer 重挂载（footer 内的插件 turn 卡会因此闪烁/重查）。
 			activeSession,
 			setInputValue,
