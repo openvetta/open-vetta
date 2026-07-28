@@ -110,6 +110,95 @@ describe("TurnPipeline conversation continuation", () => {
 		await session.close();
 		await repository.close();
 	});
+
+	it("finalizes compaction only after the continuation transaction and runtime rebinding", async () => {
+		const rootDir = await mkdtemp(join(tmpdir(), "vetta-turn-continuation-finalization-"));
+		temporaryRoots.push(rootDir);
+		const repository = new FileConversationRepository({ rootDir });
+		const trace: string[] = [];
+		const pipeline = new TurnPipeline({
+			repository,
+			snapshotProvider: new StaticRuntimeSnapshotProvider(snapshot("model_call", { trace })),
+			turnEngine: new CheckpointTurnEngine(),
+			eventSink: new RecordingEventSink(),
+			clock: { now: () => 10 },
+			idGenerator: { next: () => "turn-1" },
+			conversationDocumentReader: repository,
+			conversationContinuationStore: repository,
+			onConversationContinued: () => {
+				trace.push("runtime-rebound");
+			},
+		});
+		const session = await createAgentSession({ id: "source-session", pipeline });
+
+		const result = await session.send({ message: userMessage("keep me", 1) });
+
+		expect(result.status).toBe("completed");
+		expect(trace).toEqual(["compaction-committed", "runtime-rebound", "continuation-finalized"]);
+		await session.close();
+		await repository.close();
+	});
+
+	it("notifies the context strategy when the continuation transaction fails without running success finalization", async () => {
+		const rootDir = await mkdtemp(join(tmpdir(), "vetta-turn-continuation-store-failure-"));
+		temporaryRoots.push(rootDir);
+		const repository = new FileConversationRepository({ rootDir });
+		const trace: string[] = [];
+		const pipeline = new TurnPipeline({
+			repository,
+			snapshotProvider: new StaticRuntimeSnapshotProvider(snapshot("model_call", { trace })),
+			turnEngine: new CheckpointTurnEngine(),
+			eventSink: new RecordingEventSink(),
+			clock: { now: () => 10 },
+			idGenerator: { next: () => "turn-1" },
+			conversationDocumentReader: repository,
+			conversationContinuationStore: {
+				async continueConversation() {
+					trace.push("continuation-transaction");
+					throw new Error("continuation store failed");
+				},
+			},
+		});
+		const session = await createAgentSession({ id: "source-session", pipeline });
+
+		const result = await session.send({ message: userMessage("keep me", 1) });
+
+		expect(result).toMatchObject({
+			status: "failed",
+			sessionId: "source-session",
+			error: { message: "continuation store failed" },
+		});
+		expect(trace).toEqual(["compaction-committed", "continuation-transaction", "continuation-failed"]);
+		await session.close();
+		await repository.close();
+	});
+
+	it("uses post-continuation finalization to stop overflow recovery retry", async () => {
+		const rootDir = await mkdtemp(join(tmpdir(), "vetta-turn-continuation-stop-"));
+		temporaryRoots.push(rootDir);
+		const repository = new FileConversationRepository({ rootDir });
+		const turnEngine = new CheckpointTurnEngine("assistant_error");
+		const pipeline = new TurnPipeline({
+			repository,
+			snapshotProvider: new StaticRuntimeSnapshotProvider(
+				snapshot("assistant_error", { compactionReason: "overflow", finalContinueExecution: false }),
+			),
+			turnEngine,
+			eventSink: new RecordingEventSink(),
+			clock: { now: () => 10 },
+			idGenerator: { next: () => "turn-1" },
+			conversationDocumentReader: repository,
+			conversationContinuationStore: repository,
+		});
+		const session = await createAgentSession({ id: "source-session", pipeline });
+
+		const result = await session.send({ message: userMessage("keep me", 1) });
+
+		expect(result.status).toBe("completed");
+		expect(turnEngine.checkpointResult?.retry).toBe(false);
+		await session.close();
+		await repository.close();
+	});
 });
 
 class RecordingEventSink implements EventSink {
@@ -122,27 +211,40 @@ class RecordingEventSink implements EventSink {
 
 class CheckpointTurnEngine implements TurnEnginePort {
 	sessionIdAfterCheckpoint: string | undefined;
+	checkpointResult: TurnEngineContextCheckpointResult | undefined;
+
+	constructor(
+		private readonly checkpointReason: "assistant_error" | "assistant_result" | "model_call" = "model_call",
+	) {}
 
 	async *execute(request: TurnEngineRequest): AsyncIterable<TurnEngineEvent> {
 		const checkpoint = deferredCheckpoint();
+		void checkpoint.result.catch(() => {});
 		yield {
 			type: "context_checkpoint",
 			request: {
-				reason: "model_call",
+				reason: this.checkpointReason,
 				messages: request.messages,
 				recoveryAttempt: 0,
 				complete: checkpoint.complete,
 				fail: checkpoint.fail,
 			},
 		};
-		await checkpoint.result;
+		this.checkpointResult = await checkpoint.result;
 		this.sessionIdAfterCheckpoint = request.sessionId;
 		yield { type: "message", message: assistantMessage("continued response", 2) };
 		yield { type: "completed", stopReason: "stop" };
 	}
 }
 
-function snapshot(compactOn: "model_call" | "turn_start" = "model_call"): RuntimeSnapshot {
+function snapshot(
+	compactOn: "assistant_error" | "model_call" | "turn_start" = "model_call",
+	options: {
+		readonly trace?: string[];
+		readonly compactionReason?: "overflow" | "threshold";
+		readonly finalContinueExecution?: boolean;
+	} = {},
+): RuntimeSnapshot {
 	return {
 		id: "snapshot-1",
 		instructions: [],
@@ -161,15 +263,23 @@ function snapshot(compactOn: "model_call" | "turn_start" = "model_call"): Runtim
 						summaryMessage: userMessage("summary", 2),
 						firstKeptEntryId: "event-2",
 						tokensBefore: 1_000,
-						reason: "threshold",
+						reason: options.compactionReason ?? "threshold",
 					},
 				};
 			},
 			async onCompactionCommitted() {
+				options.trace?.push("compaction-committed");
 				return {
 					continueExecution: true,
 					continuation: { reason: "memory-rollover" },
 				};
+			},
+			async onCompactionContinuationCommitted() {
+				options.trace?.push("continuation-finalized");
+				return { continueExecution: options.finalContinueExecution ?? true };
+			},
+			async onCompactionContinuationFailed() {
+				options.trace?.push("continuation-failed");
 			},
 		},
 		toolPolicy: { authorize: async () => true },

@@ -3,8 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type Api, type AssistantMessage, type AssistantMessageEvent, EventStream, type Model } from "@vetta/ai";
 import {
+	type CodingAgentMemoryFlushInput,
 	CodingAgentMemoryRolloverOrchestrator,
-	type CodingAgentMemoryRolloverPreparation,
 	type CodingAgentModelRegistrySource,
 } from "@vetta/coding-agent/runtime-host/greenfield";
 import { FileConversationRepository } from "@vetta/runtime-storage/conversation";
@@ -123,7 +123,55 @@ describe("Greenfield CLI memory runtime", () => {
 
 		expect(calls[0]?.tools).toEqual([]);
 		expect(calls[0]?.systemPrompt).not.toContain("# Persistent Memory");
+		await expect(composition.flushMemory(session.sessionId)).resolves.toBe(0);
 		await expect(readFile(join(workspace, "JOURNAL.md"), "utf8")).rejects.toThrow();
+		await session.dispose();
+	});
+
+	it("flushes the current active context on demand through the product composition boundary", async () => {
+		const workspace = await temporaryRoot("greenfield-memory-flush-workspace-");
+		const conversations = await temporaryRoot("greenfield-memory-flush-conversations-");
+		const memoryFile = join(workspace, "MEMORY.md");
+		const flushMemory = vi.fn(
+			async (_input: CodingAgentMemoryFlushInput & { readonly memoryFile: string; readonly limit: number }) => [
+				"saved fact",
+			],
+		);
+		const composition = await createGreenfieldRuntimeComposition({
+			conversationDir: conversations,
+			modelRegistry: modelRegistry(),
+			initialModel: MODEL,
+			initialThinkingLevel: "off",
+			cwd: workspace,
+			activation: { mode: "explicit", toolNames: [] },
+			createMemoryRolloverRuntime: (runtimeOptions) =>
+				new CodingAgentMemoryRolloverOrchestrator({ ...runtimeOptions, flushMemory }),
+			resolveSystemPromptOptions: () => ({
+				customPrompt: "Memory flush Coding Agent",
+				scenario: "im-claw",
+			}),
+			streamFn: () => new RecordedAssistantStream(assistantMessage([{ type: "text", text: "Short response." }])),
+		});
+		compositions.push(composition);
+		const session = await composition.backend.create({
+			sessionId: "memory-flush-session",
+			cwd: workspace,
+			memoryMode: true,
+			memoryFile,
+		});
+		await session.prompt({ text: "Short request" });
+
+		const written = await composition.flushMemory(session.sessionId);
+
+		expect(written).toBe(1);
+		expect(flushMemory).toHaveBeenCalledOnce();
+		expect(flushMemory.mock.calls[0]?.[0]?.messages.map(({ role }) => role)).toEqual(["user", "assistant"]);
+		expect(flushMemory.mock.calls[0]?.[0]).toMatchObject({
+			memoryFile,
+			limit: 4_000,
+			model: MODEL,
+			apiKey: "test-key",
+		});
 		await session.dispose();
 	});
 
@@ -133,12 +181,7 @@ describe("Greenfield CLI memory runtime", () => {
 		const memoryFile = join(workspace, "MEMORY.md");
 		await writeFile(memoryFile, "seed memory", "utf8");
 		const flushMemory = vi.fn(
-			async (
-				_input: CodingAgentMemoryRolloverPreparation & {
-					readonly memoryFile: string;
-					readonly limit: number;
-				},
-			) => [],
+			async (_input: CodingAgentMemoryFlushInput & { readonly memoryFile: string; readonly limit: number }) => [],
 		);
 		const responses = [
 			assistantMessage([{ type: "text", text: "First response." }], "stop", 1_000),
@@ -192,10 +235,7 @@ describe("Greenfield CLI memory runtime", () => {
 		expect(session.sessionId).not.toBe("memory-rollover-source");
 		expect(result.sessionId).toBe(session.sessionId);
 		expect(flushMemory).toHaveBeenCalledOnce();
-		expect(flushMemory.mock.calls[0]?.[0]?.preparation.messagesToSummarize.map(({ role }) => role)).toEqual([
-			"user",
-			"assistant",
-		]);
+		expect(flushMemory.mock.calls[0]?.[0]?.messages.map(({ role }) => role)).toEqual(["user", "assistant"]);
 		const reader = new FileConversationRepository({ rootDir: conversations });
 		const source = await reader.load("memory-rollover-source");
 		const target = await reader.load(session.sessionId);
@@ -206,6 +246,9 @@ describe("Greenfield CLI memory runtime", () => {
 		});
 		expect(target.events.map(({ type }) => type)).toEqual(["turn.continued", "turn.completed"]);
 		await reader.close();
+		await expect(composition.flushMemory("memory-rollover-source")).resolves.toBe(0);
+		await expect(composition.flushMemory(session.sessionId)).resolves.toBe(0);
+		expect(flushMemory).toHaveBeenCalledTimes(2);
 		const journal = await readFile(join(workspace, "JOURNAL.md"), "utf8");
 		expect(journal).toContain("First response.");
 		expect(journal).toContain("Second response.");

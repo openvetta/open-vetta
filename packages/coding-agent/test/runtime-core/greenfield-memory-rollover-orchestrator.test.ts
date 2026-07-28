@@ -1,9 +1,8 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Api, AssistantMessage, Model, UserMessage } from "@vetta/ai";
-import { createSeededConversationDocument } from "@vetta/runtime-core/conversation";
-import type { ConversationContinuationResult, StoredSessionEvent } from "@vetta/runtime-core/kernel";
+import type { Api, AssistantMessage, Model } from "@vetta/ai";
+import type { ContextCompactionRecord, StoredSessionEvent } from "@vetta/runtime-core/kernel";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	CodingAgentMemoryRolloverOrchestrator,
@@ -54,14 +53,17 @@ describe("CodingAgentMemoryRolloverOrchestrator", () => {
 
 		await expect(runtime.beforeCompaction(preparation)).resolves.toBeUndefined();
 		expect(flushMemory).toHaveBeenCalledWith({
-			...preparation,
+			messages: preparation.preparation.messagesToSummarize,
+			model: preparation.model,
+			apiKey: preparation.apiKey,
+			signal: preparation.signal,
 			memoryFile: join(root, "MEMORY.md"),
 			limit: 4_000,
 		});
 		expect(runtime.continuationAfterCompaction()).toEqual({ reason: "memory-rollover" });
 	});
 
-	it("writes one completed-turn journal line and one successful-rollover section without splitting the turn", async () => {
+	it("writes the rollover section before continuation and one completed-turn journal line", async () => {
 		const root = await temporaryRoot();
 		const appendTurnJournal = vi.fn();
 		const appendRolloverJournal = vi.fn();
@@ -98,7 +100,7 @@ describe("CodingAgentMemoryRolloverOrchestrator", () => {
 			stopReason: "stop",
 			timestamp: 4,
 		});
-		runtime.onConversationContinued(continuationResult());
+		runtime.beforeContinuation(compactionRecord());
 
 		expect(appendTurnJournal).toHaveBeenCalledOnce();
 		expect(appendTurnJournal).toHaveBeenCalledWith(root, assistant);
@@ -153,57 +155,13 @@ function rolloverPreparation(): CodingAgentMemoryRolloverPreparation {
 	};
 }
 
-function continuationResult(): ConversationContinuationResult {
-	const summaryMessage: UserMessage = {
-		role: "user",
-		content: "rolled summary",
-		timestamp: 2,
-	};
-	const seedDocument = createSeededConversationDocument(
-		{ sessionId: "target", createdAt: 2, parentSessionPath: "source.jsonl", parentEntryId: "event-3" },
-		[
-			{
-				type: "compaction",
-				id: "seed-1",
-				parentId: null,
-				timestamp: new Date(2).toISOString(),
-				summary: "rolled summary",
-				summaryMessage,
-				firstKeptEntryId: "seed-1",
-				tokensBefore: 70,
-				reason: "threshold",
-			},
-		],
-		"seed-1",
-	);
-	const transferredEvent = {
-		type: "turn.transferred" as const,
-		sessionId: "source",
-		turnId: "turn-1",
-		targetSessionId: "target",
-		reason: "memory-rollover",
-		timestamp: 2,
-	};
-	const continuedEvent = {
-		type: "turn.continued" as const,
-		sessionId: "target",
-		turnId: "turn-1",
-		sourceSessionId: "source",
-		snapshotId: "snapshot-1",
-		reason: "memory-rollover",
-		timestamp: 2,
-	};
+function compactionRecord(): ContextCompactionRecord {
 	return {
-		sourceSessionId: "source",
-		sourceSessionPath: "source.jsonl",
-		sourceVersion: 4,
-		sessionId: "target",
-		sessionPath: "target.jsonl",
-		version: 1,
-		seedConversation: { sessionId: "target", createdAt: 2, version: 0, messages: [], events: [] },
-		seedDocument,
-		transferredEvent,
-		continuedEvent,
+		summary: "rolled summary",
+		summaryMessage: { role: "user", content: "rolled summary", timestamp: 2 },
+		firstKeptEntryId: "entry-2",
+		tokensBefore: 70,
+		reason: "threshold",
 	};
 }
 

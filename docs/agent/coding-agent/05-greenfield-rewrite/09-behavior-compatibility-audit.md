@@ -834,6 +834,38 @@ Kernel 和 Storage 没有新增 MEMORY/JOURNAL 概念。内部编排继续使用
 3. 默认生产 Desktop/RPC/IM/CLI 入口仍使用旧 `AgentSession`，本轮只为并行 Greenfield 组合增加显式
    memory-mode 配置。
 
+### 2.23 Rollover 后置时序与主动 Memory Flush
+
+第 74 轮先从旧 `CompactionController` 固定真实顺序：
+
+```text
+context.compacted
+  -> rollover JOURNAL
+  -> Conversation rollover / path changed
+  -> Extension session_compact
+  -> PostCompact
+  -> retry decision
+```
+
+Runtime Core 的 `ContextStrategy` 现在可以分别观察通用 continuation 事务成功和失败。成功回调只在
+Storage 事务、Session identity、投影和宿主路径完成重绑定后执行；它返回的 `continueExecution` 会成为
+overflow retry 的最终依据。失败通知是 best-effort，不能替换 Store 的原始错误。该合同没有 Memory、
+JOURNAL、Extension 或 Hook 字段。
+
+Coding Agent Memory Orchestrator 在 continuation 前写 JOURNAL；Context Runtime 在 continuation 成功后
+从目标 seed document 解析重写后的 compaction entry，再执行 Extension committed、PostCompact 和熔断
+成功记录。Store 失败时不执行成功回调并记录熔断失败。合同覆盖成功顺序、Store 失败和 PostCompact stop。
+
+主动 flush 新增独立 `CodingAgentGreenfieldMemoryController`。它读取当前活动 Conversation 的模型投影、
+当前模型和对应凭据，并复用 Orchestrator 的 `flushMessages()`；CLI Greenfield Composition Root 以
+`flushMemory(sessionId)` 暴露给宿主。非 memory-mode 和 rollover 后失效的旧 id 返回 `0`，新 id 继续
+可用。该 Controller 没有加入 Runtime Core Assembly。
+
+本轮没有新增 TypeBox/Zod：新增合同均为进程内 TypeScript 对象；外部 RPC 命令仍需在后续真实宿主
+Adapter 接入时使用现有协议校验边界。
+
+仍未完成的是默认生产 RPC/IM/CLI 接线和旧新宿主差分，而不是 Memory Orchestrator 内部时序。
+
 ## 3. 已实施模块审计
 
 | 模块 | 当前状态 | 与旧行为的差距 | 切换结论 |
@@ -849,15 +881,15 @@ Kernel 和 Storage 没有新增 MEMORY/JOURNAL 概念。内部编排继续使用
 | 宿主可执行文件解析 | Runtime Port、本地 PATH/managed-bin Adapter、grep/find 注入合同、旧 ensureTool 适配、网络/归档合同和 cli-app Composition Root 已通过 | 真实 GitHub 网络、最终独立可执行发布物和完整 Tool Profile 迁移尚未完成；包根兼容导出必须继续保留 | 新 Profile 可并行验证；旧宿主仍不可切换 |
 | Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope/explicit 激活和 requires/capabilities，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；current_time/read/ls/grep/find/glob/tree/write/edit/bash/shell/task_output/task_stop 已进入全场景 Profile 差分门禁 | 生产 Profile 尚未切换 | 动态编排与当前默认工具迁移完成；生产接入未完成 |
 | `AgentSession` | 新状态机、活动 Turn 输入队列、无伪 user message 的 continue、显式 resume 与同 Turn 持久化身份重绑定已实现 | 尚缺旧外围能力的 Greenfield 实现 | 内核 Turn/恢复语义已具备；生产入口不可切换 |
-| Turn Pipeline | 固定阶段、模型调用请求—应答检查点、持久化压缩提交、跨 Conversation 续接、非持久化 observation、输入队列、continue、recovery、独立 Turn Model Binding 和 Session-local 运行期 Context 串行持久化已实现 | 完整生产 Composition Root 尚未接入 | 不可切换 |
+| Turn Pipeline | 固定阶段、模型调用请求—应答检查点、持久化压缩提交、跨 Conversation 续接及成功/失败 finalization、非持久化 observation、输入队列、continue、recovery、独立 Turn Model Binding 和 Session-local 运行期 Context 串行持久化已实现 | 完整生产 Composition Root 尚未接入 | 不可切换 |
 | `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环、动态 Model Call Frame、完整观察事件、输入队列、Context checkpoint 桥接和 Turn model binding 已通过 | 尚未由真实 Greenfield Composition Root 接入生产 RuntimeHost | 内核执行能力已具备；宿主仍不可切换 |
 | Greenfield Session Backend | 独立门面、必需 Prompt Adapter/Runtime Factory、可重绑定投影与路径、显式 resume、Session-local Todo/Hook/Context Runtime、手动压缩 Controller，以及 Lifecycle/History/Model/Workspace/Core Ports 已通过 | Host Interaction、Execution、Configuration、Background Work 等外围能力未实现；模型配置尚未持久化 | 可并行组合测试；不能注入生产 RuntimeHost |
 | Runtime Snapshot | 编译、冻结、lease、原子交换和动态 Model Call Provider 已实现 | Coding Profile 的完整默认能力与 scope 尚未装配 | 不可替代旧工具注册 |
 | Conversation Repository | V2 create/load/append/save、树形 Document 读写、活动分支、fork、跨实例文件锁、跨 Conversation seed/transfer/continued 事务和 Legacy importer 已实现 | Legacy/V1 历史结构写命令保持只读；跨文件崩溃 orphan reconciliation 与模型配置异步持久化尚未实现 | 不可直接替代全部旧会话写路径 |
-| Context Strategy | Session-local Runtime 已接入原生摘要持久化、重开投影、外部/同 Turn threshold/prefire、逐模型调用 microcompact、error/silent overflow 单次恢复、手动/Extension 压缩、Pre/PostCompact 和 usage 状态；Coding Agent Memory Orchestrator 已接入冻结 Prompt、既有 Tool、70% 策略、flush、通用 rollover 与 JOURNAL | 尚缺主动 `flush_memory` Port；PostCompact/Extension 相对 rollover 的时序未完全等价 | memory-mode 可并行验证；完整生产路径仍不可切换 |
+| Context Strategy | Session-local Runtime 已接入原生摘要持久化、重开投影、外部/同 Turn threshold/prefire、逐模型调用 microcompact、error/silent overflow 单次恢复、手动/Extension 压缩、Pre/PostCompact 和 usage 状态；Coding Agent Memory Orchestrator 已接入冻结 Prompt、既有 Tool、70% 策略、自动/主动 flush、通用 rollover、JOURNAL 与 rollover 后置 finalization | 默认生产 RPC/IM 尚未接入 Greenfield Controller | memory-mode 内部链路可并行验证；生产宿主仍不可切换 |
 | MCP / Skill / Knowledge / Subagent | Session 级 Skill/Scene Prompt、MCP 渐进披露与现有 Knowledge 工具来源已进入并行组合 | Subagent Runtime 未迁移；尚未形成完整生产 Profile | 不可切换对应生产 Profile |
 | Ecosystem Hook Runtime | 每 Session 唯一实例已贯通 Prompt、最终动态 Tool Surface、Stop、运行期 Context、自动/手动 Pre/PostCompact 和 dispose | PermissionRequest、Subagent Hook 与宿主切换原因未接入 | 并行组合已验证；默认生产入口不变 |
-| Desktop / CLI / RPC / IM Adapter | RuntimeHost 已完全通过稳定 Ports 编排；CLI Greenfield Composition Root 已具备真实模型、Prompt、动态能力、Todo、Hook、Continuation、SessionEvent 和文件恢复 | Greenfield 完整 Assembly、旧存储兼容及 Desktop/RPC/IM 实际宿主接线尚未完成 | 不可切换默认入口 |
+| Desktop / CLI / RPC / IM Adapter | RuntimeHost 已完全通过稳定 Ports 编排；CLI Greenfield Composition Root 已具备真实模型、Prompt、动态能力、Todo、Hook、Continuation、SessionEvent、文件恢复和按活动 Session 的 Memory Flush 控制 | Greenfield 完整 Assembly、旧存储兼容及 Desktop/RPC/IM 实际宿主接线尚未完成 | 不可切换默认入口 |
 
 上述差距目前没有影响生产，因为旧入口仍在使用旧实现。但它们是切换阻断项，不能因为新模块
 已有单元测试就视为功能迁移完成。
@@ -902,11 +934,14 @@ AgentSession 与生产宿主入口保持不变。
 持久提交路径。Coding Agent Memory Rollover Orchestrator 现在复用旧冻结 Prompt、memory Tool、约 70%
 阈值、MEMORY flush 和 JOURNAL，并通过通用事务保持同一 Turn 切换 Conversation；默认仍关闭。
 
-下一阶段应合并处理 continuation 事务后的通用回调时序和按需 MEMORY flush 宿主 Port：先用旧新差分
-测试固定 rollover、Extension committed、PostCompact 与 stop 的相对顺序，再调整协议，不能把
-Extension Runner、MEMORY/JOURNAL 或 IM 策略下沉到 Runtime Core/Storage。时序等价后，再让真实 CLI/IM
-宿主以显式配置接入 Greenfield memory-mode；默认生产入口仍不切换。随后再按真实能力边界迁移
-PermissionRequest、Subagent Runtime 和剩余 Assembly Port。
+continuation 事务后的成功/失败 finalization 已固定 rollover、Extension committed、PostCompact 与 stop
+的相对顺序；Coding Agent 产品层也已提供按活动 Session 的主动 Memory Flush Controller，没有把
+Extension Runner、MEMORY/JOURNAL 或 IM 策略下沉到 Runtime Core/Storage。
+
+下一阶段应让真实 RPC/IM 宿主以显式 opt-in 适配 Greenfield Memory Controller，并对
+`flush_memory`、`/new`、会话丢弃、rollover 后 flush、恢复会话和关闭竞态运行 Legacy/Greenfield 差分。
+默认生产入口仍不切换。宿主差分完成后，再按真实能力边界迁移 PermissionRequest、Subagent Runtime 和
+剩余 Assembly Port。
 
 模型配置持久化仍必须使用显式异步合同，不能在同步 setter 中 fire-and-forget；完整 Assembly 就绪前不
 替换默认旧后端。最终生产切换仍需完整 Profile 差分、旧存储兼容和 Desktop/RPC/IM 宿主验证。真实 GitHub

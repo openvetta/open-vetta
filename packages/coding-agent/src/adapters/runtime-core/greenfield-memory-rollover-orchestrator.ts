@@ -1,9 +1,9 @@
+import type { AgentMessage } from "@vetta/agent-core";
 import type { Api, AssistantMessage, Model } from "@vetta/ai";
-import { selectConversationDocumentEntries } from "@vetta/runtime-core/conversation";
 import type {
 	AgentFeatureDefinition,
+	ContextCompactionRecord,
 	ConversationContinuationDirective,
-	ConversationContinuationResult,
 	StoredSessionEvent,
 	TurnObserver,
 } from "@vetta/runtime-core/kernel";
@@ -25,9 +25,17 @@ export interface CodingAgentMemoryRolloverPreparation {
 	readonly signal: AbortSignal;
 }
 
+export interface CodingAgentMemoryFlushInput {
+	readonly messages: readonly AgentMessage[];
+	readonly model: Model<Api>;
+	readonly apiKey: string;
+	readonly signal: AbortSignal;
+}
+
 export interface CodingAgentMemoryCompactionPolicy {
 	adjustCompactionSettings(settings: CompactionSettings, contextWindow: number): CompactionSettings;
 	beforeCompaction(input: CodingAgentMemoryRolloverPreparation): Promise<void>;
+	beforeContinuation(record: ContextCompactionRecord): void;
 	continuationAfterCompaction(): ConversationContinuationDirective;
 }
 
@@ -36,7 +44,7 @@ export interface CodingAgentMemoryRolloverOrchestratorOptions {
 	readonly cwd: string;
 	readonly memoryCharLimit?: number;
 	readonly flushMemory?: (
-		input: CodingAgentMemoryRolloverPreparation & { readonly memoryFile: string; readonly limit: number },
+		input: CodingAgentMemoryFlushInput & { readonly memoryFile: string; readonly limit: number },
 	) => Promise<readonly string[]>;
 	readonly appendTurnJournal?: (cwd: string, message: AssistantMessage) => void;
 	readonly appendRolloverJournal?: (cwd: string, summary: string) => void;
@@ -46,7 +54,7 @@ export interface CodingAgentMemoryRolloverRuntime extends CodingAgentMemoryCompa
 	readonly toolRegistration: CodingAgentRuntimeToolRegistration;
 	readPromptMemory(): CodingAgentPromptMemoryState;
 	renderPromptMemory(): string;
-	onConversationContinued(result: ConversationContinuationResult): void;
+	flushMessages(input: CodingAgentMemoryFlushInput): Promise<number>;
 	dispose(): void;
 }
 
@@ -77,11 +85,11 @@ export class CodingAgentMemoryRolloverOrchestrator implements CodingAgentMemoryR
 		this.frozenMemorySnapshot = readMemoryContent(options.memoryFile);
 		this.flushMemory =
 			options.flushMemory ??
-			(async ({ preparation, model, apiKey, signal, memoryFile, limit }) =>
+			(async ({ messages, model, apiKey, signal, memoryFile, limit }) =>
 				flushMemoryBeforeRollover({
 					memoryFile,
 					limit,
-					messages: preparation.messagesToSummarize,
+					messages: [...messages],
 					model,
 					apiKey,
 					signal,
@@ -116,31 +124,38 @@ export class CodingAgentMemoryRolloverOrchestrator implements CodingAgentMemoryR
 	}
 
 	async beforeCompaction(input: CodingAgentMemoryRolloverPreparation): Promise<void> {
+		await this.flushMessages({
+			messages: input.preparation.messagesToSummarize,
+			model: input.model,
+			apiKey: input.apiKey,
+			signal: input.signal,
+		});
+	}
+
+	async flushMessages(input: CodingAgentMemoryFlushInput): Promise<number> {
 		try {
-			await this.flushMemory({
+			const written = await this.flushMemory({
 				...input,
 				memoryFile: this.memoryFile,
 				limit: this.memoryCharLimit,
 			});
+			return written.length;
 		} catch {
 			// MEMORY flush 与旧实现一致：best-effort，不能阻止压缩或 rollover。
+			return 0;
+		}
+	}
+
+	beforeContinuation(record: ContextCompactionRecord): void {
+		try {
+			this.appendRolloverJournal(this.cwd, record.summary);
+		} catch {
+			// JOURNAL 与旧实现一致：best-effort，并且发生在 rollover 事务之前。
 		}
 	}
 
 	continuationAfterCompaction(): ConversationContinuationDirective {
 		return { reason: "memory-rollover" };
-	}
-
-	onConversationContinued(result: ConversationContinuationResult): void {
-		const compaction = [...selectConversationDocumentEntries(result.seedDocument)]
-			.reverse()
-			.find((entry) => entry.type === "compaction");
-		if (!compaction) return;
-		try {
-			this.appendRolloverJournal(this.cwd, compaction.summary);
-		} catch {
-			// JOURNAL 与旧实现一致：best-effort，不能改变已经提交的续接事务。
-		}
 	}
 
 	async observe(event: StoredSessionEvent): Promise<void> {

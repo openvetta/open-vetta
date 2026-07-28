@@ -18,6 +18,7 @@ import type {
 	ContextCompactionRecord,
 	ContextPreparationInput,
 	ContextStrategy,
+	ConversationContinuationResult,
 	ManualContextCompactionInput,
 	ManualContextCompactionRuntime,
 	ModelCallContextTransformationInput,
@@ -232,15 +233,22 @@ export class CodingAgentGreenfieldContextRuntime
 		signal: AbortSignal,
 		document?: ConversationDocument,
 	) {
-		await this.notifyExtensionCommitted(record, document);
-		const outcome = await this.hookRuntime.runPostCompact("auto", signal);
-		this.hookRuntime.markSessionStart("compact");
-		this.circuitBreaker.recordSuccess();
-		const continuation = this.memoryRollover?.continuationAfterCompaction();
-		return {
-			continueExecution: !outcome.shouldStop,
-			...(continuation ? { continuation } : {}),
-		};
+		if (!this.memoryRollover) return this.finalizeAutomaticCompaction(record, signal, document);
+		this.memoryRollover.beforeContinuation(record);
+		return { continueExecution: true, continuation: this.memoryRollover.continuationAfterCompaction() };
+	}
+
+	async onCompactionContinuationCommitted(
+		record: ContextCompactionRecord,
+		_input: ContextPreparationInput,
+		result: ConversationContinuationResult,
+		signal: AbortSignal,
+	) {
+		return this.finalizeAutomaticCompaction(record, signal, result.seedDocument, true);
+	}
+
+	async onCompactionContinuationFailed(): Promise<void> {
+		this.circuitBreaker.recordFailure();
 	}
 
 	async compactManual(input: ManualContextCompactionInput, signal: AbortSignal): Promise<ContextCompactionRecord> {
@@ -405,6 +413,7 @@ export class CodingAgentGreenfieldContextRuntime
 	private async notifyExtensionCommitted(
 		record: ContextCompactionRecord,
 		document: ConversationDocument | undefined,
+		allowRemappedFirstKept = false,
 	): Promise<void> {
 		if (!this.extensionRuntime || !document) return;
 		const entry = [...toSessionEntries(document)]
@@ -413,13 +422,31 @@ export class CodingAgentGreenfieldContextRuntime
 				(candidate): candidate is CompactionEntry =>
 					candidate.type === "compaction" &&
 					candidate.summary === record.summary &&
-					candidate.firstKeptEntryId === record.firstKeptEntryId,
+					(allowRemappedFirstKept || candidate.firstKeptEntryId === record.firstKeptEntryId),
 			);
 		if (!entry) return;
 		await this.extensionRuntime.afterCompaction({
 			compactionEntry: entry,
 			fromExtension: record.fromHook === true,
 		});
+	}
+
+	private async finalizeAutomaticCompaction(
+		record: ContextCompactionRecord,
+		signal: AbortSignal,
+		document: ConversationDocument | undefined,
+		allowRemappedFirstKept = false,
+	) {
+		try {
+			await this.notifyExtensionCommitted(record, document, allowRemappedFirstKept);
+			const outcome = await this.hookRuntime.runPostCompact("auto", signal);
+			this.hookRuntime.markSessionStart("compact");
+			this.circuitBreaker.recordSuccess();
+			return { continueExecution: !outcome.shouldStop };
+		} catch (error) {
+			this.circuitBreaker.recordFailure();
+			throw error;
+		}
 	}
 }
 

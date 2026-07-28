@@ -6,6 +6,7 @@ import type {
 	Clock,
 	ContextCompactionCommitResult,
 	ContextCompactionRecord,
+	ContextPreparationInput,
 	ContextProvider,
 	ConversationContinuationResult,
 	ConversationContinuationStore,
@@ -258,13 +259,15 @@ export class TurnPipeline {
 
 			if (prepared.compaction) {
 				const document = await this.commitCompaction(turnId, prepared.compaction, state, signal, snapshot);
-				const commitResult = await snapshot.contextStrategy.onCompactionCommitted?.(
+				await this.finalizeCommittedCompaction(
 					prepared.compaction,
 					preparationInput,
-					signal,
 					document,
+					turnId,
+					state,
+					signal,
+					snapshot,
 				);
-				await this.continueAfterCompaction(commitResult, turnId, state, signal);
 			}
 
 			await this.enterStage(state.sessionId, turnId, "execution");
@@ -420,13 +423,15 @@ export class TurnPipeline {
 		}
 
 		const committedDocument = await this.commitCompaction(turnId, prepared.compaction, state, signal, snapshot);
-		const commitResult = await snapshot.contextStrategy.onCompactionCommitted?.(
+		const commitResult = await this.finalizeCommittedCompaction(
 			prepared.compaction,
 			preparationInput,
-			signal,
 			committedDocument,
+			turnId,
+			state,
+			signal,
+			snapshot,
 		);
-		await this.continueAfterCompaction(commitResult, turnId, state, signal);
 		const transformedMessages =
 			snapshot.modelCallContextTransformer && checkpoint.modelBinding
 				? await snapshot.modelCallContextTransformer.transform(
@@ -474,9 +479,9 @@ export class TurnPipeline {
 		turnId: string,
 		state: MutableTurnState,
 		signal: AbortSignal,
-	): Promise<void> {
+	): Promise<ConversationContinuationResult | undefined> {
 		const directive = commitResult?.continuation;
-		if (!directive) return;
+		if (!directive) return undefined;
 		const store = this.conversationContinuationStore;
 		if (!store) throw turnProtocolError("Context strategy requested continuation without a continuation store");
 		const snapshot = state.snapshot;
@@ -536,6 +541,49 @@ export class TurnPipeline {
 		state.version = result.version;
 		await this.onConversationContinued?.(result);
 		await this.notifyObserversSafely(snapshot, result.continuedEvent, signal);
+		return result;
+	}
+
+	private async finalizeCommittedCompaction(
+		record: ContextCompactionRecord,
+		input: ContextPreparationInput,
+		document: ConversationDocument | undefined,
+		turnId: string,
+		state: MutableTurnState,
+		signal: AbortSignal,
+		snapshot: RuntimeSnapshot,
+	): Promise<ContextCompactionCommitResult | undefined> {
+		const commitResult = await snapshot.contextStrategy.onCompactionCommitted?.(record, input, signal, document);
+		if (!commitResult?.continuation) return commitResult;
+
+		let continuationResult: ConversationContinuationResult;
+		try {
+			const result = await this.continueAfterCompaction(commitResult, turnId, state, signal);
+			if (!result) throw turnProtocolError("Conversation continuation did not produce a transition result");
+			continuationResult = result;
+		} catch (error) {
+			try {
+				await snapshot.contextStrategy.onCompactionContinuationFailed?.(record, input, error, signal);
+			} catch (notificationError) {
+				await this.publishSafely({
+					type: "observer.failed",
+					sessionId: state.sessionId,
+					turnId,
+					observerId: "context-strategy.continuation-failed",
+					error: errorMessage(notificationError),
+					timestamp: this.clock.now(),
+				});
+			}
+			throw error;
+		}
+
+		const finalization = await snapshot.contextStrategy.onCompactionContinuationCommitted?.(
+			record,
+			input,
+			continuationResult,
+			signal,
+		);
+		return finalization ? { ...commitResult, continueExecution: finalization.continueExecution } : commitResult;
 	}
 
 	private async collectProviderMessages(

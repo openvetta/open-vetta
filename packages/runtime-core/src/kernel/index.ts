@@ -27,6 +27,7 @@ export type {
 	CompiledRuntimeSnapshot,
 	ContextAppendedEvent,
 	ContextCompactionCommitResult,
+	ContextCompactionFinalizationResult,
 	ContextCompactionRecord,
 	ContextPreparationInput,
 	ContextProvider,

@@ -6,7 +6,9 @@ import {
 	CodingAgentContinuationOrchestrator,
 	CodingAgentGreenfieldContextRuntime,
 	type CodingAgentGreenfieldContextRuntimeOptions,
+	CodingAgentGreenfieldMemoryController,
 	CodingAgentGreenfieldPromptAdapter,
+	type CodingAgentMemoryController,
 	CodingAgentMemoryRolloverOrchestrator,
 	type CodingAgentMemoryRolloverOrchestratorOptions,
 	type CodingAgentMemoryRolloverRuntime,
@@ -36,6 +38,7 @@ import {
 	GreenfieldRuntimeSessionBackend,
 	type SessionConfig,
 } from "@vetta/runtime-core";
+import { selectConversationDocumentModelMessages } from "@vetta/runtime-core/conversation";
 import {
 	type AgentCoreTurnEngineOptions,
 	type AgentProfile,
@@ -127,6 +130,7 @@ export interface GreenfieldRuntimeCompositionOptions {
 export interface GreenfieldRuntimeComposition {
 	readonly backend: GreenfieldRuntimeSessionBackend<GreenfieldCliSessionOptions>;
 	readonly tools: CodingToolsRuntimeComposition;
+	flushMemory(sessionId: string, signal?: AbortSignal): Promise<number>;
 	dispose(): Promise<void>;
 }
 
@@ -190,6 +194,7 @@ export async function createGreenfieldRuntimeComposition(
 	const todoRuntimes = new Set<CodingAgentTodoRuntime>();
 	const contextRuntimes = new Set<CodingAgentGreenfieldContextRuntime>();
 	const memoryRuntimes = new Set<CodingAgentMemoryRolloverRuntime>();
+	const memoryControllers = new Map<string, CodingAgentMemoryController>();
 	const hookSessionDisposers = new Set<() => Promise<void>>();
 	const modelAdapter = new CodingAgentModelRegistryAdapter(options.modelRegistry);
 	const stateActivation =
@@ -255,6 +260,15 @@ export async function createGreenfieldRuntimeComposition(
 				catalog: modelAdapter,
 				credentials: modelAdapter,
 			});
+			const memoryController = memoryRuntime
+				? new CodingAgentGreenfieldMemoryController({
+						runtime: memoryRuntime,
+						readMessages: async () =>
+							selectConversationDocumentModelMessages(await repository.readDocument(activeSessionId)),
+						readModel: () => modelRuntime.readCurrentModel(),
+						resolveApiKey: (model) => modelRuntime.resolveApiKey(model),
+					})
+				: undefined;
 			const hookRuntime = createEcosystemHookRuntime({
 				host: {
 					cwd: sessionCwd,
@@ -403,11 +417,13 @@ export async function createGreenfieldRuntimeComposition(
 					memoryRuntimes.delete(memoryRuntime);
 					memoryRuntime.dispose();
 				}
+				if (memoryController) memoryControllers.delete(activeSessionId);
 				contextRuntime.dispose();
 				await todoRuntime.dispose();
 				throw error;
 			}
 			capabilityCompositions.add(capabilities);
+			if (memoryController) memoryControllers.set(activeSessionId, memoryController);
 			hookSessionDisposers.add(endHookSession);
 			const promptAdapter = new CodingAgentGreenfieldPromptAdapter({
 				resolvePromptResource:
@@ -461,10 +477,13 @@ export async function createGreenfieldRuntimeComposition(
 					},
 				},
 				onConversationContinued(result) {
-					memoryRuntime?.onConversationContinued(result);
 					const previousSessionId = activeSessionId;
 					activeSessionId = result.sessionId;
 					pluginSession.id = result.sessionId;
+					if (memoryController && memoryControllers.get(previousSessionId) === memoryController) {
+						memoryControllers.delete(previousSessionId);
+						memoryControllers.set(result.sessionId, memoryController);
+					}
 					if (mcpController && mcpControllers.get(previousSessionId) === mcpController) {
 						mcpControllers.delete(previousSessionId);
 						mcpControllers.set(result.sessionId, mcpController);
@@ -476,6 +495,9 @@ export async function createGreenfieldRuntimeComposition(
 					if (memoryRuntime) {
 						memoryRuntimes.delete(memoryRuntime);
 						memoryRuntime.dispose();
+					}
+					if (memoryControllers.get(activeSessionId) === memoryController) {
+						memoryControllers.delete(activeSessionId);
 					}
 					await endHookSession();
 					if (mcpControllers.get(activeSessionId) === mcpController) {
@@ -495,6 +517,9 @@ export async function createGreenfieldRuntimeComposition(
 	return {
 		backend,
 		tools,
+		async flushMemory(sessionId, signal) {
+			return (await memoryControllers.get(sessionId)?.flushMemory(signal)) ?? 0;
+		},
 		async dispose() {
 			if (disposed) return;
 			disposed = true;
@@ -509,6 +534,7 @@ export async function createGreenfieldRuntimeComposition(
 			todoRuntimes.clear();
 			contextRuntimes.clear();
 			memoryRuntimes.clear();
+			memoryControllers.clear();
 			hookSessionDisposers.clear();
 			mcpControllers.clear();
 			await repository.close();

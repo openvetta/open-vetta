@@ -34,7 +34,13 @@ export {
 	scoreCodingAgentDeferredMcpTools,
 } from "./greenfield-mcp-deferred-adapter.js";
 export {
+	CodingAgentGreenfieldMemoryController,
+	type CodingAgentGreenfieldMemoryControllerOptions,
+	type CodingAgentMemoryController,
+} from "./greenfield-memory-controller.js";
+export {
 	type CodingAgentMemoryCompactionPolicy,
+	type CodingAgentMemoryFlushInput,
 	CodingAgentMemoryRolloverOrchestrator,
 	type CodingAgentMemoryRolloverOrchestratorOptions,
 	type CodingAgentMemoryRolloverPreparation,

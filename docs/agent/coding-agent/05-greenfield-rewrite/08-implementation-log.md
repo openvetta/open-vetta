@@ -81,6 +81,7 @@
 | [71-session-manual-compaction.md](./08-implementation-log/71-session-manual-compaction.md) | Session 手动压缩、Extension 兼容与统一持久化提交边界 |
 | [72-cross-conversation-turn-continuation.md](./08-implementation-log/72-cross-conversation-turn-continuation.md) | 跨 Conversation Turn 续接事务、运行时身份与宿主路径重绑定 |
 | [73-memory-rollover-orchestrator.md](./08-implementation-log/73-memory-rollover-orchestrator.md) | Memory Rollover 产品编排、既有 MEMORY/Tool/JOURNAL 复用与默认关闭接线 |
+| [74-memory-rollover-finalization-and-flush-control.md](./08-implementation-log/74-memory-rollover-finalization-and-flush-control.md) | Rollover 后置时序兼容、continuation finalization 与主动 Memory Flush 控制 |
 
 ## 维护约定
 

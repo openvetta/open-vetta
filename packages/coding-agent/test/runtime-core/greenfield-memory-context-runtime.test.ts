@@ -3,13 +3,18 @@ import {
 	applyStoredEventToConversationDocument,
 	type ConversationDocument,
 	createEmptyConversationDocument,
+	createSeededConversationDocument,
 } from "@vetta/runtime-core/conversation";
-import type { ContextPreparationInput } from "@vetta/runtime-core/kernel";
+import type {
+	ContextCompactionRecord,
+	ContextPreparationInput,
+	ConversationContinuationResult,
+} from "@vetta/runtime-core/kernel";
 import { describe, expect, it, vi } from "vitest";
 import {
 	CodingAgentGreenfieldContextRuntime,
+	type CodingAgentMemoryFlushInput,
 	CodingAgentMemoryRolloverOrchestrator,
-	type CodingAgentMemoryRolloverPreparation,
 } from "../../src/adapters/runtime-core/index.js";
 import type { CompactionSettings } from "../../src/core/compaction/index.js";
 
@@ -23,20 +28,20 @@ describe("Greenfield memory rollover context integration", () => {
 		] satisfies Message[];
 		const document = documentFromMessages(history);
 		const flushMemory = vi.fn(
-			async (
-				_input: CodingAgentMemoryRolloverPreparation & {
-					readonly memoryFile: string;
-					readonly limit: number;
-				},
-			) => [],
+			async (_input: CodingAgentMemoryFlushInput & { readonly memoryFile: string; readonly limit: number }) => [],
 		);
+		const trace: string[] = [];
 		const memoryRollover = new CodingAgentMemoryRolloverOrchestrator({
 			memoryFile: "C:\\memory\\MEMORY.md",
 			cwd: "C:\\workspace",
 			flushMemory,
+			appendRolloverJournal: () => {
+				trace.push("journal");
+			},
 		});
+		const hooks = hookRuntime(trace);
 		const runtime = new CodingAgentGreenfieldContextRuntime({
-			hookRuntime: hookRuntime(),
+			hookRuntime: hooks,
 			resolveApiKey: () => "key",
 			resolveSettings: baseSettings,
 			generateCompaction: async (preparation) => ({
@@ -44,6 +49,12 @@ describe("Greenfield memory rollover context integration", () => {
 				firstKeptEntryId: preparation.firstKeptEntryId,
 				tokensBefore: preparation.tokensBefore,
 			}),
+			extensionRuntime: {
+				beforeCompaction: async () => undefined,
+				afterCompaction: async () => {
+					trace.push("extension");
+				},
+			},
 			memoryRollover,
 			now: () => 3,
 		});
@@ -57,26 +68,33 @@ describe("Greenfield memory rollover context integration", () => {
 			reason: "threshold",
 		});
 		expect(flushMemory).toHaveBeenCalledOnce();
-		expect(flushMemory.mock.calls[0]?.[0]?.preparation.messagesToSummarize.map(({ role }) => role)).toEqual([
-			"user",
-			"assistant",
-		]);
+		expect(flushMemory.mock.calls[0]?.[0]?.messages.map(({ role }) => role)).toEqual(["user", "assistant"]);
 		expect(committed).toEqual({
 			continueExecution: true,
 			continuation: { reason: "memory-rollover" },
 		});
+		expect(trace).toEqual(["journal"]);
+		expect(hooks.runPostCompact).not.toHaveBeenCalled();
+
+		trace.push("continuation");
+		const committedDocument = continuationDocument(prepared.compaction!);
+		const finalization = await runtime.onCompactionContinuationCommitted(
+			prepared.compaction!,
+			input,
+			continuationResult(committedDocument),
+			new AbortController().signal,
+		);
+
+		expect(finalization).toEqual({ continueExecution: true });
+		expect(hooks.runPostCompact).toHaveBeenCalledOnce();
+		expect(trace).toEqual(["journal", "continuation", "extension", "post-hook"]);
 	});
 
 	it("does not apply memory flush or continuation to manual compaction", async () => {
 		const history = [userMessage("old request", 1), assistantMessage("old response", 75, 2)] satisfies Message[];
 		const document = documentFromMessages(history);
 		const flushMemory = vi.fn(
-			async (
-				_input: CodingAgentMemoryRolloverPreparation & {
-					readonly memoryFile: string;
-					readonly limit: number;
-				},
-			) => [],
+			async (_input: CodingAgentMemoryFlushInput & { readonly memoryFile: string; readonly limit: number }) => [],
 		);
 		const memoryRollover = new CodingAgentMemoryRolloverOrchestrator({
 			memoryFile: "C:\\memory\\MEMORY.md",
@@ -111,6 +129,43 @@ describe("Greenfield memory rollover context integration", () => {
 
 		expect(record.reason).toBe("manual");
 		expect(flushMemory).not.toHaveBeenCalled();
+	});
+
+	it("applies PostCompact stop only after the continuation has committed", async () => {
+		const document = createEmptyConversationDocument({ sessionId: "session-1", createdAt: 0 });
+		const record: ContextCompactionRecord = {
+			summary: "overflow summary",
+			summaryMessage: userMessage("overflow summary", 2),
+			firstKeptEntryId: "entry-1",
+			tokensBefore: 100,
+			reason: "overflow",
+		};
+		const hooks = hookRuntime(undefined, true);
+		const memoryRollover = new CodingAgentMemoryRolloverOrchestrator({
+			memoryFile: "C:\\memory\\MEMORY.md",
+			cwd: "C:\\workspace",
+			appendRolloverJournal: () => {},
+		});
+		const runtime = new CodingAgentGreenfieldContextRuntime({
+			hookRuntime: hooks,
+			resolveApiKey: () => "key",
+			memoryRollover,
+		});
+		const input = preparationInput(document, []);
+
+		const committed = await runtime.onCompactionCommitted(record, input, new AbortController().signal, document);
+		expect(committed.continueExecution).toBe(true);
+		expect(hooks.runPostCompact).not.toHaveBeenCalled();
+
+		const finalized = await runtime.onCompactionContinuationCommitted(
+			record,
+			input,
+			continuationResult(continuationDocument(record)),
+			new AbortController().signal,
+		);
+
+		expect(finalized).toEqual({ continueExecution: false });
+		expect(hooks.runPostCompact).toHaveBeenCalledOnce();
 	});
 });
 
@@ -149,22 +204,73 @@ function documentFromMessages(messages: readonly Message[]): ConversationDocumen
 	return document;
 }
 
-function hookRuntime() {
+function hookRuntime(trace?: string[], postShouldStop = false) {
 	return {
 		runPreCompact: vi.fn(async () => hookOutcome()),
-		runPostCompact: vi.fn(async () => hookOutcome()),
+		runPostCompact: vi.fn(async () => {
+			trace?.push("post-hook");
+			return hookOutcome(postShouldStop);
+		}),
 		markSessionStart: vi.fn(),
 	};
 }
 
-function hookOutcome() {
+function hookOutcome(shouldStop = false) {
 	return {
-		shouldStop: false,
+		shouldStop,
 		shouldBlock: false,
 		additionalContexts: [],
 		continuationFragments: [],
 		runs: [],
 	};
+}
+
+function continuationResult(seedDocument: ConversationDocument): ConversationContinuationResult {
+	return {
+		sourceSessionId: "session-1",
+		sourceVersion: 5,
+		sessionId: "session-2",
+		version: 1,
+		seedConversation: { sessionId: "session-2", createdAt: 2, version: 0, messages: [], events: [] },
+		seedDocument,
+		transferredEvent: {
+			type: "turn.transferred",
+			sessionId: "session-1",
+			turnId: "turn-1",
+			targetSessionId: "session-2",
+			reason: "memory-rollover",
+			timestamp: 2,
+		},
+		continuedEvent: {
+			type: "turn.continued",
+			sessionId: "session-2",
+			turnId: "turn-1",
+			sourceSessionId: "session-1",
+			snapshotId: "snapshot-1",
+			reason: "memory-rollover",
+			timestamp: 2,
+		},
+	};
+}
+
+function continuationDocument(record: ContextCompactionRecord): ConversationDocument {
+	return createSeededConversationDocument(
+		{ sessionId: "session-2", createdAt: 2 },
+		[
+			{
+				type: "compaction",
+				id: "seed-1",
+				parentId: null,
+				timestamp: new Date(2).toISOString(),
+				summary: record.summary,
+				summaryMessage: record.summaryMessage,
+				firstKeptEntryId: "seed-1",
+				tokensBefore: record.tokensBefore,
+				reason: record.reason,
+			},
+		],
+		"seed-1",
+	);
 }
 
 function baseSettings(): CompactionSettings {

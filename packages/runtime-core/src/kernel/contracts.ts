@@ -163,6 +163,25 @@ export interface ContextStrategy {
 		signal: AbortSignal,
 		document?: ConversationDocument,
 	): Promise<ContextCompactionCommitResult>;
+	/**
+	 * 仅在通用跨 Conversation 事务及运行时身份重绑定成功后调用。
+	 * 产品层可在此完成必须观察到新 Conversation 身份的压缩后处理。
+	 */
+	onCompactionContinuationCommitted?(
+		record: ContextCompactionRecord,
+		input: ContextPreparationInput,
+		result: ConversationContinuationResult,
+		signal: AbortSignal,
+	): Promise<ContextCompactionFinalizationResult>;
+	/**
+	 * continuation 事务失败后的 best-effort 通知；不得替换原始事务错误。
+	 */
+	onCompactionContinuationFailed?(
+		record: ContextCompactionRecord,
+		input: ContextPreparationInput,
+		error: unknown,
+		signal: AbortSignal,
+	): Promise<void>;
 }
 
 export interface ContextCompactionCommitResult {
@@ -170,6 +189,11 @@ export interface ContextCompactionCommitResult {
 	readonly continueExecution: boolean;
 	/** 产品策略可请求在提交压缩事实后续接到新的持久化 Conversation。 */
 	readonly continuation?: ConversationContinuationDirective;
+}
+
+export interface ContextCompactionFinalizationResult {
+	/** continuation 已提交；false 只阻止后续错误恢复重试，不回滚续接事务。 */
+	readonly continueExecution: boolean;
 }
 
 export interface ConversationContinuationDirective {
