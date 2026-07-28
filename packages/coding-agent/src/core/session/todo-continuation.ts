@@ -5,7 +5,7 @@
  * passed in and the next one returned, so the facade owns the mutable state.
  */
 
-import type { AgentMessage } from "@vetta/agent-core";
+import type { UserMessage } from "@vetta/ai";
 import type { CustomEntry, SessionManager } from "../session-manager/index.js";
 import { TODO_SNAPSHOT_TYPE, type TodoSnapshot, type TodoStore } from "../todo-store.js";
 
@@ -29,10 +29,12 @@ export function restoreTodoFromSession(sessionManager: SessionManager, todoStore
 }
 
 export interface TodoContinuationResult {
-	messages: AgentMessage[];
+	messages: UserMessage[];
 	/** New value for the ad-hoc nudge signature (caller persists it). */
 	nextNudgeSignature: string | undefined;
 }
+
+export type TodoContinuationState = Pick<TodoStore, "getAll" | "isLocked">;
 
 /**
  * Build follow-up messages for uncompleted todo items.
@@ -40,8 +42,9 @@ export interface TodoContinuationResult {
  * decides whether to exit.
  */
 export function buildTodoContinuationMessages(
-	todoStore: TodoStore,
+	todoStore: TodoContinuationState,
 	lastNudgeSignature: string | undefined,
+	now: () => number = Date.now,
 ): TodoContinuationResult {
 	const items = todoStore.getAll();
 	if (items.length === 0) return { messages: [], nextNudgeSignature: lastNudgeSignature };
@@ -68,7 +71,7 @@ export function buildTodoContinuationMessages(
 							text: `[ephemeral:todo] You have ${pending.length} uncompleted todo items (${doneCount}/${items.length} done). You MUST continue working on them before stopping.\n\nRemaining:\n${pendingList}\n\nYou MUST work on item #${nextItem.id} next: "${nextItem.content}"\nCall todo(action="update", id=${nextItem.id}, status="in_progress") first, then do the work, then mark it done. Do NOT skip to a later item.`,
 						},
 					],
-					timestamp: Date.now(),
+					timestamp: now(),
 				},
 			],
 			nextNudgeSignature: lastNudgeSignature,
@@ -93,7 +96,7 @@ export function buildTodoContinuationMessages(
 						text: `[ephemeral:todo] You still have ${pending.length} uncompleted todo items (${doneCount}/${items.length} done):\n${pendingList}\n\nIf this plan still applies, keep going — work on item #${nextItem.id} next ("${nextItem.content}"): call todo(action="update", id=${nextItem.id}, status="in_progress"). You may reprioritize freely.\nIf the user's latest request has superseded this plan, call todo(action="clear") to abandon it, then proceed with what the user actually wants.`,
 					},
 				],
-				timestamp: Date.now(),
+				timestamp: now(),
 			},
 		],
 		nextNudgeSignature: signature,

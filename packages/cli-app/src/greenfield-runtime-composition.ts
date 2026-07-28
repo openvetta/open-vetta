@@ -1,6 +1,7 @@
 import { createKbFilterByTagsTool, createKbListTagsTool } from "@vetta/coding-agent";
 import {
 	adaptCodingAgentToolRegistration,
+	CodingAgentContinuationOrchestrator,
 	CodingAgentGreenfieldPromptAdapter,
 	CodingAgentModelCallFrameComposer,
 	CodingAgentModelRegistryAdapter,
@@ -10,8 +11,12 @@ import {
 	type CodingAgentPluginToolActivation,
 	CodingAgentPluginToolRuntime,
 	type CodingAgentPromptResourceResolver,
+	CodingAgentStopHookContinuationSource,
+	type CodingAgentStopHookInvoker,
 	type CodingAgentSystemPromptOptionsResolver,
+	CodingAgentTodoContinuationSource,
 	createCodingAgentPromptRuntime,
+	type TodoContinuationState,
 } from "@vetta/coding-agent/runtime-host/greenfield";
 import {
 	ComposedGreenfieldRuntimeFactory,
@@ -81,6 +86,14 @@ export interface GreenfieldRuntimeCompositionOptions {
 	readonly createPluginRuntime?: (
 		sessionOptions: GreenfieldCliSessionOptions,
 	) => CodingAgentPluginRuntimeSource | undefined;
+	/** 为每个 Session 绑定 Todo 状态；该状态应与同 Session 的 Todo Tool 共享。 */
+	readonly createTodoContinuationState?: (
+		sessionOptions: GreenfieldCliSessionOptions,
+	) => TodoContinuationState | undefined;
+	/** 为每个 Session 绑定既有 Ecosystem Stop Hook bridge。 */
+	readonly createStopHookInvoker?: (
+		sessionOptions: GreenfieldCliSessionOptions,
+	) => CodingAgentStopHookInvoker | undefined;
 }
 
 export interface GreenfieldRuntimeComposition {
@@ -208,6 +221,22 @@ export async function createGreenfieldRuntimeComposition(
 								),
 						})
 					: undefined;
+			const todoContinuationState = options.createTodoContinuationState?.(sessionOptions);
+			const todoContinuationSource = todoContinuationState
+				? new CodingAgentTodoContinuationSource({ state: todoContinuationState })
+				: undefined;
+			const stopHookInvoker = options.createStopHookInvoker?.(sessionOptions);
+			const stopHookContinuationSource = stopHookInvoker
+				? new CodingAgentStopHookContinuationSource({ invoke: stopHookInvoker })
+				: undefined;
+			const continuationOrchestrator =
+				todoContinuationSource || pluginRunOrchestrator || stopHookContinuationSource
+					? new CodingAgentContinuationOrchestrator({
+							todo: todoContinuationSource,
+							plugin: pluginRunOrchestrator,
+							stopHook: stopHookContinuationSource,
+						})
+					: undefined;
 			const injectedSystemPromptOptionsResolver =
 				options.createSystemPromptOptionsResolver?.(sessionOptions) ?? options.resolveSystemPromptOptions;
 			const promptRuntime = injectedSystemPromptOptionsResolver
@@ -226,7 +255,7 @@ export async function createGreenfieldRuntimeComposition(
 			}
 			const profile: AgentProfile = {
 				...baseProfile,
-				continuationPolicy: pluginRunOrchestrator,
+				continuationPolicy: continuationOrchestrator,
 				modelCallFrameComposer: new CodingAgentModelCallFrameComposer({
 					readMcpPromptState: mcpController ? () => mcpController.readPromptState() : undefined,
 					readAvailableTools: () =>

@@ -3,6 +3,11 @@ export {
 	type LegacyRuntimeHostOptions,
 } from "./composition.js";
 export {
+	CodingAgentContinuationOrchestrator,
+	type CodingAgentContinuationOrchestratorOptions,
+	type CodingAgentContinuationSource,
+} from "./greenfield-continuation-orchestrator.js";
+export {
 	type CodingAgentDeferredMcpTool,
 	createCodingAgentToolSearchRuntimeTool,
 	renderCodingAgentMcpToolsInstruction,
@@ -53,6 +58,16 @@ export {
 	type CreateCodingAgentPromptRuntimeOptions,
 	createCodingAgentPromptRuntime,
 } from "./greenfield-prompt-runtime.js";
+export {
+	CodingAgentStopHookContinuationSource,
+	type CodingAgentStopHookContinuationSourceOptions,
+	type CodingAgentStopHookInvoker,
+} from "./greenfield-stop-hook-continuation-source.js";
+export {
+	CodingAgentTodoContinuationSource,
+	type CodingAgentTodoContinuationSourceOptions,
+	type TodoContinuationState,
+} from "./greenfield-todo-continuation-source.js";
 export {
 	adaptCodingAgentToolRegistration,
 	type CodingAgentRuntimeToolRegistration,

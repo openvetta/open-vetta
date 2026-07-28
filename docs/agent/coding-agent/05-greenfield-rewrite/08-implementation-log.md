@@ -73,6 +73,7 @@
 | [63-cli-typecheck-and-build-surface-gate.md](./08-implementation-log/63-cli-typecheck-and-build-surface-gate.md) | CLI 显式类型门禁与 Build Surface 声明消费验证 |
 | [64-dynamic-plugin-run-and-continuation-policy.md](./08-implementation-log/64-dynamic-plugin-run-and-continuation-policy.md) | 动态 Plugin Run Orchestrator 与通用 Continuation Policy |
 | [65-session-local-plugin-tool-runtime.md](./08-implementation-log/65-session-local-plugin-tool-runtime.md) | Session-local Plugin Tool Runtime、动态撤销与同 Turn Effect |
+| [66-product-continuation-orchestrator.md](./08-implementation-log/66-product-continuation-orchestrator.md) | 产品级 Continuation Orchestrator 与 Todo/Plugin/Stop Hook 收敛 |
 
 ## 维护约定
 
