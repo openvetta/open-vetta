@@ -7,11 +7,7 @@ import type {
 	MarketplaceSource,
 	UpdateMarketplaceSourceInput,
 } from "../../../preload/api-types/abilities.js";
-import {
-	DEFAULT_MARKETPLACE_ARCHIVE_URL,
-	DEFAULT_MARKETPLACE_REPOSITORY,
-	DEFAULT_MARKETPLACE_SOURCE_ID,
-} from "./open-marketplace-service.js";
+import { DEFAULT_MARKETPLACE_SOURCE_ID } from "./open-marketplace-service.js";
 
 const SOURCE_FILE_VERSION = 1;
 const SOURCE_ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,95}$/;
@@ -124,27 +120,28 @@ function parseSource(value: unknown): MarketplaceSource | null {
 	}
 }
 
-function createDefaultSource(now: Date): MarketplaceSource {
-	const configuredRepository = process.env.VETTA_OPEN_MARKETPLACE_REPOSITORY;
-	const repository = configuredRepository ?? DEFAULT_MARKETPLACE_REPOSITORY;
-	const normalizedRepository = normalizeGitHubRepository(repository);
+function createDefaultSources(now: Date): MarketplaceSource[] {
+	const configuredRepository = process.env.VETTA_OPEN_MARKETPLACE_REPOSITORY?.trim();
+	if (!configuredRepository) return [];
+	const normalizedRepository = normalizeGitHubRepository(configuredRepository);
+	const ref = validateRef(process.env.VETTA_OPEN_MARKETPLACE_REF);
 	const timestamp = now.toISOString();
-	return {
-		id: DEFAULT_MARKETPLACE_SOURCE_ID,
-		name: repositoryName(normalizedRepository),
-		type: "github",
-		repository: normalizedRepository,
-		archiveUrl:
-			process.env.VETTA_OPEN_MARKETPLACE_ARCHIVE_URL ??
-			(configuredRepository ? marketplaceArchiveUrl(normalizedRepository, "main") : DEFAULT_MARKETPLACE_ARCHIVE_URL),
-		ref: "main",
-		enabled: true,
-		builtin: true,
-		autoUpdate: true,
-		priority: 100,
-		createdAt: timestamp,
-		updatedAt: timestamp,
-	};
+	return [
+		{
+			id: DEFAULT_MARKETPLACE_SOURCE_ID,
+			name: repositoryName(normalizedRepository),
+			type: "github",
+			repository: normalizedRepository,
+			archiveUrl: process.env.VETTA_OPEN_MARKETPLACE_ARCHIVE_URL ?? marketplaceArchiveUrl(normalizedRepository, ref),
+			ref,
+			enabled: true,
+			builtin: true,
+			autoUpdate: true,
+			priority: 100,
+			createdAt: timestamp,
+			updatedAt: timestamp,
+		},
+	];
 }
 
 export class MarketplaceSourceStore {
@@ -155,15 +152,17 @@ export class MarketplaceSourceStore {
 	constructor(options: MarketplaceSourceStoreOptions = {}) {
 		this.filePath = options.filePath ?? join(getVettaHomePath(), "open-marketplaces", "sources.json");
 		this.now = options.now ?? (() => new Date());
-		this.defaultSources = options.defaultSources ?? [createDefaultSource(this.now())];
+		this.defaultSources = options.defaultSources ?? createDefaultSources(this.now());
 	}
 
 	list(): MarketplaceSource[] {
 		const file = this.readFile();
 		if (file) {
-			const sources = [...file.sources];
-			let changed = false;
-			for (const configured of this.defaultSources.filter((source) => source.builtin)) {
+			const configuredBuiltins = this.defaultSources.filter((source) => source.builtin);
+			const configuredBuiltinIds = new Set(configuredBuiltins.map((source) => source.id));
+			const sources = file.sources.filter((source) => !source.builtin || configuredBuiltinIds.has(source.id));
+			let changed = sources.length !== file.sources.length;
+			for (const configured of configuredBuiltins) {
 				const index = sources.findIndex((source) => source.id === configured.id);
 				const current = sources[index];
 				if (!current) {

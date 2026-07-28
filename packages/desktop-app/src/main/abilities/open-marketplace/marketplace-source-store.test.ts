@@ -6,6 +6,14 @@ import type { MarketplaceSource } from "../../../preload/api-types/abilities";
 import { MarketplaceSourceStore } from "./marketplace-source-store";
 
 const temporaryRoots: string[] = [];
+const originalRepository = process.env.VETTA_OPEN_MARKETPLACE_REPOSITORY;
+const originalRef = process.env.VETTA_OPEN_MARKETPLACE_REF;
+const originalArchiveUrl = process.env.VETTA_OPEN_MARKETPLACE_ARCHIVE_URL;
+
+function restoreEnvironment(name: string, value: string | undefined): void {
+	if (value === undefined) delete process.env[name];
+	else process.env[name] = value;
+}
 
 async function temporaryFile(): Promise<string> {
 	const root = await mkdtemp(join(tmpdir(), "vetta-marketplace-sources-test-"));
@@ -32,9 +40,41 @@ function builtinSource(): MarketplaceSource {
 
 afterEach(async () => {
 	await Promise.all(temporaryRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+	restoreEnvironment("VETTA_OPEN_MARKETPLACE_REPOSITORY", originalRepository);
+	restoreEnvironment("VETTA_OPEN_MARKETPLACE_REF", originalRef);
+	restoreEnvironment("VETTA_OPEN_MARKETPLACE_ARCHIVE_URL", originalArchiveUrl);
 });
 
 describe("MarketplaceSourceStore", () => {
+	it("does not create a built-in source without an environment repository", async () => {
+		delete process.env.VETTA_OPEN_MARKETPLACE_REPOSITORY;
+		delete process.env.VETTA_OPEN_MARKETPLACE_REF;
+		delete process.env.VETTA_OPEN_MARKETPLACE_ARCHIVE_URL;
+		const store = new MarketplaceSourceStore({ filePath: await temporaryFile() });
+
+		expect(store.list()).toEqual([]);
+
+		const persistedFile = await temporaryFile();
+		new MarketplaceSourceStore({ filePath: persistedFile, defaultSources: [builtinSource()] }).list();
+		expect(new MarketplaceSourceStore({ filePath: persistedFile }).list()).toEqual([]);
+	});
+
+	it("creates the built-in source entirely from environment configuration", async () => {
+		process.env.VETTA_OPEN_MARKETPLACE_REPOSITORY = "https://github.com/example/environment-market";
+		process.env.VETTA_OPEN_MARKETPLACE_REF = "testing/v2";
+		delete process.env.VETTA_OPEN_MARKETPLACE_ARCHIVE_URL;
+		const store = new MarketplaceSourceStore({ filePath: await temporaryFile() });
+
+		expect(store.list()).toMatchObject([
+			{
+				id: "vetta-official",
+				repository: "https://github.com/example/environment-market",
+				ref: "testing/v2",
+				archiveUrl: "https://github.com/example/environment-market/archive/refs/heads/testing/v2.zip",
+			},
+		]);
+	});
+
 	it("persists the built-in source on first read", async () => {
 		const filePath = await temporaryFile();
 		const store = new MarketplaceSourceStore({ filePath, defaultSources: [builtinSource()] });

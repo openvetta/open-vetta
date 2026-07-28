@@ -10,12 +10,7 @@ import type {
 	UpdateMarketplaceSourceInput,
 } from "../../../preload/api-types/abilities.js";
 import { MarketplaceSourceStore } from "./marketplace-source-store.js";
-import {
-	DEFAULT_MARKETPLACE_ARCHIVE_URL,
-	DEFAULT_MARKETPLACE_REPOSITORY,
-	DEFAULT_MARKETPLACE_SOURCE_ID,
-	OpenMarketplaceService,
-} from "./open-marketplace-service.js";
+import { DEFAULT_MARKETPLACE_SOURCE_ID, OpenMarketplaceService } from "./open-marketplace-service.js";
 
 interface MarketplaceWorker {
 	list(): Promise<OpenMarketplaceSnapshot>;
@@ -30,21 +25,18 @@ export interface OpenMarketplaceManagerOptions {
 	appVersion: string;
 	store?: MarketplaceSourceStore;
 	cacheRoot?: string;
-	legacyDefaultRoot?: string;
 	workerFactory?: MarketplaceWorkerFactory;
 }
 
 export class OpenMarketplaceManager {
 	private readonly store: MarketplaceSourceStore;
 	private readonly cacheRoot: string;
-	private readonly legacyDefaultRoot: string;
 	private readonly workerFactory: MarketplaceWorkerFactory;
 	private readonly workers = new Map<string, { fingerprint: string; worker: MarketplaceWorker }>();
 
 	constructor(options: OpenMarketplaceManagerOptions) {
 		this.store = options.store ?? new MarketplaceSourceStore();
 		this.cacheRoot = options.cacheRoot ?? join(getVettaHomePath(), "open-marketplaces", "cache");
-		this.legacyDefaultRoot = options.legacyDefaultRoot ?? join(getVettaHomePath(), "open-marketplace");
 		this.workerFactory =
 			options.workerFactory ??
 			((source, cacheRoot) =>
@@ -150,14 +142,7 @@ export class OpenMarketplaceManager {
 		const fingerprint = `${source.repository}\n${source.archiveUrl}\n${source.ref}`;
 		const existing = this.workers.get(source.id);
 		if (existing?.fingerprint === fingerprint) return existing.worker;
-		const usesLegacyDefaultCache =
-			source.id === DEFAULT_MARKETPLACE_SOURCE_ID &&
-			source.repository === DEFAULT_MARKETPLACE_REPOSITORY &&
-			source.archiveUrl === DEFAULT_MARKETPLACE_ARCHIVE_URL &&
-			source.ref === "main";
-		const cacheRoot = usesLegacyDefaultCache
-			? this.legacyDefaultRoot
-			: join(this.cacheRoot, source.id, createHash("sha256").update(fingerprint).digest("hex"));
+		const cacheRoot = join(this.cacheRoot, source.id, createHash("sha256").update(fingerprint).digest("hex"));
 		const worker = this.workerFactory(source, cacheRoot);
 		this.workers.set(source.id, { fingerprint, worker });
 		return worker;

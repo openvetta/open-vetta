@@ -2,12 +2,20 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import AdmZip from "adm-zip";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GitHubMarketplaceOrigin } from "../../../preload/api-types/abilities";
 import { OpenMarketplaceService } from "./open-marketplace-service";
 
 const temporaryRoots: string[] = [];
 const APP_VERSION = "0.5.11";
+const originalRepository = process.env.VETTA_OPEN_MARKETPLACE_REPOSITORY;
+const originalRef = process.env.VETTA_OPEN_MARKETPLACE_REF;
+const originalArchiveUrl = process.env.VETTA_OPEN_MARKETPLACE_ARCHIVE_URL;
+
+function restoreEnvironment(name: string, value: string | undefined): void {
+	if (value === undefined) delete process.env[name];
+	else process.env[name] = value;
+}
 
 async function temporaryRoot(): Promise<string> {
 	const root = await mkdtemp(join(tmpdir(), "vetta-open-marketplace-test-"));
@@ -59,8 +67,17 @@ function response(buffer: Buffer): Response {
 	});
 }
 
+beforeEach(() => {
+	process.env.VETTA_OPEN_MARKETPLACE_REPOSITORY = "https://github.com/example/vetta-abilities";
+	process.env.VETTA_OPEN_MARKETPLACE_REF = "main";
+	delete process.env.VETTA_OPEN_MARKETPLACE_ARCHIVE_URL;
+});
+
 afterEach(async () => {
 	await Promise.all(temporaryRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+	restoreEnvironment("VETTA_OPEN_MARKETPLACE_REPOSITORY", originalRepository);
+	restoreEnvironment("VETTA_OPEN_MARKETPLACE_REF", originalRef);
+	restoreEnvironment("VETTA_OPEN_MARKETPLACE_ARCHIVE_URL", originalArchiveUrl);
 });
 
 describe("OpenMarketplaceService", () => {
