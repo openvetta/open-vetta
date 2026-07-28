@@ -16,6 +16,8 @@ import type { RuntimeObservation, RuntimeObservationUpdate } from "@vetta/runtim
 import { AgentToolExecutionError } from "./tool-execution-error.js";
 import type {
 	AgentContext,
+	AgentContextCheckpointReason,
+	AgentContextCheckpointResult,
 	AgentEvent,
 	AgentLoopConfig,
 	AgentMessage,
@@ -131,6 +133,7 @@ async function runLoop(
 		{ type: "agent" },
 	);
 	let firstTurn = true;
+	let recoveryAttempt = 0;
 	// Check for steering messages at start (user may have typed while waiting)
 	let pendingMessages: AgentMessage[] = (await config.getSteeringMessages?.()) || [];
 
@@ -180,6 +183,21 @@ async function runLoop(
 
 				if (message.stopReason === "error") {
 					stream.push({ type: "turn_end", message, toolResults: [] });
+					if (config.contextCheckpoints) {
+						const recovery = await requestContextCheckpoint(
+							"assistant_error",
+							currentContext.messages,
+							recoveryAttempt,
+							stream,
+							message,
+						);
+						if (recovery?.retry) {
+							recoveryAttempt += 1;
+							currentContext.messages = [...(recovery.contextMessages ?? recovery.messages)];
+							pendingMessages = (await config.getSteeringMessages?.()) || [];
+							continue;
+						}
+					}
 					stream.push({ type: "agent_end", messages: newMessages });
 					stream.end(newMessages);
 					return;
@@ -212,6 +230,26 @@ async function runLoop(
 
 				stream.push({ type: "turn_end", message, toolResults });
 
+				if (!hasMoreToolCalls && config.contextCheckpoints) {
+					const result = await requestContextCheckpoint(
+						"assistant_result",
+						currentContext.messages,
+						recoveryAttempt,
+						stream,
+						message,
+					);
+					if (result?.contextMessages) {
+						currentContext.messages = [...result.contextMessages];
+					}
+					if (result?.retry) {
+						recoveryAttempt += 1;
+						currentContext.messages = [...(result.contextMessages ?? result.messages)];
+						pendingMessages = (await config.getSteeringMessages?.()) || [];
+						hasMoreToolCalls = true;
+						continue;
+					}
+				}
+
 				// Get steering messages after turn completes
 				if (steeringAfterTools && steeringAfterTools.length > 0) {
 					pendingMessages = steeringAfterTools;
@@ -242,6 +280,11 @@ async function runLoop(
 			level: "ERROR",
 			statusMessage: getErrorMessage(error),
 		});
+		if (error instanceof AgentContextCheckpointFailure) {
+			stream.push({ type: "agent_end", messages: newMessages });
+			stream.end(newMessages);
+			return;
+		}
 		throw error;
 	} finally {
 		const usageDetails = aggregateUsage(newMessages);
@@ -291,6 +334,16 @@ async function streamAssistantResponse(
 	let messages = context.messages;
 	if (config.transformContext) {
 		messages = await config.transformContext(messages, signal);
+	}
+
+	if (config.contextCheckpoints) {
+		const prepared = await requestContextCheckpoint("model_call", messages, 0, stream);
+		if (prepared) {
+			messages = [...prepared.messages];
+			if (prepared.contextMessages) {
+				context.messages = [...prepared.contextMessages];
+			}
+		}
 	}
 
 	// Convert to LLM-compatible messages (AgentMessage[] → Message[])
@@ -400,6 +453,44 @@ async function streamAssistantResponse(
 		});
 		throw error;
 	}
+}
+
+class AgentContextCheckpointFailure extends Error {
+	constructor(cause: unknown) {
+		super("Agent context checkpoint failed", { cause });
+		this.name = "AgentContextCheckpointFailure";
+	}
+}
+
+function requestContextCheckpoint(
+	reason: AgentContextCheckpointReason,
+	messages: readonly AgentMessage[],
+	recoveryAttempt: number,
+	stream: EventStream<AgentEvent, AgentMessage[]>,
+	assistantMessage?: AssistantMessage,
+): Promise<AgentContextCheckpointResult | undefined> {
+	return new Promise((resolve, reject) => {
+		let settled = false;
+		stream.push({
+			type: "context_checkpoint",
+			request: {
+				reason,
+				messages: [...messages],
+				assistantMessage,
+				recoveryAttempt,
+				complete(result) {
+					if (settled) return;
+					settled = true;
+					resolve(result);
+				},
+				fail(error) {
+					if (settled) return;
+					settled = true;
+					reject(new AgentContextCheckpointFailure(error));
+				},
+			},
+		});
+	});
 }
 
 /**

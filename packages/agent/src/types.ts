@@ -1,5 +1,6 @@
 import type { Static, TSchema } from "@sinclair/typebox";
 import type {
+	AssistantMessage,
 	AssistantMessageEvent,
 	ImageContent,
 	Message,
@@ -26,6 +27,26 @@ export interface AgentCallContextRequest {
 export interface AgentCallContext {
 	readonly systemPrompt: string;
 	readonly tools?: NonNullable<AgentContext["tools"]>;
+}
+
+export type AgentContextCheckpointReason = "model_call" | "assistant_result" | "assistant_error";
+
+export interface AgentContextCheckpointResult {
+	/** 本次模型调用使用的消息视图。 */
+	readonly messages: readonly AgentMessage[];
+	/** 持久压缩成功后，用它替换 Agent Loop 内部上下文；缺省时保持原上下文。 */
+	readonly contextMessages?: readonly AgentMessage[];
+	/** 仅 assistant_error 检查点使用；true 表示用返回的上下文重试。 */
+	readonly retry?: boolean;
+}
+
+export interface AgentContextCheckpointRequest {
+	readonly reason: AgentContextCheckpointReason;
+	readonly messages: readonly AgentMessage[];
+	readonly assistantMessage?: AssistantMessage;
+	readonly recoveryAttempt: number;
+	complete(result?: AgentContextCheckpointResult): void;
+	fail(error: unknown): void;
 }
 
 /**
@@ -87,6 +108,14 @@ export interface AgentLoopConfig extends SimpleStreamOptions {
 	 * without mutating the message history or restarting the loop.
 	 */
 	resolveCallContext?: (context: AgentCallContextRequest, signal?: AbortSignal) => Promise<AgentCallContext>;
+
+	/**
+	 * 在每次模型调用前以及 assistant error 后发出请求—应答检查点。
+	 *
+	 * 仅需要将模型循环与外部持久化 Pipeline 串行化的宿主启用。普通 Agent
+	 * 调用保持关闭，不会产生额外事件或改变既有执行顺序。
+	 */
+	contextCheckpoints?: boolean;
 
 	/**
 	 * Resolves an API key dynamically for each LLM call.
@@ -262,6 +291,8 @@ export type AgentEvent =
 	// Only emitted for assistant messages during streaming
 	| { type: "message_update"; message: AgentMessage; assistantMessageEvent: AssistantMessageEvent }
 	| { type: "message_end"; message: AgentMessage }
+	// Host request-response checkpoint; emitted only when contextCheckpoints is enabled.
+	| { type: "context_checkpoint"; request: AgentContextCheckpointRequest }
 	// Tool execution lifecycle
 	| { type: "tool_execution_start"; toolCallId: string; toolName: string; args: any; startedAt: number }
 	| { type: "tool_execution_update"; toolCallId: string; toolName: string; args: any; partialResult: any }

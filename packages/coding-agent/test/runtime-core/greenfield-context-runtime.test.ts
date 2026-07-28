@@ -75,8 +75,13 @@ describe("CodingAgentGreenfieldContextRuntime", () => {
 		expect(hooks.runPostCompact).not.toHaveBeenCalled();
 		expect(observations).toEqual([{ type: "compaction.start", reason: "threshold", source: "agent" }]);
 
-		await runtime.onCompactionCommitted(prepared.compaction!, input, new AbortController().signal);
+		const commitResult = await runtime.onCompactionCommitted(
+			prepared.compaction!,
+			input,
+			new AbortController().signal,
+		);
 
+		expect(commitResult).toEqual({ continueExecution: true });
 		expect(hooks.runPostCompact).toHaveBeenCalledWith("auto", expect.any(AbortSignal));
 		expect(hooks.markSessionStart).toHaveBeenCalledWith("compact");
 		expect(observations).toEqual([{ type: "compaction.start", reason: "threshold", source: "agent" }]);
@@ -119,6 +124,135 @@ describe("CodingAgentGreenfieldContextRuntime", () => {
 				source: "agent",
 			},
 		]);
+	});
+
+	it("compacts at a same-turn model-call checkpoint and preserves transient provider context", async () => {
+		const persistentMessages = [
+			userMessage("old request".repeat(40), 1),
+			assistantMessage("old response", 90, 2),
+			userMessage("kept request", 3),
+			toolResultMessage(1),
+		] satisfies Message[];
+		const providerMessage = userMessage("provider context", 10);
+		const runtime = new CodingAgentGreenfieldContextRuntime({
+			hookRuntime: createHookRuntime(),
+			resolveApiKey: () => "key",
+			resolveSettings: () => ({ ...compactingSettings(), keepRecentTokens: 5 }),
+			generateCompaction: async (preparation) => ({
+				summary: "summary",
+				firstKeptEntryId: preparation.firstKeptEntryId,
+				tokensBefore: preparation.tokensBefore,
+			}),
+			now: () => 42,
+		});
+		const observations: RuntimeSessionObservationEvent[] = [];
+		const input: ContextPreparationInput = {
+			...preparationInput(
+				documentFromMessages(persistentMessages),
+				persistentMessages,
+				[persistentMessages[0], persistentMessages[1], providerMessage, ...persistentMessages.slice(2)],
+				observations,
+			),
+			reason: "model_call",
+			transientMessages: [providerMessage],
+		};
+
+		const prepared = await runtime.prepare(input, new AbortController().signal);
+
+		expect(prepared.compaction?.reason).toBe("threshold");
+		expect(prepared.messages.map(messageText)).toEqual([
+			`${COMPACTION_SUMMARY_PREFIX}summary${COMPACTION_SUMMARY_SUFFIX}`,
+			"provider context",
+			"kept request",
+			"result-1",
+		]);
+		expect(observations).toEqual([{ type: "compaction.start", reason: "threshold", source: "agent" }]);
+	});
+
+	it("compacts and retries only the first matching-model overflow without retaining the error message", async () => {
+		const overflow = overflowAssistantMessage(4);
+		const messages = [
+			userMessage("old request".repeat(40), 1),
+			assistantMessage("old response", 90, 2),
+			userMessage("kept request", 3),
+			overflow,
+		] satisfies Message[];
+		const generateCompaction = vi.fn(
+			async (preparation: CompactionPreparation): Promise<CompactionResult> => ({
+				summary: "overflow summary",
+				firstKeptEntryId: preparation.firstKeptEntryId,
+				tokensBefore: preparation.tokensBefore,
+			}),
+		);
+		const runtime = new CodingAgentGreenfieldContextRuntime({
+			hookRuntime: createHookRuntime(),
+			resolveApiKey: () => "key",
+			resolveSettings: compactingSettings,
+			generateCompaction,
+			now: () => 42,
+		});
+		const observations: RuntimeSessionObservationEvent[] = [];
+		const baseInput = preparationInput(documentFromMessages(messages), messages, messages, observations);
+
+		const prepared = await runtime.prepare(
+			{
+				...baseInput,
+				reason: "assistant_error",
+				triggeringAssistantMessage: overflow,
+				recoveryAttempt: 0,
+			},
+			new AbortController().signal,
+		);
+		const repeated = await runtime.prepare(
+			{
+				...baseInput,
+				reason: "assistant_error",
+				triggeringAssistantMessage: overflow,
+				recoveryAttempt: 1,
+			},
+			new AbortController().signal,
+		);
+
+		expect(generateCompaction).toHaveBeenCalledOnce();
+		expect(prepared.compaction?.reason).toBe("overflow");
+		expect(prepared.messages.map(messageText)).not.toContain("prompt is too long");
+		expect(repeated.compaction).toBeUndefined();
+		expect(observations).toEqual([{ type: "compaction.start", reason: "overflow", source: "agent" }]);
+	});
+
+	it("treats a successful response whose input usage exceeds the context window as overflow", async () => {
+		const silentOverflow = assistantMessage("truncated response", 101, 4);
+		const messages = [
+			userMessage("old request".repeat(40), 1),
+			assistantMessage("old response", 90, 2),
+			userMessage("kept request", 3),
+			silentOverflow,
+		] satisfies Message[];
+		const runtime = new CodingAgentGreenfieldContextRuntime({
+			hookRuntime: createHookRuntime(),
+			resolveApiKey: () => "key",
+			resolveSettings: compactingSettings,
+			generateCompaction: async (preparation) => ({
+				summary: "overflow summary",
+				firstKeptEntryId: preparation.firstKeptEntryId,
+				tokensBefore: preparation.tokensBefore,
+			}),
+		});
+		const observations: RuntimeSessionObservationEvent[] = [];
+
+		const prepared = await runtime.prepare(
+			{
+				...preparationInput(documentFromMessages(messages), messages, messages, observations),
+				reason: "assistant_result",
+				triggeringAssistantMessage: silentOverflow,
+				recoveryAttempt: 0,
+			},
+			new AbortController().signal,
+		);
+
+		expect(prepared.compaction?.reason).toBe("overflow");
+		expect(prepared.messages.map(messageText)).not.toContain("truncated response");
+		expect(observations).toEqual([{ type: "compaction.start", reason: "overflow", source: "agent" }]);
 	});
 
 	it("microcompacts every model call without mutating persisted messages", async () => {
@@ -253,6 +387,14 @@ function assistantMessage(text: string, totalTokens: number, timestamp: number):
 		},
 		stopReason: "stop",
 		timestamp,
+	};
+}
+
+function overflowAssistantMessage(timestamp: number): AssistantMessage {
+	return {
+		...assistantMessage("prompt is too long", 0, timestamp),
+		stopReason: "error",
+		errorMessage: "prompt is too long: 101 tokens > 100 maximum",
 	};
 }
 

@@ -397,6 +397,70 @@ describe("AgentCoreTurnEngine", () => {
 		).toEqual(["assistant", "toolResult", "assistant"]);
 	});
 
+	it("bridges ordered model-call checkpoints without changing the default engine path", async () => {
+		const responses = [
+			assistantMessage(
+				[{ type: "toolCall", id: "tool-call-1", name: "echo", arguments: { value: "hello" } }],
+				"toolUse",
+			),
+			assistantMessage([{ type: "text", text: "finished" }]),
+		];
+		let responseIndex = 0;
+		const engine = new AgentCoreTurnEngine({
+			model: model(),
+			streamFn: () => {
+				const response = responses[responseIndex];
+				responseIndex += 1;
+				if (!response) throw new Error("Missing recorded response");
+				return new RecordedAssistantStream(response);
+			},
+		});
+		const runtimeSnapshot = snapshot({
+			tools: [
+				{
+					name: "echo",
+					label: "Echo",
+					description: "Echo",
+					inputSchema: { type: "object" },
+					async execute() {
+						return { content: [{ type: "text", text: "echoed" }] };
+					},
+				},
+			],
+		});
+		const order: string[] = [];
+
+		for await (const event of engine.execute({
+			sessionId: "session-1",
+			turnId: "turn-1",
+			snapshot: runtimeSnapshot,
+			messages: [userMessage("hello")],
+			signal: new AbortController().signal,
+			contextCheckpoints: true,
+		})) {
+			if (event.type === "context_checkpoint") {
+				order.push(`checkpoint:${event.request.messages.map(({ role }) => role).join(",")}`);
+				event.request.complete({ messages: event.request.messages });
+				continue;
+			}
+			if (event.type === "message") {
+				order.push(event.message.role);
+				continue;
+			}
+			if (event.type === "completed") order.push("completed");
+		}
+
+		expect(order).toEqual([
+			"checkpoint:user",
+			"assistant",
+			"toolResult",
+			"checkpoint:user,assistant,toolResult",
+			"assistant",
+			"checkpoint:user,assistant,toolResult,assistant",
+			"completed",
+		]);
+	});
+
 	it("turns policy rejection into a tool error without calling the implementation", async () => {
 		let executionCount = 0;
 		const tool: RuntimeToolDefinition = {

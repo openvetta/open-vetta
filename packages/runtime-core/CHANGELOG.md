@@ -6,6 +6,7 @@ All notable changes to `@vetta/runtime-core` are documented in this file.
 
 ### Added
 
+- **模型调用级 Context Checkpoint 与压缩提交**：Agent Core Turn Engine 将模型调用/assistant 结果/错误检查点桥接给 Turn Pipeline；Pipeline 在放行模型前按 Repository 顺序提交先前消息和可选 `context.compacted`，并支持 PostCompact 后的一次 overflow 恢复。检查点是进程内请求—应答事件，不进入持久会话日志。
 - **Greenfield Context Strategy 与持久压缩合同**：新增可重建模型上下文的原生 compaction record、每次模型调用前的 transient Context Transformer、Profile 级 Observer 和压缩提交回调；Conversation Document 将最新摘要投影为“摘要 + 保留尾部”，同时保持完整聊天历史，Turn 输入继续与 `turn.started` 原子持久化。
 - **Session-local 运行期 Context 追加边界**：新增 append-only Context Port 与 Pipeline-owned Buffer；产品 Hook 等运行期贡献只能提交通用 context record，由 Turn Pipeline 在持久消息之后及终态之前串行写入同一 Repository revision，避免产品适配器直接写会话存储或与消息事件竞争。
 - **Greenfield Conversation Document Participant**：新增产品状态参与者与通用 `custom.append` 命令，Session 在初始化、分支写命令和安全的持久化事件边界同步参与者；Greenfield Core Assembly 交付真实 Todo Controller，但 Runtime Core 不解释 Todo 快照结构。

@@ -188,6 +188,17 @@ function assistantMessage(text: string): AssistantMessage {
 	};
 }
 
+function toolResultMessage(toolCallId: string): Extract<Message, { role: "toolResult" }> {
+	return {
+		role: "toolResult",
+		toolCallId,
+		toolName: "test",
+		content: [{ type: "text", text: "tool done" }],
+		isError: false,
+		timestamp: 2,
+	};
+}
+
 function snapshot(contextStrategy: ContextStrategy, overrides?: Partial<RuntimeSnapshot>): RuntimeSnapshot {
 	return {
 		id: "snapshot-1",
@@ -374,6 +385,7 @@ describe("greenfield runtime kernel", () => {
 			},
 			async onCompactionCommitted() {
 				committed = true;
+				return { continueExecution: true };
 			},
 		};
 		const harness = await createHarness({
@@ -397,6 +409,113 @@ describe("greenfield runtime kernel", () => {
 			"message.appended",
 			"turn.completed",
 		]);
+	});
+
+	it("commits same-turn compaction checkpoints after prior model messages are persisted", async () => {
+		const preparationReasons: Array<string | undefined> = [];
+		const checkpointMessages = [userMessage("current input"), toolResultMessage("call-1")];
+		let checkpointResult: Parameters<
+			Extract<TurnEngineEvent, { type: "context_checkpoint" }>["request"]["complete"]
+		>[0];
+		const contextStrategy: ContextStrategy = {
+			async prepare(input) {
+				preparationReasons.push(input.reason);
+				if (input.reason !== "model_call") {
+					return { messages: input.messages, estimatedTokens: input.messages.length };
+				}
+				return {
+					messages: [userMessage("summary"), ...input.messages.slice(-1)],
+					estimatedTokens: 2,
+					compaction: {
+						summary: "summary",
+						summaryMessage: userMessage("summary"),
+						firstKeptEntryId: "event-1",
+						tokensBefore: 10,
+						reason: "threshold",
+					},
+				};
+			},
+		};
+		const engine: TurnEnginePort = {
+			async *execute() {
+				yield { type: "message", message: checkpointMessages[1] };
+				yield {
+					type: "context_checkpoint",
+					request: {
+						reason: "model_call",
+						messages: checkpointMessages,
+						recoveryAttempt: 0,
+						complete(result) {
+							checkpointResult = result;
+						},
+						fail(error) {
+							throw error;
+						},
+					},
+				};
+				yield { type: "message", message: assistantMessage("done") };
+				yield { type: "completed", stopReason: "stop" };
+			},
+		};
+		const harness = await createHarness({ contextStrategy, turnEngine: engine });
+
+		await harness.session.send({ message: checkpointMessages[0] as UserMessage });
+
+		expect(preparationReasons).toEqual(["turn_start", "model_call"]);
+		expect(checkpointResult?.contextMessages?.map(({ role }) => role)).toEqual(["user", "toolResult"]);
+		expect((await harness.repository.load("session-1")).events.map(({ type }) => type)).toEqual([
+			"turn.started",
+			"message.appended",
+			"message.appended",
+			"context.compacted",
+			"message.appended",
+			"turn.completed",
+		]);
+	});
+
+	it("rejects an in-flight context checkpoint when the turn is cancelled", async () => {
+		let markCheckpoint: (() => void) | undefined;
+		const checkpointStarted = new Promise<void>((resolve) => {
+			markCheckpoint = resolve;
+		});
+		let checkpointFailed = false;
+		const contextStrategy: ContextStrategy = {
+			async prepare(input, signal) {
+				if (input.reason !== "model_call") {
+					return { messages: input.messages, estimatedTokens: input.messages.length };
+				}
+				markCheckpoint?.();
+				await waitForAbort(signal);
+				throw new Error("Checkpoint continued after cancellation");
+			},
+		};
+		const engine: TurnEnginePort = {
+			async *execute() {
+				yield {
+					type: "context_checkpoint",
+					request: {
+						reason: "model_call",
+						messages: [userMessage("current input")],
+						recoveryAttempt: 0,
+						complete() {},
+						fail() {
+							checkpointFailed = true;
+						},
+					},
+				};
+				yield { type: "completed", stopReason: "stop" };
+			},
+		};
+		const harness = await createHarness({ contextStrategy, turnEngine: engine });
+		const turn = harness.session.send({ message: userMessage("current input") });
+		await checkpointStarted;
+
+		await harness.session.cancel("cancel checkpoint");
+		const result = await turn;
+
+		expect(result).toMatchObject({ status: "cancelled", reason: "cancel checkpoint" });
+		expect(checkpointFailed).toBe(true);
+		expect((await harness.repository.load("session-1")).events.at(-1)?.type).toBe("turn.cancelled");
 	});
 
 	it("serializes runtime context after tool results and exposes it to the next external turn", async () => {

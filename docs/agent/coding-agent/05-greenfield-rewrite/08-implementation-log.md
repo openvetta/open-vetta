@@ -77,6 +77,7 @@
 | [67-session-local-todo-runtime.md](./08-implementation-log/67-session-local-todo-runtime.md) | Session-local Todo Runtime、分支持久化与 Controller 纵向切片 |
 | [68-session-local-ecosystem-hook-runtime.md](./08-implementation-log/68-session-local-ecosystem-hook-runtime.md) | Session-local Ecosystem Hook Runtime、运行期 Context 串行持久化与生命周期收敛 |
 | [69-session-local-context-runtime.md](./08-implementation-log/69-session-local-context-runtime.md) | Session-local Context Runtime、原生压缩投影与逐调用 microcompact |
+| [70-model-call-compaction-orchestrator.md](./08-implementation-log/70-model-call-compaction-orchestrator.md) | 模型调用级压缩检查点、同 Turn 阈值与 overflow 自动恢复 |
 
 ## 维护约定
 

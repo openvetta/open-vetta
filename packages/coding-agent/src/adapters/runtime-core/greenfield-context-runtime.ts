@@ -1,4 +1,11 @@
-import type { Api, Message, Model, UserMessage } from "@vetta/ai";
+import {
+	type Api,
+	type AssistantMessage,
+	isContextOverflow,
+	type Message,
+	type Model,
+	type UserMessage,
+} from "@vetta/ai";
 import type { EcosystemHookRuntime } from "@vetta/ecosystem-adapter/hooks";
 import {
 	applyStoredEventToConversationDocument,
@@ -96,27 +103,40 @@ export class CodingAgentGreenfieldContextRuntime implements ContextStrategy, Mod
 
 	async prepare(input: ContextPreparationInput, signal: AbortSignal): Promise<PreparedContext> {
 		signal.throwIfAborted();
-		const historyMessages = [...input.historyMessages];
-		const estimate = estimateContextTokens(historyMessages);
-		const assembledTokens = estimateContextTokens([...input.messages]).tokens;
-		this.currentTokens = assembledTokens;
+		const reason = input.reason ?? "turn_start";
 		const model = input.modelBinding?.model;
 		const contextWindow = model?.contextWindow ?? input.tokenBudget;
 		const settings = this.resolveSettings();
+		const overflow =
+			(reason === "assistant_error" || reason === "assistant_result") &&
+			input.recoveryAttempt === 0 &&
+			model !== undefined &&
+			isOverflowFromCurrentModel(input.triggeringAssistantMessage, model, contextWindow);
+		const callMessages = overflow
+			? removeAssistantMessage(input.messages, input.triggeringAssistantMessage)
+			: [...input.messages];
+		const measuredMessages = reason === "turn_start" ? [...input.historyMessages] : callMessages;
+		const estimate = estimateContextTokens(measuredMessages);
+		const assembledTokens = estimateContextTokens(callMessages).tokens;
+		this.currentTokens = assembledTokens;
 		if (!model || !input.document || contextWindow <= 0 || !settings.enabled) {
-			return unchanged(input.messages, assembledTokens);
+			return unchanged(callMessages, assembledTokens);
 		}
 
 		const entries = toSessionEntries(input.document);
-		if (!shouldCompact(estimate.tokens, contextWindow, settings)) {
+		if (reason === "assistant_error" && !overflow) {
+			return unchanged(callMessages, assembledTokens);
+		}
+		if (!overflow && !shouldCompact(estimate.tokens, contextWindow, settings)) {
 			if (shouldPrefire(estimate.tokens, contextWindow, settings)) {
 				this.maybeStartPrefire(entries, settings, model);
 			}
-			return unchanged(input.messages, assembledTokens);
+			return unchanged(callMessages, assembledTokens);
 		}
-		if (!this.circuitBreaker.canAttempt()) return unchanged(input.messages, assembledTokens);
+		if (!this.circuitBreaker.canAttempt()) return unchanged(callMessages, assembledTokens);
 
-		await input.reportObservation({ type: "compaction.start", reason: "threshold", source: "agent" });
+		const compactionReason = overflow ? "overflow" : "threshold";
+		await input.reportObservation({ type: "compaction.start", reason: compactionReason, source: "agent" });
 		try {
 			const apiKey = await this.resolveApiKey(model);
 			if (!apiKey) {
@@ -126,12 +146,12 @@ export class CodingAgentGreenfieldContextRuntime implements ContextStrategy, Mod
 					errorMessage: `No API key for ${model.provider}`,
 					source: "agent",
 				});
-				return unchanged(input.messages, assembledTokens);
+				return unchanged(callMessages, assembledTokens);
 			}
 			const preparation = prepareCompaction(entries, settings);
 			if (!preparation) {
 				await input.reportObservation({ type: "compaction.end", success: false, source: "agent" });
-				return unchanged(input.messages, assembledTokens);
+				return unchanged(callMessages, assembledTokens);
 			}
 			const preHookOutcome = await this.hookRuntime.runPreCompact("auto", signal);
 			if (preHookOutcome.shouldStop || preHookOutcome.shouldBlock) {
@@ -142,16 +162,21 @@ export class CodingAgentGreenfieldContextRuntime implements ContextStrategy, Mod
 						preHookOutcome.stopReason ?? preHookOutcome.blockReason ?? "Compaction blocked by ecosystem hook",
 					source: "agent",
 				});
-				return unchanged(input.messages, assembledTokens);
+				return unchanged(callMessages, assembledTokens);
 			}
 
 			const prefired = this.takeValidPrefire(entries);
 			const result = prefired ?? (await this.generateCompaction(preparation, model, apiKey, signal));
 			signal.throwIfAborted();
-			const record = this.toRecord(result);
+			const record = this.toRecord(result, compactionReason);
 			const compactedHistory = projectCompactedHistory(input.document, input.sessionId, input.turnId, record);
-			const transientTail = input.messages.slice(input.historyMessages.length);
-			const messages = [...compactedHistory, ...transientTail];
+			const messages = assemblePreparedMessages(
+				compactedHistory,
+				input,
+				reason,
+				compactionReason,
+				input.triggeringAssistantMessage,
+			);
 			const compactedEstimate = estimateContextTokens(messages).tokens;
 			this.currentTokens = compactedEstimate;
 			return { messages, estimatedTokens: compactedEstimate, compaction: record };
@@ -163,18 +188,15 @@ export class CodingAgentGreenfieldContextRuntime implements ContextStrategy, Mod
 				errorMessage: error instanceof Error ? error.message : String(error),
 				source: "agent",
 			});
-			return unchanged(input.messages, assembledTokens);
+			return unchanged(callMessages, assembledTokens);
 		}
 	}
 
-	async onCompactionCommitted(
-		_record: ContextCompactionRecord,
-		_input: ContextPreparationInput,
-		signal: AbortSignal,
-	): Promise<void> {
-		await this.hookRuntime.runPostCompact("auto", signal);
+	async onCompactionCommitted(_record: ContextCompactionRecord, _input: ContextPreparationInput, signal: AbortSignal) {
+		const outcome = await this.hookRuntime.runPostCompact("auto", signal);
 		this.hookRuntime.markSessionStart("compact");
 		this.circuitBreaker.recordSuccess();
+		return { continueExecution: !outcome.shouldStop };
 	}
 
 	async transform(input: ModelCallContextTransformationInput, signal: AbortSignal): Promise<readonly Message[]> {
@@ -208,7 +230,7 @@ export class CodingAgentGreenfieldContextRuntime implements ContextStrategy, Mod
 		this.prefireCache = undefined;
 	}
 
-	private toRecord(result: CompactionResult): ContextCompactionRecord {
+	private toRecord(result: CompactionResult, reason: "threshold" | "overflow"): ContextCompactionRecord {
 		const timestamp = this.now();
 		const summaryMessage: UserMessage = {
 			role: "user",
@@ -221,7 +243,7 @@ export class CodingAgentGreenfieldContextRuntime implements ContextStrategy, Mod
 			firstKeptEntryId: result.firstKeptEntryId,
 			tokensBefore: result.tokensBefore,
 			...(result.details === undefined ? {} : { details: result.details }),
-			reason: "threshold",
+			reason,
 		};
 	}
 
@@ -271,6 +293,63 @@ export class CodingAgentGreenfieldContextRuntime implements ContextStrategy, Mod
 			selectConversationDocumentModelMessages(document).filter(isRuntimeMessage),
 		).tokens;
 	}
+}
+
+function isOverflowFromCurrentModel(
+	message: AssistantMessage | undefined,
+	model: Model<Api>,
+	contextWindow: number,
+): boolean {
+	return (
+		message !== undefined &&
+		message.provider === model.provider &&
+		message.model === model.id &&
+		isContextOverflow(message, contextWindow)
+	);
+}
+
+function removeAssistantMessage(
+	messages: readonly Message[],
+	triggeringMessage: AssistantMessage | undefined,
+): Message[] {
+	if (!triggeringMessage) return [...messages];
+	const result = [...messages];
+	for (let index = result.length - 1; index >= 0; index -= 1) {
+		const message = result[index];
+		if (message.role !== "assistant") continue;
+		if (
+			message === triggeringMessage ||
+			(message.timestamp === triggeringMessage.timestamp &&
+				message.provider === triggeringMessage.provider &&
+				message.model === triggeringMessage.model &&
+				message.stopReason === triggeringMessage.stopReason)
+		) {
+			result.splice(index, 1);
+			break;
+		}
+	}
+	return result;
+}
+
+function assemblePreparedMessages(
+	compactedHistory: readonly Message[],
+	input: ContextPreparationInput,
+	reason: NonNullable<ContextPreparationInput["reason"]>,
+	compactionReason: "threshold" | "overflow",
+	triggeringMessage: AssistantMessage | undefined,
+): Message[] {
+	if (reason === "turn_start") {
+		return [...compactedHistory, ...input.messages.slice(input.historyMessages.length)];
+	}
+
+	const history =
+		compactionReason === "overflow"
+			? removeAssistantMessage(compactedHistory, triggeringMessage)
+			: [...compactedHistory];
+	const transientMessages = input.transientMessages ?? [];
+	if (transientMessages.length === 0) return history;
+	if (history.length === 0) return [...transientMessages];
+	return [history[0], ...transientMessages, ...history.slice(1)];
 }
 
 function unchanged(messages: readonly Message[], estimatedTokens: number): PreparedContext {

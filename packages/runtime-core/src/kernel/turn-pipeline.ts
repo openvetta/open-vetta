@@ -12,11 +12,14 @@ import type {
 	RuntimeSnapshot,
 	RuntimeSnapshotLease,
 	RuntimeSnapshotProvider,
+	RuntimeTurnModelBinding,
 	RuntimeTurnModelBindingProvider,
 	SessionContextRecord,
 	SessionInput,
 	StoredConversation,
 	StoredSessionEvent,
+	TurnEngineContextCheckpointRequest,
+	TurnEngineContextCheckpointResult,
 	TurnEnginePort,
 	TurnInputQueue,
 	TurnPipelineStage,
@@ -44,6 +47,17 @@ interface MutableTurnState {
 	started: boolean;
 	snapshot?: RuntimeSnapshot;
 	readonly messages: Message[];
+}
+
+interface ContextCheckpointPreparation {
+	readonly sessionId: string;
+	readonly turnId: string;
+	readonly snapshot: RuntimeSnapshot;
+	readonly modelBinding?: RuntimeTurnModelBinding;
+	readonly providerMessages: readonly Message[];
+	readonly request: TurnEngineContextCheckpointRequest;
+	readonly state: MutableTurnState;
+	readonly signal: AbortSignal;
 }
 
 export class TurnPipeline {
@@ -198,6 +212,8 @@ export class TurnPipeline {
 				turnId,
 				messages: assembledMessages,
 				historyMessages: conversation.messages,
+				transientMessages: providerMessages,
+				reason: "turn_start" as const,
 				tokenBudget: snapshot.tokenBudget,
 				reservedOutputTokens: snapshot.reservedOutputTokens,
 				modelBinding,
@@ -232,11 +248,32 @@ export class TurnPipeline {
 				signal,
 				inputQueue,
 				input,
+				contextCheckpoints: true,
 			})) {
-				signal.throwIfAborted();
 				if (stopReason) {
 					throw turnProtocolError("Turn engine emitted an event after completion");
 				}
+				if (event.type === "context_checkpoint") {
+					try {
+						signal.throwIfAborted();
+						const result = await this.prepareContextCheckpoint({
+							sessionId,
+							turnId,
+							snapshot,
+							modelBinding,
+							providerMessages,
+							request: event.request,
+							state,
+							signal,
+						});
+						event.request.complete(result);
+					} catch (error) {
+						event.request.fail(error);
+						throw error;
+					}
+					continue;
+				}
+				signal.throwIfAborted();
 				if (event.type === "completed") {
 					stopReason = event.stopReason;
 					continue;
@@ -316,6 +353,73 @@ export class TurnPipeline {
 			this.runtimeContext?.clear();
 			await this.releaseSnapshotSafely(snapshotLease, sessionId, turnId);
 		}
+	}
+
+	private async prepareContextCheckpoint(
+		checkpoint: ContextCheckpointPreparation,
+	): Promise<TurnEngineContextCheckpointResult | undefined> {
+		const { request, sessionId, signal, snapshot, state, turnId } = checkpoint;
+		const conversation = await this.repository.load(sessionId);
+		const document = await this.conversationDocumentReader?.readDocument(sessionId);
+		const preparationInput = {
+			sessionId,
+			turnId,
+			messages: request.messages,
+			historyMessages: conversation.messages,
+			transientMessages: checkpoint.providerMessages,
+			reason: request.reason,
+			triggeringAssistantMessage: request.assistantMessage,
+			recoveryAttempt: request.recoveryAttempt,
+			tokenBudget: snapshot.tokenBudget,
+			reservedOutputTokens: snapshot.reservedOutputTokens,
+			modelBinding: checkpoint.modelBinding,
+			document,
+			reportObservation: (observation: RuntimeSessionObservationEvent) =>
+				this.publishObservation(sessionId, turnId, observation),
+		} as const;
+		const prepared = await snapshot.contextStrategy.prepare(preparationInput, signal);
+		signal.throwIfAborted();
+
+		if (!prepared.compaction) {
+			if (request.reason === "assistant_error") return undefined;
+			return { messages: prepared.messages };
+		}
+
+		await this.append(sessionId, state, signal, [
+			{
+				type: "context.compacted",
+				sessionId,
+				turnId,
+				record: prepared.compaction,
+				timestamp: this.clock.now(),
+			},
+		]);
+		const commitResult = await snapshot.contextStrategy.onCompactionCommitted?.(
+			prepared.compaction,
+			preparationInput,
+			signal,
+		);
+		const transformedMessages =
+			snapshot.modelCallContextTransformer && checkpoint.modelBinding
+				? await snapshot.modelCallContextTransformer.transform(
+						{
+							sessionId,
+							turnId,
+							messages: prepared.messages,
+							modelBinding: checkpoint.modelBinding,
+						},
+						signal,
+					)
+				: prepared.messages;
+
+		return {
+			messages: transformedMessages,
+			contextMessages: prepared.messages,
+			retry:
+				request.reason !== "model_call" &&
+				prepared.compaction.reason === "overflow" &&
+				commitResult?.continueExecution !== false,
+		};
 	}
 
 	private async collectProviderMessages(

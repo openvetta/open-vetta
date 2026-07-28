@@ -2,6 +2,7 @@
 
 ### Added
 
+- **Greenfield 模型调用级 Compaction Orchestrator**：Session-local Context Runtime 现在可在同一 Tool Loop 跨阈值时提交摘要，并在同模型 error overflow 或 silent overflow 后保留错误历史、从重试上下文移除错误并自动恢复一次；Provider transient context、prefire、熔断、Pre/PostCompact 与恢复期间 steering/follow-up 语义保持旧行为。
 - **Greenfield Session-local Context Runtime**：每个 Greenfield Session 复用既有阈值、摘要、prefire、microcompact 与熔断算法，持有唯一上下文状态；阈值压缩经 Conversation Document 持久化，Pre/PostCompact 使用同一 Hook Runtime，microcompact 在每次模型调用前执行且不改写历史，create/resume 均可恢复 context usage。
 - **Greenfield Session-local Ecosystem Hook Runtime**：每个 Greenfield Session 创建唯一 Hook Runtime，并贯通 SessionStart/UserPromptSubmit、最终动态 Tool Surface、Stop continuation 和 SessionEnd dispose；Tool Hook 复用旧 wrapper 的输入改写、MCP descriptor、PostToolUse/Failure 与附加上下文语义，运行期上下文经 Runtime Core 串行持久化，动态插件工具也在下一次 Model Call 自动获得 Hook。
 - **Greenfield Session-local Todo Runtime**：新增每会话唯一 Todo 状态所有者，由 Runtime Tool、Continuation、Scene Prompt、Session Controller 和 `todo_snapshot` 恢复共同使用；快照使用 TypeBox 校验并在 Tool Result/Turn 终态安全持久化，旧 Todo Tool 文案、锁定和顺序规则继续复用。

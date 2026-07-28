@@ -15,6 +15,7 @@
 
 ### Added
 
+- **可选模型调用上下文检查点**：`AgentLoopConfig.contextCheckpoints` 默认关闭；启用后，Agent Loop 在模型调用前、assistant 自然结果和 assistant error 后发出请求—应答事件并等待宿主完成，支持持久压缩后替换内部上下文、一次错误恢复及恢复前 steering 注入，不改变普通 Agent 调用路径。
 - 新增 `AgentToolExecutionError`：工具适配层可以向 `ToolResultMessage.details` 传递稳定错误码、可重试标记和结构化元数据，不再只能依赖错误文本判断运行时能力变化。
 - **模型调用级动态上下文**：`AgentLoopConfig.resolveCallContext` 在每次 LLM 调用前刷新 system prompt 与 tools；同一 Agent Loop 的后续模型调用可以看到受控的运行时能力变化。
 - 将 Agent 自然停止点的自动续跑钩子明确为异步 `continuationProvider`，底层 `AgentLoopConfig` 对应改为 `getContinuationMessages`；普通 `followUp()` 消息队列语义保持不变。

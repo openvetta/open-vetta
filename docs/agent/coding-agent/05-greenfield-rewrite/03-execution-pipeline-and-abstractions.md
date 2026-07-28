@@ -81,6 +81,21 @@ flowchart TD
 
 因此不能把 Tool Loop 拆成一串只能执行一次的普通 Stage，也不能让外部 Feature 接管循环控制权。
 
+Tool Loop 与外部持久化之间使用窄化的请求—应答检查点，而不是假设事件队列具有背压：
+
+```text
+assistant / toolResult event
+  -> Turn Pipeline append
+  -> model-call context checkpoint
+  -> optional context.compacted append
+  -> checkpoint complete
+  -> next model call
+```
+
+检查点本身是进程内 `TurnEngineEvent`，不进入 Conversation Repository。它只暂停和恢复
+模型循环，不解释阈值、摘要、Provider overflow 或产品 Hook。Context Strategy 返回压缩结果，
+Turn Pipeline 决定提交，Coding Profile 决定具体压缩策略。
+
 Tool 的定义与执行属于 Runtime 合同，`agent-core` Adapter 只做协议转换：
 
 ```text
@@ -260,7 +275,17 @@ Port 只改变依赖方向，不能静默改变产品语义。例如把旧 read 
 
 ## 5. 上下文压缩边界
 
-上下文压缩属于 `Context Preparation` 阶段的策略，不是 Session Manager 的附属方法，也不是能够直接改写会话历史的 Extension Hook。
+上下文压缩属于 `Context Preparation` 策略，不是 Session Manager 的附属方法，也不是能够直接改写会话历史的 Extension Hook。
+
+它有两个调用时机，但共享同一个 `ContextStrategy` 和提交边界：
+
+- 外部 Turn 开始时，使用输入写入前的历史决定是否压缩。
+- Execution 内的模型调用检查点，使用已经持久化的最新 assistant/toolResult 决定同 Turn
+  阈值压缩或 overflow 恢复。
+
+第二种情况不能只依赖普通 EventStream 通知。通知消费不是背压点，模型循环可能在 Repository
+append 完成前继续。Turn Engine 必须发出请求—应答检查点并暂停；Pipeline 完成消息和
+`context.compacted` 的有序提交后再应答。
 
 建议合同：
 
@@ -311,6 +336,8 @@ export interface ContextSummarizer {
 - 不读取全局 `ModelRegistry`。
 - 不决定压缩记录是否落盘。
 - 压缩结果由 Turn Pipeline 作为标准事件持久化。
+- 模型调用检查点只携带已类型化消息和完成/失败应答，不暴露 Repository。
+- Overflow 错误可以先作为普通 assistant 历史持久化，再从一次性重试上下文移除。
 - Profile 同一时间只能选择一个主 `ContextStrategy`，不能由多个 Feature 依次任意改写上下文。
 
 纯 Token 预算和消息选择可以作为 `ContextStrategy` 内部具体函数，不需要再为每个计算步骤创建公开接口。

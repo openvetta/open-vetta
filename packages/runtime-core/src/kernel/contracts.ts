@@ -1,5 +1,6 @@
 import type {
 	Api,
+	AssistantMessage,
 	ImageContent,
 	Message,
 	Model,
@@ -138,6 +139,11 @@ export interface ContextPreparationInput {
 	readonly tokenBudget: number;
 	readonly reservedOutputTokens: number;
 	readonly modelBinding?: RuntimeTurnModelBinding;
+	/** 未写入会话历史、但必须保留在本次模型调用中的 Provider 消息。 */
+	readonly transientMessages?: readonly Message[];
+	readonly reason?: "turn_start" | "model_call" | "assistant_result" | "assistant_error";
+	readonly triggeringAssistantMessage?: AssistantMessage;
+	readonly recoveryAttempt?: number;
 	/** 当前 Turn 输入写入前的活动 Conversation Document。 */
 	readonly document?: ConversationDocument;
 	reportObservation(observation: RuntimeSessionObservationEvent): Promise<void>;
@@ -155,7 +161,12 @@ export interface ContextStrategy {
 		record: ContextCompactionRecord,
 		input: ContextPreparationInput,
 		signal: AbortSignal,
-	): Promise<void>;
+	): Promise<ContextCompactionCommitResult>;
+}
+
+export interface ContextCompactionCommitResult {
+	/** false 仅阻止错误恢复重试；已经提交的压缩事实不会回滚。 */
+	readonly continueExecution: boolean;
 }
 
 export interface ModelCallContextTransformationInput {
@@ -480,6 +491,23 @@ export interface TurnEngineRequest {
 	readonly signal: AbortSignal;
 	readonly inputQueue?: TurnInputQueue;
 	readonly input?: SessionInput;
+	/** 由 TurnPipeline 启用，使 Engine 在模型调用边界等待持久化处理。 */
+	readonly contextCheckpoints?: boolean;
+}
+
+export interface TurnEngineContextCheckpointResult {
+	readonly messages: readonly Message[];
+	readonly contextMessages?: readonly Message[];
+	readonly retry?: boolean;
+}
+
+export interface TurnEngineContextCheckpointRequest {
+	readonly reason: "model_call" | "assistant_result" | "assistant_error";
+	readonly messages: readonly Message[];
+	readonly assistantMessage?: AssistantMessage;
+	readonly recoveryAttempt: number;
+	complete(result?: TurnEngineContextCheckpointResult): void;
+	fail(error: unknown): void;
 }
 
 export type TurnEngineEvent =
@@ -490,6 +518,10 @@ export type TurnEngineEvent =
 	| {
 			readonly type: "message";
 			readonly message: Message;
+	  }
+	| {
+			readonly type: "context_checkpoint";
+			readonly request: TurnEngineContextCheckpointRequest;
 	  }
 	| {
 			readonly type: "completed";

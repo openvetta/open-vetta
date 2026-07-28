@@ -1,4 +1,5 @@
 import {
+	type AgentContextCheckpointResult,
 	type AgentEvent,
 	type AgentLoopConfig,
 	type AgentMessage,
@@ -12,6 +13,7 @@ import type { RuntimeSessionObservationEvent } from "../session-observation.js";
 import type {
 	RuntimeToolDefinition,
 	RuntimeToolResult,
+	TurnEngineContextCheckpointResult,
 	TurnEngineEvent,
 	TurnEnginePort,
 	TurnEngineRequest,
@@ -52,6 +54,24 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 		let finalAssistantMessage: Extract<Message, { role: "assistant" }> | undefined;
 
 		for await (const event of stream) {
+			if (event.type === "context_checkpoint") {
+				yield {
+					type: "context_checkpoint",
+					request: {
+						reason: event.request.reason,
+						messages: event.request.messages.filter(isRuntimeMessage),
+						assistantMessage: event.request.assistantMessage,
+						recoveryAttempt: event.request.recoveryAttempt,
+						complete: (result) => {
+							event.request.complete(toAgentCheckpointResult(result));
+						},
+						fail: (error) => {
+							event.request.fail(error);
+						},
+					},
+				};
+				continue;
+			}
 			const observation = mapAgentCoreEventToObservation(event);
 			if (observation) {
 				yield { type: "observation", observation };
@@ -93,6 +113,7 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 			sessionId: request.sessionId,
 			getApiKey,
 			convertToLlm: convertToLlm,
+			contextCheckpoints: request.contextCheckpoints,
 			transformContext: contextTransformer
 				? async (messages, signal) => {
 						const executionSignal = signal ?? request.signal;
@@ -201,6 +222,17 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 			},
 		};
 	}
+}
+
+function toAgentCheckpointResult(
+	result: TurnEngineContextCheckpointResult | undefined,
+): AgentContextCheckpointResult | undefined {
+	if (!result) return undefined;
+	return {
+		messages: result.messages,
+		contextMessages: result.contextMessages,
+		retry: result.retry,
+	};
 }
 
 function mapAgentCoreEventToObservation(event: AgentEvent): RuntimeSessionObservationEvent | undefined {
