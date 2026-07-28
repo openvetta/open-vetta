@@ -59,6 +59,8 @@ export interface PresetProviderInfo {
 
 export interface PresetProvidersResult {
 	providers: PresetProviderInfo[];
+	/** 是否展示各家全部模型;false(默认) = 每个系列只留最新一档。 */
+	showAllModels: boolean;
 }
 
 export interface PresetModelsResult {
@@ -74,6 +76,8 @@ export interface DesktopModelsApi {
 	listPresets(): Promise<PresetProvidersResult>;
 	/** 按 key 拉取某预设服务商上游 `/models` 的模型列表。只拉不写,由调用方落盘。 */
 	refreshPresetModels(providerId: string, apiKey?: string): Promise<PresetModelsResult>;
+	/** 切换「显示全部模型」。关闭时每个系列只保留最新一档,调用方切换后需重新拉取落盘。 */
+	setPresetShowAllModels(showAll: boolean): Promise<void>;
 	/** 探测某 (provider, model) 的 baseUrl 是否可达(本地 models.json 优先,回退云端目录)。仅判可达性,任何 HTTP 响应都算通。 */
 	probe(ref: { provider: string; model: string }): Promise<{ ok: boolean; message?: string; error?: string }>;
 	/** 拉取本地自定义 provider 的 `GET {baseUrl}/models`,返回上游模型 id 列表,用于快速填写模型配置。 */

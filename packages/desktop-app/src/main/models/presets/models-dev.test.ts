@@ -7,6 +7,7 @@ import {
 	isCatalogFresh,
 	lookupCatalogModel,
 	type ModelsDevCatalog,
+	selectLatestModels,
 } from "./models-dev.js";
 
 const NOW = Date.parse("2026-07-27T00:00:00Z");
@@ -69,7 +70,7 @@ describe("models.dev 目录", () => {
 		expect(Object.keys(catalog.providers).sort()).toEqual(["claude", "deepseek", "gemini"]);
 		// 不吐文本的模型(视频/音乐/图像生成)不进目录。
 		expect(Object.keys(catalog.providers.gemini)).toEqual(["gemini-3.5-flash"]);
-		expect(catalog.providers.deepseek["deepseek-v4-flash"]).toEqual({
+		expect(catalog.providers.deepseek["deepseek-v4-flash"].model).toEqual({
 			id: "deepseek-v4-flash",
 			name: "DeepSeek V4 Flash",
 			reasoning: true,
@@ -79,7 +80,7 @@ describe("models.dev 目录", () => {
 			cost: { input: 0.14, output: 0.28, cacheRead: 0.0028, cacheWrite: 0 },
 		});
 		// pdf 不是我们支持的输入模态,应被过滤;effort 等级转成 reasoningLevels。
-		expect(catalog.providers.claude["claude-opus-4-8"]).toMatchObject({
+		expect(catalog.providers.claude["claude-opus-4-8"].model).toMatchObject({
 			input: ["text", "image"],
 			reasoningLevels: ["low", "high", "max"],
 		});
@@ -97,8 +98,8 @@ describe("models.dev 目录", () => {
 	it("查不到精确 id 时退化为去日期后缀与最长前缀匹配", async () => {
 		const catalog = await fetchCatalog();
 
-		expect(lookupCatalogModel(catalog, "claude", "claude-opus-4-8-20260204")?.id).toBe("claude-opus-4-8");
-		expect(lookupCatalogModel(catalog, "claude", "claude-opus-4-8-thinking")?.id).toBe("claude-opus-4-8");
+		expect(lookupCatalogModel(catalog, "claude", "claude-opus-4-8-20260204")?.model.id).toBe("claude-opus-4-8");
+		expect(lookupCatalogModel(catalog, "claude", "claude-opus-4-8-thinking")?.model.id).toBe("claude-opus-4-8");
 		expect(lookupCatalogModel(catalog, "claude", "claude-sonnet-9")).toBeUndefined();
 	});
 
@@ -125,5 +126,51 @@ describe("models.dev 目录", () => {
 		const merged = enrichFromCatalog(null, "openai", { id: "gpt-9-unknown" });
 
 		expect(merged).toEqual({ id: "gpt-9-unknown", input: ["text"] });
+	});
+});
+
+describe("selectLatestModels", () => {
+	const catalog: ModelsDevCatalog = {
+		fetchedAt: new Date(NOW).toISOString(),
+		providers: {
+			openai: {
+				"gpt-5.6-sol": { model: { id: "gpt-5.6-sol" }, family: "gpt-sol", releaseDate: "2026-07-09" },
+				"gpt-5.4": { model: { id: "gpt-5.4" }, family: "gpt-sol", releaseDate: "2026-02-01" },
+				"gpt-5.4-mini": { model: { id: "gpt-5.4-mini" }, family: "gpt-mini", releaseDate: "2026-02-01" },
+				"gpt-4o": { model: { id: "gpt-4o" }, family: "gpt-4o", releaseDate: "2024-05-13" },
+				// 只给到月份,应被归一化后参与比较。
+				"gpt-5.5": { model: { id: "gpt-5.5" }, family: "gpt-sol", releaseDate: "2026-04" },
+			},
+		},
+	};
+	const ids = (models: Array<{ id: string }>) => models.map((model) => model.id);
+
+	it("每个系列只留发布最新的一档", () => {
+		const kept = selectLatestModels(
+			catalog,
+			"openai",
+			[{ id: "gpt-5.6-sol" }, { id: "gpt-5.5" }, { id: "gpt-5.4" }, { id: "gpt-5.4-mini" }],
+			NOW,
+		);
+
+		expect(ids(kept)).toEqual(["gpt-5.4-mini", "gpt-5.6-sol"]);
+	});
+
+	it("发布超过一年的整族淘汰", () => {
+		const kept = selectLatestModels(catalog, "openai", [{ id: "gpt-4o" }], NOW);
+
+		expect(kept).toEqual([]);
+	});
+
+	it("目录里查不到的模型一律保留——可能是刚发布或账号专属", () => {
+		const kept = selectLatestModels(catalog, "openai", [{ id: "gpt-5.4" }, { id: "gpt-7-internal" }], NOW);
+
+		expect(ids(kept)).toEqual(["gpt-5.4", "gpt-7-internal"]);
+	});
+
+	it("没有目录时原样返回", () => {
+		const models = [{ id: "a" }, { id: "b" }];
+
+		expect(selectLatestModels(null, "openai", models, NOW)).toEqual(models);
 	});
 });

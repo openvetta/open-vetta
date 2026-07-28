@@ -30,13 +30,24 @@ interface RawModel {
 	modalities?: { input?: string[]; output?: string[] };
 	limit?: { context?: number; output?: number };
 	cost?: { input?: number; output?: number; cache_read?: number; cache_write?: number };
+	family?: string;
+	release_date?: string;
+}
+
+/** 目录条目:模型元数据 + 用于「只保留最新一档」的分组信息。 */
+export interface CatalogEntry {
+	model: ModelDefinition;
+	/** 同一系列共用的族名(如 claude-opus / gpt-sol),用于折叠历史版本。 */
+	family?: string;
+	/** 发布日期,归一化到 YYYY-MM-DD(目录里偶尔只给到月份)。 */
+	releaseDate?: string;
 }
 
 /** 只保留六家、只保留用得上的字段——原始 api.json 有 170+ 家、3MB 出头。 */
 export interface ModelsDevCatalog {
 	fetchedAt: string;
-	/** 预设标识 → 模型 id → 元数据。 */
-	providers: Record<string, Record<string, ModelDefinition>>;
+	/** 预设标识 → 模型 id → 目录条目。 */
+	providers: Record<string, Record<string, CatalogEntry>>;
 }
 
 export function isCatalogFresh(catalog: ModelsDevCatalog | null, now: number): boolean {
@@ -65,12 +76,16 @@ function shrink(body: Record<string, { models?: Record<string, RawModel> }>): Mo
 	for (const [presetId, key] of Object.entries(PROVIDER_KEYS)) {
 		const models = body[key]?.models;
 		if (!models) continue;
-		const entries: Record<string, ModelDefinition> = {};
+		const entries: Record<string, CatalogEntry> = {};
 		for (const [id, raw] of Object.entries(models)) {
 			// 只留会吐文本的模型:滤掉视频(veo)、音乐(lyria)、TTS、纯图像生成等。
 			// 与带 key 时 Gemini 按 generateContent 过滤的口径一致。
 			if (raw.modalities?.output && !raw.modalities.output.includes("text")) continue;
-			entries[id] = toModelDefinition(id, raw);
+			entries[id] = {
+				model: toModelDefinition(id, raw),
+				...(raw.family ? { family: raw.family } : {}),
+				...(normalizeReleaseDate(raw.release_date) ? { releaseDate: normalizeReleaseDate(raw.release_date) } : {}),
+			};
 		}
 		providers[presetId] = entries;
 	}
@@ -110,22 +125,73 @@ export function lookupCatalogModel(
 	catalog: ModelsDevCatalog | null,
 	presetId: string,
 	modelId: string,
-): ModelDefinition | undefined {
+): CatalogEntry | undefined {
 	const models = catalog?.providers[presetId];
 	if (!models) return undefined;
 	const exact = models[modelId];
 	if (exact) return exact;
 	const undated = modelId.replace(/-\d{8}$/, "");
 	if (undated !== modelId && models[undated]) return models[undated];
-	let best: ModelDefinition | undefined;
+	let best: CatalogEntry | undefined;
 	let bestLength = 0;
-	for (const [id, model] of Object.entries(models)) {
+	for (const [id, entry] of Object.entries(models)) {
 		if (id.length > bestLength && undated.startsWith(id)) {
-			best = model;
+			best = entry;
 			bestLength = id.length;
 		}
 	}
 	return best;
+}
+
+/** 目录里的日期偶尔只给到月份(如 "2026-01"),补成当月 1 号好做字符串比较。 */
+function normalizeReleaseDate(value: string | undefined): string | undefined {
+	if (!value) return undefined;
+	return /^\d{4}-\d{2}$/.test(value) ? `${value}-01` : value;
+}
+
+/** 「只保留最新一档」的时间下限:一年前发布的整族一并淘汰。 */
+export const LATEST_MAX_AGE_MS = 365 * 24 * 60 * 60 * 1000;
+
+/**
+ * 每个系列(family)只保留发布日期最新的一档,且该档需在近一年内发布。
+ *
+ * 各家 `/models` 会把历年模型全列出来(OpenAI 38 个、Gemini 22 个),绝大多数是没人再用的
+ * 历史版本。按目录的 family + release_date 折叠,不写死任何型号,新模型上线自动顶替旧的。
+ *
+ * 目录里查不到的模型一律保留——那通常是刚发布还没进目录、或该账号专属的模型,
+ * 宁可多留也不能把用户真正能用的新模型藏掉。
+ */
+export function selectLatestModels(
+	catalog: ModelsDevCatalog | null,
+	presetId: string,
+	models: ModelDefinition[],
+	now: number,
+): ModelDefinition[] {
+	const cutoff = new Date(now - LATEST_MAX_AGE_MS).toISOString().slice(0, 10);
+	const newestByFamily = new Map<string, { id: string; releaseDate: string }>();
+	const unknown: ModelDefinition[] = [];
+	const known = new Map<string, ModelDefinition>();
+
+	for (const model of models) {
+		const entry = lookupCatalogModel(catalog, presetId, model.id);
+		if (!entry) {
+			unknown.push(model);
+			continue;
+		}
+		const releaseDate = entry.releaseDate ?? "";
+		if (releaseDate && releaseDate < cutoff) continue;
+		known.set(model.id, model);
+		const family = entry.family ?? entry.model.id;
+		const current = newestByFamily.get(family);
+		if (!current || releaseDate > current.releaseDate) {
+			newestByFamily.set(family, { id: model.id, releaseDate });
+		}
+	}
+
+	const kept = [...newestByFamily.values()]
+		.map(({ id }) => known.get(id))
+		.filter((model): model is ModelDefinition => model !== undefined);
+	return [...kept, ...unknown].sort((a, b) => a.id.localeCompare(b.id));
 }
 
 /**
@@ -137,7 +203,7 @@ export function enrichFromCatalog(
 	presetId: string,
 	model: ModelDefinition,
 ): ModelDefinition {
-	const meta = lookupCatalogModel(catalog, presetId, model.id);
+	const meta = lookupCatalogModel(catalog, presetId, model.id)?.model;
 	return {
 		...model,
 		...(model.name === undefined && meta?.name !== undefined ? { name: meta.name } : {}),

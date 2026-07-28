@@ -944,6 +944,8 @@
   "syncedAt": "Synced {{time}}",
   "neverSynced": "Model list not synced yet",
   "catalogModels": "Public catalog; enter a key to sync your account",
+  "showAllModels": "Show all models",
+  "showAllModelsHint": "When off, only the newest model of each series is kept",
   "collapseModels": "Collapse models",
   "viewModels": "View models & pricing",
   "deprecated": "Deprecated",
