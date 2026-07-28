@@ -71,6 +71,7 @@ export interface PresetProvidersResult {
 export type PresetErrorCode =
 	| "unknown-provider"
 	| "missing-key"
+	| "invalid-key"
 	| "http-status"
 	| "empty-models"
 	| "timeout"

@@ -1,6 +1,11 @@
 import type { PresetError } from "@preload/api.js";
 import type { TFunction } from "i18next";
 
+/** 密钥被上游拒绝——调用方据此拒绝启用该服务商。 */
+export function isInvalidKey(error: PresetError | undefined): error is PresetError {
+	return error?.code === "invalid-key";
+}
+
 /**
  * 把主进程回传的结构化错误翻成界面文案。
  *
@@ -15,6 +20,7 @@ export function translatePresetError(error: PresetError, t: TFunction<"settings"
 const ERROR_KEYS: Record<PresetError["code"], string> = {
 	"unknown-provider": "presetErrorUnknownProvider",
 	"missing-key": "presetErrorMissingKey",
+	"invalid-key": "presetErrorInvalidKey",
 	"http-status": "presetErrorHttpStatus",
 	"empty-models": "presetErrorEmptyModels",
 	timeout: "presetErrorTimeout",

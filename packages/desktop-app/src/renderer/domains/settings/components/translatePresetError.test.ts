@@ -2,7 +2,7 @@ import type { PresetError, PresetErrorCode } from "@preload/api.js";
 import type { TFunction } from "i18next";
 import { describe, expect, it } from "vitest";
 import zh from "../../../../shared/i18n/locales/zh/settings.json";
-import { translatePresetError } from "./translatePresetError";
+import { isInvalidKey, translatePresetError } from "./translatePresetError";
 
 // settings.json 有嵌套段落,这里只取顶层的扁平键(预设错误文案都在这一层)。
 const catalog = zh as unknown as Record<string, string>;
@@ -17,6 +17,7 @@ const t = ((key: string, params?: Record<string, unknown>) => {
 const ALL_CODES: PresetErrorCode[] = [
 	"unknown-provider",
 	"missing-key",
+	"invalid-key",
 	"http-status",
 	"empty-models",
 	"timeout",
@@ -38,6 +39,13 @@ describe("translatePresetError", () => {
 		);
 
 		expect(message).toBe("api.deepseek.com 返回 401 Unauthorized");
+	});
+
+	it("只有 invalid-key 会拦下启用", () => {
+		expect(isInvalidKey({ code: "invalid-key" })).toBe(true);
+		expect(isInvalidKey({ code: "http-status" })).toBe(false);
+		expect(isInvalidKey({ code: "timeout" })).toBe(false);
+		expect(isInvalidKey(undefined)).toBe(false);
 	});
 
 	it("detail 附在括号里给排查用,不参与翻译", () => {

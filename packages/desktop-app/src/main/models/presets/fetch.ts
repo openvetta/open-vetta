@@ -55,15 +55,31 @@ function trimSlash(url: string): string {
 	return url.replace(/\/$/, "");
 }
 
-async function readJson(response: Response, url: string): Promise<unknown> {
+/**
+ * 读响应体,非 2xx 抛结构化错误。
+ *
+ * `authStatuses` 是该家「这把 key 不行」的状态码——各家不统一:Anthropic / OpenAI 兼容
+ * 用 401/403,Gemini 的无效 key 返回 400 INVALID_ARGUMENT。命中就报 invalid-key,
+ * 调用方据此拒绝启用,而不是笼统的「拉取失败」。
+ */
+async function readJson(response: Response, url: string, authStatuses: readonly number[]): Promise<unknown> {
 	if (!response.ok) {
+		const host = new URL(url).host;
+		if (authStatuses.includes(response.status)) {
+			throw new PresetFetchError({ code: "invalid-key", params: { host, status: response.status } });
+		}
 		throw new PresetFetchError({
 			code: "http-status",
-			params: { host: new URL(url).host, status: response.status, statusText: response.statusText },
+			params: { host, status: response.status, statusText: response.statusText },
 		});
 	}
 	return response.json();
 }
+
+/** 认证失败的状态码:Bearer / x-api-key 系一律 401/403。 */
+const AUTH_STATUSES = [401, 403] as const;
+/** Gemini 走 ?key= 查询参数,key 不对返回 400 INVALID_ARGUMENT。 */
+const GEMINI_AUTH_STATUSES = [400, 401, 403] as const;
 
 // ─── Anthropic: GET /v1/models,x-api-key 鉴权,游标分页,元数据最全 ───
 
@@ -126,7 +142,7 @@ async function fetchAnthropicModels(
 				"anthropic-version": "2023-06-01",
 			},
 		});
-		const body = (await readJson(response, url)) as {
+		const body = (await readJson(response, url, AUTH_STATUSES)) as {
 			data?: AnthropicModel[];
 			has_more?: boolean;
 			last_id?: string;
@@ -178,7 +194,7 @@ async function fetchOpenAICompatibleModels(
 		signal,
 		headers: { Accept: "application/json", Authorization: `Bearer ${apiKey}` },
 	});
-	const body = (await readJson(response, url)) as { data?: unknown; models?: unknown };
+	const body = (await readJson(response, url, AUTH_STATUSES)) as { data?: unknown; models?: unknown };
 	const list = Array.isArray(body.data) ? body.data : Array.isArray(body.models) ? body.models : [];
 	const models: ModelDefinition[] = [];
 	for (const item of list) {
@@ -230,7 +246,10 @@ async function fetchGeminiModels(
 			signal,
 			headers: { Accept: "application/json" },
 		});
-		const body = (await readJson(response, url)) as { models?: GeminiModel[]; nextPageToken?: string };
+		const body = (await readJson(response, url, GEMINI_AUTH_STATUSES)) as {
+			models?: GeminiModel[];
+			nextPageToken?: string;
+		};
 		for (const item of body.models ?? []) {
 			const model = parseGeminiModel(item);
 			if (model) models.push(model);
