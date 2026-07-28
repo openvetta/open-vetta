@@ -10,6 +10,7 @@ import {
 	type ModelsDevCatalog,
 	selectLatestModels,
 } from "./models-dev.js";
+import { MODELS_DEV_SNAPSHOT } from "./models-dev-snapshot.generated.js";
 
 const NOW = Date.parse("2026-07-27T00:00:00Z");
 
@@ -137,6 +138,43 @@ describe("models.dev 目录", () => {
 		const merged = enrichFromCatalog(null, "openai", { id: "gpt-9-unknown" });
 
 		expect(merged).toEqual({ id: "gpt-9-unknown", input: ["text"] });
+	});
+});
+
+describe("随包内置快照", () => {
+	it("schema 版本与当前代码一致——改了 CatalogEntry 形状就必须重新生成", () => {
+		// 版本对不上时运行时会整份丢弃,兜底形同虚设,所以这里必须挡住。
+		expect(isCatalogUsable(MODELS_DEV_SNAPSHOT)).toBe(true);
+	});
+
+	it("六家都有模型,且条目字段齐全", () => {
+		expect(Object.keys(MODELS_DEV_SNAPSHOT.providers).sort()).toEqual([
+			"claude",
+			"deepseek",
+			"gemini",
+			"kimi",
+			"openai",
+			"zai",
+		]);
+		for (const [presetId, entries] of Object.entries(MODELS_DEV_SNAPSHOT.providers)) {
+			expect(Object.keys(entries).length, presetId).toBeGreaterThan(0);
+			for (const [id, entry] of Object.entries(entries)) {
+				expect(entry.model?.id, `${presetId}/${id}`).toBe(id);
+			}
+		}
+	});
+
+	it("能按系列折叠出最新一档", () => {
+		const models = Object.values(MODELS_DEV_SNAPSHOT.providers.claude).map((entry) => entry.model);
+		const latest = selectLatestModels(
+			MODELS_DEV_SNAPSHOT,
+			"claude",
+			models,
+			Date.parse(MODELS_DEV_SNAPSHOT.fetchedAt),
+		);
+
+		expect(latest.length).toBeGreaterThan(0);
+		expect(latest.length).toBeLessThan(models.length);
 	});
 });
 

@@ -1,5 +1,6 @@
 import type { SubscriptionStatus } from "@preload/api.js";
-import { formatExpiry, formatResetCountdown, WINDOW_LABELS } from "@shared/lib/subscription-format";
+import type { ResetCountdown } from "@shared/lib/subscription-format";
+import { formatExpiry, getResetCountdown, WINDOW_LABEL_KEYS } from "@shared/lib/subscription-format";
 import { remoteProvidersAtom, subscriptionStatusAtom } from "@shared/store/atoms";
 import { useAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -59,8 +60,8 @@ export function formatMultiplier(n: number): string {
 	return Number.isInteger(n) ? String(n) : String(Number(n.toFixed(2)));
 }
 
-export function formatWindowReset(resetAt: string, now: number): string {
-	return formatResetCountdown(resetAt, now);
+export function formatWindowReset(resetAt: string, now: number): ResetCountdown | null {
+	return getResetCountdown(resetAt, now);
 }
 
 export function useSubscriptionCardsModel(): SubscriptionCardsModel {
@@ -128,11 +129,11 @@ export function useSubscriptionCardsModel(): SubscriptionCardsModel {
 			(subscriptionStatus.windows ?? []).map((windowInfo) => ({
 				consumed: windowInfo.consumed,
 				kind: windowInfo.kind,
-				label: WINDOW_LABELS[windowInfo.kind],
+				label: t(WINDOW_LABEL_KEYS[windowInfo.kind]),
 				limit: windowInfo.limit,
 				resetAt: windowInfo.reset_at,
 			})),
-		[subscriptionStatus.windows],
+		[subscriptionStatus.windows, t],
 	);
 
 	return {

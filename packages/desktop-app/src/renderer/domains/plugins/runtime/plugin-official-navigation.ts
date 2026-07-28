@@ -60,13 +60,6 @@ const STATIC_TARGETS: readonly StaticNavigationTarget[] = [
 		aliases: ["MCP", "mcp", "MCP 管理", "连接器", "connectors"],
 	},
 	{
-		id: "downloads",
-		title: "下载中心",
-		description: "查看下载任务的页面。",
-		hashPath: "/downloads",
-		aliases: ["下载", "download"],
-	},
-	{
 		id: "settings",
 		title: "设置",
 		description: "设置首页，默认打开通用设置。",

@@ -11,9 +11,8 @@ export function PresetProvidersSectionView({ model }: { model: PresetProvidersSe
 			error={model.error}
 			hasRows={model.rows.length > 0}
 			loading={model.loading}
-			showAllModels={model.showAllModels}
-			togglingShowAll={model.togglingShowAll}
-			onToggleShowAllModels={(showAll) => void model.onToggleShowAllModels(showAll)}
+			refreshingCatalog={model.refreshingCatalog}
+			onRefreshCatalog={() => void model.onRefreshCatalog()}
 			rows={model.rows.map((row) => (
 				<PresetProviderRow
 					key={row.id}
