@@ -945,6 +945,7 @@
   "neverSynced": "Model list not synced yet",
   "catalogModels": "Public catalog; enter a key to sync your account",
   "catalogUnavailable": "Public model catalog unreachable. Enabled providers can still refresh directly from the provider.",
+  "refreshCatalog": "Refresh catalog",
   "showAllModels": "Show all models",
   "showAllModelsHint": "When off, only the newest model of each series is kept",
   "collapseModels": "Collapse models",

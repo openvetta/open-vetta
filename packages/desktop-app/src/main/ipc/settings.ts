@@ -9,6 +9,7 @@ import { DEFAULT_SERVER_URL, DEFAULT_SITE_URL } from "../constants.js";
 import { getAppLogger } from "../logger.js";
 import {
 	listPresetProviders,
+	refreshPresetCatalog,
 	refreshPresetModels,
 	setPresetShowAllModels,
 	startPresetModelsAutoSync,
@@ -355,6 +356,11 @@ export function registerSettingsIpc(): () => void {
 		return listPresetProviders();
 	});
 
+	// 手动刷新公共目录:清掉失败冷却强制重拉,错误原样回给渲染层。
+	ipcMain.handle("vetta:models:refresh-preset-catalog", async () => {
+		return refreshPresetCatalog();
+	});
+
 	// 「显示全部模型」开关。落 settings.json,后台定时同步也按它决定写哪些模型。
 	ipcMain.handle("vetta:models:set-preset-show-all", (_event, showAll: unknown) => {
 		setPresetShowAllModels(showAll === true);
@@ -395,6 +401,7 @@ export function registerSettingsIpc(): () => void {
 		ipcMain.removeHandler("vetta:models:fetch-remote");
 		ipcMain.removeHandler("vetta:models:list-presets");
 		ipcMain.removeHandler("vetta:models:set-preset-show-all");
+		ipcMain.removeHandler("vetta:models:refresh-preset-catalog");
 		ipcMain.removeHandler("vetta:models:refresh-preset-models");
 		ipcMain.removeHandler("vetta:subscription:status");
 		ipcMain.removeHandler("vetta:auth:refresh-token");
