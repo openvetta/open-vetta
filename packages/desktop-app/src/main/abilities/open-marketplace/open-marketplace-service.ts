@@ -2,13 +2,13 @@ import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, posix, relative, resolve, sep } from "node:path";
-import { getVettaHomePath } from "@vetta/action-rpc";
 import AdmZip from "adm-zip";
 import type {
 	GitHubMarketplaceOrigin,
 	OpenMarketplaceAbility,
 	OpenMarketplaceSnapshot,
 } from "../../../preload/api-types/abilities.js";
+import { getApplicationCacheService } from "../../cache/application-cache-service.js";
 import { isAppVersionCompatible, isValidAppVersion } from "./marketplace-compatibility.js";
 import { type MarketplaceManifest, parseMarketplaceManifest } from "./marketplace-schema.js";
 import { validateOpenMarketplacePlugin } from "./open-marketplace-plugin.js";
@@ -56,6 +56,7 @@ export interface OpenMarketplaceServiceOptions {
 	updateCheckIntervalMs?: number;
 	installAbility?: InstallAbility;
 	onBackgroundUpdate?: (snapshot: OpenMarketplaceSnapshot) => void;
+	createTemporaryDirectory?: () => Promise<string>;
 }
 
 function isContained(parent: string, target: string): boolean {
@@ -177,12 +178,14 @@ export class OpenMarketplaceService {
 	private readonly updateCheckIntervalMs: number;
 	private readonly installAbilityOverride?: InstallAbility;
 	private readonly onBackgroundUpdate?: (snapshot: OpenMarketplaceSnapshot) => void;
+	private readonly createTemporaryDirectory: () => Promise<string>;
 	private lastUpdateCheckAt: number | undefined;
 	private backgroundUpdate: Promise<void> | undefined;
 
 	constructor(options: OpenMarketplaceServiceOptions) {
-		this.rootDir = options.rootDir ?? join(getVettaHomePath(), "open-marketplace");
+		const marketplaceCache = getApplicationCacheService().namespace("marketplace");
 		this.sourceId = options.sourceId ?? DEFAULT_MARKETPLACE_SOURCE_ID;
+		this.rootDir = options.rootDir ?? marketplaceCache.path(this.sourceId);
 		this.sourceRef = options.sourceRef ?? process.env.VETTA_OPEN_MARKETPLACE_REF ?? "main";
 		const configuredRepository = options.repository ?? process.env.VETTA_OPEN_MARKETPLACE_REPOSITORY;
 		if (!configuredRepository?.trim()) {
@@ -204,6 +207,11 @@ export class OpenMarketplaceService {
 		this.updateCheckIntervalMs = options.updateCheckIntervalMs ?? DEFAULT_UPDATE_CHECK_INTERVAL_MS;
 		this.installAbilityOverride = options.installAbility;
 		this.onBackgroundUpdate = options.onBackgroundUpdate;
+		this.createTemporaryDirectory =
+			options.createTemporaryDirectory ??
+			(options.rootDir
+				? () => mkdtemp(join(this.rootDir, "sync-"))
+				: () => marketplaceCache.createTemporaryDirectory("sync"));
 	}
 
 	async list(): Promise<OpenMarketplaceSnapshot> {
@@ -461,7 +469,7 @@ export class OpenMarketplaceService {
 	private async sync(): Promise<OpenMarketplaceSnapshot> {
 		await mkdir(this.rootDir, { recursive: true });
 		await mkdir(this.snapshotsDir, { recursive: true });
-		const temporaryRoot = await mkdtemp(join(this.rootDir, "sync-"));
+		const temporaryRoot = await this.createTemporaryDirectory();
 		try {
 			const buffer = await this.downloadArchive();
 			const archiveSha256 = createHash("sha256").update(buffer).digest("hex");
