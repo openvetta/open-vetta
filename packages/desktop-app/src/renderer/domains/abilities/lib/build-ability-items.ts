@@ -24,6 +24,7 @@ import {
 	serverUsesOAuth,
 } from "../../settings/mcp/builtin-mcp-presets";
 import type { AbilityItem, BundleAbility, McpAbility, PluginAbility, SkillAbility } from "../types";
+import { getOpenCatalogOrigin } from "./merge-ability-catalogs";
 
 /**
  * 解析插件 manifest 里的 `%key%` NLS 占位符（ADR-0033）。已装插件走它自带的
@@ -110,6 +111,7 @@ export function buildSkillAbilities(market: MarketAbility[], state: LocalAbility
 			isCustom: false,
 			isBuiltin: false,
 			fromMarket: true,
+			origin: getOpenCatalogOrigin(entry),
 			market: entry,
 			searchTerms: terms(entry.slug, entry.name, entry.description, entry.tags),
 		});
@@ -144,6 +146,7 @@ export function buildSkillAbilities(market: MarketAbility[], state: LocalAbility
 			isCustom,
 			isBuiltin: false,
 			fromMarket: false,
+			origin: ledger[id]?.origin?.kind === "github-marketplace" ? ledger[id].origin : undefined,
 			searchTerms: terms(name, local.alias),
 		});
 	}

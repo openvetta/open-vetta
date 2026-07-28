@@ -2,7 +2,12 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getVettaHomePath } from "@vetta/action-rpc";
 import { atomicWriteJSON } from "@vetta/toolkit/atomic-write";
-import type { AbilityLedger, AbilityLedgerEntry, AbilityLedgerType } from "../../preload/api-types/abilities.js";
+import type {
+	AbilityInstallOrigin,
+	AbilityLedger,
+	AbilityLedgerEntry,
+	AbilityLedgerType,
+} from "../../preload/api-types/abilities.js";
 
 /**
  * 能力安装台账（ADR-0049）。
@@ -43,7 +48,35 @@ function parseEntry(value: unknown): AbilityLedgerEntry | null {
 	if (value == null || typeof value !== "object" || Array.isArray(value)) return null;
 	const entry = value as Record<string, unknown>;
 	if (typeof entry.version !== "string" || typeof entry.installedAt !== "string") return null;
-	return { version: entry.version, installedAt: entry.installedAt };
+	let origin: AbilityInstallOrigin | undefined;
+	if (entry.origin != null && typeof entry.origin === "object" && !Array.isArray(entry.origin)) {
+		const candidate = entry.origin as Record<string, unknown>;
+		if (candidate.kind === "server") {
+			origin = { kind: "server" };
+		} else if (
+			candidate.kind === "github-marketplace" &&
+			typeof candidate.marketplace === "string" &&
+			typeof candidate.marketplaceVersion === "string" &&
+			typeof candidate.repository === "string"
+		) {
+			origin = {
+				kind: "github-marketplace",
+				marketplace: candidate.marketplace,
+				marketplaceVersion: candidate.marketplaceVersion,
+				repository: candidate.repository,
+			};
+		}
+	}
+	const configVersion =
+		typeof entry.configVersion === "number" && Number.isInteger(entry.configVersion) && entry.configVersion > 0
+			? entry.configVersion
+			: undefined;
+	return {
+		version: entry.version,
+		installedAt: entry.installedAt,
+		...(origin ? { origin } : {}),
+		...(configVersion ? { configVersion } : {}),
+	};
 }
 
 /** 原样读盘（不做漂移剔除），只丢弃结构非法的键值。 */
@@ -125,7 +158,12 @@ export function readAbilityLedger(): AbilityLedger {
  * 记录一次安装/升级。已有条目保留原 installedAt（它表示首次安装时间），仅更新版本。
  * 内置能力（skill-presets、系统插件）不进台账，调用方不应对其调用本函数。
  */
-export function recordAbilityInstall(type: AbilityLedgerType, slug: string, version: string): void {
+export function recordAbilityInstall(
+	type: AbilityLedgerType,
+	slug: string,
+	version: string,
+	metadata?: { origin?: AbilityInstallOrigin; configVersion?: number },
+): void {
 	if (!slug.trim() || !version.trim()) {
 		throw new Error(`Invalid ability ledger entry: ${type}:${slug}@${version}`);
 	}
@@ -134,6 +172,8 @@ export function recordAbilityInstall(type: AbilityLedgerType, slug: string, vers
 	ledger[key] = {
 		version,
 		installedAt: ledger[key]?.installedAt ?? new Date().toISOString(),
+		origin: metadata?.origin ?? { kind: "server" },
+		...(metadata?.configVersion ? { configVersion: metadata.configVersion } : {}),
 	};
 	writeLedgerFile(ledger);
 }
