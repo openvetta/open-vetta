@@ -88,6 +88,49 @@ describe("OpenMarketplaceService", () => {
 			"utf-8",
 		);
 		expect(stored).toContain("name: demo-skill");
+		const state: unknown = JSON.parse(await readFile(join(rootDir, "state.json"), "utf-8"));
+		expect(state).toMatchObject({
+			schemaVersion: 1,
+			sourceId: "vetta-official",
+			ref: "main",
+			marketplaceVersion: "2026.07.1",
+		});
+	});
+
+	it("does not reuse state after the configured source identity changes", async () => {
+		const rootDir = await temporaryRoot();
+		const first = new OpenMarketplaceService({
+			appVersion: APP_VERSION,
+			rootDir,
+			sourceId: "source",
+			sourceRef: "main",
+			repository: "https://github.com/example/first",
+			archiveUrl: "https://github.com/example/first/archive/refs/heads/main.zip",
+			fetchArchive: async () => response(archive({ description: "First" })),
+		});
+		await first.refresh();
+		const second = new OpenMarketplaceService({
+			appVersion: APP_VERSION,
+			rootDir,
+			sourceId: "source",
+			sourceRef: "next",
+			repository: "https://github.com/example/second",
+			archiveUrl: "https://github.com/example/second/archive/refs/heads/next.zip",
+			fetchArchive: async () => response(archive({ description: "Second" })),
+		});
+
+		expect(await second.listCached()).toMatchObject({
+			abilities: [],
+			marketplaceVersion: null,
+			stale: true,
+		});
+		const snapshot = await second.refresh();
+		expect(snapshot.abilities[0]?.description).toBe("Second");
+		const state: unknown = JSON.parse(await readFile(join(rootDir, "state.json"), "utf-8"));
+		expect(state).toMatchObject({
+			repository: "https://github.com/example/second",
+			ref: "next",
+		});
 	});
 
 	it("keeps the last usable snapshot when content changes without a marketplace version bump", async () => {

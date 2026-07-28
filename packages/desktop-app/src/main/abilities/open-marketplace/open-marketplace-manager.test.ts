@@ -94,4 +94,35 @@ describe("OpenMarketplaceManager", () => {
 		expect(listCached).toHaveBeenCalledOnce();
 		expect(install).toHaveBeenCalledWith("skill", "demo");
 	});
+
+	it("uses a different cache directory after source configuration changes", async () => {
+		const root = await temporaryRoot();
+		const catalog = source("catalog", 100);
+		const store = new MarketplaceSourceStore({ filePath: join(root, "sources.json"), defaultSources: [catalog] });
+		const cacheRoots: string[] = [];
+		const manager = new OpenMarketplaceManager({
+			appVersion: "0.5.11",
+			store,
+			cacheRoot: join(root, "cache"),
+			workerFactory: (item, cacheRoot) => {
+				cacheRoots.push(cacheRoot);
+				return {
+					list: vi.fn(async () => snapshot(item.id)),
+					listCached: vi.fn(async () => snapshot(item.id)),
+					refresh: vi.fn(async () => snapshot(item.id)),
+					install: vi.fn(async () => undefined),
+				};
+			},
+		});
+
+		await manager.list();
+		await manager.list();
+		manager.updateSource(catalog.id, { ref: "next" });
+		await manager.list();
+
+		expect(cacheRoots).toHaveLength(2);
+		expect(cacheRoots[0]).not.toBe(cacheRoots[1]);
+		expect(cacheRoots[0]).toContain(join("cache", catalog.id));
+		expect(cacheRoots[1]).toContain(join("cache", catalog.id));
+	});
 });

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { getVettaHomePath } from "@vetta/action-rpc";
 import type {
@@ -9,7 +10,12 @@ import type {
 	UpdateMarketplaceSourceInput,
 } from "../../../preload/api-types/abilities.js";
 import { MarketplaceSourceStore } from "./marketplace-source-store.js";
-import { DEFAULT_MARKETPLACE_SOURCE_ID, OpenMarketplaceService } from "./open-marketplace-service.js";
+import {
+	DEFAULT_MARKETPLACE_ARCHIVE_URL,
+	DEFAULT_MARKETPLACE_REPOSITORY,
+	DEFAULT_MARKETPLACE_SOURCE_ID,
+	OpenMarketplaceService,
+} from "./open-marketplace-service.js";
 
 interface MarketplaceWorker {
 	list(): Promise<OpenMarketplaceSnapshot>;
@@ -45,6 +51,7 @@ export class OpenMarketplaceManager {
 				new OpenMarketplaceService({
 					rootDir: cacheRoot,
 					sourceId: source.id,
+					sourceRef: source.ref,
 					repository: source.repository,
 					archiveUrl: source.archiveUrl,
 					appVersion: options.appVersion,
@@ -143,8 +150,14 @@ export class OpenMarketplaceManager {
 		const fingerprint = `${source.repository}\n${source.archiveUrl}\n${source.ref}`;
 		const existing = this.workers.get(source.id);
 		if (existing?.fingerprint === fingerprint) return existing.worker;
-		const cacheRoot =
-			source.id === DEFAULT_MARKETPLACE_SOURCE_ID ? this.legacyDefaultRoot : join(this.cacheRoot, source.id);
+		const usesLegacyDefaultCache =
+			source.id === DEFAULT_MARKETPLACE_SOURCE_ID &&
+			source.repository === DEFAULT_MARKETPLACE_REPOSITORY &&
+			source.archiveUrl === DEFAULT_MARKETPLACE_ARCHIVE_URL &&
+			source.ref === "main";
+		const cacheRoot = usesLegacyDefaultCache
+			? this.legacyDefaultRoot
+			: join(this.cacheRoot, source.id, createHash("sha256").update(fingerprint).digest("hex"));
 		const worker = this.workerFactory(source, cacheRoot);
 		this.workers.set(source.id, { fingerprint, worker });
 		return worker;
