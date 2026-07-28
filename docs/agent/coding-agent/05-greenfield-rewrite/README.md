@@ -44,7 +44,7 @@
 8. [实施日志](./08-implementation-log.md)
    - 索引；每轮实施单独成文，见 [`08-implementation-log/`](./08-implementation-log/)。
    - 按实施轮次记录实际修改、验证结果、未完成项和下一步。
-   - 最新记录：[第 75 轮：RPC 宿主反腐层与 Legacy 协议基线](./08-implementation-log/75-rpc-host-anti-corruption-layer.md)。
+   - 最新记录：[第 77 轮：Greenfield IM Runtime Host 与会话所有权](./08-implementation-log/77-greenfield-im-runtime-host-and-session-ownership.md)。
 9. [行为兼容性审计](./09-behavior-compatibility-audit.md)
    - 审计已实施模块与旧行为的差距。
    - 定义旧新差分测试和迁移 Gate。

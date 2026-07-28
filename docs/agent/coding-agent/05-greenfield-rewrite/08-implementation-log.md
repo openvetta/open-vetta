@@ -83,6 +83,8 @@
 | [73-memory-rollover-orchestrator.md](./08-implementation-log/73-memory-rollover-orchestrator.md) | Memory Rollover 产品编排、既有 MEMORY/Tool/JOURNAL 复用与默认关闭接线 |
 | [74-memory-rollover-finalization-and-flush-control.md](./08-implementation-log/74-memory-rollover-finalization-and-flush-control.md) | Rollover 后置时序兼容、continuation finalization 与主动 Memory Flush 控制 |
 | [75-rpc-host-anti-corruption-layer.md](./08-implementation-log/75-rpc-host-anti-corruption-layer.md) | RPC JSONL/校验/分发解耦、分组 Capability、Legacy Adapter 与无模型协议基线 |
+| [76-profile-aware-rpc-and-greenfield-im-adapter.md](./08-implementation-log/76-profile-aware-rpc-and-greenfield-im-adapter.md) | Profile-aware RPC、Greenfield IM Adapter、事件/Host Tool/路径与释放边界 |
+| [77-greenfield-im-runtime-host-and-session-ownership.md](./08-implementation-log/77-greenfield-im-runtime-host-and-session-ownership.md) | 共享 Host Bootstrap、Greenfield IM Runtime Host、进程级会话所有权与 Legacy fallback |
 
 ## 维护约定
 

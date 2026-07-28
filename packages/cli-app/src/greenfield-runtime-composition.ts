@@ -20,11 +20,15 @@ import {
 	type CodingAgentPluginToolActivation,
 	CodingAgentPluginToolRuntime,
 	type CodingAgentPromptResourceResolver,
+	type CodingAgentPromptResourceSource,
+	CodingAgentPromptRuntime,
+	type CodingAgentPromptSettingsSource,
 	CodingAgentStopHookContinuationSource,
 	type CodingAgentSystemPromptOptionsResolver,
 	CodingAgentTodoContinuationSource,
 	CodingAgentTodoRuntime,
 	createCodingAgentMemoryRuntimeFeature,
+	createCodingAgentPromptResourceResolver,
 	createCodingAgentPromptRuntime,
 	createCodingAgentTodoRuntimeFeature,
 	createCodingAgentTodoRuntimeToolRegistration,
@@ -34,6 +38,7 @@ import {
 } from "@vetta/coding-agent/runtime-host/greenfield";
 import {
 	ComposedGreenfieldRuntimeFactory,
+	type ConversationScenario,
 	GreenfieldRuntimeModel,
 	GreenfieldRuntimeSessionBackend,
 	type SessionConfig,
@@ -52,12 +57,13 @@ import {
 	type McpRuntimeToolSource,
 	type McpRuntimeToolSynchronizer,
 } from "@vetta/runtime-mcp";
-import { FileConversationRepository } from "@vetta/runtime-storage/conversation";
+import { type ConversationOwnershipManager, FileConversationRepository } from "@vetta/runtime-storage/conversation";
 import {
 	type CodingToolActivation,
 	guardCodingToolRegistration,
 	selectCodingToolRegistrations,
 } from "@vetta/runtime-tools/coding";
+import { ConversationOwnershipBinding } from "./conversation-ownership-binding.js";
 import {
 	type CodingToolsRuntimeComposition,
 	createCodingToolsRuntimeComposition,
@@ -81,6 +87,9 @@ export interface GreenfieldRuntimeCompositionOptions {
 	readonly initialThinkingLevel: NonNullable<SessionConfig["thinkingLevel"]>;
 	readonly cwd?: string;
 	readonly agentDir?: string;
+	readonly scenario?: ConversationScenario;
+	/** 可选的进程级会话所有权；与 Repository 单次写锁相互独立。 */
+	readonly conversationOwnershipManager?: ConversationOwnershipManager;
 	readonly activation?: CodingToolActivation;
 	readonly knowledgeEnabled?: boolean;
 	readonly knowledgeRoot?: string;
@@ -88,6 +97,10 @@ export interface GreenfieldRuntimeCompositionOptions {
 	readonly streamFn?: AgentCoreTurnEngineOptions["streamFn"];
 	readonly tokenBudget?: number;
 	readonly reservedOutputTokens?: number;
+	/** 已由宿主 Bootstrap 加载的共享动态资源；必须与 promptSettingsSource 同时提供。 */
+	readonly promptResourceSource?: CodingAgentPromptResourceSource;
+	/** 已由宿主 Bootstrap 加载的共享设置；必须与 promptResourceSource 同时提供。 */
+	readonly promptSettingsSource?: CodingAgentPromptSettingsSource;
 	/** 优先使用会话工厂，避免有状态 ResourceLoader / TodoStore 被多个 Session 共享。 */
 	readonly createPromptResourceResolver?: (
 		sessionOptions: GreenfieldCliSessionOptions,
@@ -130,6 +143,7 @@ export interface GreenfieldRuntimeCompositionOptions {
 export interface GreenfieldRuntimeComposition {
 	readonly backend: GreenfieldRuntimeSessionBackend<GreenfieldCliSessionOptions>;
 	readonly tools: CodingToolsRuntimeComposition;
+	readonly scenario: ConversationScenario;
 	flushMemory(sessionId: string, signal?: AbortSignal): Promise<number>;
 	dispose(): Promise<void>;
 }
@@ -144,7 +158,12 @@ export async function createGreenfieldRuntimeComposition(
 	options: GreenfieldRuntimeCompositionOptions,
 ): Promise<GreenfieldRuntimeComposition> {
 	const cwd = options.cwd ?? process.cwd();
-	const effectiveActivation = options.activation ?? ({ mode: "scope", scope: "cli" } satisfies CodingToolActivation);
+	const scenario = options.scenario ?? "cli";
+	if ((options.promptResourceSource === undefined) !== (options.promptSettingsSource === undefined)) {
+		throw new Error("promptResourceSource and promptSettingsSource must be provided together");
+	}
+	const effectiveActivation =
+		options.activation ?? ({ mode: "scope", scope: scenario } satisfies CodingToolActivation);
 	const knowledgeAvailable = options.knowledgeEnabled ?? process.env.VETTA_KNOWLEDGE_DISABLED !== "1";
 	let backgroundTasksAvailable = false;
 	let mcpSynchronizer: McpRuntimeToolSynchronizer | undefined;
@@ -196,7 +215,23 @@ export async function createGreenfieldRuntimeComposition(
 	const memoryRuntimes = new Set<CodingAgentMemoryRolloverRuntime>();
 	const memoryControllers = new Map<string, CodingAgentMemoryController>();
 	const hookSessionDisposers = new Set<() => Promise<void>>();
+	const ownershipBindings = new Set<ConversationOwnershipBinding>();
 	const modelAdapter = new CodingAgentModelRegistryAdapter(options.modelRegistry);
+	const acquireOwnership = async (sessionId: string): Promise<ConversationOwnershipBinding | undefined> => {
+		const manager = options.conversationOwnershipManager;
+		if (!manager) return undefined;
+		const binding = await ConversationOwnershipBinding.acquire(
+			manager,
+			repository.resolveConversationPath(sessionId),
+		);
+		ownershipBindings.add(binding);
+		return binding;
+	};
+	const releaseOwnership = async (binding: ConversationOwnershipBinding | undefined): Promise<void> => {
+		if (!binding) return;
+		ownershipBindings.delete(binding);
+		await binding.dispose();
+	};
 	const stateActivation =
 		effectiveActivation.mode === "scope"
 			? withCapabilities(effectiveActivation, [
@@ -208,307 +243,340 @@ export async function createGreenfieldRuntimeComposition(
 		streamFn: options.streamFn,
 		async createResources(sessionOptions, resourceContext) {
 			let activeSessionId = sessionOptions.sessionId;
-			const synchronizer = mcpSynchronizer;
-			const mcpController = synchronizer
-				? createMcpDeferredToolController({
-						sessionId: sessionOptions.sessionId,
-						deferredEnabled: effectiveActivation.mode !== "explicit",
-						explicitToolNames:
-							effectiveActivation.mode === "explicit" ? new Set(effectiveActivation.toolNames) : undefined,
-					})
-				: undefined;
-			if (mcpController && synchronizer) {
-				mcpController.refresh(synchronizer.snapshot());
-				mcpControllers.set(sessionOptions.sessionId, mcpController);
-			}
-			const sessionCwd = sessionOptions.cwd ?? cwd;
-			const memoryRuntimeOptions = {
-				memoryFile: sessionOptions.memoryFile ?? join(sessionCwd, "MEMORY.md"),
-				memoryCharLimit: sessionOptions.memoryCharLimit,
-				cwd: sessionCwd,
-			};
-			const memoryRuntime = sessionOptions.memoryMode
-				? (options.createMemoryRolloverRuntime?.(memoryRuntimeOptions, sessionOptions) ??
-					new CodingAgentMemoryRolloverOrchestrator(memoryRuntimeOptions))
-				: undefined;
-			if (memoryRuntime) memoryRuntimes.add(memoryRuntime);
-			const todoRuntime = options.createTodoRuntime?.(sessionOptions) ?? new CodingAgentTodoRuntime();
-			todoRuntimes.add(todoRuntime);
-			const todoRegistration = createCodingAgentTodoRuntimeToolRegistration(todoRuntime);
-			const todoEnabled = selectCodingToolRegistrations([todoRegistration], effectiveActivation).length > 0;
-			const baseProfile: AgentProfile = mcpController
-				? {
-						...tools.profile,
-						features: [
-							...tools.profile.features,
-							...(todoEnabled ? [createCodingAgentTodoRuntimeFeature(todoRegistration)] : []),
-							...(memoryRuntime ? [createCodingAgentMemoryRuntimeFeature(memoryRuntime.toolRegistration)] : []),
-							mcpController.createFeature({ includePromptInstruction: false }),
-						],
-					}
-				: {
-						...tools.profile,
-						features: [
-							...tools.profile.features,
-							...(todoEnabled ? [createCodingAgentTodoRuntimeFeature(todoRegistration)] : []),
-							...(memoryRuntime ? [createCodingAgentMemoryRuntimeFeature(memoryRuntime.toolRegistration)] : []),
-						],
-					};
-			const modelRuntime = new GreenfieldRuntimeModel({
-				initialModel: options.initialModel,
-				initialThinkingLevel: options.initialThinkingLevel,
-				catalog: modelAdapter,
-				credentials: modelAdapter,
-			});
-			const memoryController = memoryRuntime
-				? new CodingAgentGreenfieldMemoryController({
-						runtime: memoryRuntime,
-						readMessages: async () =>
-							selectConversationDocumentModelMessages(await repository.readDocument(activeSessionId)),
-						readModel: () => modelRuntime.readCurrentModel(),
-						resolveApiKey: (model) => modelRuntime.resolveApiKey(model),
-					})
-				: undefined;
-			const hookRuntime = createEcosystemHookRuntime({
-				host: {
-					cwd: sessionCwd,
-					getSessionId: () => activeSessionId,
-					getTranscriptPath: () => repository.resolveConversationPath(activeSessionId),
-					getModelId: () => modelRuntime.readCurrentModel().id,
-					abortCurrentRun: resourceContext.abortCurrentRun,
-					recordAdditionalContexts: (contexts) => {
-						resourceContext.contextAppender.append(
-							contexts.map((content) => ({
-								type: "ecosystem-hook-context",
-								content: [{ type: "text", text: content }],
-								modelVisible: true,
-								display: false,
-							})),
-						);
-					},
-				},
-				initialSessionStartSource: resourceContext.operation === "create" ? "startup" : "resume",
-				additionalAdapterFactories: options.additionalHookAdapterFactories,
-				configLayers: options.hookConfigLayers,
-				maxStopContinuations: options.maxStopHookContinuations,
-			});
-			const contextRuntime = new CodingAgentGreenfieldContextRuntime({
-				hookRuntime,
-				resolveApiKey: (model) => modelRuntime.resolveApiKey(model),
-				resolveSettings: options.resolveCompactionSettings,
-				generateCompaction: options.generateCompaction,
-				extensionRuntime: options.createCompactionExtensionRuntime?.(sessionOptions),
-				memoryRollover: memoryRuntime,
-			});
-			contextRuntimes.add(contextRuntime);
-			let hookSessionEnded = false;
-			const endHookSession = async (): Promise<void> => {
-				if (hookSessionEnded) return;
-				hookSessionEnded = true;
-				hookSessionDisposers.delete(endHookSession);
-				try {
-					await hookRuntime.runSessionEnd("dispose");
-				} catch (error) {
-					console.warn("[ecosystem-hooks] SessionEnd failed during Greenfield dispose", error);
-				}
-			};
-			const pluginRuntime = options.createPluginRuntime?.(sessionOptions);
-			const pluginSession = {
-				id: activeSessionId,
-				cwd: sessionCwd,
-				scenario: "cli",
-			};
-			const pluginRunOrchestrator = pluginRuntime
-				? new CodingAgentPluginRunOrchestrator({
-						session: pluginSession,
-						...pluginRuntime,
-					})
-				: undefined;
-			const pluginToolRuntime =
-				pluginRuntime && pluginRunOrchestrator
-					? new CodingAgentPluginToolRuntime({
-							readAgentPlugins: pluginRuntime.readAgentPlugins,
-							invokeTool: pluginRuntime.invokeTool,
-							runOrchestrator: pluginRunOrchestrator,
-							shouldPreserveBaseTool: (toolName) => mcpController?.isManagedTool(toolName) === true,
-							resolveActivation: (context) =>
-								toPluginToolActivation(
-									resolveTurnToolActivation(effectiveActivation, context, {
-										backgroundTasksAvailable,
-										knowledgeAvailable,
-									}),
-									sessionOptions.agentMode,
-								),
+			let activeOwnership = await acquireOwnership(activeSessionId);
+			try {
+				const synchronizer = mcpSynchronizer;
+				const mcpController = synchronizer
+					? createMcpDeferredToolController({
+							sessionId: sessionOptions.sessionId,
+							deferredEnabled: effectiveActivation.mode !== "explicit",
+							explicitToolNames:
+								effectiveActivation.mode === "explicit" ? new Set(effectiveActivation.toolNames) : undefined,
 						})
 					: undefined;
-			const todoContinuationSource = new CodingAgentTodoContinuationSource({ state: todoRuntime });
-			const stopHookContinuationSource = new CodingAgentStopHookContinuationSource({ hookRuntime });
-			const continuationOrchestrator = new CodingAgentContinuationOrchestrator({
-				todo: todoContinuationSource,
-				plugin: pluginRunOrchestrator,
-				stopHook: stopHookContinuationSource,
-			});
-			const injectedSystemPromptOptionsResolver =
-				options.createSystemPromptOptionsResolver?.(sessionOptions) ?? options.resolveSystemPromptOptions;
-			const promptRuntime = injectedSystemPromptOptionsResolver
-				? undefined
-				: await createCodingAgentPromptRuntime({
-						cwd: sessionCwd,
-						agentDir: options.agentDir,
-						scenario: "cli",
-						readAgentMode: () => sessionOptions.agentMode,
-						readMemory: memoryRuntime ? () => memoryRuntime.readPromptMemory() : undefined,
-						readAgentPlugins: pluginRuntime?.readAgentPlugins,
-					});
-			const resolveSystemPromptOptions =
-				injectedSystemPromptOptionsResolver ?? promptRuntime?.resolveSystemPromptOptions;
-			if (!resolveSystemPromptOptions) {
-				throw new Error("Coding Agent system prompt resolver was not created");
-			}
-			const profile: AgentProfile = {
-				...baseProfile,
-				observers: [...(baseProfile.observers ?? []), contextRuntime, ...(memoryRuntime ? [memoryRuntime] : [])],
-				contextStrategy: contextRuntime,
-				modelCallContextTransformer: contextRuntime,
-				continuationPolicy: continuationOrchestrator,
-				modelCallFrameComposer: new CodingAgentModelCallFrameComposer({
-					readMcpPromptState: mcpController ? () => mcpController.readPromptState() : undefined,
-					readAvailableTools: () =>
-						new Map([
-							...tools.registry
-								.snapshot()
-								.entries.map(
-									(entry) =>
-										[
-											entry.registration.tool.name,
-											guardCodingToolRegistration(tools.registry, entry),
-										] as const,
-								),
-							...(todoEnabled ? [[todoRegistration.tool.name, todoRegistration.tool] as const] : []),
-							...(memoryRuntime
-								? [[memoryRuntime.toolRegistration.tool.name, memoryRuntime.toolRegistration.tool] as const]
-								: []),
-						]),
-					pluginRunOrchestrator,
-					pluginToolRuntime,
-					hookRuntime,
-					resolveSystemPromptOptions: async (context) => {
-						const promptOptions = await resolveSystemPromptOptions(context);
-						return {
-							...promptOptions,
-							cwd: promptOptions.cwd ?? sessionCwd,
-							agentPlugins: promptOptions.agentPlugins ?? pluginRuntime?.readAgentPlugins(),
-							...(memoryRuntime ? { memory: memoryRuntime.renderPromptMemory() } : {}),
-						};
-					},
-				}),
-			};
-			let capabilities: RuntimeCapabilityComposition;
-			try {
-				capabilities = await RuntimeCapabilityComposition.create({
-					initialProfile: profile,
-					compiler: tools.compiler,
-				});
-			} catch (error) {
-				if (mcpController) mcpControllers.delete(sessionOptions.sessionId);
-				todoRuntimes.delete(todoRuntime);
-				contextRuntimes.delete(contextRuntime);
-				if (memoryRuntime) {
-					memoryRuntimes.delete(memoryRuntime);
-					memoryRuntime.dispose();
+				if (mcpController && synchronizer) {
+					mcpController.refresh(synchronizer.snapshot());
+					mcpControllers.set(sessionOptions.sessionId, mcpController);
 				}
-				if (memoryController) memoryControllers.delete(activeSessionId);
-				contextRuntime.dispose();
-				await todoRuntime.dispose();
-				throw error;
-			}
-			capabilityCompositions.add(capabilities);
-			if (memoryController) memoryControllers.set(activeSessionId, memoryController);
-			hookSessionDisposers.add(endHookSession);
-			const promptAdapter = new CodingAgentGreenfieldPromptAdapter({
-				resolvePromptResource:
-					options.createPromptResourceResolver?.(sessionOptions, todoRuntime) ?? options.resolvePromptResource,
-				hookRuntime,
-			});
-			return {
-				sessionId: sessionOptions.sessionId,
-				repository,
-				conversationDocumentStore: repository,
-				conversationContinuationStore: repository,
-				promptAdapter: {
-					async prepare(request, context) {
-						const prepared = await promptAdapter.prepare(request, context);
-						await todoRuntime.flush();
-						return prepared;
-					},
-				},
-				snapshotProvider: capabilities,
-				modelRuntime,
-				documentParticipants: [todoRuntime, contextRuntime],
-				todoController: todoRuntime,
-				contextRuntime,
-				identity: {
-					cwd: sessionOptions.cwd ?? cwd,
-					sessionPath: repository.resolveConversationPath(sessionOptions.sessionId),
-					parentSessionPath: sessionOptions.parentSessionPath,
-					parentEntryId: sessionOptions.parentEntryId,
-				},
-				stateSource: {
-					read: () => {
-						const activeToolNames = [
-							...(pluginRunOrchestrator?.readActiveToolNames() ??
-								readActiveToolNames(
-									tools,
-									stateActivation,
-									knowledgeAvailable,
-									effectiveActivation,
-									mcpController,
-								)),
-							...(todoEnabled ? [todoRegistration.tool.name] : []),
-							...(memoryRuntime ? [memoryRuntime.toolRegistration.tool.name] : []),
-						];
-						const contextWindow = modelRuntime.readCurrentModel().contextWindow;
-						const contextUsage = contextRuntime.readUsage(contextWindow);
-						return {
-							contextPercent: contextUsage.percent,
-							contextWindow,
-							activeToolNames: [...new Set(activeToolNames)],
+				const sessionCwd = sessionOptions.cwd ?? cwd;
+				const memoryRuntimeOptions = {
+					memoryFile: sessionOptions.memoryFile ?? join(sessionCwd, "MEMORY.md"),
+					memoryCharLimit: sessionOptions.memoryCharLimit,
+					cwd: sessionCwd,
+				};
+				const memoryRuntime = sessionOptions.memoryMode
+					? (options.createMemoryRolloverRuntime?.(memoryRuntimeOptions, sessionOptions) ??
+						new CodingAgentMemoryRolloverOrchestrator(memoryRuntimeOptions))
+					: undefined;
+				if (memoryRuntime) memoryRuntimes.add(memoryRuntime);
+				const todoRuntime = options.createTodoRuntime?.(sessionOptions) ?? new CodingAgentTodoRuntime();
+				todoRuntimes.add(todoRuntime);
+				const todoRegistration = createCodingAgentTodoRuntimeToolRegistration(todoRuntime);
+				const todoEnabled = selectCodingToolRegistrations([todoRegistration], effectiveActivation).length > 0;
+				const baseProfile: AgentProfile = mcpController
+					? {
+							...tools.profile,
+							features: [
+								...tools.profile.features,
+								...(todoEnabled ? [createCodingAgentTodoRuntimeFeature(todoRegistration)] : []),
+								...(memoryRuntime
+									? [createCodingAgentMemoryRuntimeFeature(memoryRuntime.toolRegistration)]
+									: []),
+								mcpController.createFeature({ includePromptInstruction: false }),
+							],
+						}
+					: {
+							...tools.profile,
+							features: [
+								...tools.profile.features,
+								...(todoEnabled ? [createCodingAgentTodoRuntimeFeature(todoRegistration)] : []),
+								...(memoryRuntime
+									? [createCodingAgentMemoryRuntimeFeature(memoryRuntime.toolRegistration)]
+									: []),
+							],
 						};
+				const modelRuntime = new GreenfieldRuntimeModel({
+					initialModel: options.initialModel,
+					initialThinkingLevel: options.initialThinkingLevel,
+					catalog: modelAdapter,
+					credentials: modelAdapter,
+				});
+				const memoryController = memoryRuntime
+					? new CodingAgentGreenfieldMemoryController({
+							runtime: memoryRuntime,
+							readMessages: async () =>
+								selectConversationDocumentModelMessages(await repository.readDocument(activeSessionId)),
+							readModel: () => modelRuntime.readCurrentModel(),
+							resolveApiKey: (model) => modelRuntime.resolveApiKey(model),
+						})
+					: undefined;
+				const hookRuntime = createEcosystemHookRuntime({
+					host: {
+						cwd: sessionCwd,
+						getSessionId: () => activeSessionId,
+						getTranscriptPath: () => repository.resolveConversationPath(activeSessionId),
+						getModelId: () => modelRuntime.readCurrentModel().id,
+						abortCurrentRun: resourceContext.abortCurrentRun,
+						recordAdditionalContexts: (contexts) => {
+							resourceContext.contextAppender.append(
+								contexts.map((content) => ({
+									type: "ecosystem-hook-context",
+									content: [{ type: "text", text: content }],
+									modelVisible: true,
+									display: false,
+								})),
+							);
+						},
 					},
-				},
-				onConversationContinued(result) {
-					const previousSessionId = activeSessionId;
-					activeSessionId = result.sessionId;
-					pluginSession.id = result.sessionId;
-					if (memoryController && memoryControllers.get(previousSessionId) === memoryController) {
-						memoryControllers.delete(previousSessionId);
-						memoryControllers.set(result.sessionId, memoryController);
+					initialSessionStartSource: resourceContext.operation === "create" ? "startup" : "resume",
+					additionalAdapterFactories: options.additionalHookAdapterFactories,
+					configLayers: options.hookConfigLayers,
+					maxStopContinuations: options.maxStopHookContinuations,
+				});
+				const contextRuntime = new CodingAgentGreenfieldContextRuntime({
+					hookRuntime,
+					resolveApiKey: (model) => modelRuntime.resolveApiKey(model),
+					resolveSettings: options.resolveCompactionSettings,
+					generateCompaction: options.generateCompaction,
+					extensionRuntime: options.createCompactionExtensionRuntime?.(sessionOptions),
+					memoryRollover: memoryRuntime,
+				});
+				contextRuntimes.add(contextRuntime);
+				let hookSessionEnded = false;
+				const endHookSession = async (): Promise<void> => {
+					if (hookSessionEnded) return;
+					hookSessionEnded = true;
+					hookSessionDisposers.delete(endHookSession);
+					try {
+						await hookRuntime.runSessionEnd("dispose");
+					} catch (error) {
+						console.warn("[ecosystem-hooks] SessionEnd failed during Greenfield dispose", error);
 					}
-					if (mcpController && mcpControllers.get(previousSessionId) === mcpController) {
-						mcpControllers.delete(previousSessionId);
-						mcpControllers.set(result.sessionId, mcpController);
-					}
-				},
-				async dispose() {
+				};
+				const pluginRuntime = options.createPluginRuntime?.(sessionOptions);
+				const pluginSession = {
+					id: activeSessionId,
+					cwd: sessionCwd,
+					scenario,
+				};
+				const pluginRunOrchestrator = pluginRuntime
+					? new CodingAgentPluginRunOrchestrator({
+							session: pluginSession,
+							...pluginRuntime,
+						})
+					: undefined;
+				const pluginToolRuntime =
+					pluginRuntime && pluginRunOrchestrator
+						? new CodingAgentPluginToolRuntime({
+								readAgentPlugins: pluginRuntime.readAgentPlugins,
+								invokeTool: pluginRuntime.invokeTool,
+								runOrchestrator: pluginRunOrchestrator,
+								shouldPreserveBaseTool: (toolName) => mcpController?.isManagedTool(toolName) === true,
+								resolveActivation: (context) =>
+									toPluginToolActivation(
+										resolveTurnToolActivation(effectiveActivation, context, {
+											backgroundTasksAvailable,
+											knowledgeAvailable,
+										}),
+										sessionOptions.agentMode,
+									),
+							})
+						: undefined;
+				const todoContinuationSource = new CodingAgentTodoContinuationSource({ state: todoRuntime });
+				const stopHookContinuationSource = new CodingAgentStopHookContinuationSource({ hookRuntime });
+				const continuationOrchestrator = new CodingAgentContinuationOrchestrator({
+					todo: todoContinuationSource,
+					plugin: pluginRunOrchestrator,
+					stopHook: stopHookContinuationSource,
+				});
+				const injectedSystemPromptOptionsResolver =
+					options.createSystemPromptOptionsResolver?.(sessionOptions) ?? options.resolveSystemPromptOptions;
+				const promptRuntime = injectedSystemPromptOptionsResolver
+					? undefined
+					: options.promptResourceSource && options.promptSettingsSource
+						? new CodingAgentPromptRuntime({
+								cwd: sessionCwd,
+								resourceLoader: options.promptResourceSource,
+								settingsManager: options.promptSettingsSource,
+								scenario,
+								readAgentMode: () => sessionOptions.agentMode,
+								readMemory: memoryRuntime ? () => memoryRuntime.readPromptMemory() : undefined,
+								readAgentPlugins: pluginRuntime?.readAgentPlugins,
+							})
+						: await createCodingAgentPromptRuntime({
+								cwd: sessionCwd,
+								agentDir: options.agentDir,
+								scenario,
+								readAgentMode: () => sessionOptions.agentMode,
+								readMemory: memoryRuntime ? () => memoryRuntime.readPromptMemory() : undefined,
+								readAgentPlugins: pluginRuntime?.readAgentPlugins,
+							});
+				const resolveSystemPromptOptions =
+					injectedSystemPromptOptionsResolver ?? promptRuntime?.resolveSystemPromptOptions;
+				if (!resolveSystemPromptOptions) {
+					throw new Error("Coding Agent system prompt resolver was not created");
+				}
+				const profile: AgentProfile = {
+					...baseProfile,
+					observers: [...(baseProfile.observers ?? []), contextRuntime, ...(memoryRuntime ? [memoryRuntime] : [])],
+					contextStrategy: contextRuntime,
+					modelCallContextTransformer: contextRuntime,
+					continuationPolicy: continuationOrchestrator,
+					modelCallFrameComposer: new CodingAgentModelCallFrameComposer({
+						readMcpPromptState: mcpController ? () => mcpController.readPromptState() : undefined,
+						readAvailableTools: () =>
+							new Map([
+								...tools.registry
+									.snapshot()
+									.entries.map(
+										(entry) =>
+											[
+												entry.registration.tool.name,
+												guardCodingToolRegistration(tools.registry, entry),
+											] as const,
+									),
+								...(todoEnabled ? [[todoRegistration.tool.name, todoRegistration.tool] as const] : []),
+								...(memoryRuntime
+									? [[memoryRuntime.toolRegistration.tool.name, memoryRuntime.toolRegistration.tool] as const]
+									: []),
+							]),
+						pluginRunOrchestrator,
+						pluginToolRuntime,
+						hookRuntime,
+						resolveSystemPromptOptions: async (context) => {
+							const promptOptions = await resolveSystemPromptOptions(context);
+							return {
+								...promptOptions,
+								cwd: promptOptions.cwd ?? sessionCwd,
+								agentPlugins: promptOptions.agentPlugins ?? pluginRuntime?.readAgentPlugins(),
+								...(memoryRuntime ? { memory: memoryRuntime.renderPromptMemory() } : {}),
+							};
+						},
+					}),
+				};
+				let capabilities: RuntimeCapabilityComposition;
+				try {
+					capabilities = await RuntimeCapabilityComposition.create({
+						initialProfile: profile,
+						compiler: tools.compiler,
+					});
+				} catch (error) {
+					if (mcpController) mcpControllers.delete(sessionOptions.sessionId);
+					todoRuntimes.delete(todoRuntime);
 					contextRuntimes.delete(contextRuntime);
-					contextRuntime.dispose();
 					if (memoryRuntime) {
 						memoryRuntimes.delete(memoryRuntime);
 						memoryRuntime.dispose();
 					}
-					if (memoryControllers.get(activeSessionId) === memoryController) {
-						memoryControllers.delete(activeSessionId);
-					}
-					await endHookSession();
-					if (mcpControllers.get(activeSessionId) === mcpController) {
-						mcpControllers.delete(activeSessionId);
-					}
-					capabilityCompositions.delete(capabilities);
-					todoRuntimes.delete(todoRuntime);
+					if (memoryController) memoryControllers.delete(activeSessionId);
+					contextRuntime.dispose();
 					await todoRuntime.dispose();
-					await capabilities.close();
-				},
-			};
+					throw error;
+				}
+				capabilityCompositions.add(capabilities);
+				if (memoryController) memoryControllers.set(activeSessionId, memoryController);
+				hookSessionDisposers.add(endHookSession);
+				const promptAdapter = new CodingAgentGreenfieldPromptAdapter({
+					resolvePromptResource:
+						options.createPromptResourceResolver?.(sessionOptions, todoRuntime) ??
+						options.resolvePromptResource ??
+						(options.promptResourceSource
+							? createCodingAgentPromptResourceResolver({
+									resourceLoader: options.promptResourceSource,
+									todoStore: todoRuntime.getTodoStore(),
+								})
+							: undefined),
+					hookRuntime,
+				});
+				return {
+					sessionId: sessionOptions.sessionId,
+					repository,
+					conversationDocumentStore: repository,
+					conversationContinuationStore: repository,
+					promptAdapter: {
+						async prepare(request, context) {
+							const prepared = await promptAdapter.prepare(request, context);
+							await todoRuntime.flush();
+							return prepared;
+						},
+					},
+					snapshotProvider: capabilities,
+					modelRuntime,
+					documentParticipants: [todoRuntime, contextRuntime],
+					todoController: todoRuntime,
+					contextRuntime,
+					identity: {
+						cwd: sessionOptions.cwd ?? cwd,
+						sessionPath: repository.resolveConversationPath(sessionOptions.sessionId),
+						parentSessionPath: sessionOptions.parentSessionPath,
+						parentEntryId: sessionOptions.parentEntryId,
+					},
+					stateSource: {
+						read: () => {
+							const activeToolNames = [
+								...(pluginRunOrchestrator?.readActiveToolNames() ??
+									readActiveToolNames(
+										tools,
+										stateActivation,
+										knowledgeAvailable,
+										effectiveActivation,
+										mcpController,
+									)),
+								...(todoEnabled ? [todoRegistration.tool.name] : []),
+								...(memoryRuntime ? [memoryRuntime.toolRegistration.tool.name] : []),
+							];
+							const contextWindow = modelRuntime.readCurrentModel().contextWindow;
+							const contextUsage = contextRuntime.readUsage(contextWindow);
+							return {
+								contextPercent: contextUsage.percent,
+								contextWindow,
+								activeToolNames: [...new Set(activeToolNames)],
+							};
+						},
+					},
+					async onConversationContinued(result) {
+						const previousSessionId = activeSessionId;
+						await activeOwnership?.rebind(repository.resolveConversationPath(result.sessionId));
+						activeSessionId = result.sessionId;
+						pluginSession.id = result.sessionId;
+						if (memoryController && memoryControllers.get(previousSessionId) === memoryController) {
+							memoryControllers.delete(previousSessionId);
+							memoryControllers.set(result.sessionId, memoryController);
+						}
+						if (mcpController && mcpControllers.get(previousSessionId) === mcpController) {
+							mcpControllers.delete(previousSessionId);
+							mcpControllers.set(result.sessionId, mcpController);
+						}
+					},
+					async dispose() {
+						try {
+							contextRuntimes.delete(contextRuntime);
+							contextRuntime.dispose();
+							if (memoryRuntime) {
+								memoryRuntimes.delete(memoryRuntime);
+								memoryRuntime.dispose();
+							}
+							if (memoryControllers.get(activeSessionId) === memoryController) {
+								memoryControllers.delete(activeSessionId);
+							}
+							await endHookSession();
+							if (mcpControllers.get(activeSessionId) === mcpController) {
+								mcpControllers.delete(activeSessionId);
+							}
+							capabilityCompositions.delete(capabilities);
+							todoRuntimes.delete(todoRuntime);
+							await todoRuntime.dispose();
+							await capabilities.close();
+						} finally {
+							await releaseOwnership(activeOwnership);
+							activeOwnership = undefined;
+						}
+					},
+				};
+			} catch (error) {
+				await releaseOwnership(activeOwnership);
+				throw error;
+			}
 		},
 	});
 	const backend = new GreenfieldRuntimeSessionBackend({ runtimeFactory });
@@ -517,6 +585,7 @@ export async function createGreenfieldRuntimeComposition(
 	return {
 		backend,
 		tools,
+		scenario,
 		async flushMemory(sessionId, signal) {
 			return (await memoryControllers.get(sessionId)?.flushMemory(signal)) ?? 0;
 		},
@@ -529,6 +598,7 @@ export async function createGreenfieldRuntimeComposition(
 				...[...hookSessionDisposers].map((disposeHookSession) => disposeHookSession()),
 				...[...todoRuntimes].map((runtime) => runtime.dispose()),
 				...[...capabilityCompositions].map((capabilities) => capabilities.close()),
+				...[...ownershipBindings].map((binding) => releaseOwnership(binding)),
 			]);
 			capabilityCompositions.clear();
 			todoRuntimes.clear();
@@ -537,6 +607,7 @@ export async function createGreenfieldRuntimeComposition(
 			memoryControllers.clear();
 			hookSessionDisposers.clear();
 			mcpControllers.clear();
+			ownershipBindings.clear();
 			await repository.close();
 			mcpSynchronizer?.dispose();
 			tools.dispose();

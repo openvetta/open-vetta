@@ -2,7 +2,12 @@ import { PassThrough } from "node:stream";
 import { describe, expect, test, vi } from "vitest";
 import { createRpcCommandDispatcher, type RpcFrameOutput } from "../../src/modes/rpc/rpc-command-dispatcher.js";
 import { runRpcModeWithCapabilities } from "../../src/modes/rpc/rpc-mode.js";
-import type { RpcSessionCapabilities, RpcSessionInitialization } from "../../src/modes/rpc/rpc-session-capabilities.js";
+import {
+	GREENFIELD_IM_RPC_PROFILE,
+	LEGACY_FULL_RPC_PROFILE,
+	type RpcSessionCapabilities,
+	type RpcSessionInitialization,
+} from "../../src/modes/rpc/rpc-session-capabilities.js";
 import type { RpcCommand, RpcResponse, RpcSessionState, RpcSlashCommand } from "../../src/modes/rpc/rpc-types.js";
 
 describe("RPC command dispatcher", () => {
@@ -64,16 +69,16 @@ describe("RPC command dispatcher", () => {
 			success: true,
 			data: { text: undefined },
 		});
-		expect(session.session.setName).toHaveBeenCalledWith("named");
-		expect(session.session.newSession).toHaveBeenCalledWith("parent.jsonl");
-		expect(session.context.compact).toHaveBeenCalledWith("keep facts");
-		expect(session.bash.execute).toHaveBeenCalledWith("echo ok");
+		expect(required(session.session).setName).toHaveBeenCalledWith("named");
+		expect(required(session.session).newSession).toHaveBeenCalledWith("parent.jsonl");
+		expect(required(session.context).compact).toHaveBeenCalledWith("keep facts");
+		expect(required(session.bash).execute).toHaveBeenCalledWith("echo ok");
 		expect(output).not.toHaveBeenCalled();
 	});
 
 	test("acknowledges prompt immediately and reports its later failure as a correlated response", async () => {
 		const session = createSessionCapabilities();
-		session.turn.prompt = vi.fn(async () => {
+		required(session.turn).prompt = vi.fn(async () => {
 			throw new Error("provider failed");
 		});
 		const frames: unknown[] = [];
@@ -105,10 +110,40 @@ describe("RPC command dispatcher", () => {
 			success: false,
 			error: "Session name cannot be empty",
 		});
-		expect(session.session.setName).not.toHaveBeenCalled();
+		expect(required(session.session).setName).not.toHaveBeenCalled();
 	});
 
-	test("wires validated JSONL frames, session events and transport cleanup", async () => {
+	test("rejects commands outside the selected profile without invoking absent capabilities", async () => {
+		const session: RpcSessionCapabilities = {
+			profile: GREENFIELD_IM_RPC_PROFILE,
+			turn: {
+				prompt: vi.fn(async () => {}),
+				steer: vi.fn(async () => {}),
+				followUp: vi.fn(async () => {}),
+				abort: vi.fn(async () => {}),
+			},
+			state: {
+				readState: vi.fn(async () => createRpcState()),
+				readMessages: vi.fn(() => []),
+			},
+			memory: { flushMemory: vi.fn(async () => 0) },
+			initialize: vi.fn(async () => {}),
+			subscribe: vi.fn(() => () => {}),
+			shutdown: vi.fn(async () => {}),
+			dispose: vi.fn(async () => {}),
+		};
+		const dispatch = createRpcCommandDispatcher(session, () => {});
+
+		await expect(dispatch({ id: "bash", type: "bash", command: "echo no" })).resolves.toEqual({
+			id: "bash",
+			type: "response",
+			command: "bash",
+			success: false,
+			error: "Command bash is not supported by RPC profile greenfield-im",
+		});
+	});
+
+	test("wires validated JSONL frames, session events and awaited transport cleanup", async () => {
 		const session = createSessionCapabilities();
 		let initialization: RpcSessionInitialization | undefined;
 		let eventListener: ((event: unknown) => void) | undefined;
@@ -156,11 +191,29 @@ describe("RPC command dispatcher", () => {
 		input.end();
 		await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(0));
 		expect(unsubscribe).toHaveBeenCalledOnce();
+		expect(session.dispose).toHaveBeenCalledOnce();
+	});
+
+	test("disposes capabilities when RPC initialization fails", async () => {
+		const session = createSessionCapabilities();
+		session.initialize = vi.fn(async () => {
+			throw new Error("initialization failed");
+		});
+
+		await expect(
+			runRpcModeWithCapabilities(session, {
+				input: new PassThrough(),
+				output: new PassThrough(),
+				exit: vi.fn(),
+			}),
+		).rejects.toThrow("initialization failed");
+		expect(session.dispose).toHaveBeenCalledOnce();
 	});
 });
 
 function createSessionCapabilities(): RpcSessionCapabilities {
 	return {
+		profile: LEGACY_FULL_RPC_PROFILE,
 		turn: {
 			prompt: vi.fn(async () => {}),
 			steer: vi.fn(async () => {}),
@@ -168,20 +221,7 @@ function createSessionCapabilities(): RpcSessionCapabilities {
 			abort: vi.fn(async () => {}),
 		},
 		state: {
-			readState: vi.fn(
-				() =>
-					({
-						thinkingLevel: "medium",
-						isStreaming: false,
-						isCompacting: false,
-						steeringMode: "all",
-						followUpMode: "all",
-						sessionId: "session-1",
-						autoCompactionEnabled: true,
-						messageCount: 0,
-						pendingMessageCount: 0,
-					}) satisfies RpcSessionState,
-			),
+			readState: vi.fn(async () => createRpcState()),
 			readMessages: vi.fn(() => []),
 		},
 		model: {
@@ -251,6 +291,21 @@ function createSessionCapabilities(): RpcSessionCapabilities {
 		initialize: vi.fn(async () => {}),
 		subscribe: vi.fn(() => () => {}),
 		shutdown: vi.fn(async () => {}),
+		dispose: vi.fn(async () => {}),
+	};
+}
+
+function createRpcState(): RpcSessionState {
+	return {
+		thinkingLevel: "medium",
+		isStreaming: false,
+		isCompacting: false,
+		steeringMode: "all",
+		followUpMode: "all",
+		sessionId: "session-1",
+		autoCompactionEnabled: true,
+		messageCount: 0,
+		pendingMessageCount: 0,
 	};
 }
 
@@ -261,4 +316,9 @@ function readOutputFrames(chunks: readonly Buffer[]): unknown[] {
 		.split("\n")
 		.filter(Boolean)
 		.map((line) => JSON.parse(line));
+}
+
+function required<T>(value: T | undefined): T {
+	if (!value) throw new Error("Expected RPC capability");
+	return value;
 }

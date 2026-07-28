@@ -13,7 +13,7 @@ import { RpcExtensionUIBridge } from "./rpc-extension-ui-bridge.js";
 import { validateRpcInboundFrame } from "./rpc-frame-validator.js";
 import { RpcHostBridge } from "./rpc-host-bridge.js";
 import { RpcJsonlTransport } from "./rpc-jsonl-transport.js";
-import type { RpcSessionCapabilities } from "./rpc-session-capabilities.js";
+import { assertRpcSessionCapabilities, type RpcSessionCapabilities } from "./rpc-session-capabilities.js";
 
 export type {
 	RpcCommand,
@@ -42,6 +42,9 @@ export async function runRpcModeWithCapabilities(
 	session: RpcSessionCapabilities,
 	options: RpcModeRuntimeOptions = {},
 ): Promise<never> {
+	assertRpcSessionCapabilities(session, {
+		hostBridgeEnabled: options.enableHostBridge === true,
+	});
 	const transport = new RpcJsonlTransport(options.input ?? process.stdin, options.output ?? process.stdout);
 	const output: RpcFrameOutput = (frame) => transport.write(frame);
 	const extensionUI = new RpcExtensionUIBridge(output);
@@ -50,30 +53,43 @@ export async function runRpcModeWithCapabilities(
 	const exit = options.exit ?? ((code: number): never => process.exit(code));
 	let shutdownRequested = false;
 
-	await session.initialize({
-		uiContext: extensionUI.createContext(),
-		hostBridge: hostBridge?.createBridge(),
-		onShutdownRequested: () => {
-			shutdownRequested = true;
-		},
-		onExtensionError: (error) => {
-			output({
-				type: "extension_error",
-				extensionPath: error.extensionPath,
-				event: error.event,
-				error: error.error,
-			});
-		},
-	});
-
-	const unsubscribe = session.subscribe(output);
-	let closed = false;
-	const cleanup = () => {
-		if (closed) return;
-		closed = true;
-		unsubscribe();
+	try {
+		await session.initialize({
+			uiContext: extensionUI.createContext(),
+			hostBridge: hostBridge?.createBridge(),
+			onShutdownRequested: () => {
+				shutdownRequested = true;
+			},
+			onExtensionError: (error) => {
+				output({
+					type: "extension_error",
+					extensionPath: error.extensionPath,
+					event: error.event,
+					error: error.error,
+				});
+			},
+		});
+	} catch (error) {
 		extensionUI.dispose();
 		hostBridge?.dispose();
+		try {
+			await session.dispose();
+		} catch (disposeError) {
+			throw new AggregateError([error, disposeError], "RPC initialization and cleanup both failed");
+		}
+		throw error;
+	}
+
+	const unsubscribe = session.subscribe(output);
+	let cleanupPromise: Promise<void> | undefined;
+	const cleanup = (): Promise<void> => {
+		cleanupPromise ??= (async () => {
+			unsubscribe();
+			extensionUI.dispose();
+			hostBridge?.dispose();
+			await session.dispose();
+		})();
+		return cleanupPromise;
 	};
 
 	const handleLine = async (line: string): Promise<void> => {
@@ -111,8 +127,13 @@ export async function runRpcModeWithCapabilities(
 			void handleLine(line);
 		},
 		() => {
-			cleanup();
-			exit(0);
+			void cleanup().then(
+				() => exit(0),
+				(error: unknown) => {
+					output(rpcError(undefined, "shutdown", `Failed to dispose RPC session: ${errorMessage(error)}`));
+					exit(1);
+				},
+			);
 		},
 	);
 

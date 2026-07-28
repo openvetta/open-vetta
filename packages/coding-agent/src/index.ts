@@ -317,6 +317,7 @@ export {
 	type CommandToolName,
 	codingTools,
 	createAskUserQuestionTool,
+	createImSendAttachmentTool,
 	createTaskOutputTool,
 	createTaskStopTool,
 	createToolSearchTool,
@@ -414,12 +415,26 @@ export {
 	type KbWritePageInput,
 	kbWritePageTool,
 } from "./core/tools/kb-write-page/index.js";
+export {
+	type CodingAgentHostBootstrap,
+	type CodingAgentHostBootstrapDiagnostics,
+	type CodingAgentHostBootstrapOptions,
+	type CodingAgentInitialModelResolution,
+	createCodingAgentHostBootstrap,
+	resolveCodingAgentInitialModel,
+} from "./host/coding-agent-host-bootstrap.js";
 // Main entry point
 export { main } from "./main.js";
 // Run modes for programmatic SDK usage
 export {
+	GREENFIELD_IM_RPC_PROFILE,
+	LEGACY_FULL_RPC_PROFILE,
 	type PrintModeOptions,
 	type RpcSessionCapabilities,
+	type RpcSessionInitialization,
+	type RpcSessionProfile,
+	type RpcSessionProfileId,
+	type RpcSessionState,
 	type RunRpcModeOptions,
 	runPrintMode,
 	runRpcMode,

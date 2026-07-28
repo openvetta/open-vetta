@@ -16,9 +16,11 @@ import type {
 	RpcStateCapability,
 	RpcTurnCapability,
 } from "./rpc-session-capabilities.js";
+import { LEGACY_FULL_RPC_PROFILE } from "./rpc-session-capabilities.js";
 import type { RpcSlashCommand } from "./rpc-types.js";
 
 export class LegacyRpcSessionAdapter implements RpcSessionCapabilities {
+	readonly profile = LEGACY_FULL_RPC_PROFILE;
 	readonly turn: RpcTurnCapability;
 	readonly state: RpcStateCapability;
 	readonly model: RpcModelCapability;
@@ -38,7 +40,7 @@ export class LegacyRpcSessionAdapter implements RpcSessionCapabilities {
 			abort: () => this.agentSession.abort(),
 		};
 		this.state = {
-			readState: () => ({
+			readState: async () => ({
 				model: this.agentSession.model,
 				thinkingLevel: this.agentSession.thinkingLevel,
 				isStreaming: this.agentSession.isStreaming,
@@ -171,6 +173,10 @@ export class LegacyRpcSessionAdapter implements RpcSessionCapabilities {
 		if (runner?.hasHandlers("session_shutdown")) {
 			await runner.emit({ type: "session_shutdown" });
 		}
+	}
+
+	async dispose(): Promise<void> {
+		this.agentSession.dispose();
 	}
 
 	private readCommands(): readonly RpcSlashCommand[] {

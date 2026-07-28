@@ -1,5 +1,13 @@
 export {
+	type ConversationOwnershipLease,
+	type ConversationOwnershipManager,
+	FileConversationOwnershipManager,
+	type FileConversationOwnershipManagerOptions,
+} from "./conversation-ownership-lease.js";
+export {
 	CONVERSATION_STORAGE_ERROR_CODES,
+	ConversationOwnershipConflictError,
+	type ConversationOwnershipHolder,
 	ConversationStorageError,
 	type ConversationStorageErrorCode,
 } from "./errors.js";

@@ -1,0 +1,145 @@
+import { mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { type CodingAgentHostBootstrap, createCodingAgentHostBootstrap } from "@vetta/coding-agent";
+import { CONVERSATION_STORAGE_ERROR_CODES } from "@vetta/runtime-storage/conversation";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+	type GreenfieldImRuntimeHostReady,
+	prepareGreenfieldImRuntimeHost,
+} from "../src/rpc/greenfield-im-runtime-host.js";
+
+const temporaryDirectories: string[] = [];
+const preparedHosts: GreenfieldImRuntimeHostReady[] = [];
+
+afterEach(async () => {
+	for (const prepared of preparedHosts.splice(0).reverse()) await prepared.capabilities.dispose();
+	for (const directory of temporaryDirectories.splice(0).reverse()) {
+		await rm(directory, { force: true, recursive: true });
+	}
+});
+
+describe("Greenfield IM Runtime Host", () => {
+	it("keeps legacy jsonl sessions on the Legacy fallback path", async () => {
+		const fixture = await createFixture(["--session", join("legacy", "session.jsonl")]);
+
+		const result = await prepareGreenfieldImRuntimeHost({
+			bootstrap: fixture.bootstrap,
+			conversationDir: fixture.conversationDir,
+		});
+
+		expect(result).toMatchObject({
+			kind: "legacy-fallback",
+			reason: "legacy-session",
+			sessionPath: join("legacy", "session.jsonl"),
+		});
+	});
+
+	it("owns fresh and resumed conversations for the whole runtime lifetime", async () => {
+		const fixture = await createFixture([]);
+		const fresh = await prepareGreenfieldImRuntimeHost({
+			bootstrap: fixture.bootstrap,
+			conversationDir: fixture.conversationDir,
+			createSessionId: () => "im-session",
+		});
+		expect(fresh.kind).toBe("greenfield");
+		if (fresh.kind !== "greenfield") throw new Error("Expected Greenfield runtime");
+		preparedHosts.push(fresh);
+		const sessionPath = fresh.session.createCoreAssembly().lifecycle.sessionPath;
+		if (!sessionPath) throw new Error("Expected persisted Greenfield session path");
+		const ownerPath = `${sessionPath}.owner.lock`;
+		await expect(stat(ownerPath)).resolves.toBeDefined();
+
+		const conflictingBootstrap = await createBootstrap(fixture, ["--session", sessionPath]);
+		await expect(
+			prepareGreenfieldImRuntimeHost({
+				bootstrap: conflictingBootstrap,
+				conversationDir: fixture.conversationDir,
+			}),
+		).rejects.toMatchObject({ code: CONVERSATION_STORAGE_ERROR_CODES.OWNERSHIP_CONFLICT });
+
+		await fresh.capabilities.dispose();
+		preparedHosts.splice(preparedHosts.indexOf(fresh), 1);
+		await expect(stat(ownerPath)).rejects.toMatchObject({ code: "ENOENT" });
+
+		const resumedBootstrap = await createBootstrap(fixture, ["--session", sessionPath]);
+		const resumed = await prepareGreenfieldImRuntimeHost({
+			bootstrap: resumedBootstrap,
+			conversationDir: fixture.conversationDir,
+		});
+		expect(resumed.kind).toBe("greenfield");
+		if (resumed.kind !== "greenfield") throw new Error("Expected resumed Greenfield runtime");
+		preparedHosts.push(resumed);
+		expect(resumed.session.sessionId).toBe("im-session");
+	});
+
+	it("rejects malformed Greenfield paths instead of treating them as Legacy", async () => {
+		const fixture = await createFixture(["--session", join("outside", "bad.conversation.jsonl")]);
+
+		await expect(
+			prepareGreenfieldImRuntimeHost({
+				bootstrap: fixture.bootstrap,
+				conversationDir: fixture.conversationDir,
+			}),
+		).rejects.toThrow("Invalid Greenfield conversation path");
+	});
+});
+
+async function createFixture(extraArgs: string[]): Promise<{
+	readonly root: string;
+	readonly agentDir: string;
+	readonly workspace: string;
+	readonly conversationDir: string;
+	readonly bootstrap: CodingAgentHostBootstrap;
+}> {
+	const root = await mkdtemp(join(tmpdir(), "vetta-greenfield-im-host-"));
+	temporaryDirectories.push(root);
+	const fixture = {
+		root,
+		agentDir: join(root, "agent"),
+		workspace: join(root, "workspace"),
+		conversationDir: join(root, "conversations"),
+	};
+	await Promise.all([mkdir(fixture.workspace, { recursive: true }), mkdir(fixture.agentDir, { recursive: true })]);
+	await writeFile(
+		join(fixture.agentDir, "models.json"),
+		JSON.stringify({
+			providers: {
+				test: {
+					baseUrl: "https://example.test",
+					api: "openai-responses",
+					models: [
+						{
+							id: "test-model",
+							name: "Test Model",
+							reasoning: true,
+							input: ["text"],
+							cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+							contextWindow: 8_000,
+							maxTokens: 1_000,
+						},
+					],
+				},
+			},
+		}),
+		"utf8",
+	);
+	const bootstrap = await createBootstrap(fixture, extraArgs);
+	return { ...fixture, bootstrap };
+}
+
+async function createBootstrap(
+	fixture: { readonly agentDir: string; readonly workspace: string },
+	extraArgs: string[],
+): Promise<CodingAgentHostBootstrap> {
+	const bootstrap = await createCodingAgentHostBootstrap({
+		args: ["--mode", "rpc", "--enable-host-bridge", "--scenario", "im-claw", ...extraArgs],
+		cwd: fixture.workspace,
+		agentDir: fixture.agentDir,
+	});
+	const model = bootstrap.modelRegistry.getAll()[0];
+	if (!model) throw new Error("Expected at least one built-in model");
+	bootstrap.authStorage.setRuntimeApiKey(model.provider, "test-key");
+	bootstrap.settingsManager.setDefaultModelAndProvider(model.provider, model.id);
+	return bootstrap;
+}

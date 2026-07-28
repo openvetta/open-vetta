@@ -9,6 +9,23 @@ export {
 	type GreenfieldRuntimeComposition,
 	type GreenfieldRuntimeCompositionOptions,
 } from "./greenfield-runtime-composition.js";
+export { resolveGreenfieldSessionIdFromPath } from "./rpc/greenfield-conversation-path.js";
+export { GreenfieldImRpcEventAdapter } from "./rpc/greenfield-im-rpc-events.js";
+export {
+	GreenfieldImRpcSessionAdapter,
+	type GreenfieldImRpcSessionAdapterOptions,
+} from "./rpc/greenfield-im-rpc-session-adapter.js";
+export {
+	type CreateGreenfieldImRuntimeHostOptions,
+	createGreenfieldImRuntimeHost,
+	type GreenfieldImFallbackReason,
+	type GreenfieldImRuntimeHostFallback,
+	type GreenfieldImRuntimeHostPreparation,
+	type GreenfieldImRuntimeHostReady,
+	type PrepareGreenfieldImRuntimeHostOptions,
+	prepareGreenfieldImRuntimeHost,
+	runGreenfieldImRuntimeHost,
+} from "./rpc/greenfield-im-runtime-host.js";
 export {
 	type CodingToolsRuntimeComposition,
 	type CodingToolsRuntimeCompositionOptions,

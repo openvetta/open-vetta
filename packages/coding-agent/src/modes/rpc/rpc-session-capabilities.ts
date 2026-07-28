@@ -9,7 +9,27 @@ import type {
 } from "../../core/extensions/index.js";
 import type { SessionStats } from "../../core/session/session-stats.js";
 import type { ImHostBridge } from "../../core/tools/im-send-attachment/index.js";
-import type { RpcSessionState, RpcSlashCommand } from "./rpc-types.js";
+import type { RpcCommandType, RpcSessionState, RpcSlashCommand } from "./rpc-types.js";
+
+export type RpcSessionProfileId = "legacy-full" | "greenfield-im";
+
+export interface RpcSessionProfile {
+	readonly id: RpcSessionProfileId;
+	readonly commands: "all" | readonly RpcCommandType[];
+	readonly hostBridge: "optional" | "required";
+}
+
+export const LEGACY_FULL_RPC_PROFILE: RpcSessionProfile = Object.freeze({
+	id: "legacy-full",
+	commands: "all",
+	hostBridge: "optional",
+});
+
+export const GREENFIELD_IM_RPC_PROFILE: RpcSessionProfile = Object.freeze({
+	id: "greenfield-im",
+	commands: Object.freeze(["prompt", "abort", "get_state", "flush_memory"] as const),
+	hostBridge: "required",
+});
 
 export interface RpcSessionExtensionError {
 	readonly extensionPath: string;
@@ -39,7 +59,7 @@ export interface RpcTurnCapability {
 }
 
 export interface RpcStateCapability {
-	readState(): RpcSessionState;
+	readState(): Promise<RpcSessionState>;
 	readMessages(): readonly AgentMessage[];
 }
 
@@ -91,19 +111,77 @@ export interface RpcCommandDiscoveryCapability {
 }
 
 export interface RpcSessionCapabilities {
-	readonly turn: RpcTurnCapability;
-	readonly state: RpcStateCapability;
-	readonly model: RpcModelCapability;
-	readonly queue: RpcQueueCapability;
-	readonly context: RpcContextCapability;
-	readonly memory: RpcMemoryCapability;
-	readonly retry: RpcRetryCapability;
-	readonly bash: RpcBashCapability;
-	readonly session: RpcSessionManagementCapability;
-	readonly commands: RpcCommandDiscoveryCapability;
+	readonly profile: RpcSessionProfile;
+	readonly turn?: RpcTurnCapability;
+	readonly state?: RpcStateCapability;
+	readonly model?: RpcModelCapability;
+	readonly queue?: RpcQueueCapability;
+	readonly context?: RpcContextCapability;
+	readonly memory?: RpcMemoryCapability;
+	readonly retry?: RpcRetryCapability;
+	readonly bash?: RpcBashCapability;
+	readonly session?: RpcSessionManagementCapability;
+	readonly commands?: RpcCommandDiscoveryCapability;
 	initialize(input: RpcSessionInitialization): Promise<void>;
 	subscribe(listener: (event: unknown) => void): () => void;
 	shutdown(): Promise<void>;
+	dispose(): Promise<void>;
 }
+
+export function supportsRpcCommand(profile: RpcSessionProfile, command: RpcCommandType): boolean {
+	return profile.commands === "all" || profile.commands.includes(command);
+}
+
+export function assertRpcSessionCapabilities(
+	session: RpcSessionCapabilities,
+	options: { readonly hostBridgeEnabled: boolean },
+): void {
+	if (session.profile.hostBridge === "required" && !options.hostBridgeEnabled) {
+		throw new Error(`RPC profile ${session.profile.id} requires the host bridge`);
+	}
+	for (const command of Object.keys(RPC_COMMAND_CAPABILITIES) as RpcCommandType[]) {
+		const capability = RPC_COMMAND_CAPABILITIES[command];
+		if (supportsRpcCommand(session.profile, command) && !session[capability]) {
+			throw new Error(`RPC profile ${session.profile.id} requires capability ${capability} for command ${command}`);
+		}
+	}
+}
+
+type RpcCapabilityGroup = Exclude<
+	keyof RpcSessionCapabilities,
+	"profile" | "initialize" | "subscribe" | "shutdown" | "dispose"
+>;
+
+const RPC_COMMAND_CAPABILITIES = {
+	prompt: "turn",
+	steer: "turn",
+	follow_up: "turn",
+	abort: "turn",
+	new_session: "session",
+	get_state: "state",
+	set_model: "model",
+	cycle_model: "model",
+	get_available_models: "model",
+	set_thinking_level: "model",
+	cycle_thinking_level: "model",
+	set_steering_mode: "queue",
+	set_follow_up_mode: "queue",
+	compact: "context",
+	set_auto_compaction: "context",
+	flush_memory: "memory",
+	set_auto_retry: "retry",
+	abort_retry: "retry",
+	bash: "bash",
+	abort_bash: "bash",
+	get_session_stats: "session",
+	export_html: "session",
+	switch_session: "session",
+	fork: "session",
+	get_fork_messages: "session",
+	get_last_assistant_text: "session",
+	set_session_name: "session",
+	get_messages: "state",
+	get_commands: "commands",
+} as const satisfies Record<RpcCommandType, RpcCapabilityGroup>;
 
 export type { ExtensionUIContext, ExtensionUIDialogOptions, ExtensionWidgetOptions, ImHostBridge };

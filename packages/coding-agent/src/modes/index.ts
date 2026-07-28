@@ -5,5 +5,14 @@
 export { type PrintModeOptions, runPrintMode } from "./print-mode.js";
 export { type ModelInfo, RpcClient, type RpcClientOptions, type RpcEventListener } from "./rpc/rpc-client.js";
 export { type RunRpcModeOptions, runRpcMode, runRpcModeWithCapabilities } from "./rpc/rpc-mode.js";
-export type { RpcSessionCapabilities } from "./rpc/rpc-session-capabilities.js";
+export {
+	assertRpcSessionCapabilities,
+	GREENFIELD_IM_RPC_PROFILE,
+	LEGACY_FULL_RPC_PROFILE,
+	type RpcSessionCapabilities,
+	type RpcSessionInitialization,
+	type RpcSessionProfile,
+	type RpcSessionProfileId,
+	supportsRpcCommand,
+} from "./rpc/rpc-session-capabilities.js";
 export type { RpcCommand, RpcResponse, RpcSessionState } from "./rpc/rpc-types.js";
