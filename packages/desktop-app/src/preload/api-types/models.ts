@@ -11,7 +11,7 @@ export interface ModelsConfigData {
 			authHeader?: boolean;
 			/** 供应商显示名(如 "DeepSeek"),用于 UI 分组标题等;无则回退到 provider 标识 key。 */
 			displayName?: string;
-			/** 来源标记。"template" = 由[[预设模板]]采纳而来,会被启动时的在线合并覆写;无标记 = 手搓自定义,任何同步逻辑都不得触碰。 */
+			/** 来源标记。"template" = 由[[预设服务商]]填 key 采纳而来,模型列表会被定时同步覆写;无标记 = 手搓自定义,任何同步逻辑都不得触碰。 */
 			source?: "template";
 			/** 对应服务端模板的 provider 标识(= 模板 provider key),仅 source==="template" 时存在。 */
 			templateId?: string;

@@ -1,5 +1,5 @@
 // AUTO-GENERATED 预设供应商图标注册表。新增图标=往这里加一个 symbol→dataURI 条目。
-// symbol 由服务端 [[预设模板]] / [[远程网关]] 配置下发,客户端按 symbol 解析渲染。
+// symbol 由客户端内置[[预设服务商]]目录与服务端[[远程网关]]配置提供,按 symbol 解析渲染。
 
 export const PROVIDER_ICONS: Record<string, string> = {
 	claude:
