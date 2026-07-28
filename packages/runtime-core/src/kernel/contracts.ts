@@ -161,12 +161,36 @@ export interface ContextStrategy {
 		record: ContextCompactionRecord,
 		input: ContextPreparationInput,
 		signal: AbortSignal,
+		document?: ConversationDocument,
 	): Promise<ContextCompactionCommitResult>;
 }
 
 export interface ContextCompactionCommitResult {
 	/** false 仅阻止错误恢复重试；已经提交的压缩事实不会回滚。 */
 	readonly continueExecution: boolean;
+}
+
+export interface ManualContextCompactionInput {
+	readonly sessionId: string;
+	readonly document: ConversationDocument;
+	readonly modelBinding?: RuntimeTurnModelBinding;
+	readonly customInstructions?: string;
+}
+
+/**
+ * Session 级手动压缩能力；摘要策略属于产品层，Kernel 只编排取消、提交和生命周期。
+ * 实现可以与自动 ContextStrategy 为同一 Session-local 实例。
+ */
+export interface ManualContextCompactionRuntime {
+	compactManual(input: ManualContextCompactionInput, signal: AbortSignal): Promise<ContextCompactionRecord>;
+	onManualCompactionCommitted?(
+		record: ContextCompactionRecord,
+		input: ManualContextCompactionInput,
+		signal: AbortSignal,
+		document?: ConversationDocument,
+	): Promise<void>;
+	readAutoCompactionEnabled(): boolean;
+	setAutoCompactionEnabled(enabled: boolean): void;
 }
 
 export interface ModelCallContextTransformationInput {
@@ -391,7 +415,8 @@ export interface ContextAppendedEvent {
 export interface ContextCompactedEvent {
 	readonly type: "context.compacted";
 	readonly sessionId: string;
-	readonly turnId: string;
+	/** 自动压缩属于活动 Turn；手动压缩是 Session 级事实，不携带 turnId。 */
+	readonly turnId?: string;
 	readonly record: CompactionRecord;
 	readonly timestamp: number;
 }
@@ -452,7 +477,7 @@ export interface TurnPipelineStageEvent {
 export interface ObserverFailedEvent {
 	readonly type: "observer.failed";
 	readonly sessionId: string;
-	readonly turnId: string;
+	readonly turnId?: string;
 	readonly observerId: string;
 	readonly error: string;
 	readonly timestamp: number;

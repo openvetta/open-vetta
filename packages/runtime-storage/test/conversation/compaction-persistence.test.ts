@@ -66,6 +66,71 @@ describe("native conversation compaction persistence", () => {
 		});
 		await reopened.close();
 	});
+
+	it("persists manual compaction between turns without inventing a turn id", async () => {
+		const rootDir = await mkdtemp(join(tmpdir(), "vetta-manual-compaction-"));
+		temporaryRoots.push(rootDir);
+		const repository = new FileConversationRepository({ rootDir });
+		await repository.create({ sessionId: "session-1", createdAt: 1 });
+		await repository.append("session-1", 0, [
+			{
+				type: "turn.started",
+				sessionId: "session-1",
+				turnId: "turn-1",
+				snapshotId: "snapshot-1",
+				timestamp: 1,
+			},
+			appended("turn-1", { role: "user", content: "old", timestamp: 2 }, 2),
+			appended("turn-1", assistant("old answer", 3), 3),
+			appended("turn-1", { role: "user", content: "kept", timestamp: 4 }, 4),
+			{
+				type: "turn.completed",
+				sessionId: "session-1",
+				turnId: "turn-1",
+				stopReason: "stop",
+				timestamp: 5,
+			},
+		]);
+		await repository.append("session-1", 5, [
+			{
+				type: "context.compacted",
+				sessionId: "session-1",
+				record: {
+					summary: "manual summary",
+					summaryMessage: {
+						role: "user",
+						content: "<summary>manual summary</summary>",
+						timestamp: 6,
+					},
+					firstKeptEntryId: "event-4",
+					tokensBefore: 100,
+					details: { source: "manual-test" },
+					reason: "manual",
+				},
+				timestamp: 6,
+			},
+		]);
+		await repository.close();
+
+		const reopened = new FileConversationRepository({ rootDir });
+		const conversation = await reopened.load("session-1");
+		const document = await reopened.readDocument("session-1");
+
+		expect(conversation.messages.map(text)).toEqual(["<summary>manual summary</summary>", "kept"]);
+		expect(conversation.events.at(-1)).toMatchObject({
+			type: "context.compacted",
+			record: { reason: "manual" },
+		});
+		expect(conversation.events.at(-1)).not.toHaveProperty("turnId");
+		expect(document.entries.find(({ type }) => type === "compaction")).toMatchObject({
+			id: "event-6",
+			type: "compaction",
+			firstKeptEntryId: "event-4",
+			reason: "manual",
+			details: { source: "manual-test" },
+		});
+		await reopened.close();
+	});
 });
 
 function appended(turnId: string, message: Message, timestamp: number) {

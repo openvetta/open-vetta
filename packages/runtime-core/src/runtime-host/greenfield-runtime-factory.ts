@@ -5,10 +5,12 @@ import {
 	AgentCoreTurnEngine,
 	BufferedRuntimeSessionContext,
 	type Clock,
+	ContextCompactionCommitter,
 	type ConversationRepository,
 	createAgentSession,
 	type EventSink,
 	type IdGenerator,
+	type ManualContextCompactionRuntime,
 	RandomIdGenerator,
 	type RuntimeSessionContextAppender,
 	type RuntimeSnapshotProvider,
@@ -24,6 +26,7 @@ import type {
 	GreenfieldRuntimeAssembly,
 	GreenfieldRuntimeFactory,
 } from "./greenfield-session-backend.js";
+import { GreenfieldSessionContextController } from "./greenfield-session-context-controller.js";
 import type {
 	GreenfieldRuntimeSessionIdentity,
 	GreenfieldRuntimeStateSource,
@@ -49,6 +52,7 @@ export interface GreenfieldRuntimeResources {
 	readonly stateSource: GreenfieldRuntimeStateSource;
 	readonly documentParticipants?: readonly GreenfieldRuntimeDocumentParticipant[];
 	readonly todoController?: RuntimeSessionTodoController;
+	readonly contextRuntime?: ManualContextCompactionRuntime;
 	readonly steeringMode?: SessionInputQueueMode;
 	readonly followUpMode?: SessionInputQueueMode;
 	dispose?(): Promise<void>;
@@ -108,6 +112,12 @@ export class ComposedGreenfieldRuntimeFactory<TCreateOptions> implements Greenfi
 				streamOptions: this.options.streamOptions,
 				resolveApiKey: (model) => resources.modelRuntime.resolveApiKey(model),
 			});
+			const contextCompactionCommitter = new ContextCompactionCommitter({
+				repository: resources.repository,
+				eventSink,
+				clock: this.clock,
+				conversationDocumentReader: resources.conversationDocumentStore,
+			});
 			const pipeline = new TurnPipeline({
 				repository: resources.repository,
 				snapshotProvider: resources.snapshotProvider,
@@ -118,6 +128,7 @@ export class ComposedGreenfieldRuntimeFactory<TCreateOptions> implements Greenfi
 				idGenerator: this.idGenerator,
 				runtimeContext,
 				conversationDocumentReader: resources.conversationDocumentStore,
+				contextCompactionCommitter,
 			});
 			const sessionOptions = {
 				id: resources.sessionId,
@@ -134,6 +145,17 @@ export class ComposedGreenfieldRuntimeFactory<TCreateOptions> implements Greenfi
 					console.warn("[runtime-core] failed to abort Greenfield session", error);
 				});
 			};
+			const contextController = resources.contextRuntime
+				? new GreenfieldSessionContextController({
+						session,
+						repository: resources.repository,
+						conversationDocumentReader: resources.conversationDocumentStore,
+						snapshotProvider: resources.snapshotProvider,
+						modelBindingProvider: resources.modelRuntime,
+						contextRuntime: resources.contextRuntime,
+						committer: contextCompactionCommitter,
+					})
+				: undefined;
 			const dispose = resources.dispose;
 			return {
 				session,
@@ -145,6 +167,7 @@ export class ComposedGreenfieldRuntimeFactory<TCreateOptions> implements Greenfi
 				stateSource: resources.stateSource,
 				documentParticipants: resources.documentParticipants,
 				todoController: resources.todoController,
+				contextController,
 				dispose: dispose ? () => dispose.call(resources) : undefined,
 			};
 		} catch (error) {

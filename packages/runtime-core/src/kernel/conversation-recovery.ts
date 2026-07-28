@@ -36,7 +36,23 @@ export class FailInterruptedTurnRecoveryPolicy implements ConversationRecoveryPo
 					break;
 				case "message.appended":
 				case "context.appended":
+					assertActiveTurn(conversation.sessionId, activeTurnId, event.turnId, event.type);
+					break;
 				case "context.compacted":
+					if ("reason" in event.record && event.record.reason === "manual") {
+						if (activeTurnId || event.turnId !== undefined) {
+							throw turnProtocolError(
+								`Conversation ${conversation.sessionId} contains manual compaction inside turn ${activeTurnId ?? event.turnId}`,
+							);
+						}
+						break;
+					}
+					if (!event.turnId) {
+						const reason = "reason" in event.record ? event.record.reason : "legacy";
+						throw turnProtocolError(
+							`Conversation ${conversation.sessionId} contains ${reason} compaction without a turn`,
+						);
+					}
 					assertActiveTurn(conversation.sessionId, activeTurnId, event.turnId, event.type);
 					break;
 				case "turn.completed":

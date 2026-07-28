@@ -1,0 +1,55 @@
+import type { CompactionPreparation, CompactionResult } from "../../core/compaction/index.js";
+import type { ExtensionRunner, SessionBeforeCompactResult } from "../../core/extensions/index.js";
+import type { CompactionEntry, SessionEntry } from "../../core/session-manager/index.js";
+
+export interface CodingAgentCompactionExtensionInput {
+	readonly preparation: CompactionPreparation;
+	readonly branchEntries: readonly SessionEntry[];
+	readonly customInstructions?: string;
+	readonly signal: AbortSignal;
+}
+
+export interface CodingAgentCompactionExtensionResult {
+	readonly cancel?: boolean;
+	readonly compaction?: CompactionResult;
+}
+
+export interface CodingAgentCompactionCommittedInput {
+	readonly compactionEntry: CompactionEntry;
+	readonly fromExtension: boolean;
+}
+
+/** Coding Context Runtime 使用的窄 Extension 边界。 */
+export interface CodingAgentCompactionExtensionRuntime {
+	beforeCompaction(
+		input: CodingAgentCompactionExtensionInput,
+	): Promise<CodingAgentCompactionExtensionResult | undefined>;
+	afterCompaction(input: CodingAgentCompactionCommittedInput): Promise<void>;
+}
+
+type CompactionExtensionRunner = Pick<ExtensionRunner, "emit" | "hasHandlers">;
+
+export function createCodingAgentCompactionExtensionRuntime(
+	runner: CompactionExtensionRunner,
+): CodingAgentCompactionExtensionRuntime {
+	return {
+		async beforeCompaction(input) {
+			if (!runner.hasHandlers("session_before_compact")) return undefined;
+			return (await runner.emit({
+				type: "session_before_compact",
+				preparation: input.preparation,
+				branchEntries: [...input.branchEntries],
+				customInstructions: input.customInstructions,
+				signal: input.signal,
+			})) as SessionBeforeCompactResult | undefined;
+		},
+		async afterCompaction(input) {
+			if (!runner.hasHandlers("session_compact")) return;
+			await runner.emit({
+				type: "session_compact",
+				compactionEntry: input.compactionEntry,
+				fromExtension: input.fromExtension,
+			});
+		},
+	};
+}

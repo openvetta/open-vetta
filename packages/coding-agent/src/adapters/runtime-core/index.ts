@@ -11,6 +11,13 @@ export {
 	type LegacyRuntimeHostOptions,
 } from "./composition.js";
 export {
+	type CodingAgentCompactionCommittedInput,
+	type CodingAgentCompactionExtensionInput,
+	type CodingAgentCompactionExtensionResult,
+	type CodingAgentCompactionExtensionRuntime,
+	createCodingAgentCompactionExtensionRuntime,
+} from "./greenfield-compaction-extension-runtime.js";
+export {
 	type CodingAgentContextUsage,
 	CodingAgentGreenfieldContextRuntime,
 	type CodingAgentGreenfieldContextRuntimeOptions,
@@ -113,6 +120,7 @@ export {
 	createLegacyRuntimeSessionCorePorts,
 	LegacyRuntimeSessionBackgroundWorkController,
 	LegacyRuntimeSessionConfigurationController,
+	LegacyRuntimeSessionContextController,
 	LegacyRuntimeSessionEventStream,
 	LegacyRuntimeSessionExecutionController,
 	LegacyRuntimeSessionHistoryController,

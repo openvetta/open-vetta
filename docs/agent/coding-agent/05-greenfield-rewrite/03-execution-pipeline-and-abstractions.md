@@ -283,6 +283,25 @@ Port 只改变依赖方向，不能静默改变产品语义。例如把旧 read 
 - Execution 内的模型调用检查点，使用已经持久化的最新 assistant/toolResult 决定同 Turn
   阈值压缩或 overflow 恢复。
 
+手动压缩是第三个触发入口，但不是伪造出来的 Turn。它使用 Session 控制面和专用算法 Port：
+
+```text
+RuntimeSessionContextController
+  -> cancel active Turn
+  -> acquire RuntimeSnapshot lease
+  -> ManualContextCompactionRuntime
+  -> ContextCompactionCommitter
+  -> release lease
+```
+
+三种触发方式共享 `ContextCompactionCommitter`，由它统一负责 Repository 乐观版本提交、
+Kernel Event 发布、Observer 通知和提交后 Document 读取。区别仅在于：
+
+- Turn-start 和模型调用检查点压缩属于活动 Turn，`context.compacted` 必须携带 `turnId`。
+- 手动压缩发生在两个 Turn 之间，不创建 `turn.started`，也不携带伪 `turnId`。
+- 手动压缩的忙碌态、显式取消和自动压缩开关属于 Session Controller。
+- 摘要算法、自定义指令、Extension 覆盖/取消和 Pre/PostCompact 属于 Coding Profile。
+
 第二种情况不能只依赖普通 EventStream 通知。通知消费不是背压点，模型循环可能在 Repository
 append 完成前继续。Turn Engine 必须发出请求—应答检查点并暂停；Pipeline 完成消息和
 `context.compacted` 的有序提交后再应答。
@@ -336,6 +355,8 @@ export interface ContextSummarizer {
 - 不读取全局 `ModelRegistry`。
 - 不决定压缩记录是否落盘。
 - 压缩结果由 Turn Pipeline 作为标准事件持久化。
+- 手动压缩结果由 Session Controller 调用同一个 `ContextCompactionCommitter` 持久化，不允许
+  宿主或产品 Adapter 直接写 Repository。
 - 模型调用检查点只携带已类型化消息和完成/失败应答，不暴露 Repository。
 - Overflow 错误可以先作为普通 assistant 历史持久化，再从一次性重试上下文移除。
 - Profile 同一时间只能选择一个主 `ContextStrategy`，不能由多个 Feature 依次任意改写上下文。

@@ -2,10 +2,12 @@ import type { Message } from "@vetta/ai";
 import {
 	type AgentPluginRuntimeConfig,
 	type HistoryEntry,
+	type RuntimeContextCompactionResult,
 	type RuntimeExecutionModeUpdate,
 	type RuntimeModelSelectionStrategy,
 	type RuntimeSessionBackgroundWorkController,
 	type RuntimeSessionConfigurationController,
+	type RuntimeSessionContextController,
 	type RuntimeSessionCorePorts,
 	type RuntimeSessionEventStream,
 	type RuntimeSessionExecutionController,
@@ -344,6 +346,31 @@ export class LegacyRuntimeSessionConfigurationController implements RuntimeSessi
 
 	setAgentMode(mode: string | undefined): void {
 		this.session.setAgentMode(mode);
+	}
+}
+
+export class LegacyRuntimeSessionContextController implements RuntimeSessionContextController {
+	constructor(private readonly session: RuntimeSession) {}
+
+	readState(): ReturnType<RuntimeSessionContextController["readState"]> {
+		return {
+			isCompacting: this.session.isCompacting,
+			autoCompactionEnabled: this.session.autoCompactionEnabled,
+		};
+	}
+
+	async compact(
+		request?: Parameters<RuntimeSessionContextController["compact"]>[0],
+	): Promise<RuntimeContextCompactionResult> {
+		return this.session.compact(request?.customInstructions);
+	}
+
+	abortCompaction(): void {
+		this.session.abortCompaction();
+	}
+
+	setAutoCompactionEnabled(enabled: boolean): void {
+		this.session.setAutoCompactionEnabled(enabled);
 	}
 }
 

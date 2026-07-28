@@ -20,9 +20,11 @@ import type {
 	CreateConversationInput,
 } from "../../src/kernel/contracts.js";
 import {
+	ContextCompactionCommitter,
 	createAgentSession,
 	type EventSink,
 	KERNEL_ERROR_CODES,
+	type ManualContextCompactionRuntime,
 	type RuntimeSnapshot,
 	resumeAgentSession,
 	StaticRuntimeSnapshotProvider,
@@ -36,6 +38,7 @@ import {
 	type GreenfieldPromptAdapter,
 	GreenfieldRuntimeModel,
 	GreenfieldRuntimeSessionBackend,
+	GreenfieldSessionContextController,
 } from "../../src/runtime-host/index.js";
 
 interface TestCreateOptions {
@@ -188,6 +191,7 @@ function createBackend(
 	turnEngine: TurnEnginePort,
 	promptAdapter: GreenfieldPromptAdapter = new RecordingPromptAdapter(),
 	dispose = vi.fn(async () => {}),
+	contextRuntime?: ManualContextCompactionRuntime,
 ) {
 	return {
 		backend: new GreenfieldRuntimeSessionBackend<TestCreateOptions>({
@@ -196,26 +200,47 @@ function createBackend(
 					let turnIndex = 0;
 					const repository = new InMemoryConversationRepository();
 					const details = runtimeAssemblyDetails(options.id);
+					const snapshotProvider = new StaticRuntimeSnapshotProvider(snapshot());
+					const clock = { now: () => Date.now() };
+					const contextCompactionCommitter = new ContextCompactionCommitter({
+						repository,
+						eventSink,
+						clock,
+						conversationDocumentReader: repository,
+					});
 					const pipeline = new TurnPipeline({
 						repository,
-						snapshotProvider: new StaticRuntimeSnapshotProvider(snapshot()),
+						snapshotProvider,
 						modelBindingProvider: details.modelRuntime,
 						turnEngine,
 						eventSink,
-						clock: { now: () => Date.now() },
+						clock,
 						idGenerator: {
 							next: () => {
 								turnIndex += 1;
 								return `turn-${turnIndex}`;
 							},
 						},
+						contextCompactionCommitter,
 					});
 					const session = await createAgentSession({ id: options.id, pipeline });
+					const contextController = contextRuntime
+						? new GreenfieldSessionContextController({
+								session,
+								repository,
+								conversationDocumentReader: repository,
+								snapshotProvider,
+								modelBindingProvider: details.modelRuntime,
+								contextRuntime,
+								committer: contextCompactionCommitter,
+							})
+						: undefined;
 					return {
 						session,
 						repository,
 						conversationDocumentStore: repository,
 						promptAdapter,
+						contextController,
 						dispose,
 						...details,
 					};
@@ -413,6 +438,100 @@ describe("GreenfieldRuntimeSessionBackend", () => {
 			error: { code: KERNEL_ERROR_CODES.TURN_INTERRUPTED },
 		});
 		expect(events[1]).toMatchObject({ type: "session.lifecycle", phase: "agent_end" });
+	});
+
+	it("commits manual compaction outside a turn and exposes context control without extra host events", async () => {
+		let autoCompactionEnabled = true;
+		const onManualCompactionCommitted =
+			vi.fn<NonNullable<ManualContextCompactionRuntime["onManualCompactionCommitted"]>>();
+		const contextRuntime: ManualContextCompactionRuntime = {
+			async compactManual(input) {
+				expect(input.customInstructions).toBe("preserve decisions");
+				expect(input.document.activeLeafId).toBe("event-3");
+				return {
+					summary: "manual summary",
+					summaryMessage: userMessage("manual summary"),
+					firstKeptEntryId: "event-2",
+					tokensBefore: 120,
+					details: { source: "test" },
+					reason: "manual",
+				};
+			},
+			onManualCompactionCommitted,
+			readAutoCompactionEnabled: () => autoCompactionEnabled,
+			setAutoCompactionEnabled(enabled) {
+				autoCompactionEnabled = enabled;
+			},
+		};
+		const { backend } = createBackend(
+			new CompletingTurnEngine(),
+			new RecordingPromptAdapter(),
+			vi.fn(async () => {}),
+			contextRuntime,
+		);
+		const session = await backend.create({ id: "session-1" });
+		const events: SessionEvent[] = [];
+		session.subscribe((event) => events.push(event));
+		await session.prompt({ text: "hello" });
+		const contextController = session.createCoreAssembly().contextController;
+		if (!contextController) throw new Error("Context controller was not assembled");
+		const eventCountBeforeCompaction = events.length;
+
+		const result = await contextController.compact({ customInstructions: "preserve decisions" });
+
+		expect(result).toEqual({
+			summary: "manual summary",
+			firstKeptEntryId: "event-2",
+			tokensBefore: 120,
+			details: { source: "test" },
+		});
+		expect(events).toHaveLength(eventCountBeforeCompaction);
+		expect(session.readHistory().at(-1)).toMatchObject({
+			type: "compaction",
+			summary: "manual summary",
+			tokensBefore: 120,
+		});
+		expect(onManualCompactionCommitted).toHaveBeenCalledOnce();
+		expect(onManualCompactionCommitted.mock.calls[0]?.[3]?.activeLeafId).toBe("event-5");
+		expect(contextController.readState()).toEqual({ isCompacting: false, autoCompactionEnabled: true });
+		contextController.setAutoCompactionEnabled(false);
+		expect(contextController.readState().autoCompactionEnabled).toBe(false);
+	});
+
+	it("blocks turn operations during manual compaction and exposes explicit cancellation", async () => {
+		let markCompactionStarted: (() => void) | undefined;
+		const compactionStarted = new Promise<void>((resolve) => {
+			markCompactionStarted = resolve;
+		});
+		const contextRuntime: ManualContextCompactionRuntime = {
+			async compactManual(_input, signal) {
+				markCompactionStarted?.();
+				await waitForAbort(signal);
+				throw new Error("unreachable");
+			},
+			readAutoCompactionEnabled: () => true,
+			setAutoCompactionEnabled() {},
+		};
+		const { backend } = createBackend(
+			new CompletingTurnEngine(),
+			new RecordingPromptAdapter(),
+			vi.fn(async () => {}),
+			contextRuntime,
+		);
+		const session = await backend.create({ id: "session-1" });
+		await session.prompt({ text: "hello" });
+		const contextController = session.createCoreAssembly().contextController;
+		if (!contextController) throw new Error("Context controller was not assembled");
+
+		const compaction = contextController.compact();
+		await compactionStarted;
+
+		expect(contextController.readState().isCompacting).toBe(true);
+		await expect(session.prompt({ text: "blocked" })).rejects.toMatchObject({ code: "session_busy" });
+		await expect(session.continue()).rejects.toMatchObject({ code: "session_busy" });
+		contextController.abortCompaction();
+		await expect(compaction).rejects.toMatchObject({ name: "AbortError" });
+		expect(contextController.readState().isCompacting).toBe(false);
 	});
 
 	it("queues explicit concurrent input and retains it after abort", async () => {

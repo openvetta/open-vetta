@@ -12,6 +12,7 @@ import type {
 } from "@vetta/runtime-core/kernel";
 import { describe, expect, it, vi } from "vitest";
 import {
+	type CodingAgentCompactionExtensionRuntime,
 	CodingAgentGreenfieldContextRuntime,
 	type CodingAgentGreenfieldContextRuntimeOptions,
 } from "../../src/adapters/runtime-core/index.js";
@@ -253,6 +254,131 @@ describe("CodingAgentGreenfieldContextRuntime", () => {
 		expect(prepared.compaction?.reason).toBe("overflow");
 		expect(prepared.messages.map(messageText)).not.toContain("truncated response");
 		expect(observations).toEqual([{ type: "compaction.start", reason: "overflow", source: "agent" }]);
+	});
+
+	it("runs manual compaction through extension override and committed callback without invoking the summarizer", async () => {
+		const history = [
+			userMessage("old request".repeat(40), 1),
+			assistantMessage("old response", 90, 2),
+			userMessage("kept request", 3),
+		] satisfies Message[];
+		const document = documentFromMessages(history);
+		const hooks = createHookRuntime();
+		const extensionRuntime: CodingAgentCompactionExtensionRuntime = {
+			beforeCompaction: vi.fn(async (input) => {
+				expect(input.customInstructions).toBe("preserve decisions");
+				return {
+					compaction: {
+						summary: "extension summary",
+						firstKeptEntryId: input.preparation.firstKeptEntryId,
+						tokensBefore: input.preparation.tokensBefore,
+						details: { source: "extension" },
+					},
+				};
+			}),
+			afterCompaction: vi.fn(async () => {}),
+		};
+		const generateCompaction = vi.fn(async (): Promise<CompactionResult> => {
+			throw new Error("summarizer must not run");
+		});
+		const runtime = new CodingAgentGreenfieldContextRuntime({
+			hookRuntime: hooks,
+			resolveApiKey: () => "key",
+			resolveSettings: compactingSettings,
+			generateCompaction,
+			extensionRuntime,
+			now: () => 42,
+		});
+
+		const record = await runtime.compactManual(
+			{
+				sessionId: "session-1",
+				document,
+				modelBinding: { model: MODEL },
+				customInstructions: "preserve decisions",
+			},
+			new AbortController().signal,
+		);
+		const committedDocument = applyStoredEventToConversationDocument(
+			document,
+			{
+				type: "context.compacted",
+				sessionId: "session-1",
+				record,
+				timestamp: 42,
+			},
+			document.journalVersion + 1,
+		);
+		await runtime.onManualCompactionCommitted(
+			record,
+			{ sessionId: "session-1", document, modelBinding: { model: MODEL } },
+			new AbortController().signal,
+			committedDocument,
+		);
+
+		expect(record).toMatchObject({
+			summary: "extension summary",
+			firstKeptEntryId: "event-3",
+			tokensBefore: 93,
+			details: { source: "extension" },
+			fromHook: true,
+			reason: "manual",
+		});
+		expect(generateCompaction).not.toHaveBeenCalled();
+		expect(hooks.runPreCompact).toHaveBeenCalledWith("manual", expect.any(AbortSignal));
+		expect(extensionRuntime.afterCompaction).toHaveBeenCalledWith({
+			compactionEntry: expect.objectContaining({
+				type: "compaction",
+				summary: "extension summary",
+				firstKeptEntryId: "event-3",
+			}),
+			fromExtension: true,
+		});
+		expect(hooks.runPostCompact).toHaveBeenCalledWith("manual", expect.any(AbortSignal));
+		expect(hooks.markSessionStart).toHaveBeenCalledWith("compact");
+		expect(runtime.readAutoCompactionEnabled()).toBe(true);
+		runtime.setAutoCompactionEnabled(false);
+		expect(runtime.readAutoCompactionEnabled()).toBe(false);
+	});
+
+	it("preserves extension cancellation semantics for manual compaction", async () => {
+		const history = [
+			userMessage("old request".repeat(40), 1),
+			assistantMessage("old response", 90, 2),
+			userMessage("kept request", 3),
+		] satisfies Message[];
+		const extensionRuntime: CodingAgentCompactionExtensionRuntime = {
+			beforeCompaction: vi.fn(async () => ({ cancel: true })),
+			afterCompaction: vi.fn(async () => {}),
+		};
+		const generateCompaction = vi.fn(async (): Promise<CompactionResult> => {
+			throw new Error("summarizer must not run");
+		});
+		const hooks = createHookRuntime();
+		const runtime = new CodingAgentGreenfieldContextRuntime({
+			hookRuntime: hooks,
+			resolveApiKey: () => "key",
+			resolveSettings: compactingSettings,
+			generateCompaction,
+			extensionRuntime,
+		});
+
+		await expect(
+			runtime.compactManual(
+				{
+					sessionId: "session-1",
+					document: documentFromMessages(history),
+					modelBinding: { model: MODEL },
+				},
+				new AbortController().signal,
+			),
+		).rejects.toThrow("Compaction cancelled");
+
+		expect(extensionRuntime.beforeCompaction).toHaveBeenCalledOnce();
+		expect(extensionRuntime.afterCompaction).not.toHaveBeenCalled();
+		expect(generateCompaction).not.toHaveBeenCalled();
+		expect(hooks.runPostCompact).not.toHaveBeenCalled();
+		expect(hooks.markSessionStart).not.toHaveBeenCalled();
 	});
 
 	it("microcompacts every model call without mutating persisted messages", async () => {

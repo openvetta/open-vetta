@@ -109,6 +109,53 @@ describe("Greenfield runtime composition", () => {
 		await retrySession.dispose();
 	});
 
+	it("wires session-scoped manual compaction through the real composition root", async () => {
+		const conversations = await createTemporaryDirectory("greenfield-runtime-manual-compaction-");
+		const generateCompaction = vi.fn(async (preparation, _model, _apiKey, customInstructions) => {
+			expect(customInstructions).toBe("preserve architecture decisions");
+			return {
+				summary: "manual composition summary",
+				firstKeptEntryId: preparation.firstKeptEntryId,
+				tokensBefore: preparation.tokensBefore,
+				details: { source: "composition-test" },
+			};
+		});
+		const composition = await createGreenfieldRuntimeComposition({
+			conversationDir: conversations,
+			modelRegistry: modelRegistry(),
+			initialModel: MODEL,
+			initialThinkingLevel: "off",
+			resolveCompactionSettings: () => ({
+				enabled: true,
+				reserveTokens: 20,
+				minFreePercent: 20,
+				keepRecentTokens: 1,
+			}),
+			generateCompaction,
+			streamFn: () => new RecordedAssistantStream(assistantMessage([{ type: "text", text: "answer".repeat(20) }])),
+		});
+		compositions.push(composition);
+		const session = await composition.backend.create({ sessionId: "manual-compaction" });
+		await session.prompt({ text: "request".repeat(40) });
+		const contextController = session.createCoreAssembly().contextController;
+		if (!contextController) throw new Error("Context controller was not assembled");
+
+		const result = await contextController.compact({
+			customInstructions: "preserve architecture decisions",
+		});
+
+		expect(result).toMatchObject({
+			summary: "manual composition summary",
+			details: { source: "composition-test" },
+		});
+		expect(generateCompaction).toHaveBeenCalledOnce();
+		expect(session.readHistory().at(-1)).toMatchObject({
+			type: "compaction",
+			summary: "manual composition summary",
+		});
+		await session.dispose();
+	});
+
 	it("reflects registry changes on the next model call without rebuilding the session", async () => {
 		const conversations = await createTemporaryDirectory("greenfield-runtime-dynamic-tools-");
 		const toolLists: string[][] = [];

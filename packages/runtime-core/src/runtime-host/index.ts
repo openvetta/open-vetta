@@ -42,6 +42,10 @@ export {
 	type GreenfieldRuntimeSessionCoreAssembly,
 	type GreenfieldRuntimeSessionState,
 } from "./greenfield-session-backend.js";
+export {
+	GreenfieldSessionContextController,
+	type GreenfieldSessionContextControllerOptions,
+} from "./greenfield-session-context-controller.js";
 export { mapGreenfieldKernelEventToSessionEvents } from "./greenfield-session-events.js";
 export {
 	type GreenfieldRuntimeDynamicState,
@@ -59,10 +63,14 @@ export type {
 } from "./session-backend.js";
 export { mapRuntimeSessionObservationEvent } from "./session-events.js";
 export type {
+	RuntimeContextCompactionRequest,
+	RuntimeContextCompactionResult,
+	RuntimeContextCompactionState,
 	RuntimeExecutionModeUpdate,
 	RuntimeModelSelectionStrategy,
 	RuntimeSessionBackgroundWorkController,
 	RuntimeSessionConfigurationController,
+	RuntimeSessionContextController,
 	RuntimeSessionCorePorts,
 	RuntimeSessionEventStream,
 	RuntimeSessionExecutionController,

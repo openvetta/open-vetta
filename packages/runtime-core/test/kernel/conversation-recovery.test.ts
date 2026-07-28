@@ -203,6 +203,59 @@ describe("conversation recovery", () => {
 		expect(harness.eventSink.events).toHaveLength(0);
 	});
 
+	it("accepts manual compaction between completed turns", async () => {
+		const harness = createHarness();
+		await harness.repository.create({ sessionId: "session-1", createdAt: 1 });
+		await harness.repository.append("session-1", 0, [
+			started("session-1", "turn-1"),
+			completed("session-1", "turn-1"),
+			{
+				type: "context.compacted",
+				sessionId: "session-1",
+				record: {
+					summary: "manual summary",
+					summaryMessage: { role: "user", content: "manual summary", timestamp: 103 },
+					firstKeptEntryId: "event-1",
+					tokensBefore: 100,
+					reason: "manual",
+				},
+				timestamp: 103,
+			},
+		]);
+
+		await resumeAgentSession({ id: "session-1", pipeline: harness.pipeline });
+
+		expect((await harness.repository.load("session-1")).version).toBe(3);
+		expect(harness.eventSink.events).toHaveLength(0);
+	});
+
+	it("rejects manual compaction inside an active turn", async () => {
+		const harness = createHarness();
+		await harness.repository.create({ sessionId: "session-1", createdAt: 1 });
+		await harness.repository.append("session-1", 0, [
+			started("session-1", "turn-1"),
+			{
+				type: "context.compacted",
+				sessionId: "session-1",
+				record: {
+					summary: "manual summary",
+					summaryMessage: { role: "user", content: "manual summary", timestamp: 101 },
+					firstKeptEntryId: "event-1",
+					tokensBefore: 100,
+					reason: "manual",
+				},
+				timestamp: 101,
+			},
+		]);
+
+		await expect(resumeAgentSession({ id: "session-1", pipeline: harness.pipeline })).rejects.toMatchObject({
+			code: KERNEL_ERROR_CODES.TURN_PROTOCOL,
+		});
+
+		expect((await harness.repository.load("session-1")).version).toBe(2);
+		expect(harness.eventSink.events).toHaveLength(0);
+	});
+
 	it.each<readonly [string, readonly StoredSessionEvent[]]>([
 		["overlapping turns", [started("session-1", "turn-1"), started("session-1", "turn-2")]],
 		["terminal event without a start", [completed("session-1", "turn-1")]],

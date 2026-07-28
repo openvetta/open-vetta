@@ -189,7 +189,7 @@ const ContextCompactedEventSchema = Type.Object(
 	{
 		type: Type.Literal("context.compacted"),
 		sessionId: Type.String(),
-		turnId: Type.String(),
+		turnId: Type.Optional(Type.String()),
 		record: CompactionRecordSchema,
 		timestamp: Type.Number(),
 	},

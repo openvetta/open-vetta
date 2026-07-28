@@ -18,6 +18,8 @@ import type {
 	ContextCompactionRecord,
 	ContextPreparationInput,
 	ContextStrategy,
+	ManualContextCompactionInput,
+	ManualContextCompactionRuntime,
 	ModelCallContextTransformationInput,
 	ModelCallContextTransformer,
 	PreparedContext,
@@ -41,7 +43,8 @@ import {
 	shouldPrefire,
 } from "../../core/compaction/index.js";
 import { COMPACTION_SUMMARY_PREFIX, COMPACTION_SUMMARY_SUFFIX } from "../../core/messages.js";
-import type { SessionEntry } from "../../core/session-manager/index.js";
+import type { CompactionEntry, SessionEntry } from "../../core/session-manager/index.js";
+import type { CodingAgentCompactionExtensionRuntime } from "./greenfield-compaction-extension-runtime.js";
 
 type ContextHookRuntime = Pick<EcosystemHookRuntime, "markSessionStart" | "runPostCompact" | "runPreCompact">;
 
@@ -53,8 +56,10 @@ export interface CodingAgentGreenfieldContextRuntimeOptions {
 		preparation: CompactionPreparation,
 		model: Model<Api>,
 		apiKey: string,
+		customInstructions: string | undefined,
 		signal: AbortSignal,
 	) => Promise<CompactionResult>;
+	readonly extensionRuntime?: CodingAgentCompactionExtensionRuntime;
 	readonly now?: () => number;
 }
 
@@ -70,18 +75,22 @@ export interface CodingAgentContextUsage {
  * 持久化摘要只在 Turn Context Strategy 中生成；每次模型调用前的 microcompact
  * 通过独立 transformer 运行，永不直接改写 Conversation Document。
  */
-export class CodingAgentGreenfieldContextRuntime implements ContextStrategy, ModelCallContextTransformer, TurnObserver {
+export class CodingAgentGreenfieldContextRuntime
+	implements ContextStrategy, ManualContextCompactionRuntime, ModelCallContextTransformer, TurnObserver
+{
 	readonly id = "coding-agent.context-runtime";
 	private readonly hookRuntime: ContextHookRuntime;
 	private readonly resolveApiKey: CodingAgentGreenfieldContextRuntimeOptions["resolveApiKey"];
 	private readonly resolveSettings: () => CompactionSettings;
 	private readonly generateCompaction: NonNullable<CodingAgentGreenfieldContextRuntimeOptions["generateCompaction"]>;
+	private readonly extensionRuntime: CodingAgentCompactionExtensionRuntime | undefined;
 	private readonly now: () => number;
 	private readonly circuitBreaker = new CompactionCircuitBreaker();
 	private prefireCache: PrefireCache | undefined;
 	private prefireAbortController: AbortController | undefined;
 	private disposed = false;
 	private currentTokens = 0;
+	private autoCompactionEnabledOverride: boolean | undefined;
 
 	constructor(options: CodingAgentGreenfieldContextRuntimeOptions) {
 		this.hookRuntime = options.hookRuntime;
@@ -89,7 +98,9 @@ export class CodingAgentGreenfieldContextRuntime implements ContextStrategy, Mod
 		this.resolveSettings = options.resolveSettings ?? (() => DEFAULT_COMPACTION_SETTINGS);
 		this.generateCompaction =
 			options.generateCompaction ??
-			((preparation, model, apiKey, signal) => compact(preparation, model, apiKey, undefined, signal));
+			((preparation, model, apiKey, customInstructions, signal) =>
+				compact(preparation, model, apiKey, customInstructions, signal));
+		this.extensionRuntime = options.extensionRuntime;
 		this.now = options.now ?? Date.now;
 	}
 
@@ -106,7 +117,7 @@ export class CodingAgentGreenfieldContextRuntime implements ContextStrategy, Mod
 		const reason = input.reason ?? "turn_start";
 		const model = input.modelBinding?.model;
 		const contextWindow = model?.contextWindow ?? input.tokenBudget;
-		const settings = this.resolveSettings();
+		const settings = this.readSettings();
 		const overflow =
 			(reason === "assistant_error" || reason === "assistant_result") &&
 			input.recoveryAttempt === 0 &&
@@ -165,10 +176,22 @@ export class CodingAgentGreenfieldContextRuntime implements ContextStrategy, Mod
 				return unchanged(callMessages, assembledTokens);
 			}
 
-			const prefired = this.takeValidPrefire(entries);
-			const result = prefired ?? (await this.generateCompaction(preparation, model, apiKey, signal));
+			const extensionResult = await this.extensionRuntime?.beforeCompaction({
+				preparation,
+				branchEntries: entries,
+				signal,
+			});
+			if (extensionResult?.cancel) {
+				await input.reportObservation({ type: "compaction.end", success: false, source: "agent" });
+				return unchanged(callMessages, assembledTokens);
+			}
+			const prefired = extensionResult?.compaction ? undefined : this.takeValidPrefire(entries);
+			const result =
+				extensionResult?.compaction ??
+				prefired ??
+				(await this.generateCompaction(preparation, model, apiKey, undefined, signal));
 			signal.throwIfAborted();
-			const record = this.toRecord(result, compactionReason);
+			const record = this.toRecord(result, compactionReason, extensionResult?.compaction !== undefined);
 			const compactedHistory = projectCompactedHistory(input.document, input.sessionId, input.turnId, record);
 			const messages = assemblePreparedMessages(
 				compactedHistory,
@@ -192,11 +215,69 @@ export class CodingAgentGreenfieldContextRuntime implements ContextStrategy, Mod
 		}
 	}
 
-	async onCompactionCommitted(_record: ContextCompactionRecord, _input: ContextPreparationInput, signal: AbortSignal) {
+	async onCompactionCommitted(
+		record: ContextCompactionRecord,
+		_input: ContextPreparationInput,
+		signal: AbortSignal,
+		document?: ConversationDocument,
+	) {
+		await this.notifyExtensionCommitted(record, document);
 		const outcome = await this.hookRuntime.runPostCompact("auto", signal);
 		this.hookRuntime.markSessionStart("compact");
 		this.circuitBreaker.recordSuccess();
 		return { continueExecution: !outcome.shouldStop };
+	}
+
+	async compactManual(input: ManualContextCompactionInput, signal: AbortSignal): Promise<ContextCompactionRecord> {
+		signal.throwIfAborted();
+		const model = input.modelBinding?.model;
+		if (!model) throw new Error("No model selected");
+		const apiKey = await this.resolveApiKey(model);
+		if (!apiKey) throw new Error(`No API key for ${model.provider}`);
+
+		const entries = toSessionEntries(input.document);
+		const preparation = prepareCompaction(entries, this.readSettings());
+		if (!preparation) {
+			const lastEntry = entries[entries.length - 1];
+			if (lastEntry?.type === "compaction") throw new Error("Already compacted");
+			throw new Error("Nothing to compact (session too small)");
+		}
+
+		const preHookOutcome = await this.hookRuntime.runPreCompact("manual", signal);
+		if (preHookOutcome.shouldStop || preHookOutcome.shouldBlock) {
+			throw new Error(preHookOutcome.stopReason ?? preHookOutcome.blockReason ?? "Compaction blocked by hook");
+		}
+		const extensionResult = await this.extensionRuntime?.beforeCompaction({
+			preparation,
+			branchEntries: entries,
+			customInstructions: input.customInstructions,
+			signal,
+		});
+		if (extensionResult?.cancel) throw new Error("Compaction cancelled");
+		const result =
+			extensionResult?.compaction ??
+			(await this.generateCompaction(preparation, model, apiKey, input.customInstructions, signal));
+		if (signal.aborted) throw new Error("Compaction cancelled");
+		return this.toRecord(result, "manual", extensionResult?.compaction !== undefined);
+	}
+
+	async onManualCompactionCommitted(
+		record: ContextCompactionRecord,
+		_input: ManualContextCompactionInput,
+		signal: AbortSignal,
+		document?: ConversationDocument,
+	): Promise<void> {
+		await this.notifyExtensionCommitted(record, document);
+		await this.hookRuntime.runPostCompact("manual", signal);
+		this.hookRuntime.markSessionStart("compact");
+	}
+
+	readAutoCompactionEnabled(): boolean {
+		return this.readSettings().enabled;
+	}
+
+	setAutoCompactionEnabled(enabled: boolean): void {
+		this.autoCompactionEnabledOverride = enabled;
 	}
 
 	async transform(input: ModelCallContextTransformationInput, signal: AbortSignal): Promise<readonly Message[]> {
@@ -230,7 +311,11 @@ export class CodingAgentGreenfieldContextRuntime implements ContextStrategy, Mod
 		this.prefireCache = undefined;
 	}
 
-	private toRecord(result: CompactionResult, reason: "threshold" | "overflow"): ContextCompactionRecord {
+	private toRecord(
+		result: CompactionResult,
+		reason: ContextCompactionRecord["reason"],
+		fromExtension: boolean,
+	): ContextCompactionRecord {
 		const timestamp = this.now();
 		const summaryMessage: UserMessage = {
 			role: "user",
@@ -243,6 +328,7 @@ export class CodingAgentGreenfieldContextRuntime implements ContextStrategy, Mod
 			firstKeptEntryId: result.firstKeptEntryId,
 			tokensBefore: result.tokensBefore,
 			...(result.details === undefined ? {} : { details: result.details }),
+			...(fromExtension ? { fromHook: true } : {}),
 			reason,
 		};
 	}
@@ -270,7 +356,7 @@ export class CodingAgentGreenfieldContextRuntime implements ContextStrategy, Mod
 		try {
 			const apiKey = await this.resolveApiKey(model);
 			if (!apiKey) return;
-			const result = await this.generateCompaction(preparation, model, apiKey, signal);
+			const result = await this.generateCompaction(preparation, model, apiKey, undefined, signal);
 			if (signal.aborted || this.disposed) return;
 			this.prefireCache = { fingerprint, result };
 			console.info(
@@ -292,6 +378,33 @@ export class CodingAgentGreenfieldContextRuntime implements ContextStrategy, Mod
 		this.currentTokens = estimateContextTokens(
 			selectConversationDocumentModelMessages(document).filter(isRuntimeMessage),
 		).tokens;
+	}
+
+	private readSettings(): CompactionSettings {
+		const settings = this.resolveSettings();
+		return this.autoCompactionEnabledOverride === undefined
+			? settings
+			: { ...settings, enabled: this.autoCompactionEnabledOverride };
+	}
+
+	private async notifyExtensionCommitted(
+		record: ContextCompactionRecord,
+		document: ConversationDocument | undefined,
+	): Promise<void> {
+		if (!this.extensionRuntime || !document) return;
+		const entry = [...toSessionEntries(document)]
+			.reverse()
+			.find(
+				(candidate): candidate is CompactionEntry =>
+					candidate.type === "compaction" &&
+					candidate.summary === record.summary &&
+					candidate.firstKeptEntryId === record.firstKeptEntryId,
+			);
+		if (!entry) return;
+		await this.extensionRuntime.afterCompaction({
+			compactionEntry: entry,
+			fromExtension: record.fromHook === true,
+		});
 	}
 }
 

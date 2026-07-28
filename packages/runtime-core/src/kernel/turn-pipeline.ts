@@ -1,8 +1,10 @@
 import type { Message, StopReason } from "@vetta/ai";
-import type { ConversationDocumentReader } from "../conversation/document.js";
+import type { ConversationDocument, ConversationDocumentReader } from "../conversation/document.js";
 import type { RuntimeSessionObservationEvent } from "../session-observation.js";
+import { ContextCompactionCommitter } from "./context-compaction-committer.js";
 import type {
 	Clock,
+	ContextCompactionRecord,
 	ContextProvider,
 	ConversationRepository,
 	EventSink,
@@ -40,6 +42,7 @@ export interface TurnPipelineOptions {
 	readonly recoveryPolicy?: ConversationRecoveryPolicy;
 	readonly runtimeContext?: RuntimeSessionContextBuffer;
 	readonly conversationDocumentReader?: ConversationDocumentReader;
+	readonly contextCompactionCommitter?: ContextCompactionCommitter;
 }
 
 interface MutableTurnState {
@@ -71,6 +74,7 @@ export class TurnPipeline {
 	private readonly recoveryPolicy: ConversationRecoveryPolicy;
 	private readonly runtimeContext: RuntimeSessionContextBuffer | undefined;
 	private readonly conversationDocumentReader: ConversationDocumentReader | undefined;
+	private readonly contextCompactionCommitter: ContextCompactionCommitter;
 
 	constructor(options: TurnPipelineOptions) {
 		this.repository = options.repository;
@@ -83,6 +87,14 @@ export class TurnPipeline {
 		this.recoveryPolicy = options.recoveryPolicy ?? new FailInterruptedTurnRecoveryPolicy();
 		this.runtimeContext = options.runtimeContext;
 		this.conversationDocumentReader = options.conversationDocumentReader;
+		this.contextCompactionCommitter =
+			options.contextCompactionCommitter ??
+			new ContextCompactionCommitter({
+				repository: options.repository,
+				eventSink: options.eventSink,
+				clock: options.clock,
+				conversationDocumentReader: options.conversationDocumentReader,
+			});
 	}
 
 	async createSession(sessionId: string): Promise<void> {
@@ -225,16 +237,20 @@ export class TurnPipeline {
 			signal.throwIfAborted();
 
 			if (prepared.compaction) {
-				await this.append(sessionId, state, signal, [
-					{
-						type: "context.compacted",
-						sessionId,
-						turnId,
-						record: prepared.compaction,
-						timestamp: this.clock.now(),
-					},
-				]);
-				await snapshot.contextStrategy.onCompactionCommitted?.(prepared.compaction, preparationInput, signal);
+				const document = await this.commitCompaction(
+					sessionId,
+					turnId,
+					prepared.compaction,
+					state,
+					signal,
+					snapshot,
+				);
+				await snapshot.contextStrategy.onCompactionCommitted?.(
+					prepared.compaction,
+					preparationInput,
+					signal,
+					document,
+				);
 			}
 
 			await this.enterStage(sessionId, turnId, "execution");
@@ -360,7 +376,7 @@ export class TurnPipeline {
 	): Promise<TurnEngineContextCheckpointResult | undefined> {
 		const { request, sessionId, signal, snapshot, state, turnId } = checkpoint;
 		const conversation = await this.repository.load(sessionId);
-		const document = await this.conversationDocumentReader?.readDocument(sessionId);
+		const currentDocument = await this.conversationDocumentReader?.readDocument(sessionId);
 		const preparationInput = {
 			sessionId,
 			turnId,
@@ -373,7 +389,7 @@ export class TurnPipeline {
 			tokenBudget: snapshot.tokenBudget,
 			reservedOutputTokens: snapshot.reservedOutputTokens,
 			modelBinding: checkpoint.modelBinding,
-			document,
+			document: currentDocument,
 			reportObservation: (observation: RuntimeSessionObservationEvent) =>
 				this.publishObservation(sessionId, turnId, observation),
 		} as const;
@@ -385,19 +401,19 @@ export class TurnPipeline {
 			return { messages: prepared.messages };
 		}
 
-		await this.append(sessionId, state, signal, [
-			{
-				type: "context.compacted",
-				sessionId,
-				turnId,
-				record: prepared.compaction,
-				timestamp: this.clock.now(),
-			},
-		]);
+		const committedDocument = await this.commitCompaction(
+			sessionId,
+			turnId,
+			prepared.compaction,
+			state,
+			signal,
+			snapshot,
+		);
 		const commitResult = await snapshot.contextStrategy.onCompactionCommitted?.(
 			prepared.compaction,
 			preparationInput,
 			signal,
+			committedDocument,
 		);
 		const transformedMessages =
 			snapshot.modelCallContextTransformer && checkpoint.modelBinding
@@ -420,6 +436,26 @@ export class TurnPipeline {
 				prepared.compaction.reason === "overflow" &&
 				commitResult?.continueExecution !== false,
 		};
+	}
+
+	private async commitCompaction(
+		sessionId: string,
+		turnId: string,
+		record: ContextCompactionRecord,
+		state: MutableTurnState,
+		signal: AbortSignal,
+		snapshot: RuntimeSnapshot,
+	): Promise<ConversationDocument | undefined> {
+		const result = await this.contextCompactionCommitter.commit({
+			sessionId,
+			turnId,
+			expectedVersion: state.version,
+			record,
+			snapshot,
+			signal,
+		});
+		state.version = result.version;
+		return result.document;
 	}
 
 	private async collectProviderMessages(
@@ -544,7 +580,7 @@ export class TurnPipeline {
 				await this.publishSafely({
 					type: "observer.failed",
 					sessionId: event.sessionId,
-					turnId: event.turnId,
+					turnId: event.turnId ?? "manual-context-compaction",
 					observerId: observer.id,
 					error: errorMessage(error),
 					timestamp: this.clock.now(),

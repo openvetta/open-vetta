@@ -9,6 +9,12 @@ export {
 	createAgentSession,
 	resumeAgentSession,
 } from "./agent-session.js";
+export {
+	type ContextCompactionCommitInput,
+	type ContextCompactionCommitOutput,
+	ContextCompactionCommitter,
+	type ContextCompactionCommitterOptions,
+} from "./context-compaction-committer.js";
 export type {
 	AgentFeature,
 	AgentFeatureDefinition,
@@ -40,6 +46,8 @@ export type {
 	InstructionBlock,
 	KernelEvent,
 	LegacyCompactionRecord,
+	ManualContextCompactionInput,
+	ManualContextCompactionRuntime,
 	MessageAppendedEvent,
 	ModelCallContextTransformationInput,
 	ModelCallContextTransformer,

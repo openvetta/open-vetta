@@ -18,6 +18,7 @@ export function mapGreenfieldKernelEventToSessionEvents(event: KernelEvent): Ses
 	}
 
 	if (event.type === "context.compacted") {
+		if ("reason" in event.record && event.record.reason === "manual") return [];
 		return [
 			mapRuntimeSessionObservationEvent(
 				event.sessionId,

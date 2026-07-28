@@ -35,6 +35,7 @@ import {
 } from "./greenfield-session-projection.js";
 import type { RuntimeSessionBackend } from "./session-backend.js";
 import type {
+	RuntimeSessionContextController,
 	RuntimeSessionCorePorts,
 	RuntimeSessionHistoryController,
 	RuntimeSessionHistoryReader,
@@ -71,6 +72,7 @@ export interface GreenfieldRuntimeAssembly {
 	readonly stateSource: GreenfieldRuntimeStateSource;
 	readonly documentParticipants?: readonly GreenfieldRuntimeDocumentParticipant[];
 	readonly todoController?: RuntimeSessionTodoController;
+	readonly contextController?: RuntimeSessionContextController;
 	/** 由组合根释放 Session 之外的独占资源；共享 Repository 不应在这里关闭。 */
 	dispose?(): Promise<void>;
 }
@@ -102,6 +104,7 @@ export interface GreenfieldRuntimeSessionCoreAssembly {
 	readonly modelView: RuntimeSessionModelView;
 	readonly workspaceView: RuntimeSessionWorkspaceView;
 	readonly todoController?: RuntimeSessionTodoController;
+	readonly contextController?: RuntimeSessionContextController;
 	readonly corePorts: RuntimeSessionCorePorts;
 }
 
@@ -117,6 +120,7 @@ export class GreenfieldRuntimeSession {
 	private readonly projection: GreenfieldSessionProjection;
 	private readonly documentParticipants: readonly GreenfieldRuntimeDocumentParticipant[];
 	private readonly todoController: RuntimeSessionTodoController | undefined;
+	private readonly contextController: RuntimeSessionContextController | undefined;
 	private readonly disposeRuntime: (() => Promise<void>) | undefined;
 	private disposed = false;
 	private historyMutation = false;
@@ -137,13 +141,14 @@ export class GreenfieldRuntimeSession {
 		this.projection = projection;
 		this.documentParticipants = assembly.documentParticipants ?? [];
 		this.todoController = assembly.todoController;
+		this.contextController = assembly.contextController;
 		const dispose = assembly.dispose;
 		this.disposeRuntime = dispose ? () => dispose.call(assembly) : undefined;
 	}
 
 	async prompt(request: PromptRequest): Promise<SessionSendResult> {
 		this.assertOpen();
-		if (this.historyMutation) throw sessionBusyError();
+		if (this.historyMutation || this.contextController?.readState().isCompacting) throw sessionBusyError();
 		if ((this.session.state === "running" || this.session.state === "cancelling") && !request.streamingBehavior) {
 			throw sessionBusyError();
 		}
@@ -163,7 +168,7 @@ export class GreenfieldRuntimeSession {
 
 	async continue(): Promise<TurnResult> {
 		this.assertOpen();
-		if (this.historyMutation) throw sessionBusyError();
+		if (this.historyMutation || this.contextController?.readState().isCompacting) throw sessionBusyError();
 		return this.session.continue();
 	}
 
@@ -265,7 +270,9 @@ export class GreenfieldRuntimeSession {
 
 	async setName(name: string): Promise<void> {
 		this.assertOpen();
-		if (this.historyMutation) throw new Error("Cannot rename while another history mutation is active");
+		if (this.historyMutation || this.contextController?.readState().isCompacting) {
+			throw new Error("Cannot rename while another session mutation is active");
+		}
 		this.historyMutation = true;
 		try {
 			const result = await this.conversationDocumentStore.execute(this.sessionId, null, {
@@ -303,6 +310,7 @@ export class GreenfieldRuntimeSession {
 				readWorkingDirectory: () => this.identity.cwd,
 			},
 			todoController: this.todoController,
+			contextController: this.contextController,
 			corePorts: {
 				turnControl: {
 					prompt: async (request) => {
@@ -326,6 +334,7 @@ export class GreenfieldRuntimeSession {
 
 	async dispose(): Promise<void> {
 		if (this.disposed) return;
+		this.contextController?.abortCompaction();
 		let participantError: unknown;
 		try {
 			await Promise.all(this.documentParticipants.map((participant) => participant.dispose?.()));
@@ -396,7 +405,12 @@ export class GreenfieldRuntimeSession {
 
 	private async withHistoryMutation<T>(message: string, operation: () => Promise<T>): Promise<T> {
 		this.assertOpen();
-		if (this.historyMutation || this.session.state === "running" || this.session.state === "cancelling") {
+		if (
+			this.historyMutation ||
+			this.contextController?.readState().isCompacting ||
+			this.session.state === "running" ||
+			this.session.state === "cancelling"
+		) {
 			throw new Error(message);
 		}
 		this.historyMutation = true;

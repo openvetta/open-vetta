@@ -169,6 +169,30 @@ export interface RuntimeSessionConfigurationController {
 	setAgentMode(mode: string | undefined): void;
 }
 
+export interface RuntimeContextCompactionRequest {
+	readonly customInstructions?: string;
+}
+
+export interface RuntimeContextCompactionResult {
+	readonly summary: string;
+	readonly firstKeptEntryId: string;
+	readonly tokensBefore: number;
+	readonly details?: unknown;
+}
+
+export interface RuntimeContextCompactionState {
+	readonly isCompacting: boolean;
+	readonly autoCompactionEnabled: boolean;
+}
+
+/** Session 级上下文控制；不暴露具体摘要算法、Extension 或存储实现。 */
+export interface RuntimeSessionContextController {
+	readState(): RuntimeContextCompactionState;
+	compact(request?: RuntimeContextCompactionRequest): Promise<RuntimeContextCompactionResult>;
+	abortCompaction(): void;
+	setAutoCompactionEnabled(enabled: boolean): void;
+}
+
 export interface RuntimeSessionCorePorts {
 	readonly turnControl: RuntimeSessionTurnControl;
 	readonly eventStream: RuntimeSessionEventStream;

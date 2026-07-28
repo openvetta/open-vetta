@@ -1,6 +1,7 @@
 import { createKbFilterByTagsTool, createKbListTagsTool } from "@vetta/coding-agent";
 import {
 	adaptCodingAgentToolRegistration,
+	type CodingAgentCompactionExtensionRuntime,
 	CodingAgentContinuationOrchestrator,
 	CodingAgentGreenfieldContextRuntime,
 	type CodingAgentGreenfieldContextRuntimeOptions,
@@ -102,6 +103,12 @@ export interface GreenfieldRuntimeCompositionOptions {
 	readonly maxStopHookContinuations?: number;
 	/** 运行中读取压缩设置；未提供时使用 Coding Agent 既有默认值。 */
 	readonly resolveCompactionSettings?: CodingAgentGreenfieldContextRuntimeOptions["resolveSettings"];
+	/** 为每个 Session 创建旧 Extension 压缩事件的窄适配器。 */
+	readonly createCompactionExtensionRuntime?: (
+		sessionOptions: GreenfieldCliSessionOptions,
+	) => CodingAgentCompactionExtensionRuntime | undefined;
+	/** 测试或宿主可替换摘要调用；生产默认复用 Coding Agent 既有实现。 */
+	readonly generateCompaction?: CodingAgentGreenfieldContextRuntimeOptions["generateCompaction"];
 }
 
 export interface GreenfieldRuntimeComposition {
@@ -248,6 +255,8 @@ export async function createGreenfieldRuntimeComposition(
 				hookRuntime,
 				resolveApiKey: (model) => modelRuntime.resolveApiKey(model),
 				resolveSettings: options.resolveCompactionSettings,
+				generateCompaction: options.generateCompaction,
+				extensionRuntime: options.createCompactionExtensionRuntime?.(sessionOptions),
 			});
 			contextRuntimes.add(contextRuntime);
 			let hookSessionEnded = false;
@@ -382,6 +391,7 @@ export async function createGreenfieldRuntimeComposition(
 				modelRuntime,
 				documentParticipants: [todoRuntime, contextRuntime],
 				todoController: todoRuntime,
+				contextRuntime,
 				identity: {
 					cwd: sessionOptions.cwd ?? cwd,
 					sessionPath: repository.resolveConversationPath(sessionOptions.sessionId),

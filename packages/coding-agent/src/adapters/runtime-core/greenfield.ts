@@ -7,6 +7,13 @@ export {
 	type HookDispatchOutcome,
 } from "@vetta/ecosystem-adapter";
 export {
+	type CodingAgentCompactionCommittedInput,
+	type CodingAgentCompactionExtensionInput,
+	type CodingAgentCompactionExtensionResult,
+	type CodingAgentCompactionExtensionRuntime,
+	createCodingAgentCompactionExtensionRuntime,
+} from "./greenfield-compaction-extension-runtime.js";
+export {
 	type CodingAgentContextUsage,
 	CodingAgentGreenfieldContextRuntime,
 	type CodingAgentGreenfieldContextRuntimeOptions,
