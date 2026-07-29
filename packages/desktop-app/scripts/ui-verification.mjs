@@ -19,6 +19,7 @@ const runtimeCanaryRunnerPath = join(desktopRoot, "scripts", "runtime-canary-run
 const baseVerificationEnv = {
 	...process.env,
 	VETTA_CONFIG_DIR: configDir,
+	VETTA_DESKTOP_USER_DATA_DIR: join(runtimeDir, "electron-user-data"),
 	VETTA_THEME_DEV_SERVER: "0",
 	VETTA_UI_VERIFICATION: "1",
 };
@@ -34,24 +35,33 @@ function resolveVerificationEnv(state = readState()) {
 		...baseVerificationEnv,
 		VETTA_CODING_AGENT_DIR: runtimeCanary.agentDir,
 		VETTA_DESKTOP_AGENT_RUNTIME: runtimeCanary.mode,
+		VETTA_DESKTOP_RUNTIME_CANARY: "1",
 		VETTA_HOME: runtimeCanary.vettaHome,
 	};
 }
 
+function resolveDebugCli(state) {
+	if (state?.runtimeCanary) {
+		return { command: state.runtimeCanary.installedCliPath, prefixArgs: [] };
+	}
+	return { command: "bun", prefixArgs: [cliPath] };
+}
+
 function readUiInfo(state = readState()) {
-	const result = spawnSync("bun", [cliPath, "debug", "run", "ui.info"], {
+	const cli = resolveDebugCli(state);
+	const result = spawnSync(cli.command, [...cli.prefixArgs, "debug", "run", "ui.info"], {
 		cwd: repoRoot,
 		encoding: "utf8",
 		env: resolveVerificationEnv(state),
 	});
 	try {
-		return JSON.parse(result.stdout.trim());
+		return JSON.parse(result.stdout?.trim() ?? "");
 	} catch {
 		return {
 			ok: false,
 			error: {
 				code: "UI_INFO_INVALID_OUTPUT",
-				message: result.stderr.trim() || "ui.info did not return JSON",
+				message: result.error?.message || result.stderr?.trim() || "ui.info did not return JSON",
 			},
 		};
 	}
@@ -103,11 +113,14 @@ function statusResult() {
 		configDir,
 		artifactDir,
 		hostPid: state?.hostPid ?? null,
+		desktopPid: state?.desktopPid ?? null,
+		desktopGeneration: state?.desktopGeneration ?? null,
 		runtimeCanary: state?.runtimeCanary
 			? {
 					mode: state.runtimeCanary.mode,
 					workspace: state.runtimeCanary.workspace,
 					providerPid: state.runtimeCanary.providerPid,
+					installedCliPath: state.runtimeCanary.installedCliPath,
 				}
 			: null,
 		ui: uiInfo.ok === true ? uiInfo.result : null,
@@ -167,6 +180,8 @@ async function startRuntimeCanaryProvider() {
 	const fixtureRoot = join(runtimeDir, "runtime-canary", `${Date.now()}-${process.pid}`);
 	const readyFilePath = join(fixtureRoot, "provider-ready.json");
 	const exitReportPath = join(fixtureRoot, "host-exit.json");
+	const restartRequestPath = join(fixtureRoot, "restart-request.json");
+	const restartReportPath = join(fixtureRoot, "restart-report.json");
 	mkdirSync(fixtureRoot, { recursive: true });
 	const child = spawn(
 		"bun",
@@ -201,6 +216,7 @@ async function startRuntimeCanaryProvider() {
 			typeof fixture.agentDir !== "string" ||
 			typeof fixture.workspace !== "string" ||
 			typeof fixture.requestLogPath !== "string" ||
+			typeof fixture.installedCliPath !== "string" ||
 			typeof fixture.modelKey !== "string" ||
 			!child.pid
 		) {
@@ -212,6 +228,8 @@ async function startRuntimeCanaryProvider() {
 				...fixture,
 				providerPid: child.pid,
 				exitReportPath,
+				restartRequestPath,
+				restartReportPath,
 			},
 		};
 	} catch (error) {
@@ -248,25 +266,13 @@ async function startHost(runtimeCanaryMode) {
 		throw new Error(`UI verification host is already running with pid ${existingState.hostPid}`);
 	}
 
-	const rendererPort = await findFreePort();
-	let cdpPort = await findFreePort();
-	while (cdpPort === rendererPort) cdpPort = await findFreePort();
 	mkdirSync(artifactDir, { recursive: true });
 	const runtimeCanary = runtimeCanaryMode === "greenfield" ? await startRuntimeCanaryProvider() : null;
-	writeFileSync(
-		statePath,
-		JSON.stringify(
-			{
-				workspaceId,
-				hostPid: process.pid,
-				rendererPort,
-				cdpPort,
-				...(runtimeCanary ? { runtimeCanary: runtimeCanary.state } : {}),
-			},
-			null,
-			2,
-		),
-	);
+	let activeDesktop;
+	for (const signal of ["SIGINT", "SIGTERM"]) {
+		process.once(signal, () => activeDesktop?.child.kill(signal));
+	}
+	activeDesktop = await startDesktopVerificationProcess(runtimeCanary, 1);
 	printJson({
 		ok: true,
 		status: "starting",
@@ -281,31 +287,47 @@ async function startHost(runtimeCanaryMode) {
 					providerPid: runtimeCanary.state.providerPid,
 				}
 			: null,
-		rendererUrl: `http://127.0.0.1:${rendererPort}`,
-		cdpEndpoint: `http://127.0.0.1:${cdpPort}`,
+		rendererUrl: `http://127.0.0.1:${activeDesktop.rendererPort}`,
+		cdpEndpoint: `http://127.0.0.1:${activeDesktop.cdpPort}`,
 	});
 
-	const child = spawn("bun", ["run", "dev:verify"], {
-		cwd: desktopRoot,
-		env: {
-			...resolveVerificationEnv({
-				...(runtimeCanary ? { runtimeCanary: runtimeCanary.state } : {}),
-			}),
-			VETTA_DEBUG_CDP_PORT: String(cdpPort),
-			VETTA_DESKTOP_DEV_PORT: String(rendererPort),
-		},
-		stdio: "inherit",
-	});
-	for (const signal of ["SIGINT", "SIGTERM"]) {
-		process.once(signal, () => child.kill(signal));
-	}
 	let desktopExitCode = 1;
+	const desktopExitCodes = [];
+	const desktopProcessIds = [];
+	let restartCount = 0;
 	let providerStopped = runtimeCanary === null;
 	try {
-		desktopExitCode = await new Promise((resolve, reject) => {
-			child.once("error", reject);
-			child.once("exit", (code, signal) => resolve(signal ? 1 : (code ?? 1)));
-		});
+		while (activeDesktop) {
+			desktopExitCode = await waitForChildExit(activeDesktop.child);
+			desktopExitCodes.push(desktopExitCode);
+			desktopProcessIds.push(activeDesktop.child.pid);
+			const restartRequest = runtimeCanary ? readRuntimeCanaryRestartRequest(runtimeCanary.state) : null;
+			if (!restartRequest) break;
+
+			const endpointRemoved = !existsSync(join(runtimeCanary.state.vettaHome, "action-server.json"));
+			const sessionLocksReleased = restartRequest.sessionPaths.every(
+				(sessionPath) => !existsSync(`${sessionPath}.lock`) && !existsSync(`${sessionPath}.owner.lock`),
+			);
+			writeFileSync(
+				runtimeCanary.state.restartReportPath,
+				JSON.stringify(
+					{
+						desktopExitCode,
+						desktopPid: activeDesktop.child.pid,
+						endpointRemoved,
+						sessionLocksReleased,
+					},
+					null,
+					2,
+				),
+			);
+			if (desktopExitCode !== 0 || !endpointRemoved || !sessionLocksReleased) {
+				desktopExitCode = 1;
+				break;
+			}
+			restartCount += 1;
+			activeDesktop = await startDesktopVerificationProcess(runtimeCanary, restartCount + 1);
+		}
 	} finally {
 		if (runtimeCanary) {
 			providerStopped = await stopRuntimeCanaryProvider(runtimeCanary.child);
@@ -314,6 +336,9 @@ async function startHost(runtimeCanaryMode) {
 				JSON.stringify(
 					{
 						desktopExitCode,
+						desktopExitCodes,
+						desktopProcessIds,
+						restartCount,
 						endpointRemoved: !existsSync(join(runtimeCanary.state.vettaHome, "action-server.json")),
 						providerStopped,
 					},
@@ -325,6 +350,62 @@ async function startHost(runtimeCanaryMode) {
 		if (existsSync(statePath)) rmSync(statePath);
 	}
 	process.exitCode = desktopExitCode;
+}
+
+async function startDesktopVerificationProcess(runtimeCanary, desktopGeneration) {
+	const rendererPort = await findFreePort();
+	let cdpPort = await findFreePort();
+	while (cdpPort === rendererPort) cdpPort = await findFreePort();
+	const child = spawn("bun", ["run", "dev:verify"], {
+		cwd: desktopRoot,
+		env: {
+			...resolveVerificationEnv({
+				...(runtimeCanary ? { runtimeCanary: runtimeCanary.state } : {}),
+			}),
+			VETTA_DEBUG_CDP_PORT: String(cdpPort),
+			VETTA_DESKTOP_DEV_PORT: String(rendererPort),
+		},
+		stdio: "inherit",
+	});
+	if (!child.pid) throw new Error("Desktop verification process did not publish a pid");
+	writeFileSync(
+		statePath,
+		JSON.stringify(
+			{
+				workspaceId,
+				hostPid: process.pid,
+				desktopPid: child.pid,
+				desktopGeneration,
+				rendererPort,
+				cdpPort,
+				...(runtimeCanary ? { runtimeCanary: runtimeCanary.state } : {}),
+			},
+			null,
+			2,
+		),
+	);
+	return { child, rendererPort, cdpPort };
+}
+
+function waitForChildExit(child) {
+	return new Promise((resolve, reject) => {
+		child.once("error", reject);
+		child.once("exit", (code, signal) => resolve(signal ? 1 : (code ?? 1)));
+	});
+}
+
+function readRuntimeCanaryRestartRequest(runtimeCanary) {
+	if (!existsSync(runtimeCanary.restartRequestPath)) return null;
+	const request = JSON.parse(readFileSync(runtimeCanary.restartRequestPath, "utf8"));
+	rmSync(runtimeCanary.restartRequestPath);
+	if (
+		!Array.isArray(request?.sessionPaths) ||
+		request.sessionPaths.length === 0 ||
+		request.sessionPaths.some((sessionPath) => typeof sessionPath !== "string" || sessionPath.length === 0)
+	) {
+		throw new Error("Runtime Canary restart request must include sessionPaths");
+	}
+	return { sessionPaths: request.sessionPaths };
 }
 
 function stopHost() {
@@ -396,11 +477,14 @@ if (command === "start") {
 				env: resolveVerificationEnv(state),
 				stdio: "inherit",
 			})
-		: spawnSync("bun", [cliPath, "debug", ...args], {
-				cwd: repoRoot,
-				env: resolveVerificationEnv(state),
-				stdio: "inherit",
-			});
+		: (() => {
+				const cli = resolveDebugCli(state);
+				return spawnSync(cli.command, [...cli.prefixArgs, "debug", ...args], {
+					cwd: repoRoot,
+					env: resolveVerificationEnv(state),
+					stdio: "inherit",
+				});
+			})();
 	process.exitCode = result.status ?? 1;
 } else {
 	throw new Error(`Unknown command: ${command ?? "<missing>"}`);

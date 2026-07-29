@@ -3,8 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Api, Model } from "@vetta/ai";
 import type { CodingAgentModelRegistrySource } from "@vetta/coding-agent/runtime-host/greenfield";
+import { createGreenfieldRuntimeComposition } from "@vetta/runtime-composition";
 import { RuntimeHost } from "@vetta/runtime-core";
-import { afterEach, describe, expect, it } from "vitest";
+import type { McpRuntimeToolSource } from "@vetta/runtime-mcp";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { DesktopGreenfieldRuntimeBackendPool } from "./desktop-greenfield-runtime-backend-pool.js";
 import { DesktopGreenfieldRuntimeSessionCatalog } from "./desktop-greenfield-session-catalog.js";
 
@@ -143,6 +145,79 @@ describe("DesktopGreenfieldRuntimeBackendPool", () => {
 		});
 		runtimes.push(runtime);
 		await expect(runtime.createSession({ cwd, model: MODEL, scenario: "batch" })).rejects.toThrow("disposed");
+	});
+
+	it("injects and disposes one managed MCP source per workspace scope", async () => {
+		const cwd = await temporaryDirectory("desktop-greenfield-mcp-source-");
+		const source = {
+			getServers: () => [],
+			getTools: () => [],
+			reloadIfChanged: async () => false,
+		} satisfies McpRuntimeToolSource;
+		const dispose = vi.fn(async () => undefined);
+		const createMcpRuntimeSource = vi.fn(async () => ({ source, dispose }));
+		let capturedSource: McpRuntimeToolSource | undefined;
+		const pool = new DesktopGreenfieldRuntimeBackendPool({
+			compositionDefaults: {
+				modelRegistry: modelRegistry(),
+				initialModel: MODEL,
+				initialThinkingLevel: "off",
+			},
+			createMcpRuntimeSource,
+			createComposition: async (options) => {
+				capturedSource = options.mcpSource;
+				return await createGreenfieldRuntimeComposition(options);
+			},
+		});
+		const runtime = new RuntimeHost({
+			sessionBackend: pool,
+			getDefaultExecutionMode: () => "full-access",
+		});
+		pools.push(pool);
+		runtimes.push(runtime);
+
+		await runtime.createSession({ cwd, model: MODEL, scenario: "batch" });
+		await runtime.createSession({ cwd, model: MODEL, scenario: "batch" });
+
+		expect(createMcpRuntimeSource).toHaveBeenCalledTimes(1);
+		expect(createMcpRuntimeSource).toHaveBeenCalledWith({ cwd, agentDir: undefined });
+		expect(capturedSource).toBe(source);
+		await runtime.disposeAllSessions();
+		await pool.dispose();
+		expect(dispose).toHaveBeenCalledTimes(1);
+	});
+
+	it("disposes the managed MCP source when composition creation fails", async () => {
+		const cwd = await temporaryDirectory("desktop-greenfield-mcp-failure-");
+		const source = {
+			getServers: () => [],
+			getTools: () => [],
+			reloadIfChanged: async () => false,
+		} satisfies McpRuntimeToolSource;
+		const dispose = vi.fn(async () => undefined);
+		const pool = new DesktopGreenfieldRuntimeBackendPool({
+			compositionDefaults: {
+				modelRegistry: modelRegistry(),
+				initialModel: MODEL,
+				initialThinkingLevel: "off",
+			},
+			createMcpRuntimeSource: async () => ({ source, dispose }),
+			createComposition: async () => {
+				throw new Error("composition failed");
+			},
+		});
+		const runtime = new RuntimeHost({
+			sessionBackend: pool,
+			getDefaultExecutionMode: () => "full-access",
+		});
+		pools.push(pool);
+		runtimes.push(runtime);
+
+		await expect(runtime.createSession({ cwd, model: MODEL, scenario: "batch" })).rejects.toThrow(
+			"composition failed",
+		);
+		expect(dispose).toHaveBeenCalledTimes(1);
+		expect(pool.readScopeCount()).toBe(0);
 	});
 
 	function createPool(): DesktopGreenfieldRuntimeBackendPool {

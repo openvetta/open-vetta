@@ -6,6 +6,7 @@ import {
 } from "./check-build-order.mjs";
 import { findPackageBoundaryViolations } from "./check-package-boundaries.mjs";
 import { batchPaths, createQuickCheckPlan, isBiomeGlobalTrigger } from "./check-quick.mjs";
+import { findStandaloneCliBuildViolations } from "./check-standalone-cli-build.mjs";
 import { changedFiles, expandTestablePackages, packagesFromPaths, parseBaseArgs, stagedFiles } from "./lib.mjs";
 import { createChangedTestPlan, parseArgs } from "./test-changed.mjs";
 
@@ -61,6 +62,32 @@ describe("changed file selection", () => {
 		expect(parseBaseArgs(["--base", "origin/main"])).toEqual({ base: "origin/main" });
 		expect(() => parseBaseArgs(["--base", "--unknown"])).toThrow("--base requires a git ref");
 		expect(() => parseBaseArgs(["--unknown"])).toThrow("unknown argument");
+	});
+});
+
+describe("standalone CLI 编译入口守卫", () => {
+	it("拒绝在 Desktop 生产代码中直接编译 CLI 源入口", () => {
+		expect(
+			findStandaloneCliBuildViolations(
+				"packages/desktop-app/src/main/example.ts",
+				`spawn("bun", ["build", join(cliAppRoot, "src", "cli.ts"), "--compile"]);`,
+			),
+		).toHaveLength(1);
+	});
+
+	it("允许调用统一编译器和编译其他入口", () => {
+		expect(
+			findStandaloneCliBuildViolations(
+				"packages/desktop-app/src/main/example.ts",
+				`spawn("bun", [join(cliAppRoot, "scripts", "compile-standalone.mjs")]);`,
+			),
+		).toEqual([]);
+		expect(
+			findStandaloneCliBuildViolations(
+				"packages/desktop-app/src/main/dev-cli-shim.ts",
+				`spawn("bun", ["build", launcherEntryPath, "--compile"]);`,
+			),
+		).toEqual([]);
 	});
 });
 

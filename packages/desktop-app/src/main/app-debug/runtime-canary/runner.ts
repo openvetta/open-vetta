@@ -1,8 +1,10 @@
 import { z } from "zod";
 import {
 	RUNTIME_CANARY_FIRST_PROMPT,
+	RUNTIME_CANARY_MCP_PROMPT,
 	RUNTIME_CANARY_QUESTION,
 	RUNTIME_CANARY_QUESTION_PROMPT,
+	RUNTIME_CANARY_RESTART_PROMPT,
 	RUNTIME_CANARY_SECOND_PROMPT,
 	type RuntimeCanaryConsumers,
 	runtimeCanaryConsumersSchema,
@@ -47,6 +49,10 @@ const terminalOperationSchema = z.discriminatedUnion("status", [
 		.loose(),
 	completedOperationSchema,
 ]);
+const resumableOperationSchema = z.discriminatedUnion("status", [
+	completedOperationSchema,
+	inputRequiredOperationSchema,
+]);
 
 const sessionSummarySchema = z.object({ sessionPath: z.string().min(1), cwd: z.string().min(1) }).loose();
 const quitResultSchema = z.object({ status: z.literal("scheduled"), delayMs: z.number().int().positive() }).strict();
@@ -62,6 +68,12 @@ export interface RuntimeCanaryConversationResult {
 export interface RuntimeCanaryPendingQuestion {
 	readonly operationId: string;
 	readonly sessionPath: string;
+}
+
+export interface RuntimeCanaryRestartResult {
+	readonly sessionId: string;
+	readonly sessionPath: string;
+	readonly messageCount: number;
 }
 
 export async function runRuntimeCanaryConversation(
@@ -123,6 +135,81 @@ export async function runRuntimeCanaryConversation(
 		sessionId: created.sessionId,
 		sessionPath: created.sessionPath,
 		questionOperationId: question.operationId,
+	};
+}
+
+export async function runRuntimeCanaryRestartedConversation(
+	invokeDebug: RuntimeCanaryDebugInvoker,
+	options: {
+		readonly sessionId: string;
+		readonly sessionPath: string;
+		readonly cwd: string;
+		readonly modelKey: string;
+	},
+): Promise<RuntimeCanaryRestartResult> {
+	const common = {
+		executionMode: "full-access" as const,
+		modelKey: options.modelKey,
+		timeoutMs: 30_000,
+	};
+	const restartAttempt = resumableOperationSchema.parse(
+		await invokeDebug("conversation.continue", {
+			sessionPath: options.sessionPath,
+			prompt: RUNTIME_CANARY_RESTART_PROMPT,
+			...common,
+		}),
+	);
+	if (
+		restartAttempt.status === "input_required" &&
+		!restartAttempt.interaction.questions.some((item) => item.question === RUNTIME_CANARY_QUESTION)
+	) {
+		throw new Error("Restarted Runtime Canary recovered an unexpected pending interaction");
+	}
+	const restarted =
+		restartAttempt.status === "input_required"
+			? completedOperationSchema.parse(
+					await invokeDebug("conversation.answer", {
+						operationId: restartAttempt.operationId,
+						interactionId: restartAttempt.interaction.id,
+						cancelled: true,
+					}),
+				)
+			: restartAttempt;
+	if (
+		restarted.sessionId !== options.sessionId ||
+		restarted.sessionPath !== options.sessionPath ||
+		restarted.cwd !== options.cwd ||
+		restarted.assistantText !== "DESKTOP_PROCESS_CANARY_RESTARTED"
+	) {
+		throw new Error("Runtime Canary process restart did not preserve the session identity, cwd and response");
+	}
+
+	const mcp = completedOperationSchema.parse(
+		await invokeDebug("conversation.continue", {
+			sessionPath: options.sessionPath,
+			prompt: RUNTIME_CANARY_MCP_PROMPT,
+			...common,
+		}),
+	);
+	if (
+		mcp.sessionId !== options.sessionId ||
+		mcp.sessionPath !== options.sessionPath ||
+		mcp.assistantText !== "DESKTOP_PROCESS_CANARY_MCP"
+	) {
+		throw new Error("Runtime Canary MCP continuation did not preserve the restarted session identity and response");
+	}
+
+	const sessions = z
+		.array(sessionSummarySchema)
+		.parse(await invokeDebug("conversation.list", { cwd: options.cwd, limit: 20 }));
+	if (!sessions.some((session) => session.sessionPath === options.sessionPath && session.cwd === options.cwd)) {
+		throw new Error("Restarted Runtime Canary session was not returned by conversation.list");
+	}
+
+	return {
+		sessionId: mcp.sessionId,
+		sessionPath: mcp.sessionPath,
+		messageCount: mcp.messageCount,
 	};
 }
 

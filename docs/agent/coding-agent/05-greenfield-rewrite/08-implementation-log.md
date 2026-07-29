@@ -104,6 +104,7 @@
 | [94-desktop-runtime-consumer-lifecycle.md](./08-implementation-log/94-desktop-runtime-consumer-lifecycle.md) | Desktop 交互/Scheduler/Batch 多消费者共存、异步合同与进程级退出所有权门禁 |
 | [95-runtime-composition-package-and-artifact-closure.md](./08-implementation-log/95-runtime-composition-package-and-artifact-closure.md) | Greenfield Composition Root 归位、CLI 兼容边界与独立 `dist` 产物闭包 |
 | [96-installed-artifact-and-process-restart-gate.md](./08-implementation-log/96-installed-artifact-and-process-restart-gate.md) | 独立安装 CLI 产物、宿主能力注入与跨进程会话恢复门禁 |
+| [97-desktop-installed-artifact-process-restart-closure.md](./08-implementation-log/97-desktop-installed-artifact-process-restart-closure.md) | Desktop 独立 CLI、双进程恢复、动态 Skill/MCP 重装配与清理闭环 |
 
 ## 维护约定
 

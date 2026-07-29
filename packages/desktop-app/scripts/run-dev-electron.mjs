@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import electronPath from "electron";
 
 const projectRoot = join(import.meta.dirname, "..");
@@ -37,7 +37,14 @@ async function main() {
 	const electronArgs = [];
 	if (process.env.VETTA_UI_VERIFICATION === "1") {
 		const configDir = process.env.VETTA_CONFIG_DIR ?? ".vetta-ui-verify";
-		electronArgs.push(`--user-data-dir=${join(homedir(), configDir, "electron-user-data")}`);
+		const userDataDir = process.env.VETTA_DESKTOP_USER_DATA_DIR?.trim();
+		if (process.env.VETTA_DESKTOP_RUNTIME_CANARY === "1") {
+			electronArgs.push("--disable-gpu");
+			electronArgs.push("--no-sandbox");
+		}
+		electronArgs.push(
+			`--user-data-dir=${userDataDir ? resolve(userDataDir) : join(homedir(), configDir, "electron-user-data")}`,
+		);
 	}
 	electronArgs.push(join(projectRoot, "dist", "main", "index.js"));
 

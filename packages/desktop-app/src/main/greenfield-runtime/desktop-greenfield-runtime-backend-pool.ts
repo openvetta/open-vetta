@@ -14,6 +14,7 @@ import type {
 	RuntimeHostSessionBackend,
 	RuntimeSessionCreateRequest,
 } from "@vetta/runtime-core";
+import type { McpRuntimeToolSource } from "@vetta/runtime-mcp";
 
 type CompositionFixedOption =
 	| "agentDir"
@@ -33,12 +34,23 @@ export type DesktopGreenfieldRuntimeCompositionDefaults = Omit<
 export interface DesktopGreenfieldRuntimeBackendPoolOptions {
 	readonly compositionDefaults: DesktopGreenfieldRuntimeCompositionDefaults;
 	readonly createComposition?: (options: GreenfieldRuntimeCompositionOptions) => Promise<GreenfieldRuntimeComposition>;
+	readonly createMcpRuntimeSource?: (
+		scope: DesktopGreenfieldMcpRuntimeScope,
+	) => Promise<DesktopGreenfieldManagedMcpRuntimeSource>;
 }
 
-interface DesktopGreenfieldRuntimeScope {
+export interface DesktopGreenfieldMcpRuntimeScope {
 	readonly cwd: string;
-	readonly conversationDir: string;
 	readonly agentDir?: string;
+}
+
+export interface DesktopGreenfieldManagedMcpRuntimeSource {
+	readonly source: McpRuntimeToolSource;
+	dispose(): Promise<void>;
+}
+
+interface DesktopGreenfieldRuntimeScope extends DesktopGreenfieldMcpRuntimeScope {
+	readonly conversationDir: string;
 	readonly scenario: ConversationScenario;
 	readonly enableSubagents: boolean;
 	readonly serverUrl?: string;
@@ -47,6 +59,7 @@ interface DesktopGreenfieldRuntimeScope {
 interface DesktopGreenfieldRuntimeBackendEntry {
 	readonly composition: GreenfieldRuntimeComposition;
 	readonly backend: GreenfieldRuntimeHostSessionBackend;
+	readonly managedMcpSource?: DesktopGreenfieldManagedMcpRuntimeSource;
 }
 
 /**
@@ -103,7 +116,7 @@ export class DesktopGreenfieldRuntimeBackendPool implements RuntimeHostSessionBa
 		try {
 			const entryResults = await Promise.allSettled(pendingEntries);
 			const entries = entryResults.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));
-			const disposeResults = await Promise.allSettled(entries.map((entry) => entry.composition.dispose()));
+			const disposeResults = await Promise.allSettled(entries.map(disposeEntry));
 			const errors = [...entryResults, ...disposeResults].flatMap((result) =>
 				result.status === "rejected" ? [result.reason] : [],
 			);
@@ -145,18 +158,30 @@ export class DesktopGreenfieldRuntimeBackendPool implements RuntimeHostSessionBa
 		const initialModel = resolveInitialModel(request, this.options.compositionDefaults);
 		const initialThinkingLevel =
 			request.thinkingLevel ?? this.options.compositionDefaults.initialThinkingLevel ?? "off";
-		const composition = await this.createComposition({
-			...this.options.compositionDefaults,
-			conversationDir: scope.conversationDir,
+		const managedMcpSource = await this.options.createMcpRuntimeSource?.({
 			cwd: scope.cwd,
 			agentDir: scope.agentDir,
-			scenario: scope.scenario,
-			enableSubagents: scope.enableSubagents,
-			initialModel,
-			initialThinkingLevel,
 		});
+		let composition: GreenfieldRuntimeComposition;
+		try {
+			composition = await this.createComposition({
+				...this.options.compositionDefaults,
+				...(managedMcpSource ? { mcpSource: managedMcpSource.source } : {}),
+				conversationDir: scope.conversationDir,
+				cwd: scope.cwd,
+				agentDir: scope.agentDir,
+				scenario: scope.scenario,
+				enableSubagents: scope.enableSubagents,
+				initialModel,
+				initialThinkingLevel,
+			});
+		} catch (error) {
+			await managedMcpSource?.dispose();
+			throw error;
+		}
 		return {
 			composition,
+			managedMcpSource,
 			backend: new GreenfieldRuntimeHostSessionBackend({
 				composition,
 				conversationDir: scope.conversationDir,
@@ -206,4 +231,21 @@ function runtimeScopeKey(scope: DesktopGreenfieldRuntimeScope): string {
 		scope.enableSubagents,
 		scope.serverUrl ?? null,
 	]);
+}
+
+async function disposeEntry(entry: DesktopGreenfieldRuntimeBackendEntry): Promise<void> {
+	const errors: unknown[] = [];
+	try {
+		await entry.composition.dispose();
+	} catch (error) {
+		errors.push(error);
+	}
+	try {
+		await entry.managedMcpSource?.dispose();
+	} catch (error) {
+		errors.push(error);
+	}
+	if (errors.length > 0) {
+		throw new AggregateError(errors, "Desktop Greenfield Runtime scope disposal failed");
+	}
 }

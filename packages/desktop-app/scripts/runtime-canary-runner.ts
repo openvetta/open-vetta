@@ -1,19 +1,25 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { readFile, writeFile } from "node:fs/promises";
+import { isAbsolute, join, relative } from "node:path";
 import { ACTION_RPC_ENDPOINT_FILE_ENV, VETTA_HOME_ENV } from "@vetta/action-rpc";
 import {
-	RUNTIME_CANARY_FIRST_PROMPT,
 	RUNTIME_CANARY_BATCH_PROMPT,
+	RUNTIME_CANARY_FIRST_PROMPT,
+	RUNTIME_CANARY_MCP_PROMPT,
 	RUNTIME_CANARY_QUESTION_PROMPT,
+	RUNTIME_CANARY_RESTART_PROMPT,
 	RUNTIME_CANARY_SCHEDULER_PROMPT,
 	RUNTIME_CANARY_SECOND_PROMPT,
+	RUNTIME_CANARY_SKILL_MARKER,
 	runtimeCanaryExitReportSchema,
 	runtimeCanaryHostStateSchema,
+	runtimeCanaryRestartReportSchema,
+	type RuntimeCanaryHostState,
 } from "../src/main/app-debug/runtime-canary/contracts.js";
 import {
 	runRuntimeCanaryConversation,
+	runRuntimeCanaryRestartedConversation,
 	scheduleRuntimeCanaryQuit,
 	startRuntimeCanaryConsumers,
 	startRuntimeCanaryQuestion,
@@ -22,14 +28,28 @@ import {
 
 const desktopRoot = join(import.meta.dirname, "..");
 const repoRoot = join(desktopRoot, "..", "..");
-const cliPath = join(repoRoot, "packages", "cli-app", "src", "cli.ts");
 
 try {
 	const statePath = readArgument("--state-file");
 	const state = runtimeCanaryHostStateSchema.parse(JSON.parse(await readFile(statePath, "utf8")));
 	const endpointFilePath = join(state.runtimeCanary.vettaHome, "action-server.json");
+	await waitFor(
+		() => existsSync(state.runtimeCanary.installedCliPath),
+		30_000,
+		"Timed out waiting for Desktop to install the standalone Vetta CLI",
+	);
+	if (!isOutside(repoRoot, state.runtimeCanary.installedCliPath)) {
+		throw new Error(`Runtime Canary CLI must be installed outside the repository: ${state.runtimeCanary.installedCliPath}`);
+	}
 	const invokeDebug: RuntimeCanaryDebugInvoker = async (debugId, input) =>
-		await runVettaDebug(endpointFilePath, state.runtimeCanary.vettaHome, debugId, input);
+		await runVettaDebug(
+			state.runtimeCanary.installedCliPath,
+			state.runtimeCanary.workspace,
+			endpointFilePath,
+			state.runtimeCanary.vettaHome,
+			debugId,
+			input,
+		);
 
 	const conversation = await runRuntimeCanaryConversation(invokeDebug, {
 		cwd: state.runtimeCanary.workspace,
@@ -40,11 +60,69 @@ try {
 		modelKey: state.runtimeCanary.modelKey,
 		batchSourceDirectories: state.runtimeCanary.batchSourceDirectories,
 	});
-	const pendingQuestion = await startRuntimeCanaryQuestion(invokeDebug, {
+	await writeFile(
+		state.runtimeCanary.restartRequestPath,
+		JSON.stringify({
+			sessionPaths: [conversation.sessionPath, consumers.schedulerSessionPath, consumers.batchSessionPath],
+		}),
+	);
+	const firstQuitDelayMs = await scheduleRuntimeCanaryQuit(invokeDebug);
+
+	let restartedState: RuntimeCanaryHostState | undefined;
+	await waitFor(
+		async () => {
+			if (!existsSync(state.runtimeCanary.restartReportPath) || !existsSync(endpointFilePath)) return false;
+			try {
+				const candidate = runtimeCanaryHostStateSchema.parse(JSON.parse(await readFile(statePath, "utf8")));
+				if (
+					candidate.desktopGeneration !== state.desktopGeneration + 1 ||
+					candidate.desktopPid === state.desktopPid
+				) {
+					return false;
+				}
+				restartedState = candidate;
+				return true;
+			} catch {
+				return false;
+			}
+		},
+		90_000,
+		"Timed out waiting for the second Desktop Runtime Canary process",
+	);
+	if (!restartedState) throw new Error("Desktop Runtime Canary did not publish its restarted host state");
+	const activeRestartedState = restartedState;
+	const restartReport = runtimeCanaryRestartReportSchema.parse(
+		JSON.parse(await readFile(state.runtimeCanary.restartReportPath, "utf8")),
+	);
+	if (
+		restartReport.desktopExitCode !== 0 ||
+		restartReport.desktopPid !== state.desktopPid ||
+		!restartReport.endpointRemoved ||
+		!restartReport.sessionLocksReleased
+	) {
+		throw new Error(`Desktop Runtime Canary restart cleanup failed: ${JSON.stringify(restartReport)}`);
+	}
+
+	const restartedInvokeDebug: RuntimeCanaryDebugInvoker = async (debugId, input) =>
+		await runVettaDebug(
+			activeRestartedState.runtimeCanary.installedCliPath,
+			activeRestartedState.runtimeCanary.workspace,
+			endpointFilePath,
+			activeRestartedState.runtimeCanary.vettaHome,
+			debugId,
+			input,
+		);
+	const restartedConversation = await runRuntimeCanaryRestartedConversation(restartedInvokeDebug, {
+		sessionId: conversation.sessionId,
 		sessionPath: conversation.sessionPath,
-		modelKey: state.runtimeCanary.modelKey,
+		cwd: activeRestartedState.runtimeCanary.workspace,
+		modelKey: activeRestartedState.runtimeCanary.modelKey,
 	});
-	const quitDelayMs = await scheduleRuntimeCanaryQuit(invokeDebug);
+	const pendingQuestion = await startRuntimeCanaryQuestion(restartedInvokeDebug, {
+		sessionPath: restartedConversation.sessionPath,
+		modelKey: activeRestartedState.runtimeCanary.modelKey,
+	});
+	const finalQuitDelayMs = await scheduleRuntimeCanaryQuit(restartedInvokeDebug);
 
 	await waitFor(
 		() =>
@@ -59,7 +137,16 @@ try {
 	const exitReport = runtimeCanaryExitReportSchema.parse(
 		JSON.parse(await readFile(state.runtimeCanary.exitReportPath, "utf8")),
 	);
-	if (exitReport.desktopExitCode !== 0 || !exitReport.endpointRemoved || !exitReport.providerStopped) {
+	if (
+		exitReport.desktopExitCode !== 0 ||
+		exitReport.desktopExitCodes.length !== 2 ||
+		exitReport.desktopProcessIds.length !== 2 ||
+		exitReport.restartCount !== 1 ||
+		exitReport.desktopProcessIds[0] !== state.desktopPid ||
+		exitReport.desktopProcessIds[1] !== activeRestartedState.desktopPid ||
+		!exitReport.endpointRemoved ||
+		!exitReport.providerStopped
+	) {
 		throw new Error(`Desktop Runtime Canary cleanup failed: ${JSON.stringify(exitReport)}`);
 	}
 	for (const sessionPath of [
@@ -76,6 +163,8 @@ try {
 	for (const prompt of [
 		RUNTIME_CANARY_FIRST_PROMPT,
 		RUNTIME_CANARY_SECOND_PROMPT,
+		RUNTIME_CANARY_RESTART_PROMPT,
+		RUNTIME_CANARY_MCP_PROMPT,
 		RUNTIME_CANARY_QUESTION_PROMPT,
 		RUNTIME_CANARY_SCHEDULER_PROMPT,
 		RUNTIME_CANARY_BATCH_PROMPT,
@@ -84,20 +173,44 @@ try {
 			throw new Error(`Runtime Canary Provider did not observe prompt: ${prompt}`);
 		}
 	}
+	if (!providerRequests.includes(RUNTIME_CANARY_SKILL_MARKER)) {
+		throw new Error("Runtime Canary Provider did not observe the host Skill marker");
+	}
 	const batchRequestCount = providerRequests
 		.split(/\r?\n/)
 		.filter((line) => line.includes(RUNTIME_CANARY_BATCH_PROMPT)).length;
 	if (batchRequestCount !== 1) {
 		throw new Error(`Runtime Canary started ${batchRequestCount} Batch provider requests; expected exactly one`);
 	}
+	const schedulerRequestCount = providerRequests
+		.split(/\r?\n/)
+		.filter((line) => line.includes(RUNTIME_CANARY_SCHEDULER_PROMPT)).length;
+	if (schedulerRequestCount !== 1) {
+		throw new Error(
+			`Runtime Canary started ${schedulerRequestCount} Scheduler provider requests; expected exactly one`,
+		);
+	}
+	const conversationFile = await readFile(conversation.sessionPath, "utf8");
+	if (
+		!conversationFile.includes(RUNTIME_CANARY_RESTART_PROMPT) ||
+		!conversationFile.includes(RUNTIME_CANARY_MCP_PROMPT)
+	) {
+		throw new Error("Restarted Runtime Canary prompts were not persisted to the conversation");
+	}
 
 	printJson({
 		ok: true,
 		result: {
 			...conversation,
+			restartedMessageCount: restartedConversation.messageCount,
 			...consumers,
 			pendingQuestionOperationId: pendingQuestion.operationId,
-			quitDelayMs,
+			firstQuitDelayMs,
+			finalQuitDelayMs,
+			installedCliPath: state.runtimeCanary.installedCliPath,
+			firstDesktopPid: state.desktopPid,
+			secondDesktopPid: activeRestartedState.desktopPid,
+			desktopRestarted: true,
 			sessionPersisted: existsSync(conversation.sessionPath),
 			sessionLocksReleased: true,
 			endpointRemoved: true,
@@ -116,12 +229,14 @@ try {
 }
 
 async function runVettaDebug(
+	installedCliPath: string,
+	cwd: string,
 	endpointFilePath: string,
 	vettaHome: string,
 	debugId: string,
 	input: unknown,
 ): Promise<unknown> {
-	const result = await runProcess("bun", [cliPath, "debug", "run", debugId, JSON.stringify(input)], {
+	const result = await runProcess(installedCliPath, ["debug", "run", debugId, JSON.stringify(input)], cwd, {
 		...process.env,
 		[ACTION_RPC_ENDPOINT_FILE_ENV]: endpointFilePath,
 		[VETTA_HOME_ENV]: vettaHome,
@@ -139,11 +254,12 @@ async function runVettaDebug(
 async function runProcess(
 	command: string,
 	args: string[],
+	cwd: string,
 	env: NodeJS.ProcessEnv,
 ): Promise<{ code: number; stdout: string; stderr: string }> {
 	return await new Promise((resolve, reject) => {
 		const child = spawn(command, args, {
-			cwd: repoRoot,
+			cwd,
 			env,
 			stdio: ["ignore", "pipe", "pipe"],
 			windowsHide: true,
@@ -169,12 +285,21 @@ async function runProcess(
 	});
 }
 
-async function waitFor(predicate: () => boolean, timeoutMs: number, message: string): Promise<void> {
+async function waitFor(
+	predicate: () => boolean | Promise<boolean>,
+	timeoutMs: number,
+	message: string,
+): Promise<void> {
 	const startedAt = Date.now();
-	while (!predicate()) {
+	while (!(await predicate())) {
 		if (Date.now() - startedAt >= timeoutMs) throw new Error(message);
 		await new Promise((resolve) => setTimeout(resolve, 100));
 	}
+}
+
+function isOutside(parent: string, candidate: string): boolean {
+	const pathFromParent = relative(parent, candidate);
+	return pathFromParent.startsWith("..") || isAbsolute(pathFromParent);
 }
 
 function isProcessAlive(pid: number): boolean {

@@ -82,19 +82,25 @@ bun run verify:ui:status
 bun run verify:ui:debug -- runtime-canary
 ```
 
-`runtime-canary` 会通过独立 Vetta CLI 完成交互会话创建、继续和列举，再通过真实
-Scheduler/Batch Service 启动一个自动化会话、一个活动 Batch 会话和一个受并发限制的排队任务。
-保持三个消费者活动后请求 Desktop 优雅退出。命令成功返回前还会验证：
+`runtime-canary` 会等待 Desktop 把单文件 Vetta CLI 安装到仓库外，再由该产物完成交互会话创建、
+继续和列举。它还会通过真实 Scheduler/Batch Service 启动一个自动化会话、一个活动 Batch 会话
+和一个受并发限制的排队任务。保持三个消费者活动后，Canary 请求第一代 Desktop 优雅退出，
+再启动第二代 Desktop 恢复同一会话、处理遗留的待回答交互并完成一次宿主 MCP Tool Loop。
+命令成功返回前会验证：
 
 - 会话文件已经持久化；
-- 交互、Scheduler、Batch Session 锁已经释放；
+- 两代 Desktop 使用不同 PID 且退出码均为 `0`；
+- 第二代 Desktop 保留原 session id、session path 和 cwd；
+- 宿主 Skill 与 MCP 在第二代进程中重新装配并实际进入模型调用；
+- 交互、Scheduler、Batch Session 锁在每次退出后已经释放；
 - Batch 排队任务没有在退出期间启动；
-- Debug RPC endpoint 已删除；
+- 每代 Debug RPC endpoint 均已删除；
 - 本地确定性 Provider 已停止；
-- Desktop 退出码为 `0`。
+- Scheduler 与 Batch Provider 请求没有因重启重复执行。
 
-Canary 使用独立的 `VETTA_HOME`、Coding Agent 目录、工作区和本地 Provider，不读取或修改用户的
-真实模型、认证及会话数据。该命令会主动结束验证实例；完成后不需要再执行 `verify:ui:stop`。
+Canary 使用独立的 `VETTA_HOME`、Coding Agent 目录、Electron user data、工作区和本地 Provider，
+不读取或修改用户的真实模型、认证及会话数据。该命令会主动结束两代验证实例；完成后不需要再执行
+`verify:ui:stop`。
 
 ## 定位和断言规则
 

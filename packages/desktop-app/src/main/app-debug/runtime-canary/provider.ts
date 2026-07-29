@@ -1,17 +1,21 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { createServer, type Server, type ServerResponse } from "node:http";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { z } from "zod";
 import {
 	RUNTIME_CANARY_BATCH_PROMPT,
 	RUNTIME_CANARY_FIRST_PROMPT,
+	RUNTIME_CANARY_MCP_PROMPT,
+	RUNTIME_CANARY_MCP_RESULT,
 	RUNTIME_CANARY_MODEL_ID,
 	RUNTIME_CANARY_MODEL_KEY,
 	RUNTIME_CANARY_MODEL_PROVIDER,
 	RUNTIME_CANARY_QUESTION,
 	RUNTIME_CANARY_QUESTION_PROMPT,
+	RUNTIME_CANARY_RESTART_PROMPT,
 	RUNTIME_CANARY_SCHEDULER_PROMPT,
 	RUNTIME_CANARY_SECOND_PROMPT,
+	RUNTIME_CANARY_SKILL_MARKER,
 	type RuntimeCanaryFixture,
 } from "./contracts.js";
 
@@ -37,6 +41,7 @@ export async function startRuntimeCanaryProvider(rootDir: string): Promise<Runti
 		join(rootDir, "batch-source-two"),
 	];
 	const requestLogPath = join(rootDir, "provider-requests.ndjson");
+	const installedCliPath = join(agentDir, "bin", process.platform === "win32" ? "vetta.exe" : "vetta");
 	await Promise.all([
 		mkdir(agentDir, { recursive: true }),
 		mkdir(workspace, { recursive: true }),
@@ -57,17 +62,23 @@ export async function startRuntimeCanaryProvider(rootDir: string): Promise<Runti
 			const rawBody = await readBody(request);
 			const body = providerRequestSchema.parse(JSON.parse(rawBody));
 			await writeFile(requestLogPath, `${rawBody}\n`, { flag: "a" });
-			const serializedInput = JSON.stringify(body.input);
+			const serializedLatestInput = JSON.stringify(body.input.at(-1));
 			if (
-				serializedInput.includes(RUNTIME_CANARY_SCHEDULER_PROMPT) ||
-				serializedInput.includes(RUNTIME_CANARY_BATCH_PROMPT)
+				serializedLatestInput.includes(RUNTIME_CANARY_SCHEDULER_PROMPT) ||
+				serializedLatestInput.includes(RUNTIME_CANARY_BATCH_PROMPT)
 			) {
 				writePendingResponse(response);
-			} else if (serializedInput.includes(RUNTIME_CANARY_QUESTION_PROMPT)) {
+			} else if (serializedLatestInput.includes(RUNTIME_CANARY_QUESTION_PROMPT)) {
 				writeEvents(response, questionResponseEvents());
-			} else if (serializedInput.includes(RUNTIME_CANARY_SECOND_PROMPT)) {
+			} else if (serializedLatestInput.includes(RUNTIME_CANARY_MCP_RESULT)) {
+				writeEvents(response, textResponseEvents("DESKTOP_PROCESS_CANARY_MCP"));
+			} else if (serializedLatestInput.includes(RUNTIME_CANARY_MCP_PROMPT)) {
+				writeEvents(response, toolCallResponseEvents("mcp_runtime_canary_echo", { value: "restart" }));
+			} else if (serializedLatestInput.includes(RUNTIME_CANARY_RESTART_PROMPT)) {
+				writeEvents(response, textResponseEvents("DESKTOP_PROCESS_CANARY_RESTARTED"));
+			} else if (serializedLatestInput.includes(RUNTIME_CANARY_SECOND_PROMPT)) {
 				writeEvents(response, textResponseEvents("DESKTOP_PROCESS_CANARY_SECOND"));
-			} else if (serializedInput.includes(RUNTIME_CANARY_FIRST_PROMPT)) {
+			} else if (serializedLatestInput.includes(RUNTIME_CANARY_FIRST_PROMPT)) {
 				writeEvents(response, textResponseEvents("DESKTOP_PROCESS_CANARY_FIRST"));
 			} else {
 				writeEvents(response, textResponseEvents("Desktop Process Canary"));
@@ -91,11 +102,12 @@ export async function startRuntimeCanaryProvider(rootDir: string): Promise<Runti
 		workspace,
 		providerBaseUrl: `http://127.0.0.1:${address.port}`,
 		requestLogPath,
+		installedCliPath,
 		modelKey: RUNTIME_CANARY_MODEL_KEY,
 		batchSourceDirectories,
 	};
 	try {
-		await writeFixtureConfiguration(fixture);
+		await Promise.all([writeFixtureConfiguration(fixture), writeRuntimeCapabilities(fixture)]);
 	} catch (error) {
 		await closeServer(server);
 		throw error;
@@ -108,6 +120,81 @@ export async function startRuntimeCanaryProvider(rootDir: string): Promise<Runti
 			await closeServer(server);
 		},
 	};
+}
+
+async function writeRuntimeCapabilities(fixture: RuntimeCanaryFixture): Promise<void> {
+	const rootDir = dirname(fixture.vettaHome);
+	const skillDir = join(fixture.agentDir, "skills", "runtime-canary");
+	const mcpServerPath = join(rootDir, "runtime-canary-mcp.mjs");
+	await mkdir(skillDir, { recursive: true });
+	await Promise.all([
+		writeFile(
+			join(skillDir, "SKILL.md"),
+			[
+				"---",
+				"name: runtime-canary",
+				`description: ${RUNTIME_CANARY_SKILL_MARKER}`,
+				"---",
+				"",
+				"# Runtime Canary",
+				"",
+				`Preserve this host skill marker: ${RUNTIME_CANARY_SKILL_MARKER}.`,
+				"",
+			].join("\n"),
+		),
+		writeFile(
+			mcpServerPath,
+			[
+				'import { createInterface } from "node:readline";',
+				"",
+				"const lines = createInterface({ input: process.stdin });",
+				"for await (const line of lines) {",
+				"\tconst request = JSON.parse(line);",
+				'\tif (!Object.hasOwn(request, "id")) continue;',
+				"\tlet result;",
+				'\tif (request.method === "initialize") {',
+				"\t\tresult = {",
+				'\t\t\tprotocolVersion: request.params?.protocolVersion ?? "2024-11-05",',
+				"\t\t\tcapabilities: { tools: {} },",
+				'\t\t\tserverInfo: { name: "runtime-canary", version: "1.0.0" },',
+				"\t\t};",
+				'\t} else if (request.method === "tools/list") {',
+				"\t\tresult = {",
+				"\t\t\ttools: [{",
+				'\t\t\t\tname: "echo",',
+				'\t\t\t\tdescription: "Desktop Runtime Canary MCP echo tool",',
+				"\t\t\t\tinputSchema: {",
+				'\t\t\t\t\ttype: "object",',
+				'\t\t\t\t\tproperties: { value: { type: "string" } },',
+				'\t\t\t\t\trequired: ["value"],',
+				"\t\t\t\t\tadditionalProperties: false,",
+				"\t\t\t\t},",
+				"\t\t\t}],",
+				"\t\t};",
+				'\t} else if (request.method === "tools/call") {',
+				'\t\tconst value = typeof request.params?.arguments?.value === "string" ? request.params.arguments.value : "";',
+				`\t\tresult = { content: [{ type: "text", text: ${JSON.stringify("RUNTIME_CANARY_MCP_RESULT:")} + value }] };`,
+				"\t} else {",
+				"\t\tresult = {};",
+				"\t}",
+				'\tprocess.stdout.write(JSON.stringify({ jsonrpc: "2.0", id: request.id, result }) + "\\n");',
+				"}",
+				"",
+			].join("\n"),
+		),
+	]);
+	await writeFile(
+		join(fixture.agentDir, "mcp.json"),
+		JSON.stringify({
+			mcpServers: {
+				runtime_canary: {
+					args: [mcpServerPath],
+					command: process.execPath,
+					startupTimeout: 10_000,
+				},
+			},
+		}),
+	);
 }
 
 async function writeFixtureConfiguration(fixture: RuntimeCanaryFixture): Promise<void> {
@@ -236,6 +323,39 @@ function questionResponseEvents(): readonly unknown[] {
 		},
 		{ type: "response.output_item.done", output_index: 0, item },
 		completedResponse("resp_runtime_canary_question"),
+	];
+}
+
+function toolCallResponseEvents(name: string, argumentsValue: Readonly<Record<string, unknown>>): readonly unknown[] {
+	const argumentsJson = JSON.stringify(argumentsValue);
+	const item = {
+		type: "function_call",
+		id: "fc_runtime_canary_mcp",
+		call_id: "call_runtime_canary_mcp",
+		name,
+		arguments: argumentsJson,
+		status: "completed",
+	};
+	return [
+		{
+			type: "response.output_item.added",
+			output_index: 0,
+			item: { ...item, status: "in_progress", arguments: "" },
+		},
+		{
+			type: "response.function_call_arguments.delta",
+			item_id: item.id,
+			output_index: 0,
+			delta: argumentsJson,
+		},
+		{
+			type: "response.function_call_arguments.done",
+			item_id: item.id,
+			output_index: 0,
+			arguments: argumentsJson,
+		},
+		{ type: "response.output_item.done", output_index: 0, item },
+		completedResponse("resp_runtime_canary_mcp"),
 	];
 }
 

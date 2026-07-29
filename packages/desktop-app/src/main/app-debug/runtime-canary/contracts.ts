@@ -5,6 +5,10 @@ export const RUNTIME_CANARY_MODEL_ID = "runtime-canary-model";
 export const RUNTIME_CANARY_MODEL_KEY = `${RUNTIME_CANARY_MODEL_PROVIDER}/${RUNTIME_CANARY_MODEL_ID}`;
 export const RUNTIME_CANARY_FIRST_PROMPT = "Reply with exactly DESKTOP_PROCESS_CANARY_FIRST.";
 export const RUNTIME_CANARY_SECOND_PROMPT = "Reply with exactly DESKTOP_PROCESS_CANARY_SECOND.";
+export const RUNTIME_CANARY_RESTART_PROMPT = "Reply with exactly DESKTOP_PROCESS_CANARY_RESTARTED.";
+export const RUNTIME_CANARY_MCP_PROMPT = "Call the Runtime Canary MCP echo tool with value restart.";
+export const RUNTIME_CANARY_MCP_RESULT = "RUNTIME_CANARY_MCP_RESULT:restart";
+export const RUNTIME_CANARY_SKILL_MARKER = "RUNTIME_CANARY_HOST_SKILL_MARKER";
 export const RUNTIME_CANARY_QUESTION_PROMPT = "Call ask_user_question for the Desktop process canary.";
 export const RUNTIME_CANARY_QUESTION = "Should the Desktop process canary continue?";
 export const RUNTIME_CANARY_SCHEDULER_PROMPT = "Hold the Desktop process Scheduler runtime canary open.";
@@ -31,6 +35,7 @@ export const runtimeCanaryFixtureSchema = z
 		workspace: z.string().min(1),
 		providerBaseUrl: z.url(),
 		requestLogPath: z.string().min(1),
+		installedCliPath: z.string().min(1),
 		modelKey: z.literal(RUNTIME_CANARY_MODEL_KEY),
 		batchSourceDirectories: z.tuple([z.string().min(1), z.string().min(1)]),
 	})
@@ -40,16 +45,32 @@ export const runtimeCanaryHostStateSchema = z
 	.object({
 		workspaceId: z.string().min(1),
 		hostPid: z.number().int().positive(),
+		desktopPid: z.number().int().positive(),
+		desktopGeneration: z.number().int().positive(),
 		runtimeCanary: runtimeCanaryFixtureSchema.extend({
 			providerPid: z.number().int().positive(),
 			exitReportPath: z.string().min(1),
+			restartRequestPath: z.string().min(1),
+			restartReportPath: z.string().min(1),
 		}),
 	})
 	.loose();
 
+export const runtimeCanaryRestartReportSchema = z
+	.object({
+		desktopExitCode: z.number().int(),
+		desktopPid: z.number().int().positive(),
+		endpointRemoved: z.boolean(),
+		sessionLocksReleased: z.boolean(),
+	})
+	.strict();
+
 export const runtimeCanaryExitReportSchema = z
 	.object({
 		desktopExitCode: z.number().int(),
+		desktopExitCodes: z.array(z.number().int()).min(1),
+		desktopProcessIds: z.array(z.number().int().positive()).min(1),
+		restartCount: z.number().int().nonnegative(),
 		endpointRemoved: z.boolean(),
 		providerStopped: z.boolean(),
 	})
@@ -57,5 +78,6 @@ export const runtimeCanaryExitReportSchema = z
 
 export type RuntimeCanaryFixture = z.infer<typeof runtimeCanaryFixtureSchema>;
 export type RuntimeCanaryHostState = z.infer<typeof runtimeCanaryHostStateSchema>;
+export type RuntimeCanaryRestartReport = z.infer<typeof runtimeCanaryRestartReportSchema>;
 export type RuntimeCanaryExitReport = z.infer<typeof runtimeCanaryExitReportSchema>;
 export type RuntimeCanaryConsumers = z.infer<typeof runtimeCanaryConsumersSchema>;

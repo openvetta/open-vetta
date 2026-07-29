@@ -89,6 +89,7 @@
 		"@vetta/cli-app": "workspace:*",
 		"@vetta/runtime-composition": "workspace:*",
 		"@vetta/runtime-core": "workspace:*",
+		"@vetta/runtime-mcp": "workspace:*",
 		"@vetta/runtime-storage": "workspace:*",
 		"@vetta/theme-sdk": "workspace:*",
 		"@vetta/theme-ui": "workspace:*",

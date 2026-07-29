@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { AuthStorage, getAgentDir, ModelRegistry } from "@vetta/coding-agent";
+import { AuthStorage, getAgentDir, ModelRegistry, SettingsManager } from "@vetta/coding-agent";
+import { createMcpManager } from "@vetta/coding-agent/core/mcp/index.js";
 import { createLegacyRuntimeHostOptions } from "@vetta/coding-agent/runtime-host";
 import {
 	FileConversationRuntimeSessionFileHistoryReader,
@@ -144,6 +145,20 @@ export function getSharedRuntime(): RuntimeHost {
 		const greenfieldBackendPool = new DesktopGreenfieldRuntimeBackendPool({
 			compositionDefaults: {
 				modelRegistry: getOrCreateSharedModelRegistry(),
+			},
+			createMcpRuntimeSource: async ({ cwd, agentDir }) => {
+				const resolvedAgentDir = agentDir ?? getAgentDir();
+				const manager = createMcpManager({
+					projectRoot: cwd,
+					agentDir: resolvedAgentDir,
+					debug: SettingsManager.create(cwd, resolvedAgentDir).getMcpDebug(),
+					enabled: true,
+				});
+				await manager.initialize();
+				return {
+					source: manager,
+					dispose: () => manager.shutdown(),
+				};
 			},
 		});
 		const selectedBackend = resolveDesktopAgentRuntimeBackend(process.env[DESKTOP_AGENT_RUNTIME_ENV]);
