@@ -5,6 +5,8 @@ import {
 	type SubagentChildHandle,
 	type SubagentCoordinatorOptions,
 	type SubagentCoordinatorPort,
+	type SubagentDeliveryMarker,
+	type SubagentRecoveryState,
 	type SubagentSnapshot,
 	type SubagentSpawnRequest,
 	type SubagentStatus,
@@ -75,6 +77,27 @@ export class SubagentCoordinator<TProfile = unknown> implements SubagentCoordina
 	get(target: string): SubagentSnapshot | undefined {
 		const entry = this.resolveChild(target);
 		return entry ? cloneSnapshot(entry.snapshot) : undefined;
+	}
+
+	restore(state: SubagentRecoveryState): readonly SubagentSnapshot[] {
+		this.assertNotDisposed();
+		if (this.children.size > 0) throw new Error("SubagentCoordinator recovery requires an empty coordinator");
+		const restored = this.validateRecoveryState(state);
+		for (const snapshot of restored) {
+			const entry: InternalChild = {
+				snapshot,
+				holdsActiveSlot: false,
+				waiters: [],
+				startLifecycleCompleted: snapshot.sessionFile !== undefined,
+				stopContinuationCount: 0,
+				endInFlight: false,
+			};
+			this.children.set(snapshot.id, entry);
+			this.byTaskName.set(snapshot.taskName, snapshot.id);
+		}
+		this.delivery.restore(state.delivered);
+		this.emitUpdate();
+		return this.list();
 	}
 
 	registeredTypeIds(): readonly SubagentTypeId[] {
@@ -174,7 +197,16 @@ export class SubagentCoordinator<TProfile = unknown> implements SubagentCoordina
 		const entry = this.requireChild(target);
 		if (!message.trim()) throw new Error("message must be non-empty");
 		const type = this.requireType(entry.snapshot.agentType);
-		if (!entry.handle) await this.reopen(entry, type);
+		if (!entry.handle) {
+			try {
+				await this.reopen(entry, type);
+			} catch (error) {
+				this.releaseEntry(entry, "failed", `Unable to reopen subagent: ${errorMessage(error)}`);
+				this.emitUpdate();
+				this.queueNotification(entry.snapshot);
+				throw error;
+			}
+		}
 
 		if (isTerminalStatus(entry.snapshot.status)) {
 			if (this.countActive() >= this.maxConcurrent) {
@@ -235,6 +267,7 @@ export class SubagentCoordinator<TProfile = unknown> implements SubagentCoordina
 			for (const entry of resolveTargets()) {
 				if (!isTerminalStatus(entry.snapshot.status)) continue;
 				if (!this.delivery.tryClaim(entry.snapshot.id, entry.snapshot.generation)) continue;
+				this.emitDeliveryClaimed(entry.snapshot);
 				ready.push({
 					...cloneSnapshot(entry.snapshot),
 					finalText: clipFinalText(entry.snapshot.finalText),
@@ -581,7 +614,11 @@ export class SubagentCoordinator<TProfile = unknown> implements SubagentCoordina
 			return;
 		}
 		const batch = this.notifyBuffer
-			.filter((snapshot) => this.delivery.tryClaim(snapshot.id, snapshot.generation))
+			.filter((snapshot) => {
+				if (!this.delivery.tryClaim(snapshot.id, snapshot.generation)) return false;
+				this.emitDeliveryClaimed(snapshot);
+				return true;
+			})
 			.map((snapshot) => ({
 				...cloneSnapshot(snapshot),
 				finalText: clipFinalText(snapshot.finalText),
@@ -649,6 +686,45 @@ export class SubagentCoordinator<TProfile = unknown> implements SubagentCoordina
 
 	private emitUpdate(): void {
 		this.options.onUpdate?.(this.list());
+	}
+
+	private emitDeliveryClaimed(snapshot: Pick<SubagentSnapshot, "generation" | "id">): void {
+		const marker: SubagentDeliveryMarker = {
+			id: snapshot.id,
+			generation: snapshot.generation,
+		};
+		this.options.onDeliveryClaimed?.(marker);
+	}
+
+	private validateRecoveryState(state: SubagentRecoveryState): MutableSnapshot[] {
+		const ids = new Set<string>();
+		const taskNames = new Set<string>();
+		return state.agents.map((source) => {
+			if (ids.has(source.id)) throw new Error(`Duplicate recovered subagent id "${source.id}"`);
+			if (taskNames.has(source.taskName)) {
+				throw new Error(`Duplicate recovered subagent task_name "${source.taskName}"`);
+			}
+			if (source.parentSessionId !== this.options.parentSessionId) {
+				throw new Error(
+					`Recovered subagent "${source.id}" belongs to parent "${source.parentSessionId}", not "${this.options.parentSessionId}"`,
+				);
+			}
+			if (!isValidTaskName(source.taskName) || source.path !== taskPath(source.taskName)) {
+				throw new Error(`Recovered subagent "${source.id}" has an invalid task identity`);
+			}
+			ids.add(source.id);
+			taskNames.add(source.taskName);
+			const snapshot: MutableSnapshot = cloneSnapshot(source);
+			if (!isTerminalStatus(snapshot.status)) {
+				snapshot.status = snapshot.sessionFile ? "interrupted" : "failed";
+				snapshot.endedAt = this.clock.now();
+				snapshot.generation += 1;
+				snapshot.errorMessage = snapshot.sessionFile
+					? "Parent runtime restarted while the subagent was active"
+					: "Parent runtime restarted before the child session was created";
+			}
+			return snapshot;
+		});
 	}
 
 	private assertNotDisposed(): void {

@@ -1,4 +1,4 @@
-import type { SubagentNotificationPayload, SubagentSnapshot } from "./contracts.js";
+import type { SubagentDeliveryMarker, SubagentNotificationPayload, SubagentSnapshot } from "./contracts.js";
 import { clipFinalText } from "./contracts.js";
 
 export class SubagentDeliveryTracker {
@@ -13,6 +13,10 @@ export class SubagentDeliveryTracker {
 		if (this.delivered.has(key)) return false;
 		this.delivered.add(key);
 		return true;
+	}
+
+	restore(markers: readonly SubagentDeliveryMarker[]): void {
+		for (const marker of markers) this.delivered.add(this.key(marker.id, marker.generation));
 	}
 
 	private key(id: string, generation: number): string {

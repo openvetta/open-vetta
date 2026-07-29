@@ -52,7 +52,8 @@ describe("SubagentCoordinator", () => {
 
 	it("lets wait claim a generation before automatic notification", async () => {
 		const onNotify = vi.fn();
-		const fixture = createFixture({ onNotify, notificationDelayMs: 10 });
+		const onDeliveryClaimed = vi.fn();
+		const fixture = createFixture({ onNotify, onDeliveryClaimed, notificationDelayMs: 10 });
 		await fixture.coordinator.spawn(request("claimed"));
 		fixture.children[0]?.complete("done");
 		const result = await fixture.coordinator.wait({ targets: ["claimed"], timeoutMs: 1_000 });
@@ -60,7 +61,82 @@ describe("SubagentCoordinator", () => {
 
 		expect(result.agents).toEqual([expect.objectContaining({ taskName: "claimed", finalText: "done" })]);
 		expect(onNotify).not.toHaveBeenCalled();
+		expect(onDeliveryClaimed).toHaveBeenCalledWith({ id: "child-1", generation: 1 });
 		expect((await fixture.coordinator.wait({ targets: ["claimed"] })).agents).toEqual([]);
+	});
+
+	it("restores terminal entries and deterministically normalizes abandoned work", async () => {
+		const fixture = createFixture({ now: 500 });
+		fixture.coordinator.restore({
+			agents: [
+				snapshot("completed", "completed", { generation: 2, sessionFile: "completed.conversation.jsonl" }),
+				snapshot("running", "running", { generation: 4, sessionFile: "running.conversation.jsonl" }),
+				snapshot("queued", "queued"),
+			],
+			delivered: [{ id: "completed", generation: 2 }],
+		});
+
+		expect(fixture.coordinator.get("completed")).toMatchObject({
+			status: "completed",
+			generation: 2,
+		});
+		expect(fixture.coordinator.get("running")).toMatchObject({
+			status: "interrupted",
+			generation: 5,
+			endedAt: 500,
+			errorMessage: "Parent runtime restarted while the subagent was active",
+		});
+		expect(fixture.coordinator.get("queued")).toMatchObject({
+			status: "failed",
+			generation: 1,
+			endedAt: 500,
+			errorMessage: "Parent runtime restarted before the child session was created",
+		});
+		expect((await fixture.coordinator.wait({ targets: ["completed"] })).agents).toEqual([]);
+		expect((await fixture.coordinator.wait({ targets: ["running"] })).agents).toEqual([
+			expect.objectContaining({ id: "running", status: "interrupted", generation: 5 }),
+		]);
+	});
+
+	it("lazily reopens a recovered child for follow-up", async () => {
+		const fixture = createFixture({ reopen: true });
+		fixture.coordinator.restore({
+			agents: [snapshot("recovered", "interrupted", { generation: 1, sessionFile: "recovered.conversation.jsonl" })],
+			delivered: [],
+		});
+
+		const resumed = await fixture.coordinator.followUp("recovered", "continue the task");
+
+		expect(resumed).toMatchObject({ id: "recovered", status: "running", task: "continue the task" });
+		expect(fixture.children).toHaveLength(1);
+		expect(fixture.children[0]?.prompts).toEqual(["continue the task"]);
+	});
+
+	it("marks a recovered child failed when its transcript cannot be reopened", async () => {
+		const fixture = createFixture({ reopenError: new Error("transcript missing") });
+		fixture.coordinator.restore({
+			agents: [snapshot("missing", "interrupted", { generation: 1, sessionFile: "missing.conversation.jsonl" })],
+			delivered: [],
+		});
+
+		await expect(fixture.coordinator.followUp("missing", "continue")).rejects.toThrow("transcript missing");
+		expect(fixture.coordinator.get("missing")).toMatchObject({
+			status: "failed",
+			generation: 2,
+			errorMessage: "Unable to reopen subagent: transcript missing",
+		});
+	});
+
+	it("rejects an ambiguous recovered registry before mutating the coordinator", () => {
+		const fixture = createFixture();
+
+		expect(() =>
+			fixture.coordinator.restore({
+				agents: [snapshot("first", "completed"), { ...snapshot("second", "completed"), taskName: "first" }],
+				delivered: [],
+			}),
+		).toThrow('Duplicate recovered subagent task_name "first"');
+		expect(fixture.coordinator.list()).toEqual([]);
 	});
 
 	it("interrupts and resumes the same transcript through follow-up", async () => {
@@ -111,6 +187,10 @@ function createFixture(
 		readonly maxConcurrent?: number;
 		readonly notificationDelayMs?: number;
 		readonly onNotify?: (payload: { readonly agents: readonly SubagentSnapshot[]; readonly text: string }) => void;
+		readonly onDeliveryClaimed?: (marker: { readonly id: string; readonly generation: number }) => void;
+		readonly now?: number;
+		readonly reopen?: boolean;
+		readonly reopenError?: Error;
 	} = {},
 ) {
 	const children: TestChild[] = [];
@@ -119,6 +199,13 @@ function createFixture(
 		async create() {
 			nextId += 1;
 			const child = new TestChild(`child-${nextId}`);
+			children.push(child);
+			return child;
+		},
+		async reopen(snapshot) {
+			if (options.reopenError) throw options.reopenError;
+			if (!options.reopen) throw new Error("reopen is disabled");
+			const child = new TestChild(snapshot.id);
 			children.push(child);
 			return child;
 		},
@@ -131,6 +218,8 @@ function createFixture(
 		maxConcurrent: options.maxConcurrent,
 		notificationDelayMs: options.notificationDelayMs,
 		onNotify: options.onNotify,
+		onDeliveryClaimed: options.onDeliveryClaimed,
+		clock: options.now === undefined ? undefined : { now: () => options.now ?? 0 },
 		idGenerator: { next: () => `reservation-${nextId + 1}` },
 	});
 	return { coordinator, children };
@@ -206,6 +295,27 @@ class TestChild implements SubagentChildHandle {
 
 function request(taskName: string, agentType = "explorer"): SubagentSpawnRequest {
 	return { taskName, agentType, message: `work on ${taskName}` };
+}
+
+function snapshot(
+	id: string,
+	status: SubagentSnapshot["status"],
+	overrides: Partial<SubagentSnapshot> = {},
+): SubagentSnapshot {
+	const taskName = overrides.taskName ?? id;
+	return {
+		id,
+		taskName,
+		path: `/root/${taskName}`,
+		agentType: "explorer",
+		status,
+		task: `work on ${taskName}`,
+		parentSessionId: "root-session",
+		startedAt: 1,
+		usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, costTotal: 0 },
+		generation: 0,
+		...overrides,
+	};
 }
 
 function type(kind: TestProfile["kind"]): SubagentTypeDefinition<TestProfile> {

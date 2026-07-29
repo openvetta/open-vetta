@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { dirname, join } from "node:path";
+import { stat } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 import type { Message } from "@vetta/ai";
 import { createKbFilterByTagsTool, createKbListTagsTool } from "@vetta/coding-agent";
 import {
@@ -438,7 +439,6 @@ export async function createGreenfieldRuntimeComposition(
 					memoryRollover: memoryRuntime,
 				});
 				contextRuntimes.add(contextRuntime);
-				const subagentForkContexts = new Map<string, readonly Message[]>();
 				const openSubagentChild = async (
 					operation: "create" | "resume",
 					requestOrSnapshot: SubagentSpawnRequest | SubagentSnapshot,
@@ -451,9 +451,7 @@ export async function createGreenfieldRuntimeComposition(
 					const childConversationDir = snapshot?.sessionFile
 						? dirname(snapshot.sessionFile)
 						: join(dirname(repository.resolveConversationPath(activeSessionId)), ".subagents", activeSessionId);
-					const retainedForkContext =
-						operation === "create" ? forkContext : (subagentForkContexts.get(childSessionId) ?? forkContext);
-					if (retainedForkContext) subagentForkContexts.set(childSessionId, retainedForkContext);
+					const retainedForkContext = operation === "create" ? forkContext : undefined;
 					const childComposition = await createGreenfieldRuntimeComposition({
 						...options,
 						conversationDir: childConversationDir,
@@ -543,6 +541,11 @@ export async function createGreenfieldRuntimeComposition(
 						createChild: (request, type, forkContext) => openSubagentChild("create", request, type, forkContext),
 						reopenChild: (snapshot, type, forkContext) =>
 							openSubagentChild("resume", snapshot, type, forkContext),
+						validateRecoveredChild: (snapshot) =>
+							validateRecoveredSubagentTranscript(snapshot, repository.resolveConversationPath(activeSessionId)),
+						onRecoveryIssue: (message) => {
+							console.warn("[greenfield-runtime] subagent recovery issue", message);
+						},
 						onNotify: (payload) => {
 							void resourceContext
 								.deliverAsyncContext([
@@ -752,7 +755,7 @@ export async function createGreenfieldRuntimeComposition(
 					},
 					snapshotProvider: capabilities,
 					modelRuntime,
-					documentParticipants: [todoRuntime, contextRuntime],
+					documentParticipants: [todoRuntime, contextRuntime, ...(subagentRuntime ? [subagentRuntime] : [])],
 					todoController: todoRuntime,
 					createSessionPeripherals: (session) => ({
 						hostInteraction: activeExecutionRuntime.hostInteraction,
@@ -831,7 +834,6 @@ export async function createGreenfieldRuntimeComposition(
 					async dispose() {
 						try {
 							await subagentRuntime?.dispose();
-							subagentForkContexts.clear();
 							contextRuntimes.delete(contextRuntime);
 							contextRuntime.dispose();
 							if (memoryRuntime) {
@@ -1055,4 +1057,26 @@ function createSessionPluginRuntime(
 		invokeContinuation: sessionOptions.invokePluginContinuation,
 		invokeSystemPrompt: sessionOptions.invokePluginSystemPrompt,
 	};
+}
+
+async function validateRecoveredSubagentTranscript(
+	snapshot: SubagentSnapshot,
+	parentSessionPath: string,
+): Promise<string | undefined> {
+	const sessionFile = snapshot.sessionFile;
+	if (!sessionFile) return "Recovered subagent has no child session transcript";
+	const expectedDirectory = resolve(dirname(parentSessionPath), ".subagents", snapshot.parentSessionId);
+	const resolvedSessionFile = resolve(sessionFile);
+	const childRepository = new FileConversationRepository({ rootDir: expectedDirectory });
+	const expectedSessionFile = childRepository.resolveConversationPath(snapshot.id);
+	await childRepository.close();
+	if (resolvedSessionFile !== expectedSessionFile) {
+		return "Recovered subagent transcript does not match the parent-owned session path";
+	}
+	try {
+		const metadata = await stat(resolvedSessionFile);
+		return metadata.isFile() ? undefined : "Recovered subagent transcript is not a file";
+	} catch {
+		return "Recovered subagent transcript is missing";
+	}
 }

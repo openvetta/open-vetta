@@ -1,6 +1,6 @@
-import { mkdtemp, readdir, rm } from "node:fs/promises";
+import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
 	type Api,
 	type AssistantMessage,
@@ -219,6 +219,182 @@ describe("Greenfield Subagent Runtime composition", () => {
 			todoProgress: { done: 0, total: 2 },
 		});
 		await session.dispose();
+	}, 30_000);
+
+	it("restores only parent-indexed children, preserves delivery claims and lazily reopens the transcript", async () => {
+		const conversationDir = await temporaryDirectory("greenfield-subagent-recovery-conversations-");
+		const workspace = await temporaryDirectory("greenfield-subagent-recovery-workspace-");
+		let initialRootCall = 0;
+		const initialComposition = await createGreenfieldRuntimeComposition({
+			conversationDir,
+			cwd: workspace,
+			modelRegistry: modelRegistry(),
+			initialModel: MODEL,
+			initialThinkingLevel: "off",
+			activation: { mode: "explicit", toolNames: [] },
+			streamFn: (_model, _context, options) => {
+				if (options?.sessionId !== "recovery-root") {
+					return new RecordedAssistantStream(assistantMessage([{ type: "text", text: "initial child result" }]));
+				}
+				initialRootCall += 1;
+				if (initialRootCall === 1) {
+					return new RecordedAssistantStream(
+						assistantMessage(
+							[
+								{
+									type: "toolCall",
+									id: "spawn-recovery",
+									name: "spawn_agent",
+									arguments: {
+										description: "Create a recoverable child",
+										task_name: "recover_child",
+										message: "Inspect the repository.",
+										agent_type: "explorer",
+									},
+								},
+							],
+							"toolUse",
+						),
+					);
+				}
+				return new RecordedAssistantStream(assistantMessage([{ type: "text", text: "root handled child" }]));
+			},
+		});
+		compositions.push(initialComposition);
+		const initialSession = await initialComposition.backend.create({ sessionId: "recovery-root" });
+		await initialSession.prompt({ text: "Create a child that can be recovered." });
+		await waitUntil(() => {
+			const assessment = assessRuntimeHostSessionAssembly(initialSession.createRuntimeHostAssemblyCandidate());
+			return (
+				assessment.ready &&
+				assessment.assembly.backgroundWorkController.readSubagents()[0]?.status === "completed" &&
+				initialRootCall >= 3
+			);
+		});
+		const initialAssessment = assessRuntimeHostSessionAssembly(initialSession.createRuntimeHostAssemblyCandidate());
+		if (!initialAssessment.ready) throw new Error("Expected complete Greenfield RuntimeHost assembly");
+		const initialChild = initialAssessment.assembly.backgroundWorkController.readSubagents()[0];
+		if (!initialChild?.sessionFile) throw new Error("Expected a persisted child transcript");
+		await initialSession.dispose();
+		await initialComposition.dispose();
+		compositions.splice(compositions.indexOf(initialComposition), 1);
+
+		let resumedRootCall = 0;
+		const resumedChildSessions: string[] = [];
+		const resumedComposition = await createGreenfieldRuntimeComposition({
+			conversationDir,
+			cwd: workspace,
+			modelRegistry: modelRegistry(),
+			initialModel: MODEL,
+			initialThinkingLevel: "off",
+			activation: { mode: "explicit", toolNames: [] },
+			streamFn: (_model, _context, options) => {
+				if (options?.sessionId !== "recovery-root") {
+					resumedChildSessions.push(options?.sessionId ?? "");
+					return new RecordedAssistantStream(assistantMessage([{ type: "text", text: "continued child result" }]));
+				}
+				resumedRootCall += 1;
+				if (resumedRootCall === 1) {
+					return new RecordedAssistantStream(
+						assistantMessage(
+							[
+								{
+									type: "toolCall",
+									id: "wait-recovered",
+									name: "wait_agent",
+									arguments: {
+										description: "Verify the old generation was already delivered",
+										targets: ["recover_child"],
+										timeout_ms: 1_000,
+									},
+								},
+							],
+							"toolUse",
+						),
+					);
+				}
+				if (resumedRootCall === 2) {
+					return new RecordedAssistantStream(
+						assistantMessage(
+							[
+								{
+									type: "toolCall",
+									id: "followup-recovered",
+									name: "followup_task",
+									arguments: {
+										description: "Continue the recovered transcript",
+										target: "recover_child",
+										message: "Continue from the existing transcript.",
+									},
+								},
+							],
+							"toolUse",
+						),
+					);
+				}
+				return new RecordedAssistantStream(assistantMessage([{ type: "text", text: "recovery handled" }]));
+			},
+		});
+		compositions.push(resumedComposition);
+		const resumedSession = await resumedComposition.backend.resume({ sessionId: "recovery-root" });
+		const recoveredAssessment = assessRuntimeHostSessionAssembly(resumedSession.createRuntimeHostAssemblyCandidate());
+		if (!recoveredAssessment.ready) throw new Error("Expected complete recovered RuntimeHost assembly");
+		expect(recoveredAssessment.assembly.backgroundWorkController.readSubagents()).toEqual([
+			expect.objectContaining({
+				id: initialChild.id,
+				taskName: "recover_child",
+				status: "completed",
+				generation: 1,
+				sessionFile: initialChild.sessionFile,
+			}),
+		]);
+
+		await resumedSession.prompt({ text: "Use the recovered child." });
+		await waitUntil(() => {
+			const assessment = assessRuntimeHostSessionAssembly(resumedSession.createRuntimeHostAssemblyCandidate());
+			return (
+				assessment.ready &&
+				assessment.assembly.backgroundWorkController.readSubagents()[0]?.status === "completed" &&
+				assessment.assembly.backgroundWorkController.readSubagents()[0]?.generation === 2 &&
+				resumedChildSessions.length === 1
+			);
+		});
+		expect(resumedChildSessions).toEqual([initialChild.id]);
+		expect(
+			resumedSession
+				.readMessages()
+				.filter(({ role }) => role === "toolResult")
+				.map(messageText)
+				.join("\n"),
+		).toContain("No matching subagents to wait on.");
+
+		await resumedSession.dispose();
+		await resumedComposition.dispose();
+		compositions.splice(compositions.indexOf(resumedComposition), 1);
+		await rm(initialChild.sessionFile, { force: true });
+		await writeFile(join(dirname(initialChild.sessionFile), "rogue.conversation.jsonl"), "", "utf8");
+
+		const missingComposition = await createGreenfieldRuntimeComposition({
+			conversationDir,
+			cwd: workspace,
+			modelRegistry: modelRegistry(),
+			initialModel: MODEL,
+			initialThinkingLevel: "off",
+			activation: { mode: "explicit", toolNames: [] },
+			streamFn: () => new RecordedAssistantStream(assistantMessage([{ type: "text", text: "unexpected call" }])),
+		});
+		compositions.push(missingComposition);
+		const missingSession = await missingComposition.backend.resume({ sessionId: "recovery-root" });
+		const missingAssessment = assessRuntimeHostSessionAssembly(missingSession.createRuntimeHostAssemblyCandidate());
+		if (!missingAssessment.ready) throw new Error("Expected complete RuntimeHost assembly");
+		expect(missingAssessment.assembly.backgroundWorkController.readSubagents()).toEqual([
+			expect.objectContaining({
+				id: initialChild.id,
+				status: "failed",
+				errorMessage: "Recovered subagent transcript is missing",
+			}),
+		]);
+		await missingSession.dispose();
 	}, 30_000);
 
 	async function temporaryDirectory(prefix: string): Promise<string> {

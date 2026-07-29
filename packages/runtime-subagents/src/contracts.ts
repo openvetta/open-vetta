@@ -126,6 +126,16 @@ export interface SubagentNotificationPayload {
 	readonly text: string;
 }
 
+export interface SubagentDeliveryMarker {
+	readonly id: string;
+	readonly generation: number;
+}
+
+export interface SubagentRecoveryState {
+	readonly agents: readonly SubagentSnapshot[];
+	readonly delivered: readonly SubagentDeliveryMarker[];
+}
+
 export interface SubagentCoordinatorOptions<TProfile = unknown> {
 	readonly factory: SubagentChildFactory<TProfile>;
 	readonly typeRegistry: SubagentTypeRegistryLike<TProfile>;
@@ -134,6 +144,7 @@ export interface SubagentCoordinatorOptions<TProfile = unknown> {
 	readonly lifecycle?: SubagentLifecycle;
 	readonly onNotify?: (payload: SubagentNotificationPayload) => void;
 	readonly onUpdate?: (agents: readonly SubagentSnapshot[]) => void;
+	readonly onDeliveryClaimed?: (marker: SubagentDeliveryMarker) => void;
 	readonly clock?: { now(): number };
 	readonly idGenerator?: { next(): string };
 	readonly notificationDelayMs?: number;
