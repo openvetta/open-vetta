@@ -1,8 +1,10 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { AuthStorage, getAgentDir, ModelRegistry, SettingsManager } from "@vetta/coding-agent";
-import { createMcpManager } from "@vetta/coding-agent/core/mcp/index.js";
-import { createLegacyRuntimeHostOptions } from "@vetta/coding-agent/runtime-host";
+import {
+	createLegacyMcpManagerRuntimeToolSource,
+	createLegacyRuntimeHostOptions,
+} from "@vetta/coding-agent/runtime-host";
 import {
 	FileConversationRuntimeSessionFileHistoryReader,
 	type RuntimeConversationSessionRoot,
@@ -148,17 +150,12 @@ export function getSharedRuntime(): RuntimeHost {
 			},
 			createMcpRuntimeSource: async ({ cwd, agentDir }) => {
 				const resolvedAgentDir = agentDir ?? getAgentDir();
-				const manager = createMcpManager({
+				return await createLegacyMcpManagerRuntimeToolSource({
 					projectRoot: cwd,
 					agentDir: resolvedAgentDir,
 					debug: SettingsManager.create(cwd, resolvedAgentDir).getMcpDebug(),
 					enabled: true,
 				});
-				await manager.initialize();
-				return {
-					source: manager,
-					dispose: () => manager.shutdown(),
-				};
 			},
 		});
 		const selectedBackend = resolveDesktopAgentRuntimeBackend(process.env[DESKTOP_AGENT_RUNTIME_ENV]);

@@ -90,6 +90,7 @@
 		"packages/runtime-tools/src/**/*",
 		"packages/runtime-tools/test/**/*",
 		"packages/runtime-mcp/src/**/*",
+		"packages/runtime-mcp/test/**/*",
 		"packages/runtime-storage/src/**/*",
 		"packages/runtime-storage/test/**/*",
 		"packages/runtime-telemetry/src/**/*",

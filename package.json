@@ -67,7 +67,7 @@
 		"fix": "bun run check:lint:fix",
 		"test": "bun run --workspaces --if-present test",
 		"test:quality": "bunx vitest --run scripts/quality/quality-gates.test.mjs",
-		"test:unit": "bun run scripts/quality/test-pkg.mjs ai agent coding-agent ecosystem-adapter",
+		"test:unit": "bun run scripts/quality/test-pkg.mjs ai agent runtime-mcp coding-agent ecosystem-adapter",
 		"test:pkg": "bun run scripts/quality/test-pkg.mjs",
 		"test:changed": "bun run scripts/quality/test-changed.mjs",
 		"deadcode": "knip --config knip.config.ts",

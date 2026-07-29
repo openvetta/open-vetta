@@ -122,3 +122,9 @@ export {
 	adaptCodingAgentToolRegistration,
 	type CodingAgentRuntimeToolRegistration,
 } from "./greenfield-tool-adapter.js";
+export {
+	adaptLegacyMcpManagerRuntimeToolSource,
+	createLegacyMcpManagerRuntimeToolSource,
+	type LegacyMcpManagerRuntimePort,
+	LegacyMcpManagerRuntimeToolSource,
+} from "./legacy-mcp-runtime-source.js";

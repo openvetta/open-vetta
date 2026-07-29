@@ -55,6 +55,10 @@ export default defineConfig({
 				replacement: fileURLToPath(new URL("../runtime-mcp/src/index.ts", import.meta.url)),
 			},
 			{
+				find: "@vetta/runtime-composition",
+				replacement: fileURLToPath(new URL("../runtime-composition/src/index.ts", import.meta.url)),
+			},
+			{
 				find: "@vetta/runtime-storage/conversation",
 				replacement: fileURLToPath(new URL("../runtime-storage/src/conversation/index.ts", import.meta.url)),
 			},

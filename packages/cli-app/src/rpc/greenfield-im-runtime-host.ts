@@ -8,9 +8,12 @@ import {
 	resolveCodingAgentInitialModel,
 	runRpcModeWithCapabilities,
 } from "@vetta/coding-agent";
-import { createMcpManager, type McpManager } from "@vetta/coding-agent/core/mcp/index.js";
-import type { CodingAgentPluginRuntimeSource } from "@vetta/coding-agent/runtime-host/greenfield";
+import {
+	type CodingAgentPluginRuntimeSource,
+	createLegacyMcpManagerRuntimeToolSource,
+} from "@vetta/coding-agent/runtime-host/greenfield";
 import type { GreenfieldRuntimeSession } from "@vetta/runtime-core";
+import type { ManagedMcpRuntimeToolSource } from "@vetta/runtime-mcp";
 import {
 	FileConversationOwnershipManager,
 	type FileConversationOwnershipManagerOptions,
@@ -108,13 +111,12 @@ export async function prepareGreenfieldImRuntimeHost(
 	if (!initial.model) throw new Error("No models available for Greenfield IM Runtime");
 	if (parsed.apiKey) bootstrap.authStorage.setRuntimeApiKey(initial.model.provider, parsed.apiKey);
 
-	const mcpManager = createMcpManager({
+	const managedMcpSource = await createLegacyMcpManagerRuntimeToolSource({
 		projectRoot: bootstrap.cwd,
 		agentDir: bootstrap.agentDir,
 		debug: bootstrap.settingsManager.getMcpDebug(),
 		enabled: true,
 	});
-	await mcpManager.initialize();
 
 	let runtime: GreenfieldRuntimeComposition | undefined;
 	let session: GreenfieldRuntimeSession | undefined;
@@ -131,7 +133,7 @@ export async function prepareGreenfieldImRuntimeHost(
 				parsed.noTools || parsed.tools
 					? { mode: "explicit", toolNames: parsed.tools ?? [] }
 					: { mode: "scope", scope: "im-claw" },
-			mcpSource: mcpManager,
+			mcpSource: managedMcpSource.source,
 			promptResourceSource: bootstrap.resourceLoader,
 			promptSettingsSource: bootstrap.settingsManager,
 			createPluginRuntime: options.createPluginRuntime,
@@ -147,13 +149,13 @@ export async function prepareGreenfieldImRuntimeHost(
 			? await runtime.backend.resume(sessionOptions)
 			: await runtime.backend.create(sessionOptions);
 		const adapter = new GreenfieldImRpcSessionAdapter({ session, runtime });
-		const capabilities = new GreenfieldImRuntimeHostCapabilities(adapter, mcpManager);
+		const capabilities = new GreenfieldImRuntimeHostCapabilities(adapter, managedMcpSource);
 		return { kind: "greenfield", bootstrap, session, runtime, capabilities };
 	} catch (error) {
 		const cleanup = await Promise.allSettled([
 			...(session ? [session.dispose()] : []),
 			...(runtime ? [runtime.dispose()] : []),
-			mcpManager.shutdown(),
+			managedMcpSource.dispose(),
 		]);
 		const cleanupErrors = cleanup
 			.filter((result): result is PromiseRejectedResult => result.status === "rejected")
@@ -202,7 +204,7 @@ class GreenfieldImRuntimeHostCapabilities implements RpcSessionCapabilities {
 
 	constructor(
 		private readonly adapter: GreenfieldImRpcSessionAdapter,
-		private readonly mcpManager: McpManager,
+		private readonly mcpSource: ManagedMcpRuntimeToolSource,
 	) {
 		this.profile = adapter.profile;
 		this.turn = adapter.turn;
@@ -225,7 +227,7 @@ class GreenfieldImRuntimeHostCapabilities implements RpcSessionCapabilities {
 	async dispose(): Promise<void> {
 		if (this.disposed) return;
 		this.disposed = true;
-		const results = await Promise.allSettled([this.adapter.dispose(), this.mcpManager.shutdown()]);
+		const results = await Promise.allSettled([this.adapter.dispose(), this.mcpSource.dispose()]);
 		const errors = results
 			.filter((result): result is PromiseRejectedResult => result.status === "rejected")
 			.map(({ reason }) => reason);

@@ -81,6 +81,7 @@ import type {
 	SubagentTypeDefinition,
 } from "@vetta/runtime-subagents";
 import {
+	CODING_TOOL_SCOPES,
 	type CodingToolActivation,
 	guardCodingToolRegistration,
 	selectCodingToolRegistrations,
@@ -260,7 +261,15 @@ export async function createGreenfieldRuntimeComposition(
 	});
 	backgroundTasksAvailable = tools.backgroundService !== undefined;
 	mcpSynchronizer = options.mcpSource
-		? createMcpRuntimeToolSynchronizer(options.mcpSource, tools.registry)
+		? createMcpRuntimeToolSynchronizer(options.mcpSource, {
+				register: (tool) =>
+					tools.registry.register({
+						tool,
+						scopeUse: CODING_TOOL_SCOPES,
+						category: "external",
+					}),
+				unregister: (toolName) => tools.registry.unregister(toolName),
+			})
 		: undefined;
 	try {
 		await mcpSynchronizer?.refresh();

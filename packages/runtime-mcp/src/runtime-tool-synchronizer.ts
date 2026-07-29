@@ -1,16 +1,34 @@
-import { ALL_SCENARIOS, type CodingAgentTool } from "@vetta/coding-agent";
-import type { McpManager } from "@vetta/coding-agent/core/mcp/index.js";
-import {
-	adaptCodingAgentToolRegistration,
-	type CodingAgentRuntimeToolRegistration,
-} from "@vetta/coding-agent/runtime-host/greenfield";
+import type { RuntimeToolDefinition } from "@vetta/runtime-core/kernel";
 
-export interface McpRuntimeToolRegistry {
-	register(registration: CodingAgentRuntimeToolRegistration): void;
-	unregister(toolName: string): boolean;
+export interface McpRuntimeToolBinding {
+	readonly tool: RuntimeToolDefinition;
+	/** 标识该工具当前实现绑定；相同名称但绑定变化时必须替换 Registry entry。 */
+	readonly fingerprint: string;
 }
 
-export type McpRuntimeToolSource = Pick<McpManager, "getServers" | "getTools" | "reloadIfChanged">;
+/** Source 每次刷新后发布的只读能力视图；它不是持久化或 Turn 级快照。 */
+export interface McpRuntimeToolView {
+	readonly tools: readonly McpRuntimeToolBinding[];
+}
+
+/**
+ * MCP 宿主能力端口。
+ *
+ * 具体配置文件、连接、认证和重载策略属于 Source 实现，不进入 Runtime Feature。
+ */
+export interface McpRuntimeToolSource {
+	refresh(): Promise<McpRuntimeToolView>;
+}
+
+export interface ManagedMcpRuntimeToolSource {
+	readonly source: McpRuntimeToolSource;
+	dispose(): Promise<void>;
+}
+
+export interface McpRuntimeToolRegistry {
+	register(tool: RuntimeToolDefinition): void;
+	unregister(toolName: string): boolean;
+}
 
 export interface McpRuntimeToolDescriptor {
 	readonly name: string;
@@ -23,9 +41,9 @@ export interface McpRuntimeToolSnapshot {
 }
 
 /**
- * 在每次模型调用前把 MCP Manager 的当前工具集合增量同步到 Runtime registry。
+ * 在每次模型调用前把 MCP Source 的当前工具集合增量同步到 Runtime registry。
  *
- * 未变化的 server/tool 保留原 binding；重连、配置变化、禁用和删除只替换受影响工具。
+ * 未变化的工具保留原 binding；重连、配置变化、禁用和删除只替换受影响工具。
  */
 export class McpRuntimeToolSynchronizer {
 	private readonly fingerprints = new Map<string, string>();
@@ -67,17 +85,8 @@ export class McpRuntimeToolSynchronizer {
 	}
 
 	private async refreshNow(): Promise<McpRuntimeToolSnapshot> {
-		await this.source.reloadIfChanged();
-		const sourceFingerprints = buildSourceFingerprints(this.source);
-		const registrations = this.source.getTools().map((tool) => {
-			const codingTool: CodingAgentTool = {
-				...tool,
-				scope_use: ALL_SCENARIOS,
-				category: "external",
-			};
-			return adaptCodingAgentToolRegistration(codingTool);
-		});
-		const nextNames = new Set(registrations.map(({ tool }) => tool.name));
+		const view = await this.source.refresh();
+		const nextNames = new Set(view.tools.map(({ tool }) => tool.name));
 
 		for (const toolName of this.fingerprints.keys()) {
 			if (nextNames.has(toolName)) continue;
@@ -85,22 +94,15 @@ export class McpRuntimeToolSynchronizer {
 			this.fingerprints.delete(toolName);
 		}
 
-		for (const registration of registrations) {
-			const toolName = registration.tool.name;
-			const fingerprint =
-				sourceFingerprints.get(toolName) ??
-				JSON.stringify({
-					name: toolName,
-					description: registration.tool.description,
-					inputSchema: registration.tool.inputSchema,
-				});
-			if (this.fingerprints.get(toolName) === fingerprint) continue;
+		for (const binding of view.tools) {
+			const toolName = binding.tool.name;
+			if (this.fingerprints.get(toolName) === binding.fingerprint) continue;
 			if (this.fingerprints.has(toolName)) this.registry.unregister(toolName);
-			this.registry.register(registration);
-			this.fingerprints.set(toolName, fingerprint);
+			this.registry.register(binding.tool);
+			this.fingerprints.set(toolName, binding.fingerprint);
 		}
 
-		const descriptors = registrations.map(({ tool }) =>
+		const descriptors = view.tools.map(({ tool }) =>
 			Object.freeze({
 				name: tool.name,
 				description: tool.description,
@@ -121,24 +123,6 @@ export function createMcpRuntimeToolSynchronizer(
 	registry: McpRuntimeToolRegistry,
 ): McpRuntimeToolSynchronizer {
 	return new McpRuntimeToolSynchronizer(source, registry);
-}
-
-function buildSourceFingerprints(source: Pick<McpManager, "getServers">): ReadonlyMap<string, string> {
-	const fingerprints = new Map<string, string>();
-	for (const server of source.getServers()) {
-		for (const tool of server.tools) {
-			fingerprints.set(
-				`mcp_${server.name}_${tool.name}`,
-				JSON.stringify({
-					server: server.name,
-					status: server.status,
-					startedAt: server.startedAt?.getTime(),
-					tool,
-				}),
-			);
-		}
-	}
-	return fingerprints;
 }
 
 function sameDescriptors(

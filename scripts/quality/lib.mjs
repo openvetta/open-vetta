@@ -14,6 +14,7 @@ export const repoRoot = process.cwd();
 export const TESTABLE_PACKAGES = {
 	ai: "packages/ai",
 	agent: "packages/agent",
+	"runtime-mcp": "packages/runtime-mcp",
 	"coding-agent": "packages/coding-agent",
 	"ecosystem-adapter": "packages/ecosystem-adapter",
 };
@@ -32,7 +33,6 @@ export const PACKAGE_DIRS = {
 	"runtime-core": "packages/runtime-core",
 	"runtime-tools": "packages/runtime-tools",
 	"runtime-storage": "packages/runtime-storage",
-	"runtime-mcp": "packages/runtime-mcp",
 	"runtime-telemetry": "packages/runtime-telemetry",
 	"action-rpc": "packages/action-rpc",
 	toolkit: "packages/toolkit",

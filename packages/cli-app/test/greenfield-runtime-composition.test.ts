@@ -9,6 +9,7 @@ import {
 	type McpTool,
 } from "@vetta/coding-agent/core/mcp/index.js";
 import {
+	adaptLegacyMcpManagerRuntimeToolSource,
 	type CodingAgentModelRegistrySource,
 	renderCodingAgentMcpToolsInstruction,
 } from "@vetta/coding-agent/runtime-host/greenfield";
@@ -478,11 +479,11 @@ describe("Greenfield runtime composition", () => {
 			startedAt: new Date(1),
 		};
 		const reloadIfChanged = vi.fn(async () => false);
-		const mcpSource: McpRuntimeToolSource = {
+		const mcpSource = adaptLegacyMcpManagerRuntimeToolSource({
 			reloadIfChanged,
 			getServers: () => (available ? [server] : []),
 			getTools: () => (available ? [adaptedTool] : []),
-		};
+		});
 		const modelTools: string[][] = [];
 		const composition = await createGreenfieldRuntimeComposition({
 			conversationDir: conversations,
@@ -911,11 +912,11 @@ function createMcpSourceFixture(toolCount: number): {
 	};
 	let available = true;
 	return {
-		source: {
+		source: adaptLegacyMcpManagerRuntimeToolSource({
 			reloadIfChanged: async () => false,
 			getServers: () => (available ? [server] : []),
 			getTools: () => (available ? adaptedTools : []),
-		},
+		}),
 		descriptors: tools.map(({ name, description }) => ({
 			name: `mcp_search_${name}`,
 			description: description ?? "",

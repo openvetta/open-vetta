@@ -45,8 +45,9 @@ export const workspaceLayers = [
 	],
 	["capability-runtime", "agent"],
 	["runtime-core"],
+	["runtime-mcp"],
 	["coding-agent"],
-	["runtime-tools", "runtime-storage", "runtime-mcp"],
+	["runtime-tools", "runtime-storage"],
 	["runtime-composition"],
 	["cli-app"],
 ];

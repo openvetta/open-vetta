@@ -44,7 +44,7 @@
 8. [实施日志](./08-implementation-log.md)
    - 索引；每轮实施单独成文，见 [`08-implementation-log/`](./08-implementation-log/)。
    - 按实施轮次记录实际修改、验证结果、未完成项和下一步。
-   - 最新记录：[第 97 轮：Desktop 独立产物与真实进程重启闭环](./08-implementation-log/97-desktop-installed-artifact-process-restart-closure.md)。
+   - 最新记录：[第 98 轮：MCP Runtime 独立端口与旧实现适配](./08-implementation-log/98-mcp-runtime-port-and-legacy-adapter.md)。
 9. [行为兼容性审计](./09-behavior-compatibility-audit.md)
    - 审计已实施模块与旧行为的差距。
    - 定义旧新差分测试和迁移 Gate。

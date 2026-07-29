@@ -150,9 +150,7 @@ describe("DesktopGreenfieldRuntimeBackendPool", () => {
 	it("injects and disposes one managed MCP source per workspace scope", async () => {
 		const cwd = await temporaryDirectory("desktop-greenfield-mcp-source-");
 		const source = {
-			getServers: () => [],
-			getTools: () => [],
-			reloadIfChanged: async () => false,
+			refresh: async () => ({ tools: [] }),
 		} satisfies McpRuntimeToolSource;
 		const dispose = vi.fn(async () => undefined);
 		const createMcpRuntimeSource = vi.fn(async () => ({ source, dispose }));
@@ -190,9 +188,7 @@ describe("DesktopGreenfieldRuntimeBackendPool", () => {
 	it("disposes the managed MCP source when composition creation fails", async () => {
 		const cwd = await temporaryDirectory("desktop-greenfield-mcp-failure-");
 		const source = {
-			getServers: () => [],
-			getTools: () => [],
-			reloadIfChanged: async () => false,
+			refresh: async () => ({ tools: [] }),
 		} satisfies McpRuntimeToolSource;
 		const dispose = vi.fn(async () => undefined);
 		const pool = new DesktopGreenfieldRuntimeBackendPool({

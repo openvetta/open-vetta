@@ -1,9 +1,6 @@
-import {
-	createCodingAgentToolSearchRuntimeTool,
-	renderCodingAgentMcpToolsInstruction,
-	scoreCodingAgentDeferredMcpTools,
-} from "@vetta/coding-agent/runtime-host/greenfield";
 import type { AgentFeatureDefinition, InstructionBlock, ModelCallContribution } from "@vetta/runtime-core/kernel";
+import { createMcpToolSearchRuntimeTool, scoreMcpDeferredTools } from "./deferred-tool-search.js";
+import { renderMcpToolsInstruction } from "./mcp-prompt.js";
 import type { McpRuntimeToolDescriptor, McpRuntimeToolSnapshot } from "./runtime-tool-synchronizer.js";
 
 export const DEFAULT_MCP_DEFERRED_THRESHOLD = 15;
@@ -73,7 +70,7 @@ export class McpDeferredToolController {
 
 	createFeature(options: McpDeferredFeatureOptions = {}): AgentFeatureDefinition {
 		const controller = this;
-		const toolSearch = createCodingAgentToolSearchRuntimeTool((query, maxResults) => this.search(query, maxResults));
+		const toolSearch = createMcpToolSearchRuntimeTool((query, maxResults) => this.search(query, maxResults));
 		return {
 			id: "mcp-progressive-disclosure",
 			async prepare() {
@@ -99,7 +96,7 @@ export class McpDeferredToolController {
 	}
 
 	private contribute(
-		toolSearch: ReturnType<typeof createCodingAgentToolSearchRuntimeTool>,
+		toolSearch: ReturnType<typeof createMcpToolSearchRuntimeTool>,
 		includePromptInstruction: boolean,
 	): ModelCallContribution {
 		const tools = this.instructionTools();
@@ -111,7 +108,7 @@ export class McpDeferredToolController {
 	}
 
 	private createInstruction(tools: readonly McpRuntimeToolDescriptor[]): InstructionBlock | undefined {
-		const content = renderCodingAgentMcpToolsInstruction(tools, this.isDeferred());
+		const content = renderMcpToolsInstruction(tools, this.isDeferred());
 		if (content.length === 0) return undefined;
 		return {
 			id: "mcp.tools",
@@ -126,7 +123,7 @@ export class McpDeferredToolController {
 	}
 
 	private search(query: string, maxResults: number) {
-		const matches = scoreCodingAgentDeferredMcpTools(query, this.currentSnapshot.tools).slice(0, maxResults);
+		const matches = scoreMcpDeferredTools(query, this.currentSnapshot.tools).slice(0, maxResults);
 		const activated: McpRuntimeToolDescriptor[] = [];
 		const alreadyActive: string[] = [];
 		for (const match of matches) {
