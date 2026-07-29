@@ -6,7 +6,8 @@
 	"types": "./dist/index.d.ts",
 	"bin": {
 		"vetta": "dist/cli.js",
-		"vetta-cli-app": "dist/cli.js"
+		"vetta-cli-app": "dist/cli.js",
+		"vetta-agent-rpc": "dist/agent-rpc-cli.js"
 	},
 	"files": ["dist"],
 	"scripts": {

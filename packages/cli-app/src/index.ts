@@ -4,6 +4,12 @@ import { parseActionCommand, runActionCommand } from "./action-command.js";
 import { parseDebugCommand, runDebugCommand } from "./debug-command.js";
 
 export {
+	type AgentRuntimeBackend,
+	type AgentRuntimeSelection,
+	parseAgentRuntimeSelection,
+	runAgentRuntimeCli,
+} from "./agent-runtime-selection.js";
+export {
 	createGreenfieldRuntimeComposition,
 	type GreenfieldCliSessionOptions,
 	type GreenfieldRuntimeComposition,
@@ -26,6 +32,7 @@ export {
 	prepareGreenfieldImRuntimeHost,
 	runGreenfieldImRuntimeHost,
 } from "./rpc/greenfield-im-runtime-host.js";
+export { installRpcStdoutGuard, type RpcStdoutGuard } from "./rpc/rpc-stdout-guard.js";
 export {
 	type CodingToolsRuntimeComposition,
 	type CodingToolsRuntimeCompositionOptions,

@@ -52,6 +52,10 @@ export interface CodingAgentInitialModelResolution {
 export async function createCodingAgentHostBootstrap(
 	options: CodingAgentHostBootstrapOptions,
 ): Promise<CodingAgentHostBootstrap> {
+	if (options.args.includes("--offline")) {
+		process.env.PI_OFFLINE = "1";
+		process.env.PI_SKIP_VERSION_CHECK = "1";
+	}
 	const cwd = options.cwd ?? process.cwd();
 	const agentDir = options.agentDir ?? getAgentDir();
 	runMigrations(cwd);

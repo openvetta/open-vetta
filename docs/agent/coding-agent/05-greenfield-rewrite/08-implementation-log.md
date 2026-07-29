@@ -85,6 +85,7 @@
 | [75-rpc-host-anti-corruption-layer.md](./08-implementation-log/75-rpc-host-anti-corruption-layer.md) | RPC JSONL/校验/分发解耦、分组 Capability、Legacy Adapter 与无模型协议基线 |
 | [76-profile-aware-rpc-and-greenfield-im-adapter.md](./08-implementation-log/76-profile-aware-rpc-and-greenfield-im-adapter.md) | Profile-aware RPC、Greenfield IM Adapter、事件/Host Tool/路径与释放边界 |
 | [77-greenfield-im-runtime-host-and-session-ownership.md](./08-implementation-log/77-greenfield-im-runtime-host-and-session-ownership.md) | 共享 Host Bootstrap、Greenfield IM Runtime Host、进程级会话所有权与 Legacy fallback |
+| [78-explicit-runtime-selector-and-rpc-executable.md](./08-implementation-log/78-explicit-runtime-selector-and-rpc-executable.md) | 显式 Legacy/Greenfield Selector、独立 RPC 可执行入口、stdout 与 ownership wire 子进程门禁 |
 
 ## 维护约定
 

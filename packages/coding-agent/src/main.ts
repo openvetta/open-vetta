@@ -21,7 +21,7 @@ import { type CreateAgentSessionOptions, createAgentSession } from "./core/sdk.j
 import { SessionLockError, SessionManager } from "./core/session-manager/index.js";
 import { SettingsManager } from "./core/settings-manager.js";
 import { allTools } from "./core/tools/index.js";
-import { createCodingAgentHostBootstrap } from "./host/coding-agent-host-bootstrap.js";
+import { type CodingAgentHostBootstrap, createCodingAgentHostBootstrap } from "./host/coding-agent-host-bootstrap.js";
 import { runPrintMode, runRpcMode } from "./modes/index.js";
 
 /**
@@ -525,7 +525,12 @@ export async function main(args: string[]) {
 		return;
 	}
 
-	const bootstrap = await createCodingAgentHostBootstrap({
+	const bootstrap = await createLegacyAgentBootstrap(args);
+	await runLegacyAgentWithBootstrap(bootstrap);
+}
+
+export async function createLegacyAgentBootstrap(args: string[]): Promise<CodingAgentHostBootstrap> {
+	return createCodingAgentHostBootstrap({
 		args,
 		onSettingsError: ({ scope, error }) => {
 			console.error(chalk.yellow(`Warning (startup, ${scope} settings): ${error.message}`));
@@ -535,6 +540,15 @@ export async function main(args: string[]) {
 			console.error(chalk.red(`Failed to load extension "${path}": ${error}`));
 		},
 	});
+}
+
+/**
+ * 使用已经完成的共享宿主启动资源运行 Legacy Agent。
+ *
+ * Runtime Selector 可以在只加载一次设置、模型与动态资源的前提下选择 Greenfield，
+ * 并在 Greenfield 不兼容旧会话时回退到这里。
+ */
+export async function runLegacyAgentWithBootstrap(bootstrap: CodingAgentHostBootstrap): Promise<void> {
 	const { cwd, parsed, settingsManager, authStorage, modelRegistry, resourceLoader } = bootstrap;
 
 	if (parsed.version) {
