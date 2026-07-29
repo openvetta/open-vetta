@@ -183,22 +183,30 @@ electron-builder 直接吃 base64 形式的 `CSC_LINK` 并自建临时钥匙串�
 拿到 `packages/desktop-app/release/Vetta-<version>.dmg` 后逐条跑：
 
 ```bash
-# 1. 公证票据已钉进 DMG
-xcrun stapler validate release/Vetta-*.dmg
-# 期望：The validate action worked!
-
-# 2. 挂载后检查 app 签名
+# 1. 挂载 DMG
 hdiutil attach release/Vetta-*.dmg
+
+# 2. 公证票据已钉进 app
+xcrun stapler validate /Volumes/Vetta*/Vetta.app
+# 期望：The validate action worked!
+#
+# 注意校验对象是 app 不是 DMG：electron-builder 的顺序是「签 app → 公证 app →
+# 钉票据 → 再打 DMG」，容器本身从未被提交公证，对 DMG 跑这条命令必定报
+# "does not have a ticket stapled to it"，那是预期行为，不是失败。
+# 影响仅限「首次打开 DMG 时完全断网」会多一次 Gatekeeper 警告；
+# app 已钉票据，装好后离线启动不受影响。
+
+# 3. 检查 app 签名
 codesign -dv --verbose=4 /Volumes/Vetta*/Vetta.app
 # 期望：Authority=Developer ID Application: <公司名> (<TeamID>)
 #       flags 里含 runtime（= hardened runtime 生效）
 #       TeamIdentifier=<TeamID>，不是 not set
 
-# 3. 深度校验所有嵌套二进制
+# 4. 深度校验所有嵌套二进制
 codesign --verify --deep --strict --verbose=2 /Volumes/Vetta*/Vetta.app
 # 期望：valid on disk / satisfies its Designated Requirement
 
-# 4. Gatekeeper 放行
+# 5. Gatekeeper 放行
 spctl -a -vvv -t install /Volumes/Vetta*/Vetta.app
 # 期望：accepted，source=Notarized Developer ID
 
