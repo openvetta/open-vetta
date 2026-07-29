@@ -33,18 +33,19 @@ import {
 	type GreenfieldRuntimeStateSource,
 	GreenfieldSessionProjection,
 } from "./greenfield-session-projection.js";
-import type { RuntimeSessionBackend } from "./session-backend.js";
 import type {
+	RuntimeHostSessionAssembly,
+	RuntimeHostSessionAssemblyCandidate,
+	RuntimeSessionBackend,
+} from "./session-backend.js";
+import type {
+	RuntimeSessionBackgroundWorkController,
+	RuntimeSessionConfigurationController,
 	RuntimeSessionContextController,
-	RuntimeSessionCorePorts,
-	RuntimeSessionHistoryController,
-	RuntimeSessionHistoryReader,
-	RuntimeSessionIdentityLifecycle,
-	RuntimeSessionModelController,
-	RuntimeSessionModelView,
+	RuntimeSessionExecutionController,
+	RuntimeSessionHostInteraction,
 	RuntimeSessionState,
 	RuntimeSessionTodoController,
-	RuntimeSessionWorkspaceView,
 } from "./session-ports.js";
 
 export interface GreenfieldPromptPreparationContext {
@@ -73,6 +74,10 @@ export interface GreenfieldRuntimeAssembly {
 	readonly documentParticipants?: readonly GreenfieldRuntimeDocumentParticipant[];
 	readonly todoController?: RuntimeSessionTodoController;
 	readonly contextController?: RuntimeSessionContextController;
+	readonly hostInteraction?: RuntimeSessionHostInteraction;
+	readonly executionController?: RuntimeSessionExecutionController;
+	readonly backgroundWorkController?: RuntimeSessionBackgroundWorkController;
+	readonly configurationController?: RuntimeSessionConfigurationController;
 	/** 由组合根释放 Session 之外的独占资源；共享 Repository 不应在这里关闭。 */
 	dispose?(): Promise<void>;
 }
@@ -96,17 +101,13 @@ export interface GreenfieldRuntimeSessionState {
 }
 
 /** Greenfield 当前真实具备的 RuntimeHost 核心能力；不包含尚未迁移的外围 Port。 */
-export interface GreenfieldRuntimeSessionCoreAssembly {
-	readonly lifecycle: RuntimeSessionIdentityLifecycle;
-	readonly historyReader: RuntimeSessionHistoryReader;
-	readonly historyController: RuntimeSessionHistoryController;
-	readonly modelController: RuntimeSessionModelController;
-	readonly modelView: RuntimeSessionModelView;
-	readonly workspaceView: RuntimeSessionWorkspaceView;
+export type GreenfieldRuntimeSessionCoreAssembly = Pick<
+	RuntimeHostSessionAssembly,
+	"lifecycle" | "historyReader" | "historyController" | "modelController" | "modelView" | "workspaceView" | "corePorts"
+> & {
 	readonly todoController?: RuntimeSessionTodoController;
 	readonly contextController?: RuntimeSessionContextController;
-	readonly corePorts: RuntimeSessionCorePorts;
-}
+};
 
 export class GreenfieldRuntimeSession {
 	private readonly session: AgentSession;
@@ -119,6 +120,10 @@ export class GreenfieldRuntimeSession {
 	private readonly documentParticipants: readonly GreenfieldRuntimeDocumentParticipant[];
 	private readonly todoController: RuntimeSessionTodoController | undefined;
 	private readonly contextController: RuntimeSessionContextController | undefined;
+	private readonly hostInteraction: RuntimeSessionHostInteraction | undefined;
+	private readonly executionController: RuntimeSessionExecutionController | undefined;
+	private readonly backgroundWorkController: RuntimeSessionBackgroundWorkController | undefined;
+	private readonly configurationController: RuntimeSessionConfigurationController | undefined;
 	private readonly disposeRuntime: (() => Promise<void>) | undefined;
 	private disposed = false;
 	private historyMutation = false;
@@ -138,6 +143,10 @@ export class GreenfieldRuntimeSession {
 		this.documentParticipants = assembly.documentParticipants ?? [];
 		this.todoController = assembly.todoController;
 		this.contextController = assembly.contextController;
+		this.hostInteraction = assembly.hostInteraction;
+		this.executionController = assembly.executionController;
+		this.backgroundWorkController = assembly.backgroundWorkController;
+		this.configurationController = assembly.configurationController;
 		const dispose = assembly.dispose;
 		this.disposeRuntime = dispose ? () => dispose.call(assembly) : undefined;
 	}
@@ -335,6 +344,21 @@ export class GreenfieldRuntimeSession {
 					readMessages: () => this.readMessages(),
 				},
 			},
+		};
+	}
+
+	/**
+	 * 暴露给宿主组合根的候选 Assembly。缺失能力保持缺失，由上层完整性门禁决定
+	 * 是否允许接入 RuntimeHost；这里不使用 no-op 伪造功能。
+	 */
+	createRuntimeHostAssemblyCandidate(): RuntimeHostSessionAssemblyCandidate {
+		const { contextController: _contextController, ...coreAssembly } = this.createCoreAssembly();
+		return {
+			...coreAssembly,
+			hostInteraction: this.hostInteraction,
+			executionController: this.executionController,
+			backgroundWorkController: this.backgroundWorkController,
+			configurationController: this.configurationController,
 		};
 	}
 

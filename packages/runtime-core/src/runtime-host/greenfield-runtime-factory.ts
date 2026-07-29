@@ -33,7 +33,13 @@ import type {
 	GreenfieldRuntimeSessionIdentity,
 	GreenfieldRuntimeStateSource,
 } from "./greenfield-session-projection.js";
-import type { RuntimeSessionTodoController } from "./session-ports.js";
+import type {
+	RuntimeSessionBackgroundWorkController,
+	RuntimeSessionConfigurationController,
+	RuntimeSessionExecutionController,
+	RuntimeSessionHostInteraction,
+	RuntimeSessionTodoController,
+} from "./session-ports.js";
 
 export type GreenfieldRuntimeOperation = "create" | "resume";
 
@@ -55,6 +61,10 @@ export interface GreenfieldRuntimeResources {
 	readonly stateSource: GreenfieldRuntimeStateSource;
 	readonly documentParticipants?: readonly GreenfieldRuntimeDocumentParticipant[];
 	readonly todoController?: RuntimeSessionTodoController;
+	readonly hostInteraction?: RuntimeSessionHostInteraction;
+	readonly executionController?: RuntimeSessionExecutionController;
+	readonly backgroundWorkController?: RuntimeSessionBackgroundWorkController;
+	readonly configurationController?: RuntimeSessionConfigurationController;
 	readonly contextRuntime?: ManualContextCompactionRuntime;
 	readonly steeringMode?: SessionInputQueueMode;
 	readonly followUpMode?: SessionInputQueueMode;
@@ -175,6 +185,10 @@ export class ComposedGreenfieldRuntimeFactory<TCreateOptions> implements Greenfi
 				stateSource: resources.stateSource,
 				documentParticipants: resources.documentParticipants,
 				todoController: resources.todoController,
+				hostInteraction: resources.hostInteraction,
+				executionController: resources.executionController,
+				backgroundWorkController: resources.backgroundWorkController,
+				configurationController: resources.configurationController,
 				contextController,
 				dispose: dispose ? () => dispose.call(resources) : undefined,
 			};

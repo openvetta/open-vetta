@@ -78,6 +78,54 @@ export interface RuntimeHostSessionAssembly {
 	readonly corePorts: RuntimeSessionCorePorts;
 }
 
+export const RUNTIME_HOST_SESSION_PORT_NAMES = [
+	"lifecycle",
+	"historyReader",
+	"historyController",
+	"hostInteraction",
+	"executionController",
+	"workspaceView",
+	"backgroundWorkController",
+	"todoController",
+	"configurationController",
+	"modelController",
+	"modelView",
+	"corePorts",
+] as const satisfies readonly (keyof RuntimeHostSessionAssembly)[];
+
+export type RuntimeHostSessionPortName = (typeof RUNTIME_HOST_SESSION_PORT_NAMES)[number];
+
+export type RuntimeHostSessionAssemblyCandidate = Partial<RuntimeHostSessionAssembly>;
+
+export type RuntimeHostSessionAssemblyAssessment =
+	| {
+			readonly ready: true;
+			readonly assembly: RuntimeHostSessionAssembly;
+			readonly missingPorts: readonly [];
+	  }
+	| {
+			readonly ready: false;
+			readonly missingPorts: readonly RuntimeHostSessionPortName[];
+	  };
+
+/**
+ * 检查组合根是否交付了 RuntimeHost 所需的完整 Session Port。
+ *
+ * 这是受信任进程内对象的组合完整性门禁，不负责解析外部 JSON，也不替代各 Port
+ * 自身的行为合同。
+ */
+export function assessRuntimeHostSessionAssembly(
+	candidate: RuntimeHostSessionAssemblyCandidate,
+): RuntimeHostSessionAssemblyAssessment {
+	const missingPorts = RUNTIME_HOST_SESSION_PORT_NAMES.filter((name) => candidate[name] === undefined);
+	if (missingPorts.length > 0) return { ready: false, missingPorts };
+	return {
+		ready: true,
+		assembly: candidate as RuntimeHostSessionAssembly,
+		missingPorts: [],
+	};
+}
+
 /** RuntimeHost 的组合根合同：一次创建同时交付外围句柄与基础能力 Port。 */
 export interface RuntimeHostSessionBackend {
 	createAssembly(request: RuntimeSessionCreateRequest): Promise<RuntimeHostSessionAssembly>;

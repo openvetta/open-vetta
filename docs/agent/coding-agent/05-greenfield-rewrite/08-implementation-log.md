@@ -90,6 +90,7 @@
 | [80-im-sidecar-runtime-opt-in-and-executable-closure.md](./08-implementation-log/80-im-sidecar-runtime-opt-in-and-executable-closure.md) | IM Sidecar Runtime 显式 opt-in、三平台 Selector 入口闭包与实际后端可观察性 |
 | [81-format-neutral-session-catalog-and-lifecycle-routing.md](./08-implementation-log/81-format-neutral-session-catalog-and-lifecycle-routing.md) | Legacy/Greenfield 格式中立会话目录、历史读取与生命周期路由 |
 | [82-session-access-capabilities-and-desktop-open-policy.md](./08-implementation-log/82-session-access-capabilities-and-desktop-open-policy.md) | 格式中立会话访问能力、Desktop 显式打开策略与主进程保护 |
+| [83-runtime-host-assembly-gate-and-desktop-greenfield-candidate.md](./08-implementation-log/83-runtime-host-assembly-gate-and-desktop-greenfield-candidate.md) | RuntimeHost Assembly 完整性门禁、Greenfield 缺口评估与 Desktop 非生产候选组合 |
 
 ## 维护约定
 

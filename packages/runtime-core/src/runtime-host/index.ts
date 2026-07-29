@@ -56,11 +56,15 @@ export {
 export { RuntimeHost } from "./runtime-host.js";
 export type {
 	RuntimeHostSessionAssembly,
+	RuntimeHostSessionAssemblyAssessment,
+	RuntimeHostSessionAssemblyCandidate,
 	RuntimeHostSessionBackend,
+	RuntimeHostSessionPortName,
 	RuntimeSessionAskUserQuestionCapability,
 	RuntimeSessionBackend,
 	RuntimeSessionCreateRequest,
 } from "./session-backend.js";
+export { assessRuntimeHostSessionAssembly, RUNTIME_HOST_SESSION_PORT_NAMES } from "./session-backend.js";
 export { mapRuntimeSessionObservationEvent } from "./session-events.js";
 export type {
 	RuntimeContextCompactionRequest,

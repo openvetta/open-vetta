@@ -35,7 +35,9 @@ import {
 	TurnPipeline,
 } from "../../src/kernel/index.js";
 import {
+	assessRuntimeHostSessionAssembly,
 	type GreenfieldPromptAdapter,
+	type GreenfieldRuntimeAssembly,
 	GreenfieldRuntimeModel,
 	GreenfieldRuntimeSessionBackend,
 	GreenfieldSessionContextController,
@@ -192,6 +194,7 @@ function createBackend(
 	promptAdapter: GreenfieldPromptAdapter = new RecordingPromptAdapter(),
 	dispose = vi.fn(async () => {}),
 	contextRuntime?: ManualContextCompactionRuntime,
+	assemblyOverrides: Partial<GreenfieldRuntimeAssembly> = {},
 ) {
 	return {
 		backend: new GreenfieldRuntimeSessionBackend<TestCreateOptions>({
@@ -243,6 +246,7 @@ function createBackend(
 						contextController,
 						dispose,
 						...details,
+						...assemblyOverrides,
 					};
 				},
 				async resume() {
@@ -380,6 +384,76 @@ describe("GreenfieldRuntimeSessionBackend", () => {
 
 		await assembly.lifecycle.dispose();
 		await expect(session.getMessages()).rejects.toMatchObject({ code: "session_closed" });
+	});
+
+	it("reports missing RuntimeHost ports instead of installing no-op fallbacks", async () => {
+		const { backend } = createBackend(new CompletingTurnEngine());
+		const session = await backend.create({ id: "session-1" });
+
+		const assessment = assessRuntimeHostSessionAssembly(session.createRuntimeHostAssemblyCandidate());
+
+		expect(assessment).toEqual({
+			ready: false,
+			missingPorts: [
+				"hostInteraction",
+				"executionController",
+				"backgroundWorkController",
+				"todoController",
+				"configurationController",
+			],
+		});
+	});
+
+	it("passes the complete RuntimeHost assembly contract when composition supplies every peripheral port", async () => {
+		const bind = vi.fn(async () => {});
+		const setSteeringMode = vi.fn();
+		const peripherals = {
+			hostInteraction: { bind },
+			executionController: {
+				isBusy: () => false,
+				reconfigure: vi.fn(),
+			},
+			backgroundWorkController: {
+				clearFinished: () => 0,
+				killTask: () => false,
+				readTasks: () => [],
+				readSubagents: () => [],
+				interruptSubagent: () => undefined,
+			},
+			todoController: {
+				readItems: () => [],
+				clear: () => true,
+			},
+			configurationController: {
+				setSteeringMode,
+				setFollowUpMode: vi.fn(),
+				reconfigureAgentPlugins: vi.fn(async () => {}),
+				setAgentMode: vi.fn(),
+			},
+		} satisfies Partial<GreenfieldRuntimeAssembly>;
+		const { backend } = createBackend(
+			new CompletingTurnEngine(),
+			new RecordingPromptAdapter(),
+			vi.fn(async () => {}),
+			undefined,
+			peripherals,
+		);
+		const session = await backend.create({ id: "session-1" });
+
+		const assessment = assessRuntimeHostSessionAssembly(session.createRuntimeHostAssemblyCandidate());
+
+		expect(assessment.ready).toBe(true);
+		if (!assessment.ready) throw new Error("Expected a complete RuntimeHost session assembly");
+		await assessment.assembly.hostInteraction.bind({
+			confirm: async () => true,
+			requestSandboxGrant: async () => "allow_once",
+		});
+		assessment.assembly.configurationController.setSteeringMode("all");
+		await assessment.assembly.corePorts.turnControl.prompt({ text: "hello" });
+		expect(bind).toHaveBeenCalledOnce();
+		expect(setSteeringMode).toHaveBeenCalledWith("all");
+		expect(assessment.assembly.historyReader.readHistory()).toHaveLength(2);
+		expect(assessment.assembly.workspaceView.readWorkingDirectory()).toBe("workspace/session-1");
 	});
 
 	it("uses the explicit resume factory path and publishes interrupted recovery", async () => {

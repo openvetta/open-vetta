@@ -99,7 +99,10 @@ export type {
 	RuntimeExecutionModeUpdate,
 	RuntimeHostOptions,
 	RuntimeHostSessionAssembly,
+	RuntimeHostSessionAssemblyAssessment,
+	RuntimeHostSessionAssemblyCandidate,
 	RuntimeHostSessionBackend,
+	RuntimeHostSessionPortName,
 	RuntimeModelCatalog,
 	RuntimeModelCredentialResolver,
 	RuntimeModelSelectionStrategy,
@@ -136,6 +139,7 @@ export type {
 	RuntimeTurnPrompt,
 } from "./runtime-host/index.js";
 export {
+	assessRuntimeHostSessionAssembly,
 	CatalogRoutedRuntimeSessionAccessResolver,
 	ComposedGreenfieldRuntimeFactory,
 	CompositeRuntimeSessionCatalog,
@@ -147,6 +151,7 @@ export {
 	GreenfieldSessionProjection,
 	mapGreenfieldKernelEventToSessionEvents,
 	mapRuntimeSessionObservationEvent,
+	RUNTIME_HOST_SESSION_PORT_NAMES,
 	RuntimeHost,
 } from "./runtime-host/index.js";
 export type {

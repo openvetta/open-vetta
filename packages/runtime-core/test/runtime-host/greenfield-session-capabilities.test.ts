@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { RuntimeHostSessionAssembly } from "../../src/runtime-host/index.js";
+import { RUNTIME_HOST_SESSION_PORT_NAMES, type RuntimeHostSessionAssembly } from "../../src/runtime-host/index.js";
 
 type CapabilityStatus = "implemented" | "missing";
 
@@ -24,6 +24,7 @@ const GREENFIELD_CAPABILITY_MATRIX = {
 
 describe("Greenfield RuntimeHost capability matrix", () => {
 	it("exposes only genuinely implemented assembly capabilities", () => {
+		expect(Object.keys(GREENFIELD_CAPABILITY_MATRIX)).toEqual(RUNTIME_HOST_SESSION_PORT_NAMES);
 		const implemented = Object.entries(GREENFIELD_CAPABILITY_MATRIX)
 			.filter(([, status]) => status === "implemented")
 			.map(([name]) => name);
