@@ -42,6 +42,17 @@ desktop/stable/
 
 工作流：`.github/workflows/desktop-release.yml`。推送 `v*` tag 或手动触发后，Windows、macOS、Linux runner 分别构建，全部成功后才发布。
 
+标准 `v*` tag 属于 desktop-app，版本源是 `packages/desktop-app/package.json`，与 coding-agent 的版本无关。桌面端发布只使用以下命令：
+
+```bash
+bun run release:desktop:patch
+bun run release:desktop:minor
+```
+
+命令会先执行全仓格式检查、desktop-app 类型检查与质量守卫，只更新 desktop-app 版本、desktop-app Changelog 与锁文件，然后创建并原子推送 `v<version>` tag。不要用根目录的 `release:patch` / `release:minor` 发布桌面端；那是另一套 monorepo 包发布流程。
+
+`workflow_dispatch` 要求工作流文件存在于 GitHub 默认分支，但运行时可以在「运行工作流」下拉框选择其它分支。`push.tags` 不受这个限制，因此从包含该工作流的提交创建并推送 `v*` tag 也会触发桌面发版。
+
 官方 R2 仓库变量：
 
 ```text
