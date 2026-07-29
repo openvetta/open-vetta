@@ -9,12 +9,12 @@ import {
 	defaultImConversationCwdAtom,
 	expandedBatchProjectsAtom,
 	inlineFilePreviewAtom,
-	isImSession,
 } from "@shared/store/atoms";
 import { useMatches, useNavigate } from "@tanstack/react-router";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { resolveDesktopSessionOpenTarget } from "@/shared/session-access";
 import { useProjects } from "../../../../hooks/useProjects";
 import type { BatchProjectEntry, ProjectsPanelModel, ProjectsPanelProps } from "./types";
 
@@ -138,13 +138,15 @@ export function useProjectsPanelModel({
 	const selectSession = useCallback(
 		(cwd: string, path: string) => {
 			const session = sessionsMap.get(cwd)?.find((item) => item.path === path);
-			if (session && isImSession(session, imCwd)) {
+			const target = session?.access ? resolveDesktopSessionOpenTarget(session.access) : "interactive";
+			if (target === "viewer") {
 				void navigate({ to: "/viewer/$path", params: { path: encodeURIComponent(path) } });
 				return;
 			}
+			if (target === "unavailable") return;
 			void onOpenSession(cwd, path);
 		},
-		[onOpenSession, sessionsMap, navigate, imCwd],
+		[onOpenSession, sessionsMap, navigate],
 	);
 
 	const selectBatchSession = useCallback(
@@ -159,16 +161,16 @@ export function useProjectsPanelModel({
 
 	const defaultSelectSession = useCallback(
 		(cwd: string, path: string) => {
-			if (imCwd) {
-				const prefix = imCwd.endsWith("/") ? imCwd : `${imCwd}/`;
-				if (path.startsWith(prefix)) {
-					void navigate({ to: "/viewer/$path", params: { path: encodeURIComponent(path) } });
-					return;
-				}
+			const session = sessionsMap.get(cwd)?.find((item) => item.path === path);
+			const target = session?.access ? resolveDesktopSessionOpenTarget(session.access) : "interactive";
+			if (target === "viewer") {
+				void navigate({ to: "/viewer/$path", params: { path: encodeURIComponent(path) } });
+				return;
 			}
+			if (target === "unavailable") return;
 			void onOpenSession(cwd, path);
 		},
-		[onOpenSession, navigate, imCwd],
+		[onOpenSession, navigate, sessionsMap],
 	);
 
 	const deletePanelSession = useCallback(

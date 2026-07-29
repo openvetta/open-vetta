@@ -11,6 +11,7 @@ import {
 } from "@vetta/coding-agent/runtime-host";
 import { describe, expect, it, vi } from "vitest";
 import {
+	CatalogRoutedRuntimeSessionAccessResolver,
 	CompositeRuntimeSessionCatalog,
 	CompositeRuntimeSessionFileHistoryReader,
 	RuntimeHost,
@@ -114,6 +115,17 @@ describe("runtime host process services", () => {
 			deleteSessionArtifacts: greenfieldDelete,
 		};
 		const catalog = new CompositeRuntimeSessionCatalog([legacyCatalog, greenfieldCatalog]);
+		const accessResolver = new CatalogRoutedRuntimeSessionAccessResolver([
+			{
+				catalog: legacyCatalog,
+				access: { readHistory: true, interactiveResume: true, rename: true, delete: true },
+			},
+			{
+				catalog: greenfieldCatalog,
+				access: { readHistory: true, interactiveResume: false, rename: false, delete: true },
+			},
+		]);
+		const host = new RuntimeHost({ sessionCatalog: catalog, sessionAccessResolver: accessResolver });
 
 		expect(await catalog.listProjects()).toEqual([
 			{ cwd: "C:/other", sessionCount: 1 },
@@ -125,6 +137,18 @@ describe("runtime host process services", () => {
 		expect(greenfieldRename).toHaveBeenCalledOnce();
 		expect(greenfieldDelete).toHaveBeenCalledOnce();
 		expect(legacyRename).not.toHaveBeenCalled();
+		expect(await host.resolveSessionAccess("C:/sessions/greenfield.conversation.jsonl")).toEqual({
+			readHistory: true,
+			interactiveResume: false,
+			rename: false,
+			delete: true,
+		});
+		await expect(host.renameSession("C:/sessions/greenfield.conversation.jsonl", "blocked")).rejects.toMatchObject({
+			code: "INVALID_REQUEST",
+		});
+		await host.deleteSession("C:/sessions/greenfield.conversation.jsonl");
+		expect(greenfieldDelete).toHaveBeenCalledTimes(2);
+		expect(await host.resolveSessionAccess("C:/sessions/unknown.data")).toBeUndefined();
 
 		const reader = new CompositeRuntimeSessionFileHistoryReader([
 			{ canRead: (path) => path.endsWith("legacy.jsonl"), read: () => ({ history: [] }) },

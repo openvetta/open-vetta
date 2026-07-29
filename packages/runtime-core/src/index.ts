@@ -103,6 +103,9 @@ export type {
 	RuntimeModelCatalog,
 	RuntimeModelCredentialResolver,
 	RuntimeModelSelectionStrategy,
+	RuntimeSessionAccess,
+	RuntimeSessionAccessResolver,
+	RuntimeSessionAccessRoute,
 	RuntimeSessionAskUserQuestionCapability,
 	RuntimeSessionBackend,
 	RuntimeSessionBackgroundWorkController,
@@ -133,6 +136,7 @@ export type {
 	RuntimeTurnPrompt,
 } from "./runtime-host/index.js";
 export {
+	CatalogRoutedRuntimeSessionAccessResolver,
 	ComposedGreenfieldRuntimeFactory,
 	CompositeRuntimeSessionCatalog,
 	CompositeRuntimeSessionFileHistoryReader,

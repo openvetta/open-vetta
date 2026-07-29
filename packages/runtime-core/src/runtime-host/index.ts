@@ -92,11 +92,15 @@ export type {
 	RuntimeTurnPrompt,
 } from "./session-ports.js";
 export type {
+	RuntimeSessionAccess,
+	RuntimeSessionAccessResolver,
+	RuntimeSessionAccessRoute,
 	RuntimeSessionCatalog,
 	RuntimeSessionFileHistoryReader,
 	RuntimeSharedModelController,
 } from "./session-services.js";
 export {
+	CatalogRoutedRuntimeSessionAccessResolver,
 	CompositeRuntimeSessionCatalog,
 	CompositeRuntimeSessionFileHistoryReader,
 } from "./session-services.js";

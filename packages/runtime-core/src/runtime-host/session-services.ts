@@ -22,6 +22,39 @@ export interface RuntimeSessionFileHistoryReader {
 	read(sessionPath: string): { history: HistoryEntry[] };
 }
 
+/** 宿主针对一个既有会话实际暴露的能力；不包含存储格式或 Backend 名称。 */
+export interface RuntimeSessionAccess {
+	readonly readHistory: boolean;
+	readonly interactiveResume: boolean;
+	readonly rename: boolean;
+	readonly delete: boolean;
+}
+
+export interface RuntimeSessionAccessResolver {
+	resolve(sessionPath: string): Promise<RuntimeSessionAccess | undefined>;
+}
+
+export interface RuntimeSessionAccessRoute {
+	readonly catalog: RuntimeSessionCatalog;
+	readonly access: RuntimeSessionAccess;
+}
+
+/** 由 Composition Root 把文件归属映射为宿主能力，Catalog 本身不决定交互策略。 */
+export class CatalogRoutedRuntimeSessionAccessResolver implements RuntimeSessionAccessResolver {
+	constructor(private readonly routes: readonly RuntimeSessionAccessRoute[]) {
+		if (routes.length === 0) {
+			throw new Error("CatalogRoutedRuntimeSessionAccessResolver requires at least one route");
+		}
+	}
+
+	async resolve(sessionPath: string): Promise<RuntimeSessionAccess | undefined> {
+		for (const route of this.routes) {
+			if (await route.catalog.ownsSession(sessionPath)) return { ...route.access };
+		}
+		return undefined;
+	}
+}
+
 /** 合并多个存储格式的离线目录，并按文件归属路由写操作。 */
 export class CompositeRuntimeSessionCatalog implements RuntimeSessionCatalog {
 	constructor(private readonly catalogs: readonly RuntimeSessionCatalog[]) {

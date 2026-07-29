@@ -44,6 +44,8 @@ import type {
 	RuntimeSubagentSnapshot,
 } from "./session-ports.js";
 import type {
+	RuntimeSessionAccess,
+	RuntimeSessionAccessResolver,
 	RuntimeSessionCatalog,
 	RuntimeSessionFileHistoryReader,
 	RuntimeSharedModelController,
@@ -94,6 +96,7 @@ export class RuntimeHost implements SessionFacade {
 	private readonly sessionBackend: RuntimeHostSessionBackend | undefined;
 	private readonly sessionCatalog: RuntimeSessionCatalog | undefined;
 	private readonly sessionFileHistoryReader: RuntimeSessionFileHistoryReader | undefined;
+	private readonly sessionAccessResolver: RuntimeSessionAccessResolver | undefined;
 	private readonly sharedModelController: RuntimeSharedModelController | undefined;
 	private userConfirmationHandler:
 		| ((request: RuntimeUserConfirmationRequest, signal?: AbortSignal) => Promise<boolean>)
@@ -117,6 +120,7 @@ export class RuntimeHost implements SessionFacade {
 		this.serverUrl = options.serverUrl;
 		this.sessionCatalog = options.sessionCatalog;
 		this.sessionFileHistoryReader = options.sessionFileHistoryReader;
+		this.sessionAccessResolver = options.sessionAccessResolver;
 		this.sharedModelController = options.sharedModelController;
 		this.sessionBackend = options.sessionBackend;
 		this.userConfirmationHandler = options.userConfirmationHandler;
@@ -826,6 +830,11 @@ export class RuntimeHost implements SessionFacade {
 		return this.requireSessionFileHistoryReader().read(path);
 	}
 
+	/** Resolve host capabilities for an existing session without opening or locking it. */
+	resolveSessionAccess(sessionPath: string): Promise<RuntimeSessionAccess | undefined> {
+		return this.sessionAccessResolver?.resolve(resolvePath(sessionPath)) ?? Promise.resolve(undefined);
+	}
+
 	/**
 	 * Prepare re-edit of a user message (leaf → parent). Returns extracted text.
 	 * Does not send a prompt; the host should prompt after the user edits.
@@ -871,6 +880,7 @@ export class RuntimeHost implements SessionFacade {
 	}
 
 	async deleteSession(sessionPath: string): Promise<void> {
+		await this.assertSessionCapability(sessionPath, "delete");
 		// If we currently hold this session open, dispose it first so the file
 		// lock is released and the in-memory handle does not outlive the file.
 		const existing = this.findHandleBySessionPath(sessionPath);
@@ -887,6 +897,7 @@ export class RuntimeHost implements SessionFacade {
 	}
 
 	async renameSession(sessionPath: string, name: string): Promise<void> {
+		await this.assertSessionCapability(sessionPath, "rename");
 		// Prefer the live handle if we already hold one — opening a second
 		// SessionManager on the same file would deadlock against our own lock.
 		const existing = this.findHandleBySessionPath(sessionPath);
@@ -1063,6 +1074,13 @@ export class RuntimeHost implements SessionFacade {
 			);
 		}
 		return this.sessionFileHistoryReader;
+	}
+
+	private async assertSessionCapability(sessionPath: string, capability: "rename" | "delete"): Promise<void> {
+		if (!this.sessionAccessResolver) return;
+		const access = await this.sessionAccessResolver.resolve(resolvePath(sessionPath));
+		if (access?.[capability]) return;
+		throw runtimeError("INVALID_REQUEST", `Session does not support ${capability}: ${sessionPath}`, false, "runtime");
 	}
 
 	private detachSessionEventStreams(sessionId: string): void {

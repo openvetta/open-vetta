@@ -12,10 +12,10 @@ import type {
 	SessionConfig,
 	SessionEvent,
 	SessionExecutionMode,
-	SessionHistoryInfo,
 	SessionStateSnapshot,
 	SettingsPatch,
 } from "../../../../runtime-core/src/index.js";
+import type { DesktopSessionHistoryInfo } from "../../shared/session-access.js";
 
 /** 工作模式（agent_mode 轴，见 ADR-0046）。 */
 export type AgentMode = "work" | "coding";
@@ -45,7 +45,7 @@ export interface DesktopUserQuestionResolvedEvent {
 export interface DesktopSessionApi {
 	create(config: SessionConfig | undefined, kind: DesktopSessionKind): Promise<{ sessionId: string; cwd?: string }>;
 	listProjects(): Promise<ProjectInfo[]>;
-	listSessions(cwd: string): Promise<SessionHistoryInfo[]>;
+	listSessions(cwd: string): Promise<DesktopSessionHistoryInfo[]>;
 	onSessionsChanged(
 		handler: (payload: {
 			cwd: string;

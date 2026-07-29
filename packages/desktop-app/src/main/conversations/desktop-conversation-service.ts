@@ -1,11 +1,7 @@
 import { stat } from "node:fs/promises";
 import { extname, isAbsolute, resolve } from "node:path";
-import type {
-	PromptRequest,
-	RuntimeHost,
-	SessionConfig,
-	SessionHistoryInfo,
-} from "../../../../runtime-core/src/index.js";
+import type { PromptRequest, RuntimeHost, SessionConfig } from "../../../../runtime-core/src/index.js";
+import { type DesktopSessionHistoryInfo, UNAVAILABLE_RUNTIME_SESSION_ACCESS } from "../../shared/session-access.js";
 import { monitorRuntimeSession } from "../app-monitor/app-monitor-service.js";
 import { allowProjectRoot, readDesktopConfig } from "../ipc/fs.js";
 import { getAppLogger } from "../logger.js";
@@ -31,6 +27,7 @@ export type DesktopConversationErrorCode =
 	| "SESSION_NOT_FOUND"
 	| "SESSION_BUSY"
 	| "SESSION_LOCKED"
+	| "SESSION_READ_ONLY"
 	| "TURN_TIMEOUT"
 	| "TURN_ABORTED"
 	| "TURN_FAILED";
@@ -176,6 +173,17 @@ export class DesktopConversationService {
 				sessionPath: absolutePath,
 			});
 		}
+		const access = await this.runtime.resolveSessionAccess(absolutePath);
+		if (!access) {
+			throw new DesktopConversationError("INVALID_SESSION_PATH", "Session path is not owned by this runtime.", {
+				sessionPath: absolutePath,
+			});
+		}
+		if (!access.interactiveResume) {
+			throw new DesktopConversationError("SESSION_READ_ONLY", "Session only supports read-only history access.", {
+				sessionPath: absolutePath,
+			});
+		}
 		const header = await readDesktopSessionHeader(absolutePath);
 		if (!header) {
 			throw new DesktopConversationError("INVALID_SESSION_PATH", "Session file has no valid Vetta session header.", {
@@ -193,13 +201,19 @@ export class DesktopConversationService {
 		);
 	}
 
-	async listSessions(cwd: string): Promise<SessionHistoryInfo[]> {
+	async listSessions(cwd: string): Promise<DesktopSessionHistoryInfo[]> {
 		if (!isAbsolute(cwd)) {
 			throw new DesktopConversationError("INVALID_SESSION_PATH", "cwd must be an absolute path.");
 		}
 		const absoluteCwd = resolve(cwd);
 		allowProjectRoot(absoluteCwd);
-		return this.runtime.listSessions(absoluteCwd, resolveSessionDirForCwd(absoluteCwd));
+		const sessions = await this.runtime.listSessions(absoluteCwd, resolveSessionDirForCwd(absoluteCwd));
+		return Promise.all(
+			sessions.map(async (session) => ({
+				...session,
+				access: (await this.runtime.resolveSessionAccess(session.path)) ?? UNAVAILABLE_RUNTIME_SESSION_ACCESS,
+			})),
+		);
 	}
 
 	async runTurn(options: RunDesktopConversationTurnOptions): Promise<DesktopConversationTurnResult> {

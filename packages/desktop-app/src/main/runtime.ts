@@ -7,6 +7,7 @@ import {
 	FileConversationRuntimeSessionFileHistoryReader,
 } from "@vetta/runtime-storage/conversation";
 import {
+	CatalogRoutedRuntimeSessionAccessResolver,
 	CompositeRuntimeSessionCatalog,
 	CompositeRuntimeSessionFileHistoryReader,
 	RuntimeHost,
@@ -102,6 +103,7 @@ export function getSharedRuntime(): RuntimeHost {
 		if (!legacyOptions.sessionCatalog || !legacyOptions.sessionFileHistoryReader) {
 			throw new Error("Legacy RuntimeHost composition must provide session services");
 		}
+		const legacyCatalog = legacyOptions.sessionCatalog;
 		const conversationCatalog = new FileConversationRuntimeSessionCatalog({
 			roots: [
 				{
@@ -112,10 +114,30 @@ export function getSharedRuntime(): RuntimeHost {
 		});
 		sharedRuntime = new RuntimeHost({
 			...legacyOptions,
-			sessionCatalog: new CompositeRuntimeSessionCatalog([legacyOptions.sessionCatalog, conversationCatalog]),
+			sessionCatalog: new CompositeRuntimeSessionCatalog([legacyCatalog, conversationCatalog]),
 			sessionFileHistoryReader: new CompositeRuntimeSessionFileHistoryReader([
 				legacyOptions.sessionFileHistoryReader,
 				new FileConversationRuntimeSessionFileHistoryReader(),
+			]),
+			sessionAccessResolver: new CatalogRoutedRuntimeSessionAccessResolver([
+				{
+					catalog: legacyCatalog,
+					access: {
+						readHistory: true,
+						interactiveResume: true,
+						rename: true,
+						delete: true,
+					},
+				},
+				{
+					catalog: conversationCatalog,
+					access: {
+						readHistory: true,
+						interactiveResume: false,
+						rename: true,
+						delete: true,
+					},
+				},
 			]),
 		});
 	}

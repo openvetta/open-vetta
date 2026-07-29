@@ -26,6 +26,7 @@ import type {
 	RuntimeSessionWorkspaceView,
 } from "./session-ports.js";
 import type {
+	RuntimeSessionAccessResolver,
 	RuntimeSessionCatalog,
 	RuntimeSessionFileHistoryReader,
 	RuntimeSharedModelController,
@@ -100,6 +101,8 @@ export interface RuntimeHostOptions {
 	sessionCatalog?: RuntimeSessionCatalog;
 	/** 不获取写锁的同步会话文件读取器。 */
 	sessionFileHistoryReader?: RuntimeSessionFileHistoryReader;
+	/** 既有会话文件到宿主可用能力的显式映射。 */
+	sessionAccessResolver?: RuntimeSessionAccessResolver;
 	/** 进程级共享模型资源。 */
 	sharedModelController?: RuntimeSharedModelController;
 	getDefaultExecutionMode?: () => SessionExecutionMode | Promise<SessionExecutionMode>;
