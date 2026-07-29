@@ -403,9 +403,7 @@ for (const target of resolveCliAppCompileTargets()) {
 	mkdirSync(stagedCliAppBinDir, { recursive: true });
 	console.log(`[prepare-pack] compiling vetta CLI (${target.platformTag}) -> ${stagedCliAppBinary}`);
 	execFileSync(process.platform === "win32" ? "bun.exe" : "bun", [
-		"build",
-		join(cliAppDir, "src", "cli.ts"),
-		"--compile",
+		join(cliAppDir, "scripts", "compile-standalone.mjs"),
 		"--target",
 		target.bunTarget,
 		"--outfile",

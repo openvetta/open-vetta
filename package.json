@@ -54,6 +54,7 @@
 		"verify:ui:pw": "bun run --cwd packages/desktop-app verify:ui:pw",
 		"verify:ui:detach": "bun run --cwd packages/desktop-app verify:ui:detach",
 		"verify:ui:debug": "bun run --cwd packages/desktop-app verify:ui:debug",
+		"verify:artifact:installed": "bun run --cwd packages/cli-app verify:artifact:installed",
 		"check:lint": "bunx @biomejs/biome check --error-on-warnings .",
 		"check:lint:fix": "bunx @biomejs/biome check --write --error-on-warnings .",
 		"check:types": "tsgo --noEmit && bun run --cwd packages/cli-app typecheck && bunx tsc --noEmit -p packages/desktop-app/tsconfig.json && bun run --cwd packages/admin check",

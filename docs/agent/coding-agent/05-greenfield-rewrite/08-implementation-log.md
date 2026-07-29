@@ -103,6 +103,7 @@
 | [93-real-desktop-process-runtime-canary.md](./08-implementation-log/93-real-desktop-process-runtime-canary.md) | 真实 Desktop 主进程 Greenfield Canary、CLI 会话闭环、优雅退出与取消清理门禁 |
 | [94-desktop-runtime-consumer-lifecycle.md](./08-implementation-log/94-desktop-runtime-consumer-lifecycle.md) | Desktop 交互/Scheduler/Batch 多消费者共存、异步合同与进程级退出所有权门禁 |
 | [95-runtime-composition-package-and-artifact-closure.md](./08-implementation-log/95-runtime-composition-package-and-artifact-closure.md) | Greenfield Composition Root 归位、CLI 兼容边界与独立 `dist` 产物闭包 |
+| [96-installed-artifact-and-process-restart-gate.md](./08-implementation-log/96-installed-artifact-and-process-restart-gate.md) | 独立安装 CLI 产物、宿主能力注入与跨进程会话恢复门禁 |
 
 ## 维护约定
 

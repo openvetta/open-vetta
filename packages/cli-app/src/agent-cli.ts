@@ -1,6 +1,3 @@
-import { parseAgentRuntimeSelection, runAgentRuntimeCli } from "./agent-runtime-selection.js";
-import { installRpcStdoutGuard } from "./rpc/rpc-stdout-guard.js";
+import { runAgentCli } from "./run-agent-cli.js";
 
-const args = process.argv.slice(2);
-if (parseAgentRuntimeSelection(args).backend === "greenfield-im") installRpcStdoutGuard();
-await runAgentRuntimeCli(args);
+await runAgentCli(process.argv.slice(2));

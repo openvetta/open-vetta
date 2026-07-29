@@ -14,7 +14,8 @@
 		"clean": "rm -rf dist",
 		"build": "tsgo -p tsconfig.build.json",
 		"typecheck": "tsgo --noEmit -p tsconfig.json",
-		"test": "bunx vitest --run"
+		"test": "bunx vitest --run",
+		"verify:artifact:installed": "bunx vitest --run test/installed-artifact-runtime.test.ts"
 	},
 	"dependencies": {
 		"@vetta/action-rpc": "workspace:*",
