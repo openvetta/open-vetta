@@ -161,22 +161,29 @@ CI 上 `CSC_LINK` 可以直接放 base64：`export CSC_LINK="$(base64 -i develop
 
 ---
 
-### 4.1 CI（GitHub Actions）
+### 4.1 换一台 Mac 打包
 
-`.github/workflows/desktop-mac-release.yml`，**只在推 `v*` tag 时触发**，arm64 / x64 两个架构并行，各自签名+公证后把产物挂到**草稿** Release 上。
+`mac-signing.env` 存的是路径不是凭据本体，换机器要带的是这三样：
 
-需要在仓库 Settings → Secrets and variables → Actions 配置 6 个 Secret：
-
-| Secret | 值 |
+| 项 | 说明 |
 |---|---|
-| `MAC_CSC_LINK` | `base64 -i developer-id.p12 \| pbcopy` |
-| `MAC_CSC_KEY_PASSWORD` | 导出 `.p12` 时设的密码 |
-| `APPLE_TEAM_ID` | 10 位团队 ID |
-| `APPLE_API_ISSUER` | Issuer ID（UUID） |
-| `APPLE_API_KEY_ID` | Key ID（10 位） |
-| `APPLE_API_KEY_P8_BASE64` | `base64 -i AuthKey_<KeyID>.p8 \| pbcopy` |
+| `developer-id.p12` | 签名私钥 |
+| `AuthKey_<KeyID>.p8` | 公证密钥 |
+| `~/.config/vetta/mac-signing.env` | 复制过去，`VETTA_SIGNING_DIR` 改成新机器上的实际目录 |
 
-electron-builder 直接吃 base64 形式的 `CSC_LINK` 并自建临时钥匙串，所以 CI 上不需要往登录钥匙串导任何东西；`.p8` 因为必须是文件路径，由 workflow 解码到 `$RUNNER_TEMP`。
+凭据放在移动硬盘、且挂载点相同的话，env 文件一个字都不用改。
+
+新机器还需要：Xcode Command Line Tools（`codesign` / `notarytool` / `swiftc` / `osacompile`）、Bun、Node、Go，以及 Apple 中间证书（缺了报 `0 valid identities`，见故障排查）。
+
+就绪自检：
+
+```bash
+source ~/.config/vetta/mac-signing.env      # 不报「找不到 ...」= 路径对
+security find-identity -v -p codesigning    # 1 valid identity
+xcrun notarytool history --key "$APPLE_API_KEY" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER"
+```
+
+> 发版目前走本地打包，没有 CI 流水线。私有仓库的 GitHub macOS runner 按 10 倍系数计费，而公证有 5～30 分钟纯挂机等待，单次发版就要吃掉大半个月免费额度，不划算。将来要接 CI 的话，需要的 Secret 就是本节 4 的那几个环境变量（`.p12` / `.p8` 转 base64）。
 
 ## 5. 验证
 
