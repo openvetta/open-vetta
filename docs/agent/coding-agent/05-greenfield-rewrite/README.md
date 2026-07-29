@@ -44,7 +44,7 @@
 8. [实施日志](./08-implementation-log.md)
    - 索引；每轮实施单独成文，见 [`08-implementation-log/`](./08-implementation-log/)。
    - 按实施轮次记录实际修改、验证结果、未完成项和下一步。
-   - 最新记录：[第 92 轮：CLI 驱动的 Desktop Runtime Canary](./08-implementation-log/92-cli-driven-desktop-runtime-canary.md)。
+   - 最新记录：[第 93 轮：真实 Desktop 进程 Runtime Canary](./08-implementation-log/93-real-desktop-process-runtime-canary.md)。
 9. [行为兼容性审计](./09-behavior-compatibility-audit.md)
    - 审计已实施模块与旧行为的差距。
    - 定义旧新差分测试和迁移 Gate。

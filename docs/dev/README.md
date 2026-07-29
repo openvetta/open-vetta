@@ -72,6 +72,28 @@ bun run verify:ui:debug -- <Debug CLI 参数>
 
 Debug 返回值用于验证业务执行结果，Playwright 用于验证结果是否正确呈现在 UI 中，两者不能互相替代。
 
+## Greenfield Runtime 进程级 Canary
+
+需要验证真实 Desktop 主进程中的 Greenfield Runtime 时，使用隔离 Canary 模式启动：
+
+```powershell
+bun run verify:ui:start -- --runtime-canary greenfield
+bun run verify:ui:status
+bun run verify:ui:debug -- runtime-canary
+```
+
+`runtime-canary` 会通过独立 Vetta CLI 依次创建、继续、列举、等待问题并中止会话，随后请求
+Desktop 优雅退出。命令成功返回前还会验证：
+
+- 会话文件已经持久化；
+- Session 锁已经释放；
+- Debug RPC endpoint 已删除；
+- 本地确定性 Provider 已停止；
+- Desktop 退出码为 `0`。
+
+Canary 使用独立的 `VETTA_HOME`、Coding Agent 目录、工作区和本地 Provider，不读取或修改用户的
+真实模型、认证及会话数据。该命令会主动结束验证实例；完成后不需要再执行 `verify:ui:stop`。
+
 ## 定位和断言规则
 
 - 优先使用可访问角色、可访问名称和明确的容器范围。

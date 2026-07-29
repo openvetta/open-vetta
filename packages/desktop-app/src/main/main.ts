@@ -670,7 +670,14 @@ if (!gotSingleLock) {
 			localRpcServer = await startDesktopLocalRpcServer(
 				{
 					actions: createActionRpcRuntime(actionSystem.runtime),
-					debug: app.isPackaged ? undefined : createDebugRpcRuntime(createAppDebugRuntime({ rendererCdp })),
+					debug: app.isPackaged
+						? undefined
+						: createDebugRpcRuntime(
+								createAppDebugRuntime({
+									rendererCdp,
+									requestQuit: () => app.quit(),
+								}),
+							),
 				},
 				{
 					endpointFilePath: getLocalRpcServerEndpointFilePath(),

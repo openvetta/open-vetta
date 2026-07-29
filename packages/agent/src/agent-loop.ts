@@ -230,6 +230,12 @@ async function runLoop(
 
 				stream.push({ type: "turn_end", message, toolResults });
 
+				if (signal?.aborted) {
+					stream.push({ type: "agent_end", messages: newMessages });
+					stream.end(newMessages);
+					return;
+				}
+
 				if (!hasMoreToolCalls && config.contextCheckpoints) {
 					const result = await requestContextCheckpoint(
 						"assistant_result",

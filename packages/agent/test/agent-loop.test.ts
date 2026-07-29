@@ -354,6 +354,55 @@ describe("agentLoop with AgentMessage", () => {
 		}
 	});
 
+	it("ends after an active tool resolves an aborted turn", async () => {
+		const controller = new AbortController();
+		const toolSchema = Type.Object({});
+		const tool: AgentTool<typeof toolSchema, Record<string, never>> = {
+			name: "wait",
+			label: "Wait",
+			description: "Wait for cancellation",
+			parameters: toolSchema,
+			async execute() {
+				controller.abort();
+				return {
+					content: [{ type: "text", text: "cancelled" }],
+					details: {},
+				};
+			},
+		};
+		let modelCalls = 0;
+		const events: AgentEvent[] = [];
+		const stream = agentLoop(
+			[createUserMessage("wait")],
+			{ systemPrompt: "", messages: [], tools: [tool] },
+			{ model: createModel(), convertToLlm: identityConverter },
+			controller.signal,
+			() => {
+				modelCalls += 1;
+				const response = new MockAssistantStream();
+				queueMicrotask(() => {
+					response.push({
+						type: "done",
+						reason: "toolUse",
+						message: createAssistantMessage(
+							[{ type: "toolCall", id: "tool-1", name: "wait", arguments: {} }],
+							"toolUse",
+						),
+					});
+				});
+				return response;
+			},
+		);
+
+		for await (const event of stream) {
+			events.push(event);
+		}
+
+		expect(modelCalls).toBe(1);
+		expect(events.at(-1)?.type).toBe("agent_end");
+		expect((await stream.result()).map(({ role }) => role)).toEqual(["user", "assistant", "toolResult"]);
+	});
+
 	it("should inject queued messages and skip remaining tool calls", async () => {
 		const toolSchema = Type.Object({ value: Type.String() });
 		const executed: string[] = [];

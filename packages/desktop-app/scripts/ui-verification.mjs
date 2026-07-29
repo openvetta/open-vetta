@@ -14,7 +14,9 @@ const runtimeDir = join(tmpdir(), "vetta-ui-verification", workspaceId);
 const statePath = join(runtimeDir, "host.json");
 const artifactDir = join(runtimeDir, "artifacts");
 const cliPath = join(repoRoot, "packages", "cli-app", "src", "cli.ts");
-const verificationEnv = {
+const runtimeCanaryProviderPath = join(desktopRoot, "scripts", "runtime-canary-provider.ts");
+const runtimeCanaryRunnerPath = join(desktopRoot, "scripts", "runtime-canary-runner.ts");
+const baseVerificationEnv = {
 	...process.env,
 	VETTA_CONFIG_DIR: configDir,
 	VETTA_THEME_DEV_SERVER: "0",
@@ -25,11 +27,22 @@ function printJson(value) {
 	process.stdout.write(`${JSON.stringify(value)}\n`);
 }
 
-function readUiInfo() {
+function resolveVerificationEnv(state = readState()) {
+	const runtimeCanary = state?.runtimeCanary;
+	if (!runtimeCanary) return baseVerificationEnv;
+	return {
+		...baseVerificationEnv,
+		VETTA_CODING_AGENT_DIR: runtimeCanary.agentDir,
+		VETTA_DESKTOP_AGENT_RUNTIME: runtimeCanary.mode,
+		VETTA_HOME: runtimeCanary.vettaHome,
+	};
+}
+
+function readUiInfo(state = readState()) {
 	const result = spawnSync("bun", [cliPath, "debug", "run", "ui.info"], {
 		cwd: repoRoot,
 		encoding: "utf8",
-		env: verificationEnv,
+		env: resolveVerificationEnv(state),
 	});
 	try {
 		return JSON.parse(result.stdout.trim());
@@ -81,7 +94,7 @@ async function findFreePort() {
 
 function statusResult() {
 	const state = readState();
-	const uiInfo = readUiInfo();
+	const uiInfo = readUiInfo(state);
 	return {
 		ok: uiInfo.ok === true,
 		running: uiInfo.ok === true && uiInfo.result?.reachable === true,
@@ -90,6 +103,13 @@ function statusResult() {
 		configDir,
 		artifactDir,
 		hostPid: state?.hostPid ?? null,
+		runtimeCanary: state?.runtimeCanary
+			? {
+					mode: state.runtimeCanary.mode,
+					workspace: state.runtimeCanary.workspace,
+					providerPid: state.runtimeCanary.providerPid,
+				}
+			: null,
 		ui: uiInfo.ok === true ? uiInfo.result : null,
 		error: uiInfo.ok === true ? null : uiInfo.error,
 	};
@@ -143,7 +163,86 @@ function selectMainWindow(uiInfo) {
 	if (selectResult.status !== 0) throw new Error("Unable to select the Vetta Desktop renderer tab");
 }
 
-async function startHost() {
+async function startRuntimeCanaryProvider() {
+	const fixtureRoot = join(runtimeDir, "runtime-canary", `${Date.now()}-${process.pid}`);
+	const readyFilePath = join(fixtureRoot, "provider-ready.json");
+	const exitReportPath = join(fixtureRoot, "host-exit.json");
+	mkdirSync(fixtureRoot, { recursive: true });
+	const child = spawn(
+		"bun",
+		[runtimeCanaryProviderPath, "--root", fixtureRoot, "--ready-file", readyFilePath],
+		{
+			cwd: repoRoot,
+			env: baseVerificationEnv,
+			stdio: "inherit",
+			windowsHide: true,
+		},
+	);
+	let spawnError;
+	child.once("error", (error) => {
+		spawnError = error;
+	});
+	try {
+		const startedAt = Date.now();
+		while (!existsSync(readyFilePath)) {
+			if (spawnError) throw spawnError;
+			if (child.exitCode !== null || child.signalCode !== null) {
+				throw new Error("Runtime Canary Provider exited before publishing its fixture");
+			}
+			if (Date.now() - startedAt >= 10_000) {
+				throw new Error("Timed out waiting for Runtime Canary Provider");
+			}
+			await new Promise((resolve) => setTimeout(resolve, 50));
+		}
+		const fixture = JSON.parse(readFileSync(readyFilePath, "utf8"));
+		if (
+			fixture?.mode !== "greenfield" ||
+			typeof fixture.vettaHome !== "string" ||
+			typeof fixture.agentDir !== "string" ||
+			typeof fixture.workspace !== "string" ||
+			typeof fixture.requestLogPath !== "string" ||
+			typeof fixture.modelKey !== "string" ||
+			!child.pid
+		) {
+			throw new Error("Runtime Canary Provider published an invalid fixture");
+		}
+		return {
+			child,
+			state: {
+				...fixture,
+				providerPid: child.pid,
+				exitReportPath,
+			},
+		};
+	} catch (error) {
+		await stopRuntimeCanaryProvider(child);
+		throw error;
+	}
+}
+
+async function stopRuntimeCanaryProvider(child) {
+	if (child.exitCode !== null || child.signalCode !== null) return true;
+	child.kill("SIGTERM");
+	const stopped = await Promise.race([
+		new Promise((resolve) => child.once("exit", () => resolve(true))),
+		new Promise((resolve) => setTimeout(() => resolve(false), 5_000)),
+	]);
+	if (stopped) return true;
+	if (process.platform === "win32" && child.pid) {
+		spawnSync("taskkill", ["/PID", String(child.pid), "/T", "/F"], { stdio: "ignore" });
+	} else {
+		child.kill("SIGKILL");
+	}
+	return false;
+}
+
+function parseRuntimeCanaryMode(args) {
+	if (args.length === 0) return null;
+	if (args.length === 2 && args[0] === "--runtime-canary" && args[1] === "greenfield") return "greenfield";
+	throw new Error('Expected "--runtime-canary greenfield"');
+}
+
+async function startHost(runtimeCanaryMode) {
 	const existingState = readState();
 	if (existingState?.hostPid && isProcessAlive(existingState.hostPid)) {
 		throw new Error(`UI verification host is already running with pid ${existingState.hostPid}`);
@@ -153,9 +252,20 @@ async function startHost() {
 	let cdpPort = await findFreePort();
 	while (cdpPort === rendererPort) cdpPort = await findFreePort();
 	mkdirSync(artifactDir, { recursive: true });
+	const runtimeCanary = runtimeCanaryMode === "greenfield" ? await startRuntimeCanaryProvider() : null;
 	writeFileSync(
 		statePath,
-		JSON.stringify({ workspaceId, hostPid: process.pid, rendererPort, cdpPort }, null, 2),
+		JSON.stringify(
+			{
+				workspaceId,
+				hostPid: process.pid,
+				rendererPort,
+				cdpPort,
+				...(runtimeCanary ? { runtimeCanary: runtimeCanary.state } : {}),
+			},
+			null,
+			2,
+		),
 	);
 	printJson({
 		ok: true,
@@ -164,6 +274,13 @@ async function startHost() {
 		sessionName,
 		configDir,
 		artifactDir,
+		runtimeCanary: runtimeCanary
+			? {
+					mode: runtimeCanary.state.mode,
+					workspace: runtimeCanary.state.workspace,
+					providerPid: runtimeCanary.state.providerPid,
+				}
+			: null,
 		rendererUrl: `http://127.0.0.1:${rendererPort}`,
 		cdpEndpoint: `http://127.0.0.1:${cdpPort}`,
 	});
@@ -171,26 +288,43 @@ async function startHost() {
 	const child = spawn("bun", ["run", "dev:verify"], {
 		cwd: desktopRoot,
 		env: {
-			...verificationEnv,
+			...resolveVerificationEnv({
+				...(runtimeCanary ? { runtimeCanary: runtimeCanary.state } : {}),
+			}),
 			VETTA_DEBUG_CDP_PORT: String(cdpPort),
 			VETTA_DESKTOP_DEV_PORT: String(rendererPort),
 		},
 		stdio: "inherit",
 	});
-	const cleanup = () => {
-		if (existsSync(statePath)) rmSync(statePath);
-	};
 	for (const signal of ["SIGINT", "SIGTERM"]) {
 		process.once(signal, () => child.kill(signal));
 	}
+	let desktopExitCode = 1;
+	let providerStopped = runtimeCanary === null;
 	try {
-		process.exitCode = await new Promise((resolve, reject) => {
+		desktopExitCode = await new Promise((resolve, reject) => {
 			child.once("error", reject);
-			child.once("exit", (code) => resolve(code ?? 1));
+			child.once("exit", (code, signal) => resolve(signal ? 1 : (code ?? 1)));
 		});
 	} finally {
-		cleanup();
+		if (runtimeCanary) {
+			providerStopped = await stopRuntimeCanaryProvider(runtimeCanary.child);
+			writeFileSync(
+				runtimeCanary.state.exitReportPath,
+				JSON.stringify(
+					{
+						desktopExitCode,
+						endpointRemoved: !existsSync(join(runtimeCanary.state.vettaHome, "action-server.json")),
+						providerStopped,
+					},
+					null,
+					2,
+				),
+			);
+		}
+		if (existsSync(statePath)) rmSync(statePath);
 	}
+	process.exitCode = desktopExitCode;
 }
 
 function stopHost() {
@@ -224,7 +358,7 @@ function requireUiInfo() {
 
 const [command, ...args] = process.argv.slice(2);
 if (command === "start") {
-	await startHost();
+	await startHost(parseRuntimeCanaryMode(args));
 } else if (command === "status") {
 	const status = statusResult();
 	printJson(status);
@@ -251,11 +385,22 @@ if (command === "start") {
 	const result = runPlaywright(["detach"]);
 	process.exitCode = result.status ?? 1;
 } else if (command === "debug") {
-	const result = spawnSync("bun", [cliPath, "debug", ...args], {
-		cwd: repoRoot,
-		env: verificationEnv,
-		stdio: "inherit",
-	});
+	const state = readState();
+	const runtimeCanaryRequested = args.length === 1 && args[0] === "runtime-canary";
+	if (runtimeCanaryRequested && !state?.runtimeCanary) {
+		throw new Error("The UI verification host was not started in Runtime Canary mode");
+	}
+	const result = runtimeCanaryRequested
+		? spawnSync("bun", [runtimeCanaryRunnerPath, "--state-file", statePath], {
+				cwd: repoRoot,
+				env: resolveVerificationEnv(state),
+				stdio: "inherit",
+			})
+		: spawnSync("bun", [cliPath, "debug", ...args], {
+				cwd: repoRoot,
+				env: resolveVerificationEnv(state),
+				stdio: "inherit",
+			});
 	process.exitCode = result.status ?? 1;
 } else {
 	throw new Error(`Unknown command: ${command ?? "<missing>"}`);
