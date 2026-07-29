@@ -86,6 +86,7 @@ export class FileConversationRepository
 				schemaVersion: CONVERSATION_SCHEMA_VERSION,
 				sessionId: input.sessionId,
 				createdAt: input.createdAt,
+				...(input.cwd ? { cwd: input.cwd } : {}),
 			};
 			const path = this.conversationPath(input.sessionId);
 			let handle: FileHandle | undefined;

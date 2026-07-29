@@ -145,6 +145,25 @@ describe("FileConversationRepository", () => {
 		});
 	});
 
+	it("persists the optional workspace identity in the conversation header", async () => {
+		const { repository, rootDir } = await createRepository();
+		const cwd = join(rootDir, "workspace");
+		await repository.create({
+			sessionId: "session-with-cwd",
+			createdAt: 100,
+			cwd,
+		});
+
+		const firstLine = (await readFile(repository.resolveConversationPath("session-with-cwd"), "utf8")).split("\n")[0];
+		expect(JSON.parse(firstLine ?? "{}")).toMatchObject({
+			recordType: "conversation.header",
+			schemaVersion: 2,
+			sessionId: "session-with-cwd",
+			cwd,
+		});
+		expect((await repository.readDocument("session-with-cwd")).identity.cwd).toBe(cwd);
+	});
+
 	it("reads existing v1 records without rewriting them", async () => {
 		const { repository } = await createRepository();
 		const sessionId = "legacy-native-v1";

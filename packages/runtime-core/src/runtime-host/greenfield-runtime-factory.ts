@@ -200,6 +200,7 @@ export class ComposedGreenfieldRuntimeFactory<TCreateOptions> implements Greenfi
 			const sessionOptions = {
 				id: resources.sessionId,
 				pipeline,
+				cwd: resources.identity.cwd,
 				steeringMode: resources.steeringMode,
 				followUpMode: resources.followUpMode,
 			};

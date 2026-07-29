@@ -398,6 +398,7 @@ export interface StoredConversation extends ConversationMetadata {
 export interface CreateConversationInput {
 	readonly sessionId: string;
 	readonly createdAt: number;
+	readonly cwd?: string;
 }
 
 export interface AppendResult {

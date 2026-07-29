@@ -111,10 +111,11 @@ export class TurnPipeline {
 			});
 	}
 
-	async createSession(sessionId: string): Promise<void> {
+	async createSession(sessionId: string, cwd?: string): Promise<void> {
 		await this.repository.create({
 			sessionId,
 			createdAt: this.clock.now(),
+			...(cwd ? { cwd } : {}),
 		});
 	}
 
