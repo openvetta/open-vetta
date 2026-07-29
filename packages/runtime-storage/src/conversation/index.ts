@@ -16,6 +16,12 @@ export {
 	type FileConversationRepositoryOptions,
 } from "./file-conversation-repository.js";
 export {
+	FileConversationRuntimeSessionCatalog,
+	type FileConversationRuntimeSessionCatalogOptions,
+	FileConversationRuntimeSessionFileHistoryReader,
+	type RuntimeConversationSessionRoot,
+} from "./file-conversation-session-services.js";
+export {
 	LegacySessionDocumentReader,
 	type LegacySessionDocumentReaderOptions,
 	parseLegacySessionDocument,

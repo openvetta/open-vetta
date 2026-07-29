@@ -10,7 +10,13 @@ import {
 	LegacyRuntimeSharedModelController,
 } from "@vetta/coding-agent/runtime-host";
 import { describe, expect, it, vi } from "vitest";
-import { RuntimeHost, type RuntimeSessionCatalog, type RuntimeSessionFileHistoryReader } from "../../src/index.js";
+import {
+	CompositeRuntimeSessionCatalog,
+	CompositeRuntimeSessionFileHistoryReader,
+	RuntimeHost,
+	type RuntimeSessionCatalog,
+	type RuntimeSessionFileHistoryReader,
+} from "../../src/index.js";
 
 describe("runtime host process services", () => {
 	it("delegates shared model auth refresh and background refresh", async () => {
@@ -46,12 +52,16 @@ describe("runtime host process services", () => {
 		const deleteSessionArtifacts = vi.fn(async () => {});
 		const read = vi.fn(() => ({ history }));
 		const sessionCatalog: RuntimeSessionCatalog = {
+			ownsSession: vi.fn(async () => true),
 			listProjects,
 			listSessions,
 			renameSession,
 			deleteSessionArtifacts,
 		};
-		const sessionFileHistoryReader: RuntimeSessionFileHistoryReader = { read };
+		const sessionFileHistoryReader: RuntimeSessionFileHistoryReader = {
+			canRead: vi.fn(() => true),
+			read,
+		};
 		const host = new RuntimeHost({ sessionCatalog, sessionFileHistoryReader });
 
 		expect(await host.listProjects()).toEqual(projects);
@@ -64,6 +74,68 @@ describe("runtime host process services", () => {
 		expect(read).toHaveBeenCalledWith("C:/sessions/one.jsonl");
 		expect(renameSession).toHaveBeenCalledWith("C:/sessions/one.jsonl", "renamed");
 		expect(deleteSessionArtifacts).toHaveBeenCalledWith("C:/sessions/one.jsonl");
+	});
+
+	it("merges offline catalogs and routes lifecycle operations by file ownership", async () => {
+		const legacyRename = vi.fn(async () => {});
+		const greenfieldRename = vi.fn(async () => {});
+		const greenfieldDelete = vi.fn(async () => {});
+		const legacyCatalog: RuntimeSessionCatalog = {
+			ownsSession: async (path) => path.endsWith("legacy.jsonl"),
+			listProjects: async () => [{ cwd: "C:/workspace", sessionCount: 1 }],
+			listSessions: async () => [
+				{
+					id: "legacy",
+					path: "C:/sessions/legacy.jsonl",
+					cwd: "C:/workspace",
+					firstMessage: "legacy",
+					modifiedAt: 1,
+				},
+			],
+			renameSession: legacyRename,
+			deleteSessionArtifacts: vi.fn(async () => {}),
+		};
+		const greenfieldCatalog: RuntimeSessionCatalog = {
+			ownsSession: async (path) => path.endsWith("greenfield.conversation.jsonl"),
+			listProjects: async () => [
+				{ cwd: "C:/workspace", sessionCount: 1 },
+				{ cwd: "C:/other", sessionCount: 1 },
+			],
+			listSessions: async () => [
+				{
+					id: "greenfield",
+					path: "C:/sessions/greenfield.conversation.jsonl",
+					cwd: "C:/workspace",
+					firstMessage: "greenfield",
+					modifiedAt: 2,
+				},
+			],
+			renameSession: greenfieldRename,
+			deleteSessionArtifacts: greenfieldDelete,
+		};
+		const catalog = new CompositeRuntimeSessionCatalog([legacyCatalog, greenfieldCatalog]);
+
+		expect(await catalog.listProjects()).toEqual([
+			{ cwd: "C:/other", sessionCount: 1 },
+			{ cwd: "C:/workspace", sessionCount: 2 },
+		]);
+		expect((await catalog.listSessions("C:/workspace")).map(({ id }) => id)).toEqual(["greenfield", "legacy"]);
+		await catalog.renameSession("C:/sessions/greenfield.conversation.jsonl", "renamed");
+		await catalog.deleteSessionArtifacts("C:/sessions/greenfield.conversation.jsonl");
+		expect(greenfieldRename).toHaveBeenCalledOnce();
+		expect(greenfieldDelete).toHaveBeenCalledOnce();
+		expect(legacyRename).not.toHaveBeenCalled();
+
+		const reader = new CompositeRuntimeSessionFileHistoryReader([
+			{ canRead: (path) => path.endsWith("legacy.jsonl"), read: () => ({ history: [] }) },
+			{
+				canRead: (path) => path.endsWith("greenfield.conversation.jsonl"),
+				read: () => ({ history: [{ type: "settings_assist_marker", timestamp: "greenfield" }] }),
+			},
+		]);
+		expect(reader.read("C:/sessions/greenfield.conversation.jsonl").history).toEqual([
+			{ type: "settings_assist_marker", timestamp: "greenfield" },
+		]);
 	});
 
 	it("preserves legacy JSONL listing, history, rename and deletion behavior", async () => {
@@ -99,6 +171,8 @@ describe("runtime host process services", () => {
 			const listed = await catalog.listSessions(root, sessionDir);
 			expect(listed).toHaveLength(1);
 			expect(listed[0]).toMatchObject({ path: sessionPath, cwd: root, firstMessage: "hello" });
+			expect(await catalog.ownsSession(sessionPath)).toBe(true);
+			expect(historyReader.canRead(sessionPath)).toBe(true);
 			expect(historyReader.read(sessionPath).history).toEqual(
 				expect.arrayContaining([
 					expect.objectContaining({

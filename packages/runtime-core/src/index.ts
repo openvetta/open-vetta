@@ -134,6 +134,8 @@ export type {
 } from "./runtime-host/index.js";
 export {
 	ComposedGreenfieldRuntimeFactory,
+	CompositeRuntimeSessionCatalog,
+	CompositeRuntimeSessionFileHistoryReader,
 	GreenfieldRuntimeModel,
 	GreenfieldRuntimeSession,
 	GreenfieldRuntimeSessionBackend,

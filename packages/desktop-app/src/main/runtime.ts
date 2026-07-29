@@ -2,9 +2,21 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { AuthStorage, getAgentDir, ModelRegistry } from "@vetta/coding-agent";
 import { createLegacyRuntimeHostOptions } from "@vetta/coding-agent/runtime-host";
-import { RuntimeHost } from "../../../runtime-core/src/index.js";
+import {
+	FileConversationRuntimeSessionCatalog,
+	FileConversationRuntimeSessionFileHistoryReader,
+} from "@vetta/runtime-storage/conversation";
+import {
+	CompositeRuntimeSessionCatalog,
+	CompositeRuntimeSessionFileHistoryReader,
+	RuntimeHost,
+} from "../../../runtime-core/src/index.js";
 import { getBuiltinSkillPaths } from "./builtin-skills.js";
-import { readDesktopConfig } from "./config/desktop-config-store.js";
+import {
+	DEFAULT_IM_CONVERSATION_CWD,
+	DEFAULT_IM_CONVERSATION_SESSION_DIR,
+	readDesktopConfig,
+} from "./config/desktop-config-store.js";
 import { DEFAULT_SERVER_URL } from "./constants.js";
 import { getDesktopUserQuestionBroker } from "./conversations/user-question-broker.js";
 import { getAvailableLinuxBubblewrapPath, getAvailableMacosSandboxExecPath } from "./sandbox/capability.js";
@@ -70,25 +82,42 @@ export function peekSharedRuntime(): RuntimeHost | null {
 
 export function getSharedRuntime(): RuntimeHost {
 	if (!sharedRuntime) {
-		sharedRuntime = new RuntimeHost(
-			createLegacyRuntimeHostOptions({
-				additionalSkillPaths: getBuiltinSkillPaths(),
-				getDefaultExecutionMode: async () => {
-					const config = await readDesktopConfig();
-					return config.defaultExecutionMode;
+		const legacyOptions = createLegacyRuntimeHostOptions({
+			additionalSkillPaths: getBuiltinSkillPaths(),
+			getDefaultExecutionMode: async () => {
+				const config = await readDesktopConfig();
+				return config.defaultExecutionMode;
+			},
+			sandboxHostPath: resolveWindowsSandboxHostBinary()?.path,
+			linuxBubblewrapPath: getAvailableLinuxBubblewrapPath(),
+			macosSandboxExecPath: getAvailableMacosSandboxExecPath(),
+			// 把 desktop-app 编译期注入的 VETTA_SERVER_URL 显式喂给 SDK，
+			// 防止 coding-agent 退回到自己 config.ts 里硬编码的 LAN 默认值，
+			// 并把它静默写入 settings.json 污染 prod 用户的配置。
+			serverUrl: DEFAULT_SERVER_URL,
+			// 共享 ModelRegistry：去掉 createSession 的 5s 远程 fetch 阻塞。
+			modelRegistry: getOrCreateSharedModelRegistry(),
+			userQuestionHandler: getDesktopUserQuestionBroker().handle,
+		});
+		if (!legacyOptions.sessionCatalog || !legacyOptions.sessionFileHistoryReader) {
+			throw new Error("Legacy RuntimeHost composition must provide session services");
+		}
+		const conversationCatalog = new FileConversationRuntimeSessionCatalog({
+			roots: [
+				{
+					cwd: DEFAULT_IM_CONVERSATION_CWD,
+					sessionDir: DEFAULT_IM_CONVERSATION_SESSION_DIR,
 				},
-				sandboxHostPath: resolveWindowsSandboxHostBinary()?.path,
-				linuxBubblewrapPath: getAvailableLinuxBubblewrapPath(),
-				macosSandboxExecPath: getAvailableMacosSandboxExecPath(),
-				// 把 desktop-app 编译期注入的 VETTA_SERVER_URL 显式喂给 SDK，
-				// 防止 coding-agent 退回到自己 config.ts 里硬编码的 LAN 默认值，
-				// 并把它静默写入 settings.json 污染 prod 用户的配置。
-				serverUrl: DEFAULT_SERVER_URL,
-				// 共享 ModelRegistry：去掉 createSession 的 5s 远程 fetch 阻塞。
-				modelRegistry: getOrCreateSharedModelRegistry(),
-				userQuestionHandler: getDesktopUserQuestionBroker().handle,
-			}),
-		);
+			],
+		});
+		sharedRuntime = new RuntimeHost({
+			...legacyOptions,
+			sessionCatalog: new CompositeRuntimeSessionCatalog([legacyOptions.sessionCatalog, conversationCatalog]),
+			sessionFileHistoryReader: new CompositeRuntimeSessionFileHistoryReader([
+				legacyOptions.sessionFileHistoryReader,
+				new FileConversationRuntimeSessionFileHistoryReader(),
+			]),
+		});
 	}
 	return sharedRuntime;
 }

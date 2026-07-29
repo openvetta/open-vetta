@@ -96,4 +96,8 @@ export type {
 	RuntimeSessionFileHistoryReader,
 	RuntimeSharedModelController,
 } from "./session-services.js";
+export {
+	CompositeRuntimeSessionCatalog,
+	CompositeRuntimeSessionFileHistoryReader,
+} from "./session-services.js";
 export type { RunningChangedReason, RuntimeHostOptions } from "./types.js";
