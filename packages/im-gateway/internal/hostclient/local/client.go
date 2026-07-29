@@ -44,6 +44,16 @@ type Options struct {
 	// entry path. Empty in `im-gateway start` standalone mode.
 	BinPrefixArgs []string
 
+	// RuntimeBackend, when non-empty, is forwarded as
+	// `--agent-runtime <value>` to the cli-app Runtime Selector. Empty
+	// preserves compatibility with a direct coding-agent executable.
+	RuntimeBackend string
+
+	// OnRuntimeResolved observes the backend reported by the subprocess's
+	// get_state handshake. requested is RuntimeBackend; actual may be
+	// "legacy" when a requested Greenfield startup falls back.
+	OnRuntimeResolved func(requested, actual string)
+
 	// EnableHostBridge appends `--enable-host-bridge` to the spawned
 	// coding-agent subprocess argv. The flag tells coding-agent to
 	// register the `im_send_attachment` tool and to accept `host_response`
@@ -106,8 +116,11 @@ var _ hostclient.HostClient = (*Client)(nil)
 //     by main.ts and return ErrSessionLocked. Otherwise return a generic
 //     error wrapping the captured stderr.
 func (c *Client) OpenSession(ctx context.Context, cwd, sessionPath string) (hostclient.HostSession, error) {
-	args := make([]string, 0, len(c.opts.BinPrefixArgs)+8)
+	args := make([]string, 0, len(c.opts.BinPrefixArgs)+10)
 	args = append(args, c.opts.BinPrefixArgs...)
+	if c.opts.RuntimeBackend != "" {
+		args = append(args, "--agent-runtime", c.opts.RuntimeBackend)
+	}
 	args = append(args, "--mode", "rpc", "--cwd", cwd)
 	// Empty sessionPath means "create a new session in this cwd". coding-agent
 	// expects --session to be omitted entirely in that case (passing it as
@@ -160,15 +173,17 @@ func (c *Client) OpenSession(ctx context.Context, cwd, sessionPath string) (host
 	}
 
 	s := &session{
-		cwd:          cwd,
-		sessionPath:  sessionPath,
-		cmd:          cmd,
-		stdin:        stdin,
-		stderr:       stderrBuf,
-		pending:      make(map[string]chan hostclient.Response),
-		events:       make(chan hostclient.AgentEvent, 256),
-		exited:       make(chan struct{}),
-		closeTimeout: c.opts.CloseTimeout,
+		cwd:                     cwd,
+		sessionPath:             sessionPath,
+		cmd:                     cmd,
+		stdin:                   stdin,
+		stderr:                  stderrBuf,
+		pending:                 make(map[string]chan hostclient.Response),
+		events:                  make(chan hostclient.AgentEvent, 256),
+		exited:                  make(chan struct{}),
+		closeTimeout:            c.opts.CloseTimeout,
+		requestedRuntimeBackend: c.opts.RuntimeBackend,
+		onRuntimeResolved:       c.opts.OnRuntimeResolved,
 	}
 
 	go s.readerLoop(stdout)
@@ -245,6 +260,9 @@ func (s *session) handshake(ctx context.Context, timeout time.Duration) error {
 	if resp.Data != nil {
 		if sf, ok := resp.Data["sessionFile"].(string); ok && sf != "" {
 			s.setResolvedSessionPath(sf)
+		}
+		if actual, ok := resp.Data["runtimeBackend"].(string); ok && actual != "" && s.onRuntimeResolved != nil {
+			s.onRuntimeResolved(s.requestedRuntimeBackend, actual)
 		}
 	}
 	return nil

@@ -41,6 +41,7 @@ export class LegacyRpcSessionAdapter implements RpcSessionCapabilities {
 		};
 		this.state = {
 			readState: async () => ({
+				runtimeBackend: "legacy",
 				model: this.agentSession.model,
 				thinkingLevel: this.agentSession.thinkingLevel,
 				isStreaming: this.agentSession.isStreaming,

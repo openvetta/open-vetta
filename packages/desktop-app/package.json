@@ -86,6 +86,7 @@
 		"@vetta/ai": "workspace:*",
 		"@vetta/capability-runtime": "workspace:*",
 		"@vetta/capability-sdk": "workspace:*",
+		"@vetta/cli-app": "workspace:*",
 		"@vetta/runtime-core": "workspace:*",
 		"@vetta/theme-sdk": "workspace:*",
 		"@vetta/theme-ui": "workspace:*",

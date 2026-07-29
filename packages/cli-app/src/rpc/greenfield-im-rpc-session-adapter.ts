@@ -153,6 +153,7 @@ export class GreenfieldImRpcSessionAdapter implements RpcSessionCapabilities {
 		]);
 		const context = this.core.contextController?.readState();
 		return {
+			runtimeBackend: "greenfield-im",
 			model: state.model,
 			thinkingLevel: state.thinkingLevel,
 			isStreaming: state.isStreaming,

@@ -14,6 +14,7 @@ describe("Legacy RPC session adapter", () => {
 		const adapter = new LegacyRpcSessionAdapter(session.value);
 
 		await expect(adapter.state.readState()).resolves.toMatchObject({
+			runtimeBackend: "legacy",
 			model,
 			thinkingLevel: "medium",
 			sessionId: "session-1",

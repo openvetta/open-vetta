@@ -297,6 +297,7 @@ function createSessionCapabilities(): RpcSessionCapabilities {
 
 function createRpcState(): RpcSessionState {
 	return {
+		runtimeBackend: "legacy",
 		thinkingLevel: "medium",
 		isStreaming: false,
 		isCompacting: false,

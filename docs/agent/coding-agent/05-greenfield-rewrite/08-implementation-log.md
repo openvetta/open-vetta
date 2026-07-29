@@ -87,6 +87,7 @@
 | [77-greenfield-im-runtime-host-and-session-ownership.md](./08-implementation-log/77-greenfield-im-runtime-host-and-session-ownership.md) | 共享 Host Bootstrap、Greenfield IM Runtime Host、进程级会话所有权与 Legacy fallback |
 | [78-explicit-runtime-selector-and-rpc-executable.md](./08-implementation-log/78-explicit-runtime-selector-and-rpc-executable.md) | 显式 Legacy/Greenfield Selector、独立 RPC 可执行入口、stdout 与 ownership wire 子进程门禁 |
 | [79-provider-tool-loop-subprocess-differential-gate.md](./08-implementation-log/79-provider-tool-loop-subprocess-differential-gate.md) | 真实 Provider/Tool Loop 子进程差分门禁与 Legacy/Greenfield 兼容修复 |
+| [80-im-sidecar-runtime-opt-in-and-executable-closure.md](./08-implementation-log/80-im-sidecar-runtime-opt-in-and-executable-closure.md) | IM Sidecar Runtime 显式 opt-in、三平台 Selector 入口闭包与实际后端可观察性 |
 
 ## 维护约定
 
