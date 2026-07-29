@@ -69,7 +69,12 @@ build_layer3() {
   build_pkg packages/runtime-mcp
 }
 
-# ── Layer 4: apps ──
+# ── Layer 4: depends on the complete runtime stack ──
+build_layer4() {
+  build_pkg packages/runtime-composition
+}
+
+# ── Layer 5: apps ──
 build_apps() {
   build_pkg packages/cli-app
   build_pkg packages/desktop-app
@@ -98,6 +103,7 @@ build_libs() {
   build_layer1
   build_layer2
   build_layer3
+  build_layer4
 }
 
 build_all() {

@@ -67,6 +67,7 @@ describe("Greenfield Todo Runtime composition", () => {
 			modelRegistry: modelRegistry(),
 			initialModel: MODEL,
 			initialThinkingLevel: "off",
+			enableSubagents: false,
 			activation: { mode: "explicit", toolNames: ["todo"] },
 			resolveSystemPromptOptions: () => ({ customPrompt: "Base prompt", scenario: "cli" }),
 			streamFn: (_model, context) => {

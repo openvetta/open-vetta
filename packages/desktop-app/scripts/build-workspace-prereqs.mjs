@@ -17,6 +17,7 @@ export const workspacePackages = {
 	"runtime-telemetry": { dir: "packages/runtime-telemetry" },
 	"ecosystem-adapter": { dir: "packages/ecosystem-adapter" },
 	"action-rpc": { dir: "packages/action-rpc" },
+	"runtime-subagents": { dir: "packages/runtime-subagents" },
 	toolkit: { dir: "packages/toolkit" },
 	"plugin-sdk": { dir: "packages/plugins/plugin-sdk" },
 	"plugin-vite": { dir: "packages/plugins/plugin-vite" },
@@ -26,6 +27,7 @@ export const workspacePackages = {
 	"runtime-tools": { dir: "packages/runtime-tools" },
 	"runtime-storage": { dir: "packages/runtime-storage" },
 	"runtime-mcp": { dir: "packages/runtime-mcp" },
+	"runtime-composition": { dir: "packages/runtime-composition" },
 	"cli-app": { dir: "packages/cli-app" },
 };
 
@@ -36,6 +38,7 @@ export const workspaceLayers = [
 		"runtime-telemetry",
 		"ecosystem-adapter",
 		"action-rpc",
+		"runtime-subagents",
 		"toolkit",
 		"plugin-sdk",
 		"plugin-vite",
@@ -44,6 +47,7 @@ export const workspaceLayers = [
 	["runtime-core"],
 	["coding-agent"],
 	["runtime-tools", "runtime-storage", "runtime-mcp"],
+	["runtime-composition"],
 	["cli-app"],
 ];
 

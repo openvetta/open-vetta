@@ -163,6 +163,21 @@ describe("package boundary analysis", () => {
 		);
 	});
 
+	it("blocks Desktop production imports from cli-app source paths", () => {
+		expect(
+			findPackageBoundaryViolations(
+				"packages/desktop-app/src/main/runtime.ts",
+				'import { createRuntime } from "../../../../cli-app/src/runtime.js";',
+			),
+		).toHaveLength(1);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/desktop-app/src/main/runtime.ts",
+				'import { createRuntime } from "@vetta/runtime-composition";',
+			),
+		).toEqual([]);
+	});
+
 	it("keeps the greenfield runtime kernel independent from coding-agent", () => {
 		const source = 'import { AgentSession } from "@vetta/coding-agent";';
 		expect(findPackageBoundaryViolations("packages/runtime-core/src/kernel/example.ts", source)).toHaveLength(1);

@@ -54,6 +54,7 @@ describe("Greenfield CLI memory runtime", () => {
 			initialModel: MODEL,
 			initialThinkingLevel: "off",
 			cwd: workspace,
+			enableSubagents: false,
 			activation: { mode: "explicit", toolNames: [] },
 			resolveSystemPromptOptions: () => ({
 				customPrompt: "Memory-enabled Coding Agent",
@@ -103,6 +104,7 @@ describe("Greenfield CLI memory runtime", () => {
 			initialModel: MODEL,
 			initialThinkingLevel: "off",
 			cwd: workspace,
+			enableSubagents: false,
 			activation: { mode: "explicit", toolNames: [] },
 			resolveSystemPromptOptions: () => ({
 				customPrompt: "Plain Coding Agent",
@@ -143,6 +145,7 @@ describe("Greenfield CLI memory runtime", () => {
 			initialModel: MODEL,
 			initialThinkingLevel: "off",
 			cwd: workspace,
+			enableSubagents: false,
 			activation: { mode: "explicit", toolNames: [] },
 			createMemoryRolloverRuntime: (runtimeOptions) =>
 				new CodingAgentMemoryRolloverOrchestrator({ ...runtimeOptions, flushMemory }),
@@ -194,6 +197,7 @@ describe("Greenfield CLI memory runtime", () => {
 			initialModel: MODEL,
 			initialThinkingLevel: "off",
 			cwd: workspace,
+			enableSubagents: false,
 			activation: { mode: "explicit", toolNames: [] },
 			resolveCompactionSettings: () => ({
 				enabled: true,

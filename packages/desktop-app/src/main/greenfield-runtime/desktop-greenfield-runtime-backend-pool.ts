@@ -1,5 +1,11 @@
 import { dirname, join, resolve } from "node:path";
 import type { Api, Model } from "@vetta/ai";
+import {
+	createGreenfieldRuntimeComposition,
+	type GreenfieldRuntimeComposition,
+	type GreenfieldRuntimeCompositionOptions,
+	GreenfieldRuntimeHostSessionBackend,
+} from "@vetta/runtime-composition";
 import type {
 	ConversationScenario,
 	GreenfieldRuntimeSession,
@@ -8,12 +14,6 @@ import type {
 	RuntimeHostSessionBackend,
 	RuntimeSessionCreateRequest,
 } from "@vetta/runtime-core";
-import {
-	createGreenfieldRuntimeComposition,
-	type GreenfieldRuntimeComposition,
-	type GreenfieldRuntimeCompositionOptions,
-} from "../../../../cli-app/src/greenfield-runtime-composition.js";
-import { GreenfieldRuntimeHostSessionBackend } from "../../../../cli-app/src/greenfield-runtime-host-session-backend.js";
 
 type CompositionFixedOption =
 	| "agentDir"

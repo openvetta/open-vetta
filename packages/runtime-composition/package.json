@@ -1,25 +1,25 @@
 {
-	"name": "@vetta/cli-app",
+	"name": "@vetta/runtime-composition",
 	"version": "0.0.1",
 	"type": "module",
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
-	"bin": {
-		"vetta": "dist/cli.js",
-		"vetta-cli-app": "dist/cli.js",
-		"vetta-agent-rpc": "dist/agent-rpc-cli.js"
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
 	},
 	"files": ["dist"],
 	"scripts": {
 		"clean": "rm -rf dist",
-		"build": "tsgo -p tsconfig.build.json",
-		"typecheck": "tsgo --noEmit -p tsconfig.json",
-		"test": "bunx vitest --run"
+		"build": "tsgo -p tsconfig.build.json && node scripts/verify-artifact.mjs",
+		"test": "bunx vitest --run",
+		"verify:artifact": "node scripts/verify-artifact.mjs"
 	},
 	"dependencies": {
-		"@vetta/action-rpc": "workspace:*",
+		"@vetta/ai": "workspace:*",
 		"@vetta/coding-agent": "workspace:*",
-		"@vetta/runtime-composition": "workspace:*",
 		"@vetta/runtime-core": "workspace:*",
 		"@vetta/runtime-mcp": "workspace:*",
 		"@vetta/runtime-storage": "workspace:*",
@@ -28,8 +28,7 @@
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {
-		"@vetta/ai": "workspace:*",
-		"typescript": "^5.9.2",
-		"@types/node": "^22.10.5"
+		"@types/node": "^22.10.5",
+		"typescript": "^5.9.2"
 	}
 }

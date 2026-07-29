@@ -9,6 +9,7 @@ export {
 	type GreenfieldCliSessionOptions,
 	type GreenfieldRuntimeComposition,
 	type GreenfieldRuntimeCompositionOptions,
+	type GreenfieldRuntimeSessionOptions,
 } from "./greenfield-runtime-composition.js";
 export {
 	GreenfieldRuntimeHostSessionBackend,

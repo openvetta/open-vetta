@@ -186,9 +186,11 @@
       "dependencies": {
         "@vetta/action-rpc": "workspace:*",
         "@vetta/coding-agent": "workspace:*",
+        "@vetta/runtime-composition": "workspace:*",
         "@vetta/runtime-core": "workspace:*",
         "@vetta/runtime-mcp": "workspace:*",
         "@vetta/runtime-storage": "workspace:*",
+        "@vetta/runtime-subagents": "workspace:*",
         "@vetta/runtime-tools": "workspace:*",
         "zod": "^4.4.3",
       },
@@ -290,6 +292,7 @@
         "@vetta/capability-runtime": "workspace:*",
         "@vetta/capability-sdk": "workspace:*",
         "@vetta/cli-app": "workspace:*",
+        "@vetta/runtime-composition": "workspace:*",
         "@vetta/runtime-core": "workspace:*",
         "@vetta/runtime-storage": "workspace:*",
         "@vetta/theme-sdk": "workspace:*",
@@ -751,6 +754,24 @@
         "react-dom": "19.1.1",
         "typescript": "^5.9.2",
         "vite": "^7.1.7",
+      },
+    },
+    "packages/runtime-composition": {
+      "name": "@vetta/runtime-composition",
+      "version": "0.0.1",
+      "dependencies": {
+        "@vetta/ai": "workspace:*",
+        "@vetta/coding-agent": "workspace:*",
+        "@vetta/runtime-core": "workspace:*",
+        "@vetta/runtime-mcp": "workspace:*",
+        "@vetta/runtime-storage": "workspace:*",
+        "@vetta/runtime-subagents": "workspace:*",
+        "@vetta/runtime-tools": "workspace:*",
+        "zod": "^4.4.3",
+      },
+      "devDependencies": {
+        "@types/node": "^22.10.5",
+        "typescript": "^5.9.2",
       },
     },
     "packages/runtime-core": {
@@ -2531,6 +2552,8 @@
     "@vetta/plugin-svg-viewer": ["@vetta/plugin-svg-viewer@workspace:packages/plugins/presets/svg-viewer"],
 
     "@vetta/plugin-vetta-actions": ["@vetta/plugin-vetta-actions@workspace:packages/plugins/presets/vetta-actions"],
+
+    "@vetta/runtime-composition": ["@vetta/runtime-composition@workspace:packages/runtime-composition"],
 
     "@vetta/runtime-core": ["@vetta/runtime-core@workspace:packages/runtime-core"],
 

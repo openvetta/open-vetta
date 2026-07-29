@@ -29,6 +29,7 @@ const LIB_PREFIXES = [
 	"packages/runtime-storage/",
 	"packages/runtime-mcp/",
 	"packages/runtime-telemetry/",
+	"packages/runtime-composition/",
 	"packages/action-rpc/",
 	"packages/toolkit/",
 	"packages/theme-sdk/",
@@ -115,7 +116,7 @@ function forbiddenAppId(specifier) {
 	for (const packageName of ["@vetta/desktop-app", "@vetta/cli-app", "@vetta/site", "shadcn-admin"]) {
 		if (normalized === packageName || normalized.startsWith(`${packageName}/`)) return packageName;
 	}
-	const match = normalized.match(/(?:^|\/)(desktop-app|admin|site)(?:\/|$)/);
+	const match = normalized.match(/(?:^|\/)(desktop-app|cli-app|admin|site)(?:\/|$)/);
 	return match?.[1] ? `${match[1]} path` : null;
 }
 
@@ -142,6 +143,16 @@ function checkPluginDesktopDeepImport(posixPath, specifiers, findings) {
 	if (!isPluginPackageFile(posixPath)) return;
 	if (specifiers.some((specifier) => specifier.includes("desktop-app/src/") || specifier.startsWith("@/main/"))) {
 		findings.push(`${posixPath}: plugins must not deep-import desktop-app internals`);
+	}
+}
+
+function checkDesktopCliSourceImports(posixPath, specifiers, findings) {
+	if (!posixPath.startsWith("packages/desktop-app/src/")) return;
+	for (const specifier of specifiers) {
+		const normalized = specifier.replaceAll("\\", "/");
+		if (normalized.includes("cli-app/src/")) {
+			findings.push(`${posixPath}: desktop-app must consume cli-app through a package export (${specifier})`);
+		}
 	}
 }
 
@@ -248,6 +259,7 @@ export function findPackageBoundaryViolations(posixPath, text) {
 	checkForbiddenAppImports(posixPath, specifiers, findings);
 	checkTestTreeImports(posixPath, specifiers, findings);
 	checkPluginDesktopDeepImport(posixPath, specifiers, findings);
+	checkDesktopCliSourceImports(posixPath, specifiers, findings);
 	checkPluginDesktopGlobal(posixPath, text, findings);
 	checkCapabilityLayerImports(posixPath, specifiers, findings);
 	checkPublicSystemSdkImports(posixPath, specifiers, findings);
@@ -271,6 +283,7 @@ const roots = [
 	join(repoRoot, "packages/runtime-storage"),
 	join(repoRoot, "packages/runtime-mcp"),
 	join(repoRoot, "packages/runtime-telemetry"),
+	join(repoRoot, "packages/runtime-composition"),
 	join(repoRoot, "packages/action-rpc"),
 	join(repoRoot, "packages/toolkit"),
 	join(repoRoot, "packages/theme-sdk"),

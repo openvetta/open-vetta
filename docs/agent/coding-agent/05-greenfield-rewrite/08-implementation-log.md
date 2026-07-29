@@ -102,6 +102,7 @@
 | [92-cli-driven-desktop-runtime-canary.md](./08-implementation-log/92-cli-driven-desktop-runtime-canary.md) | 独立 Vetta CLI 驱动的 Desktop Greenfield 会话创建、继续、列举与 CWD 身份持久化门禁 |
 | [93-real-desktop-process-runtime-canary.md](./08-implementation-log/93-real-desktop-process-runtime-canary.md) | 真实 Desktop 主进程 Greenfield Canary、CLI 会话闭环、优雅退出与取消清理门禁 |
 | [94-desktop-runtime-consumer-lifecycle.md](./08-implementation-log/94-desktop-runtime-consumer-lifecycle.md) | Desktop 交互/Scheduler/Batch 多消费者共存、异步合同与进程级退出所有权门禁 |
+| [95-runtime-composition-package-and-artifact-closure.md](./08-implementation-log/95-runtime-composition-package-and-artifact-closure.md) | Greenfield Composition Root 归位、CLI 兼容边界与独立 `dist` 产物闭包 |
 
 ## 维护约定
 
