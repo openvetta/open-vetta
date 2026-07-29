@@ -73,6 +73,7 @@ export {
 } from "./conversation/index.js";
 export { RUNTIME_ERROR_CODES, runtimeError } from "./errors.js";
 export type {
+	CatalogRoutedRuntimeHostSessionBackendOptions,
 	ComposedGreenfieldRuntimeFactoryOptions,
 	GreenfieldPreparedPrompt,
 	GreenfieldPromptAdapter,
@@ -104,6 +105,7 @@ export type {
 	RuntimeHostSessionAssemblyAssessment,
 	RuntimeHostSessionAssemblyCandidate,
 	RuntimeHostSessionBackend,
+	RuntimeHostSessionBackendRoute,
 	RuntimeHostSessionPortName,
 	RuntimeModelCatalog,
 	RuntimeModelCredentialResolver,
@@ -142,6 +144,7 @@ export type {
 } from "./runtime-host/index.js";
 export {
 	assessRuntimeHostSessionAssembly,
+	CatalogRoutedRuntimeHostSessionBackend,
 	CatalogRoutedRuntimeSessionAccessResolver,
 	ComposedGreenfieldRuntimeFactory,
 	CompositeRuntimeSessionCatalog,

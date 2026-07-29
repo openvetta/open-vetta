@@ -15,6 +15,10 @@ export {
 	type GreenfieldRuntimeComposition,
 	type GreenfieldRuntimeCompositionOptions,
 } from "./greenfield-runtime-composition.js";
+export {
+	GreenfieldRuntimeHostSessionBackend,
+	type GreenfieldRuntimeHostSessionBackendOptions,
+} from "./greenfield-runtime-host-session-backend.js";
 export { resolveGreenfieldSessionIdFromPath } from "./rpc/greenfield-conversation-path.js";
 export { GreenfieldImRpcEventAdapter } from "./rpc/greenfield-im-rpc-events.js";
 export {

@@ -56,16 +56,22 @@ export {
 } from "./greenfield-session-projection.js";
 export { RuntimeHost } from "./runtime-host.js";
 export type {
+	CatalogRoutedRuntimeHostSessionBackendOptions,
 	RuntimeHostSessionAssembly,
 	RuntimeHostSessionAssemblyAssessment,
 	RuntimeHostSessionAssemblyCandidate,
 	RuntimeHostSessionBackend,
+	RuntimeHostSessionBackendRoute,
 	RuntimeHostSessionPortName,
 	RuntimeSessionAskUserQuestionCapability,
 	RuntimeSessionBackend,
 	RuntimeSessionCreateRequest,
 } from "./session-backend.js";
-export { assessRuntimeHostSessionAssembly, RUNTIME_HOST_SESSION_PORT_NAMES } from "./session-backend.js";
+export {
+	assessRuntimeHostSessionAssembly,
+	CatalogRoutedRuntimeHostSessionBackend,
+	RUNTIME_HOST_SESSION_PORT_NAMES,
+} from "./session-backend.js";
 export { mapRuntimeSessionObservationEvent } from "./session-events.js";
 export { RuntimeSessionHostInteractionBroker } from "./session-host-interaction-broker.js";
 export type {

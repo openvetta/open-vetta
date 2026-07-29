@@ -39,6 +39,7 @@ const SESSION_EXECUTION_FEATURE_ID = "coding-session-execution-tools";
 export interface GreenfieldSessionExecutionRuntimeOptions {
 	readonly cwd: string;
 	readonly activation: CodingToolActivation;
+	readonly enableBackgroundTasks?: boolean;
 	readonly initialMode?: SessionExecutionMode;
 	readonly env?: Readonly<Record<string, string>>;
 	readonly sandboxHostPath?: string;
@@ -101,8 +102,10 @@ export class GreenfieldSessionExecutionRuntime {
 		this.feature = createCodingToolsFeature({
 			id: SESSION_EXECUTION_FEATURE_ID,
 			catalog: this.catalog,
-			activation: withBackgroundTaskCapability(options.activation),
-			filterRegistration: (registration) => this.resolveAvailabilityErrorCode(registration.tool.name) === undefined,
+			activation: withBackgroundTaskCapability(options.activation, options.enableBackgroundTasks !== false),
+			filterRegistration: (registration) =>
+				this.isEnabled(registration.tool.name) &&
+				this.resolveAvailabilityErrorCode(registration.tool.name) === undefined,
 		});
 		this.disposeTaskEvents = this.backgroundService.subscribe(() => {
 			void options.resourceContext
@@ -160,7 +163,9 @@ export class GreenfieldSessionExecutionRuntime {
 				.entries.map(
 					(entry) => [entry.registration.tool.name, guardCodingToolRegistration(this.catalog, entry)] as const,
 				)
-				.filter(([toolName]) => this.resolveAvailabilityErrorCode(toolName) === undefined),
+				.filter(
+					([toolName]) => this.isEnabled(toolName) && this.resolveAvailabilityErrorCode(toolName) === undefined,
+				),
 		);
 	}
 
@@ -191,6 +196,10 @@ export class GreenfieldSessionExecutionRuntime {
 		}
 		if (current.state === "deactivated") return CODING_TOOL_AVAILABILITY_ERROR_CODES.DEACTIVATED;
 		return undefined;
+	}
+
+	private isEnabled(toolName: string): boolean {
+		return this.options.enableBackgroundTasks !== false || !BACKGROUND_TASK_TOOL_NAMES.has(toolName);
 	}
 
 	private buildModeRegistrations(
@@ -245,9 +254,10 @@ class SwappableCodingToolCatalog implements CodingToolCatalog {
 }
 
 const SESSION_EXECUTION_TOOL_NAMES = ["bash", "shell", "read", "write", "edit", "task_output", "task_stop"] as const;
+const BACKGROUND_TASK_TOOL_NAMES = new Set<string>(["task_output", "task_stop"]);
 
-function withBackgroundTaskCapability(activation: CodingToolActivation): CodingToolActivation {
-	if (activation.mode === "explicit") return activation;
+function withBackgroundTaskCapability(activation: CodingToolActivation, enabled: boolean): CodingToolActivation {
+	if (!enabled || activation.mode === "explicit") return activation;
 	return {
 		...activation,
 		capabilities: new Set([...(activation.capabilities ?? []), "bg-tasks"]),

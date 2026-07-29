@@ -1,118 +1,115 @@
-import type { GreenfieldRuntimeComposition } from "@vetta/cli-app";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import type {
-	GreenfieldRuntimeSession,
-	RuntimeHostSessionAssemblyCandidate,
-} from "../../../../runtime-core/src/index.js";
-import { createDesktopGreenfieldRuntimeCandidate } from "./desktop-greenfield-runtime-candidate.js";
-
-const mocks = vi.hoisted(() => ({
-	createComposition: vi.fn(),
-	resolveSessionId: vi.fn(),
-}));
-
-vi.mock("@vetta/cli-app", () => ({
-	createGreenfieldRuntimeComposition: mocks.createComposition,
-	resolveGreenfieldSessionIdFromPath: mocks.resolveSessionId,
-}));
-
-const CORE_CANDIDATE = {
-	lifecycle: {},
-	historyReader: {},
-	historyController: {},
-	workspaceView: {},
-	modelController: {},
-	modelView: {},
-	corePorts: {},
-} as RuntimeHostSessionAssemblyCandidate;
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { Api, Model } from "@vetta/ai";
+import type { CodingAgentModelRegistrySource } from "@vetta/coding-agent/runtime-host/greenfield";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+	createDesktopGreenfieldRuntimeCandidate,
+	type DesktopGreenfieldRuntimeCandidate,
+} from "./desktop-greenfield-runtime-candidate.js";
 
 describe("DesktopGreenfieldRuntimeCandidate", () => {
-	beforeEach(() => {
-		mocks.createComposition.mockReset();
-		mocks.resolveSessionId.mockReset();
+	const directories: string[] = [];
+	const candidates: DesktopGreenfieldRuntimeCandidate[] = [];
+
+	afterEach(async () => {
+		for (const candidate of candidates.splice(0).reverse()) await candidate.dispose();
+		for (const directory of directories.splice(0).reverse()) {
+			await rm(directory, { recursive: true, force: true });
+		}
 	});
 
-	it("uses the real composition boundary without making an incomplete session interactive", async () => {
-		const session = createSessionDouble();
-		const create = vi.fn(async () => session);
-		const dispose = vi.fn(async () => {});
-		mocks.createComposition.mockResolvedValue({
-			backend: { create, resume: vi.fn() },
-			dispose,
-		} as unknown as GreenfieldRuntimeComposition);
-		const candidate = await createDesktopGreenfieldRuntimeCandidate(createCompositionOptions());
+	it("creates and resumes a complete candidate through the real RuntimeHost", async () => {
+		const cwd = await temporaryDirectory("desktop-greenfield-workspace-");
+		const conversationDir = await temporaryDirectory("desktop-greenfield-conversations-");
+		const candidate = await createDesktopGreenfieldRuntimeCandidate({
+			conversationDir,
+			cwd,
+			modelRegistry: modelRegistry(),
+			initialModel: MODEL,
+			initialThinkingLevel: "off",
+		});
+		candidates.push(candidate);
 
-		const result = await candidate.createSession({
-			sessionId: "desktop-session",
-			cwd: "C:/workspace",
+		const created = await candidate.createSession({
+			cwd,
+			model: SECOND_MODEL,
+			thinkingLevel: "medium",
 			agentMode: "work",
+			enableBackgroundTasks: false,
+			includeAgentSkills: false,
 		});
 
-		expect(mocks.createComposition).toHaveBeenCalledWith(
-			expect.objectContaining({ conversationDir: "C:/conversations", scenario: "conversation" }),
-		);
-		expect(create).toHaveBeenCalledWith({
-			sessionId: "desktop-session",
-			cwd: "C:/workspace",
-			agentMode: "work",
+		expect(created.assessment).toMatchObject({ ready: true });
+		expect(created.session.readState()).toMatchObject({
+			model: SECOND_MODEL,
+			thinkingLevel: "medium",
 		});
-		expect(result.assessment).toEqual({
-			ready: false,
-			missingPorts: [
-				"hostInteraction",
-				"executionController",
-				"backgroundWorkController",
-				"todoController",
-				"configurationController",
-			],
-		});
-		await expect(candidate.createSession({ cwd: "C:/other" })).rejects.toThrow(
-			"Greenfield candidate session cwd must match its workspace-scoped composition",
-		);
-		await candidate.dispose();
-		expect(dispose).toHaveBeenCalledOnce();
+		expect(created.session.readState().activeToolNames).not.toContain("task_output");
+		const sessionPath = created.session.createCoreAssembly().lifecycle.sessionPath;
+		if (!sessionPath) throw new Error("Greenfield candidate did not expose a session path");
+		await candidate.disposeSession(created.session.sessionId);
+
+		const resumed = await candidate.resumeSession(sessionPath, { cwd });
+		expect(resumed.assessment).toMatchObject({ ready: true });
+		expect(resumed.session.sessionId).toBe(created.session.sessionId);
 	});
 
-	it("resumes only paths owned by the configured Greenfield conversation root", async () => {
-		const session = createSessionDouble();
-		const resume = vi.fn(async () => session);
-		mocks.createComposition.mockResolvedValue({
-			backend: { create: vi.fn(), resume },
-			dispose: vi.fn(async () => {}),
-		} as unknown as GreenfieldRuntimeComposition);
-		mocks.resolveSessionId.mockReturnValueOnce("persisted-session").mockReturnValueOnce(undefined);
-		const candidate = await createDesktopGreenfieldRuntimeCandidate(createCompositionOptions());
-
-		await candidate.resumeSession("C:/conversations/persisted.conversation.jsonl", {
-			cwd: "C:/workspace",
+	it("rejects workspace mismatches and session files not owned by the Greenfield catalog", async () => {
+		const cwd = await temporaryDirectory("desktop-greenfield-gate-workspace-");
+		const conversationDir = await temporaryDirectory("desktop-greenfield-gate-conversations-");
+		const candidate = await createDesktopGreenfieldRuntimeCandidate({
+			conversationDir,
+			cwd,
+			modelRegistry: modelRegistry(),
+			initialModel: MODEL,
+			initialThinkingLevel: "off",
 		});
+		candidates.push(candidate);
 
-		expect(mocks.resolveSessionId).toHaveBeenCalledWith(
-			"C:/conversations",
-			"C:/conversations/persisted.conversation.jsonl",
+		await expect(candidate.createSession({ cwd: join(cwd, "other") })).rejects.toThrow(
+			"workspace-scoped composition",
 		);
-		expect(resume).toHaveBeenCalledWith({
-			sessionId: "persisted-session",
-			cwd: "C:/workspace",
-		});
-		await expect(candidate.resumeSession("C:/other/session.jsonl")).rejects.toThrow(
-			"Session path is not a Greenfield conversation in this composition",
+		await expect(candidate.resumeSession(join(conversationDir, "legacy.jsonl"))).rejects.toThrow(
+			"No RuntimeHost session backend owns",
 		);
 	});
+
+	async function temporaryDirectory(prefix: string): Promise<string> {
+		const directory = await mkdtemp(join(tmpdir(), prefix));
+		directories.push(directory);
+		return directory;
+	}
 });
 
-function createSessionDouble(): GreenfieldRuntimeSession {
+function modelRegistry(): CodingAgentModelRegistrySource {
 	return {
-		createRuntimeHostAssemblyCandidate: () => CORE_CANDIDATE,
-	} as unknown as GreenfieldRuntimeSession;
+		refresh() {},
+		getAvailable: () => [MODEL, SECOND_MODEL],
+		find: (provider, modelId) =>
+			[MODEL, SECOND_MODEL].find((model) => model.provider === provider && model.id === modelId),
+		getApiKey: async () => "test-key",
+		setServerToken() {},
+		loadRemoteModels: async () => undefined,
+	};
 }
 
-function createCompositionOptions() {
-	return {
-		conversationDir: "C:/conversations",
-		cwd: "C:/workspace",
-		modelRegistry: {},
-		initialModel: {},
-		initialThinkingLevel: "off",
-	} as unknown as Parameters<typeof createDesktopGreenfieldRuntimeCandidate>[0];
-}
+const MODEL: Model<Api> = {
+	id: "default-model",
+	name: "Default Model",
+	api: "openai-responses",
+	provider: "test",
+	baseUrl: "https://example.test",
+	reasoning: true,
+	input: ["text"],
+	cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+	contextWindow: 8_000,
+	maxTokens: 1_000,
+};
+
+const SECOND_MODEL: Model<Api> = {
+	...MODEL,
+	id: "desktop-session-model",
+	name: "Desktop Session Model",
+};

@@ -22,6 +22,7 @@ import type {
 	RuntimeSessionTodoController,
 	RuntimeSessionWorkspaceView,
 } from "./session-ports.js";
+import type { RuntimeSessionCatalog } from "./session-services.js";
 
 export interface RuntimeSessionAskUserQuestionCapability {
 	isEnabled(): boolean;
@@ -129,4 +130,47 @@ export function assessRuntimeHostSessionAssembly(
 /** RuntimeHost 的组合根合同：一次创建同时交付外围句柄与基础能力 Port。 */
 export interface RuntimeHostSessionBackend {
 	createAssembly(request: RuntimeSessionCreateRequest): Promise<RuntimeHostSessionAssembly>;
+}
+
+export interface RuntimeHostSessionBackendRoute {
+	readonly catalog: RuntimeSessionCatalog;
+	readonly backend: RuntimeHostSessionBackend;
+}
+
+export interface CatalogRoutedRuntimeHostSessionBackendOptions {
+	/** 无 sessionPath 的新会话使用该 Backend。 */
+	readonly defaultBackend: RuntimeHostSessionBackend;
+	/** 既有会话必须由 Catalog 明确认领后才能路由。 */
+	readonly routes: readonly RuntimeHostSessionBackendRoute[];
+}
+
+/**
+ * 根据持久化格式归属选择 Session Backend。
+ *
+ * 新会话只走显式 defaultBackend；既有路径禁止回退到默认实现，避免一个 Backend
+ * 误读另一个 Backend 的持久化格式。
+ */
+export class CatalogRoutedRuntimeHostSessionBackend implements RuntimeHostSessionBackend {
+	private readonly defaultBackend: RuntimeHostSessionBackend;
+	private readonly routes: readonly RuntimeHostSessionBackendRoute[];
+
+	constructor(options: CatalogRoutedRuntimeHostSessionBackendOptions) {
+		if (options.routes.length === 0) {
+			throw new Error("CatalogRoutedRuntimeHostSessionBackend requires at least one route");
+		}
+		this.defaultBackend = options.defaultBackend;
+		this.routes = options.routes;
+	}
+
+	async createAssembly(request: RuntimeSessionCreateRequest): Promise<RuntimeHostSessionAssembly> {
+		const sessionPath = request.sessionPath?.trim();
+		if (!sessionPath) return this.defaultBackend.createAssembly(request);
+
+		for (const route of this.routes) {
+			if (await route.catalog.ownsSession(sessionPath)) {
+				return route.backend.createAssembly(request);
+			}
+		}
+		throw new Error(`No RuntimeHost session backend owns ${sessionPath}`);
+	}
 }

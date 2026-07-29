@@ -92,9 +92,13 @@ import {
 export interface GreenfieldCliSessionOptions {
 	readonly sessionId: string;
 	readonly cwd?: string;
+	readonly model?: NonNullable<SessionConfig["model"]>;
+	readonly thinkingLevel?: NonNullable<SessionConfig["thinkingLevel"]>;
 	readonly agentMode?: string;
 	readonly executionMode?: SessionExecutionMode;
 	readonly env?: Readonly<Record<string, string>>;
+	readonly enableBackgroundTasks?: boolean;
+	readonly includeAgentSkills?: boolean;
 	readonly sandboxHostPath?: string;
 	readonly linuxBubblewrapPath?: string;
 	readonly macosSandboxExecPath?: string;
@@ -307,6 +311,7 @@ export async function createGreenfieldRuntimeComposition(
 				executionRuntime = new GreenfieldSessionExecutionRuntime({
 					cwd: sessionCwd,
 					activation: effectiveActivation,
+					enableBackgroundTasks: sessionOptions.enableBackgroundTasks,
 					initialMode: sessionOptions.executionMode,
 					env: sessionOptions.env,
 					sandboxHostPath: sessionOptions.sandboxHostPath,
@@ -366,8 +371,8 @@ export async function createGreenfieldRuntimeComposition(
 							],
 						};
 				const modelRuntime = new GreenfieldRuntimeModel({
-					initialModel: options.initialModel,
-					initialThinkingLevel: options.initialThinkingLevel,
+					initialModel: sessionOptions.model ?? options.initialModel,
+					initialThinkingLevel: sessionOptions.thinkingLevel ?? options.initialThinkingLevel,
 					catalog: modelAdapter,
 					credentials: modelAdapter,
 				});
@@ -613,6 +618,9 @@ export async function createGreenfieldRuntimeComposition(
 								cwd: sessionCwd,
 								agentDir: options.agentDir,
 								scenario,
+								resourceLoaderOptions: {
+									includeAgentSkills: sessionOptions.includeAgentSkills,
+								},
 								readAgentMode: () => configurationState.readAgentMode(),
 								readMemory: memoryRuntime ? () => memoryRuntime.readPromptMemory() : undefined,
 								readAgentPlugins: () => configurationState.readAgentPlugins(),
@@ -738,15 +746,20 @@ export async function createGreenfieldRuntimeComposition(
 					},
 					stateSource: {
 						read: () => {
+							const baseToolNames =
+								pluginRunOrchestrator?.readActiveToolNames() ??
+								readActiveToolNames(
+									tools,
+									stateActivation,
+									knowledgeAvailable,
+									effectiveActivation,
+									mcpController,
+								);
+							const executionTools = activeExecutionRuntime.readAvailableTools();
 							const activeToolNames = [
-								...(pluginRunOrchestrator?.readActiveToolNames() ??
-									readActiveToolNames(
-										tools,
-										stateActivation,
-										knowledgeAvailable,
-										effectiveActivation,
-										mcpController,
-									)),
+								...baseToolNames.filter(
+									(toolName) => !activeExecutionRuntime.ownsTool(toolName) || executionTools.has(toolName),
+								),
 								...(todoEnabled ? [todoRegistration.tool.name] : []),
 								...(memoryRuntime ? [memoryRuntime.toolRegistration.tool.name] : []),
 								...(subagentRuntime ? subagentRuntime.readTools().map(({ name }) => name) : []),
