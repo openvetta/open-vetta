@@ -1,0 +1,187 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { Api, Model } from "@vetta/ai";
+import type { CodingAgentModelRegistrySource } from "@vetta/coding-agent/runtime-host/greenfield";
+import { RuntimeHost } from "@vetta/runtime-core";
+import { afterEach, describe, expect, it } from "vitest";
+import { DesktopGreenfieldRuntimeBackendPool } from "./desktop-greenfield-runtime-backend-pool.js";
+import { DesktopGreenfieldRuntimeSessionCatalog } from "./desktop-greenfield-session-catalog.js";
+
+describe("DesktopGreenfieldRuntimeBackendPool", () => {
+	const directories: string[] = [];
+	const runtimes: RuntimeHost[] = [];
+	const pools: DesktopGreenfieldRuntimeBackendPool[] = [];
+
+	afterEach(async () => {
+		for (const runtime of runtimes.splice(0).reverse()) await runtime.disposeAllSessions();
+		for (const pool of pools.splice(0).reverse()) await pool.dispose();
+		for (const directory of directories.splice(0).reverse()) {
+			await rm(directory, { recursive: true, force: true });
+		}
+	});
+
+	it("reuses one scoped composition and isolates different workspaces", async () => {
+		const firstCwd = await temporaryDirectory("desktop-greenfield-pool-first-");
+		const secondCwd = await temporaryDirectory("desktop-greenfield-pool-second-");
+		const pool = createPool();
+		const runtime = new RuntimeHost({
+			sessionBackend: pool,
+			getDefaultExecutionMode: () => "full-access",
+		});
+		pools.push(pool);
+		runtimes.push(runtime);
+
+		const first = await runtime.createSession({
+			cwd: firstCwd,
+			model: MODEL,
+			scenario: "batch",
+		});
+		const sameScope = await runtime.createSession({
+			cwd: firstCwd,
+			model: MODEL,
+			scenario: "batch",
+		});
+		const second = await runtime.createSession({
+			cwd: secondCwd,
+			model: MODEL,
+			scenario: "automation",
+		});
+
+		expect(pool.readScopeCount()).toBe(2);
+		expect(pool.readSession(first.sessionId)).toBeDefined();
+		expect(pool.readSession(sameScope.sessionId)).toBeDefined();
+		expect(pool.readSession(second.sessionId)).toBeDefined();
+		expect(runtime.getState(first.sessionId).scenario).toBe("batch");
+		expect(runtime.getState(second.sessionId).scenario).toBe("automation");
+	});
+
+	it("uses cwd/.vetta/sessions for project listing when sessionDir is omitted", async () => {
+		const cwd = await temporaryDirectory("desktop-greenfield-catalog-root-");
+		const pool = createPool();
+		const runtime = new RuntimeHost({
+			sessionBackend: pool,
+			getDefaultExecutionMode: () => "full-access",
+		});
+		pools.push(pool);
+		runtimes.push(runtime);
+
+		const created = await runtime.createSession({
+			cwd,
+			model: MODEL,
+			scenario: "batch",
+		});
+		const catalog = new DesktopGreenfieldRuntimeSessionCatalog({
+			resolveRoots: () => [{ cwd, sessionDir: join(cwd, ".vetta", "sessions") }],
+		});
+		const sessions = await catalog.listSessions(cwd);
+
+		expect(sessions).toHaveLength(1);
+		expect(sessions[0]).toMatchObject({
+			id: created.sessionId,
+			cwd,
+		});
+	});
+
+	it("deduplicates concurrent host ownership and resumes after the backend pool is recreated", async () => {
+		const cwd = await temporaryDirectory("desktop-greenfield-restart-");
+		const initialPool = createPool();
+		const initialRuntime = new RuntimeHost({
+			sessionBackend: initialPool,
+			getDefaultExecutionMode: () => "full-access",
+		});
+		pools.push(initialPool);
+		runtimes.push(initialRuntime);
+
+		const created = await initialRuntime.createSession({
+			cwd,
+			model: MODEL,
+			scenario: "batch",
+		});
+		const sessionPath = initialRuntime.getSessionPath(created.sessionId);
+		if (!sessionPath) throw new Error("Greenfield pool did not expose a session path");
+		const duplicateOpen = await initialRuntime.createSession({
+			cwd,
+			sessionPath,
+			model: MODEL,
+			scenario: "batch",
+		});
+
+		expect(duplicateOpen.sessionId).toBe(created.sessionId);
+		expect(initialPool.readScopeCount()).toBe(1);
+
+		await initialRuntime.disposeAllSessions();
+		await initialPool.dispose();
+		const resumedPool = createPool();
+		const resumedRuntime = new RuntimeHost({
+			sessionBackend: resumedPool,
+			getDefaultExecutionMode: () => "full-access",
+		});
+		pools.push(resumedPool);
+		runtimes.push(resumedRuntime);
+		const resumed = await resumedRuntime.createSession({
+			cwd,
+			sessionPath,
+			model: MODEL,
+			scenario: "batch",
+		});
+
+		expect(resumed.sessionId).toBe(created.sessionId);
+		expect(resumedRuntime.getSessionPath(resumed.sessionId)).toBe(sessionPath);
+		expect(resumedPool.readScopeCount()).toBe(1);
+	});
+
+	it("does not accept new sessions after the process-level pool is disposed", async () => {
+		const cwd = await temporaryDirectory("desktop-greenfield-disposed-pool-");
+		const pool = createPool();
+		pools.push(pool);
+		await pool.dispose();
+
+		const runtime = new RuntimeHost({
+			sessionBackend: pool,
+			getDefaultExecutionMode: () => "full-access",
+		});
+		runtimes.push(runtime);
+		await expect(runtime.createSession({ cwd, model: MODEL, scenario: "batch" })).rejects.toThrow("disposed");
+	});
+
+	function createPool(): DesktopGreenfieldRuntimeBackendPool {
+		return new DesktopGreenfieldRuntimeBackendPool({
+			compositionDefaults: {
+				modelRegistry: modelRegistry(),
+				initialModel: MODEL,
+				initialThinkingLevel: "off",
+			},
+		});
+	}
+
+	async function temporaryDirectory(prefix: string): Promise<string> {
+		const directory = await mkdtemp(join(tmpdir(), prefix));
+		directories.push(directory);
+		return directory;
+	}
+});
+
+function modelRegistry(): CodingAgentModelRegistrySource {
+	return {
+		refresh() {},
+		getAvailable: () => [MODEL],
+		find: (provider, modelId) => (provider === MODEL.provider && modelId === MODEL.id ? MODEL : undefined),
+		getApiKey: async () => "test-key",
+		setServerToken() {},
+		loadRemoteModels: async () => undefined,
+	};
+}
+
+const MODEL: Model<Api> = {
+	id: "desktop-greenfield-model",
+	name: "Desktop Greenfield Model",
+	api: "openai-responses",
+	provider: "test",
+	baseUrl: "https://example.test",
+	reasoning: true,
+	input: ["text"],
+	cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+	contextWindow: 8_000,
+	maxTokens: 1_000,
+};

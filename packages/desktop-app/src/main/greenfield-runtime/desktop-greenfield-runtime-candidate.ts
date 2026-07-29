@@ -1,12 +1,6 @@
 import { resolve } from "node:path";
+import type { GreenfieldCliSessionOptions, GreenfieldRuntimeCompositionOptions } from "@vetta/cli-app";
 import { FileConversationRuntimeSessionCatalog } from "@vetta/runtime-storage/conversation";
-import {
-	createGreenfieldRuntimeComposition,
-	type GreenfieldCliSessionOptions,
-	type GreenfieldRuntimeComposition,
-	type GreenfieldRuntimeCompositionOptions,
-} from "../../../../cli-app/src/greenfield-runtime-composition.js";
-import { GreenfieldRuntimeHostSessionBackend } from "../../../../cli-app/src/greenfield-runtime-host-session-backend.js";
 import {
 	type AgentPluginContinuationInvoker,
 	type AgentPluginSystemPromptInvoker,
@@ -19,6 +13,7 @@ import {
 	type RuntimeHostSessionAssemblyAssessment,
 	type SessionConfig,
 } from "../../../../runtime-core/src/index.js";
+import { DesktopGreenfieldRuntimeBackendPool } from "./desktop-greenfield-runtime-backend-pool.js";
 
 export type DesktopGreenfieldSessionOptions = Pick<
 	GreenfieldCliSessionOptions,
@@ -55,9 +50,8 @@ export interface DesktopGreenfieldSessionCandidate {
  */
 export class DesktopGreenfieldRuntimeCandidate {
 	constructor(
-		private readonly composition: GreenfieldRuntimeComposition,
 		private readonly runtime: RuntimeHost,
-		private readonly backend: GreenfieldRuntimeHostSessionBackend,
+		private readonly backendPool: DesktopGreenfieldRuntimeBackendPool,
 		private readonly conversationDir: string,
 		private readonly cwd: string,
 		private readonly agentDir: string | undefined,
@@ -87,8 +81,11 @@ export class DesktopGreenfieldRuntimeCandidate {
 	}
 
 	async dispose(): Promise<void> {
-		await this.runtime.disposeAllSessions();
-		await this.composition.dispose();
+		try {
+			await this.runtime.disposeAllSessions();
+		} finally {
+			await this.backendPool.dispose();
+		}
 	}
 
 	private toSessionConfig(options: DesktopGreenfieldSessionOptions) {
@@ -112,8 +109,8 @@ export class DesktopGreenfieldRuntimeCandidate {
 	}
 
 	private readCandidate(sessionId: string): DesktopGreenfieldSessionCandidate {
-		const session = this.backend.readSession(sessionId);
-		const assessment = this.backend.readAssessment(sessionId);
+		const session = this.backendPool.readSession(sessionId);
+		const assessment = this.backendPool.readAssessment(sessionId);
 		if (!session || !assessment) {
 			throw new Error(`Greenfield RuntimeHost candidate was not retained: ${sessionId}`);
 		}
@@ -138,28 +135,17 @@ export async function createDesktopGreenfieldRuntimeCandidate(
 			`Desktop Greenfield candidate subagent setting conflicts with RuntimeHost scenario policy: ${scenario}`,
 		);
 	}
-	const composition = await createGreenfieldRuntimeComposition({
-		...options,
-		scenario,
-		enableSubagents,
+	const backendPool = new DesktopGreenfieldRuntimeBackendPool({
+		compositionDefaults: options,
 	});
 	const cwd = options.cwd ?? process.cwd();
 	const catalog = new FileConversationRuntimeSessionCatalog({
 		roots: [{ cwd, sessionDir: options.conversationDir }],
 		ownershipManager: options.conversationOwnershipManager,
 	});
-	const backend = new GreenfieldRuntimeHostSessionBackend({
-		composition,
-		conversationDir: options.conversationDir,
-		cwd,
-		agentDir: options.agentDir,
-		scenario,
-		enableSubagents,
-		serverUrl: hostOptions.serverUrl,
-	});
 	const routedBackend = new CatalogRoutedRuntimeHostSessionBackend({
-		defaultBackend: backend,
-		routes: [{ catalog, backend }],
+		defaultBackend: backendPool,
+		routes: [{ catalog, backend: backendPool }],
 	});
 	const runtime = new RuntimeHost({
 		sessionBackend: routedBackend,
@@ -171,9 +157,8 @@ export async function createDesktopGreenfieldRuntimeCandidate(
 	runtime.setPluginContinuationInvoker(hostOptions.invokePluginContinuation);
 	runtime.setPluginSystemPromptInvoker(hostOptions.invokePluginSystemPrompt);
 	return new DesktopGreenfieldRuntimeCandidate(
-		composition,
 		runtime,
-		backend,
+		backendPool,
 		options.conversationDir,
 		cwd,
 		options.agentDir,

@@ -44,7 +44,7 @@
 8. [实施日志](./08-implementation-log.md)
    - 索引；每轮实施单独成文，见 [`08-implementation-log/`](./08-implementation-log/)。
    - 按实施轮次记录实际修改、验证结果、未完成项和下一步。
-   - 最新记录：[第 89 轮：Subagent 状态日志与确定性恢复](./08-implementation-log/89-subagent-state-journal-and-recovery.md)。
+   - 最新记录：[第 90 轮：Desktop Greenfield 显式接入与宿主差分门禁](./08-implementation-log/90-desktop-greenfield-opt-in-and-host-differential-gate.md)。
 9. [行为兼容性审计](./09-behavior-compatibility-audit.md)
    - 审计已实施模块与旧行为的差距。
    - 定义旧新差分测试和迁移 Gate。

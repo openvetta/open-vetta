@@ -97,6 +97,7 @@
 | [87-runtime-host-greenfield-backend-and-catalog-routing.md](./08-implementation-log/87-runtime-host-greenfield-backend-and-catalog-routing.md) | RuntimeHost Greenfield Backend、Catalog 格式路由、请求等价门禁与 Desktop Candidate 真实接入 |
 | [88-runtime-host-plugin-and-question-capabilities.md](./08-implementation-log/88-runtime-host-plugin-and-question-capabilities.md) | RuntimeHost Plugin/用户提问能力接线、动态移除与来源冲突门禁 |
 | [89-subagent-state-journal-and-recovery.md](./08-implementation-log/89-subagent-state-journal-and-recovery.md) | Subagent 增量状态日志、确定性恢复、delivery 去重与 transcript ownership 门禁 |
+| [90-desktop-greenfield-opt-in-and-host-differential-gate.md](./08-implementation-log/90-desktop-greenfield-opt-in-and-host-differential-gate.md) | Desktop 进程级 Greenfield Backend Pool、显式 opt-in、Catalog/访问路由与 Legacy/Greenfield 宿主差分门禁 |
 
 ## 维护约定
 

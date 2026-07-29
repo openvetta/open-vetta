@@ -3,10 +3,11 @@ import { join } from "node:path";
 import { AuthStorage, getAgentDir, ModelRegistry } from "@vetta/coding-agent";
 import { createLegacyRuntimeHostOptions } from "@vetta/coding-agent/runtime-host";
 import {
-	FileConversationRuntimeSessionCatalog,
 	FileConversationRuntimeSessionFileHistoryReader,
+	type RuntimeConversationSessionRoot,
 } from "@vetta/runtime-storage/conversation";
 import {
+	CatalogRoutedRuntimeHostSessionBackend,
 	CatalogRoutedRuntimeSessionAccessResolver,
 	CompositeRuntimeSessionCatalog,
 	CompositeRuntimeSessionFileHistoryReader,
@@ -14,12 +15,27 @@ import {
 } from "../../../runtime-core/src/index.js";
 import { getBuiltinSkillPaths } from "./builtin-skills.js";
 import {
+	DEFAULT_CONVERSATION_CWD,
+	DEFAULT_CONVERSATION_SESSION_DIR,
 	DEFAULT_IM_CONVERSATION_CWD,
 	DEFAULT_IM_CONVERSATION_SESSION_DIR,
+	KB_PROCESSING_CWD,
+	KB_PROCESSING_SESSION_DIR,
+	readConfigSync,
 	readDesktopConfig,
 } from "./config/desktop-config-store.js";
 import { DEFAULT_SERVER_URL } from "./constants.js";
 import { getDesktopUserQuestionBroker } from "./conversations/user-question-broker.js";
+import { DesktopGreenfieldRuntimeBackendPool } from "./greenfield-runtime/desktop-greenfield-runtime-backend-pool.js";
+import {
+	DesktopGreenfieldRuntimeSessionCatalog,
+	isSessionPathInDirectory,
+	PathFilteredRuntimeSessionCatalog,
+} from "./greenfield-runtime/desktop-greenfield-session-catalog.js";
+import {
+	DESKTOP_AGENT_RUNTIME_ENV,
+	resolveDesktopAgentRuntimeBackend,
+} from "./greenfield-runtime/desktop-runtime-selector.js";
 import { getAvailableLinuxBubblewrapPath, getAvailableMacosSandboxExecPath } from "./sandbox/capability.js";
 import { resolveWindowsSandboxHostBinary } from "./sandbox/windows-binary-resolver.js";
 
@@ -29,6 +45,7 @@ import { resolveWindowsSandboxHostBinary } from "./sandbox/windows-binary-resolv
 // 导致点击跳转走向 Welcome 页（见定时任务历史跳转 bug）。
 let sharedRuntime: RuntimeHost | null = null;
 let sharedModelRegistry: ModelRegistry | null = null;
+let sharedGreenfieldBackendPool: DesktopGreenfieldRuntimeBackendPool | null = null;
 
 /**
  * 直接从 settings.json 读 serverToken。
@@ -103,17 +120,36 @@ export function getSharedRuntime(): RuntimeHost {
 		if (!legacyOptions.sessionCatalog || !legacyOptions.sessionFileHistoryReader) {
 			throw new Error("Legacy RuntimeHost composition must provide session services");
 		}
+		if (!legacyOptions.sessionBackend) {
+			throw new Error("Legacy RuntimeHost composition must provide a session backend");
+		}
 		const legacyCatalog = legacyOptions.sessionCatalog;
-		const conversationCatalog = new FileConversationRuntimeSessionCatalog({
-			roots: [
-				{
-					cwd: DEFAULT_IM_CONVERSATION_CWD,
-					sessionDir: DEFAULT_IM_CONVERSATION_SESSION_DIR,
-				},
+		const conversationCatalog = new DesktopGreenfieldRuntimeSessionCatalog({
+			resolveRoots: resolveDesktopGreenfieldSessionRoots,
+		});
+		const imConversationCatalog = new PathFilteredRuntimeSessionCatalog(conversationCatalog, (sessionPath) =>
+			isSessionPathInDirectory(sessionPath, DEFAULT_IM_CONVERSATION_SESSION_DIR),
+		);
+		const desktopGreenfieldCatalog = new PathFilteredRuntimeSessionCatalog(
+			conversationCatalog,
+			(sessionPath) => !isSessionPathInDirectory(sessionPath, DEFAULT_IM_CONVERSATION_SESSION_DIR),
+		);
+		const greenfieldBackendPool = new DesktopGreenfieldRuntimeBackendPool({
+			compositionDefaults: {
+				modelRegistry: getOrCreateSharedModelRegistry(),
+			},
+		});
+		const selectedBackend = resolveDesktopAgentRuntimeBackend(process.env[DESKTOP_AGENT_RUNTIME_ENV]);
+		const sessionBackend = new CatalogRoutedRuntimeHostSessionBackend({
+			defaultBackend: selectedBackend === "greenfield" ? greenfieldBackendPool : legacyOptions.sessionBackend,
+			routes: [
+				{ catalog: legacyCatalog, backend: legacyOptions.sessionBackend },
+				{ catalog: desktopGreenfieldCatalog, backend: greenfieldBackendPool },
 			],
 		});
 		sharedRuntime = new RuntimeHost({
 			...legacyOptions,
+			sessionBackend,
 			sessionCatalog: new CompositeRuntimeSessionCatalog([legacyCatalog, conversationCatalog]),
 			sessionFileHistoryReader: new CompositeRuntimeSessionFileHistoryReader([
 				legacyOptions.sessionFileHistoryReader,
@@ -130,7 +166,7 @@ export function getSharedRuntime(): RuntimeHost {
 					},
 				},
 				{
-					catalog: conversationCatalog,
+					catalog: imConversationCatalog,
 					access: {
 						readHistory: true,
 						interactiveResume: false,
@@ -138,15 +174,54 @@ export function getSharedRuntime(): RuntimeHost {
 						delete: true,
 					},
 				},
+				{
+					catalog: desktopGreenfieldCatalog,
+					access: {
+						readHistory: true,
+						interactiveResume: true,
+						rename: true,
+						delete: true,
+					},
+				},
 			]),
 		});
+		sharedGreenfieldBackendPool = greenfieldBackendPool;
 	}
 	return sharedRuntime;
 }
 
 export async function disposeSharedRuntime(): Promise<void> {
-	if (!sharedRuntime) return;
 	const runtime = sharedRuntime;
+	const greenfieldBackendPool = sharedGreenfieldBackendPool;
+	if (!runtime && !greenfieldBackendPool) return;
 	sharedRuntime = null;
-	await runtime.disposeAllSessions();
+	sharedGreenfieldBackendPool = null;
+	try {
+		await runtime?.disposeAllSessions();
+	} finally {
+		await greenfieldBackendPool?.dispose();
+	}
+}
+
+function resolveDesktopGreenfieldSessionRoots(): RuntimeConversationSessionRoot[] {
+	const config = readConfigSync();
+	const projectRoots = [...config.projects, ...config.archivedProjects].map(({ path }) => ({
+		cwd: path,
+		sessionDir: join(path, ".vetta", "sessions"),
+	}));
+	return [
+		{
+			cwd: DEFAULT_CONVERSATION_CWD,
+			sessionDir: DEFAULT_CONVERSATION_SESSION_DIR,
+		},
+		{
+			cwd: DEFAULT_IM_CONVERSATION_CWD,
+			sessionDir: DEFAULT_IM_CONVERSATION_SESSION_DIR,
+		},
+		{
+			cwd: KB_PROCESSING_CWD,
+			sessionDir: KB_PROCESSING_SESSION_DIR,
+		},
+		...projectRoots,
+	];
 }
