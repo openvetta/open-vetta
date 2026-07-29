@@ -3,6 +3,7 @@ import type { SimpleStreamOptions } from "@vetta/ai";
 import type { ConversationDocumentStore } from "../conversation/index.js";
 import {
 	AgentCoreTurnEngine,
+	type AgentSession,
 	BufferedRuntimeSessionContext,
 	type Clock,
 	ContextCompactionCommitter,
@@ -43,6 +44,13 @@ import type {
 
 export type GreenfieldRuntimeOperation = "create" | "resume";
 
+export type GreenfieldRuntimeSessionPeripherals = Partial<
+	Pick<
+		GreenfieldRuntimeAssembly,
+		"hostInteraction" | "executionController" | "backgroundWorkController" | "configurationController"
+	>
+>;
+
 export interface GreenfieldRuntimeResourceContext {
 	readonly operation: GreenfieldRuntimeOperation;
 	readonly contextAppender: RuntimeSessionContextAppender;
@@ -65,6 +73,11 @@ export interface GreenfieldRuntimeResources {
 	readonly executionController?: RuntimeSessionExecutionController;
 	readonly backgroundWorkController?: RuntimeSessionBackgroundWorkController;
 	readonly configurationController?: RuntimeSessionConfigurationController;
+	/**
+	 * 需要绑定真实 Kernel Session 的外围控制器工厂。
+	 * 它在 create/resume 完成后执行，返回值优先于上面的预创建控制器。
+	 */
+	createSessionPeripherals?(session: AgentSession): GreenfieldRuntimeSessionPeripherals;
 	readonly contextRuntime?: ManualContextCompactionRuntime;
 	readonly steeringMode?: SessionInputQueueMode;
 	readonly followUpMode?: SessionInputQueueMode;
@@ -174,6 +187,7 @@ export class ComposedGreenfieldRuntimeFactory<TCreateOptions> implements Greenfi
 						committer: contextCompactionCommitter,
 					})
 				: undefined;
+			const sessionPeripherals = resources.createSessionPeripherals?.(session);
 			const dispose = resources.dispose;
 			return {
 				session,
@@ -185,10 +199,11 @@ export class ComposedGreenfieldRuntimeFactory<TCreateOptions> implements Greenfi
 				stateSource: resources.stateSource,
 				documentParticipants: resources.documentParticipants,
 				todoController: resources.todoController,
-				hostInteraction: resources.hostInteraction,
-				executionController: resources.executionController,
-				backgroundWorkController: resources.backgroundWorkController,
-				configurationController: resources.configurationController,
+				hostInteraction: sessionPeripherals?.hostInteraction ?? resources.hostInteraction,
+				executionController: sessionPeripherals?.executionController ?? resources.executionController,
+				backgroundWorkController:
+					sessionPeripherals?.backgroundWorkController ?? resources.backgroundWorkController,
+				configurationController: sessionPeripherals?.configurationController ?? resources.configurationController,
 				contextController,
 				dispose: dispose ? () => dispose.call(resources) : undefined,
 			};

@@ -29,6 +29,7 @@ export {
 	type GreenfieldRuntimeOperation,
 	type GreenfieldRuntimeResourceContext,
 	type GreenfieldRuntimeResources,
+	type GreenfieldRuntimeSessionPeripherals,
 } from "./greenfield-runtime-factory.js";
 export {
 	type GreenfieldPreparedPrompt,

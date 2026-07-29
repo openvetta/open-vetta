@@ -43,6 +43,8 @@ export interface BackgroundCommandService {
 		options: { readonly maxMs: number; readonly signal?: AbortSignal },
 	): Promise<{ readonly stillRunning: boolean; readonly snapshot: BackgroundCommandSnapshot }>;
 	get(taskId: string): BackgroundCommandSnapshot | undefined;
+	list(): readonly BackgroundCommandSnapshot[];
+	clearFinished(): number;
 	readOutput(taskId: string, options: ReadBackgroundCommandOutputOptions): string;
 	stop(taskId: string, reason?: BackgroundCommandStopReason): boolean;
 	dispose(): void;

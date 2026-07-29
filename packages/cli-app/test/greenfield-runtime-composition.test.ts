@@ -12,6 +12,7 @@ import {
 	type CodingAgentModelRegistrySource,
 	renderCodingAgentMcpToolsInstruction,
 } from "@vetta/coding-agent/runtime-host/greenfield";
+import { assessRuntimeHostSessionAssembly } from "@vetta/runtime-core";
 import type { McpRuntimeToolSource } from "@vetta/runtime-mcp";
 import { FileConversationRepository } from "@vetta/runtime-storage/conversation";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -179,6 +180,38 @@ describe("Greenfield runtime composition", () => {
 
 		expect(toolLists).toEqual([["read"], []]);
 		expect(session.readState().activeToolNames).toEqual([]);
+		await session.dispose();
+	});
+
+	it("assembles real todo and session-local configuration ports without hiding remaining host gaps", async () => {
+		const conversations = await createTemporaryDirectory("greenfield-runtime-session-ports-");
+		const composition = await createGreenfieldRuntimeComposition({
+			conversationDir: conversations,
+			modelRegistry: modelRegistry(),
+			initialModel: MODEL,
+			initialThinkingLevel: "off",
+		});
+		compositions.push(composition);
+		const session = await composition.backend.create({
+			sessionId: "session-ports",
+			agentMode: "work",
+		});
+		const assessment = assessRuntimeHostSessionAssembly(session.createRuntimeHostAssemblyCandidate());
+
+		expect(assessment).toEqual({
+			ready: false,
+			missingPorts: ["hostInteraction", "executionController", "backgroundWorkController"],
+		});
+		const assembly = session.createRuntimeHostAssemblyCandidate();
+		assembly.configurationController?.setSteeringMode("all");
+		assembly.configurationController?.setFollowUpMode("all");
+		assembly.configurationController?.setAgentMode("plan");
+		await assembly.configurationController?.reconfigureAgentPlugins(undefined);
+		expect(await session.getState()).toMatchObject({
+			steeringMode: "all",
+			followUpMode: "all",
+		});
+		expect(assembly.todoController?.readItems()).toEqual([]);
 		await session.dispose();
 	});
 

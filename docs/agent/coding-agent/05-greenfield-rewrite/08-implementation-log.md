@@ -91,6 +91,7 @@
 | [81-format-neutral-session-catalog-and-lifecycle-routing.md](./08-implementation-log/81-format-neutral-session-catalog-and-lifecycle-routing.md) | Legacy/Greenfield 格式中立会话目录、历史读取与生命周期路由 |
 | [82-session-access-capabilities-and-desktop-open-policy.md](./08-implementation-log/82-session-access-capabilities-and-desktop-open-policy.md) | 格式中立会话访问能力、Desktop 显式打开策略与主进程保护 |
 | [83-runtime-host-assembly-gate-and-desktop-greenfield-candidate.md](./08-implementation-log/83-runtime-host-assembly-gate-and-desktop-greenfield-candidate.md) | RuntimeHost Assembly 完整性门禁、Greenfield 缺口评估与 Desktop 非生产候选组合 |
+| [84-session-local-configuration-and-work-control-boundary.md](./08-implementation-log/84-session-local-configuration-and-work-control-boundary.md) | Session 创建后外围工厂、动态配置事实源与后台工作隔离边界 |
 
 ## 维护约定
 

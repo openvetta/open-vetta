@@ -132,4 +132,21 @@ describe("background command lifecycle", () => {
 		expect(service.get(disposed.id)).toMatchObject({ status: "killed", endedBy: "dispose" });
 		await expect(service.wait("missing", { maxMs: 1 })).rejects.toThrow('Background task "missing" not found.');
 	});
+
+	it("lists copied snapshots and clears only terminal tasks", () => {
+		const { processOperations, service } = createControlledService();
+		const events: string[] = [];
+		service.subscribe((event) => events.push(event.type));
+		const running = service.spawn({ command: "running", cwd: "C:/workspace", env: {} });
+		const completed = service.spawn({ command: "completed", cwd: "C:/workspace", env: {} });
+		processOperations.exit("completed", 0);
+
+		const snapshots = service.list();
+		expect(snapshots.map(({ id }) => id)).toEqual([running.id, completed.id]);
+		expect(snapshots[0]).not.toBe(service.get(running.id));
+		expect(service.clearFinished()).toBe(1);
+		expect(service.list().map(({ id }) => id)).toEqual([running.id]);
+		expect(service.clearFinished()).toBe(0);
+		expect(events.at(-1)).toBe("tasks_cleared");
+	});
 });

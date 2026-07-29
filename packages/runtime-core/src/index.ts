@@ -90,6 +90,7 @@ export type {
 	GreenfieldRuntimeSessionBackendOptions,
 	GreenfieldRuntimeSessionCoreAssembly,
 	GreenfieldRuntimeSessionIdentity,
+	GreenfieldRuntimeSessionPeripherals,
 	GreenfieldRuntimeSessionState,
 	GreenfieldRuntimeStateSource,
 	GreenfieldSessionContextControllerOptions,

@@ -64,6 +64,7 @@ import {
 	selectCodingToolRegistrations,
 } from "@vetta/runtime-tools/coding";
 import { ConversationOwnershipBinding } from "./conversation-ownership-binding.js";
+import { GreenfieldSessionConfigurationState } from "./greenfield-session-peripherals.js";
 import {
 	type CodingToolsRuntimeComposition,
 	createCodingToolsRuntimeComposition,
@@ -354,6 +355,9 @@ export async function createGreenfieldRuntimeComposition(
 					}
 				};
 				const pluginRuntime = options.createPluginRuntime?.(sessionOptions);
+				const configurationState = new GreenfieldSessionConfigurationState(sessionOptions.agentMode, () =>
+					pluginRuntime?.readAgentPlugins(),
+				);
 				const pluginSession = {
 					id: activeSessionId,
 					cwd: sessionCwd,
@@ -363,12 +367,13 @@ export async function createGreenfieldRuntimeComposition(
 					? new CodingAgentPluginRunOrchestrator({
 							session: pluginSession,
 							...pluginRuntime,
+							readAgentPlugins: () => configurationState.readAgentPlugins(),
 						})
 					: undefined;
 				const pluginToolRuntime =
 					pluginRuntime && pluginRunOrchestrator
 						? new CodingAgentPluginToolRuntime({
-								readAgentPlugins: pluginRuntime.readAgentPlugins,
+								readAgentPlugins: () => configurationState.readAgentPlugins(),
 								invokeTool: pluginRuntime.invokeTool,
 								runOrchestrator: pluginRunOrchestrator,
 								shouldPreserveBaseTool: (toolName) => mcpController?.isManagedTool(toolName) === true,
@@ -378,7 +383,7 @@ export async function createGreenfieldRuntimeComposition(
 											backgroundTasksAvailable,
 											knowledgeAvailable,
 										}),
-										sessionOptions.agentMode,
+										configurationState.readAgentMode(),
 									),
 							})
 						: undefined;
@@ -399,17 +404,17 @@ export async function createGreenfieldRuntimeComposition(
 								resourceLoader: options.promptResourceSource,
 								settingsManager: options.promptSettingsSource,
 								scenario,
-								readAgentMode: () => sessionOptions.agentMode,
+								readAgentMode: () => configurationState.readAgentMode(),
 								readMemory: memoryRuntime ? () => memoryRuntime.readPromptMemory() : undefined,
-								readAgentPlugins: pluginRuntime?.readAgentPlugins,
+								readAgentPlugins: () => configurationState.readAgentPlugins(),
 							})
 						: await createCodingAgentPromptRuntime({
 								cwd: sessionCwd,
 								agentDir: options.agentDir,
 								scenario,
-								readAgentMode: () => sessionOptions.agentMode,
+								readAgentMode: () => configurationState.readAgentMode(),
 								readMemory: memoryRuntime ? () => memoryRuntime.readPromptMemory() : undefined,
-								readAgentPlugins: pluginRuntime?.readAgentPlugins,
+								readAgentPlugins: () => configurationState.readAgentPlugins(),
 							});
 				const resolveSystemPromptOptions =
 					injectedSystemPromptOptionsResolver ?? promptRuntime?.resolveSystemPromptOptions;
@@ -448,7 +453,7 @@ export async function createGreenfieldRuntimeComposition(
 							return {
 								...promptOptions,
 								cwd: promptOptions.cwd ?? sessionCwd,
-								agentPlugins: promptOptions.agentPlugins ?? pluginRuntime?.readAgentPlugins(),
+								agentPlugins: promptOptions.agentPlugins ?? configurationState.readAgentPlugins(),
 								...(memoryRuntime ? { memory: memoryRuntime.renderPromptMemory() } : {}),
 							};
 						},
@@ -504,6 +509,9 @@ export async function createGreenfieldRuntimeComposition(
 					modelRuntime,
 					documentParticipants: [todoRuntime, contextRuntime],
 					todoController: todoRuntime,
+					createSessionPeripherals: (session) => ({
+						configurationController: configurationState.createController(session),
+					}),
 					contextRuntime,
 					identity: {
 						cwd: sessionOptions.cwd ?? cwd,

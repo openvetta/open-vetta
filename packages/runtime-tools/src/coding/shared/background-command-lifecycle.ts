@@ -212,6 +212,19 @@ export function createBackgroundCommandService(host: BackgroundCommandHost): Bac
 			const task = tasks.get(taskId);
 			return task ? { ...task.snapshot } : undefined;
 		},
+		list() {
+			return [...tasks.values()].map((task) => ({ ...task.snapshot }));
+		},
+		clearFinished() {
+			let cleared = 0;
+			for (const [taskId, task] of tasks) {
+				if (!task.ended) continue;
+				tasks.delete(taskId);
+				cleared += 1;
+			}
+			if (cleared > 0) emit({ type: "tasks_cleared" });
+			return cleared;
+		},
 		readOutput(taskId: string, options: ReadBackgroundCommandOutputOptions): string {
 			const task = tasks.get(taskId);
 			if (!task) return "";
