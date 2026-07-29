@@ -67,6 +67,7 @@ export type {
 } from "./session-backend.js";
 export { assessRuntimeHostSessionAssembly, RUNTIME_HOST_SESSION_PORT_NAMES } from "./session-backend.js";
 export { mapRuntimeSessionObservationEvent } from "./session-events.js";
+export { RuntimeSessionHostInteractionBroker } from "./session-host-interaction-broker.js";
 export type {
 	RuntimeContextCompactionRequest,
 	RuntimeContextCompactionResult,

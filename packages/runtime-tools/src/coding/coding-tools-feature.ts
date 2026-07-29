@@ -21,6 +21,7 @@ export type CodingToolRegistrationFilter = (
 ) => Promise<boolean> | boolean;
 
 export interface CodingToolsFeatureOptions {
+	readonly id?: string;
 	readonly catalog: CodingToolCatalog;
 	readonly activation?: CodingToolActivation;
 	readonly resolveActivation?: CodingToolActivationResolver;
@@ -29,12 +30,13 @@ export interface CodingToolsFeatureOptions {
 }
 
 export function createCodingToolsFeature(options: CodingToolsFeatureOptions): AgentFeatureDefinition {
+	const featureId = options.id ?? CODING_TOOLS_FEATURE_ID;
 	return {
-		id: CODING_TOOLS_FEATURE_ID,
+		id: featureId,
 		async prepare(context) {
 			context.signal.throwIfAborted();
 			const modelCallProvider = {
-				id: CODING_TOOLS_FEATURE_ID,
+				id: featureId,
 				async contribute(callContext: ModelCallContributionContext) {
 					callContext.signal.throwIfAborted();
 					await options.refreshCatalog?.(callContext);

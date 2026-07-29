@@ -324,7 +324,14 @@ describe("RuntimeHost session backend boundary", () => {
 		const bindHostInteraction = vi.fn(async () => {});
 		let busy = false;
 		const isBusy = vi.fn(() => busy);
-		const reconfigureExecution = vi.fn();
+		let deferExecutionModeSwitch = false;
+		let releaseExecutionModeSwitch: (() => void) | undefined;
+		const reconfigureExecution = vi.fn(async () => {
+			if (!deferExecutionModeSwitch) return;
+			await new Promise<void>((resolve) => {
+				releaseExecutionModeSwitch = resolve;
+			});
+		});
 		const readWorkingDirectory = vi.fn(() => undefined);
 		const backgroundTask: BackgroundTaskInfo = {
 			id: "task-1",
@@ -527,7 +534,8 @@ describe("RuntimeHost session backend boundary", () => {
 		expect(setConfigurationAgentMode).toHaveBeenNthCalledWith(2, "planning");
 		expect(continueTurn).toHaveBeenCalledTimes(4);
 
-		await host.setExecutionMode(sessionId, "sandbox");
+		deferExecutionModeSwitch = true;
+		const executionModeSwitch = host.setExecutionMode(sessionId, "sandbox");
 		expect(reconfigureExecution).toHaveBeenCalledWith({
 			mode: "sandbox",
 			sessionId,
@@ -535,6 +543,12 @@ describe("RuntimeHost session backend boundary", () => {
 			linuxBubblewrapPath: undefined,
 			macosSandboxExecPath: undefined,
 		});
+		expect(host.getState(sessionId).executionMode).toBe("full-access");
+		const releaseSwitch = releaseExecutionModeSwitch;
+		if (!releaseSwitch) throw new Error("Expected deferred execution mode reconfiguration");
+		releaseSwitch();
+		await executionModeSwitch;
+		deferExecutionModeSwitch = false;
 		expect(host.getState(sessionId).executionMode).toBe("sandbox");
 		busy = true;
 		await expect(host.setExecutionMode(sessionId, "full-access")).rejects.toMatchObject({

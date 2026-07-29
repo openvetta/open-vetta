@@ -525,7 +525,7 @@ export class RuntimeHost implements SessionFacade {
 		if (handle.executionMode === mode) return;
 		this.assertCanSwitchExecutionMode(handle);
 
-		handle.executionController.reconfigure({
+		await handle.executionController.reconfigure({
 			mode,
 			sessionId,
 			sandboxHostPath: this.sandboxHostPath,

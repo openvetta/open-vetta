@@ -123,7 +123,7 @@ export interface RuntimeExecutionModeUpdate {
 /** 执行忙碌态与模式重配置边界；具体工具构造留在实现适配器。 */
 export interface RuntimeSessionExecutionController {
 	isBusy(): boolean;
-	reconfigure(update: RuntimeExecutionModeUpdate): void;
+	reconfigure(update: RuntimeExecutionModeUpdate): void | Promise<void>;
 }
 
 /** Session 工作目录只读视图；目录创建和修复仍由宿主负责。 */

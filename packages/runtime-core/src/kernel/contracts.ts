@@ -569,7 +569,8 @@ export interface ObserverFailedEvent {
 export interface RuntimeSessionObservationEnvelope {
 	readonly type: "session.observation";
 	readonly sessionId: string;
-	readonly turnId: string;
+	/** Session-level peripheral observations can occur between Turns. */
+	readonly turnId?: string;
 	readonly observation: RuntimeSessionObservationEvent;
 	readonly timestamp: number;
 }

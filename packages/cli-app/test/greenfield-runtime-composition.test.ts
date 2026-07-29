@@ -165,7 +165,7 @@ describe("Greenfield runtime composition", () => {
 			modelRegistry: modelRegistry(),
 			initialModel: MODEL,
 			initialThinkingLevel: "off",
-			activation: { mode: "explicit", toolNames: ["read"] },
+			activation: { mode: "explicit", toolNames: ["read", "bash"] },
 			streamFn: (_model, context) => {
 				toolLists.push((context.tools ?? []).map(({ name }) => name));
 				return new RecordedAssistantStream(assistantMessage([{ type: "text", text: "done" }]));
@@ -176,14 +176,28 @@ describe("Greenfield runtime composition", () => {
 
 		await session.prompt({ text: "first" });
 		expect(composition.tools.registry.deactivate("read")).toBe(true);
+		expect(composition.tools.registry.deactivate("bash")).toBe(true);
 		await session.prompt({ text: "second" });
+		expect(composition.tools.registry.unregister("bash")).toBe(true);
+		composition.tools.registry.register({
+			tool: {
+				name: "bash",
+				label: "Replacement Bash",
+				description: "Replacement command tool",
+				inputSchema: { type: "object" },
+				execute: async () => ({ content: [{ type: "text", text: "replacement" }] }),
+			},
+			scopeUse: [],
+			category: "core",
+		});
+		await session.prompt({ text: "third" });
 
-		expect(toolLists).toEqual([["read"], []]);
-		expect(session.readState().activeToolNames).toEqual([]);
+		expect(toolLists).toEqual([["bash", "read"], [], ["bash"]]);
+		expect(session.readState().activeToolNames).toEqual(["bash"]);
 		await session.dispose();
 	});
 
-	it("assembles real todo and session-local configuration ports without hiding remaining host gaps", async () => {
+	it("assembles real host, execution, todo and configuration ports without hiding the subagent gap", async () => {
 		const conversations = await createTemporaryDirectory("greenfield-runtime-session-ports-");
 		const composition = await createGreenfieldRuntimeComposition({
 			conversationDir: conversations,
@@ -200,9 +214,18 @@ describe("Greenfield runtime composition", () => {
 
 		expect(assessment).toEqual({
 			ready: false,
-			missingPorts: ["hostInteraction", "executionController", "backgroundWorkController"],
+			missingPorts: ["backgroundWorkController"],
 		});
 		const assembly = session.createRuntimeHostAssemblyCandidate();
+		await assembly.hostInteraction?.bind({
+			confirm: async () => true,
+			requestSandboxGrant: async () => "allow_once",
+		});
+		expect(assembly.executionController?.isBusy()).toBe(false);
+		await assembly.executionController?.reconfigure({
+			mode: "full-access",
+			sessionId: "session-ports",
+		});
 		assembly.configurationController?.setSteeringMode("all");
 		assembly.configurationController?.setFollowUpMode("all");
 		assembly.configurationController?.setAgentMode("plan");

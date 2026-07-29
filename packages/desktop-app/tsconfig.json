@@ -33,6 +33,9 @@
 			"@vetta/ecosystem-adapter/*": ["../ecosystem-adapter/src/*"],
 			"@vetta/coding-agent": ["../coding-agent/src/index.ts"],
 			"@vetta/coding-agent/runtime-host": ["../coding-agent/src/adapters/runtime-core/index.ts"],
+			"@vetta/coding-agent/runtime-host/greenfield": [
+				"../coding-agent/src/adapters/runtime-core/greenfield.ts"
+			],
 			"@vetta/coding-agent/*": ["../coding-agent/src/*"],
 			"@vetta/cli-app": ["../cli-app/src/index.ts"],
 			"@vetta/cli-app/*": ["../cli-app/src/*"],

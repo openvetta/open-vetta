@@ -93,6 +93,10 @@ export {
 	createCodingAgentPromptRuntime,
 } from "./greenfield-prompt-runtime.js";
 export {
+	type CodingAgentGreenfieldSandboxToolsOptions,
+	createCodingAgentGreenfieldSandboxToolRegistrations,
+} from "./greenfield-sandbox-tool-adapter.js";
+export {
 	CodingAgentStopHookContinuationSource,
 	type CodingAgentStopHookContinuationSourceOptions,
 } from "./greenfield-stop-hook-continuation-source.js";

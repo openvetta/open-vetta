@@ -86,6 +86,7 @@ export type {
 	GreenfieldRuntimeModelOptions,
 	GreenfieldRuntimeModelRuntime,
 	GreenfieldRuntimeOperation,
+	GreenfieldRuntimeResourceContext,
 	GreenfieldRuntimeResources,
 	GreenfieldRuntimeSessionBackendOptions,
 	GreenfieldRuntimeSessionCoreAssembly,
@@ -154,6 +155,7 @@ export {
 	mapRuntimeSessionObservationEvent,
 	RUNTIME_HOST_SESSION_PORT_NAMES,
 	RuntimeHost,
+	RuntimeSessionHostInteractionBroker,
 } from "./runtime-host/index.js";
 export type {
 	RuntimeSessionLifecyclePhase,

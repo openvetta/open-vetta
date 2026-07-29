@@ -42,6 +42,7 @@ import {
 	GreenfieldRuntimeModel,
 	GreenfieldRuntimeSessionBackend,
 	type SessionConfig,
+	type SessionExecutionMode,
 } from "@vetta/runtime-core";
 import { selectConversationDocumentModelMessages } from "@vetta/runtime-core/conversation";
 import {
@@ -64,6 +65,7 @@ import {
 	selectCodingToolRegistrations,
 } from "@vetta/runtime-tools/coding";
 import { ConversationOwnershipBinding } from "./conversation-ownership-binding.js";
+import { GreenfieldSessionExecutionRuntime } from "./greenfield-session-execution-runtime.js";
 import { GreenfieldSessionConfigurationState } from "./greenfield-session-peripherals.js";
 import {
 	type CodingToolsRuntimeComposition,
@@ -74,6 +76,11 @@ export interface GreenfieldCliSessionOptions {
 	readonly sessionId: string;
 	readonly cwd?: string;
 	readonly agentMode?: string;
+	readonly executionMode?: SessionExecutionMode;
+	readonly env?: Readonly<Record<string, string>>;
+	readonly sandboxHostPath?: string;
+	readonly linuxBubblewrapPath?: string;
+	readonly macosSandboxExecPath?: string;
 	readonly parentSessionPath?: string;
 	readonly parentEntryId?: string;
 	readonly memoryMode?: boolean;
@@ -169,6 +176,7 @@ export async function createGreenfieldRuntimeComposition(
 	let backgroundTasksAvailable = false;
 	let mcpSynchronizer: McpRuntimeToolSynchronizer | undefined;
 	const mcpControllers = new Map<string, McpDeferredToolController>();
+	const executionRuntimes = new Map<string, GreenfieldSessionExecutionRuntime>();
 	const tools = createCodingToolsRuntimeComposition({
 		cwd,
 		activation: effectiveActivation,
@@ -182,6 +190,10 @@ export async function createGreenfieldRuntimeComposition(
 			if (snapshot) mcpControllers.get(context.sessionId)?.refresh(snapshot);
 		},
 		filterRegistration: (registration, context) => {
+			const executionRuntime = executionRuntimes.get(context.sessionId);
+			if (executionRuntime?.ownsTool(registration.tool.name)) {
+				return false;
+			}
 			if (
 				registration.category === "kb-read" &&
 				!isKnowledgeToolEnabled(effectiveActivation, context, knowledgeAvailable)
@@ -245,6 +257,7 @@ export async function createGreenfieldRuntimeComposition(
 		async createResources(sessionOptions, resourceContext) {
 			let activeSessionId = sessionOptions.sessionId;
 			let activeOwnership = await acquireOwnership(activeSessionId);
+			let executionRuntime: GreenfieldSessionExecutionRuntime | undefined;
 			try {
 				const synchronizer = mcpSynchronizer;
 				const mcpController = synchronizer
@@ -260,6 +273,20 @@ export async function createGreenfieldRuntimeComposition(
 					mcpControllers.set(sessionOptions.sessionId, mcpController);
 				}
 				const sessionCwd = sessionOptions.cwd ?? cwd;
+				executionRuntime = new GreenfieldSessionExecutionRuntime({
+					cwd: sessionCwd,
+					activation: effectiveActivation,
+					initialMode: sessionOptions.executionMode,
+					env: sessionOptions.env,
+					sandboxHostPath: sessionOptions.sandboxHostPath,
+					linuxBubblewrapPath: sessionOptions.linuxBubblewrapPath,
+					macosSandboxExecPath: sessionOptions.macosSandboxExecPath,
+					readSessionId: () => activeSessionId,
+					resolveToolEntry: (toolName) => tools.registry.resolve(toolName),
+					resourceContext,
+				});
+				const activeExecutionRuntime = executionRuntime;
+				executionRuntimes.set(activeSessionId, activeExecutionRuntime);
 				const memoryRuntimeOptions = {
 					memoryFile: sessionOptions.memoryFile ?? join(sessionCwd, "MEMORY.md"),
 					memoryCharLimit: sessionOptions.memoryCharLimit,
@@ -279,6 +306,7 @@ export async function createGreenfieldRuntimeComposition(
 							...tools.profile,
 							features: [
 								...tools.profile.features,
+								activeExecutionRuntime.feature,
 								...(todoEnabled ? [createCodingAgentTodoRuntimeFeature(todoRegistration)] : []),
 								...(memoryRuntime
 									? [createCodingAgentMemoryRuntimeFeature(memoryRuntime.toolRegistration)]
@@ -290,6 +318,7 @@ export async function createGreenfieldRuntimeComposition(
 							...tools.profile,
 							features: [
 								...tools.profile.features,
+								activeExecutionRuntime.feature,
 								...(todoEnabled ? [createCodingAgentTodoRuntimeFeature(todoRegistration)] : []),
 								...(memoryRuntime
 									? [createCodingAgentMemoryRuntimeFeature(memoryRuntime.toolRegistration)]
@@ -433,13 +462,15 @@ export async function createGreenfieldRuntimeComposition(
 							new Map([
 								...tools.registry
 									.snapshot()
-									.entries.map(
+									.entries.filter((entry) => !activeExecutionRuntime.ownsTool(entry.registration.tool.name))
+									.map(
 										(entry) =>
 											[
 												entry.registration.tool.name,
 												guardCodingToolRegistration(tools.registry, entry),
 											] as const,
 									),
+								...activeExecutionRuntime.readAvailableTools(),
 								...(todoEnabled ? [[todoRegistration.tool.name, todoRegistration.tool] as const] : []),
 								...(memoryRuntime
 									? [[memoryRuntime.toolRegistration.tool.name, memoryRuntime.toolRegistration.tool] as const]
@@ -510,6 +541,8 @@ export async function createGreenfieldRuntimeComposition(
 					documentParticipants: [todoRuntime, contextRuntime],
 					todoController: todoRuntime,
 					createSessionPeripherals: (session) => ({
+						hostInteraction: activeExecutionRuntime.hostInteraction,
+						executionController: activeExecutionRuntime.createExecutionController(session),
 						configurationController: configurationState.createController(session),
 					}),
 					contextRuntime,
@@ -555,6 +588,10 @@ export async function createGreenfieldRuntimeComposition(
 							mcpControllers.delete(previousSessionId);
 							mcpControllers.set(result.sessionId, mcpController);
 						}
+						if (executionRuntimes.get(previousSessionId) === activeExecutionRuntime) {
+							executionRuntimes.delete(previousSessionId);
+							executionRuntimes.set(result.sessionId, activeExecutionRuntime);
+						}
 					},
 					async dispose() {
 						try {
@@ -571,6 +608,10 @@ export async function createGreenfieldRuntimeComposition(
 							if (mcpControllers.get(activeSessionId) === mcpController) {
 								mcpControllers.delete(activeSessionId);
 							}
+							if (executionRuntimes.get(activeSessionId) === activeExecutionRuntime) {
+								executionRuntimes.delete(activeSessionId);
+							}
+							activeExecutionRuntime.dispose();
 							capabilityCompositions.delete(capabilities);
 							todoRuntimes.delete(todoRuntime);
 							await todoRuntime.dispose();
@@ -582,6 +623,10 @@ export async function createGreenfieldRuntimeComposition(
 					},
 				};
 			} catch (error) {
+				if (executionRuntimes.get(activeSessionId) === executionRuntime) {
+					executionRuntimes.delete(activeSessionId);
+				}
+				executionRuntime?.dispose();
 				await releaseOwnership(activeOwnership);
 				throw error;
 			}
@@ -615,6 +660,8 @@ export async function createGreenfieldRuntimeComposition(
 			memoryControllers.clear();
 			hookSessionDisposers.clear();
 			mcpControllers.clear();
+			for (const executionRuntime of executionRuntimes.values()) executionRuntime.dispose();
+			executionRuntimes.clear();
 			ownershipBindings.clear();
 			await repository.close();
 			mcpSynchronizer?.dispose();

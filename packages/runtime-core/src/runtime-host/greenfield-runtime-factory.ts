@@ -22,6 +22,7 @@ import {
 	SystemClock,
 	TurnPipeline,
 } from "../kernel/index.js";
+import type { RuntimeSessionObservationEvent } from "../session-observation.js";
 import type { GreenfieldRuntimeDocumentParticipant } from "./greenfield-document-participant.js";
 import type { GreenfieldRuntimeModelRuntime } from "./greenfield-model-runtime.js";
 import type {
@@ -55,6 +56,7 @@ export interface GreenfieldRuntimeResourceContext {
 	readonly operation: GreenfieldRuntimeOperation;
 	readonly contextAppender: RuntimeSessionContextAppender;
 	abortCurrentRun(): void;
+	reportObservation(observation: RuntimeSessionObservationEvent): Promise<void>;
 }
 
 export interface GreenfieldRuntimeResources {
@@ -128,12 +130,31 @@ export class ComposedGreenfieldRuntimeFactory<TCreateOptions> implements Greenfi
 	): Promise<GreenfieldRuntimeAssembly> {
 		const runtimeContext = new BufferedRuntimeSessionContext();
 		let abortCurrentRun = (): void => {};
+		let observationSessionId: string | undefined;
+		const pendingObservations: RuntimeSessionObservationEvent[] = [];
+		const reportObservation = async (observation: RuntimeSessionObservationEvent): Promise<void> => {
+			if (!observationSessionId) {
+				pendingObservations.push(observation);
+				return;
+			}
+			await eventSink.publish({
+				type: "session.observation",
+				sessionId: observationSessionId,
+				observation,
+				timestamp: this.clock.now(),
+			});
+		};
 		const resources = await this.options.createResources(options, {
 			operation,
 			contextAppender: runtimeContext,
 			abortCurrentRun: () => abortCurrentRun(),
+			reportObservation,
 		});
 		try {
+			observationSessionId = resources.sessionId;
+			for (const observation of pendingObservations.splice(0)) {
+				await reportObservation(observation);
+			}
 			const turnEngine = new AgentCoreTurnEngine({
 				streamFn: this.options.streamFn,
 				streamOptions: this.options.streamOptions,
