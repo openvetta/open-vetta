@@ -4,6 +4,7 @@ import type { Message } from "@vetta/ai";
 import { createKbFilterByTagsTool, createKbListTagsTool } from "@vetta/coding-agent";
 import {
 	adaptCodingAgentToolRegistration,
+	CODING_AGENT_ASK_USER_QUESTION_TOOL_NAME,
 	type CodingAgentCompactionExtensionRuntime,
 	CodingAgentContinuationOrchestrator,
 	CodingAgentGreenfieldContextRuntime,
@@ -29,6 +30,7 @@ import {
 	type CodingAgentSystemPromptOptionsResolver,
 	CodingAgentTodoContinuationSource,
 	CodingAgentTodoRuntime,
+	createCodingAgentAskUserQuestionRuntimeFeature,
 	createCodingAgentMemoryRuntimeFeature,
 	createCodingAgentPromptResourceResolver,
 	createCodingAgentPromptRuntime,
@@ -37,13 +39,19 @@ import {
 	createEcosystemHookRuntime,
 	type EcosystemHookAdapterFactory,
 	type HookConfigLayer,
+	isCodingAgentAskUserQuestionEnabled,
 } from "@vetta/coding-agent/runtime-host/greenfield";
 import {
+	type AgentPluginContinuationInvoker,
+	type AgentPluginRuntimeConfig,
+	type AgentPluginSystemPromptInvoker,
+	type AgentPluginToolInvoker,
 	ComposedGreenfieldRuntimeFactory,
 	type ConversationScenario,
 	GreenfieldRuntimeModel,
 	type GreenfieldRuntimeResourceContext,
 	GreenfieldRuntimeSessionBackend,
+	type RuntimeSessionAskUserQuestionCapability,
 	type SessionConfig,
 	type SessionExecutionMode,
 } from "@vetta/runtime-core";
@@ -99,6 +107,11 @@ export interface GreenfieldCliSessionOptions {
 	readonly env?: Readonly<Record<string, string>>;
 	readonly enableBackgroundTasks?: boolean;
 	readonly includeAgentSkills?: boolean;
+	readonly agentPlugins?: AgentPluginRuntimeConfig;
+	readonly invokePluginTool?: AgentPluginToolInvoker;
+	readonly invokePluginContinuation?: AgentPluginContinuationInvoker;
+	readonly invokePluginSystemPrompt?: AgentPluginSystemPromptInvoker;
+	readonly askUserQuestion?: RuntimeSessionAskUserQuestionCapability;
 	readonly sandboxHostPath?: string;
 	readonly linuxBubblewrapPath?: string;
 	readonly macosSandboxExecPath?: string;
@@ -340,6 +353,12 @@ export async function createGreenfieldRuntimeComposition(
 				}
 				const todoRegistration = createCodingAgentTodoRuntimeToolRegistration(todoRuntime);
 				const todoEnabled = selectCodingToolRegistrations([todoRegistration], effectiveActivation).length > 0;
+				const askUserQuestionFeature = sessionOptions.askUserQuestion
+					? createCodingAgentAskUserQuestionRuntimeFeature({
+							capability: sessionOptions.askUserQuestion,
+							scenario,
+						})
+					: undefined;
 				const baseProfile: AgentProfile = mcpController
 					? {
 							...tools.profile,
@@ -353,6 +372,7 @@ export async function createGreenfieldRuntimeComposition(
 								...(memoryRuntime
 									? [createCodingAgentMemoryRuntimeFeature(memoryRuntime.toolRegistration)]
 									: []),
+								...(askUserQuestionFeature ? [askUserQuestionFeature] : []),
 								mcpController.createFeature({ includePromptInstruction: false }),
 							],
 						}
@@ -368,6 +388,7 @@ export async function createGreenfieldRuntimeComposition(
 								...(memoryRuntime
 									? [createCodingAgentMemoryRuntimeFeature(memoryRuntime.toolRegistration)]
 									: []),
+								...(askUserQuestionFeature ? [askUserQuestionFeature] : []),
 							],
 						};
 				const modelRuntime = new GreenfieldRuntimeModel({
@@ -560,7 +581,12 @@ export async function createGreenfieldRuntimeComposition(
 						console.warn("[ecosystem-hooks] SessionEnd failed during Greenfield dispose", error);
 					}
 				};
-				const pluginRuntime = options.createPluginRuntime?.(sessionOptions);
+				const requestedPluginRuntime = createSessionPluginRuntime(sessionOptions);
+				const configuredPluginRuntime = options.createPluginRuntime?.(sessionOptions);
+				if (requestedPluginRuntime && configuredPluginRuntime) {
+					throw new Error("Greenfield session plugin capabilities conflict with createPluginRuntime");
+				}
+				const pluginRuntime = requestedPluginRuntime ?? configuredPluginRuntime;
 				const configurationState = new GreenfieldSessionConfigurationState(sessionOptions.agentMode, () =>
 					pluginRuntime?.readAgentPlugins(),
 				);
@@ -763,6 +789,13 @@ export async function createGreenfieldRuntimeComposition(
 								...(todoEnabled ? [todoRegistration.tool.name] : []),
 								...(memoryRuntime ? [memoryRuntime.toolRegistration.tool.name] : []),
 								...(subagentRuntime ? subagentRuntime.readTools().map(({ name }) => name) : []),
+								...(sessionOptions.askUserQuestion &&
+								isCodingAgentAskUserQuestionEnabled({
+									capability: sessionOptions.askUserQuestion,
+									scenario,
+								})
+									? [CODING_AGENT_ASK_USER_QUESTION_TOOL_NAME]
+									: []),
 							];
 							const contextWindow = modelRuntime.readCurrentModel().contextWindow;
 							const contextUsage = contextRuntime.readUsage(contextWindow);
@@ -1003,4 +1036,23 @@ function toSubagentInfo(snapshot: SubagentSnapshot): Omit<SubagentSnapshot, "usa
 function joinPromptAddons(base: string | undefined, addon: string | undefined): string | undefined {
 	const parts = [base, addon].filter((value): value is string => Boolean(value?.trim()));
 	return parts.length > 0 ? parts.join("\n\n") : undefined;
+}
+
+function createSessionPluginRuntime(
+	sessionOptions: GreenfieldCliSessionOptions,
+): CodingAgentPluginRuntimeSource | undefined {
+	if (
+		sessionOptions.agentPlugins === undefined &&
+		sessionOptions.invokePluginTool === undefined &&
+		sessionOptions.invokePluginContinuation === undefined &&
+		sessionOptions.invokePluginSystemPrompt === undefined
+	) {
+		return undefined;
+	}
+	return {
+		readAgentPlugins: () => sessionOptions.agentPlugins,
+		invokeTool: sessionOptions.invokePluginTool,
+		invokeContinuation: sessionOptions.invokePluginContinuation,
+		invokeSystemPrompt: sessionOptions.invokePluginSystemPrompt,
+	};
 }

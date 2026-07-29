@@ -8,11 +8,16 @@ import {
 } from "../../../../cli-app/src/greenfield-runtime-composition.js";
 import { GreenfieldRuntimeHostSessionBackend } from "../../../../cli-app/src/greenfield-runtime-host-session-backend.js";
 import {
+	type AgentPluginContinuationInvoker,
+	type AgentPluginSystemPromptInvoker,
+	type AgentPluginToolInvoker,
 	CatalogRoutedRuntimeHostSessionBackend,
 	type ConversationScenario,
 	type GreenfieldRuntimeSession,
 	RuntimeHost,
+	type RuntimeHostOptions,
 	type RuntimeHostSessionAssemblyAssessment,
+	type SessionConfig,
 } from "../../../../runtime-core/src/index.js";
 
 export type DesktopGreenfieldSessionOptions = Pick<
@@ -26,7 +31,16 @@ export type DesktopGreenfieldSessionOptions = Pick<
 	| "enableBackgroundTasks"
 	| "includeAgentSkills"
 	| "systemPromptAddon"
->;
+> &
+	Pick<SessionConfig, "agentPlugins" | "askUserQuestion" | "enableAgentPlugins">;
+
+export interface DesktopGreenfieldRuntimeCandidateHostOptions {
+	readonly serverUrl?: string;
+	readonly userQuestionHandler?: RuntimeHostOptions["userQuestionHandler"];
+	readonly invokePluginTool?: AgentPluginToolInvoker;
+	readonly invokePluginContinuation?: AgentPluginContinuationInvoker;
+	readonly invokePluginSystemPrompt?: AgentPluginSystemPromptInvoker;
+}
 
 export interface DesktopGreenfieldSessionCandidate {
 	readonly session: GreenfieldRuntimeSession;
@@ -91,6 +105,9 @@ export class DesktopGreenfieldRuntimeCandidate {
 			env: options.env ? { ...options.env } : undefined,
 			enableBackgroundTasks: options.enableBackgroundTasks,
 			includeAgentSkills: options.includeAgentSkills,
+			askUserQuestion: options.askUserQuestion,
+			enableAgentPlugins: options.enableAgentPlugins,
+			agentPlugins: options.agentPlugins,
 		};
 	}
 
@@ -112,6 +129,7 @@ export class DesktopGreenfieldRuntimeCandidate {
 
 export async function createDesktopGreenfieldRuntimeCandidate(
 	options: GreenfieldRuntimeCompositionOptions,
+	hostOptions: DesktopGreenfieldRuntimeCandidateHostOptions = {},
 ): Promise<DesktopGreenfieldRuntimeCandidate> {
 	const scenario = options.scenario ?? "conversation";
 	const enableSubagents = isInteractiveScenario(scenario);
@@ -137,6 +155,7 @@ export async function createDesktopGreenfieldRuntimeCandidate(
 		agentDir: options.agentDir,
 		scenario,
 		enableSubagents,
+		serverUrl: hostOptions.serverUrl,
 	});
 	const routedBackend = new CatalogRoutedRuntimeHostSessionBackend({
 		defaultBackend: backend,
@@ -145,7 +164,12 @@ export async function createDesktopGreenfieldRuntimeCandidate(
 	const runtime = new RuntimeHost({
 		sessionBackend: routedBackend,
 		sessionCatalog: catalog,
+		serverUrl: hostOptions.serverUrl,
+		userQuestionHandler: hostOptions.userQuestionHandler,
 	});
+	runtime.setPluginToolInvoker(hostOptions.invokePluginTool);
+	runtime.setPluginContinuationInvoker(hostOptions.invokePluginContinuation);
+	runtime.setPluginSystemPromptInvoker(hostOptions.invokePluginSystemPrompt);
 	return new DesktopGreenfieldRuntimeCandidate(
 		composition,
 		runtime,

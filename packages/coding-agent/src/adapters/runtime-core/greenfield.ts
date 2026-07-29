@@ -7,6 +7,12 @@ export {
 	type HookDispatchOutcome,
 } from "@vetta/ecosystem-adapter";
 export {
+	CODING_AGENT_ASK_USER_QUESTION_TOOL_NAME,
+	type CodingAgentAskUserQuestionRuntimeFeatureOptions,
+	createCodingAgentAskUserQuestionRuntimeFeature,
+	isCodingAgentAskUserQuestionEnabled,
+} from "./greenfield-ask-user-question-runtime.js";
+export {
 	type CodingAgentCompactionCommittedInput,
 	type CodingAgentCompactionExtensionInput,
 	type CodingAgentCompactionExtensionResult,

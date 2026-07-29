@@ -107,6 +107,7 @@ describe("Greenfield Plugin Tool runtime composition", () => {
 			initialModel: MODEL,
 			initialThinkingLevel: "off",
 			activation: { mode: "explicit", toolNames: ["read", "plugin_artifact"] },
+			enableSubagents: false,
 			resolveSystemPromptOptions: () => ({
 				customPrompt: "Base prompt",
 				scenario: "cli",

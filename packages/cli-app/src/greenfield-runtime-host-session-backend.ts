@@ -92,6 +92,11 @@ export class GreenfieldRuntimeHostSessionBackend implements RuntimeHostSessionBa
 			env: request.env,
 			enableBackgroundTasks: request.enableBackgroundTasks,
 			includeAgentSkills: request.includeAgentSkills,
+			agentPlugins: request.agentPlugins,
+			invokePluginTool: request.invokePluginTool,
+			invokePluginContinuation: request.invokePluginContinuation,
+			invokePluginSystemPrompt: request.invokePluginSystemPrompt,
+			askUserQuestion: request.askUserQuestion,
 			sandboxHostPath: request.sandboxHostPath,
 			linuxBubblewrapPath: request.linuxBubblewrapPath,
 			macosSandboxExecPath: request.macosSandboxExecPath,
@@ -115,16 +120,6 @@ export class GreenfieldRuntimeHostSessionBackend implements RuntimeHostSessionBa
 		}
 		if (request.serverUrl !== undefined && request.serverUrl !== this.options.serverUrl) {
 			throw new Error("Greenfield RuntimeHost serverUrl is not supported by this composition");
-		}
-		const unsupported = [
-			request.agentPlugins !== undefined ? "agentPlugins" : undefined,
-			request.invokePluginTool !== undefined ? "invokePluginTool" : undefined,
-			request.invokePluginContinuation !== undefined ? "invokePluginContinuation" : undefined,
-			request.invokePluginSystemPrompt !== undefined ? "invokePluginSystemPrompt" : undefined,
-			request.askUserQuestion !== undefined ? "askUserQuestion" : undefined,
-		].filter((name): name is string => name !== undefined);
-		if (unsupported.length > 0) {
-			throw new Error(`Greenfield RuntimeHost request capabilities are not supported: ${unsupported.join(", ")}`);
 		}
 	}
 }

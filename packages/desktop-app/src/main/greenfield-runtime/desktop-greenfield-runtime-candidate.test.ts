@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Api, Model } from "@vetta/ai";
 import type { CodingAgentModelRegistrySource } from "@vetta/coding-agent/runtime-host/greenfield";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	createDesktopGreenfieldRuntimeCandidate,
 	type DesktopGreenfieldRuntimeCandidate,
@@ -23,13 +23,22 @@ describe("DesktopGreenfieldRuntimeCandidate", () => {
 	it("creates and resumes a complete candidate through the real RuntimeHost", async () => {
 		const cwd = await temporaryDirectory("desktop-greenfield-workspace-");
 		const conversationDir = await temporaryDirectory("desktop-greenfield-conversations-");
-		const candidate = await createDesktopGreenfieldRuntimeCandidate({
-			conversationDir,
-			cwd,
-			modelRegistry: modelRegistry(),
-			initialModel: MODEL,
-			initialThinkingLevel: "off",
-		});
+		const candidate = await createDesktopGreenfieldRuntimeCandidate(
+			{
+				conversationDir,
+				cwd,
+				modelRegistry: modelRegistry(),
+				initialModel: MODEL,
+				initialThinkingLevel: "off",
+			},
+			{
+				serverUrl: "https://server.test",
+				userQuestionHandler: async () => ({ cancelled: true, answers: [] }),
+				invokePluginTool: vi.fn(async () => ({ value: undefined, effects: [] })),
+				invokePluginContinuation: vi.fn(async () => ({ value: null, effects: [] })),
+				invokePluginSystemPrompt: vi.fn(async () => []),
+			},
+		);
 		candidates.push(candidate);
 
 		const created = await candidate.createSession({
@@ -39,6 +48,9 @@ describe("DesktopGreenfieldRuntimeCandidate", () => {
 			agentMode: "work",
 			enableBackgroundTasks: false,
 			includeAgentSkills: false,
+			askUserQuestion: true,
+			enableAgentPlugins: true,
+			agentPlugins: {},
 		});
 
 		expect(created.assessment).toMatchObject({ ready: true });
@@ -47,6 +59,7 @@ describe("DesktopGreenfieldRuntimeCandidate", () => {
 			thinkingLevel: "medium",
 		});
 		expect(created.session.readState().activeToolNames).not.toContain("task_output");
+		expect(created.session.readState().activeToolNames).toContain("ask_user_question");
 		const sessionPath = created.session.createCoreAssembly().lifecycle.sessionPath;
 		if (!sessionPath) throw new Error("Greenfield candidate did not expose a session path");
 		await candidate.disposeSession(created.session.sessionId);

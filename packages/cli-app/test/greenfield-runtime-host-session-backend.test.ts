@@ -89,7 +89,7 @@ describe("GreenfieldRuntimeHostSessionBackend", () => {
 		expect(whitespacePath.sessionId).not.toBe(created.sessionId);
 	});
 
-	it("fails closed for composition mismatches and unsupported host capabilities", async () => {
+	it("fails closed for composition and serverUrl mismatches", async () => {
 		const cwd = await temporaryDirectory("greenfield-host-gate-workspace-");
 		const conversationDir = await temporaryDirectory("greenfield-host-gate-conversations-");
 		const composition = await createGreenfieldRuntimeComposition({
@@ -107,8 +107,12 @@ describe("GreenfieldRuntimeHostSessionBackend", () => {
 			cwd,
 			scenario: "batch",
 			enableSubagents: false,
+			serverUrl: "https://expected.test",
 		});
-		const runtime = new RuntimeHost({ sessionBackend: backend });
+		const runtime = new RuntimeHost({
+			sessionBackend: backend,
+			serverUrl: "https://received.test",
+		});
 		disposers.push(async () => {
 			await runtime.disposeAllSessions();
 			await composition.dispose();
@@ -126,17 +130,8 @@ describe("GreenfieldRuntimeHostSessionBackend", () => {
 				cwd,
 				sessionDir: conversationDir,
 				scenario: "batch",
-				agentPlugins: {},
 			}),
-		).rejects.toThrow("agentPlugins");
-		await expect(
-			runtime.createSession({
-				cwd,
-				sessionDir: conversationDir,
-				scenario: "batch",
-				askUserQuestion: true,
-			}),
-		).rejects.toThrow("askUserQuestion");
+		).rejects.toThrow("serverUrl");
 	});
 
 	async function temporaryDirectory(prefix: string): Promise<string> {

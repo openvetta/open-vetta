@@ -95,6 +95,7 @@
 | [85-session-local-execution-and-host-interaction.md](./08-implementation-log/85-session-local-execution-and-host-interaction.md) | Session-local 执行覆盖层、Host Interaction Broker 与动态工具绑定兼容 |
 | [86-greenfield-subagent-runtime.md](./08-implementation-log/86-greenfield-subagent-runtime.md) | Greenfield Session-local Subagent Runtime、异步通知续轮与完整 RuntimeHost Assembly |
 | [87-runtime-host-greenfield-backend-and-catalog-routing.md](./08-implementation-log/87-runtime-host-greenfield-backend-and-catalog-routing.md) | RuntimeHost Greenfield Backend、Catalog 格式路由、请求等价门禁与 Desktop Candidate 真实接入 |
+| [88-runtime-host-plugin-and-question-capabilities.md](./08-implementation-log/88-runtime-host-plugin-and-question-capabilities.md) | RuntimeHost Plugin/用户提问能力接线、动态移除与来源冲突门禁 |
 
 ## 维护约定
 

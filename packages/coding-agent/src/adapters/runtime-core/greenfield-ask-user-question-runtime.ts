@@ -1,0 +1,46 @@
+import type { AgentFeatureDefinition, ModelCallContributionProvider } from "@vetta/runtime-core/kernel";
+import type { ConversationScenario } from "../../core/session/tool-scope.js";
+import { type AskUserQuestionCapability, createAskUserQuestionTool } from "../../core/tools/ask-user-question/index.js";
+import { adaptCodingAgentToolRegistration } from "./greenfield-tool-adapter.js";
+
+export const CODING_AGENT_ASK_USER_QUESTION_TOOL_NAME = "ask_user_question";
+
+export interface CodingAgentAskUserQuestionRuntimeFeatureOptions {
+	readonly capability: AskUserQuestionCapability;
+	readonly scenario: ConversationScenario;
+}
+
+/**
+ * 在每次模型调用前读取宿主提问能力，避免把动态 handler 固化进 Session 快照。
+ */
+export function createCodingAgentAskUserQuestionRuntimeFeature(
+	options: CodingAgentAskUserQuestionRuntimeFeatureOptions,
+): AgentFeatureDefinition {
+	const tool = adaptCodingAgentToolRegistration(
+		createAskUserQuestionTool({ ask: (request, signal) => options.capability.ask(request, signal) }),
+	).tool;
+	return {
+		id: "coding-agent.ask-user-question",
+		async prepare(context) {
+			context.signal.throwIfAborted();
+			const provider: ModelCallContributionProvider = {
+				id: "coding-agent.ask-user-question",
+				async contribute(callContext) {
+					callContext.signal.throwIfAborted();
+					return isCodingAgentAskUserQuestionEnabled(options) ? { tools: [tool] } : {};
+				},
+			};
+			return {
+				async contribute(contributionContext) {
+					contributionContext.signal.throwIfAborted();
+					return { modelCallProviders: [provider] };
+				},
+				async dispose() {},
+			};
+		},
+	};
+}
+
+export function isCodingAgentAskUserQuestionEnabled(options: CodingAgentAskUserQuestionRuntimeFeatureOptions): boolean {
+	return (options.scenario === "conversation" || options.scenario === "project") && options.capability.isEnabled();
+}
