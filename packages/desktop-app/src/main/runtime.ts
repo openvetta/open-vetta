@@ -36,8 +36,11 @@ import {
 	DESKTOP_AGENT_RUNTIME_ENV,
 	resolveDesktopAgentRuntimeBackend,
 } from "./greenfield-runtime/desktop-runtime-selector.js";
+import { getAppLogger } from "./logger.js";
 import { getAvailableLinuxBubblewrapPath, getAvailableMacosSandboxExecPath } from "./sandbox/capability.js";
 import { resolveWindowsSandboxHostBinary } from "./sandbox/windows-binary-resolver.js";
+
+const log = getAppLogger("runtime");
 
 // 进程级共享 RuntimeHost：session IPC、定时任务 (scheduler) 与批量任务
 // (batch-tasks) 必须复用同一实例，否则任一模块 createSession 后没 dispose
@@ -140,6 +143,7 @@ export function getSharedRuntime(): RuntimeHost {
 			},
 		});
 		const selectedBackend = resolveDesktopAgentRuntimeBackend(process.env[DESKTOP_AGENT_RUNTIME_ENV]);
+		log.info(`agent backend selected: ${selectedBackend}`);
 		const sessionBackend = new CatalogRoutedRuntimeHostSessionBackend({
 			defaultBackend: selectedBackend === "greenfield" ? greenfieldBackendPool : legacyOptions.sessionBackend,
 			routes: [
