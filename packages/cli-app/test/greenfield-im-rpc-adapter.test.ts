@@ -65,6 +65,28 @@ describe("Greenfield IM RPC adapter", () => {
 	test("fails closed when the runtime tool activation scenario is not IM", () => {
 		expect(() => createAdapterFixture("cli")).toThrow("requires runtime scenario im-claw, received cli");
 	});
+
+	test("delivers agent_end only after the active turn command has settled", async () => {
+		const fixture = createAdapterFixture();
+		const frames: unknown[] = [];
+		fixture.adapter.subscribe((frame) => frames.push(frame));
+		let finishPrompt: (() => void) | undefined;
+		fixture.prompt.mockImplementationOnce(
+			() =>
+				new Promise((resolve) => {
+					finishPrompt = () => resolve({ kind: "started" });
+					fixture.emit(sessionEvent({ type: "session.lifecycle", phase: "agent_end" }));
+				}),
+		);
+
+		const prompt = required(fixture.adapter.turn).prompt("hello", { source: "rpc" });
+		await Promise.resolve();
+		expect(frames).toEqual([]);
+
+		finishPrompt?.();
+		await prompt;
+		expect(frames).toEqual([{ type: "agent_end" }]);
+	});
 });
 
 describe("Greenfield IM RPC event compatibility", () => {
@@ -175,6 +197,7 @@ function createAdapterFixture(scenario: GreenfieldRuntimeComposition["scenario"]
 	const unregister = vi.fn(() => true);
 	const disposeSession = vi.fn(async () => {});
 	const disposeRuntime = vi.fn(async () => {});
+	const prompt = vi.fn(async () => ({ kind: "started" }));
 	const core = {
 		lifecycle: {
 			get sessionId() {
@@ -210,7 +233,7 @@ function createAdapterFixture(scenario: GreenfieldRuntimeComposition["scenario"]
 			return sessionId;
 		},
 		createCoreAssembly: () => core,
-		prompt: vi.fn(async () => ({ kind: "started" })),
+		prompt,
 		abort: vi.fn(async () => {}),
 		getState: vi.fn(async () => ({
 			sessionId,
@@ -248,6 +271,7 @@ function createAdapterFixture(scenario: GreenfieldRuntimeComposition["scenario"]
 		disposeRuntime,
 		disposeSession,
 		flushMemory,
+		prompt,
 		register,
 		unregister,
 		emit(event: SessionEvent) {

@@ -39,6 +39,8 @@ export class GreenfieldImRpcSessionAdapter implements RpcSessionCapabilities {
 		GreenfieldImRpcSessionAdapterOptions["createHostToolRegistration"]
 	>;
 	private unregisterHostTool: (() => void) | undefined;
+	private activeTurnCommands = 0;
+	private readonly pendingAgentEndDeliveries: Array<() => void> = [];
 	private disposed = false;
 
 	constructor(options: GreenfieldImRpcSessionAdapterOptions) {
@@ -56,17 +58,23 @@ export class GreenfieldImRpcSessionAdapter implements RpcSessionCapabilities {
 				adaptCodingAgentToolRegistration(createImSendAttachmentTool(hostBridge) as unknown as CodingAgentTool));
 		this.turn = {
 			prompt: async (message, promptOptions) => {
-				await this.greenfieldSession.prompt({
-					text: message,
-					images: promptOptions.images,
-					streamingBehavior: promptOptions.streamingBehavior,
-				});
+				await this.runTurnCommand(() =>
+					this.greenfieldSession.prompt({
+						text: message,
+						images: promptOptions.images,
+						streamingBehavior: promptOptions.streamingBehavior,
+					}),
+				);
 			},
 			steer: async (message, images) => {
-				await this.greenfieldSession.prompt({ text: message, images, streamingBehavior: "steer" });
+				await this.runTurnCommand(() =>
+					this.greenfieldSession.prompt({ text: message, images, streamingBehavior: "steer" }),
+				);
 			},
 			followUp: async (message, images) => {
-				await this.greenfieldSession.prompt({ text: message, images, streamingBehavior: "followUp" });
+				await this.runTurnCommand(() =>
+					this.greenfieldSession.prompt({ text: message, images, streamingBehavior: "followUp" }),
+				);
 			},
 			abort: () => this.greenfieldSession.abort("RPC abort"),
 		} satisfies NonNullable<RpcSessionCapabilities["turn"]>;
@@ -95,9 +103,22 @@ export class GreenfieldImRpcSessionAdapter implements RpcSessionCapabilities {
 
 	subscribe(listener: (event: unknown) => void): () => void {
 		const adapter = new GreenfieldImRpcEventAdapter();
-		return this.greenfieldSession.subscribe((event) => {
-			for (const mapped of adapter.map(event)) listener(mapped);
+		let subscribed = true;
+		const unsubscribe = this.greenfieldSession.subscribe((event) => {
+			for (const mapped of adapter.map(event)) {
+				if (isAgentEndFrame(mapped) && this.activeTurnCommands > 0) {
+					this.pendingAgentEndDeliveries.push(() => {
+						if (subscribed) listener(mapped);
+					});
+					continue;
+				}
+				listener(mapped);
+			}
 		});
+		return () => {
+			subscribed = false;
+			unsubscribe();
+		};
 	}
 
 	async shutdown(): Promise<void> {
@@ -145,4 +166,20 @@ export class GreenfieldImRpcSessionAdapter implements RpcSessionCapabilities {
 			pendingMessageCount: sessionState.pendingMessageCount,
 		};
 	}
+
+	private async runTurnCommand(command: () => Promise<unknown>): Promise<void> {
+		this.activeTurnCommands += 1;
+		try {
+			await command();
+		} finally {
+			this.activeTurnCommands -= 1;
+			if (this.activeTurnCommands === 0) {
+				for (const deliver of this.pendingAgentEndDeliveries.splice(0)) deliver();
+			}
+		}
+	}
+}
+
+function isAgentEndFrame(event: unknown): boolean {
+	return typeof event === "object" && event !== null && Reflect.get(event, "type") === "agent_end";
 }

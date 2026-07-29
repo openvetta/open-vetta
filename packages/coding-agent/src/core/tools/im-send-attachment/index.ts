@@ -1,4 +1,5 @@
 import { existsSync, statSync } from "node:fs";
+import { isAbsolute } from "node:path";
 import { Type } from "@sinclair/typebox";
 import type { ToolDefinition } from "../../extensions/types.js";
 import { loadToolDescription } from "../description.js";
@@ -51,7 +52,7 @@ export function createImSendAttachmentTool(
 		description,
 		parameters: imSendAttachmentSchema,
 		execute: async (_toolCallId, params) => {
-			if (!params.path || !params.path.startsWith("/")) {
+			if (!params.path || !isAbsolute(params.path)) {
 				throw new Error(`im_send_attachment: path must be absolute, got ${JSON.stringify(params.path)}`);
 			}
 			if (!existsSync(params.path)) {

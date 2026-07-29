@@ -687,6 +687,68 @@ describe("greenfield runtime kernel", () => {
 		expect(conversation.events.at(-1)?.type).toBe("turn.cancelled");
 	});
 
+	it("persists the engine's partial assistant message when an active turn is cancelled", async () => {
+		let markStarted: (() => void) | undefined;
+		const started = new Promise<void>((resolve) => {
+			markStarted = resolve;
+		});
+		const abortedAssistantMessage: AssistantMessage = {
+			...assistantMessage("partial"),
+			stopReason: "aborted",
+		};
+		const engine: TurnEnginePort = {
+			async *execute(request) {
+				yield {
+					type: "observation",
+					observation: {
+						type: "message.delta",
+						delta: "partial",
+						source: "agent",
+					},
+				};
+				markStarted?.();
+				await waitForAbort(request.signal).catch(() => undefined);
+				yield {
+					type: "observation",
+					observation: {
+						type: "lifecycle",
+						phase: "turn_end",
+						source: "runtime-core",
+					},
+				};
+				yield { type: "message", message: abortedAssistantMessage };
+				yield { type: "completed", stopReason: "aborted" };
+			},
+		};
+		const harness = await createHarness({ turnEngine: engine });
+		const turn = harness.session.send({ message: userMessage("hello") });
+		await started;
+
+		await harness.session.cancel("user cancelled");
+		const result = await turn;
+
+		expect(result).toMatchObject({
+			status: "cancelled",
+			messages: [abortedAssistantMessage],
+		});
+		const conversation = await harness.repository.load("session-1");
+		expect(conversation.messages).toEqual([userMessage("hello"), abortedAssistantMessage]);
+		expect(conversation.events.map(({ type }) => type)).toEqual([
+			"turn.started",
+			"message.appended",
+			"message.appended",
+			"turn.cancelled",
+		]);
+		expect(
+			(harness.eventSink as CollectingEventSink).events.some(
+				(event) =>
+					event.type === "session.observation" &&
+					event.observation.type === "lifecycle" &&
+					event.observation.phase === "turn_end",
+			),
+		).toBe(true);
+	});
+
 	it("closes an active session by cancelling its turn", async () => {
 		let markStarted: (() => void) | undefined;
 		const started = new Promise<void>((resolve) => {

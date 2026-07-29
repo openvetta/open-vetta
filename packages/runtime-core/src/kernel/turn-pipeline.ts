@@ -307,6 +307,32 @@ export class TurnPipeline {
 					}
 					continue;
 				}
+				if (
+					signal.aborted &&
+					event.type === "observation" &&
+					event.observation.type === "lifecycle" &&
+					event.observation.phase === "turn_end"
+				) {
+					await this.publishObservation(state.sessionId, turnId, event.observation);
+					continue;
+				}
+				if (
+					signal.aborted &&
+					event.type === "message" &&
+					event.message.role === "assistant" &&
+					event.message.stopReason === "aborted"
+				) {
+					const storedEvent: MessageAppendedEvent = {
+						type: "message.appended",
+						sessionId: state.sessionId,
+						turnId,
+						message: event.message,
+						timestamp: this.clock.now(),
+					};
+					await this.append(state, signal, [storedEvent]);
+					state.messages.push(event.message);
+					continue;
+				}
 				signal.throwIfAborted();
 				if (event.type === "completed") {
 					stopReason = event.stopReason;
