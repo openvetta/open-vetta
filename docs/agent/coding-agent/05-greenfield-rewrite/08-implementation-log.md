@@ -93,6 +93,7 @@
 | [83-runtime-host-assembly-gate-and-desktop-greenfield-candidate.md](./08-implementation-log/83-runtime-host-assembly-gate-and-desktop-greenfield-candidate.md) | RuntimeHost Assembly 完整性门禁、Greenfield 缺口评估与 Desktop 非生产候选组合 |
 | [84-session-local-configuration-and-work-control-boundary.md](./08-implementation-log/84-session-local-configuration-and-work-control-boundary.md) | Session 创建后外围工厂、动态配置事实源与后台工作隔离边界 |
 | [85-session-local-execution-and-host-interaction.md](./08-implementation-log/85-session-local-execution-and-host-interaction.md) | Session-local 执行覆盖层、Host Interaction Broker 与动态工具绑定兼容 |
+| [86-greenfield-subagent-runtime.md](./08-implementation-log/86-greenfield-subagent-runtime.md) | Greenfield Session-local Subagent Runtime、异步通知续轮与完整 RuntimeHost Assembly |
 
 ## 维护约定
 

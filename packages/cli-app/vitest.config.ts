@@ -59,6 +59,10 @@ export default defineConfig({
 				replacement: fileURLToPath(new URL("../runtime-storage/src/conversation/index.ts", import.meta.url)),
 			},
 			{
+				find: "@vetta/runtime-subagents",
+				replacement: fileURLToPath(new URL("../runtime-subagents/src/index.ts", import.meta.url)),
+			},
+			{
 				find: "@vetta/runtime-tools/coding",
 				replacement: fileURLToPath(new URL("../runtime-tools/src/coding/index.ts", import.meta.url)),
 			},

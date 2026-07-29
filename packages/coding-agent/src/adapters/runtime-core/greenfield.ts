@@ -100,6 +100,7 @@ export {
 	CodingAgentStopHookContinuationSource,
 	type CodingAgentStopHookContinuationSourceOptions,
 } from "./greenfield-stop-hook-continuation-source.js";
+export { createCodingAgentSubagentRuntimeToolRegistrations } from "./greenfield-subagent-tool-adapter.js";
 export {
 	CodingAgentTodoContinuationSource,
 	type CodingAgentTodoContinuationSourceOptions,

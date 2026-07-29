@@ -45,6 +45,8 @@
 			"@vetta/runtime-mcp/*": ["../runtime-mcp/src/*"],
 			"@vetta/runtime-storage": ["../runtime-storage/src/index.ts"],
 			"@vetta/runtime-storage/*": ["../runtime-storage/src/*"],
+			"@vetta/runtime-subagents": ["../runtime-subagents/src/index.ts"],
+			"@vetta/runtime-subagents/*": ["../runtime-subagents/src/*"],
 			"@vetta/runtime-tools": ["../runtime-tools/src/index.ts"],
 			"@vetta/runtime-tools/*": ["../runtime-tools/src/*"],
 			"@vetta-org/plugin-sdk": ["../plugins/plugin-sdk/src/index.ts"],

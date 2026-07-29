@@ -22,6 +22,7 @@
 		"@vetta/runtime-core": "workspace:*",
 		"@vetta/runtime-mcp": "workspace:*",
 		"@vetta/runtime-storage": "workspace:*",
+		"@vetta/runtime-subagents": "workspace:*",
 		"@vetta/runtime-tools": "workspace:*",
 		"zod": "^4.4.3"
 	},

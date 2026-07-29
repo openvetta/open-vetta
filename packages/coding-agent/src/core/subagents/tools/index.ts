@@ -1,5 +1,4 @@
-import type { AgentTool } from "@vetta/agent-core";
-import type { SubagentCoordinator } from "../coordinator.js";
+import type { SubagentCoordinatorPort } from "@vetta/runtime-subagents";
 import { createDispatchWorkflowsTool, DISPATCH_WORKFLOWS_MAX_BATCH } from "./dispatch-workflows.js";
 import { createFollowupTaskTool } from "./followup-task.js";
 import { createInterruptAgentTool } from "./interrupt-agent.js";
@@ -20,9 +19,7 @@ export {
 };
 
 /** All root-side subagent control tools (never register on children). */
-export function createSubagentControlTools(options: {
-	getCoordinator: () => SubagentCoordinator | undefined;
-}): AgentTool[] {
+export function createSubagentControlTools(options: { getCoordinator: () => SubagentCoordinatorPort | undefined }) {
 	return [
 		createSpawnAgentTool(options),
 		createDispatchWorkflowsTool(options),
@@ -31,7 +28,7 @@ export function createSubagentControlTools(options: {
 		createInterruptAgentTool(options),
 		createSendMessageTool(options),
 		createFollowupTaskTool(options),
-	] as unknown as AgentTool[];
+	] as const;
 }
 
 export const SUBAGENT_CONTROL_TOOL_NAMES = [

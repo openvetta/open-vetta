@@ -181,6 +181,7 @@
       "bin": {
         "vetta": "dist/cli.js",
         "vetta-cli-app": "dist/cli.js",
+        "vetta-agent-rpc": "dist/agent-rpc-cli.js",
       },
       "dependencies": {
         "@vetta/action-rpc": "workspace:*",
@@ -213,6 +214,7 @@
         "@vetta/ai": "workspace:*",
         "@vetta/ecosystem-adapter": "workspace:*",
         "@vetta/runtime-core": "workspace:*",
+        "@vetta/runtime-subagents": "workspace:*",
         "@vetta/runtime-telemetry": "workspace:*",
         "ajv": "^8.17.1",
         "ajv-formats": "^3.0.1",
@@ -287,7 +289,9 @@
         "@vetta/ai": "workspace:*",
         "@vetta/capability-runtime": "workspace:*",
         "@vetta/capability-sdk": "workspace:*",
+        "@vetta/cli-app": "workspace:*",
         "@vetta/runtime-core": "workspace:*",
+        "@vetta/runtime-storage": "workspace:*",
         "@vetta/theme-sdk": "workspace:*",
         "@vetta/theme-ui": "workspace:*",
         "@vetta/toolkit": "workspace:*",
@@ -783,6 +787,14 @@
         "@vetta/coding-agent": "workspace:*",
         "@vetta/runtime-core": "workspace:*",
       },
+      "devDependencies": {
+        "@types/node": "^22.10.5",
+        "typescript": "^5.9.2",
+      },
+    },
+    "packages/runtime-subagents": {
+      "name": "@vetta/runtime-subagents",
+      "version": "0.0.1",
       "devDependencies": {
         "@types/node": "^22.10.5",
         "typescript": "^5.9.2",
@@ -2525,6 +2537,8 @@
     "@vetta/runtime-mcp": ["@vetta/runtime-mcp@workspace:packages/runtime-mcp"],
 
     "@vetta/runtime-storage": ["@vetta/runtime-storage@workspace:packages/runtime-storage"],
+
+    "@vetta/runtime-subagents": ["@vetta/runtime-subagents@workspace:packages/runtime-subagents"],
 
     "@vetta/runtime-telemetry": ["@vetta/runtime-telemetry@workspace:packages/runtime-telemetry"],
 

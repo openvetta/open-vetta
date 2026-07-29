@@ -1,7 +1,7 @@
 import { type Static, Type } from "@sinclair/typebox";
+import type { SubagentCoordinatorPort } from "@vetta/runtime-subagents";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { toolCallDescriptionSchema } from "../../tools/tool-call-description.js";
-import type { SubagentCoordinator } from "../coordinator.js";
 
 const spawnAgentSchema = Type.Object({
 	description: toolCallDescriptionSchema,
@@ -20,7 +20,7 @@ const spawnAgentSchema = Type.Object({
 export type SpawnAgentToolInput = Static<typeof spawnAgentSchema>;
 
 export function createSpawnAgentTool(options: {
-	getCoordinator: () => SubagentCoordinator | undefined;
+	getCoordinator: () => SubagentCoordinatorPort | undefined;
 }): CodingAgentTool<typeof spawnAgentSchema> {
 	return {
 		name: "spawn_agent",

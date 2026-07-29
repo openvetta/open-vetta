@@ -21,6 +21,7 @@
 		"packages/markdown",
 		"packages/runtime-core",
 		"packages/action-rpc",
+		"packages/runtime-subagents",
 		"packages/runtime-tools",
 		"packages/runtime-mcp",
 		"packages/runtime-storage",

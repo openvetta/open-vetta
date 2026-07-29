@@ -1,7 +1,7 @@
 import { type Static, Type } from "@sinclair/typebox";
+import type { SubagentCoordinatorPort } from "@vetta/runtime-subagents";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { toolCallDescriptionSchema } from "../../tools/tool-call-description.js";
-import type { SubagentCoordinator } from "../coordinator.js";
 import { SUBAGENT_TYPE_WORKFLOW } from "../types.js";
 
 /** Hard cap per dispatch batch (ADR-0044). */
@@ -38,7 +38,7 @@ const dispatchWorkflowsSchema = Type.Object({
 export type DispatchWorkflowsToolInput = Static<typeof dispatchWorkflowsSchema>;
 
 export function createDispatchWorkflowsTool(options: {
-	getCoordinator: () => SubagentCoordinator | undefined;
+	getCoordinator: () => SubagentCoordinatorPort | undefined;
 }): CodingAgentTool<typeof dispatchWorkflowsSchema> {
 	return {
 		name: "dispatch_workflows",

@@ -139,9 +139,11 @@ function createRuntimeFixture(
 	readonly runtime: GreenfieldSessionExecutionRuntime;
 	readonly observations: RuntimeSessionObservationEvent[];
 	readonly records: SessionContextRecord[];
+	readonly asyncDeliveries: number;
 } {
 	const observations: RuntimeSessionObservationEvent[] = [];
 	const records: SessionContextRecord[] = [];
+	let asyncDeliveries = 0;
 	const runtime = new GreenfieldSessionExecutionRuntime({
 		cwd: process.cwd(),
 		activation: {
@@ -157,13 +159,24 @@ function createRuntimeFixture(
 					records.push(...next);
 				},
 			},
+			async deliverAsyncContext(next) {
+				asyncDeliveries += 1;
+				records.push(...next);
+			},
 			abortCurrentRun() {},
 			async reportObservation(observation) {
 				observations.push(observation);
 			},
 		},
 	});
-	return { runtime, observations, records };
+	return {
+		runtime,
+		observations,
+		records,
+		get asyncDeliveries() {
+			return asyncDeliveries;
+		},
+	};
 }
 
 function createSourceToolEntry(

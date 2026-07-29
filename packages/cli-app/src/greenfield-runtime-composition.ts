@@ -1,4 +1,6 @@
-import { join } from "node:path";
+import { randomUUID } from "node:crypto";
+import { dirname, join } from "node:path";
+import type { Message } from "@vetta/ai";
 import { createKbFilterByTagsTool, createKbListTagsTool } from "@vetta/coding-agent";
 import {
 	adaptCodingAgentToolRegistration,
@@ -40,6 +42,7 @@ import {
 	ComposedGreenfieldRuntimeFactory,
 	type ConversationScenario,
 	GreenfieldRuntimeModel,
+	type GreenfieldRuntimeResourceContext,
 	GreenfieldRuntimeSessionBackend,
 	type SessionConfig,
 	type SessionExecutionMode,
@@ -47,9 +50,11 @@ import {
 import { selectConversationDocumentModelMessages } from "@vetta/runtime-core/conversation";
 import {
 	type AgentCoreTurnEngineOptions,
+	type AgentFeatureDefinition,
 	type AgentProfile,
 	type ModelCallContributionContext,
 	RuntimeCapabilityComposition,
+	type SessionContextRecord,
 } from "@vetta/runtime-core/kernel";
 import {
 	createMcpDeferredToolController,
@@ -59,6 +64,13 @@ import {
 	type McpRuntimeToolSynchronizer,
 } from "@vetta/runtime-mcp";
 import { type ConversationOwnershipManager, FileConversationRepository } from "@vetta/runtime-storage/conversation";
+import type {
+	SubagentChildHandle,
+	SubagentLifecycle,
+	SubagentSnapshot,
+	SubagentSpawnRequest,
+	SubagentTypeDefinition,
+} from "@vetta/runtime-subagents";
 import {
 	type CodingToolActivation,
 	guardCodingToolRegistration,
@@ -66,7 +78,12 @@ import {
 } from "@vetta/runtime-tools/coding";
 import { ConversationOwnershipBinding } from "./conversation-ownership-binding.js";
 import { GreenfieldSessionExecutionRuntime } from "./greenfield-session-execution-runtime.js";
-import { GreenfieldSessionConfigurationState } from "./greenfield-session-peripherals.js";
+import {
+	GreenfieldBackgroundWorkController,
+	GreenfieldSessionConfigurationState,
+} from "./greenfield-session-peripherals.js";
+import { createGreenfieldSubagentChildHandle } from "./greenfield-subagent-child.js";
+import { type GreenfieldSubagentProfile, GreenfieldSubagentRuntime } from "./greenfield-subagent-runtime.js";
 import {
 	type CodingToolsRuntimeComposition,
 	createCodingToolsRuntimeComposition,
@@ -86,6 +103,12 @@ export interface GreenfieldCliSessionOptions {
 	readonly memoryMode?: boolean;
 	readonly memoryFile?: string;
 	readonly memoryCharLimit?: number;
+	/** 子 Session 内部 Profile 使用；根宿主无需设置。 */
+	readonly systemPromptAddon?: string;
+	/** Workflow 子 Session 的父分支只读快照。 */
+	readonly forkContextMessages?: readonly Message[];
+	/** Workflow 子 Session 的初始 Todo。 */
+	readonly initialTodos?: readonly string[];
 }
 
 export interface GreenfieldRuntimeCompositionOptions {
@@ -105,6 +128,9 @@ export interface GreenfieldRuntimeCompositionOptions {
 	readonly streamFn?: AgentCoreTurnEngineOptions["streamFn"];
 	readonly tokenBudget?: number;
 	readonly reservedOutputTokens?: number;
+	/** 仅 Root Profile 启用；子 Session 必须显式关闭，保持单层委派。 */
+	readonly enableSubagents?: boolean;
+	readonly subagentMaxConcurrent?: number;
 	/** 已由宿主 Bootstrap 加载的共享动态资源；必须与 promptSettingsSource 同时提供。 */
 	readonly promptResourceSource?: CodingAgentPromptResourceSource;
 	/** 已由宿主 Bootstrap 加载的共享设置；必须与 promptResourceSource 同时提供。 */
@@ -152,6 +178,8 @@ export interface GreenfieldRuntimeComposition {
 	readonly backend: GreenfieldRuntimeSessionBackend<GreenfieldCliSessionOptions>;
 	readonly tools: CodingToolsRuntimeComposition;
 	readonly scenario: ConversationScenario;
+	appendSessionContext(sessionId: string, records: readonly SessionContextRecord[]): void;
+	deliverSessionContext(sessionId: string, records: readonly SessionContextRecord[]): Promise<void>;
 	flushMemory(sessionId: string, signal?: AbortSignal): Promise<number>;
 	dispose(): Promise<void>;
 }
@@ -227,6 +255,7 @@ export async function createGreenfieldRuntimeComposition(
 	const contextRuntimes = new Set<CodingAgentGreenfieldContextRuntime>();
 	const memoryRuntimes = new Set<CodingAgentMemoryRolloverRuntime>();
 	const memoryControllers = new Map<string, CodingAgentMemoryController>();
+	const resourceContexts = new Map<string, GreenfieldRuntimeResourceContext>();
 	const hookSessionDisposers = new Set<() => Promise<void>>();
 	const ownershipBindings = new Set<ConversationOwnershipBinding>();
 	const modelAdapter = new CodingAgentModelRegistryAdapter(options.modelRegistry);
@@ -258,6 +287,8 @@ export async function createGreenfieldRuntimeComposition(
 			let activeSessionId = sessionOptions.sessionId;
 			let activeOwnership = await acquireOwnership(activeSessionId);
 			let executionRuntime: GreenfieldSessionExecutionRuntime | undefined;
+			let subagentRuntime: GreenfieldSubagentRuntime | undefined;
+			resourceContexts.set(activeSessionId, resourceContext);
 			try {
 				const synchronizer = mcpSynchronizer;
 				const mcpController = synchronizer
@@ -299,6 +330,9 @@ export async function createGreenfieldRuntimeComposition(
 				if (memoryRuntime) memoryRuntimes.add(memoryRuntime);
 				const todoRuntime = options.createTodoRuntime?.(sessionOptions) ?? new CodingAgentTodoRuntime();
 				todoRuntimes.add(todoRuntime);
+				if (sessionOptions.initialTodos && sessionOptions.initialTodos.length > 0) {
+					todoRuntime.getTodoStore().createMany([...sessionOptions.initialTodos]);
+				}
 				const todoRegistration = createCodingAgentTodoRuntimeToolRegistration(todoRuntime);
 				const todoEnabled = selectCodingToolRegistrations([todoRegistration], effectiveActivation).length > 0;
 				const baseProfile: AgentProfile = mcpController
@@ -307,6 +341,9 @@ export async function createGreenfieldRuntimeComposition(
 							features: [
 								...tools.profile.features,
 								activeExecutionRuntime.feature,
+								...(sessionOptions.forkContextMessages?.length
+									? [createForkContextFeature(sessionOptions.forkContextMessages)]
+									: []),
 								...(todoEnabled ? [createCodingAgentTodoRuntimeFeature(todoRegistration)] : []),
 								...(memoryRuntime
 									? [createCodingAgentMemoryRuntimeFeature(memoryRuntime.toolRegistration)]
@@ -319,6 +356,9 @@ export async function createGreenfieldRuntimeComposition(
 							features: [
 								...tools.profile.features,
 								activeExecutionRuntime.feature,
+								...(sessionOptions.forkContextMessages?.length
+									? [createForkContextFeature(sessionOptions.forkContextMessages)]
+									: []),
 								...(todoEnabled ? [createCodingAgentTodoRuntimeFeature(todoRegistration)] : []),
 								...(memoryRuntime
 									? [createCodingAgentMemoryRuntimeFeature(memoryRuntime.toolRegistration)]
@@ -372,6 +412,138 @@ export async function createGreenfieldRuntimeComposition(
 					memoryRollover: memoryRuntime,
 				});
 				contextRuntimes.add(contextRuntime);
+				const subagentForkContexts = new Map<string, readonly Message[]>();
+				const openSubagentChild = async (
+					operation: "create" | "resume",
+					requestOrSnapshot: SubagentSpawnRequest | SubagentSnapshot,
+					type: SubagentTypeDefinition<GreenfieldSubagentProfile>,
+					forkContext: readonly Message[] | undefined,
+				): Promise<SubagentChildHandle> => {
+					const childSessionId =
+						operation === "create" ? randomUUID() : (requestOrSnapshot as SubagentSnapshot).id;
+					const snapshot = operation === "resume" ? (requestOrSnapshot as SubagentSnapshot) : undefined;
+					const childConversationDir = snapshot?.sessionFile
+						? dirname(snapshot.sessionFile)
+						: join(dirname(repository.resolveConversationPath(activeSessionId)), ".subagents", activeSessionId);
+					const retainedForkContext =
+						operation === "create" ? forkContext : (subagentForkContexts.get(childSessionId) ?? forkContext);
+					if (retainedForkContext) subagentForkContexts.set(childSessionId, retainedForkContext);
+					const childComposition = await createGreenfieldRuntimeComposition({
+						...options,
+						conversationDir: childConversationDir,
+						initialModel: modelRuntime.readCurrentModel(),
+						initialThinkingLevel: modelRuntime.readThinkingLevel(),
+						cwd: sessionCwd,
+						activation: withScenario(type.profile.activation, scenario),
+						enableSubagents: false,
+					});
+					try {
+						const childOptions: GreenfieldCliSessionOptions = {
+							sessionId: childSessionId,
+							cwd: sessionCwd,
+							parentSessionPath: repository.resolveConversationPath(activeSessionId),
+							systemPromptAddon: type.profile.systemPromptAddon,
+							forkContextMessages: retainedForkContext,
+							initialTodos:
+								operation === "create" && type.profile.includeTodo
+									? (requestOrSnapshot as SubagentSpawnRequest).todos
+									: undefined,
+						};
+						const childSession =
+							operation === "create"
+								? await childComposition.backend.create(childOptions)
+								: await childComposition.backend.resume(childOptions);
+						const childSessionFile = childSession.createCoreAssembly().lifecycle.sessionPath;
+						return createGreenfieldSubagentChildHandle({
+							session: childSession,
+							sessionFile: childSessionFile,
+							appendContext: (records) => childComposition.appendSessionContext(childSession.sessionId, records),
+							deliverContext: (records) =>
+								childComposition.deliverSessionContext(childSession.sessionId, records),
+							disposeComposition: () => childComposition.dispose(),
+						});
+					} catch (error) {
+						await childComposition.dispose();
+						throw error;
+					}
+				};
+				if (options.enableSubagents !== false) {
+					const subagentLifecycle: SubagentLifecycle = {
+						beforeStart: async (input) => {
+							const outcome = await hookRuntime.runSubagentStart(
+								{ agentId: input.id, agentType: input.agentType },
+								`${activeSessionId}:subagent-start:${input.id}`,
+							);
+							await hookRuntime.recordAdditionalContexts(outcome.additionalContexts);
+							if (outcome.shouldStop || outcome.shouldBlock) {
+								return {
+									blockedReason:
+										outcome.stopReason ??
+										outcome.blockReason ??
+										"SubagentStart ecosystem hook blocked subagent spawn",
+								};
+							}
+							return outcome.additionalContexts.length > 0
+								? { message: `${outcome.additionalContexts.join("\n\n")}\n\n${input.message}` }
+								: undefined;
+						},
+						beforeStop: async (input) => {
+							const outcome = await hookRuntime.runSubagentStop({
+								agentId: input.id,
+								agentType: input.agentType,
+								turnId: `${activeSessionId}:subagent-stop:${input.id}:${input.generation}`,
+								stopHookActive: input.stopHookActive,
+								lastAssistantMessage: input.lastAssistantText ?? null,
+								agentTranscriptPath: input.sessionFile ?? null,
+							});
+							await hookRuntime.recordAdditionalContexts(outcome.additionalContexts);
+							if (
+								!input.interrupted &&
+								outcome.shouldBlock &&
+								!outcome.shouldStop &&
+								outcome.continuationFragments.length > 0
+							) {
+								return { continuation: outcome.continuationFragments.join("\n\n") };
+							}
+							return undefined;
+						},
+					};
+					subagentRuntime = new GreenfieldSubagentRuntime({
+						parentSessionId: activeSessionId,
+						maxConcurrent: options.subagentMaxConcurrent,
+						lifecycle: subagentLifecycle,
+						readParentMessages: async () =>
+							selectConversationDocumentModelMessages(await repository.readDocument(activeSessionId)),
+						createChild: (request, type, forkContext) => openSubagentChild("create", request, type, forkContext),
+						reopenChild: (snapshot, type, forkContext) =>
+							openSubagentChild("resume", snapshot, type, forkContext),
+						onNotify: (payload) => {
+							void resourceContext
+								.deliverAsyncContext([
+									{
+										type: "subagent-notification",
+										content: [{ type: "text", text: payload.text }],
+										modelVisible: true,
+										display: true,
+									},
+								])
+								.catch((error: unknown) => {
+									console.warn("[greenfield-runtime] failed to deliver subagent notification", error);
+								});
+						},
+						onUpdate: (agents) => {
+							void resourceContext
+								.reportObservation({
+									type: "subagents_update",
+									agents: agents.map(toSubagentInfo),
+									source: "tool",
+								})
+								.catch((error: unknown) => {
+									console.warn("[greenfield-runtime] failed to publish subagent observation", error);
+								});
+						},
+					});
+				}
 				let hookSessionEnded = false;
 				const endHookSession = async (): Promise<void> => {
 					if (hookSessionEnded) return;
@@ -452,6 +624,7 @@ export async function createGreenfieldRuntimeComposition(
 				}
 				const profile: AgentProfile = {
 					...baseProfile,
+					features: [...baseProfile.features, ...(subagentRuntime ? [subagentRuntime.feature] : [])],
 					observers: [...(baseProfile.observers ?? []), contextRuntime, ...(memoryRuntime ? [memoryRuntime] : [])],
 					contextStrategy: contextRuntime,
 					modelCallContextTransformer: contextRuntime,
@@ -475,6 +648,9 @@ export async function createGreenfieldRuntimeComposition(
 								...(memoryRuntime
 									? [[memoryRuntime.toolRegistration.tool.name, memoryRuntime.toolRegistration.tool] as const]
 									: []),
+								...(subagentRuntime
+									? subagentRuntime.readTools().map((tool) => [tool.name, tool] as const)
+									: []),
 							]),
 						pluginRunOrchestrator,
 						pluginToolRuntime,
@@ -485,6 +661,10 @@ export async function createGreenfieldRuntimeComposition(
 								...promptOptions,
 								cwd: promptOptions.cwd ?? sessionCwd,
 								agentPlugins: promptOptions.agentPlugins ?? configurationState.readAgentPlugins(),
+								appendSystemPrompt: joinPromptAddons(
+									promptOptions.appendSystemPrompt,
+									sessionOptions.systemPromptAddon,
+								),
 								...(memoryRuntime ? { memory: memoryRuntime.renderPromptMemory() } : {}),
 							};
 						},
@@ -543,6 +723,10 @@ export async function createGreenfieldRuntimeComposition(
 					createSessionPeripherals: (session) => ({
 						hostInteraction: activeExecutionRuntime.hostInteraction,
 						executionController: activeExecutionRuntime.createExecutionController(session),
+						backgroundWorkController: new GreenfieldBackgroundWorkController(
+							activeExecutionRuntime.backgroundService,
+							subagentRuntime,
+						),
 						configurationController: configurationState.createController(session),
 					}),
 					contextRuntime,
@@ -565,6 +749,7 @@ export async function createGreenfieldRuntimeComposition(
 									)),
 								...(todoEnabled ? [todoRegistration.tool.name] : []),
 								...(memoryRuntime ? [memoryRuntime.toolRegistration.tool.name] : []),
+								...(subagentRuntime ? subagentRuntime.readTools().map(({ name }) => name) : []),
 							];
 							const contextWindow = modelRuntime.readCurrentModel().contextWindow;
 							const contextUsage = contextRuntime.readUsage(contextWindow);
@@ -592,9 +777,15 @@ export async function createGreenfieldRuntimeComposition(
 							executionRuntimes.delete(previousSessionId);
 							executionRuntimes.set(result.sessionId, activeExecutionRuntime);
 						}
+						if (resourceContexts.get(previousSessionId) === resourceContext) {
+							resourceContexts.delete(previousSessionId);
+							resourceContexts.set(result.sessionId, resourceContext);
+						}
 					},
 					async dispose() {
 						try {
+							await subagentRuntime?.dispose();
+							subagentForkContexts.clear();
 							contextRuntimes.delete(contextRuntime);
 							contextRuntime.dispose();
 							if (memoryRuntime) {
@@ -611,6 +802,9 @@ export async function createGreenfieldRuntimeComposition(
 							if (executionRuntimes.get(activeSessionId) === activeExecutionRuntime) {
 								executionRuntimes.delete(activeSessionId);
 							}
+							if (resourceContexts.get(activeSessionId) === resourceContext) {
+								resourceContexts.delete(activeSessionId);
+							}
 							activeExecutionRuntime.dispose();
 							capabilityCompositions.delete(capabilities);
 							todoRuntimes.delete(todoRuntime);
@@ -623,8 +817,12 @@ export async function createGreenfieldRuntimeComposition(
 					},
 				};
 			} catch (error) {
+				await subagentRuntime?.dispose();
 				if (executionRuntimes.get(activeSessionId) === executionRuntime) {
 					executionRuntimes.delete(activeSessionId);
+				}
+				if (resourceContexts.get(activeSessionId) === resourceContext) {
+					resourceContexts.delete(activeSessionId);
 				}
 				executionRuntime?.dispose();
 				await releaseOwnership(activeOwnership);
@@ -639,6 +837,16 @@ export async function createGreenfieldRuntimeComposition(
 		backend,
 		tools,
 		scenario,
+		appendSessionContext(sessionId, records) {
+			const context = resourceContexts.get(sessionId);
+			if (!context) throw new Error(`Greenfield session context not found: ${sessionId}`);
+			context.contextAppender.append(records);
+		},
+		async deliverSessionContext(sessionId, records) {
+			const context = resourceContexts.get(sessionId);
+			if (!context) throw new Error(`Greenfield session context not found: ${sessionId}`);
+			await context.deliverAsyncContext(records);
+		},
 		async flushMemory(sessionId, signal) {
 			return (await memoryControllers.get(sessionId)?.flushMemory(signal)) ?? 0;
 		},
@@ -658,6 +866,7 @@ export async function createGreenfieldRuntimeComposition(
 			contextRuntimes.clear();
 			memoryRuntimes.clear();
 			memoryControllers.clear();
+			resourceContexts.clear();
 			hookSessionDisposers.clear();
 			mcpControllers.clear();
 			for (const executionRuntime of executionRuntimes.values()) executionRuntime.dispose();
@@ -749,4 +958,36 @@ function withCapabilities(base: Extract<CodingToolActivation, { mode: "scope" }>
 		...base,
 		capabilities: new Set([...(base.capabilities ?? []), ...added]),
 	} satisfies CodingToolActivation;
+}
+
+function withScenario(activation: CodingToolActivation, scenario: ConversationScenario): CodingToolActivation {
+	return activation.mode === "scope" ? { ...activation, scope: scenario } : activation;
+}
+
+function createForkContextFeature(messages: readonly Message[]): AgentFeatureDefinition {
+	const snapshot = [...messages];
+	return {
+		id: "coding-agent-parent-context",
+		prepare: async () => ({
+			contribute: async () => ({
+				contextProviders: [
+					{
+						id: "coding-agent-parent-context",
+						provide: async () => snapshot,
+					},
+				],
+			}),
+			dispose: async () => {},
+		}),
+	};
+}
+
+function toSubagentInfo(snapshot: SubagentSnapshot): Omit<SubagentSnapshot, "usage"> {
+	const { usage: _usage, ...info } = snapshot;
+	return info;
+}
+
+function joinPromptAddons(base: string | undefined, addon: string | undefined): string | undefined {
+	const parts = [base, addon].filter((value): value is string => Boolean(value?.trim()));
+	return parts.length > 0 ? parts.join("\n\n") : undefined;
 }

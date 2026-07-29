@@ -1,7 +1,7 @@
 import { type Static, Type } from "@sinclair/typebox";
+import type { SubagentCoordinatorPort } from "@vetta/runtime-subagents";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { toolCallDescriptionSchema } from "../../tools/tool-call-description.js";
-import type { SubagentCoordinator } from "../coordinator.js";
 import { SUBAGENT_TYPE_WORKFLOW } from "../types.js";
 
 const WORKFLOW_NO_WAIT_TEXT =
@@ -26,7 +26,7 @@ const waitAgentSchema = Type.Object({
 export type WaitAgentToolInput = Static<typeof waitAgentSchema>;
 
 export function createWaitAgentTool(options: {
-	getCoordinator: () => SubagentCoordinator | undefined;
+	getCoordinator: () => SubagentCoordinatorPort | undefined;
 }): CodingAgentTool<typeof waitAgentSchema> {
 	return {
 		name: "wait_agent",

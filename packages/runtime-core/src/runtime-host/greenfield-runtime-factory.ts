@@ -18,6 +18,7 @@ import {
 	type RuntimeSessionContextAppender,
 	type RuntimeSnapshotProvider,
 	resumeAgentSession,
+	type SessionContextRecord,
 	type SessionInputQueueMode,
 	SystemClock,
 	TurnPipeline,
@@ -55,6 +56,11 @@ export type GreenfieldRuntimeSessionPeripherals = Partial<
 export interface GreenfieldRuntimeResourceContext {
 	readonly operation: GreenfieldRuntimeOperation;
 	readonly contextAppender: RuntimeSessionContextAppender;
+	/**
+	 * 投递由后台工作产生的上下文，并按 follow-up 语义唤醒或续跑 Session。
+	 * 调用方不能直接操作 Kernel 输入队列。
+	 */
+	deliverAsyncContext(records: readonly SessionContextRecord[]): Promise<void>;
 	abortCurrentRun(): void;
 	reportObservation(observation: RuntimeSessionObservationEvent): Promise<void>;
 }
@@ -130,6 +136,8 @@ export class ComposedGreenfieldRuntimeFactory<TCreateOptions> implements Greenfi
 	): Promise<GreenfieldRuntimeAssembly> {
 		const runtimeContext = new BufferedRuntimeSessionContext();
 		let abortCurrentRun = (): void => {};
+		let requestContinuation: ((records: readonly SessionContextRecord[]) => Promise<void>) | undefined;
+		const pendingContinuationContext: SessionContextRecord[] = [];
 		let observationSessionId: string | undefined;
 		const pendingObservations: RuntimeSessionObservationEvent[] = [];
 		const reportObservation = async (observation: RuntimeSessionObservationEvent): Promise<void> => {
@@ -147,6 +155,13 @@ export class ComposedGreenfieldRuntimeFactory<TCreateOptions> implements Greenfi
 		const resources = await this.options.createResources(options, {
 			operation,
 			contextAppender: runtimeContext,
+			deliverAsyncContext: async (records) => {
+				if (!requestContinuation) {
+					pendingContinuationContext.push(...records);
+					return;
+				}
+				await requestContinuation(records);
+			},
 			abortCurrentRun: () => abortCurrentRun(),
 			reportObservation,
 		});
@@ -192,6 +207,13 @@ export class ComposedGreenfieldRuntimeFactory<TCreateOptions> implements Greenfi
 				operation === "create"
 					? await createAgentSession(sessionOptions)
 					: await resumeAgentSession(sessionOptions);
+			requestContinuation = (records) => session.requestContinuation(records);
+			if (pendingContinuationContext.length > 0) {
+				const records = pendingContinuationContext.splice(0);
+				void requestContinuation(records).catch((error) => {
+					console.warn("[runtime-core] failed to deliver pending asynchronous context", error);
+				});
+			}
 			abortCurrentRun = () => {
 				void session.cancel().catch((error) => {
 					console.warn("[runtime-core] failed to abort Greenfield session", error);

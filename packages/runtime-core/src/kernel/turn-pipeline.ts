@@ -150,8 +150,9 @@ export class TurnPipeline {
 		sessionIdentity: string | TurnSessionIdentity,
 		signal: AbortSignal,
 		inputQueue?: TurnInputQueue,
+		context: readonly SessionContextRecord[] = [],
 	): Promise<TurnResult> {
-		return this.runTurn(sessionIdentity, undefined, signal, inputQueue);
+		return this.runTurn(sessionIdentity, undefined, signal, inputQueue, context);
 	}
 
 	private async runTurn(
@@ -159,6 +160,7 @@ export class TurnPipeline {
 		input: SessionInput | undefined,
 		signal: AbortSignal,
 		inputQueue: TurnInputQueue | undefined,
+		continuationContext: readonly SessionContextRecord[] = [],
 	): Promise<TurnResult> {
 		const identity = normalizeSessionIdentity(sessionIdentity);
 		const turnId = this.idGenerator.next("turn");
@@ -198,16 +200,17 @@ export class TurnPipeline {
 					timestamp: startedAt,
 				},
 			];
+			const turnContext = input?.context ?? continuationContext;
+			for (const record of turnContext) {
+				startEvents.push({
+					type: "context.appended",
+					sessionId: state.sessionId,
+					turnId,
+					record,
+					timestamp: startedAt,
+				});
+			}
 			if (input) {
-				for (const record of input.context ?? []) {
-					startEvents.push({
-						type: "context.appended",
-						sessionId: state.sessionId,
-						turnId,
-						record,
-						timestamp: startedAt,
-					});
-				}
 				startEvents.push({
 					type: "message.appended",
 					sessionId: state.sessionId,
@@ -228,16 +231,16 @@ export class TurnPipeline {
 				input,
 				signal,
 			);
-			const inputContextMessages = input?.context
-				?.filter(({ modelVisible }) => modelVisible)
+			const inputContextMessages = turnContext
+				.filter(({ modelVisible }) => modelVisible)
 				.map((record) => ({
 					role: "user" as const,
 					content: record.content,
 					timestamp: startedAt,
 				}));
 			const assembledMessages = input
-				? [...conversation.messages, ...providerMessages, ...(inputContextMessages ?? []), input.message]
-				: [...conversation.messages, ...providerMessages];
+				? [...conversation.messages, ...providerMessages, ...inputContextMessages, input.message]
+				: [...conversation.messages, ...providerMessages, ...inputContextMessages];
 
 			await this.enterStage(state.sessionId, turnId, "context_preparation");
 			const preparationInput = {

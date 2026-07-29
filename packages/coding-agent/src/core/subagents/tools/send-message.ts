@@ -1,7 +1,7 @@
 import { type Static, Type } from "@sinclair/typebox";
+import type { SubagentCoordinatorPort } from "@vetta/runtime-subagents";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { toolCallDescriptionSchema } from "../../tools/tool-call-description.js";
-import type { SubagentCoordinator } from "../coordinator.js";
 
 const sendMessageSchema = Type.Object({
 	description: toolCallDescriptionSchema,
@@ -12,7 +12,7 @@ const sendMessageSchema = Type.Object({
 export type SendMessageToolInput = Static<typeof sendMessageSchema>;
 
 export function createSendMessageTool(options: {
-	getCoordinator: () => SubagentCoordinator | undefined;
+	getCoordinator: () => SubagentCoordinatorPort | undefined;
 }): CodingAgentTool<typeof sendMessageSchema> {
 	return {
 		name: "send_message",

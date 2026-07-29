@@ -1,6 +1,7 @@
 import type {
 	AgentSessionState,
 	QueuedSessionInputResult,
+	SessionContextRecord,
 	SessionInput,
 	SessionInputQueueMode,
 	SessionSendOptions,
@@ -27,6 +28,13 @@ export class AgentSession {
 	private currentState: AgentSessionState = "idle";
 	private activeController: AbortController | undefined;
 	private activeTurn: Promise<TurnResult> | undefined;
+	private continuationRequested = false;
+	private continuationDrain: Promise<void> | undefined;
+	private readonly continuationContext: SessionContextRecord[] = [];
+	private readonly continuationWaiters: Array<{
+		resolve(): void;
+		reject(error: unknown): void;
+	}> = [];
 
 	private constructor(options: CreateAgentSessionOptions) {
 		this.identity = new MutableTurnSessionIdentity(options.id);
@@ -107,6 +115,26 @@ export class AgentSession {
 		return this.startTurn();
 	}
 
+	/**
+	 * 请求一次异步续跑。
+	 *
+	 * 与显式 continue 不同：活动 Turn 期间到达的多个请求会合并，并在当前 Turn
+	 * 完成后串行启动一次 continuation。后台任务和子代理通知使用该入口唤醒
+	 * 空闲 Session，避免绕过 Session 的并发状态机。
+	 */
+	requestContinuation(context: readonly SessionContextRecord[] = []): Promise<void> {
+		if (this.currentState === "closed" || this.currentState === "closing") {
+			return Promise.reject(sessionClosedError());
+		}
+		this.continuationRequested = true;
+		this.continuationContext.push(...context);
+		const completion = new Promise<void>((resolve, reject) => {
+			this.continuationWaiters.push({ resolve, reject });
+		});
+		this.scheduleRequestedContinuations();
+		return completion;
+	}
+
 	steer(input: SessionInput): QueuedSessionInputResult {
 		return this.queueInput("steer", input);
 	}
@@ -131,6 +159,7 @@ export class AgentSession {
 		if (!this.activeTurn) {
 			this.inputQueue.clear();
 			this.currentState = "closed";
+			this.rejectContinuationWaiters(sessionClosedError());
 			return;
 		}
 
@@ -139,6 +168,7 @@ export class AgentSession {
 		await this.activeTurn;
 		this.inputQueue.clear();
 		this.currentState = "closed";
+		this.rejectContinuationWaiters(sessionClosedError());
 	}
 
 	private queueInput(behavior: SessionStreamingBehavior, input: SessionInput): QueuedSessionInputResult {
@@ -152,13 +182,16 @@ export class AgentSession {
 		};
 	}
 
-	private async startTurn(input?: SessionInput): Promise<TurnResult> {
+	private async startTurn(
+		input?: SessionInput,
+		continuationContext: readonly SessionContextRecord[] = [],
+	): Promise<TurnResult> {
 		this.currentState = "running";
 		const controller = new AbortController();
 		this.activeController = controller;
 		const turn = input
 			? this.pipeline.run(this.identity, input, controller.signal, this.inputQueue)
-			: this.pipeline.continue(this.identity, controller.signal, this.inputQueue);
+			: this.pipeline.continue(this.identity, controller.signal, this.inputQueue, continuationContext);
 		this.activeTurn = turn;
 
 		try {
@@ -168,10 +201,45 @@ export class AgentSession {
 		}
 	}
 
+	private async drainRequestedContinuations(): Promise<void> {
+		while (this.continuationRequested && this.currentState === "idle") {
+			this.continuationRequested = false;
+			const waiters = this.continuationWaiters.splice(0);
+			const context = this.continuationContext.splice(0);
+			try {
+				await this.startTurn(undefined, context);
+				for (const waiter of waiters) waiter.resolve();
+			} catch (error) {
+				for (const waiter of waiters) waiter.reject(error);
+			}
+		}
+	}
+
 	private finishActiveTurn(): void {
 		this.activeController = undefined;
 		this.activeTurn = undefined;
 		this.currentState = this.currentState === "closing" ? "closed" : "idle";
+		this.scheduleRequestedContinuations();
+	}
+
+	private scheduleRequestedContinuations(): void {
+		if (!this.continuationRequested || this.continuationDrain) return;
+		if (this.currentState === "closed" || this.currentState === "closing") {
+			this.rejectContinuationWaiters(sessionClosedError());
+			return;
+		}
+		if (this.currentState !== "idle") return;
+		this.continuationDrain = this.drainRequestedContinuations();
+		void this.continuationDrain.then(() => {
+			this.continuationDrain = undefined;
+			if (this.continuationRequested) this.scheduleRequestedContinuations();
+		});
+	}
+
+	private rejectContinuationWaiters(error: unknown): void {
+		this.continuationRequested = false;
+		this.continuationContext.length = 0;
+		for (const waiter of this.continuationWaiters.splice(0)) waiter.reject(error);
 	}
 }
 

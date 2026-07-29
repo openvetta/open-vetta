@@ -84,6 +84,7 @@
 		"@vetta/ai": "workspace:*",
 		"@vetta/ecosystem-adapter": "workspace:*",
 		"@vetta/runtime-core": "workspace:*",
+		"@vetta/runtime-subagents": "workspace:*",
 		"@vetta/runtime-telemetry": "workspace:*",
 		"ajv": "^8.17.1",
 		"ajv-formats": "^3.0.1",

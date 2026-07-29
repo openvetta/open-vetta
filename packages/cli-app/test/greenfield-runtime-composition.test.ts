@@ -59,6 +59,7 @@ describe("Greenfield runtime composition", () => {
 			initialModel: MODEL,
 			initialThinkingLevel: "off",
 			cwd: workspace,
+			enableSubagents: false,
 			activation: { mode: "explicit", toolNames: ["read"] },
 			streamFn: (model, context, options) => {
 				modelCalls.push({
@@ -165,6 +166,7 @@ describe("Greenfield runtime composition", () => {
 			modelRegistry: modelRegistry(),
 			initialModel: MODEL,
 			initialThinkingLevel: "off",
+			enableSubagents: false,
 			activation: { mode: "explicit", toolNames: ["read", "bash"] },
 			streamFn: (_model, context) => {
 				toolLists.push((context.tools ?? []).map(({ name }) => name));
@@ -197,7 +199,7 @@ describe("Greenfield runtime composition", () => {
 		await session.dispose();
 	});
 
-	it("assembles real host, execution, todo and configuration ports without hiding the subagent gap", async () => {
+	it("assembles real host, execution, background work, todo and configuration ports", async () => {
 		const conversations = await createTemporaryDirectory("greenfield-runtime-session-ports-");
 		const composition = await createGreenfieldRuntimeComposition({
 			conversationDir: conversations,
@@ -212,10 +214,9 @@ describe("Greenfield runtime composition", () => {
 		});
 		const assessment = assessRuntimeHostSessionAssembly(session.createRuntimeHostAssemblyCandidate());
 
-		expect(assessment).toEqual({
-			ready: false,
-			missingPorts: ["backgroundWorkController"],
-		});
+		expect(assessment.ready).toBe(true);
+		if (!assessment.ready) throw new Error("Expected complete RuntimeHost assembly");
+		expect(assessment.assembly.backgroundWorkController.readSubagents()).toEqual([]);
 		const assembly = session.createRuntimeHostAssemblyCandidate();
 		await assembly.hostInteraction?.bind({
 			confirm: async () => true,
@@ -400,6 +401,7 @@ describe("Greenfield runtime composition", () => {
 			initialModel: MODEL,
 			initialThinkingLevel: "off",
 			cwd: "C:\\workspace",
+			enableSubagents: false,
 			activation: { mode: "explicit", toolNames: ["read"] },
 			createSystemPromptOptionsResolver,
 			streamFn: (_model, context) => {
@@ -609,6 +611,7 @@ describe("Greenfield runtime composition", () => {
 			modelRegistry: modelRegistry(),
 			initialModel: MODEL,
 			initialThinkingLevel: "off",
+			enableSubagents: false,
 			activation: { mode: "explicit", toolNames: ["mcp_search_tool_15"] },
 			mcpSource: fixture.source,
 			streamFn: (_model, context) => {

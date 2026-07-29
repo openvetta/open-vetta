@@ -116,14 +116,18 @@ export class GreenfieldSessionExecutionRuntime {
 				});
 		});
 		this.disposeTaskNotifications = this.backgroundService.subscribeNotifications((task) => {
-			options.resourceContext.contextAppender.append([
-				{
-					type: "task-notification",
-					content: [{ type: "text", text: buildBackgroundCommandNotification(task) }],
-					modelVisible: true,
-					display: true,
-				},
-			]);
+			void options.resourceContext
+				.deliverAsyncContext([
+					{
+						type: "task-notification",
+						content: [{ type: "text", text: buildBackgroundCommandNotification(task) }],
+						modelVisible: true,
+						display: true,
+					},
+				])
+				.catch((error: unknown) => {
+					console.warn("[greenfield-runtime] failed to deliver background task notification", error);
+				});
 		});
 	}
 
