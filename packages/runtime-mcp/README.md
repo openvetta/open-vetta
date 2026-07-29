@@ -5,13 +5,14 @@ Greenfield Runtime 的独立 MCP Feature 合同与模型调用级同步实现。
 ## What It Owns
 
 - 当前 MCP 工具视图的 `McpRuntimeToolSource` Port
+- 与具体产品路径无关的 MCP 协议合同、TypeBox 配置 Schema 与文件配置 Source
 - MCP 工具到 Runtime Registry 的增量同步与生命周期
 - 会话级渐进披露、`tool_search` 和 MCP Prompt 物化
-- 与具体 MCP SDK、配置来源和宿主无关的行为测试
+- 与具体 MCP SDK 和宿主无关的行为测试
 
 ## What It Does Not Own
 
-- MCP server 配置文件或配置 UI
+- Desktop、CLI 等产品对全局/项目配置路径的选择，以及配置 UI
 - stdio、HTTP、OAuth 等具体连接实现
 - Legacy `McpManager` 或 Coding Agent 的 `AgentTool` 协议
 - Desktop、CLI、IM 的 Composition Root
@@ -26,7 +27,7 @@ Greenfield Runtime 的独立 MCP Feature 合同与模型调用级同步实现。
 
 ```text
 runtime-mcp -> runtime-core
-coding-agent adapter -> runtime-mcp + legacy core/mcp
+coding-agent compatibility adapter -> runtime-mcp + legacy transports/manager
 runtime-composition -> runtime-mcp + runtime-tools
 ```
 

@@ -106,6 +106,7 @@
 | [96-installed-artifact-and-process-restart-gate.md](./08-implementation-log/96-installed-artifact-and-process-restart-gate.md) | 独立安装 CLI 产物、宿主能力注入与跨进程会话恢复门禁 |
 | [97-desktop-installed-artifact-process-restart-closure.md](./08-implementation-log/97-desktop-installed-artifact-process-restart-closure.md) | Desktop 独立 CLI、双进程恢复、动态 Skill/MCP 重装配与清理闭环 |
 | [98-mcp-runtime-port-and-legacy-adapter.md](./08-implementation-log/98-mcp-runtime-port-and-legacy-adapter.md) | MCP Runtime 独立端口、增量同步、旧实现适配与真实宿主门禁 |
+| [99-mcp-protocol-and-config-source-boundary.md](./08-implementation-log/99-mcp-protocol-and-config-source-boundary.md) | MCP 协议合同、TypeBox 配置解析、文件 Source 与 Manager 行为基线 |
 
 ## 维护约定
 

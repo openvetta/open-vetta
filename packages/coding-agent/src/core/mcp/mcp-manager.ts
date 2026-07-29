@@ -7,8 +7,8 @@
 
 import type { AgentTool } from "@vetta/agent-core";
 import { getAgentDir } from "../../config.js";
-import { createMcpClient } from "./mcp-client.js";
-import { McpConfigLoader } from "./mcp-config.js";
+import { createMcpClient, type McpClientHandle } from "./mcp-client.js";
+import { McpConfigLoader, type McpConfigSource } from "./mcp-config.js";
 import { loginMcpDeviceFlow } from "./mcp-device-flow.js";
 import { isMcpAuthRequiredError } from "./mcp-http-client.js";
 import { loginHttpMcpServer, type OpenUrlHandler } from "./mcp-oauth-flow.js";
@@ -37,14 +37,31 @@ export interface McpManagerOptions {
 	debug?: boolean;
 	/** Whether MCP is globally enabled */
 	enabled?: boolean;
+	/** Explicit config boundary for deterministic hosts and tests. */
+	configSource?: McpConfigSource;
+	/** Explicit client boundary for stdio/HTTP implementations and tests. */
+	clientFactory?: McpClientFactory;
 }
+
+export interface McpClientFactoryOptions {
+	readonly debug?: boolean;
+	readonly timeout?: number;
+	readonly agentDir?: string;
+}
+
+export type McpClientFactory = (
+	name: string,
+	config: McpServerConfig,
+	options?: McpClientFactoryOptions,
+) => McpClientHandle;
 
 /**
  * MCP Manager - manages all MCP servers
  */
 export class McpManager {
 	private state: McpManagerState;
-	private configLoader: McpConfigLoader;
+	private configLoader: McpConfigSource;
+	private clientFactory: McpClientFactory;
 	private projectRoot: string;
 	private agentDir: string;
 	private debug: boolean;
@@ -62,7 +79,8 @@ export class McpManager {
 		this.projectRoot = options.projectRoot || process.cwd();
 		this.agentDir = options.agentDir || getAgentDir();
 		this.debug = options.debug || false;
-		this.configLoader = new McpConfigLoader(this.projectRoot, this.agentDir);
+		this.configLoader = options.configSource ?? new McpConfigLoader(this.projectRoot, this.agentDir);
+		this.clientFactory = options.clientFactory ?? createMcpClient;
 
 		this.state = {
 			servers: new Map(),
@@ -144,7 +162,7 @@ export class McpManager {
 
 		try {
 			// Create and start client
-			const client = createMcpClient(name, config, {
+			const client = this.clientFactory(name, config, {
 				debug: this.debug || config.debug,
 				agentDir: this.agentDir,
 			});

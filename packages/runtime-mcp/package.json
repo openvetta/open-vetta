@@ -4,6 +4,20 @@
 	"type": "module",
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		},
+		"./config": {
+			"types": "./dist/config/index.d.ts",
+			"import": "./dist/config/index.js"
+		},
+		"./protocol": {
+			"types": "./dist/protocol/index.d.ts",
+			"import": "./dist/protocol/index.js"
+		}
+	},
 	"files": ["dist"],
 	"scripts": {
 		"clean": "rm -rf dist",

@@ -1,3 +1,4 @@
+export * from "./config/index.js";
 export {
 	createMcpDeferredToolController,
 	DEFAULT_MCP_DEFERRED_THRESHOLD,
@@ -15,6 +16,7 @@ export {
 	scoreMcpDeferredTools,
 } from "./deferred-tool-search.js";
 export { renderMcpToolsInstruction } from "./mcp-prompt.js";
+export * from "./protocol/index.js";
 export {
 	createMcpRuntimeToolSynchronizer,
 	type ManagedMcpRuntimeToolSource,
