@@ -161,6 +161,23 @@ CI 上 `CSC_LINK` 可以直接放 base64：`export CSC_LINK="$(base64 -i develop
 
 ---
 
+### 4.1 CI（GitHub Actions）
+
+`.github/workflows/desktop-mac-release.yml`，**只在推 `v*` tag 时触发**，arm64 / x64 两个架构并行，各自签名+公证后把产物挂到**草稿** Release 上。
+
+需要在仓库 Settings → Secrets and variables → Actions 配置 6 个 Secret：
+
+| Secret | 值 |
+|---|---|
+| `MAC_CSC_LINK` | `base64 -i developer-id.p12 \| pbcopy` |
+| `MAC_CSC_KEY_PASSWORD` | 导出 `.p12` 时设的密码 |
+| `APPLE_TEAM_ID` | 10 位团队 ID |
+| `APPLE_API_ISSUER` | Issuer ID（UUID） |
+| `APPLE_API_KEY_ID` | Key ID（10 位） |
+| `APPLE_API_KEY_P8_BASE64` | `base64 -i AuthKey_<KeyID>.p8 \| pbcopy` |
+
+electron-builder 直接吃 base64 形式的 `CSC_LINK` 并自建临时钥匙串，所以 CI 上不需要往登录钥匙串导任何东西；`.p8` 因为必须是文件路径，由 workflow 解码到 `$RUNNER_TEMP`。
+
 ## 5. 验证
 
 拿到 `packages/desktop-app/release/Vetta-<version>.dmg` 后逐条跑：
