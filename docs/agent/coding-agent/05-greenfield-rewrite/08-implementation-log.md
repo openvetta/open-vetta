@@ -101,6 +101,7 @@
 | [91-desktop-real-turn-and-runtime-consumer-canary.md](./08-implementation-log/91-desktop-real-turn-and-runtime-consumer-canary.md) | Desktop 真实 Provider Tool Loop、动态外围能力、三类 RuntimeHost 消费者与生产选择诊断门禁 |
 | [92-cli-driven-desktop-runtime-canary.md](./08-implementation-log/92-cli-driven-desktop-runtime-canary.md) | 独立 Vetta CLI 驱动的 Desktop Greenfield 会话创建、继续、列举与 CWD 身份持久化门禁 |
 | [93-real-desktop-process-runtime-canary.md](./08-implementation-log/93-real-desktop-process-runtime-canary.md) | 真实 Desktop 主进程 Greenfield Canary、CLI 会话闭环、优雅退出与取消清理门禁 |
+| [94-desktop-runtime-consumer-lifecycle.md](./08-implementation-log/94-desktop-runtime-consumer-lifecycle.md) | Desktop 交互/Scheduler/Batch 多消费者共存、异步合同与进程级退出所有权门禁 |
 
 ## 维护约定
 

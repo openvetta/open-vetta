@@ -5,7 +5,12 @@ import {
 	RUNTIME_CANARY_QUESTION_PROMPT,
 	RUNTIME_CANARY_SECOND_PROMPT,
 } from "./contracts.js";
-import { runRuntimeCanaryConversation, scheduleRuntimeCanaryQuit } from "./runner.js";
+import {
+	runRuntimeCanaryConversation,
+	scheduleRuntimeCanaryQuit,
+	startRuntimeCanaryConsumers,
+	startRuntimeCanaryQuestion,
+} from "./runner.js";
 
 const sessionId = "00000000-0000-4000-8000-000000000001";
 const createOperationId = "00000000-0000-4000-8000-000000000002";
@@ -69,6 +74,54 @@ describe("Runtime Canary runner", () => {
 				modelKey: "runtime-canary/runtime-canary-model",
 			}),
 		).resolves.toMatchObject({ sessionId, sessionPath, questionOperationId });
+	});
+
+	it("starts a pending interaction and background consumers without bypassing Debug CLI contracts", async () => {
+		const invokeDebug = vi.fn(async (debugId: string) => {
+			if (debugId === "conversation.continue") {
+				return {
+					operationId: questionOperationId,
+					sessionId,
+					sessionPath,
+					cwd,
+					status: "input_required",
+					interaction: {
+						id: interactionId,
+						type: "ask_user_question",
+						questions: [{ question: RUNTIME_CANARY_QUESTION }],
+					},
+				};
+			}
+			return {
+				schedulerTaskId: "scheduler-task",
+				schedulerSessionId: "scheduler-session",
+				schedulerSessionPath: "C:/sessions/scheduler.jsonl",
+				batchProjectId: "batch-project",
+				batchActiveTaskId: "batch-active",
+				batchQueuedTaskId: "batch-queued",
+				batchSessionId: "batch-session",
+				batchSessionPath: "C:/sessions/batch.jsonl",
+			};
+		});
+
+		await expect(
+			startRuntimeCanaryQuestion(invokeDebug, {
+				sessionPath,
+				modelKey: "runtime-canary/runtime-canary-model",
+			}),
+		).resolves.toEqual({ operationId: questionOperationId, sessionPath });
+		await expect(
+			startRuntimeCanaryConsumers(invokeDebug, {
+				workspace: cwd,
+				modelKey: "runtime-canary/runtime-canary-model",
+				batchSourceDirectories: ["C:/source-one", "C:/source-two"],
+			}),
+		).resolves.toMatchObject({
+			schedulerSessionId: "scheduler-session",
+			batchSessionId: "batch-session",
+			batchQueuedTaskId: "batch-queued",
+		});
+		expect(invokeDebug).toHaveBeenCalledTimes(2);
 	});
 });
 

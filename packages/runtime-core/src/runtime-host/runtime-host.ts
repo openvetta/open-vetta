@@ -953,13 +953,11 @@ export class RuntimeHost implements SessionFacade {
 		return handle.lifecycle.sessionPath;
 	}
 
-	renameSessionById(sessionId: string, name: string): void {
+	async renameSessionById(sessionId: string, name: string): Promise<void> {
 		// We already hold the live AgentSession — rename through it directly so
 		// we never open a second SessionManager (and second lock) on the file.
 		const handle = this.requireSession(sessionId);
-		void handle.historyController.setName(name).catch((error) => {
-			console.error(`[RuntimeHost.renameSessionById] failed for ${sessionId}:`, error);
-		});
+		await handle.historyController.setName(name);
 	}
 
 	/**

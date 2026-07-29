@@ -60,7 +60,10 @@ import {
 	type BatchTaskEvent,
 	enqueueResumeTask,
 	enqueueRunTask,
+	getBatchTaskExecutorState,
 	getExecutingTaskIds,
+	getQueuedTaskIds,
+	shutdownBatchTaskExecutor,
 	subscribeBatchTaskEvents,
 } from "./batch-task-executor.js";
 
@@ -84,7 +87,13 @@ describe("batch RuntimeHost consumer", () => {
 		const task = batchTask(taskDir);
 		project.tasks.push(task);
 		const createSession = vi.fn(async () => ({ sessionId: "batch-session" }));
-		const renameSessionById = vi.fn();
+		let finishRename: () => void = () => {};
+		const renameSessionById = vi.fn(
+			() =>
+				new Promise<void>((resolve) => {
+					finishRename = resolve;
+				}),
+		);
 		const disposeSession = vi.fn();
 		const prompt = vi.fn(async () => {});
 		const runtime = {
@@ -98,6 +107,9 @@ describe("batch RuntimeHost consumer", () => {
 		const completed = waitForBatchEvent((event) => event.type === "task.completed" && event.taskId === task.id);
 
 		enqueueRunTask(project, task, runtime);
+		await vi.waitFor(() => expect(renameSessionById).toHaveBeenCalledOnce());
+		expect(prompt).not.toHaveBeenCalled();
+		finishRename();
 		await completed;
 
 		expect(createSession).toHaveBeenCalledWith({
@@ -156,6 +168,60 @@ describe("batch RuntimeHost consumer", () => {
 			text: "Continue the paused task",
 			modelKey: "test/provider-model",
 		});
+	});
+
+	it("aborts active work and does not drain queued work during shutdown", async () => {
+		const projectDir = await temporaryDirectory("desktop-batch-shutdown-project-");
+		const firstTaskDir = await temporaryDirectory("desktop-batch-shutdown-first-");
+		const secondTaskDir = await temporaryDirectory("desktop-batch-shutdown-second-");
+		const project = batchProject(projectDir);
+		const firstTask = batchTask(firstTaskDir);
+		const secondTask = batchTask(secondTaskDir);
+		project.tasks.push(firstTask, secondTask);
+		let finishPrompt: () => void = () => {};
+		const prompt = vi.fn(
+			() =>
+				new Promise<void>((resolve) => {
+					finishPrompt = resolve;
+				}),
+		);
+		const abort = vi.fn(async () => {
+			finishPrompt();
+		});
+		const createSession = vi.fn(async () => ({ sessionId: "batch-active-session" }));
+		const runtime = {
+			abort,
+			createSession,
+			getMessages: () => [assistantMessage("aborted")],
+			getSessionPath: () => join(projectDir, ".vetta", "sessions", "batch.jsonl"),
+			prompt,
+			renameSessionById: vi.fn(),
+		} as unknown as RuntimeHost;
+
+		enqueueRunTask(project, firstTask, runtime);
+		enqueueRunTask(project, secondTask, runtime);
+		await vi.waitFor(() => {
+			expect(getExecutingTaskIds()).toContain(firstTask.id);
+			expect(prompt).toHaveBeenCalledOnce();
+		});
+		expect(getQueuedTaskIds(project.id)).toEqual([secondTask.id]);
+		expect(getBatchTaskExecutorState()).toMatchObject({
+			acceptingJobs: true,
+			shutdownStarted: false,
+			activeTasks: [{ projectId: project.id, taskId: firstTask.id, sessionId: "batch-active-session" }],
+			queuedTaskIds: [secondTask.id],
+		});
+
+		const firstShutdown = shutdownBatchTaskExecutor();
+		const secondShutdown = shutdownBatchTaskExecutor();
+		await vi.waitFor(() => expect(abort).toHaveBeenCalledWith("batch-active-session"));
+		finishPrompt();
+		await Promise.all([firstShutdown, secondShutdown]);
+
+		expect(createSession).toHaveBeenCalledOnce();
+		expect(getExecutingTaskIds()).toEqual([]);
+		expect(getQueuedTaskIds()).toEqual([]);
+		expect(() => enqueueRunTask(project, secondTask, runtime)).toThrowError("Batch task executor is shutting down");
 	});
 
 	async function temporaryDirectory(prefix: string): Promise<string> {

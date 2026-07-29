@@ -7,6 +7,21 @@ export const RUNTIME_CANARY_FIRST_PROMPT = "Reply with exactly DESKTOP_PROCESS_C
 export const RUNTIME_CANARY_SECOND_PROMPT = "Reply with exactly DESKTOP_PROCESS_CANARY_SECOND.";
 export const RUNTIME_CANARY_QUESTION_PROMPT = "Call ask_user_question for the Desktop process canary.";
 export const RUNTIME_CANARY_QUESTION = "Should the Desktop process canary continue?";
+export const RUNTIME_CANARY_SCHEDULER_PROMPT = "Hold the Desktop process Scheduler runtime canary open.";
+export const RUNTIME_CANARY_BATCH_PROMPT = "Hold the Desktop process Batch runtime canary open.";
+
+export const runtimeCanaryConsumersSchema = z
+	.object({
+		schedulerTaskId: z.string().min(1),
+		schedulerSessionId: z.string().min(1),
+		schedulerSessionPath: z.string().min(1),
+		batchProjectId: z.string().min(1),
+		batchActiveTaskId: z.string().min(1),
+		batchQueuedTaskId: z.string().min(1),
+		batchSessionId: z.string().min(1),
+		batchSessionPath: z.string().min(1),
+	})
+	.strict();
 
 export const runtimeCanaryFixtureSchema = z
 	.object({
@@ -17,6 +32,7 @@ export const runtimeCanaryFixtureSchema = z
 		providerBaseUrl: z.url(),
 		requestLogPath: z.string().min(1),
 		modelKey: z.literal(RUNTIME_CANARY_MODEL_KEY),
+		batchSourceDirectories: z.tuple([z.string().min(1), z.string().min(1)]),
 	})
 	.strict();
 
@@ -42,3 +58,4 @@ export const runtimeCanaryExitReportSchema = z
 export type RuntimeCanaryFixture = z.infer<typeof runtimeCanaryFixtureSchema>;
 export type RuntimeCanaryHostState = z.infer<typeof runtimeCanaryHostStateSchema>;
 export type RuntimeCanaryExitReport = z.infer<typeof runtimeCanaryExitReportSchema>;
+export type RuntimeCanaryConsumers = z.infer<typeof runtimeCanaryConsumersSchema>;

@@ -32,6 +32,7 @@ import {
 	isSessionPathInDirectory,
 	PathFilteredRuntimeSessionCatalog,
 } from "./greenfield-runtime/desktop-greenfield-session-catalog.js";
+import { DesktopRuntimeLifecycle } from "./greenfield-runtime/desktop-runtime-lifecycle.js";
 import {
 	DESKTOP_AGENT_RUNTIME_ENV,
 	resolveDesktopAgentRuntimeBackend,
@@ -49,6 +50,8 @@ const log = getAppLogger("runtime");
 let sharedRuntime: RuntimeHost | null = null;
 let sharedModelRegistry: ModelRegistry | null = null;
 let sharedGreenfieldBackendPool: DesktopGreenfieldRuntimeBackendPool | null = null;
+let sharedRuntimeShutdownPromise: Promise<void> | null = null;
+const sharedRuntimeLifecycle = new DesktopRuntimeLifecycle();
 
 /**
  * 直接从 settings.json 读 serverToken。
@@ -102,6 +105,7 @@ export function peekSharedRuntime(): RuntimeHost | null {
 }
 
 export function getSharedRuntime(): RuntimeHost {
+	sharedRuntimeLifecycle.assertCanAccessRuntime();
 	if (!sharedRuntime) {
 		const legacyOptions = createLegacyRuntimeHostOptions({
 			additionalSkillPaths: getBuiltinSkillPaths(),
@@ -190,21 +194,34 @@ export function getSharedRuntime(): RuntimeHost {
 			]),
 		});
 		sharedGreenfieldBackendPool = greenfieldBackendPool;
+		sharedRuntimeLifecycle.markRunning();
 	}
 	return sharedRuntime;
 }
 
+export function beginSharedRuntimeShutdown(): void {
+	sharedRuntimeLifecycle.beginShutdown();
+}
+
 export async function disposeSharedRuntime(): Promise<void> {
+	beginSharedRuntimeShutdown();
+	if (sharedRuntimeShutdownPromise) return await sharedRuntimeShutdownPromise;
 	const runtime = sharedRuntime;
 	const greenfieldBackendPool = sharedGreenfieldBackendPool;
-	if (!runtime && !greenfieldBackendPool) return;
 	sharedRuntime = null;
 	sharedGreenfieldBackendPool = null;
-	try {
-		await runtime?.disposeAllSessions();
-	} finally {
-		await greenfieldBackendPool?.dispose();
-	}
+	sharedRuntimeShutdownPromise = (async () => {
+		try {
+			await runtime?.disposeAllSessions();
+		} finally {
+			try {
+				await greenfieldBackendPool?.dispose();
+			} finally {
+				sharedRuntimeLifecycle.markStopped();
+			}
+		}
+	})();
+	return await sharedRuntimeShutdownPromise;
 }
 
 function resolveDesktopGreenfieldSessionRoots(): RuntimeConversationSessionRoot[] {

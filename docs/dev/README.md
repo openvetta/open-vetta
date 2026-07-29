@@ -82,11 +82,13 @@ bun run verify:ui:status
 bun run verify:ui:debug -- runtime-canary
 ```
 
-`runtime-canary` 会通过独立 Vetta CLI 依次创建、继续、列举、等待问题并中止会话，随后请求
-Desktop 优雅退出。命令成功返回前还会验证：
+`runtime-canary` 会通过独立 Vetta CLI 完成交互会话创建、继续和列举，再通过真实
+Scheduler/Batch Service 启动一个自动化会话、一个活动 Batch 会话和一个受并发限制的排队任务。
+保持三个消费者活动后请求 Desktop 优雅退出。命令成功返回前还会验证：
 
 - 会话文件已经持久化；
-- Session 锁已经释放；
+- 交互、Scheduler、Batch Session 锁已经释放；
+- Batch 排队任务没有在退出期间启动；
 - Debug RPC endpoint 已删除；
 - 本地确定性 Provider 已停止；
 - Desktop 退出码为 `0`。

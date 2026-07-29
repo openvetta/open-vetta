@@ -3,12 +3,14 @@ import { createServer, type Server, type ServerResponse } from "node:http";
 import { join } from "node:path";
 import { z } from "zod";
 import {
+	RUNTIME_CANARY_BATCH_PROMPT,
 	RUNTIME_CANARY_FIRST_PROMPT,
 	RUNTIME_CANARY_MODEL_ID,
 	RUNTIME_CANARY_MODEL_KEY,
 	RUNTIME_CANARY_MODEL_PROVIDER,
 	RUNTIME_CANARY_QUESTION,
 	RUNTIME_CANARY_QUESTION_PROMPT,
+	RUNTIME_CANARY_SCHEDULER_PROMPT,
 	RUNTIME_CANARY_SECOND_PROMPT,
 	type RuntimeCanaryFixture,
 } from "./contracts.js";
@@ -30,8 +32,21 @@ export async function startRuntimeCanaryProvider(rootDir: string): Promise<Runti
 	const vettaHome = join(rootDir, "home");
 	const agentDir = join(vettaHome, "agent");
 	const workspace = join(rootDir, "workspace");
+	const batchSourceDirectories: [string, string] = [
+		join(rootDir, "batch-source-one"),
+		join(rootDir, "batch-source-two"),
+	];
 	const requestLogPath = join(rootDir, "provider-requests.ndjson");
-	await Promise.all([mkdir(agentDir, { recursive: true }), mkdir(workspace, { recursive: true })]);
+	await Promise.all([
+		mkdir(agentDir, { recursive: true }),
+		mkdir(workspace, { recursive: true }),
+		...batchSourceDirectories.map((directory) => mkdir(directory, { recursive: true })),
+	]);
+	await Promise.all(
+		batchSourceDirectories.map((directory, index) =>
+			writeFile(join(directory, "input.txt"), `Runtime Canary Batch Source ${index + 1}`),
+		),
+	);
 
 	const server = createServer(async (request, response) => {
 		if (request.method !== "POST" || request.url !== "/responses") {
@@ -43,7 +58,12 @@ export async function startRuntimeCanaryProvider(rootDir: string): Promise<Runti
 			const body = providerRequestSchema.parse(JSON.parse(rawBody));
 			await writeFile(requestLogPath, `${rawBody}\n`, { flag: "a" });
 			const serializedInput = JSON.stringify(body.input);
-			if (serializedInput.includes(RUNTIME_CANARY_QUESTION_PROMPT)) {
+			if (
+				serializedInput.includes(RUNTIME_CANARY_SCHEDULER_PROMPT) ||
+				serializedInput.includes(RUNTIME_CANARY_BATCH_PROMPT)
+			) {
+				writePendingResponse(response);
+			} else if (serializedInput.includes(RUNTIME_CANARY_QUESTION_PROMPT)) {
 				writeEvents(response, questionResponseEvents());
 			} else if (serializedInput.includes(RUNTIME_CANARY_SECOND_PROMPT)) {
 				writeEvents(response, textResponseEvents("DESKTOP_PROCESS_CANARY_SECOND"));
@@ -72,6 +92,7 @@ export async function startRuntimeCanaryProvider(rootDir: string): Promise<Runti
 		providerBaseUrl: `http://127.0.0.1:${address.port}`,
 		requestLogPath,
 		modelKey: RUNTIME_CANARY_MODEL_KEY,
+		batchSourceDirectories,
 	};
 	try {
 		await writeFixtureConfiguration(fixture);
@@ -245,6 +266,15 @@ function writeEvents(response: ServerResponse, events: readonly unknown[]): void
 	});
 	for (const event of events) response.write(`data: ${JSON.stringify(event)}\n\n`);
 	response.end("data: [DONE]\n\n");
+}
+
+function writePendingResponse(response: ServerResponse): void {
+	response.writeHead(200, {
+		"content-type": "text/event-stream",
+		"cache-control": "no-cache",
+		connection: "keep-alive",
+	});
+	response.write(": runtime canary pending\n\n");
 }
 
 async function readBody(request: NodeJS.ReadableStream): Promise<string> {

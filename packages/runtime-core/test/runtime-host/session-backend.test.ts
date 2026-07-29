@@ -479,7 +479,7 @@ describe("RuntimeHost session backend boundary", () => {
 		expect(await host.deleteMessage(sessionId, "delete-entry")).toEqual({ leafId: "delete-leaf" });
 		expect(await host.replaceLastUserMessage(sessionId, "replace-entry")).toEqual({ leafId: "replace-leaf" });
 		expect(await host.forkSession(sessionId, "fork-entry")).toEqual({ path: "fork.jsonl", text: "fork text" });
-		host.renameSessionById(sessionId, "renamed by id");
+		await host.renameSessionById(sessionId, "renamed by id");
 		await host.renameSession("assembly.jsonl", "renamed by path");
 		expect(navigateForEdit).toHaveBeenCalledWith("edit-entry");
 		expect(switchBranch).toHaveBeenCalledWith("branch-entry");

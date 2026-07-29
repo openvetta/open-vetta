@@ -804,7 +804,7 @@ export interface SessionFacade {
 	deleteSession(sessionPath: string): Promise<void>;
 	renameSession(sessionPath: string, name: string): Promise<void>;
 	getSessionPath(sessionId: string): string | undefined;
-	renameSessionById(sessionId: string, name: string): void;
+	renameSessionById(sessionId: string, name: string): Promise<void>;
 	autoTitleSession(sessionId: string, userText: string, assistantText: string): Promise<string | null>;
 	disposeSession(sessionId: string): Promise<void>;
 	disposeAllSessions(): Promise<void>;

@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { RUNTIME_CANARY_QUESTION_PROMPT } from "./contracts.js";
+import { RUNTIME_CANARY_QUESTION_PROMPT, RUNTIME_CANARY_SCHEDULER_PROMPT } from "./contracts.js";
 import { type RuntimeCanaryProvider, startRuntimeCanaryProvider } from "./provider.js";
 
 describe("Runtime Canary Provider", () => {
@@ -21,6 +21,9 @@ describe("Runtime Canary Provider", () => {
 
 		expect(existsSync(join(provider.fixture.agentDir, "models.json"))).toBe(true);
 		expect(existsSync(join(provider.fixture.agentDir, "auth.json"))).toBe(true);
+		expect(
+			provider.fixture.batchSourceDirectories.every((directory) => existsSync(join(directory, "input.txt"))),
+		).toBe(true);
 		const desktopConfig = JSON.parse(
 			await readFile(join(provider.fixture.vettaHome, "desktop-config.json"), "utf8"),
 		) as { projects: Array<{ path: string }> };
@@ -32,6 +35,21 @@ describe("Runtime Canary Provider", () => {
 		const questionResponse = await requestProvider(provider.fixture.providerBaseUrl, RUNTIME_CANARY_QUESTION_PROMPT);
 		expect(questionResponse).toContain('"name":"ask_user_question"');
 		expect(questionResponse).toContain("Should the Desktop process canary continue?");
+
+		const controller = new AbortController();
+		const pendingResponse = await fetch(`${provider.fixture.providerBaseUrl}/responses`, {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({
+				model: "runtime-canary-model",
+				input: [{ role: "user", content: [{ type: "input_text", text: RUNTIME_CANARY_SCHEDULER_PROMPT }] }],
+				stream: true,
+			}),
+			signal: controller.signal,
+		});
+		expect(pendingResponse.ok).toBe(true);
+		controller.abort();
+		await expect(pendingResponse.text()).rejects.toThrow();
 
 		const requestLog = await readFile(provider.fixture.requestLogPath, "utf8");
 		expect(requestLog).toContain(RUNTIME_CANARY_QUESTION_PROMPT);

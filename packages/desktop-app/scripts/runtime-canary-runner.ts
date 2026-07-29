@@ -5,7 +5,9 @@ import { join } from "node:path";
 import { ACTION_RPC_ENDPOINT_FILE_ENV, VETTA_HOME_ENV } from "@vetta/action-rpc";
 import {
 	RUNTIME_CANARY_FIRST_PROMPT,
+	RUNTIME_CANARY_BATCH_PROMPT,
 	RUNTIME_CANARY_QUESTION_PROMPT,
+	RUNTIME_CANARY_SCHEDULER_PROMPT,
 	RUNTIME_CANARY_SECOND_PROMPT,
 	runtimeCanaryExitReportSchema,
 	runtimeCanaryHostStateSchema,
@@ -13,6 +15,8 @@ import {
 import {
 	runRuntimeCanaryConversation,
 	scheduleRuntimeCanaryQuit,
+	startRuntimeCanaryConsumers,
+	startRuntimeCanaryQuestion,
 	type RuntimeCanaryDebugInvoker,
 } from "../src/main/app-debug/runtime-canary/runner.js";
 
@@ -29,6 +33,15 @@ try {
 
 	const conversation = await runRuntimeCanaryConversation(invokeDebug, {
 		cwd: state.runtimeCanary.workspace,
+		modelKey: state.runtimeCanary.modelKey,
+	});
+	const consumers = await startRuntimeCanaryConsumers(invokeDebug, {
+		workspace: state.runtimeCanary.workspace,
+		modelKey: state.runtimeCanary.modelKey,
+		batchSourceDirectories: state.runtimeCanary.batchSourceDirectories,
+	});
+	const pendingQuestion = await startRuntimeCanaryQuestion(invokeDebug, {
+		sessionPath: conversation.sessionPath,
 		modelKey: state.runtimeCanary.modelKey,
 	});
 	const quitDelayMs = await scheduleRuntimeCanaryQuit(invokeDebug);
@@ -49,21 +62,41 @@ try {
 	if (exitReport.desktopExitCode !== 0 || !exitReport.endpointRemoved || !exitReport.providerStopped) {
 		throw new Error(`Desktop Runtime Canary cleanup failed: ${JSON.stringify(exitReport)}`);
 	}
-	if (existsSync(`${conversation.sessionPath}.lock`) || existsSync(`${conversation.sessionPath}.owner.lock`)) {
-		throw new Error("Desktop Runtime Canary left a session ownership lock after shutdown");
+	for (const sessionPath of [
+		conversation.sessionPath,
+		consumers.schedulerSessionPath,
+		consumers.batchSessionPath,
+	]) {
+		if (existsSync(`${sessionPath}.lock`) || existsSync(`${sessionPath}.owner.lock`)) {
+			throw new Error(`Desktop Runtime Canary left a session ownership lock after shutdown: ${sessionPath}`);
+		}
 	}
 
 	const providerRequests = await readFile(state.runtimeCanary.requestLogPath, "utf8");
-	for (const prompt of [RUNTIME_CANARY_FIRST_PROMPT, RUNTIME_CANARY_SECOND_PROMPT, RUNTIME_CANARY_QUESTION_PROMPT]) {
+	for (const prompt of [
+		RUNTIME_CANARY_FIRST_PROMPT,
+		RUNTIME_CANARY_SECOND_PROMPT,
+		RUNTIME_CANARY_QUESTION_PROMPT,
+		RUNTIME_CANARY_SCHEDULER_PROMPT,
+		RUNTIME_CANARY_BATCH_PROMPT,
+	]) {
 		if (!providerRequests.includes(prompt)) {
 			throw new Error(`Runtime Canary Provider did not observe prompt: ${prompt}`);
 		}
+	}
+	const batchRequestCount = providerRequests
+		.split(/\r?\n/)
+		.filter((line) => line.includes(RUNTIME_CANARY_BATCH_PROMPT)).length;
+	if (batchRequestCount !== 1) {
+		throw new Error(`Runtime Canary started ${batchRequestCount} Batch provider requests; expected exactly one`);
 	}
 
 	printJson({
 		ok: true,
 		result: {
 			...conversation,
+			...consumers,
+			pendingQuestionOperationId: pendingQuestion.operationId,
 			quitDelayMs,
 			sessionPersisted: existsSync(conversation.sessionPath),
 			sessionLocksReleased: true,

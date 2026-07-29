@@ -14,6 +14,7 @@ import { createDebugRpcRuntime } from "./app-debug/rpc.js";
 import { configureRendererCdp } from "./app-debug/ui/renderer-cdp.js";
 import { registerAppLifecycleIpc } from "./app-lifecycle.js";
 import { initializeAppMonitor, shutdownAppMonitor } from "./app-monitor/app-monitor-service.js";
+import { shutdownBatchTaskExecutor } from "./batch-tasks/batch-task-executor.js";
 import { initializeDesktopBatchTaskService } from "./batch-tasks/batch-task-service.js";
 import { parseActionCliCommand, runActionCliCommand } from "./cli/action-command.js";
 import { parseAgentRpcCommand, runAgentRpcCommand } from "./cli/agent-rpc-command.js";
@@ -58,10 +59,10 @@ import { PLUGIN_PROTOCOL_PRIVILEGES, registerPluginProtocols } from "./plugins/p
 import { discoverSystemPlugins } from "./plugins/plugin-store.js";
 import { stopAllUiohookConsumers } from "./quickpanel-trigger.js";
 import { createQuickPanelWindow } from "./quickpanel-window.js";
-import { disposeSharedRuntime, getSharedRuntime } from "./runtime.js";
+import { beginSharedRuntimeShutdown, disposeSharedRuntime, getSharedRuntime } from "./runtime.js";
 import { getRuntimeManager } from "./runtimes/manager.js";
 import { initializeSandboxCapability } from "./sandbox/capability.js";
-import { initScheduler, scheduleTaskInCron, unscheduleTaskInCron } from "./scheduler/scheduler.js";
+import { initScheduler, scheduleTaskInCron, shutdownScheduler, unscheduleTaskInCron } from "./scheduler/scheduler.js";
 import { initializeDesktopSchedulerService } from "./scheduler/scheduler-service.js";
 import { initializeMainTelemetry, shutdownMainTelemetry } from "./telemetry/index.js";
 import { registerThemeProtocol, THEME_PROTOCOL_PRIVILEGE } from "./themes/theme-protocol.js";
@@ -753,12 +754,37 @@ app.on("before-quit", async (event) => {
 	quitCleanupStarted = true;
 	(app as typeof app & { isQuitting?: boolean }).isQuitting = true;
 	event.preventDefault();
+	beginSharedRuntimeShutdown();
+
+	if (teardownSchedulerIpc) {
+		teardownSchedulerIpc();
+		teardownSchedulerIpc = undefined;
+	}
+	if (teardownBatchTasksIpc) {
+		teardownBatchTasksIpc();
+		teardownBatchTasksIpc = undefined;
+	}
+	if (localRpcServer) {
+		try {
+			await localRpcServer.close();
+		} catch (err) {
+			mainLog.error("local RPC server shutdown failed", err);
+		}
+		localRpcServer = undefined;
+	}
 
 	// 退出前注销全部全局键盘监听消费者（快捷面板双击 + appshot 双键同按），避免 uiohook 线程残留。
 	stopAllUiohookConsumers();
 
 	// 停掉插件工作台 dev 热更新的 vite watch 子进程，避免孤儿进程。
 	stopAllPluginDevWatches();
+
+	const consumerShutdownResults = await Promise.allSettled([shutdownScheduler(), shutdownBatchTaskExecutor()]);
+	for (const result of consumerShutdownResults) {
+		if (result.status === "rejected") {
+			mainLog.error("agent consumer shutdown failed", result.reason);
+		}
+	}
 
 	const host = getImHost();
 	if (host.getStatus().sidecarPid) {
@@ -774,14 +800,6 @@ app.on("before-quit", async (event) => {
 		await disposeSharedRuntime();
 	} catch (err) {
 		mainLog.error("disposeSharedRuntime failed", err);
-	}
-	if (localRpcServer) {
-		try {
-			await localRpcServer.close();
-		} catch (err) {
-			mainLog.error("local RPC server shutdown failed", err);
-		}
-		localRpcServer = undefined;
 	}
 	await shutdownAppMonitor();
 	await shutdownMainTelemetry();

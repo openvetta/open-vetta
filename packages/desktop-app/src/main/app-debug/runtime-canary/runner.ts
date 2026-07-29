@@ -4,6 +4,8 @@ import {
 	RUNTIME_CANARY_QUESTION,
 	RUNTIME_CANARY_QUESTION_PROMPT,
 	RUNTIME_CANARY_SECOND_PROMPT,
+	type RuntimeCanaryConsumers,
+	runtimeCanaryConsumersSchema,
 } from "./contracts.js";
 
 const completedOperationSchema = z
@@ -57,6 +59,11 @@ export interface RuntimeCanaryConversationResult {
 	readonly questionOperationId: string;
 }
 
+export interface RuntimeCanaryPendingQuestion {
+	readonly operationId: string;
+	readonly sessionPath: string;
+}
+
 export async function runRuntimeCanaryConversation(
 	invokeDebug: RuntimeCanaryDebugInvoker,
 	options: { readonly cwd: string; readonly modelKey: string },
@@ -99,19 +106,11 @@ export async function runRuntimeCanaryConversation(
 		throw new Error("Runtime Canary session was not returned by conversation.list");
 	}
 
-	const question = inputRequiredOperationSchema.parse(
-		await invokeDebug("conversation.continue", {
-			sessionPath: created.sessionPath,
-			prompt: RUNTIME_CANARY_QUESTION_PROMPT,
-			...common,
-		}),
-	);
-	if (
-		question.sessionPath !== created.sessionPath ||
-		!question.interaction.questions.some((item) => item.question === RUNTIME_CANARY_QUESTION)
-	) {
-		throw new Error("Runtime Canary did not receive the expected ask_user_question interaction");
-	}
+	const question = await startRuntimeCanaryQuestion(invokeDebug, {
+		sessionPath: created.sessionPath,
+		modelKey: options.modelKey,
+		timeoutMs: common.timeoutMs,
+	});
 
 	const terminal = terminalOperationSchema.parse(
 		await invokeDebug("conversation.abort", { operationId: question.operationId }),
@@ -125,6 +124,45 @@ export async function runRuntimeCanaryConversation(
 		sessionPath: created.sessionPath,
 		questionOperationId: question.operationId,
 	};
+}
+
+export async function startRuntimeCanaryQuestion(
+	invokeDebug: RuntimeCanaryDebugInvoker,
+	options: { readonly sessionPath: string; readonly modelKey: string; readonly timeoutMs?: number },
+): Promise<RuntimeCanaryPendingQuestion> {
+	const question = inputRequiredOperationSchema.parse(
+		await invokeDebug("conversation.continue", {
+			sessionPath: options.sessionPath,
+			prompt: RUNTIME_CANARY_QUESTION_PROMPT,
+			executionMode: "full-access",
+			modelKey: options.modelKey,
+			timeoutMs: options.timeoutMs ?? 30_000,
+		}),
+	);
+	if (
+		question.sessionPath !== options.sessionPath ||
+		!question.interaction.questions.some((item) => item.question === RUNTIME_CANARY_QUESTION)
+	) {
+		throw new Error("Runtime Canary did not receive the expected ask_user_question interaction");
+	}
+	return { operationId: question.operationId, sessionPath: question.sessionPath };
+}
+
+export async function startRuntimeCanaryConsumers(
+	invokeDebug: RuntimeCanaryDebugInvoker,
+	options: {
+		readonly workspace: string;
+		readonly modelKey: string;
+		readonly batchSourceDirectories: readonly [string, string];
+	},
+): Promise<RuntimeCanaryConsumers> {
+	return runtimeCanaryConsumersSchema.parse(
+		await invokeDebug("runtime-canary.consumers.start", {
+			workspace: options.workspace,
+			modelKey: options.modelKey,
+			batchSourceDirectories: options.batchSourceDirectories,
+		}),
+	);
 }
 
 export async function scheduleRuntimeCanaryQuit(invokeDebug: RuntimeCanaryDebugInvoker): Promise<number> {

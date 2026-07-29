@@ -43,7 +43,7 @@ vi.mock("./task-storage", () => ({
 	updateTaskLastRun: mocks.updateTaskLastRun,
 }));
 
-import { executeTask, isTaskRunning } from "./task-executor.js";
+import { executeTask, isTaskRunning, shutdownSchedulerTaskExecutor } from "./task-executor.js";
 
 describe("scheduler RuntimeHost consumer", () => {
 	beforeEach(() => {
@@ -53,7 +53,13 @@ describe("scheduler RuntimeHost consumer", () => {
 	it("maps one automation turn and records exactly one terminal result without disposing the shared session", async () => {
 		const handlers = new Set<(event: SessionEvent) => void>();
 		const createSession = vi.fn(async () => ({ sessionId: "automation-session" }));
-		const renameSessionById = vi.fn();
+		let finishRename: () => void = () => {};
+		const renameSessionById = vi.fn(
+			() =>
+				new Promise<void>((resolve) => {
+					finishRename = resolve;
+				}),
+		);
 		const disposeSession = vi.fn();
 		const prompt = vi.fn(async () => {
 			emit(handlers, messageDelta("automation-session", "scheduled response"));
@@ -75,7 +81,11 @@ describe("scheduler RuntimeHost consumer", () => {
 		} as unknown as RuntimeHost;
 		const task = scheduledTask();
 
-		await executeTask(task, runtime);
+		const execution = executeTask(task, runtime);
+		await vi.waitFor(() => expect(renameSessionById).toHaveBeenCalledOnce());
+		expect(prompt).not.toHaveBeenCalled();
+		finishRename();
+		await execution;
 		await vi.waitFor(() => expect(mocks.updateRecordMetadata).toHaveBeenCalledOnce());
 
 		expect(createSession).toHaveBeenCalledWith({
@@ -107,6 +117,44 @@ describe("scheduler RuntimeHost consumer", () => {
 		expect(isTaskRunning(task.id)).toBe(false);
 		expect(handlers.size).toBe(0);
 		expect(disposeSession).not.toHaveBeenCalled();
+	});
+
+	it("aborts active work, releases subscriptions, and rejects work after shutdown", async () => {
+		const handlers = new Set<(event: SessionEvent) => void>();
+		let finishPrompt: () => void = () => {};
+		const prompt = vi.fn(
+			() =>
+				new Promise<void>((resolve) => {
+					finishPrompt = resolve;
+				}),
+		);
+		const abort = vi.fn(async () => {
+			emit(handlers, lifecycle("automation-session", "aborted"));
+			finishPrompt();
+		});
+		const runtime = {
+			abort,
+			createSession: vi.fn(async () => ({ sessionId: "automation-session" })),
+			getSessionPath: () => "C:/desktop/conversations/.vetta/sessions/automation.jsonl",
+			prompt,
+			renameSessionById: vi.fn(),
+			subscribe: (_sessionId: string, handler: (event: SessionEvent) => void) => {
+				handlers.add(handler);
+				return () => handlers.delete(handler);
+			},
+		} as unknown as RuntimeHost;
+		const task = scheduledTask();
+		const execution = executeTask(task, runtime);
+		await vi.waitFor(() => expect(isTaskRunning(task.id)).toBe(true));
+
+		const firstShutdown = shutdownSchedulerTaskExecutor();
+		const secondShutdown = shutdownSchedulerTaskExecutor();
+		await Promise.all([firstShutdown, secondShutdown, execution]);
+
+		expect(abort).toHaveBeenCalledOnce();
+		expect(isTaskRunning(task.id)).toBe(false);
+		expect(handlers.size).toBe(0);
+		await expect(executeTask(task, runtime)).rejects.toThrowError("Scheduler task executor is shutting down");
 	});
 });
 
@@ -142,7 +190,7 @@ function eventBase(sessionId: string) {
 	};
 }
 
-function lifecycle(sessionId: string, phase: "agent_end"): SessionEvent {
+function lifecycle(sessionId: string, phase: "agent_end" | "aborted"): SessionEvent {
 	return { ...eventBase(sessionId), type: "session.lifecycle", phase };
 }
 
