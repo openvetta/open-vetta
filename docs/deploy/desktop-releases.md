@@ -28,8 +28,8 @@ desktop/stable/
   latest.yml
   latest-mac.yml
   latest-linux.yml
-  Vetta Setup <version>.exe
-  Vetta Setup <version>.exe.blockmap
+  Vetta-<version>-win-<arch>.exe
+  Vetta-<version>-win-<arch>.exe.blockmap
   Vetta-<version>.dmg
   Vetta-<version>-mac.zip
   Vetta-<version>.AppImage
@@ -37,6 +37,17 @@ desktop/stable/
 ```
 
 安装包和 blockmap 使用一年 immutable 缓存；`latest*.yml` 使用 60 秒短缓存并重新验证。自定义域名的 CDN 缓存命中不会触发 R2 Class B 读取，回源未命中仍会产生 R2 操作次数；R2 公网出口本身不收流量费。
+
+## Windows 快速更新
+
+Windows 首次安装仍使用 NSIS。安装后的稳定入口是根目录 `Vetta.exe` 启动器，实际 Electron 应用位于 `versions/<version>/`。后续更新按以下流程执行：
+
+1. `electron-updater` 从 R2 或 GitHub Releases 检查标准 `latest.yml`。
+2. `electron-updater` 根据 blockmap 差分下载并校验 NSIS EXE，客户端再使用随包附带的 7-Zip，在后台从该 EXE 解出用户目录的独立版本目录。
+3. 下载状态变为“可安装”后，点击“更新并重启”只写入版本指针并重启进程，不再运行 NSIS。
+4. 新版本启动成功后确认指针并清理旧版本；若首次启动前异常退出，启动器回退到上一版本或安装包内置版本。
+
+首次安装、修复安装和后续更新共用同一个 NSIS EXE，不需要额外发布 Windows ZIP。若后台解包失败，客户端会回退为使用同一个 EXE 静默安装。从旧安装结构或旧 ZIP 更新协议迁移到该结构时，仍需执行最后一次 NSIS 更新。
 
 ## GitHub Actions 配置
 
@@ -52,6 +63,38 @@ bun run release:desktop:minor
 命令会先执行全仓格式检查、desktop-app 类型检查与质量守卫，只更新 desktop-app 版本、desktop-app Changelog 与锁文件，然后创建并原子推送 `v<version>` tag。不要用根目录的 `release:patch` / `release:minor` 发布桌面端；那是另一套 monorepo 包发布流程。
 
 `workflow_dispatch` 要求工作流文件存在于 GitHub 默认分支，但运行时可以在「运行工作流」下拉框选择其它分支。`push.tags` 不受这个限制，因此从包含该工作流的提交创建并推送 `v*` tag 也会触发桌面发版。
+
+### 本地 R2 更新测试
+
+验证 R2 到客户端的更新链路时不需要 GitHub Actions，也不要覆盖正式 `desktop/stable`。先用独立前缀打一个基线包：
+
+```powershell
+$env:VETTA_UPDATE_PROVIDER = "generic"
+$env:VETTA_UPDATE_URL = "https://releases.example.invalid/desktop/test"
+bun run --cwd packages/desktop-app dist:win
+```
+
+安装基线包后，用仅在打包阶段生效的版本覆盖生成更高版本。它不会修改 `packages/desktop-app/package.json`：
+
+```powershell
+$env:VETTA_DESKTOP_BUILD_VERSION = "0.5.24"
+bun run --cwd packages/desktop-app dist:win
+```
+
+设置 R2 S3 凭据并上传测试通道：
+
+```powershell
+$env:VETTA_R2_ACCOUNT_ID = "<account-id>"
+$env:VETTA_R2_ACCESS_KEY_ID = "<access-key-id>"
+$env:VETTA_R2_SECRET_ACCESS_KEY = "<secret-access-key>"
+$env:VETTA_R2_BUCKET = "vetta-releases"
+$env:VETTA_R2_PREFIX = "desktop/test"
+bun run --cwd packages/desktop-app publish:updates:r2
+```
+
+发布脚本仍会先上传安装包和 blockmap，公开可读验证通过后才覆盖测试通道的 `latest.yml`。
+
+发布前还会校验更新 URL 与 R2 前缀完全一致；测试构建版本与 `package.json` 不同时禁止上传到 `stable`。版本化安装包与 blockmap 会记录 SHA-512 元数据，重复执行只接受内容完全一致的对象，不允许用同一版本号覆盖不同二进制。
 
 官方 R2 仓库变量：
 
