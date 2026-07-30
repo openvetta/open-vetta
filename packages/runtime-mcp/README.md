@@ -6,14 +6,16 @@ Greenfield Runtime 的独立 MCP Feature 合同与模型调用级同步实现。
 
 - 当前 MCP 工具视图的 `McpRuntimeToolSource` Port
 - 与具体产品路径无关的 MCP 协议合同、TypeBox 配置 Schema 与文件配置 Source
+- stdio JSON-RPC Client、Node 子进程适配器与 Streamable HTTP SDK Client
+- HTTP Auth Provider Factory；认证实现由产品适配器注入
 - MCP 工具到 Runtime Registry 的增量同步与生命周期
 - 会话级渐进披露、`tool_search` 和 MCP Prompt 物化
-- 与具体 MCP SDK 和宿主无关的行为测试
+- stdio、HTTP SDK 适配、配置和模型调用级能力的行为测试
 
 ## What It Does Not Own
 
 - Desktop、CLI 等产品对全局/项目配置路径的选择，以及配置 UI
-- stdio、HTTP、OAuth 等具体连接实现
+- OAuth token 文件路径、SDK Provider、浏览器回调和 Device Flow
 - Legacy `McpManager` 或 Coding Agent 的 `AgentTool` 协议
 - Desktop、CLI、IM 的 Composition Root
 
@@ -26,8 +28,8 @@ Greenfield Runtime 的独立 MCP Feature 合同与模型调用级同步实现。
 依赖方向必须保持为：
 
 ```text
-runtime-mcp -> runtime-core
-coding-agent compatibility adapter -> runtime-mcp + legacy transports/manager
+runtime-mcp -> runtime-core + MCP SDK
+coding-agent compatibility adapter -> runtime-mcp + product OAuth + legacy manager
 runtime-composition -> runtime-mcp + runtime-tools
 ```
 
