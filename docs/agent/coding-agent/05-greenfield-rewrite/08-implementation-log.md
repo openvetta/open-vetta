@@ -108,6 +108,7 @@
 | [98-mcp-runtime-port-and-legacy-adapter.md](./08-implementation-log/98-mcp-runtime-port-and-legacy-adapter.md) | MCP Runtime 独立端口、增量同步、旧实现适配与真实宿主门禁 |
 | [99-mcp-protocol-and-config-source-boundary.md](./08-implementation-log/99-mcp-protocol-and-config-source-boundary.md) | MCP 协议合同、TypeBox 配置解析、文件 Source 与 Manager 行为基线 |
 | [100-mcp-client-and-transport-boundary.md](./08-implementation-log/100-mcp-client-and-transport-boundary.md) | MCP Client、stdio 子进程、HTTP SDK Adapter 与 OAuth 产品适配边界 |
+| [101-mcp-oauth-state-store-and-provider-boundary.md](./08-implementation-log/101-mcp-oauth-state-store-and-provider-boundary.md) | MCP OAuth 状态合同、Store Port、文件适配器与 SDK Provider 边界 |
 
 ## 维护约定
 

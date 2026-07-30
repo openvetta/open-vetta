@@ -9,6 +9,10 @@
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.js"
 		},
+		"./auth": {
+			"types": "./dist/auth/index.d.ts",
+			"import": "./dist/auth/index.js"
+		},
 		"./config": {
 			"types": "./dist/config/index.d.ts",
 			"import": "./dist/config/index.js"
