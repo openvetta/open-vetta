@@ -44,7 +44,7 @@
 8. [实施日志](./08-implementation-log.md)
    - 索引；每轮实施单独成文，见 [`08-implementation-log/`](./08-implementation-log/)。
    - 按实施轮次记录实际修改、验证结果、未完成项和下一步。
-   - 最新记录：[第 107 轮：MCP 新旧运行时切换差分门禁与迁移边界收口](./08-implementation-log/107-mcp-cutover-differential-gate.md)。
+   - 最新记录：[第 108 轮：生产 Model Call Frame 差分门禁与 Profile 切换准备度](./08-implementation-log/108-production-model-call-frame-readiness.md)。
 9. [行为兼容性审计](./09-behavior-compatibility-audit.md)
    - 审计已实施模块与旧行为的差距。
    - 定义旧新差分测试和迁移 Gate。

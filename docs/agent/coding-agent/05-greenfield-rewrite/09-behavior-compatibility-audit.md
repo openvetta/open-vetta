@@ -930,6 +930,29 @@ Supervisor 或 Client。Legacy Adapter 目前只被兼容测试使用，但仍�
 本轮没有新增外部配置或协议边界，因此没有引入新的 TypeBox/Zod Schema。MCP 配置、持久 OAuth 状态和 Tool
 输入继续使用既有校验边界。
 
+### 2.26 生产 Model Call Frame 与 Profile 切换准备度
+
+第 108 轮不再从低层 Registration 推断生产兼容性，而是让相同 Desktop `RuntimeHost` 请求分别进入 Legacy 与
+Greenfield Backend，并从真实 OpenAI Responses HTTP 边界捕获最终模型请求。矩阵覆盖全部 7 个会话场景；另一个
+同 Session 双 turn 合同覆盖插件重配、Agent Mode 切换、用户提问处理器移除和 `knowledgeMode`。
+
+共同能力已经满足以下合同：Provider model/reasoning/token/store/stream 参数一致；去除能力清单与 turn 时间后的
+消息和系统指令一致；共同 Tool 的名称、描述和完整 JSON Schema 一致；插件 Prompt/Tool 与
+`ask_user_question` 均在相同 turn 边界增删。
+
+门禁同时发现真实生产差距。Greenfield 全场景缺少 `doc_to_pdf`、`html_to_pdf`、
+`extract_text_from_pdf`、`extract_text_from_img`、`render_pdf_page`、`progress` 和 `invoke_skill`；
+`kb-processing` 另缺 `kb_write_page`。共同 Tool 的最终 Provider 数组顺序也尚未与 Legacy 对齐。以上差异不会
+通过旧 Tool Factory 整体注入、Golden Snapshot 或扩大归一化规则隐藏，而是作为默认 selector 切换阻断项。
+
+差分以 Provider 请求体为模型可观察事实源。`RuntimeHost.getState().activeToolNames` 是会话能力视图，未必包含
+`knowledgeMode` 等调用级过滤，因此不能替代最终 Frame。机器本地 `mcp_*` Tool 属于外部动态输入，继续由第
+107 轮 MCP 差分和产品组合测试验证，不进入固定缺失清单。
+
+解决顺序固定为：先迁移文档/OCR Tool，再迁移 `progress`、Session-local `invoke_skill` 和 Knowledge 写能力，
+最后在 Profile Compiler 对齐确定性 Tool 顺序。只有缺失清单和顺序差异都清零，才能把同一门禁扩展到
+CLI/RPC/IM 并讨论默认 Runtime 切换。本轮没有改变任何 selector 默认值。
+
 ## 3. 已实施模块审计
 
 | 模块 | 当前状态 | 与旧行为的差距 | 切换结论 |
@@ -943,7 +966,7 @@ Supervisor 或 Client。Legacy Adapter 目前只被兼容测试使用，但仍�
 | `edit` Tool | 独立 Runtime Tool、双模式纯编辑引擎、EditOperations、必需的宿主 EditPathPolicy、22 项差分合同和全场景 Profile 差分已通过 | 旧 AgentSession 和生产入口仍使用旧 Tool Factory | 工具模块迁移完成；旧生产入口尚不可删除 |
 | `bash/shell` Tool | Runtime Definition、Registration、前台执行器、后台协调、独立后台生命周期、task 工具、通知格式、低层 Host Adapter、平台 scope 和过渡 Composition Root 已通过 | 旧 AgentSession 和生产入口仍使用旧工具/Manager | 新 Runtime 工具链迁移完成；旧生产路径尚不可删除 |
 | 宿主可执行文件解析 | Runtime Port、本地 PATH/managed-bin Adapter、grep/find 注入合同、旧 ensureTool 适配、网络/归档合同和 cli-app Composition Root 已通过 | 真实 GitHub 网络、最终独立可执行发布物和完整 Tool Profile 迁移尚未完成；包根兼容导出必须继续保留 | 新 Profile 可并行验证；旧宿主仍不可切换 |
-| Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope/explicit 激活和 requires/capabilities，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；current_time/read/ls/grep/find/glob/tree/write/edit/bash/shell/task_output/task_stop 已进入全场景 Profile 差分门禁 | 生产 Profile 尚未切换 | 动态编排与当前默认工具迁移完成；生产接入未完成 |
+| Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope/explicit 激活和 requires/capabilities，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；current_time/read/ls/grep/find/glob/tree/write/edit/bash/shell/task_output/task_stop 已进入全场景 Profile 差分门禁 | 生产 Frame 仍缺文档/OCR、progress、invoke_skill、kb_write_page，Tool 顺序也未对齐 | 动态编排可用；缺口清零前不可切换生产 Profile |
 | `AgentSession` | 新状态机、活动 Turn 输入队列、无伪 user message 的 continue、显式 resume 与同 Turn 持久化身份重绑定已实现 | 尚缺旧外围能力的 Greenfield 实现 | 内核 Turn/恢复语义已具备；生产入口不可切换 |
 | Turn Pipeline | 固定阶段、模型调用请求—应答检查点、持久化压缩提交、跨 Conversation 续接及成功/失败 finalization、非持久化 observation、输入队列、continue、recovery、独立 Turn Model Binding 和 Session-local 运行期 Context 串行持久化已实现 | 完整生产 Composition Root 尚未接入 | 不可切换 |
 | `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环、动态 Model Call Frame、完整观察事件、输入队列、Context checkpoint 桥接和 Turn model binding 已接入真实 Greenfield Composition 与 RuntimeHost | 默认生产选择仍是 Legacy | 内核执行与候选宿主接线完成；等待整体默认切换门禁 |
@@ -952,7 +975,7 @@ Supervisor 或 Client。Legacy Adapter 目前只被兼容测试使用，但仍�
 | Conversation Repository | V2 create/load/append/save、树形 Document 读写、活动分支、fork、跨实例文件锁、跨 Conversation seed/transfer/continued 事务和 Legacy importer 已实现 | Legacy/V1 历史结构写命令保持只读；跨文件崩溃 orphan reconciliation 与模型配置异步持久化尚未实现 | 不可直接替代全部旧会话写路径 |
 | Context Strategy | Session-local Runtime 已接入原生摘要持久化、重开投影、外部/同 Turn threshold/prefire、逐模型调用 microcompact、error/silent overflow 单次恢复、手动/Extension 压缩、Pre/PostCompact 和 usage 状态；Coding Agent Memory Orchestrator 已接入冻结 Prompt、既有 Tool、70% 策略、自动/主动 flush、通用 rollover、JOURNAL 与 rollover 后置 finalization | 默认生产 RPC/IM 尚未接入 Greenfield Controller | memory-mode 内部链路可并行验证；生产宿主仍不可切换 |
 | MCP | 协议、配置、Client/Transport、OAuth、Supervisor、Runtime-native Tool Source、插件动态 Server、渐进披露、Hook 元数据和子代理 Binding 投影均已完成；第 107 轮旧新端到端差分通过 | 旧 `AgentSession` 和公开兼容 API 仍保留 `McpManager`；默认 Runtime 尚未切换 | Greenfield MCP 迁移验证完成；旧兼容入口随整体生产切换移除 |
-| Skill / Knowledge | Session 级 Skill/Scene Prompt 与现有 Knowledge Tool Source 已进入动态并行组合，并通过进程重启重新装配验证 | 仍需纳入完整生产 Profile 差分和默认 Runtime 切换门禁 | 能力组合可用；暂不删除 Legacy 来源 |
+| Skill / Knowledge | Session 级 Skill/Scene Prompt 与现有 Knowledge Tool Source 已进入动态并行组合，并通过进程重启重新装配验证 | 生产 Frame 已确认缺少 Session-local invoke_skill，kb-processing 还缺 kb_write_page | 能力组合可用但生产 Profile 不完整；暂不删除 Legacy 来源 |
 | Subagent | Session-local Runtime、Explorer/Workflow、Hook、Todo、增量状态日志、恢复、通知去重及父 MCP Binding 投影已实现 | 默认 Legacy Backend 尚未切换 | Greenfield 能力已完整接入；随整体宿主切换启用 |
 | Ecosystem Hook Runtime | 每 Session 唯一实例已贯通 Prompt、最终动态 Tool Surface、Stop、SubagentStart/SubagentStop、运行期 Context、自动/手动 Pre/PostCompact 和 dispose | PermissionRequest Hook 与宿主切换原因仍需纳入完整生产 Profile 差分 | 并行组合已验证；默认生产入口不变 |
 | Desktop / CLI / RPC / IM Adapter | RuntimeHost 稳定 Ports、Greenfield RPC/IM Adapter、显式 Runtime selector、IM Sidecar、Desktop Backend Pool、真实进程 Canary、独立安装产物和跨进程恢复均已完成 | 默认 selector 仍是 Legacy；完整生产 Profile、公开 API 和旧存储消费者尚未完成最终切换审计 | Greenfield 可显式启用并回退；暂不改变默认入口 |
@@ -990,19 +1013,16 @@ side effects
 
 ## 5. 下一步
 
-Greenfield 已通过 CLI、IM Sidecar、Desktop opt-in、真实 Provider Tool Loop、独立安装产物、真实 Desktop
-进程和跨进程恢复门禁。MCP 也已完成 Runtime-native 迁移与旧新差分；下一阶段不应继续整理即将淘汰的
-`McpManager` 内部结构。
+Desktop 生产 Model Call Frame 准备度门禁已经建立，并确认共享 Provider 合同和动态 turn 能力切换一致；同时
+识别出 8 个缺失能力和 Tool 顺序差异。下一阶段应作为一个完整的“缺失生产能力迁移”阶段：
 
-下一阶段应建立“完整生产 Profile 与默认 Runtime 切换准备度”门禁：
-
-1. 从当前 Legacy 默认会话提取 CLI、Desktop、RPC、IM 各场景的最终 Prompt、Tool、Skill、Knowledge、
-   Plugin、MCP、Todo、Subagent、Hook 和 Context 能力矩阵。
-2. 让同一宿主请求分别运行 Legacy 与 Greenfield，比较模型调用 Frame、SessionEvent、持久化结果、恢复、
-   关闭和多会话隔离；外部 Provider 测试只验证真实协议，确定性 Fixture 负责完整行为矩阵。
-3. 审计公开 API 与旧存储消费者，区分仍有外部合同的兼容入口和纯内部旧实现。只有默认入口及下游完成迁移
-   后，才删除 `McpManager`、旧 `AgentSession` 和 Legacy Adapter。
-4. 保持 Runtime selector 默认值不变；先形成可重复的切换/回退 Gate，再单独决定默认值变更。
+1. 将 5 个文档/OCR Tool 迁入 Runtime Tools，并复用旧新行为合同和 Desktop 宿主 Port。
+2. 分别迁移 `progress`、Session-local `invoke_skill` 和只在 `kb-processing` 暴露的 `kb_write_page`，不使用旧
+   Tool Factory 整体适配掩盖能力所有权。
+3. 在完整能力清单迁移后对齐 Profile Compiler 的最终 Tool 顺序，让已知缺口清单归零并升级为完整 Frame 相等。
+4. 再把同一门禁扩展到 CLI/RPC/IM 的生产 Composition Root，并继续比较 SessionEvent、持久化、恢复、关闭和
+   多会话隔离。
+5. 默认 Runtime selector 保持 Legacy；只有生产能力和下游迁移全部通过后，才单独决定切换并删除旧实现。
 
 TypeBox/Zod 只用于外部 RPC、配置和持久化反序列化边界；生产 Profile 比较使用已经类型化的 Model Call
 Frame 与 Session 合同，不为内部对象重复增加 Schema。
