@@ -5,7 +5,7 @@ import {
 	type GreenfieldRuntimeComposition,
 	type GreenfieldRuntimeCompositionOptions,
 	GreenfieldRuntimeHostSessionBackend,
-} from "@vetta/runtime-composition";
+} from "@vetta/coding-agent/composition";
 import type {
 	ConversationScenario,
 	GreenfieldRuntimeSession,

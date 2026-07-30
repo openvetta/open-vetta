@@ -11,6 +11,7 @@
 			"@vetta/capability-runtime": ["./packages/capability-runtime/src/index.ts"],
 			"@vetta/capability-runtime/*": ["./packages/capability-runtime/src/*"],
 			"@vetta/coding-agent": ["./packages/coding-agent/src/index.ts"],
+			"@vetta/coding-agent/composition": ["./packages/coding-agent/src/composition/index.ts"],
 			"@vetta/coding-agent/host": ["./packages/coding-agent/src/adapters/runtime-tools/index.ts"],
 			"@vetta/coding-agent/runtime-host": ["./packages/coding-agent/src/adapters/runtime-core/index.ts"],
 			"@vetta/coding-agent/runtime-host/greenfield": [

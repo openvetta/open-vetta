@@ -2,4 +2,4 @@ export {
 	createGreenfieldSubagentChildHandle,
 	type GreenfieldSubagentChildHandleOptions,
 	readTodoProgress,
-} from "@vetta/runtime-composition";
+} from "@vetta/coding-agent/composition";

@@ -1116,6 +1116,48 @@ closed，不创建或覆盖目标文件。该 API 是显式迁移能力，不会
 标准安装产物门禁确认新增 stderr 决策信号没有污染 stdout RPC Frame，既有 Provider Frame、跨进程恢复及动态
 Skill/MCP 合同继续通过。默认 selector、Tool 功能、公开 Legacy 入口和旧会话源文件均未改变。
 
+### 2.33 Composition 所有权与依赖图收口
+
+第 115 轮审计发现 `runtime-composition` 实际持有的是 Coding Agent 产品级装配，而不是可供多个产品复用的
+中立 Runtime 组合。它直接选择 Coding Prompt、Knowledge、Subagent Profile、产品 Tool 顺序及宿主适配器，
+却以一个看似底层的独立包存在，导致所有权和依赖方向不一致。
+
+产品实现现已迁入 `@vetta/coding-agent/composition`：
+
+```text
+runtime-tools/coding ─┐
+runtime-storage/conversation ─┼─> coding-agent/composition
+runtime-core 等稳定 Runtime 包 ─┘             │
+                                               ├─> CLI
+                                               └─> Desktop
+
+runtime-composition -> 无包装兼容转发 -> coding-agent/composition
+```
+
+CLI 和 Desktop 已直接消费新的所有者入口。`runtime-composition` 只保留 artifact manifest 和原引用转发，
+同名导出仍是同一函数/类引用，没有复制实现或增加行为包装。结构守卫禁止该包重新出现产品实现文件。
+
+依赖审计还暴露两个既有兼容环：`runtime-tools` 包根转发旧 Coding Tool Factory，
+`runtime-storage` 包根转发旧 Coding Agent 会话/设置能力；与此同时 Coding Agent 已直接消费二者的独立
+`coding` / `conversation` 子路径。为保留已发布根入口而不伪造无环依赖，构建改为：
+
+```text
+runtime-tools build:runtime + runtime-storage build:runtime
+  -> coding-agent
+  -> runtime-tools build:compat + runtime-storage build:compat
+  -> runtime-composition compatibility package
+```
+
+两个 Runtime 包把 Coding Agent 声明为兼容面的 peer/dev dependency，而不是独立子路径的生产依赖。
+根构建和 Desktop 前置构建均识别分段脚本；构建顺序守卫不会把 peer compatibility edge 错判为源码依赖。
+新增 manifest truth 守卫要求受审计包的生产源码所引用 workspace 包必须在
+dependencies、optionalDependencies 或 peerDependencies 中声明，防止再次依靠 hoist 或旧 dist 隐藏依赖。
+
+本轮没有改变 Tool 名称、描述、Schema、顺序、执行结果、动态 Skill/MCP 刷新、会话格式、selector 默认值或
+Legacy 兼容入口。Composition 移动后的关键 CLI、Desktop、RuntimeHost、Subagent、安装产物合同均继续通过。
+没有新增反序列化边界，因此未增加 TypeBox/Zod Schema；`zod` 只随既有实现所有权迁移改为 Coding Agent 的
+显式直接依赖。
+
 ## 3. 已实施模块审计
 
 | 模块 | 当前状态 | 与旧行为的差距 | 切换结论 |
@@ -1130,6 +1172,7 @@ Skill/MCP 合同继续通过。默认 selector、Tool 功能、公开 Legacy 入
 | `bash/shell` Tool | Runtime Definition、Registration、前台执行器、后台协调、独立后台生命周期、task 工具、通知格式、低层 Host Adapter、平台 scope 和过渡 Composition Root 已通过 | 旧 AgentSession 和生产入口仍使用旧工具/Manager | 新 Runtime 工具链迁移完成；旧生产路径尚不可删除 |
 | 宿主可执行文件解析 | Runtime Port、本地 PATH/managed-bin Adapter、grep/find 注入合同、旧 ensureTool 适配、网络/归档合同和 cli-app Composition Root 已通过 | 真实 GitHub 网络、最终独立可执行发布物和完整 Tool Profile 迁移尚未完成；包根兼容导出必须继续保留 | 新 Profile 可并行验证；旧宿主仍不可切换 |
 | Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope、agent mode、explicit 激活和 requires/capabilities，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；产品工具按 Session cwd 创建，文档/OCR/progress 已由 Runtime Tools 原生拥有，模型顺序由通用 `modelOrder` 稳定物化；Desktop 与 CLI/RPC/IM 源码 Provider Frame 已精确差分，安装产物 `im-claw` Provider Frame 与有序 Tool Surface 也已验证 | 安装产物 Greenfield CLI 仍只支持 `im-claw`；默认 selector 尚未切换 | 模型调用级工具面与 Runtime-native 所有权已闭合；进入默认切换准备度审计 |
+| Composition Root 与依赖图 | 产品装配已归属 `@vetta/coding-agent/composition`；CLI/Desktop 直接消费；`runtime-composition` 无包装兼容转发；Runtime 子路径与旧根兼容面采用分段构建；manifest truth 和 forwarding-only 守卫已接入 | `runtime-tools`、`runtime-storage` 包根仍需为外部消费者保留 Coding Agent 兼容转发；默认 selector 仍是 Legacy | 产品所有权和 clean build 顺序已收口；兼容根入口只能在外部迁移窗口后删除 |
 | `AgentSession` | 新状态机、活动 Turn 输入队列、无伪 user message 的 continue、显式 resume 与同 Turn 持久化身份重绑定已实现 | 尚缺旧外围能力的 Greenfield 实现 | 内核 Turn/恢复语义已具备；生产入口不可切换 |
 | Turn Pipeline | 固定阶段、模型调用请求—应答检查点、持久化压缩提交、跨 Conversation 续接及成功/失败 finalization、非持久化 observation、输入队列、continue、recovery、独立 Turn Model Binding 和 Session-local 运行期 Context 串行持久化已实现 | 完整生产 Composition Root 尚未接入 | 不可切换 |
 | `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环、动态 Model Call Frame、完整观察事件、输入队列、Context checkpoint 桥接和 Turn model binding 已接入真实 Greenfield Composition 与 RuntimeHost | 默认生产选择仍是 Legacy | 内核执行与候选宿主接线完成；等待整体默认切换门禁 |
@@ -1177,14 +1220,14 @@ side effects
 
 ## 5. 下一步
 
-启动控制面和显式会话迁移边界已经具备。下一阶段应作为一个完整的“公开 API 与依赖所有权审计”阶段：
+产品 Composition 所有权、兼容转发和 clean build 依赖顺序已经收口。下一阶段应继续完成“公开 API
+消费者分类与切换清单”，但不直接删除兼容功能：
 
-1. 枚举 `coding-agent` 包根、子路径和宿主入口的全部外部导出及仓库内消费者，区分稳定合同、迁移期兼容入口和
-   仍承载生产功能的 Legacy 实现。
-2. 把 Greenfield Composition 仍从 `coding-agent` 根/host 子路径取得的能力按所有权分类；只对已经有等价
-   Runtime Port 的项目规划下沉或转发，不删除仍在 Legacy 默认路径使用的功能。
-3. 为每个可移除入口建立编译级消费者清零守卫和迁移说明；默认 Runtime selector 继续保持 Legacy，直到阻断
-   清单清零并形成单独切换决策。
+1. 从 `coding-agent` 根入口和现有子路径生成可审计的导出清单，标注稳定合同、产品 Composition、
+   Legacy 兼容入口及仓库内/外部可能消费者。
+2. 优先迁移仍从包根取得、但已有稳定子路径或 Runtime Port 的仓库内消费者；为归零项增加 AST/编译级守卫。
+3. 单独形成默认 selector 切换决策，明确回退窗口、Legacy 会话迁移操作和兼容根入口的弃用周期；在此之前
+   继续保留现有公开导出和 Legacy 默认值。
 
 TypeBox/Zod 只用于外部 RPC、配置和持久化反序列化边界；生产 Profile 比较使用已经类型化的 Model Call
 Frame 与 Session 合同，不为内部对象重复增加 Schema。

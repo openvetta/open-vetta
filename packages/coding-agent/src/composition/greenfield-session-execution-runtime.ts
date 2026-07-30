@@ -1,9 +1,4 @@
 import {
-	createCodingAgentBackgroundCommandHost,
-	createCodingAgentForegroundCommandHost,
-} from "@vetta/coding-agent/host";
-import { createCodingAgentGreenfieldSandboxToolRegistrations } from "@vetta/coding-agent/runtime-host/greenfield";
-import {
 	type GreenfieldRuntimeResourceContext,
 	type RuntimeExecutionModeUpdate,
 	type RuntimeSessionExecutionController,
@@ -33,6 +28,11 @@ import {
 	guardCodingToolRegistration,
 	InMemoryCodingToolRegistry,
 } from "@vetta/runtime-tools/coding";
+import { createCodingAgentGreenfieldSandboxToolRegistrations } from "../adapters/runtime-core/greenfield.js";
+import {
+	createCodingAgentBackgroundCommandHost,
+	createCodingAgentForegroundCommandHost,
+} from "../adapters/runtime-tools/index.js";
 
 const SESSION_EXECUTION_FEATURE_ID = "coding-session-execution-tools";
 

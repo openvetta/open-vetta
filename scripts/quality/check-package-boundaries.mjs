@@ -40,6 +40,15 @@ const LIB_PREFIXES = [
 	"packages/plugins/plugin-vite/",
 ];
 
+const MANIFEST_TRUTH_PACKAGE_NAMES = new Set([
+	"@vetta/coding-agent",
+	"@vetta/runtime-composition",
+	"@vetta/runtime-storage",
+	"@vetta/runtime-tools",
+	"@vetta/cli-app",
+	"@vetta/desktop-app",
+]);
+
 function isLibFile(posixPath) {
 	return LIB_PREFIXES.some((prefix) => posixPath.startsWith(prefix));
 }
@@ -237,6 +246,7 @@ function checkGreenfieldRuntimeImports(posixPath, specifiers, findings) {
 function checkGreenfieldLegacyStartupSymbols(posixPath, text, findings) {
 	const isGreenfieldProductModule =
 		posixPath.startsWith("packages/cli-app/src/rpc/greenfield") ||
+		posixPath.startsWith("packages/coding-agent/src/composition/") ||
 		posixPath.startsWith("packages/runtime-composition/src/");
 	if (!isGreenfieldProductModule) return;
 
@@ -253,6 +263,41 @@ function checkGreenfieldLegacyStartupSymbols(posixPath, text, findings) {
 
 	for (const symbol of usedSymbols) {
 		findings.push(`${posixPath}: greenfield product modules must not use legacy startup symbol ${symbol}`);
+	}
+}
+
+function checkRuntimeCompositionCompatibilityFacade(posixPath, specifiers, findings) {
+	if (!posixPath.startsWith("packages/runtime-composition/src/")) return;
+	if (
+		posixPath !== "packages/runtime-composition/src/index.ts" &&
+		posixPath !== "packages/runtime-composition/src/artifact-manifest.ts"
+	) {
+		findings.push(`${posixPath}: runtime-composition is a compatibility facade and must not own implementations`);
+		return;
+	}
+	if (posixPath !== "packages/runtime-composition/src/index.ts") return;
+	for (const specifier of specifiers) {
+		if (specifier === "@vetta/coding-agent/composition" || specifier === "./artifact-manifest.js") continue;
+		findings.push(`${posixPath}: runtime-composition may only forward coding-agent composition (${specifier})`);
+	}
+}
+
+function workspacePackageName(specifier) {
+	if (!specifier.startsWith("@vetta/") && !specifier.startsWith("@vetta-org/")) return undefined;
+	return specifier.split("/").slice(0, 2).join("/");
+}
+
+function checkWorkspaceManifestImports(posixPath, specifiers, manifest, findings) {
+	if (!manifest || !MANIFEST_TRUTH_PACKAGE_NAMES.has(manifest.name) || !posixPath.includes("/src/")) return;
+	const declared = new Set([
+		...Object.keys(manifest.dependencies ?? {}),
+		...Object.keys(manifest.optionalDependencies ?? {}),
+		...Object.keys(manifest.peerDependencies ?? {}),
+	]);
+	for (const specifier of specifiers) {
+		const packageName = workspacePackageName(specifier);
+		if (!packageName || packageName === manifest.name || declared.has(packageName)) continue;
+		findings.push(`${posixPath}: workspace import ${packageName} is not declared by ${manifest.name}`);
 	}
 }
 
@@ -276,7 +321,7 @@ function checkAgentCoreImports(posixPath, specifiers, findings) {
 	}
 }
 
-export function findPackageBoundaryViolations(posixPath, text) {
+export function findPackageBoundaryViolations(posixPath, text, options = {}) {
 	const findings = [];
 	const specifiers = collectImportSpecifiers(posixPath, text);
 	checkForbiddenAppImports(posixPath, specifiers, findings);
@@ -290,6 +335,8 @@ export function findPackageBoundaryViolations(posixPath, text) {
 	checkCapabilitySchemaDefinitions(posixPath, text, findings);
 	checkGreenfieldRuntimeImports(posixPath, specifiers, findings);
 	checkGreenfieldLegacyStartupSymbols(posixPath, text, findings);
+	checkRuntimeCompositionCompatibilityFacade(posixPath, specifiers, findings);
+	checkWorkspaceManifestImports(posixPath, specifiers, options.manifest, findings);
 	checkRuntimeCoreImports(posixPath, specifiers, findings);
 	checkAgentCoreImports(posixPath, specifiers, findings);
 	return findings;
@@ -324,6 +371,12 @@ export function main() {
 	let scanned = 0;
 
 	for (const root of roots) {
+		let manifest;
+		try {
+			manifest = JSON.parse(readText(join(root, "package.json")));
+		} catch {
+			manifest = undefined;
+		}
 		for (const file of walkFiles(root)) {
 			const posixPath = rel(file);
 			if (posixPath.includes("/node_modules/") || posixPath.includes("/dist/")) continue;
@@ -336,7 +389,7 @@ export function main() {
 				continue;
 			}
 			scanned += 1;
-			findings.push(...findPackageBoundaryViolations(posixPath, text));
+			findings.push(...findPackageBoundaryViolations(posixPath, text, { manifest }));
 		}
 	}
 

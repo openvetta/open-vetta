@@ -217,8 +217,10 @@
         "@vetta/ecosystem-adapter": "workspace:*",
         "@vetta/runtime-core": "workspace:*",
         "@vetta/runtime-mcp": "workspace:*",
+        "@vetta/runtime-storage": "workspace:*",
         "@vetta/runtime-subagents": "workspace:*",
         "@vetta/runtime-telemetry": "workspace:*",
+        "@vetta/runtime-tools": "workspace:*",
         "ajv": "^8.17.1",
         "ajv-formats": "^3.0.1",
         "chalk": "^5.5.0",
@@ -234,6 +236,7 @@
         "proper-lockfile": "^4.1.2",
         "strip-ansi": "^7.1.0",
         "yaml": "^2.8.2",
+        "zod": "^4.4.3",
       },
       "devDependencies": {
         "@types/diff": "^7.0.2",
@@ -293,6 +296,7 @@
         "@vetta/capability-runtime": "workspace:*",
         "@vetta/capability-sdk": "workspace:*",
         "@vetta/cli-app": "workspace:*",
+        "@vetta/coding-agent": "workspace:*",
         "@vetta/runtime-composition": "workspace:*",
         "@vetta/runtime-core": "workspace:*",
         "@vetta/runtime-mcp": "workspace:*",
@@ -762,14 +766,7 @@
       "name": "@vetta/runtime-composition",
       "version": "0.0.1",
       "dependencies": {
-        "@vetta/ai": "workspace:*",
         "@vetta/coding-agent": "workspace:*",
-        "@vetta/runtime-core": "workspace:*",
-        "@vetta/runtime-mcp": "workspace:*",
-        "@vetta/runtime-storage": "workspace:*",
-        "@vetta/runtime-subagents": "workspace:*",
-        "@vetta/runtime-tools": "workspace:*",
-        "zod": "^4.4.3",
       },
       "devDependencies": {
         "@types/node": "^22.10.5",
@@ -808,12 +805,15 @@
       "version": "0.0.1",
       "dependencies": {
         "@sinclair/typebox": "^0.34.41",
-        "@vetta/coding-agent": "workspace:*",
         "@vetta/runtime-core": "workspace:*",
       },
       "devDependencies": {
         "@types/node": "^22.10.5",
+        "@vetta/coding-agent": "workspace:*",
         "typescript": "^5.9.2",
+      },
+      "peerDependencies": {
+        "@vetta/coding-agent": "workspace:*",
       },
     },
     "packages/runtime-subagents": {
@@ -843,7 +843,6 @@
       "dependencies": {
         "@silvia-odwyer/photon-node": "^0.3.4",
         "@sinclair/typebox": "^0.34.41",
-        "@vetta/coding-agent": "workspace:*",
         "@vetta/runtime-core": "workspace:*",
         "diff": "^8.0.2",
         "file-type": "^21.1.1",
@@ -854,7 +853,11 @@
         "@types/diff": "^7.0.2",
         "@types/node": "^22.10.5",
         "@vetta/ai": "workspace:*",
+        "@vetta/coding-agent": "workspace:*",
         "typescript": "^5.9.2",
+      },
+      "peerDependencies": {
+        "@vetta/coding-agent": "workspace:*",
       },
     },
     "packages/site": {

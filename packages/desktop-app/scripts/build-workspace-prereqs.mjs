@@ -24,8 +24,8 @@ export const workspacePackages = {
 	agent: { dir: "packages/agent" },
 	"runtime-core": { dir: "packages/runtime-core" },
 	"coding-agent": { dir: "packages/coding-agent" },
-	"runtime-tools": { dir: "packages/runtime-tools" },
-	"runtime-storage": { dir: "packages/runtime-storage" },
+	"runtime-tools": { dir: "packages/runtime-tools", buildScript: "build:runtime" },
+	"runtime-storage": { dir: "packages/runtime-storage", buildScript: "build:runtime" },
 	"runtime-mcp": { dir: "packages/runtime-mcp" },
 	"runtime-composition": { dir: "packages/runtime-composition" },
 	"cli-app": { dir: "packages/cli-app" },
@@ -46,8 +46,8 @@ export const workspaceLayers = [
 	["capability-runtime", "agent"],
 	["runtime-core"],
 	["runtime-mcp"],
-	["coding-agent"],
 	["runtime-tools", "runtime-storage"],
+	["coding-agent"],
 	["runtime-composition"],
 	["cli-app"],
 ];
@@ -105,7 +105,6 @@ async function resolveWorkspacePackageGraph() {
 			const productionDependencies = {
 				...manifest.dependencies,
 				...manifest.optionalDependencies,
-				...manifest.peerDependencies,
 			};
 			const dependencies = Object.entries(productionDependencies)
 				.filter(([_name, range]) => typeof range === "string" && range.startsWith("workspace:"))
@@ -116,10 +115,10 @@ async function resolveWorkspacePackageGraph() {
 	);
 }
 
-function runBuild(name, packageDir) {
+function runBuild(name, packageDir, script = "build") {
 	return new Promise((resolve, reject) => {
 		console.log(`[workspace-prereqs] 构建 ${name} …`);
-		const child = spawn("bun", ["run", "build"], {
+		const child = spawn("bun", ["run", script], {
 			cwd: join(repoRoot, packageDir),
 			stdio: "inherit",
 		});
@@ -153,6 +152,7 @@ async function main() {
 				const config = packageGraph[name];
 				const sourceHash = createHash("sha256");
 				sourceHash.update(globalHash);
+				sourceHash.update(config.buildScript ?? "build");
 				await hashPath(sourceHash, join(repoRoot, config.dir));
 				for (const dependency of config.dependencies) {
 					sourceHash.update(buildHashes.get(dependency));
@@ -165,11 +165,32 @@ async function main() {
 				if (unchanged) {
 					console.log(`[workspace-prereqs] 跳过 ${name}（无变更）`);
 				} else {
-					await runBuild(name, config.dir);
+					await runBuild(name, config.dir, config.buildScript);
 				}
 				nextCache.packages[name] = buildHash;
 			}),
 		);
+		if (layer.includes("coding-agent")) {
+			await Promise.all(
+				["runtime-tools", "runtime-storage"].map(async (name) => {
+					const config = packageGraph[name];
+					const cacheKey = `${name}:compat`;
+					const compatibilityHash = createHash("sha256")
+						.update(buildHashes.get(name) ?? "")
+						.update(buildHashes.get("coding-agent") ?? "")
+						.digest("hex");
+					const distDir = join(repoRoot, config.dir, "dist");
+					const unchanged =
+						!force && existsSync(distDir) && cache.packages?.[cacheKey] === compatibilityHash;
+					if (unchanged) {
+						console.log(`[workspace-prereqs] 跳过 ${cacheKey}（无变更）`);
+					} else {
+						await runBuild(cacheKey, config.dir, "build:compat");
+					}
+					nextCache.packages[cacheKey] = compatibilityHash;
+				}),
+			);
+		}
 	}
 
 	await mkdir(dirname(cachePath), { recursive: true });

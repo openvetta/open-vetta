@@ -17,15 +17,20 @@
 	"files": ["dist"],
 	"scripts": {
 		"clean": "rm -rf dist",
-		"build": "tsgo -p tsconfig.build.json",
+		"build": "bun run build:runtime && bun run build:compat",
+		"build:runtime": "tsgo -p tsconfig.runtime.json",
+		"build:compat": "tsgo -p tsconfig.compat.json",
 		"test": "bunx vitest --run"
 	},
 	"dependencies": {
 		"@sinclair/typebox": "^0.34.41",
-		"@vetta/coding-agent": "workspace:*",
 		"@vetta/runtime-core": "workspace:*"
 	},
+	"peerDependencies": {
+		"@vetta/coding-agent": "workspace:*"
+	},
 	"devDependencies": {
+		"@vetta/coding-agent": "workspace:*",
 		"typescript": "^5.9.2",
 		"@types/node": "^22.10.5"
 	}

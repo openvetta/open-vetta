@@ -1,4 +1,4 @@
 export {
 	GreenfieldSessionExecutionRuntime,
 	type GreenfieldSessionExecutionRuntimeOptions,
-} from "@vetta/runtime-composition";
+} from "@vetta/coding-agent/composition";

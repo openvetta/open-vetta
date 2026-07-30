@@ -24,15 +24,21 @@ RESET='\033[0m'
 
 build_pkg() {
   local dir="$1"
+  build_pkg_script "$dir" build
+}
+
+build_pkg_script() {
+  local dir="$1"
+  local script="$2"
   local name
   name=$(basename "$dir")
-  printf "${DIM}[build]${RESET} %-24s" "$name"
-  if (cd "$dir" && bun run build > /dev/null 2>&1); then
+  printf "${DIM}[build]${RESET} %-24s" "$name:$script"
+  if (cd "$dir" && bun run "$script" > /dev/null 2>&1); then
     printf "${GREEN}ok${RESET}\n"
   else
     printf "${RED}FAIL${RESET}\n"
     echo "  Re-running with output:"
-    (cd "$dir" && bun run build)
+    (cd "$dir" && bun run "$script")
     exit 1
   fi
 }
@@ -62,19 +68,21 @@ build_layer2() {
   build_pkg packages/runtime-mcp
 }
 
-# ── Layer 3: depends on runtime-mcp and runtime-core ──
+# ── Layer 3: independent Runtime surfaces used by coding-agent ──
 build_layer3() {
+  build_pkg_script packages/runtime-tools build:runtime
+  build_pkg_script packages/runtime-storage build:runtime
+}
+
+# ── Layer 4: Coding Profile + Composition Root ──
+build_layer4() {
   build_pkg packages/coding-agent
 }
 
-# ── Layer 4: depends on coding-agent and runtime-core ──
-build_layer4() {
-  build_pkg packages/runtime-tools
-  build_pkg packages/runtime-storage
-}
-
-# ── Layer 5: depends on the complete runtime stack ──
+# ── Layer 5: compatibility facades and forwarding package ──
 build_layer5() {
+  build_pkg_script packages/runtime-tools build:compat
+  build_pkg_script packages/runtime-storage build:compat
   build_pkg packages/runtime-composition
 }
 

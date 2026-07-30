@@ -7,6 +7,7 @@ import type {
 import type { AgentSession } from "@vetta/runtime-core/kernel";
 import type { BackgroundCommandService } from "@vetta/runtime-tools/coding";
 
+/** Coding Agent Greenfield Session 的外围能力组合合同。 */
 export interface GreenfieldSubagentWorkRuntime {
 	clearFinished(): number;
 	list(): readonly RuntimeSubagentSnapshot[];

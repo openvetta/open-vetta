@@ -11,7 +11,7 @@ export interface GreenfieldSubagentChildHandleOptions {
 	disposeComposition(): Promise<void>;
 }
 
-/** 将 Greenfield Runtime Session 收窄为通用协调器所需的 Child Handle。 */
+/** 将 Coding Agent Greenfield Session 收窄为通用协调器所需的 Child Handle。 */
 export function createGreenfieldSubagentChildHandle(
 	options: GreenfieldSubagentChildHandleOptions,
 ): SubagentChildHandle {

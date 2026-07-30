@@ -1,1 +1,1 @@
-export { resolveGreenfieldSessionIdFromPath } from "@vetta/runtime-composition";
+export { resolveGreenfieldSessionIdFromPath } from "@vetta/coding-agent/composition";

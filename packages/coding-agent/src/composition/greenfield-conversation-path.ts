@@ -2,6 +2,7 @@ import { isAbsolute, relative, resolve, sep } from "node:path";
 
 const GREENFIELD_CONVERSATION_SUFFIX = ".conversation.jsonl";
 
+/** 解析 Coding Agent Greenfield Conversation 的持久化路径。 */
 export function resolveGreenfieldSessionIdFromPath(conversationDir: string, sessionPath: string): string | undefined {
 	const root = resolve(conversationDir);
 	const path = resolve(sessionPath);

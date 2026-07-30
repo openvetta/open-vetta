@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { RUNTIME_COMPOSITION_ARTIFACT_MANIFEST, resolveGreenfieldSessionIdFromPath } from "../src/index.js";
+import {
+	createGreenfieldRuntimeComposition as createOwnedGreenfieldRuntimeComposition,
+	resolveGreenfieldSessionIdFromPath as resolveOwnedGreenfieldSessionIdFromPath,
+} from "../../coding-agent/src/composition/index.js";
+import {
+	createGreenfieldRuntimeComposition,
+	RUNTIME_COMPOSITION_ARTIFACT_MANIFEST,
+	resolveGreenfieldSessionIdFromPath,
+} from "../src/index.js";
 
 describe("runtime composition package contract", () => {
 	it("publishes a host-neutral artifact manifest", () => {
@@ -20,5 +28,10 @@ describe("runtime composition package contract", () => {
 		expect(
 			resolveGreenfieldSessionIdFromPath("C:/sessions", "C:/outside/session.conversation.jsonl"),
 		).toBeUndefined();
+	});
+
+	it("forwards composition APIs to the coding-agent owner without wrapping behavior", () => {
+		expect(createGreenfieldRuntimeComposition).toBe(createOwnedGreenfieldRuntimeComposition);
+		expect(resolveGreenfieldSessionIdFromPath).toBe(resolveOwnedGreenfieldSessionIdFromPath);
 	});
 });

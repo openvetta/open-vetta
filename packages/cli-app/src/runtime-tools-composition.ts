@@ -2,4 +2,4 @@ export {
 	type CodingToolsRuntimeComposition,
 	type CodingToolsRuntimeCompositionOptions,
 	createCodingToolsRuntimeComposition,
-} from "@vetta/runtime-composition";
+} from "@vetta/coding-agent/composition";

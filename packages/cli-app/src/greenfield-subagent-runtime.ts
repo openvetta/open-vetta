@@ -4,4 +4,4 @@ export {
 	type GreenfieldSubagentProfile,
 	GreenfieldSubagentRuntime,
 	type GreenfieldSubagentRuntimeOptions,
-} from "@vetta/runtime-composition";
+} from "@vetta/coding-agent/composition";

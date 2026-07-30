@@ -87,6 +87,7 @@
 		"@vetta/capability-runtime": "workspace:*",
 		"@vetta/capability-sdk": "workspace:*",
 		"@vetta/cli-app": "workspace:*",
+		"@vetta/coding-agent": "workspace:*",
 		"@vetta/runtime-composition": "workspace:*",
 		"@vetta/runtime-core": "workspace:*",
 		"@vetta/runtime-mcp": "workspace:*",

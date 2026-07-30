@@ -1,13 +1,4 @@
 import {
-	createCodingAgentBackgroundCommandHost,
-	createCodingAgentEditPathPolicy,
-	createCodingAgentForegroundCommandHost,
-	createCodingAgentWritePathPolicy,
-	createToolExecutableResolver,
-	type EnsureTool,
-} from "@vetta/coding-agent/host";
-import { CODING_AGENT_MODEL_TOOL_ORDER } from "@vetta/coding-agent/runtime-host/greenfield";
-import {
 	type AgentFeatureDefinition,
 	type AgentProfile,
 	type CompiledRuntimeSnapshot,
@@ -43,6 +34,15 @@ import {
 	createWriteToolRegistration,
 	InMemoryCodingToolRegistry,
 } from "@vetta/runtime-tools/coding";
+import { CODING_AGENT_MODEL_TOOL_ORDER } from "../adapters/runtime-core/greenfield.js";
+import {
+	createCodingAgentBackgroundCommandHost,
+	createCodingAgentEditPathPolicy,
+	createCodingAgentForegroundCommandHost,
+	createCodingAgentWritePathPolicy,
+	createToolExecutableResolver,
+	type EnsureTool,
+} from "../adapters/runtime-tools/index.js";
 
 export interface CodingToolsRuntimeCompositionOptions {
 	readonly cwd?: string;

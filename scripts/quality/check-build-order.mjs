@@ -14,7 +14,7 @@ import {
 } from "../../packages/desktop-app/scripts/build-workspace-prereqs.mjs";
 import { fail, isDirectRun, ok, repoRoot } from "./lib.mjs";
 
-const BUILD_PACKAGE_PATTERN = /^\s*build_pkg\s+(packages\/[A-Za-z0-9_./-]+)/gm;
+const BUILD_PACKAGE_PATTERN = /^\s*build_pkg(?:_script)?\s+(packages\/[A-Za-z0-9_./-]+)/gm;
 
 export function parseBuildPackageOrder(source) {
 	const order = [];
@@ -39,7 +39,6 @@ export function findBuildOrderViolations(buildOrder, manifests) {
 		const productionDependencies = {
 			...manifest.dependencies,
 			...manifest.optionalDependencies,
-			...manifest.peerDependencies,
 		};
 		for (const [dependencyName, range] of Object.entries(productionDependencies)) {
 			if (typeof range !== "string" || !range.startsWith("workspace:")) continue;
@@ -87,7 +86,6 @@ export function findLayeredBuildOrderViolations(packageConfigs, layers, manifest
 		const productionDependencies = {
 			...manifest.dependencies,
 			...manifest.optionalDependencies,
-			...manifest.peerDependencies,
 		};
 		for (const [dependencyName, range] of Object.entries(productionDependencies)) {
 			if (typeof range !== "string" || !range.startsWith("workspace:")) continue;

@@ -1,7 +1,7 @@
 import type { ConversationOwnershipLease, ConversationOwnershipManager } from "@vetta/runtime-storage/conversation";
 
 /**
- * 把可变的 Runtime Session 身份绑定到唯一的进程级所有权 Lease。
+ * 把 Coding Agent Runtime Session 的可变身份绑定到唯一的进程级所有权 Lease。
  *
  * rebind 始终先取得目标所有权，再释放来源所有权；目标获取失败时来源仍被持有。
  */

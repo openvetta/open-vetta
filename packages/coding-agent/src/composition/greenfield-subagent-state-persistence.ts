@@ -81,7 +81,7 @@ export interface GreenfieldSubagentStatePersistenceOptions {
 }
 
 /**
- * 将 Session-local Subagent 状态映射为父 Conversation Document 的增量事件。
+ * 将 Coding Agent Session-local Subagent 状态映射为父 Conversation Document 的增量事件。
  *
  * Runtime Subagent Coordinator 不依赖存储；该 Participant 只负责持久化校验、折叠与串行提交。
  */

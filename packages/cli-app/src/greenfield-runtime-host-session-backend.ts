@@ -1,4 +1,4 @@
 export {
 	GreenfieldRuntimeHostSessionBackend,
 	type GreenfieldRuntimeHostSessionBackendOptions,
-} from "@vetta/runtime-composition";
+} from "@vetta/coding-agent/composition";

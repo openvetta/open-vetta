@@ -22,6 +22,10 @@ export default defineConfig({
 				find: "@vetta/coding-agent/host",
 				replacement: resolve(__dirname, "../coding-agent/src/adapters/runtime-tools/index.ts"),
 			},
+			{
+				find: "@vetta/coding-agent/composition",
+				replacement: resolve(__dirname, "../coding-agent/src/composition/index.ts"),
+			},
 			{ find: /^@vetta\/coding-agent\/(.+)\.js$/, replacement: `${codingAgentSrc}/$1.ts` },
 			{ find: "@vetta/coding-agent", replacement: resolve(__dirname, "../coding-agent/src/index.ts") },
 			{

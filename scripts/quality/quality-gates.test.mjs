@@ -248,14 +248,50 @@ describe("package boundary analysis", () => {
 		).toHaveLength(1);
 		expect(
 			findPackageBoundaryViolations("packages/runtime-composition/src/greenfield-runtime-composition.ts", source),
+		).toHaveLength(2);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/coding-agent/src/composition/greenfield-runtime-composition.ts",
+				source,
+			),
 		).toHaveLength(1);
 		expect(findPackageBoundaryViolations("packages/cli-app/src/agent-runtime-selection.ts", source)).toEqual([]);
 		expect(
 			findPackageBoundaryViolations(
-				"packages/runtime-composition/src/greenfield-runtime-composition.ts",
+				"packages/coding-agent/src/composition/greenfield-runtime-composition.ts",
 				"// runLegacyAgentWithBootstrap is a compatibility-only entry point.",
 			),
 		).toEqual([]);
+	});
+
+	it("keeps runtime-composition as a compatibility-only forwarding package", () => {
+		expect(
+			findPackageBoundaryViolations(
+				"packages/runtime-composition/src/index.ts",
+				'export * from "@vetta/coding-agent/composition";',
+			),
+		).toEqual([]);
+		expect(
+			findPackageBoundaryViolations("packages/runtime-composition/src/new-runtime.ts", "export const runtime = {};"),
+		).toHaveLength(1);
+	});
+
+	it("requires scoped production packages to declare workspace imports", () => {
+		const source = 'import { createRuntime } from "@vetta/runtime-tools/coding";';
+		const path = "packages/coding-agent/src/composition/example.ts";
+		expect(
+			findPackageBoundaryViolations(path, source, {
+				manifest: {
+					name: "@vetta/coding-agent",
+					dependencies: { "@vetta/runtime-tools": "workspace:*" },
+				},
+			}),
+		).toEqual([]);
+		expect(
+			findPackageBoundaryViolations(path, source, {
+				manifest: { name: "@vetta/coding-agent" },
+			}),
+		).toHaveLength(1);
 	});
 
 	it("keeps agent-core below runtime and product packages", () => {
@@ -285,10 +321,11 @@ describe("workspace build order", () => {
 		expect(
 			parseBuildPackageOrder(`
 				build_pkg packages/runtime-core
+				build_pkg_script packages/runtime-tools build:runtime
 				build_pkg packages/coding-agent
 				build_pkg packages/coding-agent
 			`),
-		).toEqual(["packages/runtime-core", "packages/coding-agent"]);
+		).toEqual(["packages/runtime-core", "packages/runtime-tools", "packages/coding-agent"]);
 	});
 
 	it("rejects a production dependency built after its consumer", () => {
@@ -324,6 +361,23 @@ describe("workspace build order", () => {
 		];
 
 		expect(findBuildOrderViolations(["packages/runtime-core", "packages/coding-agent"], manifests)).toEqual([]);
+	});
+
+	it("does not treat compatibility peer dependencies as source build edges", () => {
+		const manifests = [
+			{
+				dir: "packages/runtime-tools",
+				name: "@vetta/runtime-tools",
+				peerDependencies: { "@vetta/coding-agent": "workspace:*" },
+			},
+			{
+				dir: "packages/coding-agent",
+				name: "@vetta/coding-agent",
+				dependencies: { "@vetta/runtime-tools": "workspace:*" },
+			},
+		];
+
+		expect(findBuildOrderViolations(["packages/runtime-tools", "packages/coding-agent"], manifests)).toEqual([]);
 	});
 
 	it("rejects parallel or reversed desktop prerequisite layers", () => {

@@ -1,1 +1,1 @@
-export { ConversationOwnershipBinding } from "@vetta/runtime-composition";
+export { ConversationOwnershipBinding } from "@vetta/coding-agent/composition";

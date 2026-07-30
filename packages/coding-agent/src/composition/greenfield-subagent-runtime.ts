@@ -1,6 +1,4 @@
 import type { Message } from "@vetta/ai";
-import { EXPLORER_SYSTEM_PROMPT, WORKFLOW_SYSTEM_PROMPT } from "@vetta/coding-agent";
-import { createCodingAgentSubagentRuntimeToolRegistrations } from "@vetta/coding-agent/runtime-host/greenfield";
 import type {
 	ConversationDocument,
 	GreenfieldRuntimeDocumentParticipant,
@@ -26,6 +24,9 @@ import {
 	taskPath,
 } from "@vetta/runtime-subagents";
 import type { CodingToolActivation } from "@vetta/runtime-tools/coding";
+import { createCodingAgentSubagentRuntimeToolRegistrations } from "../adapters/runtime-core/greenfield.js";
+import { EXPLORER_SYSTEM_PROMPT } from "../core/subagents/types/explorer.js";
+import { WORKFLOW_SYSTEM_PROMPT } from "../core/subagents/types/workflow.js";
 import type { GreenfieldSubagentWorkRuntime } from "./greenfield-session-peripherals.js";
 import { GreenfieldSubagentStatePersistence } from "./greenfield-subagent-state-persistence.js";
 

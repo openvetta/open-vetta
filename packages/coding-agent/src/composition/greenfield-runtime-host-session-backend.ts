@@ -26,7 +26,7 @@ export interface GreenfieldRuntimeHostSessionBackendOptions {
 }
 
 /**
- * 将 RuntimeHost 的实现无关请求适配到一个已组合的 Greenfield Backend。
+ * 将 RuntimeHost 的实现无关请求适配到 Coding Agent Greenfield Backend。
  *
  * 组合根固定的参数必须相等；尚未接线的宿主能力必须显式失败，禁止静默丢失。
  */
