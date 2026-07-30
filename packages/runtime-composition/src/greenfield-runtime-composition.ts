@@ -150,6 +150,8 @@ export interface GreenfieldRuntimeCompositionOptions {
 	readonly activation?: CodingToolActivation;
 	readonly knowledgeEnabled?: boolean;
 	readonly knowledgeRoot?: string;
+	/** 仅用于保留宿主既有系统提示词合同；不会把名称对应的工具加入可执行 Tool Frame。 */
+	readonly systemPromptAdvertisedToolNames?: readonly string[];
 	readonly mcpSource?: McpRuntimeToolSource;
 	readonly streamFn?: AgentCoreTurnEngineOptions["streamFn"];
 	readonly tokenBudget?: number;
@@ -798,6 +800,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 						pluginToolRuntime,
 						readAgentMode: () => configurationState.readAgentMode(),
 						isMcpToolVisible: (toolName) => mcpController?.isToolVisible(toolName) ?? true,
+						systemPromptAdvertisedToolNames: options.systemPromptAdvertisedToolNames,
 						hookRuntime,
 						resolveSystemPromptOptions: async (context) => {
 							const promptOptions = await resolveSystemPromptOptions(context);

@@ -16,6 +16,7 @@ import {
 } from "./support/agent-rpc-test-process.js";
 import {
 	type OpenAiResponsesTestServer,
+	type ProviderRequest,
 	startOpenAiResponsesTestServer,
 	textResponseEvents,
 	toolCallResponseEvents,
@@ -33,6 +34,26 @@ afterAll(async () => {
 });
 
 describe("Agent Runtime Provider differential", () => {
+	it("preserves the exact Provider request body and ordered tool surface", async () => {
+		const observations = await runForBackends(
+			async ({ process, server, fixture }) => {
+				const mark = process.mark();
+				await process.request("prompt-provider-frame", "prompt", {
+					message: "Capture the exact Provider request frame",
+				});
+				await process.waitFor((frame) => frame.type === "agent_end", mark);
+				expect(server.requests).toHaveLength(1);
+				const request = server.requests[0];
+				if (!request) throw new Error("Expected one Provider request");
+				return observableProviderRequest(request.body, fixture);
+			},
+			() => ({ kind: "events", events: textResponseEvents("Provider frame captured.") }),
+		);
+
+		expect(providerToolNames(observations["greenfield-im"])).toEqual(providerToolNames(observations.legacy));
+		expect(observations["greenfield-im"]).toEqual(observations.legacy);
+	}, 30_000);
+
 	it("preserves the IM-consumed streaming text contract", async () => {
 		const observations = await runForBackends(
 			async ({ process, server }) => {
@@ -369,5 +390,33 @@ function describeProviderRequests(server: OpenAiResponsesTestServer): readonly s
 		if (rawBody.includes("Second request")) return "second-turn";
 		if (rawBody.includes("First request")) return "first-turn";
 		return "other";
+	});
+}
+
+function observableProviderRequest(body: ProviderRequest, fixture: AgentRpcFixture): Readonly<Record<string, unknown>> {
+	const observation: Record<string, unknown> = { ...body };
+	delete observation.prompt_cache_key;
+	return normalizeProviderValue(observation, fixture) as Readonly<Record<string, unknown>>;
+}
+
+function normalizeProviderValue(value: unknown, fixture: AgentRpcFixture): unknown {
+	if (typeof value === "string") {
+		return value
+			.replaceAll(fixture.root, "<fixture-root>")
+			.replace(/^Current date and time: .*$/gm, "Current date and time: <turn-time>");
+	}
+	if (Array.isArray(value)) return value.map((entry) => normalizeProviderValue(entry, fixture));
+	if (typeof value !== "object" || value === null) return value;
+	return Object.fromEntries(
+		Object.entries(value).map(([key, entry]) => [key, normalizeProviderValue(entry, fixture)]),
+	);
+}
+
+function providerToolNames(body: Readonly<Record<string, unknown>>): string[] {
+	if (!Array.isArray(body.tools)) return [];
+	return body.tools.flatMap((tool) => {
+		if (typeof tool !== "object" || tool === null) return [];
+		const name = Reflect.get(tool, "name");
+		return typeof name === "string" ? [name] : [];
 	});
 }

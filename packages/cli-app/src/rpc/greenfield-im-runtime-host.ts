@@ -135,6 +135,9 @@ export async function prepareGreenfieldImRuntimeHost(
 				parsed.noTools || parsed.tools
 					? { mode: "explicit", toolNames: parsed.tools ?? [] }
 					: { mode: "scope", scope: "im-claw" },
+			enableSubagents: false,
+			systemPromptAdvertisedToolNames:
+				parsed.noTools || parsed.tools ? undefined : ["kb_filter_by_tags", "kb_list_available_tags"],
 			mcpSource: managedMcpSource.source,
 			promptResourceSource: bootstrap.resourceLoader,
 			promptSettingsSource: bootstrap.settingsManager,

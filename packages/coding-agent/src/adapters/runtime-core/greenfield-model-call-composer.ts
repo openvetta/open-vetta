@@ -36,6 +36,8 @@ export interface CodingAgentModelCallFrameComposerOptions {
 	readonly isMcpToolVisible?: (toolName: string) => boolean;
 	readonly pluginRunOrchestrator?: CodingAgentPluginRunOrchestrator;
 	readonly pluginToolRuntime?: CodingAgentPluginToolRuntime;
+	/** 系统提示词额外公布、但不加入可执行 Tool Frame 的既有宿主工具名称。 */
+	readonly systemPromptAdvertisedToolNames?: readonly string[];
 	readonly hookRuntime?: EcosystemHookRuntime;
 }
 
@@ -83,9 +85,12 @@ export class CodingAgentModelCallFrameComposer implements ModelCallFrameComposer
 		context.signal.throwIfAborted();
 		const mcpPromptState = this.options.readMcpPromptState?.();
 		const createDraft = (selectedTools: readonly string[]): SystemPromptDraft => {
+			const advertisedTools = [
+				...new Set([...selectedTools, ...(this.options.systemPromptAdvertisedToolNames ?? [])]),
+			];
 			const draft = buildSystemPromptDraft({
 				...promptOptions,
-				selectedTools: orderModelToolNames(selectedTools, availableTools),
+				selectedTools: orderModelToolNames(advertisedTools, availableTools),
 				...(mcpPromptState
 					? {
 							mcpTools: mcpPromptState.tools.map(({ name, description }) => ({ name, description })),

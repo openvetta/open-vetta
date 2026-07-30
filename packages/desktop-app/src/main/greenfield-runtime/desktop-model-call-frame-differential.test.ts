@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Api, Model } from "@vetta/ai";
@@ -17,6 +17,7 @@ import {
 	type ProviderRequest,
 	startOpenAiResponsesTestServer,
 	textResponseEvents,
+	toolCallResponseEvents,
 } from "../../../../cli-app/test/support/openai-responses-test-server.js";
 import { DesktopGreenfieldRuntimeBackendPool } from "./desktop-greenfield-runtime-backend-pool.js";
 
@@ -149,6 +150,71 @@ describe("Desktop RuntimeHost model-call frame cutover readiness", () => {
 		expect(sharedProviderBody(greenfieldAfter.body)).not.toEqual(sharedProviderBody(greenfieldBefore.body));
 	}, 30_000);
 
+	it("keeps product-tool cwd isolated across sessions sharing one RuntimeHost", async () => {
+		const firstCwd = await temporaryDirectory("desktop-frame-first-cwd-");
+		const secondCwd = await temporaryDirectory("desktop-frame-second-cwd-");
+		await Promise.all([
+			writeFile(join(firstCwd, "source.pdf"), "%PDF-1.4\n", "utf8"),
+			writeFile(join(secondCwd, "source.pdf"), "%PDF-1.4\n", "utf8"),
+		]);
+		const server = await startOpenAiResponsesTestServer((_request, index) => {
+			if (index === 0 || index === 2) {
+				return {
+					kind: "events",
+					events: toolCallResponseEvents(
+						"render_pdf_page",
+						{ input: "source.pdf", page: 1, output: "invalid.txt" },
+						{
+							callId: `call_cwd_${index}`,
+							itemId: `item_cwd_${index}`,
+							responseId: `response_cwd_${index}`,
+						},
+					),
+				};
+			}
+			return { kind: "events", events: textResponseEvents(`cwd result ${index}`) };
+		});
+		servers.push(server);
+		const model = { ...MODEL, baseUrl: server.baseUrl };
+		const agentStateDir = await temporaryDirectory("desktop-frame-cwd-agent-");
+		const fixture = createRuntimeFixture("greenfield", agentStateDir, model);
+		fixtures.push(fixture);
+
+		const first = await fixture.runtime.createSession({
+			cwd: firstCwd,
+			agentDir: agentStateDir,
+			sessionDir: await temporaryDirectory("desktop-frame-first-sessions-"),
+			model,
+			thinkingLevel: "off",
+			scenario: "conversation",
+			agentMode: "work",
+			executionMode: "full-access",
+			includeAgentSkills: false,
+		});
+		const second = await fixture.runtime.createSession({
+			cwd: secondCwd,
+			agentDir: agentStateDir,
+			sessionDir: await temporaryDirectory("desktop-frame-second-sessions-"),
+			model,
+			thinkingLevel: "off",
+			scenario: "conversation",
+			agentMode: "work",
+			executionMode: "full-access",
+			includeAgentSkills: false,
+		});
+
+		await fixture.runtime.prompt(first.sessionId, { text: "Render the relative PDF in the first workspace" });
+		await fixture.runtime.prompt(second.sessionId, { text: "Render the relative PDF in the second workspace" });
+
+		expect(server.requests).toHaveLength(4);
+		const firstToolResult = collectStringValues(server.requests[1]?.body.input).join("\n");
+		const secondToolResult = collectStringValues(server.requests[3]?.body.input).join("\n");
+		expect(firstToolResult).toContain(join(firstCwd, "invalid.txt"));
+		expect(firstToolResult).not.toContain(secondCwd);
+		expect(secondToolResult).toContain(join(secondCwd, "invalid.txt"));
+		expect(secondToolResult).not.toContain(firstCwd);
+	}, 30_000);
+
 	async function observeBackends(
 		cwd: string,
 		scenario: ConversationScenario,
@@ -246,6 +312,13 @@ function toolNames(value: unknown): string[] {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
+}
+
+function collectStringValues(value: unknown): string[] {
+	if (typeof value === "string") return [value];
+	if (Array.isArray(value)) return value.flatMap(collectStringValues);
+	if (!isRecord(value)) return [];
+	return Object.values(value).flatMap(collectStringValues);
 }
 
 function pluginConfiguration(): AgentPluginRuntimeConfig {

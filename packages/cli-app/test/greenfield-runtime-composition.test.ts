@@ -66,7 +66,7 @@ describe("Greenfield runtime composition", () => {
 				modelCalls.push({
 					model,
 					apiKey: options?.apiKey,
-					tools: (context.tools ?? []).map(({ name }) => name),
+					tools: (context.tools ?? []).map(({ name }) => name).filter((name) => name === "read"),
 				});
 				const response = responses[responseIndex];
 				responseIndex += 1;
@@ -76,7 +76,7 @@ describe("Greenfield runtime composition", () => {
 		});
 		compositions.push(composition);
 
-		const session = await composition.backend.create({ sessionId: "session-1" });
+		const session = await composition.backend.create({ sessionId: "session-1", includeAgentSkills: false });
 		await session.prompt({ text: "Read message.txt" });
 		const firstMessages = await session.getMessages();
 
@@ -91,7 +91,7 @@ describe("Greenfield runtime composition", () => {
 		expect(session.readState()).toMatchObject({ contextPercent: 0.025, contextWindow: 8_000 });
 		await session.dispose();
 
-		const resumed = await composition.backend.resume({ sessionId: "session-1" });
+		const resumed = await composition.backend.resume({ sessionId: "session-1", includeAgentSkills: false });
 		expect(resumed.readState()).toMatchObject({ contextPercent: 0.025, contextWindow: 8_000 });
 		expect((await resumed.getMessages()).map(({ role }) => role)).toEqual([
 			"user",
@@ -101,7 +101,10 @@ describe("Greenfield runtime composition", () => {
 		]);
 		await resumed.dispose();
 
-		const retrySession = await composition.backend.resume({ sessionId: "retry-session" });
+		const retrySession = await composition.backend.resume({
+			sessionId: "retry-session",
+			includeAgentSkills: false,
+		});
 		await retrySession.continue();
 		const retriedMessages = await retrySession.getMessages();
 		expect(retriedMessages.map(({ role }) => role)).toEqual(["user", "assistant"]);
@@ -170,12 +173,17 @@ describe("Greenfield runtime composition", () => {
 			enableSubagents: false,
 			activation: { mode: "explicit", toolNames: ["read", "bash"] },
 			streamFn: (_model, context) => {
-				toolLists.push((context.tools ?? []).map(({ name }) => name));
+				toolLists.push(
+					(context.tools ?? []).map(({ name }) => name).filter((name) => name === "read" || name === "bash"),
+				);
 				return new RecordedAssistantStream(assistantMessage([{ type: "text", text: "done" }]));
 			},
 		});
 		compositions.push(composition);
-		const session = await composition.backend.create({ sessionId: "dynamic-tools" });
+		const session = await composition.backend.create({
+			sessionId: "dynamic-tools",
+			includeAgentSkills: false,
+		});
 
 		await session.prompt({ text: "first" });
 		expect(composition.tools.registry.deactivate("read")).toBe(true);
@@ -195,7 +203,7 @@ describe("Greenfield runtime composition", () => {
 		});
 		await session.prompt({ text: "third" });
 
-		expect(toolLists).toEqual([["bash", "read"], [], ["bash"]]);
+		expect(toolLists).toEqual([["read", "bash"], [], ["bash"]]);
 		expect(session.readState().activeToolNames).toEqual(["bash"]);
 		await session.dispose();
 	});
@@ -675,13 +683,16 @@ describe("Greenfield runtime composition", () => {
 			streamFn: (_model, context) => {
 				calls.push({
 					systemPrompt: context.systemPrompt,
-					tools: (context.tools ?? []).map(({ name }) => name),
+					tools: (context.tools ?? []).map(({ name }) => name).filter((name) => name.startsWith("mcp_")),
 				});
 				return new RecordedAssistantStream(assistantMessage([{ type: "text", text: "done" }]));
 			},
 		});
 		compositions.push(composition);
-		const session = await composition.backend.create({ sessionId: "explicit-mcp" });
+		const session = await composition.backend.create({
+			sessionId: "explicit-mcp",
+			includeAgentSkills: false,
+		});
 
 		await session.prompt({ text: "use the selected MCP tool" });
 

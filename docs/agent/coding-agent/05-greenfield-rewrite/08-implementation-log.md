@@ -118,6 +118,7 @@
 | [108-production-model-call-frame-readiness.md](./08-implementation-log/108-production-model-call-frame-readiness.md) | 生产 Model Call Frame 差分门禁、动态 Profile 切换与缺失能力清单 |
 | [109-production-tool-surface-gap-closure.md](./08-implementation-log/109-production-tool-surface-gap-closure.md) | 生产 Tool Surface 缺口闭合、动态 Skill/Agent Mode 与确定性顺序 |
 | [110-runtime-native-product-tools-and-model-order.md](./08-implementation-log/110-runtime-native-product-tools-and-model-order.md) | Runtime-native 产品工具、Session cwd 隔离与通用模型顺序合同 |
+| [111-real-host-provider-frame-and-session-isolation.md](./08-implementation-log/111-real-host-provider-frame-and-session-isolation.md) | 真实 CLI/RPC/IM 完整 Provider Frame 与同宿主多会话 cwd 隔离 |
 
 ## 维护约定
 
