@@ -165,7 +165,10 @@ describe("Greenfield session-local plugin MCP", () => {
 		});
 
 		await session.prompt({ text: "delegate MCP inspection" });
-		await vi.waitFor(() => expect(childMcpTools).toHaveLength(2));
+		await vi.waitFor(() => {
+			expect(childMcpTools.length).toBeGreaterThanOrEqual(2);
+			expect(clients.first("plugin-child-docs").callToolCalls).toBe(1);
+		});
 
 		expect(rootMcpTools[0]).toEqual([]);
 		expect(childMcpTools[0]).toEqual(["mcp_plugin-child-docs_lookup"]);

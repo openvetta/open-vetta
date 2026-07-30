@@ -893,6 +893,43 @@ JSONL 边界、事件透传、关闭清理和 Legacy 委托。现有真实 provi
 本轮只建立宿主接入缝，没有实现 Greenfield RPC Adapter。稳定 `SessionEvent` 到旧 wire event 的映射、
 IM Host Bridge Tool、恢复/rollover identity 和外围 Capability 仍是显式 opt-in 的阻断项。
 
+### 2.25 MCP Runtime-native 迁移与切换差分门禁
+
+第 98～106 轮已把 MCP 从旧 `McpManager` 单体职责中拆出，并形成以下边界：
+
+```text
+模型数据面
+  -> McpRuntimeToolSource / Synchronizer / Deferred Controller
+
+宿主控制面
+  -> 文件配置、OAuth 交互、Server Supervisor、Client/Transport
+
+Legacy 兼容面
+  -> McpManager / LegacyMcpManagerRuntimeToolSource
+```
+
+Greenfield CLI、Desktop 和 IM 的生产候选组合已经使用 Runtime-native 文件 MCP Source；插件 MCP 使用
+Session-local Runtime；子代理只在创建或重开时捕获父 Session 的只读 Tool Binding，不创建第二套 Source、
+Supervisor 或 Client。Legacy Adapter 目前只被兼容测试使用，但仍是已发布入口的一部分，因此不能根据仓库内
+生产消费者数量直接删除。
+
+第 107 轮新增同输入、同变更序列的切换差分门禁，直接运行旧 `McpManager + AgentTool Adapter` 与新
+`McpServerSupervisor + Runtime Tool Source` 两条完整路径，比较：
+
+- Ready、Error、Needs Auth、Disabled 和工具发现失败状态；
+- Tool 名称、label、描述、TypeBox Schema 与 Ecosystem Hook 来源元数据；
+- 文本、图片、Resource 成功结果和调用失败结果；
+- 文件 Server 的稳定复用、新增、替换、删除和 Client close；
+- 配置加载失败时保留当前 Tool Surface 与现有连接；
+- Shutdown 后的 Client 关闭集合。
+
+核心差分没有发现需要修改生产实现的行为偏差。插件动态替换、`agent_mode`、渐进披露、提示词工具索引、
+子代理投影和父 Session 生命周期所有权继续由第 105、106 轮的 Composition 集成测试覆盖，不在同一个测试中
+复制第二套产品组合。
+
+本轮没有新增外部配置或协议边界，因此没有引入新的 TypeBox/Zod Schema。MCP 配置、持久 OAuth 状态和 Tool
+输入继续使用既有校验边界。
+
 ## 3. 已实施模块审计
 
 | 模块 | 当前状态 | 与旧行为的差距 | 切换结论 |
@@ -909,14 +946,16 @@ IM Host Bridge Tool、恢复/rollover identity 和外围 Capability 仍是显式
 | Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope/explicit 激活和 requires/capabilities，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；current_time/read/ls/grep/find/glob/tree/write/edit/bash/shell/task_output/task_stop 已进入全场景 Profile 差分门禁 | 生产 Profile 尚未切换 | 动态编排与当前默认工具迁移完成；生产接入未完成 |
 | `AgentSession` | 新状态机、活动 Turn 输入队列、无伪 user message 的 continue、显式 resume 与同 Turn 持久化身份重绑定已实现 | 尚缺旧外围能力的 Greenfield 实现 | 内核 Turn/恢复语义已具备；生产入口不可切换 |
 | Turn Pipeline | 固定阶段、模型调用请求—应答检查点、持久化压缩提交、跨 Conversation 续接及成功/失败 finalization、非持久化 observation、输入队列、continue、recovery、独立 Turn Model Binding 和 Session-local 运行期 Context 串行持久化已实现 | 完整生产 Composition Root 尚未接入 | 不可切换 |
-| `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环、动态 Model Call Frame、完整观察事件、输入队列、Context checkpoint 桥接和 Turn model binding 已通过 | 尚未由真实 Greenfield Composition Root 接入生产 RuntimeHost | 内核执行能力已具备；宿主仍不可切换 |
-| Greenfield Session Backend | 独立门面、必需 Prompt Adapter/Runtime Factory、可重绑定投影与路径、显式 resume、Session-local Todo/Hook/Context Runtime、手动压缩 Controller，以及 Lifecycle/History/Model/Workspace/Core Ports 已通过 | Host Interaction、Execution、Configuration、Background Work 等外围能力未实现；模型配置尚未持久化 | 可并行组合测试；不能注入生产 RuntimeHost |
+| `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环、动态 Model Call Frame、完整观察事件、输入队列、Context checkpoint 桥接和 Turn model binding 已接入真实 Greenfield Composition 与 RuntimeHost | 默认生产选择仍是 Legacy | 内核执行与候选宿主接线完成；等待整体默认切换门禁 |
+| Greenfield Session Backend | 独立门面、可重绑定投影、显式 resume、Session-local Todo/Hook/Context/Subagent Runtime，以及完整 RuntimeHost Core/外围 Ports 均已交付 | Legacy 会话兼容与默认生产路由仍待整体迁移 | Assembly Ready，并已进入 Desktop/CLI/IM opt-in 验证 |
 | Runtime Snapshot | 编译、冻结、lease、原子交换和动态 Model Call Provider 已实现 | Coding Profile 的完整默认能力与 scope 尚未装配 | 不可替代旧工具注册 |
 | Conversation Repository | V2 create/load/append/save、树形 Document 读写、活动分支、fork、跨实例文件锁、跨 Conversation seed/transfer/continued 事务和 Legacy importer 已实现 | Legacy/V1 历史结构写命令保持只读；跨文件崩溃 orphan reconciliation 与模型配置异步持久化尚未实现 | 不可直接替代全部旧会话写路径 |
 | Context Strategy | Session-local Runtime 已接入原生摘要持久化、重开投影、外部/同 Turn threshold/prefire、逐模型调用 microcompact、error/silent overflow 单次恢复、手动/Extension 压缩、Pre/PostCompact 和 usage 状态；Coding Agent Memory Orchestrator 已接入冻结 Prompt、既有 Tool、70% 策略、自动/主动 flush、通用 rollover、JOURNAL 与 rollover 后置 finalization | 默认生产 RPC/IM 尚未接入 Greenfield Controller | memory-mode 内部链路可并行验证；生产宿主仍不可切换 |
-| MCP / Skill / Knowledge / Subagent | Session 级 Skill/Scene Prompt、MCP 渐进披露与现有 Knowledge 工具来源已进入并行组合 | Subagent Runtime 未迁移；尚未形成完整生产 Profile | 不可切换对应生产 Profile |
-| Ecosystem Hook Runtime | 每 Session 唯一实例已贯通 Prompt、最终动态 Tool Surface、Stop、运行期 Context、自动/手动 Pre/PostCompact 和 dispose | PermissionRequest、Subagent Hook 与宿主切换原因未接入 | 并行组合已验证；默认生产入口不变 |
-| Desktop / CLI / RPC / IM Adapter | RuntimeHost 已完全通过稳定 Ports 编排；CLI Greenfield Composition Root 已具备真实模型、Prompt、动态能力、Todo、Hook、Continuation、SessionEvent、文件恢复和按活动 Session 的 Memory Flush 控制；RPC 已拆出 JSONL、TypeBox 校验、命令分发、分组 Capability 与 Legacy Adapter | Greenfield RPC Capability Adapter、wire event 反向适配、完整 Assembly、旧存储兼容及 Desktop/IM 实际宿主接线尚未完成 | Legacy 默认路径不变；不可切换默认入口 |
+| MCP | 协议、配置、Client/Transport、OAuth、Supervisor、Runtime-native Tool Source、插件动态 Server、渐进披露、Hook 元数据和子代理 Binding 投影均已完成；第 107 轮旧新端到端差分通过 | 旧 `AgentSession` 和公开兼容 API 仍保留 `McpManager`；默认 Runtime 尚未切换 | Greenfield MCP 迁移验证完成；旧兼容入口随整体生产切换移除 |
+| Skill / Knowledge | Session 级 Skill/Scene Prompt 与现有 Knowledge Tool Source 已进入动态并行组合，并通过进程重启重新装配验证 | 仍需纳入完整生产 Profile 差分和默认 Runtime 切换门禁 | 能力组合可用；暂不删除 Legacy 来源 |
+| Subagent | Session-local Runtime、Explorer/Workflow、Hook、Todo、增量状态日志、恢复、通知去重及父 MCP Binding 投影已实现 | 默认 Legacy Backend 尚未切换 | Greenfield 能力已完整接入；随整体宿主切换启用 |
+| Ecosystem Hook Runtime | 每 Session 唯一实例已贯通 Prompt、最终动态 Tool Surface、Stop、SubagentStart/SubagentStop、运行期 Context、自动/手动 Pre/PostCompact 和 dispose | PermissionRequest Hook 与宿主切换原因仍需纳入完整生产 Profile 差分 | 并行组合已验证；默认生产入口不变 |
+| Desktop / CLI / RPC / IM Adapter | RuntimeHost 稳定 Ports、Greenfield RPC/IM Adapter、显式 Runtime selector、IM Sidecar、Desktop Backend Pool、真实进程 Canary、独立安装产物和跨进程恢复均已完成 | 默认 selector 仍是 Legacy；完整生产 Profile、公开 API 和旧存储消费者尚未完成最终切换审计 | Greenfield 可显式启用并回退；暂不改变默认入口 |
 
 上述差距目前没有影响生产，因为旧入口仍在使用旧实现。但它们是切换阻断项，不能因为新模块
 已有单元测试就视为功能迁移完成。
@@ -951,30 +990,19 @@ side effects
 
 ## 5. 下一步
 
-工具、动态能力、Session/Conversation、真实模型与 Prompt、Todo、Plugin、Continuation 以及
-Session-local Ecosystem Hook Runtime 的并行 Greenfield 组合已经建立。Hook Runtime 目前贯通
-SessionStart/UserPromptSubmit、最终动态 Tool Surface、Stop、运行期 Context 持久化和 dispose；默认旧
-AgentSession 与生产宿主入口保持不变。
+Greenfield 已通过 CLI、IM Sidecar、Desktop opt-in、真实 Provider Tool Loop、独立安装产物、真实 Desktop
+进程和跨进程恢复门禁。MCP 也已完成 Runtime-native 迁移与旧新差分；下一阶段不应继续整理即将淘汰的
+`McpManager` 内部结构。
 
-模型调用检查点的 Compaction Orchestrator 已覆盖同 Turn Tool Loop 阈值、error/silent overflow 单次
-恢复、取消和 steering/follow-up 仲裁；手动压缩 Session Port 与 Extension 自定义摘要也已共享同一
-持久提交路径。Coding Agent Memory Rollover Orchestrator 现在复用旧冻结 Prompt、memory Tool、约 70%
-阈值、MEMORY flush 和 JOURNAL，并通过通用事务保持同一 Turn 切换 Conversation；默认仍关闭。
+下一阶段应建立“完整生产 Profile 与默认 Runtime 切换准备度”门禁：
 
-continuation 事务后的成功/失败 finalization 已固定 rollover、Extension committed、PostCompact 与 stop
-的相对顺序；Coding Agent 产品层也已提供按活动 Session 的主动 Memory Flush Controller，没有把
-Extension Runner、MEMORY/JOURNAL 或 IM 策略下沉到 Runtime Core/Storage。
+1. 从当前 Legacy 默认会话提取 CLI、Desktop、RPC、IM 各场景的最终 Prompt、Tool、Skill、Knowledge、
+   Plugin、MCP、Todo、Subagent、Hook 和 Context 能力矩阵。
+2. 让同一宿主请求分别运行 Legacy 与 Greenfield，比较模型调用 Frame、SessionEvent、持久化结果、恢复、
+   关闭和多会话隔离；外部 Provider 测试只验证真实协议，确定性 Fixture 负责完整行为矩阵。
+3. 审计公开 API 与旧存储消费者，区分仍有外部合同的兼容入口和纯内部旧实现。只有默认入口及下游完成迁移
+   后，才删除 `McpManager`、旧 `AgentSession` 和 Legacy Adapter。
+4. 保持 Runtime selector 默认值不变；先形成可重复的切换/回退 Gate，再单独决定默认值变更。
 
-RPC 已建立实现无关的分组 Capability、外部 Frame 校验和 Legacy Adapter。下一阶段应实现 Greenfield
-RPC Capability Adapter 与旧 wire event 反向适配，并为 IM 必需 Profile 接入 Host Bridge Tool；缺少必需
-Capability 时启动必须 fail closed。随后对 `flush_memory`、`/new`、会话丢弃、rollover 后 flush、恢复
-会话和关闭竞态运行 Legacy/Greenfield 差分。默认生产入口仍不切换。宿主差分完成后，再按真实能力边界
-迁移 PermissionRequest、Subagent Runtime 和剩余 Assembly Port。
-
-模型配置持久化仍必须使用显式异步合同，不能在同步 setter 中 fire-and-forget；完整 Assembly 就绪前不
-替换默认旧后端。最终生产切换仍需完整 Profile 差分、旧存储兼容和 Desktop/RPC/IM 宿主验证。真实 GitHub
-网络、最终独立可执行发布物和其他外部依赖的产物级解析/打包测试也需单独执行，重点覆盖下载、并发解析、
-版本锁定、离线模式和 Windows/Unix 产物。
-
-生产切换前还必须增加宿主产物级测试，验证 Photon WASM 在现有独立可执行打包方式中的复制与
-定位行为。该验证属于 Host Adapter/Packaging Gate，不应重新塞回 read 的领域实现。
+TypeBox/Zod 只用于外部 RPC、配置和持久化反序列化边界；生产 Profile 比较使用已经类型化的 Model Call
+Frame 与 Session 合同，不为内部对象重复增加 Schema。
