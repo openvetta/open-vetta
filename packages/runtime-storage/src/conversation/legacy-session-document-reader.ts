@@ -35,6 +35,11 @@ export interface LegacySessionDocumentReaderOptions {
 	readonly resolvePath: (sessionId: string) => string;
 }
 
+export interface LegacySessionDocumentSource {
+	readonly document: ConversationDocument;
+	readonly formatVersion: number;
+}
+
 /** Read-only importer for coding-agent JSONL v1-v3 files. It never rewrites the source file. */
 export class LegacySessionDocumentReader implements ConversationDocumentReader {
 	private readonly resolvePath: (sessionId: string) => string;
@@ -53,10 +58,18 @@ export class LegacySessionDocumentReader implements ConversationDocumentReader {
 }
 
 export async function readLegacySessionDocument(path: string): Promise<ConversationDocument> {
-	return parseLegacySessionDocument(await readFile(path, "utf8"));
+	return (await readLegacySessionDocumentSource(path)).document;
+}
+
+export async function readLegacySessionDocumentSource(path: string): Promise<LegacySessionDocumentSource> {
+	return parseLegacySessionDocumentSource(await readFile(path, "utf8"));
 }
 
 export function parseLegacySessionDocument(content: string): ConversationDocument {
+	return parseLegacySessionDocumentSource(content).document;
+}
+
+export function parseLegacySessionDocumentSource(content: string): LegacySessionDocumentSource {
 	const records = parseJsonLines(content);
 	const header = records[0];
 	if (!Value.Check(LegacyHeaderSchema, header)) {
@@ -76,18 +89,21 @@ export function parseLegacySessionDocument(content: string): ConversationDocumen
 	}
 
 	return {
-		identity: {
-			sessionId: header.id,
-			createdAt: parseTimestamp(header.timestamp),
-			cwd: header.cwd,
-			parentSessionPath: header.parentSession,
-			parentEntryId: header.parentEntryId,
+		formatVersion: header.version ?? 1,
+		document: {
+			identity: {
+				sessionId: header.id,
+				createdAt: parseTimestamp(header.timestamp),
+				cwd: header.cwd,
+				parentSessionPath: header.parentSession,
+				parentEntryId: header.parentEntryId,
+			},
+			journalVersion: 0,
+			revision: entries.length,
+			entries,
+			activeLeafId: findActiveLeafId(entries),
+			name: findSessionName(entries),
 		},
-		journalVersion: 0,
-		revision: entries.length,
-		entries,
-		activeLeafId: findActiveLeafId(entries),
-		name: findSessionName(entries),
 	};
 }
 

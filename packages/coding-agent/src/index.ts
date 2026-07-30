@@ -424,7 +424,7 @@ export {
 	resolveCodingAgentInitialModel,
 } from "./host/coding-agent-host-bootstrap.js";
 // Main entry point
-export { createLegacyAgentBootstrap, main, runLegacyAgentWithBootstrap } from "./main.js";
+export { createAgentCliBootstrap, createLegacyAgentBootstrap, main, runLegacyAgentWithBootstrap } from "./main.js";
 // Run modes for programmatic SDK usage
 export {
 	GREENFIELD_IM_RPC_PROFILE,

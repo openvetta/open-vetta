@@ -63,6 +63,7 @@ describe("Agent Runtime selection", () => {
 		const sessionFile = readSessionFile(freshState);
 		const sessionId = readSessionId(freshState);
 		expect(sessionFile.endsWith(".conversation.jsonl")).toBe(true);
+		expect(fresh.stderr).toContain("requested=greenfield-im effective=greenfield-im");
 		await expect(stat(`${sessionFile}.owner.lock`)).resolves.toBeDefined();
 		await expect(fresh.request("abort-idle", "abort")).resolves.toMatchObject({
 			id: "abort-idle",
@@ -143,6 +144,7 @@ describe("Agent Runtime selection", () => {
 		});
 		await legacy.close();
 		expect(legacy.stderr).toContain("using Legacy runtime");
+		expect(legacy.stderr).toContain("fallback=legacy-session");
 	});
 });
 

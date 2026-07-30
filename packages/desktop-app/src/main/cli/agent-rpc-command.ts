@@ -57,8 +57,8 @@ export async function runAgentRpcCommand(args: string[]): Promise<number> {
 		if (!process.env.VETTA_PACKAGE_DIR && !process.env.PI_PACKAGE_DIR) {
 			process.env.VETTA_PACKAGE_DIR = resolveCodingAgentPackageDir();
 		}
-		const { runAgentRuntimeCli } = await import("@vetta/cli-app");
-		await runAgentRuntimeCli(args);
+		const { runAgentRuntimeCli, writeAgentRuntimeDecision } = await import("@vetta/cli-app");
+		await runAgentRuntimeCli(args, { onDecision: writeAgentRuntimeDecision });
 		return typeof process.exitCode === "number" ? process.exitCode : 0;
 	} catch (err) {
 		const msg = err instanceof Error ? (err.stack ?? err.message) : String(err);

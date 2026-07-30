@@ -525,11 +525,11 @@ export async function main(args: string[]) {
 		return;
 	}
 
-	const bootstrap = await createLegacyAgentBootstrap(args);
+	const bootstrap = await createAgentCliBootstrap(args);
 	await runLegacyAgentWithBootstrap(bootstrap);
 }
 
-export async function createLegacyAgentBootstrap(args: string[]): Promise<CodingAgentHostBootstrap> {
+export async function createAgentCliBootstrap(args: string[]): Promise<CodingAgentHostBootstrap> {
 	return createCodingAgentHostBootstrap({
 		args,
 		onSettingsError: ({ scope, error }) => {
@@ -540,6 +540,11 @@ export async function createLegacyAgentBootstrap(args: string[]): Promise<Coding
 			console.error(chalk.red(`Failed to load extension "${path}": ${error}`));
 		},
 	});
+}
+
+/** @deprecated Use createAgentCliBootstrap. Retained only for the explicit Legacy runtime adapter. */
+export async function createLegacyAgentBootstrap(args: string[]): Promise<CodingAgentHostBootstrap> {
+	return createAgentCliBootstrap(args);
 }
 
 /**

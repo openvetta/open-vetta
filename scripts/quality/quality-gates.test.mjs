@@ -241,6 +241,23 @@ describe("package boundary analysis", () => {
 		).toEqual([]);
 	});
 
+	it("keeps greenfield product modules independent from legacy startup symbols", () => {
+		const source = 'import { runLegacyAgentWithBootstrap } from "@vetta/coding-agent";';
+		expect(
+			findPackageBoundaryViolations("packages/cli-app/src/rpc/greenfield-im-runtime-host.ts", source),
+		).toHaveLength(1);
+		expect(
+			findPackageBoundaryViolations("packages/runtime-composition/src/greenfield-runtime-composition.ts", source),
+		).toHaveLength(1);
+		expect(findPackageBoundaryViolations("packages/cli-app/src/agent-runtime-selection.ts", source)).toEqual([]);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/runtime-composition/src/greenfield-runtime-composition.ts",
+				"// runLegacyAgentWithBootstrap is a compatibility-only entry point.",
+			),
+		).toEqual([]);
+	});
+
 	it("keeps agent-core below runtime and product packages", () => {
 		expect(
 			findPackageBoundaryViolations(

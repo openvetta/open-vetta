@@ -44,7 +44,7 @@
 8. [实施日志](./08-implementation-log.md)
    - 索引；每轮实施单独成文，见 [`08-implementation-log/`](./08-implementation-log/)。
    - 按实施轮次记录实际修改、验证结果、未完成项和下一步。
-   - 最新记录：[第 113 轮：标准安装产物运行时边界收口](./08-implementation-log/113-installed-artifact-runtime-boundary-closure.md)。
+   - 最新记录：[第 114 轮：生产切换控制面与会话迁移边界](./08-implementation-log/114-production-cutover-control-and-session-migration.md)。
 9. [行为兼容性审计](./09-behavior-compatibility-audit.md)
    - 审计已实施模块与旧行为的差距。
    - 定义旧新差分测试和迁移 Gate。

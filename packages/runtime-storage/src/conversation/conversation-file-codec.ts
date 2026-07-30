@@ -17,10 +17,12 @@ import {
 	type ConversationDocumentOperationRecord,
 	type ConversationEventRecord,
 	type ConversationFileHeader,
+	type ConversationImportSeedRecord,
 	isConversationContinuationSeedRecord,
 	isConversationDocumentOperationRecord,
 	isConversationEventRecord,
 	isConversationFileHeader,
+	isConversationImportSeedRecord,
 	isStoredSessionEvent,
 	type ReadConversationEventRecord,
 	type ReadConversationFileHeader,
@@ -31,6 +33,7 @@ type ConversationBodyRecord = ReadConversationEventRecord | ConversationDocument
 export interface ParsedConversationFile {
 	readonly header: ReadConversationFileHeader;
 	readonly continuationSeed?: ConversationContinuationSeedRecord;
+	readonly importSeed?: ConversationImportSeedRecord;
 	readonly records: readonly ConversationBodyRecord[];
 	readonly eventRecords: readonly ReadConversationEventRecord[];
 }
@@ -46,6 +49,7 @@ export function parseConversationFile(text: string, sessionId: string): ParsedCo
 	const conversationRecords: ConversationBodyRecord[] = [];
 	const documentEntryIds = new Set<string>();
 	let continuationSeed: ConversationContinuationSeedRecord | undefined;
+	let importSeed: ConversationImportSeedRecord | undefined;
 	let expectedEventSequence = 1;
 	for (let index = 0; index < body.length; index += 1) {
 		const record = body[index];
@@ -54,6 +58,7 @@ export function parseConversationFile(text: string, sessionId: string): ParsedCo
 				header.schemaVersion !== CONVERSATION_SCHEMA_VERSION ||
 				index !== 0 ||
 				continuationSeed ||
+				importSeed ||
 				header.parentSessionPath !== record.sourceSessionPath ||
 				header.parentEntryId !== record.sourceEntryId
 			) {
@@ -63,6 +68,26 @@ export function parseConversationFile(text: string, sessionId: string): ParsedCo
 			for (const entry of record.entries) {
 				if (documentEntryIds.has(entry.id)) {
 					throw corruptConversation(sessionId, `duplicate continuation entry at line ${index + 2}`);
+				}
+				documentEntryIds.add(entry.id);
+			}
+			continue;
+		}
+		if (isConversationImportSeedRecord(record)) {
+			if (
+				header.schemaVersion !== CONVERSATION_SCHEMA_VERSION ||
+				index !== 0 ||
+				continuationSeed ||
+				importSeed ||
+				header.parentSessionPath !== undefined ||
+				header.parentEntryId !== undefined
+			) {
+				throw corruptConversation(sessionId, `invalid import seed at line ${index + 2}`);
+			}
+			importSeed = record;
+			for (const entry of record.entries) {
+				if (documentEntryIds.has(entry.id)) {
+					throw corruptConversation(sessionId, `duplicate import entry at line ${index + 2}`);
 				}
 				documentEntryIds.add(entry.id);
 			}
@@ -114,7 +139,7 @@ export function parseConversationFile(text: string, sessionId: string): ParsedCo
 		conversationRecords.push(record);
 	}
 
-	return { header, continuationSeed, records: conversationRecords, eventRecords };
+	return { header, continuationSeed, importSeed, records: conversationRecords, eventRecords };
 }
 
 export function validateConversationEvent(sessionId: string, event: StoredSessionEvent): void {
@@ -142,6 +167,7 @@ export function serializeConversationLine(
 		| ConversationEventRecord
 		| ReadConversationEventRecord
 		| ConversationContinuationSeedRecord
+		| ConversationImportSeedRecord
 		| ConversationDocumentOperationRecord,
 ): string {
 	return `${JSON.stringify(value)}\n`;
@@ -171,13 +197,17 @@ export function documentFromFile(sessionId: string, file: ParsedConversationFile
 				}
 			: {}),
 	};
-	let document = file.continuationSeed
+	const seed = file.continuationSeed ?? file.importSeed;
+	let document = seed
 		? createSeededConversationDocument(
 				identity,
-				file.continuationSeed.entries as readonly ConversationDocumentEntry[],
-				file.continuationSeed.activeLeafId,
+				seed.entries as readonly ConversationDocumentEntry[],
+				seed.activeLeafId,
 			)
 		: createEmptyConversationDocument(identity);
+	if (file.importSeed?.name !== undefined) {
+		document = { ...document, name: file.importSeed.name };
+	}
 	try {
 		for (const record of file.records) {
 			if (record.recordType === "conversation.event") {

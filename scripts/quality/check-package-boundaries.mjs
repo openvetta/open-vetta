@@ -234,6 +234,28 @@ function checkGreenfieldRuntimeImports(posixPath, specifiers, findings) {
 	}
 }
 
+function checkGreenfieldLegacyStartupSymbols(posixPath, text, findings) {
+	const isGreenfieldProductModule =
+		posixPath.startsWith("packages/cli-app/src/rpc/greenfield") ||
+		posixPath.startsWith("packages/runtime-composition/src/");
+	if (!isGreenfieldProductModule) return;
+
+	const sourceFile = ts.createSourceFile(posixPath, text, ts.ScriptTarget.Latest, true, scriptKind(posixPath));
+	const forbiddenSymbols = new Set(["createLegacyAgentBootstrap", "runLegacyAgentWithBootstrap"]);
+	const usedSymbols = new Set();
+	const visit = (node) => {
+		if (ts.isIdentifier(node) && forbiddenSymbols.has(node.text)) {
+			usedSymbols.add(node.text);
+		}
+		ts.forEachChild(node, visit);
+	};
+	visit(sourceFile);
+
+	for (const symbol of usedSymbols) {
+		findings.push(`${posixPath}: greenfield product modules must not use legacy startup symbol ${symbol}`);
+	}
+}
+
 function checkRuntimeCoreImports(posixPath, specifiers, findings) {
 	if (!posixPath.startsWith("packages/runtime-core/src/")) return;
 	for (const specifier of specifiers) {
@@ -267,6 +289,7 @@ export function findPackageBoundaryViolations(posixPath, text) {
 	checkRawCapabilityIds(posixPath, text, findings);
 	checkCapabilitySchemaDefinitions(posixPath, text, findings);
 	checkGreenfieldRuntimeImports(posixPath, specifiers, findings);
+	checkGreenfieldLegacyStartupSymbols(posixPath, text, findings);
 	checkRuntimeCoreImports(posixPath, specifiers, findings);
 	checkAgentCoreImports(posixPath, specifiers, findings);
 	return findings;

@@ -24,9 +24,17 @@ export {
 export {
 	LegacySessionDocumentReader,
 	type LegacySessionDocumentReaderOptions,
+	type LegacySessionDocumentSource,
 	parseLegacySessionDocument,
+	parseLegacySessionDocumentSource,
 	readLegacySessionDocument,
+	readLegacySessionDocumentSource,
 } from "./legacy-session-document-reader.js";
+export {
+	type LegacySessionMigrationOptions,
+	type LegacySessionMigrationResult,
+	migrateLegacySessionToV2,
+} from "./legacy-session-migration.js";
 export {
 	CONVERSATION_SCHEMA_VERSION,
 	LEGACY_CONVERSATION_SCHEMA_VERSION,

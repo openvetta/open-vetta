@@ -1,8 +1,11 @@
 export {
 	type AgentRuntimeBackend,
+	type AgentRuntimeDecision,
 	type AgentRuntimeSelection,
 	parseAgentRuntimeSelection,
+	type RunAgentRuntimeCliOptions,
 	runAgentRuntimeCli,
+	writeAgentRuntimeDecision,
 } from "./agent-runtime-selection.js";
 export {
 	createGreenfieldRuntimeComposition,

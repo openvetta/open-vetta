@@ -1,12 +1,26 @@
-import { createLegacyAgentBootstrap, main as runLegacyAgent, runLegacyAgentWithBootstrap } from "@vetta/coding-agent";
+import { createAgentCliBootstrap, main as runLegacyAgent, runLegacyAgentWithBootstrap } from "@vetta/coding-agent";
 import { ConversationOwnershipConflictError } from "@vetta/runtime-storage/conversation";
-import { prepareGreenfieldImRuntimeHost, runGreenfieldImRuntimeHost } from "./rpc/greenfield-im-runtime-host.js";
+import {
+	type GreenfieldImFallbackReason,
+	prepareGreenfieldImRuntimeHost,
+	runGreenfieldImRuntimeHost,
+} from "./rpc/greenfield-im-runtime-host.js";
 
 export type AgentRuntimeBackend = "legacy" | "greenfield-im";
 
 export interface AgentRuntimeSelection {
 	readonly backend: AgentRuntimeBackend;
 	readonly agentArgs: string[];
+}
+
+export interface AgentRuntimeDecision {
+	readonly requestedBackend: AgentRuntimeBackend;
+	readonly effectiveBackend: AgentRuntimeBackend;
+	readonly fallbackReason?: GreenfieldImFallbackReason;
+}
+
+export interface RunAgentRuntimeCliOptions {
+	readonly onDecision?: (decision: AgentRuntimeDecision) => void;
 }
 
 const RUNTIME_OPTION = "--agent-runtime";
@@ -34,14 +48,21 @@ export function parseAgentRuntimeSelection(args: readonly string[]): AgentRuntim
 	return { backend, agentArgs };
 }
 
-export async function runAgentRuntimeCli(args: readonly string[]): Promise<void> {
+export async function runAgentRuntimeCli(
+	args: readonly string[],
+	options: RunAgentRuntimeCliOptions = {},
+): Promise<void> {
 	const selection = parseAgentRuntimeSelection(args);
 	if (selection.backend === "legacy") {
+		options.onDecision?.({
+			requestedBackend: "legacy",
+			effectiveBackend: "legacy",
+		});
 		await runLegacyAgent(selection.agentArgs);
 		return;
 	}
 
-	const bootstrap = await createLegacyAgentBootstrap(selection.agentArgs);
+	const bootstrap = await createAgentCliBootstrap(selection.agentArgs);
 	const conversationDir = bootstrap.parsed.sessionDir;
 	if (!conversationDir) {
 		throw new Error("Greenfield IM Runtime requires --session-dir");
@@ -50,10 +71,20 @@ export async function runAgentRuntimeCli(args: readonly string[]): Promise<void>
 	try {
 		const prepared = await prepareGreenfieldImRuntimeHost({ bootstrap, conversationDir });
 		if (prepared.kind === "legacy-fallback") {
-			console.warn(`[agent-runtime] Greenfield unavailable (${prepared.reason}); using Legacy runtime`);
+			const decision = {
+				requestedBackend: "greenfield-im",
+				effectiveBackend: "legacy",
+				fallbackReason: prepared.reason,
+			} as const satisfies AgentRuntimeDecision;
+			if (options.onDecision) options.onDecision(decision);
+			else console.warn(`[agent-runtime] Greenfield unavailable (${prepared.reason}); using Legacy runtime`);
 			await runLegacyAgentWithBootstrap(prepared.bootstrap);
 			return;
 		}
+		options.onDecision?.({
+			requestedBackend: "greenfield-im",
+			effectiveBackend: "greenfield-im",
+		});
 		await runGreenfieldImRuntimeHost(prepared);
 	} catch (error) {
 		if (!(error instanceof ConversationOwnershipConflictError)) throw error;
@@ -74,6 +105,14 @@ export async function runAgentRuntimeCli(args: readonly string[]): Promise<void>
 		);
 		process.exitCode = 2;
 	}
+}
+
+export function writeAgentRuntimeDecision(decision: AgentRuntimeDecision): void {
+	const fallback = decision.fallbackReason ? ` fallback=${decision.fallbackReason}` : "";
+	const legacyNotice = decision.fallbackReason ? "; using Legacy runtime" : "";
+	process.stderr.write(
+		`[agent-runtime] requested=${decision.requestedBackend} effective=${decision.effectiveBackend}${fallback}${legacyNotice}\n`,
+	);
 }
 
 function parseBackend(value: string): AgentRuntimeBackend {
