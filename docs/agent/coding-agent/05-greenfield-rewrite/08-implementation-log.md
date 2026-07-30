@@ -120,6 +120,7 @@
 | [110-runtime-native-product-tools-and-model-order.md](./08-implementation-log/110-runtime-native-product-tools-and-model-order.md) | Runtime-native 产品工具、Session cwd 隔离与通用模型顺序合同 |
 | [111-real-host-provider-frame-and-session-isolation.md](./08-implementation-log/111-real-host-provider-frame-and-session-isolation.md) | 真实 CLI/RPC/IM 完整 Provider Frame 与同宿主多会话 cwd 隔离 |
 | [112-real-host-lifecycle-and-dynamic-capability-boundaries.md](./08-implementation-log/112-real-host-lifecycle-and-dynamic-capability-boundaries.md) | 真实宿主生命周期、进程内重启恢复与动态 Skill 边界 |
+| [113-installed-artifact-runtime-boundary-closure.md](./08-implementation-log/113-installed-artifact-runtime-boundary-closure.md) | 标准安装产物 Provider Frame、跨进程恢复与动态 Skill/MCP 边界 |
 
 ## 维护约定
 
