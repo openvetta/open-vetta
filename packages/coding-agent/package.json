@@ -28,9 +28,29 @@
 			"types": "./dist/config.d.ts",
 			"import": "./dist/config.js"
 		},
+		"./concurrency": {
+			"types": "./dist/core/concurrency-limit.d.ts",
+			"import": "./dist/core/concurrency-limit.js"
+		},
+		"./compat/runtime-storage": {
+			"types": "./dist/public-api/compat-runtime-storage.d.ts",
+			"import": "./dist/public-api/compat-runtime-storage.js"
+		},
+		"./compat/runtime-tools": {
+			"types": "./dist/public-api/compat-runtime-tools.d.ts",
+			"import": "./dist/public-api/compat-runtime-tools.js"
+		},
 		"./knowledge": {
 			"types": "./dist/core/knowledge/index.d.ts",
 			"import": "./dist/core/knowledge/index.js"
+		},
+		"./legacy/cli": {
+			"types": "./dist/public-api/legacy-cli.d.ts",
+			"import": "./dist/public-api/legacy-cli.js"
+		},
+		"./legacy/host-services": {
+			"types": "./dist/public-api/legacy-host-services.d.ts",
+			"import": "./dist/public-api/legacy-host-services.js"
 		},
 		"./profile": {
 			"types": "./dist/public-api/profile.d.ts",

@@ -29,4 +29,4 @@ export {
 	readTool,
 	treeTool,
 	writeTool,
-} from "@vetta/coding-agent";
+} from "@vetta/coding-agent/compat/runtime-tools";

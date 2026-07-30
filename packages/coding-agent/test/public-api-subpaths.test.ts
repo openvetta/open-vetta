@@ -1,10 +1,15 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import * as config from "../src/config.js";
+import { createLimiter } from "../src/core/concurrency-limit.js";
 import * as knowledge from "../src/core/knowledge/index.js";
 import { DefaultResourceLoader } from "../src/core/resource-loader.js";
 import * as root from "../src/index.js";
 import { createAgentCliBootstrap, createCodingAgentHostBootstrap } from "../src/public-api/bootstrap.js";
+import * as runtimeStorageCompat from "../src/public-api/compat-runtime-storage.js";
+import * as runtimeToolsCompat from "../src/public-api/compat-runtime-tools.js";
+import { main as legacyMain, runLegacyAgentWithBootstrap } from "../src/public-api/legacy-cli.js";
+import { AuthStorage, ModelRegistry, SettingsManager } from "../src/public-api/legacy-host-services.js";
 import { ALL_SCENARIOS, PERSONAS } from "../src/public-api/profile.js";
 import {
 	createImSendAttachmentTool,
@@ -24,6 +29,15 @@ describe("coding-agent public subpaths", () => {
 		expect(config.getAgentDir).toBe(root.getAgentDir);
 		expect(knowledge.knowledgeRoot).toBe(root.knowledge.knowledgeRoot);
 		expect(DefaultResourceLoader).toBe(root.DefaultResourceLoader);
+		expect(createLimiter).toBe(root.createLimiter);
+		expect(legacyMain).toBe(root.main);
+		expect(runLegacyAgentWithBootstrap).toBe(root.runLegacyAgentWithBootstrap);
+		expect(AuthStorage).toBe(root.AuthStorage);
+		expect(ModelRegistry).toBe(root.ModelRegistry);
+		expect(SettingsManager).toBe(root.SettingsManager);
+		expect(runtimeStorageCompat.SessionManager).toBe(root.SessionManager);
+		expect(runtimeToolsCompat.createReadTool).toBe(root.createReadTool);
+		expect(runtimeToolsCompat.readTool).toBe(root.readTool);
 	});
 
 	it("publishes the explicit package export targets", () => {
@@ -38,9 +52,29 @@ describe("coding-agent public subpaths", () => {
 				types: "./dist/config.d.ts",
 				import: "./dist/config.js",
 			},
+			"./concurrency": {
+				types: "./dist/core/concurrency-limit.d.ts",
+				import: "./dist/core/concurrency-limit.js",
+			},
+			"./compat/runtime-storage": {
+				types: "./dist/public-api/compat-runtime-storage.d.ts",
+				import: "./dist/public-api/compat-runtime-storage.js",
+			},
+			"./compat/runtime-tools": {
+				types: "./dist/public-api/compat-runtime-tools.d.ts",
+				import: "./dist/public-api/compat-runtime-tools.js",
+			},
 			"./knowledge": {
 				types: "./dist/core/knowledge/index.d.ts",
 				import: "./dist/core/knowledge/index.js",
+			},
+			"./legacy/cli": {
+				types: "./dist/public-api/legacy-cli.d.ts",
+				import: "./dist/public-api/legacy-cli.js",
+			},
+			"./legacy/host-services": {
+				types: "./dist/public-api/legacy-host-services.d.ts",
+				import: "./dist/public-api/legacy-host-services.js",
 			},
 			"./profile": {
 				types: "./dist/public-api/profile.d.ts",

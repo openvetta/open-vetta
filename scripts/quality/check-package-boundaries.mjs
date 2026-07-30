@@ -49,14 +49,6 @@ const MANIFEST_TRUTH_PACKAGE_NAMES = new Set([
 	"@vetta/desktop-app",
 ]);
 
-const CODING_AGENT_ROOT_IMPORT_ALLOWANCES = new Map([
-	["packages/cli-app/src/agent-runtime-selection.ts", "the explicit Legacy selector owns fallback startup"],
-	["packages/desktop-app/src/main/knowledge/poller.ts", "the Legacy knowledge processor still owns AgentSession"],
-	["packages/desktop-app/src/main/runtime.ts", "the Desktop Legacy runtime still owns session services"],
-	["packages/runtime-storage/src/index.ts", "the published package root is a compatibility facade"],
-	["packages/runtime-tools/src/index.ts", "the published package root is a compatibility facade"],
-]);
-
 function isLibFile(posixPath) {
 	return LIB_PREFIXES.some((prefix) => posixPath.startsWith(prefix));
 }
@@ -297,7 +289,7 @@ function checkCodingAgentRootImports(posixPath, specifiers, findings) {
 		posixPath.startsWith("packages/runtime-storage/src/") ||
 		posixPath.startsWith("packages/runtime-tools/src/");
 	const isTestFile = /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(posixPath);
-	if (!isGovernedConsumer || isTestFile || CODING_AGENT_ROOT_IMPORT_ALLOWANCES.has(posixPath)) return;
+	if (!isGovernedConsumer || isTestFile) return;
 	if (specifiers.includes("@vetta/coding-agent")) {
 		findings.push(
 			`${posixPath}: production consumers must use an explicit @vetta/coding-agent subpath instead of the compatibility root`,

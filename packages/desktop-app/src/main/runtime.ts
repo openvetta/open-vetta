@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { AuthStorage, ModelRegistry, SettingsManager } from "@vetta/coding-agent";
 import { getAgentDir } from "@vetta/coding-agent/config";
+import { AuthStorage, ModelRegistry, SettingsManager } from "@vetta/coding-agent/legacy/host-services";
 import {
 	createCodingAgentMcpRuntimeToolSource,
 	createCodingAgentPluginMcpRuntime,

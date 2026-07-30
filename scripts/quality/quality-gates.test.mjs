@@ -287,8 +287,14 @@ describe("package boundary analysis", () => {
 				'import { getAgentDir } from "@vetta/coding-agent/config";',
 			),
 		).toEqual([]);
-		expect(findPackageBoundaryViolations("packages/desktop-app/src/main/runtime.ts", rootImport)).toEqual([]);
-		expect(findPackageBoundaryViolations("packages/runtime-tools/src/index.ts", rootImport)).toEqual([]);
+		expect(findPackageBoundaryViolations("packages/desktop-app/src/main/runtime.ts", rootImport)).toHaveLength(1);
+		expect(findPackageBoundaryViolations("packages/runtime-tools/src/index.ts", rootImport)).toHaveLength(1);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/runtime-tools/src/index.ts",
+				'export { createReadTool } from "@vetta/coding-agent/compat/runtime-tools";',
+			),
+		).toEqual([]);
 	});
 
 	it("requires scoped production packages to declare workspace imports", () => {

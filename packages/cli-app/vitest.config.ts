@@ -34,6 +34,10 @@ export default defineConfig({
 				replacement: fileURLToPath(new URL("../coding-agent/src/public-api/bootstrap.ts", import.meta.url)),
 			},
 			{
+				find: "@vetta/coding-agent/legacy/cli",
+				replacement: fileURLToPath(new URL("../coding-agent/src/public-api/legacy-cli.ts", import.meta.url)),
+			},
+			{
 				find: "@vetta/coding-agent/profile",
 				replacement: fileURLToPath(new URL("../coding-agent/src/public-api/profile.ts", import.meta.url)),
 			},

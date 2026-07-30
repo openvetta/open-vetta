@@ -44,7 +44,7 @@
 8. [实施日志](./08-implementation-log.md)
    - 索引；每轮实施单独成文，见 [`08-implementation-log/`](./08-implementation-log/)。
    - 按实施轮次记录实际修改、验证结果、未完成项和下一步。
-   - 最新记录：[第 116 轮：公开子路径与兼容根入口治理](./08-implementation-log/116-public-api-subpaths-and-root-consumer-guard.md)。
+   - 最新记录：[第 117 轮：Legacy 边界隔离与 Knowledge Processing 反腐层](./08-implementation-log/117-legacy-boundaries-and-knowledge-processing-port.md)。
 9. [行为兼容性审计](./09-behavior-compatibility-audit.md)
    - 审计已实施模块与旧行为的差距。
    - 定义旧新差分测试和迁移 Gate。

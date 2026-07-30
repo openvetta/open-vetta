@@ -1190,6 +1190,51 @@ CLI、RPC、Desktop 的中性 Bootstrap、RPC、Profile、配置、Knowledge 和
 继续为 Legacy。新增内容是编译期模块边界和进程内 TypeScript 转发，因此没有外部反序列化输入，不需要新增
 TypeBox/Zod Schema。
 
+### 2.35 Legacy 边界隔离与 Knowledge Processing 反腐层
+
+第 117 轮继续处理第 116 轮剩余的 5 个生产根入口允许项，但没有用一个新的 `legacy` 聚合根掩盖差异。
+CLI 启动、Desktop 具体 Host Service 和两个 Runtime 包根分别改用用途明确的迁移期边界：
+
+```text
+@vetta/coding-agent/legacy/cli
+@vetta/coding-agent/legacy/host-services
+@vetta/coding-agent/compat/runtime-storage
+@vetta/coding-agent/compat/runtime-tools
+```
+
+`runtime-storage` 和 `runtime-tools` 的外部根导出没有删除或改名，只是其内部转发不再依赖 Coding Agent
+聚合根。Legacy/Compat 子路径直接转发现有实现引用，不复制 Tool Factory、Session Manager 或 Host Service。
+通用 `createLimiter` 通过独立 `concurrency` 子路径复用原实现；本轮没有移动其所有权或重写调度算法。
+
+Knowledge Poller 不是普通 import 迁移。它此前直接读取 `AgentSession.modelRegistry`、`todoStore`，
+订阅 `AgentSessionEvent` 并注入旧 `ToolDefinition`。现由 Coding Agent Composition 提供
+`KnowledgeProcessingSessionFactory` 与 `KnowledgeProcessingSession`：
+
+```text
+Desktop Knowledge Poller
+  -> KnowledgeProcessingSessionFactory
+  -> KnowledgeProcessingSession
+       run / abort / subscribeUsage / dispose
+  -> Legacy AgentSession Adapter
+```
+
+Legacy Adapter 内部继续保持原行为：复用 Desktop 共享 ModelRegistry，先刷新远程模型再解析配置模型，
+先 `setModel` 后设置 reasoning，按文件建立并以 `scene` 锁定 Todo，使用轮级共享 `KbWriteSession` 创建
+`kb_write_page`，以 `agent_end` 或 prompt settle 完成等待，归一化 usage，并透传 abort/dispose。
+Poller 已不再认识 `AgentSession`、`AgentSessionEvent`、`SessionManager`、`ToolDefinition`、`modelRegistry`
+或 `todoStore`。
+
+本轮没有强行让 Poller 使用现有 RuntimeHost。RuntimeHost 尚不能表达 Todo `createMany + lock("scene")`
+以及同一加工轮跨多个并发 Session 共享写页索引；直接接入会失去强制逐文件完成、并发去重或 O(N²) 优化，
+属于功能变化。Greenfield 实现必须在同一 Port 下补齐这些合同后再切换。
+
+CLI、Desktop、Runtime Tools 和 Runtime Storage 的生产源码现已没有精确
+`@vetta/coding-agent` 根入口引用，结构守卫因此删除全部路径允许项；测试仍可使用根入口验证兼容性。
+默认 Runtime、公开根导出、Tool/Prompt/Skill/MCP、RPC wire 和持久化格式均未改变。
+
+新增 Port、usage 投影和 export map 都是进程内已类型化边界，没有新的外部输入或持久化记录，因此没有新增
+TypeBox/Zod Schema。
+
 ## 3. 已实施模块审计
 
 | 模块 | 当前状态 | 与旧行为的差距 | 切换结论 |
@@ -1205,7 +1250,8 @@ TypeBox/Zod Schema。
 | 宿主可执行文件解析 | Runtime Port、本地 PATH/managed-bin Adapter、grep/find 注入合同、旧 ensureTool 适配、网络/归档合同和 cli-app Composition Root 已通过 | 真实 GitHub 网络、最终独立可执行发布物和完整 Tool Profile 迁移尚未完成；包根兼容导出必须继续保留 | 新 Profile 可并行验证；旧宿主仍不可切换 |
 | Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope、agent mode、explicit 激活和 requires/capabilities，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；产品工具按 Session cwd 创建，文档/OCR/progress 已由 Runtime Tools 原生拥有，模型顺序由通用 `modelOrder` 稳定物化；Desktop 与 CLI/RPC/IM 源码 Provider Frame 已精确差分，安装产物 `im-claw` Provider Frame 与有序 Tool Surface 也已验证 | 安装产物 Greenfield CLI 仍只支持 `im-claw`；默认 selector 尚未切换 | 模型调用级工具面与 Runtime-native 所有权已闭合；进入默认切换准备度审计 |
 | Composition Root 与依赖图 | 产品装配已归属 `@vetta/coding-agent/composition`；CLI/Desktop 直接消费；`runtime-composition` 无包装兼容转发；Runtime 子路径与旧根兼容面采用分段构建；manifest truth 和 forwarding-only 守卫已接入 | `runtime-tools`、`runtime-storage` 包根仍需为外部消费者保留 Coding Agent 兼容转发；默认 selector 仍是 Legacy | 产品所有权和 clean build 顺序已收口；兼容根入口只能在外部迁移窗口后删除 |
-| Coding Agent 公开 API | Bootstrap、Config、Knowledge、Profile、Resources、RPC 已有显式公开子路径；仓库内受治理生产源码只剩 5 个带原因的根入口兼容消费者；新增引用受结构守卫约束 | Legacy selector、Desktop 旧会话服务及 Runtime 包根兼容转发仍需聚合根能力；外部消费者迁移窗口尚未建立 | 稳定职责入口已可独立消费；根入口继续作为兼容面保留，不能直接删除 |
+| Coding Agent 公开 API | Bootstrap、Config、Knowledge、Profile、Resources、RPC 已有显式子路径；Legacy CLI/Host Service 与 Runtime 包根使用用途明确的迁移期入口；受治理生产源码的精确根入口消费者已归零 | Legacy/Compat 子路径仍转发具体实现，外部消费者迁移窗口尚未建立；根入口仍是已发布兼容面 | 仓库内依赖不再经过聚合根；兼容入口只能按各自迁移合同逐项删除 |
+| Knowledge Processing Session | Desktop Poller 已只依赖 `run/abort/subscribeUsage/dispose` Port；Legacy Adapter 保留共享 ModelRegistry、Todo 锁定、轮级共享写页、usage 和生命周期行为 | Greenfield RuntimeHost 尚不能表达 Todo 建立/锁定与跨 Session 共享写页索引 | Legacy 具体实现已隔离；完成同 Port 的 Greenfield 实现与差分前不切换 |
 | `AgentSession` | 新状态机、活动 Turn 输入队列、无伪 user message 的 continue、显式 resume 与同 Turn 持久化身份重绑定已实现 | 尚缺旧外围能力的 Greenfield 实现 | 内核 Turn/恢复语义已具备；生产入口不可切换 |
 | Turn Pipeline | 固定阶段、模型调用请求—应答检查点、持久化压缩提交、跨 Conversation 续接及成功/失败 finalization、非持久化 observation、输入队列、continue、recovery、独立 Turn Model Binding 和 Session-local 运行期 Context 串行持久化已实现 | 完整生产 Composition Root 尚未接入 | 不可切换 |
 | `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环、动态 Model Call Frame、完整观察事件、输入队列、Context checkpoint 桥接和 Turn model binding 已接入真实 Greenfield Composition 与 RuntimeHost | 默认生产选择仍是 Legacy | 内核执行与候选宿主接线完成；等待整体默认切换门禁 |
@@ -1253,14 +1299,16 @@ side effects
 
 ## 5. 下一步
 
-稳定职责子路径和仓库内根入口守卫已经建立。下一阶段应审计剩余 5 个允许项，但不通过删除兼容功能来清零：
+生产根入口消费者已经归零，Knowledge Poller 也不再持有裸 AgentSession。下一阶段应完成
+Knowledge Processing Port 的 Greenfield 等价实现，但不能通过扩大通用 RuntimeHost 为业务对象容器：
 
-1. 为 selector、Desktop 旧会话服务和 Knowledge Poller 建立窄的 Legacy 公开边界，避免应用层继续依赖整个
-   聚合根；先固定所需符号与行为合同，再迁移引用。
-2. 分别审计 `runtime-tools`、`runtime-storage` 包根转发的外部兼容面，形成弃用与迁移清单；在外部迁移窗口
-   建立前继续保留原导出。
-3. 根入口仓库内生产消费者归零后，再单独评审默认 selector、Legacy 会话迁移操作和兼容入口弃用周期，不能把
-   这些产品决策夹带在模块边界整理中。
+1. 为每个 Knowledge Processing Session 注入同一轮级 `KnowledgeProcessingPageWriter`，让多个并发批共享
+   PageIndex 和串行提交边界。
+2. 在 Greenfield Session-local Todo Runtime 中提供产品组合所需的初始化与锁定能力，但只由 Composition
+   创建时使用，不把可写 Todo Store 暴露给 Desktop。
+3. 用同一批次 fixture 差分 Legacy/Greenfield 的模型选择顺序、Todo、最终 Provider Tool、写页结果、usage、
+   abort 和 dispose；差分归零后才允许 Poller selector 选择 Greenfield。
+4. 继续保留默认 Legacy、根入口和 Runtime 包兼容转发；默认 selector 与外部弃用窗口仍是后续独立决策。
 
 TypeBox/Zod 只用于外部 RPC、配置和持久化反序列化边界；生产 Profile 比较使用已经类型化的 Model Call
 Frame 与 Session 合同，不为内部对象重复增加 Schema。

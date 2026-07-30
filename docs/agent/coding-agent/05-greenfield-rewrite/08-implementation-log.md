@@ -124,6 +124,7 @@
 | [114-production-cutover-control-and-session-migration.md](./08-implementation-log/114-production-cutover-control-and-session-migration.md) | 中性启动入口、Runtime 决策观察、显式 Legacy 会话迁移与架构回退守卫 |
 | [115-composition-ownership-and-dependency-graph.md](./08-implementation-log/115-composition-ownership-and-dependency-graph.md) | Coding Agent Composition 所有权、兼容转发、分段构建与依赖声明守卫 |
 | [116-public-api-subpaths-and-root-consumer-guard.md](./08-implementation-log/116-public-api-subpaths-and-root-consumer-guard.md) | Coding Agent 公开子路径、仓库内消费者迁移与兼容根入口守卫 |
+| [117-legacy-boundaries-and-knowledge-processing-port.md](./08-implementation-log/117-legacy-boundaries-and-knowledge-processing-port.md) | Legacy/Compat 窄入口、Knowledge Processing Session Port 与生产根消费者归零 |
 
 ## 维护约定
 

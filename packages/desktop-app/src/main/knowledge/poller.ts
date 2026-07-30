@@ -13,14 +13,10 @@ import { mkdir, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-	type AgentSession,
-	type AgentSessionEvent,
-	createAgentSession,
-	createKbWritePageTool,
-	createLimiter,
-	SessionManager,
-	type ToolDefinition,
-} from "@vetta/coding-agent";
+	createLegacyKnowledgeProcessingSessionFactory,
+	type KnowledgeProcessingSession,
+} from "@vetta/coding-agent/composition";
+import { createLimiter } from "@vetta/coding-agent/concurrency";
 import * as knowledge from "@vetta/coding-agent/knowledge";
 import { BrowserWindow } from "electron";
 import { AsyncTask, SimpleIntervalJob, ToadScheduler } from "toad-scheduler";
@@ -83,6 +79,9 @@ async function refreshCachesAndNotify(root: string): Promise<void> {
 }
 
 const log = getAppLogger("kb-poller");
+const knowledgeProcessingSessionFactory = createLegacyKnowledgeProcessingSessionFactory({
+	getModelRegistry: getOrCreateSharedModelRegistry,
+});
 
 /** 上报重建时被排除的坏页（frontmatter 非法/缺失）——否则其源文件永远静默显示未加工。 */
 function logDamagedPages(result: knowledge.RebuildResult): void {
@@ -104,7 +103,7 @@ let running = false;
  */
 interface RoundToken {
 	aborted: boolean;
-	sessions: Set<AgentSession>;
+	sessions: Set<KnowledgeProcessingSession>;
 }
 let currentRound: RoundToken | undefined;
 let roundDone: Promise<void> | undefined;
@@ -133,53 +132,6 @@ export async function abortKnowledgeRound(): Promise<void> {
 const KB_MAX_FILES_PER_BATCH = 20;
 /** 单批最多字节数：约束一批里 OCR/大文件的总量；超此值的单文件独占一批。 */
 const KB_MAX_BYTES_PER_BATCH = 8 * 1024 * 1024;
-
-async function applyProcessingModel(
-	session: AgentSession,
-	modelKey: string | undefined,
-	reasoningLevel?: string,
-): Promise<void> {
-	if (!modelKey) return;
-	const slash = modelKey.indexOf("/");
-	if (slash <= 0) return;
-	const provider = modelKey.slice(0, slash);
-	const modelId = modelKey.slice(slash + 1);
-	// 复用的共享 registry 是启动时后台预热远程模型的，此处 find 前先确保远程已加载
-	// （幂等 + inflight 去重，已加载时几乎零成本）：否则加工模型若是远程模型（vetta-go 等），
-	// 预热未完成时会被误判为「未找到」。原先 KB 会话自建 registry 时会 await 一次，这里补回。
-	await session.modelRegistry.loadRemoteModels();
-	// 解析失败必须抛出、不能静默：否则会话会退回默认模型或无模型，用户在设置里切换模型
-	// 「像没切一样」，最终以难懂的 "No model selected" 收场。抛出的错会冒泡到 scan-now，
-	// 在设置页以「整理失败」明示原因（模型未找到 / 无 API key）。
-	const model = session.modelRegistry.find(provider, modelId);
-	if (!model) {
-		throw new Error(`知识库加工模型未找到：${modelKey}（请在知识库设置里重新选择加工模型）`);
-	}
-	await session.setModel(model);
-	// setModel 会按新模型重新夹取思考档位，故档位必须在其后应用。
-	if (reasoningLevel) session.setThinkingLevel(reasoningLevel);
-}
-
-function waitForCompletion(session: AgentSession, prompt: string): Promise<void> {
-	return new Promise<void>((resolve, reject) => {
-		let settled = false;
-		const finish = (fn: () => void) => {
-			if (settled) return;
-			settled = true;
-			unsubscribe();
-			fn();
-		};
-		const unsubscribe = session.subscribe((event: AgentSessionEvent) => {
-			if (event.type === "agent_end") finish(resolve);
-		});
-		// prompt() 在本轮（含被 abort() 中止）收尾时 settle：也据此 resolve，兜底 abort
-		// 路径下 agent_end 可能不触发的情况，避免 waitForCompletion 永久挂起。
-		session.prompt(prompt).then(
-			() => finish(resolve),
-			(err) => finish(() => reject(err)),
-		);
-	});
-}
 
 async function countKnowledgeBaseDirs(root: string): Promise<number> {
 	try {
@@ -266,27 +218,6 @@ function scheduleKnowledgeBaseProcessingOutcome(root: string, attempted: knowled
 	})();
 }
 
-function readFiniteNumber(record: Record<string, unknown>, key: string): number {
-	const value = record[key];
-	return typeof value === "number" && Number.isFinite(value) ? value : 0;
-}
-
-function recordUsageFromMessage(message: unknown): void {
-	if (typeof message !== "object" || message === null || !("usage" in message)) return;
-	const usage = (message as { usage?: unknown }).usage;
-	if (typeof usage !== "object" || usage === null) return;
-	const usageRecord = usage as Record<string, unknown>;
-	const cost = usageRecord.cost;
-	const costRecord = typeof cost === "object" && cost !== null ? (cost as Record<string, unknown>) : {};
-	recordKnowledgeBaseProcessingUsage({
-		inputTokens: readFiniteNumber(usageRecord, "input"),
-		outputTokens: readFiniteNumber(usageRecord, "output"),
-		cacheReadTokens: readFiniteNumber(usageRecord, "cacheRead"),
-		cacheWriteTokens: readFiniteNumber(usageRecord, "cacheWrite"),
-		costTotal: readFiniteNumber(costRecord, "total"),
-	});
-}
-
 /**
  * 跑一个加工批：起一个 agent 会话处理子 diff（只含本批的 added/changed）。
  * kb_write_page 注入轮级共享写页会话（共享 PageIndex + 串行提交），保证并发批写页安全。
@@ -301,42 +232,27 @@ async function runProcessingBatch(
 	round: RoundToken,
 ): Promise<void> {
 	if (round.aborted) return;
-	const { session } = await createAgentSession({
-		cwd: KB_PROCESSING_CWD,
-		sessionManager: SessionManager.create(KB_PROCESSING_CWD, KB_PROCESSING_SESSION_DIR),
-		// 复用进程级共享 ModelRegistry：它已加载 models.json（自定义 provider/模型）与远程模型，
-		// 与主对话一致。否则加工会话会新建一个不含 modelsPath 的 registry，find() 解析不到
-		// 用户在知识库设置里选的自定义模型 → 静默回退 / "No model selected"。
-		modelRegistry: getOrCreateSharedModelRegistry(),
-		// 场景驱动激活：core/doc/kb-read 等由 kb-processing 场景的 scope_use 自动激活。
-		scenario: "kb-processing",
-		// 仅 kb_write_page 需注入轮级共享写页会话（覆盖注册表里无 session 的默认版本）。
-		customTools: [createKbWritePageTool(undefined, writeSession) as unknown as ToolDefinition],
-		appendSystemPrompt: knowledge.KB_PROCESSING_GUIDE,
-		enableBackgroundTasks: false,
-		env: { TMPDIR: tmpDir, TEMP: tmpDir, TMP: tmpDir },
-	});
-	// 把本批文件预填为锁定待办（一文件一项），强制 agent 逐个有序处理、逐个标记完成：
-	// 锁定后不可新建/跳过/乱序，且未全部完成不允许结束（continuation 强制）；待办作为
-	// session 快照持久化，不受上下文压缩影响——杜绝长任务里漏处理或重复处理同一文件。
 	const rawsBase = knowledge.rawsDir(root);
 	const todoItems = [
 		...batch.added.map((a) => `新建 wiki 页：${join(rawsBase, a.raw.source_path)}`),
 		...batch.changed.map((c) => `更新 wiki 页（id=${c.id}）：${join(rawsBase, c.source_path)}`),
 	];
-	if (todoItems.length > 0) {
-		session.todoStore.createMany(todoItems);
-		session.todoStore.lock("scene");
-	}
+	const session = await knowledgeProcessingSessionFactory.create({
+		cwd: KB_PROCESSING_CWD,
+		sessionDir: KB_PROCESSING_SESSION_DIR,
+		modelKey: modelKey ?? "",
+		reasoningLevel,
+		todoItems,
+		writer: writeSession,
+		appendSystemPrompt: knowledge.KB_PROCESSING_GUIDE,
+		env: { TMPDIR: tmpDir, TEMP: tmpDir, TMP: tmpDir },
+	});
 	// 注册为本轮活动会话，使 abortKnowledgeRound() 能即时中止它。
 	round.sessions.add(session);
-	const unsubscribeUsage = session.subscribe((event: AgentSessionEvent) => {
-		if (event.type === "message_end") recordUsageFromMessage(event.message);
-	});
+	const unsubscribeUsage = session.subscribeUsage(recordKnowledgeBaseProcessingUsage);
 	try {
 		if (round.aborted) return;
-		await applyProcessingModel(session, modelKey, reasoningLevel);
-		await waitForCompletion(session, knowledge.buildProcessingPrompt(batch, root, tmpDir));
+		await session.run(knowledge.buildProcessingPrompt(batch, root, tmpDir));
 	} finally {
 		unsubscribeUsage();
 		round.sessions.delete(session);

@@ -32,8 +32,20 @@ export default defineConfig({
 			},
 			{ find: "@vetta/coding-agent/config", replacement: resolve(__dirname, "../coding-agent/src/config.ts") },
 			{
+				find: "@vetta/coding-agent/concurrency",
+				replacement: resolve(__dirname, "../coding-agent/src/core/concurrency-limit.ts"),
+			},
+			{
 				find: "@vetta/coding-agent/knowledge",
 				replacement: resolve(__dirname, "../coding-agent/src/core/knowledge/index.ts"),
+			},
+			{
+				find: "@vetta/coding-agent/legacy/cli",
+				replacement: resolve(__dirname, "../coding-agent/src/public-api/legacy-cli.ts"),
+			},
+			{
+				find: "@vetta/coding-agent/legacy/host-services",
+				replacement: resolve(__dirname, "../coding-agent/src/public-api/legacy-host-services.ts"),
 			},
 			{
 				find: "@vetta/coding-agent/profile",
