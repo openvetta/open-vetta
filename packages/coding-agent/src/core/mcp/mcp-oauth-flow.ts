@@ -7,9 +7,11 @@
 
 import { exec } from "node:child_process";
 import { createServer, type Server } from "node:http";
-import { UnauthorizedError } from "@modelcontextprotocol/sdk/client/auth.js";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import {
+	createMcpBrowserOAuthSdkSession,
+	type McpOAuthCallbackSession,
+	runMcpBrowserOAuthFlow,
+} from "@vetta/runtime-mcp";
 import { getAgentDir } from "../../config.js";
 import { FileMcpOAuthProvider } from "./mcp-oauth-provider.js";
 
@@ -86,56 +88,7 @@ export async function openUrlInBrowser(url: string): Promise<void> {
 	});
 }
 
-/**
- * Wrap fetch so OAuth token-endpoint errors surface the provider's real message
- * instead of a cryptic schema-validation failure. Some providers (e.g. GitHub)
- * return HTTP 200 with an OAuth `error` body on a failed code exchange; the SDK
- * then parses it as tokens and throws an opaque zod error (missing access_token).
- */
-function createOAuthDiagnosticFetch(): typeof fetch {
-	return async (input, init) => {
-		const response = await fetch(input, init);
-		const method = (init?.method ?? "GET").toUpperCase();
-		if (method !== "POST" || !response.ok) return response;
-		let body: string;
-		try {
-			body = await response.clone().text();
-		} catch {
-			return response;
-		}
-		if (/access_token/.test(body) || !/error/i.test(body)) return response;
-		const message = extractOAuthError(body);
-		if (message) throw new Error(`OAuth authorization failed: ${message}`);
-		return response;
-	};
-}
-
-/** Pull `error`/`error_description` out of a JSON or form-encoded OAuth error body. */
-function extractOAuthError(body: string): string | null {
-	try {
-		const json = JSON.parse(body) as { error?: unknown; error_description?: unknown };
-		if (json && typeof json === "object" && typeof json.error === "string") {
-			return typeof json.error_description === "string" ? `${json.error}: ${json.error_description}` : json.error;
-		}
-	} catch {
-		const params = new URLSearchParams(body);
-		const error = params.get("error");
-		if (error) {
-			const desc = params.get("error_description");
-			return desc ? `${error}: ${desc}` : error;
-		}
-	}
-	return null;
-}
-
-interface CallbackServer {
-	port: number;
-	redirectUri: string;
-	waitForCode: (timeoutMs: number) => Promise<string>;
-	close: () => Promise<void>;
-}
-
-async function startOAuthCallbackServer(): Promise<CallbackServer> {
+async function startOAuthCallbackServer(): Promise<McpOAuthCallbackSession> {
 	let resolveCode: ((code: string) => void) | null = null;
 	let rejectCode: ((error: Error) => void) | null = null;
 	let settled = false;
@@ -209,7 +162,6 @@ async function startOAuthCallbackServer(): Promise<CallbackServer> {
 	const redirectUri = `http://127.0.0.1:${port}/callback`;
 
 	return {
-		port,
 		redirectUri,
 		waitForCode: (timeoutMs: number) =>
 			new Promise<string>((resolve, reject) => {
@@ -254,71 +206,33 @@ async function startOAuthCallbackServer(): Promise<CallbackServer> {
  * Safe to call from desktop IPC or agent/CLI without an active session.
  */
 export async function loginHttpMcpServer(options: LoginHttpMcpServerOptions): Promise<LoginHttpMcpServerResult> {
-	const serverUrl = options.serverUrl.trim();
-	if (!serverUrl) throw new Error("serverUrl is required");
-	const serverName = options.serverName.trim();
-	if (!serverName) throw new Error("serverName is required");
-
 	const agentDir = options.agentDir ?? getAgentDir();
 	const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 	const authTimeoutMs = options.authTimeoutMs ?? AUTH_WAIT_TIMEOUT_MS;
 	const openUrl = options.openUrl ?? openUrlInBrowser;
-
-	const callback = await startOAuthCallbackServer();
-	let authorizationOpened = false;
-	const diagnosticFetch = createOAuthDiagnosticFetch();
-
-	try {
-		const provider = new FileMcpOAuthProvider({
-			serverName,
-			serverUrl,
-			redirectUri: callback.redirectUri,
-			agentDir,
-			clientName: CLIENT_NAME,
-			clientId: options.oauthClientId,
-			onRedirect: async (authorizationUrl) => {
-				authorizationOpened = true;
-				await openUrl(authorizationUrl.toString());
-			},
-		});
-
-		const transport = new StreamableHTTPClientTransport(new URL(serverUrl), {
-			authProvider: provider,
-			fetch: diagnosticFetch,
-		});
-		const client = new Client({ name: CLIENT_NAME, version: CLIENT_VERSION }, { capabilities: {} });
-
-		try {
-			await client.connect(transport, { timeout: timeoutMs });
-			// Already authorized (valid tokens on disk)
-			await client.close().catch(() => undefined);
-			return { serverName, serverUrl };
-		} catch (error) {
-			if (!(error instanceof UnauthorizedError)) {
-				throw error;
-			}
-		}
-
-		// Unauthorized: wait for browser callback (redirect should have fired)
-		if (!authorizationOpened) {
-			// Some SDK paths throw Unauthorized before redirect; force discovery by finishAuth path
-			// Wait a moment then still wait for code in case redirect arrives async
-		}
-
-		const code = await callback.waitForCode(authTimeoutMs);
-		await transport.finishAuth(code);
-
-		// Verify the tokens work by reconnecting once
-		const verifyTransport = new StreamableHTTPClientTransport(new URL(serverUrl), {
-			authProvider: provider,
-			fetch: diagnosticFetch,
-		});
-		const verifyClient = new Client({ name: CLIENT_NAME, version: CLIENT_VERSION }, { capabilities: {} });
-		await verifyClient.connect(verifyTransport, { timeout: timeoutMs });
-		await verifyClient.close().catch(() => undefined);
-
-		return { serverName, serverUrl };
-	} finally {
-		await callback.close().catch(() => undefined);
-	}
+	return runMcpBrowserOAuthFlow({
+		serverName: options.serverName,
+		serverUrl: options.serverUrl,
+		authTimeoutMs,
+		createCallbackSession: startOAuthCallbackServer,
+		openUrl,
+		createOAuthSession: ({ redirectUri, onRedirect }) => {
+			const serverUrl = options.serverUrl.trim();
+			const provider = new FileMcpOAuthProvider({
+				serverName: options.serverName.trim(),
+				serverUrl,
+				redirectUri,
+				agentDir,
+				clientName: CLIENT_NAME,
+				clientId: options.oauthClientId,
+				onRedirect,
+			});
+			return createMcpBrowserOAuthSdkSession({
+				url: new URL(serverUrl),
+				authProvider: provider,
+				clientInfo: { name: CLIENT_NAME, version: CLIENT_VERSION },
+				timeout: timeoutMs,
+			});
+		},
+	});
 }
