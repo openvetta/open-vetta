@@ -85,7 +85,7 @@ export class CodingAgentModelCallFrameComposer implements ModelCallFrameComposer
 		const createDraft = (selectedTools: readonly string[]): SystemPromptDraft => {
 			const draft = buildSystemPromptDraft({
 				...promptOptions,
-				selectedTools: [...selectedTools],
+				selectedTools: orderCodingAgentToolNames(selectedTools),
 				...(mcpPromptState
 					? {
 							mcpTools: mcpPromptState.tools.map(({ name, description }) => ({ name, description })),
@@ -102,7 +102,7 @@ export class CodingAgentModelCallFrameComposer implements ModelCallFrameComposer
 			createDraft,
 		});
 		const draft = pluginFrame?.draft ?? createDraft(activeToolNames);
-		const tools = pluginFrame?.tools ?? effectiveContext.frame.tools;
+		const tools = orderCodingAgentTools(pluginFrame?.tools ?? effectiveContext.frame.tools);
 		return {
 			instructions: [
 				{
@@ -114,6 +114,35 @@ export class CodingAgentModelCallFrameComposer implements ModelCallFrameComposer
 			tools: this.options.hookRuntime ? wrapRuntimeToolsWithEcosystemHooks(tools, this.options.hookRuntime) : tools,
 		};
 	}
+}
+
+function orderCodingAgentTools(
+	tools: ReadonlyMap<string, RuntimeToolDefinition>,
+): ReadonlyMap<string, RuntimeToolDefinition> {
+	const entries = [...tools.entries()].map(([name, tool], sourceIndex) => ({ name, tool, sourceIndex }));
+	entries.sort((left, right) => {
+		const leftRank = CODING_AGENT_TOOL_RANK.get(left.name);
+		const rightRank = CODING_AGENT_TOOL_RANK.get(right.name);
+		if (leftRank !== undefined && rightRank !== undefined) return leftRank - rightRank;
+		if (leftRank !== undefined) return -1;
+		if (rightRank !== undefined) return 1;
+		return left.sourceIndex - right.sourceIndex;
+	});
+	return new Map(entries.map(({ name, tool }) => [name, tool]));
+}
+
+function orderCodingAgentToolNames(names: readonly string[]): string[] {
+	return [...names]
+		.map((name, sourceIndex) => ({ name, sourceIndex }))
+		.sort((left, right) => {
+			const leftRank = CODING_AGENT_TOOL_RANK.get(left.name);
+			const rightRank = CODING_AGENT_TOOL_RANK.get(right.name);
+			if (leftRank !== undefined && rightRank !== undefined) return leftRank - rightRank;
+			if (leftRank !== undefined) return -1;
+			if (rightRank !== undefined) return 1;
+			return left.sourceIndex - right.sourceIndex;
+		})
+		.map(({ name }) => name);
 }
 
 function appendFeatureInstructions(draft: SystemPromptDraft, instructions: readonly InstructionBlock[]): void {
@@ -133,3 +162,41 @@ function appendFeatureInstructions(draft: SystemPromptDraft, instructions: reado
 		});
 	}
 }
+
+const CODING_AGENT_TOOL_ORDER = [
+	"read",
+	"bash",
+	"shell",
+	"edit",
+	"write",
+	"grep",
+	"glob",
+	"find",
+	"ls",
+	"dir_tree",
+	"doc_to_pdf",
+	"html_to_pdf",
+	"extract_text_from_pdf",
+	"extract_text_from_img",
+	"render_pdf_page",
+	"current_time",
+	"progress",
+	"kb_write_page",
+	"kb_filter_by_tags",
+	"kb_list_available_tags",
+	"invoke_skill",
+	"todo",
+	"tool_search",
+	"task_output",
+	"task_stop",
+	"spawn_agent",
+	"dispatch_workflows",
+	"wait_agent",
+	"list_agents",
+	"interrupt_agent",
+	"send_message",
+	"followup_task",
+	"ask_user_question",
+] as const;
+
+const CODING_AGENT_TOOL_RANK = new Map<string, number>(CODING_AGENT_TOOL_ORDER.map((name, index) => [name, index]));

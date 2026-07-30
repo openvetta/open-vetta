@@ -87,6 +87,39 @@ describe("coding tools dynamic activation", () => {
 			await feature.dispose();
 		}
 	});
+
+	it("filters mode-specific tools at each model-call boundary", async () => {
+		const regular = createCurrentTimeToolRegistration();
+		const workOnly = {
+			...regular,
+			tool: { ...regular.tool, name: "work_only" },
+			agentModes: ["work"] as const,
+		};
+		const registry = new InMemoryCodingToolRegistry([regular, workOnly]);
+		let agentMode = "work";
+		const definition = createCodingToolsFeature({
+			catalog: registry,
+			resolveActivation: () => ({ mode: "scope", scope: "cli", agentMode }),
+		});
+		const signal = new AbortController().signal;
+		const feature = await definition.prepare({ signal });
+		const contribution = await feature.contribute({ profileId: "coding", signal });
+		const provider = contribution.modelCallProviders?.[0];
+		if (!provider) throw new Error("Expected coding tools model-call provider");
+
+		try {
+			expect((await provider.contribute(modelCallContext(signal))).tools?.map(({ name }) => name)).toEqual([
+				"current_time",
+				"work_only",
+			]);
+			agentMode = "coding";
+			expect((await provider.contribute(modelCallContext(signal))).tools?.map(({ name }) => name)).toEqual([
+				"current_time",
+			]);
+		} finally {
+			await feature.dispose();
+		}
+	});
 });
 
 function modelCallContext(

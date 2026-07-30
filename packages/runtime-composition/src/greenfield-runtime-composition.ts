@@ -33,6 +33,8 @@ import {
 	CodingAgentTodoContinuationSource,
 	CodingAgentTodoRuntime,
 	createCodingAgentAskUserQuestionRuntimeFeature,
+	createCodingAgentGreenfieldProductToolRegistrations,
+	createCodingAgentInvokeSkillRuntimeFeature,
 	createCodingAgentMemoryRuntimeFeature,
 	createCodingAgentPromptResourceResolver,
 	createCodingAgentPromptRuntime,
@@ -243,14 +245,20 @@ async function createGreenfieldRuntimeCompositionInternal(
 	const mcpControllers = new Map<string, McpDeferredToolController>();
 	const pluginMcpRuntimes = new Map<string, CodingAgentPluginMcpRuntime>();
 	const executionRuntimes = new Map<string, GreenfieldSessionExecutionRuntime>();
+	const configurationStates = new Map<string, GreenfieldSessionConfigurationState>();
 	const tools = createCodingToolsRuntimeComposition({
 		cwd,
 		activation: effectiveActivation,
 		resolveActivation: (context) =>
-			resolveTurnToolActivation(effectiveActivation, context, {
-				backgroundTasksAvailable,
-				knowledgeAvailable,
-			}),
+			resolveTurnToolActivation(
+				effectiveActivation,
+				context,
+				{
+					backgroundTasksAvailable,
+					knowledgeAvailable,
+				},
+				configurationStates.get(context.sessionId)?.readAgentMode(),
+			),
 		refreshCatalog: async (context) => {
 			const baseSnapshot = await mcpSynchronizer?.refresh();
 			const pluginSnapshot = await pluginMcpRuntimes.get(context.sessionId)?.refresh();
@@ -272,6 +280,10 @@ async function createGreenfieldRuntimeCompositionInternal(
 			return !controller?.isManagedTool(registration.tool.name) || controller.isToolVisible(registration.tool.name);
 		},
 		additionalRegistrations: [
+			...createCodingAgentGreenfieldProductToolRegistrations({
+				cwd,
+				knowledgeRoot: options.knowledgeRoot,
+			}),
 			adaptCodingAgentToolRegistration(createKbListTagsTool(options.knowledgeRoot)),
 			adaptCodingAgentToolRegistration(createKbFilterByTagsTool(options.knowledgeRoot)),
 			...inheritedMcpView.tools.map(({ tool }) => ({
@@ -354,6 +366,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 				const configurationState = new GreenfieldSessionConfigurationState(sessionOptions.agentMode, () =>
 					pluginRuntime?.readAgentPlugins(),
 				);
+				configurationStates.set(activeSessionId, configurationState);
 				pluginMcpRuntime = await options.createPluginMcpRuntime?.({
 					cwd: sessionCwd,
 					agentDir: options.agentDir,
@@ -672,10 +685,15 @@ async function createGreenfieldRuntimeCompositionInternal(
 								shouldPreserveBaseTool: (toolName) => mcpController?.isManagedTool(toolName) === true,
 								resolveActivation: (context) =>
 									toPluginToolActivation(
-										resolveTurnToolActivation(effectiveActivation, context, {
-											backgroundTasksAvailable,
-											knowledgeAvailable,
-										}),
+										resolveTurnToolActivation(
+											effectiveActivation,
+											context,
+											{
+												backgroundTasksAvailable,
+												knowledgeAvailable,
+											},
+											configurationState.readAgentMode(),
+										),
 										configurationState.readAgentMode(),
 									),
 							})
@@ -717,9 +735,20 @@ async function createGreenfieldRuntimeCompositionInternal(
 				if (!resolveSystemPromptOptions) {
 					throw new Error("Coding Agent system prompt resolver was not created");
 				}
+				const promptResourceSource = options.promptResourceSource ?? promptRuntime?.readResourceSource();
+				const invokeSkillFeature = promptResourceSource
+					? createCodingAgentInvokeSkillRuntimeFeature({
+							resourceSource: promptResourceSource,
+							readAgentMode: () => configurationState.readAgentMode(),
+						})
+					: undefined;
 				const profile: AgentProfile = {
 					...baseProfile,
-					features: [...baseProfile.features, ...(subagentRuntime ? [subagentRuntime.feature] : [])],
+					features: [
+						...baseProfile.features,
+						...(invokeSkillFeature ? [invokeSkillFeature] : []),
+						...(subagentRuntime ? [subagentRuntime.feature] : []),
+					],
 					observers: [...(baseProfile.observers ?? []), contextRuntime, ...(memoryRuntime ? [memoryRuntime] : [])],
 					contextStrategy: contextRuntime,
 					modelCallContextTransformer: contextRuntime,
@@ -849,7 +878,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 								pluginRunOrchestrator?.readActiveToolNames() ??
 								readActiveToolNames(
 									tools,
-									stateActivation,
+									withAgentMode(stateActivation, configurationState.readAgentMode()),
 									knowledgeAvailable,
 									effectiveActivation,
 									mcpController,
@@ -900,6 +929,10 @@ async function createGreenfieldRuntimeCompositionInternal(
 							executionRuntimes.delete(previousSessionId);
 							executionRuntimes.set(result.sessionId, activeExecutionRuntime);
 						}
+						if (configurationStates.get(previousSessionId) === configurationState) {
+							configurationStates.delete(previousSessionId);
+							configurationStates.set(result.sessionId, configurationState);
+						}
 						if (resourceContexts.get(previousSessionId) === resourceContext) {
 							resourceContexts.delete(previousSessionId);
 							resourceContexts.set(result.sessionId, resourceContext);
@@ -928,6 +961,9 @@ async function createGreenfieldRuntimeCompositionInternal(
 							if (executionRuntimes.get(activeSessionId) === activeExecutionRuntime) {
 								executionRuntimes.delete(activeSessionId);
 							}
+							if (configurationStates.get(activeSessionId) === configurationState) {
+								configurationStates.delete(activeSessionId);
+							}
 							if (resourceContexts.get(activeSessionId) === resourceContext) {
 								resourceContexts.delete(activeSessionId);
 							}
@@ -951,6 +987,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 				if (executionRuntimes.get(activeSessionId) === executionRuntime) {
 					executionRuntimes.delete(activeSessionId);
 				}
+				configurationStates.delete(activeSessionId);
 				if (resourceContexts.get(activeSessionId) === resourceContext) {
 					resourceContexts.delete(activeSessionId);
 				}
@@ -1003,6 +1040,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 			pluginMcpRuntimes.clear();
 			for (const executionRuntime of executionRuntimes.values()) executionRuntime.dispose();
 			executionRuntimes.clear();
+			configurationStates.clear();
 			ownershipBindings.clear();
 			await repository.close();
 			mcpSynchronizer?.dispose();
@@ -1108,6 +1146,7 @@ function resolveTurnToolActivation(
 		readonly backgroundTasksAvailable: boolean;
 		readonly knowledgeAvailable: boolean;
 	},
+	agentMode?: string,
 ): CodingToolActivation {
 	if (base.mode === "explicit") return base;
 	const capabilities = new Set(base.capabilities);
@@ -1115,7 +1154,7 @@ function resolveTurnToolActivation(
 	if (isKnowledgeToolEnabled(base, context, availability.knowledgeAvailable)) {
 		capabilities.add("knowledge");
 	}
-	return { ...base, capabilities };
+	return { ...base, capabilities, agentMode };
 }
 
 function isKnowledgeToolEnabled(
@@ -1135,6 +1174,10 @@ function withCapabilities(base: Extract<CodingToolActivation, { mode: "scope" }>
 		...base,
 		capabilities: new Set([...(base.capabilities ?? []), ...added]),
 	} satisfies CodingToolActivation;
+}
+
+function withAgentMode(activation: CodingToolActivation, agentMode: string | undefined): CodingToolActivation {
+	return activation.mode === "scope" ? { ...activation, agentMode } : activation;
 }
 
 function withScenario(activation: CodingToolActivation, scenario: ConversationScenario): CodingToolActivation {

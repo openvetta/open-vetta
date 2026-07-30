@@ -274,6 +274,55 @@ describe("Greenfield coding-agent adapters", () => {
 		).rejects.toThrow("Duplicate Coding Agent system prompt block id: core.tools");
 	});
 
+	it("emits built-in product tools in the legacy provider order while preserving external order", async () => {
+		const composer = new CodingAgentModelCallFrameComposer({
+			resolveSystemPromptOptions: () => ({ customPrompt: "test", cwd: "C:\\workspace" }),
+		});
+		const names = [
+			"kb_list_available_tags",
+			"invoke_skill",
+			"plugin_first",
+			"ask_user_question",
+			"todo",
+			"current_time",
+			"followup_task",
+			"shell",
+			"read",
+			"doc_to_pdf",
+			"spawn_agent",
+			"kb_filter_by_tags",
+			"plugin_second",
+			"progress",
+		];
+		const frame = await composer.compose({
+			sessionId: "session-1",
+			turnId: "turn-1",
+			signal: new AbortController().signal,
+			messages: [],
+			frame: {
+				instructions: [],
+				tools: new Map(names.map((name) => [name, runtimeTool(name)])),
+			},
+		});
+
+		expect([...frame.tools.keys()]).toEqual([
+			"read",
+			"shell",
+			"doc_to_pdf",
+			"current_time",
+			"progress",
+			"kb_filter_by_tags",
+			"kb_list_available_tags",
+			"invoke_skill",
+			"todo",
+			"spawn_agent",
+			"followup_task",
+			"ask_user_question",
+			"plugin_first",
+			"plugin_second",
+		]);
+	});
+
 	it("reads mutable Resource, Settings, Mode and Memory state per model call without sharing sessions", () => {
 		let firstBasePrompt = "First session prompt v1";
 		let firstPersonalization = "First persona v1";
@@ -372,3 +421,15 @@ const MODEL: Model<Api> = {
 	contextWindow: 8_000,
 	maxTokens: 1_000,
 };
+
+function runtimeTool(name: string) {
+	return {
+		name,
+		label: name,
+		description: name,
+		inputSchema: { type: "object" },
+		async execute() {
+			return { content: [] };
+		},
+	};
+}

@@ -87,6 +87,10 @@ export class CodingAgentPromptRuntime {
 		const { selectedTools: _selectedTools, ...options } = promptOptions;
 		return options;
 	}
+
+	readResourceSource(): CodingAgentPromptResourceSource {
+		return this.options.resourceLoader;
+	}
 }
 
 export async function createCodingAgentPromptRuntime(

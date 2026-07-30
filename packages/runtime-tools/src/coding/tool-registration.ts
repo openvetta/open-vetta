@@ -34,6 +34,8 @@ export interface CodingToolRegistration<TInput extends object = Readonly<Record<
 	 * filter, matching the legacy explicit-tool contract.
 	 */
 	readonly requires?: readonly string[];
+	/** 工作模式白名单；缺省或空数组表示通用。 */
+	readonly agentModes?: readonly string[];
 	readonly category: CodingToolCategory;
 }
 
@@ -43,6 +45,7 @@ export type CodingToolActivation =
 			readonly scope?: CodingToolScope;
 			readonly additionallyEnabledToolNames?: readonly string[];
 			readonly capabilities?: ReadonlySet<string>;
+			readonly agentMode?: string;
 	  }
 	| {
 			readonly mode: "explicit";
@@ -72,7 +75,8 @@ export function selectCodingToolRegistrations(
 		(registration) =>
 			additionallyEnabled.has(registration.tool.name) ||
 			(registration.scopeUse.includes(scope) &&
-				(registration.requires ?? []).every((capability) => capabilities.has(capability))),
+				(registration.requires ?? []).every((capability) => capabilities.has(capability)) &&
+				matchesAgentMode(registration.agentModes, activation.agentMode)),
 	);
 }
 
@@ -82,4 +86,9 @@ export function selectCodingToolsForScope(
 	capabilities: ReadonlySet<string> = new Set<string>(),
 ): readonly RuntimeToolDefinition[] {
 	return selectCodingTools(registrations, { mode: "scope", scope, capabilities });
+}
+
+function matchesAgentMode(declared: readonly string[] | undefined, active: string | undefined): boolean {
+	if (active === undefined || !declared || declared.length === 0) return true;
+	return declared.includes(active);
 }

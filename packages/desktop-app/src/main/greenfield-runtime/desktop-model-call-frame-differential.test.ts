@@ -40,16 +40,11 @@ describe("Desktop RuntimeHost model-call frame cutover readiness", () => {
 	});
 
 	for (const scenario of ALL_SCENARIOS) {
-		it(`preserves the shared ${scenario} model-call frame contract and inventories pending capabilities`, async () => {
+		it(`preserves the exact ${scenario} model-call frame contract`, async () => {
 			const cwd = await temporaryDirectory(`desktop-frame-${scenario}-workspace-`);
 			const observations = await observeBackends(cwd, scenario);
 
 			assertSharedModelCallFrame(observations.greenfield, observations.legacy);
-			expect(toolSurfaceDifference(observations.greenfield, observations.legacy)).toEqual({
-				greenfieldOnly: [],
-				pendingLegacyCapabilities: pendingGreenfieldCapabilities(scenario),
-				unclassifiedLegacyOnly: [],
-			});
 		}, 30_000);
 	}
 
@@ -196,12 +191,7 @@ function observableProviderBody(body: ProviderRequest): Readonly<Record<string, 
 
 function assertSharedModelCallFrame(greenfield: ModelCallObservation, legacy: ModelCallObservation): void {
 	expect(sharedProviderBody(greenfield.body)).toEqual(sharedProviderBody(legacy.body));
-	const greenfieldToolNames = toolNames(greenfield.body.tools);
-	const legacyToolNames = toolNames(legacy.body.tools);
-	const commonToolNames = greenfieldToolNames.filter((name) => legacyToolNames.includes(name));
-	expect(selectToolDefinitions(greenfield.body.tools, commonToolNames)).toEqual(
-		selectToolDefinitions(legacy.body.tools, commonToolNames),
-	);
+	expect(greenfield.body.tools).toEqual(legacy.body.tools);
 }
 
 function sharedProviderBody(body: Readonly<Record<string, unknown>>): Readonly<Record<string, unknown>> {
@@ -226,39 +216,6 @@ function normalizeSystemPrompt(value: string): string {
 			"<available_skills>\n<skill-surface>\n</available_skills>",
 		)
 		.replace(/^Current date and time: .*$/gm, "Current date and time: <turn-time>");
-}
-
-function selectToolDefinitions(value: unknown, names: readonly string[]): readonly unknown[] {
-	const selectedNames = new Set(names);
-	if (!Array.isArray(value)) return [];
-	return value
-		.filter((tool) => isRecord(tool) && typeof tool.name === "string" && selectedNames.has(tool.name))
-		.sort((left, right) => toolName(left).localeCompare(toolName(right)));
-}
-
-function toolName(value: unknown): string {
-	return isRecord(value) && typeof value.name === "string" ? value.name : "";
-}
-
-function toolSurfaceDifference(
-	greenfield: ModelCallObservation,
-	legacy: ModelCallObservation,
-): {
-	readonly greenfieldOnly: readonly string[];
-	readonly pendingLegacyCapabilities: readonly string[];
-	readonly unclassifiedLegacyOnly: readonly string[];
-} {
-	const greenfieldNames = new Set(toolNames(greenfield.body.tools));
-	const legacyNames = new Set(toolNames(legacy.body.tools));
-	const greenfieldOnly = [...greenfieldNames].filter((name) => !legacyNames.has(name)).sort();
-	const legacyOnly = [...legacyNames].filter((name) => !greenfieldNames.has(name));
-	return {
-		greenfieldOnly,
-		pendingLegacyCapabilities: PENDING_GREENFIELD_CAPABILITIES.filter((name) => legacyOnly.includes(name)),
-		unclassifiedLegacyOnly: legacyOnly
-			.filter((name) => !PENDING_GREENFIELD_CAPABILITY_NAMES.has(name) && !name.startsWith("mcp_"))
-			.sort(),
-	};
 }
 
 function toolNames(value: unknown): string[] {
@@ -346,23 +303,6 @@ function modelRegistry(model: Model<Api>): CodingAgentModelRegistrySource {
 }
 
 const RUNTIME_BACKENDS = ["legacy", "greenfield"] as const;
-
-const PENDING_GREENFIELD_CAPABILITIES = [
-	"doc_to_pdf",
-	"html_to_pdf",
-	"extract_text_from_pdf",
-	"extract_text_from_img",
-	"render_pdf_page",
-	"progress",
-	"invoke_skill",
-	"kb_write_page",
-] as const;
-
-const PENDING_GREENFIELD_CAPABILITY_NAMES: ReadonlySet<string> = new Set(PENDING_GREENFIELD_CAPABILITIES);
-
-function pendingGreenfieldCapabilities(scenario: ConversationScenario): string[] {
-	return PENDING_GREENFIELD_CAPABILITIES.filter((name) => name !== "kb_write_page" || scenario === "kb-processing");
-}
 
 const MODEL: Model<Api> = {
 	id: "desktop-model-call-frame",

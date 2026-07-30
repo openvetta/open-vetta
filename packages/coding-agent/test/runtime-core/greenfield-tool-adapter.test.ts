@@ -41,6 +41,7 @@ describe("Greenfield AgentTool adapter", () => {
 			parameters: inputSchema,
 			scope_use: ["project"],
 			requires: ["knowledge"],
+			agent_mode: ["work"],
 			category: "kb-read",
 			execute,
 		};
@@ -75,6 +76,7 @@ describe("Greenfield AgentTool adapter", () => {
 		expect(registration).toMatchObject({
 			scopeUse: ["project"],
 			requires: ["knowledge"],
+			agentModes: ["work"],
 			category: "kb-read",
 		});
 	});

@@ -8,6 +8,7 @@ export interface CodingAgentRuntimeToolRegistration {
 	readonly tool: RuntimeToolDefinition;
 	readonly scopeUse: readonly ConversationScenario[];
 	readonly requires?: readonly string[];
+	readonly agentModes?: readonly string[];
 	readonly category: ToolCategory;
 }
 
@@ -40,6 +41,7 @@ export function adaptCodingAgentToolRegistration<TParameters extends TSchema, TD
 		tool: runtimeTool,
 		scopeUse: tool.scope_use ?? [],
 		requires: tool.requires,
+		agentModes: tool.agent_mode,
 		category: isToolCategory(tool.category) ? tool.category : "external",
 	};
 }

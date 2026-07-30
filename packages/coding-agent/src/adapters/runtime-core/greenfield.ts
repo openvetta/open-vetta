@@ -39,6 +39,10 @@ export {
 	wrapRuntimeToolsWithEcosystemHooks,
 } from "./greenfield-hook-tool-wrapper.js";
 export {
+	type CodingAgentInvokeSkillRuntimeFeatureOptions,
+	createCodingAgentInvokeSkillRuntimeFeature,
+} from "./greenfield-invoke-skill-runtime.js";
+export {
 	type CodingAgentDeferredMcpTool,
 	createCodingAgentToolSearchRuntimeTool,
 	renderCodingAgentMcpToolsInstruction,
@@ -91,6 +95,10 @@ export {
 	type CodingAgentPluginToolRuntimeOptions,
 	type CodingAgentPluginToolSurface,
 } from "./greenfield-plugin-tool-runtime.js";
+export {
+	type CodingAgentGreenfieldProductToolOptions,
+	createCodingAgentGreenfieldProductToolRegistrations,
+} from "./greenfield-product-tool-adapter.js";
 export {
 	CodingAgentGreenfieldPromptAdapter,
 	type CodingAgentGreenfieldPromptAdapterOptions,
