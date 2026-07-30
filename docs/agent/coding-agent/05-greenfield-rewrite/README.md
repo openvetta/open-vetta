@@ -44,7 +44,7 @@
 8. [实施日志](./08-implementation-log.md)
    - 索引；每轮实施单独成文，见 [`08-implementation-log/`](./08-implementation-log/)。
    - 按实施轮次记录实际修改、验证结果、未完成项和下一步。
-   - 最新记录：[第 111 轮：真实宿主 Provider Frame 与多会话隔离收口](./08-implementation-log/111-real-host-provider-frame-and-session-isolation.md)。
+   - 最新记录：[第 112 轮：真实宿主生命周期与动态能力边界收口](./08-implementation-log/112-real-host-lifecycle-and-dynamic-capability-boundaries.md)。
 9. [行为兼容性审计](./09-behavior-compatibility-audit.md)
    - 审计已实施模块与旧行为的差距。
    - 定义旧新差分测试和迁移 Gate。

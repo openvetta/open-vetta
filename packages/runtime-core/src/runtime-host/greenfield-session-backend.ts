@@ -486,6 +486,7 @@ export class GreenfieldRuntimeSessionBackend<TCreateOptions>
 			const projection = new GreenfieldSessionProjection(conversation, document);
 			eventSink.bindProjection(projection);
 			eventSink.bindIdentity(assembly.identity);
+			eventSink.bindStateSource(assembly.stateSource);
 			eventSink.bindDocumentParticipants(assembly.documentParticipants ?? []);
 			const runtimeSession = new GreenfieldRuntimeSession(assembly, eventSink, projection);
 			await runtimeSession.initializeDocumentParticipants(document);
@@ -508,6 +509,7 @@ class GreenfieldSessionEventSink implements EventSink {
 	private documentParticipants: readonly GreenfieldRuntimeDocumentParticipant[] = [];
 	private identity: GreenfieldRuntimeSessionIdentity = {};
 	private projection: GreenfieldSessionProjection | undefined;
+	private stateSource: GreenfieldRuntimeStateSource | undefined;
 	private initializing = true;
 
 	async publish(event: KernelEvent): Promise<void> {
@@ -529,7 +531,8 @@ class GreenfieldSessionEventSink implements EventSink {
 				await participant.onSessionEvent?.(event);
 			}
 		}
-		for (const mapped of mapGreenfieldKernelEventToSessionEvents(event)) {
+		for (const mappedEvent of mapGreenfieldKernelEventToSessionEvents(event)) {
+			const mapped = this.withDynamicState(mappedEvent);
 			if (this.initializing) {
 				this.initializationEvents.push(mapped);
 				continue;
@@ -566,6 +569,10 @@ class GreenfieldSessionEventSink implements EventSink {
 		return this.identity;
 	}
 
+	bindStateSource(stateSource: GreenfieldRuntimeStateSource): void {
+		this.stateSource = stateSource;
+	}
+
 	bindDocumentParticipants(participants: readonly GreenfieldRuntimeDocumentParticipant[]): void {
 		this.documentParticipants = participants;
 	}
@@ -573,6 +580,18 @@ class GreenfieldSessionEventSink implements EventSink {
 	clear(): void {
 		this.listeners.clear();
 		this.initializationEvents.length = 0;
+		this.stateSource = undefined;
+	}
+
+	private withDynamicState(event: SessionEvent): SessionEvent {
+		if (event.type !== "usage.update" || !this.stateSource) return event;
+		const state = this.stateSource.read();
+		const contextTokens = event.input + event.output + event.cacheRead + event.cacheWrite;
+		return {
+			...event,
+			contextPercent: state.contextWindow > 0 ? (contextTokens / state.contextWindow) * 100 : null,
+			contextWindow: state.contextWindow,
+		};
 	}
 
 	private notifyListeners(event: SessionEvent): void {

@@ -479,9 +479,6 @@ export class DefaultResourceLoader implements ResourceLoader {
 	}
 
 	refreshSkillsIfChanged(): boolean {
-		if (this.lastSkillPaths.length === 0) {
-			return false;
-		}
 		const fingerprint = this.computeSkillsFingerprint();
 		if (fingerprint === this.skillsFingerprint) {
 			return false;
@@ -532,6 +529,11 @@ export class DefaultResourceLoader implements ResourceLoader {
 		for (const p of this.lastSkillPaths) {
 			walk(p);
 		}
+		if (!this.noSkills) {
+			for (const path of this.defaultSkillDirectories()) {
+				walk(path);
+			}
+		}
 		// Generic Agent Skill dirs are scanned inside loadSkills (not via lastSkillPaths),
 		// so fingerprint them here too — otherwise edits there wouldn't trigger a reload.
 		if (this.includeAgentSkills) {
@@ -567,10 +569,16 @@ export class DefaultResourceLoader implements ResourceLoader {
 		if (this.noSkills && skillPaths.length === 0) {
 			skillsResult = { skills: [], diagnostics: [] };
 		} else {
+			const effectiveSkillPaths = this.noSkills
+				? skillPaths
+				: this.mergePaths(
+						skillPaths,
+						this.defaultSkillDirectories().filter((path) => existsSync(path)),
+					);
 			skillsResult = loadSkills({
 				cwd: this.cwd,
 				agentDir: this.agentDir,
-				skillPaths,
+				skillPaths: effectiveSkillPaths,
 				includeDefaults: false,
 				includeAgentSkills: this.includeAgentSkills,
 			});
@@ -640,6 +648,10 @@ export class DefaultResourceLoader implements ResourceLoader {
 			bySource,
 			names: this.skills.map((s) => s.name),
 		});
+	}
+
+	private defaultSkillDirectories(): string[] {
+		return [join(this.agentDir, "skills"), join(this.cwd, CONFIG_DIR_NAME, "skills")];
 	}
 
 	private updatePromptsFromPaths(

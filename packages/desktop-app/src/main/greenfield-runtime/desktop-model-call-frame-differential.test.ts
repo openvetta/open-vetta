@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Api, Model } from "@vetta/ai";
@@ -148,6 +148,57 @@ describe("Desktop RuntimeHost model-call frame cutover readiness", () => {
 		}
 		expect(sharedProviderBody(legacyAfter.body)).not.toEqual(sharedProviderBody(legacyBefore.body));
 		expect(sharedProviderBody(greenfieldAfter.body)).not.toEqual(sharedProviderBody(greenfieldBefore.body));
+	}, 30_000);
+
+	it("applies Skill add, change and deletion on the next model call without rebuilding the session", async () => {
+		const observations: Record<RuntimeBackend, readonly SkillFrameObservation[]> = {
+			legacy: [],
+			greenfield: [],
+		};
+
+		for (const backend of RUNTIME_BACKENDS) {
+			const cwd = await temporaryDirectory(`desktop-frame-${backend}-dynamic-skill-workspace-`);
+			const server = await createServer();
+			const model = { ...MODEL, baseUrl: server.baseUrl };
+			const agentStateDir = await temporaryDirectory(`desktop-frame-${backend}-dynamic-skill-agent-`);
+			const sessionDir = await temporaryDirectory(`desktop-frame-${backend}-dynamic-skill-sessions-`);
+			const fixture = createRuntimeFixture(backend, agentStateDir, model);
+			fixtures.push(fixture);
+			const created = await fixture.runtime.createSession({
+				cwd,
+				agentDir: agentStateDir,
+				sessionDir,
+				model,
+				thinkingLevel: "off",
+				scenario: "conversation",
+				executionMode: "full-access",
+				enableBackgroundTasks: false,
+				includeAgentSkills: false,
+			});
+
+			await fixture.runtime.prompt(created.sessionId, { text: "Observe skills before creation" });
+			const skillDirectory = join(cwd, ".vetta", "skills", "phase-112-dynamic-skill");
+			const skillPath = join(skillDirectory, "SKILL.md");
+			await mkdir(skillDirectory, { recursive: true });
+			await writeFile(skillPath, skillDocument(PHASE_112_SKILL_V1), "utf8");
+			await fixture.runtime.prompt(created.sessionId, { text: "Observe the added skill" });
+			await writeFile(skillPath, skillDocument(PHASE_112_SKILL_V2), "utf8");
+			await fixture.runtime.prompt(created.sessionId, { text: "Observe the changed skill" });
+			await rm(skillDirectory, { recursive: true, force: true });
+			await fixture.runtime.prompt(created.sessionId, { text: "Observe skills after deletion" });
+
+			expect(fixture.runtime.getState(created.sessionId).sessionId).toBe(created.sessionId);
+			observations[backend] = server.requests.map(({ body }) => observeSkillFrame(body));
+		}
+
+		const expected: readonly SkillFrameObservation[] = [
+			{ hasVersionOne: false, hasVersionTwo: false },
+			{ hasVersionOne: true, hasVersionTwo: false },
+			{ hasVersionOne: false, hasVersionTwo: true },
+			{ hasVersionOne: false, hasVersionTwo: false },
+		];
+		expect(observations.legacy).toEqual(expected);
+		expect(observations.greenfield).toEqual(observations.legacy);
 	}, 30_000);
 
 	it("keeps product-tool cwd isolated across sessions sharing one RuntimeHost", async () => {
@@ -321,6 +372,29 @@ function collectStringValues(value: unknown): string[] {
 	return Object.values(value).flatMap(collectStringValues);
 }
 
+interface SkillFrameObservation {
+	readonly hasVersionOne: boolean;
+	readonly hasVersionTwo: boolean;
+}
+
+function observeSkillFrame(body: ProviderRequest): SkillFrameObservation {
+	const modelVisibleText = collectStringValues(body.input).join("\n");
+	return {
+		hasVersionOne: modelVisibleText.includes(PHASE_112_SKILL_V1),
+		hasVersionTwo: modelVisibleText.includes(PHASE_112_SKILL_V2),
+	};
+}
+
+function skillDocument(description: string): string {
+	return `---
+name: phase-112-dynamic-skill
+description: ${description}
+---
+
+Use this skill only for the Phase 112 runtime-boundary test.
+`;
+}
+
 function pluginConfiguration(): AgentPluginRuntimeConfig {
 	return {
 		systemPromptProviderContributions: [
@@ -402,6 +476,8 @@ function modelRegistry(model: Model<Api>): CodingAgentModelRegistrySource {
 }
 
 const RUNTIME_BACKENDS = ["legacy", "greenfield"] as const;
+const PHASE_112_SKILL_V1 = "Phase 112 dynamic skill version one";
+const PHASE_112_SKILL_V2 = "Phase 112 dynamic skill version two with changed instructions";
 
 const MODEL: Model<Api> = {
 	id: "desktop-model-call-frame",

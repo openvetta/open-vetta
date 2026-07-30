@@ -119,6 +119,7 @@
 | [109-production-tool-surface-gap-closure.md](./08-implementation-log/109-production-tool-surface-gap-closure.md) | 生产 Tool Surface 缺口闭合、动态 Skill/Agent Mode 与确定性顺序 |
 | [110-runtime-native-product-tools-and-model-order.md](./08-implementation-log/110-runtime-native-product-tools-and-model-order.md) | Runtime-native 产品工具、Session cwd 隔离与通用模型顺序合同 |
 | [111-real-host-provider-frame-and-session-isolation.md](./08-implementation-log/111-real-host-provider-frame-and-session-isolation.md) | 真实 CLI/RPC/IM 完整 Provider Frame 与同宿主多会话 cwd 隔离 |
+| [112-real-host-lifecycle-and-dynamic-capability-boundaries.md](./08-implementation-log/112-real-host-lifecycle-and-dynamic-capability-boundaries.md) | 真实宿主生命周期、进程内重启恢复与动态 Skill 边界 |
 
 ## 维护约定
 

@@ -87,10 +87,10 @@ describe("Desktop RuntimeHost Legacy/Greenfield differential gate", () => {
 		});
 	}
 
-	it("preserves a real provider Tool Loop and persisted result across backends", async () => {
-		const observations: Record<"legacy" | "greenfield", RuntimeTurnObservation> = {
-			legacy: emptyTurnObservation(),
-			greenfield: emptyTurnObservation(),
+	it("preserves real Tool Loop events, persistence and host-restart recovery across backends", async () => {
+		const observations: Record<"legacy" | "greenfield", RuntimeLifecycleObservation> = {
+			legacy: emptyLifecycleObservation(),
+			greenfield: emptyLifecycleObservation(),
 		};
 
 		for (const backend of ["legacy", "greenfield"] as const) {
@@ -99,11 +99,15 @@ describe("Desktop RuntimeHost Legacy/Greenfield differential gate", () => {
 			const agentStateDir = await temporaryDirectory(`desktop-${backend}-turn-agent-`);
 			const sourcePath = join(cwd, "message.txt");
 			await writeFile(sourcePath, "desktop tool fixture content", "utf8");
-			const server = await startOpenAiResponsesTestServer((_request, index) =>
-				index === 0
-					? { kind: "events", events: toolCallResponseEvents("read", { path: sourcePath }) }
-					: { kind: "events", events: textResponseEvents("The Desktop file was read.") },
-			);
+			const server = await startOpenAiResponsesTestServer((_request, index) => {
+				if (index === 0) {
+					return { kind: "events", events: toolCallResponseEvents("read", { path: sourcePath }) };
+				}
+				return {
+					kind: "events",
+					events: textResponseEvents(index === 1 ? "The Desktop file was read." : "The Desktop session resumed."),
+				};
+			});
 			const model = { ...MODEL, baseUrl: server.baseUrl };
 			const fixture = createRuntimeFixture(backend, agentStateDir, model);
 			fixtures.push(fixture);
@@ -129,10 +133,12 @@ describe("Desktop RuntimeHost Legacy/Greenfield differential gate", () => {
 				const sessionPath = fixture.runtime.getSessionPath(created.sessionId);
 				if (!sessionPath) throw new Error(`${backend} did not persist the Tool Loop session`);
 				const messagesBeforeResume = fixture.runtime.getMessages(created.sessionId);
-				observations[backend] = observeTurn(events, messagesBeforeResume);
+				const initial = observeTurn(events, messagesBeforeResume, cwd);
 
-				await fixture.runtime.disposeSession(created.sessionId);
-				const resumed = await fixture.runtime.createSession({
+				await fixture.dispose();
+				const restartedFixture = createRuntimeFixture(backend, agentStateDir, model);
+				fixtures.push(restartedFixture);
+				const resumed = await restartedFixture.runtime.createSession({
 					cwd,
 					sessionDir,
 					sessionPath,
@@ -142,20 +148,67 @@ describe("Desktop RuntimeHost Legacy/Greenfield differential gate", () => {
 					enableBackgroundTasks: false,
 					includeAgentSkills: false,
 				});
-				expect(observeMessages(fixture.runtime.getMessages(resumed.sessionId))).toEqual(
-					observeMessages(messagesBeforeResume),
+				const restoredMessages = restartedFixture.runtime.getMessages(resumed.sessionId);
+				const resumedEvents: SessionEvent[] = [];
+				const unsubscribeResumed = restartedFixture.runtime.subscribe(resumed.sessionId, (event) =>
+					resumedEvents.push(event),
 				);
+				await restartedFixture.runtime.prompt(resumed.sessionId, { text: "Continue after host restart" });
+				unsubscribeResumed();
+				expect(server.requests).toHaveLength(3);
+				const resumedProviderInput = JSON.stringify(server.requests[2]?.body.input);
+				observations[backend] = {
+					initial,
+					resumed: observeTurn(resumedEvents, restartedFixture.runtime.getMessages(resumed.sessionId), cwd),
+					historyRestoredBeforePrompt:
+						JSON.stringify(observeMessages(restoredMessages)) ===
+						JSON.stringify(observeMessages(messagesBeforeResume)),
+					sessionIdentityRestored: resumed.sessionId === created.sessionId,
+					resumedProviderSawPriorToolResult: resumedProviderInput.includes("desktop tool fixture content"),
+					resumedProviderSawPriorAssistant: resumedProviderInput.includes("The Desktop file was read."),
+				};
 			} finally {
 				await server.dispose();
 			}
 		}
 
 		expect(observations.legacy).toMatchObject({
-			lifecycle: ["created", "agent_start", "turn_start", "turn_end", "turn_start", "turn_end", "agent_end"],
-			finalAssistantText: "The Desktop file was read.",
-			tools: [{ name: "read", isError: false }],
-			messageRoles: ["user", "assistant", "toolResult", "assistant"],
+			initial: {
+				lifecycle: ["created", "agent_start", "turn_start", "turn_end", "turn_start", "turn_end", "agent_end"],
+				finalAssistantText: "The Desktop file was read.",
+				tools: [{ name: "read", isError: false }],
+				messageRoles: ["user", "assistant", "toolResult", "assistant"],
+			},
+			resumed: {
+				lifecycle: ["created", "agent_start", "turn_start", "turn_end", "agent_end"],
+				finalAssistantText: "The Desktop session resumed.",
+				tools: [],
+				messageRoles: ["user", "assistant", "toolResult", "assistant", "user", "assistant"],
+			},
+			historyRestoredBeforePrompt: true,
+			sessionIdentityRestored: true,
+			resumedProviderSawPriorToolResult: true,
+			resumedProviderSawPriorAssistant: true,
 		});
+		expect(observations.legacy.initial.events.map(({ type }) => type)).toEqual([
+			"session.lifecycle",
+			"mcp.reload.start",
+			"mcp.reload.end",
+			"session.lifecycle",
+			"session.lifecycle",
+			"toolcall.start",
+			"message.final",
+			"usage.update",
+			"tool.start",
+			"tool.end",
+			"session.lifecycle",
+			"session.lifecycle",
+			"message.delta",
+			"message.final",
+			"usage.update",
+			"session.lifecycle",
+			"session.lifecycle",
+		]);
 		expect(observations.greenfield).toEqual(observations.legacy);
 	}, 30_000);
 
@@ -249,13 +302,47 @@ interface RuntimeTurnObservation {
 	readonly finalAssistantText: string;
 	readonly tools: Array<{ readonly name: string; readonly isError: boolean }>;
 	readonly messageRoles: string[];
+	readonly events: RuntimeEventObservation[];
 }
 
-function emptyTurnObservation(): RuntimeTurnObservation {
-	return { lifecycle: [], finalAssistantText: "", tools: [], messageRoles: [] };
+interface RuntimeEventObservation {
+	readonly type: SessionEvent["type"];
+	readonly source: SessionEvent["source"];
+	readonly detail?: unknown;
 }
 
-function observeTurn(events: readonly SessionEvent[], messages: readonly Message[]): RuntimeTurnObservation {
+interface RuntimeLifecycleObservation {
+	readonly initial: RuntimeTurnObservation;
+	readonly resumed: RuntimeTurnObservation;
+	readonly historyRestoredBeforePrompt: boolean;
+	readonly sessionIdentityRestored: boolean;
+	readonly resumedProviderSawPriorToolResult: boolean;
+	readonly resumedProviderSawPriorAssistant: boolean;
+}
+
+function emptyLifecycleObservation(): RuntimeLifecycleObservation {
+	const emptyTurn = (): RuntimeTurnObservation => ({
+		lifecycle: [],
+		finalAssistantText: "",
+		tools: [],
+		messageRoles: [],
+		events: [],
+	});
+	return {
+		initial: emptyTurn(),
+		resumed: emptyTurn(),
+		historyRestoredBeforePrompt: false,
+		sessionIdentityRestored: false,
+		resumedProviderSawPriorToolResult: false,
+		resumedProviderSawPriorAssistant: false,
+	};
+}
+
+function observeTurn(
+	events: readonly SessionEvent[],
+	messages: readonly Message[],
+	cwd: string,
+): RuntimeTurnObservation {
 	return {
 		lifecycle: events.flatMap((event) => (event.type === "session.lifecycle" ? [event.phase] : [])),
 		finalAssistantText: observeMessages(messages).finalAssistantText,
@@ -263,7 +350,55 @@ function observeTurn(events: readonly SessionEvent[], messages: readonly Message
 			event.type === "tool.end" ? [{ name: event.toolName, isError: event.isError }] : [],
 		),
 		messageRoles: messages.map(({ role }) => role),
+		events: events.map((event) => observeEvent(event, cwd)),
 	};
+}
+
+function observeEvent(event: SessionEvent, cwd: string): RuntimeEventObservation {
+	const base = { type: event.type, source: event.source };
+	switch (event.type) {
+		case "session.lifecycle":
+			return { ...base, detail: event.phase };
+		case "message.delta":
+		case "thinking.delta":
+			return { ...base, detail: event.delta };
+		case "message.final":
+			return { ...base, detail: observeMessages([event.message]) };
+		case "toolcall.start":
+			return { ...base, detail: { toolName: event.toolName } };
+		case "tool.start":
+			return { ...base, detail: { toolName: event.toolName, args: normalizeEventValue(event.args, cwd) } };
+		case "tool.end":
+			return {
+				...base,
+				detail: {
+					toolName: event.toolName,
+					isError: event.isError,
+					result: normalizeEventValue(event.result, cwd),
+				},
+			};
+		case "usage.update":
+			return {
+				...base,
+				detail: {
+					input: event.input,
+					output: event.output,
+					cacheRead: event.cacheRead,
+					cacheWrite: event.cacheWrite,
+					contextPercent: event.contextPercent,
+					contextWindow: event.contextWindow,
+				},
+			};
+		default:
+			return base;
+	}
+}
+
+function normalizeEventValue(value: unknown, cwd: string): unknown {
+	if (typeof value === "string") return value.replaceAll(cwd, "<workspace>");
+	if (Array.isArray(value)) return value.map((entry) => normalizeEventValue(entry, cwd));
+	if (typeof value !== "object" || value === null) return value;
+	return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, normalizeEventValue(entry, cwd)]));
 }
 
 function observeMessages(messages: readonly Message[]): {

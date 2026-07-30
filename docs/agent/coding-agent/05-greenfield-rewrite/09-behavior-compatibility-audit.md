@@ -588,10 +588,11 @@ Greenfield Stored KernelEvent ────────────────�
 - Greenfield Adapter 将 observation、持久化 assistant message、cancel/failure 和 compaction
   结果统一转换为现有 `SessionEvent`，宿主消费者不需要直接理解 Kernel 内部事件。
 
-仍存在的差距：Greenfield 会话尚未装配到 `RuntimeHost`；新 Repository 目前不能计算旧
-`getContextUsage()`，所以 Greenfield usage 暂以 `contextPercent: null/contextWindow: 0` 表示未知；
-`context.compacted` 只有成功结果，尚不能单独表达 compaction start；MCP/Todo/后台任务/子代理的
-观察合同已经可以承载事件，但对应 Greenfield Feature 还未迁移。
+后续阶段已经把 Greenfield 会话装配到真实 `RuntimeHost`，并补齐 Context、MCP、Todo、后台任务和
+子代理观察来源。第 112 轮进一步以完整 Tool Loop 事件序列做旧新差分，确认
+`message.delta/final`、`usage.update`、Tool 生命周期、Turn 生命周期和 MCP reload 的来源、顺序与
+语义一致；usage 的 context 百分比继续按既有“本次模型 usage / context window”口径计算，不使用
+压缩策略的阶段性估算值替代宿主事件合同。
 
 ### 2.15 活动 Turn 输入并发
 
@@ -1024,6 +1025,31 @@ Coding Agent Composer 8 项、Greenfield Composition 14 项、CLI/RPC/IM 真实�
 Frame 与多会话合同 9 项通过；`bun run check:quick` 与完整 `bun run check` 均通过。没有新增外部反序列化
 边界，因此没有新增 TypeBox/Zod；默认 Runtime selector 继续保持 Legacy。
 
+### 2.30 真实宿主生命周期与动态能力边界
+
+第 112 轮把源码门禁从最终 Provider Frame 扩展到完整 RuntimeHost 生命周期。相同的真实 OpenAI Responses
+fixture 分别运行 Legacy 与 Greenfield：首轮执行真实 `read` Tool Loop，随后释放整个 RuntimeHost 和
+Greenfield Backend Pool，再仅凭已持久化的 session path 在新宿主实例恢复并继续会话。差分逐项比较
+SessionEvent 类型、source、稳定语义字段、消息角色、Tool 结果、会话身份和 Provider 恢复输入。
+
+门禁暴露并修复了三个架构边界问题：
+
+- Greenfield EventSink 的映射循环变量遮蔽 Kernel Event 参数，异常被安全发布边界隔离后造成“状态已落盘、
+  观察事件缺失”；现已恢复完整事件投递，且保留监听器故障隔离。
+- Greenfield usage 事件曾读取 Context Runtime 的阶段性估算值；现在只从实时状态取得 context window，
+  百分比按当前 assistant usage 计算，与 Legacy 事件合同一致。
+- Prompt 边界现在产生既有 `mcp.reload.start/end` 观察事件；Prompt 已完成的刷新由首个 Model Call 一次性
+  复用，避免重复访问 MCP Source，Tool Loop 后续 Model Call 仍重新读取运行时能力。
+
+动态 Skill 门禁在同一 Session 内依次验证“不存在、新增、内容修改、删除”，每次都从下一 Model Call 的
+真实系统提示词观察结果。审计发现原 ResourceLoader 只指纹化启动时已存在的 Skill 路径，因此 Session
+启动后首次创建 `.vetta/skills` 根目录不会触发刷新。现在默认用户/项目 Skill 根即使尚不存在也参与拓扑
+指纹；变化时只重载 Skill 资源，不重建 Session、Runtime Snapshot 或其他 Feature。
+
+本轮没有改变 Tool 名称、描述、Schema、执行语义、selector 默认值或持久化格式。新增数据均为进程内
+TypeScript 合同，Skill Markdown 继续使用既有 frontmatter 解析，MCP/持久化边界继续使用原有 TypeBox
+校验，因此没有引入 Zod 或重复 Schema。
+
 ## 3. 已实施模块审计
 
 | 模块 | 当前状态 | 与旧行为的差距 | 切换结论 |
@@ -1037,7 +1063,7 @@ Frame 与多会话合同 9 项通过；`bun run check:quick` 与完整 `bun run 
 | `edit` Tool | 独立 Runtime Tool、双模式纯编辑引擎、EditOperations、必需的宿主 EditPathPolicy、22 项差分合同和全场景 Profile 差分已通过 | 旧 AgentSession 和生产入口仍使用旧 Tool Factory | 工具模块迁移完成；旧生产入口尚不可删除 |
 | `bash/shell` Tool | Runtime Definition、Registration、前台执行器、后台协调、独立后台生命周期、task 工具、通知格式、低层 Host Adapter、平台 scope 和过渡 Composition Root 已通过 | 旧 AgentSession 和生产入口仍使用旧工具/Manager | 新 Runtime 工具链迁移完成；旧生产路径尚不可删除 |
 | 宿主可执行文件解析 | Runtime Port、本地 PATH/managed-bin Adapter、grep/find 注入合同、旧 ensureTool 适配、网络/归档合同和 cli-app Composition Root 已通过 | 真实 GitHub 网络、最终独立可执行发布物和完整 Tool Profile 迁移尚未完成；包根兼容导出必须继续保留 | 新 Profile 可并行验证；旧宿主仍不可切换 |
-| Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope、agent mode、explicit 激活和 requires/capabilities，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；产品工具按 Session cwd 创建，文档/OCR/progress 已由 Runtime Tools 原生拥有，模型顺序由通用 `modelOrder` 稳定物化；Desktop 与 CLI/RPC/IM 源码 Provider Frame 已精确差分，同一 RuntimeHost 多会话 cwd 已验证隔离 | 安装产物级 Desktop 差分尚待标准产物刷新后执行 | 模型调用级工具面与 Runtime-native 所有权已闭合；产物和剩余宿主生命周期门禁完成前不切换默认 Profile |
+| Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope、agent mode、explicit 激活和 requires/capabilities，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；产品工具按 Session cwd 创建，文档/OCR/progress 已由 Runtime Tools 原生拥有，模型顺序由通用 `modelOrder` 稳定物化；Desktop 与 CLI/RPC/IM 源码 Provider Frame 已精确差分，同一 RuntimeHost 多会话 cwd、真实 Tool Loop 事件和重启恢复已验证 | 安装产物级 Desktop 差分尚待标准产物刷新后执行 | 模型调用级工具面与 Runtime-native 所有权已闭合；产物门禁完成前不切换默认 Profile |
 | `AgentSession` | 新状态机、活动 Turn 输入队列、无伪 user message 的 continue、显式 resume 与同 Turn 持久化身份重绑定已实现 | 尚缺旧外围能力的 Greenfield 实现 | 内核 Turn/恢复语义已具备；生产入口不可切换 |
 | Turn Pipeline | 固定阶段、模型调用请求—应答检查点、持久化压缩提交、跨 Conversation 续接及成功/失败 finalization、非持久化 observation、输入队列、continue、recovery、独立 Turn Model Binding 和 Session-local 运行期 Context 串行持久化已实现 | 完整生产 Composition Root 尚未接入 | 不可切换 |
 | `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环、动态 Model Call Frame、完整观察事件、输入队列、Context checkpoint 桥接和 Turn model binding 已接入真实 Greenfield Composition 与 RuntimeHost | 默认生产选择仍是 Legacy | 内核执行与候选宿主接线完成；等待整体默认切换门禁 |
@@ -1045,11 +1071,11 @@ Frame 与多会话合同 9 项通过；`bun run check:quick` 与完整 `bun run 
 | Runtime Snapshot | 编译、冻结、lease、原子交换和动态 Model Call Provider 已实现 | Coding Profile 的完整默认能力与 scope 尚未装配 | 不可替代旧工具注册 |
 | Conversation Repository | V2 create/load/append/save、树形 Document 读写、活动分支、fork、跨实例文件锁、跨 Conversation seed/transfer/continued 事务和 Legacy importer 已实现 | Legacy/V1 历史结构写命令保持只读；跨文件崩溃 orphan reconciliation 与模型配置异步持久化尚未实现 | 不可直接替代全部旧会话写路径 |
 | Context Strategy | Session-local Runtime 已接入原生摘要持久化、重开投影、外部/同 Turn threshold/prefire、逐模型调用 microcompact、error/silent overflow 单次恢复、手动/Extension 压缩、Pre/PostCompact 和 usage 状态；Coding Agent Memory Orchestrator 已接入冻结 Prompt、既有 Tool、70% 策略、自动/主动 flush、通用 rollover、JOURNAL 与 rollover 后置 finalization | 默认生产 RPC/IM 尚未接入 Greenfield Controller | memory-mode 内部链路可并行验证；生产宿主仍不可切换 |
-| MCP | 协议、配置、Client/Transport、OAuth、Supervisor、Runtime-native Tool Source、插件动态 Server、渐进披露、Hook 元数据和子代理 Binding 投影均已完成；第 107 轮旧新端到端差分通过 | 旧 `AgentSession` 和公开兼容 API 仍保留 `McpManager`；默认 Runtime 尚未切换 | Greenfield MCP 迁移验证完成；旧兼容入口随整体生产切换移除 |
-| Skill / Knowledge | Session 级 Skill/Scene Prompt、Session-local invoke_skill、Knowledge Tool Source 与 kb-processing 写能力已进入动态组合；Skill 删除和 Agent Mode 变化在下一 Model Call 生效；kb_write_page 已通过 `KnowledgePageWriterPort` 成为原生 Runtime Tool | 标准产物与多宿主生产差分尚未完成 | 生产 Tool Surface 与写能力边界已补齐；暂不删除 Legacy 来源或切换默认入口 |
+| MCP | 协议、配置、Client/Transport、OAuth、Supervisor、Runtime-native Tool Source、插件动态 Server、渐进披露、Hook 元数据和子代理 Binding 投影均已完成；第 107 轮旧新端到端差分通过；Prompt reload 观察事件和每次 Model Call 刷新已与 Legacy 对齐 | 旧 `AgentSession` 和公开兼容 API 仍保留 `McpManager`；默认 Runtime 尚未切换 | Greenfield MCP 迁移验证完成；旧兼容入口随整体生产切换移除 |
+| Skill / Knowledge | Session 级 Skill/Scene Prompt、Session-local invoke_skill、Knowledge Tool Source 与 kb-processing 写能力已进入动态组合；Skill 根目录运行中新增、内容修改、删除和 Agent Mode 变化均在下一 Model Call 生效且不重建 Session；kb_write_page 已通过 `KnowledgePageWriterPort` 成为原生 Runtime Tool | 标准安装产物差分尚未完成 | 源码动态能力边界已闭合；暂不删除 Legacy 来源或切换默认入口 |
 | Subagent | Session-local Runtime、Explorer/Workflow、Hook、Todo、增量状态日志、恢复、通知去重及父 MCP Binding 投影已实现 | 默认 Legacy Backend 尚未切换 | Greenfield 能力已完整接入；随整体宿主切换启用 |
 | Ecosystem Hook Runtime | 每 Session 唯一实例已贯通 Prompt、最终动态 Tool Surface、Stop、SubagentStart/SubagentStop、运行期 Context、自动/手动 Pre/PostCompact 和 dispose | PermissionRequest Hook 与宿主切换原因仍需纳入完整生产 Profile 差分 | 并行组合已验证；默认生产入口不变 |
-| Desktop / CLI / RPC / IM Adapter | RuntimeHost 稳定 Ports、Greenfield RPC/IM Adapter、显式 Runtime selector、IM Sidecar、Desktop Backend Pool、真实进程 Canary、独立安装产物和跨进程恢复均已完成 | 默认 selector 仍是 Legacy；完整生产 Profile、公开 API 和旧存储消费者尚未完成最终切换审计 | Greenfield 可显式启用并回退；暂不改变默认入口 |
+| Desktop / CLI / RPC / IM Adapter | RuntimeHost 稳定 Ports、Greenfield RPC/IM Adapter、显式 Runtime selector、IM Sidecar、Desktop Backend Pool、真实进程 Canary、独立安装产物和跨进程恢复均已完成；源码真实 Tool Loop 的完整 SessionEvent、宿主重启恢复和关闭所有权已差分 | 默认 selector 仍是 Legacy；标准安装产物、公开 API 和旧存储消费者尚未完成最终切换审计 | Greenfield 可显式启用并回退；暂不改变默认入口 |
 
 上述差距目前没有影响生产，因为旧入口仍在使用旧实现。但它们是切换阻断项，不能因为新模块
 已有单元测试就视为功能迁移完成。
@@ -1085,14 +1111,14 @@ side effects
 ## 5. 下一步
 
 Desktop 与 CLI/RPC/IM 源码 Model Call Frame 门禁已经通过完整 Provider 请求合同；缺失能力、
-Runtime-native 产品工具所有权、同一 RuntimeHost 多会话 cwd 隔离、Plugin/MCP 相对顺序和通用工具顺序合同
-均已闭合。下一阶段应作为一个完整的“标准产物与剩余多宿主生命周期差分收口”阶段：
+Runtime-native 产品工具所有权、同一 RuntimeHost 多会话 cwd 隔离、Plugin/MCP 相对顺序、通用工具顺序、
+源码 SessionEvent/持久化/恢复/关闭序列以及运行时 Skill 变化均已闭合。下一阶段应作为一个完整的
+“标准安装产物差分收口”阶段：
 
-1. 通过标准 workspace 前置产物流程刷新 `dist`，执行安装产物级 Desktop 完整 Provider Frame 差分并确认工具名称、顺序、
-   描述和 Schema 同时相等。
-2. 比较 SessionEvent、持久化、恢复和关闭序列。
-3. 覆盖运行时 Skill/MCP/Tool 变化及在途 Turn 绑定。
-4. 默认 Runtime selector 保持 Legacy；只有产物和全部宿主门禁通过后，才单独决定切换并删除旧实现。
+1. 通过标准 workspace 前置产物流程刷新 `dist`，执行安装产物级 Desktop 完整 Provider Frame、
+   SessionEvent、持久化、重启恢复和关闭差分。
+2. 在安装产物中复验运行时 Skill/MCP/Tool 变化及在途 Turn 绑定，确认源码 path alias 没有掩盖打包缺口。
+3. 默认 Runtime selector 保持 Legacy；只有标准产物门禁通过后，才单独决定切换并删除旧实现。
 
 TypeBox/Zod 只用于外部 RPC、配置和持久化反序列化边界；生产 Profile 比较使用已经类型化的 Model Call
 Frame 与 Session 合同，不为内部对象重复增加 Schema。

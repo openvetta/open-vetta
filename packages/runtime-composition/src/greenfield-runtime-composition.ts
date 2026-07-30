@@ -250,6 +250,9 @@ async function createGreenfieldRuntimeCompositionInternal(
 	const pluginMcpRuntimes = new Map<string, CodingAgentPluginMcpRuntime>();
 	const executionRuntimes = new Map<string, GreenfieldSessionExecutionRuntime>();
 	const configurationStates = new Map<string, GreenfieldSessionConfigurationState>();
+	const resourceContexts = new Map<string, GreenfieldRuntimeResourceContext>();
+	const mcpRefreshObservedSessions = new Set<string>();
+	const mcpPromptRefreshReuseSessions = new Set<string>();
 	const tools = createCodingToolsRuntimeComposition({
 		cwd,
 		activation: effectiveActivation,
@@ -264,10 +267,8 @@ async function createGreenfieldRuntimeCompositionInternal(
 				configurationStates.get(context.sessionId)?.readAgentMode(),
 			),
 		refreshCatalog: async (context) => {
-			const baseSnapshot = await mcpSynchronizer?.refresh();
-			const pluginSnapshot = await pluginMcpRuntimes.get(context.sessionId)?.refresh();
-			const snapshot = mergeMcpSnapshots(baseSnapshot, pluginSnapshot);
-			if (snapshot) mcpControllers.get(context.sessionId)?.refresh(snapshot);
+			if (mcpPromptRefreshReuseSessions.delete(context.sessionId)) return;
+			await refreshSessionMcp(context.sessionId, false);
 		},
 		filterRegistration: (registration, context) => {
 			const executionRuntime = executionRuntimes.get(context.sessionId);
@@ -324,7 +325,6 @@ async function createGreenfieldRuntimeCompositionInternal(
 	const contextRuntimes = new Set<CodingAgentGreenfieldContextRuntime>();
 	const memoryRuntimes = new Set<CodingAgentMemoryRolloverRuntime>();
 	const memoryControllers = new Map<string, CodingAgentMemoryController>();
-	const resourceContexts = new Map<string, GreenfieldRuntimeResourceContext>();
 	const hookSessionDisposers = new Set<() => Promise<void>>();
 	const ownershipBindings = new Set<ConversationOwnershipBinding>();
 	const modelAdapter = new CodingAgentModelRegistryAdapter(options.modelRegistry);
@@ -858,6 +858,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 					conversationContinuationStore: repository,
 					promptAdapter: {
 						async prepare(request, context) {
+							await refreshSessionMcp(activeSessionId, true);
 							const prepared = await promptAdapter.prepare(request, context);
 							await todoRuntime.flush();
 							return prepared;
@@ -936,6 +937,12 @@ async function createGreenfieldRuntimeCompositionInternal(
 						const previousSessionId = activeSessionId;
 						await activeOwnership?.rebind(repository.resolveConversationPath(result.sessionId));
 						activeSessionId = result.sessionId;
+						if (mcpRefreshObservedSessions.delete(previousSessionId)) {
+							mcpRefreshObservedSessions.add(result.sessionId);
+						}
+						if (mcpPromptRefreshReuseSessions.delete(previousSessionId)) {
+							mcpPromptRefreshReuseSessions.add(result.sessionId);
+						}
 						pluginSession.id = result.sessionId;
 						if (memoryController && memoryControllers.get(previousSessionId) === memoryController) {
 							memoryControllers.delete(previousSessionId);
@@ -991,6 +998,8 @@ async function createGreenfieldRuntimeCompositionInternal(
 							if (resourceContexts.get(activeSessionId) === resourceContext) {
 								resourceContexts.delete(activeSessionId);
 							}
+							mcpRefreshObservedSessions.delete(activeSessionId);
+							mcpPromptRefreshReuseSessions.delete(activeSessionId);
 							activeExecutionRuntime.dispose();
 							capabilityCompositions.delete(capabilities);
 							todoRuntimes.delete(todoRuntime);
@@ -1015,12 +1024,57 @@ async function createGreenfieldRuntimeCompositionInternal(
 				if (resourceContexts.get(activeSessionId) === resourceContext) {
 					resourceContexts.delete(activeSessionId);
 				}
+				mcpRefreshObservedSessions.delete(activeSessionId);
+				mcpPromptRefreshReuseSessions.delete(activeSessionId);
 				executionRuntime?.dispose();
 				await releaseOwnership(activeOwnership);
 				throw error;
 			}
 		},
 	});
+	async function refreshSessionMcp(
+		sessionId: string,
+		reportPromptBoundary: boolean,
+	): Promise<McpRuntimeToolSnapshot | undefined> {
+		const pluginRuntime = pluginMcpRuntimes.get(sessionId);
+		const resourceContext = resourceContexts.get(sessionId);
+		const firstPromptRefresh = reportPromptBoundary && !mcpRefreshObservedSessions.has(sessionId);
+		const before = mergeMcpSnapshots(mcpSynchronizer?.snapshot(), pluginRuntime?.snapshot());
+		let startReported = false;
+		if (firstPromptRefresh && resourceContext) {
+			await resourceContext.reportObservation({ type: "mcp.reload.start", source: "agent" });
+			startReported = true;
+		}
+		try {
+			const baseSnapshot = await mcpSynchronizer?.refresh();
+			const pluginSnapshot = await pluginRuntime?.refresh();
+			const snapshot = mergeMcpSnapshots(baseSnapshot, pluginSnapshot);
+			if (snapshot) mcpControllers.get(sessionId)?.refresh(snapshot);
+			const changed = snapshot?.revision !== before?.revision;
+			if (reportPromptBoundary && (firstPromptRefresh || changed) && resourceContext) {
+				if (!startReported) {
+					await resourceContext.reportObservation({ type: "mcp.reload.start", source: "agent" });
+				}
+				await resourceContext.reportObservation({ type: "mcp.reload.end", changed, source: "agent" });
+			}
+			if (reportPromptBoundary) mcpRefreshObservedSessions.add(sessionId);
+			if (reportPromptBoundary) mcpPromptRefreshReuseSessions.add(sessionId);
+			return snapshot;
+		} catch (error) {
+			if (reportPromptBoundary && resourceContext) {
+				if (!startReported) {
+					await resourceContext.reportObservation({ type: "mcp.reload.start", source: "agent" });
+				}
+				await resourceContext.reportObservation({
+					type: "mcp.reload.end",
+					changed: false,
+					errorMessage: error instanceof Error ? error.message : String(error),
+					source: "agent",
+				});
+			}
+			throw error;
+		}
+	}
 	const backend = new GreenfieldRuntimeSessionBackend({ runtimeFactory });
 
 	let disposed = false;
@@ -1059,6 +1113,8 @@ async function createGreenfieldRuntimeCompositionInternal(
 			memoryRuntimes.clear();
 			memoryControllers.clear();
 			resourceContexts.clear();
+			mcpRefreshObservedSessions.clear();
+			mcpPromptRefreshReuseSessions.clear();
 			hookSessionDisposers.clear();
 			mcpControllers.clear();
 			pluginMcpRuntimes.clear();
