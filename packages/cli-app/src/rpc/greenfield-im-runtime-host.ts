@@ -11,6 +11,7 @@ import {
 import {
 	type CodingAgentPluginRuntimeSource,
 	createCodingAgentMcpRuntimeToolSource,
+	createCodingAgentPluginMcpRuntime,
 } from "@vetta/coding-agent/runtime-host/greenfield";
 import type { GreenfieldRuntimeSession } from "@vetta/runtime-core";
 import type { ManagedMcpRuntimeToolSource } from "@vetta/runtime-mcp";
@@ -111,10 +112,11 @@ export async function prepareGreenfieldImRuntimeHost(
 	if (!initial.model) throw new Error("No models available for Greenfield IM Runtime");
 	if (parsed.apiKey) bootstrap.authStorage.setRuntimeApiKey(initial.model.provider, parsed.apiKey);
 
+	const mcpDebug = bootstrap.settingsManager.getMcpDebug();
 	const managedMcpSource = await createCodingAgentMcpRuntimeToolSource({
 		projectRoot: bootstrap.cwd,
 		agentDir: bootstrap.agentDir,
-		debug: bootstrap.settingsManager.getMcpDebug(),
+		debug: mcpDebug,
 		enabled: true,
 	});
 
@@ -137,6 +139,7 @@ export async function prepareGreenfieldImRuntimeHost(
 			promptResourceSource: bootstrap.resourceLoader,
 			promptSettingsSource: bootstrap.settingsManager,
 			createPluginRuntime: options.createPluginRuntime,
+			createPluginMcpRuntime: ({ agentDir }) => createCodingAgentPluginMcpRuntime({ agentDir, debug: mcpDebug }),
 			conversationOwnershipManager: new FileConversationOwnershipManager(options.ownership),
 		});
 		const sessionOptions: GreenfieldCliSessionOptions = {

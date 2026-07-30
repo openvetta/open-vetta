@@ -13,6 +13,10 @@ export interface GreenfieldSubagentWorkRuntime {
 	interrupt(target: string): RuntimeSubagentSnapshot | undefined;
 }
 
+export interface GreenfieldAgentPluginReconfiguration {
+	reconfigureAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | undefined): Promise<void>;
+}
+
 /** Session-local 动态配置事实源；Prompt、Plugin 与宿主 Controller 共享同一实例。 */
 export class GreenfieldSessionConfigurationState {
 	private agentMode: string | undefined;
@@ -34,11 +38,15 @@ export class GreenfieldSessionConfigurationState {
 		return this.hasPluginOverride ? this.pluginOverride : this.readBaseAgentPlugins();
 	}
 
-	createController(session: AgentSession): RuntimeSessionConfigurationController {
+	createController(
+		session: AgentSession,
+		pluginReconfiguration?: GreenfieldAgentPluginReconfiguration,
+	): RuntimeSessionConfigurationController {
 		return {
 			setSteeringMode: (mode) => session.setSteeringMode(mode),
 			setFollowUpMode: (mode) => session.setFollowUpMode(mode),
 			reconfigureAgentPlugins: async (agentPlugins) => {
+				await pluginReconfiguration?.reconfigureAgentPlugins(agentPlugins);
 				this.pluginOverride = agentPlugins;
 				this.hasPluginOverride = true;
 			},

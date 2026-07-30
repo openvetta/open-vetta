@@ -13,6 +13,7 @@ import {
 	type SystemPromptDraft,
 } from "../../core/system-prompt.js";
 import { wrapRuntimeToolsWithEcosystemHooks } from "./greenfield-hook-tool-wrapper.js";
+import type { CodingAgentPluginMcpRuntime } from "./greenfield-plugin-mcp-runtime.js";
 import type { CodingAgentPluginRunOrchestrator } from "./greenfield-plugin-run-orchestrator.js";
 import type { CodingAgentPluginToolRuntime } from "./greenfield-plugin-tool-runtime.js";
 
@@ -30,6 +31,9 @@ export interface CodingAgentModelCallFrameComposerOptions {
 	readonly resolveSystemPromptOptions: CodingAgentSystemPromptOptionsResolver;
 	readonly readMcpPromptState?: () => CodingAgentMcpPromptState;
 	readonly readAvailableTools?: () => ReadonlyMap<string, RuntimeToolDefinition>;
+	readonly pluginMcpRuntime?: CodingAgentPluginMcpRuntime;
+	readonly readAgentMode?: () => string | undefined;
+	readonly isMcpToolVisible?: (toolName: string) => boolean;
 	readonly pluginRunOrchestrator?: CodingAgentPluginRunOrchestrator;
 	readonly pluginToolRuntime?: CodingAgentPluginToolRuntime;
 	readonly hookRuntime?: EcosystemHookRuntime;
@@ -58,11 +62,19 @@ export class CodingAgentModelCallFrameComposer implements ModelCallFrameComposer
 		for (const [name, tool] of context.frame.tools) {
 			baseAvailableTools.set(name, tool);
 		}
-		const pluginToolSurface = this.options.pluginToolRuntime?.compose(context, baseAvailableTools);
-		const effectiveContext: ModelCallFrameCompositionContext = pluginToolSurface
-			? { ...context, frame: pluginToolSurface.frame }
+		const pluginMcpSurface = this.options.pluginMcpRuntime?.compose(context, baseAvailableTools, {
+			agentMode: this.options.readAgentMode?.(),
+			isToolVisible: this.options.isMcpToolVisible ?? (() => true),
+		});
+		const mcpContext: ModelCallFrameCompositionContext = pluginMcpSurface
+			? { ...context, frame: pluginMcpSurface.frame }
 			: context;
-		const availableTools = pluginToolSurface?.availableTools ?? baseAvailableTools;
+		const mcpAvailableTools = pluginMcpSurface?.availableTools ?? baseAvailableTools;
+		const pluginToolSurface = this.options.pluginToolRuntime?.compose(mcpContext, mcpAvailableTools);
+		const effectiveContext: ModelCallFrameCompositionContext = pluginToolSurface
+			? { ...mcpContext, frame: pluginToolSurface.frame }
+			: mcpContext;
+		const availableTools = pluginToolSurface?.availableTools ?? mcpAvailableTools;
 		const activeToolNames = [...effectiveContext.frame.tools.keys()];
 		const promptOptions = await this.options.resolveSystemPromptOptions({
 			...effectiveContext,

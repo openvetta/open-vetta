@@ -23,13 +23,13 @@ export async function createCodingAgentMcpRuntimeToolSource(
 	await composition.supervisor.initialize();
 	return {
 		source: createMcpServerRuntimeToolSource(composition.supervisor, {
-			decorateTool: decorateMcpRuntimeTool,
+			decorateTool: decorateCodingAgentMcpRuntimeTool,
 		}),
 		dispose: () => composition.supervisor.shutdown(),
 	};
 }
 
-function decorateMcpRuntimeTool(
+export function decorateCodingAgentMcpRuntimeTool(
 	tool: RuntimeToolDefinition,
 	context: McpRuntimeToolDecorationContext,
 ): EcosystemHookAwareRuntimeTool {

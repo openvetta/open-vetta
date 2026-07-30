@@ -19,6 +19,7 @@ import {
 	CodingAgentModelCallFrameComposer,
 	CodingAgentModelRegistryAdapter,
 	type CodingAgentModelRegistrySource,
+	type CodingAgentPluginMcpRuntime,
 	CodingAgentPluginRunOrchestrator,
 	type CodingAgentPluginRuntimeSource,
 	type CodingAgentPluginToolActivation,
@@ -69,6 +70,7 @@ import {
 	createMcpDeferredToolController,
 	createMcpRuntimeToolSynchronizer,
 	type McpDeferredToolController,
+	type McpRuntimeToolSnapshot,
 	type McpRuntimeToolSource,
 	type McpRuntimeToolSynchronizer,
 } from "@vetta/runtime-mcp";
@@ -171,6 +173,12 @@ export interface GreenfieldRuntimeCompositionOptions {
 	readonly createPluginRuntime?: (
 		sessionOptions: GreenfieldRuntimeSessionOptions,
 	) => CodingAgentPluginRuntimeSource | undefined;
+	/** 为每个 Session 创建仅承载插件动态 Server 的 MCP Runtime；不得复用共享文件 MCP Source。 */
+	readonly createPluginMcpRuntime?: (context: {
+		readonly cwd: string;
+		readonly agentDir?: string;
+		readonly sessionOptions: GreenfieldRuntimeSessionOptions;
+	}) => Promise<CodingAgentPluginMcpRuntime>;
 	/** 为每个 Session 创建唯一 Todo Runtime；Tool、Continuation、Scene 与 Controller 共享它。 */
 	readonly createTodoRuntime?: (sessionOptions: GreenfieldRuntimeSessionOptions) => CodingAgentTodoRuntime;
 	/** 追加到每个 Session 内置 Codex/Claude Hook Adapter 之后。 */
@@ -225,6 +233,7 @@ export async function createGreenfieldRuntimeComposition(
 	let backgroundTasksAvailable = false;
 	let mcpSynchronizer: McpRuntimeToolSynchronizer | undefined;
 	const mcpControllers = new Map<string, McpDeferredToolController>();
+	const pluginMcpRuntimes = new Map<string, CodingAgentPluginMcpRuntime>();
 	const executionRuntimes = new Map<string, GreenfieldSessionExecutionRuntime>();
 	const tools = createCodingToolsRuntimeComposition({
 		cwd,
@@ -235,7 +244,9 @@ export async function createGreenfieldRuntimeComposition(
 				knowledgeAvailable,
 			}),
 		refreshCatalog: async (context) => {
-			const snapshot = await mcpSynchronizer?.refresh();
+			const baseSnapshot = await mcpSynchronizer?.refresh();
+			const pluginSnapshot = await pluginMcpRuntimes.get(context.sessionId)?.refresh();
+			const snapshot = mergeMcpSnapshots(baseSnapshot, pluginSnapshot);
 			if (snapshot) mcpControllers.get(context.sessionId)?.refresh(snapshot);
 		},
 		filterRegistration: (registration, context) => {
@@ -317,22 +328,43 @@ export async function createGreenfieldRuntimeComposition(
 			let activeOwnership = await acquireOwnership(activeSessionId);
 			let executionRuntime: GreenfieldSessionExecutionRuntime | undefined;
 			let subagentRuntime: GreenfieldSubagentRuntime | undefined;
+			let pluginMcpRuntime: CodingAgentPluginMcpRuntime | undefined;
 			resourceContexts.set(activeSessionId, resourceContext);
 			try {
+				const sessionCwd = sessionOptions.cwd ?? cwd;
+				const requestedPluginRuntime = createSessionPluginRuntime(sessionOptions);
+				const configuredPluginRuntime = options.createPluginRuntime?.(sessionOptions);
+				if (requestedPluginRuntime && configuredPluginRuntime) {
+					throw new Error("Greenfield session plugin capabilities conflict with createPluginRuntime");
+				}
+				const pluginRuntime = requestedPluginRuntime ?? configuredPluginRuntime;
+				const configurationState = new GreenfieldSessionConfigurationState(sessionOptions.agentMode, () =>
+					pluginRuntime?.readAgentPlugins(),
+				);
+				pluginMcpRuntime = await options.createPluginMcpRuntime?.({
+					cwd: sessionCwd,
+					agentDir: options.agentDir,
+					sessionOptions,
+				});
+				if (pluginMcpRuntime) {
+					await pluginMcpRuntime.reconfigure(configurationState.readAgentPlugins());
+					pluginMcpRuntimes.set(activeSessionId, pluginMcpRuntime);
+				}
 				const synchronizer = mcpSynchronizer;
-				const mcpController = synchronizer
-					? createMcpDeferredToolController({
-							sessionId: sessionOptions.sessionId,
-							deferredEnabled: effectiveActivation.mode !== "explicit",
-							explicitToolNames:
-								effectiveActivation.mode === "explicit" ? new Set(effectiveActivation.toolNames) : undefined,
-						})
-					: undefined;
-				if (mcpController && synchronizer) {
-					mcpController.refresh(synchronizer.snapshot());
+				const mcpController =
+					synchronizer || pluginMcpRuntime
+						? createMcpDeferredToolController({
+								sessionId: sessionOptions.sessionId,
+								deferredEnabled: effectiveActivation.mode !== "explicit",
+								explicitToolNames:
+									effectiveActivation.mode === "explicit" ? new Set(effectiveActivation.toolNames) : undefined,
+							})
+						: undefined;
+				if (mcpController) {
+					const snapshot = mergeMcpSnapshots(synchronizer?.snapshot(), pluginMcpRuntime?.snapshot());
+					if (snapshot) mcpController.refresh(snapshot);
 					mcpControllers.set(sessionOptions.sessionId, mcpController);
 				}
-				const sessionCwd = sessionOptions.cwd ?? cwd;
 				executionRuntime = new GreenfieldSessionExecutionRuntime({
 					cwd: sessionCwd,
 					activation: effectiveActivation,
@@ -595,15 +627,6 @@ export async function createGreenfieldRuntimeComposition(
 						console.warn("[ecosystem-hooks] SessionEnd failed during Greenfield dispose", error);
 					}
 				};
-				const requestedPluginRuntime = createSessionPluginRuntime(sessionOptions);
-				const configuredPluginRuntime = options.createPluginRuntime?.(sessionOptions);
-				if (requestedPluginRuntime && configuredPluginRuntime) {
-					throw new Error("Greenfield session plugin capabilities conflict with createPluginRuntime");
-				}
-				const pluginRuntime = requestedPluginRuntime ?? configuredPluginRuntime;
-				const configurationState = new GreenfieldSessionConfigurationState(sessionOptions.agentMode, () =>
-					pluginRuntime?.readAgentPlugins(),
-				);
 				const pluginSession = {
 					id: activeSessionId,
 					cwd: sessionCwd,
@@ -701,7 +724,10 @@ export async function createGreenfieldRuntimeComposition(
 									: []),
 							]),
 						pluginRunOrchestrator,
+						pluginMcpRuntime,
 						pluginToolRuntime,
+						readAgentMode: () => configurationState.readAgentMode(),
+						isMcpToolVisible: (toolName) => mcpController?.isToolVisible(toolName) ?? true,
 						hookRuntime,
 						resolveSystemPromptOptions: async (context) => {
 							const promptOptions = await resolveSystemPromptOptions(context);
@@ -775,7 +801,16 @@ export async function createGreenfieldRuntimeComposition(
 							activeExecutionRuntime.backgroundService,
 							subagentRuntime,
 						),
-						configurationController: configurationState.createController(session),
+						configurationController: configurationState.createController(
+							session,
+							pluginMcpRuntime
+								? {
+										reconfigureAgentPlugins: async (agentPlugins) => {
+											await pluginMcpRuntime?.reconfigure(agentPlugins);
+										},
+									}
+								: undefined,
+						),
 					}),
 					contextRuntime,
 					identity: {
@@ -833,6 +868,10 @@ export async function createGreenfieldRuntimeComposition(
 							mcpControllers.delete(previousSessionId);
 							mcpControllers.set(result.sessionId, mcpController);
 						}
+						if (pluginMcpRuntime && pluginMcpRuntimes.get(previousSessionId) === pluginMcpRuntime) {
+							pluginMcpRuntimes.delete(previousSessionId);
+							pluginMcpRuntimes.set(result.sessionId, pluginMcpRuntime);
+						}
 						if (executionRuntimes.get(previousSessionId) === activeExecutionRuntime) {
 							executionRuntimes.delete(previousSessionId);
 							executionRuntimes.set(result.sessionId, activeExecutionRuntime);
@@ -858,6 +897,10 @@ export async function createGreenfieldRuntimeComposition(
 							if (mcpControllers.get(activeSessionId) === mcpController) {
 								mcpControllers.delete(activeSessionId);
 							}
+							if (pluginMcpRuntime && pluginMcpRuntimes.get(activeSessionId) === pluginMcpRuntime) {
+								pluginMcpRuntimes.delete(activeSessionId);
+							}
+							await pluginMcpRuntime?.dispose();
 							if (executionRuntimes.get(activeSessionId) === activeExecutionRuntime) {
 								executionRuntimes.delete(activeSessionId);
 							}
@@ -877,6 +920,10 @@ export async function createGreenfieldRuntimeComposition(
 				};
 			} catch (error) {
 				await subagentRuntime?.dispose();
+				if (pluginMcpRuntime && pluginMcpRuntimes.get(activeSessionId) === pluginMcpRuntime) {
+					pluginMcpRuntimes.delete(activeSessionId);
+				}
+				await pluginMcpRuntime?.dispose();
 				if (executionRuntimes.get(activeSessionId) === executionRuntime) {
 					executionRuntimes.delete(activeSessionId);
 				}
@@ -919,6 +966,7 @@ export async function createGreenfieldRuntimeComposition(
 				...[...todoRuntimes].map((runtime) => runtime.dispose()),
 				...[...capabilityCompositions].map((capabilities) => capabilities.close()),
 				...[...ownershipBindings].map((binding) => releaseOwnership(binding)),
+				...[...pluginMcpRuntimes.values()].map((runtime) => runtime.dispose()),
 			]);
 			capabilityCompositions.clear();
 			todoRuntimes.clear();
@@ -928,6 +976,7 @@ export async function createGreenfieldRuntimeComposition(
 			resourceContexts.clear();
 			hookSessionDisposers.clear();
 			mcpControllers.clear();
+			pluginMcpRuntimes.clear();
 			for (const executionRuntime of executionRuntimes.values()) executionRuntime.dispose();
 			executionRuntimes.clear();
 			ownershipBindings.clear();
@@ -942,6 +991,20 @@ export async function createGreenfieldRuntimeComposition(
 			}
 		},
 	};
+}
+
+function mergeMcpSnapshots(
+	base: McpRuntimeToolSnapshot | undefined,
+	overlay: McpRuntimeToolSnapshot | undefined,
+): McpRuntimeToolSnapshot | undefined {
+	if (!base && !overlay) return undefined;
+	const tools = new Map<string, McpRuntimeToolSnapshot["tools"][number]>();
+	for (const tool of base?.tools ?? []) tools.set(tool.name, tool);
+	for (const tool of overlay?.tools ?? []) tools.set(tool.name, tool);
+	return Object.freeze({
+		revision: (base?.revision ?? 0) + (overlay?.revision ?? 0),
+		tools: Object.freeze([...tools.values()]),
+	});
 }
 
 function toPluginToolActivation(

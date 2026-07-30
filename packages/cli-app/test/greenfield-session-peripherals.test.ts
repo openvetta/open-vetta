@@ -29,6 +29,23 @@ describe("Greenfield session peripherals", () => {
 		expect(state.readAgentPlugins()).toBeUndefined();
 	});
 
+	it("commits plugin configuration only after the session-local MCP reconfiguration succeeds", async () => {
+		const base = { toolContributions: [] };
+		const next = { mcpServerContributions: [] };
+		const reconfigureAgentPlugins = vi
+			.fn()
+			.mockRejectedValueOnce(new Error("MCP reconfiguration failed"))
+			.mockResolvedValueOnce(undefined);
+		const state = new GreenfieldSessionConfigurationState("work", () => base);
+		const controller = state.createController({} as unknown as AgentSession, { reconfigureAgentPlugins });
+
+		await expect(controller.reconfigureAgentPlugins(next)).rejects.toThrow("MCP reconfiguration failed");
+		expect(state.readAgentPlugins()).toBe(base);
+
+		await expect(controller.reconfigureAgentPlugins(next)).resolves.toBeUndefined();
+		expect(state.readAgentPlugins()).toBe(next);
+	});
+
 	it("projects real background task service commands without sharing mutable snapshots", () => {
 		const task: BackgroundCommandSnapshot = {
 			id: "b1",

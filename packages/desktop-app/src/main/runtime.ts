@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { AuthStorage, getAgentDir, ModelRegistry, SettingsManager } from "@vetta/coding-agent";
 import {
 	createCodingAgentMcpRuntimeToolSource,
+	createCodingAgentPluginMcpRuntime,
 	createLegacyRuntimeHostOptions,
 } from "@vetta/coding-agent/runtime-host";
 import {
@@ -147,6 +148,13 @@ export function getSharedRuntime(): RuntimeHost {
 		const greenfieldBackendPool = new DesktopGreenfieldRuntimeBackendPool({
 			compositionDefaults: {
 				modelRegistry: getOrCreateSharedModelRegistry(),
+				createPluginMcpRuntime: ({ cwd, agentDir }) => {
+					const resolvedAgentDir = agentDir ?? getAgentDir();
+					return createCodingAgentPluginMcpRuntime({
+						agentDir: resolvedAgentDir,
+						debug: SettingsManager.create(cwd, resolvedAgentDir).getMcpDebug(),
+					});
+				},
 			},
 			createMcpRuntimeSource: async ({ cwd, agentDir }) => {
 				const resolvedAgentDir = agentDir ?? getAgentDir();

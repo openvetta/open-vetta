@@ -9,6 +9,7 @@ export {
 export {
 	type CodingAgentMcpRuntimeToolSourceOptions,
 	createCodingAgentMcpRuntimeToolSource,
+	decorateCodingAgentMcpRuntimeTool,
 } from "./coding-agent-mcp-runtime-source.js";
 export {
 	CODING_AGENT_ASK_USER_QUESTION_TOOL_NAME,
@@ -69,6 +70,13 @@ export {
 	CodingAgentModelRegistryAdapter,
 	type CodingAgentModelRegistrySource,
 } from "./greenfield-model-registry-adapter.js";
+export {
+	type CodingAgentPluginMcpCompositionOptions,
+	CodingAgentPluginMcpRuntime,
+	type CodingAgentPluginMcpRuntimeOptions,
+	type CodingAgentPluginMcpToolSurface,
+	createCodingAgentPluginMcpRuntime,
+} from "./greenfield-plugin-mcp-runtime.js";
 export {
 	type CodingAgentPluginFrameComposition,
 	type CodingAgentPluginFrameCompositionInput,

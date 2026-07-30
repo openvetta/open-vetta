@@ -112,6 +112,7 @@
 | [102-mcp-interactive-oauth-orchestration.md](./08-implementation-log/102-mcp-interactive-oauth-orchestration.md) | MCP Browser OAuth、RFC 8628 Device Flow 与宿主交互边界 |
 | [103-mcp-server-supervisor-and-manager-adapter.md](./08-implementation-log/103-mcp-server-supervisor-and-manager-adapter.md) | MCP Server 生命周期、状态观察、差量协调与旧 Manager 兼容适配 |
 | [104-runtime-native-mcp-tool-source.md](./08-implementation-log/104-runtime-native-mcp-tool-source.md) | Runtime-native MCP Tool Source、产品组合工厂与 Greenfield 宿主切换 |
+| [105-session-local-plugin-mcp-runtime.md](./08-implementation-log/105-session-local-plugin-mcp-runtime.md) | Session-local Plugin MCP Runtime、动态重配置、隔离与渐进披露闭环 |
 
 ## 维护约定
 

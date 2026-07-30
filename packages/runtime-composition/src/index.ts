@@ -17,6 +17,7 @@ export {
 	type GreenfieldSessionExecutionRuntimeOptions,
 } from "./greenfield-session-execution-runtime.js";
 export {
+	type GreenfieldAgentPluginReconfiguration,
 	GreenfieldBackgroundWorkController,
 	GreenfieldSessionConfigurationState,
 	type GreenfieldSubagentWorkRuntime,
