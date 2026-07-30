@@ -11,7 +11,7 @@ import type {
 } from "@vetta/coding-agent/core/mcp/index.js";
 import { createCodingAgentPluginMcpRuntime } from "@vetta/coding-agent/runtime-host/greenfield";
 import type { AgentPluginRuntimeConfig } from "@vetta/runtime-core";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	createGreenfieldRuntimeComposition,
 	type GreenfieldRuntimeComposition,
@@ -114,6 +114,68 @@ describe("Greenfield session-local plugin MCP", () => {
 		await session.dispose();
 	});
 
+	it("projects parent plugin MCP bindings into workflow children without creating another plugin runtime", async () => {
+		const conversationDir = await temporaryDirectory("greenfield-plugin-mcp-subagent-");
+		const clients = new FakeClientFactory();
+		const createPluginMcpRuntime = vi.fn(() => createCodingAgentPluginMcpRuntime({ clientFactory: clients.create }));
+		const rootMcpTools: string[][] = [];
+		const childMcpTools: string[][] = [];
+		let rootCalls = 0;
+		const composition = await createGreenfieldRuntimeComposition({
+			conversationDir,
+			modelRegistry: modelRegistry(),
+			initialModel: MODEL,
+			initialThinkingLevel: "off",
+			createPluginMcpRuntime,
+			streamFn: (_model, context) => {
+				const toolNames = (context.tools ?? []).map(({ name }) => name);
+				const mcpTools = toolNames.filter((name) => name.startsWith("mcp_plugin-"));
+				if (toolNames.includes("spawn_agent")) {
+					rootMcpTools.push(mcpTools);
+					if (rootCalls === 0) {
+						rootCalls += 1;
+						return new RecordedAssistantStream(
+							assistantToolCall("dispatch_workflows", {
+								description: "Inspect inherited MCP tools",
+								workflows: [
+									{
+										task_name: "inspect_mcp",
+										title: "Inspect MCP",
+										message: "Report the available MCP tools.",
+										todos: ["Inspect inherited MCP tools"],
+									},
+								],
+							}),
+						);
+					}
+					return new RecordedAssistantStream(assistantText("root done"));
+				}
+				childMcpTools.push(mcpTools);
+				if (childMcpTools.length === 1) {
+					return new RecordedAssistantStream(assistantToolCall("mcp_plugin-child-docs_lookup", {}));
+				}
+				return new RecordedAssistantStream(assistantText("child done"));
+			},
+		});
+		compositions.push(composition);
+		const session = await composition.backend.create({
+			sessionId: "plugin-mcp-subagent",
+			agentMode: "work",
+			agentPlugins: pluginConfiguration("child", "coding"),
+		});
+
+		await session.prompt({ text: "delegate MCP inspection" });
+		await vi.waitFor(() => expect(childMcpTools).toHaveLength(2));
+
+		expect(rootMcpTools[0]).toEqual([]);
+		expect(childMcpTools[0]).toEqual(["mcp_plugin-child-docs_lookup"]);
+		expect(clients.first("plugin-child-docs").callToolCalls).toBe(1);
+		expect(createPluginMcpRuntime).toHaveBeenCalledOnce();
+		expect(clients.clients).toHaveLength(1);
+		await session.dispose();
+		expect(clients.first("plugin-child-docs").closeCalls).toBe(1);
+	});
+
 	async function temporaryDirectory(prefix: string): Promise<string> {
 		const directory = await mkdtemp(join(tmpdir(), prefix));
 		directories.push(directory);
@@ -155,6 +217,7 @@ class FakeClientFactory {
 
 class FakeMcpClient implements McpClientHandle, IMcpClient {
 	closeCalls = 0;
+	callToolCalls = 0;
 
 	constructor(
 		readonly name: string,
@@ -180,6 +243,7 @@ class FakeMcpClient implements McpClientHandle, IMcpClient {
 	}
 
 	async callTool(): Promise<McpToolCallResult> {
+		this.callToolCalls += 1;
 		return { content: [{ type: "text", text: this.name }] };
 	}
 
@@ -249,6 +313,14 @@ function assistantText(text: string): AssistantMessage {
 		},
 		stopReason: "stop",
 		timestamp: 1,
+	};
+}
+
+function assistantToolCall(name: string, arguments_: Readonly<Record<string, unknown>>): AssistantMessage {
+	return {
+		...assistantText(""),
+		content: [{ type: "toolCall", id: `${name}-call`, name, arguments: arguments_ }],
+		stopReason: "toolUse",
 	};
 }
 

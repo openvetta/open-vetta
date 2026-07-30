@@ -73,6 +73,7 @@ import {
 	type McpRuntimeToolSnapshot,
 	type McpRuntimeToolSource,
 	type McpRuntimeToolSynchronizer,
+	type McpRuntimeToolView,
 } from "@vetta/runtime-mcp";
 import { type ConversationOwnershipManager, FileConversationRepository } from "@vetta/runtime-storage/conversation";
 import type {
@@ -222,6 +223,13 @@ export interface GreenfieldRuntimeComposition {
 export async function createGreenfieldRuntimeComposition(
 	options: GreenfieldRuntimeCompositionOptions,
 ): Promise<GreenfieldRuntimeComposition> {
+	return createGreenfieldRuntimeCompositionInternal(options, EMPTY_MCP_TOOL_VIEW);
+}
+
+async function createGreenfieldRuntimeCompositionInternal(
+	options: GreenfieldRuntimeCompositionOptions,
+	inheritedMcpView: McpRuntimeToolView,
+): Promise<GreenfieldRuntimeComposition> {
 	const cwd = options.cwd ?? process.cwd();
 	const scenario = options.scenario ?? "cli";
 	if ((options.promptResourceSource === undefined) !== (options.promptSettingsSource === undefined)) {
@@ -266,6 +274,11 @@ export async function createGreenfieldRuntimeComposition(
 		additionalRegistrations: [
 			adaptCodingAgentToolRegistration(createKbListTagsTool(options.knowledgeRoot)),
 			adaptCodingAgentToolRegistration(createKbFilterByTagsTool(options.knowledgeRoot)),
+			...inheritedMcpView.tools.map(({ tool }) => ({
+				tool,
+				scopeUse: CODING_TOOL_SCOPES,
+				category: "external" as const,
+			})),
 		],
 		tokenBudget: options.tokenBudget,
 		reservedOutputTokens: options.reservedOutputTokens,
@@ -495,15 +508,26 @@ export async function createGreenfieldRuntimeComposition(
 						? dirname(snapshot.sessionFile)
 						: join(dirname(repository.resolveConversationPath(activeSessionId)), ".subagents", activeSessionId);
 					const retainedForkContext = operation === "create" ? forkContext : undefined;
-					const childComposition = await createGreenfieldRuntimeComposition({
-						...options,
-						conversationDir: childConversationDir,
-						initialModel: modelRuntime.readCurrentModel(),
-						initialThinkingLevel: modelRuntime.readThinkingLevel(),
-						cwd: sessionCwd,
-						activation: withScenario(type.profile.activation, scenario),
-						enableSubagents: false,
-					});
+					const inheritedView = type.profile.inheritParentMcp
+						? await refreshAndMergeMcpViews(synchronizer, pluginMcpRuntime)
+						: EMPTY_MCP_TOOL_VIEW;
+					const {
+						mcpSource: _mcpSource,
+						createPluginMcpRuntime: _createPluginMcpRuntime,
+						...childCompositionOptions
+					} = options;
+					const childComposition = await createGreenfieldRuntimeCompositionInternal(
+						{
+							...childCompositionOptions,
+							conversationDir: childConversationDir,
+							initialModel: modelRuntime.readCurrentModel(),
+							initialThinkingLevel: modelRuntime.readThinkingLevel(),
+							cwd: sessionCwd,
+							activation: withInheritedMcpTools(withScenario(type.profile.activation, scenario), inheritedView),
+							enableSubagents: false,
+						},
+						inheritedView,
+					);
 					try {
 						const childOptions: GreenfieldRuntimeSessionOptions = {
 							sessionId: childSessionId,
@@ -1007,6 +1031,37 @@ function mergeMcpSnapshots(
 	});
 }
 
+async function refreshAndMergeMcpViews(
+	base: McpRuntimeToolSynchronizer | undefined,
+	overlay: CodingAgentPluginMcpRuntime | undefined,
+): Promise<McpRuntimeToolView> {
+	await base?.refresh();
+	await overlay?.refresh();
+	return mergeMcpToolViews(base?.view(), overlay?.view());
+}
+
+function mergeMcpToolViews(
+	base: McpRuntimeToolView | undefined,
+	overlay: McpRuntimeToolView | undefined,
+): McpRuntimeToolView {
+	if (!base && !overlay) return EMPTY_MCP_TOOL_VIEW;
+	const tools = new Map<string, McpRuntimeToolView["tools"][number]>();
+	for (const binding of base?.tools ?? []) tools.set(binding.tool.name, binding);
+	for (const binding of overlay?.tools ?? []) tools.set(binding.tool.name, binding);
+	return Object.freeze({ tools: Object.freeze([...tools.values()]) });
+}
+
+function withInheritedMcpTools(
+	activation: CodingToolActivation,
+	inheritedMcpView: McpRuntimeToolView,
+): CodingToolActivation {
+	if (activation.mode === "scope" || inheritedMcpView.tools.length === 0) return activation;
+	return {
+		mode: "explicit",
+		toolNames: [...new Set([...activation.toolNames, ...inheritedMcpView.tools.map(({ tool }) => tool.name)])],
+	};
+}
+
 function toPluginToolActivation(
 	activation: CodingToolActivation,
 	agentMode: string | undefined,
@@ -1154,3 +1209,5 @@ async function validateRecoveredSubagentTranscript(
 		return "Recovered subagent transcript is missing";
 	}
 }
+
+const EMPTY_MCP_TOOL_VIEW: McpRuntimeToolView = Object.freeze({ tools: Object.freeze([]) });

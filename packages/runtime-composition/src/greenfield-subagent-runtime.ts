@@ -34,6 +34,7 @@ export const GREENFIELD_SUBAGENT_TYPE_WORKFLOW = "workflow";
 
 export interface GreenfieldSubagentProfile {
 	readonly activation: CodingToolActivation;
+	readonly inheritParentMcp: boolean;
 	readonly systemPromptAddon: string;
 	readonly forkParentContext: boolean;
 	readonly includeTodo: boolean;
@@ -206,6 +207,7 @@ function explorerType(): SubagentTypeDefinition<GreenfieldSubagentProfile> {
 		description:
 			"Read-only information gathering: codebase recon, local docs, structure, and parent MCP search tools when available. Never writes files.",
 		profile: {
+			inheritParentMcp: true,
 			activation: {
 				mode: "explicit",
 				toolNames: ["read", "grep", "glob", "find", "ls", "dir_tree"],
@@ -224,6 +226,7 @@ function workflowType(): SubagentTypeDefinition<GreenfieldSubagentProfile> {
 		description:
 			"Todo-driven parallel worker: inherits a snapshot of the parent context, executes a dispatched todo list with full coding tools in the shared cwd. Spawn via dispatch_workflows.",
 		profile: {
+			inheritParentMcp: true,
 			activation: { mode: "scope", scope: "cli" },
 			systemPromptAddon: WORKFLOW_SYSTEM_PROMPT,
 			forkParentContext: true,

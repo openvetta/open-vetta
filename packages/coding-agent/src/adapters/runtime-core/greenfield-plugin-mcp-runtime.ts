@@ -9,6 +9,7 @@ import {
 	type McpConfig,
 	type McpConfigSource,
 	type McpRuntimeToolSnapshot,
+	type McpRuntimeToolView,
 	type McpServerConfig,
 	type McpServerSupervisor,
 } from "@vetta/runtime-mcp";
@@ -83,6 +84,11 @@ export class CodingAgentPluginMcpRuntime {
 
 	snapshot(): McpRuntimeToolSnapshot {
 		return this.synchronizer.snapshot();
+	}
+
+	/** 供父 Session 向子 Session 投影现有绑定；连接和释放权仍属于本 Runtime。 */
+	view(): McpRuntimeToolView {
+		return this.synchronizer.view();
 	}
 
 	isManagedTool(toolName: string): boolean {

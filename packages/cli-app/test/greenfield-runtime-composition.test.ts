@@ -603,6 +603,63 @@ describe("Greenfield runtime composition", () => {
 		await second.dispose();
 	});
 
+	it("projects all parent file MCP bindings into explorer children without child-side deferral", async () => {
+		const conversations = await createTemporaryDirectory("greenfield-runtime-subagent-mcp-");
+		const fixture = createMcpSourceFixture(16);
+		const rootMcpTools: string[][] = [];
+		const childMcpTools: string[][] = [];
+		let rootCalls = 0;
+		const composition = await createGreenfieldRuntimeComposition({
+			conversationDir: conversations,
+			modelRegistry: modelRegistry(),
+			initialModel: MODEL,
+			initialThinkingLevel: "off",
+			mcpSource: fixture.source,
+			streamFn: (_model, context) => {
+				const toolNames = (context.tools ?? []).map(({ name }) => name);
+				const mcpTools = toolNames.filter((name) => name === "tool_search" || name.startsWith("mcp_"));
+				if (toolNames.includes("spawn_agent")) {
+					rootMcpTools.push(mcpTools);
+					if (rootCalls === 0) {
+						rootCalls += 1;
+						return new RecordedAssistantStream(
+							assistantMessage(
+								[
+									{
+										type: "toolCall",
+										id: "spawn-mcp-explorer",
+										name: "spawn_agent",
+										arguments: {
+											description: "Inspect inherited MCP tools",
+											task_name: "inspect_file_mcp",
+											message: "Report the available MCP tools.",
+											agent_type: "explorer",
+										},
+									},
+								],
+								"toolUse",
+							),
+						);
+					}
+					return new RecordedAssistantStream(assistantMessage([{ type: "text", text: "root done" }]));
+				}
+				childMcpTools.push(mcpTools);
+				return new RecordedAssistantStream(assistantMessage([{ type: "text", text: "child done" }]));
+			},
+		});
+		compositions.push(composition);
+		const session = await composition.backend.create({ sessionId: "subagent-file-mcp" });
+
+		await session.prompt({ text: "delegate MCP inspection" });
+		await vi.waitFor(() => expect(childMcpTools).toHaveLength(1));
+
+		expect(rootMcpTools[0]).toEqual(["tool_search"]);
+		expect(new Set(childMcpTools[0])).toEqual(new Set(fixture.descriptors.map(({ name }) => name)));
+		expect(childMcpTools[0]).toHaveLength(fixture.descriptors.length);
+		expect(childMcpTools[0]).not.toContain("tool_search");
+		await session.dispose();
+	});
+
 	it("keeps explicit MCP activation eager above the deferred threshold", async () => {
 		const conversations = await createTemporaryDirectory("greenfield-runtime-explicit-mcp-");
 		const fixture = createMcpSourceFixture(16);

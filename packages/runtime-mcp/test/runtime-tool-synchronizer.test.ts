@@ -25,10 +25,12 @@ describe("McpRuntimeToolSynchronizer", () => {
 			],
 		});
 		expect(registry.registered.get(alphaV1.name)).toBe(alphaV1);
+		expect(synchronizer.view()).toEqual(view);
 
 		view = runtimeView(binding(tool("mcp_search_alpha", "Alpha"), "alpha-v1"), binding(beta, "beta-v1"));
 		const unchanged = await synchronizer.refresh();
 		expect(unchanged).toBe(first);
+		expect(synchronizer.view()).toEqual(view);
 		expect(registry.registerCalls).toEqual(["mcp_search_alpha", "mcp_search_beta"]);
 		expect(registry.registered.get(alphaV1.name)).toBe(alphaV1);
 
@@ -61,6 +63,7 @@ describe("McpRuntimeToolSynchronizer", () => {
 		await expect(synchronizer.refresh()).rejects.toThrow("MCP refresh failed");
 
 		expect(synchronizer.snapshot()).toBe(initial);
+		expect(synchronizer.view()).toEqual(runtimeView(binding(alpha, "alpha-v1")));
 		expect(registry.registered.get(alpha.name)).toBe(alpha);
 		expect(registry.unregisterCalls).toEqual([]);
 	});
@@ -84,6 +87,7 @@ describe("McpRuntimeToolSynchronizer", () => {
 		synchronizer.dispose();
 		expect(registry.unregisterCalls).toEqual([alpha.name]);
 		expect(synchronizer.snapshot()).toEqual({ revision: 2, tools: [] });
+		expect(synchronizer.view()).toEqual({ tools: [] });
 	});
 });
 

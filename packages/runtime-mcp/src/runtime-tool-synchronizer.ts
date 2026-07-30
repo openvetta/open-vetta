@@ -47,6 +47,7 @@ export interface McpRuntimeToolSnapshot {
  */
 export class McpRuntimeToolSynchronizer {
 	private readonly fingerprints = new Map<string, string>();
+	private currentView: McpRuntimeToolView = Object.freeze({ tools: Object.freeze([]) });
 	private currentSnapshot: McpRuntimeToolSnapshot = Object.freeze({
 		revision: 0,
 		tools: Object.freeze([]),
@@ -73,6 +74,11 @@ export class McpRuntimeToolSynchronizer {
 		return this.currentSnapshot;
 	}
 
+	/** 当前已同步的 Tool Binding 视图；调用方不获得 Source 或连接的生命周期所有权。 */
+	view(): McpRuntimeToolView {
+		return this.currentView;
+	}
+
 	dispose(): void {
 		for (const toolName of this.fingerprints.keys()) {
 			this.registry.unregister(toolName);
@@ -82,6 +88,7 @@ export class McpRuntimeToolSynchronizer {
 			revision: this.currentSnapshot.revision + 1,
 			tools: Object.freeze([]),
 		});
+		this.currentView = Object.freeze({ tools: Object.freeze([]) });
 	}
 
 	private async refreshNow(): Promise<McpRuntimeToolSnapshot> {
@@ -101,6 +108,7 @@ export class McpRuntimeToolSynchronizer {
 			this.registry.register(binding.tool);
 			this.fingerprints.set(toolName, binding.fingerprint);
 		}
+		this.currentView = Object.freeze({ tools: Object.freeze([...view.tools]) });
 
 		const descriptors = view.tools.map(({ tool }) =>
 			Object.freeze({
