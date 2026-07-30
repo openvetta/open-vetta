@@ -2,6 +2,7 @@ import type { AgentFeatureDefinition } from "@vetta/runtime-core/kernel";
 import { matchesAgentMode } from "../../core/agent-mode.js";
 import type { Skill } from "../../core/skills.js";
 import { createInvokeSkillTool } from "../../core/tools/invoke-skill/index.js";
+import { CODING_AGENT_MODEL_TOOL_ORDER } from "./greenfield-model-tool-order.js";
 import type { CodingAgentPromptResourceSource } from "./greenfield-prompt-runtime.js";
 import { adaptCodingAgentToolRegistration } from "./greenfield-tool-adapter.js";
 
@@ -33,6 +34,7 @@ export function createCodingAgentInvokeSkillRuntimeFeature(
 		createInvokeSkillTool({
 			getSkills: readVisibleSkills,
 		}),
+		{ modelOrder: CODING_AGENT_MODEL_TOOL_ORDER.invokeSkill },
 	);
 
 	return {

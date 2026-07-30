@@ -1,6 +1,10 @@
 import type { Api, Model } from "@vetta/ai";
 import { describe, expect, it, vi } from "vitest";
 import {
+	CODING_AGENT_MODEL_TOOL_ORDER,
+	CODING_AGENT_SUBAGENT_MODEL_TOOL_ORDER_STEP,
+} from "../../src/adapters/runtime-core/greenfield-model-tool-order.js";
+import {
 	CodingAgentGreenfieldPromptAdapter,
 	CodingAgentModelCallFrameComposer,
 	CodingAgentModelRegistryAdapter,
@@ -274,7 +278,7 @@ describe("Greenfield coding-agent adapters", () => {
 		).rejects.toThrow("Duplicate Coding Agent system prompt block id: core.tools");
 	});
 
-	it("emits built-in product tools in the legacy provider order while preserving external order", async () => {
+	it("emits tools by generic modelOrder metadata while preserving unordered contribution order", async () => {
 		const composer = new CodingAgentModelCallFrameComposer({
 			resolveSystemPromptOptions: () => ({ customPrompt: "test", cwd: "C:\\workspace" }),
 		});
@@ -294,6 +298,20 @@ describe("Greenfield coding-agent adapters", () => {
 			"plugin_second",
 			"progress",
 		];
+		const orders = new Map<string, number>([
+			["read", CODING_AGENT_MODEL_TOOL_ORDER.read],
+			["shell", CODING_AGENT_MODEL_TOOL_ORDER.command],
+			["doc_to_pdf", CODING_AGENT_MODEL_TOOL_ORDER.docToPdf],
+			["current_time", CODING_AGENT_MODEL_TOOL_ORDER.currentTime],
+			["progress", CODING_AGENT_MODEL_TOOL_ORDER.progress],
+			["kb_filter_by_tags", CODING_AGENT_MODEL_TOOL_ORDER.knowledgeFilter],
+			["kb_list_available_tags", CODING_AGENT_MODEL_TOOL_ORDER.knowledgeTags],
+			["invoke_skill", CODING_AGENT_MODEL_TOOL_ORDER.invokeSkill],
+			["todo", CODING_AGENT_MODEL_TOOL_ORDER.todo],
+			["spawn_agent", CODING_AGENT_MODEL_TOOL_ORDER.subagentStart],
+			["followup_task", CODING_AGENT_MODEL_TOOL_ORDER.subagentStart + CODING_AGENT_SUBAGENT_MODEL_TOOL_ORDER_STEP],
+			["ask_user_question", CODING_AGENT_MODEL_TOOL_ORDER.askUserQuestion],
+		]);
 		const frame = await composer.compose({
 			sessionId: "session-1",
 			turnId: "turn-1",
@@ -301,7 +319,7 @@ describe("Greenfield coding-agent adapters", () => {
 			messages: [],
 			frame: {
 				instructions: [],
-				tools: new Map(names.map((name) => [name, runtimeTool(name)])),
+				tools: new Map(names.map((name) => [name, runtimeTool(name, orders.get(name))])),
 			},
 		});
 
@@ -422,12 +440,13 @@ const MODEL: Model<Api> = {
 	maxTokens: 1_000,
 };
 
-function runtimeTool(name: string) {
+function runtimeTool(name: string, modelOrder?: number) {
 	return {
 		name,
 		label: name,
 		description: name,
 		inputSchema: { type: "object" },
+		modelOrder,
 		async execute() {
 			return { content: [] };
 		},

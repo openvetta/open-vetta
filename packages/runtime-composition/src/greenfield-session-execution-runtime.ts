@@ -82,7 +82,7 @@ export class GreenfieldSessionExecutionRuntime {
 			createShellToolRegistration(options.cwd, { executor: commandExecutor }),
 			createTaskOutputToolRegistration({ backgroundService: this.backgroundService }),
 			createTaskStopToolRegistration({ backgroundService: this.backgroundService }),
-		];
+		].map((registration) => inheritModelOrder(registration, options.resolveToolEntry?.(registration.tool.name)));
 		for (const toolName of SESSION_EXECUTION_TOOL_NAMES) {
 			this.sourceBindings.set(toolName, options.resolveToolEntry?.(toolName)?.binding);
 		}
@@ -255,6 +255,16 @@ class SwappableCodingToolCatalog implements CodingToolCatalog {
 
 const SESSION_EXECUTION_TOOL_NAMES = ["bash", "shell", "read", "write", "edit", "task_output", "task_stop"] as const;
 const BACKGROUND_TASK_TOOL_NAMES = new Set<string>(["task_output", "task_stop"]);
+
+function inheritModelOrder(
+	registration: CodingToolRegistration,
+	source: CodingToolCatalogEntry | undefined,
+): CodingToolRegistration {
+	const modelOrder = source?.registration.modelOrder;
+	return modelOrder === undefined
+		? registration
+		: { ...registration, modelOrder, tool: { ...registration.tool, modelOrder } };
+}
 
 function withBackgroundTaskCapability(activation: CodingToolActivation, enabled: boolean): CodingToolActivation {
 	if (!enabled || activation.mode === "explicit") return activation;

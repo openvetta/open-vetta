@@ -42,6 +42,7 @@ export function guardCodingToolRegistration(
 ): RuntimeToolDefinition {
 	return {
 		...entry.registration.tool,
+		modelOrder: entry.registration.modelOrder ?? entry.registration.tool.modelOrder,
 		execute: (request) => catalog.execute(entry.binding, request),
 	};
 }

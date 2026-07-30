@@ -34,6 +34,7 @@ export {
 	type CodingAgentContinuationOrchestratorOptions,
 	type CodingAgentContinuationSource,
 } from "./greenfield-continuation-orchestrator.js";
+export { createCodingAgentDesktopCommandHost } from "./greenfield-desktop-command-host.js";
 export {
 	type EcosystemHookAwareRuntimeTool,
 	wrapRuntimeToolsWithEcosystemHooks,
@@ -42,6 +43,16 @@ export {
 	type CodingAgentInvokeSkillRuntimeFeatureOptions,
 	createCodingAgentInvokeSkillRuntimeFeature,
 } from "./greenfield-invoke-skill-runtime.js";
+export {
+	createCodingAgentKnowledgePageWriter,
+	createCodingAgentKnowledgeWriteRegistration,
+	createCodingAgentKnowledgeWriteTool,
+	KNOWLEDGE_WRITE_TOOL_DESCRIPTION,
+	type KnowledgePageWriterPort,
+	type KnowledgeWriteToolDetails,
+	type KnowledgeWriteToolInput,
+	KnowledgeWriteToolInputSchema,
+} from "./greenfield-knowledge-write-runtime.js";
 export {
 	type CodingAgentDeferredMcpTool,
 	createCodingAgentToolSearchRuntimeTool,
@@ -75,6 +86,10 @@ export {
 	type CodingAgentModelRegistrySource,
 } from "./greenfield-model-registry-adapter.js";
 export {
+	CODING_AGENT_MODEL_TOOL_ORDER,
+	CODING_AGENT_SUBAGENT_MODEL_TOOL_ORDER_STEP,
+} from "./greenfield-model-tool-order.js";
+export {
 	type CodingAgentPluginMcpCompositionOptions,
 	CodingAgentPluginMcpRuntime,
 	type CodingAgentPluginMcpRuntimeOptions,
@@ -96,9 +111,11 @@ export {
 	type CodingAgentPluginToolSurface,
 } from "./greenfield-plugin-tool-runtime.js";
 export {
+	type CodingAgentGreenfieldProductToolFeatureOptions,
 	type CodingAgentGreenfieldProductToolOptions,
+	createCodingAgentGreenfieldProductToolFeature,
 	createCodingAgentGreenfieldProductToolRegistrations,
-} from "./greenfield-product-tool-adapter.js";
+} from "./greenfield-product-tools-runtime.js";
 export {
 	CodingAgentGreenfieldPromptAdapter,
 	type CodingAgentGreenfieldPromptAdapterOptions,
@@ -139,6 +156,7 @@ export {
 	createCodingAgentTodoRuntimeToolRegistration,
 } from "./greenfield-todo-runtime.js";
 export {
+	type AdaptCodingAgentToolRegistrationOptions,
 	adaptCodingAgentToolRegistration,
 	type CodingAgentRuntimeToolRegistration,
 } from "./greenfield-tool-adapter.js";

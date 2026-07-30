@@ -6,6 +6,7 @@ import { createKbFilterByTagsTool, createKbListTagsTool } from "@vetta/coding-ag
 import {
 	adaptCodingAgentToolRegistration,
 	CODING_AGENT_ASK_USER_QUESTION_TOOL_NAME,
+	CODING_AGENT_MODEL_TOOL_ORDER,
 	type CodingAgentCompactionExtensionRuntime,
 	CodingAgentContinuationOrchestrator,
 	CodingAgentGreenfieldContextRuntime,
@@ -33,6 +34,7 @@ import {
 	CodingAgentTodoContinuationSource,
 	CodingAgentTodoRuntime,
 	createCodingAgentAskUserQuestionRuntimeFeature,
+	createCodingAgentGreenfieldProductToolFeature,
 	createCodingAgentGreenfieldProductToolRegistrations,
 	createCodingAgentInvokeSkillRuntimeFeature,
 	createCodingAgentMemoryRuntimeFeature,
@@ -280,12 +282,12 @@ async function createGreenfieldRuntimeCompositionInternal(
 			return !controller?.isManagedTool(registration.tool.name) || controller.isToolVisible(registration.tool.name);
 		},
 		additionalRegistrations: [
-			...createCodingAgentGreenfieldProductToolRegistrations({
-				cwd,
-				knowledgeRoot: options.knowledgeRoot,
+			adaptCodingAgentToolRegistration(createKbListTagsTool(options.knowledgeRoot), {
+				modelOrder: CODING_AGENT_MODEL_TOOL_ORDER.knowledgeTags,
 			}),
-			adaptCodingAgentToolRegistration(createKbListTagsTool(options.knowledgeRoot)),
-			adaptCodingAgentToolRegistration(createKbFilterByTagsTool(options.knowledgeRoot)),
+			adaptCodingAgentToolRegistration(createKbFilterByTagsTool(options.knowledgeRoot), {
+				modelOrder: CODING_AGENT_MODEL_TOOL_ORDER.knowledgeFilter,
+			}),
 			...inheritedMcpView.tools.map(({ tool }) => ({
 				tool,
 				scopeUse: CODING_TOOL_SCOPES,
@@ -366,6 +368,20 @@ async function createGreenfieldRuntimeCompositionInternal(
 				const configurationState = new GreenfieldSessionConfigurationState(sessionOptions.agentMode, () =>
 					pluginRuntime?.readAgentPlugins(),
 				);
+				const productToolRegistrations = createCodingAgentGreenfieldProductToolRegistrations({
+					cwd: sessionCwd,
+					knowledgeRoot: options.knowledgeRoot,
+				});
+				const productToolFeature = createCodingAgentGreenfieldProductToolFeature({
+					registrations: productToolRegistrations,
+					resolveActivation: (context) =>
+						resolveTurnToolActivation(
+							effectiveActivation,
+							context,
+							{ backgroundTasksAvailable, knowledgeAvailable },
+							configurationState.readAgentMode(),
+						),
+				});
 				configurationStates.set(activeSessionId, configurationState);
 				pluginMcpRuntime = await options.createPluginMcpRuntime?.({
 					cwd: sessionCwd,
@@ -746,6 +762,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 					...baseProfile,
 					features: [
 						...baseProfile.features,
+						productToolFeature,
 						...(invokeSkillFeature ? [invokeSkillFeature] : []),
 						...(subagentRuntime ? [subagentRuntime.feature] : []),
 					],
@@ -888,6 +905,10 @@ async function createGreenfieldRuntimeCompositionInternal(
 								...baseToolNames.filter(
 									(toolName) => !activeExecutionRuntime.ownsTool(toolName) || executionTools.has(toolName),
 								),
+								...selectCodingToolRegistrations(
+									productToolRegistrations,
+									withAgentMode(stateActivation, configurationState.readAgentMode()),
+								).map(({ tool }) => tool.name),
 								...(todoEnabled ? [todoRegistration.tool.name] : []),
 								...(memoryRuntime ? [memoryRuntime.toolRegistration.tool.name] : []),
 								...(subagentRuntime ? subagentRuntime.readTools().map(({ name }) => name) : []),

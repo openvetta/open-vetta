@@ -46,12 +46,26 @@ function createModelCallFrame(
 	const instructions = uniqueValues("instruction", instructionValues, ({ id }) => id)
 		.sort(compareInstruction)
 		.map(freezeInstruction);
-	const tools = uniqueValues("tool", toolValues, ({ name }) => name).map(freezeTool);
+	const tools = orderTools(uniqueValues("tool", toolValues, ({ name }) => name)).map(freezeTool);
 
 	return Object.freeze({
 		instructions: Object.freeze(instructions),
 		tools: new ImmutableReadonlyMap(tools.map((tool) => [tool.name, tool])),
 	});
+}
+
+function orderTools(tools: readonly RuntimeToolDefinition[]): RuntimeToolDefinition[] {
+	return tools
+		.map((tool, contributionIndex) => ({ tool, contributionIndex }))
+		.sort((left, right) => {
+			const leftOrder = left.tool.modelOrder;
+			const rightOrder = right.tool.modelOrder;
+			if (leftOrder !== undefined && rightOrder !== undefined) return leftOrder - rightOrder;
+			if (leftOrder !== undefined) return -1;
+			if (rightOrder !== undefined) return 1;
+			return left.contributionIndex - right.contributionIndex;
+		})
+		.map(({ tool }) => tool);
 }
 
 function uniqueValues<T>(kind: string, values: readonly T[], getId: (value: T) => string): T[] {

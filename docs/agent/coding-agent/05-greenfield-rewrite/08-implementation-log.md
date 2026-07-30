@@ -117,6 +117,7 @@
 | [107-mcp-cutover-differential-gate.md](./08-implementation-log/107-mcp-cutover-differential-gate.md) | MCP 新旧端到端差分门禁、测试稳定性纠正与迁移边界收口 |
 | [108-production-model-call-frame-readiness.md](./08-implementation-log/108-production-model-call-frame-readiness.md) | 生产 Model Call Frame 差分门禁、动态 Profile 切换与缺失能力清单 |
 | [109-production-tool-surface-gap-closure.md](./08-implementation-log/109-production-tool-surface-gap-closure.md) | 生产 Tool Surface 缺口闭合、动态 Skill/Agent Mode 与确定性顺序 |
+| [110-runtime-native-product-tools-and-model-order.md](./08-implementation-log/110-runtime-native-product-tools-and-model-order.md) | Runtime-native 产品工具、Session cwd 隔离与通用模型顺序合同 |
 
 ## 维护约定
 

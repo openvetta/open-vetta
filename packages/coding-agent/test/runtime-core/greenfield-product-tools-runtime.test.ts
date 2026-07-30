@@ -7,9 +7,17 @@ import {
 	createCodingAgentInvokeSkillRuntimeFeature,
 } from "../../src/adapters/runtime-core/greenfield.js";
 import type { CodingAgentPromptResourceSource } from "../../src/adapters/runtime-core/greenfield-prompt-runtime.js";
+import type { CodingAgentRuntimeToolRegistration } from "../../src/adapters/runtime-core/greenfield-tool-adapter.js";
 import type { Skill } from "../../src/core/skills.js";
+import { createDocToPdfTool } from "../../src/core/tools/doc-to-pdf/index.js";
+import { createExtractTextFromImgTool } from "../../src/core/tools/extract-text-from-img/index.js";
+import { createExtractTextFromPdfTool } from "../../src/core/tools/extract-text-from-pdf/index.js";
+import { createHtmlToPdfTool } from "../../src/core/tools/html-to-pdf/index.js";
+import { createKbWritePageTool } from "../../src/core/tools/kb-write-page/index.js";
+import { createProgressTool } from "../../src/core/tools/progress/index.js";
+import { createRenderPdfPageTool } from "../../src/core/tools/render-pdf-page/index.js";
 
-describe("Greenfield product tool compatibility boundary", () => {
+describe("Greenfield product tools runtime", () => {
 	const temporaryDirectories: string[] = [];
 
 	afterEach(async () => {
@@ -18,37 +26,24 @@ describe("Greenfield product tool compatibility boundary", () => {
 		}
 	});
 
-	it("preserves the legacy product tool names and activation metadata", () => {
+	it("preserves the complete legacy product tool definitions and activation metadata", () => {
+		const cwd = process.cwd();
+		const knowledgeRoot = "C:\\knowledge";
 		const registrations = createCodingAgentGreenfieldProductToolRegistrations({
-			cwd: process.cwd(),
-			knowledgeRoot: "C:\\knowledge",
+			cwd,
+			knowledgeRoot,
 		});
-		const byName = new Map(registrations.map((registration) => [registration.tool.name, registration]));
+		const legacy = [
+			createDocToPdfTool(cwd),
+			createHtmlToPdfTool(cwd),
+			createExtractTextFromPdfTool(cwd),
+			createExtractTextFromImgTool(cwd),
+			createRenderPdfPageTool(cwd),
+			createProgressTool(),
+			createKbWritePageTool(knowledgeRoot),
+		];
 
-		expect([...byName.keys()]).toEqual([
-			"doc_to_pdf",
-			"html_to_pdf",
-			"extract_text_from_pdf",
-			"extract_text_from_img",
-			"render_pdf_page",
-			"progress",
-			"kb_write_page",
-		]);
-		for (const name of [
-			"doc_to_pdf",
-			"html_to_pdf",
-			"extract_text_from_pdf",
-			"extract_text_from_img",
-			"render_pdf_page",
-			"progress",
-		]) {
-			expect(byName.get(name)?.agentModes).toEqual(["work"]);
-		}
-		expect(byName.get("kb_write_page")).toMatchObject({
-			scopeUse: ["kb-processing"],
-			requires: ["knowledge"],
-			category: "kb-write",
-		});
+		expect(registrations.map(runtimeVisibleDefinition)).toEqual(legacy.map(legacyVisibleDefinition));
 	});
 
 	it("refreshes skill visibility per call and resolves the current file at execution", async () => {
@@ -102,6 +97,43 @@ describe("Greenfield product tool compatibility boundary", () => {
 		}
 	});
 });
+
+interface LegacyVisibleTool {
+	readonly name: string;
+	readonly label: string;
+	readonly description: string;
+	readonly parameters: unknown;
+	readonly scope_use?: readonly string[];
+	readonly requires?: readonly string[];
+	readonly agent_mode?: readonly string[];
+	readonly category?: string;
+}
+
+function legacyVisibleDefinition(tool: LegacyVisibleTool) {
+	return {
+		name: tool.name,
+		label: tool.label,
+		description: tool.description,
+		schema: tool.parameters,
+		scopeUse: tool.scope_use ?? [],
+		requires: tool.requires,
+		agentModes: tool.agent_mode,
+		category: tool.category,
+	};
+}
+
+function runtimeVisibleDefinition(registration: CodingAgentRuntimeToolRegistration) {
+	return {
+		name: registration.tool.name,
+		label: registration.tool.label,
+		description: registration.tool.description,
+		schema: registration.tool.inputSchema,
+		scopeUse: registration.scopeUse,
+		requires: registration.requires,
+		agentModes: registration.agentModes,
+		category: registration.category,
+	};
+}
 
 function skill(filePath: string, baseDir: string): Skill {
 	return {

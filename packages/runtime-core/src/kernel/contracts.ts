@@ -65,6 +65,8 @@ export interface RuntimeToolDefinition<TInput extends object = Readonly<Record<s
 	readonly label: string;
 	readonly description: string;
 	readonly inputSchema: Readonly<Record<string, unknown>>;
+	/** 模型工具数组中的可选稳定顺序；未声明时保持贡献顺序并排在已声明工具之后。 */
+	readonly modelOrder?: number;
 	execute(request: RuntimeToolExecutionRequest<TInput>): Promise<RuntimeToolResult>;
 }
 

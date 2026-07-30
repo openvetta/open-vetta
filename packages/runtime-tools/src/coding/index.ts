@@ -60,6 +60,15 @@ export {
 	type CommandToolName,
 } from "./shared/command-tool.js";
 export {
+	type AsyncExecutionGate,
+	type CommandProcessOptions,
+	type CommandProcessPort,
+	DesktopCommandAbortedError,
+	type DesktopCommandLocation,
+	type DesktopCommandPort,
+	type DesktopCommandResult,
+} from "./shared/desktop-command.js";
+export {
 	type CommandSpawnContext,
 	type CommandSpawnHook,
 	createForegroundCommandToolExecutor,
@@ -101,6 +110,20 @@ export {
 	createCurrentTimeToolRegistration,
 } from "./tools/current-time/index.js";
 export {
+	createDocToPdfTool,
+	createDocToPdfToolRegistration,
+	DOC_TO_PDF_TOOL_AGENT_MODES,
+	DOC_TO_PDF_TOOL_CATEGORY,
+	DOC_TO_PDF_TOOL_DESCRIPTION,
+	DOC_TO_PDF_TOOL_SCOPES,
+	type DocToPdfDetectedBackend,
+	type DocToPdfOfficeBackend,
+	type DocToPdfOperations,
+	type DocToPdfToolInput,
+	DocToPdfToolInputSchema,
+	type DocToPdfToolOptions,
+} from "./tools/doc-to-pdf/index.js";
+export {
 	type AnchorEditInput,
 	AnchorEditInputSchema,
 	createEditTool,
@@ -115,6 +138,28 @@ export {
 	EditToolInputSchema,
 	type EditToolOptions,
 } from "./tools/edit/index.js";
+export {
+	createExtractTextFromImageTool,
+	createExtractTextFromImageToolRegistration,
+	EXTRACT_TEXT_FROM_IMAGE_TOOL_AGENT_MODES,
+	EXTRACT_TEXT_FROM_IMAGE_TOOL_CATEGORY,
+	EXTRACT_TEXT_FROM_IMAGE_TOOL_DESCRIPTION,
+	EXTRACT_TEXT_FROM_IMAGE_TOOL_SCOPES,
+	type ExtractTextFromImageToolInput,
+	ExtractTextFromImageToolInputSchema,
+	type ExtractTextFromImageToolOptions,
+} from "./tools/extract-text-from-image/index.js";
+export {
+	createExtractTextFromPdfTool,
+	createExtractTextFromPdfToolRegistration,
+	EXTRACT_TEXT_FROM_PDF_TOOL_AGENT_MODES,
+	EXTRACT_TEXT_FROM_PDF_TOOL_CATEGORY,
+	EXTRACT_TEXT_FROM_PDF_TOOL_DESCRIPTION,
+	EXTRACT_TEXT_FROM_PDF_TOOL_SCOPES,
+	type ExtractTextFromPdfToolInput,
+	ExtractTextFromPdfToolInputSchema,
+	type ExtractTextFromPdfToolOptions,
+} from "./tools/extract-text-from-pdf/index.js";
 export {
 	createFindTool,
 	createFindToolRegistration,
@@ -152,6 +197,17 @@ export {
 	type GrepToolOptions,
 } from "./tools/grep/index.js";
 export {
+	createHtmlToPdfTool,
+	createHtmlToPdfToolRegistration,
+	HTML_TO_PDF_TOOL_AGENT_MODES,
+	HTML_TO_PDF_TOOL_CATEGORY,
+	HTML_TO_PDF_TOOL_DESCRIPTION,
+	HTML_TO_PDF_TOOL_SCOPES,
+	type HtmlToPdfToolInput,
+	HtmlToPdfToolInputSchema,
+	type HtmlToPdfToolOptions,
+} from "./tools/html-to-pdf/index.js";
+export {
 	createLsTool,
 	createLsToolRegistration,
 	LS_TOOL_CATEGORY,
@@ -164,6 +220,18 @@ export {
 	LsToolInputSchema,
 	type LsToolOptions,
 } from "./tools/ls/index.js";
+export {
+	createProgressTool,
+	createProgressToolRegistration,
+	PROGRESS_TOOL_AGENT_MODES,
+	PROGRESS_TOOL_CATEGORY,
+	PROGRESS_TOOL_DESCRIPTION,
+	PROGRESS_TOOL_SCOPES,
+	type ProgressToolDetails,
+	type ProgressToolInput,
+	ProgressToolInputSchema,
+	type ProgressToolRegistrationOptions,
+} from "./tools/progress/index.js";
 export {
 	createReadTool,
 	createReadToolRegistration,
@@ -181,6 +249,20 @@ export {
 	type ReadToolOptions,
 	type ResizedImage,
 } from "./tools/read/index.js";
+export {
+	createRenderPdfPageTool,
+	createRenderPdfPageToolRegistration,
+	RENDER_PDF_PAGE_TOOL_AGENT_MODES,
+	RENDER_PDF_PAGE_TOOL_CATEGORY,
+	RENDER_PDF_PAGE_TOOL_DESCRIPTION,
+	RENDER_PDF_PAGE_TOOL_SCOPES,
+	RenderPdfPageProcessAbortedError,
+	type RenderPdfPageProcessPort,
+	type RenderPdfPageProcessResult,
+	type RenderPdfPageToolInput,
+	RenderPdfPageToolInputSchema,
+	type RenderPdfPageToolOptions,
+} from "./tools/render-pdf-page/index.js";
 export {
 	createShellTool,
 	createShellToolRegistration,

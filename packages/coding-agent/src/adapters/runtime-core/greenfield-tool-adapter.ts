@@ -9,7 +9,12 @@ export interface CodingAgentRuntimeToolRegistration {
 	readonly scopeUse: readonly ConversationScenario[];
 	readonly requires?: readonly string[];
 	readonly agentModes?: readonly string[];
+	readonly modelOrder?: number;
 	readonly category: ToolCategory;
+}
+
+export interface AdaptCodingAgentToolRegistrationOptions {
+	readonly modelOrder?: number;
 }
 
 /**
@@ -19,6 +24,7 @@ export interface CodingAgentRuntimeToolRegistration {
  */
 export function adaptCodingAgentToolRegistration<TParameters extends TSchema, TDetails>(
 	tool: CodingAgentTool<TParameters, TDetails>,
+	options: AdaptCodingAgentToolRegistrationOptions = {},
 ): CodingAgentRuntimeToolRegistration {
 	const hookMetadata = (tool as CodingAgentTool<TParameters, TDetails> & EcosystemHookAwareTool).ecosystemHook;
 	const runtimeTool: EcosystemHookAwareRuntimeTool = {
@@ -26,6 +32,7 @@ export function adaptCodingAgentToolRegistration<TParameters extends TSchema, TD
 		label: tool.label,
 		description: tool.description,
 		inputSchema: tool.parameters,
+		modelOrder: options.modelOrder,
 		ecosystemHook: hookMetadata,
 		async execute(request) {
 			return tool.execute(
@@ -42,6 +49,7 @@ export function adaptCodingAgentToolRegistration<TParameters extends TSchema, TD
 		scopeUse: tool.scope_use ?? [],
 		requires: tool.requires,
 		agentModes: tool.agent_mode,
+		modelOrder: options.modelOrder,
 		category: isToolCategory(tool.category) ? tool.category : "external",
 	};
 }

@@ -36,6 +36,8 @@ export interface CodingToolRegistration<TInput extends object = Readonly<Record<
 	readonly requires?: readonly string[];
 	/** 工作模式白名单；缺省或空数组表示通用。 */
 	readonly agentModes?: readonly string[];
+	/** 最终模型工具数组中的稳定顺序；未声明的动态工具保持贡献顺序并排在其后。 */
+	readonly modelOrder?: number;
 	readonly category: CodingToolCategory;
 }
 

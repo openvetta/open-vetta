@@ -26,9 +26,9 @@ export type DocToPdfToolInput = Static<typeof docToPdfSchema>;
 
 const SUPPORTED_EXTENSIONS = new Set([".doc", ".docx"]);
 
-type OfficeBackend = "msoffice" | "wps";
+export type OfficeBackend = "msoffice" | "wps";
 
-interface DetectedBackend {
+export interface DetectedBackend {
 	type: OfficeBackend;
 	label: string;
 }
@@ -218,6 +218,11 @@ const defaultOperations: DocToPdfOperations = {
 	detect: detectBackend,
 	convert: convertDocument,
 };
+
+/** Runtime-native Tool 使用的本地 Office/WPS 宿主操作。 */
+export function createLocalDocToPdfOperations(): DocToPdfOperations {
+	return defaultOperations;
+}
 
 // ── Tool options ──
 

@@ -3,10 +3,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Api, Model } from "@vetta/ai";
 import { ALL_SCENARIOS, AuthStorage, ModelRegistry } from "@vetta/coding-agent";
-import { createLegacyRuntimeHostOptions } from "@vetta/coding-agent/runtime-host";
+import { ENV_AGENT_DIR } from "@vetta/coding-agent/config.js";
+import {
+	createCodingAgentMcpRuntimeToolSource,
+	createCodingAgentPluginMcpRuntime,
+	createLegacyRuntimeHostOptions,
+} from "@vetta/coding-agent/runtime-host";
 import type { CodingAgentModelRegistrySource } from "@vetta/coding-agent/runtime-host/greenfield";
 import { type AgentPluginRuntimeConfig, type ConversationScenario, RuntimeHost } from "@vetta/runtime-core";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import {
 	type OpenAiResponsesTestServer,
 	type ProviderRequest,
@@ -30,6 +35,13 @@ describe("Desktop RuntimeHost model-call frame cutover readiness", () => {
 	const directories: string[] = [];
 	const fixtures: RuntimeFixture[] = [];
 	const servers: OpenAiResponsesTestServer[] = [];
+	const originalAgentDir = process.env[ENV_AGENT_DIR];
+	let isolatedGlobalAgentDir: string;
+
+	beforeAll(async () => {
+		isolatedGlobalAgentDir = await mkdtemp(join(tmpdir(), "desktop-frame-global-agent-"));
+		process.env[ENV_AGENT_DIR] = isolatedGlobalAgentDir;
+	});
 
 	afterEach(async () => {
 		for (const fixture of fixtures.splice(0).reverse()) await fixture.dispose();
@@ -37,6 +49,12 @@ describe("Desktop RuntimeHost model-call frame cutover readiness", () => {
 		for (const directory of directories.splice(0).reverse()) {
 			await rm(directory, { recursive: true, force: true });
 		}
+	});
+
+	afterAll(async () => {
+		if (originalAgentDir === undefined) delete process.env[ENV_AGENT_DIR];
+		else process.env[ENV_AGENT_DIR] = originalAgentDir;
+		await rm(isolatedGlobalAgentDir, { recursive: true, force: true });
 	});
 
 	for (const scenario of ALL_SCENARIOS) {
@@ -273,7 +291,15 @@ function createRuntimeFixture(backend: RuntimeBackend, agentStateDir: string, mo
 			modelRegistry: modelRegistry(model),
 			initialModel: model,
 			initialThinkingLevel: "off",
+			createPluginMcpRuntime: () => createCodingAgentPluginMcpRuntime(),
 		},
+		// Legacy MCP resolves its global config from getAgentDir(), even when the
+		// session uses an isolated agentDir. Mirror that compatibility behavior.
+		createMcpRuntimeSource: ({ cwd }) =>
+			createCodingAgentMcpRuntimeToolSource({
+				projectRoot: cwd,
+				enabled: true,
+			}),
 	});
 	const runtime = new RuntimeHost({
 		sessionBackend: pool,

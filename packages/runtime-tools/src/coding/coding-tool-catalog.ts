@@ -200,6 +200,7 @@ function freezeRegistration(registration: CodingToolRegistration): CodingToolReg
 		scopeUse: Object.freeze([...registration.scopeUse]),
 		requires: registration.requires ? Object.freeze([...registration.requires]) : undefined,
 		agentModes: registration.agentModes ? Object.freeze([...registration.agentModes]) : undefined,
+		modelOrder: registration.modelOrder,
 		category: registration.category,
 	});
 }
@@ -210,6 +211,7 @@ function freezeToolDefinition(tool: RuntimeToolDefinition): RuntimeToolDefinitio
 		label: tool.label,
 		description: tool.description,
 		inputSchema: tool.inputSchema,
+		modelOrder: tool.modelOrder,
 		execute: (request: RuntimeToolExecutionRequest) => tool.execute(request),
 	});
 }

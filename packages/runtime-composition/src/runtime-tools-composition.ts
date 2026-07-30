@@ -6,6 +6,7 @@ import {
 	createToolExecutableResolver,
 	type EnsureTool,
 } from "@vetta/coding-agent/host";
+import { CODING_AGENT_MODEL_TOOL_ORDER } from "@vetta/coding-agent/runtime-host/greenfield";
 import {
 	type AgentFeatureDefinition,
 	type AgentProfile,
@@ -90,23 +91,44 @@ export function createCodingToolsRuntimeComposition(
 			: foregroundExecutor);
 	const executableResolver = createToolExecutableResolver(options.ensureTool);
 	const registry = new InMemoryCodingToolRegistry([
-		createCurrentTimeToolRegistration(),
-		createReadToolRegistration(cwd),
-		createEditToolRegistration(cwd, { pathPolicy: createCodingAgentEditPathPolicy(cwd) }),
-		createBashToolRegistration(cwd, { executor: commandExecutor }),
-		createShellToolRegistration(cwd, { executor: commandExecutor }),
+		withModelOrder(createCurrentTimeToolRegistration(), CODING_AGENT_MODEL_TOOL_ORDER.currentTime),
+		withModelOrder(createReadToolRegistration(cwd), CODING_AGENT_MODEL_TOOL_ORDER.read),
+		withModelOrder(
+			createEditToolRegistration(cwd, { pathPolicy: createCodingAgentEditPathPolicy(cwd) }),
+			CODING_AGENT_MODEL_TOOL_ORDER.edit,
+		),
+		withModelOrder(
+			createBashToolRegistration(cwd, { executor: commandExecutor }),
+			CODING_AGENT_MODEL_TOOL_ORDER.command,
+		),
+		withModelOrder(
+			createShellToolRegistration(cwd, { executor: commandExecutor }),
+			CODING_AGENT_MODEL_TOOL_ORDER.command,
+		),
 		...(backgroundService
 			? [
-					createTaskOutputToolRegistration({ backgroundService }),
-					createTaskStopToolRegistration({ backgroundService }),
+					withModelOrder(
+						createTaskOutputToolRegistration({ backgroundService }),
+						CODING_AGENT_MODEL_TOOL_ORDER.taskOutput,
+					),
+					withModelOrder(
+						createTaskStopToolRegistration({ backgroundService }),
+						CODING_AGENT_MODEL_TOOL_ORDER.taskStop,
+					),
 				]
 			: []),
-		createLsToolRegistration(cwd),
-		createGlobToolRegistration(cwd),
-		createGrepToolRegistration(cwd, { executableResolver }),
-		createFindToolRegistration(cwd, { executableResolver }),
-		createTreeToolRegistration(cwd, { executableResolver }),
-		createWriteToolRegistration(cwd, { pathPolicy: createCodingAgentWritePathPolicy(cwd) }),
+		withModelOrder(createLsToolRegistration(cwd), CODING_AGENT_MODEL_TOOL_ORDER.ls),
+		withModelOrder(createGlobToolRegistration(cwd), CODING_AGENT_MODEL_TOOL_ORDER.glob),
+		withModelOrder(createGrepToolRegistration(cwd, { executableResolver }), CODING_AGENT_MODEL_TOOL_ORDER.grep),
+		withModelOrder(createFindToolRegistration(cwd, { executableResolver }), CODING_AGENT_MODEL_TOOL_ORDER.find),
+		withModelOrder(
+			createTreeToolRegistration(cwd, { executableResolver }),
+			CODING_AGENT_MODEL_TOOL_ORDER.directoryTree,
+		),
+		withModelOrder(
+			createWriteToolRegistration(cwd, { pathPolicy: createCodingAgentWritePathPolicy(cwd) }),
+			CODING_AGENT_MODEL_TOOL_ORDER.write,
+		),
 		...(options.additionalRegistrations ?? []),
 	]);
 	const feature = createCodingToolsFeature({
@@ -147,5 +169,13 @@ export function createCodingToolsRuntimeComposition(
 		compiler,
 		compile: (signal = new AbortController().signal) => compiler.compile(profile, signal),
 		dispose: () => backgroundService?.dispose(),
+	};
+}
+
+function withModelOrder(registration: CodingToolRegistration, modelOrder: number): CodingToolRegistration {
+	return {
+		...registration,
+		modelOrder,
+		tool: { ...registration.tool, modelOrder },
 	};
 }

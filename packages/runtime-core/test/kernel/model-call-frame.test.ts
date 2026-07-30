@@ -159,6 +159,39 @@ describe("model call frame", () => {
 		expect(Object.isFrozen(frame.tools.get("read")?.inputSchema)).toBe(true);
 		await compiled.dispose();
 	});
+
+	it("orders tools by generic model order and preserves contribution order for dynamic tools", async () => {
+		const ordered = await resolveModelCallFrame(
+			{
+				id: "snapshot-1",
+				instructions: [],
+				tools: new Map(),
+				modelCallProviders: [
+					{
+						id: "tools",
+						async contribute() {
+							return {
+								tools: [tool("plugin-first"), tool("late", 200), tool("early", 100), tool("plugin-second")],
+							};
+						},
+					},
+				],
+				contextProviders: [],
+				contextStrategy: new PassthroughContextStrategy(),
+				toolPolicy: {
+					async authorize() {
+						return true;
+					},
+				},
+				tokenBudget: 8_000,
+				reservedOutputTokens: 1_000,
+				observers: [],
+			},
+			{ sessionId: "session-1", turnId: "turn-1", signal: new AbortController().signal },
+		);
+
+		expect([...ordered.tools.keys()]).toEqual(["early", "late", "plugin-first", "plugin-second"]);
+	});
 });
 
 function resolve(snapshot: Parameters<typeof resolveModelCallFrame>[0]) {
@@ -167,4 +200,17 @@ function resolve(snapshot: Parameters<typeof resolveModelCallFrame>[0]) {
 		turnId: "turn-1",
 		signal: new AbortController().signal,
 	});
+}
+
+function tool(name: string, modelOrder?: number): RuntimeToolDefinition {
+	return {
+		name,
+		label: name,
+		description: name,
+		inputSchema: { type: "object" },
+		modelOrder,
+		async execute() {
+			return { content: [] };
+		},
+	};
 }

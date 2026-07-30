@@ -11,6 +11,7 @@ import { selectConversationDocumentEntries } from "@vetta/runtime-core";
 import type { AgentFeatureDefinition, StoredSessionEvent } from "@vetta/runtime-core/kernel";
 import { TODO_SNAPSHOT_TYPE, type TodoSnapshot, type TodoSnapshotEnvelope, TodoStore } from "../../core/todo-store.js";
 import { createTodoTool } from "../../core/tools/todo/index.js";
+import { CODING_AGENT_MODEL_TOOL_ORDER } from "./greenfield-model-tool-order.js";
 import {
 	adaptCodingAgentToolRegistration,
 	type CodingAgentRuntimeToolRegistration,
@@ -177,6 +178,7 @@ export function createCodingAgentTodoRuntimeToolRegistration(
 ): CodingAgentRuntimeToolRegistration {
 	const registration = adaptCodingAgentToolRegistration(
 		createTodoTool({ getTodoStore: () => runtime.getTodoStore() }),
+		{ modelOrder: CODING_AGENT_MODEL_TOOL_ORDER.todo },
 	);
 	return {
 		...registration,

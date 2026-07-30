@@ -1,6 +1,7 @@
 import type { AgentFeatureDefinition, ModelCallContributionProvider } from "@vetta/runtime-core/kernel";
 import type { ConversationScenario } from "../../core/session/tool-scope.js";
 import { type AskUserQuestionCapability, createAskUserQuestionTool } from "../../core/tools/ask-user-question/index.js";
+import { CODING_AGENT_MODEL_TOOL_ORDER } from "./greenfield-model-tool-order.js";
 import { adaptCodingAgentToolRegistration } from "./greenfield-tool-adapter.js";
 
 export const CODING_AGENT_ASK_USER_QUESTION_TOOL_NAME = "ask_user_question";
@@ -18,6 +19,7 @@ export function createCodingAgentAskUserQuestionRuntimeFeature(
 ): AgentFeatureDefinition {
 	const tool = adaptCodingAgentToolRegistration(
 		createAskUserQuestionTool({ ask: (request, signal) => options.capability.ask(request, signal) }),
+		{ modelOrder: CODING_AGENT_MODEL_TOOL_ORDER.askUserQuestion },
 	).tool;
 	return {
 		id: "coding-agent.ask-user-question",

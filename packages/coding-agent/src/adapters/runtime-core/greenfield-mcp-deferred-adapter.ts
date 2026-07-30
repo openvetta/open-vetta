@@ -6,6 +6,7 @@ import {
 	scoreDeferredTools,
 	type ToolSearchResult,
 } from "../../core/tools/tool-search/index.js";
+import { CODING_AGENT_MODEL_TOOL_ORDER } from "./greenfield-model-tool-order.js";
 import { adaptCodingAgentToolRegistration } from "./greenfield-tool-adapter.js";
 
 export interface CodingAgentDeferredMcpTool {
@@ -34,7 +35,9 @@ export function scoreCodingAgentDeferredMcpTools(
 export function createCodingAgentToolSearchRuntimeTool(
 	search: (query: string, maxResults: number) => ToolSearchResult,
 ): RuntimeToolDefinition {
-	return adaptCodingAgentToolRegistration(createToolSearchTool({ search })).tool;
+	return adaptCodingAgentToolRegistration(createToolSearchTool({ search }), {
+		modelOrder: CODING_AGENT_MODEL_TOOL_ORDER.toolSearch,
+	}).tool;
 }
 
 function toDeferredToolIndexEntry(tool: CodingAgentDeferredMcpTool): DeferredToolIndexEntry {

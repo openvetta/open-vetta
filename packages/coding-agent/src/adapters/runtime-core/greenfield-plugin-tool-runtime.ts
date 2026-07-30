@@ -12,6 +12,7 @@ import type {
 	AgentPluginToolContribution,
 	AgentPluginToolInvoker,
 } from "../../core/system-prompt.js";
+import { CODING_AGENT_MODEL_TOOL_ORDER } from "./greenfield-model-tool-order.js";
 import type { CodingAgentPluginRunOrchestrator } from "./greenfield-plugin-run-orchestrator.js";
 import { validatePluginToolHandlerResult } from "./greenfield-plugin-runtime-effect.js";
 
@@ -109,6 +110,7 @@ export class CodingAgentPluginToolRuntime {
 			name: contribution.name,
 			label: contribution.label ?? contribution.name,
 			description: contribution.description,
+			modelOrder: CODING_AGENT_MODEL_TOOL_ORDER.plugin,
 			inputSchema: contribution.rendersCard
 				? withMdIntroParameter(contribution.parameters)
 				: contribution.parameters,

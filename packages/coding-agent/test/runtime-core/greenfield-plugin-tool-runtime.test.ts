@@ -5,6 +5,7 @@ import type {
 	RuntimeToolExecutionError,
 } from "@vetta/runtime-core/kernel";
 import { describe, expect, it, vi } from "vitest";
+import { CODING_AGENT_MODEL_TOOL_ORDER } from "../../src/adapters/runtime-core/greenfield-model-tool-order.js";
 import {
 	CodingAgentPluginRunOrchestrator,
 	CodingAgentPluginToolRuntime,
@@ -63,6 +64,7 @@ describe("CodingAgentPluginToolRuntime", () => {
 		expect(surface.frame.tools.get("mcp_same")).toBe(mcp);
 		expect(surface.availableTools.get("denied")).toBe(denied);
 		expect(surface.availableTools.get("hidden")?.name).toBe("hidden");
+		expect(surface.availableTools.get("hidden")?.modelOrder).toBe(CODING_AGENT_MODEL_TOOL_ORDER.plugin);
 		expect(surface.availableTools.has("needs_capability")).toBe(true);
 
 		const otherConfig: AgentPluginRuntimeConfig = {
