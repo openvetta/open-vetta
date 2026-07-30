@@ -1,4 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+const auth = vi.hoisted(() => ({
+	browserLogin: vi.fn(async () => ({ serverName: "browser", serverUrl: "https://browser.test/mcp" })),
+	deviceLogin: vi.fn(async () => ({ serverName: "device", serverUrl: "https://device.test/mcp" })),
+}));
+
+vi.mock("../src/core/mcp/mcp-oauth-flow.js", () => ({
+	loginHttpMcpServer: auth.browserLogin,
+}));
+
+vi.mock("../src/core/mcp/mcp-device-flow.js", () => ({
+	loginMcpDeviceFlow: auth.deviceLogin,
+}));
+
 import {
 	type IMcpClient,
 	type McpClientFactory,
@@ -125,6 +139,127 @@ describe("MCP manager behavior", () => {
 		expect(clients.first("second").closeCalls).toBe(1);
 		expect(manager.getServers()).toEqual([]);
 	});
+
+	it("keeps servers ready when optional tool or resource discovery fails", async () => {
+		const source = new MutableConfigSource({
+			mcpServers: { toolsFail: { command: "tools" }, resourcesFail: { command: "resources" } },
+		});
+		const clients = new FakeClientFactory({}, new Set(), new Set(["toolsFail"]), new Set(["resourcesFail"]));
+		const manager = new McpManager({ configSource: source, clientFactory: clients.create });
+
+		await manager.initialize();
+
+		expect(manager.getServer("toolsFail")).toMatchObject({
+			status: "ready",
+			tools: [],
+			resources: [{ name: "toolsFail" }],
+		});
+		expect(manager.getServer("resourcesFail")).toMatchObject({
+			status: "ready",
+			tools: [{ name: "tool-resourcesFail" }],
+			resources: [],
+		});
+	});
+
+	it("preserves enable, disable, global enabled flag and read projections", async () => {
+		const source = new MutableConfigSource({
+			mcpServers: { ready: { command: "ready", autoApprove: ["tool-ready"] } },
+		});
+		const clients = new FakeClientFactory();
+		const manager = new McpManager({ configSource: source, clientFactory: clients.create });
+		await manager.initialize();
+
+		expect(manager.getStats()).toEqual({
+			totalServers: 1,
+			readyServers: 1,
+			errorServers: 0,
+			totalTools: 1,
+			totalResources: 1,
+		});
+		expect(manager.getServersByStatus().ready.map(({ name }) => name)).toEqual(["ready"]);
+		expect(manager.shouldAutoApprove("ready", "tool-ready")).toBe(true);
+		expect(manager.shouldAutoApprove("missing", "tool-ready")).toBe(false);
+		expect(manager.getState().servers).not.toBe(manager.getState().servers);
+
+		await manager.disableServer("ready");
+		expect(manager.getServer("ready")).toMatchObject({ status: "stopped", config: { disabled: true } });
+		expect(clients.first("ready").closeCalls).toBe(1);
+		await manager.enableServer("ready");
+		expect(manager.getServer("ready")).toMatchObject({ status: "ready", config: { disabled: false } });
+		expect(clients.createdNames).toEqual(["ready", "ready"]);
+
+		manager.setEnabled(false);
+		expect(manager.isEnabled()).toBe(false);
+		expect(clients.latest("ready").closeCalls).toBe(0);
+	});
+
+	it("preserves plugin servers across full reload", async () => {
+		const source = new MutableConfigSource({ mcpServers: {} });
+		const clients = new FakeClientFactory();
+		const manager = new McpManager({ configSource: source, clientFactory: clients.create });
+		await manager.initialize();
+		await manager.setPluginServers([{ runtimeName: "plugin-alpha-docs", config: { command: "alpha" } }]);
+
+		await manager.reload();
+
+		expect(manager.getServer("plugin-alpha-docs")?.status).toBe("ready");
+		expect(clients.createdNames).toEqual(["plugin-alpha-docs", "plugin-alpha-docs"]);
+		expect(clients.first("plugin-alpha-docs").closeCalls).toBe(1);
+	});
+
+	it("delegates browser and device login, reconnects, then clears logout state", async () => {
+		auth.browserLogin.mockClear();
+		auth.deviceLogin.mockClear();
+		const source = new MutableConfigSource({
+			mcpServers: {
+				browser: { type: "http", url: "https://browser.test/mcp", oauthClientId: "browser-id" },
+				device: {
+					type: "http",
+					url: "https://device.test/mcp",
+					oauthClientId: "device-id",
+					oauthDeviceFlow: true,
+					oauthScopes: "repo",
+				},
+			},
+		});
+		const clients = new FakeClientFactory();
+		const manager = new McpManager({
+			configSource: source,
+			clientFactory: clients.create,
+			agentDir: "C:/manager-auth-test",
+		});
+		await manager.initialize();
+		const openUrl = vi.fn();
+
+		await manager.loginServer("browser", { openUrl });
+		await manager.loginServer("device", { openUrl });
+
+		expect(auth.browserLogin).toHaveBeenCalledWith({
+			serverName: "browser",
+			serverUrl: "https://browser.test/mcp",
+			oauthClientId: "browser-id",
+			agentDir: "C:/manager-auth-test",
+			openUrl,
+		});
+		expect(auth.deviceLogin).toHaveBeenCalledWith({
+			serverName: "device",
+			serverUrl: "https://device.test/mcp",
+			clientId: "device-id",
+			scopes: "repo",
+			agentDir: "C:/manager-auth-test",
+			openUrl,
+		});
+		expect(clients.createdNames).toEqual(["browser", "device", "browser", "device"]);
+
+		await manager.logoutServer("browser");
+		expect(manager.getServer("browser")).toMatchObject({
+			status: "needs_auth",
+			error: "OAuth credentials cleared",
+			tools: [],
+			resources: [],
+		});
+		expect(manager.getServer("browser")?.client).toBeUndefined();
+	});
 });
 
 class MutableConfigSource implements McpConfigSource {
@@ -175,9 +310,17 @@ class FakeClientFactory {
 	constructor(
 		private readonly initializeErrors: Readonly<Record<string, Error>> = {},
 		private readonly closeErrors: ReadonlySet<string> = new Set(),
+		private readonly toolListErrors: ReadonlySet<string> = new Set(),
+		private readonly resourceListErrors: ReadonlySet<string> = new Set(),
 	) {
 		this.create = (name) => {
-			const client = new FakeMcpClient(name, this.initializeErrors[name], this.closeErrors.has(name));
+			const client = new FakeMcpClient(
+				name,
+				this.initializeErrors[name],
+				this.closeErrors.has(name),
+				this.toolListErrors.has(name),
+				this.resourceListErrors.has(name),
+			);
 			this.clients.push(client);
 			return client;
 		};
@@ -210,6 +353,8 @@ class FakeMcpClient implements McpClientHandle, IMcpClient {
 		readonly name: string,
 		private readonly initializeError: Error | undefined,
 		private readonly closeError: boolean,
+		private readonly toolListError: boolean,
+		private readonly resourceListError: boolean,
 	) {}
 
 	async initialize() {
@@ -222,6 +367,7 @@ class FakeMcpClient implements McpClientHandle, IMcpClient {
 	}
 
 	async listTools() {
+		if (this.toolListError) throw new Error(`tool list failed: ${this.name}`);
 		return {
 			tools: [{ name: `tool-${this.name}`, description: this.name, inputSchema: { type: "object" as const } }],
 		};
@@ -232,6 +378,7 @@ class FakeMcpClient implements McpClientHandle, IMcpClient {
 	}
 
 	async listResources() {
+		if (this.resourceListError) throw new Error(`resource list failed: ${this.name}`);
 		return { resources: [{ uri: `test://${this.name}`, name: this.name }] };
 	}
 

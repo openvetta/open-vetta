@@ -25,6 +25,10 @@
 			"types": "./dist/protocol/index.d.ts",
 			"import": "./dist/protocol/index.js"
 		},
+		"./server": {
+			"types": "./dist/server/index.d.ts",
+			"import": "./dist/server/index.js"
+		},
 		"./transports/http": {
 			"types": "./dist/transports/http/index.d.ts",
 			"import": "./dist/transports/http/index.js"

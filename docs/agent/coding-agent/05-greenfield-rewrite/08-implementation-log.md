@@ -110,6 +110,7 @@
 | [100-mcp-client-and-transport-boundary.md](./08-implementation-log/100-mcp-client-and-transport-boundary.md) | MCP Client、stdio 子进程、HTTP SDK Adapter 与 OAuth 产品适配边界 |
 | [101-mcp-oauth-state-store-and-provider-boundary.md](./08-implementation-log/101-mcp-oauth-state-store-and-provider-boundary.md) | MCP OAuth 状态合同、Store Port、文件适配器与 SDK Provider 边界 |
 | [102-mcp-interactive-oauth-orchestration.md](./08-implementation-log/102-mcp-interactive-oauth-orchestration.md) | MCP Browser OAuth、RFC 8628 Device Flow 与宿主交互边界 |
+| [103-mcp-server-supervisor-and-manager-adapter.md](./08-implementation-log/103-mcp-server-supervisor-and-manager-adapter.md) | MCP Server 生命周期、状态观察、差量协调与旧 Manager 兼容适配 |
 
 ## 维护约定
 
