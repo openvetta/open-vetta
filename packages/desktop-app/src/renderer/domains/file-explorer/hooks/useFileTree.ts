@@ -109,6 +109,7 @@ export function useFileTree(cwdOverride?: string | null) {
 		async (srcPath: string, destDir: string) => {
 			const name = pathBasename(srcPath);
 			const srcParent = pathDirname(srcPath);
+			if (srcParent === destDir) return;
 
 			// Optimistic update
 			setCache((prev) => {
