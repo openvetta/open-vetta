@@ -1,11 +1,11 @@
+import type { CodingAgentTool } from "@vetta/coding-agent/profile";
 import {
-	type CodingAgentTool,
 	createImSendAttachmentTool,
 	GREENFIELD_IM_RPC_PROFILE,
 	type RpcSessionCapabilities,
 	type RpcSessionInitialization,
 	type RpcSessionState,
-} from "@vetta/coding-agent";
+} from "@vetta/coding-agent/rpc";
 import { adaptCodingAgentToolRegistration } from "@vetta/coding-agent/runtime-host/greenfield";
 import type { GreenfieldRuntimeSession } from "@vetta/runtime-core";
 import type { CodingToolRegistration } from "@vetta/runtime-tools/coding";

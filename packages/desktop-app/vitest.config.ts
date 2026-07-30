@@ -26,6 +26,27 @@ export default defineConfig({
 				find: "@vetta/coding-agent/composition",
 				replacement: resolve(__dirname, "../coding-agent/src/composition/index.ts"),
 			},
+			{
+				find: "@vetta/coding-agent/bootstrap",
+				replacement: resolve(__dirname, "../coding-agent/src/public-api/bootstrap.ts"),
+			},
+			{ find: "@vetta/coding-agent/config", replacement: resolve(__dirname, "../coding-agent/src/config.ts") },
+			{
+				find: "@vetta/coding-agent/knowledge",
+				replacement: resolve(__dirname, "../coding-agent/src/core/knowledge/index.ts"),
+			},
+			{
+				find: "@vetta/coding-agent/profile",
+				replacement: resolve(__dirname, "../coding-agent/src/public-api/profile.ts"),
+			},
+			{
+				find: "@vetta/coding-agent/resources",
+				replacement: resolve(__dirname, "../coding-agent/src/core/resource-loader.ts"),
+			},
+			{
+				find: "@vetta/coding-agent/rpc",
+				replacement: resolve(__dirname, "../coding-agent/src/public-api/rpc.ts"),
+			},
 			{ find: /^@vetta\/coding-agent\/(.+)\.js$/, replacement: `${codingAgentSrc}/$1.ts` },
 			{ find: "@vetta/coding-agent", replacement: resolve(__dirname, "../coding-agent/src/index.ts") },
 			{

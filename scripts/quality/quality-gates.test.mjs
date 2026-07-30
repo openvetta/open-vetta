@@ -207,7 +207,7 @@ describe("package boundary analysis", () => {
 	});
 
 	it("keeps the greenfield runtime kernel independent from coding-agent", () => {
-		const source = 'import { AgentSession } from "@vetta/coding-agent";';
+		const source = 'import { createCodingAgentPromptRuntime } from "@vetta/coding-agent/runtime-host";';
 		expect(findPackageBoundaryViolations("packages/runtime-core/src/kernel/example.ts", source)).toHaveLength(1);
 		expect(
 			findPackageBoundaryViolations("packages/runtime-storage/src/conversation/example.ts", source),
@@ -242,7 +242,7 @@ describe("package boundary analysis", () => {
 	});
 
 	it("keeps greenfield product modules independent from legacy startup symbols", () => {
-		const source = 'import { runLegacyAgentWithBootstrap } from "@vetta/coding-agent";';
+		const source = "const startup = runLegacyAgentWithBootstrap;";
 		expect(
 			findPackageBoundaryViolations("packages/cli-app/src/rpc/greenfield-im-runtime-host.ts", source),
 		).toHaveLength(1);
@@ -274,6 +274,21 @@ describe("package boundary analysis", () => {
 		expect(
 			findPackageBoundaryViolations("packages/runtime-composition/src/new-runtime.ts", "export const runtime = {};"),
 		).toHaveLength(1);
+	});
+
+	it("requires production consumers to use explicit coding-agent subpaths", () => {
+		const rootImport = 'import { getAgentDir } from "@vetta/coding-agent";';
+		expect(findPackageBoundaryViolations("packages/desktop-app/src/main/new-consumer.ts", rootImport)).toHaveLength(
+			1,
+		);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/desktop-app/src/main/new-consumer.ts",
+				'import { getAgentDir } from "@vetta/coding-agent/config";',
+			),
+		).toEqual([]);
+		expect(findPackageBoundaryViolations("packages/desktop-app/src/main/runtime.ts", rootImport)).toEqual([]);
+		expect(findPackageBoundaryViolations("packages/runtime-tools/src/index.ts", rootImport)).toEqual([]);
 	});
 
 	it("requires scoped production packages to declare workspace imports", () => {

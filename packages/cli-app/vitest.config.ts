@@ -29,6 +29,18 @@ export default defineConfig({
 				find: "@vetta/coding-agent/composition",
 				replacement: fileURLToPath(new URL("../coding-agent/src/composition/index.ts", import.meta.url)),
 			},
+			{
+				find: "@vetta/coding-agent/bootstrap",
+				replacement: fileURLToPath(new URL("../coding-agent/src/public-api/bootstrap.ts", import.meta.url)),
+			},
+			{
+				find: "@vetta/coding-agent/profile",
+				replacement: fileURLToPath(new URL("../coding-agent/src/public-api/profile.ts", import.meta.url)),
+			},
+			{
+				find: "@vetta/coding-agent/rpc",
+				replacement: fileURLToPath(new URL("../coding-agent/src/public-api/rpc.ts", import.meta.url)),
+			},
 			// Deep imports use ESM ".js" suffix; map to monorepo TypeScript sources
 			{
 				find: /^@vetta\/coding-agent\/(.+)\.js$/,

@@ -4,10 +4,9 @@ import {
 	type CodingAgentHostBootstrap,
 	type CodingAgentHostBootstrapOptions,
 	createCodingAgentHostBootstrap,
-	type RpcSessionCapabilities,
 	resolveCodingAgentInitialModel,
-	runRpcModeWithCapabilities,
-} from "@vetta/coding-agent";
+} from "@vetta/coding-agent/bootstrap";
+import { type RpcSessionCapabilities, runRpcModeWithCapabilities } from "@vetta/coding-agent/rpc";
 import {
 	type CodingAgentPluginRuntimeSource,
 	createCodingAgentMcpRuntimeToolSource,

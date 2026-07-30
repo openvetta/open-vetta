@@ -9,7 +9,7 @@
 import type { Dirent } from "node:fs";
 import { access, cp, mkdir, readdir, rename, rm, stat } from "node:fs/promises";
 import { basename, dirname, extname, join, relative } from "node:path";
-import { knowledge } from "@vetta/coding-agent";
+import * as knowledge from "@vetta/coding-agent/knowledge";
 import { privilegedWrite } from "./raws-lock.js";
 
 export interface KnowledgeNodeDto {

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { type Dirent, type FSWatcher, watch } from "node:fs";
 import { mkdir, readdir, rm } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
-import { DEFAULT_PERSONA_ID, PERSONAS } from "@vetta/coding-agent";
+import { DEFAULT_PERSONA_ID, PERSONAS } from "@vetta/coding-agent/profile";
 import { BrowserWindow, ipcMain, type WebContents } from "electron";
 import type {
 	AgentPluginContinuationInvocation,

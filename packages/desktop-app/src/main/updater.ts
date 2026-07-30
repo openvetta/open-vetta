@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { createWriteStream, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { getAgentDir } from "@vetta/coding-agent";
+import { getAgentDir } from "@vetta/coding-agent/config";
 import { app, type BrowserWindow } from "electron";
 
 import { DEFAULT_SERVER_URL } from "./constants.js";

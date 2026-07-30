@@ -18,10 +18,10 @@ import {
 	createAgentSession,
 	createKbWritePageTool,
 	createLimiter,
-	knowledge,
 	SessionManager,
 	type ToolDefinition,
 } from "@vetta/coding-agent";
+import * as knowledge from "@vetta/coding-agent/knowledge";
 import { BrowserWindow } from "electron";
 import { AsyncTask, SimpleIntervalJob, ToadScheduler } from "toad-scheduler";
 import {

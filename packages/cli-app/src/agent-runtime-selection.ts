@@ -1,4 +1,5 @@
-import { createAgentCliBootstrap, main as runLegacyAgent, runLegacyAgentWithBootstrap } from "@vetta/coding-agent";
+import { main as runLegacyAgent, runLegacyAgentWithBootstrap } from "@vetta/coding-agent";
+import { createAgentCliBootstrap } from "@vetta/coding-agent/bootstrap";
 import { ConversationOwnershipConflictError } from "@vetta/runtime-storage/conversation";
 import {
 	type GreenfieldImFallbackReason,

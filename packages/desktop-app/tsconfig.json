@@ -32,7 +32,13 @@
 			"@vetta/ecosystem-adapter/codex/hooks": ["../ecosystem-adapter/src/codex/hooks/index.ts"],
 			"@vetta/ecosystem-adapter/*": ["../ecosystem-adapter/src/*"],
 			"@vetta/coding-agent": ["../coding-agent/src/index.ts"],
+			"@vetta/coding-agent/bootstrap": ["../coding-agent/src/public-api/bootstrap.ts"],
 			"@vetta/coding-agent/composition": ["../coding-agent/src/composition/index.ts"],
+			"@vetta/coding-agent/config": ["../coding-agent/src/config.ts"],
+			"@vetta/coding-agent/knowledge": ["../coding-agent/src/core/knowledge/index.ts"],
+			"@vetta/coding-agent/profile": ["../coding-agent/src/public-api/profile.ts"],
+			"@vetta/coding-agent/resources": ["../coding-agent/src/core/resource-loader.ts"],
+			"@vetta/coding-agent/rpc": ["../coding-agent/src/public-api/rpc.ts"],
 			"@vetta/coding-agent/runtime-host": ["../coding-agent/src/adapters/runtime-core/index.ts"],
 			"@vetta/coding-agent/runtime-host/greenfield": [
 				"../coding-agent/src/adapters/runtime-core/greenfield.ts"

@@ -1,4 +1,4 @@
-import type { ConversationScenario } from "@vetta/coding-agent";
+import type { ConversationScenario } from "@vetta/coding-agent/profile";
 import { VETTA_CLI_GUIDANCE } from "../../../../coding-agent/src/core/system-prompt.js";
 import type { SessionConfig } from "../../../../runtime-core/src/index.js";
 import { allowProjectRoot, readDesktopConfig } from "../ipc/fs.js";

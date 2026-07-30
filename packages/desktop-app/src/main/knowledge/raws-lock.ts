@@ -14,7 +14,7 @@
 import type { Dirent } from "node:fs";
 import { chmod, readdir } from "node:fs/promises";
 import { join } from "node:path";
-import { knowledge } from "@vetta/coding-agent";
+import * as knowledge from "@vetta/coding-agent/knowledge";
 import { getAppLogger } from "../logger.js";
 
 const log = getAppLogger("kb-raws-lock");

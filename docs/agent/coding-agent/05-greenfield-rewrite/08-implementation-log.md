@@ -123,6 +123,7 @@
 | [113-installed-artifact-runtime-boundary-closure.md](./08-implementation-log/113-installed-artifact-runtime-boundary-closure.md) | 标准安装产物 Provider Frame、跨进程恢复与动态 Skill/MCP 边界 |
 | [114-production-cutover-control-and-session-migration.md](./08-implementation-log/114-production-cutover-control-and-session-migration.md) | 中性启动入口、Runtime 决策观察、显式 Legacy 会话迁移与架构回退守卫 |
 | [115-composition-ownership-and-dependency-graph.md](./08-implementation-log/115-composition-ownership-and-dependency-graph.md) | Coding Agent Composition 所有权、兼容转发、分段构建与依赖声明守卫 |
+| [116-public-api-subpaths-and-root-consumer-guard.md](./08-implementation-log/116-public-api-subpaths-and-root-consumer-guard.md) | Coding Agent 公开子路径、仓库内消费者迁移与兼容根入口守卫 |
 
 ## 维护约定
 

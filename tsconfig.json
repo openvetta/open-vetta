@@ -11,8 +11,14 @@
 			"@vetta/capability-runtime": ["./packages/capability-runtime/src/index.ts"],
 			"@vetta/capability-runtime/*": ["./packages/capability-runtime/src/*"],
 			"@vetta/coding-agent": ["./packages/coding-agent/src/index.ts"],
+			"@vetta/coding-agent/bootstrap": ["./packages/coding-agent/src/public-api/bootstrap.ts"],
 			"@vetta/coding-agent/composition": ["./packages/coding-agent/src/composition/index.ts"],
+			"@vetta/coding-agent/config": ["./packages/coding-agent/src/config.ts"],
 			"@vetta/coding-agent/host": ["./packages/coding-agent/src/adapters/runtime-tools/index.ts"],
+			"@vetta/coding-agent/knowledge": ["./packages/coding-agent/src/core/knowledge/index.ts"],
+			"@vetta/coding-agent/profile": ["./packages/coding-agent/src/public-api/profile.ts"],
+			"@vetta/coding-agent/resources": ["./packages/coding-agent/src/core/resource-loader.ts"],
+			"@vetta/coding-agent/rpc": ["./packages/coding-agent/src/public-api/rpc.ts"],
 			"@vetta/coding-agent/runtime-host": ["./packages/coding-agent/src/adapters/runtime-core/index.ts"],
 			"@vetta/coding-agent/runtime-host/greenfield": [
 				"./packages/coding-agent/src/adapters/runtime-core/greenfield.ts"

@@ -3,7 +3,7 @@ import { accessSync, constants } from "node:fs";
 import { access, chmod, copyFile, mkdir, readdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
 import { basename, delimiter, join } from "node:path";
 import { promisify } from "node:util";
-import { getAgentDir } from "@vetta/coding-agent";
+import { getAgentDir } from "@vetta/coding-agent/config";
 
 const execFileAsync = promisify(execFile);
 

@@ -11,7 +11,7 @@
  */
 
 import { join } from "node:path";
-import { knowledge } from "@vetta/coding-agent";
+import * as knowledge from "@vetta/coding-agent/knowledge";
 
 export type KnowledgeProcessStatus = "processed" | "stale" | "failed" | "unprocessed";
 

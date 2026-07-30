@@ -20,6 +20,30 @@
 			"types": "./dist/core/hooks/index.d.ts",
 			"import": "./dist/core/hooks/index.js"
 		},
+		"./bootstrap": {
+			"types": "./dist/public-api/bootstrap.d.ts",
+			"import": "./dist/public-api/bootstrap.js"
+		},
+		"./config": {
+			"types": "./dist/config.d.ts",
+			"import": "./dist/config.js"
+		},
+		"./knowledge": {
+			"types": "./dist/core/knowledge/index.d.ts",
+			"import": "./dist/core/knowledge/index.js"
+		},
+		"./profile": {
+			"types": "./dist/public-api/profile.d.ts",
+			"import": "./dist/public-api/profile.js"
+		},
+		"./resources": {
+			"types": "./dist/core/resource-loader.d.ts",
+			"import": "./dist/core/resource-loader.js"
+		},
+		"./rpc": {
+			"types": "./dist/public-api/rpc.d.ts",
+			"import": "./dist/public-api/rpc.js"
+		},
 		"./core/settings-manager.js": {
 			"types": "./dist/core/settings-manager.d.ts",
 			"import": "./dist/core/settings-manager.js"
