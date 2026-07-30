@@ -7,6 +7,10 @@ export {
 	type HookDispatchOutcome,
 } from "@vetta/ecosystem-adapter";
 export {
+	type CodingAgentMcpRuntimeToolSourceOptions,
+	createCodingAgentMcpRuntimeToolSource,
+} from "./coding-agent-mcp-runtime-source.js";
+export {
 	CODING_AGENT_ASK_USER_QUESTION_TOOL_NAME,
 	type CodingAgentAskUserQuestionRuntimeFeatureOptions,
 	createCodingAgentAskUserQuestionRuntimeFeature,

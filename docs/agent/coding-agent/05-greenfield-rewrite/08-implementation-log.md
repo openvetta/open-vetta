@@ -111,6 +111,7 @@
 | [101-mcp-oauth-state-store-and-provider-boundary.md](./08-implementation-log/101-mcp-oauth-state-store-and-provider-boundary.md) | MCP OAuth 状态合同、Store Port、文件适配器与 SDK Provider 边界 |
 | [102-mcp-interactive-oauth-orchestration.md](./08-implementation-log/102-mcp-interactive-oauth-orchestration.md) | MCP Browser OAuth、RFC 8628 Device Flow 与宿主交互边界 |
 | [103-mcp-server-supervisor-and-manager-adapter.md](./08-implementation-log/103-mcp-server-supervisor-and-manager-adapter.md) | MCP Server 生命周期、状态观察、差量协调与旧 Manager 兼容适配 |
+| [104-runtime-native-mcp-tool-source.md](./08-implementation-log/104-runtime-native-mcp-tool-source.md) | Runtime-native MCP Tool Source、产品组合工厂与 Greenfield 宿主切换 |
 
 ## 维护约定
 

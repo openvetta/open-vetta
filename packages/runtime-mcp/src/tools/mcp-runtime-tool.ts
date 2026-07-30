@@ -1,0 +1,115 @@
+import { type TLiteralValue, type TSchema, Type } from "@sinclair/typebox";
+import type { RuntimeToolDefinition, RuntimeToolResult } from "@vetta/runtime-core/kernel";
+import type { IMcpClient, McpContent, McpJsonObject, McpTool } from "../protocol/index.js";
+
+/** Preserve the legacy MCP JSON Schema projection used by Coding Agent tools. */
+export function convertMcpJsonSchemaToTypeBox(jsonSchema: unknown): TSchema {
+	if (!jsonSchema) return Type.Object({});
+	const schema = asRecord(jsonSchema);
+	if (!schema) return Type.Any();
+
+	if (schema.type === "object") {
+		const properties: Record<string, TSchema> = {};
+		const sourceProperties = asRecord(schema.properties);
+		if (sourceProperties) {
+			for (const [key, propertySchema] of Object.entries(sourceProperties)) {
+				properties[key] = convertMcpJsonSchemaToTypeBox(propertySchema);
+			}
+		}
+		const required = Array.isArray(schema.required)
+			? schema.required.filter((value): value is string => typeof value === "string")
+			: [];
+		const objectSchema = Type.Object(properties);
+		// Compatibility: the original adapter marked properties optional only after
+		// Type.Object materialized `required`, so its serialized required list remains unchanged.
+		for (const key of Object.keys(properties)) {
+			const property = objectSchema.properties[key];
+			if (!required.includes(key) && property) objectSchema.properties[key] = Type.Optional(property);
+		}
+		return objectSchema;
+	}
+
+	if (schema.type === "array") {
+		const items = schema.items ? convertMcpJsonSchemaToTypeBox(schema.items) : Type.Any();
+		return Type.Array(items);
+	}
+	if (schema.type === "string") {
+		if (Array.isArray(schema.enum)) {
+			return Type.Union(schema.enum.filter(isLiteralValue).map((value) => Type.Literal(value)));
+		}
+		return Type.String();
+	}
+	if (schema.type === "number") return Type.Number();
+	if (schema.type === "integer") return Type.Integer();
+	if (schema.type === "boolean") return Type.Boolean();
+	if (schema.type === "null") return Type.Null();
+	if (Array.isArray(schema.anyOf)) {
+		return Type.Union(schema.anyOf.map(convertMcpJsonSchemaToTypeBox));
+	}
+	if (Array.isArray(schema.oneOf)) {
+		return Type.Union(schema.oneOf.map(convertMcpJsonSchemaToTypeBox));
+	}
+	return Type.Any();
+}
+
+/** Execute one MCP call and preserve the existing model-visible result/error projection. */
+export async function executeMcpToolCall(
+	client: IMcpClient,
+	mcpTool: McpTool,
+	input: Readonly<Record<string, unknown>>,
+): Promise<RuntimeToolResult> {
+	try {
+		const result = await client.callTool(mcpTool.name, input as McpJsonObject);
+		return { content: convertMcpContent(result.content), details: result };
+	} catch (error) {
+		const errorMessage = error instanceof Error ? error.message : String(error);
+		return {
+			content: [{ type: "text", text: `Error calling MCP tool '${mcpTool.name}': ${errorMessage}` }],
+			details: {
+				content: [{ type: "text", text: errorMessage }],
+				isError: true,
+			},
+		};
+	}
+}
+
+export function createMcpRuntimeTool(mcpTool: McpTool, client: IMcpClient, serverName: string): RuntimeToolDefinition {
+	return {
+		name: `mcp_${serverName}_${mcpTool.name}`,
+		label: `${serverName}: ${mcpTool.name}`,
+		description: mcpTool.description || `MCP tool from ${serverName}`,
+		inputSchema: convertMcpJsonSchemaToTypeBox(mcpTool.inputSchema),
+		execute: (request) => executeMcpToolCall(client, mcpTool, request.input),
+	};
+}
+
+function convertMcpContent(mcpContent: readonly McpContent[]): RuntimeToolResult["content"] {
+	const content: Array<RuntimeToolResult["content"][number]> = [];
+	for (const item of mcpContent) {
+		if (item.type === "text") {
+			content.push({ type: "text", text: item.text });
+		} else if (item.type === "image") {
+			content.push({ type: "image", data: item.data, mimeType: item.mimeType });
+		} else if (item.type === "resource") {
+			const resource = item.resource;
+			let text = `Resource: ${resource.uri}`;
+			if (resource.text) {
+				text += `\n${resource.text}`;
+			} else if (resource.blob) {
+				text += `\n[Binary data: ${resource.mimeType || "unknown"}]`;
+			}
+			content.push({ type: "text", text });
+		}
+	}
+	return content;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+	return typeof value === "object" && value !== null && !Array.isArray(value)
+		? (value as Record<string, unknown>)
+		: undefined;
+}
+
+function isLiteralValue(value: unknown): value is TLiteralValue {
+	return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
+}

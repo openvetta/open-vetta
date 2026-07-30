@@ -1,4 +1,9 @@
-import { createMcpToolSearchRuntimeTool, renderMcpToolsInstruction, scoreMcpDeferredTools } from "@vetta/runtime-mcp";
+import {
+	createMcpServerRuntimeToolSource,
+	createMcpToolSearchRuntimeTool,
+	renderMcpToolsInstruction,
+	scoreMcpDeferredTools,
+} from "@vetta/runtime-mcp";
 import { describe, expect, it, vi } from "vitest";
 import {
 	adaptLegacyMcpManagerRuntimeToolSource,
@@ -7,7 +12,13 @@ import {
 	renderCodingAgentMcpToolsInstruction,
 	scoreCodingAgentDeferredMcpTools,
 } from "../src/adapters/runtime-core/greenfield.js";
-import { adaptMcpTool, type IMcpClient, type McpServerInstance, type McpTool } from "../src/core/mcp/index.js";
+import {
+	adaptMcpTool,
+	type IMcpClient,
+	type McpClientHandle,
+	type McpServerInstance,
+	type McpTool,
+} from "../src/core/mcp/index.js";
 
 describe("Greenfield MCP legacy adapter", () => {
 	it("publishes legacy tools through the independent Runtime MCP source contract", async () => {
@@ -45,6 +56,38 @@ describe("Greenfield MCP legacy adapter", () => {
 		});
 		expect(view.tools[0]?.fingerprint).toContain('"server":"search"');
 		expect(view.tools[0]?.fingerprint).toContain('"startedAt":1');
+
+		const nativeView = await createMcpServerRuntimeToolSource({
+			reloadIfChanged: async () => false,
+			getReadyServerBindings: () => [
+				{
+					client,
+					view: {
+						name: server.name,
+						config: server.config,
+						status: server.status,
+						tools: server.tools,
+						resources: server.resources,
+						startedAt: server.startedAt?.getTime(),
+					},
+				},
+			],
+		}).refresh();
+		expect(nativeView.tools[0]?.fingerprint).toBe(view.tools[0]?.fingerprint);
+		expect(nativeView.tools[0]?.tool).toMatchObject({
+			name: view.tools[0]?.tool.name,
+			label: view.tools[0]?.tool.label,
+			description: view.tools[0]?.tool.description,
+			inputSchema: view.tools[0]?.tool.inputSchema,
+		});
+		const request = {
+			sessionId: "session",
+			turnId: "turn",
+			toolCallId: "call",
+			input: {},
+			signal: new AbortController().signal,
+		};
+		expect(await nativeView.tools[0]?.tool.execute(request)).toEqual(await view.tools[0]?.tool.execute(request));
 	});
 
 	it("keeps progressive disclosure scoring, prompt and tool results equivalent", async () => {
@@ -92,7 +135,7 @@ describe("Greenfield MCP legacy adapter", () => {
 	});
 });
 
-function mcpClient(): IMcpClient {
+function mcpClient(): McpClientHandle & IMcpClient {
 	return {
 		async initialize() {
 			throw new Error("Not used");
@@ -113,5 +156,8 @@ function mcpClient(): IMcpClient {
 			throw new Error("Not used");
 		},
 		async close() {},
+		getName: () => "search",
+		getPid: () => undefined,
+		isClientInitialized: () => true,
 	};
 }

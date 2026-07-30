@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { AuthStorage, getAgentDir, ModelRegistry, SettingsManager } from "@vetta/coding-agent";
 import {
-	createLegacyMcpManagerRuntimeToolSource,
+	createCodingAgentMcpRuntimeToolSource,
 	createLegacyRuntimeHostOptions,
 } from "@vetta/coding-agent/runtime-host";
 import {
@@ -150,7 +150,7 @@ export function getSharedRuntime(): RuntimeHost {
 			},
 			createMcpRuntimeSource: async ({ cwd, agentDir }) => {
 				const resolvedAgentDir = agentDir ?? getAgentDir();
-				return await createLegacyMcpManagerRuntimeToolSource({
+				return await createCodingAgentMcpRuntimeToolSource({
 					projectRoot: cwd,
 					agentDir: resolvedAgentDir,
 					debug: SettingsManager.create(cwd, resolvedAgentDir).getMcpDebug(),

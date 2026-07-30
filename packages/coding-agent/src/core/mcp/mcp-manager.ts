@@ -5,52 +5,23 @@
 import type { AgentTool } from "@vetta/agent-core";
 import {
 	isHttpServerConfig,
-	type McpClientHandle,
 	type McpServerBinding,
 	type McpServerConfig,
-	McpServerSupervisor,
+	type McpServerSupervisor,
 	type McpServerView,
 } from "@vetta/runtime-mcp";
-import { getAgentDir } from "../../config.js";
-import { createMcpClient } from "./mcp-client.js";
-import { McpConfigLoader, type McpConfigSource } from "./mcp-config.js";
+import type { McpConfigSource } from "./mcp-config.js";
 import { loginMcpDeviceFlow } from "./mcp-device-flow.js";
 import { loginHttpMcpServer, type OpenUrlHandler } from "./mcp-oauth-flow.js";
 import { clearMcpOAuthState, hasMcpOAuthTokens } from "./mcp-oauth-storage.js";
+import { type CodingAgentMcpSupervisorOptions, createCodingAgentMcpSupervisor } from "./mcp-supervisor-composition.js";
 import { adaptMcpTools } from "./mcp-tool-adapter.js";
 import { fingerprintPluginMcpServers, type PluginMcpServerSpec } from "./plugin-mcp.js";
 import type { McpManagerState, McpServerInstance, McpServerStatus } from "./types.js";
 
-const MCP_PROTOCOL_VERSION = "2024-11-05";
-const CLIENT_NAME = "vetta";
-const CLIENT_VERSION = "1.0.0";
+export type { McpClientFactory, McpClientFactoryOptions } from "./mcp-supervisor-composition.js";
 
-export interface McpManagerOptions {
-	/** Project root directory */
-	projectRoot?: string;
-	/** Agent directory (for global config) */
-	agentDir?: string;
-	/** Enable debug logging */
-	debug?: boolean;
-	/** Whether MCP is globally enabled */
-	enabled?: boolean;
-	/** Explicit config boundary for deterministic hosts and tests. */
-	configSource?: McpConfigSource;
-	/** Explicit client boundary for stdio/HTTP implementations and tests. */
-	clientFactory?: McpClientFactory;
-}
-
-export interface McpClientFactoryOptions {
-	readonly debug?: boolean;
-	readonly timeout?: number;
-	readonly agentDir?: string;
-}
-
-export type McpClientFactory = (
-	name: string,
-	config: McpServerConfig,
-	options?: McpClientFactoryOptions,
-) => McpClientHandle;
+export interface McpManagerOptions extends CodingAgentMcpSupervisorOptions {}
 
 /**
  * Retains the existing Coding Agent API while delegating generic server lifecycle,
@@ -63,25 +34,11 @@ export class McpManager {
 	private readonly supervisor: McpServerSupervisor;
 
 	constructor(options: McpManagerOptions = {}) {
-		const projectRoot = options.projectRoot || process.cwd();
-		this.agentDir = options.agentDir || getAgentDir();
-		this.debug = options.debug || false;
-		this.configLoader = options.configSource ?? new McpConfigLoader(projectRoot, this.agentDir);
-		const clientFactory = options.clientFactory ?? createMcpClient;
-		this.supervisor = new McpServerSupervisor({
-			configSource: this.configLoader,
-			clientFactory: (name, config, clientOptions) =>
-				clientFactory(name, config, {
-					debug: clientOptions?.debug,
-					timeout: clientOptions?.timeout,
-					agentDir: this.agentDir,
-				}),
-			protocolVersion: MCP_PROTOCOL_VERSION,
-			clientInfo: { name: CLIENT_NAME, version: CLIENT_VERSION },
-			enabled: options.enabled,
-			debug: this.debug,
-			onDiagnostic: (message) => this.log(message),
-		});
+		const composition = createCodingAgentMcpSupervisor(options, (message) => this.log(message));
+		this.agentDir = composition.agentDir;
+		this.debug = composition.debug;
+		this.configLoader = composition.configSource;
+		this.supervisor = composition.supervisor;
 	}
 
 	async initialize(): Promise<void> {

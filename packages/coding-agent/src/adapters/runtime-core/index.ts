@@ -7,6 +7,10 @@ export {
 	type HookDispatchOutcome,
 } from "@vetta/ecosystem-adapter";
 export {
+	type CodingAgentMcpRuntimeToolSourceOptions,
+	createCodingAgentMcpRuntimeToolSource,
+} from "./coding-agent-mcp-runtime-source.js";
+export {
 	createLegacyRuntimeHostOptions,
 	type LegacyRuntimeHostOptions,
 } from "./composition.js";

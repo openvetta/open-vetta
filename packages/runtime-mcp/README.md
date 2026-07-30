@@ -11,6 +11,7 @@ Greenfield Runtime 的独立 MCP Feature 合同与模型调用级同步实现。
 - Browser OAuth 用例编排、SDK Auth Session 与 RFC 8628 Device Flow
 - HTTP Auth Provider Factory；产品目录、页面和操作系统交互由宿主适配器注入
 - MCP Server Supervisor：初始化、状态观察、生命周期、静态/动态配置叠加与差量协调
+- MCP Tool 的 TypeBox Schema 投影、调用结果投影与 Runtime-native Tool Source
 - MCP 工具到 Runtime Registry 的增量同步与生命周期
 - 会话级渐进披露、`tool_search` 和 MCP Prompt 物化
 - stdio、HTTP SDK 适配、配置和模型调用级能力的行为测试
@@ -25,14 +26,16 @@ Greenfield Runtime 的独立 MCP Feature 合同与模型调用级同步实现。
 ## Who Depends On It
 
 - `runtime-composition`：在每次模型调用前刷新当前 MCP 工具集合
-- `coding-agent`：以兼容 `McpManager` 适配产品 OAuth、插件贡献和旧 `AgentTool` API
-- Desktop 与 CLI 宿主：通过 coding-agent 的临时兼容适配器创建和释放 MCP Source
+- `coding-agent`：为 Greenfield 组合产品 OAuth 与 Runtime-native MCP Source，并以兼容
+  `McpManager` 保留插件贡献和旧 `AgentTool` API
+- Desktop 与 CLI 宿主：通过 coding-agent 产品工厂创建和释放 Runtime-native MCP Source
 
 依赖方向必须保持为：
 
 ```text
 runtime-mcp -> runtime-core + MCP SDK
-coding-agent compatibility adapter -> runtime-mcp supervisor + product OAuth paths/interactions + legacy API projection
+coding-agent product composition -> runtime-mcp supervisor + native tool source + product OAuth paths/interactions
+coding-agent compatibility adapter -> runtime-mcp supervisor + legacy API projection
 runtime-composition -> runtime-mcp + runtime-tools
 ```
 
