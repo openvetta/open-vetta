@@ -84,6 +84,40 @@ describe("Greenfield IM Runtime Host", () => {
 		expect(resumed.session.sessionId).toBe("im-session");
 	});
 
+	it("transitions new and resumed sessions through the production RPC capability", async () => {
+		const fixture = await createFixture([]);
+		const sessionIds = ["transition-initial", "transition-next"];
+		const result = await prepareGreenfieldImRuntimeHost({
+			bootstrap: fixture.bootstrap,
+			conversationDir: fixture.conversationDir,
+			sessionCatalog: fixture.sessionCatalog,
+			createSessionId: () => sessionIds.shift() ?? "unexpected-session",
+		});
+		expect(result.kind).toBe("greenfield");
+		if (result.kind !== "greenfield") throw new Error("Expected Greenfield runtime");
+		preparedHosts.push(result);
+		const sessionCapability = result.capabilities.session;
+		if (!sessionCapability) throw new Error("Expected Greenfield session capability");
+
+		const initialPath = result.session.createCoreAssembly().lifecycle.sessionPath;
+		if (!initialPath) throw new Error("Expected initial session path");
+		const initialOwnerPath = `${initialPath}.owner.lock`;
+		await expect(stat(initialOwnerPath)).resolves.toBeDefined();
+
+		await expect(sessionCapability.newSession(initialPath)).resolves.toBe(true);
+		expect(result.session.sessionId).toBe("transition-next");
+		const nextPath = result.session.createCoreAssembly().lifecycle.sessionPath;
+		if (!nextPath) throw new Error("Expected next session path");
+		const nextOwnerPath = `${nextPath}.owner.lock`;
+		await expect(stat(initialOwnerPath)).rejects.toMatchObject({ code: "ENOENT" });
+		await expect(stat(nextOwnerPath)).resolves.toBeDefined();
+
+		await expect(sessionCapability.switchSession(initialPath)).resolves.toBe(true);
+		expect(result.session.sessionId).toBe("transition-initial");
+		await expect(stat(initialOwnerPath)).resolves.toBeDefined();
+		await expect(stat(nextOwnerPath)).rejects.toMatchObject({ code: "ENOENT" });
+	});
+
 	it("rejects malformed Greenfield paths instead of treating them as Legacy", async () => {
 		const fixture = await createFixture(["--session", join("outside", "bad.conversation.jsonl")]);
 
@@ -175,7 +209,7 @@ describe("Greenfield IM Runtime Host", () => {
 		await result.capabilities.dispose();
 		preparedHosts.splice(preparedHosts.indexOf(result), 1);
 
-		expect(result.session.createCoreAssembly).toThrow();
+		expect(() => result.session).toThrow("active session host is disposed");
 	});
 
 	it("runs Tool-only Extensions on Greenfield without closing unrelated compatibility gaps", async () => {
@@ -314,11 +348,12 @@ describe("Greenfield IM Runtime Host", () => {
 			`,
 		);
 
+		const sessionIds = ["extension-lifecycle-session", "extension-lifecycle-next"];
 		const result = await prepareGreenfieldImRuntimeHost({
 			bootstrap: fixture.bootstrap,
 			conversationDir: fixture.conversationDir,
 			sessionCatalog: fixture.sessionCatalog,
-			createSessionId: () => "extension-lifecycle-session",
+			createSessionId: () => sessionIds.shift() ?? "unexpected-session",
 		});
 		expect(result.kind).toBe("greenfield");
 		if (result.kind !== "greenfield") throw new Error("Expected Greenfield runtime");
@@ -331,6 +366,9 @@ describe("Greenfield IM Runtime Host", () => {
 			onShutdownRequested: vi.fn(),
 			onExtensionError: vi.fn(),
 		});
+		const sessionCapability = result.capabilities.session;
+		if (!sessionCapability) throw new Error("Expected Greenfield session capability");
+		await expect(sessionCapability.newSession()).resolves.toBe(true);
 		await result.capabilities.shutdown();
 		await result.capabilities.shutdown();
 

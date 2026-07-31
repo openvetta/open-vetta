@@ -1,4 +1,12 @@
 export { ConversationOwnershipBinding } from "./conversation-ownership-binding.js";
+export {
+	CodingAgentGreenfieldActiveSessionHost,
+	type CodingAgentGreenfieldActiveSessionHostOptions,
+	type CodingAgentGreenfieldPreparedSessionBinding,
+	type CodingAgentGreenfieldSessionTransition,
+	type CodingAgentGreenfieldSessionTransitionKind,
+	type CodingAgentGreenfieldSessionTransitionLifecycle,
+} from "./greenfield-active-session-transition-host.js";
 export { resolveGreenfieldSessionIdFromPath } from "./greenfield-conversation-path.js";
 export {
 	createGreenfieldKnowledgeProcessingSessionFactory,

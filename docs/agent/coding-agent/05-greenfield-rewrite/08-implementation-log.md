@@ -146,6 +146,7 @@
 | [136-real-cli-context-model-call-differential-gate.md](./08-implementation-log/136-real-cli-context-model-call-differential-gate.md) | 真实 CLI Context/Compaction/Image Legacy-Greenfield 差分门禁 |
 | [137-greenfield-extension-tool-runtime-and-cutover-gate.md](./08-implementation-log/137-greenfield-extension-tool-runtime-and-cutover-gate.md) | Greenfield Extension Tool Runtime、显式宿主能力与 CI 切换门禁 |
 | [138-greenfield-extension-command-host-and-rpc-discovery.md](./08-implementation-log/138-greenfield-extension-command-host-and-rpc-discovery.md) | Greenfield Extension Command Host 边界、RPC Prompt/Skill 发现与安全回退 |
+| [139-active-session-transition-host.md](./08-implementation-log/139-active-session-transition-host.md) | Active Session Transition Host、RPC 会话事务与 setup 迁移桥 |
 
 ## 维护约定
 

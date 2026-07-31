@@ -67,6 +67,19 @@ describe("Greenfield IM RPC adapter", () => {
 		expect(() => createAdapterFixture("cli")).toThrow("requires runtime scenario im-claw, received cli");
 	});
 
+	test("delegates session transitions through the active session host", async () => {
+		const fixture = createAdapterFixture();
+		const sessionCapability = required(fixture.adapter.session);
+
+		await expect(sessionCapability.newSession("parent.conversation.jsonl")).resolves.toBe(true);
+		await expect(sessionCapability.switchSession("next.conversation.jsonl")).resolves.toBe(true);
+		await expect(sessionCapability.fork("entry-1")).resolves.toEqual({ text: "fork prompt", cancelled: false });
+
+		expect(fixture.newSession).toHaveBeenCalledWith({ parentSession: "parent.conversation.jsonl" });
+		expect(fixture.switchSession).toHaveBeenCalledWith("next.conversation.jsonl");
+		expect(fixture.fork).toHaveBeenCalledWith("entry-1");
+	});
+
 	test("delivers agent_end only after the active turn command has settled", async () => {
 		const fixture = createAdapterFixture();
 		const frames: unknown[] = [];
@@ -248,6 +261,9 @@ function createAdapterFixture(
 	const disposeSession = vi.fn(async () => {});
 	const disposeRuntime = vi.fn(async () => {});
 	const prompt = vi.fn(async () => ({ kind: "started" }));
+	const newSession = vi.fn(async () => ({ cancelled: false }));
+	const switchSession = vi.fn(async () => ({ cancelled: false }));
+	const fork = vi.fn(async () => ({ text: "fork prompt", cancelled: false }));
 	const core = {
 		lifecycle: {
 			get sessionId() {
@@ -307,6 +323,14 @@ function createAdapterFixture(
 		flushMemory,
 		dispose: disposeRuntime,
 	} as unknown as GreenfieldRuntimeComposition;
+	const sessionHost = {
+		readSession: () => session,
+		subscribe: (handler: (event: SessionEvent) => void) => session.subscribe(handler),
+		newSession,
+		switchSession,
+		fork,
+		dispose: disposeSession,
+	};
 	const hostToolRegistration = {
 		tool: { name: "im_send_attachment" },
 		scopeUse: ["im-claw"],
@@ -342,7 +366,7 @@ function createAdapterFixture(
 	} as ConstructorParameters<typeof GreenfieldImRpcSessionAdapter>[0]["resourceLoader"];
 	return {
 		adapter: new GreenfieldImRpcSessionAdapter({
-			session,
+			sessionHost,
 			runtime,
 			resourceLoader,
 			extensionCommandHost,
@@ -351,9 +375,12 @@ function createAdapterFixture(
 		disposeRuntime,
 		disposeSession,
 		flushMemory,
+		fork,
+		newSession,
 		prompt,
 		register,
 		unregister,
+		switchSession,
 		emit(event: SessionEvent) {
 			listener?.(event);
 		},

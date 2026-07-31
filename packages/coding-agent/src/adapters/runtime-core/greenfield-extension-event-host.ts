@@ -97,17 +97,20 @@ export class CodingAgentGreenfieldExtensionEventHost {
 		this.removeErrorListener = this.runner.onError((error) => this.reportError(error));
 	}
 
-	async initialize(input: {
-		readonly uiContext: ExtensionUIContext;
-		readonly shutdownHandler: () => void;
-		readonly onError: (error: ExtensionError) => void;
-	}): Promise<void> {
+	async initialize(
+		input: {
+			readonly uiContext: ExtensionUIContext;
+			readonly shutdownHandler: () => void;
+			readonly onError: (error: ExtensionError) => void;
+		},
+		lifecycle: { readonly emitSessionStart?: boolean } = {},
+	): Promise<void> {
 		this.runner.setUIContext(input.uiContext);
 		this.shutdownHandler = input.shutdownHandler;
 		this.errorListener = input.onError;
 		if (this.initialized) return;
 		this.initialized = true;
-		await this.runner.emit({ type: "session_start" });
+		if (lifecycle.emitSessionStart !== false) await this.runner.emit({ type: "session_start" });
 	}
 
 	async shutdown(): Promise<void> {
@@ -116,10 +119,15 @@ export class CodingAgentGreenfieldExtensionEventHost {
 		await this.runner.emit({ type: "session_shutdown" });
 	}
 
-	async dispose(): Promise<void> {
+	rebindRuntimeActions(): void {
+		if (this.disposed) throw new Error("Greenfield Extension event host is disposed");
+		this.actionHost.bind(this.options.runtime);
+	}
+
+	async dispose(lifecycle: { readonly emitSessionShutdown?: boolean } = {}): Promise<void> {
 		if (this.disposed) return;
 		this.disposed = true;
-		await this.shutdown();
+		if (lifecycle.emitSessionShutdown !== false) await this.shutdown();
 		this.removeErrorListener?.();
 		this.removeErrorListener = undefined;
 		this.removeExecutionObservationListener();
