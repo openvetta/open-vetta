@@ -9,6 +9,7 @@ import {
 	type StreamFn,
 } from "@vetta/agent-core";
 import { type Api, type Message, type Model, type SimpleStreamOptions, Type } from "@vetta/ai";
+import type { RuntimeExecutionObservationEvent } from "../runtime-execution-observation.js";
 import type { RuntimeSessionObservationEvent } from "../session-observation.js";
 import type {
 	QueuedSessionInput,
@@ -73,6 +74,10 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 					},
 				};
 				continue;
+			}
+			const executionObservation = mapAgentCoreEventToExecutionObservation(event);
+			if (executionObservation) {
+				yield { type: "execution_observation", observation: executionObservation };
 			}
 			const observation = mapAgentCoreEventToObservation(event);
 			if (observation) {
@@ -256,6 +261,59 @@ function toAgentCheckpointResult(
 		contextMessages: result.contextMessages,
 		retry: result.retry,
 	};
+}
+
+function mapAgentCoreEventToExecutionObservation(event: AgentEvent): RuntimeExecutionObservationEvent | undefined {
+	if (event.type === "agent_start") return { type: "agent.start" };
+	if (event.type === "turn_start") return { type: "turn.start" };
+	if (event.type === "turn_end") {
+		if (!isRuntimeMessage(event.message)) return undefined;
+		return {
+			type: "turn.end",
+			message: event.message,
+			toolResults: [...event.toolResults],
+		};
+	}
+	if (event.type === "tool_execution_start") {
+		return {
+			type: "tool.execution.start",
+			toolCallId: event.toolCallId,
+			toolName: event.toolName,
+			args: event.args,
+			startedAt: event.startedAt,
+		};
+	}
+	if (event.type === "tool_execution_update") {
+		return {
+			type: "tool.execution.update",
+			toolCallId: event.toolCallId,
+			toolName: event.toolName,
+			args: event.args,
+			partialResult: event.partialResult,
+		};
+	}
+	if (event.type === "tool_execution_phase") {
+		return {
+			type: "tool.execution.phase",
+			toolCallId: event.toolCallId,
+			toolName: event.toolName,
+			label: event.label,
+			atMs: event.atMs,
+		};
+	}
+	if (event.type === "tool_execution_end") {
+		return {
+			type: "tool.execution.end",
+			toolCallId: event.toolCallId,
+			toolName: event.toolName,
+			result: event.result,
+			isError: event.isError,
+			startedAt: event.startedAt,
+			durationMs: event.durationMs,
+			phases: [...event.phases],
+		};
+	}
+	return undefined;
 }
 
 function mapAgentCoreEventToObservation(event: AgentEvent): RuntimeSessionObservationEvent | undefined {

@@ -45,6 +45,10 @@ export {
 	CodingAgentGreenfieldExtensionEventHost,
 	type CodingAgentGreenfieldExtensionEventHostOptions,
 } from "./greenfield-extension-event-host.js";
+export {
+	CodingAgentGreenfieldExtensionObservationAdapter,
+	type CodingAgentGreenfieldObservedExtensionEvent,
+} from "./greenfield-extension-observation-adapter.js";
 export { wrapRuntimeToolsWithExtensions } from "./greenfield-extension-tool-wrapper.js";
 export {
 	type EcosystemHookAwareRuntimeTool,

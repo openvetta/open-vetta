@@ -72,6 +72,7 @@ export {
 	selectConversationDocumentEntries,
 } from "./conversation/index.js";
 export { RUNTIME_ERROR_CODES, runtimeError } from "./errors.js";
+export type { RuntimeExecutionObservationEvent } from "./runtime-execution-observation.js";
 export type {
 	CatalogRoutedRuntimeHostSessionBackendOptions,
 	ComposedGreenfieldRuntimeFactoryOptions,
@@ -132,6 +133,8 @@ export type {
 	RuntimeSessionCreateRequest,
 	RuntimeSessionEventStream,
 	RuntimeSessionExecutionController,
+	RuntimeSessionExecutionObservation,
+	RuntimeSessionExecutionObservationStream,
 	RuntimeSessionFileHistoryReader,
 	RuntimeSessionHistoryController,
 	RuntimeSessionHistoryReader,

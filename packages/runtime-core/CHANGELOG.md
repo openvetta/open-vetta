@@ -6,6 +6,7 @@ All notable changes to `@vetta/runtime-core` are documented in this file.
 
 ### Added
 
+- **独立 Runtime 执行观察合同**：新增不依赖产品 Extension 或公开 `SessionEvent` 的 agent/turn/tool 完整执行事件，并由 Greenfield Session 提供有序异步观察流；观察者异常按订阅者隔离，不中断 Turn，也不把瞬时执行细节写入 Conversation Document。
 - **Greenfield Extension 宿主所需只读 Session Port 与输入拦截点**：Core Assembly 新增 Conversation Document、待处理队列和上下文占用只读视图；Prompt Adapter 可在 Kernel 创建输入前返回变换后的请求或 `handled`，后者不会伪造消息或启动 Turn。合同不引用 Coding Agent Extension、SessionManager 或具体存储实现。
 - **Greenfield Extension 会话动作端口**：新增 Session 级 Context Delivery、Metadata 与动态 Tool Controller；Kernel 原生区分活动 Turn 的 `steer` / `followUp`、下一次显式输入的 `nextTurn`、空闲仅持久化的 `record` 和立即续轮的 `triggerTurn`，并以无 `turnId` 的 `context.recorded` 保存 Turn 外上下文。Conversation Document 同时支持 Entry Label 元数据写入。
 - **压缩后 Conversation continuation finalization**：`ContextStrategy` 新增通用的续接成功/失败回调；Turn Pipeline 在跨 Conversation 事务和 Session identity 重绑定后才执行成功 finalization，并以其结果决定 overflow retry，失败通知不替换原始 Store 错误。合同不包含 Memory、Hook 或 Extension 产品概念。

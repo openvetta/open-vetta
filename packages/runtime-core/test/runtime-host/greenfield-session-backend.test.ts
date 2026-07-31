@@ -156,6 +156,20 @@ class CompletingTurnEngine implements TurnEnginePort {
 	}
 }
 
+class ObservingTurnEngine implements TurnEnginePort {
+	async *execute(): AsyncIterable<TurnEngineEvent> {
+		const message = assistantMessage("observed");
+		yield { type: "execution_observation", observation: { type: "agent.start" } };
+		yield { type: "execution_observation", observation: { type: "turn.start" } };
+		yield { type: "message", message };
+		yield {
+			type: "execution_observation",
+			observation: { type: "turn.end", message, toolResults: [] },
+		};
+		yield { type: "completed", stopReason: "stop" };
+	}
+}
+
 class BlockingTurnEngine implements TurnEnginePort {
 	readonly started: Promise<void>;
 	private markStarted: (() => void) | undefined;
@@ -384,6 +398,36 @@ describe("GreenfieldRuntimeSessionBackend", () => {
 
 		await assembly.lifecycle.dispose();
 		await expect(session.getMessages()).rejects.toMatchObject({ code: "session_closed" });
+	});
+
+	it("awaits ordered execution observers and isolates their failures from the turn", async () => {
+		const { backend } = createBackend(new ObservingTurnEngine());
+		const session = await backend.create({ id: "session-1" });
+		const observations: string[] = [];
+		const stream = session.createCoreAssembly().executionObservationStream;
+		stream.subscribe(async ({ event }) => {
+			observations.push(`first:${event.type}:start`);
+			await Promise.resolve();
+			observations.push(`first:${event.type}:end`);
+			throw new Error("observer failure");
+		});
+		stream.subscribe(({ event }) => {
+			observations.push(`second:${event.type}`);
+		});
+
+		await expect(session.prompt({ text: "hello" })).resolves.toMatchObject({ status: "completed" });
+
+		expect(observations).toEqual([
+			"first:agent.start:start",
+			"first:agent.start:end",
+			"second:agent.start",
+			"first:turn.start:start",
+			"first:turn.start:end",
+			"second:turn.start",
+			"first:turn.end:start",
+			"first:turn.end:end",
+			"second:turn.end",
+		]);
 	});
 
 	it("reports missing RuntimeHost ports instead of installing no-op fallbacks", async () => {

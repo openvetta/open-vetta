@@ -47,6 +47,8 @@ import type {
 	RuntimeSessionContextUsageView,
 	RuntimeSessionConversationView,
 	RuntimeSessionExecutionController,
+	RuntimeSessionExecutionObservation,
+	RuntimeSessionExecutionObservationStream,
 	RuntimeSessionHostInteraction,
 	RuntimeSessionMetadataController,
 	RuntimeSessionQueueView,
@@ -132,6 +134,7 @@ export type GreenfieldRuntimeSessionCoreAssembly = Pick<
 	readonly conversationView: RuntimeSessionConversationView;
 	readonly queueView: RuntimeSessionQueueView;
 	readonly contextUsageView: RuntimeSessionContextUsageView;
+	readonly executionObservationStream: RuntimeSessionExecutionObservationStream;
 	readonly todoController?: RuntimeSessionTodoController;
 	readonly contextController?: RuntimeSessionContextController;
 	readonly contextDeliveryController: RuntimeSessionContextDeliveryController;
@@ -409,6 +412,9 @@ export class GreenfieldRuntimeSession {
 					};
 				},
 			},
+			executionObservationStream: {
+				subscribe: (handler) => this.eventSink.subscribeExecutionObservation(handler),
+			},
 			todoController: this.todoController,
 			contextController: this.contextController,
 			contextDeliveryController: this.contextDeliveryController,
@@ -598,6 +604,9 @@ export class GreenfieldRuntimeSessionBackend<TCreateOptions>
 
 class GreenfieldSessionEventSink implements EventSink {
 	private readonly listeners = new Set<(event: SessionEvent) => void>();
+	private readonly executionObservationListeners = new Set<
+		(observation: RuntimeSessionExecutionObservation) => Promise<void> | void
+	>();
 	private readonly initializationEvents: SessionEvent[] = [];
 	private documentParticipants: readonly GreenfieldRuntimeDocumentParticipant[] = [];
 	private identity: GreenfieldRuntimeSessionIdentity = {};
@@ -606,6 +615,13 @@ class GreenfieldSessionEventSink implements EventSink {
 	private initializing = true;
 
 	async publish(event: KernelEvent): Promise<void> {
+		if (event.type === "execution.observation") {
+			await this.notifyExecutionObservationListeners({
+				turnId: event.turnId,
+				event: event.observation,
+				timestamp: event.timestamp,
+			});
+		}
 		if (event.type === "conversation.continued") {
 			this.projection?.replaceConversation(event.conversation, event.document);
 			this.identity = {
@@ -646,6 +662,13 @@ class GreenfieldSessionEventSink implements EventSink {
 		return () => this.listeners.delete(handler);
 	}
 
+	subscribeExecutionObservation(
+		handler: (observation: RuntimeSessionExecutionObservation) => Promise<void> | void,
+	): () => void {
+		this.executionObservationListeners.add(handler);
+		return () => this.executionObservationListeners.delete(handler);
+	}
+
 	finishInitialization(): void {
 		this.initializing = false;
 	}
@@ -672,6 +695,7 @@ class GreenfieldSessionEventSink implements EventSink {
 
 	clear(): void {
 		this.listeners.clear();
+		this.executionObservationListeners.clear();
 		this.initializationEvents.length = 0;
 		this.stateSource = undefined;
 	}
@@ -693,6 +717,16 @@ class GreenfieldSessionEventSink implements EventSink {
 				listener(event);
 			} catch {
 				// Session observers are isolated from turn execution and from each other.
+			}
+		}
+	}
+
+	private async notifyExecutionObservationListeners(observation: RuntimeSessionExecutionObservation): Promise<void> {
+		for (const listener of this.executionObservationListeners) {
+			try {
+				await listener(observation);
+			} catch {
+				// Execution observers are ordered but cannot change Turn semantics.
 			}
 		}
 	}

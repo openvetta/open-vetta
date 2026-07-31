@@ -55,7 +55,20 @@ const RUNTIME_CAPABILITY_ORDER: readonly CodingAgentLegacyExtensionRuntimeCapabi
 	"message-renderer",
 ];
 
-export const CODING_AGENT_GREENFIELD_EXTENSION_EVENTS = ["input", "tool_call", "tool_result"] as const;
+export const CODING_AGENT_GREENFIELD_EXTENSION_EVENTS = [
+	"input",
+	"session_start",
+	"session_shutdown",
+	"agent_start",
+	"turn_start",
+	"turn_end",
+	"tool_call",
+	"tool_result",
+	"tool_execution_start",
+	"tool_execution_update",
+	"tool_execution_phase",
+	"tool_execution_end",
+] as const;
 
 /**
  * 将旧 Extension 注册面投影为宿主可消费的兼容性事实。

@@ -1,5 +1,6 @@
 import type { Message, StopReason } from "@vetta/ai";
 import type { ConversationDocument, ConversationDocumentReader } from "../conversation/document.js";
+import type { RuntimeExecutionObservationEvent } from "../runtime-execution-observation.js";
 import type { RuntimeSessionObservationEvent } from "../session-observation.js";
 import { ContextCompactionCommitter } from "./context-compaction-committer.js";
 import type {
@@ -364,6 +365,10 @@ export class TurnPipeline {
 						event.request.fail(error);
 						throw error;
 					}
+					continue;
+				}
+				if (event.type === "execution_observation") {
+					await this.publishExecutionObservation(state.sessionId, turnId, event.observation);
 					continue;
 				}
 				if (
@@ -769,6 +774,20 @@ export class TurnPipeline {
 			turnId,
 			observation,
 			timestamp: observation.timestamp ?? this.clock.now(),
+		});
+	}
+
+	private async publishExecutionObservation(
+		sessionId: string,
+		turnId: string,
+		observation: RuntimeExecutionObservationEvent,
+	): Promise<void> {
+		await this.publishSafely({
+			type: "execution.observation",
+			sessionId,
+			turnId,
+			observation,
+			timestamp: this.clock.now(),
 		});
 	}
 

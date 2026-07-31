@@ -10,6 +10,7 @@ import type {
 	UserMessage,
 } from "@vetta/ai";
 import type { ConversationDocument } from "../conversation/document.js";
+import type { RuntimeExecutionObservationEvent } from "../runtime-execution-observation.js";
 import type { RuntimeSessionObservationEvent } from "../session-observation.js";
 
 export type AgentSessionState = "idle" | "running" | "cancelling" | "closing" | "closed";
@@ -598,6 +599,15 @@ export interface RuntimeSessionObservationEnvelope {
 	readonly timestamp: number;
 }
 
+/** 完整执行观察事件；不持久化，也不直接映射为应用层 SessionEvent。 */
+export interface RuntimeExecutionObservationEnvelope {
+	readonly type: "execution.observation";
+	readonly sessionId: string;
+	readonly turnId: string;
+	readonly observation: RuntimeExecutionObservationEvent;
+	readonly timestamp: number;
+}
+
 /** 瞬时续接事件；目标 seed 已持久化，但该事件本身不写入 Conversation。 */
 export interface ConversationContinuedEvent {
 	readonly type: "conversation.continued";
@@ -617,6 +627,7 @@ export type KernelEvent =
 	| TurnPipelineStageEvent
 	| ObserverFailedEvent
 	| RuntimeSessionObservationEnvelope
+	| RuntimeExecutionObservationEnvelope
 	| ConversationContinuedEvent;
 
 export interface EventSink {
@@ -662,6 +673,10 @@ export type TurnEngineEvent =
 	| {
 			readonly type: "observation";
 			readonly observation: RuntimeSessionObservationEvent;
+	  }
+	| {
+			readonly type: "execution_observation";
+			readonly observation: RuntimeExecutionObservationEvent;
 	  }
 	| {
 			readonly type: "message";

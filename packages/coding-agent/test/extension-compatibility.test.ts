@@ -134,15 +134,24 @@ describe("Coding Agent Extension compatibility assessment", () => {
 		});
 	});
 
-	it("allows the input and tool interception events implemented by the Greenfield event bridge", () => {
+	it("allows the lossless input, lifecycle and tool events implemented by the Greenfield event host", () => {
 		const assessment = assessCodingAgentExtensionCompatibility({
 			extensions: [
 				{
 					path: "supported-events.ts",
 					handlers: new Map([
 						["input", [async () => undefined]],
+						["session_start", [async () => undefined]],
+						["session_shutdown", [async () => undefined]],
+						["agent_start", [async () => undefined]],
+						["turn_start", [async () => undefined]],
+						["turn_end", [async () => undefined]],
 						["tool_call", [async () => undefined]],
 						["tool_result", [async () => undefined]],
+						["tool_execution_start", [async () => undefined]],
+						["tool_execution_update", [async () => undefined]],
+						["tool_execution_phase", [async () => undefined]],
+						["tool_execution_end", [async () => undefined]],
 					]),
 					tools: new Map(),
 					commands: new Map(),
@@ -161,7 +170,7 @@ describe("Coding Agent Extension compatibility assessment", () => {
 		});
 	});
 
-	it("keeps independently unsupported events such as context on Legacy", () => {
+	it("keeps message-identity and input-mutating events on Legacy", () => {
 		const assessment = assessCodingAgentExtensionCompatibility({
 			extensions: [
 				{
@@ -169,6 +178,9 @@ describe("Coding Agent Extension compatibility assessment", () => {
 					handlers: new Map([
 						["input", [async () => undefined]],
 						["context", [async () => undefined]],
+						["agent_end", [async () => undefined]],
+						["message_end", [async () => undefined]],
+						["before_agent_start", [async () => undefined]],
 					]),
 					tools: new Map(),
 					commands: new Map(),
@@ -182,7 +194,7 @@ describe("Coding Agent Extension compatibility assessment", () => {
 
 		expect(resolveCodingAgentGreenfieldExtensionCompatibility(assessment)).toMatchObject({
 			unmetRuntimeCapabilities: ["event-handler"],
-			unsupportedEvents: ["context"],
+			unsupportedEvents: ["agent_end", "before_agent_start", "context", "message_end"],
 			requiresLegacyRuntime: true,
 		});
 	});

@@ -247,13 +247,13 @@ class GreenfieldImRuntimeHostCapabilities implements RpcSessionCapabilities {
 		this.memory = adapter.memory;
 	}
 
-	initialize(input: Parameters<RpcSessionCapabilities["initialize"]>[0]): Promise<void> {
-		this.extensionEventHost.initialize({
+	async initialize(input: Parameters<RpcSessionCapabilities["initialize"]>[0]): Promise<void> {
+		await this.extensionEventHost.initialize({
 			uiContext: input.uiContext,
 			shutdownHandler: input.onShutdownRequested,
 			onError: input.onExtensionError,
 		});
-		return this.adapter.initialize(input);
+		await this.adapter.initialize(input);
 	}
 
 	subscribe(listener: (event: unknown) => void): () => void {

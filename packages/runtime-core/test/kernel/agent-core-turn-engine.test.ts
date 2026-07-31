@@ -206,7 +206,15 @@ describe("AgentCoreTurnEngine", () => {
 					event.observation.type === "lifecycle" ? event.observation.phase : event.observation.type,
 				),
 		).toEqual(["agent_start", "turn_start", "turn_end", "agent_end"]);
-		expect(events.filter((event) => event.type !== "observation")).toEqual([
+		expect(
+			events
+				.filter(
+					(event): event is Extract<TurnEngineEvent, { type: "execution_observation" }> =>
+						event.type === "execution_observation",
+				)
+				.map(({ observation }) => observation.type),
+		).toEqual(["agent.start", "turn.start", "turn.end"]);
+		expect(events.filter((event) => event.type !== "observation" && event.type !== "execution_observation")).toEqual([
 			{
 				type: "message",
 				message: assistantMessage([{ type: "text", text: "done" }]),
@@ -314,9 +322,27 @@ describe("AgentCoreTurnEngine", () => {
 		expect(contexts[1].messages.map((message) => message.role)).toEqual(["user", "assistant", "toolResult"]);
 		expect(
 			events
-				.filter((event) => event.type !== "observation")
+				.filter((event) => event.type !== "observation" && event.type !== "execution_observation")
 				.map((event) => (event.type === "message" ? event.message.role : event.type)),
 		).toEqual(["assistant", "toolResult", "assistant", "completed"]);
+		expect(
+			events
+				.filter(
+					(event): event is Extract<TurnEngineEvent, { type: "execution_observation" }> =>
+						event.type === "execution_observation",
+				)
+				.map(({ observation }) => observation.type),
+		).toEqual([
+			"agent.start",
+			"turn.start",
+			"tool.execution.start",
+			"tool.execution.update",
+			"tool.execution.phase",
+			"tool.execution.end",
+			"turn.end",
+			"turn.start",
+			"turn.end",
+		]);
 		expect(
 			events
 				.filter((event): event is Extract<TurnEngineEvent, { type: "observation" }> => event.type === "observation")
@@ -601,7 +627,7 @@ describe("AgentCoreTurnEngine", () => {
 					event.observation.type === "lifecycle" ? event.observation.phase : event.observation.type,
 				),
 		).toEqual(["agent_start", "turn_start", "turn_end", "agent_end"]);
-		expect(events.filter((event) => event.type !== "observation")).toEqual([
+		expect(events.filter((event) => event.type !== "observation" && event.type !== "execution_observation")).toEqual([
 			{
 				type: "message",
 				message: assistantMessage([{ type: "text", text: "cancelled" }], "aborted"),
@@ -664,7 +690,7 @@ describe("AgentCoreTurnEngine", () => {
 		]);
 		expect(
 			events
-				.filter((event) => event.type !== "observation")
+				.filter((event) => event.type !== "observation" && event.type !== "execution_observation")
 				.map((event) => (event.type === "message" ? event.message.role : event.type)),
 		).toEqual(["assistant", "user", "assistant", "user", "assistant", "completed"]);
 		expect(queue.pendingCount).toBe(0);

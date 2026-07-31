@@ -1,10 +1,14 @@
 import { mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type CodingAgentHostBootstrap, createCodingAgentHostBootstrap } from "@vetta/coding-agent";
+import {
+	type CodingAgentHostBootstrap,
+	createCodingAgentHostBootstrap,
+	type RpcSessionInitialization,
+} from "@vetta/coding-agent";
 import type { RuntimeSessionCatalog } from "@vetta/runtime-core";
 import { CONVERSATION_STORAGE_ERROR_CODES } from "@vetta/runtime-storage/conversation";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createCliRuntimeSessionCatalog } from "../src/rpc/cli-session-format-compatibility.js";
 import {
 	type GreenfieldImRuntimeHostReady,
@@ -19,6 +23,7 @@ afterEach(async () => {
 	for (const directory of temporaryDirectories.splice(0).reverse()) {
 		await rm(directory, { force: true, recursive: true });
 	}
+	delete extensionLifecycleGlobal().__vettaGreenfieldExtensionLifecycle;
 });
 
 describe("Greenfield IM Runtime Host", () => {
@@ -112,7 +117,7 @@ describe("Greenfield IM Runtime Host", () => {
 			`
 				export default function(pi) {
 					pi.registerFlag("audit-mode", { type: "boolean" });
-					pi.on("agent_start", async () => {});
+					pi.on("agent_end", async () => {});
 				}
 			`,
 		);
@@ -120,7 +125,7 @@ describe("Greenfield IM Runtime Host", () => {
 		expect(fixture.bootstrap.extensionCompatibility).toMatchObject({
 			bootstrapContributions: { flags: ["audit-mode"] },
 			requiredRuntimeCapabilities: ["opaque-runtime-api", "event-handler"],
-			unsupportedEvents: ["agent_start"],
+			unsupportedEvents: ["agent_end"],
 			requiresLegacyRuntime: true,
 		});
 
@@ -136,7 +141,7 @@ describe("Greenfield IM Runtime Host", () => {
 			reason: "legacy-extension",
 			extensionCompatibility: {
 				requiredRuntimeCapabilities: ["opaque-runtime-api", "event-handler"],
-				unsupportedEvents: ["agent_start"],
+				unsupportedEvents: ["agent_end"],
 			},
 		});
 	});
@@ -215,7 +220,53 @@ describe("Greenfield IM Runtime Host", () => {
 		});
 		await expect(result.session.getMessages()).resolves.toEqual([]);
 	});
+
+	it("emits supported session lifecycle events exactly once through the real Greenfield host", async () => {
+		const lifecycle = extensionLifecycleGlobal();
+		lifecycle.__vettaGreenfieldExtensionLifecycle = [];
+		const fixture = await createFixture(
+			[],
+			`
+				export default function(pi) {
+					pi.on("session_start", async () => {
+						globalThis.__vettaGreenfieldExtensionLifecycle.push("start");
+					});
+					pi.on("session_shutdown", async () => {
+						globalThis.__vettaGreenfieldExtensionLifecycle.push("shutdown");
+					});
+				}
+			`,
+		);
+
+		const result = await prepareGreenfieldImRuntimeHost({
+			bootstrap: fixture.bootstrap,
+			conversationDir: fixture.conversationDir,
+			sessionCatalog: fixture.sessionCatalog,
+			createSessionId: () => "extension-lifecycle-session",
+		});
+		expect(result.kind).toBe("greenfield");
+		if (result.kind !== "greenfield") throw new Error("Expected Greenfield runtime");
+		preparedHosts.push(result);
+
+		expect(lifecycle.__vettaGreenfieldExtensionLifecycle).toEqual([]);
+		await result.capabilities.initialize({
+			uiContext: {} as RpcSessionInitialization["uiContext"],
+			hostBridge: { sendAttachment: vi.fn(async () => ({})) },
+			onShutdownRequested: vi.fn(),
+			onExtensionError: vi.fn(),
+		});
+		await result.capabilities.shutdown();
+		await result.capabilities.shutdown();
+
+		expect(lifecycle.__vettaGreenfieldExtensionLifecycle).toEqual(["start", "shutdown"]);
+	});
 });
+
+function extensionLifecycleGlobal(): typeof globalThis & {
+	__vettaGreenfieldExtensionLifecycle?: string[];
+} {
+	return globalThis;
+}
 
 async function createFixture(
 	extraArgs: string[],

@@ -1,3 +1,4 @@
+export type { RuntimeExecutionObservationEvent } from "../runtime-execution-observation.js";
 export type {
 	RuntimeSessionLifecyclePhase,
 	RuntimeSessionObservationEvent,
@@ -68,6 +69,7 @@ export type {
 	PreparedContext,
 	QueuedSessionInput,
 	QueuedSessionInputResult,
+	RuntimeExecutionObservationEnvelope,
 	RuntimeSessionObservationEnvelope,
 	RuntimeSnapshot,
 	RuntimeSnapshotLease,

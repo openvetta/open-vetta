@@ -95,6 +95,8 @@ export type {
 	RuntimeSessionCorePorts,
 	RuntimeSessionEventStream,
 	RuntimeSessionExecutionController,
+	RuntimeSessionExecutionObservation,
+	RuntimeSessionExecutionObservationStream,
 	RuntimeSessionHistoryController,
 	RuntimeSessionHistoryReader,
 	RuntimeSessionHostInteraction,

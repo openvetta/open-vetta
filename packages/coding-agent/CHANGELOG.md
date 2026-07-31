@@ -19,6 +19,7 @@
 
 ### Changed
 
+- **Greenfield Extension 执行观察事件分层迁移**：新增 Runtime 执行观察到旧 Extension Event 的窄适配，按原顺序提供 `agent_start`、`turn_start` / `turn_end` 与完整 `tool_execution_*` payload；Session Event Host 负责 `session_start` / `session_shutdown` 恰好一次的异步生命周期。依赖完整旧 `AgentMessage` 身份或可改写运行的 `agent_end`、`message_*`、`context`、`before_agent_start` 仍明确回退 Legacy，避免伪造不等价事件。
 - **Greenfield Extension 事件按具体能力切换**：新增 Session 级 Extension Event Host 与只读会话适配，`input` 在 Skill/Scene/Hook 展开前保留有序 transform/handled 语义，`tool_call` / `tool_result` 在真实 Runtime Tool 内层、Ecosystem Hook 外层保留阻断、结果改写和错误通知语义；8 个 Extension Context 动作改由 Runtime Session Port 提供。兼容性评估现在报告具体 `unsupportedEvents`，只含上述三类事件的 Extension 可进入 Greenfield；`context` 等尚不能无损映射的事件继续明确回退 Legacy。
 - **Provider/Flag Extension 切入 Greenfield Action Host**：新增 `CodingAgentGreenfieldExtensionActionHost`，将共享 Extension Runtime 的 13 个命令式动作映射到 Runtime Session 的 Context、Metadata、Model、Thinking、Tool 与 Prompt 端口；自定义消息保留 `steer`、`followUp`、`nextTurn`、空闲持久化和立即触发 Turn 五种调用时语义，动态 Tool 覆盖在后续模型调用生效。只有 Provider/Flag、没有 Event/Tool/Command/Shortcut/Renderer 注册的 Extension 现在可消除 `opaque-runtime-api` 缺口进入 Greenfield，其余能力继续按原评估结果回退 Legacy。
 - **Legacy Extension 命令式能力抽为 Execution Host 合同**：新增不暴露 `AgentSession`、`SessionManager` 或 UI 的 `ExtensionExecutionHost`，显式覆盖 Extension Runtime 的 13 个命令式动作和 8 个动态 Context 动作；`ExtensionRunner` 改为消费该合同，旧 Session 行为集中到 `createLegacyExtensionExecutionHost` 等价适配。Loader 创建的共享 Runtime 继续原位绑定，异步发送错误、Provider/Flag 时序与全部 Legacy 回退行为不变；Greenfield 尚未获得无损 `sendMessage` 三种投递语义，因此 `opaque-runtime-api` 继续阻止提前切换。

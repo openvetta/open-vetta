@@ -5,6 +5,7 @@ import type { Extension, ExtensionError, ExtensionRuntime, ExtensionUIContext } 
 import type { ModelRegistry } from "../../core/model-registry.js";
 import type { ResourceLoader } from "../../core/resource-loader.js";
 import { CodingAgentGreenfieldExtensionActionHost } from "./greenfield-extension-action-host.js";
+import { CodingAgentGreenfieldExtensionObservationAdapter } from "./greenfield-extension-observation-adapter.js";
 import { createGreenfieldReadonlySessionManager } from "./greenfield-readonly-session-manager.js";
 
 export interface CodingAgentGreenfieldExtensionEventBinding {
@@ -33,9 +34,12 @@ export class CodingAgentGreenfieldExtensionEventHost {
 	readonly runner: ExtensionRunner;
 	private readonly actionHost: CodingAgentGreenfieldExtensionActionHost;
 	private readonly eventBinding: CodingAgentGreenfieldExtensionEventBinding;
+	private readonly removeExecutionObservationListener: () => void;
 	private removeErrorListener: (() => void) | undefined;
 	private shutdownHandler: () => void = () => {};
 	private errorListener: ((error: ExtensionError) => void) | undefined;
+	private initialized = false;
+	private shutdownEmitted = false;
 	private disposed = false;
 
 	constructor(private readonly options: CodingAgentGreenfieldExtensionEventHostOptions) {
@@ -56,6 +60,16 @@ export class CodingAgentGreenfieldExtensionEventHost {
 			options.modelRegistry,
 		);
 		this.eventBinding = options.bindEvents(this.runner);
+		const observationAdapter = new CodingAgentGreenfieldExtensionObservationAdapter(async (event) => {
+			await this.runner.emit(event);
+		});
+		this.removeExecutionObservationListener = assembly.executionObservationStream.subscribe(async (observation) => {
+			try {
+				await observationAdapter.observe(observation);
+			} catch (error) {
+				this.reportRuntimeError("execution_observation", error);
+			}
+		});
 		const executionHost: ExtensionExecutionHost = {
 			actions: this.actionHost.actions,
 			contextActions: {
@@ -83,27 +97,32 @@ export class CodingAgentGreenfieldExtensionEventHost {
 		this.removeErrorListener = this.runner.onError((error) => this.reportError(error));
 	}
 
-	initialize(input: {
+	async initialize(input: {
 		readonly uiContext: ExtensionUIContext;
 		readonly shutdownHandler: () => void;
 		readonly onError: (error: ExtensionError) => void;
-	}): void {
+	}): Promise<void> {
 		this.runner.setUIContext(input.uiContext);
 		this.shutdownHandler = input.shutdownHandler;
 		this.errorListener = input.onError;
+		if (this.initialized) return;
+		this.initialized = true;
+		await this.runner.emit({ type: "session_start" });
 	}
 
 	async shutdown(): Promise<void> {
-		if (this.runner.hasHandlers("session_shutdown")) {
-			await this.runner.emit({ type: "session_shutdown" });
-		}
+		if (!this.initialized || this.shutdownEmitted) return;
+		this.shutdownEmitted = true;
+		await this.runner.emit({ type: "session_shutdown" });
 	}
 
 	async dispose(): Promise<void> {
 		if (this.disposed) return;
 		this.disposed = true;
+		await this.shutdown();
 		this.removeErrorListener?.();
 		this.removeErrorListener = undefined;
+		this.removeExecutionObservationListener();
 		this.eventBinding.dispose();
 		await this.actionHost.dispose();
 	}

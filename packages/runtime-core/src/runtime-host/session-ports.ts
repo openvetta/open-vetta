@@ -16,6 +16,7 @@ import type {
 } from "../contracts.js";
 import type { ConversationDocument } from "../conversation/document.js";
 import type { RuntimeToolDefinition, SessionContextRecord } from "../kernel/contracts.js";
+import type { RuntimeExecutionObservationEvent } from "../runtime-execution-observation.js";
 
 /** 会话身份与资源释放；不承载宿主 UI 绑定或业务外围能力。 */
 export interface RuntimeSessionIdentityLifecycle {
@@ -44,6 +45,21 @@ export interface RuntimeSessionTurnControl {
 /** 已适配为宿主稳定 SessionEvent 的会话事件流。 */
 export interface RuntimeSessionEventStream {
 	subscribe(handler: (event: SessionEvent) => void): () => void;
+}
+
+export interface RuntimeSessionExecutionObservation {
+	readonly turnId: string;
+	readonly event: RuntimeExecutionObservationEvent;
+	readonly timestamp: number;
+}
+
+/**
+ * Session 内部执行观察流。
+ *
+ * 处理器按注册顺序异步执行；异常必须由实现隔离，不能改变 Turn 结果。
+ */
+export interface RuntimeSessionExecutionObservationStream {
+	subscribe(handler: (observation: RuntimeSessionExecutionObservation) => Promise<void> | void): () => void;
 }
 
 export type RuntimeSessionState = Pick<
