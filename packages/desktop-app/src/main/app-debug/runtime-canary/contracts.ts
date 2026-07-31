@@ -18,6 +18,90 @@ export const RUNTIME_CANARY_KNOWLEDGE_PENDING_SOURCE_PATH = "runtime-canary/pend
 export const RUNTIME_CANARY_KNOWLEDGE_FAILURE_SOURCE_PATH = "runtime-canary/failure.md";
 export const RUNTIME_CANARY_KNOWLEDGE_COMPLETE = "DESKTOP_PROCESS_CANARY_KNOWLEDGE_COMPLETE";
 
+export const runtimeCanaryModeSchema = z.enum(["legacy", "greenfield"]);
+export const runtimeCanaryProcessingRecordFormatSchema = z.enum(["legacy-jsonl", "conversation-v2-jsonl"]);
+
+const runtimeCanaryKnowledgeScanSchema = z
+	.object({
+		operation: z.literal("scan-now"),
+		skipped: z.literal(false),
+	})
+	.strict();
+
+export const runtimeCanaryKnowledgeNotificationSchema = z.discriminatedUnion("type", [
+	z.object({ type: z.literal("processing"), value: z.boolean() }).strict(),
+	z.object({ type: z.literal("statuses") }).strict(),
+]);
+
+export const runtimeCanaryKnowledgeContractSchema = z
+	.object({
+		scans: z
+			.object({
+				success: runtimeCanaryKnowledgeScanSchema,
+				aborted: runtimeCanaryKnowledgeScanSchema,
+				providerFailure: runtimeCanaryKnowledgeScanSchema,
+			})
+			.strict(),
+		artifacts: z
+			.object({
+				path: z.string().min(1),
+				source: z.string().min(1),
+				sourcePath: z.string().min(1),
+				sourceHash: z.string().min(1),
+				tags: z.array(z.string()),
+				title: z.string().min(1),
+				summary: z.string().min(1),
+				body: z.string().min(1),
+				orphaned: z.boolean(),
+				manifestPageCount: z.number().int().nonnegative(),
+				indexedSourcePaths: z.array(z.string()),
+			})
+			.strict(),
+		failure: z
+			.object({
+				sourcePath: z.string().min(1),
+				attempts: z.number().int().positive(),
+				quarantined: z.boolean(),
+			})
+			.strict(),
+		monitor: z
+			.object({
+				processingInputTokens: z.number().nonnegative(),
+				processingOutputTokens: z.number().nonnegative(),
+				processingRounds: z.number().int().nonnegative(),
+				filesProcessed: z.number().int().nonnegative(),
+				filesFailed: z.number().int().nonnegative(),
+				manualScanCount: z.number().int().nonnegative(),
+			})
+			.strict(),
+		notifications: z.array(runtimeCanaryKnowledgeNotificationSchema),
+		processingRecordCount: z.number().int().positive(),
+		lifecycle: z
+			.object({
+				desktopRestarted: z.boolean(),
+				sessionLocksReleased: z.boolean(),
+				rawsUnlocked: z.boolean(),
+				endpointRemoved: z.boolean(),
+				providerStopped: z.boolean(),
+				desktopExitCode: z.number().int(),
+			})
+			.strict(),
+	})
+	.strict();
+
+export const runtimeCanarySuccessEnvelopeSchema = z
+	.object({
+		ok: z.literal(true),
+		result: z
+			.object({
+				runtimeMode: runtimeCanaryModeSchema,
+				processingRecordFormat: runtimeCanaryProcessingRecordFormatSchema,
+				knowledgeContract: runtimeCanaryKnowledgeContractSchema,
+			})
+			.loose(),
+	})
+	.strict();
+
 export const runtimeCanaryConsumersSchema = z
 	.object({
 		schedulerTaskId: z.string().min(1),
@@ -33,7 +117,7 @@ export const runtimeCanaryConsumersSchema = z
 
 export const runtimeCanaryFixtureSchema = z
 	.object({
-		mode: z.literal("greenfield"),
+		mode: runtimeCanaryModeSchema,
 		vettaHome: z.string().min(1),
 		agentDir: z.string().min(1),
 		workspace: z.string().min(1),
@@ -89,3 +173,6 @@ export type RuntimeCanaryHostState = z.infer<typeof runtimeCanaryHostStateSchema
 export type RuntimeCanaryRestartReport = z.infer<typeof runtimeCanaryRestartReportSchema>;
 export type RuntimeCanaryExitReport = z.infer<typeof runtimeCanaryExitReportSchema>;
 export type RuntimeCanaryConsumers = z.infer<typeof runtimeCanaryConsumersSchema>;
+export type RuntimeCanaryMode = z.infer<typeof runtimeCanaryModeSchema>;
+export type RuntimeCanaryProcessingRecordFormat = z.infer<typeof runtimeCanaryProcessingRecordFormatSchema>;
+export type RuntimeCanaryKnowledgeContract = z.infer<typeof runtimeCanaryKnowledgeContractSchema>;

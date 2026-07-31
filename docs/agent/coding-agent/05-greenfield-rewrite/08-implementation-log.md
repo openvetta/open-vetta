@@ -129,6 +129,7 @@
 | [119-knowledge-poller-greenfield-opt-in-and-batch-differential.md](./08-implementation-log/119-knowledge-poller-greenfield-opt-in-and-batch-differential.md) | Knowledge Poller 显式 Greenfield opt-in、Desktop Factory Resolver 与真实多批写入差分 |
 | [120-knowledge-round-controller-and-side-effect-contracts.md](./08-implementation-log/120-knowledge-round-controller-and-side-effect-contracts.md) | Knowledge Round Controller、轮级副作用与成功/失败/中止合同 |
 | [121-real-desktop-knowledge-lifecycle-canary.md](./08-implementation-log/121-real-desktop-knowledge-lifecycle-canary.md) | 真实 Desktop Knowledge CLI/审批/退出/重启/失败生命周期 Canary |
+| [122-real-desktop-knowledge-runtime-differential.md](./08-implementation-log/122-real-desktop-knowledge-runtime-differential.md) | 真实 Legacy/Greenfield Desktop Knowledge 完整合同差分与切换门禁 |
 
 ## 维护约定
 

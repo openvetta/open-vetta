@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { isAbsolute, join, relative } from "node:path";
 import { ACTION_RPC_ENDPOINT_FILE_ENV, VETTA_HOME_ENV } from "@vetta/action-rpc";
+import { parseWikiPage } from "@vetta/coding-agent/knowledge";
 import { z } from "zod";
 import {
 	RUNTIME_CANARY_BATCH_PROMPT,
@@ -18,6 +19,9 @@ import {
 	RUNTIME_CANARY_SKILL_MARKER,
 	runtimeCanaryExitReportSchema,
 	runtimeCanaryHostStateSchema,
+	type RuntimeCanaryKnowledgeContract,
+	runtimeCanaryKnowledgeNotificationSchema,
+	type RuntimeCanaryProcessingRecordFormat,
 	runtimeCanaryRestartReportSchema,
 	type RuntimeCanaryFixture,
 	type RuntimeCanaryHostState,
@@ -33,6 +37,7 @@ import {
 
 const desktopRoot = join(import.meta.dirname, "..");
 const repoRoot = join(desktopRoot, "..", "..");
+const knowledgeNotificationStorageKey = "runtime-canary-knowledge-notifications";
 const actionCliSuccessSchema = z.object({ ok: z.literal(true), result: z.unknown() }).strict();
 const knowledgeScanResultSchema = z
 	.object({
@@ -43,16 +48,26 @@ const knowledgeScanResultSchema = z
 	.loose();
 const knowledgeManifestSchema = z
 	.object({
+		version: z.literal(1),
 		pages: z.array(
 			z
 				.object({
+					id: z.string(),
+					path: z.string(),
 					source_path: z.string(),
 					source_hash: z.string(),
+					orphaned_at: z.string().nullable(),
 				})
-				.loose(),
+				.strict(),
 		),
 	})
-	.loose();
+	.strict();
+const knowledgeTagsSchema = z
+	.object({
+		version: z.literal(1),
+		tags: z.record(z.string(), z.array(z.string())),
+	})
+	.strict();
 const knowledgeFailureEntrySchema = z
 	.object({
 		source_hash: z.string(),
@@ -69,6 +84,35 @@ const knowledgeFailuresSchema = z
 		entries: z.record(z.string(), knowledgeFailureEntrySchema),
 	})
 	.strict();
+const cdpTargetSchema = z
+	.object({
+		type: z.string(),
+		url: z.string(),
+		webSocketDebuggerUrl: z.string().optional(),
+	})
+	.loose();
+const cdpResponseSchema = z
+	.object({
+		id: z.number().optional(),
+		error: z
+			.object({
+				message: z.string(),
+			})
+			.loose()
+			.optional(),
+		result: z
+			.object({
+				exceptionDetails: z.unknown().optional(),
+				result: z
+					.object({
+						value: z.unknown().optional(),
+					})
+					.loose(),
+			})
+			.loose()
+			.optional(),
+	})
+	.loose();
 const knowledgeMonitorSchema = z
 	.object({
 		knowledgeBase: z
@@ -112,10 +156,10 @@ try {
 	});
 	await waitForKnowledgeActionProvider(state, endpointFilePath);
 	const successfulKnowledgeAction = await startApprovedKnowledgeScan(state, endpointFilePath);
-	const successfulKnowledgeResult = parseSuccessfulKnowledgeScan(await successfulKnowledgeAction.result);
-	if (successfulKnowledgeResult.skipped) {
-		throw new Error("Runtime Canary Knowledge success scan was unexpectedly skipped");
-	}
+	const successfulKnowledgeResult = normalizeKnowledgeScan(
+		parseSuccessfulKnowledgeScan(await successfulKnowledgeAction.result),
+		"success",
+	);
 	await verifyKnowledgeSuccess(state.runtimeCanary);
 
 	const pendingRawPath = join(
@@ -191,10 +235,10 @@ try {
 	) {
 		throw new Error(`Desktop Runtime Canary restart cleanup failed: ${JSON.stringify(restartReport)}`);
 	}
-	const pendingKnowledgeResult = parseSuccessfulKnowledgeScan(await pendingKnowledgeAction.result);
-	if (pendingKnowledgeResult.skipped) {
-		throw new Error("Runtime Canary pending Knowledge scan did not complete through graceful abort");
-	}
+	const pendingKnowledgeResult = normalizeKnowledgeScan(
+		parseSuccessfulKnowledgeScan(await pendingKnowledgeAction.result),
+		"graceful abort",
+	);
 	await rm(pendingRawPath, { force: true });
 
 	const restartedInvokeDebug: RuntimeCanaryDebugInvoker = async (debugId, input) =>
@@ -212,6 +256,7 @@ try {
 		cwd: activeRestartedState.runtimeCanary.workspace,
 		modelKey: activeRestartedState.runtimeCanary.modelKey,
 	});
+	await installKnowledgeNotificationAudit(activeRestartedState.cdpPort, true);
 	await waitForKnowledgeActionProvider(activeRestartedState, endpointFilePath);
 	const failedRawPath = join(
 		activeRestartedState.runtimeCanary.knowledgeRoot,
@@ -220,11 +265,18 @@ try {
 	);
 	await writeFile(failedRawPath, "Runtime Canary Knowledge Failure Source");
 	const failedKnowledgeAction = await startApprovedKnowledgeScan(activeRestartedState, endpointFilePath);
-	const failedKnowledgeResult = parseSuccessfulKnowledgeScan(await failedKnowledgeAction.result);
-	if (failedKnowledgeResult.skipped) {
-		throw new Error("Runtime Canary Knowledge provider failure scan was unexpectedly skipped");
+	const failedKnowledgeResult = normalizeKnowledgeScan(
+		parseSuccessfulKnowledgeScan(await failedKnowledgeAction.result),
+		"provider failure",
+	);
+	const knowledgeArtifacts = await verifyKnowledgeFailureRecorded(activeRestartedState.runtimeCanary);
+	const knowledgeNotificationsAfterRestart = await readKnowledgeNotificationAudit(activeRestartedState.cdpPort);
+	verifyKnowledgeNotificationSequence(knowledgeNotificationsAfterRestart);
+	const finalKnowledgeSessionPaths = await listKnowledgeSessionPaths(activeRestartedState.runtimeCanary.knowledgeRoot);
+	if (finalKnowledgeSessionPaths.length !== 3) {
+		throw new Error(`Runtime Canary created unexpected Knowledge processing records: ${finalKnowledgeSessionPaths}`);
 	}
-	await verifyKnowledgeFailureRecorded(activeRestartedState.runtimeCanary);
+	const processingRecordFormat = resolveProcessingRecordFormat(finalKnowledgeSessionPaths);
 	const pendingQuestion = await startRuntimeCanaryQuestion(restartedInvokeDebug, {
 		sessionPath: restartedConversation.sessionPath,
 		modelKey: activeRestartedState.runtimeCanary.modelKey,
@@ -260,7 +312,7 @@ try {
 		conversation.sessionPath,
 		consumers.schedulerSessionPath,
 		consumers.batchSessionPath,
-		...knowledgeSessionPaths,
+		...finalKnowledgeSessionPaths,
 	]) {
 		if (existsSync(`${sessionPath}.lock`) || existsSync(`${sessionPath}.owner.lock`)) {
 			throw new Error(`Desktop Runtime Canary left a session ownership lock after shutdown: ${sessionPath}`);
@@ -321,10 +373,40 @@ try {
 	) {
 		throw new Error(`Unexpected Runtime Canary Knowledge monitor snapshot: ${JSON.stringify(monitor.knowledgeBase)}`);
 	}
+	const knowledgeContract: RuntimeCanaryKnowledgeContract = {
+		scans: {
+			success: successfulKnowledgeResult,
+			aborted: pendingKnowledgeResult,
+			providerFailure: failedKnowledgeResult,
+		},
+		artifacts: knowledgeArtifacts.artifacts,
+		failure: knowledgeArtifacts.failure,
+		monitor: {
+			processingInputTokens: monitor.knowledgeBase.processingInputTokens,
+			processingOutputTokens: monitor.knowledgeBase.processingOutputTokens,
+			processingRounds: monitor.knowledgeBase.processingRounds,
+			filesProcessed: monitor.knowledgeBase.filesProcessed,
+			filesFailed: monitor.knowledgeBase.filesFailed,
+			manualScanCount: monitor.knowledgeBase.manualScanCount,
+		},
+		notifications: knowledgeNotificationsAfterRestart,
+		processingRecordCount: finalKnowledgeSessionPaths.length,
+		lifecycle: {
+			desktopRestarted: true,
+			sessionLocksReleased: true,
+			rawsUnlocked: restartReport.knowledgeRawsUnlocked,
+			endpointRemoved: true,
+			providerStopped: true,
+			desktopExitCode: exitReport.desktopExitCode,
+		},
+	};
 
 	printJson({
 		ok: true,
 		result: {
+			runtimeMode: state.runtimeCanary.mode,
+			processingRecordFormat,
+			knowledgeContract,
 			...conversation,
 			restartedMessageCount: restartedConversation.messageCount,
 			...consumers,
@@ -398,49 +480,144 @@ async function startApprovedKnowledgeScan(
 }
 
 async function approveNextKnowledgeAction(cdpPort: number): Promise<void> {
-	const sessionName = `runtime-canary-knowledge-${process.pid}-${Date.now()}`;
-	const sessionOption = `--s=${sessionName}`;
-	const attach = await runProcess(
-		"bunx",
-		["playwright-cli", sessionOption, "attach", `--cdp=http://127.0.0.1:${cdpPort}`],
-		repoRoot,
-		process.env,
-	);
-	if (attach.code !== 0) {
-		throw new Error(`Unable to attach Knowledge approval automation:\n${attach.stderr}`);
-	}
-	try {
-		const approve = await runProcess(
-			"bunx",
-			[
-				"playwright-cli",
-				sessionOption,
-				"run-code",
-				`async (page) => {
-					const deadline = Date.now() + 30000;
-					while (Date.now() < deadline) {
-						for (const candidate of page.context().pages()) {
-							const dialog = candidate.locator('[role="dialog"]:visible').last();
-							if ((await dialog.count()) === 0) continue;
-							const buttons = dialog.getByRole('button');
-							if ((await buttons.count()) < 2) continue;
-							await buttons.last().click({ force: true });
-							return;
-						}
-						await page.waitForTimeout(100);
-					}
-					throw new Error("Knowledge approval dialog did not become visible");
-				}`,
-			],
-			repoRoot,
-			process.env,
+	const deadline = Date.now() + 30_000;
+	while (Date.now() < deadline) {
+		const approved = await evaluateRenderer(
+			cdpPort,
+			`(() => {
+				const dialogs = [...document.querySelectorAll('[role="dialog"]')].filter((candidate) => {
+					const element = /** @type {HTMLElement} */ (candidate);
+					return element.offsetWidth > 0 || element.offsetHeight > 0 || element.getClientRects().length > 0;
+				});
+				const dialog = dialogs.at(-1);
+				if (!dialog) return false;
+				const buttons = dialog.querySelectorAll('button');
+				const approveButton = buttons.item(buttons.length - 1);
+				if (buttons.length < 2 || !approveButton) return false;
+				approveButton.click();
+				return true;
+			})()`,
+			z.boolean(),
 		);
-		if (approve.code !== 0) {
-			throw new Error(`Unable to approve Knowledge action:\n${approve.stdout}\n${approve.stderr}`);
-		}
-	} finally {
-		await runProcess("bunx", ["playwright-cli", sessionOption, "detach"], repoRoot, process.env).catch(() => undefined);
+		if (approved) return;
+		await new Promise((resolve) => setTimeout(resolve, 100));
 	}
+	throw new Error("Knowledge approval dialog did not become visible");
+}
+
+async function installKnowledgeNotificationAudit(cdpPort: number, reset: boolean): Promise<void> {
+	await evaluateRenderer(
+		cdpPort,
+		`(() => {
+			const key = ${JSON.stringify(knowledgeNotificationStorageKey)};
+			if (${JSON.stringify(reset)}) localStorage.setItem(key, "[]");
+			if (globalThis.__runtimeCanaryKnowledgeAudit) return true;
+			const record = (event) => {
+				const events = JSON.parse(localStorage.getItem(key) ?? "[]");
+				events.push(event);
+				localStorage.setItem(key, JSON.stringify(events));
+			};
+			const processingHandler = (value) => record({ type: "processing", value });
+			const statusesHandler = () => record({ type: "statuses" });
+			globalThis.__runtimeCanaryKnowledgeAudit = {
+				record,
+				processingHandler,
+				statusesHandler,
+				offProcessing: window.vetta.knowledge.onProcessingChanged(processingHandler),
+				offStatuses: window.vetta.knowledge.onStatusesChanged(statusesHandler),
+			};
+			return true;
+		})()`,
+		z.literal(true),
+	);
+}
+
+async function readKnowledgeNotificationAudit(
+	cdpPort: number,
+): Promise<Array<z.infer<typeof runtimeCanaryKnowledgeNotificationSchema>>> {
+	const events = await evaluateRenderer(
+		cdpPort,
+		`localStorage.getItem(${JSON.stringify(knowledgeNotificationStorageKey)}) ?? "[]"`,
+		z.string(),
+	);
+	return z.array(runtimeCanaryKnowledgeNotificationSchema).parse(JSON.parse(events));
+}
+
+async function evaluateRenderer<T>(cdpPort: number, expression: string, schema: z.ZodType<T>): Promise<T> {
+	const targetResponse = await fetch(`http://127.0.0.1:${cdpPort}/json/list`);
+	if (!targetResponse.ok) {
+		throw new Error(`Unable to list Runtime Canary Renderer targets: HTTP ${targetResponse.status}`);
+	}
+	const targets = z.array(cdpTargetSchema).parse(await targetResponse.json());
+	const target = targets.find(
+		(candidate) =>
+			candidate.type === "page" && candidate.webSocketDebuggerUrl !== undefined && isMainRendererUrl(candidate.url),
+	);
+	const targetWebSocketUrl = target?.webSocketDebuggerUrl;
+	if (!targetWebSocketUrl) throw new Error("Vetta main Renderer CDP target was not found");
+
+	return await new Promise<T>((resolve, reject) => {
+		const requestId = 1;
+		const socket = new WebSocket(targetWebSocketUrl);
+		const timeout = setTimeout(() => {
+			socket.close();
+			reject(new Error("Timed out evaluating Runtime Canary Renderer expression"));
+		}, 10_000);
+		const finish = (operation: () => void): void => {
+			clearTimeout(timeout);
+			socket.close();
+			operation();
+		};
+		socket.addEventListener("open", () => {
+			socket.send(
+				JSON.stringify({
+					id: requestId,
+					method: "Runtime.evaluate",
+					params: {
+						expression,
+						awaitPromise: true,
+						returnByValue: true,
+					},
+				}),
+			);
+		});
+		socket.addEventListener("error", () => {
+			finish(() => reject(new Error("Runtime Canary Renderer CDP connection failed")));
+		});
+		socket.addEventListener("message", (event) => {
+			if (typeof event.data !== "string") return;
+			const response = cdpResponseSchema.parse(JSON.parse(event.data));
+			if (response.id !== requestId) return;
+			if (response.error) {
+				finish(() => reject(new Error(`Runtime Canary Renderer evaluation failed: ${response.error?.message}`)));
+				return;
+			}
+			if (!response.result || response.result.exceptionDetails !== undefined) {
+				finish(() =>
+					reject(
+						new Error(
+							`Runtime Canary Renderer expression raised an exception: ${JSON.stringify(response.result?.exceptionDetails)}`,
+						),
+					),
+				);
+				return;
+			}
+			finish(() => {
+				try {
+					resolve(schema.parse(response.result?.result.value));
+				} catch (error) {
+					reject(error);
+				}
+			});
+		});
+	});
+}
+
+function isMainRendererUrl(url: string): boolean {
+	return (
+		url.startsWith("http://") &&
+		!["/pet.html", "/quickpanel.html", "/onboarding.html"].some((entry) => url.includes(entry))
+	);
 }
 
 function parseSuccessfulKnowledgeScan(result: ProcessResult): z.infer<typeof knowledgeScanResultSchema> {
@@ -451,6 +628,16 @@ function parseSuccessfulKnowledgeScan(result: ProcessResult): z.infer<typeof kno
 	}
 	const envelope = actionCliSuccessSchema.parse(JSON.parse(result.stdout));
 	return knowledgeScanResultSchema.parse(envelope.result);
+}
+
+function normalizeKnowledgeScan(
+	result: z.infer<typeof knowledgeScanResultSchema>,
+	label: string,
+): { readonly operation: "scan-now"; readonly skipped: false } {
+	if (result.skipped) {
+		throw new Error(`Runtime Canary Knowledge ${label} scan was unexpectedly skipped`);
+	}
+	return { operation: result.operation, skipped: false };
 }
 
 async function runVettaAction(
@@ -475,17 +662,20 @@ async function verifyKnowledgeSuccess(fixture: RuntimeCanaryFixture): Promise<vo
 	}
 }
 
-async function verifyKnowledgeArtifacts(fixture: RuntimeCanaryFixture): Promise<void> {
+async function verifyKnowledgeArtifacts(
+	fixture: RuntimeCanaryFixture,
+): Promise<RuntimeCanaryKnowledgeContract["artifacts"]> {
 	const pagePath = join(fixture.knowledgeRoot, "wiki", "runtime-canary", "page.md");
 	const [page, manifest, tags] = await Promise.all([
 		readFile(pagePath, "utf8"),
 		readJsonFile(join(fixture.knowledgeRoot, "manifest.json"), knowledgeManifestSchema),
-		readFile(join(fixture.knowledgeRoot, "tags.json"), "utf8"),
+		readJsonFile(join(fixture.knowledgeRoot, "tags.json"), knowledgeTagsSchema),
 	]);
+	const parsedPage = parseWikiPage(page);
 	if (
-		!page.includes(RUNTIME_CANARY_KNOWLEDGE_SOURCE_PATH) ||
-		!page.includes(fixture.knowledgeSourceHash) ||
-		!page.includes("Processed by the Greenfield Knowledge session.")
+		parsedPage.frontmatter.source_path !== RUNTIME_CANARY_KNOWLEDGE_SOURCE_PATH ||
+		parsedPage.frontmatter.source_hash !== fixture.knowledgeSourceHash ||
+		!parsedPage.body.includes("Processed by the selected Knowledge session.")
 	) {
 		throw new Error("Runtime Canary Knowledge wiki page does not match the deterministic Provider output");
 	}
@@ -496,13 +686,37 @@ async function verifyKnowledgeArtifacts(fixture: RuntimeCanaryFixture): Promise<
 	) {
 		throw new Error(`Unexpected Runtime Canary Knowledge manifest: ${JSON.stringify(manifest)}`);
 	}
-	if (!tags.includes("runtime-canary")) {
+	const sourcePathById = new Map(manifest.pages.map((entry) => [entry.id, entry.source_path]));
+	const indexedSourcePaths = [
+		...new Set(
+			Object.values(tags.tags)
+				.flat()
+				.map((id) => sourcePathById.get(id) ?? `missing:${id}`),
+		),
+	].sort();
+	if (!Object.hasOwn(tags.tags, "runtime-canary")) {
 		throw new Error("Runtime Canary Knowledge tags index is missing the deterministic tag");
 	}
+	return {
+		path: manifest.pages[0]?.path ?? "",
+		source: parsedPage.frontmatter.source,
+		sourcePath: parsedPage.frontmatter.source_path,
+		sourceHash: parsedPage.frontmatter.source_hash,
+		tags: [...parsedPage.frontmatter.tags].sort(),
+		title: parsedPage.frontmatter.title,
+		summary: parsedPage.frontmatter.summary,
+		body: parsedPage.body,
+		orphaned: parsedPage.frontmatter.orphaned_at !== null,
+		manifestPageCount: manifest.pages.length,
+		indexedSourcePaths,
+	};
 }
 
-async function verifyKnowledgeFailureRecorded(fixture: RuntimeCanaryFixture): Promise<void> {
-	await verifyKnowledgeArtifacts(fixture);
+async function verifyKnowledgeFailureRecorded(fixture: RuntimeCanaryFixture): Promise<{
+	readonly artifacts: RuntimeCanaryKnowledgeContract["artifacts"];
+	readonly failure: RuntimeCanaryKnowledgeContract["failure"];
+}> {
+	const artifacts = await verifyKnowledgeArtifacts(fixture);
 	const failures = await readJsonFile(join(fixture.knowledgeRoot, "failures.json"), knowledgeFailuresSchema);
 	const failurePaths = Object.keys(failures.entries);
 	const failure = failures.entries[RUNTIME_CANARY_KNOWLEDGE_FAILURE_SOURCE_PATH];
@@ -515,6 +729,34 @@ async function verifyKnowledgeFailureRecorded(fixture: RuntimeCanaryFixture): Pr
 	) {
 		throw new Error(`Unexpected Runtime Canary Knowledge failure record: ${JSON.stringify(failures)}`);
 	}
+	return {
+		artifacts,
+		failure: {
+			sourcePath: failure.source_path,
+			attempts: failure.attempts,
+			quarantined: failure.quarantined,
+		},
+	};
+}
+
+function verifyKnowledgeNotificationSequence(
+	events: readonly z.infer<typeof runtimeCanaryKnowledgeNotificationSchema>[],
+): void {
+	const states = processingStates(events);
+	if (JSON.stringify(states) !== JSON.stringify([true, false])) {
+		throw new Error(`Unexpected Runtime Canary Knowledge notification sequence: ${JSON.stringify(events)}`);
+	}
+	if (!events.some((event) => event.type === "statuses")) {
+		throw new Error("Runtime Canary Knowledge notification audit did not observe status invalidation");
+	}
+}
+
+function processingStates(
+	events: readonly z.infer<typeof runtimeCanaryKnowledgeNotificationSchema>[],
+): boolean[] {
+	return events
+		.filter((event): event is { readonly type: "processing"; readonly value: boolean } => event.type === "processing")
+		.map((event) => event.value);
 }
 
 async function listKnowledgeSessionPaths(knowledgeRoot: string): Promise<string[]> {
@@ -522,9 +764,15 @@ async function listKnowledgeSessionPaths(knowledgeRoot: string): Promise<string[
 	if (!existsSync(sessionDirectory)) return [];
 	const entries = await readdir(sessionDirectory, { withFileTypes: true });
 	return entries
-		.filter((entry) => entry.isFile() && entry.name.endsWith(".conversation.jsonl"))
+		.filter((entry) => entry.isFile() && entry.name.endsWith(".jsonl"))
 		.map((entry) => join(sessionDirectory, entry.name))
 		.sort();
+}
+
+function resolveProcessingRecordFormat(paths: readonly string[]): RuntimeCanaryProcessingRecordFormat {
+	if (paths.every((path) => path.endsWith(".conversation.jsonl"))) return "conversation-v2-jsonl";
+	if (paths.every((path) => path.endsWith(".jsonl") && !path.endsWith(".conversation.jsonl"))) return "legacy-jsonl";
+	throw new Error(`Runtime Canary observed mixed Knowledge processing record formats: ${paths}`);
 }
 
 async function readJsonFile<T>(path: string, schema: z.ZodType<T>): Promise<T> {

@@ -176,7 +176,7 @@ function selectMainWindow(uiInfo) {
 	if (selectResult.status !== 0) throw new Error("Unable to select the Vetta Desktop renderer tab");
 }
 
-async function startRuntimeCanaryProvider() {
+async function startRuntimeCanaryProvider(mode) {
 	const fixtureRoot = join(runtimeDir, "runtime-canary", `${Date.now()}-${process.pid}`);
 	const readyFilePath = join(fixtureRoot, "provider-ready.json");
 	const exitReportPath = join(fixtureRoot, "host-exit.json");
@@ -185,7 +185,7 @@ async function startRuntimeCanaryProvider() {
 	mkdirSync(fixtureRoot, { recursive: true });
 	const child = spawn(
 		"bun",
-		[runtimeCanaryProviderPath, "--root", fixtureRoot, "--ready-file", readyFilePath],
+		[runtimeCanaryProviderPath, "--root", fixtureRoot, "--ready-file", readyFilePath, "--mode", mode],
 		{
 			cwd: repoRoot,
 			env: baseVerificationEnv,
@@ -211,7 +211,7 @@ async function startRuntimeCanaryProvider() {
 		}
 		const fixture = JSON.parse(readFileSync(readyFilePath, "utf8"));
 		if (
-			fixture?.mode !== "greenfield" ||
+			fixture?.mode !== mode ||
 			typeof fixture.vettaHome !== "string" ||
 			typeof fixture.agentDir !== "string" ||
 			typeof fixture.workspace !== "string" ||
@@ -258,8 +258,14 @@ async function stopRuntimeCanaryProvider(child) {
 
 function parseRuntimeCanaryMode(args) {
 	if (args.length === 0) return null;
-	if (args.length === 2 && args[0] === "--runtime-canary" && args[1] === "greenfield") return "greenfield";
-	throw new Error('Expected "--runtime-canary greenfield"');
+	if (
+		args.length === 2 &&
+		args[0] === "--runtime-canary" &&
+		(args[1] === "legacy" || args[1] === "greenfield")
+	) {
+		return args[1];
+	}
+	throw new Error('Expected "--runtime-canary legacy" or "--runtime-canary greenfield"');
 }
 
 async function startHost(runtimeCanaryMode) {
@@ -269,7 +275,7 @@ async function startHost(runtimeCanaryMode) {
 	}
 
 	mkdirSync(artifactDir, { recursive: true });
-	const runtimeCanary = runtimeCanaryMode === "greenfield" ? await startRuntimeCanaryProvider() : null;
+	const runtimeCanary = runtimeCanaryMode ? await startRuntimeCanaryProvider(runtimeCanaryMode) : null;
 	let activeDesktop;
 	for (const signal of ["SIGINT", "SIGTERM"]) {
 		process.once(signal, () => activeDesktop?.child.kill(signal));
@@ -330,7 +336,10 @@ async function startHost(runtimeCanaryMode) {
 				break;
 			}
 			restartCount += 1;
-			activeDesktop = await startDesktopVerificationProcess(runtimeCanary, restartCount + 1);
+			activeDesktop = await startDesktopVerificationProcess(runtimeCanary, restartCount + 1, {
+				rendererPort: activeDesktop.rendererPort,
+				cdpPort: activeDesktop.cdpPort,
+			});
 		}
 	} finally {
 		if (runtimeCanary) {
@@ -374,9 +383,9 @@ function areKnowledgeRawsUnlocked(knowledgeRoot) {
 	return true;
 }
 
-async function startDesktopVerificationProcess(runtimeCanary, desktopGeneration) {
-	const rendererPort = await findFreePort();
-	let cdpPort = await findFreePort();
+async function startDesktopVerificationProcess(runtimeCanary, desktopGeneration, requestedPorts) {
+	const rendererPort = requestedPorts?.rendererPort ?? (await findFreePort());
+	let cdpPort = requestedPorts?.cdpPort ?? (await findFreePort());
 	while (cdpPort === rendererPort) cdpPort = await findFreePort();
 	const child = spawn("bun", ["run", "dev:verify"], {
 		cwd: desktopRoot,

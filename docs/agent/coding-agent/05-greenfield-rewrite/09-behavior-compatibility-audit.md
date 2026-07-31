@@ -1336,6 +1336,31 @@ DOM lib，没有删除或弱化类型。
 已有 wiki 保留；Monitor `filesFailed` 仍为 0。Canary 明确断言这个观察差异，而没有夹带修改统计或 Action
 结果语义。默认 selector 继续为 Legacy。
 
+### 2.40 真实 Desktop Knowledge Runtime 差分门禁
+
+第 122 轮让同一确定性 fixture 分别运行真实 Legacy 与 Greenfield Desktop，而不是继续从 Greenfield
+单边 Canary 推断兼容性。两次运行均使用安装后的 `vetta.exe`、Action RPC、真实审批 UI、三类扫描和一次
+Desktop 重启，再把产品可观察结果归一化为独立 Knowledge 合同。
+
+合同逐项比较成功/中止/Provider 失败结果、wiki/manifest/tags、失败账本、Monitor、Renderer 通知、
+processing record 数量和退出清理。默认拒绝全部差异，只允许：
+
+- `runtimeMode` 不同，因为它就是被比较的 selector 轴；
+- processing record 的内部文件名格式不同：Legacy 为普通 `.jsonl`，Conversation V2 为
+  `.conversation.jsonl`。
+
+文件名差异没有放宽 record 数量或生命周期要求；两边都必须产生 3 条记录，并在重启和最终退出时释放
+Session lock。真实结果的 `blockingDifferences` 为空，两个 Runtime 的通知均为 processing true、两次
+statuses、processing false，其余归一化字段完全相同。
+
+验证驱动复用了 verify:ui 已有浏览器级 Playwright 会话，并通过独立页面级 CDP 重新发现当前主 Renderer。
+这样审批和 preload 通知 API 作用于真实 Vetta Desktop 页面，又不会在 Electron 重启时争用浏览器级
+WebSocket。跨进程/CDP/报告边界使用 Zod；产品实现和进程内 Knowledge Port 没有新增 Schema。
+
+本轮没有修改默认 selector，也没有改变两项既有失败语义：Provider/批次直接抛错仍不进入最终对账；
+Provider HTTP 失败仍写入 `failures.json` 且 Monitor `filesFailed` 为 0。差分门禁证明 Greenfield 与
+Legacy 当前行为相同，不代表这些既有产品语义已经被重新设计。
+
 ## 3. 已实施模块审计
 
 | 模块 | 当前状态 | 与旧行为的差距 | 切换结论 |
@@ -1352,7 +1377,7 @@ DOM lib，没有删除或弱化类型。
 | Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope、agent mode、explicit 激活和 requires/capabilities，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；产品工具按 Session cwd 创建，文档/OCR/progress 已由 Runtime Tools 原生拥有，模型顺序由通用 `modelOrder` 稳定物化；Desktop 与 CLI/RPC/IM 源码 Provider Frame 已精确差分，安装产物 `im-claw` Provider Frame 与有序 Tool Surface 也已验证 | 安装产物 Greenfield CLI 仍只支持 `im-claw`；默认 selector 尚未切换 | 模型调用级工具面与 Runtime-native 所有权已闭合；进入默认切换准备度审计 |
 | Composition Root 与依赖图 | 产品装配已归属 `@vetta/coding-agent/composition`；CLI/Desktop 直接消费；`runtime-composition` 无包装兼容转发；Runtime 子路径与旧根兼容面采用分段构建；manifest truth 和 forwarding-only 守卫已接入 | `runtime-tools`、`runtime-storage` 包根仍需为外部消费者保留 Coding Agent 兼容转发；默认 selector 仍是 Legacy | 产品所有权和 clean build 顺序已收口；兼容根入口只能在外部迁移窗口后删除 |
 | Coding Agent 公开 API | Bootstrap、Config、Knowledge、Profile、Resources、RPC 已有显式子路径；Legacy CLI/Host Service 与 Runtime 包根使用用途明确的迁移期入口；受治理生产源码的精确根入口消费者已归零 | Legacy/Compat 子路径仍转发具体实现，外部消费者迁移窗口尚未建立；根入口仍是已发布兼容面 | 仓库内依赖不再经过聚合根；兼容入口只能按各自迁移合同逐项删除 |
-| Knowledge Processing Session | Legacy/Greenfield Factory 均实现稳定 Port；Desktop Poller 已复用进程级 selector 提供显式 Greenfield opt-in；真实 Tool Loop、共享轮级 Writer、Round Controller 副作用合同和 Desktop CLI/审批/退出/重启 Canary 均已通过 | 默认仍为 Legacy；直接抛错不进入失败对账、失败记录与 Monitor `filesFailed` 口径不一致仍是待决产品语义 | 架构与真实生命周期边界已闭合；完成异常语义决策后再单独切换默认值 |
+| Knowledge Processing Session | Legacy/Greenfield Factory 均实现稳定 Port；Desktop Poller 已复用进程级 selector 提供显式 Greenfield opt-in；真实 Tool Loop、共享轮级 Writer、Round Controller 副作用合同、Desktop 生命周期 Canary 和完整 Legacy/Greenfield 产品差分均已通过 | 默认仍为 Legacy；直接抛错不进入失败对账、失败记录与 Monitor `filesFailed` 口径不一致是两边共同的既有产品语义 | 0 项阻断差异；默认切换可以进入独立阶段，但不得同时删除 Legacy 或夹带修改失败语义 |
 | `AgentSession` | 新状态机、活动 Turn 输入队列、无伪 user message 的 continue、显式 resume 与同 Turn 持久化身份重绑定已实现 | 尚缺旧外围能力的 Greenfield 实现 | 内核 Turn/恢复语义已具备；生产入口不可切换 |
 | Turn Pipeline | 固定阶段、模型调用请求—应答检查点、持久化压缩提交、跨 Conversation 续接及成功/失败 finalization、非持久化 observation、输入队列、continue、recovery、独立 Turn Model Binding 和 Session-local 运行期 Context 串行持久化已实现 | 完整生产 Composition Root 尚未接入 | 不可切换 |
 | `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环、动态 Model Call Frame、完整观察事件、输入队列、Context checkpoint 桥接和 Turn model binding 已接入真实 Greenfield Composition 与 RuntimeHost | 默认生产选择仍是 Legacy | 内核执行与候选宿主接线完成；等待整体默认切换门禁 |
@@ -1400,14 +1425,16 @@ side effects
 
 ## 5. 下一步
 
-Knowledge Processing 的 Session、共享 Writer、轮级副作用和真实 Desktop 生命周期已经闭合。下一阶段不再
-扩充 Runtime Core：
+Knowledge Processing 的 Session、共享 Writer、轮级副作用、真实 Desktop 生命周期和 Legacy/Greenfield
+产品差分已经闭合，当前阻断差异为 0。下一阶段不再扩充 Runtime Core：
 
-1. 单独评审两类失败语义：Provider/批次直接抛错是否进入部分成功对账，以及 `failures.json` 与 Monitor
-   `filesFailed` 是否统一；若需改变，以功能修复和独立回归测试实施。
-2. 若保持现有语义，进行一轮显式 Greenfield 灰度观察；若改变语义，先让真实 Canary 固定新合同。
-3. 灰度无新增差异后，再把 Knowledge Poller 默认值切换作为独立决策，并保留进程级 selector 回退。
-4. 根入口与 Runtime 包兼容转发继续遵守外部迁移窗口，不与 Knowledge 默认切换捆绑删除。
+1. 将 Runtime selector 默认切换作为独立阶段；只改变默认决策，不删除 Legacy，也不修改持久化格式。
+2. 保留显式 `legacy` 回退和 requested/effective/fallback 诊断，并覆盖未配置、显式 Legacy、显式
+   Greenfield 三条真实启动合同。
+3. 默认切换后复跑本轮真实 Knowledge 差分、标准安装产物和 Desktop/CLI/RPC/IM Provider Frame 门禁；
+   出现新增差异时回退默认值。
+4. Provider/批次直接抛错的对账和 `filesFailed` 统计统一继续作为独立功能决策，不夹带在默认切换中。
+5. 根入口与 Runtime 包兼容转发继续遵守外部迁移窗口，不与默认切换捆绑删除。
 
 TypeBox/Zod 只用于外部 RPC、配置和持久化反序列化边界；生产 Profile 比较使用已经类型化的 Model Call
 Frame 与 Session 合同，不为内部对象重复增加 Schema。
