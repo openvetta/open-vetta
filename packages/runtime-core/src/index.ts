@@ -106,6 +106,7 @@ export type {
 	RuntimeHostSessionAssemblyCandidate,
 	RuntimeHostSessionBackend,
 	RuntimeHostSessionBackendRoute,
+	RuntimeHostSessionBackendRouteDecision,
 	RuntimeHostSessionPortName,
 	RuntimeModelCatalog,
 	RuntimeModelCredentialResolver,

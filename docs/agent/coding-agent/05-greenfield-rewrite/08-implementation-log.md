@@ -131,6 +131,7 @@
 | [121-real-desktop-knowledge-lifecycle-canary.md](./08-implementation-log/121-real-desktop-knowledge-lifecycle-canary.md) | 真实 Desktop Knowledge CLI/审批/退出/重启/失败生命周期 Canary |
 | [122-real-desktop-knowledge-runtime-differential.md](./08-implementation-log/122-real-desktop-knowledge-runtime-differential.md) | 真实 Legacy/Greenfield Desktop Knowledge 完整合同差分与切换门禁 |
 | [123-desktop-greenfield-default-cutover.md](./08-implementation-log/123-desktop-greenfield-default-cutover.md) | Desktop Greenfield 默认切换、显式 Legacy 回退与三路真实宿主门禁 |
+| [124-desktop-runtime-cutover-stabilization.md](./08-implementation-log/124-desktop-runtime-cutover-stabilization.md) | Desktop Runtime 进程决策、会话路由观察、Composition Root 拆分与 Legacy 兼容隔离 |
 
 ## 维护约定
 

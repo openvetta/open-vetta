@@ -133,15 +133,26 @@ export interface RuntimeHostSessionBackend {
 }
 
 export interface RuntimeHostSessionBackendRoute {
+	/** 供宿主诊断使用的稳定路由标识；不参与路由判断。 */
+	readonly id?: string;
 	readonly catalog: RuntimeSessionCatalog;
 	readonly backend: RuntimeHostSessionBackend;
+}
+
+export interface RuntimeHostSessionBackendRouteDecision {
+	readonly routeId: string | undefined;
+	readonly source: "default" | "catalog";
 }
 
 export interface CatalogRoutedRuntimeHostSessionBackendOptions {
 	/** 无 sessionPath 的新会话使用该 Backend。 */
 	readonly defaultBackend: RuntimeHostSessionBackend;
+	/** 供宿主诊断使用的默认路由标识。 */
+	readonly defaultRouteId?: string;
 	/** 既有会话必须由 Catalog 明确认领后才能路由。 */
 	readonly routes: readonly RuntimeHostSessionBackendRoute[];
+	/** 成功选出后端后、创建 Assembly 前触发；不承载日志或遥测实现。 */
+	readonly onRoute?: (decision: RuntimeHostSessionBackendRouteDecision) => void;
 }
 
 /**
@@ -152,22 +163,30 @@ export interface CatalogRoutedRuntimeHostSessionBackendOptions {
  */
 export class CatalogRoutedRuntimeHostSessionBackend implements RuntimeHostSessionBackend {
 	private readonly defaultBackend: RuntimeHostSessionBackend;
+	private readonly defaultRouteId: string | undefined;
 	private readonly routes: readonly RuntimeHostSessionBackendRoute[];
+	private readonly onRoute: ((decision: RuntimeHostSessionBackendRouteDecision) => void) | undefined;
 
 	constructor(options: CatalogRoutedRuntimeHostSessionBackendOptions) {
 		if (options.routes.length === 0) {
 			throw new Error("CatalogRoutedRuntimeHostSessionBackend requires at least one route");
 		}
 		this.defaultBackend = options.defaultBackend;
+		this.defaultRouteId = options.defaultRouteId;
 		this.routes = options.routes;
+		this.onRoute = options.onRoute;
 	}
 
 	async createAssembly(request: RuntimeSessionCreateRequest): Promise<RuntimeHostSessionAssembly> {
 		const sessionPath = request.sessionPath?.trim();
-		if (!sessionPath) return this.defaultBackend.createAssembly(request);
+		if (!sessionPath) {
+			this.onRoute?.({ routeId: this.defaultRouteId, source: "default" });
+			return this.defaultBackend.createAssembly(request);
+		}
 
 		for (const route of this.routes) {
 			if (await route.catalog.ownsSession(sessionPath)) {
+				this.onRoute?.({ routeId: route.id, source: "catalog" });
 				return route.backend.createAssembly(request);
 			}
 		}

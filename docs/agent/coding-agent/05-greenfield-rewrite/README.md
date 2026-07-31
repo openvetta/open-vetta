@@ -44,7 +44,7 @@
 8. [实施日志](./08-implementation-log.md)
    - 索引；每轮实施单独成文，见 [`08-implementation-log/`](./08-implementation-log/)。
    - 按实施轮次记录实际修改、验证结果、未完成项和下一步。
-   - 最新记录：[第 123 轮：Desktop Greenfield 默认切换](./08-implementation-log/123-desktop-greenfield-default-cutover.md)。
+   - 最新记录：[第 124 轮：Desktop Runtime 切换收口与 Legacy 组合隔离](./08-implementation-log/124-desktop-runtime-cutover-stabilization.md)。
 9. [行为兼容性审计](./09-behavior-compatibility-audit.md)
    - 审计已实施模块与旧行为的差距。
    - 定义旧新差分测试和迁移 Gate。

@@ -36,6 +36,7 @@
 			"@vetta/coding-agent/composition": ["../coding-agent/src/composition/index.ts"],
 			"@vetta/coding-agent/config": ["../coding-agent/src/config.ts"],
 			"@vetta/coding-agent/concurrency": ["../coding-agent/src/core/concurrency-limit.ts"],
+			"@vetta/coding-agent/host-services": ["../coding-agent/src/public-api/host-services.ts"],
 			"@vetta/coding-agent/knowledge": ["../coding-agent/src/core/knowledge/index.ts"],
 			"@vetta/coding-agent/legacy/cli": ["../coding-agent/src/public-api/legacy-cli.ts"],
 			"@vetta/coding-agent/legacy/host-services": [

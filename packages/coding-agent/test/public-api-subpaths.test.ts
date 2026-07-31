@@ -8,6 +8,11 @@ import * as root from "../src/index.js";
 import { createAgentCliBootstrap, createCodingAgentHostBootstrap } from "../src/public-api/bootstrap.js";
 import * as runtimeStorageCompat from "../src/public-api/compat-runtime-storage.js";
 import * as runtimeToolsCompat from "../src/public-api/compat-runtime-tools.js";
+import {
+	AuthStorage as HostAuthStorage,
+	ModelRegistry as HostModelRegistry,
+	SettingsManager as HostSettingsManager,
+} from "../src/public-api/host-services.js";
 import { main as legacyMain, runLegacyAgentWithBootstrap } from "../src/public-api/legacy-cli.js";
 import { AuthStorage, ModelRegistry, SettingsManager } from "../src/public-api/legacy-host-services.js";
 import { ALL_SCENARIOS, PERSONAS } from "../src/public-api/profile.js";
@@ -32,6 +37,9 @@ describe("coding-agent public subpaths", () => {
 		expect(createLimiter).toBe(root.createLimiter);
 		expect(legacyMain).toBe(root.main);
 		expect(runLegacyAgentWithBootstrap).toBe(root.runLegacyAgentWithBootstrap);
+		expect(HostAuthStorage).toBe(root.AuthStorage);
+		expect(HostModelRegistry).toBe(root.ModelRegistry);
+		expect(HostSettingsManager).toBe(root.SettingsManager);
 		expect(AuthStorage).toBe(root.AuthStorage);
 		expect(ModelRegistry).toBe(root.ModelRegistry);
 		expect(SettingsManager).toBe(root.SettingsManager);
@@ -55,6 +63,10 @@ describe("coding-agent public subpaths", () => {
 			"./concurrency": {
 				types: "./dist/core/concurrency-limit.d.ts",
 				import: "./dist/core/concurrency-limit.js",
+			},
+			"./host-services": {
+				types: "./dist/public-api/host-services.d.ts",
+				import: "./dist/public-api/host-services.js",
 			},
 			"./compat/runtime-storage": {
 				types: "./dist/public-api/compat-runtime-storage.d.ts",

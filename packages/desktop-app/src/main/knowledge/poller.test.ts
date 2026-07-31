@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
 	run: vi.fn(async () => ({ skipped: false })),
 	schedulerStop: vi.fn(),
 	unlockRaws: vi.fn(async () => {}),
+	createSessionFactory: vi.fn((_options: unknown) => ({ create: vi.fn() })),
 }));
 
 vi.mock("electron", () => ({
@@ -30,9 +31,16 @@ vi.mock("../app-monitor/app-monitor-service.js", () => ({
 	recordKnowledgeBaseSnapshot: vi.fn(),
 }));
 
-vi.mock("../greenfield-runtime/desktop-runtime-selector.js", () => ({
-	DESKTOP_AGENT_RUNTIME_ENV: "VETTA_DESKTOP_AGENT_RUNTIME",
-	resolveDesktopAgentRuntimeBackend: () => "legacy",
+vi.mock("../greenfield-runtime/desktop-coding-agent-host-services.js", () => ({
+	getOrCreateSharedModelRegistry: vi.fn(),
+}));
+
+vi.mock("../greenfield-runtime/desktop-runtime-decision.js", () => ({
+	desktopAgentRuntimeDecision: {
+		requestedBackend: "default",
+		effectiveBackend: "greenfield",
+		source: "default",
+	},
 }));
 
 vi.mock("../ipc/fs.js", () => ({
@@ -47,10 +55,6 @@ vi.mock("../logger.js", () => ({
 		info: vi.fn(),
 		warn: vi.fn(),
 	}),
-}));
-
-vi.mock("../runtime.js", () => ({
-	getOrCreateSharedModelRegistry: vi.fn(),
 }));
 
 vi.mock("./knowledge-round-controller.js", () => ({
@@ -79,7 +83,7 @@ vi.mock("./knowledge-round-controller.js", () => ({
 }));
 
 vi.mock("./processing-session-factory.js", () => ({
-	createDesktopKnowledgeProcessingSessionFactory: () => ({ create: vi.fn() }),
+	createDesktopKnowledgeProcessingSessionFactory: mocks.createSessionFactory,
 }));
 
 vi.mock("./raws-lock.js", () => ({
@@ -90,9 +94,18 @@ vi.mock("./raws-lock.js", () => ({
 
 import { runKnowledgeRound, shutdownKnowledgePoller } from "./poller.js";
 
+const knowledgeFactoryOptions = mocks.createSessionFactory.mock.calls[0]?.[0];
+
 describe("Knowledge Poller shutdown", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+	});
+
+	it("uses the shared process decision for Knowledge processing", () => {
+		expect(knowledgeFactoryOptions).toEqual({
+			backend: "greenfield",
+			getModelRegistry: expect.any(Function),
+		});
 	});
 
 	it("stops scheduling once, waits for the active round, and unlocks raws idempotently", async () => {

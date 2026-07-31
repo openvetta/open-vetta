@@ -62,6 +62,7 @@ export type {
 	RuntimeHostSessionAssemblyCandidate,
 	RuntimeHostSessionBackend,
 	RuntimeHostSessionBackendRoute,
+	RuntimeHostSessionBackendRouteDecision,
 	RuntimeHostSessionPortName,
 	RuntimeSessionAskUserQuestionCapability,
 	RuntimeSessionBackend,

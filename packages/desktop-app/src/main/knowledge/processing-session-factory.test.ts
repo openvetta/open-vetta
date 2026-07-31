@@ -1,4 +1,4 @@
-import type { ModelRegistry } from "@vetta/coding-agent/legacy/host-services";
+import type { ModelRegistry } from "@vetta/coding-agent/host-services";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createDesktopKnowledgeProcessingSessionFactory } from "./processing-session-factory.js";
 
@@ -21,7 +21,7 @@ describe("createDesktopKnowledgeProcessingSessionFactory", () => {
 		factoryMocks.legacy.mockClear();
 	});
 
-	it("keeps the Legacy adapter selected by the default backend", () => {
+	it("selects the Legacy adapter for the explicit rollback backend", () => {
 		const factory = createDesktopKnowledgeProcessingSessionFactory({
 			backend: "legacy",
 			getModelRegistry,
@@ -32,7 +32,7 @@ describe("createDesktopKnowledgeProcessingSessionFactory", () => {
 		expect(factoryMocks.greenfield).not.toHaveBeenCalled();
 	});
 
-	it("selects Greenfield only after the existing Desktop opt-in", () => {
+	it("selects Greenfield for the effective Desktop backend", () => {
 		const factory = createDesktopKnowledgeProcessingSessionFactory({
 			backend: "greenfield",
 			getModelRegistry,

@@ -22,6 +22,7 @@
 				"./packages/coding-agent/src/public-api/compat-runtime-tools.ts"
 			],
 			"@vetta/coding-agent/host": ["./packages/coding-agent/src/adapters/runtime-tools/index.ts"],
+			"@vetta/coding-agent/host-services": ["./packages/coding-agent/src/public-api/host-services.ts"],
 			"@vetta/coding-agent/knowledge": ["./packages/coding-agent/src/core/knowledge/index.ts"],
 			"@vetta/coding-agent/legacy/cli": ["./packages/coding-agent/src/public-api/legacy-cli.ts"],
 			"@vetta/coding-agent/legacy/host-services": [

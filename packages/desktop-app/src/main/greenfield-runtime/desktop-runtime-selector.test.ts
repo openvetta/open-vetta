@@ -1,19 +1,38 @@
 import { describe, expect, it } from "vitest";
-import { DESKTOP_AGENT_RUNTIME_ENV, resolveDesktopAgentRuntimeBackend } from "./desktop-runtime-selector.js";
+import {
+	DESKTOP_AGENT_RUNTIME_ENV,
+	resolveDesktopAgentRuntimeBackend,
+	resolveDesktopAgentRuntimeDecision,
+} from "./desktop-runtime-selector.js";
 
 describe("resolveDesktopAgentRuntimeBackend", () => {
 	it("uses Greenfield as the startup default", () => {
 		expect(resolveDesktopAgentRuntimeBackend(undefined)).toBe("greenfield");
 		expect(resolveDesktopAgentRuntimeBackend("")).toBe("greenfield");
 		expect(resolveDesktopAgentRuntimeBackend("   ")).toBe("greenfield");
+		expect(resolveDesktopAgentRuntimeDecision(undefined)).toEqual({
+			requestedBackend: "default",
+			effectiveBackend: "greenfield",
+			source: "default",
+		});
 	});
 
 	it("keeps an explicit Legacy rollback", () => {
 		expect(resolveDesktopAgentRuntimeBackend("legacy")).toBe("legacy");
+		expect(resolveDesktopAgentRuntimeDecision("legacy")).toEqual({
+			requestedBackend: "legacy",
+			effectiveBackend: "legacy",
+			source: "environment",
+		});
 	});
 
 	it("accepts an explicit Greenfield selection", () => {
 		expect(resolveDesktopAgentRuntimeBackend("greenfield")).toBe("greenfield");
+		expect(resolveDesktopAgentRuntimeDecision("greenfield")).toEqual({
+			requestedBackend: "greenfield",
+			effectiveBackend: "greenfield",
+			source: "environment",
+		});
 	});
 
 	it("rejects unknown runtime names instead of silently falling back", () => {

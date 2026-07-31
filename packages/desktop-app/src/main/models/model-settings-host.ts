@@ -1,4 +1,4 @@
-import { getOrCreateSharedModelRegistry } from "../runtime.js";
+import { getOrCreateSharedModelRegistry } from "../greenfield-runtime/desktop-coding-agent-host-services.js";
 import { ModelSettingsService, readModelsConfig, writeModelsConfig } from "./model-settings-service.js";
 
 let desktopModelSettingsService: ModelSettingsService | undefined;

@@ -21,13 +21,10 @@ import {
 	recordKnowledgeBaseProcessingUsage,
 	recordKnowledgeBaseSnapshot,
 } from "../app-monitor/app-monitor-service.js";
-import {
-	DESKTOP_AGENT_RUNTIME_ENV,
-	resolveDesktopAgentRuntimeBackend,
-} from "../greenfield-runtime/desktop-runtime-selector.js";
+import { getOrCreateSharedModelRegistry } from "../greenfield-runtime/desktop-coding-agent-host-services.js";
+import { desktopAgentRuntimeDecision } from "../greenfield-runtime/desktop-runtime-decision.js";
 import { KB_PROCESSING_CWD, KB_PROCESSING_SESSION_DIR, readDesktopConfig } from "../ipc/fs.js";
 import { getAppLogger } from "../logger.js";
-import { getOrCreateSharedModelRegistry } from "../runtime.js";
 import { KnowledgeRoundController } from "./knowledge-round-controller.js";
 import { createDesktopKnowledgeProcessingSessionFactory } from "./processing-session-factory.js";
 import { beginRound, endRound, unlockRaws } from "./raws-lock.js";
@@ -44,12 +41,13 @@ function broadcast(channel: string, payload?: unknown): void {
 }
 
 const log = getAppLogger("kb-poller");
-const knowledgeProcessingBackend = resolveDesktopAgentRuntimeBackend(process.env[DESKTOP_AGENT_RUNTIME_ENV]);
 const knowledgeProcessingSessionFactory = createDesktopKnowledgeProcessingSessionFactory({
-	backend: knowledgeProcessingBackend,
+	backend: desktopAgentRuntimeDecision.effectiveBackend,
 	getModelRegistry: getOrCreateSharedModelRegistry,
 });
-log.info(`knowledge processing backend selected: ${knowledgeProcessingBackend}`);
+log.info(
+	`[agent-runtime] knowledge requested=${desktopAgentRuntimeDecision.requestedBackend} effective=${desktopAgentRuntimeDecision.effectiveBackend} source=${desktopAgentRuntimeDecision.source}`,
+);
 
 /** 上报重建时被排除的坏页（frontmatter 非法/缺失）——否则其源文件永远静默显示未加工。 */
 function logDamagedPages(result: knowledge.RebuildResult): void {

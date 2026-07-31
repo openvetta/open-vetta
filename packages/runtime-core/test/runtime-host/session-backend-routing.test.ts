@@ -12,12 +12,19 @@ describe("CatalogRoutedRuntimeHostSessionBackend", () => {
 		const defaultBackend = backend("default");
 		const legacyBackend = backend("legacy");
 		const greenfieldBackend = backend("greenfield");
+		const onRoute = vi.fn();
 		const routed = new CatalogRoutedRuntimeHostSessionBackend({
 			defaultBackend,
+			defaultRouteId: "greenfield",
 			routes: [
-				{ catalog: catalog((path) => path.endsWith(".jsonl")), backend: legacyBackend },
-				{ catalog: catalog((path) => path.endsWith(".conversation.jsonl")), backend: greenfieldBackend },
+				{ id: "legacy", catalog: catalog((path) => path.endsWith(".jsonl")), backend: legacyBackend },
+				{
+					id: "greenfield",
+					catalog: catalog((path) => path.endsWith(".conversation.jsonl")),
+					backend: greenfieldBackend,
+				},
 			],
+			onRoute,
 		});
 
 		await routed.createAssembly(request());
@@ -25,18 +32,25 @@ describe("CatalogRoutedRuntimeHostSessionBackend", () => {
 		expect(defaultBackend.createAssembly).toHaveBeenCalledOnce();
 		expect(legacyBackend.createAssembly).not.toHaveBeenCalled();
 		expect(greenfieldBackend.createAssembly).not.toHaveBeenCalled();
+		expect(onRoute).toHaveBeenCalledWith({ routeId: "greenfield", source: "default" });
 	});
 
 	it("routes an existing path to the first catalog that owns its format", async () => {
 		const defaultBackend = backend("default");
 		const legacyBackend = backend("legacy");
 		const greenfieldBackend = backend("greenfield");
+		const onRoute = vi.fn();
 		const routed = new CatalogRoutedRuntimeHostSessionBackend({
 			defaultBackend,
 			routes: [
-				{ catalog: catalog((path) => path.endsWith(".legacy.jsonl")), backend: legacyBackend },
-				{ catalog: catalog((path) => path.endsWith(".conversation.jsonl")), backend: greenfieldBackend },
+				{ id: "legacy", catalog: catalog((path) => path.endsWith(".legacy.jsonl")), backend: legacyBackend },
+				{
+					id: "greenfield",
+					catalog: catalog((path) => path.endsWith(".conversation.jsonl")),
+					backend: greenfieldBackend,
+				},
 			],
+			onRoute,
 		});
 		const input = request("C:/sessions/example.conversation.jsonl");
 
@@ -45,19 +59,23 @@ describe("CatalogRoutedRuntimeHostSessionBackend", () => {
 		expect(greenfieldBackend.createAssembly).toHaveBeenCalledWith(input);
 		expect(defaultBackend.createAssembly).not.toHaveBeenCalled();
 		expect(legacyBackend.createAssembly).not.toHaveBeenCalled();
+		expect(onRoute).toHaveBeenCalledWith({ routeId: "greenfield", source: "catalog" });
 	});
 
 	it("rejects unknown persisted formats instead of falling back", async () => {
 		const defaultBackend = backend("default");
+		const onRoute = vi.fn();
 		const routed = new CatalogRoutedRuntimeHostSessionBackend({
 			defaultBackend,
 			routes: [{ catalog: catalog(() => false), backend: backend("known") }],
+			onRoute,
 		});
 
 		await expect(routed.createAssembly(request("C:/sessions/unknown.data"))).rejects.toThrow(
 			"No RuntimeHost session backend owns",
 		);
 		expect(defaultBackend.createAssembly).not.toHaveBeenCalled();
+		expect(onRoute).not.toHaveBeenCalled();
 	});
 });
 
