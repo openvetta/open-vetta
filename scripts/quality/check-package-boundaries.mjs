@@ -297,6 +297,45 @@ function checkCodingAgentRootImports(posixPath, specifiers, findings) {
 	}
 }
 
+function checkCodingAgentLegacyBoundaries(posixPath, text, specifiers, findings) {
+	const isProductionSource = posixPath.includes("/src/") && !/\.(?:test|spec)\.[cm]?[jt]sx?$/.test(posixPath);
+	if (!isProductionSource) return;
+
+	for (const specifier of specifiers) {
+		if (!specifier.startsWith("@vetta/coding-agent/legacy/")) continue;
+		const isAllowedCliEntry =
+			posixPath === "packages/cli-app/src/agent-runtime-selection.ts" &&
+			specifier === "@vetta/coding-agent/legacy/cli";
+		if (!isAllowedCliEntry) {
+			findings.push(`${posixPath}: production Legacy subpath import is outside the compatibility allowlist`);
+		}
+	}
+
+	const isCodingAgentAdapter = posixPath.startsWith("packages/coding-agent/src/adapters/runtime-core/");
+	const isDesktopCompatibility =
+		posixPath === "packages/desktop-app/src/main/greenfield-runtime/desktop-legacy-runtime-compatibility.ts";
+	if (isCodingAgentAdapter || isDesktopCompatibility) return;
+
+	const sourceFile = ts.createSourceFile(posixPath, text, ts.ScriptTarget.Latest, true, scriptKind(posixPath));
+	const protectedSymbols = new Set([
+		"createLegacyRuntimeHostOptions",
+		"LegacyCodingAgentSessionBackend",
+		"LegacyRuntimeSessionCatalog",
+		"LegacyRuntimeSessionFileHistoryReader",
+		"LegacyRuntimeSharedModelController",
+	]);
+	const usedSymbols = new Set();
+	const visit = (node) => {
+		if (ts.isIdentifier(node) && protectedSymbols.has(node.text)) usedSymbols.add(node.text);
+		ts.forEachChild(node, visit);
+	};
+	visit(sourceFile);
+
+	for (const symbol of usedSymbols) {
+		findings.push(`${posixPath}: Legacy Runtime adapter ${symbol} is outside the compatibility allowlist`);
+	}
+}
+
 function workspacePackageName(specifier) {
 	if (!specifier.startsWith("@vetta/") && !specifier.startsWith("@vetta-org/")) return undefined;
 	return specifier.split("/").slice(0, 2).join("/");
@@ -352,6 +391,7 @@ export function findPackageBoundaryViolations(posixPath, text, options = {}) {
 	checkGreenfieldLegacyStartupSymbols(posixPath, text, findings);
 	checkRuntimeCompositionCompatibilityFacade(posixPath, specifiers, findings);
 	checkCodingAgentRootImports(posixPath, specifiers, findings);
+	checkCodingAgentLegacyBoundaries(posixPath, text, specifiers, findings);
 	checkWorkspaceManifestImports(posixPath, specifiers, options.manifest, findings);
 	checkRuntimeCoreImports(posixPath, specifiers, findings);
 	checkAgentCoreImports(posixPath, specifiers, findings);
@@ -379,6 +419,7 @@ const roots = [
 	join(repoRoot, "packages/ui"),
 	join(repoRoot, "packages/plugins"),
 	join(repoRoot, "packages/themes"),
+	join(repoRoot, "packages/cli-app"),
 	join(repoRoot, "packages/desktop-app"),
 ];
 

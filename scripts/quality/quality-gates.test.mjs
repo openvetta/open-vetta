@@ -297,6 +297,39 @@ describe("package boundary analysis", () => {
 		).toEqual([]);
 	});
 
+	it("keeps production Legacy imports and Runtime adapters inside explicit compatibility boundaries", () => {
+		expect(
+			findPackageBoundaryViolations(
+				"packages/cli-app/src/agent-runtime-selection.ts",
+				'import { main } from "@vetta/coding-agent/legacy/cli";',
+			),
+		).toEqual([]);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/desktop-app/src/main/new-consumer.ts",
+				'import { main } from "@vetta/coding-agent/legacy/cli";',
+			),
+		).toHaveLength(1);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/desktop-app/src/main/greenfield-runtime/desktop-legacy-runtime-compatibility.ts",
+				'import { LegacyCodingAgentSessionBackend } from "@vetta/coding-agent/runtime-host";',
+			),
+		).toEqual([]);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/desktop-app/src/main/new-consumer.ts",
+				'import { LegacyCodingAgentSessionBackend } from "@vetta/coding-agent/runtime-host";',
+			),
+		).toHaveLength(1);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/coding-agent/src/adapters/runtime-core/composition.ts",
+				"export function createLegacyRuntimeHostOptions() {}",
+			),
+		).toEqual([]);
+	});
+
 	it("requires scoped production packages to declare workspace imports", () => {
 		const source = 'import { createRuntime } from "@vetta/runtime-tools/coding";';
 		const path = "packages/coding-agent/src/composition/example.ts";

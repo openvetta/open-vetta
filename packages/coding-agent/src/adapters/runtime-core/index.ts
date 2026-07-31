@@ -176,6 +176,7 @@ export {
 	LegacyRuntimeSessionFileHistoryReader,
 	LegacyRuntimeSharedModelController,
 } from "./legacy-session-services.js";
+export { ModelRegistryRuntimeSharedModelController } from "./model-registry-shared-model-controller.js";
 export {
 	type MapAgentEventState,
 	mapAgentSessionEvent,

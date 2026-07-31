@@ -5,9 +5,11 @@ import { join } from "node:path";
 import type { ModelRegistry } from "@vetta/coding-agent";
 import { SessionManager } from "@vetta/coding-agent";
 import {
+	createLegacyRuntimeHostOptions,
 	LegacyRuntimeSessionCatalog,
 	LegacyRuntimeSessionFileHistoryReader,
 	LegacyRuntimeSharedModelController,
+	ModelRegistryRuntimeSharedModelController,
 } from "@vetta/coding-agent/runtime-host";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -24,13 +26,19 @@ describe("runtime host process services", () => {
 		const setServerToken = vi.fn();
 		const loadRemoteModels = vi.fn(async () => {});
 		const registry = { setServerToken, loadRemoteModels } as unknown as ModelRegistry;
-		const controller = new LegacyRuntimeSharedModelController(registry);
+		const controller = new ModelRegistryRuntimeSharedModelController(registry);
 
 		await controller.refreshAuth("token");
 		controller.refreshInBackground();
 
 		expect(setServerToken).toHaveBeenCalledWith("token");
 		expect(loadRemoteModels).toHaveBeenCalledTimes(2);
+		expect(new LegacyRuntimeSharedModelController(registry)).toBeInstanceOf(
+			ModelRegistryRuntimeSharedModelController,
+		);
+		expect(createLegacyRuntimeHostOptions({ modelRegistry: registry }).sharedModelController).toBeInstanceOf(
+			ModelRegistryRuntimeSharedModelController,
+		);
 	});
 
 	it("delegates offline catalog and direct file history operations", async () => {

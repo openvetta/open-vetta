@@ -5,10 +5,8 @@ import type {
 	ProjectInfo,
 	RuntimeSessionCatalog,
 	RuntimeSessionFileHistoryReader,
-	RuntimeSharedModelController,
 	SessionHistoryInfo,
 } from "@vetta/runtime-core";
-import type { ModelRegistry } from "../../core/model-registry.js";
 import {
 	type SessionEntry as CodingSessionEntry,
 	loadEntriesFromFile,
@@ -16,21 +14,12 @@ import {
 	SessionManager,
 } from "../../core/session-manager/index.js";
 import { branchFromFileEntries, entriesToHistory } from "./history.js";
+import { ModelRegistryRuntimeSharedModelController } from "./model-registry-shared-model-controller.js";
 
 const SESSION_HEADER_READ_BYTES = 64 * 1024;
 
-export class LegacyRuntimeSharedModelController implements RuntimeSharedModelController {
-	constructor(private readonly modelRegistry: ModelRegistry) {}
-
-	async refreshAuth(token: string | undefined): Promise<void> {
-		this.modelRegistry.setServerToken(token);
-		await this.modelRegistry.loadRemoteModels();
-	}
-
-	refreshInBackground(): void {
-		void this.modelRegistry.loadRemoteModels();
-	}
-}
+/** @deprecated 请使用 ModelRegistryRuntimeSharedModelController。 */
+export class LegacyRuntimeSharedModelController extends ModelRegistryRuntimeSharedModelController {}
 
 export class LegacyRuntimeSessionCatalog implements RuntimeSessionCatalog {
 	async ownsSession(sessionPath: string): Promise<boolean> {

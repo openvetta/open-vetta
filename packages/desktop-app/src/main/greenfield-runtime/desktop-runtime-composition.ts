@@ -3,6 +3,7 @@ import { getAgentDir } from "@vetta/coding-agent/config";
 import {
 	createCodingAgentMcpRuntimeToolSource,
 	createCodingAgentPluginMcpRuntime,
+	ModelRegistryRuntimeSharedModelController,
 } from "@vetta/coding-agent/runtime-host";
 import {
 	FileConversationRuntimeSessionFileHistoryReader,
@@ -57,16 +58,7 @@ export function createDesktopRuntimeComposition(): DesktopRuntimeComposition {
 	const macosSandboxExecPath = getAvailableMacosSandboxExecPath();
 	const userQuestionHandler = getDesktopUserQuestionBroker().handle;
 	const additionalSkillPaths = getBuiltinSkillPaths();
-	const legacy = createDesktopLegacyRuntimeCompatibility({
-		additionalSkillPaths,
-		getDefaultExecutionMode,
-		linuxBubblewrapPath,
-		macosSandboxExecPath,
-		modelRegistry,
-		sandboxHostPath,
-		serverUrl: DEFAULT_SERVER_URL,
-		userQuestionHandler,
-	});
+	const legacy = createDesktopLegacyRuntimeCompatibility({ modelRegistry });
 	const conversationCatalog = new DesktopGreenfieldRuntimeSessionCatalog({
 		resolveRoots: resolveDesktopGreenfieldSessionRoots,
 	});
@@ -156,7 +148,7 @@ export function createDesktopRuntimeComposition(): DesktopRuntimeComposition {
 					},
 				},
 			]),
-			sharedModelController: legacy.sharedModelController,
+			sharedModelController: new ModelRegistryRuntimeSharedModelController(modelRegistry),
 			userQuestionHandler,
 		}),
 	};

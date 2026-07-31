@@ -1,11 +1,8 @@
 import type { RuntimeHostOptions } from "@vetta/runtime-core";
 import type { ModelRegistry } from "../../core/model-registry.js";
 import { LegacyCodingAgentSessionBackend } from "./legacy-session-backend.js";
-import {
-	LegacyRuntimeSessionCatalog,
-	LegacyRuntimeSessionFileHistoryReader,
-	LegacyRuntimeSharedModelController,
-} from "./legacy-session-services.js";
+import { LegacyRuntimeSessionCatalog, LegacyRuntimeSessionFileHistoryReader } from "./legacy-session-services.js";
+import { ModelRegistryRuntimeSharedModelController } from "./model-registry-shared-model-controller.js";
 
 export interface LegacyRuntimeHostOptions
 	extends Omit<
@@ -23,6 +20,6 @@ export function createLegacyRuntimeHostOptions(options: LegacyRuntimeHostOptions
 		sessionBackend: new LegacyCodingAgentSessionBackend(modelRegistry),
 		sessionCatalog: new LegacyRuntimeSessionCatalog(),
 		sessionFileHistoryReader: new LegacyRuntimeSessionFileHistoryReader(),
-		sharedModelController: modelRegistry ? new LegacyRuntimeSharedModelController(modelRegistry) : undefined,
+		sharedModelController: modelRegistry ? new ModelRegistryRuntimeSharedModelController(modelRegistry) : undefined,
 	};
 }

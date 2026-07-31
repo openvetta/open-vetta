@@ -17,12 +17,13 @@ describe("Desktop Runtime composition boundary", () => {
 		}
 	});
 
-	it("isolates the Legacy catch-all factory behind one compatibility adapter", () => {
-		expect(productionSources.legacyCompatibility).toContain("createLegacyRuntimeHostOptions");
-		for (const [name, source] of Object.entries(productionSources)) {
-			if (name === "legacyCompatibility") continue;
-			expect(source, name).not.toContain("createLegacyRuntimeHostOptions");
-		}
+	it("limits Desktop Legacy compatibility to backend, catalog and history services", () => {
+		expect(productionSources.legacyCompatibility).toContain("LegacyCodingAgentSessionBackend");
+		expect(productionSources.legacyCompatibility).toContain("LegacyRuntimeSessionCatalog");
+		expect(productionSources.legacyCompatibility).toContain("LegacyRuntimeSessionFileHistoryReader");
+		expect(productionSources.legacyCompatibility).not.toContain("createLegacyRuntimeHostOptions");
+		expect(productionSources.legacyCompatibility).not.toContain("sharedModelController");
+		expect(productionSources.composition).toContain("ModelRegistryRuntimeSharedModelController");
 	});
 
 	it("keeps the Runtime entry limited to singleton lifecycle ownership", () => {
