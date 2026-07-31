@@ -185,7 +185,11 @@ export async function prepareGreenfieldImRuntimeHost(
 			resourceLoader: bootstrap.resourceLoader,
 			bindEvents: (runner) => runtime!.bindExtensionRunner(session!.sessionId, runner),
 		});
-		const adapter = new GreenfieldImRpcSessionAdapter({ session, runtime });
+		const adapter = new GreenfieldImRpcSessionAdapter({
+			session,
+			runtime,
+			resourceLoader: bootstrap.resourceLoader,
+		});
 		const capabilities = new GreenfieldImRuntimeHostCapabilities(adapter, managedMcpSource, extensionEventHost);
 		return { kind: "greenfield", bootstrap, session, runtime, capabilities };
 	} catch (error) {
@@ -241,6 +245,7 @@ class GreenfieldImRuntimeHostCapabilities implements RpcSessionCapabilities {
 	readonly turn;
 	readonly state;
 	readonly memory;
+	readonly commands;
 	private disposed = false;
 
 	constructor(
@@ -252,6 +257,7 @@ class GreenfieldImRuntimeHostCapabilities implements RpcSessionCapabilities {
 		this.turn = adapter.turn;
 		this.state = adapter.state;
 		this.memory = adapter.memory;
+		this.commands = adapter.commands;
 	}
 
 	async initialize(input: Parameters<RpcSessionCapabilities["initialize"]>[0]): Promise<void> {

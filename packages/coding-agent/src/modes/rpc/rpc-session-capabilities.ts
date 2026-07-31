@@ -27,7 +27,7 @@ export const LEGACY_FULL_RPC_PROFILE: RpcSessionProfile = Object.freeze({
 
 export const GREENFIELD_IM_RPC_PROFILE: RpcSessionProfile = Object.freeze({
 	id: "greenfield-im",
-	commands: Object.freeze(["prompt", "abort", "get_state", "flush_memory"] as const),
+	commands: Object.freeze(["prompt", "abort", "get_state", "get_commands", "flush_memory"] as const),
 	hostBridge: "required",
 });
 

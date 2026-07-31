@@ -40,6 +40,10 @@ export {
 	CodingAgentGreenfieldExtensionActionHost,
 	type CodingAgentGreenfieldExtensionActionHostOptions,
 } from "./greenfield-extension-action-host.js";
+export {
+	CodingAgentGreenfieldExtensionCommandHost,
+	type CodingAgentGreenfieldExtensionCommandHostOptions,
+} from "./greenfield-extension-command-host.js";
 export { CodingAgentGreenfieldExtensionEventBridge } from "./greenfield-extension-event-bridge.js";
 export {
 	type CodingAgentGreenfieldExtensionEventBinding,

@@ -88,6 +88,52 @@ describe("Greenfield IM RPC adapter", () => {
 		await prompt;
 		expect(frames).toEqual([{ type: "agent_end" }]);
 	});
+
+	test("discovers prompt and skill commands without enabling Extension command cutover", () => {
+		const fixture = createAdapterFixture();
+
+		expect(required(fixture.adapter.commands).readCommands()).toEqual([
+			{
+				name: "review",
+				description: "Review changes",
+				source: "prompt",
+				location: "project",
+				path: "prompts/review.md",
+			},
+			{
+				name: "skill:deploy",
+				description: "Deploy safely",
+				source: "skill",
+				location: "user",
+				path: "skills/deploy/SKILL.md",
+			},
+		]);
+	});
+
+	test("uses an explicitly supplied Extension command host before entering the model turn", async () => {
+		const tryExecute = vi.fn(async (text: string) => text.startsWith("/extension"));
+		const throwIfExtensionCommand = vi.fn((text: string) => {
+			if (text.startsWith("/extension")) throw new Error("cannot queue extension command");
+		});
+		const fixture = createAdapterFixture("im-claw", {
+			tryExecute,
+			throwIfExtensionCommand,
+			readCommands: () => [{ name: "extension", source: "extension" }],
+		});
+		const turn = required(fixture.adapter.turn);
+
+		await expect(turn.prompt("/extension value", { source: "rpc" })).resolves.toBeUndefined();
+		expect(fixture.prompt).not.toHaveBeenCalled();
+		await expect(turn.prompt("normal", { source: "rpc" })).resolves.toBeUndefined();
+		expect(fixture.prompt).toHaveBeenCalledOnce();
+		await expect(turn.steer("/extension queued", undefined)).rejects.toThrow("cannot queue extension command");
+		await expect(turn.followUp("/extension queued", undefined)).rejects.toThrow("cannot queue extension command");
+		expect(throwIfExtensionCommand).toHaveBeenCalledTimes(2);
+		expect(required(fixture.adapter.commands).readCommands()[0]).toEqual({
+			name: "extension",
+			source: "extension",
+		});
+	});
 });
 
 describe("Greenfield IM RPC event compatibility", () => {
@@ -189,7 +235,10 @@ describe("Greenfield conversation path identity", () => {
 	});
 });
 
-function createAdapterFixture(scenario: GreenfieldRuntimeComposition["scenario"] = "im-claw") {
+function createAdapterFixture(
+	scenario: GreenfieldRuntimeComposition["scenario"] = "im-claw",
+	extensionCommandHost?: ConstructorParameters<typeof GreenfieldImRpcSessionAdapter>[0]["extensionCommandHost"],
+) {
 	let sessionId = "session-1";
 	let sessionPath = "session-1.conversation.jsonl";
 	let listener: ((event: SessionEvent) => void) | undefined;
@@ -263,10 +312,40 @@ function createAdapterFixture(scenario: GreenfieldRuntimeComposition["scenario"]
 		scopeUse: ["im-claw"],
 		category: "im",
 	} as unknown as CodingToolRegistration;
+	const resourceLoader = {
+		getPrompts: () => ({
+			prompts: [
+				{
+					name: "review",
+					description: "Review changes",
+					content: "Review the changes",
+					source: "project",
+					filePath: "prompts/review.md",
+				},
+			],
+			diagnostics: [],
+		}),
+		getSkills: () => ({
+			skills: [
+				{
+					name: "deploy",
+					description: "Deploy safely",
+					source: "user",
+					filePath: "skills/deploy/SKILL.md",
+					baseDir: "skills/deploy",
+					type: "skill" as const,
+					disableModelInvocation: false,
+				},
+			],
+			diagnostics: [],
+		}),
+	} as ConstructorParameters<typeof GreenfieldImRpcSessionAdapter>[0]["resourceLoader"];
 	return {
 		adapter: new GreenfieldImRpcSessionAdapter({
 			session,
 			runtime,
+			resourceLoader,
+			extensionCommandHost,
 			createHostToolRegistration: () => hostToolRegistration,
 		}),
 		disposeRuntime,

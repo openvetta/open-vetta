@@ -19,6 +19,7 @@
 
 ### Changed
 
+- **Greenfield Extension Command Host 边界与 RPC 命令发现**：新增独立命令宿主，完整注入 `waitForIdle`、`newSession`、`fork`、`navigateTree`、`switchSession`、`reload` 六类动作，并保留 Legacy 的参数切分、Runner 错误上报、未知命令和队列拒绝语义；Greenfield IM RPC 现支持 `get_commands` 并动态发现 Prompt/Skill。由于旧 `newSession.setup` 仍暴露具体 `SessionManager`，生产组合暂不声明 Command capability，Command-only Extension 继续显式回退 Legacy，避免用占位实现制造功能退化。
 - **Greenfield Extension Tool 无损接入与切换门禁**：新增调用级 Extension Tool Runtime，保留 Legacy 的 first-wins 注册、未声明 `scope_use` 时全场景、同名覆盖、Session Runner Context、进度回调及既有 Extension/Ecosystem Hook 包装顺序；工具只在最终 Model Call Frame 物化，不写入 Runtime Core 共享注册表，也不泄漏到子 Agent。Greenfield 宿主按显式 capability descriptor 仅关闭已安装的 Tool 缺口，Command/Shortcut/Message Renderer 继续回退 Legacy；真实 CLI Legacy/Greenfield 差分被提升为独立 CI 切换门禁。
 - **真实 CLI Extension Context 差分闭环**：新增 Legacy/Greenfield 独立 RPC CLI 进程门禁，覆盖 Tool Loop 中 `context` 恰好一次、自动压缩切点与跨进程恢复、运行期图片设置和最终 Provider 输入；Greenfield Composition Root 现动态读取压缩设置，compaction 产品身份与持久化 summary message 投影分离，不改变 Extension、压缩或图片业务算法。
 - **Greenfield Extension 消息身份与调用上下文无损迁移**：Runtime Message Envelope 在产品边界恢复标准消息与 Custom Context 身份，`message_start` / `message_update` / `message_end` 和 `agent_end` 继续按 Legacy 顺序与 payload 由 Greenfield 执行观察提供；Conversation Document 现经 Coding Agent 投影恢复完整 `AgentMessage[]`，逐模型调用的 Extension `context` 只执行一次，并保持 `context -> compaction -> image budget/blocking -> provider` 的旧顺序。模型不可见 Custom Message 仍可被 Extension 观察和变换，但不会进入 Provider；该事件不再触发 Legacy 回退。

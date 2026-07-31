@@ -1,3 +1,4 @@
+import type { CodingAgentHostBootstrap } from "@vetta/coding-agent/bootstrap";
 import type { CodingAgentTool } from "@vetta/coding-agent/profile";
 import {
 	createImSendAttachmentTool,
@@ -6,15 +7,26 @@ import {
 	type RpcSessionInitialization,
 	type RpcSessionState,
 } from "@vetta/coding-agent/rpc";
-import { adaptCodingAgentToolRegistration } from "@vetta/coding-agent/runtime-host/greenfield";
+import {
+	adaptCodingAgentToolRegistration,
+	type CodingAgentGreenfieldExtensionCommandHost,
+} from "@vetta/coding-agent/runtime-host/greenfield";
 import type { GreenfieldRuntimeSession } from "@vetta/runtime-core";
 import type { CodingToolRegistration } from "@vetta/runtime-tools/coding";
 import type { GreenfieldRuntimeComposition } from "../greenfield-runtime-composition.js";
 import { GreenfieldImRpcEventAdapter } from "./greenfield-im-rpc-events.js";
 
+type GreenfieldImResourceLoader = Pick<CodingAgentHostBootstrap["resourceLoader"], "getPrompts" | "getSkills">;
+type GreenfieldImCommandDiscoveryCapability = NonNullable<RpcSessionCapabilities["commands"]>;
+
 export interface GreenfieldImRpcSessionAdapterOptions {
 	readonly session: GreenfieldRuntimeSession;
 	readonly runtime: GreenfieldRuntimeComposition;
+	readonly resourceLoader: GreenfieldImResourceLoader;
+	readonly extensionCommandHost?: Pick<
+		CodingAgentGreenfieldExtensionCommandHost,
+		"readCommands" | "throwIfExtensionCommand" | "tryExecute"
+	>;
 	readonly createHostToolRegistration?: (
 		hostBridge: NonNullable<RpcSessionInitialization["hostBridge"]>,
 	) => CodingToolRegistration;
@@ -31,9 +43,12 @@ export class GreenfieldImRpcSessionAdapter implements RpcSessionCapabilities {
 	readonly turn;
 	readonly state;
 	readonly memory;
+	readonly commands: GreenfieldImCommandDiscoveryCapability;
 
 	private readonly greenfieldSession: GreenfieldRuntimeSession;
 	private readonly runtime: GreenfieldRuntimeComposition;
+	private readonly resourceLoader: GreenfieldImResourceLoader;
+	private readonly extensionCommandHost: GreenfieldImRpcSessionAdapterOptions["extensionCommandHost"];
 	private readonly core;
 	private readonly createHostToolRegistration: NonNullable<
 		GreenfieldImRpcSessionAdapterOptions["createHostToolRegistration"]
@@ -51,6 +66,8 @@ export class GreenfieldImRpcSessionAdapter implements RpcSessionCapabilities {
 		}
 		this.greenfieldSession = options.session;
 		this.runtime = options.runtime;
+		this.resourceLoader = options.resourceLoader;
+		this.extensionCommandHost = options.extensionCommandHost;
 		this.core = this.greenfieldSession.createCoreAssembly();
 		this.createHostToolRegistration =
 			options.createHostToolRegistration ??
@@ -58,6 +75,7 @@ export class GreenfieldImRpcSessionAdapter implements RpcSessionCapabilities {
 				adaptCodingAgentToolRegistration(createImSendAttachmentTool(hostBridge) as unknown as CodingAgentTool));
 		this.turn = {
 			prompt: async (message, promptOptions) => {
+				if (await this.extensionCommandHost?.tryExecute(message)) return;
 				await this.runTurnCommand(() =>
 					this.greenfieldSession.prompt({
 						text: message,
@@ -67,11 +85,13 @@ export class GreenfieldImRpcSessionAdapter implements RpcSessionCapabilities {
 				);
 			},
 			steer: async (message, images) => {
+				this.extensionCommandHost?.throwIfExtensionCommand(message);
 				await this.runTurnCommand(() =>
 					this.greenfieldSession.prompt({ text: message, images, streamingBehavior: "steer" }),
 				);
 			},
 			followUp: async (message, images) => {
+				this.extensionCommandHost?.throwIfExtensionCommand(message);
 				await this.runTurnCommand(() =>
 					this.greenfieldSession.prompt({ text: message, images, streamingBehavior: "followUp" }),
 				);
@@ -85,6 +105,12 @@ export class GreenfieldImRpcSessionAdapter implements RpcSessionCapabilities {
 		this.memory = {
 			flushMemory: () => this.runtime.flushMemory(this.greenfieldSession.sessionId),
 		} satisfies NonNullable<RpcSessionCapabilities["memory"]>;
+		this.commands = {
+			readCommands: () => [
+				...(this.extensionCommandHost?.readCommands() ?? []),
+				...readResourceCommands(this.resourceLoader),
+			],
+		};
 	}
 
 	async initialize(input: RpcSessionInitialization): Promise<void> {
@@ -183,4 +209,28 @@ export class GreenfieldImRpcSessionAdapter implements RpcSessionCapabilities {
 
 function isAgentEndFrame(event: unknown): boolean {
 	return typeof event === "object" && event !== null && Reflect.get(event, "type") === "agent_end";
+}
+
+function readResourceCommands(
+	resourceLoader: GreenfieldImResourceLoader,
+): ReturnType<GreenfieldImCommandDiscoveryCapability["readCommands"]> {
+	const prompts = resourceLoader.getPrompts().prompts.map((template) => ({
+		name: template.name,
+		description: template.description,
+		source: "prompt" as const,
+		location: normalizeLocation(template.source),
+		path: template.filePath,
+	}));
+	const skills = resourceLoader.getSkills().skills.map((skill) => ({
+		name: `skill:${skill.name}`,
+		description: skill.description,
+		source: "skill" as const,
+		location: normalizeLocation(skill.source),
+		path: skill.filePath,
+	}));
+	return [...prompts, ...skills];
+}
+
+function normalizeLocation(source: string): "user" | "project" | "path" | undefined {
+	return source === "user" || source === "project" || source === "path" ? source : undefined;
 }

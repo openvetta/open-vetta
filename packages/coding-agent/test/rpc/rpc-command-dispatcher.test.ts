@@ -127,6 +127,7 @@ describe("RPC command dispatcher", () => {
 				readMessages: vi.fn(() => []),
 			},
 			memory: { flushMemory: vi.fn(async () => 0) },
+			commands: { readCommands: vi.fn(() => []) },
 			initialize: vi.fn(async () => {}),
 			subscribe: vi.fn(() => () => {}),
 			shutdown: vi.fn(async () => {}),

@@ -219,6 +219,41 @@ describe("Greenfield IM Runtime Host", () => {
 		});
 	});
 
+	it("exposes resource command discovery while command-only Extensions still fall back", async () => {
+		const fixture = await createFixture([]);
+		const result = await prepareGreenfieldImRuntimeHost({
+			bootstrap: fixture.bootstrap,
+			conversationDir: fixture.conversationDir,
+			sessionCatalog: fixture.sessionCatalog,
+			createSessionId: () => "command-discovery-session",
+		});
+		expect(result.kind).toBe("greenfield");
+		if (result.kind !== "greenfield") throw new Error("Expected Greenfield runtime");
+		preparedHosts.push(result);
+
+		expect(result.capabilities.profile.commands).toContain("get_commands");
+		const commands = result.capabilities.commands?.readCommands() ?? [];
+		expect(commands.length).toBeGreaterThan(0);
+		expect(commands.every(({ source }) => source === "prompt" || source === "skill")).toBe(true);
+
+		const commandFixture = await createFixture(
+			[],
+			`export default function(pi) {
+				pi.registerCommand("audit", { handler: async () => {} });
+			}`,
+		);
+		await expect(
+			prepareGreenfieldImRuntimeHost({
+				bootstrap: commandFixture.bootstrap,
+				conversationDir: commandFixture.conversationDir,
+				sessionCatalog: commandFixture.sessionCatalog,
+			}),
+		).resolves.toMatchObject({
+			kind: "legacy-fallback",
+			reason: "legacy-extension",
+		});
+	});
+
 	it("runs supported input events with a real Greenfield session context", async () => {
 		const fixture = await createFixture(
 			[],

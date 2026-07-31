@@ -44,7 +44,7 @@
 8. [实施日志](./08-implementation-log.md)
    - 索引；每轮实施单独成文，见 [`08-implementation-log/`](./08-implementation-log/)。
    - 按实施轮次记录实际修改、验证结果、未完成项和下一步。
-   - 最新记录：[第 137 轮：Greenfield Extension Tool Runtime 与切换门禁](./08-implementation-log/137-greenfield-extension-tool-runtime-and-cutover-gate.md)。
+   - 最新记录：[第 138 轮：Greenfield Extension Command Host 边界与 RPC 命令发现](./08-implementation-log/138-greenfield-extension-command-host-and-rpc-discovery.md)。
 9. [行为兼容性审计](./09-behavior-compatibility-audit.md)
    - 审计已实施模块与旧行为的差距。
    - 定义旧新差分测试和迁移 Gate。

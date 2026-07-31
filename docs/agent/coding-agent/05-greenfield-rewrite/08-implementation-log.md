@@ -145,6 +145,7 @@
 | [135-lossless-context-and-model-call-boundaries.md](./08-implementation-log/135-lossless-context-and-model-call-boundaries.md) | 完整 AgentMessage 上下文投影、Extension `context` 与最终模型消息边界 |
 | [136-real-cli-context-model-call-differential-gate.md](./08-implementation-log/136-real-cli-context-model-call-differential-gate.md) | 真实 CLI Context/Compaction/Image Legacy-Greenfield 差分门禁 |
 | [137-greenfield-extension-tool-runtime-and-cutover-gate.md](./08-implementation-log/137-greenfield-extension-tool-runtime-and-cutover-gate.md) | Greenfield Extension Tool Runtime、显式宿主能力与 CI 切换门禁 |
+| [138-greenfield-extension-command-host-and-rpc-discovery.md](./08-implementation-log/138-greenfield-extension-command-host-and-rpc-discovery.md) | Greenfield Extension Command Host 边界、RPC Prompt/Skill 发现与安全回退 |
 
 ## 维护约定
 
