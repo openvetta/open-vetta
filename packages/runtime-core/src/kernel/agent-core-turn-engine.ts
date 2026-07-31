@@ -13,6 +13,7 @@ import type { RuntimeExecutionObservationEvent } from "../runtime-execution-obse
 import type { RuntimeSessionObservationEvent } from "../session-observation.js";
 import type {
 	QueuedSessionInput,
+	RuntimeSnapshot,
 	RuntimeToolDefinition,
 	RuntimeToolResult,
 	SessionContextRecord,
@@ -46,9 +47,11 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 		request.signal.throwIfAborted();
 		const stream = agentLoopContinue(
 			{
-				systemPrompt: composeModelCallSystemPrompt(request.snapshot),
+				systemPrompt: resolveRequestSystemPrompt(request, request.initialModelCallFrame ?? request.snapshot),
 				messages: [...request.messages],
-				tools: [...request.snapshot.tools.values()].map((tool) => this.toAgentTool(tool, request)),
+				tools: [...(request.initialModelCallFrame?.tools ?? request.snapshot.tools).values()].map((tool) =>
+					this.toAgentTool(tool, request),
+				),
 			},
 			this.createConfig(request),
 			request.signal,
@@ -106,6 +109,7 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 	private createConfig(request: TurnEngineRequest): AgentLoopConfig {
 		const inputQueue = request.inputQueue;
 		const contextTransformer = request.snapshot.modelCallContextTransformer;
+		let initialModelCallFrame = request.initialModelCallFrame;
 		const model = request.modelBinding?.model ?? this.options.model;
 		if (!model) {
 			throw turnProtocolError("Agent Core turn requires a model binding");
@@ -169,19 +173,22 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 					: undefined,
 			resolveCallContext: async (_context, signal) => {
 				const executionSignal = signal ?? request.signal;
-				const frame = await resolveModelCallFrame(request.snapshot, {
-					sessionId: request.sessionId,
-					turnId: request.turnId,
-					signal: executionSignal,
-					input: request.input,
-					messages: _context.messages.filter(isRuntimeMessage),
-					modelBinding: request.modelBinding ?? {
-						model,
-						reasoning: this.options.streamOptions?.reasoning,
-					},
-				});
+				const frame =
+					initialModelCallFrame ??
+					(await resolveModelCallFrame(request.snapshot, {
+						sessionId: request.sessionId,
+						turnId: request.turnId,
+						signal: executionSignal,
+						input: request.input,
+						messages: _context.messages.filter(isRuntimeMessage),
+						modelBinding: request.modelBinding ?? {
+							model,
+							reasoning: this.options.streamOptions?.reasoning,
+						},
+					}));
+				initialModelCallFrame = undefined;
 				return {
-					systemPrompt: composeModelCallSystemPrompt(frame),
+					systemPrompt: resolveRequestSystemPrompt(request, frame),
 					tools: [...frame.tools.values()].map((tool) => this.toAgentTool(tool, request)),
 				};
 			},
@@ -250,6 +257,12 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 			},
 		};
 	}
+}
+
+function resolveRequestSystemPrompt(request: TurnEngineRequest, frame: Pick<RuntimeSnapshot, "instructions">): string {
+	return composeModelCallSystemPrompt({
+		instructions: request.instructionOverride ?? frame.instructions,
+	});
 }
 
 function toAgentCheckpointResult(

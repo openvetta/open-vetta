@@ -140,6 +140,7 @@
 | [130-greenfield-extension-action-host.md](./08-implementation-log/130-greenfield-extension-action-host.md) | Greenfield Extension Action Host、五种消息投递语义与 Provider/Flag 安全切换 |
 | [131-greenfield-extension-event-host.md](./08-implementation-log/131-greenfield-extension-event-host.md) | Greenfield Extension Input/Tool 事件宿主、只读 Session Context 与事件级回退 |
 | [132-greenfield-extension-execution-observation.md](./08-implementation-log/132-greenfield-extension-execution-observation.md) | Runtime 执行观察合同、Extension 生命周期/执行事件适配与身份事件回退 |
+| [133-agent-run-preparation-and-before-start.md](./08-implementation-log/133-agent-run-preparation-and-before-start.md) | Agent Run Preparation、首次 Frame 复用与 `before_agent_start` 无损适配 |
 
 ## 维护约定
 

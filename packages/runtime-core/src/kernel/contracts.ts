@@ -296,6 +296,29 @@ export interface ModelCallFrameComposer {
 	compose(context: ModelCallFrameCompositionContext): Promise<ModelCallFrame>;
 }
 
+export interface AgentRunPreparationContext {
+	readonly sessionId: string;
+	readonly turnId: string;
+	readonly signal: AbortSignal;
+	readonly input: SessionInput;
+	readonly messages: readonly Message[];
+	readonly modelBinding?: RuntimeTurnModelBinding;
+	/** 仅在准备器确实需要基础 Prompt 时编译，并在本次 Run 内复用。 */
+	resolveSystemPrompt(): Promise<string>;
+}
+
+export interface AgentRunPreparationResult {
+	/** 在当前用户输入之后追加并持久化的产品上下文。 */
+	readonly context?: readonly SessionContextRecord[];
+	/** 替换本次 Agent Run 的 Prompt；工具仍按每次模型调用动态解析。 */
+	readonly instructionOverride?: readonly InstructionBlock[];
+}
+
+/** 显式用户输入启动 Agent Run 前的一次性产品准备边界。 */
+export interface AgentRunPreparer {
+	prepare(context: AgentRunPreparationContext): Promise<AgentRunPreparationResult | undefined>;
+}
+
 export interface ContinuationPolicyContext {
 	readonly sessionId: string;
 	readonly turnId: string;
@@ -320,6 +343,7 @@ export interface RuntimeSnapshot {
 	readonly tools: ReadonlyMap<string, RuntimeToolDefinition>;
 	readonly modelCallProviders?: readonly ModelCallContributionProvider[];
 	readonly modelCallFrameComposer?: ModelCallFrameComposer;
+	readonly agentRunPreparer?: AgentRunPreparer;
 	readonly continuationPolicy?: ContinuationPolicy;
 	readonly modelCallContextTransformer?: ModelCallContextTransformer;
 	readonly contextProviders: readonly ContextProvider[];
@@ -384,6 +408,7 @@ export interface AgentProfile {
 	readonly features: readonly AgentFeatureDefinition[];
 	readonly observers?: readonly TurnObserver[];
 	readonly modelCallFrameComposer?: ModelCallFrameComposer;
+	readonly agentRunPreparer?: AgentRunPreparer;
 	readonly continuationPolicy?: ContinuationPolicy;
 	readonly modelCallContextTransformer?: ModelCallContextTransformer;
 	readonly contextStrategy: ContextStrategy;
@@ -645,6 +670,10 @@ export interface TurnEngineRequest {
 	readonly snapshot: RuntimeSnapshot;
 	readonly modelBinding?: RuntimeTurnModelBinding;
 	readonly messages: readonly Message[];
+	/** Run Preparation 已编译的首次模型调用 Frame；避免基础 Prompt 重复编译。 */
+	readonly initialModelCallFrame?: ModelCallFrame;
+	/** 本次 Agent Run 固定使用的 Prompt 覆盖；不影响动态工具集合。 */
+	readonly instructionOverride?: readonly InstructionBlock[];
 	readonly signal: AbortSignal;
 	readonly inputQueue?: TurnInputQueue;
 	readonly input?: SessionInput;

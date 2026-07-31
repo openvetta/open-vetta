@@ -14,8 +14,10 @@ import type {
 	ConversationRepository,
 	EventSink,
 	IdGenerator,
+	InstructionBlock,
 	KernelEvent,
 	MessageAppendedEvent,
+	ModelCallFrame,
 	RuntimeSnapshot,
 	RuntimeSnapshotLease,
 	RuntimeSnapshotProvider,
@@ -35,6 +37,7 @@ import type {
 } from "./contracts.js";
 import { type ConversationRecoveryPolicy, FailInterruptedTurnRecoveryPolicy } from "./conversation-recovery.js";
 import { KERNEL_ERROR_CODES, KernelError, turnProtocolError } from "./errors.js";
+import { composeModelCallSystemPrompt, resolveModelCallFrame } from "./model-call-frame.js";
 import type { RuntimeSessionContextBuffer } from "./session-context-buffer.js";
 
 export interface TurnPipelineOptions {
@@ -316,6 +319,62 @@ export class TurnPipeline {
 				);
 			}
 
+			let executionMessages = prepared.messages;
+			let initialModelCallFrame: ModelCallFrame | undefined;
+			let initialModelCallFramePromise: Promise<ModelCallFrame> | undefined;
+			let instructionOverride: readonly InstructionBlock[] | undefined;
+			if (input && snapshot.agentRunPreparer) {
+				const preparationResult = await snapshot.agentRunPreparer.prepare({
+					get sessionId() {
+						return state.sessionId;
+					},
+					turnId,
+					signal,
+					input,
+					messages: prepared.messages,
+					modelBinding,
+					resolveSystemPrompt: async () => {
+						initialModelCallFramePromise ??= resolveModelCallFrame(snapshot, {
+							sessionId: state.sessionId,
+							turnId,
+							signal,
+							input,
+							messages: prepared.messages,
+							modelBinding,
+						});
+						initialModelCallFrame = await initialModelCallFramePromise;
+						return composeModelCallSystemPrompt(initialModelCallFrame);
+					},
+				});
+				signal.throwIfAborted();
+				const preparationContext = preparationResult?.context ?? [];
+				if (preparationContext.length > 0) {
+					const timestamp = this.clock.now();
+					await this.append(
+						state,
+						signal,
+						preparationContext.map((record) => ({
+							type: "context.appended" as const,
+							sessionId: state.sessionId,
+							turnId,
+							record,
+							timestamp: record.timestamp ?? timestamp,
+						})),
+					);
+					executionMessages = [
+						...prepared.messages,
+						...preparationContext
+							.filter(({ modelVisible }) => modelVisible)
+							.map((record) => ({
+								role: "user" as const,
+								content: record.content,
+								timestamp: record.timestamp ?? timestamp,
+							})),
+					];
+				}
+				instructionOverride = preparationResult?.instructionOverride;
+			}
+
 			await this.enterStage(state.sessionId, turnId, "execution");
 			let stopReason: StopReason | undefined;
 			for await (const event of this.turnEngine.execute({
@@ -325,7 +384,9 @@ export class TurnPipeline {
 				turnId,
 				snapshot,
 				modelBinding,
-				messages: prepared.messages,
+				messages: executionMessages,
+				initialModelCallFrame,
+				instructionOverride,
 				signal,
 				inputQueue,
 				input,

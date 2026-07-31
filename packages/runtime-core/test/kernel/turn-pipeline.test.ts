@@ -362,6 +362,101 @@ describe("greenfield runtime kernel", () => {
 		]);
 	});
 
+	it("prepares each explicit Agent Run once and persists its ordered context", async () => {
+		const contextStrategy = new RecordingContextStrategy();
+		const engine = new CompletingTurnEngine(assistantMessage("done"));
+		let preparationCount = 0;
+		let frameCompilationCount = 0;
+		const runtimeSnapshot = snapshot(contextStrategy, {
+			instructions: [{ id: "base", content: "base prompt", priority: 0 }],
+			modelCallFrameComposer: {
+				async compose(context) {
+					frameCompilationCount += 1;
+					return context.frame;
+				},
+			},
+			agentRunPreparer: {
+				async prepare(context) {
+					preparationCount += 1;
+					expect(await context.resolveSystemPrompt()).toBe("base prompt");
+					expect(await context.resolveSystemPrompt()).toBe("base prompt");
+					return {
+						context: [
+							{
+								type: "extension-visible",
+								content: "visible preparation",
+								modelVisible: true,
+								display: true,
+							},
+							{
+								type: "extension-hidden",
+								content: "hidden preparation",
+								modelVisible: false,
+								display: false,
+							},
+						],
+						instructionOverride: [{ id: "override", content: "run prompt", priority: 0 }],
+					};
+				},
+			},
+		});
+		const harness = await createHarness({
+			contextStrategy,
+			runtimeSnapshot,
+			turnEngine: engine,
+		});
+
+		await harness.session.send({ message: userMessage("current input") });
+		await harness.session.continue();
+
+		expect(preparationCount).toBe(1);
+		expect(frameCompilationCount).toBe(1);
+		expect(engine.requests[0]).toMatchObject({
+			instructionOverride: [{ id: "override", content: "run prompt", priority: 0 }],
+		});
+		expect(engine.requests[0].initialModelCallFrame?.instructions).toEqual([
+			{ id: "base", content: "base prompt", priority: 0 },
+		]);
+		expect(engine.requests[0].messages.map(({ content }) => content)).toEqual([
+			"current input",
+			"visible preparation",
+		]);
+		expect((await harness.repository.load("session-1")).events.map(({ type }) => type)).toEqual([
+			"turn.started",
+			"message.appended",
+			"context.appended",
+			"context.appended",
+			"message.appended",
+			"turn.completed",
+			"turn.started",
+			"message.appended",
+			"turn.completed",
+		]);
+	});
+
+	it("does not compile an additional Frame when Run Preparation does not request the Prompt", async () => {
+		const contextStrategy = new RecordingContextStrategy();
+		let frameCompilationCount = 0;
+		const runtimeSnapshot = snapshot(contextStrategy, {
+			modelCallFrameComposer: {
+				async compose(context) {
+					frameCompilationCount += 1;
+					return context.frame;
+				},
+			},
+			agentRunPreparer: {
+				async prepare() {
+					return undefined;
+				},
+			},
+		});
+		const harness = await createHarness({ contextStrategy, runtimeSnapshot });
+
+		await harness.session.send({ message: userMessage("current input") });
+
+		expect(frameCompilationCount).toBe(0);
+	});
+
 	it("persists the current input atomically before committing a prepared compaction", async () => {
 		const document = createEmptyConversationDocument({ sessionId: "session-1", createdAt: 1 });
 		let preparedHistory: readonly Message[] = [];

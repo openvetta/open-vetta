@@ -836,6 +836,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 					observers: [...(baseProfile.observers ?? []), contextRuntime, ...(memoryRuntime ? [memoryRuntime] : [])],
 					contextStrategy: contextRuntime,
 					modelCallContextTransformer: contextRuntime,
+					agentRunPreparer: extensionEvents,
 					continuationPolicy: continuationOrchestrator,
 					modelCallFrameComposer,
 				};

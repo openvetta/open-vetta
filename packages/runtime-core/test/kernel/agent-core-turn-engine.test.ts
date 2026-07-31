@@ -365,6 +365,65 @@ describe("AgentCoreTurnEngine", () => {
 		});
 	});
 
+	it("reuses the prepared first Frame while keeping the Run Prompt fixed across a tool loop", async () => {
+		const contexts: Context[] = [];
+		const composerMessages: string[][] = [];
+		const responses = [
+			assistantMessage(
+				[{ type: "toolCall", id: "tool-call-1", name: "echo", arguments: { value: "hello" } }],
+				"toolUse",
+			),
+			assistantMessage([{ type: "text", text: "finished" }]),
+		];
+		let responseIndex = 0;
+		const engine = new AgentCoreTurnEngine({
+			model: model(),
+			streamFn: (_model, context) => {
+				contexts.push({ ...context, messages: [...context.messages] });
+				const response = responses[responseIndex];
+				responseIndex += 1;
+				if (!response) throw new Error("Missing recorded response");
+				return new RecordedAssistantStream(response);
+			},
+		});
+		const tool: RuntimeToolDefinition = {
+			name: "echo",
+			label: "Echo",
+			description: "Echo",
+			inputSchema: { type: "object" },
+			async execute() {
+				return { content: [{ type: "text", text: "echoed" }] };
+			},
+		};
+		const runtimeSnapshot = snapshot({
+			tools: [tool],
+			modelCallFrameComposer: {
+				async compose(context) {
+					composerMessages.push(context.messages.map(({ role }) => role));
+					return context.frame;
+				},
+			},
+		});
+
+		for await (const _event of engine.execute({
+			sessionId: "session-1",
+			turnId: "turn-1",
+			snapshot: runtimeSnapshot,
+			messages: [userMessage("hello")],
+			initialModelCallFrame: {
+				instructions: [{ id: "prepared", content: "prepared prompt", priority: 0 }],
+				tools: new Map([["echo", tool]]),
+			},
+			instructionOverride: [{ id: "override", content: "run prompt", priority: 0 }],
+			signal: new AbortController().signal,
+		})) {
+			// Exhaust the engine stream.
+		}
+
+		expect(contexts.map(({ systemPrompt }) => systemPrompt)).toEqual(["run prompt", "run prompt"]);
+		expect(composerMessages).toEqual([["user", "assistant", "toolResult"]]);
+	});
+
 	it("applies the session context transformer before every model call without mutating persisted messages", async () => {
 		const transformedRoles: string[][] = [];
 		const contexts: Context[] = [];

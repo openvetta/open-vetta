@@ -57,6 +57,7 @@ const RUNTIME_CAPABILITY_ORDER: readonly CodingAgentLegacyExtensionRuntimeCapabi
 
 export const CODING_AGENT_GREENFIELD_EXTENSION_EVENTS = [
 	"input",
+	"before_agent_start",
 	"session_start",
 	"session_shutdown",
 	"agent_start",
