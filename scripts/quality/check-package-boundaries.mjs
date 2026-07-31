@@ -311,12 +311,38 @@ function checkCodingAgentLegacyBoundaries(posixPath, text, specifiers, findings)
 		}
 	}
 
-	const isCodingAgentAdapter = posixPath.startsWith("packages/coding-agent/src/adapters/runtime-core/");
-	const isDesktopCompatibility =
-		posixPath === "packages/desktop-app/src/main/greenfield-runtime/desktop-legacy-runtime-compatibility.ts";
-	if (isCodingAgentAdapter || isDesktopCompatibility) return;
-
 	const sourceFile = ts.createSourceFile(posixPath, text, ts.ScriptTarget.Latest, true, scriptKind(posixPath));
+	const usedSymbols = new Set();
+	const visit = (node) => {
+		if (ts.isIdentifier(node)) usedSymbols.add(node.text);
+		ts.forEachChild(node, visit);
+	};
+	visit(sourceFile);
+
+	const isLegacyFormatModule = posixPath.startsWith(
+		"packages/coding-agent/src/adapters/runtime-core/legacy-session-format/",
+	);
+	if (isLegacyFormatModule) {
+		const forbiddenImportFragments = ["agent-session", "/sdk", "legacy-session-backend"];
+		for (const specifier of specifiers) {
+			if (forbiddenImportFragments.some((fragment) => specifier.includes(fragment))) {
+				findings.push(`${posixPath}: Legacy session-format modules must not import execution code (${specifier})`);
+			}
+		}
+		for (const symbol of ["AgentSession", "createAgentSession", "LegacyCodingAgentSessionBackend", "ModelRegistry"]) {
+			if (usedSymbols.has(symbol)) {
+				findings.push(`${posixPath}: Legacy session-format modules must not use execution symbol ${symbol}`);
+			}
+		}
+	}
+
+	const isCodingAgentAdapter = posixPath.startsWith("packages/coding-agent/src/adapters/runtime-core/");
+	if (isCodingAgentAdapter) return;
+
+	const desktopExecutionCompatibility =
+		"packages/desktop-app/src/main/greenfield-runtime/desktop-legacy-execution-compatibility.ts";
+	const desktopFormatCompatibility =
+		"packages/desktop-app/src/main/greenfield-runtime/desktop-legacy-session-format-compatibility.ts";
 	const protectedSymbols = new Set([
 		"createLegacyRuntimeHostOptions",
 		"LegacyCodingAgentSessionBackend",
@@ -324,14 +350,14 @@ function checkCodingAgentLegacyBoundaries(posixPath, text, specifiers, findings)
 		"LegacyRuntimeSessionFileHistoryReader",
 		"LegacyRuntimeSharedModelController",
 	]);
-	const usedSymbols = new Set();
-	const visit = (node) => {
-		if (ts.isIdentifier(node) && protectedSymbols.has(node.text)) usedSymbols.add(node.text);
-		ts.forEachChild(node, visit);
-	};
-	visit(sourceFile);
-
 	for (const symbol of usedSymbols) {
+		if (!protectedSymbols.has(symbol)) continue;
+		const isAllowedDesktopExecution =
+			symbol === "LegacyCodingAgentSessionBackend" && posixPath === desktopExecutionCompatibility;
+		const isAllowedDesktopFormat =
+			(symbol === "LegacyRuntimeSessionCatalog" || symbol === "LegacyRuntimeSessionFileHistoryReader") &&
+			posixPath === desktopFormatCompatibility;
+		if (isAllowedDesktopExecution || isAllowedDesktopFormat) continue;
 		findings.push(`${posixPath}: Legacy Runtime adapter ${symbol} is outside the compatibility allowlist`);
 	}
 }

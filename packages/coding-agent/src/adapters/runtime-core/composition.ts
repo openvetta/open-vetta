@@ -1,7 +1,7 @@
 import type { RuntimeHostOptions } from "@vetta/runtime-core";
 import type { ModelRegistry } from "../../core/model-registry.js";
 import { LegacyCodingAgentSessionBackend } from "./legacy-session-backend.js";
-import { LegacyRuntimeSessionCatalog, LegacyRuntimeSessionFileHistoryReader } from "./legacy-session-services.js";
+import { LegacyRuntimeSessionCatalog, LegacyRuntimeSessionFileHistoryReader } from "./legacy-session-format/index.js";
 import { ModelRegistryRuntimeSharedModelController } from "./model-registry-shared-model-controller.js";
 
 export interface LegacyRuntimeHostOptions

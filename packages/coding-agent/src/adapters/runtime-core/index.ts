@@ -154,6 +154,10 @@ export {
 	type RuntimeSessionCreateOptions,
 } from "./legacy-session-backend.js";
 export {
+	LegacyRuntimeSessionCatalog,
+	LegacyRuntimeSessionFileHistoryReader,
+} from "./legacy-session-format/index.js";
+export {
 	createLegacyRuntimeSessionCorePorts,
 	LegacyRuntimeSessionBackgroundWorkController,
 	LegacyRuntimeSessionConfigurationController,
@@ -171,11 +175,7 @@ export {
 	LegacyRuntimeSessionTurnControl,
 	LegacyRuntimeSessionWorkspaceView,
 } from "./legacy-session-ports.js";
-export {
-	LegacyRuntimeSessionCatalog,
-	LegacyRuntimeSessionFileHistoryReader,
-	LegacyRuntimeSharedModelController,
-} from "./legacy-session-services.js";
+export { LegacyRuntimeSharedModelController } from "./legacy-session-services.js";
 export { ModelRegistryRuntimeSharedModelController } from "./model-registry-shared-model-controller.js";
 export {
 	type MapAgentEventState,

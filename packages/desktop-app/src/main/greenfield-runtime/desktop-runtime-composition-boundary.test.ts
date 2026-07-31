@@ -5,7 +5,8 @@ const productionSources = {
 	composition: readSource("./desktop-runtime-composition.ts"),
 	hostServices: readSource("./desktop-coding-agent-host-services.ts"),
 	knowledgeFactory: readSource("../knowledge/processing-session-factory.ts"),
-	legacyCompatibility: readSource("./desktop-legacy-runtime-compatibility.ts"),
+	legacyExecutionCompatibility: readSource("./desktop-legacy-execution-compatibility.ts"),
+	legacyFormatCompatibility: readSource("./desktop-legacy-session-format-compatibility.ts"),
 	poller: readSource("../knowledge/poller.ts"),
 	runtimeEntry: readSource("../runtime.ts"),
 };
@@ -17,12 +18,15 @@ describe("Desktop Runtime composition boundary", () => {
 		}
 	});
 
-	it("limits Desktop Legacy compatibility to backend, catalog and history services", () => {
-		expect(productionSources.legacyCompatibility).toContain("LegacyCodingAgentSessionBackend");
-		expect(productionSources.legacyCompatibility).toContain("LegacyRuntimeSessionCatalog");
-		expect(productionSources.legacyCompatibility).toContain("LegacyRuntimeSessionFileHistoryReader");
-		expect(productionSources.legacyCompatibility).not.toContain("createLegacyRuntimeHostOptions");
-		expect(productionSources.legacyCompatibility).not.toContain("sharedModelController");
+	it("separates Legacy execution from session-format compatibility", () => {
+		expect(productionSources.legacyExecutionCompatibility).toContain("LegacyCodingAgentSessionBackend");
+		expect(productionSources.legacyExecutionCompatibility).not.toContain("LegacyRuntimeSessionCatalog");
+		expect(productionSources.legacyExecutionCompatibility).not.toContain("LegacyRuntimeSessionFileHistoryReader");
+		expect(productionSources.legacyFormatCompatibility).not.toContain("LegacyCodingAgentSessionBackend");
+		expect(productionSources.legacyFormatCompatibility).toContain("LegacyRuntimeSessionCatalog");
+		expect(productionSources.legacyFormatCompatibility).toContain("LegacyRuntimeSessionFileHistoryReader");
+		expect(productionSources.composition).toContain("createDesktopLegacyExecutionCompatibility");
+		expect(productionSources.composition).toContain("createDesktopLegacySessionFormatCompatibility");
 		expect(productionSources.composition).toContain("ModelRegistryRuntimeSharedModelController");
 	});
 

@@ -40,7 +40,8 @@ import {
 	isSessionPathInDirectory,
 	PathFilteredRuntimeSessionCatalog,
 } from "./desktop-greenfield-session-catalog.js";
-import { createDesktopLegacyRuntimeCompatibility } from "./desktop-legacy-runtime-compatibility.js";
+import { createDesktopLegacyExecutionCompatibility } from "./desktop-legacy-execution-compatibility.js";
+import { createDesktopLegacySessionFormatCompatibility } from "./desktop-legacy-session-format-compatibility.js";
 import { desktopAgentRuntimeDecision } from "./desktop-runtime-decision.js";
 
 const log = getAppLogger("runtime");
@@ -58,7 +59,8 @@ export function createDesktopRuntimeComposition(): DesktopRuntimeComposition {
 	const macosSandboxExecPath = getAvailableMacosSandboxExecPath();
 	const userQuestionHandler = getDesktopUserQuestionBroker().handle;
 	const additionalSkillPaths = getBuiltinSkillPaths();
-	const legacy = createDesktopLegacyRuntimeCompatibility({ modelRegistry });
+	const legacyExecution = createDesktopLegacyExecutionCompatibility({ modelRegistry });
+	const legacyFormat = createDesktopLegacySessionFormatCompatibility();
 	const conversationCatalog = new DesktopGreenfieldRuntimeSessionCatalog({
 		resolveRoots: resolveDesktopGreenfieldSessionRoots,
 	});
@@ -91,12 +93,18 @@ export function createDesktopRuntimeComposition(): DesktopRuntimeComposition {
 		},
 	});
 	const defaultBackend =
-		desktopAgentRuntimeDecision.effectiveBackend === "greenfield" ? greenfieldBackendPool : legacy.sessionBackend;
+		desktopAgentRuntimeDecision.effectiveBackend === "greenfield"
+			? greenfieldBackendPool
+			: legacyExecution.sessionBackend;
 	const sessionBackend = new CatalogRoutedRuntimeHostSessionBackend({
 		defaultBackend,
 		defaultRouteId: desktopAgentRuntimeDecision.effectiveBackend,
 		routes: [
-			{ id: "legacy", catalog: legacy.sessionCatalog, backend: legacy.sessionBackend },
+			{
+				id: "legacy",
+				catalog: legacyFormat.sessionCatalog,
+				backend: legacyExecution.sessionBackend,
+			},
 			{ id: "greenfield", catalog: desktopGreenfieldCatalog, backend: greenfieldBackendPool },
 		],
 		onRoute: logSessionRoute,
@@ -114,14 +122,14 @@ export function createDesktopRuntimeComposition(): DesktopRuntimeComposition {
 			sandboxHostPath,
 			serverUrl: DEFAULT_SERVER_URL,
 			sessionBackend,
-			sessionCatalog: new CompositeRuntimeSessionCatalog([legacy.sessionCatalog, conversationCatalog]),
+			sessionCatalog: new CompositeRuntimeSessionCatalog([legacyFormat.sessionCatalog, conversationCatalog]),
 			sessionFileHistoryReader: new CompositeRuntimeSessionFileHistoryReader([
-				legacy.sessionFileHistoryReader,
+				legacyFormat.sessionFileHistoryReader,
 				new FileConversationRuntimeSessionFileHistoryReader(),
 			]),
 			sessionAccessResolver: new CatalogRoutedRuntimeSessionAccessResolver([
 				{
-					catalog: legacy.sessionCatalog,
+					catalog: legacyFormat.sessionCatalog,
 					access: {
 						readHistory: true,
 						interactiveResume: true,

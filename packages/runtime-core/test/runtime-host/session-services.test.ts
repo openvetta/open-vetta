@@ -1,9 +1,8 @@
 import { existsSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ModelRegistry } from "@vetta/coding-agent";
-import { SessionManager } from "@vetta/coding-agent";
 import {
 	createLegacyRuntimeHostOptions,
 	LegacyRuntimeSessionCatalog,
@@ -173,30 +172,53 @@ describe("runtime host process services", () => {
 	it("preserves legacy JSONL listing, history, rename and deletion behavior", async () => {
 		const root = await mkdtemp(join(tmpdir(), "vetta-runtime-core-"));
 		const sessionDir = join(root, "sessions");
-		let sessionPath: string | undefined;
+		const sessionPath = join(sessionDir, "legacy-session.jsonl");
 		try {
-			const manager = SessionManager.create(root, sessionDir);
-			manager.appendMessage({ role: "user", content: "hello", timestamp: 1 });
-			manager.appendMessage({
-				role: "assistant",
-				content: [{ type: "text", text: "world" }],
-				api: "openai-responses",
-				provider: "openai",
-				model: "test-model",
-				usage: {
-					input: 1,
-					output: 1,
-					cacheRead: 0,
-					cacheWrite: 0,
-					totalTokens: 2,
-					cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-				},
-				stopReason: "stop",
-				timestamp: 2,
-			});
-			sessionPath = manager.getSessionFile();
-			manager.close();
-			if (!sessionPath) throw new Error("Expected a persisted session path");
+			await mkdir(sessionDir, { recursive: true });
+			await writeFile(
+				sessionPath,
+				`${[
+					JSON.stringify({
+						type: "session",
+						version: 3,
+						id: "legacy-session",
+						timestamp: "2025-01-01T00:00:00.000Z",
+						cwd: root,
+					}),
+					"{malformed legacy line",
+					JSON.stringify({
+						type: "message",
+						id: "user-1",
+						parentId: null,
+						timestamp: "2025-01-01T00:00:01.000Z",
+						message: { role: "user", content: "hello", timestamp: 1 },
+					}),
+					JSON.stringify({
+						type: "message",
+						id: "assistant-1",
+						parentId: "user-1",
+						timestamp: "2025-01-01T00:00:02.000Z",
+						message: {
+							role: "assistant",
+							content: [{ type: "text", text: "world" }],
+							api: "openai-responses",
+							provider: "openai",
+							model: "test-model",
+							usage: {
+								input: 1,
+								output: 1,
+								cacheRead: 0,
+								cacheWrite: 0,
+								totalTokens: 2,
+								cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+							},
+							stopReason: "stop",
+							timestamp: 2,
+						},
+					}),
+				].join("\n")}\n`,
+				"utf8",
+			);
 
 			const catalog = new LegacyRuntimeSessionCatalog();
 			const historyReader = new LegacyRuntimeSessionFileHistoryReader();
@@ -216,6 +238,7 @@ describe("runtime host process services", () => {
 
 			await catalog.renameSession(sessionPath, "renamed");
 			expect((await catalog.listSessions(root, sessionDir))[0]?.name).toBe("renamed");
+			expect(existsSync(`${sessionPath}.lock`)).toBe(false);
 			await catalog.deleteSessionArtifacts(sessionPath);
 			expect(existsSync(sessionPath)).toBe(false);
 			expect(existsSync(`${sessionPath}.lock`)).toBe(false);

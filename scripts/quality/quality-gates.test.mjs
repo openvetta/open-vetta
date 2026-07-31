@@ -312,8 +312,14 @@ describe("package boundary analysis", () => {
 		).toHaveLength(1);
 		expect(
 			findPackageBoundaryViolations(
-				"packages/desktop-app/src/main/greenfield-runtime/desktop-legacy-runtime-compatibility.ts",
+				"packages/desktop-app/src/main/greenfield-runtime/desktop-legacy-execution-compatibility.ts",
 				'import { LegacyCodingAgentSessionBackend } from "@vetta/coding-agent/runtime-host";',
+			),
+		).toEqual([]);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/desktop-app/src/main/greenfield-runtime/desktop-legacy-session-format-compatibility.ts",
+				'import { LegacyRuntimeSessionCatalog } from "@vetta/coding-agent/runtime-host";',
 			),
 		).toEqual([]);
 		expect(
@@ -322,6 +328,30 @@ describe("package boundary analysis", () => {
 				'import { LegacyCodingAgentSessionBackend } from "@vetta/coding-agent/runtime-host";',
 			),
 		).toHaveLength(1);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/desktop-app/src/main/greenfield-runtime/desktop-legacy-execution-compatibility.ts",
+				'import { LegacyRuntimeSessionCatalog } from "@vetta/coding-agent/runtime-host";',
+			),
+		).toHaveLength(1);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/desktop-app/src/main/greenfield-runtime/desktop-legacy-session-format-compatibility.ts",
+				'import { LegacyCodingAgentSessionBackend } from "@vetta/coding-agent/runtime-host";',
+			),
+		).toHaveLength(1);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/coding-agent/src/adapters/runtime-core/legacy-session-format/catalog.ts",
+				'import { createAgentSession } from "../../../core/sdk.js";',
+			),
+		).toHaveLength(2);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/coding-agent/src/adapters/runtime-core/legacy-session-format/catalog.ts",
+				'import { SessionManager } from "../../../core/session-manager/index.js";',
+			),
+		).toEqual([]);
 		expect(
 			findPackageBoundaryViolations(
 				"packages/coding-agent/src/adapters/runtime-core/composition.ts",
