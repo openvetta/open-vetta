@@ -44,7 +44,7 @@
 8. [实施日志](./08-implementation-log.md)
    - 索引；每轮实施单独成文，见 [`08-implementation-log/`](./08-implementation-log/)。
    - 按实施轮次记录实际修改、验证结果、未完成项和下一步。
-   - 最新记录：[第 128 轮：Legacy Extension 能力评估与回退合同](./08-implementation-log/128-legacy-extension-capability-assessment.md)。
+   - 最新记录：[第 129 轮：Extension Execution Host 合同与 Legacy 适配](./08-implementation-log/129-extension-execution-host-contract.md)。
 9. [行为兼容性审计](./09-behavior-compatibility-audit.md)
    - 审计已实施模块与旧行为的差距。
    - 定义旧新差分测试和迁移 Gate。

@@ -9,6 +9,7 @@ import type { ResourceDiagnostic } from "../diagnostics.js";
 import type { KeyAction, KeybindingsConfig, KeyId } from "../keybindings.js";
 import type { ModelRegistry } from "../model-registry.js";
 import type { SessionManager } from "../session-manager/index.js";
+import { bindExtensionRuntimeActions, type ExtensionExecutionHost } from "./execution-host.js";
 import type {
 	BeforeAgentStartEvent,
 	BeforeAgentStartEventResult,
@@ -248,30 +249,21 @@ export class ExtensionRunner {
 	}
 
 	bindCore(actions: ExtensionActions, contextActions: ExtensionContextActions): void {
-		// Copy actions into the shared runtime (all extension APIs reference this)
-		this.runtime.sendMessage = actions.sendMessage;
-		this.runtime.sendUserMessage = actions.sendUserMessage;
-		this.runtime.appendEntry = actions.appendEntry;
-		this.runtime.setSessionName = actions.setSessionName;
-		this.runtime.getSessionName = actions.getSessionName;
-		this.runtime.setLabel = actions.setLabel;
-		this.runtime.getActiveTools = actions.getActiveTools;
-		this.runtime.getAllTools = actions.getAllTools;
-		this.runtime.setActiveTools = actions.setActiveTools;
-		this.runtime.getCommands = actions.getCommands;
-		this.runtime.setModel = actions.setModel;
-		this.runtime.getThinkingLevel = actions.getThinkingLevel;
-		this.runtime.setThinkingLevel = actions.setThinkingLevel;
+		this.bindExecutionHost({ actions, contextActions });
+	}
+
+	bindExecutionHost(host: ExtensionExecutionHost): void {
+		bindExtensionRuntimeActions(this.runtime, host.actions);
 
 		// Context actions (required)
-		this.getModel = contextActions.getModel;
-		this.isIdleFn = contextActions.isIdle;
-		this.abortFn = contextActions.abort;
-		this.hasPendingMessagesFn = contextActions.hasPendingMessages;
-		this.shutdownHandler = contextActions.shutdown;
-		this.getContextUsageFn = contextActions.getContextUsage;
-		this.compactFn = contextActions.compact;
-		this.getSystemPromptFn = contextActions.getSystemPrompt;
+		this.getModel = host.contextActions.getModel;
+		this.isIdleFn = host.contextActions.isIdle;
+		this.abortFn = host.contextActions.abort;
+		this.hasPendingMessagesFn = host.contextActions.hasPendingMessages;
+		this.shutdownHandler = host.contextActions.shutdown;
+		this.getContextUsageFn = host.contextActions.getContextUsage;
+		this.compactFn = host.contextActions.compact;
+		this.getSystemPromptFn = host.contextActions.getSystemPrompt;
 
 		// Process provider registrations queued during extension loading
 		for (const { name, config } of this.runtime.pendingProviderRegistrations) {

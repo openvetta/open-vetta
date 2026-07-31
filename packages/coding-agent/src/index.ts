@@ -94,6 +94,7 @@ export type {
 	ExtensionContextActions,
 	ExtensionError,
 	ExtensionEvent,
+	ExtensionExecutionHost,
 	ExtensionFactory,
 	ExtensionFlag,
 	ExtensionHandler,
@@ -148,6 +149,7 @@ export type {
 	WriteToolCallEvent,
 } from "./core/extensions/index.js";
 export {
+	bindExtensionRuntimeActions,
 	createExtensionRuntime,
 	discoverAndLoadExtensions,
 	ExtensionRunner,

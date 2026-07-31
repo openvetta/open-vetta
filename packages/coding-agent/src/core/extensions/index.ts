@@ -4,6 +4,10 @@
 
 export type { SlashCommandInfo, SlashCommandLocation, SlashCommandSource } from "../slash-commands.js";
 export {
+	bindExtensionRuntimeActions,
+	type ExtensionExecutionHost,
+} from "./execution-host.js";
+export {
 	createExtensionRuntime,
 	discoverAndLoadExtensions,
 	loadExtensionFromFactory,
