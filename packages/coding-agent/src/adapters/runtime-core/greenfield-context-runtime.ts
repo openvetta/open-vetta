@@ -156,7 +156,7 @@ export class CodingAgentGreenfieldContextRuntime
 			return unchanged(callMessages, assembledTokens);
 		}
 
-		const entries = toSessionEntries(input.document);
+		const entries = toSessionEntries(input.compactionSourceDocument ?? input.document);
 		if (reason === "assistant_error" && !overflow) {
 			return unchanged(callMessages, assembledTokens);
 		}

@@ -49,5 +49,11 @@ export function projectRuntimeMessageEnvelope(envelope: RuntimeMessageEnvelope):
 }
 
 function messagesEqual(left: Message, right: Message): boolean {
-	return left === right || JSON.stringify(left) === JSON.stringify(right);
+	return left === right || JSON.stringify(normalizeTextContent(left)) === JSON.stringify(normalizeTextContent(right));
+}
+
+/** `string` 与单个文本块是等价的 UserMessage 表达，不能因此丢失产品消息身份。 */
+function normalizeTextContent(message: Message): Message {
+	if (typeof message.content !== "string") return message;
+	return { ...message, content: [{ type: "text", text: message.content }] };
 }

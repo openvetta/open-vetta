@@ -19,6 +19,7 @@
 
 ### Changed
 
+- **真实 CLI Extension Context 差分闭环**：新增 Legacy/Greenfield 独立 RPC CLI 进程门禁，覆盖 Tool Loop 中 `context` 恰好一次、自动压缩切点与跨进程恢复、运行期图片设置和最终 Provider 输入；Greenfield Composition Root 现动态读取压缩设置，compaction 产品身份与持久化 summary message 投影分离，不改变 Extension、压缩或图片业务算法。
 - **Greenfield Extension 消息身份与调用上下文无损迁移**：Runtime Message Envelope 在产品边界恢复标准消息与 Custom Context 身份，`message_start` / `message_update` / `message_end` 和 `agent_end` 继续按 Legacy 顺序与 payload 由 Greenfield 执行观察提供；Conversation Document 现经 Coding Agent 投影恢复完整 `AgentMessage[]`，逐模型调用的 Extension `context` 只执行一次，并保持 `context -> compaction -> image budget/blocking -> provider` 的旧顺序。模型不可见 Custom Message 仍可被 Extension 观察和变换，但不会进入 Provider；该事件不再触发 Legacy 回退。
 - **Greenfield `before_agent_start` 无损迁移**：Session-local Extension Event Bridge 接入独立 Agent Run Preparation，只在显式输入启动的 Run 中按旧顺序执行一次 handler；系统提示词链式替换固定覆盖本次工具循环，返回的 Custom Message 按原顺序持久化并进入模型上下文，无 handler 时不增加 Prompt/Frame 编译。该事件不再触发 Legacy 回退。
 - **Greenfield Extension 执行观察事件分层迁移**：新增 Runtime 执行观察到旧 Extension Event 的窄适配，按原顺序提供 `agent_start`、`turn_start` / `turn_end` 与完整 `tool_execution_*` payload；Session Event Host 负责 `session_start` / `session_shutdown` 恰好一次的异步生命周期。依赖完整旧 `AgentMessage` 身份的 `agent_end`、`message_*`、`context` 仍明确回退 Legacy，避免伪造不等价事件。
@@ -36,6 +37,7 @@
 
 ### Fixed
 
+- **独立 CLI 产物可加载显式 TypeScript Extension**：Extension Loader 始终注入已打包的公共 virtual modules，仅在本地依赖可解析时附加 Jiti alias，避免无相邻 `node_modules` 的 standalone bundle 在解析 TypeBox 等公共模块时以 `ENOENT` 失败。
 - **Subagent/workflow 子会话继承父 `ModelRegistry`**：`createDefaultSubagentSessionFactory` 原先只传 `model`，子 session 会新建 registry，读不到父进程内存里的 `serverToken` / remote models，导致父用云端 provider（如 `vetta-go`）时子 agent 报 `No API key found for vetta-go`、workflow「均未执行」。现 `SubagentParentContext` / coordinator 传入父 `modelRegistry`，create/reopen 子会话复用同一实例。
 
 

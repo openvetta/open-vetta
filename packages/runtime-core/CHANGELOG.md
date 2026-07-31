@@ -61,6 +61,7 @@ All notable changes to `@vetta/runtime-core` are documented in this file.
 
 ### Changed
 
+- **模型调用压缩的稳定切点合同**：Context Preparation 现在显式区分最新持久化 Document 与稳定的 compaction source；模型调用按 Turn 进入时分支计算切点、在最新分支提交和投影，assistant result/error 仍读取当前文档。消息身份协调同时把字符串与单一 text block 视为等价 UserMessage 表达，但保留时间戳和其他身份字段。
 - **Greenfield Prompt Adapter 改为 Session 所有**：Adapter 由每个 Runtime Assembly 独立交付，不再由 Backend 全局共享，使 ResourceLoader、TodoStore 等有状态 Prompt 资源可按会话隔离。
 - **Runtime Core 依赖倒置**：生产源码不再导入 `@vetta/coding-agent`；Legacy Session、历史、事件和平台沙箱工具适配器移至 `@vetta/coding-agent/runtime-host`，Desktop 通过显式 Composition Root 保持原生产行为。`RuntimeHost` 不再隐式创建具体 Backend/Catalog/History Reader，缺失组合时返回明确错误。
 - **RuntimeHost Assembly 移除裸 Session**：`RuntimeHostSessionAssembly` 与内部 `SessionHandle` 不再暴露或保存旧 `AgentSession`；Legacy Backend 仅在组合时用旧 Session 构造各项 Port，RuntimeHost 注册完成后只持有稳定能力合同，并增加类型门禁防止裸 Session 字段回流。

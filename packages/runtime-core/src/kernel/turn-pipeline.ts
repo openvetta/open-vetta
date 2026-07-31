@@ -71,6 +71,7 @@ interface ContextCheckpointPreparation {
 	readonly snapshot: RuntimeSnapshot;
 	readonly modelBinding?: RuntimeTurnModelBinding;
 	readonly providerMessages: readonly Message[];
+	readonly compactionSourceDocument?: ConversationDocument;
 	readonly request: TurnEngineContextCheckpointRequest;
 	readonly state: MutableTurnState;
 	readonly signal: AbortSignal;
@@ -461,6 +462,7 @@ export class TurnPipeline {
 							snapshot,
 							modelBinding,
 							providerMessages,
+							compactionSourceDocument: event.request.reason === "model_call" ? conversationDocument : undefined,
 							request: event.request,
 							state,
 							signal,
@@ -606,6 +608,7 @@ export class TurnPipeline {
 			reservedOutputTokens: snapshot.reservedOutputTokens,
 			modelBinding: checkpoint.modelBinding,
 			document: currentDocument,
+			compactionSourceDocument: checkpoint.compactionSourceDocument,
 			reportObservation: (observation: RuntimeSessionObservationEvent) =>
 				this.publishObservation(state.sessionId, turnId, observation),
 		} as const;

@@ -97,6 +97,49 @@ describe("Greenfield AgentMessage context boundary", () => {
 		expect(imageCount(withoutImages)).toBe(0);
 		expect(withoutImages.flatMap(texts)).toContain("Image reading is disabled.");
 	});
+
+	it("retains compaction identity when the stored summary and commit event have different timestamps", () => {
+		let document = createEmptyConversationDocument({ sessionId: "session-1", createdAt: 0 });
+		document = applyStoredEventToConversationDocument(
+			document,
+			{
+				type: "message.appended",
+				sessionId: "session-1",
+				turnId: "turn-1",
+				message: userMessage("request", 1),
+				timestamp: 1,
+			},
+			1,
+		);
+		document = applyStoredEventToConversationDocument(
+			document,
+			{
+				type: "context.compacted",
+				sessionId: "session-1",
+				turnId: "turn-1",
+				record: {
+					summary: "summary",
+					summaryMessage: userMessage(
+						"The conversation history before this point was compacted into the following summary:\n\n<summary>\nsummary\n</summary>",
+						4,
+					),
+					firstKeptEntryId: "event-1",
+					tokensBefore: 10,
+					reason: "threshold",
+				},
+				timestamp: 5,
+			},
+			2,
+		);
+
+		const projected = new CodingAgentGreenfieldAgentMessageContextProjector().project(document);
+
+		expect(projected[0]).toMatchObject({
+			kind: "opaque",
+			identity: { role: "compactionSummary", timestamp: 5 },
+			modelMessage: { role: "user", timestamp: 4 },
+		});
+	});
 });
 
 function finalizationInput(messages: readonly Message[]): ModelCallMessageFinalizationInput {

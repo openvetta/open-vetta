@@ -1,12 +1,13 @@
 import { existsSync } from "node:fs";
-import { writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { readFile, writeFile } from "node:fs/promises";
+import { basename, join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
 	type AgentRpcExecutable,
 	type AgentRpcFixture,
 	type AgentRpcProcess,
 	buildAgentRpcExecutable,
+	type CreateAgentRpcFixtureOptions,
 	createAgentRpcFixture,
 	type RpcFrame,
 	readSessionFile,
@@ -17,6 +18,7 @@ import {
 import {
 	type OpenAiResponsesTestServer,
 	type ProviderRequest,
+	type ProviderRequestRecord,
 	startOpenAiResponsesTestServer,
 	textResponseEvents,
 	toolCallResponseEvents,
@@ -272,6 +274,207 @@ describe("Agent Runtime Provider differential", () => {
 		});
 		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	}, 30_000);
+
+	it("preserves Extension context identity, once-per-call execution and transient Tool Loop transforms", async () => {
+		const observations = await runForBackends(
+			async ({ process, server, fixture }) => {
+				const sourcePath = join(fixture.workspace, "context-message.txt");
+				await writeFile(sourcePath, "context tool fixture", "utf8");
+				const mark = process.mark();
+				await process.request("prompt-context-tool", "prompt", { message: "Read context-message.txt" });
+				await process.waitFor((frame) => frame.type === "agent_end", mark);
+
+				expect(server.requests).toHaveLength(2);
+				const firstInput = JSON.stringify(server.requests[0]?.body.input);
+				const secondInput = JSON.stringify(server.requests[1]?.body.input);
+				const state = await process.request("state-after-context-tool", "get_state");
+				const persistedSession = await readFile(readSessionFile(state), "utf8");
+				return {
+					inputs: server.requests.map(({ body }) => normalizeProviderValue(body.input, fixture)),
+					firstHasCallOne: firstInput.includes("context-call:1"),
+					firstHasCustomIdentity: firstInput.includes("custom:fixture-seed"),
+					secondHasOnlyCallTwo: secondInput.includes("context-call:2") && !secondInput.includes("context-call:1"),
+					transientTransformWasNotPersisted: !persistedSession.includes("context-fixture"),
+				};
+			},
+			(_request, index, fixture) =>
+				index === 0
+					? {
+							kind: "events",
+							events: toolCallResponseEvents("read", {
+								path: join(fixture.workspace, "context-message.txt"),
+							}),
+						}
+					: { kind: "events", events: textResponseEvents("Context Tool Loop completed.") },
+			async (fixture) => ({
+				extraArgs: ["--extension", await writeContextDifferentialExtension(fixture)],
+			}),
+		);
+
+		expect(observations.legacy).toMatchObject({
+			firstHasCallOne: true,
+			firstHasCustomIdentity: true,
+			secondHasOnlyCallTwo: true,
+			transientTransformWasNotPersisted: true,
+		});
+		expect(observations["greenfield-im"]).toEqual(observations.legacy);
+	}, 30_000);
+
+	it("preserves context-before-compaction order and restored context through a CLI process restart", async () => {
+		const observations = await runForBackends(
+			async ({ backend, process, server, fixture }) => {
+				let mark = process.mark();
+				await process.request("prompt-before-compaction", "prompt", {
+					message: "initial-before-compaction",
+				});
+				await process.waitFor((frame) => frame.type === "agent_end", mark);
+
+				mark = process.mark();
+				await process.request("prompt-trigger-compaction", "prompt", {
+					message: `trigger-context-compaction ${"x".repeat(5_000)}`,
+				});
+				await process.waitFor((frame) => frame.type === "agent_end", mark);
+				const sessionState = await process.request("state-before-context-restart", "get_state");
+				const sessionPath = readSessionFile(sessionState);
+				const sessionContent = await readFile(sessionPath, "utf8");
+				const compactionFirstKeptKind = describePersistedCompactionFirstKept(sessionContent);
+				await process.close();
+
+				const resumed = startAgentRpc(executable, fixture, {
+					backend,
+					extraArgs: [
+						"--extension",
+						join(fixture.root, "context-differential-extension.ts"),
+						"--session",
+						sessionPath,
+					],
+				});
+				try {
+					mark = resumed.mark();
+					await resumed.request("prompt-after-context-restart", "prompt", {
+						message: "after-context-restart",
+					});
+					await resumed.waitFor((frame) => frame.type === "agent_end", mark);
+				} finally {
+					await resumed.close();
+				}
+
+				const normalRequests = server.requests.filter((request) => !isContextSummarizationRequest(request));
+				const compactedRequest = normalRequests.find(({ rawBody }) =>
+					rawBody.includes("trigger-context-compaction"),
+				);
+				const resumedRequest = normalRequests.find(({ rawBody }) => rawBody.includes("after-context-restart"));
+				const contextObservations = await readContextDifferentialObservations(fixture);
+				return {
+					inputs: normalRequests.map(({ body }) => normalizeProviderValue(body.input, fixture)),
+					contextIdentities: contextObservations.map(({ identities }) => identities),
+					contextObserved: contextObservations.map(({ observed }) => observed),
+					agentRequestKinds: normalRequests.map(describeContextBoundaryRequest),
+					compactionRequestCount: server.requests.length - normalRequests.length,
+					compactionFirstKeptKind,
+					contextCallCounts: contextObservations.map(({ call }) => call),
+					contextObservedPreCompactionHistory:
+						contextObservations[1]?.observed.includes("initial-before-compaction") === true,
+					providerReceivedCompactionSummary:
+						compactedRequest?.rawBody.includes("fixture compacted history") === true,
+					resumedContextRestoredSummaryIdentity:
+						contextObservations[2]?.identities.includes("compactionSummary") === true &&
+						resumedRequest !== undefined,
+				};
+			},
+			(request) => {
+				const input = JSON.stringify(request.body.input);
+				if (isContextSummarizationRequest(request)) {
+					return {
+						kind: "events",
+						events: textResponseEvents("<summary>fixture compacted history</summary>"),
+					};
+				}
+				if (input.includes("trigger-context-compaction") || input.includes("after-context-restart")) {
+					return { kind: "events", events: textResponseEvents("Context boundary response.") };
+				}
+				if (input.includes("initial-before-compaction")) {
+					return {
+						kind: "events",
+						events: textResponseEvents("Initial response."),
+					};
+				}
+				return { kind: "events", events: textResponseEvents("Context boundary response.") };
+			},
+			async (fixture) => {
+				await writeFile(
+					join(fixture.agentDir, "settings.json"),
+					JSON.stringify({
+						compaction: { enabled: true, reserveTokens: 100, minFreePercent: 20, keepRecentTokens: 1 },
+					}),
+					"utf8",
+				);
+				return { extraArgs: ["--extension", await writeContextDifferentialExtension(fixture)] };
+			},
+			{ contextWindow: 1_000, maxTokens: 100 },
+		);
+
+		expect(observations.legacy).toMatchObject({
+			agentRequestKinds: ["initial", "compacted", "resumed"],
+			contextCallCounts: [1, 2, 1],
+			contextObservedPreCompactionHistory: true,
+			providerReceivedCompactionSummary: true,
+			resumedContextRestoredSummaryIdentity: true,
+		});
+		expect(observations.legacy.compactionRequestCount).toBeGreaterThan(0);
+		expect(observations["greenfield-im"].contextIdentities).toEqual(observations.legacy.contextIdentities);
+		expect(observations["greenfield-im"]).toEqual(observations.legacy);
+	}, 40_000);
+
+	it("preserves dynamic image blocking at the final Provider boundary without rewriting history", async () => {
+		const observations = await runForBackends(
+			async ({ process, server, fixture }) => {
+				let mark = process.mark();
+				await process.request("prompt-image-visible", "prompt", {
+					message: "first-image-visible",
+					images: [TEST_IMAGE],
+				});
+				await process.waitFor((frame) => frame.type === "agent_end", mark);
+
+				await writeImageSettings(fixture, true);
+				mark = process.mark();
+				await process.request("prompt-image-blocked", "prompt", {
+					message: "second-image-blocked",
+					images: [TEST_IMAGE],
+				});
+				await process.waitFor((frame) => frame.type === "agent_end", mark);
+
+				expect(server.requests).toHaveLength(2);
+				const firstInput = JSON.stringify(server.requests[0]?.body.input);
+				const secondInput = JSON.stringify(server.requests[1]?.body.input);
+				const state = await process.request("state-after-image-block", "get_state");
+				const persistedSession = await readFile(readSessionFile(state), "utf8");
+				return {
+					inputs: server.requests.map(({ body }) => normalizeProviderValue(body.input, fixture)),
+					firstProviderReceivedImage: firstInput.includes("input_image"),
+					secondProviderBlockedAllImages:
+						secondInput.includes("Image reading is disabled.") && !secondInput.includes("input_image"),
+					historyRetainedImages: persistedSession.includes('"type":"image"'),
+				};
+			},
+			(_request, index) => ({
+				kind: "events",
+				events: textResponseEvents(index === 0 ? "Visible image response." : "Blocked image response."),
+			}),
+			async (fixture) => {
+				await writeImageSettings(fixture, false);
+				return {};
+			},
+			{ modelInput: ["text", "image"] },
+		);
+
+		expect(observations.legacy).toMatchObject({
+			firstProviderReceivedImage: true,
+			secondProviderBlockedAllImages: true,
+			historyRetainedImages: true,
+		});
+		expect(observations["greenfield-im"]).toEqual(observations.legacy);
+	}, 30_000);
 });
 
 type ScenarioHandler = (
@@ -290,7 +493,11 @@ interface ScenarioContext {
 async function runForBackends<T>(
 	run: (context: ScenarioContext) => Promise<T>,
 	handler: ScenarioHandler,
-	resolveStartOptions?: (fixture: AgentRpcFixture, backend: TestAgentRuntimeBackend) => StartAgentRpcOptions,
+	resolveStartOptions?: (
+		fixture: AgentRpcFixture,
+		backend: TestAgentRuntimeBackend,
+	) => Promise<StartAgentRpcOptions> | StartAgentRpcOptions,
+	fixtureOptions: CreateAgentRpcFixtureOptions = {},
 ): Promise<Record<TestAgentRuntimeBackend, T>> {
 	const observations = {} as Record<TestAgentRuntimeBackend, T>;
 	for (const backend of BACKENDS) {
@@ -302,10 +509,10 @@ async function runForBackends<T>(
 				if (!fixture) throw new Error("Agent RPC fixture was not initialized");
 				return handler(request, index, fixture);
 			});
-			fixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
+			fixture = await createAgentRpcFixture({ ...fixtureOptions, baseUrl: server.baseUrl });
 			process = startAgentRpc(executable, fixture, {
 				backend,
-				...resolveStartOptions?.(fixture, backend),
+				...(await resolveStartOptions?.(fixture, backend)),
 			});
 			observations[backend] = await run({ backend, fixture, process, server });
 		} finally {
@@ -401,9 +608,13 @@ function observableProviderRequest(body: ProviderRequest, fixture: AgentRpcFixtu
 
 function normalizeProviderValue(value: unknown, fixture: AgentRpcFixture): unknown {
 	if (typeof value === "string") {
-		return value
-			.replaceAll(fixture.root, "<fixture-root>")
-			.replace(/^Current date and time: .*$/gm, "Current date and time: <turn-time>");
+		const fixtureDirectoryName = basename(fixture.root);
+		const fixtureDirectoryIndex = value.toLowerCase().indexOf(fixtureDirectoryName.toLowerCase());
+		const normalizedPath =
+			fixtureDirectoryIndex >= 0
+				? `<fixture-root>${value.slice(fixtureDirectoryIndex + fixtureDirectoryName.length)}`
+				: value.replaceAll(fixture.root, "<fixture-root>");
+		return normalizedPath.replace(/^Current date and time: .*$/gm, "Current date and time: <turn-time>");
 	}
 	if (Array.isArray(value)) return value.map((entry) => normalizeProviderValue(entry, fixture));
 	if (typeof value !== "object" || value === null) return value;
@@ -419,4 +630,175 @@ function providerToolNames(body: Readonly<Record<string, unknown>>): string[] {
 		const name = Reflect.get(tool, "name");
 		return typeof name === "string" ? [name] : [];
 	});
+}
+
+const TEST_IMAGE = {
+	type: "image",
+	data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z4ZQAAAAASUVORK5CYII=",
+	mimeType: "image/png",
+} as const;
+
+async function writeContextDifferentialExtension(fixture: AgentRpcFixture): Promise<string> {
+	const path = join(fixture.root, "context-differential-extension.ts");
+	const observationPath = join(fixture.root, "context-differential-observations.jsonl");
+	await writeFile(
+		path,
+		`import { appendFileSync } from "node:fs";
+		const observationPath = ${JSON.stringify(observationPath)};
+		export default function(extension) {
+			let contextCalls = 0;
+			extension.on("before_agent_start", async (event) => ({
+				message: {
+					customType: "fixture-seed",
+					content: "seed:" + event.prompt,
+					display: false,
+				},
+			}));
+			extension.on("context", async (event) => {
+				contextCalls += 1;
+				const identities = event.messages.map((message) => {
+					if (message.role === "custom") return "custom:" + message.customType;
+					return message.role;
+				});
+				const observed = event.messages.flatMap((message) => {
+					if (typeof message.content === "string") return [message.content];
+					if (!Array.isArray(message.content)) return [];
+					return message.content
+						.filter((item) => item.type === "text")
+						.map((item) => item.text);
+				}).join("|");
+				appendFileSync(observationPath, JSON.stringify({
+					call: contextCalls,
+					identities,
+					observed,
+				}) + "\\n", "utf8");
+				return {
+					messages: [
+						...event.messages,
+						{
+							role: "custom",
+							customType: "context-fixture",
+							content: "context-call:" + contextCalls + ";identities:" + identities.join(",") + ";observed:" + observed,
+							display: false,
+							timestamp: contextCalls,
+						},
+					],
+				};
+			});
+		}`,
+		"utf8",
+	);
+	return path;
+}
+
+interface ContextDifferentialObservation {
+	readonly call: number;
+	readonly identities: readonly string[];
+	readonly observed: string;
+}
+
+async function readContextDifferentialObservations(
+	fixture: AgentRpcFixture,
+): Promise<readonly ContextDifferentialObservation[]> {
+	const content = await readFile(join(fixture.root, "context-differential-observations.jsonl"), "utf8");
+	return content
+		.trim()
+		.split("\n")
+		.map((line) => readContextDifferentialObservation(JSON.parse(line)));
+}
+
+function readContextDifferentialObservation(value: unknown): ContextDifferentialObservation {
+	if (typeof value !== "object" || value === null) throw new Error("Invalid context observation");
+	const call = Reflect.get(value, "call");
+	const identities = Reflect.get(value, "identities");
+	const observed = Reflect.get(value, "observed");
+	if (
+		typeof call !== "number" ||
+		!Array.isArray(identities) ||
+		!identities.every((identity) => typeof identity === "string") ||
+		typeof observed !== "string"
+	) {
+		throw new Error("Invalid context observation payload");
+	}
+	return { call, identities, observed };
+}
+
+async function writeImageSettings(fixture: AgentRpcFixture, blockImages: boolean): Promise<void> {
+	await writeFile(
+		join(fixture.agentDir, "settings.json"),
+		JSON.stringify({ images: { autoResize: false, maxRecentImages: 1, blockImages } }),
+		"utf8",
+	);
+}
+
+function describeContextBoundaryRequest(request: ProviderRequestRecord): string {
+	const input = JSON.stringify(request.body.input);
+	if (input.includes("after-context-restart")) return "resumed";
+	if (input.includes("trigger-context-compaction")) return "compacted";
+	if (input.includes("initial-before-compaction")) return "initial";
+	return "other";
+}
+
+function isContextSummarizationRequest(request: ProviderRequestRecord): boolean {
+	return !Array.isArray(request.body.tools) || request.body.tools.length === 0;
+}
+
+function describePersistedCompactionFirstKept(content: string): string {
+	const records: unknown[] = content
+		.trim()
+		.split(/\r?\n/)
+		.map((line) => JSON.parse(line));
+	let firstKeptEntryId: string | undefined;
+	for (const record of records) {
+		if (!isRecord(record)) continue;
+		if (record.type === "compaction" && typeof record.firstKeptEntryId === "string") {
+			firstKeptEntryId = record.firstKeptEntryId;
+		}
+		if (!isRecord(record.event) || record.event.type !== "context.compacted") continue;
+		const compaction = record.event.record;
+		if (isRecord(compaction) && typeof compaction.firstKeptEntryId === "string") {
+			firstKeptEntryId = compaction.firstKeptEntryId;
+		}
+	}
+	if (!firstKeptEntryId) return "missing";
+	for (const record of records) {
+		if (!isRecord(record)) continue;
+		if (record.id === firstKeptEntryId) return describePersistedEntry(record);
+		if (!isRecord(record.documentEntry) || record.documentEntry.id !== firstKeptEntryId) continue;
+		return isRecord(record.event) ? describePersistedEvent(record.event) : "unknown-event";
+	}
+	return "unknown-entry";
+}
+
+function describePersistedEntry(entry: Record<string, unknown>): string {
+	if (entry.type === "message" && isRecord(entry.message) && typeof entry.message.role === "string") {
+		return `message:${entry.message.role}`;
+	}
+	if (entry.type === "custom_message" && typeof entry.customType === "string") {
+		return `context:${entry.customType}:${readPersistedText(entry.content)}`;
+	}
+	return typeof entry.type === "string" ? entry.type : "unknown-entry";
+}
+
+function describePersistedEvent(event: Record<string, unknown>): string {
+	if (event.type === "message.appended" && isRecord(event.message) && typeof event.message.role === "string") {
+		return `message:${event.message.role}`;
+	}
+	if (
+		(event.type === "context.appended" || event.type === "context.recorded") &&
+		isRecord(event.record) &&
+		typeof event.record.type === "string"
+	) {
+		return `context:${event.record.type}:${readPersistedText(event.record.content)}`;
+	}
+	return typeof event.type === "string" ? event.type : "unknown-event";
+}
+
+function readPersistedText(value: unknown): string {
+	if (typeof value === "string") return value.slice(0, 40);
+	return "non-text";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
 }

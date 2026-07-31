@@ -143,6 +143,7 @@
 | [133-agent-run-preparation-and-before-start.md](./08-implementation-log/133-agent-run-preparation-and-before-start.md) | Agent Run Preparation、首次 Frame 复用与 `before_agent_start` 无损适配 |
 | [134-runtime-message-identity-and-extension-events.md](./08-implementation-log/134-runtime-message-identity-and-extension-events.md) | Runtime 消息身份信封、Extension `message_*` / `agent_end` 无损适配与 `context` 回退边界 |
 | [135-lossless-context-and-model-call-boundaries.md](./08-implementation-log/135-lossless-context-and-model-call-boundaries.md) | 完整 AgentMessage 上下文投影、Extension `context` 与最终模型消息边界 |
+| [136-real-cli-context-model-call-differential-gate.md](./08-implementation-log/136-real-cli-context-model-call-differential-gate.md) | 真实 CLI Context/Compaction/Image Legacy-Greenfield 差分门禁 |
 
 ## 维护约定
 

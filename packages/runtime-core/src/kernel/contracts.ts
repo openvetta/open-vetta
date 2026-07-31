@@ -157,8 +157,10 @@ export interface ContextPreparationInput {
 	readonly reason?: "turn_start" | "model_call" | "assistant_result" | "assistant_error";
 	readonly triggeringAssistantMessage?: AssistantMessage;
 	readonly recoveryAttempt?: number;
-	/** 当前 Turn 输入写入前的活动 Conversation Document。 */
+	/** 准备发生时已经持久化的最新活动 Conversation Document。 */
 	readonly document?: ConversationDocument;
+	/** 计算压缩切点的稳定分支；模型调用前压缩通常固定为当前 Turn 的进入时视图。 */
+	readonly compactionSourceDocument?: ConversationDocument;
 	reportObservation(observation: RuntimeSessionObservationEvent): Promise<void>;
 }
 

@@ -19,18 +19,31 @@ export class CodingAgentGreenfieldAgentMessageContextProjector implements Conver
 			new Map(entries.map((entry) => [entry.id, entry])),
 		);
 		const documentEntries = new Map(document.entries.map((entry) => [entry.id, entry]));
-		return projection.items.map(({ message, entry }) => {
-			if (isRuntimeMessage(message)) return { kind: "message", message };
+		const envelopes: RuntimeMessageEnvelope[] = [];
+		for (const { message, entry } of projection.items) {
 			const source = documentEntries.get(entry.id);
 			const modelMessage =
-				source?.type === "custom_message" && source.modelVisible === false ? undefined : convertToLlm([message])[0];
-			return {
+				source?.type === "compaction" && source.summaryMessage
+					? source.summaryMessage
+					: source?.type === "custom_message" && source.modelVisible === false
+						? undefined
+						: convertToLlm([message])[0];
+			if (!modelMessage) {
+				envelopes.push({ kind: "opaque", identity: message, timestamp: message.timestamp });
+				continue;
+			}
+			if (isRuntimeMessage(message)) {
+				envelopes.push({ kind: "message", message });
+				continue;
+			}
+			envelopes.push({
 				kind: "opaque",
 				identity: message,
-				...(modelMessage ? { modelMessage } : {}),
+				modelMessage,
 				timestamp: message.timestamp,
-			};
-		});
+			});
+		}
+		return envelopes;
 	}
 }
 

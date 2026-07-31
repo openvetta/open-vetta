@@ -156,6 +156,7 @@ export async function prepareGreenfieldImRuntimeHost(
 			mcpSource: managedMcpSource.source,
 			promptResourceSource: bootstrap.resourceLoader,
 			promptSettingsSource: bootstrap.settingsManager,
+			resolveCompactionSettings: () => bootstrap.settingsManager.getCompactionSettings(),
 			createPluginRuntime: options.createPluginRuntime,
 			createPluginMcpRuntime: ({ agentDir }) => createCodingAgentPluginMcpRuntime({ agentDir, debug: mcpDebug }),
 			conversationOwnershipManager: new FileConversationOwnershipManager(options.ownership),

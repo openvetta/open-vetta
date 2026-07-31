@@ -117,15 +117,15 @@ describe("Greenfield IM Runtime Host", () => {
 			`
 				export default function(pi) {
 					pi.registerFlag("audit-mode", { type: "boolean" });
-					pi.on("agent_end", async () => {});
+					pi.registerCommand("audit", { handler: async () => {} });
 				}
 			`,
 		);
 		expect(fixture.bootstrap.extensionsResult.extensions).toHaveLength(1);
 		expect(fixture.bootstrap.extensionCompatibility).toMatchObject({
 			bootstrapContributions: { flags: ["audit-mode"] },
-			requiredRuntimeCapabilities: ["opaque-runtime-api", "event-handler"],
-			unsupportedEvents: ["agent_end"],
+			requiredRuntimeCapabilities: ["opaque-runtime-api", "command"],
+			unsupportedEvents: [],
 			requiresLegacyRuntime: true,
 		});
 
@@ -140,8 +140,8 @@ describe("Greenfield IM Runtime Host", () => {
 			kind: "legacy-fallback",
 			reason: "legacy-extension",
 			extensionCompatibility: {
-				requiredRuntimeCapabilities: ["opaque-runtime-api", "event-handler"],
-				unsupportedEvents: ["agent_end"],
+				requiredRuntimeCapabilities: ["opaque-runtime-api", "command"],
+				unsupportedEvents: [],
 			},
 		});
 	});

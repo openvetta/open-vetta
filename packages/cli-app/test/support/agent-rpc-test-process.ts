@@ -25,6 +25,7 @@ export interface CreateAgentRpcFixtureOptions {
 	readonly api?: "openai-responses";
 	readonly contextWindow?: number;
 	readonly maxTokens?: number;
+	readonly modelInput?: readonly ("text" | "image")[];
 }
 
 export interface StartAgentRpcOptions {
@@ -94,7 +95,7 @@ export async function createAgentRpcFixture(options: CreateAgentRpcFixtureOption
 								id: "test-model",
 								name: "Test Model",
 								reasoning: true,
-								input: ["text"],
+								input: options.modelInput ?? ["text"],
 								cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 								contextWindow: options.contextWindow ?? 8_000,
 								maxTokens: options.maxTokens ?? 1_000,
