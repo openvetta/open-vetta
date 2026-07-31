@@ -2,13 +2,17 @@ import { describe, expect, it } from "vitest";
 import { DESKTOP_AGENT_RUNTIME_ENV, resolveDesktopAgentRuntimeBackend } from "./desktop-runtime-selector.js";
 
 describe("resolveDesktopAgentRuntimeBackend", () => {
-	it("keeps Legacy as the startup default", () => {
-		expect(resolveDesktopAgentRuntimeBackend(undefined)).toBe("legacy");
-		expect(resolveDesktopAgentRuntimeBackend("")).toBe("legacy");
+	it("uses Greenfield as the startup default", () => {
+		expect(resolveDesktopAgentRuntimeBackend(undefined)).toBe("greenfield");
+		expect(resolveDesktopAgentRuntimeBackend("")).toBe("greenfield");
+		expect(resolveDesktopAgentRuntimeBackend("   ")).toBe("greenfield");
+	});
+
+	it("keeps an explicit Legacy rollback", () => {
 		expect(resolveDesktopAgentRuntimeBackend("legacy")).toBe("legacy");
 	});
 
-	it("requires an explicit Greenfield opt-in", () => {
+	it("accepts an explicit Greenfield selection", () => {
 		expect(resolveDesktopAgentRuntimeBackend("greenfield")).toBe("greenfield");
 	});
 

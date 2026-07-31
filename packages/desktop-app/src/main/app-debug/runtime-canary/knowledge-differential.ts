@@ -18,13 +18,30 @@ export interface RuntimeCanaryKnowledgeDifferential {
 	readonly greenfield: RuntimeCanaryKnowledgeContract;
 }
 
+export interface RuntimeCanaryDefaultCutoverDifference {
+	readonly path: string;
+	readonly defaultSelection: unknown;
+	readonly explicitGreenfield: unknown;
+}
+
+export interface RuntimeCanaryDefaultCutoverDifferential {
+	readonly blockingDifferences: readonly RuntimeCanaryDefaultCutoverDifference[];
+	readonly defaultKnowledge: RuntimeCanaryKnowledgeContract;
+	readonly explicitGreenfieldKnowledge: RuntimeCanaryKnowledgeContract;
+}
+
 export function compareRuntimeCanaryKnowledgeResults(
 	legacyInput: unknown,
 	greenfieldInput: unknown,
 ): RuntimeCanaryKnowledgeDifferential {
 	const legacy = runtimeCanarySuccessEnvelopeSchema.parse(legacyInput);
 	const greenfield = runtimeCanarySuccessEnvelopeSchema.parse(greenfieldInput);
-	if (legacy.result.runtimeMode !== "legacy" || greenfield.result.runtimeMode !== "greenfield") {
+	if (
+		legacy.result.runtimeSelection !== "legacy" ||
+		greenfield.result.runtimeSelection !== "greenfield" ||
+		legacy.result.runtimeMode !== "legacy" ||
+		greenfield.result.runtimeMode !== "greenfield"
+	) {
 		throw new Error("Runtime Canary differential requires Legacy first and Greenfield second");
 	}
 	if (
@@ -35,6 +52,12 @@ export function compareRuntimeCanaryKnowledgeResults(
 	}
 	return {
 		allowedDifferences: [
+			{
+				path: "runtimeSelection",
+				legacy: legacy.result.runtimeSelection,
+				greenfield: greenfield.result.runtimeSelection,
+				reason: "Explicit selector identity is the canary input axis under comparison.",
+			},
 			{
 				path: "runtimeMode",
 				legacy: legacy.result.runtimeMode,
@@ -56,6 +79,44 @@ export function compareRuntimeCanaryKnowledgeResults(
 		),
 		legacy: legacy.result.knowledgeContract,
 		greenfield: greenfield.result.knowledgeContract,
+	};
+}
+
+export function compareRuntimeCanaryDefaultCutover(
+	defaultInput: unknown,
+	explicitGreenfieldInput: unknown,
+): RuntimeCanaryDefaultCutoverDifferential {
+	const defaultSelection = runtimeCanarySuccessEnvelopeSchema.parse(defaultInput);
+	const explicitGreenfield = runtimeCanarySuccessEnvelopeSchema.parse(explicitGreenfieldInput);
+	if (
+		defaultSelection.result.runtimeSelection !== "default" ||
+		explicitGreenfield.result.runtimeSelection !== "greenfield" ||
+		explicitGreenfield.result.runtimeMode !== "greenfield" ||
+		explicitGreenfield.result.processingRecordFormat !== "conversation-v2-jsonl"
+	) {
+		throw new Error("Runtime Canary default cutover requires Default first and explicit Greenfield second");
+	}
+	const differences = collectDifferences(
+		{
+			runtimeMode: defaultSelection.result.runtimeMode,
+			processingRecordFormat: defaultSelection.result.processingRecordFormat,
+			knowledgeContract: defaultSelection.result.knowledgeContract,
+		},
+		{
+			runtimeMode: explicitGreenfield.result.runtimeMode,
+			processingRecordFormat: explicitGreenfield.result.processingRecordFormat,
+			knowledgeContract: explicitGreenfield.result.knowledgeContract,
+		},
+		"result",
+	);
+	return {
+		blockingDifferences: differences.map((difference) => ({
+			path: difference.path,
+			defaultSelection: difference.legacy,
+			explicitGreenfield: difference.greenfield,
+		})),
+		defaultKnowledge: defaultSelection.result.knowledgeContract,
+		explicitGreenfieldKnowledge: explicitGreenfield.result.knowledgeContract,
 	};
 }
 

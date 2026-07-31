@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { RuntimeCanaryKnowledgeContract } from "./contracts.js";
-import { compareRuntimeCanaryKnowledgeResults } from "./knowledge-differential.js";
+import type { RuntimeCanaryKnowledgeContract, RuntimeCanaryMode, RuntimeCanarySelection } from "./contracts.js";
+import { compareRuntimeCanaryDefaultCutover, compareRuntimeCanaryKnowledgeResults } from "./knowledge-differential.js";
 
 describe("Runtime Canary Knowledge differential", () => {
 	it("allows only the selected Runtime identity when normalized contracts match", () => {
@@ -12,6 +12,7 @@ describe("Runtime Canary Knowledge differential", () => {
 
 		expect(result.blockingDifferences).toEqual([]);
 		expect(result.allowedDifferences).toEqual([
+			expect.objectContaining({ path: "runtimeSelection", legacy: "legacy", greenfield: "greenfield" }),
 			expect.objectContaining({ path: "runtimeMode", legacy: "legacy", greenfield: "greenfield" }),
 			expect.objectContaining({
 				path: "processingRecordFormat",
@@ -40,12 +41,49 @@ describe("Runtime Canary Knowledge differential", () => {
 			compareRuntimeCanaryKnowledgeResults(envelope("greenfield", contract), envelope("legacy", contract)),
 		).toThrow("requires Legacy first and Greenfield second");
 	});
+
+	it("proves the unconfigured selection is behaviorally identical to explicit Greenfield", () => {
+		const contract = createContract();
+		const result = compareRuntimeCanaryDefaultCutover(
+			envelope("default", contract),
+			envelope("greenfield", contract),
+		);
+
+		expect(result.blockingDifferences).toEqual([]);
+		expect(result.defaultKnowledge).toEqual(contract);
+		expect(result.explicitGreenfieldKnowledge).toEqual(contract);
+	});
+
+	it("reports the exact default cutover path when the effective Runtime differs", () => {
+		const contract = createContract();
+
+		expect(
+			compareRuntimeCanaryDefaultCutover(envelope("default", contract, "legacy"), envelope("greenfield", contract))
+				.blockingDifferences,
+		).toContainEqual({
+			path: "result.runtimeMode",
+			defaultSelection: "legacy",
+			explicitGreenfield: "greenfield",
+		});
+	});
+
+	it("rejects an explicitly selected Runtime in the default-cutover position", () => {
+		const contract = createContract();
+		expect(() =>
+			compareRuntimeCanaryDefaultCutover(envelope("greenfield", contract), envelope("greenfield", contract)),
+		).toThrow("requires Default first and explicit Greenfield second");
+	});
 });
 
-function envelope(mode: "legacy" | "greenfield", contract: RuntimeCanaryKnowledgeContract): unknown {
+function envelope(
+	selection: RuntimeCanarySelection,
+	contract: RuntimeCanaryKnowledgeContract,
+	mode: RuntimeCanaryMode = selection === "legacy" ? "legacy" : "greenfield",
+): unknown {
 	return {
 		ok: true,
 		result: {
+			runtimeSelection: selection,
 			runtimeMode: mode,
 			processingRecordFormat: mode === "legacy" ? "legacy-jsonl" : "conversation-v2-jsonl",
 			knowledgeContract: contract,

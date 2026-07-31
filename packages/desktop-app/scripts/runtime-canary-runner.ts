@@ -404,6 +404,7 @@ try {
 	printJson({
 		ok: true,
 		result: {
+			runtimeSelection: state.runtimeCanary.selection,
 			runtimeMode: state.runtimeCanary.mode,
 			processingRecordFormat,
 			knowledgeContract,

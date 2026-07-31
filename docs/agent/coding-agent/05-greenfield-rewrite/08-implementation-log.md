@@ -130,6 +130,7 @@
 | [120-knowledge-round-controller-and-side-effect-contracts.md](./08-implementation-log/120-knowledge-round-controller-and-side-effect-contracts.md) | Knowledge Round Controller、轮级副作用与成功/失败/中止合同 |
 | [121-real-desktop-knowledge-lifecycle-canary.md](./08-implementation-log/121-real-desktop-knowledge-lifecycle-canary.md) | 真实 Desktop Knowledge CLI/审批/退出/重启/失败生命周期 Canary |
 | [122-real-desktop-knowledge-runtime-differential.md](./08-implementation-log/122-real-desktop-knowledge-runtime-differential.md) | 真实 Legacy/Greenfield Desktop Knowledge 完整合同差分与切换门禁 |
+| [123-desktop-greenfield-default-cutover.md](./08-implementation-log/123-desktop-greenfield-default-cutover.md) | Desktop Greenfield 默认切换、显式 Legacy 回退与三路真实宿主门禁 |
 
 ## 维护约定
 

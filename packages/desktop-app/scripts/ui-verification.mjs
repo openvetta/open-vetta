@@ -31,13 +31,18 @@ function printJson(value) {
 function resolveVerificationEnv(state = readState()) {
 	const runtimeCanary = state?.runtimeCanary;
 	if (!runtimeCanary) return baseVerificationEnv;
-	return {
+	const env = {
 		...baseVerificationEnv,
 		VETTA_CODING_AGENT_DIR: runtimeCanary.agentDir,
-		VETTA_DESKTOP_AGENT_RUNTIME: runtimeCanary.mode,
 		VETTA_DESKTOP_RUNTIME_CANARY: "1",
 		VETTA_HOME: runtimeCanary.vettaHome,
 	};
+	if (runtimeCanary.selection === "default") {
+		delete env.VETTA_DESKTOP_AGENT_RUNTIME;
+	} else {
+		env.VETTA_DESKTOP_AGENT_RUNTIME = runtimeCanary.mode;
+	}
+	return env;
 }
 
 function resolveDebugCli(state) {
@@ -117,6 +122,7 @@ function statusResult() {
 		desktopGeneration: state?.desktopGeneration ?? null,
 		runtimeCanary: state?.runtimeCanary
 			? {
+					selection: state.runtimeCanary.selection,
 					mode: state.runtimeCanary.mode,
 					workspace: state.runtimeCanary.workspace,
 					providerPid: state.runtimeCanary.providerPid,
@@ -176,7 +182,8 @@ function selectMainWindow(uiInfo) {
 	if (selectResult.status !== 0) throw new Error("Unable to select the Vetta Desktop renderer tab");
 }
 
-async function startRuntimeCanaryProvider(mode) {
+async function startRuntimeCanaryProvider(selection) {
+	const mode = selection === "default" ? "greenfield" : selection;
 	const fixtureRoot = join(runtimeDir, "runtime-canary", `${Date.now()}-${process.pid}`);
 	const readyFilePath = join(fixtureRoot, "provider-ready.json");
 	const exitReportPath = join(fixtureRoot, "host-exit.json");
@@ -228,6 +235,7 @@ async function startRuntimeCanaryProvider(mode) {
 			child,
 			state: {
 				...fixture,
+				selection,
 				providerPid: child.pid,
 				exitReportPath,
 				restartRequestPath,
@@ -261,11 +269,11 @@ function parseRuntimeCanaryMode(args) {
 	if (
 		args.length === 2 &&
 		args[0] === "--runtime-canary" &&
-		(args[1] === "legacy" || args[1] === "greenfield")
+		(args[1] === "default" || args[1] === "legacy" || args[1] === "greenfield")
 	) {
 		return args[1];
 	}
-	throw new Error('Expected "--runtime-canary legacy" or "--runtime-canary greenfield"');
+	throw new Error('Expected "--runtime-canary default", "--runtime-canary legacy", or "--runtime-canary greenfield"');
 }
 
 async function startHost(runtimeCanaryMode) {
@@ -290,6 +298,7 @@ async function startHost(runtimeCanaryMode) {
 		artifactDir,
 		runtimeCanary: runtimeCanary
 			? {
+					selection: runtimeCanary.state.selection,
 					mode: runtimeCanary.state.mode,
 					workspace: runtimeCanary.state.workspace,
 					providerPid: runtimeCanary.state.providerPid,
