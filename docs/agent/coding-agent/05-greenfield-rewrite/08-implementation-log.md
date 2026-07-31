@@ -127,6 +127,7 @@
 | [117-legacy-boundaries-and-knowledge-processing-port.md](./08-implementation-log/117-legacy-boundaries-and-knowledge-processing-port.md) | Legacy/Compat 窄入口、Knowledge Processing Session Port 与生产根消费者归零 |
 | [118-greenfield-knowledge-processing-session.md](./08-implementation-log/118-greenfield-knowledge-processing-session.md) | Greenfield Knowledge Processing Factory、会话级 Writer、Todo 锁定与首次持久化 |
 | [119-knowledge-poller-greenfield-opt-in-and-batch-differential.md](./08-implementation-log/119-knowledge-poller-greenfield-opt-in-and-batch-differential.md) | Knowledge Poller 显式 Greenfield opt-in、Desktop Factory Resolver 与真实多批写入差分 |
+| [120-knowledge-round-controller-and-side-effect-contracts.md](./08-implementation-log/120-knowledge-round-controller-and-side-effect-contracts.md) | Knowledge Round Controller、轮级副作用与成功/失败/中止合同 |
 
 ## 维护约定
 

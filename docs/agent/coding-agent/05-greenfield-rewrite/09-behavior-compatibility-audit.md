@@ -1285,6 +1285,36 @@ processing record、failure reconciliation、通知、raws lock 与 abort 收尾
 本轮没有新增外部配置格式或持久化记录；复用既有 selector 联合类型，进程内 Factory Resolver 不需要新增
 TypeBox/Zod Schema。
 
+### 2.38 Knowledge Round Controller 与轮级副作用合同
+
+第 120 轮将 Knowledge Poller 中的单轮状态机抽为 Desktop 产品级 `KnowledgeRoundController`。它不进入
+Runtime Core，也不重新抽象 Knowledge 算法：
+
+```text
+Poller 配置 / scheduler / Desktop Composition
+  -> KnowledgeRoundController
+       -> KnowledgeProcessingSessionFactory（Legacy | Greenfield）
+       -> 真实 diff / batch / KbWriteSession / cache / failure
+       -> processing record / notification / raws lock / temporary directory
+```
+
+Poller 的原有导出继续委托 Controller，配置读取、环境变量、定时任务和 Electron 广播仍由 Desktop 所有。
+Controller 只注入 Session Factory、知识库根、轮级副作用、raws 锁、临时目录和日志，没有制造覆盖所有
+Knowledge 函数的巨型操作 Port，也没有绑定具体 Legacy/Greenfield 实现。
+
+真实文件系统合同使用 21 个 raws 文件产生两个批次，并让两个批次写入同一语义 wiki path。合同验证轮级共享
+Writer、最终 21 个 wiki 页、manifest、失败记录清除、usage、processing result、Snapshot、状态通知、
+raws lock、临时目录和 Session 释放。失败合同确认第二批抛错后首批 20 个写入保留，所有资源仍清理；中止
+合同使用 41 个文件、3 个批次和并发度 2，确认两个活动 Session 都被中止、第三批不创建 Session、不写入且
+不计失败。
+
+审计同时固定一项既有行为：Provider/批次直接抛错时，整轮不会进入最终 `reconcileRoundFailures()`，因此
+已尝试文件不累计失败次数，processing result 和最终 Snapshot 也不会产生。这不是本轮引入的偏差；是否让
+异常轮执行部分成功对账涉及重试和隔离语义，必须作为独立功能决策，不能夹带在架构重构中。
+
+本轮没有改变默认 selector、批次/并发算法、Prompt、Todo、Tool、Writer、持久化格式或记录时序。新增 Port
+都是进程内 TypeScript 合同，没有新的外部反序列化边界，因此不增加 TypeBox/Zod Schema。
+
 ## 3. 已实施模块审计
 
 | 模块 | 当前状态 | 与旧行为的差距 | 切换结论 |
@@ -1301,7 +1331,7 @@ TypeBox/Zod Schema。
 | Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope、agent mode、explicit 激活和 requires/capabilities，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；产品工具按 Session cwd 创建，文档/OCR/progress 已由 Runtime Tools 原生拥有，模型顺序由通用 `modelOrder` 稳定物化；Desktop 与 CLI/RPC/IM 源码 Provider Frame 已精确差分，安装产物 `im-claw` Provider Frame 与有序 Tool Surface 也已验证 | 安装产物 Greenfield CLI 仍只支持 `im-claw`；默认 selector 尚未切换 | 模型调用级工具面与 Runtime-native 所有权已闭合；进入默认切换准备度审计 |
 | Composition Root 与依赖图 | 产品装配已归属 `@vetta/coding-agent/composition`；CLI/Desktop 直接消费；`runtime-composition` 无包装兼容转发；Runtime 子路径与旧根兼容面采用分段构建；manifest truth 和 forwarding-only 守卫已接入 | `runtime-tools`、`runtime-storage` 包根仍需为外部消费者保留 Coding Agent 兼容转发；默认 selector 仍是 Legacy | 产品所有权和 clean build 顺序已收口；兼容根入口只能在外部迁移窗口后删除 |
 | Coding Agent 公开 API | Bootstrap、Config、Knowledge、Profile、Resources、RPC 已有显式子路径；Legacy CLI/Host Service 与 Runtime 包根使用用途明确的迁移期入口；受治理生产源码的精确根入口消费者已归零 | Legacy/Compat 子路径仍转发具体实现，外部消费者迁移窗口尚未建立；根入口仍是已发布兼容面 | 仓库内依赖不再经过聚合根；兼容入口只能按各自迁移合同逐项删除 |
-| Knowledge Processing Session | Legacy/Greenfield Factory 均实现稳定 Port；Desktop Poller 已复用进程级 selector 提供显式 Greenfield opt-in；真实多 Session Tool Loop 已验证共享轮级 Writer、最终 wiki/manifest/tags、usage 与 Composition 释放 | 默认仍为 Legacy；尚缺 processing record、failure reconciliation、通知、raws lock 和 abort 的 Poller 轮级差分 | Greenfield 候选已进入真实 Poller 灰度入口；轮级副作用差分完成前不切换默认值 |
+| Knowledge Processing Session | Legacy/Greenfield Factory 均实现稳定 Port；Desktop Poller 已复用进程级 selector 提供显式 Greenfield opt-in；真实 Greenfield Tool Loop 已验证共享轮级 Writer，产品级 Round Controller 的真实文件合同已覆盖 processing record、usage、通知、raws lock、成功、批次失败、中止和全部资源释放 | 默认仍为 Legacy；Provider 抛错时不进入失败对账是待决产品语义；尚缺真实 Desktop 进程的 Greenfield Knowledge 灰度验收 | 架构边界和轮级副作用合同已闭合；完成异常语义决策与生产灰度后再单独切换默认值 |
 | `AgentSession` | 新状态机、活动 Turn 输入队列、无伪 user message 的 continue、显式 resume 与同 Turn 持久化身份重绑定已实现 | 尚缺旧外围能力的 Greenfield 实现 | 内核 Turn/恢复语义已具备；生产入口不可切换 |
 | Turn Pipeline | 固定阶段、模型调用请求—应答检查点、持久化压缩提交、跨 Conversation 续接及成功/失败 finalization、非持久化 observation、输入队列、continue、recovery、独立 Turn Model Binding 和 Session-local 运行期 Context 串行持久化已实现 | 完整生产 Composition Root 尚未接入 | 不可切换 |
 | `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环、动态 Model Call Frame、完整观察事件、输入队列、Context checkpoint 桥接和 Turn model binding 已接入真实 Greenfield Composition 与 RuntimeHost | 默认生产选择仍是 Legacy | 内核执行与候选宿主接线完成；等待整体默认切换门禁 |
@@ -1349,16 +1379,15 @@ side effects
 
 ## 5. 下一步
 
-Knowledge Processing 已复用 Desktop 进程级 selector 提供显式 Greenfield opt-in；真实多 Session Tool Loop
-也已验证共享轮级 Writer、最终 wiki/manifest/tags、usage 和 Composition 释放。下一阶段应补齐 Poller
-轮级副作用差分，而不是继续扩充 Runtime Core：
+Knowledge Processing 的 Session 实现、共享 Writer 和 Poller 轮级副作用合同已经闭合。下一阶段进入真实
+生产灰度准备，不继续扩充 Runtime Core：
 
-1. 为 Poller 的记录、通知、锁和知识库根建立最小可注入测试边界，不改写批次与轮询算法。
-2. 用同一 raws fixture 比较 Legacy/Greenfield 的 processing record、usage、failure reconciliation、
-   cache 和通知顺序。
-3. 覆盖 Provider 失败、用户 abort、并发批部分完成、最终 raws unlock 与全部 Session/Composition 释放。
-4. 轮级差分归零后，再将 Knowledge Poller 默认值切换作为独立决策；根入口与 Runtime 包兼容转发继续遵守
-   外部迁移窗口。
+1. 单独评审 Provider/批次抛错时的失败对账语义，明确部分成功、重试次数和隔离规则；若需改变，以功能修复
+   和独立回归测试实施。
+2. 在真实 Desktop 主进程中显式启用 Greenfield Knowledge Processing，验证手动整理、中止、重启、监控记录、
+   通知和全部 Session/Composition 清理。
+3. 灰度结果无新增差异后，再把 Knowledge Poller 默认值切换作为独立决策，并保留进程级 selector 回退。
+4. 根入口与 Runtime 包兼容转发继续遵守外部迁移窗口，不与 Knowledge 默认切换捆绑删除。
 
 TypeBox/Zod 只用于外部 RPC、配置和持久化反序列化边界；生产 Profile 比较使用已经类型化的 Model Call
 Frame 与 Session 合同，不为内部对象重复增加 Schema。
