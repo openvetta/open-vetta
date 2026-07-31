@@ -44,7 +44,7 @@
 8. [实施日志](./08-implementation-log.md)
    - 索引；每轮实施单独成文，见 [`08-implementation-log/`](./08-implementation-log/)。
    - 按实施轮次记录实际修改、验证结果、未完成项和下一步。
-   - 最新记录：[第 118 轮：Greenfield Knowledge Processing 纵向实现](./08-implementation-log/118-greenfield-knowledge-processing-session.md)。
+   - 最新记录：[第 119 轮：Knowledge Poller Greenfield opt-in 与多批写入差分](./08-implementation-log/119-knowledge-poller-greenfield-opt-in-and-batch-differential.md)。
 9. [行为兼容性审计](./09-behavior-compatibility-audit.md)
    - 审计已实施模块与旧行为的差距。
    - 定义旧新差分测试和迁移 Gate。

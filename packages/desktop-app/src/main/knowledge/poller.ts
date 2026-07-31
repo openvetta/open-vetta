@@ -12,10 +12,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-	createLegacyKnowledgeProcessingSessionFactory,
-	type KnowledgeProcessingSession,
-} from "@vetta/coding-agent/composition";
+import type { KnowledgeProcessingSession } from "@vetta/coding-agent/composition";
 import { createLimiter } from "@vetta/coding-agent/concurrency";
 import * as knowledge from "@vetta/coding-agent/knowledge";
 import { BrowserWindow } from "electron";
@@ -26,9 +23,14 @@ import {
 	recordKnowledgeBaseProcessingUsage,
 	recordKnowledgeBaseSnapshot,
 } from "../app-monitor/app-monitor-service.js";
+import {
+	DESKTOP_AGENT_RUNTIME_ENV,
+	resolveDesktopAgentRuntimeBackend,
+} from "../greenfield-runtime/desktop-runtime-selector.js";
 import { KB_PROCESSING_CWD, KB_PROCESSING_SESSION_DIR, readDesktopConfig } from "../ipc/fs.js";
 import { getAppLogger } from "../logger.js";
 import { getOrCreateSharedModelRegistry } from "../runtime.js";
+import { createDesktopKnowledgeProcessingSessionFactory } from "./processing-session-factory.js";
 import { beginRound, endRound, unlockRaws } from "./raws-lock.js";
 
 /** 加工中状态：广播给渲染层（顶栏「正在建立索引…」徽标）。 */
@@ -79,9 +81,12 @@ async function refreshCachesAndNotify(root: string): Promise<void> {
 }
 
 const log = getAppLogger("kb-poller");
-const knowledgeProcessingSessionFactory = createLegacyKnowledgeProcessingSessionFactory({
+const knowledgeProcessingBackend = resolveDesktopAgentRuntimeBackend(process.env[DESKTOP_AGENT_RUNTIME_ENV]);
+const knowledgeProcessingSessionFactory = createDesktopKnowledgeProcessingSessionFactory({
+	backend: knowledgeProcessingBackend,
 	getModelRegistry: getOrCreateSharedModelRegistry,
 });
+log.info(`knowledge processing backend selected: ${knowledgeProcessingBackend}`);
 
 /** 上报重建时被排除的坏页（frontmatter 非法/缺失）——否则其源文件永远静默显示未加工。 */
 function logDamagedPages(result: knowledge.RebuildResult): void {
