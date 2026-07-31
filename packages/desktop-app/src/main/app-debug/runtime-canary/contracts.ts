@@ -13,6 +13,10 @@ export const RUNTIME_CANARY_QUESTION_PROMPT = "Call ask_user_question for the De
 export const RUNTIME_CANARY_QUESTION = "Should the Desktop process canary continue?";
 export const RUNTIME_CANARY_SCHEDULER_PROMPT = "Hold the Desktop process Scheduler runtime canary open.";
 export const RUNTIME_CANARY_BATCH_PROMPT = "Hold the Desktop process Batch runtime canary open.";
+export const RUNTIME_CANARY_KNOWLEDGE_SOURCE_PATH = "runtime-canary/source.md";
+export const RUNTIME_CANARY_KNOWLEDGE_PENDING_SOURCE_PATH = "runtime-canary/pending.md";
+export const RUNTIME_CANARY_KNOWLEDGE_FAILURE_SOURCE_PATH = "runtime-canary/failure.md";
+export const RUNTIME_CANARY_KNOWLEDGE_COMPLETE = "DESKTOP_PROCESS_CANARY_KNOWLEDGE_COMPLETE";
 
 export const runtimeCanaryConsumersSchema = z
 	.object({
@@ -38,6 +42,8 @@ export const runtimeCanaryFixtureSchema = z
 		installedCliPath: z.string().min(1),
 		modelKey: z.literal(RUNTIME_CANARY_MODEL_KEY),
 		batchSourceDirectories: z.tuple([z.string().min(1), z.string().min(1)]),
+		knowledgeRoot: z.string().min(1),
+		knowledgeSourceHash: z.string().min(1),
 	})
 	.strict();
 
@@ -47,6 +53,7 @@ export const runtimeCanaryHostStateSchema = z
 		hostPid: z.number().int().positive(),
 		desktopPid: z.number().int().positive(),
 		desktopGeneration: z.number().int().positive(),
+		cdpPort: z.number().int().positive(),
 		runtimeCanary: runtimeCanaryFixtureSchema.extend({
 			providerPid: z.number().int().positive(),
 			exitReportPath: z.string().min(1),
@@ -62,6 +69,7 @@ export const runtimeCanaryRestartReportSchema = z
 		desktopPid: z.number().int().positive(),
 		endpointRemoved: z.boolean(),
 		sessionLocksReleased: z.boolean(),
+		knowledgeRawsUnlocked: z.boolean(),
 	})
 	.strict();
 

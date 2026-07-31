@@ -1315,6 +1315,27 @@ raws lock、临时目录和 Session 释放。失败合同确认第二批抛错�
 本轮没有改变默认 selector、批次/并发算法、Prompt、Todo、Tool、Writer、持久化格式或记录时序。新增 Port
 都是进程内 TypeScript 合同，没有新的外部反序列化边界，因此不增加 TypeBox/Zod Schema。
 
+### 2.39 真实 Desktop Knowledge 生命周期 Canary
+
+第 121 轮把 Knowledge 验证从进程内 Controller 合同提升到真实生产边界。隔离 Desktop 通过显式
+Greenfield selector 启动，安装后的 `vetta.exe` 经 Action RPC 调用 `knowledge.manage`，Renderer 展示并
+确认真实审批对话框。Canary 覆盖首次扫描成功、扫描中退出、Desktop 重启、Action Provider 重注册、
+Provider HTTP 失败和最终退出。
+
+Poller 关闭现在具有幂等异步所有权：先禁止新任务并停止 scheduler，再中止和等待活动轮、释放 raws lock，
+最后由 Desktop 关闭本地 RPC。该顺序避免 Action 尚在等待加工结果时 RPC 提前关闭，也保证退出后没有后台
+Session/Composition 遗留。真实复跑确认 Desktop 进程发生重启、旧会话继续可用、raws lock 和 Session lock
+均释放，最终 endpoint、Provider 与 Desktop 均停止。
+
+真实 CLI 同时暴露并修复了 `knowledge.manage.scan-now` 空输入 schema：`Type.Unsafe` 无法被 TypeBox Value
+解码，现改为拒绝额外属性的空 `Type.Object`，不改变接受输入集合。Zod 只校验 Canary 的跨进程 CLI、
+Provider、状态文件和 Monitor JSON。隔离 prerequisite build 还补齐了 `runtime-mcp` 对 Web API 类型所需的
+DOM lib，没有删除或弱化类型。
+
+实测进一步固定既有失败语义：Provider HTTP 失败时 Action 仍成功完成，`failures.json` 写入一次失败记录，
+已有 wiki 保留；Monitor `filesFailed` 仍为 0。Canary 明确断言这个观察差异，而没有夹带修改统计或 Action
+结果语义。默认 selector 继续为 Legacy。
+
 ## 3. 已实施模块审计
 
 | 模块 | 当前状态 | 与旧行为的差距 | 切换结论 |
@@ -1331,7 +1352,7 @@ raws lock、临时目录和 Session 释放。失败合同确认第二批抛错�
 | Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope、agent mode、explicit 激活和 requires/capabilities，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；产品工具按 Session cwd 创建，文档/OCR/progress 已由 Runtime Tools 原生拥有，模型顺序由通用 `modelOrder` 稳定物化；Desktop 与 CLI/RPC/IM 源码 Provider Frame 已精确差分，安装产物 `im-claw` Provider Frame 与有序 Tool Surface 也已验证 | 安装产物 Greenfield CLI 仍只支持 `im-claw`；默认 selector 尚未切换 | 模型调用级工具面与 Runtime-native 所有权已闭合；进入默认切换准备度审计 |
 | Composition Root 与依赖图 | 产品装配已归属 `@vetta/coding-agent/composition`；CLI/Desktop 直接消费；`runtime-composition` 无包装兼容转发；Runtime 子路径与旧根兼容面采用分段构建；manifest truth 和 forwarding-only 守卫已接入 | `runtime-tools`、`runtime-storage` 包根仍需为外部消费者保留 Coding Agent 兼容转发；默认 selector 仍是 Legacy | 产品所有权和 clean build 顺序已收口；兼容根入口只能在外部迁移窗口后删除 |
 | Coding Agent 公开 API | Bootstrap、Config、Knowledge、Profile、Resources、RPC 已有显式子路径；Legacy CLI/Host Service 与 Runtime 包根使用用途明确的迁移期入口；受治理生产源码的精确根入口消费者已归零 | Legacy/Compat 子路径仍转发具体实现，外部消费者迁移窗口尚未建立；根入口仍是已发布兼容面 | 仓库内依赖不再经过聚合根；兼容入口只能按各自迁移合同逐项删除 |
-| Knowledge Processing Session | Legacy/Greenfield Factory 均实现稳定 Port；Desktop Poller 已复用进程级 selector 提供显式 Greenfield opt-in；真实 Greenfield Tool Loop 已验证共享轮级 Writer，产品级 Round Controller 的真实文件合同已覆盖 processing record、usage、通知、raws lock、成功、批次失败、中止和全部资源释放 | 默认仍为 Legacy；Provider 抛错时不进入失败对账是待决产品语义；尚缺真实 Desktop 进程的 Greenfield Knowledge 灰度验收 | 架构边界和轮级副作用合同已闭合；完成异常语义决策与生产灰度后再单独切换默认值 |
+| Knowledge Processing Session | Legacy/Greenfield Factory 均实现稳定 Port；Desktop Poller 已复用进程级 selector 提供显式 Greenfield opt-in；真实 Tool Loop、共享轮级 Writer、Round Controller 副作用合同和 Desktop CLI/审批/退出/重启 Canary 均已通过 | 默认仍为 Legacy；直接抛错不进入失败对账、失败记录与 Monitor `filesFailed` 口径不一致仍是待决产品语义 | 架构与真实生命周期边界已闭合；完成异常语义决策后再单独切换默认值 |
 | `AgentSession` | 新状态机、活动 Turn 输入队列、无伪 user message 的 continue、显式 resume 与同 Turn 持久化身份重绑定已实现 | 尚缺旧外围能力的 Greenfield 实现 | 内核 Turn/恢复语义已具备；生产入口不可切换 |
 | Turn Pipeline | 固定阶段、模型调用请求—应答检查点、持久化压缩提交、跨 Conversation 续接及成功/失败 finalization、非持久化 observation、输入队列、continue、recovery、独立 Turn Model Binding 和 Session-local 运行期 Context 串行持久化已实现 | 完整生产 Composition Root 尚未接入 | 不可切换 |
 | `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环、动态 Model Call Frame、完整观察事件、输入队列、Context checkpoint 桥接和 Turn model binding 已接入真实 Greenfield Composition 与 RuntimeHost | 默认生产选择仍是 Legacy | 内核执行与候选宿主接线完成；等待整体默认切换门禁 |
@@ -1379,14 +1400,13 @@ side effects
 
 ## 5. 下一步
 
-Knowledge Processing 的 Session 实现、共享 Writer 和 Poller 轮级副作用合同已经闭合。下一阶段进入真实
-生产灰度准备，不继续扩充 Runtime Core：
+Knowledge Processing 的 Session、共享 Writer、轮级副作用和真实 Desktop 生命周期已经闭合。下一阶段不再
+扩充 Runtime Core：
 
-1. 单独评审 Provider/批次抛错时的失败对账语义，明确部分成功、重试次数和隔离规则；若需改变，以功能修复
-   和独立回归测试实施。
-2. 在真实 Desktop 主进程中显式启用 Greenfield Knowledge Processing，验证手动整理、中止、重启、监控记录、
-   通知和全部 Session/Composition 清理。
-3. 灰度结果无新增差异后，再把 Knowledge Poller 默认值切换作为独立决策，并保留进程级 selector 回退。
+1. 单独评审两类失败语义：Provider/批次直接抛错是否进入部分成功对账，以及 `failures.json` 与 Monitor
+   `filesFailed` 是否统一；若需改变，以功能修复和独立回归测试实施。
+2. 若保持现有语义，进行一轮显式 Greenfield 灰度观察；若改变语义，先让真实 Canary 固定新合同。
+3. 灰度无新增差异后，再把 Knowledge Poller 默认值切换作为独立决策，并保留进程级 selector 回退。
 4. 根入口与 Runtime 包兼容转发继续遵守外部迁移窗口，不与 Knowledge 默认切换捆绑删除。
 
 TypeBox/Zod 只用于外部 RPC、配置和持久化反序列化边界；生产 Profile 比较使用已经类型化的 Model Call

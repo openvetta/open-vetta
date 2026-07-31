@@ -1,6 +1,6 @@
 import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -218,6 +218,8 @@ async function startRuntimeCanaryProvider() {
 			typeof fixture.requestLogPath !== "string" ||
 			typeof fixture.installedCliPath !== "string" ||
 			typeof fixture.modelKey !== "string" ||
+			typeof fixture.knowledgeRoot !== "string" ||
+			typeof fixture.knowledgeSourceHash !== "string" ||
 			!child.pid
 		) {
 			throw new Error("Runtime Canary Provider published an invalid fixture");
@@ -308,6 +310,7 @@ async function startHost(runtimeCanaryMode) {
 			const sessionLocksReleased = restartRequest.sessionPaths.every(
 				(sessionPath) => !existsSync(`${sessionPath}.lock`) && !existsSync(`${sessionPath}.owner.lock`),
 			);
+			const knowledgeRawsUnlocked = areKnowledgeRawsUnlocked(runtimeCanary.state.knowledgeRoot);
 			writeFileSync(
 				runtimeCanary.state.restartReportPath,
 				JSON.stringify(
@@ -316,12 +319,13 @@ async function startHost(runtimeCanaryMode) {
 						desktopPid: activeDesktop.child.pid,
 						endpointRemoved,
 						sessionLocksReleased,
+						knowledgeRawsUnlocked,
 					},
 					null,
 					2,
 				),
 			);
-			if (desktopExitCode !== 0 || !endpointRemoved || !sessionLocksReleased) {
+			if (desktopExitCode !== 0 || !endpointRemoved || !sessionLocksReleased || !knowledgeRawsUnlocked) {
 				desktopExitCode = 1;
 				break;
 			}
@@ -350,6 +354,24 @@ async function startHost(runtimeCanaryMode) {
 		if (existsSync(statePath)) rmSync(statePath);
 	}
 	process.exitCode = desktopExitCode;
+}
+
+function areKnowledgeRawsUnlocked(knowledgeRoot) {
+	if (process.platform === "win32") return true;
+	const rawsDirectory = join(knowledgeRoot, "raws");
+	if (!existsSync(rawsDirectory)) return false;
+	const pending = [rawsDirectory];
+	while (pending.length > 0) {
+		const current = pending.pop();
+		if (!current) continue;
+		const currentStat = statSync(current);
+		if ((currentStat.mode & 0o200) === 0) return false;
+		if (!currentStat.isDirectory()) continue;
+		for (const entry of readdirSync(current, { withFileTypes: true })) {
+			pending.push(join(current, entry.name));
+		}
+	}
+	return true;
 }
 
 async function startDesktopVerificationProcess(runtimeCanary, desktopGeneration) {

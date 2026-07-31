@@ -96,6 +96,8 @@ export function isKnowledgeProcessing(): boolean {
 const scheduler = new ToadScheduler();
 const JOB_ID = "kb-poller";
 let scheduled = false;
+let shuttingDown = false;
+let shutdownPromise: Promise<void> | undefined;
 
 /**
  * 立即中止正在进行的加工轮（若有）：对所有活动会话调 abort()，并等待该轮真正收尾
@@ -120,6 +122,7 @@ export async function runKnowledgeRound(
 	agentConcurrency = 3,
 	reasoningLevel?: string,
 ): Promise<{ skipped: boolean; reason?: "no-model" }> {
+	if (shuttingDown) return { skipped: true };
 	return roundController.run(modelKey, agentConcurrency, reasoningLevel);
 }
 
@@ -141,6 +144,7 @@ export async function retryFailedKnowledge(
 	agentConcurrency = 3,
 	reasoningLevel?: string,
 ): Promise<{ skipped: boolean; reason?: "no-model" }> {
+	if (shuttingDown) return { skipped: true };
 	return roundController.retryFailed(modelKey, agentConcurrency, reasoningLevel);
 }
 
@@ -153,6 +157,7 @@ function unschedule(): void {
 
 /** 据当前配置（重新）调度轮询器。配置变化或启动时调用。 */
 export async function reloadKnowledgePoller(): Promise<void> {
+	if (shuttingDown) return;
 	unschedule();
 	// 自愈：清除上次进程崩溃可能残留的 raws 只读锁。
 	// 仅当无加工轮进行时才清——进行中那一轮的锁是「活动锁」不是残留，
@@ -211,4 +216,23 @@ export async function reloadKnowledgePoller(): Promise<void> {
 export function stopKnowledgePoller(): void {
 	unschedule();
 	scheduler.stop();
+}
+
+/**
+ * Desktop 进程退出时释放 Knowledge Poller 持有的全部资源。
+ *
+ * 关闭过程只执行一次：先阻止新轮次进入，再中止并等待当前轮释放 Session/Composition，
+ * 最后幂等恢复 raws 写权限。异常由主进程生命周期边界统一记录。
+ */
+export function shutdownKnowledgePoller(): Promise<void> {
+	shutdownPromise ??= (async () => {
+		shuttingDown = true;
+		stopKnowledgePoller();
+		try {
+			await abortKnowledgeRound();
+		} finally {
+			await unlockRaws();
+		}
+	})();
+	return shutdownPromise;
 }

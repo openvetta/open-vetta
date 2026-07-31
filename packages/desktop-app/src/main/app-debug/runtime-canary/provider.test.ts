@@ -4,6 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+	RUNTIME_CANARY_KNOWLEDGE_COMPLETE,
+	RUNTIME_CANARY_KNOWLEDGE_FAILURE_SOURCE_PATH,
+	RUNTIME_CANARY_KNOWLEDGE_SOURCE_PATH,
 	RUNTIME_CANARY_MCP_PROMPT,
 	RUNTIME_CANARY_MCP_RESULT,
 	RUNTIME_CANARY_QUESTION_PROMPT,
@@ -35,10 +38,21 @@ describe("Runtime Canary Provider", () => {
 		expect(
 			provider.fixture.batchSourceDirectories.every((directory) => existsSync(join(directory, "input.txt"))),
 		).toBe(true);
+		expect(
+			await readFile(join(provider.fixture.knowledgeRoot, "raws", RUNTIME_CANARY_KNOWLEDGE_SOURCE_PATH), "utf8"),
+		).toBe("Runtime Canary Knowledge Source");
 		const desktopConfig = JSON.parse(
 			await readFile(join(provider.fixture.vettaHome, "desktop-config.json"), "utf8"),
-		) as { projects: Array<{ path: string }> };
+		) as {
+			projects: Array<{ path: string }>;
+			knowledgeBase: { enabled: boolean; pollIntervalMinutes: number; processingModelKey: string };
+		};
 		expect(desktopConfig.projects).toEqual([{ path: provider.fixture.workspace, name: "Runtime Canary" }]);
+		expect(desktopConfig.knowledgeBase).toMatchObject({
+			enabled: true,
+			pollIntervalMinutes: 0,
+			processingModelKey: "runtime-canary/runtime-canary-model",
+		});
 
 		const textResponse = await requestProvider(provider.fixture.providerBaseUrl, "first turn");
 		expect(textResponse).toContain("Desktop Process Canary");
@@ -64,6 +78,43 @@ describe("Runtime Canary Provider", () => {
 			{ type: "function_call_output", call_id: "call_runtime_canary_mcp", output: RUNTIME_CANARY_MCP_RESULT },
 		]);
 		expect(mcpResultResponse).toContain("DESKTOP_PROCESS_CANARY_MCP");
+		const knowledgeWriteResponse = await requestProvider(
+			provider.fixture.providerBaseUrl,
+			`Process ${RUNTIME_CANARY_KNOWLEDGE_SOURCE_PATH}`,
+		);
+		expect(knowledgeWriteResponse).toContain('"name":"kb_write_page"');
+		expect(knowledgeWriteResponse).toContain(provider.fixture.knowledgeSourceHash);
+		const knowledgeTodoResponse = await requestProviderInput(provider.fixture.providerBaseUrl, [
+			{
+				role: "user",
+				content: [{ type: "input_text", text: `Process ${RUNTIME_CANARY_KNOWLEDGE_SOURCE_PATH}` }],
+			},
+			{ type: "function_call_output", call_id: "write", output: "kb_write_page create ok" },
+		]);
+		expect(knowledgeTodoResponse).toContain('"name":"todo"');
+		const knowledgeCompleteResponse = await requestProviderInput(provider.fixture.providerBaseUrl, [
+			{
+				role: "user",
+				content: [{ type: "input_text", text: `Process ${RUNTIME_CANARY_KNOWLEDGE_SOURCE_PATH}` }],
+			},
+			{ type: "function_call_output", call_id: "todo", output: "Updated #1 → done" },
+		]);
+		expect(knowledgeCompleteResponse).toContain(RUNTIME_CANARY_KNOWLEDGE_COMPLETE);
+		const knowledgeFailureResponse = await fetch(`${provider.fixture.providerBaseUrl}/responses`, {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({
+				model: "runtime-canary-model",
+				input: [
+					{
+						role: "user",
+						content: [{ type: "input_text", text: `Process ${RUNTIME_CANARY_KNOWLEDGE_FAILURE_SOURCE_PATH}` }],
+					},
+				],
+				stream: true,
+			}),
+		});
+		expect(knowledgeFailureResponse.status).toBe(500);
 
 		const controller = new AbortController();
 		const pendingResponse = await fetch(`${provider.fixture.providerBaseUrl}/responses`, {

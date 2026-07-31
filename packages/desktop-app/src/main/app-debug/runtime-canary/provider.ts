@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { createServer, type Server, type ServerResponse } from "node:http";
 import { dirname, join } from "node:path";
@@ -5,6 +6,10 @@ import { z } from "zod";
 import {
 	RUNTIME_CANARY_BATCH_PROMPT,
 	RUNTIME_CANARY_FIRST_PROMPT,
+	RUNTIME_CANARY_KNOWLEDGE_COMPLETE,
+	RUNTIME_CANARY_KNOWLEDGE_FAILURE_SOURCE_PATH,
+	RUNTIME_CANARY_KNOWLEDGE_PENDING_SOURCE_PATH,
+	RUNTIME_CANARY_KNOWLEDGE_SOURCE_PATH,
 	RUNTIME_CANARY_MCP_PROMPT,
 	RUNTIME_CANARY_MCP_RESULT,
 	RUNTIME_CANARY_MODEL_ID,
@@ -41,17 +46,22 @@ export async function startRuntimeCanaryProvider(rootDir: string): Promise<Runti
 		join(rootDir, "batch-source-two"),
 	];
 	const requestLogPath = join(rootDir, "provider-requests.ndjson");
+	const knowledgeRoot = join(vettaHome, "knowledges");
+	const knowledgeSourceContent = "Runtime Canary Knowledge Source";
+	const knowledgeSourceHash = createHash("sha256").update(knowledgeSourceContent).digest("hex");
 	const installedCliPath = join(agentDir, "bin", process.platform === "win32" ? "vetta.exe" : "vetta");
 	await Promise.all([
 		mkdir(agentDir, { recursive: true }),
 		mkdir(workspace, { recursive: true }),
+		mkdir(dirname(join(knowledgeRoot, "raws", RUNTIME_CANARY_KNOWLEDGE_SOURCE_PATH)), { recursive: true }),
 		...batchSourceDirectories.map((directory) => mkdir(directory, { recursive: true })),
 	]);
-	await Promise.all(
-		batchSourceDirectories.map((directory, index) =>
+	await Promise.all([
+		...batchSourceDirectories.map((directory, index) =>
 			writeFile(join(directory, "input.txt"), `Runtime Canary Batch Source ${index + 1}`),
 		),
-	);
+		writeFile(join(knowledgeRoot, "raws", RUNTIME_CANARY_KNOWLEDGE_SOURCE_PATH), knowledgeSourceContent),
+	]);
 
 	const server = createServer(async (request, response) => {
 		if (request.method !== "POST" || request.url !== "/responses") {
@@ -62,12 +72,52 @@ export async function startRuntimeCanaryProvider(rootDir: string): Promise<Runti
 			const rawBody = await readBody(request);
 			const body = providerRequestSchema.parse(JSON.parse(rawBody));
 			await writeFile(requestLogPath, `${rawBody}\n`, { flag: "a" });
+			const serializedInput = JSON.stringify(body.input);
 			const serializedLatestInput = JSON.stringify(body.input.at(-1));
 			if (
 				serializedLatestInput.includes(RUNTIME_CANARY_SCHEDULER_PROMPT) ||
 				serializedLatestInput.includes(RUNTIME_CANARY_BATCH_PROMPT)
 			) {
 				writePendingResponse(response);
+			} else if (serializedInput.includes(RUNTIME_CANARY_KNOWLEDGE_PENDING_SOURCE_PATH)) {
+				writePendingResponse(response);
+			} else if (serializedInput.includes(RUNTIME_CANARY_KNOWLEDGE_FAILURE_SOURCE_PATH)) {
+				response.writeHead(500, { "content-type": "text/plain" });
+				response.end("Runtime Canary Knowledge provider failure");
+			} else if (
+				serializedInput.includes(RUNTIME_CANARY_KNOWLEDGE_SOURCE_PATH) &&
+				serializedLatestInput.includes("Updated #1") &&
+				serializedLatestInput.includes("done")
+			) {
+				writeEvents(response, textResponseEvents(RUNTIME_CANARY_KNOWLEDGE_COMPLETE));
+			} else if (
+				serializedInput.includes(RUNTIME_CANARY_KNOWLEDGE_SOURCE_PATH) &&
+				serializedLatestInput.includes("kb_write_page create ok")
+			) {
+				writeEvents(
+					response,
+					toolCallResponseEvents("todo", {
+						description: "Complete the Runtime Canary knowledge item",
+						action: "update",
+						id: 1,
+						status: "done",
+					}),
+				);
+			} else if (serializedInput.includes(RUNTIME_CANARY_KNOWLEDGE_SOURCE_PATH)) {
+				writeEvents(
+					response,
+					toolCallResponseEvents("kb_write_page", {
+						description: "Write the Runtime Canary knowledge page",
+						path: "runtime-canary/page.md",
+						source: "runtime-canary",
+						source_path: RUNTIME_CANARY_KNOWLEDGE_SOURCE_PATH,
+						source_hash: knowledgeSourceHash,
+						tags: ["runtime-canary"],
+						title: "Runtime Canary Knowledge",
+						summary: "Knowledge processing through the real Desktop process.",
+						body: "# Runtime Canary Knowledge\n\nProcessed by the Greenfield Knowledge session.",
+					}),
+				);
 			} else if (serializedLatestInput.includes(RUNTIME_CANARY_QUESTION_PROMPT)) {
 				writeEvents(response, questionResponseEvents());
 			} else if (serializedLatestInput.includes(RUNTIME_CANARY_MCP_RESULT)) {
@@ -105,6 +155,8 @@ export async function startRuntimeCanaryProvider(rootDir: string): Promise<Runti
 		installedCliPath,
 		modelKey: RUNTIME_CANARY_MODEL_KEY,
 		batchSourceDirectories,
+		knowledgeRoot,
+		knowledgeSourceHash,
 	};
 	try {
 		await Promise.all([writeFixtureConfiguration(fixture), writeRuntimeCapabilities(fixture)]);
@@ -242,7 +294,14 @@ async function writeFixtureConfiguration(fixture: RuntimeCanaryFixture): Promise
 					defaultExecutionMode: "full-access",
 					agentMode: "coding",
 					experimental: { vettaCli: false, promptPrediction: false, agentSkills: false },
-					knowledgeBase: { enabled: false, pollIntervalMinutes: 0 },
+					knowledgeBase: {
+						enabled: true,
+						pollIntervalMinutes: 0,
+						processingModelKey: RUNTIME_CANARY_MODEL_KEY,
+						processingModelReasoningLevel: "medium",
+						agentConcurrency: 1,
+						ocrConcurrency: 1,
+					},
 					shortcuts: { bindings: {} },
 					quickPanel: { trigger: "none", postSendBehavior: "foreground" },
 					appshot: { enabled: false, gesture: "both-shift" },

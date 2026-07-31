@@ -45,7 +45,7 @@ import {
 } from "./ipc/index.js";
 import { syncQuickPanelTrigger } from "./ipc/quickpanel.js";
 import { registerKnowledgeIpc } from "./knowledge/ipc.js";
-import { reloadKnowledgePoller } from "./knowledge/poller.js";
+import { reloadKnowledgePoller, shutdownKnowledgePoller } from "./knowledge/poller.js";
 import { getLocalRpcServerEndpointFilePath } from "./local-rpc/endpoint-file.js";
 import { type DesktopLocalRpcServerHandle, startDesktopLocalRpcServer } from "./local-rpc/server.js";
 import { getAppLogger } from "./logger.js";
@@ -755,6 +755,10 @@ app.on("before-quit", async (event) => {
 	(app as typeof app & { isQuitting?: boolean }).isQuitting = true;
 	event.preventDefault();
 	beginSharedRuntimeShutdown();
+	// 先发起 Knowledge 中止，再等待本地 RPC 关闭。进行中的 `knowledge.manage`
+	// Action 会因 Session abort 自然结束，避免 server.close() 等待活动请求而与
+	// Knowledge shutdown 形成环形等待。
+	const knowledgeShutdown = shutdownKnowledgePoller();
 
 	if (teardownSchedulerIpc) {
 		teardownSchedulerIpc();
@@ -779,7 +783,11 @@ app.on("before-quit", async (event) => {
 	// 停掉插件工作台 dev 热更新的 vite watch 子进程，避免孤儿进程。
 	stopAllPluginDevWatches();
 
-	const consumerShutdownResults = await Promise.allSettled([shutdownScheduler(), shutdownBatchTaskExecutor()]);
+	const consumerShutdownResults = await Promise.allSettled([
+		shutdownScheduler(),
+		shutdownBatchTaskExecutor(),
+		knowledgeShutdown,
+	]);
 	for (const result of consumerShutdownResults) {
 		if (result.status === "rejected") {
 			mainLog.error("agent consumer shutdown failed", result.reason);

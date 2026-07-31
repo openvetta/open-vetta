@@ -3678,8 +3678,9 @@
     {
       "id": "cap.domain.vetta.knowledge.base.list",
       "inputSchema": {
+        "additionalProperties": false,
         "type": "object",
-        "additionalProperties": false
+        "properties": {}
       },
       "kind": "query",
       "layer": "domain",
@@ -3767,8 +3768,9 @@
     {
       "id": "cap.domain.vetta.knowledge.file-status.list",
       "inputSchema": {
+        "additionalProperties": false,
         "type": "object",
-        "additionalProperties": false
+        "properties": {}
       },
       "kind": "query",
       "layer": "domain",
@@ -3814,8 +3816,9 @@
     {
       "id": "cap.domain.vetta.knowledge.processing.status.get",
       "inputSchema": {
+        "additionalProperties": false,
         "type": "object",
-        "additionalProperties": false
+        "properties": {}
       },
       "kind": "query",
       "layer": "domain",
@@ -3827,8 +3830,9 @@
     {
       "id": "cap.domain.vetta.knowledge.processing.settings.get",
       "inputSchema": {
+        "additionalProperties": false,
         "type": "object",
-        "additionalProperties": false
+        "properties": {}
       },
       "kind": "query",
       "layer": "domain",
@@ -3986,8 +3990,9 @@
     {
       "id": "cap.domain.vetta.knowledge.processing.scan",
       "inputSchema": {
+        "additionalProperties": false,
         "type": "object",
-        "additionalProperties": false
+        "properties": {}
       },
       "kind": "command",
       "layer": "domain",
@@ -4012,8 +4017,9 @@
     {
       "id": "cap.domain.vetta.knowledge.processing.retry-failed",
       "inputSchema": {
+        "additionalProperties": false,
         "type": "object",
-        "additionalProperties": false
+        "properties": {}
       },
       "kind": "command",
       "layer": "domain",
