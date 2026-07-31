@@ -199,7 +199,7 @@ xcrun notarytool history --key "$APPLE_API_KEY" --key-id "$APPLE_API_KEY_ID" --i
 
 macOS 在 matrix 里是 `dist:mac:arm64` 与 `dist:mac:x64` 两个任务（内置的 node/python 运行时按 `VETTA_VENDOR_PLATFORM` 单架构落盘，一次构建出不了两套），两者各自签名公证并校验，产物元数据以 `latest-mac-<arch>.yml` 上传，由发布任务的 `merge:updates:mac` 合并回单一 `latest-mac.yml`。
 
-工作流会在 macOS runner 的临时目录还原 `.p12` 和 `.p8`，仅通过环境变量传给 electron-builder。Tag 发版如果完全没有或只配置了部分 Secrets 会直接失败，避免发布不可自动更新的未签名包；手动 `workflow_dispatch` 在完全没有 Secrets 时允许生成未签名测试包。凭据齐全时还会设置 `VETTA_REQUIRE_MAC_SIGNATURE=1`，构建后自动校验 ZIP 内应用的签名、Gatekeeper 接受状态和公证票据。
+工作流会在 macOS runner 的临时目录还原 `.p12` 和 `.p8`，仅通过环境变量传给 electron-builder。完全没有这些 Secrets 时，tag 和手动构建都允许生成未签名包；只配置一部分仍会直接失败，避免产出「签了名但没公证」的半成品。凭据齐全时会设置 `VETTA_REQUIRE_MAC_SIGNATURE=1`，构建后自动校验 ZIP 内应用的签名、Gatekeeper 接受状态和公证票据。正式启用签名后，发布负责人还应把“macOS 必须签名”设为发布策略，不能继续把未签名包当成最终交付物。
 
 ## 5. 验证
 
