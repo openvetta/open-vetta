@@ -12,7 +12,7 @@ import {
 	createCodingAgentMcpRuntimeToolSource,
 	createCodingAgentPluginMcpRuntime,
 } from "@vetta/coding-agent/runtime-host/greenfield";
-import type { GreenfieldRuntimeSession } from "@vetta/runtime-core";
+import type { GreenfieldRuntimeSession, RuntimeSessionCatalog } from "@vetta/runtime-core";
 import type { ManagedMcpRuntimeToolSource } from "@vetta/runtime-mcp";
 import {
 	FileConversationOwnershipManager,
@@ -25,6 +25,7 @@ import {
 } from "../greenfield-runtime-composition.js";
 import { resolveGreenfieldSessionIdFromPath } from "./greenfield-conversation-path.js";
 import { GreenfieldImRpcSessionAdapter } from "./greenfield-im-rpc-session-adapter.js";
+import { resolveGreenfieldImSessionPath } from "./greenfield-im-session-selection.js";
 
 export type GreenfieldImFallbackReason = "legacy-session" | "legacy-extension" | "unsupported-session-selection";
 
@@ -48,6 +49,7 @@ export type GreenfieldImRuntimeHostPreparation = GreenfieldImRuntimeHostFallback
 export interface PrepareGreenfieldImRuntimeHostOptions {
 	readonly bootstrap: CodingAgentHostBootstrap;
 	readonly conversationDir: string;
+	readonly sessionCatalog: RuntimeSessionCatalog;
 	readonly createSessionId?: () => string;
 	readonly ownership?: FileConversationOwnershipManagerOptions;
 	readonly createPluginRuntime?: (
@@ -78,7 +80,7 @@ export async function prepareGreenfieldImRuntimeHost(
 	const { parsed } = bootstrap;
 	assertGreenfieldImInvocation(bootstrap);
 
-	if (parsed.continue || parsed.resume) {
+	if (parsed.resume) {
 		return {
 			kind: "legacy-fallback",
 			reason: "unsupported-session-selection",
@@ -95,13 +97,20 @@ export async function prepareGreenfieldImRuntimeHost(
 		};
 	}
 
-	const sessionId = resolveSessionId(options.conversationDir, parsed.session, options.createSessionId ?? randomUUID);
+	const sessionPath = await resolveGreenfieldImSessionPath({
+		explicitSessionPath: parsed.session,
+		continueSession: parsed.continue === true,
+		cwd: bootstrap.cwd,
+		sessionDir: options.conversationDir,
+		sessionCatalog: options.sessionCatalog,
+	});
+	const sessionId = resolveSessionId(options.conversationDir, sessionPath, options.createSessionId ?? randomUUID);
 	if (!sessionId) {
 		return {
 			kind: "legacy-fallback",
 			reason: "legacy-session",
 			bootstrap,
-			sessionPath: parsed.session,
+			sessionPath,
 		};
 	}
 
@@ -150,7 +159,7 @@ export async function prepareGreenfieldImRuntimeHost(
 			memoryMode: parsed.memoryMode || parsed.memoryFile !== undefined,
 			memoryFile: parsed.memoryFile,
 		};
-		session = parsed.session
+		session = sessionPath
 			? await runtime.backend.resume(sessionOptions)
 			: await runtime.backend.create(sessionOptions);
 		const adapter = new GreenfieldImRpcSessionAdapter({ session, runtime });

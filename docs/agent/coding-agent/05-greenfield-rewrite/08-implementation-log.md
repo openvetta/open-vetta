@@ -134,6 +134,7 @@
 | [124-desktop-runtime-cutover-stabilization.md](./08-implementation-log/124-desktop-runtime-cutover-stabilization.md) | Desktop Runtime 进程决策、会话路由观察、Composition Root 拆分与 Legacy 兼容隔离 |
 | [125-legacy-responsibility-allowlist.md](./08-implementation-log/125-legacy-responsibility-allowlist.md) | 中性共享模型控制器、Desktop 三服务 Legacy 边界与生产依赖白名单 |
 | [126-legacy-format-execution-separation.md](./08-implementation-log/126-legacy-format-execution-separation.md) | Legacy JSONL 格式兼容与旧 Agent 执行兼容分离 |
+| [127-cli-format-neutral-continue-selection.md](./08-implementation-log/127-cli-format-neutral-continue-selection.md) | CLI 格式中立 `--continue` 选择、Greenfield 恢复与 Legacy 回退收缩 |
 
 ## 维护约定
 

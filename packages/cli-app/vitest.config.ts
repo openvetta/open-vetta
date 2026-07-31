@@ -20,6 +20,12 @@ export default defineConfig({
 					new URL("../coding-agent/src/adapters/runtime-core/greenfield.ts", import.meta.url),
 				),
 			},
+			{
+				find: "@vetta/coding-agent/runtime-host",
+				replacement: fileURLToPath(
+					new URL("../coding-agent/src/adapters/runtime-core/index.ts", import.meta.url),
+				),
+			},
 			// Stable public host surface (package exports "./host")
 			{
 				find: "@vetta/coding-agent/host",

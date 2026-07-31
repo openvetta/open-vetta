@@ -1,6 +1,7 @@
 import { createAgentCliBootstrap } from "@vetta/coding-agent/bootstrap";
 import { main as runLegacyAgent, runLegacyAgentWithBootstrap } from "@vetta/coding-agent/legacy/cli";
 import { ConversationOwnershipConflictError } from "@vetta/runtime-storage/conversation";
+import { createCliRuntimeSessionCatalog } from "./rpc/cli-session-format-compatibility.js";
 import {
 	type GreenfieldImFallbackReason,
 	prepareGreenfieldImRuntimeHost,
@@ -68,9 +69,10 @@ export async function runAgentRuntimeCli(
 	if (!conversationDir) {
 		throw new Error("Greenfield IM Runtime requires --session-dir");
 	}
+	const sessionCatalog = createCliRuntimeSessionCatalog({ cwd: bootstrap.cwd, sessionDir: conversationDir });
 
 	try {
-		const prepared = await prepareGreenfieldImRuntimeHost({ bootstrap, conversationDir });
+		const prepared = await prepareGreenfieldImRuntimeHost({ bootstrap, conversationDir, sessionCatalog });
 		if (prepared.kind === "legacy-fallback") {
 			const decision = {
 				requestedBackend: "greenfield-im",

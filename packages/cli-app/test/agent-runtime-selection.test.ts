@@ -92,6 +92,34 @@ describe("Agent Runtime selection", () => {
 			data: { sessionId, sessionFile },
 		});
 		await resumed.close();
+
+		const continued = await startRpc(fixture, ["--continue"]);
+		const continuedState = await continued.request("continued-state", "get_state");
+		expect(continuedState).toMatchObject({
+			id: "continued-state",
+			type: "response",
+			command: "get_state",
+			success: true,
+			data: { sessionId, sessionFile },
+		});
+		expect(continued.stderr).toContain("requested=greenfield-im effective=greenfield-im");
+		await continued.close();
+	});
+
+	it("creates a Greenfield conversation when continue has no previous session", async () => {
+		const fixture = await createFixture();
+		const continued = await startRpc(fixture, ["--continue"]);
+		const state = await continued.request("empty-continue-state", "get_state");
+		expect(state).toMatchObject({
+			id: "empty-continue-state",
+			type: "response",
+			command: "get_state",
+			success: true,
+			data: { sessionId: expect.any(String) },
+		});
+		expect(readSessionFile(state).endsWith(".conversation.jsonl")).toBe(true);
+		expect(continued.stderr).toContain("requested=greenfield-im effective=greenfield-im");
+		await continued.close();
 	});
 
 	it("preserves the startup lock-conflict wire contract", async () => {
@@ -129,6 +157,12 @@ describe("Agent Runtime selection", () => {
 				id: "legacy-session",
 				timestamp: new Date().toISOString(),
 				cwd: fixture.workspace,
+			})}\n${JSON.stringify({
+				type: "message",
+				id: "legacy-user",
+				parentId: null,
+				timestamp: new Date().toISOString(),
+				message: { role: "user", content: "legacy", timestamp: Date.now() },
 			})}\n`,
 			"utf8",
 		);
@@ -145,6 +179,18 @@ describe("Agent Runtime selection", () => {
 		await legacy.close();
 		expect(legacy.stderr).toContain("using Legacy runtime");
 		expect(legacy.stderr).toContain("fallback=legacy-session");
+
+		const continued = await startRpc(fixture, ["--continue"]);
+		const continuedState = await continued.request("legacy-continue-state", "get_state");
+		expect(continuedState).toMatchObject({
+			id: "legacy-continue-state",
+			type: "response",
+			command: "get_state",
+			success: true,
+			data: { sessionId: "legacy-session", sessionFile: legacySession },
+		});
+		await continued.close();
+		expect(continued.stderr).toContain("fallback=legacy-session");
 	});
 });
 

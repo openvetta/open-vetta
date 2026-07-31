@@ -2,8 +2,10 @@ import { mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type CodingAgentHostBootstrap, createCodingAgentHostBootstrap } from "@vetta/coding-agent";
+import type { RuntimeSessionCatalog } from "@vetta/runtime-core";
 import { CONVERSATION_STORAGE_ERROR_CODES } from "@vetta/runtime-storage/conversation";
 import { afterEach, describe, expect, it } from "vitest";
+import { createCliRuntimeSessionCatalog } from "../src/rpc/cli-session-format-compatibility.js";
 import {
 	type GreenfieldImRuntimeHostReady,
 	prepareGreenfieldImRuntimeHost,
@@ -26,6 +28,7 @@ describe("Greenfield IM Runtime Host", () => {
 		const result = await prepareGreenfieldImRuntimeHost({
 			bootstrap: fixture.bootstrap,
 			conversationDir: fixture.conversationDir,
+			sessionCatalog: fixture.sessionCatalog,
 		});
 
 		expect(result).toMatchObject({
@@ -40,6 +43,7 @@ describe("Greenfield IM Runtime Host", () => {
 		const fresh = await prepareGreenfieldImRuntimeHost({
 			bootstrap: fixture.bootstrap,
 			conversationDir: fixture.conversationDir,
+			sessionCatalog: fixture.sessionCatalog,
 			createSessionId: () => "im-session",
 		});
 		expect(fresh.kind).toBe("greenfield");
@@ -55,6 +59,7 @@ describe("Greenfield IM Runtime Host", () => {
 			prepareGreenfieldImRuntimeHost({
 				bootstrap: conflictingBootstrap,
 				conversationDir: fixture.conversationDir,
+				sessionCatalog: fixture.sessionCatalog,
 			}),
 		).rejects.toMatchObject({ code: CONVERSATION_STORAGE_ERROR_CODES.OWNERSHIP_CONFLICT });
 
@@ -66,6 +71,7 @@ describe("Greenfield IM Runtime Host", () => {
 		const resumed = await prepareGreenfieldImRuntimeHost({
 			bootstrap: resumedBootstrap,
 			conversationDir: fixture.conversationDir,
+			sessionCatalog: fixture.sessionCatalog,
 		});
 		expect(resumed.kind).toBe("greenfield");
 		if (resumed.kind !== "greenfield") throw new Error("Expected resumed Greenfield runtime");
@@ -80,8 +86,24 @@ describe("Greenfield IM Runtime Host", () => {
 			prepareGreenfieldImRuntimeHost({
 				bootstrap: fixture.bootstrap,
 				conversationDir: fixture.conversationDir,
+				sessionCatalog: fixture.sessionCatalog,
 			}),
 		).rejects.toThrow("Invalid Greenfield conversation path");
+	});
+
+	it("keeps interactive resume on the unsupported session-selection fallback", async () => {
+		const fixture = await createFixture(["--resume"]);
+
+		await expect(
+			prepareGreenfieldImRuntimeHost({
+				bootstrap: fixture.bootstrap,
+				conversationDir: fixture.conversationDir,
+				sessionCatalog: fixture.sessionCatalog,
+			}),
+		).resolves.toMatchObject({
+			kind: "legacy-fallback",
+			reason: "unsupported-session-selection",
+		});
 	});
 });
 
@@ -90,6 +112,7 @@ async function createFixture(extraArgs: string[]): Promise<{
 	readonly agentDir: string;
 	readonly workspace: string;
 	readonly conversationDir: string;
+	readonly sessionCatalog: RuntimeSessionCatalog;
 	readonly bootstrap: CodingAgentHostBootstrap;
 }> {
 	const root = await mkdtemp(join(tmpdir(), "vetta-greenfield-im-host-"));
@@ -125,7 +148,11 @@ async function createFixture(extraArgs: string[]): Promise<{
 		"utf8",
 	);
 	const bootstrap = await createBootstrap(fixture, extraArgs);
-	return { ...fixture, bootstrap };
+	const sessionCatalog = createCliRuntimeSessionCatalog({
+		cwd: fixture.workspace,
+		sessionDir: fixture.conversationDir,
+	});
+	return { ...fixture, sessionCatalog, bootstrap };
 }
 
 async function createBootstrap(

@@ -343,6 +343,7 @@ function checkCodingAgentLegacyBoundaries(posixPath, text, specifiers, findings)
 		"packages/desktop-app/src/main/greenfield-runtime/desktop-legacy-execution-compatibility.ts";
 	const desktopFormatCompatibility =
 		"packages/desktop-app/src/main/greenfield-runtime/desktop-legacy-session-format-compatibility.ts";
+	const cliFormatCompatibility = "packages/cli-app/src/rpc/cli-session-format-compatibility.ts";
 	const protectedSymbols = new Set([
 		"createLegacyRuntimeHostOptions",
 		"LegacyCodingAgentSessionBackend",
@@ -357,7 +358,8 @@ function checkCodingAgentLegacyBoundaries(posixPath, text, specifiers, findings)
 		const isAllowedDesktopFormat =
 			(symbol === "LegacyRuntimeSessionCatalog" || symbol === "LegacyRuntimeSessionFileHistoryReader") &&
 			posixPath === desktopFormatCompatibility;
-		if (isAllowedDesktopExecution || isAllowedDesktopFormat) continue;
+		const isAllowedCliFormat = symbol === "LegacyRuntimeSessionCatalog" && posixPath === cliFormatCompatibility;
+		if (isAllowedDesktopExecution || isAllowedDesktopFormat || isAllowedCliFormat) continue;
 		findings.push(`${posixPath}: Legacy Runtime adapter ${symbol} is outside the compatibility allowlist`);
 	}
 }

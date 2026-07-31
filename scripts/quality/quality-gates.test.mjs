@@ -324,6 +324,12 @@ describe("package boundary analysis", () => {
 		).toEqual([]);
 		expect(
 			findPackageBoundaryViolations(
+				"packages/cli-app/src/rpc/cli-session-format-compatibility.ts",
+				'import { LegacyRuntimeSessionCatalog } from "@vetta/coding-agent/runtime-host";',
+			),
+		).toEqual([]);
+		expect(
+			findPackageBoundaryViolations(
 				"packages/desktop-app/src/main/new-consumer.ts",
 				'import { LegacyCodingAgentSessionBackend } from "@vetta/coding-agent/runtime-host";',
 			),
@@ -337,6 +343,12 @@ describe("package boundary analysis", () => {
 		expect(
 			findPackageBoundaryViolations(
 				"packages/desktop-app/src/main/greenfield-runtime/desktop-legacy-session-format-compatibility.ts",
+				'import { LegacyCodingAgentSessionBackend } from "@vetta/coding-agent/runtime-host";',
+			),
+		).toHaveLength(1);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/cli-app/src/rpc/cli-session-format-compatibility.ts",
 				'import { LegacyCodingAgentSessionBackend } from "@vetta/coding-agent/runtime-host";',
 			),
 		).toHaveLength(1);
