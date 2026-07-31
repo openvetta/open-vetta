@@ -91,7 +91,9 @@ import {
 	type EcosystemHookAdapterFactory,
 	type HookConfigLayer,
 	isCodingAgentAskUserQuestionEnabled,
+	type KnowledgePageWriterPort,
 } from "../adapters/runtime-core/greenfield.js";
+import type { TodoLockSource } from "../core/todo-store.js";
 import { createKbFilterByTagsTool } from "../core/tools/kb-filter-by-tags/index.js";
 import { createKbListTagsTool } from "../core/tools/kb-list-tags/index.js";
 import { ConversationOwnershipBinding } from "./conversation-ownership-binding.js";
@@ -136,6 +138,10 @@ export interface GreenfieldRuntimeSessionOptions {
 	readonly forkContextMessages?: readonly Message[];
 	/** Workflow 子 Session 的初始 Todo。 */
 	readonly initialTodos?: readonly string[];
+	/** 产品组合创建初始 Todo 后施加的锁；不会暴露可写 TodoStore 给宿主。 */
+	readonly initialTodoLockSource?: TodoLockSource;
+	/** 产品会话自己的 Knowledge Writer；普通会话继续使用 Composition 默认实现。 */
+	readonly knowledgePageWriter?: KnowledgePageWriterPort;
 }
 
 export interface GreenfieldRuntimeCompositionOptions {
@@ -374,6 +380,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 				const productToolRegistrations = createCodingAgentGreenfieldProductToolRegistrations({
 					cwd: sessionCwd,
 					knowledgeRoot: options.knowledgeRoot,
+					knowledgePageWriter: sessionOptions.knowledgePageWriter,
 				});
 				const productToolFeature = createCodingAgentGreenfieldProductToolFeature({
 					registrations: productToolRegistrations,
@@ -439,6 +446,9 @@ async function createGreenfieldRuntimeCompositionInternal(
 				todoRuntimes.add(todoRuntime);
 				if (sessionOptions.initialTodos && sessionOptions.initialTodos.length > 0) {
 					todoRuntime.getTodoStore().createMany([...sessionOptions.initialTodos]);
+					if (sessionOptions.initialTodoLockSource) {
+						todoRuntime.getTodoStore().lock(sessionOptions.initialTodoLockSource);
+					}
 				}
 				const todoRegistration = createCodingAgentTodoRuntimeToolRegistration(todoRuntime);
 				const todoEnabled = selectCodingToolRegistrations([todoRegistration], effectiveActivation).length > 0;

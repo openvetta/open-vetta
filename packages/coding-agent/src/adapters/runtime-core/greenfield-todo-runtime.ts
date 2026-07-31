@@ -100,6 +100,9 @@ export class CodingAgentTodoRuntime implements GreenfieldRuntimeDocumentParticip
 		this.unsubscribe = this.store.subscribe(() => {
 			if (!this.restoring) this.captureSnapshot();
 		});
+		if (!snapshot && (this.store.getAll().length > 0 || this.store.isLocked())) {
+			this.captureSnapshot();
+		}
 	}
 
 	onDocumentChanged(document: ConversationDocument): void {

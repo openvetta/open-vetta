@@ -1,0 +1,165 @@
+import { randomUUID } from "node:crypto";
+import { join } from "node:path";
+import type { Api, Model } from "@vetta/ai";
+import type { SessionEvent } from "@vetta/runtime-core";
+import type { CodingAgentModelRegistrySource, KnowledgePageWriterPort } from "../adapters/runtime-core/greenfield.js";
+import { knowledgeRoot, wikiDir } from "../core/knowledge/store.js";
+import {
+	createGreenfieldRuntimeComposition,
+	type GreenfieldRuntimeComposition,
+	type GreenfieldRuntimeCompositionOptions,
+} from "./greenfield-runtime-composition.js";
+import type {
+	KnowledgeProcessingPageWriter,
+	KnowledgeProcessingSession,
+	KnowledgeProcessingSessionFactory,
+	KnowledgeProcessingSessionRequest,
+	KnowledgeProcessingUsage,
+} from "./legacy-knowledge-processing-session.js";
+
+export interface GreenfieldKnowledgeProcessingSessionFactoryOptions {
+	readonly getModelRegistry: () => CodingAgentModelRegistrySource;
+	readonly knowledgeRoot?: string;
+	readonly createSessionId?: () => string;
+	readonly createComposition?: (options: GreenfieldRuntimeCompositionOptions) => Promise<GreenfieldRuntimeComposition>;
+}
+
+/**
+ * 在 Knowledge Processing Port 后组合独占的 Greenfield Runtime。
+ *
+ * Writer 与 Todo 锁都停留在 Coding Agent 产品层；通用 RuntimeHost 无需认识
+ * Knowledge、KbWriteSession 或可写 TodoStore。
+ */
+export function createGreenfieldKnowledgeProcessingSessionFactory(
+	options: GreenfieldKnowledgeProcessingSessionFactoryOptions,
+): KnowledgeProcessingSessionFactory {
+	const createSessionId = options.createSessionId ?? randomUUID;
+	const createComposition = options.createComposition ?? createGreenfieldRuntimeComposition;
+	const resolvedKnowledgeRoot = knowledgeRoot(options.knowledgeRoot);
+
+	return {
+		async create(request) {
+			const modelRegistry = options.getModelRegistry();
+			modelRegistry.refresh();
+			const initialModel = readInitialModel(modelRegistry);
+			const composition = await createComposition({
+				conversationDir: request.sessionDir,
+				modelRegistry,
+				initialModel,
+				initialThinkingLevel: "off",
+				cwd: request.cwd,
+				scenario: "kb-processing",
+				knowledgeEnabled: true,
+				knowledgeRoot: resolvedKnowledgeRoot,
+				enableSubagents: false,
+			});
+			let runtimeSession: Awaited<ReturnType<GreenfieldRuntimeComposition["backend"]["create"]>>;
+			try {
+				runtimeSession = await composition.backend.create({
+					sessionId: createSessionId(),
+					cwd: request.cwd,
+					model: initialModel,
+					env: request.env,
+					enableBackgroundTasks: false,
+					systemPromptAddon: request.appendSystemPrompt,
+					initialTodos: request.todoItems,
+					initialTodoLockSource: request.todoItems.length > 0 ? "scene" : undefined,
+					knowledgePageWriter: adaptKnowledgePageWriter(request.writer, resolvedKnowledgeRoot),
+				});
+			} catch (error) {
+				await composition.dispose();
+				throw error;
+			}
+
+			return createKnowledgeProcessingSession(runtimeSession, composition, request, modelRegistry);
+		},
+	};
+}
+
+function createKnowledgeProcessingSession(
+	runtimeSession: Awaited<ReturnType<GreenfieldRuntimeComposition["backend"]["create"]>>,
+	composition: GreenfieldRuntimeComposition,
+	request: KnowledgeProcessingSessionRequest,
+	modelRegistry: CodingAgentModelRegistrySource,
+): KnowledgeProcessingSession {
+	let disposePromise: Promise<void> | undefined;
+	return {
+		async run(prompt) {
+			const modelKey = parseModelKey(request.modelKey);
+			if (modelKey) {
+				await modelRegistry.loadRemoteModels();
+				const model = modelRegistry.find(modelKey.provider, modelKey.modelId);
+				if (!model) {
+					throw new Error(`知识库加工模型未找到：${request.modelKey}（请在知识库设置里重新选择加工模型）`);
+				}
+			}
+			const result = await runtimeSession.prompt({
+				text: prompt,
+				modelKey: modelKey ? request.modelKey : undefined,
+				reasoning: modelKey ? request.reasoningLevel : undefined,
+			});
+			if (result.status === "failed") {
+				throw new Error(result.error.message);
+			}
+		},
+		abort: () => runtimeSession.abort(),
+		subscribeUsage: (listener) =>
+			runtimeSession.subscribe((event) => {
+				const usage = projectUsage(event);
+				if (usage) listener(usage);
+			}),
+		dispose() {
+			disposePromise ??= disposeRuntimeSession(runtimeSession, composition);
+			return disposePromise;
+		},
+	};
+}
+
+async function disposeRuntimeSession(
+	runtimeSession: Awaited<ReturnType<GreenfieldRuntimeComposition["backend"]["create"]>>,
+	composition: GreenfieldRuntimeComposition,
+): Promise<void> {
+	try {
+		await runtimeSession.dispose();
+	} finally {
+		await composition.dispose();
+	}
+}
+
+function readInitialModel(modelRegistry: CodingAgentModelRegistrySource): Model<Api> {
+	const model = modelRegistry.getAvailable()[0];
+	if (!model) {
+		throw new Error("Greenfield Knowledge Processing requires at least one available model");
+	}
+	return model;
+}
+
+function parseModelKey(modelKey: string): { readonly provider: string; readonly modelId: string } | undefined {
+	const slash = modelKey.indexOf("/");
+	if (slash <= 0) return undefined;
+	return {
+		provider: modelKey.slice(0, slash),
+		modelId: modelKey.slice(slash + 1),
+	};
+}
+
+function adaptKnowledgePageWriter(
+	writer: KnowledgeProcessingPageWriter,
+	resolvedKnowledgeRoot: string,
+): KnowledgePageWriterPort {
+	return {
+		write: (request, now) => writer.write(request, now),
+		resolveAbsolutePath: (relativeWikiPath) => join(wikiDir(resolvedKnowledgeRoot), relativeWikiPath),
+	};
+}
+
+function projectUsage(event: SessionEvent): KnowledgeProcessingUsage | undefined {
+	if (event.type !== "usage.update") return undefined;
+	return {
+		inputTokens: event.input,
+		outputTokens: event.output,
+		cacheReadTokens: event.cacheRead,
+		cacheWriteTokens: event.cacheWrite,
+		costTotal: event.costTotal,
+	};
+}

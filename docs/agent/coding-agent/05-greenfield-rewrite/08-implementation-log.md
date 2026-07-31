@@ -125,6 +125,7 @@
 | [115-composition-ownership-and-dependency-graph.md](./08-implementation-log/115-composition-ownership-and-dependency-graph.md) | Coding Agent Composition 所有权、兼容转发、分段构建与依赖声明守卫 |
 | [116-public-api-subpaths-and-root-consumer-guard.md](./08-implementation-log/116-public-api-subpaths-and-root-consumer-guard.md) | Coding Agent 公开子路径、仓库内消费者迁移与兼容根入口守卫 |
 | [117-legacy-boundaries-and-knowledge-processing-port.md](./08-implementation-log/117-legacy-boundaries-and-knowledge-processing-port.md) | Legacy/Compat 窄入口、Knowledge Processing Session Port 与生产根消费者归零 |
+| [118-greenfield-knowledge-processing-session.md](./08-implementation-log/118-greenfield-knowledge-processing-session.md) | Greenfield Knowledge Processing Factory、会话级 Writer、Todo 锁定与首次持久化 |
 
 ## 维护约定
 

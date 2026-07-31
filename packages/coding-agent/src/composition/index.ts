@@ -1,6 +1,10 @@
 export { ConversationOwnershipBinding } from "./conversation-ownership-binding.js";
 export { resolveGreenfieldSessionIdFromPath } from "./greenfield-conversation-path.js";
 export {
+	createGreenfieldKnowledgeProcessingSessionFactory,
+	type GreenfieldKnowledgeProcessingSessionFactoryOptions,
+} from "./greenfield-knowledge-processing-session.js";
+export {
 	createGreenfieldRuntimeComposition,
 	type GreenfieldCliSessionOptions,
 	type GreenfieldRuntimeComposition,

@@ -111,6 +111,40 @@ describe("Greenfield Todo Runtime composition", () => {
 		expect(requireTodoController(cleared).readItems()).toEqual([]);
 		await cleared.dispose();
 	});
+
+	it("persists prefilled scene-locked todos before the first turn", async () => {
+		const conversationDir = await mkdtemp(join(tmpdir(), "greenfield-prefilled-todo-"));
+		directories.push(conversationDir);
+		const composition = await createGreenfieldRuntimeComposition({
+			conversationDir,
+			modelRegistry: modelRegistry(),
+			initialModel: MODEL,
+			initialThinkingLevel: "off",
+			enableSubagents: false,
+			resolveSystemPromptOptions: () => ({ customPrompt: "Base prompt", scenario: "kb-processing" }),
+		});
+		compositions.push(composition);
+
+		const session = await composition.backend.create({
+			sessionId: "prefilled-todo-session",
+			initialTodos: ["first", "second"],
+			initialTodoLockSource: "scene",
+		});
+		expect(requireTodoController(session).readItems()).toEqual([
+			{ id: 1, content: "first", status: "pending" },
+			{ id: 2, content: "second", status: "pending" },
+		]);
+		expect(requireTodoController(session).clear()).toBe(false);
+		await session.dispose();
+
+		const resumed = await composition.backend.resume({ sessionId: "prefilled-todo-session" });
+		expect(requireTodoController(resumed).readItems()).toEqual([
+			{ id: 1, content: "first", status: "pending" },
+			{ id: 2, content: "second", status: "pending" },
+		]);
+		expect(requireTodoController(resumed).clear()).toBe(false);
+		await resumed.dispose();
+	});
 });
 
 function requireTodoController(session: GreenfieldRuntimeSession): RuntimeSessionTodoController {

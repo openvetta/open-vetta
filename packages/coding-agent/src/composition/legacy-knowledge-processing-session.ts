@@ -23,7 +23,7 @@ export interface KnowledgeProcessingSession {
 	run(prompt: string): Promise<void>;
 	abort(): Promise<void>;
 	subscribeUsage(listener: (usage: KnowledgeProcessingUsage) => void): () => void;
-	dispose(): void;
+	dispose(): Promise<void>;
 }
 
 export interface KnowledgeProcessingSessionRequest {
@@ -83,7 +83,7 @@ export function createLegacyKnowledgeProcessingSessionFactory(
 						const usage = readUsage(event.message);
 						if (usage) listener(usage);
 					}),
-				dispose: () => session.dispose(),
+				dispose: async () => session.dispose(),
 			};
 		},
 	};

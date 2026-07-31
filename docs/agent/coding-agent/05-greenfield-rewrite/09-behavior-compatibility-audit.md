@@ -1235,6 +1235,32 @@ CLI、Desktop、Runtime Tools 和 Runtime Storage 的生产源码现已没有精
 新增 Port、usage 投影和 export map 都是进程内已类型化边界，没有新的外部输入或持久化记录，因此没有新增
 TypeBox/Zod Schema。
 
+### 2.36 Greenfield Knowledge Processing 纵向实现
+
+第 118 轮在第 117 轮的稳定 Port 后实现 Greenfield Adapter，没有扩展通用 RuntimeHost。Coding Agent
+产品 Session Options 现在可以注入 `KnowledgePageWriterPort` 和初始 Todo 锁来源；产品工具注册优先使用
+会话 Writer，普通会话继续使用原 `knowledgeRoot` 默认实现。
+
+Knowledge Processing Adapter 为每个 Port Session 组合并持有一个 Greenfield Composition，使用
+`kb-processing` Profile、关闭后台任务和 Subagent，并在 Session 释放后同步释放 Composition。Poller
+传入的同一个轮级 `KbWriteSession` 不会被 Adapter 替换；会话包装只转发 `write()`，绝对 wiki 路径由
+Coding Agent Knowledge Store 解析。因此多个并发批仍共享 PageIndex 和串行提交边界。
+
+Todo 在 Composition 创建时按原顺序建立并以 `scene` 锁定。Todo Runtime 还会在 Document Participant
+初始化时捕获预填状态的首个快照，解决了“首个 Turn 没有 Todo mutation 时重开丢失初始 Todo/锁”的
+Greenfield 缺口。宿主仍只能读取和执行受锁保护的 clear，没有获得可写 Store。
+
+Greenfield Factory 的 `run()` 保留远程模型刷新、模型解析、选择和 reasoning；缺失模型继续使用原错误。
+稳定 `usage.update` 被投影到 Knowledge Processing usage，Turn failed 被转换为 rejection，abort 直接委托
+Session。Port 的 `dispose()` 变为可等待的幂等异步合同，Legacy Adapter 与 Desktop Poller 同步适配，避免
+Greenfield Repository、Tool Catalog 或 Hook 资源在后台批结束后遗留。
+
+真实 Tool Loop 已验证目标模型/reasoning、最终 `kb_write_page`、锁定 Todo 拒绝 clear、写页结果绝对路径、
+usage、缺失模型和释放；独立恢复合同验证首次 Turn 前关闭并重开仍保持 Todo 内容、顺序和锁。默认 Poller
+仍使用 Legacy Factory，因此本轮没有改变生产 Runtime、Tool/Prompt、批次规划、写页实现或持久格式。
+
+新增边界均为进程内 TypeScript 类型；Todo 持久数据继续使用既有 TypeBox Schema，不增加 Zod。
+
 ## 3. 已实施模块审计
 
 | 模块 | 当前状态 | 与旧行为的差距 | 切换结论 |
@@ -1251,7 +1277,7 @@ TypeBox/Zod Schema。
 | Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope、agent mode、explicit 激活和 requires/capabilities，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；产品工具按 Session cwd 创建，文档/OCR/progress 已由 Runtime Tools 原生拥有，模型顺序由通用 `modelOrder` 稳定物化；Desktop 与 CLI/RPC/IM 源码 Provider Frame 已精确差分，安装产物 `im-claw` Provider Frame 与有序 Tool Surface 也已验证 | 安装产物 Greenfield CLI 仍只支持 `im-claw`；默认 selector 尚未切换 | 模型调用级工具面与 Runtime-native 所有权已闭合；进入默认切换准备度审计 |
 | Composition Root 与依赖图 | 产品装配已归属 `@vetta/coding-agent/composition`；CLI/Desktop 直接消费；`runtime-composition` 无包装兼容转发；Runtime 子路径与旧根兼容面采用分段构建；manifest truth 和 forwarding-only 守卫已接入 | `runtime-tools`、`runtime-storage` 包根仍需为外部消费者保留 Coding Agent 兼容转发；默认 selector 仍是 Legacy | 产品所有权和 clean build 顺序已收口；兼容根入口只能在外部迁移窗口后删除 |
 | Coding Agent 公开 API | Bootstrap、Config、Knowledge、Profile、Resources、RPC 已有显式子路径；Legacy CLI/Host Service 与 Runtime 包根使用用途明确的迁移期入口；受治理生产源码的精确根入口消费者已归零 | Legacy/Compat 子路径仍转发具体实现，外部消费者迁移窗口尚未建立；根入口仍是已发布兼容面 | 仓库内依赖不再经过聚合根；兼容入口只能按各自迁移合同逐项删除 |
-| Knowledge Processing Session | Desktop Poller 已只依赖 `run/abort/subscribeUsage/dispose` Port；Legacy Adapter 保留共享 ModelRegistry、Todo 锁定、轮级共享写页、usage 和生命周期行为 | Greenfield RuntimeHost 尚不能表达 Todo 建立/锁定与跨 Session 共享写页索引 | Legacy 具体实现已隔离；完成同 Port 的 Greenfield 实现与差分前不切换 |
+| Knowledge Processing Session | Legacy/Greenfield Factory 均实现 `run/abort/subscribeUsage/dispose` Port；Greenfield 产品组合已支持会话级 Writer、Todo 初始化/锁定、首次快照、模型刷新、usage 与完整释放 | Desktop Poller 仍默认选择 Legacy；尚缺真实多批 Poller opt-in 和最终 wiki/processing record 差分 | Greenfield 候选纵向链路已闭合；完成显式 opt-in 批次差分前不切换默认值 |
 | `AgentSession` | 新状态机、活动 Turn 输入队列、无伪 user message 的 continue、显式 resume 与同 Turn 持久化身份重绑定已实现 | 尚缺旧外围能力的 Greenfield 实现 | 内核 Turn/恢复语义已具备；生产入口不可切换 |
 | Turn Pipeline | 固定阶段、模型调用请求—应答检查点、持久化压缩提交、跨 Conversation 续接及成功/失败 finalization、非持久化 observation、输入队列、continue、recovery、独立 Turn Model Binding 和 Session-local 运行期 Context 串行持久化已实现 | 完整生产 Composition Root 尚未接入 | 不可切换 |
 | `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环、动态 Model Call Frame、完整观察事件、输入队列、Context checkpoint 桥接和 Turn model binding 已接入真实 Greenfield Composition 与 RuntimeHost | 默认生产选择仍是 Legacy | 内核执行与候选宿主接线完成；等待整体默认切换门禁 |
@@ -1299,16 +1325,14 @@ side effects
 
 ## 5. 下一步
 
-生产根入口消费者已经归零，Knowledge Poller 也不再持有裸 AgentSession。下一阶段应完成
-Knowledge Processing Port 的 Greenfield 等价实现，但不能通过扩大通用 RuntimeHost 为业务对象容器：
+Knowledge Processing Port 的 Greenfield 实现、会话级共享 Writer 转发、Todo 锁定/首次快照、模型刷新、
+usage 和释放已经闭合。下一阶段应进入真实 Poller opt-in，而不是继续扩充 Runtime Core：
 
-1. 为每个 Knowledge Processing Session 注入同一轮级 `KnowledgeProcessingPageWriter`，让多个并发批共享
-   PageIndex 和串行提交边界。
-2. 在 Greenfield Session-local Todo Runtime 中提供产品组合所需的初始化与锁定能力，但只由 Composition
-   创建时使用，不把可写 Todo Store 暴露给 Desktop。
-3. 用同一批次 fixture 差分 Legacy/Greenfield 的模型选择顺序、Todo、最终 Provider Tool、写页结果、usage、
-   abort 和 dispose；差分归零后才允许 Poller selector 选择 Greenfield。
-4. 继续保留默认 Legacy、根入口和 Runtime 包兼容转发；默认 selector 与外部弃用窗口仍是后续独立决策。
+1. 增加显式 Knowledge Processing Runtime selector，默认值继续为 Legacy。
+2. 用同一 raws diff、轮级 Writer 和确定性 Provider 比较 Legacy/Greenfield 的最终 wiki、processing record、
+   usage、错误与中止收尾。
+3. 在多个并发批下验证 Writer 共享、PageIndex 串行提交和全部 Session 后的 Composition/Repository 清理。
+4. 批次差分归零后，再将默认值切换作为独立决策；根入口与 Runtime 包兼容转发继续遵守外部迁移窗口。
 
 TypeBox/Zod 只用于外部 RPC、配置和持久化反序列化边界；生产 Profile 比较使用已经类型化的 Model Call
 Frame 与 Session 合同，不为内部对象重复增加 Schema。

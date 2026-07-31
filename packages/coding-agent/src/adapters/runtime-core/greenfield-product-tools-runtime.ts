@@ -17,6 +17,7 @@ import { createCodingAgentDesktopCommandHost } from "./greenfield-desktop-comman
 import {
 	createCodingAgentKnowledgePageWriter,
 	createCodingAgentKnowledgeWriteRegistration,
+	type KnowledgePageWriterPort,
 } from "./greenfield-knowledge-write-runtime.js";
 import { CODING_AGENT_MODEL_TOOL_ORDER } from "./greenfield-model-tool-order.js";
 import type { CodingAgentRuntimeToolRegistration } from "./greenfield-tool-adapter.js";
@@ -24,6 +25,7 @@ import type { CodingAgentRuntimeToolRegistration } from "./greenfield-tool-adapt
 export interface CodingAgentGreenfieldProductToolOptions {
 	readonly cwd: string;
 	readonly knowledgeRoot?: string;
+	readonly knowledgePageWriter?: KnowledgePageWriterPort;
 }
 
 export interface CodingAgentGreenfieldProductToolFeatureOptions {
@@ -80,7 +82,7 @@ export function createCodingAgentGreenfieldProductToolRegistrations(
 			modelOrder: CODING_AGENT_MODEL_TOOL_ORDER.progress,
 		}),
 		createCodingAgentKnowledgeWriteRegistration({
-			writer: createCodingAgentKnowledgePageWriter(options.knowledgeRoot),
+			writer: options.knowledgePageWriter ?? createCodingAgentKnowledgePageWriter(options.knowledgeRoot),
 			modelOrder: CODING_AGENT_MODEL_TOOL_ORDER.knowledgeWrite,
 		}),
 	];

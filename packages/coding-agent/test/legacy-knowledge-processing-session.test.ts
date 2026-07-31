@@ -149,7 +149,7 @@ describe("Legacy knowledge processing session adapter", () => {
 
 		unsubscribeUsage();
 		await session.abort();
-		session.dispose();
+		await session.dispose();
 		expect(fixture.abort).toHaveBeenCalledOnce();
 		expect(fixture.dispose).toHaveBeenCalledOnce();
 		expect(fixture.listeners).toHaveLength(0);

@@ -256,7 +256,7 @@ async function runProcessingBatch(
 	} finally {
 		unsubscribeUsage();
 		round.sessions.delete(session);
-		session.dispose();
+		await session.dispose();
 	}
 }
 
