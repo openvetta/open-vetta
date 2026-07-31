@@ -97,7 +97,9 @@ import {
 	isCodingAgentAskUserQuestionEnabled,
 	type KnowledgePageWriterPort,
 } from "../adapters/runtime-core/greenfield.js";
+import { CodingAgentGreenfieldExtensionToolRuntime } from "../adapters/runtime-core/greenfield-extension-tool-runtime.js";
 import type { ExtensionRunner } from "../core/extensions/runner.js";
+import type { Extension } from "../core/extensions/types.js";
 import type { TodoLockSource } from "../core/todo-store.js";
 import { createKbFilterByTagsTool } from "../core/tools/kb-filter-by-tags/index.js";
 import { createKbListTagsTool } from "../core/tools/kb-list-tags/index.js";
@@ -192,6 +194,8 @@ export interface GreenfieldRuntimeCompositionOptions {
 	readonly createPluginRuntime?: (
 		sessionOptions: GreenfieldRuntimeSessionOptions,
 	) => CodingAgentPluginRuntimeSource | undefined;
+	/** 已由宿主加载的 Extension Tool 注册；只在 Coding Agent 调用级 Frame 中物化。 */
+	readonly extensionTools?: readonly Extension[];
 	/** 为每个 Session 创建仅承载插件动态 Server 的 MCP Runtime；不得复用共享文件 MCP Source。 */
 	readonly createPluginMcpRuntime?: (context: {
 		readonly cwd: string;
@@ -251,6 +255,10 @@ async function createGreenfieldRuntimeCompositionInternal(
 ): Promise<GreenfieldRuntimeComposition> {
 	const cwd = options.cwd ?? process.cwd();
 	const scenario = options.scenario ?? "cli";
+	const configuredExtensionToolRuntime = options.extensionTools
+		? new CodingAgentGreenfieldExtensionToolRuntime(options.extensionTools)
+		: undefined;
+	const extensionToolRuntime = configuredExtensionToolRuntime?.hasTools() ? configuredExtensionToolRuntime : undefined;
 	if ((options.promptResourceSource === undefined) !== (options.promptSettingsSource === undefined)) {
 		throw new Error("promptResourceSource and promptSettingsSource must be provided together");
 	}
@@ -569,6 +577,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 					const {
 						mcpSource: _mcpSource,
 						createPluginMcpRuntime: _createPluginMcpRuntime,
+						extensionTools: _extensionTools,
 						...childCompositionOptions
 					} = options;
 					const childComposition = await createGreenfieldRuntimeCompositionInternal(
@@ -724,7 +733,9 @@ async function createGreenfieldRuntimeCompositionInternal(
 								readAgentPlugins: () => configurationState.readAgentPlugins(),
 								invokeTool: pluginRuntime.invokeTool,
 								runOrchestrator: pluginRunOrchestrator,
-								shouldPreserveBaseTool: (toolName) => mcpController?.isManagedTool(toolName) === true,
+								shouldPreserveBaseTool: (toolName) =>
+									mcpController?.isManagedTool(toolName) === true ||
+									extensionToolRuntime?.hasTool(toolName) === true,
 								resolveActivation: (context) =>
 									toPluginToolActivation(
 										resolveTurnToolActivation(
@@ -805,6 +816,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 							: []),
 						...(subagentRuntime ? subagentRuntime.readTools().map((tool) => [tool.name, tool] as const) : []),
 						...(invokeSkillFeature ? [[invokeSkillFeature.tool.name, invokeSkillFeature.tool] as const] : []),
+						...(extensionToolRuntime?.readAvailableTools() ?? []),
 					]);
 				const modelCallFrameComposer = new CodingAgentModelCallFrameComposer({
 					readMcpPromptState: mcpController ? () => mcpController.readPromptState() : undefined,
@@ -818,6 +830,17 @@ async function createGreenfieldRuntimeCompositionInternal(
 					systemPromptAdvertisedToolNames: options.systemPromptAdvertisedToolNames,
 					hookRuntime,
 					extensionEvents,
+					extensionToolRuntime,
+					resolveExtensionToolActivation: (context) =>
+						resolveTurnToolActivation(
+							effectiveActivation,
+							context,
+							{
+								backgroundTasksAvailable,
+								knowledgeAvailable,
+							},
+							configurationState.readAgentMode(),
+						),
 					resolveSystemPromptOptions: async (context) => {
 						const promptOptions = await resolveSystemPromptOptions(context);
 						return {
@@ -932,13 +955,18 @@ async function createGreenfieldRuntimeCompositionInternal(
 							const override = configurationState.readActiveToolNamesOverride();
 							return override
 								? override.filter((toolName) => readAvailableTools().has(toolName))
-								: readActiveToolNames(
-										tools,
-										withAgentMode(stateActivation, configurationState.readAgentMode()),
-										knowledgeAvailable,
-										effectiveActivation,
-										mcpController,
-									);
+								: [
+										...readActiveToolNames(
+											tools,
+											withAgentMode(stateActivation, configurationState.readAgentMode()),
+											knowledgeAvailable,
+											effectiveActivation,
+											mcpController,
+										),
+										...(extensionToolRuntime?.readActiveToolNames(
+											withAgentMode(stateActivation, configurationState.readAgentMode()),
+										) ?? []),
+									];
 						},
 						readAvailableTools,
 						setActiveToolNames: (toolNames) => {
@@ -1000,6 +1028,9 @@ async function createGreenfieldRuntimeCompositionInternal(
 								})
 									? [CODING_AGENT_ASK_USER_QUESTION_TOOL_NAME]
 									: []),
+								...(extensionToolRuntime?.readActiveToolNames(
+									withAgentMode(stateActivation, configurationState.readAgentMode()),
+								) ?? []),
 							];
 							const contextWindow = modelRuntime.readCurrentModel().contextWindow;
 							const contextUsage = contextRuntime.readUsage(contextWindow);
@@ -1053,6 +1084,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 							extensionEventBridges.delete(previousSessionId);
 							extensionEventBridges.set(result.sessionId, extensionEvents);
 						}
+						extensionToolRuntime?.rebindSession(previousSessionId, result.sessionId);
 					},
 					async dispose() {
 						try {
@@ -1176,10 +1208,14 @@ async function createGreenfieldRuntimeCompositionInternal(
 		bindExtensionRunner(sessionId, runner) {
 			const bridge = extensionEventBridges.get(sessionId);
 			if (!bridge) throw new Error(`Greenfield Extension event bridge not found: ${sessionId}`);
-			const unbind = bridge.bind(runner);
+			const unbindEvents = bridge.bind(runner);
+			const unbindTools = extensionToolRuntime?.bindRunner(sessionId, runner);
 			return {
 				readSystemPrompt: () => bridge.readSystemPrompt(),
-				dispose: unbind,
+				dispose() {
+					unbindTools?.();
+					unbindEvents();
+				},
 			};
 		},
 		appendSessionContext(sessionId, records) {

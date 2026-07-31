@@ -2,9 +2,13 @@ export type {
 	CodingAgentExtensionBootstrapContributions,
 	CodingAgentExtensionCompatibilityAssessment,
 	CodingAgentExtensionRegistrationSummary,
+	CodingAgentGreenfieldExtensionHostCapabilities,
 	CodingAgentLegacyExtensionRuntimeCapability,
 } from "../host/coding-agent-extension-compatibility.js";
-export { resolveCodingAgentGreenfieldExtensionCompatibility } from "../host/coding-agent-extension-compatibility.js";
+export {
+	CODING_AGENT_GREENFIELD_EXTENSION_EVENTS,
+	resolveCodingAgentGreenfieldExtensionCompatibility,
+} from "../host/coding-agent-extension-compatibility.js";
 export {
 	type CodingAgentHostBootstrap,
 	type CodingAgentHostBootstrapDiagnostics,

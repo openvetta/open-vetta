@@ -117,6 +117,46 @@ describe("Agent Runtime Provider differential", () => {
 		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	});
 
+	it("preserves Extension Tool schema, execution context, progress and Tool Loop result", async () => {
+		const observations = await runForBackends(
+			async ({ process, server, fixture }) => {
+				const mark = process.mark();
+				await process.request("prompt-extension-tool", "prompt", { message: "Run extension_echo with hello" });
+				await process.waitFor((frame) => frame.type === "agent_end", mark);
+
+				expect(server.requests).toHaveLength(2);
+				const firstRequest = server.requests[0];
+				const secondRequest = server.requests[1];
+				if (!firstRequest || !secondRequest) throw new Error("Expected two Provider requests");
+				const frames = process.framesSince(mark);
+				return {
+					firstProviderRequest: observableProviderRequest(firstRequest.body, fixture),
+					secondProviderInput: normalizeProviderValue(secondRequest.body.input, fixture),
+					frames: observeFrames(frames),
+					progressEventCount: frames.filter(({ type }) => type === "tool_execution_update").length,
+				};
+			},
+			(_request, index) =>
+				index === 0
+					? { kind: "events", events: toolCallResponseEvents("extension_echo", { value: "hello" }) }
+					: { kind: "events", events: textResponseEvents("Extension Tool completed.") },
+			async (fixture) => ({
+				extraArgs: ["--extension", await writeToolDifferentialExtension(fixture)],
+			}),
+		);
+
+		expect(providerToolNames(observations.legacy.firstProviderRequest)).toContain("extension_echo");
+		expect(JSON.stringify(observations.legacy.secondProviderInput)).toContain("extension-result:hello");
+		expect(observations.legacy).toMatchObject({
+			frames: {
+				finalText: "Extension Tool completed.",
+				tools: [{ name: "extension_echo", isError: false }],
+			},
+			progressEventCount: 1,
+		});
+		expect(observations["greenfield-im"]).toEqual(observations.legacy);
+	}, 30_000);
+
 	it("preserves in-flight abort behavior and closes the Provider request", async () => {
 		const observations = await runForBackends(
 			async ({ process, server }) => {
@@ -684,6 +724,46 @@ async function writeContextDifferentialExtension(fixture: AgentRpcFixture): Prom
 						},
 					],
 				};
+			});
+		}`,
+		"utf8",
+	);
+	return path;
+}
+
+async function writeToolDifferentialExtension(fixture: AgentRpcFixture): Promise<string> {
+	const path = join(fixture.root, "tool-differential-extension.ts");
+	await writeFile(
+		path,
+		`export default function(extension) {
+			extension.registerTool({
+				name: "extension_echo",
+				label: "Extension Echo",
+				description: "Echo a value through the Extension runtime context.",
+				parameters: {
+					type: "object",
+					properties: { value: { type: "string" } },
+					required: ["value"],
+					additionalProperties: false,
+				},
+				async execute(_toolCallId, params, _signal, onUpdate, context) {
+					onUpdate?.({
+						content: [{ type: "text", text: "extension-progress:" + params.value }],
+						details: { phase: "progress" },
+					});
+					return {
+						content: [{
+							type: "text",
+							text: [
+								"extension-result:" + params.value,
+								"cwd:" + context.cwd,
+								"model:" + (context.model?.id ?? "none"),
+								"idle:" + context.isIdle(),
+							].join("|"),
+						}],
+						details: { source: "extension" },
+					};
+				},
 			});
 		}`,
 		"utf8",

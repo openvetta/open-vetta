@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { extname } from "node:path";
 import {
+	CODING_AGENT_GREENFIELD_EXTENSION_EVENTS,
 	type CodingAgentExtensionCompatibilityAssessment,
 	type CodingAgentHostBootstrap,
 	type CodingAgentHostBootstrapOptions,
@@ -92,7 +93,11 @@ export async function prepareGreenfieldImRuntimeHost(
 			sessionPath: parsed.session,
 		};
 	}
-	const extensionCompatibility = resolveCodingAgentGreenfieldExtensionCompatibility(bootstrap.extensionCompatibility);
+	const extensionCompatibility = resolveCodingAgentGreenfieldExtensionCompatibility(bootstrap.extensionCompatibility, {
+		actions: true,
+		events: CODING_AGENT_GREENFIELD_EXTENSION_EVENTS,
+		tools: true,
+	});
 	if (extensionCompatibility.requiresLegacyRuntime) {
 		return {
 			kind: "legacy-fallback",
@@ -158,6 +163,7 @@ export async function prepareGreenfieldImRuntimeHost(
 			promptSettingsSource: bootstrap.settingsManager,
 			resolveCompactionSettings: () => bootstrap.settingsManager.getCompactionSettings(),
 			createPluginRuntime: options.createPluginRuntime,
+			extensionTools: bootstrap.extensionsResult.extensions,
 			createPluginMcpRuntime: ({ agentDir }) => createCodingAgentPluginMcpRuntime({ agentDir, debug: mcpDebug }),
 			conversationOwnershipManager: new FileConversationOwnershipManager(options.ownership),
 		});

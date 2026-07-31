@@ -41,6 +41,15 @@ export interface CodingAgentExtensionCompatibilityAssessment {
 	readonly requiresLegacyRuntime: boolean;
 }
 
+export interface CodingAgentGreenfieldExtensionHostCapabilities {
+	readonly actions: boolean;
+	readonly events: readonly string[];
+	readonly tools?: boolean;
+	readonly commands?: boolean;
+	readonly shortcuts?: boolean;
+	readonly messageRenderers?: boolean;
+}
+
 interface AssessCodingAgentExtensionCompatibilityInput {
 	readonly extensions: readonly CodingAgentLoadedExtensionRegistrations[];
 	readonly pendingProviderNames: readonly string[];
@@ -123,16 +132,20 @@ export function assessCodingAgentExtensionCompatibility(
  */
 export function resolveCodingAgentGreenfieldExtensionCompatibility(
 	assessment: CodingAgentExtensionCompatibilityAssessment,
-	supportedEvents: readonly string[] = CODING_AGENT_GREENFIELD_EXTENSION_EVENTS,
+	capabilities: CodingAgentGreenfieldExtensionHostCapabilities,
 ): CodingAgentExtensionCompatibilityAssessment {
-	const supported = new Set(supportedEvents);
+	const supported = new Set(capabilities.events);
 	const unsupportedEvents = sortedUnique(
 		assessment.registrations.flatMap((registration) => registration.events.filter((event) => !supported.has(event))),
 	);
-	const unmetRuntimeCapabilities = assessment.unmetRuntimeCapabilities.filter(
-		(capability) =>
-			capability !== "opaque-runtime-api" && (capability !== "event-handler" || unsupportedEvents.length > 0),
-	);
+	const unmetRuntimeCapabilities = assessment.unmetRuntimeCapabilities.filter((capability) => {
+		if (capability === "opaque-runtime-api") return !capabilities.actions;
+		if (capability === "event-handler") return unsupportedEvents.length > 0;
+		if (capability === "tool") return capabilities.tools !== true;
+		if (capability === "command") return capabilities.commands !== true;
+		if (capability === "shortcut") return capabilities.shortcuts !== true;
+		return capabilities.messageRenderers !== true;
+	});
 	return {
 		...assessment,
 		unmetRuntimeCapabilities,

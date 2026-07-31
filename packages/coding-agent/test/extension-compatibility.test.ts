@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
 	assessCodingAgentExtensionCompatibility,
+	CODING_AGENT_GREENFIELD_EXTENSION_EVENTS,
 	resolveCodingAgentGreenfieldExtensionCompatibility,
 } from "../src/host/coding-agent-extension-compatibility.js";
+
+const GREENFIELD_EXTENSION_HOST_CAPABILITIES = {
+	actions: true,
+	events: CODING_AGENT_GREENFIELD_EXTENSION_EVENTS,
+} as const;
 
 describe("Coding Agent Extension compatibility assessment", () => {
 	it("reports no runtime requirement when no Extension is loaded", () => {
@@ -126,7 +132,9 @@ describe("Coding Agent Extension compatibility assessment", () => {
 		});
 		expect(assessment.requiredRuntimeCapabilities).toEqual(["opaque-runtime-api"]);
 		expect(assessment.requiresLegacyRuntime).toBe(true);
-		expect(resolveCodingAgentGreenfieldExtensionCompatibility(assessment)).toMatchObject({
+		expect(
+			resolveCodingAgentGreenfieldExtensionCompatibility(assessment, GREENFIELD_EXTENSION_HOST_CAPABILITIES),
+		).toMatchObject({
 			requiredRuntimeCapabilities: ["opaque-runtime-api"],
 			unmetRuntimeCapabilities: [],
 			unsupportedEvents: [],
@@ -168,7 +176,9 @@ describe("Coding Agent Extension compatibility assessment", () => {
 			pendingProviderNames: [],
 		});
 
-		expect(resolveCodingAgentGreenfieldExtensionCompatibility(assessment)).toMatchObject({
+		expect(
+			resolveCodingAgentGreenfieldExtensionCompatibility(assessment, GREENFIELD_EXTENSION_HOST_CAPABILITIES),
+		).toMatchObject({
 			unmetRuntimeCapabilities: [],
 			unsupportedEvents: [],
 			requiresLegacyRuntime: false,
@@ -196,10 +206,39 @@ describe("Coding Agent Extension compatibility assessment", () => {
 			pendingProviderNames: [],
 		});
 
-		expect(resolveCodingAgentGreenfieldExtensionCompatibility(assessment)).toMatchObject({
+		expect(
+			resolveCodingAgentGreenfieldExtensionCompatibility(assessment, GREENFIELD_EXTENSION_HOST_CAPABILITIES),
+		).toMatchObject({
 			unmetRuntimeCapabilities: [],
 			unsupportedEvents: [],
 			requiresLegacyRuntime: false,
+		});
+	});
+
+	it("only closes the Extension Tool capability when the host installs the tool runtime", () => {
+		const assessment = assessCodingAgentExtensionCompatibility({
+			extensions: [
+				{
+					path: "tool-extension.ts",
+					handlers: new Map(),
+					tools: new Map([["extension_echo", {}]]),
+					commands: new Map([["echo", {}]]),
+					shortcuts: new Map(),
+					flags: new Map(),
+					messageRenderers: new Map(),
+				},
+			],
+			pendingProviderNames: [],
+		});
+
+		expect(
+			resolveCodingAgentGreenfieldExtensionCompatibility(assessment, {
+				...GREENFIELD_EXTENSION_HOST_CAPABILITIES,
+				tools: true,
+			}),
+		).toMatchObject({
+			unmetRuntimeCapabilities: ["command"],
+			requiresLegacyRuntime: true,
 		});
 	});
 });

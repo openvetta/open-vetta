@@ -50,13 +50,12 @@ export function adaptCodingAgentToolRegistration<TParameters extends TSchema, TD
 		requires: tool.requires,
 		agentModes: tool.agent_mode,
 		modelOrder: options.modelOrder,
-		category: isToolCategory(tool.category) ? tool.category : "external",
+		category: resolveCodingAgentRuntimeToolCategory(tool.category),
 	};
 }
 
-function isToolCategory(value: string | undefined): value is ToolCategory {
-	return (
-		value === "core" ||
+export function resolveCodingAgentRuntimeToolCategory(value: string | undefined): ToolCategory {
+	return value === "core" ||
 		value === "doc" ||
 		value === "kb-write" ||
 		value === "kb-read" ||
@@ -65,5 +64,6 @@ function isToolCategory(value: string | undefined): value is ToolCategory {
 		value === "im" ||
 		value === "memory" ||
 		value === "external"
-	);
+		? value
+		: "external";
 }

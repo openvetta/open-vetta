@@ -178,6 +178,47 @@ describe("Greenfield IM Runtime Host", () => {
 		expect(result.session.createCoreAssembly).toThrow();
 	});
 
+	it("runs Tool-only Extensions on Greenfield without closing unrelated compatibility gaps", async () => {
+		const fixture = await createFixture(
+			[],
+			`
+				export default function(pi) {
+					pi.registerTool({
+						name: "extension_echo",
+						label: "Extension Echo",
+						description: "Echo a value.",
+						parameters: {
+							type: "object",
+							properties: { value: { type: "string" } },
+							required: ["value"],
+						},
+						async execute(_id, params) {
+							return { content: [{ type: "text", text: params.value }], details: {} };
+						},
+					});
+				}
+			`,
+		);
+		expect(fixture.bootstrap.extensionCompatibility).toMatchObject({
+			requiredRuntimeCapabilities: ["opaque-runtime-api", "tool"],
+			requiresLegacyRuntime: true,
+		});
+
+		const result = await prepareGreenfieldImRuntimeHost({
+			bootstrap: fixture.bootstrap,
+			conversationDir: fixture.conversationDir,
+			sessionCatalog: fixture.sessionCatalog,
+			createSessionId: () => "extension-tool-session",
+		});
+		expect(result.kind).toBe("greenfield");
+		if (result.kind !== "greenfield") throw new Error("Expected Greenfield runtime");
+		preparedHosts.push(result);
+
+		expect(result.session.createCoreAssembly().corePorts.stateReader.readState()).toMatchObject({
+			activeToolNames: expect.arrayContaining(["extension_echo"]),
+		});
+	});
+
 	it("runs supported input events with a real Greenfield session context", async () => {
 		const fixture = await createFixture(
 			[],

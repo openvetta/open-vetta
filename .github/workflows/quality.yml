@@ -28,3 +28,6 @@ jobs:
 
       - name: Test quality scripts
         run: bun run test:quality
+
+      - name: Verify runtime cutover
+        run: bun run verify:runtime-cutover

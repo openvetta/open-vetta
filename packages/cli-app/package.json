@@ -15,7 +15,8 @@
 		"build": "tsgo -p tsconfig.build.json",
 		"typecheck": "tsgo --noEmit -p tsconfig.json",
 		"test": "bunx vitest --run",
-		"verify:artifact:installed": "bunx vitest --run test/installed-artifact-runtime.test.ts"
+		"verify:artifact:installed": "bunx vitest --run test/installed-artifact-runtime.test.ts",
+		"verify:runtime-cutover": "bunx vitest --run test/agent-runtime-provider-differential.test.ts test/greenfield-im-runtime-host.test.ts"
 	},
 	"dependencies": {
 		"@vetta/action-rpc": "workspace:*",

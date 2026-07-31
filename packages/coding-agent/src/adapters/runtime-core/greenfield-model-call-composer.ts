@@ -6,6 +6,7 @@ import type {
 	ModelCallFrameCompositionContext,
 	RuntimeToolDefinition,
 } from "@vetta/runtime-core/kernel";
+import type { CodingToolActivation } from "@vetta/runtime-tools/coding";
 import {
 	type BuildSystemPromptOptions,
 	buildSystemPromptDraft,
@@ -13,6 +14,7 @@ import {
 	type SystemPromptDraft,
 } from "../../core/system-prompt.js";
 import type { CodingAgentGreenfieldExtensionEventBridge } from "./greenfield-extension-event-bridge.js";
+import type { CodingAgentGreenfieldExtensionToolRuntime } from "./greenfield-extension-tool-runtime.js";
 import { wrapRuntimeToolsWithEcosystemHooks } from "./greenfield-hook-tool-wrapper.js";
 import type { CodingAgentPluginMcpRuntime } from "./greenfield-plugin-mcp-runtime.js";
 import type { CodingAgentPluginRunOrchestrator } from "./greenfield-plugin-run-orchestrator.js";
@@ -42,6 +44,8 @@ export interface CodingAgentModelCallFrameComposerOptions {
 	readonly systemPromptAdvertisedToolNames?: readonly string[];
 	readonly hookRuntime?: EcosystemHookRuntime;
 	readonly extensionEvents?: Pick<CodingAgentGreenfieldExtensionEventBridge, "recordSystemPrompt" | "wrapTools">;
+	readonly extensionToolRuntime?: CodingAgentGreenfieldExtensionToolRuntime;
+	readonly resolveExtensionToolActivation?: (context: ModelCallFrameCompositionContext) => CodingToolActivation;
 }
 
 export interface CodingAgentMcpPromptState {
@@ -116,14 +120,23 @@ export class CodingAgentModelCallFrameComposer implements ModelCallFrameComposer
 		for (const [name, tool] of context.frame.tools) {
 			baseAvailableTools.set(name, tool);
 		}
-		const pluginMcpSurface = this.options.pluginMcpRuntime?.compose(context, baseAvailableTools, {
+		const extensionToolSurface = this.options.extensionToolRuntime?.compose(
+			context,
+			baseAvailableTools,
+			this.options.resolveExtensionToolActivation?.(context) ?? { mode: "scope" },
+		);
+		const extensionContext: ModelCallFrameCompositionContext = extensionToolSurface
+			? { ...context, frame: extensionToolSurface.frame }
+			: context;
+		const extensionAvailableTools = extensionToolSurface?.availableTools ?? baseAvailableTools;
+		const pluginMcpSurface = this.options.pluginMcpRuntime?.compose(extensionContext, extensionAvailableTools, {
 			agentMode: this.options.readAgentMode?.(),
 			isToolVisible: this.options.isMcpToolVisible ?? (() => true),
 		});
 		const mcpContext: ModelCallFrameCompositionContext = pluginMcpSurface
-			? { ...context, frame: pluginMcpSurface.frame }
-			: context;
-		const mcpAvailableTools = pluginMcpSurface?.availableTools ?? baseAvailableTools;
+			? { ...extensionContext, frame: pluginMcpSurface.frame }
+			: extensionContext;
+		const mcpAvailableTools = pluginMcpSurface?.availableTools ?? extensionAvailableTools;
 		const pluginToolSurface = this.options.pluginToolRuntime?.compose(mcpContext, mcpAvailableTools);
 		const effectiveContext: ModelCallFrameCompositionContext = pluginToolSurface
 			? { ...mcpContext, frame: pluginToolSurface.frame }
