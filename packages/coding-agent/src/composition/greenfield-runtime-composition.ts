@@ -231,7 +231,12 @@ export interface GreenfieldRuntimeComposition {
 	readonly backend: GreenfieldRuntimeSessionBackend<GreenfieldRuntimeSessionOptions>;
 	readonly tools: CodingToolsRuntimeComposition;
 	readonly scenario: ConversationScenario;
-	bindExtensionRunner(sessionId: string, runner: ExtensionRunner): CodingAgentGreenfieldExtensionEventBinding;
+	bindExtensionRunner(
+		sessionId: string,
+		runner: ExtensionRunner,
+		options?: { readonly replaceExisting?: boolean },
+	): CodingAgentGreenfieldExtensionEventBinding;
+	refreshExtensionTools(extensions: readonly Extension[]): void;
 	appendSessionContext(sessionId: string, records: readonly SessionContextRecord[]): void;
 	deliverSessionContext(sessionId: string, records: readonly SessionContextRecord[]): Promise<void>;
 	flushMemory(sessionId: string, signal?: AbortSignal): Promise<number>;
@@ -258,7 +263,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 	const configuredExtensionToolRuntime = options.extensionTools
 		? new CodingAgentGreenfieldExtensionToolRuntime(options.extensionTools)
 		: undefined;
-	const extensionToolRuntime = configuredExtensionToolRuntime?.hasTools() ? configuredExtensionToolRuntime : undefined;
+	const extensionToolRuntime = configuredExtensionToolRuntime;
 	if ((options.promptResourceSource === undefined) !== (options.promptSettingsSource === undefined)) {
 		throw new Error("promptResourceSource and promptSettingsSource must be provided together");
 	}
@@ -1205,11 +1210,11 @@ async function createGreenfieldRuntimeCompositionInternal(
 		backend,
 		tools,
 		scenario,
-		bindExtensionRunner(sessionId, runner) {
+		bindExtensionRunner(sessionId, runner, bindingOptions) {
 			const bridge = extensionEventBridges.get(sessionId);
 			if (!bridge) throw new Error(`Greenfield Extension event bridge not found: ${sessionId}`);
-			const unbindEvents = bridge.bind(runner);
-			const unbindTools = extensionToolRuntime?.bindRunner(sessionId, runner);
+			const unbindEvents = bridge.bind(runner, bindingOptions);
+			const unbindTools = extensionToolRuntime?.bindRunner(sessionId, runner, bindingOptions);
 			return {
 				readSystemPrompt: () => bridge.readSystemPrompt(),
 				dispose() {
@@ -1217,6 +1222,9 @@ async function createGreenfieldRuntimeCompositionInternal(
 					unbindEvents();
 				},
 			};
+		},
+		refreshExtensionTools(extensions) {
+			extensionToolRuntime?.refresh(extensions);
 		},
 		appendSessionContext(sessionId, records) {
 			const context = resourceContexts.get(sessionId);

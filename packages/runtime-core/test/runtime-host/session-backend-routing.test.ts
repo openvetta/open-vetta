@@ -113,6 +113,7 @@ function assembly(sessionId: string): RuntimeHostSessionAssembly {
 		historyController: {
 			navigateForEdit: async () => ({ text: "", cancelled: false }),
 			switchBranch: async () => ({ leafId: "" }),
+			appendBranchSummary: async () => ({ entryId: "" }),
 			deleteMessage: async () => ({ leafId: null }),
 			replaceLastUserMessage: async () => ({ leafId: null }),
 			forkSession: async () => ({ path: "", text: "" }),

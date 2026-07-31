@@ -20,7 +20,10 @@ export interface CodingAgentGreenfieldExtensionEventHostOptions {
 	readonly session: GreenfieldRuntimeSession;
 	readonly modelRegistry: ModelRegistry;
 	readonly resourceLoader: Pick<ResourceLoader, "getPrompts" | "getSkills">;
-	readonly bindEvents: (runner: ExtensionRunner) => CodingAgentGreenfieldExtensionEventBinding;
+	readonly bindEvents: (
+		runner: ExtensionRunner,
+		options?: { readonly replaceExisting?: boolean },
+	) => CodingAgentGreenfieldExtensionEventBinding;
 	readonly onError?: (error: ExtensionError) => void;
 }
 
@@ -33,7 +36,7 @@ export interface CodingAgentGreenfieldExtensionEventHostOptions {
 export class CodingAgentGreenfieldExtensionEventHost {
 	readonly runner: ExtensionRunner;
 	private readonly actionHost: CodingAgentGreenfieldExtensionActionHost;
-	private readonly eventBinding: CodingAgentGreenfieldExtensionEventBinding;
+	private eventBinding: CodingAgentGreenfieldExtensionEventBinding;
 	private readonly removeExecutionObservationListener: () => void;
 	private removeErrorListener: (() => void) | undefined;
 	private shutdownHandler: () => void = () => {};
@@ -122,6 +125,13 @@ export class CodingAgentGreenfieldExtensionEventHost {
 	rebindRuntimeActions(): void {
 		if (this.disposed) throw new Error("Greenfield Extension event host is disposed");
 		this.actionHost.bind(this.options.runtime);
+	}
+
+	rebindRuntimeBindings(): void {
+		if (this.disposed) throw new Error("Greenfield Extension event host is disposed");
+		this.actionHost.bind(this.options.runtime);
+		this.eventBinding.dispose();
+		this.eventBinding = this.options.bindEvents(this.runner, { replaceExisting: true });
 	}
 
 	async dispose(lifecycle: { readonly emitSessionShutdown?: boolean } = {}): Promise<void> {

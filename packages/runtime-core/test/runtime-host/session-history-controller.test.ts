@@ -6,6 +6,7 @@ function createHistorySessionDouble(options: { isStreaming?: boolean; isBashRunn
 	const getEntry = vi.fn((): { id: string } | undefined => ({ id: "edit-entry" }));
 	const navigateTree = vi.fn(async () => ({ editorText: "edit text", cancelled: false }));
 	const switchBranch = vi.fn(() => ({ leafId: "branch-leaf" }));
+	const branchWithSummary = vi.fn(() => "summary-entry");
 	const deleteMessage = vi.fn(() => ({ leafId: "delete-leaf" }));
 	const replaceLastUserMessage = vi.fn(() => ({ leafId: "replace-leaf" }));
 	const messages = [{ role: "user", content: "remaining", timestamp: 1 }];
@@ -18,6 +19,7 @@ function createHistorySessionDouble(options: { isStreaming?: boolean; isBashRunn
 		isBashRunning: options.isBashRunning ?? false,
 		sessionManager: {
 			getEntry,
+			branchWithSummary,
 			replaceLastUserMessage,
 			buildSessionContext,
 		},
@@ -34,6 +36,7 @@ function createHistorySessionDouble(options: { isStreaming?: boolean; isBashRunn
 		getEntry,
 		navigateTree,
 		switchBranch,
+		branchWithSummary,
 		deleteMessage,
 		replaceLastUserMessage,
 		buildSessionContext,
@@ -53,6 +56,9 @@ describe("LegacyRuntimeSessionHistoryController", () => {
 			cancelled: false,
 		});
 		await expect(history.controller.switchBranch("branch-entry")).resolves.toEqual({ leafId: "branch-leaf" });
+		await expect(
+			history.controller.appendBranchSummary("branch-entry", "summary", { files: [] }, true),
+		).resolves.toEqual({ entryId: "summary-entry" });
 		await expect(history.controller.deleteMessage("delete-entry")).resolves.toEqual({ leafId: "delete-leaf" });
 		await expect(history.controller.replaceLastUserMessage("replace-entry")).resolves.toEqual({
 			leafId: "replace-leaf",
@@ -66,9 +72,10 @@ describe("LegacyRuntimeSessionHistoryController", () => {
 		expect(history.getEntry).toHaveBeenCalledWith("edit-entry");
 		expect(history.navigateTree).toHaveBeenCalledWith("edit-entry", { summarize: false });
 		expect(history.switchBranch).toHaveBeenCalledWith("branch-entry");
+		expect(history.branchWithSummary).toHaveBeenCalledWith("branch-entry", "summary", { files: [] }, true);
 		expect(history.deleteMessage).toHaveBeenCalledWith("delete-entry");
 		expect(history.replaceLastUserMessage).toHaveBeenCalledWith("replace-entry");
-		expect(history.buildSessionContext).toHaveBeenCalledOnce();
+		expect(history.buildSessionContext).toHaveBeenCalledTimes(2);
 		expect(history.replaceMessages).toHaveBeenCalledWith(history.messages);
 		expect(history.exportForkToNewFile).toHaveBeenCalledWith("fork-entry");
 		expect(history.setSessionName).toHaveBeenCalledWith("renamed");
@@ -113,6 +120,11 @@ describe("LegacyRuntimeSessionHistoryController", () => {
 			name: "delete",
 			message: "Cannot delete a message while the session is streaming",
 			run: (controller) => controller.deleteMessage("entry"),
+		},
+		{
+			name: "summarize branch",
+			message: "Cannot summarize branch while the session is streaming",
+			run: (controller) => controller.appendBranchSummary("entry", "summary"),
 		},
 		{
 			name: "replace",

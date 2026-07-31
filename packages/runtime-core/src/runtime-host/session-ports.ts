@@ -93,6 +93,12 @@ export interface RuntimeSessionHistoryReader {
 export interface RuntimeSessionHistoryController {
 	navigateForEdit(entryId: string): Promise<{ text: string; cancelled: boolean }>;
 	switchBranch(entryId: string): Promise<{ leafId: string }>;
+	appendBranchSummary(
+		parentId: string | null,
+		summary: string,
+		details?: unknown,
+		fromHook?: boolean,
+	): Promise<{ entryId: string }>;
 	deleteMessage(entryId: string): Promise<{ leafId: string | null }>;
 	replaceLastUserMessage(entryId: string): Promise<{ leafId: string | null }>;
 	forkSession(entryId: string): Promise<{ path: string; text: string }>;

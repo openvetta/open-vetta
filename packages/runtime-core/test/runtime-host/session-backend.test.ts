@@ -317,6 +317,7 @@ describe("RuntimeHost session backend boundary", () => {
 		];
 		const navigateForEdit = vi.fn(async () => ({ text: "edit text", cancelled: false }));
 		const switchBranch = vi.fn(async () => ({ leafId: "branch-leaf" }));
+		const appendBranchSummary = vi.fn(async () => ({ entryId: "summary-entry" }));
 		const deleteMessage = vi.fn(async () => ({ leafId: "delete-leaf" }));
 		const replaceLastUserMessage = vi.fn(async () => ({ leafId: "replace-leaf" }));
 		const forkSession = vi.fn(async () => ({ path: "fork.jsonl", text: "fork text" }));
@@ -380,6 +381,7 @@ describe("RuntimeHost session backend boundary", () => {
 			historyController: {
 				navigateForEdit,
 				switchBranch,
+				appendBranchSummary,
 				deleteMessage,
 				replaceLastUserMessage,
 				forkSession,

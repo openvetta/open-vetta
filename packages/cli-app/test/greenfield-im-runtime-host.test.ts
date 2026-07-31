@@ -145,13 +145,17 @@ describe("Greenfield IM Runtime Host", () => {
 		});
 	});
 
-	it("uses the Coding Agent capability assessment for Legacy Extension fallback", async () => {
+	it("runs Flag and Command Extensions after resolving their Greenfield capabilities", async () => {
+		const lifecycle = extensionLifecycleGlobal();
+		lifecycle.__vettaGreenfieldExtensionLifecycle = [];
 		const fixture = await createFixture(
 			[],
 			`
 				export default function(pi) {
 					pi.registerFlag("audit-mode", { type: "boolean" });
-					pi.registerCommand("audit", { handler: async () => {} });
+					pi.registerCommand("audit", {
+						handler: async () => globalThis.__vettaGreenfieldExtensionLifecycle.push("audit"),
+					});
 				}
 			`,
 		);
@@ -163,21 +167,20 @@ describe("Greenfield IM Runtime Host", () => {
 			requiresLegacyRuntime: true,
 		});
 
-		fixture.bootstrap.extensionsResult.extensions.splice(0);
 		const result = await prepareGreenfieldImRuntimeHost({
 			bootstrap: fixture.bootstrap,
 			conversationDir: fixture.conversationDir,
 			sessionCatalog: fixture.sessionCatalog,
+			createSessionId: () => "command-extension-session",
 		});
+		expect(result.kind).toBe("greenfield");
+		if (result.kind !== "greenfield") throw new Error("Expected Greenfield runtime");
+		preparedHosts.push(result);
+		await initialize(result);
 
-		expect(result).toMatchObject({
-			kind: "legacy-fallback",
-			reason: "legacy-extension",
-			extensionCompatibility: {
-				requiredRuntimeCapabilities: ["opaque-runtime-api", "command"],
-				unsupportedEvents: [],
-			},
-		});
+		await result.capabilities.turn?.prompt("/audit", { source: "rpc" });
+
+		expect(lifecycle.__vettaGreenfieldExtensionLifecycle).toEqual(["audit"]);
 	});
 
 	it("runs Provider/Flag-only Extensions on Greenfield and binds their retained actions", async () => {
@@ -253,7 +256,7 @@ describe("Greenfield IM Runtime Host", () => {
 		});
 	});
 
-	it("exposes resource command discovery while command-only Extensions still fall back", async () => {
+	it("exposes both resource and Extension command discovery", async () => {
 		const fixture = await createFixture([]);
 		const result = await prepareGreenfieldImRuntimeHost({
 			bootstrap: fixture.bootstrap,
@@ -276,16 +279,65 @@ describe("Greenfield IM Runtime Host", () => {
 				pi.registerCommand("audit", { handler: async () => {} });
 			}`,
 		);
-		await expect(
-			prepareGreenfieldImRuntimeHost({
-				bootstrap: commandFixture.bootstrap,
-				conversationDir: commandFixture.conversationDir,
-				sessionCatalog: commandFixture.sessionCatalog,
-			}),
-		).resolves.toMatchObject({
-			kind: "legacy-fallback",
-			reason: "legacy-extension",
+		const commandResult = await prepareGreenfieldImRuntimeHost({
+			bootstrap: commandFixture.bootstrap,
+			conversationDir: commandFixture.conversationDir,
+			sessionCatalog: commandFixture.sessionCatalog,
+			createSessionId: () => "extension-command-discovery-session",
 		});
+		expect(commandResult.kind).toBe("greenfield");
+		if (commandResult.kind !== "greenfield") throw new Error("Expected Greenfield runtime");
+		preparedHosts.push(commandResult);
+		expect(commandResult.capabilities.commands?.readCommands()).toContainEqual(
+			expect.objectContaining({ name: "audit", source: "extension" }),
+		);
+	});
+
+	it("atomically reloads Extension events, commands and definitions", async () => {
+		const lifecycle = extensionLifecycleGlobal();
+		lifecycle.__vettaGreenfieldExtensionLifecycle = [];
+		const fixture = await createFixture(
+			[],
+			`export default function(pi) {
+				pi.on("session_shutdown", async () => {
+					globalThis.__vettaGreenfieldExtensionLifecycle.push("old-shutdown");
+				});
+				pi.registerCommand("reload-fixture", { handler: async (_args, ctx) => ctx.reload() });
+			}`,
+		);
+		const result = await prepareGreenfieldImRuntimeHost({
+			bootstrap: fixture.bootstrap,
+			conversationDir: fixture.conversationDir,
+			sessionCatalog: fixture.sessionCatalog,
+			createSessionId: () => "extension-reload-session",
+		});
+		expect(result.kind).toBe("greenfield");
+		if (result.kind !== "greenfield") throw new Error("Expected Greenfield runtime");
+		preparedHosts.push(result);
+		await initialize(result);
+		await writeFile(
+			join(fixture.root, "legacy-extension.ts"),
+			`export default function(pi) {
+				pi.on("session_start", async () => {
+					globalThis.__vettaGreenfieldExtensionLifecycle.push("new-start");
+				});
+				pi.registerCommand("after-reload", {
+					handler: async () => globalThis.__vettaGreenfieldExtensionLifecycle.push("after-command"),
+				});
+			}`,
+			"utf8",
+		);
+
+		await result.capabilities.turn?.prompt("/reload-fixture", { source: "rpc" });
+		expect(result.capabilities.commands?.readCommands()).toContainEqual(
+			expect.objectContaining({ name: "after-reload", source: "extension" }),
+		);
+		expect(result.capabilities.commands?.readCommands()).not.toContainEqual(
+			expect.objectContaining({ name: "reload-fixture" }),
+		);
+		await result.capabilities.turn?.prompt("/after-reload", { source: "rpc" });
+
+		expect(lifecycle.__vettaGreenfieldExtensionLifecycle).toEqual(["old-shutdown", "new-start", "after-command"]);
 	});
 
 	it("runs supported input events with a real Greenfield session context", async () => {
@@ -380,6 +432,15 @@ function extensionLifecycleGlobal(): typeof globalThis & {
 	__vettaGreenfieldExtensionLifecycle?: string[];
 } {
 	return globalThis;
+}
+
+async function initialize(result: GreenfieldImRuntimeHostReady): Promise<void> {
+	await result.capabilities.initialize({
+		uiContext: {} as RpcSessionInitialization["uiContext"],
+		hostBridge: { sendAttachment: vi.fn(async () => ({})) },
+		onShutdownRequested: vi.fn(),
+		onExtensionError: vi.fn(),
+	});
 }
 
 async function createFixture(

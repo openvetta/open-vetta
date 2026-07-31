@@ -165,6 +165,18 @@ export class LegacyRuntimeSessionHistoryController implements RuntimeSessionHist
 		return Promise.resolve(this.session.switchBranch(entryId));
 	}
 
+	appendBranchSummary(
+		parentId: string | null,
+		summary: string,
+		details?: unknown,
+		fromHook?: boolean,
+	): Promise<{ entryId: string }> {
+		this.assertCanMutate("Cannot summarize branch while the session is streaming");
+		const entryId = this.session.sessionManager.branchWithSummary(parentId, summary, details, fromHook);
+		this.session.agent.replaceMessages(this.session.sessionManager.buildSessionContext().messages);
+		return Promise.resolve({ entryId });
+	}
+
 	deleteMessage(entryId: string): Promise<{ leafId: string | null }> {
 		this.assertCanMutate("Cannot delete a message while the session is streaming");
 		return Promise.resolve(this.session.deleteMessage(entryId));

@@ -6,6 +6,7 @@ export {
 	type HookConfigLayer,
 	type HookDispatchOutcome,
 } from "@vetta/ecosystem-adapter";
+export type { ExtensionCommandContextActions } from "../../core/extensions/index.js";
 export {
 	type CodingAgentMcpRuntimeToolSourceOptions,
 	createCodingAgentMcpRuntimeToolSource,
@@ -18,6 +19,10 @@ export {
 	createCodingAgentAskUserQuestionRuntimeFeature,
 	isCodingAgentAskUserQuestionEnabled,
 } from "./greenfield-ask-user-question-runtime.js";
+export {
+	CodingAgentGreenfieldBranchNavigationHost,
+	type CodingAgentGreenfieldBranchNavigationHostOptions,
+} from "./greenfield-branch-navigation-host.js";
 export {
 	type CodingAgentCompactionCommittedInput,
 	type CodingAgentCompactionExtensionInput,
@@ -162,6 +167,10 @@ export {
 	createCodingAgentPromptRuntime,
 } from "./greenfield-prompt-runtime.js";
 export { createGreenfieldReadonlySessionManager } from "./greenfield-readonly-session-manager.js";
+export {
+	CodingAgentGreenfieldResourceReloadHost,
+	type CodingAgentGreenfieldResourceReloadHostOptions,
+} from "./greenfield-resource-reload-host.js";
 export {
 	type CodingAgentGreenfieldSandboxToolsOptions,
 	createCodingAgentGreenfieldSandboxToolRegistrations,

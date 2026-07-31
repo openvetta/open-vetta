@@ -28,11 +28,15 @@ export interface CodingAgentGreenfieldExtensionToolSurface {
  * 解析到对应 Session Runner。工具只在当前模型调用 Frame 中覆盖同名能力，不进入 Runtime Core。
  */
 export class CodingAgentGreenfieldExtensionToolRuntime {
-	private readonly registrations: readonly CodingAgentRuntimeToolRegistration[];
-	private readonly registrationsByName: ReadonlyMap<string, CodingAgentRuntimeToolRegistration>;
+	private registrations: readonly CodingAgentRuntimeToolRegistration[] = [];
+	private registrationsByName: ReadonlyMap<string, CodingAgentRuntimeToolRegistration> = new Map();
 	private readonly runners = new Map<string, ExtensionRunner>();
 
 	constructor(extensions: readonly Extension[]) {
+		this.refresh(extensions);
+	}
+
+	refresh(extensions: readonly Extension[]): void {
 		this.registrations = Object.freeze(collectRegisteredTools(extensions).map((tool) => this.adaptTool(tool)));
 		this.registrationsByName = new Map(
 			this.registrations.map((registration) => [registration.tool.name, registration]),
@@ -76,9 +80,13 @@ export class CodingAgentGreenfieldExtensionToolRuntime {
 		};
 	}
 
-	bindRunner(sessionId: string, runner: ExtensionRunner): () => void {
+	bindRunner(
+		sessionId: string,
+		runner: ExtensionRunner,
+		options: { readonly replaceExisting?: boolean } = {},
+	): () => void {
 		const current = this.runners.get(sessionId);
-		if (current && current !== runner) {
+		if (current && current !== runner && options.replaceExisting !== true) {
 			throw new Error(`Greenfield Extension tool runner is already bound: ${sessionId}`);
 		}
 		this.runners.set(sessionId, runner);

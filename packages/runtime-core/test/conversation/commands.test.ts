@@ -113,6 +113,42 @@ describe("ConversationDocument commands", () => {
 		expect(result.changed).toBe(true);
 	});
 
+	it("appends a branch summary at the navigation target and makes it active", () => {
+		const result = applyConversationDocumentCommand(document(), {
+			type: "branch_summary.append",
+			entryId: "branch-summary",
+			parentId: "assistant-root",
+			summary: "abandoned work",
+			details: { readFiles: ["README.md"] },
+			fromHook: true,
+			timestamp: new Date(7).toISOString(),
+		});
+
+		expect(result.document.entries.at(-1)).toEqual({
+			type: "branch_summary",
+			id: "branch-summary",
+			parentId: "assistant-root",
+			timestamp: new Date(7).toISOString(),
+			fromId: "assistant-root",
+			summary: "abandoned work",
+			details: { readFiles: ["README.md"] },
+			fromHook: true,
+		});
+		expect(result.document.activeLeafId).toBe("branch-summary");
+	});
+
+	it("rejects a branch summary whose navigation target is missing", () => {
+		expect(() =>
+			applyConversationDocumentCommand(document(), {
+				type: "branch_summary.append",
+				entryId: "branch-summary",
+				parentId: "missing",
+				summary: "summary",
+				timestamp: new Date(7).toISOString(),
+			}),
+		).toThrow("Entry missing not found");
+	});
+
 	it("rejects an unexpected persisted command revision", () => {
 		expect(() =>
 			applyConversationDocumentCommand(document(), { type: "session.name.set", name: "renamed" }, 8),

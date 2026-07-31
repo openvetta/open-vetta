@@ -67,6 +67,27 @@ describe("CodingAgentGreenfieldExtensionToolRuntime", () => {
 			}),
 		).rejects.toThrow("runner is not bound");
 	});
+
+	it("replaces Extension tool definitions without losing Session runner bindings", async () => {
+		const runtime = new CodingAgentGreenfieldExtensionToolRuntime([extensionWithTool("before", echoTool("before"))]);
+		const runner = { createContext: () => ({ cwd: "C:/workspace" }) } as unknown as ExtensionRunner;
+		runtime.bindRunner("session-1", runner);
+
+		runtime.refresh([extensionWithTool("after", echoTool("after"))]);
+
+		expect(runtime.readAvailableTools().get("extension_echo")?.description).toBe("after");
+		const refreshed = runtime.readAvailableTools().get("extension_echo");
+		if (!refreshed) throw new Error("Missing refreshed Extension tool");
+		await expect(
+			refreshed.execute({
+				sessionId: "session-1",
+				turnId: "turn-1",
+				toolCallId: "call-1",
+				input: { value: "updated" },
+				signal: new AbortController().signal,
+			}),
+		).resolves.toMatchObject({ content: [{ type: "text", text: "updated" }] });
+	});
 });
 
 function echoTool(description: string): ToolDefinition {

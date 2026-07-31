@@ -176,6 +176,36 @@ describe("CodingAgentGreenfieldExtensionEventBridge", () => {
 			},
 		]);
 	});
+
+	it("replaces a bound runner only when the caller declares a reload transaction", async () => {
+		const first = await createRunner();
+		const second = await createRunner(`
+			export default function(extension) {
+				extension.on("before_agent_start", async (event) => ({
+					systemPrompt: event.systemPrompt + ":reloaded",
+				}));
+			}
+		`);
+		const bridge = new CodingAgentGreenfieldExtensionEventBridge();
+		const unbindFirst = bridge.bind(first);
+		expect(() => bridge.bind(second)).toThrow("already bound");
+		const unbindSecond = bridge.bind(second, { replaceExisting: true });
+
+		unbindFirst();
+		const result = await bridge.prepare({
+			sessionId: "session-1",
+			turnId: "turn-1",
+			signal: new AbortController().signal,
+			input: { message: { role: "user", content: "inspect", timestamp: 1 } },
+			messages: [],
+			resolveSystemPrompt: async () => "base",
+		});
+
+		expect(result).toMatchObject({
+			instructionOverride: [{ content: "base:reloaded" }],
+		});
+		unbindSecond();
+	});
 });
 
 async function createRunner(extensionSource?: string): Promise<ExtensionRunner> {

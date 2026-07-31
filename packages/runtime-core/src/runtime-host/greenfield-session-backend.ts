@@ -305,6 +305,27 @@ export class GreenfieldRuntimeSession {
 		});
 	}
 
+	async appendBranchSummary(
+		parentId: string | null,
+		summary: string,
+		details?: unknown,
+		fromHook?: boolean,
+	): Promise<{ entryId: string }> {
+		return this.withHistoryMutation("Cannot summarize branch while the session is streaming", async () => {
+			const entryId = `branch-summary-${randomUUID()}`;
+			await this.executeDocumentCommand({
+				type: "branch_summary.append",
+				entryId,
+				parentId,
+				summary,
+				details,
+				fromHook,
+				timestamp: new Date().toISOString(),
+			});
+			return { entryId };
+		});
+	}
+
 	async deleteMessage(entryId: string): Promise<{ leafId: string | null }> {
 		return this.withHistoryMutation("Cannot delete a message while the session is streaming", async () => {
 			const result = await this.executeDocumentCommand({ type: "message.delete", entryId });
@@ -386,6 +407,8 @@ export class GreenfieldRuntimeSession {
 			historyController: {
 				navigateForEdit: (entryId) => this.navigateForEdit(entryId),
 				switchBranch: (entryId) => this.switchBranch(entryId),
+				appendBranchSummary: (parentId, summary, details, fromHook) =>
+					this.appendBranchSummary(parentId, summary, details, fromHook),
 				deleteMessage: (entryId) => this.deleteMessage(entryId),
 				replaceLastUserMessage: (entryId) => this.replaceLastUserMessage(entryId),
 				forkSession: (entryId) => this.forkSession(entryId),

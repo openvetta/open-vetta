@@ -23,8 +23,8 @@ export class CodingAgentGreenfieldExtensionEventBridge implements AgentRunPrepar
 	private systemPrompt = "";
 	private runSystemPromptOverride: string | undefined;
 
-	bind(runner: ExtensionRunner): () => void {
-		if (this.runner && this.runner !== runner) {
+	bind(runner: ExtensionRunner, options: { readonly replaceExisting?: boolean } = {}): () => void {
+		if (this.runner && this.runner !== runner && options.replaceExisting !== true) {
 			throw new Error("Greenfield Extension event bridge is already bound");
 		}
 		this.runner = runner;

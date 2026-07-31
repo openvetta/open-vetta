@@ -77,6 +77,17 @@ export class CodingAgentGreenfieldActiveSessionHost {
 		return () => this.listeners.delete(listener);
 	}
 
+	waitForIdle(): Promise<void> {
+		return this.runExclusive(() => waitForIdle(this.activeSession));
+	}
+
+	runActiveSessionMutation<T>(operation: (session: GreenfieldRuntimeSession) => Promise<T>): Promise<T> {
+		return this.runExclusive(async () => {
+			await waitForIdle(this.activeSession);
+			return operation(this.activeSession);
+		});
+	}
+
 	newSession(options?: {
 		readonly parentSession?: string;
 		readonly setup?: (sessionManager: SessionManager) => Promise<void>;

@@ -7,6 +7,15 @@ export type ConversationDocumentCommand =
 	| { readonly type: "message.delete"; readonly entryId: string }
 	| { readonly type: "user_turn.replace"; readonly entryId: string }
 	| {
+			readonly type: "branch_summary.append";
+			readonly entryId: string;
+			readonly parentId: string | null;
+			readonly summary: string;
+			readonly details?: unknown;
+			readonly fromHook?: boolean;
+			readonly timestamp: string;
+	  }
+	| {
 			readonly type: "custom.append";
 			readonly entryId: string;
 			readonly customType: string;
@@ -62,6 +71,8 @@ export function applyConversationDocumentCommand(
 			return deleteMessage(document, command.entryId, revision);
 		case "user_turn.replace":
 			return replaceLastUserTurn(document, command.entryId, revision);
+		case "branch_summary.append":
+			return appendBranchSummaryEntry(document, command, revision);
 		case "custom.append":
 			return appendCustomEntry(document, command, revision);
 		case "session.name.set":
@@ -239,6 +250,37 @@ function appendCustomEntry(
 				timestamp: command.timestamp,
 				customType: command.customType,
 				data: command.data,
+			},
+		],
+		activeLeafId: command.entryId,
+	});
+}
+
+function appendBranchSummaryEntry(
+	document: ConversationDocument,
+	command: Extract<ConversationDocumentCommand, { readonly type: "branch_summary.append" }>,
+	revision: number,
+): ConversationDocumentCommandResult {
+	if (document.entries.some((entry) => entry.id === command.entryId)) {
+		throw new Error(`Conversation document entry already exists: ${command.entryId}`);
+	}
+	if (command.parentId && !document.entries.some((entry) => entry.id === command.parentId)) {
+		throw new Error(`Entry ${command.parentId} not found`);
+	}
+	return changed({
+		...document,
+		revision,
+		entries: [
+			...document.entries,
+			{
+				type: "branch_summary",
+				id: command.entryId,
+				parentId: command.parentId,
+				timestamp: command.timestamp,
+				fromId: command.parentId ?? "root",
+				summary: command.summary,
+				details: command.details,
+				fromHook: command.fromHook,
 			},
 		],
 		activeLeafId: command.entryId,
