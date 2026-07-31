@@ -3,17 +3,22 @@ import type { EcosystemHookRuntime } from "@vetta/ecosystem-adapter/hooks";
 import type {
 	GreenfieldPreparedPrompt,
 	GreenfieldPromptAdapter,
+	GreenfieldPromptInterceptionResult,
 	GreenfieldPromptPreparationContext,
 	PromptAttachmentRef,
 	PromptRequest,
 	PromptResourceRef,
 } from "@vetta/runtime-core";
 import type { SessionContextRecord } from "@vetta/runtime-core/kernel";
+import type { InputSource } from "../../core/extensions/types.js";
 import {
 	PROMPT_ATTACHMENT_CONTEXT_TYPE,
 	PROMPT_ATTACHMENT_REFERENCE_TYPE,
 	PROMPT_RESOURCE_REFERENCE_TYPE,
 } from "../../core/messages.js";
+import type { CodingAgentGreenfieldExtensionEventBridge } from "./greenfield-extension-event-bridge.js";
+
+export const CODING_AGENT_EXTENSION_INPUT_SOURCE_METADATA_KEY = "codingAgentExtensionInputSource";
 
 export interface CodingAgentPromptResourceExpansion {
 	readonly text: string;
@@ -32,6 +37,8 @@ export interface CodingAgentGreenfieldPromptAdapterOptions {
 	readonly now?: () => number;
 	readonly resolvePromptResource?: CodingAgentPromptResourceResolver;
 	readonly hookRuntime?: EcosystemHookRuntime;
+	readonly extensionEvents?: Pick<CodingAgentGreenfieldExtensionEventBridge, "interceptInput">;
+	readonly inputSource?: Exclude<InputSource, "extension">;
 }
 
 /** 将 coding-agent 宿主语义翻译成业务无关的 Kernel 输入。 */
@@ -39,11 +46,36 @@ export class CodingAgentGreenfieldPromptAdapter implements GreenfieldPromptAdapt
 	private readonly now: () => number;
 	private readonly resolvePromptResource: CodingAgentPromptResourceResolver | undefined;
 	private readonly hookRuntime: EcosystemHookRuntime | undefined;
+	private readonly extensionEvents: Pick<CodingAgentGreenfieldExtensionEventBridge, "interceptInput"> | undefined;
+	private readonly inputSource: Exclude<InputSource, "extension">;
 
 	constructor(options: CodingAgentGreenfieldPromptAdapterOptions = {}) {
 		this.now = options.now ?? Date.now;
 		this.resolvePromptResource = options.resolvePromptResource;
 		this.hookRuntime = options.hookRuntime;
+		this.extensionEvents = options.extensionEvents;
+		this.inputSource = options.inputSource ?? "rpc";
+	}
+
+	async intercept(
+		request: PromptRequest,
+		_context: GreenfieldPromptPreparationContext,
+	): Promise<GreenfieldPromptInterceptionResult> {
+		const intercepted = await this.extensionEvents?.interceptInput(
+			request.text,
+			request.images,
+			request.metadata?.[CODING_AGENT_EXTENSION_INPUT_SOURCE_METADATA_KEY] === "extension"
+				? "extension"
+				: this.inputSource,
+		);
+		if (intercepted?.action === "handled") return { action: "handled" };
+		return {
+			action: "continue",
+			request:
+				intercepted?.action === "transform"
+					? { ...request, text: intercepted.text, images: intercepted.images }
+					: request,
+		};
 	}
 
 	async prepare(

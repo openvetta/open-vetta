@@ -120,7 +120,12 @@ describe("CodingAgentGreenfieldExtensionActionHost", () => {
 			"nextTurn",
 			"triggerTurn",
 		]);
-		expect(prompt).toHaveBeenCalledWith({ text: "hello", images: undefined, streamingBehavior: undefined });
+		expect(prompt).toHaveBeenCalledWith({
+			text: "hello",
+			images: undefined,
+			streamingBehavior: undefined,
+			metadata: { codingAgentExtensionInputSource: "extension" },
+		});
 		expect(appendEntry).toHaveBeenCalledWith("audit", { ok: true });
 		expect(setName).toHaveBeenCalledWith("Renamed");
 		expect(setLabel).toHaveBeenCalledWith("entry-1", "Important");

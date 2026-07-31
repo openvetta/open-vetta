@@ -39,6 +39,13 @@ export {
 	CodingAgentGreenfieldExtensionActionHost,
 	type CodingAgentGreenfieldExtensionActionHostOptions,
 } from "./greenfield-extension-action-host.js";
+export { CodingAgentGreenfieldExtensionEventBridge } from "./greenfield-extension-event-bridge.js";
+export {
+	type CodingAgentGreenfieldExtensionEventBinding,
+	CodingAgentGreenfieldExtensionEventHost,
+	type CodingAgentGreenfieldExtensionEventHostOptions,
+} from "./greenfield-extension-event-host.js";
+export { wrapRuntimeToolsWithExtensions } from "./greenfield-extension-tool-wrapper.js";
 export {
 	type EcosystemHookAwareRuntimeTool,
 	wrapRuntimeToolsWithEcosystemHooks,
@@ -122,6 +129,7 @@ export {
 	createCodingAgentGreenfieldProductToolRegistrations,
 } from "./greenfield-product-tools-runtime.js";
 export {
+	CODING_AGENT_EXTENSION_INPUT_SOURCE_METADATA_KEY,
 	CodingAgentGreenfieldPromptAdapter,
 	type CodingAgentGreenfieldPromptAdapterOptions,
 	type CodingAgentPromptResourceExpansion,
@@ -140,6 +148,7 @@ export {
 	type CreateCodingAgentPromptRuntimeOptions,
 	createCodingAgentPromptRuntime,
 } from "./greenfield-prompt-runtime.js";
+export { createGreenfieldReadonlySessionManager } from "./greenfield-readonly-session-manager.js";
 export {
 	type CodingAgentGreenfieldSandboxToolsOptions,
 	createCodingAgentGreenfieldSandboxToolRegistrations,

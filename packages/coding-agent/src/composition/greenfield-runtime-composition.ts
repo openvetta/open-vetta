@@ -56,6 +56,8 @@ import {
 	CodingAgentContinuationOrchestrator,
 	CodingAgentGreenfieldContextRuntime,
 	type CodingAgentGreenfieldContextRuntimeOptions,
+	type CodingAgentGreenfieldExtensionEventBinding,
+	CodingAgentGreenfieldExtensionEventBridge,
 	CodingAgentGreenfieldMemoryController,
 	CodingAgentGreenfieldPromptAdapter,
 	type CodingAgentMemoryController,
@@ -93,6 +95,7 @@ import {
 	isCodingAgentAskUserQuestionEnabled,
 	type KnowledgePageWriterPort,
 } from "../adapters/runtime-core/greenfield.js";
+import type { ExtensionRunner } from "../core/extensions/runner.js";
 import type { TodoLockSource } from "../core/todo-store.js";
 import { createKbFilterByTagsTool } from "../core/tools/kb-filter-by-tags/index.js";
 import { createKbListTagsTool } from "../core/tools/kb-list-tags/index.js";
@@ -222,6 +225,7 @@ export interface GreenfieldRuntimeComposition {
 	readonly backend: GreenfieldRuntimeSessionBackend<GreenfieldRuntimeSessionOptions>;
 	readonly tools: CodingToolsRuntimeComposition;
 	readonly scenario: ConversationScenario;
+	bindExtensionRunner(sessionId: string, runner: ExtensionRunner): CodingAgentGreenfieldExtensionEventBinding;
 	appendSessionContext(sessionId: string, records: readonly SessionContextRecord[]): void;
 	deliverSessionContext(sessionId: string, records: readonly SessionContextRecord[]): Promise<void>;
 	flushMemory(sessionId: string, signal?: AbortSignal): Promise<number>;
@@ -258,6 +262,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 	const executionRuntimes = new Map<string, GreenfieldSessionExecutionRuntime>();
 	const configurationStates = new Map<string, GreenfieldSessionConfigurationState>();
 	const resourceContexts = new Map<string, GreenfieldRuntimeResourceContext>();
+	const extensionEventBridges = new Map<string, CodingAgentGreenfieldExtensionEventBridge>();
 	const mcpRefreshObservedSessions = new Set<string>();
 	const mcpPromptRefreshReuseSessions = new Set<string>();
 	const tools = createCodingToolsRuntimeComposition({
@@ -368,6 +373,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 			let executionRuntime: GreenfieldSessionExecutionRuntime | undefined;
 			let subagentRuntime: GreenfieldSubagentRuntime | undefined;
 			let pluginMcpRuntime: CodingAgentPluginMcpRuntime | undefined;
+			const extensionEvents = new CodingAgentGreenfieldExtensionEventBridge();
 			resourceContexts.set(activeSessionId, resourceContext);
 			try {
 				const sessionCwd = sessionOptions.cwd ?? cwd;
@@ -793,6 +799,32 @@ async function createGreenfieldRuntimeCompositionInternal(
 						...(subagentRuntime ? subagentRuntime.readTools().map((tool) => [tool.name, tool] as const) : []),
 						...(invokeSkillFeature ? [[invokeSkillFeature.tool.name, invokeSkillFeature.tool] as const] : []),
 					]);
+				const modelCallFrameComposer = new CodingAgentModelCallFrameComposer({
+					readMcpPromptState: mcpController ? () => mcpController.readPromptState() : undefined,
+					readAvailableTools,
+					readActiveToolNamesOverride: () => configurationState.readActiveToolNamesOverride(),
+					pluginRunOrchestrator,
+					pluginMcpRuntime,
+					pluginToolRuntime,
+					readAgentMode: () => configurationState.readAgentMode(),
+					isMcpToolVisible: (toolName) => mcpController?.isToolVisible(toolName) ?? true,
+					systemPromptAdvertisedToolNames: options.systemPromptAdvertisedToolNames,
+					hookRuntime,
+					extensionEvents,
+					resolveSystemPromptOptions: async (context) => {
+						const promptOptions = await resolveSystemPromptOptions(context);
+						return {
+							...promptOptions,
+							cwd: promptOptions.cwd ?? sessionCwd,
+							agentPlugins: promptOptions.agentPlugins ?? configurationState.readAgentPlugins(),
+							appendSystemPrompt: joinPromptAddons(
+								promptOptions.appendSystemPrompt,
+								sessionOptions.systemPromptAddon,
+							),
+							...(memoryRuntime ? { memory: memoryRuntime.renderPromptMemory() } : {}),
+						};
+					},
+				});
 				const profile: AgentProfile = {
 					...baseProfile,
 					features: [
@@ -805,31 +837,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 					contextStrategy: contextRuntime,
 					modelCallContextTransformer: contextRuntime,
 					continuationPolicy: continuationOrchestrator,
-					modelCallFrameComposer: new CodingAgentModelCallFrameComposer({
-						readMcpPromptState: mcpController ? () => mcpController.readPromptState() : undefined,
-						readAvailableTools,
-						readActiveToolNamesOverride: () => configurationState.readActiveToolNamesOverride(),
-						pluginRunOrchestrator,
-						pluginMcpRuntime,
-						pluginToolRuntime,
-						readAgentMode: () => configurationState.readAgentMode(),
-						isMcpToolVisible: (toolName) => mcpController?.isToolVisible(toolName) ?? true,
-						systemPromptAdvertisedToolNames: options.systemPromptAdvertisedToolNames,
-						hookRuntime,
-						resolveSystemPromptOptions: async (context) => {
-							const promptOptions = await resolveSystemPromptOptions(context);
-							return {
-								...promptOptions,
-								cwd: promptOptions.cwd ?? sessionCwd,
-								agentPlugins: promptOptions.agentPlugins ?? configurationState.readAgentPlugins(),
-								appendSystemPrompt: joinPromptAddons(
-									promptOptions.appendSystemPrompt,
-									sessionOptions.systemPromptAddon,
-								),
-								...(memoryRuntime ? { memory: memoryRuntime.renderPromptMemory() } : {}),
-							};
-						},
-					}),
+					modelCallFrameComposer,
 				};
 				let capabilities: RuntimeCapabilityComposition;
 				try {
@@ -851,6 +859,29 @@ async function createGreenfieldRuntimeCompositionInternal(
 					throw error;
 				}
 				capabilityCompositions.add(capabilities);
+				try {
+					const initialSnapshotLease = await capabilities.acquire();
+					try {
+						await modelCallFrameComposer.previewSystemPrompt({
+							sessionId: activeSessionId,
+							turnId: `${activeSessionId}:extension-context-preview`,
+							signal: new AbortController().signal,
+							messages: [],
+							modelBinding: modelRuntime.bind(),
+							frame: {
+								instructions: initialSnapshotLease.snapshot.instructions,
+								tools: initialSnapshotLease.snapshot.tools,
+							},
+						});
+					} finally {
+						await initialSnapshotLease.release();
+					}
+				} catch (error) {
+					capabilityCompositions.delete(capabilities);
+					await capabilities.close();
+					throw error;
+				}
+				extensionEventBridges.set(activeSessionId, extensionEvents);
 				if (memoryController) memoryControllers.set(activeSessionId, memoryController);
 				hookSessionDisposers.add(endHookSession);
 				const promptAdapter = new CodingAgentGreenfieldPromptAdapter({
@@ -864,6 +895,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 								})
 							: undefined),
 					hookRuntime,
+					extensionEvents,
 				});
 				return {
 					sessionId: sessionOptions.sessionId,
@@ -871,8 +903,11 @@ async function createGreenfieldRuntimeCompositionInternal(
 					conversationDocumentStore: repository,
 					conversationContinuationStore: repository,
 					promptAdapter: {
-						async prepare(request, context) {
+						async intercept(request, context) {
 							await refreshSessionMcp(activeSessionId, true);
+							return promptAdapter.intercept(request, context);
+						},
+						async prepare(request, context) {
 							const prepared = await promptAdapter.prepare(request, context);
 							await todoRuntime.flush();
 							return prepared;
@@ -960,6 +995,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 							const contextUsage = contextRuntime.readUsage(contextWindow);
 							const override = configurationState.readActiveToolNamesOverride();
 							return {
+								contextTokens: contextUsage.tokens,
 								contextPercent: contextUsage.percent,
 								contextWindow,
 								activeToolNames: override
@@ -1003,6 +1039,10 @@ async function createGreenfieldRuntimeCompositionInternal(
 							resourceContexts.delete(previousSessionId);
 							resourceContexts.set(result.sessionId, resourceContext);
 						}
+						if (extensionEventBridges.get(previousSessionId) === extensionEvents) {
+							extensionEventBridges.delete(previousSessionId);
+							extensionEventBridges.set(result.sessionId, extensionEvents);
+						}
 					},
 					async dispose() {
 						try {
@@ -1033,6 +1073,9 @@ async function createGreenfieldRuntimeCompositionInternal(
 							if (resourceContexts.get(activeSessionId) === resourceContext) {
 								resourceContexts.delete(activeSessionId);
 							}
+							if (extensionEventBridges.get(activeSessionId) === extensionEvents) {
+								extensionEventBridges.delete(activeSessionId);
+							}
 							mcpRefreshObservedSessions.delete(activeSessionId);
 							mcpPromptRefreshReuseSessions.delete(activeSessionId);
 							activeExecutionRuntime.dispose();
@@ -1058,6 +1101,9 @@ async function createGreenfieldRuntimeCompositionInternal(
 				configurationStates.delete(activeSessionId);
 				if (resourceContexts.get(activeSessionId) === resourceContext) {
 					resourceContexts.delete(activeSessionId);
+				}
+				if (extensionEventBridges.get(activeSessionId) === extensionEvents) {
+					extensionEventBridges.delete(activeSessionId);
 				}
 				mcpRefreshObservedSessions.delete(activeSessionId);
 				mcpPromptRefreshReuseSessions.delete(activeSessionId);
@@ -1117,6 +1163,15 @@ async function createGreenfieldRuntimeCompositionInternal(
 		backend,
 		tools,
 		scenario,
+		bindExtensionRunner(sessionId, runner) {
+			const bridge = extensionEventBridges.get(sessionId);
+			if (!bridge) throw new Error(`Greenfield Extension event bridge not found: ${sessionId}`);
+			const unbind = bridge.bind(runner);
+			return {
+				readSystemPrompt: () => bridge.readSystemPrompt(),
+				dispose: unbind,
+			};
+		},
 		appendSessionContext(sessionId, records) {
 			const context = resourceContexts.get(sessionId);
 			if (!context) throw new Error(`Greenfield session context not found: ${sessionId}`);
@@ -1148,6 +1203,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 			memoryRuntimes.clear();
 			memoryControllers.clear();
 			resourceContexts.clear();
+			extensionEventBridges.clear();
 			mcpRefreshObservedSessions.clear();
 			mcpPromptRefreshReuseSessions.clear();
 			hookSessionDisposers.clear();

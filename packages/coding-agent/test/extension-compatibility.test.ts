@@ -20,6 +20,7 @@ describe("Coding Agent Extension compatibility assessment", () => {
 			registrations: [],
 			requiredRuntimeCapabilities: [],
 			unmetRuntimeCapabilities: [],
+			unsupportedEvents: [],
 			requiresLegacyRuntime: false,
 		});
 	});
@@ -98,6 +99,7 @@ describe("Coding Agent Extension compatibility assessment", () => {
 				"shortcut",
 				"message-renderer",
 			],
+			unsupportedEvents: ["agent_start", "turn_end"],
 			requiresLegacyRuntime: true,
 		});
 	});
@@ -127,16 +129,47 @@ describe("Coding Agent Extension compatibility assessment", () => {
 		expect(resolveCodingAgentGreenfieldExtensionCompatibility(assessment)).toMatchObject({
 			requiredRuntimeCapabilities: ["opaque-runtime-api"],
 			unmetRuntimeCapabilities: [],
+			unsupportedEvents: [],
 			requiresLegacyRuntime: false,
 		});
 	});
 
-	it("keeps independently unsupported registrations on Legacy", () => {
+	it("allows the input and tool interception events implemented by the Greenfield event bridge", () => {
+		const assessment = assessCodingAgentExtensionCompatibility({
+			extensions: [
+				{
+					path: "supported-events.ts",
+					handlers: new Map([
+						["input", [async () => undefined]],
+						["tool_call", [async () => undefined]],
+						["tool_result", [async () => undefined]],
+					]),
+					tools: new Map(),
+					commands: new Map(),
+					shortcuts: new Map(),
+					flags: new Map(),
+					messageRenderers: new Map(),
+				},
+			],
+			pendingProviderNames: [],
+		});
+
+		expect(resolveCodingAgentGreenfieldExtensionCompatibility(assessment)).toMatchObject({
+			unmetRuntimeCapabilities: [],
+			unsupportedEvents: [],
+			requiresLegacyRuntime: false,
+		});
+	});
+
+	it("keeps independently unsupported events such as context on Legacy", () => {
 		const assessment = assessCodingAgentExtensionCompatibility({
 			extensions: [
 				{
 					path: "event-extension.ts",
-					handlers: new Map([["turn_end", [async () => undefined]]]),
+					handlers: new Map([
+						["input", [async () => undefined]],
+						["context", [async () => undefined]],
+					]),
 					tools: new Map(),
 					commands: new Map(),
 					shortcuts: new Map(),
@@ -149,6 +182,7 @@ describe("Coding Agent Extension compatibility assessment", () => {
 
 		expect(resolveCodingAgentGreenfieldExtensionCompatibility(assessment)).toMatchObject({
 			unmetRuntimeCapabilities: ["event-handler"],
+			unsupportedEvents: ["context"],
 			requiresLegacyRuntime: true,
 		});
 	});

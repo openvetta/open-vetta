@@ -12,6 +12,7 @@ import {
 	renderSystemPromptDraft,
 	type SystemPromptDraft,
 } from "../../core/system-prompt.js";
+import type { CodingAgentGreenfieldExtensionEventBridge } from "./greenfield-extension-event-bridge.js";
 import { wrapRuntimeToolsWithEcosystemHooks } from "./greenfield-hook-tool-wrapper.js";
 import type { CodingAgentPluginMcpRuntime } from "./greenfield-plugin-mcp-runtime.js";
 import type { CodingAgentPluginRunOrchestrator } from "./greenfield-plugin-run-orchestrator.js";
@@ -40,6 +41,7 @@ export interface CodingAgentModelCallFrameComposerOptions {
 	/** 系统提示词额外公布、但不加入可执行 Tool Frame 的既有宿主工具名称。 */
 	readonly systemPromptAdvertisedToolNames?: readonly string[];
 	readonly hookRuntime?: EcosystemHookRuntime;
+	readonly extensionEvents?: Pick<CodingAgentGreenfieldExtensionEventBridge, "recordSystemPrompt" | "wrapTools">;
 }
 
 export interface CodingAgentMcpPromptState {
@@ -60,6 +62,55 @@ export class CodingAgentModelCallFrameComposer implements ModelCallFrameComposer
 	constructor(private readonly options: CodingAgentModelCallFrameComposerOptions) {}
 
 	async compose(context: ModelCallFrameCompositionContext): Promise<ModelCallFrame> {
+		const prepared = await this.prepare(context);
+		const pluginFrame = await this.options.pluginRunOrchestrator?.compose({
+			context: prepared.effectiveContext,
+			availableTools: prepared.availableTools,
+			createDraft: prepared.createDraft,
+		});
+		const draft = prepared.override
+			? prepared.createDraft(prepared.activeToolNames)
+			: (pluginFrame?.draft ?? prepared.createDraft(prepared.activeToolNames));
+		const selectedTools = prepared.override
+			? new Map(
+					prepared.activeToolNames.flatMap((toolName) =>
+						prepared.availableTools.get(toolName) ? [[toolName, prepared.availableTools.get(toolName)!]] : [],
+					),
+				)
+			: (pluginFrame?.tools ?? prepared.effectiveContext.frame.tools);
+		const systemPrompt = renderSystemPromptDraft(draft);
+		this.options.extensionEvents?.recordSystemPrompt(systemPrompt);
+		const orderedTools = orderModelTools(selectedTools);
+		const extensionTools = this.options.extensionEvents?.wrapTools(orderedTools) ?? orderedTools;
+		const tools = this.options.hookRuntime
+			? wrapRuntimeToolsWithEcosystemHooks(extensionTools, this.options.hookRuntime)
+			: extensionTools;
+		return {
+			instructions: [
+				{
+					id: "coding-agent.system-prompt",
+					content: systemPrompt,
+					priority: 0,
+				},
+			],
+			tools,
+		};
+	}
+
+	/**
+	 * 初始化 ExtensionContext.getSystemPrompt() 的同步基线。
+	 *
+	 * Legacy input 事件发生在 before_agent_start 之前，因此这里只编译基础 Prompt，
+	 * 不运行可能产生调用级副作用的 Plugin orchestrator。
+	 */
+	async previewSystemPrompt(context: ModelCallFrameCompositionContext): Promise<string> {
+		const prepared = await this.prepare(context);
+		const systemPrompt = renderSystemPromptDraft(prepared.createDraft(prepared.activeToolNames));
+		this.options.extensionEvents?.recordSystemPrompt(systemPrompt);
+		return systemPrompt;
+	}
+
+	private async prepare(context: ModelCallFrameCompositionContext): Promise<PreparedModelCallFrame> {
 		context.signal.throwIfAborted();
 		const baseAvailableTools = new Map(this.options.readAvailableTools?.() ?? context.frame.tools);
 		for (const [name, tool] of context.frame.tools) {
@@ -105,31 +156,22 @@ export class CodingAgentModelCallFrameComposer implements ModelCallFrameComposer
 			appendFeatureInstructions(draft, effectiveContext.frame.instructions);
 			return draft;
 		};
-		const pluginFrame = await this.options.pluginRunOrchestrator?.compose({
-			context: effectiveContext,
-			availableTools,
-			createDraft,
-		});
-		const draft = override ? createDraft(activeToolNames) : (pluginFrame?.draft ?? createDraft(activeToolNames));
-		const selectedTools = override
-			? new Map(
-					activeToolNames.flatMap((toolName) =>
-						availableTools.get(toolName) ? [[toolName, availableTools.get(toolName)!]] : [],
-					),
-				)
-			: (pluginFrame?.tools ?? effectiveContext.frame.tools);
-		const tools = orderModelTools(selectedTools);
 		return {
-			instructions: [
-				{
-					id: "coding-agent.system-prompt",
-					content: renderSystemPromptDraft(draft),
-					priority: 0,
-				},
-			],
-			tools: this.options.hookRuntime ? wrapRuntimeToolsWithEcosystemHooks(tools, this.options.hookRuntime) : tools,
+			effectiveContext,
+			availableTools,
+			override,
+			activeToolNames,
+			createDraft,
 		};
 	}
+}
+
+interface PreparedModelCallFrame {
+	readonly effectiveContext: ModelCallFrameCompositionContext;
+	readonly availableTools: ReadonlyMap<string, RuntimeToolDefinition>;
+	readonly override: readonly string[] | undefined;
+	readonly activeToolNames: readonly string[];
+	readonly createDraft: (selectedTools: readonly string[]) => SystemPromptDraft;
 }
 
 function orderModelTools(

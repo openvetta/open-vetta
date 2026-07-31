@@ -14,6 +14,7 @@ import type {
 	SubagentInfo,
 	TodoItem,
 } from "../contracts.js";
+import type { ConversationDocument } from "../conversation/document.js";
 import type { RuntimeToolDefinition, SessionContextRecord } from "../kernel/contracts.js";
 
 /** 会话身份与资源释放；不承载宿主 UI 绑定或业务外围能力。 */
@@ -130,6 +131,27 @@ export interface RuntimeSessionExecutionController {
 /** Session 工作目录只读视图；目录创建和修复仍由宿主负责。 */
 export interface RuntimeSessionWorkspaceView {
 	readWorkingDirectory(): string | undefined;
+}
+
+/** 会话持久化文档的只读视图；供宿主兼容适配，不暴露存储或写命令。 */
+export interface RuntimeSessionConversationView {
+	readDocument(): ConversationDocument;
+}
+
+/** 尚未消费的用户输入数量；与具体队列实现解耦。 */
+export interface RuntimeSessionQueueView {
+	readPendingMessageCount(): number;
+}
+
+export interface RuntimeSessionContextUsage {
+	readonly tokens: number | null;
+	readonly contextWindow: number;
+	readonly percent: number | null;
+}
+
+/** 当前模型上下文占用的同步只读视图。 */
+export interface RuntimeSessionContextUsageView {
+	readContextUsage(): RuntimeSessionContextUsage | undefined;
 }
 
 export interface RuntimeSubagentUsageSnapshot {

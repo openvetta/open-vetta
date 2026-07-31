@@ -44,9 +44,12 @@ import type {
 	RuntimeSessionConfigurationController,
 	RuntimeSessionContextController,
 	RuntimeSessionContextDeliveryController,
+	RuntimeSessionContextUsageView,
+	RuntimeSessionConversationView,
 	RuntimeSessionExecutionController,
 	RuntimeSessionHostInteraction,
 	RuntimeSessionMetadataController,
+	RuntimeSessionQueueView,
 	RuntimeSessionState,
 	RuntimeSessionTodoController,
 	RuntimeSessionToolController,
@@ -62,8 +65,23 @@ export interface GreenfieldPreparedPrompt {
 	readonly options?: SessionSendOptions;
 }
 
+export type GreenfieldPromptInterceptionResult =
+	| { readonly action: "continue"; readonly request: PromptRequest }
+	| { readonly action: "handled" };
+
+export interface GreenfieldHandledPromptResult {
+	readonly status: "handled";
+	readonly sessionId: string;
+}
+
+export type GreenfieldPromptResult = SessionSendResult | GreenfieldHandledPromptResult;
+
 /** 外部 PromptRequest 到 Kernel 输入的必需反腐层；Backend 不静默忽略宿主字段。 */
 export interface GreenfieldPromptAdapter {
+	intercept?(
+		request: PromptRequest,
+		context: GreenfieldPromptPreparationContext,
+	): Promise<GreenfieldPromptInterceptionResult>;
 	prepare(request: PromptRequest, context: GreenfieldPromptPreparationContext): Promise<GreenfieldPreparedPrompt>;
 }
 
@@ -111,6 +129,9 @@ export type GreenfieldRuntimeSessionCoreAssembly = Pick<
 	RuntimeHostSessionAssembly,
 	"lifecycle" | "historyReader" | "historyController" | "modelController" | "modelView" | "workspaceView" | "corePorts"
 > & {
+	readonly conversationView: RuntimeSessionConversationView;
+	readonly queueView: RuntimeSessionQueueView;
+	readonly contextUsageView: RuntimeSessionContextUsageView;
 	readonly todoController?: RuntimeSessionTodoController;
 	readonly contextController?: RuntimeSessionContextController;
 	readonly contextDeliveryController: RuntimeSessionContextDeliveryController;
@@ -169,7 +190,7 @@ export class GreenfieldRuntimeSession {
 		return this.session.id;
 	}
 
-	async prompt(request: PromptRequest): Promise<SessionSendResult> {
+	async prompt(request: PromptRequest): Promise<GreenfieldPromptResult> {
 		this.assertOpen();
 		if (this.historyMutation || this.contextController?.readState().isCompacting) throw sessionBusyError();
 		if ((this.session.state === "running" || this.session.state === "cancelling") && !request.streamingBehavior) {
@@ -181,10 +202,20 @@ export class GreenfieldRuntimeSession {
 		if (request.reasoning) {
 			this.modelRuntime.setThinkingLevel(request.reasoning);
 		}
-		const prepared = await this.promptAdapter.prepare(this.normalizeImages(request), {
+		const context = {
 			sessionId: this.sessionId,
 			queueing: this.session.state === "running" || this.session.state === "cancelling",
-		});
+		};
+		const normalized = this.normalizeImages(request);
+		const intercepted = await this.promptAdapter.intercept?.(normalized, context);
+		this.assertOpen();
+		if (intercepted?.action === "handled") {
+			return { status: "handled", sessionId: this.sessionId };
+		}
+		const prepared = await this.promptAdapter.prepare(
+			intercepted?.action === "continue" ? intercepted.request : normalized,
+			context,
+		);
 		this.assertOpen();
 		return this.session.send(prepared.input, prepared.options ?? {});
 	}
@@ -361,6 +392,22 @@ export class GreenfieldRuntimeSession {
 			modelView: this.modelRuntime,
 			workspaceView: {
 				readWorkingDirectory: () => this.eventSink.readIdentity().cwd,
+			},
+			conversationView: {
+				readDocument: () => this.projection.readDocument(),
+			},
+			queueView: {
+				readPendingMessageCount: () => this.session.pendingMessageCount,
+			},
+			contextUsageView: {
+				readContextUsage: () => {
+					const state = this.stateSource.read();
+					return {
+						tokens: state.contextTokens ?? null,
+						contextWindow: state.contextWindow,
+						percent: state.contextPercent,
+					};
+				},
 			},
 			todoController: this.todoController,
 			contextController: this.contextController,

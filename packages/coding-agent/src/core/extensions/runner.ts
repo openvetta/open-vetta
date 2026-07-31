@@ -8,7 +8,7 @@ import { type Theme, theme } from "../../modes/interactive/theme/theme.js";
 import type { ResourceDiagnostic } from "../diagnostics.js";
 import type { KeyAction, KeybindingsConfig, KeyId } from "../keybindings.js";
 import type { ModelRegistry } from "../model-registry.js";
-import type { SessionManager } from "../session-manager/index.js";
+import type { ReadonlySessionManager, SessionManager } from "../session-manager/index.js";
 import { bindExtensionRuntimeActions, type ExtensionExecutionHost } from "./execution-host.js";
 import type {
 	BeforeAgentStartEvent,
@@ -200,7 +200,7 @@ export class ExtensionRunner {
 	private runtime: ExtensionRuntime;
 	private uiContext: ExtensionUIContext;
 	private cwd: string;
-	private sessionManager: SessionManager;
+	private sessionManager: ReadonlySessionManager;
 	private modelRegistry: ModelRegistry;
 	private errorListeners: Set<ExtensionErrorListener> = new Set();
 	private getModel: () => Model<any> | undefined = () => undefined;
@@ -227,7 +227,7 @@ export class ExtensionRunner {
 		extensions: Extension[],
 		runtime: ExtensionRuntime,
 		cwd: string,
-		sessionManager: SessionManager,
+		sessionManager: ReadonlySessionManager,
 		modelRegistry: ModelRegistry,
 	) {
 		this.extensions = extensions;

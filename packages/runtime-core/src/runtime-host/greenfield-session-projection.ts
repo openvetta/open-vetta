@@ -16,7 +16,9 @@ export interface GreenfieldRuntimeSessionIdentity {
 export type GreenfieldRuntimeDynamicState = Pick<
 	RuntimeSessionState,
 	"contextPercent" | "contextWindow" | "activeToolNames"
->;
+> & {
+	readonly contextTokens?: number | null;
+};
 
 /** 由 Greenfield Composition Root 提供上下文和当前 Snapshot 的实时只读状态。 */
 export interface GreenfieldRuntimeStateSource {

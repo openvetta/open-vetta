@@ -11,6 +11,7 @@ import type {
 } from "../../core/extensions/types.js";
 import type { ResourceLoader } from "../../core/resource-loader.js";
 import type { SlashCommandInfo, SlashCommandLocation } from "../../core/slash-commands.js";
+import { CODING_AGENT_EXTENSION_INPUT_SOURCE_METADATA_KEY } from "./greenfield-prompt-adapter.js";
 
 export interface CodingAgentGreenfieldExtensionActionHostOptions {
 	readonly session: GreenfieldRuntimeSession;
@@ -75,6 +76,7 @@ export class CodingAgentGreenfieldExtensionActionHost {
 							text: normalized.text,
 							images: normalized.images,
 							streamingBehavior: deliveryOptions?.deliverAs,
+							metadata: { [CODING_AGENT_EXTENSION_INPUT_SOURCE_METADATA_KEY]: "extension" },
 						})
 						.then(() => undefined),
 					"send_user_message",

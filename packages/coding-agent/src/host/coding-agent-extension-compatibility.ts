@@ -37,6 +37,7 @@ export interface CodingAgentExtensionCompatibilityAssessment {
 	readonly registrations: readonly CodingAgentExtensionRegistrationSummary[];
 	readonly requiredRuntimeCapabilities: readonly CodingAgentLegacyExtensionRuntimeCapability[];
 	readonly unmetRuntimeCapabilities: readonly CodingAgentLegacyExtensionRuntimeCapability[];
+	readonly unsupportedEvents: readonly string[];
 	readonly requiresLegacyRuntime: boolean;
 }
 
@@ -53,6 +54,8 @@ const RUNTIME_CAPABILITY_ORDER: readonly CodingAgentLegacyExtensionRuntimeCapabi
 	"shortcut",
 	"message-renderer",
 ];
+
+export const CODING_AGENT_GREENFIELD_EXTENSION_EVENTS = ["input", "tool_call", "tool_result"] as const;
 
 /**
  * 将旧 Extension 注册面投影为宿主可消费的兼容性事实。
@@ -90,23 +93,31 @@ export function assessCodingAgentExtensionCompatibility(
 		registrations,
 		requiredRuntimeCapabilities,
 		unmetRuntimeCapabilities: requiredRuntimeCapabilities,
+		unsupportedEvents: sortedUnique(registrations.flatMap((registration) => registration.events)),
 		requiresLegacyRuntime: requiredRuntimeCapabilities.length > 0,
 	};
 }
 
 /**
- * Greenfield Action Host 已覆盖命令式 API 后，只消除 opaque 缺口。
- * Event、Tool、Command、Shortcut 与 Renderer 仍按独立能力回退。
+ * Greenfield Action Host 已覆盖命令式 API；事件能力按具体事件名消除缺口。
+ * Tool 注册、Command、Shortcut 与 Renderer 仍按独立能力回退。
  */
 export function resolveCodingAgentGreenfieldExtensionCompatibility(
 	assessment: CodingAgentExtensionCompatibilityAssessment,
+	supportedEvents: readonly string[] = CODING_AGENT_GREENFIELD_EXTENSION_EVENTS,
 ): CodingAgentExtensionCompatibilityAssessment {
+	const supported = new Set(supportedEvents);
+	const unsupportedEvents = sortedUnique(
+		assessment.registrations.flatMap((registration) => registration.events.filter((event) => !supported.has(event))),
+	);
 	const unmetRuntimeCapabilities = assessment.unmetRuntimeCapabilities.filter(
-		(capability) => capability !== "opaque-runtime-api",
+		(capability) =>
+			capability !== "opaque-runtime-api" && (capability !== "event-handler" || unsupportedEvents.length > 0),
 	);
 	return {
 		...assessment,
 		unmetRuntimeCapabilities,
+		unsupportedEvents,
 		requiresLegacyRuntime: unmetRuntimeCapabilities.length > 0,
 	};
 }

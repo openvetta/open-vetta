@@ -120,6 +120,7 @@ describe("Greenfield IM Runtime Host", () => {
 		expect(fixture.bootstrap.extensionCompatibility).toMatchObject({
 			bootstrapContributions: { flags: ["audit-mode"] },
 			requiredRuntimeCapabilities: ["opaque-runtime-api", "event-handler"],
+			unsupportedEvents: ["agent_start"],
 			requiresLegacyRuntime: true,
 		});
 
@@ -135,6 +136,7 @@ describe("Greenfield IM Runtime Host", () => {
 			reason: "legacy-extension",
 			extensionCompatibility: {
 				requiredRuntimeCapabilities: ["opaque-runtime-api", "event-handler"],
+				unsupportedEvents: ["agent_start"],
 			},
 		});
 	});
@@ -169,6 +171,49 @@ describe("Greenfield IM Runtime Host", () => {
 		preparedHosts.splice(preparedHosts.indexOf(result), 1);
 
 		expect(result.session.createCoreAssembly).toThrow();
+	});
+
+	it("runs supported input events with a real Greenfield session context", async () => {
+		const fixture = await createFixture(
+			[],
+			`
+				export default function(pi) {
+					pi.on("input", async (event, ctx) => {
+						if (event.source !== "rpc") throw new Error("unexpected input source");
+						if (ctx.sessionManager.getSessionId() !== "extension-event-session") {
+							throw new Error("unexpected session id");
+						}
+						if (ctx.model?.id !== "test-model") throw new Error("unexpected model");
+						if (!ctx.isIdle() || ctx.hasPendingMessages()) throw new Error("unexpected queue state");
+						if (ctx.getContextUsage()?.contextWindow !== 8000) throw new Error("unexpected context usage");
+						if (ctx.sessionManager.getHeader()?.id !== "extension-event-session") {
+							throw new Error("unexpected session header");
+						}
+						if (ctx.sessionManager.getEntries().length !== 0 || ctx.sessionManager.getTree().length !== 0) {
+							throw new Error("unexpected initial conversation");
+						}
+						if (!ctx.getSystemPrompt()) throw new Error("system prompt was not initialized");
+						return { action: "handled" };
+					});
+				}
+			`,
+		);
+
+		const result = await prepareGreenfieldImRuntimeHost({
+			bootstrap: fixture.bootstrap,
+			conversationDir: fixture.conversationDir,
+			sessionCatalog: fixture.sessionCatalog,
+			createSessionId: () => "extension-event-session",
+		});
+		expect(result.kind).toBe("greenfield");
+		if (result.kind !== "greenfield") throw new Error("Expected Greenfield runtime");
+		preparedHosts.push(result);
+
+		await expect(result.session.prompt({ text: "handled by extension" })).resolves.toEqual({
+			status: "handled",
+			sessionId: "extension-event-session",
+		});
+		await expect(result.session.getMessages()).resolves.toEqual([]);
 	});
 });
 

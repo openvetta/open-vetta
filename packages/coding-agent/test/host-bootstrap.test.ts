@@ -83,6 +83,7 @@ describe("Coding Agent Host Bootstrap", () => {
 			registrations: [],
 			requiredRuntimeCapabilities: [],
 			unmetRuntimeCapabilities: [],
+			unsupportedEvents: [],
 			requiresLegacyRuntime: false,
 		});
 		expect(initial).toMatchObject({
