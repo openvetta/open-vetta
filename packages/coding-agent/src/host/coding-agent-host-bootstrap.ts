@@ -12,6 +12,10 @@ import { DefaultResourceLoader } from "../core/resource-loader.js";
 import { type SettingsError, SettingsManager } from "../core/settings-manager.js";
 import { time } from "../core/timings.js";
 import { runMigrations } from "../migrations.js";
+import {
+	assessCodingAgentExtensionCompatibility,
+	type CodingAgentExtensionCompatibilityAssessment,
+} from "./coding-agent-extension-compatibility.js";
 
 export interface CodingAgentHostBootstrapDiagnostics {
 	readonly onSettingsError?: (error: SettingsError) => void;
@@ -33,6 +37,7 @@ export interface CodingAgentHostBootstrap {
 	readonly modelRegistry: ModelRegistry;
 	readonly resourceLoader: DefaultResourceLoader;
 	readonly extensionsResult: LoadExtensionsResult;
+	readonly extensionCompatibility: CodingAgentExtensionCompatibilityAssessment;
 }
 
 export interface CodingAgentInitialModelResolution {
@@ -97,6 +102,10 @@ export async function createCodingAgentHostBootstrap(
 
 	const extensionsResult = resourceLoader.getExtensions();
 	for (const error of extensionsResult.errors) options.onExtensionError?.(error);
+	const extensionCompatibility = assessCodingAgentExtensionCompatibility({
+		extensions: extensionsResult.extensions,
+		pendingProviderNames: extensionsResult.runtime.pendingProviderRegistrations.map(({ name }) => name),
+	});
 	for (const { name, config } of extensionsResult.runtime.pendingProviderRegistrations) {
 		modelRegistry.registerProvider(name, config);
 	}
@@ -120,6 +129,7 @@ export async function createCodingAgentHostBootstrap(
 		modelRegistry,
 		resourceLoader,
 		extensionsResult,
+		extensionCompatibility,
 	};
 }
 

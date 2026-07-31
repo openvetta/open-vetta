@@ -1,3 +1,9 @@
+export type {
+	CodingAgentExtensionBootstrapContributions,
+	CodingAgentExtensionCompatibilityAssessment,
+	CodingAgentExtensionRegistrationSummary,
+	CodingAgentLegacyExtensionRuntimeCapability,
+} from "../host/coding-agent-extension-compatibility.js";
 export {
 	type CodingAgentHostBootstrap,
 	type CodingAgentHostBootstrapDiagnostics,

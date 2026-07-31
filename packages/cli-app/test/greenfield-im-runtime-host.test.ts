@@ -105,9 +105,45 @@ describe("Greenfield IM Runtime Host", () => {
 			reason: "unsupported-session-selection",
 		});
 	});
+
+	it("uses the Coding Agent capability assessment for Legacy Extension fallback", async () => {
+		const fixture = await createFixture(
+			[],
+			`
+				export default function(pi) {
+					pi.registerFlag("audit-mode", { type: "boolean" });
+					pi.on("agent_start", async () => {});
+				}
+			`,
+		);
+		expect(fixture.bootstrap.extensionsResult.extensions).toHaveLength(1);
+		expect(fixture.bootstrap.extensionCompatibility).toMatchObject({
+			bootstrapContributions: { flags: ["audit-mode"] },
+			requiredRuntimeCapabilities: ["opaque-runtime-api", "event-handler"],
+			requiresLegacyRuntime: true,
+		});
+
+		fixture.bootstrap.extensionsResult.extensions.splice(0);
+		const result = await prepareGreenfieldImRuntimeHost({
+			bootstrap: fixture.bootstrap,
+			conversationDir: fixture.conversationDir,
+			sessionCatalog: fixture.sessionCatalog,
+		});
+
+		expect(result).toMatchObject({
+			kind: "legacy-fallback",
+			reason: "legacy-extension",
+			extensionCompatibility: {
+				requiredRuntimeCapabilities: ["opaque-runtime-api", "event-handler"],
+			},
+		});
+	});
 });
 
-async function createFixture(extraArgs: string[]): Promise<{
+async function createFixture(
+	extraArgs: string[],
+	extensionSource?: string,
+): Promise<{
 	readonly root: string;
 	readonly agentDir: string;
 	readonly workspace: string;
@@ -147,7 +183,12 @@ async function createFixture(extraArgs: string[]): Promise<{
 		}),
 		"utf8",
 	);
-	const bootstrap = await createBootstrap(fixture, extraArgs);
+	const extensionPath = join(root, "legacy-extension.ts");
+	if (extensionSource) await writeFile(extensionPath, extensionSource, "utf8");
+	const bootstrap = await createBootstrap(
+		fixture,
+		extensionSource ? [...extraArgs, "--extension", extensionPath] : extraArgs,
+	);
 	const sessionCatalog = createCliRuntimeSessionCatalog({
 		cwd: fixture.workspace,
 		sessionDir: fixture.conversationDir,

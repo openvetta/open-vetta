@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { extname } from "node:path";
 import {
+	type CodingAgentExtensionCompatibilityAssessment,
 	type CodingAgentHostBootstrap,
 	type CodingAgentHostBootstrapOptions,
 	createCodingAgentHostBootstrap,
@@ -34,6 +35,7 @@ export interface GreenfieldImRuntimeHostFallback {
 	readonly reason: GreenfieldImFallbackReason;
 	readonly bootstrap: CodingAgentHostBootstrap;
 	readonly sessionPath: string | undefined;
+	readonly extensionCompatibility?: CodingAgentExtensionCompatibilityAssessment;
 }
 
 export interface GreenfieldImRuntimeHostReady {
@@ -88,12 +90,13 @@ export async function prepareGreenfieldImRuntimeHost(
 			sessionPath: parsed.session,
 		};
 	}
-	if (bootstrap.extensionsResult.extensions.length > 0) {
+	if (bootstrap.extensionCompatibility.requiresLegacyRuntime) {
 		return {
 			kind: "legacy-fallback",
 			reason: "legacy-extension",
 			bootstrap,
 			sessionPath: parsed.session,
+			extensionCompatibility: bootstrap.extensionCompatibility,
 		};
 	}
 

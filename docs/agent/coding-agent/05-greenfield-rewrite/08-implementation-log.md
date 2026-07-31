@@ -135,6 +135,7 @@
 | [125-legacy-responsibility-allowlist.md](./08-implementation-log/125-legacy-responsibility-allowlist.md) | 中性共享模型控制器、Desktop 三服务 Legacy 边界与生产依赖白名单 |
 | [126-legacy-format-execution-separation.md](./08-implementation-log/126-legacy-format-execution-separation.md) | Legacy JSONL 格式兼容与旧 Agent 执行兼容分离 |
 | [127-cli-format-neutral-continue-selection.md](./08-implementation-log/127-cli-format-neutral-continue-selection.md) | CLI 格式中立 `--continue` 选择、Greenfield 恢复与 Legacy 回退收缩 |
+| [128-legacy-extension-capability-assessment.md](./08-implementation-log/128-legacy-extension-capability-assessment.md) | Legacy Extension 能力分类、宿主评估与能力驱动回退合同 |
 
 ## 维护约定
 

@@ -19,6 +19,7 @@
 
 ### Changed
 
+- **Legacy Extension 回退改为能力评估合同**：Host Bootstrap 现在一次性汇总 Extension 的 Provider/Flag 启动贡献，以及 Event、Tool、Command、Shortcut、Message Renderer 运行时需求；Greenfield CLI 只消费结构化 `requiresLegacyRuntime`/缺口结果，不再遍历旧 Extension 注册表。由于旧 factory 可长期持有命令式 `ExtensionAPI`，所有现存 Extension 继续携带 `opaque-runtime-api` 缺口并保持原 Legacy 回退行为，不会因注册表为空而被误判为兼容。
 - **`SessionManager` 按业务域拆分到 `core/session-manager/`**：数据模型、格式兼容、LLM 上下文、会话目录、store 落盘原语、生命周期、对话写入、树导航、消息编辑、fork/export/rollover；`manager.ts` 仅为公共门面委托。导入路径仍为 `core/session-manager`（目录 `index`），公共 API 不变。
 - **结尾「交付物清单」升级为强制约束，Coding 模式补齐并更精确**：全局 `DELIVERABLES_GUIDANCE` 措辞由「任务产生/改动文件时…」收紧为「本轮只要 created/edited/wrote 过任何文件，结尾就必须给交付物块，单文件/一行改动也不例外，唯一豁免是整轮没改任何文件」。Coding 模式(`coding.md`)此前只有「关键观察」段、末尾文件清单仅靠全局兜底、遵从度弱，现于 observations 后补同款强制指令，且**每项文件加一句极简改动说明**（`- [name.ext](/abs/path) — 改了啥`），比 Work 模式（纯文件名清单，面向非技术用户）更精确。尾部顺序统一为 渲染产物 → 关键观察 → 交付物清单，让「本次改动了哪些文件、各改了啥」在两模式下都稳定以可点无序列表呈现。
 - **系统提示词瘦身与场景化裁剪**：桌面渲染契约类 guideline（文件徽章链接、「产物:」交付块、URL 描述性链接）改为按对话场景注入——`cli` 场景剔除（终端无徽章/卡片渲染，省约 1.7k 常驻字符），桌面场景与未传 scenario 的 SDK 直调行为不变。同时压缩长文案（文件徽章/产物块两条各砍约 40% 字数、`VETTA_CLI_GUIDANCE` 16 条合并为 8 条、MCP 段真假 markdown 两分支合一），语义约束不变；文件名保真规则收敛为单一常量（原 guidelines 与 custom-prompt 分支各写一份）。新增 Project Context 头部的 AGENTS.md 作用域规范（就近目录树生效、深层覆盖浅层、用户对话指令最高）。
