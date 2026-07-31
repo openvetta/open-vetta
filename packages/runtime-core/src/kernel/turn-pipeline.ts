@@ -1,6 +1,6 @@
 import type { Message, StopReason } from "@vetta/ai";
 import type { ConversationDocument, ConversationDocumentReader } from "../conversation/document.js";
-import type { RuntimeExecutionObservationEvent } from "../runtime-execution-observation.js";
+import type { RuntimeExecutionObservationEvent, RuntimeMessageEnvelope } from "../runtime-execution-observation.js";
 import type { RuntimeSessionObservationEvent } from "../session-observation.js";
 import { ContextCompactionCommitter } from "./context-compaction-committer.js";
 import type {
@@ -225,6 +225,21 @@ export class TurnPipeline {
 			];
 			const turnContext = input?.context ?? continuationContext;
 			const trailingContext = input?.trailingContext ?? [];
+			const initialMessages: RuntimeMessageEnvelope[] = input
+				? [
+						...turnContext.map((record) => ({
+							kind: "context" as const,
+							record,
+							timestamp: record.timestamp ?? startedAt,
+						})),
+						{ kind: "message", message: input.message },
+						...trailingContext.map((record) => ({
+							kind: "context" as const,
+							record,
+							timestamp: record.timestamp ?? startedAt,
+						})),
+					]
+				: [];
 			for (const record of turnContext) {
 				startEvents.push({
 					type: "context.appended",
@@ -350,6 +365,13 @@ export class TurnPipeline {
 				const preparationContext = preparationResult?.context ?? [];
 				if (preparationContext.length > 0) {
 					const timestamp = this.clock.now();
+					initialMessages.push(
+						...preparationContext.map((record) => ({
+							kind: "context" as const,
+							record,
+							timestamp: record.timestamp ?? timestamp,
+						})),
+					);
 					await this.append(
 						state,
 						signal,
@@ -385,6 +407,7 @@ export class TurnPipeline {
 				snapshot,
 				modelBinding,
 				messages: executionMessages,
+				initialMessages,
 				initialModelCallFrame,
 				instructionOverride,
 				signal,

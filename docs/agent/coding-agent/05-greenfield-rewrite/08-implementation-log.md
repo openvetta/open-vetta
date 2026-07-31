@@ -141,6 +141,7 @@
 | [131-greenfield-extension-event-host.md](./08-implementation-log/131-greenfield-extension-event-host.md) | Greenfield Extension Input/Tool 事件宿主、只读 Session Context 与事件级回退 |
 | [132-greenfield-extension-execution-observation.md](./08-implementation-log/132-greenfield-extension-execution-observation.md) | Runtime 执行观察合同、Extension 生命周期/执行事件适配与身份事件回退 |
 | [133-agent-run-preparation-and-before-start.md](./08-implementation-log/133-agent-run-preparation-and-before-start.md) | Agent Run Preparation、首次 Frame 复用与 `before_agent_start` 无损适配 |
+| [134-runtime-message-identity-and-extension-events.md](./08-implementation-log/134-runtime-message-identity-and-extension-events.md) | Runtime 消息身份信封、Extension `message_*` / `agent_end` 无损适配与 `context` 回退边界 |
 
 ## 维护约定
 

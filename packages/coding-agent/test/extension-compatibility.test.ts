@@ -145,8 +145,12 @@ describe("Coding Agent Extension compatibility assessment", () => {
 						["session_start", [async () => undefined]],
 						["session_shutdown", [async () => undefined]],
 						["agent_start", [async () => undefined]],
+						["agent_end", [async () => undefined]],
 						["turn_start", [async () => undefined]],
 						["turn_end", [async () => undefined]],
+						["message_start", [async () => undefined]],
+						["message_update", [async () => undefined]],
+						["message_end", [async () => undefined]],
 						["tool_call", [async () => undefined]],
 						["tool_result", [async () => undefined]],
 						["tool_execution_start", [async () => undefined]],
@@ -171,7 +175,7 @@ describe("Coding Agent Extension compatibility assessment", () => {
 		});
 	});
 
-	it("keeps message-identity events on Legacy", () => {
+	it("keeps the historical context transformation event on Legacy", () => {
 		const assessment = assessCodingAgentExtensionCompatibility({
 			extensions: [
 				{
@@ -194,7 +198,7 @@ describe("Coding Agent Extension compatibility assessment", () => {
 
 		expect(resolveCodingAgentGreenfieldExtensionCompatibility(assessment)).toMatchObject({
 			unmetRuntimeCapabilities: ["event-handler"],
-			unsupportedEvents: ["agent_end", "context", "message_end"],
+			unsupportedEvents: ["context"],
 			requiresLegacyRuntime: true,
 		});
 	});

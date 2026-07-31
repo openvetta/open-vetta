@@ -351,6 +351,11 @@ describe("greenfield runtime kernel", () => {
 
 		expect(contextStrategy.inputs[0].map((message) => message.content)).toEqual(["model context", "current input"]);
 		expect(engine.requests[0].input?.context).toHaveLength(2);
+		expect(engine.requests[0].initialMessages).toMatchObject([
+			{ kind: "context", record: { type: "visible" } },
+			{ kind: "context", record: { type: "marker" } },
+			{ kind: "message", message: { role: "user", content: "current input" } },
+		]);
 		const conversation = await harness.repository.load("session-1");
 		expect(conversation.events.map(({ type }) => type)).toEqual([
 			"turn.started",
@@ -421,6 +426,12 @@ describe("greenfield runtime kernel", () => {
 			"current input",
 			"visible preparation",
 		]);
+		expect(engine.requests[0].initialMessages).toMatchObject([
+			{ kind: "message", message: { role: "user", content: "current input" } },
+			{ kind: "context", record: { type: "extension-visible" } },
+			{ kind: "context", record: { type: "extension-hidden" } },
+		]);
+		expect(engine.requests[1].initialMessages).toEqual([]);
 		expect((await harness.repository.load("session-1")).events.map(({ type }) => type)).toEqual([
 			"turn.started",
 			"message.appended",

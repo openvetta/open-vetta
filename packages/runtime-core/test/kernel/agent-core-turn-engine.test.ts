@@ -213,7 +213,7 @@ describe("AgentCoreTurnEngine", () => {
 						event.type === "execution_observation",
 				)
 				.map(({ observation }) => observation.type),
-		).toEqual(["agent.start", "turn.start", "turn.end"]);
+		).toEqual(["agent.start", "turn.start", "message.start", "message.end", "turn.end", "agent.end"]);
 		expect(events.filter((event) => event.type !== "observation" && event.type !== "execution_observation")).toEqual([
 			{
 				type: "message",
@@ -335,13 +335,20 @@ describe("AgentCoreTurnEngine", () => {
 		).toEqual([
 			"agent.start",
 			"turn.start",
+			"message.start",
+			"message.end",
 			"tool.execution.start",
 			"tool.execution.update",
 			"tool.execution.phase",
 			"tool.execution.end",
+			"message.start",
+			"message.end",
 			"turn.end",
 			"turn.start",
+			"message.start",
+			"message.end",
 			"turn.end",
+			"agent.end",
 		]);
 		expect(
 			events
@@ -362,6 +369,64 @@ describe("AgentCoreTurnEngine", () => {
 		expect(events.at(-1)).toEqual({
 			type: "completed",
 			stopReason: "stop",
+		});
+	});
+
+	it("preserves explicit-run message identity and order in execution observations", async () => {
+		const response = assistantMessage([{ type: "text", text: "done" }]);
+		const input = userMessage("hello");
+		const initialMessages = [
+			{
+				kind: "context" as const,
+				record: {
+					type: "prompt_attachment_context",
+					content: "attachment",
+					modelVisible: true,
+					display: true,
+					metadata: { path: "README.md" },
+				},
+				timestamp: 10,
+			},
+			{ kind: "message" as const, message: input },
+		];
+		const engine = new AgentCoreTurnEngine({
+			model: model(),
+			streamFn: () => new RecordedAssistantStream(response),
+		});
+		const executionEvents: Extract<TurnEngineEvent, { type: "execution_observation" }>["observation"][] = [];
+
+		for await (const event of engine.execute({
+			sessionId: "session-1",
+			turnId: "turn-1",
+			snapshot: snapshot(),
+			messages: [input],
+			initialMessages,
+			signal: new AbortController().signal,
+		})) {
+			if (event.type === "execution_observation") executionEvents.push(event.observation);
+		}
+
+		expect(executionEvents.map(({ type }) => type)).toEqual([
+			"agent.start",
+			"turn.start",
+			"message.start",
+			"message.end",
+			"message.start",
+			"message.end",
+			"message.start",
+			"message.end",
+			"turn.end",
+			"agent.end",
+		]);
+		expect(executionEvents.slice(2, 6)).toEqual([
+			{ type: "message.start", message: initialMessages[0] },
+			{ type: "message.end", message: initialMessages[0] },
+			{ type: "message.start", message: initialMessages[1] },
+			{ type: "message.end", message: initialMessages[1] },
+		]);
+		expect(executionEvents.at(-1)).toEqual({
+			type: "agent.end",
+			messages: [...initialMessages, { kind: "message", message: response }],
 		});
 	});
 
@@ -753,6 +818,54 @@ describe("AgentCoreTurnEngine", () => {
 				.map((event) => (event.type === "message" ? event.message.role : event.type)),
 		).toEqual(["assistant", "user", "assistant", "user", "assistant", "completed"]);
 		expect(queue.pendingCount).toBe(0);
+	});
+
+	it("keeps queued visible and hidden context identity without exposing hidden context to the model", async () => {
+		const queue = new SessionInputQueue();
+		queue.steer({
+			context: [
+				{ type: "visible-context", content: "visible", modelVisible: true, display: true, timestamp: 10 },
+				{ type: "hidden-context", content: "hidden", modelVisible: false, display: false, timestamp: 11 },
+			],
+			message: userMessage("steer"),
+		});
+		const contexts: Context[] = [];
+		const engine = new AgentCoreTurnEngine({
+			model: model(),
+			streamFn: (_model, context) => {
+				contexts.push({ ...context, messages: [...context.messages] });
+				return new RecordedAssistantStream(assistantMessage([{ type: "text", text: "done" }]));
+			},
+		});
+
+		const events = await collect(engine, snapshot(), new AbortController().signal, queue);
+		const executionEvents = events
+			.filter(
+				(event): event is Extract<TurnEngineEvent, { type: "execution_observation" }> =>
+					event.type === "execution_observation",
+			)
+			.map(({ observation }) => observation);
+
+		expect(contexts[0].messages.map(messageText)).toEqual(["hello", "visible", "steer"]);
+		expect(
+			executionEvents
+				.filter(({ type }) => type === "message.end")
+				.map((event) => (event.type === "message.end" ? event.message : undefined)),
+		).toMatchObject([
+			{ kind: "context", record: { type: "visible-context", modelVisible: true } },
+			{ kind: "context", record: { type: "hidden-context", modelVisible: false } },
+			{ kind: "message", message: { role: "user", content: "steer" } },
+			{ kind: "message", message: { role: "assistant" } },
+		]);
+		expect(executionEvents.at(-1)).toMatchObject({
+			type: "agent.end",
+			messages: [
+				{ kind: "context", record: { type: "visible-context" } },
+				{ kind: "context", record: { type: "hidden-context" } },
+				{ kind: "message", message: { role: "user", content: "steer" } },
+				{ kind: "message", message: { role: "assistant" } },
+			],
+		});
 	});
 
 	it("does not consume follow-up input after an error terminal", async () => {

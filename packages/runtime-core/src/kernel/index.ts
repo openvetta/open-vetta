@@ -1,4 +1,4 @@
-export type { RuntimeExecutionObservationEvent } from "../runtime-execution-observation.js";
+export type { RuntimeExecutionObservationEvent, RuntimeMessageEnvelope } from "../runtime-execution-observation.js";
 export type {
 	RuntimeSessionLifecyclePhase,
 	RuntimeSessionObservationEvent,

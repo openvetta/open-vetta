@@ -125,6 +125,68 @@ describe("CodingAgentGreenfieldExtensionObservationAdapter", () => {
 			},
 		]);
 	});
+
+	it("restores custom message identity across message lifecycle and agent end events", async () => {
+		const events: CodingAgentGreenfieldObservedExtensionEvent[] = [];
+		const adapter = new CodingAgentGreenfieldExtensionObservationAdapter(async (event) => {
+			events.push(event);
+		});
+		const message = assistantMessage();
+		const customEnvelope = {
+			kind: "context" as const,
+			record: {
+				type: "prompt_attachment_context",
+				content: "attachment",
+				modelVisible: true,
+				display: true,
+				metadata: { path: "README.md" },
+			},
+			timestamp: 20,
+		};
+		const messageEnvelope = { kind: "message" as const, message };
+		const assistantMessageEvent = {
+			type: "text_delta" as const,
+			contentIndex: 0,
+			delta: "done",
+			partial: message,
+		};
+
+		await adapter.observe({
+			turnId: "turn-1",
+			timestamp: 1,
+			event: { type: "message.start", message: customEnvelope },
+		});
+		await adapter.observe({
+			turnId: "turn-1",
+			timestamp: 2,
+			event: { type: "message.end", message: customEnvelope },
+		});
+		await adapter.observe({
+			turnId: "turn-1",
+			timestamp: 3,
+			event: { type: "message.update", message: messageEnvelope, assistantMessageEvent },
+		});
+		await adapter.observe({
+			turnId: "turn-1",
+			timestamp: 4,
+			event: { type: "agent.end", messages: [customEnvelope, messageEnvelope] },
+		});
+
+		const customMessage = {
+			role: "custom" as const,
+			customType: "prompt_attachment_context",
+			content: "attachment",
+			display: true,
+			details: { path: "README.md" },
+			timestamp: 20,
+		};
+		expect(events).toEqual([
+			{ type: "message_start", message: customMessage },
+			{ type: "message_end", message: customMessage },
+			{ type: "message_update", message, assistantMessageEvent },
+			{ type: "agent_end", messages: [customMessage, message] },
+		]);
+	});
 });
 
 function assistantMessage(): AssistantMessage {

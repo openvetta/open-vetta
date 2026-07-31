@@ -1,6 +1,18 @@
 import type { ToolPhase } from "@vetta/agent-core";
-import type { Message, ToolResultMessage } from "@vetta/ai";
-import type { RuntimeToolResult } from "./kernel/contracts.js";
+import type { AssistantMessageEvent, Message, ToolResultMessage } from "@vetta/ai";
+import type { RuntimeToolResult, SessionContextRecord } from "./kernel/contracts.js";
+
+/** 保留产品上下文身份的执行期消息信封；不进入模型消息或 Conversation 投影。 */
+export type RuntimeMessageEnvelope =
+	| {
+			readonly kind: "message";
+			readonly message: Message;
+	  }
+	| {
+			readonly kind: "context";
+			readonly record: SessionContextRecord;
+			readonly timestamp: number;
+	  };
 
 /**
  * Turn Engine 暴露给 Session 级运行时适配器的完整执行观察事件。
@@ -10,11 +22,28 @@ import type { RuntimeToolResult } from "./kernel/contracts.js";
  */
 export type RuntimeExecutionObservationEvent =
 	| { readonly type: "agent.start" }
+	| {
+			readonly type: "agent.end";
+			readonly messages: readonly RuntimeMessageEnvelope[];
+	  }
 	| { readonly type: "turn.start" }
 	| {
 			readonly type: "turn.end";
 			readonly message: Message;
 			readonly toolResults: readonly ToolResultMessage[];
+	  }
+	| {
+			readonly type: "message.start";
+			readonly message: RuntimeMessageEnvelope;
+	  }
+	| {
+			readonly type: "message.update";
+			readonly message: RuntimeMessageEnvelope;
+			readonly assistantMessageEvent: AssistantMessageEvent;
+	  }
+	| {
+			readonly type: "message.end";
+			readonly message: RuntimeMessageEnvelope;
 	  }
 	| {
 			readonly type: "tool.execution.start";

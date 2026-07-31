@@ -6,6 +6,7 @@ All notable changes to `@vetta/runtime-core` are documented in this file.
 
 ### Added
 
+- **Runtime 消息身份执行观察**：新增产品无关的 `RuntimeMessageEnvelope` 与 `agent.end` / `message.*` 执行事件；Turn Pipeline 按显式 Run 顺序保留标准消息和通用 Context Record 身份，Agent Core 在 canonical 持久化前发布完整消息生命周期，不改变模型上下文或公开 Session Event。
 - **Agent Run Preparation 合同**：新增显式输入专属的一次性 `AgentRunPreparer`，可在 Context Preparation 后持久化通用上下文并覆盖本次 Run 的 Prompt；系统提示词按需惰性解析，已编译的首次 Model Call Frame 由 Agent Core 复用，后续工具循环仍动态组合工具。
 - **独立 Runtime 执行观察合同**：新增不依赖产品 Extension 或公开 `SessionEvent` 的 agent/turn/tool 完整执行事件，并由 Greenfield Session 提供有序异步观察流；观察者异常按订阅者隔离，不中断 Turn，也不把瞬时执行细节写入 Conversation Document。
 - **Greenfield Extension 宿主所需只读 Session Port 与输入拦截点**：Core Assembly 新增 Conversation Document、待处理队列和上下文占用只读视图；Prompt Adapter 可在 Kernel 创建输入前返回变换后的请求或 `handled`，后者不会伪造消息或启动 Turn。合同不引用 Coding Agent Extension、SessionManager 或具体存储实现。

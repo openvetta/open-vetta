@@ -10,7 +10,7 @@ import type {
 	UserMessage,
 } from "@vetta/ai";
 import type { ConversationDocument } from "../conversation/document.js";
-import type { RuntimeExecutionObservationEvent } from "../runtime-execution-observation.js";
+import type { RuntimeExecutionObservationEvent, RuntimeMessageEnvelope } from "../runtime-execution-observation.js";
 import type { RuntimeSessionObservationEvent } from "../session-observation.js";
 
 export type AgentSessionState = "idle" | "running" | "cancelling" | "closing" | "closed";
@@ -670,6 +670,8 @@ export interface TurnEngineRequest {
 	readonly snapshot: RuntimeSnapshot;
 	readonly modelBinding?: RuntimeTurnModelBinding;
 	readonly messages: readonly Message[];
+	/** 显式 Run 新增消息的身份视图；仅用于执行观察，不参与模型上下文。 */
+	readonly initialMessages?: readonly RuntimeMessageEnvelope[];
 	/** Run Preparation 已编译的首次模型调用 Frame；避免基础 Prompt 重复编译。 */
 	readonly initialModelCallFrame?: ModelCallFrame;
 	/** 本次 Agent Run 固定使用的 Prompt 覆盖；不影响动态工具集合。 */

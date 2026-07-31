@@ -1,6 +1,11 @@
-import type { RuntimeSessionExecutionObservation } from "@vetta/runtime-core";
+import type { AgentMessage } from "@vetta/agent-core";
+import type { RuntimeMessageEnvelope, RuntimeSessionExecutionObservation } from "@vetta/runtime-core";
 import type {
+	AgentEndEvent,
 	AgentStartEvent,
+	MessageEndEvent,
+	MessageStartEvent,
+	MessageUpdateEvent,
 	ToolExecutionEndEvent,
 	ToolExecutionPhaseEvent,
 	ToolExecutionStartEvent,
@@ -8,11 +13,16 @@ import type {
 	TurnEndEvent,
 	TurnStartEvent,
 } from "../../core/extensions/types.js";
+import type { CustomMessage } from "../../core/messages.js";
 
 export type CodingAgentGreenfieldObservedExtensionEvent =
 	| AgentStartEvent
+	| AgentEndEvent
 	| TurnStartEvent
 	| TurnEndEvent
+	| MessageStartEvent
+	| MessageUpdateEvent
+	| MessageEndEvent
 	| ToolExecutionStartEvent
 	| ToolExecutionUpdateEvent
 	| ToolExecutionPhaseEvent
@@ -36,6 +46,10 @@ export class CodingAgentGreenfieldExtensionObservationAdapter {
 			await this.emit({ type: "agent_start" });
 			return;
 		}
+		if (event.type === "agent.end") {
+			await this.emit({ type: "agent_end", messages: event.messages.map(toAgentMessage) });
+			return;
+		}
 		if (event.type === "turn.start") {
 			await this.emit({
 				type: "turn_start",
@@ -55,6 +69,22 @@ export class CodingAgentGreenfieldExtensionObservationAdapter {
 			} finally {
 				this.turnIndex++;
 			}
+			return;
+		}
+		if (event.type === "message.start") {
+			await this.emit({ type: "message_start", message: toAgentMessage(event.message) });
+			return;
+		}
+		if (event.type === "message.update") {
+			await this.emit({
+				type: "message_update",
+				message: toAgentMessage(event.message),
+				assistantMessageEvent: event.assistantMessageEvent,
+			});
+			return;
+		}
+		if (event.type === "message.end") {
+			await this.emit({ type: "message_end", message: toAgentMessage(event.message) });
 			return;
 		}
 		if (event.type === "tool.execution.start") {
@@ -104,4 +134,16 @@ export class CodingAgentGreenfieldExtensionObservationAdapter {
 			phases: [...event.phases],
 		});
 	}
+}
+
+function toAgentMessage(envelope: RuntimeMessageEnvelope): AgentMessage | CustomMessage {
+	if (envelope.kind === "message") return envelope.message;
+	return {
+		role: "custom",
+		customType: envelope.record.type,
+		content: envelope.record.content,
+		display: envelope.record.display ?? false,
+		details: envelope.record.metadata,
+		timestamp: envelope.timestamp,
+	};
 }

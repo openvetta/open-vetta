@@ -9,7 +9,7 @@ import {
 	type StreamFn,
 } from "@vetta/agent-core";
 import { type Api, type Message, type Model, type SimpleStreamOptions, Type } from "@vetta/ai";
-import type { RuntimeExecutionObservationEvent } from "../runtime-execution-observation.js";
+import type { RuntimeExecutionObservationEvent, RuntimeMessageEnvelope } from "../runtime-execution-observation.js";
 import type { RuntimeSessionObservationEvent } from "../session-observation.js";
 import type {
 	QueuedSessionInput,
@@ -45,19 +45,21 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 
 	async *execute(request: TurnEngineRequest): AsyncIterable<TurnEngineEvent> {
 		request.signal.throwIfAborted();
+		const contextMessageIdentities = new WeakMap<Message, RuntimeMessageEnvelope>();
 		const stream = agentLoopContinue(
 			{
 				systemPrompt: resolveRequestSystemPrompt(request, request.initialModelCallFrame ?? request.snapshot),
 				messages: [...request.messages],
 				tools: [...(request.initialModelCallFrame?.tools ?? request.snapshot.tools).values()].map((tool) =>
-					this.toAgentTool(tool, request),
+					this.toAgentTool(tool, request, contextMessageIdentities),
 				),
 			},
-			this.createConfig(request),
+			this.createConfig(request, contextMessageIdentities),
 			request.signal,
 			this.options.streamFn,
 		);
 		let finalAssistantMessage: Extract<Message, { role: "assistant" }> | undefined;
+		let initialMessagesObserved = false;
 
 		for await (const event of stream) {
 			if (event.type === "context_checkpoint") {
@@ -65,7 +67,7 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 					type: "context_checkpoint",
 					request: {
 						reason: event.request.reason,
-						messages: event.request.messages.filter(isRuntimeMessage),
+						messages: toRuntimeMessages(event.request.messages, contextMessageIdentities),
 						assistantMessage: event.request.assistantMessage,
 						recoveryAttempt: event.request.recoveryAttempt,
 						complete: (result) => {
@@ -78,9 +80,20 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 				};
 				continue;
 			}
-			const executionObservation = mapAgentCoreEventToExecutionObservation(event);
+			const executionObservation = mapAgentCoreEventToExecutionObservation(
+				event,
+				request.initialMessages ?? [],
+				contextMessageIdentities,
+			);
 			if (executionObservation) {
 				yield { type: "execution_observation", observation: executionObservation };
+			}
+			if (event.type === "turn_start" && !initialMessagesObserved) {
+				initialMessagesObserved = true;
+				for (const message of request.initialMessages ?? []) {
+					yield { type: "execution_observation", observation: { type: "message.start", message } };
+					yield { type: "execution_observation", observation: { type: "message.end", message } };
+				}
 			}
 			const observation = mapAgentCoreEventToObservation(event);
 			if (observation) {
@@ -106,7 +119,10 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 		};
 	}
 
-	private createConfig(request: TurnEngineRequest): AgentLoopConfig {
+	private createConfig(
+		request: TurnEngineRequest,
+		contextMessageIdentities: WeakMap<Message, RuntimeMessageEnvelope>,
+	): AgentLoopConfig {
 		const inputQueue = request.inputQueue;
 		const contextTransformer = request.snapshot.modelCallContextTransformer;
 		let initialModelCallFrame = request.initialModelCallFrame;
@@ -125,7 +141,7 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 				return request.sessionId;
 			},
 			getApiKey,
-			convertToLlm: convertToLlm,
+			convertToLlm: (messages) => toRuntimeMessages(messages, contextMessageIdentities),
 			contextCheckpoints: request.contextCheckpoints,
 			transformContext: contextTransformer
 				? async (messages, signal) => {
@@ -135,7 +151,7 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 								{
 									sessionId: request.sessionId,
 									turnId: request.turnId,
-									messages: messages.filter(isRuntimeMessage),
+									messages: toRuntimeMessages(messages, contextMessageIdentities),
 									modelBinding: request.modelBinding ?? {
 										model,
 										reasoning: this.options.streamOptions?.reasoning,
@@ -149,7 +165,7 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 			getSteeringMessages: inputQueue
 				? async () =>
 						inputQueue.takeSteeringInputs
-							? this.consumeQueuedInputs(inputQueue.takeSteeringInputs(), request)
+							? this.consumeQueuedInputs(inputQueue.takeSteeringInputs(), request, contextMessageIdentities)
 							: [...inputQueue.takeSteering()]
 				: undefined,
 			getContinuationMessages:
@@ -161,13 +177,13 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 									sessionId: request.sessionId,
 									turnId: request.turnId,
 									signal: executionSignal,
-									messages: messages.filter(isRuntimeMessage),
+									messages: toRuntimeMessages(messages, contextMessageIdentities),
 									modelBinding: request.modelBinding,
 								})) ?? [];
 							if (!inputQueue) return [...policyMessages];
 							inputQueue.enqueueFollowUps(policyMessages);
 							return inputQueue.takeFollowUpInputs
-								? this.consumeQueuedInputs(inputQueue.takeFollowUpInputs(), request)
+								? this.consumeQueuedInputs(inputQueue.takeFollowUpInputs(), request, contextMessageIdentities)
 								: [...inputQueue.takeFollowUps()];
 						}
 					: undefined,
@@ -180,7 +196,7 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 						turnId: request.turnId,
 						signal: executionSignal,
 						input: request.input,
-						messages: _context.messages.filter(isRuntimeMessage),
+						messages: toRuntimeMessages(_context.messages, contextMessageIdentities),
 						modelBinding: request.modelBinding ?? {
 							model,
 							reasoning: this.options.streamOptions?.reasoning,
@@ -189,7 +205,9 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 				initialModelCallFrame = undefined;
 				return {
 					systemPrompt: resolveRequestSystemPrompt(request, frame),
-					tools: [...frame.tools.values()].map((tool) => this.toAgentTool(tool, request)),
+					tools: [...frame.tools.values()].map((tool) =>
+						this.toAgentTool(tool, request, contextMessageIdentities),
+					),
 				};
 			},
 		};
@@ -198,18 +216,28 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 	private async consumeQueuedInputs(
 		inputs: readonly QueuedSessionInput[],
 		request: TurnEngineRequest,
+		contextMessageIdentities: WeakMap<Message, RuntimeMessageEnvelope>,
 	): Promise<AgentMessage[]> {
 		const context = inputs.flatMap((input) => input.context ?? []);
 		if (context.length > 0) await request.appendQueuedContext?.(context);
-		return inputs.flatMap((input) => [
-			...(input.context ?? []).filter(({ modelVisible }) => modelVisible).map(contextRecordToUserMessage),
-			...(input.message ? [input.message] : []),
-		]);
+		return inputs.flatMap((input) => {
+			const contextMessages = (input.context ?? []).map((record) => {
+				const message = contextRecordToUserMessage(record);
+				contextMessageIdentities.set(message, {
+					kind: "context",
+					record,
+					timestamp: message.timestamp,
+				});
+				return message;
+			});
+			return [...contextMessages, ...(input.message ? [input.message] : [])];
+		});
 	}
 
 	private toAgentTool(
 		tool: RuntimeToolDefinition,
 		request: TurnEngineRequest,
+		contextMessageIdentities: WeakMap<Message, RuntimeMessageEnvelope>,
 	): AgentTool<ReturnType<typeof Type.Unsafe<Record<string, unknown>>>, unknown> {
 		return {
 			name: tool.name,
@@ -238,7 +266,9 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 						turnId: request.turnId,
 						toolCallId,
 						input,
-						messages: context?.messages?.filter(isRuntimeMessage),
+						messages: context?.messages
+							? toRuntimeMessages(context.messages, contextMessageIdentities)
+							: undefined,
 						signal: executionSignal,
 						onUpdate: onUpdate
 							? (update) => {
@@ -276,8 +306,24 @@ function toAgentCheckpointResult(
 	};
 }
 
-function mapAgentCoreEventToExecutionObservation(event: AgentEvent): RuntimeExecutionObservationEvent | undefined {
+function mapAgentCoreEventToExecutionObservation(
+	event: AgentEvent,
+	initialMessages: readonly RuntimeMessageEnvelope[],
+	contextMessageIdentities: WeakMap<Message, RuntimeMessageEnvelope>,
+): RuntimeExecutionObservationEvent | undefined {
 	if (event.type === "agent_start") return { type: "agent.start" };
+	if (event.type === "agent_end") {
+		return {
+			type: "agent.end",
+			messages: [
+				...initialMessages,
+				...event.messages.flatMap((message) => {
+					const envelope = toRuntimeMessageEnvelope(message, contextMessageIdentities);
+					return envelope ? [envelope] : [];
+				}),
+			],
+		};
+	}
 	if (event.type === "turn_start") return { type: "turn.start" };
 	if (event.type === "turn_end") {
 		if (!isRuntimeMessage(event.message)) return undefined;
@@ -286,6 +332,23 @@ function mapAgentCoreEventToExecutionObservation(event: AgentEvent): RuntimeExec
 			message: event.message,
 			toolResults: [...event.toolResults],
 		};
+	}
+	if (event.type === "message_start") {
+		const message = toRuntimeMessageEnvelope(event.message, contextMessageIdentities);
+		return message ? { type: "message.start", message } : undefined;
+	}
+	if (event.type === "message_update") {
+		const message = toRuntimeMessageEnvelope(event.message, contextMessageIdentities);
+		if (!message) return undefined;
+		return {
+			type: "message.update",
+			message,
+			assistantMessageEvent: event.assistantMessageEvent,
+		};
+	}
+	if (event.type === "message_end") {
+		const message = toRuntimeMessageEnvelope(event.message, contextMessageIdentities);
+		return message ? { type: "message.end", message } : undefined;
 	}
 	if (event.type === "tool_execution_start") {
 		return {
@@ -399,16 +462,39 @@ function mapAgentCoreEventToObservation(event: AgentEvent): RuntimeSessionObserv
 	return undefined;
 }
 
-function convertToLlm(messages: AgentMessage[]): Message[] {
-	return messages.filter(isRuntimeMessage);
-}
-
 function contextRecordToUserMessage(record: SessionContextRecord): Message {
 	return {
 		role: "user",
 		content: record.content,
 		timestamp: record.timestamp ?? Date.now(),
 	};
+}
+
+function toRuntimeMessages(
+	messages: readonly AgentMessage[],
+	contextMessageIdentities: WeakMap<Message, RuntimeMessageEnvelope>,
+): Message[] {
+	return messages.flatMap((message) => {
+		if (!isRuntimeMessage(message)) return [];
+		const identity = contextMessageIdentities.get(message);
+		if (!identity || identity.kind === "message") return [message];
+		if (!identity.record.modelVisible) return [];
+		return [
+			{
+				role: "user" as const,
+				content: identity.record.content,
+				timestamp: identity.timestamp,
+			},
+		];
+	});
+}
+
+function toRuntimeMessageEnvelope(
+	message: AgentMessage,
+	contextMessageIdentities: WeakMap<Message, RuntimeMessageEnvelope>,
+): RuntimeMessageEnvelope | undefined {
+	if (!isRuntimeMessage(message)) return undefined;
+	return contextMessageIdentities.get(message) ?? { kind: "message", message };
 }
 
 function isRuntimeMessage(message: AgentMessage): message is Message {
