@@ -103,9 +103,9 @@ export function vendorDir(): string {
 	return join(process.resourcesPath ?? "", "vendor");
 }
 
-/** 内置 vendor 中某运行时的已解压目录。 */
-export function vendorRuntimeDir(type: RuntimeType): string {
+/** 内置 vendor 中某运行时的原始发布归档。 */
+export function vendorRuntimeArchivePath(type: RuntimeType): string {
 	const entry = platformEntry(type);
 	if (!entry) return join(vendorDir(), type, "missing");
-	return join(vendorDir(), type, entry.dir);
+	return join(vendorDir(), type, entry.filename);
 }
