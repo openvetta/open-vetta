@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { Message } from "@vetta/ai";
 import type { HistoryEntry, PromptRequest, SessionEvent } from "../contracts.js";
 import {
@@ -42,10 +43,13 @@ import type {
 	RuntimeSessionBackgroundWorkController,
 	RuntimeSessionConfigurationController,
 	RuntimeSessionContextController,
+	RuntimeSessionContextDeliveryController,
 	RuntimeSessionExecutionController,
 	RuntimeSessionHostInteraction,
+	RuntimeSessionMetadataController,
 	RuntimeSessionState,
 	RuntimeSessionTodoController,
+	RuntimeSessionToolController,
 } from "./session-ports.js";
 
 export interface GreenfieldPromptPreparationContext {
@@ -74,10 +78,12 @@ export interface GreenfieldRuntimeAssembly {
 	readonly documentParticipants?: readonly GreenfieldRuntimeDocumentParticipant[];
 	readonly todoController?: RuntimeSessionTodoController;
 	readonly contextController?: RuntimeSessionContextController;
+	readonly contextDeliveryController?: RuntimeSessionContextDeliveryController;
 	readonly hostInteraction?: RuntimeSessionHostInteraction;
 	readonly executionController?: RuntimeSessionExecutionController;
 	readonly backgroundWorkController?: RuntimeSessionBackgroundWorkController;
 	readonly configurationController?: RuntimeSessionConfigurationController;
+	readonly toolController?: RuntimeSessionToolController;
 	/** 由组合根释放 Session 之外的独占资源；共享 Repository 不应在这里关闭。 */
 	dispose?(): Promise<void>;
 }
@@ -107,6 +113,9 @@ export type GreenfieldRuntimeSessionCoreAssembly = Pick<
 > & {
 	readonly todoController?: RuntimeSessionTodoController;
 	readonly contextController?: RuntimeSessionContextController;
+	readonly contextDeliveryController: RuntimeSessionContextDeliveryController;
+	readonly metadataController: RuntimeSessionMetadataController;
+	readonly toolController?: RuntimeSessionToolController;
 };
 
 export class GreenfieldRuntimeSession {
@@ -120,10 +129,12 @@ export class GreenfieldRuntimeSession {
 	private readonly documentParticipants: readonly GreenfieldRuntimeDocumentParticipant[];
 	private readonly todoController: RuntimeSessionTodoController | undefined;
 	private readonly contextController: RuntimeSessionContextController | undefined;
+	private readonly contextDeliveryController: RuntimeSessionContextDeliveryController;
 	private readonly hostInteraction: RuntimeSessionHostInteraction | undefined;
 	private readonly executionController: RuntimeSessionExecutionController | undefined;
 	private readonly backgroundWorkController: RuntimeSessionBackgroundWorkController | undefined;
 	private readonly configurationController: RuntimeSessionConfigurationController | undefined;
+	private readonly toolController: RuntimeSessionToolController | undefined;
 	private readonly disposeRuntime: (() => Promise<void>) | undefined;
 	private disposed = false;
 	private historyMutation = false;
@@ -143,10 +154,13 @@ export class GreenfieldRuntimeSession {
 		this.documentParticipants = assembly.documentParticipants ?? [];
 		this.todoController = assembly.todoController;
 		this.contextController = assembly.contextController;
+		this.contextDeliveryController =
+			assembly.contextDeliveryController ?? createContextDeliveryController(assembly.session);
 		this.hostInteraction = assembly.hostInteraction;
 		this.executionController = assembly.executionController;
 		this.backgroundWorkController = assembly.backgroundWorkController;
 		this.configurationController = assembly.configurationController;
+		this.toolController = assembly.toolController;
 		const dispose = assembly.dispose;
 		this.disposeRuntime = dispose ? () => dispose.call(assembly) : undefined;
 	}
@@ -295,6 +309,30 @@ export class GreenfieldRuntimeSession {
 		}
 	}
 
+	async appendEntry(customType: string, data?: unknown): Promise<void> {
+		this.assertOpen();
+		const result = await this.conversationDocumentStore.execute(this.sessionId, null, {
+			type: "custom.append",
+			entryId: `entry-${randomUUID()}`,
+			customType,
+			data,
+			timestamp: new Date().toISOString(),
+		});
+		await this.applyDocumentResult(result);
+	}
+
+	async setLabel(entryId: string, label: string | undefined): Promise<void> {
+		this.assertOpen();
+		const result = await this.conversationDocumentStore.execute(this.sessionId, null, {
+			type: "entry.label.set",
+			entryId: `label-${randomUUID()}`,
+			targetId: entryId,
+			label,
+			timestamp: new Date().toISOString(),
+		});
+		await this.applyDocumentResult(result);
+	}
+
 	createCoreAssembly(): GreenfieldRuntimeSessionCoreAssembly {
 		this.assertOpen();
 		const runtimeSession = this;
@@ -326,6 +364,14 @@ export class GreenfieldRuntimeSession {
 			},
 			todoController: this.todoController,
 			contextController: this.contextController,
+			contextDeliveryController: this.contextDeliveryController,
+			metadataController: {
+				appendEntry: (customType, data) => this.appendEntry(customType, data),
+				readName: () => this.projection.readDocument().name,
+				setName: (name) => this.setName(name),
+				setLabel: (entryId, label) => this.setLabel(entryId, label),
+			},
+			toolController: this.toolController,
 			corePorts: {
 				turnControl: {
 					prompt: async (request) => {
@@ -611,6 +657,7 @@ function isStoredSessionEvent(event: KernelEvent): event is StoredSessionEvent {
 		event.type === "turn.continued" ||
 		event.type === "message.appended" ||
 		event.type === "context.appended" ||
+		event.type === "context.recorded" ||
 		event.type === "context.compacted" ||
 		event.type === "turn.completed" ||
 		event.type === "turn.cancelled" ||
@@ -621,4 +668,24 @@ function isStoredSessionEvent(event: KernelEvent): event is StoredSessionEvent {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function createContextDeliveryController(session: AgentSession): RuntimeSessionContextDeliveryController {
+	return {
+		deliver: async (records, mode) => {
+			if (mode === "record") {
+				await session.recordContext(records);
+				return;
+			}
+			if (mode === "nextTurn") {
+				session.queueNextTurnContext(records);
+				return;
+			}
+			if (mode === "triggerTurn") {
+				await session.requestContinuation(records);
+				return;
+			}
+			session.queueContext(mode, records);
+		},
+	};
 }

@@ -263,16 +263,19 @@ async function createGreenfieldRuntimeCompositionInternal(
 	const tools = createCodingToolsRuntimeComposition({
 		cwd,
 		activation: effectiveActivation,
-		resolveActivation: (context) =>
-			resolveTurnToolActivation(
+		resolveActivation: (context) => {
+			const configuration = configurationStates.get(context.sessionId);
+			return resolveTurnToolActivation(
 				effectiveActivation,
 				context,
 				{
 					backgroundTasksAvailable,
 					knowledgeAvailable,
 				},
-				configurationStates.get(context.sessionId)?.readAgentMode(),
-			),
+				configuration?.readAgentMode(),
+				configuration?.readActiveToolNamesOverride(),
+			);
+		},
 		refreshCatalog: async (context) => {
 			if (mcpPromptRefreshReuseSessions.delete(context.sessionId)) return;
 			await refreshSessionMcp(context.sessionId, false);
@@ -390,6 +393,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 							context,
 							{ backgroundTasksAvailable, knowledgeAvailable },
 							configurationState.readAgentMode(),
+							configurationState.readActiveToolNamesOverride(),
 						),
 				});
 				configurationStates.set(activeSessionId, configurationState);
@@ -771,6 +775,24 @@ async function createGreenfieldRuntimeCompositionInternal(
 							readAgentMode: () => configurationState.readAgentMode(),
 						})
 					: undefined;
+				const readAvailableTools = () =>
+					new Map([
+						...tools.registry
+							.snapshot()
+							.entries.filter((entry) => !activeExecutionRuntime.ownsTool(entry.registration.tool.name))
+							.map(
+								(entry) =>
+									[entry.registration.tool.name, guardCodingToolRegistration(tools.registry, entry)] as const,
+							),
+						...activeExecutionRuntime.readAvailableTools(),
+						...productToolRegistrations.map(({ tool }) => [tool.name, tool] as const),
+						...(todoEnabled ? [[todoRegistration.tool.name, todoRegistration.tool] as const] : []),
+						...(memoryRuntime
+							? [[memoryRuntime.toolRegistration.tool.name, memoryRuntime.toolRegistration.tool] as const]
+							: []),
+						...(subagentRuntime ? subagentRuntime.readTools().map((tool) => [tool.name, tool] as const) : []),
+						...(invokeSkillFeature ? [[invokeSkillFeature.tool.name, invokeSkillFeature.tool] as const] : []),
+					]);
 				const profile: AgentProfile = {
 					...baseProfile,
 					features: [
@@ -785,27 +807,8 @@ async function createGreenfieldRuntimeCompositionInternal(
 					continuationPolicy: continuationOrchestrator,
 					modelCallFrameComposer: new CodingAgentModelCallFrameComposer({
 						readMcpPromptState: mcpController ? () => mcpController.readPromptState() : undefined,
-						readAvailableTools: () =>
-							new Map([
-								...tools.registry
-									.snapshot()
-									.entries.filter((entry) => !activeExecutionRuntime.ownsTool(entry.registration.tool.name))
-									.map(
-										(entry) =>
-											[
-												entry.registration.tool.name,
-												guardCodingToolRegistration(tools.registry, entry),
-											] as const,
-									),
-								...activeExecutionRuntime.readAvailableTools(),
-								...(todoEnabled ? [[todoRegistration.tool.name, todoRegistration.tool] as const] : []),
-								...(memoryRuntime
-									? [[memoryRuntime.toolRegistration.tool.name, memoryRuntime.toolRegistration.tool] as const]
-									: []),
-								...(subagentRuntime
-									? subagentRuntime.readTools().map((tool) => [tool.name, tool] as const)
-									: []),
-							]),
+						readAvailableTools,
+						readActiveToolNamesOverride: () => configurationState.readActiveToolNamesOverride(),
 						pluginRunOrchestrator,
 						pluginMcpRuntime,
 						pluginToolRuntime,
@@ -879,6 +882,24 @@ async function createGreenfieldRuntimeCompositionInternal(
 					modelRuntime,
 					documentParticipants: [todoRuntime, contextRuntime, ...(subagentRuntime ? [subagentRuntime] : [])],
 					todoController: todoRuntime,
+					toolController: {
+						readActiveToolNames: () => {
+							const override = configurationState.readActiveToolNamesOverride();
+							return override
+								? override.filter((toolName) => readAvailableTools().has(toolName))
+								: readActiveToolNames(
+										tools,
+										withAgentMode(stateActivation, configurationState.readAgentMode()),
+										knowledgeAvailable,
+										effectiveActivation,
+										mcpController,
+									);
+						},
+						readAvailableTools,
+						setActiveToolNames: (toolNames) => {
+							configurationState.setActiveToolNamesOverride(toolNames);
+						},
+					},
 					createSessionPeripherals: (session) => ({
 						hostInteraction: activeExecutionRuntime.hostInteraction,
 						executionController: activeExecutionRuntime.createExecutionController(session),
@@ -937,10 +958,13 @@ async function createGreenfieldRuntimeCompositionInternal(
 							];
 							const contextWindow = modelRuntime.readCurrentModel().contextWindow;
 							const contextUsage = contextRuntime.readUsage(contextWindow);
+							const override = configurationState.readActiveToolNamesOverride();
 							return {
 								contextPercent: contextUsage.percent,
 								contextWindow,
-								activeToolNames: [...new Set(activeToolNames)],
+								activeToolNames: override
+									? override.filter((toolName) => readAvailableTools().has(toolName))
+									: [...new Set(activeToolNames)],
 							};
 						},
 					},
@@ -1238,7 +1262,9 @@ function resolveTurnToolActivation(
 		readonly knowledgeAvailable: boolean;
 	},
 	agentMode?: string,
+	activeToolNamesOverride?: readonly string[],
 ): CodingToolActivation {
+	if (activeToolNamesOverride) return { mode: "explicit", toolNames: [...activeToolNamesOverride] };
 	if (base.mode === "explicit") return base;
 	const capabilities = new Set(base.capabilities);
 	if (availability.backgroundTasksAvailable) capabilities.add("bg-tasks");

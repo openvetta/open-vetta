@@ -1,4 +1,4 @@
-import type { AgentFeatureDefinition } from "@vetta/runtime-core/kernel";
+import type { AgentFeatureDefinition, RuntimeToolDefinition } from "@vetta/runtime-core/kernel";
 import { matchesAgentMode } from "../../core/agent-mode.js";
 import type { Skill } from "../../core/skills.js";
 import { createInvokeSkillTool } from "../../core/tools/invoke-skill/index.js";
@@ -11,6 +11,10 @@ export interface CodingAgentInvokeSkillRuntimeFeatureOptions {
 	readonly readAgentMode?: () => string | undefined;
 }
 
+export interface CodingAgentInvokeSkillRuntimeFeature extends AgentFeatureDefinition {
+	readonly tool: RuntimeToolDefinition;
+}
+
 /**
  * Session 级动态 Skill 能力。
  *
@@ -19,7 +23,7 @@ export interface CodingAgentInvokeSkillRuntimeFeatureOptions {
  */
 export function createCodingAgentInvokeSkillRuntimeFeature(
 	options: CodingAgentInvokeSkillRuntimeFeatureOptions,
-): AgentFeatureDefinition {
+): CodingAgentInvokeSkillRuntimeFeature {
 	const readVisibleSkills = (): Skill[] => {
 		options.resourceSource.refreshSkillsIfChanged();
 		const mode = options.readAgentMode?.();
@@ -39,6 +43,7 @@ export function createCodingAgentInvokeSkillRuntimeFeature(
 
 	return {
 		id: "coding-agent.invoke-skill",
+		tool: registration.tool,
 		async prepare(context) {
 			context.signal.throwIfAborted();
 			return {

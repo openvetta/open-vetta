@@ -30,6 +30,7 @@ describe("AgentSession asynchronous continuation", () => {
 		const fixture = createFixture({ blockRun: true });
 		const session = await createAgentSession({ id: "session-running", pipeline: fixture.pipeline });
 		const activeTurn = session.send({ message: userMessage("working") });
+		await vi.waitFor(() => expect(fixture.runTurn).toHaveBeenCalledOnce());
 
 		const first = session.requestContinuation([contextRecord("first")]);
 		const second = session.requestContinuation([contextRecord("second")]);
@@ -50,6 +51,32 @@ describe("AgentSession asynchronous continuation", () => {
 
 		await expect(session.requestContinuation()).rejects.toMatchObject({ code: "session_closed" });
 	});
+
+	it("attaches next-turn context after the next explicit user input", async () => {
+		const fixture = createFixture();
+		const session = await createAgentSession({ id: "session-next-turn", pipeline: fixture.pipeline });
+		const context = [contextRecord("next turn")];
+		session.queueNextTurnContext(context);
+
+		await session.send({ message: userMessage("prompt") });
+
+		expect(fixture.runTurn.mock.calls[0]?.[1]).toEqual({
+			message: userMessage("prompt"),
+			trailingContext: context,
+		});
+	});
+
+	it("records idle context without starting a turn", async () => {
+		const fixture = createFixture();
+		const session = await createAgentSession({ id: "session-record", pipeline: fixture.pipeline });
+		const context = [contextRecord("record only")];
+
+		await session.recordContext(context);
+
+		expect(fixture.recordContext).toHaveBeenCalledWith(expect.anything(), context);
+		expect(fixture.runTurn).not.toHaveBeenCalled();
+		expect(fixture.continueTurn).not.toHaveBeenCalled();
+	});
 });
 
 function createFixture(options: { readonly blockRun?: boolean } = {}) {
@@ -59,7 +86,7 @@ function createFixture(options: { readonly blockRun?: boolean } = {}) {
 				completeRun = (result = completedTurn("turn-run")) => resolve(result);
 			})
 		: Promise.resolve(completedTurn("turn-run"));
-	const runTurn = vi.fn(() => runResult);
+	const runTurn = vi.fn<TurnPipeline["run"]>(() => runResult);
 	const continueTurn = vi.fn(
 		async (
 			_identity: unknown,
@@ -68,12 +95,14 @@ function createFixture(options: { readonly blockRun?: boolean } = {}) {
 			_context: readonly SessionContextRecord[] = [],
 		) => completedTurn("turn-continuation"),
 	);
+	const recordContext = vi.fn(async () => {});
 	const pipeline = {
 		createSession: vi.fn(async (): Promise<StoredConversation> => conversation()),
 		run: runTurn,
 		continue: continueTurn,
+		recordContext,
 	} as unknown as TurnPipeline;
-	return { pipeline, runTurn, continueTurn, completeRun };
+	return { pipeline, runTurn, continueTurn, recordContext, completeRun };
 }
 
 function userMessage(text: string): UserMessage {

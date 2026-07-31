@@ -65,4 +65,18 @@ describe("SessionInputQueue", () => {
 		expect(queue.takeFollowUps().map((message) => message.content)).toEqual(["policy follow-up"]);
 		expect(queue.pendingCount).toBe(0);
 	});
+
+	it("keeps context-only steering and follow-up inputs for the runtime engine", () => {
+		const queue = new SessionInputQueue();
+		queue.enqueueContext("steer", [{ type: "extension", content: "steer context", modelVisible: true }]);
+		queue.enqueueContext("followUp", [{ type: "extension", content: "follow-up context", modelVisible: true }]);
+
+		expect(queue.takeSteering()).toEqual([]);
+		expect(queue.takeFollowUpInputs?.()).toEqual([
+			{
+				context: [{ type: "extension", content: "follow-up context", modelVisible: true }],
+			},
+		]);
+		expect(queue.pendingCount).toBe(0);
+	});
 });

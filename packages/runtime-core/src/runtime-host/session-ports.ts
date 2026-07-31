@@ -14,6 +14,7 @@ import type {
 	SubagentInfo,
 	TodoItem,
 } from "../contracts.js";
+import type { RuntimeToolDefinition, SessionContextRecord } from "../kernel/contracts.js";
 
 /** 会话身份与资源释放；不承载宿主 UI 绑定或业务外围能力。 */
 export interface RuntimeSessionIdentityLifecycle {
@@ -191,6 +192,28 @@ export interface RuntimeSessionContextController {
 	compact(request?: RuntimeContextCompactionRequest): Promise<RuntimeContextCompactionResult>;
 	abortCompaction(): void;
 	setAutoCompactionEnabled(enabled: boolean): void;
+}
+
+export type RuntimeSessionContextDeliveryMode = "record" | "steer" | "followUp" | "nextTurn" | "triggerTurn";
+
+/** 通用 Session 上下文投递；调用方选择时序，Kernel 负责队列与持久化。 */
+export interface RuntimeSessionContextDeliveryController {
+	deliver(records: readonly SessionContextRecord[], mode: RuntimeSessionContextDeliveryMode): Promise<void>;
+}
+
+/** Session 文档元数据写端口；不暴露具体文件或 Legacy SessionManager。 */
+export interface RuntimeSessionMetadataController {
+	appendEntry(customType: string, data?: unknown): Promise<void>;
+	readName(): string | undefined;
+	setName(name: string): Promise<void>;
+	setLabel(entryId: string, label: string | undefined): Promise<void>;
+}
+
+/** 动态 Tool 选择与可用目录；定义仍由 Runtime Capability 层拥有。 */
+export interface RuntimeSessionToolController {
+	readActiveToolNames(): readonly string[];
+	readAvailableTools(): ReadonlyMap<string, RuntimeToolDefinition>;
+	setActiveToolNames(toolNames: readonly string[]): void;
 }
 
 export interface RuntimeSessionCorePorts {

@@ -94,6 +94,23 @@ export function assessCodingAgentExtensionCompatibility(
 	};
 }
 
+/**
+ * Greenfield Action Host 已覆盖命令式 API 后，只消除 opaque 缺口。
+ * Event、Tool、Command、Shortcut 与 Renderer 仍按独立能力回退。
+ */
+export function resolveCodingAgentGreenfieldExtensionCompatibility(
+	assessment: CodingAgentExtensionCompatibilityAssessment,
+): CodingAgentExtensionCompatibilityAssessment {
+	const unmetRuntimeCapabilities = assessment.unmetRuntimeCapabilities.filter(
+		(capability) => capability !== "opaque-runtime-api",
+	);
+	return {
+		...assessment,
+		unmetRuntimeCapabilities,
+		requiresLegacyRuntime: unmetRuntimeCapabilities.length > 0,
+	};
+}
+
 function summarizeExtensionRegistrations(
 	extension: CodingAgentLoadedExtensionRegistrations,
 ): CodingAgentExtensionRegistrationSummary {

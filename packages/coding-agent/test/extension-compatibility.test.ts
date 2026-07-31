@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { assessCodingAgentExtensionCompatibility } from "../src/host/coding-agent-extension-compatibility.js";
+import {
+	assessCodingAgentExtensionCompatibility,
+	resolveCodingAgentGreenfieldExtensionCompatibility,
+} from "../src/host/coding-agent-extension-compatibility.js";
 
 describe("Coding Agent Extension compatibility assessment", () => {
 	it("reports no runtime requirement when no Extension is loaded", () => {
@@ -99,7 +102,7 @@ describe("Coding Agent Extension compatibility assessment", () => {
 		});
 	});
 
-	it("keeps bootstrap-only registrations on Legacy because the retained API is opaque", () => {
+	it("allows bootstrap-only registrations after the Greenfield Action Host closes the opaque API gap", () => {
 		const assessment = assessCodingAgentExtensionCompatibility({
 			extensions: [
 				{
@@ -121,5 +124,32 @@ describe("Coding Agent Extension compatibility assessment", () => {
 		});
 		expect(assessment.requiredRuntimeCapabilities).toEqual(["opaque-runtime-api"]);
 		expect(assessment.requiresLegacyRuntime).toBe(true);
+		expect(resolveCodingAgentGreenfieldExtensionCompatibility(assessment)).toMatchObject({
+			requiredRuntimeCapabilities: ["opaque-runtime-api"],
+			unmetRuntimeCapabilities: [],
+			requiresLegacyRuntime: false,
+		});
+	});
+
+	it("keeps independently unsupported registrations on Legacy", () => {
+		const assessment = assessCodingAgentExtensionCompatibility({
+			extensions: [
+				{
+					path: "event-extension.ts",
+					handlers: new Map([["turn_end", [async () => undefined]]]),
+					tools: new Map(),
+					commands: new Map(),
+					shortcuts: new Map(),
+					flags: new Map(),
+					messageRenderers: new Map(),
+				},
+			],
+			pendingProviderNames: [],
+		});
+
+		expect(resolveCodingAgentGreenfieldExtensionCompatibility(assessment)).toMatchObject({
+			unmetRuntimeCapabilities: ["event-handler"],
+			requiresLegacyRuntime: true,
+		});
 	});
 });

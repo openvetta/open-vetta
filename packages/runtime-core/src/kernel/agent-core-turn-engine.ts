@@ -11,8 +11,10 @@ import {
 import { type Api, type Message, type Model, type SimpleStreamOptions, Type } from "@vetta/ai";
 import type { RuntimeSessionObservationEvent } from "../session-observation.js";
 import type {
+	QueuedSessionInput,
 	RuntimeToolDefinition,
 	RuntimeToolResult,
+	SessionContextRecord,
 	TurnEngineContextCheckpointResult,
 	TurnEngineEvent,
 	TurnEnginePort,
@@ -135,7 +137,12 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 						];
 					}
 				: undefined,
-			getSteeringMessages: inputQueue ? async () => [...inputQueue.takeSteering()] : undefined,
+			getSteeringMessages: inputQueue
+				? async () =>
+						inputQueue.takeSteeringInputs
+							? this.consumeQueuedInputs(inputQueue.takeSteeringInputs(), request)
+							: [...inputQueue.takeSteering()]
+				: undefined,
 			getContinuationMessages:
 				inputQueue || request.snapshot.continuationPolicy
 					? async (messages, signal) => {
@@ -150,7 +157,9 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 								})) ?? [];
 							if (!inputQueue) return [...policyMessages];
 							inputQueue.enqueueFollowUps(policyMessages);
-							return [...inputQueue.takeFollowUps()];
+							return inputQueue.takeFollowUpInputs
+								? this.consumeQueuedInputs(inputQueue.takeFollowUpInputs(), request)
+								: [...inputQueue.takeFollowUps()];
 						}
 					: undefined,
 			resolveCallContext: async (_context, signal) => {
@@ -172,6 +181,18 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 				};
 			},
 		};
+	}
+
+	private async consumeQueuedInputs(
+		inputs: readonly QueuedSessionInput[],
+		request: TurnEngineRequest,
+	): Promise<AgentMessage[]> {
+		const context = inputs.flatMap((input) => input.context ?? []);
+		if (context.length > 0) await request.appendQueuedContext?.(context);
+		return inputs.flatMap((input) => [
+			...(input.context ?? []).filter(({ modelVisible }) => modelVisible).map(contextRecordToUserMessage),
+			...(input.message ? [input.message] : []),
+		]);
 	}
 
 	private toAgentTool(
@@ -309,6 +330,14 @@ function mapAgentCoreEventToObservation(event: AgentEvent): RuntimeSessionObserv
 
 function convertToLlm(messages: AgentMessage[]): Message[] {
 	return messages.filter(isRuntimeMessage);
+}
+
+function contextRecordToUserMessage(record: SessionContextRecord): Message {
+	return {
+		role: "user",
+		content: record.content,
+		timestamp: record.timestamp ?? Date.now(),
+	};
 }
 
 function isRuntimeMessage(message: AgentMessage): message is Message {

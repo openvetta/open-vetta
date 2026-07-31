@@ -1,4 +1,11 @@
-import type { SessionInput, SessionInputQueueMode, SessionStreamingBehavior, TurnInputQueue } from "./contracts.js";
+import type {
+	QueuedSessionInput,
+	SessionContextRecord,
+	SessionInput,
+	SessionInputQueueMode,
+	SessionStreamingBehavior,
+	TurnInputQueue,
+} from "./contracts.js";
 
 export interface SessionInputQueueOptions {
 	readonly steeringMode?: SessionInputQueueMode;
@@ -11,8 +18,8 @@ export interface ClearedSessionInputs {
 }
 
 export class SessionInputQueue implements TurnInputQueue {
-	private readonly steeringQueue: SessionInput[] = [];
-	private readonly followUpQueue: SessionInput[] = [];
+	private readonly steeringQueue: QueuedSessionInput[] = [];
+	private readonly followUpQueue: QueuedSessionInput[] = [];
 	private currentSteeringMode: SessionInputQueueMode;
 	private currentFollowUpMode: SessionInputQueueMode;
 
@@ -26,11 +33,11 @@ export class SessionInputQueue implements TurnInputQueue {
 	}
 
 	get steeringInputs(): readonly SessionInput[] {
-		return [...this.steeringQueue];
+		return this.steeringQueue.filter(isSessionInput);
 	}
 
 	get followUpInputs(): readonly SessionInput[] {
-		return [...this.followUpQueue];
+		return this.followUpQueue.filter(isSessionInput);
 	}
 
 	get steeringMode(): SessionInputQueueMode {
@@ -58,6 +65,16 @@ export class SessionInputQueue implements TurnInputQueue {
 		return this.pendingCount;
 	}
 
+	enqueueContext(behavior: SessionStreamingBehavior, context: readonly SessionContextRecord[]): number {
+		const input = { context } satisfies QueuedSessionInput;
+		if (behavior === "steer") {
+			this.steeringQueue.push(input);
+		} else {
+			this.followUpQueue.push(input);
+		}
+		return this.pendingCount;
+	}
+
 	steer(input: SessionInput): number {
 		return this.enqueue("steer", input);
 	}
@@ -67,11 +84,19 @@ export class SessionInputQueue implements TurnInputQueue {
 	}
 
 	takeSteering(): readonly SessionInput["message"][] {
-		return this.take(this.steeringQueue, this.currentSteeringMode).map((input) => input.message);
+		return this.takeSteeringInputs().flatMap((input) => (input.message ? [input.message] : []));
 	}
 
 	takeFollowUps(): readonly SessionInput["message"][] {
-		return this.take(this.followUpQueue, this.currentFollowUpMode).map((input) => input.message);
+		return this.takeFollowUpInputs().flatMap((input) => (input.message ? [input.message] : []));
+	}
+
+	takeSteeringInputs(): readonly QueuedSessionInput[] {
+		return this.take(this.steeringQueue, this.currentSteeringMode);
+	}
+
+	takeFollowUpInputs(): readonly QueuedSessionInput[] {
+		return this.take(this.followUpQueue, this.currentFollowUpMode);
 	}
 
 	enqueueFollowUps(messages: readonly SessionInput["message"][]): void {
@@ -81,15 +106,21 @@ export class SessionInputQueue implements TurnInputQueue {
 	}
 
 	clear(): ClearedSessionInputs {
+		const steering = this.steeringQueue.splice(0);
+		const followUps = this.followUpQueue.splice(0);
 		return {
-			steering: this.steeringQueue.splice(0),
-			followUps: this.followUpQueue.splice(0),
+			steering: steering.filter(isSessionInput),
+			followUps: followUps.filter(isSessionInput),
 		};
 	}
 
-	private take(queue: SessionInput[], mode: SessionInputQueueMode): readonly SessionInput[] {
+	private take(queue: QueuedSessionInput[], mode: SessionInputQueueMode): readonly QueuedSessionInput[] {
 		if (mode === "all") return queue.splice(0);
 		const input = queue.shift();
 		return input ? [input] : [];
 	}
+}
+
+function isSessionInput(input: QueuedSessionInput): input is SessionInput {
+	return input.message !== undefined;
 }

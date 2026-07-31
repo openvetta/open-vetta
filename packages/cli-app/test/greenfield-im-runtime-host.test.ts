@@ -138,6 +138,38 @@ describe("Greenfield IM Runtime Host", () => {
 			},
 		});
 	});
+
+	it("runs Provider/Flag-only Extensions on Greenfield and binds their retained actions", async () => {
+		const fixture = await createFixture(
+			[],
+			`
+				export default function(pi) {
+					pi.registerFlag("endpoint", { type: "string" });
+					pi.registerProvider("fixture-provider", {
+						baseUrl: "https://fixture.test",
+						api: "openai-responses",
+						models: [],
+					});
+				}
+			`,
+		);
+
+		const result = await prepareGreenfieldImRuntimeHost({
+			bootstrap: fixture.bootstrap,
+			conversationDir: fixture.conversationDir,
+			sessionCatalog: fixture.sessionCatalog,
+			createSessionId: () => "extension-session",
+		});
+		expect(result.kind).toBe("greenfield");
+		if (result.kind !== "greenfield") throw new Error("Expected Greenfield runtime");
+		preparedHosts.push(result);
+
+		fixture.bootstrap.extensionsResult.runtime.setSessionName("Extension Session");
+		await result.capabilities.dispose();
+		preparedHosts.splice(preparedHosts.indexOf(result), 1);
+
+		expect(result.session.createCoreAssembly).toThrow();
+	});
 });
 
 async function createFixture(

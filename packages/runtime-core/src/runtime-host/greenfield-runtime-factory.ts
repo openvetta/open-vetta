@@ -42,6 +42,7 @@ import type {
 	RuntimeSessionExecutionController,
 	RuntimeSessionHostInteraction,
 	RuntimeSessionTodoController,
+	RuntimeSessionToolController,
 } from "./session-ports.js";
 
 export type GreenfieldRuntimeOperation = "create" | "resume";
@@ -81,6 +82,7 @@ export interface GreenfieldRuntimeResources {
 	readonly executionController?: RuntimeSessionExecutionController;
 	readonly backgroundWorkController?: RuntimeSessionBackgroundWorkController;
 	readonly configurationController?: RuntimeSessionConfigurationController;
+	readonly toolController?: RuntimeSessionToolController;
 	/**
 	 * 需要绑定真实 Kernel Session 的外围控制器工厂。
 	 * 它在 create/resume 完成后执行，返回值优先于上面的预创建控制器。
@@ -249,6 +251,24 @@ export class ComposedGreenfieldRuntimeFactory<TCreateOptions> implements Greenfi
 					sessionPeripherals?.backgroundWorkController ?? resources.backgroundWorkController,
 				configurationController: sessionPeripherals?.configurationController ?? resources.configurationController,
 				contextController,
+				contextDeliveryController: {
+					deliver: async (records, mode) => {
+						if (mode === "record") {
+							await session.recordContext(records);
+							return;
+						}
+						if (mode === "nextTurn") {
+							session.queueNextTurnContext(records);
+							return;
+						}
+						if (mode === "triggerTurn") {
+							await session.requestContinuation(records);
+							return;
+						}
+						session.queueContext(mode, records);
+					},
+				},
+				toolController: resources.toolController,
 				dispose: dispose ? () => dispose.call(resources) : undefined,
 			};
 		} catch (error) {

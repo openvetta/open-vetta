@@ -5,10 +5,12 @@ import {
 	type CodingAgentHostBootstrap,
 	type CodingAgentHostBootstrapOptions,
 	createCodingAgentHostBootstrap,
+	resolveCodingAgentGreenfieldExtensionCompatibility,
 	resolveCodingAgentInitialModel,
 } from "@vetta/coding-agent/bootstrap";
 import { type RpcSessionCapabilities, runRpcModeWithCapabilities } from "@vetta/coding-agent/rpc";
 import {
+	CodingAgentGreenfieldExtensionActionHost,
 	type CodingAgentPluginRuntimeSource,
 	createCodingAgentMcpRuntimeToolSource,
 	createCodingAgentPluginMcpRuntime,
@@ -90,13 +92,14 @@ export async function prepareGreenfieldImRuntimeHost(
 			sessionPath: parsed.session,
 		};
 	}
-	if (bootstrap.extensionCompatibility.requiresLegacyRuntime) {
+	const extensionCompatibility = resolveCodingAgentGreenfieldExtensionCompatibility(bootstrap.extensionCompatibility);
+	if (extensionCompatibility.requiresLegacyRuntime) {
 		return {
 			kind: "legacy-fallback",
 			reason: "legacy-extension",
 			bootstrap,
 			sessionPath: parsed.session,
-			extensionCompatibility: bootstrap.extensionCompatibility,
+			extensionCompatibility,
 		};
 	}
 
@@ -133,6 +136,7 @@ export async function prepareGreenfieldImRuntimeHost(
 
 	let runtime: GreenfieldRuntimeComposition | undefined;
 	let session: GreenfieldRuntimeSession | undefined;
+	let extensionActionHost: CodingAgentGreenfieldExtensionActionHost | undefined;
 	try {
 		runtime = await createGreenfieldRuntimeComposition({
 			conversationDir: options.conversationDir,
@@ -165,15 +169,27 @@ export async function prepareGreenfieldImRuntimeHost(
 		session = sessionPath
 			? await runtime.backend.resume(sessionOptions)
 			: await runtime.backend.create(sessionOptions);
+		extensionActionHost = new CodingAgentGreenfieldExtensionActionHost({
+			session,
+			resourceLoader: bootstrap.resourceLoader,
+			onError: (error) => {
+				console.error(`[extension:${error.event}] ${error.error}`);
+			},
+		});
+		extensionActionHost.bind(bootstrap.extensionsResult.runtime);
 		const adapter = new GreenfieldImRpcSessionAdapter({ session, runtime });
-		const capabilities = new GreenfieldImRuntimeHostCapabilities(adapter, managedMcpSource);
+		const capabilities = new GreenfieldImRuntimeHostCapabilities(adapter, managedMcpSource, extensionActionHost);
 		return { kind: "greenfield", bootstrap, session, runtime, capabilities };
 	} catch (error) {
-		const cleanup = await Promise.allSettled([
-			...(session ? [session.dispose()] : []),
-			...(runtime ? [runtime.dispose()] : []),
-			managedMcpSource.dispose(),
-		]);
+		const extensionCleanup = extensionActionHost ? await Promise.allSettled([extensionActionHost.dispose()]) : [];
+		const cleanup = [
+			...extensionCleanup,
+			...(await Promise.allSettled([
+				...(session ? [session.dispose()] : []),
+				...(runtime ? [runtime.dispose()] : []),
+				managedMcpSource.dispose(),
+			])),
+		];
 		const cleanupErrors = cleanup
 			.filter((result): result is PromiseRejectedResult => result.status === "rejected")
 			.map(({ reason }) => reason);
@@ -222,6 +238,7 @@ class GreenfieldImRuntimeHostCapabilities implements RpcSessionCapabilities {
 	constructor(
 		private readonly adapter: GreenfieldImRpcSessionAdapter,
 		private readonly mcpSource: ManagedMcpRuntimeToolSource,
+		private readonly extensionActionHost: CodingAgentGreenfieldExtensionActionHost,
 	) {
 		this.profile = adapter.profile;
 		this.turn = adapter.turn;
@@ -244,7 +261,11 @@ class GreenfieldImRuntimeHostCapabilities implements RpcSessionCapabilities {
 	async dispose(): Promise<void> {
 		if (this.disposed) return;
 		this.disposed = true;
-		const results = await Promise.allSettled([this.adapter.dispose(), this.mcpSource.dispose()]);
+		const extensionResults = await Promise.allSettled([this.extensionActionHost.dispose()]);
+		const results = [
+			...extensionResults,
+			...(await Promise.allSettled([this.adapter.dispose(), this.mcpSource.dispose()])),
+		];
 		const errors = results
 			.filter((result): result is PromiseRejectedResult => result.status === "rejected")
 			.map(({ reason }) => reason);

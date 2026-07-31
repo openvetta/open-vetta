@@ -183,6 +183,7 @@ const SessionContextRecordSchema = Type.Object(
 		modelVisible: Type.Boolean(),
 		display: Type.Optional(Type.Boolean()),
 		metadata: Type.Optional(Type.Unknown()),
+		timestamp: Type.Optional(Type.Number()),
 	},
 	{ additionalProperties: false },
 );
@@ -192,6 +193,17 @@ const ContextAppendedEventSchema = Type.Object(
 		type: Type.Literal("context.appended"),
 		sessionId: Type.String(),
 		turnId: Type.String(),
+		record: SessionContextRecordSchema,
+		timestamp: Type.Number(),
+	},
+	{ additionalProperties: false },
+);
+
+const ContextRecordedEventSchema = Type.Object(
+	{
+		type: Type.Literal("context.recorded"),
+		sessionId: Type.String(),
+		turnId: Type.Optional(Type.Never()),
 		record: SessionContextRecordSchema,
 		timestamp: Type.Number(),
 	},
@@ -265,6 +277,7 @@ export const StoredSessionEventSchema = Type.Union([
 	TurnContinuedEventSchema,
 	MessageAppendedEventSchema,
 	ContextAppendedEventSchema,
+	ContextRecordedEventSchema,
 	ContextCompactedEventSchema,
 	TurnCompletedEventSchema,
 	TurnCancelledEventSchema,
@@ -378,6 +391,16 @@ export const ConversationDocumentCommandSchema = Type.Union([
 		{
 			type: Type.Literal("session.name.set"),
 			name: Type.String(),
+		},
+		{ additionalProperties: false },
+	),
+	Type.Object(
+		{
+			type: Type.Literal("entry.label.set"),
+			entryId: Type.String(),
+			targetId: Type.String(),
+			label: Type.Optional(Type.String()),
+			timestamp: Type.String(),
 		},
 		{ additionalProperties: false },
 	),

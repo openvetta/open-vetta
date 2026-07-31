@@ -13,7 +13,14 @@ export type ConversationDocumentCommand =
 			readonly data?: unknown;
 			readonly timestamp: string;
 	  }
-	| { readonly type: "session.name.set"; readonly name: string };
+	| { readonly type: "session.name.set"; readonly name: string }
+	| {
+			readonly type: "entry.label.set";
+			readonly entryId: string;
+			readonly targetId: string;
+			readonly label?: string;
+			readonly timestamp: string;
+	  };
 
 export interface ConversationDocumentCommandResult {
 	readonly document: ConversationDocument;
@@ -31,7 +38,7 @@ export interface ConversationDocumentStore {
 	readDocument(sessionId: string): Promise<ConversationDocument>;
 	execute(
 		sessionId: string,
-		/** `null` is reserved for commutative metadata commands that apply to the latest revision. */
+		/** `null` is reserved for append-only metadata commands that apply to the latest revision. */
 		expectedRevision: number | null,
 		command: ConversationDocumentCommand,
 	): Promise<ConversationDocumentCommandResult>;
@@ -59,6 +66,8 @@ export function applyConversationDocumentCommand(
 			return appendCustomEntry(document, command, revision);
 		case "session.name.set":
 			return changed({ ...document, revision, name: command.name.trim() });
+		case "entry.label.set":
+			return appendLabelEntry(document, command, revision);
 	}
 }
 
@@ -230,6 +239,35 @@ function appendCustomEntry(
 				timestamp: command.timestamp,
 				customType: command.customType,
 				data: command.data,
+			},
+		],
+		activeLeafId: command.entryId,
+	});
+}
+
+function appendLabelEntry(
+	document: ConversationDocument,
+	command: Extract<ConversationDocumentCommand, { readonly type: "entry.label.set" }>,
+	revision: number,
+): ConversationDocumentCommandResult {
+	if (document.entries.some((entry) => entry.id === command.entryId)) {
+		throw new Error(`Conversation document entry already exists: ${command.entryId}`);
+	}
+	if (!document.entries.some((entry) => entry.id === command.targetId)) {
+		throw new Error(`Entry ${command.targetId} not found`);
+	}
+	return changed({
+		...document,
+		revision,
+		entries: [
+			...document.entries,
+			{
+				type: "label",
+				id: command.entryId,
+				parentId: document.activeLeafId,
+				timestamp: command.timestamp,
+				targetId: command.targetId,
+				label: command.label,
 			},
 		],
 		activeLeafId: command.entryId,

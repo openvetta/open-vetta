@@ -23,6 +23,7 @@ export class GreenfieldSessionConfigurationState {
 	private agentMode: string | undefined;
 	private pluginOverride: AgentPluginRuntimeConfig | undefined;
 	private hasPluginOverride = false;
+	private activeToolNamesOverride: readonly string[] | undefined;
 
 	constructor(
 		initialAgentMode: string | undefined,
@@ -37,6 +38,14 @@ export class GreenfieldSessionConfigurationState {
 
 	readAgentPlugins(): AgentPluginRuntimeConfig | undefined {
 		return this.hasPluginOverride ? this.pluginOverride : this.readBaseAgentPlugins();
+	}
+
+	readActiveToolNamesOverride(): readonly string[] | undefined {
+		return this.activeToolNamesOverride ? [...this.activeToolNamesOverride] : undefined;
+	}
+
+	setActiveToolNamesOverride(toolNames: readonly string[]): void {
+		this.activeToolNamesOverride = [...new Set(toolNames)];
 	}
 
 	createController(

@@ -247,6 +247,7 @@ function isConversationDocumentEntryEvent(event: StoredSessionEvent): boolean {
 	return (
 		event.type === "message.appended" ||
 		event.type === "context.appended" ||
+		event.type === "context.recorded" ||
 		(event.type === "context.compacted" && "firstKeptEntryId" in event.record)
 	);
 }

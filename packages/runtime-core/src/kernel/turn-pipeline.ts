@@ -138,6 +138,24 @@ export class TurnPipeline {
 		await this.publishSafely(event);
 	}
 
+	async recordContext(
+		sessionIdentity: string | TurnSessionIdentity,
+		records: readonly SessionContextRecord[],
+	): Promise<void> {
+		if (records.length === 0) return;
+		const identity = normalizeSessionIdentity(sessionIdentity);
+		const conversation = await this.repository.load(identity.sessionId);
+		const timestamp = this.clock.now();
+		const events: StoredSessionEvent[] = records.map((record) => ({
+			type: "context.recorded",
+			sessionId: identity.sessionId,
+			record,
+			timestamp: record.timestamp ?? timestamp,
+		}));
+		await this.repository.append(identity.sessionId, conversation.version, events);
+		for (const event of events) await this.publishSafely(event);
+	}
+
 	async run(
 		sessionIdentity: string | TurnSessionIdentity,
 		input: SessionInput,
@@ -202,13 +220,14 @@ export class TurnPipeline {
 				},
 			];
 			const turnContext = input?.context ?? continuationContext;
+			const trailingContext = input?.trailingContext ?? [];
 			for (const record of turnContext) {
 				startEvents.push({
 					type: "context.appended",
 					sessionId: state.sessionId,
 					turnId,
 					record,
-					timestamp: startedAt,
+					timestamp: record.timestamp ?? startedAt,
 				});
 			}
 			if (input) {
@@ -218,6 +237,15 @@ export class TurnPipeline {
 					turnId,
 					message: input.message,
 					timestamp: startedAt,
+				});
+			}
+			for (const record of trailingContext) {
+				startEvents.push({
+					type: "context.appended",
+					sessionId: state.sessionId,
+					turnId,
+					record,
+					timestamp: record.timestamp ?? startedAt,
 				});
 			}
 			await this.append(state, signal, startEvents);
@@ -237,10 +265,23 @@ export class TurnPipeline {
 				.map((record) => ({
 					role: "user" as const,
 					content: record.content,
-					timestamp: startedAt,
+					timestamp: record.timestamp ?? startedAt,
+				}));
+			const trailingContextMessages = trailingContext
+				.filter(({ modelVisible }) => modelVisible)
+				.map((record) => ({
+					role: "user" as const,
+					content: record.content,
+					timestamp: record.timestamp ?? startedAt,
 				}));
 			const assembledMessages = input
-				? [...conversation.messages, ...providerMessages, ...inputContextMessages, input.message]
+				? [
+						...conversation.messages,
+						...providerMessages,
+						...inputContextMessages,
+						input.message,
+						...trailingContextMessages,
+					]
 				: [...conversation.messages, ...providerMessages, ...inputContextMessages];
 
 			await this.enterStage(state.sessionId, turnId, "context_preparation");
@@ -287,6 +328,20 @@ export class TurnPipeline {
 				signal,
 				inputQueue,
 				input,
+				appendQueuedContext: async (records) => {
+					const timestamp = this.clock.now();
+					await this.append(
+						state,
+						signal,
+						records.map((record) => ({
+							type: "context.appended" as const,
+							sessionId: state.sessionId,
+							turnId,
+							record,
+							timestamp: record.timestamp ?? timestamp,
+						})),
+					);
+				},
 				contextCheckpoints: true,
 			})) {
 				if (stopReason) {
@@ -687,7 +742,7 @@ export class TurnPipeline {
 					sessionId: state.sessionId,
 					turnId,
 					record,
-					timestamp,
+					timestamp: record.timestamp ?? timestamp,
 				})),
 			);
 		});

@@ -31,6 +31,7 @@ export interface CodingAgentModelCallFrameComposerOptions {
 	readonly resolveSystemPromptOptions: CodingAgentSystemPromptOptionsResolver;
 	readonly readMcpPromptState?: () => CodingAgentMcpPromptState;
 	readonly readAvailableTools?: () => ReadonlyMap<string, RuntimeToolDefinition>;
+	readonly readActiveToolNamesOverride?: () => readonly string[] | undefined;
 	readonly pluginMcpRuntime?: CodingAgentPluginMcpRuntime;
 	readonly readAgentMode?: () => string | undefined;
 	readonly isMcpToolVisible?: (toolName: string) => boolean;
@@ -77,7 +78,10 @@ export class CodingAgentModelCallFrameComposer implements ModelCallFrameComposer
 			? { ...mcpContext, frame: pluginToolSurface.frame }
 			: mcpContext;
 		const availableTools = pluginToolSurface?.availableTools ?? mcpAvailableTools;
-		const activeToolNames = [...effectiveContext.frame.tools.keys()];
+		const override = this.options.readActiveToolNamesOverride?.();
+		const activeToolNames = override
+			? override.filter((toolName) => availableTools.has(toolName))
+			: [...effectiveContext.frame.tools.keys()];
 		const promptOptions = await this.options.resolveSystemPromptOptions({
 			...effectiveContext,
 			activeToolNames,
@@ -106,8 +110,15 @@ export class CodingAgentModelCallFrameComposer implements ModelCallFrameComposer
 			availableTools,
 			createDraft,
 		});
-		const draft = pluginFrame?.draft ?? createDraft(activeToolNames);
-		const tools = orderModelTools(pluginFrame?.tools ?? effectiveContext.frame.tools);
+		const draft = override ? createDraft(activeToolNames) : (pluginFrame?.draft ?? createDraft(activeToolNames));
+		const selectedTools = override
+			? new Map(
+					activeToolNames.flatMap((toolName) =>
+						availableTools.get(toolName) ? [[toolName, availableTools.get(toolName)!]] : [],
+					),
+				)
+			: (pluginFrame?.tools ?? effectiveContext.frame.tools);
+		const tools = orderModelTools(selectedTools);
 		return {
 			instructions: [
 				{

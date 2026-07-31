@@ -137,6 +137,7 @@
 | [127-cli-format-neutral-continue-selection.md](./08-implementation-log/127-cli-format-neutral-continue-selection.md) | CLI 格式中立 `--continue` 选择、Greenfield 恢复与 Legacy 回退收缩 |
 | [128-legacy-extension-capability-assessment.md](./08-implementation-log/128-legacy-extension-capability-assessment.md) | Legacy Extension 能力分类、宿主评估与能力驱动回退合同 |
 | [129-extension-execution-host-contract.md](./08-implementation-log/129-extension-execution-host-contract.md) | Extension Execution Host 合同、共享 Runtime 原位绑定与 Legacy 等价适配 |
+| [130-greenfield-extension-action-host.md](./08-implementation-log/130-greenfield-extension-action-host.md) | Greenfield Extension Action Host、五种消息投递语义与 Provider/Flag 安全切换 |
 
 ## 维护约定
 

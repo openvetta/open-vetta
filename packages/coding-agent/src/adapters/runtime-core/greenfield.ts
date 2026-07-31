@@ -36,10 +36,15 @@ export {
 } from "./greenfield-continuation-orchestrator.js";
 export { createCodingAgentDesktopCommandHost } from "./greenfield-desktop-command-host.js";
 export {
+	CodingAgentGreenfieldExtensionActionHost,
+	type CodingAgentGreenfieldExtensionActionHostOptions,
+} from "./greenfield-extension-action-host.js";
+export {
 	type EcosystemHookAwareRuntimeTool,
 	wrapRuntimeToolsWithEcosystemHooks,
 } from "./greenfield-hook-tool-wrapper.js";
 export {
+	type CodingAgentInvokeSkillRuntimeFeature,
 	type CodingAgentInvokeSkillRuntimeFeatureOptions,
 	createCodingAgentInvokeSkillRuntimeFeature,
 } from "./greenfield-invoke-skill-runtime.js";

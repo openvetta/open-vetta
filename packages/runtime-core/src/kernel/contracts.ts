@@ -21,10 +21,18 @@ export interface SessionContextRecord {
 	readonly modelVisible: boolean;
 	readonly display?: boolean;
 	readonly metadata?: unknown;
+	readonly timestamp?: number;
 }
 
 export interface SessionInput {
 	readonly message: UserMessage;
+	readonly context?: readonly SessionContextRecord[];
+	/** 在用户消息之后进入模型上下文；用于 next-turn aside 等保持顺序的输入。 */
+	readonly trailingContext?: readonly SessionContextRecord[];
+}
+
+export interface QueuedSessionInput {
+	readonly message?: UserMessage;
 	readonly context?: readonly SessionContextRecord[];
 }
 
@@ -45,6 +53,8 @@ export interface QueuedSessionInputResult {
 export interface TurnInputQueue {
 	takeSteering(): readonly UserMessage[];
 	takeFollowUps(): readonly UserMessage[];
+	takeSteeringInputs?(): readonly QueuedSessionInput[];
+	takeFollowUpInputs?(): readonly QueuedSessionInput[];
 	enqueueFollowUps(messages: readonly UserMessage[]): void;
 }
 
@@ -474,6 +484,15 @@ export interface ContextAppendedEvent {
 	readonly timestamp: number;
 }
 
+/** 不启动 Turn 的 Session 级上下文持久化事实。 */
+export interface ContextRecordedEvent {
+	readonly type: "context.recorded";
+	readonly sessionId: string;
+	readonly turnId?: never;
+	readonly record: SessionContextRecord;
+	readonly timestamp: number;
+}
+
 export interface ContextCompactedEvent {
 	readonly type: "context.compacted";
 	readonly sessionId: string;
@@ -536,6 +555,7 @@ export type StoredSessionEvent =
 	| TurnContinuedEvent
 	| MessageAppendedEvent
 	| ContextAppendedEvent
+	| ContextRecordedEvent
 	| ContextCompactedEvent
 	| TurnCompletedEvent
 	| TurnCancelledEvent
@@ -617,6 +637,8 @@ export interface TurnEngineRequest {
 	readonly signal: AbortSignal;
 	readonly inputQueue?: TurnInputQueue;
 	readonly input?: SessionInput;
+	/** Engine 消费流式队列上下文时，必须先交回 Pipeline 持久化。 */
+	appendQueuedContext?(records: readonly SessionContextRecord[]): Promise<void>;
 	/** 由 TurnPipeline 启用，使 Engine 在模型调用边界等待持久化处理。 */
 	readonly contextCheckpoints?: boolean;
 }

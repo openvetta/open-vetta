@@ -4,6 +4,7 @@ export type {
 	CodingAgentExtensionRegistrationSummary,
 	CodingAgentLegacyExtensionRuntimeCapability,
 } from "../host/coding-agent-extension-compatibility.js";
+export { resolveCodingAgentGreenfieldExtensionCompatibility } from "../host/coding-agent-extension-compatibility.js";
 export {
 	type CodingAgentHostBootstrap,
 	type CodingAgentHostBootstrapDiagnostics,

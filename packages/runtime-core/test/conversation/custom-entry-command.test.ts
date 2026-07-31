@@ -61,4 +61,33 @@ describe("conversation custom entry command", () => {
 			}),
 		).toThrow("Conversation document entry already exists: duplicate");
 	});
+
+	it("appends a label entry for an existing target", () => {
+		const source = applyConversationDocumentCommand(
+			createEmptyConversationDocument({ sessionId: "session-1", createdAt: 1 }),
+			{
+				type: "custom.append",
+				entryId: "entry-1",
+				customType: "state",
+				timestamp: "2026-07-28T00:00:00.000Z",
+			},
+		).document;
+
+		const result = applyConversationDocumentCommand(source, {
+			type: "entry.label.set",
+			entryId: "label-1",
+			targetId: "entry-1",
+			label: "Important",
+			timestamp: "2026-07-28T00:00:01.000Z",
+		});
+
+		expect(result.document.entries.at(-1)).toEqual({
+			type: "label",
+			id: "label-1",
+			parentId: "entry-1",
+			targetId: "entry-1",
+			label: "Important",
+			timestamp: "2026-07-28T00:00:01.000Z",
+		});
+	});
 });

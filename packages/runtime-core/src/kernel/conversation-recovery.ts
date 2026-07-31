@@ -39,6 +39,13 @@ export class FailInterruptedTurnRecoveryPolicy implements ConversationRecoveryPo
 				case "context.appended":
 					assertActiveTurn(conversation.sessionId, activeTurnId, event.turnId, event.type);
 					break;
+				case "context.recorded":
+					if (activeTurnId) {
+						throw turnProtocolError(
+							`Conversation ${conversation.sessionId} records session context inside turn ${activeTurnId}`,
+						);
+					}
+					break;
 				case "context.compacted":
 					if ("reason" in event.record && event.record.reason === "manual") {
 						if (activeTurnId || event.turnId !== undefined) {

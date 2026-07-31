@@ -79,4 +79,32 @@ describe("conversation custom entry persistence", () => {
 		]);
 		await reopened.close();
 	});
+
+	it("applies append-only Extension metadata to the latest document revision", async () => {
+		const rootDir = await mkdtemp(join(tmpdir(), "conversation-extension-metadata-"));
+		directories.push(rootDir);
+		const repository = new FileConversationRepository({ rootDir });
+		await repository.create({ sessionId: "session-metadata", createdAt: 1 });
+		await repository.execute("session-metadata", null, {
+			type: "custom.append",
+			entryId: "entry-1",
+			customType: "audit",
+			data: { ok: true },
+			timestamp: "2026-07-31T00:00:00.000Z",
+		});
+		await repository.execute("session-metadata", null, {
+			type: "entry.label.set",
+			entryId: "label-1",
+			targetId: "entry-1",
+			label: "Checked",
+			timestamp: "2026-07-31T00:00:01.000Z",
+		});
+
+		const document = await repository.readDocument("session-metadata");
+		expect(document.entries).toMatchObject([
+			{ id: "entry-1", type: "custom", customType: "audit" },
+			{ id: "label-1", type: "label", targetId: "entry-1", label: "Checked" },
+		]);
+		await repository.close();
+	});
 });

@@ -177,7 +177,12 @@ export function applyStoredEventToConversationDocument(
 	if (sequence !== document.journalVersion + 1) {
 		throw new Error(`Conversation document journal sequence ${sequence} does not follow ${document.journalVersion}`);
 	}
-	if (event.type !== "message.appended" && event.type !== "context.appended" && !isPersistentCompactionEvent(event)) {
+	if (
+		event.type !== "message.appended" &&
+		event.type !== "context.appended" &&
+		event.type !== "context.recorded" &&
+		!isPersistentCompactionEvent(event)
+	) {
 		return { ...document, journalVersion: sequence };
 	}
 

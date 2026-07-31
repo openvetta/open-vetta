@@ -92,4 +92,35 @@ describe("conversation context records", () => {
 		]);
 		await reopened.close();
 	});
+
+	it("persists session-level context without manufacturing a turn", async () => {
+		const rootDir = await mkdtemp(join(tmpdir(), "vetta-recorded-context-"));
+		temporaryRoots.push(rootDir);
+		const repository = new FileConversationRepository({ rootDir });
+		await repository.create({ sessionId: "session-recorded", createdAt: 1 });
+		await repository.append("session-recorded", 0, [
+			{
+				type: "context.recorded",
+				sessionId: "session-recorded",
+				record: {
+					type: "extension-note",
+					content: "remember this",
+					modelVisible: true,
+					timestamp: 2,
+				},
+				timestamp: 2,
+			},
+		]);
+		await repository.close();
+
+		const reopened = new FileConversationRepository({ rootDir });
+		const conversation = await reopened.load("session-recorded");
+		const document = await reopened.readDocument("session-recorded");
+		expect(conversation.events).toMatchObject([{ type: "context.recorded" }]);
+		expect(conversation.messages.map(({ content }) => content)).toEqual(["remember this"]);
+		expect(document.entries).toMatchObject([
+			{ type: "custom_message", customType: "extension-note", modelVisible: true },
+		]);
+		await reopened.close();
+	});
 });

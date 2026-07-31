@@ -32,6 +32,8 @@ export class AgentSession {
 	private continuationRequested = false;
 	private continuationDrain: Promise<void> | undefined;
 	private readonly continuationContext: SessionContextRecord[] = [];
+	private readonly nextTurnContext: SessionContextRecord[] = [];
+	private contextWrite: Promise<void> = Promise.resolve();
 	private readonly continuationWaiters: Array<{
 		resolve(): void;
 		reject(error: unknown): void;
@@ -71,11 +73,11 @@ export class AgentSession {
 	}
 
 	getSteeringMessages(): readonly SessionInput["message"][] {
-		return this.inputQueue.steeringInputs.map((input) => input.message);
+		return this.inputQueue.steeringInputs.flatMap((input) => (input.message ? [input.message] : []));
 	}
 
 	getFollowUpMessages(): readonly SessionInput["message"][] {
-		return this.inputQueue.followUpInputs.map((input) => input.message);
+		return this.inputQueue.followUpInputs.flatMap((input) => (input.message ? [input.message] : []));
 	}
 
 	get steeringMode(): SessionInputQueueMode {
@@ -97,6 +99,7 @@ export class AgentSession {
 	async send(input: SessionInput): Promise<TurnResult>;
 	async send(input: SessionInput, options: SessionSendOptions): Promise<SessionSendResult>;
 	async send(input: SessionInput, options: SessionSendOptions = {}): Promise<SessionSendResult> {
+		await this.contextWrite;
 		if (this.currentState === "closed" || this.currentState === "closing") {
 			throw sessionClosedError();
 		}
@@ -105,10 +108,12 @@ export class AgentSession {
 			return this.queueInput(options.streamingBehavior, input);
 		}
 
-		return this.startTurn(input);
+		const trailingContext = [...(input.trailingContext ?? []), ...this.nextTurnContext.splice(0)];
+		return this.startTurn(trailingContext.length > 0 ? { ...input, trailingContext } : input);
 	}
 
 	async continue(): Promise<TurnResult> {
+		await this.contextWrite;
 		if (this.currentState === "closed" || this.currentState === "closing") {
 			throw sessionClosedError();
 		}
@@ -144,6 +149,39 @@ export class AgentSession {
 		return this.queueInput("followUp", input);
 	}
 
+	queueContext(
+		behavior: SessionStreamingBehavior,
+		context: readonly SessionContextRecord[],
+	): QueuedSessionInputResult {
+		if (this.currentState === "closed" || this.currentState === "closing") {
+			throw sessionClosedError();
+		}
+		return {
+			status: "queued",
+			behavior,
+			pendingCount: this.inputQueue.enqueueContext(behavior, context),
+		};
+	}
+
+	queueNextTurnContext(context: readonly SessionContextRecord[]): void {
+		if (this.currentState === "closed" || this.currentState === "closing") {
+			throw sessionClosedError();
+		}
+		this.nextTurnContext.push(...context);
+	}
+
+	recordContext(context: readonly SessionContextRecord[]): Promise<void> {
+		if (this.currentState === "closed" || this.currentState === "closing") {
+			return Promise.reject(sessionClosedError());
+		}
+		const write = this.contextWrite.then(async () => {
+			if (this.currentState !== "idle") throw sessionBusyError();
+			await this.pipeline.recordContext(this.identity, context);
+		});
+		this.contextWrite = write.catch(() => undefined);
+		return write;
+	}
+
 	clearQueue(): ClearedSessionInputs {
 		return this.inputQueue.clear();
 	}
@@ -158,7 +196,9 @@ export class AgentSession {
 	async close(): Promise<void> {
 		if (this.currentState === "closed") return;
 		if (!this.activeTurn) {
+			await this.contextWrite;
 			this.inputQueue.clear();
+			this.nextTurnContext.length = 0;
 			this.currentState = "closed";
 			this.rejectContinuationWaiters(sessionClosedError());
 			return;
@@ -168,6 +208,7 @@ export class AgentSession {
 		this.activeController?.abort("Session closed");
 		await this.activeTurn;
 		this.inputQueue.clear();
+		this.nextTurnContext.length = 0;
 		this.currentState = "closed";
 		this.rejectContinuationWaiters(sessionClosedError());
 	}

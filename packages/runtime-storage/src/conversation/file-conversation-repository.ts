@@ -139,7 +139,12 @@ export class FileConversationRepository
 				`Command for ${sessionId} does not match the conversation document command schema`,
 			);
 		}
-		if (expectedRevision === null && command.type !== "session.name.set") {
+		if (
+			expectedRevision === null &&
+			command.type !== "session.name.set" &&
+			command.type !== "custom.append" &&
+			command.type !== "entry.label.set"
+		) {
 			throw new ConversationStorageError(
 				CONVERSATION_STORAGE_ERROR_CODES.INVALID_COMMAND,
 				`Command ${command.type} requires an expected conversation document revision`,
