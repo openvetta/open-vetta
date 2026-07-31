@@ -147,6 +147,7 @@ export APPLE_API_KEY="$HOME/secrets/AuthKey_XXXXXXXXXX.p8"
 
 cd packages/desktop-app
 bun run dist:mac
+VETTA_REQUIRE_MAC_SIGNATURE=1 bun run verify:updates:mac
 ```
 
 CI 上 `CSC_LINK` 可以直接放 base64：`export CSC_LINK="$(base64 -i developer-id.p12)"`。
@@ -183,7 +184,20 @@ security find-identity -v -p codesigning    # 1 valid identity
 xcrun notarytool history --key "$APPLE_API_KEY" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER"
 ```
 
-> 发版目前走本地打包，没有 CI 流水线。私有仓库的 GitHub macOS runner 按 10 倍系数计费，而公证有 5～30 分钟纯挂机等待，单次发版就要吃掉大半个月免费额度，不划算。将来要接 CI 的话，需要的 Secret 就是本节 4 的那几个环境变量（`.p12` / `.p8` 转 base64）。
+### 4.2 GitHub Actions 注入
+
+`.github/workflows/desktop-release.yml` 已接入签名与公证。仓库需要配置以下 Actions Secrets：
+
+| Secret | 内容 |
+|---|---|
+| `MACOS_CERTIFICATE_P12_BASE64` | `developer-id.p12` 的 base64 内容 |
+| `MACOS_CERTIFICATE_PASSWORD` | 导出 `.p12` 时设置的密码 |
+| `APPLE_API_KEY_P8_BASE64` | `AuthKey_<KeyID>.p8` 的 base64 内容 |
+| `APPLE_API_KEY_ID` | App Store Connect API Key ID |
+| `APPLE_API_ISSUER` | App Store Connect Issuer ID |
+| `APPLE_TEAM_ID` | Developer Program Team ID |
+
+工作流会在 macOS runner 的临时目录还原 `.p12` 和 `.p8`，仅通过环境变量传给 electron-builder。Tag 发版如果完全没有或只配置了部分 Secrets 会直接失败，避免发布不可自动更新的未签名包；手动 `workflow_dispatch` 在完全没有 Secrets 时允许生成未签名测试包。凭据齐全时还会设置 `VETTA_REQUIRE_MAC_SIGNATURE=1`，构建后自动校验 ZIP 内应用的签名、Gatekeeper 接受状态和公证票据。
 
 ## 5. 验证
 
@@ -221,6 +235,8 @@ hdiutil detach /Volumes/Vetta*
 ```
 
 最后必须做一次**真机端到端验证**：把 DMG 上传到 CDN，从**另一台没装过开发者证书的 Mac** 用浏览器下载（一定要走浏览器，`scp`/AirDrop 不会打 quarantine 标记，测不出问题），拖入 `/Applications` 双击——应该直接启动，不出现任何「已损坏」「无法验证开发者」弹窗。
+
+自动更新还要额外验证一次：安装旧的签名版本，从 R2/GitHub 检查并下载新版本；界面只有在 Squirrel.Mac 完成暂存后才应提示重启。重启后确认版本号、应用功能和内置 Node/Python runtime 都来自新版本。macOS 更新要求前后版本使用同一 Developer ID 身份和一致的应用标识，不能用未签名旧包验证正式签名更新。
 
 ---
 
