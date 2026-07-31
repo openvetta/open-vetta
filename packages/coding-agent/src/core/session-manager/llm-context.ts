@@ -12,6 +12,17 @@ import type { AgentMessage } from "@vetta/agent-core";
 import { createBranchSummaryMessage, createCompactionSummaryMessage, createCustomMessage } from "../messages.js";
 import type { CompactionEntry, SessionContext, SessionEntry } from "./session-model.js";
 
+export interface SessionContextProjectionItem {
+	readonly message: AgentMessage;
+	readonly entry: SessionEntry;
+}
+
+export interface SessionContextProjection {
+	readonly items: readonly SessionContextProjectionItem[];
+	readonly thinkingLevel: string;
+	readonly model: { readonly provider: string; readonly modelId: string } | null;
+}
+
 export function getLatestCompactionEntry(entries: SessionEntry[]): CompactionEntry | null {
 	for (let i = entries.length - 1; i >= 0; i--) {
 		if (entries[i].type === "compaction") {
@@ -31,6 +42,19 @@ export function buildSessionContext(
 	leafId?: string | null,
 	byId?: Map<string, SessionEntry>,
 ): SessionContext {
+	const projection = buildSessionContextProjection(entries, leafId, byId);
+	return {
+		messages: projection.items.map(({ message }) => message),
+		thinkingLevel: projection.thinkingLevel,
+		model: projection.model,
+	};
+}
+
+export function buildSessionContextProjection(
+	entries: SessionEntry[],
+	leafId?: string | null,
+	byId?: Map<string, SessionEntry>,
+): SessionContextProjection {
 	// Build uuid index if not available
 	if (!byId) {
 		byId = new Map<string, SessionEntry>();
@@ -43,7 +67,7 @@ export function buildSessionContext(
 	let leaf: SessionEntry | undefined;
 	if (leafId === null) {
 		// Explicitly null - return no messages (navigated to before first entry)
-		return { messages: [], thinkingLevel: "off", model: null };
+		return { items: [], thinkingLevel: "off", model: null };
 	}
 	if (leafId) {
 		leaf = byId.get(leafId);
@@ -54,7 +78,7 @@ export function buildSessionContext(
 	}
 
 	if (!leaf) {
-		return { messages: [], thinkingLevel: "off", model: null };
+		return { items: [], thinkingLevel: "off", model: null };
 	}
 
 	// Walk from leaf to root, collecting path
@@ -87,23 +111,33 @@ export function buildSessionContext(
 	// 1. Emit summary first (entry = compaction)
 	// 2. Emit kept messages (from firstKeptEntryId up to compaction)
 	// 3. Emit messages after compaction
-	const messages: AgentMessage[] = [];
+	const items: SessionContextProjectionItem[] = [];
 
 	const appendMessage = (entry: SessionEntry) => {
 		if (entry.type === "message") {
-			messages.push(entry.message);
+			items.push({ message: entry.message, entry });
 		} else if (entry.type === "custom_message") {
-			messages.push(
-				createCustomMessage(entry.customType, entry.content, entry.display, entry.details, entry.timestamp),
-			);
+			items.push({
+				message: createCustomMessage(
+					entry.customType,
+					entry.content,
+					entry.display,
+					entry.details,
+					entry.timestamp,
+				),
+				entry,
+			});
 		} else if (entry.type === "branch_summary" && entry.summary) {
-			messages.push(createBranchSummaryMessage(entry.summary, entry.fromId, entry.timestamp));
+			items.push({ message: createBranchSummaryMessage(entry.summary, entry.fromId, entry.timestamp), entry });
 		}
 	};
 
 	if (compaction) {
 		// Emit summary first
-		messages.push(createCompactionSummaryMessage(compaction.summary, compaction.tokensBefore, compaction.timestamp));
+		items.push({
+			message: createCompactionSummaryMessage(compaction.summary, compaction.tokensBefore, compaction.timestamp),
+			entry: compaction,
+		});
 
 		// Find compaction index in path
 		const compactionIdx = path.findIndex((e) => e.type === "compaction" && e.id === compaction.id);
@@ -132,5 +166,5 @@ export function buildSessionContext(
 		}
 	}
 
-	return { messages, thinkingLevel, model };
+	return { items, thinkingLevel, model };
 }

@@ -26,7 +26,6 @@ describe("CodingAgentGreenfieldContextRuntime", () => {
 			assistantMessage("old response", 90, 2),
 			userMessage("kept request", 3),
 		] satisfies Message[];
-		const document = documentFromMessages(history);
 		const currentInput = userMessage("current input", 4);
 		const observations: RuntimeSessionObservationEvent[] = [];
 		const hooks = createHookRuntime();
@@ -45,7 +44,15 @@ describe("CodingAgentGreenfieldContextRuntime", () => {
 			generateCompaction,
 			now: () => 42,
 		});
-		const input = preparationInput(document, history, [...history, currentInput], observations);
+		const input: ContextPreparationInput = {
+			...preparationInput(
+				documentFromMessages([...history, currentInput]),
+				[...history, currentInput],
+				[...history, currentInput],
+				observations,
+			),
+			reason: "model_call",
+		};
 
 		const prepared = await runtime.prepare(input, new AbortController().signal);
 
@@ -62,14 +69,13 @@ describe("CodingAgentGreenfieldContextRuntime", () => {
 				],
 				timestamp: 42,
 			},
-			firstKeptEntryId: "event-3",
-			tokensBefore: 93,
+			firstKeptEntryId: "event-4",
+			tokensBefore: 97,
 			details: { source: "test" },
 			reason: "threshold",
 		});
 		expect(prepared.messages.map(messageText)).toEqual([
 			`${COMPACTION_SUMMARY_PREFIX}summary${COMPACTION_SUMMARY_SUFFIX}`,
-			"kept request",
 			"current input",
 		]);
 		expect(hooks.runPreCompact).toHaveBeenCalledWith("auto", expect.any(AbortSignal));
@@ -109,7 +115,10 @@ describe("CodingAgentGreenfieldContextRuntime", () => {
 			resolveSettings: compactingSettings,
 			generateCompaction,
 		});
-		const input = preparationInput(documentFromMessages(history), history, history, observations);
+		const input: ContextPreparationInput = {
+			...preparationInput(documentFromMessages(history), history, history, observations),
+			reason: "model_call",
+		};
 
 		const prepared = await runtime.prepare(input, new AbortController().signal);
 
@@ -401,6 +410,50 @@ describe("CodingAgentGreenfieldContextRuntime", () => {
 		expect(messageText(second[0])).toBe("[tool result cleared — old context]");
 		expect(messageText(messages[0])).toBe("result-0");
 		expect(first).not.toBe(second);
+	});
+
+	it("runs Extension context once with opaque identities and keeps model-invisible messages out of the call", async () => {
+		const customMessage = {
+			role: "custom" as const,
+			customType: "visible-context",
+			content: "visible",
+			display: true,
+			timestamp: 10,
+		};
+		const transformAgentContext = vi.fn(async (messages) => structuredClone(messages));
+		const runtime = new CodingAgentGreenfieldContextRuntime({
+			hookRuntime: createHookRuntime(),
+			resolveApiKey: () => "key",
+			transformAgentContext,
+		});
+		const input = {
+			sessionId: "session-1",
+			turnId: "turn-1",
+			messages: [userMessage("visible", 10)],
+			messageEnvelopes: [
+				{
+					kind: "opaque" as const,
+					identity: customMessage,
+					modelMessage: userMessage("visible", 10),
+					timestamp: 10,
+				},
+				{
+					kind: "context" as const,
+					record: { type: "hidden-context", content: "hidden", modelVisible: false },
+					timestamp: 11,
+				},
+			],
+			modelBinding: { model: MODEL },
+		};
+
+		const transformed = await runtime.transform(input, new AbortController().signal);
+
+		expect(transformAgentContext).toHaveBeenCalledOnce();
+		expect(transformAgentContext.mock.calls[0][0]).toMatchObject([
+			{ role: "custom", customType: "visible-context", content: "visible" },
+			{ role: "custom", customType: "hidden-context", content: "hidden" },
+		]);
+		expect(transformed.map(messageText)).toEqual(["visible"]);
 	});
 
 	it("restores context usage from the document and then reports exact assistant usage", async () => {

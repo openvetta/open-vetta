@@ -45,11 +45,14 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 
 	async *execute(request: TurnEngineRequest): AsyncIterable<TurnEngineEvent> {
 		request.signal.throwIfAborted();
-		const contextMessageIdentities = new WeakMap<Message, RuntimeMessageEnvelope>();
+		const contextMessageIdentities = new WeakMap<object, RuntimeMessageEnvelope>();
+		const contextMessages = request.contextMessages
+			? hydrateAgentMessages(request.contextMessages, contextMessageIdentities)
+			: [...request.messages];
 		const stream = agentLoopContinue(
 			{
 				systemPrompt: resolveRequestSystemPrompt(request, request.initialModelCallFrame ?? request.snapshot),
-				messages: [...request.messages],
+				messages: contextMessages,
 				tools: [...(request.initialModelCallFrame?.tools ?? request.snapshot.tools).values()].map((tool) =>
 					this.toAgentTool(tool, request, contextMessageIdentities),
 				),
@@ -71,7 +74,7 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 						assistantMessage: event.request.assistantMessage,
 						recoveryAttempt: event.request.recoveryAttempt,
 						complete: (result) => {
-							event.request.complete(toAgentCheckpointResult(result));
+							event.request.complete(toAgentCheckpointResult(result, contextMessageIdentities));
 						},
 						fail: (error) => {
 							event.request.fail(error);
@@ -121,7 +124,7 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 
 	private createConfig(
 		request: TurnEngineRequest,
-		contextMessageIdentities: WeakMap<Message, RuntimeMessageEnvelope>,
+		contextMessageIdentities: WeakMap<object, RuntimeMessageEnvelope>,
 	): AgentLoopConfig {
 		const inputQueue = request.inputQueue;
 		const contextTransformer = request.snapshot.modelCallContextTransformer;
@@ -141,7 +144,25 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 				return request.sessionId;
 			},
 			getApiKey,
-			convertToLlm: (messages) => toRuntimeMessages(messages, contextMessageIdentities),
+			convertToLlm: async (messages) => {
+				const runtimeMessages = toRuntimeMessages(messages, contextMessageIdentities);
+				return request.snapshot.modelCallMessageFinalizer
+					? [
+							...(await request.snapshot.modelCallMessageFinalizer.finalize(
+								{
+									sessionId: request.sessionId,
+									turnId: request.turnId,
+									messages: runtimeMessages,
+									modelBinding: request.modelBinding ?? {
+										model,
+										reasoning: this.options.streamOptions?.reasoning,
+									},
+								},
+								request.signal,
+							)),
+						]
+					: runtimeMessages;
+			},
 			contextCheckpoints: request.contextCheckpoints,
 			transformContext: contextTransformer
 				? async (messages, signal) => {
@@ -152,6 +173,7 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 									sessionId: request.sessionId,
 									turnId: request.turnId,
 									messages: toRuntimeMessages(messages, contextMessageIdentities),
+									messageEnvelopes: toRuntimeMessageEnvelopes(messages, contextMessageIdentities),
 									modelBinding: request.modelBinding ?? {
 										model,
 										reasoning: this.options.streamOptions?.reasoning,
@@ -216,7 +238,7 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 	private async consumeQueuedInputs(
 		inputs: readonly QueuedSessionInput[],
 		request: TurnEngineRequest,
-		contextMessageIdentities: WeakMap<Message, RuntimeMessageEnvelope>,
+		contextMessageIdentities: WeakMap<object, RuntimeMessageEnvelope>,
 	): Promise<AgentMessage[]> {
 		const context = inputs.flatMap((input) => input.context ?? []);
 		if (context.length > 0) await request.appendQueuedContext?.(context);
@@ -237,7 +259,7 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 	private toAgentTool(
 		tool: RuntimeToolDefinition,
 		request: TurnEngineRequest,
-		contextMessageIdentities: WeakMap<Message, RuntimeMessageEnvelope>,
+		contextMessageIdentities: WeakMap<object, RuntimeMessageEnvelope>,
 	): AgentTool<ReturnType<typeof Type.Unsafe<Record<string, unknown>>>, unknown> {
 		return {
 			name: tool.name,
@@ -297,11 +319,14 @@ function resolveRequestSystemPrompt(request: TurnEngineRequest, frame: Pick<Runt
 
 function toAgentCheckpointResult(
 	result: TurnEngineContextCheckpointResult | undefined,
+	contextMessageIdentities: WeakMap<object, RuntimeMessageEnvelope>,
 ): AgentContextCheckpointResult | undefined {
 	if (!result) return undefined;
 	return {
 		messages: result.messages,
-		contextMessages: result.contextMessages,
+		contextMessages: result.contextMessageEnvelopes
+			? hydrateAgentMessages(result.contextMessageEnvelopes, contextMessageIdentities)
+			: result.contextMessages,
 		retry: result.retry,
 	};
 }
@@ -309,7 +334,7 @@ function toAgentCheckpointResult(
 function mapAgentCoreEventToExecutionObservation(
 	event: AgentEvent,
 	initialMessages: readonly RuntimeMessageEnvelope[],
-	contextMessageIdentities: WeakMap<Message, RuntimeMessageEnvelope>,
+	contextMessageIdentities: WeakMap<object, RuntimeMessageEnvelope>,
 ): RuntimeExecutionObservationEvent | undefined {
 	if (event.type === "agent_start") return { type: "agent.start" };
 	if (event.type === "agent_end") {
@@ -472,29 +497,64 @@ function contextRecordToUserMessage(record: SessionContextRecord): Message {
 
 function toRuntimeMessages(
 	messages: readonly AgentMessage[],
-	contextMessageIdentities: WeakMap<Message, RuntimeMessageEnvelope>,
+	contextMessageIdentities: WeakMap<object, RuntimeMessageEnvelope>,
 ): Message[] {
 	return messages.flatMap((message) => {
-		if (!isRuntimeMessage(message)) return [];
 		const identity = contextMessageIdentities.get(message);
-		if (!identity || identity.kind === "message") return [message];
-		if (!identity.record.modelVisible) return [];
-		return [
-			{
-				role: "user" as const,
-				content: identity.record.content,
-				timestamp: identity.timestamp,
-			},
-		];
+		if (identity) return envelopeToRuntimeMessages(identity);
+		return isRuntimeMessage(message) ? [message] : [];
+	});
+}
+
+function toRuntimeMessageEnvelopes(
+	messages: readonly AgentMessage[],
+	contextMessageIdentities: WeakMap<object, RuntimeMessageEnvelope>,
+): RuntimeMessageEnvelope[] {
+	return messages.flatMap((message) => {
+		const identity = contextMessageIdentities.get(message);
+		if (identity) return [identity];
+		return isRuntimeMessage(message) ? [{ kind: "message", message }] : [];
 	});
 }
 
 function toRuntimeMessageEnvelope(
 	message: AgentMessage,
-	contextMessageIdentities: WeakMap<Message, RuntimeMessageEnvelope>,
+	contextMessageIdentities: WeakMap<object, RuntimeMessageEnvelope>,
 ): RuntimeMessageEnvelope | undefined {
-	if (!isRuntimeMessage(message)) return undefined;
-	return contextMessageIdentities.get(message) ?? { kind: "message", message };
+	const identity = contextMessageIdentities.get(message);
+	if (identity) return identity;
+	return isRuntimeMessage(message) ? { kind: "message", message } : undefined;
+}
+
+function hydrateAgentMessages(
+	envelopes: readonly RuntimeMessageEnvelope[],
+	contextMessageIdentities: WeakMap<object, RuntimeMessageEnvelope>,
+): AgentMessage[] {
+	return envelopes.map((envelope) => {
+		const message = envelopeToAgentPlaceholder(envelope);
+		if (envelope.kind !== "message") contextMessageIdentities.set(message, envelope);
+		return message;
+	});
+}
+
+function envelopeToAgentPlaceholder(envelope: RuntimeMessageEnvelope): AgentMessage {
+	if (envelope.kind === "message") return envelope.message;
+	if (envelope.kind === "opaque" && envelope.modelMessage) return envelope.modelMessage;
+	if (envelope.kind === "context") return contextRecordToUserMessage(envelope.record);
+	return { role: "user", content: [], timestamp: envelope.timestamp };
+}
+
+function envelopeToRuntimeMessages(envelope: RuntimeMessageEnvelope): Message[] {
+	if (envelope.kind === "message") return [envelope.message];
+	if (envelope.kind === "opaque") return envelope.modelMessage ? [envelope.modelMessage] : [];
+	if (!envelope.record.modelVisible) return [];
+	return [
+		{
+			role: "user",
+			content: envelope.record.content,
+			timestamp: envelope.timestamp,
+		},
+	];
 }
 
 function isRuntimeMessage(message: AgentMessage): message is Message {

@@ -54,11 +54,13 @@ import {
 	CODING_AGENT_MODEL_TOOL_ORDER,
 	type CodingAgentCompactionExtensionRuntime,
 	CodingAgentContinuationOrchestrator,
+	CodingAgentGreenfieldAgentMessageContextProjector,
 	CodingAgentGreenfieldContextRuntime,
 	type CodingAgentGreenfieldContextRuntimeOptions,
 	type CodingAgentGreenfieldExtensionEventBinding,
 	CodingAgentGreenfieldExtensionEventBridge,
 	CodingAgentGreenfieldMemoryController,
+	CodingAgentGreenfieldModelCallMessageFinalizer,
 	CodingAgentGreenfieldPromptAdapter,
 	type CodingAgentMemoryController,
 	CodingAgentMemoryRolloverOrchestrator,
@@ -545,6 +547,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 					generateCompaction: options.generateCompaction,
 					extensionRuntime: options.createCompactionExtensionRuntime?.(sessionOptions),
 					memoryRollover: memoryRuntime,
+					transformAgentContext: (messages) => extensionEvents.transformContext(messages),
 				});
 				contextRuntimes.add(contextRuntime);
 				const openSubagentChild = async (
@@ -775,6 +778,10 @@ async function createGreenfieldRuntimeCompositionInternal(
 					throw new Error("Coding Agent system prompt resolver was not created");
 				}
 				const promptResourceSource = options.promptResourceSource ?? promptRuntime?.readResourceSource();
+				const modelCallMessageFinalizer = new CodingAgentGreenfieldModelCallMessageFinalizer(
+					options.promptSettingsSource ?? promptRuntime?.readSettingsSource(),
+				);
+				const conversationContextProjector = new CodingAgentGreenfieldAgentMessageContextProjector();
 				const invokeSkillFeature = promptResourceSource
 					? createCodingAgentInvokeSkillRuntimeFeature({
 							resourceSource: promptResourceSource,
@@ -836,6 +843,8 @@ async function createGreenfieldRuntimeCompositionInternal(
 					observers: [...(baseProfile.observers ?? []), contextRuntime, ...(memoryRuntime ? [memoryRuntime] : [])],
 					contextStrategy: contextRuntime,
 					modelCallContextTransformer: contextRuntime,
+					modelCallMessageFinalizer,
+					conversationContextProjector,
 					agentRunPreparer: extensionEvents,
 					continuationPolicy: continuationOrchestrator,
 					modelCallFrameComposer,

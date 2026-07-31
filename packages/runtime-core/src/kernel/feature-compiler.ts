@@ -163,6 +163,8 @@ function createSnapshot(
 		agentRunPreparer: profile.agentRunPreparer,
 		continuationPolicy: profile.continuationPolicy,
 		modelCallContextTransformer: profile.modelCallContextTransformer,
+		modelCallMessageFinalizer: profile.modelCallMessageFinalizer,
+		conversationContextProjector: profile.conversationContextProjector,
 		contextProviders: Object.freeze(contextProviders),
 		contextStrategy: profile.contextStrategy,
 		toolPolicy: profile.toolPolicy,

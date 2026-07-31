@@ -1,4 +1,4 @@
-import type { AssistantMessage, Message, UserMessage } from "@vetta/ai";
+import type { Api, AssistantMessage, Message, Model, UserMessage } from "@vetta/ai";
 import { describe, expect, it } from "vitest";
 import {
 	type ConversationDocument,
@@ -21,6 +21,7 @@ import {
 	type PreparedContext,
 	type RuntimeSessionContextBuffer,
 	type RuntimeSnapshot,
+	type RuntimeTurnModelBindingProvider,
 	StaticRuntimeSnapshotProvider,
 	type StoredConversation,
 	type StoredSessionEvent,
@@ -225,6 +226,7 @@ async function createHarness(options?: {
 	readonly eventSink?: EventSink;
 	readonly runtimeContext?: RuntimeSessionContextBuffer;
 	readonly conversationDocumentReader?: ConversationDocumentReader;
+	readonly modelBindingProvider?: RuntimeTurnModelBindingProvider;
 }) {
 	const repository = new InMemoryConversationRepository();
 	const contextStrategy = options?.contextStrategy ?? new RecordingContextStrategy();
@@ -233,6 +235,7 @@ async function createHarness(options?: {
 	const pipeline = new TurnPipeline({
 		repository,
 		snapshotProvider: new StaticRuntimeSnapshotProvider(options?.runtimeSnapshot ?? snapshot(contextStrategy)),
+		modelBindingProvider: options?.modelBindingProvider,
 		turnEngine,
 		eventSink,
 		clock: new TestClock(),
@@ -519,6 +522,7 @@ describe("greenfield runtime kernel", () => {
 
 	it("commits same-turn compaction checkpoints after prior model messages are persisted", async () => {
 		const preparationReasons: Array<string | undefined> = [];
+		let transformerCalls = 0;
 		const checkpointMessages = [userMessage("current input"), toolResultMessage("call-1")];
 		let checkpointResult: Parameters<
 			Extract<TurnEngineEvent, { type: "context_checkpoint" }>["request"]["complete"]
@@ -563,12 +567,27 @@ describe("greenfield runtime kernel", () => {
 				yield { type: "completed", stopReason: "stop" };
 			},
 		};
-		const harness = await createHarness({ contextStrategy, turnEngine: engine });
+		const runtimeSnapshot = snapshot(contextStrategy, {
+			modelCallContextTransformer: {
+				async transform(input) {
+					transformerCalls += 1;
+					return input.messages;
+				},
+			},
+		});
+		const harness = await createHarness({
+			contextStrategy,
+			runtimeSnapshot,
+			turnEngine: engine,
+			modelBindingProvider: { bind: () => ({ model: TEST_MODEL }) },
+		});
 
 		await harness.session.send({ message: checkpointMessages[0] as UserMessage });
 
 		expect(preparationReasons).toEqual(["turn_start", "model_call"]);
+		expect(transformerCalls).toBe(0);
 		expect(checkpointResult?.contextMessages?.map(({ role }) => role)).toEqual(["user", "toolResult"]);
+		expect(checkpointResult?.contextMessageEnvelopes?.map(({ kind }) => kind)).toEqual(["message", "message"]);
 		expect((await harness.repository.load("session-1")).events.map(({ type }) => type)).toEqual([
 			"turn.started",
 			"message.appended",
@@ -944,3 +963,16 @@ function abortError(): Error {
 	error.name = "AbortError";
 	return error;
 }
+
+const TEST_MODEL: Model<Api> = {
+	id: "test-model",
+	name: "Test Model",
+	api: "openai-responses",
+	provider: "test",
+	baseUrl: "https://example.test",
+	reasoning: false,
+	input: ["text"],
+	cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+	contextWindow: 8_000,
+	maxTokens: 1_000,
+};

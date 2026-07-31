@@ -58,7 +58,10 @@ describe("Greenfield memory rollover context integration", () => {
 			memoryRollover,
 			now: () => 3,
 		});
-		const input = preparationInput(document, history);
+		const input: ContextPreparationInput = {
+			...preparationInput(document, history),
+			reason: "model_call",
+		};
 
 		const prepared = await runtime.prepare(input, new AbortController().signal);
 		const committed = await runtime.onCompactionCommitted(prepared.compaction!, input, new AbortController().signal);

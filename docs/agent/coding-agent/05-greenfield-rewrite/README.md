@@ -44,7 +44,7 @@
 8. [实施日志](./08-implementation-log.md)
    - 索引；每轮实施单独成文，见 [`08-implementation-log/`](./08-implementation-log/)。
    - 按实施轮次记录实际修改、验证结果、未完成项和下一步。
-   - 最新记录：[第 134 轮：Runtime 消息身份与 Extension 消息事件](./08-implementation-log/134-runtime-message-identity-and-extension-events.md)。
+   - 最新记录：[第 135 轮：无损调用上下文与最终模型消息边界](./08-implementation-log/135-lossless-context-and-model-call-boundaries.md)。
 9. [行为兼容性审计](./09-behavior-compatibility-audit.md)
    - 审计已实施模块与旧行为的差距。
    - 定义旧新差分测试和迁移 Gate。

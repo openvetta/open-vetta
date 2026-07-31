@@ -12,6 +12,14 @@ export type RuntimeMessageEnvelope =
 			readonly kind: "context";
 			readonly record: SessionContextRecord;
 			readonly timestamp: number;
+	  }
+	| {
+			/** 产品消息身份；Kernel 只负责在调用期原样传递。 */
+			readonly kind: "opaque";
+			readonly identity: unknown;
+			/** 该身份对应的模型投影；缺省表示模型不可见。 */
+			readonly modelMessage?: Message;
+			readonly timestamp: number;
 	  };
 
 /**

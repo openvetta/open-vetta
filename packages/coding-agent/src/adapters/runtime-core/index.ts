@@ -15,6 +15,7 @@ export {
 	createLegacyRuntimeHostOptions,
 	type LegacyRuntimeHostOptions,
 } from "./composition.js";
+export { CodingAgentGreenfieldAgentMessageContextProjector } from "./greenfield-agent-message-context-projector.js";
 export {
 	type CodingAgentCompactionCommittedInput,
 	type CodingAgentCompactionExtensionInput,
@@ -68,6 +69,10 @@ export {
 	type CodingAgentSystemPromptOptions,
 	type CodingAgentSystemPromptOptionsResolver,
 } from "./greenfield-model-call-composer.js";
+export {
+	CodingAgentGreenfieldModelCallMessageFinalizer,
+	type CodingAgentImageSettingsSource,
+} from "./greenfield-model-call-message-finalizer.js";
 export {
 	CodingAgentModelRegistryAdapter,
 	type CodingAgentModelRegistrySource,

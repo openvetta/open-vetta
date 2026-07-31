@@ -1,0 +1,43 @@
+import type { AgentMessage } from "@vetta/agent-core";
+import type { Message, TextContent } from "@vetta/ai";
+import type { ModelCallMessageFinalizationInput, ModelCallMessageFinalizer } from "@vetta/runtime-core/kernel";
+import { applyImageBudget } from "../../core/image-budget.js";
+
+export interface CodingAgentImageSettingsSource {
+	reloadImageSettings?(): void;
+	getBlockImages?(): boolean;
+	getMaxRecentImages?(): number;
+}
+
+/** 复用 Legacy 的动态图片预算与全局禁图语义。 */
+export class CodingAgentGreenfieldModelCallMessageFinalizer implements ModelCallMessageFinalizer {
+	constructor(private readonly settings?: CodingAgentImageSettingsSource) {}
+
+	async finalize(input: ModelCallMessageFinalizationInput, signal: AbortSignal): Promise<readonly Message[]> {
+		signal.throwIfAborted();
+		this.settings?.reloadImageSettings?.();
+		const budgeted = applyImageBudget(
+			[...input.messages] satisfies AgentMessage[],
+			this.settings?.getMaxRecentImages?.() ?? 2,
+		).filter(isRuntimeMessage);
+		return this.settings?.getBlockImages?.() === true ? budgeted.map(blockImages) : budgeted;
+	}
+}
+
+function isRuntimeMessage(message: AgentMessage): message is Message {
+	return message.role === "user" || message.role === "assistant" || message.role === "toolResult";
+}
+
+function blockImages(message: Message): Message {
+	if (message.role !== "user" && message.role !== "toolResult") return message;
+	if (!Array.isArray(message.content) || !message.content.some(({ type }) => type === "image")) return message;
+	const content = message.content
+		.map((item): TextContent => (item.type === "image" ? { type: "text", text: "Image reading is disabled." } : item))
+		.filter(
+			(item, index, items) =>
+				item.text !== "Image reading is disabled." ||
+				index === 0 ||
+				items[index - 1].text !== "Image reading is disabled.",
+		);
+	return { ...message, content };
+}

@@ -1,3 +1,4 @@
+import type { AgentMessage } from "@vetta/agent-core";
 import type { ImageContent } from "@vetta/ai";
 import type {
 	AgentRunPreparationContext,
@@ -42,6 +43,10 @@ export class CodingAgentGreenfieldExtensionEventBridge implements AgentRunPrepar
 
 	wrapTools(tools: ReadonlyMap<string, RuntimeToolDefinition>): ReadonlyMap<string, RuntimeToolDefinition> {
 		return this.runner ? wrapRuntimeToolsWithExtensions(tools, this.runner) : tools;
+	}
+
+	async transformContext(messages: readonly AgentMessage[]): Promise<readonly AgentMessage[]> {
+		return this.runner ? this.runner.emitContext([...messages]) : messages;
 	}
 
 	async prepare(context: AgentRunPreparationContext): Promise<AgentRunPreparationResult | undefined> {

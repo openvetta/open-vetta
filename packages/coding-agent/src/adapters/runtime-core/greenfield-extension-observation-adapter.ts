@@ -138,6 +138,11 @@ export class CodingAgentGreenfieldExtensionObservationAdapter {
 
 function toAgentMessage(envelope: RuntimeMessageEnvelope): AgentMessage | CustomMessage {
 	if (envelope.kind === "message") return envelope.message;
+	if (envelope.kind === "opaque") {
+		if (isAgentMessage(envelope.identity)) return envelope.identity;
+		if (envelope.modelMessage) return envelope.modelMessage;
+		throw new Error("Opaque runtime message has no Coding Agent identity");
+	}
 	return {
 		role: "custom",
 		customType: envelope.record.type,
@@ -147,3 +152,23 @@ function toAgentMessage(envelope: RuntimeMessageEnvelope): AgentMessage | Custom
 		timestamp: envelope.timestamp,
 	};
 }
+
+function isAgentMessage(value: unknown): value is AgentMessage {
+	return (
+		value !== null &&
+		typeof value === "object" &&
+		"role" in value &&
+		typeof value.role === "string" &&
+		AGENT_MESSAGE_ROLES.has(value.role)
+	);
+}
+
+const AGENT_MESSAGE_ROLES = new Set([
+	"user",
+	"assistant",
+	"toolResult",
+	"bashExecution",
+	"custom",
+	"branchSummary",
+	"compactionSummary",
+]);

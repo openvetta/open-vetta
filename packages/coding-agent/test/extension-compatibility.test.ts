@@ -175,7 +175,7 @@ describe("Coding Agent Extension compatibility assessment", () => {
 		});
 	});
 
-	it("keeps the historical context transformation event on Legacy", () => {
+	it("allows the historical context transformation event after lossless context projection", () => {
 		const assessment = assessCodingAgentExtensionCompatibility({
 			extensions: [
 				{
@@ -197,9 +197,9 @@ describe("Coding Agent Extension compatibility assessment", () => {
 		});
 
 		expect(resolveCodingAgentGreenfieldExtensionCompatibility(assessment)).toMatchObject({
-			unmetRuntimeCapabilities: ["event-handler"],
-			unsupportedEvents: ["context"],
-			requiresLegacyRuntime: true,
+			unmetRuntimeCapabilities: [],
+			unsupportedEvents: [],
+			requiresLegacyRuntime: false,
 		});
 	});
 });

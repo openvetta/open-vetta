@@ -18,6 +18,9 @@ import type {
 
 export interface CodingAgentPromptSettingsSource extends PersonalizationSettingsSource {
 	reloadPersonalizationSettings(): void;
+	reloadImageSettings?(): void;
+	getBlockImages?(): boolean;
+	getMaxRecentImages?(): number;
 }
 
 export type CodingAgentPromptResourceSource = Pick<
@@ -90,6 +93,10 @@ export class CodingAgentPromptRuntime {
 
 	readResourceSource(): CodingAgentPromptResourceSource {
 		return this.options.resourceLoader;
+	}
+
+	readSettingsSource(): CodingAgentPromptSettingsSource {
+		return this.options.settingsManager;
 	}
 }
 

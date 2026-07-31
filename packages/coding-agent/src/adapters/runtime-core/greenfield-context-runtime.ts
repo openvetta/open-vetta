@@ -1,3 +1,4 @@
+import type { AgentMessage } from "@vetta/agent-core";
 import {
 	type Api,
 	type AssistantMessage,
@@ -7,6 +8,7 @@ import {
 	type UserMessage,
 } from "@vetta/ai";
 import type { EcosystemHookRuntime } from "@vetta/ecosystem-adapter/hooks";
+import type { RuntimeMessageEnvelope } from "@vetta/runtime-core";
 import {
 	applyStoredEventToConversationDocument,
 	type ConversationDocument,
@@ -43,7 +45,12 @@ import {
 	shouldCompact,
 	shouldPrefire,
 } from "../../core/compaction/index.js";
-import { COMPACTION_SUMMARY_PREFIX, COMPACTION_SUMMARY_SUFFIX } from "../../core/messages.js";
+import {
+	COMPACTION_SUMMARY_PREFIX,
+	COMPACTION_SUMMARY_SUFFIX,
+	convertToLlm,
+	createCustomMessage,
+} from "../../core/messages.js";
 import type { CompactionEntry, SessionEntry } from "../../core/session-manager/index.js";
 import type { CodingAgentCompactionExtensionRuntime } from "./greenfield-compaction-extension-runtime.js";
 import type { CodingAgentMemoryCompactionPolicy } from "./greenfield-memory-rollover-orchestrator.js";
@@ -63,6 +70,10 @@ export interface CodingAgentGreenfieldContextRuntimeOptions {
 	) => Promise<CompactionResult>;
 	readonly extensionRuntime?: CodingAgentCompactionExtensionRuntime;
 	readonly memoryRollover?: CodingAgentMemoryCompactionPolicy;
+	readonly transformAgentContext?: (
+		messages: readonly AgentMessage[],
+		signal: AbortSignal,
+	) => Promise<readonly AgentMessage[]>;
 	readonly now?: () => number;
 }
 
@@ -88,6 +99,7 @@ export class CodingAgentGreenfieldContextRuntime
 	private readonly generateCompaction: NonNullable<CodingAgentGreenfieldContextRuntimeOptions["generateCompaction"]>;
 	private readonly extensionRuntime: CodingAgentCompactionExtensionRuntime | undefined;
 	private readonly memoryRollover: CodingAgentMemoryCompactionPolicy | undefined;
+	private readonly transformAgentContext: CodingAgentGreenfieldContextRuntimeOptions["transformAgentContext"];
 	private readonly now: () => number;
 	private readonly circuitBreaker = new CompactionCircuitBreaker();
 	private prefireCache: PrefireCache | undefined;
@@ -106,6 +118,7 @@ export class CodingAgentGreenfieldContextRuntime
 				compact(preparation, model, apiKey, customInstructions, signal));
 		this.extensionRuntime = options.extensionRuntime;
 		this.memoryRollover = options.memoryRollover;
+		this.transformAgentContext = options.transformAgentContext;
 		this.now = options.now ?? Date.now;
 	}
 
@@ -136,6 +149,9 @@ export class CodingAgentGreenfieldContextRuntime
 		const estimate = estimateContextTokens(measuredMessages);
 		const assembledTokens = estimateContextTokens(callMessages).tokens;
 		this.currentTokens = assembledTokens;
+		if (reason === "turn_start") {
+			return unchanged(callMessages, assembledTokens);
+		}
 		if (!model || !input.document || contextWindow <= 0 || !settings.enabled) {
 			return unchanged(callMessages, assembledTokens);
 		}
@@ -305,8 +321,16 @@ export class CodingAgentGreenfieldContextRuntime
 
 	async transform(input: ModelCallContextTransformationInput, signal: AbortSignal): Promise<readonly Message[]> {
 		signal.throwIfAborted();
-		const transformed = microcompact([...input.messages]);
-		const messages = transformed.filter(isRuntimeMessage);
+		const envelopes = input.messageEnvelopes ?? input.messages.map(toMessageEnvelope);
+		const agentMessages = envelopes.flatMap(toAgentMessages);
+		const invisibleIdentities = readInvisibleIdentityCounts(envelopes);
+		const extensionMessages = this.transformAgentContext
+			? await this.transformAgentContext(agentMessages, signal)
+			: agentMessages;
+		signal.throwIfAborted();
+		const messages = convertToLlm(
+			microcompact([...extensionMessages]).filter((message) => !consumeIdentity(invisibleIdentities, message)),
+		);
 		this.currentTokens = estimateContextTokens(messages).tokens;
 		return messages;
 	}
@@ -449,6 +473,79 @@ export class CodingAgentGreenfieldContextRuntime
 		}
 	}
 }
+
+function toAgentMessages(envelope: RuntimeMessageEnvelope): AgentMessage[] {
+	if (envelope.kind === "message") return [envelope.message];
+	if (envelope.kind === "context") {
+		return [
+			createCustomMessage(
+				envelope.record.type,
+				envelope.record.content,
+				envelope.record.display ?? false,
+				envelope.record.metadata,
+				new Date(envelope.timestamp).toISOString(),
+			),
+		];
+	}
+	return isAgentMessage(envelope.identity)
+		? [envelope.identity]
+		: envelope.modelMessage
+			? [envelope.modelMessage]
+			: [];
+}
+
+function toMessageEnvelope(message: Message): RuntimeMessageEnvelope {
+	return { kind: "message", message };
+}
+
+function readInvisibleIdentityCounts(envelopes: readonly RuntimeMessageEnvelope[]): Map<string, number> {
+	const counts = new Map<string, number>();
+	for (const envelope of envelopes) {
+		const invisible =
+			(envelope.kind === "context" && !envelope.record.modelVisible) ||
+			(envelope.kind === "opaque" && !envelope.modelMessage);
+		if (!invisible) continue;
+		for (const message of toAgentMessages(envelope)) {
+			const key = messageIdentityKey(message);
+			counts.set(key, (counts.get(key) ?? 0) + 1);
+		}
+	}
+	return counts;
+}
+
+function consumeIdentity(counts: Map<string, number>, message: AgentMessage): boolean {
+	const key = messageIdentityKey(message);
+	const count = counts.get(key) ?? 0;
+	if (count === 0) return false;
+	if (count === 1) counts.delete(key);
+	else counts.set(key, count - 1);
+	return true;
+}
+
+function messageIdentityKey(message: AgentMessage): string {
+	const discriminator = message.role === "custom" ? message.customType : message.role;
+	return `${discriminator}:${message.timestamp}`;
+}
+
+function isAgentMessage(value: unknown): value is AgentMessage {
+	return (
+		value !== null &&
+		typeof value === "object" &&
+		"role" in value &&
+		typeof value.role === "string" &&
+		AGENT_MESSAGE_ROLES.has(value.role)
+	);
+}
+
+const AGENT_MESSAGE_ROLES = new Set([
+	"user",
+	"assistant",
+	"toolResult",
+	"bashExecution",
+	"custom",
+	"branchSummary",
+	"compactionSummary",
+]);
 
 function isOverflowFromCurrentModel(
 	message: AssistantMessage | undefined,

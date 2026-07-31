@@ -13,6 +13,7 @@ import {
 	type ContinuationPolicy,
 	type ModelCallContextTransformer,
 	type ModelCallFrameComposer,
+	type ModelCallMessageFinalizer,
 	type RuntimeSnapshot,
 	type RuntimeToolDefinition,
 	RuntimeToolExecutionError,
@@ -122,6 +123,7 @@ function snapshot(options?: {
 	readonly modelCallFrameComposer?: ModelCallFrameComposer;
 	readonly continuationPolicy?: ContinuationPolicy;
 	readonly modelCallContextTransformer?: ModelCallContextTransformer;
+	readonly modelCallMessageFinalizer?: ModelCallMessageFinalizer;
 }): RuntimeSnapshot {
 	return {
 		id: "snapshot-1",
@@ -133,6 +135,7 @@ function snapshot(options?: {
 		modelCallFrameComposer: options?.modelCallFrameComposer,
 		continuationPolicy: options?.continuationPolicy,
 		modelCallContextTransformer: options?.modelCallContextTransformer,
+		modelCallMessageFinalizer: options?.modelCallMessageFinalizer,
 		contextProviders: [],
 		contextStrategy: {
 			async prepare(input) {
@@ -545,6 +548,53 @@ describe("AgentCoreTurnEngine", () => {
 				.filter((event): event is Extract<TurnEngineEvent, { type: "message" }> => event.type === "message")
 				.map(({ message }) => message.role),
 		).toEqual(["assistant", "toolResult", "assistant"]);
+	});
+
+	it("passes lossless identities to the transformer and finalizes only the model-visible call messages", async () => {
+		const transformerEnvelopes: string[][] = [];
+		const finalizedMessages: Message[][] = [];
+		const contexts: Context[] = [];
+		const engine = new AgentCoreTurnEngine({
+			model: model(),
+			streamFn: (_model, context) => {
+				contexts.push({ ...context, messages: [...context.messages] });
+				return new RecordedAssistantStream(assistantMessage([{ type: "text", text: "done" }]));
+			},
+		});
+		const runtimeSnapshot = snapshot({
+			modelCallContextTransformer: {
+				async transform(input) {
+					transformerEnvelopes.push((input.messageEnvelopes ?? []).map(({ kind }) => kind));
+					return input.messages;
+				},
+			},
+			modelCallMessageFinalizer: {
+				async finalize(input) {
+					finalizedMessages.push([...input.messages]);
+					return [userMessage("finalized")];
+				},
+			},
+		});
+		const visible = userMessage("visible");
+
+		for await (const event of engine.execute({
+			sessionId: "session-1",
+			turnId: "turn-1",
+			snapshot: runtimeSnapshot,
+			messages: [visible],
+			contextMessages: [
+				{ kind: "opaque", identity: { type: "visible" }, modelMessage: visible, timestamp: 1 },
+				{ kind: "opaque", identity: { type: "hidden" }, timestamp: 2 },
+			],
+			signal: new AbortController().signal,
+			contextCheckpoints: true,
+		})) {
+			if (event.type === "context_checkpoint") event.request.complete({ messages: event.request.messages });
+		}
+
+		expect(transformerEnvelopes).toEqual([["opaque", "opaque"]]);
+		expect(finalizedMessages).toEqual([[visible]]);
+		expect(contexts[0].messages).toEqual([userMessage("finalized")]);
 	});
 
 	it("bridges ordered model-call checkpoints without changing the default engine path", async () => {

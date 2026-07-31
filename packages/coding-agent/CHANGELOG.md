@@ -19,7 +19,7 @@
 
 ### Changed
 
-- **Greenfield Extension 消息生命周期无损迁移**：Runtime Message Envelope 在产品边界恢复标准消息与 Custom Context 身份，`message_start` / `message_update` / `message_end` 和 `agent_end` 现按 Legacy 顺序与 payload 由 Greenfield 执行观察提供；逐模型调用的历史 `context` 仍因完整 `AgentMessage` 投影缺失而明确回退 Legacy。
+- **Greenfield Extension 消息身份与调用上下文无损迁移**：Runtime Message Envelope 在产品边界恢复标准消息与 Custom Context 身份，`message_start` / `message_update` / `message_end` 和 `agent_end` 继续按 Legacy 顺序与 payload 由 Greenfield 执行观察提供；Conversation Document 现经 Coding Agent 投影恢复完整 `AgentMessage[]`，逐模型调用的 Extension `context` 只执行一次，并保持 `context -> compaction -> image budget/blocking -> provider` 的旧顺序。模型不可见 Custom Message 仍可被 Extension 观察和变换，但不会进入 Provider；该事件不再触发 Legacy 回退。
 - **Greenfield `before_agent_start` 无损迁移**：Session-local Extension Event Bridge 接入独立 Agent Run Preparation，只在显式输入启动的 Run 中按旧顺序执行一次 handler；系统提示词链式替换固定覆盖本次工具循环，返回的 Custom Message 按原顺序持久化并进入模型上下文，无 handler 时不增加 Prompt/Frame 编译。该事件不再触发 Legacy 回退。
 - **Greenfield Extension 执行观察事件分层迁移**：新增 Runtime 执行观察到旧 Extension Event 的窄适配，按原顺序提供 `agent_start`、`turn_start` / `turn_end` 与完整 `tool_execution_*` payload；Session Event Host 负责 `session_start` / `session_shutdown` 恰好一次的异步生命周期。依赖完整旧 `AgentMessage` 身份的 `agent_end`、`message_*`、`context` 仍明确回退 Legacy，避免伪造不等价事件。
 - **Greenfield Extension 事件按具体能力切换**：新增 Session 级 Extension Event Host 与只读会话适配，`input` 在 Skill/Scene/Hook 展开前保留有序 transform/handled 语义，`tool_call` / `tool_result` 在真实 Runtime Tool 内层、Ecosystem Hook 外层保留阻断、结果改写和错误通知语义；8 个 Extension Context 动作改由 Runtime Session Port 提供。兼容性评估现在报告具体 `unsupportedEvents`，只含上述三类事件的 Extension 可进入 Greenfield；`context` 等尚不能无损映射的事件继续明确回退 Legacy。

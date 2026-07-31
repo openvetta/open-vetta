@@ -38,6 +38,7 @@ import type {
 import { type ConversationRecoveryPolicy, FailInterruptedTurnRecoveryPolicy } from "./conversation-recovery.js";
 import { KERNEL_ERROR_CODES, KernelError, turnProtocolError } from "./errors.js";
 import { composeModelCallSystemPrompt, resolveModelCallFrame } from "./model-call-frame.js";
+import { reconcileRuntimeMessageEnvelopes, toRuntimeMessageEnvelope } from "./runtime-message-context.js";
 import type { RuntimeSessionContextBuffer } from "./session-context-buffer.js";
 
 export interface TurnPipelineOptions {
@@ -225,21 +226,20 @@ export class TurnPipeline {
 			];
 			const turnContext = input?.context ?? continuationContext;
 			const trailingContext = input?.trailingContext ?? [];
-			const initialMessages: RuntimeMessageEnvelope[] = input
-				? [
-						...turnContext.map((record) => ({
-							kind: "context" as const,
-							record,
-							timestamp: record.timestamp ?? startedAt,
-						})),
-						{ kind: "message", message: input.message },
-						...trailingContext.map((record) => ({
-							kind: "context" as const,
-							record,
-							timestamp: record.timestamp ?? startedAt,
-						})),
-					]
-				: [];
+			const turnMessageEnvelopes: RuntimeMessageEnvelope[] = [
+				...turnContext.map((record) => ({
+					kind: "context" as const,
+					record,
+					timestamp: record.timestamp ?? startedAt,
+				})),
+				...(input ? [{ kind: "message" as const, message: input.message }] : []),
+				...trailingContext.map((record) => ({
+					kind: "context" as const,
+					record,
+					timestamp: record.timestamp ?? startedAt,
+				})),
+			];
+			const initialMessages: RuntimeMessageEnvelope[] = input ? [...turnMessageEnvelopes] : [];
 			for (const record of turnContext) {
 				startEvents.push({
 					type: "context.appended",
@@ -302,6 +302,12 @@ export class TurnPipeline {
 						...trailingContextMessages,
 					]
 				: [...conversation.messages, ...providerMessages, ...inputContextMessages];
+			const projectedHistory = projectConversationContext(snapshot, conversationDocument, conversation.messages);
+			let contextMessages = reconcileRuntimeMessageEnvelopes(assembledMessages, [
+				...projectedHistory,
+				...providerMessages.map(toRuntimeMessageEnvelope),
+				...turnMessageEnvelopes,
+			]);
 
 			await this.enterStage(state.sessionId, turnId, "context_preparation");
 			const preparationInput = {
@@ -332,6 +338,12 @@ export class TurnPipeline {
 					signal,
 					snapshot,
 				);
+				contextMessages = reconcileRuntimeMessageEnvelopes(prepared.messages, [
+					...projectConversationContext(snapshot, document, prepared.messages),
+					...providerMessages.map(toRuntimeMessageEnvelope),
+				]);
+			} else {
+				contextMessages = reconcileRuntimeMessageEnvelopes(prepared.messages, contextMessages);
 			}
 
 			let executionMessages = prepared.messages;
@@ -393,6 +405,14 @@ export class TurnPipeline {
 								timestamp: record.timestamp ?? timestamp,
 							})),
 					];
+					contextMessages = [
+						...contextMessages,
+						...preparationContext.map((record) => ({
+							kind: "context" as const,
+							record,
+							timestamp: record.timestamp ?? timestamp,
+						})),
+					];
 				}
 				instructionOverride = preparationResult?.instructionOverride;
 			}
@@ -407,6 +427,7 @@ export class TurnPipeline {
 				snapshot,
 				modelBinding,
 				messages: executionMessages,
+				contextMessages,
 				initialMessages,
 				initialModelCallFrame,
 				instructionOverride,
@@ -606,22 +627,15 @@ export class TurnPipeline {
 			signal,
 			snapshot,
 		);
-		const transformedMessages =
-			snapshot.modelCallContextTransformer && checkpoint.modelBinding
-				? await snapshot.modelCallContextTransformer.transform(
-						{
-							sessionId: state.sessionId,
-							turnId,
-							messages: prepared.messages,
-							modelBinding: checkpoint.modelBinding,
-						},
-						signal,
-					)
-				: prepared.messages;
+		const contextMessageEnvelopes = reconcileRuntimeMessageEnvelopes(prepared.messages, [
+			...projectConversationContext(snapshot, committedDocument, prepared.messages),
+			...checkpoint.providerMessages.map(toRuntimeMessageEnvelope),
+		]);
 
 		return {
-			messages: transformedMessages,
+			messages: prepared.messages,
 			contextMessages: prepared.messages,
+			contextMessageEnvelopes,
 			retry:
 				request.reason !== "model_call" &&
 				prepared.compaction.reason === "overflow" &&
@@ -964,4 +978,14 @@ function normalizeSessionIdentity(identity: string | TurnSessionIdentity): TurnS
 			sessionId = nextSessionId;
 		},
 	};
+}
+
+function projectConversationContext(
+	snapshot: RuntimeSnapshot,
+	document: ConversationDocument | undefined,
+	fallbackMessages: readonly Message[],
+): readonly RuntimeMessageEnvelope[] {
+	return document && snapshot.conversationContextProjector
+		? snapshot.conversationContextProjector.project(document)
+		: fallbackMessages.map(toRuntimeMessageEnvelope);
 }

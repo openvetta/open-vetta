@@ -67,6 +67,7 @@ export const CODING_AGENT_GREENFIELD_EXTENSION_EVENTS = [
 	"message_start",
 	"message_update",
 	"message_end",
+	"context",
 	"tool_call",
 	"tool_result",
 	"tool_execution_start",

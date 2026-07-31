@@ -19,7 +19,13 @@
 
 export { SessionLockError } from "../session-lock.js";
 export { loadEntriesFromFile, migrateSessionEntries, parseSessionEntries } from "./format-compat.js";
-export { buildSessionContext, getLatestCompactionEntry } from "./llm-context.js";
+export {
+	buildSessionContext,
+	buildSessionContextProjection,
+	getLatestCompactionEntry,
+	type SessionContextProjection,
+	type SessionContextProjectionItem,
+} from "./llm-context.js";
 export { type ReadonlySessionManager, SessionManager } from "./manager.js";
 export { findMostRecentSession, type SessionListProgress } from "./session-catalog.js";
 export {

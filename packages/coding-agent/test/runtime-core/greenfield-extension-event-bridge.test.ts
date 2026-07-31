@@ -140,6 +140,42 @@ describe("CodingAgentGreenfieldExtensionEventBridge", () => {
 		});
 		expect(bridge.readSystemPrompt()).toBe("recompiled base prompt");
 	});
+
+	it("delegates transient context transformation to the bound runner without mutating the input", async () => {
+		const runner = await createRunner(`
+			export default function(extension) {
+				extension.on("context", async (event) => ({
+					messages: [
+						...event.messages,
+						{
+							role: "custom",
+							customType: "extension-context",
+							content: "injected",
+							display: false,
+							timestamp: 2,
+						},
+					],
+				}));
+			}
+		`);
+		const bridge = new CodingAgentGreenfieldExtensionEventBridge();
+		bridge.bind(runner);
+		const input = [{ role: "user" as const, content: "request", timestamp: 1 }];
+
+		const result = await bridge.transformContext(input);
+
+		expect(input).toEqual([{ role: "user", content: "request", timestamp: 1 }]);
+		expect(result).toEqual([
+			{ role: "user", content: "request", timestamp: 1 },
+			{
+				role: "custom",
+				customType: "extension-context",
+				content: "injected",
+				display: false,
+				timestamp: 2,
+			},
+		]);
+	});
 });
 
 async function createRunner(extensionSource?: string): Promise<ExtensionRunner> {

@@ -168,6 +168,11 @@ export interface PreparedContext {
 	readonly compaction?: ContextCompactionRecord;
 }
 
+/** 将持久化 Conversation 投影为产品无损的活动分支消息身份。 */
+export interface ConversationContextProjector {
+	project(document: ConversationDocument): readonly RuntimeMessageEnvelope[];
+}
+
 export interface ContextStrategy {
 	prepare(input: ContextPreparationInput, signal: AbortSignal): Promise<PreparedContext>;
 	onCompactionCommitted?(
@@ -241,12 +246,25 @@ export interface ModelCallContextTransformationInput {
 	readonly sessionId: string;
 	readonly turnId: string;
 	readonly messages: readonly Message[];
+	readonly messageEnvelopes?: readonly RuntimeMessageEnvelope[];
 	readonly modelBinding: RuntimeTurnModelBinding;
 }
 
 /** 每次 LLM 调用前运行的 transient 消息变换；结果不直接写入会话历史。 */
 export interface ModelCallContextTransformer {
 	transform(input: ModelCallContextTransformationInput, signal: AbortSignal): Promise<readonly Message[]>;
+}
+
+export interface ModelCallMessageFinalizationInput {
+	readonly sessionId: string;
+	readonly turnId: string;
+	readonly messages: readonly Message[];
+	readonly modelBinding: RuntimeTurnModelBinding;
+}
+
+/** Context/压缩完成后、实际调用模型前的最终消息策略。 */
+export interface ModelCallMessageFinalizer {
+	finalize(input: ModelCallMessageFinalizationInput, signal: AbortSignal): Promise<readonly Message[]>;
 }
 
 export interface ModelCallContributionContext {
@@ -346,6 +364,8 @@ export interface RuntimeSnapshot {
 	readonly agentRunPreparer?: AgentRunPreparer;
 	readonly continuationPolicy?: ContinuationPolicy;
 	readonly modelCallContextTransformer?: ModelCallContextTransformer;
+	readonly modelCallMessageFinalizer?: ModelCallMessageFinalizer;
+	readonly conversationContextProjector?: ConversationContextProjector;
 	readonly contextProviders: readonly ContextProvider[];
 	readonly contextStrategy: ContextStrategy;
 	readonly toolPolicy: ToolPolicy;
@@ -411,6 +431,8 @@ export interface AgentProfile {
 	readonly agentRunPreparer?: AgentRunPreparer;
 	readonly continuationPolicy?: ContinuationPolicy;
 	readonly modelCallContextTransformer?: ModelCallContextTransformer;
+	readonly modelCallMessageFinalizer?: ModelCallMessageFinalizer;
+	readonly conversationContextProjector?: ConversationContextProjector;
 	readonly contextStrategy: ContextStrategy;
 	readonly toolPolicy: ToolPolicy;
 	readonly tokenBudget: number;
@@ -670,6 +692,8 @@ export interface TurnEngineRequest {
 	readonly snapshot: RuntimeSnapshot;
 	readonly modelBinding?: RuntimeTurnModelBinding;
 	readonly messages: readonly Message[];
+	/** Agent Core 的产品无损 canonical context；模型输入仍由 messages 决定。 */
+	readonly contextMessages?: readonly RuntimeMessageEnvelope[];
 	/** 显式 Run 新增消息的身份视图；仅用于执行观察，不参与模型上下文。 */
 	readonly initialMessages?: readonly RuntimeMessageEnvelope[];
 	/** Run Preparation 已编译的首次模型调用 Frame；避免基础 Prompt 重复编译。 */
@@ -688,6 +712,7 @@ export interface TurnEngineRequest {
 export interface TurnEngineContextCheckpointResult {
 	readonly messages: readonly Message[];
 	readonly contextMessages?: readonly Message[];
+	readonly contextMessageEnvelopes?: readonly RuntimeMessageEnvelope[];
 	readonly retry?: boolean;
 }
 

@@ -11,6 +11,7 @@ export {
 	createCodingAgentMcpRuntimeToolSource,
 	decorateCodingAgentMcpRuntimeTool,
 } from "./coding-agent-mcp-runtime-source.js";
+export { CodingAgentGreenfieldAgentMessageContextProjector } from "./greenfield-agent-message-context-projector.js";
 export {
 	CODING_AGENT_ASK_USER_QUESTION_TOOL_NAME,
 	type CodingAgentAskUserQuestionRuntimeFeatureOptions,
@@ -97,6 +98,10 @@ export {
 	type CodingAgentSystemPromptOptions,
 	type CodingAgentSystemPromptOptionsResolver,
 } from "./greenfield-model-call-composer.js";
+export {
+	CodingAgentGreenfieldModelCallMessageFinalizer,
+	type CodingAgentImageSettingsSource,
+} from "./greenfield-model-call-message-finalizer.js";
 export {
 	CodingAgentModelRegistryAdapter,
 	type CodingAgentModelRegistrySource,
