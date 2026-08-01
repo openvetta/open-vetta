@@ -100,6 +100,13 @@ export async function runRpcModeWithCapabilities(
 
 	const unsubscribe = session.subscribe(output);
 	const inFlightHandlers = new Set<Promise<void>>();
+	let shutdownPromise: Promise<void> | undefined;
+	const shutdown = (): Promise<void> => {
+		shutdownPromise ??= session.shutdown().catch((error: unknown) => {
+			output(rpcError(undefined, "shutdown", `Failed to shut down RPC session: ${errorMessage(error)}`));
+		});
+		return shutdownPromise;
+	};
 	let cleanupPromise: Promise<void> | undefined;
 	const cleanup = (): Promise<void> => {
 		cleanupPromise ??= (async () => {
@@ -109,22 +116,16 @@ export async function runRpcModeWithCapabilities(
 			longOperationController.abort("RPC transport closed");
 			await Promise.allSettled([...inFlightHandlers]);
 			if (backgroundTasks.size > 0) await session.turn?.abort();
+			await shutdown();
 			await session.dispose();
 			await Promise.allSettled([...backgroundTasks]);
 		})();
 		return cleanupPromise;
 	};
-	let shutdownPromise: Promise<void> | undefined;
 	beginRequestedShutdown = (): void => {
 		if (shutdownPromise) return;
-		shutdownPromise = Promise.resolve().then(async () => {
-			try {
-				await session.shutdown();
-			} catch (error) {
-				output(rpcError(undefined, "shutdown", `Failed to shut down RPC session: ${errorMessage(error)}`));
-			} finally {
-				transport.close();
-			}
+		void shutdown().finally(() => {
+			transport.close();
 		});
 	};
 	if (shutdownRequested) beginRequestedShutdown();

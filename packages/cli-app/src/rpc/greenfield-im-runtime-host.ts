@@ -9,6 +9,8 @@ import {
 	resolveCodingAgentGreenfieldExtensionCompatibility,
 	resolveCodingAgentInitialModel,
 } from "@vetta/coding-agent/bootstrap";
+import { getVettaHomePath } from "@vetta/coding-agent/config";
+import { buildDefaultHookConfigLayers } from "@vetta/coding-agent/hooks";
 import {
 	type RpcRuntimeDecision,
 	type RpcSessionCapabilities,
@@ -208,6 +210,10 @@ export async function prepareGreenfieldImRuntimeHost(
 			initialThinkingLevel: initial.thinkingLevel,
 			cwd: bootstrap.cwd,
 			agentDir: bootstrap.agentDir,
+			hookConfigLayers: buildDefaultHookConfigLayers({
+				cwd: bootstrap.cwd,
+				vettaHome: getVettaHomePath(),
+			}),
 			scenario: "im-claw",
 			activation:
 				parsed.noTools || parsed.tools
@@ -236,6 +242,9 @@ export async function prepareGreenfieldImRuntimeHost(
 		session = sessionPath
 			? await runtime.backend.resume(sessionOptions)
 			: await runtime.backend.create(sessionOptions);
+		// Legacy CLI writes bootstrap metadata before AgentSession construction, so its
+		// first ecosystem SessionStart is "resume" even for a newly allocated file.
+		runtime.sessionHooks.start(session.sessionId, "resume");
 		const createExtensionEventHost = (
 			targetSession: GreenfieldRuntimeSession,
 			bindingOptions?: { readonly replaceExisting?: boolean },
