@@ -1,11 +1,11 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Api, Message, Model } from "@vetta/ai";
 import { AuthStorage, ModelRegistry } from "@vetta/coding-agent";
 import { createLegacyRuntimeHostOptions } from "@vetta/coding-agent/runtime-host";
 import type { CodingAgentModelRegistrySource } from "@vetta/coding-agent/runtime-host/greenfield";
-import { RuntimeHost, type SessionEvent } from "@vetta/runtime-core";
+import { type HistoryEntry, RuntimeHost, type SessionEvent } from "@vetta/runtime-core";
 import { afterEach, describe, expect, it } from "vitest";
 import {
 	startOpenAiResponsesTestServer,
@@ -212,6 +212,221 @@ describe("Desktop RuntimeHost Legacy/Greenfield differential gate", () => {
 		expect(observations.greenfield).toEqual(observations.legacy);
 	}, 30_000);
 
+	it("preserves history mutations, forks and resumed Provider context across backends", async () => {
+		const observations: Partial<Record<"legacy" | "greenfield", RuntimeHistoryMutationObservation>> = {};
+
+		for (const backend of ["legacy", "greenfield"] as const) {
+			const cwd = await temporaryDirectory(`desktop-${backend}-history-workspace-`);
+			const sessionDir = await temporaryDirectory(`desktop-${backend}-history-sessions-`);
+			const agentStateDir = await temporaryDirectory(`desktop-${backend}-history-agent-`);
+			const responses = [
+				"assistant-one",
+				"assistant-original",
+				"assistant-edited",
+				"assistant-replacement",
+				"assistant-parent-resumed",
+				"assistant-child-resumed",
+			];
+			const server = await startOpenAiResponsesTestServer((_request, index) =>
+				index === responses.length
+					? { kind: "hold" }
+					: { kind: "events", events: textResponseEvents(responses[index] ?? `unexpected-${index}`) },
+			);
+			const model = { ...MODEL, baseUrl: server.baseUrl };
+			const fixture = createRuntimeFixture(backend, agentStateDir, model);
+			fixtures.push(fixture);
+
+			try {
+				const created = await fixture.runtime.createSession({
+					cwd,
+					sessionDir,
+					model,
+					scenario: "conversation",
+					executionMode: "full-access",
+					enableBackgroundTasks: false,
+					includeAgentSkills: false,
+				});
+				const parentPath = fixture.runtime.getSessionPath(created.sessionId);
+				if (!parentPath) throw new Error(`${backend} did not persist the history session`);
+
+				await fixture.runtime.prompt(created.sessionId, { text: "first-user" });
+				const firstAssistantId = requireMessageEntryId(
+					fixture.runtime,
+					created.sessionId,
+					"assistant",
+					"assistant-one",
+				);
+				await fixture.runtime.prompt(created.sessionId, { text: "original-user" });
+				const originalUserId = requireMessageEntryId(fixture.runtime, created.sessionId, "user", "original-user");
+				const navigation = await captureSessionEvents(fixture.runtime, created.sessionId, () =>
+					fixture.runtime.navigateForEdit(created.sessionId, originalUserId),
+				);
+				expect(navigation.result).toEqual({ text: "original-user", cancelled: false });
+				expect(observeHistory(fixture.runtime.getFullHistory(created.sessionId))).toEqual([
+					historyMessage("user", "first-user", null),
+					historyMessage("assistant", "assistant-one", 0),
+				]);
+
+				await fixture.runtime.prompt(created.sessionId, { text: "edited-user" });
+				expect(observeHistory(fixture.runtime.getFullHistory(created.sessionId))).toEqual([
+					historyMessage("user", "first-user", null),
+					historyMessage("assistant", "assistant-one", 0),
+					historyMessage("user", "edited-user", 1),
+					historyMessage("assistant", "assistant-edited", 2),
+				]);
+
+				const switched = await captureSessionEvents(fixture.runtime, created.sessionId, () =>
+					fixture.runtime.switchBranch(created.sessionId, originalUserId),
+				);
+				expect(switched.result.leafId).toBeTruthy();
+				expect(observeHistory(fixture.runtime.getFullHistory(created.sessionId))).toEqual([
+					historyMessage("user", "first-user", null),
+					historyMessage("assistant", "assistant-one", 0),
+					historyMessage("user", "original-user", 1),
+					historyMessage("assistant", "assistant-original", 2),
+				]);
+
+				const deleted = await captureSessionEvents(fixture.runtime, created.sessionId, () =>
+					fixture.runtime.deleteMessage(created.sessionId, firstAssistantId),
+				);
+				expect(deleted.result.leafId).toBeTruthy();
+				expect(observeHistory(fixture.runtime.getFullHistory(created.sessionId))).toEqual([
+					historyMessage("user", "first-user", null),
+					historyMessage("user", "original-user", 0),
+					historyMessage("assistant", "assistant-original", 1),
+				]);
+
+				const replaced = await captureSessionEvents(fixture.runtime, created.sessionId, () =>
+					fixture.runtime.replaceLastUserMessage(created.sessionId, originalUserId),
+				);
+				expect(replaced.result.leafId).toBeTruthy();
+				expect(observeHistory(fixture.runtime.getFullHistory(created.sessionId))).toEqual([
+					historyMessage("user", "first-user", null),
+				]);
+
+				await fixture.runtime.prompt(created.sessionId, { text: "replacement-user" });
+				const replacementUserId = requireMessageEntryId(
+					fixture.runtime,
+					created.sessionId,
+					"user",
+					"replacement-user",
+				);
+				const parentBeforeFork = await readFile(parentPath);
+				const forked = await captureSessionEvents(fixture.runtime, created.sessionId, () =>
+					fixture.runtime.forkSession(created.sessionId, replacementUserId),
+				);
+				expect(forked.result.text).toBe("replacement-user");
+				expect(await readFile(parentPath)).toEqual(parentBeforeFork);
+
+				const parentBeforeRestart = observeHistory(fixture.runtime.getFullHistory(created.sessionId));
+				await fixture.dispose();
+				const restartedFixture = createRuntimeFixture(backend, agentStateDir, model);
+				fixtures.push(restartedFixture);
+				const resumedParent = await restartedFixture.runtime.createSession({
+					cwd,
+					sessionDir,
+					sessionPath: parentPath,
+					model,
+					scenario: "conversation",
+					executionMode: "full-access",
+					enableBackgroundTasks: false,
+					includeAgentSkills: false,
+				});
+				const resumedChild = await restartedFixture.runtime.createSession({
+					cwd,
+					sessionDir,
+					sessionPath: forked.result.path,
+					model,
+					scenario: "conversation",
+					executionMode: "full-access",
+					enableBackgroundTasks: false,
+					includeAgentSkills: false,
+				});
+				const parentRestored = observeHistory(restartedFixture.runtime.getFullHistory(resumedParent.sessionId));
+				const childRestored = observeHistory(restartedFixture.runtime.getFullHistory(resumedChild.sessionId));
+
+				await restartedFixture.runtime.prompt(resumedParent.sessionId, { text: "parent-after-restart" });
+				await restartedFixture.runtime.prompt(resumedChild.sessionId, { text: "child-after-restart" });
+				expect(server.requests).toHaveLength(6);
+				const parentProviderInput = server.requests[4]?.rawBody ?? "";
+				const childProviderInput = server.requests[5]?.rawBody ?? "";
+				const lastParentUserId = requireMessageEntryId(
+					restartedFixture.runtime,
+					resumedParent.sessionId,
+					"user",
+					"parent-after-restart",
+				);
+				const busyPrompt = restartedFixture.runtime.prompt(resumedParent.sessionId, { text: "busy-user" });
+				await waitForProviderRequestCount(server.requests, 7);
+				await delay(25);
+				const busyHistory = observeHistory(restartedFixture.runtime.getFullHistory(resumedParent.sessionId));
+				const busyErrors = await Promise.all([
+					captureErrorMessage(() =>
+						restartedFixture.runtime.navigateForEdit(resumedParent.sessionId, replacementUserId),
+					),
+					captureErrorMessage(() =>
+						restartedFixture.runtime.switchBranch(resumedParent.sessionId, replacementUserId),
+					),
+					captureErrorMessage(() =>
+						restartedFixture.runtime.deleteMessage(resumedParent.sessionId, replacementUserId),
+					),
+					captureErrorMessage(() =>
+						restartedFixture.runtime.replaceLastUserMessage(resumedParent.sessionId, lastParentUserId),
+					),
+					captureErrorMessage(() =>
+						restartedFixture.runtime.forkSession(resumedParent.sessionId, replacementUserId),
+					),
+				]);
+				const busyHistoryUnchanged =
+					JSON.stringify(observeHistory(restartedFixture.runtime.getFullHistory(resumedParent.sessionId))) ===
+					JSON.stringify(busyHistory);
+				const heldRequestClosed = server.waitForHeldRequestClosed();
+				await restartedFixture.runtime.abort(resumedParent.sessionId);
+				await Promise.all([busyPrompt.catch(() => undefined), heldRequestClosed]);
+
+				observations[backend] = {
+					mutationEvents: [navigation, switched, deleted, replaced, forked].flatMap(({ events }) => events),
+					parentRestored: JSON.stringify(parentRestored) === JSON.stringify(parentBeforeRestart),
+					childRestored,
+					parentProviderSawReplacement: parentProviderInput.includes("replacement-user"),
+					parentProviderExcludedRemovedBranches:
+						!parentProviderInput.includes("original-user") && !parentProviderInput.includes("edited-user"),
+					childProviderSawForkBase: childProviderInput.includes("first-user"),
+					childProviderSawForkedTurn:
+						childProviderInput.includes("replacement-user") &&
+						childProviderInput.includes("assistant-replacement"),
+					busyErrors,
+					busyHistoryUnchanged,
+				};
+			} finally {
+				await server.dispose();
+			}
+		}
+
+		expect(observations.legacy).toEqual({
+			mutationEvents: [],
+			parentRestored: true,
+			childRestored: [
+				historyMessage("user", "first-user", null),
+				historyMessage("user", "replacement-user", 0),
+				historyMessage("assistant", "assistant-replacement", 1),
+			],
+			parentProviderSawReplacement: true,
+			parentProviderExcludedRemovedBranches: true,
+			childProviderSawForkBase: true,
+			childProviderSawForkedTurn: true,
+			busyErrors: [
+				"Cannot edit message while the session is streaming",
+				"Cannot switch branch while the session is streaming",
+				"Cannot delete a message while the session is streaming",
+				"Cannot replace a message while the session is streaming",
+				"Cannot fork while the session is streaming",
+			],
+			busyHistoryUnchanged: true,
+		});
+		expect(observations.greenfield).toEqual(observations.legacy);
+	}, 60_000);
+
 	for (const backend of ["legacy", "greenfield"] as const) {
 		it(`${backend} keeps interactive, automation and batch ownership isolated in one RuntimeHost`, async () => {
 			const agentStateDir = await temporaryDirectory(`desktop-${backend}-consumers-agent-`);
@@ -320,6 +535,24 @@ interface RuntimeLifecycleObservation {
 	readonly resumedProviderSawPriorAssistant: boolean;
 }
 
+interface RuntimeHistoryMutationObservation {
+	readonly mutationEvents: SessionEvent["type"][];
+	readonly parentRestored: boolean;
+	readonly childRestored: NormalizedHistoryMessage[];
+	readonly parentProviderSawReplacement: boolean;
+	readonly parentProviderExcludedRemovedBranches: boolean;
+	readonly childProviderSawForkBase: boolean;
+	readonly childProviderSawForkedTurn: boolean;
+	readonly busyErrors: string[];
+	readonly busyHistoryUnchanged: boolean;
+}
+
+interface NormalizedHistoryMessage {
+	readonly role: Message["role"];
+	readonly text: string;
+	readonly parentIndex: number | null;
+}
+
 function emptyLifecycleObservation(): RuntimeLifecycleObservation {
 	const emptyTurn = (): RuntimeTurnObservation => ({
 		lifecycle: [],
@@ -411,6 +644,76 @@ function observeMessages(messages: readonly Message[]): {
 			? assistant.content.flatMap((content) => (content.type === "text" ? [content.text] : [])).join("\n")
 			: "";
 	return { finalAssistantText, roles: messages.map(({ role }) => role) };
+}
+
+function observeHistory(history: readonly HistoryEntry[]): NormalizedHistoryMessage[] {
+	const messages = history.filter(
+		(entry): entry is Extract<HistoryEntry, { type: "message" }> => entry.type === "message",
+	);
+	const indexById = new Map(
+		messages.flatMap((entry, index) => (entry.entryId ? [[entry.entryId, index] as const] : [])),
+	);
+	return messages.map((entry, index) => ({
+		role: entry.message.role,
+		text: messageText(entry.message),
+		parentIndex: entry.parentId ? (indexById.get(entry.parentId) ?? (index > 0 ? index - 1 : null)) : null,
+	}));
+}
+
+function historyMessage(role: Message["role"], text: string, parentIndex: number | null): NormalizedHistoryMessage {
+	return { role, text, parentIndex };
+}
+
+function requireMessageEntryId(runtime: RuntimeHost, sessionId: string, role: Message["role"], text: string): string {
+	const entry = runtime
+		.getFullHistory(sessionId)
+		.find(
+			(candidate): candidate is Extract<HistoryEntry, { type: "message" }> =>
+				candidate.type === "message" && candidate.message.role === role && messageText(candidate.message) === text,
+		);
+	if (!entry?.entryId) throw new Error(`Expected ${role} history entry: ${text}`);
+	return entry.entryId;
+}
+
+async function captureSessionEvents<T>(
+	runtime: RuntimeHost,
+	sessionId: string,
+	operation: () => Promise<T>,
+): Promise<{ readonly result: T; readonly events: SessionEvent["type"][] }> {
+	const events: SessionEvent["type"][] = [];
+	const unsubscribe = runtime.subscribe(sessionId, (event) => events.push(event.type));
+	events.length = 0;
+	try {
+		return { result: await operation(), events };
+	} finally {
+		unsubscribe();
+	}
+}
+
+function messageText(message: Message): string {
+	if (typeof message.content === "string") return message.content;
+	return message.content.flatMap((content) => (content.type === "text" ? [content.text] : [])).join("");
+}
+
+async function captureErrorMessage(operation: () => Promise<unknown>): Promise<string> {
+	try {
+		await operation();
+	} catch (error) {
+		return error instanceof Error ? error.message : String(error);
+	}
+	throw new Error("Expected the history mutation to be rejected");
+}
+
+async function waitForProviderRequestCount(requests: readonly unknown[], expected: number): Promise<void> {
+	for (let attempt = 0; attempt < 200; attempt += 1) {
+		if (requests.length >= expected) return;
+		await delay(10);
+	}
+	throw new Error(`Timed out waiting for ${expected} Provider requests; received ${requests.length}`);
+}
+
+function delay(milliseconds: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 function modelRegistry(model: Model<Api> = MODEL): CodingAgentModelRegistrySource {

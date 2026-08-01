@@ -796,7 +796,7 @@ export interface SessionFacade {
 	replaceLastUserMessage(sessionId: string, entryId: string): Promise<{ leafId: string | null }>;
 	/**
 	 * Export a fork as a new session file without leaving the current session.
-	 * Copies history up to the parent of the selected user message.
+	 * Copies history through the selected user message and that turn's complete reply.
 	 */
 	forkSession(sessionId: string, entryId: string): Promise<{ path: string; text: string }>;
 	listProjects(): Promise<ProjectInfo[]>;
