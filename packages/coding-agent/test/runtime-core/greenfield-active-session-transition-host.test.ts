@@ -121,20 +121,53 @@ describe("CodingAgentGreenfieldActiveSessionHost", () => {
 
 		await expect(fixture.host.fork("entry-1")).rejects.toThrow("prepare failed");
 
+		expect(fork.navigateForEdit).toHaveBeenCalledWith("entry-1");
 		expect(fixture.host.readSession()).toBe(fixture.initial.session);
 		expect(fork.dispose).toHaveBeenCalledOnce();
 		await expect(access(fork.path)).rejects.toMatchObject({ code: "ENOENT" });
 	});
+
+	it("preserves the source execution context when session_before_fork requests it", async () => {
+		const fixture = await createFixture({ skipConversationRestore: true });
+		const fork = createSession("forked", fixture.sessionPath("forked"));
+		await fixture.writeConversationPlaceholder("forked");
+		fixture.initial.forkSession.mockResolvedValueOnce({ path: fork.path, text: "fork prompt" });
+		fixture.resume.mockResolvedValueOnce(fork.session);
+
+		await expect(fixture.host.fork("entry-1")).resolves.toEqual({ text: "fork prompt", cancelled: false });
+
+		expect(fork.navigateForEdit).toHaveBeenCalledWith("entry-1");
+		expect(fixture.preserveSessionExecutionContext).toHaveBeenCalledWith("initial", "forked");
+		expect(fixture.lifecycleOrder).toEqual([
+			"before:fork",
+			"preserve:initial:forked",
+			"prepare:forked",
+			"commit:forked",
+			"after:fork",
+			"finalize:forked",
+		]);
+	});
 });
 
-async function createFixture(options: { failAfter?: boolean; failFinalize?: boolean; failPrepare?: boolean } = {}) {
+async function createFixture(
+	options: {
+		failAfter?: boolean;
+		failFinalize?: boolean;
+		failPrepare?: boolean;
+		skipConversationRestore?: boolean;
+	} = {},
+) {
 	const conversationDir = await mkdtemp(join(tmpdir(), "greenfield-active-session-host-"));
 	temporaryDirectories.push(conversationDir);
 	const initial = createSession("initial", sessionPath(conversationDir, "initial"));
 	const create = vi.fn<(options: { sessionId: string }) => Promise<GreenfieldRuntimeSession>>();
 	const resume = vi.fn<(options: { sessionId: string }) => Promise<GreenfieldRuntimeSession>>();
+	const preserveSessionExecutionContext = vi.fn(async (sourceSessionId: string, targetSessionId: string) => {
+		lifecycleOrder.push(`preserve:${sourceSessionId}:${targetSessionId}`);
+	});
 	const runtime = {
 		backend: { create, resume },
+		preserveSessionExecutionContext,
 	} as unknown as GreenfieldRuntimeComposition;
 	const catalog: RuntimeSessionCatalog = {
 		ownsSession: async (path) => {
@@ -165,7 +198,10 @@ async function createFixture(options: { failAfter?: boolean; failFinalize?: bool
 		lifecycle: {
 			before: async ({ kind }) => {
 				lifecycleOrder.push(`before:${kind}`);
-				return { cancelled: false };
+				return {
+					cancelled: false,
+					...(kind === "fork" && options.skipConversationRestore ? { skipConversationRestore: true } : {}),
+				};
 			},
 			prepare: async ({ next }): Promise<CodingAgentGreenfieldPreparedSessionBinding> => {
 				lifecycleOrder.push(`prepare:${next.sessionId}`);
@@ -194,6 +230,7 @@ async function createFixture(options: { failAfter?: boolean; failFinalize?: bool
 		initial,
 		create,
 		resume,
+		preserveSessionExecutionContext,
 		lifecycleOrder,
 		sessionPath: (id: string) => sessionPath(conversationDir, id),
 		writeConversationPlaceholder: async (id: string) => writeFile(sessionPath(conversationDir, id), "placeholder"),
@@ -204,12 +241,16 @@ function createSession(id: string, path: string) {
 	let listener: ((event: SessionEvent) => void) | undefined;
 	const dispose = vi.fn(async () => {});
 	const forkSession = vi.fn(async () => ({ path, text: "" }));
+	const navigateForEdit = vi.fn(async () => ({ text: "", cancelled: false }));
 	const session = {
 		get sessionId() {
 			return id;
 		},
 		readState: () => ({ isStreaming: false }),
-		createCoreAssembly: () => ({ lifecycle: { sessionId: id, sessionPath: path, dispose } }),
+		createCoreAssembly: () => ({
+			historyController: { navigateForEdit },
+			lifecycle: { sessionId: id, sessionPath: path, dispose },
+		}),
 		subscribe: (handler: (event: SessionEvent) => void) => {
 			listener = handler;
 			return () => {
@@ -224,6 +265,7 @@ function createSession(id: string, path: string) {
 		path,
 		dispose,
 		forkSession,
+		navigateForEdit,
 		emit(event: SessionEvent) {
 			listener?.(event);
 		},

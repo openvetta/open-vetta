@@ -75,12 +75,15 @@ export class GreenfieldImExtensionSessionHost {
 
 	async before(
 		transition: CodingAgentGreenfieldSessionTransition,
-	): Promise<{ readonly cancelled: boolean } | undefined> {
+	): Promise<{ readonly cancelled: boolean; readonly skipConversationRestore?: boolean } | undefined> {
 		const runner = this.current.events.runner;
 		if (transition.kind === "fork") {
 			if (!transition.entryId || !runner.hasHandlers("session_before_fork")) return undefined;
 			const result = await runner.emit({ type: "session_before_fork", entryId: transition.entryId });
-			return { cancelled: result?.cancel === true };
+			return {
+				cancelled: result?.cancel === true,
+				...(result?.skipConversationRestore === true ? { skipConversationRestore: true } : {}),
+			};
 		}
 		if (!runner.hasHandlers("session_before_switch")) return undefined;
 		const result = await runner.emit({

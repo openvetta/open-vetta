@@ -91,11 +91,12 @@ export function parseConversationFile(text: string, sessionId: string): ParsedCo
 			if (header.schemaVersion !== CONVERSATION_SCHEMA_VERSION) {
 				throw corruptConversation(sessionId, `document operation is not supported at line ${index + 2}`);
 			}
-			if (record.command.type === "custom.append") {
-				if (documentEntryIds.has(record.command.entryId)) {
+			const entryId = documentOperationEntryId(record);
+			if (entryId) {
+				if (documentEntryIds.has(entryId)) {
 					throw corruptConversation(sessionId, `duplicate document entry at line ${index + 2}`);
 				}
-				documentEntryIds.add(record.command.entryId);
+				documentEntryIds.add(entryId);
 			}
 			conversationRecords.push(record);
 			continue;
@@ -142,6 +143,17 @@ export function parseConversationFile(text: string, sessionId: string): ParsedCo
 	}
 
 	return { header, continuationSeed, importSeed, records: conversationRecords, eventRecords };
+}
+
+function documentOperationEntryId(record: ConversationDocumentOperationRecord): string | undefined {
+	switch (record.command.type) {
+		case "branch_summary.append":
+		case "custom.append":
+		case "entry.label.set":
+			return record.command.entryId;
+		default:
+			return undefined;
+	}
 }
 
 export function validateConversationEvent(sessionId: string, event: StoredSessionEvent): void {

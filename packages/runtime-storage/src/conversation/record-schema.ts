@@ -379,6 +379,18 @@ export const ConversationDocumentCommandSchema = Type.Union([
 	),
 	Type.Object(
 		{
+			type: Type.Literal("branch_summary.append"),
+			entryId: Type.String(),
+			parentId: Type.Union([Type.String(), Type.Null()]),
+			summary: Type.String(),
+			details: Type.Optional(Type.Unknown()),
+			fromHook: Type.Optional(Type.Boolean()),
+			timestamp: Type.String(),
+		},
+		{ additionalProperties: false },
+	),
+	Type.Object(
+		{
 			type: Type.Literal("custom.append"),
 			entryId: Type.String(),
 			customType: Type.String(),

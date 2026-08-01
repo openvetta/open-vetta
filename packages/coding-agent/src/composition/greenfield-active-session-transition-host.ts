@@ -27,8 +27,15 @@ export interface CodingAgentGreenfieldPreparedSessionBinding {
 	finalize(): Promise<void>;
 }
 
+export interface CodingAgentGreenfieldSessionTransitionDecision {
+	readonly cancelled: boolean;
+	readonly skipConversationRestore?: boolean;
+}
+
 export interface CodingAgentGreenfieldSessionTransitionLifecycle {
-	before?(transition: CodingAgentGreenfieldSessionTransition): Promise<{ readonly cancelled: boolean } | undefined>;
+	before?(
+		transition: CodingAgentGreenfieldSessionTransition,
+	): Promise<CodingAgentGreenfieldSessionTransitionDecision | undefined>;
 	prepare?(
 		transition: CodingAgentGreenfieldSessionTransition & { readonly next: GreenfieldRuntimeSession },
 	): Promise<CodingAgentGreenfieldPreparedSessionBinding | undefined>;
@@ -97,7 +104,7 @@ export class CodingAgentGreenfieldActiveSessionHost {
 			const previous = this.activeSession;
 			await waitForIdle(previous);
 			const transition = this.describe("new", previous);
-			if (await this.isCancelled(transition)) return { cancelled: true };
+			if ((await this.prepareTransition(transition)).cancelled) return { cancelled: true };
 
 			const sessionId = this.options.createSessionId();
 			const next = options?.setup
@@ -120,7 +127,7 @@ export class CodingAgentGreenfieldActiveSessionHost {
 			const previousPath = previous.createCoreAssembly().lifecycle.sessionPath;
 			if (previousPath === sessionPath) return { cancelled: false };
 			const transition = this.describe("resume", previous, { targetSessionPath: sessionPath });
-			if (await this.isCancelled(transition)) return { cancelled: true };
+			if ((await this.prepareTransition(transition)).cancelled) return { cancelled: true };
 
 			const sessionId = this.options.resolveSessionId(sessionPath);
 			if (!sessionId) throw new Error(`Greenfield session path is invalid: ${sessionPath}`);
@@ -138,7 +145,8 @@ export class CodingAgentGreenfieldActiveSessionHost {
 			const previous = this.activeSession;
 			await waitForIdle(previous);
 			const transition = this.describe("fork", previous, { entryId });
-			if (await this.isCancelled(transition)) return { text: "", cancelled: true };
+			const decision = await this.prepareTransition(transition);
+			if (decision.cancelled) return { text: "", cancelled: true };
 
 			const fork = await previous.forkSession(entryId);
 			const sessionId = this.options.resolveSessionId(fork.path);
@@ -146,7 +154,7 @@ export class CodingAgentGreenfieldActiveSessionHost {
 				await this.deleteCreatedTarget(fork.path);
 				throw new Error(`Greenfield fork path is invalid: ${fork.path}`);
 			}
-			let next: GreenfieldRuntimeSession;
+			let next: GreenfieldRuntimeSession | undefined;
 			try {
 				next = await this.options.runtime.backend.resume({
 					...this.options.sessionOptions,
@@ -154,10 +162,16 @@ export class CodingAgentGreenfieldActiveSessionHost {
 					parentSessionPath: transition.previousSessionPath,
 					parentEntryId: entryId,
 				});
+				await next.createCoreAssembly().historyController.navigateForEdit(entryId);
+				if (decision.skipConversationRestore) {
+					await this.options.runtime.preserveSessionExecutionContext(previous.sessionId, sessionId);
+				}
 			} catch (error) {
+				await next?.dispose().catch(() => undefined);
 				await this.deleteCreatedTarget(fork.path);
 				throw error;
 			}
+			if (!next) throw new Error("Greenfield fork did not produce a target session");
 			await this.commitTransition(
 				{ ...transition, next, targetSessionPath: fork.path },
 				{ deleteTargetOnRollback: true },
@@ -189,8 +203,10 @@ export class CodingAgentGreenfieldActiveSessionHost {
 		};
 	}
 
-	private async isCancelled(transition: CodingAgentGreenfieldSessionTransition): Promise<boolean> {
-		return (await this.options.lifecycle?.before?.(transition))?.cancelled === true;
+	private async prepareTransition(
+		transition: CodingAgentGreenfieldSessionTransition,
+	): Promise<CodingAgentGreenfieldSessionTransitionDecision> {
+		return (await this.options.lifecycle?.before?.(transition)) ?? { cancelled: false };
 	}
 
 	private async commitTransition(

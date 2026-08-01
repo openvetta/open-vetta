@@ -15,6 +15,7 @@ describe("CodingAgentGreenfieldBranchNavigationHost", () => {
 			withActiveSession: fixture.withActiveSession,
 			readRunner: () => fixture.runner,
 			settingsManager: { getBranchSummarySettings: () => ({ reserveTokens: 1234 }) },
+			clearExecutionContext: fixture.clearExecutionContext,
 		});
 
 		await expect(host.navigateTree("target", { summarize: true, label: "return point" })).resolves.toEqual({
@@ -23,6 +24,7 @@ describe("CodingAgentGreenfieldBranchNavigationHost", () => {
 
 		expect(fixture.appendBranchSummary).toHaveBeenCalledWith(null, "extension summary", undefined, true);
 		expect(fixture.setLabel).toHaveBeenCalledWith("summary", "return point");
+		expect(fixture.clearExecutionContext).toHaveBeenCalledWith("session-1");
 		expect(fixture.emit).toHaveBeenNthCalledWith(
 			2,
 			expect.objectContaining({
@@ -47,6 +49,7 @@ describe("CodingAgentGreenfieldBranchNavigationHost", () => {
 			readRunner: () => fixture.runner,
 			settingsManager: { getBranchSummarySettings: () => ({ reserveTokens: 2048 }) },
 			generateSummary,
+			clearExecutionContext: fixture.clearExecutionContext,
 		});
 
 		await host.navigateTree("target", { summarize: true, customInstructions: "focus" });
@@ -96,6 +99,7 @@ function createFixture(options: { readonly extensionSummary?: string } = {}) {
 		],
 	};
 	const model = { provider: "test" } as unknown as Model<Api>;
+	const clearExecutionContext = vi.fn();
 	const appendBranchSummary = vi.fn(
 		async (parentId: string | null, summary: string, details?: unknown, fromHook?: boolean) => {
 			document = {
@@ -149,7 +153,10 @@ function createFixture(options: { readonly extensionSummary?: string } = {}) {
 		},
 		metadataController: { setLabel },
 	} as unknown as GreenfieldRuntimeSessionCoreAssembly;
-	const session = { createCoreAssembly: () => assembly } as unknown as GreenfieldRuntimeSession;
+	const session = {
+		sessionId: "session-1",
+		createCoreAssembly: () => assembly,
+	} as unknown as GreenfieldRuntimeSession;
 	const emit = vi.fn(async (event: { readonly type: string }) => {
 		if (event.type === "session_before_tree" && options.extensionSummary) {
 			return { summary: { summary: options.extensionSummary } };
@@ -164,5 +171,5 @@ function createFixture(options: { readonly extensionSummary?: string } = {}) {
 		operation: (activeSession: GreenfieldRuntimeSession) => Promise<T>,
 	): Promise<T> => operation(session);
 
-	return { appendBranchSummary, emit, runner, setLabel, withActiveSession };
+	return { appendBranchSummary, clearExecutionContext, emit, runner, setLabel, withActiveSession };
 }

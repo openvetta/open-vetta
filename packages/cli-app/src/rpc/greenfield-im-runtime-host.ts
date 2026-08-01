@@ -272,6 +272,7 @@ export async function prepareGreenfieldImRuntimeHost(
 			withActiveSession: (operation) => activeSessionHost!.runActiveSessionMutation(operation),
 			readRunner: () => extensionSessionHost!.readRunner(),
 			settingsManager: bootstrap.settingsManager,
+			clearExecutionContext: (targetSessionId) => runtime!.clearSessionExecutionContext(targetSessionId),
 		});
 		const resourceReloadHost = new CodingAgentGreenfieldResourceReloadHost({
 			settingsManager: bootstrap.settingsManager,

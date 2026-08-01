@@ -107,4 +107,49 @@ describe("conversation custom entry persistence", () => {
 		]);
 		await repository.close();
 	});
+
+	it("persists and replays a branch summary document command", async () => {
+		const rootDir = await mkdtemp(join(tmpdir(), "conversation-branch-summary-"));
+		directories.push(rootDir);
+		const repository = new FileConversationRepository({ rootDir });
+		await repository.create({ sessionId: "session-summary", createdAt: 1 });
+		await repository.execute("session-summary", 0, {
+			type: "branch_summary.append",
+			entryId: "summary-1",
+			parentId: null,
+			summary: "Extension branch summary",
+			details: { source: "extension" },
+			fromHook: true,
+			timestamp: "2026-08-01T00:00:00.000Z",
+		});
+		const conversation = await repository.load("session-summary");
+		await repository.append("session-summary", conversation.version, [
+			{
+				type: "message.appended",
+				sessionId: "session-summary",
+				turnId: "turn-after-summary",
+				message: { role: "user", content: "after summary", timestamp: 3 },
+				timestamp: 3,
+			},
+		]);
+		await repository.close();
+
+		const reopened = new FileConversationRepository({ rootDir });
+		const document = await reopened.readDocument("session-summary");
+		expect(document.activeLeafId).not.toBe("summary-1");
+		expect(document.entries).toEqual([
+			{
+				type: "branch_summary",
+				id: "summary-1",
+				parentId: null,
+				timestamp: "2026-08-01T00:00:00.000Z",
+				fromId: "root",
+				summary: "Extension branch summary",
+				details: { source: "extension" },
+				fromHook: true,
+			},
+			expect.objectContaining({ type: "message", parentId: "summary-1" }),
+		]);
+		await reopened.close();
+	});
 });

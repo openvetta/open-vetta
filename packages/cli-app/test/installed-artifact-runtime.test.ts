@@ -450,12 +450,16 @@ describe("installed standalone CLI artifact", () => {
 
 		fixture = await createAgentRpcFixture();
 		const isolatedEnv = createIsolatedArtifactEnv(fixture);
+		const commandAuditPath = join(fixture.root, "installed-command-audit.txt");
 		const combinedExtension = await writeInstalledExtension(
 			fixture,
 			"combined-extension.ts",
-			`export default function(pi) {
+			`import { appendFileSync } from "node:fs";
+			export default function(pi) {
 				pi.on("session_start", async () => {});
-				pi.registerCommand("extension-audit", { handler: async () => {} });
+				pi.registerCommand("extension-audit", {
+					handler: async () => appendFileSync(${JSON.stringify(commandAuditPath)}, "executed", "utf8"),
+				});
 				pi.registerTool({
 					name: "extension_echo",
 					label: "Extension Echo",
@@ -496,6 +500,8 @@ describe("installed standalone CLI artifact", () => {
 		});
 		expect(activeProcess.stderr).toContain("requested=greenfield-im effective=greenfield-im");
 		expect(activeProcess.stderr).not.toContain("fallback=");
+		await activeProcess.request("installed-extension-command", "prompt", { message: "/extension-audit" });
+		expect(await readFile(commandAuditPath, "utf8")).toBe("executed");
 		await expect(activeProcess.close()).resolves.toBe(0);
 		activeProcess = undefined;
 

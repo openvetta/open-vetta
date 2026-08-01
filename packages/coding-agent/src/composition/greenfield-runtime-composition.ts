@@ -97,6 +97,7 @@ import {
 	isCodingAgentAskUserQuestionEnabled,
 	type KnowledgePageWriterPort,
 } from "../adapters/runtime-core/greenfield.js";
+import { CodingAgentGreenfieldConversationContextOverlay } from "../adapters/runtime-core/greenfield-conversation-context-overlay.js";
 import { CodingAgentGreenfieldExtensionToolRuntime } from "../adapters/runtime-core/greenfield-extension-tool-runtime.js";
 import type { ExtensionRunner } from "../core/extensions/runner.js";
 import type { Extension } from "../core/extensions/types.js";
@@ -239,6 +240,8 @@ export interface GreenfieldRuntimeComposition {
 	refreshExtensionTools(extensions: readonly Extension[]): void;
 	appendSessionContext(sessionId: string, records: readonly SessionContextRecord[]): void;
 	deliverSessionContext(sessionId: string, records: readonly SessionContextRecord[]): Promise<void>;
+	preserveSessionExecutionContext(sourceSessionId: string, targetSessionId: string): Promise<void>;
+	clearSessionExecutionContext(sessionId: string): void;
 	flushMemory(sessionId: string, signal?: AbortSignal): Promise<number>;
 	dispose(): Promise<void>;
 }
@@ -350,6 +353,10 @@ async function createGreenfieldRuntimeCompositionInternal(
 		throw error;
 	}
 	const repository = new FileConversationRepository({ rootDir: options.conversationDir });
+	const baseConversationContextProjector = new CodingAgentGreenfieldAgentMessageContextProjector();
+	const conversationContextOverlay = new CodingAgentGreenfieldConversationContextOverlay(
+		baseConversationContextProjector,
+	);
 	const capabilityCompositions = new Set<RuntimeCapabilityComposition>();
 	const todoRuntimes = new Set<CodingAgentTodoRuntime>();
 	const contextRuntimes = new Set<CodingAgentGreenfieldContextRuntime>();
@@ -797,7 +804,6 @@ async function createGreenfieldRuntimeCompositionInternal(
 				const modelCallMessageFinalizer = new CodingAgentGreenfieldModelCallMessageFinalizer(
 					options.promptSettingsSource ?? promptRuntime?.readSettingsSource(),
 				);
-				const conversationContextProjector = new CodingAgentGreenfieldAgentMessageContextProjector();
 				const invokeSkillFeature = promptResourceSource
 					? createCodingAgentInvokeSkillRuntimeFeature({
 							resourceSource: promptResourceSource,
@@ -872,7 +878,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 					contextStrategy: contextRuntime,
 					modelCallContextTransformer: contextRuntime,
 					modelCallMessageFinalizer,
-					conversationContextProjector,
+					conversationContextProjector: conversationContextOverlay,
 					agentRunPreparer: extensionEvents,
 					continuationPolicy: continuationOrchestrator,
 					modelCallFrameComposer,
@@ -1052,6 +1058,8 @@ async function createGreenfieldRuntimeCompositionInternal(
 					},
 					async onConversationContinued(result) {
 						const previousSessionId = activeSessionId;
+						conversationContextOverlay.clear(previousSessionId);
+						conversationContextOverlay.clear(result.sessionId);
 						await activeOwnership?.rebind(repository.resolveConversationPath(result.sessionId));
 						activeSessionId = result.sessionId;
 						if (mcpRefreshObservedSessions.delete(previousSessionId)) {
@@ -1093,6 +1101,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 					},
 					async dispose() {
 						try {
+							conversationContextOverlay.clear(activeSessionId);
 							await subagentRuntime?.dispose();
 							contextRuntimes.delete(contextRuntime);
 							contextRuntime.dispose();
@@ -1137,6 +1146,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 					},
 				};
 			} catch (error) {
+				conversationContextOverlay.clear(activeSessionId);
 				await subagentRuntime?.dispose();
 				if (pluginMcpRuntime && pluginMcpRuntimes.get(activeSessionId) === pluginMcpRuntime) {
 					pluginMcpRuntimes.delete(activeSessionId);
@@ -1236,6 +1246,20 @@ async function createGreenfieldRuntimeCompositionInternal(
 			if (!context) throw new Error(`Greenfield session context not found: ${sessionId}`);
 			await context.deliverAsyncContext(records);
 		},
+		async preserveSessionExecutionContext(sourceSessionId, targetSessionId) {
+			const [sourceDocument, targetDocument] = await Promise.all([
+				repository.readDocument(sourceSessionId),
+				repository.readDocument(targetSessionId),
+			]);
+			conversationContextOverlay.preserve(
+				targetSessionId,
+				conversationContextOverlay.project(sourceDocument),
+				baseConversationContextProjector.project(targetDocument),
+			);
+		},
+		clearSessionExecutionContext(sessionId) {
+			conversationContextOverlay.clear(sessionId);
+		},
 		async flushMemory(sessionId, signal) {
 			return (await memoryControllers.get(sessionId)?.flushMemory(signal)) ?? 0;
 		},
@@ -1267,6 +1291,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 			executionRuntimes.clear();
 			configurationStates.clear();
 			ownershipBindings.clear();
+			conversationContextOverlay.clearAll();
 			await repository.close();
 			mcpSynchronizer?.dispose();
 			tools.dispose();

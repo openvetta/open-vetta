@@ -15,6 +15,7 @@ export interface CodingAgentGreenfieldBranchNavigationHostOptions {
 	readonly readRunner: () => ExtensionRunner;
 	readonly settingsManager: Pick<SettingsManager, "getBranchSummarySettings">;
 	readonly generateSummary?: typeof generateBranchSummary;
+	readonly clearExecutionContext?: (sessionId: string) => void;
 }
 
 /**
@@ -140,6 +141,7 @@ export class CodingAgentGreenfieldBranchNavigationHost {
 				await assembly.historyController.navigateForEdit(targetId);
 				if (label) await assembly.metadataController.setLabel(targetId, label);
 			}
+			this.options.clearExecutionContext?.(session.sessionId);
 
 			await runner.emit({
 				type: "session_tree",

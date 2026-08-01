@@ -231,7 +231,8 @@ export class GreenfieldImRpcSessionAdapter implements RpcSessionCapabilities {
 	private async runTurnCommand(command: () => Promise<unknown>): Promise<void> {
 		this.activeTurnCommands += 1;
 		try {
-			await command();
+			const result = await command();
+			if (isFailedTurnResult(result)) throw new Error(result.error.message);
 		} finally {
 			this.activeTurnCommands -= 1;
 			if (this.activeTurnCommands === 0) {
@@ -239,6 +240,19 @@ export class GreenfieldImRpcSessionAdapter implements RpcSessionCapabilities {
 			}
 		}
 	}
+}
+
+function isFailedTurnResult(
+	value: unknown,
+): value is { readonly status: "failed"; readonly error: { readonly message: string } } {
+	if (typeof value !== "object" || value === null) return false;
+	const error = Reflect.get(value, "error");
+	return (
+		Reflect.get(value, "status") === "failed" &&
+		typeof error === "object" &&
+		error !== null &&
+		typeof Reflect.get(error, "message") === "string"
+	);
 }
 
 function isAgentEndFrame(event: unknown): boolean {

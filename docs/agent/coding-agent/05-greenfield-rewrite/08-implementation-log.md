@@ -158,6 +158,7 @@
 | [148-mixed-history-mutation-and-fork.md](./08-implementation-log/148-mixed-history-mutation-and-fork.md) | Import Seed + V2 Event 树修改、引用修复、Fork、真实 CLI Provider 与重启闭环 |
 | [149-seed-graph-and-atomic-publication.md](./08-implementation-log/149-seed-graph-and-atomic-publication.md) | Seed 完整图合同、统一损坏映射与会话文件原子发布 |
 | [150-runtime-host-history-mutation-differential.md](./08-implementation-log/150-runtime-host-history-mutation-differential.md) | RuntimeHost 历史导航、切换、删除、替换、Fork、重启与 Provider 差分门禁 |
+| [151-extension-history-command-differential.md](./08-implementation-log/151-extension-history-command-differential.md) | Extension Tree/Fork 真实 CLI 差分、执行上下文覆盖与持久化图修正 |
 
 ## 维护约定
 
