@@ -1,6 +1,7 @@
 export {
 	type AgentRuntimeBackend,
 	type AgentRuntimeDecision,
+	type AgentRuntimeExtensionFallbackDiagnostics,
 	type AgentRuntimeSelection,
 	parseAgentRuntimeSelection,
 	type RunAgentRuntimeCliOptions,
@@ -27,6 +28,7 @@ export {
 export {
 	type CreateGreenfieldImRuntimeHostOptions,
 	createGreenfieldImRuntimeHost,
+	GREENFIELD_IM_EXTENSION_EVENT_PROFILE,
 	type GreenfieldImFallbackReason,
 	type GreenfieldImRuntimeHostFallback,
 	type GreenfieldImRuntimeHostPreparation,

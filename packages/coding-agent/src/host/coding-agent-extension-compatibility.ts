@@ -1,3 +1,5 @@
+import type { ExtensionEvent } from "../core/extensions/types.js";
+
 export type CodingAgentLegacyExtensionRuntimeCapability =
 	| "opaque-runtime-api"
 	| "event-handler"
@@ -5,6 +7,12 @@ export type CodingAgentLegacyExtensionRuntimeCapability =
 	| "command"
 	| "shortcut"
 	| "message-renderer";
+
+export type CodingAgentExtensionEventType = ExtensionEvent["type"];
+export type CodingAgentExtensionEventCompatibilityStatus = "supported" | "unsupported" | "inapplicable";
+export type CodingAgentExtensionEventCompatibilityProfile = Readonly<
+	Record<CodingAgentExtensionEventType, CodingAgentExtensionEventCompatibilityStatus>
+>;
 
 interface CodingAgentLoadedExtensionRegistrations {
 	readonly path: string;
@@ -45,13 +53,12 @@ export interface CodingAgentExtensionCompatibilityAssessment {
 
 export interface CodingAgentGreenfieldExtensionHostCapabilities {
 	readonly actions: boolean;
-	readonly events: readonly string[];
+	readonly eventProfile: CodingAgentExtensionEventCompatibilityProfile;
 	readonly tools?: boolean;
 	readonly commands?: boolean;
 	readonly shortcuts?: boolean;
 	readonly messageRenderers?: boolean;
 	readonly inapplicableRuntimeCapabilities?: readonly CodingAgentLegacyExtensionRuntimeCapability[];
-	readonly inapplicableEvents?: readonly string[];
 }
 
 interface AssessCodingAgentExtensionCompatibilityInput {
@@ -150,15 +157,13 @@ export function resolveCodingAgentGreenfieldExtensionCompatibility(
 	assessment: CodingAgentExtensionCompatibilityAssessment,
 	capabilities: CodingAgentGreenfieldExtensionHostCapabilities,
 ): CodingAgentExtensionCompatibilityAssessment {
-	const supported = new Set(capabilities.events);
 	const inapplicableCapabilitySet = new Set(capabilities.inapplicableRuntimeCapabilities ?? []);
-	const inapplicableEventSet = new Set(capabilities.inapplicableEvents ?? []);
 	const registeredEvents = assessment.registrations.flatMap((registration) => registration.events);
 	const inapplicableEvents = sortedUnique(
-		registeredEvents.filter((event) => !supported.has(event) && inapplicableEventSet.has(event)),
+		registeredEvents.filter((event) => resolveEventStatus(capabilities.eventProfile, event) === "inapplicable"),
 	);
 	const unsupportedEvents = sortedUnique(
-		registeredEvents.filter((event) => !supported.has(event) && !inapplicableEventSet.has(event)),
+		registeredEvents.filter((event) => resolveEventStatus(capabilities.eventProfile, event) === "unsupported"),
 	);
 	const inapplicableRuntimeCapabilities = assessment.requiredRuntimeCapabilities.filter((capability) =>
 		inapplicableCapabilitySet.has(capability),
@@ -180,6 +185,14 @@ export function resolveCodingAgentGreenfieldExtensionCompatibility(
 		unsupportedEvents,
 		requiresLegacyRuntime: unmetRuntimeCapabilities.length > 0,
 	};
+}
+
+function resolveEventStatus(
+	profile: CodingAgentExtensionEventCompatibilityProfile,
+	event: string,
+): CodingAgentExtensionEventCompatibilityStatus {
+	if (!Object.hasOwn(profile, event)) return "unsupported";
+	return profile[event as CodingAgentExtensionEventType];
 }
 
 function summarizeExtensionRegistrations(

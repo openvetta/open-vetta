@@ -19,6 +19,12 @@ export interface AgentRuntimeDecision {
 	readonly requestedBackend: AgentRuntimeBackend;
 	readonly effectiveBackend: AgentRuntimeBackend;
 	readonly fallbackReason?: GreenfieldImFallbackReason;
+	readonly extensionFallback?: AgentRuntimeExtensionFallbackDiagnostics;
+}
+
+export interface AgentRuntimeExtensionFallbackDiagnostics {
+	readonly unsupportedEvents: readonly string[];
+	readonly unmetRuntimeCapabilities: readonly string[];
 }
 
 export interface RunAgentRuntimeCliOptions {
@@ -78,6 +84,14 @@ export async function runAgentRuntimeCli(
 				requestedBackend: "greenfield-im",
 				effectiveBackend: "legacy",
 				fallbackReason: prepared.reason,
+				...(prepared.extensionCompatibility
+					? {
+							extensionFallback: {
+								unsupportedEvents: prepared.extensionCompatibility.unsupportedEvents,
+								unmetRuntimeCapabilities: prepared.extensionCompatibility.unmetRuntimeCapabilities,
+							},
+						}
+					: {}),
 			} as const satisfies AgentRuntimeDecision;
 			if (options.onDecision) options.onDecision(decision);
 			else console.warn(`[agent-runtime] Greenfield unavailable (${prepared.reason}); using Legacy runtime`);
@@ -113,9 +127,21 @@ export async function runAgentRuntimeCli(
 export function writeAgentRuntimeDecision(decision: AgentRuntimeDecision): void {
 	const fallback = decision.fallbackReason ? ` fallback=${decision.fallbackReason}` : "";
 	const legacyNotice = decision.fallbackReason ? "; using Legacy runtime" : "";
-	process.stderr.write(
-		`[agent-runtime] requested=${decision.requestedBackend} effective=${decision.effectiveBackend}${fallback}${legacyNotice}\n`,
+	const unsupportedEvents = formatRuntimeDecisionList(
+		"unsupportedEvents",
+		decision.extensionFallback?.unsupportedEvents,
 	);
+	const unmetCapabilities = formatRuntimeDecisionList(
+		"unmetCapabilities",
+		decision.extensionFallback?.unmetRuntimeCapabilities,
+	);
+	process.stderr.write(
+		`[agent-runtime] requested=${decision.requestedBackend} effective=${decision.effectiveBackend}${fallback}${unsupportedEvents}${unmetCapabilities}${legacyNotice}\n`,
+	);
+}
+
+function formatRuntimeDecisionList(label: string, values: readonly string[] | undefined): string {
+	return values && values.length > 0 ? ` ${label}=${values.join(",")}` : "";
 }
 
 function parseBackend(value: string): AgentRuntimeBackend {

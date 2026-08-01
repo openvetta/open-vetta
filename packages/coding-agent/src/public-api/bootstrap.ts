@@ -1,6 +1,9 @@
 export type {
 	CodingAgentExtensionBootstrapContributions,
 	CodingAgentExtensionCompatibilityAssessment,
+	CodingAgentExtensionEventCompatibilityProfile,
+	CodingAgentExtensionEventCompatibilityStatus,
+	CodingAgentExtensionEventType,
 	CodingAgentExtensionRegistrationSummary,
 	CodingAgentGreenfieldExtensionHostCapabilities,
 	CodingAgentLegacyExtensionRuntimeCapability,

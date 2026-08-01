@@ -19,6 +19,7 @@
 
 ### Changed
 
+- **Greenfield IM Extension 切换改用穷尽事件 Profile**：事件兼容性由 `ExtensionEvent` 联合派生的 supported/unsupported/inapplicable Profile 决定，新增合法事件未声明时会产生类型错误，运行时未知事件仍安全回退 Legacy。真实 RPC CLI 门禁覆盖 Event/Tool/Command 组合、RPC 不适用 UI 注册和未来事件回退；Runtime 选择日志在 stderr 报告具体 `unsupportedEvents` 与 `unmetCapabilities`，不污染 JSONL stdout。
 - **Greenfield Active Session Transition Host 与 RPC 会话事务**：新增宿主级活动 Session 事务，统一串行编排 new/resume/fork、稳定事件订阅、Conversation ownership、Extension Session Binding 与失败回滚；旧 `newSession.setup(SessionManager)` 通过临时 Legacy 快照和既有迁移边界无损导入 V2 Conversation。Greenfield IM RPC 现真实支持 `new_session`、`switch_session`、`fork`，状态、Turn 与 Memory 均动态读取当前 Session；未完成差分的 Command-only Extension 和其余 session 子命令继续显式回退或由 Profile 拒绝。
 - **Greenfield Extension Command Host 边界与 RPC 命令发现**：新增独立命令宿主，完整注入 `waitForIdle`、`newSession`、`fork`、`navigateTree`、`switchSession`、`reload` 六类动作，并保留 Legacy 的参数切分、Runner 错误上报、未知命令和队列拒绝语义；Greenfield IM RPC 现支持 `get_commands` 并动态发现 Prompt/Skill。由于旧 `newSession.setup` 仍暴露具体 `SessionManager`，生产组合暂不声明 Command capability，Command-only Extension 继续显式回退 Legacy，避免用占位实现制造功能退化。
 - **Greenfield Extension Tool 无损接入与切换门禁**：新增调用级 Extension Tool Runtime，保留 Legacy 的 first-wins 注册、未声明 `scope_use` 时全场景、同名覆盖、Session Runner Context、进度回调及既有 Extension/Ecosystem Hook 包装顺序；工具只在最终 Model Call Frame 物化，不写入 Runtime Core 共享注册表，也不泄漏到子 Agent。Greenfield 宿主按显式 capability descriptor 仅关闭已安装的 Tool 缺口，Command/Shortcut/Message Renderer 继续回退 Legacy；真实 CLI Legacy/Greenfield 差分被提升为独立 CI 切换门禁。

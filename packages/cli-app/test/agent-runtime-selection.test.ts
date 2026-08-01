@@ -122,6 +122,86 @@ describe("Agent Runtime selection", () => {
 		await continued.close();
 	});
 
+	it("keeps a combined event, tool and command Extension on the Greenfield runtime", async () => {
+		const fixture = await createFixture();
+		const extensionPath = await writeFixtureExtension(
+			fixture,
+			"combined-extension.ts",
+			`export default function(pi) {
+				pi.on("session_start", async () => {});
+				pi.registerCommand("extension-audit", { handler: async () => {} });
+				pi.registerTool({
+					name: "extension_echo",
+					label: "Extension Echo",
+					description: "Echo a value.",
+					parameters: {
+						type: "object",
+						properties: { value: { type: "string" } },
+						required: ["value"],
+					},
+					async execute(_id, params) {
+						return { content: [{ type: "text", text: params.value }], details: {} };
+					},
+				});
+			}`,
+		);
+
+		const process = await startRpc(fixture, ["--extension", extensionPath]);
+		await expect(process.request("combined-state", "get_state")).resolves.toMatchObject({
+			type: "response",
+			command: "get_state",
+			success: true,
+		});
+		expect(process.stderr).toContain("requested=greenfield-im effective=greenfield-im");
+		expect(process.stderr).not.toContain("fallback=");
+		await process.close();
+	});
+
+	it("treats UI-only Extension registrations as inapplicable in the RPC host", async () => {
+		const fixture = await createFixture();
+		const extensionPath = await writeFixtureExtension(
+			fixture,
+			"ui-only-extension.ts",
+			`export default function(pi) {
+				pi.registerShortcut("ctrl+shift+r", { handler: async () => {} });
+				pi.registerMessageRenderer("audit-card", () => null);
+				pi.on("user_bash", async () => ({ result: undefined }));
+			}`,
+		);
+
+		const process = await startRpc(fixture, ["--extension", extensionPath]);
+		await expect(process.request("ui-only-state", "get_state")).resolves.toMatchObject({
+			type: "response",
+			command: "get_state",
+			success: true,
+		});
+		expect(process.stderr).toContain("requested=greenfield-im effective=greenfield-im");
+		expect(process.stderr).not.toContain("fallback=");
+		await process.close();
+	});
+
+	it("falls back for a forward Extension event and reports the exact gap on stderr", async () => {
+		const fixture = await createFixture();
+		const extensionPath = await writeFixtureExtension(
+			fixture,
+			"forward-event-extension.ts",
+			`export default function(pi) {
+				pi.on("future_event", async () => {});
+			}`,
+		);
+
+		const process = await startRpc(fixture, ["--extension", extensionPath]);
+		await expect(process.request("forward-state", "get_state")).resolves.toMatchObject({
+			type: "response",
+			command: "get_state",
+			success: true,
+		});
+		expect(process.stderr).toContain("fallback=legacy-extension");
+		expect(process.stderr).toContain("unsupportedEvents=future_event");
+		expect(process.stderr).toContain("unmetCapabilities=event-handler");
+		await process.close();
+	});
+
 	it("preserves the startup lock-conflict wire contract", async () => {
 		const fixture = await createFixture();
 		const owner = await startRpc(fixture);
@@ -204,4 +284,10 @@ async function startRpc(fixture: AgentRpcFixture, extraArgs: readonly string[] =
 	const process = startAgentRpc(executable, fixture, { extraArgs });
 	runningProcesses.add(process);
 	return process;
+}
+
+async function writeFixtureExtension(fixture: AgentRpcFixture, name: string, source: string): Promise<string> {
+	const extensionPath = join(fixture.root, name);
+	await writeFile(extensionPath, source, "utf8");
+	return extensionPath;
 }

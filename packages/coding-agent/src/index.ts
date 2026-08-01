@@ -420,6 +420,9 @@ export {
 export type {
 	CodingAgentExtensionBootstrapContributions,
 	CodingAgentExtensionCompatibilityAssessment,
+	CodingAgentExtensionEventCompatibilityProfile,
+	CodingAgentExtensionEventCompatibilityStatus,
+	CodingAgentExtensionEventType,
 	CodingAgentExtensionRegistrationSummary,
 	CodingAgentLegacyExtensionRuntimeCapability,
 } from "./host/coding-agent-extension-compatibility.js";

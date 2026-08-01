@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { extname } from "node:path";
 import {
-	CODING_AGENT_GREENFIELD_EXTENSION_EVENTS,
 	type CodingAgentExtensionCompatibilityAssessment,
+	type CodingAgentExtensionEventCompatibilityProfile,
 	type CodingAgentHostBootstrap,
 	type CodingAgentHostBootstrapOptions,
 	createCodingAgentHostBootstrap,
@@ -72,6 +72,38 @@ export interface CreateGreenfieldImRuntimeHostOptions
 	extends Omit<PrepareGreenfieldImRuntimeHostOptions, "bootstrap">,
 		CodingAgentHostBootstrapOptions {}
 
+export const GREENFIELD_IM_EXTENSION_EVENT_PROFILE = {
+	input: "supported",
+	before_agent_start: "supported",
+	resources_discover: "supported",
+	session_start: "supported",
+	session_shutdown: "supported",
+	session_before_switch: "supported",
+	session_switch: "supported",
+	session_before_fork: "supported",
+	session_fork: "supported",
+	session_before_tree: "supported",
+	session_tree: "supported",
+	session_before_compact: "supported",
+	session_compact: "supported",
+	agent_start: "supported",
+	agent_end: "supported",
+	turn_start: "supported",
+	turn_end: "supported",
+	message_start: "supported",
+	message_update: "supported",
+	message_end: "supported",
+	context: "supported",
+	tool_call: "supported",
+	tool_result: "supported",
+	tool_execution_start: "supported",
+	tool_execution_update: "supported",
+	tool_execution_phase: "supported",
+	tool_execution_end: "supported",
+	model_select: "supported",
+	user_bash: "inapplicable",
+} as const satisfies CodingAgentExtensionEventCompatibilityProfile;
+
 /**
  * 构建显式 opt-in 的 Greenfield IM Runtime Host。
  *
@@ -101,11 +133,10 @@ export async function prepareGreenfieldImRuntimeHost(
 	}
 	const extensionCompatibility = resolveCodingAgentGreenfieldExtensionCompatibility(bootstrap.extensionCompatibility, {
 		actions: true,
-		events: CODING_AGENT_GREENFIELD_EXTENSION_EVENTS,
+		eventProfile: GREENFIELD_IM_EXTENSION_EVENT_PROFILE,
 		tools: true,
 		commands: true,
 		inapplicableRuntimeCapabilities: ["shortcut", "message-renderer"],
-		inapplicableEvents: ["user_bash"],
 	});
 	if (extensionCompatibility.requiresLegacyRuntime) {
 		return {
