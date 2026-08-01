@@ -82,12 +82,16 @@ describe("RPC command dispatcher", () => {
 			throw new Error("provider failed");
 		});
 		const frames: unknown[] = [];
-		const dispatch = createRpcCommandDispatcher(session, (frame) => frames.push(frame));
+		const backgroundTasks: Promise<void>[] = [];
+		const dispatch = createRpcCommandDispatcher(session, (frame) => frames.push(frame), {
+			onBackgroundTask: (task) => backgroundTasks.push(task),
+		});
 
 		const response = await dispatch({ id: "p1", type: "prompt", message: "hello" });
-		await Promise.resolve();
+		await Promise.all(backgroundTasks);
 
 		expect(response).toEqual({ id: "p1", type: "response", command: "prompt", success: true });
+		expect(backgroundTasks).toHaveLength(1);
 		expect(frames).toEqual([
 			{
 				id: "p1",
@@ -229,6 +233,127 @@ describe("RPC command dispatcher", () => {
 		expect(readOutputFrames(chunks)).toEqual([
 			expect.objectContaining({ id: "drain-state", command: "get_state", success: true }),
 		]);
+		expect(session.dispose).toHaveBeenCalledOnce();
+	});
+
+	test("waits for an accepted prompt background task after session disposal before exiting", async () => {
+		const session = createSessionCapabilities();
+		let finishPrompt: (() => void) | undefined;
+		required(session.turn).prompt = vi.fn(
+			() =>
+				new Promise<void>((resolve) => {
+					finishPrompt = resolve;
+				}),
+		);
+		const input = new PassThrough();
+		const output = new PassThrough();
+		const exit = vi.fn();
+
+		void runRpcModeWithCapabilities(session, { input, output, exit });
+		input.write('{"id":"background-prompt","type":"prompt","message":"hold"}\n');
+		await vi.waitFor(() => expect(required(session.turn).prompt).toHaveBeenCalledOnce());
+		input.end();
+		await vi.waitFor(() => expect(session.dispose).toHaveBeenCalledOnce());
+		expect(exit).not.toHaveBeenCalled();
+
+		required(finishPrompt)();
+		await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(0));
+	});
+
+	test("settles a prompt waiting on the Host Bridge before transport exit", async () => {
+		const session = createSessionCapabilities();
+		let initialization: RpcSessionInitialization | undefined;
+		session.initialize = vi.fn(async (input) => {
+			initialization = input;
+		});
+		required(session.turn).prompt = vi.fn(async () => {
+			await required(required(initialization).hostBridge).sendAttachment({ path: "file.txt", kind: "file" });
+		});
+		const input = new PassThrough();
+		const output = new PassThrough();
+		const chunks: Buffer[] = [];
+		output.on("data", (chunk: Buffer) => chunks.push(chunk));
+		const exit = vi.fn();
+
+		void runRpcModeWithCapabilities(session, { input, output, exit, enableHostBridge: true });
+		await vi.waitFor(() => expect(initialization).toBeDefined());
+		input.write('{"id":"host-prompt","type":"prompt","message":"send"}\n');
+		await vi.waitFor(() =>
+			expect(readOutputFrames(chunks).some((frame) => isFrameType(frame, "host_request"))).toBe(true),
+		);
+		input.end();
+		await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(0));
+
+		expect(
+			readOutputFrames(chunks).filter(
+				(frame) => isRpcResponse(frame) && frame.id === "host-prompt" && frame.command === "prompt",
+			),
+		).toEqual([
+			expect.objectContaining({ success: true }),
+			expect.objectContaining({ success: false, error: "RPC host bridge closed" }),
+		]);
+	});
+
+	test("cancels a prompt waiting on Extension UI before transport exit", async () => {
+		const session = createSessionCapabilities();
+		let initialization: RpcSessionInitialization | undefined;
+		let confirmation: boolean | undefined;
+		session.initialize = vi.fn(async (input) => {
+			initialization = input;
+		});
+		required(session.turn).prompt = vi.fn(async () => {
+			confirmation = await required(initialization).uiContext.confirm("Confirm", "Continue?");
+		});
+		const input = new PassThrough();
+		const output = new PassThrough();
+		const chunks: Buffer[] = [];
+		output.on("data", (chunk: Buffer) => chunks.push(chunk));
+		const exit = vi.fn();
+
+		void runRpcModeWithCapabilities(session, { input, output, exit });
+		await vi.waitFor(() => expect(initialization).toBeDefined());
+		input.write('{"id":"ui-prompt","type":"prompt","message":"confirm"}\n');
+		await vi.waitFor(() =>
+			expect(readOutputFrames(chunks).some((frame) => isFrameType(frame, "extension_ui_request"))).toBe(true),
+		);
+		input.end();
+		await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(0));
+
+		expect(confirmation).toBe(false);
+		expect(
+			readOutputFrames(chunks).filter(
+				(frame) => isRpcResponse(frame) && frame.id === "ui-prompt" && frame.command === "prompt",
+			),
+		).toEqual([expect.objectContaining({ success: true })]);
+	});
+
+	test("settles an active prompt during an Extension-requested shutdown", async () => {
+		const session = createSessionCapabilities();
+		let initialization: RpcSessionInitialization | undefined;
+		let finishPrompt: (() => void) | undefined;
+		session.initialize = vi.fn(async (input) => {
+			initialization = input;
+		});
+		required(session.turn).prompt = vi.fn(
+			() =>
+				new Promise<void>((resolve) => {
+					finishPrompt = resolve;
+				}),
+		);
+		required(session.turn).abort = vi.fn(async () => required(finishPrompt)());
+		const input = new PassThrough();
+		const output = new PassThrough();
+		const exit = vi.fn();
+
+		void runRpcModeWithCapabilities(session, { input, output, exit });
+		await vi.waitFor(() => expect(initialization).toBeDefined());
+		input.write('{"id":"shutdown-prompt","type":"prompt","message":"hold"}\n');
+		await vi.waitFor(() => expect(required(session.turn).prompt).toHaveBeenCalledOnce());
+		required(initialization).onShutdownRequested();
+		await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(0));
+
+		expect(session.shutdown).toHaveBeenCalledOnce();
+		expect(required(session.turn).abort).toHaveBeenCalledOnce();
 		expect(session.dispose).toHaveBeenCalledOnce();
 	});
 
@@ -405,6 +530,14 @@ function readOutputFrames(chunks: readonly Buffer[]): unknown[] {
 		.split("\n")
 		.filter(Boolean)
 		.map((line) => JSON.parse(line));
+}
+
+function isFrameType(frame: unknown, type: string): boolean {
+	return typeof frame === "object" && frame !== null && Reflect.get(frame, "type") === type;
+}
+
+function isRpcResponse(frame: unknown): frame is RpcResponse {
+	return isFrameType(frame, "response");
 }
 
 function required<T>(value: T | undefined): T {

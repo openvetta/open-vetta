@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { readdir, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
 	type AgentRpcExecutable,
@@ -7,11 +8,16 @@ import {
 	type AgentRpcProcess,
 	buildAgentRpcExecutable,
 	createAgentRpcFixture,
+	type RpcFrame,
 	readSessionFile,
 	startAgentRpc,
 	type TestAgentRuntimeBackend,
 } from "./support/agent-rpc-test-process.js";
-import { startOpenAiResponsesTestServer, textResponseEvents } from "./support/openai-responses-test-server.js";
+import {
+	startOpenAiResponsesTestServer,
+	textResponseEvents,
+	toolCallResponseEvents,
+} from "./support/openai-responses-test-server.js";
 
 const BACKENDS = ["legacy", "greenfield-im"] as const satisfies readonly TestAgentRuntimeBackend[];
 let executable: AgentRpcExecutable;
@@ -100,6 +106,50 @@ describe("Agent Runtime RPC command admission differential", () => {
 		});
 		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	}, 30_000);
+
+	it("settles an active Provider prompt before transport exit", async () => {
+		const observations = {} as Record<TestAgentRuntimeBackend, PromptShutdownObservation>;
+		for (const backend of BACKENDS) observations[backend] = await runHeldPromptThenClose(backend);
+
+		expect(observations.legacy).toEqual({
+			exitCode: 0,
+			providerRequestClosed: true,
+			providerRequestCount: 1,
+			promptResponseCount: 1,
+			terminalOutcomeCount: 0,
+			ownershipLockCount: 0,
+		});
+		expect(observations["greenfield-im"]).toEqual(observations.legacy);
+	}, 30_000);
+
+	it("settles a prompt waiting on host_response before transport exit", async () => {
+		const observations = {} as Record<TestAgentRuntimeBackend, HostBridgeShutdownObservation>;
+		for (const backend of BACKENDS) observations[backend] = await runHostBridgeThenClose(backend);
+
+		expect(observations.legacy).toEqual({
+			exitCode: 0,
+			providerRequestCount: 1,
+			hostRequestCount: 1,
+			promptResponseCount: 1,
+			terminalOutcomeCount: 0,
+			ownershipLockCount: 0,
+		});
+		expect(observations["greenfield-im"]).toEqual(observations.legacy);
+	}, 30_000);
+
+	it("cancels a prompt waiting on extension_ui_response before transport exit", async () => {
+		const observations = {} as Record<TestAgentRuntimeBackend, ExtensionUiShutdownObservation>;
+		for (const backend of BACKENDS) observations[backend] = await runExtensionUiThenClose(backend);
+
+		expect(observations.legacy).toEqual({
+			exitCode: 0,
+			promptResponseCount: 1,
+			extensionUiRequestCount: 1,
+			audit: ["before", "after:false"],
+			ownershipLockCount: 0,
+		});
+		expect(observations["greenfield-im"]).toEqual(observations.legacy);
+	}, 30_000);
 });
 
 interface AdmissionObservation {
@@ -141,6 +191,32 @@ interface TransitionShutdownObservation {
 interface ExtensionShutdownObservation {
 	readonly exitCode: number;
 	readonly promptResponseCount: number;
+	readonly audit: readonly string[];
+	readonly ownershipLockCount: number;
+}
+
+interface PromptShutdownObservation {
+	readonly exitCode: number;
+	readonly providerRequestClosed: boolean;
+	readonly providerRequestCount: number;
+	readonly promptResponseCount: number;
+	readonly terminalOutcomeCount: number;
+	readonly ownershipLockCount: number;
+}
+
+interface HostBridgeShutdownObservation {
+	readonly exitCode: number;
+	readonly providerRequestCount: number;
+	readonly hostRequestCount: number;
+	readonly promptResponseCount: number;
+	readonly terminalOutcomeCount: number;
+	readonly ownershipLockCount: number;
+}
+
+interface ExtensionUiShutdownObservation {
+	readonly exitCode: number;
+	readonly promptResponseCount: number;
+	readonly extensionUiRequestCount: number;
 	readonly audit: readonly string[];
 	readonly ownershipLockCount: number;
 }
@@ -405,6 +481,130 @@ async function runExtensionShutdown(backend: TestAgentRuntimeBackend): Promise<E
 	}
 }
 
+async function runHeldPromptThenClose(backend: TestAgentRuntimeBackend): Promise<PromptShutdownObservation> {
+	let fixture: AgentRpcFixture | undefined;
+	let process: AgentRpcProcess | undefined;
+	const server = await startOpenAiResponsesTestServer(() => ({
+		kind: "hold",
+		events: textResponseEvents("partial-before-prompt-close").slice(0, 3),
+	}));
+	try {
+		fixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
+		process = startAgentRpc(executable, fixture, { backend });
+		await process.request("prompt-close-state", "get_state");
+
+		const mark = process.mark();
+		await process.request("prompt-close-held", "prompt", { message: "Hold before prompt close" });
+		await process.waitFor((frame) => frame.type === "message_update", mark);
+		const exitCode = await process.close();
+		await server.waitForHeldRequestClosed(5_000);
+		const frames = process.framesSince(mark);
+
+		return {
+			exitCode,
+			providerRequestClosed: true,
+			providerRequestCount: server.requests.length,
+			promptResponseCount: frames.filter(
+				(frame) => frame.type === "response" && frame.id === "prompt-close-held" && frame.command === "prompt",
+			).length,
+			terminalOutcomeCount: countPromptTerminalOutcomes(frames, "prompt-close-held"),
+			ownershipLockCount: await countOwnershipLocks(fixture),
+		};
+	} finally {
+		await process?.close();
+		await fixture?.dispose();
+		await server.dispose();
+	}
+}
+
+async function runHostBridgeThenClose(backend: TestAgentRuntimeBackend): Promise<HostBridgeShutdownObservation> {
+	let fixture: AgentRpcFixture | undefined;
+	let process: AgentRpcProcess | undefined;
+	let attachmentPath = "";
+	const server = await startOpenAiResponsesTestServer(() => ({
+		kind: "events",
+		events: toolCallResponseEvents("im_send_attachment", {
+			description: "Send before close",
+			path: attachmentPath,
+			kind: "file",
+		}),
+	}));
+	try {
+		fixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
+		attachmentPath = join(fixture.workspace, "bridge-close.txt");
+		await writeFile(attachmentPath, "bridge close", "utf8");
+		process = startAgentRpc(executable, fixture, { backend });
+		await process.request("host-close-state", "get_state");
+
+		const mark = process.mark();
+		await process.request("host-close-prompt", "prompt", { message: "Send bridge-close.txt" });
+		await process.waitFor((frame) => frame.type === "host_request", mark);
+		const exitCode = await process.close();
+		const frames = process.framesSince(mark);
+
+		return {
+			exitCode,
+			providerRequestCount: server.requests.length,
+			hostRequestCount: frames.filter((frame) => frame.type === "host_request").length,
+			promptResponseCount: frames.filter(
+				(frame) => frame.type === "response" && frame.id === "host-close-prompt" && frame.command === "prompt",
+			).length,
+			terminalOutcomeCount: countPromptTerminalOutcomes(frames, "host-close-prompt"),
+			ownershipLockCount: await countOwnershipLocks(fixture),
+		};
+	} finally {
+		await process?.close();
+		await fixture?.dispose();
+		await server.dispose();
+	}
+}
+
+async function runExtensionUiThenClose(backend: TestAgentRuntimeBackend): Promise<ExtensionUiShutdownObservation> {
+	let fixture: AgentRpcFixture | undefined;
+	let process: AgentRpcProcess | undefined;
+	try {
+		fixture = await createAgentRpcFixture();
+		const auditPath = join(fixture.root, `${backend}-extension-ui-close.txt`);
+		const extensionPath = join(fixture.root, `${backend}-extension-ui-close.ts`);
+		await writeFile(
+			extensionPath,
+			`import { appendFileSync } from "node:fs";
+			export default function(extension) {
+				extension.registerCommand("wait-for-ui-close", {
+					handler: async (_args, ctx) => {
+						appendFileSync(${JSON.stringify(auditPath)}, "before\\n", "utf8");
+						const confirmed = await ctx.ui.confirm("Confirm", "Continue?");
+						appendFileSync(${JSON.stringify(auditPath)}, \`after:\${confirmed}\\n\`, "utf8");
+					},
+				});
+			}`,
+			"utf8",
+		);
+		process = startAgentRpc(executable, fixture, { backend, extraArgs: ["--extension", extensionPath] });
+		await process.request("extension-ui-close-state", "get_state");
+
+		const mark = process.mark();
+		await process.request("extension-ui-close-prompt", "prompt", { message: "/wait-for-ui-close" });
+		await process.waitFor((frame) => frame.type === "extension_ui_request", mark);
+		const exitCode = await process.close();
+		const frames = process.framesSince(mark);
+
+		return {
+			exitCode,
+			promptResponseCount: frames.filter(
+				(frame) =>
+					frame.type === "response" && frame.id === "extension-ui-close-prompt" && frame.command === "prompt",
+			).length,
+			extensionUiRequestCount: frames.filter((frame) => frame.type === "extension_ui_request").length,
+			audit: (await readFile(auditPath, "utf8")).trim().split("\n"),
+			ownershipLockCount: await countOwnershipLocks(fixture),
+		};
+	} finally {
+		await process?.close();
+		await fixture?.dispose();
+	}
+}
+
 function ownershipPath(backend: TestAgentRuntimeBackend, sessionPath: string): string {
 	return backend === "legacy" ? `${sessionPath}.lock` : `${sessionPath}.owner.lock`;
 }
@@ -419,4 +619,18 @@ function completedAdmissionObservation(): AdmissionObservation {
 		targetOwnershipHeld: true,
 		identityChanged: true,
 	};
+}
+
+function countPromptTerminalOutcomes(frames: readonly RpcFrame[], id: string): number {
+	return frames.filter(
+		(frame) =>
+			frame.type === "agent_end" ||
+			(frame.type === "response" && frame.id === id && frame.command === "prompt" && frame.success === false),
+	).length;
+}
+
+async function countOwnershipLocks(fixture: AgentRpcFixture): Promise<number> {
+	return (await readdir(fixture.conversationDir)).filter(
+		(name) => name.endsWith(".lock") || name.endsWith(".owner.lock"),
+	).length;
 }

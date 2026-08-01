@@ -54,7 +54,16 @@ export async function runRpcModeWithCapabilities(
 	const output: RpcFrameOutput = (frame) => transport.write(frame);
 	const extensionUI = new RpcExtensionUIBridge(output);
 	const hostBridge = options.enableHostBridge ? new RpcHostBridge(output) : undefined;
-	const dispatch = createRpcCommandDispatcher(session, output);
+	const backgroundTasks = new Set<Promise<void>>();
+	const dispatch = createRpcCommandDispatcher(session, output, {
+		onBackgroundTask: (task) => {
+			backgroundTasks.add(task);
+			void task.then(
+				() => backgroundTasks.delete(task),
+				() => backgroundTasks.delete(task),
+			);
+		},
+	});
 	const exit = options.exit ?? ((code: number): never => process.exit(code));
 	let shutdownRequested = false;
 	let beginRequestedShutdown: (() => void) | undefined;
@@ -96,7 +105,9 @@ export async function runRpcModeWithCapabilities(
 			extensionUI.dispose();
 			hostBridge?.dispose();
 			await Promise.allSettled([...inFlightHandlers]);
+			if (backgroundTasks.size > 0) await session.turn?.abort();
 			await session.dispose();
+			await Promise.allSettled([...backgroundTasks]);
 		})();
 		return cleanupPromise;
 	};

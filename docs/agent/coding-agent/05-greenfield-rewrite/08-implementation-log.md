@@ -162,6 +162,7 @@
 | [152-rpc-turn-terminal-and-recovery.md](./08-implementation-log/152-rpc-turn-terminal-and-recovery.md) | RPC Turn 唯一终态、Provider 失败/流断开/abort 恢复与安装产物门禁 |
 | [153-active-turn-session-transition.md](./08-implementation-log/153-active-turn-session-transition.md) | 活动 Turn 会话切换、Turn 准入、所有权转移与安装产物门禁 |
 | [154-rpc-command-drain-and-shutdown.md](./08-implementation-log/154-rpc-command-drain-and-shutdown.md) | RPC 已接收命令 drain、异步 Extension shutdown 与关闭事务 |
+| [155-rpc-background-turn-ownership.md](./08-implementation-log/155-rpc-background-turn-ownership.md) | RPC 后台 prompt 所有权、Bridge 取消与关闭收敛 |
 
 ## 维护约定
 

@@ -3,6 +3,10 @@ import type { RpcCommand, RpcResponse } from "./rpc-types.js";
 
 export type RpcFrameOutput = (frame: unknown) => void;
 
+export interface RpcCommandDispatcherOptions {
+	readonly onBackgroundTask?: (task: Promise<void>) => void;
+}
+
 export function rpcSuccess<T extends RpcCommand["type"]>(
 	id: string | undefined,
 	command: T,
@@ -21,6 +25,7 @@ export function rpcError(id: string | undefined, command: string, message: strin
 export function createRpcCommandDispatcher(
 	session: RpcSessionCapabilities,
 	output: RpcFrameOutput,
+	options: RpcCommandDispatcherOptions = {},
 ): (command: RpcCommand) => Promise<RpcResponse> {
 	return async (command) => {
 		const id = command.id;
@@ -33,13 +38,14 @@ export function createRpcCommandDispatcher(
 		}
 		switch (command.type) {
 			case "prompt": {
-				requireCapability(session.turn, "turn", command.type)
+				const task = requireCapability(session.turn, "turn", command.type)
 					.prompt(command.message, {
 						images: command.images,
 						streamingBehavior: command.streamingBehavior,
 						source: "rpc",
 					})
 					.catch((error: unknown) => output(rpcError(id, "prompt", errorMessage(error))));
+				options.onBackgroundTask?.(task);
 				return rpcSuccess(id, "prompt");
 			}
 			case "steer": {

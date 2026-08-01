@@ -62,8 +62,13 @@ describe("RPC extension UI bridge", () => {
 		await expect(selection).resolves.toBeUndefined();
 
 		const editor = context.editor("Editor", "draft");
+		const editorRequest = requests.at(-1);
+		if (!editorRequest) throw new Error("Expected editor request");
 		bridge.dispose();
 		await expect(editor).resolves.toBeUndefined();
+		expect(bridge.handle({ type: "extension_ui_response", id: editorRequest.id, value: "late response" })).toBe(
+			false,
+		);
 	});
 });
 
@@ -99,7 +104,8 @@ describe("RPC host bridge", () => {
 
 	test("rejects timed-out and disposed host requests", async () => {
 		vi.useFakeTimers();
-		const host = new RpcHostBridge(() => {}, 25);
+		const requests: RpcHostRequest[] = [];
+		const host = new RpcHostBridge((request) => requests.push(request), 25);
 		const bridge = host.createBridge();
 
 		const timedOut = bridge.sendAttachment({ path: "image.png", kind: "image" });
@@ -108,8 +114,11 @@ describe("RPC host bridge", () => {
 		await timeoutExpectation;
 
 		const disposed = bridge.sendAttachment({ path: "file.txt", kind: "file" });
+		const disposedRequest = requests.at(-1);
+		if (!disposedRequest) throw new Error("Expected disposed host request");
 		const disposeExpectation = expect(disposed).rejects.toThrow("transport closed");
 		host.dispose("transport closed");
 		await disposeExpectation;
+		expect(host.handle({ type: "host_response", id: disposedRequest.id, success: true })).toBe(false);
 	});
 });

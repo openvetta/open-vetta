@@ -397,6 +397,57 @@ describe("installed standalone CLI artifact", () => {
 		activeProcess = undefined;
 	}, 120_000);
 
+	it("settles an installed prompt waiting on host_response before transport exit", async () => {
+		await expectStandaloneArtifact(artifact);
+
+		let attachmentPath = "";
+		providerServer = await startOpenAiResponsesTestServer(() => ({
+			kind: "events",
+			events: toolCallResponseEvents("im_send_attachment", {
+				description: "Send installed artifact before close",
+				path: attachmentPath,
+				kind: "file",
+			}),
+		}));
+		fixture = await createAgentRpcFixture({ baseUrl: providerServer.baseUrl });
+		attachmentPath = join(fixture.workspace, "installed-bridge-close.txt");
+		await writeFile(attachmentPath, "installed bridge close", "utf8");
+		activeProcess = startInstalledCli(artifact.binaryPath, fixture, createIsolatedArtifactEnv(fixture), {
+			noSkills: true,
+		});
+		await activeProcess.request("installed-host-close-state", "get_state");
+
+		const mark = activeProcess.mark();
+		await activeProcess.request("installed-host-close-prompt", "prompt", {
+			message: "Send installed-bridge-close.txt",
+		});
+		await activeProcess.waitFor((frame) => frame.type === "host_request", mark, 30_000);
+		await expect(activeProcess.close()).resolves.toBe(0);
+		const frames = activeProcess.framesSince(mark);
+
+		expect(providerServer.requests).toHaveLength(1);
+		expect(frames.filter((frame) => frame.type === "host_request")).toHaveLength(1);
+		expect(
+			frames.filter(
+				(frame) =>
+					frame.type === "response" && frame.id === "installed-host-close-prompt" && frame.command === "prompt",
+			),
+		).toEqual([expect.objectContaining({ success: true })]);
+		expect(
+			frames.filter(
+				(frame) =>
+					frame.type === "agent_end" ||
+					(frame.type === "response" && frame.command === "prompt" && frame.success === false),
+			),
+		).toEqual([]);
+		expect(
+			(await readdir(fixture.conversationDir)).filter(
+				(name) => name.endsWith(".lock") || name.endsWith(".owner.lock"),
+			),
+		).toEqual([]);
+		activeProcess = undefined;
+	}, 120_000);
+
 	it("applies runtime Skill and MCP changes without rebuilding the installed session", async () => {
 		await expectStandaloneArtifact(artifact);
 
