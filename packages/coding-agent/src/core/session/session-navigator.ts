@@ -26,6 +26,7 @@ export class SessionNavigator {
 	private _branchSummaryAbortController: AbortController | undefined = undefined;
 	private _identityOperationTail: Promise<void> = Promise.resolve();
 	private _pendingIdentityOperations = 0;
+	private readonly _treeNavigationOperations = new Set<Promise<unknown>>();
 	private _admissionClosed = false;
 
 	constructor(
@@ -40,9 +41,10 @@ export class SessionNavigator {
 	}
 
 	/** Stop accepting identity-bound work and wait for already admitted operations. */
-	closeAdmission(): Promise<void> {
+	async closeAdmission(): Promise<void> {
 		this._admissionClosed = true;
-		return this._identityOperationTail;
+		await this._identityOperationTail;
+		await this.quiesceTreeNavigation();
 	}
 
 	/**
@@ -58,6 +60,15 @@ export class SessionNavigator {
 			this.assertAdmissionOpen();
 			return operation();
 		});
+	}
+
+	/** Run synchronous identity-bound work only when no transition is pending. */
+	runImmediateSessionOperation<T>(operation: () => T): T {
+		this.assertAdmissionOpen();
+		if (this._pendingIdentityOperations > 0) {
+			throw new Error("Session identity transition is pending");
+		}
+		return operation();
 	}
 
 	newSession(options?: {
@@ -318,6 +329,7 @@ export class SessionNavigator {
 	private async replaceSessionIdentity(replace: () => void): Promise<void> {
 		let activationRequired = true;
 		try {
+			await this.quiesceTreeNavigation();
 			await this.ctx.quiesceSessionIdentityResources();
 			replace();
 			await this.ctx.activateSessionIdentityResources();
@@ -358,13 +370,34 @@ export class SessionNavigator {
 		if (this._admissionClosed) throw new Error("AgentSession is closing");
 	}
 
+	private async quiesceTreeNavigation(): Promise<void> {
+		this.abortBranchSummary();
+		if (this._treeNavigationOperations.size === 0) return;
+		await Promise.allSettled([...this._treeNavigationOperations]);
+	}
+
 	/**
 	 * Navigate to a different node in the session tree.
 	 * Unlike fork() which creates a new session file, this stays in the same file.
 	 */
-	async navigateTree(
+	navigateTree(
 		targetId: string,
 		options: { summarize?: boolean; customInstructions?: string; replaceInstructions?: boolean; label?: string } = {},
+	): Promise<{ editorText?: string; cancelled: boolean; aborted?: boolean; summaryEntry?: BranchSummaryEntry }> {
+		return this.startSessionOperation(() => {
+			const operation = this.performNavigateTree(targetId, options);
+			this._treeNavigationOperations.add(operation);
+			void operation.then(
+				() => this._treeNavigationOperations.delete(operation),
+				() => this._treeNavigationOperations.delete(operation),
+			);
+			return operation;
+		});
+	}
+
+	private async performNavigateTree(
+		targetId: string,
+		options: { summarize?: boolean; customInstructions?: string; replaceInstructions?: boolean; label?: string },
 	): Promise<{ editorText?: string; cancelled: boolean; aborted?: boolean; summaryEntry?: BranchSummaryEntry }> {
 		const oldLeafId = this.ctx.sessionManager.getLeafId();
 

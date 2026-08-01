@@ -57,8 +57,8 @@ export class SubagentCoordinator {
 	private readonly delivery = new SubagentDeliveryTracker();
 	private readonly factory: SubagentCoordinatorOptions["factory"];
 	private readonly typeRegistry: SubagentCoordinatorOptions["typeRegistry"];
-	private readonly parentSessionId: string;
-	private readonly parentSessionFile?: string;
+	private parentSessionId: string;
+	private parentSessionFile?: string;
 	private readonly cwd: string;
 	private readonly scenario: SubagentCoordinatorOptions["scenario"];
 	private readonly getModel: SubagentCoordinatorOptions["getModel"];
@@ -108,6 +108,19 @@ export class SubagentCoordinator {
 	get(target: string): SubagentSnapshot | undefined {
 		const child = this.resolveChild(target);
 		return child ? { ...child.snapshot } : undefined;
+	}
+
+	/** Rebind future child starts after the parent transcript rolls to a new file. */
+	rebindParentSession(parentSessionId: string, parentSessionFile?: string): void {
+		if (this.disposed) return;
+		this.parentSessionId = parentSessionId;
+		this.parentSessionFile = parentSessionFile;
+		for (const id of this.queue) {
+			const entry = this.children.get(id);
+			if (entry?.snapshot.status === "queued") {
+				entry.snapshot.parentSessionId = parentSessionId;
+			}
+		}
 	}
 
 	/**

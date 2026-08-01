@@ -572,6 +572,7 @@ export class CompactionController {
 				appendJournalSection(this.ctx.cwd, summary);
 				const { from, to } = this.ctx.sessionManager.rolloverToNewFile();
 				if (to && to !== from) {
+					this.ctx.rebindSessionStorageIdentity();
 					this.ctx.emit({ type: "session_path_changed", from, to, reason: "rollover" });
 				}
 			}

@@ -6,8 +6,9 @@ import { Type } from "@sinclair/typebox";
 import { Agent, type AgentTool } from "@vetta/agent-core";
 import type { Api, Model } from "@vetta/ai";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AgentSession, type AgentSessionConfig } from "../src/core/agent-session.js";
+import { AgentSession, type AgentSessionConfig, type AgentSessionEvent } from "../src/core/agent-session.js";
 import { AuthStorage } from "../src/core/auth-storage.js";
+import { prepareCompaction } from "../src/core/compaction/index.js";
 import type { McpManager } from "../src/core/mcp/index.js";
 import { ModelRegistry } from "../src/core/model-registry.js";
 import { SessionManager } from "../src/core/session-manager/index.js";
@@ -41,7 +42,12 @@ interface IdentityFixture {
 type IdentityFixtureOptions = Partial<
 	Pick<
 		AgentSessionConfig,
-		"agentPlugins" | "invokePluginContinuation" | "invokePluginSystemPrompt" | "initialActiveToolNames"
+		| "agentPlugins"
+		| "invokePluginContinuation"
+		| "invokePluginSystemPrompt"
+		| "initialActiveToolNames"
+		| "memoryMode"
+		| "memoryFile"
 	>
 >;
 
@@ -363,6 +369,204 @@ describe("AgentSession identity resource transition", () => {
 		const prompting = session.prompt("start immediately");
 		expect(started).toBe(true);
 		await prompting;
+	});
+
+	it("rejects immediate identity-bound mutations while a transition is pending", async () => {
+		const fixture = createIdentityFixture([]);
+		const { session, tempDir } = fixture;
+		const target = SessionManager.create(tempDir, tempDir);
+		const targetPath = target.getSessionFile();
+		target.close();
+		if (!targetPath) throw new Error("Expected target session path");
+		const entered = deferred();
+		const release = deferred();
+		const internals = session as unknown as {
+			_ctx: { quiesceSessionIdentityResources(): Promise<void> };
+		};
+		const originalQuiesce = internals._ctx.quiesceSessionIdentityResources;
+		internals._ctx.quiesceSessionIdentityResources = async () => {
+			entered.resolve();
+			await release.promise;
+			await originalQuiesce();
+		};
+
+		const switching = session.switchSession(targetPath);
+		await entered.promise;
+		const mutations = [
+			() => session.clearQueue(),
+			() => session.setThinkingLevel("off"),
+			() => session.cycleThinkingLevel(),
+			() =>
+				session.recordBashResult("pwd", {
+					output: "",
+					exitCode: 0,
+					cancelled: false,
+					truncated: false,
+				}),
+			() => session.setSessionName("wrong identity"),
+			() => session.switchBranch("missing"),
+			() => session.deleteMessage("missing"),
+			() => session.exportForkToNewFile("missing"),
+		];
+		for (const mutate of mutations) {
+			expect(mutate).toThrow("Session identity transition is pending");
+		}
+
+		release.resolve();
+		await switching;
+		expect(session.sessionFile).toBe(targetPath);
+	});
+
+	it("runs tree navigation against the target after a queued identity transition", async () => {
+		const fixture = createIdentityFixture([]);
+		const { session, tempDir } = fixture;
+		const target = SessionManager.create(tempDir, tempDir);
+		const targetEntryId = target.appendMessage(userMsg("edit target turn"));
+		target.appendMessage(assistantMsg("target answer"));
+		const targetPath = target.getSessionFile();
+		target.close();
+		if (!targetPath) throw new Error("Expected target session path");
+		const entered = deferred();
+		const release = deferred();
+		const internals = session as unknown as {
+			_ctx: { quiesceSessionIdentityResources(): Promise<void> };
+		};
+		const originalQuiesce = internals._ctx.quiesceSessionIdentityResources;
+		internals._ctx.quiesceSessionIdentityResources = async () => {
+			entered.resolve();
+			await release.promise;
+			await originalQuiesce();
+		};
+
+		const switching = session.switchSession(targetPath);
+		await entered.promise;
+		let settled = false;
+		const navigating = session.navigateTree(targetEntryId).then(
+			(value) => {
+				settled = true;
+				return value;
+			},
+			(error: unknown) => {
+				settled = true;
+				throw error;
+			},
+		);
+		await Promise.resolve();
+		expect(settled).toBe(false);
+
+		release.resolve();
+		await switching;
+		await expect(navigating).resolves.toMatchObject({ cancelled: false, editorText: "edit target turn" });
+		expect(session.sessionFile).toBe(targetPath);
+	});
+
+	it("waits for admitted tree mutation to settle before replacing identity", async () => {
+		const fixture = createIdentityFixture([]);
+		const { session, sessionManager } = fixture;
+		const targetEntryId = sessionManager.appendMessage(userMsg("source tree target"));
+		sessionManager.appendMessage(assistantMsg("source tree answer"));
+		session.agent.replaceMessages(sessionManager.buildSessionContext().messages);
+		const sourceId = session.sessionId;
+		const entered = deferred();
+		const release = deferred();
+		const internals = session as unknown as {
+			_runtime: {
+				_extensionRunner?: {
+					hasHandlers(eventType: string): boolean;
+					emit(event: { type: string }): Promise<unknown>;
+				};
+			};
+		};
+		internals._runtime._extensionRunner = {
+			hasHandlers: (eventType) => eventType === "session_before_tree",
+			emit: async (event) => {
+				if (event.type === "session_before_tree") {
+					entered.resolve();
+					await release.promise;
+				}
+				return undefined;
+			},
+		};
+
+		const navigating = session.navigateTree(targetEntryId);
+		await entered.promise;
+		let switched = false;
+		const switching = session.newSession().then((result) => {
+			switched = true;
+			return result;
+		});
+		await Promise.resolve();
+		expect(switched).toBe(false);
+		expect(session.sessionId).toBe(sourceId);
+
+		release.resolve();
+		await expect(navigating).resolves.toMatchObject({ cancelled: false, editorText: "source tree target" });
+		await expect(switching).resolves.toBe(true);
+		expect(session.sessionId).not.toBe(sourceId);
+	});
+
+	it("continues runtime resources while rebinding storage identity after memory rollover", async () => {
+		const child = createHeldChild(false);
+		const fixture = createIdentityFixture([child.handle], { memoryMode: true, memoryFile: "" });
+		const { session, sessionManager, parentContexts } = fixture;
+		const sourceId = session.sessionId;
+		const sourcePath = session.sessionFile;
+		const backgroundTasks = session.backgroundTasks;
+		const subagents = session.subagents;
+		sessionManager.appendMessage(userMsg("rollover source"));
+		sessionManager.appendMessage(assistantMsg("source answer"));
+		sessionManager.appendMessage(userMsg("kept tail"));
+		sessionManager.appendMessage(assistantMsg("tail answer"));
+		session.agent.replaceMessages(sessionManager.buildSessionContext().messages);
+		session.settingsManager.applyOverrides({ compaction: { keepRecentTokens: 1 } });
+		const preparation = prepareCompaction(
+			sessionManager.getBranch(),
+			session.settingsManager.getCompactionSettings(),
+		);
+		if (!preparation) throw new Error("Expected compaction preparation");
+		const { firstKeptEntryId } = preparation;
+		vi.spyOn(session.modelRegistry, "getApiKey").mockResolvedValue("test-key");
+		const events: AgentSessionEvent[] = [];
+		session.subscribe((event) => events.push(event));
+		const internals = session as unknown as {
+			_runtime: {
+				_extensionRunner?: {
+					hasHandlers(eventType: string): boolean;
+					emit(event: { type: string }): Promise<unknown>;
+				};
+			};
+			_compaction: { performAutoCompaction(reason: "threshold", willRetry: boolean): Promise<void> };
+		};
+		internals._runtime._extensionRunner = {
+			hasHandlers: (eventType) => eventType === "session_before_compact",
+			emit: async (event) =>
+				event.type === "session_before_compact"
+					? {
+							compaction: {
+								summary: "rollover summary",
+								firstKeptEntryId,
+								tokensBefore: 100,
+							},
+						}
+					: undefined,
+		};
+
+		await internals._compaction.performAutoCompaction("threshold", false);
+
+		expect(events.find((event) => event.type === "auto_compaction_end")).toMatchObject({
+			type: "auto_compaction_end",
+			aborted: false,
+			result: { summary: "rollover summary" },
+		});
+		expect(session.sessionId).not.toBe(sourceId);
+		expect(session.sessionFile).not.toBe(sourcePath);
+		expect(session.agent.sessionId).toBe(session.sessionId);
+		expect(session.backgroundTasks).toBe(backgroundTasks);
+		expect(session.subagents).toBe(subagents);
+		expect(events.some((event) => event.type === "session_path_changed")).toBe(true);
+		await session.subagents?.spawn({ taskName: "after_rollover", message: "continue", agentType: "explorer" });
+		expect(parentContexts[0]?.parentSessionId).toBe(session.sessionId);
+		expect(parentContexts[0]?.parentSessionFile).toBe(session.sessionFile);
 	});
 
 	it("serializes concurrent identity transitions in FIFO order", async () => {

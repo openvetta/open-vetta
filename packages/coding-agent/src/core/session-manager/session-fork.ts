@@ -135,18 +135,35 @@ export function rolloverToNewFile(store: SessionStore): { from: string | undefin
 		parentSession: from,
 	};
 
-	store.releaseLock();
 	const newSessionFile = newSessionFilePath(store.getSessionDir(), newSessionId, timestamp);
-	store.sessionId = newSessionId;
-	store.fileEntries = [header, ...chain.newEntries];
-	store.sessionFile = newSessionFile;
-	store.rebuildIndex();
-	store.rewriteFile();
-	store.flushed = true;
-	store.headerOnDisk = true;
-	store.acquireLockForCurrentFile();
-
-	return { from, to: store.sessionFile };
+	const prepared = store.createPeer();
+	let targetCreated = false;
+	try {
+		prepared.replaceSessionContent({
+			sessionId: newSessionId,
+			sessionFile: newSessionFile,
+			fileEntries: [header, ...chain.newEntries],
+			flushed: true,
+			headerOnDisk: false,
+			acquireLock: false,
+		});
+		targetCreated = true;
+		prepared.rewriteFile();
+		prepared.acquireLockForCurrentFile();
+		store.adoptPrepared(prepared);
+		return { from, to: store.sessionFile };
+	} catch (error) {
+		prepared.close();
+		if (targetCreated && existsSync(newSessionFile)) {
+			try {
+				unlinkSync(newSessionFile);
+			} catch {
+				// Preserve the preparation failure; a unique orphan is safer than
+				// reporting cleanup while hiding why the source stayed active.
+			}
+		}
+		throw error;
+	}
 }
 
 /**

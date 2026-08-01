@@ -50,4 +50,6 @@ export interface SessionContext {
 	quiesceSessionIdentityResources(): Promise<void>;
 	/** Bind fresh work resources and persisted local state to the current identity. */
 	activateSessionIdentityResources(): Promise<void>;
+	/** Rebind identity references after a storage-continuation rollover. */
+	rebindSessionStorageIdentity(): void;
 }

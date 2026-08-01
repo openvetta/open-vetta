@@ -229,6 +229,7 @@ export class AgentSession {
 			reconnectToAgent: () => session._reconnectToAgent(),
 			quiesceSessionIdentityResources: () => session.quiesceSessionIdentityResources(),
 			activateSessionIdentityResources: () => session.activateSessionIdentityResources(),
+			rebindSessionStorageIdentity: () => session.rebindSessionStorageIdentity(),
 		};
 		this._compaction = new CompactionController(this._ctx);
 		this._retry = new RetryController(this._ctx);
@@ -439,6 +440,11 @@ export class AgentSession {
 		this.emitIdentityState({ type: "background_tasks_update", tasks: [] });
 		this.emitIdentityState({ type: "subagents_update", agents: [] });
 		this.emitIdentityState({ type: "todo_update", items: this._todoStore.getAll() });
+	}
+
+	private rebindSessionStorageIdentity(): void {
+		this.agent.sessionId = this.sessionManager.getSessionId();
+		this._subagents?.rebindParentSession(this.sessionId, this.sessionFile);
 	}
 
 	private emitIdentityState(event: AgentSessionEvent): void {
@@ -836,7 +842,7 @@ export class AgentSession {
 	 * @returns Object with steering and followUp arrays
 	 */
 	clearQueue(): { steering: string[]; followUp: string[] } {
-		return this._queue.clear();
+		return this._nav.runImmediateSessionOperation(() => this._queue.clear());
 	}
 
 	/** Number of pending messages (includes both steering and follow-up) */
@@ -900,12 +906,12 @@ export class AgentSession {
 
 	/** Set thinking level (clamped to current model capabilities). */
 	setThinkingLevel(level: ThinkingLevel): void {
-		this._model.setThinkingLevel(level);
+		this._nav.runImmediateSessionOperation(() => this._model.setThinkingLevel(level));
 	}
 
 	/** Cycle to next thinking level. Returns undefined if the model doesn't support thinking. */
 	cycleThinkingLevel(): ThinkingLevel | undefined {
-		return this._model.cycleThinkingLevel();
+		return this._nav.runImmediateSessionOperation(() => this._model.cycleThinkingLevel());
 	}
 
 	/** Get available thinking levels for the current model. */
@@ -1061,7 +1067,7 @@ export class AgentSession {
 	 * Used by executeBash and by extensions that handle bash execution themselves.
 	 */
 	recordBashResult(command: string, result: BashResult, options?: { excludeFromContext?: boolean }): void {
-		this._bash.recordBashResult(command, result, options);
+		this._nav.runImmediateSessionOperation(() => this._bash.recordBashResult(command, result, options));
 	}
 
 	/** Cancel running bash command. */
@@ -1095,7 +1101,7 @@ export class AgentSession {
 	 * Set a display name for the current session.
 	 */
 	setSessionName(name: string): void {
-		this.sessionManager.appendSessionInfo(name);
+		this._nav.runImmediateSessionOperation(() => this.sessionManager.appendSessionInfo(name));
 	}
 
 	/**
@@ -1123,14 +1129,16 @@ export class AgentSession {
 	 * Does not put text in the editor.
 	 */
 	switchBranch(targetId: string): { leafId: string } {
-		return this._nav.switchBranch(targetId);
+		return this._nav.runImmediateSessionOperation(() => this._nav.switchBranch(targetId));
 	}
 
 	/** Permanently delete one message while preserving and reparenting its descendants. */
 	deleteMessage(entryId: string): { leafId: string | null } {
-		const result = this.sessionManager.deleteMessage(entryId);
-		this.agent.replaceMessages(this.sessionManager.buildSessionContext().messages);
-		return result;
+		return this._nav.runImmediateSessionOperation(() => {
+			const result = this.sessionManager.deleteMessage(entryId);
+			this.agent.replaceMessages(this.sessionManager.buildSessionContext().messages);
+			return result;
+		});
 	}
 
 	/**
@@ -1138,7 +1146,7 @@ export class AgentSession {
 	 * History is copied up to the parent of the selected user message.
 	 */
 	exportForkToNewFile(entryId: string): { path: string; text: string } {
-		return this._nav.exportForkToNewFile(entryId);
+		return this._nav.runImmediateSessionOperation(() => this._nav.exportForkToNewFile(entryId));
 	}
 
 	/** Get all user messages from session for fork selector. */
