@@ -38,7 +38,11 @@ import type {
 import { type ConversationRecoveryPolicy, FailInterruptedTurnRecoveryPolicy } from "./conversation-recovery.js";
 import { KERNEL_ERROR_CODES, KernelError, turnProtocolError } from "./errors.js";
 import { composeModelCallSystemPrompt, resolveModelCallFrame } from "./model-call-frame.js";
-import { reconcileRuntimeMessageEnvelopes, toRuntimeMessageEnvelope } from "./runtime-message-context.js";
+import {
+	projectRuntimeMessageEnvelope,
+	reconcileRuntimeMessageEnvelopes,
+	toRuntimeMessageEnvelope,
+} from "./runtime-message-context.js";
 import type { RuntimeSessionContextBuffer } from "./session-context-buffer.js";
 
 export interface TurnPipelineOptions {
@@ -294,16 +298,17 @@ export class TurnPipeline {
 					content: record.content,
 					timestamp: record.timestamp ?? startedAt,
 				}));
+			const projectedHistory = projectConversationContext(snapshot, conversationDocument, conversation.messages);
+			const historyMessages = projectRuntimeModelMessages(projectedHistory);
 			const assembledMessages = input
 				? [
-						...conversation.messages,
+						...historyMessages,
 						...providerMessages,
 						...inputContextMessages,
 						input.message,
 						...trailingContextMessages,
 					]
-				: [...conversation.messages, ...providerMessages, ...inputContextMessages];
-			const projectedHistory = projectConversationContext(snapshot, conversationDocument, conversation.messages);
+				: [...historyMessages, ...providerMessages, ...inputContextMessages];
 			let contextMessages = reconcileRuntimeMessageEnvelopes(assembledMessages, [
 				...projectedHistory,
 				...providerMessages.map(toRuntimeMessageEnvelope),
@@ -315,7 +320,7 @@ export class TurnPipeline {
 				sessionId: state.sessionId,
 				turnId,
 				messages: assembledMessages,
-				historyMessages: conversation.messages,
+				historyMessages,
 				transientMessages: providerMessages,
 				reason: "turn_start" as const,
 				tokenBudget: snapshot.tokenBudget,
@@ -595,11 +600,14 @@ export class TurnPipeline {
 		const { request, signal, snapshot, state, turnId } = checkpoint;
 		const conversation = await this.repository.load(state.sessionId);
 		const currentDocument = await this.conversationDocumentReader?.readDocument(state.sessionId);
+		const historyMessages = projectRuntimeModelMessages(
+			projectConversationContext(snapshot, currentDocument, conversation.messages),
+		);
 		const preparationInput = {
 			sessionId: state.sessionId,
 			turnId,
 			messages: request.messages,
-			historyMessages: conversation.messages,
+			historyMessages,
 			transientMessages: checkpoint.providerMessages,
 			reason: request.reason,
 			triggeringAssistantMessage: request.assistantMessage,
@@ -991,4 +999,11 @@ function projectConversationContext(
 	return document && snapshot.conversationContextProjector
 		? snapshot.conversationContextProjector.project(document)
 		: fallbackMessages.map(toRuntimeMessageEnvelope);
+}
+
+function projectRuntimeModelMessages(envelopes: readonly RuntimeMessageEnvelope[]): readonly Message[] {
+	return envelopes.flatMap((envelope) => {
+		const message = projectRuntimeMessageEnvelope(envelope);
+		return message ? [message] : [];
+	});
 }

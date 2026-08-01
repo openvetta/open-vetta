@@ -329,6 +329,57 @@ describe("greenfield runtime kernel", () => {
 		expect(engine.requests[0].snapshot.id).toBe("snapshot-1");
 	});
 
+	it("uses the product context projector as the authoritative model history", async () => {
+		const contextStrategy = new RecordingContextStrategy();
+		const projectedMessage = userMessage("product projection");
+		const projectedIdentity = { role: "productOpaque", source: "fixture" };
+		const document = createEmptyConversationDocument({ sessionId: "session-1", createdAt: 1 });
+		const runtimeSnapshot = snapshot(contextStrategy, {
+			conversationContextProjector: {
+				project() {
+					return [
+						{
+							kind: "opaque",
+							identity: projectedIdentity,
+							modelMessage: projectedMessage,
+							timestamp: projectedMessage.timestamp,
+						},
+						{ kind: "opaque", identity: { role: "hiddenOpaque" }, timestamp: 2 },
+					];
+				},
+			},
+		});
+		const engine = new CompletingTurnEngine(assistantMessage("done"));
+		const harness = await createHarness({
+			contextStrategy,
+			conversationDocumentReader: {
+				async readDocument() {
+					return document;
+				},
+			},
+			runtimeSnapshot,
+			turnEngine: engine,
+		});
+		await harness.repository.append("session-1", 0, [
+			{
+				type: "message.appended",
+				sessionId: "session-1",
+				turnId: "seed",
+				message: userMessage("generic projection"),
+				timestamp: 1,
+			},
+		]);
+
+		await harness.session.send({ message: userMessage("current input") });
+
+		expect(contextStrategy.inputs[0].map(({ content }) => content)).toEqual(["product projection", "current input"]);
+		expect(engine.requests[0].contextMessages).toMatchObject([
+			{ kind: "opaque", identity: projectedIdentity },
+			{ kind: "opaque", identity: { role: "hiddenOpaque" } },
+			{ kind: "message", message: { content: "current input" } },
+		]);
+	});
+
 	it("persists generic context records and sends only model-visible records to the engine", async () => {
 		const contextStrategy = new RecordingContextStrategy();
 		const engine = new CompletingTurnEngine(assistantMessage("done"));

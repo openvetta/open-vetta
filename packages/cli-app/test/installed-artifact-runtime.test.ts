@@ -16,6 +16,12 @@ import {
 	type TestAgentRuntimeBackend,
 } from "./support/agent-rpc-test-process.js";
 import {
+	LEGACY_EXECUTION_MARKERS,
+	readLegacyExecutionContextObservations,
+	writeLegacyExecutionContextExtension,
+	writeLegacyExecutionSessionFixture,
+} from "./support/legacy-session-execution-fixture.js";
+import {
 	type OpenAiResponsesTestServer,
 	type ProviderRequest,
 	startOpenAiResponsesTestServer,
@@ -302,35 +308,23 @@ describe("installed standalone CLI artifact", () => {
 		await expect(stat(ownershipLock)).rejects.toMatchObject({ code: "ENOENT" });
 	}, 120_000);
 
-	it("migrates a representable Legacy session through the installed executable", async () => {
+	it("migrates and continues an official Legacy session through installed executable restarts", async () => {
 		await expectStandaloneArtifact(artifact);
 
-		fixture = await createAgentRpcFixture();
-		const legacySession = join(fixture.conversationDir, "installed-legacy-source.jsonl");
-		const legacyContent = `${JSON.stringify({
-			type: "session",
-			version: 3,
-			id: "installed-legacy-source",
-			timestamp: "2026-01-01T00:00:00.000Z",
-			cwd: fixture.workspace,
-		})}\n${JSON.stringify({
-			type: "message",
-			id: "installed-legacy-bash",
-			parentId: null,
-			timestamp: "2026-01-01T00:00:01.000Z",
-			message: {
-				role: "bashExecution",
-				command: "pwd",
-				output: fixture.workspace,
-				exitCode: 0,
-				cancelled: false,
-				truncated: false,
-				timestamp: 1,
-			},
-		})}\n`;
-		await writeFile(legacySession, legacyContent, "utf8");
+		providerServer = await startOpenAiResponsesTestServer((request) => ({
+			kind: "events",
+			events: textResponseEvents(
+				request.rawBody.includes("installed-migrated-second")
+					? "Installed migrated second response."
+					: "Installed migrated first response.",
+			),
+		}));
+		fixture = await createAgentRpcFixture({ baseUrl: providerServer.baseUrl });
+		const legacySession = await writeLegacyExecutionSessionFixture(fixture);
+		const extension = await writeLegacyExecutionContextExtension(fixture);
+		const isolatedEnv = createIsolatedArtifactEnv(fixture);
 		activeProcess = startInstalledCli(artifact.binaryPath, fixture, createIsolatedArtifactEnv(fixture), {
-			extraArgs: ["--session", legacySession],
+			extraArgs: ["--extension", extension.path, "--session", legacySession.sourcePath],
 		});
 
 		const state = await activeProcess.request("installed-migration-state", "get_state");
@@ -346,12 +340,58 @@ describe("installed standalone CLI artifact", () => {
 				},
 			},
 		});
-		expect(readSessionFile(state)).not.toBe(legacySession);
-		expect(await readFile(legacySession, "utf8")).toBe(legacyContent);
-		const migratedContent = await readFile(readSessionFile(state), "utf8");
+		const migratedSessionPath = readSessionFile(state);
+		const migratedSessionId = readSessionId(state);
+		expect(migratedSessionPath).not.toBe(legacySession.sourcePath);
+
+		await promptInstalledTurn(activeProcess, "installed-migrated-first", "installed-migrated-first");
+		expect(providerServer.requests).toHaveLength(1);
+		const firstProviderInput = providerServer.requests[0]?.rawBody ?? "";
+		expect(firstProviderInput).toContain(LEGACY_EXECUTION_MARKERS.compactionSummary);
+		expect(firstProviderInput).toContain(LEGACY_EXECUTION_MARKERS.visibleBash);
+		expect(firstProviderInput).toContain(LEGACY_EXECUTION_MARKERS.visibleCustom);
+		expect(firstProviderInput).toContain(LEGACY_EXECUTION_MARKERS.branchSummary);
+		expect(firstProviderInput).toContain(LEGACY_EXECUTION_MARKERS.tail);
+		expect(firstProviderInput).not.toContain(LEGACY_EXECUTION_MARKERS.abandonedBranch);
+		expect(firstProviderInput).not.toContain(LEGACY_EXECUTION_MARKERS.pruned);
+		expect(firstProviderInput).not.toContain(LEGACY_EXECUTION_MARKERS.hiddenBash);
+		expect(firstProviderInput).not.toContain(LEGACY_EXECUTION_MARKERS.hiddenCustom);
+		const migrationStderr = activeProcess.stderr;
+
+		await expect(activeProcess.close()).resolves.toBe(0);
+		activeProcess = startInstalledCli(artifact.binaryPath, fixture, isolatedEnv, {
+			extraArgs: ["--extension", extension.path, "--session", migratedSessionPath],
+		});
+		const resumedState = await activeProcess.request("installed-migration-resumed-state", "get_state");
+		expect(readSessionFile(resumedState)).toBe(migratedSessionPath);
+		expect(readSessionId(resumedState)).toBe(migratedSessionId);
+		await promptInstalledTurn(activeProcess, "installed-migrated-second", "installed-migrated-second");
+		expect(providerServer.requests).toHaveLength(2);
+		expect(providerServer.requests[1]?.rawBody).toContain("Installed migrated first response.");
+
+		expect(await readFile(legacySession.sourcePath, "utf8")).toBe(legacySession.content);
+		expect(
+			(await readdir(fixture.conversationDir)).filter((name) => name.endsWith(".conversation.jsonl")),
+		).toHaveLength(1);
+		const migratedContent = await readFile(migratedSessionPath, "utf8");
 		expect(migratedContent).toContain("vetta.legacy_agent_message");
 		expect(migratedContent).toContain('"role":"bashExecution"');
-		expect(activeProcess.stderr).toContain("sessionMigration=migrated");
+		expect(migratedContent).toContain("installed-migrated-first");
+		expect(migratedContent).toContain("installed-migrated-second");
+		const contextObservations = await readLegacyExecutionContextObservations(extension);
+		expect(contextObservations.map(({ call }) => call)).toEqual([1, 1]);
+		expect(contextObservations[0]?.identities).toEqual(
+			expect.arrayContaining([
+				"compactionSummary",
+				"bashExecution",
+				"custom:legacy-visible-context",
+				"custom:prompt_resource_reference",
+				"branchSummary",
+			]),
+		);
+		expect(contextObservations[0]?.observed).toContain(LEGACY_EXECUTION_MARKERS.hiddenBash);
+		expect(contextObservations[0]?.observed).toContain(LEGACY_EXECUTION_MARKERS.hiddenCustom);
+		expect(migrationStderr).toContain("sessionMigration=migrated");
 		await expect(activeProcess.close()).resolves.toBe(0);
 		activeProcess = undefined;
 	}, 120_000);

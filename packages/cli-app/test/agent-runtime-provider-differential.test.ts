@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
+import { readdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
@@ -11,10 +11,17 @@ import {
 	createAgentRpcFixture,
 	type RpcFrame,
 	readSessionFile,
+	readSessionId,
 	type StartAgentRpcOptions,
 	startAgentRpc,
 	type TestAgentRuntimeBackend,
 } from "./support/agent-rpc-test-process.js";
+import {
+	LEGACY_EXECUTION_MARKERS,
+	readLegacyExecutionContextObservations,
+	writeLegacyExecutionContextExtension,
+	writeLegacyExecutionSessionFixture,
+} from "./support/legacy-session-execution-fixture.js";
 import {
 	type OpenAiResponsesTestServer,
 	type ProviderRequest,
@@ -466,6 +473,130 @@ describe("Agent Runtime Provider differential", () => {
 		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	}, 40_000);
 
+	it("continues a migrated official Legacy session through Provider calls and a process restart", async () => {
+		const observations = await runForBackends(
+			async ({ backend, process, server, fixture }) => {
+				const sourceContent = await readFile(
+					join(fixture.conversationDir, "legacy-execution-source.jsonl"),
+					"utf8",
+				);
+				const initialState = await process.request("legacy-execution-state-before", "get_state");
+				const sessionPath = readSessionFile(initialState);
+				const sessionId = readSessionId(initialState);
+
+				let mark = process.mark();
+				await process.request("legacy-execution-first", "prompt", { message: "continue-migrated-legacy-first" });
+				await process.waitFor((frame) => frame.type === "agent_end", mark);
+				await process.close();
+
+				const migratedTargetsBeforeRestart = await listMigratedTargets(fixture);
+				const resumed = startAgentRpc(executable, fixture, {
+					backend,
+					extraArgs: [
+						"--extension",
+						join(fixture.root, "legacy-execution-context-extension.ts"),
+						"--session",
+						sessionPath,
+					],
+				});
+				let resumedState: RpcFrame;
+				try {
+					resumedState = await resumed.request("legacy-execution-state-resumed", "get_state");
+					mark = resumed.mark();
+					await resumed.request("legacy-execution-second", "prompt", {
+						message: "continue-migrated-legacy-second",
+					});
+					await resumed.waitFor((frame) => frame.type === "agent_end", mark);
+				} finally {
+					await resumed.close();
+				}
+
+				const persistedContent = await readFile(sessionPath, "utf8");
+				const contextObservations = await readLegacyExecutionContextObservations({
+					observationPath: join(fixture.root, "legacy-execution-context-observations.jsonl"),
+					path: join(fixture.root, "legacy-execution-context-extension.ts"),
+				});
+				const providerInputs = server.requests.map(({ body }) => normalizeProviderValue(body.input, fixture));
+				const firstProviderInput = JSON.stringify(server.requests[0]?.body.input);
+				const migratedTargetsAfterRestart = await listMigratedTargets(fixture);
+
+				return {
+					contextCallCounts: contextObservations.map(({ call }) => call),
+					contextIdentities: contextObservations.map(({ identities }) => identities),
+					contextObserved: contextObservations.map(({ observed }) => observed),
+					firstProviderBoundary: {
+						containsAbandonedBranch: firstProviderInput.includes(LEGACY_EXECUTION_MARKERS.abandonedBranch),
+						containsBranchSummary: firstProviderInput.includes(LEGACY_EXECUTION_MARKERS.branchSummary),
+						containsCompactionSummary: firstProviderInput.includes(LEGACY_EXECUTION_MARKERS.compactionSummary),
+						containsHiddenBash: firstProviderInput.includes(LEGACY_EXECUTION_MARKERS.hiddenBash),
+						containsHiddenCustom: firstProviderInput.includes(LEGACY_EXECUTION_MARKERS.hiddenCustom),
+						containsPrunedHistory: firstProviderInput.includes(LEGACY_EXECUTION_MARKERS.pruned),
+						containsTail: firstProviderInput.includes(LEGACY_EXECUTION_MARKERS.tail),
+						containsVisibleBash: firstProviderInput.includes(LEGACY_EXECUTION_MARKERS.visibleBash),
+						containsVisibleCustom: firstProviderInput.includes(LEGACY_EXECUTION_MARKERS.visibleCustom),
+					},
+					migration: {
+						migratedTargetCountValid:
+							backend === "legacy"
+								? migratedTargetsBeforeRestart.length === 0 && migratedTargetsAfterRestart.length === 0
+								: migratedTargetsBeforeRestart.length === 1 && migratedTargetsAfterRestart.length === 1,
+						runtimeDecisionValid: hasExpectedLegacyExecutionRuntimeState(initialState, backend),
+						sourceUnchanged:
+							backend === "legacy" ||
+							(await readFile(join(fixture.conversationDir, "legacy-execution-source.jsonl"), "utf8")) ===
+								sourceContent,
+					},
+					persistence: describeContinuedConversation(persistedContent),
+					providerInputs,
+					resumedIdentityStable:
+						readSessionFile(resumedState) === sessionPath && readSessionId(resumedState) === sessionId,
+				};
+			},
+			(request) => {
+				if (request.rawBody.includes("continue-migrated-legacy-second")) {
+					return { kind: "events", events: textResponseEvents("Migrated Legacy second response.") };
+				}
+				return { kind: "events", events: textResponseEvents("Migrated Legacy first response.") };
+			},
+			async (fixture) => {
+				const session = await writeLegacyExecutionSessionFixture(fixture);
+				const extension = await writeLegacyExecutionContextExtension(fixture);
+				return { extraArgs: ["--extension", extension.path, "--session", session.sourcePath] };
+			},
+		);
+
+		expect(observations.legacy).toMatchObject({
+			contextCallCounts: [1, 1],
+			firstProviderBoundary: {
+				containsAbandonedBranch: false,
+				containsBranchSummary: true,
+				containsCompactionSummary: true,
+				containsHiddenBash: false,
+				containsHiddenCustom: false,
+				containsPrunedHistory: false,
+				containsTail: true,
+				containsVisibleBash: true,
+				containsVisibleCustom: true,
+			},
+			migration: { migratedTargetCountValid: true, runtimeDecisionValid: true, sourceUnchanged: true },
+			persistence: {
+				activeTailRoles: ["user", "assistant", "user", "assistant"],
+				allParentsResolved: true,
+				activeTailLinked: true,
+			},
+			resumedIdentityStable: true,
+		});
+		expect(observations.legacy.contextIdentities[0]).toContain("compactionSummary");
+		expect(observations.legacy.contextIdentities[0]).toContain("bashExecution");
+		expect(observations.legacy.contextIdentities[0]).toContain("custom:legacy-visible-context");
+		expect(observations.legacy.contextIdentities[0]).toContain("custom:prompt_resource_reference");
+		expect(observations.legacy.contextIdentities[0]).toContain("branchSummary");
+		expect(observations.legacy.contextObserved[0]).toContain(LEGACY_EXECUTION_MARKERS.hiddenBash);
+		expect(observations.legacy.contextObserved[0]).toContain(LEGACY_EXECUTION_MARKERS.hiddenCustom);
+		expect(observations.legacy.contextObserved[0]).not.toContain(LEGACY_EXECUTION_MARKERS.abandonedBranch);
+		expect(observations["greenfield-im"]).toEqual(observations.legacy);
+	}, 40_000);
+
 	it("preserves dynamic image blocking at the final Provider boundary without rewriting history", async () => {
 		const observations = await runForBackends(
 			async ({ process, server, fixture }) => {
@@ -881,4 +1012,81 @@ function readPersistedText(value: unknown): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+async function listMigratedTargets(fixture: AgentRpcFixture): Promise<readonly string[]> {
+	return (await readdir(fixture.conversationDir)).filter((name) => name.endsWith(".conversation.jsonl")).sort();
+}
+
+interface PersistedEntryReference {
+	readonly id: string;
+	readonly parentId: string | null;
+	readonly role?: string;
+}
+
+function describeContinuedConversation(content: string): Readonly<Record<string, unknown>> {
+	const records = content
+		.trim()
+		.split(/\r?\n/u)
+		.map((line) => JSON.parse(line) as unknown);
+	const entries: PersistedEntryReference[] = [];
+	for (const record of records) {
+		if (!isRecord(record)) continue;
+		if (record.recordType === "conversation.import.seed" && Array.isArray(record.entries)) {
+			for (const entry of record.entries) {
+				const reference = readPersistedEntryReference(entry);
+				if (reference) entries.push(reference);
+			}
+			continue;
+		}
+		if (isRecord(record.documentEntry)) {
+			const reference = readPersistedEntryReference(record.documentEntry, readStoredEventRole(record.event));
+			if (reference) entries.push(reference);
+			continue;
+		}
+		const reference = readPersistedEntryReference(record);
+		if (reference) entries.push(reference);
+	}
+	const knownIds = new Set<string>();
+	let allParentsResolved = true;
+	for (const entry of entries) {
+		if (entry.parentId !== null && !knownIds.has(entry.parentId)) allParentsResolved = false;
+		knownIds.add(entry.id);
+	}
+	const messageEntries = entries.filter(
+		(entry): entry is PersistedEntryReference & { readonly role: string } => entry.role !== undefined,
+	);
+	const activeTail = messageEntries.slice(-4);
+	return {
+		activeTailRoles: activeTail.map(({ role }) => role),
+		allParentsResolved,
+		activeTailLinked:
+			activeTail.length === 4 &&
+			activeTail.slice(1).every((entry, index) => entry.parentId === activeTail[index]?.id),
+	};
+}
+
+function readPersistedEntryReference(value: unknown, role?: string): PersistedEntryReference | undefined {
+	if (!isRecord(value) || typeof value.id !== "string") return undefined;
+	const parentId = value.parentId;
+	if (parentId !== null && typeof parentId !== "string") return undefined;
+	const messageRole = role ?? readStoredMessageRole(value.message);
+	return { id: value.id, parentId, ...(messageRole ? { role: messageRole } : {}) };
+}
+
+function readStoredEventRole(value: unknown): string | undefined {
+	if (!isRecord(value) || value.type !== "message.appended") return undefined;
+	return readStoredMessageRole(value.message);
+}
+
+function readStoredMessageRole(value: unknown): string | undefined {
+	if (!isRecord(value) || typeof value.role !== "string") return undefined;
+	return value.role;
+}
+
+function hasExpectedLegacyExecutionRuntimeState(state: RpcFrame, backend: TestAgentRuntimeBackend): boolean {
+	if (!isRecord(state.data) || state.data.runtimeBackend !== backend) return false;
+	if (backend === "legacy") return true;
+	if (!isRecord(state.data.runtimeDecision) || !isRecord(state.data.runtimeDecision.sessionMigration)) return false;
+	return state.data.runtimeDecision.sessionMigration.status === "migrated";
 }
