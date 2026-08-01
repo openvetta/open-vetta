@@ -10,6 +10,7 @@ All notable changes to `@vetta/runtime-tools` are documented in this file.
 
 ### Added
 
+- **可等待的后台命令关闭合同**：`BackgroundCommandService` 新增 `shutdown()`，停止全部运行任务并等待宿主进程退出回调；同步 `dispose()` 兼容入口、任务状态、通知和停止原因保持不变。
 - **Greenfield Coding Tools Feature**：新增 `@vetta/runtime-tools/coding`、`createCodingToolsFeature` 和 TypeBox 驱动的 `current_time` Runtime Tool；包根旧工具兼容导出保持不变。
 - **Coding Tool 注册层**：分离 Runtime Tool 执行定义与 `scope_use`、`category` 暴露元数据，并新增可复用旧新工具差分合同。
 - **Read 行为合同**：新增参数化旧新行为合同，覆盖路径、编码、图片、二进制提示、锚点、截断、自定义 Operations 和取消。

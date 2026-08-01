@@ -170,6 +170,7 @@
 | [160-session-identity-transition-transaction.md](./08-implementation-log/160-session-identity-transition-transaction.md) | Session Identity prepare-before-commit、并发准入、失败恢复与真实 CLI 锁冲突差分 |
 | [161-memory-rollover-transaction-and-mutation-admission.md](./08-implementation-log/161-memory-rollover-transaction-and-mutation-admission.md) | Memory Rollover prepare-before-commit、存储身份续接、同步写准入与树事务静默 |
 | [162-session-capability-command-boundary.md](./08-implementation-log/162-session-capability-command-boundary.md) | Session 可变能力命令控制器、统一写准入、动态 Subagent 绑定与观察者隔离 |
+| [163-session-continuity-contract-matrix.md](./08-implementation-log/163-session-continuity-contract-matrix.md) | Session replacement/continuation 四象限合同、可等待后台静默点与 Greenfield 观察者隔离 |
 
 ## 维护约定
 

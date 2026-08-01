@@ -1361,6 +1361,36 @@ WebSocket。跨进程/CDP/报告边界使用 Zod；产品实现和进程内 Know
 Provider HTTP 失败仍写入 `failures.json` 且 Monitor `filesFailed` 为 0。差分门禁证明 Greenfield 与
 Legacy 当前行为相同，不代表这些既有产品语义已经被重新设计。
 
+### 2.41 Session replacement / continuation 四象限合同
+
+第 163 轮把会话连续性拆成两个不能混同的语义轴，并在真实 Vetta RPC CLI 中分别运行 Legacy 与
+Greenfield：
+
+```text
+identity replacement: new_session
+  -> 旧 Conversation 资源静默
+  -> 新 Todo / Background / ownership identity
+
+storage continuation: memory rollover
+  -> 同一运行 Session 与能力资源继续存在
+  -> Conversation document path / ownership 原子重绑定
+```
+
+合同使用真实 Todo 与 Shell Tool 种下状态。replacement 要求后台进程停止、源锁释放、目标锁持有、目标
+Todo 为空；rollover 要求后台进程继续、Todo 保留、源/目标文件均存在、ownership 转移并只产生一次
+`session_path_changed`。两条路径在 CLI 关闭后都必须等待后台进程和目标锁真正释放。
+
+矩阵发现 Greenfield `BackgroundCommandService.dispose()` 只发出 stop、没有等待宿主进程退出；Session
+随后释放 ownership，Windows fixture 因仍被后台 shell 占用而出现 `EBUSY`。Runtime Tools 现保留同步
+`dispose()` 并新增 `shutdown()` 可等待静默点；Greenfield Session Execution Runtime、Session disposer 和
+Composition 总释放路径逐层等待该 Promise，ownership 只在后台进程退出后释放。
+
+稳定 Active Session 事件转发也补齐逐 listener 异常隔离。该修复只影响观察者故障传播，不改变事件类型、
+顺序或 payload。新增边界均为进程内 TypeScript 合同，没有新增外部 Schema，因此不引入 TypeBox/Zod。
+
+本轮只用 `new_session` 覆盖 replacement 的主路径；真实 `switch_session`、`fork`、目标 Todo 恢复和失败回滚
+仍应作为下一阶段矩阵扩展，不能仅凭单元事务合同认定全部切换路径已经收口。
+
 ## 3. 已实施模块审计
 
 | 模块 | 当前状态 | 与旧行为的差距 | 切换结论 |
@@ -1372,7 +1402,7 @@ Legacy 当前行为相同，不代表这些既有产品语义已经被重新设�
 | `dir_tree` Tool | 独立 Runtime Tool、树模型、fd Operations/Resolver、限制合同和全场景 Profile 差分已通过 | 旧 AgentSession 和生产入口仍使用旧 Tool Factory | 工具模块迁移完成；旧生产入口尚不可删除 |
 | `write` Tool | 独立 Runtime Tool、WriteOperations、必需的宿主 WritePathPolicy、路径/取消/错误合同和全场景 Profile 差分已通过 | 旧 AgentSession 和生产入口仍使用旧 Tool Factory | 工具模块迁移完成；旧生产入口尚不可删除 |
 | `edit` Tool | 独立 Runtime Tool、双模式纯编辑引擎、EditOperations、必需的宿主 EditPathPolicy、22 项差分合同和全场景 Profile 差分已通过 | 旧 AgentSession 和生产入口仍使用旧 Tool Factory | 工具模块迁移完成；旧生产入口尚不可删除 |
-| `bash/shell` Tool | Runtime Definition、Registration、前台执行器、后台协调、独立后台生命周期、task 工具、通知格式、低层 Host Adapter、平台 scope 和过渡 Composition Root 已通过 | 旧 AgentSession 和生产入口仍使用旧工具/Manager | 新 Runtime 工具链迁移完成；旧生产路径尚不可删除 |
+| `bash/shell` Tool | Runtime Definition、Registration、前台执行器、后台协调、独立后台生命周期、task 工具、通知格式、低层 Host Adapter、平台 scope 和过渡 Composition Root 已通过；后台 Service 具备可等待 `shutdown()`，Greenfield Session 释放会等待真实进程退出 | 旧 AgentSession 仍使用旧工具/Manager；同步 `dispose()` 兼容入口仍保留 | 新 Runtime 工具链与异步关闭合同已完成；旧生产兼容路径尚不可删除 |
 | 宿主可执行文件解析 | Runtime Port、本地 PATH/managed-bin Adapter、grep/find 注入合同、旧 ensureTool 适配、网络/归档合同和 cli-app Composition Root 已通过 | 真实 GitHub 网络、最终独立可执行发布物和完整 Tool Profile 迁移尚未完成；包根兼容导出必须继续保留 | 新 Profile 可并行验证；旧宿主仍不可切换 |
 | Coding Tools Feature | 只依赖版本化 Catalog，按 Model Call 动态解析 scope、agent mode、explicit 激活和 requires/capabilities，使用稳定 binding 和原子 Catalog 执行仲裁，并支持 deactivate/revoke/unregister；产品工具按 Session cwd 创建，文档/OCR/progress 已由 Runtime Tools 原生拥有，模型顺序由通用 `modelOrder` 稳定物化；Desktop 与 CLI/RPC/IM 源码 Provider Frame 已精确差分，安装产物 `im-claw` Provider Frame 与有序 Tool Surface 也已验证 | 安装产物 Greenfield CLI 仍只支持 `im-claw`；默认 selector 尚未切换 | 模型调用级工具面与 Runtime-native 所有权已闭合；进入默认切换准备度审计 |
 | Composition Root 与依赖图 | 产品装配已归属 `@vetta/coding-agent/composition`；CLI/Desktop 直接消费；`runtime-composition` 无包装兼容转发；Runtime 子路径与旧根兼容面采用分段构建；manifest truth 和 forwarding-only 守卫已接入 | `runtime-tools`、`runtime-storage` 包根仍需为外部消费者保留 Coding Agent 兼容转发；默认 selector 仍是 Legacy | 产品所有权和 clean build 顺序已收口；兼容根入口只能在外部迁移窗口后删除 |
@@ -1381,7 +1411,7 @@ Legacy 当前行为相同，不代表这些既有产品语义已经被重新设�
 | `AgentSession` | 新状态机、活动 Turn 输入队列、无伪 user message 的 continue、显式 resume 与同 Turn 持久化身份重绑定已实现 | 尚缺旧外围能力的 Greenfield 实现 | 内核 Turn/恢复语义已具备；生产入口不可切换 |
 | Turn Pipeline | 固定阶段、模型调用请求—应答检查点、持久化压缩提交、跨 Conversation 续接及成功/失败 finalization、非持久化 observation、输入队列、continue、recovery、独立 Turn Model Binding 和 Session-local 运行期 Context 串行持久化已实现 | 完整生产 Composition Root 尚未接入 | 不可切换 |
 | `AgentCoreTurnEngine` | 模型和 Tool Loop 闭环、动态 Model Call Frame、完整观察事件、输入队列、Context checkpoint 桥接和 Turn model binding 已接入真实 Greenfield Composition 与 RuntimeHost | 默认生产选择仍是 Legacy | 内核执行与候选宿主接线完成；等待整体默认切换门禁 |
-| Greenfield Session Backend | 独立门面、可重绑定投影、显式 resume、Session-local Todo/Hook/Context/Subagent Runtime，以及完整 RuntimeHost Core/外围 Ports 均已交付 | Legacy 会话兼容与默认生产路由仍待整体迁移 | Assembly Ready，并已进入 Desktop/CLI/IM opt-in 验证 |
+| Greenfield Session Backend | 独立门面、可重绑定投影、显式 resume、Session-local Todo/Hook/Context/Subagent Runtime，以及完整 RuntimeHost Core/外围 Ports 均已交付；真实 CLI 已验证 `new_session` replacement 与 memory rollover continuation 的 Todo、后台进程、路径和 ownership 合同 | `switch_session` / `fork` 的同级真实 CLI 资源矩阵仍待补齐；Legacy 兼容入口仍保留 | Assembly 与两类主连续性语义 Ready；完成剩余 replacement 路径后再评估删除兼容实现 |
 | Runtime Snapshot | 编译、冻结、lease、原子交换和动态 Model Call Provider 已实现 | Coding Profile 的完整默认能力与 scope 尚未装配 | 不可替代旧工具注册 |
 | Conversation Repository | V2 create/load/append/save、树形 Document 读写、活动分支、fork、跨实例文件锁、跨 Conversation seed/transfer/continued 事务、Legacy importer，以及带来源证明、拒绝覆盖的显式 Legacy→V2 迁移已实现 | Legacy/V1 历史结构写命令继续只读；迁移不自动触发；跨文件崩溃 orphan reconciliation 与模型配置异步持久化尚未实现 | 已具备安全显式迁移能力；不可直接替代全部旧会话写路径 |
 | Context Strategy | Session-local Runtime 已接入原生摘要持久化、重开投影、外部/同 Turn threshold/prefire、逐模型调用 microcompact、error/silent overflow 单次恢复、手动/Extension 压缩、Pre/PostCompact 和 usage 状态；Coding Agent Memory Orchestrator 已接入冻结 Prompt、既有 Tool、70% 策略、自动/主动 flush、通用 rollover、JOURNAL 与 rollover 后置 finalization | 默认生产 RPC/IM 尚未接入 Greenfield Controller | memory-mode 内部链路可并行验证；生产宿主仍不可切换 |
@@ -1389,7 +1419,7 @@ Legacy 当前行为相同，不代表这些既有产品语义已经被重新设�
 | Skill / Knowledge | Session 级 Skill/Scene Prompt、Session-local invoke_skill、Knowledge Tool Source 与 kb-processing 写能力已进入动态组合；Skill 根目录运行中新增、内容修改、删除和 Agent Mode 变化均在下一 Model Call 生效且不重建 Session；标准安装产物已复验项目 Skill 的新增、修改和删除；kb_write_page 已通过 `KnowledgePageWriterPort` 成为原生 Runtime Tool | 默认 selector 和旧公开消费者尚未完成切换审计 | 动态能力边界已闭合；暂不删除 Legacy 来源或切换默认入口 |
 | Subagent | Session-local Runtime、Explorer/Workflow、Hook、Todo、增量状态日志、恢复、通知去重及父 MCP Binding 投影已实现 | 默认 Legacy Backend 尚未切换 | Greenfield 能力已完整接入；随整体宿主切换启用 |
 | Ecosystem Hook Runtime | 每 Session 唯一实例已贯通 Prompt、最终动态 Tool Surface、Stop、SubagentStart/SubagentStop、运行期 Context、自动/手动 Pre/PostCompact 和 dispose | PermissionRequest Hook 与宿主切换原因仍需纳入完整生产 Profile 差分 | 并行组合已验证；默认生产入口不变 |
-| Desktop / CLI / RPC / IM Adapter | RuntimeHost 稳定 Ports、Greenfield RPC/IM Adapter、显式 Runtime selector、requested/effective/fallback 决策观察、IM Sidecar、Desktop Backend Pool、真实进程 Canary、独立安装产物和跨进程恢复均已完成；源码真实 Tool Loop 的完整 SessionEvent、宿主重启恢复和关闭所有权已差分；安装产物已验证 `im-claw` Provider/RPC 合同、跨 OS 进程恢复、动态 Skill/MCP 与 owner lock 清理 | 默认 selector 仍是 Legacy；公开 API 和旧存储消费者尚未完成最终切换审计 | Greenfield 可显式启用并稳定诊断回退；进入默认切换准备度审计 |
+| Desktop / CLI / RPC / IM Adapter | RuntimeHost 稳定 Ports、Greenfield RPC/IM Adapter、显式 Runtime selector、requested/effective/fallback 决策观察、IM Sidecar、Desktop Backend Pool、真实进程 Canary、独立安装产物和跨进程恢复均已完成；真实 CLI 四象限合同已覆盖 `new_session` 与 memory rollover 的资源连续性和最终关闭 | `switch_session` / `fork` 的真实资源矩阵、公开 API 和旧存储消费者仍需最终审计 | Greenfield 主路径已具备差分证据；继续补齐剩余 replacement 操作，不提前删除 Legacy |
 | Runtime 启动与选择 | 中性 Bootstrap、显式 selector 决策合同、三类产品入口 stderr 诊断及 Greenfield 禁用 Legacy 启动符号守卫已完成 | Legacy 仍是默认值；selector 边界继续持有兼容回退实现 | 控制面已收口；默认值只能在剩余依赖审计清零后单独切换 |
 
 上述差距目前没有影响生产，因为旧入口仍在使用旧实现。但它们是切换阻断项，不能因为新模块
@@ -1425,16 +1455,14 @@ side effects
 
 ## 5. 下一步
 
-Knowledge Processing 的 Session、共享 Writer、轮级副作用、真实 Desktop 生命周期和 Legacy/Greenfield
-产品差分已经闭合，当前阻断差异为 0。下一阶段不再扩充 Runtime Core：
+第 163 轮已闭合 `new_session` replacement 与 memory rollover continuation 的真实 CLI 四象限合同，并修复
+Greenfield 可等待资源关闭缺口。下一阶段继续收敛同一会话边界，不扩充 Runtime Core：
 
-1. 将 Runtime selector 默认切换作为独立阶段；只改变默认决策，不删除 Legacy，也不修改持久化格式。
-2. 保留显式 `legacy` 回退和 requested/effective/fallback 诊断，并覆盖未配置、显式 Legacy、显式
-   Greenfield 三条真实启动合同。
-3. 默认切换后复跑本轮真实 Knowledge 差分、标准安装产物和 Desktop/CLI/RPC/IM Provider Frame 门禁；
-   出现新增差异时回退默认值。
-4. Provider/批次直接抛错的对账和 `filesFailed` 统计统一继续作为独立功能决策，不夹带在默认切换中。
-5. 根入口与 Runtime 包兼容转发继续遵守外部迁移窗口，不与默认切换捆绑删除。
+1. 把 replacement 轴扩展到真实 CLI `switch_session` 与 `fork`，同时运行 Legacy/Greenfield。
+2. 验证目标 Todo 按目标分支恢复、源后台任务静默、目标 ownership 接管、失败时源资源与 identity 回滚。
+3. 覆盖切换排队期间 Prompt、Todo、Background 和 Subagent 命令的目标 identity 归属，避免只验证最终状态。
+4. 全部差分通过后再合并重复的 Legacy-only 资源测试；不得先删 Oracle 再补新测试。
+5. Legacy 入口、持久化格式、Tool/Prompt/Skill/MCP 功能和 selector 决策不与该阶段捆绑修改。
 
-TypeBox/Zod 只用于外部 RPC、配置和持久化反序列化边界；生产 Profile 比较使用已经类型化的 Model Call
-Frame 与 Session 合同，不为内部对象重复增加 Schema。
+TypeBox/Zod 继续只用于外部 RPC、配置和持久化反序列化边界；Session 生命周期与资源静默点是已经类型化的
+进程内合同，不为其重复增加 Schema。

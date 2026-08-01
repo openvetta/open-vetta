@@ -242,5 +242,18 @@ export function createBackgroundCommandService(host: BackgroundCommandHost): Bac
 				if (!task.ended) stop(id, "dispose");
 			}
 		},
+		async shutdown() {
+			const completions: Promise<void>[] = [];
+			for (const [id, task] of tasks) {
+				if (task.ended) continue;
+				completions.push(
+					new Promise((resolve) => {
+						task.waiters.push(resolve);
+					}),
+				);
+				stop(id, "dispose");
+			}
+			await Promise.all(completions);
+		},
 	};
 }

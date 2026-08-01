@@ -32,6 +32,7 @@ import {
 } from "./support/openai-responses-test-server.js";
 
 const BACKENDS = ["legacy", "greenfield-im"] as const satisfies readonly TestAgentRuntimeBackend[];
+const rolloverTriggeredFixtures = new Set<string>();
 let executable: AgentRpcExecutable;
 
 beforeAll(async () => {
@@ -232,95 +233,123 @@ describe("Agent Runtime Provider differential", () => {
 		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	});
 
-	it("preserves memory rollover identity, session path and ownership release", async () => {
-		const observations = await runForBackends(
-			async ({ backend, process, server }) => {
-				const initialState = await process.request("state-before-rollover", "get_state");
-				const sourcePath = readSessionFile(initialState);
+	it("enforces the replacement and storage-continuation resource matrix", async () => {
+		const replacement = await runForBackends(
+			async ({ backend, process, server, fixture }) => {
+				const sourcePath = readSessionFile(await process.request("replacement-source", "get_state"));
+				const pid = await seedSessionResources(process, fixture, "replacement");
+				const transitionMark = process.mark();
 
-				let mark = process.mark();
-				await process.request("prompt-rollover-1", "prompt", { message: "First request" });
-				await process.waitFor((frame) => frame.type === "agent_end", mark);
+				await process.request("replacement-new", "new_session");
+				const targetState = await process.request("replacement-target", "get_state");
+				const targetPath = readSessionFile(targetState);
+				const inspectMark = process.mark();
+				await process.request("replacement-inspect", "prompt", { message: "inspect-replacement-todos" });
+				await process.waitFor((frame) => frame.type === "agent_end", inspectMark, 10_000);
 
-				mark = process.mark();
-				await process.request("prompt-rollover-2", "prompt", { message: "Second request" });
-				await process
-					.waitFor((frame) => frame.type === "agent_end", mark, 10_000)
-					.catch((error: unknown) => {
-						throw new Error(
-							JSON.stringify({
-								backend,
-								error: error instanceof Error ? error.message : String(error),
-								frames: process.framesSince(mark),
-								requests: describeProviderRequests(server),
-							}),
-						);
-					});
-				const pathChange = await process
-					.waitFor((frame) => frame.type === "session_path_changed" && typeof frame.to === "string", mark, 5_000)
-					.catch((error: unknown) => {
-						throw new Error(
-							JSON.stringify({
-								backend,
-								error: error instanceof Error ? error.message : String(error),
-								frames: process.framesSince(mark),
-								requests: describeProviderRequests(server),
-							}),
-						);
-					});
+				const sourceLock = persistentSessionLockPath(backend, sourcePath);
+				const targetLock = persistentSessionLockPath(backend, targetPath);
+				const inspection = server.requests.at(-1)?.rawBody ?? "";
+				const backgroundStopped = await waitForProcessExit(pid);
+				const observation = {
+					backgroundStopped,
+					pathChanged: targetPath !== sourcePath,
+					pathChangeCount: process
+						.framesSince(transitionMark)
+						.filter(({ type }) => type === "session_path_changed").length,
+					sourceOwnershipReleased: !existsSync(sourceLock),
+					targetOwnershipHeld: existsSync(targetLock),
+					todoState: inspection.includes("call_inspect_todo") && inspection.includes("No todo items."),
+				};
+
+				await process.close();
+				await waitForProcessExit(pid);
+				return { ...observation, targetOwnershipReleased: !existsSync(targetLock) };
+			},
+			(request, _index, fixture) => sessionContinuityResponse(request, fixture, "replacement"),
+		);
+
+		const continuation = await runForBackends(
+			async ({ backend, process, server, fixture }) => {
+				const sourcePath = readSessionFile(await process.request("continuation-source", "get_state"));
+				const pid = await seedSessionResources(process, fixture, "continuation");
+				const transitionMark = process.mark();
+
+				await process.request("continuation-rollover", "prompt", { message: "trigger-continuation-rollover" });
+				await process.waitFor((frame) => frame.type === "agent_end", transitionMark, 10_000);
+				const pathChange = await process.waitFor(
+					(frame) => frame.type === "session_path_changed" && typeof frame.to === "string",
+					transitionMark,
+					5_000,
+				);
 				const targetPath = pathChange.to;
 				if (typeof targetPath !== "string") throw new Error("Expected rollover target path");
-				const finalState = await process.request("state-after-rollover", "get_state");
-
-				expect(readSessionFile(finalState)).toBe(targetPath);
-				expect(targetPath).not.toBe(sourcePath);
-				expect(existsSync(sourcePath)).toBe(true);
-				expect(existsSync(targetPath)).toBe(true);
+				const targetState = await process.request("continuation-target", "get_state");
+				const sourceLock = persistentSessionLockPath(backend, sourcePath);
 				const targetLock = persistentSessionLockPath(backend, targetPath);
-				expect(existsSync(targetLock)).toBe(true);
+				const transitionFrames = process.framesSince(transitionMark);
+				const transitionOwnership = {
+					sourceOwnershipReleased: !existsSync(sourceLock),
+					targetOwnershipHeld: existsSync(targetLock),
+				};
+				const inspectMark = process.mark();
+				await process.request("continuation-inspect", "prompt", { message: "inspect-continuation-todos" });
+				await process.waitFor((frame) => frame.type === "agent_end", inspectMark, 10_000);
 
-				await expect(process.close()).resolves.toBe(0);
-				expect(existsSync(targetLock)).toBe(false);
+				const finalPath = readSessionFile(await process.request("continuation-final", "get_state"));
+				const finalLock = persistentSessionLockPath(backend, finalPath);
+				const inspection = server.requests.at(-1)?.rawBody ?? "";
+				const observation = {
+					backgroundPreserved: isProcessAlive(pid),
+					lifecycle: transitionFrames
+						.filter(({ type }) => ["agent_start", "turn_start", "turn_end", "agent_end"].includes(type))
+						.map(({ type }) => type),
+					pathChanged: readSessionFile(targetState) === targetPath && targetPath !== sourcePath,
+					pathChangeCount: transitionFrames.filter(({ type }) => type === "session_path_changed").length,
+					sourceDocumentPreserved: existsSync(sourcePath),
+					targetDocumentCreated: existsSync(targetPath),
+					...transitionOwnership,
+					todoState: inspection.includes("call_inspect_todo") && inspection.includes("continuity todo"),
+				};
+
+				await process.close();
 				return {
-					pathChangeCount: process.framesSince(mark).filter(({ type }) => type === "session_path_changed").length,
-					stateFollowsTarget: readSessionFile(finalState) === targetPath,
-					lockReleased: !existsSync(targetLock),
+					...observation,
+					backgroundStoppedOnClose: await waitForProcessExit(pid),
+					targetOwnershipReleased: !existsSync(finalLock),
 				};
 			},
-			({ body }) => {
-				const requestText = JSON.stringify(body.input);
-				if (requestText.includes("You maintain a concise long-term MEMORY")) {
-					return { kind: "events", events: textResponseEvents("NONE") };
-				}
-				if (requestText.includes("You are a context summarization assistant")) {
-					return {
-						kind: "events",
-						events: textResponseEvents("<summary>provider rollover summary</summary>"),
-					};
-				}
-				if (requestText.includes("Second request")) {
-					return {
-						kind: "events",
-						events: textResponseEvents("Second response.", { inputTokens: 5_999, outputTokens: 1 }),
-					};
-				}
-				return {
-					kind: "events",
-					events: textResponseEvents("First response.", { inputTokens: 999, outputTokens: 1 }),
-				};
-			},
+			(request, _index, fixture) => sessionContinuityResponse(request, fixture, "continuation"),
 			(fixture) => ({
 				extraArgs: ["--memory-mode", "--memory-file", join(fixture.workspace, "MEMORY.md")],
 			}),
 		);
 
-		expect(observations.legacy).toEqual({
-			pathChangeCount: 1,
-			stateFollowsTarget: true,
-			lockReleased: true,
+		expect(replacement.legacy).toEqual({
+			backgroundStopped: true,
+			pathChanged: true,
+			pathChangeCount: 0,
+			sourceOwnershipReleased: true,
+			targetOwnershipHeld: true,
+			targetOwnershipReleased: true,
+			todoState: true,
 		});
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
-	}, 30_000);
+		expect(replacement["greenfield-im"]).toEqual(replacement.legacy);
+		expect(continuation.legacy).toEqual({
+			backgroundPreserved: true,
+			backgroundStoppedOnClose: true,
+			lifecycle: ["agent_start", "turn_start", "turn_end", "agent_end"],
+			pathChanged: true,
+			pathChangeCount: 1,
+			sourceDocumentPreserved: true,
+			sourceOwnershipReleased: true,
+			targetDocumentCreated: true,
+			targetOwnershipHeld: true,
+			targetOwnershipReleased: true,
+			todoState: true,
+		});
+		expect(continuation["greenfield-im"]).toEqual(continuation.legacy);
+	}, 60_000);
 
 	it("preserves Extension context identity, once-per-call execution and transient Tool Loop transforms", async () => {
 		const observations = await runForBackends(
@@ -761,14 +790,139 @@ function persistentSessionLockPath(backend: TestAgentRuntimeBackend, sessionPath
 	return backend === "legacy" ? `${sessionPath}.lock` : `${sessionPath}.owner.lock`;
 }
 
-function describeProviderRequests(server: OpenAiResponsesTestServer): readonly string[] {
-	return server.requests.map(({ rawBody }) => {
-		if (rawBody.includes("You maintain a concise long-term MEMORY")) return "memory-flush";
-		if (rawBody.includes("You are a context summarization assistant")) return "compaction-summary";
-		if (rawBody.includes("Second request")) return "second-turn";
-		if (rawBody.includes("First request")) return "first-turn";
-		return "other";
-	});
+async function seedSessionResources(
+	process: AgentRpcProcess,
+	fixture: AgentRpcFixture,
+	semantic: "replacement" | "continuation",
+): Promise<number> {
+	const mark = process.mark();
+	await process.request(`${semantic}-seed`, "prompt", { message: `seed-${semantic}-resources` });
+	await process.waitFor((frame) => frame.type === "agent_end", mark, 10_000);
+	return waitForPid(join(fixture.workspace, `${semantic}-background.pid`));
+}
+
+function sessionContinuityResponse(
+	request: ProviderRequestRecord,
+	fixture: AgentRpcFixture,
+	semantic: "replacement" | "continuation",
+): { readonly kind: "events"; readonly events: readonly unknown[] } {
+	const requestText = JSON.stringify(request.body.input);
+	if (requestText.includes("You maintain a concise long-term MEMORY")) {
+		return { kind: "events", events: textResponseEvents("NONE") };
+	}
+	if (requestText.includes("You are a context summarization assistant")) {
+		return {
+			kind: "events",
+			events: textResponseEvents("<summary>provider rollover summary</summary>"),
+		};
+	}
+	if (request.rawBody.includes(`inspect-${semantic}-todos`)) {
+		return request.rawBody.includes("call_inspect_todo")
+			? { kind: "events", events: textResponseEvents("Todo state inspected.") }
+			: {
+					kind: "events",
+					events: toolCallResponseEvents(
+						"todo",
+						{ action: "list", description: "Inspect session continuity todo state" },
+						{ callId: "call_inspect_todo", itemId: "fc_inspect_todo" },
+					),
+				};
+	}
+	if (semantic === "continuation" && request.rawBody.includes("trigger-continuation-rollover")) {
+		if (rolloverTriggeredFixtures.has(fixture.root)) {
+			return { kind: "events", events: textResponseEvents("Continuation resumed after rollover.") };
+		}
+		rolloverTriggeredFixtures.add(fixture.root);
+		return {
+			kind: "events",
+			events: textResponseEvents("Continuation rollover response.", { inputTokens: 5_999, outputTokens: 1 }),
+		};
+	}
+	if (request.rawBody.includes(`seed-${semantic}-resources`)) {
+		if (!request.rawBody.includes("call_seed_todo")) {
+			return {
+				kind: "events",
+				events: toolCallResponseEvents(
+					"todo",
+					{ action: "create", description: "Seed session continuity todo state", items: ["continuity todo"] },
+					{ callId: "call_seed_todo", itemId: "fc_seed_todo" },
+				),
+			};
+		}
+		if (!request.rawBody.includes("call_seed_todo_done")) {
+			return {
+				kind: "events",
+				events: toolCallResponseEvents(
+					"todo",
+					{ action: "update", description: "Complete session continuity todo state", id: 1, status: "done" },
+					{ callId: "call_seed_todo_done", itemId: "fc_seed_todo_done" },
+				),
+			};
+		}
+		if (!request.rawBody.includes("call_seed_shell")) {
+			return {
+				kind: "events",
+				events: toolCallResponseEvents(
+					process.platform === "win32" ? "shell" : "bash",
+					{
+						command: heldProcessCommand(`${semantic}-background.pid`),
+						run_in_background: true,
+					},
+					{ callId: "call_seed_shell", itemId: "fc_seed_shell" },
+				),
+			};
+		}
+		return {
+			kind: "events",
+			events: textResponseEvents("Session resources seeded.", {
+				inputTokens: semantic === "continuation" ? 999 : 10,
+				outputTokens: 1,
+			}),
+		};
+	}
+	return { kind: "events", events: textResponseEvents(`Unexpected ${semantic} request for ${fixture.workspace}`) };
+}
+
+function heldProcessCommand(relativePidPath: string): string {
+	if (process.platform === "win32") {
+		return `$PID | Set-Content -LiteralPath '${relativePidPath}' -Encoding ascii; Start-Sleep -Seconds 60`;
+	}
+	return `printf '%s' "$$" > '${relativePidPath}'; sleep 60`;
+}
+
+async function waitForPid(path: string): Promise<number> {
+	const deadline = Date.now() + 5_000;
+	while (Date.now() < deadline) {
+		try {
+			const pid = Number.parseInt((await readFile(path, "utf8")).trim(), 10);
+			if (Number.isSafeInteger(pid) && pid > 0) return pid;
+		} catch {
+			// The command has not written its PID yet.
+		}
+		await new Promise((resolve) => setTimeout(resolve, 25));
+	}
+	throw new Error(`Timed out waiting for background PID file: ${path}`);
+}
+
+async function waitForProcessExit(pid: number): Promise<boolean> {
+	const deadline = Date.now() + 5_000;
+	while (Date.now() < deadline) {
+		if (!isProcessAlive(pid)) {
+			await new Promise((resolve) => setTimeout(resolve, 100));
+			return true;
+		}
+		await new Promise((resolve) => setTimeout(resolve, 25));
+	}
+	return !isProcessAlive(pid);
+}
+
+function isProcessAlive(pid: number): boolean {
+	try {
+		process.kill(pid, 0);
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 function observableProviderRequest(body: ProviderRequest, fixture: AgentRpcFixture): Readonly<Record<string, unknown>> {

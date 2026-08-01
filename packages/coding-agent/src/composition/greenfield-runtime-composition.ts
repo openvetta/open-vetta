@@ -1134,7 +1134,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 							}
 							mcpRefreshObservedSessions.delete(activeSessionId);
 							mcpPromptRefreshReuseSessions.delete(activeSessionId);
-							activeExecutionRuntime.dispose();
+							await activeExecutionRuntime.dispose();
 							capabilityCompositions.delete(capabilities);
 							todoRuntimes.delete(todoRuntime);
 							await todoRuntime.dispose();
@@ -1164,7 +1164,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 				}
 				mcpRefreshObservedSessions.delete(activeSessionId);
 				mcpPromptRefreshReuseSessions.delete(activeSessionId);
-				executionRuntime?.dispose();
+				await executionRuntime?.dispose();
 				await releaseOwnership(activeOwnership);
 				throw error;
 			}
@@ -1268,6 +1268,9 @@ async function createGreenfieldRuntimeCompositionInternal(
 			disposed = true;
 			for (const contextRuntime of contextRuntimes) contextRuntime.dispose();
 			for (const memoryRuntime of memoryRuntimes) memoryRuntime.dispose();
+			const executionResults = await Promise.allSettled(
+				[...executionRuntimes.values()].map((runtime) => runtime.dispose()),
+			);
 			const capabilityResults = await Promise.allSettled([
 				...[...hookSessionDisposers].map((disposeHookSession) => disposeHookSession()),
 				...[...todoRuntimes].map((runtime) => runtime.dispose()),
@@ -1287,7 +1290,6 @@ async function createGreenfieldRuntimeCompositionInternal(
 			hookSessionDisposers.clear();
 			mcpControllers.clear();
 			pluginMcpRuntimes.clear();
-			for (const executionRuntime of executionRuntimes.values()) executionRuntime.dispose();
 			executionRuntimes.clear();
 			configurationStates.clear();
 			ownershipBindings.clear();
@@ -1295,7 +1297,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 			await repository.close();
 			mcpSynchronizer?.dispose();
 			tools.dispose();
-			const errors = capabilityResults
+			const errors = [...executionResults, ...capabilityResults]
 				.filter((result): result is PromiseRejectedResult => result.status === "rejected")
 				.map(({ reason }) => reason);
 			if (errors.length > 0) {

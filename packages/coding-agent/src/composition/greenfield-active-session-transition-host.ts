@@ -262,7 +262,13 @@ export class CodingAgentGreenfieldActiveSessionHost {
 	private bindActiveEvents(): void {
 		this.activeEventUnsubscribe = this.activeSession.subscribe((event) => {
 			if (this.suppressActiveEvents) return;
-			for (const listener of this.listeners) listener(event);
+			for (const listener of this.listeners) {
+				try {
+					listener(event);
+				} catch (error) {
+					console.warn("[GreenfieldActiveSessionHost] Event listener failed", error);
+				}
+			}
 		});
 	}
 

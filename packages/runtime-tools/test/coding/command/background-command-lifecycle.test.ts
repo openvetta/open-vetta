@@ -57,6 +57,26 @@ class ControlledProcessOperations implements BackgroundCommandProcessOperations 
 	}
 }
 
+class DeferredStopProcessOperations implements BackgroundCommandProcessOperations {
+	readonly processes = new Map<string, SpawnBackgroundCommandProcessOptions>();
+	readonly stopped = new Set<string>();
+
+	spawn(options: SpawnBackgroundCommandProcessOptions) {
+		this.processes.set(options.command, options);
+		return {
+			stop: () => {
+				this.stopped.add(options.command);
+			},
+		};
+	}
+
+	exitStopped(command: string): void {
+		const process = this.processes.get(command);
+		if (!process) throw new Error(`Process not found: ${command}`);
+		process.onExit(undefined);
+	}
+}
+
 function createControlledService() {
 	const processOperations = new ControlledProcessOperations();
 	const outputStore = new MemoryOutputStore();
@@ -131,6 +151,25 @@ describe("background command lifecycle", () => {
 		service.dispose();
 		expect(service.get(disposed.id)).toMatchObject({ status: "killed", endedBy: "dispose" });
 		await expect(service.wait("missing", { maxMs: 1 })).rejects.toThrow('Background task "missing" not found.');
+	});
+
+	it("awaits running process exits during shutdown", async () => {
+		const processOperations = new DeferredStopProcessOperations();
+		const service = createBackgroundCommandService({ processOperations, outputStore: new MemoryOutputStore() });
+		const task = service.spawn({ command: "deferred", cwd: "C:/workspace", env: {} });
+		let settled = false;
+		const shutdown = service.shutdown().then(() => {
+			settled = true;
+		});
+
+		await Promise.resolve();
+		expect(processOperations.stopped).toContain("deferred");
+		expect(settled).toBe(false);
+		processOperations.exitStopped("deferred");
+		await shutdown;
+
+		expect(settled).toBe(true);
+		expect(service.get(task.id)).toMatchObject({ status: "killed", endedBy: "dispose" });
 	});
 
 	it("lists copied snapshots and clears only terminal tasks", () => {

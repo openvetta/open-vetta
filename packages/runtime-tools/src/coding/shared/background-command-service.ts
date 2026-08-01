@@ -48,6 +48,7 @@ export interface BackgroundCommandService {
 	readOutput(taskId: string, options: ReadBackgroundCommandOutputOptions): string;
 	stop(taskId: string, reason?: BackgroundCommandStopReason): boolean;
 	dispose(): void;
+	shutdown(): Promise<void>;
 }
 
 export function buildBackgroundCommandNotification(task: BackgroundCommandSnapshot): string {

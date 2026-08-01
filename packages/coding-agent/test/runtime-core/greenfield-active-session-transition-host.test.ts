@@ -42,6 +42,29 @@ describe("CodingAgentGreenfieldActiveSessionHost", () => {
 		]);
 	});
 
+	it("isolates throwing external observers before and after a switch", async () => {
+		const fixture = await createFixture();
+		const next = createSession("next", fixture.sessionPath("next"));
+		fixture.resume.mockResolvedValueOnce(next.session);
+		const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+		const events: string[] = [];
+		fixture.host.subscribe(() => {
+			throw new Error("observer failed");
+		});
+		fixture.host.subscribe((event) => events.push(event.eventId));
+
+		try {
+			fixture.initial.emit(sessionEvent("old-event", "initial"));
+			await fixture.host.switchSession(fixture.sessionPath("next"));
+			next.emit(sessionEvent("next-event", "next"));
+
+			expect(events).toEqual(["old-event", "next-event"]);
+			expect(warning).toHaveBeenCalledTimes(2);
+		} finally {
+			warning.mockRestore();
+		}
+	});
+
 	it("rolls back the active session and prepared binding when after-transition fails", async () => {
 		const fixture = await createFixture({ failAfter: true });
 		const next = createSession("next", fixture.sessionPath("next"));

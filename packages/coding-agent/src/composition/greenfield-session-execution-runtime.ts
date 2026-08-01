@@ -178,10 +178,10 @@ export class GreenfieldSessionExecutionRuntime {
 		return current === undefined || sameBinding(sourceBinding, current.binding);
 	}
 
-	dispose(): void {
+	async dispose(): Promise<void> {
 		this.disposeTaskNotifications();
 		this.disposeTaskEvents();
-		this.backgroundService.dispose();
+		await this.backgroundService.shutdown();
 	}
 
 	private resolveAvailabilityErrorCode(toolName: string): CodingToolAvailabilityErrorCode | undefined {

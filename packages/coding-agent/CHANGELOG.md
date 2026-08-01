@@ -41,6 +41,7 @@
 
 ### Fixed
 
+- **Greenfield Session 连续性与资源静默点**：真实 Vetta CLI 新增 Legacy/Greenfield × identity replacement/storage continuation 四象限差分，统一验证 Todo、后台进程、路径事件和 ownership。Greenfield Session 释放现在等待 Runtime 后台命令真实退出后再释放 Conversation ownership；Active Session 稳定事件订阅逐 listener 隔离异常，单个宿主观察者失败不再阻断其他观察者或切换后的事件。
 - **Legacy Session 可变能力旁路与事件隔离**：宿主 Todo、后台任务与 Subagent 访问改为 Session 命令控制器，写操作统一进入 identity transition 准入；RuntimeHost 历史摘要/替换不再直接写 `SessionManager`。Todo 查询返回脱离内部 Store 的副本，异步 Subagent 命令在已排队切换后绑定目标 identity；单个 Session、Runtime 事件或后台任务监听器失败不再阻断其他观察者或业务提交。
 - **Legacy Memory Rollover 与写操作准入**：memory-mode 压缩换文件现在先在候选 Store 中完整写入并锁定目标，成功后才提交新 id/path 并释放源锁；失败时源身份、entries 与源锁保持不变。Rollover 作为存储续接保留 BackgroundTask/Subagent 等运行期资源，只重绑定 `Agent.sessionId` 和未来子代理父路径。同步历史写入口在 identity transition 期间明确拒绝，异步树导航等待前置切换且后续切换/关闭会等待其静默，避免跨 Session 写入。
 - **Legacy Session identity 切换事务**：`newSession`、`switchSession` 与 `fork` 现在先在候选 Store 中准备目标历史和文件锁，成功后才一次性提交；目标锁冲突或加载失败不再释放源锁或污染源 identity。Identity transition 按 FIFO 串行，Prompt、模型、压缩和 Bash 等异步工作只等待已经排队的切换且无切换时仍立即启动；切换静默/激活/setup 失败会恢复当前权威 identity 的资源与 Agent 连接。RPC 会话命令失败现在保留原 correlation id，真实 Legacy/Greenfield CLI 双进程锁冲突差分覆盖失败后继续 Prompt。
