@@ -8,6 +8,7 @@ import {
 	type CustomMessageEntry,
 	type SessionEntry,
 } from "../../core/session-manager/index.js";
+import { restoreCodingAgentLegacyAgentMessageEntry } from "./legacy-session-import-normalizer.js";
 
 /** 将持久化活动分支恢复为旧 Coding Agent 的完整 AgentMessage 身份。 */
 export class CodingAgentGreenfieldAgentMessageContextProjector implements ConversationContextProjector {
@@ -52,7 +53,12 @@ function toSessionEntry(entry: ConversationDocument["entries"][number]): Session
 		case "message":
 			return { ...entry, message: readAgentMessage(entry.message) };
 		case "custom_message":
-			return { ...entry, content: readCustomMessageContent(entry.content) };
+			return (
+				restoreCodingAgentLegacyAgentMessageEntry(entry) ?? {
+					...entry,
+					content: readCustomMessageContent(entry.content),
+				}
+			);
 		case "tool_timing":
 			return { ...entry, phases: [...entry.phases] };
 		case "label":

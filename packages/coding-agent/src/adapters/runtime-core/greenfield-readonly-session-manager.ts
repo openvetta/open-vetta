@@ -11,6 +11,7 @@ import type {
 	SessionTreeNode,
 } from "../../core/session-manager/index.js";
 import { CURRENT_SESSION_VERSION } from "../../core/session-manager/index.js";
+import { restoreCodingAgentLegacyAgentMessageEntry } from "./legacy-session-import-normalizer.js";
 
 /**
  * 将 Runtime Core 的只读 Conversation 投影为旧 ExtensionContext 所需的窄会话视图。
@@ -95,7 +96,12 @@ function toSessionEntry(entry: ConversationDocumentEntry): SessionEntry {
 		case "message":
 			return { ...entry, message: entry.message as AgentMessage };
 		case "custom_message":
-			return { ...entry, content: entry.content as CustomMessageEntry["content"] };
+			return (
+				restoreCodingAgentLegacyAgentMessageEntry(entry) ?? {
+					...entry,
+					content: entry.content as CustomMessageEntry["content"],
+				}
+			);
 		case "tool_timing":
 			return { ...entry, phases: [...entry.phases] };
 		case "label":

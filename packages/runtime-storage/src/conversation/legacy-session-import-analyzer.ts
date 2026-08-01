@@ -6,7 +6,15 @@ import {
 	type LegacySessionDocumentSource,
 	parseLegacySessionDocumentSource,
 } from "./legacy-session-document-reader.js";
-import { ConversationMessageSchema } from "./record-schema.js";
+import { ConversationMessageSchema, UserMessageSchema } from "./record-schema.js";
+
+export type LegacySessionImportEntryNormalizer = (
+	entry: Readonly<Record<string, unknown>>,
+) => Readonly<Record<string, unknown>>;
+
+export interface LegacySessionImportAnalyzerOptions {
+	readonly entryNormalizer?: LegacySessionImportEntryNormalizer;
+}
 
 export type LegacySessionImportIssueCode =
 	| "malformed-json"
@@ -114,6 +122,7 @@ const knownEntrySchemas: Readonly<Record<string, TSchema>> = {
 			tokensBefore: Type.Number({ minimum: 0 }),
 			details: Type.Optional(Type.Unknown()),
 			fromHook: Type.Optional(Type.Boolean()),
+			summaryMessage: Type.Optional(UserMessageSchema),
 		},
 		{ additionalProperties: false },
 	),
@@ -145,6 +154,7 @@ const knownEntrySchemas: Readonly<Record<string, TSchema>> = {
 			content: Type.Unknown(),
 			details: Type.Optional(Type.Unknown()),
 			display: Type.Boolean(),
+			modelVisible: Type.Optional(Type.Boolean()),
 		},
 		{ additionalProperties: false },
 	),
@@ -187,7 +197,10 @@ interface ParsedLine {
 }
 
 /** Strict, read-only preflight for automatic Legacy-to-V2 imports. */
-export function analyzeLegacySessionImport(content: string): LegacySessionImportAnalysis {
+export function analyzeLegacySessionImport(
+	content: string,
+	options: LegacySessionImportAnalyzerOptions = {},
+): LegacySessionImportAnalysis {
 	const parsedLines: ParsedLine[] = [];
 	const issues: LegacySessionImportIssue[] = [];
 	let recordCount = 0;
@@ -212,30 +225,52 @@ export function analyzeLegacySessionImport(content: string): LegacySessionImport
 		issues.push({ line: headerLine.line, code: "invalid-header", recordType: "session" });
 	}
 
-	const entryLines = parsedLines.slice(1);
-	for (const parsed of entryLines) {
+	const entryLines: ParsedLine[] = [];
+	for (const parsed of parsedLines.slice(1)) {
 		if (!Value.Check(LegacyEntryEnvelopeSchema, parsed.value)) {
 			issues.push({ line: parsed.line, code: "invalid-envelope", recordType: readRecordType(parsed.value) });
 			continue;
 		}
-		const recordType = parsed.value.type;
+		const original = parsed.value;
+		const originalRecordType = original.type;
+		if (!knownEntrySchemas[originalRecordType]) {
+			issues.push({ line: parsed.line, code: "unsupported-record", recordType: originalRecordType });
+			continue;
+		}
+		let normalized: Readonly<Record<string, unknown>> = original;
+		try {
+			normalized = options.entryNormalizer?.(original) ?? original;
+		} catch {
+			issues.push({ line: parsed.line, code: "invalid-payload", recordType: originalRecordType });
+			continue;
+		}
+		if (!Value.Check(LegacyEntryEnvelopeSchema, normalized) || !hasSameEntryIdentity(original, normalized)) {
+			issues.push({ line: parsed.line, code: "invalid-payload", recordType: originalRecordType });
+			continue;
+		}
+		const recordType = normalized.type;
 		const schema = knownEntrySchemas[recordType];
 		if (!schema) {
-			issues.push({ line: parsed.line, code: "unsupported-record", recordType });
+			issues.push({ line: parsed.line, code: "invalid-payload", recordType: originalRecordType });
 			continue;
 		}
-		if (!Value.Check(schema, parsed.value) || !isValidTimestamp(parsed.value.timestamp)) {
-			issues.push({ line: parsed.line, code: "invalid-payload", recordType });
+		if (!Value.Check(schema, normalized) || !isValidTimestamp(normalized.timestamp)) {
+			issues.push({ line: parsed.line, code: "invalid-payload", recordType: originalRecordType });
 			continue;
 		}
-		if (sourceVersion >= 2 && (parsed.value.id === undefined || parsed.value.parentId === undefined)) {
-			issues.push({ line: parsed.line, code: "invalid-envelope", recordType });
+		if (sourceVersion >= 2 && (normalized.id === undefined || normalized.parentId === undefined)) {
+			issues.push({ line: parsed.line, code: "invalid-envelope", recordType: originalRecordType });
+			continue;
 		}
+		entryLines.push({ line: parsed.line, value: normalized });
 	}
 
 	if (issues.length > 0) return notRepresentable(recordCount, issues, sourceVersion);
 
-	const source = parseLegacySessionDocumentSource(content);
+	const normalizedContent = [headerLine.value, ...entryLines.map(({ value }) => value)]
+		.map((record) => JSON.stringify(record))
+		.join("\n");
+	const source = parseLegacySessionDocumentSource(normalizedContent);
 	if (source.document.entries.length !== entryLines.length) {
 		return notRepresentable(
 			recordCount,
@@ -330,4 +365,15 @@ function readRecordType(value: unknown): string | undefined {
 	if (typeof value !== "object" || value === null) return undefined;
 	const type = Reflect.get(value, "type");
 	return typeof type === "string" ? type : undefined;
+}
+
+function hasSameEntryIdentity(
+	original: Readonly<Record<string, unknown>>,
+	normalized: Readonly<Record<string, unknown>>,
+): boolean {
+	return (
+		normalized.id === original.id &&
+		normalized.parentId === original.parentId &&
+		normalized.timestamp === original.timestamp
+	);
 }

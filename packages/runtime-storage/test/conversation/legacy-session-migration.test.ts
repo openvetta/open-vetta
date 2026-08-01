@@ -6,11 +6,13 @@ import {
 	CONVERSATION_STORAGE_ERROR_CODES,
 	ConversationStorageError,
 	FileConversationRepository,
+	type LegacySessionImportEntryNormalizer,
 	LegacySessionImportError,
 	migrateLegacySessionToV2,
 } from "../../src/conversation/index.js";
 
 const temporaryRoots = new Set<string>();
+const preserveLegacyEntry: LegacySessionImportEntryNormalizer = (entry) => entry;
 
 afterEach(async () => {
 	await Promise.all([...temporaryRoots].map((root) => rm(root, { force: true, recursive: true })));
@@ -23,7 +25,11 @@ describe("legacy session migration", () => {
 		const sourcePath = join(root, "legacy.jsonl");
 		const targetRootDir = join(root, "v2");
 		const sourceContent = legacyJsonLines([
-			legacyHeader("legacy-source"),
+			{
+				...legacyHeader("legacy-source"),
+				parentSession: "C:/legacy-parent.jsonl",
+				parentEntryId: "parent-entry",
+			},
 			legacyMessage("user-1", null, userMessage("legacy question", 1)),
 			legacyMessage("assistant-1", "user-1", assistantMessage("legacy answer", 2)),
 			{
@@ -40,6 +46,7 @@ describe("legacy session migration", () => {
 			sourcePath,
 			targetRootDir,
 			targetSessionId: "v2-target",
+			entryNormalizer: preserveLegacyEntry,
 		});
 
 		expect(result).toMatchObject({
@@ -59,6 +66,8 @@ describe("legacy session migration", () => {
 				schemaVersion: 2,
 				sessionId: "v2-target",
 				cwd: "C:/legacy-workspace",
+				parentSessionPath: "C:/legacy-parent.jsonl",
+				parentEntryId: "parent-entry",
 			}),
 			expect.objectContaining({
 				recordType: "conversation.import.seed",
@@ -78,8 +87,8 @@ describe("legacy session migration", () => {
 			sessionId: "v2-target",
 			createdAt: new Date("2026-01-01T00:00:00.000Z").getTime(),
 			cwd: "C:/legacy-workspace",
-			parentSessionPath: undefined,
-			parentEntryId: undefined,
+			parentSessionPath: "C:/legacy-parent.jsonl",
+			parentEntryId: "parent-entry",
 		});
 		expect(document.entries.map(({ id }) => id)).toEqual(["user-1", "assistant-1", "session-name"]);
 		expect(document.activeLeafId).toBe("session-name");
@@ -137,6 +146,7 @@ describe("legacy session migration", () => {
 			sourcePath,
 			targetRootDir,
 			targetSessionId: "stable-target",
+			entryNormalizer: preserveLegacyEntry,
 		});
 		const targetContent = await readFile(first.targetPath, "utf8");
 
@@ -145,6 +155,7 @@ describe("legacy session migration", () => {
 				sourcePath,
 				targetRootDir,
 				targetSessionId: "stable-target",
+				entryNormalizer: preserveLegacyEntry,
 			}),
 		).rejects.toMatchObject({
 			code: CONVERSATION_STORAGE_ERROR_CODES.ALREADY_EXISTS,
@@ -167,6 +178,7 @@ describe("legacy session migration", () => {
 			targetRootDir,
 			targetSessionId: "stable-target",
 			reuseIdenticalTarget: true,
+			entryNormalizer: preserveLegacyEntry,
 		});
 
 		const reused = await migrateLegacySessionToV2({
@@ -174,6 +186,7 @@ describe("legacy session migration", () => {
 			targetRootDir,
 			targetSessionId: "stable-target",
 			reuseIdenticalTarget: true,
+			entryNormalizer: preserveLegacyEntry,
 		});
 		expect(first.created).toBe(true);
 		expect(reused.created).toBe(false);
@@ -189,6 +202,7 @@ describe("legacy session migration", () => {
 				targetRootDir,
 				targetSessionId: "stable-target",
 				reuseIdenticalTarget: true,
+				entryNormalizer: preserveLegacyEntry,
 			}),
 		).rejects.toMatchObject({ code: CONVERSATION_STORAGE_ERROR_CODES.ALREADY_EXISTS });
 	});
@@ -214,6 +228,7 @@ describe("legacy session migration", () => {
 			sourcePath,
 			targetRootDir,
 			targetSessionId: "rejected-target",
+			entryNormalizer: preserveLegacyEntry,
 		});
 		await expect(migration).rejects.toBeInstanceOf(ConversationStorageError);
 		await expect(migration).rejects.toMatchObject({
@@ -263,6 +278,7 @@ describe("legacy session migration", () => {
 			sourcePath,
 			targetRootDir,
 			targetSessionId: "strict-target",
+			entryNormalizer: preserveLegacyEntry,
 		});
 		await expect(migration).rejects.toBeInstanceOf(LegacySessionImportError);
 		await expect(migration).rejects.toMatchObject({

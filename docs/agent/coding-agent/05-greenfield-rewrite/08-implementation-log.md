@@ -153,6 +153,7 @@
 | [143-installed-extension-gate-and-im-default-cutover.md](./08-implementation-log/143-installed-extension-gate-and-im-default-cutover.md) | 安装产物 Extension 门禁、IM 默认 Greenfield 与工具顺序兼容 |
 | [144-legacy-session-migration-and-runtime-decision.md](./08-implementation-log/144-legacy-session-migration-and-runtime-decision.md) | 旧会话只读迁移、结构化 Runtime 决策与 IM 路径闭环 |
 | [145-strict-lossless-legacy-import-gate.md](./08-implementation-log/145-strict-lossless-legacy-import-gate.md) | 旧会话逐行严格分析、失败关闭与无正文诊断门禁 |
+| [146-official-legacy-message-normalization.md](./08-implementation-log/146-official-legacy-message-normalization.md) | 官方 Legacy AgentMessage 无损规范化、产品适配边界与安装产物门禁 |
 
 ## 维护约定
 

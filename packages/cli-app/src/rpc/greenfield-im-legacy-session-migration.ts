@@ -1,7 +1,10 @@
 import { createHash } from "node:crypto";
 import { readFile, realpath } from "node:fs/promises";
 import { resolve } from "node:path";
-import { acquireLegacySessionFormatLease } from "@vetta/coding-agent/runtime-host";
+import {
+	acquireLegacySessionFormatLease,
+	normalizeCodingAgentLegacySessionEntry,
+} from "@vetta/coding-agent/runtime-host";
 import {
 	CONVERSATION_STORAGE_ERROR_CODES,
 	ConversationStorageError,
@@ -58,6 +61,7 @@ export async function migrateGreenfieldImLegacySession(
 				targetRootDir,
 				targetSessionId,
 				reuseIdenticalTarget: true,
+				entryNormalizer: normalizeCodingAgentLegacySessionEntry,
 			});
 			return {
 				kind: "greenfield",

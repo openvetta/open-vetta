@@ -73,7 +73,7 @@ const StopReasonSchema = Type.Union([
 	Type.Literal("aborted"),
 ]);
 
-const UserMessageSchema = Type.Object(
+export const UserMessageSchema = Type.Object(
 	{
 		role: Type.Literal("user"),
 		content: Type.Union([Type.String(), Type.Array(Type.Union([TextContentSchema, ImageContentSchema]))]),

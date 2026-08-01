@@ -9,7 +9,11 @@ import {
 	serializeConversationLine,
 } from "./conversation-file-codec.js";
 import { CONVERSATION_STORAGE_ERROR_CODES, ConversationStorageError } from "./errors.js";
-import { analyzeLegacySessionImport, LegacySessionImportError } from "./legacy-session-import-analyzer.js";
+import {
+	analyzeLegacySessionImport,
+	type LegacySessionImportEntryNormalizer,
+	LegacySessionImportError,
+} from "./legacy-session-import-analyzer.js";
 import { nodeErrorCode } from "./node-error-code.js";
 import {
 	CONVERSATION_SCHEMA_VERSION,
@@ -21,6 +25,8 @@ import {
 export interface LegacySessionMigrationOptions {
 	readonly sourcePath: string;
 	readonly targetRootDir: string;
+	/** Product-owned normalization policy for official Legacy entry variants. */
+	readonly entryNormalizer: LegacySessionImportEntryNormalizer;
 	readonly targetSessionId?: string;
 	/** Reuse an existing target only when its complete serialized content is identical. */
 	readonly reuseIdenticalTarget?: boolean;
@@ -55,7 +61,9 @@ export async function migrateLegacySessionToV2(
 		);
 	}
 
-	const analysis = analyzeLegacySessionImport(await readFile(sourcePath, "utf8"));
+	const analysis = analyzeLegacySessionImport(await readFile(sourcePath, "utf8"), {
+		entryNormalizer: options.entryNormalizer,
+	});
 	if (analysis.status === "not-representable") throw new LegacySessionImportError(analysis);
 	const source = analysis.source;
 	const header: ConversationFileHeader = {
@@ -63,7 +71,13 @@ export async function migrateLegacySessionToV2(
 		schemaVersion: CONVERSATION_SCHEMA_VERSION,
 		sessionId: targetSessionId,
 		createdAt: source.document.identity.createdAt,
-		...(source.document.identity.cwd ? { cwd: source.document.identity.cwd } : {}),
+		...(source.document.identity.cwd !== undefined ? { cwd: source.document.identity.cwd } : {}),
+		...(source.document.identity.parentSessionPath !== undefined
+			? { parentSessionPath: source.document.identity.parentSessionPath }
+			: {}),
+		...(source.document.identity.parentEntryId !== undefined
+			? { parentEntryId: source.document.identity.parentEntryId }
+			: {}),
 	};
 	const seedCandidate: unknown = {
 		recordType: "conversation.import.seed",

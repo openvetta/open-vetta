@@ -202,3 +202,8 @@ export {
 	type LegacyMcpManagerRuntimePort,
 	LegacyMcpManagerRuntimeToolSource,
 } from "./legacy-mcp-runtime-source.js";
+export {
+	CODING_AGENT_LEGACY_AGENT_MESSAGE_CONTEXT_TYPE,
+	normalizeCodingAgentLegacySessionEntry,
+	restoreCodingAgentLegacyAgentMessageEntry,
+} from "./legacy-session-import-normalizer.js";

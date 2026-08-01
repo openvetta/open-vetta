@@ -3,6 +3,7 @@ import { Type } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import type {
 	ConversationDocument,
+	ConversationDocumentCompactionEntry,
 	ConversationDocumentEntry,
 	ConversationDocumentEntryBase,
 	ConversationDocumentReader,
@@ -161,6 +162,9 @@ function parseEntry(
 						tokensBefore: record.tokensBefore,
 						details: record.details,
 						fromHook: typeof record.fromHook === "boolean" ? record.fromHook : undefined,
+						summaryMessage: isRecord(record.summaryMessage)
+							? (record.summaryMessage as unknown as ConversationDocumentCompactionEntry["summaryMessage"])
+							: undefined,
 					}
 				: undefined;
 		case "branch_summary":
@@ -187,6 +191,7 @@ function parseEntry(
 						content: record.content,
 						details: record.details,
 						display: record.display,
+						modelVisible: typeof record.modelVisible === "boolean" ? record.modelVisible : undefined,
 					}
 				: undefined;
 		case "label":

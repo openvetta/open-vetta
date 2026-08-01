@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { GreenfieldRuntimeSession, RuntimeSessionCatalog, SessionEvent } from "@vetta/runtime-core";
 import { migrateLegacySessionToV2 } from "@vetta/runtime-storage/conversation";
+import { normalizeCodingAgentLegacySessionEntry } from "../adapters/runtime-core/legacy-session-import-normalizer.js";
 import { SessionManager } from "../core/session-manager/index.js";
 import type {
 	GreenfieldRuntimeComposition,
@@ -261,6 +262,7 @@ export class CodingAgentGreenfieldActiveSessionHost {
 				sourcePath,
 				targetRootDir: this.options.conversationDir,
 				targetSessionId: sessionId,
+				entryNormalizer: normalizeCodingAgentLegacySessionEntry,
 			});
 			try {
 				return await this.options.runtime.backend.resume({

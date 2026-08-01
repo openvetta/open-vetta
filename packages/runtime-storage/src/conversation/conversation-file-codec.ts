@@ -74,14 +74,7 @@ export function parseConversationFile(text: string, sessionId: string): ParsedCo
 			continue;
 		}
 		if (isConversationImportSeedRecord(record)) {
-			if (
-				header.schemaVersion !== CONVERSATION_SCHEMA_VERSION ||
-				index !== 0 ||
-				continuationSeed ||
-				importSeed ||
-				header.parentSessionPath !== undefined ||
-				header.parentEntryId !== undefined
-			) {
+			if (header.schemaVersion !== CONVERSATION_SCHEMA_VERSION || index !== 0 || continuationSeed || importSeed) {
 				throw corruptConversation(sessionId, `invalid import seed at line ${index + 2}`);
 			}
 			importSeed = record;

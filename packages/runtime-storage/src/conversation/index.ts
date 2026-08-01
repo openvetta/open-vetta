@@ -33,6 +33,8 @@ export {
 export {
 	analyzeLegacySessionImport,
 	type LegacySessionImportAnalysis,
+	type LegacySessionImportAnalyzerOptions,
+	type LegacySessionImportEntryNormalizer,
 	LegacySessionImportError,
 	type LegacySessionImportIssue,
 	type LegacySessionImportIssueCode,

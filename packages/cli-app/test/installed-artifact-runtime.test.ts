@@ -315,10 +315,18 @@ describe("installed standalone CLI artifact", () => {
 			cwd: fixture.workspace,
 		})}\n${JSON.stringify({
 			type: "message",
-			id: "installed-legacy-user",
+			id: "installed-legacy-bash",
 			parentId: null,
 			timestamp: "2026-01-01T00:00:01.000Z",
-			message: { role: "user", content: "installed legacy", timestamp: 1 },
+			message: {
+				role: "bashExecution",
+				command: "pwd",
+				output: fixture.workspace,
+				exitCode: 0,
+				cancelled: false,
+				truncated: false,
+				timestamp: 1,
+			},
 		})}\n`;
 		await writeFile(legacySession, legacyContent, "utf8");
 		activeProcess = startInstalledCli(artifact.binaryPath, fixture, createIsolatedArtifactEnv(fixture), {
@@ -340,6 +348,9 @@ describe("installed standalone CLI artifact", () => {
 		});
 		expect(readSessionFile(state)).not.toBe(legacySession);
 		expect(await readFile(legacySession, "utf8")).toBe(legacyContent);
+		const migratedContent = await readFile(readSessionFile(state), "utf8");
+		expect(migratedContent).toContain("vetta.legacy_agent_message");
+		expect(migratedContent).toContain('"role":"bashExecution"');
 		expect(activeProcess.stderr).toContain("sessionMigration=migrated");
 		await expect(activeProcess.close()).resolves.toBe(0);
 		activeProcess = undefined;

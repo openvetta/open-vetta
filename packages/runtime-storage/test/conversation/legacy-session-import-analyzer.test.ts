@@ -77,6 +77,46 @@ describe("Legacy session import analyzer", () => {
 		expect(analysis).toMatchObject({ status: "not-representable", issues: expect.arrayContaining([issue]) });
 		expect(JSON.stringify(analysis)).not.toContain('broken"');
 	});
+
+	it("accepts a normalized known entry while preserving its tree identity", () => {
+		const source = entry(3, "message", {
+			message: { role: "product-context", content: "context", timestamp: 1 },
+		});
+		const analysis = analyzeLegacySessionImport(jsonLines([header(3), source]), {
+			entryNormalizer: (record) => {
+				const { message: _message, ...entryBase } = record;
+				return {
+					...entryBase,
+					type: "custom_message",
+					customType: "test.product-context",
+					content: "context",
+					display: false,
+					modelVisible: true,
+				};
+			},
+		});
+
+		expect(analysis).toMatchObject({ status: "representable", issues: [] });
+		if (analysis.status !== "representable") throw new Error("Expected representable analysis");
+		expect(analysis.source.document.entries[0]).toMatchObject({
+			type: "custom_message",
+			id: Reflect.get(source as object, "id"),
+			parentId: null,
+			modelVisible: true,
+		});
+	});
+
+	it("rejects a normalizer that changes the persisted tree identity", () => {
+		const analysis = analyzeLegacySessionImport(
+			jsonLines([header(3), entry(3, "message", { message: { role: "user", content: "hello", timestamp: 1 } })]),
+			{ entryNormalizer: (record) => ({ ...record, id: "rewritten" }) },
+		);
+
+		expect(analysis).toMatchObject({
+			status: "not-representable",
+			issues: [{ line: 2, code: "invalid-payload", recordType: "message" }],
+		});
+	});
 });
 
 function completeLegacyRecords(version: 1 | 2 | 3 | undefined): unknown[] {

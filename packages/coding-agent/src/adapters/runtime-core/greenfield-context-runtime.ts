@@ -54,6 +54,7 @@ import {
 import type { CompactionEntry, SessionEntry } from "../../core/session-manager/index.js";
 import type { CodingAgentCompactionExtensionRuntime } from "./greenfield-compaction-extension-runtime.js";
 import type { CodingAgentMemoryCompactionPolicy } from "./greenfield-memory-rollover-orchestrator.js";
+import { restoreCodingAgentLegacyAgentMessageEntry } from "./legacy-session-import-normalizer.js";
 
 type ContextHookRuntime = Pick<EcosystemHookRuntime, "markSessionStart" | "runPostCompact" | "runPreCompact">;
 
@@ -666,18 +667,21 @@ function toSessionEntry(entry: ConversationDocumentEntry): SessionEntry | undefi
 		case "custom":
 			return { ...entry };
 		case "custom_message":
-			return entry.modelVisible === true && isUserContent(entry.content)
-				? {
-						type: "custom_message",
-						id: entry.id,
-						parentId: entry.parentId,
-						timestamp: entry.timestamp,
-						customType: entry.customType,
-						content: entry.content,
-						display: entry.display,
-						...(entry.details === undefined ? {} : { details: entry.details }),
-					}
-				: undefined;
+			return (
+				restoreCodingAgentLegacyAgentMessageEntry(entry) ??
+				(entry.modelVisible === true && isUserContent(entry.content)
+					? {
+							type: "custom_message",
+							id: entry.id,
+							parentId: entry.parentId,
+							timestamp: entry.timestamp,
+							customType: entry.customType,
+							content: entry.content,
+							display: entry.display,
+							...(entry.details === undefined ? {} : { details: entry.details }),
+						}
+					: undefined)
+			);
 		case "thinking_level_change":
 		case "model_change":
 		case "session_info":

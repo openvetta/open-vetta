@@ -38,6 +38,49 @@ describe("Greenfield IM Legacy session migration", () => {
 		expect(after.targetPath).not.toBe(before.targetPath);
 	});
 
+	it("migrates an official BashExecution message through the Coding Agent normalizer", async () => {
+		const bashMessage = {
+			role: "bashExecution",
+			command: "pwd",
+			output: "C:/legacy-workspace",
+			exitCode: 0,
+			cancelled: false,
+			truncated: false,
+			timestamp: 1,
+		};
+		const fixture = await createFixture(
+			legacyJsonLines([
+				legacyHeader(),
+				{
+					type: "message",
+					id: "bash-1",
+					parentId: null,
+					timestamp: "2026-01-01T00:00:01.000Z",
+					message: bashMessage,
+				},
+			]),
+		);
+
+		const result = await migrateGreenfieldImLegacySession(fixture.sourcePath, fixture.targetRootDir);
+
+		expect(result).toMatchObject({ kind: "greenfield", status: "migrated" });
+		if (result.kind !== "greenfield") throw new Error("Expected Greenfield migration");
+		const records = (await readFile(result.targetPath, "utf8"))
+			.trim()
+			.split("\n")
+			.map((line) => JSON.parse(line) as unknown);
+		expect(records[1]).toMatchObject({
+			recordType: "conversation.import.seed",
+			entries: [
+				expect.objectContaining({
+					type: "custom_message",
+					modelVisible: true,
+					details: { agentMessage: bashMessage },
+				}),
+			],
+		});
+	});
+
 	it("falls back while another Legacy owner holds the source lock", async () => {
 		const fixture = await createFixture(legacySession("locked"));
 		const held = acquireLegacySessionFormatLease(fixture.sourcePath);
@@ -64,7 +107,7 @@ describe("Greenfield IM Legacy session migration", () => {
 					id: "unsupported",
 					parentId: null,
 					timestamp: "2026-01-01T00:00:01.000Z",
-					message: { role: "assistant", content: "unsupported", timestamp: 1 },
+					message: { role: "extension-private", payload: "unsupported", timestamp: 1 },
 				},
 			]),
 		);
