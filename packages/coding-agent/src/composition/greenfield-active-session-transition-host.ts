@@ -1,6 +1,7 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { SessionEndCause } from "@vetta/ecosystem-adapter";
 import type { GreenfieldRuntimeSession, RuntimeSessionCatalog, SessionEvent } from "@vetta/runtime-core";
 import { migrateLegacySessionToV2 } from "@vetta/runtime-storage/conversation";
 import { normalizeCodingAgentLegacySessionEntry } from "../adapters/runtime-core/legacy-session-import-normalizer.js";
@@ -116,19 +117,22 @@ export class CodingAgentGreenfieldActiveSessionHost {
 			const transition = this.describe("new", previous);
 			if ((await this.prepareTransition(transition)).cancelled) return { cancelled: true };
 			await this.interruptActiveTurn(previous, "new_session");
-			await this.options.runtime.quiesceSessionBackgroundCommands(previous.sessionId);
 
-			const sessionId = this.options.createSessionId();
-			const next = options?.setup
-				? await this.createInitializedSession(sessionId, options.parentSession, options.setup)
-				: await this.options.runtime.backend.create({
-						...this.options.sessionOptions,
-						sessionId,
-						parentSessionPath: options?.parentSession,
-					});
-			const targetSessionPath = next.createCoreAssembly().lifecycle.sessionPath;
-			await this.commitTransition({ ...transition, next, targetSessionPath }, { deleteTargetOnRollback: true });
-			return { cancelled: false };
+			return this.withEndedSourceHooks(previous, "new_session", async () => {
+				await this.options.runtime.quiesceSessionBackgroundCommands(previous.sessionId);
+				const sessionId = this.options.createSessionId();
+				const next = options?.setup
+					? await this.createInitializedSession(sessionId, options.parentSession, options.setup)
+					: await this.options.runtime.backend.create({
+							...this.options.sessionOptions,
+							sessionId,
+							parentSessionPath: options?.parentSession,
+						});
+				this.options.runtime.sessionHooks.start(next.sessionId, "clear");
+				const targetSessionPath = next.createCoreAssembly().lifecycle.sessionPath;
+				await this.commitTransition({ ...transition, next, targetSessionPath }, { deleteTargetOnRollback: true });
+				return { cancelled: false };
+			});
 		});
 	}
 
@@ -140,16 +144,19 @@ export class CodingAgentGreenfieldActiveSessionHost {
 			const transition = this.describe("resume", previous, { targetSessionPath: sessionPath });
 			if ((await this.prepareTransition(transition)).cancelled) return { cancelled: true };
 			await this.interruptActiveTurn(previous, "switch_session");
-			await this.options.runtime.quiesceSessionBackgroundCommands(previous.sessionId);
 
-			const sessionId = this.options.resolveSessionId(sessionPath);
-			if (!sessionId) throw new Error(`Greenfield session path is invalid: ${sessionPath}`);
-			const next = await this.options.runtime.backend.resume({
-				...this.options.sessionOptions,
-				sessionId,
+			return this.withEndedSourceHooks(previous, "switch_session", async () => {
+				await this.options.runtime.quiesceSessionBackgroundCommands(previous.sessionId);
+				const sessionId = this.options.resolveSessionId(sessionPath);
+				if (!sessionId) throw new Error(`Greenfield session path is invalid: ${sessionPath}`);
+				const next = await this.options.runtime.backend.resume({
+					...this.options.sessionOptions,
+					sessionId,
+				});
+				this.options.runtime.sessionHooks.start(next.sessionId, "resume");
+				await this.commitTransition({ ...transition, next });
+				return { cancelled: false };
 			});
-			await this.commitTransition({ ...transition, next });
-			return { cancelled: false };
 		});
 	}
 
@@ -161,36 +168,40 @@ export class CodingAgentGreenfieldActiveSessionHost {
 			const decision = await this.prepareTransition(transition);
 			if (decision.cancelled) return { text: "", cancelled: true };
 
-			const fork = await previous.forkSession(entryId);
-			const sessionId = this.options.resolveSessionId(fork.path);
-			if (!sessionId) {
-				await this.deleteCreatedTarget(fork.path);
-				throw new Error(`Greenfield fork path is invalid: ${fork.path}`);
-			}
-			let next: GreenfieldRuntimeSession | undefined;
-			try {
+			return this.withEndedSourceHooks(previous, "fork_session", async () => {
 				await this.options.runtime.quiesceSessionBackgroundCommands(previous.sessionId);
-				next = await this.options.runtime.backend.resume({
-					...this.options.sessionOptions,
-					sessionId,
-					parentSessionPath: transition.previousSessionPath,
-					parentEntryId: entryId,
-				});
-				await next.createCoreAssembly().historyController.navigateForEdit(entryId);
-				if (decision.skipConversationRestore) {
-					await this.options.runtime.preserveSessionExecutionContext(previous.sessionId, sessionId);
+				const fork = await previous.forkSession(entryId);
+				const sessionId = this.options.resolveSessionId(fork.path);
+				if (!sessionId) {
+					await this.deleteCreatedTarget(fork.path);
+					throw new Error(`Greenfield fork path is invalid: ${fork.path}`);
 				}
-			} catch (error) {
-				await next?.dispose().catch(() => undefined);
-				await this.deleteCreatedTarget(fork.path);
-				throw error;
-			}
-			if (!next) throw new Error("Greenfield fork did not produce a target session");
-			await this.commitTransition(
-				{ ...transition, next, targetSessionPath: fork.path },
-				{ deleteTargetOnRollback: true },
-			);
-			return { text: fork.text, cancelled: false };
+				let next: GreenfieldRuntimeSession | undefined;
+				try {
+					next = await this.options.runtime.backend.resume({
+						...this.options.sessionOptions,
+						sessionId,
+						parentSessionPath: transition.previousSessionPath,
+						parentEntryId: entryId,
+					});
+					this.options.runtime.sessionHooks.start(next.sessionId, "clear");
+					await next.createCoreAssembly().historyController.navigateForEdit(entryId);
+					if (decision.skipConversationRestore) {
+						await this.options.runtime.preserveSessionExecutionContext(previous.sessionId, sessionId);
+					}
+				} catch (error) {
+					if (next) this.options.runtime.sessionHooks.discard(next.sessionId);
+					await next?.dispose().catch(() => undefined);
+					await this.deleteCreatedTarget(fork.path);
+					throw error;
+				}
+				if (!next) throw new Error("Greenfield fork did not produce a target session");
+				await this.commitTransition(
+					{ ...transition, next, targetSessionPath: fork.path },
+					{ deleteTargetOnRollback: true },
+				);
+				return { text: fork.text, cancelled: false };
+			});
 		});
 	}
 
@@ -240,6 +251,7 @@ export class CodingAgentGreenfieldActiveSessionHost {
 		} catch (error) {
 			if (activeReplaced) this.replaceActiveSession(previous);
 			await prepared?.rollback();
+			this.options.runtime.sessionHooks.discard(next.sessionId);
 			await next.dispose().catch(() => undefined);
 			if (options.deleteTargetOnRollback && transition.targetSessionPath) {
 				await this.deleteCreatedTarget(transition.targetSessionPath);
@@ -253,6 +265,22 @@ export class CodingAgentGreenfieldActiveSessionHost {
 			.map(({ reason }) => reason);
 		if (cleanupErrors.length > 0) {
 			throw new AggregateError(cleanupErrors, "Greenfield session transition committed, but cleanup failed");
+		}
+	}
+
+	private async withEndedSourceHooks<T>(
+		previous: GreenfieldRuntimeSession,
+		cause: SessionEndCause,
+		operation: () => Promise<T>,
+	): Promise<T> {
+		await this.options.runtime.sessionHooks.end(previous.sessionId, cause);
+		try {
+			return await operation();
+		} catch (error) {
+			if (this.activeSession === previous) {
+				this.options.runtime.sessionHooks.start(previous.sessionId, "resume");
+			}
+			throw error;
 		}
 	}
 

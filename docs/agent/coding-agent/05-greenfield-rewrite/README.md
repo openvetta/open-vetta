@@ -44,7 +44,7 @@
 8. [实施日志](./08-implementation-log.md)
    - 索引；每轮实施单独成文，见 [`08-implementation-log/`](./08-implementation-log/)。
    - 按实施轮次记录实际修改、验证结果、未完成项和下一步。
-   - 最新记录：[第 165 轮：Session Replacement 准入线性化](./08-implementation-log/165-session-replacement-admission-linearization.md)。
+   - 最新记录：[第 166 轮：Session Replacement 生命周期副作用](./08-implementation-log/166-session-replacement-lifecycle-side-effects.md)。
 9. [行为兼容性审计](./09-behavior-compatibility-audit.md)
    - 审计已实施模块与旧行为的差距。
    - 定义旧新差分测试和迁移 Gate。

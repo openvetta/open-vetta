@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { access, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -15,8 +15,11 @@ import {
 	emptyHookDispatchOutcome,
 	type HookDispatchOutcome,
 } from "@vetta/coding-agent/runtime-host/greenfield";
+import type { GreenfieldRuntimeSession, RuntimeSessionCatalog } from "@vetta/runtime-core";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+	CodingAgentGreenfieldActiveSessionHost,
+	type CodingAgentGreenfieldSessionTransitionLifecycle,
 	createGreenfieldRuntimeComposition,
 	type GreenfieldRuntimeComposition,
 } from "../src/greenfield-runtime-composition.js";
@@ -138,7 +141,168 @@ describe("Greenfield Session-local Ecosystem Hook Runtime", () => {
 		]);
 		expect(hookEvents.filter((event) => event.eventName === "Stop")).toHaveLength(3);
 	});
+
+	it("preserves Legacy SessionEnd causes and target SessionStart sources across replacements", async () => {
+		const conversationDir = await mkdtemp(join(tmpdir(), "greenfield-hook-transitions-"));
+		temporaryDirectories.push(conversationDir);
+		const hookEvents: EcosystemHookEvent[] = [];
+		const composition = await createLifecycleComposition(conversationDir, hookEvents);
+		compositions.push(composition);
+		const source = await composition.backend.create({ sessionId: "lifecycle-source", cwd: conversationDir });
+		const sourcePath = source.createCoreAssembly().lifecycle.sessionPath;
+		if (!sourcePath) throw new Error("Lifecycle source is not persisted");
+		const sessionIds = ["lifecycle-new"];
+		const host = createActiveSessionHost(composition, source, conversationDir, () => {
+			const sessionId = sessionIds.shift();
+			if (!sessionId) throw new Error("Missing lifecycle test session id");
+			return sessionId;
+		});
+
+		await host.readSession().prompt({ text: "source prompt" });
+		await host.newSession();
+		await host.readSession().prompt({ text: "new prompt" });
+		await host.switchSession(sourcePath);
+		await host.readSession().prompt({ text: "resumed prompt" });
+		const forkEntry = host
+			.readSession()
+			.createCoreAssembly()
+			.historyReader.readHistory()
+			.find((entry) => entry.type === "message" && entry.message.role === "user");
+		if (!forkEntry || forkEntry.type !== "message" || !forkEntry.entryId) {
+			throw new Error("Missing user entry for lifecycle fork");
+		}
+		await host.fork(forkEntry.entryId);
+		await host.readSession().prompt({ text: "fork prompt" });
+		await host.dispose();
+
+		expect(sessionLifecycleEvents(hookEvents)).toEqual([
+			{ eventName: "SessionStart", sessionId: "lifecycle-source", detail: "startup" },
+			{ eventName: "SessionEnd", sessionId: "lifecycle-source", detail: "new_session" },
+			{ eventName: "SessionStart", sessionId: "lifecycle-new", detail: "clear" },
+			{ eventName: "SessionEnd", sessionId: "lifecycle-new", detail: "switch_session" },
+			{ eventName: "SessionStart", sessionId: "lifecycle-source", detail: "resume" },
+			{ eventName: "SessionEnd", sessionId: "lifecycle-source", detail: "fork_session" },
+			{ eventName: "SessionStart", sessionId: expect.any(String), detail: "clear" },
+			{ eventName: "SessionEnd", sessionId: expect.any(String), detail: "dispose" },
+		]);
+	});
+
+	it("reactivates only the source hooks and removes the uncommitted target after rollback", async () => {
+		const conversationDir = await mkdtemp(join(tmpdir(), "greenfield-hook-rollback-"));
+		temporaryDirectories.push(conversationDir);
+		const hookEvents: EcosystemHookEvent[] = [];
+		const composition = await createLifecycleComposition(conversationDir, hookEvents);
+		compositions.push(composition);
+		const source = await composition.backend.create({ sessionId: "rollback-source", cwd: conversationDir });
+		const targetId = "rollback-target";
+		const targetPath = sessionPath(conversationDir, targetId);
+		const host = createActiveSessionHost(composition, source, conversationDir, () => targetId, {
+			after: async () => {
+				throw new Error("after transition failed");
+			},
+		});
+
+		await host.readSession().prompt({ text: "before rollback" });
+		await expect(host.newSession()).rejects.toThrow("after transition failed");
+		await expect(access(targetPath)).rejects.toMatchObject({ code: "ENOENT" });
+		await host.readSession().prompt({ text: "after rollback" });
+		await host.dispose();
+
+		expect(sessionLifecycleEvents(hookEvents)).toEqual([
+			{ eventName: "SessionStart", sessionId: "rollback-source", detail: "startup" },
+			{ eventName: "SessionEnd", sessionId: "rollback-source", detail: "new_session" },
+			{ eventName: "SessionStart", sessionId: "rollback-source", detail: "resume" },
+			{ eventName: "SessionEnd", sessionId: "rollback-source", detail: "dispose" },
+		]);
+	});
 });
+
+async function createLifecycleComposition(
+	conversationDir: string,
+	hookEvents: EcosystemHookEvent[],
+): Promise<GreenfieldRuntimeComposition> {
+	return createGreenfieldRuntimeComposition({
+		conversationDir,
+		modelRegistry: modelRegistry(),
+		initialModel: MODEL,
+		initialThinkingLevel: "off",
+		activation: { mode: "explicit", toolNames: [] },
+		resolveSystemPromptOptions: () => ({ customPrompt: "Base prompt", scenario: "cli" }),
+		additionalHookAdapterFactories: [
+			async () => ({
+				id: "greenfield-transition-lifecycle-test",
+				supports: (event) => event.eventName === "SessionStart" || event.eventName === "SessionEnd",
+				async dispatch(event) {
+					hookEvents.push(event);
+					return emptyHookDispatchOutcome();
+				},
+			}),
+		],
+		streamFn: () => new RecordedAssistantStream(assistantText("lifecycle response")),
+	});
+}
+
+function createActiveSessionHost(
+	runtime: GreenfieldRuntimeComposition,
+	initialSession: GreenfieldRuntimeSession,
+	conversationDir: string,
+	createSessionId: () => string,
+	lifecycle: CodingAgentGreenfieldSessionTransitionLifecycle | undefined = undefined,
+): CodingAgentGreenfieldActiveSessionHost {
+	return new CodingAgentGreenfieldActiveSessionHost({
+		runtime,
+		initialSession,
+		sessionOptions: { cwd: conversationDir },
+		conversationDir,
+		sessionCatalog: sessionCatalog(),
+		createSessionId,
+		resolveSessionId: (path) => {
+			const encoded = path.match(/([^\\/]+)\.conversation\.jsonl$/u)?.[1];
+			return encoded ? Buffer.from(encoded, "base64url").toString("utf8") : undefined;
+		},
+		lifecycle,
+	});
+}
+
+function sessionCatalog(): RuntimeSessionCatalog {
+	return {
+		ownsSession: async (path) => {
+			try {
+				await access(path);
+				return true;
+			} catch {
+				return false;
+			}
+		},
+		listProjects: async () => [],
+		listSessions: async () => [],
+		renameSession: async () => {},
+		deleteSessionArtifacts: async (path) => rm(path, { force: true }),
+	};
+}
+
+function sessionPath(root: string, sessionId: string): string {
+	return join(root, `${Buffer.from(sessionId, "utf8").toString("base64url")}.conversation.jsonl`);
+}
+
+function sessionLifecycleEvents(
+	events: readonly EcosystemHookEvent[],
+): Array<{ eventName: "SessionStart" | "SessionEnd"; sessionId: string; detail: string }> {
+	const observations: Array<{
+		eventName: "SessionStart" | "SessionEnd";
+		sessionId: string;
+		detail: string;
+	}> = [];
+	for (const event of events) {
+		if (event.eventName === "SessionStart") {
+			observations.push({ eventName: event.eventName, sessionId: event.sessionId, detail: event.source });
+		}
+		if (event.eventName === "SessionEnd") {
+			observations.push({ eventName: event.eventName, sessionId: event.sessionId, detail: event.cause });
+		}
+	}
+	return observations;
+}
 
 function hookOutcome(event: EcosystemHookEvent): HookDispatchOutcome {
 	if (event.eventName === "SessionStart") {

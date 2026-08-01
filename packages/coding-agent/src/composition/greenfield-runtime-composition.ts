@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { stat } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import type { Message } from "@vetta/ai";
+import type { SessionEndCause, SessionStartSource } from "@vetta/ecosystem-adapter";
 import {
 	type AgentPluginContinuationInvoker,
 	type AgentPluginRuntimeConfig,
@@ -228,10 +229,17 @@ export interface GreenfieldRuntimeCompositionOptions {
 /** @deprecated 使用宿主无关的 GreenfieldRuntimeSessionOptions。 */
 export type GreenfieldCliSessionOptions = GreenfieldRuntimeSessionOptions;
 
+export interface GreenfieldRuntimeSessionHookLifecycle {
+	end(sessionId: string, cause: SessionEndCause): Promise<void>;
+	start(sessionId: string, source: SessionStartSource): void;
+	discard(sessionId: string): void;
+}
+
 export interface GreenfieldRuntimeComposition {
 	readonly backend: GreenfieldRuntimeSessionBackend<GreenfieldRuntimeSessionOptions>;
 	readonly tools: CodingToolsRuntimeComposition;
 	readonly scenario: ConversationScenario;
+	readonly sessionHooks: GreenfieldRuntimeSessionHookLifecycle;
 	bindExtensionRunner(
 		sessionId: string,
 		runner: ExtensionRunner,
@@ -364,6 +372,14 @@ async function createGreenfieldRuntimeCompositionInternal(
 	const memoryRuntimes = new Set<CodingAgentMemoryRolloverRuntime>();
 	const memoryControllers = new Map<string, CodingAgentMemoryController>();
 	const hookSessionDisposers = new Set<() => Promise<void>>();
+	const hookSessionControllers = new Map<
+		string,
+		{
+			end(cause: SessionEndCause): Promise<void>;
+			start(source: SessionStartSource): void;
+			discard(): void;
+		}
+	>();
 	const ownershipBindings = new Set<ConversationOwnershipBinding>();
 	const modelAdapter = new CodingAgentModelRegistryAdapter(options.modelRegistry);
 	const acquireOwnership = async (sessionId: string): Promise<ConversationOwnershipBinding | undefined> => {
@@ -718,15 +734,30 @@ async function createGreenfieldRuntimeCompositionInternal(
 					});
 				}
 				let hookSessionEnded = false;
-				const endHookSession = async (): Promise<void> => {
+				const disposeHookSession = (): Promise<void> => endHookSession("dispose");
+				const endHookSession = async (cause: SessionEndCause): Promise<void> => {
 					if (hookSessionEnded) return;
 					hookSessionEnded = true;
-					hookSessionDisposers.delete(endHookSession);
+					hookSessionDisposers.delete(disposeHookSession);
 					try {
-						await hookRuntime.runSessionEnd("dispose");
+						await hookRuntime.runSessionEnd(cause);
 					} catch (error) {
-						console.warn("[ecosystem-hooks] SessionEnd failed during Greenfield dispose", error);
+						console.warn(`[ecosystem-hooks] SessionEnd failed during Greenfield ${cause}`, error);
 					}
+				};
+				const hookSessionController = {
+					end: endHookSession,
+					start(source: SessionStartSource) {
+						if (hookSessionEnded) {
+							hookSessionEnded = false;
+							hookSessionDisposers.add(disposeHookSession);
+						}
+						hookRuntime.markSessionStart(source);
+					},
+					discard() {
+						hookSessionEnded = true;
+						hookSessionDisposers.delete(disposeHookSession);
+					},
 				};
 				const pluginSession = {
 					id: activeSessionId,
@@ -928,7 +959,8 @@ async function createGreenfieldRuntimeCompositionInternal(
 				}
 				extensionEventBridges.set(activeSessionId, extensionEvents);
 				if (memoryController) memoryControllers.set(activeSessionId, memoryController);
-				hookSessionDisposers.add(endHookSession);
+				hookSessionDisposers.add(disposeHookSession);
+				hookSessionControllers.set(activeSessionId, hookSessionController);
 				const promptAdapter = new CodingAgentGreenfieldPromptAdapter({
 					resolvePromptResource:
 						options.createPromptResourceResolver?.(sessionOptions, todoRuntime) ??
@@ -1098,6 +1130,10 @@ async function createGreenfieldRuntimeCompositionInternal(
 							extensionEventBridges.delete(previousSessionId);
 							extensionEventBridges.set(result.sessionId, extensionEvents);
 						}
+						if (hookSessionControllers.get(previousSessionId) === hookSessionController) {
+							hookSessionControllers.delete(previousSessionId);
+							hookSessionControllers.set(result.sessionId, hookSessionController);
+						}
 						extensionToolRuntime?.rebindSession(previousSessionId, result.sessionId);
 					},
 					async dispose() {
@@ -1113,7 +1149,10 @@ async function createGreenfieldRuntimeCompositionInternal(
 							if (memoryControllers.get(activeSessionId) === memoryController) {
 								memoryControllers.delete(activeSessionId);
 							}
-							await endHookSession();
+							await endHookSession("dispose");
+							if (hookSessionControllers.get(activeSessionId) === hookSessionController) {
+								hookSessionControllers.delete(activeSessionId);
+							}
 							if (mcpControllers.get(activeSessionId) === mcpController) {
 								mcpControllers.delete(activeSessionId);
 							}
@@ -1221,6 +1260,17 @@ async function createGreenfieldRuntimeCompositionInternal(
 		backend,
 		tools,
 		scenario,
+		sessionHooks: {
+			async end(sessionId, cause) {
+				await requireSessionHookController(hookSessionControllers, sessionId).end(cause);
+			},
+			start(sessionId, source) {
+				requireSessionHookController(hookSessionControllers, sessionId).start(source);
+			},
+			discard(sessionId) {
+				requireSessionHookController(hookSessionControllers, sessionId).discard();
+			},
+		},
 		bindExtensionRunner(sessionId, runner, bindingOptions) {
 			const bridge = extensionEventBridges.get(sessionId);
 			if (!bridge) throw new Error(`Greenfield Extension event bridge not found: ${sessionId}`);
@@ -1292,6 +1342,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 			mcpRefreshObservedSessions.clear();
 			mcpPromptRefreshReuseSessions.clear();
 			hookSessionDisposers.clear();
+			hookSessionControllers.clear();
 			mcpControllers.clear();
 			pluginMcpRuntimes.clear();
 			executionRuntimes.clear();
@@ -1309,6 +1360,12 @@ async function createGreenfieldRuntimeCompositionInternal(
 			}
 		},
 	};
+}
+
+function requireSessionHookController<T>(controllers: ReadonlyMap<string, T>, sessionId: string): T {
+	const controller = controllers.get(sessionId);
+	if (!controller) throw new Error(`Greenfield session hook lifecycle not found: ${sessionId}`);
+	return controller;
 }
 
 function mergeMcpSnapshots(

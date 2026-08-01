@@ -33,6 +33,9 @@ describe("CodingAgentGreenfieldActiveSessionHost", () => {
 		expect(fixture.host.readSession()).toBe(next.session);
 		expect(events).toEqual(["old-event", "next-event"]);
 		expect(fixture.initial.dispose).toHaveBeenCalledOnce();
+		expect(fixture.sessionHookEnd).toHaveBeenCalledWith("initial", "switch_session");
+		expect(fixture.sessionHookStart).toHaveBeenCalledWith("next", "resume");
+		expect(fixture.sessionHookDiscard).not.toHaveBeenCalled();
 		expect(fixture.lifecycleOrder).toEqual([
 			"before:resume",
 			"prepare:next",
@@ -75,6 +78,10 @@ describe("CodingAgentGreenfieldActiveSessionHost", () => {
 		expect(fixture.host.readSession()).toBe(fixture.initial.session);
 		expect(next.dispose).toHaveBeenCalledOnce();
 		expect(fixture.initial.dispose).not.toHaveBeenCalled();
+		expect(fixture.sessionHookEnd).toHaveBeenCalledWith("initial", "switch_session");
+		expect(fixture.sessionHookStart).toHaveBeenNthCalledWith(1, "next", "resume");
+		expect(fixture.sessionHookDiscard).toHaveBeenCalledWith("next");
+		expect(fixture.sessionHookStart).toHaveBeenNthCalledWith(2, "initial", "resume");
 		expect(fixture.lifecycleOrder).toEqual([
 			"before:resume",
 			"prepare:next",
@@ -93,6 +100,10 @@ describe("CodingAgentGreenfieldActiveSessionHost", () => {
 		expect(fixture.quiesceSessionBackgroundCommands).toHaveBeenCalledWith("initial");
 		expect(fixture.host.readSession()).toBe(fixture.initial.session);
 		expect(fixture.initial.dispose).not.toHaveBeenCalled();
+		expect(fixture.sessionHookEnd).toHaveBeenCalledWith("initial", "switch_session");
+		expect(fixture.sessionHookStart).toHaveBeenCalledOnce();
+		expect(fixture.sessionHookStart).toHaveBeenCalledWith("initial", "resume");
+		expect(fixture.sessionHookDiscard).not.toHaveBeenCalled();
 	});
 
 	it("keeps the committed session active when previous-session cleanup fails", async () => {
@@ -158,6 +169,10 @@ describe("CodingAgentGreenfieldActiveSessionHost", () => {
 		expect(fork.navigateForEdit).toHaveBeenCalledWith("entry-1");
 		expect(fixture.host.readSession()).toBe(fixture.initial.session);
 		expect(fork.dispose).toHaveBeenCalledOnce();
+		expect(fixture.sessionHookEnd).toHaveBeenCalledWith("initial", "fork_session");
+		expect(fixture.sessionHookStart).toHaveBeenNthCalledWith(1, "forked", "clear");
+		expect(fixture.sessionHookDiscard).toHaveBeenCalledWith("forked");
+		expect(fixture.sessionHookStart).toHaveBeenNthCalledWith(2, "initial", "resume");
 		await expect(access(fork.path)).rejects.toMatchObject({ code: "ENOENT" });
 	});
 
@@ -172,6 +187,9 @@ describe("CodingAgentGreenfieldActiveSessionHost", () => {
 
 		expect(fork.navigateForEdit).toHaveBeenCalledWith("entry-1");
 		expect(fixture.preserveSessionExecutionContext).toHaveBeenCalledWith("initial", "forked");
+		expect(fixture.sessionHookEnd).toHaveBeenCalledWith("initial", "fork_session");
+		expect(fixture.sessionHookStart).toHaveBeenCalledWith("forked", "clear");
+		expect(fixture.sessionHookDiscard).not.toHaveBeenCalled();
 		expect(fixture.lifecycleOrder).toEqual([
 			"before:fork",
 			"preserve:initial:forked",
@@ -190,6 +208,8 @@ describe("CodingAgentGreenfieldActiveSessionHost", () => {
 
 		expect(fixture.initial.abort).not.toHaveBeenCalled();
 		expect(fixture.host.readSession()).toBe(fixture.initial.session);
+		expect(fixture.sessionHookEnd).not.toHaveBeenCalled();
+		expect(fixture.sessionHookStart).not.toHaveBeenCalled();
 		expect(fixture.lifecycleOrder).toEqual(["before:new"]);
 	});
 
@@ -256,10 +276,18 @@ async function createFixture(
 		lifecycleOrder.push(`preserve:${sourceSessionId}:${targetSessionId}`);
 	});
 	const quiesceSessionBackgroundCommands = vi.fn(async () => {});
+	const sessionHookEnd = vi.fn(async () => {});
+	const sessionHookStart = vi.fn();
+	const sessionHookDiscard = vi.fn();
 	const runtime = {
 		backend: { create, resume },
 		quiesceSessionBackgroundCommands,
 		preserveSessionExecutionContext,
+		sessionHooks: {
+			end: sessionHookEnd,
+			start: sessionHookStart,
+			discard: sessionHookDiscard,
+		},
 	} as unknown as GreenfieldRuntimeComposition;
 	const catalog: RuntimeSessionCatalog = {
 		ownsSession: async (path) => {
@@ -324,6 +352,9 @@ async function createFixture(
 		resume,
 		quiesceSessionBackgroundCommands,
 		preserveSessionExecutionContext,
+		sessionHookEnd,
+		sessionHookStart,
+		sessionHookDiscard,
 		lifecycleOrder,
 		sessionPath: (id: string) => sessionPath(conversationDir, id),
 		writeConversationPlaceholder: async (id: string) => writeFile(sessionPath(conversationDir, id), "placeholder"),

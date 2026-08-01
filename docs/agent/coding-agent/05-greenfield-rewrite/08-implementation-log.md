@@ -173,6 +173,7 @@
 | [163-session-continuity-contract-matrix.md](./08-implementation-log/163-session-continuity-contract-matrix.md) | Session replacement/continuation 四象限合同、可等待后台静默点与 Greenfield 观察者隔离 |
 | [164-session-replacement-resource-transaction.md](./08-implementation-log/164-session-replacement-resource-transaction.md) | Switch/Fork replacement 资源合同、失败静默语义与 RPC fork 可发现性 |
 | [165-session-replacement-admission-linearization.md](./08-implementation-log/165-session-replacement-admission-linearization.md) | Switch/Fork/Extension replacement 并发准入、FIFO identity 归属与唯一终态 Gate |
+| [166-session-replacement-lifecycle-side-effects.md](./08-implementation-log/166-session-replacement-lifecycle-side-effects.md) | Replacement Extension/Hook 生命周期副作用、失败回滚与未提交目标清理 |
 
 ## 维护约定
 

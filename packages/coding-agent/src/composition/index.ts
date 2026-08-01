@@ -17,6 +17,7 @@ export {
 	type GreenfieldCliSessionOptions,
 	type GreenfieldRuntimeComposition,
 	type GreenfieldRuntimeCompositionOptions,
+	type GreenfieldRuntimeSessionHookLifecycle,
 	type GreenfieldRuntimeSessionOptions,
 } from "./greenfield-runtime-composition.js";
 export {

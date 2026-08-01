@@ -41,6 +41,7 @@
 
 ### Fixed
 
+- **Greenfield Session replacement Hook 生命周期兼容**：Active Session Host 现在按 Legacy 时序在 `new_session` / `switch_session` / `fork_session` 提交前结束 source Hook Session，并将 target 首次 `SessionStart` 分别标记为 `clear` / `resume` / `clear`；失败回滚只重新激活 source 的 `SessionStart("resume")`，未提交 target 不再产生虚假的 `SessionEnd("dispose")`。Composition 通过窄 `sessionHooks` 生命周期能力持有每会话 Hook 状态，资源释放不会重复发送 SessionEnd。
 - **Greenfield Switch/Fork replacement 资源兼容**：真实 Vetta CLI 新增 Legacy/Greenfield 成功 `switch_session`、锁冲突回滚和成功 `fork` 差分，固定 ownership、Todo、后台进程与恢复后命令准入合同。Greenfield RPC Profile 补回既有 `get_fork_messages` 命令；replacement 在目标提交前静默并等待 source 后台命令，临时隔离任务通知后重新绑定，使失败路径保留 source identity/Todo 但不恢复已终止进程，与 Legacy 行为一致。
 - **Greenfield Session 连续性与资源静默点**：真实 Vetta CLI 新增 Legacy/Greenfield × identity replacement/storage continuation 四象限差分，统一验证 Todo、后台进程、路径事件和 ownership。Greenfield Session 释放现在等待 Runtime 后台命令真实退出后再释放 Conversation ownership；Active Session 稳定事件订阅逐 listener 隔离异常，单个宿主观察者失败不再阻断其他观察者或切换后的事件。
 - **Legacy Session 可变能力旁路与事件隔离**：宿主 Todo、后台任务与 Subagent 访问改为 Session 命令控制器，写操作统一进入 identity transition 准入；RuntimeHost 历史摘要/替换不再直接写 `SessionManager`。Todo 查询返回脱离内部 Store 的副本，异步 Subagent 命令在已排队切换后绑定目标 identity；单个 Session、Runtime 事件或后台任务监听器失败不再阻断其他观察者或业务提交。
