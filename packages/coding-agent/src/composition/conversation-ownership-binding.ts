@@ -7,6 +7,7 @@ import type { ConversationOwnershipLease, ConversationOwnershipManager } from "@
  */
 export class ConversationOwnershipBinding {
 	private disposed = false;
+	private disposeOperation: Promise<void> | undefined;
 
 	private constructor(
 		private readonly manager: ConversationOwnershipManager,
@@ -41,9 +42,18 @@ export class ConversationOwnershipBinding {
 		this.lease = next;
 	}
 
-	async dispose(): Promise<void> {
-		if (this.disposed) return;
-		this.disposed = true;
-		await this.lease.release();
+	dispose(): Promise<void> {
+		if (this.disposed) return Promise.resolve();
+		if (!this.disposeOperation) this.disposeOperation = this.release();
+		return this.disposeOperation;
+	}
+
+	private async release(): Promise<void> {
+		try {
+			await this.lease.release();
+			this.disposed = true;
+		} finally {
+			this.disposeOperation = undefined;
+		}
 	}
 }

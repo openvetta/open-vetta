@@ -24,6 +24,33 @@ describe("ConversationOwnershipBinding", () => {
 
 		expect(events).toEqual(["acquire:source", "acquire:target", "release:source"]);
 	});
+
+	it("allows final runtime cleanup to retry a transient release failure", async () => {
+		let releaseAttempts = 0;
+		const binding = await ConversationOwnershipBinding.acquire(
+			{
+				acquire: async (conversationPath) => ({
+					conversationPath,
+					lockPath: `${conversationPath}.owner.lock`,
+					holder: {
+						token: conversationPath,
+						pid: 1,
+						hostname: "test",
+						acquiredAt: new Date(0).toISOString(),
+					},
+					release: async () => {
+						releaseAttempts++;
+						if (releaseAttempts === 1) throw new Error("transient release failure");
+					},
+				}),
+			},
+			"source",
+		);
+
+		await expect(binding.dispose()).rejects.toThrow("transient release failure");
+		await expect(binding.dispose()).resolves.toBeUndefined();
+		expect(releaseAttempts).toBe(2);
+	});
 });
 
 function manager(events: string[], rejectedPath?: string): ConversationOwnershipManager {

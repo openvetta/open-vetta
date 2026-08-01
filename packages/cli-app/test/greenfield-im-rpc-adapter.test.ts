@@ -80,6 +80,26 @@ describe("Greenfield IM RPC adapter", () => {
 		expect(fixture.fork).toHaveBeenCalledWith("entry-1");
 	});
 
+	test("keeps RPC success, state and the next prompt on the committed target", async () => {
+		const fixture = createAdapterFixture();
+		fixture.switchSession.mockImplementationOnce(async () => {
+			fixture.setIdentity("session-2", "session-2.conversation.jsonl");
+			return { cancelled: false };
+		});
+
+		await expect(required(fixture.adapter.session).switchSession("session-2.conversation.jsonl")).resolves.toBe(true);
+		await expect(required(fixture.adapter.state).readState()).resolves.toMatchObject({
+			sessionId: "session-2",
+			sessionFile: "session-2.conversation.jsonl",
+		});
+		await expect(required(fixture.adapter.turn).prompt("after cleanup", { source: "rpc" })).resolves.toBeUndefined();
+		expect(fixture.prompt).toHaveBeenLastCalledWith("session-2", {
+			text: "after cleanup",
+			images: undefined,
+			streamingBehavior: undefined,
+		});
+	});
+
 	test("delivers agent_end only after the active turn command has settled", async () => {
 		const fixture = createAdapterFixture();
 		const frames: unknown[] = [];
@@ -295,7 +315,9 @@ function createAdapterFixture(
 	const unregister = vi.fn(() => true);
 	const disposeSession = vi.fn(async () => {});
 	const disposeRuntime = vi.fn(async () => {});
-	const prompt = vi.fn<() => Promise<unknown>>(async () => ({ kind: "started" }));
+	const prompt = vi.fn<(activeSessionId: string, request: unknown) => Promise<unknown>>(async () => ({
+		kind: "started",
+	}));
 	const newSession = vi.fn(async () => ({ cancelled: false }));
 	const switchSession = vi.fn(async () => ({ cancelled: false }));
 	const fork = vi.fn(async () => ({ text: "fork prompt", cancelled: false }));
@@ -334,7 +356,7 @@ function createAdapterFixture(
 			return sessionId;
 		},
 		createCoreAssembly: () => core,
-		prompt,
+		prompt: (request: unknown) => prompt(sessionId, request),
 		abort: vi.fn(async () => {}),
 		getState: vi.fn(async () => ({
 			sessionId,

@@ -54,6 +54,10 @@ export interface CodingAgentGreenfieldActiveSessionHostOptions {
 	readonly createSessionId: () => string;
 	readonly resolveSessionId: (sessionPath: string) => string | undefined;
 	readonly lifecycle?: CodingAgentGreenfieldSessionTransitionLifecycle;
+	readonly onTransitionCleanupError?: (
+		error: AggregateError,
+		transition: CodingAgentGreenfieldSessionTransition & { readonly next: GreenfieldRuntimeSession },
+	) => void;
 }
 
 /**
@@ -264,7 +268,28 @@ export class CodingAgentGreenfieldActiveSessionHost {
 			.filter((result): result is PromiseRejectedResult => result.status === "rejected")
 			.map(({ reason }) => reason);
 		if (cleanupErrors.length > 0) {
-			throw new AggregateError(cleanupErrors, "Greenfield session transition committed, but cleanup failed");
+			this.reportTransitionCleanupError(
+				new AggregateError(cleanupErrors, "Greenfield session transition committed, but cleanup failed"),
+				transition,
+			);
+		}
+	}
+
+	private reportTransitionCleanupError(
+		error: AggregateError,
+		transition: CodingAgentGreenfieldSessionTransition & { readonly next: GreenfieldRuntimeSession },
+	): void {
+		try {
+			if (this.options.onTransitionCleanupError) {
+				this.options.onTransitionCleanupError(error, transition);
+				return;
+			}
+			console.warn("[GreenfieldActiveSessionHost] Committed session transition cleanup failed", error);
+		} catch (reportError) {
+			console.warn(
+				"[GreenfieldActiveSessionHost] Failed to report committed session transition cleanup",
+				new AggregateError([error, reportError]),
+			);
 		}
 	}
 

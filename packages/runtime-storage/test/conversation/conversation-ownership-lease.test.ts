@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -48,6 +48,21 @@ describe("FileConversationOwnershipManager", () => {
 		await lease.release();
 
 		expect(JSON.parse(await readFile(lockPath, "utf8"))).toEqual(replacement);
+	});
+
+	it("retries release after a transient filesystem failure", async () => {
+		const conversationPath = await temporaryConversationPath();
+		const manager = new FileConversationOwnershipManager({ createToken: () => "owner" });
+		const lease = await manager.acquire(conversationPath);
+		const lockPath = lease.lockPath;
+		await rm(lockPath);
+		await mkdir(lockPath);
+
+		await expect(lease.release()).rejects.toBeDefined();
+		await rm(lockPath, { recursive: true });
+		await writeFile(lockPath, JSON.stringify(lease.holder), "utf8");
+		await expect(lease.release()).resolves.toBeUndefined();
+		await expect(stat(lockPath)).rejects.toMatchObject({ code: "ENOENT" });
 	});
 
 	it("reclaims a dead owner on the same host without waiting for the stale timeout", async () => {

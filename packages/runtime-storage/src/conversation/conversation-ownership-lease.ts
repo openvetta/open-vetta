@@ -110,6 +110,7 @@ export class FileConversationOwnershipManager implements ConversationOwnershipMa
 		holder: ConversationOwnershipHolder,
 	): ConversationOwnershipLease {
 		let released = false;
+		let releaseOperation: Promise<void> | undefined;
 		const heartbeat = setInterval(() => {
 			void touchOwnedLock(lockPath, holder.token, this.now()).catch(() => undefined);
 		}, this.heartbeatIntervalMs);
@@ -119,16 +120,20 @@ export class FileConversationOwnershipManager implements ConversationOwnershipMa
 			conversationPath,
 			lockPath,
 			holder,
-			async release() {
-				if (released) return;
-				released = true;
-				clearInterval(heartbeat);
-				try {
-					const current = await readHolder(lockPath);
-					if (current?.token === holder.token) await rm(lockPath, { force: true });
-				} catch (error) {
-					if (nodeErrorCode(error) !== "ENOENT") throw error;
+			release() {
+				if (released) return Promise.resolve();
+				if (!releaseOperation) {
+					releaseOperation = (async () => {
+						try {
+							await releaseOwnedLock(lockPath, holder.token);
+							released = true;
+							clearInterval(heartbeat);
+						} finally {
+							releaseOperation = undefined;
+						}
+					})();
 				}
+				return releaseOperation;
 			},
 		};
 	}
@@ -141,6 +146,15 @@ export class FileConversationOwnershipManager implements ConversationOwnershipMa
 			if (nodeErrorCode(error) === "ENOENT") return true;
 			throw error;
 		}
+	}
+}
+
+async function releaseOwnedLock(lockPath: string, holderToken: string): Promise<void> {
+	try {
+		const current = await readHolder(lockPath);
+		if (current?.token === holderToken) await rm(lockPath, { force: true });
+	} catch (error) {
+		if (nodeErrorCode(error) !== "ENOENT") throw error;
 	}
 }
 

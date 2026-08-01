@@ -394,8 +394,8 @@ async function createGreenfieldRuntimeCompositionInternal(
 	};
 	const releaseOwnership = async (binding: ConversationOwnershipBinding | undefined): Promise<void> => {
 		if (!binding) return;
-		ownershipBindings.delete(binding);
 		await binding.dispose();
+		ownershipBindings.delete(binding);
 	};
 	const stateActivation =
 		effectiveActivation.mode === "scope"

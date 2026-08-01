@@ -106,25 +106,60 @@ describe("CodingAgentGreenfieldActiveSessionHost", () => {
 		expect(fixture.sessionHookDiscard).not.toHaveBeenCalled();
 	});
 
-	it("keeps the committed session active when previous-session cleanup fails", async () => {
+	it("reports every post-commit cleanup failure while keeping the target usable", async () => {
 		const fixture = await createFixture({ failFinalize: true });
 		const next = createSession("next", fixture.sessionPath("next"));
-		fixture.resume.mockResolvedValueOnce(next.session);
+		const later = createSession("later", fixture.sessionPath("later"));
+		fixture.resume.mockResolvedValueOnce(next.session).mockResolvedValueOnce(later.session);
+		fixture.initial.dispose.mockRejectedValueOnce(new Error("previous dispose failed"));
 
-		await expect(fixture.host.switchSession(fixture.sessionPath("next"))).rejects.toThrow(
-			"transition committed, but cleanup failed",
-		);
+		await expect(fixture.host.switchSession(fixture.sessionPath("next"))).resolves.toEqual({ cancelled: false });
 
 		expect(fixture.host.readSession()).toBe(next.session);
 		expect(fixture.initial.dispose).toHaveBeenCalledOnce();
 		expect(next.dispose).not.toHaveBeenCalled();
+		expect(fixture.cleanupErrors).toHaveLength(1);
+		expect(fixture.cleanupErrors[0]?.errors).toEqual([
+			expect.objectContaining({ message: "finalize failed" }),
+			expect.objectContaining({ message: "previous dispose failed" }),
+		]);
+		await expect(
+			fixture.host.startActiveSessionOperation((session) => session.prompt({ text: "target prompt" })),
+		).resolves.toEqual({ kind: "started" });
+		expect(next.prompt).toHaveBeenCalledWith({ text: "target prompt" });
+		await expect(fixture.host.switchSession(fixture.sessionPath("later"))).resolves.toEqual({ cancelled: false });
+		expect(fixture.host.readSession()).toBe(later.session);
+		expect(fixture.sessionHookStart).not.toHaveBeenCalledWith("initial", "resume");
 		expect(fixture.lifecycleOrder).toEqual([
 			"before:resume",
 			"prepare:next",
 			"commit:next",
 			"after:resume",
 			"finalize:next",
+			"before:resume",
+			"prepare:later",
+			"commit:later",
+			"after:resume",
+			"finalize:later",
 		]);
+	});
+
+	it("isolates cleanup diagnostic failures after the target commits", async () => {
+		const fixture = await createFixture({ failFinalize: true, failCleanupReporter: true });
+		const next = createSession("next", fixture.sessionPath("next"));
+		fixture.resume.mockResolvedValueOnce(next.session);
+		const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+		try {
+			await expect(fixture.host.switchSession(fixture.sessionPath("next"))).resolves.toEqual({ cancelled: false });
+			expect(fixture.host.readSession()).toBe(next.session);
+			expect(warning).toHaveBeenCalledWith(
+				"[GreenfieldActiveSessionHost] Failed to report committed session transition cleanup",
+				expect.any(AggregateError),
+			);
+		} finally {
+			warning.mockRestore();
+		}
 	});
 
 	it("runs Extension setup against a real persisted SessionManager and imports it before activation", async () => {
@@ -262,6 +297,7 @@ async function createFixture(
 	options: {
 		failAfter?: boolean;
 		failFinalize?: boolean;
+		failCleanupReporter?: boolean;
 		failPrepare?: boolean;
 		skipConversationRestore?: boolean;
 		cancelBefore?: boolean;
@@ -279,6 +315,8 @@ async function createFixture(
 	const sessionHookEnd = vi.fn(async () => {});
 	const sessionHookStart = vi.fn();
 	const sessionHookDiscard = vi.fn();
+	const cleanupErrors: AggregateError[] = [];
+	let finalizeAttempts = 0;
 	const runtime = {
 		backend: { create, resume },
 		quiesceSessionBackgroundCommands,
@@ -315,6 +353,10 @@ async function createFixture(
 			const encoded = path.match(/([^\\/]+)\.conversation\.jsonl$/)?.[1];
 			return encoded ? Buffer.from(encoded, "base64url").toString("utf8") : undefined;
 		},
+		onTransitionCleanupError: (error) => {
+			cleanupErrors.push(error);
+			if (options.failCleanupReporter) throw new Error("cleanup reporter failed");
+		},
 		lifecycle: {
 			before: async ({ kind }) => {
 				lifecycleOrder.push(`before:${kind}`);
@@ -335,7 +377,7 @@ async function createFixture(
 					},
 					finalize: async () => {
 						lifecycleOrder.push(`finalize:${next.sessionId}`);
-						if (options.failFinalize) throw new Error("finalize failed");
+						if (options.failFinalize && finalizeAttempts++ === 0) throw new Error("finalize failed");
 					},
 				};
 			},
@@ -355,6 +397,7 @@ async function createFixture(
 		sessionHookEnd,
 		sessionHookStart,
 		sessionHookDiscard,
+		cleanupErrors,
 		lifecycleOrder,
 		sessionPath: (id: string) => sessionPath(conversationDir, id),
 		writeConversationPlaceholder: async (id: string) => writeFile(sessionPath(conversationDir, id), "placeholder"),
@@ -366,6 +409,7 @@ function createSession(id: string, path: string) {
 	let streaming = false;
 	let finishOnSubscribe = false;
 	const dispose = vi.fn(async () => {});
+	const prompt = vi.fn(async () => ({ kind: "started" as const }));
 	const forkSession = vi.fn(async () => ({ path, text: "" }));
 	const navigateForEdit = vi.fn(async () => ({ text: "", cancelled: false }));
 	const abort = vi.fn(async () => {
@@ -392,6 +436,7 @@ function createSession(id: string, path: string) {
 			return () => listeners.delete(handler);
 		},
 		abort,
+		prompt,
 		forkSession,
 		dispose,
 	} as unknown as GreenfieldRuntimeSession;
@@ -400,6 +445,7 @@ function createSession(id: string, path: string) {
 		path,
 		dispose,
 		abort,
+		prompt,
 		forkSession,
 		navigateForEdit,
 		emit(event: SessionEvent) {
