@@ -13,6 +13,7 @@ import {
 	GreenfieldRuntimeModel,
 	type GreenfieldRuntimeResourceContext,
 	GreenfieldRuntimeSessionBackend,
+	RetryableCleanup,
 	type RuntimeSessionAskUserQuestionCapability,
 	type SessionConfig,
 	type SessionExecutionMode,
@@ -974,6 +975,115 @@ async function createGreenfieldRuntimeCompositionInternal(
 					hookRuntime,
 					extensionEvents,
 				});
+				const sessionCleanup = new RetryableCleanup();
+				sessionCleanup.add({
+					id: "conversation-context-overlay",
+					phase: 0,
+					cleanup: () => conversationContextOverlay.clear(activeSessionId),
+				});
+				if (subagentRuntime) {
+					const registeredSubagentRuntime = subagentRuntime;
+					sessionCleanup.add({
+						id: "subagent-runtime",
+						phase: 0,
+						cleanup: () => registeredSubagentRuntime.dispose(),
+					});
+				}
+				sessionCleanup.add({
+					id: "context-runtime",
+					phase: 0,
+					cleanup: () => {
+						contextRuntime.dispose();
+						contextRuntimes.delete(contextRuntime);
+					},
+				});
+				if (memoryRuntime) {
+					sessionCleanup.add({
+						id: "memory-runtime",
+						phase: 0,
+						cleanup: () => {
+							memoryRuntime.dispose();
+							memoryRuntimes.delete(memoryRuntime);
+						},
+					});
+				}
+				sessionCleanup.add({
+					id: "memory-controller-binding",
+					phase: 0,
+					cleanup: () => {
+						if (memoryControllers.get(activeSessionId) === memoryController) {
+							memoryControllers.delete(activeSessionId);
+						}
+					},
+				});
+				sessionCleanup.add({ id: "session-end-hook", phase: 0, cleanup: () => endHookSession("dispose") });
+				if (pluginMcpRuntime) {
+					const registeredPluginMcpRuntime = pluginMcpRuntime;
+					sessionCleanup.add({
+						id: "plugin-mcp-runtime",
+						phase: 0,
+						cleanup: async () => {
+							await registeredPluginMcpRuntime.dispose();
+							if (pluginMcpRuntimes.get(activeSessionId) === registeredPluginMcpRuntime) {
+								pluginMcpRuntimes.delete(activeSessionId);
+							}
+						},
+					});
+				}
+				sessionCleanup.add({
+					id: "execution-runtime",
+					phase: 0,
+					cleanup: async () => {
+						await activeExecutionRuntime.dispose();
+						if (executionRuntimes.get(activeSessionId) === activeExecutionRuntime) {
+							executionRuntimes.delete(activeSessionId);
+						}
+					},
+				});
+				sessionCleanup.add({
+					id: "todo-runtime",
+					phase: 0,
+					cleanup: async () => {
+						await todoRuntime.dispose();
+						todoRuntimes.delete(todoRuntime);
+					},
+				});
+				sessionCleanup.add({
+					id: "capability-composition",
+					phase: 0,
+					cleanup: async () => {
+						await capabilities.close();
+						capabilityCompositions.delete(capabilities);
+					},
+				});
+				sessionCleanup.add({
+					id: "session-bindings",
+					phase: 1,
+					cleanup: () => {
+						if (hookSessionControllers.get(activeSessionId) === hookSessionController) {
+							hookSessionControllers.delete(activeSessionId);
+						}
+						if (mcpControllers.get(activeSessionId) === mcpController) mcpControllers.delete(activeSessionId);
+						if (configurationStates.get(activeSessionId) === configurationState) {
+							configurationStates.delete(activeSessionId);
+						}
+						if (resourceContexts.get(activeSessionId) === resourceContext)
+							resourceContexts.delete(activeSessionId);
+						if (extensionEventBridges.get(activeSessionId) === extensionEvents) {
+							extensionEventBridges.delete(activeSessionId);
+						}
+						mcpRefreshObservedSessions.delete(activeSessionId);
+						mcpPromptRefreshReuseSessions.delete(activeSessionId);
+					},
+				});
+				sessionCleanup.add({
+					id: "conversation-ownership",
+					phase: 2,
+					cleanup: async () => {
+						await releaseOwnership(activeOwnership);
+						activeOwnership = undefined;
+					},
+				});
 				return {
 					sessionId: sessionOptions.sessionId,
 					repository,
@@ -1137,52 +1247,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 						extensionToolRuntime?.rebindSession(previousSessionId, result.sessionId);
 					},
 					async dispose() {
-						try {
-							conversationContextOverlay.clear(activeSessionId);
-							await subagentRuntime?.dispose();
-							contextRuntimes.delete(contextRuntime);
-							contextRuntime.dispose();
-							if (memoryRuntime) {
-								memoryRuntimes.delete(memoryRuntime);
-								memoryRuntime.dispose();
-							}
-							if (memoryControllers.get(activeSessionId) === memoryController) {
-								memoryControllers.delete(activeSessionId);
-							}
-							await endHookSession("dispose");
-							if (hookSessionControllers.get(activeSessionId) === hookSessionController) {
-								hookSessionControllers.delete(activeSessionId);
-							}
-							if (mcpControllers.get(activeSessionId) === mcpController) {
-								mcpControllers.delete(activeSessionId);
-							}
-							if (pluginMcpRuntime && pluginMcpRuntimes.get(activeSessionId) === pluginMcpRuntime) {
-								pluginMcpRuntimes.delete(activeSessionId);
-							}
-							await pluginMcpRuntime?.dispose();
-							if (executionRuntimes.get(activeSessionId) === activeExecutionRuntime) {
-								executionRuntimes.delete(activeSessionId);
-							}
-							if (configurationStates.get(activeSessionId) === configurationState) {
-								configurationStates.delete(activeSessionId);
-							}
-							if (resourceContexts.get(activeSessionId) === resourceContext) {
-								resourceContexts.delete(activeSessionId);
-							}
-							if (extensionEventBridges.get(activeSessionId) === extensionEvents) {
-								extensionEventBridges.delete(activeSessionId);
-							}
-							mcpRefreshObservedSessions.delete(activeSessionId);
-							mcpPromptRefreshReuseSessions.delete(activeSessionId);
-							await activeExecutionRuntime.dispose();
-							capabilityCompositions.delete(capabilities);
-							todoRuntimes.delete(todoRuntime);
-							await todoRuntime.dispose();
-							await capabilities.close();
-						} finally {
-							await releaseOwnership(activeOwnership);
-							activeOwnership = undefined;
-						}
+						await sessionCleanup.run("Failed to dispose Greenfield session assembly resources");
 					},
 				};
 			} catch (error) {
@@ -1256,6 +1321,110 @@ async function createGreenfieldRuntimeCompositionInternal(
 	const backend = new GreenfieldRuntimeSessionBackend({ runtimeFactory });
 
 	let disposed = false;
+	const compositionCleanup = new RetryableCleanup();
+	function prepareCompositionCleanup(): void {
+		for (const [index, contextRuntime] of [...contextRuntimes].entries()) {
+			compositionCleanup.add({
+				id: `context-runtime:${index}`,
+				phase: 0,
+				cleanup: () => {
+					contextRuntime.dispose();
+					contextRuntimes.delete(contextRuntime);
+				},
+			});
+		}
+		for (const [index, memoryRuntime] of [...memoryRuntimes].entries()) {
+			compositionCleanup.add({
+				id: `memory-runtime:${index}`,
+				phase: 0,
+				cleanup: () => {
+					memoryRuntime.dispose();
+					memoryRuntimes.delete(memoryRuntime);
+				},
+			});
+		}
+		for (const [index, executionRuntime] of [...new Set(executionRuntimes.values())].entries()) {
+			compositionCleanup.add({
+				id: `execution-runtime:${index}`,
+				phase: 0,
+				cleanup: async () => {
+					await executionRuntime.dispose();
+					for (const [sessionId, registered] of executionRuntimes) {
+						if (registered === executionRuntime) executionRuntimes.delete(sessionId);
+					}
+				},
+			});
+		}
+		for (const [index, disposeHookSession] of [...hookSessionDisposers].entries()) {
+			compositionCleanup.add({
+				id: `hook-session:${index}`,
+				phase: 0,
+				cleanup: async () => {
+					await disposeHookSession();
+					hookSessionDisposers.delete(disposeHookSession);
+				},
+			});
+		}
+		for (const [index, todoRuntime] of [...todoRuntimes].entries()) {
+			compositionCleanup.add({
+				id: `todo-runtime:${index}`,
+				phase: 0,
+				cleanup: async () => {
+					await todoRuntime.dispose();
+					todoRuntimes.delete(todoRuntime);
+				},
+			});
+		}
+		for (const [index, capabilities] of [...capabilityCompositions].entries()) {
+			compositionCleanup.add({
+				id: `capability-composition:${index}`,
+				phase: 0,
+				cleanup: async () => {
+					await capabilities.close();
+					capabilityCompositions.delete(capabilities);
+				},
+			});
+		}
+		for (const [index, binding] of [...ownershipBindings].entries()) {
+			compositionCleanup.add({
+				id: `ownership-binding:${index}`,
+				phase: 0,
+				cleanup: () => releaseOwnership(binding),
+			});
+		}
+		for (const [index, pluginRuntime] of [...new Set(pluginMcpRuntimes.values())].entries()) {
+			compositionCleanup.add({
+				id: `plugin-mcp-runtime:${index}`,
+				phase: 0,
+				cleanup: async () => {
+					await pluginRuntime.dispose();
+					for (const [sessionId, registered] of pluginMcpRuntimes) {
+						if (registered === pluginRuntime) pluginMcpRuntimes.delete(sessionId);
+					}
+				},
+			});
+		}
+		compositionCleanup.add({
+			id: "session-registries",
+			phase: 1,
+			cleanup: () => {
+				memoryControllers.clear();
+				resourceContexts.clear();
+				extensionEventBridges.clear();
+				mcpRefreshObservedSessions.clear();
+				mcpPromptRefreshReuseSessions.clear();
+				hookSessionControllers.clear();
+				mcpControllers.clear();
+				configurationStates.clear();
+				conversationContextOverlay.clearAll();
+			},
+		});
+		compositionCleanup.add({ id: "conversation-repository", phase: 2, cleanup: () => repository.close() });
+		if (mcpSynchronizer) {
+			compositionCleanup.add({ id: "mcp-synchronizer", phase: 3, cleanup: () => mcpSynchronizer.dispose() });
+		}
+		compositionCleanup.add({ id: "coding-tools", phase: 3, cleanup: () => tools.dispose() });
+	}
 	return {
 		backend,
 		tools,
@@ -1318,45 +1487,17 @@ async function createGreenfieldRuntimeCompositionInternal(
 			return (await memoryControllers.get(sessionId)?.flushMemory(signal)) ?? 0;
 		},
 		async dispose() {
-			if (disposed) return;
-			disposed = true;
-			for (const contextRuntime of contextRuntimes) contextRuntime.dispose();
-			for (const memoryRuntime of memoryRuntimes) memoryRuntime.dispose();
-			const executionResults = await Promise.allSettled(
-				[...executionRuntimes.values()].map((runtime) => runtime.dispose()),
-			);
-			const capabilityResults = await Promise.allSettled([
-				...[...hookSessionDisposers].map((disposeHookSession) => disposeHookSession()),
-				...[...todoRuntimes].map((runtime) => runtime.dispose()),
-				...[...capabilityCompositions].map((capabilities) => capabilities.close()),
-				...[...ownershipBindings].map((binding) => releaseOwnership(binding)),
-				...[...pluginMcpRuntimes.values()].map((runtime) => runtime.dispose()),
-			]);
-			capabilityCompositions.clear();
-			todoRuntimes.clear();
-			contextRuntimes.clear();
-			memoryRuntimes.clear();
-			memoryControllers.clear();
-			resourceContexts.clear();
-			extensionEventBridges.clear();
-			mcpRefreshObservedSessions.clear();
-			mcpPromptRefreshReuseSessions.clear();
-			hookSessionDisposers.clear();
-			hookSessionControllers.clear();
-			mcpControllers.clear();
-			pluginMcpRuntimes.clear();
-			executionRuntimes.clear();
-			configurationStates.clear();
-			ownershipBindings.clear();
-			conversationContextOverlay.clearAll();
-			await repository.close();
-			mcpSynchronizer?.dispose();
-			tools.dispose();
-			const errors = [...executionResults, ...capabilityResults]
-				.filter((result): result is PromiseRejectedResult => result.status === "rejected")
-				.map(({ reason }) => reason);
-			if (errors.length > 0) {
-				throw new AggregateError(errors, "Failed to dispose one or more Greenfield runtime resources");
+			if (!disposed) {
+				disposed = true;
+				prepareCompositionCleanup();
+			}
+			try {
+				await compositionCleanup.run("Failed to dispose one or more Greenfield runtime resources");
+			} catch (error) {
+				throw new AggregateError(
+					error instanceof AggregateError ? error.errors : [error],
+					"Failed to dispose one or more Greenfield runtime resources",
+				);
 			}
 		},
 	};

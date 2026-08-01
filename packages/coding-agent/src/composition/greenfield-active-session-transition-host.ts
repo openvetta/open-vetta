@@ -2,7 +2,12 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { SessionEndCause } from "@vetta/ecosystem-adapter";
-import type { GreenfieldRuntimeSession, RuntimeSessionCatalog, SessionEvent } from "@vetta/runtime-core";
+import {
+	type GreenfieldRuntimeSession,
+	RetryableCleanup,
+	type RuntimeSessionCatalog,
+	type SessionEvent,
+} from "@vetta/runtime-core";
 import { migrateLegacySessionToV2 } from "@vetta/runtime-storage/conversation";
 import { normalizeCodingAgentLegacySessionEntry } from "../adapters/runtime-core/legacy-session-import-normalizer.js";
 import { SessionManager } from "../core/session-manager/index.js";
@@ -74,6 +79,10 @@ export class CodingAgentGreenfieldActiveSessionHost {
 	private transitionTail: Promise<void> = Promise.resolve();
 	private suppressActiveEvents = false;
 	private disposed = false;
+	private readonly retiredCleanups = new Map<number, RetryableCleanup>();
+	private readonly finalCleanup = new RetryableCleanup();
+	private cleanupSequence = 0;
+	private disposePreparation: Promise<void> | undefined;
 
 	constructor(private readonly options: CodingAgentGreenfieldActiveSessionHostOptions) {
 		this.activeSession = options.initialSession;
@@ -210,13 +219,12 @@ export class CodingAgentGreenfieldActiveSessionHost {
 	}
 
 	async dispose(): Promise<void> {
-		if (this.disposed) return;
-		this.disposed = true;
-		await this.transitionTail;
-		this.activeEventUnsubscribe?.();
-		this.activeEventUnsubscribe = undefined;
-		this.listeners.clear();
-		await this.activeSession.dispose();
+		if (!this.disposePreparation) {
+			this.disposed = true;
+			this.disposePreparation = this.prepareDisposal();
+		}
+		await this.disposePreparation;
+		await this.finalCleanup.run("Failed to dispose Greenfield active session host");
 	}
 
 	private describe(
@@ -263,16 +271,52 @@ export class CodingAgentGreenfieldActiveSessionHost {
 			throw error;
 		}
 
-		const cleanup = await Promise.allSettled([prepared?.finalize(), previous.dispose()]);
-		const cleanupErrors = cleanup
-			.filter((result): result is PromiseRejectedResult => result.status === "rejected")
-			.map(({ reason }) => reason);
-		if (cleanupErrors.length > 0) {
+		const cleanupId = this.cleanupSequence++;
+		const cleanup = new RetryableCleanup();
+		this.retiredCleanups.set(cleanupId, cleanup);
+		if (prepared) {
+			cleanup.add({ id: "finalize", cleanup: () => prepared.finalize() });
+		}
+		cleanup.add({ id: "previous-session", cleanup: () => previous.dispose() });
+		try {
+			await cleanup.run("Greenfield session transition committed, but cleanup failed");
+			this.retiredCleanups.delete(cleanupId);
+		} catch (error) {
 			this.reportTransitionCleanupError(
-				new AggregateError(cleanupErrors, "Greenfield session transition committed, but cleanup failed"),
+				error instanceof AggregateError
+					? error
+					: new AggregateError([error], "Greenfield session transition committed, but cleanup failed"),
 				transition,
 			);
 		}
+	}
+
+	private async prepareDisposal(): Promise<void> {
+		await this.transitionTail;
+		for (const [cleanupId, retiredCleanup] of this.retiredCleanups) {
+			this.finalCleanup.add({
+				id: `retired-transition:${cleanupId}`,
+				phase: 0,
+				cleanup: async () => {
+					await retiredCleanup.run("Failed to dispose retired Greenfield session resources");
+					this.retiredCleanups.delete(cleanupId);
+				},
+			});
+		}
+		const unsubscribe = this.activeEventUnsubscribe;
+		if (unsubscribe) {
+			this.finalCleanup.add({
+				id: "active-event-subscription",
+				phase: 1,
+				cleanup: () => {
+					unsubscribe();
+					if (this.activeEventUnsubscribe === unsubscribe) this.activeEventUnsubscribe = undefined;
+				},
+			});
+		}
+		this.listeners.clear();
+		const activeSession = this.activeSession;
+		this.finalCleanup.add({ id: "active-session", phase: 2, cleanup: () => activeSession.dispose() });
 	}
 
 	private reportTransitionCleanupError(

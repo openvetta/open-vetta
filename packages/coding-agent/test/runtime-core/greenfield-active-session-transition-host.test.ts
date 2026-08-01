@@ -162,6 +162,21 @@ describe("CodingAgentGreenfieldActiveSessionHost", () => {
 		}
 	});
 
+	it("retries only failed retired-session cleanup during final host disposal", async () => {
+		const fixture = await createFixture({ failFinalize: true });
+		const next = createSession("next", fixture.sessionPath("next"));
+		fixture.resume.mockResolvedValueOnce(next.session);
+		fixture.initial.dispose.mockRejectedValueOnce(new Error("previous dispose failed"));
+
+		await fixture.host.switchSession(fixture.sessionPath("next"));
+		await expect(fixture.host.dispose()).resolves.toBeUndefined();
+		await expect(fixture.host.dispose()).resolves.toBeUndefined();
+
+		expect(fixture.initial.dispose).toHaveBeenCalledTimes(2);
+		expect(next.dispose).toHaveBeenCalledOnce();
+		expect(fixture.lifecycleOrder.filter((entry) => entry === "finalize:next")).toHaveLength(2);
+	});
+
 	it("runs Extension setup against a real persisted SessionManager and imports it before activation", async () => {
 		const fixture = await createFixture();
 		const next = createSession("created", fixture.sessionPath("created"));

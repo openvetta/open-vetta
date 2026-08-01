@@ -1,5 +1,5 @@
 import { basename, dirname } from "node:path";
-import type { GreenfieldRuntimeSession } from "@vetta/runtime-core";
+import { type GreenfieldRuntimeSession, RetryableCleanup } from "@vetta/runtime-core";
 import type { ExtensionExecutionHost } from "../../core/extensions/execution-host.js";
 import { ExtensionRunner } from "../../core/extensions/runner.js";
 import type { Extension, ExtensionError, ExtensionRuntime, ExtensionUIContext } from "../../core/extensions/types.js";
@@ -45,6 +45,8 @@ export class CodingAgentGreenfieldExtensionEventHost {
 	private initialized = false;
 	private shutdownEmitted = false;
 	private disposed = false;
+	private readonly cleanup = new RetryableCleanup();
+	private cleanupPrepared = false;
 
 	constructor(private readonly options: CodingAgentGreenfieldExtensionEventHostOptions) {
 		const assembly = options.session.createCoreAssembly();
@@ -155,14 +157,35 @@ export class CodingAgentGreenfieldExtensionEventHost {
 	}
 
 	async dispose(lifecycle: { readonly emitSessionShutdown?: boolean } = {}): Promise<void> {
-		if (this.disposed) return;
 		this.disposed = true;
-		if (lifecycle.emitSessionShutdown !== false) await this.shutdown();
-		this.removeErrorListener?.();
-		this.removeErrorListener = undefined;
-		this.removeExecutionObservationListener();
-		this.eventBinding.dispose();
-		await this.actionHost.dispose();
+		if (!this.cleanupPrepared) this.prepareCleanup(lifecycle.emitSessionShutdown !== false);
+		await this.cleanup.run("Failed to dispose Greenfield Extension event host");
+	}
+
+	private prepareCleanup(emitSessionShutdown: boolean): void {
+		this.cleanupPrepared = true;
+		if (emitSessionShutdown) {
+			this.cleanup.add({ id: "session-shutdown", phase: 0, cleanup: () => this.shutdown() });
+		}
+		const removeErrorListener = this.removeErrorListener;
+		if (removeErrorListener) {
+			this.cleanup.add({
+				id: "error-listener",
+				phase: 1,
+				cleanup: () => {
+					removeErrorListener();
+					if (this.removeErrorListener === removeErrorListener) this.removeErrorListener = undefined;
+				},
+			});
+		}
+		this.cleanup.add({
+			id: "execution-observation-listener",
+			phase: 1,
+			cleanup: this.removeExecutionObservationListener,
+		});
+		const eventBinding = this.eventBinding;
+		this.cleanup.add({ id: "event-binding", phase: 1, cleanup: () => eventBinding.dispose() });
+		this.cleanup.add({ id: "action-host", phase: 1, cleanup: () => this.actionHost.dispose() });
 	}
 
 	private reportRuntimeError(event: string, error: unknown): void {

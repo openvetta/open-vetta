@@ -53,6 +53,24 @@ describe("Greenfield IM RPC adapter", () => {
 		expect(fixture.disposeRuntime).toHaveBeenCalledOnce();
 	});
 
+	test("keeps RPC admission closed and retries only failed owned resources", async () => {
+		const fixture = createAdapterFixture();
+		await fixture.adapter.initialize(createInitialization());
+		fixture.disposeSession.mockRejectedValueOnce(new Error("session cleanup failed"));
+
+		const first = fixture.adapter.dispose();
+		const concurrent = fixture.adapter.dispose();
+		await expect(first).rejects.toThrow("Failed to dispose Greenfield IM RPC resources");
+		await expect(concurrent).rejects.toThrow("Failed to dispose Greenfield IM RPC resources");
+		expect(fixture.unregister).toHaveBeenCalledOnce();
+		expect(fixture.disposeRuntime).toHaveBeenCalledOnce();
+
+		await expect(fixture.adapter.dispose()).resolves.toBeUndefined();
+		expect(fixture.disposeSession).toHaveBeenCalledTimes(2);
+		expect(fixture.unregister).toHaveBeenCalledOnce();
+		expect(fixture.disposeRuntime).toHaveBeenCalledOnce();
+	});
+
 	test("fails closed when the required host bridge is absent", async () => {
 		const fixture = createAdapterFixture();
 		const initialization = createInitialization();

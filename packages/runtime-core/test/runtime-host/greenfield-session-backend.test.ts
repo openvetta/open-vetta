@@ -693,6 +693,42 @@ describe("GreenfieldRuntimeSessionBackend", () => {
 			code: "session_closed",
 		});
 	});
+
+	it("keeps admission closed while retrying only failed session cleanup tasks", async () => {
+		let participantAttempts = 0;
+		const participantDispose = vi.fn(async () => {
+			participantAttempts += 1;
+			if (participantAttempts === 1) throw new Error("participant cleanup failed");
+		});
+		const disposeRuntime = vi.fn(async () => {});
+		const { backend } = createBackend(
+			new CompletingTurnEngine(),
+			new RecordingPromptAdapter(),
+			disposeRuntime,
+			undefined,
+			{
+				documentParticipants: [
+					{
+						initialize: vi.fn(async () => {}),
+						onDocumentChanged: vi.fn(async () => {}),
+						dispose: participantDispose,
+					},
+				],
+			},
+		);
+		const session = await backend.create({ id: "session-1" });
+
+		await expect(session.dispose()).rejects.toThrow("participant cleanup failed");
+		await expect(session.prompt({ text: "after failed dispose" })).rejects.toMatchObject({
+			code: "session_closed",
+		});
+		expect(disposeRuntime).toHaveBeenCalledOnce();
+
+		await expect(session.dispose()).resolves.toBeUndefined();
+		await expect(session.dispose()).resolves.toBeUndefined();
+		expect(participantDispose).toHaveBeenCalledTimes(2);
+		expect(disposeRuntime).toHaveBeenCalledOnce();
+	});
 });
 
 function snapshot(): RuntimeSnapshot {

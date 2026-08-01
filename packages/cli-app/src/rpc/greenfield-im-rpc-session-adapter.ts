@@ -12,7 +12,7 @@ import {
 	adaptCodingAgentToolRegistration,
 	type CodingAgentGreenfieldExtensionCommandHost,
 } from "@vetta/coding-agent/runtime-host/greenfield";
-import type { GreenfieldRuntimeSession, HistoryEntry } from "@vetta/runtime-core";
+import { type GreenfieldRuntimeSession, type HistoryEntry, RetryableCleanup } from "@vetta/runtime-core";
 import type { CodingToolRegistration } from "@vetta/runtime-tools/coding";
 import type {
 	CodingAgentGreenfieldActiveSessionHost,
@@ -68,7 +68,7 @@ export class GreenfieldImRpcSessionAdapter implements RpcSessionCapabilities {
 	>;
 	private unregisterHostTool: (() => void) | undefined;
 	private readonly activeTurnCommands: ActiveTurnCommand[] = [];
-	private disposed = false;
+	private readonly cleanup = new RetryableCleanup();
 
 	constructor(options: GreenfieldImRpcSessionAdapterOptions) {
 		if (options.runtime.scenario !== "im-claw") {
@@ -88,6 +88,18 @@ export class GreenfieldImRpcSessionAdapter implements RpcSessionCapabilities {
 			options.createHostToolRegistration ??
 			((hostBridge) =>
 				adaptCodingAgentToolRegistration(createImSendAttachmentTool(hostBridge) as unknown as CodingAgentTool));
+		this.cleanup.add({
+			id: "host-tool",
+			phase: 0,
+			cleanup: () => {
+				const unregister = this.unregisterHostTool;
+				if (!unregister) return;
+				unregister();
+				if (this.unregisterHostTool === unregister) this.unregisterHostTool = undefined;
+			},
+		});
+		this.cleanup.add({ id: "session-host", phase: 1, cleanup: () => this.sessionHost.dispose() });
+		this.cleanup.add({ id: "runtime", phase: 2, cleanup: () => this.runtime.dispose() });
 		this.turn = {
 			prompt: async (message, promptOptions) => {
 				if (
@@ -195,23 +207,13 @@ export class GreenfieldImRpcSessionAdapter implements RpcSessionCapabilities {
 	}
 
 	async dispose(): Promise<void> {
-		if (this.disposed) return;
-		this.disposed = true;
-		this.unregisterHostTool?.();
-		this.unregisterHostTool = undefined;
-		const errors: unknown[] = [];
 		try {
-			await this.sessionHost.dispose();
+			await this.cleanup.run("Failed to dispose Greenfield IM RPC resources");
 		} catch (error) {
-			errors.push(error);
-		}
-		try {
-			await this.runtime.dispose();
-		} catch (error) {
-			errors.push(error);
-		}
-		if (errors.length > 0) {
-			throw new AggregateError(errors, "Failed to dispose Greenfield IM RPC resources");
+			throw new AggregateError(
+				error instanceof AggregateError ? error.errors : [error],
+				"Failed to dispose Greenfield IM RPC resources",
+			);
 		}
 	}
 

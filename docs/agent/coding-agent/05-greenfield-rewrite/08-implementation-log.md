@@ -176,6 +176,7 @@
 | [166-session-replacement-lifecycle-side-effects.md](./08-implementation-log/166-session-replacement-lifecycle-side-effects.md) | Replacement Extension/Hook 生命周期副作用、失败回滚与未提交目标清理 |
 | [167-real-cli-replacement-lifecycle-gate.md](./08-implementation-log/167-real-cli-replacement-lifecycle-gate.md) | 真实 CLI Extension/Hook 联合时间线、项目配置与 EOF 生命周期门禁 |
 | [168-session-replacement-commit-and-cleanup-contract.md](./08-implementation-log/168-session-replacement-commit-and-cleanup-contract.md) | Replacement 提交点、post-commit 清理诊断与 ownership 重试合同 |
+| [169-retryable-runtime-shutdown-transaction.md](./08-implementation-log/169-retryable-runtime-shutdown-transaction.md) | Runtime/Composition/Extension/RPC 可重试最终关闭事务 |
 
 ## 维护约定
 

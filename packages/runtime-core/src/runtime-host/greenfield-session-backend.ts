@@ -34,6 +34,7 @@ import {
 	type GreenfieldRuntimeStateSource,
 	GreenfieldSessionProjection,
 } from "./greenfield-session-projection.js";
+import { RetryableCleanup } from "./retryable-cleanup.js";
 import type {
 	RuntimeHostSessionAssembly,
 	RuntimeHostSessionAssemblyCandidate,
@@ -160,6 +161,7 @@ export class GreenfieldRuntimeSession {
 	private readonly configurationController: RuntimeSessionConfigurationController | undefined;
 	private readonly toolController: RuntimeSessionToolController | undefined;
 	private readonly disposeRuntime: (() => Promise<void>) | undefined;
+	private readonly cleanup = new RetryableCleanup();
 	private disposed = false;
 	private historyMutation = false;
 
@@ -187,6 +189,25 @@ export class GreenfieldRuntimeSession {
 		this.toolController = assembly.toolController;
 		const dispose = assembly.dispose;
 		this.disposeRuntime = dispose ? () => dispose.call(assembly) : undefined;
+		this.cleanup.add({
+			id: "context-compaction",
+			phase: 0,
+			cleanup: () => this.contextController?.abortCompaction(),
+		});
+		for (const [index, participant] of this.documentParticipants.entries()) {
+			if (participant.dispose) {
+				this.cleanup.add({
+					id: `document-participant:${index}`,
+					phase: 1,
+					cleanup: () => participant.dispose?.(),
+				});
+			}
+		}
+		this.cleanup.add({ id: "event-sink", phase: 2, cleanup: () => this.eventSink.clear() });
+		this.cleanup.add({ id: "kernel-session", phase: 3, cleanup: () => this.session.close() });
+		if (this.disposeRuntime) {
+			this.cleanup.add({ id: "runtime-assembly", phase: 4, cleanup: this.disposeRuntime });
+		}
 	}
 
 	get sessionId(): string {
@@ -485,22 +506,8 @@ export class GreenfieldRuntimeSession {
 	}
 
 	async dispose(): Promise<void> {
-		if (this.disposed) return;
-		this.contextController?.abortCompaction();
-		let participantError: unknown;
-		try {
-			await Promise.all(this.documentParticipants.map((participant) => participant.dispose?.()));
-		} catch (error) {
-			participantError = error;
-		}
 		this.disposed = true;
-		this.eventSink.clear();
-		try {
-			await this.session.close();
-		} finally {
-			await this.disposeRuntime?.();
-		}
-		if (participantError) throw participantError;
+		await this.cleanup.run("Failed to dispose Greenfield runtime session");
 	}
 
 	async initializeDocumentParticipants(document: ConversationDocument): Promise<void> {

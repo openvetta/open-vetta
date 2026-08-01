@@ -4,7 +4,7 @@ import {
 	type CodingAgentGreenfieldExtensionEventHost,
 	type ExtensionCommandContextActions,
 } from "@vetta/coding-agent/runtime-host/greenfield";
-import type { GreenfieldRuntimeSession } from "@vetta/runtime-core";
+import { type GreenfieldRuntimeSession, RetryableCleanup } from "@vetta/runtime-core";
 import type {
 	CodingAgentGreenfieldPreparedSessionBinding,
 	CodingAgentGreenfieldSessionTransition,
@@ -29,8 +29,9 @@ interface GreenfieldImExtensionSessionBinding {
 export class GreenfieldImExtensionSessionHost {
 	private initialization: RpcSessionInitialization | undefined;
 	private commandActions: ExtensionCommandContextActions | undefined;
-	private disposed = false;
 	private current: GreenfieldImExtensionSessionBinding;
+	private readonly cleanup = new RetryableCleanup();
+	private cleanupPrepared = false;
 
 	constructor(
 		initial: CodingAgentGreenfieldExtensionEventHost,
@@ -194,9 +195,12 @@ export class GreenfieldImExtensionSessionHost {
 	}
 
 	async dispose(): Promise<void> {
-		if (this.disposed) return;
-		this.disposed = true;
-		await this.current.events.dispose();
+		if (!this.cleanupPrepared) {
+			this.cleanupPrepared = true;
+			const current = this.current;
+			this.cleanup.add({ id: "current-event-host", cleanup: () => current.events.dispose() });
+		}
+		await this.cleanup.run("Failed to dispose Greenfield Extension session host");
 	}
 
 	private requireCommands(): CodingAgentGreenfieldExtensionCommandHost {

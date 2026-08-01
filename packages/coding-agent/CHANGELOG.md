@@ -41,6 +41,7 @@
 
 ### Fixed
 
+- **Greenfield Runtime/Host 最终关闭可重试**：Active Session、Session assembly、Composition、Extension 与 IM RPC Host 统一按资源 phase 全量清理；首次失败后业务准入保持关闭，后续 `dispose()` 只重试失败项，成功资源、Extension `session_shutdown` 与 Hook `SessionEnd` 不重复，既有 RPC 聚合错误与协议保持不变。
 - **Greenfield Session replacement 提交与清理一致性**：Active Session Host 以 target 身份、Extension binding 和 after 事件全部成功作为提交点；提交后的旧 Extension/Session 清理会全部尝试并通过窄诊断回调报告，不再返回会诱导调用方重试的 RPC 伪失败。Conversation ownership binding 在释放失败后保持可重试，Composition 最终关闭会再次清理仍登记的 binding。
 - **真实 RPC CLI Replacement 生命周期兼容**：Greenfield IM Composition Root 现在加载与 Legacy 相同的 Vetta 嵌套 Codex/Claude Hook 配置层，并保留 CLI 首次 `SessionStart("resume")` 语义；共享 RPC transport 在 stdin EOF 时也会一次性执行 `shutdown → dispose`，保证 Extension `session_shutdown` 先于 Hook `SessionEnd(dispose)` 且各发送一次。真实 CLI 差分覆盖取消、new/switch/fork、Hook command 非零退出及 session id/path/order。
 - **Greenfield Session replacement Hook 生命周期兼容**：Active Session Host 现在按 Legacy 时序在 `new_session` / `switch_session` / `fork_session` 提交前结束 source Hook Session，并将 target 首次 `SessionStart` 分别标记为 `clear` / `resume` / `clear`；失败回滚只重新激活 source 的 `SessionStart("resume")`，未提交 target 不再产生虚假的 `SessionEnd("dispose")`。Composition 通过窄 `sessionHooks` 生命周期能力持有每会话 Hook 状态，资源释放不会重复发送 SessionEnd。

@@ -26,7 +26,7 @@ import {
 	createCodingAgentPluginMcpRuntime,
 	type ExtensionCommandContextActions,
 } from "@vetta/coding-agent/runtime-host/greenfield";
-import type { GreenfieldRuntimeSession, RuntimeSessionCatalog } from "@vetta/runtime-core";
+import { type GreenfieldRuntimeSession, RetryableCleanup, type RuntimeSessionCatalog } from "@vetta/runtime-core";
 import type { ManagedMcpRuntimeToolSource } from "@vetta/runtime-mcp";
 import {
 	FileConversationOwnershipManager,
@@ -401,7 +401,7 @@ class GreenfieldImRuntimeHostCapabilities implements RpcSessionCapabilities {
 	readonly memory;
 	readonly session;
 	readonly commands;
-	private disposed = false;
+	private readonly cleanup = new RetryableCleanup();
 
 	constructor(
 		private readonly adapter: GreenfieldImRpcSessionAdapter,
@@ -414,6 +414,13 @@ class GreenfieldImRuntimeHostCapabilities implements RpcSessionCapabilities {
 		this.memory = adapter.memory;
 		this.session = adapter.session;
 		this.commands = adapter.commands;
+		this.cleanup.add({
+			id: "extension-session-host",
+			phase: 0,
+			cleanup: () => this.extensionSessionHost.dispose(),
+		});
+		this.cleanup.add({ id: "rpc-adapter", phase: 1, cleanup: () => this.adapter.dispose() });
+		this.cleanup.add({ id: "mcp-source", phase: 1, cleanup: () => this.mcpSource.dispose() });
 	}
 
 	async initialize(input: Parameters<RpcSessionCapabilities["initialize"]>[0]): Promise<void> {
@@ -431,18 +438,13 @@ class GreenfieldImRuntimeHostCapabilities implements RpcSessionCapabilities {
 	}
 
 	async dispose(): Promise<void> {
-		if (this.disposed) return;
-		this.disposed = true;
-		const extensionResults = await Promise.allSettled([this.extensionSessionHost.dispose()]);
-		const results = [
-			...extensionResults,
-			...(await Promise.allSettled([this.adapter.dispose(), this.mcpSource.dispose()])),
-		];
-		const errors = results
-			.filter((result): result is PromiseRejectedResult => result.status === "rejected")
-			.map(({ reason }) => reason);
-		if (errors.length > 0) {
-			throw new AggregateError(errors, "Failed to dispose Greenfield IM Runtime host");
+		try {
+			await this.cleanup.run("Failed to dispose Greenfield IM Runtime host");
+		} catch (error) {
+			throw new AggregateError(
+				error instanceof AggregateError ? error.errors : [error],
+				"Failed to dispose Greenfield IM Runtime host",
+			);
 		}
 	}
 }
