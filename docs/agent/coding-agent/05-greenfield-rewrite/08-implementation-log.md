@@ -172,6 +172,7 @@
 | [162-session-capability-command-boundary.md](./08-implementation-log/162-session-capability-command-boundary.md) | Session 可变能力命令控制器、统一写准入、动态 Subagent 绑定与观察者隔离 |
 | [163-session-continuity-contract-matrix.md](./08-implementation-log/163-session-continuity-contract-matrix.md) | Session replacement/continuation 四象限合同、可等待后台静默点与 Greenfield 观察者隔离 |
 | [164-session-replacement-resource-transaction.md](./08-implementation-log/164-session-replacement-resource-transaction.md) | Switch/Fork replacement 资源合同、失败静默语义与 RPC fork 可发现性 |
+| [165-session-replacement-admission-linearization.md](./08-implementation-log/165-session-replacement-admission-linearization.md) | Switch/Fork/Extension replacement 并发准入、FIFO identity 归属与唯一终态 Gate |
 
 ## 维护约定
 
