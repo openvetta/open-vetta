@@ -354,6 +354,49 @@ describe("installed standalone CLI artifact", () => {
 		expect(providerServer.requests).toHaveLength(3);
 	}, 120_000);
 
+	it("drains an accepted session transition before installed transport cleanup", async () => {
+		await expectStandaloneArtifact(artifact);
+
+		providerServer = await startOpenAiResponsesTestServer(() => ({
+			kind: "hold",
+			events: textResponseEvents("Installed partial turn before transport cleanup.").slice(0, 3),
+		}));
+		fixture = await createAgentRpcFixture({ baseUrl: providerServer.baseUrl });
+		activeProcess = startInstalledCli(artifact.binaryPath, fixture, createIsolatedArtifactEnv(fixture), {
+			noSkills: true,
+		});
+		await activeProcess.request("installed-cleanup-source-state", "get_state");
+
+		const heldTurnMark = activeProcess.mark();
+		await activeProcess.request("installed-cleanup-held-prompt", "prompt", {
+			message: "Hold installed turn before transport cleanup",
+		});
+		await activeProcess.waitFor((frame) => frame.type === "message_update", heldTurnMark, 30_000);
+		const transitionMark = activeProcess.mark();
+		activeProcess.send({ id: "installed-cleanup-new-session", type: "new_session" });
+		await expect(activeProcess.close()).resolves.toBe(0);
+		await providerServer.waitForHeldRequestClosed(5_000);
+
+		expect(
+			activeProcess
+				.framesSince(transitionMark)
+				.filter(
+					(frame) =>
+						frame.type === "response" &&
+						frame.id === "installed-cleanup-new-session" &&
+						frame.command === "new_session" &&
+						frame.success === true,
+				),
+		).toHaveLength(1);
+		expect(providerServer.requests).toHaveLength(1);
+		expect(
+			(await readdir(fixture.conversationDir)).filter(
+				(name) => name.endsWith(".lock") || name.endsWith(".owner.lock"),
+			),
+		).toEqual([]);
+		activeProcess = undefined;
+	}, 120_000);
+
 	it("applies runtime Skill and MCP changes without rebuilding the installed session", async () => {
 		await expectStandaloneArtifact(artifact);
 

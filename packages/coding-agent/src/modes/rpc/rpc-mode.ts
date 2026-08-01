@@ -57,6 +57,7 @@ export async function runRpcModeWithCapabilities(
 	const dispatch = createRpcCommandDispatcher(session, output);
 	const exit = options.exit ?? ((code: number): never => process.exit(code));
 	let shutdownRequested = false;
+	let beginRequestedShutdown: (() => void) | undefined;
 
 	try {
 		await session.initialize({
@@ -64,6 +65,7 @@ export async function runRpcModeWithCapabilities(
 			hostBridge: hostBridge?.createBridge(),
 			onShutdownRequested: () => {
 				shutdownRequested = true;
+				beginRequestedShutdown?.();
 			},
 			onExtensionError: (error) => {
 				output({
@@ -86,16 +88,32 @@ export async function runRpcModeWithCapabilities(
 	}
 
 	const unsubscribe = session.subscribe(output);
+	const inFlightHandlers = new Set<Promise<void>>();
 	let cleanupPromise: Promise<void> | undefined;
 	const cleanup = (): Promise<void> => {
 		cleanupPromise ??= (async () => {
 			unsubscribe();
 			extensionUI.dispose();
 			hostBridge?.dispose();
+			await Promise.allSettled([...inFlightHandlers]);
 			await session.dispose();
 		})();
 		return cleanupPromise;
 	};
+	let shutdownPromise: Promise<void> | undefined;
+	beginRequestedShutdown = (): void => {
+		if (shutdownPromise) return;
+		shutdownPromise = Promise.resolve().then(async () => {
+			try {
+				await session.shutdown();
+			} catch (error) {
+				output(rpcError(undefined, "shutdown", `Failed to shut down RPC session: ${errorMessage(error)}`));
+			} finally {
+				transport.close();
+			}
+		});
+	};
+	if (shutdownRequested) beginRequestedShutdown();
 
 	const handleLine = async (line: string): Promise<void> => {
 		try {
@@ -115,10 +133,7 @@ export async function runRpcModeWithCapabilities(
 				case "command": {
 					const response = await dispatch(frame.value);
 					output(response);
-					if (shutdownRequested) {
-						await session.shutdown();
-						transport.close();
-					}
+					if (shutdownRequested) beginRequestedShutdown();
 					return;
 				}
 			}
@@ -129,7 +144,12 @@ export async function runRpcModeWithCapabilities(
 
 	transport.start(
 		(line) => {
-			void handleLine(line);
+			const task = handleLine(line);
+			inFlightHandlers.add(task);
+			void task.then(
+				() => inFlightHandlers.delete(task),
+				() => inFlightHandlers.delete(task),
+			);
 		},
 		() => {
 			void cleanup().then(

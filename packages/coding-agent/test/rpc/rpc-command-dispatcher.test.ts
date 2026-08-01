@@ -195,6 +195,92 @@ describe("RPC command dispatcher", () => {
 		expect(session.dispose).toHaveBeenCalledOnce();
 	});
 
+	test("drains an accepted command before disposing after input closes", async () => {
+		const session = createSessionCapabilities();
+		let initialization: RpcSessionInitialization | undefined;
+		let resolveState: ((state: RpcSessionState) => void) | undefined;
+		const unsubscribe = vi.fn();
+		session.initialize = vi.fn(async (input) => {
+			initialization = input;
+		});
+		session.subscribe = vi.fn(() => unsubscribe);
+		required(session.state).readState = vi.fn(
+			() =>
+				new Promise<RpcSessionState>((resolve) => {
+					resolveState = resolve;
+				}),
+		);
+		const input = new PassThrough();
+		const output = new PassThrough();
+		const chunks: Buffer[] = [];
+		output.on("data", (chunk: Buffer) => chunks.push(chunk));
+		const exit = vi.fn();
+
+		void runRpcModeWithCapabilities(session, { input, output, exit });
+		await vi.waitFor(() => expect(initialization).toBeDefined());
+		input.write('{"id":"drain-state","type":"get_state"}\n');
+		await vi.waitFor(() => expect(required(session.state).readState).toHaveBeenCalledOnce());
+		input.end();
+		await vi.waitFor(() => expect(unsubscribe).toHaveBeenCalledOnce());
+		expect(session.dispose).not.toHaveBeenCalled();
+
+		required(resolveState)(createRpcState());
+		await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(0));
+		expect(readOutputFrames(chunks)).toEqual([
+			expect.objectContaining({ id: "drain-state", command: "get_state", success: true }),
+		]);
+		expect(session.dispose).toHaveBeenCalledOnce();
+	});
+
+	test("runs an Extension-requested shutdown exactly once across concurrent commands", async () => {
+		const session = createSessionCapabilities();
+		let initialization: RpcSessionInitialization | undefined;
+		let finishShutdown: (() => void) | undefined;
+		const shutdownGate = new Promise<void>((resolve) => {
+			finishShutdown = resolve;
+		});
+		session.initialize = vi.fn(async (input) => {
+			initialization = input;
+		});
+		session.shutdown = vi.fn(() => shutdownGate);
+		const input = new PassThrough();
+		const output = new PassThrough();
+		const exit = vi.fn();
+
+		void runRpcModeWithCapabilities(session, { input, output, exit });
+		await vi.waitFor(() => expect(initialization).toBeDefined());
+		required(initialization).onShutdownRequested();
+		input.write('{"id":"shutdown-state-a","type":"get_state"}\n');
+		input.write('{"id":"shutdown-state-b","type":"get_state"}\n');
+		await vi.waitFor(() => expect(session.shutdown).toHaveBeenCalled());
+		await Promise.resolve();
+		required(finishShutdown)();
+		await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(0));
+
+		expect(session.shutdown).toHaveBeenCalledOnce();
+		expect(session.dispose).toHaveBeenCalledOnce();
+	});
+
+	test("honors an asynchronous Extension shutdown request without another command", async () => {
+		const session = createSessionCapabilities();
+		let initialization: RpcSessionInitialization | undefined;
+		session.initialize = vi.fn(async (input) => {
+			initialization = input;
+		});
+		const input = new PassThrough();
+		const output = new PassThrough();
+		const exit = vi.fn();
+
+		void runRpcModeWithCapabilities(session, { input, output, exit });
+		await vi.waitFor(() => expect(initialization).toBeDefined());
+		await Promise.resolve();
+		required(initialization).onShutdownRequested();
+		await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(0));
+
+		expect(session.shutdown).toHaveBeenCalledOnce();
+		expect(session.dispose).toHaveBeenCalledOnce();
+	});
+
 	test("disposes capabilities when RPC initialization fails", async () => {
 		const session = createSessionCapabilities();
 		session.initialize = vi.fn(async () => {
