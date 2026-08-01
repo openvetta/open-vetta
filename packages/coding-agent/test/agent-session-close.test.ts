@@ -11,9 +11,9 @@ interface CloseInternals {
 	_eventListeners: unknown[];
 	_subagents?: { dispose(): Promise<void> };
 	_retry: { abortRetry(): void };
-	_compaction: { abort(): void };
+	_compaction: { quiesceSessionIdentity(): Promise<void> };
 	_nav: { abortBranchSummary(): void };
-	_bash: { abortBash(): void };
+	_bash: { quiesceSessionIdentity(): Promise<void> };
 	_hookRuntime: { runSessionEnd(reason: "dispose"): Promise<void> };
 	_backgroundTasks: { shutdown(): Promise<void> };
 	_runtime: { close(): Promise<void> };
@@ -46,9 +46,9 @@ describe("AgentSession close transaction", () => {
 		internals._eventListeners = [vi.fn()];
 		internals._subagents = { dispose: () => subagents.promise };
 		internals._retry = { abortRetry: vi.fn() };
-		internals._compaction = { abort: vi.fn() };
+		internals._compaction = { quiesceSessionIdentity: vi.fn(async () => {}) };
 		internals._nav = { abortBranchSummary: vi.fn() };
-		internals._bash = { abortBash: vi.fn() };
+		internals._bash = { quiesceSessionIdentity: vi.fn(async () => {}) };
 		internals._hookRuntime = { runSessionEnd: () => hooks.promise };
 		internals._backgroundTasks = { shutdown: () => background.promise };
 		internals._runtime = { close: closeRuntime };
@@ -81,9 +81,9 @@ describe("AgentSession close transaction", () => {
 		const internals = session as unknown as CloseInternals;
 		internals._eventListeners = [];
 		internals._retry = { abortRetry: vi.fn() };
-		internals._compaction = { abort: vi.fn() };
+		internals._compaction = { quiesceSessionIdentity: vi.fn(async () => {}) };
 		internals._nav = { abortBranchSummary: vi.fn() };
-		internals._bash = { abortBash: vi.fn() };
+		internals._bash = { quiesceSessionIdentity: vi.fn(async () => {}) };
 		internals._hookRuntime = { runSessionEnd: async () => {} };
 		internals._backgroundTasks = {
 			shutdown: async () => {

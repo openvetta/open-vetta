@@ -92,6 +92,10 @@ export class InputPipeline {
 		return result.messages;
 	}
 
+	resetSessionIdentityState(): void {
+		this._lastTodoNudgeSignature = undefined;
+	}
+
 	async prompt(text: string, options?: PromptOptions): Promise<void> {
 		const expandPromptTemplates = options?.expandPromptTemplates ?? true;
 

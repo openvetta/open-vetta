@@ -260,7 +260,7 @@ export class RuntimeManager {
 				}
 				if (this._closed) return;
 				this.buildRuntime({
-					activeToolNames: this._initialActiveToolNames ?? this.getActiveToolNames(),
+					activeToolNames: this._initialActiveToolNames ?? this.getConfiguredActiveToolNames(),
 					includeAllExtensionTools: true,
 				});
 			})
@@ -290,6 +290,14 @@ export class RuntimeManager {
 	}
 
 	getActiveToolNames(): string[] {
+		const names = new Set(this._configuredActiveToolNames);
+		for (const name of this._activatedMcpToolNames) {
+			if (this._toolRegistry.has(name)) names.add(name);
+		}
+		return [...names];
+	}
+
+	private getConfiguredActiveToolNames(): string[] {
 		return [...this._configuredActiveToolNames];
 	}
 
@@ -303,7 +311,7 @@ export class RuntimeManager {
 
 	/**
 	 * tool_search 的宿主实现：对 deferred MCP 索引做关键词打分，把 top-N 命中并入激活集
-	 * （setActiveToolsByName 同步 agent tools + 重建系统提示词）。激活在会话生命周期内保持。
+	 * 激活作为 Session identity overlay 同步到 agent tools，不修改宿主配置的工具基线。
 	 */
 	private searchAndActivateDeferredMcpTools(query: string, maxResults: number): ToolSearchResult {
 		const entries = Array.from(this._deferredMcpToolIndex, ([name, description]) => ({ name, description }));
@@ -322,7 +330,7 @@ export class RuntimeManager {
 			for (const entry of activated) {
 				this._activatedMcpToolNames.add(entry.name);
 			}
-			this.setActiveToolsByName([...activeNames, ...activated.map((entry) => entry.name)]);
+			this.applyBaseActiveTools(this.getActiveToolNames());
 		}
 		// 结果里的描述给首行摘要即可（完整 description 已随激活后的 schema 下发）。
 		const firstLine = (text: string) => text.split("\n", 1)[0]?.trim() ?? "";
@@ -334,27 +342,42 @@ export class RuntimeManager {
 	}
 
 	setActiveToolsByName(toolNames: string[]): void {
-		const tools: AgentTool[] = [];
 		const validToolNames: string[] = [];
 		for (const name of toolNames) {
-			const tool = this._toolRegistry.get(name);
-			if (tool) {
-				tools.push(tool);
-				validToolNames.push(name);
-			}
+			if (this._toolRegistry.has(name)) validToolNames.push(name);
 		}
-		this.ctx.agent.setTools(tools);
+		// Explicit host/user configuration is authoritative. Any prior tool_search
+		// activation becomes part of this supplied baseline or is explicitly removed.
+		this._activatedMcpToolNames.clear();
 		this._configuredActiveToolNames = validToolNames;
+		this.applyBaseActiveTools(validToolNames);
+	}
 
-		// Rebuild base system prompt with new tool set
-		this._baseSystemPrompt = this.rebuildSystemPrompt(validToolNames);
+	private applyBaseActiveTools(toolNames: string[]): void {
+		this.ctx.agent.setTools(
+			toolNames.map((name) => this._toolRegistry.get(name)).filter((tool): tool is AgentTool => tool !== undefined),
+		);
+		this._baseSystemPrompt = this.rebuildSystemPrompt(toolNames);
 		this.ctx.agent.setSystemPrompt(this._baseSystemPrompt);
+	}
+
+	resetSessionIdentityState(): void {
+		this._pluginSystemPromptRunIndex = 0;
+		this._pluginContinuationRunCount = 0;
+		this._seenPluginContinuationKeys.clear();
+		this._currentRunPromptEffects = [];
+		this._pendingNextRunEffects = [];
+		this._requestedContinuations = [];
+		this._activatedMcpToolNames.clear();
+		const activeToolNames = this.getConfiguredActiveToolNames();
+		this._currentRunActiveToolNames = activeToolNames;
+		this.applyBaseActiveTools(activeToolNames);
 	}
 
 	reconfigureCustomTools(customTools: ToolDefinition[] | undefined): void {
 		this._customTools = customTools ?? [];
 		this.buildRuntime({
-			activeToolNames: this.getActiveToolNames(),
+			activeToolNames: this.getConfiguredActiveToolNames(),
 			includeAllExtensionTools: true,
 		});
 	}
@@ -372,7 +395,7 @@ export class RuntimeManager {
 		// Hot-update plugin skill roots so slash + system prompt see them without new session.
 		this.resourceLoader.setAdditionalSkillPaths(pluginSkillPaths);
 		this.buildRuntime({
-			activeToolNames: this.getActiveToolNames(),
+			activeToolNames: this.getConfiguredActiveToolNames(),
 			includeAllExtensionTools: true,
 		});
 		// Prompt-time plugin refresh must wait until MCP tools are ready for this turn.
@@ -411,7 +434,7 @@ export class RuntimeManager {
 
 		if (changed) {
 			this.buildRuntime({
-				activeToolNames: this.getActiveToolNames(),
+				activeToolNames: this.getConfiguredActiveToolNames(),
 				includeAllExtensionTools: true,
 			});
 		}
@@ -424,7 +447,7 @@ export class RuntimeManager {
 		if (!this._invokePluginSystemPrompt || providers.length === 0) return this._baseSystemPrompt;
 		const model = this.ctx.agent.state.model;
 		const runIndex = this._pluginSystemPromptRunIndex++;
-		const baseToolNames = [...this._configuredActiveToolNames];
+		const baseToolNames = this.getActiveToolNames();
 		const baseDraft = this.rebuildSystemPromptDraft(baseToolNames);
 		let currentDraft = baseDraft;
 		const activeToolNames = new Set(baseToolNames);
@@ -728,7 +751,7 @@ export class RuntimeManager {
 	private applyPluginRuntimeEffects(pluginId: string, effects: AgentPluginRuntimeEffect[]): void {
 		if (effects.length === 0) return;
 		const activeToolNames = new Set(
-			this._currentRunActiveToolNames.length > 0 ? this._currentRunActiveToolNames : this._configuredActiveToolNames,
+			this._currentRunActiveToolNames.length > 0 ? this._currentRunActiveToolNames : this.getActiveToolNames(),
 		);
 		const promptOperations: SystemPromptOperation[] = [];
 		for (const effect of effects) {
@@ -815,7 +838,7 @@ export class RuntimeManager {
 		const enabled = this._askUserQuestion?.isEnabled() ?? false;
 		if (enabled === this._askUserQuestionEnabledLastBuilt) return;
 		this.buildRuntime({
-			activeToolNames: this.getActiveToolNames(),
+			activeToolNames: this.getConfiguredActiveToolNames(),
 			includeAllExtensionTools: true,
 		});
 	}
@@ -828,7 +851,7 @@ export class RuntimeManager {
 		if (!this._mcpManager) return;
 		await this._mcpManager.reload();
 		this.buildRuntime({
-			activeToolNames: this.getActiveToolNames(),
+			activeToolNames: this.getConfiguredActiveToolNames(),
 			includeAllExtensionTools: true,
 		});
 	}
@@ -880,7 +903,7 @@ export class RuntimeManager {
 			changed = await manager.reloadIfChanged();
 			if (changed) {
 				this.buildRuntime({
-					activeToolNames: this.getActiveToolNames(),
+					activeToolNames: this.getConfiguredActiveToolNames(),
 					includeAllExtensionTools: true,
 				});
 			}
@@ -898,7 +921,7 @@ export class RuntimeManager {
 		resetApiProviders();
 		await this.resourceLoader.reload();
 		this.buildRuntime({
-			activeToolNames: this.getActiveToolNames(),
+			activeToolNames: this.getConfiguredActiveToolNames(),
 			flagValues: previousFlagValues,
 			includeAllExtensionTools: true,
 		});
@@ -1277,18 +1300,20 @@ export class RuntimeManager {
 				resolveActiveToolNames(this._scenario, Array.from(toolRegistry.values()), capabilities, this._agentMode),
 			);
 		}
-		// deferred 模式：剔除未激活的 MCP 工具、强制启用 tool_search。放在插件策略之前，
+		// deferred 模式：先形成不含会话激活 overlay 的宿主配置基线，再强制启用 tool_search。放在插件策略之前，
 		// 让插件 allow 名单仍可显式点亮个别 MCP 工具（插件意图优先于 deferral）。
 		if (this._mcpDeferred) {
 			for (const mcpTool of mcpTools) {
-				if (!this._activatedMcpToolNames.has(mcpTool.name)) {
-					activeToolNameSet.delete(mcpTool.name);
-				}
+				activeToolNameSet.delete(mcpTool.name);
 			}
 			activeToolNameSet.add("tool_search");
 		}
 		// 插件 allow/deny 策略覆盖（plugin toolPolicyContributions）。
 		this.applyPluginToolPolicies(activeToolNameSet, new Set(toolRegistry.keys()));
+		const configuredActiveToolNames = Array.from(activeToolNameSet);
+		for (const name of this._activatedMcpToolNames) {
+			if (toolRegistry.has(name)) activeToolNameSet.add(name);
+		}
 
 		const extensionToolNames = new Set(wrappedExtensionTools.map((tool) => tool.name));
 		const activeBaseTools = Array.from(activeToolNameSet)
@@ -1317,7 +1342,7 @@ export class RuntimeManager {
 		}
 
 		const systemPromptToolNames = Array.from(activeToolNameSet);
-		this._configuredActiveToolNames = systemPromptToolNames;
+		this._configuredActiveToolNames = configuredActiveToolNames;
 		this._currentRunActiveToolNames = systemPromptToolNames;
 		this._currentRunPromptEffects = [];
 		this._baseSystemPrompt = this.rebuildSystemPrompt(systemPromptToolNames);

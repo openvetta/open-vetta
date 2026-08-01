@@ -2,11 +2,13 @@ import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Agent } from "@vetta/agent-core";
+import { Type } from "@sinclair/typebox";
+import { Agent, type AgentTool } from "@vetta/agent-core";
 import type { Api, Model } from "@vetta/ai";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AgentSession } from "../src/core/agent-session.js";
+import { AgentSession, type AgentSessionConfig } from "../src/core/agent-session.js";
 import { AuthStorage } from "../src/core/auth-storage.js";
+import type { McpManager } from "../src/core/mcp/index.js";
 import { ModelRegistry } from "../src/core/model-registry.js";
 import { SessionManager } from "../src/core/session-manager/index.js";
 import { SettingsManager } from "../src/core/settings-manager.js";
@@ -15,6 +17,7 @@ import type {
 	SubagentParentContext,
 	SubagentSessionFactory,
 } from "../src/core/subagents/types.js";
+import type { AgentPluginRuntimeConfig } from "../src/core/system-prompt.js";
 import { TODO_SNAPSHOT_TYPE } from "../src/core/todo-store.js";
 import { assistantMsg, createTestResourceLoader, userMsg } from "./utilities.js";
 
@@ -29,6 +32,13 @@ interface IdentityFixture {
 	readonly tempDir: string;
 	readonly parentContexts: SubagentParentContext[];
 }
+
+type IdentityFixtureOptions = Partial<
+	Pick<
+		AgentSessionConfig,
+		"agentPlugins" | "invokePluginContinuation" | "invokePluginSystemPrompt" | "initialActiveToolNames"
+	>
+>;
 
 const sessions: AgentSession[] = [];
 const tempDirs: string[] = [];
@@ -133,16 +143,127 @@ describe("AgentSession identity resource transition", () => {
 		});
 	});
 
+	it("quiets direct Bash before identity replacement and persists its result only to the source Session", async () => {
+		const fixture = createIdentityFixture([]);
+		const { session, sessionManager, tempDir } = fixture;
+		sessionManager.appendMessage(userMsg("source turn"));
+		sessionManager.appendMessage(assistantMsg("source answer"));
+		session.agent.replaceMessages(sessionManager.buildSessionContext().messages);
+		const sourcePath = session.sessionFile;
+		if (!sourcePath) throw new Error("Expected persisted source session");
+		const pidPath = join(tempDir, "identity-direct-bash.pid");
+		const execution = session.executeBash(heldProcessCommandAt(pidPath));
+		const pid = await waitForPid(pidPath);
+		try {
+			expect(isProcessAlive(pid)).toBe(true);
+			await expect(session.newSession()).resolves.toBe(true);
+			expect(isProcessAlive(pid)).toBe(false);
+			await expect(execution).resolves.toBeDefined();
+			const sourceTranscript = await readFile(sourcePath, "utf8");
+			expect(sourceTranscript).toContain('"role":"bashExecution"');
+			expect(sourceTranscript).toContain("identity-direct-bash.pid");
+			expect(session.messages.some((message) => message.role === "bashExecution")).toBe(false);
+		} finally {
+			if (isProcessAlive(pid)) process.kill(pid);
+			await Promise.allSettled([execution]);
+		}
+	});
+
+	it("keeps Runtime and host tool configuration while clearing deferred MCP activation", async () => {
+		const fixture = createIdentityFixture([]);
+		const { session } = fixture;
+		const internals = session as unknown as {
+			_runtime: {
+				_mcpManager?: McpManager;
+				buildRuntime(options: { includeAllExtensionTools?: boolean }): void;
+			};
+		};
+		const runtime = internals._runtime;
+		const mcpTools = createDeferredMcpTools();
+		const manager = {
+			getTools: () => mcpTools,
+			shutdown: async () => {},
+		} as unknown as McpManager;
+		runtime._mcpManager = manager;
+		runtime.buildRuntime({ includeAllExtensionTools: true });
+
+		session.setActiveToolsByName(session.getActiveToolNames().filter((name) => name !== "write"));
+		const searchTool = session.state.tools.find((tool) => tool.name === "tool_search");
+		if (!searchTool) throw new Error("Missing tool_search");
+		await searchTool.execute("activate-deferred", { query: "identity needle", max_results: 1 });
+		expect(session.getActiveToolNames()).toContain("mcp_identity_tool_15");
+
+		await expect(session.newSession()).resolves.toBe(true);
+		expect(internals._runtime).toBe(runtime);
+		expect(session.mcpManager).toBe(manager);
+		expect(session.getActiveToolNames()).not.toContain("mcp_identity_tool_15");
+		expect(session.getActiveToolNames()).not.toContain("write");
+		expect(session.getActiveToolNames()).toContain("tool_search");
+	});
+
+	it("resets Plugin run, pending effects and continuation idempotency per Session identity", async () => {
+		const runIndexes: number[] = [];
+		const continuationSessions: string[] = [];
+		const agentPlugins: AgentPluginRuntimeConfig = {
+			systemPromptProviderContributions: [
+				{ pluginId: "identity-plugin", id: "prompt", handlerId: "prompt-handler" },
+			],
+			continuationContributions: [{ pluginId: "identity-plugin", id: "continue", handlerId: "continue-handler" }],
+		};
+		const fixture = createIdentityFixture([], {
+			agentPlugins,
+			invokePluginSystemPrompt: async (invocation) => {
+				runIndexes.push(invocation.runtime.runIndex);
+				return [];
+			},
+			invokePluginContinuation: async (invocation) => {
+				continuationSessions.push(invocation.session.id);
+				return {
+					value: { text: "continue identity work", idempotencyKey: "same-work" },
+					effects: [{ type: "setToolEnabled", toolName: "read", enabled: false }],
+				};
+			},
+		});
+		const { session } = fixture;
+		const runtime = (session as unknown as { _runtime: object })._runtime;
+		await session.prepareSystemPromptForAgentRun([]);
+		expect(await collectContinuationText(session)).toBe("continue identity work");
+		const sourceSessionId = session.sessionId;
+
+		await expect(session.newSession()).resolves.toBe(true);
+		expect((session as unknown as { _runtime: object })._runtime).toBe(runtime);
+		await session.prepareSystemPromptForAgentRun([]);
+		expect(session.state.tools.some((tool) => tool.name === "read")).toBe(true);
+		expect(await collectContinuationText(session)).toBe("continue identity work");
+		expect(runIndexes).toEqual([0, 0]);
+		expect(continuationSessions).toEqual([sourceSessionId, session.sessionId]);
+	});
+
+	it("drops the outgoing EventRouter assistant cache before reconnecting the new identity", async () => {
+		const fixture = createIdentityFixture([]);
+		const { session } = fixture;
+		const internals = session as unknown as {
+			_events: { _lastAssistantMessage?: unknown; _turnIndex: number };
+		};
+		internals._events._lastAssistantMessage = assistantMsg("stale assistant");
+		internals._events._turnIndex = 4;
+
+		await expect(session.newSession()).resolves.toBe(true);
+		expect(internals._events._lastAssistantMessage).toBeUndefined();
+		expect(internals._events._turnIndex).toBe(0);
+	});
+
 	it("restores target Todo state on switch and rotates resources again on fork", async () => {
 		const fixture = createIdentityFixture([]);
 		const { session, sessionManager, tempDir } = fixture;
 		session.todoStore.createMany(["source todo"]);
+		expect(await collectContinuationText(session)).toContain("source todo");
 
 		const targetManager = SessionManager.create(tempDir);
 		targetManager.appendMessage(userMsg("target history"));
 		targetManager.appendMessage(assistantMsg("target answer"));
 		targetManager.appendCustomEntry(TODO_SNAPSHOT_TYPE, {
-			items: [{ id: 7, content: "target todo", status: "in_progress" }],
+			items: [{ id: 1, content: "target todo", status: "in_progress" }],
 			lockedBy: null,
 		});
 		expect(targetManager.getBranch().some((entry) => entry.type === "custom")).toBe(true);
@@ -154,18 +275,20 @@ describe("AgentSession identity resource transition", () => {
 		await expect(session.switchSession(targetPath)).resolves.toBe(true);
 		expect(session.backgroundTasks).not.toBe(sourceBackgroundTasks);
 		expect(sessionManager.getBranch().some((entry) => entry.type === "custom")).toBe(true);
-		expect(session.todoStore.getAll()).toEqual([{ id: 7, content: "target todo", status: "in_progress" }]);
+		expect(session.todoStore.getAll()).toEqual([{ id: 1, content: "target todo", status: "in_progress" }]);
+		expect(await collectContinuationText(session)).toContain("target todo");
 
 		const entryId = sessionManager.appendMessage(userMsg("fork this turn"));
 		session.agent.replaceMessages(sessionManager.buildSessionContext().messages);
 		const switchedBackgroundTasks = session.backgroundTasks;
 		await expect(session.fork(entryId)).resolves.toMatchObject({ cancelled: false });
 		expect(session.backgroundTasks).not.toBe(switchedBackgroundTasks);
-		expect(session.todoStore.getAll()).toEqual([{ id: 7, content: "target todo", status: "in_progress" }]);
+		expect(session.todoStore.getAll()).toEqual([{ id: 1, content: "target todo", status: "in_progress" }]);
+		expect(await collectContinuationText(session)).toContain("target todo");
 	});
 });
 
-function createIdentityFixture(handles: SubagentChildHandle[]): IdentityFixture {
+function createIdentityFixture(handles: SubagentChildHandle[], options: IdentityFixtureOptions = {}): IdentityFixture {
 	const tempDir = join(tmpdir(), `vetta-identity-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 	mkdirSync(tempDir, { recursive: true });
 	tempDirs.push(tempDir);
@@ -197,6 +320,7 @@ function createIdentityFixture(handles: SubagentChildHandle[]): IdentityFixture 
 		enableMcp: false,
 		enableSubagents: true,
 		subagentSessionFactory,
+		...options,
 	});
 	sessions.push(session);
 	return { session, sessionManager, tempDir, parentContexts };
@@ -239,6 +363,36 @@ function heldProcessCommand(relativePidPath: string): string {
 		return `$PID | Set-Content -LiteralPath '${relativePidPath}' -Encoding ascii; Start-Sleep -Seconds 60`;
 	}
 	return `printf '%s' "$$" > '${relativePidPath}'; sleep 60`;
+}
+
+function heldProcessCommandAt(pidPath: string): string {
+	if (process.platform === "win32") {
+		return `$PID | Set-Content -LiteralPath '${pidPath}' -Encoding ascii; Start-Sleep -Seconds 60`;
+	}
+	return `printf '%s' "$$" > '${pidPath}'; sleep 60`;
+}
+
+function createDeferredMcpTools(): AgentTool[] {
+	return Array.from({ length: 16 }, (_, index): AgentTool => {
+		const name = `mcp_identity_tool_${index}`;
+		return {
+			name,
+			label: name,
+			description: index === 15 ? "identity needle" : `unrelated capability ${index}`,
+			parameters: Type.Object({}),
+			execute: async () => ({ content: [{ type: "text", text: name }], details: {} }),
+		};
+	});
+}
+
+async function collectContinuationText(session: AgentSession): Promise<string | undefined> {
+	const messages = await session.agent.continuationProvider?.();
+	const message = messages?.[0];
+	if (!message || !("content" in message)) return undefined;
+	const content = message.content;
+	if (!Array.isArray(content)) return undefined;
+	const first = content[0];
+	return first?.type === "text" ? first.text : undefined;
 }
 
 async function waitForPid(path: string): Promise<number> {

@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Agent } from "@vetta/agent-core";
-import { getModel } from "@vetta/ai";
+import type { Api, Model } from "@vetta/ai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AgentSession } from "../src/core/agent-session.js";
 import { AuthStorage } from "../src/core/auth-storage.js";
@@ -11,19 +11,46 @@ import { SessionManager } from "../src/core/session-manager/index.js";
 import { SettingsManager } from "../src/core/settings-manager.js";
 import { createTestResourceLoader } from "./utilities.js";
 
+const TEST_MODEL: Model<Api> = {
+	id: "model",
+	name: "Model",
+	api: "openai-responses",
+	provider: "test",
+	baseUrl: "https://example.test",
+	reasoning: false,
+	input: ["text"],
+	cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+	contextWindow: 8_000,
+	maxTokens: 1_000,
+};
+
 vi.mock("../src/core/compaction/index.js", () => ({
+	CompactionCircuitBreaker: class {
+		consecutiveFailures = 0;
+		canAttempt = () => true;
+		recordFailure = () => {
+			this.consecutiveFailures++;
+		};
+		recordSuccess = () => {
+			this.consecutiveFailures = 0;
+		};
+	},
 	calculateContextTokens: () => 0,
 	collectEntriesForBranchSummary: () => ({ entries: [], commonAncestorId: null }),
-	compact: async () => ({
+	compact: async (preparation: { firstKeptEntryId: string }) => ({
 		summary: "compacted",
-		firstKeptEntryId: "entry-1",
+		firstKeptEntryId: preparation.firstKeptEntryId,
 		tokensBefore: 100,
 		details: {},
 	}),
 	estimateContextTokens: () => ({ tokens: 0, usageTokens: 0, trailingTokens: 0, lastUsageIndex: -1 }),
+	fingerprintCompactionPrefix: () => undefined,
 	generateBranchSummary: async () => ({ summary: "", aborted: false, readFiles: [], modifiedFiles: [] }),
-	prepareCompaction: () => ({ dummy: true }),
+	isPrefireCacheValid: () => false,
+	microcompact: <T>(messages: T): T => messages,
+	prepareCompaction: (entries: Array<{ id: string }>) => ({ firstKeptEntryId: entries[0]?.id }),
 	shouldCompact: () => false,
+	shouldPrefire: () => false,
 }));
 
 describe("AgentSession auto-compaction queue resume", () => {
@@ -35,10 +62,9 @@ describe("AgentSession auto-compaction queue resume", () => {
 		mkdirSync(tempDir, { recursive: true });
 		vi.useFakeTimers();
 
-		const model = getModel("anthropic", "claude-sonnet-4-5")!;
 		const agent = new Agent({
 			initialState: {
-				model,
+				model: TEST_MODEL,
 				systemPrompt: "Test",
 				tools: [],
 			},
@@ -49,6 +75,7 @@ describe("AgentSession auto-compaction queue resume", () => {
 		const authStorage = AuthStorage.create(join(tempDir, "auth.json"));
 		authStorage.setRuntimeApiKey("anthropic", "test-key");
 		const modelRegistry = new ModelRegistry(authStorage, tempDir);
+		vi.spyOn(modelRegistry, "getApiKey").mockResolvedValue("test-key");
 
 		session = new AgentSession({
 			agent,
@@ -70,6 +97,17 @@ describe("AgentSession auto-compaction queue resume", () => {
 	});
 
 	it("should resume after threshold compaction when only agent-level queued messages exist", async () => {
+		let compactionError: string | undefined;
+		let compactionResult: unknown;
+		let compactionAborted: boolean | undefined;
+		session.subscribe((event) => {
+			if (event.type === "auto_compaction_end") {
+				compactionError = event.errorMessage;
+				compactionResult = event.result;
+				compactionAborted = event.aborted;
+			}
+		});
+		session.sessionManager.appendMessage({ role: "user", content: "Persisted message", timestamp: Date.now() });
 		session.agent.followUp({
 			role: "custom",
 			customType: "test",
@@ -80,18 +118,25 @@ describe("AgentSession auto-compaction queue resume", () => {
 
 		expect(session.pendingMessageCount).toBe(0);
 		expect(session.agent.hasQueuedMessages()).toBe(true);
+		expect(session.model).toBeDefined();
 
 		const continueSpy = vi.spyOn(session.agent, "continue").mockResolvedValue();
 
-		const runAutoCompaction = (
+		const compaction = (
 			session as unknown as {
-				_runAutoCompaction: (reason: "overflow" | "threshold", willRetry: boolean) => Promise<void>;
+				_compaction: {
+					_continuationTimers: Set<ReturnType<typeof setTimeout>>;
+					runAutoCompaction: (reason: "overflow" | "threshold", willRetry: boolean) => Promise<void>;
+				};
 			}
-		)._runAutoCompaction.bind(session);
+		)._compaction;
 
-		await runAutoCompaction("threshold", false);
+		await compaction.runAutoCompaction("threshold", false);
+		expect(compactionError).toBeUndefined();
+		expect(compactionAborted).toBe(false);
+		expect(compactionResult).toBeDefined();
+		expect(compaction._continuationTimers.size).toBe(1);
 		await vi.advanceTimersByTimeAsync(100);
-
 		expect(continueSpy).toHaveBeenCalledTimes(1);
 	});
 });

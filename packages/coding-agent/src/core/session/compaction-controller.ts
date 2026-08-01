@@ -35,11 +35,16 @@ import type { SessionContext } from "./session-context.js";
 
 export class CompactionController {
 	private _compactionAbortController: AbortController | undefined = undefined;
+	private _compactionPromise: Promise<CompactionResult> | undefined;
 	private _autoCompactionAbortController: AbortController | undefined = undefined;
+	private _autoCompactionPromise: Promise<void> | undefined;
 	private _circuitBreaker = new CompactionCircuitBreaker();
 	/** Prefire 后台预压缩：缓存 + 单飞锁（同一时刻至多一个 prefire 在跑）。 */
 	private _prefireCache: PrefireCache | undefined = undefined;
 	private _prefireAbortController: AbortController | undefined = undefined;
+	private _prefirePromise: Promise<void> | undefined;
+	private readonly _continuationTimers = new Set<ReturnType<typeof setTimeout>>();
+	private _sessionIdentityQuiescing = false;
 	/** 抑制日志去重：熔断拦截只在状态翻转时打一条。 */
 	private _suppressLogged = false;
 
@@ -55,6 +60,25 @@ export class CompactionController {
 		this._compactionAbortController?.abort();
 		this._autoCompactionAbortController?.abort();
 		this._prefireAbortController?.abort();
+	}
+
+	async quiesceSessionIdentity(): Promise<void> {
+		this._sessionIdentityQuiescing = true;
+		this.abort();
+		for (const timer of this._continuationTimers) clearTimeout(timer);
+		this._continuationTimers.clear();
+		const operations: Promise<unknown>[] = [];
+		if (this._compactionPromise) operations.push(this._compactionPromise);
+		if (this._autoCompactionPromise) operations.push(this._autoCompactionPromise);
+		if (this._prefirePromise) operations.push(this._prefirePromise);
+		await Promise.allSettled(operations);
+		this._prefireCache = undefined;
+		this._circuitBreaker = new CompactionCircuitBreaker();
+		this._suppressLogged = false;
+	}
+
+	activateSessionIdentity(): void {
+		this._sessionIdentityQuiescing = false;
 	}
 
 	/**
@@ -85,6 +109,16 @@ export class CompactionController {
 	 * Aborts current agent operation first.
 	 */
 	async compact(customInstructions?: string, signal?: AbortSignal): Promise<CompactionResult> {
+		const operation = this.runManualCompaction(customInstructions, signal);
+		this._compactionPromise = operation;
+		try {
+			return await operation;
+		} finally {
+			if (this._compactionPromise === operation) this._compactionPromise = undefined;
+		}
+	}
+
+	private async runManualCompaction(customInstructions?: string, signal?: AbortSignal): Promise<CompactionResult> {
 		this.ctx.disconnectFromAgent();
 		await this.ctx.abort();
 		this._compactionAbortController = new AbortController();
@@ -96,6 +130,7 @@ export class CompactionController {
 		}
 
 		try {
+			if (this._sessionIdentityQuiescing) throw new Error("Compaction cancelled");
 			signal?.throwIfAborted();
 			if (!this.ctx.model) {
 				throw new Error("No model selected");
@@ -294,9 +329,13 @@ export class CompactionController {
 		if (this._prefireAbortController || this.isCompacting) return;
 		if (!this._circuitBreaker.canAttempt()) return;
 		if (!this.ctx.model) return;
-		this._prefireAbortController = new AbortController();
-		void this.runPrefire(this._prefireAbortController.signal).finally(() => {
-			this._prefireAbortController = undefined;
+		const controller = new AbortController();
+		this._prefireAbortController = controller;
+		const operation = this.runPrefire(controller.signal);
+		this._prefirePromise = operation;
+		void operation.finally(() => {
+			if (this._prefireAbortController === controller) this._prefireAbortController = undefined;
+			if (this._prefirePromise === operation) this._prefirePromise = undefined;
 		});
 	}
 
@@ -400,6 +439,16 @@ export class CompactionController {
 	 * Internal: Run auto-compaction with events.
 	 */
 	private async runAutoCompaction(reason: "overflow" | "threshold", willRetry: boolean): Promise<void> {
+		const operation = this.performAutoCompaction(reason, willRetry);
+		this._autoCompactionPromise = operation;
+		try {
+			await operation;
+		} finally {
+			if (this._autoCompactionPromise === operation) this._autoCompactionPromise = undefined;
+		}
+	}
+
+	private async performAutoCompaction(reason: "overflow" | "threshold", willRetry: boolean): Promise<void> {
 		const settings = this.ctx.settingsManager.getCompactionSettings();
 
 		this.ctx.emit({ type: "auto_compaction_start", reason });
@@ -567,15 +616,11 @@ export class CompactionController {
 					this.ctx.agent.replaceMessages(messages.slice(0, -1));
 				}
 
-				setTimeout(() => {
-					this.ctx.agent.continue().catch(() => {});
-				}, 100);
+				this.scheduleAgentContinue();
 			} else if (!postHookOutcome.shouldStop && this.ctx.agent.hasQueuedMessages()) {
 				// Auto-compaction can complete while follow-up/steering/custom messages are waiting.
 				// Kick the loop so queued messages are actually delivered.
-				setTimeout(() => {
-					this.ctx.agent.continue().catch(() => {});
-				}, 100);
+				this.scheduleAgentContinue();
 			}
 		} catch (error) {
 			this._circuitBreaker.recordFailure();
@@ -593,5 +638,13 @@ export class CompactionController {
 		} finally {
 			this._autoCompactionAbortController = undefined;
 		}
+	}
+
+	private scheduleAgentContinue(): void {
+		const timer = setTimeout(() => {
+			this._continuationTimers.delete(timer);
+			this.ctx.agent.continue().catch(() => {});
+		}, 100);
+		this._continuationTimers.add(timer);
 	}
 }

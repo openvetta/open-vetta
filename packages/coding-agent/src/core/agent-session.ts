@@ -402,7 +402,12 @@ export class AgentSession {
 		const backgroundTasks = this._backgroundTasks;
 		this._subagents = undefined;
 		backgroundTasks.onNotify = undefined;
-		const results = await Promise.allSettled([subagents?.dispose(), backgroundTasks.shutdown()]);
+		const results = await Promise.allSettled([
+			this._compaction.quiesceSessionIdentity(),
+			this._bash.quiesceSessionIdentity(),
+			subagents?.dispose(),
+			backgroundTasks.shutdown(),
+		]);
 		const failures = this.collectCloseFailures(results);
 		if (failures.length > 0) {
 			throw new AggregateError(failures, "Failed to quiet outgoing Session identity resources");
@@ -412,6 +417,10 @@ export class AgentSession {
 	private activateSessionIdentityResources(): void {
 		this._backgroundTasks = this.createBackgroundTaskManager();
 		this._subagents = this._createSubagentCoordinator?.();
+		this._compaction.activateSessionIdentity();
+		this._runtime.resetSessionIdentityState();
+		this._input.resetSessionIdentityState();
+		this._events.resetSessionIdentityState();
 		restoreTodoFromSession(this.sessionManager, this._todoStore);
 		this._emit({ type: "background_tasks_update", tasks: [] });
 		this._emit({ type: "subagents_update", agents: [] });
@@ -541,11 +550,12 @@ export class AgentSession {
 			// Stop producers before waiting so no new child work can attach while closing.
 			const stopResults = await Promise.allSettled([
 				this.runCloseOperation(() => this._retry.abortRetry()),
-				this.runCloseOperation(() => this._compaction.abort()),
+				this.runCloseOperation(() => this._compaction.quiesceSessionIdentity()),
 				this.runCloseOperation(() => this._nav.abortBranchSummary()),
-				this.runCloseOperation(() => this._bash.abortBash()),
+				this.runCloseOperation(() => this._bash.quiesceSessionIdentity()),
 				this.runCloseOperation(() => this.agent.abort()),
 			]);
+			this._disconnectFromAgent();
 			this.logCloseFailures("work producers", stopResults);
 			criticalFailures.push(...this.collectCloseFailures(stopResults));
 

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+	CompactionCircuitBreaker,
 	DEFAULT_COMPACTION_SETTINGS,
 	fingerprintCompactionPrefix,
 	getCompactThreshold,
@@ -8,6 +9,8 @@ import {
 	type PrefireCache,
 	shouldPrefire,
 } from "../src/core/compaction/index.js";
+import { CompactionController } from "../src/core/session/compaction-controller.js";
+import type { SessionContext } from "../src/core/session/session-context.js";
 import type { SessionEntry } from "../src/core/session-manager/index.js";
 
 function entry(id: string, type = "message"): SessionEntry {
@@ -96,5 +99,52 @@ describe("shouldPrefire", () => {
 
 	test("never fires without a context window", () => {
 		expect(shouldPrefire(1000, 0, settings)).toBe(false);
+	});
+});
+
+describe("CompactionController Session identity lifecycle", () => {
+	test("aborts and awaits prefire before clearing its conversation-local cache and circuit state", async () => {
+		const controller = new CompactionController({} as SessionContext);
+		const abortController = new AbortController();
+		let releasePrefire = () => {};
+		const prefire = new Promise<void>((resolve) => {
+			releasePrefire = resolve;
+		});
+		const cache: PrefireCache = {
+			fingerprint: "source-prefix",
+			result: { summary: "source", firstKeptEntryId: "entry", tokensBefore: 1, details: undefined },
+		};
+		const circuitBreaker = new CompactionCircuitBreaker();
+		circuitBreaker.recordFailure();
+		const internals = controller as unknown as {
+			_prefireAbortController?: AbortController;
+			_prefirePromise?: Promise<void>;
+			_prefireCache?: PrefireCache;
+			_circuitBreaker: CompactionCircuitBreaker;
+			_suppressLogged: boolean;
+			_continuationTimers: Set<ReturnType<typeof setTimeout>>;
+		};
+		internals._prefireAbortController = abortController;
+		internals._prefirePromise = prefire;
+		internals._prefireCache = cache;
+		internals._circuitBreaker = circuitBreaker;
+		internals._suppressLogged = true;
+		internals._continuationTimers.add(setTimeout(() => {}, 60_000));
+		let settled = false;
+
+		const quiesce = controller.quiesceSessionIdentity().then(() => {
+			settled = true;
+		});
+		await Promise.resolve();
+		expect(abortController.signal.aborted).toBe(true);
+		expect(settled).toBe(false);
+		expect(internals._continuationTimers.size).toBe(0);
+
+		releasePrefire();
+		await quiesce;
+		expect(internals._prefireCache).toBeUndefined();
+		expect(internals._circuitBreaker).not.toBe(circuitBreaker);
+		expect(internals._circuitBreaker.canAttempt()).toBe(true);
+		expect(internals._suppressLogged).toBe(false);
 	});
 });
