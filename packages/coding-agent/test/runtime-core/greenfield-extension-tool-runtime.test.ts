@@ -27,6 +27,18 @@ describe("CodingAgentGreenfieldExtensionToolRuntime", () => {
 		expect(active.frame.tools.get("extension_echo")?.description).toBe("first");
 	});
 
+	it("places active Extension tools before non-shadowed host tools", () => {
+		const runtime = new CodingAgentGreenfieldExtensionToolRuntime([
+			extensionWithTool("extension", echoTool("extension")),
+		]);
+		const hostTool = runtimeTool("host_tool", "host");
+		const context = compositionContext(new Map([[hostTool.name, hostTool]]));
+
+		const active = runtime.compose(context, context.frame.tools, { mode: "scope" });
+
+		expect([...active.frame.tools.keys()]).toEqual(["extension_echo", "host_tool"]);
+	});
+
 	it("dispatches execution through the runner bound to the request session", async () => {
 		const observedContexts: ExtensionContext[] = [];
 		const tool: ToolDefinition = {

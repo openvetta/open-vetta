@@ -150,6 +150,7 @@
 | [140-extension-command-context-and-runtime-reload.md](./08-implementation-log/140-extension-command-context-and-runtime-reload.md) | Extension Command Context、树导航、动态 Runner/Tool 与热重载事务 |
 | [141-extension-host-capability-closure.md](./08-implementation-log/141-extension-host-capability-closure.md) | Extension 宿主能力三态、资源发现、压缩与模型事件闭环 |
 | [142-extension-profile-and-cli-cutover-gate.md](./08-implementation-log/142-extension-profile-and-cli-cutover-gate.md) | Extension Event 穷尽 Profile、回退诊断与真实 CLI 切换门禁 |
+| [143-installed-extension-gate-and-im-default-cutover.md](./08-implementation-log/143-installed-extension-gate-and-im-default-cutover.md) | 安装产物 Extension 门禁、IM 默认 Greenfield 与工具顺序兼容 |
 
 ## 维护约定
 

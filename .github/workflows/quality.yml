@@ -31,3 +31,6 @@ jobs:
 
       - name: Verify runtime cutover
         run: bun run verify:runtime-cutover
+
+      - name: Verify installed runtime artifact
+        run: bun run verify:artifact:installed

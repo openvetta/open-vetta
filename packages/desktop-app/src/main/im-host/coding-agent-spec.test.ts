@@ -13,6 +13,7 @@ vi.mock("electron", () => ({
 
 vi.mock("@vetta/cli-app", () => ({
 	runAgentRuntimeCli: runtimeSelector,
+	writeAgentRuntimeDecision: vi.fn(),
 }));
 
 import { runAgentRpcCommand } from "../cli/agent-rpc-command.js";
@@ -20,6 +21,7 @@ import { buildCodingAgentSpec, resolveImAgentRuntimeBackend } from "./coding-age
 
 const originalResourcesPath = Object.getOwnPropertyDescriptor(process, "resourcesPath");
 const originalPackageDir = process.env.VETTA_PACKAGE_DIR;
+const originalImAgentRuntime = process.env.VETTA_IM_AGENT_RUNTIME;
 
 afterEach(() => {
 	vi.restoreAllMocks();
@@ -34,12 +36,17 @@ afterEach(() => {
 	} else {
 		process.env.VETTA_PACKAGE_DIR = originalPackageDir;
 	}
+	if (originalImAgentRuntime === undefined) {
+		delete process.env.VETTA_IM_AGENT_RUNTIME;
+	} else {
+		process.env.VETTA_IM_AGENT_RUNTIME = originalImAgentRuntime;
+	}
 });
 
 describe("IM coding-agent runtime selection", () => {
-	test("defaults to Legacy and accepts only the explicit Greenfield opt-in", () => {
-		expect(resolveImAgentRuntimeBackend(undefined)).toBe("legacy");
-		expect(resolveImAgentRuntimeBackend("")).toBe("legacy");
+	test("defaults to Greenfield and keeps explicit Legacy rollback", () => {
+		expect(resolveImAgentRuntimeBackend(undefined)).toBe("greenfield-im");
+		expect(resolveImAgentRuntimeBackend("")).toBe("greenfield-im");
 		expect(resolveImAgentRuntimeBackend("legacy")).toBe("legacy");
 		expect(resolveImAgentRuntimeBackend("greenfield-im")).toBe("greenfield-im");
 		expect(() => resolveImAgentRuntimeBackend("greenfield")).toThrow("VETTA_IM_AGENT_RUNTIME");
@@ -64,6 +71,20 @@ describe("IM coding-agent runtime selection", () => {
 		expect(spec.prefixArgs).not.toContain("--agent-runtime");
 	});
 
+	test("builds the IM spec with Greenfield default and explicit Legacy environment rollback", () => {
+		vi.spyOn(process, "platform", "get").mockReturnValue("win32");
+		Object.defineProperty(process, "resourcesPath", {
+			configurable: true,
+			value: "C:\\resources",
+		});
+
+		delete process.env.VETTA_IM_AGENT_RUNTIME;
+		expect(buildCodingAgentSpec().runtimeBackend).toBe("greenfield-im");
+
+		process.env.VETTA_IM_AGENT_RUNTIME = "legacy";
+		expect(buildCodingAgentSpec().runtimeBackend).toBe("legacy");
+	});
+
 	test("routes the Electron discriminator through the shared CLI Runtime Selector", async () => {
 		Object.defineProperty(process, "resourcesPath", {
 			configurable: true,
@@ -71,7 +92,9 @@ describe("IM coding-agent runtime selection", () => {
 		});
 
 		await expect(runAgentRpcCommand(["--agent-runtime", "greenfield-im", "--mode", "rpc"])).resolves.toBe(0);
-		expect(runtimeSelector).toHaveBeenCalledWith(["--agent-runtime", "greenfield-im", "--mode", "rpc"]);
+		expect(runtimeSelector).toHaveBeenCalledWith(["--agent-runtime", "greenfield-im", "--mode", "rpc"], {
+			onDecision: expect.any(Function),
+		});
 	});
 
 	test("packages the Windows RPC entry from cli-app instead of the Legacy coding-agent CLI", () => {

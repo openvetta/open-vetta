@@ -62,7 +62,7 @@ export interface BuildCodingAgentSpecOptions {
 	agentModel?: { provider: string; model: string; reasoningLevel?: string };
 	/**
 	 * Startup-immutable runtime selection. When omitted, the host reads
-	 * VETTA_IM_AGENT_RUNTIME and otherwise keeps the Legacy default.
+	 * VETTA_IM_AGENT_RUNTIME and otherwise uses the Greenfield IM default.
 	 */
 	runtimeBackend?: CodingAgentRuntimeBackend;
 }
@@ -133,7 +133,8 @@ export function buildCodingAgentSpec(opts: BuildCodingAgentSpecOptions = {}): Co
 }
 
 export function resolveImAgentRuntimeBackend(value: string | undefined): CodingAgentRuntimeBackend {
-	if (value === undefined || value.trim() === "" || value === "legacy") return "legacy";
+	if (value === undefined || value.trim() === "") return "greenfield-im";
+	if (value === "legacy") return value;
 	if (value === "greenfield-im") return value;
 	throw new Error(`${IM_AGENT_RUNTIME_ENV} must be "legacy" or "greenfield-im", received "${value}"`);
 }

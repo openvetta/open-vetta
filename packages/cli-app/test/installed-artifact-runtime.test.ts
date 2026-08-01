@@ -301,6 +301,96 @@ describe("installed standalone CLI artifact", () => {
 		activeProcess = undefined;
 		await expect(stat(ownershipLock)).rejects.toMatchObject({ code: "ENOENT" });
 	}, 120_000);
+
+	it("enforces the Extension Profile and Legacy rollback in the installed executable", async () => {
+		await expectStandaloneArtifact(artifact);
+
+		fixture = await createAgentRpcFixture();
+		const isolatedEnv = createIsolatedArtifactEnv(fixture);
+		const combinedExtension = await writeInstalledExtension(
+			fixture,
+			"combined-extension.ts",
+			`export default function(pi) {
+				pi.on("session_start", async () => {});
+				pi.registerCommand("extension-audit", { handler: async () => {} });
+				pi.registerTool({
+					name: "extension_echo",
+					label: "Extension Echo",
+					description: "Echo a value.",
+					parameters: {
+						type: "object",
+						properties: { value: { type: "string" } },
+						required: ["value"],
+					},
+					async execute(_id, params) {
+						return { content: [{ type: "text", text: params.value }], details: {} };
+					},
+				});
+			}`,
+		);
+		const uiOnlyExtension = await writeInstalledExtension(
+			fixture,
+			"ui-only-extension.ts",
+			`export default function(pi) {
+				pi.registerShortcut("ctrl+shift+r", { handler: async () => {} });
+				pi.registerMessageRenderer("audit-card", () => null);
+				pi.on("user_bash", async () => ({ result: undefined }));
+			}`,
+		);
+		const forwardExtension = await writeInstalledExtension(
+			fixture,
+			"forward-extension.ts",
+			`export default function(pi) {
+				pi.on("future_event", async () => {});
+			}`,
+		);
+
+		activeProcess = startInstalledCli(artifact.binaryPath, fixture, isolatedEnv, {
+			extraArgs: ["--extension", combinedExtension],
+		});
+		await expect(activeProcess.request("installed-combined-state", "get_state")).resolves.toMatchObject({
+			data: { runtimeBackend: "greenfield-im" },
+		});
+		expect(activeProcess.stderr).toContain("requested=greenfield-im effective=greenfield-im");
+		expect(activeProcess.stderr).not.toContain("fallback=");
+		await expect(activeProcess.close()).resolves.toBe(0);
+		activeProcess = undefined;
+
+		activeProcess = startInstalledCli(artifact.binaryPath, fixture, isolatedEnv, {
+			extraArgs: ["--extension", uiOnlyExtension],
+		});
+		await expect(activeProcess.request("installed-ui-state", "get_state")).resolves.toMatchObject({
+			data: { runtimeBackend: "greenfield-im" },
+		});
+		expect(activeProcess.stderr).toContain("requested=greenfield-im effective=greenfield-im");
+		expect(activeProcess.stderr).not.toContain("fallback=");
+		await expect(activeProcess.close()).resolves.toBe(0);
+		activeProcess = undefined;
+
+		activeProcess = startInstalledCli(artifact.binaryPath, fixture, isolatedEnv, {
+			extraArgs: ["--extension", forwardExtension],
+		});
+		await expect(activeProcess.request("installed-forward-state", "get_state")).resolves.toMatchObject({
+			data: { runtimeBackend: "legacy" },
+		});
+		expect(activeProcess.stderr).toContain("fallback=legacy-extension");
+		expect(activeProcess.stderr).toContain("unsupportedEvents=future_event");
+		expect(activeProcess.stderr).toContain("unmetCapabilities=event-handler");
+		await expect(activeProcess.close()).resolves.toBe(0);
+		activeProcess = undefined;
+
+		activeProcess = startInstalledCli(artifact.binaryPath, fixture, isolatedEnv, {
+			backend: "legacy",
+			extraArgs: ["--extension", combinedExtension],
+		});
+		await expect(activeProcess.request("installed-legacy-state", "get_state")).resolves.toMatchObject({
+			data: { runtimeBackend: "legacy" },
+		});
+		expect(activeProcess.stderr).toContain("requested=legacy effective=legacy");
+		expect(activeProcess.stderr).not.toContain("fallback=");
+		await expect(activeProcess.close()).resolves.toBe(0);
+		activeProcess = undefined;
+	}, 120_000);
 });
 
 async function buildInstalledCliArtifact(): Promise<InstalledCliArtifact> {
@@ -370,6 +460,12 @@ async function writeInstalledSkill(currentFixture: AgentRpcFixture): Promise<str
 		"utf8",
 	);
 	return skillPath;
+}
+
+async function writeInstalledExtension(currentFixture: AgentRpcFixture, name: string, source: string): Promise<string> {
+	const extensionPath = join(currentFixture.root, name);
+	await writeFile(extensionPath, source, "utf8");
+	return extensionPath;
 }
 
 async function writeInstalledMcpServer(currentFixture: AgentRpcFixture): Promise<void> {

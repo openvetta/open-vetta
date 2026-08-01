@@ -65,13 +65,15 @@ export class CodingAgentGreenfieldExtensionToolRuntime {
 		activation: CodingToolActivation,
 	): CodingAgentGreenfieldExtensionToolSurface {
 		const availableTools = new Map(baseAvailableTools);
-		const activeTools = new Map(context.frame.tools);
+		const activeTools = new Map<string, RuntimeToolDefinition>();
 		const selected = new Set(this.readActiveToolNames(activation));
 
 		for (const { tool } of this.registrations) {
 			availableTools.set(tool.name, tool);
-			activeTools.delete(tool.name);
 			if (selected.has(tool.name)) activeTools.set(tool.name, tool);
+		}
+		for (const [name, tool] of context.frame.tools) {
+			if (!this.registrationsByName.has(name)) activeTools.set(name, tool);
 		}
 
 		return {

@@ -652,7 +652,7 @@ function normalizeProviderValue(value: unknown, fixture: AgentRpcFixture): unkno
 		const fixtureDirectoryIndex = value.toLowerCase().indexOf(fixtureDirectoryName.toLowerCase());
 		const normalizedPath =
 			fixtureDirectoryIndex >= 0
-				? `<fixture-root>${value.slice(fixtureDirectoryIndex + fixtureDirectoryName.length)}`
+				? `${value.slice(0, fixtureDirectoryIndex)}<fixture-root>${value.slice(fixtureDirectoryIndex + fixtureDirectoryName.length)}`
 				: value.replaceAll(fixture.root, "<fixture-root>");
 		return normalizedPath.replace(/^Current date and time: .*$/gm, "Current date and time: <turn-time>");
 	}
