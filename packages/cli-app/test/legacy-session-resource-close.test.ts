@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -5,6 +6,7 @@ import {
 	type AgentRpcExecutable,
 	buildAgentRpcExecutable,
 	createAgentRpcFixture,
+	readSessionFile,
 	startAgentRpc,
 } from "./support/agent-rpc-test-process.js";
 import {
@@ -24,6 +26,48 @@ afterAll(async () => {
 });
 
 describe("Legacy Session resource close", () => {
+	it("quiets background work before new_session publishes the target identity", async () => {
+		const server = await startOpenAiResponsesTestServer((_request, index) =>
+			index === 0
+				? {
+						kind: "events",
+						events: toolCallResponseEvents(process.platform === "win32" ? "shell" : "bash", {
+							command: heldProcessCommand("transition-background.pid"),
+							run_in_background: true,
+						}),
+					}
+				: { kind: "events", events: textResponseEvents(index === 1 ? "Task accepted." : "Recovered.") },
+		);
+		const fixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
+		const agentProcess = startAgentRpc(executable, fixture, { backend: "legacy" });
+		try {
+			const sourcePath = readSessionFile(await agentProcess.request("transition-source", "get_state"));
+			const turnMark = agentProcess.mark();
+			await agentProcess.request("transition-background", "prompt", { message: "Start the background task" });
+			await agentProcess.waitFor((frame) => frame.type === "agent_end", turnMark, 10_000);
+			const pid = await waitForPid(join(fixture.workspace, "transition-background.pid"));
+			expect(isProcessAlive(pid)).toBe(true);
+
+			await agentProcess.request("transition-new", "new_session");
+			const targetPath = readSessionFile(await agentProcess.request("transition-target", "get_state"));
+			expect(isProcessAlive(pid)).toBe(false);
+			expect(targetPath).not.toBe(sourcePath);
+			expect(existsSync(`${sourcePath}.lock`)).toBe(false);
+			expect(existsSync(`${targetPath}.lock`)).toBe(true);
+			await new Promise<void>((resolve) => setTimeout(resolve, 200));
+			expect(server.requests).toHaveLength(2);
+
+			const recoveryMark = agentProcess.mark();
+			await agentProcess.request("transition-recovery", "prompt", { message: "Continue in the new session" });
+			await agentProcess.waitFor((frame) => frame.type === "agent_end", recoveryMark, 10_000);
+			expect(server.requests).toHaveLength(3);
+		} finally {
+			await agentProcess.close();
+			await fixture.dispose();
+			await server.dispose();
+		}
+	}, 30_000);
+
 	it("waits for a background Bash process to exit before the Vetta CLI releases ownership", async () => {
 		const server = await startOpenAiResponsesTestServer((_request, index) =>
 			index === 0

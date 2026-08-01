@@ -84,6 +84,8 @@ export interface RuntimeManagerOptions {
 	mcpDebug: boolean;
 	askUserQuestion?: AskUserQuestionCapability;
 	backgroundTasks: BackgroundTaskManager;
+	/** Live manager accessor used when AgentSession changes Session identity. */
+	getBackgroundTasks?: () => BackgroundTaskManager;
 	/** false 时 bash/shell 禁用 run_in_background，且不注册 task_output/task_stop */
 	enableBackgroundTasks: boolean;
 	/** When set and returns a coordinator, registers spawn/wait/list/… tools. */
@@ -120,7 +122,7 @@ export class RuntimeManager {
 	private readonly _hasExplicitTools: boolean;
 	private readonly _extensionRunnerRef?: { current?: ExtensionRunner };
 	private readonly _askUserQuestion?: AskUserQuestionCapability;
-	private readonly _backgroundTasks: BackgroundTaskManager;
+	private readonly _getBackgroundTasks: () => BackgroundTaskManager;
 	private readonly _enableBackgroundTasks: boolean;
 	private readonly _getSubagentCoordinator?: () => SubagentCoordinator | undefined;
 	private _agentPlugins?: AgentPluginRuntimeConfig;
@@ -183,7 +185,7 @@ export class RuntimeManager {
 		this._enableMcp = opts.enableMcp;
 		this._mcpDebug = opts.mcpDebug;
 		this._askUserQuestion = opts.askUserQuestion;
-		this._backgroundTasks = opts.backgroundTasks;
+		this._getBackgroundTasks = opts.getBackgroundTasks ?? (() => opts.backgroundTasks);
 		this._enableBackgroundTasks = opts.enableBackgroundTasks;
 		this._getSubagentCoordinator = opts.getSubagentCoordinator;
 		this._agentPlugins = opts.agentPlugins;
@@ -1108,12 +1110,12 @@ export class RuntimeManager {
 					bash: {
 						commandPrefix: shellCommandPrefix,
 						spawnHook,
-						backgroundTasks: this._enableBackgroundTasks ? this._backgroundTasks : undefined,
+						getBackgroundTasks: this._enableBackgroundTasks ? this._getBackgroundTasks : undefined,
 					},
 					shell: {
 						commandPrefix: shellCommandPrefix,
 						spawnHook,
-						backgroundTasks: this._enableBackgroundTasks ? this._backgroundTasks : undefined,
+						getBackgroundTasks: this._enableBackgroundTasks ? this._getBackgroundTasks : undefined,
 					},
 				});
 
@@ -1146,8 +1148,8 @@ export class RuntimeManager {
 		// Background task companion tools (bash/shell spawn the tasks). Skipped when
 		// the host disables background tasks (e.g. desktop batch-task sessions).
 		if (this._enableBackgroundTasks) {
-			baseTools.task_output = createTaskOutputTool({ getManager: () => this._backgroundTasks });
-			baseTools.task_stop = createTaskStopTool({ getManager: () => this._backgroundTasks });
+			baseTools.task_output = createTaskOutputTool({ getManager: this._getBackgroundTasks });
+			baseTools.task_stop = createTaskStopTool({ getManager: this._getBackgroundTasks });
 		}
 
 		// Root-only subagent control tools (never on child sessions).

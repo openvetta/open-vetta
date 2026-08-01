@@ -438,7 +438,7 @@ describe("installed standalone CLI artifact", () => {
 		activeProcess = undefined;
 	}, 120_000);
 
-	it("waits for an installed Legacy background process before releasing session ownership", async () => {
+	it("quiets installed Legacy background work before publishing a new Session identity", async () => {
 		await expectStandaloneArtifact(artifact);
 
 		providerServer = await startOpenAiResponsesTestServer((_request, index) =>
@@ -450,20 +450,40 @@ describe("installed standalone CLI artifact", () => {
 							run_in_background: true,
 						}),
 					}
-				: { kind: "events", events: textResponseEvents("Installed background task started.") },
+				: {
+						kind: "events",
+						events: textResponseEvents(
+							index === 1 ? "Installed background task started." : "Installed recovered.",
+						),
+					},
 		);
 		fixture = await createAgentRpcFixture({ baseUrl: providerServer.baseUrl });
 		activeProcess = startInstalledCli(artifact.binaryPath, fixture, createIsolatedArtifactEnv(fixture), {
 			backend: "legacy",
 			noSkills: true,
 		});
+		const sourcePath = readSessionFile(await activeProcess.request("installed-background-source", "get_state"));
 
 		await promptInstalledTurn(activeProcess, "installed-background-close", "Start the installed background task");
 		const pid = await waitForInstalledPid(join(fixture.workspace, "installed-background.pid"));
 		expect(isProcessAlive(pid)).toBe(true);
 
-		await expect(activeProcess.close()).resolves.toBe(0);
+		await activeProcess.request("installed-background-new-session", "new_session");
+		const targetPath = readSessionFile(await activeProcess.request("installed-background-target", "get_state"));
+		expect(targetPath).not.toBe(sourcePath);
 		expect(isProcessAlive(pid)).toBe(false);
+		expect(existsSync(`${sourcePath}.lock`)).toBe(false);
+		expect(existsSync(`${targetPath}.lock`)).toBe(true);
+		await new Promise<void>((resolvePromise) => setTimeout(resolvePromise, 200));
+		expect(providerServer.requests).toHaveLength(2);
+
+		await promptInstalledTurn(
+			activeProcess,
+			"installed-background-recovery",
+			"Continue in the installed new session",
+		);
+		expect(providerServer.requests).toHaveLength(3);
+		await expect(activeProcess.close()).resolves.toBe(0);
 		expect(
 			(await readdir(fixture.conversationDir)).filter(
 				(name) => name.endsWith(".lock") || name.endsWith(".owner.lock"),

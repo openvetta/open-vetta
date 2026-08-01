@@ -165,6 +165,7 @@
 | [155-rpc-background-turn-ownership.md](./08-implementation-log/155-rpc-background-turn-ownership.md) | RPC 后台 prompt 所有权、Bridge 取消与关闭收敛 |
 | [156-rpc-cancellable-long-operation-scope.md](./08-implementation-log/156-rpc-cancellable-long-operation-scope.md) | RPC 可取消长操作作用域、选择性 drain 与 Retry timer 所有权 |
 | [157-awaitable-session-resource-close.md](./08-implementation-log/157-awaitable-session-resource-close.md) | Session 可等待关闭事务、子资源静默点与最终 ownership 释放 |
+| [158-session-identity-resource-transition.md](./08-implementation-log/158-session-identity-resource-transition.md) | Session Identity 资源隔离、动态工具绑定与切换静默点 |
 
 ## 维护约定
 

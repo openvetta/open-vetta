@@ -46,4 +46,8 @@ export interface SessionContext {
 	disconnectFromAgent(): void;
 	/** Reattach internal agent-event handling. */
 	reconnectToAgent(): void;
+	/** Stop work that belongs to the outgoing Session identity. */
+	quiesceSessionIdentityResources(): Promise<void>;
+	/** Bind fresh work resources and persisted local state to the current identity. */
+	activateSessionIdentityResources(): void;
 }

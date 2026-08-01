@@ -21,11 +21,7 @@ export function restoreTodoFromSession(sessionManager: SessionManager, todoStore
 			}
 		}
 	}
-	if (!latestSnapshot) return;
-	const itemCount = Array.isArray(latestSnapshot) ? latestSnapshot.length : latestSnapshot.items.length;
-	if (itemCount > 0) {
-		todoStore.restoreFromSnapshot(latestSnapshot);
-	}
+	todoStore.restoreFromSnapshot(latestSnapshot ?? { items: [], lockedBy: null });
 }
 
 export interface TodoContinuationResult {

@@ -122,6 +122,7 @@ export class AgentSession {
 
 	// Subagent coordinator (optional, root sessions only).
 	private _subagents?: SubagentCoordinator;
+	private _createSubagentCoordinator?: () => SubagentCoordinator;
 
 	// Tool runtime + extension lifecycle + MCP. State owned by the manager.
 	private _runtime: RuntimeManager;
@@ -226,6 +227,8 @@ export class AgentSession {
 			abort: () => session.abort(),
 			disconnectFromAgent: () => session._disconnectFromAgent(),
 			reconnectToAgent: () => session._reconnectToAgent(),
+			quiesceSessionIdentityResources: () => session.quiesceSessionIdentityResources(),
+			activateSessionIdentityResources: () => session.activateSessionIdentityResources(),
 		};
 		this._compaction = new CompactionController(this._ctx);
 		this._retry = new RetryController(this._ctx);
@@ -250,45 +253,24 @@ export class AgentSession {
 			compaction: this._compaction,
 		});
 
-		this._backgroundTasks = new BackgroundTaskManager();
-
 		if (config.enableSubagents && config.subagentSessionFactory) {
+			const factory = config.subagentSessionFactory;
 			const typeRegistry = config.subagentTypeRegistry ?? createDefaultSubagentTypeRegistry();
-			this._subagents = new SubagentCoordinator({
-				factory: config.subagentSessionFactory,
-				typeRegistry,
-				parentSessionId: this.sessionManager.getSessionId(),
-				parentSessionFile: this.sessionManager.getSessionFile(),
-				cwd: config.cwd,
-				scenario: config.scenario ?? "cli",
-				getModel: () => this.model,
-				getThinkingLevel: () => this.thinkingLevel,
-				getModelRegistry: () => this._modelRegistry,
-				getParentMcpTools: () => this._runtime?.mcpManager?.getTools() ?? [],
-				// Fork snapshot for workflow children (ADR-0044): the parent's live
-				// message state, which already reflects the current branch.
-				getParentContextMessages: () => [...this.agent.state.messages],
-				agentDir: undefined,
-				maxConcurrent: config.subagentMaxConcurrent,
-				hookRuntime: this._hookRuntime,
-				onUpdate: (agents) => {
-					this._emit({ type: "subagents_update", agents });
-				},
-				onNotify: (payload) => {
-					void this.sendCustomMessage(
-						{ customType: "subagent-notification", content: payload.text, display: true },
-						{ triggerTurn: true, deliverAs: "followUp" },
-					).catch((err) => {
-						console.error("[Subagents] Failed to deliver subagent notification:", err);
-					});
-				},
-			});
+			this._createSubagentCoordinator = () =>
+				this.createSubagentCoordinator(factory, typeRegistry, {
+					cwd: config.cwd,
+					scenario: config.scenario ?? "cli",
+					maxConcurrent: config.subagentMaxConcurrent,
+				});
 		}
+		this._backgroundTasks = this.createBackgroundTaskManager();
+		this._subagents = this._createSubagentCoordinator?.();
 
 		this._runtime = new RuntimeManager(this._ctx, this, {
 			resourceLoader: this._resourceLoader,
 			todoStore: this._todoStore,
 			backgroundTasks: this._backgroundTasks,
+			getBackgroundTasks: () => this._backgroundTasks,
 			enableBackgroundTasks: config.enableBackgroundTasks !== false,
 			getSubagentCoordinator: () => this._subagents,
 			customTools: config.customTools ?? [],
@@ -353,15 +335,19 @@ export class AgentSession {
 				timestamp: Date.now(),
 			}));
 		};
+	}
 
-		// Background task wiring: forward state changes to session listeners (UI),
-		// and inject a <task-notification> back into the agent loop on completion.
-		// While streaming the notification queues as a follow-up (processed after
-		// the current turn); when idle it triggers a new turn (wakes the agent).
-		this._backgroundTasks.subscribe(() => {
-			this._emit({ type: "background_tasks_update", tasks: this._backgroundTasks.list() });
+	private createBackgroundTaskManager(): BackgroundTaskManager {
+		const manager = new BackgroundTaskManager();
+		// Forward state changes to the current session UI and inject completion
+		// notifications into the agent loop. Stale managers are ignored during
+		// Session identity replacement.
+		manager.subscribe(() => {
+			if (this._backgroundTasks !== manager) return;
+			this._emit({ type: "background_tasks_update", tasks: manager.list() });
 		});
-		this._backgroundTasks.onNotify = (task) => {
+		manager.onNotify = (task) => {
+			if (this._backgroundTasks !== manager) return;
 			void this.sendCustomMessage(
 				{ customType: "task-notification", content: buildTaskNotification(task), display: true },
 				{ triggerTurn: true, deliverAs: "followUp" },
@@ -369,6 +355,67 @@ export class AgentSession {
 				console.error(`[BackgroundTasks] Failed to deliver task notification for ${task.id}:`, err);
 			});
 		};
+		return manager;
+	}
+
+	private createSubagentCoordinator(
+		factory: NonNullable<AgentSessionConfig["subagentSessionFactory"]>,
+		typeRegistry: NonNullable<AgentSessionConfig["subagentTypeRegistry"]>,
+		options: { cwd: string; scenario: NonNullable<AgentSessionConfig["scenario"]>; maxConcurrent?: number },
+	): SubagentCoordinator {
+		let coordinator: SubagentCoordinator;
+		coordinator = new SubagentCoordinator({
+			factory,
+			typeRegistry,
+			parentSessionId: this.sessionManager.getSessionId(),
+			parentSessionFile: this.sessionManager.getSessionFile(),
+			cwd: options.cwd,
+			scenario: options.scenario,
+			getModel: () => this.model,
+			getThinkingLevel: () => this.thinkingLevel,
+			getModelRegistry: () => this._modelRegistry,
+			getParentMcpTools: () => this._runtime?.mcpManager?.getTools() ?? [],
+			// Fork snapshot for workflow children (ADR-0044): the parent's live
+			// message state, which already reflects the current branch.
+			getParentContextMessages: () => [...this.agent.state.messages],
+			agentDir: undefined,
+			maxConcurrent: options.maxConcurrent,
+			hookRuntime: this._hookRuntime,
+			onUpdate: (agents) => {
+				if (this._subagents === coordinator) this._emit({ type: "subagents_update", agents });
+			},
+			onNotify: (payload) => {
+				if (this._subagents !== coordinator) return;
+				void this.sendCustomMessage(
+					{ customType: "subagent-notification", content: payload.text, display: true },
+					{ triggerTurn: true, deliverAs: "followUp" },
+				).catch((err) => {
+					console.error("[Subagents] Failed to deliver subagent notification:", err);
+				});
+			},
+		});
+		return coordinator;
+	}
+
+	private async quiesceSessionIdentityResources(): Promise<void> {
+		const subagents = this._subagents;
+		const backgroundTasks = this._backgroundTasks;
+		this._subagents = undefined;
+		backgroundTasks.onNotify = undefined;
+		const results = await Promise.allSettled([subagents?.dispose(), backgroundTasks.shutdown()]);
+		const failures = this.collectCloseFailures(results);
+		if (failures.length > 0) {
+			throw new AggregateError(failures, "Failed to quiet outgoing Session identity resources");
+		}
+	}
+
+	private activateSessionIdentityResources(): void {
+		this._backgroundTasks = this.createBackgroundTaskManager();
+		this._subagents = this._createSubagentCoordinator?.();
+		restoreTodoFromSession(this.sessionManager, this._todoStore);
+		this._emit({ type: "background_tasks_update", tasks: [] });
+		this._emit({ type: "subagents_update", agents: [] });
+		this._emit({ type: "todo_update", items: this._todoStore.getAll() });
 	}
 
 	/** Model registry for API key resolution and model discovery */

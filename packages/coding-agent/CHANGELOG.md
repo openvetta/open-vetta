@@ -41,6 +41,7 @@
 
 ### Fixed
 
+- **Legacy Session identity 资源隔离**：`newSession`、`switchSession` 与 `fork` 在提交新会话身份前会等待旧后台 Bash 和 Subagent 静默，切换后绑定新的任务管理器与新父身份协调器，并按目标分支恢复 Todo；Bash/task/Subagent 工具通过动态 getter 使用当前 identity 资源，不重建 Tool/Extension/MCP Runtime。Extension 取消切换时保留原资源，同文件树导航不触发轮换。
 - **Legacy Session 资源关闭事务**：新增幂等 `AgentSession.close()` 可等待入口，RPC、知识加工与默认 Subagent 子会话改为等待真实释放；关闭会先终止并等待 Agent、后台 Bash、Subagent、SessionEnd Hook，再等待 MCP 初始化/关闭，最后释放 Session 文件锁。同步阻止关闭后的后台任务创建和 MCP Runtime 重建，保留原同步 `dispose()` 作为兼容启动入口。
 - **RPC EOF 与 Extension shutdown 生命周期竞态**：JSONL 输入关闭后会先 drain 已接收的命令处理器，再释放 Session，避免在途 `new_session` 丢失响应或与 dispose 争用所有权；Extension 异步调用 `ctx.shutdown()` 现在无需等待下一条 RPC 命令即可触发关闭，并由共享 Promise 保证 `session_shutdown`、transport close 与资源释放各执行一次。Host/UI 响应仍保持并发，不进入全局串行队列。
 - **独立 CLI 产物可加载显式 TypeScript Extension**：Extension Loader 始终注入已打包的公共 virtual modules，仅在本地依赖可解析时附加 Jiti alias，避免无相邻 `node_modules` 的 standalone bundle 在解析 TypeBox 等公共模块时以 `ENOENT` 失败。

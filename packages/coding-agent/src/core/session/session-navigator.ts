@@ -58,12 +58,14 @@ export class SessionNavigator {
 		await this.ctx.abort();
 		// Outgoing session ends because the host is opening a new one.
 		await this.ctx.hookRuntime.runSessionEnd("new_session");
-		this.ctx.agent.reset();
-		this.ctx.sessionManager.newSession({ parentSession: options?.parentSession });
-		this.ctx.agent.sessionId = this.ctx.sessionManager.getSessionId();
-		this.queue.reset();
+		await this.replaceSessionIdentity(() => {
+			this.ctx.agent.reset();
+			this.ctx.sessionManager.newSession({ parentSession: options?.parentSession });
+			this.ctx.agent.sessionId = this.ctx.sessionManager.getSessionId();
+			this.queue.reset();
 
-		this.ctx.sessionManager.appendThinkingLevelChange(this.ctx.agent.state.thinkingLevel);
+			this.ctx.sessionManager.appendThinkingLevelChange(this.ctx.agent.state.thinkingLevel);
+		});
 
 		// Run setup callback if provided (e.g., to append initial messages)
 		if (options?.setup) {
@@ -115,9 +117,11 @@ export class SessionNavigator {
 		// Leave current session for another existing session file.
 		await this.ctx.hookRuntime.runSessionEnd("switch_session");
 
-		// Set new session
-		this.ctx.sessionManager.setSessionFile(sessionPath);
-		this.ctx.agent.sessionId = this.ctx.sessionManager.getSessionId();
+		await this.replaceSessionIdentity(() => {
+			// Set new session
+			this.ctx.sessionManager.setSessionFile(sessionPath);
+			this.ctx.agent.sessionId = this.ctx.sessionManager.getSessionId();
+		});
 
 		// Reload messages
 		const sessionContext = this.ctx.sessionManager.buildSessionContext();
@@ -209,12 +213,14 @@ export class SessionNavigator {
 		this.queue.resetNextTurn();
 		await this.ctx.hookRuntime.runSessionEnd("fork_session");
 
-		if (!selectedEntry.parentId) {
-			this.ctx.sessionManager.newSession({ parentSession: previousSessionFile });
-		} else {
-			this.ctx.sessionManager.createBranchedSession(selectedEntry.parentId);
-		}
-		this.ctx.agent.sessionId = this.ctx.sessionManager.getSessionId();
+		await this.replaceSessionIdentity(() => {
+			if (!selectedEntry.parentId) {
+				this.ctx.sessionManager.newSession({ parentSession: previousSessionFile });
+			} else {
+				this.ctx.sessionManager.createBranchedSession(selectedEntry.parentId);
+			}
+			this.ctx.agent.sessionId = this.ctx.sessionManager.getSessionId();
+		});
 
 		// Reload messages from entries (works for both file and in-memory mode)
 		const sessionContext = this.ctx.sessionManager.buildSessionContext();
@@ -233,6 +239,19 @@ export class SessionNavigator {
 		this.ctx.hookRuntime.markSessionStart("clear");
 
 		return { selectedText, cancelled: false };
+	}
+
+	private async replaceSessionIdentity(replace: () => void): Promise<void> {
+		await this.ctx.quiesceSessionIdentityResources();
+		try {
+			replace();
+		} catch (error) {
+			// The manager still points at a valid identity when replacement fails.
+			// Restore an empty usable work scope before surfacing the error.
+			this.ctx.activateSessionIdentityResources();
+			throw error;
+		}
+		this.ctx.activateSessionIdentityResources();
 	}
 
 	/**

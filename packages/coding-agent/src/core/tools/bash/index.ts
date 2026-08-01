@@ -272,6 +272,8 @@ export interface BashToolOptions {
 	spawnHook?: BashSpawnHook;
 	/** Background task manager enabling run_in_background (local execution only) */
 	backgroundTasks?: BackgroundTaskManager;
+	/** Resolve the current Session identity's manager at tool execution time. */
+	getBackgroundTasks?: () => BackgroundTaskManager | undefined;
 	/**
 	 * Soft wait (seconds) before auto-promoting a foreground command to background
 	 * when `timeout` is unset. Default {@link DEFAULT_BASH_BLOCK_UNTIL_SEC}.
@@ -292,10 +294,8 @@ export function createBashTool(cwd: string, options?: BashToolOptions): CodingAg
 	const ops = options?.operations ?? defaultBashOperations;
 	const commandPrefix = options?.commandPrefix;
 	const spawnHook = options?.spawnHook;
-	const backgroundTasks = options?.backgroundTasks;
+	const getBackgroundTasks = options?.getBackgroundTasks ?? (() => options?.backgroundTasks);
 	const blockUntilSec = options?.blockUntilSec ?? DEFAULT_BASH_BLOCK_UNTIL_SEC;
-	// Custom ops (e.g. remote) cannot be adopted into the local BackgroundTaskManager.
-	const canPromote = Boolean(backgroundTasks) && !options?.operations;
 	const fallbackDescription = `Execute a bash command in the current working directory. Returns stdout and stderr. Output is truncated to last ${DEFAULT_MAX_LINES} lines or ${DEFAULT_MAX_BYTES / 1024}KB (whichever is hit first). If truncated, full output is saved to a temp file. Optionally provide a timeout in seconds.`;
 	const description = loadToolDescription("bash", fallbackDescription);
 
@@ -317,6 +317,9 @@ export function createBashTool(cwd: string, options?: BashToolOptions): CodingAg
 			signal?: AbortSignal,
 			onUpdate?,
 		) => {
+			const backgroundTasks = getBackgroundTasks();
+			// Custom ops (e.g. remote) cannot be adopted into the local BackgroundTaskManager.
+			const canPromote = Boolean(backgroundTasks) && !options?.operations;
 			// Apply command prefix if configured (e.g., "shopt -s expand_aliases" for alias support)
 			const resolvedCommand = prependCommandPrefixes(command, [commandPrefix]);
 			const { output: correctedCommand, pathCorrections } = rewriteQuotedPathLiterals(resolvedCommand, cwd);
