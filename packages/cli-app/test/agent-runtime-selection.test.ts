@@ -319,13 +319,19 @@ describe("Agent Runtime selection", () => {
 					requestedBackend: "greenfield-im",
 					effectiveBackend: "legacy",
 					fallbackReason: "legacy-session",
-					sessionMigration: { status: "not-representable" },
+					sessionMigration: {
+						status: "not-representable",
+						errorCode: "conversation_corrupt",
+						issueCode: "invalid-payload",
+						issueCount: 1,
+					},
 				},
 			},
 		});
 		await legacy.close();
 		expect(legacy.stderr).toContain("fallback=legacy-session");
 		expect(legacy.stderr).toContain("sessionMigration=not-representable");
+		expect(legacy.stderr).toContain("issue=invalid-payload:1");
 	});
 });
 

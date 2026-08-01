@@ -6,6 +6,7 @@ import {
 	CONVERSATION_STORAGE_ERROR_CODES,
 	ConversationStorageError,
 	FileConversationRepository,
+	LegacySessionImportError,
 	migrateLegacySessionToV2,
 } from "../../src/conversation/index.js";
 
@@ -222,6 +223,53 @@ describe("legacy session migration", () => {
 		await expect(stat(join(targetRootDir, `${encodedTarget}.conversation.jsonl`))).rejects.toMatchObject({
 			code: "ENOENT",
 		});
+	});
+
+	it.each([
+		{
+			name: "malformed JSON",
+			content: `${JSON.stringify(legacyHeader("malformed-source"))}\n{broken}\n`,
+			issueCode: "malformed-json",
+		},
+		{
+			name: "an unknown record",
+			content: legacyJsonLines([
+				legacyHeader("unknown-source"),
+				{
+					type: "future_entry",
+					id: "future-1",
+					parentId: null,
+					timestamp: "2026-01-01T00:00:01.000Z",
+					payload: "must not be dropped",
+				},
+			]),
+			issueCode: "unsupported-record",
+		},
+		{
+			name: "a broken parent reference",
+			content: legacyJsonLines([
+				legacyHeader("broken-parent-source"),
+				legacyMessage("user-1", "missing", userMessage("hello", 1)),
+			]),
+			issueCode: "broken-parent-reference",
+		},
+	])("fails closed for $name before creating the target directory", async ({ content, issueCode }) => {
+		const root = await createTemporaryRoot();
+		const sourcePath = join(root, "legacy.jsonl");
+		const targetRootDir = join(root, "v2");
+		await writeFile(sourcePath, content, "utf8");
+
+		const migration = migrateLegacySessionToV2({
+			sourcePath,
+			targetRootDir,
+			targetSessionId: "strict-target",
+		});
+		await expect(migration).rejects.toBeInstanceOf(LegacySessionImportError);
+		await expect(migration).rejects.toMatchObject({
+			analysis: { status: "not-representable", issues: [expect.objectContaining({ code: issueCode })] },
+		});
+		await expect(stat(targetRootDir)).rejects.toMatchObject({ code: "ENOENT" });
+		await expect(readFile(sourcePath, "utf8")).resolves.toBe(content);
 	});
 });
 

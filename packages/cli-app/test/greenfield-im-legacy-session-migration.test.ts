@@ -72,7 +72,32 @@ describe("Greenfield IM Legacy session migration", () => {
 		await expect(migrateGreenfieldImLegacySession(fixture.sourcePath, fixture.targetRootDir)).resolves.toMatchObject({
 			kind: "legacy-fallback",
 			status: "not-representable",
+			errorCode: "conversation_corrupt",
+			issueCode: "invalid-payload",
+			issueCount: 1,
 		});
+	});
+
+	it("reports strict import issues without exposing source content", async () => {
+		const fixture = await createFixture(
+			`${JSON.stringify(legacyHeader())}\n${JSON.stringify({
+				type: "future_entry",
+				id: "future-1",
+				parentId: null,
+				timestamp: "2026-01-01T00:00:01.000Z",
+				secret: "must-not-leak",
+			})}\n{broken}\n`,
+		);
+
+		const result = await migrateGreenfieldImLegacySession(fixture.sourcePath, fixture.targetRootDir);
+
+		expect(result).toMatchObject({
+			kind: "legacy-fallback",
+			status: "not-representable",
+			issueCode: "malformed-json",
+			issueCount: 2,
+		});
+		expect(JSON.stringify(result)).not.toContain("must-not-leak");
 	});
 });
 

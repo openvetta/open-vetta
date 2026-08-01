@@ -9,7 +9,7 @@ import {
 	serializeConversationLine,
 } from "./conversation-file-codec.js";
 import { CONVERSATION_STORAGE_ERROR_CODES, ConversationStorageError } from "./errors.js";
-import { parseLegacySessionDocumentSource } from "./legacy-session-document-reader.js";
+import { analyzeLegacySessionImport, LegacySessionImportError } from "./legacy-session-import-analyzer.js";
 import { nodeErrorCode } from "./node-error-code.js";
 import {
 	CONVERSATION_SCHEMA_VERSION,
@@ -55,7 +55,9 @@ export async function migrateLegacySessionToV2(
 		);
 	}
 
-	const source = parseLegacySessionDocumentSource(await readFile(sourcePath, "utf8"));
+	const analysis = analyzeLegacySessionImport(await readFile(sourcePath, "utf8"));
+	if (analysis.status === "not-representable") throw new LegacySessionImportError(analysis);
+	const source = analysis.source;
 	const header: ConversationFileHeader = {
 		recordType: "conversation.header",
 		schemaVersion: CONVERSATION_SCHEMA_VERSION,

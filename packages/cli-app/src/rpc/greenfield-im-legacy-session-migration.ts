@@ -5,6 +5,8 @@ import { acquireLegacySessionFormatLease } from "@vetta/coding-agent/runtime-hos
 import {
 	CONVERSATION_STORAGE_ERROR_CODES,
 	ConversationStorageError,
+	LegacySessionImportError,
+	type LegacySessionImportIssueCode,
 	migrateLegacySessionToV2,
 } from "@vetta/runtime-storage/conversation";
 
@@ -28,6 +30,8 @@ export interface GreenfieldImLegacySessionMigrationFallback {
 	readonly status: "locked" | "not-representable" | "failed";
 	readonly sourcePath: string;
 	readonly errorCode?: string;
+	readonly issueCode?: LegacySessionImportIssueCode;
+	readonly issueCount?: number;
 }
 
 export type GreenfieldImLegacySessionMigration =
@@ -63,16 +67,26 @@ export async function migrateGreenfieldImLegacySession(
 				targetSessionId: result.targetSessionId,
 			};
 		} catch (error) {
+			const importIssue = readImportIssue(error);
 			return {
 				kind: "legacy-fallback",
 				status: isNotRepresentable(error) ? "not-representable" : "failed",
 				sourcePath: canonicalSourcePath,
 				errorCode: readErrorCode(error),
+				...(importIssue ?? {}),
 			};
 		}
 	} finally {
 		lease.lease.release();
 	}
+}
+
+function readImportIssue(
+	error: unknown,
+): { readonly issueCode: LegacySessionImportIssueCode; readonly issueCount: number } | undefined {
+	if (!(error instanceof LegacySessionImportError)) return undefined;
+	const firstIssue = error.analysis.issues[0];
+	return firstIssue ? { issueCode: firstIssue.code, issueCount: error.analysis.issues.length } : undefined;
 }
 
 function deterministicTargetSessionId(sourcePath: string, sourceContent: Uint8Array): string {

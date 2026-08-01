@@ -31,6 +31,15 @@ export {
 	readLegacySessionDocumentSource,
 } from "./legacy-session-document-reader.js";
 export {
+	analyzeLegacySessionImport,
+	type LegacySessionImportAnalysis,
+	LegacySessionImportError,
+	type LegacySessionImportIssue,
+	type LegacySessionImportIssueCode,
+	type RepresentableLegacySessionImportAnalysis,
+	type UnrepresentableLegacySessionImportAnalysis,
+} from "./legacy-session-import-analyzer.js";
+export {
 	type LegacySessionMigrationOptions,
 	type LegacySessionMigrationResult,
 	migrateLegacySessionToV2,

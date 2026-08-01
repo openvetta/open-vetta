@@ -133,7 +133,7 @@ export function writeAgentRuntimeDecision(decision: AgentRuntimeDecision): void 
 		decision.extensionFallback?.unmetRuntimeCapabilities,
 	);
 	const migration = decision.sessionMigration
-		? ` sessionMigration=${decision.sessionMigration.status}${decision.sessionMigration.errorCode ? `:${decision.sessionMigration.errorCode}` : ""}`
+		? ` sessionMigration=${decision.sessionMigration.status}${decision.sessionMigration.errorCode ? `:${decision.sessionMigration.errorCode}` : ""}${decision.sessionMigration.issueCode ? ` issue=${decision.sessionMigration.issueCode}:${decision.sessionMigration.issueCount ?? 1}` : ""}`
 		: "";
 	process.stderr.write(
 		`[agent-runtime] requested=${decision.requestedBackend} effective=${decision.effectiveBackend}${fallback}${migration}${unsupportedEvents}${unmetCapabilities}${legacyNotice}\n`,

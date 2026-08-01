@@ -154,6 +154,8 @@ func runHostWithIO(opts hostOptions) int {
 					"fallbackReason":          decision.FallbackReason,
 					"sessionMigrationStatus":  decision.SessionMigrationStatus,
 					"sessionMigrationError":   decision.SessionMigrationError,
+					"sessionMigrationIssue":   decision.SessionMigrationIssue,
+					"sessionMigrationIssues":  decision.SessionMigrationIssues,
 				})
 		}
 		if initFrame.CodingAgent.RunAsNode {

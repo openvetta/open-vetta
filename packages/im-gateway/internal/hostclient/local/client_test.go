@@ -114,8 +114,10 @@ func main() {
 			if resolvedRuntime == "legacy" && *runtimeBackend != resolvedRuntime {
 				runtimeDecision["fallbackReason"] = "legacy-session"
 				runtimeDecision["sessionMigration"] = map[string]any{
-					"status": "not-representable",
-					"errorCode": "INVALID_LEGACY_SESSION_EVENT",
+					"status":     "not-representable",
+					"errorCode":  "INVALID_LEGACY_SESSION_EVENT",
+					"issueCode":  "unsupported-record",
+					"issueCount": 2,
 				}
 			}
 			enc.Encode(map[string]any{
@@ -257,6 +259,8 @@ func TestOpenSession_ReportsStructuredRuntimeDecision(t *testing.T) {
 			FallbackReason:         "legacy-session",
 			SessionMigrationStatus: "not-representable",
 			SessionMigrationError:  "INVALID_LEGACY_SESSION_EVENT",
+			SessionMigrationIssue:  "unsupported-record",
+			SessionMigrationIssues: 2,
 		})
 		if got != want {
 			t.Fatalf("runtime decision: got %+v, want %+v", got, want)

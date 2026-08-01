@@ -364,6 +364,8 @@ function toRpcSessionMigration(
 	return {
 		status: migration.status,
 		...(migration.kind === "legacy-fallback" && migration.errorCode ? { errorCode: migration.errorCode } : {}),
+		...(migration.kind === "legacy-fallback" && migration.issueCode ? { issueCode: migration.issueCode } : {}),
+		...(migration.kind === "legacy-fallback" && migration.issueCount ? { issueCount: migration.issueCount } : {}),
 	};
 }
 

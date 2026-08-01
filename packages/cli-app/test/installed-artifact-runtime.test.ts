@@ -345,6 +345,55 @@ describe("installed standalone CLI artifact", () => {
 		activeProcess = undefined;
 	}, 120_000);
 
+	it("fails closed for an unrepresentable Legacy session in the installed executable", async () => {
+		await expectStandaloneArtifact(artifact);
+
+		fixture = await createAgentRpcFixture();
+		const legacySession = join(fixture.conversationDir, "installed-legacy-unknown.jsonl");
+		const legacyContent = `${JSON.stringify({
+			type: "session",
+			version: 3,
+			id: "installed-legacy-unknown",
+			timestamp: "2026-01-01T00:00:00.000Z",
+			cwd: fixture.workspace,
+		})}\n${JSON.stringify({
+			type: "future_entry",
+			id: "future-1",
+			parentId: null,
+			timestamp: "2026-01-01T00:00:01.000Z",
+			secret: "must-not-leak",
+		})}\n`;
+		await writeFile(legacySession, legacyContent, "utf8");
+		activeProcess = startInstalledCli(artifact.binaryPath, fixture, createIsolatedArtifactEnv(fixture), {
+			extraArgs: ["--session", legacySession],
+		});
+
+		const state = await activeProcess.request("installed-strict-fallback-state", "get_state");
+		expect(state).toMatchObject({
+			data: {
+				runtimeBackend: "legacy",
+				sessionId: "installed-legacy-unknown",
+				sessionFile: legacySession,
+				runtimeDecision: {
+					requestedBackend: "greenfield-im",
+					effectiveBackend: "legacy",
+					fallbackReason: "legacy-session",
+					sessionMigration: {
+						status: "not-representable",
+						issueCode: "unsupported-record",
+						issueCount: 1,
+					},
+				},
+			},
+		});
+		expect(await readFile(legacySession, "utf8")).toBe(legacyContent);
+		expect((await readdir(fixture.conversationDir)).some((name) => name.endsWith(".conversation.jsonl"))).toBe(false);
+		expect(activeProcess.stderr).toContain("issue=unsupported-record:1");
+		expect(activeProcess.stderr).not.toContain("must-not-leak");
+		await expect(activeProcess.close()).resolves.toBe(0);
+		activeProcess = undefined;
+	}, 120_000);
+
 	it("enforces the Extension Profile and Legacy rollback in the installed executable", async () => {
 		await expectStandaloneArtifact(artifact);
 

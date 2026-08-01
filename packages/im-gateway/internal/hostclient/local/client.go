@@ -88,6 +88,8 @@ type RuntimeDecision struct {
 	FallbackReason         string
 	SessionMigrationStatus string
 	SessionMigrationError  string
+	SessionMigrationIssue  string
+	SessionMigrationIssues int
 }
 
 const (
@@ -299,6 +301,10 @@ func parseRuntimeDecision(data map[string]any, requestedBackend string) RuntimeD
 		if migration, ok := raw["sessionMigration"].(map[string]any); ok {
 			decision.SessionMigrationStatus, _ = migration["status"].(string)
 			decision.SessionMigrationError, _ = migration["errorCode"].(string)
+			decision.SessionMigrationIssue, _ = migration["issueCode"].(string)
+			if issueCount, ok := migration["issueCount"].(float64); ok {
+				decision.SessionMigrationIssues = int(issueCount)
+			}
 		}
 	}
 	if decision.RequestedBackend == "" {

@@ -103,6 +103,8 @@ export interface RpcRuntimeDecision {
 	readonly sessionMigration?: {
 		readonly status: RpcSessionMigrationStatus;
 		readonly errorCode?: string;
+		readonly issueCode?: string;
+		readonly issueCount?: number;
 	};
 	readonly extensionFallback?: {
 		readonly unsupportedEvents: readonly string[];

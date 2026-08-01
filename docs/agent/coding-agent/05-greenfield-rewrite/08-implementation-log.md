@@ -152,6 +152,7 @@
 | [142-extension-profile-and-cli-cutover-gate.md](./08-implementation-log/142-extension-profile-and-cli-cutover-gate.md) | Extension Event 穷尽 Profile、回退诊断与真实 CLI 切换门禁 |
 | [143-installed-extension-gate-and-im-default-cutover.md](./08-implementation-log/143-installed-extension-gate-and-im-default-cutover.md) | 安装产物 Extension 门禁、IM 默认 Greenfield 与工具顺序兼容 |
 | [144-legacy-session-migration-and-runtime-decision.md](./08-implementation-log/144-legacy-session-migration-and-runtime-decision.md) | 旧会话只读迁移、结构化 Runtime 决策与 IM 路径闭环 |
+| [145-strict-lossless-legacy-import-gate.md](./08-implementation-log/145-strict-lossless-legacy-import-gate.md) | 旧会话逐行严格分析、失败关闭与无正文诊断门禁 |
 
 ## 维护约定
 
