@@ -1,6 +1,7 @@
 import {
 	applyConversationDocumentCommand,
 	applyStoredEventToConversationDocument,
+	assertConversationDocumentGraph,
 	type ConversationDocument,
 	type ConversationDocumentEntry,
 	type ConversationDocumentEntryReference,
@@ -131,6 +132,14 @@ export function parseConversationFile(text: string, sessionId: string): ParsedCo
 		eventRecords.push(record);
 		conversationRecords.push(record);
 	}
+	const seed = continuationSeed ?? importSeed;
+	if (seed) {
+		try {
+			assertConversationDocumentGraph(seed.entries as readonly ConversationDocumentEntry[], seed.activeLeafId);
+		} catch (error) {
+			throw corruptConversation(sessionId, "invalid conversation seed graph", error);
+		}
+	}
 
 	return { header, continuationSeed, importSeed, records: conversationRecords, eventRecords };
 }
@@ -190,18 +199,18 @@ export function documentFromFile(sessionId: string, file: ParsedConversationFile
 				}
 			: {}),
 	};
-	const seed = file.continuationSeed ?? file.importSeed;
-	let document = seed
-		? createSeededConversationDocument(
-				identity,
-				seed.entries as readonly ConversationDocumentEntry[],
-				seed.activeLeafId,
-			)
-		: createEmptyConversationDocument(identity);
-	if (file.importSeed?.name !== undefined) {
-		document = { ...document, name: file.importSeed.name };
-	}
 	try {
+		const seed = file.continuationSeed ?? file.importSeed;
+		let document = seed
+			? createSeededConversationDocument(
+					identity,
+					seed.entries as readonly ConversationDocumentEntry[],
+					seed.activeLeafId,
+				)
+			: createEmptyConversationDocument(identity);
+		if (file.importSeed?.name !== undefined) {
+			document = { ...document, name: file.importSeed.name };
+		}
 		for (const record of file.records) {
 			if (record.recordType === "conversation.event") {
 				const reference = record.schemaVersion === CONVERSATION_SCHEMA_VERSION ? record.documentEntry : undefined;

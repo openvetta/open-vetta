@@ -131,6 +131,21 @@ export function createSeededConversationDocument(
 	entries: readonly ConversationDocumentEntry[],
 	activeLeafId: string | null,
 ): ConversationDocument {
+	assertConversationDocumentGraph(entries, activeLeafId);
+	return {
+		identity,
+		journalVersion: 0,
+		revision: entries.length,
+		entries: [...entries],
+		activeLeafId,
+	};
+}
+
+/** 校验独立于持久化格式的 Conversation Document 图约束。 */
+export function assertConversationDocumentGraph(
+	entries: readonly ConversationDocumentEntry[],
+	activeLeafId: string | null,
+): void {
 	const byId = new Map<string, ConversationDocumentEntry>();
 	for (const entry of entries) {
 		if (byId.has(entry.id)) throw new Error(`Conversation document entry already exists: ${entry.id}`);
@@ -147,17 +162,29 @@ export function createSeededConversationDocument(
 			ancestors.add(parentId);
 			parentId = byId.get(parentId)?.parentId ?? null;
 		}
+		if (entry.type === "branch_summary" && entry.fromId !== "root" && !byId.has(entry.fromId)) {
+			throw new Error(`Conversation document branch summary source does not exist: ${entry.fromId}`);
+		}
+		if (entry.type === "label" && !byId.has(entry.targetId)) {
+			throw new Error(`Conversation document label target does not exist: ${entry.targetId}`);
+		}
+		if (entry.type === "compaction") {
+			if (!byId.has(entry.firstKeptEntryId)) {
+				throw new Error(`Conversation document first kept entry does not exist: ${entry.firstKeptEntryId}`);
+			}
+			if (
+				!isAncestorOrSelf(byId, entry.firstKeptEntryId, entry.id) &&
+				!isAncestorOrSelf(byId, entry.id, entry.firstKeptEntryId)
+			) {
+				throw new Error(
+					`Conversation document first kept entry is not on the same branch: ${entry.firstKeptEntryId}`,
+				);
+			}
+		}
 	}
 	if (activeLeafId && !byId.has(activeLeafId)) {
 		throw new Error(`Conversation document active leaf does not exist: ${activeLeafId}`);
 	}
-	return {
-		identity,
-		journalVersion: 0,
-		revision: entries.length,
-		entries: [...entries],
-		activeLeafId,
-	};
 }
 
 export function nativeConversationEntryId(sequence: number): string {
@@ -269,4 +296,17 @@ function selectBranchIds(document: ConversationDocument): readonly string[] {
 		current = current.parentId ? byId.get(current.parentId) : undefined;
 	}
 	return ids;
+}
+
+function isAncestorOrSelf(
+	byId: ReadonlyMap<string, ConversationDocumentEntry>,
+	ancestorId: string,
+	descendantId: string,
+): boolean {
+	let currentId: string | null = descendantId;
+	while (currentId) {
+		if (currentId === ancestorId) return true;
+		currentId = byId.get(currentId)?.parentId ?? null;
+	}
+	return false;
 }

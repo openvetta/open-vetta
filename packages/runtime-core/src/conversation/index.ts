@@ -13,6 +13,7 @@ export {
 } from "./commands.js";
 export {
 	applyStoredEventToConversationDocument,
+	assertConversationDocumentGraph,
 	type ConversationDocument,
 	type ConversationDocumentBranchSummaryEntry,
 	type ConversationDocumentCompactionEntry,

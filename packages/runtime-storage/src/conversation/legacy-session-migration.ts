@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { link, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { ConversationDocument } from "@vetta/runtime-core/conversation";
 import {
@@ -8,6 +8,7 @@ import {
 	parseConversationFile,
 	serializeConversationLine,
 } from "./conversation-file-codec.js";
+import { publishConversationFileExclusive } from "./conversation-file-publisher.js";
 import { CONVERSATION_STORAGE_ERROR_CODES, ConversationStorageError } from "./errors.js";
 import {
 	analyzeLegacySessionImport,
@@ -103,29 +104,23 @@ export async function migrateLegacySessionToV2(
 	const document = documentFromFile(targetSessionId, parseConversationFile(content, targetSessionId));
 
 	await mkdir(targetRootDir, { recursive: true });
-	const temporaryPath = `${targetPath}.${randomUUID()}.import.tmp`;
 	let created = true;
 	try {
-		await writeFile(temporaryPath, content, { encoding: "utf8", flag: "wx" });
-		try {
-			await link(temporaryPath, targetPath);
-		} catch (error) {
-			if (nodeErrorCode(error) === "EEXIST") {
-				if (options.reuseIdenticalTarget && (await readFile(targetPath, "utf8")) === content) {
-					created = false;
-				} else {
-					throw new ConversationStorageError(
-						CONVERSATION_STORAGE_ERROR_CODES.ALREADY_EXISTS,
-						`Conversation already exists: ${targetSessionId}`,
-						{ cause: error },
-					);
-				}
+		await publishConversationFileExclusive(targetPath, content);
+	} catch (error) {
+		if (nodeErrorCode(error) === "EEXIST") {
+			if (options.reuseIdenticalTarget && (await readFile(targetPath, "utf8")) === content) {
+				created = false;
 			} else {
-				throw error;
+				throw new ConversationStorageError(
+					CONVERSATION_STORAGE_ERROR_CODES.ALREADY_EXISTS,
+					`Conversation already exists: ${targetSessionId}`,
+					{ cause: error },
+				);
 			}
+		} else {
+			throw error;
 		}
-	} finally {
-		await rm(temporaryPath, { force: true });
 	}
 
 	return {

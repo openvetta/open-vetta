@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { FileHandle } from "node:fs/promises";
-import { appendFile, mkdir, open, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import {
 	applyConversationDocumentCommand,
@@ -43,6 +42,7 @@ import {
 	validateConversationEvent,
 } from "./conversation-file-codec.js";
 import { acquireConversationFileLock } from "./conversation-file-lock.js";
+import { publishConversationFileExclusive } from "./conversation-file-publisher.js";
 import { CONVERSATION_STORAGE_ERROR_CODES, ConversationStorageError } from "./errors.js";
 import { nodeErrorCode } from "./node-error-code.js";
 import {
@@ -89,10 +89,8 @@ export class FileConversationRepository
 				...(input.cwd ? { cwd: input.cwd } : {}),
 			};
 			const path = this.conversationPath(input.sessionId);
-			let handle: FileHandle | undefined;
 			try {
-				handle = await open(path, "wx");
-				await handle.writeFile(serializeConversationLine(header), "utf8");
+				await publishConversationFileExclusive(path, serializeConversationLine(header));
 			} catch (error) {
 				if (nodeErrorCode(error) === "EEXIST") {
 					throw new ConversationStorageError(
@@ -102,8 +100,6 @@ export class FileConversationRepository
 					);
 				}
 				throw error;
-			} finally {
-				await handle?.close();
 			}
 			return {
 				sessionId: input.sessionId,
@@ -314,23 +310,20 @@ export class FileConversationRepository
 				};
 
 				await this.ensureRoot();
-				let handle: FileHandle | undefined;
+				let targetPublished = false;
 				try {
-					handle = await open(sessionPath, "wx");
-					await handle.writeFile(
+					await publishConversationFileExclusive(
+						sessionPath,
 						[
 							serializeConversationLine(header),
 							serializeConversationLine(seed),
 							serializeConversationLine(continuedRecord),
 						].join(""),
-						"utf8",
 					);
-					await handle.close();
-					handle = undefined;
+					targetPublished = true;
 					await appendFile(sourceSessionPath, serializeConversationLine(transferredRecord), "utf8");
 				} catch (error) {
-					await handle?.close();
-					await rm(sessionPath, { force: true });
+					if (targetPublished) await rm(sessionPath, { force: true });
 					throw error;
 				}
 
@@ -614,20 +607,14 @@ export class FileConversationRepository
 			);
 		}
 		await this.ensureRoot();
-		let handle: FileHandle | undefined;
-		try {
-			handle = await open(newPath, "wx");
-			await handle.writeFile(
-				[
-					serializeConversationLine(header),
-					...(seed ? [serializeConversationLine(seed)] : []),
-					...records.map(serializeConversationLine),
-				].join(""),
-				"utf8",
-			);
-		} finally {
-			await handle?.close();
-		}
+		await publishConversationFileExclusive(
+			newPath,
+			[
+				serializeConversationLine(header),
+				...(seed ? [serializeConversationLine(seed)] : []),
+				...records.map(serializeConversationLine),
+			].join(""),
+		);
 		return { sessionId: newSessionId, path: newPath, text };
 	}
 
