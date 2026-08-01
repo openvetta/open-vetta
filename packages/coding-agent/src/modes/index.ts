@@ -15,4 +15,10 @@ export {
 	type RpcSessionProfileId,
 	supportsRpcCommand,
 } from "./rpc/rpc-session-capabilities.js";
-export type { RpcCommand, RpcResponse, RpcSessionState } from "./rpc/rpc-types.js";
+export type {
+	RpcCommand,
+	RpcResponse,
+	RpcRuntimeDecision,
+	RpcSessionMigrationStatus,
+	RpcSessionState,
+} from "./rpc/rpc-types.js";

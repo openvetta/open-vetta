@@ -1,5 +1,6 @@
 import { createAgentCliBootstrap } from "@vetta/coding-agent/bootstrap";
 import { main as runLegacyAgent, runLegacyAgentWithBootstrap } from "@vetta/coding-agent/legacy/cli";
+import type { RpcRuntimeDecision } from "@vetta/coding-agent/rpc";
 import { ConversationOwnershipConflictError } from "@vetta/runtime-storage/conversation";
 import { createCliRuntimeSessionCatalog } from "./rpc/cli-session-format-compatibility.js";
 import {
@@ -15,11 +16,8 @@ export interface AgentRuntimeSelection {
 	readonly agentArgs: string[];
 }
 
-export interface AgentRuntimeDecision {
-	readonly requestedBackend: AgentRuntimeBackend;
-	readonly effectiveBackend: AgentRuntimeBackend;
+export interface AgentRuntimeDecision extends RpcRuntimeDecision {
 	readonly fallbackReason?: GreenfieldImFallbackReason;
-	readonly extensionFallback?: AgentRuntimeExtensionFallbackDiagnostics;
 }
 
 export interface AgentRuntimeExtensionFallbackDiagnostics {
@@ -61,6 +59,7 @@ export async function runAgentRuntimeCli(
 	options: RunAgentRuntimeCliOptions = {},
 ): Promise<void> {
 	const selection = parseAgentRuntimeSelection(args);
+	assertSupportedSessionSelection(selection.agentArgs);
 	if (selection.backend === "legacy") {
 		options.onDecision?.({
 			requestedBackend: "legacy",
@@ -92,16 +91,14 @@ export async function runAgentRuntimeCli(
 							},
 						}
 					: {}),
+				...(prepared.sessionMigration ? { sessionMigration: prepared.sessionMigration } : {}),
 			} as const satisfies AgentRuntimeDecision;
 			if (options.onDecision) options.onDecision(decision);
 			else console.warn(`[agent-runtime] Greenfield unavailable (${prepared.reason}); using Legacy runtime`);
-			await runLegacyAgentWithBootstrap(prepared.bootstrap);
+			await runLegacyAgentWithBootstrap(prepared.bootstrap, { rpcRuntimeDecision: decision });
 			return;
 		}
-		options.onDecision?.({
-			requestedBackend: "greenfield-im",
-			effectiveBackend: "greenfield-im",
-		});
+		options.onDecision?.(prepared.runtimeDecision);
 		await runGreenfieldImRuntimeHost(prepared);
 	} catch (error) {
 		if (!(error instanceof ConversationOwnershipConflictError)) throw error;
@@ -135,9 +132,18 @@ export function writeAgentRuntimeDecision(decision: AgentRuntimeDecision): void 
 		"unmetCapabilities",
 		decision.extensionFallback?.unmetRuntimeCapabilities,
 	);
+	const migration = decision.sessionMigration
+		? ` sessionMigration=${decision.sessionMigration.status}${decision.sessionMigration.errorCode ? `:${decision.sessionMigration.errorCode}` : ""}`
+		: "";
 	process.stderr.write(
-		`[agent-runtime] requested=${decision.requestedBackend} effective=${decision.effectiveBackend}${fallback}${unsupportedEvents}${unmetCapabilities}${legacyNotice}\n`,
+		`[agent-runtime] requested=${decision.requestedBackend} effective=${decision.effectiveBackend}${fallback}${migration}${unsupportedEvents}${unmetCapabilities}${legacyNotice}\n`,
 	);
+}
+
+function assertSupportedSessionSelection(args: readonly string[]): void {
+	if (args.includes("--resume") || args.includes("-r")) {
+		throw new Error("--resume is no longer supported; use --continue or --session");
+	}
 }
 
 function formatRuntimeDecisionList(label: string, values: readonly string[] | undefined): string {

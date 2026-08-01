@@ -85,6 +85,7 @@ type session struct {
 
 	requestedRuntimeBackend string
 	onRuntimeResolved       func(requested, actual string)
+	onRuntimeDecision       func(RuntimeDecision)
 }
 
 // Compile-time check that *session satisfies the public interface.

@@ -9,7 +9,11 @@ import {
 	resolveCodingAgentGreenfieldExtensionCompatibility,
 	resolveCodingAgentInitialModel,
 } from "@vetta/coding-agent/bootstrap";
-import { type RpcSessionCapabilities, runRpcModeWithCapabilities } from "@vetta/coding-agent/rpc";
+import {
+	type RpcRuntimeDecision,
+	type RpcSessionCapabilities,
+	runRpcModeWithCapabilities,
+} from "@vetta/coding-agent/rpc";
 import {
 	CodingAgentGreenfieldBranchNavigationHost,
 	CodingAgentGreenfieldExtensionEventHost,
@@ -34,10 +38,14 @@ import {
 } from "../greenfield-runtime-composition.js";
 import { resolveGreenfieldSessionIdFromPath } from "./greenfield-conversation-path.js";
 import { GreenfieldImExtensionSessionHost } from "./greenfield-im-extension-session-host.js";
+import {
+	type GreenfieldImLegacySessionMigration,
+	migrateGreenfieldImLegacySession,
+} from "./greenfield-im-legacy-session-migration.js";
 import { GreenfieldImRpcSessionAdapter } from "./greenfield-im-rpc-session-adapter.js";
 import { resolveGreenfieldImSessionPath } from "./greenfield-im-session-selection.js";
 
-export type GreenfieldImFallbackReason = "legacy-session" | "legacy-extension" | "unsupported-session-selection";
+export type GreenfieldImFallbackReason = "legacy-session" | "legacy-extension";
 
 export interface GreenfieldImRuntimeHostFallback {
 	readonly kind: "legacy-fallback";
@@ -45,6 +53,7 @@ export interface GreenfieldImRuntimeHostFallback {
 	readonly bootstrap: CodingAgentHostBootstrap;
 	readonly sessionPath: string | undefined;
 	readonly extensionCompatibility?: CodingAgentExtensionCompatibilityAssessment;
+	readonly sessionMigration?: RpcRuntimeDecision["sessionMigration"];
 }
 
 export interface GreenfieldImRuntimeHostReady {
@@ -53,6 +62,7 @@ export interface GreenfieldImRuntimeHostReady {
 	readonly session: GreenfieldRuntimeSession;
 	readonly runtime: GreenfieldRuntimeComposition;
 	readonly capabilities: RpcSessionCapabilities;
+	readonly runtimeDecision: RpcRuntimeDecision;
 }
 
 export type GreenfieldImRuntimeHostPreparation = GreenfieldImRuntimeHostFallback | GreenfieldImRuntimeHostReady;
@@ -123,14 +133,6 @@ export async function prepareGreenfieldImRuntimeHost(
 	const { parsed } = bootstrap;
 	assertGreenfieldImInvocation(bootstrap);
 
-	if (parsed.resume) {
-		return {
-			kind: "legacy-fallback",
-			reason: "unsupported-session-selection",
-			bootstrap,
-			sessionPath: parsed.session,
-		};
-	}
 	const extensionCompatibility = resolveCodingAgentGreenfieldExtensionCompatibility(bootstrap.extensionCompatibility, {
 		actions: true,
 		eventProfile: GREENFIELD_IM_EXTENSION_EVENT_PROFILE,
@@ -148,22 +150,36 @@ export async function prepareGreenfieldImRuntimeHost(
 		};
 	}
 
-	const sessionPath = await resolveGreenfieldImSessionPath({
+	let sessionPath = await resolveGreenfieldImSessionPath({
 		explicitSessionPath: parsed.session,
 		continueSession: parsed.continue === true,
 		cwd: bootstrap.cwd,
 		sessionDir: options.conversationDir,
 		sessionCatalog: options.sessionCatalog,
 	});
-	const sessionId = resolveSessionId(options.conversationDir, sessionPath, options.createSessionId ?? randomUUID);
+	let sessionId = resolveSessionId(options.conversationDir, sessionPath, options.createSessionId ?? randomUUID);
+	let sessionMigration: RpcRuntimeDecision["sessionMigration"];
 	if (!sessionId) {
-		return {
-			kind: "legacy-fallback",
-			reason: "legacy-session",
-			bootstrap,
-			sessionPath,
-		};
+		if (!sessionPath) throw new Error("Legacy session migration requires a source path");
+		const migration = await migrateGreenfieldImLegacySession(sessionPath, options.conversationDir);
+		sessionMigration = toRpcSessionMigration(migration);
+		if (migration.kind === "legacy-fallback") {
+			return {
+				kind: "legacy-fallback",
+				reason: "legacy-session",
+				bootstrap,
+				sessionPath,
+				sessionMigration,
+			};
+		}
+		sessionPath = migration.targetPath;
+		sessionId = migration.targetSessionId;
 	}
+	const runtimeDecision: RpcRuntimeDecision = {
+		requestedBackend: "greenfield-im",
+		effectiveBackend: "greenfield-im",
+		...(sessionMigration ? { sessionMigration } : {}),
+	};
 
 	const initial = await resolveCodingAgentInitialModel(bootstrap);
 	if (initial.warning) console.warn(initial.warning);
@@ -290,6 +306,7 @@ export async function prepareGreenfieldImRuntimeHost(
 			sessionHost: activeSessionHost,
 			runtime,
 			resourceLoader: bootstrap.resourceLoader,
+			runtimeDecision,
 			extensionCommandHost: extensionSessionHost,
 		});
 		const capabilities = new GreenfieldImRuntimeHostCapabilities(adapter, managedMcpSource, extensionSessionHost);
@@ -301,6 +318,7 @@ export async function prepareGreenfieldImRuntimeHost(
 			},
 			runtime,
 			capabilities,
+			runtimeDecision,
 		};
 	} catch (error) {
 		const extensionCleanup = extensionSessionHost
@@ -334,9 +352,19 @@ function assertGreenfieldImInvocation(bootstrap: CodingAgentHostBootstrap): void
 	const { parsed } = bootstrap;
 	if (parsed.mode !== "rpc") throw new Error("Greenfield IM Runtime requires --mode rpc");
 	if (!parsed.enableHostBridge) throw new Error("Greenfield IM Runtime requires --enable-host-bridge");
+	if (parsed.resume) throw new Error("--resume is no longer supported; use --continue or --session");
 	if (parsed.scenario && parsed.scenario !== "im-claw") {
 		throw new Error(`Greenfield IM Runtime requires scenario im-claw, received ${parsed.scenario}`);
 	}
+}
+
+function toRpcSessionMigration(
+	migration: GreenfieldImLegacySessionMigration,
+): NonNullable<RpcRuntimeDecision["sessionMigration"]> {
+	return {
+		status: migration.status,
+		...(migration.kind === "legacy-fallback" && migration.errorCode ? { errorCode: migration.errorCode } : {}),
+	};
 }
 
 function resolveSessionId(

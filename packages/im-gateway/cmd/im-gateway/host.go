@@ -146,11 +146,14 @@ func runHostWithIO(opts hostOptions) int {
 		hclocalOpts.Bin = initFrame.CodingAgent.Bin
 		hclocalOpts.BinPrefixArgs = initFrame.CodingAgent.PrefixArgs
 		hclocalOpts.RuntimeBackend = initFrame.CodingAgent.RuntimeBackend
-		hclocalOpts.OnRuntimeResolved = func(requested, actual string) {
+		hclocalOpts.OnRuntimeDecision = func(decision hclocal.RuntimeDecision) {
 			emitLog("info", "coding-agent runtime resolved",
 				map[string]any{
-					"requestedRuntimeBackend": requested,
-					"actualRuntimeBackend":    actual,
+					"requestedRuntimeBackend": decision.RequestedBackend,
+					"actualRuntimeBackend":    decision.EffectiveBackend,
+					"fallbackReason":          decision.FallbackReason,
+					"sessionMigrationStatus":  decision.SessionMigrationStatus,
+					"sessionMigrationError":   decision.SessionMigrationError,
 				})
 		}
 		if initFrame.CodingAgent.RunAsNode {

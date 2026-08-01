@@ -302,6 +302,49 @@ describe("installed standalone CLI artifact", () => {
 		await expect(stat(ownershipLock)).rejects.toMatchObject({ code: "ENOENT" });
 	}, 120_000);
 
+	it("migrates a representable Legacy session through the installed executable", async () => {
+		await expectStandaloneArtifact(artifact);
+
+		fixture = await createAgentRpcFixture();
+		const legacySession = join(fixture.conversationDir, "installed-legacy-source.jsonl");
+		const legacyContent = `${JSON.stringify({
+			type: "session",
+			version: 3,
+			id: "installed-legacy-source",
+			timestamp: "2026-01-01T00:00:00.000Z",
+			cwd: fixture.workspace,
+		})}\n${JSON.stringify({
+			type: "message",
+			id: "installed-legacy-user",
+			parentId: null,
+			timestamp: "2026-01-01T00:00:01.000Z",
+			message: { role: "user", content: "installed legacy", timestamp: 1 },
+		})}\n`;
+		await writeFile(legacySession, legacyContent, "utf8");
+		activeProcess = startInstalledCli(artifact.binaryPath, fixture, createIsolatedArtifactEnv(fixture), {
+			extraArgs: ["--session", legacySession],
+		});
+
+		const state = await activeProcess.request("installed-migration-state", "get_state");
+		expect(state).toMatchObject({
+			data: {
+				runtimeBackend: "greenfield-im",
+				sessionId: expect.stringMatching(/^legacy-import-/),
+				sessionFile: expect.stringMatching(/\.conversation\.jsonl$/),
+				runtimeDecision: {
+					requestedBackend: "greenfield-im",
+					effectiveBackend: "greenfield-im",
+					sessionMigration: { status: "migrated" },
+				},
+			},
+		});
+		expect(readSessionFile(state)).not.toBe(legacySession);
+		expect(await readFile(legacySession, "utf8")).toBe(legacyContent);
+		expect(activeProcess.stderr).toContain("sessionMigration=migrated");
+		await expect(activeProcess.close()).resolves.toBe(0);
+		activeProcess = undefined;
+	}, 120_000);
+
 	it("enforces the Extension Profile and Legacy rollback in the installed executable", async () => {
 		await expectStandaloneArtifact(artifact);
 

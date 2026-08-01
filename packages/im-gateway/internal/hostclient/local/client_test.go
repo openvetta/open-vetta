@@ -107,6 +107,17 @@ func main() {
 			if resolvedRuntime == "" {
 				resolvedRuntime = *runtimeBackend
 			}
+			runtimeDecision := map[string]any{
+				"requestedBackend": *runtimeBackend,
+				"effectiveBackend": resolvedRuntime,
+			}
+			if resolvedRuntime == "legacy" && *runtimeBackend != resolvedRuntime {
+				runtimeDecision["fallbackReason"] = "legacy-session"
+				runtimeDecision["sessionMigration"] = map[string]any{
+					"status": "not-representable",
+					"errorCode": "INVALID_LEGACY_SESSION_EVENT",
+				}
+			}
 			enc.Encode(map[string]any{
 				"id":      cmd.ID,
 				"type":    "response",
@@ -115,6 +126,7 @@ func main() {
 				"data": map[string]any{
 					"sessionId":     "test-session",
 					"runtimeBackend": resolvedRuntime,
+					"runtimeDecision": runtimeDecision,
 				},
 			})
 		case "prompt":
@@ -214,6 +226,43 @@ func TestOpenSession_ReportsRequestedAndActualRuntime(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("runtime resolution callback was not invoked")
+	}
+}
+
+func TestOpenSession_ReportsStructuredRuntimeDecision(t *testing.T) {
+	bin := buildFakeAgent(t)
+	resolved := make(chan RuntimeDecision, 1)
+	c := New(Options{
+		Bin:              bin,
+		BinPrefixArgs:    []string{"--actual-runtime", "legacy"},
+		RuntimeBackend:   "greenfield-im",
+		HandshakeTimeout: 5 * time.Second,
+		CloseTimeout:     2 * time.Second,
+		OnRuntimeDecision: func(decision RuntimeDecision) {
+			resolved <- decision
+		},
+	})
+
+	sess, err := c.OpenSession(context.Background(), t.TempDir(), filepath.Join(t.TempDir(), "session.jsonl"))
+	if err != nil {
+		t.Fatalf("OpenSession: %v", err)
+	}
+	defer sess.Close()
+
+	select {
+	case got := <-resolved:
+		want := (RuntimeDecision{
+			RequestedBackend:       "greenfield-im",
+			EffectiveBackend:       "legacy",
+			FallbackReason:         "legacy-session",
+			SessionMigrationStatus: "not-representable",
+			SessionMigrationError:  "INVALID_LEGACY_SESSION_EVENT",
+		})
+		if got != want {
+			t.Fatalf("runtime decision: got %+v, want %+v", got, want)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("runtime decision callback was not invoked")
 	}
 }
 

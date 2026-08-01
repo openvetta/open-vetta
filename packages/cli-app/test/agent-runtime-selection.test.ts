@@ -1,4 +1,4 @@
-import { stat, writeFile } from "node:fs/promises";
+import { readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { parseAgentRuntimeSelection } from "../src/agent-runtime-selection.js";
@@ -226,51 +226,106 @@ describe("Agent Runtime selection", () => {
 		await owner.close();
 	});
 
-	it("falls back to Legacy for an existing Legacy session without rebuilding the host bootstrap", async () => {
+	it("migrates and reuses a representable Legacy session without changing its source", async () => {
 		const fixture = await createFixture();
 		const legacySession = join(fixture.conversationDir, "legacy.jsonl");
-		await writeFile(
-			legacySession,
-			`${JSON.stringify({
-				type: "session",
-				version: 3,
-				id: "legacy-session",
-				timestamp: new Date().toISOString(),
-				cwd: fixture.workspace,
-			})}\n${JSON.stringify({
-				type: "message",
-				id: "legacy-user",
-				parentId: null,
-				timestamp: new Date().toISOString(),
-				message: { role: "user", content: "legacy", timestamp: Date.now() },
-			})}\n`,
-			"utf8",
-		);
+		const legacyContent = `${JSON.stringify({
+			type: "session",
+			version: 3,
+			id: "legacy-session",
+			timestamp: new Date().toISOString(),
+			cwd: fixture.workspace,
+		})}\n${JSON.stringify({
+			type: "message",
+			id: "legacy-user",
+			parentId: null,
+			timestamp: new Date().toISOString(),
+			message: { role: "user", content: "legacy", timestamp: Date.now() },
+		})}\n`;
+		await writeFile(legacySession, legacyContent, "utf8");
 
-		const legacy = await startRpc(fixture, ["--session", legacySession]);
-		const state = await legacy.request("legacy-state", "get_state");
+		const migrated = await startRpc(fixture, ["--session", legacySession]);
+		const state = await migrated.request("legacy-state", "get_state");
 		expect(state).toMatchObject({
 			id: "legacy-state",
 			type: "response",
 			command: "get_state",
 			success: true,
-			data: { sessionId: "legacy-session", sessionFile: legacySession },
+			data: {
+				sessionId: expect.stringMatching(/^legacy-import-/),
+				sessionFile: expect.stringMatching(/\.conversation\.jsonl$/),
+				runtimeDecision: {
+					requestedBackend: "greenfield-im",
+					effectiveBackend: "greenfield-im",
+					sessionMigration: { status: "migrated" },
+				},
+			},
 		});
-		await legacy.close();
-		expect(legacy.stderr).toContain("using Legacy runtime");
-		expect(legacy.stderr).toContain("fallback=legacy-session");
+		const migratedSessionId = readSessionId(state);
+		const migratedSessionFile = readSessionFile(state);
+		await migrated.close();
+		expect(migrated.stderr).toContain("sessionMigration=migrated");
+		expect(await readFile(legacySession, "utf8")).toBe(legacyContent);
 
-		const continued = await startRpc(fixture, ["--continue"]);
-		const continuedState = await continued.request("legacy-continue-state", "get_state");
-		expect(continuedState).toMatchObject({
-			id: "legacy-continue-state",
+		const reused = await startRpc(fixture, ["--session", legacySession]);
+		const reusedState = await reused.request("legacy-reused-state", "get_state");
+		expect(reusedState).toMatchObject({
+			id: "legacy-reused-state",
 			type: "response",
 			command: "get_state",
 			success: true,
-			data: { sessionId: "legacy-session", sessionFile: legacySession },
+			data: {
+				sessionId: migratedSessionId,
+				sessionFile: migratedSessionFile,
+				runtimeDecision: { sessionMigration: { status: "reused" } },
+			},
 		});
-		await continued.close();
-		expect(continued.stderr).toContain("fallback=legacy-session");
+		await reused.close();
+		expect(reused.stderr).toContain("sessionMigration=reused");
+	});
+
+	it("falls back to Legacy when an existing session is not representable by Greenfield", async () => {
+		const fixture = await createFixture();
+		const legacySession = join(fixture.conversationDir, "legacy-assistant.jsonl");
+		await writeFile(
+			legacySession,
+			`${JSON.stringify({
+				type: "session",
+				version: 3,
+				id: "legacy-assistant-session",
+				timestamp: new Date().toISOString(),
+				cwd: fixture.workspace,
+			})}\n${JSON.stringify({
+				type: "message",
+				id: "legacy-assistant",
+				parentId: null,
+				timestamp: new Date().toISOString(),
+				message: { role: "assistant", content: "legacy", timestamp: Date.now() },
+			})}\n`,
+			"utf8",
+		);
+
+		const legacy = await startRpc(fixture, ["--session", legacySession]);
+		const state = await legacy.request("legacy-fallback-state", "get_state");
+		expect(state).toMatchObject({
+			id: "legacy-fallback-state",
+			type: "response",
+			command: "get_state",
+			success: true,
+			data: {
+				sessionId: "legacy-assistant-session",
+				sessionFile: legacySession,
+				runtimeDecision: {
+					requestedBackend: "greenfield-im",
+					effectiveBackend: "legacy",
+					fallbackReason: "legacy-session",
+					sessionMigration: { status: "not-representable" },
+				},
+			},
+		});
+		await legacy.close();
+		expect(legacy.stderr).toContain("fallback=legacy-session");
+		expect(legacy.stderr).toContain("sessionMigration=not-representable");
 	});
 });
 

@@ -163,8 +163,10 @@ export {
 	type RuntimeSessionCreateOptions,
 } from "./legacy-session-backend.js";
 export {
+	acquireLegacySessionFormatLease,
 	LegacyRuntimeSessionCatalog,
 	LegacyRuntimeSessionFileHistoryReader,
+	type LegacySessionFormatLeaseResult,
 } from "./legacy-session-format/index.js";
 export {
 	createLegacyRuntimeSessionCorePorts,

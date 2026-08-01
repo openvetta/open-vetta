@@ -152,6 +152,46 @@ describe("legacy session migration", () => {
 		expect(await readFile(first.targetPath, "utf8")).toBe(targetContent);
 	});
 
+	it("reuses only an identical deterministic target", async () => {
+		const root = await createTemporaryRoot();
+		const sourcePath = join(root, "legacy.jsonl");
+		const targetRootDir = join(root, "v2");
+		const sourceContent = legacyJsonLines([
+			legacyHeader("legacy-source"),
+			legacyMessage("user-1", null, userMessage("hello", 1)),
+		]);
+		await writeFile(sourcePath, sourceContent, "utf8");
+		const first = await migrateLegacySessionToV2({
+			sourcePath,
+			targetRootDir,
+			targetSessionId: "stable-target",
+			reuseIdenticalTarget: true,
+		});
+
+		const reused = await migrateLegacySessionToV2({
+			sourcePath,
+			targetRootDir,
+			targetSessionId: "stable-target",
+			reuseIdenticalTarget: true,
+		});
+		expect(first.created).toBe(true);
+		expect(reused.created).toBe(false);
+
+		await writeFile(
+			sourcePath,
+			legacyJsonLines([legacyHeader("legacy-source"), legacyMessage("user-1", null, userMessage("changed", 1))]),
+			"utf8",
+		);
+		await expect(
+			migrateLegacySessionToV2({
+				sourcePath,
+				targetRootDir,
+				targetSessionId: "stable-target",
+				reuseIdenticalTarget: true,
+			}),
+		).rejects.toMatchObject({ code: CONVERSATION_STORAGE_ERROR_CODES.ALREADY_EXISTS });
+	});
+
 	it("rejects entries outside the V2 schema before publishing a target", async () => {
 		const root = await createTemporaryRoot();
 		const sourcePath = join(root, "legacy.jsonl");

@@ -3,6 +3,7 @@ import type { CodingAgentTool } from "@vetta/coding-agent/profile";
 import {
 	createImSendAttachmentTool,
 	GREENFIELD_IM_RPC_PROFILE,
+	type RpcRuntimeDecision,
 	type RpcSessionCapabilities,
 	type RpcSessionInitialization,
 	type RpcSessionState,
@@ -29,6 +30,7 @@ export interface GreenfieldImRpcSessionAdapterOptions {
 	>;
 	readonly runtime: GreenfieldRuntimeComposition;
 	readonly resourceLoader: GreenfieldImResourceLoader;
+	readonly runtimeDecision?: RpcRuntimeDecision;
 	readonly extensionCommandHost?: Pick<
 		CodingAgentGreenfieldExtensionCommandHost,
 		"readCommands" | "throwIfExtensionCommand" | "tryExecute"
@@ -55,6 +57,7 @@ export class GreenfieldImRpcSessionAdapter implements RpcSessionCapabilities {
 	private readonly sessionHost: GreenfieldImRpcSessionAdapterOptions["sessionHost"];
 	private readonly runtime: GreenfieldRuntimeComposition;
 	private readonly resourceLoader: GreenfieldImResourceLoader;
+	private readonly runtimeDecision: RpcRuntimeDecision;
 	private readonly extensionCommandHost: GreenfieldImRpcSessionAdapterOptions["extensionCommandHost"];
 	private readonly createHostToolRegistration: NonNullable<
 		GreenfieldImRpcSessionAdapterOptions["createHostToolRegistration"]
@@ -73,6 +76,10 @@ export class GreenfieldImRpcSessionAdapter implements RpcSessionCapabilities {
 		this.sessionHost = options.sessionHost;
 		this.runtime = options.runtime;
 		this.resourceLoader = options.resourceLoader;
+		this.runtimeDecision = options.runtimeDecision ?? {
+			requestedBackend: "greenfield-im",
+			effectiveBackend: "greenfield-im",
+		};
 		this.extensionCommandHost = options.extensionCommandHost;
 		this.createHostToolRegistration =
 			options.createHostToolRegistration ??
@@ -198,6 +205,7 @@ export class GreenfieldImRpcSessionAdapter implements RpcSessionCapabilities {
 		const context = core.contextController?.readState();
 		return {
 			runtimeBackend: "greenfield-im",
+			runtimeDecision: this.runtimeDecision,
 			model: state.model,
 			thinkingLevel: state.thinkingLevel,
 			isStreaming: state.isStreaming,

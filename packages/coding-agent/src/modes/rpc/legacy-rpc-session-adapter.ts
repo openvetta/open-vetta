@@ -17,7 +17,7 @@ import type {
 	RpcTurnCapability,
 } from "./rpc-session-capabilities.js";
 import { LEGACY_FULL_RPC_PROFILE } from "./rpc-session-capabilities.js";
-import type { RpcSlashCommand } from "./rpc-types.js";
+import type { RpcRuntimeDecision, RpcSlashCommand } from "./rpc-types.js";
 
 export class LegacyRpcSessionAdapter implements RpcSessionCapabilities {
 	readonly profile = LEGACY_FULL_RPC_PROFILE;
@@ -32,7 +32,13 @@ export class LegacyRpcSessionAdapter implements RpcSessionCapabilities {
 	readonly session: RpcSessionManagementCapability;
 	readonly commands: RpcCommandDiscoveryCapability;
 
-	constructor(private readonly agentSession: AgentSession) {
+	constructor(
+		private readonly agentSession: AgentSession,
+		private readonly runtimeDecision: RpcRuntimeDecision = {
+			requestedBackend: "legacy",
+			effectiveBackend: "legacy",
+		},
+	) {
 		this.turn = {
 			prompt: (message, options) => this.agentSession.prompt(message, options),
 			steer: (message, images) => this.agentSession.steer(message, images),
@@ -42,6 +48,7 @@ export class LegacyRpcSessionAdapter implements RpcSessionCapabilities {
 		this.state = {
 			readState: async () => ({
 				runtimeBackend: "legacy",
+				runtimeDecision: this.runtimeDecision,
 				model: this.agentSession.model,
 				thinkingLevel: this.agentSession.thinkingLevel,
 				isStreaming: this.agentSession.isStreaming,

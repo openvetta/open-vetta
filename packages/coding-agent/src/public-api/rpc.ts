@@ -6,8 +6,10 @@ export {
 export {
 	GREENFIELD_IM_RPC_PROFILE,
 	LEGACY_FULL_RPC_PROFILE,
+	type RpcRuntimeDecision,
 	type RpcSessionCapabilities,
 	type RpcSessionInitialization,
+	type RpcSessionMigrationStatus,
 	type RpcSessionProfile,
 	type RpcSessionProfileId,
 	type RpcSessionState,

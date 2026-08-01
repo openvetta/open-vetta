@@ -22,6 +22,8 @@ export interface LegacySessionMigrationOptions {
 	readonly sourcePath: string;
 	readonly targetRootDir: string;
 	readonly targetSessionId?: string;
+	/** Reuse an existing target only when its complete serialized content is identical. */
+	readonly reuseIdenticalTarget?: boolean;
 }
 
 export interface LegacySessionMigrationResult {
@@ -31,6 +33,7 @@ export interface LegacySessionMigrationResult {
 	readonly targetPath: string;
 	readonly targetSessionId: string;
 	readonly document: ConversationDocument;
+	readonly created: boolean;
 }
 
 /**
@@ -85,19 +88,25 @@ export async function migrateLegacySessionToV2(
 
 	await mkdir(targetRootDir, { recursive: true });
 	const temporaryPath = `${targetPath}.${randomUUID()}.import.tmp`;
+	let created = true;
 	try {
 		await writeFile(temporaryPath, content, { encoding: "utf8", flag: "wx" });
 		try {
 			await link(temporaryPath, targetPath);
 		} catch (error) {
 			if (nodeErrorCode(error) === "EEXIST") {
-				throw new ConversationStorageError(
-					CONVERSATION_STORAGE_ERROR_CODES.ALREADY_EXISTS,
-					`Conversation already exists: ${targetSessionId}`,
-					{ cause: error },
-				);
+				if (options.reuseIdenticalTarget && (await readFile(targetPath, "utf8")) === content) {
+					created = false;
+				} else {
+					throw new ConversationStorageError(
+						CONVERSATION_STORAGE_ERROR_CODES.ALREADY_EXISTS,
+						`Conversation already exists: ${targetSessionId}`,
+						{ cause: error },
+					);
+				}
+			} else {
+				throw error;
 			}
-			throw error;
 		}
 	} finally {
 		await rm(temporaryPath, { force: true });
@@ -110,5 +119,6 @@ export async function migrateLegacySessionToV2(
 		targetPath,
 		targetSessionId,
 		document,
+		created,
 	};
 }

@@ -231,7 +231,7 @@ ${chalk.bold("Options:")}
   --mode <mode>                  Output mode: text (default), json, or rpc
   --print, -p                    Non-interactive mode: process prompt and exit
   --continue, -c                 Continue previous session
-  --resume, -r                   Select a session to resume
+  --resume, -r                   Unsupported; use --continue or --session
   --session <path>               Use specific session file
   --session-dir <dir>            Directory for session storage and lookup
   --no-session                   Don't save session (ephemeral)

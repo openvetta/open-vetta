@@ -54,6 +54,10 @@ type Options struct {
 	// "legacy" when a requested Greenfield startup falls back.
 	OnRuntimeResolved func(requested, actual string)
 
+	// OnRuntimeDecision observes the structured runtime selection and any
+	// session migration or compatibility fallback reported by get_state.
+	OnRuntimeDecision func(RuntimeDecision)
+
 	// EnableHostBridge appends `--enable-host-bridge` to the spawned
 	// coding-agent subprocess argv. The flag tells coding-agent to
 	// register the `im_send_attachment` tool and to accept `host_response`
@@ -73,6 +77,17 @@ type Options struct {
 	// `<conversationCwd>/MEMORY.md`) because the agent's run cwd is a daily
 	// date directory, not the conversation root. Only emitted when MemoryMode.
 	MemoryFile string
+}
+
+// RuntimeDecision is the runtime-selection subset exposed by coding-agent's
+// get_state response. Empty optional fields mean the corresponding fallback
+// or migration did not occur.
+type RuntimeDecision struct {
+	RequestedBackend       string
+	EffectiveBackend       string
+	FallbackReason         string
+	SessionMigrationStatus string
+	SessionMigrationError  string
 }
 
 const (
@@ -184,6 +199,7 @@ func (c *Client) OpenSession(ctx context.Context, cwd, sessionPath string) (host
 		closeTimeout:            c.opts.CloseTimeout,
 		requestedRuntimeBackend: c.opts.RuntimeBackend,
 		onRuntimeResolved:       c.opts.OnRuntimeResolved,
+		onRuntimeDecision:       c.opts.OnRuntimeDecision,
 	}
 
 	go s.readerLoop(stdout)
@@ -261,11 +277,37 @@ func (s *session) handshake(ctx context.Context, timeout time.Duration) error {
 		if sf, ok := resp.Data["sessionFile"].(string); ok && sf != "" {
 			s.setResolvedSessionPath(sf)
 		}
-		if actual, ok := resp.Data["runtimeBackend"].(string); ok && actual != "" && s.onRuntimeResolved != nil {
-			s.onRuntimeResolved(s.requestedRuntimeBackend, actual)
+		decision := parseRuntimeDecision(resp.Data, s.requestedRuntimeBackend)
+		if decision.EffectiveBackend != "" {
+			if s.onRuntimeResolved != nil {
+				s.onRuntimeResolved(decision.RequestedBackend, decision.EffectiveBackend)
+			}
+			if s.onRuntimeDecision != nil {
+				s.onRuntimeDecision(decision)
+			}
 		}
 	}
 	return nil
+}
+
+func parseRuntimeDecision(data map[string]any, requestedBackend string) RuntimeDecision {
+	decision := RuntimeDecision{RequestedBackend: requestedBackend}
+	if raw, ok := data["runtimeDecision"].(map[string]any); ok {
+		decision.RequestedBackend, _ = raw["requestedBackend"].(string)
+		decision.EffectiveBackend, _ = raw["effectiveBackend"].(string)
+		decision.FallbackReason, _ = raw["fallbackReason"].(string)
+		if migration, ok := raw["sessionMigration"].(map[string]any); ok {
+			decision.SessionMigrationStatus, _ = migration["status"].(string)
+			decision.SessionMigrationError, _ = migration["errorCode"].(string)
+		}
+	}
+	if decision.RequestedBackend == "" {
+		decision.RequestedBackend = requestedBackend
+	}
+	if decision.EffectiveBackend == "" {
+		decision.EffectiveBackend, _ = data["runtimeBackend"].(string)
+	}
+	return decision
 }
 
 // detectStartupLockError scans the events channel (non-blockingly) for the

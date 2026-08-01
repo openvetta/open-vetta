@@ -23,6 +23,7 @@ import { SettingsManager } from "./core/settings-manager.js";
 import { allTools } from "./core/tools/index.js";
 import { type CodingAgentHostBootstrap, createCodingAgentHostBootstrap } from "./host/coding-agent-host-bootstrap.js";
 import { runPrintMode, runRpcMode } from "./modes/index.js";
+import type { RpcRuntimeDecision } from "./modes/rpc/rpc-types.js";
 
 /**
  * Read all content from piped stdin.
@@ -553,7 +554,10 @@ export async function createLegacyAgentBootstrap(args: string[]): Promise<Coding
  * Runtime Selector 可以在只加载一次设置、模型与动态资源的前提下选择 Greenfield，
  * 并在 Greenfield 不兼容旧会话时回退到这里。
  */
-export async function runLegacyAgentWithBootstrap(bootstrap: CodingAgentHostBootstrap): Promise<void> {
+export async function runLegacyAgentWithBootstrap(
+	bootstrap: CodingAgentHostBootstrap,
+	options: { readonly rpcRuntimeDecision?: RpcRuntimeDecision } = {},
+): Promise<void> {
 	const { cwd, parsed, settingsManager, authStorage, modelRegistry, resourceLoader } = bootstrap;
 
 	if (parsed.version) {
@@ -720,7 +724,10 @@ export async function runLegacyAgentWithBootstrap(bootstrap: CodingAgentHostBoot
 	}
 
 	if (mode === "rpc") {
-		await runRpcMode(session, { enableHostBridge: parsed.enableHostBridge });
+		await runRpcMode(session, {
+			enableHostBridge: parsed.enableHostBridge,
+			runtimeDecision: options.rpcRuntimeDecision,
+		});
 	} else {
 		await runPrintMode(session, {
 			mode,

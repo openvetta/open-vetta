@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -27,20 +27,44 @@ afterEach(async () => {
 });
 
 describe("Greenfield IM Runtime Host", () => {
-	it("keeps legacy jsonl sessions on the Legacy fallback path", async () => {
-		const fixture = await createFixture(["--session", join("legacy", "session.jsonl")]);
+	it("migrates a representable Legacy session without changing its source", async () => {
+		const fixture = await createFixture([]);
+		const legacyPath = join(fixture.conversationDir, "legacy.jsonl");
+		const legacyContent = `${JSON.stringify({
+			type: "session",
+			version: 3,
+			id: "legacy-source",
+			timestamp: "2026-01-01T00:00:00.000Z",
+			cwd: fixture.workspace,
+		})}\n${JSON.stringify({
+			type: "message",
+			id: "legacy-user",
+			parentId: null,
+			timestamp: "2026-01-01T00:00:01.000Z",
+			message: { role: "user", content: "legacy", timestamp: 1 },
+		})}\n`;
+		await mkdir(fixture.conversationDir, { recursive: true });
+		await writeFile(legacyPath, legacyContent, "utf8");
+		const bootstrap = await createBootstrap(fixture, ["--session", legacyPath]);
 
 		const result = await prepareGreenfieldImRuntimeHost({
-			bootstrap: fixture.bootstrap,
+			bootstrap,
 			conversationDir: fixture.conversationDir,
 			sessionCatalog: fixture.sessionCatalog,
 		});
 
 		expect(result).toMatchObject({
-			kind: "legacy-fallback",
-			reason: "legacy-session",
-			sessionPath: join("legacy", "session.jsonl"),
+			kind: "greenfield",
+			runtimeDecision: {
+				requestedBackend: "greenfield-im",
+				effectiveBackend: "greenfield-im",
+				sessionMigration: { status: "migrated" },
+			},
 		});
+		if (result.kind !== "greenfield") throw new Error("Expected Greenfield runtime");
+		preparedHosts.push(result);
+		expect(result.session.sessionId).toMatch(/^legacy-import-/);
+		expect(await readFile(legacyPath, "utf8")).toBe(legacyContent);
 	});
 
 	it("owns fresh and resumed conversations for the whole runtime lifetime", async () => {
@@ -130,7 +154,7 @@ describe("Greenfield IM Runtime Host", () => {
 		).rejects.toThrow("Invalid Greenfield conversation path");
 	});
 
-	it("keeps interactive resume on the unsupported session-selection fallback", async () => {
+	it("rejects the removed interactive resume selection", async () => {
 		const fixture = await createFixture(["--resume"]);
 
 		await expect(
@@ -139,10 +163,7 @@ describe("Greenfield IM Runtime Host", () => {
 				conversationDir: fixture.conversationDir,
 				sessionCatalog: fixture.sessionCatalog,
 			}),
-		).resolves.toMatchObject({
-			kind: "legacy-fallback",
-			reason: "unsupported-session-selection",
-		});
+		).rejects.toThrow("--resume is no longer supported; use --continue or --session");
 	});
 
 	it("runs Flag and Command Extensions after resolving their Greenfield capabilities", async () => {

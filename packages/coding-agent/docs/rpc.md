@@ -201,6 +201,15 @@ Response:
   "success": true,
   "data": {
     "runtimeBackend": "legacy",
+    "runtimeDecision": {
+      "requestedBackend": "greenfield-im",
+      "effectiveBackend": "legacy",
+      "fallbackReason": "legacy-session",
+      "sessionMigration": {
+        "status": "not-representable",
+        "errorCode": "INVALID_LEGACY_SESSION_EVENT"
+      }
+    },
     "model": {...},
     "thinkingLevel": "medium",
     "isStreaming": false,
@@ -217,7 +226,11 @@ Response:
 }
 ```
 
-The `runtimeBackend` field is the runtime that actually owns the session (`"legacy"` or `"greenfield-im"`). It can differ from the host's requested backend when the CLI Runtime Selector falls back to Legacy. The `model` field is a full [Model](#model) object or `null`. The `sessionName` field is the display name set via `set_session_name`, or omitted if not set.
+The `runtimeBackend` field is the runtime that actually owns the session (`"legacy"` or `"greenfield-im"`). It can differ from the host's requested backend when the CLI Runtime Selector falls back to Legacy.
+
+`runtimeDecision` is the structured selection result. `requestedBackend` and `effectiveBackend` are always present. `fallbackReason` is present for a Legacy session or Extension compatibility fallback. `sessionMigration.status` is one of `"migrated"`, `"reused"`, `"locked"`, `"not-representable"`, or `"failed"`; `errorCode` is optional. An Extension fallback may instead include `extensionFallback.unsupportedEvents` and `extensionFallback.unmetRuntimeCapabilities`. Hosts should use this object for diagnostics and continue reading `runtimeBackend` when interoperating with older agents.
+
+The `model` field is a full [Model](#model) object or `null`. The `sessionName` field is the display name set via `set_session_name`, or omitted if not set.
 
 #### get_messages
 
