@@ -35,6 +35,7 @@ export const GREENFIELD_IM_RPC_PROFILE: RpcSessionProfile = Object.freeze({
 		"flush_memory",
 		"switch_session",
 		"fork",
+		"get_fork_messages",
 		"get_commands",
 	] as const),
 	hostBridge: "required",

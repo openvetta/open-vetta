@@ -84,6 +84,17 @@ describe("CodingAgentGreenfieldActiveSessionHost", () => {
 		]);
 	});
 
+	it("shuts down source background commands before failed target acquisition", async () => {
+		const fixture = await createFixture();
+		fixture.resume.mockRejectedValueOnce(new Error("target session is locked"));
+
+		await expect(fixture.host.switchSession(fixture.sessionPath("next"))).rejects.toThrow("target session is locked");
+
+		expect(fixture.quiesceSessionBackgroundCommands).toHaveBeenCalledWith("initial");
+		expect(fixture.host.readSession()).toBe(fixture.initial.session);
+		expect(fixture.initial.dispose).not.toHaveBeenCalled();
+	});
+
 	it("keeps the committed session active when previous-session cleanup fails", async () => {
 		const fixture = await createFixture({ failFinalize: true });
 		const next = createSession("next", fixture.sessionPath("next"));
@@ -244,8 +255,10 @@ async function createFixture(
 	const preserveSessionExecutionContext = vi.fn(async (sourceSessionId: string, targetSessionId: string) => {
 		lifecycleOrder.push(`preserve:${sourceSessionId}:${targetSessionId}`);
 	});
+	const quiesceSessionBackgroundCommands = vi.fn(async () => {});
 	const runtime = {
 		backend: { create, resume },
+		quiesceSessionBackgroundCommands,
 		preserveSessionExecutionContext,
 	} as unknown as GreenfieldRuntimeComposition;
 	const catalog: RuntimeSessionCatalog = {
@@ -309,6 +322,7 @@ async function createFixture(
 		initial,
 		create,
 		resume,
+		quiesceSessionBackgroundCommands,
 		preserveSessionExecutionContext,
 		lifecycleOrder,
 		sessionPath: (id: string) => sessionPath(conversationDir, id),

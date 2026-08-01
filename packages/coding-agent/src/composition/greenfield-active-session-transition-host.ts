@@ -116,6 +116,7 @@ export class CodingAgentGreenfieldActiveSessionHost {
 			const transition = this.describe("new", previous);
 			if ((await this.prepareTransition(transition)).cancelled) return { cancelled: true };
 			await this.interruptActiveTurn(previous, "new_session");
+			await this.options.runtime.quiesceSessionBackgroundCommands(previous.sessionId);
 
 			const sessionId = this.options.createSessionId();
 			const next = options?.setup
@@ -139,6 +140,7 @@ export class CodingAgentGreenfieldActiveSessionHost {
 			const transition = this.describe("resume", previous, { targetSessionPath: sessionPath });
 			if ((await this.prepareTransition(transition)).cancelled) return { cancelled: true };
 			await this.interruptActiveTurn(previous, "switch_session");
+			await this.options.runtime.quiesceSessionBackgroundCommands(previous.sessionId);
 
 			const sessionId = this.options.resolveSessionId(sessionPath);
 			if (!sessionId) throw new Error(`Greenfield session path is invalid: ${sessionPath}`);
@@ -167,6 +169,7 @@ export class CodingAgentGreenfieldActiveSessionHost {
 			}
 			let next: GreenfieldRuntimeSession | undefined;
 			try {
+				await this.options.runtime.quiesceSessionBackgroundCommands(previous.sessionId);
 				next = await this.options.runtime.backend.resume({
 					...this.options.sessionOptions,
 					sessionId,

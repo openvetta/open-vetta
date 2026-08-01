@@ -240,6 +240,7 @@ export interface GreenfieldRuntimeComposition {
 	refreshExtensionTools(extensions: readonly Extension[]): void;
 	appendSessionContext(sessionId: string, records: readonly SessionContextRecord[]): void;
 	deliverSessionContext(sessionId: string, records: readonly SessionContextRecord[]): Promise<void>;
+	quiesceSessionBackgroundCommands(sessionId: string): Promise<void>;
 	preserveSessionExecutionContext(sourceSessionId: string, targetSessionId: string): Promise<void>;
 	clearSessionExecutionContext(sessionId: string): void;
 	flushMemory(sessionId: string, signal?: AbortSignal): Promise<number>;
@@ -1245,6 +1246,9 @@ async function createGreenfieldRuntimeCompositionInternal(
 			const context = resourceContexts.get(sessionId);
 			if (!context) throw new Error(`Greenfield session context not found: ${sessionId}`);
 			await context.deliverAsyncContext(records);
+		},
+		async quiesceSessionBackgroundCommands(sessionId) {
+			await executionRuntimes.get(sessionId)?.quiesceBackgroundCommands();
 		},
 		async preserveSessionExecutionContext(sourceSessionId, targetSessionId) {
 			const [sourceDocument, targetDocument] = await Promise.all([

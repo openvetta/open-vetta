@@ -56,8 +56,8 @@ export class GreenfieldSessionExecutionRuntime {
 	readonly hostInteraction = new RuntimeSessionHostInteractionBroker();
 	readonly feature: AgentFeatureDefinition;
 	private readonly catalog: SwappableCodingToolCatalog;
-	private readonly disposeTaskEvents: () => void;
-	private readonly disposeTaskNotifications: () => void;
+	private disposeTaskEvents: (() => void) | undefined;
+	private disposeTaskNotifications: (() => void) | undefined;
 	private readonly fullAccessRegistrations: readonly CodingToolRegistration[];
 	private readonly sourceBindings = new Map<string, CapabilityBinding | undefined>();
 	private mode: SessionExecutionMode;
@@ -107,31 +107,7 @@ export class GreenfieldSessionExecutionRuntime {
 				this.isEnabled(registration.tool.name) &&
 				this.resolveAvailabilityErrorCode(registration.tool.name) === undefined,
 		});
-		this.disposeTaskEvents = this.backgroundService.subscribe(() => {
-			void options.resourceContext
-				.reportObservation({
-					type: "background_tasks_update",
-					tasks: this.backgroundService.list(),
-					source: "tool",
-				})
-				.catch((error: unknown) => {
-					console.warn("[greenfield-runtime] failed to publish background task observation", error);
-				});
-		});
-		this.disposeTaskNotifications = this.backgroundService.subscribeNotifications((task) => {
-			void options.resourceContext
-				.deliverAsyncContext([
-					{
-						type: "task-notification",
-						content: [{ type: "text", text: buildBackgroundCommandNotification(task) }],
-						modelVisible: true,
-						display: true,
-					},
-				])
-				.catch((error: unknown) => {
-					console.warn("[greenfield-runtime] failed to deliver background task notification", error);
-				});
-		});
+		this.bindBackgroundTaskObservers();
 	}
 
 	createExecutionController(session: AgentSession): RuntimeSessionExecutionController {
@@ -146,6 +122,50 @@ export class GreenfieldSessionExecutionRuntime {
 				this.mode = update.mode;
 			},
 		};
+	}
+
+	async quiesceBackgroundCommands(): Promise<void> {
+		this.unbindBackgroundTaskObservers();
+		try {
+			await this.backgroundService.shutdown();
+		} finally {
+			this.bindBackgroundTaskObservers();
+		}
+	}
+
+	private bindBackgroundTaskObservers(): void {
+		this.disposeTaskEvents = this.backgroundService.subscribe(() => {
+			void this.options.resourceContext
+				.reportObservation({
+					type: "background_tasks_update",
+					tasks: this.backgroundService.list(),
+					source: "tool",
+				})
+				.catch((error: unknown) => {
+					console.warn("[greenfield-runtime] failed to publish background task observation", error);
+				});
+		});
+		this.disposeTaskNotifications = this.backgroundService.subscribeNotifications((task) => {
+			void this.options.resourceContext
+				.deliverAsyncContext([
+					{
+						type: "task-notification",
+						content: [{ type: "text", text: buildBackgroundCommandNotification(task) }],
+						modelVisible: true,
+						display: true,
+					},
+				])
+				.catch((error: unknown) => {
+					console.warn("[greenfield-runtime] failed to deliver background task notification", error);
+				});
+		});
+	}
+
+	private unbindBackgroundTaskObservers(): void {
+		this.disposeTaskNotifications?.();
+		this.disposeTaskNotifications = undefined;
+		this.disposeTaskEvents?.();
+		this.disposeTaskEvents = undefined;
 	}
 
 	readMode(): SessionExecutionMode {
@@ -179,8 +199,7 @@ export class GreenfieldSessionExecutionRuntime {
 	}
 
 	async dispose(): Promise<void> {
-		this.disposeTaskNotifications();
-		this.disposeTaskEvents();
+		this.unbindBackgroundTaskObservers();
 		await this.backgroundService.shutdown();
 	}
 
