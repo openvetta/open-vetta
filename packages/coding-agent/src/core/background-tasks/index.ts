@@ -88,15 +88,22 @@ interface InternalTask {
 	outputTimer?: NodeJS.Timeout;
 	/** Set when kill() is called so finish() can annotate the snapshot. */
 	killReason?: BackgroundTaskEndedBy;
+	/** Resolves only after the child ended and its output stream closed. */
+	closePromise: Promise<void>;
+	resolveProcessClosed: () => void;
+	closeSettled: boolean;
 }
 
 const TAIL_MAX_CHARS = 2048;
 const OUTPUT_EVENT_THROTTLE_MS = 200;
+const DEFAULT_SHUTDOWN_TIMEOUT_MS = 10_000;
 
 export class BackgroundTaskManager {
 	private tasks = new Map<string, InternalTask>();
 	private listeners: BackgroundTaskListener[] = [];
 	private counter = 0;
+	private shuttingDown = false;
+	private shutdownPromise?: Promise<void>;
 
 	/**
 	 * Completion notification hook, wired by AgentSession to inject a
@@ -119,9 +126,21 @@ export class BackgroundTaskManager {
 
 	/** Spawn a detached background command. Returns the initial snapshot. */
 	spawn(options: SpawnBackgroundTaskOptions): BackgroundTaskSnapshot {
+		if (this.shuttingDown) {
+			throw new Error("BackgroundTaskManager is shutting down");
+		}
 		const id = `b${++this.counter}`;
 		const outputFile = join(tmpdir(), `vetta-task-${id}-${randomBytes(4).toString("hex")}.log`);
 		const stream = createWriteStream(outputFile);
+		let resolveProcessClosed = () => {};
+		const processClosed = new Promise<void>((resolve) => {
+			resolveProcessClosed = resolve;
+		});
+		const streamClosed = new Promise<void>((resolve) => {
+			stream.once("close", resolve);
+			stream.once("error", () => resolve());
+		});
+		const closePromise = Promise.all([processClosed, streamClosed]).then(() => undefined);
 
 		const { shell, args } = getShellConfig();
 		const resolvedCommand = prependCommandPrefixes(options.command, [getDefaultShellCommandPrefix(shell)]);
@@ -153,7 +172,13 @@ export class BackgroundTaskManager {
 			promoted: false,
 			notifyOnlyIfPromoted: options.notifyOnlyIfPromoted ?? false,
 			waiters: [],
+			closePromise,
+			resolveProcessClosed,
+			closeSettled: false,
 		};
+		void closePromise.then(() => {
+			task.closeSettled = true;
+		});
 		this.tasks.set(id, task);
 
 		const decoder = new TextDecoder();
@@ -200,6 +225,7 @@ export class BackgroundTaskManager {
 			task.outputTimer = undefined;
 		}
 		task.stream.end();
+		task.resolveProcessClosed();
 		// Intentional kill (UI / task_stop / dispose) always reports "killed",
 		// even when the OS reports a non-null exit code (common on Windows).
 		const resolvedStatus: BackgroundTaskStatus = task.killReason ? "killed" : status;
@@ -365,6 +391,50 @@ export class BackgroundTaskManager {
 			if (!task.ended) {
 				this.kill(id, "dispose");
 			}
+		}
+	}
+
+	/**
+	 * Stop accepting work, terminate every running process tree, and wait until
+	 * each child process and output stream has actually closed.
+	 */
+	shutdown(options: { timeoutMs?: number } = {}): Promise<void> {
+		if (this.shutdownPromise) return this.shutdownPromise;
+		this.shuttingDown = true;
+		this.onNotify = undefined;
+		this.shutdownPromise = this.performShutdown(options.timeoutMs ?? DEFAULT_SHUTDOWN_TIMEOUT_MS);
+		return this.shutdownPromise;
+	}
+
+	private async performShutdown(timeoutMs: number): Promise<void> {
+		this.killAll();
+		const tasks = Array.from(this.tasks.values());
+		if (tasks.length === 0) {
+			this.listeners = [];
+			return;
+		}
+
+		let timeout: ReturnType<typeof setTimeout> | undefined;
+		try {
+			await Promise.race([
+				Promise.all(tasks.map((task) => task.closePromise)),
+				new Promise<never>((_resolve, reject) => {
+					timeout = setTimeout(
+						() => {
+							const unresolved = tasks
+								.filter((task) => !task.closeSettled)
+								.map((task) => `${task.snapshot.id}(pid=${task.child.pid ?? "unknown"})`);
+							reject(
+								new Error(`Background task shutdown timed out after ${timeoutMs}ms: ${unresolved.join(", ")}`),
+							);
+						},
+						Math.max(0, timeoutMs),
+					);
+				}),
+			]);
+		} finally {
+			if (timeout) clearTimeout(timeout);
+			this.listeners = [];
 		}
 	}
 }

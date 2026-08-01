@@ -46,7 +46,7 @@ describe("Legacy RPC session adapter", () => {
 		await adapter.shutdown();
 		expect(session.extensionRunner.emit).toHaveBeenCalledWith({ type: "session_shutdown" });
 		await adapter.dispose();
-		expect(session.dispose).toHaveBeenCalledOnce();
+		expect(session.close).toHaveBeenCalledOnce();
 	});
 });
 
@@ -64,7 +64,7 @@ function createLegacySessionDouble(model: Model<Api>) {
 	const reconfigureCustomTools = vi.fn();
 	const bindExtensions = vi.fn(async () => {});
 	const subscribe = vi.fn(() => unsubscribe);
-	const dispose = vi.fn();
+	const close = vi.fn(async () => {});
 	const extensionRunner = {
 		hasHandlers: vi.fn(() => true),
 		emit: vi.fn(async () => {}),
@@ -97,7 +97,7 @@ function createLegacySessionDouble(model: Model<Api>) {
 		reconfigureCustomTools,
 		bindExtensions,
 		subscribe,
-		dispose,
+		close,
 		extensionRunner,
 		agent: { waitForIdle: vi.fn(async () => {}) },
 		newSession: vi.fn(async () => true),
@@ -117,7 +117,7 @@ function createLegacySessionDouble(model: Model<Api>) {
 		reconfigureCustomTools,
 		bindExtensions,
 		subscribe,
-		dispose,
+		close,
 		extensionRunner,
 	};
 }

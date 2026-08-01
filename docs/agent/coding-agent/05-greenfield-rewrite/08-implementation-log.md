@@ -164,6 +164,7 @@
 | [154-rpc-command-drain-and-shutdown.md](./08-implementation-log/154-rpc-command-drain-and-shutdown.md) | RPC 已接收命令 drain、异步 Extension shutdown 与关闭事务 |
 | [155-rpc-background-turn-ownership.md](./08-implementation-log/155-rpc-background-turn-ownership.md) | RPC 后台 prompt 所有权、Bridge 取消与关闭收敛 |
 | [156-rpc-cancellable-long-operation-scope.md](./08-implementation-log/156-rpc-cancellable-long-operation-scope.md) | RPC 可取消长操作作用域、选择性 drain 与 Retry timer 所有权 |
+| [157-awaitable-session-resource-close.md](./08-implementation-log/157-awaitable-session-resource-close.md) | Session 可等待关闭事务、子资源静默点与最终 ownership 释放 |
 
 ## 维护约定
 

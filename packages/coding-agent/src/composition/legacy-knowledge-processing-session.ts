@@ -83,7 +83,7 @@ export function createLegacyKnowledgeProcessingSessionFactory(
 						const usage = readUsage(event.message);
 						if (usage) listener(usage);
 					}),
-				dispose: async () => session.dispose(),
+				dispose: () => session.close(),
 			};
 		},
 	};

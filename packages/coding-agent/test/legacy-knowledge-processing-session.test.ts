@@ -23,7 +23,7 @@ interface Fixture {
 	readonly lockTodos: ReturnType<typeof vi.fn>;
 	readonly prompt: ReturnType<typeof vi.fn>;
 	readonly abort: ReturnType<typeof vi.fn>;
-	readonly dispose: ReturnType<typeof vi.fn>;
+	readonly close: ReturnType<typeof vi.fn>;
 }
 
 function createFixture(): Fixture {
@@ -57,7 +57,7 @@ function createFixture(): Fixture {
 		for (const listener of [...listeners]) listener(endEvent);
 	});
 	const abort = vi.fn(async () => {});
-	const dispose = vi.fn();
+	const close = vi.fn(async () => {});
 	const session = {
 		modelRegistry,
 		todoStore: {
@@ -72,7 +72,7 @@ function createFixture(): Fixture {
 		},
 		prompt,
 		abort,
-		dispose,
+		close,
 	} as unknown as AgentSession;
 	return {
 		session,
@@ -87,7 +87,7 @@ function createFixture(): Fixture {
 		lockTodos,
 		prompt,
 		abort,
-		dispose,
+		close,
 	};
 }
 
@@ -151,7 +151,7 @@ describe("Legacy knowledge processing session adapter", () => {
 		await session.abort();
 		await session.dispose();
 		expect(fixture.abort).toHaveBeenCalledOnce();
-		expect(fixture.dispose).toHaveBeenCalledOnce();
+		expect(fixture.close).toHaveBeenCalledOnce();
 		expect(fixture.listeners).toHaveLength(0);
 	});
 

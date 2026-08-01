@@ -156,6 +156,8 @@ export class RuntimeManager {
 	private readonly _enableMcp: boolean;
 	private readonly _mcpDebug: boolean;
 	private _mcpInitPromise: Promise<void> | undefined = undefined;
+	private _closed = false;
+	private _closePromise?: Promise<void>;
 	/** MCP 渐进披露：工具总数超阈值时进入 deferred 模式（schema 不进 tools 数组，经 tool_search 检索激活）。 */
 	private _mcpDeferred = false;
 	/** deferred 模式下的检索索引（name → description）。 */
@@ -232,7 +234,7 @@ export class RuntimeManager {
 	 * rebuilding the runtime once tools are available. Returns immediately.
 	 */
 	initMcp(): void {
-		if (!this._enableMcp) return;
+		if (!this._enableMcp || this._closed) return;
 		this._mcpManager = createMcpManager({
 			projectRoot: this.ctx.cwd,
 			debug: this._mcpDebug,
@@ -245,6 +247,7 @@ export class RuntimeManager {
 		this._mcpInitPromise = this._mcpManager
 			.initialize()
 			.then(async () => {
+				if (this._closed) return;
 				// Apply any plugin MCP already present on the session (reconfigure may race init).
 				const specs = (this._agentPlugins?.mcpServerContributions ?? []).map((item) => ({
 					runtimeName: item.runtimeName,
@@ -253,6 +256,7 @@ export class RuntimeManager {
 				if (specs.length > 0) {
 					await this._mcpManager?.setPluginServers(specs);
 				}
+				if (this._closed) return;
 				this.buildRuntime({
 					activeToolNames: this._initialActiveToolNames ?? this.getActiveToolNames(),
 					includeAllExtensionTools: true,
@@ -263,13 +267,24 @@ export class RuntimeManager {
 			});
 	}
 
-	/** Shutdown MCP servers (best-effort). */
+	/** Start MCP shutdown without waiting (compatibility entrypoint). */
 	shutdown(): void {
-		if (this._mcpManager) {
-			this._mcpManager.shutdown().catch((error) => {
-				console.error("[MCP] Failed to shutdown:", error.message);
-			});
-		}
+		void this.close().catch((error) => {
+			console.error("[MCP] Failed to shutdown:", error instanceof Error ? error.message : String(error));
+		});
+	}
+
+	/** Wait for initialization to settle, then close every owned MCP client. */
+	close(): Promise<void> {
+		if (this._closePromise) return this._closePromise;
+		this._closed = true;
+		this._closePromise = this.closeMcp();
+		return this._closePromise;
+	}
+
+	private async closeMcp(): Promise<void> {
+		await this._mcpInitPromise;
+		await this._mcpManager?.shutdown();
 	}
 
 	getActiveToolNames(): string[] {
@@ -1079,6 +1094,7 @@ export class RuntimeManager {
 		flagValues?: Map<string, boolean | string>;
 		includeAllExtensionTools?: boolean;
 	}): void {
+		if (this._closed) return;
 		const autoResizeImages = this.ctx.settingsManager.getImageAutoResize();
 		const shellCommandPrefix = this.ctx.settingsManager.getShellCommandPrefix();
 		const envOverlay = this._envOverlay;

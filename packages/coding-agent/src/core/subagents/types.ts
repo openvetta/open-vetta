@@ -169,6 +169,8 @@ export interface SubagentChildHandle {
 	isStreaming(): boolean;
 	getLastAssistantText(): string | undefined;
 	dispose(): void;
+	/** Awaitable close path for handles that own asynchronous child resources. */
+	close?(): Promise<void>;
 	subscribe(listener: (event: { type: string; messages?: unknown[] }) => void): () => void;
 	/** Pre-fill the child's TodoStore (unlocked). Optional: only full sessions support it. */
 	setTodos?(contents: string[]): void;

@@ -148,6 +148,7 @@ export class AgentSession {
 	// Background bash tasks (run_in_background)
 	private _backgroundTasks: BackgroundTaskManager;
 	private _hookRuntime: EcosystemHookRuntime;
+	private _closePromise?: Promise<void>;
 
 	constructor(config: AgentSessionConfig) {
 		this.agent = config.agent;
@@ -468,27 +469,84 @@ export class AgentSession {
 	 * After dispose(), the underlying SessionManager must not be reused.
 	 */
 	dispose(): void {
+		void this.close().catch((error) => {
+			console.warn("[AgentSession] Close failed", error);
+		});
+	}
+
+	/**
+	 * Close the session and wait for all session-owned work to become quiet
+	 * before releasing the session file lock. Repeated calls share one Promise.
+	 */
+	close(): Promise<void> {
+		if (this._closePromise) return this._closePromise;
 		this._disconnectFromAgent();
 		this._eventListeners = [];
-
-		// Best-effort SessionEnd before tearing down session resources.
-		// baseEvent() is captured synchronously; do not await (dispose stays sync).
-		void this._hookRuntime.runSessionEnd("dispose").catch((error) => {
-			console.warn("[ecosystem-hooks] SessionEnd on dispose failed", error);
-		});
-
-		// Tear down children first so they cannot notify a disposed parent.
-		void this._subagents?.dispose();
+		const subagents = this._subagents;
 		this._subagents = undefined;
+		this._closePromise = this.performClose(subagents);
+		return this._closePromise;
+	}
 
-		// Kill any still-running background tasks (lifecycle bound to the session).
-		this._backgroundTasks.killAll();
+	private async performClose(subagents: SubagentCoordinator | undefined): Promise<void> {
+		const criticalFailures: unknown[] = [];
+		try {
+			// Stop producers before waiting so no new child work can attach while closing.
+			const stopResults = await Promise.allSettled([
+				this.runCloseOperation(() => this._retry.abortRetry()),
+				this.runCloseOperation(() => this._compaction.abort()),
+				this.runCloseOperation(() => this._nav.abortBranchSummary()),
+				this.runCloseOperation(() => this._bash.abortBash()),
+				this.runCloseOperation(() => this.agent.abort()),
+			]);
+			this.logCloseFailures("work producers", stopResults);
+			criticalFailures.push(...this.collectCloseFailures(stopResults));
 
-		// Release the session file lock so another writer can take over.
-		this.sessionManager.close();
+			const resourceResults = await Promise.allSettled([
+				this.runCloseOperation(() => this.agent.waitForIdle()),
+				this.runCloseOperation(() => this._hookRuntime.runSessionEnd("dispose")),
+				this.runCloseOperation(() => subagents?.dispose()),
+				this.runCloseOperation(() => this._backgroundTasks.shutdown()),
+			]);
+			this.logCloseFailures("owned resources", resourceResults);
+			// SessionEnd remains best-effort for compatibility; the other entries
+			// represent resources whose failed close invalidates a successful result.
+			criticalFailures.push(
+				...this.collectCloseFailures([resourceResults[0], resourceResults[2], resourceResults[3]]),
+			);
 
-		// Shutdown MCP servers
-		this._runtime.shutdown();
+			// Parent MCP remains available until foreground and child work are quiet.
+			const runtimeResults = await Promise.allSettled([this.runCloseOperation(() => this._runtime.close())]);
+			this.logCloseFailures("runtime", runtimeResults);
+			criticalFailures.push(...this.collectCloseFailures(runtimeResults));
+			if (criticalFailures.length > 0) {
+				throw new AggregateError(criticalFailures, "AgentSession failed to close all owned resources");
+			}
+		} finally {
+			// Ownership is released last; another process cannot acquire the session
+			// while this instance still owns children or MCP connections.
+			this.sessionManager.close();
+		}
+	}
+
+	private collectCloseFailures(results: PromiseSettledResult<unknown>[]): unknown[] {
+		return results.flatMap((result) => (result.status === "rejected" ? [result.reason] : []));
+	}
+
+	private runCloseOperation(operation: () => unknown): Promise<void> {
+		try {
+			return Promise.resolve(operation()).then(() => undefined);
+		} catch (error) {
+			return Promise.reject(error);
+		}
+	}
+
+	private logCloseFailures(label: string, results: PromiseSettledResult<unknown>[]): void {
+		for (const result of results) {
+			if (result.status === "rejected") {
+				console.warn(`[AgentSession] Failed to close ${label}`, result.reason);
+			}
+		}
 	}
 
 	// =========================================================================

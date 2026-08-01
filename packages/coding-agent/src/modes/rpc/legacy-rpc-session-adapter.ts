@@ -193,7 +193,7 @@ export class LegacyRpcSessionAdapter implements RpcSessionCapabilities {
 	}
 
 	async dispose(): Promise<void> {
-		this.agentSession.dispose();
+		await this.agentSession.close();
 	}
 
 	private readCommands(): readonly RpcSlashCommand[] {

@@ -44,7 +44,7 @@
 8. [实施日志](./08-implementation-log.md)
    - 索引；每轮实施单独成文，见 [`08-implementation-log/`](./08-implementation-log/)。
    - 按实施轮次记录实际修改、验证结果、未完成项和下一步。
-   - 最新记录：[第 156 轮：RPC 可取消长操作作用域与选择性 Drain](./08-implementation-log/156-rpc-cancellable-long-operation-scope.md)。
+   - 最新记录：[第 157 轮：Session 可等待关闭事务与资源静默点](./08-implementation-log/157-awaitable-session-resource-close.md)。
 9. [行为兼容性审计](./09-behavior-compatibility-audit.md)
    - 审计已实施模块与旧行为的差距。
    - 定义旧新差分测试和迁移 Gate。

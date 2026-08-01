@@ -14,11 +14,9 @@ function getText(result: { content?: Array<{ type: string; text?: string }> }): 
 describe("bash block_until auto-promote", () => {
 	const managers: BackgroundTaskManager[] = [];
 
-	afterEach(() => {
-		for (const m of managers) {
-			m.killAll();
-			m.clearFinished();
-		}
+	afterEach(async () => {
+		await Promise.allSettled(managers.map((manager) => manager.shutdown()));
+		for (const m of managers) m.clearFinished();
 		managers.length = 0;
 	});
 
@@ -77,9 +75,28 @@ describe("bash block_until auto-promote", () => {
 		const id = result.details?.backgroundTaskId;
 		expect(id).toBeTruthy();
 		expect(managers[0]!.kill(id!)).toBe(true);
-		// allow close handler to settle
-		await new Promise((r) => setTimeout(r, 200));
+		await managers[0]!.shutdown();
 		const snap = managers[0]!.get(id!);
-		expect(snap?.status === "killed" || snap?.status === "failed" || snap?.status === "completed").toBe(true);
+		expect(snap?.status).toBe("killed");
+	}, 15_000);
+
+	it("shutdown is idempotent, waits for process close, and rejects new tasks", async () => {
+		const manager = new BackgroundTaskManager();
+		managers.push(manager);
+		const task = manager.spawn({
+			command: "sleep 60",
+			cwd: process.cwd(),
+			env: process.env,
+		});
+
+		const first = manager.shutdown();
+		expect(manager.shutdown()).toBe(first);
+		await first;
+
+		expect(manager.get(task.id)?.status).toBe("killed");
+		expect(manager.runningCount).toBe(0);
+		expect(() => manager.spawn({ command: "echo late", cwd: process.cwd(), env: process.env })).toThrow(
+			/shutting down/,
+		);
 	}, 15_000);
 });

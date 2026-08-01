@@ -438,6 +438,40 @@ describe("installed standalone CLI artifact", () => {
 		activeProcess = undefined;
 	}, 120_000);
 
+	it("waits for an installed Legacy background process before releasing session ownership", async () => {
+		await expectStandaloneArtifact(artifact);
+
+		providerServer = await startOpenAiResponsesTestServer((_request, index) =>
+			index === 0
+				? {
+						kind: "events",
+						events: toolCallResponseEvents(process.platform === "win32" ? "shell" : "bash", {
+							command: installedHeldProcessCommand("installed-background.pid"),
+							run_in_background: true,
+						}),
+					}
+				: { kind: "events", events: textResponseEvents("Installed background task started.") },
+		);
+		fixture = await createAgentRpcFixture({ baseUrl: providerServer.baseUrl });
+		activeProcess = startInstalledCli(artifact.binaryPath, fixture, createIsolatedArtifactEnv(fixture), {
+			backend: "legacy",
+			noSkills: true,
+		});
+
+		await promptInstalledTurn(activeProcess, "installed-background-close", "Start the installed background task");
+		const pid = await waitForInstalledPid(join(fixture.workspace, "installed-background.pid"));
+		expect(isProcessAlive(pid)).toBe(true);
+
+		await expect(activeProcess.close()).resolves.toBe(0);
+		expect(isProcessAlive(pid)).toBe(false);
+		expect(
+			(await readdir(fixture.conversationDir)).filter(
+				(name) => name.endsWith(".lock") || name.endsWith(".owner.lock"),
+			),
+		).toEqual([]);
+		activeProcess = undefined;
+	}, 120_000);
+
 	it("settles an installed prompt waiting on host_response before transport exit", async () => {
 		await expectStandaloneArtifact(artifact);
 
@@ -1115,6 +1149,36 @@ function readToolDescription(tools: readonly unknown[] | undefined, name: string
 		return typeof description === "string" ? description : "";
 	}
 	return "";
+}
+
+function installedHeldProcessCommand(relativePidPath: string): string {
+	if (process.platform === "win32") {
+		return `$PID | Set-Content -LiteralPath '${relativePidPath}' -Encoding ascii; Start-Sleep -Seconds 60`;
+	}
+	return `printf '%s' "$$" > '${relativePidPath}'; sleep 60`;
+}
+
+async function waitForInstalledPid(path: string): Promise<number> {
+	const deadline = Date.now() + 5_000;
+	while (Date.now() < deadline) {
+		try {
+			const pid = Number.parseInt((await readFile(path, "utf8")).trim(), 10);
+			if (Number.isSafeInteger(pid) && pid > 0) return pid;
+		} catch {
+			// The background command has not written its PID yet.
+		}
+		await new Promise((resolvePromise) => setTimeout(resolvePromise, 25));
+	}
+	throw new Error(`Timed out waiting for installed background PID file: ${path}`);
+}
+
+function isProcessAlive(pid: number): boolean {
+	try {
+		process.kill(pid, 0);
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 function isOutside(parent: string, candidate: string): boolean {

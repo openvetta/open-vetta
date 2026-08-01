@@ -319,4 +319,60 @@ describe("SubagentCoordinator", () => {
 		expect(coord.list()).toHaveLength(1);
 		await coord.dispose();
 	});
+
+	it("dispose aborts children and waits for idle before closing handles", async () => {
+		const calls: string[] = [];
+		let releaseIdle = () => {};
+		const idle = new Promise<void>((resolve) => {
+			releaseIdle = resolve;
+		});
+		const handle = fakeHandle({
+			prompt: async () => {
+				await idle;
+			},
+			abort: () => calls.push("abort"),
+			waitForIdle: async () => {
+				calls.push("wait");
+				await idle;
+			},
+			close: async () => {
+				calls.push("close");
+			},
+		});
+		const { coord } = makeCoordinator(createFactory([handle]));
+		await coord.spawn({ taskName: "held", message: "wait", agentType: "explorer" });
+
+		const first = coord.dispose();
+		expect(coord.dispose()).toBe(first);
+		await vi.waitFor(() => expect(calls).toEqual(["abort", "wait"]));
+		expect(calls).not.toContain("close");
+
+		releaseIdle();
+		await first;
+		expect(calls).toEqual(["abort", "wait", "close"]);
+	});
+
+	it("dispose owns a child factory result that resolves after shutdown starts", async () => {
+		let releaseCreate = (_handle: SubagentChildHandle) => {};
+		const created = new Promise<SubagentChildHandle>((resolve) => {
+			releaseCreate = resolve;
+		});
+		let createSignal: AbortSignal | undefined;
+		const close = vi.fn(async () => {});
+		const factory: SubagentSessionFactory = {
+			create: async (_request, _parent, _type, signal) => {
+				createSignal = signal;
+				return created;
+			},
+		};
+		const { coord } = makeCoordinator(factory);
+		const spawn = coord.spawn({ taskName: "creating", message: "wait", agentType: "explorer" });
+		const disposing = coord.dispose();
+
+		expect(createSignal?.aborted).toBe(true);
+		releaseCreate(fakeHandle({ close }));
+		await expect(spawn).rejects.toThrow(/disposed during subagent spawn/);
+		await disposing;
+		expect(close).toHaveBeenCalledOnce();
+	});
 });

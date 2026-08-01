@@ -74,6 +74,9 @@ export class SubagentCoordinator {
 	private onUpdate?: SubagentCoordinatorOptions["onUpdate"];
 	private readonly hookRuntime?: SubagentCoordinatorOptions["hookRuntime"];
 	private disposed = false;
+	private readonly lifecycleAbortController = new AbortController();
+	private readonly startOperations = new Set<Promise<void>>();
+	private disposePromise?: Promise<void>;
 	private notifyBuffer: SubagentSnapshot[] = [];
 	private notifyTimer?: ReturnType<typeof setTimeout>;
 
@@ -271,7 +274,17 @@ export class SubagentCoordinator {
 	}
 
 	/** Create the child session for a reserved entry and fire its initial prompt. */
-	private async startChild(entry: InternalChild): Promise<void> {
+	private startChild(entry: InternalChild): Promise<void> {
+		const operation = this.createAndStartChild(entry);
+		this.startOperations.add(operation);
+		void operation.then(
+			() => this.startOperations.delete(operation),
+			() => this.startOperations.delete(operation),
+		);
+		return operation;
+	}
+
+	private async createAndStartChild(entry: InternalChild): Promise<void> {
 		const request: SubagentSpawnRequest = entry.queuedRequest ?? {
 			taskName: entry.snapshot.taskName,
 			message: entry.snapshot.task,
@@ -304,10 +317,12 @@ export class SubagentCoordinator {
 				forkContextMessages,
 			},
 			typeDef,
+			this.lifecycleAbortController.signal,
 		);
 
 		if (this.disposed) {
-			handle.dispose();
+			if (handle.close) await handle.close();
+			else handle.dispose();
 			throw new Error("Parent session disposed during subagent spawn");
 		}
 
@@ -624,21 +639,30 @@ export class SubagentCoordinator {
 			}
 			const model = this.getModel();
 			if (!model) throw new Error("Cannot reopen subagent: parent has no model");
-			entry.handle = await this.factory.reopen(
-				entry.snapshot,
-				{
-					parentSessionId: this.parentSessionId,
-					parentSessionFile: this.parentSessionFile,
-					cwd: this.cwd,
-					scenario: this.scenario,
-					model,
-					thinkingLevel: this.getThinkingLevel(),
-					agentDir: this.agentDir,
-					modelRegistry: this.getModelRegistry?.(),
-					parentMcpTools: this.getParentMcpTools(),
-				},
-				typeDef,
+			const handle = await this.trackStartOperation(
+				this.factory.reopen(
+					entry.snapshot,
+					{
+						parentSessionId: this.parentSessionId,
+						parentSessionFile: this.parentSessionFile,
+						cwd: this.cwd,
+						scenario: this.scenario,
+						model,
+						thinkingLevel: this.getThinkingLevel(),
+						agentDir: this.agentDir,
+						modelRegistry: this.getModelRegistry?.(),
+						parentMcpTools: this.getParentMcpTools(),
+					},
+					typeDef,
+					this.lifecycleAbortController.signal,
+				),
 			);
+			if (this.disposed) {
+				if (handle.close) await handle.close();
+				else handle.dispose();
+				throw new Error("Parent session disposed during subagent reopen");
+			}
+			entry.handle = handle;
 			entry.unsubscribe = entry.handle.subscribe((event) => {
 				if (event.type === "agent_start" && entry.snapshot.status === "pending") {
 					entry.snapshot.status = "running";
@@ -801,18 +825,28 @@ export class SubagentCoordinator {
 		});
 	}
 
-	async dispose(): Promise<void> {
-		if (this.disposed) return;
+	dispose(): Promise<void> {
+		if (this.disposePromise) return this.disposePromise;
 		this.disposed = true;
+		this.lifecycleAbortController.abort();
 		if (this.notifyTimer) {
 			clearTimeout(this.notifyTimer);
 			this.notifyTimer = undefined;
 		}
 		this.notifyBuffer = [];
 		this.onNotify = undefined;
+		this.onUpdate = undefined;
 
 		this.queue.length = 0;
+		this.disposePromise = this.performDispose();
+		return this.disposePromise;
+	}
+
+	private async performDispose(): Promise<void> {
+		await Promise.allSettled([...this.startOperations]);
+
 		const entries = Array.from(this.children.values());
+		const handles: SubagentChildHandle[] = [];
 		for (const entry of entries) {
 			if (!isTerminalStatus(entry.snapshot.status)) {
 				entry.handle?.abort();
@@ -826,14 +860,30 @@ export class SubagentCoordinator {
 			entry.unsubscribe = undefined;
 			entry.todoUnsubscribe?.();
 			entry.todoUnsubscribe = undefined;
-			try {
-				entry.handle?.dispose();
-			} catch {
-				// ignore dispose errors
-			}
+			if (entry.handle) handles.push(entry.handle);
 			entry.handle = undefined;
 		}
-		this.emitUpdate();
+
+		await Promise.allSettled(
+			handles.map(async (handle) => {
+				try {
+					await handle.waitForIdle();
+				} finally {
+					if (handle.close) await handle.close();
+					else handle.dispose();
+				}
+			}),
+		);
+	}
+
+	private trackStartOperation<T>(operation: Promise<T>): Promise<T> {
+		const settlement = operation.then(
+			() => undefined,
+			() => undefined,
+		);
+		this.startOperations.add(settlement);
+		void settlement.finally(() => this.startOperations.delete(settlement));
+		return operation;
 	}
 
 	// ── internals ──────────────────────────────────────────────

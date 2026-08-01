@@ -70,6 +70,7 @@ function wrapSession(session: AgentSession): SubagentChildHandle {
 		isStreaming: () => session.isStreaming,
 		getLastAssistantText: () => session.getLastAssistantText() ?? undefined,
 		dispose: () => session.dispose(),
+		close: () => session.close(),
 		subscribe: (listener) =>
 			session.subscribe((event) => {
 				listener({
@@ -160,7 +161,7 @@ export function createDefaultSubagentSessionFactory(
 			}
 
 			if (signal?.aborted) {
-				session.dispose();
+				await session.close();
 				throw new Error("Subagent create aborted");
 			}
 
