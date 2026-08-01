@@ -133,6 +133,111 @@ describe("legacy session migration", () => {
 		await repository.close();
 	});
 
+	it("persists mixed Import Seed and V2 Event history mutations across reopen", async () => {
+		const fixture = await createMixedTreeFixture();
+		await appendTurn(fixture.repository, "mixed-target", 0, "turn-1", "continued question", "continued answer");
+
+		const initial = await fixture.repository.readDocument("mixed-target");
+		const oldBranch = await fixture.repository.execute("mixed-target", initial.revision, {
+			type: "branch.select",
+			entryId: "user-old",
+		});
+		expect(oldBranch.leafId).toBe("assistant-old");
+		await fixture.repository.close();
+
+		let reopened = new FileConversationRepository({ rootDir: fixture.targetRootDir });
+		expect((await reopened.load("mixed-target")).messages.map(messageText)).toEqual([
+			"root question",
+			"root answer",
+			"old question",
+			"old answer",
+		]);
+		const selected = await reopened.execute("mixed-target", oldBranch.document.revision, {
+			type: "branch.select",
+			entryId: "user-new",
+		});
+		expect(selected.leafId).toBe("event-3");
+
+		const deleted = await reopened.execute("mixed-target", selected.document.revision, {
+			type: "message.delete",
+			entryId: "assistant-root",
+		});
+		expect(deleted.document.entries.find(({ id }) => id === "user-old")?.parentId).toBe("user-root");
+		expect(deleted.document.entries.find(({ id }) => id === "user-new")?.parentId).toBe("user-root");
+		expect(deleted.document.entries.find(({ id }) => id === "branch-summary")).toMatchObject({
+			fromId: "user-root",
+		});
+		expect(deleted.document.entries.find(({ id }) => id === "compaction")).toMatchObject({
+			firstKeptEntryId: "user-new",
+		});
+
+		const replaced = await reopened.execute("mixed-target", deleted.document.revision, {
+			type: "user_turn.replace",
+			entryId: "event-2",
+		});
+		expect(replaced.leafId).toBe("tail-user");
+		await reopened.close();
+
+		reopened = new FileConversationRepository({ rootDir: fixture.targetRootDir });
+		const restored = await reopened.readDocument("mixed-target");
+		expect(restored.entries.map(({ id }) => id)).not.toEqual(
+			expect.arrayContaining(["assistant-root", "event-2", "event-3"]),
+		);
+		expect(restored.entries.find(({ id }) => id === "branch-summary")).toMatchObject({ fromId: "user-root" });
+		expect(restored.activeLeafId).toBe("tail-user");
+		await appendTurn(reopened, "mixed-target", 4, "turn-2", "replacement question", "replacement answer");
+		const continued = await reopened.readDocument("mixed-target");
+		expect(continued.entries.find(({ id }) => id === "event-6")?.parentId).toBe("tail-user");
+		expect(continued.entries.find(({ id }) => id === "event-7")?.parentId).toBe("event-6");
+		expect(await readFile(fixture.sourcePath, "utf8")).toBe(fixture.sourceContent);
+		await reopened.close();
+	});
+
+	it("forks mixed Seed and Event branches into independently recoverable conversations", async () => {
+		const fixture = await createMixedTreeFixture();
+		await appendTurn(fixture.repository, "mixed-target", 0, "turn-1", "continued question", "continued answer");
+
+		const mixedFork = await fixture.repository.fork("mixed-target", "event-2");
+		const mixedDocument = await fixture.repository.readDocument(mixedFork.sessionId);
+		expect(mixedFork.text).toBe("continued question");
+		expect(mixedDocument.identity).toMatchObject({
+			parentSessionPath: fixture.repository.resolveConversationPath("mixed-target"),
+			parentEntryId: "event-2",
+		});
+		expect(mixedDocument.entries.map(({ id }) => id)).toEqual([
+			"user-root",
+			"assistant-root",
+			"user-new",
+			"assistant-new",
+			"branch-summary",
+			"compaction",
+			"tail-user",
+			"event-2",
+			"event-3",
+		]);
+		expect(mixedDocument.activeLeafId).toBe("event-3");
+		expect((await fixture.repository.load(mixedFork.sessionId)).version).toBe(4);
+
+		const seedFork = await fixture.repository.fork("mixed-target", "user-old");
+		const seedDocument = await fixture.repository.readDocument(seedFork.sessionId);
+		expect(seedFork.text).toBe("old question");
+		expect(seedDocument.entries.map(({ id }) => id)).toEqual([
+			"user-root",
+			"assistant-root",
+			"user-old",
+			"assistant-old",
+		]);
+		expect(seedDocument.activeLeafId).toBe("assistant-old");
+		expect((await fixture.repository.load(seedFork.sessionId)).version).toBe(0);
+		expect(await readFile(fixture.sourcePath, "utf8")).toBe(fixture.sourceContent);
+		await fixture.repository.close();
+
+		const reopened = new FileConversationRepository({ rootDir: fixture.targetRootDir });
+		await expect(reopened.readDocument(mixedFork.sessionId)).resolves.toMatchObject({ activeLeafId: "event-3" });
+		await expect(reopened.readDocument(seedFork.sessionId)).resolves.toMatchObject({ activeLeafId: "assistant-old" });
+		await reopened.close();
+	});
+
 	it("fails closed when the target already exists and keeps both files unchanged", async () => {
 		const root = await createTemporaryRoot();
 		const sourcePath = join(root, "legacy.jsonl");
@@ -295,6 +400,79 @@ async function createTemporaryRoot(): Promise<string> {
 	return root;
 }
 
+async function createMixedTreeFixture() {
+	const root = await createTemporaryRoot();
+	const sourcePath = join(root, "mixed-legacy.jsonl");
+	const targetRootDir = join(root, "v2");
+	const sourceContent = legacyJsonLines([
+		legacyHeader("mixed-source"),
+		legacyTreeEntry("message", "user-root", null, 1, { message: userMessage("root question", 1) }),
+		legacyTreeEntry("message", "assistant-root", "user-root", 2, {
+			message: assistantMessage("root answer", 2),
+		}),
+		legacyTreeEntry("message", "user-old", "assistant-root", 3, { message: userMessage("old question", 3) }),
+		legacyTreeEntry("message", "assistant-old", "user-old", 4, { message: assistantMessage("old answer", 4) }),
+		legacyTreeEntry("message", "user-new", "assistant-root", 5, { message: userMessage("new question", 5) }),
+		legacyTreeEntry("message", "assistant-new", "user-new", 6, { message: assistantMessage("new answer", 6) }),
+		legacyTreeEntry("branch_summary", "branch-summary", "assistant-new", 7, {
+			fromId: "assistant-root",
+			summary: "branch summary",
+		}),
+		legacyTreeEntry("compaction", "compaction", "branch-summary", 8, {
+			summary: "compaction summary",
+			firstKeptEntryId: "user-new",
+			tokensBefore: 100,
+		}),
+		legacyTreeEntry("message", "tail-user", "compaction", 9, { message: userMessage("tail question", 9) }),
+	]);
+	await writeFile(sourcePath, sourceContent, "utf8");
+	await migrateLegacySessionToV2({
+		sourcePath,
+		targetRootDir,
+		targetSessionId: "mixed-target",
+		entryNormalizer: preserveLegacyEntry,
+	});
+	return {
+		repository: new FileConversationRepository({ rootDir: targetRootDir }),
+		root,
+		sourceContent,
+		sourcePath,
+		targetRootDir,
+	};
+}
+
+async function appendTurn(
+	repository: FileConversationRepository,
+	sessionId: string,
+	expectedVersion: number,
+	turnId: string,
+	question: string,
+	answer: string,
+): Promise<void> {
+	await repository.append(sessionId, expectedVersion, [
+		{ type: "turn.started", sessionId, turnId, snapshotId: "snapshot-1", timestamp: 10 },
+		{ type: "message.appended", sessionId, turnId, message: userMessage(question, 11), timestamp: 11 },
+		{ type: "message.appended", sessionId, turnId, message: assistantMessage(answer, 12), timestamp: 12 },
+		{ type: "turn.completed", sessionId, turnId, stopReason: "stop", timestamp: 13 },
+	]);
+}
+
+function legacyTreeEntry(
+	type: string,
+	id: string,
+	parentId: string | null,
+	second: number,
+	fields: Readonly<Record<string, unknown>>,
+) {
+	return {
+		type,
+		id,
+		parentId,
+		timestamp: `2026-01-01T00:00:${String(second).padStart(2, "0")}.000Z`,
+		...fields,
+	};
+}
+
 function legacyHeader(sessionId: string) {
 	return {
 		type: "session",
@@ -341,4 +519,16 @@ function assistantMessage(text: string, timestamp: number) {
 
 function legacyJsonLines(records: readonly unknown[]): string {
 	return `${records.map((record) => JSON.stringify(record)).join("\n")}\n`;
+}
+
+function messageText(message: { readonly content: unknown }): string {
+	if (typeof message.content === "string") return message.content;
+	if (!Array.isArray(message.content)) return "";
+	return message.content
+		.flatMap((item) => {
+			if (typeof item !== "object" || item === null || Reflect.get(item, "type") !== "text") return [];
+			const text = Reflect.get(item, "text");
+			return typeof text === "string" ? [text] : [];
+		})
+		.join("");
 }

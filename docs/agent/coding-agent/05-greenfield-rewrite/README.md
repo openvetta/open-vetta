@@ -44,7 +44,7 @@
 8. [实施日志](./08-implementation-log.md)
    - 索引；每轮实施单独成文，见 [`08-implementation-log/`](./08-implementation-log/)。
    - 按实施轮次记录实际修改、验证结果、未完成项和下一步。
-   - 最新记录：[第 147 轮：迁移旧会话真实继续执行差分闭环](./08-implementation-log/147-migrated-legacy-session-execution-differential.md)。
+   - 最新记录：[第 148 轮：混合历史修改与 Seed-aware Fork 闭环](./08-implementation-log/148-mixed-history-mutation-and-fork.md)。
 9. [行为兼容性审计](./09-behavior-compatibility-audit.md)
    - 审计已实施模块与旧行为的差距。
    - 定义旧新差分测试和迁移 Gate。

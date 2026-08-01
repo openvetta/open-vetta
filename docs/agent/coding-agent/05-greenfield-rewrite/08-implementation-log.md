@@ -155,6 +155,7 @@
 | [145-strict-lossless-legacy-import-gate.md](./08-implementation-log/145-strict-lossless-legacy-import-gate.md) | 旧会话逐行严格分析、失败关闭与无正文诊断门禁 |
 | [146-official-legacy-message-normalization.md](./08-implementation-log/146-official-legacy-message-normalization.md) | 官方 Legacy AgentMessage 无损规范化、产品适配边界与安装产物门禁 |
 | [147-migrated-legacy-session-execution-differential.md](./08-implementation-log/147-migrated-legacy-session-execution-differential.md) | 迁移旧会话真实 Provider 继续执行、Extension 身份、重启与持久化差分闭环 |
+| [148-mixed-history-mutation-and-fork.md](./08-implementation-log/148-mixed-history-mutation-and-fork.md) | Import Seed + V2 Event 树修改、引用修复、Fork、真实 CLI Provider 与重启闭环 |
 
 ## 维护约定
 

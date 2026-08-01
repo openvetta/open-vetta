@@ -504,24 +504,54 @@ export class FileConversationRepository
 		);
 		const newSessionId = randomUUID();
 		const newPath = this.conversationPath(newSessionId);
+		const sourceSessionPath = this.conversationPath(sessionId);
 		const header: ConversationFileHeader = {
 			recordType: "conversation.header",
 			schemaVersion: CONVERSATION_SCHEMA_VERSION,
 			sessionId: newSessionId,
 			createdAt: Date.now(),
 			cwd: file.header.schemaVersion === CONVERSATION_SCHEMA_VERSION ? file.header.cwd : undefined,
-			parentSessionPath: this.conversationPath(sessionId),
+			parentSessionPath: sourceSessionPath,
 			parentEntryId: entryId,
 		};
 		const finalEntries = new Map(branch.map((entry) => [entry.id, entry]));
+		const sourceSeed = file.continuationSeed ?? file.importSeed;
+		const sourceSeedEntryIds = new Set(sourceSeed?.entries.map((entry) => entry.id) ?? []);
+		const seedEntries = rewriteForkSeedEntries(
+			document,
+			branch.filter((entry) => sourceSeedEntryIds.has(entry.id)),
+		);
+		const seedCandidate: unknown =
+			seedEntries.length === 0
+				? undefined
+				: {
+						recordType: "conversation.continuation.seed",
+						schemaVersion: CONVERSATION_SCHEMA_VERSION,
+						sourceSessionId: sessionId,
+						sourceSessionPath,
+						sourceEntryId: entryId,
+						reason: "fork",
+						entries: seedEntries,
+						activeLeafId: seedEntries.at(-1)?.id ?? null,
+					};
+		if (seedCandidate !== undefined && !isConversationContinuationSeedRecord(seedCandidate)) {
+			throw new ConversationStorageError(
+				CONVERSATION_STORAGE_ERROR_CODES.CORRUPT,
+				`Conversation ${sessionId} produced an invalid fork seed`,
+			);
+		}
+		const seed: ConversationContinuationSeedRecord | undefined = seedCandidate;
 		const records: Array<ConversationEventRecord | ConversationDocumentOperationRecord> = [];
-		let targetDocument = createEmptyConversationDocument({
+		const targetIdentity = {
 			sessionId: newSessionId,
 			createdAt: header.createdAt,
 			cwd: header.cwd,
 			parentSessionPath: header.parentSessionPath,
 			parentEntryId: header.parentEntryId,
-		});
+		};
+		let targetDocument = seed
+			? createSeededConversationDocument(targetIdentity, seed.entries, seed.activeLeafId)
+			: createEmptyConversationDocument(targetIdentity);
 		let eventSequence = 0;
 		for (const source of file.records) {
 			if (source.recordType === "conversation.document.operation") {
@@ -588,7 +618,11 @@ export class FileConversationRepository
 		try {
 			handle = await open(newPath, "wx");
 			await handle.writeFile(
-				[serializeConversationLine(header), ...records.map(serializeConversationLine)].join(""),
+				[
+					serializeConversationLine(header),
+					...(seed ? [serializeConversationLine(seed)] : []),
+					...records.map(serializeConversationLine),
+				].join(""),
 				"utf8",
 			);
 		} finally {
@@ -654,6 +688,39 @@ export class FileConversationRepository
 
 function isObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
+}
+
+function rewriteForkSeedEntries(
+	document: ConversationDocument,
+	entries: readonly ConversationDocumentEntry[],
+): readonly ConversationDocumentEntry[] {
+	const selectedIds = new Set(entries.map((entry) => entry.id));
+	const sourceById = new Map(document.entries.map((entry) => [entry.id, entry]));
+	const resolveSelectedAncestor = (entryId: string): string | undefined => {
+		let currentId: string | undefined = entryId;
+		const visited = new Set<string>();
+		while (currentId && !visited.has(currentId)) {
+			if (selectedIds.has(currentId)) return currentId;
+			visited.add(currentId);
+			currentId = sourceById.get(currentId)?.parentId ?? undefined;
+		}
+		return undefined;
+	};
+	return entries.map((entry): ConversationDocumentEntry => {
+		if (entry.type === "branch_summary" && entry.fromId !== "root" && !selectedIds.has(entry.fromId)) {
+			return { ...entry, fromId: resolveSelectedAncestor(entry.fromId) ?? "root" };
+		}
+		if (entry.type === "compaction" && !selectedIds.has(entry.firstKeptEntryId)) {
+			return { ...entry, firstKeptEntryId: resolveSelectedAncestor(entry.firstKeptEntryId) ?? entry.id };
+		}
+		if (entry.type === "label" && !selectedIds.has(entry.targetId)) {
+			return {
+				...entry,
+				targetId: resolveSelectedAncestor(entry.targetId) ?? entry.parentId ?? entry.id,
+			};
+		}
+		return entry;
+	});
 }
 
 function buildContinuationEntries(document: ConversationDocument): {
