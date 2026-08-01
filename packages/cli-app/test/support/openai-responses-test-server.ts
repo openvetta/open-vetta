@@ -28,7 +28,19 @@ export interface ProviderHeldReply {
 	readonly events?: readonly unknown[];
 }
 
-export type ProviderReply = ProviderEventReply | ProviderHeldReply;
+export interface ProviderHttpErrorReply {
+	readonly kind: "http-error";
+	readonly status: number;
+	readonly body: string;
+}
+
+export interface ProviderDisconnectReply {
+	readonly kind: "disconnect";
+	readonly events?: readonly unknown[];
+	readonly delayMs?: number;
+}
+
+export type ProviderReply = ProviderEventReply | ProviderHeldReply | ProviderHttpErrorReply | ProviderDisconnectReply;
 export type ProviderRequestHandler = (
 	request: ProviderRequestRecord,
 	index: number,
@@ -58,10 +70,20 @@ export async function startOpenAiResponsesTestServer(
 			const record = { body, rawBody };
 			const index = requests.push(record) - 1;
 			const reply = await handler(record, index);
+			if (reply.kind === "http-error") {
+				response.writeHead(reply.status, { "content-type": "text/plain" });
+				response.end(reply.body);
+				return;
+			}
 			writeSseHeaders(response);
 			for (const event of reply.events ?? []) {
 				response.write(`data: ${JSON.stringify(event)}\n\n`);
 				if (reply.kind === "events" && reply.delayMs) await delay(reply.delayMs);
+			}
+			if (reply.kind === "disconnect") {
+				if (reply.delayMs) await delay(reply.delayMs);
+				response.destroy();
+				return;
 			}
 			if (reply.kind === "events") {
 				response.end("data: [DONE]\n\n");

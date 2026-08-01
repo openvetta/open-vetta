@@ -102,6 +102,41 @@ describe("Greenfield IM RPC adapter", () => {
 		expect(frames).toEqual([{ type: "agent_end" }]);
 	});
 
+	test("reports a failed turn result when no terminal event was emitted", async () => {
+		const fixture = createAdapterFixture();
+		fixture.prompt.mockResolvedValueOnce({ status: "failed", error: { message: "turn setup failed" } });
+
+		await expect(required(fixture.adapter.turn).prompt("hello", { source: "rpc" })).rejects.toThrow(
+			"turn setup failed",
+		);
+	});
+
+	test("uses agent_end as the sole outcome when a failed result already emitted the terminal event", async () => {
+		const fixture = createAdapterFixture();
+		const frames: unknown[] = [];
+		fixture.adapter.subscribe((frame) => frames.push(frame));
+		fixture.prompt.mockImplementationOnce(async () => {
+			fixture.emit(sessionEvent({ type: "session.lifecycle", phase: "agent_end" }));
+			return { status: "failed", error: { message: "Provider stream failed" } };
+		});
+
+		await expect(required(fixture.adapter.turn).prompt("hello", { source: "rpc" })).resolves.toBeUndefined();
+		expect(frames).toEqual([{ type: "agent_end" }]);
+	});
+
+	test("uses agent_end as the sole outcome when the turn command throws after the terminal event", async () => {
+		const fixture = createAdapterFixture();
+		const frames: unknown[] = [];
+		fixture.adapter.subscribe((frame) => frames.push(frame));
+		fixture.prompt.mockImplementationOnce(async () => {
+			fixture.emit(sessionEvent({ type: "session.lifecycle", phase: "agent_end" }));
+			throw new Error("late turn rejection");
+		});
+
+		await expect(required(fixture.adapter.turn).prompt("hello", { source: "rpc" })).resolves.toBeUndefined();
+		expect(frames).toEqual([{ type: "agent_end" }]);
+	});
+
 	test("discovers prompt and skill commands without enabling Extension command cutover", () => {
 		const fixture = createAdapterFixture();
 
@@ -260,7 +295,7 @@ function createAdapterFixture(
 	const unregister = vi.fn(() => true);
 	const disposeSession = vi.fn(async () => {});
 	const disposeRuntime = vi.fn(async () => {});
-	const prompt = vi.fn(async () => ({ kind: "started" }));
+	const prompt = vi.fn<() => Promise<unknown>>(async () => ({ kind: "started" }));
 	const newSession = vi.fn(async () => ({ cancelled: false }));
 	const switchSession = vi.fn(async () => ({ cancelled: false }));
 	const fork = vi.fn(async () => ({ text: "fork prompt", cancelled: false }));

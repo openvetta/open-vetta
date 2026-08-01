@@ -23,6 +23,10 @@ import { GreenfieldImRpcEventAdapter } from "./greenfield-im-rpc-events.js";
 type GreenfieldImResourceLoader = Pick<CodingAgentHostBootstrap["resourceLoader"], "getPrompts" | "getSkills">;
 type GreenfieldImCommandDiscoveryCapability = NonNullable<RpcSessionCapabilities["commands"]>;
 
+interface ActiveTurnCommand {
+	readonly terminalDeliveries: Array<() => void>;
+}
+
 export interface GreenfieldImRpcSessionAdapterOptions {
 	readonly sessionHost: Pick<
 		CodingAgentGreenfieldActiveSessionHost,
@@ -63,8 +67,7 @@ export class GreenfieldImRpcSessionAdapter implements RpcSessionCapabilities {
 		GreenfieldImRpcSessionAdapterOptions["createHostToolRegistration"]
 	>;
 	private unregisterHostTool: (() => void) | undefined;
-	private activeTurnCommands = 0;
-	private readonly pendingAgentEndDeliveries: Array<() => void> = [];
+	private readonly activeTurnCommands: ActiveTurnCommand[] = [];
 	private disposed = false;
 
 	constructor(options: GreenfieldImRpcSessionAdapterOptions) {
@@ -155,8 +158,9 @@ export class GreenfieldImRpcSessionAdapter implements RpcSessionCapabilities {
 		let subscribed = true;
 		const unsubscribe = this.sessionHost.subscribe((event) => {
 			for (const mapped of adapter.map(event)) {
-				if (isAgentEndFrame(mapped) && this.activeTurnCommands > 0) {
-					this.pendingAgentEndDeliveries.push(() => {
+				const activeTurn = this.activeTurnCommands[0];
+				if (isAgentEndFrame(mapped) && activeTurn) {
+					activeTurn.terminalDeliveries.push(() => {
 						if (subscribed) listener(mapped);
 					});
 					continue;
@@ -229,16 +233,23 @@ export class GreenfieldImRpcSessionAdapter implements RpcSessionCapabilities {
 	}
 
 	private async runTurnCommand(command: () => Promise<unknown>): Promise<void> {
-		this.activeTurnCommands += 1;
+		const activeTurn: ActiveTurnCommand = { terminalDeliveries: [] };
+		this.activeTurnCommands.push(activeTurn);
+		let failedMessage: string | undefined;
+		let rejection: { readonly error: unknown } | undefined;
 		try {
 			const result = await command();
-			if (isFailedTurnResult(result)) throw new Error(result.error.message);
+			if (isFailedTurnResult(result)) failedMessage = result.error.message;
+		} catch (error) {
+			rejection = { error };
 		} finally {
-			this.activeTurnCommands -= 1;
-			if (this.activeTurnCommands === 0) {
-				for (const deliver of this.pendingAgentEndDeliveries.splice(0)) deliver();
-			}
+			const activeIndex = this.activeTurnCommands.indexOf(activeTurn);
+			if (activeIndex >= 0) this.activeTurnCommands.splice(activeIndex, 1);
+			for (const deliver of activeTurn.terminalDeliveries) deliver();
 		}
+		if (activeTurn.terminalDeliveries.length > 0) return;
+		if (rejection) throw rejection.error;
+		if (failedMessage) throw new Error(failedMessage);
 	}
 }
 

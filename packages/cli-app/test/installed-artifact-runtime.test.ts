@@ -250,6 +250,43 @@ describe("installed standalone CLI artifact", () => {
 		expect(conversation).toContain("MCP completed after restart.");
 	}, 120_000);
 
+	it("keeps one terminal outcome and recovers after Provider failure in the installed executable", async () => {
+		await expectStandaloneArtifact(artifact);
+
+		providerServer = await startOpenAiResponsesTestServer((_request, index) => {
+			if (index === 0) return { kind: "http-error", status: 400, body: "installed Provider failure" };
+			return {
+				kind: "events",
+				events: textResponseEvents(index === 1 ? "Installed process recovered." : "Installed restart recovered."),
+			};
+		});
+		fixture = await createAgentRpcFixture({ baseUrl: providerServer.baseUrl });
+		const isolatedEnv = createIsolatedArtifactEnv(fixture);
+		activeProcess = startInstalledCli(artifact.binaryPath, fixture, isolatedEnv, { noSkills: true });
+
+		const failureMark = activeProcess.mark();
+		await activeProcess.request("installed-provider-failure", "prompt", { message: "Trigger installed failure" });
+		await activeProcess.waitFor((frame) => frame.type === "agent_end", failureMark, 30_000);
+		const failedState = await activeProcess.request("installed-state-after-failure", "get_state");
+		expect(failedState.data?.isStreaming).toBe(false);
+		expect(
+			activeProcess.framesSince(failureMark).filter((frame) => {
+				if (frame.type === "agent_end") return true;
+				return frame.type === "response" && frame.command === "prompt" && frame.success === false;
+			}),
+		).toHaveLength(1);
+
+		await promptInstalledTurn(activeProcess, "installed-same-process-recovery", "Recover installed process");
+		const sessionFile = readSessionFile(await activeProcess.request("installed-state-before-restart", "get_state"));
+		await expect(activeProcess.close()).resolves.toBe(0);
+		activeProcess = startInstalledCli(artifact.binaryPath, fixture, isolatedEnv, {
+			noSkills: true,
+			extraArgs: ["--session", sessionFile],
+		});
+		await promptInstalledTurn(activeProcess, "installed-restart-recovery", "Recover installed restart");
+		expect(providerServer.requests).toHaveLength(3);
+	}, 120_000);
+
 	it("applies runtime Skill and MCP changes without rebuilding the installed session", async () => {
 		await expectStandaloneArtifact(artifact);
 
