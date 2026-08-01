@@ -1,6 +1,6 @@
 import { Type } from "@sinclair/typebox";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
-import type { TodoStore } from "../../todo-store.js";
+import type { TodoItem, TodoLockSource } from "../../todo-store.js";
 import { loadToolDescription } from "../description.js";
 import { toolCallDescriptionSchema } from "../tool-call-description.js";
 
@@ -32,10 +32,19 @@ export interface TodoToolDetails {
 }
 
 export interface TodoToolOptions {
-	getTodoStore: () => TodoStore;
+	getTodoStore: () => TodoToolStore;
 }
 
-function formatItems(store: TodoStore): string {
+export interface TodoToolStore {
+	getAll(): ReadonlyArray<TodoItem>;
+	isLocked(): boolean;
+	getLockSource(): TodoLockSource | null;
+	createMany(contents: string[]): TodoItem[];
+	update(id: number, status: TodoItem["status"]): TodoItem | undefined;
+	clear(): void;
+}
+
+function formatItems(store: TodoToolStore): string {
 	const items = store.getAll();
 	if (items.length === 0) return "No todo items.";
 

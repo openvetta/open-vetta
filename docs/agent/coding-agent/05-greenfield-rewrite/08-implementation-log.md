@@ -169,6 +169,7 @@
 | [159-conversation-volatile-state-isolation.md](./08-implementation-log/159-conversation-volatile-state-isolation.md) | Conversation 易失状态、在途操作与工作区 Runtime 配置隔离 |
 | [160-session-identity-transition-transaction.md](./08-implementation-log/160-session-identity-transition-transaction.md) | Session Identity prepare-before-commit、并发准入、失败恢复与真实 CLI 锁冲突差分 |
 | [161-memory-rollover-transaction-and-mutation-admission.md](./08-implementation-log/161-memory-rollover-transaction-and-mutation-admission.md) | Memory Rollover prepare-before-commit、存储身份续接、同步写准入与树事务静默 |
+| [162-session-capability-command-boundary.md](./08-implementation-log/162-session-capability-command-boundary.md) | Session 可变能力命令控制器、统一写准入、动态 Subagent 绑定与观察者隔离 |
 
 ## 维护约定
 

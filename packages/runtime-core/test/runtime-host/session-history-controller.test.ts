@@ -6,12 +6,9 @@ function createHistorySessionDouble(options: { isStreaming?: boolean; isBashRunn
 	const getEntry = vi.fn((): { id: string } | undefined => ({ id: "edit-entry" }));
 	const navigateTree = vi.fn(async () => ({ editorText: "edit text", cancelled: false }));
 	const switchBranch = vi.fn(() => ({ leafId: "branch-leaf" }));
-	const branchWithSummary = vi.fn(() => "summary-entry");
+	const appendBranchSummary = vi.fn(() => ({ entryId: "summary-entry" }));
 	const deleteMessage = vi.fn(() => ({ leafId: "delete-leaf" }));
 	const replaceLastUserMessage = vi.fn(() => ({ leafId: "replace-leaf" }));
-	const messages = [{ role: "user", content: "remaining", timestamp: 1 }];
-	const buildSessionContext = vi.fn(() => ({ messages }));
-	const replaceMessages = vi.fn();
 	const exportForkToNewFile = vi.fn(() => ({ path: "fork.jsonl", text: "fork text" }));
 	const setSessionName = vi.fn();
 	const session = {
@@ -19,14 +16,12 @@ function createHistorySessionDouble(options: { isStreaming?: boolean; isBashRunn
 		isBashRunning: options.isBashRunning ?? false,
 		sessionManager: {
 			getEntry,
-			branchWithSummary,
-			replaceLastUserMessage,
-			buildSessionContext,
 		},
 		navigateTree,
 		switchBranch,
+		appendBranchSummary,
 		deleteMessage,
-		agent: { replaceMessages },
+		replaceLastUserMessage,
 		exportForkToNewFile,
 		setSessionName,
 	} as unknown as RuntimeSession;
@@ -36,14 +31,11 @@ function createHistorySessionDouble(options: { isStreaming?: boolean; isBashRunn
 		getEntry,
 		navigateTree,
 		switchBranch,
-		branchWithSummary,
+		appendBranchSummary,
 		deleteMessage,
 		replaceLastUserMessage,
-		buildSessionContext,
-		replaceMessages,
 		exportForkToNewFile,
 		setSessionName,
-		messages,
 	};
 }
 
@@ -72,11 +64,9 @@ describe("LegacyRuntimeSessionHistoryController", () => {
 		expect(history.getEntry).toHaveBeenCalledWith("edit-entry");
 		expect(history.navigateTree).toHaveBeenCalledWith("edit-entry", { summarize: false });
 		expect(history.switchBranch).toHaveBeenCalledWith("branch-entry");
-		expect(history.branchWithSummary).toHaveBeenCalledWith("branch-entry", "summary", { files: [] }, true);
+		expect(history.appendBranchSummary).toHaveBeenCalledWith("branch-entry", "summary", { files: [] }, true);
 		expect(history.deleteMessage).toHaveBeenCalledWith("delete-entry");
 		expect(history.replaceLastUserMessage).toHaveBeenCalledWith("replace-entry");
-		expect(history.buildSessionContext).toHaveBeenCalledTimes(2);
-		expect(history.replaceMessages).toHaveBeenCalledWith(history.messages);
 		expect(history.exportForkToNewFile).toHaveBeenCalledWith("fork-entry");
 		expect(history.setSessionName).toHaveBeenCalledWith("renamed");
 	});

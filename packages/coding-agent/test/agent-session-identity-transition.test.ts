@@ -6,6 +6,7 @@ import { Type } from "@sinclair/typebox";
 import { Agent, type AgentTool } from "@vetta/agent-core";
 import type { Api, Model } from "@vetta/ai";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { LegacyRuntimeSessionEventStream } from "../src/adapters/runtime-core/legacy-session-ports.js";
 import { AgentSession, type AgentSessionConfig, type AgentSessionEvent } from "../src/core/agent-session.js";
 import { AuthStorage } from "../src/core/auth-storage.js";
 import { prepareCompaction } from "../src/core/compaction/index.js";
@@ -405,8 +406,23 @@ describe("AgentSession identity resource transition", () => {
 				}),
 			() => session.setSessionName("wrong identity"),
 			() => session.switchBranch("missing"),
+			() => session.appendBranchSummary(null, "wrong identity"),
 			() => session.deleteMessage("missing"),
+			() => session.replaceLastUserMessage("missing"),
 			() => session.exportForkToNewFile("missing"),
+			() => session.todoStore.createMany(["wrong identity"]),
+			() => session.todoStore.lock("scene"),
+			() => session.backgroundTasks.clearFinished(),
+			() =>
+				session.backgroundTasks.spawn({
+					command: "never-started",
+					cwd: tempDir,
+					env: process.env,
+				}),
+			() =>
+				session.subagents?.spawnMany([
+					{ taskName: "never_started", message: "wrong identity", agentType: "explorer" },
+				]),
 		];
 		for (const mutate of mutations) {
 			expect(mutate).toThrow("Session identity transition is pending");
@@ -415,6 +431,71 @@ describe("AgentSession identity resource transition", () => {
 		release.resolve();
 		await switching;
 		expect(session.sessionFile).toBe(targetPath);
+	});
+
+	it("starts queued Subagent work against the committed target identity", async () => {
+		const child = createHeldChild(false);
+		const fixture = createIdentityFixture([child.handle]);
+		const { session, parentContexts, tempDir } = fixture;
+		const target = SessionManager.create(tempDir, tempDir);
+		const targetPath = target.getSessionFile();
+		target.close();
+		if (!targetPath) throw new Error("Expected target session path");
+		const entered = deferred();
+		const release = deferred();
+		const internals = session as unknown as {
+			_ctx: { quiesceSessionIdentityResources(): Promise<void> };
+		};
+		const originalQuiesce = internals._ctx.quiesceSessionIdentityResources;
+		internals._ctx.quiesceSessionIdentityResources = async () => {
+			entered.resolve();
+			await release.promise;
+			await originalQuiesce();
+		};
+
+		const switching = session.switchSession(targetPath);
+		await entered.promise;
+		const subagents = session.subagents;
+		if (!subagents) throw new Error("Expected Subagent controller");
+		const spawning = subagents.spawn({ taskName: "after_switch", message: "target work", agentType: "explorer" });
+		await Promise.resolve();
+		expect(parentContexts).toEqual([]);
+
+		release.resolve();
+		await Promise.all([switching, spawning]);
+		expect(parentContexts[0]?.parentSessionId).toBe(session.sessionId);
+		expect(parentContexts[0]?.parentSessionFile).toBe(targetPath);
+	});
+
+	it("isolates Session observers and returns detached Todo snapshots", () => {
+		const fixture = createIdentityFixture([]);
+		const { session } = fixture;
+		const warnings = vi.spyOn(console, "warn").mockImplementation(() => {});
+		const directEvents: AgentSessionEvent[] = [];
+		const runtimeEvents: string[] = [];
+		const stream = new LegacyRuntimeSessionEventStream(session);
+		session.subscribe(() => {
+			throw new Error("direct listener failed");
+		});
+		session.subscribe((event) => directEvents.push(event));
+		stream.subscribe(() => {
+			throw new Error("runtime listener failed");
+		});
+		stream.subscribe((event) => runtimeEvents.push(event.type));
+
+		try {
+			const created = session.todoStore.createMany(["owned by session"]);
+			created[0]!.content = "mutated return value";
+			const listed = session.todoStore.getAll();
+			listed[0]!.content = "mutated read value";
+
+			expect(session.todoStore.get(1)?.content).toBe("owned by session");
+			expect(directEvents.some((event) => event.type === "todo_update")).toBe(true);
+			expect(runtimeEvents).toContain("todo_update");
+			expect(warnings).toHaveBeenCalledTimes(2);
+		} finally {
+			warnings.mockRestore();
+		}
 	});
 
 	it("runs tree navigation against the target after a queued identity transition", async () => {

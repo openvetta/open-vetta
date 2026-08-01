@@ -121,7 +121,13 @@ export class BackgroundTaskManager {
 	}
 
 	private emit(event: BackgroundTaskEvent): void {
-		for (const l of this.listeners) l(event);
+		for (const listener of this.listeners) {
+			try {
+				listener(event);
+			} catch (error) {
+				console.warn("[BackgroundTasks] Listener failed", error);
+			}
+		}
 	}
 
 	/** Spawn a detached background command. Returns the initial snapshot. */

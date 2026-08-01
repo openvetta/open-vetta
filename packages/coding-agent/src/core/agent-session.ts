@@ -30,6 +30,7 @@ import type { CustomMessage } from "./messages.js";
 import type { ModelRegistry } from "./model-registry.js";
 import type { PromptTemplate } from "./prompt-templates.js";
 import type { ResourceLoader } from "./resource-loader.js";
+import { SessionBackgroundTaskController } from "./session/background-task-controller.js";
 import { BashController } from "./session/bash-controller.js";
 import { CompactionController } from "./session/compaction-controller.js";
 import { EPHEMERAL_PREFIX, EventRouter } from "./session/event-router.js";
@@ -47,7 +48,9 @@ import {
 	type SessionStats,
 } from "./session/session-stats.js";
 import { type ParsedSkillBlock, parseSkillBlock } from "./session/skill-expansion.js";
+import { SessionSubagentController } from "./session/subagent-controller.js";
 import { restoreTodoFromSession } from "./session/todo-continuation.js";
+import { SessionTodoController } from "./session/todo-controller.js";
 import type {
 	AgentSessionConfig,
 	AgentSessionEvent,
@@ -122,6 +125,7 @@ export class AgentSession {
 
 	// Subagent coordinator (optional, root sessions only).
 	private _subagents?: SubagentCoordinator;
+	private _subagentController?: SessionSubagentController;
 	private _createSubagentCoordinator?: () => SubagentCoordinator;
 
 	// Tool runtime + extension lifecycle + MCP. State owned by the manager.
@@ -145,9 +149,11 @@ export class AgentSession {
 
 	// Todo list
 	private _todoStore: TodoStore;
+	private _todoController: SessionTodoController;
 
 	// Background bash tasks (run_in_background)
 	private _backgroundTasks: BackgroundTaskManager;
+	private _backgroundTaskController: SessionBackgroundTaskController;
 	private _hookRuntime: EcosystemHookRuntime;
 	private _closePromise?: Promise<void>;
 
@@ -246,6 +252,7 @@ export class AgentSession {
 
 		// Restore todo state from session if resuming
 		restoreTodoFromSession(this.sessionManager, this._todoStore);
+		this._todoController = new SessionTodoController(this._todoStore, this._nav);
 
 		this._events = new EventRouter(this._ctx, {
 			todoStore: this._todoStore,
@@ -266,6 +273,10 @@ export class AgentSession {
 		}
 		this._backgroundTasks = this.createBackgroundTaskManager();
 		this._subagents = this._createSubagentCoordinator?.();
+		this._backgroundTaskController = new SessionBackgroundTaskController(this._backgroundTasks, this._nav);
+		this._subagentController = this._subagents
+			? new SessionSubagentController(() => this._subagents, this._nav)
+			: undefined;
 
 		this._runtime = new RuntimeManager(this._ctx, this, {
 			resourceLoader: this._resourceLoader,
@@ -422,6 +433,10 @@ export class AgentSession {
 			subagents = this._createSubagentCoordinator?.();
 			this._backgroundTasks = backgroundTasks;
 			this._subagents = subagents;
+			this._backgroundTaskController = new SessionBackgroundTaskController(backgroundTasks, this._nav);
+			this._subagentController = subagents
+				? new SessionSubagentController(() => this._subagents, this._nav)
+				: undefined;
 			this._compaction.activateSessionIdentity();
 			this._runtime.resetSessionIdentityState();
 			this._input.resetSessionIdentityState();
@@ -429,7 +444,10 @@ export class AgentSession {
 			restoreTodoFromSession(this.sessionManager, this._todoStore);
 		} catch (error) {
 			backgroundTasks.onNotify = undefined;
-			if (this._subagents === subagents) this._subagents = undefined;
+			if (this._subagents === subagents) {
+				this._subagents = undefined;
+				this._subagentController = undefined;
+			}
 			const cleanup = await Promise.allSettled([subagents?.dispose(), backgroundTasks.shutdown()]);
 			const cleanupFailures = this.collectCloseFailures(cleanup);
 			if (cleanupFailures.length > 0) {
@@ -448,13 +466,7 @@ export class AgentSession {
 	}
 
 	private emitIdentityState(event: AgentSessionEvent): void {
-		for (const listener of this._eventListeners) {
-			try {
-				listener(event);
-			} catch (error) {
-				console.warn("[AgentSession] Identity state listener failed", error);
-			}
-		}
+		this._emit(event);
 	}
 
 	/** Model registry for API key resolution and model discovery */
@@ -462,19 +474,19 @@ export class AgentSession {
 		return this._modelRegistry;
 	}
 
-	/** Subagent coordinator when enableSubagents is on; undefined otherwise. */
-	get subagents(): SubagentCoordinator | undefined {
-		return this._subagents;
+	/** Host-facing Subagent commands when enableSubagents is on; undefined otherwise. */
+	get subagents(): SessionSubagentController | undefined {
+		return this._subagentController;
 	}
 
 	/** Snapshot list of child subagents (empty when disabled). */
 	listSubagents(): ReadonlyArray<SubagentSnapshot> {
-		return this._subagents?.list() ?? [];
+		return this._subagentController?.list() ?? [];
 	}
 
 	/** Interrupt a child by id / task_name / path (UI / host control). */
 	interruptSubagent(target: string): SubagentSnapshot | undefined {
-		return this._subagents?.interrupt(target);
+		return this._subagentController?.interrupt(target);
 	}
 
 	/**
@@ -482,7 +494,7 @@ export class AgentSession {
 	 * Does not delete child transcript files on disk.
 	 */
 	clearFinishedSubagents(): number {
-		return this._subagents?.clearFinished() ?? 0;
+		return this._subagentController?.clearFinished() ?? 0;
 	}
 
 	/** MCP manager for managing MCP servers and tools */
@@ -497,7 +509,11 @@ export class AgentSession {
 	/** Emit an event to all listeners */
 	private _emit(event: AgentSessionEvent): void {
 		for (const l of this._eventListeners) {
-			l(event);
+			try {
+				l(event);
+			} catch (error) {
+				console.warn("[AgentSession] Event listener failed", error);
+			}
 		}
 	}
 
@@ -767,14 +783,14 @@ export class AgentSession {
 		return this._resourceLoader.getPrompts().prompts;
 	}
 
-	/** Todo store for task planning and tracking */
-	get todoStore(): TodoStore {
-		return this._todoStore;
+	/** Host-facing Todo commands for task planning and tracking */
+	get todoStore(): SessionTodoController {
+		return this._todoController;
 	}
 
-	/** Background bash task manager (run_in_background) */
-	get backgroundTasks(): BackgroundTaskManager {
-		return this._backgroundTasks;
+	/** Host-facing background Bash task commands (run_in_background) */
+	get backgroundTasks(): SessionBackgroundTaskController {
+		return this._backgroundTaskController;
 	}
 
 	/** memory-mode enabled? (ADR-0009) */
@@ -1132,10 +1148,33 @@ export class AgentSession {
 		return this._nav.runImmediateSessionOperation(() => this._nav.switchBranch(targetId));
 	}
 
+	/** Append a branch summary and synchronize the active Agent history. */
+	appendBranchSummary(
+		parentId: string | null,
+		summary: string,
+		details?: unknown,
+		fromHook?: boolean,
+	): { entryId: string } {
+		return this._nav.runImmediateSessionOperation(() => {
+			const entryId = this.sessionManager.branchWithSummary(parentId, summary, details, fromHook);
+			this.agent.replaceMessages(this.sessionManager.buildSessionContext().messages);
+			return { entryId };
+		});
+	}
+
 	/** Permanently delete one message while preserving and reparenting its descendants. */
 	deleteMessage(entryId: string): { leafId: string | null } {
 		return this._nav.runImmediateSessionOperation(() => {
 			const result = this.sessionManager.deleteMessage(entryId);
+			this.agent.replaceMessages(this.sessionManager.buildSessionContext().messages);
+			return result;
+		});
+	}
+
+	/** Replace the last user message and synchronize the active Agent history. */
+	replaceLastUserMessage(entryId: string): { leafId: string | null } {
+		return this._nav.runImmediateSessionOperation(() => {
+			const result = this.sessionManager.replaceLastUserMessage(entryId);
 			this.agent.replaceMessages(this.sessionManager.buildSessionContext().messages);
 			return result;
 		});

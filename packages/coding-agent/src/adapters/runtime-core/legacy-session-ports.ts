@@ -103,7 +103,13 @@ export class LegacyRuntimeSessionEventStream implements RuntimeSessionEventStrea
 			for (const mapped of mapAgentSessionEvent(this.session.sessionId, event, this.session, {
 				currentTurnStartedAt: this.currentTurnStartedAt,
 			})) {
-				for (const listener of this.listeners) listener(mapped);
+				for (const listener of this.listeners) {
+					try {
+						listener(mapped);
+					} catch (error) {
+						console.warn("[RuntimeSessionEventStream] Listener failed", error);
+					}
+				}
 			}
 		});
 	}
@@ -172,9 +178,7 @@ export class LegacyRuntimeSessionHistoryController implements RuntimeSessionHist
 		fromHook?: boolean,
 	): Promise<{ entryId: string }> {
 		this.assertCanMutate("Cannot summarize branch while the session is streaming");
-		const entryId = this.session.sessionManager.branchWithSummary(parentId, summary, details, fromHook);
-		this.session.agent.replaceMessages(this.session.sessionManager.buildSessionContext().messages);
-		return Promise.resolve({ entryId });
+		return Promise.resolve(this.session.appendBranchSummary(parentId, summary, details, fromHook));
 	}
 
 	deleteMessage(entryId: string): Promise<{ leafId: string | null }> {
@@ -184,9 +188,7 @@ export class LegacyRuntimeSessionHistoryController implements RuntimeSessionHist
 
 	replaceLastUserMessage(entryId: string): Promise<{ leafId: string | null }> {
 		this.assertCanMutate("Cannot replace a message while the session is streaming");
-		const result = this.session.sessionManager.replaceLastUserMessage(entryId);
-		this.session.agent.replaceMessages(this.session.sessionManager.buildSessionContext().messages);
-		return Promise.resolve(result);
+		return Promise.resolve(this.session.replaceLastUserMessage(entryId));
 	}
 
 	forkSession(entryId: string): Promise<{ path: string; text: string }> {
