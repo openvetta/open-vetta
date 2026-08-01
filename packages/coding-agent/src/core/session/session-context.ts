@@ -49,5 +49,5 @@ export interface SessionContext {
 	/** Stop work that belongs to the outgoing Session identity. */
 	quiesceSessionIdentityResources(): Promise<void>;
 	/** Bind fresh work resources and persisted local state to the current identity. */
-	activateSessionIdentityResources(): void;
+	activateSessionIdentityResources(): Promise<void>;
 }

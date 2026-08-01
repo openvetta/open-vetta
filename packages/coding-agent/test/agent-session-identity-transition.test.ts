@@ -26,6 +26,11 @@ interface HeldChild {
 	readonly calls: string[];
 }
 
+interface Deferred {
+	readonly promise: Promise<void>;
+	readonly resolve: () => void;
+}
+
 interface IdentityFixture {
 	readonly session: AgentSession;
 	readonly sessionManager: SessionManager;
@@ -286,6 +291,160 @@ describe("AgentSession identity resource transition", () => {
 		expect(session.todoStore.getAll()).toEqual([{ id: 1, content: "target todo", status: "in_progress" }]);
 		expect(await collectContinuationText(session)).toContain("target todo");
 	});
+
+	it("reactivates the source identity when quiescing fails before replacement", async () => {
+		const fixture = createIdentityFixture([]);
+		const { session } = fixture;
+		const sourceId = session.sessionId;
+		const sourceFile = session.sessionFile;
+		const sourceBackgroundTasks = session.backgroundTasks;
+		const internals = session as unknown as {
+			_ctx: { quiesceSessionIdentityResources(): Promise<void> };
+		};
+		const originalQuiesce = internals._ctx.quiesceSessionIdentityResources;
+		internals._ctx.quiesceSessionIdentityResources = async () => {
+			await originalQuiesce();
+			throw new Error("quiesce failed");
+		};
+
+		await expect(session.newSession()).rejects.toThrow("quiesce failed");
+		expect(session.sessionId).toBe(sourceId);
+		expect(session.sessionFile).toBe(sourceFile);
+		expect(session.backgroundTasks).not.toBe(sourceBackgroundTasks);
+	});
+
+	it("starts a prompt only after an already queued identity transition commits", async () => {
+		const fixture = createIdentityFixture([]);
+		const { session, tempDir } = fixture;
+		const target = SessionManager.create(tempDir, tempDir);
+		const targetPath = target.getSessionFile();
+		target.close();
+		if (!targetPath) throw new Error("Expected target session path");
+		const entered = deferred();
+		const release = deferred();
+		const promptSessionIds: string[] = [];
+		const internals = session as unknown as {
+			_ctx: { quiesceSessionIdentityResources(): Promise<void> };
+			_input: { prompt(text: string): Promise<void> };
+		};
+		const originalQuiesce = internals._ctx.quiesceSessionIdentityResources;
+		internals._ctx.quiesceSessionIdentityResources = async () => {
+			entered.resolve();
+			await release.promise;
+			await originalQuiesce();
+		};
+		vi.spyOn(internals._input, "prompt").mockImplementation(async () => {
+			promptSessionIds.push(session.sessionId);
+		});
+
+		const switching = session.switchSession(targetPath);
+		await entered.promise;
+		const prompting = session.prompt("after switch");
+		await Promise.resolve();
+		expect(promptSessionIds).toEqual([]);
+
+		release.resolve();
+		await Promise.all([switching, prompting]);
+		expect(promptSessionIds).toEqual([session.sessionId]);
+		expect(session.sessionFile).toBe(targetPath);
+	});
+
+	it("starts ordinary Session work immediately when no identity transition is pending", async () => {
+		const fixture = createIdentityFixture([]);
+		const { session } = fixture;
+		let started = false;
+		const internals = session as unknown as {
+			_input: { prompt(text: string): Promise<void> };
+		};
+		vi.spyOn(internals._input, "prompt").mockImplementation(async () => {
+			started = true;
+		});
+
+		const prompting = session.prompt("start immediately");
+		expect(started).toBe(true);
+		await prompting;
+	});
+
+	it("serializes concurrent identity transitions in FIFO order", async () => {
+		const fixture = createIdentityFixture([]);
+		const { session, tempDir } = fixture;
+		const target = SessionManager.create(tempDir, tempDir);
+		const targetPath = target.getSessionFile();
+		target.close();
+		if (!targetPath) throw new Error("Expected target session path");
+		const entered = deferred();
+		const release = deferred();
+		let quiesceCalls = 0;
+		const internals = session as unknown as {
+			_ctx: { quiesceSessionIdentityResources(): Promise<void> };
+		};
+		const originalQuiesce = internals._ctx.quiesceSessionIdentityResources;
+		internals._ctx.quiesceSessionIdentityResources = async () => {
+			quiesceCalls++;
+			if (quiesceCalls === 1) {
+				entered.resolve();
+				await release.promise;
+			}
+			await originalQuiesce();
+		};
+
+		const first = session.newSession();
+		await entered.promise;
+		const second = session.switchSession(targetPath);
+		await Promise.resolve();
+		expect(quiesceCalls).toBe(1);
+
+		release.resolve();
+		await Promise.all([first, second]);
+		expect(quiesceCalls).toBe(2);
+		expect(session.sessionFile).toBe(targetPath);
+	});
+
+	it("drains identity transitions admitted before close", async () => {
+		const fixture = createIdentityFixture([]);
+		const { session } = fixture;
+		const entered = deferred();
+		const release = deferred();
+		let quiesceCalls = 0;
+		const internals = session as unknown as {
+			_ctx: { quiesceSessionIdentityResources(): Promise<void> };
+		};
+		const originalQuiesce = internals._ctx.quiesceSessionIdentityResources;
+		internals._ctx.quiesceSessionIdentityResources = async () => {
+			quiesceCalls++;
+			if (quiesceCalls === 1) {
+				entered.resolve();
+				await release.promise;
+			}
+			await originalQuiesce();
+		};
+
+		const first = session.newSession();
+		await entered.promise;
+		const second = session.newSession();
+		const closing = session.close();
+		release.resolve();
+
+		await Promise.all([first, second, closing]);
+		expect(quiesceCalls).toBe(2);
+	});
+
+	it("keeps the committed target connected when setup fails after replacement", async () => {
+		const fixture = createIdentityFixture([]);
+		const { session } = fixture;
+		const sourceId = session.sessionId;
+		const internals = session as unknown as { _unsubscribeAgent?: () => void };
+
+		await expect(
+			session.newSession({
+				setup: async () => {
+					throw new Error("setup failed");
+				},
+			}),
+		).rejects.toThrow("setup failed");
+		expect(session.sessionId).not.toBe(sourceId);
+		expect(internals._unsubscribeAgent).toBeTypeOf("function");
+	});
 });
 
 function createIdentityFixture(handles: SubagentChildHandle[], options: IdentityFixtureOptions = {}): IdentityFixture {
@@ -356,6 +515,14 @@ function createHeldChild(held = true): HeldChild {
 		subscribe: () => () => {},
 	};
 	return { handle, calls };
+}
+
+function deferred(): Deferred {
+	let resolve = () => {};
+	const promise = new Promise<void>((resolvePromise) => {
+		resolve = resolvePromise;
+	});
+	return { promise, resolve };
 }
 
 function heldProcessCommand(relativePidPath: string): string {

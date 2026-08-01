@@ -24,6 +24,9 @@ import { extractUserMessageText } from "./session-stats.js";
 export class SessionNavigator {
 	// Branch summarization state
 	private _branchSummaryAbortController: AbortController | undefined = undefined;
+	private _identityOperationTail: Promise<void> = Promise.resolve();
+	private _pendingIdentityOperations = 0;
+	private _admissionClosed = false;
 
 	constructor(
 		private readonly ctx: SessionContext,
@@ -36,11 +39,40 @@ export class SessionNavigator {
 		this._branchSummaryAbortController?.abort();
 	}
 
-	async newSession(options?: {
+	/** Stop accepting identity-bound work and wait for already admitted operations. */
+	closeAdmission(): Promise<void> {
+		this._admissionClosed = true;
+		return this._identityOperationTail;
+	}
+
+	/**
+	 * Start ordinary Session work after earlier identity transitions commit.
+	 * Only admission is serialized; the returned operation may keep running so a
+	 * later transition can still abort an active Turn.
+	 */
+	startSessionOperation<T>(operation: () => Promise<T>): Promise<T> {
+		this.assertAdmissionOpen();
+		if (this._pendingIdentityOperations === 0) return operation();
+
+		return this._identityOperationTail.then(() => {
+			this.assertAdmissionOpen();
+			return operation();
+		});
+	}
+
+	newSession(options?: {
+		parentSession?: string;
+		setup?: (sessionManager: SessionManager) => Promise<void>;
+	}): Promise<boolean> {
+		return this.runIdentityOperation(() => this.performNewSession(options));
+	}
+
+	private async performNewSession(options?: {
 		parentSession?: string;
 		setup?: (sessionManager: SessionManager) => Promise<void>;
 	}): Promise<boolean> {
 		const previousSessionFile = this.ctx.sessionManager.getSessionFile();
+		const previousSessionId = this.ctx.sessionManager.getSessionId();
 
 		// Emit session_before_switch event with reason "new" (can be cancelled)
 		if (this.ctx.extensionRunner?.hasHandlers("session_before_switch")) {
@@ -55,39 +87,52 @@ export class SessionNavigator {
 		}
 
 		this.ctx.disconnectFromAgent();
-		await this.ctx.abort();
-		// Outgoing session ends because the host is opening a new one.
-		await this.ctx.hookRuntime.runSessionEnd("new_session");
-		await this.replaceSessionIdentity(() => {
-			this.ctx.agent.reset();
-			this.ctx.sessionManager.newSession({ parentSession: options?.parentSession });
-			this.ctx.agent.sessionId = this.ctx.sessionManager.getSessionId();
-			this.queue.reset();
+		let outgoingEnded = false;
+		try {
+			await this.ctx.abort();
+			// Outgoing session ends because the host is opening a new one.
+			await this.ctx.hookRuntime.runSessionEnd("new_session");
+			outgoingEnded = true;
+			await this.replaceSessionIdentity(() => {
+				this.ctx.sessionManager.newSession({ parentSession: options?.parentSession });
+				this.ctx.agent.reset();
+				this.ctx.agent.sessionId = this.ctx.sessionManager.getSessionId();
+				this.queue.reset();
 
-			this.ctx.sessionManager.appendThinkingLevelChange(this.ctx.agent.state.thinkingLevel);
-		});
-
-		// Run setup callback if provided (e.g., to append initial messages)
-		if (options?.setup) {
-			await options.setup(this.ctx.sessionManager);
-			// Sync agent state with session manager after setup
-			const sessionContext = this.ctx.sessionManager.buildSessionContext();
-			this.ctx.agent.replaceMessages(sessionContext.messages);
-		}
-
-		this.ctx.reconnectToAgent();
-
-		// Emit session_switch event with reason "new" to extensions
-		if (this.ctx.extensionRunner) {
-			await this.ctx.extensionRunner.emit({
-				type: "session_switch",
-				reason: "new",
-				previousSessionFile,
+				this.ctx.sessionManager.appendThinkingLevelChange(this.ctx.agent.state.thinkingLevel);
 			});
-		}
-		this.ctx.hookRuntime.markSessionStart("clear");
 
-		return true;
+			// Run setup callback if provided (e.g., to append initial messages)
+			if (options?.setup) {
+				await options.setup(this.ctx.sessionManager);
+				// Sync agent state with session manager after setup
+				const sessionContext = this.ctx.sessionManager.buildSessionContext();
+				this.ctx.agent.replaceMessages(sessionContext.messages);
+			}
+
+			this.ctx.reconnectToAgent();
+
+			// Emit session_switch event with reason "new" to extensions
+			if (this.ctx.extensionRunner) {
+				await this.ctx.extensionRunner.emit({
+					type: "session_switch",
+					reason: "new",
+					previousSessionFile,
+				});
+			}
+			this.ctx.hookRuntime.markSessionStart("clear");
+
+			return true;
+		} catch (error) {
+			if (outgoingEnded) {
+				this.ctx.hookRuntime.markSessionStart(
+					this.ctx.sessionManager.getSessionId() === previousSessionId ? "resume" : "clear",
+				);
+			}
+			throw error;
+		} finally {
+			this.ctx.reconnectToAgent();
+		}
 	}
 
 	/**
@@ -95,7 +140,11 @@ export class SessionNavigator {
 	 * Aborts current operation, loads messages, restores model/thinking.
 	 * @returns true if switch completed, false if cancelled by extension
 	 */
-	async switchSession(sessionPath: string): Promise<boolean> {
+	switchSession(sessionPath: string): Promise<boolean> {
+		return this.runIdentityOperation(() => this.performSwitchSession(sessionPath));
+	}
+
+	private async performSwitchSession(sessionPath: string): Promise<boolean> {
 		const previousSessionFile = this.ctx.sessionManager.getSessionFile();
 
 		// Emit session_before_switch event (can be cancelled)
@@ -112,71 +161,80 @@ export class SessionNavigator {
 		}
 
 		this.ctx.disconnectFromAgent();
-		await this.ctx.abort();
-		this.queue.reset();
-		// Leave current session for another existing session file.
-		await this.ctx.hookRuntime.runSessionEnd("switch_session");
+		let outgoingEnded = false;
+		try {
+			await this.ctx.abort();
+			// Leave current session for another existing session file.
+			await this.ctx.hookRuntime.runSessionEnd("switch_session");
+			outgoingEnded = true;
 
-		await this.replaceSessionIdentity(() => {
-			// Set new session
-			this.ctx.sessionManager.setSessionFile(sessionPath);
-			this.ctx.agent.sessionId = this.ctx.sessionManager.getSessionId();
-		});
-
-		// Reload messages
-		const sessionContext = this.ctx.sessionManager.buildSessionContext();
-
-		// Emit session_switch event to extensions
-		if (this.ctx.extensionRunner) {
-			await this.ctx.extensionRunner.emit({
-				type: "session_switch",
-				reason: "resume",
-				previousSessionFile,
+			await this.replaceSessionIdentity(() => {
+				// Set new session
+				this.ctx.sessionManager.setSessionFile(sessionPath);
+				this.ctx.agent.sessionId = this.ctx.sessionManager.getSessionId();
+				this.queue.reset();
 			});
-		}
 
-		this.ctx.agent.replaceMessages(sessionContext.messages);
+			// Reload messages
+			const sessionContext = this.ctx.sessionManager.buildSessionContext();
 
-		// Restore model if saved
-		if (sessionContext.model) {
-			const previousModel = this.ctx.model;
-			const storedProvider = sessionContext.model.provider;
-			const storedId = sessionContext.model.modelId;
-			const availableModels = await this.ctx.modelRegistry.getAvailable();
-			// 先按 id(=路由 key) 精确匹配；匹配不到再按上游真名 modelId 兜底(兼容老会话)
-			const match =
-				availableModels.find((m) => m.provider === storedProvider && m.id === storedId) ??
-				availableModels.find((m) => m.provider === storedProvider && m.modelId === storedId);
-			if (match) {
-				this.ctx.agent.setModel(match);
-				await this.model.emitModelSelect(match, previousModel, "restore");
-				// 走 modelId 兜底命中(id !== storedId)：把会话存储里的标识静默升级为精确 key
-				if (match.id !== storedId) {
-					this.ctx.sessionManager.appendModelChange(match.provider, match.id);
+			// Emit session_switch event to extensions
+			if (this.ctx.extensionRunner) {
+				await this.ctx.extensionRunner.emit({
+					type: "session_switch",
+					reason: "resume",
+					previousSessionFile,
+				});
+			}
+
+			this.ctx.agent.replaceMessages(sessionContext.messages);
+
+			// Restore model if saved
+			if (sessionContext.model) {
+				const previousModel = this.ctx.model;
+				const storedProvider = sessionContext.model.provider;
+				const storedId = sessionContext.model.modelId;
+				const availableModels = await this.ctx.modelRegistry.getAvailable();
+				// 先按 id(=路由 key) 精确匹配；匹配不到再按上游真名 modelId 兜底(兼容老会话)
+				const match =
+					availableModels.find((m) => m.provider === storedProvider && m.id === storedId) ??
+					availableModels.find((m) => m.provider === storedProvider && m.modelId === storedId);
+				if (match) {
+					this.ctx.agent.setModel(match);
+					await this.model.emitModelSelect(match, previousModel, "restore");
+					// 走 modelId 兜底命中(id !== storedId)：把会话存储里的标识静默升级为精确 key
+					if (match.id !== storedId) {
+						this.ctx.sessionManager.appendModelChange(match.provider, match.id);
+					}
 				}
 			}
+
+			const hasThinkingEntry = this.ctx.sessionManager
+				.getBranch()
+				.some((entry) => entry.type === "thinking_level_change");
+			const defaultThinkingLevel = this.ctx.settingsManager.getDefaultThinkingLevel() ?? DEFAULT_THINKING_LEVEL;
+
+			if (hasThinkingEntry) {
+				// Restore thinking level if saved (setThinkingLevel clamps to model capabilities)
+				this.model.setThinkingLevel(sessionContext.thinkingLevel as ThinkingLevel);
+			} else {
+				const availableLevels = this.model.getAvailableThinkingLevels();
+				const effectiveLevel = availableLevels.includes(defaultThinkingLevel)
+					? defaultThinkingLevel
+					: this.model.clampThinkingLevel(defaultThinkingLevel, availableLevels);
+				this.ctx.agent.setThinkingLevel(effectiveLevel);
+				this.ctx.sessionManager.appendThinkingLevelChange(effectiveLevel);
+			}
+
+			this.ctx.reconnectToAgent();
+			this.ctx.hookRuntime.markSessionStart("resume");
+			return true;
+		} catch (error) {
+			if (outgoingEnded) this.ctx.hookRuntime.markSessionStart("resume");
+			throw error;
+		} finally {
+			this.ctx.reconnectToAgent();
 		}
-
-		const hasThinkingEntry = this.ctx.sessionManager
-			.getBranch()
-			.some((entry) => entry.type === "thinking_level_change");
-		const defaultThinkingLevel = this.ctx.settingsManager.getDefaultThinkingLevel() ?? DEFAULT_THINKING_LEVEL;
-
-		if (hasThinkingEntry) {
-			// Restore thinking level if saved (setThinkingLevel clamps to model capabilities)
-			this.model.setThinkingLevel(sessionContext.thinkingLevel as ThinkingLevel);
-		} else {
-			const availableLevels = this.model.getAvailableThinkingLevels();
-			const effectiveLevel = availableLevels.includes(defaultThinkingLevel)
-				? defaultThinkingLevel
-				: this.model.clampThinkingLevel(defaultThinkingLevel, availableLevels);
-			this.ctx.agent.setThinkingLevel(effectiveLevel);
-			this.ctx.sessionManager.appendThinkingLevelChange(effectiveLevel);
-		}
-
-		this.ctx.reconnectToAgent();
-		this.ctx.hookRuntime.markSessionStart("resume");
-		return true;
 	}
 
 	/**
@@ -184,8 +242,13 @@ export class SessionNavigator {
 	 * @param entryId ID of the entry to fork from
 	 * @returns selectedText (for editor pre-fill) and cancelled (true if an extension cancelled)
 	 */
-	async fork(entryId: string): Promise<{ selectedText: string; cancelled: boolean }> {
+	fork(entryId: string): Promise<{ selectedText: string; cancelled: boolean }> {
+		return this.runIdentityOperation(() => this.performFork(entryId));
+	}
+
+	private async performFork(entryId: string): Promise<{ selectedText: string; cancelled: boolean }> {
 		const previousSessionFile = this.ctx.sessionManager.getSessionFile();
+		const previousSessionId = this.ctx.sessionManager.getSessionId();
 		const selectedEntry = this.ctx.sessionManager.getEntry(entryId);
 
 		if (!selectedEntry || selectedEntry.type !== "message" || selectedEntry.message.role !== "user") {
@@ -209,49 +272,90 @@ export class SessionNavigator {
 			skipConversationRestore = result?.skipConversationRestore ?? false;
 		}
 
-		// Clear pending messages (bound to old session state)
-		this.queue.resetNextTurn();
-		await this.ctx.hookRuntime.runSessionEnd("fork_session");
+		let outgoingEnded = false;
+		try {
+			await this.ctx.hookRuntime.runSessionEnd("fork_session");
+			outgoingEnded = true;
 
-		await this.replaceSessionIdentity(() => {
-			if (!selectedEntry.parentId) {
-				this.ctx.sessionManager.newSession({ parentSession: previousSessionFile });
-			} else {
-				this.ctx.sessionManager.createBranchedSession(selectedEntry.parentId);
-			}
-			this.ctx.agent.sessionId = this.ctx.sessionManager.getSessionId();
-		});
-
-		// Reload messages from entries (works for both file and in-memory mode)
-		const sessionContext = this.ctx.sessionManager.buildSessionContext();
-
-		// Emit session_fork event to extensions (after fork completes)
-		if (this.ctx.extensionRunner) {
-			await this.ctx.extensionRunner.emit({
-				type: "session_fork",
-				previousSessionFile,
+			await this.replaceSessionIdentity(() => {
+				if (!selectedEntry.parentId) {
+					this.ctx.sessionManager.newSession({ parentSession: previousSessionFile });
+				} else {
+					this.ctx.sessionManager.createBranchedSession(selectedEntry.parentId);
+				}
+				this.ctx.agent.sessionId = this.ctx.sessionManager.getSessionId();
+				// Clear pending messages only after the target identity commits.
+				this.queue.resetNextTurn();
 			});
-		}
 
-		if (!skipConversationRestore) {
-			this.ctx.agent.replaceMessages(sessionContext.messages);
-		}
-		this.ctx.hookRuntime.markSessionStart("clear");
+			// Reload messages from entries (works for both file and in-memory mode)
+			const sessionContext = this.ctx.sessionManager.buildSessionContext();
 
-		return { selectedText, cancelled: false };
+			// Emit session_fork event to extensions (after fork completes)
+			if (this.ctx.extensionRunner) {
+				await this.ctx.extensionRunner.emit({
+					type: "session_fork",
+					previousSessionFile,
+				});
+			}
+
+			if (!skipConversationRestore) {
+				this.ctx.agent.replaceMessages(sessionContext.messages);
+			}
+			this.ctx.hookRuntime.markSessionStart("clear");
+
+			return { selectedText, cancelled: false };
+		} catch (error) {
+			if (outgoingEnded) {
+				this.ctx.hookRuntime.markSessionStart(
+					this.ctx.sessionManager.getSessionId() === previousSessionId ? "resume" : "clear",
+				);
+			}
+			throw error;
+		}
 	}
 
 	private async replaceSessionIdentity(replace: () => void): Promise<void> {
-		await this.ctx.quiesceSessionIdentityResources();
+		let activationRequired = true;
 		try {
+			await this.ctx.quiesceSessionIdentityResources();
 			replace();
+			await this.ctx.activateSessionIdentityResources();
+			activationRequired = false;
 		} catch (error) {
-			// The manager still points at a valid identity when replacement fails.
-			// Restore an empty usable work scope before surfacing the error.
-			this.ctx.activateSessionIdentityResources();
+			if (activationRequired) {
+				try {
+					await this.ctx.activateSessionIdentityResources();
+				} catch (recoveryError) {
+					throw new AggregateError(
+						[error, recoveryError],
+						"Session identity replacement and recovery both failed",
+					);
+				}
+			}
 			throw error;
 		}
-		this.ctx.activateSessionIdentityResources();
+	}
+
+	private runIdentityOperation<T>(operation: () => Promise<T>): Promise<T> {
+		this.assertAdmissionOpen();
+		this._pendingIdentityOperations++;
+		const result = this._identityOperationTail.then(() => {
+			return operation();
+		});
+		this._identityOperationTail = result.then(
+			() => {
+				this._pendingIdentityOperations--;
+			},
+			() => {
+				this._pendingIdentityOperations--;
+			},
+		);
+		return result;
+	}
+
+	private assertAdmissionOpen(): void {
+		if (this._admissionClosed) throw new Error("AgentSession is closing");
 	}
 
 	/**

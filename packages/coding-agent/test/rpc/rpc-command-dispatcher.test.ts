@@ -121,6 +121,24 @@ describe("RPC command dispatcher", () => {
 		expect(required(session.session).setName).not.toHaveBeenCalled();
 	});
 
+	test("returns a correlated error when a synchronous control command rejects", async () => {
+		const session = createSessionCapabilities();
+		required(session.session).switchSession = vi.fn(async () => {
+			throw new Error("target session is locked");
+		});
+		const dispatch = createRpcCommandDispatcher(session, () => {});
+
+		await expect(
+			dispatch({ id: "switch-locked", type: "switch_session", sessionPath: "locked.jsonl" }),
+		).resolves.toEqual({
+			id: "switch-locked",
+			type: "response",
+			command: "switch_session",
+			success: false,
+			error: "target session is locked",
+		});
+	});
+
 	test("rejects commands outside the selected profile without invoking absent capabilities", async () => {
 		const session: RpcSessionCapabilities = {
 			profile: GREENFIELD_IM_RPC_PROFILE,

@@ -414,17 +414,41 @@ export class AgentSession {
 		}
 	}
 
-	private activateSessionIdentityResources(): void {
-		this._backgroundTasks = this.createBackgroundTaskManager();
-		this._subagents = this._createSubagentCoordinator?.();
-		this._compaction.activateSessionIdentity();
-		this._runtime.resetSessionIdentityState();
-		this._input.resetSessionIdentityState();
-		this._events.resetSessionIdentityState();
-		restoreTodoFromSession(this.sessionManager, this._todoStore);
-		this._emit({ type: "background_tasks_update", tasks: [] });
-		this._emit({ type: "subagents_update", agents: [] });
-		this._emit({ type: "todo_update", items: this._todoStore.getAll() });
+	private async activateSessionIdentityResources(): Promise<void> {
+		const backgroundTasks = this.createBackgroundTaskManager();
+		let subagents: SubagentCoordinator | undefined;
+		try {
+			subagents = this._createSubagentCoordinator?.();
+			this._backgroundTasks = backgroundTasks;
+			this._subagents = subagents;
+			this._compaction.activateSessionIdentity();
+			this._runtime.resetSessionIdentityState();
+			this._input.resetSessionIdentityState();
+			this._events.resetSessionIdentityState();
+			restoreTodoFromSession(this.sessionManager, this._todoStore);
+		} catch (error) {
+			backgroundTasks.onNotify = undefined;
+			if (this._subagents === subagents) this._subagents = undefined;
+			const cleanup = await Promise.allSettled([subagents?.dispose(), backgroundTasks.shutdown()]);
+			const cleanupFailures = this.collectCloseFailures(cleanup);
+			if (cleanupFailures.length > 0) {
+				throw new AggregateError([error, ...cleanupFailures], "Failed to activate Session identity resources");
+			}
+			throw error;
+		}
+		this.emitIdentityState({ type: "background_tasks_update", tasks: [] });
+		this.emitIdentityState({ type: "subagents_update", agents: [] });
+		this.emitIdentityState({ type: "todo_update", items: this._todoStore.getAll() });
+	}
+
+	private emitIdentityState(event: AgentSessionEvent): void {
+		for (const listener of this._eventListeners) {
+			try {
+				listener(event);
+			} catch (error) {
+				console.warn("[AgentSession] Identity state listener failed", error);
+			}
+		}
 	}
 
 	/** Model registry for API key resolution and model discovery */
@@ -508,6 +532,7 @@ export class AgentSession {
 	 * Preserves all existing listeners.
 	 */
 	private _reconnectToAgent(): void {
+		if (this._closePromise) return;
 		if (this._unsubscribeAgent) return; // Already connected
 		this._unsubscribeAgent = this.agent.subscribe((event) => {
 			if (event.type === "agent_start") {
@@ -538,15 +563,17 @@ export class AgentSession {
 		if (this._closePromise) return this._closePromise;
 		this._disconnectFromAgent();
 		this._eventListeners = [];
-		const subagents = this._subagents;
-		this._subagents = undefined;
-		this._closePromise = this.performClose(subagents);
+		const identityOperations = this._nav.closeAdmission();
+		this._closePromise = this.performClose(identityOperations);
 		return this._closePromise;
 	}
 
-	private async performClose(subagents: SubagentCoordinator | undefined): Promise<void> {
+	private async performClose(identityOperations: Promise<void>): Promise<void> {
 		const criticalFailures: unknown[] = [];
 		try {
+			await identityOperations;
+			const subagents = this._subagents;
+			this._subagents = undefined;
 			// Stop producers before waiting so no new child work can attach while closing.
 			const stopResults = await Promise.allSettled([
 				this.runCloseOperation(() => this._retry.abortRetry()),
@@ -768,7 +795,7 @@ export class AgentSession {
 	 * queues during streaming, validates model/API key, and drives the turn.
 	 */
 	async prompt(text: string, options?: PromptOptions): Promise<void> {
-		return this._input.prompt(text, options);
+		return this._nav.startSessionOperation(() => this._input.prompt(text, options));
 	}
 
 	/**
@@ -776,7 +803,7 @@ export class AgentSession {
 	 * @throws Error if text is an extension command
 	 */
 	async steer(text: string, images?: ImageContent[]): Promise<void> {
-		return this._input.steer(text, images);
+		return this._nav.startSessionOperation(() => this._input.steer(text, images));
 	}
 
 	/**
@@ -784,7 +811,7 @@ export class AgentSession {
 	 * @throws Error if text is an extension command
 	 */
 	async followUp(text: string, images?: ImageContent[]): Promise<void> {
-		return this._input.followUp(text, images);
+		return this._nav.startSessionOperation(() => this._input.followUp(text, images));
 	}
 
 	/** Send a custom message to the session (streaming-aware; optional turn trigger). */
@@ -792,7 +819,7 @@ export class AgentSession {
 		message: Pick<CustomMessage<T>, "customType" | "content" | "display" | "details">,
 		options?: { triggerTurn?: boolean; deliverAs?: "steer" | "followUp" | "nextTurn" },
 	): Promise<void> {
-		return this._input.sendCustomMessage(message, options);
+		return this._nav.startSessionOperation(() => this._input.sendCustomMessage(message, options));
 	}
 
 	/** Send a user message to the agent. Always triggers a turn. */
@@ -800,7 +827,7 @@ export class AgentSession {
 		content: string | (TextContent | ImageContent)[],
 		options?: { deliverAs?: "steer" | "followUp" },
 	): Promise<void> {
-		return this._input.sendUserMessage(content, options);
+		return this._nav.startSessionOperation(() => this._input.sendUserMessage(content, options));
 	}
 
 	/**
@@ -857,14 +884,14 @@ export class AgentSession {
 	 * @throws Error if no API key available for the model
 	 */
 	async setModel(model: Model<any>): Promise<void> {
-		return this._model.setModel(model);
+		return this._nav.startSessionOperation(() => this._model.setModel(model));
 	}
 
 	/**
 	 * Cycle to next/previous model (scoped models if --models was set, else all available).
 	 */
 	async cycleModel(direction: "forward" | "backward" = "forward"): Promise<ModelCycleResult | undefined> {
-		return this._model.cycleModel(direction);
+		return this._nav.startSessionOperation(() => this._model.cycleModel(direction));
 	}
 
 	// =========================================================================
@@ -928,7 +955,7 @@ export class AgentSession {
 	 * @param customInstructions Optional instructions for the compaction summary
 	 */
 	async compact(customInstructions?: string, signal?: AbortSignal): Promise<CompactionResult> {
-		return this._compaction.compact(customInstructions, signal);
+		return this._nav.startSessionOperation(() => this._compaction.compact(customInstructions, signal));
 	}
 
 	/**
@@ -952,7 +979,7 @@ export class AgentSession {
 	 * returns the number of entries written.
 	 */
 	async flushMemory(signal?: AbortSignal): Promise<number> {
-		return this._compaction.flushMemory(signal);
+		return this._nav.startSessionOperation(() => this._compaction.flushMemory(signal));
 	}
 
 	/**
@@ -1026,7 +1053,7 @@ export class AgentSession {
 		onChunk?: (chunk: string) => void,
 		options?: { excludeFromContext?: boolean; operations?: BashOperations },
 	): Promise<BashResult> {
-		return this._bash.executeBash(command, onChunk, options);
+		return this._nav.startSessionOperation(() => this._bash.executeBash(command, onChunk, options));
 	}
 
 	/**

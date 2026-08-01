@@ -38,6 +38,35 @@ export class SessionStore {
 		}
 	}
 
+	/** Create an unbound peer used to prepare a replacement identity off to the side. */
+	createPeer(): SessionStore {
+		return new SessionStore(this.cwd, this.sessionDir, this.persist);
+	}
+
+	/**
+	 * Adopt a fully prepared peer in one synchronous commit.
+	 * The peer's target lock is transferred before the previous lock is released,
+	 * so preparation failures cannot corrupt or unlock the current identity.
+	 */
+	adoptPrepared(peer: SessionStore): void {
+		if (peer.cwd !== this.cwd || peer.sessionDir !== this.sessionDir || peer.persist !== this.persist) {
+			throw new Error("Prepared SessionStore does not match the current storage scope");
+		}
+
+		const previousLock = this.lockHandle;
+		this.sessionId = peer.sessionId;
+		this.sessionFile = peer.sessionFile;
+		this.flushed = peer.flushed;
+		this.headerOnDisk = peer.headerOnDisk;
+		this.fileEntries = peer.fileEntries;
+		this.byId = peer.byId;
+		this.labelsById = peer.labelsById;
+		this.leafId = peer.leafId;
+		this.lockHandle = peer.lockHandle;
+		peer.lockHandle = undefined;
+		previousLock?.release();
+	}
+
 	isPersisted(): boolean {
 		return this.persist;
 	}

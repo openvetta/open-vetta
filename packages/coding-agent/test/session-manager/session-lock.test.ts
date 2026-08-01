@@ -217,4 +217,22 @@ describe("SessionManager file lock integration", () => {
 			second.close();
 		}
 	});
+
+	it("keeps the source identity and lock when switching to a locked target fails", () => {
+		const source = SessionManager.create(tempDir, tempDir);
+		const target = SessionManager.create(tempDir, tempDir);
+		const sourceFile = source.getSessionFile()!;
+		const sourceId = source.getSessionId();
+		const targetFile = target.getSessionFile()!;
+		try {
+			expect(() => source.setSessionFile(targetFile)).toThrow(SessionLockError);
+			expect(source.getSessionFile()).toBe(sourceFile);
+			expect(source.getSessionId()).toBe(sourceId);
+			expect(existsSync(`${sourceFile}.lock`)).toBe(true);
+			expect(existsSync(`${targetFile}.lock`)).toBe(true);
+		} finally {
+			source.close();
+			target.close();
+		}
+	});
 });

@@ -12,7 +12,7 @@ interface CloseInternals {
 	_subagents?: { dispose(): Promise<void> };
 	_retry: { abortRetry(): void };
 	_compaction: { quiesceSessionIdentity(): Promise<void> };
-	_nav: { abortBranchSummary(): void };
+	_nav: { abortBranchSummary(): void; closeAdmission(): Promise<void> };
 	_bash: { quiesceSessionIdentity(): Promise<void> };
 	_hookRuntime: { runSessionEnd(reason: "dispose"): Promise<void> };
 	_backgroundTasks: { shutdown(): Promise<void> };
@@ -31,6 +31,7 @@ function deferred(): Deferred {
 
 describe("AgentSession close transaction", () => {
 	it("is idempotent and releases session ownership after all resources are quiet", async () => {
+		const identityTransition = deferred();
 		const idle = deferred();
 		const hooks = deferred();
 		const subagents = deferred();
@@ -38,6 +39,7 @@ describe("AgentSession close transaction", () => {
 		const runtime = deferred();
 		const closeLock = vi.fn();
 		const closeRuntime = vi.fn(() => runtime.promise);
+		const closeBackground = vi.fn(() => background.promise);
 		const unsubscribe = vi.fn();
 
 		const session = Object.create(AgentSession.prototype) as AgentSession;
@@ -47,10 +49,10 @@ describe("AgentSession close transaction", () => {
 		internals._subagents = { dispose: () => subagents.promise };
 		internals._retry = { abortRetry: vi.fn() };
 		internals._compaction = { quiesceSessionIdentity: vi.fn(async () => {}) };
-		internals._nav = { abortBranchSummary: vi.fn() };
+		internals._nav = { abortBranchSummary: vi.fn(), closeAdmission: () => identityTransition.promise };
 		internals._bash = { quiesceSessionIdentity: vi.fn(async () => {}) };
 		internals._hookRuntime = { runSessionEnd: () => hooks.promise };
-		internals._backgroundTasks = { shutdown: () => background.promise };
+		internals._backgroundTasks = { shutdown: closeBackground };
 		internals._runtime = { close: closeRuntime };
 		internals.agent = { abort: vi.fn(), waitForIdle: () => idle.promise };
 		internals.sessionManager = { close: closeLock };
@@ -61,7 +63,9 @@ describe("AgentSession close transaction", () => {
 		expect(internals._eventListeners).toEqual([]);
 		expect(closeRuntime).not.toHaveBeenCalled();
 		expect(closeLock).not.toHaveBeenCalled();
+		expect(closeBackground).not.toHaveBeenCalled();
 
+		identityTransition.resolve();
 		idle.resolve();
 		hooks.resolve();
 		subagents.resolve();
@@ -82,7 +86,7 @@ describe("AgentSession close transaction", () => {
 		internals._eventListeners = [];
 		internals._retry = { abortRetry: vi.fn() };
 		internals._compaction = { quiesceSessionIdentity: vi.fn(async () => {}) };
-		internals._nav = { abortBranchSummary: vi.fn() };
+		internals._nav = { abortBranchSummary: vi.fn(), closeAdmission: async () => {} };
 		internals._bash = { quiesceSessionIdentity: vi.fn(async () => {}) };
 		internals._hookRuntime = { runSessionEnd: async () => {} };
 		internals._backgroundTasks = {

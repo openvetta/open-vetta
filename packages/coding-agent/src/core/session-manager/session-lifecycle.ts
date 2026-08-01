@@ -39,9 +39,16 @@ export function resetToNewSession(store: SessionStore, options?: NewSessionOptio
 
 /** Start a new session: reset, lock, eager header. Returns session file path. */
 export function newSession(store: SessionStore, options?: NewSessionOptions): string | undefined {
-	resetToNewSession(store, options);
-	store.acquireLockForCurrentFile();
-	store.writeHeaderEagerly();
+	const prepared = store.createPeer();
+	try {
+		resetToNewSession(prepared, options);
+		prepared.acquireLockForCurrentFile();
+		prepared.writeHeaderEagerly();
+		store.adoptPrepared(prepared);
+	} catch (error) {
+		prepared.close();
+		throw error;
+	}
 	return store.sessionFile;
 }
 
@@ -50,17 +57,30 @@ export function newSession(store: SessionStore, options?: NewSessionOptions): st
  * Empty or missing files become a fresh session at that path.
  */
 export function setSessionFile(store: SessionStore, sessionFile: string): void {
-	store.sessionFile = resolve(sessionFile);
-	if (existsSync(store.sessionFile)) {
-		store.fileEntries = loadEntriesFromFile(store.sessionFile);
+	const resolvedSessionFile = resolve(sessionFile);
+	if (resolvedSessionFile === store.sessionFile) return;
+
+	const prepared = store.createPeer();
+	try {
+		prepareSessionFile(prepared, resolvedSessionFile);
+		store.adoptPrepared(prepared);
+	} catch (error) {
+		prepared.close();
+		throw error;
+	}
+}
+
+function prepareSessionFile(store: SessionStore, sessionFile: string): void {
+	store.sessionFile = sessionFile;
+	store.acquireLockForCurrentFile();
+	if (existsSync(sessionFile)) {
+		store.fileEntries = loadEntriesFromFile(sessionFile);
 
 		if (store.fileEntries.length === 0) {
-			const explicitPath = store.sessionFile;
 			resetToNewSession(store);
-			store.sessionFile = explicitPath;
+			store.sessionFile = sessionFile;
 			store.rewriteFile();
 			store.flushed = true;
-			store.acquireLockForCurrentFile();
 			return;
 		}
 
@@ -74,12 +94,9 @@ export function setSessionFile(store: SessionStore, sessionFile: string): void {
 		store.rebuildIndex();
 		store.flushed = true;
 		store.headerOnDisk = true;
-		store.acquireLockForCurrentFile();
 	} else {
-		const explicitPath = store.sessionFile;
 		resetToNewSession(store);
-		store.sessionFile = explicitPath;
-		store.acquireLockForCurrentFile();
+		store.sessionFile = sessionFile;
 		store.writeHeaderEagerly();
 	}
 }

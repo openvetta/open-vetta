@@ -5,7 +5,7 @@
  */
 
 import { randomUUID } from "crypto";
-import { appendFileSync, existsSync, mkdirSync } from "fs";
+import { appendFileSync, existsSync, mkdirSync, unlinkSync } from "fs";
 import {
 	buildExportBranchContent,
 	buildRolloverChain,
@@ -76,32 +76,40 @@ export function createBranchedSession(store: SessionStore, leafId: string): stri
 		persist: store.persist,
 	});
 
-	if (store.persist) {
-		if (!existsSync(store.getSessionDir())) {
-			mkdirSync(store.getSessionDir(), { recursive: true });
+	const prepared = store.createPeer();
+	let targetCreated = false;
+	try {
+		if (store.persist) {
+			if (!existsSync(store.getSessionDir())) {
+				mkdirSync(store.getSessionDir(), { recursive: true });
+			}
+			writeBranchFile(content.newSessionFile, content.header, content.pathWithoutLabels, content.labelEntries);
+			targetCreated = true;
+			prepared.replaceSessionContent({
+				sessionId: content.header.id,
+				sessionFile: content.newSessionFile,
+				fileEntries: [content.header, ...content.pathWithoutLabels, ...content.labelEntries],
+				flushed: true,
+				headerOnDisk: true,
+				acquireLock: true,
+			});
+		} else {
+			prepared.replaceSessionContent({
+				sessionId: content.header.id,
+				sessionFile: store.sessionFile,
+				fileEntries: [content.header, ...content.pathWithoutLabels, ...content.labelEntries],
+				flushed: store.flushed,
+				headerOnDisk: store.headerOnDisk,
+				acquireLock: false,
+			});
 		}
-		store.releaseLock();
-		writeBranchFile(content.newSessionFile, content.header, content.pathWithoutLabels, content.labelEntries);
-		store.replaceSessionContent({
-			sessionId: content.header.id,
-			sessionFile: content.newSessionFile,
-			fileEntries: [content.header, ...content.pathWithoutLabels, ...content.labelEntries],
-			flushed: true,
-			headerOnDisk: true,
-			acquireLock: true,
-		});
-		return content.newSessionFile;
+		store.adoptPrepared(prepared);
+		return store.persist ? content.newSessionFile : undefined;
+	} catch (error) {
+		prepared.close();
+		if (targetCreated && existsSync(content.newSessionFile)) unlinkSync(content.newSessionFile);
+		throw error;
 	}
-
-	store.replaceSessionContent({
-		sessionId: content.header.id,
-		sessionFile: store.sessionFile,
-		fileEntries: [content.header, ...content.pathWithoutLabels, ...content.labelEntries],
-		flushed: store.flushed,
-		headerOnDisk: store.headerOnDisk,
-		acquireLock: false,
-	});
-	return undefined;
 }
 
 /**

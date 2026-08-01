@@ -62,10 +62,14 @@ export function createRpcCommandDispatcher(
 				return rpcSuccess(id, "abort");
 			}
 			case "new_session": {
-				const cancelled = !(await requireCapability(session.session, "session", command.type).newSession(
-					command.parentSession,
-				));
-				return rpcSuccess(id, "new_session", { cancelled });
+				try {
+					const cancelled = !(await requireCapability(session.session, "session", command.type).newSession(
+						command.parentSession,
+					));
+					return rpcSuccess(id, "new_session", { cancelled });
+				} catch (error) {
+					return rpcError(id, "new_session", errorMessage(error));
+				}
 			}
 			case "get_state": {
 				const state = await requireCapability(session.state, "state", command.type).readState();
@@ -154,14 +158,22 @@ export function createRpcCommandDispatcher(
 				return rpcSuccess(id, "export_html", { path });
 			}
 			case "switch_session": {
-				const cancelled = !(await requireCapability(session.session, "session", command.type).switchSession(
-					command.sessionPath,
-				));
-				return rpcSuccess(id, "switch_session", { cancelled });
+				try {
+					const cancelled = !(await requireCapability(session.session, "session", command.type).switchSession(
+						command.sessionPath,
+					));
+					return rpcSuccess(id, "switch_session", { cancelled });
+				} catch (error) {
+					return rpcError(id, "switch_session", errorMessage(error));
+				}
 			}
 			case "fork": {
-				const result = await requireCapability(session.session, "session", command.type).fork(command.entryId);
-				return rpcSuccess(id, "fork", result);
+				try {
+					const result = await requireCapability(session.session, "session", command.type).fork(command.entryId);
+					return rpcSuccess(id, "fork", result);
+				} catch (error) {
+					return rpcError(id, "fork", errorMessage(error));
+				}
 			}
 			case "get_fork_messages":
 				return rpcSuccess(id, "get_fork_messages", {

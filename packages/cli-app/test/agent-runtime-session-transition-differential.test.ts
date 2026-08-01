@@ -73,6 +73,21 @@ describe("Agent Runtime active-turn session transition differential", () => {
 		});
 		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	}, 30_000);
+
+	it("keeps the source identity usable when target ownership acquisition fails", async () => {
+		const observations = {} as Record<TestAgentRuntimeBackend, FailedTransitionObservation>;
+		for (const backend of BACKENDS) observations[backend] = await runLockedTargetSwitch(backend);
+
+		expect(observations.legacy).toEqual({
+			transitionFailed: true,
+			sourceIdentityRetained: true,
+			sourceOwnershipHeld: true,
+			targetOwnershipHeld: true,
+			recoveryCompleted: true,
+			providerRequestCount: 1,
+		});
+		expect(observations["greenfield-im"]).toEqual(observations.legacy);
+	}, 30_000);
 });
 
 interface TransitionObservation {
@@ -82,6 +97,15 @@ interface TransitionObservation {
 	readonly targetOwnershipHeld: boolean;
 	readonly identityChanged: boolean;
 	readonly idleAfterTransition: boolean;
+	readonly providerRequestCount: number;
+}
+
+interface FailedTransitionObservation {
+	readonly transitionFailed: boolean;
+	readonly sourceIdentityRetained: boolean;
+	readonly sourceOwnershipHeld: boolean;
+	readonly targetOwnershipHeld: boolean;
+	readonly recoveryCompleted: boolean;
 	readonly providerRequestCount: number;
 }
 
@@ -272,6 +296,59 @@ async function runActiveTurnExtensionNewSession(backend: TestAgentRuntimeBackend
 		};
 	} finally {
 		await process?.close();
+		await fixture?.dispose();
+		await server.dispose();
+	}
+}
+
+async function runLockedTargetSwitch(backend: TestAgentRuntimeBackend): Promise<FailedTransitionObservation> {
+	let fixture: AgentRpcFixture | undefined;
+	let sourceProcess: AgentRpcProcess | undefined;
+	let targetProcess: AgentRpcProcess | undefined;
+	let stage = "create fixture";
+	const server = await startOpenAiResponsesTestServer(() => ({
+		kind: "events",
+		events: textResponseEvents("source-recovered-after-failed-switch"),
+	}));
+	try {
+		fixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
+		stage = "start source";
+		sourceProcess = startAgentRpc(executable, fixture, { backend });
+		const sourcePath = readSessionFile(await sourceProcess.request("locked-source-state", "get_state"));
+		stage = "create target";
+		await sourceProcess.request("locked-create-target", "new_session");
+		const targetPath = readSessionFile(await sourceProcess.request("locked-target-state", "get_state"));
+		stage = "restore source";
+		await sourceProcess.request("locked-restore-source", "switch_session", { sessionPath: sourcePath });
+
+		stage = "start target holder";
+		targetProcess = startAgentRpc(executable, fixture, { backend, extraArgs: ["--session", targetPath] });
+		await targetProcess.request("locked-holder-state", "get_state");
+
+		stage = "attempt locked switch";
+		const transition = await sourceProcess.request("locked-switch", "switch_session", { sessionPath: targetPath });
+		stage = "read source after failure";
+		const stateAfterFailure = await sourceProcess.request("locked-state-after-failure", "get_state");
+		const recoveryMark = sourceProcess.mark();
+		stage = "recover source turn";
+		await sourceProcess.request("locked-recovery-prompt", "prompt", {
+			message: "Continue source after failed switch",
+		});
+		await sourceProcess.waitFor((frame) => frame.type === "agent_end", recoveryMark);
+
+		return {
+			transitionFailed: transition.type === "response" && transition.success === false,
+			sourceIdentityRetained: readSessionFile(stateAfterFailure) === sourcePath,
+			sourceOwnershipHeld: existsSync(ownershipPath(backend, sourcePath)),
+			targetOwnershipHeld: existsSync(ownershipPath(backend, targetPath)),
+			recoveryCompleted: sourceProcess.framesSince(recoveryMark).some((frame) => frame.type === "agent_end"),
+			providerRequestCount: server.requests.length,
+		};
+	} catch (error) {
+		throw new Error(`${backend} locked-target stage failed: ${stage}`, { cause: error });
+	} finally {
+		await sourceProcess?.close();
+		await targetProcess?.close();
 		await fixture?.dispose();
 		await server.dispose();
 	}
