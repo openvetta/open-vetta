@@ -360,6 +360,8 @@ function createAdapterFixture(
 	} as unknown as GreenfieldRuntimeComposition;
 	const sessionHost = {
 		readSession: () => session,
+		startActiveSessionOperation: <T>(operation: (active: GreenfieldRuntimeSession) => Promise<T>) =>
+			operation(session),
 		subscribe: (handler: (event: SessionEvent) => void) => session.subscribe(handler),
 		newSession,
 		switchSession,

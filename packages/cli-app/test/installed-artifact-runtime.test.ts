@@ -287,6 +287,73 @@ describe("installed standalone CLI artifact", () => {
 		expect(providerServer.requests).toHaveLength(3);
 	}, 120_000);
 
+	it("interrupts an active turn and transfers session ownership in the installed executable", async () => {
+		await expectStandaloneArtifact(artifact);
+
+		providerServer = await startOpenAiResponsesTestServer((_request, index) => {
+			if (index === 0) {
+				return {
+					kind: "hold",
+					events: textResponseEvents("Installed partial turn before session transition.").slice(0, 3),
+				};
+			}
+			return {
+				kind: "events",
+				events: textResponseEvents(
+					index === 1
+						? "Installed process recovered after transition."
+						: "Installed restart recovered after transition.",
+				),
+			};
+		});
+		fixture = await createAgentRpcFixture({ baseUrl: providerServer.baseUrl });
+		const isolatedEnv = createIsolatedArtifactEnv(fixture);
+		activeProcess = startInstalledCli(artifact.binaryPath, fixture, isolatedEnv, { noSkills: true });
+		const sourcePath = readSessionFile(await activeProcess.request("installed-transition-source", "get_state"));
+		const sourceOwnershipLock = `${sourcePath}.owner.lock`;
+		expect(existsSync(sourceOwnershipLock)).toBe(true);
+
+		const heldTurnMark = activeProcess.mark();
+		await activeProcess.request("installed-transition-held-prompt", "prompt", {
+			message: "Hold installed turn before new session",
+		});
+		await activeProcess.waitFor((frame) => frame.type === "message_update", heldTurnMark, 30_000);
+		await activeProcess.request("installed-transition-new-session", "new_session");
+		await providerServer.waitForHeldRequestClosed(5_000);
+
+		const transitionedState = await activeProcess.request("installed-transition-target", "get_state");
+		const targetPath = readSessionFile(transitionedState);
+		const targetOwnershipLock = `${targetPath}.owner.lock`;
+		expect(targetPath).not.toBe(sourcePath);
+		expect(transitionedState.data?.isStreaming).toBe(false);
+		expect(existsSync(sourceOwnershipLock)).toBe(false);
+		expect(existsSync(targetOwnershipLock)).toBe(true);
+		expect(activeProcess.framesSince(heldTurnMark).filter((frame) => frame.type === "agent_end")).toEqual([]);
+
+		await promptInstalledTurn(
+			activeProcess,
+			"installed-transition-same-process-recovery",
+			"Recover installed process after transition",
+		);
+		await expect(activeProcess.close()).resolves.toBe(0);
+		activeProcess = undefined;
+		await expect(stat(targetOwnershipLock)).rejects.toMatchObject({ code: "ENOENT" });
+
+		activeProcess = startInstalledCli(artifact.binaryPath, fixture, isolatedEnv, {
+			noSkills: true,
+			extraArgs: ["--session", targetPath],
+		});
+		const resumedState = await activeProcess.request("installed-transition-resumed-state", "get_state");
+		expect(readSessionFile(resumedState)).toBe(targetPath);
+		expect(existsSync(targetOwnershipLock)).toBe(true);
+		await promptInstalledTurn(
+			activeProcess,
+			"installed-transition-restart-recovery",
+			"Recover installed restart after transition",
+		);
+		expect(providerServer.requests).toHaveLength(3);
+	}, 120_000);
+
 	it("applies runtime Skill and MCP changes without rebuilding the installed session", async () => {
 		await expectStandaloneArtifact(artifact);
 

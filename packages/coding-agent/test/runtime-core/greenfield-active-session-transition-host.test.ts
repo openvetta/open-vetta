@@ -147,6 +147,61 @@ describe("CodingAgentGreenfieldActiveSessionHost", () => {
 			"finalize:forked",
 		]);
 	});
+
+	it("runs session_before_switch before abort and leaves an active turn untouched when cancelled", async () => {
+		const fixture = await createFixture({ cancelBefore: true });
+		fixture.initial.setStreaming(true);
+
+		await expect(fixture.host.newSession()).resolves.toEqual({ cancelled: true });
+
+		expect(fixture.initial.abort).not.toHaveBeenCalled();
+		expect(fixture.host.readSession()).toBe(fixture.initial.session);
+		expect(fixture.lifecycleOrder).toEqual(["before:new"]);
+	});
+
+	it("interrupts an approved session switch without forwarding the old terminal event", async () => {
+		const fixture = await createFixture();
+		const next = createSession("next", fixture.sessionPath("next"));
+		fixture.resume.mockResolvedValueOnce(next.session);
+		fixture.initial.setStreaming(true);
+		const events: SessionEvent[] = [];
+		fixture.host.subscribe((event) => events.push(event));
+
+		await expect(fixture.host.switchSession(next.path)).resolves.toEqual({ cancelled: false });
+
+		expect(fixture.initial.abort).toHaveBeenCalledWith("switch_session");
+		expect(events).toEqual([]);
+		expect(fixture.lifecycleOrder[0]).toBe("before:resume");
+		expect(fixture.host.readSession()).toBe(next.session);
+	});
+
+	it("does not miss a terminal event emitted while installing the idle subscription", async () => {
+		const fixture = await createFixture();
+		fixture.initial.setStreaming(true);
+		fixture.initial.finishDuringNextSubscribe();
+
+		await expect(fixture.host.waitForIdle()).resolves.toBeUndefined();
+	});
+
+	it("keeps fork idle-gated while allowing an admitted operation to start before a queued transition", async () => {
+		const fixture = await createFixture();
+		const fork = createSession("forked", fixture.sessionPath("forked"));
+		await fixture.writeConversationPlaceholder("forked");
+		fixture.initial.forkSession.mockResolvedValueOnce({ path: fork.path, text: "fork prompt" });
+		fixture.resume.mockResolvedValueOnce(fork.session);
+		fixture.initial.setStreaming(true);
+		const operation = vi.fn(async () => "started");
+
+		await expect(fixture.host.startActiveSessionOperation(operation)).resolves.toBe("started");
+		const pendingFork = fixture.host.fork("entry-1");
+		await Promise.resolve();
+		expect(fixture.initial.forkSession).not.toHaveBeenCalled();
+
+		fixture.initial.setStreaming(false);
+		fixture.initial.emit(sessionEvent("idle", "initial", "agent_end"));
+		await expect(pendingFork).resolves.toEqual({ text: "fork prompt", cancelled: false });
+		expect(operation).toHaveBeenCalledWith(fixture.initial.session);
+	});
 });
 
 async function createFixture(
@@ -155,6 +210,7 @@ async function createFixture(
 		failFinalize?: boolean;
 		failPrepare?: boolean;
 		skipConversationRestore?: boolean;
+		cancelBefore?: boolean;
 	} = {},
 ) {
 	const conversationDir = await mkdtemp(join(tmpdir(), "greenfield-active-session-host-"));
@@ -199,7 +255,7 @@ async function createFixture(
 			before: async ({ kind }) => {
 				lifecycleOrder.push(`before:${kind}`);
 				return {
-					cancelled: false,
+					cancelled: options.cancelBefore === true,
 					...(kind === "fork" && options.skipConversationRestore ? { skipConversationRestore: true } : {}),
 				};
 			},
@@ -238,25 +294,36 @@ async function createFixture(
 }
 
 function createSession(id: string, path: string) {
-	let listener: ((event: SessionEvent) => void) | undefined;
+	const listeners = new Set<(event: SessionEvent) => void>();
+	let streaming = false;
+	let finishOnSubscribe = false;
 	const dispose = vi.fn(async () => {});
 	const forkSession = vi.fn(async () => ({ path, text: "" }));
 	const navigateForEdit = vi.fn(async () => ({ text: "", cancelled: false }));
+	const abort = vi.fn(async () => {
+		if (!streaming) return;
+		streaming = false;
+		for (const listener of listeners) listener(sessionEvent("aborted", id, "aborted"));
+	});
 	const session = {
 		get sessionId() {
 			return id;
 		},
-		readState: () => ({ isStreaming: false }),
+		readState: () => ({ isStreaming: streaming }),
 		createCoreAssembly: () => ({
 			historyController: { navigateForEdit },
 			lifecycle: { sessionId: id, sessionPath: path, dispose },
 		}),
 		subscribe: (handler: (event: SessionEvent) => void) => {
-			listener = handler;
-			return () => {
-				if (listener === handler) listener = undefined;
-			};
+			listeners.add(handler);
+			if (finishOnSubscribe) {
+				finishOnSubscribe = false;
+				streaming = false;
+				handler(sessionEvent("subscribe-terminal", id, "agent_end"));
+			}
+			return () => listeners.delete(handler);
 		},
+		abort,
 		forkSession,
 		dispose,
 	} as unknown as GreenfieldRuntimeSession;
@@ -264,10 +331,17 @@ function createSession(id: string, path: string) {
 		session,
 		path,
 		dispose,
+		abort,
 		forkSession,
 		navigateForEdit,
 		emit(event: SessionEvent) {
-			listener?.(event);
+			for (const listener of listeners) listener(event);
+		},
+		setStreaming(value: boolean) {
+			streaming = value;
+		},
+		finishDuringNextSubscribe() {
+			finishOnSubscribe = true;
 		},
 	};
 }
@@ -276,10 +350,14 @@ function sessionPath(root: string, id: string): string {
 	return join(root, `${Buffer.from(id, "utf8").toString("base64url")}.conversation.jsonl`);
 }
 
-function sessionEvent(eventId: string, sessionId: string): SessionEvent {
+function sessionEvent(
+	eventId: string,
+	sessionId: string,
+	phase: Extract<SessionEvent, { type: "session.lifecycle" }>["phase"] = "agent_start",
+): SessionEvent {
 	return {
 		type: "session.lifecycle",
-		phase: "agent_start",
+		phase,
 		schemaVersion: 1,
 		sessionId,
 		eventId,

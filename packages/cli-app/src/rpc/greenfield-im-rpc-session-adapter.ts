@@ -30,7 +30,7 @@ interface ActiveTurnCommand {
 export interface GreenfieldImRpcSessionAdapterOptions {
 	readonly sessionHost: Pick<
 		CodingAgentGreenfieldActiveSessionHost,
-		"dispose" | "fork" | "newSession" | "readSession" | "subscribe" | "switchSession"
+		"dispose" | "fork" | "newSession" | "readSession" | "startActiveSessionOperation" | "subscribe" | "switchSession"
 	>;
 	readonly runtime: GreenfieldRuntimeComposition;
 	readonly resourceLoader: GreenfieldImResourceLoader;
@@ -90,25 +90,38 @@ export class GreenfieldImRpcSessionAdapter implements RpcSessionCapabilities {
 				adaptCodingAgentToolRegistration(createImSendAttachmentTool(hostBridge) as unknown as CodingAgentTool));
 		this.turn = {
 			prompt: async (message, promptOptions) => {
-				if (await this.extensionCommandHost?.tryExecute(message)) return;
+				if (
+					this.extensionCommandHost &&
+					(await this.sessionHost.startActiveSessionOperation(() =>
+						this.extensionCommandHost!.tryExecute(message),
+					))
+				) {
+					return;
+				}
 				await this.runTurnCommand(() =>
-					this.readSession().prompt({
-						text: message,
-						images: promptOptions.images,
-						streamingBehavior: promptOptions.streamingBehavior,
-					}),
+					this.sessionHost.startActiveSessionOperation((session) =>
+						session.prompt({
+							text: message,
+							images: promptOptions.images,
+							streamingBehavior: promptOptions.streamingBehavior,
+						}),
+					),
 				);
 			},
 			steer: async (message, images) => {
 				this.extensionCommandHost?.throwIfExtensionCommand(message);
 				await this.runTurnCommand(() =>
-					this.readSession().prompt({ text: message, images, streamingBehavior: "steer" }),
+					this.sessionHost.startActiveSessionOperation((session) =>
+						session.prompt({ text: message, images, streamingBehavior: "steer" }),
+					),
 				);
 			},
 			followUp: async (message, images) => {
 				this.extensionCommandHost?.throwIfExtensionCommand(message);
 				await this.runTurnCommand(() =>
-					this.readSession().prompt({ text: message, images, streamingBehavior: "followUp" }),
+					this.sessionHost.startActiveSessionOperation((session) =>
+						session.prompt({ text: message, images, streamingBehavior: "followUp" }),
+					),
 				);
 			},
 			abort: () => this.readSession().abort("RPC abort"),

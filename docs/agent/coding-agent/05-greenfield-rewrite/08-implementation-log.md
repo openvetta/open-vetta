@@ -160,6 +160,7 @@
 | [150-runtime-host-history-mutation-differential.md](./08-implementation-log/150-runtime-host-history-mutation-differential.md) | RuntimeHost 历史导航、切换、删除、替换、Fork、重启与 Provider 差分门禁 |
 | [151-extension-history-command-differential.md](./08-implementation-log/151-extension-history-command-differential.md) | Extension Tree/Fork 真实 CLI 差分、执行上下文覆盖与持久化图修正 |
 | [152-rpc-turn-terminal-and-recovery.md](./08-implementation-log/152-rpc-turn-terminal-and-recovery.md) | RPC Turn 唯一终态、Provider 失败/流断开/abort 恢复与安装产物门禁 |
+| [153-active-turn-session-transition.md](./08-implementation-log/153-active-turn-session-transition.md) | 活动 Turn 会话切换、Turn 准入、所有权转移与安装产物门禁 |
 
 ## 维护约定
 

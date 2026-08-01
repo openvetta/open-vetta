@@ -1,0 +1,299 @@
+import { existsSync } from "node:fs";
+import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import {
+	type AgentRpcExecutable,
+	type AgentRpcFixture,
+	type AgentRpcProcess,
+	buildAgentRpcExecutable,
+	createAgentRpcFixture,
+	readSessionFile,
+	startAgentRpc,
+	type TestAgentRuntimeBackend,
+} from "./support/agent-rpc-test-process.js";
+import { startOpenAiResponsesTestServer, textResponseEvents } from "./support/openai-responses-test-server.js";
+
+const BACKENDS = ["legacy", "greenfield-im"] as const satisfies readonly TestAgentRuntimeBackend[];
+let executable: AgentRpcExecutable;
+
+beforeAll(async () => {
+	executable = await buildAgentRpcExecutable();
+});
+
+afterAll(async () => {
+	await executable.dispose();
+});
+
+describe("Agent Runtime active-turn session transition differential", () => {
+	it("interrupts an active turn, changes ownership and recovers across new_session", async () => {
+		const observations = {} as Record<TestAgentRuntimeBackend, TransitionObservation>;
+		for (const backend of BACKENDS) observations[backend] = await runActiveTurnNewSession(backend);
+
+		expect(observations.legacy).toEqual({
+			providerRequestClosed: true,
+			terminalKinds: [],
+			sourceOwnershipReleased: true,
+			targetOwnershipHeld: true,
+			identityChanged: true,
+			idleAfterTransition: true,
+			providerRequestCount: 3,
+		});
+		expect(observations["greenfield-im"]).toEqual(observations.legacy);
+	}, 30_000);
+
+	it("interrupts an active turn, transfers ownership and recovers across switch_session", async () => {
+		const observations = {} as Record<TestAgentRuntimeBackend, TransitionObservation>;
+		for (const backend of BACKENDS) observations[backend] = await runActiveTurnSwitchSession(backend);
+
+		expect(observations.legacy).toEqual({
+			providerRequestClosed: true,
+			terminalKinds: [],
+			sourceOwnershipReleased: true,
+			targetOwnershipHeld: true,
+			identityChanged: true,
+			idleAfterTransition: true,
+			providerRequestCount: 3,
+		});
+		expect(observations["greenfield-im"]).toEqual(observations.legacy);
+	}, 30_000);
+
+	it("applies the same interruption and ownership contract to Extension session commands", async () => {
+		const observations = {} as Record<TestAgentRuntimeBackend, TransitionObservation>;
+		for (const backend of BACKENDS) observations[backend] = await runActiveTurnExtensionNewSession(backend);
+
+		expect(observations.legacy).toEqual({
+			providerRequestClosed: true,
+			terminalKinds: [],
+			sourceOwnershipReleased: true,
+			targetOwnershipHeld: true,
+			identityChanged: true,
+			idleAfterTransition: true,
+			providerRequestCount: 3,
+		});
+		expect(observations["greenfield-im"]).toEqual(observations.legacy);
+	}, 30_000);
+});
+
+interface TransitionObservation {
+	readonly providerRequestClosed: boolean;
+	readonly terminalKinds: readonly string[];
+	readonly sourceOwnershipReleased: boolean;
+	readonly targetOwnershipHeld: boolean;
+	readonly identityChanged: boolean;
+	readonly idleAfterTransition: boolean;
+	readonly providerRequestCount: number;
+}
+
+async function runActiveTurnNewSession(backend: TestAgentRuntimeBackend): Promise<TransitionObservation> {
+	let fixture: AgentRpcFixture | undefined;
+	let process: AgentRpcProcess | undefined;
+	const server = await startOpenAiResponsesTestServer((_request, index) => {
+		if (index === 0) return { kind: "hold", events: textResponseEvents("partial-before-new-session").slice(0, 3) };
+		return {
+			kind: "events",
+			events: textResponseEvents(index === 1 ? "same-process-after-new-session" : "restart-after-new-session"),
+		};
+	});
+	try {
+		fixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
+		process = startAgentRpc(executable, fixture, { backend });
+		const initialState = await process.request("transition-initial-state", "get_state");
+		const sourcePath = readSessionFile(initialState);
+
+		const turnMark = process.mark();
+		await process.request("transition-held-prompt", "prompt", { message: "Hold active session turn" });
+		await process.waitFor((frame) => frame.type === "message_update", turnMark);
+		const transitionMark = process.mark();
+		process.send({ id: "transition-new-session", type: "new_session" });
+		await process.waitFor(
+			(frame) =>
+				frame.type === "response" && frame.id === "transition-new-session" && frame.command === "new_session",
+			transitionMark,
+			5_000,
+		);
+		await server.waitForHeldRequestClosed(5_000);
+		const transitionedState = await process.request("transition-state-after-new", "get_state");
+		const targetPath = readSessionFile(transitionedState);
+		const terminalKinds = process
+			.framesSince(turnMark)
+			.flatMap((frame) => (frame.type === "agent_end" ? ["agent_end"] : []));
+
+		const recoveryMark = process.mark();
+		await process.request("transition-same-process-recovery", "prompt", { message: "Continue after new session" });
+		await process.waitFor((frame) => frame.type === "agent_end", recoveryMark);
+		await process.close();
+
+		process = startAgentRpc(executable, fixture, { backend, extraArgs: ["--session", targetPath] });
+		const restartMark = process.mark();
+		await process.request("transition-restart-recovery", "prompt", { message: "Continue after transition restart" });
+		await process.waitFor((frame) => frame.type === "agent_end", restartMark);
+
+		return {
+			providerRequestClosed: true,
+			terminalKinds,
+			sourceOwnershipReleased: !existsSync(ownershipPath(backend, sourcePath)),
+			targetOwnershipHeld: existsSync(ownershipPath(backend, targetPath)),
+			identityChanged: targetPath !== sourcePath,
+			idleAfterTransition: transitionedState.data?.isStreaming === false,
+			providerRequestCount: server.requests.length,
+		};
+	} finally {
+		await process?.close();
+		await fixture?.dispose();
+		await server.dispose();
+	}
+}
+
+async function runActiveTurnSwitchSession(backend: TestAgentRuntimeBackend): Promise<TransitionObservation> {
+	let fixture: AgentRpcFixture | undefined;
+	let process: AgentRpcProcess | undefined;
+	const server = await startOpenAiResponsesTestServer((_request, index) => {
+		if (index === 0) return { kind: "hold", events: textResponseEvents("partial-before-switch").slice(0, 3) };
+		return {
+			kind: "events",
+			events: textResponseEvents(index === 1 ? "same-process-after-switch" : "restart-after-switch"),
+		};
+	});
+	try {
+		fixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
+		process = startAgentRpc(executable, fixture, { backend });
+		const sourcePath = readSessionFile(await process.request("switch-source-state", "get_state"));
+		await process.request("switch-create-target", "new_session");
+		const targetPath = readSessionFile(await process.request("switch-target-state", "get_state"));
+		await process.request("switch-restore-source", "switch_session", { sessionPath: sourcePath });
+
+		const turnMark = process.mark();
+		await process.request("switch-held-prompt", "prompt", { message: "Hold turn before switch" });
+		await process.waitFor((frame) => frame.type === "message_update", turnMark);
+		const transitionMark = process.mark();
+		process.send({ id: "switch-active-session", type: "switch_session", sessionPath: targetPath });
+		await process.waitFor(
+			(frame) =>
+				frame.type === "response" && frame.id === "switch-active-session" && frame.command === "switch_session",
+			transitionMark,
+			5_000,
+		);
+		await server.waitForHeldRequestClosed(5_000);
+		const transitionedState = await process.request("switch-state-after-transition", "get_state");
+		const terminalKinds = process
+			.framesSince(turnMark)
+			.flatMap((frame) => (frame.type === "agent_end" ? ["agent_end"] : []));
+
+		const recoveryMark = process.mark();
+		await process.request("switch-same-process-recovery", "prompt", { message: "Continue after switch" });
+		await process.waitFor((frame) => frame.type === "agent_end", recoveryMark);
+		await process.close();
+
+		process = startAgentRpc(executable, fixture, { backend, extraArgs: ["--session", targetPath] });
+		const restartMark = process.mark();
+		await process.request("switch-restart-recovery", "prompt", { message: "Continue after switch restart" });
+		await process.waitFor((frame) => frame.type === "agent_end", restartMark);
+
+		return {
+			providerRequestClosed: true,
+			terminalKinds,
+			sourceOwnershipReleased: !existsSync(ownershipPath(backend, sourcePath)),
+			targetOwnershipHeld: existsSync(ownershipPath(backend, targetPath)),
+			identityChanged: readSessionFile(transitionedState) === targetPath && targetPath !== sourcePath,
+			idleAfterTransition: transitionedState.data?.isStreaming === false,
+			providerRequestCount: server.requests.length,
+		};
+	} finally {
+		await process?.close();
+		await fixture?.dispose();
+		await server.dispose();
+	}
+}
+
+async function runActiveTurnExtensionNewSession(backend: TestAgentRuntimeBackend): Promise<TransitionObservation> {
+	let fixture: AgentRpcFixture | undefined;
+	let process: AgentRpcProcess | undefined;
+	const server = await startOpenAiResponsesTestServer((_request, index) => {
+		if (index === 0) return { kind: "hold", events: textResponseEvents("partial-before-extension").slice(0, 3) };
+		return {
+			kind: "events",
+			events: textResponseEvents(index === 1 ? "same-process-after-extension" : "restart-after-extension"),
+		};
+	});
+	try {
+		fixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
+		const auditPath = join(fixture.root, `${backend}-extension-transition.txt`);
+		const extensionPath = join(fixture.root, `${backend}-session-transition-extension.ts`);
+		await writeFile(
+			extensionPath,
+			`import { appendFileSync } from "node:fs";
+			export default function(extension) {
+				extension.registerCommand("active-new-session", {
+					handler: async (_args, ctx) => {
+						appendFileSync(${JSON.stringify(auditPath)}, "started\\n", "utf8");
+						const result = await ctx.newSession();
+						appendFileSync(${JSON.stringify(auditPath)}, "done:" + result.cancelled + "\\n", "utf8");
+					},
+				});
+			}`,
+			"utf8",
+		);
+		process = startAgentRpc(executable, fixture, { backend, extraArgs: ["--extension", extensionPath] });
+		const sourcePath = readSessionFile(await process.request("extension-source-state", "get_state"));
+
+		const turnMark = process.mark();
+		await process.request("extension-held-prompt", "prompt", { message: "Hold turn before Extension command" });
+		await process.waitFor((frame) => frame.type === "message_update", turnMark);
+		await process.request("extension-transition-command", "prompt", { message: "/active-new-session" });
+		await waitForFileText(auditPath, "done:false");
+		await server.waitForHeldRequestClosed(5_000);
+		const transitionedState = await process.request("extension-state-after-transition", "get_state");
+		const targetPath = readSessionFile(transitionedState);
+		const terminalKinds = process
+			.framesSince(turnMark)
+			.flatMap((frame) => (frame.type === "agent_end" ? ["agent_end"] : []));
+
+		const recoveryMark = process.mark();
+		await process.request("extension-same-process-recovery", "prompt", {
+			message: "Continue after Extension transition",
+		});
+		await process.waitFor((frame) => frame.type === "agent_end", recoveryMark);
+		await process.close();
+
+		process = startAgentRpc(executable, fixture, { backend, extraArgs: ["--session", targetPath] });
+		const restartMark = process.mark();
+		await process.request("extension-restart-recovery", "prompt", { message: "Continue after Extension restart" });
+		await process.waitFor((frame) => frame.type === "agent_end", restartMark);
+
+		return {
+			providerRequestClosed: true,
+			terminalKinds,
+			sourceOwnershipReleased: !existsSync(ownershipPath(backend, sourcePath)),
+			targetOwnershipHeld: existsSync(ownershipPath(backend, targetPath)),
+			identityChanged: targetPath !== sourcePath,
+			idleAfterTransition: transitionedState.data?.isStreaming === false,
+			providerRequestCount: server.requests.length,
+		};
+	} finally {
+		await process?.close();
+		await fixture?.dispose();
+		await server.dispose();
+	}
+}
+
+async function waitForFileText(path: string, expected: string, timeoutMs = 5_000): Promise<void> {
+	const deadline = Date.now() + timeoutMs;
+	while (Date.now() < deadline) {
+		try {
+			if ((await readFile(path, "utf8")).includes(expected)) return;
+		} catch (error) {
+			if (!isMissingFileError(error)) throw error;
+		}
+		await new Promise<void>((resolve) => setTimeout(resolve, 20));
+	}
+	throw new Error(`Timed out waiting for ${expected} in ${path}`);
+}
+
+function isMissingFileError(error: unknown): boolean {
+	return typeof error === "object" && error !== null && Reflect.get(error, "code") === "ENOENT";
+}
+
+function ownershipPath(backend: TestAgentRuntimeBackend, sessionPath: string): string {
+	return backend === "legacy" ? `${sessionPath}.lock` : `${sessionPath}.owner.lock`;
+}

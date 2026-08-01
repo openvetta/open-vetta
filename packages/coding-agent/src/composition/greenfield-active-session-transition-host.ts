@@ -67,6 +67,7 @@ export class CodingAgentGreenfieldActiveSessionHost {
 	private activeEventUnsubscribe: (() => void) | undefined;
 	private readonly listeners = new Set<(event: SessionEvent) => void>();
 	private transitionTail: Promise<void> = Promise.resolve();
+	private suppressActiveEvents = false;
 	private disposed = false;
 
 	constructor(private readonly options: CodingAgentGreenfieldActiveSessionHostOptions) {
@@ -89,6 +90,16 @@ export class CodingAgentGreenfieldActiveSessionHost {
 		return this.runExclusive(() => waitForIdle(this.activeSession));
 	}
 
+	startActiveSessionOperation<T>(operation: (session: GreenfieldRuntimeSession) => Promise<T>): Promise<T> {
+		let started: Promise<T> | undefined;
+		return this.runExclusive(async () => {
+			started = operation(this.activeSession);
+		}).then(() => {
+			if (!started) throw new Error("Greenfield active session operation did not start");
+			return started;
+		});
+	}
+
 	runActiveSessionMutation<T>(operation: (session: GreenfieldRuntimeSession) => Promise<T>): Promise<T> {
 		return this.runExclusive(async () => {
 			await waitForIdle(this.activeSession);
@@ -102,9 +113,9 @@ export class CodingAgentGreenfieldActiveSessionHost {
 	}): Promise<{ cancelled: boolean }> {
 		return this.runExclusive(async () => {
 			const previous = this.activeSession;
-			await waitForIdle(previous);
 			const transition = this.describe("new", previous);
 			if ((await this.prepareTransition(transition)).cancelled) return { cancelled: true };
+			await this.interruptActiveTurn(previous, "new_session");
 
 			const sessionId = this.options.createSessionId();
 			const next = options?.setup
@@ -123,11 +134,11 @@ export class CodingAgentGreenfieldActiveSessionHost {
 	switchSession(sessionPath: string): Promise<{ cancelled: boolean }> {
 		return this.runExclusive(async () => {
 			const previous = this.activeSession;
-			await waitForIdle(previous);
 			const previousPath = previous.createCoreAssembly().lifecycle.sessionPath;
 			if (previousPath === sessionPath) return { cancelled: false };
 			const transition = this.describe("resume", previous, { targetSessionPath: sessionPath });
 			if ((await this.prepareTransition(transition)).cancelled) return { cancelled: true };
+			await this.interruptActiveTurn(previous, "switch_session");
 
 			const sessionId = this.options.resolveSessionId(sessionPath);
 			if (!sessionId) throw new Error(`Greenfield session path is invalid: ${sessionPath}`);
@@ -250,8 +261,20 @@ export class CodingAgentGreenfieldActiveSessionHost {
 
 	private bindActiveEvents(): void {
 		this.activeEventUnsubscribe = this.activeSession.subscribe((event) => {
+			if (this.suppressActiveEvents) return;
 			for (const listener of this.listeners) listener(event);
 		});
+	}
+
+	private async interruptActiveTurn(session: GreenfieldRuntimeSession, reason: string): Promise<void> {
+		if (!session.readState().isStreaming) return;
+		this.suppressActiveEvents = true;
+		try {
+			await session.abort(reason);
+			await waitForIdle(session);
+		} finally {
+			this.suppressActiveEvents = false;
+		}
 	}
 
 	private async createInitializedSession(
@@ -326,13 +349,21 @@ export class CodingAgentGreenfieldActiveSessionHost {
 }
 
 async function waitForIdle(session: GreenfieldRuntimeSession): Promise<void> {
-	if (!session.readState().isStreaming) return;
 	await new Promise<void>((resolve) => {
-		const unsubscribe = session.subscribe((event) => {
+		let unsubscribe: (() => void) | undefined;
+		let settled = false;
+		const finish = (): void => {
+			if (settled) return;
+			settled = true;
+			unsubscribe?.();
+			resolve();
+		};
+		unsubscribe = session.subscribe((event) => {
 			if (event.type !== "session.lifecycle") return;
 			if (event.phase !== "agent_end" && event.phase !== "aborted") return;
-			unsubscribe();
-			resolve();
+			finish();
 		});
+		if (settled) unsubscribe();
+		else if (!session.readState().isStreaming) finish();
 	});
 }
