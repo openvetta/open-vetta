@@ -163,6 +163,7 @@
 | [153-active-turn-session-transition.md](./08-implementation-log/153-active-turn-session-transition.md) | 活动 Turn 会话切换、Turn 准入、所有权转移与安装产物门禁 |
 | [154-rpc-command-drain-and-shutdown.md](./08-implementation-log/154-rpc-command-drain-and-shutdown.md) | RPC 已接收命令 drain、异步 Extension shutdown 与关闭事务 |
 | [155-rpc-background-turn-ownership.md](./08-implementation-log/155-rpc-background-turn-ownership.md) | RPC 后台 prompt 所有权、Bridge 取消与关闭收敛 |
+| [156-rpc-cancellable-long-operation-scope.md](./08-implementation-log/156-rpc-cancellable-long-operation-scope.md) | RPC 可取消长操作作用域、选择性 drain 与 Retry timer 所有权 |
 
 ## 维护约定
 

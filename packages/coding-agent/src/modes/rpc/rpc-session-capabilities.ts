@@ -86,12 +86,12 @@ export interface RpcQueueCapability {
 }
 
 export interface RpcContextCapability {
-	compact(customInstructions?: string): Promise<CompactionResult>;
+	compact(customInstructions?: string, signal?: AbortSignal): Promise<CompactionResult>;
 	setAutoCompactionEnabled(enabled: boolean): void;
 }
 
 export interface RpcMemoryCapability {
-	flushMemory(): Promise<number>;
+	flushMemory(signal?: AbortSignal): Promise<number>;
 }
 
 export interface RpcRetryCapability {
@@ -100,7 +100,7 @@ export interface RpcRetryCapability {
 }
 
 export interface RpcBashCapability {
-	execute(command: string): Promise<BashResult>;
+	execute(command: string, signal?: AbortSignal): Promise<BashResult>;
 	abort(): void;
 }
 

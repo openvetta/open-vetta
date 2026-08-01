@@ -88,18 +88,27 @@ export class LegacyRpcSessionAdapter implements RpcSessionCapabilities {
 			setFollowUpMode: (mode) => this.agentSession.setFollowUpMode(mode),
 		};
 		this.context = {
-			compact: (customInstructions) => this.agentSession.compact(customInstructions),
+			compact: (customInstructions, signal) => this.agentSession.compact(customInstructions, signal),
 			setAutoCompactionEnabled: (enabled) => this.agentSession.setAutoCompactionEnabled(enabled),
 		};
 		this.memory = {
-			flushMemory: () => this.agentSession.flushMemory(),
+			flushMemory: (signal) => this.agentSession.flushMemory(signal),
 		};
 		this.retry = {
 			setAutoRetryEnabled: (enabled) => this.agentSession.setAutoRetryEnabled(enabled),
 			abortRetry: () => this.agentSession.abortRetry(),
 		};
 		this.bash = {
-			execute: (command) => this.agentSession.executeBash(command),
+			execute: async (command, signal) => {
+				signal?.throwIfAborted();
+				const abort = () => this.agentSession.abortBash();
+				signal?.addEventListener("abort", abort, { once: true });
+				try {
+					return await this.agentSession.executeBash(command);
+				} finally {
+					signal?.removeEventListener("abort", abort);
+				}
+			},
 			abort: () => this.agentSession.abortBash(),
 		};
 		this.session = {

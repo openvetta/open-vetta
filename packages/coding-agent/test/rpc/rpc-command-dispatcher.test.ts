@@ -14,7 +14,10 @@ describe("RPC command dispatcher", () => {
 	test("dispatches the complete valid command surface through grouped capabilities", async () => {
 		const session = createSessionCapabilities();
 		const output = vi.fn<RpcFrameOutput>();
-		const dispatch = createRpcCommandDispatcher(session, output);
+		const longOperationController = new AbortController();
+		const dispatch = createRpcCommandDispatcher(session, output, {
+			longOperationSignal: longOperationController.signal,
+		});
 		const commands: RpcCommand[] = [
 			{ id: "prompt", type: "prompt", message: "hello", streamingBehavior: "steer" },
 			{ id: "steer", type: "steer", message: "steer" },
@@ -71,8 +74,9 @@ describe("RPC command dispatcher", () => {
 		});
 		expect(required(session.session).setName).toHaveBeenCalledWith("named");
 		expect(required(session.session).newSession).toHaveBeenCalledWith("parent.jsonl");
-		expect(required(session.context).compact).toHaveBeenCalledWith("keep facts");
-		expect(required(session.bash).execute).toHaveBeenCalledWith("echo ok");
+		expect(required(session.context).compact).toHaveBeenCalledWith("keep facts", longOperationController.signal);
+		expect(required(session.memory).flushMemory).toHaveBeenCalledWith(longOperationController.signal);
+		expect(required(session.bash).execute).toHaveBeenCalledWith("echo ok", longOperationController.signal);
 		expect(output).not.toHaveBeenCalled();
 	});
 
@@ -234,6 +238,52 @@ describe("RPC command dispatcher", () => {
 			expect.objectContaining({ id: "drain-state", command: "get_state", success: true }),
 		]);
 		expect(session.dispose).toHaveBeenCalledOnce();
+	});
+
+	test("cancels transport-scoped long operations before draining handlers and disposing", async () => {
+		const session = createSessionCapabilities();
+		const lifecycle: string[] = [];
+		const signals: AbortSignal[] = [];
+		required(session.context).compact = vi.fn((_customInstructions, signal) =>
+			settleWhenAborted(
+				signal,
+				{
+					summary: "cancelled compact",
+					firstKeptEntryId: "kept",
+					tokensBefore: 1,
+				},
+				() => lifecycle.push("compact-aborted"),
+				signals,
+			),
+		);
+		required(session.memory).flushMemory = vi.fn((signal) =>
+			settleWhenAborted(signal, 0, () => lifecycle.push("memory-aborted"), signals),
+		);
+		required(session.bash).execute = vi.fn((_command, signal) =>
+			settleWhenAborted(
+				signal,
+				{ output: "", exitCode: undefined, cancelled: true, truncated: false },
+				() => lifecycle.push("bash-aborted"),
+				signals,
+			),
+		);
+		session.dispose = vi.fn(async () => {
+			lifecycle.push("dispose");
+		});
+		const input = new PassThrough();
+		const output = new PassThrough();
+		const exit = vi.fn();
+
+		void runRpcModeWithCapabilities(session, { input, output, exit });
+		input.write('{"id":"held-compact","type":"compact"}\n');
+		input.write('{"id":"held-memory","type":"flush_memory"}\n');
+		input.write('{"id":"held-bash","type":"bash","command":"hold"}\n');
+		await vi.waitFor(() => expect(signals).toHaveLength(3));
+		input.end();
+		await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(0));
+
+		expect(new Set(signals).size).toBe(1);
+		expect(lifecycle).toEqual(["compact-aborted", "memory-aborted", "bash-aborted", "dispose"]);
 	});
 
 	test("waits for an accepted prompt background task after session disposal before exiting", async () => {
@@ -538,6 +588,27 @@ function isFrameType(frame: unknown, type: string): boolean {
 
 function isRpcResponse(frame: unknown): frame is RpcResponse {
 	return isFrameType(frame, "response");
+}
+
+function settleWhenAborted<T>(
+	signal: AbortSignal | undefined,
+	value: T,
+	onAbort: () => void,
+	signals: AbortSignal[],
+): Promise<T> {
+	if (!signal) throw new Error("Expected long-operation abort signal");
+	signals.push(signal);
+	return new Promise((resolve) => {
+		const settle = () => {
+			onAbort();
+			resolve(value);
+		};
+		if (signal.aborted) {
+			settle();
+		} else {
+			signal.addEventListener("abort", settle, { once: true });
+		}
+	});
 }
 
 function required<T>(value: T | undefined): T {

@@ -812,8 +812,8 @@ export class AgentSession {
 	 * Aborts current agent operation first.
 	 * @param customInstructions Optional instructions for the compaction summary
 	 */
-	async compact(customInstructions?: string): Promise<CompactionResult> {
-		return this._compaction.compact(customInstructions);
+	async compact(customInstructions?: string, signal?: AbortSignal): Promise<CompactionResult> {
+		return this._compaction.compact(customInstructions, signal);
 	}
 
 	/**
@@ -836,8 +836,8 @@ export class AgentSession {
 	 * rollover threshold still gets its memory凝结. memory-mode only; best-effort;
 	 * returns the number of entries written.
 	 */
-	async flushMemory(): Promise<number> {
-		return this._compaction.flushMemory();
+	async flushMemory(signal?: AbortSignal): Promise<number> {
+		return this._compaction.flushMemory(signal);
 	}
 
 	/**

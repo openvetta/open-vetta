@@ -61,9 +61,11 @@ export class CompactionController {
 	 * Consolidate durable facts from the CURRENT context into MEMORY.md on demand
 	 * (ADR-0009). memory-mode only; best-effort; returns the number of entries written.
 	 */
-	async flushMemory(): Promise<number> {
+	async flushMemory(signal?: AbortSignal): Promise<number> {
+		signal?.throwIfAborted();
 		if (!this.ctx.memoryMode || !this.ctx.memoryFile || !this.ctx.model) return 0;
 		const apiKey = await this.ctx.modelRegistry.getApiKey(this.ctx.model);
+		signal?.throwIfAborted();
 		if (!apiKey) return 0;
 		const messages = this.ctx.sessionManager.buildSessionContext().messages;
 		if (messages.length === 0) return 0;
@@ -73,6 +75,7 @@ export class CompactionController {
 			messages,
 			model: this.ctx.model,
 			apiKey,
+			signal,
 		});
 		return written.length;
 	}
@@ -81,12 +84,19 @@ export class CompactionController {
 	 * Manually compact the session context.
 	 * Aborts current agent operation first.
 	 */
-	async compact(customInstructions?: string): Promise<CompactionResult> {
+	async compact(customInstructions?: string, signal?: AbortSignal): Promise<CompactionResult> {
 		this.ctx.disconnectFromAgent();
 		await this.ctx.abort();
 		this._compactionAbortController = new AbortController();
+		const abortFromCaller = () => this._compactionAbortController?.abort(signal?.reason);
+		if (signal?.aborted) {
+			abortFromCaller();
+		} else {
+			signal?.addEventListener("abort", abortFromCaller, { once: true });
+		}
 
 		try {
+			signal?.throwIfAborted();
 			if (!this.ctx.model) {
 				throw new Error("No model selected");
 			}
@@ -197,6 +207,7 @@ export class CompactionController {
 				details,
 			};
 		} finally {
+			signal?.removeEventListener("abort", abortFromCaller);
 			this._compactionAbortController = undefined;
 			this.ctx.reconnectToAgent();
 		}

@@ -55,6 +55,7 @@ export async function runRpcModeWithCapabilities(
 	const extensionUI = new RpcExtensionUIBridge(output);
 	const hostBridge = options.enableHostBridge ? new RpcHostBridge(output) : undefined;
 	const backgroundTasks = new Set<Promise<void>>();
+	const longOperationController = new AbortController();
 	const dispatch = createRpcCommandDispatcher(session, output, {
 		onBackgroundTask: (task) => {
 			backgroundTasks.add(task);
@@ -63,6 +64,7 @@ export async function runRpcModeWithCapabilities(
 				() => backgroundTasks.delete(task),
 			);
 		},
+		longOperationSignal: longOperationController.signal,
 	});
 	const exit = options.exit ?? ((code: number): never => process.exit(code));
 	let shutdownRequested = false;
@@ -104,6 +106,7 @@ export async function runRpcModeWithCapabilities(
 			unsubscribe();
 			extensionUI.dispose();
 			hostBridge?.dispose();
+			longOperationController.abort("RPC transport closed");
 			await Promise.allSettled([...inFlightHandlers]);
 			if (backgroundTasks.size > 0) await session.turn?.abort();
 			await session.dispose();

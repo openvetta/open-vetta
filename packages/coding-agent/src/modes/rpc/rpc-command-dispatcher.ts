@@ -5,6 +5,7 @@ export type RpcFrameOutput = (frame: unknown) => void;
 
 export interface RpcCommandDispatcherOptions {
 	readonly onBackgroundTask?: (task: Promise<void>) => void;
+	readonly longOperationSignal?: AbortSignal;
 }
 
 export function rpcSuccess<T extends RpcCommand["type"]>(
@@ -107,6 +108,7 @@ export function createRpcCommandDispatcher(
 			case "compact": {
 				const result = await requireCapability(session.context, "context", command.type).compact(
 					command.customInstructions,
+					options.longOperationSignal,
 				);
 				return rpcSuccess(id, "compact", result);
 			}
@@ -115,7 +117,9 @@ export function createRpcCommandDispatcher(
 				return rpcSuccess(id, "set_auto_compaction");
 			}
 			case "flush_memory": {
-				const written = await requireCapability(session.memory, "memory", command.type).flushMemory();
+				const written = await requireCapability(session.memory, "memory", command.type).flushMemory(
+					options.longOperationSignal,
+				);
 				return rpcSuccess(id, "flush_memory", { written });
 			}
 			case "set_auto_retry": {
@@ -127,7 +131,10 @@ export function createRpcCommandDispatcher(
 				return rpcSuccess(id, "abort_retry");
 			}
 			case "bash": {
-				const result = await requireCapability(session.bash, "bash", command.type).execute(command.command);
+				const result = await requireCapability(session.bash, "bash", command.type).execute(
+					command.command,
+					options.longOperationSignal,
+				);
 				return rpcSuccess(id, "bash", result);
 			}
 			case "abort_bash": {

@@ -131,7 +131,10 @@ export class GreenfieldImRpcSessionAdapter implements RpcSessionCapabilities {
 			readMessages: () => this.readCore().corePorts.stateReader.readMessages(),
 		} satisfies NonNullable<RpcSessionCapabilities["state"]>;
 		this.memory = {
-			flushMemory: () => this.runtime.flushMemory(this.readSession().sessionId),
+			flushMemory: (signal?: AbortSignal) =>
+				signal
+					? this.runtime.flushMemory(this.readSession().sessionId, signal)
+					: this.runtime.flushMemory(this.readSession().sessionId),
 		} satisfies NonNullable<RpcSessionCapabilities["memory"]>;
 		this.session = {
 			newSession: async (parentSession) =>

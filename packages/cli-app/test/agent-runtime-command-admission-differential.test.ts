@@ -122,6 +122,20 @@ describe("Agent Runtime RPC command admission differential", () => {
 		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	}, 30_000);
 
+	it("cancels an accepted memory flush before transport exit", async () => {
+		const observations = {} as Record<TestAgentRuntimeBackend, MemoryFlushShutdownObservation>;
+		for (const backend of BACKENDS) observations[backend] = await runHeldMemoryFlushThenClose(backend);
+
+		expect(observations.legacy).toEqual({
+			exitCode: 0,
+			providerRequestClosed: true,
+			providerRequestCount: 2,
+			flushResponseCount: 1,
+			ownershipLockCount: 0,
+		});
+		expect(observations["greenfield-im"]).toEqual(observations.legacy);
+	}, 30_000);
+
 	it("settles a prompt waiting on host_response before transport exit", async () => {
 		const observations = {} as Record<TestAgentRuntimeBackend, HostBridgeShutdownObservation>;
 		for (const backend of BACKENDS) observations[backend] = await runHostBridgeThenClose(backend);
@@ -201,6 +215,14 @@ interface PromptShutdownObservation {
 	readonly providerRequestCount: number;
 	readonly promptResponseCount: number;
 	readonly terminalOutcomeCount: number;
+	readonly ownershipLockCount: number;
+}
+
+interface MemoryFlushShutdownObservation {
+	readonly exitCode: number;
+	readonly providerRequestClosed: boolean;
+	readonly providerRequestCount: number;
+	readonly flushResponseCount: number;
 	readonly ownershipLockCount: number;
 }
 
@@ -508,6 +530,51 @@ async function runHeldPromptThenClose(backend: TestAgentRuntimeBackend): Promise
 				(frame) => frame.type === "response" && frame.id === "prompt-close-held" && frame.command === "prompt",
 			).length,
 			terminalOutcomeCount: countPromptTerminalOutcomes(frames, "prompt-close-held"),
+			ownershipLockCount: await countOwnershipLocks(fixture),
+		};
+	} finally {
+		await process?.close();
+		await fixture?.dispose();
+		await server.dispose();
+	}
+}
+
+async function runHeldMemoryFlushThenClose(backend: TestAgentRuntimeBackend): Promise<MemoryFlushShutdownObservation> {
+	let fixture: AgentRpcFixture | undefined;
+	let process: AgentRpcProcess | undefined;
+	const server = await startOpenAiResponsesTestServer((_request, index) =>
+		index === 0 ? { kind: "events", events: textResponseEvents("Seed memory flush context") } : { kind: "hold" },
+	);
+	try {
+		fixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
+		const memoryFile = join(fixture.workspace, "MEMORY.md");
+		await writeFile(memoryFile, "# Memory\n", "utf8");
+		process = startAgentRpc(executable, fixture, {
+			backend,
+			extraArgs: ["--memory-mode", "--memory-file", memoryFile],
+		});
+		const seedMark = process.mark();
+		await process.request("memory-close-seed", "prompt", { message: "Seed memory flush context" });
+		await process.waitFor((frame) => frame.type === "agent_end", seedMark, 5_000);
+
+		const flushMark = process.mark();
+		process.send({ id: "memory-close-flush", type: "flush_memory" });
+		await server.waitForHeldRequestStarted(5_000);
+		const exitCode = await process.close();
+		await server.waitForHeldRequestClosed(5_000);
+		const frames = process.framesSince(flushMark);
+
+		return {
+			exitCode,
+			providerRequestClosed: true,
+			providerRequestCount: server.requests.length,
+			flushResponseCount: frames.filter(
+				(frame) =>
+					frame.type === "response" &&
+					frame.id === "memory-close-flush" &&
+					frame.command === "flush_memory" &&
+					frame.success === true,
+			).length,
 			ownershipLockCount: await countOwnershipLocks(fixture),
 		};
 	} finally {

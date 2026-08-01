@@ -49,6 +49,7 @@ export type ProviderRequestHandler = (
 export interface OpenAiResponsesTestServer {
 	readonly baseUrl: string;
 	readonly requests: readonly ProviderRequestRecord[];
+	waitForHeldRequestStarted(timeoutMs?: number): Promise<void>;
 	waitForHeldRequestClosed(timeoutMs?: number): Promise<void>;
 	dispose(): Promise<void>;
 }
@@ -59,6 +60,10 @@ export async function startOpenAiResponsesTestServer(
 	const requests: ProviderRequestRecord[] = [];
 	let heldRequestClosed: Promise<void> | undefined;
 	let resolveHeldRequestClosed: (() => void) | undefined;
+	let resolveHeldRequestStarted: (() => void) | undefined;
+	const heldRequestStarted = new Promise<void>((resolve) => {
+		resolveHeldRequestStarted = resolve;
+	});
 	const server = createServer(async (request, response) => {
 		if (request.method !== "POST" || request.url !== "/responses") {
 			response.writeHead(404).end();
@@ -93,6 +98,7 @@ export async function startOpenAiResponsesTestServer(
 				resolveHeldRequestClosed = resolve;
 			});
 			response.once("close", () => resolveHeldRequestClosed?.());
+			resolveHeldRequestStarted?.();
 		} catch (error) {
 			if (!response.headersSent) response.writeHead(500, { "content-type": "text/plain" });
 			response.end(error instanceof Error ? error.stack : String(error));
@@ -108,6 +114,9 @@ export async function startOpenAiResponsesTestServer(
 		baseUrl: `http://127.0.0.1:${address.port}`,
 		get requests() {
 			return requests;
+		},
+		async waitForHeldRequestStarted(timeoutMs = 10_000) {
+			await withTimeout(heldRequestStarted, timeoutMs, "Timed out waiting for held Provider request to start");
 		},
 		async waitForHeldRequestClosed(timeoutMs = 10_000) {
 			const pending = heldRequestClosed;

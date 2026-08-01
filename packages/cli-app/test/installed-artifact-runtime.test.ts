@@ -397,6 +397,47 @@ describe("installed standalone CLI artifact", () => {
 		activeProcess = undefined;
 	}, 120_000);
 
+	it("cancels an accepted memory flush before installed transport cleanup", async () => {
+		await expectStandaloneArtifact(artifact);
+
+		providerServer = await startOpenAiResponsesTestServer((_request, index) =>
+			index === 0 ? { kind: "events", events: textResponseEvents("Installed memory flush seed") } : { kind: "hold" },
+		);
+		fixture = await createAgentRpcFixture({ baseUrl: providerServer.baseUrl });
+		const memoryFile = join(fixture.workspace, "MEMORY.md");
+		await writeFile(memoryFile, "# Memory\n", "utf8");
+		activeProcess = startInstalledCli(artifact.binaryPath, fixture, createIsolatedArtifactEnv(fixture), {
+			noSkills: true,
+			extraArgs: ["--memory-mode", "--memory-file", memoryFile],
+		});
+		await promptInstalledTurn(activeProcess, "installed-memory-close-seed", "Seed installed memory flush context");
+
+		const flushMark = activeProcess.mark();
+		activeProcess.send({ id: "installed-memory-close-flush", type: "flush_memory" });
+		await providerServer.waitForHeldRequestStarted(5_000);
+		await expect(activeProcess.close()).resolves.toBe(0);
+		await providerServer.waitForHeldRequestClosed(5_000);
+
+		expect(providerServer.requests).toHaveLength(2);
+		expect(
+			activeProcess
+				.framesSince(flushMark)
+				.filter(
+					(frame) =>
+						frame.type === "response" &&
+						frame.id === "installed-memory-close-flush" &&
+						frame.command === "flush_memory" &&
+						frame.success === true,
+				),
+		).toHaveLength(1);
+		expect(
+			(await readdir(fixture.conversationDir)).filter(
+				(name) => name.endsWith(".lock") || name.endsWith(".owner.lock"),
+			),
+		).toEqual([]);
+		activeProcess = undefined;
+	}, 120_000);
+
 	it("settles an installed prompt waiting on host_response before transport exit", async () => {
 		await expectStandaloneArtifact(artifact);
 
