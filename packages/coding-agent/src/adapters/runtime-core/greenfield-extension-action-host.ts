@@ -1,4 +1,4 @@
-import { type ImageContent, Type } from "@vetta/ai";
+import { type ImageContent, modelsAreEqual, Type } from "@vetta/ai";
 import type { GreenfieldRuntimeSession } from "@vetta/runtime-core";
 import type { RuntimeToolDefinition, SessionContextRecord } from "@vetta/runtime-core/kernel";
 import { bindExtensionRuntimeActions } from "../../core/extensions/execution-host.js";
@@ -6,6 +6,7 @@ import type {
 	ExtensionActions,
 	ExtensionError,
 	ExtensionRuntime,
+	ModelSelectEvent,
 	SetModelHandler,
 	ToolInfo,
 } from "../../core/extensions/types.js";
@@ -16,6 +17,7 @@ import { CODING_AGENT_EXTENSION_INPUT_SOURCE_METADATA_KEY } from "./greenfield-p
 export interface CodingAgentGreenfieldExtensionActionHostOptions {
 	readonly session: GreenfieldRuntimeSession;
 	readonly resourceLoader: Pick<ResourceLoader, "getPrompts" | "getSkills">;
+	readonly onModelSelect?: (event: ModelSelectEvent) => Promise<void>;
 	readonly onError?: (error: ExtensionError) => void;
 	readonly now?: () => number;
 }
@@ -41,7 +43,17 @@ export class CodingAgentGreenfieldExtensionActionHost {
 		const setModel: SetModelHandler = async (model) => {
 			await this.mutationTail;
 			if (!(await assembly.modelView.resolveApiKey(model))) return false;
+			const previousModel = options.session.readState().model;
 			await assembly.modelController.selectModel(`${model.provider}/${model.id}`, "always");
+			const selectedModel = options.session.readState().model ?? model;
+			if (!modelsAreEqual(previousModel, selectedModel)) {
+				await options.onModelSelect?.({
+					type: "model_select",
+					model: selectedModel,
+					previousModel,
+					source: "set",
+				});
+			}
 			return true;
 		};
 

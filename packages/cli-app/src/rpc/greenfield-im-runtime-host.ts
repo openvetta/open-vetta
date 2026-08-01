@@ -15,6 +15,7 @@ import {
 	CodingAgentGreenfieldExtensionEventHost,
 	CodingAgentGreenfieldResourceReloadHost,
 	type CodingAgentPluginRuntimeSource,
+	createCodingAgentCompactionExtensionRuntime,
 	createCodingAgentMcpRuntimeToolSource,
 	createCodingAgentPluginMcpRuntime,
 	type ExtensionCommandContextActions,
@@ -103,6 +104,8 @@ export async function prepareGreenfieldImRuntimeHost(
 		events: CODING_AGENT_GREENFIELD_EXTENSION_EVENTS,
 		tools: true,
 		commands: true,
+		inapplicableRuntimeCapabilities: ["shortcut", "message-renderer"],
+		inapplicableEvents: ["user_bash"],
 	});
 	if (extensionCompatibility.requiresLegacyRuntime) {
 		return {
@@ -170,6 +173,8 @@ export async function prepareGreenfieldImRuntimeHost(
 			promptResourceSource: bootstrap.resourceLoader,
 			promptSettingsSource: bootstrap.settingsManager,
 			resolveCompactionSettings: () => bootstrap.settingsManager.getCompactionSettings(),
+			createCompactionExtensionRuntime: () =>
+				createCodingAgentCompactionExtensionRuntime(() => extensionSessionHost?.readRunner()),
 			createPluginRuntime: options.createPluginRuntime,
 			extensionTools: bootstrap.extensionsResult.extensions,
 			createPluginMcpRuntime: ({ agentDir }) => createCodingAgentPluginMcpRuntime({ agentDir, debug: mcpDebug }),

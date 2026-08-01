@@ -33,6 +33,9 @@ describe("Legacy RPC session adapter", () => {
 			"memory",
 		]);
 		expect(session.bindExtensions).toHaveBeenCalledOnce();
+		adapter.commands.readCommands();
+		expect(session.extensionRunner.getShortcuts).not.toHaveBeenCalled();
+		expect(session.extensionRunner.getMessageRenderer).not.toHaveBeenCalled();
 
 		const listener = vi.fn();
 		const unsubscribe = adapter.subscribe(listener);
@@ -66,6 +69,8 @@ function createLegacySessionDouble(model: Model<Api>) {
 		hasHandlers: vi.fn(() => true),
 		emit: vi.fn(async () => {}),
 		getRegisteredCommandsWithPaths: vi.fn(() => []),
+		getShortcuts: vi.fn(() => new Map()),
+		getMessageRenderer: vi.fn(() => undefined),
 	};
 	const value = {
 		model,

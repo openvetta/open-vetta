@@ -148,6 +148,7 @@
 | [138-greenfield-extension-command-host-and-rpc-discovery.md](./08-implementation-log/138-greenfield-extension-command-host-and-rpc-discovery.md) | Greenfield Extension Command Host 边界、RPC Prompt/Skill 发现与安全回退 |
 | [139-active-session-transition-host.md](./08-implementation-log/139-active-session-transition-host.md) | Active Session Transition Host、RPC 会话事务与 setup 迁移桥 |
 | [140-extension-command-context-and-runtime-reload.md](./08-implementation-log/140-extension-command-context-and-runtime-reload.md) | Extension Command Context、树导航、动态 Runner/Tool 与热重载事务 |
+| [141-extension-host-capability-closure.md](./08-implementation-log/141-extension-host-capability-closure.md) | Extension 宿主能力三态、资源发现、压缩与模型事件闭环 |
 
 ## 维护约定
 

@@ -25,7 +25,9 @@ describe("Coding Agent Extension compatibility assessment", () => {
 			},
 			registrations: [],
 			requiredRuntimeCapabilities: [],
+			inapplicableRuntimeCapabilities: [],
 			unmetRuntimeCapabilities: [],
+			inapplicableEvents: [],
 			unsupportedEvents: [],
 			requiresLegacyRuntime: false,
 		});
@@ -97,6 +99,7 @@ describe("Coding Agent Extension compatibility assessment", () => {
 				"shortcut",
 				"message-renderer",
 			],
+			inapplicableRuntimeCapabilities: [],
 			unmetRuntimeCapabilities: [
 				"opaque-runtime-api",
 				"event-handler",
@@ -105,6 +108,7 @@ describe("Coding Agent Extension compatibility assessment", () => {
 				"shortcut",
 				"message-renderer",
 			],
+			inapplicableEvents: [],
 			unsupportedEvents: ["agent_start", "turn_end"],
 			requiresLegacyRuntime: true,
 		});
@@ -152,6 +156,8 @@ describe("Coding Agent Extension compatibility assessment", () => {
 						["before_agent_start", [async () => undefined]],
 						["session_start", [async () => undefined]],
 						["session_shutdown", [async () => undefined]],
+						["session_before_compact", [async () => undefined]],
+						["session_compact", [async () => undefined]],
 						["agent_start", [async () => undefined]],
 						["agent_end", [async () => undefined]],
 						["turn_start", [async () => undefined]],
@@ -165,6 +171,8 @@ describe("Coding Agent Extension compatibility assessment", () => {
 						["tool_execution_update", [async () => undefined]],
 						["tool_execution_phase", [async () => undefined]],
 						["tool_execution_end", [async () => undefined]],
+						["model_select", [async () => undefined]],
+						["resources_discover", [async () => undefined]],
 					]),
 					tools: new Map(),
 					commands: new Map(),
@@ -182,6 +190,40 @@ describe("Coding Agent Extension compatibility assessment", () => {
 			unmetRuntimeCapabilities: [],
 			unsupportedEvents: [],
 			requiresLegacyRuntime: false,
+		});
+	});
+
+	it("distinguishes host-inapplicable registrations from unsupported runtime gaps", () => {
+		const assessment = assessCodingAgentExtensionCompatibility({
+			extensions: [
+				{
+					path: "rpc-ui-extension.ts",
+					handlers: new Map([
+						["user_bash", [async () => undefined]],
+						["unknown_event", [async () => undefined]],
+					]),
+					tools: new Map(),
+					commands: new Map(),
+					shortcuts: new Map([["ctrl+r", {}]]),
+					flags: new Map(),
+					messageRenderers: new Map([["report-card", {}]]),
+				},
+			],
+			pendingProviderNames: [],
+		});
+
+		expect(
+			resolveCodingAgentGreenfieldExtensionCompatibility(assessment, {
+				...GREENFIELD_EXTENSION_HOST_CAPABILITIES,
+				inapplicableRuntimeCapabilities: ["shortcut", "message-renderer"],
+				inapplicableEvents: ["user_bash"],
+			}),
+		).toMatchObject({
+			inapplicableRuntimeCapabilities: ["shortcut", "message-renderer"],
+			unmetRuntimeCapabilities: ["event-handler"],
+			inapplicableEvents: ["user_bash"],
+			unsupportedEvents: ["unknown_event"],
+			requiresLegacyRuntime: true,
 		});
 	});
 

@@ -70,6 +70,7 @@ export class GreenfieldImExtensionSessionHost {
 			shutdownHandler: input.onShutdownRequested,
 			onError: input.onExtensionError,
 		});
+		await this.current.events.discoverResources("startup");
 	}
 
 	async before(
@@ -173,6 +174,7 @@ export class GreenfieldImExtensionSessionHost {
 				);
 			}
 			if (this.initialization) await next.events.runner.emit({ type: "session_start" });
+			await next.events.discoverResources("reload");
 			this.current = next;
 		} catch (error) {
 			if (next) await next.events.dispose({ emitSessionShutdown: false });

@@ -82,7 +82,9 @@ describe("Coding Agent Host Bootstrap", () => {
 			bootstrapContributions: { providers: [], flags: [] },
 			registrations: [],
 			requiredRuntimeCapabilities: [],
+			inapplicableRuntimeCapabilities: [],
 			unmetRuntimeCapabilities: [],
+			inapplicableEvents: [],
 			unsupportedEvents: [],
 			requiresLegacyRuntime: false,
 		});

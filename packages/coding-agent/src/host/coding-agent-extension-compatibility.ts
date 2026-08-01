@@ -36,7 +36,9 @@ export interface CodingAgentExtensionCompatibilityAssessment {
 	readonly bootstrapContributions: CodingAgentExtensionBootstrapContributions;
 	readonly registrations: readonly CodingAgentExtensionRegistrationSummary[];
 	readonly requiredRuntimeCapabilities: readonly CodingAgentLegacyExtensionRuntimeCapability[];
+	readonly inapplicableRuntimeCapabilities: readonly CodingAgentLegacyExtensionRuntimeCapability[];
 	readonly unmetRuntimeCapabilities: readonly CodingAgentLegacyExtensionRuntimeCapability[];
+	readonly inapplicableEvents: readonly string[];
 	readonly unsupportedEvents: readonly string[];
 	readonly requiresLegacyRuntime: boolean;
 }
@@ -48,6 +50,8 @@ export interface CodingAgentGreenfieldExtensionHostCapabilities {
 	readonly commands?: boolean;
 	readonly shortcuts?: boolean;
 	readonly messageRenderers?: boolean;
+	readonly inapplicableRuntimeCapabilities?: readonly CodingAgentLegacyExtensionRuntimeCapability[];
+	readonly inapplicableEvents?: readonly string[];
 }
 
 interface AssessCodingAgentExtensionCompatibilityInput {
@@ -75,6 +79,8 @@ export const CODING_AGENT_GREENFIELD_EXTENSION_EVENTS = [
 	"session_fork",
 	"session_before_tree",
 	"session_tree",
+	"session_before_compact",
+	"session_compact",
 	"agent_start",
 	"agent_end",
 	"turn_start",
@@ -89,6 +95,8 @@ export const CODING_AGENT_GREENFIELD_EXTENSION_EVENTS = [
 	"tool_execution_update",
 	"tool_execution_phase",
 	"tool_execution_end",
+	"model_select",
+	"resources_discover",
 ] as const;
 
 /**
@@ -126,7 +134,9 @@ export function assessCodingAgentExtensionCompatibility(
 		bootstrapContributions,
 		registrations,
 		requiredRuntimeCapabilities,
+		inapplicableRuntimeCapabilities: [],
 		unmetRuntimeCapabilities: requiredRuntimeCapabilities,
+		inapplicableEvents: [],
 		unsupportedEvents: sortedUnique(registrations.flatMap((registration) => registration.events)),
 		requiresLegacyRuntime: requiredRuntimeCapabilities.length > 0,
 	};
@@ -134,17 +144,27 @@ export function assessCodingAgentExtensionCompatibility(
 
 /**
  * Greenfield Action Host 已覆盖命令式 API；事件能力按具体事件名消除缺口。
- * Tool 注册、Command、Shortcut 与 Renderer 仍按独立能力回退。
+ * 宿主没有承载面的能力必须显式声明为不适用，不能伪装成已支持。
  */
 export function resolveCodingAgentGreenfieldExtensionCompatibility(
 	assessment: CodingAgentExtensionCompatibilityAssessment,
 	capabilities: CodingAgentGreenfieldExtensionHostCapabilities,
 ): CodingAgentExtensionCompatibilityAssessment {
 	const supported = new Set(capabilities.events);
-	const unsupportedEvents = sortedUnique(
-		assessment.registrations.flatMap((registration) => registration.events.filter((event) => !supported.has(event))),
+	const inapplicableCapabilitySet = new Set(capabilities.inapplicableRuntimeCapabilities ?? []);
+	const inapplicableEventSet = new Set(capabilities.inapplicableEvents ?? []);
+	const registeredEvents = assessment.registrations.flatMap((registration) => registration.events);
+	const inapplicableEvents = sortedUnique(
+		registeredEvents.filter((event) => !supported.has(event) && inapplicableEventSet.has(event)),
 	);
-	const unmetRuntimeCapabilities = assessment.unmetRuntimeCapabilities.filter((capability) => {
+	const unsupportedEvents = sortedUnique(
+		registeredEvents.filter((event) => !supported.has(event) && !inapplicableEventSet.has(event)),
+	);
+	const inapplicableRuntimeCapabilities = assessment.requiredRuntimeCapabilities.filter((capability) =>
+		inapplicableCapabilitySet.has(capability),
+	);
+	const unmetRuntimeCapabilities = assessment.requiredRuntimeCapabilities.filter((capability) => {
+		if (inapplicableCapabilitySet.has(capability)) return false;
 		if (capability === "opaque-runtime-api") return !capabilities.actions;
 		if (capability === "event-handler") return unsupportedEvents.length > 0;
 		if (capability === "tool") return capabilities.tools !== true;
@@ -154,7 +174,9 @@ export function resolveCodingAgentGreenfieldExtensionCompatibility(
 	});
 	return {
 		...assessment,
+		inapplicableRuntimeCapabilities,
 		unmetRuntimeCapabilities,
+		inapplicableEvents,
 		unsupportedEvents,
 		requiresLegacyRuntime: unmetRuntimeCapabilities.length > 0,
 	};

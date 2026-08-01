@@ -256,6 +256,133 @@ describe("Greenfield IM Runtime Host", () => {
 		});
 	});
 
+	it("treats RPC-only UI registrations and user_bash as host-inapplicable", async () => {
+		const fixture = await createFixture(
+			[],
+			`export default function(pi) {
+				pi.registerShortcut("ctrl+shift+r", { handler: async () => {} });
+				pi.registerMessageRenderer("audit-card", () => null);
+				pi.on("user_bash", async () => ({ result: undefined }));
+			}`,
+		);
+
+		const result = await prepareGreenfieldImRuntimeHost({
+			bootstrap: fixture.bootstrap,
+			conversationDir: fixture.conversationDir,
+			sessionCatalog: fixture.sessionCatalog,
+			createSessionId: () => "inapplicable-extension-session",
+		});
+
+		expect(result.kind).toBe("greenfield");
+		if (result.kind !== "greenfield") throw new Error("Expected Greenfield runtime");
+		preparedHosts.push(result);
+	});
+
+	it("applies resources_discover contributions during Extension startup", async () => {
+		const fixture = await createFixture(
+			[],
+			`import { join } from "node:path";
+			export default function(pi) {
+				pi.on("resources_discover", async (event) => ({
+					promptPaths: [join(event.cwd, "extension-prompt.md")],
+				}));
+			}`,
+		);
+		await writeFile(join(fixture.workspace, "extension-prompt.md"), "Discovered prompt", "utf8");
+		const result = await prepareGreenfieldImRuntimeHost({
+			bootstrap: fixture.bootstrap,
+			conversationDir: fixture.conversationDir,
+			sessionCatalog: fixture.sessionCatalog,
+			createSessionId: () => "resource-extension-session",
+		});
+		expect(result.kind).toBe("greenfield");
+		if (result.kind !== "greenfield") throw new Error("Expected Greenfield runtime");
+		preparedHosts.push(result);
+		await initialize(result);
+
+		expect(result.capabilities.commands?.readCommands()).toContainEqual(
+			expect.objectContaining({ name: "extension-prompt", source: "prompt" }),
+		);
+	});
+
+	it("emits model_select when an Extension changes the Greenfield model", async () => {
+		const lifecycle = extensionLifecycleGlobal();
+		lifecycle.__vettaGreenfieldExtensionLifecycle = [];
+		const fixture = await createFixture(
+			[],
+			`const nextModel = {
+				id: "second-model",
+				name: "Second Model",
+				api: "openai-responses",
+				provider: "test",
+				baseUrl: "https://example.test",
+				reasoning: true,
+				input: ["text"],
+				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+				contextWindow: 8000,
+				maxTokens: 1000,
+			};
+			export default function(pi) {
+				pi.on("model_select", async (event) => {
+					globalThis.__vettaGreenfieldExtensionLifecycle.push(
+						(event.previousModel?.id ?? "none") + "->" + event.model.id + ":" + event.source,
+					);
+				});
+				pi.registerCommand("switch-model", {
+					handler: async () => {
+						if (!(await pi.setModel(nextModel))) throw new Error("model selection failed");
+					},
+				});
+			}`,
+		);
+		const result = await prepareGreenfieldImRuntimeHost({
+			bootstrap: fixture.bootstrap,
+			conversationDir: fixture.conversationDir,
+			sessionCatalog: fixture.sessionCatalog,
+			createSessionId: () => "model-select-extension-session",
+		});
+		expect(result.kind).toBe("greenfield");
+		if (result.kind !== "greenfield") throw new Error("Expected Greenfield runtime");
+		preparedHosts.push(result);
+		await initialize(result);
+
+		await result.capabilities.turn?.prompt("/switch-model", { source: "rpc" });
+
+		expect(result.session.readState().model?.id).toBe("second-model");
+		expect(lifecycle.__vettaGreenfieldExtensionLifecycle).toEqual(["test-model->second-model:set"]);
+	});
+
+	it("routes manual compaction through the active Extension runner", async () => {
+		const lifecycle = extensionLifecycleGlobal();
+		lifecycle.__vettaGreenfieldExtensionLifecycle = [];
+		const fixture = await createFixture(
+			[],
+			`export default function(pi) {
+				pi.on("session_before_compact", async () => {
+					globalThis.__vettaGreenfieldExtensionLifecycle.push("before-compact");
+					return { cancel: true };
+				});
+			}`,
+		);
+		const result = await prepareGreenfieldImRuntimeHost({
+			bootstrap: fixture.bootstrap,
+			conversationDir: fixture.conversationDir,
+			sessionCatalog: fixture.sessionCatalog,
+			createSessionId: () => "compaction-extension-session",
+		});
+		expect(result.kind).toBe("greenfield");
+		if (result.kind !== "greenfield") throw new Error("Expected Greenfield runtime");
+		preparedHosts.push(result);
+		await initialize(result);
+		const assembly = result.session.createCoreAssembly();
+		await assembly.metadataController.appendEntry("compaction-seed", { value: "seed" });
+		const contextController = assembly.contextController;
+		if (!contextController) throw new Error("Expected Greenfield context controller");
+
+		await expect(contextController.compact()).rejects.toThrow("Compaction cancelled");
+		expect(lifecycle.__vettaGreenfieldExtensionLifecycle).toEqual(["before-compact"]);
+	});
+
 	it("exposes both resource and Extension command discovery", async () => {
 		const fixture = await createFixture([]);
 		const result = await prepareGreenfieldImRuntimeHost({
@@ -315,6 +442,7 @@ describe("Greenfield IM Runtime Host", () => {
 		if (result.kind !== "greenfield") throw new Error("Expected Greenfield runtime");
 		preparedHosts.push(result);
 		await initialize(result);
+		await writeFile(join(fixture.workspace, "reloaded-prompt.md"), "Reloaded prompt", "utf8");
 		await writeFile(
 			join(fixture.root, "legacy-extension.ts"),
 			`export default function(pi) {
@@ -323,6 +451,10 @@ describe("Greenfield IM Runtime Host", () => {
 				});
 				pi.registerCommand("after-reload", {
 					handler: async () => globalThis.__vettaGreenfieldExtensionLifecycle.push("after-command"),
+				});
+				pi.on("resources_discover", async (event) => {
+					if (event.reason !== "reload") throw new Error("unexpected discovery reason");
+					return { promptPaths: [event.cwd + "/reloaded-prompt.md"] };
 				});
 			}`,
 			"utf8",
@@ -334,6 +466,9 @@ describe("Greenfield IM Runtime Host", () => {
 		);
 		expect(result.capabilities.commands?.readCommands()).not.toContainEqual(
 			expect.objectContaining({ name: "reload-fixture" }),
+		);
+		expect(result.capabilities.commands?.readCommands()).toContainEqual(
+			expect.objectContaining({ name: "reloaded-prompt", source: "prompt" }),
 		);
 		await result.capabilities.turn?.prompt("/after-reload", { source: "rpc" });
 
@@ -474,6 +609,15 @@ async function createFixture(
 						{
 							id: "test-model",
 							name: "Test Model",
+							reasoning: true,
+							input: ["text"],
+							cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+							contextWindow: 8_000,
+							maxTokens: 1_000,
+						},
+						{
+							id: "second-model",
+							name: "Second Model",
 							reasoning: true,
 							input: ["text"],
 							cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },

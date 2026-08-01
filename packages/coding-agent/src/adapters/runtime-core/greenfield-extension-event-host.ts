@@ -1,9 +1,10 @@
+import { basename, dirname } from "node:path";
 import type { GreenfieldRuntimeSession } from "@vetta/runtime-core";
 import type { ExtensionExecutionHost } from "../../core/extensions/execution-host.js";
 import { ExtensionRunner } from "../../core/extensions/runner.js";
 import type { Extension, ExtensionError, ExtensionRuntime, ExtensionUIContext } from "../../core/extensions/types.js";
 import type { ModelRegistry } from "../../core/model-registry.js";
-import type { ResourceLoader } from "../../core/resource-loader.js";
+import type { ResourceExtensionPaths, ResourceLoader } from "../../core/resource-loader.js";
 import { CodingAgentGreenfieldExtensionActionHost } from "./greenfield-extension-action-host.js";
 import { CodingAgentGreenfieldExtensionObservationAdapter } from "./greenfield-extension-observation-adapter.js";
 import { createGreenfieldReadonlySessionManager } from "./greenfield-readonly-session-manager.js";
@@ -19,7 +20,7 @@ export interface CodingAgentGreenfieldExtensionEventHostOptions {
 	readonly cwd: string;
 	readonly session: GreenfieldRuntimeSession;
 	readonly modelRegistry: ModelRegistry;
-	readonly resourceLoader: Pick<ResourceLoader, "getPrompts" | "getSkills">;
+	readonly resourceLoader: Pick<ResourceLoader, "extendResources" | "getPrompts" | "getSkills">;
 	readonly bindEvents: (
 		runner: ExtensionRunner,
 		options?: { readonly replaceExisting?: boolean },
@@ -53,6 +54,7 @@ export class CodingAgentGreenfieldExtensionEventHost {
 		this.actionHost = new CodingAgentGreenfieldExtensionActionHost({
 			session: options.session,
 			resourceLoader: options.resourceLoader,
+			onModelSelect: (event) => this.runner.emit(event),
 			onError: (error) => this.reportError(error),
 		});
 		this.runner = new ExtensionRunner(
@@ -122,6 +124,24 @@ export class CodingAgentGreenfieldExtensionEventHost {
 		await this.runner.emit({ type: "session_shutdown" });
 	}
 
+	async discoverResources(reason: "startup" | "reload"): Promise<void> {
+		if (!this.runner.hasHandlers("resources_discover")) return;
+		const discovered = await this.runner.emitResourcesDiscover(this.options.cwd, reason);
+		if (
+			discovered.skillPaths.length === 0 &&
+			discovered.promptPaths.length === 0 &&
+			discovered.themePaths.length === 0
+		) {
+			return;
+		}
+		const extensionPaths: ResourceExtensionPaths = {
+			skillPaths: buildExtensionResourcePaths(discovered.skillPaths),
+			promptPaths: buildExtensionResourcePaths(discovered.promptPaths),
+			themePaths: buildExtensionResourcePaths(discovered.themePaths),
+		};
+		this.options.resourceLoader.extendResources(extensionPaths);
+	}
+
 	rebindRuntimeActions(): void {
 		if (this.disposed) throw new Error("Greenfield Extension event host is disposed");
 		this.actionHost.bind(this.options.runtime);
@@ -158,4 +178,21 @@ export class CodingAgentGreenfieldExtensionEventHost {
 		this.errorListener?.(error);
 		this.options.onError?.(error);
 	}
+}
+
+function buildExtensionResourcePaths(entries: Array<{ path: string; extensionPath: string }>) {
+	return entries.map((entry) => ({
+		path: entry.path,
+		metadata: {
+			source: extensionSourceLabel(entry.extensionPath),
+			scope: "temporary" as const,
+			origin: "top-level" as const,
+			baseDir: entry.extensionPath.startsWith("<") ? undefined : dirname(entry.extensionPath),
+		},
+	}));
+}
+
+function extensionSourceLabel(extensionPath: string): string {
+	if (extensionPath.startsWith("<")) return `extension:${extensionPath.replace(/[<>]/g, "")}`;
+	return `extension:${basename(extensionPath).replace(/\.(ts|js)$/, "")}`;
 }

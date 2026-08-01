@@ -134,4 +134,54 @@ describe("CodingAgentGreenfieldExtensionActionHost", () => {
 		expect(setThinkingLevel).toHaveBeenCalledWith("high");
 		expect(errors).toEqual([]);
 	});
+
+	it("emits model_select only after the selected model changes", async () => {
+		const nextModel: Model<Api> = { ...model, id: "next-model", name: "Next Model" };
+		let selectedModel = model;
+		const onModelSelect = vi.fn(async () => {});
+		const session = {
+			readState: () => ({
+				model: selectedModel,
+				thinkingLevel: "medium",
+				isStreaming: false,
+				activeToolNames: [],
+			}),
+			createCoreAssembly: () => ({
+				contextDeliveryController: { deliver: vi.fn(async () => {}) },
+				metadataController: {
+					appendEntry: vi.fn(async () => {}),
+					readName: () => undefined,
+					setName: vi.fn(async () => {}),
+					setLabel: vi.fn(async () => {}),
+				},
+				toolController: {
+					readAvailableTools: () => new Map(),
+					setActiveToolNames: vi.fn(),
+				},
+				modelView: { resolveApiKey: async () => "key" },
+				modelController: {
+					selectModel: async () => {
+						selectedModel = nextModel;
+					},
+					setThinkingLevel: vi.fn(),
+				},
+			}),
+		} as unknown as GreenfieldRuntimeSession;
+		const host = new CodingAgentGreenfieldExtensionActionHost({
+			session,
+			resourceLoader: {
+				getPrompts: () => ({ prompts: [], diagnostics: [] }),
+				getSkills: () => ({ skills: [], diagnostics: [] }),
+			},
+			onModelSelect,
+		});
+
+		await expect(host.actions.setModel(nextModel)).resolves.toBe(true);
+		expect(onModelSelect).toHaveBeenCalledWith({
+			type: "model_select",
+			model: nextModel,
+			previousModel: model,
+			source: "set",
+		});
+	});
 });
