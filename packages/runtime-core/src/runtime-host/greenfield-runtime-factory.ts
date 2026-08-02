@@ -36,6 +36,7 @@ import type {
 	GreenfieldRuntimeSessionIdentity,
 	GreenfieldRuntimeStateSource,
 } from "./greenfield-session-projection.js";
+import { InitializationRollbackScope } from "./initialization-rollback-scope.js";
 import type {
 	RuntimeSessionBackgroundWorkController,
 	RuntimeSessionConfigurationController,
@@ -167,6 +168,17 @@ export class ComposedGreenfieldRuntimeFactory<TCreateOptions> implements Greenfi
 			abortCurrentRun: () => abortCurrentRun(),
 			reportObservation,
 		});
+		const rollback = new InitializationRollbackScope();
+		rollback.defer({
+			id: "runtime-context",
+			rollback: () => runtimeContext.clear(),
+		});
+		if (resources.dispose) {
+			rollback.defer({
+				id: "runtime-resources",
+				rollback: () => resources.dispose?.call(resources),
+			});
+		}
 		try {
 			observationSessionId = resources.sessionId;
 			for (const observation of pendingObservations.splice(0)) {
@@ -210,6 +222,7 @@ export class ComposedGreenfieldRuntimeFactory<TCreateOptions> implements Greenfi
 				operation === "create"
 					? await createAgentSession(sessionOptions)
 					: await resumeAgentSession(sessionOptions);
+			rollback.defer({ id: "kernel-session", rollback: () => session.close() });
 			requestContinuation = (records) => session.requestContinuation(records);
 			if (pendingContinuationContext.length > 0) {
 				const records = pendingContinuationContext.splice(0);
@@ -235,6 +248,7 @@ export class ComposedGreenfieldRuntimeFactory<TCreateOptions> implements Greenfi
 				: undefined;
 			const sessionPeripherals = resources.createSessionPeripherals?.(session);
 			const dispose = resources.dispose;
+			rollback.commit();
 			return {
 				session,
 				repository: resources.repository,
@@ -272,9 +286,7 @@ export class ComposedGreenfieldRuntimeFactory<TCreateOptions> implements Greenfi
 				dispose: dispose ? () => dispose.call(resources) : undefined,
 			};
 		} catch (error) {
-			runtimeContext.clear();
-			await resources.dispose?.();
-			throw error;
+			return rollback.rollback(error, "Greenfield Runtime initialization and rollback failed");
 		}
 	}
 }

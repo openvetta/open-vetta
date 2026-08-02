@@ -4,7 +4,7 @@ import {
 	type CodingAgentGreenfieldExtensionEventHost,
 	type ExtensionCommandContextActions,
 } from "@vetta/coding-agent/runtime-host/greenfield";
-import { type GreenfieldRuntimeSession, RetryableCleanup } from "@vetta/runtime-core";
+import { type GreenfieldRuntimeSession, InitializationRollbackScope, RetryableCleanup } from "@vetta/runtime-core";
 import type {
 	CodingAgentGreenfieldPreparedSessionBinding,
 	CodingAgentGreenfieldSessionTransition,
@@ -106,6 +106,12 @@ export class GreenfieldImExtensionSessionHost {
 				? new CodingAgentGreenfieldExtensionCommandHost({ runner: events.runner, actions: this.commandActions })
 				: undefined,
 		};
+		const rollback = new InitializationRollbackScope();
+		rollback.defer({
+			id: "next-extension-host",
+			rollback: () => events.dispose({ emitSessionShutdown: false }),
+		});
+		rollback.defer({ id: "previous-runtime-actions", rollback: () => previous.events.rebindRuntimeActions() });
 		try {
 			if (this.initialization) {
 				await events.initialize(
@@ -117,10 +123,9 @@ export class GreenfieldImExtensionSessionHost {
 					{ emitSessionStart: false },
 				);
 			}
+			rollback.commit();
 		} catch (error) {
-			previous.events.rebindRuntimeActions();
-			await events.dispose({ emitSessionShutdown: false });
-			throw error;
+			return rollback.rollback(error, "Greenfield Extension session preparation and rollback failed");
 		}
 		return {
 			commit: async () => {
@@ -154,10 +159,24 @@ export class GreenfieldImExtensionSessionHost {
 
 	async reload(session: GreenfieldRuntimeSession, operation: () => Promise<void>): Promise<void> {
 		const previous = this.current;
-		if (this.initialization) await previous.events.runner.emit({ type: "session_shutdown" });
+		const rollback = new InitializationRollbackScope();
 		let next: GreenfieldImExtensionSessionBinding | undefined;
 		let replacementAttempted = false;
 		try {
+			if (this.initialization) {
+				await previous.events.runner.emit({ type: "session_shutdown" });
+				rollback.defer({
+					id: "previous-session-start",
+					rollback: () => previous.events.runner.emit({ type: "session_start" }),
+				});
+			}
+			rollback.defer({
+				id: "previous-runtime-binding",
+				rollback: () => {
+					if (replacementAttempted) previous.events.rebindRuntimeBindings();
+					else previous.events.rebindRuntimeActions();
+				},
+			});
 			await operation();
 			replacementAttempted = true;
 			const events = this.createHost(session, { replaceExisting: true });
@@ -167,6 +186,10 @@ export class GreenfieldImExtensionSessionHost {
 					? new CodingAgentGreenfieldExtensionCommandHost({ runner: events.runner, actions: this.commandActions })
 					: undefined,
 			};
+			rollback.defer({
+				id: "next-extension-host",
+				rollback: () => events.dispose({ emitSessionShutdown: false }),
+			});
 			if (this.initialization) {
 				await events.initialize(
 					{
@@ -180,12 +203,9 @@ export class GreenfieldImExtensionSessionHost {
 			if (this.initialization) await next.events.runner.emit({ type: "session_start" });
 			await next.events.discoverResources("reload");
 			this.current = next;
+			rollback.commit();
 		} catch (error) {
-			if (next) await next.events.dispose({ emitSessionShutdown: false });
-			if (replacementAttempted) previous.events.rebindRuntimeBindings();
-			else previous.events.rebindRuntimeActions();
-			if (this.initialization) await previous.events.runner.emit({ type: "session_start" });
-			throw error;
+			return rollback.rollback(error, "Greenfield Extension reload and rollback failed");
 		}
 		await previous.events.dispose({ emitSessionShutdown: false });
 	}

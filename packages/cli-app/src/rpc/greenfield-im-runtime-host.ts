@@ -26,7 +26,12 @@ import {
 	createCodingAgentPluginMcpRuntime,
 	type ExtensionCommandContextActions,
 } from "@vetta/coding-agent/runtime-host/greenfield";
-import { type GreenfieldRuntimeSession, RetryableCleanup, type RuntimeSessionCatalog } from "@vetta/runtime-core";
+import {
+	type GreenfieldRuntimeSession,
+	InitializationRollbackScope,
+	RetryableCleanup,
+	type RuntimeSessionCatalog,
+} from "@vetta/runtime-core";
 import type { ManagedMcpRuntimeToolSource } from "@vetta/runtime-mcp";
 import {
 	FileConversationOwnershipManager,
@@ -196,12 +201,21 @@ export async function prepareGreenfieldImRuntimeHost(
 		debug: mcpDebug,
 		enabled: true,
 	});
+	const rollback = new InitializationRollbackScope();
+	const dismissMcpRollback = rollback.defer({
+		id: "managed-mcp-source",
+		rollback: () => managedMcpSource.dispose(),
+	});
 
 	let runtime: GreenfieldRuntimeComposition | undefined;
 	let session: GreenfieldRuntimeSession | undefined;
 	let extensionEventHost: CodingAgentGreenfieldExtensionEventHost | undefined;
 	let activeSessionHost: CodingAgentGreenfieldActiveSessionHost | undefined;
 	let extensionSessionHost: GreenfieldImExtensionSessionHost | undefined;
+	let dismissRuntimeRollback: (() => void) | undefined;
+	let dismissSessionRollback: (() => void) | undefined;
+	let dismissExtensionRollback: (() => void) | undefined;
+	let dismissActiveSessionRollback: (() => void) | undefined;
 	try {
 		runtime = await createGreenfieldRuntimeComposition({
 			conversationDir: options.conversationDir,
@@ -233,6 +247,11 @@ export async function prepareGreenfieldImRuntimeHost(
 			createPluginMcpRuntime: ({ agentDir }) => createCodingAgentPluginMcpRuntime({ agentDir, debug: mcpDebug }),
 			conversationOwnershipManager: new FileConversationOwnershipManager(options.ownership),
 		});
+		const acquiredRuntime = runtime;
+		dismissRuntimeRollback = rollback.defer({
+			id: "runtime-composition",
+			rollback: () => acquiredRuntime.dispose(),
+		});
 		const sessionOptions: GreenfieldCliSessionOptions = {
 			sessionId,
 			cwd: bootstrap.cwd,
@@ -242,6 +261,11 @@ export async function prepareGreenfieldImRuntimeHost(
 		session = sessionPath
 			? await runtime.backend.resume(sessionOptions)
 			: await runtime.backend.create(sessionOptions);
+		const acquiredSession = session;
+		dismissSessionRollback = rollback.defer({
+			id: "runtime-session",
+			rollback: () => acquiredSession.dispose(),
+		});
 		// Legacy CLI writes bootstrap metadata before AgentSession construction, so its
 		// first ecosystem SessionStart is "resume" even for a newly allocated file.
 		runtime.sessionHooks.start(session.sessionId, "resume");
@@ -262,7 +286,18 @@ export async function prepareGreenfieldImRuntimeHost(
 			});
 		};
 		extensionEventHost = createExtensionEventHost(session);
+		const acquiredExtensionEventHost = extensionEventHost;
+		const dismissExtensionEventRollback = rollback.defer({
+			id: "extension-event-host",
+			rollback: () => acquiredExtensionEventHost.dispose(),
+		});
 		extensionSessionHost = new GreenfieldImExtensionSessionHost(extensionEventHost, createExtensionEventHost);
+		dismissExtensionEventRollback();
+		const acquiredExtensionSessionHost = extensionSessionHost;
+		dismissExtensionRollback = rollback.defer({
+			id: "extension-session-host",
+			rollback: () => acquiredExtensionSessionHost.dispose(),
+		});
 		activeSessionHost = new CodingAgentGreenfieldActiveSessionHost({
 			runtime,
 			initialSession: session,
@@ -276,6 +311,12 @@ export async function prepareGreenfieldImRuntimeHost(
 				prepare: (transition) => extensionSessionHost!.prepare(transition),
 				after: (transition) => extensionSessionHost!.after(transition),
 			},
+		});
+		dismissSessionRollback();
+		const acquiredActiveSessionHost = activeSessionHost;
+		dismissActiveSessionRollback = rollback.defer({
+			id: "active-session-host",
+			rollback: () => acquiredActiveSessionHost.dispose(),
 		});
 		const branchNavigationHost = new CodingAgentGreenfieldBranchNavigationHost({
 			withActiveSession: (operation) => activeSessionHost!.runActiveSessionMutation(operation),
@@ -319,7 +360,15 @@ export async function prepareGreenfieldImRuntimeHost(
 			runtimeDecision,
 			extensionCommandHost: extensionSessionHost,
 		});
+		dismissActiveSessionRollback();
+		dismissRuntimeRollback();
+		const dismissAdapterRollback = rollback.defer({ id: "rpc-adapter", rollback: () => adapter.dispose() });
 		const capabilities = new GreenfieldImRuntimeHostCapabilities(adapter, managedMcpSource, extensionSessionHost);
+		dismissAdapterRollback();
+		dismissMcpRollback();
+		dismissExtensionRollback();
+		rollback.defer({ id: "runtime-capabilities", rollback: () => capabilities.dispose() });
+		rollback.commit();
 		return {
 			kind: "greenfield",
 			bootstrap,
@@ -331,26 +380,7 @@ export async function prepareGreenfieldImRuntimeHost(
 			runtimeDecision,
 		};
 	} catch (error) {
-		const extensionCleanup = extensionSessionHost
-			? await Promise.allSettled([extensionSessionHost.dispose()])
-			: extensionEventHost
-				? await Promise.allSettled([extensionEventHost.dispose()])
-				: [];
-		const cleanup = [
-			...extensionCleanup,
-			...(await Promise.allSettled([
-				...(activeSessionHost ? [activeSessionHost.dispose()] : session ? [session.dispose()] : []),
-				...(runtime ? [runtime.dispose()] : []),
-				managedMcpSource.dispose(),
-			])),
-		];
-		const cleanupErrors = cleanup
-			.filter((result): result is PromiseRejectedResult => result.status === "rejected")
-			.map(({ reason }) => reason);
-		if (cleanupErrors.length > 0) {
-			throw new AggregateError([error, ...cleanupErrors], "Greenfield IM Runtime startup and cleanup failed");
-		}
-		throw error;
+		return rollback.rollback(error, "Greenfield IM Runtime startup and cleanup failed");
 	}
 }
 

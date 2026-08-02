@@ -1,0 +1,48 @@
+import { describe, expect, it, vi } from "vitest";
+import type { ConversationDocumentStore } from "../../src/conversation/index.js";
+import type { ConversationRepository, EventSink, RuntimeSnapshotProvider } from "../../src/kernel/index.js";
+import type { GreenfieldRuntimeModelRuntime } from "../../src/runtime-host/greenfield-model-runtime.js";
+import { ComposedGreenfieldRuntimeFactory } from "../../src/runtime-host/greenfield-runtime-factory.js";
+import type { GreenfieldPromptAdapter } from "../../src/runtime-host/greenfield-session-backend.js";
+
+describe("ComposedGreenfieldRuntimeFactory initialization", () => {
+	it("closes an acquired Kernel session before resources and can initialize again", async () => {
+		const initializationError = new Error("peripheral initialization failed");
+		const order: string[] = [];
+		let attempts = 0;
+		const disposeResources = vi.fn(async () => {
+			order.push("resources");
+		});
+		const factory = new ComposedGreenfieldRuntimeFactory<Record<string, never>>({
+			createResources: async () => ({
+				sessionId: "factory-session",
+				repository: { create: vi.fn(async () => undefined) } as unknown as ConversationRepository,
+				conversationDocumentStore: {} as ConversationDocumentStore,
+				promptAdapter: {} as GreenfieldPromptAdapter,
+				snapshotProvider: {} as RuntimeSnapshotProvider,
+				modelRuntime: {} as GreenfieldRuntimeModelRuntime,
+				identity: { cwd: "C:/workspace" },
+				stateSource: { read: () => ({ contextPercent: 0, contextWindow: 8_000, activeToolNames: [] }) },
+				createSessionPeripherals: (session) => {
+					attempts += 1;
+					vi.spyOn(session, "close").mockImplementation(async () => {
+						order.push("session");
+					});
+					if (attempts === 1) throw initializationError;
+					return {};
+				},
+				dispose: disposeResources,
+			}),
+		});
+		const eventSink: EventSink = { publish: vi.fn(async () => undefined) };
+
+		await expect(factory.create({}, eventSink)).rejects.toBe(initializationError);
+		expect(order).toEqual(["session", "resources"]);
+
+		const assembly = await factory.create({}, eventSink);
+		await assembly.session.close();
+		await assembly.dispose?.();
+		expect(attempts).toBe(2);
+		expect(disposeResources).toHaveBeenCalledTimes(2);
+	});
+});

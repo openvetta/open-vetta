@@ -41,6 +41,7 @@
 
 ### Fixed
 
+- **Greenfield 初始化失败资源回滚**：Composition Root、Runtime Factory、IM Host 与 Extension prepare/reload 统一使用一次性逆序回滚事务；部分初始化失败不再遗漏 Kernel Session、Todo/Context/Memory/Capability、MCP/Execution、Extension binding 或 conversation ownership，单项清理失败也会继续恢复其余资源，并保留原初始化错误为主因。正常 Tool、Prompt、Skill、MCP、Extension 与 Session 行为不变。
 - **Greenfield Runtime/Host 最终关闭可重试**：Active Session、Session assembly、Composition、Extension 与 IM RPC Host 统一按资源 phase 全量清理；首次失败后业务准入保持关闭，后续 `dispose()` 只重试失败项，成功资源、Extension `session_shutdown` 与 Hook `SessionEnd` 不重复，既有 RPC 聚合错误与协议保持不变。
 - **Greenfield Session replacement 提交与清理一致性**：Active Session Host 以 target 身份、Extension binding 和 after 事件全部成功作为提交点；提交后的旧 Extension/Session 清理会全部尝试并通过窄诊断回调报告，不再返回会诱导调用方重试的 RPC 伪失败。Conversation ownership binding 在释放失败后保持可重试，Composition 最终关闭会再次清理仍登记的 binding。
 - **真实 RPC CLI Replacement 生命周期兼容**：Greenfield IM Composition Root 现在加载与 Legacy 相同的 Vetta 嵌套 Codex/Claude Hook 配置层，并保留 CLI 首次 `SessionStart("resume")` 语义；共享 RPC transport 在 stdin EOF 时也会一次性执行 `shutdown → dispose`，保证 Extension `session_shutdown` 先于 Hook `SessionEnd(dispose)` 且各发送一次。真实 CLI 差分覆盖取消、new/switch/fork、Hook command 非零退出及 session id/path/order。

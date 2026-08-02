@@ -57,6 +57,10 @@ export {
 	type GreenfieldRuntimeStateSource,
 	GreenfieldSessionProjection,
 } from "./greenfield-session-projection.js";
+export {
+	InitializationRollbackScope,
+	type InitializationRollbackTask,
+} from "./initialization-rollback-scope.js";
 export { RetryableCleanup, type RetryableCleanupTask } from "./retryable-cleanup.js";
 export { RuntimeHost } from "./runtime-host.js";
 export type {
