@@ -500,6 +500,54 @@ function checkGreenfieldMcpSessionCoordinatorBoundary(posixPath, text, findings)
 	visit(sourceFile);
 }
 
+function checkGreenfieldSessionInitializationTransactionBoundary(posixPath, text, findings) {
+	if (posixPath !== "packages/coding-agent/src/composition/greenfield-runtime-composition.ts") return;
+
+	const sourceFile = ts.createSourceFile(posixPath, text, ts.ScriptTarget.Latest, true, scriptKind(posixPath));
+	const forbiddenSymbols = new Set([
+		"CodingAgentGreenfieldContextRuntime",
+		"CodingAgentMemoryRolloverOrchestrator",
+		"CodingAgentTodoRuntime",
+		"GreenfieldSessionConfigurationState",
+		"GreenfieldSessionExecutionRuntime",
+		"InitializationRollbackScope",
+		"createEcosystemHookRuntime",
+		"createForkContextFeature",
+		"createGreenfieldSessionResourceLifecycleAssembly",
+		"createGreenfieldSubagentSessionAssembly",
+		"createGreenfieldTurnCapabilitySessionAssembly",
+		"createSessionPluginRuntime",
+	]);
+	const forbiddenRollbackIds = new Set([
+		"capability-composition",
+		"configuration-state-binding",
+		"context-runtime",
+		"conversation-context-overlay",
+		"conversation-ownership",
+		"execution-runtime",
+		"hook-session",
+		"mcp-controller-binding",
+		"memory-runtime",
+		"plugin-mcp-runtime",
+		"resource-context-binding",
+		"session-bindings",
+		"subagent-runtime",
+		"todo-runtime",
+	]);
+	const visit = (node) => {
+		if (ts.isIdentifier(node) && forbiddenSymbols.has(node.text)) {
+			findings.push(`${posixPath}: Greenfield Composition Root must delegate Session initialization (${node.text})`);
+		}
+		if (ts.isStringLiteralLike(node) && forbiddenRollbackIds.has(node.text)) {
+			findings.push(
+				`${posixPath}: Greenfield Composition Root must not own Session initialization rollback (${node.text})`,
+			);
+		}
+		ts.forEachChild(node, visit);
+	};
+	visit(sourceFile);
+}
+
 function checkRetiredAutomaticLegacyFallback(posixPath, text, findings) {
 	const isRuntimeProductionSource =
 		(posixPath.startsWith("packages/cli-app/src/") || posixPath.startsWith("packages/coding-agent/src/")) &&
@@ -703,6 +751,7 @@ export function findPackageBoundaryViolations(posixPath, text, options = {}) {
 	checkGreenfieldSessionResourceLifecycleAssemblyBoundary(posixPath, text, findings);
 	checkGreenfieldCompositionResourceRegistryBoundary(posixPath, text, findings);
 	checkGreenfieldMcpSessionCoordinatorBoundary(posixPath, text, findings);
+	checkGreenfieldSessionInitializationTransactionBoundary(posixPath, text, findings);
 	checkRetiredAutomaticLegacyFallback(posixPath, text, findings);
 	checkRuntimeCompositionCompatibilityFacade(posixPath, specifiers, findings);
 	checkCodingAgentRootImports(posixPath, specifiers, findings);

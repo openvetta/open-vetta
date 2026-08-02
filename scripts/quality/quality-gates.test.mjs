@@ -520,7 +520,7 @@ describe("package boundary analysis", () => {
 				compositionPath,
 				'import { createGreenfieldSubagentSessionAssembly } from "./greenfield-subagent-session-assembly.js";',
 			),
-		).toEqual([]);
+		).toHaveLength(1);
 	});
 
 	it("keeps Turn Capability session assembly out of the Greenfield Composition Root", () => {
@@ -538,7 +538,7 @@ describe("package boundary analysis", () => {
 				compositionPath,
 				'import { createGreenfieldTurnCapabilitySessionAssembly } from "./greenfield-turn-capability-session-assembly.js";',
 			),
-		).toEqual([]);
+		).toHaveLength(1);
 	});
 
 	it("keeps Session Resource Lifecycle assembly out of the Greenfield Composition Root", () => {
@@ -559,7 +559,7 @@ describe("package boundary analysis", () => {
 				compositionPath,
 				'import { createGreenfieldSessionResourceLifecycleAssembly } from "./greenfield-session-resource-lifecycle-assembly.js";',
 			),
-		).toEqual([]);
+		).toHaveLength(1);
 	});
 
 	it("keeps Composition resource registries and shutdown transactions out of the Greenfield Composition Root", () => {
@@ -601,6 +601,25 @@ describe("package boundary analysis", () => {
 			findPackageBoundaryViolations(
 				compositionPath,
 				'import { createGreenfieldMcpSessionCoordinator } from "./greenfield-mcp-session-coordinator.js";',
+			),
+		).toEqual([]);
+	});
+
+	it("keeps Session initialization transactions out of the Greenfield Composition Root", () => {
+		const compositionPath = "packages/coding-agent/src/composition/greenfield-runtime-composition.ts";
+		const embeddedInitialization = `
+			const rollback = new InitializationRollbackScope();
+			const execution = new GreenfieldSessionExecutionRuntime({});
+			const configuration = new GreenfieldSessionConfigurationState();
+			createGreenfieldSessionResourceLifecycleAssembly({});
+			createGreenfieldTurnCapabilitySessionAssembly({});
+			rollback.defer({ id: "conversation-ownership" });
+		`;
+		expect(findPackageBoundaryViolations(compositionPath, embeddedInitialization)).toHaveLength(6);
+		expect(
+			findPackageBoundaryViolations(
+				compositionPath,
+				'import { createGreenfieldSessionInitializationTransaction } from "./greenfield-session-initialization-transaction.js";',
 			),
 		).toEqual([]);
 	});
