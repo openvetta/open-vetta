@@ -16,6 +16,7 @@
 			"@vetta/coding-agent/composition": ["./packages/coding-agent/src/composition/index.ts"],
 			"@vetta/coding-agent/config": ["./packages/coding-agent/src/config.ts"],
 			"@vetta/coding-agent/concurrency": ["./packages/coding-agent/src/core/concurrency-limit.ts"],
+			"@vetta/coding-agent/extensions": ["./packages/coding-agent/src/public-api/extensions.ts"],
 			"@vetta/coding-agent/compat/runtime-storage": [
 				"./packages/coding-agent/src/public-api/compat-runtime-storage.ts"
 			],
@@ -29,6 +30,10 @@
 			"@vetta/coding-agent/legacy/host-services": [
 				"./packages/coding-agent/src/public-api/legacy-host-services.ts"
 			],
+			"@vetta/coding-agent/legacy/session": [
+				"./packages/coding-agent/src/public-api/legacy-session.ts"
+			],
+			"@vetta/coding-agent/legacy/tools": ["./packages/coding-agent/src/public-api/legacy-tools.ts"],
 			"@vetta/coding-agent/profile": ["./packages/coding-agent/src/public-api/profile.ts"],
 			"@vetta/coding-agent/resources": ["./packages/coding-agent/src/core/resource-loader.ts"],
 			"@vetta/coding-agent/rpc": ["./packages/coding-agent/src/public-api/rpc.ts"],

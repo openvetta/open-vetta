@@ -1,8 +1,8 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { ModelRegistry } from "@vetta/coding-agent";
-import { SessionManager } from "@vetta/coding-agent";
+import type { ModelRegistry } from "@vetta/coding-agent/host-services";
+import { SessionManager } from "@vetta/coding-agent/legacy/session";
 import {
 	type RuntimeSession,
 	RuntimeSessionBackendAssemblyAdapter,

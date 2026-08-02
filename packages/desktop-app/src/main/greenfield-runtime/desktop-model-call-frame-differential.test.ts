@@ -2,8 +2,9 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Api, Model } from "@vetta/ai";
-import { ALL_SCENARIOS, AuthStorage, ModelRegistry } from "@vetta/coding-agent";
 import { ENV_AGENT_DIR } from "@vetta/coding-agent/config.js";
+import { AuthStorage, ModelRegistry } from "@vetta/coding-agent/host-services";
+import { ALL_SCENARIOS } from "@vetta/coding-agent/profile";
 import {
 	createCodingAgentMcpRuntimeToolSource,
 	createCodingAgentPluginMcpRuntime,

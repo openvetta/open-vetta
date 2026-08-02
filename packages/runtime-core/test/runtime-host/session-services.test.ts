@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { ModelRegistry } from "@vetta/coding-agent";
+import type { ModelRegistry } from "@vetta/coding-agent/host-services";
 import {
 	createLegacyRuntimeHostOptions,
 	LegacyRuntimeSessionCatalog,

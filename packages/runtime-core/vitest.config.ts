@@ -5,6 +5,15 @@ export default defineConfig({
 	resolve: {
 		alias: {
 			"@vetta/agent-core": fileURLToPath(new URL("../agent/src/index.ts", import.meta.url)),
+			"@vetta/coding-agent/extensions": fileURLToPath(
+				new URL("../coding-agent/src/public-api/extensions.ts", import.meta.url),
+			),
+			"@vetta/coding-agent/host-services": fileURLToPath(
+				new URL("../coding-agent/src/public-api/host-services.ts", import.meta.url),
+			),
+			"@vetta/coding-agent/legacy/session": fileURLToPath(
+				new URL("../coding-agent/src/public-api/legacy-session.ts", import.meta.url),
+			),
 			"@vetta/coding-agent/runtime-host": fileURLToPath(
 				new URL("../coding-agent/src/adapters/runtime-core/index.ts", import.meta.url),
 			),

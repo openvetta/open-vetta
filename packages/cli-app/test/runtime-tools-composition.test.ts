@@ -1,5 +1,4 @@
 import {
-	ALL_SCENARIOS,
 	BackgroundTaskManager,
 	createBashTool,
 	createEditTool,
@@ -13,7 +12,8 @@ import {
 	createTaskStopTool,
 	createTreeTool,
 	createWriteTool,
-} from "@vetta/coding-agent";
+} from "@vetta/coding-agent/legacy/tools";
+import { ALL_SCENARIOS } from "@vetta/coding-agent/profile";
 import { describe, expect, it } from "vitest";
 import { resolveActiveToolNames } from "../../coding-agent/src/core/session/tool-scope.js";
 import { createCurrentTimeTool } from "../../coding-agent/src/core/tools/current-time/index.js";

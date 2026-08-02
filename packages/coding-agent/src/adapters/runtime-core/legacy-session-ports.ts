@@ -47,7 +47,7 @@ export class LegacyRuntimeSessionIdentityLifecycle implements RuntimeSessionIden
 	}
 
 	async dispose(): Promise<void> {
-		await this.session.dispose();
+		await this.session.close();
 	}
 }
 

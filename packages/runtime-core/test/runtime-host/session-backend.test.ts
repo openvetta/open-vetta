@@ -1,5 +1,5 @@
 import type { Api, Model } from "@vetta/ai";
-import type { AgentSessionEvent } from "@vetta/coding-agent";
+import type { AgentSessionEvent } from "@vetta/coding-agent/legacy/session";
 import {
 	type RuntimeSession,
 	RuntimeSessionBackendAssemblyAdapter,

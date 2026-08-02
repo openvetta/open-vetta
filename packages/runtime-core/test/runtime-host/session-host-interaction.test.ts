@@ -1,4 +1,4 @@
-import type { ExtensionUIContext } from "@vetta/coding-agent";
+import type { ExtensionUIContext } from "@vetta/coding-agent/extensions";
 import { LegacyRuntimeSessionHostInteraction, type RuntimeSession } from "@vetta/coding-agent/runtime-host";
 import { describe, expect, it, vi } from "vitest";
 import type { RuntimeSessionHostInteractionContext } from "../../src/index.js";

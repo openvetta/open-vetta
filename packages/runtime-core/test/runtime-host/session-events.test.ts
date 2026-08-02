@@ -1,5 +1,5 @@
 import type { AssistantMessage } from "@vetta/ai";
-import type { AgentSession, AgentSessionEvent } from "@vetta/coding-agent";
+import type { AgentSession, AgentSessionEvent } from "@vetta/coding-agent/legacy/session";
 import { mapAgentSessionEvent, mapAgentSessionEventToObservations } from "@vetta/coding-agent/runtime-host";
 import { describe, expect, it, vi } from "vitest";
 import type { SessionEvent } from "../../src/contracts.js";

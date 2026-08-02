@@ -1,11 +1,8 @@
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-	type CodingAgentHostBootstrap,
-	createCodingAgentHostBootstrap,
-	type RpcSessionInitialization,
-} from "@vetta/coding-agent";
+import { type CodingAgentHostBootstrap, createCodingAgentHostBootstrap } from "@vetta/coding-agent/bootstrap";
+import type { RpcSessionInitialization } from "@vetta/coding-agent/rpc";
 import type { RuntimeSessionCatalog } from "@vetta/runtime-core";
 import { CONVERSATION_STORAGE_ERROR_CODES } from "@vetta/runtime-storage/conversation";
 import { afterEach, describe, expect, it, vi } from "vitest";

@@ -9,6 +9,7 @@ import { createAgentCliBootstrap, createCodingAgentHostBootstrap } from "../src/
 import { runCodingAgentCliControl } from "../src/public-api/cli-control.js";
 import * as runtimeStorageCompat from "../src/public-api/compat-runtime-storage.js";
 import * as runtimeToolsCompat from "../src/public-api/compat-runtime-tools.js";
+import { ExtensionRunner } from "../src/public-api/extensions.js";
 import {
 	AuthStorage as HostAuthStorage,
 	ModelRegistry as HostModelRegistry,
@@ -16,6 +17,8 @@ import {
 } from "../src/public-api/host-services.js";
 import { main as legacyMain, runLegacyAgentWithBootstrap } from "../src/public-api/legacy-cli.js";
 import { AuthStorage, ModelRegistry, SettingsManager } from "../src/public-api/legacy-host-services.js";
+import { AgentSession, SessionManager } from "../src/public-api/legacy-session.js";
+import { BackgroundTaskManager, createShellTool, createTaskOutputTool } from "../src/public-api/legacy-tools.js";
 import { ALL_SCENARIOS, PERSONAS } from "../src/public-api/profile.js";
 import {
 	createImSendAttachmentTool,
@@ -49,6 +52,12 @@ describe("coding-agent public subpaths", () => {
 		expect(runtimeStorageCompat.SessionManager).toBe(root.SessionManager);
 		expect(runtimeToolsCompat.createReadTool).toBe(root.createReadTool);
 		expect(runtimeToolsCompat.readTool).toBe(root.readTool);
+		expect(ExtensionRunner).toBe(root.ExtensionRunner);
+		expect(AgentSession).toBe(root.AgentSession);
+		expect(SessionManager).toBe(root.SessionManager);
+		expect(BackgroundTaskManager).toBe(root.BackgroundTaskManager);
+		expect(createShellTool).toBe(root.createShellTool);
+		expect(createTaskOutputTool).toBe(root.createTaskOutputTool);
 		expect(runCodingAgentCliControl).toBeTypeOf("function");
 	});
 
@@ -71,6 +80,10 @@ describe("coding-agent public subpaths", () => {
 			"./concurrency": {
 				types: "./dist/core/concurrency-limit.d.ts",
 				import: "./dist/core/concurrency-limit.js",
+			},
+			"./extensions": {
+				types: "./dist/public-api/extensions.d.ts",
+				import: "./dist/public-api/extensions.js",
 			},
 			"./host-services": {
 				types: "./dist/public-api/host-services.d.ts",
@@ -95,6 +108,14 @@ describe("coding-agent public subpaths", () => {
 			"./legacy/host-services": {
 				types: "./dist/public-api/legacy-host-services.d.ts",
 				import: "./dist/public-api/legacy-host-services.js",
+			},
+			"./legacy/session": {
+				types: "./dist/public-api/legacy-session.d.ts",
+				import: "./dist/public-api/legacy-session.js",
+			},
+			"./legacy/tools": {
+				types: "./dist/public-api/legacy-tools.d.ts",
+				import: "./dist/public-api/legacy-tools.js",
 			},
 			"./profile": {
 				types: "./dist/public-api/profile.d.ts",

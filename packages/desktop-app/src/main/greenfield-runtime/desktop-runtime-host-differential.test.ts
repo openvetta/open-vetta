@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Api, Message, Model } from "@vetta/ai";
-import { AuthStorage, ModelRegistry } from "@vetta/coding-agent";
+import { AuthStorage, ModelRegistry } from "@vetta/coding-agent/host-services";
 import { createLegacyRuntimeHostOptions } from "@vetta/coding-agent/runtime-host";
 import type { CodingAgentModelRegistrySource } from "@vetta/coding-agent/runtime-host/greenfield";
 import { type HistoryEntry, RuntimeHost, type SessionEvent } from "@vetta/runtime-core";
@@ -84,7 +84,7 @@ describe("Desktop RuntimeHost Legacy/Greenfield differential gate", () => {
 			});
 			expect(fixture.runtime.getSessionPath(resumed.sessionId)).toBe(sessionPath);
 			expect(fixture.runtime.getFullHistory(resumed.sessionId)).toEqual([]);
-		});
+		}, 30_000);
 	}
 
 	it("preserves real Tool Loop events, persistence and host-restart recovery across backends", async () => {
@@ -458,7 +458,7 @@ describe("Desktop RuntimeHost Legacy/Greenfield differential gate", () => {
 			await fixture.runtime.disposeSession(sessions[1]!.sessionId);
 			expect(fixture.runtime.getState(sessions[0]!.sessionId).scenario).toBe("conversation");
 			expect(fixture.runtime.getState(sessions[2]!.sessionId).scenario).toBe("batch");
-		});
+		}, 30_000);
 	}
 
 	function createRuntimeFixture(

@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import type { RpcSessionInitialization, RpcSessionState } from "@vetta/coding-agent";
+import type { RpcSessionInitialization, RpcSessionState } from "@vetta/coding-agent/rpc";
 import type { GreenfieldRuntimeSession, GreenfieldRuntimeSessionCoreAssembly, SessionEvent } from "@vetta/runtime-core";
 import type { CodingToolRegistration } from "@vetta/runtime-tools/coding";
 import { describe, expect, test, vi } from "vitest";

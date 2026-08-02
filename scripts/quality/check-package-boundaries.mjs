@@ -283,16 +283,17 @@ function checkRuntimeCompositionCompatibilityFacade(posixPath, specifiers, findi
 }
 
 function checkCodingAgentRootImports(posixPath, specifiers, findings) {
-	const isGovernedConsumer =
-		posixPath.startsWith("packages/cli-app/src/") ||
-		posixPath.startsWith("packages/desktop-app/src/") ||
-		posixPath.startsWith("packages/runtime-storage/src/") ||
-		posixPath.startsWith("packages/runtime-tools/src/");
-	const isTestFile = /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(posixPath);
-	if (!isGovernedConsumer || isTestFile) return;
+	const isInternalConsumer = posixPath.startsWith("packages/") && !posixPath.startsWith("packages/coding-agent/");
+	const hasStricterProductionBoundary =
+		posixPath.startsWith("packages/agent/src/") ||
+		posixPath.startsWith("packages/runtime-core/src/") ||
+		posixPath.startsWith("packages/runtime-storage/src/conversation/") ||
+		posixPath.startsWith("packages/runtime-tools/src/coding/") ||
+		posixPath.startsWith("packages/runtime-mcp/src/");
+	if (!isInternalConsumer || hasStricterProductionBoundary) return;
 	if (specifiers.includes("@vetta/coding-agent")) {
 		findings.push(
-			`${posixPath}: production consumers must use an explicit @vetta/coding-agent subpath instead of the compatibility root`,
+			`${posixPath}: internal consumers must use an explicit @vetta/coding-agent subpath instead of the compatibility root`,
 		);
 	}
 }

@@ -277,7 +277,7 @@ describe("package boundary analysis", () => {
 		).toHaveLength(1);
 	});
 
-	it("requires production consumers to use explicit coding-agent subpaths", () => {
+	it("requires all internal consumers to use explicit coding-agent subpaths", () => {
 		const rootImport = 'import { getAgentDir } from "@vetta/coding-agent";';
 		expect(findPackageBoundaryViolations("packages/desktop-app/src/main/new-consumer.ts", rootImport)).toHaveLength(
 			1,
@@ -289,6 +289,10 @@ describe("package boundary analysis", () => {
 			),
 		).toEqual([]);
 		expect(findPackageBoundaryViolations("packages/desktop-app/src/main/runtime.ts", rootImport)).toHaveLength(1);
+		expect(findPackageBoundaryViolations("packages/desktop-app/src/main/runtime.test.ts", rootImport)).toHaveLength(
+			1,
+		);
+		expect(findPackageBoundaryViolations("packages/runtime-core/test/runtime.test.ts", rootImport)).toHaveLength(1);
 		expect(findPackageBoundaryViolations("packages/runtime-tools/src/index.ts", rootImport)).toHaveLength(1);
 		expect(
 			findPackageBoundaryViolations(
