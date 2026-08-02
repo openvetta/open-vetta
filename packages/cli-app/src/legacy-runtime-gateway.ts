@@ -9,12 +9,6 @@ export type LegacyRuntimeExecutionRequest =
 			readonly args: readonly string[];
 	  }
 	| {
-			readonly cause: "extension-compatibility-gap";
-			readonly bootstrap: CodingAgentHostBootstrap;
-			readonly evidence: AutomaticLegacyRuntimeFallbackEvidence;
-			readonly runtimeDecision: RpcRuntimeDecision;
-	  }
-	| {
 			readonly cause: "session-migration-gap";
 			readonly bootstrap: CodingAgentHostBootstrap;
 			readonly evidence: AutomaticLegacyRuntimeFallbackEvidence;
@@ -26,10 +20,6 @@ export async function runLegacyRuntimeExecution(request: LegacyRuntimeExecutionR
 	switch (request.cause) {
 		case "explicit-selection":
 			await runLegacyAgent([...request.args]);
-			return;
-		case "extension-compatibility-gap":
-			assertFallbackReason(request.evidence.reason, "legacy-extension", request.cause);
-			await runLegacyAgentWithBootstrap(request.bootstrap, { rpcRuntimeDecision: request.runtimeDecision });
 			return;
 		case "session-migration-gap":
 			assertFallbackReason(request.evidence.reason, "legacy-session", request.cause);

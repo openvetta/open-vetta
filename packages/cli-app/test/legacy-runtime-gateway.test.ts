@@ -32,47 +32,26 @@ describe("Legacy runtime execution gateway", () => {
 		expect(legacyWithBootstrap).not.toHaveBeenCalled();
 	});
 
-	it("runs an Extension compatibility fallback only with the matching cause", async () => {
+	it("runs an unrepresentable Session fallback only through the matching cause", async () => {
 		const bootstrap = {} as CodingAgentHostBootstrap;
 		const runtimeDecision: RpcRuntimeDecision = {
 			requestedBackend: "greenfield",
 			effectiveBackend: "legacy",
+			fallbackReason: "legacy-session",
+			sessionMigration: { status: "not-representable" },
 		};
 		const evidence = {
-			reason: "legacy-extension",
-			extensionCompatibility: {
-				requiresLegacyRuntime: true,
-				unsupportedEvents: ["future_event"],
-				unmetRuntimeCapabilities: ["event-handler"],
-			},
+			reason: "legacy-session",
+			sessionMigration: { status: "not-representable" },
 		} as const;
 
 		await runLegacyRuntimeExecution({
-			cause: "extension-compatibility-gap",
+			cause: "session-migration-gap",
 			bootstrap,
 			evidence,
 			runtimeDecision,
 		});
 
 		expect(legacyWithBootstrap).toHaveBeenCalledExactlyOnceWith(bootstrap, { rpcRuntimeDecision: runtimeDecision });
-	});
-
-	it("rejects a cause that disagrees with the structured fallback evidence", async () => {
-		await expect(
-			runLegacyRuntimeExecution({
-				cause: "session-migration-gap",
-				bootstrap: {} as CodingAgentHostBootstrap,
-				evidence: {
-					reason: "legacy-extension",
-					extensionCompatibility: {
-						requiresLegacyRuntime: true,
-						unsupportedEvents: ["future_event"],
-						unmetRuntimeCapabilities: ["event-handler"],
-					},
-				},
-				runtimeDecision: { requestedBackend: "greenfield", effectiveBackend: "legacy" },
-			}),
-		).rejects.toThrow("does not match fallback reason legacy-extension");
-		expect(legacyWithBootstrap).not.toHaveBeenCalled();
 	});
 });

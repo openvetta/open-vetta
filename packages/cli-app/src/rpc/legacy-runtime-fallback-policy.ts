@@ -1,46 +1,20 @@
 import type { RpcSessionMigrationStatus } from "@vetta/coding-agent/rpc";
-import type { GreenfieldRpcFallbackReason } from "./greenfield-im-runtime-host.js";
-
-interface LegacyExtensionFallbackEvidence {
-	readonly requiresLegacyRuntime: boolean;
-	readonly unsupportedEvents: readonly string[];
-	readonly unmetRuntimeCapabilities: readonly string[];
-}
 
 interface LegacySessionMigrationFallbackEvidence {
 	readonly status: RpcSessionMigrationStatus;
 }
 
 export interface AutomaticLegacyRuntimeFallbackEvidence {
-	readonly reason: GreenfieldRpcFallbackReason;
-	readonly extensionCompatibility?: LegacyExtensionFallbackEvidence;
+	readonly reason: "legacy-session";
 	readonly sessionMigration?: LegacySessionMigrationFallbackEvidence;
 }
 
 /**
- * Keep automatic Legacy execution fail-closed: every fallback must carry one
- * of the compatibility gaps explicitly preserved by the CLI composition root.
+ * Keep automatic Legacy execution fail-closed: the remaining fallback must
+ * carry an unrepresentable Session migration result.
  */
 export function assertAllowedAutomaticLegacyRuntimeFallback(evidence: AutomaticLegacyRuntimeFallbackEvidence): void {
-	switch (evidence.reason) {
-		case "legacy-extension":
-			assertExtensionFallback(evidence.extensionCompatibility);
-			return;
-		case "legacy-session":
-			assertSessionFallback(evidence.sessionMigration);
-			return;
-		default:
-			assertNever(evidence.reason);
-	}
-}
-
-function assertExtensionFallback(evidence: LegacyExtensionFallbackEvidence | undefined): void {
-	if (
-		!evidence?.requiresLegacyRuntime ||
-		(evidence.unsupportedEvents.length === 0 && evidence.unmetRuntimeCapabilities.length === 0)
-	) {
-		throw new Error("Legacy Extension fallback requires an explicit unsupported event or runtime capability gap");
-	}
+	assertSessionFallback(evidence.sessionMigration);
 }
 
 function assertSessionFallback(evidence: LegacySessionMigrationFallbackEvidence | undefined): void {

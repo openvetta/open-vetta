@@ -271,7 +271,7 @@ describe("package boundary analysis", () => {
 				"packages/cli-app/src/rpc/greenfield-im-runtime-host.ts",
 				'const reason = "legacy-extension";',
 			),
-		).toHaveLength(1);
+		).toHaveLength(2);
 		expect(
 			findPackageBoundaryViolations(
 				"packages/cli-app/src/rpc/greenfield-im-runtime-host.ts",
@@ -282,6 +282,18 @@ describe("package boundary analysis", () => {
 			findPackageBoundaryViolations(
 				"packages/cli-app/src/agent-runtime-selection.ts",
 				'const reason = "legacy-extension";',
+			),
+		).toHaveLength(1);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/cli-app/src/rpc/legacy-runtime-fallback-contract.ts",
+				'export type RetiredReason = "legacy-extension";',
+			),
+		).toEqual([]);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/coding-agent/src/modes/rpc/rpc-types.ts",
+				'export type RetiredReason = "legacy-extension";',
 			),
 		).toEqual([]);
 	});

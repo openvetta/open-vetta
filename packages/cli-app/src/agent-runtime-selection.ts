@@ -1,14 +1,13 @@
 import { createAgentCliBootstrap, resolveCodingAgentSessionDir } from "@vetta/coding-agent/bootstrap";
 import { runCodingAgentCliControl } from "@vetta/coding-agent/cli-control";
-import type { RpcRuntimeDecision } from "@vetta/coding-agent/rpc";
+import { type RpcRuntimeDecision, stringifyRpcStartupFailure } from "@vetta/coding-agent/rpc";
 import { ConversationOwnershipConflictError } from "@vetta/runtime-storage/conversation";
 import { classifyAgentCliIntent } from "./agent-cli-intent.js";
+import { ExtensionCompatibilityError } from "./extension-compatibility-error.js";
 import { runLegacyRuntimeExecution } from "./legacy-runtime-gateway.js";
 import { createCliRuntimeSessionCatalog } from "./rpc/cli-session-format-compatibility.js";
 import {
 	type GreenfieldImFallbackReason,
-	type GreenfieldRpcRuntimeHostExtensionIncompatible,
-	type GreenfieldRpcRuntimeHostFallback,
 	prepareGreenfieldImRuntimeHost,
 	runGreenfieldImRuntimeHost,
 } from "./rpc/greenfield-im-runtime-host.js";
@@ -18,7 +17,10 @@ import {
 	runGreenfieldPrintRuntimeHost,
 	runGreenfieldRpcRuntimeHost,
 } from "./rpc/greenfield-rpc-runtime-host.js";
-import { assertAllowedAutomaticLegacyRuntimeFallback } from "./rpc/legacy-runtime-fallback-policy.js";
+import {
+	type AutomaticLegacyRuntimeFallbackEvidence,
+	assertAllowedAutomaticLegacyRuntimeFallback,
+} from "./rpc/legacy-runtime-fallback-policy.js";
 
 export type AgentRuntimeBackend = "legacy" | "greenfield" | "greenfield-im";
 
@@ -100,29 +102,30 @@ export async function runAgentRuntimeCli(
 			: selection.backend === "greenfield-im"
 				? prepareGreenfieldImRuntimeHost({ bootstrap, conversationDir, sessionCatalog })
 				: prepareGreenfieldRpcRuntimeHost({ bootstrap, conversationDir, sessionCatalog }));
-		if (prepared.kind === "legacy-fallback" || prepared.kind === "extension-incompatible") {
-			const fallback = adaptGreenfieldPreparationToLegacyFallback(prepared);
-			assertAllowedAutomaticLegacyRuntimeFallback(fallback);
+		if (prepared.kind === "extension-incompatible") {
+			throw new ExtensionCompatibilityError(selection.backend, prepared.extensionCompatibility);
+		}
+		if (prepared.kind === "legacy-fallback") {
+			if (prepared.reason !== "legacy-session") {
+				throw new Error(`Unsupported automatic Legacy fallback reason: ${prepared.reason}`);
+			}
+			const evidence = {
+				reason: "legacy-session",
+				...(prepared.sessionMigration ? { sessionMigration: prepared.sessionMigration } : {}),
+			} as const satisfies AutomaticLegacyRuntimeFallbackEvidence;
+			assertAllowedAutomaticLegacyRuntimeFallback(evidence);
 			const decision = {
 				requestedBackend: selection.backend,
 				effectiveBackend: "legacy",
-				fallbackReason: fallback.reason,
-				...(fallback.extensionCompatibility
-					? {
-							extensionFallback: {
-								unsupportedEvents: fallback.extensionCompatibility.unsupportedEvents,
-								unmetRuntimeCapabilities: fallback.extensionCompatibility.unmetRuntimeCapabilities,
-							},
-						}
-					: {}),
-				...(fallback.sessionMigration ? { sessionMigration: fallback.sessionMigration } : {}),
+				fallbackReason: evidence.reason,
+				...(evidence.sessionMigration ? { sessionMigration: evidence.sessionMigration } : {}),
 			} as const satisfies AgentRuntimeDecision;
 			if (options.onDecision) options.onDecision(decision);
-			else console.warn(`[agent-runtime] Greenfield unavailable (${fallback.reason}); using Legacy runtime`);
+			else console.warn(`[agent-runtime] Greenfield unavailable (${evidence.reason}); using Legacy runtime`);
 			await runLegacyRuntimeExecution({
-				cause: fallback.reason === "legacy-extension" ? "extension-compatibility-gap" : "session-migration-gap",
-				bootstrap: fallback.bootstrap,
-				evidence: fallback,
+				cause: "session-migration-gap",
+				bootstrap: prepared.bootstrap,
+				evidence,
 				runtimeDecision: decision,
 			});
 			return;
@@ -132,37 +135,40 @@ export async function runAgentRuntimeCli(
 		else if (selection.backend === "greenfield-im") await runGreenfieldImRuntimeHost(prepared);
 		else await runGreenfieldRpcRuntimeHost(prepared);
 	} catch (error) {
+		if (error instanceof ExtensionCompatibilityError) {
+			if (intent === "rpc") process.stdout.write(stringifyRpcStartupFailure(error.toRpcStartupFailure()));
+			else writeExtensionCompatibilityFailure(error);
+			process.exitCode = 2;
+			return;
+		}
 		if (!(error instanceof ConversationOwnershipConflictError)) throw error;
 		process.stdout.write(
-			`${JSON.stringify({
+			stringifyRpcStartupFailure({
 				type: "response",
 				command: "startup",
 				success: false,
 				error: error.message,
-				lockHolder: error.holder
+				...(error.holder
 					? {
-							pid: error.holder.pid,
-							hostname: error.holder.hostname,
-							openedAt: error.holder.acquiredAt,
+							lockHolder: {
+								pid: error.holder.pid,
+								hostname: error.holder.hostname,
+								openedAt: error.holder.acquiredAt,
+							},
 						}
-					: undefined,
-			})}\n`,
+					: {}),
+			}),
 		);
 		process.exitCode = 2;
 	}
 }
 
-function adaptGreenfieldPreparationToLegacyFallback(
-	prepared: GreenfieldRpcRuntimeHostExtensionIncompatible | GreenfieldRpcRuntimeHostFallback,
-): GreenfieldRpcRuntimeHostFallback {
-	if (prepared.kind === "legacy-fallback") return prepared;
-	return {
-		kind: "legacy-fallback",
-		reason: "legacy-extension",
-		bootstrap: prepared.bootstrap,
-		sessionPath: prepared.sessionPath,
-		extensionCompatibility: prepared.extensionCompatibility,
-	};
+function writeExtensionCompatibilityFailure(error: ExtensionCompatibilityError): void {
+	const unsupportedEvents = formatRuntimeDecisionList("unsupportedEvents", error.unsupportedEvents);
+	const unmetCapabilities = formatRuntimeDecisionList("unmetCapabilities", error.unmetRuntimeCapabilities);
+	process.stderr.write(
+		`[agent-runtime] startup failed errorCode=${error.errorCode} requested=${error.requestedBackend}${unsupportedEvents}${unmetCapabilities}: ${error.message}\n`,
+	);
 }
 
 export function writeAgentRuntimeDecision(decision: AgentRuntimeDecision): void {

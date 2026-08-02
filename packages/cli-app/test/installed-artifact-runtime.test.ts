@@ -856,7 +856,7 @@ describe("installed standalone CLI artifact", () => {
 		activeProcess = undefined;
 	}, 120_000);
 
-	it("enforces the Extension Profile and Legacy rollback in the installed executable", async () => {
+	it("enforces the Extension Profile and explicit incompatibility failure in the installed executable", async () => {
 		await expectStandaloneArtifact(artifact);
 
 		fixture = await createAgentRpcFixture();
@@ -930,13 +930,22 @@ describe("installed standalone CLI artifact", () => {
 		activeProcess = startInstalledCli(artifact.binaryPath, fixture, isolatedEnv, {
 			extraArgs: ["--extension", forwardExtension],
 		});
-		await expect(activeProcess.request("installed-forward-state", "get_state")).resolves.toMatchObject({
-			data: { runtimeBackend: "legacy" },
+		const forwardFailure = await activeProcess.waitFor(
+			(frame) => frame.type === "response" && frame.command === "startup",
+		);
+		expect(forwardFailure).toMatchObject({
+			type: "response",
+			command: "startup",
+			success: false,
+			errorCode: "extension_incompatible",
+			requestedBackend: "greenfield",
+			unsupportedEvents: ["future_event"],
+			unmetRuntimeCapabilities: ["event-handler"],
 		});
-		expect(activeProcess.stderr).toContain("fallback=legacy-extension");
-		expect(activeProcess.stderr).toContain("unsupportedEvents=future_event");
-		expect(activeProcess.stderr).toContain("unmetCapabilities=event-handler");
-		await expect(activeProcess.close()).resolves.toBe(0);
+		await expect(activeProcess.waitForExit()).resolves.toBe(2);
+		expect(activeProcess.frames).toEqual([forwardFailure]);
+		expect(activeProcess.stderr).not.toContain("effective=legacy");
+		expect(activeProcess.stderr).not.toContain("fallback=");
 		activeProcess = undefined;
 
 		activeProcess = startInstalledCli(artifact.binaryPath, fixture, isolatedEnv, {

@@ -478,7 +478,7 @@ describe("Agent non-RPC CLI compatibility", () => {
 		});
 	}, 60_000);
 
-	it("falls back explicitly for an unsupported Extension event on default Greenfield Print", async () => {
+	it("fails before the Provider request for an unsupported Extension event on default Greenfield Print", async () => {
 		const server = await startOpenAiResponsesTestServer(() => ({
 			kind: "events",
 			events: textResponseEvents("extension fallback completed"),
@@ -498,14 +498,18 @@ describe("Agent non-RPC CLI compatibility", () => {
 				"json",
 				"--extension",
 				extensionPath,
-				"exercise fallback",
+				"reject incompatible extension",
 			]);
 
-			expect(result.code).toBe(0);
-			expect(server.requests).toHaveLength(1);
-			expect(result.stderr).toContain("requested=greenfield effective=legacy");
-			expect(result.stderr).toContain("fallback=legacy-extension");
+			expect(result.code).toBe(2);
+			expect(result.stdout).toBe("");
+			expect(server.requests).toHaveLength(0);
+			expect(result.stderr).toContain("errorCode=extension_incompatible");
+			expect(result.stderr).toContain("requested=greenfield");
 			expect(result.stderr).toContain("unsupportedEvents=future_event");
+			expect(result.stderr).toContain("unmetCapabilities=event-handler");
+			expect(result.stderr).not.toContain("effective=legacy");
+			expect(result.stderr).not.toContain("fallback=");
 		} finally {
 			await fixture.dispose();
 			await server.dispose();

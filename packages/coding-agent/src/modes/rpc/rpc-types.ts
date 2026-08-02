@@ -10,6 +10,7 @@ import type { ImageContent, Model } from "@vetta/ai";
 import type { SessionStats } from "../../core/agent-session.js";
 import type { BashResult } from "../../core/bash-executor.js";
 import type { CompactionResult } from "../../core/compaction/index.js";
+import type { RpcStartupFailure } from "./rpc-startup-failure.js";
 
 // ============================================================================
 // RPC Commands (stdin)
@@ -93,6 +94,7 @@ export interface RpcSlashCommand {
 // ============================================================================
 
 export type RpcRuntimeBackend = "legacy" | "greenfield" | "greenfield-im";
+/** @deprecated Automatic Extension fallback is no longer emitted. */
 export type RpcRuntimeFallbackReason = "legacy-session" | "legacy-extension";
 export type RpcSessionMigrationStatus = "migrated" | "reused" | "locked" | "not-representable" | "failed";
 
@@ -139,6 +141,7 @@ export interface RpcSessionState {
 
 // Success responses with data
 export type RpcResponse =
+	| RpcStartupFailure
 	// Prompting (async - events follow)
 	| { id?: string; type: "response"; command: "prompt"; success: true }
 	| { id?: string; type: "response"; command: "steer"; success: true }

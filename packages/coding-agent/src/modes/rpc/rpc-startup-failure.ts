@@ -1,0 +1,53 @@
+import { type Static, Type } from "@sinclair/typebox";
+import { Value } from "@sinclair/typebox/value";
+
+const RpcStartupFailureBaseSchema = {
+	id: Type.Optional(Type.String()),
+	type: Type.Literal("response"),
+	command: Type.Literal("startup"),
+	success: Type.Literal(false),
+	error: Type.String(),
+};
+
+const RpcConversationOwnershipFailureSchema = Type.Object(
+	{
+		...RpcStartupFailureBaseSchema,
+		lockHolder: Type.Optional(
+			Type.Object({
+				pid: Type.Number(),
+				hostname: Type.String(),
+				openedAt: Type.String(),
+			}),
+		),
+	},
+	{ additionalProperties: false },
+);
+
+const RpcExtensionIncompatibilityFailureSchema = Type.Object(
+	{
+		...RpcStartupFailureBaseSchema,
+		errorCode: Type.Literal("extension_incompatible"),
+		requestedBackend: Type.Union([Type.Literal("greenfield"), Type.Literal("greenfield-im")]),
+		unsupportedEvents: Type.Array(Type.String()),
+		unmetRuntimeCapabilities: Type.Array(Type.String()),
+	},
+	{ additionalProperties: false },
+);
+
+/** Startup failures emitted before an RPC session can accept commands. */
+export const RpcStartupFailureSchema = Type.Union([
+	RpcConversationOwnershipFailureSchema,
+	RpcExtensionIncompatibilityFailureSchema,
+]);
+
+export type RpcStartupFailure = Static<typeof RpcStartupFailureSchema>;
+export type RpcExtensionIncompatibilityFailure = Static<typeof RpcExtensionIncompatibilityFailureSchema>;
+
+export function isRpcStartupFailure(value: unknown): value is RpcStartupFailure {
+	return Value.Check(RpcStartupFailureSchema, value);
+}
+
+export function stringifyRpcStartupFailure(frame: RpcStartupFailure): string {
+	if (!isRpcStartupFailure(frame)) throw new Error("Invalid RPC startup failure frame");
+	return `${JSON.stringify(frame)}\n`;
+}

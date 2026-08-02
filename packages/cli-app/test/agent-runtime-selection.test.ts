@@ -269,7 +269,7 @@ describe("Agent Runtime selection", () => {
 		await process.close();
 	});
 
-	it("maps a neutral forward Extension incompatibility to the existing Legacy fallback", async () => {
+	it("reports a structured startup failure for a forward Extension incompatibility", async () => {
 		const fixture = await createFixture();
 		const extensionPath = await writeFixtureExtension(
 			fixture,
@@ -280,15 +280,20 @@ describe("Agent Runtime selection", () => {
 		);
 
 		const process = await startRpc(fixture, ["--extension", extensionPath]);
-		await expect(process.request("forward-state", "get_state")).resolves.toMatchObject({
+		const failure = await process.waitFor((frame) => frame.type === "response" && frame.command === "startup");
+		expect(failure).toMatchObject({
 			type: "response",
-			command: "get_state",
-			success: true,
+			command: "startup",
+			success: false,
+			errorCode: "extension_incompatible",
+			requestedBackend: "greenfield-im",
+			unsupportedEvents: ["future_event"],
+			unmetRuntimeCapabilities: ["event-handler"],
 		});
-		expect(process.stderr).toContain("fallback=legacy-extension");
-		expect(process.stderr).toContain("unsupportedEvents=future_event");
-		expect(process.stderr).toContain("unmetCapabilities=event-handler");
-		await process.close();
+		expect(await process.waitForExit()).toBe(2);
+		expect(process.frames).toEqual([failure]);
+		expect(process.stderr).not.toContain("effective=legacy");
+		expect(process.stderr).not.toContain("fallback=");
 	});
 
 	it("preserves the startup lock-conflict wire contract", async () => {

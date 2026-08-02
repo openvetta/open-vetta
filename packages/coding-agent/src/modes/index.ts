@@ -30,6 +30,13 @@ export {
 	type RpcSessionProfileId,
 	supportsRpcCommand,
 } from "./rpc/rpc-session-capabilities.js";
+export {
+	isRpcStartupFailure,
+	type RpcExtensionIncompatibilityFailure,
+	type RpcStartupFailure,
+	RpcStartupFailureSchema,
+	stringifyRpcStartupFailure,
+} from "./rpc/rpc-startup-failure.js";
 export type {
 	RpcCommand,
 	RpcResponse,

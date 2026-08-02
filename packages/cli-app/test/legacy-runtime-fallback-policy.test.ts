@@ -28,35 +28,4 @@ describe("automatic Legacy Runtime fallback policy", () => {
 			"Legacy Session fallback requires migration evidence",
 		);
 	});
-
-	it.each([
-		{
-			unsupportedEvents: ["future_event"],
-			unmetRuntimeCapabilities: ["event-handler"],
-		},
-		{
-			unsupportedEvents: [],
-			unmetRuntimeCapabilities: ["command"],
-		},
-	] as const)("allows an Extension fallback with explicit compatibility evidence", (compatibility) => {
-		expect(() =>
-			assertAllowedAutomaticLegacyRuntimeFallback({
-				reason: "legacy-extension",
-				extensionCompatibility: { requiresLegacyRuntime: true, ...compatibility },
-			}),
-		).not.toThrow();
-	});
-
-	it("rejects an Extension fallback without an unmet compatibility gap", () => {
-		expect(() =>
-			assertAllowedAutomaticLegacyRuntimeFallback({
-				reason: "legacy-extension",
-				extensionCompatibility: {
-					requiresLegacyRuntime: false,
-					unsupportedEvents: [],
-					unmetRuntimeCapabilities: [],
-				},
-			}),
-		).toThrow("Legacy Extension fallback requires an explicit unsupported event or runtime capability gap");
-	});
 });

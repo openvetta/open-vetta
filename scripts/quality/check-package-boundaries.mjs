@@ -273,6 +273,35 @@ function checkGreenfieldLegacyStartupSymbols(posixPath, text, findings) {
 	}
 }
 
+function checkRetiredLegacyExtensionFallback(posixPath, text, findings) {
+	const isRuntimeProductionSource =
+		(posixPath.startsWith("packages/cli-app/src/") || posixPath.startsWith("packages/coding-agent/src/")) &&
+		!posixPath.endsWith(".d.ts") &&
+		!/\.(?:test|spec)\.[cm]?[jt]sx?$/.test(posixPath);
+	if (!isRuntimeProductionSource) return;
+	const compatibilityTypeFiles = new Set([
+		"packages/cli-app/src/rpc/legacy-runtime-fallback-contract.ts",
+		"packages/coding-agent/src/modes/rpc/rpc-types.ts",
+	]);
+	if (compatibilityTypeFiles.has(posixPath)) return;
+
+	const sourceFile = ts.createSourceFile(posixPath, text, ts.ScriptTarget.Latest, true, scriptKind(posixPath));
+	let usesRetiredFallback = false;
+	const visit = (node) => {
+		if (ts.isStringLiteralLike(node) && node.text === "legacy-extension") {
+			usesRetiredFallback = true;
+			return;
+		}
+		ts.forEachChild(node, visit);
+	};
+	visit(sourceFile);
+	if (usesRetiredFallback) {
+		findings.push(
+			`${posixPath}: automatic legacy-extension fallback is retired; report extension-incompatible instead`,
+		);
+	}
+}
+
 function checkRuntimeCompositionCompatibilityFacade(posixPath, specifiers, findings) {
 	if (!posixPath.startsWith("packages/runtime-composition/src/")) return;
 	if (
@@ -437,6 +466,7 @@ export function findPackageBoundaryViolations(posixPath, text, options = {}) {
 	checkCapabilitySchemaDefinitions(posixPath, text, findings);
 	checkGreenfieldRuntimeImports(posixPath, specifiers, findings);
 	checkGreenfieldLegacyStartupSymbols(posixPath, text, findings);
+	checkRetiredLegacyExtensionFallback(posixPath, text, findings);
 	checkRuntimeCompositionCompatibilityFacade(posixPath, specifiers, findings);
 	checkCodingAgentRootImports(posixPath, specifiers, findings);
 	checkCodingAgentLegacyBoundaries(posixPath, text, specifiers, findings);
