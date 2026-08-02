@@ -5,11 +5,10 @@
  * createAgentSession() options. The SDK does the heavy lifting.
  */
 
-import { type ImageContent, modelsAreEqual, supportsXhigh } from "@vetta/ai";
+import { modelsAreEqual, supportsXhigh } from "@vetta/ai";
 import chalk from "chalk";
 import { createInterface } from "readline";
 import { type Args, printHelp } from "./cli/args.js";
-import { processFileArguments } from "./cli/file-processor.js";
 import { listModels } from "./cli/list-models.js";
 import { APP_NAME, CONFIG_DIR_NAME, getAgentDir, getModelsPath, VERSION } from "./config.js";
 import { DEFAULT_THINKING_LEVEL } from "./core/defaults.js";
@@ -22,32 +21,13 @@ import { SessionLockError, SessionManager } from "./core/session-manager/index.j
 import { SettingsManager } from "./core/settings-manager.js";
 import { allTools } from "./core/tools/index.js";
 import { type CodingAgentHostBootstrap, createCodingAgentHostBootstrap } from "./host/coding-agent-host-bootstrap.js";
+import {
+	prepareCodingAgentPipedStdin,
+	prepareCodingAgentPrintInvocation,
+} from "./host/coding-agent-print-invocation.js";
 import { runPrintMode, runRpcMode } from "./modes/index.js";
 import { LegacyPrintSessionAdapter } from "./modes/legacy-print-session-adapter.js";
 import type { RpcRuntimeDecision } from "./modes/rpc/rpc-types.js";
-
-/**
- * Read all content from piped stdin.
- * Returns undefined if stdin is a TTY (interactive terminal).
- */
-async function readPipedStdin(): Promise<string | undefined> {
-	// If stdin is a TTY, we're running interactively - don't read stdin
-	if (process.stdin.isTTY) {
-		return undefined;
-	}
-
-	return new Promise((resolve) => {
-		let data = "";
-		process.stdin.setEncoding("utf8");
-		process.stdin.on("data", (chunk) => {
-			data += chunk;
-		});
-		process.stdin.on("end", () => {
-			resolve(data.trim() || undefined);
-		});
-		process.stdin.resume();
-	});
-}
 
 function reportSettingsErrors(settingsManager: SettingsManager, context: string): void {
 	const errors = settingsManager.drainErrors();
@@ -293,33 +273,6 @@ async function handlePackageCommand(args: string[]): Promise<boolean> {
 		process.exitCode = 1;
 		return true;
 	}
-}
-
-async function prepareInitialMessage(
-	parsed: Args,
-	autoResizeImages: boolean,
-): Promise<{
-	initialMessage?: string;
-	initialImages?: ImageContent[];
-}> {
-	if (parsed.fileArgs.length === 0) {
-		return {};
-	}
-
-	const { text, images } = await processFileArguments(parsed.fileArgs, { autoResizeImages });
-
-	let initialMessage: string;
-	if (parsed.messages.length > 0) {
-		initialMessage = text + parsed.messages[0];
-		parsed.messages.shift();
-	} else {
-		initialMessage = text;
-	}
-
-	return {
-		initialMessage,
-		initialImages: images.length > 0 ? images : undefined,
-	};
 }
 
 /** Result from resolving a session argument */
@@ -577,16 +530,7 @@ export async function runLegacyAgentWithBootstrap(
 		process.exit(0);
 	}
 
-	// Read piped stdin content (if any) - skip for RPC mode which uses stdin for JSON-RPC
-	if (parsed.mode !== "rpc") {
-		const stdinContent = await readPipedStdin();
-		if (stdinContent !== undefined) {
-			// Force print mode since interactive mode requires a TTY for keyboard input
-			parsed.print = true;
-			// Prepend stdin content to messages
-			parsed.messages.unshift(stdinContent);
-		}
-	}
+	if (parsed.mode !== "rpc") await prepareCodingAgentPipedStdin(parsed);
 
 	if (parsed.export) {
 		let result: string;
@@ -607,8 +551,15 @@ export async function runLegacyAgentWithBootstrap(
 		process.exit(1);
 	}
 
-	const { initialMessage, initialImages } = await prepareInitialMessage(parsed, settingsManager.getImageAutoResize());
-	const isInteractive = !parsed.print && parsed.mode === undefined;
+	const printInvocation =
+		parsed.mode === "rpc"
+			? undefined
+			: await prepareCodingAgentPrintInvocation({
+					parsed,
+					autoResizeImages: settingsManager.getImageAutoResize(),
+					stdinPrepared: true,
+				});
+	const isInteractive = printInvocation?.kind === "interactive-unsupported";
 	const mode = parsed.mode || "text";
 
 	// 交互式终端模式已移除（不再随包发布 TUI 产品）。仅保留 print / rpc。
@@ -730,12 +681,10 @@ export async function runLegacyAgentWithBootstrap(
 			runtimeDecision: options.rpcRuntimeDecision,
 		});
 	} else {
-		await runPrintMode(new LegacyPrintSessionAdapter(session), {
-			mode,
-			messages: parsed.messages,
-			initialMessage,
-			initialImages,
-		});
+		if (!printInvocation || printInvocation.kind !== "print") {
+			throw new Error("Print invocation was not prepared");
+		}
+		await runPrintMode(new LegacyPrintSessionAdapter(session), printInvocation.options);
 		if (process.stdout.writableLength > 0) {
 			await new Promise<void>((resolve) => process.stdout.once("drain", resolve));
 		}

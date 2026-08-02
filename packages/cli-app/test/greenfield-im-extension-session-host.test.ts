@@ -1,5 +1,7 @@
-import type { RpcSessionInitialization } from "@vetta/coding-agent/rpc";
-import type { CodingAgentGreenfieldExtensionEventHost } from "@vetta/coding-agent/runtime-host/greenfield";
+import type {
+	CodingAgentGreenfieldExtensionEventHost,
+	CodingAgentGreenfieldExtensionInitialization,
+} from "@vetta/coding-agent/runtime-host/greenfield";
 import type { GreenfieldRuntimeSession } from "@vetta/runtime-core";
 import { describe, expect, it, vi } from "vitest";
 import { GreenfieldImExtensionSessionHost } from "../src/rpc/greenfield-im-extension-session-host.js";
@@ -39,10 +41,9 @@ describe("GreenfieldImExtensionSessionHost initialization rollback", () => {
 		} as unknown as CodingAgentGreenfieldExtensionEventHost;
 		const host = new GreenfieldImExtensionSessionHost(previous, () => next);
 		await host.initialize({
-			uiContext: {} as RpcSessionInitialization["uiContext"],
-			hostBridge: { sendAttachment: vi.fn(async () => ({})) },
-			onShutdownRequested: vi.fn(),
-			onExtensionError: vi.fn(),
+			uiContext: {} as NonNullable<CodingAgentGreenfieldExtensionInitialization["uiContext"]>,
+			shutdownHandler: vi.fn(),
+			onError: vi.fn(),
 		});
 		order.length = 0;
 

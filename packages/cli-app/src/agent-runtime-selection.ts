@@ -9,7 +9,12 @@ import {
 	prepareGreenfieldImRuntimeHost,
 	runGreenfieldImRuntimeHost,
 } from "./rpc/greenfield-im-runtime-host.js";
-import { prepareGreenfieldRpcRuntimeHost, runGreenfieldRpcRuntimeHost } from "./rpc/greenfield-rpc-runtime-host.js";
+import {
+	prepareGreenfieldPrintRuntimeHost,
+	prepareGreenfieldRpcRuntimeHost,
+	runGreenfieldPrintRuntimeHost,
+	runGreenfieldRpcRuntimeHost,
+} from "./rpc/greenfield-rpc-runtime-host.js";
 import { assertAllowedAutomaticLegacyRuntimeFallback } from "./rpc/legacy-runtime-fallback-policy.js";
 
 export type AgentRuntimeBackend = "legacy" | "greenfield" | "greenfield-im";
@@ -63,7 +68,8 @@ export async function runAgentRuntimeCli(
 ): Promise<void> {
 	const selection = parseAgentRuntimeSelection(args);
 	assertSupportedSessionSelection(selection.agentArgs);
-	if (classifyAgentCliIntent(selection.agentArgs) === "control") {
+	const intent = classifyAgentCliIntent(selection.agentArgs);
+	if (intent === "control") {
 		await runLegacyAgent(selection.agentArgs);
 		return;
 	}
@@ -84,9 +90,14 @@ export async function runAgentRuntimeCli(
 	const sessionCatalog = createCliRuntimeSessionCatalog({ cwd: bootstrap.cwd, sessionDir: conversationDir });
 
 	try {
-		const prepared = await (selection.backend === "greenfield-im"
-			? prepareGreenfieldImRuntimeHost({ bootstrap, conversationDir, sessionCatalog })
-			: prepareGreenfieldRpcRuntimeHost({ bootstrap, conversationDir, sessionCatalog }));
+		if (intent === "print" && selection.backend === "greenfield-im") {
+			throw new Error("Greenfield IM Runtime only supports RPC mode");
+		}
+		const prepared = await (intent === "print"
+			? prepareGreenfieldPrintRuntimeHost({ bootstrap, conversationDir, sessionCatalog })
+			: selection.backend === "greenfield-im"
+				? prepareGreenfieldImRuntimeHost({ bootstrap, conversationDir, sessionCatalog })
+				: prepareGreenfieldRpcRuntimeHost({ bootstrap, conversationDir, sessionCatalog }));
 		if (prepared.kind === "legacy-fallback") {
 			assertAllowedAutomaticLegacyRuntimeFallback(prepared);
 			const decision = {
@@ -109,7 +120,8 @@ export async function runAgentRuntimeCli(
 			return;
 		}
 		options.onDecision?.(prepared.runtimeDecision);
-		if (selection.backend === "greenfield-im") await runGreenfieldImRuntimeHost(prepared);
+		if (prepared.kind === "greenfield-print") await runGreenfieldPrintRuntimeHost(prepared);
+		else if (selection.backend === "greenfield-im") await runGreenfieldImRuntimeHost(prepared);
 		else await runGreenfieldRpcRuntimeHost(prepared);
 	} catch (error) {
 		if (!(error instanceof ConversationOwnershipConflictError)) throw error;

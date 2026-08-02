@@ -28,6 +28,12 @@ export interface CodingAgentGreenfieldExtensionEventHostOptions {
 	readonly onError?: (error: ExtensionError) => void;
 }
 
+export interface CodingAgentGreenfieldExtensionInitialization {
+	readonly uiContext?: ExtensionUIContext;
+	readonly shutdownHandler?: () => void;
+	readonly onError?: (error: ExtensionError) => void;
+}
+
 /**
  * Greenfield Extension 的 Session 级组合宿主。
  *
@@ -105,16 +111,12 @@ export class CodingAgentGreenfieldExtensionEventHost {
 	}
 
 	async initialize(
-		input: {
-			readonly uiContext: ExtensionUIContext;
-			readonly shutdownHandler: () => void;
-			readonly onError: (error: ExtensionError) => void;
-		},
+		input: CodingAgentGreenfieldExtensionInitialization = {},
 		lifecycle: { readonly emitSessionStart?: boolean } = {},
 	): Promise<void> {
-		this.runner.setUIContext(input.uiContext);
-		this.shutdownHandler = input.shutdownHandler;
-		this.errorListener = input.onError;
+		if (input.uiContext) this.runner.setUIContext(input.uiContext);
+		if (input.shutdownHandler) this.shutdownHandler = input.shutdownHandler;
+		if (input.onError) this.errorListener = input.onError;
 		if (this.initialized) return;
 		this.initialized = true;
 		if (lifecycle.emitSessionStart !== false) await this.runner.emit({ type: "session_start" });

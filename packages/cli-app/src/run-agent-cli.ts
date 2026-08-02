@@ -9,7 +9,7 @@ import { installRpcStdoutGuard } from "./rpc/rpc-stdout-guard.js";
 export async function runAgentCli(args: readonly string[]): Promise<void> {
 	const selection = parseAgentRuntimeSelection(args);
 	const intent = classifyAgentCliIntent(selection.agentArgs);
-	if (intent !== "control" && (selection.backend !== "legacy" || intent === "rpc")) {
+	if (intent === "rpc") {
 		installRpcStdoutGuard();
 	}
 	await runAgentRuntimeCli(args, { onDecision: writeAgentRuntimeDecision });

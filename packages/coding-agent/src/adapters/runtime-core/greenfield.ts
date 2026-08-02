@@ -12,7 +12,10 @@ export {
 	createCodingAgentMcpRuntimeToolSource,
 	decorateCodingAgentMcpRuntimeTool,
 } from "./coding-agent-mcp-runtime-source.js";
-export { CodingAgentGreenfieldAgentMessageContextProjector } from "./greenfield-agent-message-context-projector.js";
+export {
+	CodingAgentGreenfieldAgentMessageContextProjector,
+	projectCodingAgentGreenfieldMessages,
+} from "./greenfield-agent-message-context-projector.js";
 export {
 	CODING_AGENT_ASK_USER_QUESTION_TOOL_NAME,
 	type CodingAgentAskUserQuestionRuntimeFeatureOptions,
@@ -54,6 +57,7 @@ export {
 	type CodingAgentGreenfieldExtensionEventBinding,
 	CodingAgentGreenfieldExtensionEventHost,
 	type CodingAgentGreenfieldExtensionEventHostOptions,
+	type CodingAgentGreenfieldExtensionInitialization,
 } from "./greenfield-extension-event-host.js";
 export {
 	CodingAgentGreenfieldExtensionObservationAdapter,

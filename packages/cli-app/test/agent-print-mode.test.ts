@@ -51,6 +51,26 @@ describe("Agent non-RPC CLI compatibility", () => {
 		}
 	}, 30_000);
 
+	it("runs explicit Greenfield text print through the standard Vetta CLI", async () => {
+		const marker = "explicit Greenfield text print response";
+		const server = await startOpenAiResponsesTestServer(() => ({
+			kind: "events",
+			events: textResponseEvents(marker),
+		}));
+		const fixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
+		try {
+			const result = await runAgentCli(fixture, ["--agent-runtime", "greenfield", "--print", "reply in text"]);
+
+			expect(result.code).toBe(0);
+			expect(result.stdout).toContain(marker);
+			expect(result.stderr).toContain("requested=greenfield effective=greenfield");
+			expect(server.requests).toHaveLength(1);
+		} finally {
+			await fixture.dispose();
+			await server.dispose();
+		}
+	}, 30_000);
+
 	it("keeps JSON print as a JSONL event stream", async () => {
 		const marker = "JSON print response";
 		const server = await startOpenAiResponsesTestServer(() => ({
@@ -72,6 +92,37 @@ describe("Agent non-RPC CLI compatibility", () => {
 		}
 	}, 30_000);
 
+	it("keeps Greenfield JSON Print core events compatible with Legacy", async () => {
+		const marker = "JSON differential response";
+		const server = await startOpenAiResponsesTestServer(() => ({
+			kind: "events",
+			events: textResponseEvents(marker),
+		}));
+		const legacyFixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
+		const greenfieldFixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
+		try {
+			const legacy = await runAgentCli(legacyFixture, ["--mode", "json", "compare JSON events"]);
+			const greenfield = await runAgentCli(greenfieldFixture, [
+				"--agent-runtime",
+				"greenfield",
+				"--mode",
+				"json",
+				"compare JSON events",
+			]);
+
+			expect(legacy.code).toBe(0);
+			expect(greenfield.code).toBe(0);
+			expect(readCoreEventTypes(greenfield.stdout)).toEqual(readCoreEventTypes(legacy.stdout));
+			expect(greenfield.stdout).toContain(marker);
+			expect(greenfield.stderr).toContain("requested=greenfield effective=greenfield");
+			expect(readSessionHeader(greenfield.stdout)).toMatchObject({ type: "session", version: 3 });
+		} finally {
+			await legacyFixture.dispose();
+			await greenfieldFixture.dispose();
+			await server.dispose();
+		}
+	}, 30_000);
+
 	it("keeps piped stdin print-compatible without an explicit mode", async () => {
 		const marker = "piped stdin response";
 		const server = await startOpenAiResponsesTestServer(() => ({
@@ -85,6 +136,30 @@ describe("Agent non-RPC CLI compatibility", () => {
 			expect(result.code).toBe(0);
 			expect(result.stdout).toContain(marker);
 			expect(result.stderr).toContain("requested=legacy effective=legacy");
+			expect(server.requests).toHaveLength(1);
+		} finally {
+			await fixture.dispose();
+			await server.dispose();
+		}
+	}, 30_000);
+
+	it("keeps piped stdin compatible on explicit Greenfield Print", async () => {
+		const marker = "Greenfield piped stdin response";
+		const server = await startOpenAiResponsesTestServer(() => ({
+			kind: "events",
+			events: textResponseEvents(marker),
+		}));
+		const fixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
+		try {
+			const result = await runAgentCli(
+				fixture,
+				["agent", "--agent-runtime", "greenfield"],
+				"reply from Greenfield stdin\n",
+			);
+
+			expect(result.code).toBe(0);
+			expect(result.stdout).toContain(marker);
+			expect(result.stderr).toContain("requested=greenfield effective=greenfield");
 			expect(server.requests).toHaveLength(1);
 		} finally {
 			await fixture.dispose();
@@ -169,6 +244,39 @@ function parseJsonLine(line: string): readonly unknown[] {
 	} catch {
 		return [];
 	}
+}
+
+const CORE_EVENT_TYPES = new Set([
+	"agent_start",
+	"turn_start",
+	"message_start",
+	"message_update",
+	"message_end",
+	"turn_end",
+	"agent_end",
+]);
+
+function readCoreEventTypes(stdout: string): readonly string[] {
+	return stdout
+		.split(/\r?\n/)
+		.flatMap((line) => parseJsonLine(line))
+		.flatMap((frame) => {
+			const type = readFrameType(frame);
+			return type && CORE_EVENT_TYPES.has(type) ? [type] : [];
+		});
+}
+
+function readSessionHeader(stdout: string): unknown {
+	return stdout
+		.split(/\r?\n/)
+		.flatMap((line) => parseJsonLine(line))
+		.find((frame) => readFrameType(frame) === "session");
+}
+
+function readFrameType(frame: unknown): string | undefined {
+	if (typeof frame !== "object" || frame === null) return undefined;
+	const type = Reflect.get(frame, "type");
+	return typeof type === "string" ? type : undefined;
 }
 
 async function buildAgentCliExecutable(): Promise<AgentCliExecutable> {

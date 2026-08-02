@@ -183,6 +183,7 @@
 | [173-installed-ordinary-rpc-cutover-gate.md](./08-implementation-log/173-installed-ordinary-rpc-cutover-gate.md) | 普通 RPC 安装产物默认切换、完整能力恢复与 standalone 资产闭包门禁 |
 | [174-automatic-legacy-fallback-policy.md](./08-implementation-log/174-automatic-legacy-fallback-policy.md) | 自动 Legacy 回退穷尽策略、结构化证据与迁移 failed 门禁 |
 | [175-non-rpc-cli-intent-and-print-host-boundary.md](./08-implementation-log/175-non-rpc-cli-intent-and-print-host-boundary.md) | 非 RPC CLI 意图分流、中立 Print Host 合同与 Legacy 等价适配 |
+| [176-greenfield-print-candidate-and-cli-differential.md](./08-implementation-log/176-greenfield-print-candidate-and-cli-differential.md) | Greenfield Print 显式候选、完整事件投影与标准 CLI 差分门禁 |
 
 ## 维护约定
 

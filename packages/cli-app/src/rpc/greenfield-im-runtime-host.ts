@@ -6,8 +6,10 @@ import {
 	type CodingAgentHostBootstrap,
 	type CodingAgentHostBootstrapOptions,
 	createCodingAgentHostBootstrap,
+	prepareCodingAgentPrintInvocation,
 	resolveCodingAgentGreenfieldExtensionCompatibility,
 	resolveCodingAgentInitialModel,
+	runPrintMode,
 } from "@vetta/coding-agent/bootstrap";
 import { getVettaHomePath } from "@vetta/coding-agent/config";
 import { buildDefaultHookConfigLayers } from "@vetta/coding-agent/hooks";
@@ -40,6 +42,7 @@ import {
 	FileConversationOwnershipManager,
 	type FileConversationOwnershipManagerOptions,
 } from "@vetta/runtime-storage/conversation";
+import { GreenfieldPrintSessionAdapter } from "../greenfield-print-session-adapter.js";
 import {
 	CodingAgentGreenfieldActiveSessionHost,
 	createGreenfieldRuntimeComposition,
@@ -77,6 +80,17 @@ export interface GreenfieldRpcRuntimeHostReady {
 }
 
 export type GreenfieldRpcRuntimeHostPreparation = GreenfieldRpcRuntimeHostFallback | GreenfieldRpcRuntimeHostReady;
+
+export interface GreenfieldPrintRuntimeHostReady {
+	readonly kind: "greenfield-print";
+	readonly bootstrap: CodingAgentHostBootstrap;
+	readonly session: GreenfieldRuntimeSession;
+	readonly runtime: GreenfieldRuntimeComposition;
+	readonly printSession: GreenfieldPrintSessionAdapter;
+	readonly runtimeDecision: RpcRuntimeDecision;
+}
+
+export type GreenfieldPrintRuntimeHostPreparation = GreenfieldRpcRuntimeHostFallback | GreenfieldPrintRuntimeHostReady;
 
 /** @deprecated Use the neutral Greenfield RPC host contracts. */
 export type GreenfieldImFallbackReason = GreenfieldRpcFallbackReason;
@@ -151,22 +165,44 @@ export async function createGreenfieldImRuntimeHost(
 export async function prepareGreenfieldImRuntimeHost(
 	options: PrepareGreenfieldImRuntimeHostOptions,
 ): Promise<GreenfieldImRuntimeHostPreparation> {
-	return prepareGreenfieldRuntimeHost(options, "greenfield-im");
+	return prepareGreenfieldRuntimeHost(options, "greenfield-im", "rpc");
 }
 
 export async function prepareGreenfieldRpcRuntimeHost(
 	options: PrepareGreenfieldRpcRuntimeHostOptions,
 ): Promise<GreenfieldRpcRuntimeHostPreparation> {
-	return prepareGreenfieldRuntimeHost(options, "greenfield");
+	return prepareGreenfieldRuntimeHost(options, "greenfield", "rpc");
+}
+
+export async function prepareGreenfieldPrintRuntimeHost(
+	options: PrepareGreenfieldRpcRuntimeHostOptions,
+): Promise<GreenfieldPrintRuntimeHostPreparation> {
+	return prepareGreenfieldRuntimeHost(options, "greenfield", "print");
 }
 
 async function prepareGreenfieldRuntimeHost(
 	options: PrepareGreenfieldImRuntimeHostOptions,
+	backend: "greenfield-im",
+	intent: "rpc",
+): Promise<GreenfieldRpcRuntimeHostPreparation>;
+async function prepareGreenfieldRuntimeHost(
+	options: PrepareGreenfieldImRuntimeHostOptions,
+	backend: "greenfield",
+	intent: "rpc",
+): Promise<GreenfieldRpcRuntimeHostPreparation>;
+async function prepareGreenfieldRuntimeHost(
+	options: PrepareGreenfieldImRuntimeHostOptions,
+	backend: "greenfield",
+	intent: "print",
+): Promise<GreenfieldPrintRuntimeHostPreparation>;
+async function prepareGreenfieldRuntimeHost(
+	options: PrepareGreenfieldImRuntimeHostOptions,
 	backend: "greenfield" | "greenfield-im",
-): Promise<GreenfieldRpcRuntimeHostPreparation> {
+	intent: "rpc" | "print",
+): Promise<GreenfieldRpcRuntimeHostPreparation | GreenfieldPrintRuntimeHostPreparation> {
 	const { bootstrap } = options;
 	const { parsed } = bootstrap;
-	assertGreenfieldInvocation(bootstrap, backend);
+	assertGreenfieldInvocation(bootstrap, backend, intent);
 
 	const extensionCompatibility = resolveCodingAgentGreenfieldExtensionCompatibility(bootstrap.extensionCompatibility, {
 		actions: true,
@@ -427,16 +463,34 @@ async function prepareGreenfieldRuntimeHost(
 		dismissMcpRollback();
 		dismissExtensionRollback();
 		rollback.defer({ id: "runtime-capabilities", rollback: () => capabilities.dispose() });
-		const prepared: GreenfieldImRuntimeHostReady = {
-			kind: "greenfield",
-			bootstrap,
-			get session() {
-				return activeSessionHost!.readSession();
-			},
-			runtime,
-			capabilities,
-			runtimeDecision,
-		};
+		const prepared =
+			intent === "print"
+				? {
+						kind: "greenfield-print" as const,
+						bootstrap,
+						get session() {
+							return activeSessionHost!.readSession();
+						},
+						runtime,
+						printSession: new GreenfieldPrintSessionAdapter({
+							sessionHost: activeSessionHost,
+							retryController,
+							subscribeRetryEvents: (listener) => capabilities.subscribe(listener),
+							extensionSessionHost,
+							dispose: () => capabilities.dispose(),
+						}),
+						runtimeDecision,
+					}
+				: {
+						kind: "greenfield" as const,
+						bootstrap,
+						get session() {
+							return activeSessionHost!.readSession();
+						},
+						runtime,
+						capabilities,
+						runtimeDecision,
+					};
 		rollback.commit();
 		return prepared;
 	} catch (error) {
@@ -454,12 +508,31 @@ export async function runGreenfieldRpcRuntimeHost(prepared: GreenfieldImRuntimeH
 	});
 }
 
+export async function runGreenfieldPrintRuntimeHost(prepared: GreenfieldPrintRuntimeHostReady): Promise<void> {
+	try {
+		const invocation = await prepareCodingAgentPrintInvocation({
+			parsed: prepared.bootstrap.parsed,
+			autoResizeImages: prepared.bootstrap.settingsManager.getImageAutoResize(),
+		});
+		if (invocation.kind === "interactive-unsupported") {
+			throw new Error("交互式终端模式已移除。请使用 --print 进行单次执行，或使用 Vetta 桌面应用。");
+		}
+		await runPrintMode(prepared.printSession, invocation.options);
+	} finally {
+		await prepared.printSession.dispose();
+	}
+}
+
 function assertGreenfieldInvocation(
 	bootstrap: CodingAgentHostBootstrap,
 	backend: "greenfield" | "greenfield-im",
+	intent: "rpc" | "print",
 ): void {
 	const { parsed } = bootstrap;
-	if (parsed.mode !== "rpc") throw new Error("Greenfield Runtime requires --mode rpc");
+	if (intent === "rpc" && parsed.mode !== "rpc") throw new Error("Greenfield Runtime requires --mode rpc");
+	if (intent === "print" && parsed.mode === "rpc") throw new Error("Greenfield Print does not support RPC mode");
+	if (intent === "print" && backend === "greenfield-im")
+		throw new Error("Greenfield IM Runtime only supports RPC mode");
 	if (backend === "greenfield-im" && !parsed.enableHostBridge) {
 		throw new Error("Greenfield IM Runtime requires --enable-host-bridge");
 	}
@@ -535,7 +608,11 @@ class GreenfieldRpcRuntimeHostCapabilities implements RpcSessionCapabilities {
 	}
 
 	async initialize(input: Parameters<RpcSessionCapabilities["initialize"]>[0]): Promise<void> {
-		await this.extensionSessionHost.initialize(input);
+		await this.extensionSessionHost.initialize({
+			uiContext: input.uiContext,
+			shutdownHandler: input.onShutdownRequested,
+			onError: input.onExtensionError,
+		});
 		await this.adapter.initialize(input);
 	}
 

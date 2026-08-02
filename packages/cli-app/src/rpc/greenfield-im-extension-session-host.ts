@@ -1,7 +1,7 @@
-import type { RpcSessionInitialization } from "@vetta/coding-agent/rpc";
 import {
 	CodingAgentGreenfieldExtensionCommandHost,
 	type CodingAgentGreenfieldExtensionEventHost,
+	type CodingAgentGreenfieldExtensionInitialization,
 	type ExtensionCommandContextActions,
 } from "@vetta/coding-agent/runtime-host/greenfield";
 import { type GreenfieldRuntimeSession, InitializationRollbackScope, RetryableCleanup } from "@vetta/runtime-core";
@@ -27,7 +27,7 @@ interface GreenfieldImExtensionSessionBinding {
  * Host，RPC Adapter 不持有某个具体 Session 的实现。
  */
 export class GreenfieldImExtensionSessionHost {
-	private initialization: RpcSessionInitialization | undefined;
+	private initialization: CodingAgentGreenfieldExtensionInitialization | undefined;
 	private commandActions: ExtensionCommandContextActions | undefined;
 	private current: GreenfieldImExtensionSessionBinding;
 	private readonly cleanup = new RetryableCleanup();
@@ -64,13 +64,9 @@ export class GreenfieldImExtensionSessionHost {
 		this.requireCommands().throwIfExtensionCommand(text);
 	}
 
-	async initialize(input: RpcSessionInitialization): Promise<void> {
+	async initialize(input: CodingAgentGreenfieldExtensionInitialization): Promise<void> {
 		this.initialization = input;
-		await this.current.events.initialize({
-			uiContext: input.uiContext,
-			shutdownHandler: input.onShutdownRequested,
-			onError: input.onExtensionError,
-		});
+		await this.current.events.initialize(input);
 		await this.current.events.discoverResources("startup");
 	}
 
@@ -114,14 +110,7 @@ export class GreenfieldImExtensionSessionHost {
 		rollback.defer({ id: "previous-runtime-actions", rollback: () => previous.events.rebindRuntimeActions() });
 		try {
 			if (this.initialization) {
-				await events.initialize(
-					{
-						uiContext: this.initialization.uiContext,
-						shutdownHandler: this.initialization.onShutdownRequested,
-						onError: this.initialization.onExtensionError,
-					},
-					{ emitSessionStart: false },
-				);
+				await events.initialize(this.initialization, { emitSessionStart: false });
 			}
 			const prepared: CodingAgentGreenfieldPreparedSessionBinding = {
 				commit: async () => {
@@ -192,14 +181,7 @@ export class GreenfieldImExtensionSessionHost {
 				rollback: () => events.dispose({ emitSessionShutdown: false }),
 			});
 			if (this.initialization) {
-				await events.initialize(
-					{
-						uiContext: this.initialization.uiContext,
-						shutdownHandler: this.initialization.onShutdownRequested,
-						onError: this.initialization.onExtensionError,
-					},
-					{ emitSessionStart: false },
-				);
+				await events.initialize(this.initialization, { emitSessionStart: false });
 			}
 			if (this.initialization) await next.events.runner.emit({ type: "session_start" });
 			await next.events.discoverResources("reload");
