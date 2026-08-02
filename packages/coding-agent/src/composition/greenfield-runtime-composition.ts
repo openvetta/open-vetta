@@ -19,13 +19,12 @@ import {
 	type SessionExecutionMode,
 } from "@vetta/runtime-core";
 import { selectConversationDocumentModelMessages } from "@vetta/runtime-core/conversation";
-import {
-	type AgentCoreTurnEngineOptions,
-	type AgentFeatureDefinition,
-	type AgentProfile,
-	type ModelCallContributionContext,
-	RuntimeCapabilityComposition,
-	type SessionContextRecord,
+import type {
+	AgentCoreTurnEngineOptions,
+	AgentFeatureDefinition,
+	AgentProfile,
+	ModelCallContributionContext,
+	SessionContextRecord,
 } from "@vetta/runtime-core/kernel";
 import {
 	createMcpDeferredToolController,
@@ -40,7 +39,6 @@ import { type ConversationOwnershipManager, FileConversationRepository } from "@
 import {
 	CODING_TOOL_SCOPES,
 	type CodingToolActivation,
-	guardCodingToolRegistration,
 	selectCodingToolRegistrations,
 } from "@vetta/runtime-tools/coding";
 import {
@@ -48,42 +46,29 @@ import {
 	CODING_AGENT_ASK_USER_QUESTION_TOOL_NAME,
 	CODING_AGENT_MODEL_TOOL_ORDER,
 	type CodingAgentCompactionExtensionRuntime,
-	CodingAgentContinuationOrchestrator,
 	CodingAgentGreenfieldAgentMessageContextProjector,
 	CodingAgentGreenfieldContextRuntime,
 	type CodingAgentGreenfieldContextRuntimeOptions,
 	type CodingAgentGreenfieldExtensionEventBinding,
 	CodingAgentGreenfieldExtensionEventBridge,
 	CodingAgentGreenfieldMemoryController,
-	CodingAgentGreenfieldModelCallMessageFinalizer,
-	CodingAgentGreenfieldPromptAdapter,
 	type CodingAgentMemoryController,
 	CodingAgentMemoryRolloverOrchestrator,
 	type CodingAgentMemoryRolloverOrchestratorOptions,
 	type CodingAgentMemoryRolloverRuntime,
-	CodingAgentModelCallFrameComposer,
 	CodingAgentModelRegistryAdapter,
 	type CodingAgentModelRegistrySource,
 	type CodingAgentPluginMcpRuntime,
-	CodingAgentPluginRunOrchestrator,
 	type CodingAgentPluginRuntimeSource,
-	type CodingAgentPluginToolActivation,
-	CodingAgentPluginToolRuntime,
 	type CodingAgentPromptResourceResolver,
 	type CodingAgentPromptResourceSource,
-	CodingAgentPromptRuntime,
 	type CodingAgentPromptSettingsSource,
-	CodingAgentStopHookContinuationSource,
 	type CodingAgentSystemPromptOptionsResolver,
-	CodingAgentTodoContinuationSource,
 	CodingAgentTodoRuntime,
 	createCodingAgentAskUserQuestionRuntimeFeature,
 	createCodingAgentGreenfieldProductToolFeature,
 	createCodingAgentGreenfieldProductToolRegistrations,
-	createCodingAgentInvokeSkillRuntimeFeature,
 	createCodingAgentMemoryRuntimeFeature,
-	createCodingAgentPromptResourceResolver,
-	createCodingAgentPromptRuntime,
 	createCodingAgentTodoRuntimeFeature,
 	createCodingAgentTodoRuntimeToolRegistration,
 	createEcosystemHookRuntime,
@@ -106,6 +91,10 @@ import {
 	GreenfieldSessionConfigurationState,
 } from "./greenfield-session-peripherals.js";
 import { createGreenfieldSubagentSessionAssembly } from "./greenfield-subagent-session-assembly.js";
+import {
+	createGreenfieldTurnCapabilitySessionAssembly,
+	type GreenfieldTurnCapabilitySessionAssembly,
+} from "./greenfield-turn-capability-session-assembly.js";
 import {
 	type CodingToolsRuntimeComposition,
 	createCodingToolsRuntimeComposition,
@@ -359,7 +348,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 	const conversationContextOverlay = new CodingAgentGreenfieldConversationContextOverlay(
 		baseConversationContextProjector,
 	);
-	const capabilityCompositions = new Set<RuntimeCapabilityComposition>();
+	const turnCapabilityAssemblies = new Set<GreenfieldTurnCapabilitySessionAssembly>();
 	const todoRuntimes = new Set<CodingAgentTodoRuntime>();
 	const contextRuntimes = new Set<CodingAgentGreenfieldContextRuntime>();
 	const memoryRuntimes = new Set<CodingAgentMemoryRolloverRuntime>();
@@ -745,193 +734,69 @@ async function createGreenfieldRuntimeCompositionInternal(
 					id: "hook-session",
 					rollback: () => disposeHookSession(),
 				});
-				const pluginSession = {
-					id: activeSessionId,
-					cwd: sessionCwd,
-					scenario,
-				};
-				const pluginRunOrchestrator = pluginRuntime
-					? new CodingAgentPluginRunOrchestrator({
-							session: pluginSession,
-							...pluginRuntime,
-							readAgentPlugins: () => configurationState.readAgentPlugins(),
-						})
-					: undefined;
-				const pluginToolRuntime =
-					pluginRuntime && pluginRunOrchestrator
-						? new CodingAgentPluginToolRuntime({
-								readAgentPlugins: () => configurationState.readAgentPlugins(),
-								invokeTool: pluginRuntime.invokeTool,
-								runOrchestrator: pluginRunOrchestrator,
-								shouldPreserveBaseTool: (toolName) =>
-									mcpController?.isManagedTool(toolName) === true ||
-									extensionToolRuntime?.hasTool(toolName) === true,
-								resolveActivation: (context) =>
-									toPluginToolActivation(
-										resolveTurnToolActivation(
-											effectiveActivation,
-											context,
-											{
-												backgroundTasksAvailable,
-												knowledgeAvailable,
-											},
-											configurationState.readAgentMode(),
-										),
-										configurationState.readAgentMode(),
-									),
-							})
-						: undefined;
-				const todoContinuationSource = new CodingAgentTodoContinuationSource({ state: todoRuntime });
-				const stopHookContinuationSource = new CodingAgentStopHookContinuationSource({ hookRuntime });
-				const continuationOrchestrator = new CodingAgentContinuationOrchestrator({
-					todo: todoContinuationSource,
-					plugin: pluginRunOrchestrator,
-					stopHook: stopHookContinuationSource,
-				});
-				const injectedSystemPromptOptionsResolver =
-					options.createSystemPromptOptionsResolver?.(sessionOptions) ?? options.resolveSystemPromptOptions;
-				const promptRuntime = injectedSystemPromptOptionsResolver
-					? undefined
-					: options.promptResourceSource && options.promptSettingsSource
-						? new CodingAgentPromptRuntime({
-								cwd: sessionCwd,
-								resourceLoader: options.promptResourceSource,
-								settingsManager: options.promptSettingsSource,
-								scenario,
-								readAgentMode: () => configurationState.readAgentMode(),
-								readMemory: memoryRuntime ? () => memoryRuntime.readPromptMemory() : undefined,
-								readAgentPlugins: () => configurationState.readAgentPlugins(),
-							})
-						: await createCodingAgentPromptRuntime({
-								cwd: sessionCwd,
-								agentDir: options.agentDir,
-								scenario,
-								resourceLoaderOptions: {
-									includeAgentSkills: sessionOptions.includeAgentSkills,
-								},
-								readAgentMode: () => configurationState.readAgentMode(),
-								readMemory: memoryRuntime ? () => memoryRuntime.readPromptMemory() : undefined,
-								readAgentPlugins: () => configurationState.readAgentPlugins(),
-							});
-				const resolveSystemPromptOptions =
-					injectedSystemPromptOptionsResolver ?? promptRuntime?.resolveSystemPromptOptions;
-				if (!resolveSystemPromptOptions) {
-					throw new Error("Coding Agent system prompt resolver was not created");
-				}
-				const promptResourceSource = options.promptResourceSource ?? promptRuntime?.readResourceSource();
-				const modelCallMessageFinalizer = new CodingAgentGreenfieldModelCallMessageFinalizer(
-					options.promptSettingsSource ?? promptRuntime?.readSettingsSource(),
-				);
-				const invokeSkillFeature = promptResourceSource
-					? createCodingAgentInvokeSkillRuntimeFeature({
-							resourceSource: promptResourceSource,
-							readAgentMode: () => configurationState.readAgentMode(),
-						})
-					: undefined;
-				const readAvailableTools = () =>
-					new Map([
-						...tools.registry
-							.snapshot()
-							.entries.filter((entry) => !activeExecutionRuntime.ownsTool(entry.registration.tool.name))
-							.map(
-								(entry) =>
-									[entry.registration.tool.name, guardCodingToolRegistration(tools.registry, entry)] as const,
+				const turnCapabilityAssembly = await createGreenfieldTurnCapabilitySessionAssembly({
+					session: {
+						initialSessionId: activeSessionId,
+						readSessionId: () => activeSessionId,
+						cwd: sessionCwd,
+						scenario,
+						agentDir: options.agentDir,
+						includeAgentSkills: sessionOptions.includeAgentSkills,
+						systemPromptAddon: sessionOptions.systemPromptAddon,
+					},
+					activation: {
+						resolve: (context) =>
+							resolveTurnToolActivation(
+								effectiveActivation,
+								context,
+								{ backgroundTasksAvailable, knowledgeAvailable },
+								configurationState.readAgentMode(),
 							),
-						...activeExecutionRuntime.readAvailableTools(),
-						...productToolRegistrations.map(({ tool }) => [tool.name, tool] as const),
-						...(todoEnabled ? [[todoRegistration.tool.name, todoRegistration.tool] as const] : []),
-						...(memoryRuntime
-							? [[memoryRuntime.toolRegistration.tool.name, memoryRuntime.toolRegistration.tool] as const]
-							: []),
-						...(subagentRuntime ? subagentRuntime.readTools().map((tool) => [tool.name, tool] as const) : []),
-						...(invokeSkillFeature ? [[invokeSkillFeature.tool.name, invokeSkillFeature.tool] as const] : []),
-						...(extensionToolRuntime?.readAvailableTools() ?? []),
-					]);
-				const modelCallFrameComposer = new CodingAgentModelCallFrameComposer({
-					readMcpPromptState: mcpController ? () => mcpController.readPromptState() : undefined,
-					readAvailableTools,
-					readActiveToolNamesOverride: () => configurationState.readActiveToolNamesOverride(),
-					pluginRunOrchestrator,
-					pluginMcpRuntime,
-					pluginToolRuntime,
-					readAgentMode: () => configurationState.readAgentMode(),
-					isMcpToolVisible: (toolName) => mcpController?.isToolVisible(toolName) ?? true,
-					systemPromptAdvertisedToolNames: options.systemPromptAdvertisedToolNames,
+						readAgentMode: () => configurationState.readAgentMode(),
+						readAgentPlugins: () => configurationState.readAgentPlugins(),
+						readActiveToolNamesOverride: () => configurationState.readActiveToolNamesOverride(),
+					},
+					prompt: {
+						systemPromptOptionsResolver:
+							options.createSystemPromptOptionsResolver?.(sessionOptions) ?? options.resolveSystemPromptOptions,
+						promptResourceResolver:
+							options.createPromptResourceResolver?.(sessionOptions, todoRuntime) ??
+							options.resolvePromptResource,
+						resourceSource: options.promptResourceSource,
+						settingsSource: options.promptSettingsSource,
+						systemPromptAdvertisedToolNames: options.systemPromptAdvertisedToolNames,
+					},
+					baseProfile,
+					codingTools: tools,
+					executionRuntime: activeExecutionRuntime,
+					productToolFeature,
+					productToolRegistrations,
+					todoRuntime,
+					todoToolRegistration: todoEnabled ? todoRegistration : undefined,
+					memoryRuntime,
+					subagentRuntime,
+					contextRuntime,
+					conversationContextProjector: conversationContextOverlay,
+					modelRuntime,
 					hookRuntime,
+					pluginRuntime,
+					pluginMcpRuntime,
+					mcpController,
 					extensionEvents,
 					extensionToolRuntime,
-					resolveExtensionToolActivation: (context) =>
-						resolveTurnToolActivation(
-							effectiveActivation,
-							context,
-							{
-								backgroundTasksAvailable,
-								knowledgeAvailable,
-							},
-							configurationState.readAgentMode(),
-						),
-					resolveSystemPromptOptions: async (context) => {
-						const promptOptions = await resolveSystemPromptOptions(context);
-						return {
-							...promptOptions,
-							cwd: promptOptions.cwd ?? sessionCwd,
-							agentPlugins: promptOptions.agentPlugins ?? configurationState.readAgentPlugins(),
-							appendSystemPrompt: joinPromptAddons(
-								promptOptions.appendSystemPrompt,
-								sessionOptions.systemPromptAddon,
-							),
-							...(memoryRuntime ? { memory: memoryRuntime.renderPromptMemory() } : {}),
-						};
-					},
 				});
-				const profile: AgentProfile = {
-					...baseProfile,
-					features: [
-						...baseProfile.features,
-						productToolFeature,
-						...(invokeSkillFeature ? [invokeSkillFeature] : []),
-						...(subagentRuntime ? [subagentRuntime.feature] : []),
-					],
-					observers: [...(baseProfile.observers ?? []), contextRuntime, ...(memoryRuntime ? [memoryRuntime] : [])],
-					contextStrategy: contextRuntime,
-					modelCallContextTransformer: contextRuntime,
-					modelCallMessageFinalizer,
-					conversationContextProjector: conversationContextOverlay,
-					agentRunPreparer: extensionEvents,
-					continuationPolicy: continuationOrchestrator,
-					modelCallFrameComposer,
-				};
-				const capabilities = await RuntimeCapabilityComposition.create({
-					initialProfile: profile,
-					compiler: tools.compiler,
-				});
-				capabilityCompositions.add(capabilities);
+				turnCapabilityAssemblies.add(turnCapabilityAssembly);
 				rollback.defer({
 					id: "capability-composition",
 					rollback: async () => {
 						try {
-							await capabilities.close();
+							await turnCapabilityAssembly.dispose();
 						} finally {
-							capabilityCompositions.delete(capabilities);
+							turnCapabilityAssemblies.delete(turnCapabilityAssembly);
 						}
 					},
 				});
-				const initialSnapshotLease = await capabilities.acquire();
-				try {
-					await modelCallFrameComposer.previewSystemPrompt({
-						sessionId: activeSessionId,
-						turnId: `${activeSessionId}:extension-context-preview`,
-						signal: new AbortController().signal,
-						messages: [],
-						modelBinding: modelRuntime.bind(),
-						frame: {
-							instructions: initialSnapshotLease.snapshot.instructions,
-							tools: initialSnapshotLease.snapshot.tools,
-						},
-					});
-				} finally {
-					await initialSnapshotLease.release();
-				}
+				await turnCapabilityAssembly.previewInitialSystemPrompt();
 				extensionEventBridges.set(activeSessionId, extensionEvents);
 				if (memoryController) memoryControllers.set(activeSessionId, memoryController);
 				hookSessionDisposers.add(disposeHookSession);
@@ -951,19 +816,6 @@ async function createGreenfieldRuntimeCompositionInternal(
 						mcpRefreshObservedSessions.delete(activeSessionId);
 						mcpPromptRefreshReuseSessions.delete(activeSessionId);
 					},
-				});
-				const promptAdapter = new CodingAgentGreenfieldPromptAdapter({
-					resolvePromptResource:
-						options.createPromptResourceResolver?.(sessionOptions, todoRuntime) ??
-						options.resolvePromptResource ??
-						(options.promptResourceSource
-							? createCodingAgentPromptResourceResolver({
-									resourceLoader: options.promptResourceSource,
-									todoStore: todoRuntime.getTodoStore(),
-								})
-							: undefined),
-					hookRuntime,
-					extensionEvents,
 				});
 				const sessionCleanup = new RetryableCleanup();
 				sessionCleanup.add({
@@ -1042,8 +894,8 @@ async function createGreenfieldRuntimeCompositionInternal(
 					id: "capability-composition",
 					phase: 0,
 					cleanup: async () => {
-						await capabilities.close();
-						capabilityCompositions.delete(capabilities);
+						await turnCapabilityAssembly.dispose();
+						turnCapabilityAssemblies.delete(turnCapabilityAssembly);
 					},
 				});
 				sessionCleanup.add({
@@ -1082,15 +934,15 @@ async function createGreenfieldRuntimeCompositionInternal(
 					promptAdapter: {
 						async intercept(request, context) {
 							await refreshSessionMcp(activeSessionId, true);
-							return promptAdapter.intercept(request, context);
+							return turnCapabilityAssembly.promptAdapter.intercept(request, context);
 						},
 						async prepare(request, context) {
-							const prepared = await promptAdapter.prepare(request, context);
+							const prepared = await turnCapabilityAssembly.promptAdapter.prepare(request, context);
 							await todoRuntime.flush();
 							return prepared;
 						},
 					},
-					snapshotProvider: capabilities,
+					snapshotProvider: turnCapabilityAssembly.capabilities,
 					modelRuntime,
 					documentParticipants: [todoRuntime, contextRuntime, ...(subagentRuntime ? [subagentRuntime] : [])],
 					todoController: todoRuntime,
@@ -1098,7 +950,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 						readActiveToolNames: () => {
 							const override = configurationState.readActiveToolNamesOverride();
 							return override
-								? override.filter((toolName) => readAvailableTools().has(toolName))
+								? override.filter((toolName) => turnCapabilityAssembly.readAvailableTools().has(toolName))
 								: [
 										...readActiveToolNames(
 											tools,
@@ -1112,7 +964,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 										) ?? []),
 									];
 						},
-						readAvailableTools,
+						readAvailableTools: () => turnCapabilityAssembly.readAvailableTools(),
 						setActiveToolNames: (toolNames) => {
 							configurationState.setActiveToolNamesOverride(toolNames);
 						},
@@ -1145,7 +997,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 					stateSource: {
 						read: () => {
 							const baseToolNames =
-								pluginRunOrchestrator?.readActiveToolNames() ??
+								turnCapabilityAssembly.readPluginActiveToolNames() ??
 								readActiveToolNames(
 									tools,
 									withAgentMode(stateActivation, configurationState.readAgentMode()),
@@ -1184,7 +1036,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 								contextPercent: contextUsage.percent,
 								contextWindow,
 								activeToolNames: override
-									? override.filter((toolName) => readAvailableTools().has(toolName))
+									? override.filter((toolName) => turnCapabilityAssembly.readAvailableTools().has(toolName))
 									: [...new Set(activeToolNames)],
 							};
 						},
@@ -1201,7 +1053,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 						if (mcpPromptRefreshReuseSessions.delete(previousSessionId)) {
 							mcpPromptRefreshReuseSessions.add(result.sessionId);
 						}
-						pluginSession.id = result.sessionId;
+						turnCapabilityAssembly.rebindSession(result.sessionId);
 						if (memoryController && memoryControllers.get(previousSessionId) === memoryController) {
 							memoryControllers.delete(previousSessionId);
 							memoryControllers.set(result.sessionId, memoryController);
@@ -1347,13 +1199,13 @@ async function createGreenfieldRuntimeCompositionInternal(
 				},
 			});
 		}
-		for (const [index, capabilities] of [...capabilityCompositions].entries()) {
+		for (const [index, assembly] of [...turnCapabilityAssemblies].entries()) {
 			compositionCleanup.add({
 				id: `capability-composition:${index}`,
 				phase: 0,
 				cleanup: async () => {
-					await capabilities.close();
-					capabilityCompositions.delete(capabilities);
+					await assembly.dispose();
+					turnCapabilityAssemblies.delete(assembly);
 				},
 			});
 		}
@@ -1515,22 +1367,6 @@ function mergeMcpToolViews(
 	return Object.freeze({ tools: Object.freeze([...tools.values()]) });
 }
 
-function toPluginToolActivation(
-	activation: CodingToolActivation,
-	agentMode: string | undefined,
-): CodingAgentPluginToolActivation {
-	if (activation.mode === "explicit") {
-		return activation;
-	}
-	return {
-		mode: "scope",
-		scenario: activation.scope ?? "cli",
-		capabilities: activation.capabilities,
-		additionallyEnabledToolNames: activation.additionallyEnabledToolNames,
-		agentMode,
-	};
-}
-
 function readActiveToolNames(
 	tools: CodingToolsRuntimeComposition,
 	activation: CodingToolActivation,
@@ -1613,11 +1449,6 @@ function createForkContextFeature(messages: readonly Message[]): AgentFeatureDef
 			dispose: async () => {},
 		}),
 	};
-}
-
-function joinPromptAddons(base: string | undefined, addon: string | undefined): string | undefined {
-	const parts = [base, addon].filter((value): value is string => Boolean(value?.trim()));
-	return parts.length > 0 ? parts.join("\n\n") : undefined;
 }
 
 function createSessionPluginRuntime(
