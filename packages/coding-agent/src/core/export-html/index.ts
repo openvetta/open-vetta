@@ -1,11 +1,12 @@
 import type { AgentState } from "@vetta/agent-core";
+import type { ConversationDocument } from "@vetta/runtime-core";
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import { basename, join } from "path";
 import { APP_NAME, getExportTemplateDir } from "../../config.js";
 import { getResolvedThemeColors, getThemeExportColors } from "../../modes/interactive/theme/theme.js";
 import type { ToolInfo } from "../extensions/types.js";
 import type { SessionEntry } from "../session-manager/index.js";
-import { SessionManager } from "../session-manager/index.js";
+import { CURRENT_SESSION_VERSION, SessionManager } from "../session-manager/index.js";
 
 /**
  * Interface for rendering custom tools to HTML.
@@ -125,8 +126,8 @@ function generateThemeVars(themeName?: string): string {
 }
 
 interface SessionData {
-	header: ReturnType<SessionManager["getHeader"]>;
-	entries: ReturnType<SessionManager["getEntries"]>;
+	header: unknown;
+	entries: readonly unknown[];
 	leafId: string | null;
 	systemPrompt?: string;
 	tools?: ToolInfo[];
@@ -312,6 +313,32 @@ export async function exportFromFile(inputPath: string, options?: ExportOptions 
 		outputPath = `${APP_NAME}-session-${inputBasename}.html`;
 	}
 
+	writeFileSync(outputPath, html, "utf8");
+	return outputPath;
+}
+
+/** Export a Greenfield conversation read model without reopening it through Legacy SessionManager. */
+export async function exportConversationDocumentToHtml(
+	document: ConversationDocument,
+	sessionFile: string,
+	options?: ExportOptions | string,
+): Promise<string> {
+	const opts: ExportOptions = typeof options === "string" ? { outputPath: options } : options || {};
+	const sessionData: SessionData = {
+		header: {
+			type: "session",
+			version: CURRENT_SESSION_VERSION,
+			id: document.identity.sessionId,
+			timestamp: new Date(document.identity.createdAt).toISOString(),
+			cwd: document.identity.cwd,
+			parentSession: document.identity.parentSessionPath,
+			name: document.name,
+		},
+		entries: document.entries,
+		leafId: document.activeLeafId,
+	};
+	const html = generateHtml(sessionData, opts.themeName);
+	const outputPath = opts.outputPath ?? `${APP_NAME}-session-${basename(sessionFile, ".conversation.jsonl")}.html`;
 	writeFileSync(outputPath, html, "utf8");
 	return outputPath;
 }

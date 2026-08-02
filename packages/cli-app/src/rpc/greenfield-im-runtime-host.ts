@@ -12,6 +12,9 @@ import {
 import { getVettaHomePath } from "@vetta/coding-agent/config";
 import { buildDefaultHookConfigLayers } from "@vetta/coding-agent/hooks";
 import {
+	GREENFIELD_FULL_RPC_PROFILE,
+	GreenfieldRpcBashCapability,
+	GreenfieldRpcRetryController,
 	type RpcRuntimeDecision,
 	type RpcSessionCapabilities,
 	runRpcModeWithCapabilities,
@@ -51,19 +54,20 @@ import {
 } from "./greenfield-im-legacy-session-migration.js";
 import { GreenfieldImRpcSessionAdapter } from "./greenfield-im-rpc-session-adapter.js";
 import { resolveGreenfieldImSessionPath } from "./greenfield-im-session-selection.js";
+import { GreenfieldRpcSessionAdapter } from "./greenfield-rpc-session-adapter.js";
 
-export type GreenfieldImFallbackReason = "legacy-session" | "legacy-extension";
+export type GreenfieldRpcFallbackReason = "legacy-session" | "legacy-extension";
 
-export interface GreenfieldImRuntimeHostFallback {
+export interface GreenfieldRpcRuntimeHostFallback {
 	readonly kind: "legacy-fallback";
-	readonly reason: GreenfieldImFallbackReason;
+	readonly reason: GreenfieldRpcFallbackReason;
 	readonly bootstrap: CodingAgentHostBootstrap;
 	readonly sessionPath: string | undefined;
 	readonly extensionCompatibility?: CodingAgentExtensionCompatibilityAssessment;
 	readonly sessionMigration?: RpcRuntimeDecision["sessionMigration"];
 }
 
-export interface GreenfieldImRuntimeHostReady {
+export interface GreenfieldRpcRuntimeHostReady {
 	readonly kind: "greenfield";
 	readonly bootstrap: CodingAgentHostBootstrap;
 	readonly session: GreenfieldRuntimeSession;
@@ -72,7 +76,16 @@ export interface GreenfieldImRuntimeHostReady {
 	readonly runtimeDecision: RpcRuntimeDecision;
 }
 
-export type GreenfieldImRuntimeHostPreparation = GreenfieldImRuntimeHostFallback | GreenfieldImRuntimeHostReady;
+export type GreenfieldRpcRuntimeHostPreparation = GreenfieldRpcRuntimeHostFallback | GreenfieldRpcRuntimeHostReady;
+
+/** @deprecated Use the neutral Greenfield RPC host contracts. */
+export type GreenfieldImFallbackReason = GreenfieldRpcFallbackReason;
+/** @deprecated Use the neutral Greenfield RPC host contracts. */
+export type GreenfieldImRuntimeHostFallback = GreenfieldRpcRuntimeHostFallback;
+/** @deprecated Use the neutral Greenfield RPC host contracts. */
+export type GreenfieldImRuntimeHostReady = GreenfieldRpcRuntimeHostReady;
+/** @deprecated Use the neutral Greenfield RPC host contracts. */
+export type GreenfieldImRuntimeHostPreparation = GreenfieldRpcRuntimeHostPreparation;
 
 export interface PrepareGreenfieldImRuntimeHostOptions {
 	readonly bootstrap: CodingAgentHostBootstrap;
@@ -84,6 +97,8 @@ export interface PrepareGreenfieldImRuntimeHostOptions {
 		sessionOptions: GreenfieldCliSessionOptions,
 	) => CodingAgentPluginRuntimeSource | undefined;
 }
+
+export type PrepareGreenfieldRpcRuntimeHostOptions = PrepareGreenfieldImRuntimeHostOptions;
 
 export interface CreateGreenfieldImRuntimeHostOptions
 	extends Omit<PrepareGreenfieldImRuntimeHostOptions, "bootstrap">,
@@ -136,9 +151,22 @@ export async function createGreenfieldImRuntimeHost(
 export async function prepareGreenfieldImRuntimeHost(
 	options: PrepareGreenfieldImRuntimeHostOptions,
 ): Promise<GreenfieldImRuntimeHostPreparation> {
+	return prepareGreenfieldRuntimeHost(options, "greenfield-im");
+}
+
+export async function prepareGreenfieldRpcRuntimeHost(
+	options: PrepareGreenfieldRpcRuntimeHostOptions,
+): Promise<GreenfieldRpcRuntimeHostPreparation> {
+	return prepareGreenfieldRuntimeHost(options, "greenfield");
+}
+
+async function prepareGreenfieldRuntimeHost(
+	options: PrepareGreenfieldImRuntimeHostOptions,
+	backend: "greenfield" | "greenfield-im",
+): Promise<GreenfieldRpcRuntimeHostPreparation> {
 	const { bootstrap } = options;
 	const { parsed } = bootstrap;
-	assertGreenfieldImInvocation(bootstrap);
+	assertGreenfieldInvocation(bootstrap, backend);
 
 	const extensionCompatibility = resolveCodingAgentGreenfieldExtensionCompatibility(bootstrap.extensionCompatibility, {
 		actions: true,
@@ -183,15 +211,15 @@ export async function prepareGreenfieldImRuntimeHost(
 		sessionId = migration.targetSessionId;
 	}
 	const runtimeDecision: RpcRuntimeDecision = {
-		requestedBackend: "greenfield-im",
-		effectiveBackend: "greenfield-im",
+		requestedBackend: backend,
+		effectiveBackend: backend,
 		...(sessionMigration ? { sessionMigration } : {}),
 	};
 
 	const initial = await resolveCodingAgentInitialModel(bootstrap);
 	if (initial.warning) console.warn(initial.warning);
 	if (initial.error) throw new Error(initial.error);
-	if (!initial.model) throw new Error("No models available for Greenfield IM Runtime");
+	if (!initial.model) throw new Error("No models available for Greenfield Runtime");
 	if (parsed.apiKey) bootstrap.authStorage.setRuntimeApiKey(initial.model.provider, parsed.apiKey);
 
 	const mcpDebug = bootstrap.settingsManager.getMcpDebug();
@@ -228,14 +256,16 @@ export async function prepareGreenfieldImRuntimeHost(
 				cwd: bootstrap.cwd,
 				vettaHome: getVettaHomePath(),
 			}),
-			scenario: "im-claw",
+			scenario: backend === "greenfield-im" ? "im-claw" : (parsed.scenario ?? "cli"),
 			activation:
 				parsed.noTools || parsed.tools
 					? { mode: "explicit", toolNames: parsed.tools ?? [] }
-					: { mode: "scope", scope: "im-claw" },
-			enableSubagents: false,
+					: { mode: "scope", scope: backend === "greenfield-im" ? "im-claw" : (parsed.scenario ?? "cli") },
+			enableSubagents: backend !== "greenfield-im",
 			systemPromptAdvertisedToolNames:
-				parsed.noTools || parsed.tools ? undefined : ["kb_filter_by_tags", "kb_list_available_tags"],
+				backend === "greenfield-im" && !parsed.noTools && !parsed.tools
+					? ["kb_filter_by_tags", "kb_list_available_tags"]
+					: undefined,
 			mcpSource: managedMcpSource.source,
 			promptResourceSource: bootstrap.resourceLoader,
 			promptSettingsSource: bootstrap.settingsManager,
@@ -353,17 +383,46 @@ export async function prepareGreenfieldImRuntimeHost(
 			reload: () => activeSessionHost!.runActiveSessionMutation(() => resourceReloadHost.reload()),
 		};
 		extensionSessionHost.bindCommandContext(extensionCommandActions);
-		const adapter = new GreenfieldImRpcSessionAdapter({
-			sessionHost: activeSessionHost,
-			runtime,
-			resourceLoader: bootstrap.resourceLoader,
-			runtimeDecision,
-			extensionCommandHost: extensionSessionHost,
+		let adapter: GreenfieldRpcSessionAdapter;
+		const retryController = new GreenfieldRpcRetryController({
+			readSettings: () => bootstrap.settingsManager.getRetrySettings(),
+			setEnabled: (enabled) => bootstrap.settingsManager.setRetryEnabled(enabled),
+			emit: (event) => adapter?.emitSupplementalEvent(event),
 		});
+		const bash = new GreenfieldRpcBashCapability({
+			readContextDeliveryController: () =>
+				activeSessionHost!.readSession().createCoreAssembly().contextDeliveryController,
+			readShellCommandPrefix: () => bootstrap.settingsManager.getShellCommandPrefix(),
+		});
+		adapter =
+			backend === "greenfield-im"
+				? new GreenfieldImRpcSessionAdapter({
+						sessionHost: activeSessionHost,
+						runtime,
+						resourceLoader: bootstrap.resourceLoader,
+						runtimeDecision,
+						extensionCommandHost: extensionSessionHost,
+					})
+				: new GreenfieldRpcSessionAdapter({
+						profile: GREENFIELD_FULL_RPC_PROFILE,
+						runtimeBackend: "greenfield",
+						sessionHost: activeSessionHost,
+						runtime,
+						resourceLoader: bootstrap.resourceLoader,
+						runtimeDecision,
+						retryController,
+						bash,
+						readAvailableModels: async () =>
+							(await bootstrap.modelRegistry.getAvailable()).map((model) => ({
+								...model,
+								remote: bootstrap.modelRegistry.isRemote(model),
+							})),
+						extensionCommandHost: extensionSessionHost,
+					});
 		dismissActiveSessionRollback();
 		dismissRuntimeRollback();
 		const dismissAdapterRollback = rollback.defer({ id: "rpc-adapter", rollback: () => adapter.dispose() });
-		const capabilities = new GreenfieldImRuntimeHostCapabilities(adapter, managedMcpSource, extensionSessionHost);
+		const capabilities = new GreenfieldRpcRuntimeHostCapabilities(adapter, managedMcpSource, extensionSessionHost);
 		dismissAdapterRollback();
 		dismissMcpRollback();
 		dismissExtensionRollback();
@@ -389,12 +448,23 @@ export async function runGreenfieldImRuntimeHost(prepared: GreenfieldImRuntimeHo
 	return runRpcModeWithCapabilities(prepared.capabilities, { enableHostBridge: true });
 }
 
-function assertGreenfieldImInvocation(bootstrap: CodingAgentHostBootstrap): void {
+export async function runGreenfieldRpcRuntimeHost(prepared: GreenfieldImRuntimeHostReady): Promise<never> {
+	return runRpcModeWithCapabilities(prepared.capabilities, {
+		enableHostBridge: prepared.bootstrap.parsed.enableHostBridge === true,
+	});
+}
+
+function assertGreenfieldInvocation(
+	bootstrap: CodingAgentHostBootstrap,
+	backend: "greenfield" | "greenfield-im",
+): void {
 	const { parsed } = bootstrap;
-	if (parsed.mode !== "rpc") throw new Error("Greenfield IM Runtime requires --mode rpc");
-	if (!parsed.enableHostBridge) throw new Error("Greenfield IM Runtime requires --enable-host-bridge");
+	if (parsed.mode !== "rpc") throw new Error("Greenfield Runtime requires --mode rpc");
+	if (backend === "greenfield-im" && !parsed.enableHostBridge) {
+		throw new Error("Greenfield IM Runtime requires --enable-host-bridge");
+	}
 	if (parsed.resume) throw new Error("--resume is no longer supported; use --continue or --session");
-	if (parsed.scenario && parsed.scenario !== "im-claw") {
+	if (backend === "greenfield-im" && parsed.scenario && parsed.scenario !== "im-claw") {
 		throw new Error(`Greenfield IM Runtime requires scenario im-claw, received ${parsed.scenario}`);
 	}
 }
@@ -425,24 +495,34 @@ function resolveSessionId(
 	throw new Error(`Unsupported session path: ${sessionPath}`);
 }
 
-class GreenfieldImRuntimeHostCapabilities implements RpcSessionCapabilities {
+class GreenfieldRpcRuntimeHostCapabilities implements RpcSessionCapabilities {
 	readonly profile;
 	readonly turn;
 	readonly state;
+	readonly model;
+	readonly queue;
+	readonly context;
 	readonly memory;
+	readonly retry;
+	readonly bash;
 	readonly session;
 	readonly commands;
 	private readonly cleanup = new RetryableCleanup();
 
 	constructor(
-		private readonly adapter: GreenfieldImRpcSessionAdapter,
+		private readonly adapter: GreenfieldRpcSessionAdapter,
 		private readonly mcpSource: ManagedMcpRuntimeToolSource,
 		private readonly extensionSessionHost: GreenfieldImExtensionSessionHost,
 	) {
 		this.profile = adapter.profile;
 		this.turn = adapter.turn;
 		this.state = adapter.state;
+		this.model = adapter.model;
+		this.queue = adapter.queue;
+		this.context = adapter.context;
 		this.memory = adapter.memory;
+		this.retry = adapter.retry;
+		this.bash = adapter.bash;
 		this.session = adapter.session;
 		this.commands = adapter.commands;
 		this.cleanup.add({

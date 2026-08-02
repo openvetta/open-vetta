@@ -11,7 +11,7 @@ import type { SessionStats } from "../../core/session/session-stats.js";
 import type { ImHostBridge } from "../../core/tools/im-send-attachment/index.js";
 import type { RpcCommandType, RpcSessionState, RpcSlashCommand } from "./rpc-types.js";
 
-export type RpcSessionProfileId = "legacy-full" | "greenfield-im";
+export type RpcSessionProfileId = "legacy-full" | "greenfield" | "greenfield-im";
 
 export interface RpcSessionProfile {
 	readonly id: RpcSessionProfileId;
@@ -39,6 +39,12 @@ export const GREENFIELD_IM_RPC_PROFILE: RpcSessionProfile = Object.freeze({
 		"get_commands",
 	] as const),
 	hostBridge: "required",
+});
+
+export const GREENFIELD_FULL_RPC_PROFILE: RpcSessionProfile = Object.freeze({
+	id: "greenfield",
+	commands: "all",
+	hostBridge: "optional",
 });
 
 export interface RpcSessionExtensionError {
@@ -111,7 +117,7 @@ export interface RpcSessionManagementCapability {
 	fork(entryId: string): Promise<{ text: string; cancelled: boolean }>;
 	readForkMessages(): readonly { entryId: string; text: string }[];
 	readLastAssistantText(): string | undefined;
-	setName(name: string): void;
+	setName(name: string): void | Promise<void>;
 	readStats(): SessionStats;
 	exportHtml(outputPath?: string): Promise<string>;
 }

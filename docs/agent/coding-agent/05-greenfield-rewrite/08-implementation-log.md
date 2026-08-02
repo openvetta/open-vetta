@@ -179,6 +179,7 @@
 | [169-retryable-runtime-shutdown-transaction.md](./08-implementation-log/169-retryable-runtime-shutdown-transaction.md) | Runtime/Composition/Extension/RPC 可重试最终关闭事务 |
 | [170-initialization-rollback-transaction.md](./08-implementation-log/170-initialization-rollback-transaction.md) | Runtime/Composition/IM/Extension 初始化失败逆序回滚事务 |
 | [171-real-cli-initialization-failure-gate.md](./08-implementation-log/171-real-cli-initialization-failure-gate.md) | 最终发布边界、MCP 失败子进程释放与真实 CLI 初始化失败门禁 |
+| [172-ordinary-rpc-greenfield-default-cutover.md](./08-implementation-log/172-ordinary-rpc-greenfield-default-cutover.md) | 普通 RPC 中性 Greenfield 默认切换、完整能力适配与真实进程门禁 |
 
 ## 维护约定
 

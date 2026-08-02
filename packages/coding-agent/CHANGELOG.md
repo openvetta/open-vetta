@@ -19,6 +19,7 @@
 
 ### Changed
 
+- **普通 RPC 默认切换到中性 Greenfield 宿主**：新增完整 `greenfield` RPC Profile 和中性 Session Adapter，模型、思考等级、队列、压缩、Memory、自动重试、直接 Bash、会话统计/命名/导出及命令发现均通过 Greenfield 端口实现；`greenfield-im` 保留兼容 Profile，非 RPC 模式和不兼容 Extension/旧会话仍按原规则使用 Legacy。
 - **Greenfield IM Extension 切换改用穷尽事件 Profile**：事件兼容性由 `ExtensionEvent` 联合派生的 supported/unsupported/inapplicable Profile 决定，新增合法事件未声明时会产生类型错误，运行时未知事件仍安全回退 Legacy。真实 RPC CLI 门禁覆盖 Event/Tool/Command 组合、RPC 不适用 UI 注册和未来事件回退；Runtime 选择日志在 stderr 报告具体 `unsupportedEvents` 与 `unmetCapabilities`，不污染 JSONL stdout。
 - **Greenfield Active Session Transition Host 与 RPC 会话事务**：新增宿主级活动 Session 事务，统一串行编排 new/resume/fork、稳定事件订阅、Conversation ownership、Extension Session Binding 与失败回滚；旧 `newSession.setup(SessionManager)` 通过临时 Legacy 快照和既有迁移边界无损导入 V2 Conversation。Greenfield IM RPC 现真实支持 `new_session`、`switch_session`、`fork`，状态、Turn 与 Memory 均动态读取当前 Session；未完成差分的 Command-only Extension 和其余 session 子命令继续显式回退或由 Profile 拒绝。
 - **Greenfield Extension Command Host 边界与 RPC 命令发现**：新增独立命令宿主，完整注入 `waitForIdle`、`newSession`、`fork`、`navigateTree`、`switchSession`、`reload` 六类动作，并保留 Legacy 的参数切分、Runner 错误上报、未知命令和队列拒绝语义；Greenfield IM RPC 现支持 `get_commands` 并动态发现 Prompt/Skill。由于旧 `newSession.setup` 仍暴露具体 `SessionManager`，生产组合暂不声明 Command capability，Command-only Extension 继续显式回退 Legacy，避免用占位实现制造功能退化。

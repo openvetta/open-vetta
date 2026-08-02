@@ -7,7 +7,7 @@ import { installRpcStdoutGuard } from "./rpc/rpc-stdout-guard.js";
 
 export async function runAgentCli(args: readonly string[]): Promise<void> {
 	const selection = parseAgentRuntimeSelection(args);
-	if (selection.backend === "greenfield-im" || requestsRpcMode(selection.agentArgs)) installRpcStdoutGuard();
+	if (selection.backend !== "legacy" || requestsRpcMode(selection.agentArgs)) installRpcStdoutGuard();
 	await runAgentRuntimeCli(args, { onDecision: writeAgentRuntimeDecision });
 }
 

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { createInterface, type Interface } from "node:readline";
 import { fileURLToPath } from "node:url";
 
-export type TestAgentRuntimeBackend = "legacy" | "greenfield-im";
+export type TestAgentRuntimeBackend = "legacy" | "greenfield" | "greenfield-im";
 
 export interface AgentRpcExecutable {
 	readonly path: string;
@@ -29,7 +29,9 @@ export interface CreateAgentRpcFixtureOptions {
 }
 
 export interface StartAgentRpcOptions {
-	readonly backend?: TestAgentRuntimeBackend;
+	readonly backend?: TestAgentRuntimeBackend | null;
+	readonly enableHostBridge?: boolean;
+	readonly scenario?: "cli" | "im-claw";
 	readonly extraArgs?: readonly string[];
 	readonly env?: Readonly<Record<string, string>>;
 }
@@ -123,19 +125,20 @@ export function startAgentRpc(
 	fixture: AgentRpcFixture,
 	options: StartAgentRpcOptions = {},
 ): AgentRpcProcess {
-	const backend = options.backend ?? "greenfield-im";
+	const backend = options.backend === null ? "greenfield" : (options.backend ?? "greenfield-im");
+	const includeRuntimeOption = options.backend !== null;
+	const enableHostBridge = options.enableHostBridge ?? backend === "greenfield-im";
+	const scenario = options.scenario ?? (backend === "greenfield-im" ? "im-claw" : undefined);
 	return new AgentRpcProcess(
 		spawn(
 			"bun",
 			[
 				executable.path,
-				"--agent-runtime",
-				backend,
+				...(includeRuntimeOption ? ["--agent-runtime", backend] : []),
 				"--mode",
 				"rpc",
-				"--enable-host-bridge",
-				"--scenario",
-				"im-claw",
+				...(enableHostBridge ? ["--enable-host-bridge"] : []),
+				...(scenario ? ["--scenario", scenario] : []),
 				"--session-dir",
 				fixture.conversationDir,
 				"--provider",
@@ -154,6 +157,7 @@ export function startAgentRpc(
 				env: {
 					...process.env,
 					VETTA_CODING_AGENT_DIR: fixture.agentDir,
+					VETTA_PACKAGE_DIR: join(repositoryRoot, "packages", "coding-agent"),
 					...options.env,
 				},
 				stdio: "pipe",

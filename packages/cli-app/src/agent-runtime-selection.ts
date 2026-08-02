@@ -8,8 +8,9 @@ import {
 	prepareGreenfieldImRuntimeHost,
 	runGreenfieldImRuntimeHost,
 } from "./rpc/greenfield-im-runtime-host.js";
+import { prepareGreenfieldRpcRuntimeHost, runGreenfieldRpcRuntimeHost } from "./rpc/greenfield-rpc-runtime-host.js";
 
-export type AgentRuntimeBackend = "legacy" | "greenfield-im";
+export type AgentRuntimeBackend = "legacy" | "greenfield" | "greenfield-im";
 
 export interface AgentRuntimeSelection {
 	readonly backend: AgentRuntimeBackend;
@@ -32,7 +33,7 @@ export interface RunAgentRuntimeCliOptions {
 const RUNTIME_OPTION = "--agent-runtime";
 
 export function parseAgentRuntimeSelection(args: readonly string[]): AgentRuntimeSelection {
-	let backend: AgentRuntimeBackend = "legacy";
+	let backend: AgentRuntimeBackend | undefined;
 	const agentArgs: string[] = [];
 
 	for (let index = 0; index < args.length; index += 1) {
@@ -51,7 +52,7 @@ export function parseAgentRuntimeSelection(args: readonly string[]): AgentRuntim
 		agentArgs.push(arg);
 	}
 
-	return { backend, agentArgs };
+	return { backend: backend ?? defaultBackend(agentArgs), agentArgs };
 }
 
 export async function runAgentRuntimeCli(
@@ -72,15 +73,17 @@ export async function runAgentRuntimeCli(
 	const bootstrap = await createAgentCliBootstrap(selection.agentArgs);
 	const conversationDir = bootstrap.parsed.sessionDir;
 	if (!conversationDir) {
-		throw new Error("Greenfield IM Runtime requires --session-dir");
+		throw new Error("Greenfield Runtime requires --session-dir");
 	}
 	const sessionCatalog = createCliRuntimeSessionCatalog({ cwd: bootstrap.cwd, sessionDir: conversationDir });
 
 	try {
-		const prepared = await prepareGreenfieldImRuntimeHost({ bootstrap, conversationDir, sessionCatalog });
+		const prepared = await (selection.backend === "greenfield-im"
+			? prepareGreenfieldImRuntimeHost({ bootstrap, conversationDir, sessionCatalog })
+			: prepareGreenfieldRpcRuntimeHost({ bootstrap, conversationDir, sessionCatalog }));
 		if (prepared.kind === "legacy-fallback") {
 			const decision = {
-				requestedBackend: "greenfield-im",
+				requestedBackend: selection.backend,
 				effectiveBackend: "legacy",
 				fallbackReason: prepared.reason,
 				...(prepared.extensionCompatibility
@@ -99,7 +102,8 @@ export async function runAgentRuntimeCli(
 			return;
 		}
 		options.onDecision?.(prepared.runtimeDecision);
-		await runGreenfieldImRuntimeHost(prepared);
+		if (selection.backend === "greenfield-im") await runGreenfieldImRuntimeHost(prepared);
+		else await runGreenfieldRpcRuntimeHost(prepared);
 	} catch (error) {
 		if (!(error instanceof ConversationOwnershipConflictError)) throw error;
 		process.stdout.write(
@@ -151,6 +155,17 @@ function formatRuntimeDecisionList(label: string, values: readonly string[] | un
 }
 
 function parseBackend(value: string): AgentRuntimeBackend {
-	if (value === "legacy" || value === "greenfield-im") return value;
+	if (value === "legacy" || value === "greenfield" || value === "greenfield-im") return value;
 	throw new Error(`Unsupported ${RUNTIME_OPTION} value: ${value}`);
+}
+
+function defaultBackend(args: readonly string[]): AgentRuntimeBackend {
+	if (!requestsRpcMode(args)) return "legacy";
+	return args.includes("--enable-host-bridge") || args.some((arg) => arg === "--scenario=im-claw")
+		? "greenfield-im"
+		: "greenfield";
+}
+
+function requestsRpcMode(args: readonly string[]): boolean {
+	return args.some((arg, index) => arg === "--mode=rpc" || (arg === "--mode" && args[index + 1] === "rpc"));
 }

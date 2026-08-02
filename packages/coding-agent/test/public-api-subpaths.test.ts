@@ -18,6 +18,7 @@ import { AuthStorage, ModelRegistry, SettingsManager } from "../src/public-api/l
 import { ALL_SCENARIOS, PERSONAS } from "../src/public-api/profile.js";
 import {
 	createImSendAttachmentTool,
+	GREENFIELD_FULL_RPC_PROFILE,
 	GREENFIELD_IM_RPC_PROFILE,
 	runRpcModeWithCapabilities,
 } from "../src/public-api/rpc.js";
@@ -29,6 +30,7 @@ describe("coding-agent public subpaths", () => {
 		expect(runRpcModeWithCapabilities).toBe(root.runRpcModeWithCapabilities);
 		expect(createImSendAttachmentTool).toBe(root.createImSendAttachmentTool);
 		expect(GREENFIELD_IM_RPC_PROFILE).toBe(root.GREENFIELD_IM_RPC_PROFILE);
+		expect(GREENFIELD_FULL_RPC_PROFILE).toBe(root.GREENFIELD_FULL_RPC_PROFILE);
 		expect(ALL_SCENARIOS).toBe(root.ALL_SCENARIOS);
 		expect(PERSONAS).toBe(root.PERSONAS);
 		expect(config.getAgentDir).toBe(root.getAgentDir);

@@ -188,7 +188,7 @@ export function createRpcCommandDispatcher(
 				if (!name) {
 					return rpcError(id, "set_session_name", "Session name cannot be empty");
 				}
-				requireCapability(session.session, "session", command.type).setName(name);
+				await requireCapability(session.session, "session", command.type).setName(name);
 				return rpcSuccess(id, "set_session_name");
 			}
 			case "get_messages":

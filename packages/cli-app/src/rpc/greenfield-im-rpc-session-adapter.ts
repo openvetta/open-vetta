@@ -1,214 +1,32 @@
-import type { CodingAgentHostBootstrap } from "@vetta/coding-agent/bootstrap";
-import type { CodingAgentTool } from "@vetta/coding-agent/profile";
+import { GREENFIELD_IM_RPC_PROFILE } from "@vetta/coding-agent/rpc";
 import {
-	createImSendAttachmentTool,
-	GREENFIELD_IM_RPC_PROFILE,
-	type RpcRuntimeDecision,
-	type RpcSessionCapabilities,
-	type RpcSessionInitialization,
-	type RpcSessionState,
-} from "@vetta/coding-agent/rpc";
-import {
-	adaptCodingAgentToolRegistration,
-	type CodingAgentGreenfieldExtensionCommandHost,
-} from "@vetta/coding-agent/runtime-host/greenfield";
-import { type GreenfieldRuntimeSession, type HistoryEntry, RetryableCleanup } from "@vetta/runtime-core";
-import type { CodingToolRegistration } from "@vetta/runtime-tools/coding";
-import type {
-	CodingAgentGreenfieldActiveSessionHost,
-	GreenfieldRuntimeComposition,
-} from "../greenfield-runtime-composition.js";
-import { GreenfieldImRpcEventAdapter } from "./greenfield-im-rpc-events.js";
+	GreenfieldRpcSessionAdapter,
+	type GreenfieldRpcSessionAdapterOptions,
+} from "./greenfield-rpc-session-adapter.js";
 
-type GreenfieldImResourceLoader = Pick<CodingAgentHostBootstrap["resourceLoader"], "getPrompts" | "getSkills">;
-type GreenfieldImCommandDiscoveryCapability = NonNullable<RpcSessionCapabilities["commands"]>;
+export type GreenfieldImRpcSessionAdapterOptions = Omit<
+	GreenfieldRpcSessionAdapterOptions,
+	"profile" | "runtimeBackend"
+>;
 
-interface ActiveTurnCommand {
-	readonly terminalDeliveries: Array<() => void>;
-}
-
-export interface GreenfieldImRpcSessionAdapterOptions {
-	readonly sessionHost: Pick<
-		CodingAgentGreenfieldActiveSessionHost,
-		"dispose" | "fork" | "newSession" | "readSession" | "startActiveSessionOperation" | "subscribe" | "switchSession"
-	>;
-	readonly runtime: GreenfieldRuntimeComposition;
-	readonly resourceLoader: GreenfieldImResourceLoader;
-	readonly runtimeDecision?: RpcRuntimeDecision;
-	readonly extensionCommandHost?: Pick<
-		CodingAgentGreenfieldExtensionCommandHost,
-		"readCommands" | "throwIfExtensionCommand" | "tryExecute"
-	>;
-	readonly createHostToolRegistration?: (
-		hostBridge: NonNullable<RpcSessionInitialization["hostBridge"]>,
-	) => CodingToolRegistration;
-}
-
-/**
- * Greenfield Runtime 到 IM 所需 RPC Profile 的产品宿主适配器。
- *
- * 它刻意不实现 Retry、Bash、Export 等尚未迁移能力；
- * Dispatcher 会依据 greenfield-im Profile 对这些命令 fail closed。
- */
-export class GreenfieldImRpcSessionAdapter implements RpcSessionCapabilities {
-	readonly profile = GREENFIELD_IM_RPC_PROFILE;
-	readonly turn;
-	readonly state;
-	readonly memory;
-	readonly session;
-	readonly commands: GreenfieldImCommandDiscoveryCapability;
-
-	private readonly sessionHost: GreenfieldImRpcSessionAdapterOptions["sessionHost"];
-	private readonly runtime: GreenfieldRuntimeComposition;
-	private readonly resourceLoader: GreenfieldImResourceLoader;
-	private readonly runtimeDecision: RpcRuntimeDecision;
-	private readonly extensionCommandHost: GreenfieldImRpcSessionAdapterOptions["extensionCommandHost"];
-	private readonly createHostToolRegistration: NonNullable<
-		GreenfieldImRpcSessionAdapterOptions["createHostToolRegistration"]
-	>;
-	private unregisterHostTool: (() => void) | undefined;
-	private readonly activeTurnCommands: ActiveTurnCommand[] = [];
-	private readonly cleanup = new RetryableCleanup();
-
+/** @deprecated Use GreenfieldRpcSessionAdapter for new host profiles. */
+export class GreenfieldImRpcSessionAdapter extends GreenfieldRpcSessionAdapter {
 	constructor(options: GreenfieldImRpcSessionAdapterOptions) {
 		if (options.runtime.scenario !== "im-claw") {
 			throw new Error(
 				`Greenfield IM RPC adapter requires runtime scenario im-claw, received ${options.runtime.scenario}`,
 			);
 		}
-		this.sessionHost = options.sessionHost;
-		this.runtime = options.runtime;
-		this.resourceLoader = options.resourceLoader;
-		this.runtimeDecision = options.runtimeDecision ?? {
-			requestedBackend: "greenfield-im",
-			effectiveBackend: "greenfield-im",
-		};
-		this.extensionCommandHost = options.extensionCommandHost;
-		this.createHostToolRegistration =
-			options.createHostToolRegistration ??
-			((hostBridge) =>
-				adaptCodingAgentToolRegistration(createImSendAttachmentTool(hostBridge) as unknown as CodingAgentTool));
-		this.cleanup.add({
-			id: "host-tool",
-			phase: 0,
-			cleanup: () => {
-				const unregister = this.unregisterHostTool;
-				if (!unregister) return;
-				unregister();
-				if (this.unregisterHostTool === unregister) this.unregisterHostTool = undefined;
-			},
+		super({
+			...options,
+			profile: GREENFIELD_IM_RPC_PROFILE,
+			runtimeBackend: "greenfield-im",
 		});
-		this.cleanup.add({ id: "session-host", phase: 1, cleanup: () => this.sessionHost.dispose() });
-		this.cleanup.add({ id: "runtime", phase: 2, cleanup: () => this.runtime.dispose() });
-		this.turn = {
-			prompt: async (message, promptOptions) => {
-				if (
-					this.extensionCommandHost &&
-					(await this.sessionHost.startActiveSessionOperation(() =>
-						this.extensionCommandHost!.tryExecute(message),
-					))
-				) {
-					return;
-				}
-				await this.runTurnCommand(() =>
-					this.sessionHost.startActiveSessionOperation((session) =>
-						session.prompt({
-							text: message,
-							images: promptOptions.images,
-							streamingBehavior: promptOptions.streamingBehavior,
-						}),
-					),
-				);
-			},
-			steer: async (message, images) => {
-				this.extensionCommandHost?.throwIfExtensionCommand(message);
-				await this.runTurnCommand(() =>
-					this.sessionHost.startActiveSessionOperation((session) =>
-						session.prompt({ text: message, images, streamingBehavior: "steer" }),
-					),
-				);
-			},
-			followUp: async (message, images) => {
-				this.extensionCommandHost?.throwIfExtensionCommand(message);
-				await this.runTurnCommand(() =>
-					this.sessionHost.startActiveSessionOperation((session) =>
-						session.prompt({ text: message, images, streamingBehavior: "followUp" }),
-					),
-				);
-			},
-			abort: () => this.readSession().abort("RPC abort"),
-		} satisfies NonNullable<RpcSessionCapabilities["turn"]>;
-		this.state = {
-			readState: () => this.readRpcState(),
-			readMessages: () => this.readCore().corePorts.stateReader.readMessages(),
-		} satisfies NonNullable<RpcSessionCapabilities["state"]>;
-		this.memory = {
-			flushMemory: (signal?: AbortSignal) =>
-				signal
-					? this.runtime.flushMemory(this.readSession().sessionId, signal)
-					: this.runtime.flushMemory(this.readSession().sessionId),
-		} satisfies NonNullable<RpcSessionCapabilities["memory"]>;
-		this.session = {
-			newSession: async (parentSession) =>
-				!(await this.sessionHost.newSession(parentSession ? { parentSession } : undefined)).cancelled,
-			switchSession: async (sessionPath) => !(await this.sessionHost.switchSession(sessionPath)).cancelled,
-			fork: (entryId) => this.sessionHost.fork(entryId),
-			readForkMessages: () => readForkMessages(this.readSession()),
-			readLastAssistantText: () => readLastAssistantText(this.readSession()),
-			setName: () => unsupportedSessionOperation("set_session_name"),
-			readStats: () => unsupportedSessionOperation("get_session_stats"),
-			exportHtml: () => unsupportedSessionOperation("export_html"),
-		} satisfies NonNullable<RpcSessionCapabilities["session"]>;
-		this.commands = {
-			readCommands: () => [
-				...(this.extensionCommandHost?.readCommands() ?? []),
-				...readResourceCommands(this.resourceLoader),
-			],
-		};
 	}
 
-	async initialize(input: RpcSessionInitialization): Promise<void> {
-		if (this.unregisterHostTool) {
-			throw new Error("Greenfield IM RPC session is already initialized");
-		}
-		if (!input.hostBridge) {
-			throw new Error("Greenfield IM RPC profile requires a host bridge");
-		}
-		const registration = this.createHostToolRegistration(input.hostBridge);
-		this.runtime.tools.registry.register(registration);
-		this.unregisterHostTool = () => {
-			this.runtime.tools.registry.unregister(registration.tool.name);
-		};
-	}
-
-	subscribe(listener: (event: unknown) => void): () => void {
-		const adapter = new GreenfieldImRpcEventAdapter();
-		let subscribed = true;
-		const unsubscribe = this.sessionHost.subscribe((event) => {
-			for (const mapped of adapter.map(event)) {
-				const activeTurn = this.activeTurnCommands[0];
-				if (isAgentEndFrame(mapped) && activeTurn) {
-					activeTurn.terminalDeliveries.push(() => {
-						if (subscribed) listener(mapped);
-					});
-					continue;
-				}
-				listener(mapped);
-			}
-		});
-		return () => {
-			subscribed = false;
-			unsubscribe();
-		};
-	}
-
-	async shutdown(): Promise<void> {
-		// Greenfield 没有旧 Extension session_shutdown；协议关闭与资源释放由 dispose 分离处理。
-	}
-
-	async dispose(): Promise<void> {
+	override async dispose(): Promise<void> {
 		try {
-			await this.cleanup.run("Failed to dispose Greenfield IM RPC resources");
+			await super.dispose();
 		} catch (error) {
 			throw new AggregateError(
 				error instanceof AggregateError ? error.errors : [error],
@@ -216,128 +34,4 @@ export class GreenfieldImRpcSessionAdapter implements RpcSessionCapabilities {
 			);
 		}
 	}
-
-	private async readRpcState(): Promise<RpcSessionState> {
-		const greenfieldSession = this.readSession();
-		const core = greenfieldSession.createCoreAssembly();
-		const [sessionState, state] = await Promise.all([
-			greenfieldSession.getState(),
-			Promise.resolve(core.corePorts.stateReader.readState()),
-		]);
-		const context = core.contextController?.readState();
-		return {
-			runtimeBackend: "greenfield-im",
-			runtimeDecision: this.runtimeDecision,
-			model: state.model,
-			thinkingLevel: state.thinkingLevel,
-			isStreaming: state.isStreaming,
-			isCompacting: context?.isCompacting ?? false,
-			steeringMode: sessionState.steeringMode,
-			followUpMode: sessionState.followUpMode,
-			sessionFile: core.lifecycle.sessionPath,
-			sessionId: sessionState.sessionId,
-			autoCompactionEnabled: context?.autoCompactionEnabled ?? false,
-			messageCount: sessionState.messageCount,
-			pendingMessageCount: sessionState.pendingMessageCount,
-		};
-	}
-
-	private readSession(): GreenfieldRuntimeSession {
-		return this.sessionHost.readSession();
-	}
-
-	private readCore(): ReturnType<GreenfieldRuntimeSession["createCoreAssembly"]> {
-		return this.readSession().createCoreAssembly();
-	}
-
-	private async runTurnCommand(command: () => Promise<unknown>): Promise<void> {
-		const activeTurn: ActiveTurnCommand = { terminalDeliveries: [] };
-		this.activeTurnCommands.push(activeTurn);
-		let failedMessage: string | undefined;
-		let rejection: { readonly error: unknown } | undefined;
-		try {
-			const result = await command();
-			if (isFailedTurnResult(result)) failedMessage = result.error.message;
-		} catch (error) {
-			rejection = { error };
-		} finally {
-			const activeIndex = this.activeTurnCommands.indexOf(activeTurn);
-			if (activeIndex >= 0) this.activeTurnCommands.splice(activeIndex, 1);
-			for (const deliver of activeTurn.terminalDeliveries) deliver();
-		}
-		if (activeTurn.terminalDeliveries.length > 0) return;
-		if (rejection) throw rejection.error;
-		if (failedMessage) throw new Error(failedMessage);
-	}
-}
-
-function isFailedTurnResult(
-	value: unknown,
-): value is { readonly status: "failed"; readonly error: { readonly message: string } } {
-	if (typeof value !== "object" || value === null) return false;
-	const error = Reflect.get(value, "error");
-	return (
-		Reflect.get(value, "status") === "failed" &&
-		typeof error === "object" &&
-		error !== null &&
-		typeof Reflect.get(error, "message") === "string"
-	);
-}
-
-function isAgentEndFrame(event: unknown): boolean {
-	return typeof event === "object" && event !== null && Reflect.get(event, "type") === "agent_end";
-}
-
-function readResourceCommands(
-	resourceLoader: GreenfieldImResourceLoader,
-): ReturnType<GreenfieldImCommandDiscoveryCapability["readCommands"]> {
-	const prompts = resourceLoader.getPrompts().prompts.map((template) => ({
-		name: template.name,
-		description: template.description,
-		source: "prompt" as const,
-		location: normalizeLocation(template.source),
-		path: template.filePath,
-	}));
-	const skills = resourceLoader.getSkills().skills.map((skill) => ({
-		name: `skill:${skill.name}`,
-		description: skill.description,
-		source: "skill" as const,
-		location: normalizeLocation(skill.source),
-		path: skill.filePath,
-	}));
-	return [...prompts, ...skills];
-}
-
-function normalizeLocation(source: string): "user" | "project" | "path" | undefined {
-	return source === "user" || source === "project" || source === "path" ? source : undefined;
-}
-
-function readForkMessages(session: GreenfieldRuntimeSession): readonly { entryId: string; text: string }[] {
-	return session
-		.readHistory()
-		.filter(
-			(entry): entry is Extract<HistoryEntry, { type: "message" }> =>
-				entry.type === "message" && entry.message.role === "user" && entry.entryId !== undefined,
-		)
-		.map((entry) => ({ entryId: entry.entryId ?? "", text: readMessageText(entry.message) }))
-		.filter(({ text }) => text.length > 0);
-}
-
-function readLastAssistantText(session: GreenfieldRuntimeSession): string | undefined {
-	const message = [...session.readMessages()].reverse().find((candidate) => candidate.role === "assistant");
-	return message ? readMessageText(message) : undefined;
-}
-
-function readMessageText(message: { readonly content: unknown }): string {
-	if (typeof message.content === "string") return message.content;
-	if (!Array.isArray(message.content)) return "";
-	return message.content
-		.map((part) =>
-			typeof part === "object" && part !== null && "text" in part && typeof part.text === "string" ? part.text : "",
-		)
-		.join("");
-}
-
-function unsupportedSessionOperation(operation: string): never {
-	throw new Error(`Greenfield IM RPC operation ${operation} is not enabled by this profile`);
 }

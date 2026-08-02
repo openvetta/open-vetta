@@ -48,6 +48,15 @@ export class CodingAgentGreenfieldAgentMessageContextProjector implements Conver
 	}
 }
 
+/** Restore the active Greenfield branch to the product-level AgentMessage identities used by RPC. */
+export function projectCodingAgentGreenfieldMessages(document: ConversationDocument): readonly AgentMessage[] {
+	return new CodingAgentGreenfieldAgentMessageContextProjector().project(document).map((envelope) => {
+		if (envelope.kind === "message") return envelope.message;
+		if (envelope.kind === "opaque") return readAgentMessage(envelope.identity);
+		throw new Error("Coding Agent conversation projector returned a context-only envelope");
+	});
+}
+
 function toSessionEntry(entry: ConversationDocument["entries"][number]): SessionEntry {
 	switch (entry.type) {
 		case "message":

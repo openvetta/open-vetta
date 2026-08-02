@@ -92,7 +92,7 @@ export interface RpcSlashCommand {
 // RPC State
 // ============================================================================
 
-export type RpcRuntimeBackend = "legacy" | "greenfield-im";
+export type RpcRuntimeBackend = "legacy" | "greenfield" | "greenfield-im";
 export type RpcRuntimeFallbackReason = "legacy-session" | "legacy-extension";
 export type RpcSessionMigrationStatus = "migrated" | "reused" | "locked" | "not-representable" | "failed";
 

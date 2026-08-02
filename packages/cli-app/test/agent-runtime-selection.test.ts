@@ -33,10 +33,18 @@ afterEach(async () => {
 });
 
 describe("Agent Runtime selection", () => {
-	it("defaults to Legacy and removes only the explicit host runtime option", () => {
+	it("defaults ordinary RPC to Greenfield while keeping non-RPC modes on Legacy", () => {
 		expect(parseAgentRuntimeSelection(["--mode", "rpc"])).toEqual({
-			backend: "legacy",
+			backend: "greenfield",
 			agentArgs: ["--mode", "rpc"],
+		});
+		expect(parseAgentRuntimeSelection(["--mode", "json"])).toEqual({
+			backend: "legacy",
+			agentArgs: ["--mode", "json"],
+		});
+		expect(parseAgentRuntimeSelection(["--mode=rpc", "--enable-host-bridge"])).toEqual({
+			backend: "greenfield-im",
+			agentArgs: ["--mode=rpc", "--enable-host-bridge"],
 		});
 		expect(
 			parseAgentRuntimeSelection(["--agent-runtime=greenfield-im", "--mode", "rpc", "--agent-runtime", "legacy"]),
@@ -48,6 +56,79 @@ describe("Agent Runtime selection", () => {
 			"Unsupported --agent-runtime value",
 		);
 	});
+
+	it("runs the full RPC profile through the default neutral Greenfield host", async () => {
+		const fixture = await createFixture();
+		const process = startAgentRpc(executable, fixture, { backend: null });
+		runningProcesses.add(process);
+
+		await expect(process.request("default-state", "get_state")).resolves.toMatchObject({
+			command: "get_state",
+			success: true,
+			data: {
+				runtimeBackend: "greenfield",
+				runtimeDecision: { requestedBackend: "greenfield", effectiveBackend: "greenfield" },
+			},
+		});
+		await expect(process.request("models", "get_available_models")).resolves.toMatchObject({
+			command: "get_available_models",
+			success: true,
+			data: { models: [expect.objectContaining({ provider: "test", id: "test-model" })] },
+		});
+		await expect(process.request("thinking", "cycle_thinking_level")).resolves.toMatchObject({
+			command: "cycle_thinking_level",
+			success: true,
+			data: { level: expect.any(String) },
+		});
+		await expect(process.request("queue", "set_steering_mode", { mode: "one-at-a-time" })).resolves.toMatchObject({
+			command: "set_steering_mode",
+			success: true,
+		});
+		await expect(process.request("retry", "set_auto_retry", { enabled: false })).resolves.toMatchObject({
+			command: "set_auto_retry",
+			success: true,
+		});
+		await expect(process.request("auto-compact", "set_auto_compaction", { enabled: false })).resolves.toMatchObject({
+			command: "set_auto_compaction",
+			success: true,
+		});
+		await expect(process.request("name", "set_session_name", { name: "neutral-rpc" })).resolves.toMatchObject({
+			command: "set_session_name",
+			success: true,
+		});
+		const bash = await process.request("bash", "bash", {
+			command: `node -e "process.stdout.write('greenfield-rpc')"`,
+		});
+		expect(bash).toMatchObject({
+			command: "bash",
+			success: true,
+			data: { output: "greenfield-rpc", exitCode: 0, cancelled: false },
+		});
+		await expect(process.request("messages", "get_messages")).resolves.toMatchObject({
+			command: "get_messages",
+			success: true,
+			data: {
+				messages: [expect.objectContaining({ role: "bashExecution", command: expect.stringContaining("node -e") })],
+			},
+		});
+		await expect(process.request("stats", "get_session_stats")).resolves.toMatchObject({
+			command: "get_session_stats",
+			success: true,
+			data: { sessionId: expect.any(String), totalMessages: expect.any(Number) },
+		});
+		await expect(process.request("renamed-state", "get_state")).resolves.toMatchObject({
+			data: { sessionName: "neutral-rpc", autoCompactionEnabled: false },
+		});
+		const exportPath = join(fixture.root, "greenfield-session.html");
+		await expect(process.request("export", "export_html", { outputPath: exportPath })).resolves.toMatchObject({
+			command: "export_html",
+			success: true,
+			data: { path: exportPath },
+		});
+		await expect(stat(exportPath)).resolves.toMatchObject({ size: expect.any(Number) });
+		expect(process.stderr).toContain("requested=greenfield effective=greenfield");
+		await process.close();
+	}, 30_000);
 
 	it("runs fresh and resumed Greenfield conversations through pure JSONL stdout and releases ownership", async () => {
 		const fixture = await createFixture();

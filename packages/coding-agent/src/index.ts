@@ -439,7 +439,14 @@ export {
 export { createAgentCliBootstrap, createLegacyAgentBootstrap, main, runLegacyAgentWithBootstrap } from "./main.js";
 // Run modes for programmatic SDK usage
 export {
+	computeGreenfieldRpcSessionStats,
+	exportGreenfieldRpcConversation,
+	GREENFIELD_FULL_RPC_PROFILE,
 	GREENFIELD_IM_RPC_PROFILE,
+	GreenfieldRpcBashCapability,
+	GreenfieldRpcRetryController,
+	type GreenfieldRpcRetryEvent,
+	type GreenfieldRpcRetrySettings,
 	LEGACY_FULL_RPC_PROFILE,
 	type PrintModeOptions,
 	type RpcSessionCapabilities,
@@ -448,6 +455,8 @@ export {
 	type RpcSessionProfileId,
 	type RpcSessionState,
 	type RunRpcModeOptions,
+	readGreenfieldRpcAgentMessages,
+	resolveNextGreenfieldRpcThinkingLevel,
 	runPrintMode,
 	runRpcMode,
 	runRpcModeWithCapabilities,
