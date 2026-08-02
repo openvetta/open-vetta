@@ -273,6 +273,24 @@ function checkGreenfieldLegacyStartupSymbols(posixPath, text, findings) {
 	}
 }
 
+function checkGreenfieldSessionTransitionBoundary(posixPath, text, specifiers, findings) {
+	if (posixPath !== "packages/coding-agent/src/composition/greenfield-active-session-transition-host.ts") return;
+	for (const specifier of specifiers) {
+		if (specifier.includes("core/session-manager") || specifier.includes("legacy-session-import-normalizer")) {
+			findings.push(`${posixPath}: active-session transactions must delegate Legacy session seed construction`);
+		}
+	}
+	const sourceFile = ts.createSourceFile(posixPath, text, ts.ScriptTarget.Latest, true, scriptKind(posixPath));
+	const forbiddenSymbols = new Set(["SessionManager", "migrateLegacySessionToV2"]);
+	const visit = (node) => {
+		if (ts.isIdentifier(node) && forbiddenSymbols.has(node.text)) {
+			findings.push(`${posixPath}: active-session transactions must not use ${node.text}`);
+		}
+		ts.forEachChild(node, visit);
+	};
+	visit(sourceFile);
+}
+
 function checkRetiredAutomaticLegacyFallback(posixPath, text, findings) {
 	const isRuntimeProductionSource =
 		(posixPath.startsWith("packages/cli-app/src/") || posixPath.startsWith("packages/coding-agent/src/")) &&
@@ -468,6 +486,7 @@ export function findPackageBoundaryViolations(posixPath, text, options = {}) {
 	checkCapabilitySchemaDefinitions(posixPath, text, findings);
 	checkGreenfieldRuntimeImports(posixPath, specifiers, findings);
 	checkGreenfieldLegacyStartupSymbols(posixPath, text, findings);
+	checkGreenfieldSessionTransitionBoundary(posixPath, text, specifiers, findings);
 	checkRetiredAutomaticLegacyFallback(posixPath, text, findings);
 	checkRuntimeCompositionCompatibilityFacade(posixPath, specifiers, findings);
 	checkCodingAgentRootImports(posixPath, specifiers, findings);

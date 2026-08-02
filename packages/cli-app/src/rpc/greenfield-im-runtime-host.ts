@@ -45,6 +45,7 @@ import { GreenfieldExtensionSessionHost } from "../agent-runtime/greenfield-exte
 import { GreenfieldPrintSessionAdapter } from "../greenfield-print-session-adapter.js";
 import {
 	CodingAgentGreenfieldActiveSessionHost,
+	CodingAgentLegacySessionSetupSeedImporter,
 	createGreenfieldRuntimeComposition,
 	type GreenfieldCliSessionOptions,
 	type GreenfieldRuntimeComposition,
@@ -390,6 +391,7 @@ async function prepareGreenfieldRuntimeHost(
 			sessionCatalog: options.sessionCatalog,
 			createSessionId: options.createSessionId ?? randomUUID,
 			resolveSessionId: (path) => resolveGreenfieldSessionIdFromPath(options.conversationDir, path),
+			sessionSeedImporter: new CodingAgentLegacySessionSetupSeedImporter(),
 			lifecycle: {
 				before: (transition) => extensionSessionHost!.before(transition),
 				prepare: (transition) => extensionSessionHost!.prepare(transition),

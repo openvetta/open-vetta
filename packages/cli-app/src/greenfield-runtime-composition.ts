@@ -5,6 +5,7 @@ export {
 	type CodingAgentGreenfieldSessionTransition,
 	type CodingAgentGreenfieldSessionTransitionKind,
 	type CodingAgentGreenfieldSessionTransitionLifecycle,
+	CodingAgentLegacySessionSetupSeedImporter,
 	createGreenfieldRuntimeComposition,
 	type GreenfieldCliSessionOptions,
 	type GreenfieldRuntimeComposition,

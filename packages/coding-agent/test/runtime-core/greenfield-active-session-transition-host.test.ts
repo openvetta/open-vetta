@@ -8,6 +8,7 @@ import type {
 	SessionEvent,
 } from "@vetta/runtime-core";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { CodingAgentLegacySessionSetupSeedImporter } from "../../src/adapters/runtime-core/legacy-session-setup-seed-importer.js";
 import {
 	CodingAgentGreenfieldActiveSessionHost,
 	type CodingAgentGreenfieldPreparedSessionBinding,
@@ -404,6 +405,7 @@ async function createFixture(
 			const encoded = path.match(/([^\\/]+)\.conversation\.jsonl$/)?.[1];
 			return encoded ? Buffer.from(encoded, "base64url").toString("utf8") : undefined;
 		},
+		sessionSeedImporter: new CodingAgentLegacySessionSetupSeedImporter(),
 		onTransitionCleanupError: (error) => {
 			cleanupErrors.push(error);
 			if (options.failCleanupReporter) throw new Error("cleanup reporter failed");

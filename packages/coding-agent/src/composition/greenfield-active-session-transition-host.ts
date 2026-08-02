@@ -1,5 +1,3 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { SessionEndCause } from "@vetta/ecosystem-adapter";
 import {
@@ -9,15 +7,30 @@ import {
 	type RuntimeSessionExecutionObservation,
 	type SessionEvent,
 } from "@vetta/runtime-core";
-import { migrateLegacySessionToV2 } from "@vetta/runtime-storage/conversation";
-import { normalizeCodingAgentLegacySessionEntry } from "../adapters/runtime-core/legacy-session-import-normalizer.js";
-import { SessionManager } from "../core/session-manager/index.js";
+import type { ExtensionCommandContextActions } from "../core/extensions/types.js";
 import type {
 	GreenfieldRuntimeComposition,
 	GreenfieldRuntimeSessionOptions,
 } from "./greenfield-runtime-composition.js";
 
 export type CodingAgentGreenfieldSessionTransitionKind = "new" | "resume" | "fork";
+
+export type CodingAgentGreenfieldNewSessionOptions = NonNullable<
+	Parameters<ExtensionCommandContextActions["newSession"]>[0]
+>;
+export type CodingAgentGreenfieldSessionSetup = NonNullable<CodingAgentGreenfieldNewSessionOptions["setup"]>;
+
+export interface CodingAgentGreenfieldSessionSeedImport {
+	readonly cwd: string;
+	readonly parentSession?: string;
+	readonly setup: CodingAgentGreenfieldSessionSetup;
+	readonly targetRootDir: string;
+	readonly targetSessionId: string;
+}
+
+export interface CodingAgentGreenfieldSessionSeedImporter {
+	createSeed(input: CodingAgentGreenfieldSessionSeedImport): Promise<void>;
+}
 
 export interface CodingAgentGreenfieldSessionTransition {
 	readonly kind: CodingAgentGreenfieldSessionTransitionKind;
@@ -59,6 +72,7 @@ export interface CodingAgentGreenfieldActiveSessionHostOptions {
 	readonly sessionCatalog: RuntimeSessionCatalog;
 	readonly createSessionId: () => string;
 	readonly resolveSessionId: (sessionPath: string) => string | undefined;
+	readonly sessionSeedImporter?: CodingAgentGreenfieldSessionSeedImporter;
 	readonly lifecycle?: CodingAgentGreenfieldSessionTransitionLifecycle;
 	readonly onTransitionCleanupError?: (
 		error: AggregateError,
@@ -134,10 +148,7 @@ export class CodingAgentGreenfieldActiveSessionHost {
 		});
 	}
 
-	newSession(options?: {
-		readonly parentSession?: string;
-		readonly setup?: (sessionManager: SessionManager) => Promise<void>;
-	}): Promise<{ cancelled: boolean }> {
+	newSession(options?: CodingAgentGreenfieldNewSessionOptions): Promise<{ cancelled: boolean }> {
 		return this.runExclusive(async () => {
 			const previous = this.activeSession;
 			const transition = this.describe("new", previous);
@@ -425,42 +436,26 @@ export class CodingAgentGreenfieldActiveSessionHost {
 	private async createInitializedSession(
 		sessionId: string,
 		parentSession: string | undefined,
-		setup: (sessionManager: SessionManager) => Promise<void>,
+		setup: CodingAgentGreenfieldSessionSetup,
 	): Promise<GreenfieldRuntimeSession> {
-		const temporaryDirectory = await mkdtemp(join(tmpdir(), "vetta-greenfield-session-setup-"));
-		const sessionManager = SessionManager.create(
-			this.options.sessionOptions.cwd ?? process.cwd(),
-			temporaryDirectory,
-			{ parentSession },
-		);
+		const importer = this.options.sessionSeedImporter;
+		if (!importer) throw new Error("Extension newSession setup requires a session seed importer");
 		try {
-			await setup(sessionManager);
-			const sourcePath = sessionManager.getSessionFile();
-			if (!sourcePath) throw new Error("Extension newSession setup did not create a persisted session");
-			const header = sessionManager.getHeader();
-			if (!header) throw new Error("Extension newSession setup did not retain a session header");
-			const snapshot = [header, ...sessionManager.getEntries()].map((entry) => JSON.stringify(entry)).join("\n");
-			await writeFile(sourcePath, `${snapshot}\n`, "utf8");
-			sessionManager.close();
-			await migrateLegacySessionToV2({
-				sourcePath,
+			await importer.createSeed({
+				cwd: this.options.sessionOptions.cwd ?? process.cwd(),
+				parentSession,
+				setup,
 				targetRootDir: this.options.conversationDir,
 				targetSessionId: sessionId,
-				entryNormalizer: normalizeCodingAgentLegacySessionEntry,
 			});
-			try {
-				return await this.options.runtime.backend.resume({
-					...this.options.sessionOptions,
-					sessionId,
-					parentSessionPath: parentSession,
-				});
-			} catch (error) {
-				await this.deleteCreatedTargetPathForSession(sessionId);
-				throw error;
-			}
-		} finally {
-			sessionManager.close();
-			await rm(temporaryDirectory, { force: true, recursive: true });
+			return await this.options.runtime.backend.resume({
+				...this.options.sessionOptions,
+				sessionId,
+				parentSessionPath: parentSession,
+			});
+		} catch (error) {
+			await this.deleteCreatedTargetPathForSession(sessionId);
+			throw error;
 		}
 	}
 

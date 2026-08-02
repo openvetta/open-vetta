@@ -443,6 +443,25 @@ describe("package boundary analysis", () => {
 		).toEqual([]);
 	});
 
+	it("keeps the Greenfield active-session transaction host independent from Legacy session construction", () => {
+		const hostPath = "packages/coding-agent/src/composition/greenfield-active-session-transition-host.ts";
+		expect(
+			findPackageBoundaryViolations(hostPath, 'import { SessionManager } from "../core/session-manager/index.js";'),
+		).not.toEqual([]);
+		expect(
+			findPackageBoundaryViolations(
+				hostPath,
+				'import { migrateLegacySessionToV2 } from "@vetta/runtime-storage/conversation";',
+			),
+		).not.toEqual([]);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/coding-agent/src/adapters/runtime-core/legacy-session-setup-seed-importer.ts",
+				'import { SessionManager } from "../../core/session-manager/index.js";',
+			),
+		).toEqual([]);
+	});
+
 	it("requires scoped production packages to declare workspace imports", () => {
 		const source = 'import { createRuntime } from "@vetta/runtime-tools/coding";';
 		const path = "packages/coding-agent/src/composition/example.ts";
