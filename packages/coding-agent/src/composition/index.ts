@@ -1,13 +1,17 @@
-export { CodingAgentLegacySessionSetupSeedImporter } from "../adapters/runtime-core/legacy-session-setup-seed-importer.js";
+export {
+	type CodingAgentGreenfieldSessionSeedImport,
+	type CodingAgentGreenfieldSessionSeedImporter,
+	type CodingAgentLegacySessionSetup,
+	CodingAgentLegacySessionSetupSeedImporter,
+} from "../adapters/runtime-core/legacy-session-setup-seed-importer.js";
 export { ConversationOwnershipBinding } from "./conversation-ownership-binding.js";
 export {
 	CodingAgentGreenfieldActiveSessionHost,
 	type CodingAgentGreenfieldActiveSessionHostOptions,
 	type CodingAgentGreenfieldNewSessionOptions,
 	type CodingAgentGreenfieldPreparedSessionBinding,
-	type CodingAgentGreenfieldSessionSeedImport,
-	type CodingAgentGreenfieldSessionSeedImporter,
-	type CodingAgentGreenfieldSessionSetup,
+	type CodingAgentGreenfieldSessionSeedInitializer,
+	type CodingAgentGreenfieldSessionSeedTarget,
 	type CodingAgentGreenfieldSessionTransition,
 	type CodingAgentGreenfieldSessionTransitionKind,
 	type CodingAgentGreenfieldSessionTransitionLifecycle,

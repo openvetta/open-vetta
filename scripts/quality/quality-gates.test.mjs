@@ -462,6 +462,28 @@ describe("package boundary analysis", () => {
 		).toEqual([]);
 	});
 
+	it("keeps Greenfield session action ports independent from the Extension command API", () => {
+		const activeHostPath = "packages/coding-agent/src/composition/greenfield-active-session-transition-host.ts";
+		expect(
+			findPackageBoundaryViolations(
+				activeHostPath,
+				'import type { ExtensionCommandContextActions } from "../core/extensions/types.js";',
+			),
+		).not.toEqual([]);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/coding-agent/src/adapters/runtime-core/greenfield-branch-navigation-host.ts",
+				'type Options = Parameters<ExtensionCommandContextActions["navigateTree"]>[1];',
+			),
+		).not.toEqual([]);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/coding-agent/src/adapters/runtime-core/greenfield-extension-command-actions-adapter.ts",
+				'import type { ExtensionCommandContextActions } from "../../core/extensions/index.js";',
+			),
+		).toEqual([]);
+	});
+
 	it("requires scoped production packages to declare workspace imports", () => {
 		const source = 'import { createRuntime } from "@vetta/runtime-tools/coding";';
 		const path = "packages/coding-agent/src/composition/example.ts";

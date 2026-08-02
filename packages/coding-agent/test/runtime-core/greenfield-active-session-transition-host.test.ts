@@ -209,15 +209,17 @@ describe("CodingAgentGreenfieldActiveSessionHost", () => {
 		await expect(
 			fixture.host.newSession({
 				parentSession: fixture.initial.path,
-				setup: async (sessionManager) => {
-					expect(sessionManager.isPersisted()).toBe(true);
-					setupSessionFile = sessionManager.getSessionFile();
-					sessionManager.appendMessage({
-						role: "user",
-						content: [{ type: "text", text: "setup context" }],
-						timestamp: 10,
-					});
-				},
+				seedInitializer: new CodingAgentLegacySessionSetupSeedImporter().createInitializer(
+					async (sessionManager) => {
+						expect(sessionManager.isPersisted()).toBe(true);
+						setupSessionFile = sessionManager.getSessionFile();
+						sessionManager.appendMessage({
+							role: "user",
+							content: [{ type: "text", text: "setup context" }],
+							timestamp: 10,
+						});
+					},
+				),
 			}),
 		).resolves.toEqual({ cancelled: false });
 
@@ -405,7 +407,6 @@ async function createFixture(
 			const encoded = path.match(/([^\\/]+)\.conversation\.jsonl$/)?.[1];
 			return encoded ? Buffer.from(encoded, "base64url").toString("utf8") : undefined;
 		},
-		sessionSeedImporter: new CodingAgentLegacySessionSetupSeedImporter(),
 		onTransitionCleanupError: (error) => {
 			cleanupErrors.push(error);
 			if (options.failCleanupReporter) throw new Error("cleanup reporter failed");

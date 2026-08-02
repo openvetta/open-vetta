@@ -3,11 +3,21 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { migrateLegacySessionToV2 } from "@vetta/runtime-storage/conversation";
 import type {
-	CodingAgentGreenfieldSessionSeedImport,
-	CodingAgentGreenfieldSessionSeedImporter,
+	CodingAgentGreenfieldSessionSeedInitializer,
+	CodingAgentGreenfieldSessionSeedTarget,
 } from "../../composition/greenfield-active-session-transition-host.js";
 import { SessionManager } from "../../core/session-manager/index.js";
 import { normalizeCodingAgentLegacySessionEntry } from "./legacy-session-import-normalizer.js";
+
+export type CodingAgentLegacySessionSetup = (sessionManager: SessionManager) => Promise<void>;
+
+export interface CodingAgentGreenfieldSessionSeedImport extends CodingAgentGreenfieldSessionSeedTarget {
+	readonly setup: CodingAgentLegacySessionSetup;
+}
+
+export interface CodingAgentGreenfieldSessionSeedImporter {
+	createSeed(input: CodingAgentGreenfieldSessionSeedImport): Promise<void>;
+}
 
 /**
  * Extension `newSession.setup` 的 Legacy 格式兼容适配器。
@@ -16,6 +26,12 @@ import { normalizeCodingAgentLegacySessionEntry } from "./legacy-session-import-
  * 严格迁移器导入 Conversation V2，活动 Session 事务宿主不接触 Legacy 执行对象。
  */
 export class CodingAgentLegacySessionSetupSeedImporter implements CodingAgentGreenfieldSessionSeedImporter {
+	createInitializer(setup: CodingAgentLegacySessionSetup): CodingAgentGreenfieldSessionSeedInitializer {
+		return {
+			initializeSeed: (target) => this.createSeed({ ...target, setup }),
+		};
+	}
+
 	async createSeed(input: CodingAgentGreenfieldSessionSeedImport): Promise<void> {
 		const temporaryDirectory = await mkdtemp(join(tmpdir(), "vetta-greenfield-session-setup-"));
 		const sessionManager = SessionManager.create(input.cwd, temporaryDirectory, {

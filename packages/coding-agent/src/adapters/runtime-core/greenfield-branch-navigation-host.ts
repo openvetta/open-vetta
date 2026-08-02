@@ -1,14 +1,16 @@
 import type { GreenfieldRuntimeSession } from "@vetta/runtime-core";
 import { collectEntriesForBranchSummary, generateBranchSummary } from "../../core/compaction/index.js";
-import type {
-	ExtensionCommandContextActions,
-	ExtensionRunner,
-	SessionBeforeTreeResult,
-	TreePreparation,
-} from "../../core/extensions/index.js";
+import type { ExtensionRunner, SessionBeforeTreeResult, TreePreparation } from "../../core/extensions/index.js";
 import type { BranchSummaryEntry } from "../../core/session-manager/index.js";
 import type { SettingsManager } from "../../core/settings-manager.js";
 import { createGreenfieldReadonlySessionManager } from "./greenfield-readonly-session-manager.js";
+
+export interface CodingAgentGreenfieldBranchNavigationOptions {
+	readonly summarize?: boolean;
+	readonly customInstructions?: string;
+	readonly replaceInstructions?: boolean;
+	readonly label?: string;
+}
 
 export interface CodingAgentGreenfieldBranchNavigationHostOptions {
 	readonly withActiveSession: <T>(operation: (session: GreenfieldRuntimeSession) => Promise<T>) => Promise<T>;
@@ -31,7 +33,7 @@ export class CodingAgentGreenfieldBranchNavigationHost {
 
 	navigateTree(
 		targetId: string,
-		options: Parameters<ExtensionCommandContextActions["navigateTree"]>[1] = {},
+		options: CodingAgentGreenfieldBranchNavigationOptions = {},
 	): Promise<{ cancelled: boolean }> {
 		return this.options.withActiveSession((session) => this.navigate(session, targetId, options));
 	}
@@ -39,7 +41,7 @@ export class CodingAgentGreenfieldBranchNavigationHost {
 	private async navigate(
 		session: GreenfieldRuntimeSession,
 		targetId: string,
-		options: NonNullable<Parameters<ExtensionCommandContextActions["navigateTree"]>[1]>,
+		options: CodingAgentGreenfieldBranchNavigationOptions,
 	): Promise<{ cancelled: boolean }> {
 		const assembly = session.createCoreAssembly();
 		const sessionManager = createGreenfieldReadonlySessionManager(assembly);

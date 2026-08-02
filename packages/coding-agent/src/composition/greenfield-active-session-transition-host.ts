@@ -7,7 +7,6 @@ import {
 	type RuntimeSessionExecutionObservation,
 	type SessionEvent,
 } from "@vetta/runtime-core";
-import type { ExtensionCommandContextActions } from "../core/extensions/types.js";
 import type {
 	GreenfieldRuntimeComposition,
 	GreenfieldRuntimeSessionOptions,
@@ -15,21 +14,20 @@ import type {
 
 export type CodingAgentGreenfieldSessionTransitionKind = "new" | "resume" | "fork";
 
-export type CodingAgentGreenfieldNewSessionOptions = NonNullable<
-	Parameters<ExtensionCommandContextActions["newSession"]>[0]
->;
-export type CodingAgentGreenfieldSessionSetup = NonNullable<CodingAgentGreenfieldNewSessionOptions["setup"]>;
-
-export interface CodingAgentGreenfieldSessionSeedImport {
+export interface CodingAgentGreenfieldSessionSeedTarget {
 	readonly cwd: string;
 	readonly parentSession?: string;
-	readonly setup: CodingAgentGreenfieldSessionSetup;
 	readonly targetRootDir: string;
 	readonly targetSessionId: string;
 }
 
-export interface CodingAgentGreenfieldSessionSeedImporter {
-	createSeed(input: CodingAgentGreenfieldSessionSeedImport): Promise<void>;
+export interface CodingAgentGreenfieldSessionSeedInitializer {
+	initializeSeed(target: CodingAgentGreenfieldSessionSeedTarget): Promise<void>;
+}
+
+export interface CodingAgentGreenfieldNewSessionOptions {
+	readonly parentSession?: string;
+	readonly seedInitializer?: CodingAgentGreenfieldSessionSeedInitializer;
 }
 
 export interface CodingAgentGreenfieldSessionTransition {
@@ -72,7 +70,6 @@ export interface CodingAgentGreenfieldActiveSessionHostOptions {
 	readonly sessionCatalog: RuntimeSessionCatalog;
 	readonly createSessionId: () => string;
 	readonly resolveSessionId: (sessionPath: string) => string | undefined;
-	readonly sessionSeedImporter?: CodingAgentGreenfieldSessionSeedImporter;
 	readonly lifecycle?: CodingAgentGreenfieldSessionTransitionLifecycle;
 	readonly onTransitionCleanupError?: (
 		error: AggregateError,
@@ -158,8 +155,8 @@ export class CodingAgentGreenfieldActiveSessionHost {
 			return this.withEndedSourceHooks(previous, "new_session", async () => {
 				await this.options.runtime.quiesceSessionBackgroundCommands(previous.sessionId);
 				const sessionId = this.options.createSessionId();
-				const next = options?.setup
-					? await this.createInitializedSession(sessionId, options.parentSession, options.setup)
+				const next = options?.seedInitializer
+					? await this.createInitializedSession(sessionId, options.parentSession, options.seedInitializer)
 					: await this.options.runtime.backend.create({
 							...this.options.sessionOptions,
 							sessionId,
@@ -436,15 +433,12 @@ export class CodingAgentGreenfieldActiveSessionHost {
 	private async createInitializedSession(
 		sessionId: string,
 		parentSession: string | undefined,
-		setup: CodingAgentGreenfieldSessionSetup,
+		initializer: CodingAgentGreenfieldSessionSeedInitializer,
 	): Promise<GreenfieldRuntimeSession> {
-		const importer = this.options.sessionSeedImporter;
-		if (!importer) throw new Error("Extension newSession setup requires a session seed importer");
 		try {
-			await importer.createSeed({
+			await initializer.initializeSeed({
 				cwd: this.options.sessionOptions.cwd ?? process.cwd(),
 				parentSession,
-				setup,
 				targetRootDir: this.options.conversationDir,
 				targetSessionId: sessionId,
 			});

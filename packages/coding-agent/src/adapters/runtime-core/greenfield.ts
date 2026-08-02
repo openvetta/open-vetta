@@ -25,6 +25,7 @@ export {
 export {
 	CodingAgentGreenfieldBranchNavigationHost,
 	type CodingAgentGreenfieldBranchNavigationHostOptions,
+	type CodingAgentGreenfieldBranchNavigationOptions,
 } from "./greenfield-branch-navigation-host.js";
 export {
 	type CodingAgentCompactionCommittedInput,
@@ -48,6 +49,10 @@ export {
 	CodingAgentGreenfieldExtensionActionHost,
 	type CodingAgentGreenfieldExtensionActionHostOptions,
 } from "./greenfield-extension-action-host.js";
+export {
+	type CodingAgentGreenfieldExtensionCommandActionPorts,
+	createCodingAgentGreenfieldExtensionCommandActions,
+} from "./greenfield-extension-command-actions-adapter.js";
 export {
 	CodingAgentGreenfieldExtensionCommandHost,
 	type CodingAgentGreenfieldExtensionCommandHostOptions,

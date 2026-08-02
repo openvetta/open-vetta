@@ -1,0 +1,50 @@
+import type {
+	CodingAgentGreenfieldNewSessionOptions,
+	CodingAgentGreenfieldSessionSeedInitializer,
+} from "../../composition/greenfield-active-session-transition-host.js";
+import type { ExtensionCommandContextActions } from "../../core/extensions/index.js";
+import type { CodingAgentGreenfieldBranchNavigationOptions } from "./greenfield-branch-navigation-host.js";
+
+type ExtensionNewSessionOptions = NonNullable<Parameters<ExtensionCommandContextActions["newSession"]>[0]>;
+type ExtensionSessionSetup = NonNullable<ExtensionNewSessionOptions["setup"]>;
+
+export interface CodingAgentGreenfieldExtensionCommandActionPorts {
+	waitForIdle(): Promise<void>;
+	newSession(options?: CodingAgentGreenfieldNewSessionOptions): Promise<{ cancelled: boolean }>;
+	createSessionSetupInitializer(setup: ExtensionSessionSetup): CodingAgentGreenfieldSessionSeedInitializer;
+	fork(entryId: string): Promise<{ readonly cancelled: boolean }>;
+	navigateTree(
+		targetId: string,
+		options?: CodingAgentGreenfieldBranchNavigationOptions,
+	): Promise<{ cancelled: boolean }>;
+	switchSession(sessionPath: string): Promise<{ cancelled: boolean }>;
+	reload(): Promise<void>;
+}
+
+/** 将既有 Extension command context 合同适配为中性的 Greenfield 宿主端口。 */
+export function createCodingAgentGreenfieldExtensionCommandActions(
+	ports: CodingAgentGreenfieldExtensionCommandActionPorts,
+): ExtensionCommandContextActions {
+	return {
+		waitForIdle: () => ports.waitForIdle(),
+		newSession: (options) => ports.newSession(adaptNewSessionOptions(options, ports)),
+		fork: async (entryId) => {
+			const result = await ports.fork(entryId);
+			return { cancelled: result.cancelled };
+		},
+		navigateTree: (targetId, options) => ports.navigateTree(targetId, options),
+		switchSession: (sessionPath) => ports.switchSession(sessionPath),
+		reload: () => ports.reload(),
+	};
+}
+
+function adaptNewSessionOptions(
+	options: ExtensionNewSessionOptions | undefined,
+	ports: Pick<CodingAgentGreenfieldExtensionCommandActionPorts, "createSessionSetupInitializer">,
+): CodingAgentGreenfieldNewSessionOptions | undefined {
+	if (!options) return undefined;
+	return {
+		...(options.parentSession !== undefined ? { parentSession: options.parentSession } : {}),
+		...(options.setup ? { seedInitializer: ports.createSessionSetupInitializer(options.setup) } : {}),
+	};
+}

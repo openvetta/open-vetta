@@ -26,9 +26,9 @@ import {
 	CodingAgentGreenfieldResourceReloadHost,
 	type CodingAgentPluginRuntimeSource,
 	createCodingAgentCompactionExtensionRuntime,
+	createCodingAgentGreenfieldExtensionCommandActions,
 	createCodingAgentMcpRuntimeToolSource,
 	createCodingAgentPluginMcpRuntime,
-	type ExtensionCommandContextActions,
 } from "@vetta/coding-agent/runtime-host/greenfield";
 import {
 	type GreenfieldRuntimeSession,
@@ -391,7 +391,6 @@ async function prepareGreenfieldRuntimeHost(
 			sessionCatalog: options.sessionCatalog,
 			createSessionId: options.createSessionId ?? randomUUID,
 			resolveSessionId: (path) => resolveGreenfieldSessionIdFromPath(options.conversationDir, path),
-			sessionSeedImporter: new CodingAgentLegacySessionSetupSeedImporter(),
 			lifecycle: {
 				before: (transition) => extensionSessionHost!.before(transition),
 				prepare: (transition) => extensionSessionHost!.prepare(transition),
@@ -427,17 +426,16 @@ async function prepareGreenfieldRuntimeHost(
 				runtime!.refreshExtensionTools(extensionsResult.extensions);
 			},
 		});
-		const extensionCommandActions: ExtensionCommandContextActions = {
+		const sessionSetupSeedImporter = new CodingAgentLegacySessionSetupSeedImporter();
+		const extensionCommandActions = createCodingAgentGreenfieldExtensionCommandActions({
 			waitForIdle: () => activeSessionHost!.waitForIdle(),
 			newSession: (newSessionOptions) => activeSessionHost!.newSession(newSessionOptions),
-			fork: async (entryId) => {
-				const result = await activeSessionHost!.fork(entryId);
-				return { cancelled: result.cancelled };
-			},
+			createSessionSetupInitializer: (setup) => sessionSetupSeedImporter.createInitializer(setup),
+			fork: (entryId) => activeSessionHost!.fork(entryId),
 			navigateTree: (targetId, navigateOptions) => branchNavigationHost.navigateTree(targetId, navigateOptions),
 			switchSession: (targetPath) => activeSessionHost!.switchSession(targetPath),
 			reload: () => activeSessionHost!.runActiveSessionMutation(() => resourceReloadHost.reload()),
-		};
+		});
 		extensionSessionHost.bindCommandContext(extensionCommandActions);
 		const agentSessionHost = new GreenfieldAgentSessionHost({
 			runtime,
