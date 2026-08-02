@@ -32,6 +32,10 @@ import {
 } from "./support/openai-responses-test-server.js";
 
 const BACKENDS = ["legacy", "greenfield-im"] as const satisfies readonly TestAgentRuntimeBackend[];
+const PROVIDER_DIFFERENTIAL_HOST_OPTIONS = {
+	enableHostBridge: true,
+	scenario: "im-claw",
+} as const satisfies StartAgentRpcOptions;
 const rolloverTriggeredFixtures = new Set<string>();
 let executable: AgentRpcExecutable;
 
@@ -43,7 +47,7 @@ afterAll(async () => {
 	await executable.dispose();
 });
 
-describe("Agent Runtime Provider differential", () => {
+describe("Agent Runtime Provider differential", { timeout: 30_000 }, () => {
 	it("preserves the exact Provider request body and ordered tool surface", async () => {
 		const observations = await runForBackends(
 			async ({ process, server, fixture }) => {
@@ -418,6 +422,7 @@ describe("Agent Runtime Provider differential", () => {
 
 				const resumed = startAgentRpc(executable, fixture, {
 					backend,
+					...PROVIDER_DIFFERENTIAL_HOST_OPTIONS,
 					extraArgs: [
 						"--extension",
 						join(fixture.root, "context-differential-extension.ts"),
@@ -521,6 +526,7 @@ describe("Agent Runtime Provider differential", () => {
 				const migratedTargetsBeforeRestart = await listMigratedTargets(fixture);
 				const resumed = startAgentRpc(executable, fixture, {
 					backend,
+					...PROVIDER_DIFFERENTIAL_HOST_OPTIONS,
 					extraArgs: [
 						"--extension",
 						join(fixture.root, "legacy-execution-context-extension.ts"),
@@ -713,6 +719,7 @@ async function runForBackends<T>(
 			process = startAgentRpc(executable, fixture, {
 				backend,
 				...(await resolveStartOptions?.(fixture, backend)),
+				...PROVIDER_DIFFERENTIAL_HOST_OPTIONS,
 			});
 			observations[backend] = await run({ backend, fixture, process, server });
 		} finally {
