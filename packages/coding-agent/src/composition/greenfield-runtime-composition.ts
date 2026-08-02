@@ -10,7 +10,6 @@ import {
 	type ConversationScenario,
 	GreenfieldRuntimeModel,
 	type GreenfieldRuntimeResourceContext,
-	type GreenfieldRuntimeResources,
 	GreenfieldRuntimeSessionBackend,
 	InitializationRollbackScope,
 	RetryableCleanup,
@@ -43,7 +42,6 @@ import {
 } from "@vetta/runtime-tools/coding";
 import {
 	adaptCodingAgentToolRegistration,
-	CODING_AGENT_ASK_USER_QUESTION_TOOL_NAME,
 	CODING_AGENT_MODEL_TOOL_ORDER,
 	type CodingAgentCompactionExtensionRuntime,
 	CodingAgentGreenfieldAgentMessageContextProjector,
@@ -74,7 +72,6 @@ import {
 	createEcosystemHookRuntime,
 	type EcosystemHookAdapterFactory,
 	type HookConfigLayer,
-	isCodingAgentAskUserQuestionEnabled,
 	type KnowledgePageWriterPort,
 } from "../adapters/runtime-core/greenfield.js";
 import { CodingAgentGreenfieldConversationContextOverlay } from "../adapters/runtime-core/greenfield-conversation-context-overlay.js";
@@ -86,10 +83,16 @@ import { createKbFilterByTagsTool } from "../core/tools/kb-filter-by-tags/index.
 import { createKbListTagsTool } from "../core/tools/kb-list-tags/index.js";
 import { ConversationOwnershipBinding } from "./conversation-ownership-binding.js";
 import { GreenfieldSessionExecutionRuntime } from "./greenfield-session-execution-runtime.js";
+import { GreenfieldSessionConfigurationState } from "./greenfield-session-peripherals.js";
 import {
-	GreenfieldBackgroundWorkController,
-	GreenfieldSessionConfigurationState,
-} from "./greenfield-session-peripherals.js";
+	type GreenfieldSessionValueIndex,
+	InMemoryGreenfieldSessionMarkerIndex,
+	InMemoryGreenfieldSessionValueIndex,
+} from "./greenfield-session-resource-index.js";
+import {
+	createGreenfieldSessionResourceLifecycleAssembly,
+	type GreenfieldSessionHookController,
+} from "./greenfield-session-resource-lifecycle-assembly.js";
 import { createGreenfieldSubagentSessionAssembly } from "./greenfield-subagent-session-assembly.js";
 import {
 	createGreenfieldTurnCapabilitySessionAssembly,
@@ -266,14 +269,14 @@ async function createGreenfieldRuntimeCompositionInternal(
 	const knowledgeAvailable = options.knowledgeEnabled ?? process.env.VETTA_KNOWLEDGE_DISABLED !== "1";
 	let backgroundTasksAvailable = false;
 	let mcpSynchronizer: McpRuntimeToolSynchronizer | undefined;
-	const mcpControllers = new Map<string, McpDeferredToolController>();
-	const pluginMcpRuntimes = new Map<string, CodingAgentPluginMcpRuntime>();
-	const executionRuntimes = new Map<string, GreenfieldSessionExecutionRuntime>();
-	const configurationStates = new Map<string, GreenfieldSessionConfigurationState>();
-	const resourceContexts = new Map<string, GreenfieldRuntimeResourceContext>();
-	const extensionEventBridges = new Map<string, CodingAgentGreenfieldExtensionEventBridge>();
-	const mcpRefreshObservedSessions = new Set<string>();
-	const mcpPromptRefreshReuseSessions = new Set<string>();
+	const mcpControllers = new InMemoryGreenfieldSessionValueIndex<McpDeferredToolController>();
+	const pluginMcpRuntimes = new InMemoryGreenfieldSessionValueIndex<CodingAgentPluginMcpRuntime>();
+	const executionRuntimes = new InMemoryGreenfieldSessionValueIndex<GreenfieldSessionExecutionRuntime>();
+	const configurationStates = new InMemoryGreenfieldSessionValueIndex<GreenfieldSessionConfigurationState>();
+	const resourceContexts = new InMemoryGreenfieldSessionValueIndex<GreenfieldRuntimeResourceContext>();
+	const extensionEventBridges = new InMemoryGreenfieldSessionValueIndex<CodingAgentGreenfieldExtensionEventBridge>();
+	const mcpRefreshObservedSessions = new InMemoryGreenfieldSessionMarkerIndex();
+	const mcpPromptRefreshReuseSessions = new InMemoryGreenfieldSessionMarkerIndex();
 	const tools = createCodingToolsRuntimeComposition({
 		cwd,
 		activation: effectiveActivation,
@@ -352,16 +355,9 @@ async function createGreenfieldRuntimeCompositionInternal(
 	const todoRuntimes = new Set<CodingAgentTodoRuntime>();
 	const contextRuntimes = new Set<CodingAgentGreenfieldContextRuntime>();
 	const memoryRuntimes = new Set<CodingAgentMemoryRolloverRuntime>();
-	const memoryControllers = new Map<string, CodingAgentMemoryController>();
+	const memoryControllers = new InMemoryGreenfieldSessionValueIndex<CodingAgentMemoryController>();
 	const hookSessionDisposers = new Set<() => Promise<void>>();
-	const hookSessionControllers = new Map<
-		string,
-		{
-			end(cause: SessionEndCause): Promise<void>;
-			start(source: SessionStartSource): void;
-			discard(): void;
-		}
-	>();
+	const hookSessionControllers = new InMemoryGreenfieldSessionValueIndex<GreenfieldSessionHookController>();
 	const ownershipBindings = new Set<ConversationOwnershipBinding>();
 	const modelAdapter = new CodingAgentModelRegistryAdapter(options.modelRegistry);
 	const acquireOwnership = async (sessionId: string): Promise<ConversationOwnershipBinding | undefined> => {
@@ -379,13 +375,6 @@ async function createGreenfieldRuntimeCompositionInternal(
 		await binding.dispose();
 		ownershipBindings.delete(binding);
 	};
-	const stateActivation =
-		effectiveActivation.mode === "scope"
-			? withCapabilities(effectiveActivation, [
-					...(backgroundTasksAvailable ? ["bg-tasks"] : []),
-					...(knowledgeAvailable && effectiveActivation.scope === "kb-processing" ? ["knowledge"] : []),
-				])
-			: effectiveActivation;
 	const runtimeFactory = new ComposedGreenfieldRuntimeFactory<GreenfieldRuntimeSessionOptions>({
 		streamFn: options.streamFn,
 		async createResources(sessionOptions, resourceContext) {
@@ -704,35 +693,81 @@ async function createGreenfieldRuntimeCompositionInternal(
 						rollback: () => acquiredSubagentRuntime.dispose(),
 					});
 				}
-				let hookSessionEnded = false;
-				const disposeHookSession = (): Promise<void> => endHookSession("dispose");
-				const endHookSession = async (cause: SessionEndCause): Promise<void> => {
-					if (hookSessionEnded) return;
-					hookSessionEnded = true;
-					hookSessionDisposers.delete(disposeHookSession);
-					try {
-						await hookRuntime.runSessionEnd(cause);
-					} catch (error) {
-						console.warn(`[ecosystem-hooks] SessionEnd failed during Greenfield ${cause}`, error);
-					}
-				};
-				const hookSessionController = {
-					end: endHookSession,
-					start(source: SessionStartSource) {
-						if (hookSessionEnded) {
-							hookSessionEnded = false;
-							hookSessionDisposers.add(disposeHookSession);
-						}
-						hookRuntime.markSessionStart(source);
+				const resourceLifecycleAssembly = createGreenfieldSessionResourceLifecycleAssembly({
+					session: {
+						initialSessionId: sessionOptions.sessionId,
+						readSessionId: () => activeSessionId,
+						commitSessionId: (sessionId) => {
+							activeSessionId = sessionId;
+						},
+						cwd: sessionCwd,
+						parentSessionPath: sessionOptions.parentSessionPath,
+						parentEntryId: sessionOptions.parentEntryId,
 					},
-					discard() {
-						hookSessionEnded = true;
-						hookSessionDisposers.delete(disposeHookSession);
+					conversation: {
+						repository,
+						documentStore: repository,
+						continuationStore: repository,
+						resolveConversationPath: (sessionId) => repository.resolveConversationPath(sessionId),
 					},
-				};
+					ownership: {
+						rebind: async (sessionId) => {
+							await activeOwnership?.rebind(repository.resolveConversationPath(sessionId));
+						},
+						release: async () => {
+							await releaseOwnership(activeOwnership);
+							activeOwnership = undefined;
+						},
+					},
+					resourceContext,
+					indexes: {
+						mcpControllers,
+						pluginMcpRuntimes,
+						executionRuntimes,
+						configurationStates,
+						resourceContexts,
+						extensionEventBridges,
+						memoryControllers,
+						hookSessionControllers,
+						mcpRefreshObservedSessions,
+						mcpPromptRefreshReuseSessions,
+					},
+					hookRuntime,
+					extensionEvents,
+					extensionToolRuntime,
+					conversationContextOverlay,
+					modelRuntime,
+					contextRuntime,
+					memoryRuntime,
+					memoryController,
+					todoRuntime,
+					todoToolRegistration: todoRegistration,
+					todoEnabled,
+					subagentRuntime,
+					executionRuntime: activeExecutionRuntime,
+					configurationState,
+					pluginMcpRuntime,
+					mcpController,
+					codingTools: tools,
+					productToolRegistrations,
+					activation: effectiveActivation,
+					knowledgeAvailable,
+					backgroundTasksAvailable,
+					askUserQuestion: sessionOptions.askUserQuestion,
+					scenario,
+					refreshSessionMcp,
+					tracking: {
+						trackHookSessionDisposer: (dispose) => hookSessionDisposers.add(dispose),
+						untrackHookSessionDisposer: (dispose) => hookSessionDisposers.delete(dispose),
+						untrackContextRuntime: (runtime) => contextRuntimes.delete(runtime),
+						untrackMemoryRuntime: (runtime) => memoryRuntimes.delete(runtime),
+						untrackTodoRuntime: (runtime) => todoRuntimes.delete(runtime),
+						untrackTurnCapabilityAssembly: (assembly) => turnCapabilityAssemblies.delete(assembly),
+					},
+				});
 				rollback.defer({
 					id: "hook-session",
-					rollback: () => disposeHookSession(),
+					rollback: () => resourceLifecycleAssembly.disposeHookSession(),
 				});
 				const turnCapabilityAssembly = await createGreenfieldTurnCapabilitySessionAssembly({
 					session: {
@@ -797,301 +832,11 @@ async function createGreenfieldRuntimeCompositionInternal(
 					},
 				});
 				await turnCapabilityAssembly.previewInitialSystemPrompt();
-				extensionEventBridges.set(activeSessionId, extensionEvents);
-				if (memoryController) memoryControllers.set(activeSessionId, memoryController);
-				hookSessionDisposers.add(disposeHookSession);
-				hookSessionControllers.set(activeSessionId, hookSessionController);
+				const resources = resourceLifecycleAssembly.attachTurnCapabilityAssembly(turnCapabilityAssembly);
 				rollback.defer({
 					id: "session-bindings",
-					rollback: () => {
-						if (extensionEventBridges.get(activeSessionId) === extensionEvents) {
-							extensionEventBridges.delete(activeSessionId);
-						}
-						if (memoryControllers.get(activeSessionId) === memoryController) {
-							memoryControllers.delete(activeSessionId);
-						}
-						if (hookSessionControllers.get(activeSessionId) === hookSessionController) {
-							hookSessionControllers.delete(activeSessionId);
-						}
-						mcpRefreshObservedSessions.delete(activeSessionId);
-						mcpPromptRefreshReuseSessions.delete(activeSessionId);
-					},
+					rollback: () => resourceLifecycleAssembly.rollbackBindings(),
 				});
-				const sessionCleanup = new RetryableCleanup();
-				sessionCleanup.add({
-					id: "conversation-context-overlay",
-					phase: 0,
-					cleanup: () => conversationContextOverlay.clear(activeSessionId),
-				});
-				if (subagentRuntime) {
-					const registeredSubagentRuntime = subagentRuntime;
-					sessionCleanup.add({
-						id: "subagent-runtime",
-						phase: 0,
-						cleanup: () => registeredSubagentRuntime.dispose(),
-					});
-				}
-				sessionCleanup.add({
-					id: "context-runtime",
-					phase: 0,
-					cleanup: () => {
-						contextRuntime.dispose();
-						contextRuntimes.delete(contextRuntime);
-					},
-				});
-				if (memoryRuntime) {
-					sessionCleanup.add({
-						id: "memory-runtime",
-						phase: 0,
-						cleanup: () => {
-							memoryRuntime.dispose();
-							memoryRuntimes.delete(memoryRuntime);
-						},
-					});
-				}
-				sessionCleanup.add({
-					id: "memory-controller-binding",
-					phase: 0,
-					cleanup: () => {
-						if (memoryControllers.get(activeSessionId) === memoryController) {
-							memoryControllers.delete(activeSessionId);
-						}
-					},
-				});
-				sessionCleanup.add({ id: "session-end-hook", phase: 0, cleanup: () => endHookSession("dispose") });
-				if (pluginMcpRuntime) {
-					const registeredPluginMcpRuntime = pluginMcpRuntime;
-					sessionCleanup.add({
-						id: "plugin-mcp-runtime",
-						phase: 0,
-						cleanup: async () => {
-							await registeredPluginMcpRuntime.dispose();
-							if (pluginMcpRuntimes.get(activeSessionId) === registeredPluginMcpRuntime) {
-								pluginMcpRuntimes.delete(activeSessionId);
-							}
-						},
-					});
-				}
-				sessionCleanup.add({
-					id: "execution-runtime",
-					phase: 0,
-					cleanup: async () => {
-						await activeExecutionRuntime.dispose();
-						if (executionRuntimes.get(activeSessionId) === activeExecutionRuntime) {
-							executionRuntimes.delete(activeSessionId);
-						}
-					},
-				});
-				sessionCleanup.add({
-					id: "todo-runtime",
-					phase: 0,
-					cleanup: async () => {
-						await todoRuntime.dispose();
-						todoRuntimes.delete(todoRuntime);
-					},
-				});
-				sessionCleanup.add({
-					id: "capability-composition",
-					phase: 0,
-					cleanup: async () => {
-						await turnCapabilityAssembly.dispose();
-						turnCapabilityAssemblies.delete(turnCapabilityAssembly);
-					},
-				});
-				sessionCleanup.add({
-					id: "session-bindings",
-					phase: 1,
-					cleanup: () => {
-						if (hookSessionControllers.get(activeSessionId) === hookSessionController) {
-							hookSessionControllers.delete(activeSessionId);
-						}
-						if (mcpControllers.get(activeSessionId) === mcpController) mcpControllers.delete(activeSessionId);
-						if (configurationStates.get(activeSessionId) === configurationState) {
-							configurationStates.delete(activeSessionId);
-						}
-						if (resourceContexts.get(activeSessionId) === resourceContext)
-							resourceContexts.delete(activeSessionId);
-						if (extensionEventBridges.get(activeSessionId) === extensionEvents) {
-							extensionEventBridges.delete(activeSessionId);
-						}
-						mcpRefreshObservedSessions.delete(activeSessionId);
-						mcpPromptRefreshReuseSessions.delete(activeSessionId);
-					},
-				});
-				sessionCleanup.add({
-					id: "conversation-ownership",
-					phase: 2,
-					cleanup: async () => {
-						await releaseOwnership(activeOwnership);
-						activeOwnership = undefined;
-					},
-				});
-				const resources: GreenfieldRuntimeResources = {
-					sessionId: sessionOptions.sessionId,
-					repository,
-					conversationDocumentStore: repository,
-					conversationContinuationStore: repository,
-					promptAdapter: {
-						async intercept(request, context) {
-							await refreshSessionMcp(activeSessionId, true);
-							return turnCapabilityAssembly.promptAdapter.intercept(request, context);
-						},
-						async prepare(request, context) {
-							const prepared = await turnCapabilityAssembly.promptAdapter.prepare(request, context);
-							await todoRuntime.flush();
-							return prepared;
-						},
-					},
-					snapshotProvider: turnCapabilityAssembly.capabilities,
-					modelRuntime,
-					documentParticipants: [todoRuntime, contextRuntime, ...(subagentRuntime ? [subagentRuntime] : [])],
-					todoController: todoRuntime,
-					toolController: {
-						readActiveToolNames: () => {
-							const override = configurationState.readActiveToolNamesOverride();
-							return override
-								? override.filter((toolName) => turnCapabilityAssembly.readAvailableTools().has(toolName))
-								: [
-										...readActiveToolNames(
-											tools,
-											withAgentMode(stateActivation, configurationState.readAgentMode()),
-											knowledgeAvailable,
-											effectiveActivation,
-											mcpController,
-										),
-										...(extensionToolRuntime?.readActiveToolNames(
-											withAgentMode(stateActivation, configurationState.readAgentMode()),
-										) ?? []),
-									];
-						},
-						readAvailableTools: () => turnCapabilityAssembly.readAvailableTools(),
-						setActiveToolNames: (toolNames) => {
-							configurationState.setActiveToolNamesOverride(toolNames);
-						},
-					},
-					createSessionPeripherals: (session) => ({
-						hostInteraction: activeExecutionRuntime.hostInteraction,
-						executionController: activeExecutionRuntime.createExecutionController(session),
-						backgroundWorkController: new GreenfieldBackgroundWorkController(
-							activeExecutionRuntime.backgroundService,
-							subagentRuntime,
-						),
-						configurationController: configurationState.createController(
-							session,
-							pluginMcpRuntime
-								? {
-										reconfigureAgentPlugins: async (agentPlugins) => {
-											await pluginMcpRuntime?.reconfigure(agentPlugins);
-										},
-									}
-								: undefined,
-						),
-					}),
-					contextRuntime,
-					identity: {
-						cwd: sessionOptions.cwd ?? cwd,
-						sessionPath: repository.resolveConversationPath(sessionOptions.sessionId),
-						parentSessionPath: sessionOptions.parentSessionPath,
-						parentEntryId: sessionOptions.parentEntryId,
-					},
-					stateSource: {
-						read: () => {
-							const baseToolNames =
-								turnCapabilityAssembly.readPluginActiveToolNames() ??
-								readActiveToolNames(
-									tools,
-									withAgentMode(stateActivation, configurationState.readAgentMode()),
-									knowledgeAvailable,
-									effectiveActivation,
-									mcpController,
-								);
-							const executionTools = activeExecutionRuntime.readAvailableTools();
-							const activeToolNames = [
-								...baseToolNames.filter(
-									(toolName) => !activeExecutionRuntime.ownsTool(toolName) || executionTools.has(toolName),
-								),
-								...selectCodingToolRegistrations(
-									productToolRegistrations,
-									withAgentMode(stateActivation, configurationState.readAgentMode()),
-								).map(({ tool }) => tool.name),
-								...(todoEnabled ? [todoRegistration.tool.name] : []),
-								...(memoryRuntime ? [memoryRuntime.toolRegistration.tool.name] : []),
-								...(subagentRuntime ? subagentRuntime.readTools().map(({ name }) => name) : []),
-								...(sessionOptions.askUserQuestion &&
-								isCodingAgentAskUserQuestionEnabled({
-									capability: sessionOptions.askUserQuestion,
-									scenario,
-								})
-									? [CODING_AGENT_ASK_USER_QUESTION_TOOL_NAME]
-									: []),
-								...(extensionToolRuntime?.readActiveToolNames(
-									withAgentMode(stateActivation, configurationState.readAgentMode()),
-								) ?? []),
-							];
-							const contextWindow = modelRuntime.readCurrentModel().contextWindow;
-							const contextUsage = contextRuntime.readUsage(contextWindow);
-							const override = configurationState.readActiveToolNamesOverride();
-							return {
-								contextTokens: contextUsage.tokens,
-								contextPercent: contextUsage.percent,
-								contextWindow,
-								activeToolNames: override
-									? override.filter((toolName) => turnCapabilityAssembly.readAvailableTools().has(toolName))
-									: [...new Set(activeToolNames)],
-							};
-						},
-					},
-					async onConversationContinued(result) {
-						const previousSessionId = activeSessionId;
-						conversationContextOverlay.clear(previousSessionId);
-						conversationContextOverlay.clear(result.sessionId);
-						await activeOwnership?.rebind(repository.resolveConversationPath(result.sessionId));
-						activeSessionId = result.sessionId;
-						if (mcpRefreshObservedSessions.delete(previousSessionId)) {
-							mcpRefreshObservedSessions.add(result.sessionId);
-						}
-						if (mcpPromptRefreshReuseSessions.delete(previousSessionId)) {
-							mcpPromptRefreshReuseSessions.add(result.sessionId);
-						}
-						turnCapabilityAssembly.rebindSession(result.sessionId);
-						if (memoryController && memoryControllers.get(previousSessionId) === memoryController) {
-							memoryControllers.delete(previousSessionId);
-							memoryControllers.set(result.sessionId, memoryController);
-						}
-						if (mcpController && mcpControllers.get(previousSessionId) === mcpController) {
-							mcpControllers.delete(previousSessionId);
-							mcpControllers.set(result.sessionId, mcpController);
-						}
-						if (pluginMcpRuntime && pluginMcpRuntimes.get(previousSessionId) === pluginMcpRuntime) {
-							pluginMcpRuntimes.delete(previousSessionId);
-							pluginMcpRuntimes.set(result.sessionId, pluginMcpRuntime);
-						}
-						if (executionRuntimes.get(previousSessionId) === activeExecutionRuntime) {
-							executionRuntimes.delete(previousSessionId);
-							executionRuntimes.set(result.sessionId, activeExecutionRuntime);
-						}
-						if (configurationStates.get(previousSessionId) === configurationState) {
-							configurationStates.delete(previousSessionId);
-							configurationStates.set(result.sessionId, configurationState);
-						}
-						if (resourceContexts.get(previousSessionId) === resourceContext) {
-							resourceContexts.delete(previousSessionId);
-							resourceContexts.set(result.sessionId, resourceContext);
-						}
-						if (extensionEventBridges.get(previousSessionId) === extensionEvents) {
-							extensionEventBridges.delete(previousSessionId);
-							extensionEventBridges.set(result.sessionId, extensionEvents);
-						}
-						if (hookSessionControllers.get(previousSessionId) === hookSessionController) {
-							hookSessionControllers.delete(previousSessionId);
-							hookSessionControllers.set(result.sessionId, hookSessionController);
-						}
-						extensionToolRuntime?.rebindSession(previousSessionId, result.sessionId);
-					},
-					async dispose() {
-						await sessionCleanup.run("Failed to dispose Greenfield session assembly resources");
-					},
-				};
 				rollback.commit();
 				return resources;
 			} catch (error) {
@@ -1173,7 +918,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 				phase: 0,
 				cleanup: async () => {
 					await executionRuntime.dispose();
-					for (const [sessionId, registered] of executionRuntimes) {
+					for (const [sessionId, registered] of executionRuntimes.entries()) {
 						if (registered === executionRuntime) executionRuntimes.delete(sessionId);
 					}
 				},
@@ -1222,7 +967,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 				phase: 0,
 				cleanup: async () => {
 					await pluginRuntime.dispose();
-					for (const [sessionId, registered] of pluginMcpRuntimes) {
+					for (const [sessionId, registered] of pluginMcpRuntimes.entries()) {
 						if (registered === pluginRuntime) pluginMcpRuntimes.delete(sessionId);
 					}
 				},
@@ -1327,7 +1072,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 	};
 }
 
-function requireSessionHookController<T>(controllers: ReadonlyMap<string, T>, sessionId: string): T {
+function requireSessionHookController<T>(controllers: GreenfieldSessionValueIndex<T>, sessionId: string): T {
 	const controller = controllers.get(sessionId);
 	if (!controller) throw new Error(`Greenfield session hook lifecycle not found: ${sessionId}`);
 	return controller;
@@ -1367,29 +1112,6 @@ function mergeMcpToolViews(
 	return Object.freeze({ tools: Object.freeze([...tools.values()]) });
 }
 
-function readActiveToolNames(
-	tools: CodingToolsRuntimeComposition,
-	activation: CodingToolActivation,
-	knowledgeAvailable: boolean,
-	baseActivation: CodingToolActivation,
-	mcpController: McpDeferredToolController | undefined,
-): string[] {
-	const selected = selectCodingToolRegistrations(
-		tools.registry.snapshot().registrations.filter(({ category, tool }) => {
-			if (
-				category === "kb-read" &&
-				!(knowledgeAvailable && baseActivation.mode === "scope" && baseActivation.scope === "kb-processing")
-			) {
-				return false;
-			}
-			return !mcpController?.isManagedTool(tool.name) || mcpController.isToolVisible(tool.name);
-		}),
-		activation,
-	).map(({ tool }) => tool.name);
-	if (!mcpController?.isDeferred()) return selected;
-	return [...selected, "tool_search"];
-}
-
 function resolveTurnToolActivation(
 	base: CodingToolActivation,
 	context: ModelCallContributionContext,
@@ -1420,17 +1142,6 @@ function isKnowledgeToolEnabled(
 		(base.mode === "scope" && base.scope === "kb-processing") ||
 		context.input?.context?.some(({ type }) => type === "knowledge_mode_instruction") === true
 	);
-}
-
-function withCapabilities(base: Extract<CodingToolActivation, { mode: "scope" }>, added: readonly string[]) {
-	return {
-		...base,
-		capabilities: new Set([...(base.capabilities ?? []), ...added]),
-	} satisfies CodingToolActivation;
-}
-
-function withAgentMode(activation: CodingToolActivation, agentMode: string | undefined): CodingToolActivation {
-	return activation.mode === "scope" ? { ...activation, agentMode } : activation;
 }
 
 function createForkContextFeature(messages: readonly Message[]): AgentFeatureDefinition {

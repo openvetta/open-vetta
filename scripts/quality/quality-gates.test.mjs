@@ -541,6 +541,27 @@ describe("package boundary analysis", () => {
 		).toEqual([]);
 	});
 
+	it("keeps Session Resource Lifecycle assembly out of the Greenfield Composition Root", () => {
+		const compositionPath = "packages/coding-agent/src/composition/greenfield-runtime-composition.ts";
+		const embeddedAssembly = `
+			const resources: GreenfieldRuntimeResources = {};
+			const sessionCleanup = new RetryableCleanup();
+			const hookSessionController = {};
+			const background = new GreenfieldBackgroundWorkController();
+			resources.createSessionPeripherals = () => ({});
+			resources.stateSource = {};
+			resources.onConversationContinued = async () => {};
+			readActiveToolNames();
+		`;
+		expect(findPackageBoundaryViolations(compositionPath, embeddedAssembly)).toHaveLength(8);
+		expect(
+			findPackageBoundaryViolations(
+				compositionPath,
+				'import { createGreenfieldSessionResourceLifecycleAssembly } from "./greenfield-session-resource-lifecycle-assembly.js";',
+			),
+		).toEqual([]);
+	});
+
 	it("requires scoped production packages to declare workspace imports", () => {
 		const source = 'import { createRuntime } from "@vetta/runtime-tools/coding";';
 		const path = "packages/coding-agent/src/composition/example.ts";
