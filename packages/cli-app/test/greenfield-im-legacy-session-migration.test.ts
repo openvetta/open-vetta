@@ -132,7 +132,7 @@ describe("Greenfield IM Legacy session migration", () => {
 		});
 	});
 
-	it("falls back when the Legacy document cannot be represented by V2", async () => {
+	it("reports an explicit incompatibility when a known Legacy record cannot be represented by V2", async () => {
 		const fixture = await createFixture(
 			legacyJsonLines([
 				legacyHeader(),
@@ -147,9 +147,9 @@ describe("Greenfield IM Legacy session migration", () => {
 		);
 
 		await expect(migrateGreenfieldImLegacySession(fixture.sourcePath, fixture.targetRootDir)).resolves.toMatchObject({
-			kind: "legacy-fallback",
+			kind: "session-incompatible",
 			status: "not-representable",
-			errorCode: "conversation_corrupt",
+			errorCode: "session_incompatible",
 			issueCode: "invalid-payload",
 			issueCount: 1,
 		});
@@ -169,8 +169,9 @@ describe("Greenfield IM Legacy session migration", () => {
 		const result = await migrateGreenfieldImLegacySession(fixture.sourcePath, fixture.targetRootDir);
 
 		expect(result).toMatchObject({
-			kind: "legacy-fallback",
+			kind: "session-incompatible",
 			status: "not-representable",
+			errorCode: "session_version_unsupported",
 			issueCode: "malformed-json",
 			issueCount: 2,
 		});

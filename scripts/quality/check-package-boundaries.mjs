@@ -273,7 +273,7 @@ function checkGreenfieldLegacyStartupSymbols(posixPath, text, findings) {
 	}
 }
 
-function checkRetiredLegacyExtensionFallback(posixPath, text, findings) {
+function checkRetiredAutomaticLegacyFallback(posixPath, text, findings) {
 	const isRuntimeProductionSource =
 		(posixPath.startsWith("packages/cli-app/src/") || posixPath.startsWith("packages/coding-agent/src/")) &&
 		!posixPath.endsWith(".d.ts") &&
@@ -286,18 +286,20 @@ function checkRetiredLegacyExtensionFallback(posixPath, text, findings) {
 	if (compatibilityTypeFiles.has(posixPath)) return;
 
 	const sourceFile = ts.createSourceFile(posixPath, text, ts.ScriptTarget.Latest, true, scriptKind(posixPath));
-	let usesRetiredFallback = false;
+	const retiredFallbacks = new Set();
 	const visit = (node) => {
-		if (ts.isStringLiteralLike(node) && node.text === "legacy-extension") {
-			usesRetiredFallback = true;
-			return;
+		if (
+			ts.isStringLiteralLike(node) &&
+			(node.text === "legacy-extension" || node.text === "legacy-session" || node.text === "session-migration-gap")
+		) {
+			retiredFallbacks.add(node.text);
 		}
 		ts.forEachChild(node, visit);
 	};
 	visit(sourceFile);
-	if (usesRetiredFallback) {
+	for (const fallback of retiredFallbacks) {
 		findings.push(
-			`${posixPath}: automatic legacy-extension fallback is retired; report extension-incompatible instead`,
+			`${posixPath}: automatic ${fallback} fallback is retired; report an explicit compatibility failure instead`,
 		);
 	}
 }
@@ -466,7 +468,7 @@ export function findPackageBoundaryViolations(posixPath, text, options = {}) {
 	checkCapabilitySchemaDefinitions(posixPath, text, findings);
 	checkGreenfieldRuntimeImports(posixPath, specifiers, findings);
 	checkGreenfieldLegacyStartupSymbols(posixPath, text, findings);
-	checkRetiredLegacyExtensionFallback(posixPath, text, findings);
+	checkRetiredAutomaticLegacyFallback(posixPath, text, findings);
 	checkRuntimeCompositionCompatibilityFacade(posixPath, specifiers, findings);
 	checkCodingAgentRootImports(posixPath, specifiers, findings);
 	checkCodingAgentLegacyBoundaries(posixPath, text, specifiers, findings);

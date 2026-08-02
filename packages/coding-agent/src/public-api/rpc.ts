@@ -17,6 +17,7 @@ export {
 	type RpcExtensionIncompatibilityFailure,
 	type RpcRuntimeDecision,
 	type RpcSessionCapabilities,
+	type RpcSessionIncompatibilityFailure,
 	type RpcSessionInitialization,
 	type RpcSessionMigrationStatus,
 	type RpcSessionProfile,

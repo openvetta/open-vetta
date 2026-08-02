@@ -33,6 +33,7 @@ export {
 export {
 	isRpcStartupFailure,
 	type RpcExtensionIncompatibilityFailure,
+	type RpcSessionIncompatibilityFailure,
 	type RpcStartupFailure,
 	RpcStartupFailureSchema,
 	stringifyRpcStartupFailure,

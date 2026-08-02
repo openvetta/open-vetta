@@ -18,11 +18,32 @@ describe("Legacy session import analyzer", () => {
 		expect(analysis.source.document.name).toBe("Strict import");
 	});
 
+	it("preserves an unsupported future header version for host compatibility policy", () => {
+		const analysis = analyzeLegacySessionImport(jsonLines([header(4)]));
+
+		expect(analysis).toEqual({
+			status: "not-representable",
+			recordCount: 1,
+			sourceVersion: 4,
+			issues: [{ line: 1, code: "invalid-header" }],
+		});
+	});
+
 	it.each([
+		{
+			name: "invalid header",
+			content: jsonLines([{ ...header(3), id: "" }]),
+			issue: { line: 1, code: "invalid-header" },
+		},
 		{
 			name: "malformed JSON",
 			content: `${JSON.stringify(header(3))}\n{broken}\n`,
 			issue: { line: 2, code: "malformed-json" },
+		},
+		{
+			name: "invalid entry envelope",
+			content: jsonLines([header(3), { type: "message", id: "missing-timestamp", parentId: null }]),
+			issue: { line: 2, code: "invalid-envelope", recordType: "message" },
 		},
 		{
 			name: "unknown record",
@@ -184,7 +205,7 @@ function completeLegacyRecords(version: 1 | 2 | 3 | undefined): unknown[] {
 	];
 }
 
-function header(version: 1 | 2 | 3 | undefined) {
+function header(version: number | undefined) {
 	return {
 		type: "session",
 		...(version === undefined ? {} : { version }),

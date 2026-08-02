@@ -217,7 +217,7 @@ export function analyzeLegacySessionImport(
 	const headerLine = parsedLines[0];
 	if (!headerLine || !Value.Check(LegacyHeaderSchema, headerLine.value)) {
 		issues.push({ line: headerLine?.line ?? 1, code: "invalid-header" });
-		return notRepresentable(recordCount, issues);
+		return notRepresentable(recordCount, issues, readHeaderVersion(headerLine?.value));
 	}
 	const header = headerLine.value;
 	const sourceVersion = header.version ?? 1;
@@ -365,6 +365,12 @@ function readRecordType(value: unknown): string | undefined {
 	if (typeof value !== "object" || value === null) return undefined;
 	const type = Reflect.get(value, "type");
 	return typeof type === "string" ? type : undefined;
+}
+
+function readHeaderVersion(value: unknown): number | undefined {
+	if (typeof value !== "object" || value === null || Reflect.get(value, "type") !== "session") return undefined;
+	const version = Reflect.get(value, "version");
+	return Number.isInteger(version) ? (version as number) : undefined;
 }
 
 function hasSameEntryIdentity(

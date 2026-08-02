@@ -1,4 +1,4 @@
-import { readFile, stat, writeFile } from "node:fs/promises";
+import { readFile, realpath, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { parseAgentRuntimeSelection } from "../src/agent-runtime-selection.js";
@@ -378,7 +378,7 @@ describe("Agent Runtime selection", () => {
 		expect(reused.stderr).toContain("sessionMigration=reused");
 	});
 
-	it("falls back to Legacy when an existing session is not representable by Greenfield", async () => {
+	it("fails explicitly when an existing session is not representable by Greenfield", async () => {
 		const fixture = await createFixture();
 		const legacySession = join(fixture.conversationDir, "legacy-assistant.jsonl");
 		await writeFile(
@@ -399,33 +399,22 @@ describe("Agent Runtime selection", () => {
 			"utf8",
 		);
 
-		const legacy = await startRpc(fixture, ["--session", legacySession]);
-		const state = await legacy.request("legacy-fallback-state", "get_state");
-		expect(state).toMatchObject({
-			id: "legacy-fallback-state",
+		const process = await startRpc(fixture, ["--session", legacySession]);
+		const failure = await process.waitFor((frame) => frame.type === "response" && frame.command === "startup");
+		expect(failure).toMatchObject({
 			type: "response",
-			command: "get_state",
-			success: true,
-			data: {
-				sessionId: "legacy-assistant-session",
-				sessionFile: legacySession,
-				runtimeDecision: {
-					requestedBackend: "greenfield-im",
-					effectiveBackend: "legacy",
-					fallbackReason: "legacy-session",
-					sessionMigration: {
-						status: "not-representable",
-						errorCode: "conversation_corrupt",
-						issueCode: "invalid-payload",
-						issueCount: 1,
-					},
-				},
-			},
+			command: "startup",
+			success: false,
+			errorCode: "session_incompatible",
+			requestedBackend: "greenfield-im",
+			sessionPath: await realpath(legacySession),
+			issueCode: "invalid-payload",
+			issueCount: 1,
 		});
-		await legacy.close();
-		expect(legacy.stderr).toContain("fallback=legacy-session");
-		expect(legacy.stderr).toContain("sessionMigration=not-representable");
-		expect(legacy.stderr).toContain("issue=invalid-payload:1");
+		expect(await process.waitForExit()).toBe(2);
+		expect(process.frames).toEqual([failure]);
+		expect(process.stderr).not.toContain("effective=legacy");
+		expect(process.stderr).not.toContain("fallback=");
 	});
 });
 

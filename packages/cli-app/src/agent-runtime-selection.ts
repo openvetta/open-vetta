@@ -17,10 +17,7 @@ import {
 	runGreenfieldPrintRuntimeHost,
 	runGreenfieldRpcRuntimeHost,
 } from "./rpc/greenfield-rpc-runtime-host.js";
-import {
-	type AutomaticLegacyRuntimeFallbackEvidence,
-	assertAllowedAutomaticLegacyRuntimeFallback,
-} from "./rpc/legacy-runtime-fallback-policy.js";
+import { SessionCompatibilityError } from "./session-compatibility-error.js";
 
 export type AgentRuntimeBackend = "legacy" | "greenfield" | "greenfield-im";
 
@@ -105,30 +102,8 @@ export async function runAgentRuntimeCli(
 		if (prepared.kind === "extension-incompatible") {
 			throw new ExtensionCompatibilityError(selection.backend, prepared.extensionCompatibility);
 		}
-		if (prepared.kind === "legacy-fallback") {
-			if (prepared.reason !== "legacy-session") {
-				throw new Error(`Unsupported automatic Legacy fallback reason: ${prepared.reason}`);
-			}
-			const evidence = {
-				reason: "legacy-session",
-				...(prepared.sessionMigration ? { sessionMigration: prepared.sessionMigration } : {}),
-			} as const satisfies AutomaticLegacyRuntimeFallbackEvidence;
-			assertAllowedAutomaticLegacyRuntimeFallback(evidence);
-			const decision = {
-				requestedBackend: selection.backend,
-				effectiveBackend: "legacy",
-				fallbackReason: evidence.reason,
-				...(evidence.sessionMigration ? { sessionMigration: evidence.sessionMigration } : {}),
-			} as const satisfies AgentRuntimeDecision;
-			if (options.onDecision) options.onDecision(decision);
-			else console.warn(`[agent-runtime] Greenfield unavailable (${evidence.reason}); using Legacy runtime`);
-			await runLegacyRuntimeExecution({
-				cause: "session-migration-gap",
-				bootstrap: prepared.bootstrap,
-				evidence,
-				runtimeDecision: decision,
-			});
-			return;
+		if (prepared.kind === "session-incompatible") {
+			throw new SessionCompatibilityError(selection.backend, prepared.sessionCompatibility);
 		}
 		options.onDecision?.(prepared.runtimeDecision);
 		if (prepared.kind === "greenfield-print") await runGreenfieldPrintRuntimeHost(prepared);
@@ -138,6 +113,12 @@ export async function runAgentRuntimeCli(
 		if (error instanceof ExtensionCompatibilityError) {
 			if (intent === "rpc") process.stdout.write(stringifyRpcStartupFailure(error.toRpcStartupFailure()));
 			else writeExtensionCompatibilityFailure(error);
+			process.exitCode = 2;
+			return;
+		}
+		if (error instanceof SessionCompatibilityError) {
+			if (intent === "rpc") process.stdout.write(stringifyRpcStartupFailure(error.toRpcStartupFailure()));
+			else writeSessionCompatibilityFailure(error);
 			process.exitCode = 2;
 			return;
 		}
@@ -161,6 +142,14 @@ export async function runAgentRuntimeCli(
 		);
 		process.exitCode = 2;
 	}
+}
+
+function writeSessionCompatibilityFailure(error: SessionCompatibilityError): void {
+	const version = error.sourceVersion === undefined ? "" : ` sourceVersion=${error.sourceVersion}`;
+	const issue = error.issueCode === undefined ? "" : ` issue=${error.issueCode}:${error.issueCount ?? 1}`;
+	process.stderr.write(
+		`[agent-runtime] startup failed errorCode=${error.errorCode} requested=${error.requestedBackend} session=${error.sessionPath}${version}${issue}: ${error.message}\n`,
+	);
 }
 
 function writeExtensionCompatibilityFailure(error: ExtensionCompatibilityError): void {

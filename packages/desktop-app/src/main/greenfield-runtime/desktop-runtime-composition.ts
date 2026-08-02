@@ -42,6 +42,7 @@ import {
 } from "./desktop-greenfield-session-catalog.js";
 import { createDesktopLegacyExecutionCompatibility } from "./desktop-legacy-execution-compatibility.js";
 import { createDesktopLegacySessionFormatCompatibility } from "./desktop-legacy-session-format-compatibility.js";
+import { DesktopLegacySessionMigrationBackend } from "./desktop-legacy-session-migration-backend.js";
 import { desktopAgentRuntimeDecision } from "./desktop-runtime-decision.js";
 
 const log = getAppLogger("runtime");
@@ -96,14 +97,20 @@ export function createDesktopRuntimeComposition(): DesktopRuntimeComposition {
 		desktopAgentRuntimeDecision.effectiveBackend === "greenfield"
 			? greenfieldBackendPool
 			: legacyExecution.sessionBackend;
+	const legacySessionBackend =
+		desktopAgentRuntimeDecision.effectiveBackend === "legacy"
+			? legacyExecution.sessionBackend
+			: new DesktopLegacySessionMigrationBackend(greenfieldBackendPool);
+	const legacySessionRouteId =
+		desktopAgentRuntimeDecision.effectiveBackend === "legacy" ? "legacy" : "legacy-migration";
 	const sessionBackend = new CatalogRoutedRuntimeHostSessionBackend({
 		defaultBackend,
 		defaultRouteId: desktopAgentRuntimeDecision.effectiveBackend,
 		routes: [
 			{
-				id: "legacy",
+				id: legacySessionRouteId,
 				catalog: legacyFormat.sessionCatalog,
-				backend: legacyExecution.sessionBackend,
+				backend: legacySessionBackend,
 			},
 			{ id: "greenfield", catalog: desktopGreenfieldCatalog, backend: greenfieldBackendPool },
 		],
@@ -169,10 +176,12 @@ function logSessionRoute(decision: RuntimeHostSessionBackendRouteDecision): void
 	}
 	const reason =
 		decision.routeId === "legacy"
-			? "legacy-catalog"
-			: decision.routeId === "greenfield"
-				? "conversation-v2-catalog"
-				: "unknown-catalog";
+			? "explicit-legacy-catalog"
+			: decision.routeId === "legacy-migration"
+				? "legacy-session-migration"
+				: decision.routeId === "greenfield"
+					? "conversation-v2-catalog"
+					: "unknown-catalog";
 	log.info(`[agent-runtime] session-route backend=${decision.routeId ?? "unknown"} reason=${reason}`);
 }
 

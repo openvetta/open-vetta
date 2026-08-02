@@ -6,6 +6,7 @@ const productionSources = {
 	hostServices: readSource("./desktop-coding-agent-host-services.ts"),
 	knowledgeFactory: readSource("../knowledge/processing-session-factory.ts"),
 	legacyExecutionCompatibility: readSource("./desktop-legacy-execution-compatibility.ts"),
+	legacyMigrationBackend: readSource("./desktop-legacy-session-migration-backend.ts"),
 	legacyFormatCompatibility: readSource("./desktop-legacy-session-format-compatibility.ts"),
 	poller: readSource("../knowledge/poller.ts"),
 	runtimeEntry: readSource("../runtime.ts"),
@@ -26,8 +27,11 @@ describe("Desktop Runtime composition boundary", () => {
 		expect(productionSources.legacyFormatCompatibility).toContain("LegacyRuntimeSessionCatalog");
 		expect(productionSources.legacyFormatCompatibility).toContain("LegacyRuntimeSessionFileHistoryReader");
 		expect(productionSources.composition).toContain("createDesktopLegacyExecutionCompatibility");
+		expect(productionSources.composition).toContain("DesktopLegacySessionMigrationBackend");
 		expect(productionSources.composition).toContain("createDesktopLegacySessionFormatCompatibility");
 		expect(productionSources.composition).toContain("ModelRegistryRuntimeSharedModelController");
+		expect(productionSources.legacyMigrationBackend).not.toContain("LegacyCodingAgentSessionBackend");
+		expect(productionSources.legacyMigrationBackend).toContain("migrateCodingAgentLegacySession");
 	});
 
 	it("keeps the Runtime entry limited to singleton lifecycle ownership", () => {

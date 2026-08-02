@@ -34,14 +34,33 @@ const RpcExtensionIncompatibilityFailureSchema = Type.Object(
 	{ additionalProperties: false },
 );
 
+const RpcSessionIncompatibilityFailureSchema = Type.Object(
+	{
+		...RpcStartupFailureBaseSchema,
+		errorCode: Type.Union([
+			Type.Literal("session_corrupt"),
+			Type.Literal("session_incompatible"),
+			Type.Literal("session_version_unsupported"),
+		]),
+		requestedBackend: Type.Union([Type.Literal("greenfield"), Type.Literal("greenfield-im")]),
+		sessionPath: Type.String(),
+		sourceVersion: Type.Optional(Type.Integer({ minimum: 1 })),
+		issueCode: Type.Optional(Type.String()),
+		issueCount: Type.Optional(Type.Integer({ minimum: 1 })),
+	},
+	{ additionalProperties: false },
+);
+
 /** Startup failures emitted before an RPC session can accept commands. */
 export const RpcStartupFailureSchema = Type.Union([
 	RpcConversationOwnershipFailureSchema,
 	RpcExtensionIncompatibilityFailureSchema,
+	RpcSessionIncompatibilityFailureSchema,
 ]);
 
 export type RpcStartupFailure = Static<typeof RpcStartupFailureSchema>;
 export type RpcExtensionIncompatibilityFailure = Static<typeof RpcExtensionIncompatibilityFailureSchema>;
+export type RpcSessionIncompatibilityFailure = Static<typeof RpcSessionIncompatibilityFailureSchema>;
 
 export function isRpcStartupFailure(value: unknown): value is RpcStartupFailure {
 	return Value.Check(RpcStartupFailureSchema, value);

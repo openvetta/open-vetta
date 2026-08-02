@@ -48,4 +48,21 @@ describe("RPC startup failure contract", () => {
 			"Invalid RPC startup failure frame",
 		);
 	});
+
+	it("serializes a content-free Session incompatibility as one JSONL frame", () => {
+		const failure = {
+			type: "response",
+			command: "startup",
+			success: false,
+			errorCode: "session_version_unsupported",
+			error: "Legacy session cannot be resumed safely by the requested runtime",
+			requestedBackend: "greenfield-im",
+			sessionPath: "C:/sessions/future.jsonl",
+			sourceVersion: 4,
+			issueCode: "invalid-header",
+			issueCount: 1,
+		} as const satisfies RpcStartupFailure;
+
+		expect(stringifyRpcStartupFailure(failure)).toBe(`${JSON.stringify(failure)}\n`);
+	});
 });

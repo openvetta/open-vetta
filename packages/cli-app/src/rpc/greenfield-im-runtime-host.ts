@@ -52,6 +52,7 @@ import {
 import { resolveGreenfieldSessionIdFromPath } from "./greenfield-conversation-path.js";
 import {
 	type GreenfieldImLegacySessionMigration,
+	type GreenfieldImLegacySessionMigrationIncompatible,
 	migrateGreenfieldImLegacySession,
 } from "./greenfield-im-legacy-session-migration.js";
 import { GreenfieldImRpcSessionAdapter } from "./greenfield-im-rpc-session-adapter.js";
@@ -74,6 +75,13 @@ export interface GreenfieldRpcRuntimeHostExtensionIncompatible {
 	readonly extensionCompatibility: CodingAgentExtensionCompatibilityAssessment;
 }
 
+export interface GreenfieldRpcRuntimeHostSessionIncompatible {
+	readonly kind: "session-incompatible";
+	readonly bootstrap: CodingAgentHostBootstrap;
+	readonly sessionPath: string;
+	readonly sessionCompatibility: GreenfieldImLegacySessionMigrationIncompatible;
+}
+
 export interface GreenfieldRpcRuntimeHostReady {
 	readonly kind: "greenfield";
 	readonly bootstrap: CodingAgentHostBootstrap;
@@ -85,7 +93,7 @@ export interface GreenfieldRpcRuntimeHostReady {
 
 export type GreenfieldRpcRuntimeHostPreparation =
 	| GreenfieldRpcRuntimeHostExtensionIncompatible
-	| GreenfieldRpcRuntimeHostFallback
+	| GreenfieldRpcRuntimeHostSessionIncompatible
 	| GreenfieldRpcRuntimeHostReady;
 
 export interface GreenfieldPrintRuntimeHostReady {
@@ -99,7 +107,7 @@ export interface GreenfieldPrintRuntimeHostReady {
 
 export type GreenfieldPrintRuntimeHostPreparation =
 	| GreenfieldRpcRuntimeHostExtensionIncompatible
-	| GreenfieldRpcRuntimeHostFallback
+	| GreenfieldRpcRuntimeHostSessionIncompatible
 	| GreenfieldPrintRuntimeHostReady;
 
 /** @deprecated Use the neutral Greenfield RPC host contracts. */
@@ -245,13 +253,12 @@ async function prepareGreenfieldRuntimeHost(
 		if (!sessionPath) throw new Error("Legacy session migration requires a source path");
 		const migration = await migrateGreenfieldImLegacySession(sessionPath, options.conversationDir);
 		sessionMigration = toRpcSessionMigration(migration);
-		if (migration.kind === "legacy-fallback") {
+		if (migration.kind === "session-incompatible") {
 			return {
-				kind: "legacy-fallback",
-				reason: "legacy-session",
+				kind: "session-incompatible",
 				bootstrap,
 				sessionPath,
-				sessionMigration,
+				sessionCompatibility: migration,
 			};
 		}
 		sessionPath = migration.targetPath;
@@ -564,9 +571,11 @@ function toRpcSessionMigration(
 ): NonNullable<RpcRuntimeDecision["sessionMigration"]> {
 	return {
 		status: migration.status,
-		...(migration.kind === "legacy-fallback" && migration.errorCode ? { errorCode: migration.errorCode } : {}),
-		...(migration.kind === "legacy-fallback" && migration.issueCode ? { issueCode: migration.issueCode } : {}),
-		...(migration.kind === "legacy-fallback" && migration.issueCount ? { issueCount: migration.issueCount } : {}),
+		...(migration.kind === "session-incompatible" ? { errorCode: migration.errorCode } : {}),
+		...(migration.kind === "session-incompatible" && migration.issueCode ? { issueCode: migration.issueCode } : {}),
+		...(migration.kind === "session-incompatible" && migration.issueCount
+			? { issueCount: migration.issueCount }
+			: {}),
 	};
 }
 

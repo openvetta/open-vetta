@@ -1,6 +1,6 @@
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { chmod, copyFile, mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { chmod, copyFile, mkdir, mkdtemp, readdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -830,29 +830,25 @@ describe("installed standalone CLI artifact", () => {
 			extraArgs: ["--session", legacySession],
 		});
 
-		const state = await activeProcess.request("installed-strict-fallback-state", "get_state");
-		expect(state).toMatchObject({
-			data: {
-				runtimeBackend: "legacy",
-				sessionId: "installed-legacy-unknown",
-				sessionFile: legacySession,
-				runtimeDecision: {
-					requestedBackend: "greenfield",
-					effectiveBackend: "legacy",
-					fallbackReason: "legacy-session",
-					sessionMigration: {
-						status: "not-representable",
-						issueCode: "unsupported-record",
-						issueCount: 1,
-					},
-				},
-			},
+		const failure = await activeProcess.waitFor((frame) => frame.type === "response" && frame.command === "startup");
+		expect(failure).toMatchObject({
+			type: "response",
+			command: "startup",
+			success: false,
+			errorCode: "session_version_unsupported",
+			requestedBackend: "greenfield",
+			sessionPath: await realpath(legacySession),
+			sourceVersion: 3,
+			issueCode: "unsupported-record",
+			issueCount: 1,
 		});
 		expect(await readFile(legacySession, "utf8")).toBe(legacyContent);
 		expect((await readdir(fixture.conversationDir)).some((name) => name.endsWith(".conversation.jsonl"))).toBe(false);
-		expect(activeProcess.stderr).toContain("issue=unsupported-record:1");
+		await expect(activeProcess.waitForExit()).resolves.toBe(2);
+		expect(activeProcess.frames).toEqual([failure]);
+		expect(activeProcess.stderr).not.toContain("effective=legacy");
+		expect(activeProcess.stderr).not.toContain("fallback=");
 		expect(activeProcess.stderr).not.toContain("must-not-leak");
-		await expect(activeProcess.close()).resolves.toBe(0);
 		activeProcess = undefined;
 	}, 120_000);
 

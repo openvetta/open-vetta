@@ -502,7 +502,7 @@ describe("Agent non-RPC CLI compatibility", () => {
 			]);
 
 			expect(result.code).toBe(2);
-			expect(result.stdout).toBe("");
+			expect(result.stdout).not.toContain("extension fallback completed");
 			expect(server.requests).toHaveLength(0);
 			expect(result.stderr).toContain("errorCode=extension_incompatible");
 			expect(result.stderr).toContain("requested=greenfield");
@@ -554,7 +554,7 @@ describe("Agent non-RPC CLI compatibility", () => {
 		expect(observations.greenfield).toEqual({ codes: [0, 0], sameSession: true, continuedContext: true });
 	}, 60_000);
 
-	it("falls back to Legacy while preserving records from an unrepresentable session", async () => {
+	it("fails before the Provider request for an unrepresentable Legacy session", async () => {
 		const server = await startOpenAiResponsesTestServer(() => ({
 			kind: "events",
 			events: textResponseEvents("legacy session fallback completed"),
@@ -577,15 +577,15 @@ describe("Agent non-RPC CLI compatibility", () => {
 		try {
 			const result = await runAgentCli(fixture, ["--session", sessionPath, "--mode", "json", "continue safely"]);
 
-			expect(result.code).toBe(0);
-			expect(server.requests).toHaveLength(1);
-			expect(result.stderr).toContain("requested=greenfield effective=legacy");
-			expect(result.stderr).toContain("fallback=legacy-session");
-			expect(result.stderr).toContain("sessionMigration=not-representable");
+			expect(result.code).toBe(2);
+			expect(result.stdout).not.toContain("legacy session fallback completed");
+			expect(server.requests).toHaveLength(0);
+			expect(result.stderr).toContain("errorCode=session_version_unsupported");
+			expect(result.stderr).toContain("issue=unsupported-record:1");
+			expect(result.stderr).not.toContain("effective=legacy");
+			expect(result.stderr).not.toContain("fallback=");
 			const persisted = await readFile(sessionPath, "utf8");
-			expect(persisted.startsWith(source)).toBe(true);
-			expect(persisted).toContain("continue safely");
-			expect(persisted).toContain("legacy session fallback completed");
+			expect(persisted).toBe(source);
 			const defaultSessionEntries = await readdir(join(fixture.agentDir, "sessions"), { recursive: true });
 			expect(defaultSessionEntries.some((entry) => entry.endsWith(".conversation.jsonl"))).toBe(false);
 		} finally {

@@ -7,6 +7,13 @@ export {
 	type HookDispatchOutcome,
 } from "@vetta/ecosystem-adapter";
 export {
+	type CodingAgentLegacySessionIncompatibilityCode,
+	type CodingAgentLegacySessionMigration,
+	type CodingAgentLegacySessionMigrationIncompatible,
+	type CodingAgentLegacySessionMigrationSuccess,
+	migrateCodingAgentLegacySession,
+} from "./coding-agent-legacy-session-migration.js";
+export {
 	type CodingAgentMcpRuntimeToolSourceOptions,
 	createCodingAgentMcpRuntimeToolSource,
 	decorateCodingAgentMcpRuntimeTool,

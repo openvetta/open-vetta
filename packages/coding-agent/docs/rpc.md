@@ -15,7 +15,7 @@ Common options:
 - `--model <pattern>`: Model pattern or ID (supports `provider/id` and optional `:<thinking>`)
 - `--no-session`: Disable session persistence (ephemeral, in-memory only)
 - `--session-dir <path>`: Custom session storage directory (defaults to `~/.vetta/agent/sessions/<safe-cwd>/`)
-- `--session <path>`: Resume a specific session file (`.jsonl`). Loads the existing entries; subsequent prompts append to the same file.
+- `--session <path>`: Resume a V2 `.conversation.jsonl` file. Official Coding Agent JSONL v1-v3 sessions are imported non-destructively into a deterministic V2 file before resume.
 - `--continue`, `-c`: Continue the most recent session in the current cwd.
 - The agent's working directory is the process cwd at launch. Spawn the subprocess with `cwd: <projectPath>` to attach to a project. There is no runtime "set cwd" command.
 
@@ -200,16 +200,12 @@ Response:
   "command": "get_state",
   "success": true,
   "data": {
-    "runtimeBackend": "legacy",
+    "runtimeBackend": "greenfield-im",
     "runtimeDecision": {
       "requestedBackend": "greenfield-im",
-      "effectiveBackend": "legacy",
-      "fallbackReason": "legacy-session",
+      "effectiveBackend": "greenfield-im",
       "sessionMigration": {
-        "status": "not-representable",
-        "errorCode": "conversation_corrupt",
-        "issueCode": "unsupported-record",
-        "issueCount": 1
+        "status": "migrated"
       }
     },
     "model": {...},
@@ -218,8 +214,8 @@ Response:
     "isCompacting": false,
     "steeringMode": "all",
     "followUpMode": "one-at-a-time",
-    "sessionFile": "/path/to/session.jsonl",
-    "sessionId": "abc123",
+    "sessionFile": "/path/to/legacy-import-abc123.conversation.jsonl",
+    "sessionId": "legacy-import-abc123",
     "sessionName": "my-feature-work",
     "autoCompactionEnabled": true,
     "messageCount": 5,
@@ -228,9 +224,9 @@ Response:
 }
 ```
 
-The `runtimeBackend` field is the runtime that actually owns the session (`"legacy"` or `"greenfield-im"`). It can differ from the host's requested backend when the CLI Runtime Selector falls back to Legacy.
+The `runtimeBackend` field is the runtime that owns the session. Automatic Legacy fallback is not performed; `"legacy"` is reported only when the process was started with an explicit Legacy selection.
 
-`runtimeDecision` is the structured selection result. `requestedBackend` and `effectiveBackend` are always present. `fallbackReason` is present for a Legacy session or Extension compatibility fallback. `sessionMigration.status` is one of `"migrated"`, `"reused"`, `"locked"`, `"not-representable"`, or `"failed"`; `errorCode` is optional. For strict Legacy import failures, `issueCode` identifies the first content-free issue category and `issueCount` reports the total number of issues. Neither field contains conversation text. An Extension fallback may instead include `extensionFallback.unsupportedEvents` and `extensionFallback.unmetRuntimeCapabilities`. Hosts should use this object for diagnostics and continue reading `runtimeBackend` when interoperating with older agents.
+`runtimeDecision` is the structured selection result. `requestedBackend` and `effectiveBackend` are always present. A successful Legacy import adds `sessionMigration.status` as `"migrated"` or `"reused"`. The deprecated fallback fields remain in the TypeScript compatibility surface for older clients but are not emitted by current automatic startup paths.
 
 The `model` field is a full [Model](#model) object or `null`. The `sessionName` field is the display name set via `set_session_name`, or omitted if not set.
 
@@ -1203,6 +1199,25 @@ Reply from the host. The host MUST echo the same `id`. Exactly one of the two sh
 `data.messageId` is optional but recommended for traceability. `errorCode` is an opaque short slug (`quota_exhausted`, `peer_unreachable`, `transport_error`, …) the host may surface so the agent can branch on it.
 
 ## Error Handling
+
+Startup compatibility failures are emitted as one failed `startup` response before the process accepts commands, and the process exits with code `2`. Legacy sessions that are corrupt, contain an unsupported future record/version, or cannot be represented losslessly do not start either a Provider call or the Legacy Runtime:
+
+```json
+{
+  "type": "response",
+  "command": "startup",
+  "success": false,
+  "errorCode": "session_version_unsupported",
+  "error": "Legacy session cannot be resumed safely by the requested runtime",
+  "requestedBackend": "greenfield-im",
+  "sessionPath": "/path/to/future-session.jsonl",
+  "sourceVersion": 4,
+  "issueCode": "invalid-header",
+  "issueCount": 1
+}
+```
+
+`errorCode` is one of `session_corrupt`, `session_incompatible`, or `session_version_unsupported`. `issueCode` and `issueCount` are content-free diagnostics and never include conversation text. Extension incompatibility uses the same startup envelope with `errorCode: "extension_incompatible"` plus `unsupportedEvents` and `unmetRuntimeCapabilities`.
 
 Failed commands return a response with `success: false`:
 

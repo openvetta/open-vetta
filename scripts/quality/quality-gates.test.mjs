@@ -298,6 +298,33 @@ describe("package boundary analysis", () => {
 		).toEqual([]);
 	});
 
+	it("keeps automatic Legacy Session execution out of production hosts", () => {
+		expect(
+			findPackageBoundaryViolations(
+				"packages/cli-app/src/agent-runtime-selection.ts",
+				'const reason = "legacy-session";',
+			),
+		).toHaveLength(1);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/cli-app/src/legacy-runtime-gateway.ts",
+				'const cause = "session-migration-gap";',
+			),
+		).toHaveLength(1);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/cli-app/src/rpc/legacy-runtime-fallback-contract.ts",
+				'export type RetiredReason = "legacy-session";',
+			),
+		).toEqual([]);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/cli-app/src/agent-runtime-selection.ts",
+				'const kind = "session-incompatible";',
+			),
+		).toEqual([]);
+	});
+
 	it("keeps runtime-composition as a compatibility-only forwarding package", () => {
 		expect(
 			findPackageBoundaryViolations(
