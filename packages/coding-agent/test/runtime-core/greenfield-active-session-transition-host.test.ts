@@ -248,6 +248,20 @@ describe("CodingAgentGreenfieldActiveSessionHost", () => {
 		await expect(access(fork.path)).rejects.toMatchObject({ code: "ENOENT" });
 	});
 
+	it("moves a default fork before the selected user turn without preserving source execution context", async () => {
+		const fixture = await createFixture();
+		const fork = createSession("forked", fixture.sessionPath("forked"));
+		await fixture.writeConversationPlaceholder("forked");
+		fixture.initial.forkSession.mockResolvedValueOnce({ path: fork.path, text: "fork prompt" });
+		fixture.resume.mockResolvedValueOnce(fork.session);
+
+		await expect(fixture.host.fork("entry-1")).resolves.toEqual({ text: "fork prompt", cancelled: false });
+
+		expect(fork.navigateForEdit).toHaveBeenCalledWith("entry-1");
+		expect(fixture.preserveSessionExecutionContext).not.toHaveBeenCalled();
+		expect(fixture.host.readSession()).toBe(fork.session);
+	});
+
 	it("preserves the source execution context when session_before_fork requests it", async () => {
 		const fixture = await createFixture({ skipConversationRestore: true });
 		const fork = createSession("forked", fixture.sessionPath("forked"));

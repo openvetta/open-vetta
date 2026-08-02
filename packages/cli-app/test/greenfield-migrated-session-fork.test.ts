@@ -24,7 +24,7 @@ describe("Greenfield migrated session fork", () => {
 		await executable.dispose();
 	});
 
-	it("forks mixed Import Seed and Event history through the CLI and resumes it after restart", async () => {
+	it("forks mixed Import Seed and Event history with CLI re-edit semantics and resumes it after restart", async () => {
 		const responses = ["Source response.", "Fork response.", "Restarted fork response."];
 		const server = await startOpenAiResponsesTestServer((_request, index) => ({
 			kind: "events",
@@ -59,11 +59,12 @@ describe("Greenfield migrated session fork", () => {
 
 			const forkAtCreation = describeForkFile(await readFile(forkPath, "utf8"));
 			expect(forkAtCreation).toMatchObject({
-				activeLeafId: "event-3",
+				activeLeafId: "legacy-tail",
 				allParentsResolved: true,
 				allReferencesResolved: true,
 				branchSummaryFromId: "legacy-custom-hidden",
 				eventCount: 4,
+				operationCount: 1,
 				parentEntryId: forkEntryId,
 				reason: "fork",
 				sourceEntryId: forkEntryId,
@@ -76,8 +77,9 @@ describe("Greenfield migrated session fork", () => {
 			mark = process.mark();
 			await process.request("migrated-fork-child-turn", "prompt", { message: "fork-child-turn" });
 			await process.waitFor((frame) => frame.type === "agent_end", mark);
-			expect(server.requests[1]?.rawBody).toContain("fork-source-turn");
-			expect(server.requests[1]?.rawBody).toContain("Source response.");
+			expect(server.requests[1]?.rawBody).toContain("fork-child-turn");
+			expect(server.requests[1]?.rawBody).not.toContain("fork-source-turn");
+			expect(server.requests[1]?.rawBody).not.toContain("Source response.");
 			expect(await readFile(parentPath, "utf8")).toBe(parentContentBeforeFork);
 			await process.close();
 
@@ -91,6 +93,8 @@ describe("Greenfield migrated session fork", () => {
 			expect(server.requests).toHaveLength(3);
 			expect(server.requests[2]?.rawBody).toContain("fork-child-turn");
 			expect(server.requests[2]?.rawBody).toContain("Fork response.");
+			expect(server.requests[2]?.rawBody).not.toContain("fork-source-turn");
+			expect(server.requests[2]?.rawBody).not.toContain("Source response.");
 			expect(await readFile(legacy.sourcePath, "utf8")).toBe(legacy.content);
 			expect(await readFile(parentPath, "utf8")).toBe(parentContentBeforeFork);
 			expect(describeForkFile(await readFile(forkPath, "utf8"))).toMatchObject({
@@ -137,6 +141,7 @@ function describeForkFile(content: string): {
 	readonly allReferencesResolved: boolean;
 	readonly branchSummaryFromId: unknown;
 	readonly eventCount: number;
+	readonly operationCount: number;
 	readonly parentEntryId: unknown;
 	readonly reason: unknown;
 	readonly seedText: string;
@@ -175,24 +180,34 @@ function describeForkFile(content: string): {
 		if (entry.type === "label") return seedEntryIds.has(String(entry.targetId));
 		return true;
 	});
-	const eventRecords = records.filter(
-		(record): record is Record<string, unknown> => isObject(record) && record.recordType === "conversation.event",
-	);
-	for (const record of eventRecords) {
-		const documentEntry = record.documentEntry;
-		if (!isObject(documentEntry) || typeof documentEntry.id !== "string") continue;
-		if (typeof documentEntry.parentId === "string" && !knownEntryIds.has(documentEntry.parentId)) {
-			allParentsResolved = false;
+	let eventCount = 0;
+	let operationCount = 0;
+	for (const record of records) {
+		if (!isObject(record)) continue;
+		if (record.recordType === "conversation.event") {
+			eventCount += 1;
+			const documentEntry = record.documentEntry;
+			if (!isObject(documentEntry) || typeof documentEntry.id !== "string") continue;
+			if (typeof documentEntry.parentId === "string" && !knownEntryIds.has(documentEntry.parentId)) {
+				allParentsResolved = false;
+			}
+			knownEntryIds.add(documentEntry.id);
+			activeLeafId = documentEntry.id;
+			continue;
 		}
-		knownEntryIds.add(documentEntry.id);
-		activeLeafId = documentEntry.id;
+		if (record.recordType !== "conversation.document.operation") continue;
+		operationCount += 1;
+		const command = record.command;
+		if (!isObject(command) || command.type !== "active_leaf.set") continue;
+		activeLeafId = command.entryId;
 	}
 	return {
 		activeLeafId,
 		allParentsResolved,
 		allReferencesResolved,
 		branchSummaryFromId: entries.find((entry) => isObject(entry) && entry.type === "branch_summary")?.fromId,
-		eventCount: eventRecords.length,
+		eventCount,
+		operationCount,
 		parentEntryId: header.parentEntryId,
 		reason: seed.reason,
 		seedText: JSON.stringify(seed.entries),
