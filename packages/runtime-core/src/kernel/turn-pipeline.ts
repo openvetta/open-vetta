@@ -184,12 +184,21 @@ export class TurnPipeline {
 		return this.runTurn(sessionIdentity, undefined, signal, inputQueue, context);
 	}
 
+	async retry(
+		sessionIdentity: string | TurnSessionIdentity,
+		signal: AbortSignal,
+		inputQueue?: TurnInputQueue,
+	): Promise<TurnResult> {
+		return this.runTurn(sessionIdentity, undefined, signal, inputQueue, [], true);
+	}
+
 	private async runTurn(
 		sessionIdentity: string | TurnSessionIdentity,
 		input: SessionInput | undefined,
 		signal: AbortSignal,
 		inputQueue: TurnInputQueue | undefined,
 		continuationContext: readonly SessionContextRecord[] = [],
+		retrying = false,
 	): Promise<TurnResult> {
 		const identity = normalizeSessionIdentity(sessionIdentity);
 		const turnId = this.idGenerator.next("turn");
@@ -299,7 +308,8 @@ export class TurnPipeline {
 					timestamp: record.timestamp ?? startedAt,
 				}));
 			const projectedHistory = projectConversationContext(snapshot, conversationDocument, conversation.messages);
-			const historyMessages = projectRuntimeModelMessages(projectedHistory);
+			const modelHistory = retrying ? omitLastFailedAssistant(projectedHistory) : projectedHistory;
+			const historyMessages = projectRuntimeModelMessages(modelHistory);
 			const assembledMessages = input
 				? [
 						...historyMessages,
@@ -310,7 +320,7 @@ export class TurnPipeline {
 					]
 				: [...historyMessages, ...providerMessages, ...inputContextMessages];
 			let contextMessages = reconcileRuntimeMessageEnvelopes(assembledMessages, [
-				...projectedHistory,
+				...modelHistory,
 				...providerMessages.map(toRuntimeMessageEnvelope),
 				...turnMessageEnvelopes,
 			]);
@@ -1006,4 +1016,19 @@ function projectRuntimeModelMessages(envelopes: readonly RuntimeMessageEnvelope[
 		const message = projectRuntimeMessageEnvelope(envelope);
 		return message ? [message] : [];
 	});
+}
+
+function omitLastFailedAssistant(envelopes: readonly RuntimeMessageEnvelope[]): readonly RuntimeMessageEnvelope[] {
+	let failedAssistantIndex = -1;
+	for (let index = envelopes.length - 1; index >= 0; index -= 1) {
+		const envelope = envelopes[index];
+		if (!envelope) continue;
+		const message = projectRuntimeMessageEnvelope(envelope);
+		if (message?.role === "assistant" && message.stopReason === "error") {
+			failedAssistantIndex = index;
+			break;
+		}
+	}
+	if (failedAssistantIndex < 0) return envelopes;
+	return envelopes.filter((_, index) => index !== failedAssistantIndex);
 }

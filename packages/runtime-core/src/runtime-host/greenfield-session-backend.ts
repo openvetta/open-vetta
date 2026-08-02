@@ -250,6 +250,12 @@ export class GreenfieldRuntimeSession {
 		return this.session.continue();
 	}
 
+	async retry(): Promise<TurnResult> {
+		this.assertOpen();
+		if (this.historyMutation || this.contextController?.readState().isCompacting) throw sessionBusyError();
+		return this.session.retry();
+	}
+
 	async abort(reason?: string): Promise<void> {
 		this.assertOpen();
 		await this.session.cancel(reason);

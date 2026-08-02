@@ -121,6 +121,15 @@ export class AgentSession {
 		return this.startTurn();
 	}
 
+	async retry(): Promise<TurnResult> {
+		await this.contextWrite;
+		if (this.currentState === "closed" || this.currentState === "closing") {
+			throw sessionClosedError();
+		}
+		if (this.currentState !== "idle") throw sessionBusyError();
+		return this.startTurn(undefined, [], true);
+	}
+
 	/**
 	 * 请求一次异步续跑。
 	 *
@@ -227,13 +236,16 @@ export class AgentSession {
 	private async startTurn(
 		input?: SessionInput,
 		continuationContext: readonly SessionContextRecord[] = [],
+		retrying = false,
 	): Promise<TurnResult> {
 		this.currentState = "running";
 		const controller = new AbortController();
 		this.activeController = controller;
 		const turn = input
 			? this.pipeline.run(this.identity, input, controller.signal, this.inputQueue)
-			: this.pipeline.continue(this.identity, controller.signal, this.inputQueue, continuationContext);
+			: retrying
+				? this.pipeline.retry(this.identity, controller.signal, this.inputQueue)
+				: this.pipeline.continue(this.identity, controller.signal, this.inputQueue, continuationContext);
 		this.activeTurn = turn;
 
 		try {

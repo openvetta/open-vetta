@@ -21,13 +21,13 @@ describe("CodingAgentGreenfieldTurnExecutor", () => {
 		expect(prompt).not.toHaveBeenCalled();
 	});
 
-	it("retries a retryable failed turn through the active session continue operation", async () => {
+	it("retries a retryable failed turn through the active session retry operation", async () => {
 		const events: CodingAgentGreenfieldTurnRetryEvent[] = [];
 		const prompt = vi.fn(async () => ({ status: "failed", error: { message: "503 service unavailable" } }));
-		const continueTurn = vi.fn(async () => ({ status: "completed" }));
+		const retryTurn = vi.fn(async () => ({ status: "completed" }));
 		const executor = createExecutor({
 			prompt,
-			continueTurn,
+			retryTurn,
 			retry: { enabled: true, maxRetries: 1, baseDelayMs: 0 },
 			onRetryEvent: (event) => events.push(event),
 		});
@@ -35,8 +35,46 @@ describe("CodingAgentGreenfieldTurnExecutor", () => {
 		await executor.prompt("hello");
 
 		expect(prompt).toHaveBeenCalledWith({ text: "hello", images: undefined, streamingBehavior: undefined });
-		expect(continueTurn).toHaveBeenCalledTimes(1);
+		expect(retryTurn).toHaveBeenCalledTimes(1);
 		expect(events.map((event) => event.type)).toEqual(["auto_retry_start", "auto_retry_end"]);
+	});
+
+	it("retries Agent Core completed results whose assistant stop reason is error", async () => {
+		const events: CodingAgentGreenfieldTurnRetryEvent[] = [];
+		const prompt = vi.fn(async () => ({
+			status: "completed",
+			stopReason: "error",
+			messages: [
+				{
+					role: "assistant",
+					stopReason: "error",
+					errorMessage: "503 service unavailable",
+				},
+			],
+		}));
+		const retryTurn = vi.fn(async () => ({ status: "completed", stopReason: "stop", messages: [] }));
+		const executor = createExecutor({
+			prompt,
+			retryTurn,
+			retry: { enabled: true, maxRetries: 1, baseDelayMs: 0 },
+			onRetryEvent: (event) => events.push(event),
+		});
+
+		await executor.prompt("hello");
+
+		expect(retryTurn).toHaveBeenCalledTimes(1);
+		expect(events.map((event) => event.type)).toEqual(["auto_retry_start", "auto_retry_end"]);
+	});
+
+	it("allows Print hosts to preserve terminal model errors without throwing", async () => {
+		const prompt = vi.fn(async () => ({
+			status: "completed",
+			stopReason: "error",
+			messages: [{ role: "assistant", stopReason: "error", errorMessage: "401 unauthorized" }],
+		}));
+		const executor = createExecutor({ prompt });
+
+		await expect(executor.prompt("hello", { throwOnFailure: false })).resolves.toBeUndefined();
 	});
 
 	it("routes streaming input without treating it as an Extension command", async () => {
@@ -61,7 +99,7 @@ describe("CodingAgentGreenfieldTurnExecutor", () => {
 
 interface CreateExecutorOptions {
 	readonly prompt: (input: unknown) => Promise<unknown>;
-	readonly continueTurn?: () => Promise<unknown>;
+	readonly retryTurn?: () => Promise<unknown>;
 	readonly commandHost?: {
 		readonly throwIfExtensionCommand: (text: string) => void;
 		readonly tryExecute: (text: string) => Promise<boolean>;
@@ -73,7 +111,7 @@ interface CreateExecutorOptions {
 function createExecutor(options: CreateExecutorOptions): CodingAgentGreenfieldTurnExecutor {
 	const session = {
 		prompt: options.prompt,
-		continue: options.continueTurn ?? (async () => ({ status: "completed" })),
+		retry: options.retryTurn ?? (async () => ({ status: "completed" })),
 	} as unknown as GreenfieldRuntimeSession;
 	const retryController = new CodingAgentGreenfieldTurnRetryController({
 		readSettings: () => options.retry ?? { enabled: false, maxRetries: 0, baseDelayMs: 0 },

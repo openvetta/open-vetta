@@ -20,6 +20,7 @@ export interface CodingAgentGreenfieldTurnExecutorOptions {
 export interface CodingAgentGreenfieldTurnPromptOptions {
 	readonly images?: readonly ImageContent[];
 	readonly streamingBehavior?: "steer" | "followUp";
+	readonly throwOnFailure?: boolean;
 }
 
 /** Prompt、Extension command、continue 与 retry 的中立 Turn 编排入口。 */
@@ -46,21 +47,43 @@ export class CodingAgentGreenfieldTurnExecutor {
 			);
 		const result = await this.options.retryController.run(
 			executeInitial,
-			() => this.options.sessionHost.startActiveSessionOperation((session) => session.continue()),
+			() => this.options.sessionHost.startActiveSessionOperation((session) => session.retry()),
 			readFailedTurnMessage,
 		);
 		const failedMessage = readFailedTurnMessage(result);
-		if (failedMessage) throw new Error(failedMessage);
+		if (failedMessage && promptOptions.throwOnFailure !== false) throw new Error(failedMessage);
 	}
 }
 
 function readFailedTurnMessage(value: unknown): string | undefined {
 	if (typeof value !== "object" || value === null) return undefined;
 	const error = Reflect.get(value, "error");
-	return Reflect.get(value, "status") === "failed" &&
+	if (
+		Reflect.get(value, "status") === "failed" &&
 		typeof error === "object" &&
 		error !== null &&
 		typeof Reflect.get(error, "message") === "string"
-		? Reflect.get(error, "message")
-		: undefined;
+	) {
+		return Reflect.get(error, "message");
+	}
+	if (Reflect.get(value, "status") !== "completed" || Reflect.get(value, "stopReason") !== "error") {
+		return undefined;
+	}
+	const messages = Reflect.get(value, "messages");
+	if (!Array.isArray(messages)) return "Request failed";
+	let assistant: unknown;
+	for (let index = messages.length - 1; index >= 0; index -= 1) {
+		const candidate: unknown = messages[index];
+		if (
+			typeof candidate === "object" &&
+			candidate !== null &&
+			Reflect.get(candidate, "role") === "assistant" &&
+			Reflect.get(candidate, "stopReason") === "error"
+		) {
+			assistant = candidate;
+			break;
+		}
+	}
+	const message = assistant ? Reflect.get(assistant, "errorMessage") : undefined;
+	return typeof message === "string" && message.length > 0 ? message : "Request failed";
 }

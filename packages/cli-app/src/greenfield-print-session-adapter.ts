@@ -61,7 +61,10 @@ export class GreenfieldPrintSessionAdapter implements PrintSessionCapabilities {
 	}
 
 	async prompt(message: string, options?: Parameters<PrintSessionCapabilities["prompt"]>[1]): Promise<void> {
-		await this.options.sessionHost.turnExecutor.prompt(message, { images: options?.images });
+		await this.options.sessionHost.turnExecutor.prompt(message, {
+			images: options?.images,
+			throwOnFailure: false,
+		});
 	}
 
 	readMessages(): ReturnType<PrintSessionCapabilities["readMessages"]> {

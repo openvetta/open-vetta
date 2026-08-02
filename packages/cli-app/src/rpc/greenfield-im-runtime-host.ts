@@ -296,7 +296,7 @@ async function prepareGreenfieldRuntimeHost(
 				parsed.noTools || parsed.tools
 					? { mode: "explicit", toolNames: parsed.tools ?? [] }
 					: { mode: "scope", scope: backend === "greenfield-im" ? "im-claw" : (parsed.scenario ?? "cli") },
-			enableSubagents: backend !== "greenfield-im",
+			enableSubagents: backend !== "greenfield-im" && intent === "rpc",
 			systemPromptAdvertisedToolNames:
 				backend === "greenfield-im" && !parsed.noTools && !parsed.tools
 					? ["kb_filter_by_tags", "kb_list_available_tags"]

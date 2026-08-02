@@ -1,11 +1,15 @@
 import { spawn } from "node:child_process";
-import { copyFile, mkdtemp, rm } from "node:fs/promises";
+import { copyFile, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { type AgentRpcFixture, createAgentRpcFixture } from "./support/agent-rpc-test-process.js";
-import { startOpenAiResponsesTestServer, textResponseEvents } from "./support/openai-responses-test-server.js";
+import {
+	startOpenAiResponsesTestServer,
+	textResponseEvents,
+	toolCallResponseEvents,
+} from "./support/openai-responses-test-server.js";
 
 interface AgentCliResult {
 	readonly code: number;
@@ -167,6 +171,316 @@ describe("Agent non-RPC CLI compatibility", () => {
 		}
 	}, 30_000);
 
+	it("keeps text and image @file inputs compatible with Legacy", async () => {
+		const observations = await runPrintBackends(async (backend) => {
+			const marker = `${backend} attachment response`;
+			const server = await startOpenAiResponsesTestServer(() => ({
+				kind: "events",
+				events: textResponseEvents(marker),
+			}));
+			const fixture = await createAgentRpcFixture({ baseUrl: server.baseUrl, modelInput: ["text", "image"] });
+			const textPath = join(fixture.workspace, "attachment.txt");
+			const imagePath = join(fixture.workspace, "attachment.png");
+			await Promise.all([
+				writeFile(textPath, "attachment text fixture", "utf8"),
+				writeFile(imagePath, Buffer.from(TEST_PNG_BASE64, "base64")),
+			]);
+			try {
+				const result = await runAgentCli(fixture, [
+					...runtimeArgs(backend),
+					"--mode",
+					"json",
+					`@${textPath}`,
+					`@${imagePath}`,
+					"inspect attachments",
+				]);
+				return {
+					code: result.code,
+					userInput: normalizeFixtureValue(readLastUserInput(server.requests[0]?.body.input), fixture),
+					toolNames: readProviderToolNames(server.requests[0]?.body.tools),
+				};
+			} finally {
+				await fixture.dispose();
+				await server.dispose();
+			}
+		});
+
+		expect(observations.greenfield).toEqual(observations.legacy);
+		expect(JSON.stringify(observations.greenfield.userInput)).toContain("attachment text fixture");
+		expect(JSON.stringify(observations.greenfield.userInput)).toContain("input_image");
+	}, 60_000);
+
+	it("keeps complete tool execution payloads compatible with Legacy", async () => {
+		const observations = await runPrintBackends(async (backend) => {
+			let fixture: AgentRpcFixture | undefined;
+			const server = await startOpenAiResponsesTestServer((_request, index) =>
+				index === 0
+					? {
+							kind: "events",
+							events: toolCallResponseEvents("read", {
+								path: join(fixture!.workspace, "tool-input.txt"),
+							}),
+						}
+					: { kind: "events", events: textResponseEvents("tool loop completed") },
+			);
+			fixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
+			await writeFile(join(fixture.workspace, "tool-input.txt"), "tool payload fixture", "utf8");
+			try {
+				const result = await runAgentCli(fixture, [
+					...runtimeArgs(backend),
+					"--mode",
+					"json",
+					"read the fixture file",
+				]);
+				return {
+					code: result.code,
+					frames: readToolFrames(result.stdout, fixture),
+					secondInputHasResult: server.requests[1]?.rawBody.includes("tool payload fixture") === true,
+				};
+			} finally {
+				await fixture.dispose();
+				await server.dispose();
+			}
+		});
+
+		expect(observations.greenfield).toEqual(observations.legacy);
+		expect(observations.greenfield.frames.map((frame) => frame.type)).toEqual([
+			"tool_execution_start",
+			"tool_execution_end",
+		]);
+		expect(observations.greenfield.secondInputHasResult).toBe(true);
+	}, 60_000);
+
+	it("keeps Provider HTTP retry events compatible with Legacy", async () => {
+		const observations = await runPrintBackends(async (backend) => {
+			const server = await startOpenAiResponsesTestServer((_request, index) =>
+				index < 3
+					? { kind: "http-error", status: 503, body: "temporary provider outage" }
+					: { kind: "events", events: textResponseEvents("retry recovered") },
+			);
+			const fixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
+			await writeFile(
+				join(fixture.agentDir, "settings.json"),
+				JSON.stringify({ retry: { enabled: true, maxRetries: 1, baseDelayMs: 0 } }),
+				"utf8",
+			);
+			try {
+				const result = await runAgentCli(fixture, [
+					...runtimeArgs(backend),
+					"--mode",
+					"json",
+					"retry the provider request",
+				]);
+				return {
+					code: result.code,
+					requestCount: server.requests.length,
+					retryFrames: readFrames(result.stdout)
+						.filter((frame) => frame.type === "auto_retry_start" || frame.type === "auto_retry_end")
+						.map(normalizeRetryFrame),
+				};
+			} finally {
+				await fixture.dispose();
+				await server.dispose();
+			}
+		});
+
+		expect(observations.greenfield).toEqual(observations.legacy);
+		expect(observations.greenfield).toMatchObject({
+			code: 0,
+			requestCount: 4,
+			retryFrames: [
+				{ type: "auto_retry_start", attempt: 1, maxAttempts: 1, delayMs: 0 },
+				{ type: "auto_retry_end", attempt: 1, success: true },
+			],
+		});
+	}, 60_000);
+
+	it("keeps Provider disconnect retry events compatible with Legacy", async () => {
+		const observations = await runPrintBackends(async (backend) => {
+			const server = await startOpenAiResponsesTestServer((_request, index) =>
+				index < 3 ? { kind: "disconnect" } : { kind: "events", events: textResponseEvents("disconnect recovered") },
+			);
+			const fixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
+			await writeFile(
+				join(fixture.agentDir, "settings.json"),
+				JSON.stringify({ retry: { enabled: true, maxRetries: 1, baseDelayMs: 0 } }),
+				"utf8",
+			);
+			try {
+				const result = await runAgentCli(fixture, [
+					...runtimeArgs(backend),
+					"--mode",
+					"json",
+					"retry after disconnect",
+				]);
+				return {
+					code: result.code,
+					requestCount: server.requests.length,
+					retryFrames: readFrames(result.stdout)
+						.filter((frame) => frame.type === "auto_retry_start" || frame.type === "auto_retry_end")
+						.map(normalizeRetryFrame),
+				};
+			} finally {
+				await fixture.dispose();
+				await server.dispose();
+			}
+		});
+
+		expect(observations.greenfield).toEqual(observations.legacy);
+		expect(observations.greenfield).toMatchObject({
+			code: 0,
+			requestCount: 4,
+			retryFrames: [
+				{ type: "auto_retry_start", attempt: 1, maxAttempts: 1, delayMs: 0 },
+				{ type: "auto_retry_end", attempt: 1, success: true },
+			],
+		});
+	}, 60_000);
+
+	it("keeps non-retryable Provider errors compatible with Legacy", async () => {
+		const observations = await runPrintBackends(async (backend) => {
+			const server = await startOpenAiResponsesTestServer(() => ({
+				kind: "http-error",
+				status: 401,
+				body: "invalid provider credential",
+			}));
+			const fixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
+			await writeFile(
+				join(fixture.agentDir, "settings.json"),
+				JSON.stringify({ retry: { enabled: true, maxRetries: 1, baseDelayMs: 0 } }),
+				"utf8",
+			);
+			try {
+				const result = await runAgentCli(fixture, [
+					...runtimeArgs(backend),
+					"--mode",
+					"json",
+					"do not retry authentication failures",
+				]);
+				return {
+					code: result.code,
+					requestCount: server.requests.length,
+					retryFrameCount: readFrames(result.stdout).filter(
+						(frame) => frame.type === "auto_retry_start" || frame.type === "auto_retry_end",
+					).length,
+				};
+			} finally {
+				await fixture.dispose();
+				await server.dispose();
+			}
+		});
+
+		expect(observations.greenfield).toEqual(observations.legacy);
+		expect(observations.greenfield).toEqual({ code: 0, requestCount: 1, retryFrameCount: 0 });
+	}, 60_000);
+
+	it("keeps text Print Provider failure exit status compatible with Legacy", async () => {
+		const observations = await runPrintBackends(async (backend) => {
+			const server = await startOpenAiResponsesTestServer(() => ({
+				kind: "http-error",
+				status: 401,
+				body: "invalid provider credential",
+			}));
+			const fixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
+			try {
+				const result = await runAgentCli(fixture, [
+					...runtimeArgs(backend),
+					"--print",
+					"report authentication failure",
+				]);
+				return { code: result.code, requestCount: server.requests.length };
+			} finally {
+				await fixture.dispose();
+				await server.dispose();
+			}
+		});
+
+		expect(observations.greenfield).toEqual(observations.legacy);
+		expect(observations.greenfield).toEqual({ code: 1, requestCount: 1 });
+	}, 60_000);
+
+	it("keeps Extension input errors isolated and observable", async () => {
+		const observations = await runPrintBackends(async (backend) => {
+			const server = await startOpenAiResponsesTestServer(() => ({
+				kind: "events",
+				events: textResponseEvents("extension error was isolated"),
+			}));
+			const fixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
+			const extensionPath = join(fixture.root, "print-error-extension.ts");
+			await writeFile(
+				extensionPath,
+				`export default function(extension) {
+					extension.on("input", async () => { throw new Error("print extension fixture failure"); });
+				}`,
+				"utf8",
+			);
+			try {
+				const result = await runAgentCli(fixture, [
+					...runtimeArgs(backend),
+					"--print",
+					"--extension",
+					extensionPath,
+					"trigger the extension",
+				]);
+				return {
+					code: result.code,
+					providerRequests: server.requests.length,
+					observedError: result.stderr.includes("print extension fixture failure"),
+					observedOutput: result.stdout.includes("extension error was isolated"),
+				};
+			} finally {
+				await fixture.dispose();
+				await server.dispose();
+			}
+		});
+
+		expect(observations.greenfield).toEqual(observations.legacy);
+		expect(observations.greenfield).toEqual({
+			code: 0,
+			providerRequests: 1,
+			observedError: true,
+			observedOutput: true,
+		});
+	}, 60_000);
+
+	it("keeps --continue context and session identity stable across Print processes", async () => {
+		const observations = await runPrintBackends(async (backend) => {
+			const server = await startOpenAiResponsesTestServer((_request, index) => ({
+				kind: "events",
+				events: textResponseEvents(index === 0 ? "first persisted response" : "continued response"),
+			}));
+			const fixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
+			try {
+				const first = await runAgentCli(fixture, [
+					...runtimeArgs(backend),
+					"--mode",
+					"json",
+					"first persisted prompt",
+				]);
+				const continued = await runAgentCli(fixture, [
+					...runtimeArgs(backend),
+					"--continue",
+					"--mode",
+					"json",
+					"continued prompt",
+				]);
+				return {
+					codes: [first.code, continued.code],
+					sameSession: readSessionId(first.stdout) === readSessionId(continued.stdout),
+					continuedContext:
+						server.requests[1]?.rawBody.includes("first persisted prompt") === true &&
+						server.requests[1]?.rawBody.includes("first persisted response") === true,
+				};
+			} finally {
+				await fixture.dispose();
+				await server.dispose();
+			}
+		});
+
+		expect(observations.greenfield).toEqual(observations.legacy);
+		expect(observations.greenfield).toEqual({ codes: [0, 0], sameSession: true, continuedContext: true });
+	}, 60_000);
+
 	it("runs help as a control command without entering session runtime selection", async () => {
 		const fixture = await createAgentRpcFixture();
 		try {
@@ -273,6 +587,131 @@ function readSessionHeader(stdout: string): unknown {
 		.find((frame) => readFrameType(frame) === "session");
 }
 
+type PrintBackend = "legacy" | "greenfield";
+
+async function runPrintBackends<T>(run: (backend: PrintBackend) => Promise<T>): Promise<Record<PrintBackend, T>> {
+	const legacy = await run("legacy");
+	const greenfield = await run("greenfield");
+	return { legacy, greenfield };
+}
+
+function runtimeArgs(backend: PrintBackend): readonly string[] {
+	return backend === "greenfield" ? ["--agent-runtime", "greenfield"] : [];
+}
+
+interface JsonFrame {
+	readonly type: string;
+	readonly [key: string]: unknown;
+}
+
+interface ToolFrameObservation {
+	readonly type: string;
+	readonly toolCallId: unknown;
+	readonly toolName: unknown;
+	readonly args?: unknown;
+	readonly partialResult?: unknown;
+	readonly result?: unknown;
+	readonly isError?: unknown;
+	readonly phases?: unknown;
+}
+
+function readFrames(stdout: string): readonly JsonFrame[] {
+	return stdout
+		.split(/\r?\n/)
+		.flatMap((line) => parseJsonLine(line))
+		.filter(isJsonFrame);
+}
+
+function isJsonFrame(value: unknown): value is JsonFrame {
+	return typeof value === "object" && value !== null && typeof Reflect.get(value, "type") === "string";
+}
+
+function readToolFrames(stdout: string, fixture: AgentRpcFixture): readonly ToolFrameObservation[] {
+	const observations: ToolFrameObservation[] = [];
+	for (const frame of readFrames(stdout)) {
+		if (frame.type === "tool_execution_start") {
+			observations.push({
+				type: frame.type,
+				toolCallId: frame.toolCallId,
+				toolName: frame.toolName,
+				args: normalizeFixtureValue(frame.args, fixture),
+			});
+			continue;
+		}
+		if (frame.type === "tool_execution_update") {
+			observations.push({
+				type: frame.type,
+				toolCallId: frame.toolCallId,
+				toolName: frame.toolName,
+				args: normalizeFixtureValue(frame.args, fixture),
+				partialResult: normalizeFixtureValue(frame.partialResult, fixture),
+			});
+			continue;
+		}
+		if (frame.type === "tool_execution_end") {
+			observations.push({
+				type: frame.type,
+				toolCallId: frame.toolCallId,
+				toolName: frame.toolName,
+				result: normalizeFixtureValue(frame.result, fixture),
+				isError: frame.isError,
+				phases: frame.phases,
+			});
+		}
+	}
+	return observations;
+}
+
+function normalizeRetryFrame(frame: JsonFrame): Readonly<Record<string, unknown>> {
+	return {
+		type: frame.type,
+		attempt: frame.attempt,
+		...(frame.type === "auto_retry_start"
+			? { maxAttempts: frame.maxAttempts, delayMs: frame.delayMs }
+			: { success: frame.success, finalError: frame.finalError }),
+	};
+}
+
+function normalizeFixtureValue(value: unknown, fixture: AgentRpcFixture): unknown {
+	if (typeof value === "string") {
+		let normalized = value;
+		let index = normalized.toLowerCase().indexOf(fixture.root.toLowerCase());
+		while (index >= 0) {
+			normalized = `${normalized.slice(0, index)}<fixture-root>${normalized.slice(index + fixture.root.length)}`;
+			index = normalized.toLowerCase().indexOf(fixture.root.toLowerCase());
+		}
+		return normalized;
+	}
+	if (Array.isArray(value)) return value.map((entry) => normalizeFixtureValue(entry, fixture));
+	if (typeof value !== "object" || value === null) return value;
+	return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, normalizeFixtureValue(entry, fixture)]));
+}
+
+function readLastUserInput(input: readonly unknown[] | undefined): unknown {
+	if (!input) return undefined;
+	for (let index = input.length - 1; index >= 0; index -= 1) {
+		const entry = input[index];
+		if (typeof entry === "object" && entry !== null && Reflect.get(entry, "role") === "user") return entry;
+	}
+	return undefined;
+}
+
+function readProviderToolNames(tools: readonly unknown[] | undefined): readonly string[] {
+	return (tools ?? []).flatMap((tool) => {
+		if (typeof tool !== "object" || tool === null) return [];
+		const name = Reflect.get(tool, "name");
+		return typeof name === "string" ? [name] : [];
+	});
+}
+
+function readSessionId(stdout: string): string {
+	const header = readSessionHeader(stdout);
+	if (typeof header !== "object" || header === null || typeof Reflect.get(header, "id") !== "string") {
+		throw new Error("Expected Print JSON header to contain a Session id");
+	}
+	return Reflect.get(header, "id");
+}
+
 function readFrameType(frame: unknown): string | undefined {
 	if (typeof frame !== "object" || frame === null) return undefined;
 	const type = Reflect.get(frame, "type");
@@ -310,3 +749,6 @@ async function runCommand(command: string, args: readonly string[], cwd: string)
 		});
 	});
 }
+
+const TEST_PNG_BASE64 =
+	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==";

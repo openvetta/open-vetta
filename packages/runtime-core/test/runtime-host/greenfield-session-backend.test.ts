@@ -1,4 +1,4 @@
-import type { Api, AssistantMessage, Model, UserMessage } from "@vetta/ai";
+import type { Api, AssistantMessage, Message, Model, UserMessage } from "@vetta/ai";
 import { describe, expect, it, vi } from "vitest";
 import type { PromptRequest, SessionEvent } from "../../src/contracts.js";
 import {
@@ -152,6 +152,28 @@ class CompletingTurnEngine implements TurnEnginePort {
 			type: "observation",
 			observation: { type: "lifecycle", phase: "agent_end", source: "runtime-core" },
 		};
+		yield { type: "completed", stopReason: "stop" };
+	}
+}
+
+class ErrorThenSuccessTurnEngine implements TurnEnginePort {
+	readonly requests: Message[][] = [];
+
+	async *execute(request: Parameters<TurnEnginePort["execute"]>[0]): AsyncIterable<TurnEngineEvent> {
+		this.requests.push([...request.messages]);
+		if (this.requests.length === 1) {
+			yield {
+				type: "message",
+				message: {
+					...assistantMessage("request failed"),
+					stopReason: "error",
+					errorMessage: "503 service unavailable",
+				},
+			};
+			yield { type: "completed", stopReason: "error" };
+			return;
+		}
+		yield { type: "message", message: assistantMessage("recovered") };
 		yield { type: "completed", stopReason: "stop" };
 	}
 }
@@ -342,6 +364,30 @@ describe("GreenfieldRuntimeSessionBackend", () => {
 
 		expect(result.status).toBe("completed");
 		expect((await session.getMessages()).map((message) => message.role)).toEqual(["user", "assistant", "assistant"]);
+	});
+
+	it("retries without replaying the terminal error assistant while preserving it in history", async () => {
+		const engine = new ErrorThenSuccessTurnEngine();
+		const { backend } = createBackend(engine);
+		const session = await backend.create({ id: "session-1" });
+
+		await expect(session.prompt({ text: "hello" })).resolves.toMatchObject({
+			status: "completed",
+			stopReason: "error",
+		});
+		await expect(session.retry()).resolves.toMatchObject({ status: "completed", stopReason: "stop" });
+
+		expect(engine.requests.map((messages) => messages.map((message) => message.role))).toEqual([["user"], ["user"]]);
+		expect(
+			(await session.getMessages()).map((message) => ({
+				role: message.role,
+				stopReason: message.role === "assistant" ? message.stopReason : undefined,
+			})),
+		).toEqual([
+			{ role: "user", stopReason: undefined },
+			{ role: "assistant", stopReason: "error" },
+			{ role: "assistant", stopReason: "stop" },
+		]);
 	});
 
 	it("exposes synchronous lifecycle, workspace, turn, event and state core ports", async () => {
