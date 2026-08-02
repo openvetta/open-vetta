@@ -265,6 +265,27 @@ describe("package boundary analysis", () => {
 		).toEqual([]);
 	});
 
+	it("keeps Extension Legacy policy out of Greenfield product modules", () => {
+		expect(
+			findPackageBoundaryViolations(
+				"packages/cli-app/src/rpc/greenfield-im-runtime-host.ts",
+				'const reason = "legacy-extension";',
+			),
+		).toHaveLength(1);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/cli-app/src/rpc/greenfield-im-runtime-host.ts",
+				'const kind = "extension-incompatible";',
+			),
+		).toEqual([]);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/cli-app/src/agent-runtime-selection.ts",
+				'const reason = "legacy-extension";',
+			),
+		).toEqual([]);
+	});
+
 	it("keeps runtime-composition as a compatibility-only forwarding package", () => {
 		expect(
 			findPackageBoundaryViolations(

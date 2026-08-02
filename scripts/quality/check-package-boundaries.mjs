@@ -253,9 +253,13 @@ function checkGreenfieldLegacyStartupSymbols(posixPath, text, findings) {
 	const sourceFile = ts.createSourceFile(posixPath, text, ts.ScriptTarget.Latest, true, scriptKind(posixPath));
 	const forbiddenSymbols = new Set(["createLegacyAgentBootstrap", "runLegacyAgentWithBootstrap"]);
 	const usedSymbols = new Set();
+	const usedPolicyLiterals = new Set();
 	const visit = (node) => {
 		if (ts.isIdentifier(node) && forbiddenSymbols.has(node.text)) {
 			usedSymbols.add(node.text);
+		}
+		if (ts.isStringLiteralLike(node) && node.text === "legacy-extension") {
+			usedPolicyLiterals.add(node.text);
 		}
 		ts.forEachChild(node, visit);
 	};
@@ -263,6 +267,9 @@ function checkGreenfieldLegacyStartupSymbols(posixPath, text, findings) {
 
 	for (const symbol of usedSymbols) {
 		findings.push(`${posixPath}: greenfield product modules must not use legacy startup symbol ${symbol}`);
+	}
+	for (const literal of usedPolicyLiterals) {
+		findings.push(`${posixPath}: greenfield product modules must report compatibility facts instead of ${literal}`);
 	}
 }
 

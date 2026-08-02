@@ -30,6 +30,7 @@ export {
 	createGreenfieldImRuntimeHost,
 	GREENFIELD_IM_EXTENSION_EVENT_PROFILE,
 	type GreenfieldImFallbackReason,
+	type GreenfieldImRuntimeHostExtensionIncompatible,
 	type GreenfieldImRuntimeHostFallback,
 	type GreenfieldImRuntimeHostPreparation,
 	type GreenfieldImRuntimeHostReady,

@@ -296,6 +296,32 @@ describe("Greenfield IM Runtime Host", () => {
 		preparedHosts.push(result);
 	});
 
+	it("reports an unknown Extension event as a neutral incompatibility fact", async () => {
+		const fixture = await createFixture(
+			[],
+			`export default function(pi) {
+				pi.on("future_event", async () => {});
+			}`,
+		);
+
+		const result = await prepareGreenfieldImRuntimeHost({
+			bootstrap: fixture.bootstrap,
+			conversationDir: fixture.conversationDir,
+			sessionCatalog: fixture.sessionCatalog,
+		});
+
+		expect(result).toMatchObject({
+			kind: "extension-incompatible",
+			sessionPath: undefined,
+			extensionCompatibility: {
+				requiresLegacyRuntime: true,
+				unsupportedEvents: ["future_event"],
+				unmetRuntimeCapabilities: ["event-handler"],
+			},
+		});
+		expect("reason" in result).toBe(false);
+	});
+
 	it("applies resources_discover contributions during Extension startup", async () => {
 		const fixture = await createFixture(
 			[],

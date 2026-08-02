@@ -269,7 +269,7 @@ describe("Agent Runtime selection", () => {
 		await process.close();
 	});
 
-	it("falls back for a forward Extension event and reports the exact gap on stderr", async () => {
+	it("maps a neutral forward Extension incompatibility to the existing Legacy fallback", async () => {
 		const fixture = await createFixture();
 		const extensionPath = await writeFixtureExtension(
 			fixture,

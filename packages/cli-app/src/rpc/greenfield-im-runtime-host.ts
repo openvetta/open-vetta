@@ -57,16 +57,21 @@ import {
 import { GreenfieldImRpcSessionAdapter } from "./greenfield-im-rpc-session-adapter.js";
 import { resolveGreenfieldImSessionPath } from "./greenfield-im-session-selection.js";
 import { GreenfieldRpcSessionAdapter } from "./greenfield-rpc-session-adapter.js";
+import type {
+	GreenfieldRpcFallbackReason,
+	GreenfieldRpcRuntimeHostFallback,
+} from "./legacy-runtime-fallback-contract.js";
 
-export type GreenfieldRpcFallbackReason = "legacy-session" | "legacy-extension";
+export type {
+	GreenfieldRpcFallbackReason,
+	GreenfieldRpcRuntimeHostFallback,
+} from "./legacy-runtime-fallback-contract.js";
 
-export interface GreenfieldRpcRuntimeHostFallback {
-	readonly kind: "legacy-fallback";
-	readonly reason: GreenfieldRpcFallbackReason;
+export interface GreenfieldRpcRuntimeHostExtensionIncompatible {
+	readonly kind: "extension-incompatible";
 	readonly bootstrap: CodingAgentHostBootstrap;
 	readonly sessionPath: string | undefined;
-	readonly extensionCompatibility?: CodingAgentExtensionCompatibilityAssessment;
-	readonly sessionMigration?: RpcRuntimeDecision["sessionMigration"];
+	readonly extensionCompatibility: CodingAgentExtensionCompatibilityAssessment;
 }
 
 export interface GreenfieldRpcRuntimeHostReady {
@@ -78,7 +83,10 @@ export interface GreenfieldRpcRuntimeHostReady {
 	readonly runtimeDecision: RpcRuntimeDecision;
 }
 
-export type GreenfieldRpcRuntimeHostPreparation = GreenfieldRpcRuntimeHostFallback | GreenfieldRpcRuntimeHostReady;
+export type GreenfieldRpcRuntimeHostPreparation =
+	| GreenfieldRpcRuntimeHostExtensionIncompatible
+	| GreenfieldRpcRuntimeHostFallback
+	| GreenfieldRpcRuntimeHostReady;
 
 export interface GreenfieldPrintRuntimeHostReady {
 	readonly kind: "greenfield-print";
@@ -89,10 +97,15 @@ export interface GreenfieldPrintRuntimeHostReady {
 	readonly runtimeDecision: RpcRuntimeDecision;
 }
 
-export type GreenfieldPrintRuntimeHostPreparation = GreenfieldRpcRuntimeHostFallback | GreenfieldPrintRuntimeHostReady;
+export type GreenfieldPrintRuntimeHostPreparation =
+	| GreenfieldRpcRuntimeHostExtensionIncompatible
+	| GreenfieldRpcRuntimeHostFallback
+	| GreenfieldPrintRuntimeHostReady;
 
 /** @deprecated Use the neutral Greenfield RPC host contracts. */
 export type GreenfieldImFallbackReason = GreenfieldRpcFallbackReason;
+/** @deprecated Use the neutral Greenfield RPC host contracts. */
+export type GreenfieldImRuntimeHostExtensionIncompatible = GreenfieldRpcRuntimeHostExtensionIncompatible;
 /** @deprecated Use the neutral Greenfield RPC host contracts. */
 export type GreenfieldImRuntimeHostFallback = GreenfieldRpcRuntimeHostFallback;
 /** @deprecated Use the neutral Greenfield RPC host contracts. */
@@ -152,7 +165,7 @@ export const GREENFIELD_IM_EXTENSION_EVENT_PROFILE = {
 /**
  * 构建显式 opt-in 的 Greenfield IM Runtime Host。
  *
- * 返回 fallback 不会启动 Legacy，也不会处置 Bootstrap；最终后端选择仍由调用方负责。
+ * 返回兼容性结果不会启动 Legacy，也不会处置 Bootstrap；最终后端选择仍由调用方负责。
  */
 export async function createGreenfieldImRuntimeHost(
 	options: CreateGreenfieldImRuntimeHostOptions,
@@ -212,8 +225,7 @@ async function prepareGreenfieldRuntimeHost(
 	});
 	if (extensionCompatibility.requiresLegacyRuntime) {
 		return {
-			kind: "legacy-fallback",
-			reason: "legacy-extension",
+			kind: "extension-incompatible",
 			bootstrap,
 			sessionPath: parsed.session,
 			extensionCompatibility,
