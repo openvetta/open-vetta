@@ -602,7 +602,7 @@ describe("package boundary analysis", () => {
 				compositionPath,
 				'import { createGreenfieldMcpSessionCoordinator } from "./greenfield-mcp-session-coordinator.js";',
 			),
-		).toEqual([]);
+		).toHaveLength(1);
 	});
 
 	it("keeps Session initialization transactions out of the Greenfield Composition Root", () => {
@@ -620,6 +620,28 @@ describe("package boundary analysis", () => {
 			findPackageBoundaryViolations(
 				compositionPath,
 				'import { createGreenfieldSessionInitializationTransaction } from "./greenfield-session-initialization-transaction.js";',
+			),
+		).toEqual([]);
+	});
+
+	it("keeps Runtime Tool Surface assembly out of the Greenfield Composition Root", () => {
+		const compositionPath = "packages/coding-agent/src/composition/greenfield-runtime-composition.ts";
+		const embeddedToolSurface = `
+			const scopes = CODING_TOOL_SCOPES;
+			const order = CODING_AGENT_MODEL_TOOL_ORDER;
+			createCodingToolsRuntimeComposition({});
+			createGreenfieldMcpSessionCoordinator({});
+			adaptCodingAgentToolRegistration({});
+			createKbListTagsTool();
+			createKbFilterByTagsTool();
+			resolveGreenfieldToolActivation({});
+			const instruction = "knowledge_mode_instruction";
+		`;
+		expect(findPackageBoundaryViolations(compositionPath, embeddedToolSurface)).toHaveLength(9);
+		expect(
+			findPackageBoundaryViolations(
+				compositionPath,
+				'import { createGreenfieldRuntimeToolSurface } from "./greenfield-runtime-tool-surface.js";',
 			),
 		).toEqual([]);
 	});

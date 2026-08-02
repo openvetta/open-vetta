@@ -1,26 +1,16 @@
 import { ComposedGreenfieldRuntimeFactory, GreenfieldRuntimeSessionBackend } from "@vetta/runtime-core";
 import { selectConversationDocumentModelMessages } from "@vetta/runtime-core/conversation";
-import type { ModelCallContributionContext } from "@vetta/runtime-core/kernel";
 import type { McpRuntimeToolView } from "@vetta/runtime-mcp";
 import { FileConversationRepository } from "@vetta/runtime-storage/conversation";
-import { CODING_TOOL_SCOPES, type CodingToolActivation } from "@vetta/runtime-tools/coding";
 import {
-	adaptCodingAgentToolRegistration,
-	CODING_AGENT_MODEL_TOOL_ORDER,
 	CodingAgentGreenfieldAgentMessageContextProjector,
 	CodingAgentModelRegistryAdapter,
 } from "../adapters/runtime-core/greenfield.js";
 import { CodingAgentGreenfieldConversationContextOverlay } from "../adapters/runtime-core/greenfield-conversation-context-overlay.js";
 import { CodingAgentGreenfieldExtensionToolRuntime } from "../adapters/runtime-core/greenfield-extension-tool-runtime.js";
-import { createKbFilterByTagsTool } from "../core/tools/kb-filter-by-tags/index.js";
-import { createKbListTagsTool } from "../core/tools/kb-list-tags/index.js";
 import { ConversationOwnershipBinding } from "./conversation-ownership-binding.js";
 import { GreenfieldCompositionResourceRegistry } from "./greenfield-composition-resource-registry.js";
 import { createGreenfieldCompositionShutdown } from "./greenfield-composition-shutdown.js";
-import {
-	createGreenfieldMcpSessionCoordinator,
-	type GreenfieldMcpSessionCoordinator,
-} from "./greenfield-mcp-session-coordinator.js";
 import type {
 	GreenfieldRuntimeComposition,
 	GreenfieldRuntimeCompositionOptions,
@@ -35,9 +25,9 @@ export type {
 	GreenfieldRuntimeSessionOptions,
 } from "./greenfield-runtime-composition-contract.js";
 
+import { createGreenfieldRuntimeToolSurface } from "./greenfield-runtime-tool-surface.js";
 import { createGreenfieldSessionInitializationTransaction } from "./greenfield-session-initialization-transaction.js";
 import type { GreenfieldSessionValueIndex } from "./greenfield-session-resource-index.js";
-import { createCodingToolsRuntimeComposition } from "./runtime-tools-composition.js";
 
 /**
  * Greenfield Runtime 的共享组合入口。
@@ -63,80 +53,26 @@ async function createGreenfieldRuntimeCompositionInternal(
 	if ((options.promptResourceSource === undefined) !== (options.promptSettingsSource === undefined)) {
 		throw new Error("promptResourceSource and promptSettingsSource must be provided together");
 	}
-	const effectiveActivation =
-		options.activation ?? ({ mode: "scope", scope: scenario } satisfies CodingToolActivation);
-	const knowledgeAvailable = options.knowledgeEnabled ?? process.env.VETTA_KNOWLEDGE_DISABLED !== "1";
-	let backgroundTasksAvailable = false;
-	let mcpCoordinator: GreenfieldMcpSessionCoordinator;
 	const resourceRegistry = new GreenfieldCompositionResourceRegistry();
-	const tools = createCodingToolsRuntimeComposition({
+	const toolSurface = await createGreenfieldRuntimeToolSurface({
 		cwd,
-		activation: effectiveActivation,
-		resolveActivation: (context) => {
-			const configuration = resourceRegistry.indexes.configurationStates.get(context.sessionId);
-			return resolveTurnToolActivation(
-				effectiveActivation,
-				context,
-				{
-					backgroundTasksAvailable,
-					knowledgeAvailable,
-				},
-				configuration?.readAgentMode(),
-				configuration?.readActiveToolNamesOverride(),
-			);
-		},
-		refreshCatalog: async (context) => {
-			await mcpCoordinator.refreshCatalogForModelCall(context.sessionId);
-		},
-		filterRegistration: (registration, context) => {
-			const executionRuntime = resourceRegistry.indexes.executionRuntimes.get(context.sessionId);
-			if (executionRuntime?.ownsTool(registration.tool.name)) {
-				return false;
-			}
-			if (
-				registration.category === "kb-read" &&
-				!isKnowledgeToolEnabled(effectiveActivation, context, knowledgeAvailable)
-			) {
-				return false;
-			}
-			const controller = resourceRegistry.indexes.mcpControllers.get(context.sessionId);
-			return !controller?.isManagedTool(registration.tool.name) || controller.isToolVisible(registration.tool.name);
-		},
-		additionalRegistrations: [
-			adaptCodingAgentToolRegistration(createKbListTagsTool(options.knowledgeRoot), {
-				modelOrder: CODING_AGENT_MODEL_TOOL_ORDER.knowledgeTags,
-			}),
-			adaptCodingAgentToolRegistration(createKbFilterByTagsTool(options.knowledgeRoot), {
-				modelOrder: CODING_AGENT_MODEL_TOOL_ORDER.knowledgeFilter,
-			}),
-			...inheritedMcpView.tools.map(({ tool }) => ({
-				tool,
-				scopeUse: CODING_TOOL_SCOPES,
-				category: "external" as const,
-			})),
-		],
+		scenario,
+		activation: options.activation,
+		knowledgeEnabled: options.knowledgeEnabled,
+		knowledgeRoot: options.knowledgeRoot,
+		inheritedMcpView,
+		mcpSource: options.mcpSource,
+		indexes: resourceRegistry.indexes,
 		tokenBudget: options.tokenBudget,
 		reservedOutputTokens: options.reservedOutputTokens,
 	});
-	backgroundTasksAvailable = tools.backgroundService !== undefined;
-	try {
-		mcpCoordinator = await createGreenfieldMcpSessionCoordinator({
-			source: options.mcpSource,
-			indexes: resourceRegistry.indexes,
-			registry: {
-				register: (tool) =>
-					tools.registry.register({
-						tool,
-						scopeUse: CODING_TOOL_SCOPES,
-						category: "external",
-					}),
-				unregister: (toolName) => tools.registry.unregister(toolName),
-			},
-		});
-	} catch (error) {
-		tools.dispose();
-		throw error;
-	}
+	const {
+		activation: effectiveActivation,
+		backgroundTasksAvailable,
+		knowledgeAvailable,
+		mcpCoordinator,
+		tools,
+	} = toolSurface;
 	const repository = new FileConversationRepository({ rootDir: options.conversationDir });
 	const baseConversationContextProjector = new CodingAgentGreenfieldAgentMessageContextProjector();
 	const conversationContextOverlay = new CodingAgentGreenfieldConversationContextOverlay(
@@ -185,14 +121,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 			await binding?.rebind(repository.resolveConversationPath(sessionId));
 		},
 		releaseOwnership,
-		resolveActivation: (context, agentMode, activeToolNamesOverride) =>
-			resolveTurnToolActivation(
-				effectiveActivation,
-				context,
-				{ backgroundTasksAvailable, knowledgeAvailable },
-				agentMode,
-				activeToolNamesOverride,
-			),
+		resolveActivation: toolSurface.resolveActivation,
 		createChildComposition: async (request) => {
 			const {
 				mcpSource: _mcpSource,
@@ -305,38 +234,6 @@ function requireSessionHookController<T>(controllers: GreenfieldSessionValueInde
 	const controller = controllers.get(sessionId);
 	if (!controller) throw new Error(`Greenfield session hook lifecycle not found: ${sessionId}`);
 	return controller;
-}
-
-function resolveTurnToolActivation(
-	base: CodingToolActivation,
-	context: ModelCallContributionContext,
-	availability: {
-		readonly backgroundTasksAvailable: boolean;
-		readonly knowledgeAvailable: boolean;
-	},
-	agentMode?: string,
-	activeToolNamesOverride?: readonly string[],
-): CodingToolActivation {
-	if (activeToolNamesOverride) return { mode: "explicit", toolNames: [...activeToolNamesOverride] };
-	if (base.mode === "explicit") return base;
-	const capabilities = new Set(base.capabilities);
-	if (availability.backgroundTasksAvailable) capabilities.add("bg-tasks");
-	if (isKnowledgeToolEnabled(base, context, availability.knowledgeAvailable)) {
-		capabilities.add("knowledge");
-	}
-	return { ...base, capabilities, agentMode };
-}
-
-function isKnowledgeToolEnabled(
-	base: CodingToolActivation,
-	context: ModelCallContributionContext,
-	knowledgeAvailable: boolean,
-): boolean {
-	if (!knowledgeAvailable) return false;
-	return (
-		(base.mode === "scope" && base.scope === "kb-processing") ||
-		context.input?.context?.some(({ type }) => type === "knowledge_mode_instruction") === true
-	);
 }
 
 const EMPTY_MCP_TOOL_VIEW: McpRuntimeToolView = Object.freeze({ tools: Object.freeze([]) });
