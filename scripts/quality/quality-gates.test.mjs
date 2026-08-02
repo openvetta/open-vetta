@@ -585,6 +585,26 @@ describe("package boundary analysis", () => {
 		).toEqual([]);
 	});
 
+	it("keeps MCP Session coordination out of the Greenfield Composition Root", () => {
+		const compositionPath = "packages/coding-agent/src/composition/greenfield-runtime-composition.ts";
+		const embeddedCoordinator = `
+			const synchronizer: McpRuntimeToolSynchronizer = createMcpRuntimeToolSynchronizer(source, registry);
+			const controller = createMcpDeferredToolController(options);
+			mergeMcpSnapshots(base, overlay);
+			mergeMcpToolViews(base, overlay);
+			refreshAndMergeMcpViews(base, overlay);
+			const start = "mcp.reload.start";
+			const end = "mcp.reload.end";
+		`;
+		expect(findPackageBoundaryViolations(compositionPath, embeddedCoordinator)).toHaveLength(8);
+		expect(
+			findPackageBoundaryViolations(
+				compositionPath,
+				'import { createGreenfieldMcpSessionCoordinator } from "./greenfield-mcp-session-coordinator.js";',
+			),
+		).toEqual([]);
+	});
+
 	it("requires scoped production packages to declare workspace imports", () => {
 		const source = 'import { createRuntime } from "@vetta/runtime-tools/coding";';
 		const path = "packages/coding-agent/src/composition/example.ts";

@@ -471,6 +471,35 @@ function checkGreenfieldCompositionResourceRegistryBoundary(posixPath, text, fin
 	visit(sourceFile);
 }
 
+function checkGreenfieldMcpSessionCoordinatorBoundary(posixPath, text, findings) {
+	if (posixPath !== "packages/coding-agent/src/composition/greenfield-runtime-composition.ts") return;
+
+	const sourceFile = ts.createSourceFile(posixPath, text, ts.ScriptTarget.Latest, true, scriptKind(posixPath));
+	const forbiddenSymbols = new Set([
+		"McpRuntimeToolSynchronizer",
+		"createMcpDeferredToolController",
+		"createMcpRuntimeToolSynchronizer",
+		"mergeMcpSnapshots",
+		"mergeMcpToolViews",
+		"refreshAndMergeMcpViews",
+	]);
+	const forbiddenLiterals = new Set(["mcp.reload.start", "mcp.reload.end"]);
+	const visit = (node) => {
+		if (ts.isIdentifier(node) && forbiddenSymbols.has(node.text)) {
+			findings.push(
+				`${posixPath}: Greenfield Composition Root must delegate MCP Session coordination (${node.text})`,
+			);
+		}
+		if (ts.isStringLiteralLike(node) && forbiddenLiterals.has(node.text)) {
+			findings.push(
+				`${posixPath}: Greenfield Composition Root must not own MCP refresh observation policy (${node.text})`,
+			);
+		}
+		ts.forEachChild(node, visit);
+	};
+	visit(sourceFile);
+}
+
 function checkRetiredAutomaticLegacyFallback(posixPath, text, findings) {
 	const isRuntimeProductionSource =
 		(posixPath.startsWith("packages/cli-app/src/") || posixPath.startsWith("packages/coding-agent/src/")) &&
@@ -673,6 +702,7 @@ export function findPackageBoundaryViolations(posixPath, text, options = {}) {
 	checkGreenfieldTurnCapabilityAssemblyBoundary(posixPath, text, findings);
 	checkGreenfieldSessionResourceLifecycleAssemblyBoundary(posixPath, text, findings);
 	checkGreenfieldCompositionResourceRegistryBoundary(posixPath, text, findings);
+	checkGreenfieldMcpSessionCoordinatorBoundary(posixPath, text, findings);
 	checkRetiredAutomaticLegacyFallback(posixPath, text, findings);
 	checkRuntimeCompositionCompatibilityFacade(posixPath, specifiers, findings);
 	checkCodingAgentRootImports(posixPath, specifiers, findings);

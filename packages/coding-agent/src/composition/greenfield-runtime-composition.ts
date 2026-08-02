@@ -23,14 +23,7 @@ import type {
 	ModelCallContributionContext,
 	SessionContextRecord,
 } from "@vetta/runtime-core/kernel";
-import {
-	createMcpDeferredToolController,
-	createMcpRuntimeToolSynchronizer,
-	type McpRuntimeToolSnapshot,
-	type McpRuntimeToolSource,
-	type McpRuntimeToolSynchronizer,
-	type McpRuntimeToolView,
-} from "@vetta/runtime-mcp";
+import type { McpRuntimeToolSource, McpRuntimeToolView } from "@vetta/runtime-mcp";
 import { type ConversationOwnershipManager, FileConversationRepository } from "@vetta/runtime-storage/conversation";
 import {
 	CODING_TOOL_SCOPES,
@@ -80,6 +73,10 @@ import { createKbListTagsTool } from "../core/tools/kb-list-tags/index.js";
 import { ConversationOwnershipBinding } from "./conversation-ownership-binding.js";
 import { GreenfieldCompositionResourceRegistry } from "./greenfield-composition-resource-registry.js";
 import { createGreenfieldCompositionShutdown } from "./greenfield-composition-shutdown.js";
+import {
+	createGreenfieldMcpSessionCoordinator,
+	type GreenfieldMcpSessionCoordinator,
+} from "./greenfield-mcp-session-coordinator.js";
 import { GreenfieldSessionExecutionRuntime } from "./greenfield-session-execution-runtime.js";
 import { GreenfieldSessionConfigurationState } from "./greenfield-session-peripherals.js";
 import type { GreenfieldSessionValueIndex } from "./greenfield-session-resource-index.js";
@@ -256,7 +253,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 		options.activation ?? ({ mode: "scope", scope: scenario } satisfies CodingToolActivation);
 	const knowledgeAvailable = options.knowledgeEnabled ?? process.env.VETTA_KNOWLEDGE_DISABLED !== "1";
 	let backgroundTasksAvailable = false;
-	let mcpSynchronizer: McpRuntimeToolSynchronizer | undefined;
+	let mcpCoordinator: GreenfieldMcpSessionCoordinator;
 	const resourceRegistry = new GreenfieldCompositionResourceRegistry();
 	const tools = createCodingToolsRuntimeComposition({
 		cwd,
@@ -275,8 +272,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 			);
 		},
 		refreshCatalog: async (context) => {
-			if (resourceRegistry.indexes.mcpPromptRefreshReuseSessions.delete(context.sessionId)) return;
-			await refreshSessionMcp(context.sessionId, false);
+			await mcpCoordinator.refreshCatalogForModelCall(context.sessionId);
 		},
 		filterRegistration: (registration, context) => {
 			const executionRuntime = resourceRegistry.indexes.executionRuntimes.get(context.sessionId);
@@ -309,8 +305,11 @@ async function createGreenfieldRuntimeCompositionInternal(
 		reservedOutputTokens: options.reservedOutputTokens,
 	});
 	backgroundTasksAvailable = tools.backgroundService !== undefined;
-	mcpSynchronizer = options.mcpSource
-		? createMcpRuntimeToolSynchronizer(options.mcpSource, {
+	try {
+		mcpCoordinator = await createGreenfieldMcpSessionCoordinator({
+			source: options.mcpSource,
+			indexes: resourceRegistry.indexes,
+			registry: {
 				register: (tool) =>
 					tools.registry.register({
 						tool,
@@ -318,12 +317,9 @@ async function createGreenfieldRuntimeCompositionInternal(
 						category: "external",
 					}),
 				unregister: (toolName) => tools.registry.unregister(toolName),
-			})
-		: undefined;
-	try {
-		await mcpSynchronizer?.refresh();
+			},
+		});
 	} catch (error) {
-		mcpSynchronizer?.dispose();
 		tools.dispose();
 		throw error;
 	}
@@ -437,19 +433,12 @@ async function createGreenfieldRuntimeCompositionInternal(
 					await acquiredPluginMcpRuntime.reconfigure(configurationState.readAgentPlugins());
 					resourceRegistry.indexes.pluginMcpRuntimes.set(activeSessionId, acquiredPluginMcpRuntime);
 				}
-				const synchronizer = mcpSynchronizer;
-				const mcpController =
-					synchronizer || pluginMcpRuntime
-						? createMcpDeferredToolController({
-								sessionId: sessionOptions.sessionId,
-								deferredEnabled: effectiveActivation.mode !== "explicit",
-								explicitToolNames:
-									effectiveActivation.mode === "explicit" ? new Set(effectiveActivation.toolNames) : undefined,
-							})
-						: undefined;
+				const mcpController = mcpCoordinator.createSessionController({
+					sessionId: sessionOptions.sessionId,
+					activation: effectiveActivation,
+					pluginRuntime: pluginMcpRuntime,
+				});
 				if (mcpController) {
-					const snapshot = mergeMcpSnapshots(synchronizer?.snapshot(), pluginMcpRuntime?.snapshot());
-					if (snapshot) mcpController.refresh(snapshot);
 					resourceRegistry.indexes.mcpControllers.set(sessionOptions.sessionId, mcpController);
 					rollback.defer({
 						id: "mcp-controller-binding",
@@ -630,7 +619,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 						selectConversationDocumentModelMessages(await repository.readDocument(activeSessionId)),
 					readModel: () => modelRuntime.readCurrentModel(),
 					readThinkingLevel: () => modelRuntime.readThinkingLevel(),
-					readInheritedMcpView: () => refreshAndMergeMcpViews(synchronizer, pluginMcpRuntime),
+					readInheritedMcpView: () => mcpCoordinator.readInheritedToolView(pluginMcpRuntime),
 					createChildComposition: async (request) => {
 						const {
 							mcpSource: _mcpSource,
@@ -721,7 +710,8 @@ async function createGreenfieldRuntimeCompositionInternal(
 					backgroundTasksAvailable,
 					askUserQuestion: sessionOptions.askUserQuestion,
 					scenario,
-					refreshSessionMcp,
+					refreshSessionMcp: (sessionId, reportPromptBoundary) =>
+						mcpCoordinator.refreshSession(sessionId, reportPromptBoundary),
 					tracking: {
 						trackHookSessionDisposer: (dispose) => resourceRegistry.trackHookSessionDisposer(dispose),
 						untrackHookSessionDisposer: (dispose) => resourceRegistry.untrackHookSessionDisposer(dispose),
@@ -810,56 +800,12 @@ async function createGreenfieldRuntimeCompositionInternal(
 			}
 		},
 	});
-	async function refreshSessionMcp(
-		sessionId: string,
-		reportPromptBoundary: boolean,
-	): Promise<McpRuntimeToolSnapshot | undefined> {
-		const pluginRuntime = resourceRegistry.indexes.pluginMcpRuntimes.get(sessionId);
-		const resourceContext = resourceRegistry.indexes.resourceContexts.get(sessionId);
-		const firstPromptRefresh =
-			reportPromptBoundary && !resourceRegistry.indexes.mcpRefreshObservedSessions.has(sessionId);
-		const before = mergeMcpSnapshots(mcpSynchronizer?.snapshot(), pluginRuntime?.snapshot());
-		let startReported = false;
-		if (firstPromptRefresh && resourceContext) {
-			await resourceContext.reportObservation({ type: "mcp.reload.start", source: "agent" });
-			startReported = true;
-		}
-		try {
-			const baseSnapshot = await mcpSynchronizer?.refresh();
-			const pluginSnapshot = await pluginRuntime?.refresh();
-			const snapshot = mergeMcpSnapshots(baseSnapshot, pluginSnapshot);
-			if (snapshot) resourceRegistry.indexes.mcpControllers.get(sessionId)?.refresh(snapshot);
-			const changed = snapshot?.revision !== before?.revision;
-			if (reportPromptBoundary && (firstPromptRefresh || changed) && resourceContext) {
-				if (!startReported) {
-					await resourceContext.reportObservation({ type: "mcp.reload.start", source: "agent" });
-				}
-				await resourceContext.reportObservation({ type: "mcp.reload.end", changed, source: "agent" });
-			}
-			if (reportPromptBoundary) resourceRegistry.indexes.mcpRefreshObservedSessions.add(sessionId);
-			if (reportPromptBoundary) resourceRegistry.indexes.mcpPromptRefreshReuseSessions.add(sessionId);
-			return snapshot;
-		} catch (error) {
-			if (reportPromptBoundary && resourceContext) {
-				if (!startReported) {
-					await resourceContext.reportObservation({ type: "mcp.reload.start", source: "agent" });
-				}
-				await resourceContext.reportObservation({
-					type: "mcp.reload.end",
-					changed: false,
-					errorMessage: error instanceof Error ? error.message : String(error),
-					source: "agent",
-				});
-			}
-			throw error;
-		}
-	}
 	const backend = new GreenfieldRuntimeSessionBackend({ runtimeFactory });
 	const compositionShutdown = createGreenfieldCompositionShutdown({
 		registry: resourceRegistry,
 		clearConversationContextOverlay: () => conversationContextOverlay.clearAll(),
 		closeConversationRepository: () => repository.close(),
-		disposeMcpSynchronizer: mcpSynchronizer ? () => mcpSynchronizer?.dispose() : undefined,
+		disposeMcpSynchronizer: mcpCoordinator.sharedRuntimeAvailable ? () => mcpCoordinator.dispose() : undefined,
 		disposeCodingTools: () => tools.dispose(),
 	});
 	return {
@@ -933,40 +879,6 @@ function requireSessionHookController<T>(controllers: GreenfieldSessionValueInde
 	const controller = controllers.get(sessionId);
 	if (!controller) throw new Error(`Greenfield session hook lifecycle not found: ${sessionId}`);
 	return controller;
-}
-
-function mergeMcpSnapshots(
-	base: McpRuntimeToolSnapshot | undefined,
-	overlay: McpRuntimeToolSnapshot | undefined,
-): McpRuntimeToolSnapshot | undefined {
-	if (!base && !overlay) return undefined;
-	const tools = new Map<string, McpRuntimeToolSnapshot["tools"][number]>();
-	for (const tool of base?.tools ?? []) tools.set(tool.name, tool);
-	for (const tool of overlay?.tools ?? []) tools.set(tool.name, tool);
-	return Object.freeze({
-		revision: (base?.revision ?? 0) + (overlay?.revision ?? 0),
-		tools: Object.freeze([...tools.values()]),
-	});
-}
-
-async function refreshAndMergeMcpViews(
-	base: McpRuntimeToolSynchronizer | undefined,
-	overlay: CodingAgentPluginMcpRuntime | undefined,
-): Promise<McpRuntimeToolView> {
-	await base?.refresh();
-	await overlay?.refresh();
-	return mergeMcpToolViews(base?.view(), overlay?.view());
-}
-
-function mergeMcpToolViews(
-	base: McpRuntimeToolView | undefined,
-	overlay: McpRuntimeToolView | undefined,
-): McpRuntimeToolView {
-	if (!base && !overlay) return EMPTY_MCP_TOOL_VIEW;
-	const tools = new Map<string, McpRuntimeToolView["tools"][number]>();
-	for (const binding of base?.tools ?? []) tools.set(binding.tool.name, binding);
-	for (const binding of overlay?.tools ?? []) tools.set(binding.tool.name, binding);
-	return Object.freeze({ tools: Object.freeze([...tools.values()]) });
 }
 
 function resolveTurnToolActivation(
