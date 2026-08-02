@@ -553,11 +553,34 @@ describe("package boundary analysis", () => {
 			resources.onConversationContinued = async () => {};
 			readActiveToolNames();
 		`;
-		expect(findPackageBoundaryViolations(compositionPath, embeddedAssembly)).toHaveLength(8);
+		expect(findPackageBoundaryViolations(compositionPath, embeddedAssembly)).toHaveLength(9);
 		expect(
 			findPackageBoundaryViolations(
 				compositionPath,
 				'import { createGreenfieldSessionResourceLifecycleAssembly } from "./greenfield-session-resource-lifecycle-assembly.js";',
+			),
+		).toEqual([]);
+	});
+
+	it("keeps Composition resource registries and shutdown transactions out of the Greenfield Composition Root", () => {
+		const compositionPath = "packages/coding-agent/src/composition/greenfield-runtime-composition.ts";
+		const embeddedLifecycle = `
+			const sessionValues = new InMemoryGreenfieldSessionValueIndex();
+			const sessionMarkers = new InMemoryGreenfieldSessionMarkerIndex();
+			const compositionCleanup = new RetryableCleanup();
+			const contextRuntimes = new Set();
+			const memoryRuntimes = new Set();
+			const todoRuntimes = new Set();
+			const turnCapabilityAssemblies = new Set();
+			const hookSessionDisposers = new Set();
+			const ownershipBindings = new Set();
+			prepareCompositionCleanup();
+		`;
+		expect(findPackageBoundaryViolations(compositionPath, embeddedLifecycle)).toHaveLength(11);
+		expect(
+			findPackageBoundaryViolations(
+				compositionPath,
+				'import { createGreenfieldCompositionShutdown } from "./greenfield-composition-shutdown.js";',
 			),
 		).toEqual([]);
 	});

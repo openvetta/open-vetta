@@ -443,6 +443,34 @@ function checkGreenfieldSessionResourceLifecycleAssemblyBoundary(posixPath, text
 	visit(sourceFile);
 }
 
+function checkGreenfieldCompositionResourceRegistryBoundary(posixPath, text, findings) {
+	if (posixPath !== "packages/coding-agent/src/composition/greenfield-runtime-composition.ts") return;
+
+	const sourceFile = ts.createSourceFile(posixPath, text, ts.ScriptTarget.Latest, true, scriptKind(posixPath));
+	const forbiddenSymbols = new Set([
+		"InMemoryGreenfieldSessionMarkerIndex",
+		"InMemoryGreenfieldSessionValueIndex",
+		"RetryableCleanup",
+		"compositionCleanup",
+		"contextRuntimes",
+		"hookSessionDisposers",
+		"memoryRuntimes",
+		"ownershipBindings",
+		"prepareCompositionCleanup",
+		"todoRuntimes",
+		"turnCapabilityAssemblies",
+	]);
+	const visit = (node) => {
+		if (ts.isIdentifier(node) && forbiddenSymbols.has(node.text)) {
+			findings.push(
+				`${posixPath}: Greenfield Composition Root must delegate resource registry and shutdown (${node.text})`,
+			);
+		}
+		ts.forEachChild(node, visit);
+	};
+	visit(sourceFile);
+}
+
 function checkRetiredAutomaticLegacyFallback(posixPath, text, findings) {
 	const isRuntimeProductionSource =
 		(posixPath.startsWith("packages/cli-app/src/") || posixPath.startsWith("packages/coding-agent/src/")) &&
@@ -644,6 +672,7 @@ export function findPackageBoundaryViolations(posixPath, text, options = {}) {
 	checkGreenfieldSubagentAssemblyBoundary(posixPath, text, findings);
 	checkGreenfieldTurnCapabilityAssemblyBoundary(posixPath, text, findings);
 	checkGreenfieldSessionResourceLifecycleAssemblyBoundary(posixPath, text, findings);
+	checkGreenfieldCompositionResourceRegistryBoundary(posixPath, text, findings);
 	checkRetiredAutomaticLegacyFallback(posixPath, text, findings);
 	checkRuntimeCompositionCompatibilityFacade(posixPath, specifiers, findings);
 	checkCodingAgentRootImports(posixPath, specifiers, findings);
