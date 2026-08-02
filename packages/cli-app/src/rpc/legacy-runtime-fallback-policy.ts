@@ -46,10 +46,10 @@ function assertExtensionFallback(evidence: LegacyExtensionFallbackEvidence | und
 function assertSessionFallback(evidence: LegacySessionMigrationFallbackEvidence | undefined): void {
 	if (!evidence) throw new Error("Legacy Session fallback requires migration evidence");
 	switch (evidence.status) {
-		case "locked":
 		case "not-representable":
-		case "failed":
 			return;
+		case "locked":
+		case "failed":
 		case "migrated":
 		case "reused":
 			throw new Error(`Legacy Session fallback is not allowed after migration status ${evidence.status}`);

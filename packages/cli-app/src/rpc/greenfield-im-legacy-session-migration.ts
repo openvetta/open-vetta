@@ -7,18 +7,14 @@ import {
 } from "@vetta/coding-agent/runtime-host";
 import {
 	CONVERSATION_STORAGE_ERROR_CODES,
+	ConversationOwnershipConflictError,
 	ConversationStorageError,
 	LegacySessionImportError,
 	type LegacySessionImportIssueCode,
 	migrateLegacySessionToV2,
 } from "@vetta/runtime-storage/conversation";
 
-export type GreenfieldImLegacySessionMigrationStatus =
-	| "migrated"
-	| "reused"
-	| "locked"
-	| "not-representable"
-	| "failed";
+export type GreenfieldImLegacySessionMigrationStatus = "migrated" | "reused" | "not-representable";
 
 export interface GreenfieldImLegacySessionMigrationSuccess {
 	readonly kind: "greenfield";
@@ -30,7 +26,7 @@ export interface GreenfieldImLegacySessionMigrationSuccess {
 
 export interface GreenfieldImLegacySessionMigrationFallback {
 	readonly kind: "legacy-fallback";
-	readonly status: "locked" | "not-representable" | "failed";
+	readonly status: "not-representable";
 	readonly sourcePath: string;
 	readonly errorCode?: string;
 	readonly issueCode?: LegacySessionImportIssueCode;
@@ -49,20 +45,19 @@ export async function migrateGreenfieldImLegacySession(
 	const canonicalSourcePath = await realpath(resolve(sourcePath));
 	const lease = acquireLegacySessionFormatLease(canonicalSourcePath);
 	if (lease.kind === "locked") {
-		return { kind: "legacy-fallback", status: "locked", sourcePath: canonicalSourcePath };
+		throw new ConversationOwnershipConflictError(canonicalSourcePath, lease.lockPath, {
+			token: "legacy-session-lock",
+			pid: lease.holder.pid,
+			hostname: lease.holder.hostname,
+			acquiredAt: lease.holder.openedAt,
+		});
 	}
 
 	try {
 		const sourceContent = await readFile(canonicalSourcePath);
 		const targetSessionId = deterministicTargetSessionId(canonicalSourcePath, sourceContent);
 		try {
-			const result = await migrateLegacySessionToV2({
-				sourcePath: canonicalSourcePath,
-				targetRootDir,
-				targetSessionId,
-				reuseIdenticalTarget: true,
-				entryNormalizer: normalizeCodingAgentLegacySessionEntry,
-			});
+			const result = await migrateWithConflictRecovery(canonicalSourcePath, targetRootDir, targetSessionId);
 			return {
 				kind: "greenfield",
 				status: result.created ? "migrated" : "reused",
@@ -71,10 +66,11 @@ export async function migrateGreenfieldImLegacySession(
 				targetSessionId: result.targetSessionId,
 			};
 		} catch (error) {
+			if (!isNotRepresentable(error)) throw error;
 			const importIssue = readImportIssue(error);
 			return {
 				kind: "legacy-fallback",
-				status: isNotRepresentable(error) ? "not-representable" : "failed",
+				status: "not-representable",
 				sourcePath: canonicalSourcePath,
 				errorCode: readErrorCode(error),
 				...(importIssue ?? {}),
@@ -83,6 +79,25 @@ export async function migrateGreenfieldImLegacySession(
 	} finally {
 		lease.lease.release();
 	}
+}
+
+async function migrateWithConflictRecovery(sourcePath: string, targetRootDir: string, targetSessionId: string) {
+	try {
+		return await migrateToTarget(sourcePath, targetRootDir, targetSessionId);
+	} catch (error) {
+		if (!isTargetConflict(error)) throw error;
+		return migrateToTarget(sourcePath, targetRootDir, `${targetSessionId}-recovery`);
+	}
+}
+
+function migrateToTarget(sourcePath: string, targetRootDir: string, targetSessionId: string) {
+	return migrateLegacySessionToV2({
+		sourcePath,
+		targetRootDir,
+		targetSessionId,
+		reuseIdenticalTarget: true,
+		entryNormalizer: normalizeCodingAgentLegacySessionEntry,
+	});
 }
 
 function readImportIssue(
@@ -105,6 +120,10 @@ function isNotRepresentable(error: unknown): boolean {
 			error.code === CONVERSATION_STORAGE_ERROR_CODES.INVALID_EVENT ||
 			error.code === CONVERSATION_STORAGE_ERROR_CODES.INVALID_COMMAND)
 	);
+}
+
+function isTargetConflict(error: unknown): boolean {
+	return error instanceof ConversationStorageError && error.code === CONVERSATION_STORAGE_ERROR_CODES.ALREADY_EXISTS;
 }
 
 function readErrorCode(error: unknown): string | undefined {

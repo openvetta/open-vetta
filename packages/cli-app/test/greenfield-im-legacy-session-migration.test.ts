@@ -1,7 +1,8 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { acquireLegacySessionFormatLease } from "@vetta/coding-agent/runtime-host";
+import { ConversationOwnershipConflictError } from "@vetta/runtime-storage/conversation";
 import { afterEach, describe, expect, it } from "vitest";
 import { migrateGreenfieldImLegacySession } from "../src/rpc/greenfield-im-legacy-session-migration.js";
 
@@ -38,17 +39,21 @@ describe("Greenfield IM Legacy session migration", () => {
 		expect(after.targetPath).not.toBe(before.targetPath);
 	});
 
-	it("reports a failed fallback when the deterministic target conflicts", async () => {
+	it("uses and reuses a stable recovery target without overwriting a conflicting deterministic target", async () => {
 		const fixture = await createFixture(legacySession("target conflict"));
 		const migrated = await migrateGreenfieldImLegacySession(fixture.sourcePath, fixture.targetRootDir);
 		if (migrated.kind !== "greenfield") throw new Error("Expected initial migration");
 		await writeFile(migrated.targetPath, "conflicting target", "utf8");
 
-		await expect(migrateGreenfieldImLegacySession(fixture.sourcePath, fixture.targetRootDir)).resolves.toMatchObject({
-			kind: "legacy-fallback",
-			status: "failed",
-			errorCode: "conversation_already_exists",
-		});
+		const recovered = await migrateGreenfieldImLegacySession(fixture.sourcePath, fixture.targetRootDir);
+		const reused = await migrateGreenfieldImLegacySession(fixture.sourcePath, fixture.targetRootDir);
+
+		expect(recovered).toMatchObject({ kind: "greenfield", status: "migrated" });
+		expect(reused).toEqual({ ...recovered, status: "reused" });
+		if (recovered.kind !== "greenfield") throw new Error("Expected recovery migration");
+		expect(recovered.targetSessionId).toBe(`${migrated.targetSessionId}-recovery`);
+		expect(recovered.targetPath).not.toBe(migrated.targetPath);
+		expect(await readFile(migrated.targetPath, "utf8")).toBe("conflicting target");
 	});
 
 	it("migrates an official BashExecution message through the Coding Agent normalizer", async () => {
@@ -94,21 +99,37 @@ describe("Greenfield IM Legacy session migration", () => {
 		});
 	});
 
-	it("falls back while another Legacy owner holds the source lock", async () => {
+	it("reports a neutral ownership conflict while another Legacy owner holds the source lock", async () => {
 		const fixture = await createFixture(legacySession("locked"));
 		const held = acquireLegacySessionFormatLease(fixture.sourcePath);
 		if (held.kind !== "acquired") throw new Error("Expected test lease");
+		const canonicalSourcePath = await realpath(fixture.sourcePath);
 
 		try {
-			await expect(
-				migrateGreenfieldImLegacySession(fixture.sourcePath, fixture.targetRootDir),
-			).resolves.toMatchObject({
-				kind: "legacy-fallback",
-				status: "locked",
+			const migration = migrateGreenfieldImLegacySession(fixture.sourcePath, fixture.targetRootDir);
+			await expect(migration).rejects.toBeInstanceOf(ConversationOwnershipConflictError);
+			await expect(migration).rejects.toMatchObject({
+				name: "ConversationOwnershipConflictError",
+				conversationPath: canonicalSourcePath,
+				lockPath: `${canonicalSourcePath}.lock`,
+				holder: {
+					pid: process.pid,
+					hostname: expect.any(String),
+					acquiredAt: expect.any(String),
+				},
 			});
 		} finally {
 			held.lease.release();
 		}
+	});
+
+	it("does not turn an unexpected filesystem error into a Legacy fallback", async () => {
+		const fixture = await createFixture(legacySession("filesystem failure"));
+		await writeFile(fixture.targetRootDir, "not a directory", "utf8");
+
+		await expect(migrateGreenfieldImLegacySession(fixture.sourcePath, fixture.targetRootDir)).rejects.toMatchObject({
+			code: expect.stringMatching(/^(?:EEXIST|ENOTDIR)$/),
+		});
 	});
 
 	it("falls back when the Legacy document cannot be represented by V2", async () => {
