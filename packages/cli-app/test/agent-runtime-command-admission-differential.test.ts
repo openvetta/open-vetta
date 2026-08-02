@@ -10,6 +10,7 @@ import {
 	createAgentRpcFixture,
 	type RpcFrame,
 	readSessionFile,
+	type StartAgentRpcOptions,
 	startAgentRpc,
 	type TestAgentRuntimeBackend,
 } from "./support/agent-rpc-test-process.js";
@@ -20,6 +21,10 @@ import {
 } from "./support/openai-responses-test-server.js";
 
 const BACKENDS = ["legacy", "greenfield-im"] as const satisfies readonly TestAgentRuntimeBackend[];
+const COMMAND_ADMISSION_HOST_OPTIONS = {
+	enableHostBridge: true,
+	scenario: "im-claw",
+} as const satisfies StartAgentRpcOptions;
 let executable: AgentRpcExecutable;
 
 beforeAll(async () => {
@@ -253,7 +258,7 @@ async function runIdleTransitionThenPrompt(backend: TestAgentRuntimeBackend): Pr
 	}));
 	try {
 		fixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
-		process = startAgentRpc(executable, fixture, { backend });
+		process = startAgentRpc(executable, fixture, { backend, ...COMMAND_ADMISSION_HOST_OPTIONS });
 		const sourcePath = readSessionFile(await process.request("idle-admission-source-state", "get_state"));
 
 		const concurrentMark = process.mark();
@@ -311,7 +316,7 @@ async function runTransitionThenPrompt(backend: TestAgentRuntimeBackend): Promis
 	});
 	try {
 		fixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
-		process = startAgentRpc(executable, fixture, { backend });
+		process = startAgentRpc(executable, fixture, { backend, ...COMMAND_ADMISSION_HOST_OPTIONS });
 		const sourcePath = readSessionFile(await process.request("admission-source-state", "get_state"));
 
 		const heldMark = process.mark();
@@ -373,7 +378,7 @@ async function runTransitionThenAbort(backend: TestAgentRuntimeBackend): Promise
 	}));
 	try {
 		fixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
-		process = startAgentRpc(executable, fixture, { backend });
+		process = startAgentRpc(executable, fixture, { backend, ...COMMAND_ADMISSION_HOST_OPTIONS });
 		const sourcePath = readSessionFile(await process.request("abort-source-state", "get_state"));
 
 		const heldMark = process.mark();
@@ -421,7 +426,7 @@ async function runTransitionThenClose(backend: TestAgentRuntimeBackend): Promise
 	}));
 	try {
 		fixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
-		process = startAgentRpc(executable, fixture, { backend });
+		process = startAgentRpc(executable, fixture, { backend, ...COMMAND_ADMISSION_HOST_OPTIONS });
 		await process.request("close-source-state", "get_state");
 
 		const heldMark = process.mark();
@@ -475,7 +480,11 @@ async function runExtensionShutdown(backend: TestAgentRuntimeBackend): Promise<E
 			}`,
 			"utf8",
 		);
-		process = startAgentRpc(executable, fixture, { backend, extraArgs: ["--extension", extensionPath] });
+		process = startAgentRpc(executable, fixture, {
+			backend,
+			...COMMAND_ADMISSION_HOST_OPTIONS,
+			extraArgs: ["--extension", extensionPath],
+		});
 		await process.request("extension-shutdown-state", "get_state");
 
 		const commandMark = process.mark();
@@ -512,7 +521,7 @@ async function runHeldPromptThenClose(backend: TestAgentRuntimeBackend): Promise
 	}));
 	try {
 		fixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
-		process = startAgentRpc(executable, fixture, { backend });
+		process = startAgentRpc(executable, fixture, { backend, ...COMMAND_ADMISSION_HOST_OPTIONS });
 		await process.request("prompt-close-state", "get_state");
 
 		const mark = process.mark();
@@ -551,6 +560,7 @@ async function runHeldMemoryFlushThenClose(backend: TestAgentRuntimeBackend): Pr
 		await writeFile(memoryFile, "# Memory\n", "utf8");
 		process = startAgentRpc(executable, fixture, {
 			backend,
+			...COMMAND_ADMISSION_HOST_OPTIONS,
 			extraArgs: ["--memory-mode", "--memory-file", memoryFile],
 		});
 		const seedMark = process.mark();
@@ -600,7 +610,7 @@ async function runHostBridgeThenClose(backend: TestAgentRuntimeBackend): Promise
 		fixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
 		attachmentPath = join(fixture.workspace, "bridge-close.txt");
 		await writeFile(attachmentPath, "bridge close", "utf8");
-		process = startAgentRpc(executable, fixture, { backend });
+		process = startAgentRpc(executable, fixture, { backend, ...COMMAND_ADMISSION_HOST_OPTIONS });
 		await process.request("host-close-state", "get_state");
 
 		const mark = process.mark();
@@ -647,7 +657,11 @@ async function runExtensionUiThenClose(backend: TestAgentRuntimeBackend): Promis
 			}`,
 			"utf8",
 		);
-		process = startAgentRpc(executable, fixture, { backend, extraArgs: ["--extension", extensionPath] });
+		process = startAgentRpc(executable, fixture, {
+			backend,
+			...COMMAND_ADMISSION_HOST_OPTIONS,
+			extraArgs: ["--extension", extensionPath],
+		});
 		await process.request("extension-ui-close-state", "get_state");
 
 		const mark = process.mark();

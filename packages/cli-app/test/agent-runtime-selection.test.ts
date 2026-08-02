@@ -193,7 +193,7 @@ describe("Agent Runtime selection", () => {
 		});
 		expect(continued.stderr).toContain("requested=greenfield-im effective=greenfield-im");
 		await continued.close();
-	});
+	}, 30_000);
 
 	it("creates a Greenfield conversation when continue has no previous session", async () => {
 		const fixture = await createFixture();

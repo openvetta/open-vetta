@@ -474,6 +474,33 @@ describe("RPC command dispatcher", () => {
 		expect(session.dispose).toHaveBeenCalledOnce();
 	});
 
+	test("does not re-enter an Extension callback while accepting its shutdown request", async () => {
+		const session = createSessionCapabilities();
+		const lifecycle: string[] = [];
+		let initialization: RpcSessionInitialization | undefined;
+		session.initialize = vi.fn(async (input) => {
+			initialization = input;
+		});
+		session.shutdown = vi.fn(async () => {
+			lifecycle.push("session-shutdown");
+		});
+		const input = new PassThrough();
+		const output = new PassThrough();
+		const exit = vi.fn();
+
+		void runRpcModeWithCapabilities(session, { input, output, exit });
+		await vi.waitFor(() => expect(initialization).toBeDefined());
+		lifecycle.push("handler-before");
+		required(initialization).onShutdownRequested();
+		lifecycle.push("handler-after");
+		expect(session.shutdown).not.toHaveBeenCalled();
+		await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(0));
+
+		expect(lifecycle).toEqual(["handler-before", "handler-after", "session-shutdown"]);
+		expect(session.shutdown).toHaveBeenCalledOnce();
+		expect(session.dispose).toHaveBeenCalledOnce();
+	});
+
 	test("disposes capabilities when RPC initialization fails", async () => {
 		const session = createSessionCapabilities();
 		session.initialize = vi.fn(async () => {

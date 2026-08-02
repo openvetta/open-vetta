@@ -69,6 +69,15 @@ export async function runRpcModeWithCapabilities(
 	const exit = options.exit ?? ((code: number): never => process.exit(code));
 	let shutdownRequested = false;
 	let beginRequestedShutdown: (() => void) | undefined;
+	let requestedShutdownScheduled = false;
+	const scheduleRequestedShutdown = (): void => {
+		if (requestedShutdownScheduled) return;
+		requestedShutdownScheduled = true;
+		queueMicrotask(() => {
+			requestedShutdownScheduled = false;
+			beginRequestedShutdown?.();
+		});
+	};
 
 	try {
 		await session.initialize({
@@ -76,7 +85,7 @@ export async function runRpcModeWithCapabilities(
 			hostBridge: hostBridge?.createBridge(),
 			onShutdownRequested: () => {
 				shutdownRequested = true;
-				beginRequestedShutdown?.();
+				scheduleRequestedShutdown();
 			},
 			onExtensionError: (error) => {
 				output({
@@ -128,7 +137,7 @@ export async function runRpcModeWithCapabilities(
 			transport.close();
 		});
 	};
-	if (shutdownRequested) beginRequestedShutdown();
+	if (shutdownRequested) scheduleRequestedShutdown();
 
 	const handleLine = async (line: string): Promise<void> => {
 		try {
@@ -148,7 +157,7 @@ export async function runRpcModeWithCapabilities(
 				case "command": {
 					const response = await dispatch(frame.value);
 					output(response);
-					if (shutdownRequested) beginRequestedShutdown();
+					if (shutdownRequested) scheduleRequestedShutdown();
 					return;
 				}
 			}
