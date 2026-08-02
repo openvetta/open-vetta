@@ -23,6 +23,7 @@ import type {
 	TurnResult,
 } from "../kernel/contracts.js";
 import { sessionBusyError, sessionClosedError } from "../kernel/errors.js";
+import { GreenfieldDocumentMutationCoordinator } from "./greenfield-document-mutation-coordinator.js";
 import type {
 	GreenfieldRuntimeDocumentParticipant,
 	GreenfieldRuntimeDocumentParticipantContext,
@@ -151,6 +152,7 @@ export class GreenfieldRuntimeSession {
 	private readonly stateSource: GreenfieldRuntimeStateSource;
 	private readonly conversationDocumentStore: ConversationDocumentStore;
 	private readonly projection: GreenfieldSessionProjection;
+	private readonly documentMutations: GreenfieldDocumentMutationCoordinator;
 	private readonly documentParticipants: readonly GreenfieldRuntimeDocumentParticipant[];
 	private readonly todoController: RuntimeSessionTodoController | undefined;
 	private readonly contextController: RuntimeSessionContextController | undefined;
@@ -177,6 +179,13 @@ export class GreenfieldRuntimeSession {
 		this.stateSource = assembly.stateSource;
 		this.conversationDocumentStore = assembly.conversationDocumentStore;
 		this.projection = projection;
+		this.documentMutations = new GreenfieldDocumentMutationCoordinator({
+			readSessionId: () => this.session.id,
+			store: this.conversationDocumentStore,
+			readProjectedDocument: () => this.projection.readDocument(),
+			replaceProjectedDocument: (document) => this.projection.replaceDocument(document),
+		});
+		this.eventSink.bindDocumentMutationCoordinator(this.documentMutations);
 		this.documentParticipants = assembly.documentParticipants ?? [];
 		this.todoController = assembly.todoController;
 		this.contextController = assembly.contextController;
@@ -381,11 +390,10 @@ export class GreenfieldRuntimeSession {
 		}
 		this.historyMutation = true;
 		try {
-			const result = await this.conversationDocumentStore.execute(this.sessionId, null, {
+			await this.executeDocumentCommand({
 				type: "session.name.set",
 				name,
 			});
-			await this.applyDocumentResult(result);
 		} finally {
 			this.historyMutation = false;
 		}
@@ -393,26 +401,24 @@ export class GreenfieldRuntimeSession {
 
 	async appendEntry(customType: string, data?: unknown): Promise<void> {
 		this.assertOpen();
-		const result = await this.conversationDocumentStore.execute(this.sessionId, null, {
+		await this.executeDocumentCommand({
 			type: "custom.append",
 			entryId: `entry-${randomUUID()}`,
 			customType,
 			data,
 			timestamp: new Date().toISOString(),
 		});
-		await this.applyDocumentResult(result);
 	}
 
 	async setLabel(entryId: string, label: string | undefined): Promise<void> {
 		this.assertOpen();
-		const result = await this.conversationDocumentStore.execute(this.sessionId, null, {
+		await this.executeDocumentCommand({
 			type: "entry.label.set",
 			entryId: `label-${randomUUID()}`,
 			targetId: entryId,
 			label,
 			timestamp: new Date().toISOString(),
 		});
-		await this.applyDocumentResult(result);
 	}
 
 	createCoreAssembly(): GreenfieldRuntimeSessionCoreAssembly {
@@ -551,21 +557,11 @@ export class GreenfieldRuntimeSession {
 	private async executeDocumentCommand(
 		command: ConversationDocumentCommand,
 	): Promise<ConversationDocumentCommandResult> {
-		const document = await this.conversationDocumentStore.readDocument(this.sessionId);
-		const projected = this.projection.readDocument();
-		if (document.revision !== projected.revision || document.journalVersion !== projected.journalVersion) {
-			this.projection.replaceDocument(document);
-		}
-		const result = await this.conversationDocumentStore.execute(this.sessionId, document.revision, command);
-		await this.applyDocumentResult(result);
-		return result;
-	}
-
-	private async applyDocumentResult(result: ConversationDocumentCommandResult): Promise<void> {
-		this.projection.replaceDocument(result.document);
+		const result = await this.documentMutations.execute(command);
 		for (const participant of this.documentParticipants) {
 			await participant.onDocumentChanged(result.document);
 		}
+		return result;
 	}
 
 	private async withHistoryMutation<T>(message: string, operation: () => Promise<T>): Promise<T> {
@@ -645,6 +641,7 @@ class GreenfieldSessionEventSink implements EventSink {
 	>();
 	private readonly initializationEvents: SessionEvent[] = [];
 	private documentParticipants: readonly GreenfieldRuntimeDocumentParticipant[] = [];
+	private documentMutationCoordinator: GreenfieldDocumentMutationCoordinator | undefined;
 	private identity: GreenfieldRuntimeSessionIdentity = {};
 	private projection: GreenfieldSessionProjection | undefined;
 	private stateSource: GreenfieldRuntimeStateSource | undefined;
@@ -659,7 +656,9 @@ class GreenfieldSessionEventSink implements EventSink {
 			});
 		}
 		if (event.type === "conversation.continued") {
-			this.projection?.replaceConversation(event.conversation, event.document);
+			await this.applyProjectionChange(() =>
+				this.projection?.replaceConversation(event.conversation, event.document),
+			);
 			this.identity = {
 				cwd: event.document.identity.cwd,
 				sessionPath: event.sessionPath,
@@ -671,7 +670,11 @@ class GreenfieldSessionEventSink implements EventSink {
 			}
 		}
 		if (isStoredSessionEvent(event)) {
-			this.projection?.apply(event);
+			if (this.documentMutationCoordinator) {
+				await this.documentMutationCoordinator.synchronizeProjection();
+			} else {
+				this.projection?.apply(event);
+			}
 			for (const participant of this.documentParticipants) {
 				await participant.onSessionEvent?.(event);
 			}
@@ -729,11 +732,24 @@ class GreenfieldSessionEventSink implements EventSink {
 		this.documentParticipants = participants;
 	}
 
+	bindDocumentMutationCoordinator(coordinator: GreenfieldDocumentMutationCoordinator): void {
+		this.documentMutationCoordinator = coordinator;
+	}
+
 	clear(): void {
 		this.listeners.clear();
 		this.executionObservationListeners.clear();
 		this.initializationEvents.length = 0;
 		this.stateSource = undefined;
+		this.documentMutationCoordinator = undefined;
+	}
+
+	private async applyProjectionChange(change: () => void): Promise<void> {
+		if (this.documentMutationCoordinator) {
+			await this.documentMutationCoordinator.applyProjectionChange(change);
+			return;
+		}
+		change();
 	}
 
 	private withDynamicState(event: SessionEvent): SessionEvent {
