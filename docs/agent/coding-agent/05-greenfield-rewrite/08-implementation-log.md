@@ -186,6 +186,7 @@
 | [176-greenfield-print-candidate-and-cli-differential.md](./08-implementation-log/176-greenfield-print-candidate-and-cli-differential.md) | Greenfield Print 显式候选、完整事件投影与标准 CLI 差分门禁 |
 | [177-neutral-session-host-and-turn-orchestration.md](./08-implementation-log/177-neutral-session-host-and-turn-orchestration.md) | 中立 Agent Session Host、Turn/Retry 编排与 Print/RPC 外围分离 |
 | [178-greenfield-print-production-parity-gate.md](./08-implementation-log/178-greenfield-print-production-parity-gate.md) | Greenfield Print 附件、工具、Provider 故障、Extension 与跨进程继续会话生产差分门禁 |
+| [179-greenfield-print-default-cutover-and-artifact-closure.md](./08-implementation-log/179-greenfield-print-default-cutover-and-artifact-closure.md) | Greenfield Print 默认切换、统一会话目录与单文件图片能力闭环 |
 
 ## 维护约定
 

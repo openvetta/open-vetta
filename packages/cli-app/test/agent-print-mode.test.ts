@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { copyFile, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -18,7 +18,14 @@ interface AgentCliResult {
 }
 
 const repositoryRoot = fileURLToPath(new URL("../../..", import.meta.url));
-const sourceEntryPath = fileURLToPath(new URL("../src/cli.ts", import.meta.url));
+const compileScriptPath = fileURLToPath(new URL("../scripts/compile-standalone.mjs", import.meta.url));
+const compileTargetByPlatform = {
+	"darwin-arm64": "bun-darwin-arm64",
+	"darwin-x64": "bun-darwin-x64",
+	"linux-arm64": "bun-linux-arm64",
+	"linux-x64": "bun-linux-x64",
+	"win32-x64": "bun-windows-x64",
+} as const;
 let executable: AgentCliExecutable;
 
 interface AgentCliExecutable {
@@ -28,14 +35,14 @@ interface AgentCliExecutable {
 
 beforeAll(async () => {
 	executable = await buildAgentCliExecutable();
-});
+}, 120_000);
 
 afterAll(async () => {
-	await executable.dispose();
+	await executable?.dispose();
 });
 
 describe("Agent non-RPC CLI compatibility", () => {
-	it("keeps explicit text print on the Legacy session path", async () => {
+	it("defaults explicit text Print to Greenfield", async () => {
 		const marker = "explicit text print response";
 		const server = await startOpenAiResponsesTestServer(() => ({
 			kind: "events",
@@ -47,7 +54,7 @@ describe("Agent non-RPC CLI compatibility", () => {
 
 			expect(result.code).toBe(0);
 			expect(result.stdout).toContain(marker);
-			expect(result.stderr).toContain("requested=legacy effective=legacy");
+			expect(result.stderr).toContain("requested=greenfield effective=greenfield");
 			expect(server.requests).toHaveLength(1);
 		} finally {
 			await fixture.dispose();
@@ -55,19 +62,19 @@ describe("Agent non-RPC CLI compatibility", () => {
 		}
 	}, 30_000);
 
-	it("runs explicit Greenfield text print through the standard Vetta CLI", async () => {
-		const marker = "explicit Greenfield text print response";
+	it("keeps explicit Legacy text Print available", async () => {
+		const marker = "explicit Legacy text print response";
 		const server = await startOpenAiResponsesTestServer(() => ({
 			kind: "events",
 			events: textResponseEvents(marker),
 		}));
 		const fixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
 		try {
-			const result = await runAgentCli(fixture, ["--agent-runtime", "greenfield", "--print", "reply in text"]);
+			const result = await runAgentCli(fixture, ["--agent-runtime", "legacy", "--print", "reply in text"]);
 
 			expect(result.code).toBe(0);
 			expect(result.stdout).toContain(marker);
-			expect(result.stderr).toContain("requested=greenfield effective=greenfield");
+			expect(result.stderr).toContain("requested=legacy effective=legacy");
 			expect(server.requests).toHaveLength(1);
 		} finally {
 			await fixture.dispose();
@@ -89,7 +96,7 @@ describe("Agent non-RPC CLI compatibility", () => {
 			expect(result.code).toBe(0);
 			expect(frames.length).toBeGreaterThan(1);
 			expect(result.stdout).toContain(marker);
-			expect(result.stderr).toContain("requested=legacy effective=legacy");
+			expect(result.stderr).toContain("requested=greenfield effective=greenfield");
 		} finally {
 			await fixture.dispose();
 			await server.dispose();
@@ -139,7 +146,7 @@ describe("Agent non-RPC CLI compatibility", () => {
 
 			expect(result.code).toBe(0);
 			expect(result.stdout).toContain(marker);
-			expect(result.stderr).toContain("requested=legacy effective=legacy");
+			expect(result.stderr).toContain("requested=greenfield effective=greenfield");
 			expect(server.requests).toHaveLength(1);
 		} finally {
 			await fixture.dispose();
@@ -194,6 +201,7 @@ describe("Agent non-RPC CLI compatibility", () => {
 					`@${imagePath}`,
 					"inspect attachments",
 				]);
+				expect(result.stderr).not.toContain("Photon WASM failed");
 				return {
 					code: result.code,
 					userInput: normalizeFixtureValue(readLastUserInput(server.requests[0]?.body.input), fixture),
@@ -249,6 +257,32 @@ describe("Agent non-RPC CLI compatibility", () => {
 			"tool_execution_end",
 		]);
 		expect(observations.greenfield.secondInputHasResult).toBe(true);
+	}, 60_000);
+
+	it("does not fall back to Legacy when a Greenfield Print tool reports an error", async () => {
+		let fixture: AgentRpcFixture | undefined;
+		const server = await startOpenAiResponsesTestServer((_request, index) =>
+			index === 0
+				? {
+						kind: "events",
+						events: toolCallResponseEvents("read", { path: join(fixture!.workspace, "missing.txt") }),
+					}
+				: { kind: "events", events: textResponseEvents("tool error observed") },
+		);
+		fixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
+		try {
+			const result = await runAgentCli(fixture, ["--mode", "json", "read the missing fixture"]);
+			const toolEnd = readFrames(result.stdout).find((frame) => frame.type === "tool_execution_end");
+
+			expect(result.code).toBe(0);
+			expect(server.requests).toHaveLength(2);
+			expect(toolEnd).toMatchObject({ toolName: "read", isError: true });
+			expect(result.stderr).toContain("requested=greenfield effective=greenfield");
+			expect(result.stderr).not.toContain("fallback=");
+		} finally {
+			await fixture.dispose();
+			await server.dispose();
+		}
 	}, 60_000);
 
 	it("keeps Provider HTTP retry events compatible with Legacy", async () => {
@@ -363,6 +397,7 @@ describe("Agent non-RPC CLI compatibility", () => {
 					retryFrameCount: readFrames(result.stdout).filter(
 						(frame) => frame.type === "auto_retry_start" || frame.type === "auto_retry_end",
 					).length,
+					fallback: result.stderr.includes("fallback="),
 				};
 			} finally {
 				await fixture.dispose();
@@ -371,7 +406,7 @@ describe("Agent non-RPC CLI compatibility", () => {
 		});
 
 		expect(observations.greenfield).toEqual(observations.legacy);
-		expect(observations.greenfield).toEqual({ code: 0, requestCount: 1, retryFrameCount: 0 });
+		expect(observations.greenfield).toEqual({ code: 0, requestCount: 1, retryFrameCount: 0, fallback: false });
 	}, 60_000);
 
 	it("keeps text Print Provider failure exit status compatible with Legacy", async () => {
@@ -443,6 +478,40 @@ describe("Agent non-RPC CLI compatibility", () => {
 		});
 	}, 60_000);
 
+	it("falls back explicitly for an unsupported Extension event on default Greenfield Print", async () => {
+		const server = await startOpenAiResponsesTestServer(() => ({
+			kind: "events",
+			events: textResponseEvents("extension fallback completed"),
+		}));
+		const fixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
+		const extensionPath = join(fixture.root, "unsupported-print-extension.ts");
+		await writeFile(
+			extensionPath,
+			`export default function(extension) {
+				extension.on("future_event", async () => {});
+			}`,
+			"utf8",
+		);
+		try {
+			const result = await runAgentCli(fixture, [
+				"--mode",
+				"json",
+				"--extension",
+				extensionPath,
+				"exercise fallback",
+			]);
+
+			expect(result.code).toBe(0);
+			expect(server.requests).toHaveLength(1);
+			expect(result.stderr).toContain("requested=greenfield effective=legacy");
+			expect(result.stderr).toContain("fallback=legacy-extension");
+			expect(result.stderr).toContain("unsupportedEvents=future_event");
+		} finally {
+			await fixture.dispose();
+			await server.dispose();
+		}
+	}, 60_000);
+
 	it("keeps --continue context and session identity stable across Print processes", async () => {
 		const observations = await runPrintBackends(async (backend) => {
 			const server = await startOpenAiResponsesTestServer((_request, index) => ({
@@ -481,6 +550,46 @@ describe("Agent non-RPC CLI compatibility", () => {
 		expect(observations.greenfield).toEqual({ codes: [0, 0], sameSession: true, continuedContext: true });
 	}, 60_000);
 
+	it("falls back to Legacy while preserving records from an unrepresentable session", async () => {
+		const server = await startOpenAiResponsesTestServer(() => ({
+			kind: "events",
+			events: textResponseEvents("legacy session fallback completed"),
+		}));
+		const fixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
+		const sessionPath = join(fixture.root, "unrepresentable-legacy.jsonl");
+		const source = `${JSON.stringify({
+			type: "session",
+			version: 3,
+			id: "unrepresentable-print-session",
+			timestamp: "2026-01-01T00:00:00.000Z",
+			cwd: fixture.workspace,
+		})}\n${JSON.stringify({
+			type: "future_entry",
+			id: "future-1",
+			parentId: null,
+			timestamp: "2026-01-01T00:00:01.000Z",
+		})}\n`;
+		await writeFile(sessionPath, source, "utf8");
+		try {
+			const result = await runAgentCli(fixture, ["--session", sessionPath, "--mode", "json", "continue safely"]);
+
+			expect(result.code).toBe(0);
+			expect(server.requests).toHaveLength(1);
+			expect(result.stderr).toContain("requested=greenfield effective=legacy");
+			expect(result.stderr).toContain("fallback=legacy-session");
+			expect(result.stderr).toContain("sessionMigration=not-representable");
+			const persisted = await readFile(sessionPath, "utf8");
+			expect(persisted.startsWith(source)).toBe(true);
+			expect(persisted).toContain("continue safely");
+			expect(persisted).toContain("legacy session fallback completed");
+			const defaultSessionEntries = await readdir(join(fixture.agentDir, "sessions"), { recursive: true });
+			expect(defaultSessionEntries.some((entry) => entry.endsWith(".conversation.jsonl"))).toBe(false);
+		} finally {
+			await fixture.dispose();
+			await server.dispose();
+		}
+	}, 60_000);
+
 	it("runs help as a control command without entering session runtime selection", async () => {
 		const fixture = await createAgentRpcFixture();
 		try {
@@ -504,12 +613,9 @@ async function runAgentCli(
 		const explicitAgentCommand = extraArgs[0] === "agent";
 		const agentArgs = explicitAgentCommand ? extraArgs.slice(1) : extraArgs;
 		const child = spawn(
-			"bun",
+			executable.path,
 			[
-				executable.path,
 				...(explicitAgentCommand ? ["agent"] : []),
-				"--session-dir",
-				fixture.conversationDir,
 				"--provider",
 				"test",
 				"--model",
@@ -526,9 +632,11 @@ async function runAgentCli(
 				env: {
 					...process.env,
 					VETTA_CODING_AGENT_DIR: fixture.agentDir,
-					VETTA_PACKAGE_DIR: join(repositoryRoot, "packages", "coding-agent"),
+					VETTA_HOME: join(fixture.root, "home"),
+					VETTA_PACKAGE_DIR: undefined,
 				},
 				stdio: "pipe",
+				windowsHide: true,
 			},
 		);
 		let stdout = "";
@@ -596,7 +704,7 @@ async function runPrintBackends<T>(run: (backend: PrintBackend) => Promise<T>): 
 }
 
 function runtimeArgs(backend: PrintBackend): readonly string[] {
-	return backend === "greenfield" ? ["--agent-runtime", "greenfield"] : [];
+	return backend === "legacy" ? ["--agent-runtime", "legacy"] : [];
 }
 
 interface JsonFrame {
@@ -720,10 +828,13 @@ function readFrameType(frame: unknown): string | undefined {
 
 async function buildAgentCliExecutable(): Promise<AgentCliExecutable> {
 	const directory = await mkdtemp(join(tmpdir(), "vetta-agent-cli-executable-"));
-	const path = join(directory, "vetta.mjs");
+	const path = join(directory, process.platform === "win32" ? "vetta.exe" : "vetta");
+	const platformTag = `${process.platform}-${process.arch}` as keyof typeof compileTargetByPlatform;
+	const compileTarget = compileTargetByPlatform[platformTag];
+	if (!compileTarget) throw new Error(`Unsupported Print artifact test platform: ${platformTag}`);
 	try {
-		await runCommand("bun", ["build", sourceEntryPath, "--target", "bun", "--outfile", path], repositoryRoot);
-		await copyFile(join(repositoryRoot, "packages", "coding-agent", "package.json"), join(directory, "package.json"));
+		await runCommand("bun", [compileScriptPath, "--target", compileTarget, "--outfile", path], repositoryRoot);
+		if (process.platform !== "win32") await chmod(path, 0o755);
 		return {
 			path,
 			dispose: () => rm(directory, { force: true, recursive: true }),

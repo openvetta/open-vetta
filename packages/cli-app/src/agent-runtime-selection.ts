@@ -1,4 +1,4 @@
-import { createAgentCliBootstrap } from "@vetta/coding-agent/bootstrap";
+import { createAgentCliBootstrap, resolveCodingAgentSessionDir } from "@vetta/coding-agent/bootstrap";
 import { main as runLegacyAgent, runLegacyAgentWithBootstrap } from "@vetta/coding-agent/legacy/cli";
 import type { RpcRuntimeDecision } from "@vetta/coding-agent/rpc";
 import { ConversationOwnershipConflictError } from "@vetta/runtime-storage/conversation";
@@ -83,10 +83,7 @@ export async function runAgentRuntimeCli(
 	}
 
 	const bootstrap = await createAgentCliBootstrap(selection.agentArgs);
-	const conversationDir = bootstrap.parsed.sessionDir;
-	if (!conversationDir) {
-		throw new Error("Greenfield Runtime requires --session-dir");
-	}
+	const conversationDir = resolveCodingAgentSessionDir(bootstrap.cwd, bootstrap.parsed.sessionDir);
 	const sessionCatalog = createCliRuntimeSessionCatalog({ cwd: bootstrap.cwd, sessionDir: conversationDir });
 
 	try {
@@ -179,7 +176,9 @@ function parseBackend(value: string): AgentRuntimeBackend {
 }
 
 function defaultBackend(args: readonly string[]): AgentRuntimeBackend {
-	if (classifyAgentCliIntent(args) !== "rpc") return "legacy";
+	const intent = classifyAgentCliIntent(args);
+	if (intent === "control") return "legacy";
+	if (intent === "print") return "greenfield";
 	return args.includes("--enable-host-bridge") || args.some((arg) => arg === "--scenario=im-claw")
 		? "greenfield-im"
 		: "greenfield";

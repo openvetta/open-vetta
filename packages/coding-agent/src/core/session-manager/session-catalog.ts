@@ -6,10 +6,11 @@
 
 import type { AgentMessage } from "@vetta/agent-core";
 import type { Message, TextContent } from "@vetta/ai";
-import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readSync, statSync } from "fs";
+import { closeSync, existsSync, openSync, readdirSync, readSync, statSync } from "fs";
 import { readdir, readFile, stat } from "fs/promises";
 import { join } from "path";
-import { getAgentDir as getDefaultAgentDir, getSessionsDir } from "../../config.js";
+import { getSessionsDir } from "../../config.js";
+import { resolveCodingAgentSessionDir } from "../../host/coding-agent-session-storage.js";
 import type {
 	FileEntry,
 	SessionEntryBase,
@@ -24,12 +25,7 @@ import type {
  * Encodes cwd into a safe directory name under ~/.pi/agent/sessions/.
  */
 export function getDefaultSessionDir(cwd: string): string {
-	const safePath = `--${cwd.replace(/^[/\\]/, "").replace(/[/\\:]/g, "-")}--`;
-	const sessionDir = join(getDefaultAgentDir(), "sessions", safePath);
-	if (!existsSync(sessionDir)) {
-		mkdirSync(sessionDir, { recursive: true });
-	}
-	return sessionDir;
+	return resolveCodingAgentSessionDir(cwd);
 }
 
 function isValidSessionFile(filePath: string): boolean {

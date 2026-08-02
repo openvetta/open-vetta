@@ -33,14 +33,22 @@ afterEach(async () => {
 });
 
 describe("Agent Runtime selection", () => {
-	it("defaults ordinary RPC to Greenfield while keeping non-RPC modes on Legacy", () => {
+	it("defaults ordinary RPC and Print to Greenfield while keeping control commands on Legacy", () => {
 		expect(parseAgentRuntimeSelection(["--mode", "rpc"])).toEqual({
 			backend: "greenfield",
 			agentArgs: ["--mode", "rpc"],
 		});
 		expect(parseAgentRuntimeSelection(["--mode", "json"])).toEqual({
-			backend: "legacy",
+			backend: "greenfield",
 			agentArgs: ["--mode", "json"],
+		});
+		expect(parseAgentRuntimeSelection(["--print", "hello"])).toEqual({
+			backend: "greenfield",
+			agentArgs: ["--print", "hello"],
+		});
+		expect(parseAgentRuntimeSelection(["--help"])).toEqual({
+			backend: "legacy",
+			agentArgs: ["--help"],
 		});
 		expect(parseAgentRuntimeSelection(["--mode=rpc", "--enable-host-bridge"])).toEqual({
 			backend: "greenfield-im",
