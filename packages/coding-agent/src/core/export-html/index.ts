@@ -135,16 +135,46 @@ interface SessionData {
 	renderedTools?: Record<string, RenderedToolHtml>;
 }
 
+interface ExportTemplateAssets {
+	readonly template: string;
+	readonly css: string;
+	readonly js: string;
+	readonly markedJs: string;
+	readonly highlightJs: string;
+}
+
+const EXPORT_TEMPLATE_ASSETS_KEY = Symbol.for("@vetta/coding-agent/export-template-assets");
+
+/** Install assets embedded by a standalone executable composition root. */
+export function installExportTemplateAssets(assets: ExportTemplateAssets): void {
+	Reflect.set(globalThis, EXPORT_TEMPLATE_ASSETS_KEY, assets);
+}
+
+function loadExportTemplateAssets(): ExportTemplateAssets {
+	const installedAssets = Reflect.get(globalThis, EXPORT_TEMPLATE_ASSETS_KEY);
+	if (isExportTemplateAssets(installedAssets)) return installedAssets;
+	const templateDir = getExportTemplateDir();
+	return {
+		template: readFileSync(join(templateDir, "template.html"), "utf-8"),
+		css: readFileSync(join(templateDir, "template.css"), "utf-8"),
+		js: readFileSync(join(templateDir, "template.js"), "utf-8"),
+		markedJs: readFileSync(join(templateDir, "vendor", "marked.min.js"), "utf-8"),
+		highlightJs: readFileSync(join(templateDir, "vendor", "highlight.min.js"), "utf-8"),
+	};
+}
+
+function isExportTemplateAssets(value: unknown): value is ExportTemplateAssets {
+	if (typeof value !== "object" || value === null) return false;
+	return ["template", "css", "js", "markedJs", "highlightJs"].every(
+		(key) => typeof Reflect.get(value, key) === "string",
+	);
+}
+
 /**
  * Core HTML generation logic shared by both export functions.
  */
 function generateHtml(sessionData: SessionData, themeName?: string): string {
-	const templateDir = getExportTemplateDir();
-	const template = readFileSync(join(templateDir, "template.html"), "utf-8");
-	const templateCss = readFileSync(join(templateDir, "template.css"), "utf-8");
-	const templateJs = readFileSync(join(templateDir, "template.js"), "utf-8");
-	const markedJs = readFileSync(join(templateDir, "vendor", "marked.min.js"), "utf-8");
-	const hljsJs = readFileSync(join(templateDir, "vendor", "highlight.min.js"), "utf-8");
+	const assets = loadExportTemplateAssets();
 
 	const themeVars = generateThemeVars(themeName);
 	const colors = getResolvedThemeColors(themeName);
@@ -157,18 +187,18 @@ function generateHtml(sessionData: SessionData, themeName?: string): string {
 	const sessionDataBase64 = Buffer.from(JSON.stringify(sessionData)).toString("base64");
 
 	// Build the CSS with theme variables injected
-	const css = templateCss
+	const css = assets.css
 		.replace("{{THEME_VARS}}", themeVars)
 		.replace("{{BODY_BG}}", bodyBg)
 		.replace("{{CONTAINER_BG}}", containerBg)
 		.replace("{{INFO_BG}}", infoBg);
 
-	return template
+	return assets.template
 		.replace("{{CSS}}", css)
-		.replace("{{JS}}", templateJs)
+		.replace("{{JS}}", assets.js)
 		.replace("{{SESSION_DATA}}", sessionDataBase64)
-		.replace("{{MARKED_JS}}", markedJs)
-		.replace("{{HIGHLIGHT_JS}}", hljsJs);
+		.replace("{{MARKED_JS}}", assets.markedJs)
+		.replace("{{HIGHLIGHT_JS}}", assets.highlightJs);
 }
 
 /** Built-in tool names that have custom rendering in template.js */

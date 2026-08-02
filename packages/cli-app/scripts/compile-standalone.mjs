@@ -1,12 +1,11 @@
 import { spawn } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const cliAppRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repositoryRoot = resolve(cliAppRoot, "../..");
 const codingAgentPackagePath = join(repositoryRoot, "packages", "coding-agent", "package.json");
-const cliEntryPath = join(cliAppRoot, "src", "cli.ts");
 
 const options = parseArgs(process.argv.slice(2));
 const packageJson = JSON.parse(await readFile(codingAgentPackagePath, "utf8"));
@@ -24,19 +23,45 @@ const compiledPackageMetadata = {
 				}
 			: undefined,
 };
-const buildArgs = [
-	"build",
-	cliEntryPath,
-	"--compile",
-	"--define",
-	`VETTA_COMPILED_PACKAGE_METADATA=${JSON.stringify(compiledPackageMetadata)}`,
-	"--outfile",
-	options.outfile,
-];
-if (options.target) buildArgs.push("--target", options.target);
-if (options.metafile) buildArgs.push(`--metafile=${options.metafile}`);
+const temporaryRoot = await mkdtemp(join(cliAppRoot, ".standalone-entry-"));
+try {
+	const entryPath = join(temporaryRoot, "standalone-entry.mjs");
+	await writeFile(entryPath, createStandaloneEntry(), "utf8");
+	const buildArgs = [
+		"build",
+		entryPath,
+		"--compile",
+		"--define",
+		`VETTA_COMPILED_PACKAGE_METADATA=${JSON.stringify(compiledPackageMetadata)}`,
+		"--outfile",
+		options.outfile,
+	];
+	if (options.target) buildArgs.push("--target", options.target);
+	if (options.metafile) buildArgs.push(`--metafile=${options.metafile}`);
+	await run(process.platform === "win32" ? "bun.exe" : "bun", buildArgs);
+} finally {
+	await rm(temporaryRoot, { force: true, recursive: true });
+}
 
-await run(process.platform === "win32" ? "bun.exe" : "bun", buildArgs);
+function createStandaloneEntry() {
+	return [
+		'import { runCli } from "../src/run-cli.ts";',
+		'import { installExportTemplateAssets } from "../../coding-agent/src/core/export-html/index.ts";',
+		'import { installBuiltinThemeDocuments } from "../../coding-agent/src/modes/interactive/theme/theme.ts";',
+		'import template from "../../coding-agent/src/core/export-html/template.html" with { type: "text" };',
+		'import css from "../../coding-agent/src/core/export-html/template.css" with { type: "text" };',
+		'import js from "../../coding-agent/src/core/export-html/template.js" with { type: "text" };',
+		'import markedJs from "../../coding-agent/src/core/export-html/vendor/marked.min.js" with { type: "text" };',
+		'import highlightJs from "../../coding-agent/src/core/export-html/vendor/highlight.min.js" with { type: "text" };',
+		'import darkTheme from "../../coding-agent/src/modes/interactive/theme/dark.json";',
+		'import lightTheme from "../../coding-agent/src/modes/interactive/theme/light.json";',
+		"",
+		"installExportTemplateAssets({ template, css, js, markedJs, highlightJs });",
+		"installBuiltinThemeDocuments({ dark: darkTheme, light: lightTheme });",
+		"await runCli(process.argv.slice(2));",
+		"",
+	].join("\n");
+}
 
 function parseArgs(args) {
 	let outfile;

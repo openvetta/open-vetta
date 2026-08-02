@@ -42,6 +42,7 @@
 
 ### Fixed
 
+- **Standalone CLI HTML 导出资产闭包**：标准单文件编译入口现在将 HTML 模板、脚本及内置 Theme 文档注入产物 Composition Root；普通源码和多文件发行继续按原路径读盘，独立安装产物的 Greenfield RPC `export_html` 不再因缺失相邻资产而阻塞。
 - **Greenfield 真实 CLI 初始化失败闭环**：Runtime/IM/Extension 最终返回对象在成功构造后才提交初始化事务；MCP 单服务初始化失败会立即关闭其 Client/stdio 子进程，同时继续保持服务级故障隔离。真实 Vetta RPC CLI 门禁覆盖初始化中途失败后的 Extension、Hook、MCP、conversation ownership 释放与同会话重启。
 - **Greenfield 初始化失败资源回滚**：Composition Root、Runtime Factory、IM Host 与 Extension prepare/reload 统一使用一次性逆序回滚事务；部分初始化失败不再遗漏 Kernel Session、Todo/Context/Memory/Capability、MCP/Execution、Extension binding 或 conversation ownership，单项清理失败也会继续恢复其余资源，并保留原初始化错误为主因。正常 Tool、Prompt、Skill、MCP、Extension 与 Session 行为不变。
 - **Greenfield Runtime/Host 最终关闭可重试**：Active Session、Session assembly、Composition、Extension 与 IM RPC Host 统一按资源 phase 全量清理；首次失败后业务准入保持关闭，后续 `dispose()` 只重试失败项，成功资源、Extension `session_shutdown` 与 Hook `SessionEnd` 不重复，既有 RPC 聚合错误与协议保持不变。
