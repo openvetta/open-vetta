@@ -4,9 +4,9 @@ import type {
 } from "@vetta/coding-agent/runtime-host/greenfield";
 import type { GreenfieldRuntimeSession } from "@vetta/runtime-core";
 import { describe, expect, it, vi } from "vitest";
-import { GreenfieldImExtensionSessionHost } from "../src/rpc/greenfield-im-extension-session-host.js";
+import { GreenfieldExtensionSessionHost } from "../src/agent-runtime/greenfield-extension-session-host.js";
 
-describe("GreenfieldImExtensionSessionHost initialization rollback", () => {
+describe("GreenfieldExtensionSessionHost initialization rollback", () => {
 	it("continues reverse rollback and keeps the reload failure as the primary cause", async () => {
 		const order: string[] = [];
 		const initializationError = new Error("resource discovery failed");
@@ -39,7 +39,7 @@ describe("GreenfieldImExtensionSessionHost initialization rollback", () => {
 				throw cleanupError;
 			}),
 		} as unknown as CodingAgentGreenfieldExtensionEventHost;
-		const host = new GreenfieldImExtensionSessionHost(previous, () => next);
+		const host = new GreenfieldExtensionSessionHost(previous, () => next);
 		await host.initialize({
 			uiContext: {} as NonNullable<CodingAgentGreenfieldExtensionInitialization["uiContext"]>,
 			shutdownHandler: vi.fn(),

@@ -16,7 +16,6 @@ import { buildDefaultHookConfigLayers } from "@vetta/coding-agent/hooks";
 import {
 	GREENFIELD_FULL_RPC_PROFILE,
 	GreenfieldRpcBashCapability,
-	GreenfieldRpcRetryController,
 	type RpcRuntimeDecision,
 	type RpcSessionCapabilities,
 	runRpcModeWithCapabilities,
@@ -37,11 +36,12 @@ import {
 	RetryableCleanup,
 	type RuntimeSessionCatalog,
 } from "@vetta/runtime-core";
-import type { ManagedMcpRuntimeToolSource } from "@vetta/runtime-mcp";
 import {
 	FileConversationOwnershipManager,
 	type FileConversationOwnershipManagerOptions,
 } from "@vetta/runtime-storage/conversation";
+import { GreenfieldAgentSessionHost } from "../agent-runtime/greenfield-agent-session-host.js";
+import { GreenfieldExtensionSessionHost } from "../agent-runtime/greenfield-extension-session-host.js";
 import { GreenfieldPrintSessionAdapter } from "../greenfield-print-session-adapter.js";
 import {
 	CodingAgentGreenfieldActiveSessionHost,
@@ -50,7 +50,6 @@ import {
 	type GreenfieldRuntimeComposition,
 } from "../greenfield-runtime-composition.js";
 import { resolveGreenfieldSessionIdFromPath } from "./greenfield-conversation-path.js";
-import { GreenfieldImExtensionSessionHost } from "./greenfield-im-extension-session-host.js";
 import {
 	type GreenfieldImLegacySessionMigration,
 	migrateGreenfieldImLegacySession,
@@ -275,7 +274,7 @@ async function prepareGreenfieldRuntimeHost(
 	let session: GreenfieldRuntimeSession | undefined;
 	let extensionEventHost: CodingAgentGreenfieldExtensionEventHost | undefined;
 	let activeSessionHost: CodingAgentGreenfieldActiveSessionHost | undefined;
-	let extensionSessionHost: GreenfieldImExtensionSessionHost | undefined;
+	let extensionSessionHost: GreenfieldExtensionSessionHost | undefined;
 	let dismissRuntimeRollback: (() => void) | undefined;
 	let dismissSessionRollback: (() => void) | undefined;
 	let dismissExtensionRollback: (() => void) | undefined;
@@ -357,7 +356,7 @@ async function prepareGreenfieldRuntimeHost(
 			id: "extension-event-host",
 			rollback: () => acquiredExtensionEventHost.dispose(),
 		});
-		extensionSessionHost = new GreenfieldImExtensionSessionHost(extensionEventHost, createExtensionEventHost);
+		extensionSessionHost = new GreenfieldExtensionSessionHost(extensionEventHost, createExtensionEventHost);
 		dismissExtensionEventRollback();
 		const acquiredExtensionSessionHost = extensionSessionHost;
 		dismissExtensionRollback = rollback.defer({
@@ -419,34 +418,61 @@ async function prepareGreenfieldRuntimeHost(
 			reload: () => activeSessionHost!.runActiveSessionMutation(() => resourceReloadHost.reload()),
 		};
 		extensionSessionHost.bindCommandContext(extensionCommandActions);
-		let adapter: GreenfieldRpcSessionAdapter;
-		const retryController = new GreenfieldRpcRetryController({
-			readSettings: () => bootstrap.settingsManager.getRetrySettings(),
-			setEnabled: (enabled) => bootstrap.settingsManager.setRetryEnabled(enabled),
-			emit: (event) => adapter?.emitSupplementalEvent(event),
+		const agentSessionHost = new GreenfieldAgentSessionHost({
+			runtime,
+			activeSessionHost,
+			extensionSessionHost,
+			mcpSource: managedMcpSource,
+			readRetrySettings: () => bootstrap.settingsManager.getRetrySettings(),
+			setRetryEnabled: (enabled) => bootstrap.settingsManager.setRetryEnabled(enabled),
 		});
+		dismissActiveSessionRollback();
+		dismissRuntimeRollback();
+		dismissMcpRollback();
+		dismissExtensionRollback();
+		const dismissAgentSessionHostRollback = rollback.defer({
+			id: "agent-session-host",
+			rollback: () => agentSessionHost.dispose(),
+		});
+		if (intent === "print") {
+			const prepared: GreenfieldPrintRuntimeHostReady = {
+				kind: "greenfield-print",
+				bootstrap,
+				get session() {
+					return agentSessionHost.readSession();
+				},
+				runtime,
+				printSession: new GreenfieldPrintSessionAdapter({ sessionHost: agentSessionHost }),
+				runtimeDecision,
+			};
+			rollback.commit();
+			return prepared;
+		}
 		const bash = new GreenfieldRpcBashCapability({
 			readContextDeliveryController: () =>
-				activeSessionHost!.readSession().createCoreAssembly().contextDeliveryController,
+				agentSessionHost.readSession().createCoreAssembly().contextDeliveryController,
 			readShellCommandPrefix: () => bootstrap.settingsManager.getShellCommandPrefix(),
 		});
-		adapter =
+		const adapter =
 			backend === "greenfield-im"
 				? new GreenfieldImRpcSessionAdapter({
-						sessionHost: activeSessionHost,
+						sessionHost: agentSessionHost,
 						runtime,
 						resourceLoader: bootstrap.resourceLoader,
 						runtimeDecision,
 						extensionCommandHost: extensionSessionHost,
+						disposeSessionResources: false,
 					})
 				: new GreenfieldRpcSessionAdapter({
 						profile: GREENFIELD_FULL_RPC_PROFILE,
 						runtimeBackend: "greenfield",
-						sessionHost: activeSessionHost,
+						sessionHost: agentSessionHost,
 						runtime,
 						resourceLoader: bootstrap.resourceLoader,
 						runtimeDecision,
-						retryController,
+						retryController: agentSessionHost.retryController,
+						turnExecutor: agentSessionHost.turnExecutor,
+						disposeSessionResources: false,
 						bash,
 						readAvailableModels: async () =>
 							(await bootstrap.modelRegistry.getAvailable()).map((model) => ({
@@ -455,42 +481,21 @@ async function prepareGreenfieldRuntimeHost(
 							})),
 						extensionCommandHost: extensionSessionHost,
 					});
-		dismissActiveSessionRollback();
-		dismissRuntimeRollback();
 		const dismissAdapterRollback = rollback.defer({ id: "rpc-adapter", rollback: () => adapter.dispose() });
-		const capabilities = new GreenfieldRpcRuntimeHostCapabilities(adapter, managedMcpSource, extensionSessionHost);
+		const capabilities = new GreenfieldRpcRuntimeHostCapabilities(adapter, agentSessionHost);
 		dismissAdapterRollback();
-		dismissMcpRollback();
-		dismissExtensionRollback();
+		dismissAgentSessionHostRollback();
 		rollback.defer({ id: "runtime-capabilities", rollback: () => capabilities.dispose() });
-		const prepared =
-			intent === "print"
-				? {
-						kind: "greenfield-print" as const,
-						bootstrap,
-						get session() {
-							return activeSessionHost!.readSession();
-						},
-						runtime,
-						printSession: new GreenfieldPrintSessionAdapter({
-							sessionHost: activeSessionHost,
-							retryController,
-							subscribeRetryEvents: (listener) => capabilities.subscribe(listener),
-							extensionSessionHost,
-							dispose: () => capabilities.dispose(),
-						}),
-						runtimeDecision,
-					}
-				: {
-						kind: "greenfield" as const,
-						bootstrap,
-						get session() {
-							return activeSessionHost!.readSession();
-						},
-						runtime,
-						capabilities,
-						runtimeDecision,
-					};
+		const prepared: GreenfieldRpcRuntimeHostReady = {
+			kind: "greenfield",
+			bootstrap,
+			get session() {
+				return agentSessionHost.readSession();
+			},
+			runtime,
+			capabilities,
+			runtimeDecision,
+		};
 		rollback.commit();
 		return prepared;
 	} catch (error) {
@@ -584,8 +589,7 @@ class GreenfieldRpcRuntimeHostCapabilities implements RpcSessionCapabilities {
 
 	constructor(
 		private readonly adapter: GreenfieldRpcSessionAdapter,
-		private readonly mcpSource: ManagedMcpRuntimeToolSource,
-		private readonly extensionSessionHost: GreenfieldImExtensionSessionHost,
+		private readonly sessionHost: GreenfieldAgentSessionHost,
 	) {
 		this.profile = adapter.profile;
 		this.turn = adapter.turn;
@@ -598,17 +602,12 @@ class GreenfieldRpcRuntimeHostCapabilities implements RpcSessionCapabilities {
 		this.bash = adapter.bash;
 		this.session = adapter.session;
 		this.commands = adapter.commands;
-		this.cleanup.add({
-			id: "extension-session-host",
-			phase: 0,
-			cleanup: () => this.extensionSessionHost.dispose(),
-		});
-		this.cleanup.add({ id: "rpc-adapter", phase: 1, cleanup: () => this.adapter.dispose() });
-		this.cleanup.add({ id: "mcp-source", phase: 1, cleanup: () => this.mcpSource.dispose() });
+		this.cleanup.add({ id: "rpc-adapter", phase: 0, cleanup: () => this.adapter.dispose() });
+		this.cleanup.add({ id: "agent-session-host", phase: 1, cleanup: () => this.sessionHost.dispose() });
 	}
 
 	async initialize(input: Parameters<RpcSessionCapabilities["initialize"]>[0]): Promise<void> {
-		await this.extensionSessionHost.initialize({
+		await this.sessionHost.initializeExtensions({
 			uiContext: input.uiContext,
 			shutdownHandler: input.onShutdownRequested,
 			onError: input.onExtensionError,
@@ -617,11 +616,16 @@ class GreenfieldRpcRuntimeHostCapabilities implements RpcSessionCapabilities {
 	}
 
 	subscribe(listener: (event: unknown) => void): () => void {
-		return this.adapter.subscribe(listener);
+		const removeAdapter = this.adapter.subscribe(listener);
+		const removeRetry = this.sessionHost.subscribeRetryEvents(listener);
+		return () => {
+			removeRetry();
+			removeAdapter();
+		};
 	}
 
 	async shutdown(): Promise<void> {
-		await this.extensionSessionHost.shutdown();
+		await this.sessionHost.shutdownExtensions();
 		await this.adapter.shutdown();
 	}
 

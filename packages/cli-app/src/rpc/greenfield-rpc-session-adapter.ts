@@ -17,6 +17,7 @@ import {
 import {
 	adaptCodingAgentToolRegistration,
 	type CodingAgentGreenfieldExtensionCommandHost,
+	type CodingAgentGreenfieldTurnExecutor,
 } from "@vetta/coding-agent/runtime-host/greenfield";
 import { type GreenfieldRuntimeSession, type HistoryEntry, RetryableCleanup } from "@vetta/runtime-core";
 import type { CodingToolRegistration } from "@vetta/runtime-tools/coding";
@@ -44,6 +45,8 @@ export interface GreenfieldRpcSessionAdapterOptions {
 	readonly resourceLoader: GreenfieldResourceLoader;
 	readonly runtimeDecision?: RpcRuntimeDecision;
 	readonly retryController?: GreenfieldRpcRetryController;
+	readonly turnExecutor?: Pick<CodingAgentGreenfieldTurnExecutor, "prompt">;
+	readonly disposeSessionResources?: boolean;
 	readonly bash?: RpcSessionCapabilities["bash"];
 	readonly readAvailableModels?: NonNullable<RpcSessionCapabilities["model"]>["readAvailableModels"];
 	readonly extensionCommandHost?: Pick<
@@ -75,6 +78,7 @@ export class GreenfieldRpcSessionAdapter implements RpcSessionCapabilities {
 	private readonly runtimeBackend: GreenfieldRpcSessionAdapterOptions["runtimeBackend"];
 	private readonly runtimeDecision: RpcRuntimeDecision;
 	private readonly retryController: GreenfieldRpcRetryController | undefined;
+	private readonly turnExecutor: GreenfieldRpcSessionAdapterOptions["turnExecutor"];
 	private readonly readAvailableModels: NonNullable<GreenfieldRpcSessionAdapterOptions["readAvailableModels"]>;
 	private readonly extensionCommandHost: GreenfieldRpcSessionAdapterOptions["extensionCommandHost"];
 	private readonly createHostToolRegistration: NonNullable<
@@ -97,6 +101,7 @@ export class GreenfieldRpcSessionAdapter implements RpcSessionCapabilities {
 			effectiveBackend: options.runtimeBackend,
 		};
 		this.retryController = options.retryController;
+		this.turnExecutor = options.turnExecutor;
 		this.retry = options.retryController;
 		this.bash = options.bash;
 		this.readAvailableModels =
@@ -116,10 +121,22 @@ export class GreenfieldRpcSessionAdapter implements RpcSessionCapabilities {
 				if (this.unregisterHostTool === unregister) this.unregisterHostTool = undefined;
 			},
 		});
-		this.cleanup.add({ id: "session-host", phase: 1, cleanup: () => this.sessionHost.dispose() });
-		this.cleanup.add({ id: "runtime", phase: 2, cleanup: () => this.runtime.dispose() });
+		if (options.disposeSessionResources !== false) {
+			this.cleanup.add({ id: "session-host", phase: 1, cleanup: () => this.sessionHost.dispose() });
+			this.cleanup.add({ id: "runtime", phase: 2, cleanup: () => this.runtime.dispose() });
+		}
 		this.turn = {
 			prompt: async (message, promptOptions) => {
+				const turnExecutor = this.turnExecutor;
+				if (turnExecutor) {
+					await this.runTurnCommand(() =>
+						turnExecutor.prompt(message, {
+							images: promptOptions.images,
+							streamingBehavior: promptOptions.streamingBehavior,
+						}),
+					);
+					return;
+				}
 				if (
 					this.extensionCommandHost &&
 					(await this.sessionHost.startActiveSessionOperation(() =>
@@ -139,6 +156,11 @@ export class GreenfieldRpcSessionAdapter implements RpcSessionCapabilities {
 				);
 			},
 			steer: async (message, images) => {
+				const turnExecutor = this.turnExecutor;
+				if (turnExecutor) {
+					await this.runTurnCommand(() => turnExecutor.prompt(message, { images, streamingBehavior: "steer" }));
+					return;
+				}
 				this.extensionCommandHost?.throwIfExtensionCommand(message);
 				await this.runTurnCommand(() =>
 					this.sessionHost.startActiveSessionOperation((session) =>
@@ -147,6 +169,11 @@ export class GreenfieldRpcSessionAdapter implements RpcSessionCapabilities {
 				);
 			},
 			followUp: async (message, images) => {
+				const turnExecutor = this.turnExecutor;
+				if (turnExecutor) {
+					await this.runTurnCommand(() => turnExecutor.prompt(message, { images, streamingBehavior: "followUp" }));
+					return;
+				}
 				this.extensionCommandHost?.throwIfExtensionCommand(message);
 				await this.runTurnCommand(() =>
 					this.sessionHost.startActiveSessionOperation((session) =>
@@ -361,13 +388,15 @@ export class GreenfieldRpcSessionAdapter implements RpcSessionCapabilities {
 		let result: unknown;
 		let rejection: { readonly error: unknown } | undefined;
 		try {
-			result = this.retryController
-				? await this.retryController.run(
-						command,
-						() => this.sessionHost.startActiveSessionOperation((session) => session.continue()),
-						readFailedTurnMessage,
-					)
-				: await command();
+			result = this.turnExecutor
+				? await command()
+				: this.retryController
+					? await this.retryController.run(
+							command,
+							() => this.sessionHost.startActiveSessionOperation((session) => session.continue()),
+							readFailedTurnMessage,
+						)
+					: await command();
 		} catch (error) {
 			rejection = { error };
 		} finally {

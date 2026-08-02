@@ -1,7 +1,12 @@
 import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { GreenfieldRuntimeSession, RuntimeSessionCatalog, SessionEvent } from "@vetta/runtime-core";
+import type {
+	GreenfieldRuntimeSession,
+	RuntimeSessionCatalog,
+	RuntimeSessionExecutionObservation,
+	SessionEvent,
+} from "@vetta/runtime-core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	CodingAgentGreenfieldActiveSessionHost,
@@ -43,6 +48,23 @@ describe("CodingAgentGreenfieldActiveSessionHost", () => {
 			"after:resume",
 			"finalize:next",
 		]);
+	});
+
+	it("rebinds complete execution observations when the active session changes", async () => {
+		const fixture = await createFixture();
+		const next = createSession("next", fixture.sessionPath("next"));
+		fixture.resume.mockResolvedValueOnce(next.session);
+		const observations: string[] = [];
+		fixture.host.subscribeExecutionObservations((observation) => {
+			observations.push(observation.turnId);
+		});
+
+		await fixture.initial.emitObservation(executionObservation("old-turn"));
+		await fixture.host.switchSession(fixture.sessionPath("next"));
+		await fixture.initial.emitObservation(executionObservation("stale-turn"));
+		await next.emitObservation(executionObservation("next-turn"));
+
+		expect(observations).toEqual(["old-turn", "next-turn"]);
 	});
 
 	it("isolates throwing external observers before and after a switch", async () => {
@@ -421,6 +443,7 @@ async function createFixture(
 
 function createSession(id: string, path: string) {
 	const listeners = new Set<(event: SessionEvent) => void>();
+	const observationListeners = new Set<(observation: RuntimeSessionExecutionObservation) => Promise<void> | void>();
 	let streaming = false;
 	let finishOnSubscribe = false;
 	const dispose = vi.fn(async () => {});
@@ -440,6 +463,12 @@ function createSession(id: string, path: string) {
 		createCoreAssembly: () => ({
 			historyController: { navigateForEdit },
 			lifecycle: { sessionId: id, sessionPath: path, dispose },
+			executionObservationStream: {
+				subscribe: (handler: (observation: RuntimeSessionExecutionObservation) => Promise<void> | void) => {
+					observationListeners.add(handler);
+					return () => observationListeners.delete(handler);
+				},
+			},
 		}),
 		subscribe: (handler: (event: SessionEvent) => void) => {
 			listeners.add(handler);
@@ -466,6 +495,9 @@ function createSession(id: string, path: string) {
 		emit(event: SessionEvent) {
 			for (const listener of listeners) listener(event);
 		},
+		async emitObservation(observation: RuntimeSessionExecutionObservation) {
+			for (const listener of observationListeners) await listener(observation);
+		},
 		setStreaming(value: boolean) {
 			streaming = value;
 		},
@@ -473,6 +505,10 @@ function createSession(id: string, path: string) {
 			finishOnSubscribe = true;
 		},
 	};
+}
+
+function executionObservation(turnId: string): RuntimeSessionExecutionObservation {
+	return { turnId, timestamp: 1, event: { type: "agent.start" } };
 }
 
 function sessionPath(root: string, id: string): string {

@@ -6,6 +6,7 @@ import {
 	type GreenfieldRuntimeSession,
 	RetryableCleanup,
 	type RuntimeSessionCatalog,
+	type RuntimeSessionExecutionObservation,
 	type SessionEvent,
 } from "@vetta/runtime-core";
 import { migrateLegacySessionToV2 } from "@vetta/runtime-storage/conversation";
@@ -75,7 +76,11 @@ export interface CodingAgentGreenfieldActiveSessionHostOptions {
 export class CodingAgentGreenfieldActiveSessionHost {
 	private activeSession: GreenfieldRuntimeSession;
 	private activeEventUnsubscribe: (() => void) | undefined;
+	private activeExecutionObservationUnsubscribe: (() => void) | undefined;
 	private readonly listeners = new Set<(event: SessionEvent) => void>();
+	private readonly executionObservationListeners = new Set<
+		(observation: RuntimeSessionExecutionObservation) => Promise<void> | void
+	>();
 	private transitionTail: Promise<void> = Promise.resolve();
 	private suppressActiveEvents = false;
 	private disposed = false;
@@ -98,6 +103,14 @@ export class CodingAgentGreenfieldActiveSessionHost {
 		this.assertOpen();
 		this.listeners.add(listener);
 		return () => this.listeners.delete(listener);
+	}
+
+	subscribeExecutionObservations(
+		listener: (observation: RuntimeSessionExecutionObservation) => Promise<void> | void,
+	): () => void {
+		this.assertOpen();
+		this.executionObservationListeners.add(listener);
+		return () => this.executionObservationListeners.delete(listener);
 	}
 
 	waitForIdle(): Promise<void> {
@@ -314,7 +327,21 @@ export class CodingAgentGreenfieldActiveSessionHost {
 				},
 			});
 		}
+		const unsubscribeObservations = this.activeExecutionObservationUnsubscribe;
+		if (unsubscribeObservations) {
+			this.finalCleanup.add({
+				id: "active-execution-observation-subscription",
+				phase: 1,
+				cleanup: () => {
+					unsubscribeObservations();
+					if (this.activeExecutionObservationUnsubscribe === unsubscribeObservations) {
+						this.activeExecutionObservationUnsubscribe = undefined;
+					}
+				},
+			});
+		}
 		this.listeners.clear();
+		this.executionObservationListeners.clear();
 		const activeSession = this.activeSession;
 		this.finalCleanup.add({ id: "active-session", phase: 2, cleanup: () => activeSession.dispose() });
 	}
@@ -355,6 +382,7 @@ export class CodingAgentGreenfieldActiveSessionHost {
 
 	private replaceActiveSession(session: GreenfieldRuntimeSession): void {
 		this.activeEventUnsubscribe?.();
+		this.activeExecutionObservationUnsubscribe?.();
 		this.activeSession = session;
 		this.bindActiveEvents();
 	}
@@ -370,6 +398,17 @@ export class CodingAgentGreenfieldActiveSessionHost {
 				}
 			}
 		});
+		this.activeExecutionObservationUnsubscribe = this.activeSession
+			.createCoreAssembly()
+			.executionObservationStream.subscribe(async (observation) => {
+				for (const listener of this.executionObservationListeners) {
+					try {
+						await listener(observation);
+					} catch (error) {
+						console.warn("[GreenfieldActiveSessionHost] Execution observation listener failed", error);
+					}
+				}
+			});
 	}
 
 	private async interruptActiveTurn(session: GreenfieldRuntimeSession, reason: string): Promise<void> {

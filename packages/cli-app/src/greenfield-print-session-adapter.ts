@@ -1,22 +1,25 @@
 import type { PrintExtensionError, PrintSessionCapabilities } from "@vetta/coding-agent/bootstrap";
-import type { GreenfieldRpcRetryController } from "@vetta/coding-agent/rpc";
 import {
 	CodingAgentGreenfieldExtensionObservationAdapter,
+	type CodingAgentGreenfieldTurnExecutor,
 	projectCodingAgentGreenfieldMessages,
 } from "@vetta/coding-agent/runtime-host/greenfield";
-import type { GreenfieldRuntimeSession, SessionEvent } from "@vetta/runtime-core";
-import type { CodingAgentGreenfieldActiveSessionHost } from "./greenfield-runtime-composition.js";
-import type { GreenfieldImExtensionSessionHost } from "./rpc/greenfield-im-extension-session-host.js";
+import type { GreenfieldRuntimeSession, RuntimeSessionExecutionObservation, SessionEvent } from "@vetta/runtime-core";
+
+interface GreenfieldPrintSessionHost {
+	readonly turnExecutor: Pick<CodingAgentGreenfieldTurnExecutor, "prompt">;
+	readSession(): GreenfieldRuntimeSession;
+	initializeExtensions(input: { readonly onError: (error: PrintExtensionError) => void }): Promise<void>;
+	subscribe(listener: (event: SessionEvent) => void): () => void;
+	subscribeExecutionObservations(
+		listener: (observation: RuntimeSessionExecutionObservation) => Promise<void> | void,
+	): () => void;
+	subscribeRetryEvents(listener: (event: unknown) => void): () => void;
+	dispose(): Promise<void>;
+}
 
 interface GreenfieldPrintSessionAdapterOptions {
-	readonly sessionHost: Pick<
-		CodingAgentGreenfieldActiveSessionHost,
-		"readSession" | "startActiveSessionOperation" | "subscribe"
-	>;
-	readonly retryController: GreenfieldRpcRetryController;
-	readonly subscribeRetryEvents: (listener: (event: unknown) => void) => () => void;
-	readonly extensionSessionHost: GreenfieldImExtensionSessionHost;
-	readonly dispose: () => Promise<void>;
+	readonly sessionHost: GreenfieldPrintSessionHost;
 }
 
 /** Greenfield Runtime 到既有单次 Print 合同的候选宿主适配器。 */
@@ -37,21 +40,19 @@ export class GreenfieldPrintSessionAdapter implements PrintSessionCapabilities {
 	}
 
 	async initializeExtensions(onError: (error: PrintExtensionError) => void): Promise<void> {
-		await this.options.extensionSessionHost.initialize({ onError });
+		await this.options.sessionHost.initializeExtensions({ onError });
 	}
 
 	subscribe(listener: (event: unknown) => void): () => void {
 		const observationAdapter = new CodingAgentGreenfieldExtensionObservationAdapter(async (event) => listener(event));
-		const removeObservations = this.readSession()
-			.createCoreAssembly()
-			.executionObservationStream.subscribe((observation) => observationAdapter.observe(observation));
+		const removeObservations = this.options.sessionHost.subscribeExecutionObservations((observation) =>
+			observationAdapter.observe(observation),
+		);
 		const removeSessionEvents = this.options.sessionHost.subscribe((event) => {
 			const mapped = mapSupplementalSessionEvent(event);
 			if (mapped) listener(mapped);
 		});
-		const removeRetryEvents = this.options.subscribeRetryEvents((event) => {
-			if (isAutoRetryEvent(event)) listener(event);
-		});
+		const removeRetryEvents = this.options.sessionHost.subscribeRetryEvents(listener);
 		return () => {
 			removeRetryEvents();
 			removeSessionEvents();
@@ -60,24 +61,7 @@ export class GreenfieldPrintSessionAdapter implements PrintSessionCapabilities {
 	}
 
 	async prompt(message: string, options?: Parameters<PrintSessionCapabilities["prompt"]>[1]): Promise<void> {
-		if (
-			await this.options.sessionHost.startActiveSessionOperation(() =>
-				this.options.extensionSessionHost.tryExecute(message),
-			)
-		) {
-			return;
-		}
-		const command = () =>
-			this.options.sessionHost.startActiveSessionOperation((session) =>
-				session.prompt({ text: message, images: options?.images ? [...options.images] : undefined }),
-			);
-		const result = await this.options.retryController.run(
-			command,
-			() => this.options.sessionHost.startActiveSessionOperation((session) => session.continue()),
-			readFailedTurnMessage,
-		);
-		const failedMessage = readFailedTurnMessage(result);
-		if (failedMessage) throw new Error(failedMessage);
+		await this.options.sessionHost.turnExecutor.prompt(message, { images: options?.images });
 	}
 
 	readMessages(): ReturnType<PrintSessionCapabilities["readMessages"]> {
@@ -85,33 +69,12 @@ export class GreenfieldPrintSessionAdapter implements PrintSessionCapabilities {
 	}
 
 	dispose(): Promise<void> {
-		return this.options.dispose();
-	}
-
-	private readSession(): GreenfieldRuntimeSession {
-		return this.options.sessionHost.readSession();
+		return this.options.sessionHost.dispose();
 	}
 
 	private readDocument() {
-		return this.readSession().createCoreAssembly().conversationView.readDocument();
+		return this.options.sessionHost.readSession().createCoreAssembly().conversationView.readDocument();
 	}
-}
-
-function isAutoRetryEvent(event: unknown): boolean {
-	if (typeof event !== "object" || event === null) return false;
-	const type = Reflect.get(event, "type");
-	return type === "auto_retry_start" || type === "auto_retry_end";
-}
-
-function readFailedTurnMessage(value: unknown): string | undefined {
-	if (typeof value !== "object" || value === null) return undefined;
-	const error = Reflect.get(value, "error");
-	return Reflect.get(value, "status") === "failed" &&
-		typeof error === "object" &&
-		error !== null &&
-		typeof Reflect.get(error, "message") === "string"
-		? Reflect.get(error, "message")
-		: undefined;
 }
 
 function mapSupplementalSessionEvent(event: SessionEvent): unknown | undefined {

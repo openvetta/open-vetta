@@ -201,6 +201,19 @@ export {
 	type CodingAgentRuntimeToolRegistration,
 } from "./greenfield-tool-adapter.js";
 export {
+	type CodingAgentGreenfieldTurnCommandHost,
+	CodingAgentGreenfieldTurnExecutor,
+	type CodingAgentGreenfieldTurnExecutorOptions,
+	type CodingAgentGreenfieldTurnPromptOptions,
+	type CodingAgentGreenfieldTurnSessionHost,
+} from "./greenfield-turn-executor.js";
+export {
+	CodingAgentGreenfieldTurnRetryController,
+	type CodingAgentGreenfieldTurnRetryControllerOptions,
+	type CodingAgentGreenfieldTurnRetryEvent,
+	type CodingAgentGreenfieldTurnRetrySettings,
+} from "./greenfield-turn-retry-controller.js";
+export {
 	adaptLegacyMcpManagerRuntimeToolSource,
 	createLegacyMcpManagerRuntimeToolSource,
 	type LegacyMcpManagerRuntimePort,
