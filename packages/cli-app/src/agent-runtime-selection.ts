@@ -9,6 +9,7 @@ import {
 	runGreenfieldImRuntimeHost,
 } from "./rpc/greenfield-im-runtime-host.js";
 import { prepareGreenfieldRpcRuntimeHost, runGreenfieldRpcRuntimeHost } from "./rpc/greenfield-rpc-runtime-host.js";
+import { assertAllowedAutomaticLegacyRuntimeFallback } from "./rpc/legacy-runtime-fallback-policy.js";
 
 export type AgentRuntimeBackend = "legacy" | "greenfield" | "greenfield-im";
 
@@ -82,6 +83,7 @@ export async function runAgentRuntimeCli(
 			? prepareGreenfieldImRuntimeHost({ bootstrap, conversationDir, sessionCatalog })
 			: prepareGreenfieldRpcRuntimeHost({ bootstrap, conversationDir, sessionCatalog }));
 		if (prepared.kind === "legacy-fallback") {
+			assertAllowedAutomaticLegacyRuntimeFallback(prepared);
 			const decision = {
 				requestedBackend: selection.backend,
 				effectiveBackend: "legacy",

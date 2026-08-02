@@ -38,6 +38,19 @@ describe("Greenfield IM Legacy session migration", () => {
 		expect(after.targetPath).not.toBe(before.targetPath);
 	});
 
+	it("reports a failed fallback when the deterministic target conflicts", async () => {
+		const fixture = await createFixture(legacySession("target conflict"));
+		const migrated = await migrateGreenfieldImLegacySession(fixture.sourcePath, fixture.targetRootDir);
+		if (migrated.kind !== "greenfield") throw new Error("Expected initial migration");
+		await writeFile(migrated.targetPath, "conflicting target", "utf8");
+
+		await expect(migrateGreenfieldImLegacySession(fixture.sourcePath, fixture.targetRootDir)).resolves.toMatchObject({
+			kind: "legacy-fallback",
+			status: "failed",
+			errorCode: "conversation_already_exists",
+		});
+	});
+
 	it("migrates an official BashExecution message through the Coding Agent normalizer", async () => {
 		const bashMessage = {
 			role: "bashExecution",

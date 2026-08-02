@@ -19,6 +19,7 @@
 
 ### Changed
 
+- **Legacy RPC 自动回退改为穷尽策略门禁**：普通 RPC 仍只在 Extension 存在明确未支持事件/能力，或旧会话迁移状态为 `locked`、`not-representable`、`failed` 时启动 Legacy；缺少结构化证据、成功迁移却请求回退或未来未登记的回退状态会 fail-closed。显式 `--agent-runtime legacy`、现有 RPC wire 和全部兼容回退行为不变。
 - **普通 RPC 默认切换到中性 Greenfield 宿主**：新增完整 `greenfield` RPC Profile 和中性 Session Adapter，模型、思考等级、队列、压缩、Memory、自动重试、直接 Bash、会话统计/命名/导出及命令发现均通过 Greenfield 端口实现；`greenfield-im` 保留兼容 Profile，非 RPC 模式和不兼容 Extension/旧会话仍按原规则使用 Legacy。
 - **Greenfield IM Extension 切换改用穷尽事件 Profile**：事件兼容性由 `ExtensionEvent` 联合派生的 supported/unsupported/inapplicable Profile 决定，新增合法事件未声明时会产生类型错误，运行时未知事件仍安全回退 Legacy。真实 RPC CLI 门禁覆盖 Event/Tool/Command 组合、RPC 不适用 UI 注册和未来事件回退；Runtime 选择日志在 stderr 报告具体 `unsupportedEvents` 与 `unmetCapabilities`，不污染 JSONL stdout。
 - **Greenfield Active Session Transition Host 与 RPC 会话事务**：新增宿主级活动 Session 事务，统一串行编排 new/resume/fork、稳定事件订阅、Conversation ownership、Extension Session Binding 与失败回滚；旧 `newSession.setup(SessionManager)` 通过临时 Legacy 快照和既有迁移边界无损导入 V2 Conversation。Greenfield IM RPC 现真实支持 `new_session`、`switch_session`、`fork`，状态、Turn 与 Memory 均动态读取当前 Session；未完成差分的 Command-only Extension 和其余 session 子命令继续显式回退或由 Profile 拒绝。

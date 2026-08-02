@@ -181,6 +181,7 @@
 | [171-real-cli-initialization-failure-gate.md](./08-implementation-log/171-real-cli-initialization-failure-gate.md) | 最终发布边界、MCP 失败子进程释放与真实 CLI 初始化失败门禁 |
 | [172-ordinary-rpc-greenfield-default-cutover.md](./08-implementation-log/172-ordinary-rpc-greenfield-default-cutover.md) | 普通 RPC 中性 Greenfield 默认切换、完整能力适配与真实进程门禁 |
 | [173-installed-ordinary-rpc-cutover-gate.md](./08-implementation-log/173-installed-ordinary-rpc-cutover-gate.md) | 普通 RPC 安装产物默认切换、完整能力恢复与 standalone 资产闭包门禁 |
+| [174-automatic-legacy-fallback-policy.md](./08-implementation-log/174-automatic-legacy-fallback-policy.md) | 自动 Legacy 回退穷尽策略、结构化证据与迁移 failed 门禁 |
 
 ## 维护约定
 
