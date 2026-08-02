@@ -1,0 +1,196 @@
+import { dirname, join } from "node:path";
+import type { Api, Message, Model } from "@vetta/ai";
+import type { EcosystemHookRuntime } from "@vetta/ecosystem-adapter";
+import { emptyHookDispatchOutcome } from "@vetta/ecosystem-adapter";
+import type { GreenfieldRuntimeResourceContext, GreenfieldRuntimeSession } from "@vetta/runtime-core";
+import type { SessionContextRecord } from "@vetta/runtime-core/kernel";
+import type { McpRuntimeToolView } from "@vetta/runtime-mcp";
+import { describe, expect, it, vi } from "vitest";
+import {
+	createGreenfieldSubagentSessionAssembly,
+	type GreenfieldSubagentChildCompositionRequest,
+} from "../../src/composition/greenfield-subagent-session-assembly.js";
+
+describe("Greenfield Subagent session assembly", () => {
+	it("does not assemble the capability when it is disabled", () => {
+		const runtime = createGreenfieldSubagentSessionAssembly({
+			...baseOptions(),
+			enabled: false,
+		});
+
+		expect(runtime).toBeUndefined();
+	});
+
+	it("owns child policy, hook mapping, notifications, observations and cleanup", async () => {
+		const compositionRequests: GreenfieldSubagentChildCompositionRequest[] = [];
+		const childSessionOptions: unknown[] = [];
+		const promptInputs: string[] = [];
+		const hookCalls: string[] = [];
+		const contexts: SessionContextRecord[] = [];
+		const observations: unknown[] = [];
+		let childCompositionDisposals = 0;
+		const parentSessionPath = join("C:\\conversations", "parent.conversation.jsonl");
+		const inheritedMcpView = {
+			tools: [{ tool: { name: "mcp_parent_search" } }],
+		} as unknown as McpRuntimeToolView;
+		const hookRuntime = {
+			async runSubagentStart(_context, turnId) {
+				hookCalls.push(turnId);
+				return { ...emptyHookDispatchOutcome(), additionalContexts: ["hook context"] };
+			},
+			async runSubagentStop(context) {
+				hookCalls.push(context.turnId);
+				return emptyHookDispatchOutcome();
+			},
+			async recordAdditionalContexts() {},
+		} satisfies Pick<EcosystemHookRuntime, "recordAdditionalContexts" | "runSubagentStart" | "runSubagentStop">;
+		const resourceContext = {
+			async deliverAsyncContext(records) {
+				contexts.push(...records);
+			},
+			async reportObservation(observation) {
+				observations.push(observation);
+			},
+		} satisfies Pick<GreenfieldRuntimeResourceContext, "deliverAsyncContext" | "reportObservation">;
+		const runtime = createGreenfieldSubagentSessionAssembly({
+			enabled: true,
+			cwd: "C:\\workspace",
+			scenario: "cli",
+			readParentSessionId: () => "parent",
+			readParentSessionPath: () => parentSessionPath,
+			readParentMessages: async () => [],
+			readModel: () => MODEL,
+			readThinkingLevel: () => "off",
+			readInheritedMcpView: async () => inheritedMcpView,
+			createChildComposition: async (request) => {
+				compositionRequests.push(request);
+				return {
+					createSession: async (options) => {
+						childSessionOptions.push(options);
+						return childSession(options.sessionId, promptInputs);
+					},
+					resumeSession: async (options) => childSession(options.sessionId, promptInputs),
+					appendSessionContext() {},
+					async deliverSessionContext() {},
+					async dispose() {
+						childCompositionDisposals += 1;
+					},
+				};
+			},
+			hookRuntime,
+			resourceContext,
+		});
+		if (!runtime) throw new Error("Expected enabled Subagent runtime");
+		const spawnTool = runtime.readTools().find(({ name }) => name === "spawn_agent");
+		if (!spawnTool) throw new Error("Expected spawn_agent tool");
+
+		await spawnTool.execute({
+			sessionId: "parent",
+			turnId: "turn-1",
+			toolCallId: "spawn-1",
+			signal: new AbortController().signal,
+			input: {
+				description: "Inspect repository",
+				task_name: "inspect_repo",
+				message: "Inspect the repository.",
+				agent_type: "explorer",
+			},
+		});
+		await vi.waitFor(() => {
+			expect(runtime.list()[0]?.status).toBe("completed");
+		});
+
+		expect(compositionRequests).toHaveLength(1);
+		expect(compositionRequests[0]).toMatchObject({
+			conversationDir: join(dirname(parentSessionPath), ".subagents", "parent"),
+			cwd: "C:\\workspace",
+			initialModel: MODEL,
+			initialThinkingLevel: "off",
+			activation: {
+				mode: "explicit",
+				toolNames: expect.arrayContaining(["read", "grep", "glob", "find", "ls", "dir_tree", "mcp_parent_search"]),
+			},
+			inheritedMcpView,
+		});
+		expect(childSessionOptions[0]).toMatchObject({
+			cwd: "C:\\workspace",
+			parentSessionPath,
+		});
+		expect(hookCalls).toEqual([
+			expect.stringMatching(/^parent:subagent-start:/),
+			expect.stringMatching(/^parent:subagent-stop:.+:0$/),
+		]);
+		expect(promptInputs[0]).toContain("hook context");
+		expect(observations).toEqual(
+			expect.arrayContaining([expect.objectContaining({ type: "subagents_update", source: "tool" })]),
+		);
+		await vi.waitFor(() => {
+			expect(contexts).toEqual(expect.arrayContaining([expect.objectContaining({ type: "subagent-notification" })]));
+		});
+
+		await runtime.dispose();
+		expect(childCompositionDisposals).toBe(1);
+	});
+});
+
+function baseOptions() {
+	return {
+		enabled: true,
+		cwd: "C:\\workspace",
+		scenario: "cli" as const,
+		readParentSessionId: () => "parent",
+		readParentSessionPath: () => "C:\\conversations\\parent.conversation.jsonl",
+		readParentMessages: async (): Promise<readonly Message[]> => [],
+		readModel: () => MODEL,
+		readThinkingLevel: () => "off" as const,
+		readInheritedMcpView: async () => ({ tools: [] }) as McpRuntimeToolView,
+		createChildComposition: async () => {
+			throw new Error("disabled assembly must not create a child composition");
+		},
+		hookRuntime: {
+			async runSubagentStart() {
+				return emptyHookDispatchOutcome();
+			},
+			async runSubagentStop() {
+				return emptyHookDispatchOutcome();
+			},
+			async recordAdditionalContexts() {},
+		} satisfies Pick<EcosystemHookRuntime, "recordAdditionalContexts" | "runSubagentStart" | "runSubagentStop">,
+		resourceContext: {
+			async deliverAsyncContext() {},
+			async reportObservation() {},
+		} satisfies Pick<GreenfieldRuntimeResourceContext, "deliverAsyncContext" | "reportObservation">,
+	};
+}
+
+function childSession(sessionId: string, promptInputs: string[]): GreenfieldRuntimeSession {
+	const session = {
+		sessionId,
+		createCoreAssembly: () => ({
+			lifecycle: { sessionPath: `C:\\conversations\\.subagents\\parent\\${sessionId}.conversation.jsonl` },
+			todoController: undefined,
+		}),
+		prompt: async ({ text }: { readonly text: string }) => {
+			promptInputs.push(text);
+		},
+		abort: async () => {},
+		readState: () => ({ isStreaming: false }),
+		readMessages: (): readonly Message[] => [],
+		dispose: async () => {},
+		subscribe: () => () => {},
+	};
+	return session as unknown as GreenfieldRuntimeSession;
+}
+
+const MODEL: Model<Api> = {
+	id: "subagent-model",
+	name: "Subagent Model",
+	api: "openai-responses",
+	provider: "test",
+	baseUrl: "https://example.test",
+	reasoning: true,
+	input: ["text"],
+	cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+	contextWindow: 8_000,
+	maxTokens: 1_000,
+};

@@ -1,6 +1,4 @@
-import { randomUUID } from "node:crypto";
-import { stat } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { join } from "node:path";
 import type { Message } from "@vetta/ai";
 import type { SessionEndCause, SessionStartSource } from "@vetta/ecosystem-adapter";
 import {
@@ -39,13 +37,6 @@ import {
 	type McpRuntimeToolView,
 } from "@vetta/runtime-mcp";
 import { type ConversationOwnershipManager, FileConversationRepository } from "@vetta/runtime-storage/conversation";
-import type {
-	SubagentChildHandle,
-	SubagentLifecycle,
-	SubagentSnapshot,
-	SubagentSpawnRequest,
-	SubagentTypeDefinition,
-} from "@vetta/runtime-subagents";
 import {
 	CODING_TOOL_SCOPES,
 	type CodingToolActivation,
@@ -114,8 +105,7 @@ import {
 	GreenfieldBackgroundWorkController,
 	GreenfieldSessionConfigurationState,
 } from "./greenfield-session-peripherals.js";
-import { createGreenfieldSubagentChildHandle } from "./greenfield-subagent-child.js";
-import { type GreenfieldSubagentProfile, GreenfieldSubagentRuntime } from "./greenfield-subagent-runtime.js";
+import { createGreenfieldSubagentSessionAssembly } from "./greenfield-subagent-session-assembly.js";
 import {
 	type CodingToolsRuntimeComposition,
 	createCodingToolsRuntimeComposition,
@@ -421,7 +411,6 @@ async function createGreenfieldRuntimeCompositionInternal(
 				},
 			});
 			let executionRuntime: GreenfieldSessionExecutionRuntime | undefined;
-			let subagentRuntime: GreenfieldSubagentRuntime | undefined;
 			let pluginMcpRuntime: CodingAgentPluginMcpRuntime | undefined;
 			const extensionEvents = new CodingAgentGreenfieldExtensionEventBridge();
 			resourceContexts.set(activeSessionId, resourceContext);
@@ -675,151 +664,51 @@ async function createGreenfieldRuntimeCompositionInternal(
 						contextRuntimes.delete(contextRuntime);
 					},
 				});
-				const openSubagentChild = async (
-					operation: "create" | "resume",
-					requestOrSnapshot: SubagentSpawnRequest | SubagentSnapshot,
-					type: SubagentTypeDefinition<GreenfieldSubagentProfile>,
-					forkContext: readonly Message[] | undefined,
-				): Promise<SubagentChildHandle> => {
-					const childSessionId =
-						operation === "create" ? randomUUID() : (requestOrSnapshot as SubagentSnapshot).id;
-					const snapshot = operation === "resume" ? (requestOrSnapshot as SubagentSnapshot) : undefined;
-					const childConversationDir = snapshot?.sessionFile
-						? dirname(snapshot.sessionFile)
-						: join(dirname(repository.resolveConversationPath(activeSessionId)), ".subagents", activeSessionId);
-					const retainedForkContext = operation === "create" ? forkContext : undefined;
-					const inheritedView = type.profile.inheritParentMcp
-						? await refreshAndMergeMcpViews(synchronizer, pluginMcpRuntime)
-						: EMPTY_MCP_TOOL_VIEW;
-					const {
-						mcpSource: _mcpSource,
-						createPluginMcpRuntime: _createPluginMcpRuntime,
-						extensionTools: _extensionTools,
-						...childCompositionOptions
-					} = options;
-					const childComposition = await createGreenfieldRuntimeCompositionInternal(
-						{
-							...childCompositionOptions,
-							conversationDir: childConversationDir,
-							initialModel: modelRuntime.readCurrentModel(),
-							initialThinkingLevel: modelRuntime.readThinkingLevel(),
-							cwd: sessionCwd,
-							activation: withInheritedMcpTools(withScenario(type.profile.activation, scenario), inheritedView),
-							enableSubagents: false,
-						},
-						inheritedView,
-					);
-					try {
-						const childOptions: GreenfieldRuntimeSessionOptions = {
-							sessionId: childSessionId,
-							cwd: sessionCwd,
-							parentSessionPath: repository.resolveConversationPath(activeSessionId),
-							systemPromptAddon: type.profile.systemPromptAddon,
-							forkContextMessages: retainedForkContext,
-							initialTodos:
-								operation === "create" && type.profile.includeTodo
-									? (requestOrSnapshot as SubagentSpawnRequest).todos
-									: undefined,
+				const subagentRuntime = createGreenfieldSubagentSessionAssembly({
+					enabled: options.enableSubagents !== false,
+					maxConcurrent: options.subagentMaxConcurrent,
+					cwd: sessionCwd,
+					scenario,
+					readParentSessionId: () => activeSessionId,
+					readParentSessionPath: () => repository.resolveConversationPath(activeSessionId),
+					readParentMessages: async () =>
+						selectConversationDocumentModelMessages(await repository.readDocument(activeSessionId)),
+					readModel: () => modelRuntime.readCurrentModel(),
+					readThinkingLevel: () => modelRuntime.readThinkingLevel(),
+					readInheritedMcpView: () => refreshAndMergeMcpViews(synchronizer, pluginMcpRuntime),
+					createChildComposition: async (request) => {
+						const {
+							mcpSource: _mcpSource,
+							createPluginMcpRuntime: _createPluginMcpRuntime,
+							extensionTools: _extensionTools,
+							...childCompositionOptions
+						} = options;
+						const childComposition = await createGreenfieldRuntimeCompositionInternal(
+							{
+								...childCompositionOptions,
+								conversationDir: request.conversationDir,
+								initialModel: request.initialModel,
+								initialThinkingLevel: request.initialThinkingLevel,
+								cwd: request.cwd,
+								activation: request.activation,
+								enableSubagents: false,
+							},
+							request.inheritedMcpView,
+						);
+						return {
+							createSession: (childOptions) => childComposition.backend.create(childOptions),
+							resumeSession: (childOptions) => childComposition.backend.resume(childOptions),
+							appendSessionContext: (sessionId, records) =>
+								childComposition.appendSessionContext(sessionId, records),
+							deliverSessionContext: (sessionId, records) =>
+								childComposition.deliverSessionContext(sessionId, records),
+							dispose: () => childComposition.dispose(),
 						};
-						const childSession =
-							operation === "create"
-								? await childComposition.backend.create(childOptions)
-								: await childComposition.backend.resume(childOptions);
-						const childSessionFile = childSession.createCoreAssembly().lifecycle.sessionPath;
-						return createGreenfieldSubagentChildHandle({
-							session: childSession,
-							sessionFile: childSessionFile,
-							appendContext: (records) => childComposition.appendSessionContext(childSession.sessionId, records),
-							deliverContext: (records) =>
-								childComposition.deliverSessionContext(childSession.sessionId, records),
-							disposeComposition: () => childComposition.dispose(),
-						});
-					} catch (error) {
-						await childComposition.dispose();
-						throw error;
-					}
-				};
-				if (options.enableSubagents !== false) {
-					const subagentLifecycle: SubagentLifecycle = {
-						beforeStart: async (input) => {
-							const outcome = await hookRuntime.runSubagentStart(
-								{ agentId: input.id, agentType: input.agentType },
-								`${activeSessionId}:subagent-start:${input.id}`,
-							);
-							await hookRuntime.recordAdditionalContexts(outcome.additionalContexts);
-							if (outcome.shouldStop || outcome.shouldBlock) {
-								return {
-									blockedReason:
-										outcome.stopReason ??
-										outcome.blockReason ??
-										"SubagentStart ecosystem hook blocked subagent spawn",
-								};
-							}
-							return outcome.additionalContexts.length > 0
-								? { message: `${outcome.additionalContexts.join("\n\n")}\n\n${input.message}` }
-								: undefined;
-						},
-						beforeStop: async (input) => {
-							const outcome = await hookRuntime.runSubagentStop({
-								agentId: input.id,
-								agentType: input.agentType,
-								turnId: `${activeSessionId}:subagent-stop:${input.id}:${input.generation}`,
-								stopHookActive: input.stopHookActive,
-								lastAssistantMessage: input.lastAssistantText ?? null,
-								agentTranscriptPath: input.sessionFile ?? null,
-							});
-							await hookRuntime.recordAdditionalContexts(outcome.additionalContexts);
-							if (
-								!input.interrupted &&
-								outcome.shouldBlock &&
-								!outcome.shouldStop &&
-								outcome.continuationFragments.length > 0
-							) {
-								return { continuation: outcome.continuationFragments.join("\n\n") };
-							}
-							return undefined;
-						},
-					};
-					subagentRuntime = new GreenfieldSubagentRuntime({
-						parentSessionId: activeSessionId,
-						maxConcurrent: options.subagentMaxConcurrent,
-						lifecycle: subagentLifecycle,
-						readParentMessages: async () =>
-							selectConversationDocumentModelMessages(await repository.readDocument(activeSessionId)),
-						createChild: (request, type, forkContext) => openSubagentChild("create", request, type, forkContext),
-						reopenChild: (snapshot, type, forkContext) =>
-							openSubagentChild("resume", snapshot, type, forkContext),
-						validateRecoveredChild: (snapshot) =>
-							validateRecoveredSubagentTranscript(snapshot, repository.resolveConversationPath(activeSessionId)),
-						onRecoveryIssue: (message) => {
-							console.warn("[greenfield-runtime] subagent recovery issue", message);
-						},
-						onNotify: (payload) => {
-							void resourceContext
-								.deliverAsyncContext([
-									{
-										type: "subagent-notification",
-										content: [{ type: "text", text: payload.text }],
-										modelVisible: true,
-										display: true,
-									},
-								])
-								.catch((error: unknown) => {
-									console.warn("[greenfield-runtime] failed to deliver subagent notification", error);
-								});
-						},
-						onUpdate: (agents) => {
-							void resourceContext
-								.reportObservation({
-									type: "subagents_update",
-									agents: agents.map(toSubagentInfo),
-									source: "tool",
-								})
-								.catch((error: unknown) => {
-									console.warn("[greenfield-runtime] failed to publish subagent observation", error);
-								});
-						},
-					});
+					},
+					hookRuntime,
+					resourceContext,
+				});
+				if (subagentRuntime) {
 					const acquiredSubagentRuntime = subagentRuntime;
 					rollback.defer({
 						id: "subagent-runtime",
@@ -1626,17 +1515,6 @@ function mergeMcpToolViews(
 	return Object.freeze({ tools: Object.freeze([...tools.values()]) });
 }
 
-function withInheritedMcpTools(
-	activation: CodingToolActivation,
-	inheritedMcpView: McpRuntimeToolView,
-): CodingToolActivation {
-	if (activation.mode === "scope" || inheritedMcpView.tools.length === 0) return activation;
-	return {
-		mode: "explicit",
-		toolNames: [...new Set([...activation.toolNames, ...inheritedMcpView.tools.map(({ tool }) => tool.name)])],
-	};
-}
-
 function toPluginToolActivation(
 	activation: CodingToolActivation,
 	agentMode: string | undefined,
@@ -1719,10 +1597,6 @@ function withAgentMode(activation: CodingToolActivation, agentMode: string | und
 	return activation.mode === "scope" ? { ...activation, agentMode } : activation;
 }
 
-function withScenario(activation: CodingToolActivation, scenario: ConversationScenario): CodingToolActivation {
-	return activation.mode === "scope" ? { ...activation, scope: scenario } : activation;
-}
-
 function createForkContextFeature(messages: readonly Message[]): AgentFeatureDefinition {
 	const snapshot = [...messages];
 	return {
@@ -1739,11 +1613,6 @@ function createForkContextFeature(messages: readonly Message[]): AgentFeatureDef
 			dispose: async () => {},
 		}),
 	};
-}
-
-function toSubagentInfo(snapshot: SubagentSnapshot): Omit<SubagentSnapshot, "usage"> {
-	const { usage: _usage, ...info } = snapshot;
-	return info;
 }
 
 function joinPromptAddons(base: string | undefined, addon: string | undefined): string | undefined {
@@ -1768,28 +1637,6 @@ function createSessionPluginRuntime(
 		invokeContinuation: sessionOptions.invokePluginContinuation,
 		invokeSystemPrompt: sessionOptions.invokePluginSystemPrompt,
 	};
-}
-
-async function validateRecoveredSubagentTranscript(
-	snapshot: SubagentSnapshot,
-	parentSessionPath: string,
-): Promise<string | undefined> {
-	const sessionFile = snapshot.sessionFile;
-	if (!sessionFile) return "Recovered subagent has no child session transcript";
-	const expectedDirectory = resolve(dirname(parentSessionPath), ".subagents", snapshot.parentSessionId);
-	const resolvedSessionFile = resolve(sessionFile);
-	const childRepository = new FileConversationRepository({ rootDir: expectedDirectory });
-	const expectedSessionFile = childRepository.resolveConversationPath(snapshot.id);
-	await childRepository.close();
-	if (resolvedSessionFile !== expectedSessionFile) {
-		return "Recovered subagent transcript does not match the parent-owned session path";
-	}
-	try {
-		const metadata = await stat(resolvedSessionFile);
-		return metadata.isFile() ? undefined : "Recovered subagent transcript is not a file";
-	} catch {
-		return "Recovered subagent transcript is missing";
-	}
 }
 
 const EMPTY_MCP_TOOL_VIEW: McpRuntimeToolView = Object.freeze({ tools: Object.freeze([]) });

@@ -351,6 +351,36 @@ function checkKnowledgeProcessingBoundary(posixPath, text, specifiers, findings)
 	visit(sourceFile);
 }
 
+function checkGreenfieldSubagentAssemblyBoundary(posixPath, text, findings) {
+	if (posixPath !== "packages/coding-agent/src/composition/greenfield-runtime-composition.ts") return;
+
+	const sourceFile = ts.createSourceFile(posixPath, text, ts.ScriptTarget.Latest, true, scriptKind(posixPath));
+	const forbiddenSymbols = new Set([
+		"GreenfieldSubagentProfile",
+		"GreenfieldSubagentRuntime",
+		"SubagentChildHandle",
+		"SubagentLifecycle",
+		"SubagentSnapshot",
+		"SubagentSpawnRequest",
+		"SubagentTypeDefinition",
+		"createGreenfieldSubagentChildHandle",
+		"runSubagentStart",
+		"runSubagentStop",
+		"validateRecoveredSubagentTranscript",
+	]);
+	const forbiddenLiterals = new Set([".subagents", "subagent-notification", "subagents_update"]);
+	const visit = (node) => {
+		if (ts.isIdentifier(node) && forbiddenSymbols.has(node.text)) {
+			findings.push(`${posixPath}: Greenfield Composition Root must delegate Subagent assembly (${node.text})`);
+		}
+		if (ts.isStringLiteralLike(node) && forbiddenLiterals.has(node.text)) {
+			findings.push(`${posixPath}: Greenfield Composition Root must not own Subagent policy (${node.text})`);
+		}
+		ts.forEachChild(node, visit);
+	};
+	visit(sourceFile);
+}
+
 function checkRetiredAutomaticLegacyFallback(posixPath, text, findings) {
 	const isRuntimeProductionSource =
 		(posixPath.startsWith("packages/cli-app/src/") || posixPath.startsWith("packages/coding-agent/src/")) &&
@@ -549,6 +579,7 @@ export function findPackageBoundaryViolations(posixPath, text, options = {}) {
 	checkGreenfieldSessionTransitionBoundary(posixPath, text, specifiers, findings);
 	checkGreenfieldBranchNavigationBoundary(posixPath, text, findings);
 	checkKnowledgeProcessingBoundary(posixPath, text, specifiers, findings);
+	checkGreenfieldSubagentAssemblyBoundary(posixPath, text, findings);
 	checkRetiredAutomaticLegacyFallback(posixPath, text, findings);
 	checkRuntimeCompositionCompatibilityFacade(posixPath, specifiers, findings);
 	checkCodingAgentRootImports(posixPath, specifiers, findings);

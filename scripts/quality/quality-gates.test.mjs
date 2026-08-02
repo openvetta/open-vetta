@@ -505,6 +505,24 @@ describe("package boundary analysis", () => {
 		).toEqual([]);
 	});
 
+	it("keeps Subagent session assembly out of the Greenfield Composition Root", () => {
+		const compositionPath = "packages/coding-agent/src/composition/greenfield-runtime-composition.ts";
+		const embeddedAssembly = `
+			const runtime = new GreenfieldSubagentRuntime({});
+			createGreenfieldSubagentChildHandle({});
+			hooks.runSubagentStart({});
+			const directory = ".subagents";
+			const observation = "subagents_update";
+		`;
+		expect(findPackageBoundaryViolations(compositionPath, embeddedAssembly)).toHaveLength(5);
+		expect(
+			findPackageBoundaryViolations(
+				compositionPath,
+				'import { createGreenfieldSubagentSessionAssembly } from "./greenfield-subagent-session-assembly.js";',
+			),
+		).toEqual([]);
+	});
+
 	it("requires scoped production packages to declare workspace imports", () => {
 		const source = 'import { createRuntime } from "@vetta/runtime-tools/coding";';
 		const path = "packages/coding-agent/src/composition/example.ts";
