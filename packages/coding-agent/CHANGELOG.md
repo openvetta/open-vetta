@@ -19,6 +19,7 @@
 
 ### Changed
 
+- **非 RPC CLI 意图与 Print Host 解耦**：CLI 现在显式区分 control、print 与 RPC；帮助、版本、模型列表、导出和包管理不再进入会话 Runtime 决策。`runPrintMode()` 改为消费中立 `PrintSessionCapabilities`，旧 `AgentSession` 通过等价适配器继续承载 text、JSON 和管道输入，执行功能与默认 backend 不变。
 - **Legacy RPC 自动回退改为穷尽策略门禁**：普通 RPC 仍只在 Extension 存在明确未支持事件/能力，或旧会话迁移状态为 `locked`、`not-representable`、`failed` 时启动 Legacy；缺少结构化证据、成功迁移却请求回退或未来未登记的回退状态会 fail-closed。显式 `--agent-runtime legacy`、现有 RPC wire 和全部兼容回退行为不变。
 - **普通 RPC 默认切换到中性 Greenfield 宿主**：新增完整 `greenfield` RPC Profile 和中性 Session Adapter，模型、思考等级、队列、压缩、Memory、自动重试、直接 Bash、会话统计/命名/导出及命令发现均通过 Greenfield 端口实现；`greenfield-im` 保留兼容 Profile，非 RPC 模式和不兼容 Extension/旧会话仍按原规则使用 Legacy。
 - **Greenfield IM Extension 切换改用穷尽事件 Profile**：事件兼容性由 `ExtensionEvent` 联合派生的 supported/unsupported/inapplicable Profile 决定，新增合法事件未声明时会产生类型错误，运行时未知事件仍安全回退 Legacy。真实 RPC CLI 门禁覆盖 Event/Tool/Command 组合、RPC 不适用 UI 注册和未来事件回退；Runtime 选择日志在 stderr 报告具体 `unsupportedEvents` 与 `unmetCapabilities`，不污染 JSONL stdout。

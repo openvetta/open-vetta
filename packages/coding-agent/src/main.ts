@@ -23,6 +23,7 @@ import { SettingsManager } from "./core/settings-manager.js";
 import { allTools } from "./core/tools/index.js";
 import { type CodingAgentHostBootstrap, createCodingAgentHostBootstrap } from "./host/coding-agent-host-bootstrap.js";
 import { runPrintMode, runRpcMode } from "./modes/index.js";
+import { LegacyPrintSessionAdapter } from "./modes/legacy-print-session-adapter.js";
 import type { RpcRuntimeDecision } from "./modes/rpc/rpc-types.js";
 
 /**
@@ -729,7 +730,7 @@ export async function runLegacyAgentWithBootstrap(
 			runtimeDecision: options.rpcRuntimeDecision,
 		});
 	} else {
-		await runPrintMode(session, {
+		await runPrintMode(new LegacyPrintSessionAdapter(session), {
 			mode,
 			messages: parsed.messages,
 			initialMessage,

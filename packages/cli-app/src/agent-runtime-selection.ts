@@ -2,6 +2,7 @@ import { createAgentCliBootstrap } from "@vetta/coding-agent/bootstrap";
 import { main as runLegacyAgent, runLegacyAgentWithBootstrap } from "@vetta/coding-agent/legacy/cli";
 import type { RpcRuntimeDecision } from "@vetta/coding-agent/rpc";
 import { ConversationOwnershipConflictError } from "@vetta/runtime-storage/conversation";
+import { classifyAgentCliIntent } from "./agent-cli-intent.js";
 import { createCliRuntimeSessionCatalog } from "./rpc/cli-session-format-compatibility.js";
 import {
 	type GreenfieldImFallbackReason,
@@ -62,6 +63,10 @@ export async function runAgentRuntimeCli(
 ): Promise<void> {
 	const selection = parseAgentRuntimeSelection(args);
 	assertSupportedSessionSelection(selection.agentArgs);
+	if (classifyAgentCliIntent(selection.agentArgs) === "control") {
+		await runLegacyAgent(selection.agentArgs);
+		return;
+	}
 	if (selection.backend === "legacy") {
 		options.onDecision?.({
 			requestedBackend: "legacy",
@@ -162,12 +167,8 @@ function parseBackend(value: string): AgentRuntimeBackend {
 }
 
 function defaultBackend(args: readonly string[]): AgentRuntimeBackend {
-	if (!requestsRpcMode(args)) return "legacy";
+	if (classifyAgentCliIntent(args) !== "rpc") return "legacy";
 	return args.includes("--enable-host-bridge") || args.some((arg) => arg === "--scenario=im-claw")
 		? "greenfield-im"
 		: "greenfield";
-}
-
-function requestsRpcMode(args: readonly string[]): boolean {
-	return args.some((arg, index) => arg === "--mode=rpc" || (arg === "--mode" && args[index + 1] === "rpc"));
 }
