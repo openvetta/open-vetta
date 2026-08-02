@@ -255,7 +255,8 @@ describe("package boundary analysis", () => {
 				source,
 			),
 		).toHaveLength(1);
-		expect(findPackageBoundaryViolations("packages/cli-app/src/agent-runtime-selection.ts", source)).toEqual([]);
+		expect(findPackageBoundaryViolations("packages/cli-app/src/agent-runtime-selection.ts", source)).toHaveLength(1);
+		expect(findPackageBoundaryViolations("packages/cli-app/src/legacy-runtime-gateway.ts", source)).toEqual([]);
 		expect(
 			findPackageBoundaryViolations(
 				"packages/coding-agent/src/composition/greenfield-runtime-composition.ts",
@@ -300,10 +301,16 @@ describe("package boundary analysis", () => {
 	it("keeps production Legacy imports and Runtime adapters inside explicit compatibility boundaries", () => {
 		expect(
 			findPackageBoundaryViolations(
-				"packages/cli-app/src/agent-runtime-selection.ts",
+				"packages/cli-app/src/legacy-runtime-gateway.ts",
 				'import { main } from "@vetta/coding-agent/legacy/cli";',
 			),
 		).toEqual([]);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/cli-app/src/agent-runtime-selection.ts",
+				'import { main } from "@vetta/coding-agent/legacy/cli";',
+			),
+		).toHaveLength(1);
 		expect(
 			findPackageBoundaryViolations(
 				"packages/desktop-app/src/main/new-consumer.ts",

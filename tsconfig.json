@@ -12,6 +12,7 @@
 			"@vetta/capability-runtime/*": ["./packages/capability-runtime/src/*"],
 			"@vetta/coding-agent": ["./packages/coding-agent/src/index.ts"],
 			"@vetta/coding-agent/bootstrap": ["./packages/coding-agent/src/public-api/bootstrap.ts"],
+			"@vetta/coding-agent/cli-control": ["./packages/coding-agent/src/public-api/cli-control.ts"],
 			"@vetta/coding-agent/composition": ["./packages/coding-agent/src/composition/index.ts"],
 			"@vetta/coding-agent/config": ["./packages/coding-agent/src/config.ts"],
 			"@vetta/coding-agent/concurrency": ["./packages/coding-agent/src/core/concurrency-limit.ts"],

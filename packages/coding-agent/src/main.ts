@@ -8,19 +8,18 @@
 import { modelsAreEqual, supportsXhigh } from "@vetta/ai";
 import chalk from "chalk";
 import { createInterface } from "readline";
-import { type Args, printHelp } from "./cli/args.js";
-import { listModels } from "./cli/list-models.js";
-import { APP_NAME, CONFIG_DIR_NAME, getAgentDir, getModelsPath, VERSION } from "./config.js";
+import type { Args } from "./cli/args.js";
+import { getModelsPath } from "./config.js";
 import { DEFAULT_THINKING_LEVEL } from "./core/defaults.js";
-import { exportFromFile } from "./core/export-html/index.js";
 import type { ModelRegistry } from "./core/model-registry.js";
 import { resolveCliModel, resolveModelScope, type ScopedModel } from "./core/model-resolver.js";
-import { DefaultPackageManager } from "./core/package-manager.js";
 import { type CreateAgentSessionOptions, createAgentSession } from "./core/sdk.js";
 import { SessionLockError, SessionManager } from "./core/session-manager/index.js";
-import { SettingsManager } from "./core/settings-manager.js";
+import type { SettingsManager } from "./core/settings-manager.js";
 import { allTools } from "./core/tools/index.js";
-import { type CodingAgentHostBootstrap, createCodingAgentHostBootstrap } from "./host/coding-agent-host-bootstrap.js";
+import { createAgentCliBootstrap } from "./host/coding-agent-cli-bootstrap.js";
+import { runCodingAgentCliControl, runCodingAgentCliControlWithBootstrap } from "./host/coding-agent-cli-control.js";
+import type { CodingAgentHostBootstrap } from "./host/coding-agent-host-bootstrap.js";
 import {
 	prepareCodingAgentPipedStdin,
 	prepareCodingAgentPrintInvocation,
@@ -28,252 +27,6 @@ import {
 import { runPrintMode, runRpcMode } from "./modes/index.js";
 import { LegacyPrintSessionAdapter } from "./modes/legacy-print-session-adapter.js";
 import type { RpcRuntimeDecision } from "./modes/rpc/rpc-types.js";
-
-function reportSettingsErrors(settingsManager: SettingsManager, context: string): void {
-	const errors = settingsManager.drainErrors();
-	for (const { scope, error } of errors) {
-		console.error(chalk.yellow(`Warning (${context}, ${scope} settings): ${error.message}`));
-		if (error.stack) {
-			console.error(chalk.dim(error.stack));
-		}
-	}
-}
-
-function isTruthyEnvFlag(value: string | undefined): boolean {
-	if (!value) return false;
-	return value === "1" || value.toLowerCase() === "true" || value.toLowerCase() === "yes";
-}
-
-type PackageCommand = "install" | "remove" | "update" | "list";
-
-interface PackageCommandOptions {
-	command: PackageCommand;
-	source?: string;
-	local: boolean;
-	help: boolean;
-	invalidOption?: string;
-}
-
-function getPackageCommandUsage(command: PackageCommand): string {
-	switch (command) {
-		case "install":
-			return `${APP_NAME} install <source> [-l]`;
-		case "remove":
-			return `${APP_NAME} remove <source> [-l]`;
-		case "update":
-			return `${APP_NAME} update [source]`;
-		case "list":
-			return `${APP_NAME} list`;
-	}
-}
-
-function printPackageCommandHelp(command: PackageCommand): void {
-	switch (command) {
-		case "install":
-			console.log(`${chalk.bold("Usage:")}
-  ${getPackageCommandUsage("install")}
-
-Install a package and add it to settings.
-
-Options:
-  -l, --local    Install project-locally (${CONFIG_DIR_NAME}/settings.json)
-
-Examples:
-  ${APP_NAME} install npm:@foo/bar
-  ${APP_NAME} install git:github.com/user/repo
-  ${APP_NAME} install git:git@github.com:user/repo
-  ${APP_NAME} install https://github.com/user/repo
-  ${APP_NAME} install ssh://git@github.com/user/repo
-  ${APP_NAME} install ./local/path
-`);
-			return;
-
-		case "remove":
-			console.log(`${chalk.bold("Usage:")}
-  ${getPackageCommandUsage("remove")}
-
-Remove a package and its source from settings.
-
-Options:
-  -l, --local    Remove from project settings (${CONFIG_DIR_NAME}/settings.json)
-
-Example:
-  ${APP_NAME} remove npm:@foo/bar
-`);
-			return;
-
-		case "update":
-			console.log(`${chalk.bold("Usage:")}
-  ${getPackageCommandUsage("update")}
-
-Update installed packages.
-If <source> is provided, only that package is updated.
-`);
-			return;
-
-		case "list":
-			console.log(`${chalk.bold("Usage:")}
-  ${getPackageCommandUsage("list")}
-
-List installed packages from user and project settings.
-`);
-			return;
-	}
-}
-
-function parsePackageCommand(args: string[]): PackageCommandOptions | undefined {
-	const [command, ...rest] = args;
-	if (command !== "install" && command !== "remove" && command !== "update" && command !== "list") {
-		return undefined;
-	}
-
-	let local = false;
-	let help = false;
-	let invalidOption: string | undefined;
-	let source: string | undefined;
-
-	for (const arg of rest) {
-		if (arg === "-h" || arg === "--help") {
-			help = true;
-			continue;
-		}
-
-		if (arg === "-l" || arg === "--local") {
-			if (command === "install" || command === "remove") {
-				local = true;
-			} else {
-				invalidOption = invalidOption ?? arg;
-			}
-			continue;
-		}
-
-		if (arg.startsWith("-")) {
-			invalidOption = invalidOption ?? arg;
-			continue;
-		}
-
-		if (!source) {
-			source = arg;
-		}
-	}
-
-	return { command, source, local, help, invalidOption };
-}
-
-async function handlePackageCommand(args: string[]): Promise<boolean> {
-	const options = parsePackageCommand(args);
-	if (!options) {
-		return false;
-	}
-
-	if (options.help) {
-		printPackageCommandHelp(options.command);
-		return true;
-	}
-
-	if (options.invalidOption) {
-		console.error(chalk.red(`Unknown option ${options.invalidOption} for "${options.command}".`));
-		console.error(chalk.dim(`Use "${APP_NAME} --help" or "${getPackageCommandUsage(options.command)}".`));
-		process.exitCode = 1;
-		return true;
-	}
-
-	const source = options.source;
-	if ((options.command === "install" || options.command === "remove") && !source) {
-		console.error(chalk.red(`Missing ${options.command} source.`));
-		console.error(chalk.dim(`Usage: ${getPackageCommandUsage(options.command)}`));
-		process.exitCode = 1;
-		return true;
-	}
-
-	const cwd = process.cwd();
-	const agentDir = getAgentDir();
-	const settingsManager = SettingsManager.create(cwd, agentDir);
-	reportSettingsErrors(settingsManager, "package command");
-	const packageManager = new DefaultPackageManager({ cwd, agentDir, settingsManager });
-
-	packageManager.setProgressCallback((event) => {
-		if (event.type === "start") {
-			process.stdout.write(chalk.dim(`${event.message}\n`));
-		}
-	});
-
-	try {
-		switch (options.command) {
-			case "install":
-				await packageManager.install(source!, { local: options.local });
-				packageManager.addSourceToSettings(source!, { local: options.local });
-				console.log(chalk.green(`Installed ${source}`));
-				return true;
-
-			case "remove": {
-				await packageManager.remove(source!, { local: options.local });
-				const removed = packageManager.removeSourceFromSettings(source!, { local: options.local });
-				if (!removed) {
-					console.error(chalk.red(`No matching package found for ${source}`));
-					process.exitCode = 1;
-					return true;
-				}
-				console.log(chalk.green(`Removed ${source}`));
-				return true;
-			}
-
-			case "list": {
-				const globalSettings = settingsManager.getGlobalSettings();
-				const projectSettings = settingsManager.getProjectSettings();
-				const globalPackages = globalSettings.packages ?? [];
-				const projectPackages = projectSettings.packages ?? [];
-
-				if (globalPackages.length === 0 && projectPackages.length === 0) {
-					console.log(chalk.dim("No packages installed."));
-					return true;
-				}
-
-				const formatPackage = (pkg: (typeof globalPackages)[number], scope: "user" | "project") => {
-					const source = typeof pkg === "string" ? pkg : pkg.source;
-					const filtered = typeof pkg === "object";
-					const display = filtered ? `${source} (filtered)` : source;
-					console.log(`  ${display}`);
-					const path = packageManager.getInstalledPath(source, scope);
-					if (path) {
-						console.log(chalk.dim(`    ${path}`));
-					}
-				};
-
-				if (globalPackages.length > 0) {
-					console.log(chalk.bold("User packages:"));
-					for (const pkg of globalPackages) {
-						formatPackage(pkg, "user");
-					}
-				}
-
-				if (projectPackages.length > 0) {
-					if (globalPackages.length > 0) console.log();
-					console.log(chalk.bold("Project packages:"));
-					for (const pkg of projectPackages) {
-						formatPackage(pkg, "project");
-					}
-				}
-
-				return true;
-			}
-
-			case "update":
-				await packageManager.update(source);
-				if (source) {
-					console.log(chalk.green(`Updated ${source}`));
-				} else {
-					console.log(chalk.green("Updated packages"));
-				}
-				return true;
-		}
-	} catch (error: unknown) {
-		const message = error instanceof Error ? error.message : "Unknown package command error";
-		console.error(chalk.red(`Error: ${message}`));
-		process.exitCode = 1;
-		return true;
-	}
-}
 
 /** Result from resolving a session argument */
 type ResolvedSession =
@@ -470,32 +223,13 @@ function buildSessionOptions(
 }
 
 export async function main(args: string[]) {
-	const offlineMode = args.includes("--offline") || isTruthyEnvFlag(process.env.PI_OFFLINE);
-	if (offlineMode) {
-		process.env.PI_OFFLINE = "1";
-		process.env.PI_SKIP_VERSION_CHECK = "1";
-	}
-
-	if (await handlePackageCommand(args)) {
-		return;
-	}
+	if (await runCodingAgentCliControl(args)) return;
 
 	const bootstrap = await createAgentCliBootstrap(args);
 	await runLegacyAgentWithBootstrap(bootstrap);
 }
 
-export async function createAgentCliBootstrap(args: string[]): Promise<CodingAgentHostBootstrap> {
-	return createCodingAgentHostBootstrap({
-		args,
-		onSettingsError: ({ scope, error }) => {
-			console.error(chalk.yellow(`Warning (startup, ${scope} settings): ${error.message}`));
-			if (error.stack) console.error(chalk.dim(error.stack));
-		},
-		onExtensionError: ({ path, error }) => {
-			console.error(chalk.red(`Failed to load extension "${path}": ${error}`));
-		},
-	});
-}
+export { createAgentCliBootstrap } from "./host/coding-agent-cli-bootstrap.js";
 
 /** @deprecated Use createAgentCliBootstrap. Retained only for the explicit Legacy runtime adapter. */
 export async function createLegacyAgentBootstrap(args: string[]): Promise<CodingAgentHostBootstrap> {
@@ -513,38 +247,9 @@ export async function runLegacyAgentWithBootstrap(
 	options: { readonly rpcRuntimeDecision?: RpcRuntimeDecision } = {},
 ): Promise<void> {
 	const { cwd, parsed, settingsManager, authStorage, modelRegistry, resourceLoader } = bootstrap;
-
-	if (parsed.version) {
-		console.log(VERSION);
-		process.exit(0);
-	}
-
-	if (parsed.help) {
-		printHelp();
-		process.exit(0);
-	}
-
-	if (parsed.listModels !== undefined) {
-		const searchPattern = typeof parsed.listModels === "string" ? parsed.listModels : undefined;
-		await listModels(modelRegistry, searchPattern);
-		process.exit(0);
-	}
+	if (await runCodingAgentCliControlWithBootstrap(bootstrap)) return;
 
 	if (parsed.mode !== "rpc") await prepareCodingAgentPipedStdin(parsed);
-
-	if (parsed.export) {
-		let result: string;
-		try {
-			const outputPath = parsed.messages.length > 0 ? parsed.messages[0] : undefined;
-			result = await exportFromFile(parsed.export, outputPath);
-		} catch (error: unknown) {
-			const message = error instanceof Error ? error.message : "Failed to export session";
-			console.error(chalk.red(`Error: ${message}`));
-			process.exit(1);
-		}
-		console.log(`Exported to: ${result}`);
-		process.exit(0);
-	}
 
 	if (parsed.mode === "rpc" && parsed.fileArgs.length > 0) {
 		console.error(chalk.red("Error: @file arguments are not supported in RPC mode"));

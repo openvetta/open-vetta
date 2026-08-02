@@ -28,6 +28,10 @@
 			"types": "./dist/public-api/bootstrap.d.ts",
 			"import": "./dist/public-api/bootstrap.js"
 		},
+		"./cli-control": {
+			"types": "./dist/public-api/cli-control.d.ts",
+			"import": "./dist/public-api/cli-control.js"
+		},
 		"./config": {
 			"types": "./dist/config.d.ts",
 			"import": "./dist/config.js"

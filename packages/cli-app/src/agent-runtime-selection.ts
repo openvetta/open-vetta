@@ -1,8 +1,9 @@
 import { createAgentCliBootstrap, resolveCodingAgentSessionDir } from "@vetta/coding-agent/bootstrap";
-import { main as runLegacyAgent, runLegacyAgentWithBootstrap } from "@vetta/coding-agent/legacy/cli";
+import { runCodingAgentCliControl } from "@vetta/coding-agent/cli-control";
 import type { RpcRuntimeDecision } from "@vetta/coding-agent/rpc";
 import { ConversationOwnershipConflictError } from "@vetta/runtime-storage/conversation";
 import { classifyAgentCliIntent } from "./agent-cli-intent.js";
+import { runLegacyRuntimeExecution } from "./legacy-runtime-gateway.js";
 import { createCliRuntimeSessionCatalog } from "./rpc/cli-session-format-compatibility.js";
 import {
 	type GreenfieldImFallbackReason,
@@ -70,7 +71,9 @@ export async function runAgentRuntimeCli(
 	assertSupportedSessionSelection(selection.agentArgs);
 	const intent = classifyAgentCliIntent(selection.agentArgs);
 	if (intent === "control") {
-		await runLegacyAgent(selection.agentArgs);
+		if (!(await runCodingAgentCliControl(selection.agentArgs))) {
+			throw new Error("CLI control intent was not handled by the Coding Agent control host");
+		}
 		return;
 	}
 	if (selection.backend === "legacy") {
@@ -78,7 +81,7 @@ export async function runAgentRuntimeCli(
 			requestedBackend: "legacy",
 			effectiveBackend: "legacy",
 		});
-		await runLegacyAgent(selection.agentArgs);
+		await runLegacyRuntimeExecution({ cause: "explicit-selection", args: selection.agentArgs });
 		return;
 	}
 
@@ -113,7 +116,12 @@ export async function runAgentRuntimeCli(
 			} as const satisfies AgentRuntimeDecision;
 			if (options.onDecision) options.onDecision(decision);
 			else console.warn(`[agent-runtime] Greenfield unavailable (${prepared.reason}); using Legacy runtime`);
-			await runLegacyAgentWithBootstrap(prepared.bootstrap, { rpcRuntimeDecision: decision });
+			await runLegacyRuntimeExecution({
+				cause: prepared.reason === "legacy-extension" ? "extension-compatibility-gap" : "session-migration-gap",
+				bootstrap: prepared.bootstrap,
+				evidence: prepared,
+				runtimeDecision: decision,
+			});
 			return;
 		}
 		options.onDecision?.(prepared.runtimeDecision);

@@ -304,7 +304,7 @@ function checkCodingAgentLegacyBoundaries(posixPath, text, specifiers, findings)
 	for (const specifier of specifiers) {
 		if (!specifier.startsWith("@vetta/coding-agent/legacy/")) continue;
 		const isAllowedCliEntry =
-			posixPath === "packages/cli-app/src/agent-runtime-selection.ts" &&
+			posixPath === "packages/cli-app/src/legacy-runtime-gateway.ts" &&
 			specifier === "@vetta/coding-agent/legacy/cli";
 		if (!isAllowedCliEntry) {
 			findings.push(`${posixPath}: production Legacy subpath import is outside the compatibility allowlist`);
@@ -318,6 +318,18 @@ function checkCodingAgentLegacyBoundaries(posixPath, text, specifiers, findings)
 		ts.forEachChild(node, visit);
 	};
 	visit(sourceFile);
+
+	if (
+		posixPath.startsWith("packages/cli-app/src/") &&
+		posixPath !== "packages/cli-app/src/legacy-runtime-gateway.ts" &&
+		!posixPath.startsWith("packages/cli-app/src/rpc/greenfield")
+	) {
+		for (const symbol of ["runLegacyAgent", "runLegacyAgentWithBootstrap"]) {
+			if (usedSymbols.has(symbol)) {
+				findings.push(`${posixPath}: Legacy startup symbol ${symbol} is outside the execution gateway`);
+			}
+		}
+	}
 
 	const isLegacyFormatModule = posixPath.startsWith(
 		"packages/coding-agent/src/adapters/runtime-core/legacy-session-format/",

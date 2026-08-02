@@ -590,18 +590,49 @@ describe("Agent non-RPC CLI compatibility", () => {
 		}
 	}, 60_000);
 
-	it("runs help as a control command without entering session runtime selection", async () => {
+	it("runs control commands without entering Legacy or Greenfield Session Runtime", async () => {
 		const fixture = await createAgentRpcFixture();
+		const sessionPath = join(fixture.workspace, "control-export.jsonl");
+		const exportPath = join(fixture.workspace, "control-export.html");
 		try {
-			const result = await runAgentCli(fixture, ["agent", "--help"]);
+			await writeFile(
+				sessionPath,
+				`${JSON.stringify({
+					type: "session",
+					version: 3,
+					id: "control-export-session",
+					timestamp: "2026-01-01T00:00:00.000Z",
+					cwd: fixture.workspace,
+				})}\n${JSON.stringify({
+					type: "message",
+					id: "control-export-message",
+					parentId: null,
+					timestamp: "2026-01-01T00:00:01.000Z",
+					message: { role: "user", content: "control export", timestamp: 1 },
+				})}\n`,
+				"utf8",
+			);
 
-			expect(result.code).toBe(0);
-			expect(result.stdout).toContain("Usage:");
-			expect(result.stderr).not.toContain("[agent-runtime]");
+			const help = await runAgentCli(fixture, ["agent", "--agent-runtime", "legacy", "--help"]);
+			const version = await runAgentCli(fixture, ["agent", "--version"]);
+			const models = await runAgentCli(fixture, ["agent", "--list-models", "test-model"]);
+			const exported = await runAgentCli(fixture, ["agent", "--export", sessionPath, exportPath]);
+
+			expect(help).toMatchObject({ code: 0, stderr: "" });
+			expect(help.stdout).toContain("Usage:");
+			expect(version).toMatchObject({ code: 0, stderr: "" });
+			expect(version.stdout.trim().split(/\r?\n/).at(-1)).toMatch(/^\d+\.\d+\.\d+/);
+			expect(models.code).toBe(0);
+			expect(models.stdout).toContain("test-model");
+			expect(models.stderr).not.toContain("[agent-runtime]");
+			expect(exported.code).toBe(0);
+			expect(exported.stdout).toContain(`Exported to: ${exportPath}`);
+			expect(exported.stderr).not.toContain("[agent-runtime]");
+			expect(await readFile(exportPath, "utf8")).toContain("<title>Session Export</title>");
 		} finally {
 			await fixture.dispose();
 		}
-	}, 30_000);
+	}, 60_000);
 });
 
 async function runAgentCli(

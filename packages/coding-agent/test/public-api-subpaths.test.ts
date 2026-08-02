@@ -6,6 +6,7 @@ import * as knowledge from "../src/core/knowledge/index.js";
 import { DefaultResourceLoader } from "../src/core/resource-loader.js";
 import * as root from "../src/index.js";
 import { createAgentCliBootstrap, createCodingAgentHostBootstrap } from "../src/public-api/bootstrap.js";
+import { runCodingAgentCliControl } from "../src/public-api/cli-control.js";
 import * as runtimeStorageCompat from "../src/public-api/compat-runtime-storage.js";
 import * as runtimeToolsCompat from "../src/public-api/compat-runtime-tools.js";
 import {
@@ -48,6 +49,7 @@ describe("coding-agent public subpaths", () => {
 		expect(runtimeStorageCompat.SessionManager).toBe(root.SessionManager);
 		expect(runtimeToolsCompat.createReadTool).toBe(root.createReadTool);
 		expect(runtimeToolsCompat.readTool).toBe(root.readTool);
+		expect(runCodingAgentCliControl).toBeTypeOf("function");
 	});
 
 	it("publishes the explicit package export targets", () => {
@@ -57,6 +59,10 @@ describe("coding-agent public subpaths", () => {
 			"./bootstrap": {
 				types: "./dist/public-api/bootstrap.d.ts",
 				import: "./dist/public-api/bootstrap.js",
+			},
+			"./cli-control": {
+				types: "./dist/public-api/cli-control.d.ts",
+				import: "./dist/public-api/cli-control.js",
 			},
 			"./config": {
 				types: "./dist/config.d.ts",
