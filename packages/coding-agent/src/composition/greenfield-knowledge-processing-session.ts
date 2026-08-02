@@ -15,7 +15,7 @@ import type {
 	KnowledgeProcessingSessionFactory,
 	KnowledgeProcessingSessionRequest,
 	KnowledgeProcessingUsage,
-} from "./legacy-knowledge-processing-session.js";
+} from "./knowledge-processing-contract.js";
 
 export interface GreenfieldKnowledgeProcessingSessionFactoryOptions {
 	readonly getModelRegistry: () => CodingAgentModelRegistrySource;

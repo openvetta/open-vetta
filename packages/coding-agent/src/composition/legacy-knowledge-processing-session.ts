@@ -1,45 +1,19 @@
 import type { ThinkingLevel } from "@vetta/agent-core";
 import type { AgentSessionEvent } from "../core/agent-session.js";
 import type { ToolDefinition } from "../core/extensions/types.js";
-import type { WritePageRequest, WritePageResult } from "../core/knowledge/writer.js";
 import type { ModelRegistry } from "../core/model-registry.js";
 import { type CreateAgentSessionOptions, createAgentSession } from "../core/sdk.js";
 import { SessionManager } from "../core/session-manager/index.js";
 import { createKbWritePageTool } from "../core/tools/kb-write-page/index.js";
+import type { KnowledgeProcessingSessionFactory, KnowledgeProcessingUsage } from "./knowledge-processing-contract.js";
 
-export interface KnowledgeProcessingUsage {
-	readonly inputTokens: number;
-	readonly outputTokens: number;
-	readonly cacheReadTokens: number;
-	readonly cacheWriteTokens: number;
-	readonly costTotal: number;
-}
-
-export interface KnowledgeProcessingPageWriter {
-	write(request: WritePageRequest, now: string): Promise<WritePageResult>;
-}
-
-export interface KnowledgeProcessingSession {
-	run(prompt: string): Promise<void>;
-	abort(): Promise<void>;
-	subscribeUsage(listener: (usage: KnowledgeProcessingUsage) => void): () => void;
-	dispose(): Promise<void>;
-}
-
-export interface KnowledgeProcessingSessionRequest {
-	readonly cwd: string;
-	readonly sessionDir: string;
-	readonly modelKey: string;
-	readonly reasoningLevel?: ThinkingLevel;
-	readonly todoItems: readonly string[];
-	readonly writer: KnowledgeProcessingPageWriter;
-	readonly appendSystemPrompt: string;
-	readonly env: Record<string, string>;
-}
-
-export interface KnowledgeProcessingSessionFactory {
-	create(request: KnowledgeProcessingSessionRequest): Promise<KnowledgeProcessingSession>;
-}
+export type {
+	KnowledgeProcessingPageWriter,
+	KnowledgeProcessingSession,
+	KnowledgeProcessingSessionFactory,
+	KnowledgeProcessingSessionRequest,
+	KnowledgeProcessingUsage,
+} from "./knowledge-processing-contract.js";
 
 export interface LegacyKnowledgeProcessingSessionFactoryOptions {
 	readonly getModelRegistry: () => ModelRegistry;

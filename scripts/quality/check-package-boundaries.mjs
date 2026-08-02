@@ -306,6 +306,51 @@ function checkGreenfieldBranchNavigationBoundary(posixPath, text, findings) {
 	visit(sourceFile);
 }
 
+function checkKnowledgeProcessingBoundary(posixPath, text, specifiers, findings) {
+	const greenfieldPath = "packages/coding-agent/src/composition/greenfield-knowledge-processing-session.ts";
+	const contractPath = "packages/coding-agent/src/composition/knowledge-processing-contract.ts";
+	if (posixPath === greenfieldPath) {
+		for (const specifier of specifiers) {
+			if (specifier.includes("legacy-knowledge-processing-session")) {
+				findings.push(`${posixPath}: Greenfield Knowledge Processing must depend on the neutral contract`);
+			}
+		}
+		return;
+	}
+	if (posixPath !== contractPath) return;
+
+	const forbiddenImportFragments = [
+		"agent-session",
+		"greenfield-runtime-composition",
+		"legacy-knowledge-processing-session",
+		"session-manager",
+		"/sdk",
+	];
+	for (const specifier of specifiers) {
+		if (
+			specifier === "@vetta/runtime-core" ||
+			specifier.startsWith("@vetta/runtime-core/") ||
+			forbiddenImportFragments.some((fragment) => specifier.includes(fragment))
+		) {
+			findings.push(`${posixPath}: Knowledge Processing contract must not depend on a backend implementation`);
+		}
+	}
+	const sourceFile = ts.createSourceFile(posixPath, text, ts.ScriptTarget.Latest, true, scriptKind(posixPath));
+	const forbiddenSymbols = new Set([
+		"AgentSession",
+		"GreenfieldRuntimeComposition",
+		"SessionManager",
+		"createAgentSession",
+	]);
+	const visit = (node) => {
+		if (ts.isIdentifier(node) && forbiddenSymbols.has(node.text)) {
+			findings.push(`${posixPath}: Knowledge Processing contract must not use ${node.text}`);
+		}
+		ts.forEachChild(node, visit);
+	};
+	visit(sourceFile);
+}
+
 function checkRetiredAutomaticLegacyFallback(posixPath, text, findings) {
 	const isRuntimeProductionSource =
 		(posixPath.startsWith("packages/cli-app/src/") || posixPath.startsWith("packages/coding-agent/src/")) &&
@@ -503,6 +548,7 @@ export function findPackageBoundaryViolations(posixPath, text, options = {}) {
 	checkGreenfieldLegacyStartupSymbols(posixPath, text, findings);
 	checkGreenfieldSessionTransitionBoundary(posixPath, text, specifiers, findings);
 	checkGreenfieldBranchNavigationBoundary(posixPath, text, findings);
+	checkKnowledgeProcessingBoundary(posixPath, text, specifiers, findings);
 	checkRetiredAutomaticLegacyFallback(posixPath, text, findings);
 	checkRuntimeCompositionCompatibilityFacade(posixPath, specifiers, findings);
 	checkCodingAgentRootImports(posixPath, specifiers, findings);

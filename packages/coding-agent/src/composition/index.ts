@@ -60,13 +60,16 @@ export {
 	GreenfieldSubagentStatePersistence,
 	type GreenfieldSubagentStatePersistenceOptions,
 } from "./greenfield-subagent-state-persistence.js";
+export type {
+	KnowledgeProcessingPageWriter,
+	KnowledgeProcessingSession,
+	KnowledgeProcessingSessionFactory,
+	KnowledgeProcessingSessionRequest,
+	KnowledgeProcessingUsage,
+} from "./knowledge-processing-contract.js";
 export {
 	createLegacyKnowledgeProcessingSessionFactory,
-	type KnowledgeProcessingPageWriter,
-	type KnowledgeProcessingSession,
-	type KnowledgeProcessingSessionFactory,
-	type KnowledgeProcessingSessionRequest,
-	type KnowledgeProcessingUsage,
+	type LegacyKnowledgeProcessingSessionFactoryOptions,
 } from "./legacy-knowledge-processing-session.js";
 export {
 	type CodingToolsRuntimeComposition,

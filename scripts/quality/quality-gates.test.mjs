@@ -484,6 +484,27 @@ describe("package boundary analysis", () => {
 		).toEqual([]);
 	});
 
+	it("keeps Knowledge Processing contracts independent from backend implementations", () => {
+		expect(
+			findPackageBoundaryViolations(
+				"packages/coding-agent/src/composition/greenfield-knowledge-processing-session.ts",
+				'import type { KnowledgeProcessingSession } from "./legacy-knowledge-processing-session.js";',
+			),
+		).not.toEqual([]);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/coding-agent/src/composition/knowledge-processing-contract.ts",
+				'import { SessionManager } from "../core/session-manager/index.js";',
+			),
+		).not.toEqual([]);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/coding-agent/src/composition/legacy-knowledge-processing-session.ts",
+				'import { SessionManager } from "../core/session-manager/index.js";',
+			),
+		).toEqual([]);
+	});
+
 	it("requires scoped production packages to declare workspace imports", () => {
 		const source = 'import { createRuntime } from "@vetta/runtime-tools/coding";';
 		const path = "packages/coding-agent/src/composition/example.ts";
