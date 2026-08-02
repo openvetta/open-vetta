@@ -440,6 +440,12 @@ describe("Greenfield runtime composition", () => {
 		expect(sourceCalls).toEqual([
 			{
 				sessionId: "system-prompt-session",
+				activeToolNames: [],
+				messageRoles: [],
+				modelId: "recorded-model",
+			},
+			{
+				sessionId: "system-prompt-session",
 				activeToolNames: ["read"],
 				messageRoles: ["user"],
 				modelId: "recorded-model",

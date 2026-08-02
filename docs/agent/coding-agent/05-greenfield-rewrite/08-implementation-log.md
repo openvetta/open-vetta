@@ -178,6 +178,7 @@
 | [168-session-replacement-commit-and-cleanup-contract.md](./08-implementation-log/168-session-replacement-commit-and-cleanup-contract.md) | Replacement 提交点、post-commit 清理诊断与 ownership 重试合同 |
 | [169-retryable-runtime-shutdown-transaction.md](./08-implementation-log/169-retryable-runtime-shutdown-transaction.md) | Runtime/Composition/Extension/RPC 可重试最终关闭事务 |
 | [170-initialization-rollback-transaction.md](./08-implementation-log/170-initialization-rollback-transaction.md) | Runtime/Composition/IM/Extension 初始化失败逆序回滚事务 |
+| [171-real-cli-initialization-failure-gate.md](./08-implementation-log/171-real-cli-initialization-failure-gate.md) | 最终发布边界、MCP 失败子进程释放与真实 CLI 初始化失败门禁 |
 
 ## 维护约定
 

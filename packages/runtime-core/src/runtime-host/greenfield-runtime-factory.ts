@@ -248,8 +248,7 @@ export class ComposedGreenfieldRuntimeFactory<TCreateOptions> implements Greenfi
 				: undefined;
 			const sessionPeripherals = resources.createSessionPeripherals?.(session);
 			const dispose = resources.dispose;
-			rollback.commit();
-			return {
+			const assembly: GreenfieldRuntimeAssembly = {
 				session,
 				repository: resources.repository,
 				conversationDocumentStore: resources.conversationDocumentStore,
@@ -285,6 +284,8 @@ export class ComposedGreenfieldRuntimeFactory<TCreateOptions> implements Greenfi
 				toolController: resources.toolController,
 				dispose: dispose ? () => dispose.call(resources) : undefined,
 			};
+			rollback.commit();
+			return assembly;
 		} catch (error) {
 			return rollback.rollback(error, "Greenfield Runtime initialization and rollback failed");
 		}

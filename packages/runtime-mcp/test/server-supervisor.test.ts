@@ -40,8 +40,11 @@ describe("McpServerSupervisor", () => {
 			status: "error",
 			error: "startup failed",
 		});
+		expect(supervisor.getServerBinding("broken")?.client).toBeUndefined();
 		expect(supervisor.getServerBinding("auth")?.view.status).toBe("needs_auth");
 		expect(supervisor.getServerBinding("auth")?.client).toBeUndefined();
+		expect(clients.clients.find((client) => client.name === "broken")?.closed).toBe(true);
+		expect(clients.clients.find((client) => client.name === "auth")?.closed).toBe(true);
 		expect(supervisor.getServerBinding("disabled")).toBeUndefined();
 		expect(supervisor.getServerBinding("toolsFail")?.view).toMatchObject({
 			status: "ready",
@@ -192,7 +195,7 @@ class FakeClient implements McpClientHandle {
 	closed = false;
 
 	constructor(
-		private readonly name: string,
+		readonly name: string,
 		private readonly initializeError?: Error,
 		private readonly toolListError = false,
 		private readonly resourceListError = false,

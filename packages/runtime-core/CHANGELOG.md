@@ -59,6 +59,7 @@ All notable changes to `@vetta/runtime-core` are documented in this file.
 
 ### Fixed
 
+- **Greenfield 初始化发布边界**：Runtime Factory 会在最终 Assembly 投影成功后才提交初始化事务；若返回对象构造阶段抛错，已创建的 Kernel Session 与 Composition 资源仍按逆序释放。
 - **`RuntimeHost.prompt` 在开跑前确保 session cwd 存在**：desktop per-session 目录被删后 handle 仍存活时，mkdir 自愈，避免 bash/read 等工具报 Working directory does not exist。
 
 ### Changed

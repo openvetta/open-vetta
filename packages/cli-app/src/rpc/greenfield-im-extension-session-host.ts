@@ -123,21 +123,22 @@ export class GreenfieldImExtensionSessionHost {
 					{ emitSessionStart: false },
 				);
 			}
+			const prepared: CodingAgentGreenfieldPreparedSessionBinding = {
+				commit: async () => {
+					this.current = next;
+				},
+				rollback: async () => {
+					this.current = previous;
+					previous.events.rebindRuntimeActions();
+					await events.dispose({ emitSessionShutdown: false });
+				},
+				finalize: () => previous.events.dispose({ emitSessionShutdown: false }),
+			};
 			rollback.commit();
+			return prepared;
 		} catch (error) {
 			return rollback.rollback(error, "Greenfield Extension session preparation and rollback failed");
 		}
-		return {
-			commit: async () => {
-				this.current = next;
-			},
-			rollback: async () => {
-				this.current = previous;
-				previous.events.rebindRuntimeActions();
-				await events.dispose({ emitSessionShutdown: false });
-			},
-			finalize: () => previous.events.dispose({ emitSessionShutdown: false }),
-		};
 	}
 
 	async after(

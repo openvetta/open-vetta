@@ -12,6 +12,7 @@ import {
 	type ConversationScenario,
 	GreenfieldRuntimeModel,
 	type GreenfieldRuntimeResourceContext,
+	type GreenfieldRuntimeResources,
 	GreenfieldRuntimeSessionBackend,
 	InitializationRollbackScope,
 	RetryableCleanup,
@@ -1184,8 +1185,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 						activeOwnership = undefined;
 					},
 				});
-				rollback.commit();
-				return {
+				const resources: GreenfieldRuntimeResources = {
 					sessionId: sessionOptions.sessionId,
 					repository,
 					conversationDocumentStore: repository,
@@ -1351,6 +1351,8 @@ async function createGreenfieldRuntimeCompositionInternal(
 						await sessionCleanup.run("Failed to dispose Greenfield session assembly resources");
 					},
 				};
+				rollback.commit();
+				return resources;
 			} catch (error) {
 				return rollback.rollback(error, "Greenfield session resource initialization and rollback failed");
 			}

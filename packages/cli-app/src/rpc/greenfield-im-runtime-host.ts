@@ -368,8 +368,7 @@ export async function prepareGreenfieldImRuntimeHost(
 		dismissMcpRollback();
 		dismissExtensionRollback();
 		rollback.defer({ id: "runtime-capabilities", rollback: () => capabilities.dispose() });
-		rollback.commit();
-		return {
+		const prepared: GreenfieldImRuntimeHostReady = {
 			kind: "greenfield",
 			bootstrap,
 			get session() {
@@ -379,6 +378,8 @@ export async function prepareGreenfieldImRuntimeHost(
 			capabilities,
 			runtimeDecision,
 		};
+		rollback.commit();
+		return prepared;
 	} catch (error) {
 		return rollback.rollback(error, "Greenfield IM Runtime startup and cleanup failed");
 	}

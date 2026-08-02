@@ -316,10 +316,18 @@ export class McpServerSupervisor {
 			server.error = undefined;
 			this.log(`Server ${name} is ready`);
 		} catch (error) {
+			const failedClient = server.client;
+			if (failedClient) {
+				try {
+					await failedClient.close();
+				} catch (closeError) {
+					this.log(`Error closing failed server ${name}: ${getErrorMessage(closeError)}`);
+				}
+				server.client = undefined;
+			}
 			if (this.authRequiredErrorMatcher(error)) {
 				server.status = "needs_auth";
 				server.error = getErrorMessage(error);
-				server.client = undefined;
 				this.log(`Server ${name} needs OAuth authorization`);
 				return;
 			}
