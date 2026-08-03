@@ -660,6 +660,30 @@ describe("package boundary analysis", () => {
 		).toEqual([]);
 	});
 
+	it("keeps peripheral and context construction out of the Session initialization transaction", () => {
+		const transactionPath = "packages/coding-agent/src/composition/greenfield-session-initialization-transaction.ts";
+		const forbiddenConstructions = [
+			"new GreenfieldSessionExecutionRuntime({});",
+			"new CodingAgentMemoryRolloverOrchestrator({});",
+			"new GreenfieldRuntimeModel({});",
+			"new CodingAgentGreenfieldContextRuntime({});",
+			"createEcosystemHookRuntime({});",
+			"createGreenfieldSubagentSessionAssembly({});",
+			"createCodingAgentGreenfieldProductToolRegistrations({});",
+			"createSessionPluginRuntime(options);",
+		];
+		for (const source of forbiddenConstructions) {
+			expect(findPackageBoundaryViolations(transactionPath, source)).toHaveLength(1);
+		}
+		expect(
+			findPackageBoundaryViolations(
+				transactionPath,
+				`const peripherals = await createGreenfieldSessionPeripheralAssembly(options);
+				const context = createGreenfieldSessionContextAssembly({ peripherals });`,
+			),
+		).toEqual([]);
+	});
+
 	it("keeps Runtime Tool Surface assembly out of the Greenfield Composition Root", () => {
 		const compositionPath = "packages/coding-agent/src/composition/greenfield-runtime-composition.ts";
 		const embeddedToolSurface = `

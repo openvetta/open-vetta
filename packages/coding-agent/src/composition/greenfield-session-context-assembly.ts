@@ -1,0 +1,144 @@
+import type { Message } from "@vetta/ai";
+import type { EcosystemHookRuntime } from "@vetta/ecosystem-adapter";
+import {
+	type ConversationScenario,
+	GreenfieldRuntimeModel,
+	type GreenfieldRuntimeResourceContext,
+	type InitializationRollbackTask,
+} from "@vetta/runtime-core";
+import {
+	CodingAgentGreenfieldContextRuntime,
+	CodingAgentGreenfieldMemoryController,
+	type CodingAgentMemoryController,
+	type CodingAgentModelRegistryAdapter,
+	createEcosystemHookRuntime,
+} from "../adapters/runtime-core/greenfield.js";
+import type { CodingAgentGreenfieldExtensionEventBridge } from "../adapters/runtime-core/greenfield-extension-event-bridge.js";
+import type { GreenfieldMcpSessionCoordinator } from "./greenfield-mcp-session-coordinator.js";
+import type { GreenfieldRuntimeSessionOptions } from "./greenfield-runtime-composition-contract.js";
+import type { GreenfieldSessionInitializationProfile } from "./greenfield-session-initialization-profile.js";
+import type { GreenfieldSessionPeripheralAssembly } from "./greenfield-session-peripheral-assembly.js";
+import type { GreenfieldSubagentRuntime } from "./greenfield-subagent-runtime.js";
+import {
+	createGreenfieldSubagentSessionAssembly,
+	type GreenfieldSubagentChildComposition,
+	type GreenfieldSubagentChildCompositionRequest,
+} from "./greenfield-subagent-session-assembly.js";
+
+export interface GreenfieldSessionContextAssemblyOptions {
+	readonly profile: GreenfieldSessionInitializationProfile;
+	readonly sessionOptions: GreenfieldRuntimeSessionOptions;
+	readonly sessionCwd: string;
+	readonly scenario: ConversationScenario;
+	readonly resourceContext: GreenfieldRuntimeResourceContext;
+	readonly peripherals: GreenfieldSessionPeripheralAssembly;
+	readonly modelAdapter: CodingAgentModelRegistryAdapter;
+	readonly extensionEvents: CodingAgentGreenfieldExtensionEventBridge;
+	readonly mcpCoordinator: GreenfieldMcpSessionCoordinator;
+	readonly readSessionId: () => string;
+	readonly resolveConversationPath: (sessionId: string) => string;
+	readonly readConversationModelMessages: (sessionId: string) => Promise<readonly Message[]>;
+	readonly createChildComposition: (
+		request: GreenfieldSubagentChildCompositionRequest,
+	) => Promise<GreenfieldSubagentChildComposition>;
+	readonly trackContextRuntime: (runtime: CodingAgentGreenfieldContextRuntime) => void;
+	readonly untrackContextRuntime: (runtime: CodingAgentGreenfieldContextRuntime) => void;
+	readonly deferRollback: (task: InitializationRollbackTask) => void;
+}
+
+export interface GreenfieldSessionContextAssembly {
+	readonly modelRuntime: GreenfieldRuntimeModel;
+	readonly memoryController?: CodingAgentMemoryController;
+	readonly hookRuntime: EcosystemHookRuntime;
+	readonly contextRuntime: CodingAgentGreenfieldContextRuntime;
+	readonly subagentRuntime?: GreenfieldSubagentRuntime;
+}
+
+/** 组装 Session Model、Hook、Context/Compaction 与 Subagent 上下文能力。 */
+export function createGreenfieldSessionContextAssembly(
+	options: GreenfieldSessionContextAssemblyOptions,
+): GreenfieldSessionContextAssembly {
+	const { peripherals, profile, sessionOptions } = options;
+	const modelRuntime = new GreenfieldRuntimeModel({
+		initialModel: sessionOptions.model ?? profile.initialModel,
+		initialThinkingLevel: sessionOptions.thinkingLevel ?? profile.initialThinkingLevel,
+		catalog: options.modelAdapter,
+		credentials: options.modelAdapter,
+	});
+	const memoryController = peripherals.memoryRuntime
+		? new CodingAgentGreenfieldMemoryController({
+				runtime: peripherals.memoryRuntime,
+				readMessages: () => options.readConversationModelMessages(options.readSessionId()),
+				readModel: () => modelRuntime.readCurrentModel(),
+				resolveApiKey: (model) => modelRuntime.resolveApiKey(model),
+			})
+		: undefined;
+	const hookRuntime = createEcosystemHookRuntime({
+		host: {
+			cwd: options.sessionCwd,
+			getSessionId: options.readSessionId,
+			getTranscriptPath: () => options.resolveConversationPath(options.readSessionId()),
+			getModelId: () => modelRuntime.readCurrentModel().id,
+			abortCurrentRun: options.resourceContext.abortCurrentRun,
+			recordAdditionalContexts: (contexts) => {
+				options.resourceContext.contextAppender.append(
+					contexts.map((content) => ({
+						type: "ecosystem-hook-context",
+						content: [{ type: "text", text: content }],
+						modelVisible: true,
+						display: false,
+					})),
+				);
+			},
+		},
+		initialSessionStartSource: options.resourceContext.operation === "create" ? "startup" : "resume",
+		additionalAdapterFactories: profile.additionalHookAdapterFactories,
+		configLayers: profile.hookConfigLayers,
+		maxStopContinuations: profile.maxStopHookContinuations,
+	});
+	const contextRuntime = new CodingAgentGreenfieldContextRuntime({
+		hookRuntime,
+		resolveApiKey: (model) => modelRuntime.resolveApiKey(model),
+		resolveSettings: profile.resolveCompactionSettings,
+		generateCompaction: profile.generateCompaction,
+		extensionRuntime: profile.createCompactionExtensionRuntime?.(sessionOptions),
+		memoryRollover: peripherals.memoryRuntime,
+		transformAgentContext: (messages) => options.extensionEvents.transformContext(messages),
+	});
+	options.trackContextRuntime(contextRuntime);
+	options.deferRollback({
+		id: "context-runtime",
+		rollback: () => {
+			contextRuntime.dispose();
+			options.untrackContextRuntime(contextRuntime);
+		},
+	});
+	const subagentRuntime = createGreenfieldSubagentSessionAssembly({
+		enabled: profile.enableSubagents !== false,
+		maxConcurrent: profile.subagentMaxConcurrent,
+		cwd: options.sessionCwd,
+		scenario: options.scenario,
+		readParentSessionId: options.readSessionId,
+		readParentSessionPath: () => options.resolveConversationPath(options.readSessionId()),
+		readParentMessages: () => options.readConversationModelMessages(options.readSessionId()),
+		readModel: () => modelRuntime.readCurrentModel(),
+		readThinkingLevel: () => modelRuntime.readThinkingLevel(),
+		readInheritedMcpView: () => options.mcpCoordinator.readInheritedToolView(peripherals.pluginMcpRuntime),
+		createChildComposition: options.createChildComposition,
+		hookRuntime,
+		resourceContext: options.resourceContext,
+	});
+	if (subagentRuntime) {
+		options.deferRollback({
+			id: "subagent-runtime",
+			rollback: () => subagentRuntime.dispose(),
+		});
+	}
+	return {
+		modelRuntime,
+		memoryController,
+		hookRuntime,
+		contextRuntime,
+		subagentRuntime,
+	};
+}

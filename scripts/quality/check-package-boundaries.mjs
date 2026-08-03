@@ -584,6 +584,53 @@ function checkGreenfieldSessionInitializationProfileBoundary(posixPath, text, fi
 	visit(sourceFile);
 }
 
+function checkGreenfieldSessionInitializationStageBoundary(posixPath, text, findings) {
+	if (posixPath !== "packages/coding-agent/src/composition/greenfield-session-initialization-transaction.ts") {
+		return;
+	}
+
+	const sourceFile = ts.createSourceFile(posixPath, text, ts.ScriptTarget.Latest, true, scriptKind(posixPath));
+	const forbiddenConstructors = new Set([
+		"CodingAgentGreenfieldContextRuntime",
+		"CodingAgentGreenfieldMemoryController",
+		"CodingAgentMemoryRolloverOrchestrator",
+		"CodingAgentTodoRuntime",
+		"GreenfieldRuntimeModel",
+		"GreenfieldSessionConfigurationState",
+		"GreenfieldSessionExecutionRuntime",
+	]);
+	const forbiddenFactories = new Set([
+		"createCodingAgentGreenfieldProductToolRegistrations",
+		"createCodingAgentTodoRuntimeToolRegistration",
+		"createEcosystemHookRuntime",
+		"createForkContextFeature",
+		"createGreenfieldSubagentSessionAssembly",
+		"createSessionPluginRuntime",
+	]);
+	const visit = (node) => {
+		if (
+			ts.isNewExpression(node) &&
+			ts.isIdentifier(node.expression) &&
+			forbiddenConstructors.has(node.expression.text)
+		) {
+			findings.push(
+				`${posixPath}: Session initialization transaction must delegate staged runtime construction (${node.expression.text})`,
+			);
+		}
+		if (
+			ts.isCallExpression(node) &&
+			ts.isIdentifier(node.expression) &&
+			forbiddenFactories.has(node.expression.text)
+		) {
+			findings.push(
+				`${posixPath}: Session initialization transaction must delegate staged runtime policy (${node.expression.text})`,
+			);
+		}
+		ts.forEachChild(node, visit);
+	};
+	visit(sourceFile);
+}
+
 function checkGreenfieldRuntimeToolSurfaceBoundary(posixPath, text, findings) {
 	if (posixPath !== "packages/coding-agent/src/composition/greenfield-runtime-composition.ts") return;
 
@@ -925,6 +972,7 @@ export function findPackageBoundaryViolations(posixPath, text, options = {}) {
 	checkGreenfieldMcpSessionCoordinatorBoundary(posixPath, text, findings);
 	checkGreenfieldSessionInitializationTransactionBoundary(posixPath, text, findings);
 	checkGreenfieldSessionInitializationProfileBoundary(posixPath, text, findings);
+	checkGreenfieldSessionInitializationStageBoundary(posixPath, text, findings);
 	checkGreenfieldRuntimeToolSurfaceBoundary(posixPath, text, findings);
 	checkGreenfieldRuntimeToolPortBoundary(posixPath, text, findings);
 	checkGreenfieldChildCompositionPolicyBoundary(posixPath, text, findings);

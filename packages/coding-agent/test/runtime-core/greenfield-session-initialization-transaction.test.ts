@@ -107,6 +107,34 @@ describe("Greenfield Session Initialization Transaction", () => {
 			await rm(conversationDir, { force: true, recursive: true });
 		}
 	});
+
+	it("rolls back a partially assembled peripheral stage when plugin MCP reconfiguration fails", async () => {
+		const conversationDir = await mkdtemp(join(tmpdir(), "greenfield-session-peripheral-"));
+		const rollbackOrder: string[] = [];
+		const pluginRuntime = createPluginMcpRuntime(rollbackOrder);
+		vi.spyOn(pluginRuntime, "reconfigure").mockRejectedValue(new Error("plugin MCP reconfiguration failed"));
+		const composition = await createGreenfieldRuntimeComposition({
+			conversationDir,
+			modelRegistry: modelRegistry(),
+			initialModel: MODEL,
+			initialThinkingLevel: "off",
+			enableSubagents: false,
+			activation: { mode: "explicit", toolNames: [] },
+			createPluginMcpRuntime: async () => pluginRuntime,
+			createSystemPromptOptionsResolver: () => () => ({ customPrompt: "test", scenario: "cli" }),
+		});
+
+		try {
+			await expect(composition.backend.create({ sessionId: "session" })).rejects.toThrow(
+				"plugin MCP reconfiguration failed",
+			);
+			expect(rollbackOrder).toEqual(["plugin-mcp"]);
+			expect(pluginRuntime.dispose).toHaveBeenCalledOnce();
+		} finally {
+			await composition.dispose().catch(() => undefined);
+			await rm(conversationDir, { force: true, recursive: true });
+		}
+	});
 });
 
 function createPluginMcpRuntime(rollbackOrder: string[]): CodingAgentPluginMcpRuntime {
