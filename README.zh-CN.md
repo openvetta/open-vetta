@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="packages/desktop-app/build/icon.png" alt="Open Vetta" width="120">
+  <img src="docs/assets/banner.png" alt="Open Vetta">
 </p>
 
 <h1 align="center">Open Vetta</h1>
@@ -246,6 +246,22 @@ SDK 与构建工具位于 [packages/plugins](packages/plugins)。
 - 整份设计可打包成只读分享包，对方在应用内即可查看，无需任何环境准备。
 
 首次使用时应用会自动准备设计运行环境，无需预装 Node 或手动配置。
+
+<p align="center">
+  <img src="docs/assets/ui-design-canvas.png" alt="左侧对话，右侧无限画布上正在生成的设计稿">
+</p>
+
+<p align="center">
+  <sub>一句话让 Vetta 建出页面：左边是对话与产物，右边是画布，选中任何画框或元素都能继续追加要求</sub>
+</p>
+
+<p align="center">
+  <img src="docs/assets/ui-design-export.png" alt="导出的渲染图：三个手机画框排布在品牌色背景上">
+</p>
+
+<p align="center">
+  <sub>选中画框导出渲染图，背景、圆角、投影与标识都可调，直接用于交付或分享</sub>
+</p>
 
 ---
 

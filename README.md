@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="packages/desktop-app/build/icon.png" alt="Open Vetta" width="120">
+  <img src="docs/assets/banner.png" alt="Open Vetta">
 </p>
 
 <h1 align="center">Open Vetta</h1>
@@ -264,6 +264,22 @@ interactive interface, and what you see is what it is.
 
 The design runtime is provisioned automatically on first use — no need to install Node or
 configure anything.
+
+<p align="center">
+  <img src="docs/assets/ui-design-canvas.png" alt="Conversation on the left, a design taking shape on the infinite canvas on the right">
+</p>
+
+<p align="center">
+  <sub>Ask once and Vetta builds the page: conversation and outputs on the left, canvas on the right — select any frame or element to keep refining</sub>
+</p>
+
+<p align="center">
+  <img src="docs/assets/ui-design-export.png" alt="Exported render: three mobile frames laid out on a brand-colour background">
+</p>
+
+<p align="center">
+  <sub>Select frames and export a render — background, corner radius, shadow and branding are all adjustable, ready to hand off or share</sub>
+</p>
 
 ---
 
