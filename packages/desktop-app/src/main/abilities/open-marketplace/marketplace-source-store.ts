@@ -12,6 +12,9 @@ import { DEFAULT_MARKETPLACE_SOURCE_ID } from "./open-marketplace-service.js";
 const SOURCE_FILE_VERSION = 1;
 const SOURCE_ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,95}$/;
 const REF_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$/;
+/** 未配置环境变量时的官方内置来源；始终存在且不可删除。 */
+const OFFICIAL_MARKETPLACE_REPOSITORY = "https://github.com/openvetta/vetta-official-marketplace";
+const OFFICIAL_MARKETPLACE_NAME = "Vetta Official";
 
 interface MarketplaceSourceFile {
 	version: typeof SOURCE_FILE_VERSION;
@@ -122,14 +125,13 @@ function parseSource(value: unknown): MarketplaceSource | null {
 
 function createDefaultSources(now: Date): MarketplaceSource[] {
 	const configuredRepository = process.env.VETTA_OPEN_MARKETPLACE_REPOSITORY?.trim();
-	if (!configuredRepository) return [];
-	const normalizedRepository = normalizeGitHubRepository(configuredRepository);
+	const normalizedRepository = normalizeGitHubRepository(configuredRepository || OFFICIAL_MARKETPLACE_REPOSITORY);
 	const ref = validateRef(process.env.VETTA_OPEN_MARKETPLACE_REF);
 	const timestamp = now.toISOString();
 	return [
 		{
 			id: DEFAULT_MARKETPLACE_SOURCE_ID,
-			name: repositoryName(normalizedRepository),
+			name: configuredRepository ? repositoryName(normalizedRepository) : OFFICIAL_MARKETPLACE_NAME,
 			type: "github",
 			repository: normalizedRepository,
 			archiveUrl: process.env.VETTA_OPEN_MARKETPLACE_ARCHIVE_URL ?? marketplaceArchiveUrl(normalizedRepository, ref),

@@ -46,17 +46,28 @@ afterEach(async () => {
 });
 
 describe("MarketplaceSourceStore", () => {
-	it("does not create a built-in source without an environment repository", async () => {
+	it("creates the official built-in source without an environment repository", async () => {
 		delete process.env.VETTA_OPEN_MARKETPLACE_REPOSITORY;
 		delete process.env.VETTA_OPEN_MARKETPLACE_REF;
 		delete process.env.VETTA_OPEN_MARKETPLACE_ARCHIVE_URL;
 		const store = new MarketplaceSourceStore({ filePath: await temporaryFile() });
 
-		expect(store.list()).toEqual([]);
+		expect(store.list()).toMatchObject([
+			{
+				id: "vetta-official",
+				name: "Vetta Official",
+				repository: "https://github.com/openvetta/vetta-official-marketplace",
+				ref: "main",
+				builtin: true,
+			},
+		]);
 
+		// 已持久化的其它内置来源不在当前配置里，读取时会被剔除，只留官方来源。
 		const persistedFile = await temporaryFile();
 		new MarketplaceSourceStore({ filePath: persistedFile, defaultSources: [builtinSource()] }).list();
-		expect(new MarketplaceSourceStore({ filePath: persistedFile }).list()).toEqual([]);
+		expect(new MarketplaceSourceStore({ filePath: persistedFile }).list().map((source) => source.id)).toEqual([
+			"vetta-official",
+		]);
 	});
 
 	it("creates the built-in source entirely from environment configuration", async () => {

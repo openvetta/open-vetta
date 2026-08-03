@@ -6,7 +6,9 @@ import type {
 	AddMarketplaceSourceInput,
 	GitHubMarketplaceOrigin,
 	InstalledPlugin,
+	MarketplaceSource,
 	PluginPermission,
+	UpdateMarketplaceSourceInput,
 } from "@preload/api";
 import type { McpSettingsModel } from "../settings/components/useMcpSettingsModel";
 import type { BuiltinMcpPreset } from "../settings/mcp/builtin-mcp-presets";
@@ -187,7 +189,11 @@ export interface AbilitiesModel {
 	uninstallBundleMembers: (members: AbilityItem[]) => void;
 	importSkillArchive: (file: File) => void;
 	importPluginArchive: (file: File) => void;
+	/** 已配置的市场来源（含未启用的）。 */
+	marketplaceSources: MarketplaceSource[];
 	addMarketplaceSource: (input: AddMarketplaceSourceInput) => Promise<void>;
+	updateMarketplaceSource: (id: string, input: UpdateMarketplaceSourceInput) => Promise<void>;
+	removeMarketplaceSource: (id: string) => Promise<void>;
 	startAddManualMcp: () => void;
 	/** 刚装好、待提示配置权限的插件 slug；为空表示不提示。 */
 	permissionPromptSlug: string | null;
