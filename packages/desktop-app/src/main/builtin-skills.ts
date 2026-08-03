@@ -11,7 +11,7 @@ export interface BuiltinSkillRegistration {
 	version: string;
 	source: "builtin";
 	enabled: boolean;
-	type: "skill" | "scene";
+	type: "skill";
 	alias?: string;
 	description?: string;
 }

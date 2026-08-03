@@ -34,7 +34,7 @@ const localizedDetailSourceSchema = detailSourceSchema.partial({ format: true })
 const abilityPresentationSchema = z
 	.object({
 		schemaVersion: z.literal(1),
-		type: z.enum(["skill", "scene", "mcp", "plugin", "bundle"]),
+		type: z.enum(["skill", "mcp", "plugin", "bundle"]),
 		slug: z.string().min(1),
 		version: z.string().min(1),
 		icon: z.string().min(1).optional(),

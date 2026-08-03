@@ -14,8 +14,8 @@ const TOKEN_RE = new RegExp(`(?<=^|\\s)@(?:(skill|mcp):(?:"([^"]*)"|(${BARE}))|(
 /** 裸路径末尾的半角句读；它们属于句子而不属于路径。 */
 const TRAILING_PUNCTUATION = /[,;:!?)\]]+$/;
 
-/** 旧格式：行首 `/skill:name` 或 `/scene:name`，其后紧跟一个换行。 */
-const LEGACY_REF_RE = /^\/(skill|scene):([^\n]+)\n?([\s\S]*)$/;
+/** 旧格式：行首 `/skill:name`，其后紧跟一个换行。 */
+const LEGACY_REF_RE = /^\/(skill):([^\n]+)\n?([\s\S]*)$/;
 
 /** 旧格式：紧随其后的 `@<绝对路径>` 整行。 */
 const LEGACY_FILE_RE = /^@([^\n]+)\n([\s\S]*)$/;

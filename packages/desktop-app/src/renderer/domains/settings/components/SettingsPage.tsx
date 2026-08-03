@@ -5,7 +5,6 @@ import { SettingsPageView } from "./SettingsPageView";
 import { useSettingsPageModel } from "./useSettingsPageModel";
 import "./settings-highlight.css";
 
-const AccountSettings = lazy(async () => ({ default: (await import("./AccountSettings")).AccountSettings }));
 const AgentSettings = lazy(async () => ({ default: (await import("./AgentSettings")).AgentSettings }));
 const AppearanceSettings = lazy(async () => ({
 	default: (await import("./AppearanceSettings")).AppearanceSettings,
@@ -31,14 +30,12 @@ const PluginsSettings = lazy(async () => ({ default: (await import("./PluginsSet
 const ShortcutsSettings = lazy(async () => ({
 	default: (await import("./ShortcutsSettings")).ShortcutsSettings,
 }));
-const TeamSettings = lazy(async () => ({ default: (await import("./TeamSettings")).TeamSettings }));
 const WebhookSettings = lazy(async () => ({ default: (await import("./WebhookSettings")).WebhookSettings }));
 
 /** MCP 已迁至扩展 → 连接器；`mcp` 保留在 SettingsTab 供 analytics / 旧链接重定向，此处不渲染。 */
 const SETTINGS_CONTENT: Record<Exclude<SettingsTab, "mcp">, LazyExoticComponent<ComponentType>> = {
 	general: GeneralSettings,
 	appearance: AppearanceSettings,
-	account: AccountSettings,
 	models: ModelsSettings,
 	environment: EnvironmentSettings,
 	permissions: PermissionsSettings,
@@ -47,7 +44,6 @@ const SETTINGS_CONTENT: Record<Exclude<SettingsTab, "mcp">, LazyExoticComponent<
 	shortcuts: ShortcutsSettings,
 	appshot: AppshotSettings,
 	archive: ArchivedProjectsSettings,
-	team: TeamSettings,
 	context: AgentSettings,
 	plugins: PluginsSettings,
 	knowledge: KnowledgeBaseSettings,

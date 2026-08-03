@@ -93,7 +93,7 @@ export interface PluginOfficialSkillInfo {
 	alias?: string;
 	description: string;
 	source: string;
-	type: "skill" | "scene";
+	type: "skill";
 }
 
 export type PluginOfficialInstalledSkill = {
@@ -102,7 +102,7 @@ export type PluginOfficialInstalledSkill = {
 	installedAt: string;
 	source: "market" | "custom";
 	enabled: boolean;
-	type?: "skill" | "scene";
+	type?: "skill";
 	alias?: string;
 	marketDescription?: string;
 	description?: string;
@@ -186,7 +186,7 @@ export type PluginOfficialExecutionMode = "inherit" | "sandbox" | "full-access";
 export interface PluginOfficialSelectedSkill {
 	name: string;
 	alias?: string;
-	type: "skill" | "scene";
+	type: "skill";
 }
 
 export interface PluginOfficialBatchProjectCreateData {
@@ -361,7 +361,7 @@ export interface PluginOfficialApi {
 		list(cwd?: string): Promise<PluginOfficialSkillInfo[]>;
 		getManifest(): Promise<Record<string, PluginOfficialInstalledSkill>>;
 		setEnabled(name: string, enabled: boolean): Promise<{ name: string; enabled: boolean }>;
-		uninstall(name: string, type?: "skill" | "scene"): Promise<void>;
+		uninstall(name: string, type?: "skill"): Promise<void>;
 	};
 	shortcuts: {
 		listAvailableActions(): Array<{ id: string; defaultShortcut: string }>;

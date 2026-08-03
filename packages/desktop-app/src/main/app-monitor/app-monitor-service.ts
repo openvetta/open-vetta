@@ -772,7 +772,6 @@ function recordInputPromptRefUsed(data: AppMonitorData, rawKind: string, rawName
 	const refKey = `${kind}:${name}`;
 	data.inputPromptRefs.events += 1;
 	if (kind === "skill") data.inputPromptRefs.skills += 1;
-	if (kind === "scene") data.inputPromptRefs.scenes += 1;
 	data.inputPromptRefs.byKind[kind] = (data.inputPromptRefs.byKind[kind] ?? 0) + 1;
 	data.inputPromptRefs.byName[name] = (data.inputPromptRefs.byName[name] ?? 0) + 1;
 	data.inputPromptRefs.byRef[refKey] ??= {
@@ -786,7 +785,6 @@ function recordInputPromptRefUsed(data: AppMonitorData, rawKind: string, rawName
 	stats.lastUsedAt = timestamp;
 	data.inputPromptRefs.recent = { ...stats };
 	if (kind === "skill") data.inputPromptRefs.recentSkill = { ...stats };
-	if (kind === "scene") data.inputPromptRefs.recentScene = { ...stats };
 	updateMostUsedPromptRef(data, stats);
 }
 
@@ -1002,9 +1000,6 @@ function updateMostUsedPromptRef(data: AppMonitorData, stats: AppMonitorData["in
 	}
 	if (stats.kind === "skill" && isMoreUsedPromptRef(stats, data.inputPromptRefs.mostUsedSkill)) {
 		data.inputPromptRefs.mostUsedSkill = { ...stats };
-	}
-	if (stats.kind === "scene" && isMoreUsedPromptRef(stats, data.inputPromptRefs.mostUsedScene)) {
-		data.inputPromptRefs.mostUsedScene = { ...stats };
 	}
 }
 

@@ -3,7 +3,7 @@
  *
  * Extracted from AgentSession. This is the turn-entry orchestration: it runs the
  * per-prompt lazy reloads, expands skills/templates, normalizes images, validates
- * model/API key, builds the message array (with skill/scene/extension injections),
+ * model/API key, builds the message array (with skill/extension injections),
  * and drives the agent. It also owns the ad-hoc todo-nudge signature and provides
  * the agent's continuationProvider (todo continuation).
  */
@@ -148,18 +148,16 @@ export class InputPipeline {
 
 		// Expand skill commands (/skill:name args) and prompt templates (/template args)
 		let expandedText = currentText;
-		let sceneInjection: string | undefined;
 		let skillInjection: string | undefined;
 		let promptRef = options?.promptRef;
-		if (promptRef && /^\/(?:skill|scene):/.test(expandedText)) {
-			throw new Error("Prompt must not contain a Skill / Scene command when promptRef is provided");
+		if (promptRef && /^\/skill:/.test(expandedText)) {
+			throw new Error("Prompt must not contain a Skill command when promptRef is provided");
 		}
 		if (promptRef || expandPromptTemplates) {
 			const expanded = promptRef
 				? expandSkillReference(expandedText, promptRef, this.skillExpansionDeps())
 				: this.expandSkillCommand(expandedText);
 			expandedText = expanded.text;
-			sceneInjection = expanded.sceneInjection;
 			skillInjection = expanded.skillInjection;
 			promptRef = expanded.promptRef;
 		}
@@ -179,9 +177,7 @@ export class InputPipeline {
 			const attachmentContext = options?.attachments?.length
 				? buildPromptAttachmentContext(options.attachments)
 				: undefined;
-			const injection = [...hookContexts, attachmentContext, skillInjection, sceneInjection]
-				.filter(Boolean)
-				.join("\n\n");
+			const injection = [...hookContexts, attachmentContext, skillInjection].filter(Boolean).join("\n\n");
 			const textForStream = injection ? `${injection}\n\n${expandedText}` : expandedText;
 			if (options.streamingBehavior === "followUp") {
 				this.queue.queueFollowUp(textForStream, currentImages);
@@ -313,9 +309,8 @@ export class InputPipeline {
 			});
 		}
 
-		// Inject skill/scene content as hidden custom messages (before user message so model sees it first).
-		// Skill goes first so the model parses its `<skill>` block before any scene context.
-		if (promptRef && !skillInjection && !sceneInjection) {
+		// Inject skill content as a hidden custom message (before the user message so the model sees it first).
+		if (promptRef && !skillInjection) {
 			messages.push({
 				role: "custom",
 				customType: PROMPT_RESOURCE_REFERENCE_TYPE,
@@ -330,16 +325,6 @@ export class InputPipeline {
 				role: "custom",
 				customType: "skill_expansion",
 				content: skillInjection,
-				display: false,
-				details: promptRef ? { promptRef } : undefined,
-				timestamp: Date.now(),
-			});
-		}
-		if (sceneInjection) {
-			messages.push({
-				role: "custom",
-				customType: "scene_expansion",
-				content: sceneInjection,
 				display: false,
 				details: promptRef ? { promptRef } : undefined,
 				timestamp: Date.now(),
@@ -425,7 +410,7 @@ export class InputPipeline {
 
 		// Expand skill commands and prompt templates
 		const expanded = this.expandSkillCommand(text);
-		const injection = [expanded.skillInjection, expanded.sceneInjection].filter(Boolean).join("\n\n");
+		const injection = expanded.skillInjection ?? "";
 		let expandedText = injection ? `${injection}\n\n${expanded.text}` : expanded.text;
 		expandedText = expandPromptTemplate(expandedText, [...this.resourceLoader.getPrompts().prompts]);
 
@@ -449,7 +434,7 @@ export class InputPipeline {
 
 		// Expand skill commands and prompt templates
 		const expanded = this.expandSkillCommand(text);
-		const injection = [expanded.skillInjection, expanded.sceneInjection].filter(Boolean).join("\n\n");
+		const injection = expanded.skillInjection ?? "";
 		let expandedText = injection ? `${injection}\n\n${expanded.text}` : expanded.text;
 		expandedText = expandPromptTemplate(expandedText, [...this.resourceLoader.getPrompts().prompts]);
 
@@ -549,7 +534,6 @@ export class InputPipeline {
 		const runner = this.runtime.extensionRunner;
 		return {
 			resourceLoader: this.resourceLoader,
-			todoStore: this.todoStore,
 			emitError: runner ? (error) => runner.emitError(error) : undefined,
 		};
 	}

@@ -2,6 +2,20 @@
 
 ### Breaking Changes
 
+- **移除 `scene` 形态**。scene 原是 skill 的变体：装在 `~/.vetta/scene/`、对模型隐藏（不进 system prompt、不可被 `invoke_skill` 调用），仅用户手动触发，触发时从该 scene 的 `tasks.json` 预填 todo 并锁定成严格顺序执行。开源版整体删除：
+  - `Skill` 去掉 `type` 字段，`SkillType` 类型移除；`~/.vetta/scene/` 不再被扫描，`getSceneDir()` 删除。
+  - `LoadSkillsOptions.sceneDir` 移除；`PromptResourceRef.kind` 收敛为 `"skill"`；`/scene:` 命令与 `scene_expansion` 自定义消息不再产生。
+  - `SkillExpansionDeps` 不再需要 `todoStore`（tasks.json 预填随 scene 一并移除）。
+  - **todo 锁定机制保留**：它另有消费方（desktop 的知识库批量加工），来源标识由 `TodoLockSource = "scene"` 泛化为 `"host"`。锁定语义（严格顺序、禁止新建/清空、未完成不许收工）不变。
+
+- **开源版剥离：移除全部服务端能力**。coding-agent 不再有「远端」这一概念：
+  - `ModelRegistry` 去掉 `setServerUrl` / `setServerToken` / `setServerTokenGetter` / `loadRemoteModels` / `isRemote` / `getRemoteProviders`，模型只来自内置目录与本地 `models.json`。`getApiKey()` 不再回退到登录 JWT。
+  - `SettingsManager` 去掉 `getServerUrl` / `setServerUrl` / `getServerToken` / `getServerTokenFresh` / `setServerToken`，`Settings` 不再有 `serverUrl` / `serverToken` 字段。
+  - `config.ts` 删除 `DEFAULT_SERVER_URL`（原值是一个硬编码的内网地址）与 `ENV_SERVER_URL`；`index.ts` 不再导出 `DEFAULT_SERVER_URL`。
+  - `CreateAgentSessionOptions.serverUrl` 移除。
+  - 删除内建 vetta MCP：`core/mcp/builtin-mcp.ts`、`core/mcp/vetta-credentials.ts`，以及 `McpManager` 的 `builtinServers` 配置源。用户自己的 MCP（`mcp.json`）与插件内聚 MCP 不受影响。
+  - RPC `get_available_models` 的返回项不再带 `remote` 字段。
+
 - **内建 vetta MCP 由本地 stdio 子进程改为远程 HTTP 服务**：`buildBuiltinMcpServers()` 现在返回 `McpHttpServerConfig`（指向服务端 `POST /api/v1/mcp`），签名由 `(entry?: string | null)` 改为 `(options?: BuildBuiltinMcpOptions)`，`resolveVettaMcpEntry` 与 `@vetta/vetta-mcp` 包一并删除。
   - **动机**：工具清单原先写死在客户端，加一个工具就要发一次客户端版本。改远程后清单由服务端按调用者身份与客户端版本动态下发，客户端不需要知道有哪些工具。（顺带修掉了打包后内置工具整组静默消失的问题——打包产物里根本没有 `@vetta/vetta-mcp` 包，`require.resolve` 必然失败且不打日志。）
   - **未登录时不再注册**：内置 MCP 是登录用户的增值服务，注册一个必然 401 的 server 只会让每次会话启动白连一次、等一次超时。登录后新开会话即可拿到。

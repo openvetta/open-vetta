@@ -228,8 +228,7 @@ export function installMainDiagnostics(): void {
 	patchFetch();
 
 	// 启动时打印关键 env —— 排查 "终端启动 OK / Finder 启动异常" 这类
-	// launchd vs shell 环境差异问题（PATH / proxy / VETTA_SERVER_URL 等）的
-	// 第一手依据。
+	// launchd vs shell 环境差异问题（PATH / proxy 等）的第一手依据。
 	diagnosticsLog.info("startup", {
 		version: app.getVersion(),
 		platform: process.platform,
@@ -248,7 +247,6 @@ export function installMainDiagnostics(): void {
 			hasHTTPSProxy: !!(process.env.HTTPS_PROXY ?? process.env.https_proxy),
 			hasAllProxy: !!(process.env.ALL_PROXY ?? process.env.all_proxy),
 			NO_PROXY: process.env.NO_PROXY ?? process.env.no_proxy,
-			VETTA_SERVER_URL: process.env.VETTA_SERVER_URL,
 		},
 	});
 }

@@ -143,7 +143,7 @@ export function createDefaultSubagentSessionFactory(
 				model: parent.model,
 				thinkingLevel: parent.thinkingLevel,
 				scenario: parent.scenario,
-				// Share parent's registry so remote providers (e.g. vetta-go) resolve keys.
+				// Share parent's registry so provider keys resolve identically to the parent.
 				modelRegistry: parent.modelRegistry,
 				tools: tools as never,
 				sessionManager,

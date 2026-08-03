@@ -81,10 +81,8 @@ async function loadAppIconDataUrl(): Promise<string> {
 	}
 }
 
-function buildShareNav(iconDataUrl: string, nickname?: string): string {
-	const desc = nickname
-		? i18n.t("chat:export.shareNavDescriptionWithNickname", { nickname: escapeHtml(nickname) })
-		: i18n.t("chat:export.shareNavDescription");
+function buildShareNav(iconDataUrl: string): string {
+	const desc = i18n.t("chat:export.shareNavDescription");
 	const icon = iconDataUrl ? `<img class="vetta-share-nav__icon" src="${iconDataUrl}" alt="Vetta" />` : "";
 	return `<nav class="vetta-share-nav" data-share-nav>
 		<div class="vetta-share-nav__inner">
@@ -127,7 +125,7 @@ document.addEventListener("click", function (event) {
 });
 `;
 
-export async function buildChatHtmlDocument(root: HTMLElement, title: string, nickname?: string): Promise<string> {
+export async function buildChatHtmlDocument(root: HTMLElement, title: string): Promise<string> {
 	const clone = root.cloneNode(true) as HTMLElement;
 	await inlineImages(root, clone);
 	sanitizeSerializedTree(clone);
@@ -135,7 +133,7 @@ export async function buildChatHtmlDocument(root: HTMLElement, title: string, ni
 	const styleText = collectStyleSheetText().replaceAll("</style", "<\\/style");
 	const colorScheme = getComputedStyle(document.documentElement).colorScheme;
 	const iconDataUrl = await loadAppIconDataUrl();
-	const shareNav = buildShareNav(iconDataUrl, nickname);
+	const shareNav = buildShareNav(iconDataUrl);
 
 	return `<!doctype html>
 <html lang="zh-CN" class="${escapeHtml(document.documentElement.className)}" style="${escapeHtml(document.documentElement.getAttribute("style") ?? "")}">

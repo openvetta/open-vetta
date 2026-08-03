@@ -17,7 +17,6 @@ export interface SkillPromptAreaViewProps {
 	autoFocus?: boolean;
 	slashOpen: boolean;
 	skillMissing: boolean;
-	isScene: boolean;
 	skillDisplayName: string;
 	hasSkill: boolean;
 	anchorRect: DOMRect | null;
@@ -43,7 +42,6 @@ export function SkillPromptAreaView({
 	autoFocus,
 	slashOpen,
 	skillMissing,
-	isScene,
 	skillDisplayName,
 	hasSkill,
 	textareaRef,
@@ -82,7 +80,7 @@ export function SkillPromptAreaView({
 									}`}
 								>
 									<span
-										className={`${isScene ? "icon-[mdi--movie-open-outline]" : "icon-[mdi--puzzle-outline]"} h-3 w-3 shrink-0`}
+										className="icon-[mdi--puzzle-outline] h-3 w-3 shrink-0"
 									/>
 									<span className="max-w-[160px] truncate">{skillDisplayName}</span>
 									{skillMissing && (

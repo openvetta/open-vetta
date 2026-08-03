@@ -1,7 +1,7 @@
 import { SkillDefaultIcon, SkillTypeIcon } from "@vetta/theme-ui/skills";
 import { cn } from "@vetta/ui";
 import { useState } from "react";
-import type { AbilityType } from "@shared/lib/api";
+import type { AbilityType } from "../market-types";
 import { ABILITY_TYPE_ICON, isIconifyIcon, isRenderableImageIcon } from "../lib/ability-presentation";
 
 /**
@@ -32,7 +32,7 @@ export function AbilityIcon({
 			{showImage && icon ? (
 				<img src={icon} alt="" className="h-full w-full object-contain" onError={() => setFailed(true)} />
 			) : isIconifyIcon(icon) ? (
-				<SkillTypeIcon type={type === "scene" ? "scene" : "skill"} icon={icon} className={iconClassName} />
+				<SkillTypeIcon icon={icon} className={iconClassName} />
 			) : type === "skill" ? (
 				<SkillDefaultIcon className={iconClassName} />
 			) : (

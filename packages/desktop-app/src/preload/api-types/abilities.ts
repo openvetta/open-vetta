@@ -3,7 +3,7 @@
  * 它只是索引不是安装位置——产物仍分别落在 skills/ scene/ plugins/ 与 agent/mcp.json（ADR-0049）。
  * bundle 不进台账：其状态全部由成员派生。
  */
-export type AbilityLedgerType = "skill" | "scene" | "plugin" | "mcp";
+export type AbilityLedgerType = "skill" | "plugin" | "mcp";
 
 export interface GitHubMarketplaceOrigin {
 	kind: "github-marketplace";
@@ -102,7 +102,7 @@ export interface OpenMarketplaceDetail extends OpenMarketplaceDetailLocale {
 }
 
 export interface OpenMarketplaceBundleMember {
-	type: "skill" | "scene" | "mcp" | "plugin";
+	type: "skill" | "mcp" | "plugin";
 	slug: string;
 	exists: boolean;
 	name: string;
@@ -130,7 +130,7 @@ export interface OpenMarketplaceAbilityConfig {
 
 export interface OpenMarketplaceAbility {
 	slug: string;
-	type: "skill" | "scene" | "mcp" | "plugin" | "bundle";
+	type: "skill" | "mcp" | "plugin" | "bundle";
 	name: string;
 	description: string;
 	license: string;
@@ -220,5 +220,5 @@ export interface DesktopAbilitiesApi {
 	/** 后台同步激活新快照时触发；调用方重新读取本地目录即可。 */
 	onOpenMarketplacesUpdated(handler: () => void): () => void;
 	/** 从当前已校验快照安装 skill / scene / plugin；bundle 由客户端逐成员安装。 */
-	installOpenAbility(type: "skill" | "scene" | "plugin", slug: string, sourceId?: string): Promise<void>;
+	installOpenAbility(type: "skill" | "plugin", slug: string, sourceId?: string): Promise<void>;
 }

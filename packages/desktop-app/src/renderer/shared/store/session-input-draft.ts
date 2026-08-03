@@ -1,7 +1,7 @@
 /**
  * 按作用域隔离的输入草稿 + 已发送历史。
  *
- * 工作集（inputValue / selectedSkill / appshot）仍是全局 atom——同一时刻只有一个
+ * 工作集（inputValue / appshot）仍是全局 atom——同一时刻只有一个
  * InputBar。本模块在「切换作用域」时把当前工作集落入 map、再灌入目标作用域草稿，
  * 避免新会话写到一半去看别的会话回来内容丢失，也避免草稿串到别的会话。
  *
@@ -22,8 +22,6 @@ import {
 	inputValueAtom,
 	type MentionedFile,
 	mentionedFilesAtom,
-	type SelectedSkill,
-	selectedSkillAtom,
 } from "./chat-atoms";
 import { appendInputHistoryEntry, isSessionInputDraftEmpty } from "./session-input-draft-logic";
 
@@ -36,7 +34,6 @@ export {
 
 export interface SessionInputDraft {
 	text: string;
-	selectedSkill: SelectedSkill | null;
 	appshot: AppshotAttachment | null;
 }
 
@@ -67,14 +64,13 @@ export const sessionInputHistoryMapAtom = atom(
 );
 
 export function emptySessionInputDraft(): SessionInputDraft {
-	return { text: "", selectedSkill: null, appshot: null };
+	return { text: "", appshot: null };
 }
 
 export function captureSessionInputDraft(): SessionInputDraft {
 	const store = getDefaultStore();
 	return {
 		text: store.get(inputValueAtom),
-		selectedSkill: store.get(selectedSkillAtom),
 		appshot: store.get(appshotAttachmentAtom),
 	};
 }
@@ -82,7 +78,6 @@ export function captureSessionInputDraft(): SessionInputDraft {
 export function applySessionInputDraft(draft: SessionInputDraft): void {
 	const store = getDefaultStore();
 	store.set(inputValueAtom, draft.text);
-	store.set(selectedSkillAtom, draft.selectedSkill);
 	store.set(appshotAttachmentAtom, draft.appshot);
 	// 附图已并入文本 token；旧 atom 仅兜底清空，避免串会话。
 	store.set(attachedImagesAtom, []);
@@ -108,12 +103,7 @@ export function persistSessionInputDraft(key: string, draft: SessionInputDraft):
 		return;
 	}
 	const existing = prev[key];
-	if (
-		existing &&
-		existing.text === draft.text &&
-		existing.selectedSkill === draft.selectedSkill &&
-		existing.appshot === draft.appshot
-	) {
+	if (existing && existing.text === draft.text && existing.appshot === draft.appshot) {
 		return;
 	}
 	store.set(sessionInputDraftMapAtom, { ...prev, [key]: draft });

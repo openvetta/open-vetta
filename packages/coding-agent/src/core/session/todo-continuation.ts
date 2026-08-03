@@ -55,7 +55,7 @@ export function buildTodoContinuationMessages(
 	const pendingList = pending.map((i) => `  #${i.id} ${i.content}`).join("\n");
 	const doneCount = items.length - pending.length;
 
-	// Locked (scene) lists are STRICT: relentlessly force sequential completion —
+	// Locked lists are STRICT: relentlessly force sequential completion —
 	// the agent cannot exit the loop while any item remains.
 	if (todoStore.isLocked()) {
 		return {

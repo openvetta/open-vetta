@@ -4,7 +4,7 @@ import type { Message, Model } from "@vetta/ai";
 import { buildDefaultHookConfigLayers } from "@vetta/ecosystem-adapter";
 import type { RuntimeTracer } from "@vetta/runtime-telemetry";
 import { createLangfuseRuntimeTracerFromEnv } from "@vetta/runtime-telemetry/langfuse";
-import { DEFAULT_SERVER_URL, ENV_SERVER_URL, getAgentDir, getDocsPath, getVettaHomePath } from "../config.js";
+import { getAgentDir, getDocsPath, getVettaHomePath } from "../config.js";
 import { AgentSession } from "./agent-session.js";
 import { AuthStorage } from "./auth-storage.js";
 import { DEFAULT_THINKING_LEVEL } from "./defaults.js";
@@ -173,16 +173,6 @@ export interface CreateAgentSessionOptions {
 	enableMcp?: boolean;
 
 	/**
-	 * Vetta 远端服务 URL（拉取 remote models / providers）。当宿主进程已经从环境
-	 * 变量解析出权威值（例如 desktop-app 的 VETTA_SERVER_URL）时显式传入，避免
-	 * SDK 退回到内置的 LAN 默认值并把它持久化到 settings.json，造成 desktop-app
-	 * 与 coding-agent SDK 各自指向不同 server 的"半边大脑"问题。
-	 * 不传则保留旧行为：先读 settings.json，再回退到内置 DEFAULT_SERVER_URL，
-	 * 并把内置值写入 settings.json 以便下次复用。
-	 */
-	serverUrl?: string;
-
-	/**
 	 * Optional platform-neutral tracer. If omitted, VETTA_TRACING=langfuse enables Langfuse.
 	 */
 	tracer?: RuntimeTracer;
@@ -226,7 +216,7 @@ export type {
 	ToolDefinition,
 } from "./extensions/index.js";
 export type { PromptTemplate } from "./prompt-templates.js";
-export type { Skill, SkillType } from "./skills.js";
+export type { Skill } from "./skills.js";
 export type { Tool } from "./tools/index.js";
 
 export {
@@ -330,28 +320,6 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 	const modelRegistry = options.modelRegistry ?? new ModelRegistry(authStorage, modelsPath);
 
 	const settingsManager = options.settingsManager ?? SettingsManager.create(cwd, agentDir);
-	// Ensure serverUrl has a default value, then load remote models.
-	// 优先级：调用方显式传入 > settings.json > 内置 DEFAULT_SERVER_URL。
-	// 调用方传入的 URL 不写入 settings.json——宿主进程（如 desktop-app）才是
-	// 权威来源，settings 里的残留值由宿主自行清理（参考 desktop-app
-	// registerSettingsIpc 启动时的 scrub 逻辑）。
-	if (!options.modelRegistry) {
-		// 同 main.ts：环境变量（宿主注入）优先于 settings.json，避免子进程
-		// 读到陈旧的 LAN 地址。详见 main.ts 中的 serverUrl 注释。
-		let serverUrl = options.serverUrl ?? process.env[ENV_SERVER_URL] ?? settingsManager.getServerUrl();
-		let writeBackDefault = false;
-		if (!serverUrl) {
-			serverUrl = DEFAULT_SERVER_URL;
-			writeBackDefault = options.serverUrl === undefined;
-		}
-		if (writeBackDefault) {
-			settingsManager.setServerUrl(serverUrl);
-		}
-		modelRegistry.setServerUrl(serverUrl);
-		modelRegistry.setServerToken(settingsManager.getServerToken());
-		modelRegistry.setServerTokenGetter(() => settingsManager.getServerTokenFresh());
-		await modelRegistry.loadRemoteModels();
-	}
 	const sessionManager = options.sessionManager ?? SessionManager.create(cwd);
 	const tracer = options.tracer ?? createLangfuseRuntimeTracerFromEnv();
 

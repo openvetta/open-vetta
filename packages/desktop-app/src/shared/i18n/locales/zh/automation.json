@@ -39,7 +39,7 @@
 	},
 	"form": {
 		"namePlaceholder": "任务名称",
-		"promptPlaceholder": "输入提示词...使用 / 唤出技能/场景",
+		"promptPlaceholder": "输入提示词...使用 / 唤出技能",
 		"selectWorkDir": "选择工作目录",
 		"conversation": "对话",
 		"modelEmpty": "暂无模型",

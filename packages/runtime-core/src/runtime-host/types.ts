@@ -82,18 +82,8 @@ export interface RuntimeHostOptions {
 		signal?: AbortSignal,
 	) => Promise<RuntimeSandboxGrantDecision>;
 	/**
-	 * Vetta 远端服务 URL。宿主进程显式注入后，下挂的 createAgentSession 不会再
-	 * 回退到 coding-agent 内置的 LAN 默认值，避免主进程内 desktop-app 路径
-	 * （env-injected URL）与 SDK 路径（硬编码 URL）"半边大脑"。
-	 */
-	serverUrl?: string;
-	/**
 	 * 进程级共享的 ModelRegistry。注入后每次 createSession 都复用同一份，
-	 * sdk 内部 `if (!options.modelRegistry)` 的远程 fetch 分支就会跳过——
-	 * 第一次发消息不再被 5s 的 `/providers/models.json` 阻塞。
-	 *
-	 * 仍然需要保证模型实时性：见 `createSession` 末尾的 stale-while-revalidate
-	 * 后台刷新，以及 `reloadServerAuth` 在登录/登出时的同步刷新。
+	 * 避免每个会话各自重新加载 models.json。
 	 */
 	modelRegistry?: ModelRegistry;
 }

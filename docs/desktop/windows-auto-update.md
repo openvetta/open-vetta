@@ -44,8 +44,8 @@ Windows 只需要发布一个 EXE 安装包及其 blockmap，不需要为了自�
 
 | 构建用途 | `VETTA_UPDATE_PROVIDER` | 更新源 | 建议地址 |
 |---|---|---|---|
-| 官方稳定版 | `generic` | R2 + Cloudflare CDN | `https://releases.example.invalid/desktop/stable` |
-| 本地闭环测试 | `generic` | R2 独立前缀 | `https://releases.example.invalid/desktop/test` |
+| 官方稳定版 | `generic` | 自建静态托管 / CDN | `https://example.com/vetta/desktop/stable` |
+| 本地闭环测试 | `generic` | 自建静态托管（独立前缀） | `https://example.com/vetta/desktop/test` |
 | 开源版本 | `github` | 公开 GitHub Releases | 仓库 Release |
 | 开发/QA 无更新包 | `none` | 无 | 不生成 `app-update.yml` |
 
@@ -199,7 +199,7 @@ Windows 发布 EXE 的原因：
 
 ```dotenv
 VETTA_UPDATE_PROVIDER=generic
-VETTA_UPDATE_URL=https://releases.example.invalid/desktop/test
+VETTA_UPDATE_URL=https://example.com/vetta/desktop/test
 ```
 
 构建脚本默认 `VETTA_BUILD_ENV=development`，`prepare-pack.js` 显式调用 `loadBuildEnv()` 读取 `.env.development`；Shell 中显式设置的变量优先级更高。**没有设 `VETTA_UPDATE_PROVIDER` 就不会生成 `latest*.yml`**，后续验证与发布全部无从谈起。
@@ -212,7 +212,7 @@ export VETTA_R2_ACCESS_KEY_ID=<access-key-id>
 export VETTA_R2_SECRET_ACCESS_KEY=<secret-access-key>
 export VETTA_R2_BUCKET=vetta-releases
 export VETTA_R2_PREFIX=desktop/test
-export VETTA_UPDATE_URL=https://releases.example.invalid/desktop/test
+export VETTA_UPDATE_URL=https://example.com/vetta/desktop/test
 ```
 
 原因：`publish-update-artifacts-r2.mjs` 直接读 `process.env`，不调用 `loadBuildEnv()`；而 `publish:updates:r2` 是 `bun run` 拉起 `node` 子进程，Bun 的 dotenv 自动加载只作用于 Bun 运行时自身的进程，不会传给它 spawn 的 node。凭据缺失时报 `[publish-updates-r2] missing VETTA_R2_ACCOUNT_ID`。
@@ -318,8 +318,8 @@ CDN 命中可减少 R2 Class B 读取；回源未命中仍会产生 R2 操作。
 差分下载要求自定义域名对 EXE 支持标准字节范围请求。应返回 `206 Partial Content` 和正确的 `Content-Range`。
 
 ```powershell
-curl.exe -I "https://releases.example.invalid/desktop/test/Vetta-<version>-win-x64.exe"
-curl.exe -r 0-1023 -o NUL -D - "https://releases.example.invalid/desktop/test/Vetta-<version>-win-x64.exe"
+curl.exe -I "https://example.com/vetta/desktop/test/Vetta-<version>-win-x64.exe"
+curl.exe -r 0-1023 -o NUL -D - "https://example.com/vetta/desktop/test/Vetta-<version>-win-x64.exe"
 ```
 
 第二条响应应为 206。当前 `generic` provider 设置了 `useMultipleRangeRequest=false`，表示不用 multipart range，但仍会发普通单区间 Range 请求。
@@ -342,7 +342,7 @@ curl.exe -r 0-1023 -o NUL -D - "https://releases.example.invalid/desktop/test/Ve
 
 ```text
 VETTA_UPDATE_PROVIDER=generic
-VETTA_UPDATE_URL=https://releases.example.invalid/desktop/stable
+VETTA_UPDATE_URL=https://example.com/vetta/desktop/stable
 VETTA_R2_PREFIX=desktop/stable
 ```
 

@@ -87,7 +87,7 @@ export interface SubagentParentContext {
 	agentDir?: string;
 	/**
 	 * Parent's live model registry (remote token + loaded remote models).
-	 * Must be shared so children can resolve keys for cloud providers like vetta-go.
+	 * Must be shared so children resolve provider keys identically to the parent.
 	 */
 	modelRegistry?: ModelRegistry;
 	/** Live MCP tools from the parent session (proxy, not re-spawned). */

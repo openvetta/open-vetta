@@ -5,7 +5,7 @@ import type { AppMonitorPromptRefUsageMap, SkillInfo } from "@preload/api";
  *
  * source 取值来自 main 侧 SkillService.list：`builtin` 与 `plugin` 由它自己判定
  * （内置清单 / 插件贡献路径），其余透传 coding-agent 的 ResourceLoader——
- * `user` / `project` / `scene` / `market` 属 Vetta 原生，`agents-user` /
+ * `user` / `project` / `market` 属 Vetta 原生，`agents-user` /
  * `agents-project` 是跨 agent 通用约定（`~/.agents/skills`）。
  */
 const CATEGORY_WEIGHT: Record<string, number> = {
@@ -13,7 +13,6 @@ const CATEGORY_WEIGHT: Record<string, number> = {
 	plugin: 1,
 	user: 2,
 	project: 2,
-	scene: 2,
 	market: 2,
 	path: 2,
 	"agents-user": 3,
@@ -39,7 +38,7 @@ const NO_USAGE: SkillUsage = { used: 0, lastUsedAt: 0 };
  * 所以这里必须同样小写化后再查。
  */
 export function lookupSkillUsage(usage: AppMonitorPromptRefUsageMap, skill: SkillInfo): SkillUsage {
-	const kind = skill.type === "scene" ? "scene" : "skill";
+	const kind = "skill";
 	return usage[`${kind}:${skill.name.trim().toLowerCase().slice(0, 128)}`] ?? NO_USAGE;
 }
 

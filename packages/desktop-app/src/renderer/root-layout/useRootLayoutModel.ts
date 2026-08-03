@@ -3,11 +3,9 @@ import { useMatches, useNavigate } from "@tanstack/react-router";
 import { getDefaultStore, useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FILE_EDITOR_SAVE_EVENT } from "@/shared/shortcuts";
-import { useAuth } from "../domains/auth/hooks/useAuth";
 import { loadNewSessionPage } from "../domains/chat/components/loadNewSessionPage";
 import { useAppInit } from "../domains/chat/hooks/useAppInit";
 import { useSessionManager } from "../domains/chat/hooks/useSessionManager";
-import { useNotificationInit } from "../domains/message/hooks/useNotificationInit";
 import { useProjects } from "../domains/project/hooks/useProjects";
 import { useMessageQueueDispatcher } from "../shared/hooks/useMessageQueueDispatcher";
 import { useNarrowScreen } from "../shared/hooks/useNarrowScreen";
@@ -83,9 +81,7 @@ export function useRootLayoutModel(): RootLayoutModel {
 	}, [narrow, cancelOverlayClose]);
 
 	useTheme();
-	useAuth();
 	useAppInit();
-	useNotificationInit();
 	useUpdaterInit();
 	// 全局 running-sessions 订阅必须挂在始终挂载的 App 上：它是 streaming 状态真值
 	// 来源之一，挂在会被卸载的 Sidebar 上会在卸载期间丢 RUNNING_CHANGED 事件。

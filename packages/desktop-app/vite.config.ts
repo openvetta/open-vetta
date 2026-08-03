@@ -2,7 +2,6 @@ import path, { resolve } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, loadEnv, type Plugin } from "vite";
-import { createSentryBuildSetup, readValue } from "./sentry-vite";
 
 function themeDevelopmentReload(): Plugin {
 	const themeSourceDir = resolve(__dirname, "../themes/builtin/xianxia/src");
@@ -38,28 +37,15 @@ export default defineConfig(({ mode }) => {
 	}
 	// 外观「界面主题」区段：默认隐藏；VETTA_SHOW_UI_THEME=true 时展示（shell > .env）
 	const showUiTheme = process.env.VETTA_SHOW_UI_THEME ?? env.VETTA_SHOW_UI_THEME ?? "";
-	const sentry = createSentryBuildSetup(env, "dist/renderer");
 
 	return {
 		define: {
 			"process.env.VETTA_SHOW_UI_THEME": JSON.stringify(showUiTheme),
-			"process.env.VETTA_SENTRY_ENABLED": JSON.stringify(
-				readValue(env, "VETTA_SENTRY_DSN") ? "true" : "false",
-			),
-			"process.env.VETTA_POSTHOG_KEY": JSON.stringify(readValue(env, "VETTA_POSTHOG_KEY") ?? ""),
-			"process.env.VETTA_POSTHOG_HOST": JSON.stringify(readValue(env, "VETTA_POSTHOG_HOST") ?? ""),
-			"process.env.VETTA_POSTHOG_REPLAY_ENABLED": JSON.stringify(
-				readValue(env, "VETTA_POSTHOG_REPLAY_ENABLED") ?? "",
-			),
-			"process.env.VETTA_POSTHOG_REPLAY_SAMPLE_RATE": JSON.stringify(
-				readValue(env, "VETTA_POSTHOG_REPLAY_SAMPLE_RATE") ?? "",
-			),
 		},
 		plugins: [
 			react(),
 			tailwindcss(),
 			...(themeDevelopmentEnabled ? [themeDevelopmentReload()] : []),
-			...sentry.plugins,
 		],
 		root: "src/renderer",
 		base: "./",
@@ -76,7 +62,7 @@ export default defineConfig(({ mode }) => {
 		build: {
 			outDir: resolve(process.cwd(), "dist/renderer"),
 			emptyOutDir: false,
-			sourcemap: sentry.enabled ? "hidden" : false,
+			sourcemap: false,
 			rollupOptions: {
 				input: {
 					main: resolve(__dirname, "src/renderer/index.html"),

@@ -2,7 +2,7 @@ import type { JSX } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@vetta/ui";
 import { SkillTypeIcon } from "./skill-icon";
 
-export type SkillDetailTypeView = "scene" | "skill";
+export type SkillDetailTypeView = "skill";
 
 export interface SkillDetailDialogSkillView {
 	readonly name: string;
@@ -53,7 +53,7 @@ export function SkillDetailDialogView({
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2.5 text-lg font-bold">
 						<span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-primary/10 text-primary">
-							<SkillTypeIcon type={skill.type} icon={skill.icon} className="h-4 w-4" />
+							<SkillTypeIcon icon={skill.icon} className="h-4 w-4" />
 						</span>
 						<span className="min-w-0 truncate">{skill.alias || skill.name}</span>
 					</DialogTitle>

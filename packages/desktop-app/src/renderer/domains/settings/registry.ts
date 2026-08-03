@@ -1,7 +1,6 @@
 import type { SettingsTab } from "@shared/store/atoms";
 
 export type SettingsTabLabelKey =
-	| "tabAccount"
 	| "tabGeneral"
 	| "tabAppearance"
 	| "tabContext"
@@ -22,8 +21,6 @@ export interface SettingsTabRegistration {
 	label: string;
 	labelKey: SettingsTabLabelKey;
 	icon: string;
-	personalOnly?: boolean;
-	requireAuth?: boolean;
 	macOnly?: boolean;
 	/** 侧栏标签显示 BETA 徽标 */
 	beta?: boolean;
@@ -37,7 +34,6 @@ export interface SettingsSectionRegistration {
 }
 
 export const SETTINGS_TABS: readonly SettingsTabRegistration[] = [
-	{ key: "account", label: "账户", labelKey: "tabAccount", icon: "icon-[mdi--account-outline]", requireAuth: true },
 	{ key: "general", label: "通用设置", labelKey: "tabGeneral", icon: "icon-[mdi--cog-outline]" },
 	{ key: "appearance", label: "外观", labelKey: "tabAppearance", icon: "icon-[mdi--palette-outline]" },
 	{ key: "context", label: "Agent配置", labelKey: "tabContext", icon: "icon-[mdi--robot-outline]" },
@@ -45,7 +41,6 @@ export const SETTINGS_TABS: readonly SettingsTabRegistration[] = [
 	// MCP 管理已迁至侧栏「扩展 → 连接器」
 	{ key: "im", label: "Claw", labelKey: "tabIm", icon: "icon-[mdi--message-text-outline]" },
 	{ key: "webhook", label: "消息推送", labelKey: "tabWebhook", icon: "icon-[mdi--webhook]" },
-	// { key: "team", label: "团队管理", labelKey: "tabTeam", icon: "icon-[mdi--account-group-outline]", personalOnly: true },
 	{ key: "archive", label: "已归档", labelKey: "tabArchive", icon: "icon-[mdi--archive-outline]" },
 	{ key: "shortcuts", label: "快捷键", labelKey: "tabShortcuts", icon: "icon-[mdi--keyboard-outline]" },
 	{
@@ -83,16 +78,9 @@ export const SETTINGS_SECTIONS = [
 	{ tab: "appearance", id: "appearance-theme", title: "主题", titleKey: "section_appearance-theme" },
 	{ tab: "appearance", id: "appearance-sidebar", title: "侧边栏样式", titleKey: "section_appearance-sidebar" },
 	{ tab: "appearance", id: "appearance-language", title: "语言", titleKey: "section_appearance-language" },
-	{ tab: "account", id: "account-profile", title: "个人信息", titleKey: "section_account-profile" },
-	{ tab: "team", id: "team-management", title: "团队管理", titleKey: "section_team-management" },
-	{ tab: "team", id: "team-my-teams", title: "我的团队", titleKey: "section_team-my-teams" },
-	{ tab: "team", id: "team-detail-info", title: "团队详情", titleKey: "section_team-detail-info" },
-	{ tab: "team", id: "team-members", title: "成员列表", titleKey: "section_team-members" },
 	{ tab: "models", id: "models-thinking", title: "思考模式", titleKey: "section_models-thinking" },
 	{ tab: "models", id: "models-preset-providers", title: "预设服务商", titleKey: "section_models-preset-providers" },
 	{ tab: "models", id: "models-providers", title: "服务商", titleKey: "section_models-providers" },
-	{ tab: "mcp", id: "mcp-remote-list", title: "远程 MCP", titleKey: "section_mcp-remote-list" },
-	{ tab: "mcp", id: "mcp-remote-available", title: "可添加的远程 MCP", titleKey: "section_mcp-remote-available" },
 	{ tab: "mcp", id: "mcp-builtin-list", title: "推荐 MCP", titleKey: "section_mcp-builtin-list" },
 	{ tab: "mcp", id: "mcp-builtin-available", title: "可添加的推荐 MCP", titleKey: "section_mcp-builtin-available" },
 	{ tab: "mcp", id: "mcp-server-list", title: "自定义 MCP", titleKey: "section_mcp-server-list" },

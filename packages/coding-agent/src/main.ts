@@ -11,15 +11,7 @@ import { createInterface } from "readline";
 import { type Args, parseArgs, printHelp } from "./cli/args.js";
 import { processFileArguments } from "./cli/file-processor.js";
 import { listModels } from "./cli/list-models.js";
-import {
-	APP_NAME,
-	CONFIG_DIR_NAME,
-	DEFAULT_SERVER_URL,
-	ENV_SERVER_URL,
-	getAgentDir,
-	getModelsPath,
-	VERSION,
-} from "./config.js";
+import { APP_NAME, CONFIG_DIR_NAME, getAgentDir, getModelsPath, VERSION } from "./config.js";
 import { AuthStorage } from "./core/auth-storage.js";
 import { DEFAULT_THINKING_LEVEL } from "./core/defaults.js";
 import { exportFromFile } from "./core/export-html/index.js";
@@ -550,24 +542,6 @@ export async function main(args: string[]) {
 	reportSettingsErrors(settingsManager, "startup");
 	const authStorage = AuthStorage.create();
 	const modelRegistry = new ModelRegistry(authStorage, getModelsPath());
-
-	// Ensure serverUrl has a default value.
-	// 优先级：环境变量（宿主进程显式注入，权威）> settings.json（用户/历史持久化）
-	// > 内置 DEFAULT_SERVER_URL。
-	// desktop-app 等宿主通过 VETTA_SERVER_URL 把当前生效的 server 地址注入子进程；
-	// 否则一个曾在 dev/LAN 环境登录过的用户切到 prod 后，子进程会继续读 settings.json
-	// 里残留的 LAN 地址，导致 loadRemoteModels 401，远程 provider（vetta-go 等）
-	// 不会注册，IM 桥接 spawn 的 agent-rpc 子进程一启动就以 "Unknown provider" 退出。
-	const envServerUrl = process.env[ENV_SERVER_URL];
-	let serverUrl = envServerUrl || settingsManager.getServerUrl();
-	if (!serverUrl) {
-		settingsManager.setServerUrl(DEFAULT_SERVER_URL);
-		serverUrl = DEFAULT_SERVER_URL;
-	}
-	modelRegistry.setServerUrl(serverUrl);
-	modelRegistry.setServerToken(settingsManager.getServerToken());
-	modelRegistry.setServerTokenGetter(() => settingsManager.getServerTokenFresh());
-	await modelRegistry.loadRemoteModels();
 
 	const resourceLoader = new DefaultResourceLoader({
 		cwd,

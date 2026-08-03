@@ -36,11 +36,7 @@ export const PACKAGE_DIRS = {
 	"runtime-telemetry": "packages/runtime-telemetry",
 	"action-rpc": "packages/action-rpc",
 	toolkit: "packages/toolkit",
-	markdown: "packages/markdown",
 	ui: "packages/ui",
-	admin: "packages/admin",
-	site: "packages/site",
-	api: "packages/api",
 	"im-gateway": "packages/im-gateway",
 };
 

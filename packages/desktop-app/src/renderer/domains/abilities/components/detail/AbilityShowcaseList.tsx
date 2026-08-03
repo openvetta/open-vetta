@@ -1,4 +1,4 @@
-import type { AbilityShowcase } from "@shared/lib/api";
+import type { AbilityShowcase } from "../../market-types";
 import { ShowcaseChatOverCanvas, ShowcaseChatThread } from "./templates/ShowcaseChatOverCanvas";
 
 /**

@@ -1,5 +1,4 @@
 export { DefaultSidebar } from "@domains/project/components/sidebar/DefaultSidebar";
-export { MessageCenter } from "@domains/project/components/sidebar/message-center/MessageCenter";
 export { ProjectsPanel } from "@domains/project/components/sidebar/projects/panel/ProjectsPanel";
 export { Sidebar } from "@domains/project/components/sidebar/Sidebar";
 export { SidebarBottomBar } from "@domains/project/components/sidebar/SidebarBottomBar";

@@ -157,19 +157,12 @@ func runHostWithIO(opts hostOptions) int {
 			}
 			hclocalOpts.ExtraEnv["VETTA_PACKAGE_DIR"] = initFrame.CodingAgent.PackageDir
 		}
-		if initFrame.CodingAgent.ServerURL != "" {
-			if hclocalOpts.ExtraEnv == nil {
-				hclocalOpts.ExtraEnv = map[string]string{}
-			}
-			hclocalOpts.ExtraEnv["VETTA_SERVER_URL"] = initFrame.CodingAgent.ServerURL
-		}
 		emitLog("info", "coding-agent binary configured by parent",
 			map[string]any{
 				"bin":        initFrame.CodingAgent.Bin,
 				"prefixArgs": initFrame.CodingAgent.PrefixArgs,
 				"runAsNode":  initFrame.CodingAgent.RunAsNode,
 				"packageDir": initFrame.CodingAgent.PackageDir,
-				"serverUrl":  initFrame.CodingAgent.ServerURL,
 			})
 	}
 	hostClient := hclocal.New(hclocalOpts)

@@ -53,7 +53,7 @@ export class EventRouter {
 	/** Internal handler for agent events - shared by subscribe and reconnect. */
 	handle = async (event: AgentEvent): Promise<void> => {
 		// Re-emit todo state on agent_start so the UI picks it up reliably.
-		// Todos created during scene expansion fire before the agent's event stream is
+		// Todos created by the host before a run fire before the agent's event stream is
 		// active; re-emitting here ensures the renderer receives them alongside the
 		// normal lifecycle events.
 		if (event.type === "agent_start") {

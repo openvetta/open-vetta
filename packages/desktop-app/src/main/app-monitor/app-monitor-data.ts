@@ -216,16 +216,13 @@ export interface AppMonitorData {
 	inputPromptRefs: {
 		events: number;
 		skills: number;
-		scenes: number;
 		byKind: Record<string, number>;
 		byName: Record<string, number>;
 		byRef: Record<string, AppMonitorPromptRefStats>;
 		mostUsed: AppMonitorPromptRefStats | null;
 		mostUsedSkill: AppMonitorPromptRefStats | null;
-		mostUsedScene: AppMonitorPromptRefStats | null;
 		recent: AppMonitorPromptRefStats | null;
 		recentSkill: AppMonitorPromptRefStats | null;
-		recentScene: AppMonitorPromptRefStats | null;
 	};
 	resources: {
 		events: number;
@@ -689,16 +686,13 @@ export function createDefaultAppMonitorData(now = Date.now()): AppMonitorData {
 		inputPromptRefs: {
 			events: 0,
 			skills: 0,
-			scenes: 0,
 			byKind: {},
 			byName: {},
 			byRef: {},
 			mostUsed: null,
 			mostUsedSkill: null,
-			mostUsedScene: null,
 			recent: null,
 			recentSkill: null,
-			recentScene: null,
 		},
 		resources: {
 			events: 0,
@@ -889,7 +883,6 @@ export function normalizeAppMonitorData(value: unknown): AppMonitorData {
 		inputPromptRefs: {
 			events: normalizeCount(inputPromptRefs.events),
 			skills: normalizeCount(inputPromptRefs.skills),
-			scenes: normalizeCount(inputPromptRefs.scenes),
 			byKind: normalizeCountRecord(inputPromptRefs.byKind),
 			byName: normalizeCountRecord(inputPromptRefs.byName),
 			byRef: inputPromptRefsByRef,
@@ -897,14 +890,9 @@ export function normalizeAppMonitorData(value: unknown): AppMonitorData {
 			mostUsedSkill:
 				normalizePromptRefStats(inputPromptRefs.mostUsedSkill) ??
 				findMostUsedPromptRef(inputPromptRefsByRef, "skill"),
-			mostUsedScene:
-				normalizePromptRefStats(inputPromptRefs.mostUsedScene) ??
-				findMostUsedPromptRef(inputPromptRefsByRef, "scene"),
 			recent: normalizePromptRefStats(inputPromptRefs.recent) ?? findRecentPromptRef(inputPromptRefsByRef),
 			recentSkill:
 				normalizePromptRefStats(inputPromptRefs.recentSkill) ?? findRecentPromptRef(inputPromptRefsByRef, "skill"),
-			recentScene:
-				normalizePromptRefStats(inputPromptRefs.recentScene) ?? findRecentPromptRef(inputPromptRefsByRef, "scene"),
 		},
 		resources: {
 			events: normalizeCount(resources.events),
@@ -1005,7 +993,7 @@ function findMostOperatedResourcesByKind(
 	statsByKey: Record<string, AppMonitorResourceStats>,
 ): Record<string, AppMonitorResourceStats> {
 	const result: Record<string, AppMonitorResourceStats> = {};
-	for (const kind of ["skill", "scene", "plugin"]) {
+	for (const kind of ["skill", "plugin"]) {
 		const stats = findMostOperatedResource(statsByKey, kind);
 		if (stats) result[kind] = stats;
 	}
@@ -1016,7 +1004,7 @@ function findRecentResourcesByKind(
 	statsByKey: Record<string, AppMonitorResourceStats>,
 ): Record<string, AppMonitorResourceStats> {
 	const result: Record<string, AppMonitorResourceStats> = {};
-	for (const kind of ["skill", "scene", "plugin"]) {
+	for (const kind of ["skill", "plugin"]) {
 		const stats = findRecentResource(statsByKey, kind);
 		if (stats) result[kind] = stats;
 	}

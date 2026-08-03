@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "f
 import ignore from "ignore";
 import { homedir } from "os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "path";
-import { CONFIG_DIR_NAME, getAgentDir, getSceneDir } from "../config.js";
+import { CONFIG_DIR_NAME, getAgentDir } from "../config.js";
 import { parseFrontmatter } from "../utils/frontmatter.js";
 import type { ResourceDiagnostic } from "./diagnostics.js";
 
@@ -77,8 +77,6 @@ export interface SkillFrontmatter {
 	[key: string]: unknown;
 }
 
-export type SkillType = "skill" | "scene";
-
 export interface Skill {
 	name: string;
 	alias?: string;
@@ -86,7 +84,6 @@ export interface Skill {
 	filePath: string;
 	baseDir: string;
 	source: string;
-	type: SkillType;
 	/** 工作模式白名单（agent_mode 轴）。undefined/空 = 通用。见 ADR-0046。 */
 	agentMode?: string[];
 	disableModelInvocation: boolean;
@@ -281,7 +278,6 @@ function loadSkillFromFile(
 			return { skill: null, diagnostics };
 		}
 
-		const skillType: SkillType = frontmatter.metadata?.type === "scene" ? "scene" : "skill";
 		const agentMode = normalizeSkillAgentMode(frontmatter.agent_mode);
 
 		return {
@@ -292,7 +288,6 @@ function loadSkillFromFile(
 				filePath,
 				baseDir: skillDir,
 				source,
-				type: skillType,
 				agentMode,
 				disableModelInvocation: frontmatter["disable-model-invocation"] === true,
 			},
@@ -314,7 +309,7 @@ function loadSkillFromFile(
  * (they can only be invoked explicitly via /skill:name commands).
  */
 export function formatSkillsForPrompt(skills: Skill[]): string {
-	const visibleSkills = skills.filter((s) => !s.disableModelInvocation && s.type !== "scene");
+	const visibleSkills = skills.filter((s) => !s.disableModelInvocation);
 
 	if (visibleSkills.length === 0) {
 		return "";
@@ -351,28 +346,11 @@ function escapeXml(str: string): string {
 		.replace(/'/g, "&apos;");
 }
 
-/**
- * Load scenes from a directory.
- * Scenes are skills with type: 'scene' in their metadata.
- * They are loaded from ~/.vetta/scene/ directory using the same discovery rules as skills.
- * All loaded items are forced to have type='scene' and source='scene'.
- */
-function loadScenesFromDir(dir: string): LoadSkillsResult {
-	const result = loadSkillsFromDirInternal(dir, "scene", true);
-	// Force all loaded skills from scene dir to be type='scene'
-	for (const skill of result.skills) {
-		skill.type = "scene";
-	}
-	return result;
-}
-
 export interface LoadSkillsOptions {
 	/** Working directory for project-local skills. Default: process.cwd() */
 	cwd?: string;
 	/** Agent config directory for global skills. Default: ~/.pi/agent */
 	agentDir?: string;
-	/** Scene directory for loading scenes. Default: ~/.vetta/scene/ */
-	sceneDir?: string;
 	/** Explicit skill paths (files or directories) */
 	skillPaths?: string[];
 	/** Include default skills directories. Default: true */
@@ -406,7 +384,6 @@ export function loadSkills(options: LoadSkillsOptions = {}): LoadSkillsResult {
 	const {
 		cwd = process.cwd(),
 		agentDir,
-		sceneDir,
 		skillPaths = [],
 		includeDefaults = true,
 		includeAgentSkills = true,
@@ -414,7 +391,6 @@ export function loadSkills(options: LoadSkillsOptions = {}): LoadSkillsResult {
 
 	// Resolve agentDir - if not provided, use default from config
 	const resolvedAgentDir = agentDir ?? getAgentDir();
-	const resolvedSceneDir = sceneDir ?? getSceneDir();
 
 	const skillMap = new Map<string, Skill>();
 	const realPathSet = new Set<string>();
@@ -460,8 +436,6 @@ export function loadSkills(options: LoadSkillsOptions = {}): LoadSkillsResult {
 	if (includeDefaults) {
 		addSkills(loadSkillsFromDirInternal(join(resolvedAgentDir, "skills"), "user", true));
 		addSkills(loadSkillsFromDirInternal(resolve(cwd, CONFIG_DIR_NAME, "skills"), "project", true));
-		// Load scenes from ~/.vetta/scene/
-		addSkills(loadScenesFromDir(resolvedSceneDir));
 	}
 
 	const userSkillsDir = join(resolvedAgentDir, "skills");
@@ -512,7 +486,7 @@ export function loadSkills(options: LoadSkillsOptions = {}): LoadSkillsResult {
 		}
 	}
 
-	// Generic Agent Skill directories, loaded LAST so Vetta-native skills (user / project / scene)
+	// Generic Agent Skill directories, loaded LAST so Vetta-native skills (user / project)
 	// always win name collisions. Discovery follows the cross-agent convention: subdirectory
 	// SKILL.md only (no loose root .md), so skills authored for other agents drop in unchanged.
 	if (includeAgentSkills) {

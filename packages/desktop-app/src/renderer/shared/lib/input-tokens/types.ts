@@ -9,7 +9,6 @@
  * 连接器刻意不用裸 `@notion`：那样无法与手敲的 `@某个词` 区分——文件 token 靠
  * 「是不是绝对路径」判定，而连接器名不是路径，只能靠命名空间前缀消歧。
  *
- * scene 不出现在文本里：它仍走 PromptRequest.promptRef 硬展开
  * （coding-agent 侧会注入 tasks.json 生成的 todo 并锁定列表）。
  */
 
@@ -20,14 +19,14 @@ export type InputSegment =
 	| { kind: "file"; path: string; isDirectory?: boolean }
 	| { kind: "image"; path: string };
 
-/** 旧会话里以行首前缀承载的结构化引用（`/skill:name` / `/scene:name`）。 */
+/** 旧会话里以行首前缀承载的结构化引用（`/skill:name`）。 */
 export interface LegacyPromptRef {
-	kind: "skill" | "scene";
+	kind: "skill";
 	name: string;
 }
 
 export interface ParsedInput {
 	segments: InputSegment[];
-	/** 仅旧格式会产出；新格式的 skill 走 segments、scene 走 promptRef 字段。 */
+	/** 仅旧格式会产出；新格式的 skill 走 segments。 */
 	legacyRef: LegacyPromptRef | null;
 }

@@ -3,7 +3,7 @@ import { mkdir as fsMkdir, writeFile as fsWriteFile } from "fs/promises";
 import { dirname } from "path";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
-import { isKnowledgeWikiPath, isProtectedSkillOrScenePath, resolveToCwd, resolveWritablePath } from "../path-utils.js";
+import { isKnowledgeWikiPath, isProtectedSkillPath, resolveToCwd, resolveWritablePath } from "../path-utils.js";
 import { toolCallDescriptionSchema } from "../tool-call-description.js";
 
 const writeSchema = Type.Object({
@@ -60,14 +60,14 @@ export function createWriteTool(cwd: string, options?: WriteToolOptions): Coding
 			const requestedPath = resolveToCwd(path, cwd);
 			const absolutePath = resolveWritablePath(path, cwd);
 
-			if (isProtectedSkillOrScenePath(absolutePath, cwd)) {
+			if (isProtectedSkillPath(absolutePath, cwd)) {
 				return {
 					content: [
 						{
 							type: "text" as const,
 							text:
-								`Error: "${absolutePath}" is inside a skill/scene directory which is read-only. ` +
-								`Skills and scenes are global resources — never write artifacts into them. ` +
+								`Error: "${absolutePath}" is inside a skill directory which is read-only. ` +
+								`Skills are global resources — never write artifacts into them. ` +
 								`Write output files to the user's working directory instead.`,
 						},
 					],

@@ -13,7 +13,6 @@ import type {
 	PluginPermission,
 	SkillInfo,
 } from "@preload/api";
-import type { AbilityMember, MarketAbility } from "@shared/lib/api";
 import { builtinSkillIconUrl } from "@shared/lib/builtin-skill-icons";
 import type { TFunction } from "i18next";
 import {
@@ -29,6 +28,7 @@ import {
 	resolveMcpPresetIconUrl,
 	serverUsesOAuth,
 } from "../../settings/mcp/builtin-mcp-presets";
+import type { AbilityMember, MarketAbility } from "../market-types";
 import {
 	ABILITY_CATEGORY_CONNECTORS,
 	type AbilityCatalogSource,
@@ -114,12 +114,7 @@ function terms(...values: Array<string | undefined | string[]>): string[] {
 	return out;
 }
 
-// ─── skill / scene ───
-
-/** 清单条目的类型，缺省按 skill 处理（早期条目没有 type 字段）。 */
-function manifestType(entry: InstalledSkill): "skill" | "scene" {
-	return entry.type === "scene" ? "scene" : "skill";
-}
+// ─── skill ───
 
 export function buildSkillAbilities(market: MarketAbility[], state: LocalAbilityState): SkillAbility[] {
 	const { ledger, skillManifest, localSkills, busyIds } = state;
@@ -129,12 +124,12 @@ export function buildSkillAbilities(market: MarketAbility[], state: LocalAbility
 	const claimedNames = new Set<string>();
 
 	for (const entry of market) {
-		if (entry.type !== "skill" && entry.type !== "scene") continue;
+		if (entry.type !== "skill") continue;
 		const catalogSource = getMarketCatalogSource(entry);
 		const id = buildMarketAbilityId(entry);
-		// 本地清单是扁平 map（skill 与 scene 同命名空间），同名不同类型不能互相认领
+		// 本地清单是扁平 map，同名条目不能互相认领
 		const localEntry = skillManifest[entry.slug];
-		const local = localEntry && manifestType(localEntry) === entry.type ? localEntry : undefined;
+		const local = localEntry && (localEntry.type ?? "skill") === entry.type ? localEntry : undefined;
 		const ledgerEntry = ledger[physicalLedgerKey(entry.type, entry.slug)];
 		const installed =
 			Boolean(local) &&
@@ -177,7 +172,7 @@ export function buildSkillAbilities(market: MarketAbility[], state: LocalAbility
 
 	// 本地已装但市场已下架 / 自定义导入的 skill。
 	for (const [name, local] of Object.entries(skillManifest)) {
-		const type = manifestType(local);
+		const type = local.type ?? "skill";
 		const ledgerEntry = ledger[physicalLedgerKey(type, name)];
 		const claimed = items.some((item) => item.slug === name && item.type === type && item.installed);
 		if (claimed) continue;

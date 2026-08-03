@@ -8,7 +8,6 @@ export interface ModelSelectorLabels {
 	noResultsHint: string;
 	reasoningHeader: string;
 	modelHeader: string;
-	cloudOnly: string;
 	visionBadge: string;
 	defaultBadge: string;
 	levelLabel: (value: string) => string;

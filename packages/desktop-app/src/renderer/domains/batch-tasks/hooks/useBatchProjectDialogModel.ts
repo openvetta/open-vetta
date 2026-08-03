@@ -1,7 +1,5 @@
 import type { ModelsConfigData } from "@preload/api";
 import type { BatchProject } from "@shared/store/atoms";
-import { remoteProvidersAtom } from "@shared/store/atoms";
-import { useAtomValue } from "jotai";
 import { useEffect, useMemo, useState } from "react";
 import type { BatchProjectEditableData } from "../components/BatchProjectFormFields";
 import { normalizeConcurrency, normalizeTimeout, toBatchProjectApprovalJsonData } from "../utils/batchProjectFormData";
@@ -32,15 +30,10 @@ function getProjectData(project: BatchProject | undefined): BatchProjectEditable
 	};
 }
 
-function flattenModelKeys(config: ModelsConfigData, remoteProviders: ModelsConfigData["providers"]): string[] {
-	const localKeys = Object.entries(config.providers).flatMap(([provider, providerConfig]) =>
+function flattenModelKeys(config: ModelsConfigData): string[] {
+	return Object.entries(config.providers).flatMap(([provider, providerConfig]) =>
 		(providerConfig.models ?? []).map((model) => `${provider}/${model.id}`),
 	);
-	const localKeySet = new Set(localKeys);
-	const remoteKeys = Object.entries(remoteProviders).flatMap(([provider, providerConfig]) =>
-		(providerConfig.models ?? []).map((model) => `${provider}/${model.id}`).filter((key) => !localKeySet.has(key)),
-	);
-	return [...localKeys, ...remoteKeys];
 }
 
 export function useBatchProjectDialogModel({
@@ -53,7 +46,6 @@ export function useBatchProjectDialogModel({
 	onClose: () => void;
 }): BatchProjectDialogModel {
 	const { createProject, updateProject } = useBatchTasks();
-	const remoteProviders = useAtomValue(remoteProvidersAtom);
 	const [data, setData] = useState<BatchProjectEditableData>(() => getProjectData(project));
 
 	useEffect(() => {
@@ -63,7 +55,7 @@ export function useBatchProjectDialogModel({
 	useEffect(() => {
 		if (!open) return;
 		void window.vetta.models.get().then((config) => {
-			const allModelKeys = flattenModelKeys(config, remoteProviders as ModelsConfigData["providers"]);
+			const allModelKeys = flattenModelKeys(config);
 			const currentSelected = localStorage.getItem("vetta-selected-model") ?? undefined;
 			const fallback = project?.modelKey ?? currentSelected ?? config.defaultModel;
 			setData((current) => {
@@ -72,7 +64,7 @@ export function useBatchProjectDialogModel({
 				return allModelKeys[0] ? { ...current, modelKey: allModelKeys[0] } : { ...current, modelKey: undefined };
 			});
 		});
-	}, [open, project?.modelKey, remoteProviders]);
+	}, [open, project?.modelKey]);
 
 	const canSubmit = useMemo(
 		() => Boolean(data.name?.trim() && data.prompt?.trim() && (data.folders?.length ?? 0) > 0),

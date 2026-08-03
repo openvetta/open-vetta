@@ -49,7 +49,6 @@ export const pageHeaderTitleHiddenAtom = atom<boolean>(false);
 export type SettingsTab =
 	| "general"
 	| "appearance"
-	| "account"
 	| "models"
 	| "mcp"
 	| "environment"
@@ -59,7 +58,6 @@ export type SettingsTab =
 	| "shortcuts"
 	| "appshot"
 	| "archive"
-	| "team"
 	| "context"
 	| "plugins"
 	| "knowledge"

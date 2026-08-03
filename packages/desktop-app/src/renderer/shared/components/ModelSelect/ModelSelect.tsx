@@ -16,7 +16,6 @@ import { AnimatePresence, motion } from "motion/react";
 import type { ChangeEvent, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { MultiplierTag } from "./MultiplierTag";
 import { resolveReasoning } from "./resolveReasoning";
 import { type ModelOption, useModelOptions } from "./useModelOptions";
 
@@ -209,7 +208,6 @@ export function ModelSelect({
 					<span className="min-w-0 flex-1 truncate text-left">
 						{selectedOption?.displayName ?? placeholder ?? t("modelSelect.placeholder")}
 					</span>
-					{selectedOption && <MultiplierTag multiplier={selectedOption.multiplier} />}
 					{showReasoning && currentLevel && (
 						<span className="shrink-0 text-muted-foreground">{levelLabel(currentLevel)}</span>
 					)}
@@ -324,11 +322,6 @@ export function ModelSelect({
 												<div className="flex items-center gap-1.5 px-3 pb-0.5 pt-1.5 text-[10px] font-medium text-muted-foreground/50">
 													<ProviderIcon symbol={group.icon} className="h-3 w-3" />
 													{group.label}
-													{group.models[0]?.remote && (
-														<span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-medium text-primary">
-															{t("modelSelect.cloudOnly")}
-														</span>
-													)}
 												</div>
 												{group.models.map((m) => (
 													<DropdownMenuItem
@@ -339,8 +332,7 @@ export function ModelSelect({
 														onSelect={() => handleModelSelect(m.key)}
 													>
 														<span className="min-w-0 flex-1 truncate">{m.displayName}</span>
-														<MultiplierTag multiplier={m.multiplier} />
-														{m.supportsImage && (
+															{m.supportsImage && (
 															<span className="shrink-0 rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-medium text-primary">
 																{t("modelSelect.visionBadge")}
 															</span>

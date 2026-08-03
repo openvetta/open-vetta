@@ -1,7 +1,6 @@
 import { AnimatePresence, motion } from "motion/react";
 import type { ChangeEvent, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { MultiplierTag } from "@shared/components/ModelSelect/MultiplierTag";
 import { ProviderIcon } from "@shared/components/provider-icon";
 import {
 	DropdownMenu,
@@ -271,11 +270,6 @@ export function ModelSelectorView({
 											>
 												<ProviderIcon symbol={group.icon} className="h-2.5 w-2.5" />
 												<span className="min-w-0 truncate">{group.label}</span>
-												{group.models[0]?.remote && (
-													<span className="shrink-0 rounded-full bg-primary/15 px-1 text-[9px] font-medium text-primary">
-														{labels.cloudOnly}
-													</span>
-												)}
 											</div>
 											{group.models.map((model) => (
 												<DropdownMenuItem
@@ -290,8 +284,7 @@ export function ModelSelectorView({
 													onSelect={() => handleModelSelect(model.key)}
 												>
 													<span className="min-w-0 flex-1 truncate">{model.displayName}</span>
-													<MultiplierTag multiplier={model.multiplier} />
-													{model.supportsImage && (
+														{model.supportsImage && (
 														<span
 															aria-label={labels.visionBadge}
 															title={labels.visionBadge}

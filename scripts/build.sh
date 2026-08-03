@@ -8,7 +8,6 @@
 #   ./scripts/build.sh app      # build apps only (assumes libs are built)
 #   ./scripts/build.sh desktop  # build desktop-app and its deps
 #   ./scripts/build.sh cli      # build cli-app and its deps
-#   ./scripts/build.sh admin    # build admin panel
 #   ./scripts/build.sh preset   # build preset plugins only
 #
 
@@ -70,10 +69,6 @@ build_apps() {
   build_pkg packages/desktop-app
 }
 
-build_admin() {
-  build_pkg packages/admin
-}
-
 # ── Preset plugins (packages/plugins/presets/*) ──
 # Reuses desktop-app 的 build-presets.mjs（含按需 bun install、遍历全部 preset）。
 build_presets() {
@@ -97,7 +92,6 @@ build_libs() {
 build_all() {
   build_libs
   build_apps
-  build_admin
 }
 
 case "${1:-all}" in
@@ -106,11 +100,10 @@ case "${1:-all}" in
   app|apps) build_apps ;;
   desktop)  build_libs && build_apps ;;
   cli)      build_libs && build_pkg packages/cli-app && build_presets ;;
-  admin)    build_admin ;;
   preset|presets) build_presets ;;
   *)
     echo "Unknown target: $1"
-    echo "Usage: $0 [all|libs|apps|desktop|cli|admin|preset]"
+    echo "Usage: $0 [all|libs|apps|desktop|cli|preset]"
     exit 1
     ;;
 esac

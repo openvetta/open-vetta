@@ -4,7 +4,7 @@ import type { PromptRequest } from "../../../../runtime-core/src/index.js";
 
 export const promptResourceRefSchema = z
 	.object({
-		kind: z.enum(["skill", "scene"]),
+		kind: z.enum(["skill"]),
 		name: z.string().trim().min(1),
 	})
 	.passthrough();

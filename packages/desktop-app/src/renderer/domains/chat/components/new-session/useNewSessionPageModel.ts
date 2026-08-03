@@ -4,7 +4,6 @@ import {
 	activeToolNamesAtom,
 	applyInputActionWorkingState,
 	attachedImagesAtom,
-	authUserAtom,
 	contextUsageAtom,
 	currentScenarioAtom,
 	defaultConversationCwdAtom,
@@ -74,7 +73,6 @@ export function useNewSessionPageModel(): NewSessionPageModel {
 	const setPromptAttachment = useSetAtom(promptAttachmentAtom);
 	const setCurrentScenario = useSetAtom(currentScenarioAtom);
 	const setActiveToolNames = useSetAtom(activeToolNamesAtom);
-	const authUser = useAtomValue(authUserAtom);
 	const executionMode = useAtomValue(sessionExecutionModeAtom);
 	const { openSession, sendMessage, abortMessage } = useSessionManager();
 	const isShort = useShortViewport();
@@ -159,9 +157,7 @@ export function useNewSessionPageModel(): NewSessionPageModel {
 		await sendMessage();
 	}, [decodedCwd, executionMode, openSession, sendMessage]);
 
-	const greetingTitle = authUser?.nickname
-		? i18n.t("chat:newSession.greetingTitle", { nickname: authUser.nickname })
-		: i18n.t("chat:newSession.greetingDefault");
+	const greetingTitle = i18n.t("chat:newSession.greetingDefault");
 
 	return {
 		avatarAutoplay,

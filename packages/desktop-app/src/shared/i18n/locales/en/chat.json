@@ -79,7 +79,6 @@
 		"htmlPreview": {
 			"title": "HTML preview"
 		},
-
 		"workflow": {
 			"empty": "No workflows",
 			"noTranscript": "No messages from this workflow yet",
@@ -139,8 +138,8 @@
 		"confirmDeleteMultiplePrefix": "Delete these {{count}} items",
 		"confirmDeleteMultipleMore": " and {{count}} more",
 		"confirmDeleteMultipleSuffix": "? This cannot be undone.",
-		"cancel": "Cancel"
-		,"transfer": {
+		"cancel": "Cancel",
+		"transfer": {
 			"title": "Add files to project",
 			"pasteCopyTitle": "Paste files",
 			"pasteMoveTitle": "Move files",
@@ -361,7 +360,7 @@
 		"toolbar": {
 			"addImage": "Add image",
 			"attachFile": "Attach file reference",
-			"skills": "Skills / Scenes"
+			"skills": "Skills"
 		},
 		"contextMenu": {
 			"cut": "Cut",
@@ -383,7 +382,6 @@
 	"messageList": {
 		"userMessage": {
 			"expand": "Expand message",
-			"sceneBadge": "Scene",
 			"skillBadge": "Skill",
 			"settingsAssist": {
 				"mcp": "MCP setup assist",
@@ -551,27 +549,25 @@
 	},
 	"skillPromptArea": {
 		"missingBadge": "Not installed",
-		"placeholder": "Type a prompt… use / for skills/scenes",
+		"placeholder": "Type a prompt… use / for skills",
 		"removeSkill": "Click to remove",
 		"removeSkillMissing": "Skill not installed, click to remove",
-		"skillButtonLabel": "Skills / Scenes",
-		"skillButtonTitle": "Skills / Scenes"
+		"skillButtonLabel": "Skills",
+		"skillButtonTitle": "Skills"
 	},
 	"slashPanel": {
 		"emptyNoMatch": "No matches found",
 		"emptyNoMatchHint": "Try another keyword, or just type your request.",
-		"emptyNoSkills": "No skills or scenes available",
-		"emptyNoSkillsHint": "Install a skill or scene from the ability market to call it here.",
-		"header": "Select a scene or skill",
+		"emptyNoSkills": "No skills available",
+		"emptyNoSkillsHint": "Install a skill from the ability market to call it here.",
+		"header": "Select a skill",
 		"resultCount": "{{count}} results",
-		"scenesSection": "Scenes",
 		"skillsSection": "Skills",
 		"sourceLabels": {
 			"agentsProject": "Generic · Project",
 			"agentsUser": "Generic",
 			"path": "Custom",
 			"project": "Project",
-			"scene": "Scene",
 			"user": "User",
 			"builtin": "Built-in",
 			"plugin": "Plugin",

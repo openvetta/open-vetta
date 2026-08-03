@@ -257,7 +257,7 @@ export class OpenMarketplaceService {
 		}
 	}
 
-	async install(type: "skill" | "scene" | "plugin", slug: string): Promise<void> {
+	async install(type: "skill" | "plugin", slug: string): Promise<void> {
 		const active = await this.readActiveMarketplace();
 		if (!active) throw new Error("No validated open marketplace snapshot is available");
 		const ability = active.manifest.abilities.find((entry) => entry.type === type && entry.slug === slug);

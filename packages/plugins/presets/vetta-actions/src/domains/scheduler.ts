@@ -51,7 +51,7 @@ const skillSchema = {
 	properties: {
 		name: nonBlankStringSchema,
 		alias: nonBlankStringSchema,
-		type: { enum: ["skill", "scene"] },
+		type: { enum: ["skill"] },
 	},
 	required: ["name", "type"],
 	additionalProperties: false,

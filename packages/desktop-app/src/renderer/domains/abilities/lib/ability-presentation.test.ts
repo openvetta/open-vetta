@@ -1,5 +1,5 @@
-import type { AbilityDetail, MarketAbility } from "@shared/lib/api";
 import { describe, expect, it } from "vitest";
+import type { AbilityDetail, MarketAbility } from "../market-types";
 import {
 	isRenderableImageIcon,
 	localizeMarketAbility,

@@ -1,7 +1,7 @@
 import { accessSync, constants, readdirSync } from "node:fs";
 import * as os from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve as resolvePath, sep } from "node:path";
-import { CONFIG_DIR_NAME, getAgentDir, getKnowledgeDir, getSceneDir, getVettaHomePath } from "../../config.js";
+import { CONFIG_DIR_NAME, getAgentDir, getKnowledgeDir, getVettaHomePath } from "../../config.js";
 
 const UNICODE_SPACES = /[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g;
 const NARROW_NO_BREAK_SPACE = "\u202F";
@@ -266,27 +266,25 @@ export function resolveReadPath(filePath: string, cwd: string): string {
 }
 
 // =============================================================================
-// Skill / Scene directory write-protection
+// Skill directory write-protection
 // =============================================================================
 
 /**
- * Check if a resolved absolute path falls inside a skill or scene directory.
+ * Check if a resolved absolute path falls inside a skill directory.
  * These directories are read-only + executable — agents must never write into them.
  *
  * Protected directories:
  * - ~/.vetta/agent/skills/
  * - ~/.vetta/skills/
- * - ~/.vetta/scene/
  * - <cwd>/.vetta/skills/
  * - ~/.agents/skills/        (generic Agent Skill convention)
  * - <cwd>/.agents/skills/    (generic Agent Skill convention)
  */
-export function isProtectedSkillOrScenePath(absolutePath: string, cwd: string): boolean {
+export function isProtectedSkillPath(absolutePath: string, cwd: string): boolean {
 	const resolved = resolvePath(absolutePath);
 	const protectedDirs = [
 		resolvePath(join(getAgentDir(), "skills")),
 		resolvePath(join(getVettaHomePath(), "skills")),
-		resolvePath(getSceneDir()),
 		resolvePath(cwd, CONFIG_DIR_NAME, "skills"),
 		resolvePath(join(os.homedir(), ".agents", "skills")),
 		resolvePath(cwd, ".agents", "skills"),

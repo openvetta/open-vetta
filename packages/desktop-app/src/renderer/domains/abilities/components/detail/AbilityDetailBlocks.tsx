@@ -1,4 +1,4 @@
-import type { AbilityDetailBlock, AbilityType } from "@shared/lib/api";
+import type { AbilityDetailBlock, AbilityType } from "../../market-types";
 import { Button, cn } from "@vetta/ui";
 import { AbilityIcon } from "../AbilityIcon";
 import { AbilityMarkdownBody } from "./AbilityMarkdownBody";

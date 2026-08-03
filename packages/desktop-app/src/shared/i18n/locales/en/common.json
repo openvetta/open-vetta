@@ -30,15 +30,6 @@
 		"download": "Download",
 		"close": "Close (Esc)"
 	},
-	"login": {
-		"oauthButton": "Authorize & Sign In",
-		"waitingTitle": "Waiting for browser authorization",
-		"waitingHint": "You'll be signed in automatically",
-		"reopen": "Open the link again",
-		"retry": "Authorize again",
-		"openFailed": "Couldn't open your browser. Please try again.",
-		"rejected": "This authorization link is no longer valid. Please sign in again."
-	},
 	"actionApproval": {
 		"reject": "Reject",
 		"confirm": "Confirm",
@@ -88,8 +79,8 @@
 			"skills": {
 				"enableTitle": "Turn on skill",
 				"disableTitle": "Turn off skill",
-				"enableSummary": "Once on, the AI can use this skill or scene in chat when needed.",
-				"disableSummary": "Once off, this skill/scene will not be used. Files are not uninstalled.",
+				"enableSummary": "Once on, the AI can use this skill in chat when needed.",
+				"disableSummary": "Once off, this skill will not be used. Files are not uninstalled.",
 				"enableConfirm": "Turn on",
 				"disableConfirm": "Turn off",
 				"enableImpact": "The skill becomes available for use in chat.",
@@ -314,7 +305,7 @@
 			"ops": {
 				"set-enabled": {
 					"title": "Enable/Disable Skill Confirmation",
-					"summary": "Change whether this skill or scene is enabled.",
+					"summary": "Change whether this skill is enabled.",
 					"confirm": "Confirm status change",
 					"badge": "Skill",
 					"impact": "Skill/scene enabled state takes effect immediately."
@@ -904,7 +895,6 @@
 			"knowledgeAll": "All Knowledge Bases",
 			"knowledge": "Knowledge Base",
 			"skills": "Skills",
-			"scenes": "Scenes",
 			"plugins": "Plugins",
 			"settings": "Settings",
 			"project": "Project Details",
@@ -967,13 +957,10 @@
 			"appearance": "Appearance",
 			"theme": "Color theme"
 		},
-		"login": {
-			"title": "Sign in",
-			"subtitle": "Sign in for cloud features and subscription. You can skip and sign in later",
-			"optionalHint": "Optional — tap Next to continue",
-			"signedInTitle": "Signed in",
-			"signedInDesc": "Welcome back, {{name}}",
-			"signedInFallback": "User"
+		"models": {
+			"title": "Set up a model",
+			"subtitle": "Pick a provider and paste your own API key — requests go straight to that provider.",
+			"optionalHint": "Optional — you can add it later in Settings › Models"
 		},
 		"welcome": {
 			"title": "Welcome to Vetta",

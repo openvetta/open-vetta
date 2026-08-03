@@ -544,7 +544,7 @@ async function runTaskInner(
 			...(!isResume && project.skill
 				? {
 						promptRef: {
-							kind: project.skill.type === "scene" ? ("scene" as const) : ("skill" as const),
+							kind: "skill" as const,
 							name: project.skill.name,
 						},
 					}

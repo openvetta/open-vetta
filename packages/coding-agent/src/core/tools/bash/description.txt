@@ -42,17 +42,16 @@ IMPORTANT: NEVER use bash for operations that have dedicated tools. Use the righ
 
 Use bash ONLY for: running scripts, package managers (npm, pip, cargo, etc.), git commands, compilers, interpreters, complex piping, or commands with no dedicated tool equivalent.
 
-# Skill / Scene Directory Protection
+# Skill Directory Protection
 
-Skill and scene directories are READ-ONLY. NEVER write output files, temp files, logs, or any generated content into skill or scene directories.
+Skill directories are READ-ONLY. NEVER write output files, temp files, logs, or any generated content into skill directories.
 
 Protected paths (NEVER write here):
 - ~/.vetta/agent/skills/ and its subdirectories
 - ~/.vetta/skills/ and its subdirectories
-- ~/.vetta/scenes/ and its subdirectories
 - .vetta/skills/ under the current project
 
-When a skill or scene needs to produce output files (e.g. generated PDFs, images, reports), ALWAYS write them to the user's working directory (cwd) or a subdirectory thereof. For example, write to `./output.pdf` instead of placing the file inside the skill folder.
+When a skill needs to produce output files (e.g. generated PDFs, images, reports), ALWAYS write them to the user's working directory (cwd) or a subdirectory thereof. For example, write to `./output.pdf` instead of placing the file inside the skill folder.
 
 # Git Safety Protocol
 

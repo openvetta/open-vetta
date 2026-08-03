@@ -14,7 +14,7 @@ interface CreateTaskData extends SchedulerEditableData {
 	cron: string;
 	isOnce: boolean;
 	cwd: string;
-	skill?: { name: string; alias?: string; type: "skill" | "scene" };
+	skill?: { name: string; alias?: string; type: "skill" };
 }
 
 interface CreateTaskInput {

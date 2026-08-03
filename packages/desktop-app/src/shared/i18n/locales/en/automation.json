@@ -39,7 +39,7 @@
 	},
 	"form": {
 		"namePlaceholder": "Task name",
-		"promptPlaceholder": "Enter a prompt... type / to invoke skills/scenes",
+		"promptPlaceholder": "Enter a prompt... type / to invoke skills",
 		"selectWorkDir": "Select working directory",
 		"conversation": "Conversation",
 		"modelEmpty": "No models",

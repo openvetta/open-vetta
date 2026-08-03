@@ -99,7 +99,6 @@ export class RuntimeHost implements SessionFacade {
 	private readonly sandboxHostPath: string | undefined;
 	private readonly linuxBubblewrapPath: string | undefined;
 	private readonly macosSandboxExecPath: string | undefined;
-	private readonly serverUrl: string | undefined;
 	private readonly modelRegistry: ModelRegistry | undefined;
 	private userConfirmationHandler:
 		| ((request: RuntimeUserConfirmationRequest, signal?: AbortSignal) => Promise<boolean>)
@@ -120,7 +119,6 @@ export class RuntimeHost implements SessionFacade {
 		this.sandboxHostPath = options.sandboxHostPath;
 		this.linuxBubblewrapPath = options.linuxBubblewrapPath;
 		this.macosSandboxExecPath = options.macosSandboxExecPath;
-		this.serverUrl = options.serverUrl;
 		this.modelRegistry = options.modelRegistry;
 		this.userConfirmationHandler = options.userConfirmationHandler;
 		this.userQuestionHandler = options.userQuestionHandler;
@@ -292,38 +290,6 @@ export class RuntimeHost implements SessionFacade {
 	}
 
 	/**
-	 * Push a new server token to the ModelRegistry and refresh remote models.
-	 * Call this after login / logout so long-lived sessions pick up auth changes
-	 * without an app restart.
-	 *
-	 * 共享 modelRegistry 模式（desktop-app）：单点更新，所有 session 立即看到。
-	 * 兼容旧模式（无共享 registry）：遍历每个 session 的 registry。
-	 */
-	async reloadServerAuth(token: string | undefined): Promise<void> {
-		if (this.modelRegistry) {
-			try {
-				this.modelRegistry.setServerToken(token);
-				// 没 token 时 loadRemoteModels 内部直接早退；有 token 时拉一次最新。
-				await this.modelRegistry.loadRemoteModels();
-			} catch (err) {
-				console.warn("[RuntimeHost] reloadServerAuth (shared) failed:", err);
-			}
-			return;
-		}
-		const handles = Array.from(this.sessions.values());
-		await Promise.all(
-			handles.map(async ({ session }) => {
-				try {
-					session.modelRegistry.setServerToken(token);
-					await session.modelRegistry.loadRemoteModels();
-				} catch (err) {
-					console.warn("[RuntimeHost] reloadServerAuth failed for session:", err);
-				}
-			}),
-		);
-	}
-
-	/**
 	 * Look up an open SessionHandle by absolute session file path.
 	 * Used to dedupe re-opens of the same file (avoids self-conflicts on the
 	 * file lock, since SessionManager rejects same-pid re-acquisition).
@@ -436,9 +402,6 @@ export class RuntimeHost implements SessionFacade {
 							},
 						}
 					: undefined,
-			serverUrl: this.serverUrl,
-			// 传入共享 registry，sdk 内部就会跳过它自己的远程 fetch 分支
-			// （sdk.ts: `if (!options.modelRegistry) { ... loadRemoteModels() }`）。
 			modelRegistry: this.modelRegistry,
 		};
 
@@ -465,16 +428,6 @@ export class RuntimeHost implements SessionFacade {
 			agentPluginsEnabled: config.enableAgentPlugins === true,
 		});
 		this.attachInFlightBuffer(sessionId, session);
-
-		// Stale-while-revalidate：当前的远程 model 数据已就绪可用（来自启动预热
-		// 或上一次刷新），这里再 fire-and-forget 一次刷新，不 await。
-		// - loadRemoteModels 内部对 inflight 做了 dedupe，并发安全；
-		// - 未登录时该方法立即早退，无副作用；
-		// - 任何错误已在 doLoadRemoteModels 内静默吞掉，不会扩散。
-		// 效果：用户每次 createSession 都会触发一次"下一次会更新"的后台刷新。
-		if (this.modelRegistry) {
-			void this.modelRegistry.loadRemoteModels();
-		}
 		return { sessionId };
 	}
 

@@ -67,6 +67,24 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Removed
 
+- **移除「场景」（scene）**。它是 skill 的一个变体（锁定 SOP 检查单），面向个人用户价值有限却抬高理解成本，随 coding-agent 侧一并删除：
+  - 删除 `/scenes` 路由与场景页（该路由本就无侧栏入口）、`domains/skills` 目录、`/skills?tab=scene` 旧链重定向。
+  - 能力页与命令面板不再区分 skill / scene 类型；开放市场清单的 ability type 与 bundle 成员类型收敛为 `skill / mcp / plugin / bundle`。
+  - 输入栏移除「场景胶囊」与 `selectedSkillAtom`：所有 skill 统一走文本 token（这本就是 skill 的既有行为，胶囊是 scene 专用的硬展开路径）。
+  - 新会话页移除已被喂空常量的场景轮播（含仙侠主题实现）、`SceneCard` / `SkillTagGroupView` / `SceneCardView` 等无消费方视图。
+  - app-monitor 移除 scene 维度的输入引用统计字段。
+
+- **开源版剥离：移除全部与 Vetta 服务端的交互**。本版本起 desktop-app 不连任何厂商服务：
+  - 删除登录体系：`vetta://oauth/callback` 深链授权、`main/auth/`（一次性 state 校验与 `~/.vetta/auth.json` 凭据下沉）、token 刷新单飞与 401 广播、`domains/auth/`、`auth-atoms`、渲染层 HTTP 客户端 `shared/lib/api.ts`。启动时会顺手清掉 `settings.json` 里遗留的 `serverToken` / `serverRefreshToken` / `serverUrl`。
+  - 删除 Vetta Go 订阅与计费展示：账户设置页、订阅卡片与配额条、模型选择器的倍率标签与「云端」徽标、侧边栏设置菜单的账户区与 5 小时配额区。
+  - 删除服务端能力市场轨道：能力页与场景页改为只消费[[开放市场]]（GitHub 仓库归档），`fetchMarketAbilities` / `downloadAbility` 与服务端 / GitHub 的合并层一并移除。
+  - 删除消息中心与 SSE：站内信列表、通知 atoms、`sse-client`。
+  - 删除团队管理、用量统计曲线、远程 MCP 广场、内置 vetta MCP（`core/mcp/builtin-mcp.ts` + `vetta-credentials.ts`）与 `publish-ability` skill。
+  - 删除遥测上行：Sentry 错误上报与 PostHog 产品分析（主/渲染/preload 三侧及其构建集成、依赖）。app-monitor 的本地统计与成就系统不受影响，数据仍只留在本机。
+  - 删除多租户构建机制（`VETTA_TENANT` / `tenants.json`）与租户专属 preset 插件。
+  - 首启向导的「登录」步骤替换为「配置模型」：直接复用设置页的[[预设服务商]]区段，让新用户装完就能填 key（可跳过）。
+  - 新增常驻守卫 `scripts/quality/check-no-vetta-api.mjs`（挂在 `bun run check`），阻止服务端耦合再被引入。
+
 - **系统插件「我能帮你」(guiding-words) 移除**：不再随 App 构建/打包，preset 源码目录一并删除。
 - **官网下载清单 `downloads.yml` 不再生成**：下载页已改为读 Admin 后台配置的直链，这份清单没有消费方了。删除 `scripts/generate-download-manifest.mjs` 与 `generate:downloads` script，R2 发布不再生成和上传它，GitHub Release 也不再把它作为附件。`updaterMetadataPattern` / `referencedFileName` 移到 `scripts/updater-metadata.mjs` 继续供发布脚本使用。electron-updater 的 `latest*.yml` 不受影响，自动更新照旧。
 

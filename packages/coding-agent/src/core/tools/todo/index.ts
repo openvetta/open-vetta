@@ -94,7 +94,7 @@ export function createTodoTool(options: TodoToolOptions): CodingAgentTool<typeof
 									type: "text" as const,
 									text:
 										`REJECTED: The todo list is locked by ${source ?? "the system"} and cannot accept new items.\n` +
-										`This list was prefilled from a scene's tasks.json and is the authoritative plan.\n` +
+										`This list was prefilled by the host and is the authoritative plan.\n` +
 										`Do NOT attempt to create additional todos. Work strictly through the existing items in order:\n` +
 										`call todo(action="list") to view them, then todo(action="update", id=N, status="in_progress"|"done").\n\n${formatItems(store)}`,
 								},
@@ -138,7 +138,7 @@ export function createTodoTool(options: TodoToolOptions): CodingAgentTool<typeof
 						};
 					}
 
-					// Sequential order is enforced ONLY for locked (scene) lists — they are the
+					// Sequential order is enforced ONLY for locked lists — they are the
 					// authoritative plan and must be worked strictly in order. Ad-hoc lists are
 					// flexible: the model may reprioritize / update out of order.
 					if (store.isLocked() && (status === "in_progress" || status === "done")) {

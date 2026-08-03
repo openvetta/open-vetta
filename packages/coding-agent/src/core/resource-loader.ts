@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import chalk from "chalk";
-import { CONFIG_DIR_NAME, getAgentDir, getSceneDir, getVettaHomePath } from "../config.js";
+import { CONFIG_DIR_NAME, getAgentDir, getVettaHomePath } from "../config.js";
 import { loadThemeFromPath, type Theme } from "../modes/interactive/theme/theme.js";
 import type { ResourceDiagnostic } from "./diagnostics.js";
 
@@ -432,10 +432,9 @@ export class DefaultResourceLoader implements ResourceLoader {
 
 		this.extensionsResult = this.extensionsOverride ? this.extensionsOverride(extensionsResult) : extensionsResult;
 
-		const sceneDir = getSceneDir();
 		const skillPaths = this.noSkills
 			? this.mergePaths(cliEnabledSkills, this.additionalSkillPaths)
-			: this.mergePaths([...enabledSkills, ...cliEnabledSkills, sceneDir], this.additionalSkillPaths);
+			: this.mergePaths([...enabledSkills, ...cliEnabledSkills], this.additionalSkillPaths);
 
 		this.lastSkillPaths = skillPaths;
 		this.updateSkillsFromPaths(skillPaths);
@@ -575,16 +574,7 @@ export class DefaultResourceLoader implements ResourceLoader {
 				includeAgentSkills: this.includeAgentSkills,
 			});
 		}
-		// Mark skills loaded from scene directory as type='scene'
-		const resolvedSceneDir = resolve(getSceneDir());
-		for (const skill of skillsResult.skills) {
-			const resolvedFilePath = resolve(skill.filePath);
-			if (resolvedFilePath === resolvedSceneDir || resolvedFilePath.startsWith(`${resolvedSceneDir}${sep}`)) {
-				skill.type = "scene";
-				skill.source = "scene";
-			}
-		}
-		// Filter out disabled market skills/scenes based on manifest
+		// Filter out disabled market skills based on manifest
 		const marketSkillsDir = resolve(join(getVettaHomePath(), "skills"));
 		const manifestPath = join(getVettaHomePath(), "skills-manifest.json");
 		let disabledNames: Set<string> | undefined;
@@ -605,10 +595,7 @@ export class DefaultResourceLoader implements ResourceLoader {
 			skillsResult.skills = skillsResult.skills.filter((skill) => {
 				const resolvedPath = resolve(skill.filePath);
 				const isMarketSkill =
-					resolvedPath === marketSkillsDir ||
-					resolvedPath.startsWith(`${marketSkillsDir}${sep}`) ||
-					resolvedPath === resolvedSceneDir ||
-					resolvedPath.startsWith(`${resolvedSceneDir}${sep}`);
+					resolvedPath === marketSkillsDir || resolvedPath.startsWith(`${marketSkillsDir}${sep}`);
 				if (!isMarketSkill) {
 					return true;
 				}

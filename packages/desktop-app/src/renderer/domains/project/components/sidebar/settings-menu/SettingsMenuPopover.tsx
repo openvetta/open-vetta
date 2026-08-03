@@ -3,10 +3,8 @@ import { useTranslation } from "react-i18next";
 import { SettingsMenuSettingsItem } from "@vetta/theme-ui/sidebar";
 import { PopoverContent } from "@vetta/ui";
 import type { SettingsMenuModel } from "./types";
-import { SettingsMenuAccountSection } from "./SettingsMenuAccountSection";
 import { SettingsMenuAgentModeSection } from "./SettingsMenuAgentModeSection";
 import { SettingsMenuDivider } from "./SettingsMenuDivider";
-import { SettingsMenuQuotaSection } from "./SettingsMenuQuotaSection";
 import { SettingsMenuThemeSection } from "./SettingsMenuThemeSection";
 
 interface SettingsMenuPopoverProps {
@@ -33,9 +31,6 @@ export function SettingsMenuPopover({ model }: SettingsMenuPopoverProps): JSX.El
 				<SettingsMenuAgentModeSection />
 				<SettingsMenuDivider />
 				<SettingsMenuThemeSection model={model} />
-				<SettingsMenuQuotaSection model={model} />
-				<SettingsMenuDivider />
-				<SettingsMenuAccountSection model={model} />
 				<SettingsMenuDivider />
 				<SettingsMenuSettingsItemHost model={model} />
 			</motion.div>

@@ -238,7 +238,7 @@ security find-identity -v -p codesigning        # 期望 1 valid identity
 ```dotenv
 # packages/desktop-app/.env.development
 VETTA_UPDATE_PROVIDER=generic
-VETTA_UPDATE_URL=https://releases.example.invalid/desktop/test
+VETTA_UPDATE_URL=https://example.com/vetta/desktop/test
 ```
 
 ```bash
@@ -247,7 +247,7 @@ export VETTA_R2_ACCESS_KEY_ID=<access-key-id>
 export VETTA_R2_SECRET_ACCESS_KEY=<secret-access-key>
 export VETTA_R2_BUCKET=vetta-releases
 export VETTA_R2_PREFIX=desktop/test
-export VETTA_UPDATE_URL=https://releases.example.invalid/desktop/test
+export VETTA_UPDATE_URL=https://example.com/vetta/desktop/test
 export VETTA_REQUIRE_MAC_SIGNATURE=1
 ```
 

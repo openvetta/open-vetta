@@ -101,8 +101,6 @@ export interface Settings {
 	markdown?: MarkdownSettings;
 	enableMcp?: boolean; // default: true - enable MCP (Model Context Protocol) support
 	mcpDebug?: boolean; // default: false - enable MCP debug logging
-	serverUrl?: string; // Remote server URL for fetching provider/model configs (e.g., "https://api.example.com/api/v1")
-	serverToken?: string; // JWT token for authenticating with remote server
 }
 
 /** Deep merge settings: project/overrides take precedence, nested objects merge recursively */
@@ -993,49 +991,6 @@ export class SettingsManager {
 	setMcpDebug(debug: boolean): void {
 		this.globalSettings.mcpDebug = debug;
 		this.markModified("mcpDebug");
-		this.save();
-	}
-
-	getServerUrl(): string | undefined {
-		return this.settings.serverUrl;
-	}
-
-	setServerUrl(url: string | undefined): void {
-		this.globalSettings.serverUrl = url;
-		this.markModified("serverUrl");
-		this.save();
-	}
-
-	getServerToken(): string | undefined {
-		return this.settings.serverToken;
-	}
-
-	/**
-	 * Re-read serverToken directly from global settings on disk.
-	 * Used by long-lived sessions to pick up token changes (e.g. re-login)
-	 * without reloading the entire settings object.
-	 */
-	getServerTokenFresh(): string | undefined {
-		let content: string | undefined;
-		try {
-			this.storage.withLock("global", (current) => {
-				content = current;
-				return undefined;
-			});
-		} catch {
-			return this.settings.serverToken;
-		}
-		if (!content) return undefined;
-		try {
-			return (JSON.parse(content) as Settings).serverToken;
-		} catch {
-			return this.settings.serverToken;
-		}
-	}
-
-	setServerToken(token: string | undefined): void {
-		this.globalSettings.serverToken = token;
-		this.markModified("serverToken");
 		this.save();
 	}
 }

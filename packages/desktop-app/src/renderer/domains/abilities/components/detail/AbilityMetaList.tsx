@@ -1,4 +1,4 @@
-import type { AbilityMetaEntry, AbilityMetaKey } from "@shared/lib/api";
+import type { AbilityMetaEntry, AbilityMetaKey } from "../../market-types";
 import { useTranslation } from "react-i18next";
 import type { AbilitiesModel, AbilityItem } from "../../types";
 import { AbilitySourceMetaRow, AbilitySourceRelations } from "./AbilitySourceMeta";

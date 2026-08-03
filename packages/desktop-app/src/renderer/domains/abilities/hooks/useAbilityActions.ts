@@ -4,13 +4,11 @@
  */
 import type { PluginPermission } from "@preload/api";
 import { i18n } from "@shared/i18n";
-import { abilityToMarketMcpServer, downloadAbility, type MarketAbility } from "@shared/lib/api";
-import { authTokenAtom } from "@shared/store/atoms";
-import { useAtomValue } from "jotai";
 import { useCallback, useState } from "react";
 import { notifyPluginsChanged } from "../../plugins/runtime/plugin-events";
 import type { McpSettingsModel } from "../../settings/components/useMcpSettingsModel";
 import { type InstallOutcome, installSelectedBundleMembers } from "../lib/install-bundle-members";
+import { abilityToMarketMcpServer, type MarketAbility } from "../market-types";
 import type { AbilityItem, BundleAbility, McpAbility, PluginAbility } from "../types";
 
 function errorMessage(error: unknown): string {
@@ -39,7 +37,6 @@ export interface AbilityActions {
 }
 
 export function useAbilityActions({ mcp, refresh }: { mcp: McpSettingsModel; refresh: () => void }): AbilityActions {
-	const token = useAtomValue(authTokenAtom);
 	const [busyIds, setBusyIds] = useState<ReadonlySet<string>>(() => new Set<string>());
 	const [error, setError] = useState<string | null>(null);
 	const [importing, setImporting] = useState(false);
@@ -63,44 +60,21 @@ export function useAbilityActions({ mcp, refresh }: { mcp: McpSettingsModel; ref
 		[refresh],
 	);
 
-	const installSkill = useCallback(
-		async (item: AbilityItem): Promise<InstallOutcome> => {
-			if (item.type !== "skill" && item.type !== "scene") return "skipped";
-			if (item.origin?.kind === "github-marketplace") {
-				await window.vetta.abilities.installOpenAbility(item.type, item.slug, item.origin.sourceId);
-				return "installed";
-			}
-			const buffer = await downloadAbility(item.type, item.slug, token);
-			await window.vetta.skills.installFromMarket(item.slug, buffer, item.type, {
-				alias: item.title,
-				marketDescription: item.description,
-				version: item.version,
-				sha256: item.sha256,
-			});
-			return "installed";
-		},
-		[token],
-	);
+	const installSkill = useCallback(async (item: AbilityItem): Promise<InstallOutcome> => {
+		if (item.type !== "skill") return "skipped";
+		// 唯一的可安装来源是[[开放市场]]；没有 origin 的条目无处可下载。
+		if (item.origin?.kind !== "github-marketplace") return "skipped";
+		await window.vetta.abilities.installOpenAbility(item.type, item.slug, item.origin.sourceId);
+		return "installed";
+	}, []);
 
-	const installPlugin = useCallback(
-		async (item: PluginAbility): Promise<InstallOutcome> => {
-			if (item.origin?.kind === "github-marketplace") {
-				await window.vetta.abilities.installOpenAbility("plugin", item.slug, item.origin.sourceId);
-				notifyPluginsChanged();
-				setPermissionPromptSlug(item.slug);
-				return "installed";
-			}
-			const buffer = await downloadAbility("plugin", item.slug, token);
-			await window.vetta.plugins.installFromArchive(buffer, {
-				source: "remote",
-				expectedSha256: item.sha256,
-			});
-			notifyPluginsChanged();
-			setPermissionPromptSlug(item.slug);
-			return "installed";
-		},
-		[token],
-	);
+	const installPlugin = useCallback(async (item: PluginAbility): Promise<InstallOutcome> => {
+		if (item.origin?.kind !== "github-marketplace") return "skipped";
+		await window.vetta.abilities.installOpenAbility("plugin", item.slug, item.origin.sourceId);
+		notifyPluginsChanged();
+		setPermissionPromptSlug(item.slug);
+		return "installed";
+	}, []);
 
 	const installMcp = useCallback(
 		async (item: McpAbility): Promise<InstallOutcome> => {
@@ -159,7 +133,7 @@ export function useAbilityActions({ mcp, refresh }: { mcp: McpSettingsModel; ref
 				notifyPluginsChanged();
 			} else if (item.type === "mcp") {
 				await mcp.onDeleteServer(item.serverName);
-			} else if (item.type === "skill" || item.type === "scene") {
+			} else if (item.type === "skill") {
 				await window.vetta.skills.uninstall(item.slug, item.type);
 			} else {
 				return;
@@ -226,7 +200,7 @@ export function useAbilityActions({ mcp, refresh }: { mcp: McpSettingsModel; ref
 				await mcp.onToggleDisabled(item.serverName);
 				return;
 			}
-			if (item.type === "skill" || item.type === "scene") {
+			if (item.type === "skill") {
 				await window.vetta.skills.toggle(item.slug);
 			}
 		},

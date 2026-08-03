@@ -410,7 +410,6 @@ Content`,
 				filePath: "/fake/path",
 				baseDir: "/fake",
 				source: "custom",
-				type: "skill",
 				disableModelInvocation: false,
 			};
 			const loader = new DefaultResourceLoader({

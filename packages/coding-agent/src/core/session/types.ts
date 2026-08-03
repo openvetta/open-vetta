@@ -154,7 +154,7 @@ export interface ExtensionBindings {
 
 /** Options for AgentSession.prompt() */
 export interface PromptResourceRef {
-	kind: "skill" | "scene";
+	kind: "skill";
 	name: string;
 }
 
@@ -171,7 +171,7 @@ export interface PromptOptions {
 	images?: ImageContent[];
 	/** When streaming, how to queue the message: "steer" (interrupt) or "followUp" (wait). Required if streaming. */
 	streamingBehavior?: "steer" | "followUp";
-	/** Structured Skill / Scene selection. Expanded before the user message is sent to the model. */
+	/** Structured Skill selection. Expanded before the user message is sent to the model. */
 	promptRef?: PromptResourceRef;
 	/** Structured filesystem attachments. The agent reads them on demand with tools. */
 	attachments?: PromptAttachmentRef[];

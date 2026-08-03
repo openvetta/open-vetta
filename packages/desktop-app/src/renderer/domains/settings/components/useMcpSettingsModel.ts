@@ -5,9 +5,9 @@ import type {
 	McpServerConfigData,
 	McpStdioServerConfigData,
 } from "@preload/api.js";
-import type { MarketMcpServer } from "@shared/lib/api";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { MarketMcpServer } from "../../abilities/market-types";
 import {
 	type BuiltinMcpPreset,
 	buildBuiltinMcpServerConfig,

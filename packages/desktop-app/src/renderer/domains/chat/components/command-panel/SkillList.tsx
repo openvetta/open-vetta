@@ -22,7 +22,6 @@ function SkillListItem({
 	onHover: () => void;
 	onSelect: () => void;
 }): JSX.Element {
-	const isScene = skill.type === "scene";
 	return (
 		<button
 			type="button"
@@ -44,7 +43,7 @@ function SkillListItem({
 			)}
 			{/* 与能力广场同一套图标：市场目录的图 → Solar 预设 → type 默认图 */}
 			<span className="flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded border border-border/40 bg-accent/50 text-foreground">
-				<SkillTypeIcon type={isScene ? "scene" : "skill"} icon={icon} className="h-3 w-3" />
+				<SkillTypeIcon icon={icon} className="h-3 w-3" />
 			</span>
 			<span className="shrink-0 truncate text-[12.5px] font-medium text-foreground">
 				{skill.alias || skill.name}
@@ -90,7 +89,7 @@ export function SkillList({
 					index={index}
 					active={index === activeIndex}
 					icon={resolveIcon?.(skill)}
-					sourceLabel={labels.sourceLabel?.(skill.source, skill.type)}
+					sourceLabel={labels.sourceLabel?.(skill.source)}
 					onHover={() => onHover(index)}
 					onSelect={() => onSelect(skill)}
 				/>

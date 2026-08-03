@@ -25,9 +25,4 @@ describe("buildSkillTokenMetaMap", () => {
 		const map = buildSkillTokenMetaMap([{ ...publishAbility, source: "builtin" }], new Map());
 		expect(map.get("publish-ability")?.icon).toBe("./skills/publish-ability.png");
 	});
-
-	it("scene 不进文本流 token 表：它走 promptRef 硬展开", () => {
-		const map = buildSkillTokenMetaMap([{ ...publishAbility, type: "scene" }], new Map());
-		expect(map.has("publish-ability")).toBe(false);
-	});
 });

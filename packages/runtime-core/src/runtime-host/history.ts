@@ -74,16 +74,15 @@ function parsePromptResourceRef(entry: CodingSessionEntry & { type: "custom_mess
 		const candidate = (details as { promptRef?: unknown }).promptRef;
 		if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
 			const { kind, name } = candidate as { kind?: unknown; name?: unknown };
-			if ((kind === "skill" || kind === "scene") && typeof name === "string" && name.trim()) {
+			if (kind === "skill" && typeof name === "string" && name.trim()) {
 				return { kind, name: name.trim() };
 			}
 		}
 	}
 
 	// Compatibility for sessions persisted before details.promptRef existed.
-	const kind = entry.customType === "scene_expansion" ? "scene" : "skill";
-	const match = typeof entry.content === "string" ? entry.content.match(new RegExp(`^<${kind} name="([^"]+)"`)) : null;
-	return match?.[1] ? { kind, name: match[1] } : null;
+	const match = typeof entry.content === "string" ? entry.content.match(/^<skill name="([^"]+)"/) : null;
+	return match?.[1] ? { kind: "skill", name: match[1] } : null;
 }
 
 function parsePromptAttachments(entry: CodingSessionEntry & { type: "custom_message" }): PromptAttachmentRef[] | null {

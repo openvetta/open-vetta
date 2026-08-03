@@ -6,7 +6,6 @@
  */
 
 // Built-in MCP servers shipped with the host (fourth config source)
-export * from "./builtin-mcp.js";
 // Client
 export * from "./mcp-client.js";
 // Configuration

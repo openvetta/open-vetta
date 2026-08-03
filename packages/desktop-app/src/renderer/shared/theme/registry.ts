@@ -1,5 +1,4 @@
 import type { ActivityPanelFrame } from "@domains/activity-panel/components/activity-panel/ActivityPanelFrame";
-import type { LoginPopoverView } from "@domains/auth/components/LoginPopoverView";
 import type { AtPanelView } from "@domains/chat/components/at-panel/AtPanelView";
 import type { CommandPanelView } from "@domains/chat/components/command-panel/CommandPanelView";
 import type { SkillPickerPanelView } from "@domains/chat/components/command-panel/SkillPickerPanel";
@@ -86,8 +85,6 @@ declare module "@vetta/theme-sdk" {
 		readonly "root.genericActionApprovalView"?: typeof GenericActionApprovalView;
 		readonly "root.knowledgeDropOverlay"?: ComponentType;
 		readonly "root.knowledgeDropOverlayView"?: typeof KnowledgeDropOverlayView;
-		readonly "root.loginPopover"?: ComponentType;
-		readonly "root.loginPopoverView"?: typeof LoginPopoverView;
 		readonly "root.toaster"?: ComponentType;
 		readonly "root.updateRestartDialog"?: ComponentType;
 		readonly "root.updateRestartDialogView"?: typeof UpdateRestartDialogView;

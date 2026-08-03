@@ -119,8 +119,6 @@ function buildSettingsCatalog(): unknown {
 		title: tab.label,
 		target: { type: "open", target: "settings", tab: tab.key },
 		visibility: {
-			...(tab.personalOnly ? { personalOnly: true } : {}),
-			...(tab.requireAuth ? { requireAuth: true } : {}),
 			...(tab.macOnly ? { macOnly: true } : {}),
 		},
 		sections: getVisibleSettingsSections()

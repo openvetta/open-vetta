@@ -12,7 +12,7 @@ const RECORDS_DIR = join(CONFIG_DIR, "task-records");
 export interface ScheduledTaskSkillRef {
 	name: string;
 	alias?: string;
-	type: "skill" | "scene";
+	type: "skill";
 }
 
 export interface ScheduledTask {

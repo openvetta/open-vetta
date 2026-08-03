@@ -36,8 +36,6 @@
 			"@vetta/theme-ui/*": ["./packages/theme-ui/src/*"],
 			"@vetta/ui": ["./packages/ui/src/index.ts"],
 			"@vetta/ui/*": ["./packages/ui/src/*"],
-			"@vetta/markdown": ["./packages/markdown/src/index.ts"],
-			"@vetta/markdown/*": ["./packages/markdown/src/*"],
 			"@vetta/runtime-tools": ["./packages/runtime-tools/src/index.ts"],
 			"@vetta/runtime-tools/*": ["./packages/runtime-tools/src/*"],
 			"@vetta/runtime-mcp": ["./packages/runtime-mcp/src/index.ts"],

@@ -68,8 +68,8 @@ describe("parseInputSegments", () => {
 	});
 
 	it("旧会话的行首前缀还原成 legacyRef 与开头的 token", () => {
-		const { segments, legacyRef } = parseInputSegments("/scene:release\n@/Users/a/b.ts\n@/tmp/shot.png\n帮我发版");
-		expect(legacyRef).toEqual({ kind: "scene", name: "release" });
+		const { segments, legacyRef } = parseInputSegments("/skill:release\n@/Users/a/b.ts\n@/tmp/shot.png\n帮我发版");
+		expect(legacyRef).toEqual({ kind: "skill", name: "release" });
 		expect(segments).toEqual([
 			{ kind: "file", path: "/Users/a/b.ts" },
 			{ kind: "image", path: "/tmp/shot.png" },

@@ -14,5 +14,5 @@ export interface ProjectEntry {
 export interface SelectedSkillRef {
 	name: string;
 	alias?: string;
-	type: "skill" | "scene";
+	type: "skill";
 }

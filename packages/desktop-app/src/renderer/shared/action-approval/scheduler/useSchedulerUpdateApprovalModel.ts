@@ -7,7 +7,7 @@ import { type SchedulerEditableData, toSchedulerApprovalJsonData } from "./Sched
 import type { SchedulerEditApprovalDrawerViewProps } from "./SchedulerEditApprovalDrawerView";
 
 interface UpdateTaskData extends SchedulerEditableData {
-	skill?: { name: string; alias?: string; type: "skill" | "scene" } | null;
+	skill?: { name: string; alias?: string; type: "skill" } | null;
 }
 
 interface UpdateTaskInput {

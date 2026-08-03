@@ -42,11 +42,6 @@ export interface ModelsConfigData {
 	>;
 }
 
-export interface RemoteProvidersResult {
-	providers: Record<string, unknown>;
-	error?: string;
-}
-
 /** 单个[[预设服务商]]:客户端内置目录条目,不含 key。 */
 export interface PresetProviderInfo {
 	/** 预设标识(= provider key),持久化时写入 templateId。 */
@@ -97,7 +92,6 @@ export interface DesktopModelsApi {
 	set(config: ModelsConfigData): Promise<void>;
 	/** 主进程直接写入剪贴板；密钥明文不会作为 IPC 结果返回 renderer。 */
 	copyApiKey(providerId: string): Promise<boolean>;
-	fetchRemote(): Promise<RemoteProvidersResult>;
 	/** 读取客户端内置的[[预设服务商]]目录(无网络请求)。 */
 	listPresets(): Promise<PresetProvidersResult>;
 	/** 按 key 拉取某预设服务商上游 `/models` 的模型列表。只拉不写,由调用方落盘。 */

@@ -48,7 +48,6 @@ import {
 	type SessionExecutionMode,
 	type SubagentTask,
 	selectedModelAtom,
-	selectedSkillAtom,
 	sendMessageFnRef,
 	sessionExecutionModeAtom,
 	sessionsMapAtom,
@@ -134,15 +133,12 @@ export function useSessionManager(): SessionManagerResult {
 	const setChatMessages = useSetAtom(chatMessagesAtom);
 	const setActiveSessionStreaming = useSetAtom(activeSessionStreamingAtom);
 	const [attachedImages, setAttachedImages] = useAtom(attachedImagesAtom);
-	const selectedSkill = useAtomValue(selectedSkillAtom);
 	const [mentionedFiles, setMentionedFiles] = useAtom(mentionedFilesAtom);
 	const appshotAttachment = useAtomValue(appshotAttachmentAtom);
 	// 发送时直接读取输入 atom 快照，避免 useSessionManager 订阅每次按键。
 	// 这个 hook 同时挂在根布局和页面中；订阅会让这些宿主随输入重渲染整棵子树。
 	const attachedImagesRef = useRef(attachedImages);
 	attachedImagesRef.current = attachedImages;
-	const selectedSkillRef = useRef(selectedSkill);
-	selectedSkillRef.current = selectedSkill;
 	const mentionedFilesRef = useRef(mentionedFiles);
 	mentionedFilesRef.current = mentionedFiles;
 	const appshotRef = useRef(appshotAttachment);
@@ -942,7 +938,6 @@ export function useSessionManager(): SessionManagerResult {
 			// 不订阅输入 atom；调用时读取还能覆盖“先写草稿、同一流程立即发送”的场景。
 			const inputValue = getDefaultStore().get(inputValueAtom);
 			const attachedImages = attachedImagesRef.current;
-			const selectedSkill = selectedSkillRef.current;
 			const mentionedFiles = mentionedFilesRef.current;
 			const appshot = appshotRef.current;
 			const selectedModel = selectedModelRef.current;
@@ -983,13 +978,7 @@ export function useSessionManager(): SessionManagerResult {
 					console.error("[useSessionManager.sendMessage] persistImages failed:", err);
 				}
 			}
-			const promptRef =
-				!hasOverride && selectedSkill
-					? {
-							kind: selectedSkill.type === "scene" ? ("scene" as const) : ("skill" as const),
-							name: selectedSkill.name,
-						}
-					: undefined;
+			const promptRef = undefined;
 			const attachmentsByPath = new Map<string, PromptAttachmentRef>();
 			if (!hasOverride) {
 				for (const file of mentionedFiles) {
@@ -1013,14 +1002,6 @@ export function useSessionManager(): SessionManagerResult {
 			recordInputContextUsed({
 				files: hasOverride ? [] : mentionedFiles,
 				images: images ?? [],
-				...(hasOverride || !selectedSkill
-					? {}
-					: {
-							promptRef: {
-								kind: selectedSkill.type === "scene" ? "scene" : "skill",
-								name: selectedSkill.name,
-							},
-						}),
 			});
 			// 行内 skill 是软引用，不进 promptRef，但调用次数仍要计入 app-monitor
 			// （命令面板按使用频次排序依赖这份统计）。每个被引用的 skill 记一次。
@@ -1158,7 +1139,7 @@ export function useSessionManager(): SessionManagerResult {
 
 			// 非批量任务项目：若该 session 已有 todo 且全部 done，在发起下一个
 			// prompt 前先清空 todo 列表，让用户开启新一轮工作时面板回到干净状态。
-			// 批量任务依赖严格 todo 机制，不在此清空；scene 等 lock 状态后端会自行拒绝。
+			// 批量任务依赖严格 todo 机制，不在此清空；锁定状态后端会自行拒绝。
 			// streaming 入队时不清：当前正在跑的回合仍拥有这些 todo。
 			if (!streaming) {
 				const projectType = projectsRef.current.find((p) => p.cwd === session.cwd)?.type;

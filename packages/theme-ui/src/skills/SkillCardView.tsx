@@ -7,7 +7,7 @@ import { SkillToggleSwitch } from "./SkillToggleSwitch";
 export interface SkillCardSkillView {
 	readonly name: string;
 	readonly alias?: string | null;
-	readonly type: "skill" | "scene";
+	readonly type: "skill";
 	readonly description?: string | null;
 	/** 空=默认；solar:xxx-bold；或已解析的图片 URL */
 	readonly icon?: string | null;
@@ -69,7 +69,7 @@ export function SkillCardView({
 					skill.installed ? "bg-primary/10 text-primary" : "bg-accent/50 text-muted-foreground/70"
 				}`}
 			>
-				<SkillTypeIcon type={skill.type} icon={skill.icon} className="h-4 w-4" />
+				<SkillTypeIcon icon={skill.icon} className="h-4 w-4" />
 			</div>
 
 			<div className="min-w-0 flex-1">

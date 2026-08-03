@@ -4,7 +4,7 @@ import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import type { SetupWizardModel } from "../hooks/useSetupWizard";
 import type { SetupWizardStepId } from "../steps";
 import { LanguageAppearanceStep } from "./steps/LanguageAppearanceStep";
-import { LoginStep } from "./steps/LoginStep";
+import { ModelsStep } from "./steps/ModelsStep";
 import { PermissionsStep } from "./steps/PermissionsStep";
 import { WelcomeStep } from "./steps/WelcomeStep";
 
@@ -20,8 +20,8 @@ function StepBody({
 			return <PermissionsStep />;
 		case "languageAppearance":
 			return <LanguageAppearanceStep />;
-		case "login":
-			return <LoginStep onSuccess={onLoginSuccess} />;
+		case "models":
+			return <ModelsStep />;
 		case "welcome":
 			return <WelcomeStep />;
 	}

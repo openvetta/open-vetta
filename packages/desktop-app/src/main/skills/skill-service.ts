@@ -18,10 +18,9 @@ import { buildAgentPluginRuntimeConfig } from "../plugins/plugin-store.js";
 
 const skillsLog = getAppLogger("skills");
 const skillsBaseDir = join(getVettaHomePath(), "skills");
-const sceneBaseDir = join(getVettaHomePath(), "scene");
 const manifestPath = join(getVettaHomePath(), "skills-manifest.json");
 
-export type InstalledSkillType = "skill" | "scene";
+export type InstalledSkillType = "skill";
 
 export interface InstalledMarketSkill {
 	name: string;
@@ -55,8 +54,8 @@ export interface ListedSkill {
 	type: InstalledSkillType;
 }
 
-export function getSkillBaseDir(type: InstalledSkillType): string {
-	return type === "scene" ? sceneBaseDir : skillsBaseDir;
+export function getSkillBaseDir(): string {
+	return skillsBaseDir;
 }
 
 export function recordSkillResourceEvent(input: {
@@ -135,7 +134,7 @@ export class SkillService {
 			.filter((skill) => {
 				if (isBuiltinSkillFile(skill.filePath)) return builtinManifest[skill.name]?.enabled ?? false;
 				const entry = manifest[skill.name];
-				if (skill.source === "market" || skill.source === "scene") return entry?.enabled ?? false;
+				if (skill.source === "market") return entry?.enabled ?? false;
 				return !entry || entry.enabled;
 			})
 			.map((skill): ListedSkill => {
@@ -152,7 +151,7 @@ export class SkillService {
 						? (builtinSkillText(skill.name, "description", builtinEntry?.description) ?? skill.description)
 						: (entry?.source === "market" ? entry.marketDescription : entry?.description) || skill.description,
 					source: isBuiltin ? "builtin" : isUnderPluginRoot(skill.filePath) ? "plugin" : skill.source,
-					type: skill.type,
+					type: "skill" as const,
 				};
 			});
 
@@ -181,7 +180,7 @@ export class SkillService {
 			writeSkillsManifest(manifest);
 			recordSkillResourceEvent({
 				name,
-				type: entry.type === "scene" ? "scene" : "skill",
+				type: "skill",
 				source: entry.source,
 				operation: enabled ? "enabled" : "disabled",
 			});
@@ -197,9 +196,8 @@ export class SkillService {
 
 	async uninstall(name: string, type?: InstalledSkillType): Promise<void> {
 		const manifest = readSkillsManifest();
-		const itemType: InstalledSkillType =
-			type === "scene" ? "scene" : type === "skill" ? "skill" : manifest[name]?.type === "scene" ? "scene" : "skill";
-		const baseDir = getSkillBaseDir(itemType);
+		const itemType: InstalledSkillType = type === "skill" ? "skill" : "skill";
+		const baseDir = getSkillBaseDir();
 		ensureDirWritable(baseDir);
 		const skillDir = join(baseDir, name);
 		const previous = manifest[name];
@@ -207,8 +205,7 @@ export class SkillService {
 			ensureDirWritable(skillDir);
 			await rm(skillDir, { recursive: true, force: true });
 		}
-		// 清单是扁平 map：同名的 skill 与 scene 共用一个键，卸载其一不能删掉另一种类型的记录
-		if (!previous || (previous.type === "scene" ? "scene" : "skill") === itemType) {
+		if (!previous || previous.type === itemType) {
 			delete manifest[name];
 			writeSkillsManifest(manifest);
 		}

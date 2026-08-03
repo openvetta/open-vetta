@@ -1,7 +1,6 @@
 import { builtinModules } from "node:module";
 import { resolve } from "node:path";
 import { defineConfig, loadEnv, type Plugin } from "vite";
-import { createSentryBuildSetup } from "./sentry-vite";
 
 function workspaceSourceAlias(): Plugin {
 	return {
@@ -32,14 +31,6 @@ export default defineConfig(({ mode }) => {
 			? [/^@vetta\/(?:action-rpc|ai|coding-agent|runtime-core)(?:\/|$)/]
 			: [];
 	const sourcemapEnabled = (process.env.VETTA_MAIN_SOURCEMAP ?? env.VETTA_MAIN_SOURCEMAP) === "true";
-	const sentry = createSentryBuildSetup(env, "dist/main");
-
-	if (!env.VETTA_SERVER_URL) {
-		throw new Error(
-			`[vite.main.config] VETTA_SERVER_URL 未配置，请检查 .env.${effectiveMode}（mode=${effectiveMode}）`,
-		);
-	}
-	console.log(`[vite.main.config] mode=${effectiveMode}, VETTA_SERVER_URL=${env.VETTA_SERVER_URL}`);
 
 	// 将 .env.<mode> 中的 VETTA_* 变量内联到构建产物
 	const define: Record<string, string> = {};
@@ -49,7 +40,7 @@ export default defineConfig(({ mode }) => {
 
 	return {
 		define,
-		plugins: [workspaceSourceAlias(), ...sentry.plugins],
+		plugins: [workspaceSourceAlias()],
 		resolve: {
 			alias: {
 				x11: resolve(process.cwd(), "src/main/shims/x11.ts"),
@@ -89,7 +80,7 @@ export default defineConfig(({ mode }) => {
 				],
 			},
 			minify: false,
-			sourcemap: sentry.enabled ? "hidden" : sourcemapEnabled,
+			sourcemap: sourcemapEnabled,
 		},
 	};
 });

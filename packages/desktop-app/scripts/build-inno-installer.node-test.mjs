@@ -14,7 +14,7 @@ test("writes updater config into the version directory installed by Inno", async
 	try {
 		await writeAppUpdateConfig(sourceDir, version, {
 			provider: "generic",
-			url: "https://releases.example.invalid/desktop/test",
+			url: "https://example.com/vetta/desktop/test",
 		});
 
 		const config = await readFile(join(resourcesDir, "app-update.yml"), "utf8");

@@ -20,7 +20,7 @@ import {
 	restoreLineEndings,
 	stripBom,
 } from "../edit-diff.js";
-import { isKnowledgeWikiPath, isProtectedSkillOrScenePath, resolveExistingPath } from "../path-utils.js";
+import { isKnowledgeWikiPath, isProtectedSkillPath, resolveExistingPath } from "../path-utils.js";
 import { toolCallDescriptionSchema } from "../tool-call-description.js";
 
 const CLOSING_LINE_PATTERNS = {
@@ -385,10 +385,10 @@ export function createEditTool(cwd: string, options?: EditToolOptions): CodingAg
 		execute: async (_toolCallId: string, { path, oldText, newText, edits }: EditToolInput, signal?: AbortSignal) => {
 			const absolutePath = resolveExistingPath(path, cwd);
 
-			if (isProtectedSkillOrScenePath(absolutePath, cwd)) {
+			if (isProtectedSkillPath(absolutePath, cwd)) {
 				throw new Error(
-					`"${absolutePath}" is inside a skill/scene directory which is read-only. ` +
-						`Skills and scenes are global resources — never modify them. ` +
+					`"${absolutePath}" is inside a skill directory which is read-only. ` +
+						`Skills are global resources — never modify them. ` +
 						`Write output files to the user's working directory instead.`,
 				);
 			}

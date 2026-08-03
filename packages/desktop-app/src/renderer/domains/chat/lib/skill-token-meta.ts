@@ -8,7 +8,7 @@
 import type { SkillInfo } from "@preload/api";
 import { builtinSkillIconUrl } from "@shared/lib/builtin-skill-icons";
 
-/** 键为 `${type}:${slug}`：本地清单里 skill 与 scene 同命名空间，同名不同类型不能互相认领。 */
+/** 键为 `${type}:${slug}`。 */
 export type SkillIconMap = ReadonlyMap<string, string>;
 
 export function skillIconOf(map: SkillIconMap, skill: SkillInfo): string | undefined {
@@ -30,7 +30,7 @@ export function buildSkillTokenMetaMap(
 ): ReadonlyMap<string, SkillTokenMeta> {
 	const map = new Map<string, SkillTokenMeta>();
 	for (const skill of skills) {
-		// 文本流里的 token 只可能是 skill：scene 是硬展开，走 promptRef + 顶部胶囊。
+		// 文本流里的 token 只可能是 skill。
 		if (skill.type !== "skill") continue;
 		if (map.has(skill.name)) continue;
 		const icon = skillIconOf(iconMap, skill);

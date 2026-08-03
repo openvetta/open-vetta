@@ -187,7 +187,7 @@ export interface ChatMessage {
 	 * 乐观发送与历史回放（settings_assist_marker）都会设置。
 	 */
 	settingsAssistTabId?: string;
-	/** Structured Skill / Scene selection associated with this user turn. */
+	/** Structured Skill selection associated with this user turn. */
 	promptRef?: PromptResourceRef;
 	/** Structured filesystem attachments associated with this user turn. */
 	attachments?: PromptAttachmentRef[];
@@ -274,12 +274,12 @@ export interface ContextUsageData {
 	contextWindow: number;
 }
 
-// ─── Slash panel (skill/scene selection) ───
+// ─── Slash panel (skill selection) ───
 
 export interface SelectedSkill {
 	name: string;
 	alias?: string;
-	type: "skill" | "scene";
+	type: "skill";
 }
 
 // ─── Mentioned files (@file selection) ───
@@ -451,7 +451,6 @@ export const reasoningByModelAtom = atom(
 /** Whether the current session model supports image input */
 export const modelSupportsImagesAtom = atom<boolean>(true);
 
-export const selectedSkillAtom = atom<SelectedSkill | null>(null);
 export const mentionedFilesAtom = atom<MentionedFile[]>([]);
 
 // ─── Action button bar ───

@@ -8,10 +8,8 @@ import { i18n, initI18n } from "./shared/i18n";
 import { desktopThemeHost } from "./shared/theme/desktopThemeHost";
 import { ThemeRuntimeProvider } from "./shared/theme/runtime";
 import { ThemeColorOverrideBridge } from "./shared/theme/ThemeColorOverrideBridge";
-import { initializeProductAnalytics } from "./telemetry/product-analytics";
 
 export function renderApp(root: Root): void {
-	initializeProductAnalytics();
 	initI18n();
 
 	root.render(

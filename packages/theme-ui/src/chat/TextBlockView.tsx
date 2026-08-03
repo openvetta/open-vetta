@@ -547,7 +547,7 @@ export const TextBlockView = memo(function TextBlockView({
 						<span className={INLINE_TOKEN_CLASS} title={value}>
 							{/* 图标走能力广场那套「图片 / Solar / 默认图」三态，与输入框胶囊同源。 */}
 							<span className={INLINE_TOKEN_ICON_BOX_CLASS}>
-								<SkillTypeIcon type="skill" icon={skill?.icon} className="h-3 w-3" />
+								<SkillTypeIcon icon={skill?.icon} className="h-3 w-3" />
 							</span>
 							{skill?.label ?? value}
 						</span>

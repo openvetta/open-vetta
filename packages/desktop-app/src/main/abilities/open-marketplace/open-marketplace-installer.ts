@@ -6,15 +6,15 @@ import type { InstalledSkill } from "../../skills/skill-service.js";
 import type { MarketplaceAbilityManifest } from "./marketplace-schema.js";
 import { assertSafeSkillTree, validateSkillPackage } from "./skill-package.js";
 
-export type OpenMarketplaceSkillManifest = Extract<MarketplaceAbilityManifest, { type: "skill" | "scene" }>;
+export type OpenMarketplaceSkillManifest = Extract<MarketplaceAbilityManifest, { type: "skill" }>;
 
 export interface OpenMarketplaceInstallerDependencies {
-	getBaseDir: (type: "skill" | "scene") => string;
+	getBaseDir: (type: "skill") => string;
 	tmpBaseDir: string;
 	readManifest: () => Record<string, InstalledSkill>;
 	writeManifest: (manifest: Record<string, InstalledSkill>) => void;
 	recordInstall: (
-		type: "skill" | "scene",
+		type: "skill",
 		slug: string,
 		version: string,
 		metadata: {
@@ -24,12 +24,7 @@ export interface OpenMarketplaceInstallerDependencies {
 			slug: string;
 		},
 	) => void;
-	recordEvent: (input: {
-		name: string;
-		type: "skill" | "scene";
-		source: "market";
-		operation: "installed" | "updated";
-	}) => void;
+	recordEvent: (input: { name: string; type: "skill"; source: "market"; operation: "installed" | "updated" }) => void;
 }
 
 function ensureDirWritable(dir: string): void {
@@ -59,7 +54,7 @@ export async function installOpenMarketplaceAbility(
 	const backupDir = join(stagingParent, `${ability.slug}.previous`);
 	const previousManifest = dependencies.readManifest();
 	const previousEntry = previousManifest[ability.slug];
-	if (previousEntry && (previousEntry.type === "scene" ? "scene" : "skill") !== ability.type) {
+	if (previousEntry && previousEntry.type !== ability.type) {
 		throw new Error(`Cannot install ${ability.type}:${ability.slug}; the other skill type already uses this slug`);
 	}
 	let movedPrevious = false;

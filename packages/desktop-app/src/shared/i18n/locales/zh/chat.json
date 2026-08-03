@@ -79,7 +79,6 @@
 		"htmlPreview": {
 			"title": "HTML 预览"
 		},
-
 		"workflow": {
 			"empty": "暂无工作流",
 			"noTranscript": "工作流尚未产生消息",
@@ -139,8 +138,8 @@
 		"confirmDeleteMultiplePrefix": "确定要删除这 {{count}} 项",
 		"confirmDeleteMultipleMore": " 等 {{count}} 项",
 		"confirmDeleteMultipleSuffix": "吗？此操作无法撤销。",
-		"cancel": "取消"
-		,"transfer": {
+		"cancel": "取消",
+		"transfer": {
 			"title": "将文件添加到项目",
 			"pasteCopyTitle": "粘贴文件",
 			"pasteMoveTitle": "移动文件",
@@ -361,7 +360,7 @@
 		"toolbar": {
 			"addImage": "添加图片",
 			"attachFile": "附加文件引用",
-			"skills": "技能/场景"
+			"skills": "技能"
 		},
 		"contextMenu": {
 			"cut": "剪切",
@@ -383,7 +382,6 @@
 	"messageList": {
 		"userMessage": {
 			"expand": "展开消息",
-			"sceneBadge": "场景",
 			"skillBadge": "技能",
 			"settingsAssist": {
 				"mcp": "MCP配置协助",
@@ -551,27 +549,25 @@
 	},
 	"skillPromptArea": {
 		"missingBadge": "未安装",
-		"placeholder": "输入提示词…使用 / 唤出技能/场景",
+		"placeholder": "输入提示词…使用 / 唤出技能",
 		"removeSkill": "点击移除",
 		"removeSkillMissing": "技能未安装，点击移除",
-		"skillButtonLabel": "技能/场景",
-		"skillButtonTitle": "技能/场景"
+		"skillButtonLabel": "技能",
+		"skillButtonTitle": "技能"
 	},
 	"slashPanel": {
 		"emptyNoMatch": "未找到匹配项",
 		"emptyNoMatchHint": "换个关键词试试，或直接输入你的需求。",
-		"emptyNoSkills": "暂无可用的技能或场景",
-		"emptyNoSkillsHint": "去能力广场安装技能或场景后，这里就能直接调用。",
-		"header": "选择场景或技能",
+		"emptyNoSkills": "暂无可用的技能",
+		"emptyNoSkillsHint": "去能力广场安装技能后，这里就能直接调用。",
+		"header": "选择技能",
 		"resultCount": "{{count}} 个结果",
-		"scenesSection": "场景",
 		"skillsSection": "技能",
 		"sourceLabels": {
 			"agentsProject": "通用·项目",
 			"agentsUser": "通用",
 			"path": "自定义",
 			"project": "项目",
-			"scene": "场景",
 			"user": "用户",
 			"builtin": "内置",
 			"plugin": "插件",

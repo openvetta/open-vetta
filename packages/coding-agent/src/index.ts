@@ -1,7 +1,7 @@
 // Core session management
 
 // Config paths
-export { DEFAULT_SERVER_URL, getAgentDir, VERSION } from "./config.js";
+export { getAgentDir, VERSION } from "./config.js";
 // 工作模式（agent_mode 正交轴，见 ADR-0046）
 export {
 	type AgentMode,

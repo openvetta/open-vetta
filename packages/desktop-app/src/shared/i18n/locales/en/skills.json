@@ -1,10 +1,4 @@
 {
-	"tabs": {
-		"scene": "Scenes"
-	},
-	"typeNoun": {
-		"scene": "scenes"
-	},
 	"subtitle": "Install and enable the capabilities you need to give Vetta more expertise",
 	"search": {
 		"placeholder": "Search {{noun}}..."
@@ -22,11 +16,6 @@
 		"general": "General",
 		"readonly": "Read-only",
 		"updatable": "Update available"
-	},
-	"scene": {
-		"generalReadonly": "General · Read-only",
-		"running": "Running",
-		"installed": "Installed"
 	},
 	"group": {
 		"agentSkill": "General Agent Skill",

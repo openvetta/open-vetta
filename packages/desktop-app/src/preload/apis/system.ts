@@ -18,12 +18,9 @@ export function createSystemApi(
 	| "mcp"
 	| "media"
 	| "runtimes"
-	| "settings"
-	| "subscription"
 	| "shell"
 	| "clipboard"
 	| "window"
-	| "auth"
 	| "updater"
 	| "tray"
 	| "debug"
@@ -183,7 +180,6 @@ export function createSystemApi(
 			get: () => ipc.invoke("vetta:models:get"),
 			set: (config) => ipc.invoke("vetta:models:set", config),
 			copyApiKey: (providerId) => ipc.invoke("vetta:models:copy-api-key", providerId),
-			fetchRemote: () => ipc.invoke("vetta:models:fetch-remote"),
 			listPresets: () => ipc.invoke("vetta:models:list-presets"),
 			refreshPresetModels: (providerId, apiKey) =>
 				ipc.invoke("vetta:models:refresh-preset-models", providerId, apiKey),
@@ -208,17 +204,6 @@ export function createSystemApi(
 			reinstall: (type) => ipc.invoke("vetta:runtimes:reinstall", type),
 			redetect: () => ipc.invoke("vetta:runtimes:redetect"),
 		},
-		settings: {
-			getServerUrl: () => ipc.invoke("vetta:settings:get-server-url"),
-			getSiteUrl: () => ipc.invoke("vetta:settings:get-site-url"),
-			getServerToken: () => ipc.invoke("vetta:settings:get-server-token"),
-			setServerToken: (token) => ipc.invoke("vetta:settings:set-server-token", token),
-			getServerRefreshToken: () => ipc.invoke("vetta:settings:get-server-refresh-token"),
-			setServerRefreshToken: (token) => ipc.invoke("vetta:settings:set-server-refresh-token", token),
-		},
-		subscription: {
-			getStatus: () => ipc.invoke("vetta:subscription:status"),
-		},
 		shell: {
 			showInFolder: (fullPath) => ipc.invoke("vetta:shell:show-in-folder", fullPath),
 			showItemInFolder: (fullPath) => ipc.invoke("vetta:shell:show-item-in-folder", fullPath),
@@ -236,16 +221,6 @@ export function createSystemApi(
 			toggleAlwaysOnTop: () => ipc.invoke("vetta:window:toggle-always-on-top"),
 			isAlwaysOnTop: () => ipc.invoke("vetta:window:is-always-on-top"),
 			captureRegion: (rect, defaultFileName) => ipc.invoke("vetta:window:capture-region", rect, defaultFileName),
-		},
-		auth: {
-			openExternal: (url) => ipc.invoke("vetta:shell:open-external", url),
-			startOAuth: () => ipc.invoke("vetta:auth:start-oauth"),
-			reopenOAuth: () => ipc.invoke("vetta:auth:reopen-oauth"),
-			refreshToken: () => ipc.invoke("vetta:auth:refresh-token"),
-			onOAuthCallback: (handler) => onIpcEvent(ipc, "vetta:auth:oauth-callback", handler),
-			onOAuthRejected: (handler) => onIpcVoidEvent(ipc, "vetta:auth:oauth-rejected", handler),
-			onUnauthorized: (handler) => onIpcVoidEvent(ipc, "vetta:auth:unauthorized", handler),
-			onTokenRefreshed: (handler) => onIpcEvent(ipc, "vetta:auth:token-refreshed", handler),
 		},
 		updater: {
 			check: () => ipc.invoke("vetta:updater:check"),

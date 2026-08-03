@@ -139,9 +139,8 @@ function parseVersionFromSkillDir(skillDir: string): string {
 
 export function registerSkillsIpc(): () => void {
 	const skills = getDesktopSkillService();
-	// 允许通用 fs IPC 读取技能 / 场景目录下的文件（用于 SKILL.md 预览等）
-	allowProjectRoot(getSkillBaseDir("skill"));
-	allowProjectRoot(getSkillBaseDir("scene"));
+	// 允许通用 fs IPC 读取技能目录下的文件（用于 SKILL.md 预览等）
+	allowProjectRoot(getSkillBaseDir());
 	// 通用 Agent Skill（只读）预览：放行全局 ~/.agents/skills。
 	allowProjectRoot(join(homedir(), ".agents", "skills"));
 	for (const root of getBuiltinSkillPaths()) {
@@ -165,12 +164,12 @@ export function registerSkillsIpc(): () => void {
 
 	ipcMain.handle(
 		"vetta:skills:install-from-market",
-		async (_event, name: unknown, archiveBuffer: unknown, type: unknown, meta: unknown) => {
+		async (_event, name: unknown, archiveBuffer: unknown, _type: unknown, meta: unknown) => {
 			assertNonEmptyString(name, "name");
 			if (!(archiveBuffer instanceof ArrayBuffer) && !Buffer.isBuffer(archiveBuffer)) {
 				throw new Error("Invalid archive buffer");
 			}
-			const itemType: "skill" | "scene" = type === "scene" ? "scene" : "skill";
+			const itemType: "skill" = "skill";
 			const metaObj = (meta != null && typeof meta === "object" ? meta : {}) as {
 				alias?: string;
 				marketDescription?: string;
@@ -181,7 +180,7 @@ export function registerSkillsIpc(): () => void {
 			const buffer = Buffer.isBuffer(archiveBuffer) ? archiveBuffer : Buffer.from(archiveBuffer as ArrayBuffer);
 			verifySha256(buffer, metaObj.sha256, `技能 ${name}`);
 
-			const baseDir = getSkillBaseDir(itemType);
+			const baseDir = getSkillBaseDir();
 			if (!existsSync(baseDir)) {
 				await mkdir(baseDir, { recursive: true });
 			}
@@ -226,7 +225,7 @@ export function registerSkillsIpc(): () => void {
 				marketDescription: metaObj.marketDescription,
 			};
 			writeSkillsManifest(manifest);
-			// 能力安装台账（ADR-0049）：只记索引，产物仍在 skills/ 或 scene/ 下。
+			// 能力安装台账（ADR-0049）：只记索引，产物仍在 skills/ 下。
 			recordAbilityInstall(itemType, name, version);
 			recordSkillResourceEvent({
 				name,
@@ -239,7 +238,7 @@ export function registerSkillsIpc(): () => void {
 
 	ipcMain.handle("vetta:skills:uninstall", async (_event, name: unknown, type: unknown) => {
 		assertNonEmptyString(name, "name");
-		await skills.uninstall(name, type === "scene" ? "scene" : type === "skill" ? "skill" : undefined);
+		await skills.uninstall(name, type === "skill" ? "skill" : undefined);
 	});
 
 	ipcMain.handle("vetta:skills:toggle", async (_event, name: unknown) => {
@@ -251,10 +250,9 @@ export function registerSkillsIpc(): () => void {
 		return skills.getManifest();
 	});
 
-	ipcMain.handle("vetta:skills:get-skill-md-path", async (_event, name: unknown, type: unknown) => {
+	ipcMain.handle("vetta:skills:get-skill-md-path", async (_event, name: unknown) => {
 		assertNonEmptyString(name, "name");
-		const itemType: "skill" | "scene" = type === "scene" ? "scene" : "skill";
-		const skillMd = join(getSkillBaseDir(itemType), name, "SKILL.md");
+		const skillMd = join(getSkillBaseDir(), name, "SKILL.md");
 		if (existsSync(skillMd)) {
 			return skillMd;
 		}
@@ -313,7 +311,7 @@ export function registerSkillsIpc(): () => void {
 				throw new Error("name 仅允许小写字母、数字、连字符（1–64 字符）");
 			}
 
-			const skillsBaseDir = getSkillBaseDir("skill");
+			const skillsBaseDir = getSkillBaseDir();
 			const targetDir = join(skillsBaseDir, fm.name);
 			const manifest = readSkillsManifest();
 			if (manifest[fm.name] || existsSync(targetDir)) {

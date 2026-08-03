@@ -21,7 +21,7 @@ export function SkillTokenChip({
 	const resolvedIcon = icon ?? meta?.icon;
 	return (
 		<TokenChip
-			iconNode={<SkillTypeIcon type="skill" icon={resolvedIcon} className="h-3 w-3" />}
+			iconNode={<SkillTypeIcon icon={resolvedIcon} className="h-3 w-3" />}
 			label={alias || meta?.label || name}
 			title={name}
 		/>

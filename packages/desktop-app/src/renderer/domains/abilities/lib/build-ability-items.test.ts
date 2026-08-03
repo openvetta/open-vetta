@@ -1,8 +1,8 @@
 import type { InstalledPlugin } from "@preload/api";
-import type { AbilityMember, MarketAbility } from "@shared/lib/api";
 import type { TFunction } from "i18next";
 import { describe, expect, it } from "vitest";
 import { buildBuiltinMcpServerConfig } from "../../settings/mcp/builtin-mcp-presets";
+import type { AbilityMember, MarketAbility } from "../market-types";
 import type { AbilityItem, McpAbility } from "../types";
 import {
 	buildBundleAbilities,

@@ -4,20 +4,17 @@
  */
 import type { AbilityLedger, InstalledPlugin, InstalledSkill, OpenMarketplaceCatalog, SkillInfo } from "@preload/api";
 import { i18n } from "@shared/i18n";
-import type { MarketAbility } from "@shared/lib/api";
-import { fetchMarketAbilities } from "@shared/lib/api";
-import { authTokenAtom } from "@shared/store/atoms";
-import { useAtomValue } from "jotai";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { areAllAttemptedMarketSourcesUnavailable, getOpenMarketplaceLoadState } from "../lib/ability-load-policy";
 import { mergeAbilityCatalogs } from "../lib/merge-ability-catalogs";
+import type { MarketAbility } from "../market-types";
 
 export interface AbilityData {
 	market: MarketAbility[];
 	ledger: AbilityLedger;
 	skillManifest: Record<string, InstalledSkill>;
-	/** 通用 Agent / 内置 skill 与 scene（只读展示）。 */
+	/** 通用 Agent / 内置 skill（只读展示）。 */
 	localSkills: SkillInfo[];
 	plugins: InstalledPlugin[];
 	loading: boolean;
@@ -31,8 +28,6 @@ function isReadonlySkillSource(source: string): boolean {
 }
 
 export function useAbilityData(): AbilityData {
-	const token = useAtomValue(authTokenAtom);
-	const [serverMarket, setServerMarket] = useState<MarketAbility[]>([]);
 	const [openMarketplace, setOpenMarketplace] = useState<OpenMarketplaceCatalog>({
 		sources: [],
 		snapshots: [],
@@ -47,67 +42,53 @@ export function useAbilityData(): AbilityData {
 	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	const load = useCallback(
-		(forceOpenMarketplaceRefresh: boolean) => {
-			setRefreshing(true);
-			const local = Promise.all([
-				window.vetta.abilities.getLedger(),
-				window.vetta.skills.getMarketManifest(),
-				window.vetta.skills.list(),
-				// 能力市场不按工作模式过滤：另一模式下已装的插件仍要出现在「我的」。
-				window.vetta.plugins.listAll(),
-			]);
+	const load = useCallback((forceOpenMarketplaceRefresh: boolean) => {
+		setRefreshing(true);
+		const local = Promise.all([
+			window.vetta.abilities.getLedger(),
+			window.vetta.skills.getMarketManifest(),
+			window.vetta.skills.list(),
+			// 能力市场不按工作模式过滤：另一模式下已装的插件仍要出现在「我的」。
+			window.vetta.plugins.listAll(),
+		]);
 
-			// 市场浏览无需登录；有 token 时仍带上。
-			const remote = fetchMarketAbilities(token);
-			const open = forceOpenMarketplaceRefresh
-				? window.vetta.abilities.refreshOpenMarketplaces()
-				: window.vetta.abilities.listOpenMarketplaces();
+		const open = forceOpenMarketplaceRefresh
+			? window.vetta.abilities.refreshOpenMarketplaces()
+			: window.vetta.abilities.listOpenMarketplaces();
 
-			void Promise.allSettled([local, remote, open])
-				.then(([localResult, remoteResult, openResult]) => {
-					const errors: string[] = [];
-					if (localResult.status === "fulfilled") {
-						const [nextLedger, manifest, skills, installedPlugins] = localResult.value;
-						setLedger(nextLedger);
-						setSkillManifest(manifest);
-						setLocalSkills(skills.filter((skill) => isReadonlySkillSource(skill.source)));
-						setPlugins(installedPlugins);
-					} else {
-						console.warn("Ability local state load failed", localResult.reason);
-						errors.push(i18n.t("abilities:error.loadFailed"));
+		void Promise.allSettled([local, open])
+			.then(([localResult, openResult]) => {
+				const errors: string[] = [];
+				if (localResult.status === "fulfilled") {
+					const [nextLedger, manifest, skills, installedPlugins] = localResult.value;
+					setLedger(nextLedger);
+					setSkillManifest(manifest);
+					setLocalSkills(skills.filter((skill) => isReadonlySkillSource(skill.source)));
+					setPlugins(installedPlugins);
+				} else {
+					console.warn("Ability local state load failed", localResult.reason);
+					errors.push(i18n.t("abilities:error.loadFailed"));
+				}
+				let openState = { attempted: true, usable: false };
+				if (openResult.status === "fulfilled") {
+					setOpenMarketplace(openResult.value);
+					openState = getOpenMarketplaceLoadState(openResult.value);
+					if (openResult.value.failedSourceIds.length > 0) {
+						console.warn("Open marketplace sources failed", openResult.value.failedSourceIds);
 					}
-					const serverState = {
-						attempted: true,
-						usable: remoteResult.status === "fulfilled",
-					};
-					if (remoteResult.status === "fulfilled") {
-						setServerMarket(remoteResult.value);
-					} else {
-						console.warn("Ability server marketplace load failed", remoteResult.reason);
-					}
-					let openState = { attempted: true, usable: false };
-					if (openResult.status === "fulfilled") {
-						setOpenMarketplace(openResult.value);
-						openState = getOpenMarketplaceLoadState(openResult.value);
-						if (openResult.value.failedSourceIds.length > 0) {
-							console.warn("Open marketplace sources failed", openResult.value.failedSourceIds);
-						}
-					} else {
-						console.warn("Open marketplace catalog load failed", openResult.reason);
-					}
-					if (areAllAttemptedMarketSourcesUnavailable([serverState, openState])) {
-						errors.push(i18n.t("abilities:error.loadFailed"));
-					}
-					setError(errors.length > 0 ? errors.join("; ") : null);
-				})
-				.finally(() => {
-					setLoading(false);
-					setRefreshing(false);
-				});
-		},
-		[token],
-	);
+				} else {
+					console.warn("Open marketplace catalog load failed", openResult.reason);
+				}
+				if (areAllAttemptedMarketSourcesUnavailable([openState])) {
+					errors.push(i18n.t("abilities:error.loadFailed"));
+				}
+				setError(errors.length > 0 ? errors.join("; ") : null);
+			})
+			.finally(() => {
+				setLoading(false);
+				setRefreshing(false);
+			});
+	}, []);
 
 	const refresh = useCallback(() => load(true), [load]);
 
@@ -130,10 +111,7 @@ export function useAbilityData(): AbilityData {
 		load(false);
 	}, [load, language]);
 
-	const market = useMemo(
-		() => mergeAbilityCatalogs(serverMarket, openMarketplace.snapshots),
-		[openMarketplace.snapshots, serverMarket],
-	);
+	const market = useMemo(() => mergeAbilityCatalogs(openMarketplace.snapshots), [openMarketplace.snapshots]);
 
 	return { market, ledger, skillManifest, localSkills, plugins, loading, refreshing, error, refresh };
 }

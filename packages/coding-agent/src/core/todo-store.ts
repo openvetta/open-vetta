@@ -14,7 +14,11 @@ export interface TodoItem {
 	status: "pending" | "in_progress" | "done";
 }
 
-export type TodoLockSource = "scene";
+/**
+ * 谁锁定了这份待办。锁定 = 宿主预填了权威计划，agent 只能按序做完，
+ * 不得新建/清空/乱序/提前收工。当前唯一来源是知识库批量加工。
+ */
+export type TodoLockSource = "host";
 
 export interface TodoSnapshotEnvelope {
 	items: TodoItem[];

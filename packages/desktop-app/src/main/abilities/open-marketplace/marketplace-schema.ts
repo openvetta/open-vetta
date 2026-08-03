@@ -106,11 +106,6 @@ const skillAbilitySchema = abilityBaseSchema.extend({
 	source: sourceSchema,
 	config: z.object({}).passthrough().default({}),
 });
-const sceneAbilitySchema = abilityBaseSchema.extend({
-	type: z.literal("scene"),
-	source: sourceSchema,
-	config: z.object({}).passthrough().default({}),
-});
 const pluginAbilitySchema = abilityBaseSchema.extend({
 	type: z.literal("plugin"),
 	source: sourceSchema,
@@ -132,7 +127,7 @@ const mcpAbilitySchema = abilityBaseSchema.extend({
 		.default({}),
 });
 const bundleMemberSchema = z.object({
-	type: z.enum(["skill", "scene", "mcp", "plugin"]),
+	type: z.enum(["skill", "mcp", "plugin"]),
 	slug: z.string().regex(SLUG_PATTERN),
 });
 const bundleAbilitySchema = abilityBaseSchema.extend({
@@ -143,7 +138,6 @@ const bundleAbilitySchema = abilityBaseSchema.extend({
 
 export const marketplaceAbilitySchema = z.discriminatedUnion("type", [
 	skillAbilitySchema,
-	sceneAbilitySchema,
 	mcpAbilitySchema,
 	pluginAbilitySchema,
 	bundleAbilitySchema,

@@ -178,12 +178,8 @@ export const VERSION: string = pkg.version;
 export const ENV_AGENT_DIR = `${APP_NAME.toUpperCase()}_CODING_AGENT_DIR`;
 export const ENV_PACKAGE_DIR = `${APP_NAME.toUpperCase()}_PACKAGE_DIR`;
 export const ENV_SHARE_VIEWER_URL = `${APP_NAME.toUpperCase()}_SHARE_VIEWER_URL`;
-export const ENV_SERVER_URL = `${APP_NAME.toUpperCase()}_SERVER_URL`;
 
 const DEFAULT_SHARE_VIEWER_URL = "https://pi.dev/session/";
-
-/** Default server URL for remote provider/model configs */
-export const DEFAULT_SERVER_URL = "http://REDACTED-HOST:8080/api/v1";
 
 /** Get the share viewer URL for a gist ID */
 export function getShareViewerUrl(gistId: string): string {
@@ -250,11 +246,6 @@ export function getSessionsDir(): string {
 /** Get path to debug log file */
 export function getDebugLogPath(): string {
 	return join(getAgentDir(), `${APP_NAME}-debug.log`);
-}
-
-/** Get the scene directory (e.g., ~/.vetta/scene/) */
-export function getSceneDir(): string {
-	return join(getVettaHomePath(), "scene");
 }
 
 /** Get the user-level skills directory (e.g., ~/.vetta/skills/) */

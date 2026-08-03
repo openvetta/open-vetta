@@ -1,5 +1,5 @@
 import type { GitHubMarketplaceOrigin, OpenMarketplaceAbility, OpenMarketplaceSourceSnapshot } from "@preload/api";
-import type { MarketAbility } from "@shared/lib/api";
+import type { MarketAbility } from "../market-types";
 import type { AbilityCatalogSource } from "../types";
 
 export type OpenCatalogMarketAbility = MarketAbility & {
@@ -44,13 +44,6 @@ function toMarketAbility(
 	};
 }
 
-function toServerMarketAbility(ability: MarketAbility): CatalogMarketAbility {
-	return {
-		...ability,
-		catalogSource: { kind: "server", id: "server" },
-	};
-}
-
 export function getMarketCatalogSource(ability: MarketAbility): AbilityCatalogSource {
 	const candidate = ability as Partial<CatalogMarketAbility>;
 	return candidate.catalogSource ?? { kind: "server", id: "server" };
@@ -62,14 +55,11 @@ export function buildMarketAbilityId(ability: Pick<MarketAbility, "slug" | "type
 }
 
 /**
- * 服务端与每个 GitHub 来源都保留独立目录行。
- * 来源优先级只决定展示顺序，不再用于覆盖同 type + slug 的其它来源。
+ * 每个 GitHub 来源都保留独立目录行。
+ * 来源优先级只决定展示顺序，不用于覆盖同 type + slug 的其它来源。
  */
-export function mergeAbilityCatalogs(
-	serverAbilities: MarketAbility[],
-	snapshots: OpenMarketplaceSourceSnapshot[],
-): MarketAbility[] {
-	const merged: MarketAbility[] = serverAbilities.map(toServerMarketAbility);
+export function mergeAbilityCatalogs(snapshots: OpenMarketplaceSourceSnapshot[]): MarketAbility[] {
+	const merged: MarketAbility[] = [];
 	for (const snapshot of snapshots) {
 		for (const ability of snapshot.abilities) {
 			merged.push(toMarketAbility(ability, snapshot));

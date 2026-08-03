@@ -9,7 +9,6 @@ import {
 
 export const SKILL_TYPES = {
 	SKILL: "skill",
-	SCENE: "scene",
 } as const;
 
 export const INSTALLED_SKILL_SOURCES = {
@@ -22,7 +21,7 @@ const skillEmptyInputType = Type.Unsafe<Record<string, never>>({
 	additionalProperties: false,
 });
 
-const skillTypeType = Type.Union([Type.Literal(SKILL_TYPES.SKILL), Type.Literal(SKILL_TYPES.SCENE)]);
+const skillTypeType = Type.Literal(SKILL_TYPES.SKILL);
 const installedSkillSourceType = Type.Union([
 	Type.Literal(INSTALLED_SKILL_SOURCES.MARKET),
 	Type.Literal(INSTALLED_SKILL_SOURCES.CUSTOM),

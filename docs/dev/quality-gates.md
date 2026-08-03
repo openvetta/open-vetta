@@ -130,7 +130,7 @@ bun run deadcode:report
 
 1. desktop i18n CJK **ratchet**（基线文件数，只许下降）——当前硬编码存量大，全量 fail 不现实  
 2. CI path filter：只改 `packages/ai` 时跳过 desktop `tsc`  
-3. Go：`packages/api` / `im-gateway` 的 `go test` / golangci-lint 挂到根 `check:go`  
+3. Go：`packages/im-gateway` 的 `go test` / golangci-lint 挂到根 `check:go`  
 4. Knip 收紧后纳入 `check`  
 5. 插件 SDK **契约测试**（public API 形状快照）
 

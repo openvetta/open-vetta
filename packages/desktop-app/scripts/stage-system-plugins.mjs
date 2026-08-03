@@ -4,36 +4,7 @@ import AdmZip from "adm-zip";
 
 const desktopAppDir = join(import.meta.dirname, "..");
 export const presetsDir = join(desktopAppDir, "..", "plugins", "presets");
-export const tenantsConfigPath = join(desktopAppDir, "..", "plugins", "tenants.json");
 export const devSystemPluginsDir = join(desktopAppDir, ".artifacts", "system-plugins");
-
-// 解析当前构建/开发使用的租户，返回该租户应打包的插件 id 集合。
-// 租户由 VETTA_TENANT 环境变量指定（或显式传入），缺省取 tenants.json 的 default。
-// 无 tenants.json 时返回 pluginIds=null，表示不过滤（打包全部 preset），保持向后兼容。
-export function resolveTenant(explicit) {
-	const requested = explicit ?? process.env.VETTA_TENANT ?? undefined;
-
-	let config = null;
-	try {
-		config = JSON.parse(readFileSync(tenantsConfigPath, "utf8"));
-	} catch {
-		config = null;
-	}
-	if (config === null || typeof config !== "object" || typeof config.tenants !== "object") {
-		if (requested) {
-			throw new Error(`指定了租户 ${requested}，但缺少有效的 tenants.json：${tenantsConfigPath}`);
-		}
-		return { name: null, pluginIds: null };
-	}
-
-	const name = requested ?? config.default ?? "common";
-	const list = config.tenants[name];
-	if (!Array.isArray(list)) {
-		const known = Object.keys(config.tenants).join(", ") || "(空)";
-		throw new Error(`未知租户：${name}；tenants.json 已定义：${known}`);
-	}
-	return { name, pluginIds: new Set(list) };
-}
 
 function readManifest(path) {
 	const manifest = JSON.parse(readFileSync(path, "utf8"));

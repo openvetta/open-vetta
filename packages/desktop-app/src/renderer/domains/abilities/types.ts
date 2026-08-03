@@ -3,9 +3,9 @@
  * 五种 type 共用一套卡片与详情呈现；物理安装仍分三轨，差异收敛在 actions 层。
  */
 import type { GitHubMarketplaceOrigin, InstalledPlugin, PluginPermission } from "@preload/api";
-import type { AbilityMember, AbilityType, MarketAbility } from "@shared/lib/api";
 import type { McpSettingsModel } from "../settings/components/useMcpSettingsModel";
 import type { BuiltinMcpPreset } from "../settings/mcp/builtin-mcp-presets";
+import type { AbilityMember, AbilityType, MarketAbility } from "./market-types";
 
 export type AbilityScope = "discover" | "mine";
 
@@ -79,7 +79,7 @@ export interface AbilityBase {
 }
 
 export interface SkillAbility extends AbilityBase {
-	type: "skill" | "scene";
+	type: "skill";
 	/** listSkills 的来源标识（`agents-user` / `builtin` 等）。 */
 	skillSource?: string;
 }

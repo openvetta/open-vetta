@@ -42,28 +42,8 @@ export type {
 	FlowingMessageListViewProps,
 } from "./FlowingMessageListView";
 export { FlowingMessageListView } from "./FlowingMessageListView";
-export type { MessageCenterDialogViewProps } from "./MessageCenterDialogView";
-export {
-	MESSAGE_CENTER_DIALOG_SPRING,
-	MessageCenterDialogView,
-} from "./MessageCenterDialogView";
 export type { MessageCenterEmptyStateProps } from "./MessageCenterEmptyState";
 export { MessageCenterEmptyState } from "./MessageCenterEmptyState";
-export type {
-	MessageCenterTabId,
-	MessageCenterTabItem,
-	MessageCenterTabsProps,
-} from "./MessageCenterTabs";
-export { MessageCenterTabs } from "./MessageCenterTabs";
-export type { MessageCenterToolbarButtonProps } from "./MessageCenterToolbarButton";
-export { MessageCenterToolbarButton } from "./MessageCenterToolbarButton";
-export type { MessageCenterTriggerViewProps } from "./MessageCenterTriggerView";
-export { MessageCenterTriggerView } from "./MessageCenterTriggerView";
-export type {
-	NotificationMessageListItemView,
-	NotificationMessageListViewProps,
-} from "./NotificationMessageListView";
-export { NotificationMessageListView } from "./NotificationMessageListView";
 export type { ProjectsPanelEmptyStateLabels, ProjectsPanelEmptyStateProps } from "./ProjectsPanelEmptyState";
 export { ProjectsPanelEmptyState } from "./ProjectsPanelEmptyState";
 export type { ProjectsPanelSplitHandleProps } from "./ProjectsPanelSplitHandle";
@@ -71,8 +51,6 @@ export { ProjectsPanelSplitHandle } from "./ProjectsPanelSplitHandle";
 export { RunningPulseDot } from "./RunningPulseDot";
 export type { SessionStatusIconProps } from "./SessionStatusIcon";
 export { SessionStatusIcon } from "./SessionStatusIcon";
-export type { SettingsMenuAccountSectionProps } from "./SettingsMenuAccountSection";
-export { SettingsMenuAccountSection } from "./SettingsMenuAccountSection";
 export type { SettingsMenuActionButtonProps } from "./SettingsMenuActionButton";
 export { SettingsMenuActionButton } from "./SettingsMenuActionButton";
 export { SettingsMenuDivider } from "./SettingsMenuDivider";

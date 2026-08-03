@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { type Static, Type } from "@sinclair/typebox";
 import { spawn } from "child_process";
-import { CONFIG_DIR_NAME, getAgentDir, getSceneDir, getVettaHomePath } from "../../../config.js";
+import { CONFIG_DIR_NAME, getAgentDir, getVettaHomePath } from "../../../config.js";
 import {
 	decodeTextBuffer,
 	getDefaultShellCommandPrefix,
@@ -47,7 +47,6 @@ function getProtectedDirs(cwd: string): string[] {
 	return [
 		resolve(join(getAgentDir(), "skills")),
 		resolve(join(getVettaHomePath(), "skills")),
-		resolve(getSceneDir()),
 		resolve(cwd, CONFIG_DIR_NAME, "skills"),
 	].filter((dir) => existsSync(dir));
 }
@@ -409,10 +408,10 @@ export function createBashTool(cwd: string, options?: BashToolOptions): CodingAg
 						if (protectedChanges.length > 0) {
 							const fileList = protectedChanges.map((f) => `  - ${f}`).join("\n");
 							text +=
-								`\n\n⚠ WARNING: The following files inside skill/scene directories were created or modified by this command:\n` +
+								`\n\n⚠ WARNING: The following files inside skill directories were created or modified by this command:\n` +
 								`${fileList}\n` +
-								`Skill/scene directories are READ-ONLY. Move these output files to the user's working directory (cwd) immediately ` +
-								`and delete the copies from the skill/scene directory.`;
+								`Skill directories are READ-ONLY. Move these output files to the user's working directory (cwd) immediately ` +
+								`and delete the copies from the skill directory.`;
 						}
 						text = prependPathCorrectionNotes(text, pathCorrections);
 						return {
@@ -435,10 +434,10 @@ export function createBashTool(cwd: string, options?: BashToolOptions): CodingAg
 					if (protectedChanges.length > 0) {
 						const fileList = protectedChanges.map((f) => `  - ${f}`).join("\n");
 						outputText +=
-							`\n\n⚠ WARNING: The following files inside skill/scene directories were created or modified by this command:\n` +
+							`\n\n⚠ WARNING: The following files inside skill directories were created or modified by this command:\n` +
 							`${fileList}\n` +
-							`Skill/scene directories are READ-ONLY. Move these output files to the user's working directory (cwd) immediately ` +
-							`and delete the copies from the skill/scene directory.`;
+							`Skill directories are READ-ONLY. Move these output files to the user's working directory (cwd) immediately ` +
+							`and delete the copies from the skill directory.`;
 					}
 
 					let details: BashToolDetails | undefined;
@@ -547,7 +546,7 @@ export function createBashTool(cwd: string, options?: BashToolOptions): CodingAg
 							tempFileStream.end();
 						}
 
-						// Detect writes to protected skill/scene directories
+						// Detect writes to protected skill directories
 						const afterSnapshot = snapshotProtectedDirs(cwd);
 						const protectedChanges = detectProtectedChanges(protectedSnapshot, afterSnapshot);
 
@@ -563,10 +562,10 @@ export function createBashTool(cwd: string, options?: BashToolOptions): CodingAg
 						if (protectedChanges.length > 0) {
 							const fileList = protectedChanges.map((f) => `  - ${f}`).join("\n");
 							outputText +=
-								`\n\n⚠ WARNING: The following files inside skill/scene directories were created or modified by this command:\n` +
+								`\n\n⚠ WARNING: The following files inside skill directories were created or modified by this command:\n` +
 								`${fileList}\n` +
-								`Skill/scene directories are READ-ONLY. Move these output files to the user's working directory (cwd) immediately ` +
-								`and delete the copies from the skill/scene directory.`;
+								`Skill directories are READ-ONLY. Move these output files to the user's working directory (cwd) immediately ` +
+								`and delete the copies from the skill directory.`;
 						}
 
 						// Build details with truncation info

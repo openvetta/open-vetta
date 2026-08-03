@@ -1,5 +1,4 @@
 import { contextBridge, type IpcRendererEvent, ipcRenderer } from "electron";
-import "./telemetry.js";
 import {
 	QUICK_PANEL_CHANNELS,
 	QUICK_PANEL_SESSION_CHANNELS,

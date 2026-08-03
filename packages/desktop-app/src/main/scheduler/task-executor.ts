@@ -195,7 +195,7 @@ export async function executeTask(
 			...(task.skill
 				? {
 						promptRef: {
-							kind: task.skill.type === "scene" ? ("scene" as const) : ("skill" as const),
+							kind: "skill" as const,
 							name: task.skill.name,
 						},
 					}

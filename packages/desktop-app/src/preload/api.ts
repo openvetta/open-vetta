@@ -3,7 +3,6 @@ import type { DesktopActionApprovalApi } from "./api-types/action-approval.js";
 import type { DesktopAppLifecycleApi } from "./api-types/app-lifecycle.js";
 import type { DesktopAppMonitorApi } from "./api-types/app-monitor.js";
 import type { DesktopAppshotApi } from "./api-types/appshot.js";
-import type { DesktopAuthApi } from "./api-types/auth.js";
 import type { DesktopBatchTasksApi } from "./api-types/batch-tasks.js";
 import type { DesktopConfigApi } from "./api-types/config.js";
 import type { DesktopDebugApi } from "./api-types/debug.js";
@@ -28,13 +27,10 @@ import type {
 	DesktopClipboardApi,
 	DesktopPermissionsApi,
 	DesktopRuntimesApi,
-	DesktopSettingsApi,
 	DesktopShellApi,
-	DesktopSubscriptionApi,
 	DesktopTrayApi,
 	DesktopWindowApi,
 } from "./api-types/system.js";
-import type { DesktopTelemetryApi } from "./api-types/telemetry.js";
 import type { DesktopThemeApi } from "./api-types/theme.js";
 import type { DesktopThemesApi } from "./api-types/themes.js";
 import type { DesktopUpdaterApi } from "./api-types/updater.js";
@@ -46,7 +42,6 @@ export type * from "./api-types/action-approval.js";
 export type * from "./api-types/app-lifecycle.js";
 export type * from "./api-types/app-monitor.js";
 export type * from "./api-types/appshot.js";
-export type * from "./api-types/auth.js";
 export type * from "./api-types/batch-tasks.js";
 export type * from "./api-types/config.js";
 export type * from "./api-types/debug.js";
@@ -67,7 +62,6 @@ export type * from "./api-types/session.js";
 export type * from "./api-types/shared.js";
 export type * from "./api-types/skills.js";
 export type * from "./api-types/system.js";
-export type * from "./api-types/telemetry.js";
 export type * from "./api-types/theme.js";
 export type * from "./api-types/themes.js";
 export type * from "./api-types/updater.js";
@@ -82,7 +76,6 @@ export interface DesktopApi {
 	dialog: DesktopDialogApi;
 	theme: DesktopThemeApi;
 	themes: DesktopThemesApi;
-	telemetry: DesktopTelemetryApi;
 	i18n: DesktopI18nApi;
 	fs: DesktopFsApi;
 	skills: DesktopSkillsApi;
@@ -91,12 +84,9 @@ export interface DesktopApi {
 	models: DesktopModelsApi;
 	mcp: DesktopMcpApi;
 	media: DesktopMediaApi;
-	settings: DesktopSettingsApi;
-	subscription: DesktopSubscriptionApi;
 	shell: DesktopShellApi;
 	clipboard: DesktopClipboardApi;
 	window: DesktopWindowApi;
-	auth: DesktopAuthApi;
 	updater: DesktopUpdaterApi;
 	tray: DesktopTrayApi;
 	scheduler: DesktopSchedulerApi;

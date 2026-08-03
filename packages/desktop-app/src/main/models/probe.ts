@@ -2,7 +2,6 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { getVettaHomePath } from "@vetta/action-rpc";
 import { net } from "electron";
-import { fetchRemoteProviders } from "../ipc/settings.js";
 
 /**
  * Probe the given (provider, model)'s baseUrl to see if the model server is
@@ -10,10 +9,8 @@ import { fetchRemoteProviders } from "../ipc/settings.js";
  * host answered, auth/path issues are a separate concern), ok=false on
  * network / DNS / TLS failures.
  *
- * Resolves the provider from local models.json first (LAN servers like
- * Ollama / vLLM), then falls back to the auth-server's remote provider
- * catalogue (Vetta Go et al.). Re-fetches remote on demand instead of
- * trusting the renderer's atom, which may be stale.
+ * Resolves the provider from local models.json (built-in presets are
+ * snapshotted there once the user fills in a key).
  *
  * Uses electron.net.fetch deliberately so we go through Chromium's network
  * stack and bypass macOS 15 LNP, same as the GUI session.
@@ -24,7 +21,6 @@ export async function probeModelProvider(ref: {
 	provider: string;
 	model: string;
 }): Promise<{ ok: boolean; message?: string; error?: string }> {
-	// 1) Local models.json first.
 	let provider: { baseUrl?: string } | undefined;
 	try {
 		const raw = await readFile(join(getVettaHomePath(), "agent", "models.json"), "utf8");
@@ -33,29 +29,13 @@ export async function probeModelProvider(ref: {
 		};
 		provider = parsed.providers?.[ref.provider];
 	} catch {
-		// File missing/unreadable is fine — fall through to remote.
-	}
-
-	// 2) Fall back to remote provider catalogue.
-	let source: "local" | "remote" = "local";
-	if (!provider) {
-		const remote = await fetchRemoteProviders();
-		const r = remote.providers[ref.provider] as { baseUrl?: string } | undefined;
-		if (r) {
-			provider = r;
-			source = "remote";
-		} else if (remote.error && Object.keys(remote.providers).length === 0) {
-			return {
-				ok: false,
-				error: `provider "${ref.provider}" 既不在本地 models.json 也无法查询云端 provider 列表（${remote.error}）`,
-			};
-		}
+		// File missing/unreadable is treated the same as "provider not configured".
 	}
 
 	if (!provider) {
 		return {
 			ok: false,
-			error: `provider "${ref.provider}" 既不在本地 models.json 也不在云端 provider 列表`,
+			error: `provider "${ref.provider}" 不在本地 models.json 中`,
 		};
 	}
 	if (!provider.baseUrl) {
@@ -75,10 +55,7 @@ export async function probeModelProvider(ref: {
 	const timer = setTimeout(() => controller.abort(), 5_000);
 	try {
 		await net.fetch(origin, { method: "GET", signal: controller.signal });
-		return {
-			ok: true,
-			message: `provider 可达（${source === "remote" ? "云端" : "本地"}）`,
-		};
+		return { ok: true, message: "provider 可达" };
 	} catch (err) {
 		const msg = err instanceof Error ? err.message : String(err);
 		const sanitized = msg

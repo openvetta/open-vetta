@@ -10,7 +10,6 @@
 	"loading": "Loading…",
 	"type": {
 		"skill": "Skill",
-		"scene": "Scene",
 		"mcp": "MCP",
 		"plugin": "Plugin",
 		"bundle": "Bundle"

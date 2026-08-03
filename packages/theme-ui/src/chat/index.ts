@@ -2,13 +2,7 @@ import "../registry";
 import type { ComponentType } from "react";
 import type { InputBarBackground } from "./InputBarBackground";
 import type { InputBarPlaceholder } from "./InputBarPlaceholder";
-import type {
-	NewSessionGuidingWordsProps,
-	NewSessionHeroProps,
-	NewSessionSceneCarouselProps,
-	NewSessionSkillBadgeRowProps,
-} from "./NewSession";
-import type { SceneCard } from "./SceneCard";
+import type { NewSessionGuidingWordsProps, NewSessionHeroProps, NewSessionSkillBadgeRowProps } from "./NewSession";
 import type { SkillCard } from "./SkillCard";
 
 declare module "@vetta/theme-sdk" {
@@ -17,8 +11,6 @@ declare module "@vetta/theme-sdk" {
 		readonly "chat.inputBarPlaceholder"?: typeof InputBarPlaceholder;
 		readonly "chat.newSessionGuidingWords"?: ComponentType<NewSessionGuidingWordsProps>;
 		readonly "chat.newSessionHero"?: ComponentType<NewSessionHeroProps>;
-		readonly "chat.newSessionSceneCard"?: typeof SceneCard;
-		readonly "chat.newSessionSceneCarousel"?: ComponentType<NewSessionSceneCarouselProps>;
 		readonly "chat.newSessionSkillBadgeRow"?: ComponentType<NewSessionSkillBadgeRowProps>;
 		readonly "chat.newSessionSkillCard"?: typeof SkillCard;
 	}
@@ -68,10 +60,6 @@ export {
 	DefaultGuidingWords,
 	NEW_SESSION_GUIDING_WORDS_SLOT_MIN_H_CLASS,
 } from "./DefaultGuidingWords";
-export {
-	DefaultSceneCarousel,
-	NEW_SESSION_SCENE_SLOT_MIN_H_CLASS,
-} from "./DefaultSceneCarousel";
 export {
 	DefaultSkillBadgeRow,
 	NEW_SESSION_SKILL_BADGE_SLOT_MIN_H_CLASS,
@@ -173,10 +161,6 @@ export type {
 	NewSessionGuidingWordsGroup,
 	NewSessionGuidingWordsProps,
 	NewSessionHeroProps,
-	NewSessionSceneActionState,
-	NewSessionSceneCarouselLabels,
-	NewSessionSceneCarouselProps,
-	NewSessionSceneItem,
 	NewSessionSelection,
 	NewSessionSkillBadgeRowLabels,
 	NewSessionSkillBadgeRowProps,
@@ -204,14 +188,6 @@ export type {
 	SandboxPermissionRequestModel,
 } from "./SandboxPermissionCard";
 export { SandboxPermissionCard } from "./SandboxPermissionCard";
-export type {
-	SceneCardActionState,
-	SceneCardClassNames,
-	SceneCardModel,
-	SceneCardProps,
-	SceneCardState,
-} from "./SceneCard";
-export { SceneCard } from "./SceneCard";
 export type { SendButtonLabels, SendButtonProps } from "./SendButton";
 export { SendButton } from "./SendButton";
 export type {

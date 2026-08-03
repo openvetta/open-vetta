@@ -251,34 +251,6 @@ function applyModelOverride(model: Model<Api>, override: ModelOverride): Model<A
 export const clearApiKeyCache = clearConfigValueCache;
 
 /**
- * Remote models.json config (fetched from server).
- * Format matches the local models.json providers section but without apiKey/headers.
- */
-interface RemoteModelsConfig {
-	providers: Record<
-		string,
-		{
-			api: string;
-			baseUrl?: string;
-			// 服务端下发的 provider 级自定义请求头，随该 provider 的每次请求携带
-			headers?: Record<string, string>;
-			models: Array<{
-				id: string;
-				// 上游 API 真实模型名（远程渠道下 id=网关路由 key、modelId=上游真名）；缺省回退 id
-				modelId?: string;
-				name: string;
-				api?: string;
-				reasoning: boolean;
-				input: string[];
-				cost?: { input: number; output: number; cacheRead: number; cacheWrite: number };
-				contextWindow: number;
-				maxTokens: number;
-			}>;
-		}
-	>;
-}
-
-/**
  * Model registry - loads and manages models, resolves API keys via AuthStorage.
  */
 export class ModelRegistry {
@@ -294,16 +266,6 @@ export class ModelRegistry {
 	private customProviderNames: Set<string> = new Set();
 	private registeredProviders: Map<string, ProviderConfigInput> = new Map();
 	private loadError: string | undefined = undefined;
-	private remoteModels: Model<Api>[] = [];
-	/** Set of "provider/modelId" keys for models loaded from server */
-	private remoteModelKeys: Set<string> = new Set();
-	private serverUrl: string | undefined;
-	private _serverToken: string | undefined;
-	private _serverTokenGetter?: () => string | undefined;
-	/** Whether loadRemoteModels has been attempted with the current token. Reset by setServerToken. */
-	private remoteLoadAttempted = false;
-	/** Inflight loadRemoteModels promise for deduping concurrent calls. */
-	private remoteLoadInflight: Promise<"unauthorized" | undefined> | null = null;
 
 	constructor(
 		readonly authStorage: AuthStorage,
@@ -322,142 +284,7 @@ export class ModelRegistry {
 		this.loadModels();
 	}
 
-	/**
-	 * Set the server URL for remote model config.
-	 */
-	setServerUrl(url: string | undefined): void {
-		this.serverUrl = url;
-	}
-
-	/**
-	 * Set the server token for authenticating remote model requests.
-	 */
-	setServerToken(token: string | undefined): void {
-		if (this._serverToken !== token) {
-			this.remoteLoadAttempted = false;
-		}
-		this._serverToken = token;
-	}
-
-	/**
-	 * Set a dynamic getter for the server token.
-	 * When set, this getter is called on every API key resolution so that
-	 * token changes (e.g. re-login) are picked up by long-lived sessions.
-	 */
-	setServerTokenGetter(getter: () => string | undefined): void {
-		this._serverTokenGetter = getter;
-	}
-
-	private resolveServerToken(): string | undefined {
-		return this._serverTokenGetter ? this._serverTokenGetter() : this._serverToken;
-	}
-
-	/**
-	 * Fetch remote model config from server and merge.
-	 * Should be called after construction when serverUrl is available.
-	 * Returns "unauthorized" if server responds with 401, undefined otherwise.
-	 * Silently fails if server is unreachable.
-	 */
-	async loadRemoteModels(): Promise<"unauthorized" | undefined> {
-		if (!this.serverUrl) {
-			return undefined;
-		}
-		// 未登录（没有 server token）就不去打远程接口——既能省掉 5 秒的 fetch
-		// 阻塞，也避免给未登录用户发未授权请求。任何依赖远程 model 的代码路径
-		// 会在登录回调里再次触发本方法（ModelRegistry.setServerToken 会清掉
-		// remoteLoadAttempted，让 ensureRemoteLoaded 重新放行）。
-		if (!this.resolveServerToken()) {
-			return undefined;
-		}
-		if (this.remoteLoadInflight) {
-			return this.remoteLoadInflight;
-		}
-		this.remoteLoadInflight = this.doLoadRemoteModels().finally(() => {
-			this.remoteLoadInflight = null;
-		});
-		return this.remoteLoadInflight;
-	}
-
-	private async doLoadRemoteModels(): Promise<"unauthorized" | undefined> {
-		try {
-			const url = `${this.serverUrl!.replace(/\/$/, "")}/providers/models.json`;
-			const controller = new AbortController();
-			const timeout = setTimeout(() => controller.abort(), 5000);
-
-			const token = this.resolveServerToken();
-			const response = await fetch(url, {
-				signal: controller.signal,
-				headers: {
-					Accept: "application/json",
-					...(token ? { Authorization: `Bearer ${token}` } : {}),
-				},
-			});
-			clearTimeout(timeout);
-
-			if (response.status === 401) {
-				return "unauthorized";
-			}
-
-			if (!response.ok) {
-				return undefined;
-			}
-
-			const body = (await response.json()) as { code: number; data: RemoteModelsConfig };
-			if (body.code !== 0 || !body.data?.providers) {
-				return undefined;
-			}
-
-			this.remoteModels = this.parseRemoteModels(body.data);
-			this.rebuildModels();
-		} catch {
-			// Silently fail - remote config is optional
-		} finally {
-			this.remoteLoadAttempted = true;
-		}
-		return undefined;
-	}
-
-	private parseRemoteModels(config: RemoteModelsConfig): Model<Api>[] {
-		const models: Model<Api>[] = [];
-		const defaultCost = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
-		this.remoteModelKeys.clear();
-
-		for (const [providerName, providerConfig] of Object.entries(config.providers)) {
-			for (const modelDef of providerConfig.models ?? []) {
-				const api = modelDef.api || providerConfig.api;
-				if (!api) continue;
-
-				this.remoteModelKeys.add(`${providerName}/${modelDef.id}`);
-
-				// upstreamBaseUrl: 原始 provider 的 baseUrl，用于 compat 检测
-				// providerConfig.baseUrl: 网关地址，用于实际请求
-				const upstreamBaseUrl = (modelDef as Record<string, unknown>).upstreamBaseUrl as string | undefined;
-				const gatewayUrl = providerConfig.baseUrl || "";
-
-				models.push({
-					id: modelDef.id,
-					// 保留上游真名；缺省回退 id，供老会话按 modelId 兜底匹配
-					modelId: modelDef.modelId ?? modelDef.id,
-					name: modelDef.name || modelDef.id,
-					api: api as Api,
-					provider: providerName,
-					baseUrl: upstreamBaseUrl || gatewayUrl,
-					gatewayUrl: upstreamBaseUrl ? gatewayUrl : undefined,
-					reasoning: modelDef.reasoning ?? false,
-					input: (modelDef.input ?? ["text"]) as ("text" | "image")[],
-					cost: modelDef.cost ?? defaultCost,
-					contextWindow: modelDef.contextWindow ?? 128000,
-					maxTokens: modelDef.maxTokens ?? 16384,
-					// 透传 provider 级请求头（Vetta Go 服务标识分流），随每次上游请求发往网关
-					...(providerConfig.headers ? { headers: providerConfig.headers } : {}),
-				} as Model<Api>);
-			}
-		}
-
-		return models;
-	}
-
-	/** Rebuild the full model list: built-in + remote + local custom */
+	/** Rebuild the full model list: built-in + local custom */
 	private rebuildModels(): void {
 		this.customProviderApiKeys.clear();
 		this.customProviderNames.clear();
@@ -476,12 +303,8 @@ export class ModelRegistry {
 
 		const builtInModels = this.loadBuiltInModels(overrides, modelOverrides);
 
-		// Merge order: built-in -> local custom -> remote
-		// Remote models have the final say so server-side additions
-		// / updates are always visible without removing and re-adding
-		// the provider key.
+		// Merge order: built-in -> local custom
 		let combined = this.mergeCustomModels(builtInModels, customModels);
-		combined = this.mergeCustomModels(combined, this.remoteModels);
 
 		// Let OAuth providers modify their models
 		for (const oauthProvider of this.authStorage.getOAuthProviders()) {
@@ -773,7 +596,6 @@ export class ModelRegistry {
 	/**
 	 * Get only models that are usable right now.
 	 *
-	 * - Remote models: always included (gateway handles auth via server JWT).
 	 * - Custom providers from models.json / registerProvider(): always included
 	 *   even without an API key. Local inference servers (ollama / lm-studio /
 	 *   vLLM) typically don't need one; for the few that do, the request will
@@ -785,7 +607,7 @@ export class ModelRegistry {
 	 */
 	getAvailable(): Model<Api>[] {
 		return this.models.filter(
-			(m) => this.isRemote(m) || this.customProviderNames.has(m.provider) || this.authStorage.hasAuth(m.provider),
+			(m) => this.customProviderNames.has(m.provider) || this.authStorage.hasAuth(m.provider),
 		);
 	}
 
@@ -794,25 +616,6 @@ export class ModelRegistry {
 	 */
 	find(provider: string, modelId: string): Model<Api> | undefined {
 		return this.models.find((m) => m.provider === provider && m.id === modelId);
-	}
-
-	/**
-	 * Check if a model was loaded from the remote server.
-	 * Remote models are read-only and cannot be modified locally.
-	 */
-	isRemote(model: Model<Api>): boolean {
-		return this.remoteModelKeys.has(`${model.provider}/${model.id}`);
-	}
-
-	/**
-	 * Get set of remote provider names.
-	 */
-	getRemoteProviders(): Set<string> {
-		const providers = new Set<string>();
-		for (const key of this.remoteModelKeys) {
-			providers.add(key.split("/")[0]!);
-		}
-		return providers;
 	}
 
 	/**
@@ -826,14 +629,8 @@ export class ModelRegistry {
 
 	/**
 	 * Get API key for a model.
-	 * Remote models use server JWT token instead of provider API key.
 	 */
 	async getApiKey(model: Model<Api>): Promise<string | undefined> {
-		const token = this.resolveServerToken();
-		await this.ensureRemoteLoaded(token);
-		if (this.isRemote(model) && token) {
-			return token;
-		}
 		const key = await this.authStorage.getApiKey(model.provider);
 		if (key) return key;
 		// Custom providers without a key fall through to a placeholder so
@@ -848,14 +645,8 @@ export class ModelRegistry {
 
 	/**
 	 * Get API key for a provider.
-	 * Remote providers use server JWT token (gateway handles real API keys).
 	 */
 	async getApiKeyForProvider(provider: string): Promise<string | undefined> {
-		const token = this.resolveServerToken();
-		await this.ensureRemoteLoaded(token);
-		if (this.getRemoteProviders().has(provider) && token) {
-			return token;
-		}
 		const key = await this.authStorage.getApiKey(provider);
 		if (key) return key;
 		if (this.customProviderNames.has(provider)) {
@@ -865,18 +656,6 @@ export class ModelRegistry {
 			}
 		}
 		return undefined;
-	}
-
-	/**
-	 * If we have a server token but haven't yet successfully fetched remote
-	 * models with it (e.g. user logged in mid-session), trigger a load now so
-	 * isRemote() / getRemoteProviders() reflect server state.
-	 */
-	private async ensureRemoteLoaded(token: string | undefined): Promise<void> {
-		if (!token) return;
-		if (this.remoteModelKeys.size > 0) return;
-		if (this.remoteLoadAttempted) return;
-		await this.loadRemoteModels();
 	}
 
 	/**

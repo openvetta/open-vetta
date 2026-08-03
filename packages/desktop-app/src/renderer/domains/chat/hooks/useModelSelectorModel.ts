@@ -146,7 +146,6 @@ export function useModelSelectorModel(): ModelSelectorModel {
 			})),
 			labels: {
 				clearSearch: t("modelSelect.clearSearch"),
-				cloudOnly: t("modelSelect.cloudOnly"),
 				defaultBadge: t("modelSelect.defaultBadge"),
 				levelLabel,
 				modelHeader: t("modelSelect.modelHeader"),

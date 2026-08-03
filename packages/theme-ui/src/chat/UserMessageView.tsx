@@ -27,8 +27,6 @@ export interface UserMessageViewLabels {
 	expand: string;
 	edit: string;
 	fork: string;
-	skillBadge: string;
-	sceneBadge: string;
 	branchPrev: string;
 	branchNext: string;
 	branchPosition: string;
@@ -39,7 +37,6 @@ export interface UserMessageViewProps {
 	entryState: UserMessageEntryState;
 	displayText: string;
 	hasImages: boolean;
-	hasSkillBadge: boolean;
 	hasSettingsAssistBadge: boolean;
 	hasFileBadges: boolean;
 	hasAppshot: boolean;
@@ -144,18 +141,13 @@ function UserMessageTextShell({
 
 export function SkillBadgeView({
 	name,
-	type = "skill",
 	skillLabel,
-	sceneLabel,
 }: {
 	name: string;
-	type?: "skill" | "scene";
 	skillLabel: string;
-	sceneLabel: string;
 }): JSX.Element {
-	const icon =
-		type === "scene" ? "icon-[solar--clapperboard-open-linear]" : "icon-[solar--magic-stick-linear]";
-	const label = type === "scene" ? sceneLabel : skillLabel;
+	const icon = "icon-[solar--magic-stick-linear]";
+	const label = skillLabel;
 	return (
 		<span className="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
 			<span className={`${icon} h-3 w-3`} />
@@ -181,7 +173,6 @@ export function UserMessageView({
 	entryState,
 	displayText,
 	hasImages,
-	hasSkillBadge,
 	hasSettingsAssistBadge,
 	hasFileBadges,
 	hasAppshot,
@@ -213,7 +204,6 @@ export function UserMessageView({
 	const shouldHoldHidden = entryState === "hidden";
 	const empty =
 		!displayText &&
-		!hasSkillBadge &&
 		!hasSettingsAssistBadge &&
 		!hasFileBadges &&
 		!hasImages &&
@@ -237,7 +227,7 @@ export function UserMessageView({
 			<div className="relative flex min-w-0 max-w-[72%] flex-col items-end">
 				{hasAppshot && <div className="mb-1.5 flex justify-end">{appshot}</div>}
 				{hasImages && <div className="mb-1.5 flex justify-end">{images}</div>}
-				{(hasSkillBadge || hasSettingsAssistBadge) && (
+				{hasSettingsAssistBadge && (
 					<div className="mb-1 flex flex-wrap justify-end gap-1">{badges}</div>
 				)}
 				{displayText && (

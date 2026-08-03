@@ -30,15 +30,6 @@
 		"download": "下载",
 		"close": "关闭 (Esc)"
 	},
-	"login": {
-		"oauthButton": "授权登录",
-		"waitingTitle": "正在等待浏览器授权",
-		"waitingHint": "完成后将自动登录",
-		"reopen": "重新打开链接",
-		"retry": "重新授权",
-		"openFailed": "浏览器打开失败，请重试",
-		"rejected": "授权链接已失效，请重新登录"
-	},
 	"actionApproval": {
 		"reject": "拒绝",
 		"confirm": "确认执行",
@@ -88,8 +79,8 @@
 			"skills": {
 				"enableTitle": "开启技能",
 				"disableTitle": "关闭技能",
-				"enableSummary": "开启后，AI 在对话中可以按需使用该技能或场景。",
-				"disableSummary": "关闭后，该技能/场景暂时不会被调用。不会卸载或删除文件。",
+				"enableSummary": "开启后，AI 在对话中可以按需使用该技能。",
+				"disableSummary": "关闭后，该技能暂时不会被调用。不会卸载或删除文件。",
 				"enableConfirm": "确认开启",
 				"disableConfirm": "确认关闭",
 				"enableImpact": "技能将出现在可用列表中，可在对话中被使用。",
@@ -314,10 +305,10 @@
 			"ops": {
 				"set-enabled": {
 					"title": "启用/停用技能确认",
-					"summary": "确认后将更改该技能或场景的启用状态。",
+					"summary": "确认后将更改该技能的启用状态。",
 					"confirm": "确认更改状态",
 					"badge": "技能",
-					"impact": "技能/场景启用状态将立即生效。"
+					"impact": "技能启用状态将立即生效。"
 				},
 				"uninstall": {
 					"title": "卸载技能确认",
@@ -904,7 +895,6 @@
 			"knowledgeAll": "全部知识库",
 			"knowledge": "知识库",
 			"skills": "技能广场",
-			"scenes": "场景",
 			"plugins": "插件",
 			"settings": "设置",
 			"project": "项目详情",
@@ -967,13 +957,10 @@
 			"appearance": "外观模式",
 			"theme": "主题配色"
 		},
-		"login": {
-			"title": "登录账号",
-			"subtitle": "登录后可同步云端能力与订阅；也可先跳过，稍后再登录",
-			"optionalHint": "登录可选，点「下一步」继续",
-			"signedInTitle": "已登录",
-			"signedInDesc": "欢迎回来，{{name}}",
-			"signedInFallback": "用户"
+		"models": {
+			"title": "配置模型",
+			"subtitle": "选择一个服务商并填入你自己的 API Key，请求直接发往该服务商。",
+			"optionalHint": "可跳过，稍后在「设置 → 模型配置」补上"
 		},
 		"welcome": {
 			"title": "欢迎使用 Vetta",

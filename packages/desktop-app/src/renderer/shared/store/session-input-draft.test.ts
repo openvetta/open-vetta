@@ -34,11 +34,10 @@ describe("appendInputHistoryEntry", () => {
 
 describe("isSessionInputDraftEmpty", () => {
 	it("treats whitespace-only text without skill/appshot as empty", () => {
-		expect(isSessionInputDraftEmpty({ text: "  ", selectedSkill: null, appshot: null })).toBe(true);
+		expect(isSessionInputDraftEmpty({ text: "  ", appshot: null })).toBe(true);
 		expect(
 			isSessionInputDraftEmpty({
 				text: "",
-				selectedSkill: { name: "x", type: "skill" },
 				appshot: null,
 			}),
 		).toBe(false);

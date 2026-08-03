@@ -9,7 +9,6 @@ import {
 	mentionedFilesAtom,
 	openSessionFnRef,
 	pendingMessageEditAtom,
-	selectedSkillAtom,
 	type ChatMessage,
 	type FilePreviewItem,
 } from "@shared/store/atoms";
@@ -22,7 +21,6 @@ import {
 import { pathBasename, toVettaFileUrl } from "@shared/lib/utils";
 import {
 	SettingsAssistBadgeView,
-	SkillBadgeView,
 	type UserMessageContextMenuViewProps,
 	type UserMessageEntryState,
 	type UserMessageViewProps,
@@ -159,8 +157,6 @@ function fillInputFromUserText(
 
 	// 文本一写入，ValueBridgePlugin 会把编辑器内容整体重建成这些 token。
 	store.set(inputValueAtom, segmentsToText(restored));
-	// 场景仍是硬展开语义，继续走顶部胶囊。
-	store.set(selectedSkillAtom, ref && ref.kind === "scene" ? { name: ref.name, type: "scene" } : null);
 	// Appshot capsule needs full AppshotAttachment; on re-edit the image path rides
 	// along as an inline token instead (sendMessage will include it).
 	store.set(appshotAttachmentAtom, null);
@@ -170,7 +166,6 @@ function inputHasDraft(): boolean {
 	const store = getDefaultStore();
 	return (
 		store.get(inputValueAtom).trim().length > 0 ||
-		store.get(selectedSkillAtom) !== null ||
 		store.get(mentionedFilesAtom).length > 0 ||
 		store.get(appshotAttachmentAtom) !== null
 	);
@@ -206,8 +201,6 @@ export function useUserMessageModel({
 	const promptRef = message.promptRef ?? legacyRef ?? undefined;
 	// 场景仍是「整条消息生效」的硬展开，继续用顶部 badge 表示；
 	// skill 是软引用，改为在正文里行内呈现。
-	const skillName = promptRef?.kind === "scene" ? promptRef.name : null;
-	const skillType = promptRef?.kind === "scene" ? "scene" : null;
 	/** Appshot 的截图/文本走独立卡片，不能同时又当行内 token 渲染一遍。 */
 	const bodySegments = segments.filter(
 		(segment) =>
@@ -276,7 +269,6 @@ export function useUserMessageModel({
 		return [...fromBase64, ...fromPaths];
 	}, [imageFiles, message.images]);
 	const hasImages = imageItems.length > 0;
-	const hasSkillBadge = Boolean(skillName);
 	const settingsAssistTabId = message.settingsAssistTabId?.trim() ?? "";
 	const hasSettingsAssistBadge = settingsAssistTabId.length > 0;
 	const hasFileBadges = fileBadges.length > 0;
@@ -490,8 +482,6 @@ export function useUserMessageModel({
 		expand: t("messageList.userMessage.expand"),
 		edit: t("messageList.editButton"),
 		fork: t("messageList.forkButton"),
-		skillBadge: t("messageList.userMessage.skillBadge"),
-		sceneBadge: t("messageList.userMessage.sceneBadge"),
 		branchPrev: t("messageList.branch.prev"),
 		branchNext: t("messageList.branch.next"),
 		branchPosition: branch
@@ -511,14 +501,6 @@ export function useUserMessageModel({
 	const badges: ReactNode = (
 		<>
 			{hasSettingsAssistBadge && <SettingsAssistBadgeView label={settingsLabel} />}
-			{skillName && (
-				<SkillBadgeView
-					name={skillName}
-					type={skillType ?? "skill"}
-					skillLabel={labels.skillBadge}
-					sceneLabel={labels.sceneBadge}
-				/>
-			)}
 		</>
 	);
 
@@ -571,7 +553,6 @@ export function useUserMessageModel({
 		entryState,
 		displayText,
 		hasImages,
-		hasSkillBadge,
 		hasSettingsAssistBadge,
 		hasFileBadges,
 		hasAppshot: Boolean(appshotData),

@@ -1,10 +1,4 @@
 {
-	"tabs": {
-		"scene": "场景"
-	},
-	"typeNoun": {
-		"scene": "场景"
-	},
 	"subtitle": "安装并启用你需要的能力，让 Vetta 拥有更多专业技能",
 	"search": {
 		"placeholder": "搜索{{noun}}..."
@@ -22,11 +16,6 @@
 		"general": "通用",
 		"readonly": "只读",
 		"updatable": "可更新"
-	},
-	"scene": {
-		"generalReadonly": "通用·只读",
-		"running": "运行中",
-		"installed": "已安装"
 	},
 	"group": {
 		"agentSkill": "通用 Agent Skill",
@@ -75,7 +64,7 @@
 		},
 		"publish-ability": {
 			"name": "发布能力",
-			"description": "把 skill、scene、MCP、插件或能力套装提交到 Vetta 能力市场，讲清必填字段、多语言与审核流程。"
+			"description": "把 skill、MCP、插件或能力套装提交到能力市场，讲清必填字段、多语言与审核流程。"
 		}
 	}
 }

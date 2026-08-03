@@ -4,16 +4,6 @@ This is a living glossary. Each term is a deliberately-chosen canonical name for
 
 ## Glossary
 
-### 官方网站（site）
-
-Vetta 面向未登录访客的多页公开门户，首期只承载产品介绍、站点演示、客户端下载、套餐展示和登录入口；内容为门户自有展示内容，不对接后台套餐、支付、身份或发布数据。首期不承载账号中心、真实支付购买、真实安装包下载或客户端 SSO 授权完成态。
-_Avoid_: 把首期官方网站称为「用户前台系统」或「完整商业门户」——这会误导为已包含账号、支付、订阅管理全链路。
-
-### Google 登录
-
-用户用 Google 账号完成第三方登录的身份入口；首期官方网站只展示入口占位，不完成 OAuth 流程。
-_Avoid_: 叫「Gmail 登录」——Gmail 是邮箱服务，不是身份提供方。
-
 ### ToolTimingEntry
 
 A `SessionEntry` (parallel to `thinking_level_change` / `model_change`, not a `message`) written to a session's jsonl by `agent-session` at `tool_execution_end`. Carries `toolCallId`, `startedAt` (absolute ms), `durationMs`, and `phases` (relative offsets, see `phase`).
@@ -284,27 +274,21 @@ desktop-app 经由 OS 原生通知中心（macOS / Windows）向用户推送的�
 
 刻意与 `APPEND_SYSTEM.md` 文件注入分离：那条路径只在 session 初始化/显式 `reload()` 时读盘，无 per-prompt 懒重载；个性化需要「应用后下一轮即生效」故走独立的轻量签名路径。注入位置见 [[个性化]]——拼在系统提示词末尾，顺序为 `APPEND_SYSTEM.md → 人设 → 自定义指令`。
 
-### 预设模板（provider template）
+### 预设服务商（preset provider）
 
-服务端下发的、用于「免配置接入大模型服务商」的**目录条目**:每个模板描述一个服务商的 `baseUrl`、模型列表(含上下文/输入形态/是否思考/价格等能力元数据)、`api` 类型、供应商图标等——但**不含 key**。客户端启动时 fetch 一份(BYOK 直连,见下),用户只需填入**自己的 key** 即可使用该服务商的预设模型。
+**客户端内置**的「免配置接入大模型服务商」目录条目（Claude / OpenAI / DeepSeek / Z.ai(GLM) / Kimi / Gemini）:每条描述一个服务商的 `baseUrl`、`api` 类型与供应商图标 symbol——但**不含 key**。用户只需填入**自己的 key** 即可使用。见 ADR-0050(取代 ADR-0015 的「服务端下发模板目录」)。
 
-与 [[远程网关]] 是**两个独立、并存**的来源,术语上刻意不复用 "remote":
-- **预设模板 = BYOK 直连**:请求直发服务商原站(`api.anthropic.com` / `api.deepseek.com` …),用**用户自己的 key**,服务端只提供目录、**不碰 key、不转发流量、不扣 credits**。
-- **远程网关**:请求经服务端代理(`gatewayUrl`),用登录 JWT 当 key,服务端可计费。
+**始终是 BYOK 直连**:请求直发服务商原站(`api.anthropic.com` / `api.deepseek.com` …),用用户自己的 key,本产品不碰 key、不转发流量、不计费。开源版没有任何形式的网关或代理。
 
-**采纳即持久化(snapshot-on-key)**:用户给某模板填入 key 的那一刻,该模板被落成本地 [[models.json]] 里的一个普通 provider 条目(带 `apiKey`),并打上来源标记 `source:"template"` + `templateId`。由此 `getAvailable()` / `ModelSelector` / 离线 fallback 全部复用既有机制。手搓的自定义服务商无此标记,**任何同步逻辑都不得触碰**。
+**模型列表向服务商本人要**:填完 key 立刻请求该家 `/models`,之后每 12 小时后台同步一次,设置页每行还有手动刷新。接口不给的元数据(价格、上下文长度)由 [models.dev](https://models.dev/api.json) 公共目录补,并随包带一份快照兜底。客户端**不内置任何默认模型清单**——内置清单必然随各家发版腐烂。
 
-**在线合并 / 离线回退快照**:每次 fetch 成功,用服务端最新的 url/模型/参数**覆写** `source:"template"` 的本地条目(只保留用户填的 `apiKey`);服务端删除该模板或 fetch 失败时,本地已持久化的快照照常可用——「服务端能修正错误配置」与「离线/下线不影响存量用户」二者兼得。
+**采纳即持久化(snapshot-on-key)**:用户给某预设填入 key 的那一刻,它被落成本地 [[models.json]] 里的一个普通 provider 条目(带 `apiKey`),并打上来源标记 `source:"template"` + `templateId`。由此 `getAvailable()` / `ModelSelector` / 离线 fallback 全部复用既有机制。手搓的自定义服务商无此标记,**任何同步逻辑都不得触碰**。
 
-设置页中作为**独立的「预设服务商」区**呈现,与「服务商」(手搓自定义、models.json 中无 `source` 标记)、[[远程网关]]「远程服务商」三区语义并列、互不重复:`source:"template"` 的条目只在预设区显示、从手搓区隐藏。fetch / 合并 / 写回 [[models.json]] **只发生在 desktop-app main 进程**;coding-agent 不感知模板,仅需其 ProviderConfigSchema 容忍 `source`/`templateId`/`icon` 字段,复用同一份已持久化的 models.json。无内置种子目录:首启离线且 fetch 失败时预设区为空 + 提示重试。填入 key 即持久化启用、**不做 /models 校验**,首次真实请求才暴露无效 key。
-
-### 远程网关（remote gateway）
-
-见 [[预设模板]] 的对比定义。指现有的 `fetchRemote → /providers/models.json` 机制:登录后服务端下发模型,请求经服务端代理转发(`gatewayUrl`),以登录 JWT 为 key,服务端可计费。是与预设模板**并存**的另一条链路。同样携带 [[icon symbol]]。
+设置页中作为**独立的「预设服务商」区**呈现,与「服务商」(手搓自定义、models.json 中无 `source` 标记)语义并列、互不重复。目录解析与写回 [[models.json]] **只发生在 desktop-app main 进程**;coding-agent 不感知预设,仅需其 ProviderConfigSchema 容忍 `source`/`templateId`/`icon` 字段,复用同一份已持久化的 models.json。
 
 ### icon symbol
 
-供应商图标的下发方式:**客户端内置一套图标资源,每个资源有唯一 symbol 字符串**(可无限扩充)。服务端的 [[预设模板]] 配置与 [[远程网关]] 供应商配置都只填这个 symbol;客户端按 symbol 解析到内置图标渲染。`icon` 字段**可选**,空则不显示图标。symbol 随 [[预设模板]] 快照一并持久化进 [[models.json]],离线照常渲染。刻意不下发图片字节/URL——客户端资源 + 服务端 slug,既离线安全又省带宽,新增图标=客户端加一张资源。是**供应商(provider)级**,非模型级。
+供应商图标的表示方式:**客户端内置一套图标资源,每个资源有唯一 symbol 字符串**(可无限扩充)。[[预设服务商]] 目录只填这个 symbol;客户端按 symbol 解析到内置图标渲染。`icon` 字段**可选**,空则不显示图标。symbol 随预设快照一并持久化进 [[models.json]],离线照常渲染。刻意不用图片字节/URL——纯客户端资源,既离线安全又省带宽,新增图标=客户端加一张资源。是**供应商(provider)级**,非模型级。
 
 ### ask_user_question
 
@@ -348,94 +332,6 @@ desktop-app 的一项[[实验性功能]]（`experimental.promptPrediction`，**�
 
 [[输入预测]]的列表呈现单元：MessageList 下方、InputBar 上方垂直排列的 0-3 个可点击气泡，每个承载一条预测 prompt（0 条即整块不渲染）。**点击即直接发送**该 prompt（与「placeholder 态空输入回车直发」语义一致），不是填入输入框待编辑。
 
-### 积分（credit）
-
-[[Vetta Go / Token Plan]] 唯一的**内部记账单位**，由 [[信用基座（credit base）]] × 每模型的四类 [[倍率（multiplier）]] 换算得来：`积分 = credit_base × Σ_4类( 该类 token / 1e6 × 该类倍率 )`（四类 = input / output / cacheRead / cacheWrite）。**与真实成本彻底解耦**——不再是「1 积分 = 1 元」。系统**不存真实成本**，仅 `credit_base` 一个旋钮；`¥/积分` 换算（心算参考「1 积分 ≈ ¥0.00309」）仅为外部离线校准用途，**不入库、不下发客户端、不参与计费**（见 ADR-0039，取代 ADR-0015/0038 的「1 积分 = 1 元」口径）。消耗只累加进 [[窗口配额]]。
-
-### 信用基座（credit base）
-
-全局单一定价基准（`gateway.credit_base`，默认 1000，语义「1x 倍率 = 1 积分 / 千 token = 1000 积分 / 百万 token」），在[[网关设置]]可改。是 [[积分（credit）]] 计费公式里唯一的全局系数：`积分 = credit_base × Σ_4类( 该类 token / 1e6 × 该类倍率 )`，也是系统内**唯一**的定价旋钮。存在的意义是**一键整体调价**——改这一个值即让全平台所有模型同比涨/降价，无需逐模型改配置。系统**不存真实成本**：无 `gateway.credit_cny_rate` 设置、也不下发派生元单价；`¥/积分` 换算仅为外部离线校准的心算参考（1 积分 ≈ ¥0.00309），不入库、不参与计算。见 ADR-0039。
-
-### 倍率（multiplier）
-
-每个 `ProviderModel` 存的**相对定价系数**，取代旧的「每模型绝对价（Cost 元 + CreditCost 积分 双份）」。复用既有 `ModelCost` 结构的四个 float 字段（input / output / cacheRead / cacheWrite），但语义从「元/百万 token 的价」变为「相对基准的倍率」（基准锚定 DeepSeek V4 Pro 输入真实价 ¥3.09，故倍率 = 旧元价 / 3.09）。每类 token 独立倍率，因各模型的缓存折扣比例不同、无法用单一 scalar 表达。计费时 [[信用基座（credit base）]] × 各类倍率累加即得 [[积分（credit）]]。缓存两类倍率留空（0）时**回退按输入倍率计**（过收不漏，安全侧）；[[档位]] 的按次计费逃生舱（`per_request`）不走倍率。见 ADR-0039。
-
-### Vetta Zen / 按需付费（pay as you go）
-
-自建远程模型服务的既有计费方式。用户持有 `user_credits.balance` 积分钱包，每次请求按真实成本（`CalcRealCostCNY`）从余额扣减，余额 ≤ 0 即拒绝（除非 `unlimited`）。desktop 中作为聚合云端 provider「Vetta Zen」呈现。与 [[Vetta Go / Token Plan]] 是 desktop 侧**两个并列服务商**。
-
-### Vetta Go / Token Plan
-
-新增的订阅式计费方式，仿主流 token plan。用户开通某 [[档位]] 后，在该档位的[[窗口配额]]内使用其[[模型分组 tag]]覆盖的模型，**不走积分钱包扣减**。desktop 中作为独立服务商「Vetta Go」呈现；开通后有特殊标记与卡片。
-
-### 档位（tier）
-
-[[Vetta Go / Token Plan]] 的订阅等级，在 admin「订阅配置」可增删改。预设 Lite / Pro / Max 三档。每档字段：名称、三个[[窗口配额]]、关联若干[[模型分组 tag]]、一个**主 badge**（文字标签 + 颜色，desktop 右下角尊贵标识）、一段 **desc** 套餐描述、一个[[可售性质]]，以及绑定的 Creem product（月付 / 年付各一个）。
-
-**售价的真相源在 Creem，不在档位上**：档位只存从 Creem 同步下来的价格快照（只读，供展示），admin 不可直接编辑。这样物理上不可能出现「页面显示一个价、实际扣另一个价」。档位自身残留的 `Price` 字段仅用于[[订阅授予]]的记账，不对外展示、不参与真实收入统计。
-
-### 订阅授予（subscription grant）
-
-admin 在后台手动把某[[档位]]授予某用户：选档位 + 录入售价 + 指定月数。有效期 = **授予当日起算满 N 个自然月**（如 6/15 授予 1 月 → 6/15 04:00 至 7/15 04:00）。是[[权益来源]]之一，与[[付费订阅]]**并存而非互斥**：授予期内**无条件优先**于付费订阅，到期后自动回落到仍然有效的付费订阅、再回落[[默认订阅]]。
-
-订阅只存 `tier_id` **实时引用**档位：admin 改档位配额/分组，存量订阅用户下次请求即按新值，不做授予时快照。授予**不清空**[[窗口配额]]计数（见[[窗口锚点]]）。
-
-授予会留一条行政记录，但它**不是交易、不计入收入**——真实收入只来自[[支付订单]]。
-_Avoid_: 把行政授予记录当收入统计源。内部/白名单档标价可能高达 999999，赠送一次就把报表打穿。
-
-### 窗口配额（window quota）
-
-[[档位]]的配额，按三个并行时间窗口同时约束（任一超额即拒绝），消耗以真实成本积分计：
-- **5 小时窗口** → 固定错峰[[5 小时段]]，全员统一重置。
-- **周窗口** → 自然周，周一 04:00 重置，服务器时区。
-- **月窗口** → 跟随[[窗口锚点]]起算的自然月（`m0 → m1 → m2 …` 单调递增），到点重置。
-
-预设值：Lite 2000/10000/40000、Pro 4000/20000/80000、Max 6000/24000/96000（5h/周/月，单位积分）。
-
-### 服务总开关（service master switch）
-
-网关设置中对 [[Vetta Zen / 按需付费]] 与 [[Vetta Go / Token Plan]] 各自的全局启停开关。是**硬全局门、优先级最高**：关闭某服务 → 该服务所有请求拒绝，desktop 隐藏其服务商与（模型设置页的）section，盖过任何个体状态（active 订阅、钱包余额均不豁免；订阅数据保留只是不可用）。
-
-客户端显隐**跟随服务端下发的开关状态**；拉取失败（离线）时**沿用上次已知缓存**，首启无缓存默认隐藏——与[[预设模板]]/Zen 模型的离线快照思路一致。
-
-### 5 小时段（5h slot）
-
-5 小时窗口的固定错峰时段。锚点 04:00、服务器统一时区，一天 5 段（04-09、09-14、14-19、19-24、00-04），到点全员重置（非按用户首次请求滚动）。
-
-### 站内信（in-app notification）
-
-服务端持久化、经 SSE 实时推送、在 desktop「消息中心」的「通知」(铃铛) Tab 内呈现的应用内消息。每条带一个 `type` 判别字段（**通用类型化**：首期消费者是[[订阅操作]]，未来系统公告/额度告警等可复用同一张表与同一套列表/未读/标已读接口）、`title`/`body`、可选定位 `payload`、以及 per-user 已读状态（驱动铃铛未读角标）。
-
-与 [[系统通知（system notification）]] 是**两个不同概念，不要混用**：
-- **系统通知** = desktop-main 经 **OS 原生通知中心**弹出的横幅，由**本地 session 事件**（agent 完成/提问）触发，不持久化、无应用内收件箱。
-- **站内信** = **服务端**产生、持久化进数据库、经 SSE 下发、在**应用内**铃铛 Tab 累积的消息。离线期间产生的站内信，用户上线后仍可在 Tab 内看到。
-
-二者可叠加（一条站内信到达时也可顺带弹一次系统通知），但存储与入口彼此独立。
-_Avoid_: 把服务端推送的应用内消息叫「系统通知」。
-
-### 订阅操作（subscription operation）
-
-admin 在「订阅管理」页「用户订阅」Tab 对单个用户施加的三种操作，每种默认产生一条 [[站内信]]（带 action 默认文案 + 可选管理员附言，可勾选「不通知」静默执行）：
-- **移除订阅**：删除该用户的 `UserSubscription` 授予行**并清空其 `GoUsageWindow` 计数**，用户随即落回[[默认订阅]]（未配置默认档位则彻底无 Go 权限）。不同于「删除用户」。
-- **更改订阅**：复用既有[[订阅授予]] dialog（选档位+售价+月数，**生成购买记录**、覆盖旧订阅、重置周期与窗口）。「更改」与「授予」是同一动作，仅入口/语境不同。
-- **重置订阅额度**：删除该用户三个 [[窗口配额]]（5h/周/月）的 `GoUsageWindow` 行，使其立即从 0 重新计量。**不**改档位、不碰订阅有效期、不碰积分钱包。
-
-顶部另有**批量重置订阅额度**：多选若干[[档位]]，对**持有该档位 active 授予**的所有用户一次性重置三窗口。
-
-**默认档位的特殊处理**：付费档位按显式授予算；但当筛选/批量重置命中[[默认订阅]]所配档位时，覆盖所有「实际落在默认订阅」的用户（无有效付费授予者——含新用户、过期、被移除、显式授予默认档位）。「用户订阅」列表按该档位筛选即列出这批用户（标记 `is_default`、无到期时间、状态「默认」）。批量重置默认档位时**只重置有窗口消耗记录的消耗者**（避免向全量 free 用户广播通知）。默认档位行隐藏「移除订阅」（无授予可移除）。
-_Avoid_: 把「移除订阅」叫「删除用户」；把「重置额度」与「调整积分」混为一谈（后者是 Vetta Zen 钱包，前者是 Go 窗口）。
-
-### 默认订阅（default subscription）
-
-用户在无任何[[订阅授予]]、或授予已过期/档位停用时**自带**的 [[Vetta Go / Token Plan]] 档位。admin 在[[网关设置]]选定一个档位为默认（`gateway.default_tier_id`，0=不启用）。命中默认订阅时合成一个**永不过期**的订阅，月[[窗口配额]]锚点优先沿用过期授予起点、否则取账号创建时间以保证窗口键稳定；其额度按所选档位的 5h/周/月正常限流。是**全局基线**（在[[网关设置]]选定），但落在默认档位的用户**可**在「用户订阅」Tab 按该档位筛选出来、并被逐用户/批量重置额度（见[[订阅操作]]）。
-_Avoid_: 把默认订阅当成一条真实的 `UserSubscription` 授予记录——它是请求时合成的，库里无行（故按默认档位筛选走的是「全体用户 NOT IN 有效付费授予」而非查 `user_subscriptions`）。
-
-### 模型分组 tag（model group tag）
-
-模型的分类标签，一个模型可打多个。**独立受管实体**（id + 名称），与现有自由文本 `ProviderModel.tags`（"free,fast,vision" 展示标签）完全分离，模型与分组多对多（中间表）。在「模型设置」页有「模型分组」配置入口预设 n 个分组，模型设置中给模型多选打 tag。
-
-**通用概念，不与 Go 强绑定**：分组本身是独立特性，[[档位]]关联若干分组 tag 决定可用模型只是当前**第一个消费者**；未来可能有其他业务按分组处理。建模时保持解耦——分组实体不依赖订阅，订阅单向引用分组。当前仅约束 Go 可用范围，[[Vetta Zen / 按需付费]] 仍暴露所有启用模型、与分组无关。
-
 ### 推理档位（reasoning level）
 
 一个模型可选的**思考强度**选项，是**每模型独立**的能力（不是全局、也不是每 provider——同一 provider 下不同模型支持的档位可以不同，如 gpt-5.2 支持 xhigh 而更早的 GPT-5 不支持）。取代原先「全局 [[思考等级]] + 客户端 `supportsXhigh` 硬编码推断」的做法。
@@ -444,39 +340,19 @@ _Avoid_: 把默认订阅当成一条真实的 `UserSubscription` 授予记录—
 
 显示：desktop 对**已知 value**（minimal/low/medium/high/xhigh）映射到 i18n key 随语言切换渲染；未知自定义 value 直接展示原文——故档位项不存展示文本，无死文案。
 
-来源分层：每个 `api` 类型在 `@vetta/ai` 内置一份**预设档位列表**作为「新建模型时的预填 + 空列表 fallback」；但**只是预设、非约束**——模型可自由改写自己的档位列表（服务端模型走 admin，本地离线[[预设模板]]/手搓 provider 走 desktop 本地配置）。列表为空时 fallback 到该 api 预设。
+来源分层：每个 `api` 类型在 `@vetta/ai` 内置一份**预设档位列表**作为「新建模型时的预填 + 空列表 fallback」；但**只是预设、非约束**——模型可自由改写自己的档位列表（[[预设服务商]]与手搓 provider 均走 desktop 本地配置）。列表为空时 fallback 到该 api 预设。
 
 记忆与传输：desktop **每模型记忆**上次所选档位（本地 `modelKey→value` 映射，跨会话/重启保留），随 `PromptRequest` 与 `modelKey` 同行下发、应用于本轮。取代原全局 `setGlobalThinkingLevel`（连同设置页全局 SegmentedControl 一并移除）。`reasoning:bool` 降级为**派生值**（`reasoningLevels` 非空即 true），列表为唯一真相源；无全局 `off` 档，关思考与否由档位列表自决。
 
 范围（本期）：仅覆盖 openai-completions / openai-responses 及衍生 v1 第三方适配器（qwen / nvidia / zai …）。[[anthropic-messages]] 原生 provider 本期**不删、也不专门适配**（其 `cache_control` / thinking signature / adaptive thinking 为原生独有、无 v1 等价物），留到后续阶段再单独接入。
 
-### 技能管理字段（skill management fields）
-
-[[技能市场]]里一个 Skill/Scene 的平台侧可管字段：`type`(skill|scene)、`category`、`tags`、`version`、`author`、`alias`、`description`、`is_enabled`、`download_count`。**真相源是平台数据库，不是 SKILL.md。** SKILL.md 的 `metadata` 块仅在**上传那一刻**作导入兜底（用来预填表单初值），入库后一切以 DB 为准、由 admin 编辑；agent 触发只读包内 SKILL.md 原文。
-_Avoid_: 把 SKILL.md 的 `metadata` 当成运行期真相源——第三方 skill 不该为了上传被迫改造 metadata。
-
-### market description
-
-[[技能市场]]列表/详情给人看的展示性描述，admin 上传/编辑时填写，**留空降级到 SKILL.md frontmatter 的 `description`**。**纯展示层**：客户端存在 manifest 的 `marketDescription`，不回写包内 SKILL.md。
-_Avoid_: 与 **SKILL.md description** 混为一谈——后者是 agent 判断何时触发该 skill 的功能性描述，二者用途不同、互不覆盖。
-
-### skill version（技能版本口径）
-
-Skill 的版本以**服务端 DB 值为唯一真相**。来源优先级：**上传表单值 > SKILL.md metadata.version > 兜底**（新包 `1.0.0`、重传在当前 DB 版本上 `patch+1`）。单包上传时 metadata.version 预填表单、admin 可改；批量上传无表单，新包取 metadata.version、重传取 metadata.version 否则 patch+1。客户端安装时把服务端下发的 version 经 `meta` 存入 [[skills-manifest]]，**绝不重新解析本地 SKILL.md**；`needsUpdate = manifest.version !== market.version`。
-_Avoid_: 客户端装完重解析本地 SKILL.md 取版本——SKILL.md 常缺 version，服务端缺省 `0.0.1` 与本地解析缺省 `0.0.0` 永不相等，导致「一直可更新」。
-
 ### skill category（技能分类）
 
-Skill/Scene 的分类，**独立受管实体**（id + 名称 + `scope` 区分 skill / scene），admin 有「分类管理」入口 CRUD，上传/编辑时按当前 type 过滤后**单选一个**。与 [[模型分组 tag]] 同构思路：从 metadata 自由文本解耦，改分类不需重传包。`tags` 仍是自由描述性标签、与 category 分离。
+Skill 的分类，由[[开放市场]]清单在 `marketplace.json` 里声明，每条能力**单选一个**。分类是分组与筛选的 key，与 `tags`（自由描述性标签）分离。
 
 ### skills-manifest
 
-客户端 `~/.vetta/skills-manifest.json`，记录每个已装 Skill/Scene 的安装态（`version`/`source`/`enabled`/`type`/`alias`/`marketDescription`）。本地文件扁平铺在 `~/.vetta/{skills,scene}/<name>/`，**同名同时只存一个版本**，路径不含版本号。manifest 里的 `version` 是 [[skill version]] 的更新比对基准。
-
-### skill download_count（下载量）
-
-Skill 的热度计数，**后端 `DownloadArchive` 每成功一次 +1，不按用户去重**（含重装/更新）。admin 表格与 desktop 市场页都展示，市场页可按热度排序。
-_Avoid_: 当成「装机量/独立安装数」——它是原始下载次数，不减卸载、不去重。
+客户端 `~/.vetta/skills-manifest.json`，记录每个已装 Skill 的安装态（`version`/`source`/`enabled`/`alias`/`marketDescription`）。本地文件扁平铺在 `~/.vetta/skills/<name>/`，**同名同时只存一个版本**，路径不含版本号。manifest 里的 `version` 是 [[skill version]] 的更新比对基准。
 
 ### 通用 Agent Skill 作用域（generic agent skill scope）
 
@@ -484,11 +360,11 @@ Vetta 之外的、跨 Agent 通用的 Skill 存放约定：全局 `~/.agents/ski
 
 发现规则刻意**只认子目录 `SKILL.md`**（不认根目录散装 `.md`），严格对齐业界 Agent Skill 约定——这正是「通用」的含义；根目录散装 `.md` 是 Vetta 专属作用域的特例，不带进通用目录。
 
-来源标记上与专属作用域区分：从此处加载的 skill 打 `source = "agents-user"`（全局）或 `"agents-project"`（项目级），区别于专属的 `"user"`/`"project"`，使 [[skills-manifest]] / desktop 列表能识别其为「通用、无平台托管」从而**只读呈现**（不可在[[技能市场]]卸载/启停/版本管理）。
+来源标记上与专属作用域区分：从此处加载的 skill 打 `source = "agents-user"`（全局）或 `"agents-project"`（项目级），区别于专属的 `"user"`/`"project"`，使 [[skills-manifest]] / desktop 列表能识别其为「通用、非市场安装」从而**只读呈现**（不可卸载/启停/版本管理）。
 
-同名碰撞时 **Vetta 专属优先于通用**：通用 Agent Skill 目录在所有 Vetta 原生来源（`user`/`project`/`scene`）之后加载，先加载者胜，故加载顺序为 `user → project → scene → agents-user → agents-project`——通用 Agent Skill 是补充而非覆盖内置（含 scene）。两处目录均纳入 agent 路径保护（只读、禁止 agent 新增/修改），与 Vetta 自家 skill 目录同等对待。
+同名碰撞时 **Vetta 专属优先于通用**：通用 Agent Skill 目录在所有 Vetta 原生来源（`user`/`project`）之后加载，先加载者胜，故加载顺序为 `user → project → agents-user → agents-project`——通用 Agent Skill 是补充而非覆盖内置。两处目录均纳入 agent 路径保护（只读、禁止 agent 新增/修改），与 Vetta 自家 skill 目录同等对待。
 
-作用域支持是 coding-agent 核心**默认开**（CLI 也享受），desktop 侧由「Agent配置 → 扩展功能 → 适配通用 Agent Skill」开关控制（默认开、可关），关闭时向会话传入禁用标志。desktop 聊天侧技能选择器（`/` SlashPanel）经 `vetta:skills:list(cwd)` **按当前会话 cwd 列出**：既有全局 `~/.agents/skills`，也有该项目的 `<cwd>/.agents/skills`（不传 cwd 则只列全局来源）。技能**市场页**（技能广场）以独立的「通用 Agent Skill」**只读分区**展示全局 `~/.agents/skills`（按当前 tab 的 skill/scene 类型分流，可预览 SKILL.md，但不可安装/卸载/启停——这些是纯文件、无平台托管）。
+作用域支持是 coding-agent 核心**默认开**（CLI 也享受），desktop 侧由「Agent配置 → 扩展功能 → 适配通用 Agent Skill」开关控制（默认开、可关），关闭时向会话传入禁用标志。desktop 聊天侧技能选择器（`/` SlashPanel）经 `vetta:skills:list(cwd)` **按当前会话 cwd 列出**：既有全局 `~/.agents/skills`，也有该项目的 `<cwd>/.agents/skills`（不传 cwd 则只列全局来源）。技能**市场页**（技能广场）以独立的「通用 Agent Skill」**只读分区**展示全局 `~/.agents/skills`（可预览 SKILL.md，但不可安装/卸载/启停——这些是纯文件、无平台托管）。
 _Avoid_: 把 `agents-*` 来源当成可在市场管理的条目——它们无 manifest、无平台托管，纯文件、纯展示。
 
 ### 黑胶播放器（vinyl player）
@@ -566,20 +442,6 @@ _Avoid_: 把插件 MCP 写入 `~/.vetta/agent/mcp.json`——卸载与版本切�
 ### 预置插件（preset plugin）
 
 `packages/plugins/presets/<name>/` 下的插件**源码**，在 monorepo 内授权、维护——是[[系统插件]]的「源」面。构建期逐个 build 产出**解压态** `dist/ + plugin.json`（非 zip）：打包时拷进 desktop-app 的 `resources/system-plugins/<id>/` 随包发布，dev 下直接就地读 `packages/plugins/presets/<id>/{plugin.json, dist/}`。运行时零解压、零拷贝。「放进 `packages/plugins/presets/` 即成系统插件」是该目录的约定语义。
-
-### 插件市场（plugin marketplace）
-
-服务端分发 [[可信插件]] zip 包的目录，与 [[技能市场]] 同构：admin 上传 zip，后端解压读取包内 `plugin.json` 自动入库（id / name / version / description / author / permissions），消费接口需登录 token（不限平台，照 [[技能市场]] 鉴权）。**真相源是平台数据库**——`plugin.json` 仅上传那一刻作为元数据来源，入库后 admin 可改展示字段。与技能市场刻意保留三处差异：
-
-- **不设分类受管实体**：技能有 [[skill category]] 独立实体，插件**只保留自由 `tags`**（jsonb，未来做 taglist 筛选，当前不消费），不引入分类 CRUD。
-- **下载原样返回上传的 zip**：[[技能市场]] 下载是从 S3 散文件**重打包成 tar.gz**；插件本质是 zip、且要被 desktop 的 `installPluginFromUrl` 直接消费，故插件**整包作单个 S3 对象存、下载原样吐 zip**，不解包不重打包。
-- **单表扁平、不留版本历史**：以 manifest `id` 为唯一键，重传同 id **原地覆盖**（更新 version + 覆盖 zip + 保留 download_count 与创建时间），市场侧只暴露「当前版本」。详见 [[插件版本口径]]。
-
-### 插件版本口径（plugin version semantics）
-
-[[插件市场]]里一个插件的 version 以**服务端 DB 当前行为唯一真相**，来源是上传 zip 内 `plugin.json` 的 `version`。单表扁平、**不保留版本历史**：同 id 重传即原地覆盖旧版本，无回滚、无旧版查询。
-
-这与 desktop 端 [[系统插件]]/用户插件自带的 `availableVersion / pendingVersion` 更新流**刻意不对称**——更新流是客户端「装了旧版、市场出了新版」的比对机制，市场侧只需提供「这个 id 当前是哪个版本的 zip」即可驱动它，不需要自己存版本历史。一期采纳与 [[技能市场]] 同构的扁平模型而非 Plugin + PluginVersion 双表，是为最小化首期实现面；代价是市场无法回滚或并存多版本。
 
 ### 引导词（guidingWords）
 
@@ -693,51 +555,6 @@ _Avoid_: 以为触发是 Electron globalShortcut 或可录制任意组合键—�
 
 **发送后行为可配置**（设置项，默认「打开主窗并定位」）：① 打开主窗并定位到新会话 / ② 后台运行、面板只关闭、靠[[agent 完成通知]]提醒。
 
-### 权益来源（entitlement source）
-
-一个用户当前享有某[[档位]]的**理由**，只有两种：[[付费订阅]]与[[订阅授予]]。二者**同时存在互不覆盖**，各自独立记录、独立到期。有效档位的解析顺序恒为：行政授予（未过期）→ 付费订阅（有效）→ [[默认订阅]]。
-
-行政授予**无条件优先**，不比较档位高低——它是人工决策，既要能临时提权，也要能临时降权。误授予低档会降级付费用户，这靠 admin 表单展示「该用户当前付费档位」并二次确认来兜，而不是靠代码取高值。
-_Avoid_: 说「取高者生效」——档位差异不止一个维度（三档配额 + 可用模型分组），不存在单一可比标量。
-
-### 付费订阅（paid subscription）
-
-用户在 Creem 上真实付费产生的、**自动续费**的[[权益来源]]。周期由 Creem 托管：续费、扣款重试、逾期催收都发生在 Creem 侧，本系统只消费其事件并维护一份本地状态镜像。
-
-状态是一个**状态机**（active / trialing / past_due / paused / canceled / expired）而非单纯的「到期时间」，这是它与[[订阅授予]]最本质的差别：授予只会到期，订阅还会逾期、暂停、预约取消。
-
-本地镜像为准、Creem 为最终真相：网关热路径只读本地（每请求实时问 Creem 不可行），另有周期性对账把漂移拉回。丢事件在支付集成里是常态而非异常，因此**没有对账的纯事件驱动一律视为未完成**。
-
-### 支付订单（payment order）
-
-一次购买尝试的本地记录，在跳转收银台**之前**就已创建（`pending`），而不是收到付款成功事件后才补建。存在的理由有三：作为幂等键让重复事件天然无害；让「点了购买但没付成」可被观测（否则这个漏斗完全不可见）；固化交易发生那一刻的成交价（[[档位]]上的价是会变的同步快照）。
-
-是**收入统计的唯一数据源**。
-
-### 可售性质（purchase mode）
-
-[[档位]]的一个判别字段，回答「公开定价页上这张卡能不能点、点了会怎样」：默认兜底档（展示但无从购买）、可自助购买、联系销售、内部档（永不出现在公开页）。
-
-四种状态是真实存在的，不能用布尔或从别的字段隐式推导——尤其内部/白名单档如果被推导成「联系销售」就会泄露到公开页面。
-
-### 窗口锚点（window anchor）
-
-[[窗口配额]]中月窗口的起算基准，在用户**首次**获得订阅时写入，此后**永不变更**——续费不变、升降档不变、行政授予不变。
-
-它必须不可变，否则月窗口键会从 `m3` 倒退回 `m0` 撞上历史行的既有消耗。早期靠「每次授予就删光该用户全部窗口计数行」来回避这个撞车，那个做法在自动续费下会变成每月白送一次额度，并且让「降档再升档」成为刷新 5 小时配额的手段。
-
-5 小时窗口与周窗口是**全局错峰**的，与任何订阅事件无关，任何时候都不清零。
-
-### 取消（cancel）与退款（refund）
-
-两个必须分开的动作，中文口语里常被混作「退订」：
-
-- **取消**：停止下一次扣款，已付的当前周期照常用到期末。**不涉及任何钱的流出**，是用户自助的，且必须与订阅同等便捷——找不到取消入口的用户会直接向银行发起拒付，那对 MoR 商户账号的伤害远大于一次自然流失。
-- **退款**：把已收到的钱退回去，真实减少收入。**只能由管理员发起**，用户经邮件申请。自助退款等于给任意用户一个单方面撤销交易的按钮。
-
-退款时是否同时收回权益是**独立选择**：全额退（不满意）该收回，部分退（安抚性补偿）不该收回——把退款做成无条件断服，等于惩罚刚被安抚过的用户。
-_Avoid_: 用「退订」同时指代这两件事。
-
 ### 工作流（workflow）
 
 主会话 Agent 为并行处理复杂任务而[[派遣]]出的一种 **subagent 类型**：一个独立子会话，出生时携带主会话的[[上下文快照 fork]]，以一份预填的 todo 列表起手执行。工作流之间互不共享上下文；**完全单层**——工作流内部不能再派遣任何代理。首版与主会话共享 cwd（不做 worktree 隔离），靠派遣时把任务拆分为互不重叠的范围来避免文件冲突。
@@ -768,9 +585,9 @@ _Avoid_: 把工作流称作「后台任务」（那是 background-tasks 标签�
 
 ### Ability（能力）
 
-平台侧**可分发扩展单元的统一概念**：Skill / Scene / MCP Server / Plugin / Bundle 在服务端收敛为**一张 `abilities` 表**、靠 `type` 判别，在 desktop 收敛为**一个「能力」列表 + 一套详情页**。
+**可分发扩展单元的统一概念**：Skill / MCP Server / Plugin / Bundle 在[[开放市场]]清单里靠 `type` 判别，在 desktop 收敛为**一个「能力」列表 + 一套详情页**。
 
-**统一只发生在「数据存放」与「概念呈现」两层，刻意不统一物理分发与安装**：skill 装 `~/.vetta/skills/`、scene 装 `~/.vetta/scene/`、plugin 装 `~/.vetta/plugins/`、MCP 写进 `~/.vetta/agent/mcp.json` 的一个 key ——三条安装轨道原样保留，因为它们本来就是三种不同的运行时机制。scene 是这一模式的既有先例：服务端与 skill 同表同归档，仅客户端目录不同。
+**统一只发生在「数据存放」与「概念呈现」两层，刻意不统一物理分发与安装**：skill 装 `~/.vetta/skills/`、plugin 装 `~/.vetta/plugins/`、MCP 写进 `~/.vetta/agent/mcp.json` 的一个 key ——三条安装轨道原样保留，因为它们本来就是三种不同的运行时机制。
 
 标识为 `(type, slug)` 联合唯一，引用形式 `"skill:figma-ui"`。不来自市场的内置能力（`skill-presets`、系统插件）采用不会与市场冲突的 slug 命名空间，因此无需去重或优先级判定。
 
@@ -786,9 +603,9 @@ _Avoid_: 把工作流称作「后台任务」（那是 background-tasks 标签�
 
 `type = bundle` 的 [[Ability（能力）]]：一组**各自独立可用**的能力的松散组合。自身**永远无产物**（`artifact_key` 恒空），安装 = 逐成员走各自既有安装轨道，不引入任何新的打包/解包机制。
 
-成员以 `(type, slug)` 引用已上架的能力行为主；只有 **mcp** 允许「私有内联」（内联一段 config），因为 mcp 本就无产物。skill / scene / plugin 成员必须是引用——一旦允许内联带产物的成员，bundle 就要长出自己的打包格式与校验解包逻辑。
+成员以 `(type, slug)` 引用已上架的能力行为主；只有 **mcp** 允许「私有内联」（内联一段 config），因为 mcp 本就无产物。skill / plugin 成员必须是引用——一旦允许内联带产物的成员，bundle 就要长出自己的打包格式与校验解包逻辑。
 
-**bundle 不可嵌套 bundle**。可被组合的 type 只有 `skill / scene / plugin / mcp`，成员集合恒为一层，不存在递归展开。
+**bundle 不可嵌套 bundle**。可被组合的 type 只有 `skill / plugin / mcp`，成员集合恒为一层，不存在递归展开。
 
 **与 [[插件内聚]] 的判据**：bundle 是**松散**组合，成员对用户可见、可单独安装/卸载/启停；plugin 内聚（ADR-0040 的 `agent.mcpServers`、`agent.skillPaths`）是**紧耦合**，成员对用户不可见、随插件生死。要发「不单独上架的 skill/MCP」，答案是打进 plugin，不是塞进 bundle。
 
@@ -796,7 +613,7 @@ _Avoid_: 把工作流称作「后台任务」（那是 background-tasks 标签�
 
 `~/.vetta/abilities.json`，desktop 侧记录「装了哪些 [[Ability（能力）]]、什么版本」的**单一索引**，键为 `<type>:<slug>`。
 
-它**只是索引，不是安装位置**：skill / scene / plugin 的产物与 mcp 的配置仍分别落在各自既有位置，台账不复制内容。存在的理由是统一「已安装 / 版本 / 是否可更新」的判定——在它之前这三件事分别来自 skill 目录下的 manifest、`plugins-manifest.json`、以及「`mcp.json` 里有没有这个 key」，其中 mcp 连版本都没有，导致 admin 改了市场 MCP 的 config 后存量用户永远收不到更新。
+它**只是索引，不是安装位置**：skill / plugin 的产物与 mcp 的配置仍分别落在各自既有位置，台账不复制内容。存在的理由是统一「已安装 / 版本 / 是否可更新」的判定——在它之前这三件事分别来自 skill 目录下的 manifest、`plugins-manifest.json`、以及「`mcp.json` 里有没有这个 key」，其中 mcp 连版本都没有，导致市场侧改了 MCP 的 config 后存量用户永远收不到更新。
 
 [[bundle（能力套装）]] **不进台账**：它的安装态、启用态、可更新态全部由成员派生，因此不存在台账与实际状态漂移的可能。
 

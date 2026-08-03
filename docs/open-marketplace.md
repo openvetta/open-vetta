@@ -100,7 +100,7 @@ MCP 没有可执行安装产物，但必须有独立包目录。`marketplace.jso
 }
 ```
 
-Bundle 没有独立安装产物，只声明同一 Manifest 中的成员。成员支持 `skill`、`scene`、`mcp` 和 `plugin`，不允许嵌套 Bundle。安装和卸载时均由用户在确认弹窗中选择成员，不强制一次处理全部成员。Bundle 可以提供可选的 `source.path`，但该目录只能承载下述展示文件。
+Bundle 没有独立安装产物，只声明同一 Manifest 中的成员。成员支持 `skill`、`mcp` 和 `plugin`，不允许嵌套 Bundle。安装和卸载时均由用户在确认弹窗中选择成员，不强制一次处理全部成员。Bundle 可以提供可选的 `source.path`，但该目录只能承载下述展示文件。
 
 ```json
 {

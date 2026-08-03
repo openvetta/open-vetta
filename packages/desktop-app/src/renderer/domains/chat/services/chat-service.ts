@@ -55,24 +55,24 @@ export function isSystemAttachmentPath(path: string): boolean {
 export const isUserImageFile = isImagePath;
 
 /**
- * Parse prefixes from user message text: /skill:<name>, /scene:<name>, and @<path> lines.
+ * Parse prefixes from user message text: /skill:<name> and @<path> lines.
  * Each @ line must end with a literal newline AND look like an absolute attachment path;
  * hand-typed "@something" / "@rel/path" is kept in the body (not a file badge).
  */
 export function parseUserPrefixes(text: string): {
 	skillName: string | null;
-	skillType: "skill" | "scene" | null;
+	skillType: "skill" | null;
 	files: string[];
 	body: string;
 } {
 	let remaining = text;
 	let skillName: string | null = null;
-	let skillType: "skill" | "scene" | null = null;
+	let skillType: "skill" | null = null;
 	const files: string[] = [];
 
-	const skillMatch = remaining.match(/^\/(skill|scene):([^\n]+)\n?([\s\S]*)$/);
+	const skillMatch = remaining.match(/^\/(skill):([^\n]+)\n?([\s\S]*)$/);
 	if (skillMatch) {
-		skillType = skillMatch[1] as "skill" | "scene";
+		skillType = skillMatch[1] as "skill";
 		skillName = skillMatch[2].trim();
 		remaining = skillMatch[3];
 	}
@@ -378,7 +378,7 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatMessage[] {
 
 	/** Next user message follows a settings-assist model-only instruction. */
 	let pendingSettingsAssistTabId: string | undefined;
-	/** Next user message follows a Skill / Scene expansion marker. */
+	/** Next user message follows a Skill expansion marker. */
 	let pendingPromptRef: PromptResourceRef | undefined;
 	/** Next user message carries structured filesystem attachments. */
 	let pendingAttachments: PromptAttachmentRef[] | undefined;

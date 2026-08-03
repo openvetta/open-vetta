@@ -47,9 +47,7 @@ export function createInvokeSkillTool(options: InvokeSkillToolOptions): CodingAg
 			const skill = skills.find((s) => s.name === name);
 
 			if (!skill) {
-				const availableNames = skills
-					.filter((s) => !s.disableModelInvocation && s.type !== "scene")
-					.map((s) => s.name);
+				const availableNames = skills.filter((s) => !s.disableModelInvocation).map((s) => s.name);
 				console.info("[skills] invoke miss", { name, available: availableNames.length });
 				return {
 					content: [

@@ -1,6 +1,6 @@
 import { BotAvatar } from "@vetta/theme-ui/shared";
 import { cn } from "@vetta/ui";
-import type { AbilityShowcaseCanvas } from "@shared/lib/api";
+import type { AbilityShowcaseCanvas } from "../../../market-types";
 
 /**
  * 呈现模板：chat-over-canvas / chat-thread

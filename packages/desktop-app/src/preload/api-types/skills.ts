@@ -3,13 +3,13 @@ export interface SkillInfo {
 	alias?: string;
 	description: string;
 	source: string;
-	type: "skill" | "scene";
+	type: "skill";
 }
 
 export interface MarketSkillMeta {
 	name: string;
 	description: string;
-	type: "skill" | "scene";
+	type: "skill";
 	version: string;
 	author: string;
 	tags: string[];
@@ -21,7 +21,7 @@ export interface InstalledMarketSkill {
 	installedAt: string;
 	source: "market";
 	enabled: boolean;
-	type?: "skill" | "scene";
+	type?: "skill";
 	alias?: string;
 	marketDescription?: string;
 }
@@ -45,13 +45,13 @@ export interface DesktopSkillsApi {
 	installFromMarket(
 		name: string,
 		archiveBuffer: ArrayBuffer,
-		type: "skill" | "scene",
+		type: "skill",
 		/** sha256：市场归档包摘要，安装前校验；存量技能无摘要时省略，跳过校验 */
 		meta?: { alias?: string; marketDescription?: string; version?: string; sha256?: string },
 	): Promise<void>;
 	importCustom(archiveBuffer: ArrayBuffer): Promise<{ name: string }>;
-	uninstall(name: string, type: "skill" | "scene"): Promise<void>;
+	uninstall(name: string, type: "skill"): Promise<void>;
 	toggle(name: string): Promise<void>;
 	getMarketManifest(): Promise<Record<string, InstalledSkill>>;
-	getSkillMdPath(name: string, type: "skill" | "scene"): Promise<string>;
+	getSkillMdPath(name: string, type: "skill"): Promise<string>;
 }

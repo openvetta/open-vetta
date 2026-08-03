@@ -1,12 +1,7 @@
 import { motion } from "motion/react";
 import { cn } from "@shared/lib/utils";
 import { useThemeComponent } from "@vetta/theme-sdk";
-import type {
-	NewSessionHeroProps,
-	NewSessionSceneActionState,
-	NewSessionSceneCarouselLabels,
-	NewSessionSceneItem,
-} from "@vetta/theme-ui";
+import type { NewSessionHeroProps } from "@vetta/theme-ui";
 import { GuideBadgeSwiper } from "../GuideBadgeSwiper";
 import { AgentModeIconToggle } from "./AgentModeIconToggle";
 import { easeOut } from "./constants";
@@ -18,13 +13,6 @@ interface NewSessionHeroHostProps {
 	mounted: boolean;
 	subtitle: string;
 }
-
-// 场景轮播已从新会话页下线；hero 的场景相关 props 仍属于主题公共契约，
-// 这里传恒定空值让默认实现与第三方主题都渲染不出场景。
-const EMPTY_SCENES: readonly NewSessionSceneItem[] = [];
-const EMPTY_SCENE_ACTIONS: Readonly<Record<string, NewSessionSceneActionState>> = {};
-const EMPTY_SCENE_LABELS: NewSessionSceneCarouselLabels = { installPrompt: "", next: "", previous: "" };
-function noopSceneClick(): void {}
 
 /** Host 入口：解析主题 override，补齐 i18n labels 后交给 public props contract。 */
 export function NewSessionHero({
@@ -40,11 +28,6 @@ export function NewSessionHero({
 			avatarAutoplay={avatarAutoplay}
 			greetingTitle={greetingTitle}
 			mounted={mounted}
-			onSceneClick={noopSceneClick}
-			reserveSceneSlot={false}
-			sceneActions={EMPTY_SCENE_ACTIONS}
-			sceneLabels={EMPTY_SCENE_LABELS}
-			scenes={EMPTY_SCENES}
 			selected={null}
 			subtitle={subtitle}
 		/>
@@ -56,11 +39,6 @@ export function DefaultNewSessionHero({
 	className,
 	greetingTitle,
 	mounted,
-	onSceneClick: _onSceneClick,
-	reserveSceneSlot: _reserveSceneSlot,
-	sceneActions: _sceneActions,
-	sceneLabels: _sceneLabels,
-	scenes: _scenes,
 	selected: _selected,
 	subtitle,
 	...props

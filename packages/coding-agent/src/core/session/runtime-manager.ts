@@ -11,7 +11,6 @@ import { basename, dirname } from "node:path";
 import type { TSchema } from "@sinclair/typebox";
 import type { AgentMessage, AgentTool } from "@vetta/agent-core";
 import { resetApiProviders } from "@vetta/ai";
-import { VERSION } from "../../config.js";
 import { matchesAgentMode } from "../agent-mode.js";
 import type { AgentSession, ExtensionBindings } from "../agent-session.js";
 import type { BackgroundTaskManager } from "../background-tasks/index.js";
@@ -27,7 +26,6 @@ import {
 	wrapToolsWithExtensions,
 } from "../extensions/index.js";
 import { wrapToolsWithEcosystemHooks } from "../hooks/index.js";
-import { buildBuiltinMcpServers } from "../mcp/builtin-mcp.js";
 import { createMcpManager, type McpManager } from "../mcp/index.js";
 import type { ResourceExtensionPaths, ResourceLoader } from "../resource-loader.js";
 import type { SubagentCoordinator } from "../subagents/index.js";
@@ -239,9 +237,6 @@ export class RuntimeManager {
 			projectRoot: this.ctx.cwd,
 			debug: this._mcpDebug,
 			enabled: true,
-			// 宿主自带、用户无感：不写 mcp.json，也不在能力市场里露面。
-			// 带上版本，服务端才能把需要客户端配合的新工具只发给够新的客户端。
-			builtinServers: buildBuiltinMcpServers({ clientVersion: VERSION }),
 		});
 
 		// Initialize MCP servers asynchronously, then rebuild runtime to include MCP tools.
@@ -1113,7 +1108,7 @@ export class RuntimeManager {
 		const loadedSkills = this.resourceLoader
 			.getSkills()
 			.skills.filter((s) => matchesAgentMode(s.agentMode, this._agentMode));
-		const visibleSkills = loadedSkills.filter((s) => !s.disableModelInvocation && s.type !== "scene");
+		const visibleSkills = loadedSkills.filter((s) => !s.disableModelInvocation);
 		if (visibleSkills.length > 0) {
 			const invokeSkillTool = createInvokeSkillTool({
 				getSkills: () =>
@@ -1121,10 +1116,6 @@ export class RuntimeManager {
 			});
 			baseTools.invoke_skill = invokeSkillTool;
 		}
-
-		// Scenes are activated server-side via expandSkillCommand on /scene: prefix.
-		// They prefill the todo list from tasks.json and inject scene content as a hidden
-		// custom message — there is intentionally no LLM-facing invoke tool for scenes.
 
 		// Add todo tool (always available)
 		const todoTool = createTodoTool({ getTodoStore: () => this.todoStore });

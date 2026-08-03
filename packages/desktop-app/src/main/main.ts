@@ -1,8 +1,6 @@
-import "./telemetry/bootstrap.js";
 import { mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { URL } from "node:url";
 import { getVettaHomePath, VETTA_HOME_ENV } from "@vetta/action-rpc";
 import { app, type BrowserWindow, dialog, ipcMain, nativeImage, nativeTheme, protocol, session, shell } from "electron";
 import { ActionApprovalBroker } from "./app-actions/approval-broker.js";
@@ -14,7 +12,6 @@ import { createDebugRpcRuntime } from "./app-debug/rpc.js";
 import { configureRendererCdp } from "./app-debug/ui/renderer-cdp.js";
 import { registerAppLifecycleIpc } from "./app-lifecycle.js";
 import { initializeAppMonitor, shutdownAppMonitor } from "./app-monitor/app-monitor-service.js";
-import { consumeOAuthCallback, reopenOAuthLogin, startOAuthLogin } from "./auth/oauth-login.js";
 import { initializeDesktopBatchTaskService } from "./batch-tasks/batch-task-service.js";
 import { parseActionCliCommand, runActionCliCommand } from "./cli/action-command.js";
 import { parseAgentRpcCommand, runAgentRpcCommand } from "./cli/agent-rpc-command.js";
@@ -66,7 +63,6 @@ import { getRuntimeManager } from "./runtimes/manager.js";
 import { initializeSandboxCapability } from "./sandbox/capability.js";
 import { initScheduler, scheduleTaskInCron, unscheduleTaskInCron } from "./scheduler/scheduler.js";
 import { initializeDesktopSchedulerService } from "./scheduler/scheduler-service.js";
-import { initializeMainTelemetry, shutdownMainTelemetry } from "./telemetry/index.js";
 import { registerThemeProtocol, THEME_PROTOCOL_PRIVILEGE } from "./themes/theme-protocol.js";
 import {
 	createTray,
@@ -90,7 +86,6 @@ import {
 // RuntimeManager.applyEnv() 与 coding-agent 的 bash 执行。详见 fix-path.ts。
 fixPath();
 
-const PROTOCOL = "vetta";
 // registerSchemesAsPrivileged 整个进程只能调用一次且须在 ready 前：
 // 所有自定义 scheme（插件、主题、应用资源、媒体流）的特权声明在此合并注册。
 protocol.registerSchemesAsPrivileged([
@@ -129,8 +124,6 @@ const isCliMode =
 	actionCliCommand !== null ||
 	helpCliCommand !== null ||
 	agentRpcArgs !== null;
-
-initializeMainTelemetry({ enabled: !isCliMode });
 
 // 给 V8 老生代一个明确上限：超过会抛 `RangeError: Invalid string length` /
 // JS heap out of memory，能被 uncaughtException 接到并落盘栈；否则任 RSS 自然
@@ -279,41 +272,9 @@ function attachMainWindowLifecycle(mainWindow: BrowserWindow): void {
 	});
 }
 
-// Register custom protocol for OAuth callback
-// Windows dev mode: must pass electron.exe path and app entry as args,
-// otherwise the URL gets interpreted as a module path.
-if (!isCliMode) {
-	if (!app.isPackaged && process.platform === "win32") {
-		app.setAsDefaultProtocolClient(PROTOCOL, process.execPath, [devMainEntryPath]);
-	} else {
-		app.setAsDefaultProtocolClient(PROTOCOL);
-	}
-}
-
-function handleProtocolUrl(rawUrl: string): void {
-	try {
-		const parsed = new URL(rawUrl);
-		if (parsed.hostname === "oauth" && parsed.pathname.startsWith("/callback")) {
-			const mainWindow = getMainWindow();
-			if (!mainWindow) return;
-			// state 不匹配时 tokens 为 null——绝不把未校验的 token 转给渲染层，
-			// 只通知它把「等待授权」切回可重试状态，否则用户会一直干等。
-			const tokens = consumeOAuthCallback(parsed);
-			if (tokens) {
-				mainWindow.webContents.send("vetta:auth:oauth-callback", tokens);
-			} else {
-				mainWindow.webContents.send("vetta:auth:oauth-rejected");
-			}
-		}
-	} catch {
-		// Ignore malformed URLs
-	}
-}
-
-// macOS: app may already be running when protocol URL is opened
-app.on("open-url", (event, url) => {
+// macOS: focus the running instance when the app is re-opened.
+app.on("open-url", (event) => {
 	event.preventDefault();
-	handleProtocolUrl(url);
 	const mainWindow = getMainWindow();
 	if (mainWindow) {
 		if (mainWindow.isMinimized()) mainWindow.restore();
@@ -321,16 +282,11 @@ app.on("open-url", (event, url) => {
 	}
 });
 
-// Windows/Linux: second instance passes URL via argv
 const gotSingleLock = isCliMode ? true : app.requestSingleInstanceLock();
 if (!gotSingleLock) {
 	app.exit(0);
 } else {
-	app.on("second-instance", (_event, argv) => {
-		const protocolUrl = argv.find((arg) => arg.startsWith(`${PROTOCOL}://`));
-		if (protocolUrl) {
-			handleProtocolUrl(protocolUrl);
-		}
+	app.on("second-instance", () => {
 		showMainWindow();
 	});
 	app.whenReady().then(async () => {
@@ -578,20 +534,6 @@ if (!gotSingleLock) {
 			getTray()?.setToolTip(tooltip);
 		});
 
-		ipcMain.handle("vetta:auth:open-external", async (_event, url: string) => {
-			await openExternalUrl(url);
-		});
-
-		// 授权登录由主进程发起：state 的生成与校验都在这里，渲染层碰不到，
-		// 未通过校验的 token 也就永远进不了渲染层。
-		ipcMain.handle("vetta:auth:start-oauth", async () => {
-			await startOAuthLogin();
-		});
-
-		ipcMain.handle("vetta:auth:reopen-oauth", async () => {
-			await reopenOAuthLogin();
-		});
-
 		if (process.platform === "darwin") {
 			app.dock.setIcon(nativeImage.createFromPath(join(buildDir, "icon-dock.png")));
 		}
@@ -827,7 +769,6 @@ setQuitCleanup(async () => {
 	} catch (err) {
 		mainLog.warn("app monitor shutdown failed", err);
 	}
-	await shutdownMainTelemetry();
 	mainLog.info("quit cleanup finished");
 });
 

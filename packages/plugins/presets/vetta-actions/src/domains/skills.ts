@@ -7,7 +7,7 @@ type SkillsQueryInput =
 	| { operation: "manifest" };
 type SkillsManageInput =
 	| { operation: "set-enabled"; name: string; enabled: boolean }
-	| { operation: "uninstall"; name: string; type?: "skill" | "scene" };
+	| { operation: "uninstall"; name: string; type?: "skill" };
 
 const querySchema: PluginJsonSchema = {
 	type: "object",
@@ -41,7 +41,7 @@ const manageSchema: PluginJsonSchema = {
 			properties: {
 				operation: { const: "uninstall" },
 				name: { type: "string", minLength: 1 },
-				type: { enum: ["skill", "scene"] },
+				type: { enum: ["skill"] },
 			},
 			required: ["operation", "name"],
 			additionalProperties: false,
@@ -66,7 +66,7 @@ export function registerSkillsActions(ctx: PluginContext): void {
 		summary: "列出可见技能/场景，或读取本地安装清单。",
 		description:
 			'对象参数；operation 为 "help"、"list" 或 "manifest"。list 可传 cwd 以包含项目级 skills。市场安装需 GUI，本 Action 不提供 install。',
-		keywords: ["技能", "skill", "scene", "技能广场", "插件技能", "manifest"],
+		keywords: ["技能", "skill", "技能广场", "插件技能", "manifest"],
 		effect: "read",
 		inputSchema: querySchema,
 		examples: queryExamples,
@@ -112,7 +112,7 @@ export function registerSkillsActions(ctx: PluginContext): void {
 			if (!entry) {
 				throwEntityNotFound({
 					operation: input.operation,
-					entity: "installed skill/scene",
+					entity: "installed skill",
 					idField: "name",
 					id: input.name,
 					queryAction: "skills.query",
@@ -123,7 +123,7 @@ export function registerSkillsActions(ctx: PluginContext): void {
 				});
 			}
 			if (input.operation === "uninstall" && input.type) {
-				const actualType = entry.type === "scene" ? "scene" : "skill";
+				const actualType = "skill";
 				if (actualType !== input.type) {
 					throwInvalidInput(
 						`Refused uninstall before user approval: name=${JSON.stringify(input.name)} has type=${JSON.stringify(actualType)}, but you passed type=${JSON.stringify(input.type)}.`,

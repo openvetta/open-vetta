@@ -10,11 +10,10 @@ import {
 	devSystemPluginsDir,
 	isSystemPluginStaged,
 	presetsDir,
-	resolveTenant,
 	stageSystemPluginsFromArchives,
 } from "./stage-system-plugins.mjs";
 
-// 在读取 VETTA_TENANT 等构建期变量前，从 .env.<mode>/.env 注入（命令行内联优先）。
+// 从 .env.<mode>/.env 注入构建期变量（命令行内联优先）。
 loadBuildEnv();
 
 const desktopAppDir = join(import.meta.dirname, "..");
@@ -158,15 +157,11 @@ if (allEntries.length === 0) {
 	process.exit(0);
 }
 
-// 按租户筛选要构建/staging 的插件（VETTA_TENANT，缺省取 tenants.json 的 default）。
-const tenant = resolveTenant();
-const entries = tenant.pluginIds ? allEntries.filter((name) => tenant.pluginIds.has(name)) : allEntries;
-console.log(
-	`[build-presets] 租户=${tenant.name ?? "(未配置)"}，构建 ${entries.length}/${allEntries.length} 个插件：${entries.join(", ") || "(无)"}`,
-);
+const entries = allEntries;
+console.log(`[build-presets] 构建 ${entries.length} 个插件：${entries.join(", ") || "(无)"}`);
 
 if (entries.length === 0) {
-	console.log("[build-presets] 当前租户无匹配插件，跳过");
+	console.log("[build-presets] 无可构建插件，跳过");
 	process.exit(0);
 }
 

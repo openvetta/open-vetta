@@ -1,7 +1,7 @@
 import { cn } from "@vetta/ui";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { AbilityContributedMcp, AbilityContributedSkill, AbilityType } from "@shared/lib/api";
+import type { AbilityContributedMcp, AbilityContributedSkill, AbilityType } from "../../market-types";
 import type { PluginAbility } from "../../types";
 import { AbilityIcon } from "../AbilityIcon";
 

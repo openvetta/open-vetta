@@ -1,5 +1,3 @@
-import { authTokenAtom } from "@shared/store/atoms";
-import { useAtomValue } from "jotai";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getSetupWizardSteps, type SetupWizardStepId } from "../steps";
@@ -28,25 +26,17 @@ export interface SetupWizardModel {
 	readonly totalSteps: number;
 }
 
-function resolveSteps(isLoggedIn: boolean): readonly SetupWizardStepId[] {
-	return getSetupWizardSteps({ isLoggedIn });
-}
-
 export function useSetupWizard(): SetupWizardModel {
 	const { t } = useTranslation("common");
-	const token = useAtomValue(authTokenAtom);
 
 	const [open, setOpen] = useState(() => !isSetupWizardCompleted());
-	// Freeze step list for the current open session so mid-wizard login does not
-	// shrink the indicator / scramble stepIndex; re-open recomputes from auth.
-	const [steps, setSteps] = useState<readonly SetupWizardStepId[]>(() => resolveSteps(Boolean(token)));
+	const steps: readonly SetupWizardStepId[] = useMemo(() => getSetupWizardSteps(), []);
 	const [stepIndex, setStepIndex] = useState(0);
 
 	const openWizard = useCallback(() => {
-		setSteps(resolveSteps(Boolean(token)));
 		setStepIndex(0);
 		setOpen(true);
-	}, [token]);
+	}, []);
 
 	useEffect(() => {
 		const onOpen = () => openWizard();

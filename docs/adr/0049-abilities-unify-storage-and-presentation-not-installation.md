@@ -1,5 +1,10 @@
 # 能力（Ability）统一存放与呈现，不统一物理安装
 
+> **开源版补充：`scene` 形态已移除。** 本决策的统一模型（一张表 / 一个列表 / 一套详情页）
+> 继续生效，但可组合的 type 收敛为 `skill / mcp / plugin / bundle`。scene 原是「装在
+> `~/.vetta/scene/`、对模型隐藏、触发时用 tasks.json 锁定 todo 列表」的 SOP 变体，
+> 面向个人用户价值有限却抬高理解成本，故在开源版整体删除。下文保留原始决策原文。
+
 Skill / Scene / MCP Server / Plugin 收敛为单一概念 [[Ability（能力）]]：服务端合为一张 `abilities` 表靠 `type` 判别，desktop 合为一个「能力」页与一套详情页。新增 `type = bundle` 表达[[bundle（能力套装）]]。**统一只发生在「数据存放」与「概念呈现」两层——物理分发与安装刻意保持三轨不变。**
 
 ## 背景

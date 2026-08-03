@@ -3,12 +3,10 @@ import { Button } from "@shared/components/ui/button";
 import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
 import { isMac } from "@shared/lib/platform";
 import {
-	isPersonalModeAtom,
 	pageHeaderLeftSlotAtom,
 	pageHeaderTitleHiddenAtom,
 	type SettingsTab,
 } from "@shared/store/atoms";
-import { authUserAtom } from "@shared/store/auth-atoms";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
@@ -22,8 +20,6 @@ export function useSettingsPageModel(): SettingsPageModel {
 	const search = useSearch({ strict: false }) as Record<string, unknown>;
 	const navigate = useNavigate();
 	const router = useRouter();
-	const isPersonal = useAtomValue(isPersonalModeAtom);
-	const authUser = useAtomValue(authUserAtom);
 	const setHeaderTitleHidden = useSetAtom(pageHeaderTitleHiddenAtom);
 	const setHeaderLeftSlot = useSetAtom(pageHeaderLeftSlotAtom);
 	const narrow = useNarrowScreen(1000);
@@ -51,14 +47,8 @@ export function useSettingsPageModel(): SettingsPageModel {
 	}, [setHeaderLeftSlot, router, tCommon]);
 
 	const visibleTabRegistrations = useMemo(
-		() =>
-			SETTINGS_TABS.filter(
-				(tab) =>
-					(!tab.personalOnly || isPersonal) &&
-					(!tab.requireAuth || authUser) &&
-					(!tab.macOnly || isMac),
-			),
-		[authUser, isPersonal],
+		() => SETTINGS_TABS.filter((tab) => !tab.macOnly || isMac),
+		[],
 	);
 	const validTabKeys = useMemo(
 		() => new Set(visibleTabRegistrations.map((tab) => tab.key)),

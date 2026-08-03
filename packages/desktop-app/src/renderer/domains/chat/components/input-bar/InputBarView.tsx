@@ -184,7 +184,7 @@ export function InputBarView({ model, className, classNames }: InputBarViewProps
 											</div>
 										)}
 
-										{(model.hasPromptAttachment || model.selectedSkill) && (
+										{model.hasPromptAttachment && (
 											<div className="flex flex-wrap items-center gap-1.5">
 												{model.hasPromptAttachment && model.promptAttachmentLabel && (
 													<InputBarCapsule
@@ -194,16 +194,6 @@ export function InputBarView({ model, className, classNames }: InputBarViewProps
 														labels={model.labels.capsule}
 														tone="primary"
 														onRemove={model.actions.removePromptAttachment}
-													/>
-												)}
-												{model.selectedSkill && (
-													<InputBarCapsule
-														key="scene-capsule"
-														icon="icon-[solar--clapperboard-open-linear]"
-														label={model.selectedSkill.alias || model.selectedSkill.name}
-														labels={model.labels.capsule}
-														tone="primary"
-														onRemove={model.actions.removeSkill}
 													/>
 												)}
 											</div>

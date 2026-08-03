@@ -52,4 +52,4 @@ cd packages/<name> && bun run build
 ## 不在本文范围
 
 - `packages/plugins` 下的 preset / external → 见 `packages/plugins/AGENTS.md`（根 workspace 下的插件约定）
-- Go 包（`packages/api`、`packages/im-gateway`）→ 无 TS path map 要求
+- Go 包（`packages/im-gateway`）→ 无 TS path map 要求

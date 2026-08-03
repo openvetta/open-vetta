@@ -11,7 +11,6 @@ export const SCHEDULER_EXECUTION_MODES = {
 
 export const SCHEDULER_SKILL_TYPES = {
 	SKILL: "skill",
-	SCENE: "scene",
 } as const;
 
 export const SCHEDULER_LAST_RUN_STATUSES = {
@@ -47,10 +46,7 @@ const schedulerRecordExecutionModeType = Type.Union([
 	Type.Literal(SCHEDULER_EXECUTION_MODES.FULL_ACCESS),
 ]);
 
-const schedulerSkillTypeType = Type.Union([
-	Type.Literal(SCHEDULER_SKILL_TYPES.SKILL),
-	Type.Literal(SCHEDULER_SKILL_TYPES.SCENE),
-]);
+const schedulerSkillTypeType = Type.Literal(SCHEDULER_SKILL_TYPES.SKILL);
 
 const schedulerLastRunStatusType = Type.Union([
 	Type.Literal(SCHEDULER_LAST_RUN_STATUSES.SUCCESS),

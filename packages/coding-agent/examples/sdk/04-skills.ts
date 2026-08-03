@@ -14,7 +14,6 @@ const customSkill: Skill = {
 	filePath: "/virtual/SKILL.md",
 	baseDir: "/virtual",
 	source: "path",
-	type: "skill",
 	disableModelInvocation: false,
 };
 

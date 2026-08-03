@@ -157,7 +157,7 @@ cd packages/desktop-app && bun run build:main
 正式环境默认读取：
 
 ```text
-https://releases.example.invalid/desktop/stable
+https://example.com/vetta/desktop/stable
 ```
 
 electron-builder 会随各平台产物生成更新清单：
@@ -192,7 +192,7 @@ VETTA_R2_ACCESS_KEY_ID
 VETTA_R2_SECRET_ACCESS_KEY
 VETTA_R2_BUCKET
 VETTA_R2_PREFIX=desktop/stable
-VETTA_UPDATE_URL=https://releases.example.invalid/desktop/stable
+VETTA_UPDATE_URL=https://example.com/vetta/desktop/stable
 ```
 
 脚本解析 `latest*.yml`，只发布清单引用的版本化安装包和对应 blockmap；大文件使用 16 MiB S3 multipart 分片。上传前会读取公开通道的现有清单，拒绝用更低版本覆盖；安装包经公开域名验证可读后才覆盖 `latest*.yml`，避免客户端读到尚未完整发布的版本。R2 自定义域名应对安装包启用长期缓存；`latest*.yml` 保持短缓存，不要被 Cache Everything 规则强制长缓存。

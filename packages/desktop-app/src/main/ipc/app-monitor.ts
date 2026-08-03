@@ -19,7 +19,6 @@ import {
 	recordAppMonitorEvent,
 	recordAppMonitorUserActivity,
 } from "../app-monitor/app-monitor-service.js";
-import { captureProductEvent } from "../telemetry/index.js";
 
 const USER_ACTIVITY_CHANNEL = "vetta:app-monitor:user-activity";
 const RECORD_EVENT_CHANNEL = "vetta:app-monitor:record-event";
@@ -34,8 +33,8 @@ const INPUT_ATTACHMENT_SOURCES = new Set<AppMonitorInputAttachmentSource>([
 	"paste",
 ]);
 const INPUT_ACTION_KINDS = new Set<AppMonitorInputActionKind>(["builtin", "plugin"]);
-const INPUT_PROMPT_REF_KINDS = new Set<AppMonitorInputPromptRefKind>(["scene", "skill"]);
-const RESOURCE_KINDS = new Set<AppMonitorResourceKind>(["skill", "scene", "plugin"]);
+const INPUT_PROMPT_REF_KINDS = new Set<AppMonitorInputPromptRefKind>(["skill"]);
+const RESOURCE_KINDS = new Set<AppMonitorResourceKind>(["skill", "plugin"]);
 const RESOURCE_OPERATIONS = new Set<AppMonitorResourceOperation>([
 	"installed",
 	"updated",
@@ -98,7 +97,6 @@ export function registerAppMonitorIpc(): () => void {
 		const event = toAppMonitorEvent(payload);
 		if (!event) return;
 		recordAppMonitorEvent(event);
-		captureProductEvent(event);
 	};
 	ipcMain.on(USER_ACTIVITY_CHANNEL, onUserActivity);
 	ipcMain.on(RECORD_EVENT_CHANNEL, onRecordEvent);
