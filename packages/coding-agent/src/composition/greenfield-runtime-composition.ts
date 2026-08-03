@@ -22,14 +22,17 @@ export type {
 	GreenfieldCliSessionOptions,
 	GreenfieldRuntimeComposition,
 	GreenfieldRuntimeCompositionOptions,
+	GreenfieldRuntimeExtensionControls,
+	GreenfieldRuntimeSessionControls,
 	GreenfieldRuntimeSessionHookLifecycle,
 	GreenfieldRuntimeSessionOptions,
 	GreenfieldRuntimeToolAccess,
 } from "./greenfield-runtime-composition-contract.js";
 
+import { createGreenfieldRuntimeExtensionControls } from "./greenfield-runtime-extension-controls.js";
+import { createGreenfieldRuntimeSessionControls } from "./greenfield-runtime-session-controls.js";
 import { createGreenfieldRuntimeToolSurface } from "./greenfield-runtime-tool-surface.js";
 import { createGreenfieldSessionInitializationTransaction } from "./greenfield-session-initialization-transaction.js";
-import type { GreenfieldSessionValueIndex } from "./greenfield-session-resource-index.js";
 
 /**
  * Greenfield Runtime 的共享组合入口。
@@ -143,77 +146,29 @@ async function createGreenfieldRuntimeCompositionInternal(
 		disposeMcpSynchronizer: mcpCoordinator.sharedRuntimeAvailable ? () => mcpCoordinator.dispose() : undefined,
 		disposeCodingTools: () => tools.dispose(),
 	});
+	const sessionControls = createGreenfieldRuntimeSessionControls({
+		indexes: resourceRegistry.indexes,
+		readConversationDocument: (sessionId) => repository.readDocument(sessionId),
+		projectConversationContext: (document) => conversationContextOverlay.project(document),
+		projectConversationSeed: (document) => baseConversationContextProjector.project(document),
+		preserveConversationContext: (targetSessionId, source, targetSeed) =>
+			conversationContextOverlay.preserve(targetSessionId, source, targetSeed),
+		clearConversationContext: (sessionId) => conversationContextOverlay.clear(sessionId),
+	});
+	const extensionControls = createGreenfieldRuntimeExtensionControls({
+		indexes: resourceRegistry.indexes,
+		extensionToolRuntime,
+	});
 	return {
 		backend,
 		tools,
 		scenario,
-		sessionHooks: {
-			async end(sessionId, cause) {
-				await requireSessionHookController(resourceRegistry.indexes.hookSessionControllers, sessionId).end(cause);
-			},
-			start(sessionId, source) {
-				requireSessionHookController(resourceRegistry.indexes.hookSessionControllers, sessionId).start(source);
-			},
-			discard(sessionId) {
-				requireSessionHookController(resourceRegistry.indexes.hookSessionControllers, sessionId).discard();
-			},
-		},
-		bindExtensionRunner(sessionId, runner, bindingOptions) {
-			const bridge = resourceRegistry.indexes.extensionEventBridges.get(sessionId);
-			if (!bridge) throw new Error(`Greenfield Extension event bridge not found: ${sessionId}`);
-			const unbindEvents = bridge.bind(runner, bindingOptions);
-			const unbindTools = extensionToolRuntime?.bindRunner(sessionId, runner, bindingOptions);
-			return {
-				readSystemPrompt: () => bridge.readSystemPrompt(),
-				dispose() {
-					unbindTools?.();
-					unbindEvents();
-				},
-			};
-		},
-		refreshExtensionTools(extensions) {
-			extensionToolRuntime?.refresh(extensions);
-		},
-		appendSessionContext(sessionId, records) {
-			const context = resourceRegistry.indexes.resourceContexts.get(sessionId);
-			if (!context) throw new Error(`Greenfield session context not found: ${sessionId}`);
-			context.contextAppender.append(records);
-		},
-		async deliverSessionContext(sessionId, records) {
-			const context = resourceRegistry.indexes.resourceContexts.get(sessionId);
-			if (!context) throw new Error(`Greenfield session context not found: ${sessionId}`);
-			await context.deliverAsyncContext(records);
-		},
-		async quiesceSessionBackgroundCommands(sessionId) {
-			await resourceRegistry.indexes.executionRuntimes.get(sessionId)?.quiesceBackgroundCommands();
-		},
-		async preserveSessionExecutionContext(sourceSessionId, targetSessionId) {
-			const [sourceDocument, targetDocument] = await Promise.all([
-				repository.readDocument(sourceSessionId),
-				repository.readDocument(targetSessionId),
-			]);
-			conversationContextOverlay.preserve(
-				targetSessionId,
-				conversationContextOverlay.project(sourceDocument),
-				baseConversationContextProjector.project(targetDocument),
-			);
-		},
-		clearSessionExecutionContext(sessionId) {
-			conversationContextOverlay.clear(sessionId);
-		},
-		async flushMemory(sessionId, signal) {
-			return (await resourceRegistry.indexes.memoryControllers.get(sessionId)?.flushMemory(signal)) ?? 0;
-		},
+		...sessionControls,
+		...extensionControls,
 		async dispose() {
 			await compositionShutdown.dispose();
 		},
 	};
-}
-
-function requireSessionHookController<T>(controllers: GreenfieldSessionValueIndex<T>, sessionId: string): T {
-	const controller = controllers.get(sessionId);
-	if (!controller) throw new Error(`Greenfield session hook lifecycle not found: ${sessionId}`);
-	return controller;
 }
 
 const EMPTY_MCP_TOOL_VIEW: McpRuntimeToolView = Object.freeze({ tools: Object.freeze([]) });

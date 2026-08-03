@@ -284,7 +284,12 @@ function checkGreenfieldSessionTransitionBoundary(posixPath, text, specifiers, f
 		}
 	}
 	const sourceFile = ts.createSourceFile(posixPath, text, ts.ScriptTarget.Latest, true, scriptKind(posixPath));
-	const forbiddenSymbols = new Set(["ExtensionCommandContextActions", "SessionManager", "migrateLegacySessionToV2"]);
+	const forbiddenSymbols = new Set([
+		"ExtensionCommandContextActions",
+		"GreenfieldRuntimeComposition",
+		"SessionManager",
+		"migrateLegacySessionToV2",
+	]);
 	const visit = (node) => {
 		if (ts.isIdentifier(node) && forbiddenSymbols.has(node.text)) {
 			findings.push(`${posixPath}: active-session transactions must not use ${node.text}`);
@@ -655,6 +660,35 @@ function checkGreenfieldChildCompositionPolicyBoundary(posixPath, text, findings
 	visit(sourceFile);
 }
 
+function checkGreenfieldRuntimeHostControlSurfaceBoundary(posixPath, text, findings) {
+	if (posixPath !== "packages/coding-agent/src/composition/greenfield-runtime-composition.ts") return;
+
+	const sourceFile = ts.createSourceFile(posixPath, text, ts.ScriptTarget.Latest, true, scriptKind(posixPath));
+	const forbiddenSymbols = new Set([
+		"appendSessionContext",
+		"bindExtensionRunner",
+		"clearSessionExecutionContext",
+		"deliverSessionContext",
+		"executionRuntimes",
+		"extensionEventBridges",
+		"flushMemory",
+		"hookSessionControllers",
+		"memoryControllers",
+		"preserveSessionExecutionContext",
+		"quiesceSessionBackgroundCommands",
+		"refreshExtensionTools",
+		"resourceContexts",
+		"sessionHooks",
+	]);
+	const visit = (node) => {
+		if (ts.isIdentifier(node) && forbiddenSymbols.has(node.text)) {
+			findings.push(`${posixPath}: Greenfield Composition Root must delegate Runtime Host Controls (${node.text})`);
+		}
+		ts.forEachChild(node, visit);
+	};
+	visit(sourceFile);
+}
+
 function checkRetiredAutomaticLegacyFallback(posixPath, text, findings) {
 	const isRuntimeProductionSource =
 		(posixPath.startsWith("packages/cli-app/src/") || posixPath.startsWith("packages/coding-agent/src/")) &&
@@ -862,6 +896,7 @@ export function findPackageBoundaryViolations(posixPath, text, options = {}) {
 	checkGreenfieldRuntimeToolSurfaceBoundary(posixPath, text, findings);
 	checkGreenfieldRuntimeToolPortBoundary(posixPath, text, findings);
 	checkGreenfieldChildCompositionPolicyBoundary(posixPath, text, findings);
+	checkGreenfieldRuntimeHostControlSurfaceBoundary(posixPath, text, findings);
 	checkRetiredAutomaticLegacyFallback(posixPath, text, findings);
 	checkRuntimeCompositionCompatibilityFacade(posixPath, specifiers, findings);
 	checkCodingAgentRootImports(posixPath, specifiers, findings);

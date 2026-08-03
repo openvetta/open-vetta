@@ -2,13 +2,14 @@ import { join } from "node:path";
 import type { SessionEndCause } from "@vetta/ecosystem-adapter";
 import {
 	type GreenfieldRuntimeSession,
+	type GreenfieldRuntimeSessionBackend,
 	RetryableCleanup,
 	type RuntimeSessionCatalog,
 	type RuntimeSessionExecutionObservation,
 	type SessionEvent,
 } from "@vetta/runtime-core";
 import type {
-	GreenfieldRuntimeComposition,
+	GreenfieldRuntimeSessionHookLifecycle,
 	GreenfieldRuntimeSessionOptions,
 } from "./greenfield-runtime-composition.js";
 
@@ -62,8 +63,15 @@ export interface CodingAgentGreenfieldSessionTransitionLifecycle {
 	): Promise<void>;
 }
 
+export interface CodingAgentGreenfieldSessionTransitionRuntimePort {
+	readonly backend: GreenfieldRuntimeSessionBackend<GreenfieldRuntimeSessionOptions>;
+	readonly sessionHooks: GreenfieldRuntimeSessionHookLifecycle;
+	quiesceSessionBackgroundCommands(sessionId: string): Promise<void>;
+	preserveSessionExecutionContext(sourceSessionId: string, targetSessionId: string): Promise<void>;
+}
+
 export interface CodingAgentGreenfieldActiveSessionHostOptions {
-	readonly runtime: GreenfieldRuntimeComposition;
+	readonly runtime: CodingAgentGreenfieldSessionTransitionRuntimePort;
 	readonly initialSession: GreenfieldRuntimeSession;
 	readonly sessionOptions: Omit<GreenfieldRuntimeSessionOptions, "sessionId" | "parentSessionPath" | "parentEntryId">;
 	readonly conversationDir: string;

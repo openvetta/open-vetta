@@ -154,27 +154,35 @@ export interface GreenfieldRuntimeSessionHookLifecycle {
 	discard(sessionId: string): void;
 }
 
-/** 宿主可动态管理的 Runtime Tool Port；Composition 内部实现与生命周期不向外暴露。 */
-export interface GreenfieldRuntimeToolAccess {
-	readonly registry: CodingToolRegistry;
-}
-
-export interface GreenfieldRuntimeComposition {
-	readonly backend: GreenfieldRuntimeSessionBackend<GreenfieldRuntimeSessionOptions>;
-	readonly tools: GreenfieldRuntimeToolAccess;
-	readonly scenario: ConversationScenario;
+export interface GreenfieldRuntimeSessionControls {
 	readonly sessionHooks: GreenfieldRuntimeSessionHookLifecycle;
-	bindExtensionRunner(
-		sessionId: string,
-		runner: ExtensionRunner,
-		options?: { readonly replaceExisting?: boolean },
-	): CodingAgentGreenfieldExtensionEventBinding;
-	refreshExtensionTools(extensions: readonly Extension[]): void;
 	appendSessionContext(sessionId: string, records: readonly SessionContextRecord[]): void;
 	deliverSessionContext(sessionId: string, records: readonly SessionContextRecord[]): Promise<void>;
 	quiesceSessionBackgroundCommands(sessionId: string): Promise<void>;
 	preserveSessionExecutionContext(sourceSessionId: string, targetSessionId: string): Promise<void>;
 	clearSessionExecutionContext(sessionId: string): void;
 	flushMemory(sessionId: string, signal?: AbortSignal): Promise<number>;
+}
+
+export interface GreenfieldRuntimeExtensionControls {
+	bindExtensionRunner(
+		sessionId: string,
+		runner: ExtensionRunner,
+		options?: { readonly replaceExisting?: boolean },
+	): CodingAgentGreenfieldExtensionEventBinding;
+	refreshExtensionTools(extensions: readonly Extension[]): void;
+}
+
+/** 宿主可动态管理的 Runtime Tool Port；Composition 内部实现与生命周期不向外暴露。 */
+export interface GreenfieldRuntimeToolAccess {
+	readonly registry: CodingToolRegistry;
+}
+
+export interface GreenfieldRuntimeComposition
+	extends GreenfieldRuntimeSessionControls,
+		GreenfieldRuntimeExtensionControls {
+	readonly backend: GreenfieldRuntimeSessionBackend<GreenfieldRuntimeSessionOptions>;
+	readonly tools: GreenfieldRuntimeToolAccess;
+	readonly scenario: ConversationScenario;
 	dispose(): Promise<void>;
 }

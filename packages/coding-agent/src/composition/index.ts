@@ -15,6 +15,7 @@ export {
 	type CodingAgentGreenfieldSessionTransition,
 	type CodingAgentGreenfieldSessionTransitionKind,
 	type CodingAgentGreenfieldSessionTransitionLifecycle,
+	type CodingAgentGreenfieldSessionTransitionRuntimePort,
 } from "./greenfield-active-session-transition-host.js";
 export { resolveGreenfieldSessionIdFromPath } from "./greenfield-conversation-path.js";
 export {
@@ -26,6 +27,8 @@ export {
 	type GreenfieldCliSessionOptions,
 	type GreenfieldRuntimeComposition,
 	type GreenfieldRuntimeCompositionOptions,
+	type GreenfieldRuntimeExtensionControls,
+	type GreenfieldRuntimeSessionControls,
 	type GreenfieldRuntimeSessionHookLifecycle,
 	type GreenfieldRuntimeSessionOptions,
 	type GreenfieldRuntimeToolAccess,

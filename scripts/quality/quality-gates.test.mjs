@@ -460,6 +460,10 @@ describe("package boundary analysis", () => {
 				'import { SessionManager } from "../../core/session-manager/index.js";',
 			),
 		).toEqual([]);
+		expect(findPackageBoundaryViolations(hostPath, "type Runtime = GreenfieldRuntimeComposition;")).toHaveLength(1);
+		expect(
+			findPackageBoundaryViolations(hostPath, "type Runtime = CodingAgentGreenfieldSessionTransitionRuntimePort;"),
+		).toEqual([]);
 	});
 
 	it("keeps Greenfield session action ports independent from the Extension command API", () => {
@@ -695,6 +699,39 @@ describe("package boundary analysis", () => {
 			findPackageBoundaryViolations(
 				compositionPath,
 				'import { createGreenfieldChildCompositionFactory } from "./greenfield-child-composition-policy.js";',
+			),
+		).toEqual([]);
+	});
+
+	it("keeps Runtime Host Controls out of the Greenfield Composition Root", () => {
+		const compositionPath = "packages/coding-agent/src/composition/greenfield-runtime-composition.ts";
+		const embeddedControls = `
+			const sessionHooks = {};
+			bindExtensionRunner();
+			refreshExtensionTools();
+			appendSessionContext();
+			deliverSessionContext();
+			quiesceSessionBackgroundCommands();
+			preserveSessionExecutionContext();
+			clearSessionExecutionContext();
+			flushMemory();
+			indexes.hookSessionControllers.get(id);
+			indexes.extensionEventBridges.get(id);
+			indexes.resourceContexts.get(id);
+			indexes.executionRuntimes.get(id);
+			indexes.memoryControllers.get(id);
+		`;
+		expect(findPackageBoundaryViolations(compositionPath, embeddedControls)).toHaveLength(14);
+		expect(
+			findPackageBoundaryViolations(
+				compositionPath,
+				'import { createGreenfieldRuntimeSessionControls } from "./greenfield-runtime-session-controls.js";',
+			),
+		).toEqual([]);
+		expect(
+			findPackageBoundaryViolations(
+				compositionPath,
+				'import { createGreenfieldRuntimeExtensionControls } from "./greenfield-runtime-extension-controls.js";',
 			),
 		).toEqual([]);
 	});
