@@ -1,5 +1,10 @@
 import { type GreenfieldRuntimeSession, InitializationRollbackScope, RetryableCleanup } from "@vetta/runtime-core";
-import type { GreenfieldSdkSessionCore, GreenfieldSdkSessionRuntimePort } from "../public-api/sdk/index.js";
+import { CodingAgentGreenfieldSessionCapabilityHost } from "../adapters/runtime-core/greenfield-session-capability-host.js";
+import type {
+	GreenfieldSdkSession,
+	GreenfieldSdkSessionCapabilityPort,
+	GreenfieldSdkSessionRuntimePort,
+} from "../public-api/sdk/index.js";
 import { bindGreenfieldSdkSessionRuntime, GreenfieldSdkSessionAdapter } from "../public-api/sdk/index.js";
 import { createGreenfieldRuntimeComposition } from "./greenfield-runtime-composition.js";
 import type {
@@ -28,6 +33,8 @@ export interface GreenfieldSdkSessionFactoryOptions {
 	readonly ownedResources?: readonly GreenfieldSdkOwnedResource[];
 	/** Runtime Session 创建后绑定 Extension 等 Session 级产品资源。 */
 	readonly initializeSession?: GreenfieldSdkSessionInitializer;
+	/** 将产品设置、模型范围和重试控制接入固定 Session 能力宿主。 */
+	readonly createCapabilityHost?: GreenfieldSdkSessionCapabilityHostFactory;
 }
 
 export interface GreenfieldSdkOwnedResource {
@@ -44,8 +51,12 @@ export type GreenfieldSdkSessionInitializer = (
 	context: GreenfieldSdkSessionInitializationContext,
 ) => Promise<GreenfieldSdkOwnedResource | undefined>;
 
+export type GreenfieldSdkSessionCapabilityHostFactory = (
+	context: GreenfieldSdkSessionInitializationContext,
+) => GreenfieldSdkSessionCapabilityPort;
+
 export interface GreenfieldSdkSessionFactoryResult {
-	readonly session: GreenfieldSdkSessionCore;
+	readonly session: GreenfieldSdkSession;
 }
 
 /**
@@ -87,8 +98,11 @@ export async function createGreenfieldSdkSession(
 		if (initializedResource) {
 			rollback.defer({ id: initializedResource.id, rollback: () => initializedResource.dispose() });
 		}
+		const capabilityHost =
+			options.createCapabilityHost?.({ session: runtimeSession, composition }) ??
+			new CodingAgentGreenfieldSessionCapabilityHost({ readSession: () => runtimeSession });
 		const runtime = bindCompositionOwnedRuntime(
-			bindGreenfieldSdkSessionRuntime(runtimeSession),
+			bindGreenfieldSdkSessionRuntime(runtimeSession, capabilityHost),
 			composition,
 			options.ownedResources ?? [],
 			initializedResource,
@@ -111,12 +125,14 @@ function bindCompositionOwnedRuntime(
 	if (initializedResource) {
 		cleanup.add({ id: initializedResource.id, phase: 0, cleanup: () => initializedResource.dispose() });
 	}
+	cleanup.add({ id: "session-capability-host", phase: 0, cleanup: () => runtime.capabilities.abortRetry() });
 	cleanup.add({ id: "runtime-session", phase: 1, cleanup: () => runtime.dispose() });
 	cleanup.add({ id: "runtime-composition", phase: 2, cleanup: () => composition.dispose() });
 	for (const resource of ownedResources) {
 		cleanup.add({ id: resource.id, phase: 3, cleanup: () => resource.dispose() });
 	}
 	return {
+		capabilities: runtime.capabilities,
 		get sessionId() {
 			return runtime.sessionId;
 		},

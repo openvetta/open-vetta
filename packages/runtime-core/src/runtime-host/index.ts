@@ -111,6 +111,7 @@ export type {
 	RuntimeSessionMetadataController,
 	RuntimeSessionModelController,
 	RuntimeSessionModelView,
+	RuntimeSessionQueueController,
 	RuntimeSessionQueueView,
 	RuntimeSessionState,
 	RuntimeSessionStateReader,

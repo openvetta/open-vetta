@@ -5,6 +5,7 @@ import {
 	SDK_CREATE_OPTION_WIRING,
 	SDK_CREATE_RESULT_COMPATIBILITY,
 	SDK_SESSION_MEMBER_COMPATIBILITY,
+	SDK_SESSION_MEMBER_WIRING,
 } from "../../src/public-api/sdk-compatibility-inventory.js";
 
 describe("SDK compatibility inventory", () => {
@@ -41,16 +42,20 @@ describe("SDK compatibility inventory", () => {
 			issues: [
 				{
 					code: "greenfield_sdk_option_not_wired",
-					option: "scopedModels",
-					disposition: "runtime-capability",
-				},
-				{
-					code: "greenfield_sdk_option_not_wired",
 					option: "tools",
 					disposition: "product-adapter",
 				},
 			],
 		});
+	});
+
+	it("tracks actual wiring independently from architectural disposition", () => {
+		expect(Object.keys(SDK_SESSION_MEMBER_WIRING)).toHaveLength(Object.keys(SDK_SESSION_MEMBER_COMPATIBILITY).length);
+		expect(SDK_CREATE_OPTION_WIRING.scopedModels).toBe("wired");
+		expect(SDK_SESSION_MEMBER_WIRING.cycleModel).toBe("wired");
+		expect(SDK_SESSION_MEMBER_WIRING.clearQueue).toBe("wired");
+		expect(SDK_SESSION_MEMBER_WIRING.switchSession).toBe("not-wired");
+		expect(SDK_SESSION_MEMBER_WIRING.agent).toBe("not-wired");
 	});
 
 	it("distinguishes the closed core facade from later capabilities and implementation leaks", () => {

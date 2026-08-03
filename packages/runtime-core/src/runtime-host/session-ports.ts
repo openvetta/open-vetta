@@ -165,6 +165,14 @@ export interface RuntimeSessionQueueView {
 	readPendingMessageCount(): number;
 }
 
+export interface RuntimeSessionQueueController extends RuntimeSessionQueueView {
+	readSteeringMode(): RuntimeSessionInputQueueMode;
+	readFollowUpMode(): RuntimeSessionInputQueueMode;
+	readSteeringMessages(): readonly string[];
+	readFollowUpMessages(): readonly string[];
+	clear(): { readonly steering: readonly string[]; readonly followUp: readonly string[] };
+}
+
 export interface RuntimeSessionContextUsage {
 	readonly tokens: number | null;
 	readonly contextWindow: number;

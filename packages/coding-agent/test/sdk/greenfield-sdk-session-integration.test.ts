@@ -3,19 +3,22 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Api, AssistantMessage, AssistantMessageEvent, Model } from "@vetta/ai";
 import { EventStream } from "@vetta/ai";
-import { afterEach, describe, expect, it } from "vitest";
-import type { CodingAgentModelRegistrySource } from "../../src/adapters/runtime-core/greenfield.js";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+	CodingAgentGreenfieldSessionCapabilityHost,
+	type CodingAgentModelRegistrySource,
+} from "../../src/adapters/runtime-core/greenfield.js";
 import { createGreenfieldRuntimeComposition } from "../../src/composition/greenfield-runtime-composition.js";
 import type { GreenfieldRuntimeComposition } from "../../src/composition/greenfield-runtime-composition-contract.js";
 import { createGreenfieldSdkSession } from "../../src/composition/greenfield-sdk-session-factory.js";
 import { bindGreenfieldSdkSessionRuntime } from "../../src/public-api/sdk/greenfield-sdk-runtime-binding.js";
 import { GreenfieldSdkSessionAdapter } from "../../src/public-api/sdk/greenfield-sdk-session-adapter.js";
-import type { GreenfieldSdkSessionCore } from "../../src/public-api/sdk/sdk-session-contract.js";
+import type { GreenfieldSdkSession } from "../../src/public-api/sdk/sdk-session-contract.js";
 
 describe("Greenfield SDK session integration", () => {
 	const temporaryDirectories: string[] = [];
 	const compositions: GreenfieldRuntimeComposition[] = [];
-	const sdkSessions: GreenfieldSdkSessionCore[] = [];
+	const sdkSessions: GreenfieldSdkSession[] = [];
 
 	afterEach(async () => {
 		await Promise.all(sdkSessions.splice(0).map((session) => session.close()));
@@ -43,7 +46,8 @@ describe("Greenfield SDK session integration", () => {
 			sessionId: "sdk-integration",
 			includeAgentSkills: false,
 		});
-		const session = new GreenfieldSdkSessionAdapter(bindGreenfieldSdkSessionRuntime(runtimeSession));
+		const capabilities = new CodingAgentGreenfieldSessionCapabilityHost({ readSession: () => runtimeSession });
+		const session = new GreenfieldSdkSessionAdapter(bindGreenfieldSdkSessionRuntime(runtimeSession, capabilities));
 		const eventTypes: string[] = [];
 		session.subscribe((event) => eventTypes.push(event.type));
 
@@ -79,6 +83,87 @@ describe("Greenfield SDK session integration", () => {
 		expect(session.sessionId).toBe("sdk-memory");
 		expect(session.sessionFile).toBeUndefined();
 		expect(session.messages.map(({ role }) => role)).toEqual(["user", "assistant"]);
+	});
+
+	it("preserves queued steering and follow-up messages through the Runtime queue port", async () => {
+		const workspace = await temporaryDirectory("greenfield-sdk-queue-workspace-");
+		let stream: DeferredAssistantStream | undefined;
+		const { session } = await createGreenfieldSdkSession({
+			storage: { kind: "memory", sessionId: "sdk-queue" },
+			composition: {
+				...factoryComposition(workspace),
+				streamFn: () => {
+					stream = new DeferredAssistantStream();
+					return stream;
+				},
+			},
+			session: { includeAgentSkills: false },
+		});
+		sdkSessions.push(session);
+		const running = session.prompt("running turn");
+		await vi.waitFor(() => expect(session.isStreaming).toBe(true));
+
+		await session.steer("queued steering");
+		await session.followUp("queued follow-up");
+		expect(session.pendingMessageCount).toBe(2);
+		expect(session.getSteeringMessages()).toEqual(["queued steering"]);
+		expect(session.getFollowUpMessages()).toEqual(["queued follow-up"]);
+		expect(session.clearQueue()).toEqual({
+			steering: ["queued steering"],
+			followUp: ["queued follow-up"],
+		});
+		expect(session.pendingMessageCount).toBe(0);
+
+		if (!stream) throw new Error("Expected a deferred assistant stream");
+		stream.complete(assistantMessage("completed"));
+		await running;
+	});
+
+	it("retries transient Turn failures and publishes retry events through the SDK subscription", async () => {
+		const workspace = await temporaryDirectory("greenfield-sdk-retry-workspace-");
+		let streamCalls = 0;
+		let retryEnabled = true;
+		const { session } = await createGreenfieldSdkSession({
+			storage: { kind: "memory", sessionId: "sdk-retry" },
+			composition: {
+				...factoryComposition(workspace),
+				streamFn: () => {
+					streamCalls += 1;
+					return new RecordedAssistantStream(
+						streamCalls === 1
+							? { ...assistantMessage(""), stopReason: "error", errorMessage: "503 service unavailable" }
+							: assistantMessage("retry succeeded"),
+					);
+				},
+			},
+			session: { includeAgentSkills: false },
+			createCapabilityHost: ({ session: runtimeSession }) =>
+				new CodingAgentGreenfieldSessionCapabilityHost({
+					readSession: () => runtimeSession,
+					settings: {
+						setDefaultModelAndProvider: () => undefined,
+						setDefaultThinkingLevel: () => undefined,
+						setSteeringMode: () => undefined,
+						setFollowUpMode: () => undefined,
+						getRetryEnabled: () => retryEnabled,
+						getRetrySettings: () => ({ enabled: retryEnabled, maxRetries: 1, baseDelayMs: 0 }),
+						setRetryEnabled: (enabled) => {
+							retryEnabled = enabled;
+						},
+					},
+				}),
+		});
+		sdkSessions.push(session);
+		const retryEvents: string[] = [];
+		session.subscribe((event) => {
+			if (event.type === "auto_retry_start" || event.type === "auto_retry_end") retryEvents.push(event.type);
+		});
+
+		await session.prompt("retry this turn");
+
+		expect(streamCalls).toBe(2);
+		expect(retryEvents).toEqual(["auto_retry_start", "auto_retry_end"]);
+		expect(session.getLastAssistantText()).toBe("retry succeeded");
 	});
 
 	it("creates and resumes a native file session through the SDK storage target", async () => {
@@ -200,6 +285,23 @@ class RecordedAssistantStream extends EventStream<AssistantMessageEvent, Assista
 			}
 			this.push({ type: "done", reason: message.stopReason, message });
 		});
+	}
+}
+
+class DeferredAssistantStream extends EventStream<AssistantMessageEvent, AssistantMessage> {
+	constructor() {
+		super(
+			(event) => event.type === "done" || event.type === "error",
+			(event) => {
+				if (event.type === "done") return event.message;
+				if (event.type === "error") return event.error;
+				throw new Error("Unexpected assistant event");
+			},
+		);
+	}
+
+	complete(message: AssistantMessage): void {
+		this.push({ type: "done", reason: "stop", message });
 	}
 }
 

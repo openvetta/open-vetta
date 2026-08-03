@@ -1,15 +1,16 @@
 import { mapGreenfieldSdkExecutionEvent } from "./greenfield-sdk-session-events.js";
 import type {
 	GreenfieldSdkPromptOptions,
-	GreenfieldSdkSessionCore,
+	GreenfieldSdkSession,
 	GreenfieldSdkSessionEventListener,
 	GreenfieldSdkSessionRuntimePort,
 } from "./sdk-session-contract.js";
 
 /** Greenfield Runtime 到现有 SDK 核心会话语义的并行兼容门面。 */
-export class GreenfieldSdkSessionAdapter implements GreenfieldSdkSessionCore {
+export class GreenfieldSdkSessionAdapter implements GreenfieldSdkSession {
 	private readonly listeners = new Set<GreenfieldSdkSessionEventListener>();
 	private readonly unsubscribeExecutionObservation: () => void;
+	private readonly unsubscribeRetryEvents: () => void;
 	private closePromise: Promise<void> | undefined;
 	private closed = false;
 
@@ -17,6 +18,7 @@ export class GreenfieldSdkSessionAdapter implements GreenfieldSdkSessionCore {
 		this.unsubscribeExecutionObservation = runtime.subscribeExecutionObservation((observation) => {
 			this.emit(mapGreenfieldSdkExecutionEvent(observation));
 		});
+		this.unsubscribeRetryEvents = runtime.capabilities.subscribeRetryEvents((event) => this.emit(event));
 	}
 
 	get sessionId(): string {
@@ -27,15 +29,15 @@ export class GreenfieldSdkSessionAdapter implements GreenfieldSdkSessionCore {
 		return this.runtime.sessionPath;
 	}
 
-	get state(): GreenfieldSdkSessionCore["state"] {
+	get state(): GreenfieldSdkSession["state"] {
 		return this.runtime.readState();
 	}
 
-	get model(): GreenfieldSdkSessionCore["model"] {
+	get model(): GreenfieldSdkSession["model"] {
 		return this.state.model;
 	}
 
-	get thinkingLevel(): GreenfieldSdkSessionCore["thinkingLevel"] {
+	get thinkingLevel(): GreenfieldSdkSession["thinkingLevel"] {
 		return this.state.thinkingLevel;
 	}
 
@@ -43,8 +45,52 @@ export class GreenfieldSdkSessionAdapter implements GreenfieldSdkSessionCore {
 		return this.state.isStreaming;
 	}
 
-	get messages(): GreenfieldSdkSessionCore["messages"] {
+	get messages(): GreenfieldSdkSession["messages"] {
 		return this.runtime.readMessages();
+	}
+
+	get retryAttempt(): number {
+		return this.runtime.capabilities.readRetryAttempt();
+	}
+
+	get agentMode(): string | undefined {
+		return this.runtime.capabilities.readAgentMode();
+	}
+
+	get isCompacting(): boolean {
+		return this.runtime.capabilities.readIsCompacting();
+	}
+
+	get steeringMode(): GreenfieldSdkSession["steeringMode"] {
+		return this.runtime.capabilities.readSteeringMode();
+	}
+
+	get followUpMode(): GreenfieldSdkSession["followUpMode"] {
+		return this.runtime.capabilities.readFollowUpMode();
+	}
+
+	get sessionName(): string | undefined {
+		return this.runtime.capabilities.readSessionName();
+	}
+
+	get scopedModels(): GreenfieldSdkSession["scopedModels"] {
+		return this.runtime.capabilities.readScopedModels();
+	}
+
+	get pendingMessageCount(): number {
+		return this.runtime.capabilities.readPendingMessageCount();
+	}
+
+	get autoCompactionEnabled(): boolean {
+		return this.runtime.capabilities.readAutoCompactionEnabled();
+	}
+
+	get isRetrying(): boolean {
+		return this.runtime.capabilities.readIsRetrying();
+	}
+
+	get autoRetryEnabled(): boolean {
+		return this.runtime.capabilities.readAutoRetryEnabled();
 	}
 
 	async prompt(text: string, options: GreenfieldSdkPromptOptions = {}): Promise<void> {
@@ -72,14 +118,120 @@ export class GreenfieldSdkSessionAdapter implements GreenfieldSdkSessionCore {
 		return this.runtime.abort();
 	}
 
-	setModel(model: NonNullable<GreenfieldSdkSessionCore["model"]>): Promise<void> {
+	setModel(model: NonNullable<GreenfieldSdkSession["model"]>): Promise<void> {
 		this.assertOpen();
 		return this.runtime.selectModel(`${model.provider}/${model.id}`);
 	}
 
-	setThinkingLevel(level: GreenfieldSdkSessionCore["thinkingLevel"]): void {
+	setThinkingLevel(level: GreenfieldSdkSession["thinkingLevel"]): void {
 		this.assertOpen();
 		this.runtime.setThinkingLevel(level);
+	}
+
+	getActiveToolNames(): ReturnType<GreenfieldSdkSession["getActiveToolNames"]> {
+		return this.runtime.capabilities.readActiveToolNames();
+	}
+
+	getAllTools(): ReturnType<GreenfieldSdkSession["getAllTools"]> {
+		return this.runtime.capabilities.readAllTools();
+	}
+
+	setActiveToolsByName(toolNames: readonly string[]): void {
+		this.assertOpen();
+		this.runtime.capabilities.setActiveToolNames(toolNames);
+	}
+
+	setAgentMode(mode: string | undefined): void {
+		this.assertOpen();
+		this.runtime.capabilities.setAgentMode(mode);
+	}
+
+	setScopedModels(scopedModels: GreenfieldSdkSession["scopedModels"]): void {
+		this.assertOpen();
+		this.runtime.capabilities.setScopedModels(scopedModels);
+	}
+
+	clearQueue(): ReturnType<GreenfieldSdkSession["clearQueue"]> {
+		this.assertOpen();
+		return this.runtime.capabilities.clearQueue();
+	}
+
+	getSteeringMessages(): readonly string[] {
+		return this.runtime.capabilities.readSteeringMessages();
+	}
+
+	getFollowUpMessages(): readonly string[] {
+		return this.runtime.capabilities.readFollowUpMessages();
+	}
+
+	cycleModel(direction?: "forward" | "backward"): ReturnType<GreenfieldSdkSession["cycleModel"]> {
+		this.assertOpen();
+		return this.runtime.capabilities.cycleModel(direction);
+	}
+
+	cycleThinkingLevel(): ReturnType<GreenfieldSdkSession["cycleThinkingLevel"]> {
+		this.assertOpen();
+		return this.runtime.capabilities.cycleThinkingLevel();
+	}
+
+	getAvailableThinkingLevels(): ReturnType<GreenfieldSdkSession["getAvailableThinkingLevels"]> {
+		return this.runtime.capabilities.readAvailableThinkingLevels();
+	}
+
+	supportsXhighThinking(): boolean {
+		return this.runtime.capabilities.supportsXhighThinking();
+	}
+
+	supportsThinking(): boolean {
+		return this.runtime.capabilities.supportsThinking();
+	}
+
+	setSteeringMode(mode: GreenfieldSdkSession["steeringMode"]): void {
+		this.assertOpen();
+		this.runtime.capabilities.setSteeringMode(mode);
+	}
+
+	setFollowUpMode(mode: GreenfieldSdkSession["followUpMode"]): void {
+		this.assertOpen();
+		this.runtime.capabilities.setFollowUpMode(mode);
+	}
+
+	compact(customInstructions?: string, signal?: AbortSignal): ReturnType<GreenfieldSdkSession["compact"]> {
+		this.assertOpen();
+		return this.runtime.capabilities.compact(customInstructions, signal);
+	}
+
+	abortCompaction(): void {
+		this.runtime.capabilities.abortCompaction();
+	}
+
+	setAutoCompactionEnabled(enabled: boolean): void {
+		this.runtime.capabilities.setAutoCompactionEnabled(enabled);
+	}
+
+	abortRetry(): void {
+		this.runtime.capabilities.abortRetry();
+	}
+
+	setAutoRetryEnabled(enabled: boolean): void {
+		this.runtime.capabilities.setAutoRetryEnabled(enabled);
+	}
+
+	setSessionName(name: string): Promise<void> {
+		this.assertOpen();
+		return this.runtime.capabilities.setSessionName(name);
+	}
+
+	getSessionStats(): ReturnType<GreenfieldSdkSession["getSessionStats"]> {
+		return this.runtime.capabilities.readSessionStats();
+	}
+
+	getContextUsage(): ReturnType<GreenfieldSdkSession["getContextUsage"]> {
+		return this.runtime.capabilities.readContextUsage();
+	}
+
+	getLastAssistantText(): string | undefined {
+		return this.runtime.capabilities.readLastAssistantText();
 	}
 
 	subscribe(listener: GreenfieldSdkSessionEventListener): () => void {
@@ -96,6 +248,7 @@ export class GreenfieldSdkSessionAdapter implements GreenfieldSdkSessionCore {
 		if (this.closePromise) return this.closePromise;
 		this.closed = true;
 		this.unsubscribeExecutionObservation();
+		this.unsubscribeRetryEvents();
 		this.listeners.clear();
 		const operation = this.runtime.dispose();
 		const tracked = operation.catch((error: unknown) => {

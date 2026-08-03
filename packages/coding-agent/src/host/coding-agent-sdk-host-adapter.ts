@@ -4,6 +4,7 @@ import type { Api, Model } from "@vetta/ai";
 import { buildDefaultHookConfigLayers } from "@vetta/ecosystem-adapter";
 import {
 	CodingAgentGreenfieldExtensionEventHost,
+	CodingAgentGreenfieldSessionCapabilityHost,
 	createCodingAgentCompactionExtensionRuntime,
 	createCodingAgentMcpRuntimeToolSource,
 	createCodingAgentPluginMcpRuntime,
@@ -22,7 +23,7 @@ import { DefaultResourceLoader } from "../core/resource-loader.js";
 import type { CreateAgentSessionOptions } from "../core/sdk.js";
 import { SettingsManager } from "../core/settings-manager.js";
 import { time } from "../core/timings.js";
-import type { GreenfieldSdkSessionCore } from "../public-api/sdk/index.js";
+import type { GreenfieldSdkSession } from "../public-api/sdk/index.js";
 import {
 	assessSdkCreateOptionsCompatibility,
 	type SdkCreateOptionCompatibilityIssue,
@@ -52,7 +53,7 @@ export class CodingAgentSdkHostError extends Error {
 }
 
 export interface CreateGreenfieldAgentSessionResult {
-	readonly session: GreenfieldSdkSessionCore;
+	readonly session: GreenfieldSdkSession;
 	readonly extensionsResult: LoadExtensionsResult;
 	readonly modelFallbackMessage?: string;
 }
@@ -195,6 +196,14 @@ export async function createGreenfieldAgentSession(
 						}
 					}
 				: undefined,
+		createCapabilityHost: ({ session }) =>
+			new CodingAgentGreenfieldSessionCapabilityHost({
+				readSession: () => session,
+				readAvailableModels: async () => modelRegistry.getAvailable(),
+				scopedModels: options.scopedModels,
+				initialAgentMode: options.agentMode,
+				settings: settingsManager,
+			}),
 	});
 
 	return {
@@ -234,7 +243,7 @@ async function resolveSdkInitialModel(
 
 	if (!model) {
 		const result = await findInitialModel({
-			scopedModels: [],
+			scopedModels: options.scopedModels ?? [],
 			isContinuing: hasExistingSession,
 			defaultProvider: settingsManager.getDefaultProvider(),
 			defaultModelId: settingsManager.getDefaultModel(),

@@ -1,10 +1,108 @@
 import type { AgentMessage, ThinkingLevel } from "@vetta/agent-core";
 import type { Api, Model } from "@vetta/ai";
-import type { PromptRequest, RuntimeSessionExecutionObservation, RuntimeSessionState } from "@vetta/runtime-core";
+import type {
+	PromptRequest,
+	RuntimeContextCompactionResult,
+	RuntimeSessionContextUsage,
+	RuntimeSessionExecutionObservation,
+	RuntimeSessionInputQueueMode,
+	RuntimeSessionState,
+} from "@vetta/runtime-core";
 import type { AgentSessionEventListener, PromptOptions } from "../../core/session/types.js";
 
 export type GreenfieldSdkPromptOptions = PromptOptions;
 export type GreenfieldSdkSessionEventListener = AgentSessionEventListener;
+
+export interface GreenfieldSdkScopedModel {
+	readonly model: Model<Api>;
+	readonly thinkingLevel: ThinkingLevel;
+}
+
+export interface GreenfieldSdkModelCycleResult extends GreenfieldSdkScopedModel {
+	readonly isScoped: boolean;
+}
+
+export interface GreenfieldSdkToolInfo {
+	readonly name: string;
+	readonly description: string;
+	readonly parameters: unknown;
+}
+
+export interface GreenfieldSdkSessionStats {
+	readonly sessionFile: string | undefined;
+	readonly sessionId: string;
+	readonly userMessages: number;
+	readonly assistantMessages: number;
+	readonly toolCalls: number;
+	readonly toolResults: number;
+	readonly totalMessages: number;
+	readonly tokens: {
+		readonly input: number;
+		readonly output: number;
+		readonly cacheRead: number;
+		readonly cacheWrite: number;
+		readonly total: number;
+	};
+	readonly cost: number;
+}
+
+export type GreenfieldSdkRetryEvent =
+	| {
+			readonly type: "auto_retry_start";
+			readonly attempt: number;
+			readonly maxAttempts: number;
+			readonly delayMs: number;
+			readonly errorMessage: string;
+	  }
+	| {
+			readonly type: "auto_retry_end";
+			readonly success: boolean;
+			readonly attempt: number;
+			readonly finalError?: string;
+	  };
+
+/** 不改变 Session 身份的操作能力；身份切换和 Legacy 具体对象不属于该边界。 */
+export interface GreenfieldSdkSessionCapabilityPort {
+	prompt(request: PromptRequest): Promise<unknown>;
+	selectModel(provider: string, modelId: string): Promise<Model<Api> | undefined>;
+	setThinkingLevel(level: ThinkingLevel): void;
+	subscribeRetryEvents(handler: (event: GreenfieldSdkRetryEvent) => void): () => void;
+	readRetryAttempt(): number;
+	readActiveToolNames(): readonly string[];
+	readAllTools(): readonly GreenfieldSdkToolInfo[];
+	setActiveToolNames(toolNames: readonly string[]): void;
+	readAgentMode(): string | undefined;
+	setAgentMode(mode: string | undefined): void;
+	readIsCompacting(): boolean;
+	readSteeringMode(): RuntimeSessionInputQueueMode;
+	readFollowUpMode(): RuntimeSessionInputQueueMode;
+	readSessionName(): string | undefined;
+	readScopedModels(): readonly GreenfieldSdkScopedModel[];
+	setScopedModels(scopedModels: readonly GreenfieldSdkScopedModel[]): void;
+	clearQueue(): { readonly steering: readonly string[]; readonly followUp: readonly string[] };
+	readPendingMessageCount(): number;
+	readSteeringMessages(): readonly string[];
+	readFollowUpMessages(): readonly string[];
+	cycleModel(direction?: "forward" | "backward"): Promise<GreenfieldSdkModelCycleResult | undefined>;
+	cycleThinkingLevel(): ThinkingLevel | undefined;
+	readAvailableThinkingLevels(): readonly ThinkingLevel[];
+	supportsXhighThinking(): boolean;
+	supportsThinking(): boolean;
+	setSteeringMode(mode: RuntimeSessionInputQueueMode): void;
+	setFollowUpMode(mode: RuntimeSessionInputQueueMode): void;
+	compact(customInstructions?: string, signal?: AbortSignal): Promise<RuntimeContextCompactionResult>;
+	abortCompaction(): void;
+	setAutoCompactionEnabled(enabled: boolean): void;
+	readAutoCompactionEnabled(): boolean;
+	abortRetry(): void;
+	readIsRetrying(): boolean;
+	readAutoRetryEnabled(): boolean;
+	setAutoRetryEnabled(enabled: boolean): void;
+	setSessionName(name: string): Promise<void>;
+	readSessionStats(): GreenfieldSdkSessionStats;
+	readContextUsage(): RuntimeSessionContextUsage | undefined;
+	readLastAssistantText(): string | undefined;
+}
 
 /**
  * Greenfield SDK 门面当前已经闭合的核心会话合同。
@@ -31,10 +129,52 @@ export interface GreenfieldSdkSessionCore {
 	close(): Promise<void>;
 }
 
+/** 叠加在稳定 Core 之上的固定 Session 操作面；不包含身份迁移。 */
+export interface GreenfieldSdkSessionCapabilities {
+	readonly retryAttempt: number;
+	readonly agentMode: string | undefined;
+	readonly isCompacting: boolean;
+	readonly steeringMode: RuntimeSessionInputQueueMode;
+	readonly followUpMode: RuntimeSessionInputQueueMode;
+	readonly sessionName: string | undefined;
+	readonly scopedModels: readonly GreenfieldSdkScopedModel[];
+	readonly pendingMessageCount: number;
+	readonly autoCompactionEnabled: boolean;
+	readonly isRetrying: boolean;
+	readonly autoRetryEnabled: boolean;
+	getActiveToolNames(): readonly string[];
+	getAllTools(): readonly GreenfieldSdkToolInfo[];
+	setActiveToolsByName(toolNames: readonly string[]): void;
+	setAgentMode(mode: string | undefined): void;
+	setScopedModels(scopedModels: readonly GreenfieldSdkScopedModel[]): void;
+	clearQueue(): { readonly steering: readonly string[]; readonly followUp: readonly string[] };
+	getSteeringMessages(): readonly string[];
+	getFollowUpMessages(): readonly string[];
+	cycleModel(direction?: "forward" | "backward"): Promise<GreenfieldSdkModelCycleResult | undefined>;
+	cycleThinkingLevel(): ThinkingLevel | undefined;
+	getAvailableThinkingLevels(): readonly ThinkingLevel[];
+	supportsXhighThinking(): boolean;
+	supportsThinking(): boolean;
+	setSteeringMode(mode: RuntimeSessionInputQueueMode): void;
+	setFollowUpMode(mode: RuntimeSessionInputQueueMode): void;
+	compact(customInstructions?: string, signal?: AbortSignal): Promise<RuntimeContextCompactionResult>;
+	abortCompaction(): void;
+	setAutoCompactionEnabled(enabled: boolean): void;
+	abortRetry(): void;
+	setAutoRetryEnabled(enabled: boolean): void;
+	setSessionName(name: string): Promise<void>;
+	getSessionStats(): GreenfieldSdkSessionStats;
+	getContextUsage(): RuntimeSessionContextUsage | undefined;
+	getLastAssistantText(): string | undefined;
+}
+
+export type GreenfieldSdkSession = GreenfieldSdkSessionCore & GreenfieldSdkSessionCapabilities;
+
 /** Greenfield SDK 门面依赖的最小 Runtime 能力，不绑定具体 Session 实现。 */
 export interface GreenfieldSdkSessionRuntimePort {
 	readonly sessionId: string;
 	readonly sessionPath: string | undefined;
+	readonly capabilities: GreenfieldSdkSessionCapabilityPort;
 	prompt(request: PromptRequest): Promise<unknown>;
 	abort(reason?: string): Promise<void>;
 	readState(): RuntimeSessionState;

@@ -53,6 +53,7 @@ import type {
 	RuntimeSessionExecutionObservationStream,
 	RuntimeSessionHostInteraction,
 	RuntimeSessionMetadataController,
+	RuntimeSessionQueueController,
 	RuntimeSessionQueueView,
 	RuntimeSessionState,
 	RuntimeSessionTodoController,
@@ -135,6 +136,7 @@ export type GreenfieldRuntimeSessionCoreAssembly = Pick<
 > & {
 	readonly conversationView: RuntimeSessionConversationView;
 	readonly queueView: RuntimeSessionQueueView;
+	readonly queueController: RuntimeSessionQueueController;
 	readonly contextUsageView: RuntimeSessionContextUsageView;
 	readonly executionObservationStream: RuntimeSessionExecutionObservationStream;
 	readonly todoController?: RuntimeSessionTodoController;
@@ -424,6 +426,24 @@ export class GreenfieldRuntimeSession {
 	createCoreAssembly(): GreenfieldRuntimeSessionCoreAssembly {
 		this.assertOpen();
 		const runtimeSession = this;
+		const queueController: RuntimeSessionQueueController = {
+			readPendingMessageCount: () => this.session.pendingMessageCount,
+			readSteeringMode: () => this.session.steeringMode,
+			readFollowUpMode: () => this.session.followUpMode,
+			readSteeringMessages: () => this.session.getSteeringMessages().map(readQueuedMessageText),
+			readFollowUpMessages: () => this.session.getFollowUpMessages().map(readQueuedMessageText),
+			clear: () => {
+				const cleared = this.session.clearQueue();
+				return {
+					steering: cleared.steering.flatMap((input) =>
+						input.message === undefined ? [] : [readQueuedMessageText(input.message)],
+					),
+					followUp: cleared.followUps.flatMap((input) =>
+						input.message === undefined ? [] : [readQueuedMessageText(input.message)],
+					),
+				};
+			},
+		};
 		return {
 			lifecycle: {
 				get sessionId() {
@@ -455,9 +475,8 @@ export class GreenfieldRuntimeSession {
 			conversationView: {
 				readDocument: () => this.projection.readDocument(),
 			},
-			queueView: {
-				readPendingMessageCount: () => this.session.pendingMessageCount,
-			},
+			queueView: queueController,
+			queueController,
 			contextUsageView: {
 				readContextUsage: () => {
 					const state = this.stateSource.read();
@@ -801,6 +820,16 @@ function isStoredSessionEvent(event: KernelEvent): event is StoredSessionEvent {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readQueuedMessageText(message: SessionInput["message"]): string {
+	if (typeof message.content === "string") return message.content;
+	return message.content
+		.filter(
+			(part): part is Extract<(typeof message.content)[number], { readonly type: "text" }> => part.type === "text",
+		)
+		.map((part) => part.text)
+		.join("");
 }
 
 function createContextDeliveryController(session: AgentSession): RuntimeSessionContextDeliveryController {

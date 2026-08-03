@@ -8,7 +8,11 @@ import type {
 } from "@vetta/runtime-core";
 import { describe, expect, it, vi } from "vitest";
 import { GreenfieldSdkSessionAdapter } from "../../src/public-api/sdk/greenfield-sdk-session-adapter.js";
-import type { GreenfieldSdkSessionRuntimePort } from "../../src/public-api/sdk/sdk-session-contract.js";
+import type {
+	GreenfieldSdkRetryEvent,
+	GreenfieldSdkSessionCapabilityPort,
+	GreenfieldSdkSessionRuntimePort,
+} from "../../src/public-api/sdk/sdk-session-contract.js";
 
 describe("Greenfield SDK session adapter", () => {
 	it("maps prompt, queue, model and thinking controls onto the narrow Runtime port", async () => {
@@ -50,8 +54,21 @@ describe("Greenfield SDK session adapter", () => {
 			startedAt: 1,
 		});
 		runtime.emit({ type: "agent.end", messages: [] });
+		runtime.emitRetry({
+			type: "auto_retry_start",
+			attempt: 1,
+			maxAttempts: 3,
+			delayMs: 10,
+			errorMessage: "rate limited",
+		});
 
-		expect(eventTypes).toEqual(["agent_start", "turn_start", "tool_execution_start", "agent_end"]);
+		expect(eventTypes).toEqual([
+			"agent_start",
+			"turn_start",
+			"tool_execution_start",
+			"agent_end",
+			"auto_retry_start",
+		]);
 	});
 
 	it("isolates listeners and closes Runtime ownership exactly once", async () => {
@@ -94,8 +111,63 @@ class FakeSdkRuntime implements GreenfieldSdkSessionRuntimePort {
 	readonly selectedModelKeys: string[] = [];
 	readonly thinkingLevels: ThinkingLevel[] = [];
 	readonly observers = new Set<(observation: RuntimeSessionExecutionObservation) => Promise<void> | void>();
+	readonly retryObservers = new Set<(event: GreenfieldSdkRetryEvent) => void>();
 	disposeCalls = 0;
 	disposeFailures = 0;
+	readonly capabilities: GreenfieldSdkSessionCapabilityPort = {
+		prompt: async () => undefined,
+		selectModel: async () => undefined,
+		setThinkingLevel: () => undefined,
+		subscribeRetryEvents: (handler) => {
+			this.retryObservers.add(handler);
+			return () => this.retryObservers.delete(handler);
+		},
+		readRetryAttempt: () => 0,
+		readActiveToolNames: () => [],
+		readAllTools: () => [],
+		setActiveToolNames: () => undefined,
+		readAgentMode: () => undefined,
+		setAgentMode: () => undefined,
+		readIsCompacting: () => false,
+		readSteeringMode: () => "one-at-a-time",
+		readFollowUpMode: () => "one-at-a-time",
+		readSessionName: () => undefined,
+		readScopedModels: () => [],
+		setScopedModels: () => undefined,
+		clearQueue: () => ({ steering: [], followUp: [] }),
+		readPendingMessageCount: () => 0,
+		readSteeringMessages: () => [],
+		readFollowUpMessages: () => [],
+		cycleModel: async () => undefined,
+		cycleThinkingLevel: () => undefined,
+		readAvailableThinkingLevels: () => ["off"],
+		supportsXhighThinking: () => false,
+		supportsThinking: () => false,
+		setSteeringMode: () => undefined,
+		setFollowUpMode: () => undefined,
+		compact: async () => ({ summary: "", firstKeptEntryId: "", tokensBefore: 0 }),
+		abortCompaction: () => undefined,
+		setAutoCompactionEnabled: () => undefined,
+		readAutoCompactionEnabled: () => true,
+		abortRetry: () => undefined,
+		readIsRetrying: () => false,
+		readAutoRetryEnabled: () => true,
+		setAutoRetryEnabled: () => undefined,
+		setSessionName: async () => undefined,
+		readSessionStats: () => ({
+			sessionFile: undefined,
+			sessionId: "sdk-session",
+			userMessages: 0,
+			assistantMessages: 0,
+			toolCalls: 0,
+			toolResults: 0,
+			totalMessages: 0,
+			tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+			cost: 0,
+		}),
+		readContextUsage: () => undefined,
+		readLastAssistantText: () => undefined,
+	};
 	private readonly runtimeState: RuntimeSessionState = {
 		model: undefined,
 		thinkingLevel: "medium",
@@ -147,5 +219,9 @@ class FakeSdkRuntime implements GreenfieldSdkSessionRuntimePort {
 		for (const observer of this.observers) {
 			void observer({ turnId: "turn-1", event, timestamp: 1 });
 		}
+	}
+
+	emitRetry(event: GreenfieldSdkRetryEvent): void {
+		for (const observer of this.retryObservers) observer(event);
 	}
 }

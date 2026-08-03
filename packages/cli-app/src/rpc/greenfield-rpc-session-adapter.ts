@@ -1,7 +1,6 @@
 import type { CodingAgentHostBootstrap } from "@vetta/coding-agent/bootstrap";
 import type { CodingAgentTool } from "@vetta/coding-agent/profile";
 import {
-	computeGreenfieldRpcSessionStats,
 	createImSendAttachmentTool,
 	exportGreenfieldRpcConversation,
 	type GreenfieldRpcRetryController,
@@ -12,11 +11,11 @@ import {
 	type RpcSessionProfile,
 	type RpcSessionState,
 	readGreenfieldRpcAgentMessages,
-	resolveNextGreenfieldRpcThinkingLevel,
 } from "@vetta/coding-agent/rpc";
 import {
 	adaptCodingAgentToolRegistration,
 	type CodingAgentGreenfieldExtensionCommandHost,
+	CodingAgentGreenfieldSessionCapabilityHost,
 	type CodingAgentGreenfieldTurnExecutor,
 } from "@vetta/coding-agent/runtime-host/greenfield";
 import { type GreenfieldRuntimeSession, type HistoryEntry, RetryableCleanup } from "@vetta/runtime-core";
@@ -80,6 +79,7 @@ export class GreenfieldRpcSessionAdapter implements RpcSessionCapabilities {
 	private readonly retryController: GreenfieldRpcRetryController | undefined;
 	private readonly turnExecutor: GreenfieldRpcSessionAdapterOptions["turnExecutor"];
 	private readonly readAvailableModels: NonNullable<GreenfieldRpcSessionAdapterOptions["readAvailableModels"]>;
+	private readonly sessionCapabilities: CodingAgentGreenfieldSessionCapabilityHost;
 	private readonly extensionCommandHost: GreenfieldRpcSessionAdapterOptions["extensionCommandHost"];
 	private readonly createHostToolRegistration: NonNullable<
 		GreenfieldRpcSessionAdapterOptions["createHostToolRegistration"]
@@ -106,6 +106,11 @@ export class GreenfieldRpcSessionAdapter implements RpcSessionCapabilities {
 		this.bash = options.bash;
 		this.readAvailableModels =
 			options.readAvailableModels ?? (async () => this.readCore().modelView.readAvailableModels());
+		this.sessionCapabilities = new CodingAgentGreenfieldSessionCapabilityHost({
+			readSession: () => this.readSession(),
+			readAvailableModels: this.readAvailableModels,
+			retryController: options.retryController,
+		});
 		this.extensionCommandHost = options.extensionCommandHost;
 		this.createHostToolRegistration =
 			options.createHostToolRegistration ??
@@ -188,49 +193,19 @@ export class GreenfieldRpcSessionAdapter implements RpcSessionCapabilities {
 			readMessages: () => readGreenfieldRpcAgentMessages(this.readCore().conversationView.readDocument()),
 		} satisfies NonNullable<RpcSessionCapabilities["state"]>;
 		this.model = {
-			selectModel: async (provider, modelId) => {
-				const core = this.readCore();
-				const model = (await this.readAvailableModels()).find(
-					(candidate) => candidate.provider === provider && candidate.id === modelId,
-				);
-				if (!model) return undefined;
-				await core.modelController.selectModel(`${provider}/${modelId}`, "always");
-				return core.modelView.readCurrentModel();
-			},
-			cycleModel: async () => {
-				const core = this.readCore();
-				const current = core.modelView.readCurrentModel();
-				const models = await this.readAvailableModels();
-				if (models.length === 0) return undefined;
-				const currentIndex = current
-					? models.findIndex((model) => model.provider === current.provider && model.id === current.id)
-					: -1;
-				const next = models[(currentIndex + 1) % models.length];
-				await core.modelController.selectModel(`${next.provider}/${next.id}`, "always");
-				const state = core.corePorts.stateReader.readState();
-				return { model: next, thinkingLevel: state.thinkingLevel, isScoped: false };
-			},
+			selectModel: (provider, modelId) => this.sessionCapabilities.selectModel(provider, modelId),
+			cycleModel: () => this.sessionCapabilities.cycleModel(),
 			readAvailableModels: this.readAvailableModels,
-			setThinkingLevel: (level) => this.readCore().modelController.setThinkingLevel(level),
-			cycleThinkingLevel: () => this.cycleThinkingLevel(),
+			setThinkingLevel: (level) => this.sessionCapabilities.setThinkingLevel(level),
+			cycleThinkingLevel: () => this.sessionCapabilities.cycleThinkingLevel(),
 		} satisfies NonNullable<RpcSessionCapabilities["model"]>;
 		this.queue = {
-			setSteeringMode: (mode) => this.readConfigurationController().setSteeringMode(mode),
-			setFollowUpMode: (mode) => this.readConfigurationController().setFollowUpMode(mode),
+			setSteeringMode: (mode) => this.sessionCapabilities.setSteeringMode(mode),
+			setFollowUpMode: (mode) => this.sessionCapabilities.setFollowUpMode(mode),
 		} satisfies NonNullable<RpcSessionCapabilities["queue"]>;
 		this.context = {
-			compact: async (customInstructions, signal) => {
-				const controller = this.readContextController();
-				signal?.throwIfAborted();
-				const abort = () => controller.abortCompaction();
-				signal?.addEventListener("abort", abort, { once: true });
-				try {
-					return await controller.compact(customInstructions ? { customInstructions } : undefined);
-				} finally {
-					signal?.removeEventListener("abort", abort);
-				}
-			},
-			setAutoCompactionEnabled: (enabled) => this.readContextController().setAutoCompactionEnabled(enabled),
+			compact: (customInstructions, signal) => this.sessionCapabilities.compact(customInstructions, signal),
+			setAutoCompactionEnabled: (enabled) => this.sessionCapabilities.setAutoCompactionEnabled(enabled),
 		} satisfies NonNullable<RpcSessionCapabilities["context"]>;
 		this.memory = {
 			flushMemory: (signal?: AbortSignal) =>
@@ -244,16 +219,9 @@ export class GreenfieldRpcSessionAdapter implements RpcSessionCapabilities {
 			switchSession: async (sessionPath) => !(await this.sessionHost.switchSession(sessionPath)).cancelled,
 			fork: (entryId) => this.sessionHost.fork(entryId),
 			readForkMessages: () => readForkMessages(this.readSession()),
-			readLastAssistantText: () => readLastAssistantText(this.readSession()),
-			setName: (name) => this.readCore().metadataController.setName(name),
-			readStats: () => {
-				const core = this.readCore();
-				return computeGreenfieldRpcSessionStats(
-					readGreenfieldRpcAgentMessages(core.conversationView.readDocument()),
-					core.lifecycle.sessionPath,
-					core.lifecycle.sessionId,
-				);
-			},
+			readLastAssistantText: () => this.sessionCapabilities.readLastAssistantText(),
+			setName: (name) => this.sessionCapabilities.setSessionName(name),
+			readStats: () => this.sessionCapabilities.readSessionStats(),
 			exportHtml: (outputPath) => {
 				const core = this.readCore();
 				if (!core.lifecycle.sessionPath) throw new Error("Cannot export an in-memory Greenfield session");
@@ -360,28 +328,6 @@ export class GreenfieldRpcSessionAdapter implements RpcSessionCapabilities {
 		return this.readSession().createCoreAssembly();
 	}
 
-	private readConfigurationController() {
-		const controller = this.readSession().createRuntimeHostAssemblyCandidate().configurationController;
-		if (!controller) throw new Error("Greenfield session configuration capability is unavailable");
-		return controller;
-	}
-
-	private readContextController() {
-		const controller = this.readCore().contextController;
-		if (!controller) throw new Error("Greenfield session context capability is unavailable");
-		return controller;
-	}
-
-	private cycleThinkingLevel(): ReturnType<NonNullable<RpcSessionCapabilities["model"]>["cycleThinkingLevel"]> {
-		const core = this.readCore();
-		const state = core.corePorts.stateReader.readState();
-		const model = core.modelView.readCurrentModel();
-		const next = resolveNextGreenfieldRpcThinkingLevel(model, state.thinkingLevel);
-		if (!next) return undefined;
-		core.modelController.setThinkingLevel(next);
-		return next;
-	}
-
 	private async runTurnCommand(command: () => Promise<unknown>): Promise<void> {
 		const activeTurn: ActiveTurnCommand = { terminalDeliveries: [] };
 		this.activeTurnCommands.push(activeTurn);
@@ -459,11 +405,6 @@ function readForkMessages(session: GreenfieldRuntimeSession): readonly { entryId
 		)
 		.map((entry) => ({ entryId: entry.entryId ?? "", text: readMessageText(entry.message) }))
 		.filter(({ text }) => text.length > 0);
-}
-
-function readLastAssistantText(session: GreenfieldRuntimeSession): string | undefined {
-	const message = [...session.readMessages()].reverse().find((candidate) => candidate.role === "assistant");
-	return message ? readMessageText(message) || undefined : undefined;
 }
 
 function readMessageText(message: { readonly content: unknown }): string {

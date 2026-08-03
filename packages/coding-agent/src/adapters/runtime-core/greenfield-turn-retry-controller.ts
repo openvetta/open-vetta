@@ -32,6 +32,14 @@ export class CodingAgentGreenfieldTurnRetryController {
 
 	constructor(private readonly options: CodingAgentGreenfieldTurnRetryControllerOptions) {}
 
+	get retryAttempt(): number {
+		return this.attempt;
+	}
+
+	get isRetrying(): boolean {
+		return this.attempt > 0;
+	}
+
 	setAutoRetryEnabled(enabled: boolean): void {
 		this.options.setEnabled(enabled);
 	}

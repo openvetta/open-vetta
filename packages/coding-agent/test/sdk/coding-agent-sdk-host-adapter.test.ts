@@ -12,11 +12,11 @@ import {
 	CodingAgentSdkHostError,
 	createGreenfieldAgentSession,
 } from "../../src/host/coding-agent-sdk-host-adapter.js";
-import type { GreenfieldSdkSessionCore } from "../../src/public-api/sdk/index.js";
+import type { GreenfieldSdkSession } from "../../src/public-api/sdk/index.js";
 
 describe("Coding Agent SDK Host Adapter", () => {
 	const temporaryDirectories: string[] = [];
-	const sessions: GreenfieldSdkSessionCore[] = [];
+	const sessions: GreenfieldSdkSession[] = [];
 
 	afterEach(async () => {
 		await Promise.all(sessions.splice(0).map((session) => session.close()));
@@ -94,6 +94,27 @@ describe("Coding Agent SDK Host Adapter", () => {
 		);
 	});
 
+	it("wires scoped models into initial selection and fixed-session cycling", async () => {
+		const resources = await createResources("sdk-host-scoped-");
+		registerTestModel(resources.modelRegistry);
+		const result = await createGreenfieldAgentSession({
+			...resources.options,
+			scopedModels: [
+				{ model: OTHER_MODEL, thinkingLevel: "high" },
+				{ model: MODEL, thinkingLevel: "low" },
+			],
+		});
+		sessions.push(result.session);
+
+		expect(result.session.model).toMatchObject({ id: OTHER_MODEL.id });
+		expect(result.session.scopedModels).toHaveLength(2);
+		await expect(result.session.cycleModel()).resolves.toMatchObject({
+			model: { id: MODEL.id },
+			thinkingLevel: "low",
+			isScoped: true,
+		});
+	});
+
 	it("rejects options that still require the complete Legacy AgentSession facade", async () => {
 		await expect(createGreenfieldAgentSession({ tools: [] })).rejects.toMatchObject({
 			name: CodingAgentSdkHostError.name,
@@ -148,6 +169,15 @@ function registerTestModel(modelRegistry: ModelRegistry): void {
 				contextWindow: MODEL.contextWindow,
 				maxTokens: MODEL.maxTokens,
 			},
+			{
+				id: OTHER_MODEL.id,
+				name: OTHER_MODEL.name,
+				reasoning: OTHER_MODEL.reasoning,
+				input: [...OTHER_MODEL.input],
+				cost: OTHER_MODEL.cost,
+				contextWindow: OTHER_MODEL.contextWindow,
+				maxTokens: OTHER_MODEL.maxTokens,
+			},
 		],
 	});
 }
@@ -187,4 +217,10 @@ const MODEL: Model<Api> = {
 	cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 	contextWindow: 8_000,
 	maxTokens: 1_000,
+};
+
+const OTHER_MODEL: Model<Api> = {
+	...MODEL,
+	id: "sdk-host-model-other",
+	name: "SDK Host Model Other",
 };
