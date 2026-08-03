@@ -1,4 +1,4 @@
-import { InitializationRollbackScope, RetryableCleanup } from "@vetta/runtime-core";
+import { type GreenfieldRuntimeSession, InitializationRollbackScope, RetryableCleanup } from "@vetta/runtime-core";
 import type { GreenfieldSdkSessionCore, GreenfieldSdkSessionRuntimePort } from "../public-api/sdk/index.js";
 import { bindGreenfieldSdkSessionRuntime, GreenfieldSdkSessionAdapter } from "../public-api/sdk/index.js";
 import { createGreenfieldRuntimeComposition } from "./greenfield-runtime-composition.js";
@@ -9,6 +9,7 @@ import type {
 } from "./greenfield-runtime-composition-contract.js";
 import {
 	type GreenfieldSdkSessionStorageTarget,
+	type ResolvedGreenfieldSdkSessionStorage,
 	resolveGreenfieldSdkSessionStorage,
 } from "./greenfield-sdk-session-storage.js";
 
@@ -23,7 +24,25 @@ export interface GreenfieldSdkSessionFactoryOptions {
 	readonly storage: GreenfieldSdkSessionStorageTarget;
 	readonly composition: GreenfieldSdkCompositionOptions;
 	readonly session?: GreenfieldSdkRuntimeSessionOptions;
+	/** Composition 创建前已由产品宿主取得、并随 SDK Session 释放的资源。 */
+	readonly ownedResources?: readonly GreenfieldSdkOwnedResource[];
+	/** Runtime Session 创建后绑定 Extension 等 Session 级产品资源。 */
+	readonly initializeSession?: GreenfieldSdkSessionInitializer;
 }
+
+export interface GreenfieldSdkOwnedResource {
+	readonly id: string;
+	dispose(): void | Promise<void>;
+}
+
+export interface GreenfieldSdkSessionInitializationContext {
+	readonly session: GreenfieldRuntimeSession;
+	readonly composition: GreenfieldRuntimeComposition;
+}
+
+export type GreenfieldSdkSessionInitializer = (
+	context: GreenfieldSdkSessionInitializationContext,
+) => Promise<GreenfieldSdkOwnedResource | undefined>;
 
 export interface GreenfieldSdkSessionFactoryResult {
 	readonly session: GreenfieldSdkSessionCore;
@@ -38,8 +57,16 @@ export interface GreenfieldSdkSessionFactoryResult {
 export async function createGreenfieldSdkSession(
 	options: GreenfieldSdkSessionFactoryOptions,
 ): Promise<GreenfieldSdkSessionFactoryResult> {
-	const storage = resolveGreenfieldSdkSessionStorage(options.storage);
 	const rollback = new InitializationRollbackScope();
+	for (const resource of options.ownedResources ?? []) {
+		rollback.defer({ id: resource.id, rollback: () => resource.dispose() });
+	}
+	let storage: ResolvedGreenfieldSdkSessionStorage;
+	try {
+		storage = resolveGreenfieldSdkSessionStorage(options.storage);
+	} catch (error) {
+		return rollback.rollback(error, "Greenfield SDK storage resolution and rollback failed");
+	}
 	let composition: GreenfieldRuntimeComposition;
 	try {
 		composition = await createGreenfieldRuntimeComposition({
@@ -56,7 +83,16 @@ export async function createGreenfieldSdkSession(
 		const sessionOptions = { ...options.session, sessionId: storage.sessionId };
 		const runtimeSession = await composition.backend[storage.operation](sessionOptions);
 		rollback.defer({ id: "runtime-session", rollback: () => runtimeSession.dispose() });
-		const runtime = bindCompositionOwnedRuntime(bindGreenfieldSdkSessionRuntime(runtimeSession), composition);
+		const initializedResource = await options.initializeSession?.({ session: runtimeSession, composition });
+		if (initializedResource) {
+			rollback.defer({ id: initializedResource.id, rollback: () => initializedResource.dispose() });
+		}
+		const runtime = bindCompositionOwnedRuntime(
+			bindGreenfieldSdkSessionRuntime(runtimeSession),
+			composition,
+			options.ownedResources ?? [],
+			initializedResource,
+		);
 		const session = new GreenfieldSdkSessionAdapter(runtime);
 		rollback.commit();
 		return { session };
@@ -68,10 +104,18 @@ export async function createGreenfieldSdkSession(
 function bindCompositionOwnedRuntime(
 	runtime: GreenfieldSdkSessionRuntimePort,
 	composition: GreenfieldRuntimeComposition,
+	ownedResources: readonly GreenfieldSdkOwnedResource[],
+	initializedResource: GreenfieldSdkOwnedResource | undefined,
 ): GreenfieldSdkSessionRuntimePort {
 	const cleanup = new RetryableCleanup();
-	cleanup.add({ id: "runtime-session", phase: 0, cleanup: () => runtime.dispose() });
-	cleanup.add({ id: "runtime-composition", phase: 1, cleanup: () => composition.dispose() });
+	if (initializedResource) {
+		cleanup.add({ id: initializedResource.id, phase: 0, cleanup: () => initializedResource.dispose() });
+	}
+	cleanup.add({ id: "runtime-session", phase: 1, cleanup: () => runtime.dispose() });
+	cleanup.add({ id: "runtime-composition", phase: 2, cleanup: () => composition.dispose() });
+	for (const resource of ownedResources) {
+		cleanup.add({ id: resource.id, phase: 3, cleanup: () => resource.dispose() });
+	}
 	return {
 		get sessionId() {
 			return runtime.sessionId;

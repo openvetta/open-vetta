@@ -56,6 +56,53 @@ export const SDK_CREATE_RESULT_COMPATIBILITY = {
 	modelFallbackMessage: "product-adapter",
 } as const satisfies Record<keyof CreateAgentSessionResult, SdkCompatibilityDisposition>;
 
+export type SdkCreateOptionWiringStatus = "wired" | "not-wired";
+
+/**
+ * SDK 产品宿主的实际接线状态，与字段所属架构层分开记录。
+ *
+ * `product-adapter` 和 `legacy-concrete` 字段可以由 Host Adapter 转换后接入，但不能因此
+ * 改写其架构归属；尚依赖完整 AgentSession 门面的字段继续 fail closed。
+ */
+export const SDK_CREATE_OPTION_WIRING = {
+	cwd: "wired",
+	agentDir: "wired",
+	authStorage: "wired",
+	modelRegistry: "wired",
+	model: "wired",
+	thinkingLevel: "wired",
+	scopedModels: "not-wired",
+	tools: "not-wired",
+	scenario: "wired",
+	agentMode: "wired",
+	customTools: "not-wired",
+	additionalHookAdapterFactories: "wired",
+	resourceLoader: "wired",
+	sessionManager: "wired",
+	settingsManager: "wired",
+	appendSystemPrompt: "wired",
+	includeAgentSkills: "wired",
+	env: "wired",
+	memoryMode: "wired",
+	memoryFile: "wired",
+	memoryCharLimit: "wired",
+	askUserQuestion: "wired",
+	enableBackgroundTasks: "wired",
+	enableSubagents: "wired",
+	subagentTypeRegistry: "not-wired",
+	subagentSessionFactory: "not-wired",
+	subagentMaxConcurrent: "wired",
+	enableMcp: "wired",
+	serverUrl: "wired",
+	tracer: "not-wired",
+	tracingTraceName: "not-wired",
+	tracingMetadata: "not-wired",
+	agentPlugins: "wired",
+	invokePluginTool: "wired",
+	invokePluginContinuation: "wired",
+	invokePluginSystemPrompt: "wired",
+} as const satisfies Record<keyof CreateAgentSessionOptions, SdkCreateOptionWiringStatus>;
+
 export interface SdkCreateOptionCompatibilityIssue {
 	readonly code: "greenfield_sdk_option_not_wired";
 	readonly option: keyof CreateAgentSessionOptions;
@@ -78,6 +125,7 @@ export function assessSdkCreateOptionsCompatibility(
 	const issues: SdkCreateOptionCompatibilityIssue[] = [];
 	for (const option of Object.keys(SDK_CREATE_OPTION_COMPATIBILITY) as Array<keyof CreateAgentSessionOptions>) {
 		if (options[option] === undefined) continue;
+		if (SDK_CREATE_OPTION_WIRING[option] === "wired") continue;
 		const disposition = SDK_CREATE_OPTION_COMPATIBILITY[option];
 		if (disposition === "greenfield-core") continue;
 		issues.push({ code: "greenfield_sdk_option_not_wired", option, disposition });

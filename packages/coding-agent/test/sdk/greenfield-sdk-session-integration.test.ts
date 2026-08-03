@@ -135,6 +135,35 @@ describe("Greenfield SDK session integration", () => {
 		expect(recovered.session.sessionId).toBe("sdk-rollback");
 	});
 
+	it("owns product resources before and after the Runtime Session lifecycle", async () => {
+		const workspace = await temporaryDirectory("greenfield-sdk-owned-resource-workspace-");
+		const disposed: string[] = [];
+		const { session } = await createGreenfieldSdkSession({
+			storage: { kind: "memory", sessionId: "sdk-owned-resources" },
+			composition: factoryComposition(workspace),
+			session: { includeAgentSkills: false },
+			ownedResources: [
+				{
+					id: "host-resource",
+					dispose: () => {
+						disposed.push("host");
+					},
+				},
+			],
+			initializeSession: async () => ({
+				id: "session-resource",
+				dispose: () => {
+					disposed.push("session");
+				},
+			}),
+		});
+		sdkSessions.push(session);
+
+		await session.close();
+
+		expect(disposed).toEqual(["session", "host"]);
+	});
+
 	async function temporaryDirectory(prefix: string): Promise<string> {
 		const directory = await mkdtemp(join(tmpdir(), prefix));
 		temporaryDirectories.push(directory);
