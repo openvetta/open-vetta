@@ -244,6 +244,11 @@ function createSessionCleanup(
 		phase: 0,
 		cleanup: () => options.conversationContextOverlay.clear(options.session.readSessionId()),
 	});
+	cleanup.add({
+		id: "session-tool-overlay",
+		phase: 0,
+		cleanup: () => options.extensionToolRuntime?.clearSessionTools(options.session.readSessionId()),
+	});
 	if (options.subagentRuntime) {
 		const subagentRuntime = options.subagentRuntime;
 		cleanup.add({ id: "subagent-runtime", phase: 0, cleanup: () => subagentRuntime.dispose() });

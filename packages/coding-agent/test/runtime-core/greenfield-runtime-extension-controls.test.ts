@@ -20,7 +20,14 @@ describe("Greenfield Runtime Extension Controls", () => {
 		} as unknown as CodingAgentGreenfieldExtensionEventBridge;
 		const bindTools = vi.fn(() => () => cleanupOrder.push("tools"));
 		const refresh = vi.fn();
-		const extensionToolRuntime = { bindRunner: bindTools, refresh } satisfies GreenfieldExtensionToolHostPort;
+		const replaceSessionTools = vi.fn();
+		const clearSessionTools = vi.fn();
+		const extensionToolRuntime = {
+			bindRunner: bindTools,
+			refresh,
+			replaceSessionTools,
+			clearSessionTools,
+		} satisfies GreenfieldExtensionToolHostPort;
 		const extensionEventBridges =
 			new InMemoryGreenfieldSessionValueIndex<CodingAgentGreenfieldExtensionEventBridge>();
 		const controls = createGreenfieldRuntimeExtensionControls({
@@ -34,11 +41,15 @@ describe("Greenfield Runtime Extension Controls", () => {
 
 		const binding = controls.bindExtensionRunner("session", runner, bindingOptions);
 		controls.refreshExtensionTools(extensions);
+		controls.replaceSessionTools("session", []);
+		controls.clearSessionTools("session");
 
 		expect(binding.readSystemPrompt()).toBe("extension prompt");
 		expect(bindEvents).toHaveBeenCalledWith(runner, bindingOptions);
 		expect(bindTools).toHaveBeenCalledWith("session", runner, bindingOptions);
 		expect(refresh).toHaveBeenCalledWith(extensions);
+		expect(replaceSessionTools).toHaveBeenCalledWith("session", []);
+		expect(clearSessionTools).toHaveBeenCalledWith("session");
 		binding.dispose();
 		expect(cleanupOrder).toEqual(["tools", "events"]);
 	});
@@ -53,5 +64,7 @@ describe("Greenfield Runtime Extension Controls", () => {
 			"Greenfield Extension event bridge not found: missing",
 		);
 		expect(() => controls.refreshExtensionTools([])).not.toThrow();
+		expect(() => controls.replaceSessionTools("missing", [])).toThrow("Session tool runtime is unavailable");
+		expect(() => controls.clearSessionTools("missing")).not.toThrow();
 	});
 });

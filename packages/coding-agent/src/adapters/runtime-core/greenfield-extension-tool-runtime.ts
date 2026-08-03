@@ -33,6 +33,13 @@ export interface CodingAgentGreenfieldExtensionToolSurface {
 export class CodingAgentGreenfieldExtensionToolRuntime {
 	private registrations: readonly CodingAgentRuntimeToolRegistration[] = [];
 	private registrationsByName: ReadonlyMap<string, CodingAgentRuntimeToolRegistration> = new Map();
+	private readonly sessionRegistrations = new Map<
+		string,
+		{
+			readonly registrations: readonly CodingAgentRuntimeToolRegistration[];
+			readonly registrationsByName: ReadonlyMap<string, CodingAgentRuntimeToolRegistration>;
+		}
+	>();
 	private readonly runners = new Map<string, CodingAgentGreenfieldExtensionRunnerPort>();
 
 	constructor(extensions: readonly CodingAgentGreenfieldExtensionToolSource[]) {
@@ -46,20 +53,20 @@ export class CodingAgentGreenfieldExtensionToolRuntime {
 		);
 	}
 
-	hasTools(): boolean {
-		return this.registrations.length > 0;
+	hasTools(sessionId?: string): boolean {
+		return this.readRegistrations(sessionId).length > 0;
 	}
 
-	hasTool(toolName: string): boolean {
-		return this.registrationsByName.has(toolName);
+	hasTool(toolName: string, sessionId?: string): boolean {
+		return this.readRegistrationsByName(sessionId).has(toolName);
 	}
 
-	readAvailableTools(): ReadonlyMap<string, RuntimeToolDefinition> {
-		return new Map(this.registrations.map(({ tool }) => [tool.name, tool]));
+	readAvailableTools(sessionId?: string): ReadonlyMap<string, RuntimeToolDefinition> {
+		return new Map(this.readRegistrations(sessionId).map(({ tool }) => [tool.name, tool]));
 	}
 
-	readActiveToolNames(activation: CodingToolActivation): readonly string[] {
-		return selectCodingToolRegistrations(this.registrations, activation).map(({ tool }) => tool.name);
+	readActiveToolNames(activation: CodingToolActivation, sessionId?: string): readonly string[] {
+		return selectCodingToolRegistrations(this.readRegistrations(sessionId), activation).map(({ tool }) => tool.name);
 	}
 
 	compose(
@@ -69,20 +76,36 @@ export class CodingAgentGreenfieldExtensionToolRuntime {
 	): CodingAgentGreenfieldExtensionToolSurface {
 		const availableTools = new Map(baseAvailableTools);
 		const activeTools = new Map<string, RuntimeToolDefinition>();
-		const selected = new Set(this.readActiveToolNames(activation));
+		const registrations = this.readRegistrations(context.sessionId);
+		const registrationsByName = this.readRegistrationsByName(context.sessionId);
+		const selected = new Set(this.readActiveToolNames(activation, context.sessionId));
 
-		for (const { tool } of this.registrations) {
+		for (const { tool } of registrations) {
 			availableTools.set(tool.name, tool);
 			if (selected.has(tool.name)) activeTools.set(tool.name, tool);
 		}
 		for (const [name, tool] of context.frame.tools) {
-			if (!this.registrationsByName.has(name)) activeTools.set(name, tool);
+			if (!registrationsByName.has(name)) activeTools.set(name, tool);
 		}
 
 		return {
 			frame: { instructions: context.frame.instructions, tools: activeTools },
 			availableTools,
 		};
+	}
+
+	/** 原子替换单个 Session 的工具 Overlay；同名 Session 工具覆盖进程级 Extension 工具。 */
+	replaceSessionTools(sessionId: string, tools: readonly RegisteredTool[]): void {
+		const registrationsByName = new Map<string, CodingAgentRuntimeToolRegistration>();
+		for (const tool of tools) registrationsByName.set(tool.definition.name, this.adaptTool(tool));
+		this.sessionRegistrations.set(sessionId, {
+			registrations: Object.freeze([...registrationsByName.values()]),
+			registrationsByName,
+		});
+	}
+
+	clearSessionTools(sessionId: string): void {
+		this.sessionRegistrations.delete(sessionId);
 	}
 
 	bindRunner(
@@ -104,14 +127,42 @@ export class CodingAgentGreenfieldExtensionToolRuntime {
 
 	rebindSession(previousSessionId: string, nextSessionId: string): void {
 		if (previousSessionId === nextSessionId) return;
+		const sessionTools = this.sessionRegistrations.get(previousSessionId);
+		const existingTools = this.sessionRegistrations.get(nextSessionId);
+		if (sessionTools && existingTools && existingTools !== sessionTools) {
+			throw new Error(`Greenfield Session tool overlay is already bound: ${nextSessionId}`);
+		}
 		const runner = this.runners.get(previousSessionId);
-		if (!runner) return;
 		const existing = this.runners.get(nextSessionId);
-		if (existing && existing !== runner) {
+		if (runner && existing && existing !== runner) {
 			throw new Error(`Greenfield Extension tool runner is already bound: ${nextSessionId}`);
 		}
-		this.runners.delete(previousSessionId);
-		this.runners.set(nextSessionId, runner);
+		if (sessionTools) {
+			this.sessionRegistrations.delete(previousSessionId);
+			this.sessionRegistrations.set(nextSessionId, sessionTools);
+		}
+		if (runner) {
+			this.runners.delete(previousSessionId);
+			this.runners.set(nextSessionId, runner);
+		}
+	}
+
+	private readRegistrations(sessionId: string | undefined): readonly CodingAgentRuntimeToolRegistration[] {
+		if (!sessionId) return this.registrations;
+		const session = this.sessionRegistrations.get(sessionId);
+		if (!session || session.registrations.length === 0) return this.registrations;
+		const combined = new Map(this.registrations.map((registration) => [registration.tool.name, registration]));
+		for (const registration of session.registrations) combined.set(registration.tool.name, registration);
+		return [...combined.values()];
+	}
+
+	private readRegistrationsByName(
+		sessionId: string | undefined,
+	): ReadonlyMap<string, CodingAgentRuntimeToolRegistration> {
+		if (!sessionId) return this.registrationsByName;
+		const session = this.sessionRegistrations.get(sessionId);
+		if (!session || session.registrationsByName.size === 0) return this.registrationsByName;
+		return new Map([...this.registrationsByName, ...session.registrationsByName]);
 	}
 
 	private adaptTool(registeredTool: RegisteredTool): CodingAgentRuntimeToolRegistration {

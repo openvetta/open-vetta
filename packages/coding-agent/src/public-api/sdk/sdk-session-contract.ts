@@ -8,10 +8,15 @@ import type {
 	RuntimeSessionInputQueueMode,
 	RuntimeSessionState,
 } from "@vetta/runtime-core";
-import type { AgentSessionEventListener, PromptOptions } from "../../core/session/types.js";
+import type {
+	AgentSessionCustomToolDefinition,
+	AgentSessionEventListener,
+	PromptOptions,
+} from "../../core/session/types.js";
 
 export type GreenfieldSdkPromptOptions = PromptOptions;
 export type GreenfieldSdkSessionEventListener = AgentSessionEventListener;
+export type GreenfieldSdkCustomToolDefinition = AgentSessionCustomToolDefinition;
 
 export interface GreenfieldSdkScopedModel {
 	readonly model: Model<Api>;
@@ -71,6 +76,7 @@ export interface GreenfieldSdkSessionCapabilityPort {
 	readActiveToolNames(): readonly string[];
 	readAllTools(): readonly GreenfieldSdkToolInfo[];
 	setActiveToolNames(toolNames: readonly string[]): void;
+	reconfigureCustomTools(customTools: readonly GreenfieldSdkCustomToolDefinition[] | undefined): void;
 	readAgentMode(): string | undefined;
 	setAgentMode(mode: string | undefined): void;
 	readIsCompacting(): boolean;
@@ -145,6 +151,7 @@ export interface GreenfieldSdkSessionCapabilities {
 	getActiveToolNames(): readonly string[];
 	getAllTools(): readonly GreenfieldSdkToolInfo[];
 	setActiveToolsByName(toolNames: readonly string[]): void;
+	reconfigureCustomTools(customTools: readonly GreenfieldSdkCustomToolDefinition[] | undefined): void;
 	setAgentMode(mode: string | undefined): void;
 	setScopedModels(scopedModels: readonly GreenfieldSdkScopedModel[]): void;
 	clearQueue(): { readonly steering: readonly string[]; readonly followUp: readonly string[] };

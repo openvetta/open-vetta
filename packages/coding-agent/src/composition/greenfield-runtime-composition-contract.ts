@@ -21,6 +21,7 @@ import type {
 	CodingAgentGreenfieldExtensionEventBinding,
 	CodingAgentGreenfieldExtensionRunnerPort,
 	CodingAgentGreenfieldExtensionToolSource,
+	CodingAgentGreenfieldSessionToolRegistration,
 	CodingAgentMemoryRolloverOrchestratorOptions,
 	CodingAgentMemoryRolloverRuntime,
 	CodingAgentModelRegistrySource,
@@ -72,6 +73,8 @@ export interface GreenfieldRuntimeSessionOptions {
 	readonly initialTodoLockSource?: GreenfieldInitialTodoLockSource;
 	/** 产品会话自己的 Knowledge Writer；普通会话继续使用 Composition 默认实现。 */
 	readonly knowledgePageWriter?: KnowledgePageWriterPort;
+	/** 由产品宿主校验并适配的 Session 私有工具；同名定义覆盖进程级 Extension 工具。 */
+	readonly sessionTools?: readonly CodingAgentGreenfieldSessionToolRegistration[];
 }
 
 export interface GreenfieldRuntimeCompositionOptions {
@@ -176,6 +179,8 @@ export interface GreenfieldRuntimeExtensionControls {
 		options?: { readonly replaceExisting?: boolean },
 	): CodingAgentGreenfieldExtensionEventBinding;
 	refreshExtensionTools(extensions: readonly CodingAgentGreenfieldExtensionToolSource[]): void;
+	replaceSessionTools(sessionId: string, tools: readonly CodingAgentGreenfieldSessionToolRegistration[]): void;
+	clearSessionTools(sessionId: string): void;
 }
 
 /** 宿主可动态管理的 Runtime Tool Port；Composition 内部实现与生命周期不向外暴露。 */

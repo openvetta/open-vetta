@@ -117,6 +117,7 @@ export function createGreenfieldSessionRuntimeResources(
 							),
 							...(options.extensionToolRuntime?.readActiveToolNames(
 								withAgentMode(stateActivation, options.configurationState.readAgentMode()),
+								options.session.readSessionId(),
 							) ?? []),
 						];
 			},
@@ -184,6 +185,7 @@ function readSessionState(options: GreenfieldSessionRuntimeResourcesOptions, sta
 			: []),
 		...(options.extensionToolRuntime?.readActiveToolNames(
 			withAgentMode(stateActivation, options.configurationState.readAgentMode()),
+			options.session.readSessionId(),
 		) ?? []),
 	];
 	const contextWindow = options.modelRuntime.readCurrentModel().contextWindow;

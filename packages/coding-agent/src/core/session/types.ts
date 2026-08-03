@@ -38,6 +38,9 @@ import type { ConversationScenario } from "./tool-scope.js";
 
 export type { PromptAttachmentRef, PromptResourceRef } from "@vetta/runtime-core";
 
+/** AgentSession 公开的 SDK custom tool 定义。 */
+export type AgentSessionCustomToolDefinition = ToolDefinition;
+
 /** Session-specific events that extend the core AgentEvent */
 export type AgentSessionEvent =
 	| AgentEvent

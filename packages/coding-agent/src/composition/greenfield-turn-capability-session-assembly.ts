@@ -124,7 +124,7 @@ export async function createGreenfieldTurnCapabilitySessionAssembly(
 					runOrchestrator: pluginRunOrchestrator,
 					shouldPreserveBaseTool: (toolName) =>
 						options.mcpController?.isManagedTool(toolName) === true ||
-						options.extensionToolRuntime?.hasTool(toolName) === true,
+						options.extensionToolRuntime?.hasTool(toolName, options.session.readSessionId()) === true,
 					resolveActivation: (context) =>
 						toPluginToolActivation(options.activation.resolve(context), options.activation.readAgentMode()),
 				})
@@ -174,7 +174,7 @@ export async function createGreenfieldTurnCapabilitySessionAssembly(
 				? options.subagentRuntime.readTools().map((tool) => [tool.name, tool] as const)
 				: []),
 			...(invokeSkillFeature ? [[invokeSkillFeature.tool.name, invokeSkillFeature.tool] as const] : []),
-			...(options.extensionToolRuntime?.readAvailableTools() ?? []),
+			...(options.extensionToolRuntime?.readAvailableTools(options.session.readSessionId()) ?? []),
 		]);
 	const modelCallFrameComposer = new CodingAgentModelCallFrameComposer({
 		readMcpPromptState: mcpController ? () => mcpController.readPromptState() : undefined,

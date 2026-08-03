@@ -141,6 +141,11 @@ export class GreenfieldSdkSessionAdapter implements GreenfieldSdkSession {
 		this.runtime.capabilities.setActiveToolNames(toolNames);
 	}
 
+	reconfigureCustomTools(customTools: Parameters<GreenfieldSdkSession["reconfigureCustomTools"]>[0]): void {
+		this.assertOpen();
+		this.runtime.capabilities.reconfigureCustomTools(customTools);
+	}
+
 	setAgentMode(mode: string | undefined): void {
 		this.assertOpen();
 		this.runtime.capabilities.setAgentMode(mode);

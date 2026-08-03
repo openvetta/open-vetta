@@ -25,6 +25,7 @@ describe("Greenfield SDK session adapter", () => {
 		await session.followUp("follow-up");
 		await session.setModel({ provider: "openai", id: "model-id" } as Model<Api>);
 		session.setThinkingLevel("high");
+		session.reconfigureCustomTools(undefined);
 
 		expect(runtime.prompts).toEqual([
 			{ text: "first", images: [image], metadata: { source: "sdk" } },
@@ -33,6 +34,7 @@ describe("Greenfield SDK session adapter", () => {
 		]);
 		expect(runtime.selectedModelKeys).toEqual(["openai/model-id"]);
 		expect(runtime.thinkingLevels).toEqual(["high"]);
+		expect(runtime.customToolReconfigurations).toEqual([undefined]);
 		expect(session.sessionId).toBe("sdk-session");
 		expect(session.sessionFile).toBe("C:/sessions/sdk-session.jsonl");
 		expect(session.isStreaming).toBe(false);
@@ -110,6 +112,7 @@ class FakeSdkRuntime implements GreenfieldSdkSessionRuntimePort {
 	readonly prompts: PromptRequest[] = [];
 	readonly selectedModelKeys: string[] = [];
 	readonly thinkingLevels: ThinkingLevel[] = [];
+	readonly customToolReconfigurations: Array<readonly unknown[] | undefined> = [];
 	readonly observers = new Set<(observation: RuntimeSessionExecutionObservation) => Promise<void> | void>();
 	readonly retryObservers = new Set<(event: GreenfieldSdkRetryEvent) => void>();
 	disposeCalls = 0;
@@ -126,6 +129,7 @@ class FakeSdkRuntime implements GreenfieldSdkSessionRuntimePort {
 		readActiveToolNames: () => [],
 		readAllTools: () => [],
 		setActiveToolNames: () => undefined,
+		reconfigureCustomTools: (customTools) => this.customToolReconfigurations.push(customTools),
 		readAgentMode: () => undefined,
 		setAgentMode: () => undefined,
 		readIsCompacting: () => false,

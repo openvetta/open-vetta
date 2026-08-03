@@ -123,6 +123,13 @@ async function initializeSession<TOwnershipBinding>(
 		rollback: () => options.conversationContextOverlay.clear(activeSessionId),
 	});
 	try {
+		if (sessionOptions.sessionTools) {
+			options.extensionToolRuntime?.replaceSessionTools(activeSessionId, sessionOptions.sessionTools);
+			rollback.defer({
+				id: "session-tool-overlay",
+				rollback: () => options.extensionToolRuntime?.clearSessionTools(activeSessionId),
+			});
+		}
 		const sessionCwd = sessionOptions.cwd ?? options.cwd;
 		const peripherals = await createGreenfieldSessionPeripheralAssembly({
 			profile,

@@ -36,14 +36,18 @@ describe("SDK compatibility inventory", () => {
 		});
 	});
 
-	it("reports options that still require the complete AgentSession facade", () => {
+	it("accepts wired tool options and reports options that still require a product adapter", () => {
 		expect(assessSdkCreateOptionsCompatibility({ scopedModels: [], tools: [] })).toEqual({
+			compatible: true,
+			issues: [],
+		});
+		expect(assessSdkCreateOptionsCompatibility({ tracingTraceName: "sdk-trace" })).toEqual({
 			compatible: false,
 			issues: [
 				{
 					code: "greenfield_sdk_option_not_wired",
-					option: "tools",
-					disposition: "product-adapter",
+					option: "tracingTraceName",
+					disposition: "runtime-capability",
 				},
 			],
 		});
@@ -52,7 +56,10 @@ describe("SDK compatibility inventory", () => {
 	it("tracks actual wiring independently from architectural disposition", () => {
 		expect(Object.keys(SDK_SESSION_MEMBER_WIRING)).toHaveLength(Object.keys(SDK_SESSION_MEMBER_COMPATIBILITY).length);
 		expect(SDK_CREATE_OPTION_WIRING.scopedModels).toBe("wired");
+		expect(SDK_CREATE_OPTION_WIRING.tools).toBe("wired");
+		expect(SDK_CREATE_OPTION_WIRING.customTools).toBe("wired");
 		expect(SDK_SESSION_MEMBER_WIRING.cycleModel).toBe("wired");
+		expect(SDK_SESSION_MEMBER_WIRING.reconfigureCustomTools).toBe("wired");
 		expect(SDK_SESSION_MEMBER_WIRING.clearQueue).toBe("wired");
 		expect(SDK_SESSION_MEMBER_WIRING.switchSession).toBe("not-wired");
 		expect(SDK_SESSION_MEMBER_WIRING.agent).toBe("not-wired");

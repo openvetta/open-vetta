@@ -100,6 +100,47 @@ describe("CodingAgentGreenfieldExtensionToolRuntime", () => {
 			}),
 		).resolves.toMatchObject({ content: [{ type: "text", text: "updated" }] });
 	});
+
+	it("isolates Session overlays and lets Session tools override process Extension tools", () => {
+		const runtime = new CodingAgentGreenfieldExtensionToolRuntime([
+			extensionWithTool("extension", echoTool("extension")),
+		]);
+		runtime.replaceSessionTools("session-1", [registeredTool("<sdk-1>", echoTool("session-1"))]);
+		runtime.replaceSessionTools("session-2", [registeredTool("<sdk-2>", echoTool("session-2"))]);
+
+		expect(runtime.readAvailableTools("session-1").get("extension_echo")?.description).toBe("session-1");
+		expect(runtime.readAvailableTools("session-2").get("extension_echo")?.description).toBe("session-2");
+		expect(runtime.readAvailableTools("other-session").get("extension_echo")?.description).toBe("extension");
+
+		runtime.clearSessionTools("session-1");
+		expect(runtime.readAvailableTools("session-1").get("extension_echo")?.description).toBe("extension");
+		expect(runtime.readAvailableTools("session-2").get("extension_echo")?.description).toBe("session-2");
+	});
+
+	it("keeps a captured Model Call Frame stable while replacements affect the next call", async () => {
+		const runtime = new CodingAgentGreenfieldExtensionToolRuntime([]);
+		const runner = { createContext: () => ({ cwd: "C:/workspace" }) } as unknown as ExtensionRunner;
+		runtime.bindRunner("session-1", runner);
+		runtime.replaceSessionTools("session-1", [registeredTool("<sdk>", echoTool("before"))]);
+		const context = compositionContext(new Map());
+		const captured = runtime
+			.compose(context, context.frame.tools, { mode: "scope" })
+			.frame.tools.get("extension_echo");
+		if (!captured) throw new Error("Missing captured Session tool");
+
+		runtime.replaceSessionTools("session-1", [registeredTool("<sdk>", echoTool("after"))]);
+		const next = runtime.compose(context, context.frame.tools, { mode: "scope" }).frame.tools.get("extension_echo");
+		if (!next) throw new Error("Missing replaced Session tool");
+
+		expect(captured.description).toBe("before");
+		expect(next.description).toBe("after");
+		await expect(executeTool(captured, "captured")).resolves.toMatchObject({
+			content: [{ type: "text", text: "captured" }],
+		});
+		await expect(executeTool(next, "next")).resolves.toMatchObject({
+			content: [{ type: "text", text: "next" }],
+		});
+	});
 });
 
 function echoTool(description: string): ToolDefinition {
@@ -115,17 +156,31 @@ function echoTool(description: string): ToolDefinition {
 }
 
 function extensionWithTool(path: string, definition: ToolDefinition): Extension {
-	const registeredTool: RegisteredTool = { definition, extensionPath: path };
+	const tool = registeredTool(path, definition);
 	return {
 		path,
 		resolvedPath: path,
 		handlers: new Map(),
-		tools: new Map([[definition.name, registeredTool]]),
+		tools: new Map([[definition.name, tool]]),
 		messageRenderers: new Map(),
 		commands: new Map(),
 		flags: new Map(),
 		shortcuts: new Map(),
 	};
+}
+
+function registeredTool(extensionPath: string, definition: ToolDefinition): RegisteredTool {
+	return { definition, extensionPath };
+}
+
+function executeTool(tool: RuntimeToolDefinition, value: string) {
+	return tool.execute({
+		sessionId: "session-1",
+		turnId: "turn-1",
+		toolCallId: "call-1",
+		input: { value },
+		signal: new AbortController().signal,
+	});
 }
 
 function runtimeTool(name: string, description: string): RuntimeToolDefinition {

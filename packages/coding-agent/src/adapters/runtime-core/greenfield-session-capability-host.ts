@@ -3,6 +3,7 @@ import { type Api, type AssistantMessage, type Model, modelsAreEqual, supportsXh
 import type { GreenfieldRuntimeSession, PromptRequest, RuntimeSessionInputQueueMode } from "@vetta/runtime-core";
 import type { RuntimeToolDefinition } from "@vetta/runtime-core/kernel";
 import type {
+	GreenfieldSdkCustomToolDefinition,
 	GreenfieldSdkModelCycleResult,
 	GreenfieldSdkRetryEvent,
 	GreenfieldSdkScopedModel,
@@ -36,6 +37,7 @@ export interface CodingAgentGreenfieldSessionCapabilityHostOptions {
 	readonly initialAgentMode?: string;
 	readonly settings?: CodingAgentGreenfieldSessionCapabilitySettings;
 	readonly retryController?: CodingAgentGreenfieldTurnRetryController;
+	readonly reconfigureCustomTools?: (customTools: readonly GreenfieldSdkCustomToolDefinition[] | undefined) => void;
 }
 
 /** SDK 与 RPC 共用的 Session 内操作能力；不拥有 Session，也不执行身份迁移。 */
@@ -95,6 +97,13 @@ export class CodingAgentGreenfieldSessionCapabilityHost implements GreenfieldSdk
 		const controller = this.readCore().toolController;
 		if (!controller) throw new Error("Greenfield session tool capability is unavailable");
 		controller.setActiveToolNames(toolNames);
+	}
+
+	reconfigureCustomTools(customTools: readonly GreenfieldSdkCustomToolDefinition[] | undefined): void {
+		if (!this.options.reconfigureCustomTools) {
+			throw new Error("Greenfield session custom tool capability is unavailable");
+		}
+		this.options.reconfigureCustomTools(customTools);
 	}
 
 	readAgentMode(): string | undefined {

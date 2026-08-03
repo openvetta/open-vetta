@@ -60,6 +60,7 @@ export {
 export type {
 	CodingAgentGreenfieldExtensionRunnerPort,
 	CodingAgentGreenfieldExtensionToolSource,
+	CodingAgentGreenfieldSessionToolRegistration,
 } from "./greenfield-extension-contract.js";
 export { CodingAgentGreenfieldExtensionEventBridge } from "./greenfield-extension-event-bridge.js";
 export {

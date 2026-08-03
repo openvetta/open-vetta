@@ -1,12 +1,15 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Type } from "@sinclair/typebox";
 import type { Api, AssistantMessage, Model, UserMessage } from "@vetta/ai";
 import { afterEach, describe, expect, it } from "vitest";
 import { AuthStorage } from "../../src/core/auth-storage.js";
+import type { ToolDefinition } from "../../src/core/extensions/types.js";
 import { ModelRegistry } from "../../src/core/model-registry.js";
 import { SessionManager } from "../../src/core/session-manager/index.js";
 import { SettingsManager } from "../../src/core/settings-manager.js";
+import { readTool } from "../../src/core/tools/index.js";
 import {
 	CODING_AGENT_SDK_HOST_ERROR_CODES,
 	CodingAgentSdkHostError,
@@ -115,11 +118,65 @@ describe("Coding Agent SDK Host Adapter", () => {
 		});
 	});
 
+	it("preserves explicit built-in tool activation, including an empty tool list", async () => {
+		const emptyResources = await createResources("sdk-host-no-tools-");
+		const emptyResult = await createGreenfieldAgentSession({
+			...emptyResources.options,
+			model: MODEL,
+			tools: [],
+		});
+		sessions.push(emptyResult.session);
+		expect(emptyResult.session.getActiveToolNames()).toEqual([]);
+
+		const subsetResources = await createResources("sdk-host-tool-subset-");
+		const subsetResult = await createGreenfieldAgentSession({
+			...subsetResources.options,
+			model: MODEL,
+			tools: [readTool],
+		});
+		sessions.push(subsetResult.session);
+		expect(subsetResult.session.getActiveToolNames()).toEqual(["read"]);
+	});
+
+	it("registers, replaces and removes Session-private SDK custom tools", async () => {
+		const resources = await createResources("sdk-host-custom-tools-");
+		const result = await createGreenfieldAgentSession({
+			...resources.options,
+			model: MODEL,
+			customTools: [customTool("before")],
+		});
+		sessions.push(result.session);
+
+		expect(result.session.getAllTools().find(({ name }) => name === "sdk_echo")?.description).toBe("before");
+		expect(result.session.getActiveToolNames()).toContain("sdk_echo");
+
+		result.session.reconfigureCustomTools([customTool("after")]);
+		expect(result.session.getAllTools().find(({ name }) => name === "sdk_echo")?.description).toBe("after");
+
+		result.session.reconfigureCustomTools(undefined);
+		expect(result.session.getAllTools().some(({ name }) => name === "sdk_echo")).toBe(false);
+		expect(result.session.getActiveToolNames()).not.toContain("sdk_echo");
+	});
+
+	it("keeps SDK custom tools inactive when the caller supplied an explicit built-in tool list", async () => {
+		const resources = await createResources("sdk-host-explicit-custom-tools-");
+		const result = await createGreenfieldAgentSession({
+			...resources.options,
+			model: MODEL,
+			tools: [],
+			customTools: [customTool("inactive")],
+		});
+		sessions.push(result.session);
+
+		expect(result.session.getAllTools().some(({ name }) => name === "sdk_echo")).toBe(true);
+		expect(result.session.getActiveToolNames()).not.toContain("sdk_echo");
+	});
+
 	it("rejects options that still require the complete Legacy AgentSession facade", async () => {
-		await expect(createGreenfieldAgentSession({ tools: [] })).rejects.toMatchObject({
+		await expect(createGreenfieldAgentSession({ tracingTraceName: "sdk-trace" })).rejects.toMatchObject({
 			name: CodingAgentSdkHostError.name,
 			code: CODING_AGENT_SDK_HOST_ERROR_CODES.INCOMPATIBLE_OPTIONS,
-			issues: [{ option: "tools" }],
+			issues: [{ option: "tracingTraceName" }],
 		});
 	});
 
@@ -180,6 +237,21 @@ function registerTestModel(modelRegistry: ModelRegistry): void {
 			},
 		],
 	});
+}
+
+function customTool(description: string): ToolDefinition {
+	return {
+		name: "sdk_echo",
+		label: "SDK Echo",
+		description,
+		parameters: Type.Object({ value: Type.String() }),
+		async execute(_toolCallId, params) {
+			if (typeof params !== "object" || params === null || typeof Reflect.get(params, "value") !== "string") {
+				throw new Error("Expected SDK echo input");
+			}
+			return { content: [{ type: "text", text: Reflect.get(params, "value") }], details: undefined };
+		},
+	};
 }
 
 function userMessage(text: string): UserMessage {

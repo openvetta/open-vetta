@@ -1,6 +1,7 @@
 import type {
 	CodingAgentGreenfieldExtensionRunnerPort,
 	CodingAgentGreenfieldExtensionToolSource,
+	CodingAgentGreenfieldSessionToolRegistration,
 } from "../adapters/runtime-core/greenfield-extension-contract.js";
 import type { GreenfieldRuntimeExtensionControls } from "./greenfield-runtime-composition-contract.js";
 import type { GreenfieldSessionResourceIndexes } from "./greenfield-session-resource-lifecycle-assembly.js";
@@ -12,6 +13,8 @@ export interface GreenfieldExtensionToolHostPort {
 		options?: { readonly replaceExisting?: boolean },
 	): () => void;
 	refresh(extensions: readonly CodingAgentGreenfieldExtensionToolSource[]): void;
+	replaceSessionTools(sessionId: string, tools: readonly CodingAgentGreenfieldSessionToolRegistration[]): void;
+	clearSessionTools(sessionId: string): void;
 }
 
 export interface GreenfieldRuntimeExtensionControlsOptions {
@@ -39,6 +42,13 @@ export function createGreenfieldRuntimeExtensionControls(
 		},
 		refreshExtensionTools(extensions) {
 			options.extensionToolRuntime?.refresh(extensions);
+		},
+		replaceSessionTools(sessionId, tools) {
+			if (!options.extensionToolRuntime) throw new Error("Greenfield Session tool runtime is unavailable");
+			options.extensionToolRuntime.replaceSessionTools(sessionId, tools);
+		},
+		clearSessionTools(sessionId) {
+			options.extensionToolRuntime?.clearSessionTools(sessionId);
 		},
 	};
 }

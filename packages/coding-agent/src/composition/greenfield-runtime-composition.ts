@@ -54,10 +54,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 	const cwd = options.cwd ?? process.cwd();
 	const scenario = options.scenario ?? "cli";
 	const sessionInitializationProfile = createGreenfieldSessionInitializationProfile(options);
-	const configuredExtensionToolRuntime = options.extensionTools
-		? new CodingAgentGreenfieldExtensionToolRuntime(options.extensionTools)
-		: undefined;
-	const extensionToolRuntime = configuredExtensionToolRuntime;
+	const extensionToolRuntime = new CodingAgentGreenfieldExtensionToolRuntime(options.extensionTools ?? []);
 	const resourceRegistry = new GreenfieldCompositionResourceRegistry();
 	const toolSurface = await createGreenfieldRuntimeToolSurface({
 		cwd,

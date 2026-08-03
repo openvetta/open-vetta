@@ -1,4 +1,6 @@
 import { join } from "node:path";
+import { TypeGuard } from "@sinclair/typebox/type";
+import { Value } from "@sinclair/typebox/value";
 import type { ThinkingLevel } from "@vetta/agent-core";
 import type { Api, Model } from "@vetta/ai";
 import { buildDefaultHookConfigLayers } from "@vetta/ecosystem-adapter";
@@ -52,6 +54,66 @@ export class CodingAgentSdkHostError extends Error {
 	}
 }
 
+export const CODING_AGENT_SDK_CUSTOM_TOOL_ERROR_CODES = {
+	INVALID_SCHEMA: "greenfield_sdk_custom_tool_invalid_schema",
+	INVALID_INPUT: "greenfield_sdk_custom_tool_invalid_input",
+} as const;
+
+export type CodingAgentSdkCustomToolErrorCode =
+	(typeof CODING_AGENT_SDK_CUSTOM_TOOL_ERROR_CODES)[keyof typeof CODING_AGENT_SDK_CUSTOM_TOOL_ERROR_CODES];
+
+export class CodingAgentSdkCustomToolError extends Error {
+	constructor(
+		readonly code: CodingAgentSdkCustomToolErrorCode,
+		readonly toolName: string,
+		message: string,
+	) {
+		super(message);
+		this.name = "CodingAgentSdkCustomToolError";
+	}
+}
+
+type CodingAgentSdkCustomToolDefinition = NonNullable<CreateAgentSessionOptions["customTools"]>[number];
+
+interface CodingAgentSdkRegisteredTool {
+	readonly definition: CodingAgentSdkCustomToolDefinition;
+	readonly extensionPath: string;
+}
+
+/** 在 SDK 产品边界校验 TypeBox schema，并为执行入口增加调用参数校验。 */
+export function adaptCodingAgentSdkCustomTools(
+	customTools: readonly CodingAgentSdkCustomToolDefinition[] | undefined,
+): readonly CodingAgentSdkRegisteredTool[] | undefined {
+	if (customTools === undefined) return undefined;
+	return customTools.map((definition) => {
+		if (!TypeGuard.IsSchema(definition.parameters)) {
+			throw new CodingAgentSdkCustomToolError(
+				CODING_AGENT_SDK_CUSTOM_TOOL_ERROR_CODES.INVALID_SCHEMA,
+				definition.name,
+				`SDK custom tool "${definition.name}" must declare a valid TypeBox schema`,
+			);
+		}
+		const parameters = definition.parameters;
+		const adaptedDefinition: CodingAgentSdkCustomToolDefinition = {
+			...definition,
+			async execute(toolCallId, input, signal, onUpdate, context) {
+				if (!Value.Check(parameters, input)) {
+					const issue = Value.Errors(parameters, input).First();
+					const location = issue?.path ? ` at ${issue.path}` : "";
+					const detail = issue?.message ? `: ${issue.message}` : "";
+					throw new CodingAgentSdkCustomToolError(
+						CODING_AGENT_SDK_CUSTOM_TOOL_ERROR_CODES.INVALID_INPUT,
+						definition.name,
+						`Invalid input for SDK custom tool "${definition.name}"${location}${detail}`,
+					);
+				}
+				return definition.execute(toolCallId, input, signal, onUpdate, context);
+			},
+		};
+		return { extensionPath: "<sdk>", definition: adaptedDefinition };
+	});
+}
+
 export interface CreateGreenfieldAgentSessionResult {
 	readonly session: GreenfieldSdkSession;
 	readonly extensionsResult: LoadExtensionsResult;
@@ -74,6 +136,14 @@ export async function createGreenfieldAgentSession(
 	options: CreateAgentSessionOptions = {},
 ): Promise<CreateGreenfieldAgentSessionResult> {
 	assertCompatibleOptions(options);
+	const sessionTools = adaptCodingAgentSdkCustomTools(options.customTools);
+	const activation =
+		options.tools === undefined
+			? undefined
+			: {
+					mode: "explicit" as const,
+					toolNames: options.tools.map(({ name }) => name),
+				};
 	const cwd = options.cwd ?? process.cwd();
 	const agentDir = options.agentDir ?? getAgentDir();
 	const authPath = options.agentDir ? join(agentDir, "auth.json") : undefined;
@@ -136,6 +206,7 @@ export async function createGreenfieldAgentSession(
 			cwd,
 			agentDir,
 			scenario: options.scenario,
+			activation,
 			hookConfigLayers: buildDefaultHookConfigLayers({ cwd, vettaHome: getVettaHomePath() }),
 			additionalHookAdapterFactories: options.additionalHookAdapterFactories,
 			enableSubagents: options.enableSubagents,
@@ -171,38 +242,38 @@ export async function createGreenfieldAgentSession(
 			invokePluginTool: options.invokePluginTool,
 			invokePluginContinuation: options.invokePluginContinuation,
 			invokePluginSystemPrompt: options.invokePluginSystemPrompt,
+			sessionTools,
 		},
-		initializeSession:
-			extensionsResult.extensions.length > 0 || extensionsResult.runtime.pendingProviderRegistrations.length > 0
-				? async ({ session, composition }) => {
-						extensionEventHost = new CodingAgentGreenfieldExtensionEventHost({
-							extensions: extensionsResult.extensions,
-							runtime: extensionsResult.runtime,
-							cwd,
-							session,
-							modelRegistry,
-							resourceLoader,
-							bindEvents: (runner, bindOptions) =>
-								composition.bindExtensionRunner(session.sessionId, runner, bindOptions),
-						});
-						try {
-							await extensionEventHost.initialize();
-							await extensionEventHost.discoverResources("startup");
-							const acquiredHost = extensionEventHost;
-							return { id: "sdk-extension-event-host", dispose: () => acquiredHost.dispose() };
-						} catch (error) {
-							await extensionEventHost.dispose();
-							throw error;
-						}
-					}
-				: undefined,
-		createCapabilityHost: ({ session }) =>
+		initializeSession: async ({ session, composition }) => {
+			extensionEventHost = new CodingAgentGreenfieldExtensionEventHost({
+				extensions: extensionsResult.extensions,
+				runtime: extensionsResult.runtime,
+				cwd,
+				session,
+				modelRegistry,
+				resourceLoader,
+				bindEvents: (runner, bindOptions) =>
+					composition.bindExtensionRunner(session.sessionId, runner, bindOptions),
+			});
+			try {
+				await extensionEventHost.initialize();
+				await extensionEventHost.discoverResources("startup");
+				const acquiredHost = extensionEventHost;
+				return { id: "sdk-extension-event-host", dispose: () => acquiredHost.dispose() };
+			} catch (error) {
+				await extensionEventHost.dispose();
+				throw error;
+			}
+		},
+		createCapabilityHost: ({ session, composition }) =>
 			new CodingAgentGreenfieldSessionCapabilityHost({
 				readSession: () => session,
 				readAvailableModels: async () => modelRegistry.getAvailable(),
 				scopedModels: options.scopedModels,
 				initialAgentMode: options.agentMode,
 				settings: settingsManager,
+				reconfigureCustomTools: (customTools) =>
+					composition.replaceSessionTools(session.sessionId, adaptCodingAgentSdkCustomTools(customTools) ?? []),
 			}),
 	});
 
