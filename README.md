@@ -21,10 +21,6 @@
   <a href="https://www.openvetta.com">Website</a>
 </p>
 
-<p align="center">
-  <img src="docs/assets/screenshot.png" alt="Open Vetta desktop app">
-</p>
-
 ---
 
 ## What This Is
@@ -40,6 +36,10 @@ Three ground rules:
   and keys stay in your local keychain.
 - **No telemetry.** No crash reporting, no usage analytics. Every outbound request is one your
   own configuration asked for (see [Network Behavior](#network-behavior)).
+
+<p align="center">
+  <img src="docs/assets/screenshot.png" alt="Open Vetta desktop app">
+</p>
 
 ---
 

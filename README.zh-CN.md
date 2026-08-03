@@ -21,10 +21,6 @@
   <a href="https://www.openvetta.com">官网</a>
 </p>
 
-<p align="center">
-  <img src="docs/assets/screenshot.png" alt="Open Vetta 桌面应用界面">
-</p>
-
 ---
 
 ## 这是什么
@@ -37,6 +33,10 @@ Open Vetta 是一个 Electron 桌面应用：你在里面和模型对话、让�
 - **不连任何厂商服务端。** 没有登录、没有账号、没有订阅计费、没有远程管理后台。
 - **模型一律 BYOK。** 你填自己的 API Key，请求直发服务商原站，密钥只留在本机 keychain。
 - **没有遥测。** 没有崩溃上报，没有使用统计。所有出网请求都由你的配置显式触发（见[网络行为](#网络行为)）。
+
+<p align="center">
+  <img src="docs/assets/screenshot.png" alt="Open Vetta 桌面应用界面">
+</p>
 
 ---
 
