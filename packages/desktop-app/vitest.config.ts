@@ -44,10 +44,6 @@ export default defineConfig({
 				replacement: resolve(__dirname, "../coding-agent/src/core/knowledge/index.ts"),
 			},
 			{
-				find: "@vetta/coding-agent/legacy/cli",
-				replacement: resolve(__dirname, "../coding-agent/src/public-api/legacy-cli.ts"),
-			},
-			{
 				find: "@vetta/coding-agent/legacy/host-services",
 				replacement: resolve(__dirname, "../coding-agent/src/public-api/legacy-host-services.ts"),
 			},

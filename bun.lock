@@ -203,9 +203,6 @@
     "packages/coding-agent": {
       "name": "@vetta/coding-agent",
       "version": "0.0.1",
-      "bin": {
-        "vetta-agent": "dist/cli.js",
-      },
       "dependencies": {
         "@mariozechner/jiti": "^2.6.2",
         "@modelcontextprotocol/sdk": "^1.29.0",

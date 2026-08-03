@@ -19,7 +19,7 @@ interface AgentCliResult {
 
 const repositoryRoot = fileURLToPath(new URL("../../..", import.meta.url));
 const compileScriptPath = fileURLToPath(new URL("../scripts/compile-standalone.mjs", import.meta.url));
-const legacyCliSourcePath = fileURLToPath(new URL("../../coding-agent/src/cli.ts", import.meta.url));
+const legacyCliSourcePath = fileURLToPath(new URL("./support/legacy-cli-test-entry.ts", import.meta.url));
 const compileTargetByPlatform = {
 	"darwin-arm64": "bun-darwin-arm64",
 	"darwin-x64": "bun-darwin-x64",
@@ -648,13 +648,11 @@ async function runAgentCli(
 	return new Promise<AgentCliResult>((resolve, reject) => {
 		const legacyBaseline = extraArgs[0] === "--test-legacy-baseline";
 		const runtimeArgs = legacyBaseline ? extraArgs.slice(1) : extraArgs;
-		const explicitAgentCommand = runtimeArgs[0] === "agent";
-		const agentArgs = explicitAgentCommand ? runtimeArgs.slice(1) : runtimeArgs;
+		const agentArgs = runtimeArgs[0] === "agent" ? runtimeArgs.slice(1) : runtimeArgs;
 		const child = spawn(
 			legacyBaseline ? "bun" : executable.path,
 			[
 				...(legacyBaseline ? [legacyCliSourcePath] : []),
-				...(explicitAgentCommand ? ["agent"] : []),
 				"--provider",
 				"test",
 				"--model",
@@ -867,12 +865,16 @@ function readFrameType(frame: unknown): string | undefined {
 
 async function buildAgentCliExecutable(): Promise<AgentCliExecutable> {
 	const directory = await mkdtemp(join(tmpdir(), "vetta-agent-cli-executable-"));
-	const path = join(directory, process.platform === "win32" ? "vetta.exe" : "vetta");
+	const path = join(directory, process.platform === "win32" ? "vetta-agent.exe" : "vetta-agent");
 	const platformTag = `${process.platform}-${process.arch}` as keyof typeof compileTargetByPlatform;
 	const compileTarget = compileTargetByPlatform[platformTag];
 	if (!compileTarget) throw new Error(`Unsupported Print artifact test platform: ${platformTag}`);
 	try {
-		await runCommand("bun", [compileScriptPath, "--target", compileTarget, "--outfile", path], repositoryRoot);
+		await runCommand(
+			"bun",
+			[compileScriptPath, "--entry", "agent", "--target", compileTarget, "--outfile", path],
+			repositoryRoot,
+		);
 		if (process.platform !== "win32") await chmod(path, 0o755);
 		return {
 			path,

@@ -5,13 +5,14 @@ CLI and process composition roots around `@vetta/coding-agent`.
 ## What It Owns
 
 - process entrypoint for the CLI app
-- explicit Legacy/Greenfield runtime selection
+- the `vetta`, `vetta-agent`, and `vetta-agent-rpc` executable entrypoints
+- compatibility parsing for retired Legacy runtime requests
 - dedicated JSONL RPC sidecar entrypoint
 - argument handoff into `coding-agent`
 
 ## Runtime Selection
 
-The default remains the Legacy coding-agent runtime. Greenfield IM must be selected explicitly:
+Greenfield is the canonical runtime. A retired `legacy` request remains accepted for compatibility and is mapped to the matching Greenfield host:
 
 ```text
 vetta-agent-rpc --agent-runtime greenfield-im \
@@ -21,8 +22,8 @@ vetta-agent-rpc --agent-runtime greenfield-im \
   --session-dir <conversation-directory>
 ```
 
-The selector falls back to Legacy for unsupported existing sessions and extensions while reusing the same loaded host
-bootstrap. The dedicated RPC entry keeps stdout reserved for JSONL protocol frames; startup diagnostics use stderr.
+The dedicated RPC entry keeps stdout reserved for JSONL protocol frames; startup diagnostics use stderr. Legacy session
+files remain readable through the explicit migration boundary, but no CLI entrypoint activates Legacy execution.
 
 ## What It Does Not Own
 

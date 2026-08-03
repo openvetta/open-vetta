@@ -26,7 +26,7 @@ const compiledPackageMetadata = {
 const temporaryRoot = await mkdtemp(join(cliAppRoot, ".standalone-entry-"));
 try {
 	const entryPath = join(temporaryRoot, "standalone-entry.mjs");
-	await writeFile(entryPath, createStandaloneEntry(), "utf8");
+	await writeFile(entryPath, createStandaloneEntry(options.entry), "utf8");
 	const buildArgs = [
 		"build",
 		entryPath,
@@ -43,9 +43,15 @@ try {
 	await rm(temporaryRoot, { force: true, recursive: true });
 }
 
-function createStandaloneEntry() {
+
+function createStandaloneEntry(entry) {
+	const runtimeImport =
+		entry === "agent"
+			? 'import { runAgentCli } from "../src/run-agent-cli.ts";'
+			: 'import { runCli } from "../src/run-cli.ts";';
+	const runtimeCall = entry === "agent" ? "await runAgentCli(process.argv.slice(2));" : "await runCli(process.argv.slice(2));";
 	return [
-		'import { runCli } from "../src/run-cli.ts";',
+		runtimeImport,
 		'import { installExportTemplateAssets } from "../../coding-agent/src/core/export-html/index.ts";',
 		'import { installBuiltinThemeDocuments } from "../../coding-agent/src/modes/interactive/theme/theme.ts";',
 		'import { installPhotonModuleLoader, installPhotonWasmPath } from "../../coding-agent/src/utils/photon.ts";',
@@ -62,7 +68,7 @@ function createStandaloneEntry() {
 		"installBuiltinThemeDocuments({ dark: darkTheme, light: lightTheme });",
 		"installPhotonWasmPath(photonWasmPath);",
 		'installPhotonModuleLoader(() => import("../../coding-agent/node_modules/@silvia-odwyer/photon-node/photon_rs.js"));',
-		"await runCli(process.argv.slice(2));",
+		runtimeCall,
 		"",
 	].join("\n");
 }
@@ -71,6 +77,7 @@ function parseArgs(args) {
 	let outfile;
 	let target;
 	let metafile;
+	let entry = "cli";
 	for (let index = 0; index < args.length; index += 1) {
 		const arg = args[index];
 		if (arg === "--outfile") {
@@ -85,10 +92,17 @@ function parseArgs(args) {
 			metafile = readValue(args, ++index, arg);
 			continue;
 		}
+		if (arg === "--entry") {
+			entry = readValue(args, ++index, arg);
+			if (entry !== "cli" && entry !== "agent") {
+				throw new Error(`Unsupported standalone entry: ${entry}`);
+			}
+			continue;
+		}
 		throw new Error(`Unknown compile-standalone option: ${arg}`);
 	}
 	if (!outfile) throw new Error("compile-standalone requires --outfile <path>");
-	return { metafile, outfile: resolve(outfile), target };
+	return { entry, metafile, outfile: resolve(outfile), target };
 }
 
 function readValue(args, index, option) {

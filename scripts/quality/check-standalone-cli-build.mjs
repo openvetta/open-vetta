@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 const repositoryRoot = fileURLToPath(new URL("../..", import.meta.url));
 const canonicalCompilerPath = "packages/cli-app/scripts/compile-standalone.mjs";
 const governedConsumers = [
+	"scripts/build-binaries.sh",
 	"packages/desktop-app/scripts/prepare-pack.js",
 	"packages/desktop-app/src/main/dev-cli-shim.ts",
 ];
@@ -32,13 +33,15 @@ export function findStandaloneCliBuildViolations(filePath, source) {
 	}
 
 	const referencesCliEntry =
-		/packages[\\/]+cli-app[\\/]+src[\\/]+cli\.ts/i.test(compactSource) ||
-		/(?:cliAppDir|cliAppRoot|cliAppPackageDir).{0,160}["']src["'].{0,120}["']cli\.ts["']/i.test(compactSource);
+		/packages[\\/]+cli-app[\\/]+src[\\/]+(?:agent-)?cli\.ts/i.test(compactSource) ||
+		/(?:cliAppDir|cliAppRoot|cliAppPackageDir).{0,160}["']src["'].{0,120}["'](?:agent-)?cli\.ts["']/i.test(
+			compactSource,
+		);
 	if (!referencesCliEntry) {
 		return [];
 	}
 
-	return [`${normalizedFilePath}: 不得直接编译 packages/cli-app/src/cli.ts；请调用 ${canonicalCompilerPath}`];
+	return [`${normalizedFilePath}: 不得直接编译 cli-app CLI 源入口；请调用 ${canonicalCompilerPath}`];
 }
 
 async function collectSourceFiles(directoryPath) {

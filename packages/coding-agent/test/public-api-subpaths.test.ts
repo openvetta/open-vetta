@@ -15,7 +15,6 @@ import {
 	ModelRegistry as HostModelRegistry,
 	SettingsManager as HostSettingsManager,
 } from "../src/public-api/host-services.js";
-import { main as legacyMain, runLegacyAgentWithBootstrap } from "../src/public-api/legacy-cli.js";
 import { AuthStorage, ModelRegistry, SettingsManager } from "../src/public-api/legacy-host-services.js";
 import { AgentSession, SessionManager } from "../src/public-api/legacy-session.js";
 import { BackgroundTaskManager, createShellTool, createTaskOutputTool } from "../src/public-api/legacy-tools.js";
@@ -41,8 +40,6 @@ describe("coding-agent public subpaths", () => {
 		expect(knowledge.knowledgeRoot).toBe(root.knowledge.knowledgeRoot);
 		expect(DefaultResourceLoader).toBe(root.DefaultResourceLoader);
 		expect(createLimiter).toBe(root.createLimiter);
-		expect(legacyMain).toBe(root.main);
-		expect(runLegacyAgentWithBootstrap).toBe(root.runLegacyAgentWithBootstrap);
 		expect(HostAuthStorage).toBe(root.AuthStorage);
 		expect(HostModelRegistry).toBe(root.ModelRegistry);
 		expect(HostSettingsManager).toBe(root.SettingsManager);
@@ -101,10 +98,6 @@ describe("coding-agent public subpaths", () => {
 				types: "./dist/core/knowledge/index.d.ts",
 				import: "./dist/core/knowledge/index.js",
 			},
-			"./legacy/cli": {
-				types: "./dist/public-api/legacy-cli.d.ts",
-				import: "./dist/public-api/legacy-cli.js",
-			},
 			"./legacy/host-services": {
 				types: "./dist/public-api/legacy-host-services.d.ts",
 				import: "./dist/public-api/legacy-host-services.js",
@@ -130,5 +123,6 @@ describe("coding-agent public subpaths", () => {
 				import: "./dist/public-api/rpc.js",
 			},
 		});
+		expect(Reflect.get(exports as object, "./legacy/cli")).toBeUndefined();
 	});
 });

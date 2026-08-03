@@ -1,4 +1,4 @@
-import { main } from "@vetta/coding-agent/legacy/cli";
+import { main } from "../../../coding-agent/src/main.js";
 import { installRpcStdoutGuard } from "../../src/rpc/rpc-stdout-guard.js";
 
 installRpcStdoutGuard();

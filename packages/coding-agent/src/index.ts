@@ -417,6 +417,7 @@ export {
 	type KbWritePageInput,
 	kbWritePageTool,
 } from "./core/tools/kb-write-page/index.js";
+export { createAgentCliBootstrap } from "./host/coding-agent-cli-bootstrap.js";
 export type {
 	CodingAgentExtensionBootstrapContributions,
 	CodingAgentExtensionCompatibilityAssessment,
@@ -435,8 +436,6 @@ export {
 	createCodingAgentHostBootstrap,
 	resolveCodingAgentInitialModel,
 } from "./host/coding-agent-host-bootstrap.js";
-// Main entry point
-export { createAgentCliBootstrap, createLegacyAgentBootstrap, main, runLegacyAgentWithBootstrap } from "./main.js";
 // Run modes for programmatic SDK usage
 export {
 	computeGreenfieldRpcSessionStats,

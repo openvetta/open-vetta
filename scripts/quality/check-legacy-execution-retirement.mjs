@@ -9,9 +9,6 @@ import ts from "typescript";
 import { fail, isDirectRun, ok, readText, rel, repoRoot, walkFiles } from "./lib.mjs";
 
 export const LEGACY_EXECUTION_EDGE_BASELINE = Object.freeze([
-	edge("packages/coding-agent/src/cli.ts", "./main.js", "legacy-cli-public"),
-	edge("packages/coding-agent/src/index.ts", "./main.js", "legacy-cli-public"),
-	edge("packages/coding-agent/src/public-api/legacy-cli.ts", "../main.js", "legacy-cli-public"),
 	edge("packages/coding-agent/src/public-api/legacy-session.ts", "../core/agent-session.js", "legacy-session-public"),
 	edge(
 		"packages/coding-agent/src/public-api/legacy-session.ts",
@@ -53,10 +50,14 @@ export const RETAINED_LEGACY_FORMAT_BOUNDARIES = Object.freeze([
 ]);
 
 export const LEGACY_PACKAGE_EXPORT_BASELINE = Object.freeze([
-	"./legacy/cli",
 	"./legacy/host-services",
 	"./legacy/session",
 	"./legacy/tools",
+]);
+
+export const RETIRED_LEGACY_CLI_FILES = Object.freeze([
+	"packages/coding-agent/src/cli.ts",
+	"packages/coding-agent/src/public-api/legacy-cli.ts",
 ]);
 
 const LEGACY_EXECUTION_SYMBOL_KINDS = new Map([
@@ -67,7 +68,10 @@ const LEGACY_EXECUTION_SYMBOL_KINDS = new Map([
 	["createDesktopLegacyExecutionCompatibility", "desktop-legacy-execution-activation"],
 ]);
 
-export function findLegacyExecutionRetirementViolations(files, { requireBaseline = false, packageExports } = {}) {
+export function findLegacyExecutionRetirementViolations(
+	files,
+	{ cliAppBin, codingAgentBin, requireBaseline = false, packageExports } = {},
+) {
 	const violations = [];
 	const sourcePaths = new Set(files.map((file) => file.path));
 	const classifiedEdges = files.flatMap((file) =>
@@ -106,6 +110,9 @@ export function findLegacyExecutionRetirementViolations(files, { requireBaseline
 	}
 
 	if (requireBaseline) {
+		for (const retiredPath of RETIRED_LEGACY_CLI_FILES) {
+			if (sourcePaths.has(retiredPath)) violations.push(`${retiredPath}: retired Legacy CLI source was restored`);
+		}
 		for (const expected of LEGACY_EXECUTION_EDGE_BASELINE) {
 			if (!classifiedEdges.some((actual) => sameEdge(actual, expected))) {
 				violations.push(
@@ -126,8 +133,20 @@ export function findLegacyExecutionRetirementViolations(files, { requireBaseline
 				`packages/coding-agent/package.json: Legacy package exports changed without updating the retirement baseline (${actualExports.join(", ") || "none"})`,
 			);
 		}
+		violations.push(...findCanonicalExecutableOwnershipViolations({ cliAppBin, codingAgentBin }));
 	}
 
+	return violations;
+}
+
+export function findCanonicalExecutableOwnershipViolations({ cliAppBin, codingAgentBin } = {}) {
+	const violations = [];
+	if (codingAgentBin !== undefined) {
+		violations.push("packages/coding-agent/package.json: coding-agent must not publish executable bins");
+	}
+	if (cliAppBin?.["vetta-agent"] !== "dist/agent-cli.js") {
+		violations.push("packages/cli-app/package.json: vetta-agent must resolve to dist/agent-cli.js");
+	}
 	return violations;
 }
 
@@ -244,10 +263,13 @@ function readProductionSources() {
 
 if (isDirectRun(import.meta.url)) {
 	const files = readProductionSources();
-	const packageJson = JSON.parse(readText(join(repoRoot, "packages/coding-agent/package.json")));
+	const codingAgentPackageJson = JSON.parse(readText(join(repoRoot, "packages/coding-agent/package.json")));
+	const cliAppPackageJson = JSON.parse(readText(join(repoRoot, "packages/cli-app/package.json")));
 	const violations = findLegacyExecutionRetirementViolations(files, {
+		cliAppBin: cliAppPackageJson.bin,
+		codingAgentBin: codingAgentPackageJson.bin,
 		requireBaseline: true,
-		packageExports: packageJson.exports,
+		packageExports: codingAgentPackageJson.exports,
 	});
 	if (violations.length > 0) {
 		for (const violation of violations) fail(`[legacy-execution] ${violation}`);
