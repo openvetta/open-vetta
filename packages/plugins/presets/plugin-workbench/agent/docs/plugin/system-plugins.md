@@ -28,15 +28,6 @@ packages/plugins/presets/
 - **dev**：zip 解压到 `packages/desktop-app/.artifacts/system-plugins/<id>/`，主进程只读该 staging，不直接读 preset 源码或 `dist/`。
 - **打包**：`prepare-pack.js` 从 zip 解压到打包 staging 的 `system-plugins/<id>/`，再随 `extraResources` 进入 `Resources/system-plugins/<id>/`。
 
-## 租户化打包（tenants.json）
-
-`packages/plugins/tenants.json` 定义每个业务租户要包含的 **preset id 完整列表**（非增量）。环境变量 **`VETTA_TENANT`** 选择租户（缺省取 `default` 指向的租户名）。
-
-- `build:presets` / `prepare-pack` 只构建并打入该租户列表中的插件。
-- 新增 preset 后，需要它的租户都要在各自数组里补上 id。
-
-详见 `packages/plugins/AGENTS.md`。
-
 ## 运行时语义
 
 - `source: "system"`，`listPlugins()` 运行时发现并与用户插件合并；每条含 **`rootPath`**（staging / Resources 下的插件根）。

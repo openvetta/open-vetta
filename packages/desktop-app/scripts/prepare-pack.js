@@ -7,11 +7,11 @@ import { resolveBuildResourceFilters } from "./build-resource-filters.mjs";
 import { loadBuildEnv } from "./load-build-env.mjs";
 import { resolveReleaseInfo } from "./resolve-release-info.mjs";
 import { resolveUpdatePublishConfig } from "./resolve-update-publish-config.mjs";
-import { resolveTenant, stageSystemPluginsFromArchives } from "./stage-system-plugins.mjs";
+import { stageSystemPluginsFromArchives } from "./stage-system-plugins.mjs";
 import { stageSystemSkills } from "./stage-system-skills.mjs";
 import { stageSystemThemesFromArchives } from "./stage-system-themes.mjs";
 
-// 从 .env.<mode>/.env 注入构建期变量（如 VETTA_TENANT），命令行内联优先。
+// 从 .env.<mode>/.env 注入构建期变量，命令行内联优先。
 loadBuildEnv();
 const updatePublishConfig = resolveUpdatePublishConfig();
 
@@ -643,16 +643,9 @@ await stageVendorRuntimes();
 //
 // build:presets 已为每个 preset 生成 release/<id>-<version>.zip。打包阶段只消费
 // zip 制品，校验后解压到 Resources/system-plugins/<id>/，不读取源码 dist。
-// 按租户（VETTA_TENANT，缺省取 tenants.json 的 default）筛选打包进 App 的系统插件。
-const packTenant = resolveTenant();
-console.log(
-	`[prepare-pack] 系统插件租户=${packTenant.name ?? "(未配置)"}：${
-		packTenant.pluginIds ? [...packTenant.pluginIds].join(", ") : "(全部 preset)"
-	}`,
-);
-stageSystemPluginsFromArchives(join(buildStageDir, "system-plugins"), "prepare-pack", {
-	pluginIds: packTenant.pluginIds ?? undefined,
-});
+// 全部 preset 都打包进 App。
+console.log("[prepare-pack] 系统插件：全部 preset");
+stageSystemPluginsFromArchives(join(buildStageDir, "system-plugins"), "prepare-pack");
 stageSystemThemesFromArchives(join(buildStageDir, "system-themes"), "prepare-pack");
 stageSystemSkills(join(buildStageDir, "system-skills"), "prepare-pack");
 

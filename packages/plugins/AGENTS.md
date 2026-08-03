@@ -6,47 +6,16 @@
 - `plugin-vite/`：插件 Vite、Module Federation 和 zip 打包工具。
 - `presets/<id>/`：随 Vetta Desktop 发布的系统插件。
 - `externals/<id>/`：不随 App 打包、供用户安装的外置插件。
-- `tenants.json`：按业务租户划分系统插件的打包清单（见下）。
 
 修改子目录文件前仍需继续读取更具体的同级或下级说明文件（如存在）。
 
-## 租户化打包（tenants.json）
+## 系统插件打包
 
-系统插件按业务租户动态构建/打包。`tenants.json` 定义每个租户要包含的
-preset 插件 id 完整列表：
+`presets/` 下的插件全部随 App 发布：`build-presets.mjs` 负责构建并 staging 到
+`.artifacts/system-plugins`，`prepare-pack.js` 把生成的 zip 制品打入
+`Resources/system-plugins`。
 
-```json
-{
-  "default": "common",
-  "tenants": {
-    "common": ["vetta-actions", "image-gen", "svg-viewer"],
-    "tenant-b": ["vetta-actions", "image-gen", "svg-viewer", "internal-map"]
-  }
-}
-```
-
-- `default`：未指定租户时使用的租户名。
-- 每个租户写**完整**插件 id 列表（不是增量）。新增 preset 后，需要它的
-  租户都要在各自数组里补上对应 id。
-- `internal-map` 为内部租户（tenant-b）专用插件，不进 `common`。
-
-构建/开发时通过 `VETTA_TENANT` 环境变量选择租户（缺省取 `default`）：
-
-```bash
-# dev：仅构建并 staging 当前租户的系统插件
-cd packages/desktop-app
-VETTA_TENANT=tenant-b bun run dev
-
-# 构建/打包 App：build:presets 与 prepare-pack 都读取同一 VETTA_TENANT
-VETTA_TENANT=tenant-b bun run build
-```
-
-`build-presets.mjs` 只构建/staging 该租户的插件，切换租户时会自动清理
-`.artifacts/system-plugins` 下不属于该租户的旧插件；`prepare-pack.js` 只把该
-租户的 zip 制品打入 `Resources/system-plugins`。同一次构建务必使用一致的
-`VETTA_TENANT`，否则打包阶段会因缺少对应 zip 而报错。
-
-若租户包含 `plugin-workbench`，`build-presets.mjs` 在算缓存哈希之前会先跑
+`build-presets.mjs` 在算缓存哈希之前会先跑
 `presets/plugin-workbench/scripts/sync-plugin-docs.mjs`，将 monorepo
 `docs/plugin` 同步到该插件包内 `agent/docs/plugin/`（dev / dist 共用此路径）。
 

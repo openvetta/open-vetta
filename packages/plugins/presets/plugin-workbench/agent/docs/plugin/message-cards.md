@@ -159,7 +159,7 @@ function ImagePreviewCard({ descriptor, pending }: PluginCardProps) {
    });
    ```
 
-   `internal-map` 即用此法：`internal-map_focus` / `internal-map_present_regions` 返回 `cards`，渲染在当前 turn 消息下方。
+   插件自注册工具即用此法：handler 返回 `cards`，渲染在当前 turn 消息下方。
 
 2. **协同设计的内置工具**：coding-agent 内置工具的 `execute` 直接在 `details.cards` 放描述符（image-gen 的 `generate_image` / `edit_image` 即如此）。内置工具与插件渲染器**成对维护**（「内置 tool 出能力 + plugin 出界面」）。
 
@@ -183,6 +183,5 @@ function ImagePreviewCard({ descriptor, pending }: PluginCardProps) {
 
 ## 完整参考实现
 
-- `packages/plugins/presets/internal-map`：插件自注册工具返回 `cards` + `registerCardRenderer` 渲染——**插件全自包含**的端到端范例。
 - `packages/plugins/presets/image-gen`：`registerCardRenderer` + `pendingFor`，配合 coding-agent 内置 `generate_image` / `edit_image` 在 `details.cards` 产出描述符。
 - `packages/plugins/presets/git`：`registerTurnCard`（本轮变更，非 tool 绑定）——见 [ui-slots Turn 卡](./ui-slots.md#本轮-turn-卡-registerturncard)。

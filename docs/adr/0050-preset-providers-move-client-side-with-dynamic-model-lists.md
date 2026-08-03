@@ -1,6 +1,6 @@
 # 预设服务商目录改为客户端内置，模型列表按服务商适配器动态拉取
 
-取代 [ADR-0015](./0015-preset-provider-templates.md) 的「服务端下发模板目录」部分：预设服务商（Claude / OpenAI / DeepSeek / Z.ai(GLM) / Kimi / Gemini）的 `baseUrl`、`api`、图标 symbol 全部**内置在客户端** (`packages/desktop-app/src/main/models/presets/catalog.ts`)，`/providers/templates.json` 与启动时的在线合并一并删除。原因：模板目录本身是不含密钥的静态元数据，为它强依赖服务端换来的是「首启离线预设区为空」和「服务端挂了就没有预设」，收益为零。
+取代早期「服务端下发模板目录」方案：预设服务商（Claude / OpenAI / DeepSeek / Z.ai(GLM) / Kimi / Gemini）的 `baseUrl`、`api`、图标 symbol 全部**内置在客户端** (`packages/desktop-app/src/main/models/presets/catalog.ts`)，`/providers/templates.json` 与启动时的在线合并一并删除。原因：模板目录本身是不含密钥的静态元数据，为它强依赖服务端换来的是「首启离线预设区为空」和「服务端挂了就没有预设」，收益为零。
 
 **模型列表改为向服务商本人要。** 用户填完 key 立刻请求该家 `/models`，之后每 12 小时后台同步一次，设置页每行还有手动刷新。各家接口形状不一致，按 `fetcher` 分派到三个适配器：
 
@@ -18,7 +18,7 @@
 
 **目录带一份随包快照兜底。** 国内网络下 `models.dev` 常在 TLS 握手阶段被直接掐断（`net::ERR_CONNECTION_CLOSED`），新装用户既没磁盘缓存也拉不到，结果是六家各 0 个模型——比数据旧得多的问题。故把目录快照作为生成物提交进仓库（`models-dev-snapshot.generated.ts`，`bun run snapshot:models-dev` 重新生成），随 main bundle 打包。取数顺序：内存 → 磁盘缓存 → **随包快照**，同时后台拉线上数据，拉到就覆盖。快照是自动生成、带抓取时间、且必然被线上数据顶替，与「不手写清单」并不矛盾；退到快照且确实拉失败时，设置页会说明当前用的是哪一份、生成于何时。快照的 `version` 必须与 `CATALOG_VERSION` 一致（有测试挡着），否则运行时会整份丢弃、兜底形同虚设。
 
-这是 ADR-0015「纯动态 `/models` 拿不到能力元数据」那条否决理由的正解：动态拿 id + 目录补能力，而不是二选一。代价是多一个第三方目录依赖，但它不是发布链路的一环——挂了只影响价格展示，模型照常可用。
+这是早期方案里「纯动态 `/models` 拿不到能力元数据」那条否决理由的正解：动态拿 id + 目录补能力，而不是二选一。代价是多一个第三方目录依赖，但它不是发布链路的一环——挂了只影响价格展示，模型照常可用。
 
 **持久化沿用 snapshot-on-key**：填 key 即落成 `models.json` 里的普通 provider 条目（`source:"template"` + `templateId`），新增 `modelsSyncedAt` 记录同步时间。拉取只在主进程发生且**只拉不写**，由渲染层连同 key 一起落盘，避免两处各写一次 `models.json`；后台定时同步例外，它直接经 `ModelSettingsService` 写回。
 

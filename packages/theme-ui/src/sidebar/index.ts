@@ -54,8 +54,6 @@ export { SessionStatusIcon } from "./SessionStatusIcon";
 export type { SettingsMenuActionButtonProps } from "./SettingsMenuActionButton";
 export { SettingsMenuActionButton } from "./SettingsMenuActionButton";
 export { SettingsMenuDivider } from "./SettingsMenuDivider";
-export type { SettingsMenuQuotaSectionProps } from "./SettingsMenuQuotaSection";
-export { SettingsMenuQuotaSection } from "./SettingsMenuQuotaSection";
 export type { SettingsMenuSettingsItemProps } from "./SettingsMenuSettingsItem";
 export { SettingsMenuSettingsItem } from "./SettingsMenuSettingsItem";
 export type { SettingsMenuThemeOption, SettingsMenuThemeSectionProps } from "./SettingsMenuThemeSection";
