@@ -1,11 +1,21 @@
+import { createCodingAgentHostFromSessionFactory } from "../host/coding-agent-host.js";
 import { createCodingAgentSessionFromPublicOptions } from "../host/coding-agent-sdk-host-adapter.js";
 import { createCodingAgentSessionCatalogFromPublicOptions } from "../host/coding-agent-sdk-session-catalog.js";
 import type {
+	CodingAgentHost,
 	CodingAgentSessionCatalog,
+	CreateCodingAgentHostOptions,
 	CreateCodingAgentSessionCatalogOptions,
 	CreateCodingAgentSessionOptions,
 	CreateCodingAgentSessionResult,
 } from "./sdk/index.js";
+
+/** 创建拥有多个稳定 Session 生命周期的默认产品 Host。 */
+export function createCodingAgentHost(options: CreateCodingAgentHostOptions = {}): CodingAgentHost {
+	return createCodingAgentHostFromSessionFactory(options, (sessionOptions, lifecycle) =>
+		createCodingAgentSessionFromPublicOptions(sessionOptions, { onSessionClosed: lifecycle.onClosed }),
+	);
+}
 
 /** 创建不暴露宿主具体管理器的公共 Coding Agent Session。 */
 export function createCodingAgentSession(
@@ -30,6 +40,8 @@ export type {
 	CodingAgentExtensionSource,
 	CodingAgentExtensionSourceSnapshot,
 	CodingAgentFixedSession,
+	CodingAgentHost,
+	CodingAgentHostSessionDefaults,
 	CodingAgentMemoryConfiguration,
 	CodingAgentModelCycleResult,
 	CodingAgentNewSessionOptions,
@@ -83,6 +95,7 @@ export type {
 	CodingAgentToolUiDialogOptions,
 	CodingAgentTreeNavigationOptions,
 	CodingAgentTreeNavigationResult,
+	CreateCodingAgentHostOptions,
 	CreateCodingAgentSessionCatalogOptions,
 	CreateCodingAgentSessionOptions,
 	CreateCodingAgentSessionResult,

@@ -21,6 +21,11 @@ export type {
 	CodingAgentSessionEvent,
 	CodingAgentSessionEventListener,
 } from "./sdk-event-contract.js";
+export type {
+	CodingAgentHost,
+	CodingAgentHostSessionDefaults,
+	CreateCodingAgentHostOptions,
+} from "./sdk-host-contract.js";
 export type { CodingAgentPromptInputSource, CodingAgentPromptOptions } from "./sdk-prompt-contract.js";
 export type {
 	CodingAgentExtensionSource,

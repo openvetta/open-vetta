@@ -131,12 +131,15 @@ describe("Greenfield SDK session adapter", () => {
 	it("keeps the session closed while allowing failed cleanup to be retried", async () => {
 		const runtime = new FakeSdkRuntime();
 		runtime.disposeFailures = 1;
-		const session = new GreenfieldSdkSessionAdapter(runtime);
+		const onClosed = vi.fn();
+		const session = new GreenfieldSdkSessionAdapter(runtime, onClosed);
 
 		await expect(session.close()).rejects.toThrow("runtime cleanup failed");
+		expect(onClosed).not.toHaveBeenCalled();
 		await expect(session.prompt("closed")).rejects.toThrow("AgentSession is closed");
 		await expect(session.close()).resolves.toBeUndefined();
 		expect(runtime.disposeCalls).toBe(2);
+		expect(onClosed).toHaveBeenCalledOnce();
 	});
 });
 

@@ -20,8 +20,9 @@ export class GreenfieldSdkActiveSessionAdapter
 	constructor(
 		runtime: GreenfieldSdkSessionRuntimePort,
 		private readonly active: GreenfieldSdkActiveSessionCapabilityPort,
+		onClosed?: () => void,
 	) {
-		super(runtime);
+		super(runtime, onClosed);
 	}
 
 	getSessionBranch(): ReturnType<GreenfieldSdkActiveSession["getSessionBranch"]> {

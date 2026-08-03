@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { AgentSessionEvent, PromptOptions } from "../../src/core/session/types.js";
 import type {
+	CodingAgentHost,
 	CodingAgentPromptOptions,
 	CodingAgentResourceContributions,
 	CodingAgentSession,
@@ -21,6 +22,7 @@ describe("public Coding Agent SDK boundary", () => {
 		expect(Object.keys(publicSdk).sort()).toEqual([
 			"CODING_AGENT_SESSION_CREATE_ERROR_CODES",
 			"CodingAgentSessionCreateError",
+			"createCodingAgentHost",
 			"createCodingAgentSession",
 			"createCodingAgentSessionCatalog",
 		]);
@@ -37,6 +39,7 @@ describe("public Coding Agent SDK boundary", () => {
 			"index.ts",
 			"sdk-create-contract.ts",
 			"sdk-event-contract.ts",
+			"sdk-host-contract.ts",
 			"sdk-prompt-contract.ts",
 			"sdk-resource-source-contract.ts",
 			"sdk-session-catalog-contract.ts",
@@ -67,8 +70,9 @@ function verifyStablePublicTypes(
 	listener: CodingAgentSessionEventListener,
 	resources: CodingAgentResourceContributions,
 	catalog: CodingAgentSessionCatalog,
+	host: CodingAgentHost,
 ): CodingAgentSessionCore {
-	void [tool, options, listener, resources, catalog];
+	void [tool, options, listener, resources, catalog, host];
 	return session;
 }
 

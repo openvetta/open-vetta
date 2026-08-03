@@ -50,6 +50,8 @@ export interface GreenfieldSdkSessionFactoryOptions {
 	readonly transitionLifecycle?: CodingAgentGreenfieldSessionTransitionLifecycle;
 	/** 为 SDK 补充树导航、Bash 和 Legacy setup 等活动会话能力。 */
 	readonly createActiveCapabilityHost?: GreenfieldSdkActiveSessionCapabilityHostFactory;
+	/** 完整清理成功后通知外层 Host 释放 Session 所有权。 */
+	readonly onSessionClosed?: () => void;
 }
 
 export interface GreenfieldSdkOwnedResource {
@@ -178,7 +180,7 @@ export async function createGreenfieldSdkSession(
 		const runtime = bindGreenfieldSdkActiveSessionRuntime(sessionHost, capabilityHost, () =>
 			cleanup.run("Failed to dispose Greenfield SDK active session resources"),
 		);
-		const session = new GreenfieldSdkActiveSessionAdapter(runtime, activeCapabilities);
+		const session = new GreenfieldSdkActiveSessionAdapter(runtime, activeCapabilities, options.onSessionClosed);
 		rollback.commit();
 		return { session };
 	} catch (error) {

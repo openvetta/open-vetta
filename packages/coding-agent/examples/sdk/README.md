@@ -1,14 +1,15 @@
 # SDK Examples
 
-Programmatic usage through the stable `@vetta/coding-agent/sdk` entry. Examples that still need arbitrary
-manager or complete composition overrides are retained as compatibility examples and keep the package-root entry.
+Programmatic usage through the stable `@vetta/coding-agent/sdk` entry. Concrete authentication, model and settings
+services use the stable Host adapter in `@vetta/coding-agent/host-services`; only complete composition replacement
+remains on the package-root compatibility entry.
 
 ## Examples
 
 | File | API | Description |
 |------|-----|-------------|
 | `01-minimal.ts` | Stable SDK | Simplest usage with all defaults |
-| `02-custom-model.ts` | Compatibility | Custom provider registration through host services |
+| `02-custom-model.ts` | Host services | Custom provider registration through a stable Host |
 | `03-custom-prompt.ts` | Stable SDK | Replace or append the system prompt |
 | `04-skills.ts` | Stable SDK | Inline and dynamic Skill contributions with declarative filtering |
 | `05-tools.ts` | Stable SDK | Built-in tool activation by name |
@@ -83,9 +84,10 @@ await session.prompt("Hello");
 | `extensionSources` | `[]` | Session-owned dynamic Extension path sources |
 | `appendSystemPrompt` | Discovered append prompt | Additional system instructions |
 
-Credential storage, custom provider registration and persistent settings are host concerns. Existing integrations can
-import `AuthStorage`, `ModelRegistry` and `SettingsManager` from `@vetta/coding-agent/host-services`; callers that inject
-those concrete services into `createAgentSession()` remain on the package-root compatibility API during migration.
+Credential storage, custom provider registration and persistent settings are host concerns. Import `AuthStorage`,
+`ModelRegistry`, `SettingsManager` and `createCodingAgentHostWithServices` from
+`@vetta/coding-agent/host-services`. The Host owns its Sessions while the caller continues to own the concrete shared
+services. Complete loader and composition replacement remains on the package-root compatibility API.
 
 ## Events
 

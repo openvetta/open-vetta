@@ -14,7 +14,10 @@ export class GreenfieldSdkSessionAdapter implements GreenfieldSdkSession {
 	private closePromise: Promise<void> | undefined;
 	private closed = false;
 
-	constructor(private readonly runtime: GreenfieldSdkSessionRuntimePort) {
+	constructor(
+		private readonly runtime: GreenfieldSdkSessionRuntimePort,
+		private readonly onClosed?: () => void,
+	) {
 		this.unsubscribeExecutionObservation = runtime.subscribeExecutionObservation((observation) => {
 			this.emit(mapGreenfieldSdkExecutionEvent(observation));
 		});
@@ -343,7 +346,7 @@ export class GreenfieldSdkSessionAdapter implements GreenfieldSdkSession {
 		this.unsubscribeExecutionObservation();
 		this.unsubscribeRetryEvents();
 		this.listeners.clear();
-		const operation = this.runtime.dispose();
+		const operation = this.runtime.dispose().then(() => this.onClosed?.());
 		const tracked = operation.catch((error: unknown) => {
 			if (this.closePromise === tracked) this.closePromise = undefined;
 			throw error;

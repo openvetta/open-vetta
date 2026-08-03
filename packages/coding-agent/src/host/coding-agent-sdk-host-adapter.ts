@@ -205,6 +205,13 @@ export interface CreateGreenfieldAgentSessionResult {
 	readonly modelFallbackMessage?: string;
 }
 
+export interface CodingAgentSdkPublicHostContext {
+	readonly authStorage?: AuthStorage;
+	readonly modelRegistry?: ModelRegistry;
+	readonly settingsManager?: SettingsManager;
+	readonly onSessionClosed?: () => void;
+}
+
 interface CodingAgentSdkInitialModel {
 	readonly model: Model<Api>;
 	readonly thinkingLevel: ThinkingLevel;
@@ -226,6 +233,7 @@ export async function createGreenfieldAgentSession(
 /** `@vetta/coding-agent/sdk` 的产品 Composition 入口；具体管理器不进入公共参数或返回值。 */
 export async function createCodingAgentSessionFromPublicOptions(
 	options: CreateCodingAgentSessionOptions = {},
+	hostContext: CodingAgentSdkPublicHostContext = {},
 ): Promise<CreateCodingAgentSessionResult> {
 	let resourceSourceAdapter: CodingAgentSdkResourceSourceAdapter | undefined;
 	try {
@@ -236,11 +244,17 @@ export async function createCodingAgentSessionFromPublicOptions(
 			extensionSources: options.extensionSources,
 		});
 		const created = await createGreenfieldAgentSessionInternal(
-			adaptPublicSdkCreateOptions(options),
+			{
+				...adaptPublicSdkCreateOptions(options),
+				authStorage: hostContext.authStorage,
+				modelRegistry: hostContext.modelRegistry,
+				settingsManager: hostContext.settingsManager,
+			},
 			options.storage,
 			options.resources,
 			options.customTools,
 			resourceSourceAdapter,
+			hostContext.onSessionClosed,
 		);
 		return {
 			session: created.session,
@@ -275,6 +289,7 @@ async function createGreenfieldAgentSessionInternal(
 	resourceContributions?: CodingAgentResourceContributions,
 	publicCustomTools?: readonly CodingAgentSessionToolDefinition[],
 	resourceSourceAdapter?: CodingAgentSdkResourceSourceAdapter,
+	onSessionClosed?: () => void,
 ): Promise<CreateGreenfieldAgentSessionResult> {
 	assertCompatibleOptions(options);
 	const sessionTools = publicCustomTools
@@ -555,6 +570,7 @@ async function createGreenfieldAgentSessionInternal(
 					setupImporter.createInitializer((sessionManager) => setup(sessionManager)),
 			});
 		},
+		onSessionClosed,
 	});
 
 	return {

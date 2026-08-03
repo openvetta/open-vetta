@@ -43,7 +43,7 @@ await session.close();
 
 // Example extension file (./my-logging-extension.ts):
 /*
-import type { ExtensionAPI } from "@vetta/coding-agent";
+import type { ExtensionAPI } from "@vetta/coding-agent/extensions";
 
 export default function (pi: ExtensionAPI) {
 	pi.on("agent_start", async () => {

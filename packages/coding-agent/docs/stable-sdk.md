@@ -174,12 +174,36 @@ properties.
 Authentication, custom provider registration and persistent settings are host concerns:
 
 ```typescript
-import { AuthStorage, ModelRegistry, SettingsManager } from "@vetta/coding-agent/host-services";
+import {
+  AuthStorage,
+  createCodingAgentHostWithServices,
+  ModelRegistry,
+  SettingsManager,
+} from "@vetta/coding-agent/host-services";
+
+const authStorage = AuthStorage.inMemory();
+const modelRegistry = new ModelRegistry(authStorage);
+const settingsManager = SettingsManager.inMemory();
+
+const host = createCodingAgentHostWithServices({
+  authStorage,
+  modelRegistry,
+  settingsManager,
+});
+const { session } = await host.createSession({ storage: { kind: "memory" } });
+await host.close();
 ```
 
-Consumers that must inject those concrete services into Session creation should keep using package-root
-`createAgentSession()` during migration. See the [compatibility reference](sdk.md). The stable SDK does not silently
-ignore unsupported manager injection.
+The Host owns every Session it creates and rejects new Sessions after closing starts. A Session closed directly is
+released from Host ownership; `host.close()` waits for admitted creations and closes the remaining Sessions. Concrete
+services passed to `createCodingAgentHostWithServices()` are borrowed and remain caller-owned.
+
+`createCodingAgentHost()` from `@vetta/coding-agent/sdk` provides the same multi-Session lifecycle with normal product
+defaults. Session defaults are shallowly overridden by each `createSession()` call. Storage and dynamic Skill/Extension
+sources are intentionally per-Session and cannot be placed in Host defaults.
+
+Complete ResourceLoader or Composition replacement remains on the package-root compatibility API. See the
+[compatibility reference](sdk.md); concrete managers are not exposed as Session properties.
 
 ## Examples
 
