@@ -3,6 +3,7 @@ import type { SimpleStreamOptions } from "@vetta/ai";
 import type { ConversationDocumentStore } from "../conversation/index.js";
 import {
 	AgentCoreTurnEngine,
+	type AgentCoreTurnEngineOptions,
 	type AgentSession,
 	BufferedRuntimeSessionContext,
 	type Clock,
@@ -103,6 +104,8 @@ export interface ComposedGreenfieldRuntimeFactoryOptions<TCreateOptions> {
 	): Promise<GreenfieldRuntimeResources>;
 	readonly streamFn?: StreamFn;
 	readonly streamOptions?: Omit<SimpleStreamOptions, "sessionId" | "signal">;
+	readonly tracer?: AgentCoreTurnEngineOptions["tracer"];
+	readonly tracing?: AgentCoreTurnEngineOptions["tracing"];
 	readonly clock?: Clock;
 	readonly idGenerator?: IdGenerator;
 }
@@ -187,6 +190,8 @@ export class ComposedGreenfieldRuntimeFactory<TCreateOptions> implements Greenfi
 			const turnEngine = new AgentCoreTurnEngine({
 				streamFn: this.options.streamFn,
 				streamOptions: this.options.streamOptions,
+				tracer: this.options.tracer,
+				tracing: this.options.tracing,
 				resolveApiKey: (model) => resources.modelRuntime.resolveApiKey(model),
 			});
 			const contextCompactionCommitter = new ContextCompactionCommitter({

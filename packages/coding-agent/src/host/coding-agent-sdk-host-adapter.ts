@@ -4,6 +4,7 @@ import { Value } from "@sinclair/typebox/value";
 import type { ThinkingLevel } from "@vetta/agent-core";
 import type { Api, Model } from "@vetta/ai";
 import { buildDefaultHookConfigLayers } from "@vetta/ecosystem-adapter";
+import { createLangfuseRuntimeTracerFromEnv } from "@vetta/runtime-telemetry/langfuse";
 import {
 	CodingAgentGreenfieldExtensionEventHost,
 	CodingAgentGreenfieldSessionCapabilityHost,
@@ -182,6 +183,7 @@ export async function createGreenfieldAgentSession(
 	const extensionsResult = resourceLoader.getExtensions();
 	const storage = await prepareCodingAgentSdkSessionStorage({ cwd, sessionManager: options.sessionManager });
 	const initial = await resolveSdkInitialModel(options, modelRegistry, settingsManager, storage.history);
+	const tracer = options.tracer ?? createLangfuseRuntimeTracerFromEnv();
 	const mcpEnabled = options.enableMcp !== false;
 	const managedMcpSource = mcpEnabled
 		? await createCodingAgentMcpRuntimeToolSource({
@@ -212,6 +214,17 @@ export async function createGreenfieldAgentSession(
 			enableSubagents: options.enableSubagents,
 			subagentMaxConcurrent: options.subagentMaxConcurrent,
 			mcpSource: managedMcpSource?.source,
+			tracer,
+			tracing: {
+				captureContent: true,
+				detail: "standard",
+				traceName: options.tracingTraceName ?? process.env.VETTA_TRACING_TRACE_NAME ?? "coding-agent run",
+				metadata: {
+					...options.tracingMetadata,
+					app: "coding-agent",
+					cwd,
+				},
+			},
 			promptResourceSource: resourceLoader,
 			promptSettingsSource: settingsManager,
 			resolveCompactionSettings: () => settingsManager.getCompactionSettings(),

@@ -32,6 +32,10 @@ export interface AgentCoreTurnEngineOptions {
 	readonly streamOptions?: Omit<SimpleStreamOptions, "sessionId" | "signal">;
 	readonly streamFn?: StreamFn;
 	readonly getApiKey?: AgentLoopConfig["getApiKey"];
+	/** 平台中立的观测端口；Runtime 只透传，不创建或释放具体实现。 */
+	readonly tracer?: AgentLoopConfig["tracer"];
+	/** Turn 共享的观测策略；实际 Session 身份由 execute 请求覆盖。 */
+	readonly tracing?: AgentLoopConfig["tracing"];
 	/** Greenfield 按 Turn binding 的精确模型解析凭证，避免切模后读取另一个模型的凭证。 */
 	readonly resolveApiKey?: (model: Model<Api>) => Promise<string | undefined> | string | undefined;
 }
@@ -140,6 +144,18 @@ export class AgentCoreTurnEngine implements TurnEnginePort {
 			...this.options.streamOptions,
 			...(request.modelBinding ? { reasoning: request.modelBinding.reasoning } : {}),
 			model,
+			tracer: this.options.tracer,
+			tracing:
+				this.options.tracer || this.options.tracing
+					? {
+							...this.options.tracing,
+							sessionId: request.sessionId,
+							metadata: {
+								...this.options.tracing?.metadata,
+								sessionId: request.sessionId,
+							},
+						}
+					: undefined,
 			get sessionId() {
 				return request.sessionId;
 			},

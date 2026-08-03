@@ -136,6 +136,8 @@ async function createGreenfieldRuntimeCompositionInternal(
 	});
 	const runtimeFactory = new ComposedGreenfieldRuntimeFactory<GreenfieldRuntimeSessionOptions>({
 		streamFn: options.streamFn,
+		tracer: options.tracer,
+		tracing: options.tracing,
 		createResources: (sessionOptions, resourceContext) =>
 			sessionInitialization.initialize(sessionOptions, resourceContext),
 	});

@@ -28,6 +28,11 @@ describe("Greenfield Child Composition policy", () => {
 		};
 		const createPluginRuntime = () => undefined;
 		const extensionTools: NonNullable<GreenfieldRuntimeCompositionOptions["extensionTools"]> = [];
+		const tracer = {} as NonNullable<GreenfieldRuntimeCompositionOptions["tracer"]>;
+		const tracing: NonNullable<GreenfieldRuntimeCompositionOptions["tracing"]> = {
+			traceName: "parent-trace",
+			metadata: { app: "coding-agent" },
+		};
 		const parentOptions: GreenfieldRuntimeCompositionOptions = {
 			conversationDir: "C:\\conversations",
 			modelRegistry: {} as GreenfieldRuntimeCompositionOptions["modelRegistry"],
@@ -40,6 +45,8 @@ describe("Greenfield Child Composition policy", () => {
 			createPluginMcpRuntime,
 			createPluginRuntime,
 			extensionTools,
+			tracer,
+			tracing,
 			enableSubagents: true,
 			knowledgeRoot: "C:\\knowledge",
 			systemPromptAdvertisedToolNames: ["parent_tool"],
@@ -80,6 +87,8 @@ describe("Greenfield Child Composition policy", () => {
 			systemPromptAdvertisedToolNames: ["parent_tool"],
 		});
 		expect(childOptions.createPluginRuntime).toBe(createPluginRuntime);
+		expect(childOptions.tracer).toBe(tracer);
+		expect(childOptions.tracing).toBe(tracing);
 		expect("mcpSource" in childOptions).toBe(false);
 		expect("createPluginMcpRuntime" in childOptions).toBe(false);
 		expect("extensionTools" in childOptions).toBe(false);

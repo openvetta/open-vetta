@@ -3,10 +3,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Type } from "@sinclair/typebox";
 import type { Api, AssistantMessage, Model, UserMessage } from "@vetta/ai";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { AuthStorage } from "../../src/core/auth-storage.js";
 import type { ToolDefinition } from "../../src/core/extensions/types.js";
 import { ModelRegistry } from "../../src/core/model-registry.js";
+import type { CreateAgentSessionOptions } from "../../src/core/sdk.js";
 import { SessionManager } from "../../src/core/session-manager/index.js";
 import { SettingsManager } from "../../src/core/settings-manager.js";
 import { readTool } from "../../src/core/tools/index.js";
@@ -172,11 +173,34 @@ describe("Coding Agent SDK Host Adapter", () => {
 		expect(result.session.getActiveToolNames()).not.toContain("sdk_echo");
 	});
 
+	it("accepts tracing options without taking ownership of the injected tracer", async () => {
+		const resources = await createResources("sdk-host-tracing-");
+		const shutdown = vi.fn(async () => {});
+		const tracer: NonNullable<CreateAgentSessionOptions["tracer"]> = {
+			startObservation() {
+				throw new Error("Session creation must not start a Turn observation");
+			},
+			shutdown,
+		};
+		const result = await createGreenfieldAgentSession({
+			...resources.options,
+			model: MODEL,
+			tracer,
+			tracingTraceName: "sdk-trace",
+			tracingMetadata: { tenant: "test" },
+		});
+		sessions.push(result.session);
+
+		await result.session.close();
+		expect(shutdown).not.toHaveBeenCalled();
+	});
+
 	it("rejects options that still require the complete Legacy AgentSession facade", async () => {
-		await expect(createGreenfieldAgentSession({ tracingTraceName: "sdk-trace" })).rejects.toMatchObject({
+		const subagentSessionFactory = {} as NonNullable<CreateAgentSessionOptions["subagentSessionFactory"]>;
+		await expect(createGreenfieldAgentSession({ subagentSessionFactory })).rejects.toMatchObject({
 			name: CodingAgentSdkHostError.name,
 			code: CODING_AGENT_SDK_HOST_ERROR_CODES.INCOMPATIBLE_OPTIONS,
-			issues: [{ option: "tracingTraceName" }],
+			issues: [{ option: "subagentSessionFactory" }],
 		});
 	});
 

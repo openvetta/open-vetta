@@ -97,6 +97,10 @@ export interface GreenfieldRuntimeCompositionOptions {
 	readonly systemPromptAdvertisedToolNames?: readonly string[];
 	readonly mcpSource?: McpRuntimeToolSource;
 	readonly streamFn?: AgentCoreTurnEngineOptions["streamFn"];
+	/** 平台中立的进程级观测端口；Composition 与 Runtime 均不拥有其生命周期。 */
+	readonly tracer?: AgentCoreTurnEngineOptions["tracer"];
+	/** Session 间共享的观测策略；Turn Engine 会覆盖真实 Session 身份。 */
+	readonly tracing?: AgentCoreTurnEngineOptions["tracing"];
 	readonly tokenBudget?: number;
 	readonly reservedOutputTokens?: number;
 	/** 仅 Root Profile 启用；子 Session 必须显式关闭，保持单层委派。 */
