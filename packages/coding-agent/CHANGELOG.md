@@ -2,6 +2,7 @@
 
 ### Added
 
+- **稳定 SDK 动态 Skill / Extension 来源合同**：`createCodingAgentSession()` 新增 Session-owned `skillSources`、`extensionSources`、内联 Skill 值和声明式 Skill Policy；Source 以 `id + revision + invalidation` 表达运行时变化，当前 Turn 保持已取得能力，下一普通 Prompt 或显式 `reload()` 才刷新。Skill-only 更新只重算 Skill，Extension 更新复用既有生命周期事务；关闭和创建回滚会解除订阅并释放 Source。完整 `ResourceLoader`、任意覆盖回调和 inline Extension Factory 仍留在兼容入口。
 - **稳定 SDK 会话目录与资源贡献合同**：`@vetta/coding-agent/sdk` 新增独立 `createCodingAgentSessionCatalog()`，通过只读摘要完成原生会话 list/recent 查询并与活动 Session 生命周期分离；`createCodingAgentSession()` 新增系统提示词、Extension/Skill/Prompt 路径、内联 Prompt Template 和 Context File 值贡献，由产品 Host Adapter 转换到现有资源发现与 reload 生命周期，不公开 `SessionManager` 或 `ResourceLoader`。
 - **独立公共 Coding Agent SDK 入口**：新增 `@vetta/coding-agent/sdk` 与不含迁移期命名的 `createCodingAgentSession`，公共参数只接受值对象、原生 memory/file-create/file-resume 存储意图和窄宿主能力，具体 `SessionManager`、`SettingsManager`、`ModelRegistry`、`ResourceLoader` 继续留在产品 Composition Root；创建结果改为 Session、只读诊断和模型回退提示，不再暴露 Extension Runtime。包根旧 `createAgentSession` 保持不变，供兼容调用方迁移。
 - **Greenfield 公开 SDK 核心合同与门面**：新增穷尽式 `sdk-compatibility-inventory`，用 `satisfies Record<keyof ...>` 对 36 个创建参数、3 个工厂返回字段和 98 个 `AgentSession` 实例成员做编译期兼容分类；新增 `GreenfieldSdkSessionCore` 核心门面与 `GreenfieldSdkSessionRuntimePort` 窄端口，`bindGreenfieldSdkSessionRuntime` 作为唯一感知具体 Runtime 的组合边界，并复用完整执行观察流将产品无关事件映射回既有 `AgentEvent`；包根 `createAgentSession`/`runRpcMode` 公开签名保持不变。

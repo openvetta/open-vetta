@@ -56,6 +56,8 @@ Available: read, bash. Be concise.`,
 	getPathMetadata: () => new Map(),
 	extendResources: () => {},
 	setAdditionalSkillPaths: () => {},
+	setAdditionalExtensionPaths: () => {},
+	reloadSkills: async () => {},
 	reload: async () => {},
 	refreshSkillsIfChanged: () => false,
 };

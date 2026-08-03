@@ -54,6 +54,10 @@ import {
 import { CodingAgentSdkBashAdapter } from "./coding-agent-sdk-bash-adapter.js";
 import { CodingAgentSdkExtensionTransitionAdapter } from "./coding-agent-sdk-extension-transition-adapter.js";
 import {
+	CodingAgentSdkResourceSourceAdapter,
+	projectCodingAgentSkillInfo,
+} from "./coding-agent-sdk-resource-source-adapter.js";
+import {
 	type CodingAgentSdkSessionHistory,
 	prepareCodingAgentSdkSessionStorage,
 } from "./coding-agent-sdk-session-storage.js";
@@ -223,12 +227,20 @@ export async function createGreenfieldAgentSession(
 export async function createCodingAgentSessionFromPublicOptions(
 	options: CreateCodingAgentSessionOptions = {},
 ): Promise<CreateCodingAgentSessionResult> {
+	let resourceSourceAdapter: CodingAgentSdkResourceSourceAdapter | undefined;
 	try {
+		resourceSourceAdapter = await CodingAgentSdkResourceSourceAdapter.create({
+			cwd: options.cwd ?? process.cwd(),
+			resources: options.resources,
+			skillSources: options.skillSources,
+			extensionSources: options.extensionSources,
+		});
 		const created = await createGreenfieldAgentSessionInternal(
 			adaptPublicSdkCreateOptions(options),
 			options.storage,
 			options.resources,
 			options.customTools,
+			resourceSourceAdapter,
 		);
 		return {
 			session: created.session,
@@ -241,6 +253,13 @@ export async function createCodingAgentSessionFromPublicOptions(
 			...(created.modelFallbackMessage ? { modelFallbackMessage: created.modelFallbackMessage } : {}),
 		};
 	} catch (error) {
+		if (resourceSourceAdapter) {
+			try {
+				await resourceSourceAdapter.dispose();
+			} catch (cleanupError) {
+				throw new AggregateError([error, cleanupError], "Public SDK Session creation and resource cleanup failed");
+			}
+		}
 		if (error instanceof CodingAgentSdkHostError && error.code === CODING_AGENT_SDK_HOST_ERROR_CODES.NO_MODEL) {
 			throw new CodingAgentSessionCreateError(CODING_AGENT_SESSION_CREATE_ERROR_CODES.NO_MODEL, error.message, {
 				cause: error,
@@ -255,6 +274,7 @@ async function createGreenfieldAgentSessionInternal(
 	storageTarget?: GreenfieldSdkSessionStorageTarget,
 	resourceContributions?: CodingAgentResourceContributions,
 	publicCustomTools?: readonly CodingAgentSessionToolDefinition[],
+	resourceSourceAdapter?: CodingAgentSdkResourceSourceAdapter,
 ): Promise<CreateGreenfieldAgentSessionResult> {
 	assertCompatibleOptions(options);
 	const sessionTools = publicCustomTools
@@ -295,25 +315,27 @@ async function createGreenfieldAgentSessionInternal(
 
 	const promptTemplateContributions = resourceContributions?.promptTemplates;
 	const contextFileContributions = resourceContributions?.contextFiles;
+	let currentAgentPlugins = options.agentPlugins;
 	const resourceLoader =
 		options.resourceLoader ??
 		new DefaultResourceLoader({
 			cwd,
 			agentDir,
 			settingsManager,
-			additionalExtensionPaths: resourceContributions?.extensionPaths
-				? [...resourceContributions.extensionPaths]
+			additionalExtensionPaths: resourceSourceAdapter?.readExtensionPaths()
+				? [...resourceSourceAdapter.readExtensionPaths()]
 				: [],
 			appendSystemPrompt: options.appendSystemPrompt,
 			includeAgentSkills: options.includeAgentSkills,
 			additionalSkillPaths: [
-				...(options.agentPlugins?.skillPathContributions?.flatMap((contribution) => contribution.paths) ?? []),
-				...(resourceContributions?.skillPaths ?? []),
+				...(currentAgentPlugins?.skillPathContributions?.flatMap((contribution) => contribution.paths) ?? []),
+				...(resourceSourceAdapter?.readSkillPaths() ?? resourceContributions?.skillPaths ?? []),
 			],
 			additionalPromptTemplatePaths: resourceContributions?.promptTemplatePaths
 				? [...resourceContributions.promptTemplatePaths]
 				: [],
 			systemPrompt: resourceContributions?.systemPrompt,
+			skillsOverride: resourceSourceAdapter ? (base) => resourceSourceAdapter.transformSkills(base) : undefined,
 			promptsOverride: promptTemplateContributions
 				? (base) => ({
 						diagnostics: base.diagnostics,
@@ -354,9 +376,10 @@ async function createGreenfieldAgentSessionInternal(
 				enabled: true,
 			})
 		: undefined;
-	const ownedResources: GreenfieldSdkOwnedResource[] = managedMcpSource
-		? [{ id: "sdk-mcp-source", dispose: () => managedMcpSource.dispose() }]
-		: [];
+	const ownedResources: GreenfieldSdkOwnedResource[] = [
+		...(resourceSourceAdapter ? [resourceSourceAdapter] : []),
+		...(managedMcpSource ? [{ id: "sdk-mcp-source", dispose: () => managedMcpSource.dispose() }] : []),
+	];
 	const extensionTransitions = new CodingAgentSdkExtensionTransitionAdapter((session, composition, bindingOptions) => {
 		const currentExtensions = resourceLoader.getExtensions();
 		return new CodingAgentGreenfieldExtensionEventHost({
@@ -451,8 +474,25 @@ async function createGreenfieldAgentSessionInternal(
 					composition.refreshExtensionTools(currentExtensions.extensions);
 				},
 			});
+			const applyResourceSourcePaths = () => {
+				if (!resourceSourceAdapter) return;
+				resourceLoader.setAdditionalExtensionPaths([...resourceSourceAdapter.readExtensionPaths()]);
+				resourceLoader.setAdditionalSkillPaths([
+					...(currentAgentPlugins?.skillPathContributions?.flatMap((contribution) => contribution.paths) ?? []),
+					...resourceSourceAdapter.readSkillPaths(),
+				]);
+			};
+			const refreshInvalidatedResourceSources = async () => {
+				if (!resourceSourceAdapter) return;
+				const refreshed = await resourceSourceAdapter.refreshInvalidated();
+				if (!refreshed.skillsChanged && !refreshed.extensionsChanged) return;
+				applyResourceSourcePaths();
+				if (refreshed.extensionsChanged) await reloadHost.reload();
+				else resourceLoader.reloadSkills();
+			};
 			return new CodingAgentGreenfieldSessionCapabilityHost({
 				readSession,
+				beforePrompt: refreshInvalidatedResourceSources,
 				readAvailableModels: async () => modelRegistry.getAvailable(),
 				scopedModels: options.scopedModels,
 				initialAgentMode: options.agentMode,
@@ -463,11 +503,13 @@ async function createGreenfieldAgentSessionInternal(
 						adaptPublicCodingAgentSdkCustomTools(customTools) ?? [],
 					),
 				readSystemPrompt: () => extensionTransitions.readSystemPrompt(),
+				readSkills: () => resourceLoader.getSkills().skills.map(projectCodingAgentSkillInfo),
 				readPromptTemplates: () => resourceLoader.getPrompts().prompts,
 				reconfigureAgentPlugins: (agentPlugins) => {
+					currentAgentPlugins = agentPlugins;
 					resourceLoader.setAdditionalSkillPaths([
 						...(agentPlugins?.skillPathContributions?.flatMap((contribution) => contribution.paths) ?? []),
-						...(resourceContributions?.skillPaths ?? []),
+						...(resourceSourceAdapter?.readSkillPaths() ?? resourceContributions?.skillPaths ?? []),
 					]);
 				},
 				memoryConfiguration: {
@@ -477,7 +519,11 @@ async function createGreenfieldAgentSessionInternal(
 				},
 				flushMemory: (signal) => composition.flushMemory(readSession().sessionId, signal),
 				reloadMcp: () => composition.reloadMcp(readSession().sessionId),
-				reload: () => reloadHost.reload(),
+				reload: async () => {
+					await resourceSourceAdapter?.refreshAll();
+					applyResourceSourcePaths();
+					await reloadHost.reload();
+				},
 				exportToHtml: (outputPath) =>
 					exportGreenfieldSdkSessionToHtml(
 						readSession(),

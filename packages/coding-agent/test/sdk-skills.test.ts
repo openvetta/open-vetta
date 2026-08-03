@@ -61,6 +61,8 @@ This is a test skill.
 			getPathMetadata: () => new Map(),
 			extendResources: () => {},
 			setAdditionalSkillPaths: () => {},
+			setAdditionalExtensionPaths: () => {},
+			reloadSkills: async () => {},
 			reload: async () => {},
 			refreshSkillsIfChanged: () => false,
 		};
@@ -98,6 +100,8 @@ This is a test skill.
 			getPathMetadata: () => new Map(),
 			extendResources: () => {},
 			setAdditionalSkillPaths: () => {},
+			setAdditionalExtensionPaths: () => {},
+			reloadSkills: async () => {},
 			reload: async () => {},
 			refreshSkillsIfChanged: () => false,
 		};

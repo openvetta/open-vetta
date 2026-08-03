@@ -38,6 +38,7 @@ describe("public Coding Agent SDK boundary", () => {
 			"sdk-create-contract.ts",
 			"sdk-event-contract.ts",
 			"sdk-prompt-contract.ts",
+			"sdk-resource-source-contract.ts",
 			"sdk-session-catalog-contract.ts",
 			"sdk-session-contract.ts",
 			"sdk-tool-contract.ts",

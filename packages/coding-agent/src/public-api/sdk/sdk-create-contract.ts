@@ -9,6 +9,12 @@ import type {
 	ConversationScenario,
 } from "@vetta/runtime-core";
 import type { RuntimeTracer } from "@vetta/runtime-telemetry";
+import type {
+	CodingAgentExtensionSource,
+	CodingAgentSkillContribution,
+	CodingAgentSkillPolicy,
+	CodingAgentSkillSource,
+} from "./sdk-resource-source-contract.js";
 import type { CodingAgentSession } from "./sdk-session-contract.js";
 import type { CodingAgentSessionToolDefinition } from "./sdk-tool-contract.js";
 
@@ -73,6 +79,8 @@ export interface CodingAgentResourceContributions {
 	readonly systemPrompt?: string;
 	readonly extensionPaths?: readonly string[];
 	readonly skillPaths?: readonly string[];
+	readonly skills?: readonly CodingAgentSkillContribution[];
+	readonly skillPolicy?: CodingAgentSkillPolicy;
 	readonly promptTemplatePaths?: readonly string[];
 	readonly promptTemplates?: readonly CodingAgentPromptTemplateContribution[];
 	readonly contextFiles?: readonly CodingAgentContextFileContribution[];
@@ -105,6 +113,8 @@ export interface CreateCodingAgentSessionOptions {
 	readonly additionalHookAdapterFactories?: readonly EcosystemHookAdapterFactory[];
 	readonly appendSystemPrompt?: string;
 	readonly resources?: CodingAgentResourceContributions;
+	readonly skillSources?: readonly CodingAgentSkillSource[];
+	readonly extensionSources?: readonly CodingAgentExtensionSource[];
 	readonly includeAgentSkills?: boolean;
 	readonly env?: Readonly<Record<string, string>>;
 	readonly memoryMode?: boolean;

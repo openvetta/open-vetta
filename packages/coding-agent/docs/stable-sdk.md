@@ -76,6 +76,14 @@ const { session } = await createCodingAgentSession({
     systemPrompt: "You are a project coding assistant.",
     extensionPaths: ["./extensions/audit.ts"],
     skillPaths: ["./skills/release/SKILL.md"],
+		skills: [
+			{
+				name: "project-review",
+				description: "Review this project",
+				content: "Preserve behavior and report regressions.",
+			},
+		],
+		skillPolicy: { exclude: { names: ["deprecated-skill"] } },
     promptTemplatePaths: ["./prompts/review.md"],
     promptTemplates: [
       {
@@ -98,8 +106,33 @@ Calling `session.reload()` re-discovers path resources. Removing or adding a loc
 therefore affects the next resolved runtime view; the SDK does not retain a permanent startup copy of path content.
 Inline context and prompt-template contributions remain attached to that Session composition.
 
-Arbitrary discovery filtering, inline Extension factories and direct loader replacement remain on the package-root
-compatibility API until they have stable capability-specific contracts.
+Dynamic Skill and Extension sources use revisions and invalidation rather than exposing a loader:
+
+```typescript
+let revision = 1;
+let paths = ["./skills/review/SKILL.md"];
+
+const { session } = await createCodingAgentSession({
+  skillSources: [
+    {
+      id: "project-skills",
+      read: () => ({ revision, paths }),
+    },
+  ],
+});
+
+paths = ["./skills/release/SKILL.md"];
+revision += 1;
+await session.reload();
+```
+
+A source subscription only marks its revision stale. The current Turn keeps its acquired capabilities; the source is
+read before the next ordinary prompt or by explicit `session.reload()`. Steering and follow-up input do not replace
+resources inside an active Turn. Skill-only changes reapply the Skill slice, while Extension changes use the existing
+Extension reload transaction. Closing the Session unsubscribes and disposes its sources.
+
+Inline Extension factories and direct loader replacement remain on the package-root compatibility API. Stable
+Extension sources contribute paths; Extension module loading and execution stay owned by the product Host.
 
 ## Tools
 
@@ -130,7 +163,7 @@ The returned stable Session supports:
 - model, thinking-level, mode and active-tool changes;
 - queue inspection, compaction, retry and context usage;
 - native new, switch, fork and tree-navigation operations;
-- prompt-template, task, todo, memory, MCP and resource reload views;
+- Skill, prompt-template, task, todo, memory, MCP and resource reload views;
 - Bash execution and HTML export.
 
 Concrete model registries, settings managers, resource loaders, session managers and Extension runners are not Session

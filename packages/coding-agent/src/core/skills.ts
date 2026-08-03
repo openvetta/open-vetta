@@ -90,11 +90,18 @@ export interface Skill {
 	/** 工作模式白名单（agent_mode 轴）。undefined/空 = 通用。见 ADR-0046。 */
 	agentMode?: string[];
 	disableModelInvocation: boolean;
+	/** SDK 等内联来源可直接持有正文；文件来源保持 undefined。 */
+	content?: string;
 }
 
 export interface LoadSkillsResult {
 	skills: Skill[];
 	diagnostics: ResourceDiagnostic[];
+}
+
+/** 统一读取文件型与内联 Skill 的原始内容。 */
+export function readSkillContent(skill: Skill): string {
+	return skill.content ?? readFileSync(skill.filePath, "utf-8");
 }
 
 /** frontmatter agent_mode（string | string[]）→ 归一化的 string[]；空/无效 → undefined（= 通用）。 */

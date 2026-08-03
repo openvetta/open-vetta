@@ -261,6 +261,10 @@ export class GreenfieldSdkSessionAdapter implements GreenfieldSdkSession {
 		return this.runtime.capabilities.readSystemPrompt();
 	}
 
+	getSkills(): ReturnType<GreenfieldSdkSession["getSkills"]> {
+		return this.runtime.capabilities.readSkills();
+	}
+
 	getPromptTemplates(): ReturnType<GreenfieldSdkSession["getPromptTemplates"]> {
 		return this.runtime.capabilities.readPromptTemplates();
 	}

@@ -219,6 +219,7 @@ class FakeSdkRuntime implements GreenfieldSdkSessionRuntimePort {
 		},
 		readAvailableModels: async () => [],
 		readSystemPrompt: () => "effective prompt",
+		readSkills: () => [],
 		readPromptTemplates: () => [
 			{
 				name: "review",

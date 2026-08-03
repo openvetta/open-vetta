@@ -1,7 +1,7 @@
 # SDK Examples
 
 Programmatic usage through the stable `@vetta/coding-agent/sdk` entry. Examples that still need arbitrary
-manager or resource override callbacks are retained as compatibility examples and keep the package-root entry.
+manager or complete composition overrides are retained as compatibility examples and keep the package-root entry.
 
 ## Examples
 
@@ -10,9 +10,9 @@ manager or resource override callbacks are retained as compatibility examples an
 | `01-minimal.ts` | Stable SDK | Simplest usage with all defaults |
 | `02-custom-model.ts` | Compatibility | Custom provider registration through host services |
 | `03-custom-prompt.ts` | Stable SDK | Replace or append the system prompt |
-| `04-skills.ts` | Compatibility | Arbitrary discovery filtering and inline Skill metadata |
+| `04-skills.ts` | Stable SDK | Inline and dynamic Skill contributions with declarative filtering |
 | `05-tools.ts` | Stable SDK | Built-in tool activation by name |
-| `06-extensions.ts` | Compatibility | Inline Extension factories and event interception |
+| `06-extensions.ts` | Stable SDK | Dynamic Extension path sources and event observation |
 | `07-context-files.ts` | Stable SDK | Explicit AGENTS.md-style context contribution |
 | `08-prompt-templates.ts` | Stable SDK | Inline prompt templates |
 | `09-api-keys-and-oauth.ts` | Host services | API key resolution and OAuth configuration |
@@ -79,6 +79,8 @@ await session.prompt("Hello");
 | `activeTools` | Scenario policy | Explicit built-in tool names |
 | `customTools` | `[]` | Session-private tool definitions |
 | `resources` | Discovered resources | Stable path and inline resource contributions |
+| `skillSources` | `[]` | Session-owned dynamic Skill contribution sources |
+| `extensionSources` | `[]` | Session-owned dynamic Extension path sources |
 | `appendSystemPrompt` | Discovered append prompt | Additional system instructions |
 
 Credential storage, custom provider registration and persistent settings are host concerns. Existing integrations can

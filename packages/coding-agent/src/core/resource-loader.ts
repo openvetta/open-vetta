@@ -39,6 +39,10 @@ export interface ResourceLoader {
 	 * reload skills without a full package-manager resolve.
 	 */
 	setAdditionalSkillPaths(paths: string[]): void;
+	/** Replace additional Extension roots; the next full reload resolves and activates them. */
+	setAdditionalExtensionPaths(paths: string[]): void;
+	/** Reapply current Skill paths and value transforms without reloading unrelated resources. */
+	reloadSkills(): void;
 	reload(): Promise<void>;
 	/**
 	 * Detect on-disk changes under the currently tracked skill paths and reload
@@ -309,6 +313,15 @@ export class DefaultResourceLoader implements ResourceLoader {
 		// Drop previous additional paths, keep non-additional lastSkillPaths as base.
 		const basePaths = this.lastSkillPaths.filter((p) => !previous.has(resolve(p)));
 		this.lastSkillPaths = this.mergePaths(basePaths, this.additionalSkillPaths);
+		this.updateSkillsFromPaths(this.lastSkillPaths);
+		this.skillsFingerprint = this.computeSkillsFingerprint();
+	}
+
+	setAdditionalExtensionPaths(paths: string[]): void {
+		this.additionalExtensionPaths = this.mergePaths([], paths);
+	}
+
+	reloadSkills(): void {
 		this.updateSkillsFromPaths(this.lastSkillPaths);
 		this.skillsFingerprint = this.computeSkillsFingerprint();
 	}

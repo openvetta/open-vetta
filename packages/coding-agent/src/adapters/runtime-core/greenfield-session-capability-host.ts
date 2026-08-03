@@ -16,6 +16,7 @@ import type {
 	GreenfieldSdkScopedModel,
 	GreenfieldSdkSessionCapabilityPort,
 	GreenfieldSdkSessionStats,
+	GreenfieldSdkSkillInfo,
 	GreenfieldSdkToolInfo,
 } from "../../composition/greenfield-sdk-runtime-contract.js";
 import { projectCodingAgentGreenfieldMessages } from "./greenfield-agent-message-context-projector.js";
@@ -45,7 +46,9 @@ export interface CodingAgentGreenfieldSessionCapabilityHostOptions {
 	readonly settings?: CodingAgentGreenfieldSessionCapabilitySettings;
 	readonly retryController?: CodingAgentGreenfieldTurnRetryController;
 	readonly reconfigureCustomTools?: (customTools: readonly GreenfieldSdkCustomToolDefinition[] | undefined) => void;
+	readonly beforePrompt?: () => Promise<void> | void;
 	readonly readSystemPrompt?: () => string;
+	readonly readSkills?: () => readonly GreenfieldSdkSkillInfo[];
 	readonly readPromptTemplates?: () => readonly GreenfieldSdkPromptTemplate[];
 	readonly reconfigureAgentPlugins?: (agentPlugins: AgentPluginRuntimeConfig | undefined) => Promise<void> | void;
 	readonly memoryConfiguration?: GreenfieldSdkMemoryConfiguration;
@@ -81,6 +84,7 @@ export class CodingAgentGreenfieldSessionCapabilityHost implements GreenfieldSdk
 	}
 
 	async prompt(request: PromptRequest): Promise<unknown> {
+		if (!request.streamingBehavior) await this.options.beforePrompt?.();
 		const executeInitial = () => this.options.readSession().prompt(request);
 		const retryController = this.retryController;
 		const result = retryController
@@ -343,6 +347,15 @@ export class CodingAgentGreenfieldSessionCapabilityHost implements GreenfieldSdk
 
 	readSystemPrompt(): string {
 		return this.options.readSystemPrompt?.() ?? "";
+	}
+
+	readSkills(): readonly GreenfieldSdkSkillInfo[] {
+		return (
+			this.options.readSkills?.().map((skill) => ({
+				...skill,
+				agentModes: skill.agentModes ? [...skill.agentModes] : undefined,
+			})) ?? []
+		);
 	}
 
 	readPromptTemplates(): readonly GreenfieldSdkPromptTemplate[] {

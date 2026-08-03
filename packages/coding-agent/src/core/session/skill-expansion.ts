@@ -10,6 +10,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { stripFrontmatter } from "../../utils/frontmatter.js";
 import type { ResourceLoader } from "../resource-loader.js";
+import { readSkillContent } from "../skills.js";
 import type { TodoStore } from "../todo-store.js";
 import type { PromptResourceRef } from "./types.js";
 
@@ -76,7 +77,7 @@ function expandPromptResource(
 	}
 
 	try {
-		const content = readFileSync(skill.filePath, "utf-8");
+		const content = readSkillContent(skill);
 		const body = stripFrontmatter(content).trim();
 
 		if (isScene) {

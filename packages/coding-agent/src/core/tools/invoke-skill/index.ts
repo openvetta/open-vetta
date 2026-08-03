@@ -1,8 +1,7 @@
 import { type Static, Type } from "@sinclair/typebox";
-import { readFileSync } from "fs";
 import { stripFrontmatter } from "../../../utils/frontmatter.js";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
-import type { Skill } from "../../skills.js";
+import { readSkillContent, type Skill } from "../../skills.js";
 import { loadToolDescription } from "../description.js";
 import { toolCallDescriptionSchema } from "../tool-call-description.js";
 
@@ -63,7 +62,7 @@ export function createInvokeSkillTool(options: InvokeSkillToolOptions): CodingAg
 			}
 
 			try {
-				const rawContent = readFileSync(skill.filePath, "utf-8");
+				const rawContent = readSkillContent(skill);
 				const body = stripFrontmatter(rawContent).trim();
 
 				const lines: string[] = [

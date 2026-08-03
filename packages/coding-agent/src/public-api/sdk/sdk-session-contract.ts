@@ -12,6 +12,7 @@ import type {
 } from "@vetta/runtime-core";
 import type { CodingAgentSessionEventListener } from "./sdk-event-contract.js";
 import type { CodingAgentPromptOptions } from "./sdk-prompt-contract.js";
+import type { CodingAgentSkillContribution } from "./sdk-resource-source-contract.js";
 import type { CodingAgentSessionToolDefinition } from "./sdk-tool-contract.js";
 
 export interface CodingAgentScopedModel {
@@ -37,6 +38,11 @@ export interface CodingAgentPromptTemplate {
 	readonly source: string;
 	readonly filePath: string;
 }
+
+/** 当前 Session 可见 Skill 的只读投影。 */
+export type CodingAgentSkillInfo = Omit<CodingAgentSkillContribution, "content" | "filePath" | "baseDir"> & {
+	readonly source: string;
+};
 
 /** Memory 的当前配置视图；写入和压缩实现仍由产品 Runtime 拥有。 */
 export interface CodingAgentMemoryConfiguration {
@@ -126,6 +132,7 @@ export interface CodingAgentSessionCapabilities {
 	clearFinishedSubagents(): number;
 	listAvailableModels(): Promise<readonly Model<Api>[]>;
 	getSystemPrompt(): string;
+	getSkills(): readonly CodingAgentSkillInfo[];
 	getPromptTemplates(): readonly CodingAgentPromptTemplate[];
 	reconfigureAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | undefined): Promise<void>;
 	listBackgroundTasks(): readonly BackgroundTaskInfo[];

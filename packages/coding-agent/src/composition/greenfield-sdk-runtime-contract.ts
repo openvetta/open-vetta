@@ -26,6 +26,7 @@ import type {
 	CodingAgentScopedModel,
 	CodingAgentSession,
 	CodingAgentSessionStats,
+	CodingAgentSkillInfo,
 	CodingAgentToolInfo,
 	CodingAgentTreeNavigationOptions,
 	CodingAgentTreeNavigationResult,
@@ -41,6 +42,7 @@ export type GreenfieldSdkToolInfo = CodingAgentToolInfo;
 export type GreenfieldSdkPromptTemplate = CodingAgentPromptTemplate;
 export type GreenfieldSdkMemoryConfiguration = CodingAgentMemoryConfiguration;
 export type GreenfieldSdkSessionStats = CodingAgentSessionStats;
+export type GreenfieldSdkSkillInfo = CodingAgentSkillInfo;
 export type GreenfieldSdkRetryEvent = CodingAgentRetryEvent;
 export type GreenfieldSdkSession = CodingAgentFixedSession;
 export type GreenfieldSdkBashOperations = CodingAgentBashOperations;
@@ -97,6 +99,7 @@ export interface GreenfieldSdkSessionCapabilityPort {
 	clearFinishedSubagents(): number;
 	readAvailableModels(): Promise<readonly Model<Api>[]>;
 	readSystemPrompt(): string;
+	readSkills(): readonly CodingAgentSkillInfo[];
 	readPromptTemplates(): readonly CodingAgentPromptTemplate[];
 	reconfigureAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | undefined): Promise<void>;
 	readBackgroundTasks(): readonly BackgroundTaskInfo[];

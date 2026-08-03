@@ -23,6 +23,17 @@ export type {
 } from "./sdk-event-contract.js";
 export type { CodingAgentPromptInputSource, CodingAgentPromptOptions } from "./sdk-prompt-contract.js";
 export type {
+	CodingAgentExtensionSource,
+	CodingAgentExtensionSourceSnapshot,
+	CodingAgentResourceSourceInvalidationListener,
+	CodingAgentResourceSourceRevision,
+	CodingAgentSkillContribution,
+	CodingAgentSkillPolicy,
+	CodingAgentSkillSelector,
+	CodingAgentSkillSource,
+	CodingAgentSkillSourceSnapshot,
+} from "./sdk-resource-source-contract.js";
+export type {
 	CodingAgentSessionCatalog,
 	CodingAgentSessionSummary,
 	CreateCodingAgentSessionCatalogOptions,
@@ -44,6 +55,7 @@ export type {
 	CodingAgentSessionCore,
 	CodingAgentSessionSetup,
 	CodingAgentSessionStats,
+	CodingAgentSkillInfo,
 	CodingAgentToolInfo,
 	CodingAgentTreeNavigationOptions,
 	CodingAgentTreeNavigationResult,
