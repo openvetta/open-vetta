@@ -17,7 +17,7 @@ import type {
 	GreenfieldSdkSessionCapabilityPort,
 	GreenfieldSdkSessionStats,
 	GreenfieldSdkToolInfo,
-} from "../../public-api/sdk/sdk-session-contract.js";
+} from "../../composition/greenfield-sdk-runtime-contract.js";
 import { projectCodingAgentGreenfieldMessages } from "./greenfield-agent-message-context-projector.js";
 import {
 	CodingAgentGreenfieldTurnRetryController,

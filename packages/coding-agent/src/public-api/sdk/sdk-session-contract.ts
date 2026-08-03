@@ -3,42 +3,37 @@ import type { Api, ImageContent, Model, TextContent } from "@vetta/ai";
 import type {
 	AgentPluginRuntimeConfig,
 	BackgroundTaskInfo,
-	PromptRequest,
 	RuntimeContextCompactionResult,
 	RuntimeSessionContextUsage,
-	RuntimeSessionExecutionObservation,
 	RuntimeSessionInputQueueMode,
 	RuntimeSessionState,
 	RuntimeSubagentSnapshot,
 	TodoItem,
 } from "@vetta/runtime-core";
-import type {
-	AgentSessionCustomToolDefinition,
-	AgentSessionEventListener,
-	PromptOptions,
-} from "../../core/session/types.js";
+import type { AgentSessionCustomToolDefinition, AgentSessionEvent, PromptOptions } from "../../core/session/types.js";
 
-export type GreenfieldSdkPromptOptions = PromptOptions;
-export type GreenfieldSdkSessionEventListener = AgentSessionEventListener;
-export type GreenfieldSdkCustomToolDefinition = AgentSessionCustomToolDefinition;
+export type CodingAgentPromptOptions = PromptOptions;
+export type CodingAgentSessionEvent = AgentSessionEvent;
+export type CodingAgentSessionEventListener = (event: CodingAgentSessionEvent) => void;
+export type CodingAgentSessionToolDefinition = AgentSessionCustomToolDefinition;
 
-export interface GreenfieldSdkScopedModel {
+export interface CodingAgentScopedModel {
 	readonly model: Model<Api>;
 	readonly thinkingLevel: ThinkingLevel;
 }
 
-export interface GreenfieldSdkModelCycleResult extends GreenfieldSdkScopedModel {
+export interface CodingAgentModelCycleResult extends CodingAgentScopedModel {
 	readonly isScoped: boolean;
 }
 
-export interface GreenfieldSdkToolInfo {
+export interface CodingAgentToolInfo {
 	readonly name: string;
 	readonly description: string;
 	readonly parameters: unknown;
 }
 
-/** Prompt 模板的只读 SDK 投影；不暴露 ResourceLoader。 */
-export interface GreenfieldSdkPromptTemplate {
+/** Prompt 模板的只读 SDK 投影；不暴露资源加载实现。 */
+export interface CodingAgentPromptTemplate {
 	readonly name: string;
 	readonly description: string;
 	readonly content: string;
@@ -47,13 +42,13 @@ export interface GreenfieldSdkPromptTemplate {
 }
 
 /** Memory 的当前配置视图；写入和压缩实现仍由产品 Runtime 拥有。 */
-export interface GreenfieldSdkMemoryConfiguration {
+export interface CodingAgentMemoryConfiguration {
 	readonly enabled: boolean;
 	readonly file: string | undefined;
 	readonly charLimit: number;
 }
 
-export interface GreenfieldSdkSessionStats {
+export interface CodingAgentSessionStats {
 	readonly sessionFile: string | undefined;
 	readonly sessionId: string;
 	readonly userMessages: number;
@@ -71,7 +66,7 @@ export interface GreenfieldSdkSessionStats {
 	readonly cost: number;
 }
 
-export type GreenfieldSdkRetryEvent =
+export type CodingAgentRetryEvent =
 	| {
 			readonly type: "auto_retry_start";
 			readonly attempt: number;
@@ -86,75 +81,8 @@ export type GreenfieldSdkRetryEvent =
 			readonly finalError?: string;
 	  };
 
-/** 不改变 Session 身份的操作能力；身份切换和 Legacy 具体对象不属于该边界。 */
-export interface GreenfieldSdkSessionCapabilityPort {
-	prompt(request: PromptRequest): Promise<unknown>;
-	selectModel(provider: string, modelId: string): Promise<Model<Api> | undefined>;
-	setThinkingLevel(level: ThinkingLevel): void;
-	subscribeRetryEvents(handler: (event: GreenfieldSdkRetryEvent) => void): () => void;
-	readRetryAttempt(): number;
-	readActiveToolNames(): readonly string[];
-	readAllTools(): readonly GreenfieldSdkToolInfo[];
-	setActiveToolNames(toolNames: readonly string[]): void;
-	reconfigureCustomTools(customTools: readonly GreenfieldSdkCustomToolDefinition[] | undefined): void;
-	readAgentMode(): string | undefined;
-	setAgentMode(mode: string | undefined): void;
-	readIsCompacting(): boolean;
-	readSteeringMode(): RuntimeSessionInputQueueMode;
-	readFollowUpMode(): RuntimeSessionInputQueueMode;
-	readSessionName(): string | undefined;
-	readScopedModels(): readonly GreenfieldSdkScopedModel[];
-	setScopedModels(scopedModels: readonly GreenfieldSdkScopedModel[]): void;
-	clearQueue(): { readonly steering: readonly string[]; readonly followUp: readonly string[] };
-	readPendingMessageCount(): number;
-	readSteeringMessages(): readonly string[];
-	readFollowUpMessages(): readonly string[];
-	cycleModel(direction?: "forward" | "backward"): Promise<GreenfieldSdkModelCycleResult | undefined>;
-	cycleThinkingLevel(): ThinkingLevel | undefined;
-	readAvailableThinkingLevels(): readonly ThinkingLevel[];
-	supportsXhighThinking(): boolean;
-	supportsThinking(): boolean;
-	setSteeringMode(mode: RuntimeSessionInputQueueMode): void;
-	setFollowUpMode(mode: RuntimeSessionInputQueueMode): void;
-	compact(customInstructions?: string, signal?: AbortSignal): Promise<RuntimeContextCompactionResult>;
-	abortCompaction(): void;
-	setAutoCompactionEnabled(enabled: boolean): void;
-	readAutoCompactionEnabled(): boolean;
-	abortRetry(): void;
-	readIsRetrying(): boolean;
-	readAutoRetryEnabled(): boolean;
-	setAutoRetryEnabled(enabled: boolean): void;
-	setSessionName(name: string): Promise<void>;
-	readSessionStats(): GreenfieldSdkSessionStats;
-	readContextUsage(): RuntimeSessionContextUsage | undefined;
-	readLastAssistantText(): string | undefined;
-	readSubagents(): readonly RuntimeSubagentSnapshot[];
-	interruptSubagent(target: string): RuntimeSubagentSnapshot | undefined;
-	clearFinishedSubagents(): number;
-	readAvailableModels(): Promise<readonly Model<Api>[]>;
-	readSystemPrompt(): string;
-	readPromptTemplates(): readonly GreenfieldSdkPromptTemplate[];
-	reconfigureAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | undefined): Promise<void>;
-	readBackgroundTasks(): readonly BackgroundTaskInfo[];
-	killBackgroundTask(taskId: string): boolean;
-	clearFinishedBackgroundTasks(): number;
-	readTodos(): readonly TodoItem[];
-	clearTodos(): boolean;
-	readMemoryConfiguration(): GreenfieldSdkMemoryConfiguration;
-	flushMemory(signal?: AbortSignal): Promise<number>;
-	reloadMcp(): Promise<void>;
-	reload(): Promise<void>;
-	exportToHtml(outputPath?: string): Promise<string>;
-	hasExtensionHandlers(eventType: string): boolean;
-}
-
-/**
- * Greenfield SDK 门面当前已经闭合的核心会话合同。
- *
- * 这是并行迁移合同，不替代公开 AgentSession；未进入本接口的外围能力必须继续
- * 由兼容清单跟踪，不能被静默忽略。
- */
-export interface GreenfieldSdkSessionCore {
+/** 稳定公共 SDK 的核心会话合同。 */
+export interface CodingAgentSessionCore {
 	readonly sessionId: string;
 	readonly sessionFile: string | undefined;
 	readonly state: RuntimeSessionState;
@@ -162,40 +90,40 @@ export interface GreenfieldSdkSessionCore {
 	readonly thinkingLevel: ThinkingLevel;
 	readonly isStreaming: boolean;
 	readonly messages: readonly AgentMessage[];
-	prompt(text: string, options?: GreenfieldSdkPromptOptions): Promise<void>;
-	steer(text: string, images?: GreenfieldSdkPromptOptions["images"]): Promise<void>;
-	followUp(text: string, images?: GreenfieldSdkPromptOptions["images"]): Promise<void>;
+	prompt(text: string, options?: CodingAgentPromptOptions): Promise<void>;
+	steer(text: string, images?: CodingAgentPromptOptions["images"]): Promise<void>;
+	followUp(text: string, images?: CodingAgentPromptOptions["images"]): Promise<void>;
 	abort(): Promise<void>;
 	setModel(model: Model<Api>): Promise<void>;
 	setThinkingLevel(level: ThinkingLevel): void;
-	subscribe(listener: GreenfieldSdkSessionEventListener): () => void;
+	subscribe(listener: CodingAgentSessionEventListener): () => void;
 	dispose(): void;
 	close(): Promise<void>;
 }
 
-/** 叠加在稳定 Core 之上的固定 Session 操作面；不包含身份迁移。 */
-export interface GreenfieldSdkSessionCapabilities {
+/** 叠加在核心会话之上的产品能力，不暴露具体管理器。 */
+export interface CodingAgentSessionCapabilities {
 	readonly retryAttempt: number;
 	readonly agentMode: string | undefined;
 	readonly isCompacting: boolean;
 	readonly steeringMode: RuntimeSessionInputQueueMode;
 	readonly followUpMode: RuntimeSessionInputQueueMode;
 	readonly sessionName: string | undefined;
-	readonly scopedModels: readonly GreenfieldSdkScopedModel[];
+	readonly scopedModels: readonly CodingAgentScopedModel[];
 	readonly pendingMessageCount: number;
 	readonly autoCompactionEnabled: boolean;
 	readonly isRetrying: boolean;
 	readonly autoRetryEnabled: boolean;
 	getActiveToolNames(): readonly string[];
-	getAllTools(): readonly GreenfieldSdkToolInfo[];
+	getAllTools(): readonly CodingAgentToolInfo[];
 	setActiveToolsByName(toolNames: readonly string[]): void;
-	reconfigureCustomTools(customTools: readonly GreenfieldSdkCustomToolDefinition[] | undefined): void;
+	reconfigureCustomTools(customTools: readonly CodingAgentSessionToolDefinition[] | undefined): void;
 	setAgentMode(mode: string | undefined): void;
-	setScopedModels(scopedModels: readonly GreenfieldSdkScopedModel[]): void;
+	setScopedModels(scopedModels: readonly CodingAgentScopedModel[]): void;
 	clearQueue(): { readonly steering: readonly string[]; readonly followUp: readonly string[] };
 	getSteeringMessages(): readonly string[];
 	getFollowUpMessages(): readonly string[];
-	cycleModel(direction?: "forward" | "backward"): Promise<GreenfieldSdkModelCycleResult | undefined>;
+	cycleModel(direction?: "forward" | "backward"): Promise<CodingAgentModelCycleResult | undefined>;
 	cycleThinkingLevel(): ThinkingLevel | undefined;
 	getAvailableThinkingLevels(): readonly ThinkingLevel[];
 	supportsXhighThinking(): boolean;
@@ -208,7 +136,7 @@ export interface GreenfieldSdkSessionCapabilities {
 	abortRetry(): void;
 	setAutoRetryEnabled(enabled: boolean): void;
 	setSessionName(name: string): Promise<void>;
-	getSessionStats(): GreenfieldSdkSessionStats;
+	getSessionStats(): CodingAgentSessionStats;
 	getContextUsage(): RuntimeSessionContextUsage | undefined;
 	getLastAssistantText(): string | undefined;
 	listSubagents(): readonly RuntimeSubagentSnapshot[];
@@ -216,14 +144,14 @@ export interface GreenfieldSdkSessionCapabilities {
 	clearFinishedSubagents(): number;
 	listAvailableModels(): Promise<readonly Model<Api>[]>;
 	getSystemPrompt(): string;
-	getPromptTemplates(): readonly GreenfieldSdkPromptTemplate[];
+	getPromptTemplates(): readonly CodingAgentPromptTemplate[];
 	reconfigureAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | undefined): Promise<void>;
 	listBackgroundTasks(): readonly BackgroundTaskInfo[];
 	killBackgroundTask(taskId: string): boolean;
 	clearFinishedBackgroundTasks(): number;
 	getTodos(): readonly TodoItem[];
 	clearTodos(): boolean;
-	getMemoryConfiguration(): GreenfieldSdkMemoryConfiguration;
+	getMemoryConfiguration(): CodingAgentMemoryConfiguration;
 	flushMemory(signal?: AbortSignal): Promise<number>;
 	reloadMcp(): Promise<void>;
 	reload(): Promise<void>;
@@ -231,13 +159,13 @@ export interface GreenfieldSdkSessionCapabilities {
 	hasExtensionHandlers(eventType: string): boolean;
 }
 
-export type GreenfieldSdkSession = GreenfieldSdkSessionCore & GreenfieldSdkSessionCapabilities;
+export type CodingAgentFixedSession = CodingAgentSessionCore & CodingAgentSessionCapabilities;
 
-export interface GreenfieldSdkSessionSetupPort {
+export interface CodingAgentSessionSetup {
 	appendMessage(message: AgentMessage): string;
 }
 
-export interface GreenfieldSdkBashOperations {
+export interface CodingAgentBashOperations {
 	exec(
 		command: string,
 		cwd: string,
@@ -250,7 +178,7 @@ export interface GreenfieldSdkBashOperations {
 	): Promise<{ readonly exitCode: number | null }>;
 }
 
-export interface GreenfieldSdkBashResult {
+export interface CodingAgentBashResult {
 	readonly output: string;
 	readonly exitCode: number | undefined;
 	readonly cancelled: boolean;
@@ -258,39 +186,39 @@ export interface GreenfieldSdkBashResult {
 	readonly fullOutputPath?: string;
 }
 
-export interface GreenfieldSdkSessionBranchEntry {
+export interface CodingAgentSessionBranchEntry {
 	readonly id: string;
 	readonly type: string;
 	readonly parentId: string | null;
 }
 
-export interface GreenfieldSdkBranchSummaryEntry extends GreenfieldSdkSessionBranchEntry {
+export interface CodingAgentBranchSummaryEntry extends CodingAgentSessionBranchEntry {
 	readonly type: "branch_summary";
 	readonly summary: string;
 }
 
-export interface GreenfieldSdkNewSessionOptions {
+export interface CodingAgentNewSessionOptions {
 	readonly parentSession?: string;
-	readonly setup?: (sessionManager: GreenfieldSdkSessionSetupPort) => Promise<void>;
+	readonly setup?: (session: CodingAgentSessionSetup) => Promise<void>;
 }
 
-export interface GreenfieldSdkTreeNavigationOptions {
+export interface CodingAgentTreeNavigationOptions {
 	readonly summarize?: boolean;
 	readonly customInstructions?: string;
 	readonly replaceInstructions?: boolean;
 	readonly label?: string;
 }
 
-export interface GreenfieldSdkTreeNavigationResult {
+export interface CodingAgentTreeNavigationResult {
 	readonly editorText?: string;
 	readonly cancelled: boolean;
 	readonly aborted?: boolean;
-	readonly summaryEntry?: GreenfieldSdkBranchSummaryEntry;
+	readonly summaryEntry?: CodingAgentBranchSummaryEntry;
 }
 
-/** 会改变当前会话身份或依赖活动会话所有权的 SDK 操作。 */
-export interface GreenfieldSdkActiveSessionCapabilities {
-	getSessionBranch(): readonly GreenfieldSdkSessionBranchEntry[];
+/** 会改变当前会话身份或依赖活动会话所有权的稳定 SDK 操作。 */
+export interface CodingAgentActiveSessionCapabilities {
+	getSessionBranch(): readonly CodingAgentSessionBranchEntry[];
 	sendCustomMessage<T = unknown>(
 		message: {
 			readonly customType: string;
@@ -304,16 +232,16 @@ export interface GreenfieldSdkActiveSessionCapabilities {
 		content: string | readonly (TextContent | ImageContent)[],
 		options?: { readonly deliverAs?: "steer" | "followUp" },
 	): Promise<void>;
-	newSession(options?: GreenfieldSdkNewSessionOptions): Promise<boolean>;
+	newSession(options?: CodingAgentNewSessionOptions): Promise<boolean>;
 	abortBranchSummary(): void;
 	executeBash(
 		command: string,
 		onChunk?: (chunk: string) => void,
-		options?: { readonly excludeFromContext?: boolean; readonly operations?: GreenfieldSdkBashOperations },
-	): Promise<GreenfieldSdkBashResult>;
+		options?: { readonly excludeFromContext?: boolean; readonly operations?: CodingAgentBashOperations },
+	): Promise<CodingAgentBashResult>;
 	recordBashResult(
 		command: string,
-		result: GreenfieldSdkBashResult,
+		result: CodingAgentBashResult,
 		options?: { readonly excludeFromContext?: boolean },
 	): Promise<void>;
 	abortBash(): void;
@@ -321,10 +249,7 @@ export interface GreenfieldSdkActiveSessionCapabilities {
 	readonly hasPendingBashMessages: boolean;
 	switchSession(sessionPath: string): Promise<boolean>;
 	fork(entryId: string): Promise<{ readonly selectedText: string; readonly cancelled: boolean }>;
-	navigateTree(
-		targetId: string,
-		options?: GreenfieldSdkTreeNavigationOptions,
-	): Promise<GreenfieldSdkTreeNavigationResult>;
+	navigateTree(targetId: string, options?: CodingAgentTreeNavigationOptions): Promise<CodingAgentTreeNavigationResult>;
 	switchBranch(targetId: string): Promise<{ readonly leafId: string }>;
 	appendBranchSummary(
 		parentId: string | null,
@@ -338,27 +263,5 @@ export interface GreenfieldSdkActiveSessionCapabilities {
 	getUserMessagesForForking(): readonly { readonly entryId: string; readonly text: string }[];
 }
 
-export type GreenfieldSdkActiveSession = GreenfieldSdkSession & GreenfieldSdkActiveSessionCapabilities;
-
-/** Active Session Adapter 依赖的身份事务和历史操作端口。 */
-export interface GreenfieldSdkActiveSessionCapabilityPort extends GreenfieldSdkActiveSessionCapabilities {
-	quiesceIdentity(): Promise<void>;
-	dispose(): Promise<void>;
-}
-
-/** Greenfield SDK 门面依赖的最小 Runtime 能力，不绑定具体 Session 实现。 */
-export interface GreenfieldSdkSessionRuntimePort {
-	readonly sessionId: string;
-	readonly sessionPath: string | undefined;
-	readonly capabilities: GreenfieldSdkSessionCapabilityPort;
-	prompt(request: PromptRequest): Promise<unknown>;
-	abort(reason?: string): Promise<void>;
-	readState(): RuntimeSessionState;
-	readMessages(): readonly AgentMessage[];
-	selectModel(modelKey: string): Promise<void>;
-	setThinkingLevel(level: ThinkingLevel): void;
-	subscribeExecutionObservation(
-		handler: (observation: RuntimeSessionExecutionObservation) => Promise<void> | void,
-	): () => void;
-	dispose(): Promise<void>;
-}
+/** `@vetta/coding-agent/sdk` 返回的稳定活动会话门面。 */
+export type CodingAgentSession = CodingAgentFixedSession & CodingAgentActiveSessionCapabilities;

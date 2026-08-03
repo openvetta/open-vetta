@@ -1,12 +1,12 @@
 import type { ImageContent, TextContent } from "@vetta/ai";
-import { GreenfieldSdkSessionAdapter } from "./greenfield-sdk-session-adapter.js";
 import type {
 	GreenfieldSdkActiveSession,
 	GreenfieldSdkActiveSessionCapabilityPort,
 	GreenfieldSdkNewSessionOptions,
 	GreenfieldSdkSessionRuntimePort,
 	GreenfieldSdkTreeNavigationOptions,
-} from "./sdk-session-contract.js";
+} from "../../composition/greenfield-sdk-runtime-contract.js";
+import { GreenfieldSdkSessionAdapter } from "./greenfield-sdk-session-adapter.js";
 
 /**
  * 在固定 Session 门面之外叠加活动会话所有权。

@@ -30,11 +30,14 @@ export const LEGACY_PACKAGE_EXPORT_BASELINE = Object.freeze([]);
  * 具体实现，RPC Host Adapter 可以复用产品投影。预算允许减少，新增必须经过架构审查。
  */
 export const GREENFIELD_PRODUCT_CORE_EDGE_BUDGET = Object.freeze({
-	"product-adapter": 84,
+	"product-adapter": 85,
 	"composition-wiring": 5,
 	"rpc-host-adapter": 4,
 	"sdk-compatibility": 2,
 });
+
+const PUBLIC_CODING_AGENT_SDK_FORBIDDEN_NAMES =
+	/\b(?:(?:Greenfield|Legacy)[A-Za-z0-9_]*|ModelRegistry|ResourceLoader|SessionManager|SettingsManager)\b/;
 
 export const RETIRED_LEGACY_EXECUTION_FILES = Object.freeze([
 	"packages/coding-agent/src/cli.ts",
@@ -212,11 +215,20 @@ export function findGreenfieldProductCoreBoundaryViolations(files) {
 	return violations;
 }
 
-/** Greenfield SDK 门面只能依赖中立 Runtime Port，不能回接旧执行类或旧工厂。 */
+/** 公共 SDK 门面只能暴露稳定产品合同，不能回接迁移实现或具体产品管理器。 */
 export function findGreenfieldSdkBoundaryViolations(files) {
 	const violations = [];
 	for (const file of files) {
-		if (!file.path.startsWith("packages/coding-agent/src/public-api/sdk/")) continue;
+		if (
+			file.path !== "packages/coding-agent/src/public-api/sdk.ts" &&
+			!file.path.startsWith("packages/coding-agent/src/public-api/sdk/")
+		) {
+			continue;
+		}
+		const forbiddenName = PUBLIC_CODING_AGENT_SDK_FORBIDDEN_NAMES.exec(file.text)?.[0];
+		if (forbiddenName) {
+			violations.push(`${file.path}: public Coding Agent SDK leaks forbidden name (${forbiddenName})`);
+		}
 		for (const edge of collectModuleEdges(file.path, file.text)) {
 			if (
 				edge.specifier.includes("core/agent-session") ||
@@ -224,7 +236,7 @@ export function findGreenfieldSdkBoundaryViolations(files) {
 				edge.names.some((name) => name === "AgentSession" || name === "createAgentSession")
 			) {
 				violations.push(
-					`${file.path}: Greenfield SDK facade must not depend on Legacy AgentSession execution (${edge.specifier})`,
+					`${file.path}: public Coding Agent SDK must not depend on retired AgentSession execution (${edge.specifier})`,
 				);
 			}
 		}

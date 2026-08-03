@@ -8,12 +8,12 @@ import {
 	CodingAgentGreenfieldSessionCapabilityHost,
 	type CodingAgentModelRegistrySource,
 } from "../../src/adapters/runtime-core/greenfield.js";
+import { GreenfieldSdkSessionAdapter } from "../../src/adapters/runtime-core/greenfield-sdk-session-adapter.js";
 import { createGreenfieldRuntimeComposition } from "../../src/composition/greenfield-runtime-composition.js";
 import type { GreenfieldRuntimeComposition } from "../../src/composition/greenfield-runtime-composition-contract.js";
+import { bindGreenfieldSdkSessionRuntime } from "../../src/composition/greenfield-sdk-runtime-binding.js";
+import type { GreenfieldSdkSession } from "../../src/composition/greenfield-sdk-runtime-contract.js";
 import { createGreenfieldSdkSession } from "../../src/composition/greenfield-sdk-session-factory.js";
-import { bindGreenfieldSdkSessionRuntime } from "../../src/public-api/sdk/greenfield-sdk-runtime-binding.js";
-import { GreenfieldSdkSessionAdapter } from "../../src/public-api/sdk/greenfield-sdk-session-adapter.js";
-import type { GreenfieldSdkSession } from "../../src/public-api/sdk/sdk-session-contract.js";
 
 describe("Greenfield SDK session integration", () => {
 	const temporaryDirectories: string[] = [];

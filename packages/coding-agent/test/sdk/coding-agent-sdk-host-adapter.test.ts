@@ -13,11 +13,11 @@ import { SettingsManager } from "../../src/core/settings-manager.js";
 import { createEmptySubagentTypeRegistry } from "../../src/core/subagents/index.js";
 import { readTool } from "../../src/core/tools/index.js";
 import { createGreenfieldAgentSession } from "../../src/host/coding-agent-sdk-host-adapter.js";
-import type { GreenfieldSdkSession } from "../../src/public-api/sdk/index.js";
+import type { CodingAgentSession } from "../../src/public-api/sdk/index.js";
 
 describe("Coding Agent SDK Host Adapter", () => {
 	const temporaryDirectories: string[] = [];
-	const sessions: GreenfieldSdkSession[] = [];
+	const sessions: CodingAgentSession[] = [];
 
 	afterEach(async () => {
 		await Promise.all(sessions.splice(0).map((session) => session.close()));

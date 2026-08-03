@@ -7,12 +7,12 @@ import type {
 	RuntimeSessionState,
 } from "@vetta/runtime-core";
 import { describe, expect, it, vi } from "vitest";
-import { GreenfieldSdkSessionAdapter } from "../../src/public-api/sdk/greenfield-sdk-session-adapter.js";
+import { GreenfieldSdkSessionAdapter } from "../../src/adapters/runtime-core/greenfield-sdk-session-adapter.js";
 import type {
 	GreenfieldSdkRetryEvent,
 	GreenfieldSdkSessionCapabilityPort,
 	GreenfieldSdkSessionRuntimePort,
-} from "../../src/public-api/sdk/sdk-session-contract.js";
+} from "../../src/composition/greenfield-sdk-runtime-contract.js";
 
 describe("Greenfield SDK session adapter", () => {
 	it("maps prompt, queue, model and thinking controls onto the narrow Runtime port", async () => {

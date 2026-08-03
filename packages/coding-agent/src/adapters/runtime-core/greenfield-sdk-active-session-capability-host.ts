@@ -9,7 +9,7 @@ import type {
 	GreenfieldSdkNewSessionOptions,
 	GreenfieldSdkTreeNavigationOptions,
 	GreenfieldSdkTreeNavigationResult,
-} from "../../public-api/sdk/sdk-session-contract.js";
+} from "../../composition/greenfield-sdk-runtime-contract.js";
 import { createGreenfieldReadonlySessionManager } from "./greenfield-readonly-session-manager.js";
 
 export interface CodingAgentGreenfieldSdkBashPort {

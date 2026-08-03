@@ -9,13 +9,7 @@ import type {
 	ConversationScenario,
 } from "@vetta/runtime-core";
 import type { RuntimeTracer } from "@vetta/runtime-telemetry";
-import type { GreenfieldSdkActiveSession, GreenfieldSdkCustomToolDefinition } from "./sdk-session-contract.js";
-
-/** 最终公共 SDK 名称；Greenfield 仅是内部迁移实现。 */
-export type CodingAgentSession = GreenfieldSdkActiveSession;
-
-/** SDK 动态工具定义；工具实现通过 Session 私有注册表接入。 */
-export type CodingAgentSessionToolDefinition = GreenfieldSdkCustomToolDefinition;
+import type { CodingAgentSession, CodingAgentSessionToolDefinition } from "./sdk-session-contract.js";
 
 export type CodingAgentSessionStorageTarget =
 	| { readonly kind: "memory"; readonly sessionId?: string }
@@ -66,7 +60,7 @@ export interface CodingAgentQuestionCapability {
 /**
  * 新公共 SDK 的值对象和窄能力参数。
  *
- * 具体 Auth/Model/Settings/Resource/Session 管理器只属于产品 Composition Root，
+ * 具体认证、模型、设置、资源和存储管理器只属于产品 Composition Root，
  * 不进入该合同。需要旧管理器注入的调用方继续使用包根兼容工厂。
  */
 export interface CreateCodingAgentSessionOptions {

@@ -17,6 +17,7 @@ import {
 } from "../adapters/runtime-core/greenfield.js";
 import { CodingAgentGreenfieldSdkActiveSessionCapabilityHost } from "../adapters/runtime-core/greenfield-sdk-active-session-capability-host.js";
 import { CodingAgentLegacySessionSetupSeedImporter } from "../adapters/runtime-core/legacy-session-setup-seed-importer.js";
+import type { GreenfieldSdkActiveSession } from "../composition/greenfield-sdk-runtime-contract.js";
 import {
 	createGreenfieldSdkSession,
 	type GreenfieldSdkOwnedResource,
@@ -42,7 +43,6 @@ import {
 	CodingAgentSessionCreateError,
 	type CreateCodingAgentSessionOptions,
 	type CreateCodingAgentSessionResult,
-	type GreenfieldSdkActiveSession,
 } from "../public-api/sdk/index.js";
 import {
 	assessSdkCreateOptionsCompatibility,

@@ -121,7 +121,7 @@ describe("Legacy execution retirement gate", () => {
 			unclassified: 0,
 		});
 		expect(GREENFIELD_PRODUCT_CORE_EDGE_BUDGET).toEqual({
-			"product-adapter": 84,
+			"product-adapter": 85,
 			"composition-wiring": 5,
 			"rpc-host-adapter": 4,
 			"sdk-compatibility": 2,
@@ -145,7 +145,7 @@ describe("Legacy execution retirement gate", () => {
 		expect(violations[1]).toContain("Composition contract leaks a concrete product Core type");
 	});
 
-	it("keeps the Greenfield SDK facade independent from Legacy execution", () => {
+	it("keeps the public SDK facade independent from migration names and retired execution", () => {
 		expect(
 			findGreenfieldSdkBoundaryViolations([
 				{
@@ -154,7 +154,17 @@ describe("Legacy execution retirement gate", () => {
 				},
 			]),
 		).toEqual([
-			"packages/coding-agent/src/public-api/sdk/greenfield-sdk-session.ts: Greenfield SDK facade must not depend on Legacy AgentSession execution (../../core/agent-session.js)",
+			"packages/coding-agent/src/public-api/sdk/greenfield-sdk-session.ts: public Coding Agent SDK must not depend on retired AgentSession execution (../../core/agent-session.js)",
+		]);
+		expect(
+			findGreenfieldSdkBoundaryViolations([
+				{
+					path: "packages/coding-agent/src/public-api/sdk.ts",
+					text: "export type CodingAgentSession = GreenfieldSdkSession;",
+				},
+			]),
+		).toEqual([
+			"packages/coding-agent/src/public-api/sdk.ts: public Coding Agent SDK leaks forbidden name (GreenfieldSdkSession)",
 		]);
 	});
 });

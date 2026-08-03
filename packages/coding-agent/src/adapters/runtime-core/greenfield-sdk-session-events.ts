@@ -2,7 +2,7 @@ import type { AgentEvent, AgentMessage } from "@vetta/agent-core";
 import type { RuntimeMessageEnvelope, RuntimeSessionExecutionObservation } from "@vetta/runtime-core";
 import type { CustomMessage } from "../../core/messages.js";
 
-/** 将产品无关的完整执行观察事件恢复为现有 SDK Agent 事件。 */
+/** 将产品无关的完整执行观察事件适配为现有 SDK Agent 事件。 */
 export function mapGreenfieldSdkExecutionEvent(observation: RuntimeSessionExecutionObservation): AgentEvent {
 	const { event } = observation;
 	switch (event.type) {

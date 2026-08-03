@@ -2,14 +2,9 @@ import { randomUUID } from "node:crypto";
 import type { RuntimeSessionCatalog } from "@vetta/runtime-core";
 import { type GreenfieldRuntimeSession, InitializationRollbackScope, RetryableCleanup } from "@vetta/runtime-core";
 import { FileConversationRuntimeSessionCatalog } from "@vetta/runtime-storage/conversation";
+import { GreenfieldSdkActiveSessionAdapter } from "../adapters/runtime-core/greenfield-sdk-active-session-adapter.js";
 import { CodingAgentGreenfieldSdkActiveSessionCapabilityHost } from "../adapters/runtime-core/greenfield-sdk-active-session-capability-host.js";
 import { CodingAgentGreenfieldSessionCapabilityHost } from "../adapters/runtime-core/greenfield-session-capability-host.js";
-import type {
-	GreenfieldSdkActiveSession,
-	GreenfieldSdkActiveSessionCapabilityPort,
-	GreenfieldSdkSessionCapabilityPort,
-} from "../public-api/sdk/index.js";
-import { bindGreenfieldSdkActiveSessionRuntime, GreenfieldSdkActiveSessionAdapter } from "../public-api/sdk/index.js";
 import {
 	CodingAgentGreenfieldActiveSessionHost,
 	type CodingAgentGreenfieldPreparedSessionBinding,
@@ -22,6 +17,12 @@ import type {
 	GreenfieldRuntimeCompositionOptions,
 	GreenfieldRuntimeSessionOptions,
 } from "./greenfield-runtime-composition-contract.js";
+import { bindGreenfieldSdkActiveSessionRuntime } from "./greenfield-sdk-runtime-binding.js";
+import type {
+	GreenfieldSdkActiveSession,
+	GreenfieldSdkActiveSessionCapabilityPort,
+	GreenfieldSdkSessionCapabilityPort,
+} from "./greenfield-sdk-runtime-contract.js";
 import {
 	type GreenfieldSdkSessionStorageTarget,
 	type ResolvedGreenfieldSdkSessionStorage,
@@ -86,7 +87,7 @@ export interface GreenfieldSdkSessionFactoryResult {
 /**
  * Greenfield SDK 的内部 Composition Root。
  *
- * 公开 createAgentSession 尚未切换到这里；本工厂只接受已经完成产品资源解析的中立
+ * 包根兼容工厂不直接进入这里；本工厂只接受已经完成产品资源解析的中立
  * Composition 参数，并显式处理存储目标、create/resume 路由与失败回滚。
  */
 export async function createGreenfieldSdkSession(

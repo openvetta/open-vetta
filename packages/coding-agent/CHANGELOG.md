@@ -21,6 +21,7 @@
 
 ### Changed
 
+- **公共 Coding Agent SDK 合同去迁移化**：`@vetta/coding-agent/sdk` 的 Session、事件、工具、模型、统计、Memory、Bash 与树导航类型统一改为 `CodingAgent*` 稳定命名；迁移期 Runtime Port、Adapter、Binding 和事件映射移出 `public-api/sdk`，内部实现继续通过 Composition/Adapter 接入，包根兼容工厂和全部执行行为保持不变。质量守卫现在拒绝公共 SDK 再出现迁移期名称或具体产品管理器。
 - **Greenfield SDK 活动 Session 所有权闭环**：内部 SDK Factory 现在以长生命周期 Composition 和 Active Session Host 持有当前会话，稳定 SDK 门面支持 new/switch/fork、历史树写操作、上下文投递和直接 Bash；Session 身份切换会原子迁移 Extension 与 Session 资源，失败回滚旧身份，Bash 在切换前中止并落盘待处理结果。固定 Session Adapter 继续不承担身份迁移，公开 `createAgentSession` 尚未切换。
 - **非 RPC CLI 意图与 Print Host 解耦**：CLI 现在显式区分 control、print 与 RPC；帮助、版本、模型列表、导出和包管理不再进入会话 Runtime 决策。`runPrintMode()` 改为消费中立 `PrintSessionCapabilities`，旧 `AgentSession` 通过等价适配器继续承载 text、JSON 和管道输入，执行功能与默认 backend 不变。
 - **Legacy RPC 自动回退改为穷尽策略门禁**：普通 RPC 仍只在 Extension 存在明确未支持事件/能力，或旧会话迁移状态为 `locked`、`not-representable`、`failed` 时启动 Legacy；缺少结构化证据、成功迁移却请求回退或未来未登记的回退状态会 fail-closed。显式 `--agent-runtime legacy`、现有 RPC wire 和全部兼容回退行为不变。

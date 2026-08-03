@@ -1,10 +1,10 @@
-import { mapGreenfieldSdkExecutionEvent } from "./greenfield-sdk-session-events.js";
 import type {
 	GreenfieldSdkPromptOptions,
 	GreenfieldSdkSession,
 	GreenfieldSdkSessionEventListener,
 	GreenfieldSdkSessionRuntimePort,
-} from "./sdk-session-contract.js";
+} from "../../composition/greenfield-sdk-runtime-contract.js";
+import { mapGreenfieldSdkExecutionEvent } from "./greenfield-sdk-session-events.js";
 
 /** Greenfield Runtime 到现有 SDK 核心会话语义的并行兼容门面。 */
 export class GreenfieldSdkSessionAdapter implements GreenfieldSdkSession {
