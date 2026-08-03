@@ -40,11 +40,6 @@
 			"@vetta/coding-agent/extensions": ["../coding-agent/src/public-api/extensions.ts"],
 			"@vetta/coding-agent/host-services": ["../coding-agent/src/public-api/host-services.ts"],
 			"@vetta/coding-agent/knowledge": ["../coding-agent/src/core/knowledge/index.ts"],
-			"@vetta/coding-agent/legacy/host-services": [
-				"../coding-agent/src/public-api/legacy-host-services.ts"
-			],
-			"@vetta/coding-agent/legacy/session": ["../coding-agent/src/public-api/legacy-session.ts"],
-			"@vetta/coding-agent/legacy/tools": ["../coding-agent/src/public-api/legacy-tools.ts"],
 			"@vetta/coding-agent/profile": ["../coding-agent/src/public-api/profile.ts"],
 			"@vetta/coding-agent/resources": ["../coding-agent/src/core/resource-loader.ts"],
 			"@vetta/coding-agent/rpc": ["../coding-agent/src/public-api/rpc.ts"],

@@ -15,9 +15,6 @@ import {
 	ModelRegistry as HostModelRegistry,
 	SettingsManager as HostSettingsManager,
 } from "../src/public-api/host-services.js";
-import { AuthStorage, ModelRegistry, SettingsManager } from "../src/public-api/legacy-host-services.js";
-import { AgentSession, SessionManager } from "../src/public-api/legacy-session.js";
-import { BackgroundTaskManager, createShellTool, createTaskOutputTool } from "../src/public-api/legacy-tools.js";
 import { ALL_SCENARIOS, PERSONAS } from "../src/public-api/profile.js";
 import {
 	createImSendAttachmentTool,
@@ -43,18 +40,10 @@ describe("coding-agent public subpaths", () => {
 		expect(HostAuthStorage).toBe(root.AuthStorage);
 		expect(HostModelRegistry).toBe(root.ModelRegistry);
 		expect(HostSettingsManager).toBe(root.SettingsManager);
-		expect(AuthStorage).toBe(root.AuthStorage);
-		expect(ModelRegistry).toBe(root.ModelRegistry);
-		expect(SettingsManager).toBe(root.SettingsManager);
 		expect(runtimeStorageCompat.SessionManager).toBe(root.SessionManager);
 		expect(runtimeToolsCompat.createReadTool).toBe(root.createReadTool);
 		expect(runtimeToolsCompat.readTool).toBe(root.readTool);
 		expect(ExtensionRunner).toBe(root.ExtensionRunner);
-		expect(AgentSession).toBe(root.AgentSession);
-		expect(SessionManager).toBe(root.SessionManager);
-		expect(BackgroundTaskManager).toBe(root.BackgroundTaskManager);
-		expect(createShellTool).toBe(root.createShellTool);
-		expect(createTaskOutputTool).toBe(root.createTaskOutputTool);
 		expect(runCodingAgentCliControl).toBeTypeOf("function");
 	});
 
@@ -98,18 +87,6 @@ describe("coding-agent public subpaths", () => {
 				types: "./dist/core/knowledge/index.d.ts",
 				import: "./dist/core/knowledge/index.js",
 			},
-			"./legacy/host-services": {
-				types: "./dist/public-api/legacy-host-services.d.ts",
-				import: "./dist/public-api/legacy-host-services.js",
-			},
-			"./legacy/session": {
-				types: "./dist/public-api/legacy-session.d.ts",
-				import: "./dist/public-api/legacy-session.js",
-			},
-			"./legacy/tools": {
-				types: "./dist/public-api/legacy-tools.d.ts",
-				import: "./dist/public-api/legacy-tools.js",
-			},
 			"./profile": {
 				types: "./dist/public-api/profile.d.ts",
 				import: "./dist/public-api/profile.js",
@@ -123,6 +100,6 @@ describe("coding-agent public subpaths", () => {
 				import: "./dist/public-api/rpc.js",
 			},
 		});
-		expect(Reflect.get(exports as object, "./legacy/cli")).toBeUndefined();
+		expect(Object.keys(exports).filter((key) => key.startsWith("./legacy/"))).toEqual([]);
 	});
 });

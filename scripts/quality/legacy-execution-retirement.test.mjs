@@ -5,7 +5,7 @@ import {
 	findLegacyExecutionRetirementViolations,
 	LEGACY_EXECUTION_EDGE_BASELINE,
 	LEGACY_PACKAGE_EXPORT_BASELINE,
-	RETIRED_LEGACY_CLI_FILES,
+	RETIRED_LEGACY_EXECUTION_FILES,
 } from "./check-legacy-execution-retirement.mjs";
 import { findStandaloneCliBuildViolations } from "./check-standalone-cli-build.mjs";
 
@@ -28,10 +28,10 @@ describe("Legacy execution retirement gate", () => {
 				(edge) => edge.path.startsWith("packages/cli-app/") || edge.path.startsWith("packages/desktop-app/"),
 			),
 		).toBe(false);
-		expect(LEGACY_EXECUTION_EDGE_BASELINE).toHaveLength(7);
+		expect(LEGACY_EXECUTION_EDGE_BASELINE).toHaveLength(0);
 		expect(LEGACY_EXECUTION_EDGE_BASELINE.some((edge) => edge.kind === "legacy-cli-public")).toBe(false);
-		expect(LEGACY_PACKAGE_EXPORT_BASELINE).not.toContain("./legacy/cli");
-		expect(RETIRED_LEGACY_CLI_FILES).toContain("packages/coding-agent/src/cli.ts");
+		expect(LEGACY_PACKAGE_EXPORT_BASELINE).toEqual([]);
+		expect(RETIRED_LEGACY_EXECUTION_FILES).toContain("packages/coding-agent/src/main.ts");
 	});
 
 	it("requires cli-app to own the canonical Agent executable", () => {

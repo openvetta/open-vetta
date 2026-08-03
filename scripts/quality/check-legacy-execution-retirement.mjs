@@ -8,35 +8,7 @@ import { join } from "node:path";
 import ts from "typescript";
 import { fail, isDirectRun, ok, readText, rel, repoRoot, walkFiles } from "./lib.mjs";
 
-export const LEGACY_EXECUTION_EDGE_BASELINE = Object.freeze([
-	edge("packages/coding-agent/src/public-api/legacy-session.ts", "../core/agent-session.js", "legacy-session-public"),
-	edge(
-		"packages/coding-agent/src/public-api/legacy-session.ts",
-		"../core/session-manager/index.js",
-		"legacy-session-public",
-	),
-	edge(
-		"packages/coding-agent/src/adapters/runtime-core/composition.ts",
-		"./legacy-session-backend.js",
-		"legacy-session-backend",
-	),
-	edge("packages/coding-agent/src/adapters/runtime-core/index.ts", "./composition.js", "legacy-host-composition"),
-	edge(
-		"packages/coding-agent/src/adapters/runtime-core/index.ts",
-		"./legacy-session-backend.js",
-		"legacy-session-backend",
-	),
-	edge(
-		"packages/coding-agent/src/adapters/runtime-core/legacy-session-ports.ts",
-		"./legacy-session-backend.js",
-		"legacy-session-backend",
-	),
-	edge(
-		"packages/coding-agent/src/composition/index.ts",
-		"./legacy-knowledge-processing-session.js",
-		"legacy-knowledge-execution",
-	),
-]);
+export const LEGACY_EXECUTION_EDGE_BASELINE = Object.freeze([]);
 
 export const RETAINED_LEGACY_FORMAT_BOUNDARIES = Object.freeze([
 	"packages/coding-agent/src/adapters/runtime-core/legacy-session-format/catalog.ts",
@@ -49,15 +21,22 @@ export const RETAINED_LEGACY_FORMAT_BOUNDARIES = Object.freeze([
 	"packages/desktop-app/src/main/greenfield-runtime/desktop-legacy-session-migration-backend.ts",
 ]);
 
-export const LEGACY_PACKAGE_EXPORT_BASELINE = Object.freeze([
-	"./legacy/host-services",
-	"./legacy/session",
-	"./legacy/tools",
-]);
+export const LEGACY_PACKAGE_EXPORT_BASELINE = Object.freeze([]);
 
-export const RETIRED_LEGACY_CLI_FILES = Object.freeze([
+export const RETIRED_LEGACY_EXECUTION_FILES = Object.freeze([
 	"packages/coding-agent/src/cli.ts",
+	"packages/coding-agent/src/main.ts",
+	"packages/coding-agent/src/modes/legacy-print-session-adapter.ts",
 	"packages/coding-agent/src/public-api/legacy-cli.ts",
+	"packages/coding-agent/src/public-api/legacy-host-services.ts",
+	"packages/coding-agent/src/public-api/legacy-session.ts",
+	"packages/coding-agent/src/public-api/legacy-tools.ts",
+	"packages/coding-agent/src/adapters/runtime-core/composition.ts",
+	"packages/coding-agent/src/adapters/runtime-core/legacy-session-backend.ts",
+	"packages/coding-agent/src/adapters/runtime-core/legacy-session-ports.ts",
+	"packages/coding-agent/src/adapters/runtime-core/legacy-session-services.ts",
+	"packages/coding-agent/src/adapters/runtime-core/session-events.ts",
+	"packages/coding-agent/src/composition/legacy-knowledge-processing-session.ts",
 ]);
 
 const LEGACY_EXECUTION_SYMBOL_KINDS = new Map([
@@ -110,7 +89,7 @@ export function findLegacyExecutionRetirementViolations(
 	}
 
 	if (requireBaseline) {
-		for (const retiredPath of RETIRED_LEGACY_CLI_FILES) {
+		for (const retiredPath of RETIRED_LEGACY_EXECUTION_FILES) {
 			if (sourcePaths.has(retiredPath)) violations.push(`${retiredPath}: retired Legacy CLI source was restored`);
 		}
 		for (const expected of LEGACY_EXECUTION_EDGE_BASELINE) {
@@ -238,10 +217,6 @@ function classifyLegacyExecutionEdge(moduleEdge) {
 
 function isGreenfieldSource(path) {
 	return path.includes("/greenfield-") || path.includes("/greenfield/") || path.includes("/greenfield-runtime/");
-}
-
-function edge(path, specifier, kind) {
-	return Object.freeze({ path, specifier, kind });
 }
 
 function sameEdge(left, right) {

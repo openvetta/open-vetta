@@ -4,10 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ModelRegistry } from "@vetta/coding-agent/host-services";
 import {
-	createLegacyRuntimeHostOptions,
 	LegacyRuntimeSessionCatalog,
 	LegacyRuntimeSessionFileHistoryReader,
-	LegacyRuntimeSharedModelController,
 	ModelRegistryRuntimeSharedModelController,
 } from "@vetta/coding-agent/runtime-host";
 import { describe, expect, it, vi } from "vitest";
@@ -32,12 +30,6 @@ describe("runtime host process services", () => {
 
 		expect(setServerToken).toHaveBeenCalledWith("token");
 		expect(loadRemoteModels).toHaveBeenCalledTimes(2);
-		expect(new LegacyRuntimeSharedModelController(registry)).toBeInstanceOf(
-			ModelRegistryRuntimeSharedModelController,
-		);
-		expect(createLegacyRuntimeHostOptions({ modelRegistry: registry }).sharedModelController).toBeInstanceOf(
-			ModelRegistryRuntimeSharedModelController,
-		);
 	});
 
 	it("delegates offline catalog and direct file history operations", async () => {

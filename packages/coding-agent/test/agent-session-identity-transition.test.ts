@@ -6,7 +6,6 @@ import { Type } from "@sinclair/typebox";
 import { Agent, type AgentTool } from "@vetta/agent-core";
 import type { Api, Model } from "@vetta/ai";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { LegacyRuntimeSessionEventStream } from "../src/adapters/runtime-core/legacy-session-ports.js";
 import { AgentSession, type AgentSessionConfig, type AgentSessionEvent } from "../src/core/agent-session.js";
 import { AuthStorage } from "../src/core/auth-storage.js";
 import { prepareCompaction } from "../src/core/compaction/index.js";
@@ -467,21 +466,15 @@ describe("AgentSession identity resource transition", () => {
 		expect(parentContexts[0]?.parentSessionFile).toBe(targetPath);
 	});
 
-	it("isolates Session observers and returns detached Todo snapshots", () => {
+	it("isolates AgentSession observers and returns detached Todo snapshots", () => {
 		const fixture = createIdentityFixture([]);
 		const { session } = fixture;
 		const warnings = vi.spyOn(console, "warn").mockImplementation(() => {});
 		const directEvents: AgentSessionEvent[] = [];
-		const runtimeEvents: string[] = [];
-		const stream = new LegacyRuntimeSessionEventStream(session);
 		session.subscribe(() => {
 			throw new Error("direct listener failed");
 		});
 		session.subscribe((event) => directEvents.push(event));
-		stream.subscribe(() => {
-			throw new Error("runtime listener failed");
-		});
-		stream.subscribe((event) => runtimeEvents.push(event.type));
 
 		try {
 			const created = session.todoStore.createMany(["owned by session"]);
@@ -491,8 +484,7 @@ describe("AgentSession identity resource transition", () => {
 
 			expect(session.todoStore.get(1)?.content).toBe("owned by session");
 			expect(directEvents.some((event) => event.type === "todo_update")).toBe(true);
-			expect(runtimeEvents).toContain("todo_update");
-			expect(warnings).toHaveBeenCalledTimes(2);
+			expect(warnings).toHaveBeenCalledOnce();
 		} finally {
 			warnings.mockRestore();
 		}

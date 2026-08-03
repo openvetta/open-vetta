@@ -3,12 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Api, Model } from "@vetta/ai";
 import { ENV_AGENT_DIR } from "@vetta/coding-agent/config.js";
-import { AuthStorage, ModelRegistry } from "@vetta/coding-agent/host-services";
 import { ALL_SCENARIOS } from "@vetta/coding-agent/profile";
 import {
 	createCodingAgentMcpRuntimeToolSource,
 	createCodingAgentPluginMcpRuntime,
-	createLegacyRuntimeHostOptions,
 } from "@vetta/coding-agent/runtime-host";
 import type { CodingAgentModelRegistrySource } from "@vetta/coding-agent/runtime-host/greenfield";
 import { type AgentPluginRuntimeConfig, type ConversationScenario, RuntimeHost } from "@vetta/runtime-core";
@@ -22,7 +20,7 @@ import {
 } from "../../../../cli-app/test/support/openai-responses-test-server.js";
 import { DesktopGreenfieldRuntimeBackendPool } from "./desktop-greenfield-runtime-backend-pool.js";
 
-type RuntimeBackend = "legacy" | "greenfield";
+type RuntimeBackend = "greenfield";
 
 interface RuntimeFixture {
 	readonly runtime: RuntimeHost;
@@ -64,14 +62,13 @@ describe("Desktop RuntimeHost model-call frame cutover readiness", () => {
 			const cwd = await temporaryDirectory(`desktop-frame-${scenario}-workspace-`);
 			const observations = await observeBackends(cwd, scenario);
 
-			assertSharedModelCallFrame(observations.greenfield, observations.legacy);
+			assertCanonicalModelCallFrame(observations.greenfield);
 		}, 30_000);
 	}
 
 	it("applies host capability changes at the same turn boundary across backends", async () => {
 		const cwd = await temporaryDirectory("desktop-frame-dynamic-workspace-");
 		const observations: Record<RuntimeBackend, readonly ModelCallObservation[]> = {
-			legacy: [],
 			greenfield: [],
 		};
 
@@ -128,32 +125,25 @@ describe("Desktop RuntimeHost model-call frame cutover readiness", () => {
 			observations[backend] = [firstFrame, secondFrame];
 		}
 
-		const [legacyBefore, legacyAfter] = observations.legacy;
-		const [greenfieldBefore, greenfieldAfter] = observations.greenfield;
-		if (!legacyBefore || !legacyAfter || !greenfieldBefore || !greenfieldAfter) {
-			throw new Error("Expected two model-call observations per backend");
+		const [before, after] = observations.greenfield;
+		if (!before || !after) {
+			throw new Error("Expected two model-call observations");
 		}
-		assertSharedModelCallFrame(greenfieldBefore, legacyBefore);
-		assertSharedModelCallFrame(greenfieldAfter, legacyAfter);
-		for (const before of [legacyBefore, greenfieldBefore]) {
-			const names = toolNames(before.body.tools);
-			expect(names).toContain("plugin_model_call_frame");
-			expect(names).toContain("ask_user_question");
-			expect(JSON.stringify(before.body.input)).toContain("Model-call frame plugin instruction");
-		}
-		for (const after of [legacyAfter, greenfieldAfter]) {
-			const names = toolNames(after.body.tools);
-			expect(names).not.toContain("plugin_model_call_frame");
-			expect(names).not.toContain("ask_user_question");
-			expect(JSON.stringify(after.body.input)).not.toContain("Model-call frame plugin instruction");
-		}
-		expect(sharedProviderBody(legacyAfter.body)).not.toEqual(sharedProviderBody(legacyBefore.body));
-		expect(sharedProviderBody(greenfieldAfter.body)).not.toEqual(sharedProviderBody(greenfieldBefore.body));
+		assertCanonicalModelCallFrame(before);
+		assertCanonicalModelCallFrame(after);
+		const beforeNames = toolNames(before.body.tools);
+		expect(beforeNames).toContain("plugin_model_call_frame");
+		expect(beforeNames).toContain("ask_user_question");
+		expect(JSON.stringify(before.body.input)).toContain("Model-call frame plugin instruction");
+		const afterNames = toolNames(after.body.tools);
+		expect(afterNames).not.toContain("plugin_model_call_frame");
+		expect(afterNames).not.toContain("ask_user_question");
+		expect(JSON.stringify(after.body.input)).not.toContain("Model-call frame plugin instruction");
+		expect(sharedProviderBody(after.body)).not.toEqual(sharedProviderBody(before.body));
 	}, 30_000);
 
 	it("applies Skill add, change and deletion on the next model call without rebuilding the session", async () => {
 		const observations: Record<RuntimeBackend, readonly SkillFrameObservation[]> = {
-			legacy: [],
 			greenfield: [],
 		};
 
@@ -198,8 +188,7 @@ describe("Desktop RuntimeHost model-call frame cutover readiness", () => {
 			{ hasVersionOne: false, hasVersionTwo: true },
 			{ hasVersionOne: false, hasVersionTwo: false },
 		];
-		expect(observations.legacy).toEqual(expected);
-		expect(observations.greenfield).toEqual(observations.legacy);
+		expect(observations.greenfield).toEqual(expected);
 	}, 30_000);
 
 	it("keeps product-tool cwd isolated across sessions sharing one RuntimeHost", async () => {
@@ -325,9 +314,10 @@ function observableProviderBody(body: ProviderRequest): Readonly<Record<string, 
 	return observation;
 }
 
-function assertSharedModelCallFrame(greenfield: ModelCallObservation, legacy: ModelCallObservation): void {
-	expect(sharedProviderBody(greenfield.body)).toEqual(sharedProviderBody(legacy.body));
-	expect(greenfield.body.tools).toEqual(legacy.body.tools);
+function assertCanonicalModelCallFrame(observation: ModelCallObservation): void {
+	expect(observation.body.model).toBe(MODEL.id);
+	expect(Array.isArray(observation.body.input)).toBe(true);
+	expect(Array.isArray(observation.body.tools)).toBe(true);
 }
 
 function sharedProviderBody(body: Readonly<Record<string, unknown>>): Readonly<Record<string, unknown>> {
@@ -420,20 +410,7 @@ function pluginConfiguration(): AgentPluginRuntimeConfig {
 	};
 }
 
-function createRuntimeFixture(backend: RuntimeBackend, agentStateDir: string, model: Model<Api>): RuntimeFixture {
-	if (backend === "legacy") {
-		const authStorage = AuthStorage.create(join(agentStateDir, "auth.json"));
-		authStorage.setRuntimeApiKey(model.provider, "test-key");
-		const registry = new ModelRegistry(authStorage, join(agentStateDir, "models.json"));
-		const runtime = new RuntimeHost(
-			createLegacyRuntimeHostOptions({
-				getDefaultExecutionMode: () => "full-access",
-				modelRegistry: registry,
-			}),
-		);
-		return { runtime, dispose: () => runtime.disposeAllSessions() };
-	}
-
+function createRuntimeFixture(_backend: RuntimeBackend, _agentStateDir: string, model: Model<Api>): RuntimeFixture {
 	const pool = new DesktopGreenfieldRuntimeBackendPool({
 		compositionDefaults: {
 			modelRegistry: modelRegistry(model),
@@ -476,7 +453,7 @@ function modelRegistry(model: Model<Api>): CodingAgentModelRegistrySource {
 	};
 }
 
-const RUNTIME_BACKENDS = ["legacy", "greenfield"] as const;
+const RUNTIME_BACKENDS = ["greenfield"] as const;
 const PHASE_112_SKILL_V1 = "Phase 112 dynamic skill version one";
 const PHASE_112_SKILL_V2 = "Phase 112 dynamic skill version two with changed instructions";
 

@@ -19,7 +19,7 @@ import {
 	toolCallResponseEvents,
 } from "./support/openai-responses-test-server.js";
 
-const BACKENDS = ["legacy", "greenfield-im"] as const satisfies readonly TestAgentRuntimeBackend[];
+const BACKENDS = ["greenfield-im"] as const satisfies readonly TestAgentRuntimeBackend[];
 let executable: AgentRpcExecutable;
 
 beforeAll(async () => {
@@ -35,7 +35,7 @@ describe("Agent Runtime session replacement resource differential", () => {
 		const observations = {} as Record<TestAgentRuntimeBackend, SuccessfulReplacementObservation>;
 		for (const backend of BACKENDS) observations[backend] = await runSuccessfulSwitch(backend);
 
-		expect(observations.legacy).toEqual({
+		expect(observations["greenfield-im"]).toEqual({
 			backgroundStopped: true,
 			pathChanged: true,
 			sourceOwnershipReleased: true,
@@ -43,14 +43,13 @@ describe("Agent Runtime session replacement resource differential", () => {
 			targetOwnershipReleased: true,
 			targetTodoReset: true,
 		});
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	}, 40_000);
 
 	it("retains the source resource domain when switch_session acquisition fails", async () => {
 		const observations = {} as Record<TestAgentRuntimeBackend, FailedReplacementObservation>;
 		for (const backend of BACKENDS) observations[backend] = await runFailedSwitch(backend);
 
-		expect(observations.legacy).toEqual({
+		expect(observations["greenfield-im"]).toEqual({
 			backgroundPreserved: false,
 			backgroundStoppedOnClose: true,
 			sourceIdentityRetained: true,
@@ -59,14 +58,13 @@ describe("Agent Runtime session replacement resource differential", () => {
 			targetOwnershipHeld: true,
 			transitionFailed: true,
 		});
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	}, 40_000);
 
 	it("creates a fresh resource domain across fork", async () => {
 		const observations = {} as Record<TestAgentRuntimeBackend, SuccessfulReplacementObservation>;
 		for (const backend of BACKENDS) observations[backend] = await runSuccessfulFork(backend);
 
-		expect(observations.legacy).toEqual({
+		expect(observations["greenfield-im"]).toEqual({
 			backgroundStopped: true,
 			pathChanged: true,
 			sourceOwnershipReleased: true,
@@ -74,7 +72,6 @@ describe("Agent Runtime session replacement resource differential", () => {
 			targetOwnershipReleased: true,
 			targetTodoReset: true,
 		});
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	}, 40_000);
 });
 

@@ -14,7 +14,7 @@ import {
 } from "./support/agent-rpc-test-process.js";
 import { startOpenAiResponsesTestServer, textResponseEvents } from "./support/openai-responses-test-server.js";
 
-const BACKENDS = ["legacy", "greenfield-im"] as const satisfies readonly TestAgentRuntimeBackend[];
+const BACKENDS = ["greenfield-im"] as const satisfies readonly TestAgentRuntimeBackend[];
 let executable: AgentRpcExecutable;
 
 beforeAll(async () => {
@@ -30,7 +30,7 @@ describe("Agent Runtime session replacement admission differential", () => {
 		const observations = {} as Record<TestAgentRuntimeBackend, SuccessfulAdmissionObservation>;
 		for (const backend of BACKENDS) observations[backend] = await runSwitchThenPrompt(backend);
 
-		expect(observations.legacy).toEqual({
+		expect(observations["greenfield-im"]).toEqual({
 			finalIdentityIsTarget: true,
 			promptResponseCount: 1,
 			promptPersistedInSource: false,
@@ -42,14 +42,13 @@ describe("Agent Runtime session replacement admission differential", () => {
 			terminalOutcomeCount: 1,
 			transitionResponseCount: 1,
 		});
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	}, 30_000);
 
 	it("binds a prompt queued after a failed switch_session back to the source identity", async () => {
 		const observations = {} as Record<TestAgentRuntimeBackend, FailedAdmissionObservation>;
 		for (const backend of BACKENDS) observations[backend] = await runFailedSwitchThenPrompt(backend);
 
-		expect(observations.legacy).toEqual({
+		expect(observations["greenfield-im"]).toEqual({
 			finalIdentityIsSource: true,
 			promptResponseCount: 1,
 			promptPersistedInSource: true,
@@ -62,14 +61,13 @@ describe("Agent Runtime session replacement admission differential", () => {
 			transitionFailed: true,
 			transitionResponseCount: 1,
 		});
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	}, 40_000);
 
 	it("binds a prompt queued after fork to the fork identity", async () => {
 		const observations = {} as Record<TestAgentRuntimeBackend, ForkAdmissionObservation>;
 		for (const backend of BACKENDS) observations[backend] = await runForkThenPrompt(backend);
 
-		expect(observations.legacy).toEqual({
+		expect(observations["greenfield-im"]).toEqual({
 			finalIdentityChanged: true,
 			forkSucceeded: true,
 			promptResponseCount: 1,
@@ -82,14 +80,13 @@ describe("Agent Runtime session replacement admission differential", () => {
 			terminalOutcomeCount: 1,
 			transitionResponseCount: 1,
 		});
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	}, 40_000);
 
 	it("linearizes consecutive switch_session commands before admitting the next prompt", async () => {
 		const observations = {} as Record<TestAgentRuntimeBackend, ConsecutiveAdmissionObservation>;
 		for (const backend of BACKENDS) observations[backend] = await runConsecutiveSwitchesThenPrompt(backend);
 
-		expect(observations.legacy).toEqual({
+		expect(observations["greenfield-im"]).toEqual({
 			finalIdentityIsLastTarget: true,
 			intermediateOwnershipReleased: true,
 			lastTargetOwnershipHeld: true,
@@ -103,14 +100,13 @@ describe("Agent Runtime session replacement admission differential", () => {
 			terminalOutcomeCount: 1,
 			transitionResponseCount: 2,
 		});
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	}, 40_000);
 
 	it("runs an Extension command queued after switch_session against the target identity", async () => {
 		const observations = {} as Record<TestAgentRuntimeBackend, ExtensionAdmissionObservation>;
 		for (const backend of BACKENDS) observations[backend] = await runSwitchThenExtensionCommand(backend);
 
-		expect(observations.legacy).toEqual({
+		expect(observations["greenfield-im"]).toEqual({
 			commandCompleted: true,
 			finalIdentityChangedAgain: true,
 			firstPreviousIdentityWasSource: true,
@@ -119,7 +115,6 @@ describe("Agent Runtime session replacement admission differential", () => {
 			switchReasons: ["resume", "new"],
 			transitionResponseCount: 1,
 		});
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	}, 40_000);
 });
 

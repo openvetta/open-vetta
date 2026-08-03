@@ -72,10 +72,6 @@ export type {
 	KnowledgeProcessingUsage,
 } from "./knowledge-processing-contract.js";
 export {
-	createLegacyKnowledgeProcessingSessionFactory,
-	type LegacyKnowledgeProcessingSessionFactoryOptions,
-} from "./legacy-knowledge-processing-session.js";
-export {
 	type CodingToolsRuntimeComposition,
 	type CodingToolsRuntimeCompositionOptions,
 	createCodingToolsRuntimeComposition,

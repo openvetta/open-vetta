@@ -15,7 +15,7 @@ import {
 } from "./support/agent-rpc-test-process.js";
 import { startOpenAiResponsesTestServer, textResponseEvents } from "./support/openai-responses-test-server.js";
 
-const BACKENDS = ["legacy", "greenfield-im"] as const satisfies readonly TestAgentRuntimeBackend[];
+const BACKENDS = ["greenfield-im"] as const satisfies readonly TestAgentRuntimeBackend[];
 let executable: AgentRpcExecutable;
 
 beforeAll(async () => {
@@ -31,7 +31,7 @@ describe("real RPC CLI replacement lifecycle side effects differential", () => {
 		const observations = {} as Record<TestAgentRuntimeBackend, LifecycleObservation>;
 		for (const backend of BACKENDS) observations[backend] = await runLifecycleScenario(backend);
 
-		expect(observations.legacy).toEqual({
+		expect(observations["greenfield-im"]).toEqual({
 			cancelledNewKeptIdentity: true,
 			exitCode: 0,
 			replacementCommandsSucceeded: true,
@@ -151,7 +151,6 @@ describe("real RPC CLI replacement lifecycle side effects differential", () => {
 				},
 			],
 		});
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	}, 120_000);
 });
 

@@ -18,7 +18,7 @@ import {
 	textResponseEvents,
 } from "./support/openai-responses-test-server.js";
 
-const BACKENDS = ["legacy", "greenfield-im"] as const satisfies readonly TestAgentRuntimeBackend[];
+const BACKENDS = ["greenfield-im"] as const satisfies readonly TestAgentRuntimeBackend[];
 const TREE_PREFIX = "EXTENSION_TREE_PREFIX";
 const TREE_ABANDONED = "EXTENSION_TREE_ABANDONED";
 const TREE_SUMMARY = "EXTENSION_TREE_SUMMARY";
@@ -56,9 +56,7 @@ afterEach(async () => {
 describe("real RPC CLI Extension history command differential", () => {
 	it("preserves tree cancellation, Extension summary, label, events and restart context", async () => {
 		const observations = await observeBackends(runTreeScenario);
-
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
-		expect(observations.legacy).toEqual({
+		expect(observations["greenfield-im"]).toEqual({
 			cancelKeptIdentity: true,
 			events: [
 				{ type: "session_before_tree", mode: "cancel" },
@@ -75,9 +73,7 @@ describe("real RPC CLI Extension history command differential", () => {
 
 	it("preserves fork cancellation, skipConversationRestore and persisted restart history", async () => {
 		const observations = await observeBackends(runForkScenario);
-
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
-		expect(observations.legacy).toEqual({
+		expect(observations["greenfield-im"]).toEqual({
 			cancelKeptIdentity: true,
 			events: [
 				{ type: "session_before_fork", mode: "cancel" },

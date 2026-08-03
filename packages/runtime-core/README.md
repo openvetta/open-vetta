@@ -20,19 +20,19 @@ entry until downstream adapters are ready to switch.
 - synchronous Greenfield message/state projection with genuine lifecycle, workspace and core session ports
 - runtime-owned Conversation Document and synchronous Greenfield history projection
 - explicit create/resume paths with fail-closed interrupted Turn recovery and optimistic versioning
-- narrow RuntimeHost Turn Control, Event Stream and State Read ports with a legacy compatibility adapter
-- port-only RuntimeHost session assemblies with create-only backend compatibility and no raw legacy session handle
-- runtime-owned session creation requests translated to legacy SDK options only inside composition adapters
-- backend-provided Session Identity/Lifecycle and read-only History ports with legacy adapters
+- narrow RuntimeHost Turn Control, Event Stream and State Read ports implemented by the canonical Greenfield backend
+- port-only RuntimeHost session assemblies with no raw product session handle
+- runtime-owned, backend-neutral session creation requests
+- backend-provided Session Identity/Lifecycle and read-only History ports
 - backend-provided History Controller for guarded edits, branches, forks and session naming
 - backend-provided Model Controller for selection, thinking level and session-scoped auth refresh
 - backend-provided read-only Model View for input capabilities and peripheral model selection
 - Greenfield session model fact source with abstract catalog/credential ports and immutable per-Turn model binding
-- backend-provided Host Interaction binding without exposing the legacy extension UI protocol
+- backend-provided Host Interaction binding without exposing product extension UI protocols
 - backend-provided Workspace View and Execution Controller without exposing SessionManager or custom tool types
 - backend-provided Background Work and Todo controllers with runtime-owned host snapshots
 - backend-provided Session Configuration Controller for input queue modes, plugin runtime configuration and agent mode
-- process-level Session Catalog, direct file history reader and shared model controller ports with legacy adapters
+- process-level Session Catalog, direct file history reader and shared model controller ports
 - runtime-owned tool execution and policy contracts
 
 ## What It Does Not Own
@@ -50,7 +50,7 @@ entry until downstream adapters are ready to switch.
 ## Main Exports
 
 - `RuntimeHost`
-- `RuntimeSessionBackend` and `LegacyCodingAgentSessionBackend` for composition-root session creation
+- `RuntimeHostSessionBackend` and `GreenfieldRuntimeSessionBackend` for composition-root session creation
 - `RuntimeSessionCreateRequest` for backend-neutral creation without SessionManager, custom tools or ModelRegistry
 - `RuntimeSessionTurnControl`, `RuntimeSessionEventStream` and `RuntimeSessionStateReader` core host ports
 - `RuntimeSessionIdentityLifecycle` and `RuntimeSessionHistoryReader` for identity, disposal and history projection

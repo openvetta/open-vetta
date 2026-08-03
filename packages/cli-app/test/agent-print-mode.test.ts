@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { type AgentRpcFixture, createAgentRpcFixture } from "./support/agent-rpc-test-process.js";
+import { legacyRuntimeContract } from "./support/legacy-runtime-contract.js";
 import {
 	startOpenAiResponsesTestServer,
 	textResponseEvents,
@@ -19,7 +20,6 @@ interface AgentCliResult {
 
 const repositoryRoot = fileURLToPath(new URL("../../..", import.meta.url));
 const compileScriptPath = fileURLToPath(new URL("../scripts/compile-standalone.mjs", import.meta.url));
-const legacyCliSourcePath = fileURLToPath(new URL("./support/legacy-cli-test-entry.ts", import.meta.url));
 const compileTargetByPlatform = {
 	"darwin-arm64": "bun-darwin-arm64",
 	"darwin-x64": "bun-darwin-x64",
@@ -104,17 +104,15 @@ describe("Agent non-RPC CLI compatibility", () => {
 		}
 	}, 30_000);
 
-	it("keeps Greenfield JSON Print core events compatible with Legacy", async () => {
+	it("keeps Greenfield JSON Print core events compatible with the frozen Legacy contract", async () => {
 		const marker = "JSON differential response";
 		const server = await startOpenAiResponsesTestServer(() => ({
 			kind: "events",
 			events: textResponseEvents(marker),
 		}));
-		const legacyFixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
-		const greenfieldFixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
+		const fixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
 		try {
-			const legacy = await runAgentCli(legacyFixture, ["--mode", "json", "compare JSON events"]);
-			const greenfield = await runAgentCli(greenfieldFixture, [
+			const greenfield = await runAgentCli(fixture, [
 				"--agent-runtime",
 				"greenfield",
 				"--mode",
@@ -122,15 +120,13 @@ describe("Agent non-RPC CLI compatibility", () => {
 				"compare JSON events",
 			]);
 
-			expect(legacy.code).toBe(0);
 			expect(greenfield.code).toBe(0);
-			expect(readCoreEventTypes(greenfield.stdout)).toEqual(readCoreEventTypes(legacy.stdout));
+			expect(readCoreEventTypes(greenfield.stdout)).toEqual(legacyRuntimeContract.print.coreEventTypes);
 			expect(greenfield.stdout).toContain(marker);
 			expect(greenfield.stderr).toContain("requested=greenfield effective=greenfield");
 			expect(readSessionHeader(greenfield.stdout)).toMatchObject({ type: "session", version: 3 });
 		} finally {
-			await legacyFixture.dispose();
-			await greenfieldFixture.dispose();
+			await fixture.dispose();
 			await server.dispose();
 		}
 	}, 30_000);
@@ -180,7 +176,7 @@ describe("Agent non-RPC CLI compatibility", () => {
 	}, 30_000);
 
 	it("keeps text and image @file inputs compatible with Legacy", async () => {
-		const observations = await runPrintBackends(async (backend) => {
+		const observation = await runPrintContract(async (backend) => {
 			const marker = `${backend} attachment response`;
 			const server = await startOpenAiResponsesTestServer(() => ({
 				kind: "events",
@@ -213,14 +209,12 @@ describe("Agent non-RPC CLI compatibility", () => {
 				await server.dispose();
 			}
 		});
-
-		expect(observations.greenfield).toEqual(observations.legacy);
-		expect(JSON.stringify(observations.greenfield.userInput)).toContain("attachment text fixture");
-		expect(JSON.stringify(observations.greenfield.userInput)).toContain("input_image");
+		expect(JSON.stringify(observation.userInput)).toContain("attachment text fixture");
+		expect(JSON.stringify(observation.userInput)).toContain("input_image");
 	}, 60_000);
 
 	it("keeps complete tool execution payloads compatible with Legacy", async () => {
-		const observations = await runPrintBackends(async (backend) => {
+		const observation = await runPrintContract(async (backend) => {
 			let fixture: AgentRpcFixture | undefined;
 			const server = await startOpenAiResponsesTestServer((_request, index) =>
 				index === 0
@@ -251,13 +245,8 @@ describe("Agent non-RPC CLI compatibility", () => {
 				await server.dispose();
 			}
 		});
-
-		expect(observations.greenfield).toEqual(observations.legacy);
-		expect(observations.greenfield.frames.map((frame) => frame.type)).toEqual([
-			"tool_execution_start",
-			"tool_execution_end",
-		]);
-		expect(observations.greenfield.secondInputHasResult).toBe(true);
+		expect(observation.frames.map((frame) => frame.type)).toEqual(legacyRuntimeContract.print.toolFrameTypes);
+		expect(observation.secondInputHasResult).toBe(true);
 	}, 60_000);
 
 	it("does not fall back to Legacy when a Greenfield Print tool reports an error", async () => {
@@ -287,7 +276,7 @@ describe("Agent non-RPC CLI compatibility", () => {
 	}, 60_000);
 
 	it("keeps Provider HTTP retry events compatible with Legacy", async () => {
-		const observations = await runPrintBackends(async (backend) => {
+		const observation = await runPrintContract(async (backend) => {
 			const server = await startOpenAiResponsesTestServer((_request, index) =>
 				index < 3
 					? { kind: "http-error", status: 503, body: "temporary provider outage" }
@@ -318,20 +307,15 @@ describe("Agent non-RPC CLI compatibility", () => {
 				await server.dispose();
 			}
 		});
-
-		expect(observations.greenfield).toEqual(observations.legacy);
-		expect(observations.greenfield).toMatchObject({
+		expect(observation).toMatchObject({
 			code: 0,
-			requestCount: 4,
-			retryFrames: [
-				{ type: "auto_retry_start", attempt: 1, maxAttempts: 1, delayMs: 0 },
-				{ type: "auto_retry_end", attempt: 1, success: true },
-			],
+			requestCount: legacyRuntimeContract.print.retry.requestCount,
+			retryFrames: legacyRuntimeContract.print.retry.frames,
 		});
 	}, 60_000);
 
 	it("keeps Provider disconnect retry events compatible with Legacy", async () => {
-		const observations = await runPrintBackends(async (backend) => {
+		const observation = await runPrintContract(async (backend) => {
 			const server = await startOpenAiResponsesTestServer((_request, index) =>
 				index < 3 ? { kind: "disconnect" } : { kind: "events", events: textResponseEvents("disconnect recovered") },
 			);
@@ -360,20 +344,15 @@ describe("Agent non-RPC CLI compatibility", () => {
 				await server.dispose();
 			}
 		});
-
-		expect(observations.greenfield).toEqual(observations.legacy);
-		expect(observations.greenfield).toMatchObject({
+		expect(observation).toMatchObject({
 			code: 0,
-			requestCount: 4,
-			retryFrames: [
-				{ type: "auto_retry_start", attempt: 1, maxAttempts: 1, delayMs: 0 },
-				{ type: "auto_retry_end", attempt: 1, success: true },
-			],
+			requestCount: legacyRuntimeContract.print.retry.requestCount,
+			retryFrames: legacyRuntimeContract.print.retry.frames,
 		});
 	}, 60_000);
 
 	it("keeps non-retryable Provider errors compatible with Legacy", async () => {
-		const observations = await runPrintBackends(async (backend) => {
+		const observation = await runPrintContract(async (backend) => {
 			const server = await startOpenAiResponsesTestServer(() => ({
 				kind: "http-error",
 				status: 401,
@@ -405,13 +384,11 @@ describe("Agent non-RPC CLI compatibility", () => {
 				await server.dispose();
 			}
 		});
-
-		expect(observations.greenfield).toEqual(observations.legacy);
-		expect(observations.greenfield).toEqual({ code: 0, requestCount: 1, retryFrameCount: 0, fallback: false });
+		expect(observation).toEqual(legacyRuntimeContract.print.nonRetryableProviderFailure);
 	}, 60_000);
 
 	it("keeps text Print Provider failure exit status compatible with Legacy", async () => {
-		const observations = await runPrintBackends(async (backend) => {
+		const observation = await runPrintContract(async (backend) => {
 			const server = await startOpenAiResponsesTestServer(() => ({
 				kind: "http-error",
 				status: 401,
@@ -430,13 +407,11 @@ describe("Agent non-RPC CLI compatibility", () => {
 				await server.dispose();
 			}
 		});
-
-		expect(observations.greenfield).toEqual(observations.legacy);
-		expect(observations.greenfield).toEqual({ code: 1, requestCount: 1 });
+		expect(observation).toEqual(legacyRuntimeContract.print.textProviderFailure);
 	}, 60_000);
 
 	it("keeps Extension input errors isolated and observable", async () => {
-		const observations = await runPrintBackends(async (backend) => {
+		const observation = await runPrintContract(async (backend) => {
 			const server = await startOpenAiResponsesTestServer(() => ({
 				kind: "events",
 				events: textResponseEvents("extension error was isolated"),
@@ -469,9 +444,7 @@ describe("Agent non-RPC CLI compatibility", () => {
 				await server.dispose();
 			}
 		});
-
-		expect(observations.greenfield).toEqual(observations.legacy);
-		expect(observations.greenfield).toEqual({
+		expect(observation).toEqual({
 			code: 0,
 			providerRequests: 1,
 			observedError: true,
@@ -518,7 +491,7 @@ describe("Agent non-RPC CLI compatibility", () => {
 	}, 60_000);
 
 	it("keeps --continue context and session identity stable across Print processes", async () => {
-		const observations = await runPrintBackends(async (backend) => {
+		const observation = await runPrintContract(async (backend) => {
 			const server = await startOpenAiResponsesTestServer((_request, index) => ({
 				kind: "events",
 				events: textResponseEvents(index === 0 ? "first persisted response" : "continued response"),
@@ -550,9 +523,7 @@ describe("Agent non-RPC CLI compatibility", () => {
 				await server.dispose();
 			}
 		});
-
-		expect(observations.greenfield).toEqual(observations.legacy);
-		expect(observations.greenfield).toEqual({ codes: [0, 0], sameSession: true, continuedContext: true });
+		expect(observation).toEqual({ codes: [0, 0], sameSession: true, continuedContext: true });
 	}, 60_000);
 
 	it("fails before the Provider request for an unrepresentable Legacy session", async () => {
@@ -646,13 +617,10 @@ async function runAgentCli(
 	stdin = "",
 ): Promise<AgentCliResult> {
 	return new Promise<AgentCliResult>((resolve, reject) => {
-		const legacyBaseline = extraArgs[0] === "--test-legacy-baseline";
-		const runtimeArgs = legacyBaseline ? extraArgs.slice(1) : extraArgs;
-		const agentArgs = runtimeArgs[0] === "agent" ? runtimeArgs.slice(1) : runtimeArgs;
+		const agentArgs = extraArgs[0] === "agent" ? extraArgs.slice(1) : extraArgs;
 		const child = spawn(
-			legacyBaseline ? "bun" : executable.path,
+			executable.path,
 			[
-				...(legacyBaseline ? [legacyCliSourcePath] : []),
 				"--provider",
 				"test",
 				"--model",
@@ -732,16 +700,14 @@ function readSessionHeader(stdout: string): unknown {
 		.find((frame) => readFrameType(frame) === "session");
 }
 
-type PrintBackend = "legacy" | "greenfield";
+type PrintBackend = "greenfield";
 
-async function runPrintBackends<T>(run: (backend: PrintBackend) => Promise<T>): Promise<Record<PrintBackend, T>> {
-	const legacy = await run("legacy");
-	const greenfield = await run("greenfield");
-	return { legacy, greenfield };
+async function runPrintContract<T>(run: (backend: PrintBackend) => Promise<T>): Promise<T> {
+	return run("greenfield");
 }
 
-function runtimeArgs(backend: PrintBackend): readonly string[] {
-	return backend === "legacy" ? ["--test-legacy-baseline"] : [];
+function runtimeArgs(_backend: PrintBackend): readonly string[] {
+	return [];
 }
 
 interface JsonFrame {

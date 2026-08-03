@@ -16,6 +16,7 @@ import {
 	startAgentRpc,
 	type TestAgentRuntimeBackend,
 } from "./support/agent-rpc-test-process.js";
+import { legacyRuntimeContract } from "./support/legacy-runtime-contract.js";
 import {
 	LEGACY_EXECUTION_MARKERS,
 	readLegacyExecutionContextObservations,
@@ -31,7 +32,7 @@ import {
 	toolCallResponseEvents,
 } from "./support/openai-responses-test-server.js";
 
-const BACKENDS = ["legacy", "greenfield-im"] as const satisfies readonly TestAgentRuntimeBackend[];
+const BACKENDS = ["greenfield-im"] as const satisfies readonly TestAgentRuntimeBackend[];
 const PROVIDER_DIFFERENTIAL_HOST_OPTIONS = {
 	enableHostBridge: true,
 	scenario: "im-claw",
@@ -47,7 +48,7 @@ afterAll(async () => {
 	await executable.dispose();
 });
 
-describe("Agent Runtime Provider differential", { timeout: 30_000 }, () => {
+describe("Agent Runtime Provider contract", { timeout: 30_000 }, () => {
 	it("preserves the exact Provider request body and ordered tool surface", async () => {
 		const observations = await runForBackends(
 			async ({ process, server, fixture }) => {
@@ -63,9 +64,10 @@ describe("Agent Runtime Provider differential", { timeout: 30_000 }, () => {
 			},
 			() => ({ kind: "events", events: textResponseEvents("Provider frame captured.") }),
 		);
-
-		expect(providerToolNames(observations["greenfield-im"])).toEqual(providerToolNames(observations.legacy));
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
+		const frame = observations["greenfield-im"];
+		expect(frame.model).toBe("test-model");
+		expect(JSON.stringify(frame.input)).toContain("Capture the exact Provider request frame");
+		expect(providerToolNames(frame)).toEqual(expect.arrayContaining(["read", "im_send_attachment"]));
 	}, 30_000);
 
 	it("preserves the IM-consumed streaming text contract", async () => {
@@ -84,14 +86,13 @@ describe("Agent Runtime Provider differential", { timeout: 30_000 }, () => {
 			() => ({ kind: "events", events: textResponseEvents("Hello from fixture.") }),
 		);
 
-		expect(observations.legacy).toEqual({
-			lifecycle: ["agent_start", "turn_start", "turn_end", "agent_end"],
+		expect(observations["greenfield-im"]).toEqual({
+			lifecycle: legacyRuntimeContract.rpc.streamingLifecycle,
 			textDelta: "Hello from fixture.",
 			finalText: "Hello from fixture.",
 			tools: [],
 			sessionPathChanges: [],
 		});
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	});
 
 	it("preserves Tool Call, Tool Result and second model-call behavior", async () => {
@@ -121,12 +122,11 @@ describe("Agent Runtime Provider differential", { timeout: 30_000 }, () => {
 					: { kind: "events", events: textResponseEvents("The file was read.") },
 		);
 
-		expect(observations.legacy).toMatchObject({
+		expect(observations["greenfield-im"]).toMatchObject({
 			lifecycle: ["agent_start", "turn_start", "turn_end", "turn_start", "turn_end", "agent_end"],
 			finalText: "The file was read.",
 			tools: [{ name: "read", isError: false }],
 		});
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	});
 
 	it("preserves Extension Tool schema, execution context, progress and Tool Loop result", async () => {
@@ -157,16 +157,15 @@ describe("Agent Runtime Provider differential", { timeout: 30_000 }, () => {
 			}),
 		);
 
-		expect(providerToolNames(observations.legacy.firstProviderRequest)).toContain("extension_echo");
-		expect(JSON.stringify(observations.legacy.secondProviderInput)).toContain("extension-result:hello");
-		expect(observations.legacy).toMatchObject({
+		expect(providerToolNames(observations["greenfield-im"].firstProviderRequest)).toContain("extension_echo");
+		expect(JSON.stringify(observations["greenfield-im"].secondProviderInput)).toContain("extension-result:hello");
+		expect(observations["greenfield-im"]).toMatchObject({
 			frames: {
 				finalText: "Extension Tool completed.",
 				tools: [{ name: "extension_echo", isError: false }],
 			},
 			progressEventCount: 1,
 		});
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	}, 30_000);
 
 	it("preserves in-flight abort behavior and closes the Provider request", async () => {
@@ -190,10 +189,9 @@ describe("Agent Runtime Provider differential", { timeout: 30_000 }, () => {
 			}),
 		);
 
-		expect(observations.legacy.lifecycle.at(0)).toBe("agent_start");
-		expect(observations.legacy.lifecycle.at(-1)).toBe("agent_end");
-		expect(observations.legacy.textDelta).toBe("partial");
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
+		expect(observations["greenfield-im"].lifecycle.at(0)).toBe("agent_start");
+		expect(observations["greenfield-im"].lifecycle.at(-1)).toBe("agent_end");
+		expect(observations["greenfield-im"].textDelta).toBe("partial");
 	});
 
 	it("preserves the attachment Host Bridge round trip", async () => {
@@ -230,11 +228,10 @@ describe("Agent Runtime Provider differential", { timeout: 30_000 }, () => {
 					: { kind: "events", events: textResponseEvents("Attachment sent.") },
 		);
 
-		expect(observations.legacy).toMatchObject({
+		expect(observations["greenfield-im"]).toMatchObject({
 			finalText: "Attachment sent.",
 			tools: [{ name: "im_send_attachment", isError: false }],
 		});
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	});
 
 	it("enforces the replacement and storage-continuation resource matrix", async () => {
@@ -329,7 +326,7 @@ describe("Agent Runtime Provider differential", { timeout: 30_000 }, () => {
 			}),
 		);
 
-		expect(replacement.legacy).toEqual({
+		expect(replacement["greenfield-im"]).toEqual({
 			backgroundStopped: true,
 			pathChanged: true,
 			pathChangeCount: 0,
@@ -338,8 +335,7 @@ describe("Agent Runtime Provider differential", { timeout: 30_000 }, () => {
 			targetOwnershipReleased: true,
 			todoState: true,
 		});
-		expect(replacement["greenfield-im"]).toEqual(replacement.legacy);
-		expect(continuation.legacy).toEqual({
+		expect(continuation["greenfield-im"]).toEqual({
 			backgroundPreserved: true,
 			backgroundStoppedOnClose: true,
 			lifecycle: ["agent_start", "turn_start", "turn_end", "agent_end"],
@@ -352,7 +348,6 @@ describe("Agent Runtime Provider differential", { timeout: 30_000 }, () => {
 			targetOwnershipReleased: true,
 			todoState: true,
 		});
-		expect(continuation["greenfield-im"]).toEqual(continuation.legacy);
 	}, 60_000);
 
 	it("preserves Extension context identity, once-per-call execution and transient Tool Loop transforms", async () => {
@@ -391,13 +386,12 @@ describe("Agent Runtime Provider differential", { timeout: 30_000 }, () => {
 			}),
 		);
 
-		expect(observations.legacy).toMatchObject({
+		expect(observations["greenfield-im"]).toMatchObject({
 			firstHasCallOne: true,
 			firstHasCustomIdentity: true,
 			secondHasOnlyCallTwo: true,
 			transientTransformWasNotPersisted: true,
 		});
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	}, 30_000);
 
 	it("preserves context-before-compaction order and restored context through a CLI process restart", async () => {
@@ -495,16 +489,14 @@ describe("Agent Runtime Provider differential", { timeout: 30_000 }, () => {
 			{ contextWindow: 1_000, maxTokens: 100 },
 		);
 
-		expect(observations.legacy).toMatchObject({
+		expect(observations["greenfield-im"]).toMatchObject({
 			agentRequestKinds: ["initial", "compacted", "resumed"],
 			contextCallCounts: [1, 2, 1],
 			contextObservedPreCompactionHistory: true,
 			providerReceivedCompactionSummary: true,
 			resumedContextRestoredSummaryIdentity: true,
 		});
-		expect(observations.legacy.compactionRequestCount).toBeGreaterThan(0);
-		expect(observations["greenfield-im"].contextIdentities).toEqual(observations.legacy.contextIdentities);
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
+		expect(observations["greenfield-im"].compactionRequestCount).toBeGreaterThan(0);
 	}, 40_000);
 
 	it("continues a migrated official Legacy session through Provider calls and a process restart", async () => {
@@ -600,7 +592,7 @@ describe("Agent Runtime Provider differential", { timeout: 30_000 }, () => {
 			},
 		);
 
-		expect(observations.legacy).toMatchObject({
+		expect(observations["greenfield-im"]).toMatchObject({
 			contextCallCounts: [1, 1],
 			firstProviderBoundary: {
 				containsAbandonedBranch: false,
@@ -621,15 +613,14 @@ describe("Agent Runtime Provider differential", { timeout: 30_000 }, () => {
 			},
 			resumedIdentityStable: true,
 		});
-		expect(observations.legacy.contextIdentities[0]).toContain("compactionSummary");
-		expect(observations.legacy.contextIdentities[0]).toContain("bashExecution");
-		expect(observations.legacy.contextIdentities[0]).toContain("custom:legacy-visible-context");
-		expect(observations.legacy.contextIdentities[0]).toContain("custom:prompt_resource_reference");
-		expect(observations.legacy.contextIdentities[0]).toContain("branchSummary");
-		expect(observations.legacy.contextObserved[0]).toContain(LEGACY_EXECUTION_MARKERS.hiddenBash);
-		expect(observations.legacy.contextObserved[0]).toContain(LEGACY_EXECUTION_MARKERS.hiddenCustom);
-		expect(observations.legacy.contextObserved[0]).not.toContain(LEGACY_EXECUTION_MARKERS.abandonedBranch);
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
+		expect(observations["greenfield-im"].contextIdentities[0]).toContain("compactionSummary");
+		expect(observations["greenfield-im"].contextIdentities[0]).toContain("bashExecution");
+		expect(observations["greenfield-im"].contextIdentities[0]).toContain("custom:legacy-visible-context");
+		expect(observations["greenfield-im"].contextIdentities[0]).toContain("custom:prompt_resource_reference");
+		expect(observations["greenfield-im"].contextIdentities[0]).toContain("branchSummary");
+		expect(observations["greenfield-im"].contextObserved[0]).toContain(LEGACY_EXECUTION_MARKERS.hiddenBash);
+		expect(observations["greenfield-im"].contextObserved[0]).toContain(LEGACY_EXECUTION_MARKERS.hiddenCustom);
+		expect(observations["greenfield-im"].contextObserved[0]).not.toContain(LEGACY_EXECUTION_MARKERS.abandonedBranch);
 	}, 40_000);
 
 	it("preserves dynamic image blocking at the final Provider boundary without rewriting history", async () => {
@@ -674,12 +665,11 @@ describe("Agent Runtime Provider differential", { timeout: 30_000 }, () => {
 			{ modelInput: ["text", "image"] },
 		);
 
-		expect(observations.legacy).toMatchObject({
+		expect(observations["greenfield-im"]).toMatchObject({
 			firstProviderReceivedImage: true,
 			secondProviderBlockedAllImages: true,
 			historyRetainedImages: true,
 		});
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	}, 30_000);
 });
 

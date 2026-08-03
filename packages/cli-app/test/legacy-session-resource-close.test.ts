@@ -25,7 +25,7 @@ afterAll(async () => {
 	await executable.dispose();
 });
 
-describe("Legacy Session resource close", () => {
+describe("Greenfield Session resource close", () => {
 	it("quiets background work before new_session publishes the target identity", async () => {
 		const server = await startOpenAiResponsesTestServer((_request, index) =>
 			index === 0
@@ -39,7 +39,7 @@ describe("Legacy Session resource close", () => {
 				: { kind: "events", events: textResponseEvents(index === 1 ? "Task accepted." : "Recovered.") },
 		);
 		const fixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
-		const agentProcess = startAgentRpc(executable, fixture, { backend: "legacy" });
+		const agentProcess = startAgentRpc(executable, fixture, { backend: "greenfield-im" });
 		try {
 			const sourcePath = readSessionFile(await agentProcess.request("transition-source", "get_state"));
 			const turnMark = agentProcess.mark();
@@ -52,8 +52,8 @@ describe("Legacy Session resource close", () => {
 			const targetPath = readSessionFile(await agentProcess.request("transition-target", "get_state"));
 			expect(isProcessAlive(pid)).toBe(false);
 			expect(targetPath).not.toBe(sourcePath);
-			expect(existsSync(`${sourcePath}.lock`)).toBe(false);
-			expect(existsSync(`${targetPath}.lock`)).toBe(true);
+			expect(existsSync(`${sourcePath}.owner.lock`)).toBe(false);
+			expect(existsSync(`${targetPath}.owner.lock`)).toBe(true);
 			await new Promise<void>((resolve) => setTimeout(resolve, 200));
 			expect(server.requests).toHaveLength(2);
 
@@ -81,7 +81,7 @@ describe("Legacy Session resource close", () => {
 				: { kind: "events", events: textResponseEvents("Background task started.") },
 		);
 		const fixture = await createAgentRpcFixture({ baseUrl: server.baseUrl });
-		const agentProcess = startAgentRpc(executable, fixture, { backend: "legacy" });
+		const agentProcess = startAgentRpc(executable, fixture, { backend: "greenfield-im" });
 		try {
 			const mark = agentProcess.mark();
 			await agentProcess.request("background-close", "prompt", { message: "Start the background task" });

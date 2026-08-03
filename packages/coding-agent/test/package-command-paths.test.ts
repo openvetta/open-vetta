@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { APP_NAME, ENV_AGENT_DIR } from "../src/config.js";
-import { main } from "../src/main.js";
+import { runCodingAgentCliControl } from "../src/host/coding-agent-cli-control.js";
 
 describe("package commands", () => {
 	let tempDir: string;
@@ -46,7 +46,7 @@ describe("package commands", () => {
 		const relativePkgDir = join(projectDir, "packages", "local-package");
 		mkdirSync(relativePkgDir, { recursive: true });
 
-		await main(["install", "./packages/local-package"]);
+		await runCodingAgentCliControl(["install", "./packages/local-package"]);
 
 		const settingsPath = join(agentDir, "settings.json");
 		const settings = JSON.parse(readFileSync(settingsPath, "utf-8")) as { packages?: string[] };
@@ -57,13 +57,13 @@ describe("package commands", () => {
 	});
 
 	it("should remove local packages using a path with a trailing slash", async () => {
-		await main(["install", `${packageDir}/`]);
+		await runCodingAgentCliControl(["install", `${packageDir}/`]);
 
 		const settingsPath = join(agentDir, "settings.json");
 		const installedSettings = JSON.parse(readFileSync(settingsPath, "utf-8")) as { packages?: string[] };
 		expect(installedSettings.packages?.length).toBe(1);
 
-		await main(["remove", `${packageDir}/`]);
+		await runCodingAgentCliControl(["remove", `${packageDir}/`]);
 
 		const removedSettings = JSON.parse(readFileSync(settingsPath, "utf-8")) as { packages?: string[] };
 		expect(removedSettings.packages ?? []).toHaveLength(0);
@@ -74,7 +74,7 @@ describe("package commands", () => {
 		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
 		try {
-			await expect(main(["install", "--help"])).resolves.toBeUndefined();
+			await expect(runCodingAgentCliControl(["install", "--help"])).resolves.toBe(true);
 
 			const stdout = logSpy.mock.calls.map(([message]) => String(message)).join("\n");
 			expect(stdout).toContain("Usage:");
@@ -91,7 +91,7 @@ describe("package commands", () => {
 		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
 		try {
-			await expect(main(["install", "--unknown"])).resolves.toBeUndefined();
+			await expect(runCodingAgentCliControl(["install", "--unknown"])).resolves.toBe(true);
 
 			const stderr = errorSpy.mock.calls.map(([message]) => String(message)).join("\n");
 			expect(stderr).toContain('Unknown option --unknown for "install".');
@@ -106,7 +106,7 @@ describe("package commands", () => {
 		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
 		try {
-			await expect(main(["install"])).resolves.toBeUndefined();
+			await expect(runCodingAgentCliControl(["install"])).resolves.toBe(true);
 
 			const stderr = errorSpy.mock.calls.map(([message]) => String(message)).join("\n");
 			expect(stderr).toContain("Missing install source.");

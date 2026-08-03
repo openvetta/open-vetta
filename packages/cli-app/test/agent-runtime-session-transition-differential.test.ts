@@ -14,7 +14,7 @@ import {
 } from "./support/agent-rpc-test-process.js";
 import { startOpenAiResponsesTestServer, textResponseEvents } from "./support/openai-responses-test-server.js";
 
-const BACKENDS = ["legacy", "greenfield-im"] as const satisfies readonly TestAgentRuntimeBackend[];
+const BACKENDS = ["greenfield-im"] as const satisfies readonly TestAgentRuntimeBackend[];
 let executable: AgentRpcExecutable;
 
 beforeAll(async () => {
@@ -30,7 +30,7 @@ describe("Agent Runtime active-turn session transition differential", () => {
 		const observations = {} as Record<TestAgentRuntimeBackend, TransitionObservation>;
 		for (const backend of BACKENDS) observations[backend] = await runActiveTurnNewSession(backend);
 
-		expect(observations.legacy).toEqual({
+		expect(observations["greenfield-im"]).toEqual({
 			providerRequestClosed: true,
 			terminalKinds: [],
 			sourceOwnershipReleased: true,
@@ -39,14 +39,13 @@ describe("Agent Runtime active-turn session transition differential", () => {
 			idleAfterTransition: true,
 			providerRequestCount: 3,
 		});
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	}, 30_000);
 
 	it("interrupts an active turn, transfers ownership and recovers across switch_session", async () => {
 		const observations = {} as Record<TestAgentRuntimeBackend, TransitionObservation>;
 		for (const backend of BACKENDS) observations[backend] = await runActiveTurnSwitchSession(backend);
 
-		expect(observations.legacy).toEqual({
+		expect(observations["greenfield-im"]).toEqual({
 			providerRequestClosed: true,
 			terminalKinds: [],
 			sourceOwnershipReleased: true,
@@ -55,14 +54,13 @@ describe("Agent Runtime active-turn session transition differential", () => {
 			idleAfterTransition: true,
 			providerRequestCount: 3,
 		});
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	}, 30_000);
 
 	it("applies the same interruption and ownership contract to Extension session commands", async () => {
 		const observations = {} as Record<TestAgentRuntimeBackend, TransitionObservation>;
 		for (const backend of BACKENDS) observations[backend] = await runActiveTurnExtensionNewSession(backend);
 
-		expect(observations.legacy).toEqual({
+		expect(observations["greenfield-im"]).toEqual({
 			providerRequestClosed: true,
 			terminalKinds: [],
 			sourceOwnershipReleased: true,
@@ -71,14 +69,13 @@ describe("Agent Runtime active-turn session transition differential", () => {
 			idleAfterTransition: true,
 			providerRequestCount: 3,
 		});
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	}, 30_000);
 
 	it("keeps the source identity usable when target ownership acquisition fails", async () => {
 		const observations = {} as Record<TestAgentRuntimeBackend, FailedTransitionObservation>;
 		for (const backend of BACKENDS) observations[backend] = await runLockedTargetSwitch(backend);
 
-		expect(observations.legacy).toEqual({
+		expect(observations["greenfield-im"]).toEqual({
 			transitionFailed: true,
 			sourceIdentityRetained: true,
 			sourceOwnershipHeld: true,
@@ -86,7 +83,6 @@ describe("Agent Runtime active-turn session transition differential", () => {
 			recoveryCompleted: true,
 			providerRequestCount: 1,
 		});
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	}, 30_000);
 });
 

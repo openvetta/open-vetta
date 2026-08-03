@@ -20,7 +20,7 @@ import {
 	toolCallResponseEvents,
 } from "./support/openai-responses-test-server.js";
 
-const BACKENDS = ["legacy", "greenfield-im"] as const satisfies readonly TestAgentRuntimeBackend[];
+const BACKENDS = ["greenfield-im"] as const satisfies readonly TestAgentRuntimeBackend[];
 const COMMAND_ADMISSION_HOST_OPTIONS = {
 	enableHostBridge: true,
 	scenario: "im-claw",
@@ -40,7 +40,7 @@ describe("Agent Runtime RPC command admission differential", () => {
 		const observations = {} as Record<TestAgentRuntimeBackend, IdleAdmissionObservation>;
 		for (const backend of BACKENDS) observations[backend] = await runIdleTransitionThenPrompt(backend);
 
-		expect(observations.legacy).toEqual({
+		expect(observations["greenfield-im"]).toEqual({
 			outcome: "completed",
 			providerRequestCount: 1,
 			queuedPromptReachedProvider: true,
@@ -48,7 +48,6 @@ describe("Agent Runtime RPC command admission differential", () => {
 			targetOwnershipHeld: true,
 			identityChanged: true,
 		});
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	}, 30_000);
 
 	it("keeps a prompt received during active-turn new_session off the released source session", async () => {
@@ -66,7 +65,7 @@ describe("Agent Runtime RPC command admission differential", () => {
 				identityChanged: true,
 			},
 			completedAdmissionObservation(),
-		]).toContainEqual(observations.legacy);
+		]).toContainEqual(observations["greenfield-im"]);
 		expect(observations["greenfield-im"]).toEqual(completedAdmissionObservation());
 	}, 30_000);
 
@@ -74,7 +73,7 @@ describe("Agent Runtime RPC command admission differential", () => {
 		const observations = {} as Record<TestAgentRuntimeBackend, AbortDuringTransitionObservation>;
 		for (const backend of BACKENDS) observations[backend] = await runTransitionThenAbort(backend);
 
-		expect(observations.legacy).toEqual({
+		expect(observations["greenfield-im"]).toEqual({
 			providerRequestClosed: true,
 			providerRequestCount: 1,
 			terminalKinds: [],
@@ -82,41 +81,38 @@ describe("Agent Runtime RPC command admission differential", () => {
 			targetOwnershipHeld: true,
 			identityChanged: true,
 		});
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	}, 30_000);
 
 	it("finishes an accepted session transition before transport cleanup", async () => {
 		const observations = {} as Record<TestAgentRuntimeBackend, TransitionShutdownObservation>;
 		for (const backend of BACKENDS) observations[backend] = await runTransitionThenClose(backend);
 
-		expect(observations.legacy).toEqual({
+		expect(observations["greenfield-im"]).toEqual({
 			exitCode: 0,
 			providerRequestClosed: true,
 			providerRequestCount: 1,
 			transitionResponseCount: 1,
 			ownershipLockCount: 0,
 		});
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	}, 30_000);
 
 	it("honors an asynchronous Extension shutdown request exactly once", async () => {
 		const observations = {} as Record<TestAgentRuntimeBackend, ExtensionShutdownObservation>;
 		for (const backend of BACKENDS) observations[backend] = await runExtensionShutdown(backend);
 
-		expect(observations.legacy).toEqual({
+		expect(observations["greenfield-im"]).toEqual({
 			exitCode: 0,
 			promptResponseCount: 1,
 			audit: ["handler-before", "handler-after", "session-shutdown"],
 			ownershipLockCount: 0,
 		});
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	}, 30_000);
 
 	it("settles an active Provider prompt before transport exit", async () => {
 		const observations = {} as Record<TestAgentRuntimeBackend, PromptShutdownObservation>;
 		for (const backend of BACKENDS) observations[backend] = await runHeldPromptThenClose(backend);
 
-		expect(observations.legacy).toEqual({
+		expect(observations["greenfield-im"]).toEqual({
 			exitCode: 0,
 			providerRequestClosed: true,
 			providerRequestCount: 1,
@@ -124,28 +120,26 @@ describe("Agent Runtime RPC command admission differential", () => {
 			terminalOutcomeCount: 0,
 			ownershipLockCount: 0,
 		});
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	}, 30_000);
 
 	it("cancels an accepted memory flush before transport exit", async () => {
 		const observations = {} as Record<TestAgentRuntimeBackend, MemoryFlushShutdownObservation>;
 		for (const backend of BACKENDS) observations[backend] = await runHeldMemoryFlushThenClose(backend);
 
-		expect(observations.legacy).toEqual({
+		expect(observations["greenfield-im"]).toEqual({
 			exitCode: 0,
 			providerRequestClosed: true,
 			providerRequestCount: 2,
 			flushResponseCount: 1,
 			ownershipLockCount: 0,
 		});
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	}, 30_000);
 
 	it("settles a prompt waiting on host_response before transport exit", async () => {
 		const observations = {} as Record<TestAgentRuntimeBackend, HostBridgeShutdownObservation>;
 		for (const backend of BACKENDS) observations[backend] = await runHostBridgeThenClose(backend);
 
-		expect(observations.legacy).toEqual({
+		expect(observations["greenfield-im"]).toEqual({
 			exitCode: 0,
 			providerRequestCount: 1,
 			hostRequestCount: 1,
@@ -153,21 +147,19 @@ describe("Agent Runtime RPC command admission differential", () => {
 			terminalOutcomeCount: 0,
 			ownershipLockCount: 0,
 		});
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	}, 30_000);
 
 	it("cancels a prompt waiting on extension_ui_response before transport exit", async () => {
 		const observations = {} as Record<TestAgentRuntimeBackend, ExtensionUiShutdownObservation>;
 		for (const backend of BACKENDS) observations[backend] = await runExtensionUiThenClose(backend);
 
-		expect(observations.legacy).toEqual({
+		expect(observations["greenfield-im"]).toEqual({
 			exitCode: 0,
 			promptResponseCount: 1,
 			extensionUiRequestCount: 1,
 			audit: ["before", "after:false"],
 			ownershipLockCount: 0,
 		});
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	}, 30_000);
 });
 

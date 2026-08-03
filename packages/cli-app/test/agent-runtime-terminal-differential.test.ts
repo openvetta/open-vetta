@@ -11,9 +11,10 @@ import {
 	startAgentRpc,
 	type TestAgentRuntimeBackend,
 } from "./support/agent-rpc-test-process.js";
+import { legacyRuntimeContract } from "./support/legacy-runtime-contract.js";
 import { startOpenAiResponsesTestServer, textResponseEvents } from "./support/openai-responses-test-server.js";
 
-const BACKENDS = ["legacy", "greenfield-im"] as const satisfies readonly TestAgentRuntimeBackend[];
+const BACKENDS = ["greenfield-im"] as const satisfies readonly TestAgentRuntimeBackend[];
 let executable: AgentRpcExecutable;
 
 beforeAll(async () => {
@@ -29,37 +30,34 @@ describe("Agent Runtime terminal differential", () => {
 		const observations = {} as Record<TestAgentRuntimeBackend, TerminalRecoveryObservation>;
 		for (const backend of BACKENDS) observations[backend] = await runHttpFailureRecovery(backend);
 
-		expect(observations.legacy).toEqual({
-			failureTerminalKinds: ["agent_end"],
+		expect(observations["greenfield-im"]).toEqual({
+			failureTerminalKinds: legacyRuntimeContract.rpc.terminalFailureKinds,
 			idleAfterFailure: true,
 			providerRequestCount: 3,
 		});
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	}, 30_000);
 
 	it("emits one terminal outcome and recovers after a Provider stream disconnect", async () => {
 		const observations = {} as Record<TestAgentRuntimeBackend, StreamRecoveryObservation>;
 		for (const backend of BACKENDS) observations[backend] = await runStreamDisconnectRecovery(backend);
 
-		expect(observations.legacy).toEqual({
-			failureTerminalKinds: ["agent_end"],
+		expect(observations["greenfield-im"]).toEqual({
+			failureTerminalKinds: legacyRuntimeContract.rpc.terminalFailureKinds,
 			idleAfterFailure: true,
 			partialText: "partial-before-disconnect",
 			providerRequestCount: 2,
 		});
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	}, 30_000);
 
 	it("returns to idle and recovers in-process and after restart following abort", async () => {
 		const observations = {} as Record<TestAgentRuntimeBackend, TerminalRecoveryObservation>;
 		for (const backend of BACKENDS) observations[backend] = await runAbortRecovery(backend);
 
-		expect(observations.legacy).toEqual({
-			failureTerminalKinds: ["agent_end"],
+		expect(observations["greenfield-im"]).toEqual({
+			failureTerminalKinds: legacyRuntimeContract.rpc.terminalFailureKinds,
 			idleAfterFailure: true,
 			providerRequestCount: 3,
 		});
-		expect(observations["greenfield-im"]).toEqual(observations.legacy);
 	}, 30_000);
 });
 

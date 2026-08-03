@@ -26,13 +26,6 @@
 			"@vetta/coding-agent/host": ["./packages/coding-agent/src/adapters/runtime-tools/index.ts"],
 			"@vetta/coding-agent/host-services": ["./packages/coding-agent/src/public-api/host-services.ts"],
 			"@vetta/coding-agent/knowledge": ["./packages/coding-agent/src/core/knowledge/index.ts"],
-			"@vetta/coding-agent/legacy/host-services": [
-				"./packages/coding-agent/src/public-api/legacy-host-services.ts"
-			],
-			"@vetta/coding-agent/legacy/session": [
-				"./packages/coding-agent/src/public-api/legacy-session.ts"
-			],
-			"@vetta/coding-agent/legacy/tools": ["./packages/coding-agent/src/public-api/legacy-tools.ts"],
 			"@vetta/coding-agent/profile": ["./packages/coding-agent/src/public-api/profile.ts"],
 			"@vetta/coding-agent/resources": ["./packages/coding-agent/src/core/resource-loader.ts"],
 			"@vetta/coding-agent/rpc": ["./packages/coding-agent/src/public-api/rpc.ts"],

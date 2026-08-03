@@ -18,10 +18,6 @@ export {
 	createCodingAgentMcpRuntimeToolSource,
 	decorateCodingAgentMcpRuntimeTool,
 } from "./coding-agent-mcp-runtime-source.js";
-export {
-	createLegacyRuntimeHostOptions,
-	type LegacyRuntimeHostOptions,
-} from "./composition.js";
 export { CodingAgentGreenfieldAgentMessageContextProjector } from "./greenfield-agent-message-context-projector.js";
 export {
 	type CodingAgentCompactionCommittedInput,
@@ -163,13 +159,6 @@ export {
 	LegacyMcpManagerRuntimeToolSource,
 } from "./legacy-mcp-runtime-source.js";
 export {
-	createLegacyRuntimeHostSessionAssembly,
-	LegacyCodingAgentSessionBackend,
-	type RuntimeSession,
-	RuntimeSessionBackendAssemblyAdapter,
-	type RuntimeSessionCreateOptions,
-} from "./legacy-session-backend.js";
-export {
 	acquireLegacySessionFormatLease,
 	LegacyRuntimeSessionCatalog,
 	LegacyRuntimeSessionFileHistoryReader,
@@ -180,29 +169,4 @@ export {
 	normalizeCodingAgentLegacySessionEntry,
 	restoreCodingAgentLegacyAgentMessageEntry,
 } from "./legacy-session-import-normalizer.js";
-export {
-	createLegacyRuntimeSessionCorePorts,
-	LegacyRuntimeSessionBackgroundWorkController,
-	LegacyRuntimeSessionConfigurationController,
-	LegacyRuntimeSessionContextController,
-	LegacyRuntimeSessionEventStream,
-	LegacyRuntimeSessionExecutionController,
-	LegacyRuntimeSessionHistoryController,
-	LegacyRuntimeSessionHistoryReader,
-	LegacyRuntimeSessionHostInteraction,
-	LegacyRuntimeSessionIdentityLifecycle,
-	LegacyRuntimeSessionModelController,
-	LegacyRuntimeSessionModelView,
-	LegacyRuntimeSessionStateReader,
-	LegacyRuntimeSessionTodoController,
-	LegacyRuntimeSessionTurnControl,
-	LegacyRuntimeSessionWorkspaceView,
-} from "./legacy-session-ports.js";
-export { LegacyRuntimeSharedModelController } from "./legacy-session-services.js";
 export { ModelRegistryRuntimeSharedModelController } from "./model-registry-shared-model-controller.js";
-export {
-	type MapAgentEventState,
-	mapAgentSessionEvent,
-	mapAgentSessionEventToObservations,
-	persistAssistantTurnTiming,
-} from "./session-events.js";
