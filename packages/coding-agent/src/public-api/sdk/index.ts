@@ -16,6 +16,13 @@ export type {
 } from "./sdk-create-contract.js";
 export { CODING_AGENT_SESSION_CREATE_ERROR_CODES, CodingAgentSessionCreateError } from "./sdk-create-contract.js";
 export type {
+	CodingAgentProductSessionEvent,
+	CodingAgentRetryEvent,
+	CodingAgentSessionEvent,
+	CodingAgentSessionEventListener,
+} from "./sdk-event-contract.js";
+export type { CodingAgentPromptInputSource, CodingAgentPromptOptions } from "./sdk-prompt-contract.js";
+export type {
 	CodingAgentSessionCatalog,
 	CodingAgentSessionSummary,
 	CreateCodingAgentSessionCatalogOptions,
@@ -29,20 +36,29 @@ export type {
 	CodingAgentMemoryConfiguration,
 	CodingAgentModelCycleResult,
 	CodingAgentNewSessionOptions,
-	CodingAgentPromptOptions,
 	CodingAgentPromptTemplate,
-	CodingAgentRetryEvent,
 	CodingAgentScopedModel,
 	CodingAgentSession,
 	CodingAgentSessionBranchEntry,
 	CodingAgentSessionCapabilities,
 	CodingAgentSessionCore,
-	CodingAgentSessionEvent,
-	CodingAgentSessionEventListener,
 	CodingAgentSessionSetup,
 	CodingAgentSessionStats,
-	CodingAgentSessionToolDefinition,
 	CodingAgentToolInfo,
 	CodingAgentTreeNavigationOptions,
 	CodingAgentTreeNavigationResult,
 } from "./sdk-session-contract.js";
+export type {
+	CodingAgentSessionToolDefinition,
+	CodingAgentToolCompactionOptions,
+	CodingAgentToolExecutionContext,
+	CodingAgentToolPermissionRequest,
+	CodingAgentToolPermissionResult,
+	CodingAgentToolRenderComponent,
+	CodingAgentToolRenderResultOptions,
+	CodingAgentToolTheme,
+	CodingAgentToolThemeBackground,
+	CodingAgentToolThemeColor,
+	CodingAgentToolUiContext,
+	CodingAgentToolUiDialogOptions,
+} from "./sdk-tool-contract.js";

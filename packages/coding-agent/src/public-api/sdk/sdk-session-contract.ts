@@ -10,12 +10,9 @@ import type {
 	RuntimeSubagentSnapshot,
 	TodoItem,
 } from "@vetta/runtime-core";
-import type { AgentSessionCustomToolDefinition, AgentSessionEvent, PromptOptions } from "../../core/session/types.js";
-
-export type CodingAgentPromptOptions = PromptOptions;
-export type CodingAgentSessionEvent = AgentSessionEvent;
-export type CodingAgentSessionEventListener = (event: CodingAgentSessionEvent) => void;
-export type CodingAgentSessionToolDefinition = AgentSessionCustomToolDefinition;
+import type { CodingAgentSessionEventListener } from "./sdk-event-contract.js";
+import type { CodingAgentPromptOptions } from "./sdk-prompt-contract.js";
+import type { CodingAgentSessionToolDefinition } from "./sdk-tool-contract.js";
 
 export interface CodingAgentScopedModel {
 	readonly model: Model<Api>;
@@ -65,21 +62,6 @@ export interface CodingAgentSessionStats {
 	};
 	readonly cost: number;
 }
-
-export type CodingAgentRetryEvent =
-	| {
-			readonly type: "auto_retry_start";
-			readonly attempt: number;
-			readonly maxAttempts: number;
-			readonly delayMs: number;
-			readonly errorMessage: string;
-	  }
-	| {
-			readonly type: "auto_retry_end";
-			readonly success: boolean;
-			readonly attempt: number;
-			readonly finalError?: string;
-	  };
 
 /** 稳定公共 SDK 的核心会话合同。 */
 export interface CodingAgentSessionCore {

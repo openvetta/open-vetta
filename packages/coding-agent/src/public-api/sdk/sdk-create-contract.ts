@@ -9,7 +9,8 @@ import type {
 	ConversationScenario,
 } from "@vetta/runtime-core";
 import type { RuntimeTracer } from "@vetta/runtime-telemetry";
-import type { CodingAgentSession, CodingAgentSessionToolDefinition } from "./sdk-session-contract.js";
+import type { CodingAgentSession } from "./sdk-session-contract.js";
+import type { CodingAgentSessionToolDefinition } from "./sdk-tool-contract.js";
 
 export type CodingAgentSessionStorageTarget =
 	| { readonly kind: "memory"; readonly sessionId?: string }

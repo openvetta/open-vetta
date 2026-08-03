@@ -22,6 +22,7 @@
 
 ### Changed
 
+- **稳定 SDK 公共合同与旧产品 Core 解耦**：Prompt、Session 事件和自定义工具改为 `public-api/sdk` 内的独立结构合同，生成声明不再引用 `core/session/types`；自定义工具继续保留 TypeBox 参数校验、取消信号、进度更新、常用 UI/压缩/权限上下文和渲染回调，由 Host Adapter 转换为现有 Extension Tool。公共边界守卫现在拒绝 SDK 合同回接 `coding-agent/src` 内部实现，包根兼容 API 与运行时行为保持不变。
 - **官方 SDK 消费者改用稳定入口**：最小会话、系统提示词、工具、Context、Prompt Template 与 Session 管理示例已迁移到 `@vetta/coding-agent/sdk`；新增稳定 SDK 文档，并把需要认证/设置管理器或任意资源覆盖回调的示例明确标记为 host-service/兼容路径，旧包根功能继续保留。
 - **公共 Coding Agent SDK 合同去迁移化**：`@vetta/coding-agent/sdk` 的 Session、事件、工具、模型、统计、Memory、Bash 与树导航类型统一改为 `CodingAgent*` 稳定命名；迁移期 Runtime Port、Adapter、Binding 和事件映射移出 `public-api/sdk`，内部实现继续通过 Composition/Adapter 接入，包根兼容工厂和全部执行行为保持不变。质量守卫现在拒绝公共 SDK 再出现迁移期名称或具体产品管理器。
 - **Greenfield SDK 活动 Session 所有权闭环**：内部 SDK Factory 现在以长生命周期 Composition 和 Active Session Host 持有当前会话，稳定 SDK 门面支持 new/switch/fork、历史树写操作、上下文投递和直接 Bash；Session 身份切换会原子迁移 Extension 与 Session 资源，失败回滚旧身份，Bash 在切换前中止并落盘待处理结果。固定 Session Adapter 继续不承担身份迁移，公开 `createAgentSession` 尚未切换。

@@ -124,7 +124,7 @@ describe("Legacy execution retirement gate", () => {
 			"product-adapter": 85,
 			"composition-wiring": 5,
 			"rpc-host-adapter": 4,
-			"sdk-compatibility": 2,
+			"sdk-compatibility": 0,
 		});
 	});
 
@@ -154,6 +154,7 @@ describe("Legacy execution retirement gate", () => {
 				},
 			]),
 		).toEqual([
+			"packages/coding-agent/src/public-api/sdk/greenfield-sdk-session.ts: public Coding Agent SDK contract must not depend on internal product source (../../core/agent-session.js)",
 			"packages/coding-agent/src/public-api/sdk/greenfield-sdk-session.ts: public Coding Agent SDK must not depend on retired AgentSession execution (../../core/agent-session.js)",
 		]);
 		expect(

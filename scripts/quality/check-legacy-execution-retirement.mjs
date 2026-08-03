@@ -33,7 +33,7 @@ export const GREENFIELD_PRODUCT_CORE_EDGE_BUDGET = Object.freeze({
 	"product-adapter": 85,
 	"composition-wiring": 5,
 	"rpc-host-adapter": 4,
-	"sdk-compatibility": 2,
+	"sdk-compatibility": 0,
 });
 
 const PUBLIC_CODING_AGENT_SDK_FORBIDDEN_NAMES =
@@ -230,6 +230,11 @@ export function findGreenfieldSdkBoundaryViolations(files) {
 			violations.push(`${file.path}: public Coding Agent SDK leaks forbidden name (${forbiddenName})`);
 		}
 		for (const edge of collectModuleEdges(file.path, file.text)) {
+			if (file.path.startsWith("packages/coding-agent/src/public-api/sdk/") && edge.specifier.startsWith("../../")) {
+				violations.push(
+					`${file.path}: public Coding Agent SDK contract must not depend on internal product source (${edge.specifier})`,
+				);
+			}
 			if (
 				edge.specifier.includes("core/agent-session") ||
 				edge.specifier.includes("core/sdk") ||

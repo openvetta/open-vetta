@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import type { AgentSessionEvent, PromptOptions } from "../../src/core/session/types.js";
 import type {
 	CodingAgentPromptOptions,
 	CodingAgentResourceContributions,
@@ -8,6 +9,7 @@ import type {
 	CodingAgentSessionCore,
 	CodingAgentSessionEventListener,
 	CodingAgentSessionToolDefinition,
+	CodingAgentToolExecutionContext,
 } from "../../src/public-api/sdk.js";
 import * as publicSdk from "../../src/public-api/sdk.js";
 
@@ -34,14 +36,25 @@ describe("public Coding Agent SDK boundary", () => {
 		expect(readdirSync(PUBLIC_SDK_DIRECTORY).sort()).toEqual([
 			"index.ts",
 			"sdk-create-contract.ts",
+			"sdk-event-contract.ts",
+			"sdk-prompt-contract.ts",
 			"sdk-session-catalog-contract.ts",
 			"sdk-session-contract.ts",
+			"sdk-tool-contract.ts",
 		]);
 		for (const file of publicFiles) {
 			const source = readFileSync(file, "utf8");
 			expect(source, file.pathname).not.toMatch(
 				/\b(?:(?:Greenfield|Legacy)[A-Za-z0-9_]*|ModelRegistry|ResourceLoader|SessionManager|SettingsManager)\b/,
 			);
+		}
+	});
+
+	it("keeps stable contracts independent from Coding Agent internal source paths", () => {
+		for (const name of readdirSync(PUBLIC_SDK_DIRECTORY).filter((entry) => entry.endsWith(".ts"))) {
+			const file = new URL(name, PUBLIC_SDK_DIRECTORY);
+			const source = readFileSync(file, "utf8");
+			expect(source, file.pathname).not.toMatch(/from\s+["'](?:\.\.\/){2}/);
 		}
 	});
 });
@@ -59,3 +72,28 @@ function verifyStablePublicTypes(
 }
 
 void verifyStablePublicTypes;
+
+function verifyToolContextIsNarrow(context: CodingAgentToolExecutionContext): void {
+	void context.cwd;
+	void context.getSystemPrompt();
+	// @ts-expect-error Concrete session storage belongs to the compatibility Extension context.
+	void context.sessionManager;
+	// @ts-expect-error Concrete model discovery belongs to the product Composition Root.
+	void context.modelRegistry;
+}
+
+void verifyToolContextIsNarrow;
+
+function verifyLegacyPromptCompatibility(options: PromptOptions): CodingAgentPromptOptions {
+	return options;
+}
+
+function verifyStablePromptCompatibility(options: CodingAgentPromptOptions): PromptOptions {
+	return options;
+}
+
+function verifyLegacyEventCompatibility(event: AgentSessionEvent): Parameters<CodingAgentSessionEventListener>[0] {
+	return event;
+}
+
+void [verifyLegacyPromptCompatibility, verifyStablePromptCompatibility, verifyLegacyEventCompatibility];

@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import type { TSchema } from "@sinclair/typebox";
 import { TypeGuard } from "@sinclair/typebox/type";
 import { Value } from "@sinclair/typebox/value";
 import type { ThinkingLevel } from "@vetta/agent-core";
@@ -28,7 +29,7 @@ import { AuthStorage } from "../core/auth-storage.js";
 import { DEFAULT_THINKING_LEVEL } from "../core/defaults.js";
 import { exportConversationDocumentToHtml, type ToolHtmlRenderer } from "../core/export-html/index.js";
 import { createToolHtmlRenderer } from "../core/export-html/tool-renderer.js";
-import type { LoadExtensionsResult } from "../core/extensions/index.js";
+import type { ExtensionContext, LoadExtensionsResult, ToolDefinition } from "../core/extensions/index.js";
 import { DEFAULT_MEMORY_CHAR_LIMIT } from "../core/memory/memory-store.js";
 import { ModelRegistry } from "../core/model-registry.js";
 import { findInitialModel } from "../core/model-resolver.js";
@@ -42,6 +43,7 @@ import {
 	CODING_AGENT_SESSION_CREATE_ERROR_CODES,
 	type CodingAgentResourceContributions,
 	CodingAgentSessionCreateError,
+	type CodingAgentSessionToolDefinition,
 	type CreateCodingAgentSessionOptions,
 	type CreateCodingAgentSessionResult,
 } from "../public-api/sdk/index.js";
@@ -95,16 +97,16 @@ export class CodingAgentSdkCustomToolError extends Error {
 	}
 }
 
-type CodingAgentSdkCustomToolDefinition = NonNullable<CreateAgentSessionOptions["customTools"]>[number];
+type LegacyCodingAgentSdkCustomToolDefinition = NonNullable<CreateAgentSessionOptions["customTools"]>[number];
 
 interface CodingAgentSdkRegisteredTool {
-	readonly definition: CodingAgentSdkCustomToolDefinition;
+	readonly definition: ToolDefinition;
 	readonly extensionPath: string;
 }
 
 /** 在 SDK 产品边界校验 TypeBox schema，并为执行入口增加调用参数校验。 */
 export function adaptCodingAgentSdkCustomTools(
-	customTools: readonly CodingAgentSdkCustomToolDefinition[] | undefined,
+	customTools: readonly LegacyCodingAgentSdkCustomToolDefinition[] | undefined,
 ): readonly CodingAgentSdkRegisteredTool[] | undefined {
 	if (customTools === undefined) return undefined;
 	return customTools.map((definition) => {
@@ -116,7 +118,7 @@ export function adaptCodingAgentSdkCustomTools(
 			);
 		}
 		const parameters = definition.parameters;
-		const adaptedDefinition: CodingAgentSdkCustomToolDefinition = {
+		const adaptedDefinition: LegacyCodingAgentSdkCustomToolDefinition = {
 			...definition,
 			async execute(toolCallId, input, signal, onUpdate, context) {
 				if (!Value.Check(parameters, input)) {
@@ -134,6 +136,63 @@ export function adaptCodingAgentSdkCustomTools(
 		};
 		return { extensionPath: "<sdk>", definition: adaptedDefinition };
 	});
+}
+
+/** 将稳定 SDK 的窄 Tool 合同适配为产品 Extension Tool，不向调用方暴露具体上下文。 */
+export function adaptPublicCodingAgentSdkCustomTools(
+	customTools: readonly CodingAgentSessionToolDefinition[] | undefined,
+): readonly CodingAgentSdkRegisteredTool[] | undefined {
+	if (customTools === undefined) return undefined;
+	return customTools.map((definition) => {
+		if (!TypeGuard.IsSchema(definition.parameters)) {
+			throw new CodingAgentSdkCustomToolError(
+				CODING_AGENT_SDK_CUSTOM_TOOL_ERROR_CODES.INVALID_SCHEMA,
+				definition.name,
+				`SDK custom tool "${definition.name}" must declare a valid TypeBox schema`,
+			);
+		}
+		const parameters = definition.parameters;
+		const renderCall = definition.renderCall;
+		const renderResult = definition.renderResult;
+		const adaptedDefinition: ToolDefinition = {
+			name: definition.name,
+			label: definition.label,
+			description: definition.description,
+			parameters,
+			scope_use: definition.scope_use,
+			requires: definition.requires ? [...definition.requires] : undefined,
+			category: definition.category,
+			async execute(toolCallId, input, signal, onUpdate, context) {
+				assertValidCodingAgentSdkCustomToolInput(definition.name, parameters, input);
+				return definition.execute(toolCallId, input, signal, onUpdate, toPublicToolExecutionContext(context));
+			},
+			...(renderCall ? { renderCall: (args, currentTheme) => renderCall(args, currentTheme) } : {}),
+			...(renderResult
+				? {
+						renderResult: (result, options, currentTheme) => renderResult(result, options, currentTheme),
+					}
+				: {}),
+		};
+		return { extensionPath: "<sdk>", definition: adaptedDefinition };
+	});
+}
+
+function assertValidCodingAgentSdkCustomToolInput(toolName: string, parameters: TSchema, input: unknown): void {
+	if (Value.Check(parameters, input)) return;
+	const issue = Value.Errors(parameters, input).First();
+	const location = issue?.path ? ` at ${issue.path}` : "";
+	const detail = issue?.message ? `: ${issue.message}` : "";
+	throw new CodingAgentSdkCustomToolError(
+		CODING_AGENT_SDK_CUSTOM_TOOL_ERROR_CODES.INVALID_INPUT,
+		toolName,
+		`Invalid input for SDK custom tool "${toolName}"${location}${detail}`,
+	);
+}
+
+function toPublicToolExecutionContext(
+	context: ExtensionContext,
+): Parameters<CodingAgentSessionToolDefinition["execute"]>[4] {
+	return context;
 }
 
 export interface CreateGreenfieldAgentSessionResult {
@@ -169,6 +228,7 @@ export async function createCodingAgentSessionFromPublicOptions(
 			adaptPublicSdkCreateOptions(options),
 			options.storage,
 			options.resources,
+			options.customTools,
 		);
 		return {
 			session: created.session,
@@ -194,9 +254,12 @@ async function createGreenfieldAgentSessionInternal(
 	options: CreateAgentSessionOptions,
 	storageTarget?: GreenfieldSdkSessionStorageTarget,
 	resourceContributions?: CodingAgentResourceContributions,
+	publicCustomTools?: readonly CodingAgentSessionToolDefinition[],
 ): Promise<CreateGreenfieldAgentSessionResult> {
 	assertCompatibleOptions(options);
-	const sessionTools = adaptCodingAgentSdkCustomTools(options.customTools);
+	const sessionTools = publicCustomTools
+		? adaptPublicCodingAgentSdkCustomTools(publicCustomTools)
+		: adaptCodingAgentSdkCustomTools(options.customTools);
 	const activation =
 		options.tools === undefined
 			? undefined
@@ -397,7 +460,7 @@ async function createGreenfieldAgentSessionInternal(
 				reconfigureCustomTools: (customTools) =>
 					composition.replaceSessionTools(
 						readSession().sessionId,
-						adaptCodingAgentSdkCustomTools(customTools) ?? [],
+						adaptPublicCodingAgentSdkCustomTools(customTools) ?? [],
 					),
 				readSystemPrompt: () => extensionTransitions.readSystemPrompt(),
 				readPromptTemplates: () => resourceLoader.getPrompts().prompts,
@@ -466,7 +529,6 @@ function adaptPublicSdkCreateOptions(options: CreateCodingAgentSessionOptions): 
 		tools: resolvePublicSdkActiveTools(cwd, options.activeTools),
 		scenario: options.scenario,
 		agentMode: options.agentMode,
-		customTools: options.customTools ? [...options.customTools] : undefined,
 		additionalHookAdapterFactories: options.additionalHookAdapterFactories,
 		appendSystemPrompt: options.appendSystemPrompt,
 		includeAgentSkills: options.includeAgentSkills,

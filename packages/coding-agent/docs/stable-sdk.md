@@ -113,7 +113,14 @@ const { session } = await createCodingAgentSession({
 ```
 
 `customTools` accepts Session-private tool definitions. Their TypeBox schemas and invocation inputs are validated at
-the product boundary. Runtime tools can be added, replaced or removed later with `session.reconfigureCustomTools()`.
+the product boundary. Tool execution receives a stable capability context for common UI interaction, cancellation,
+context usage, compaction and permission requests; it does not expose concrete session or model managers. Optional
+tool renderers use structural Theme and Component contracts instead of the Extension implementation types. Runtime
+tools can be added, replaced or removed later with `session.reconfigureCustomTools()`.
+
+Extensions that need the complete registration API, mutable provider discovery or complex host UI composition should
+use `@vetta/coding-agent/extensions` or the package-root compatibility API. Those capabilities are not folded into the
+stable Session tool context.
 
 ## Session capabilities
 
