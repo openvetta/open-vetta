@@ -1,0 +1,2780 @@
+{
+	"version": 1,
+	"oldImplementationEdges": [
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/coding-agent-mcp-runtime-source.ts",
+			"specifier": "../../core/mcp/mcp-supervisor-composition.js",
+			"names": [
+				"CodingAgentMcpSupervisorOptions",
+				"createCodingAgentMcpSupervisor"
+			],
+			"category": "old-core",
+			"domain": "mcp"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/execution-mode/linux-bwrap-tools.ts",
+			"specifier": "../../../core/extensions/types.js",
+			"names": [
+				"ToolDefinition"
+			],
+			"category": "old-core",
+			"domain": "extensions"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/execution-mode/linux-bwrap-tools.ts",
+			"specifier": "../../../core/tools/index.js",
+			"names": [
+				"ShellOperations",
+				"createBashTool",
+				"createEditTool",
+				"createReadTool",
+				"createWriteTool"
+			],
+			"category": "old-core",
+			"domain": "tools"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/execution-mode/macos-seatbelt-tools.ts",
+			"specifier": "../../../core/extensions/types.js",
+			"names": [
+				"ToolDefinition"
+			],
+			"category": "old-core",
+			"domain": "extensions"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/execution-mode/macos-seatbelt-tools.ts",
+			"specifier": "../../../core/tools/index.js",
+			"names": [
+				"ShellOperations",
+				"createBashTool",
+				"createEditTool",
+				"createReadTool",
+				"createWriteTool"
+			],
+			"category": "old-core",
+			"domain": "tools"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/execution-mode/sandbox-tool-utils.ts",
+			"specifier": "../../../core/extensions/types.js",
+			"names": [
+				"ToolDefinition"
+			],
+			"category": "old-core",
+			"domain": "extensions"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/execution-mode/sandbox-tools.ts",
+			"specifier": "../../../core/extensions/types.js",
+			"names": [
+				"ToolDefinition"
+			],
+			"category": "old-core",
+			"domain": "extensions"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/execution-mode/windows-sandbox-tools.ts",
+			"specifier": "../../../core/extensions/types.js",
+			"names": [
+				"ToolDefinition"
+			],
+			"category": "old-core",
+			"domain": "extensions"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/execution-mode/windows-sandbox-tools.ts",
+			"specifier": "../../../core/tools/index.js",
+			"names": [
+				"ShellOperations",
+				"createEditTool",
+				"createReadTool",
+				"createShellTool",
+				"createWriteTool"
+			],
+			"category": "old-core",
+			"domain": "tools"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-agent-message-context-projector.ts",
+			"specifier": "../../core/messages.js",
+			"names": [
+				"convertToLlm"
+			],
+			"category": "old-core",
+			"domain": "messages"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-agent-message-context-projector.ts",
+			"specifier": "../../core/session-manager/index.js",
+			"names": [
+				"CustomMessageEntry",
+				"SessionEntry",
+				"buildSessionContextProjection"
+			],
+			"category": "old-core",
+			"domain": "session-manager"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-ask-user-question-runtime.ts",
+			"specifier": "../../core/session/tool-scope.js",
+			"names": [
+				"ConversationScenario"
+			],
+			"category": "old-core",
+			"domain": "session"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-ask-user-question-runtime.ts",
+			"specifier": "../../core/tools/ask-user-question/index.js",
+			"names": [
+				"AskUserQuestionCapability",
+				"createAskUserQuestionTool"
+			],
+			"category": "old-core",
+			"domain": "tools"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-branch-navigation-host.ts",
+			"specifier": "../../core/compaction/index.js",
+			"names": [
+				"collectEntriesForBranchSummary",
+				"generateBranchSummary"
+			],
+			"category": "old-core",
+			"domain": "compaction"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-branch-navigation-host.ts",
+			"specifier": "../../core/extensions/index.js",
+			"names": [
+				"ExtensionRunner",
+				"SessionBeforeTreeResult",
+				"TreePreparation"
+			],
+			"category": "old-core",
+			"domain": "extensions"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-branch-navigation-host.ts",
+			"specifier": "../../core/session-manager/index.js",
+			"names": [
+				"BranchSummaryEntry"
+			],
+			"category": "old-core",
+			"domain": "session-manager"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-branch-navigation-host.ts",
+			"specifier": "../../core/settings-manager.js",
+			"names": [
+				"SettingsManager"
+			],
+			"category": "old-core",
+			"domain": "settings-manager"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-compaction-extension-runtime.ts",
+			"specifier": "../../core/compaction/index.js",
+			"names": [
+				"CompactionPreparation",
+				"CompactionResult"
+			],
+			"category": "old-core",
+			"domain": "compaction"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-compaction-extension-runtime.ts",
+			"specifier": "../../core/extensions/index.js",
+			"names": [
+				"ExtensionRunner",
+				"SessionBeforeCompactResult"
+			],
+			"category": "old-core",
+			"domain": "extensions"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-compaction-extension-runtime.ts",
+			"specifier": "../../core/session-manager/index.js",
+			"names": [
+				"CompactionEntry",
+				"SessionEntry"
+			],
+			"category": "old-core",
+			"domain": "session-manager"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-context-runtime.ts",
+			"specifier": "../../core/compaction/index.js",
+			"names": [
+				"CompactionCircuitBreaker",
+				"CompactionPreparation",
+				"CompactionResult",
+				"CompactionSettings",
+				"DEFAULT_COMPACTION_SETTINGS",
+				"PrefireCache",
+				"compact",
+				"estimateContextTokens",
+				"fingerprintCompactionPrefix",
+				"isPrefireCacheValid",
+				"microcompact",
+				"prepareCompaction",
+				"shouldCompact",
+				"shouldPrefire"
+			],
+			"category": "old-core",
+			"domain": "compaction"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-context-runtime.ts",
+			"specifier": "../../core/messages.js",
+			"names": [
+				"COMPACTION_SUMMARY_PREFIX",
+				"COMPACTION_SUMMARY_SUFFIX",
+				"convertToLlm",
+				"createCustomMessage"
+			],
+			"category": "old-core",
+			"domain": "messages"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-context-runtime.ts",
+			"specifier": "../../core/session-manager/index.js",
+			"names": [
+				"CompactionEntry",
+				"SessionEntry"
+			],
+			"category": "old-core",
+			"domain": "session-manager"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-desktop-command-host.ts",
+			"specifier": "../../core/tools/exec-subprocess.js",
+			"names": [
+				"SubprocessAbortError",
+				"runSubprocess"
+			],
+			"category": "old-core",
+			"domain": "tools"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-action-host.ts",
+			"specifier": "../../core/extensions/execution-host.js",
+			"names": [
+				"bindExtensionRuntimeActions"
+			],
+			"category": "old-core",
+			"domain": "extensions"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-action-host.ts",
+			"specifier": "../../core/extensions/types.js",
+			"names": [
+				"ExtensionActions",
+				"ExtensionError",
+				"ExtensionRuntime",
+				"ModelSelectEvent",
+				"SetModelHandler",
+				"ToolInfo"
+			],
+			"category": "old-core",
+			"domain": "extensions"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-action-host.ts",
+			"specifier": "../../core/resource-loader.js",
+			"names": [
+				"ResourceLoader"
+			],
+			"category": "old-core",
+			"domain": "resource-loader"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-action-host.ts",
+			"specifier": "../../core/slash-commands.js",
+			"names": [
+				"SlashCommandInfo",
+				"SlashCommandLocation"
+			],
+			"category": "old-core",
+			"domain": "slash-commands"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-command-actions-adapter.ts",
+			"specifier": "../../core/extensions/index.js",
+			"names": [
+				"ExtensionCommandContextActions"
+			],
+			"category": "old-core",
+			"domain": "extensions"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-command-host.ts",
+			"specifier": "../../core/extensions/index.js",
+			"names": [
+				"ExtensionCommandContextActions"
+			],
+			"category": "old-core",
+			"domain": "extensions"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-command-host.ts",
+			"specifier": "../../core/extensions/runner.js",
+			"names": [
+				"ExtensionRunner"
+			],
+			"category": "old-core",
+			"domain": "extensions"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-command-host.ts",
+			"specifier": "../../core/slash-commands.js",
+			"names": [
+				"SlashCommandInfo"
+			],
+			"category": "old-core",
+			"domain": "slash-commands"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-contract.ts",
+			"specifier": "../../core/extensions/runner.js",
+			"names": [
+				"ExtensionRunner"
+			],
+			"category": "old-core",
+			"domain": "extensions"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-contract.ts",
+			"specifier": "../../core/extensions/types.js",
+			"names": [
+				"Extension",
+				"RegisteredTool"
+			],
+			"category": "old-core",
+			"domain": "extensions"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-event-bridge.ts",
+			"specifier": "../../core/extensions/types.js",
+			"names": [
+				"InputEventResult",
+				"InputSource"
+			],
+			"category": "old-core",
+			"domain": "extensions"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-event-host.ts",
+			"specifier": "../../core/extensions/execution-host.js",
+			"names": [
+				"ExtensionExecutionHost"
+			],
+			"category": "old-core",
+			"domain": "extensions"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-event-host.ts",
+			"specifier": "../../core/extensions/runner.js",
+			"names": [
+				"ExtensionRunner"
+			],
+			"category": "old-core",
+			"domain": "extensions"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-event-host.ts",
+			"specifier": "../../core/extensions/types.js",
+			"names": [
+				"Extension",
+				"ExtensionError",
+				"ExtensionRuntime",
+				"ExtensionUIContext"
+			],
+			"category": "old-core",
+			"domain": "extensions"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-event-host.ts",
+			"specifier": "../../core/model-registry.js",
+			"names": [
+				"ModelRegistry"
+			],
+			"category": "old-core",
+			"domain": "model-registry"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-event-host.ts",
+			"specifier": "../../core/resource-loader.js",
+			"names": [
+				"ResourceExtensionPaths",
+				"ResourceLoader"
+			],
+			"category": "old-core",
+			"domain": "resource-loader"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-observation-adapter.ts",
+			"specifier": "../../core/extensions/types.js",
+			"names": [
+				"AgentEndEvent",
+				"AgentStartEvent",
+				"MessageEndEvent",
+				"MessageStartEvent",
+				"MessageUpdateEvent",
+				"ToolExecutionEndEvent",
+				"ToolExecutionPhaseEvent",
+				"ToolExecutionStartEvent",
+				"ToolExecutionUpdateEvent",
+				"TurnEndEvent",
+				"TurnStartEvent"
+			],
+			"category": "old-core",
+			"domain": "extensions"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-observation-adapter.ts",
+			"specifier": "../../core/messages.js",
+			"names": [
+				"CustomMessage"
+			],
+			"category": "old-core",
+			"domain": "messages"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-tool-runtime.ts",
+			"specifier": "../../core/extensions/types.js",
+			"names": [
+				"RegisteredTool"
+			],
+			"category": "old-core",
+			"domain": "extensions"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-tool-wrapper.ts",
+			"specifier": "../../core/extensions/runner.js",
+			"names": [
+				"ExtensionRunner"
+			],
+			"category": "old-core",
+			"domain": "extensions"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-tool-wrapper.ts",
+			"specifier": "../../core/extensions/types.js",
+			"names": [
+				"ToolCallEventResult"
+			],
+			"category": "old-core",
+			"domain": "extensions"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-hook-tool-wrapper.ts",
+			"specifier": "../../core/hooks/tool-wrapper.js",
+			"names": [
+				"EcosystemHookAwareTool",
+				"wrapToolsWithEcosystemHooks"
+			],
+			"category": "old-core",
+			"domain": "hooks"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-invoke-skill-runtime.ts",
+			"specifier": "../../core/agent-mode.js",
+			"names": [
+				"matchesAgentMode"
+			],
+			"category": "old-core",
+			"domain": "agent-mode"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-invoke-skill-runtime.ts",
+			"specifier": "../../core/skills.js",
+			"names": [
+				"Skill"
+			],
+			"category": "old-core",
+			"domain": "skills"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-invoke-skill-runtime.ts",
+			"specifier": "../../core/tools/invoke-skill/index.js",
+			"names": [
+				"createInvokeSkillTool"
+			],
+			"category": "old-core",
+			"domain": "tools"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-knowledge-write-runtime.ts",
+			"specifier": "../../core/knowledge/store.js",
+			"names": [
+				"knowledgeRoot",
+				"wikiDir"
+			],
+			"category": "old-core",
+			"domain": "knowledge"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-knowledge-write-runtime.ts",
+			"specifier": "../../core/knowledge/writer.js",
+			"names": [
+				"WritePageRequest",
+				"WritePageResult",
+				"writeKnowledgePage"
+			],
+			"category": "old-core",
+			"domain": "knowledge"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-mcp-deferred-adapter.ts",
+			"specifier": "../../core/system-prompt.js",
+			"names": [
+				"renderMcpToolsSection"
+			],
+			"category": "old-core",
+			"domain": "system-prompt"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-mcp-deferred-adapter.ts",
+			"specifier": "../../core/tools/tool-search/index.js",
+			"names": [
+				"DeferredToolIndexEntry",
+				"ToolSearchResult",
+				"createToolSearchTool",
+				"scoreDeferredTools"
+			],
+			"category": "old-core",
+			"domain": "tools"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-memory-rollover-orchestrator.ts",
+			"specifier": "../../core/compaction/index.js",
+			"names": [
+				"CompactionPreparation",
+				"CompactionSettings"
+			],
+			"category": "old-core",
+			"domain": "compaction"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-memory-rollover-orchestrator.ts",
+			"specifier": "../../core/memory/memory-flush.js",
+			"names": [
+				"flushMemoryBeforeRollover"
+			],
+			"category": "old-core",
+			"domain": "memory"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-memory-rollover-orchestrator.ts",
+			"specifier": "../../core/memory/memory-journal.js",
+			"names": [
+				"appendJournalLine",
+				"appendJournalSection"
+			],
+			"category": "old-core",
+			"domain": "memory"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-memory-rollover-orchestrator.ts",
+			"specifier": "../../core/memory/memory-store.js",
+			"names": [
+				"DEFAULT_MEMORY_CHAR_LIMIT",
+				"readMemoryContent",
+				"renderMemoryForPrompt"
+			],
+			"category": "old-core",
+			"domain": "memory"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-memory-rollover-orchestrator.ts",
+			"specifier": "../../core/tools/memory/index.js",
+			"names": [
+				"createMemoryTool"
+			],
+			"category": "old-core",
+			"domain": "tools"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-model-call-composer.ts",
+			"specifier": "../../core/system-prompt.js",
+			"names": [
+				"BuildSystemPromptOptions",
+				"SystemPromptDraft",
+				"buildSystemPromptDraft",
+				"renderSystemPromptDraft"
+			],
+			"category": "old-core",
+			"domain": "system-prompt"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-model-call-message-finalizer.ts",
+			"specifier": "../../core/image-budget.js",
+			"names": [
+				"applyImageBudget"
+			],
+			"category": "old-core",
+			"domain": "image-budget"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-plugin-mcp-runtime.ts",
+			"specifier": "../../core/agent-mode.js",
+			"names": [
+				"matchesAgentMode"
+			],
+			"category": "old-core",
+			"domain": "agent-mode"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-plugin-mcp-runtime.ts",
+			"specifier": "../../core/mcp/mcp-supervisor-composition.js",
+			"names": [
+				"CodingAgentMcpSupervisorOptions",
+				"createCodingAgentMcpSupervisor"
+			],
+			"category": "old-core",
+			"domain": "mcp"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-plugin-mcp-runtime.ts",
+			"specifier": "../../core/mcp/plugin-mcp.js",
+			"names": [
+				"fingerprintPluginMcpServers"
+			],
+			"category": "old-core",
+			"domain": "mcp"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-plugin-mcp-runtime.ts",
+			"specifier": "../../core/system-prompt.js",
+			"names": [
+				"AgentPluginRuntimeConfig"
+			],
+			"category": "old-core",
+			"domain": "system-prompt"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-plugin-run-orchestrator.ts",
+			"specifier": "../../core/system-prompt.js",
+			"names": [
+				"AgentPluginContinuationContribution",
+				"AgentPluginContinuationInvoker",
+				"AgentPluginContinuationResult",
+				"AgentPluginRuntimeConfig",
+				"AgentPluginRuntimeEffect",
+				"AgentPluginSystemPromptInvocation",
+				"AgentPluginSystemPromptInvoker",
+				"AgentPluginToolInvocation",
+				"AgentPluginToolInvoker",
+				"SystemPromptDraft",
+				"SystemPromptOperation"
+			],
+			"category": "old-core",
+			"domain": "system-prompt"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-plugin-run-orchestrator.ts",
+			"specifier": "../../core/system-prompt.js",
+			"names": [
+				"applySystemPromptOperations",
+				"renderSystemPromptDraft"
+			],
+			"category": "old-core",
+			"domain": "system-prompt"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-plugin-runtime-effect.ts",
+			"specifier": "../../core/system-prompt.js",
+			"names": [
+				"AgentPluginContinuationResult",
+				"AgentPluginHandlerResult",
+				"AgentPluginRuntimeEffect"
+			],
+			"category": "old-core",
+			"domain": "system-prompt"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-plugin-tool-runtime.ts",
+			"specifier": "../../core/session/tool-scope.js",
+			"names": [
+				"ConversationScenario",
+				"resolveActiveToolNames"
+			],
+			"category": "old-core",
+			"domain": "session"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-plugin-tool-runtime.ts",
+			"specifier": "../../core/system-prompt.js",
+			"names": [
+				"AgentPluginRuntimeConfig",
+				"AgentPluginToolContribution",
+				"AgentPluginToolInvoker"
+			],
+			"category": "old-core",
+			"domain": "system-prompt"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-product-tools-runtime.ts",
+			"specifier": "../../core/tools/doc-to-pdf/index.js",
+			"names": [
+				"createLocalDocToPdfOperations"
+			],
+			"category": "old-core",
+			"domain": "tools"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-product-tools-runtime.ts",
+			"specifier": "../../core/tools/exec-subprocess.js",
+			"names": [
+				"SubprocessAbortError",
+				"runSubprocess"
+			],
+			"category": "old-core",
+			"domain": "tools"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-product-tools-runtime.ts",
+			"specifier": "../../core/tools/ocr-concurrency.js",
+			"names": [
+				"runWithOcrLimit"
+			],
+			"category": "old-core",
+			"domain": "tools"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-prompt-adapter.ts",
+			"specifier": "../../core/extensions/types.js",
+			"names": [
+				"InputSource"
+			],
+			"category": "old-core",
+			"domain": "extensions"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-prompt-adapter.ts",
+			"specifier": "../../core/messages.js",
+			"names": [
+				"PROMPT_ATTACHMENT_CONTEXT_TYPE",
+				"PROMPT_ATTACHMENT_REFERENCE_TYPE",
+				"PROMPT_RESOURCE_REFERENCE_TYPE"
+			],
+			"category": "old-core",
+			"domain": "messages"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-prompt-resource-resolver.ts",
+			"specifier": "../../core/resource-loader.js",
+			"names": [
+				"ResourceLoader"
+			],
+			"category": "old-core",
+			"domain": "resource-loader"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-prompt-resource-resolver.ts",
+			"specifier": "../../core/session/skill-expansion.js",
+			"names": [
+				"SkillExpansionDeps",
+				"expandSkillReference"
+			],
+			"category": "old-core",
+			"domain": "session"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-prompt-resource-resolver.ts",
+			"specifier": "../../core/todo-store.js",
+			"names": [
+				"TodoStore"
+			],
+			"category": "old-core",
+			"domain": "todo-store"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-prompt-runtime.ts",
+			"specifier": "../../core/resource-loader.js",
+			"names": [
+				"DefaultResourceLoader",
+				"DefaultResourceLoaderOptions",
+				"ResourceLoader"
+			],
+			"category": "old-core",
+			"domain": "resource-loader"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-prompt-runtime.ts",
+			"specifier": "../../core/session/system-prompt-builder.js",
+			"names": [
+				"PersonalizationSettingsSource",
+				"resolveSystemPromptOptionsFromSources"
+			],
+			"category": "old-core",
+			"domain": "session"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-prompt-runtime.ts",
+			"specifier": "../../core/session/tool-scope.js",
+			"names": [
+				"ConversationScenario"
+			],
+			"category": "old-core",
+			"domain": "session"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-prompt-runtime.ts",
+			"specifier": "../../core/settings-manager.js",
+			"names": [
+				"SettingsManager"
+			],
+			"category": "old-core",
+			"domain": "settings-manager"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-prompt-runtime.ts",
+			"specifier": "../../core/system-prompt.js",
+			"names": [
+				"AgentPluginRuntimeConfig"
+			],
+			"category": "old-core",
+			"domain": "system-prompt"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-readonly-session-manager.ts",
+			"specifier": "../../core/session-manager/branch-ops.js",
+			"names": [
+				"buildSessionTree"
+			],
+			"category": "old-core",
+			"domain": "session-manager"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-readonly-session-manager.ts",
+			"specifier": "../../core/session-manager/index.js",
+			"names": [
+				"CURRENT_SESSION_VERSION"
+			],
+			"category": "old-core",
+			"domain": "session-manager"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-readonly-session-manager.ts",
+			"specifier": "../../core/session-manager/index.js",
+			"names": [
+				"CustomMessageEntry",
+				"ReadonlySessionManager",
+				"SessionEntry",
+				"SessionHeader",
+				"SessionTreeNode"
+			],
+			"category": "old-core",
+			"domain": "session-manager"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-resource-reload-host.ts",
+			"specifier": "../../core/resource-loader.js",
+			"names": [
+				"ResourceLoader"
+			],
+			"category": "old-core",
+			"domain": "resource-loader"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-resource-reload-host.ts",
+			"specifier": "../../core/settings-manager.js",
+			"names": [
+				"SettingsManager"
+			],
+			"category": "old-core",
+			"domain": "settings-manager"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-sandbox-tool-adapter.ts",
+			"specifier": "../../core/extensions/types.js",
+			"names": [
+				"ExtensionContext",
+				"ExtensionUIContext",
+				"ToolDefinition"
+			],
+			"category": "old-core",
+			"domain": "extensions"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-sdk-session-events.ts",
+			"specifier": "../../core/messages.js",
+			"names": [
+				"CustomMessage"
+			],
+			"category": "old-core",
+			"domain": "messages"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-stop-hook-continuation-source.ts",
+			"specifier": "../../core/session/session-stats.js",
+			"names": [
+				"getLastAssistantText"
+			],
+			"category": "old-core",
+			"domain": "session"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-subagent-tool-adapter.ts",
+			"specifier": "../../core/subagents/tools/index.js",
+			"names": [
+				"createSubagentControlTools"
+			],
+			"category": "old-core",
+			"domain": "subagents"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-todo-continuation-source.ts",
+			"specifier": "../../core/session/todo-continuation.js",
+			"names": [
+				"TodoContinuationState",
+				"buildTodoContinuationMessages"
+			],
+			"category": "old-core",
+			"domain": "session"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-todo-continuation-source.ts",
+			"specifier": "../../core/session/todo-continuation.js",
+			"names": [
+				"TodoContinuationState"
+			],
+			"category": "old-core",
+			"domain": "session"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-todo-runtime.ts",
+			"specifier": "../../core/todo-store.js",
+			"names": [
+				"TODO_SNAPSHOT_TYPE",
+				"TodoSnapshot",
+				"TodoSnapshotEnvelope",
+				"TodoStore"
+			],
+			"category": "old-core",
+			"domain": "todo-store"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-todo-runtime.ts",
+			"specifier": "../../core/tools/todo/index.js",
+			"names": [
+				"createTodoTool"
+			],
+			"category": "old-core",
+			"domain": "tools"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-tool-adapter.ts",
+			"specifier": "../../core/hooks/tool-wrapper.js",
+			"names": [
+				"EcosystemHookAwareTool"
+			],
+			"category": "old-core",
+			"domain": "hooks"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-tool-adapter.ts",
+			"specifier": "../../core/session/tool-scope.js",
+			"names": [
+				"CodingAgentTool",
+				"ConversationScenario",
+				"ToolCategory"
+			],
+			"category": "old-core",
+			"domain": "session"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield.ts",
+			"specifier": "../../core/extensions/index.js",
+			"names": [
+				"ExtensionCommandContextActions"
+			],
+			"category": "old-core",
+			"domain": "extensions"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/history.ts",
+			"specifier": "../../core/messages.js",
+			"names": [
+				"PROMPT_ATTACHMENT_CONTEXT_TYPE",
+				"PROMPT_ATTACHMENT_REFERENCE_TYPE",
+				"PROMPT_RESOURCE_REFERENCE_TYPE"
+			],
+			"category": "old-core",
+			"domain": "messages"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/history.ts",
+			"specifier": "../../core/session-manager/index.js",
+			"names": [
+				"CustomEntry",
+				"FileEntry",
+				"SessionEntry"
+			],
+			"category": "old-core",
+			"domain": "session-manager"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/legacy-mcp-runtime-source.ts",
+			"specifier": "../../core/mcp/index.js",
+			"names": [
+				"McpManager",
+				"McpManagerOptions",
+				"createMcpManager"
+			],
+			"category": "old-core",
+			"domain": "mcp"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/legacy-mcp-runtime-source.ts",
+			"specifier": "../../core/session/tool-scope.js",
+			"names": [
+				"ALL_SCENARIOS",
+				"CodingAgentTool"
+			],
+			"category": "old-core",
+			"domain": "session"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/legacy-session-format/catalog.ts",
+			"specifier": "../../../core/session-manager/index.js",
+			"names": [
+				"SessionInfo",
+				"SessionManager"
+			],
+			"category": "old-core",
+			"domain": "session-manager"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/legacy-session-format/history-reader.ts",
+			"specifier": "../../../core/session-manager/index.js",
+			"names": [
+				"SessionEntry",
+				"loadEntriesFromFile"
+			],
+			"category": "old-core",
+			"domain": "session-manager"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/legacy-session-format/lease.ts",
+			"specifier": "../../../core/session-lock.js",
+			"names": [
+				"SessionLockError",
+				"SessionLockHandle",
+				"SessionLockInfo",
+				"acquireSessionLock"
+			],
+			"category": "old-core",
+			"domain": "session-lock"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/legacy-session-import-normalizer.ts",
+			"specifier": "../../core/messages.js",
+			"names": [
+				"COMPACTION_SUMMARY_PREFIX",
+				"COMPACTION_SUMMARY_SUFFIX",
+				"PROMPT_ATTACHMENT_REFERENCE_TYPE",
+				"PROMPT_RESOURCE_REFERENCE_TYPE",
+				"convertToLlm"
+			],
+			"category": "old-core",
+			"domain": "messages"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/legacy-session-import-normalizer.ts",
+			"specifier": "../../core/session-manager/index.js",
+			"names": [
+				"SessionMessageEntry"
+			],
+			"category": "old-core",
+			"domain": "session-manager"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/legacy-session-setup-seed-importer.ts",
+			"specifier": "../../core/session-manager/index.js",
+			"names": [
+				"SessionManager"
+			],
+			"category": "old-core",
+			"domain": "session-manager"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-core/model-registry-shared-model-controller.ts",
+			"specifier": "../../core/model-registry.js",
+			"names": [
+				"ModelRegistry"
+			],
+			"category": "old-core",
+			"domain": "model-registry"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-tools/command-executor.ts",
+			"specifier": "../../core/tools/bash/index.js",
+			"names": [
+				"BashToolInput",
+				"BashToolOptions",
+				"createBashTool"
+			],
+			"category": "old-core",
+			"domain": "tools"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-tools/command-executor.ts",
+			"specifier": "../../core/tools/shell/index.js",
+			"names": [
+				"createShellTool"
+			],
+			"category": "old-core",
+			"domain": "tools"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-tools/edit-path-policy.ts",
+			"specifier": "../../core/tools/path-utils.js",
+			"names": [
+				"isKnowledgeWikiPath",
+				"isProtectedSkillOrScenePath"
+			],
+			"category": "old-core",
+			"domain": "tools"
+		},
+		{
+			"path": "packages/coding-agent/src/adapters/runtime-tools/write-path-policy.ts",
+			"specifier": "../../core/tools/path-utils.js",
+			"names": [
+				"isKnowledgeWikiPath",
+				"isProtectedSkillOrScenePath"
+			],
+			"category": "old-core",
+			"domain": "tools"
+		},
+		{
+			"path": "packages/coding-agent/src/cli/args.ts",
+			"specifier": "../core/session/tool-scope.js",
+			"names": [
+				"ConversationScenario"
+			],
+			"category": "old-core",
+			"domain": "session"
+		},
+		{
+			"path": "packages/coding-agent/src/cli/args.ts",
+			"specifier": "../core/tools/index.js",
+			"names": [
+				"ToolName",
+				"allTools"
+			],
+			"category": "old-core",
+			"domain": "tools"
+		},
+		{
+			"path": "packages/coding-agent/src/cli/file-processor.ts",
+			"specifier": "../core/tools/path-utils.js",
+			"names": [
+				"resolveReadPath"
+			],
+			"category": "old-core",
+			"domain": "tools"
+		},
+		{
+			"path": "packages/coding-agent/src/cli/list-models.ts",
+			"specifier": "../core/model-registry.js",
+			"names": [
+				"ModelRegistry"
+			],
+			"category": "old-core",
+			"domain": "model-registry"
+		},
+		{
+			"path": "packages/coding-agent/src/composition/greenfield-knowledge-processing-session.ts",
+			"specifier": "../core/knowledge/store.js",
+			"names": [
+				"knowledgeRoot",
+				"wikiDir"
+			],
+			"category": "old-core",
+			"domain": "knowledge"
+		},
+		{
+			"path": "packages/coding-agent/src/composition/greenfield-runtime-tool-surface.ts",
+			"specifier": "../core/tools/kb-filter-by-tags/index.js",
+			"names": [
+				"createKbFilterByTagsTool"
+			],
+			"category": "old-core",
+			"domain": "tools"
+		},
+		{
+			"path": "packages/coding-agent/src/composition/greenfield-runtime-tool-surface.ts",
+			"specifier": "../core/tools/kb-list-tags/index.js",
+			"names": [
+				"createKbListTagsTool"
+			],
+			"category": "old-core",
+			"domain": "tools"
+		},
+		{
+			"path": "packages/coding-agent/src/composition/greenfield-subagent-runtime.ts",
+			"specifier": "../core/subagents/types/explorer.js",
+			"names": [
+				"EXPLORER_SYSTEM_PROMPT"
+			],
+			"category": "old-core",
+			"domain": "subagents"
+		},
+		{
+			"path": "packages/coding-agent/src/composition/greenfield-subagent-runtime.ts",
+			"specifier": "../core/subagents/types/workflow.js",
+			"names": [
+				"WORKFLOW_SYSTEM_PROMPT"
+			],
+			"category": "old-core",
+			"domain": "subagents"
+		},
+		{
+			"path": "packages/coding-agent/src/composition/knowledge-processing-contract.ts",
+			"specifier": "../core/knowledge/writer.js",
+			"names": [
+				"WritePageRequest",
+				"WritePageResult"
+			],
+			"category": "old-core",
+			"domain": "knowledge"
+		},
+		{
+			"path": "packages/coding-agent/src/host/coding-agent-cli-control.ts",
+			"specifier": "../core/export-html/index.js",
+			"names": [
+				"exportFromFile"
+			],
+			"category": "old-core",
+			"domain": "export-html"
+		},
+		{
+			"path": "packages/coding-agent/src/host/coding-agent-cli-control.ts",
+			"specifier": "../core/package-manager.js",
+			"names": [
+				"DefaultPackageManager"
+			],
+			"category": "old-core",
+			"domain": "package-manager"
+		},
+		{
+			"path": "packages/coding-agent/src/host/coding-agent-cli-control.ts",
+			"specifier": "../core/settings-manager.js",
+			"names": [
+				"SettingsManager"
+			],
+			"category": "old-core",
+			"domain": "settings-manager"
+		},
+		{
+			"path": "packages/coding-agent/src/host/coding-agent-extension-compatibility.ts",
+			"specifier": "../core/extensions/types.js",
+			"names": [
+				"ExtensionEvent"
+			],
+			"category": "old-core",
+			"domain": "extensions"
+		},
+		{
+			"path": "packages/coding-agent/src/host/coding-agent-host-bootstrap.ts",
+			"specifier": "../core/auth-storage.js",
+			"names": [
+				"AuthStorage"
+			],
+			"category": "old-core",
+			"domain": "auth-storage"
+		},
+		{
+			"path": "packages/coding-agent/src/host/coding-agent-host-bootstrap.ts",
+			"specifier": "../core/defaults.js",
+			"names": [
+				"DEFAULT_THINKING_LEVEL"
+			],
+			"category": "old-core",
+			"domain": "defaults"
+		},
+		{
+			"path": "packages/coding-agent/src/host/coding-agent-host-bootstrap.ts",
+			"specifier": "../core/extensions/index.js",
+			"names": [
+				"LoadExtensionsResult"
+			],
+			"category": "old-core",
+			"domain": "extensions"
+		},
+		{
+			"path": "packages/coding-agent/src/host/coding-agent-host-bootstrap.ts",
+			"specifier": "../core/model-registry.js",
+			"names": [
+				"ModelRegistry"
+			],
+			"category": "old-core",
+			"domain": "model-registry"
+		},
+		{
+			"path": "packages/coding-agent/src/host/coding-agent-host-bootstrap.ts",
+			"specifier": "../core/model-resolver.js",
+			"names": [
+				"ScopedModel",
+				"findInitialModel",
+				"resolveCliModel",
+				"resolveModelScope"
+			],
+			"category": "old-core",
+			"domain": "model-resolver"
+		},
+		{
+			"path": "packages/coding-agent/src/host/coding-agent-host-bootstrap.ts",
+			"specifier": "../core/resource-loader.js",
+			"names": [
+				"DefaultResourceLoader"
+			],
+			"category": "old-core",
+			"domain": "resource-loader"
+		},
+		{
+			"path": "packages/coding-agent/src/host/coding-agent-host-bootstrap.ts",
+			"specifier": "../core/settings-manager.js",
+			"names": [
+				"SettingsError",
+				"SettingsManager"
+			],
+			"category": "old-core",
+			"domain": "settings-manager"
+		},
+		{
+			"path": "packages/coding-agent/src/host/coding-agent-host-bootstrap.ts",
+			"specifier": "../core/timings.js",
+			"names": [
+				"time"
+			],
+			"category": "old-core",
+			"domain": "timings"
+		},
+		{
+			"path": "packages/coding-agent/src/host/coding-agent-sdk-bash-adapter.ts",
+			"specifier": "../core/bash-executor.js",
+			"names": [
+				"BashResult",
+				"executeBash",
+				"executeBashWithOperations"
+			],
+			"category": "old-core",
+			"domain": "bash-executor"
+		},
+		{
+			"path": "packages/coding-agent/src/host/coding-agent-sdk-bash-adapter.ts",
+			"specifier": "../core/messages.js",
+			"names": [
+				"BashExecutionMessage",
+				"bashExecutionToText"
+			],
+			"category": "old-core",
+			"domain": "messages"
+		},
+		{
+			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
+			"specifier": "../core/auth-storage.js",
+			"names": [
+				"AuthStorage"
+			],
+			"category": "old-core",
+			"domain": "auth-storage"
+		},
+		{
+			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
+			"specifier": "../core/defaults.js",
+			"names": [
+				"DEFAULT_THINKING_LEVEL"
+			],
+			"category": "old-core",
+			"domain": "defaults"
+		},
+		{
+			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
+			"specifier": "../core/export-html/index.js",
+			"names": [
+				"ToolHtmlRenderer",
+				"exportConversationDocumentToHtml"
+			],
+			"category": "old-core",
+			"domain": "export-html"
+		},
+		{
+			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
+			"specifier": "../core/export-html/tool-renderer.js",
+			"names": [
+				"createToolHtmlRenderer"
+			],
+			"category": "old-core",
+			"domain": "export-html"
+		},
+		{
+			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
+			"specifier": "../core/extensions/index.js",
+			"names": [
+				"ExtensionContext",
+				"LoadExtensionsResult",
+				"ToolDefinition"
+			],
+			"category": "old-core",
+			"domain": "extensions"
+		},
+		{
+			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
+			"specifier": "../core/memory/memory-store.js",
+			"names": [
+				"DEFAULT_MEMORY_CHAR_LIMIT"
+			],
+			"category": "old-core",
+			"domain": "memory"
+		},
+		{
+			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
+			"specifier": "../core/model-registry.js",
+			"names": [
+				"ModelRegistry"
+			],
+			"category": "old-core",
+			"domain": "model-registry"
+		},
+		{
+			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
+			"specifier": "../core/model-resolver.js",
+			"names": [
+				"findInitialModel"
+			],
+			"category": "old-core",
+			"domain": "model-resolver"
+		},
+		{
+			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
+			"specifier": "../core/resource-loader.js",
+			"names": [
+				"DefaultResourceLoader"
+			],
+			"category": "old-core",
+			"domain": "resource-loader"
+		},
+		{
+			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
+			"specifier": "../core/sdk.js",
+			"names": [
+				"CreateAgentSessionOptions"
+			],
+			"category": "old-core",
+			"domain": "sdk"
+		},
+		{
+			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
+			"specifier": "../core/settings-manager.js",
+			"names": [
+				"SettingsManager"
+			],
+			"category": "old-core",
+			"domain": "settings-manager"
+		},
+		{
+			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
+			"specifier": "../core/timings.js",
+			"names": [
+				"time"
+			],
+			"category": "old-core",
+			"domain": "timings"
+		},
+		{
+			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
+			"specifier": "../core/tools/index.js",
+			"names": [
+				"Tool",
+				"ToolName",
+				"createAllTools"
+			],
+			"category": "old-core",
+			"domain": "tools"
+		},
+		{
+			"path": "packages/coding-agent/src/host/coding-agent-sdk-resource-source-adapter.ts",
+			"specifier": "../core/diagnostics.js",
+			"names": [
+				"ResourceDiagnostic"
+			],
+			"category": "old-core",
+			"domain": "diagnostics"
+		},
+		{
+			"path": "packages/coding-agent/src/host/coding-agent-sdk-resource-source-adapter.ts",
+			"specifier": "../core/skills.js",
+			"names": [
+				"Skill"
+			],
+			"category": "old-core",
+			"domain": "skills"
+		},
+		{
+			"path": "packages/coding-agent/src/host/coding-agent-sdk-session-storage.ts",
+			"specifier": "../core/session-manager/index.js",
+			"names": [
+				"SessionContext",
+				"SessionManager"
+			],
+			"category": "old-core",
+			"domain": "session-manager"
+		},
+		{
+			"path": "packages/coding-agent/src/host/coding-agent-sdk-subagent-adapter.ts",
+			"specifier": "../core/model-registry.js",
+			"names": [
+				"ModelRegistry"
+			],
+			"category": "old-core",
+			"domain": "model-registry"
+		},
+		{
+			"path": "packages/coding-agent/src/host/coding-agent-sdk-subagent-adapter.ts",
+			"specifier": "../core/session/tool-scope.js",
+			"names": [
+				"ALL_SCENARIOS",
+				"ConversationScenario"
+			],
+			"category": "old-core",
+			"domain": "session"
+		},
+		{
+			"path": "packages/coding-agent/src/host/coding-agent-sdk-subagent-adapter.ts",
+			"specifier": "../core/subagents/index.js",
+			"names": [
+				"SubagentChildHandle",
+				"SubagentParentContext",
+				"SubagentSessionFactory",
+				"SubagentSnapshot",
+				"SubagentSpawnRequest",
+				"SubagentTypeDefinition",
+				"SubagentTypeRegistryLike",
+				"createDefaultSubagentTypeRegistry"
+			],
+			"category": "old-core",
+			"domain": "subagents"
+		},
+		{
+			"path": "packages/coding-agent/src/index.ts",
+			"specifier": "./core/agent-mode.js",
+			"names": [
+				"ALL_AGENT_MODES",
+				"AgentMode",
+				"DEFAULT_AGENT_MODE",
+				"isAgentMode",
+				"matchesAgentMode"
+			],
+			"category": "old-core",
+			"domain": "agent-mode"
+		},
+		{
+			"path": "packages/coding-agent/src/index.ts",
+			"specifier": "./core/agent-session.js",
+			"names": [
+				"AgentSession",
+				"AgentSessionConfig",
+				"AgentSessionEvent",
+				"AgentSessionEventListener",
+				"ModelCycleResult",
+				"ParsedSkillBlock",
+				"PromptOptions",
+				"PromptResourceRef",
+				"SessionStats",
+				"parseSkillBlock"
+			],
+			"category": "old-core",
+			"domain": "agent-session"
+		},
+		{
+			"path": "packages/coding-agent/src/index.ts",
+			"specifier": "./core/auth-storage.js",
+			"names": [
+				"ApiKeyCredential",
+				"AuthCredential",
+				"AuthStorage",
+				"AuthStorageBackend",
+				"FileAuthStorageBackend",
+				"InMemoryAuthStorageBackend",
+				"OAuthCredential"
+			],
+			"category": "old-core",
+			"domain": "auth-storage"
+		},
+		{
+			"path": "packages/coding-agent/src/index.ts",
+			"specifier": "./core/background-tasks/index.js",
+			"names": [
+				"BackgroundTaskEndedBy",
+				"BackgroundTaskEvent",
+				"BackgroundTaskListener",
+				"BackgroundTaskManager",
+				"BackgroundTaskSnapshot",
+				"BackgroundTaskStatus",
+				"buildTaskNotification"
+			],
+			"category": "old-core",
+			"domain": "background-tasks"
+		},
+		{
+			"path": "packages/coding-agent/src/index.ts",
+			"specifier": "./core/compaction/index.js",
+			"names": [
+				"BranchPreparation",
+				"BranchSummaryResult",
+				"CollectEntriesResult",
+				"CompactionResult",
+				"CutPointResult",
+				"DEFAULT_COMPACTION_SETTINGS",
+				"FileOperations",
+				"GenerateBranchSummaryOptions",
+				"calculateContextTokens",
+				"collectEntriesForBranchSummary",
+				"compact",
+				"estimateTokens",
+				"findCutPoint",
+				"findTurnStartIndex",
+				"generateBranchSummary",
+				"generateSummary",
+				"getLastAssistantUsage",
+				"prepareBranchEntries",
+				"serializeConversation",
+				"shouldCompact"
+			],
+			"category": "old-core",
+			"domain": "compaction"
+		},
+		{
+			"path": "packages/coding-agent/src/index.ts",
+			"specifier": "./core/concurrency-limit.js",
+			"names": [
+				"Limiter",
+				"createLimiter"
+			],
+			"category": "old-core",
+			"domain": "concurrency-limit"
+		},
+		{
+			"path": "packages/coding-agent/src/index.ts",
+			"specifier": "./core/event-bus.js",
+			"names": [
+				"EventBus",
+				"EventBusController",
+				"createEventBus"
+			],
+			"category": "old-core",
+			"domain": "event-bus"
+		},
+		{
+			"path": "packages/coding-agent/src/index.ts",
+			"specifier": "./core/extensions/index.js",
+			"names": [
+				"AgentEndEvent",
+				"AgentStartEvent",
+				"AgentToolResult",
+				"AgentToolUpdateCallback",
+				"AppAction",
+				"BashToolCallEvent",
+				"BeforeAgentStartEvent",
+				"CompactOptions",
+				"ContextEvent",
+				"ContextUsage",
+				"CustomToolCallEvent",
+				"DirTreeToolCallEvent",
+				"EditToolCallEvent",
+				"ExecOptions",
+				"ExecResult",
+				"Extension",
+				"ExtensionAPI",
+				"ExtensionActions",
+				"ExtensionCommandContext",
+				"ExtensionCommandContextActions",
+				"ExtensionContext",
+				"ExtensionContextActions",
+				"ExtensionError",
+				"ExtensionEvent",
+				"ExtensionExecutionHost",
+				"ExtensionFactory",
+				"ExtensionFlag",
+				"ExtensionHandler",
+				"ExtensionRuntime",
+				"ExtensionShortcut",
+				"ExtensionUIContext",
+				"ExtensionUIDialogOptions",
+				"ExtensionWidgetOptions",
+				"FindToolCallEvent",
+				"FindToolResultEvent",
+				"GlobToolCallEvent",
+				"GlobToolResultEvent",
+				"GrepToolCallEvent",
+				"GrepToolResultEvent",
+				"InputEvent",
+				"InputEventResult",
+				"InputSource",
+				"KeybindingsManager",
+				"LoadExtensionsResult",
+				"LsToolCallEvent",
+				"MessageRenderOptions",
+				"MessageRenderer",
+				"ProviderConfig",
+				"ProviderModelConfig",
+				"ReadToolCallEvent",
+				"RegisteredCommand",
+				"RegisteredTool",
+				"SessionBeforeCompactEvent",
+				"SessionBeforeForkEvent",
+				"SessionBeforeSwitchEvent",
+				"SessionBeforeTreeEvent",
+				"SessionCompactEvent",
+				"SessionForkEvent",
+				"SessionShutdownEvent",
+				"SessionStartEvent",
+				"SessionSwitchEvent",
+				"SessionTreeEvent",
+				"SlashCommandInfo",
+				"SlashCommandLocation",
+				"SlashCommandSource",
+				"TerminalInputHandler",
+				"ToolCallEvent",
+				"ToolDefinition",
+				"ToolInfo",
+				"ToolRenderResultOptions",
+				"ToolResultEvent",
+				"TurnEndEvent",
+				"TurnStartEvent",
+				"UserBashEvent",
+				"UserBashEventResult",
+				"WidgetPlacement",
+				"WriteToolCallEvent"
+			],
+			"category": "old-core",
+			"domain": "extensions"
+		},
+		{
+			"path": "packages/coding-agent/src/index.ts",
+			"specifier": "./core/extensions/index.js",
+			"names": [
+				"ExtensionRunner",
+				"bindExtensionRuntimeActions",
+				"createExtensionRuntime",
+				"discoverAndLoadExtensions",
+				"isBashToolResult",
+				"isDirTreeToolResult",
+				"isEditToolResult",
+				"isFindToolResult",
+				"isGlobToolResult",
+				"isGrepToolResult",
+				"isLsToolResult",
+				"isReadToolResult",
+				"isToolCallEventType",
+				"isWriteToolResult",
+				"wrapRegisteredTool",
+				"wrapRegisteredTools",
+				"wrapToolWithExtensions",
+				"wrapToolsWithExtensions"
+			],
+			"category": "old-core",
+			"domain": "extensions"
+		},
+		{
+			"path": "packages/coding-agent/src/index.ts",
+			"specifier": "./core/footer-data-provider.js",
+			"names": [
+				"ReadonlyFooterDataProvider"
+			],
+			"category": "old-core",
+			"domain": "footer-data-provider"
+		},
+		{
+			"path": "packages/coding-agent/src/index.ts",
+			"specifier": "./core/knowledge/index.js",
+			"names": [
+				"*"
+			],
+			"category": "old-core",
+			"domain": "knowledge"
+		},
+		{
+			"path": "packages/coding-agent/src/index.ts",
+			"specifier": "./core/messages.js",
+			"names": [
+				"PROMPT_ATTACHMENT_CONTEXT_TYPE",
+				"PROMPT_ATTACHMENT_REFERENCE_TYPE",
+				"PROMPT_RESOURCE_REFERENCE_TYPE",
+				"convertToLlm"
+			],
+			"category": "old-core",
+			"domain": "messages"
+		},
+		{
+			"path": "packages/coding-agent/src/index.ts",
+			"specifier": "./core/model-registry.js",
+			"names": [
+				"ModelRegistry"
+			],
+			"category": "old-core",
+			"domain": "model-registry"
+		},
+		{
+			"path": "packages/coding-agent/src/index.ts",
+			"specifier": "./core/package-manager.js",
+			"names": [
+				"DefaultPackageManager"
+			],
+			"category": "old-core",
+			"domain": "package-manager"
+		},
+		{
+			"path": "packages/coding-agent/src/index.ts",
+			"specifier": "./core/package-manager.js",
+			"names": [
+				"PackageManager",
+				"PathMetadata",
+				"ProgressCallback",
+				"ProgressEvent",
+				"ResolvedPaths",
+				"ResolvedResource"
+			],
+			"category": "old-core",
+			"domain": "package-manager"
+		},
+		{
+			"path": "packages/coding-agent/src/index.ts",
+			"specifier": "./core/personas.js",
+			"names": [
+				"DEFAULT_PERSONA_ID",
+				"PERSONAS",
+				"Persona",
+				"getPersonaPrompt"
+			],
+			"category": "old-core",
+			"domain": "personas"
+		},
+		{
+			"path": "packages/coding-agent/src/index.ts",
+			"specifier": "./core/resource-loader.js",
+			"names": [
+				"DefaultResourceLoader"
+			],
+			"category": "old-core",
+			"domain": "resource-loader"
+		},
+		{
+			"path": "packages/coding-agent/src/index.ts",
+			"specifier": "./core/resource-loader.js",
+			"names": [
+				"ResourceCollision",
+				"ResourceDiagnostic",
+				"ResourceLoader"
+			],
+			"category": "old-core",
+			"domain": "resource-loader"
+		},
+		{
+			"path": "packages/coding-agent/src/index.ts",
+			"specifier": "./core/sdk.js",
+			"names": [
+				"CreateAgentSessionOptions",
+				"CreateAgentSessionResult",
+				"PromptTemplate",
+				"createAgentSession",
+				"createBashTool",
+				"createCodingTools",
+				"createEditTool",
+				"createExtractTextFromImgTool",
+				"createExtractTextFromPdfTool",
+				"createFindTool",
+				"createGlobTool",
+				"createGrepTool",
+				"createHtmlToPdfTool",
+				"createLsTool",
+				"createProgressTool",
+				"createReadOnlyTools",
+				"createReadTool",
+				"createRenderPdfPageTool",
+				"createShellTool",
+				"createTreeTool",
+				"createWriteTool",
+				"readOnlyTools"
+			],
+			"category": "old-core",
+			"domain": "sdk"
+		},
+		{
+			"path": "packages/coding-agent/src/index.ts",
+			"specifier": "./core/session-manager/index.js",
+			"names": [
+				"BranchSummaryEntry",
+				"CURRENT_SESSION_VERSION",
+				"CompactionEntry",
+				"CustomEntry",
+				"CustomMessageEntry",
+				"FileEntry",
+				"ModelChangeEntry",
+				"NewSessionOptions",
+				"SessionContext",
+				"SessionEntry",
+				"SessionEntryBase",
+				"SessionHeader",
+				"SessionInfo",
+				"SessionInfoEntry",
+				"SessionManager",
+				"SessionMessageEntry",
+				"ThinkingLevelChangeEntry",
+				"buildSessionContext",
+				"getLatestCompactionEntry",
+				"loadEntriesFromFile",
+				"migrateSessionEntries",
+				"parseSessionEntries"
+			],
+			"category": "old-core",
+			"domain": "session-manager"
+		},
+		{
+			"path": "packages/coding-agent/src/index.ts",
+			"specifier": "./core/session/tool-scope.js",
+			"names": [
+				"ALL_SCENARIOS",
+				"CodingAgentTool",
+				"ConversationScenario",
+				"DEFAULT_SCENARIO",
+				"ToolCapability",
+				"ToolCategory"
+			],
+			"category": "old-core",
+			"domain": "session"
+		},
+		{
+			"path": "packages/coding-agent/src/index.ts",
+			"specifier": "./core/session/types.js",
+			"names": [
+				"PromptAttachmentRef"
+			],
+			"category": "old-core",
+			"domain": "session"
+		},
+		{
+			"path": "packages/coding-agent/src/index.ts",
+			"specifier": "./core/settings-manager.js",
+			"names": [
+				"CompactionSettings",
+				"ImageSettings",
+				"PackageSource",
+				"PersonalizationSettings",
+				"RetrySettings",
+				"SettingsManager"
+			],
+			"category": "old-core",
+			"domain": "settings-manager"
+		},
+		{
+			"path": "packages/coding-agent/src/index.ts",
+			"specifier": "./core/skills.js",
+			"names": [
+				"LoadSkillsFromDirOptions",
+				"LoadSkillsResult",
+				"Skill",
+				"SkillFrontmatter",
+				"formatSkillsForPrompt",
+				"loadSkills",
+				"loadSkillsFromDir"
+			],
+			"category": "old-core",
+			"domain": "skills"
+		},
+		{
+			"path": "packages/coding-agent/src/index.ts",
+			"specifier": "./core/subagents/index.js",
+			"names": [
+				"DISPATCH_WORKFLOWS_MAX_BATCH",
+				"EXPLORER_SYSTEM_PROMPT",
+				"SUBAGENT_CONTROL_TOOL_NAMES",
+				"SUBAGENT_TYPE_EXPLORER",
+				"SUBAGENT_TYPE_WORKFLOW",
+				"SubagentChildHandle",
+				"SubagentCoordinator",
+				"SubagentSessionFactory",
+				"SubagentSnapshot",
+				"SubagentStatus",
+				"SubagentTodoProgress",
+				"SubagentTypeDefinition",
+				"SubagentTypeId",
+				"SubagentTypeRegistry",
+				"WORKFLOW_SYSTEM_PROMPT",
+				"buildToolsForSubagentType",
+				"createDefaultSubagentSessionFactory",
+				"createDefaultSubagentTypeRegistry",
+				"createEmptySubagentTypeRegistry",
+				"createExplorerTypeDefinition",
+				"createSubagentControlTools",
+				"createWorkflowTypeDefinition",
+				"isValidTaskName"
+			],
+			"category": "old-core",
+			"domain": "subagents"
+		},
+		{
+			"path": "packages/coding-agent/src/index.ts",
+			"specifier": "./core/tools/index.js",
+			"names": [
+				"AskUserQuestionAnswer",
+				"AskUserQuestionCapability",
+				"AskUserQuestionFn",
+				"AskUserQuestionItem",
+				"AskUserQuestionOption",
+				"AskUserQuestionRequest",
+				"AskUserQuestionResult",
+				"AskUserQuestionToolDetails",
+				"AskUserQuestionToolInput",
+				"AskUserQuestionToolOptions",
+				"BashOperations",
+				"BashSpawnContext",
+				"BashSpawnHook",
+				"BashToolDetails",
+				"BashToolInput",
+				"BashToolOptions",
+				"CommandToolName",
+				"DEFAULT_MAX_BYTES",
+				"DEFAULT_MAX_LINES",
+				"EditOperations",
+				"EditToolDetails",
+				"EditToolInput",
+				"EditToolOptions",
+				"ExtractTextFromImgToolInput",
+				"ExtractTextFromPdfToolInput",
+				"FindOperations",
+				"FindToolDetails",
+				"FindToolInput",
+				"FindToolOptions",
+				"GlobOperations",
+				"GlobToolDetails",
+				"GlobToolInput",
+				"GlobToolOptions",
+				"GrepOperations",
+				"GrepToolDetails",
+				"GrepToolInput",
+				"GrepToolOptions",
+				"HtmlToPdfToolInput",
+				"LsOperations",
+				"LsToolDetails",
+				"LsToolInput",
+				"LsToolOptions",
+				"ProgressToolDetails",
+				"ProgressToolInput",
+				"ReadOperations",
+				"ReadToolDetails",
+				"ReadToolInput",
+				"ReadToolOptions",
+				"RenderPdfPageToolInput",
+				"ShellOperations",
+				"ShellSpawnContext",
+				"ShellSpawnHook",
+				"ShellToolDetails",
+				"ShellToolInput",
+				"ShellToolOptions",
+				"TaskOutputToolDetails",
+				"TaskOutputToolInput",
+				"TaskOutputToolOptions",
+				"TaskStopToolDetails",
+				"TaskStopToolInput",
+				"TaskStopToolOptions",
+				"ToolsOptions",
+				"TreeOperations",
+				"TreeToolDetails",
+				"TreeToolInput",
+				"TreeToolOptions",
+				"TruncationOptions",
+				"TruncationResult",
+				"WriteOperations",
+				"WriteToolInput",
+				"WriteToolOptions",
+				"bashTool",
+				"codingTools",
+				"createAskUserQuestionTool",
+				"createImSendAttachmentTool",
+				"createTaskOutputTool",
+				"createTaskStopTool",
+				"createToolSearchTool",
+				"editTool",
+				"extractTextFromImgTool",
+				"extractTextFromPdfTool",
+				"findTool",
+				"formatSize",
+				"getDefaultCodingToolNames",
+				"getDefaultCommandToolName",
+				"globTool",
+				"grepTool",
+				"htmlToPdfTool",
+				"lsTool",
+				"progressTool",
+				"readTool",
+				"renderPdfPageTool",
+				"shellTool",
+				"treeTool",
+				"truncateHead",
+				"truncateLine",
+				"truncateTail",
+				"writeTool"
+			],
+			"category": "old-core",
+			"domain": "tools"
+		},
+		{
+			"path": "packages/coding-agent/src/index.ts",
+			"specifier": "./core/tools/kb-filter-by-tags/index.js",
+			"names": [
+				"KbFilterByTagsDetails",
+				"KbFilterByTagsInput",
+				"createKbFilterByTagsTool",
+				"kbFilterByTagsTool"
+			],
+			"category": "old-core",
+			"domain": "tools"
+		},
+		{
+			"path": "packages/coding-agent/src/index.ts",
+			"specifier": "./core/tools/kb-list-tags/index.js",
+			"names": [
+				"KbListTagsDetails",
+				"KbListTagsInput",
+				"createKbListTagsTool",
+				"kbListTagsTool"
+			],
+			"category": "old-core",
+			"domain": "tools"
+		},
+		{
+			"path": "packages/coding-agent/src/index.ts",
+			"specifier": "./core/tools/kb-write-page/index.js",
+			"names": [
+				"KbWritePageDetails",
+				"KbWritePageInput",
+				"createKbWritePageTool",
+				"kbWritePageTool"
+			],
+			"category": "old-core",
+			"domain": "tools"
+		},
+		{
+			"path": "packages/coding-agent/src/modes/rpc/greenfield-rpc-capabilities.ts",
+			"specifier": "../../core/bash-executor.js",
+			"names": [
+				"BashResult",
+				"executeBash"
+			],
+			"category": "old-core",
+			"domain": "bash-executor"
+		},
+		{
+			"path": "packages/coding-agent/src/modes/rpc/greenfield-rpc-capabilities.ts",
+			"specifier": "../../core/export-html/index.js",
+			"names": [
+				"exportConversationDocumentToHtml"
+			],
+			"category": "old-core",
+			"domain": "export-html"
+		},
+		{
+			"path": "packages/coding-agent/src/modes/rpc/greenfield-rpc-capabilities.ts",
+			"specifier": "../../core/messages.js",
+			"names": [
+				"BashExecutionMessage",
+				"bashExecutionToText"
+			],
+			"category": "old-core",
+			"domain": "messages"
+		},
+		{
+			"path": "packages/coding-agent/src/modes/rpc/greenfield-rpc-capabilities.ts",
+			"specifier": "../../core/session/session-stats.js",
+			"names": [
+				"SessionStats"
+			],
+			"category": "old-core",
+			"domain": "session"
+		},
+		{
+			"path": "packages/coding-agent/src/modes/rpc/rpc-client.ts",
+			"specifier": "../../core/agent-session.js",
+			"names": [
+				"SessionStats"
+			],
+			"category": "old-core",
+			"domain": "agent-session"
+		},
+		{
+			"path": "packages/coding-agent/src/modes/rpc/rpc-client.ts",
+			"specifier": "../../core/bash-executor.js",
+			"names": [
+				"BashResult"
+			],
+			"category": "old-core",
+			"domain": "bash-executor"
+		},
+		{
+			"path": "packages/coding-agent/src/modes/rpc/rpc-client.ts",
+			"specifier": "../../core/compaction/index.js",
+			"names": [
+				"CompactionResult"
+			],
+			"category": "old-core",
+			"domain": "compaction"
+		},
+		{
+			"path": "packages/coding-agent/src/modes/rpc/rpc-mode.ts",
+			"specifier": "../../core/agent-session.js",
+			"names": [
+				"AgentSession"
+			],
+			"category": "old-core",
+			"domain": "agent-session"
+		},
+		{
+			"path": "packages/coding-agent/src/modes/rpc/rpc-session-capabilities.ts",
+			"specifier": "../../core/bash-executor.js",
+			"names": [
+				"BashResult"
+			],
+			"category": "old-core",
+			"domain": "bash-executor"
+		},
+		{
+			"path": "packages/coding-agent/src/modes/rpc/rpc-session-capabilities.ts",
+			"specifier": "../../core/compaction/index.js",
+			"names": [
+				"CompactionResult"
+			],
+			"category": "old-core",
+			"domain": "compaction"
+		},
+		{
+			"path": "packages/coding-agent/src/modes/rpc/rpc-session-capabilities.ts",
+			"specifier": "../../core/extensions/index.js",
+			"names": [
+				"ExtensionUIContext",
+				"ExtensionUIDialogOptions",
+				"ExtensionWidgetOptions"
+			],
+			"category": "old-core",
+			"domain": "extensions"
+		},
+		{
+			"path": "packages/coding-agent/src/modes/rpc/rpc-session-capabilities.ts",
+			"specifier": "../../core/session/session-stats.js",
+			"names": [
+				"SessionStats"
+			],
+			"category": "old-core",
+			"domain": "session"
+		},
+		{
+			"path": "packages/coding-agent/src/modes/rpc/rpc-session-capabilities.ts",
+			"specifier": "../../core/tools/im-send-attachment/index.js",
+			"names": [
+				"ImHostBridge"
+			],
+			"category": "old-core",
+			"domain": "tools"
+		},
+		{
+			"path": "packages/coding-agent/src/modes/rpc/rpc-types.ts",
+			"specifier": "../../core/agent-session.js",
+			"names": [
+				"SessionStats"
+			],
+			"category": "old-core",
+			"domain": "agent-session"
+		},
+		{
+			"path": "packages/coding-agent/src/modes/rpc/rpc-types.ts",
+			"specifier": "../../core/bash-executor.js",
+			"names": [
+				"BashResult"
+			],
+			"category": "old-core",
+			"domain": "bash-executor"
+		},
+		{
+			"path": "packages/coding-agent/src/modes/rpc/rpc-types.ts",
+			"specifier": "../../core/compaction/index.js",
+			"names": [
+				"CompactionResult"
+			],
+			"category": "old-core",
+			"domain": "compaction"
+		},
+		{
+			"path": "packages/coding-agent/src/public-api/extensions.ts",
+			"specifier": "../core/extensions/index.js",
+			"names": [
+				"*"
+			],
+			"category": "old-core",
+			"domain": "extensions"
+		},
+		{
+			"path": "packages/coding-agent/src/public-api/host-services.ts",
+			"specifier": "../core/auth-storage.js",
+			"names": [
+				"AuthStorage"
+			],
+			"category": "old-core",
+			"domain": "auth-storage"
+		},
+		{
+			"path": "packages/coding-agent/src/public-api/host-services.ts",
+			"specifier": "../core/model-registry.js",
+			"names": [
+				"ModelRegistry"
+			],
+			"category": "old-core",
+			"domain": "model-registry"
+		},
+		{
+			"path": "packages/coding-agent/src/public-api/host-services.ts",
+			"specifier": "../core/settings-manager.js",
+			"names": [
+				"SettingsManager"
+			],
+			"category": "old-core",
+			"domain": "settings-manager"
+		},
+		{
+			"path": "packages/coding-agent/src/public-api/profile.ts",
+			"specifier": "../core/agent-mode.js",
+			"names": [
+				"ALL_AGENT_MODES",
+				"AgentMode",
+				"DEFAULT_AGENT_MODE",
+				"isAgentMode",
+				"matchesAgentMode"
+			],
+			"category": "old-core",
+			"domain": "agent-mode"
+		},
+		{
+			"path": "packages/coding-agent/src/public-api/profile.ts",
+			"specifier": "../core/personas.js",
+			"names": [
+				"DEFAULT_PERSONA_ID",
+				"PERSONAS",
+				"Persona",
+				"getPersonaPrompt"
+			],
+			"category": "old-core",
+			"domain": "personas"
+		},
+		{
+			"path": "packages/coding-agent/src/public-api/profile.ts",
+			"specifier": "../core/session/tool-scope.js",
+			"names": [
+				"ALL_SCENARIOS",
+				"CodingAgentTool",
+				"ConversationScenario",
+				"DEFAULT_SCENARIO",
+				"ToolCapability",
+				"ToolCategory"
+			],
+			"category": "old-core",
+			"domain": "session"
+		},
+		{
+			"path": "packages/coding-agent/src/public-api/rpc.ts",
+			"specifier": "../core/tools/im-send-attachment/index.js",
+			"names": [
+				"ImHostBridge",
+				"ImSendAttachmentToolDetails",
+				"createImSendAttachmentTool"
+			],
+			"category": "old-core",
+			"domain": "tools"
+		},
+		{
+			"path": "packages/coding-agent/src/utils/shell.ts",
+			"specifier": "../core/settings-manager.js",
+			"names": [
+				"SettingsManager"
+			],
+			"category": "old-core",
+			"domain": "settings-manager"
+		},
+		{
+			"path": "packages/desktop-app/src/main/conversations/resolve-session-config.ts",
+			"specifier": "../../../../coding-agent/src/core/system-prompt.js",
+			"names": [
+				"VETTA_CLI_GUIDANCE"
+			],
+			"category": "old-core",
+			"domain": "system-prompt"
+		},
+		{
+			"path": "packages/desktop-app/src/main/ipc/fs.ts",
+			"specifier": "@vetta/coding-agent/core/mcp/index.js",
+			"names": [
+				"clearMcpOAuthState",
+				"hasMcpOAuthTokens",
+				"loginHttpMcpServer",
+				"loginMcpDeviceFlow"
+			],
+			"category": "old-core-public-subpath",
+			"domain": "mcp"
+		},
+		{
+			"path": "packages/desktop-app/src/main/models/fetch-models.ts",
+			"specifier": "@vetta/coding-agent/core/resolve-config-value.js",
+			"names": [
+				"resolveConfigValue",
+				"resolveHeaders"
+			],
+			"category": "old-core-public-subpath",
+			"domain": "resolve-config-value.js"
+		},
+		{
+			"path": "packages/runtime-storage/src/index.ts",
+			"specifier": "@vetta/coding-agent/compat/runtime-storage",
+			"names": [
+				"AuthCredential",
+				"AuthStorage",
+				"AuthStorageBackend",
+				"FileAuthStorageBackend",
+				"InMemoryAuthStorageBackend",
+				"SessionContext",
+				"SessionEntry",
+				"SessionInfo",
+				"SessionManager"
+			],
+			"category": "compatibility-entry",
+			"domain": "compatibility"
+		},
+		{
+			"path": "packages/runtime-storage/src/index.ts",
+			"specifier": "@vetta/coding-agent/core/settings-manager.js",
+			"names": [
+				"FileSettingsStorage",
+				"InMemorySettingsStorage",
+				"Settings",
+				"SettingsManager",
+				"SettingsScope",
+				"SettingsStorage"
+			],
+			"category": "old-core-public-subpath",
+			"domain": "settings-manager.js"
+		},
+		{
+			"path": "packages/runtime-tools/src/index.ts",
+			"specifier": "@vetta/coding-agent/compat/runtime-tools",
+			"names": [
+				"bashTool",
+				"codingTools",
+				"createBashTool",
+				"createCodingTools",
+				"createEditTool",
+				"createFindTool",
+				"createGlobTool",
+				"createGrepTool",
+				"createHtmlToPdfTool",
+				"createKbFilterByTagsTool",
+				"createKbListTagsTool",
+				"createKbWritePageTool",
+				"createLsTool",
+				"createReadOnlyTools",
+				"createReadTool",
+				"createTreeTool",
+				"createWriteTool",
+				"editTool",
+				"findTool",
+				"globTool",
+				"grepTool",
+				"htmlToPdfTool",
+				"kbFilterByTagsTool",
+				"kbListTagsTool",
+				"kbWritePageTool",
+				"lsTool",
+				"readOnlyTools",
+				"readTool",
+				"treeTool",
+				"writeTool"
+			],
+			"category": "compatibility-entry",
+			"domain": "compatibility"
+		}
+	],
+	"runtimeBackedges": [
+		{
+			"path": "packages/runtime-storage/src/index.ts",
+			"specifier": "@vetta/coding-agent/compat/runtime-storage",
+			"names": [
+				"AuthCredential",
+				"AuthStorage",
+				"AuthStorageBackend",
+				"FileAuthStorageBackend",
+				"InMemoryAuthStorageBackend",
+				"SessionContext",
+				"SessionEntry",
+				"SessionInfo",
+				"SessionManager"
+			]
+		},
+		{
+			"path": "packages/runtime-storage/src/index.ts",
+			"specifier": "@vetta/coding-agent/core/settings-manager.js",
+			"names": [
+				"FileSettingsStorage",
+				"InMemorySettingsStorage",
+				"Settings",
+				"SettingsManager",
+				"SettingsScope",
+				"SettingsStorage"
+			]
+		},
+		{
+			"path": "packages/runtime-tools/src/index.ts",
+			"specifier": "@vetta/coding-agent/compat/runtime-tools",
+			"names": [
+				"bashTool",
+				"codingTools",
+				"createBashTool",
+				"createCodingTools",
+				"createEditTool",
+				"createFindTool",
+				"createGlobTool",
+				"createGrepTool",
+				"createHtmlToPdfTool",
+				"createKbFilterByTagsTool",
+				"createKbListTagsTool",
+				"createKbWritePageTool",
+				"createLsTool",
+				"createReadOnlyTools",
+				"createReadTool",
+				"createTreeTool",
+				"createWriteTool",
+				"editTool",
+				"findTool",
+				"globTool",
+				"grepTool",
+				"htmlToPdfTool",
+				"kbFilterByTagsTool",
+				"kbListTagsTool",
+				"kbWritePageTool",
+				"lsTool",
+				"readOnlyTools",
+				"readTool",
+				"treeTool",
+				"writeTool"
+			]
+		}
+	],
+	"oldImplementationFiles": [
+		"packages/coding-agent/src/core/agent-mode.ts",
+		"packages/coding-agent/src/core/agent-session.ts",
+		"packages/coding-agent/src/core/auth-storage.ts",
+		"packages/coding-agent/src/core/background-tasks/index.ts",
+		"packages/coding-agent/src/core/bash-executor.ts",
+		"packages/coding-agent/src/core/compaction/branch-summarization.ts",
+		"packages/coding-agent/src/core/compaction/circuit-breaker.ts",
+		"packages/coding-agent/src/core/compaction/compaction.ts",
+		"packages/coding-agent/src/core/compaction/index.ts",
+		"packages/coding-agent/src/core/compaction/microcompact.ts",
+		"packages/coding-agent/src/core/compaction/prefire.ts",
+		"packages/coding-agent/src/core/compaction/utils.ts",
+		"packages/coding-agent/src/core/concurrency-limit.ts",
+		"packages/coding-agent/src/core/defaults.ts",
+		"packages/coding-agent/src/core/diagnostics.ts",
+		"packages/coding-agent/src/core/event-bus.ts",
+		"packages/coding-agent/src/core/exec.ts",
+		"packages/coding-agent/src/core/export-html/ansi-to-html.ts",
+		"packages/coding-agent/src/core/export-html/index.ts",
+		"packages/coding-agent/src/core/export-html/template.js",
+		"packages/coding-agent/src/core/export-html/tool-renderer.ts",
+		"packages/coding-agent/src/core/export-html/vendor/highlight.min.js",
+		"packages/coding-agent/src/core/export-html/vendor/marked.min.js",
+		"packages/coding-agent/src/core/extensions/execution-host.ts",
+		"packages/coding-agent/src/core/extensions/index.ts",
+		"packages/coding-agent/src/core/extensions/loader.ts",
+		"packages/coding-agent/src/core/extensions/runner.ts",
+		"packages/coding-agent/src/core/extensions/types.ts",
+		"packages/coding-agent/src/core/extensions/ui-types.ts",
+		"packages/coding-agent/src/core/extensions/wrapper.ts",
+		"packages/coding-agent/src/core/footer-data-provider.ts",
+		"packages/coding-agent/src/core/hooks/index.ts",
+		"packages/coding-agent/src/core/hooks/tool-wrapper.ts",
+		"packages/coding-agent/src/core/host/executable-resolver.ts",
+		"packages/coding-agent/src/core/image-budget.ts",
+		"packages/coding-agent/src/core/index.ts",
+		"packages/coding-agent/src/core/keybindings.ts",
+		"packages/coding-agent/src/core/knowledge/batch-planner.ts",
+		"packages/coding-agent/src/core/knowledge/cache.ts",
+		"packages/coding-agent/src/core/knowledge/differ.ts",
+		"packages/coding-agent/src/core/knowledge/failures.ts",
+		"packages/coding-agent/src/core/knowledge/frontmatter.ts",
+		"packages/coding-agent/src/core/knowledge/index-map.ts",
+		"packages/coding-agent/src/core/knowledge/index.ts",
+		"packages/coding-agent/src/core/knowledge/ingest.ts",
+		"packages/coding-agent/src/core/knowledge/processing-prompt.ts",
+		"packages/coding-agent/src/core/knowledge/query.ts",
+		"packages/coding-agent/src/core/knowledge/store.ts",
+		"packages/coding-agent/src/core/knowledge/tag-filter.ts",
+		"packages/coding-agent/src/core/knowledge/types.ts",
+		"packages/coding-agent/src/core/knowledge/upsert.ts",
+		"packages/coding-agent/src/core/knowledge/writer.ts",
+		"packages/coding-agent/src/core/mcp/index.ts",
+		"packages/coding-agent/src/core/mcp/mcp-client.ts",
+		"packages/coding-agent/src/core/mcp/mcp-config.ts",
+		"packages/coding-agent/src/core/mcp/mcp-device-flow.ts",
+		"packages/coding-agent/src/core/mcp/mcp-http-client.ts",
+		"packages/coding-agent/src/core/mcp/mcp-manager.ts",
+		"packages/coding-agent/src/core/mcp/mcp-oauth-flow.ts",
+		"packages/coding-agent/src/core/mcp/mcp-oauth-provider.ts",
+		"packages/coding-agent/src/core/mcp/mcp-oauth-storage.ts",
+		"packages/coding-agent/src/core/mcp/mcp-process.ts",
+		"packages/coding-agent/src/core/mcp/mcp-supervisor-composition.ts",
+		"packages/coding-agent/src/core/mcp/mcp-tool-adapter.ts",
+		"packages/coding-agent/src/core/mcp/plugin-mcp.ts",
+		"packages/coding-agent/src/core/mcp/types.ts",
+		"packages/coding-agent/src/core/memory/memory-flush.ts",
+		"packages/coding-agent/src/core/memory/memory-journal.ts",
+		"packages/coding-agent/src/core/memory/memory-store.ts",
+		"packages/coding-agent/src/core/messages.ts",
+		"packages/coding-agent/src/core/mode-prompt.ts",
+		"packages/coding-agent/src/core/model-registry.ts",
+		"packages/coding-agent/src/core/model-resolver.ts",
+		"packages/coding-agent/src/core/modes-data.ts",
+		"packages/coding-agent/src/core/package-manager.ts",
+		"packages/coding-agent/src/core/personas-data.ts",
+		"packages/coding-agent/src/core/personas.ts",
+		"packages/coding-agent/src/core/prompt-templates.ts",
+		"packages/coding-agent/src/core/resolve-config-value.ts",
+		"packages/coding-agent/src/core/resource-loader.ts",
+		"packages/coding-agent/src/core/sdk.ts",
+		"packages/coding-agent/src/core/session-lock.ts",
+		"packages/coding-agent/src/core/session-manager/branch-ops.ts",
+		"packages/coding-agent/src/core/session-manager/format-compat.ts",
+		"packages/coding-agent/src/core/session-manager/index.ts",
+		"packages/coding-agent/src/core/session-manager/llm-context.ts",
+		"packages/coding-agent/src/core/session-manager/manager.ts",
+		"packages/coding-agent/src/core/session-manager/message-edit.ts",
+		"packages/coding-agent/src/core/session-manager/session-catalog.ts",
+		"packages/coding-agent/src/core/session-manager/session-fork.ts",
+		"packages/coding-agent/src/core/session-manager/session-lifecycle.ts",
+		"packages/coding-agent/src/core/session-manager/session-model.ts",
+		"packages/coding-agent/src/core/session-manager/session-store.ts",
+		"packages/coding-agent/src/core/session-manager/transcript-write.ts",
+		"packages/coding-agent/src/core/session-manager/tree-navigation.ts",
+		"packages/coding-agent/src/core/session/background-task-controller.ts",
+		"packages/coding-agent/src/core/session/bash-controller.ts",
+		"packages/coding-agent/src/core/session/compaction-controller.ts",
+		"packages/coding-agent/src/core/session/event-router.ts",
+		"packages/coding-agent/src/core/session/extension-binding.ts",
+		"packages/coding-agent/src/core/session/input-pipeline.ts",
+		"packages/coding-agent/src/core/session/model-controller.ts",
+		"packages/coding-agent/src/core/session/normalize-images.ts",
+		"packages/coding-agent/src/core/session/queue-controller.ts",
+		"packages/coding-agent/src/core/session/retry-controller.ts",
+		"packages/coding-agent/src/core/session/runtime-manager.ts",
+		"packages/coding-agent/src/core/session/session-context.ts",
+		"packages/coding-agent/src/core/session/session-navigator.ts",
+		"packages/coding-agent/src/core/session/session-operation-gate.ts",
+		"packages/coding-agent/src/core/session/session-stats.ts",
+		"packages/coding-agent/src/core/session/skill-expansion.ts",
+		"packages/coding-agent/src/core/session/subagent-controller.ts",
+		"packages/coding-agent/src/core/session/system-prompt-builder.ts",
+		"packages/coding-agent/src/core/session/todo-continuation.ts",
+		"packages/coding-agent/src/core/session/todo-controller.ts",
+		"packages/coding-agent/src/core/session/tool-scope.ts",
+		"packages/coding-agent/src/core/session/types.ts",
+		"packages/coding-agent/src/core/settings-manager.ts",
+		"packages/coding-agent/src/core/skills.ts",
+		"packages/coding-agent/src/core/slash-commands.ts",
+		"packages/coding-agent/src/core/subagents/coordinator.ts",
+		"packages/coding-agent/src/core/subagents/fork-context.ts",
+		"packages/coding-agent/src/core/subagents/index.ts",
+		"packages/coding-agent/src/core/subagents/notifications.ts",
+		"packages/coding-agent/src/core/subagents/persistence.ts",
+		"packages/coding-agent/src/core/subagents/session-factory.ts",
+		"packages/coding-agent/src/core/subagents/tools/dispatch-workflows.ts",
+		"packages/coding-agent/src/core/subagents/tools/followup-task.ts",
+		"packages/coding-agent/src/core/subagents/tools/index.ts",
+		"packages/coding-agent/src/core/subagents/tools/interrupt-agent.ts",
+		"packages/coding-agent/src/core/subagents/tools/list-agents.ts",
+		"packages/coding-agent/src/core/subagents/tools/send-message.ts",
+		"packages/coding-agent/src/core/subagents/tools/spawn-agent.ts",
+		"packages/coding-agent/src/core/subagents/tools/wait-agent.ts",
+		"packages/coding-agent/src/core/subagents/type-registry.ts",
+		"packages/coding-agent/src/core/subagents/types.ts",
+		"packages/coding-agent/src/core/subagents/types/explorer.ts",
+		"packages/coding-agent/src/core/subagents/types/workflow.ts",
+		"packages/coding-agent/src/core/subconscious.ts",
+		"packages/coding-agent/src/core/system-prompt.ts",
+		"packages/coding-agent/src/core/timings.ts",
+		"packages/coding-agent/src/core/todo-store.ts",
+		"packages/coding-agent/src/core/tools/anchors.ts",
+		"packages/coding-agent/src/core/tools/ask-user-question/index.ts",
+		"packages/coding-agent/src/core/tools/bash/index.ts",
+		"packages/coding-agent/src/core/tools/current-time/index.ts",
+		"packages/coding-agent/src/core/tools/description.ts",
+		"packages/coding-agent/src/core/tools/descriptions-data.ts",
+		"packages/coding-agent/src/core/tools/doc-to-pdf/index.ts",
+		"packages/coding-agent/src/core/tools/edit-diff.ts",
+		"packages/coding-agent/src/core/tools/edit/index.ts",
+		"packages/coding-agent/src/core/tools/exec-subprocess.ts",
+		"packages/coding-agent/src/core/tools/extract-text-from-img/index.ts",
+		"packages/coding-agent/src/core/tools/extract-text-from-pdf/index.ts",
+		"packages/coding-agent/src/core/tools/find/index.ts",
+		"packages/coding-agent/src/core/tools/glob/index.ts",
+		"packages/coding-agent/src/core/tools/grep/index.ts",
+		"packages/coding-agent/src/core/tools/html-to-pdf/index.ts",
+		"packages/coding-agent/src/core/tools/im-send-attachment/index.ts",
+		"packages/coding-agent/src/core/tools/index.ts",
+		"packages/coding-agent/src/core/tools/invoke-skill/index.ts",
+		"packages/coding-agent/src/core/tools/kb-filter-by-tags/index.ts",
+		"packages/coding-agent/src/core/tools/kb-list-tags/index.ts",
+		"packages/coding-agent/src/core/tools/kb-write-page/index.ts",
+		"packages/coding-agent/src/core/tools/ls/index.ts",
+		"packages/coding-agent/src/core/tools/memory/index.ts",
+		"packages/coding-agent/src/core/tools/ocr-concurrency.ts",
+		"packages/coding-agent/src/core/tools/path-utils.ts",
+		"packages/coding-agent/src/core/tools/progress/index.ts",
+		"packages/coding-agent/src/core/tools/read/index.ts",
+		"packages/coding-agent/src/core/tools/render-pdf-page/index.ts",
+		"packages/coding-agent/src/core/tools/shell/index.ts",
+		"packages/coding-agent/src/core/tools/task-output/index.ts",
+		"packages/coding-agent/src/core/tools/task-stop/index.ts",
+		"packages/coding-agent/src/core/tools/todo/index.ts",
+		"packages/coding-agent/src/core/tools/tool-call-description.ts",
+		"packages/coding-agent/src/core/tools/tool-search/index.ts",
+		"packages/coding-agent/src/core/tools/tree/index.ts",
+		"packages/coding-agent/src/core/tools/truncate.ts",
+		"packages/coding-agent/src/core/tools/write/index.ts",
+		"packages/coding-agent/src/modes/rpc/legacy-rpc-session-adapter.ts",
+		"packages/coding-agent/src/public-api/compat-runtime-storage.ts",
+		"packages/coding-agent/src/public-api/compat-runtime-tools.ts",
+		"packages/coding-agent/src/public-api/sdk-compatibility-inventory.ts"
+	],
+	"compatibilityExports": [
+		"./compat/runtime-storage",
+		"./compat/runtime-tools"
+	],
+	"legacyExampleImports": [
+		{
+			"path": "packages/coding-agent/examples/sdk/12-full-control.ts",
+			"specifier": "@vetta/coding-agent",
+			"names": [
+				"AuthStorage",
+				"ModelRegistry",
+				"ResourceLoader",
+				"SessionManager",
+				"SettingsManager",
+				"createAgentSession",
+				"createBashTool",
+				"createExtensionRuntime",
+				"createReadTool"
+			]
+		}
+	]
+}

@@ -1,0 +1,290 @@
+/**
+ * Track the complete Coding Agent rewrite independently from Legacy execution retirement.
+ * Existing old-implementation edges are an exact baseline: every change must update the
+ * baseline deliberately, and the final target for every reported category is zero.
+ */
+
+import { existsSync } from "node:fs";
+import { join, posix } from "node:path";
+import ts from "typescript";
+import { RETAINED_LEGACY_FORMAT_BOUNDARIES } from "./check-legacy-execution-retirement.mjs";
+import { fail, isDirectRun, ok, readText, rel, repoRoot, toPosix, walkFiles } from "./lib.mjs";
+
+export const REWRITE_BASELINE_PATH = "scripts/quality/baselines/coding-agent-rewrite.json";
+
+const OLD_CORE_PREFIX = "packages/coding-agent/src/core/";
+const RUNTIME_PACKAGE_PREFIXES = Object.freeze([
+	"packages/runtime-core/src/",
+	"packages/runtime-tools/src/",
+	"packages/runtime-storage/src/",
+	"packages/runtime-mcp/src/",
+]);
+const OLD_IMPLEMENTATION_EXACT_FILES = Object.freeze([
+	"packages/coding-agent/src/modes/rpc/legacy-rpc-session-adapter.ts",
+	"packages/coding-agent/src/public-api/compat-runtime-storage.ts",
+	"packages/coding-agent/src/public-api/compat-runtime-tools.ts",
+	"packages/coding-agent/src/public-api/sdk-compatibility-inventory.ts",
+]);
+
+export function collectCodingAgentRewriteState({ productionFiles, sdkExampleFiles, codingAgentPackageJson }) {
+	const moduleEdges = productionFiles.flatMap((file) => collectModuleEdges(file.path, file.text));
+	const oldImplementationEdges = moduleEdges
+		.filter((edge) => !isOldImplementationFile(edge.path))
+		.flatMap((edge) => classifyOldImplementationEdge(edge))
+		.sort(compareRecords);
+	const runtimeBackedges = moduleEdges
+		.filter(
+			(edge) =>
+				RUNTIME_PACKAGE_PREFIXES.some((prefix) => edge.path.startsWith(prefix)) &&
+				edge.specifier.startsWith("@vetta/coding-agent"),
+		)
+		.map(toBaselineEdge)
+		.sort(compareRecords);
+	const oldImplementationFiles = productionFiles
+		.map((file) => file.path)
+		.filter(isOldImplementationFile)
+		.sort();
+	const compatibilityExports = Object.keys(codingAgentPackageJson.exports ?? {})
+		.filter((exportName) => exportName.startsWith("./compat/"))
+		.sort();
+	const legacyExampleImports = sdkExampleFiles
+		.flatMap((file) => collectModuleEdges(file.path, file.text))
+		.filter(
+			(edge) => edge.specifier === "@vetta/coding-agent" || edge.specifier.startsWith("@vetta/coding-agent/compat/"),
+		)
+		.map(toBaselineEdge)
+		.sort(compareRecords);
+
+	return Object.freeze({
+		version: 1,
+		oldImplementationEdges,
+		runtimeBackedges,
+		oldImplementationFiles,
+		compatibilityExports,
+		legacyExampleImports,
+	});
+}
+
+export function findCodingAgentRewriteProgressViolations(actual, baseline) {
+	const violations = [];
+	if (baseline.version !== actual.version) {
+		violations.push(`rewrite baseline version differs (${baseline.version} !== ${actual.version})`);
+	}
+	compareBaselineRecords(
+		"old implementation dependency",
+		actual.oldImplementationEdges,
+		baseline.oldImplementationEdges,
+		violations,
+	);
+	compareBaselineRecords("Runtime package backedge", actual.runtimeBackedges, baseline.runtimeBackedges, violations);
+	compareBaselineValues(
+		"old implementation file",
+		actual.oldImplementationFiles,
+		baseline.oldImplementationFiles,
+		violations,
+	);
+	compareBaselineValues(
+		"compatibility package export",
+		actual.compatibilityExports,
+		baseline.compatibilityExports,
+		violations,
+	);
+	compareBaselineRecords(
+		"legacy SDK example import",
+		actual.legacyExampleImports,
+		baseline.legacyExampleImports,
+		violations,
+	);
+	return violations;
+}
+
+export function summarizeCodingAgentRewriteState(state) {
+	const domains = new Map();
+	for (const edge of state.oldImplementationEdges) {
+		domains.set(edge.domain, (domains.get(edge.domain) ?? 0) + 1);
+	}
+	const formatBoundarySet = new Set(RETAINED_LEGACY_FORMAT_BOUNDARIES);
+	return Object.freeze({
+		oldImplementationEdges: state.oldImplementationEdges.length,
+		runtimeBackedges: state.runtimeBackedges.length,
+		oldImplementationFiles: state.oldImplementationFiles.length,
+		compatibilityExports: state.compatibilityExports.length,
+		legacyExampleImports: state.legacyExampleImports.length,
+		retainedFormatBoundaries: RETAINED_LEGACY_FORMAT_BOUNDARIES.length,
+		formatBoundaryOldImplementationEdges: state.oldImplementationEdges.filter((edge) =>
+			formatBoundarySet.has(edge.path),
+		).length,
+		domains: Object.fromEntries(
+			[...domains].sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0])),
+		),
+	});
+}
+
+function classifyOldImplementationEdge(edge) {
+	const resolvedTarget = resolveSourceTarget(edge.path, edge.specifier);
+	if (resolvedTarget?.startsWith(OLD_CORE_PREFIX)) {
+		return [{ ...toBaselineEdge(edge), category: "old-core", domain: readCoreDomain(resolvedTarget) }];
+	}
+	if (edge.specifier.startsWith("@vetta/coding-agent/core/")) {
+		return [
+			{
+				...toBaselineEdge(edge),
+				category: "old-core-public-subpath",
+				domain: readCoreDomain(`packages/coding-agent/src/${edge.specifier.slice("@vetta/coding-agent/".length)}`),
+			},
+		];
+	}
+	if (
+		edge.specifier.startsWith("@vetta/coding-agent/compat/") ||
+		resolvedTarget?.startsWith("packages/coding-agent/src/public-api/compat-")
+	) {
+		return [{ ...toBaselineEdge(edge), category: "compatibility-entry", domain: "compatibility" }];
+	}
+	if (edge.specifier === "@vetta/coding-agent") {
+		return [{ ...toBaselineEdge(edge), category: "legacy-package-root", domain: "public-api" }];
+	}
+	return [];
+}
+
+function collectModuleEdges(path, text) {
+	if (!path.includes("/src/") && !path.includes("/examples/sdk/")) return [];
+	if (/(?:^|\/)(?:test|tests|__tests__)(?:\/|$)/.test(path) || /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(path)) {
+		return [];
+	}
+	const sourceFile = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true, scriptKind(path));
+	const edges = [];
+	const visit = (node) => {
+		if (ts.isImportDeclaration(node) && ts.isStringLiteralLike(node.moduleSpecifier)) {
+			edges.push({ path, specifier: node.moduleSpecifier.text, names: collectImportNames(node.importClause) });
+		} else if (ts.isExportDeclaration(node) && node.moduleSpecifier && ts.isStringLiteralLike(node.moduleSpecifier)) {
+			edges.push({ path, specifier: node.moduleSpecifier.text, names: collectExportNames(node.exportClause) });
+		} else if (
+			ts.isCallExpression(node) &&
+			node.expression.kind === ts.SyntaxKind.ImportKeyword &&
+			node.arguments.length === 1 &&
+			ts.isStringLiteralLike(node.arguments[0])
+		) {
+			edges.push({ path, specifier: node.arguments[0].text, names: ["<dynamic>"] });
+		}
+		ts.forEachChild(node, visit);
+	};
+	visit(sourceFile);
+	return edges;
+}
+
+function collectImportNames(clause) {
+	if (!clause) return ["<side-effect>"];
+	const names = [];
+	if (clause.name) names.push("default");
+	if (clause.namedBindings && ts.isNamedImports(clause.namedBindings)) {
+		for (const element of clause.namedBindings.elements) names.push(element.propertyName?.text ?? element.name.text);
+	}
+	if (clause.namedBindings && ts.isNamespaceImport(clause.namedBindings)) names.push("*");
+	return names.sort();
+}
+
+function collectExportNames(clause) {
+	if (!clause || !ts.isNamedExports(clause)) return ["*"];
+	return clause.elements.map((element) => element.propertyName?.text ?? element.name.text).sort();
+}
+
+function resolveSourceTarget(sourcePath, specifier) {
+	if (!specifier.startsWith(".")) return undefined;
+	return posix.normalize(posix.join(posix.dirname(sourcePath), specifier)).replace(/\.js$/, ".ts");
+}
+
+function readCoreDomain(target) {
+	return target.slice(OLD_CORE_PREFIX.length).split("/")[0]?.replace(/\.ts$/, "") || "unknown";
+}
+
+function isOldImplementationFile(path) {
+	return path.startsWith(OLD_CORE_PREFIX) || OLD_IMPLEMENTATION_EXACT_FILES.includes(path);
+}
+
+function toBaselineEdge(edge) {
+	return Object.freeze({ path: edge.path, specifier: edge.specifier, names: [...edge.names].sort() });
+}
+
+function compareRecords(left, right) {
+	return recordKey(left).localeCompare(recordKey(right));
+}
+
+function recordKey(record) {
+	return `${record.path}\0${record.specifier}\0${record.names.join(",")}\0${record.category ?? ""}\0${record.domain ?? ""}`;
+}
+
+function compareBaselineRecords(label, actual, baseline, violations) {
+	const actualKeys = new Map(actual.map((record) => [recordKey(record), record]));
+	const baselineKeys = new Map(baseline.map((record) => [recordKey(record), record]));
+	for (const [key, record] of actualKeys) {
+		if (!baselineKeys.has(key)) violations.push(`${record.path}: new ${label} (${record.specifier})`);
+	}
+	for (const [key, record] of baselineKeys) {
+		if (!actualKeys.has(key)) violations.push(`${record.path}: stale ${label} baseline (${record.specifier})`);
+	}
+}
+
+function compareBaselineValues(label, actual, baseline, violations) {
+	const actualSet = new Set(actual);
+	const baselineSet = new Set(baseline);
+	for (const value of actualSet) {
+		if (!baselineSet.has(value)) violations.push(`${value}: new ${label}`);
+	}
+	for (const value of baselineSet) {
+		if (!actualSet.has(value)) violations.push(`${value}: stale ${label} baseline`);
+	}
+}
+
+function scriptKind(path) {
+	if (path.endsWith(".tsx")) return ts.ScriptKind.TSX;
+	if (path.endsWith(".jsx")) return ts.ScriptKind.JSX;
+	if (path.endsWith(".js") || path.endsWith(".mjs") || path.endsWith(".cjs")) return ts.ScriptKind.JS;
+	return ts.ScriptKind.TS;
+}
+
+function readProductionSources() {
+	return walkFiles(join(repoRoot, "packages"))
+		.map((filePath) => ({ path: rel(filePath), text: readText(filePath) }))
+		.filter((file) => file.path.includes("/src/"));
+}
+
+function readSdkExamples() {
+	return walkFiles(join(repoRoot, "packages/coding-agent/examples/sdk"))
+		.map((filePath) => ({ path: rel(filePath), text: readText(filePath) }))
+		.filter((file) => /\.[cm]?[jt]sx?$/.test(file.path));
+}
+
+function readCurrentState() {
+	const codingAgentPackageJson = JSON.parse(readText(join(repoRoot, "packages/coding-agent/package.json")));
+	return collectCodingAgentRewriteState({
+		productionFiles: readProductionSources(),
+		sdkExampleFiles: readSdkExamples(),
+		codingAgentPackageJson,
+	});
+}
+
+if (isDirectRun(import.meta.url)) {
+	const actual = readCurrentState();
+	if (process.argv.includes("--print-baseline")) {
+		console.log(JSON.stringify(actual, null, "\t"));
+	} else {
+		const baselinePath = join(repoRoot, REWRITE_BASELINE_PATH);
+		if (!existsSync(baselinePath)) {
+			fail(`[coding-agent-rewrite] missing baseline: ${toPosix(REWRITE_BASELINE_PATH)}`);
+		} else {
+			const baseline = JSON.parse(readText(baselinePath));
+			const violations = findCodingAgentRewriteProgressViolations(actual, baseline);
+			if (violations.length > 0) {
+				for (const violation of violations) fail(`[coding-agent-rewrite] ${violation}`);
+			} else {
+				const summary = summarizeCodingAgentRewriteState(actual);
+				const domains = Object.entries(summary.domains)
+					.map(([domain, count]) => `${domain}=${count}`)
+					.join(", ");
+				ok(
+					`[coding-agent-rewrite] ok (old implementation edges=${summary.oldImplementationEdges}/0, Runtime backedges=${summary.runtimeBackedges}/0, old files=${summary.oldImplementationFiles}/0, compatibility exports=${summary.compatibilityExports}/0, legacy examples=${summary.legacyExampleImports}/0, retained format boundaries=${summary.retainedFormatBoundaries}, format-to-old edges=${summary.formatBoundaryOldImplementationEdges}/0; domains: ${domains || "none"})`,
+				);
+			}
+		}
+	}
+}

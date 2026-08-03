@@ -24,10 +24,10 @@ export const RETAINED_LEGACY_FORMAT_BOUNDARIES = Object.freeze([
 export const LEGACY_PACKAGE_EXPORT_BASELINE = Object.freeze([]);
 
 /**
- * Greenfield 对 Coding Agent 产品 Core 的静态依赖预算。
+ * Greenfield 对 Coding Agent 旧产品 Core 的历史静态依赖预算。
  *
- * 这些边不是 Legacy 执行边：Adapter 可以依赖产品能力，Composition Root 可以装配
- * 具体实现，RPC Host Adapter 可以复用产品投影。预算允许减少，新增必须经过架构审查。
+ * 这些边不是 Legacy 执行边，因此仍由本脚本单独报告；它们也不代表允许长期保留。
+ * 全量旧实现依赖及归零目标由 check-coding-agent-rewrite-progress.mjs 负责冻结和审查。
  */
 export const GREENFIELD_PRODUCT_CORE_EDGE_BUDGET = Object.freeze({
 	"product-adapter": 85,
