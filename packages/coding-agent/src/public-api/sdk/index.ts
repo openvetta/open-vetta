@@ -1,10 +1,13 @@
 export type {
+	CodingAgentContextFileContribution,
+	CodingAgentPromptTemplateContribution,
 	CodingAgentQuestionAnswer,
 	CodingAgentQuestionCapability,
 	CodingAgentQuestionItem,
 	CodingAgentQuestionOption,
 	CodingAgentQuestionRequest,
 	CodingAgentQuestionResult,
+	CodingAgentResourceContributions,
 	CodingAgentSessionCreateErrorCode,
 	CodingAgentSessionDiagnostic,
 	CodingAgentSessionStorageTarget,
@@ -12,6 +15,11 @@ export type {
 	CreateCodingAgentSessionResult,
 } from "./sdk-create-contract.js";
 export { CODING_AGENT_SESSION_CREATE_ERROR_CODES, CodingAgentSessionCreateError } from "./sdk-create-contract.js";
+export type {
+	CodingAgentSessionCatalog,
+	CodingAgentSessionSummary,
+	CreateCodingAgentSessionCatalogOptions,
+} from "./sdk-session-catalog-contract.js";
 export type {
 	CodingAgentActiveSessionCapabilities,
 	CodingAgentBashOperations,

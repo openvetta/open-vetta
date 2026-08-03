@@ -8,6 +8,7 @@ import {
 	CodingAgentSessionCreateError,
 	type CreateCodingAgentSessionOptions,
 	createCodingAgentSession,
+	createCodingAgentSessionCatalog,
 } from "../../src/public-api/sdk.js";
 
 describe("public Coding Agent SDK entry", () => {
@@ -64,6 +65,11 @@ describe("public Coding Agent SDK entry", () => {
 		const sessionPath = created.session.sessionFile;
 		if (!sessionPath) throw new Error("Expected a native public SDK session path");
 		await created.session.close();
+		const catalog = createCodingAgentSessionCatalog({ cwd, conversationDir });
+		await expect(catalog.list()).resolves.toContainEqual(
+			expect.objectContaining({ id: "public-file", path: sessionPath, cwd }),
+		);
+		await expect(catalog.findRecent()).resolves.toMatchObject({ id: "public-file", path: sessionPath });
 
 		const resumed = await createCodingAgentSession({
 			cwd,
@@ -86,12 +92,70 @@ describe("public Coding Agent SDK entry", () => {
 		);
 	});
 
+	it("adapts stable resource contributions without exposing a resource manager", async () => {
+		const cwd = await temporaryDirectory("public-sdk-resources-cwd-");
+		const agentDir = await temporaryDirectory("public-sdk-resources-agent-");
+		const promptDirectory = join(cwd, "reloadable-prompts");
+		const promptPath = join(promptDirectory, "reloadable-template.md");
+		await mkdir(promptDirectory, { recursive: true });
+		await writeFile(
+			promptPath,
+			"---\ndescription: Reloadable SDK template\n---\n\nUse reloadable instructions.",
+			"utf8",
+		);
+		const result = await createCodingAgentSession({
+			cwd,
+			agentDir,
+			storage: { kind: "memory", sessionId: "public-resources" },
+			model: MODEL,
+			activeTools: [],
+			enableMcp: false,
+			enableSubagents: false,
+			includeAgentSkills: false,
+			resources: {
+				systemPrompt: "SDK-owned system prompt",
+				promptTemplatePaths: [promptPath],
+				contextFiles: [{ path: join(cwd, "SDK_CONTEXT.md"), content: "SDK context contribution" }],
+				promptTemplates: [
+					{
+						name: "sdk-template",
+						description: "SDK template contribution",
+						content: "Use the SDK template",
+					},
+				],
+			},
+		});
+		sessions.push(result.session);
+
+		expect(result.session.getSystemPrompt()).toContain("SDK-owned system prompt");
+		expect(result.session.getSystemPrompt()).toContain("SDK context contribution");
+		expect(result.session.getPromptTemplates()).toContainEqual(
+			expect.objectContaining({ name: "reloadable-template", content: "Use reloadable instructions." }),
+		);
+		expect(result.session.getPromptTemplates()).toContainEqual(
+			expect.objectContaining({
+				name: "sdk-template",
+				description: "SDK template contribution",
+				content: "Use the SDK template",
+				source: "sdk",
+			}),
+		);
+		expect(Reflect.has(result.session, "resourceLoader")).toBe(false);
+
+		await rm(promptDirectory, { recursive: true, force: true });
+		await result.session.reload();
+		expect(result.session.getPromptTemplates()).not.toContainEqual(
+			expect.objectContaining({ name: "reloadable-template" }),
+		);
+	});
+
 	it("projects Extension loader failures into detached public diagnostics", async () => {
 		const cwd = await temporaryDirectory("public-sdk-diagnostic-cwd-");
 		const agentDir = await temporaryDirectory("public-sdk-diagnostic-agent-");
-		const extensionDirectory = join(agentDir, "extensions");
+		const extensionDirectory = join(cwd, "external-extensions");
 		await mkdir(extensionDirectory, { recursive: true });
-		await writeFile(join(extensionDirectory, "broken.ts"), "export default (", "utf8");
+		const extensionPath = join(extensionDirectory, "broken.ts");
+		await writeFile(extensionPath, "export default (", "utf8");
 
 		const result = await createCodingAgentSession({
 			cwd,
@@ -101,6 +165,7 @@ describe("public Coding Agent SDK entry", () => {
 			enableMcp: false,
 			enableSubagents: false,
 			includeAgentSkills: false,
+			resources: { extensionPaths: [extensionPath] },
 		});
 		sessions.push(result.session);
 

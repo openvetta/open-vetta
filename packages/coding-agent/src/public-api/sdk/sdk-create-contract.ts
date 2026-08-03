@@ -51,6 +51,32 @@ export interface CodingAgentQuestionResult {
 	readonly answers: readonly CodingAgentQuestionAnswer[];
 }
 
+export interface CodingAgentContextFileContribution {
+	readonly path: string;
+	readonly content: string;
+}
+
+export interface CodingAgentPromptTemplateContribution {
+	readonly name: string;
+	readonly description: string;
+	readonly content: string;
+	readonly filePath?: string;
+}
+
+/**
+ * 公共 SDK 的资源值输入。路径资源会在 `session.reload()` 时重新发现；内联资源随 Session 保持。
+ *
+ * 这里只表达产品需要的资源，不暴露具体 Loader、覆盖回调或资源缓存实现。
+ */
+export interface CodingAgentResourceContributions {
+	readonly systemPrompt?: string;
+	readonly extensionPaths?: readonly string[];
+	readonly skillPaths?: readonly string[];
+	readonly promptTemplatePaths?: readonly string[];
+	readonly promptTemplates?: readonly CodingAgentPromptTemplateContribution[];
+	readonly contextFiles?: readonly CodingAgentContextFileContribution[];
+}
+
 /** 宿主提供的实时提问能力，不暴露具体 UI 实现。 */
 export interface CodingAgentQuestionCapability {
 	isEnabled(): boolean;
@@ -77,6 +103,7 @@ export interface CreateCodingAgentSessionOptions {
 	readonly customTools?: readonly CodingAgentSessionToolDefinition[];
 	readonly additionalHookAdapterFactories?: readonly EcosystemHookAdapterFactory[];
 	readonly appendSystemPrompt?: string;
+	readonly resources?: CodingAgentResourceContributions;
 	readonly includeAgentSkills?: boolean;
 	readonly env?: Readonly<Record<string, string>>;
 	readonly memoryMode?: boolean;

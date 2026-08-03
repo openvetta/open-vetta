@@ -40,6 +40,7 @@ import { createAllTools, type Tool, type ToolName } from "../core/tools/index.js
 import { theme } from "../modes/interactive/theme/theme.js";
 import {
 	CODING_AGENT_SESSION_CREATE_ERROR_CODES,
+	type CodingAgentResourceContributions,
 	CodingAgentSessionCreateError,
 	type CreateCodingAgentSessionOptions,
 	type CreateCodingAgentSessionResult,
@@ -164,7 +165,11 @@ export async function createCodingAgentSessionFromPublicOptions(
 	options: CreateCodingAgentSessionOptions = {},
 ): Promise<CreateCodingAgentSessionResult> {
 	try {
-		const created = await createGreenfieldAgentSessionInternal(adaptPublicSdkCreateOptions(options), options.storage);
+		const created = await createGreenfieldAgentSessionInternal(
+			adaptPublicSdkCreateOptions(options),
+			options.storage,
+			options.resources,
+		);
 		return {
 			session: created.session,
 			diagnostics: created.extensionsResult.errors.map(({ path, error }) => ({
@@ -188,6 +193,7 @@ export async function createCodingAgentSessionFromPublicOptions(
 async function createGreenfieldAgentSessionInternal(
 	options: CreateAgentSessionOptions,
 	storageTarget?: GreenfieldSdkSessionStorageTarget,
+	resourceContributions?: CodingAgentResourceContributions,
 ): Promise<CreateGreenfieldAgentSessionResult> {
 	assertCompatibleOptions(options);
 	const sessionTools = adaptCodingAgentSdkCustomTools(options.customTools);
@@ -224,16 +230,47 @@ async function createGreenfieldAgentSessionInternal(
 		await modelRegistry.loadRemoteModels();
 	}
 
+	const promptTemplateContributions = resourceContributions?.promptTemplates;
+	const contextFileContributions = resourceContributions?.contextFiles;
 	const resourceLoader =
 		options.resourceLoader ??
 		new DefaultResourceLoader({
 			cwd,
 			agentDir,
 			settingsManager,
+			additionalExtensionPaths: resourceContributions?.extensionPaths
+				? [...resourceContributions.extensionPaths]
+				: [],
 			appendSystemPrompt: options.appendSystemPrompt,
 			includeAgentSkills: options.includeAgentSkills,
-			additionalSkillPaths:
-				options.agentPlugins?.skillPathContributions?.flatMap((contribution) => contribution.paths) ?? [],
+			additionalSkillPaths: [
+				...(options.agentPlugins?.skillPathContributions?.flatMap((contribution) => contribution.paths) ?? []),
+				...(resourceContributions?.skillPaths ?? []),
+			],
+			additionalPromptTemplatePaths: resourceContributions?.promptTemplatePaths
+				? [...resourceContributions.promptTemplatePaths]
+				: [],
+			systemPrompt: resourceContributions?.systemPrompt,
+			promptsOverride: promptTemplateContributions
+				? (base) => ({
+						diagnostics: base.diagnostics,
+						prompts: [
+							...base.prompts,
+							...promptTemplateContributions.map((template) => ({
+								name: template.name,
+								description: template.description,
+								content: template.content,
+								source: "sdk",
+								filePath: template.filePath ?? join(cwd, ".vetta", "sdk-prompts", `${template.name}.md`),
+							})),
+						],
+					})
+				: undefined,
+			agentsFilesOverride: contextFileContributions
+				? (base) => ({
+						agentsFiles: [...base.agentsFiles, ...contextFileContributions.map((file) => ({ ...file }))],
+					})
+				: undefined,
 		});
 	if (!options.resourceLoader) {
 		await resourceLoader.reload();
@@ -365,9 +402,10 @@ async function createGreenfieldAgentSessionInternal(
 				readSystemPrompt: () => extensionTransitions.readSystemPrompt(),
 				readPromptTemplates: () => resourceLoader.getPrompts().prompts,
 				reconfigureAgentPlugins: (agentPlugins) => {
-					resourceLoader.setAdditionalSkillPaths(
-						agentPlugins?.skillPathContributions?.flatMap((contribution) => contribution.paths) ?? [],
-					);
+					resourceLoader.setAdditionalSkillPaths([
+						...(agentPlugins?.skillPathContributions?.flatMap((contribution) => contribution.paths) ?? []),
+						...(resourceContributions?.skillPaths ?? []),
+					]);
 				},
 				memoryConfiguration: {
 					enabled: options.memoryMode ?? false,

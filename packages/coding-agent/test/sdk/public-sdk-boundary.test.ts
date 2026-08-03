@@ -2,7 +2,9 @@ import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type {
 	CodingAgentPromptOptions,
+	CodingAgentResourceContributions,
 	CodingAgentSession,
+	CodingAgentSessionCatalog,
 	CodingAgentSessionCore,
 	CodingAgentSessionEventListener,
 	CodingAgentSessionToolDefinition,
@@ -18,6 +20,7 @@ describe("public Coding Agent SDK boundary", () => {
 			"CODING_AGENT_SESSION_CREATE_ERROR_CODES",
 			"CodingAgentSessionCreateError",
 			"createCodingAgentSession",
+			"createCodingAgentSessionCatalog",
 		]);
 	});
 
@@ -31,6 +34,7 @@ describe("public Coding Agent SDK boundary", () => {
 		expect(readdirSync(PUBLIC_SDK_DIRECTORY).sort()).toEqual([
 			"index.ts",
 			"sdk-create-contract.ts",
+			"sdk-session-catalog-contract.ts",
 			"sdk-session-contract.ts",
 		]);
 		for (const file of publicFiles) {
@@ -47,8 +51,10 @@ function verifyStablePublicTypes(
 	tool: CodingAgentSessionToolDefinition,
 	options: CodingAgentPromptOptions,
 	listener: CodingAgentSessionEventListener,
+	resources: CodingAgentResourceContributions,
+	catalog: CodingAgentSessionCatalog,
 ): CodingAgentSessionCore {
-	void [tool, options, listener];
+	void [tool, options, listener, resources, catalog];
 	return session;
 }
 

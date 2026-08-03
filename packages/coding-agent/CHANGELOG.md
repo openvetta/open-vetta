@@ -2,6 +2,7 @@
 
 ### Added
 
+- **稳定 SDK 会话目录与资源贡献合同**：`@vetta/coding-agent/sdk` 新增独立 `createCodingAgentSessionCatalog()`，通过只读摘要完成原生会话 list/recent 查询并与活动 Session 生命周期分离；`createCodingAgentSession()` 新增系统提示词、Extension/Skill/Prompt 路径、内联 Prompt Template 和 Context File 值贡献，由产品 Host Adapter 转换到现有资源发现与 reload 生命周期，不公开 `SessionManager` 或 `ResourceLoader`。
 - **独立公共 Coding Agent SDK 入口**：新增 `@vetta/coding-agent/sdk` 与不含迁移期命名的 `createCodingAgentSession`，公共参数只接受值对象、原生 memory/file-create/file-resume 存储意图和窄宿主能力，具体 `SessionManager`、`SettingsManager`、`ModelRegistry`、`ResourceLoader` 继续留在产品 Composition Root；创建结果改为 Session、只读诊断和模型回退提示，不再暴露 Extension Runtime。包根旧 `createAgentSession` 保持不变，供兼容调用方迁移。
 - **Greenfield 公开 SDK 核心合同与门面**：新增穷尽式 `sdk-compatibility-inventory`，用 `satisfies Record<keyof ...>` 对 36 个创建参数、3 个工厂返回字段和 98 个 `AgentSession` 实例成员做编译期兼容分类；新增 `GreenfieldSdkSessionCore` 核心门面与 `GreenfieldSdkSessionRuntimePort` 窄端口，`bindGreenfieldSdkSessionRuntime` 作为唯一感知具体 Runtime 的组合边界，并复用完整执行观察流将产品无关事件映射回既有 `AgentEvent`；包根 `createAgentSession`/`runRpcMode` 公开签名保持不变。
 - **RPC 宿主反腐层与 Legacy 协议基线**：JSONL Transport、TypeBox 外部 Frame 校验、命令分发、Extension UI、Host Bridge 和旧 `AgentSession` Adapter 已按职责拆分；`runRpcMode(session)` 默认行为不变，并新增分组 `RpcSessionCapabilities` 组合入口供后续 Greenfield 宿主显式适配。
@@ -21,6 +22,7 @@
 
 ### Changed
 
+- **官方 SDK 消费者改用稳定入口**：最小会话、系统提示词、工具、Context、Prompt Template 与 Session 管理示例已迁移到 `@vetta/coding-agent/sdk`；新增稳定 SDK 文档，并把需要认证/设置管理器或任意资源覆盖回调的示例明确标记为 host-service/兼容路径，旧包根功能继续保留。
 - **公共 Coding Agent SDK 合同去迁移化**：`@vetta/coding-agent/sdk` 的 Session、事件、工具、模型、统计、Memory、Bash 与树导航类型统一改为 `CodingAgent*` 稳定命名；迁移期 Runtime Port、Adapter、Binding 和事件映射移出 `public-api/sdk`，内部实现继续通过 Composition/Adapter 接入，包根兼容工厂和全部执行行为保持不变。质量守卫现在拒绝公共 SDK 再出现迁移期名称或具体产品管理器。
 - **Greenfield SDK 活动 Session 所有权闭环**：内部 SDK Factory 现在以长生命周期 Composition 和 Active Session Host 持有当前会话，稳定 SDK 门面支持 new/switch/fork、历史树写操作、上下文投递和直接 Bash；Session 身份切换会原子迁移 Extension 与 Session 资源，失败回滚旧身份，Bash 在切换前中止并落盘待处理结果。固定 Session Adapter 继续不承担身份迁移，公开 `createAgentSession` 尚未切换。
 - **非 RPC CLI 意图与 Print Host 解耦**：CLI 现在显式区分 control、print 与 RPC；帮助、版本、模型列表、导出和包管理不再进入会话 Runtime 决策。`runPrintMode()` 改为消费中立 `PrintSessionCapabilities`，旧 `AgentSession` 通过等价适配器继续承载 text、JSON 和管道输入，执行功能与默认 backend 不变。
