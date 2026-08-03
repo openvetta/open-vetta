@@ -23,6 +23,7 @@ export type {
 	GreenfieldRuntimeCompositionOptions,
 	GreenfieldRuntimeSessionHookLifecycle,
 	GreenfieldRuntimeSessionOptions,
+	GreenfieldRuntimeToolAccess,
 } from "./greenfield-runtime-composition-contract.js";
 
 import { createGreenfieldRuntimeToolSurface } from "./greenfield-runtime-tool-surface.js";

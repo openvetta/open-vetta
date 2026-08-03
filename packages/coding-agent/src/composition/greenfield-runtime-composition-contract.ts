@@ -14,7 +14,7 @@ import type {
 import type { AgentCoreTurnEngineOptions, SessionContextRecord } from "@vetta/runtime-core/kernel";
 import type { McpRuntimeToolSource } from "@vetta/runtime-mcp";
 import type { ConversationOwnershipManager } from "@vetta/runtime-storage/conversation";
-import type { CodingToolActivation } from "@vetta/runtime-tools/coding";
+import type { CodingToolActivation, CodingToolRegistry } from "@vetta/runtime-tools/coding";
 import type {
 	CodingAgentCompactionExtensionRuntime,
 	CodingAgentGreenfieldContextRuntimeOptions,
@@ -36,7 +36,6 @@ import type {
 import type { ExtensionRunner } from "../core/extensions/runner.js";
 import type { Extension } from "../core/extensions/types.js";
 import type { TodoLockSource } from "../core/todo-store.js";
-import type { CodingToolsRuntimeComposition } from "./runtime-tools-composition.js";
 
 export interface GreenfieldRuntimeSessionOptions {
 	readonly sessionId: string;
@@ -155,9 +154,14 @@ export interface GreenfieldRuntimeSessionHookLifecycle {
 	discard(sessionId: string): void;
 }
 
+/** 宿主可动态管理的 Runtime Tool Port；Composition 内部实现与生命周期不向外暴露。 */
+export interface GreenfieldRuntimeToolAccess {
+	readonly registry: CodingToolRegistry;
+}
+
 export interface GreenfieldRuntimeComposition {
 	readonly backend: GreenfieldRuntimeSessionBackend<GreenfieldRuntimeSessionOptions>;
-	readonly tools: CodingToolsRuntimeComposition;
+	readonly tools: GreenfieldRuntimeToolAccess;
 	readonly scenario: ConversationScenario;
 	readonly sessionHooks: GreenfieldRuntimeSessionHookLifecycle;
 	bindExtensionRunner(

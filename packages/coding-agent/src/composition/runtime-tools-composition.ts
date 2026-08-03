@@ -14,6 +14,7 @@ import {
 	type CodingToolExecutableResolver,
 	type CodingToolRegistration,
 	type CodingToolRegistrationFilter,
+	type CodingToolRegistry,
 	type CommandToolExecutor,
 	createBackgroundCommandService,
 	createBackgroundCommandToolExecutor,
@@ -63,7 +64,7 @@ export interface CodingToolsRuntimeComposition {
 	readonly backgroundService?: BackgroundCommandService;
 	readonly commandExecutor: CommandToolExecutor;
 	readonly executableResolver: CodingToolExecutableResolver;
-	readonly registry: InMemoryCodingToolRegistry;
+	readonly registry: CodingToolRegistry;
 	readonly feature: AgentFeatureDefinition;
 	readonly profile: AgentProfile;
 	readonly compiler: FeatureCompiler;

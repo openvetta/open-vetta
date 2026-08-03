@@ -646,6 +646,36 @@ describe("package boundary analysis", () => {
 		).toEqual([]);
 	});
 
+	it("exposes Greenfield Runtime Tools through the abstract Registry port", () => {
+		const contractPath = "packages/coding-agent/src/composition/greenfield-runtime-composition-contract.ts";
+		const concreteContract = `
+			type Tools = CodingToolsRuntimeComposition;
+			type Registry = InMemoryCodingToolRegistry;
+			type Compiler = FeatureCompiler;
+		`;
+		expect(findPackageBoundaryViolations(contractPath, concreteContract)).toHaveLength(3);
+		expect(
+			findPackageBoundaryViolations(
+				contractPath,
+				"interface GreenfieldRuntimeToolAccess { readonly registry: CodingToolRegistry; }",
+			),
+		).toEqual([]);
+
+		const compositionPath = "packages/coding-agent/src/composition/runtime-tools-composition.ts";
+		expect(
+			findPackageBoundaryViolations(
+				compositionPath,
+				"interface CodingToolsRuntimeComposition { readonly registry: InMemoryCodingToolRegistry; }",
+			),
+		).toHaveLength(1);
+		expect(
+			findPackageBoundaryViolations(
+				compositionPath,
+				"interface CodingToolsRuntimeComposition { readonly registry: CodingToolRegistry; }",
+			),
+		).toEqual([]);
+	});
+
 	it("requires scoped production packages to declare workspace imports", () => {
 		const source = 'import { createRuntime } from "@vetta/runtime-tools/coding";';
 		const path = "packages/coding-agent/src/composition/example.ts";

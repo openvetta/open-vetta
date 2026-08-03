@@ -577,6 +577,46 @@ function checkGreenfieldRuntimeToolSurfaceBoundary(posixPath, text, findings) {
 	visit(sourceFile);
 }
 
+function checkGreenfieldRuntimeToolPortBoundary(posixPath, text, findings) {
+	const contractPath = "packages/coding-agent/src/composition/greenfield-runtime-composition-contract.ts";
+	const compositionPath = "packages/coding-agent/src/composition/runtime-tools-composition.ts";
+	if (posixPath !== contractPath && posixPath !== compositionPath) return;
+
+	const sourceFile = ts.createSourceFile(posixPath, text, ts.ScriptTarget.Latest, true, scriptKind(posixPath));
+	if (posixPath === contractPath) {
+		const forbiddenSymbols = new Set([
+			"CodingToolsRuntimeComposition",
+			"FeatureCompiler",
+			"InMemoryCodingToolRegistry",
+		]);
+		const visit = (node) => {
+			if (ts.isIdentifier(node) && forbiddenSymbols.has(node.text)) {
+				findings.push(
+					`${posixPath}: Greenfield Runtime Tool access must depend on CodingToolRegistry (${node.text})`,
+				);
+			}
+			ts.forEachChild(node, visit);
+		};
+		visit(sourceFile);
+		return;
+	}
+
+	for (const statement of sourceFile.statements) {
+		if (!ts.isInterfaceDeclaration(statement) || statement.name.text !== "CodingToolsRuntimeComposition") continue;
+		for (const member of statement.members) {
+			if (
+				ts.isPropertySignature(member) &&
+				member.name !== undefined &&
+				ts.isIdentifier(member.name) &&
+				member.name.text === "registry" &&
+				member.type?.getText(sourceFile) !== "CodingToolRegistry"
+			) {
+				findings.push(`${posixPath}: Coding Tools composition must expose its Registry through CodingToolRegistry`);
+			}
+		}
+	}
+}
+
 function checkRetiredAutomaticLegacyFallback(posixPath, text, findings) {
 	const isRuntimeProductionSource =
 		(posixPath.startsWith("packages/cli-app/src/") || posixPath.startsWith("packages/coding-agent/src/")) &&
@@ -782,6 +822,7 @@ export function findPackageBoundaryViolations(posixPath, text, options = {}) {
 	checkGreenfieldMcpSessionCoordinatorBoundary(posixPath, text, findings);
 	checkGreenfieldSessionInitializationTransactionBoundary(posixPath, text, findings);
 	checkGreenfieldRuntimeToolSurfaceBoundary(posixPath, text, findings);
+	checkGreenfieldRuntimeToolPortBoundary(posixPath, text, findings);
 	checkRetiredAutomaticLegacyFallback(posixPath, text, findings);
 	checkRuntimeCompositionCompatibilityFacade(posixPath, specifiers, findings);
 	checkCodingAgentRootImports(posixPath, specifiers, findings);

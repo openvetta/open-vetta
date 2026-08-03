@@ -14,6 +14,7 @@ export {
 	type GreenfieldRuntimeComposition,
 	type GreenfieldRuntimeCompositionOptions,
 	type GreenfieldRuntimeSessionOptions,
+	type GreenfieldRuntimeToolAccess,
 } from "./greenfield-runtime-composition.js";
 export {
 	GreenfieldRuntimeHostSessionBackend,

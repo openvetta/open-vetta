@@ -12,4 +12,5 @@ export {
 	type GreenfieldRuntimeCompositionOptions,
 	type GreenfieldRuntimeSessionHookLifecycle,
 	type GreenfieldRuntimeSessionOptions,
+	type GreenfieldRuntimeToolAccess,
 } from "@vetta/coding-agent/composition";

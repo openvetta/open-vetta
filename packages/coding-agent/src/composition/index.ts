@@ -28,6 +28,7 @@ export {
 	type GreenfieldRuntimeCompositionOptions,
 	type GreenfieldRuntimeSessionHookLifecycle,
 	type GreenfieldRuntimeSessionOptions,
+	type GreenfieldRuntimeToolAccess,
 } from "./greenfield-runtime-composition.js";
 export {
 	GreenfieldRuntimeHostSessionBackend,
