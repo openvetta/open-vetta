@@ -40,6 +40,18 @@ describe("Greenfield SDK session adapter", () => {
 		expect(session.isStreaming).toBe(false);
 	});
 
+	it("forwards fixed-session subagent observation and control without exposing the coordinator", () => {
+		const runtime = new FakeSdkRuntime();
+		const session = new GreenfieldSdkSessionAdapter(runtime);
+
+		expect(session.listSubagents()).toEqual([expect.objectContaining({ id: "child-1", status: "running" })]);
+		expect(session.interruptSubagent("child-1")).toMatchObject({ id: "child-1", status: "interrupted" });
+		expect(session.clearFinishedSubagents()).toBe(1);
+		expect(runtime.interruptedSubagents).toEqual(["child-1"]);
+		expect(runtime.clearFinishedSubagentCalls).toBe(1);
+		expect(Reflect.has(session, "subagents")).toBe(false);
+	});
+
 	it("projects complete execution observations onto existing Agent events", () => {
 		const runtime = new FakeSdkRuntime();
 		const session = new GreenfieldSdkSessionAdapter(runtime);
@@ -115,6 +127,8 @@ class FakeSdkRuntime implements GreenfieldSdkSessionRuntimePort {
 	readonly customToolReconfigurations: Array<readonly unknown[] | undefined> = [];
 	readonly observers = new Set<(observation: RuntimeSessionExecutionObservation) => Promise<void> | void>();
 	readonly retryObservers = new Set<(event: GreenfieldSdkRetryEvent) => void>();
+	readonly interruptedSubagents: string[] = [];
+	clearFinishedSubagentCalls = 0;
 	disposeCalls = 0;
 	disposeFailures = 0;
 	readonly capabilities: GreenfieldSdkSessionCapabilityPort = {
@@ -171,6 +185,15 @@ class FakeSdkRuntime implements GreenfieldSdkSessionRuntimePort {
 		}),
 		readContextUsage: () => undefined,
 		readLastAssistantText: () => undefined,
+		readSubagents: () => [subagent("running")],
+		interruptSubagent: (target) => {
+			this.interruptedSubagents.push(target);
+			return subagent("interrupted");
+		},
+		clearFinishedSubagents: () => {
+			this.clearFinishedSubagentCalls += 1;
+			return 1;
+		},
 	};
 	private readonly runtimeState: RuntimeSessionState = {
 		model: undefined,
@@ -228,4 +251,19 @@ class FakeSdkRuntime implements GreenfieldSdkSessionRuntimePort {
 	emitRetry(event: GreenfieldSdkRetryEvent): void {
 		for (const observer of this.retryObservers) observer(event);
 	}
+}
+
+function subagent(status: "running" | "interrupted") {
+	return {
+		id: "child-1",
+		taskName: "child_one",
+		path: "/root/child_one",
+		agentType: "explorer",
+		status,
+		task: "Inspect",
+		parentSessionId: "sdk-session",
+		startedAt: 1,
+		usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, costTotal: 0 },
+		generation: status === "running" ? 0 : 1,
+	};
 }

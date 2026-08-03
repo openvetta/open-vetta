@@ -26,6 +26,7 @@ export interface CodingAgentGreenfieldBranchNavigationHostOptions {
  */
 export class CodingAgentGreenfieldBranchNavigationHost {
 	private readonly generateSummary: typeof generateBranchSummary;
+	private activeSummaryController: AbortController | undefined;
 
 	constructor(private readonly options: CodingAgentGreenfieldBranchNavigationHostOptions) {
 		this.generateSummary = options.generateSummary ?? generateBranchSummary;
@@ -34,15 +35,19 @@ export class CodingAgentGreenfieldBranchNavigationHost {
 	navigateTree(
 		targetId: string,
 		options: CodingAgentGreenfieldBranchNavigationOptions = {},
-	): Promise<{ cancelled: boolean }> {
+	): Promise<{ editorText?: string; cancelled: boolean; aborted?: boolean; summaryEntry?: BranchSummaryEntry }> {
 		return this.options.withActiveSession((session) => this.navigate(session, targetId, options));
+	}
+
+	abortBranchSummary(): void {
+		this.activeSummaryController?.abort();
 	}
 
 	private async navigate(
 		session: GreenfieldRuntimeSession,
 		targetId: string,
 		options: CodingAgentGreenfieldBranchNavigationOptions,
-	): Promise<{ cancelled: boolean }> {
+	): Promise<{ editorText?: string; cancelled: boolean; aborted?: boolean; summaryEntry?: BranchSummaryEntry }> {
 		const assembly = session.createCoreAssembly();
 		const sessionManager = createGreenfieldReadonlySessionManager(assembly);
 		const oldLeafId = sessionManager.getLeafId();
@@ -72,6 +77,7 @@ export class CodingAgentGreenfieldBranchNavigationHost {
 			label,
 		};
 		const abortController = new AbortController();
+		this.activeSummaryController = abortController;
 		const runner = this.options.readRunner();
 
 		try {
@@ -106,7 +112,7 @@ export class CodingAgentGreenfieldBranchNavigationHost {
 					replaceInstructions,
 					reserveTokens: this.options.settingsManager.getBranchSummarySettings().reserveTokens,
 				});
-				if (result.aborted) return { cancelled: true };
+				if (result.aborted) return { cancelled: true, aborted: true };
 				if (result.error) throw new Error(result.error);
 				summaryText = result.summary;
 				summaryDetails = {
@@ -119,10 +125,13 @@ export class CodingAgentGreenfieldBranchNavigationHost {
 			}
 
 			let newLeafId: string | null;
+			let editorText: string | undefined;
 			if (targetEntry.type === "message" && targetEntry.message.role === "user") {
 				newLeafId = targetEntry.parentId;
+				editorText = readTextContent(targetEntry.message.content);
 			} else if (targetEntry.type === "custom_message") {
 				newLeafId = targetEntry.parentId;
+				editorText = readTextContent(targetEntry.content);
 			} else {
 				newLeafId = targetId;
 			}
@@ -152,9 +161,27 @@ export class CodingAgentGreenfieldBranchNavigationHost {
 				summaryEntry,
 				fromExtension: summaryText ? fromExtension : undefined,
 			});
-			return { cancelled: false };
+			return {
+				cancelled: false,
+				...(editorText ? { editorText } : {}),
+				...(summaryEntry ? { summaryEntry } : {}),
+			};
 		} finally {
 			abortController.abort();
+			if (this.activeSummaryController === abortController) this.activeSummaryController = undefined;
 		}
 	}
+}
+
+function readTextContent(content: unknown): string | undefined {
+	if (typeof content === "string") return content || undefined;
+	if (!Array.isArray(content)) return undefined;
+	const text = content
+		.map((part) =>
+			typeof part === "object" && part !== null && typeof Reflect.get(part, "text") === "string"
+				? Reflect.get(part, "text")
+				: "",
+		)
+		.join("");
+	return text || undefined;
 }

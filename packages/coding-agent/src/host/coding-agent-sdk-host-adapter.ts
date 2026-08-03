@@ -6,12 +6,15 @@ import type { Api, Model } from "@vetta/ai";
 import { buildDefaultHookConfigLayers } from "@vetta/ecosystem-adapter";
 import { createLangfuseRuntimeTracerFromEnv } from "@vetta/runtime-telemetry/langfuse";
 import {
+	CodingAgentGreenfieldBranchNavigationHost,
 	CodingAgentGreenfieldExtensionEventHost,
 	CodingAgentGreenfieldSessionCapabilityHost,
 	createCodingAgentCompactionExtensionRuntime,
 	createCodingAgentMcpRuntimeToolSource,
 	createCodingAgentPluginMcpRuntime,
 } from "../adapters/runtime-core/greenfield.js";
+import { CodingAgentGreenfieldSdkActiveSessionCapabilityHost } from "../adapters/runtime-core/greenfield-sdk-active-session-capability-host.js";
+import { CodingAgentLegacySessionSetupSeedImporter } from "../adapters/runtime-core/legacy-session-setup-seed-importer.js";
 import {
 	createGreenfieldSdkSession,
 	type GreenfieldSdkOwnedResource,
@@ -26,15 +29,18 @@ import { DefaultResourceLoader } from "../core/resource-loader.js";
 import type { CreateAgentSessionOptions } from "../core/sdk.js";
 import { SettingsManager } from "../core/settings-manager.js";
 import { time } from "../core/timings.js";
-import type { GreenfieldSdkSession } from "../public-api/sdk/index.js";
+import type { GreenfieldSdkActiveSession } from "../public-api/sdk/index.js";
 import {
 	assessSdkCreateOptionsCompatibility,
 	type SdkCreateOptionCompatibilityIssue,
 } from "../public-api/sdk-compatibility-inventory.js";
+import { CodingAgentSdkBashAdapter } from "./coding-agent-sdk-bash-adapter.js";
+import { CodingAgentSdkExtensionTransitionAdapter } from "./coding-agent-sdk-extension-transition-adapter.js";
 import {
 	type CodingAgentSdkSessionHistory,
 	prepareCodingAgentSdkSessionStorage,
 } from "./coding-agent-sdk-session-storage.js";
+import { adaptCodingAgentSdkSubagents } from "./coding-agent-sdk-subagent-adapter.js";
 
 export const CODING_AGENT_SDK_HOST_ERROR_CODES = {
 	INCOMPATIBLE_OPTIONS: "greenfield_sdk_incompatible_options",
@@ -116,7 +122,7 @@ export function adaptCodingAgentSdkCustomTools(
 }
 
 export interface CreateGreenfieldAgentSessionResult {
-	readonly session: GreenfieldSdkSession;
+	readonly session: GreenfieldSdkActiveSession;
 	readonly extensionsResult: LoadExtensionsResult;
 	readonly modelFallbackMessage?: string;
 }
@@ -152,6 +158,12 @@ export async function createGreenfieldAgentSession(
 	const authStorage = options.authStorage ?? AuthStorage.create(authPath);
 	const modelRegistry = options.modelRegistry ?? new ModelRegistry(authStorage, modelsPath);
 	const settingsManager = options.settingsManager ?? SettingsManager.create(cwd, agentDir);
+	const subagents = adaptCodingAgentSdkSubagents({
+		typeRegistry: options.subagentTypeRegistry,
+		sessionFactory: options.subagentSessionFactory,
+		modelRegistry,
+		agentDir,
+	});
 
 	if (!options.modelRegistry) {
 		let serverUrl = options.serverUrl ?? process.env[ENV_SERVER_URL] ?? settingsManager.getServerUrl();
@@ -196,7 +208,19 @@ export async function createGreenfieldAgentSession(
 	const ownedResources: GreenfieldSdkOwnedResource[] = managedMcpSource
 		? [{ id: "sdk-mcp-source", dispose: () => managedMcpSource.dispose() }]
 		: [];
-	let extensionEventHost: CodingAgentGreenfieldExtensionEventHost | undefined;
+	const extensionTransitions = new CodingAgentSdkExtensionTransitionAdapter(
+		(session, composition) =>
+			new CodingAgentGreenfieldExtensionEventHost({
+				extensions: extensionsResult.extensions,
+				runtime: extensionsResult.runtime,
+				cwd,
+				session,
+				modelRegistry,
+				resourceLoader,
+				bindEvents: (runner, bindOptions) =>
+					composition.bindExtensionRunner(session.sessionId, runner, bindOptions),
+			}),
+	);
 
 	const created = await createGreenfieldSdkSession({
 		storage: storage.storage,
@@ -213,6 +237,8 @@ export async function createGreenfieldAgentSession(
 			additionalHookAdapterFactories: options.additionalHookAdapterFactories,
 			enableSubagents: options.enableSubagents,
 			subagentMaxConcurrent: options.subagentMaxConcurrent,
+			subagentTypeRegistry: subagents?.typeRegistry,
+			createSubagentChildFactory: subagents?.createChildFactory,
 			mcpSource: managedMcpSource?.source,
 			tracer,
 			tracing: {
@@ -229,7 +255,7 @@ export async function createGreenfieldAgentSession(
 			promptSettingsSource: settingsManager,
 			resolveCompactionSettings: () => settingsManager.getCompactionSettings(),
 			createCompactionExtensionRuntime: () =>
-				createCodingAgentCompactionExtensionRuntime(() => extensionEventHost?.runner),
+				createCodingAgentCompactionExtensionRuntime(() => extensionTransitions.readRunnerOrUndefined()),
 			extensionTools: extensionsResult.extensions,
 			createPluginMcpRuntime: mcpEnabled
 				? ({ agentDir: runtimeAgentDir }) =>
@@ -257,37 +283,41 @@ export async function createGreenfieldAgentSession(
 			invokePluginSystemPrompt: options.invokePluginSystemPrompt,
 			sessionTools,
 		},
-		initializeSession: async ({ session, composition }) => {
-			extensionEventHost = new CodingAgentGreenfieldExtensionEventHost({
-				extensions: extensionsResult.extensions,
-				runtime: extensionsResult.runtime,
-				cwd,
-				session,
-				modelRegistry,
-				resourceLoader,
-				bindEvents: (runner, bindOptions) =>
-					composition.bindExtensionRunner(session.sessionId, runner, bindOptions),
-			});
-			try {
-				await extensionEventHost.initialize();
-				await extensionEventHost.discoverResources("startup");
-				const acquiredHost = extensionEventHost;
-				return { id: "sdk-extension-event-host", dispose: () => acquiredHost.dispose() };
-			} catch (error) {
-				await extensionEventHost.dispose();
-				throw error;
-			}
-		},
-		createCapabilityHost: ({ session, composition }) =>
+		initializeSession: extensionTransitions.initializeSession,
+		transitionLifecycle: extensionTransitions.lifecycle,
+		createCapabilityHost: ({ readSession, composition }) =>
 			new CodingAgentGreenfieldSessionCapabilityHost({
-				readSession: () => session,
+				readSession,
 				readAvailableModels: async () => modelRegistry.getAvailable(),
 				scopedModels: options.scopedModels,
 				initialAgentMode: options.agentMode,
 				settings: settingsManager,
 				reconfigureCustomTools: (customTools) =>
-					composition.replaceSessionTools(session.sessionId, adaptCodingAgentSdkCustomTools(customTools) ?? []),
+					composition.replaceSessionTools(
+						readSession().sessionId,
+						adaptCodingAgentSdkCustomTools(customTools) ?? [],
+					),
 			}),
+		createActiveCapabilityHost: ({ sessionHost, composition }) => {
+			const bash = new CodingAgentSdkBashAdapter({
+				readShellCommandPrefix: () => settingsManager.getShellCommandPrefix(),
+			});
+			bash.bindEvents(sessionHost);
+			const treeNavigation = new CodingAgentGreenfieldBranchNavigationHost({
+				withActiveSession: (operation) => sessionHost.runActiveSessionMutation(operation),
+				readRunner: () => extensionTransitions.readRunner(),
+				settingsManager,
+				clearExecutionContext: (sessionId) => composition.clearSessionExecutionContext(sessionId),
+			});
+			const setupImporter = new CodingAgentLegacySessionSetupSeedImporter();
+			return new CodingAgentGreenfieldSdkActiveSessionCapabilityHost({
+				sessionHost,
+				bash,
+				treeNavigation,
+				createSessionSetupInitializer: (setup) =>
+					setupImporter.createInitializer((sessionManager) => setup(sessionManager)),
+			});
+		},
 	});
 
 	return {

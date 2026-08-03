@@ -14,6 +14,7 @@ import type {
 import type { AgentCoreTurnEngineOptions, SessionContextRecord } from "@vetta/runtime-core/kernel";
 import type { McpRuntimeToolSource } from "@vetta/runtime-mcp";
 import type { ConversationOwnershipManager } from "@vetta/runtime-storage/conversation";
+import type { SubagentTypeRegistryLike } from "@vetta/runtime-subagents";
 import type { CodingToolActivation, CodingToolRegistry } from "@vetta/runtime-tools/coding";
 import type {
 	CodingAgentCompactionExtensionRuntime,
@@ -30,6 +31,7 @@ import type {
 	CodingAgentPromptResourceResolver,
 	CodingAgentPromptResourceSource,
 	CodingAgentPromptSettingsSource,
+	CodingAgentRuntimeToolRegistration,
 	CodingAgentSystemPromptOptionsResolver,
 	CodingAgentTodoRuntime,
 	EcosystemHookAdapterFactory,
@@ -37,6 +39,11 @@ import type {
 	KnowledgePageWriterPort,
 } from "../adapters/runtime-core/greenfield.js";
 import type { GreenfieldConversationPersistenceFactory } from "./greenfield-conversation-persistence.js";
+import type { GreenfieldSubagentProfile } from "./greenfield-subagent-runtime.js";
+import type {
+	GreenfieldSubagentChildFactory,
+	GreenfieldSubagentChildFactoryContext,
+} from "./greenfield-subagent-session-assembly.js";
 
 export type GreenfieldInitialTodoLockSource = "scene";
 
@@ -75,6 +82,8 @@ export interface GreenfieldRuntimeSessionOptions {
 	readonly knowledgePageWriter?: KnowledgePageWriterPort;
 	/** 由产品宿主校验并适配的 Session 私有工具；同名定义覆盖进程级 Extension 工具。 */
 	readonly sessionTools?: readonly CodingAgentGreenfieldSessionToolRegistration[];
+	/** 仅由产品宿主为单个 Session 注入的中立 Runtime Tool 注册。 */
+	readonly sessionRuntimeTools?: readonly CodingAgentRuntimeToolRegistration[];
 }
 
 export interface GreenfieldRuntimeCompositionOptions {
@@ -106,6 +115,12 @@ export interface GreenfieldRuntimeCompositionOptions {
 	/** 仅 Root Profile 启用；子 Session 必须显式关闭，保持单层委派。 */
 	readonly enableSubagents?: boolean;
 	readonly subagentMaxConcurrent?: number;
+	/** 运行时实时读取的子代理类型注册表；注册变化影响后续 spawn，不重建当前 Session。 */
+	readonly subagentTypeRegistry?: SubagentTypeRegistryLike<GreenfieldSubagentProfile>;
+	/** 子代理 Child 创建的产品边界；未提供时使用 Greenfield Child Composition。 */
+	readonly createSubagentChildFactory?: (
+		context: GreenfieldSubagentChildFactoryContext,
+	) => GreenfieldSubagentChildFactory;
 	/** 已由宿主 Bootstrap 加载的共享动态资源；必须与 promptSettingsSource 同时提供。 */
 	readonly promptResourceSource?: CodingAgentPromptResourceSource;
 	/** 已由宿主 Bootstrap 加载的共享设置；必须与 promptResourceSource 同时提供。 */

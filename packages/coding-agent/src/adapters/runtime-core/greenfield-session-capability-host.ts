@@ -309,6 +309,18 @@ export class CodingAgentGreenfieldSessionCapabilityHost implements GreenfieldSdk
 		return undefined;
 	}
 
+	readSubagents() {
+		return this.readBackgroundWorkController()?.readSubagents() ?? [];
+	}
+
+	interruptSubagent(target: string) {
+		return this.readBackgroundWorkController()?.interruptSubagent(target);
+	}
+
+	clearFinishedSubagents(): number {
+		return this.readBackgroundWorkController()?.clearFinishedSubagents?.() ?? 0;
+	}
+
 	private readCore(): ReturnType<GreenfieldRuntimeSession["createCoreAssembly"]> {
 		return this.options.readSession().createCoreAssembly();
 	}
@@ -323,6 +335,10 @@ export class CodingAgentGreenfieldSessionCapabilityHost implements GreenfieldSdk
 		const controller = this.readCore().contextController;
 		if (!controller) throw new Error("Greenfield session context capability is unavailable");
 		return controller;
+	}
+
+	private readBackgroundWorkController() {
+		return this.options.readSession().createRuntimeHostAssemblyCandidate().backgroundWorkController;
 	}
 
 	private readAvailableModels(): Promise<readonly Model<Api>[]> {

@@ -9,6 +9,7 @@ export type GreenfieldSessionInitializationProfile = Pick<
 	| "createPluginMcpRuntime"
 	| "createPluginRuntime"
 	| "createPromptResourceResolver"
+	| "createSubagentChildFactory"
 	| "createSystemPromptOptionsResolver"
 	| "createTodoRuntime"
 	| "enableSubagents"
@@ -24,6 +25,7 @@ export type GreenfieldSessionInitializationProfile = Pick<
 	| "resolvePromptResource"
 	| "resolveSystemPromptOptions"
 	| "subagentMaxConcurrent"
+	| "subagentTypeRegistry"
 	| "systemPromptAdvertisedToolNames"
 >;
 
@@ -42,6 +44,7 @@ export function createGreenfieldSessionInitializationProfile(
 		createPluginMcpRuntime: options.createPluginMcpRuntime,
 		createPluginRuntime: options.createPluginRuntime,
 		createPromptResourceResolver: options.createPromptResourceResolver,
+		createSubagentChildFactory: options.createSubagentChildFactory,
 		createSystemPromptOptionsResolver: options.createSystemPromptOptionsResolver,
 		createTodoRuntime: options.createTodoRuntime,
 		enableSubagents: options.enableSubagents,
@@ -57,6 +60,7 @@ export function createGreenfieldSessionInitializationProfile(
 		resolvePromptResource: options.resolvePromptResource,
 		resolveSystemPromptOptions: options.resolveSystemPromptOptions,
 		subagentMaxConcurrent: options.subagentMaxConcurrent,
+		subagentTypeRegistry: options.subagentTypeRegistry,
 		systemPromptAdvertisedToolNames: options.systemPromptAdvertisedToolNames,
 	};
 }

@@ -195,6 +195,123 @@ describe("Greenfield SDK session integration", () => {
 		expect(resumed.session.messages.map(({ role }) => role)).toEqual(["user", "assistant", "user", "assistant"]);
 	});
 
+	it("keeps one SDK facade and its subscriptions across new, switch and fork transitions", async () => {
+		const conversationDir = await temporaryDirectory("greenfield-sdk-active-conversations-");
+		const workspace = await temporaryDirectory("greenfield-sdk-active-workspace-");
+		const created = await createGreenfieldSdkSession({
+			storage: { kind: "file-create", conversationDir, sessionId: "sdk-active-initial" },
+			composition: factoryComposition(workspace),
+			session: { includeAgentSkills: false },
+		});
+		sdkSessions.push(created.session);
+		const stableFacade = created.session;
+		const observedAgentStarts: string[] = [];
+		created.session.subscribe((event) => {
+			if (event.type === "agent_start") observedAgentStarts.push(created.session.sessionId);
+		});
+
+		await created.session.prompt("initial prompt");
+		const initialPath = created.session.sessionFile;
+		if (!initialPath) throw new Error("Expected an initial session path");
+		const initialForkMessage = created.session.getUserMessagesForForking()[0];
+		if (!initialForkMessage) throw new Error("Expected a user message for forking");
+
+		await expect(created.session.newSession()).resolves.toBe(true);
+		expect(created.session).toBe(stableFacade);
+		expect(created.session.sessionId).not.toBe("sdk-active-initial");
+		expect(created.session.messages).toEqual([]);
+		await created.session.prompt("new session prompt");
+
+		await expect(created.session.switchSession(initialPath)).resolves.toBe(true);
+		expect(created.session).toBe(stableFacade);
+		expect(created.session.sessionId).toBe("sdk-active-initial");
+		expect(created.session.getLastAssistantText()).toBe("Greenfield SDK response");
+
+		const fork = await created.session.fork(initialForkMessage.entryId);
+		expect(fork).toEqual({ selectedText: "initial prompt", cancelled: false });
+		expect(created.session).toBe(stableFacade);
+		expect(created.session.sessionId).not.toBe("sdk-active-initial");
+		expect(observedAgentStarts).toHaveLength(2);
+	});
+
+	it("keeps the current SDK session usable when a switch target is invalid", async () => {
+		const conversationDir = await temporaryDirectory("greenfield-sdk-switch-rollback-conversations-");
+		const workspace = await temporaryDirectory("greenfield-sdk-switch-rollback-workspace-");
+		const { session } = await createGreenfieldSdkSession({
+			storage: { kind: "file-create", conversationDir, sessionId: "sdk-switch-source" },
+			composition: factoryComposition(workspace),
+			session: { includeAgentSkills: false },
+		});
+		sdkSessions.push(session);
+
+		await expect(session.switchSession(join(conversationDir, "invalid.conversation.jsonl"))).rejects.toThrow(
+			"Greenfield session path is invalid",
+		);
+		expect(session.sessionId).toBe("sdk-switch-source");
+		await expect(session.prompt("still usable")).resolves.toBeUndefined();
+		expect(session.messages.map(({ role }) => role)).toEqual(["user", "assistant"]);
+	});
+
+	it("moves Session resources with the active identity and disposes each exactly once", async () => {
+		const conversationDir = await temporaryDirectory("greenfield-sdk-resource-transition-conversations-");
+		const workspace = await temporaryDirectory("greenfield-sdk-resource-transition-workspace-");
+		const initialized: string[] = [];
+		const disposed: string[] = [];
+		const { session } = await createGreenfieldSdkSession({
+			storage: { kind: "file-create", conversationDir, sessionId: "sdk-resource-initial" },
+			composition: factoryComposition(workspace),
+			session: { includeAgentSkills: false },
+			initializeSession: async ({ session: runtimeSession, source }) => {
+				initialized.push(`${source}:${runtimeSession.sessionId}`);
+				return {
+					id: `resource:${runtimeSession.sessionId}`,
+					dispose: () => {
+						disposed.push(runtimeSession.sessionId);
+					},
+				};
+			},
+		});
+		sdkSessions.push(session);
+
+		await session.newSession();
+		const activeSessionId = session.sessionId;
+		expect(initialized).toEqual(["initial:sdk-resource-initial", `transition:${activeSessionId}`]);
+		expect(disposed).toEqual(["sdk-resource-initial"]);
+
+		await session.close();
+		expect(disposed).toEqual(["sdk-resource-initial", activeSessionId]);
+	});
+
+	it("rolls back the SDK identity and target resource when transition finalization fails", async () => {
+		const conversationDir = await temporaryDirectory("greenfield-sdk-resource-rollback-conversations-");
+		const workspace = await temporaryDirectory("greenfield-sdk-resource-rollback-workspace-");
+		const disposed: string[] = [];
+		const { session } = await createGreenfieldSdkSession({
+			storage: { kind: "file-create", conversationDir, sessionId: "sdk-resource-source" },
+			composition: factoryComposition(workspace),
+			session: { includeAgentSkills: false },
+			initializeSession: async ({ session: runtimeSession }) => ({
+				id: `resource:${runtimeSession.sessionId}`,
+				dispose: () => {
+					disposed.push(runtimeSession.sessionId);
+				},
+			}),
+			transitionLifecycle: {
+				after: async () => {
+					throw new Error("SDK binding finalization failed");
+				},
+			},
+		});
+		sdkSessions.push(session);
+
+		await expect(session.newSession()).rejects.toThrow("SDK binding finalization failed");
+
+		expect(session.sessionId).toBe("sdk-resource-source");
+		expect(disposed).toHaveLength(1);
+		expect(disposed[0]).not.toBe("sdk-resource-source");
+		await expect(session.prompt("source remains usable")).resolves.toBeUndefined();
+	});
+
 	it("rolls back the composition when SDK session initialization fails", async () => {
 		const conversationDir = await temporaryDirectory("greenfield-sdk-rollback-conversations-");
 		const workspace = await temporaryDirectory("greenfield-sdk-rollback-workspace-");

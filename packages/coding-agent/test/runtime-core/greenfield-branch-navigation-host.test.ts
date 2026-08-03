@@ -20,6 +20,8 @@ describe("CodingAgentGreenfieldBranchNavigationHost", () => {
 
 		await expect(host.navigateTree("target", { summarize: true, label: "return point" })).resolves.toEqual({
 			cancelled: false,
+			editorText: "target branch",
+			summaryEntry: expect.objectContaining({ id: "summary", summary: "extension summary" }),
 		});
 
 		expect(fixture.appendBranchSummary).toHaveBeenCalledWith(null, "extension summary", undefined, true);

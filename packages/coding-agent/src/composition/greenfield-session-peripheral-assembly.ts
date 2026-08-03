@@ -82,11 +82,14 @@ export async function createGreenfieldSessionPeripheralAssembly(
 	const configurationState = new GreenfieldSessionConfigurationState(sessionOptions.agentMode, () =>
 		pluginRuntime?.readAgentPlugins(),
 	);
-	const productToolRegistrations = createCodingAgentGreenfieldProductToolRegistrations({
-		cwd: options.sessionCwd,
-		knowledgeRoot: profile.knowledgeRoot,
-		knowledgePageWriter: sessionOptions.knowledgePageWriter,
-	});
+	const productToolRegistrations = [
+		...createCodingAgentGreenfieldProductToolRegistrations({
+			cwd: options.sessionCwd,
+			knowledgeRoot: profile.knowledgeRoot,
+			knowledgePageWriter: sessionOptions.knowledgePageWriter,
+		}),
+		...(sessionOptions.sessionRuntimeTools ?? []),
+	];
 	const productToolFeature = createCodingAgentGreenfieldProductToolFeature({
 		registrations: productToolRegistrations,
 		resolveActivation: (context) =>

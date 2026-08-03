@@ -37,8 +37,9 @@ describe("SDK compatibility inventory", () => {
 		});
 	});
 
-	it("accepts wired tool and tracing options and reports options that still require a product adapter", () => {
+	it("accepts wired tool, tracing and subagent injection options", () => {
 		const subagentSessionFactory = {} as NonNullable<CreateAgentSessionOptions["subagentSessionFactory"]>;
+		const subagentTypeRegistry = {} as NonNullable<CreateAgentSessionOptions["subagentTypeRegistry"]>;
 		expect(assessSdkCreateOptionsCompatibility({ scopedModels: [], tools: [] })).toEqual({
 			compatible: true,
 			issues: [],
@@ -47,15 +48,9 @@ describe("SDK compatibility inventory", () => {
 			compatible: true,
 			issues: [],
 		});
-		expect(assessSdkCreateOptionsCompatibility({ subagentSessionFactory })).toEqual({
-			compatible: false,
-			issues: [
-				{
-					code: "greenfield_sdk_option_not_wired",
-					option: "subagentSessionFactory",
-					disposition: "legacy-concrete",
-				},
-			],
+		expect(assessSdkCreateOptionsCompatibility({ subagentSessionFactory, subagentTypeRegistry })).toEqual({
+			compatible: true,
+			issues: [],
 		});
 	});
 
@@ -67,11 +62,23 @@ describe("SDK compatibility inventory", () => {
 		expect(SDK_CREATE_OPTION_WIRING.tracer).toBe("wired");
 		expect(SDK_CREATE_OPTION_WIRING.tracingTraceName).toBe("wired");
 		expect(SDK_CREATE_OPTION_WIRING.tracingMetadata).toBe("wired");
+		expect(SDK_CREATE_OPTION_WIRING.subagentTypeRegistry).toBe("wired");
+		expect(SDK_CREATE_OPTION_WIRING.subagentSessionFactory).toBe("wired");
+		expect(SDK_SESSION_MEMBER_WIRING.listSubagents).toBe("wired");
+		expect(SDK_SESSION_MEMBER_WIRING.interruptSubagent).toBe("wired");
+		expect(SDK_SESSION_MEMBER_WIRING.clearFinishedSubagents).toBe("wired");
 		expect(SDK_SESSION_MEMBER_WIRING.cycleModel).toBe("wired");
 		expect(SDK_SESSION_MEMBER_WIRING.reconfigureCustomTools).toBe("wired");
 		expect(SDK_SESSION_MEMBER_WIRING.clearQueue).toBe("wired");
-		expect(SDK_SESSION_MEMBER_WIRING.switchSession).toBe("not-wired");
+		expect(SDK_SESSION_MEMBER_WIRING.switchSession).toBe("wired");
 		expect(SDK_SESSION_MEMBER_WIRING.agent).toBe("not-wired");
+	});
+
+	it("closes every Runtime capability member through fixed or active Session ports", () => {
+		for (const [member, disposition] of Object.entries(SDK_SESSION_MEMBER_COMPATIBILITY)) {
+			if (disposition !== "runtime-capability") continue;
+			expect(SDK_SESSION_MEMBER_WIRING[member as keyof typeof SDK_SESSION_MEMBER_WIRING], member).toBe("wired");
+		}
 	});
 
 	it("distinguishes the closed core facade from later capabilities and implementation leaks", () => {

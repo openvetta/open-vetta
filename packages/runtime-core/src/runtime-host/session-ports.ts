@@ -200,6 +200,8 @@ export interface RuntimeSubagentSnapshot extends SubagentInfo {
 /** 后台 bash 与 subagent 的统一宿主控制面；对应现有后台工作面板。 */
 export interface RuntimeSessionBackgroundWorkController {
 	clearFinished(): number;
+	/** 仅清理终态子代理；与后台命令清理分离，供兼容宿主精确调用。 */
+	clearFinishedSubagents?(): number;
 	killTask(taskId: string): boolean;
 	readTasks(): readonly BackgroundTaskInfo[];
 	readSubagents(): readonly RuntimeSubagentSnapshot[];

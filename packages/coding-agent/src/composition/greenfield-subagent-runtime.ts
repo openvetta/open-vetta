@@ -21,10 +21,14 @@ import {
 	type SubagentSpawnRequest,
 	type SubagentTypeDefinition,
 	SubagentTypeRegistry,
+	type SubagentTypeRegistryLike,
 	taskPath,
 } from "@vetta/runtime-subagents";
 import type { CodingToolActivation } from "@vetta/runtime-tools/coding";
-import { createCodingAgentSubagentRuntimeToolRegistrations } from "../adapters/runtime-core/greenfield.js";
+import {
+	type CodingAgentRuntimeToolRegistration,
+	createCodingAgentSubagentRuntimeToolRegistrations,
+} from "../adapters/runtime-core/greenfield.js";
 import { EXPLORER_SYSTEM_PROMPT } from "../core/subagents/types/explorer.js";
 import { WORKFLOW_SYSTEM_PROMPT } from "../core/subagents/types/workflow.js";
 import type { GreenfieldSubagentWorkRuntime } from "./greenfield-session-peripherals.js";
@@ -39,22 +43,27 @@ export interface GreenfieldSubagentProfile {
 	readonly systemPromptAddon: string;
 	readonly forkParentContext: boolean;
 	readonly includeTodo: boolean;
+	readonly createRuntimeTools?: (cwd: string) => readonly CodingAgentRuntimeToolRegistration[];
+	readonly denyToolNamePrefixes?: readonly string[];
 }
 
 export interface GreenfieldSubagentRuntimeOptions {
 	readonly parentSessionId: string;
 	readonly maxConcurrent?: number;
 	readonly lifecycle?: SubagentLifecycle;
+	readonly typeRegistry?: SubagentTypeRegistryLike<GreenfieldSubagentProfile>;
 	readonly readParentMessages: () => Promise<readonly Message[]>;
 	readonly createChild: (
 		request: SubagentSpawnRequest,
 		type: SubagentTypeDefinition<GreenfieldSubagentProfile>,
 		forkContext: readonly Message[] | undefined,
+		signal?: AbortSignal,
 	) => Promise<SubagentChildHandle>;
 	readonly reopenChild?: (
 		snapshot: SubagentSnapshot,
 		type: SubagentTypeDefinition<GreenfieldSubagentProfile>,
 		forkContext: readonly Message[] | undefined,
+		signal?: AbortSignal,
 	) => Promise<SubagentChildHandle>;
 	readonly onNotify?: (payload: SubagentNotificationPayload) => void;
 	readonly onUpdate?: (agents: readonly SubagentSnapshot[]) => void;
@@ -77,9 +86,7 @@ export class GreenfieldSubagentRuntime implements GreenfieldSubagentWorkRuntime,
 
 	constructor(options: GreenfieldSubagentRuntimeOptions) {
 		const reopenChild = options.reopenChild;
-		const registry = new SubagentTypeRegistry<GreenfieldSubagentProfile>()
-			.register(explorerType())
-			.register(workflowType());
+		const registry = options.typeRegistry ?? createDefaultGreenfieldSubagentTypeRegistry();
 		this.coordinator = new SubagentCoordinator({
 			parentSessionId: options.parentSessionId,
 			typeRegistry: registry,
@@ -92,13 +99,16 @@ export class GreenfieldSubagentRuntime implements GreenfieldSubagentWorkRuntime,
 			},
 			onDeliveryClaimed: (marker) => this.persistence.recordDelivery(marker),
 			factory: {
-				create: async (request, type) =>
+				create: async (request, type, signal) =>
 					options.createChild(
 						request,
 						type,
 						type.profile.forkParentContext ? [...(await options.readParentMessages())] : undefined,
+						signal,
 					),
-				reopen: reopenChild ? async (snapshot, type) => reopenChild(snapshot, type, undefined) : undefined,
+				reopen: reopenChild
+					? async (snapshot, type, signal) => reopenChild(snapshot, type, undefined, signal)
+					: undefined,
 			},
 		});
 		this.persistence = new GreenfieldSubagentStatePersistence({
@@ -162,7 +172,7 @@ export class GreenfieldSubagentRuntime implements GreenfieldSubagentWorkRuntime,
 
 async function prepareRecoveredAgents(
 	agents: readonly SubagentSnapshot[],
-	registry: SubagentTypeRegistry<GreenfieldSubagentProfile>,
+	registry: SubagentTypeRegistryLike<GreenfieldSubagentProfile>,
 	options: GreenfieldSubagentRuntimeOptions,
 ): Promise<SubagentSnapshot[]> {
 	const recovered: SubagentSnapshot[] = [];
@@ -187,6 +197,10 @@ async function prepareRecoveredAgents(
 		recovered.push(validationIssue ? recoveryFailure(snapshot, validationIssue) : snapshot);
 	}
 	return recovered;
+}
+
+export function createDefaultGreenfieldSubagentTypeRegistry(): SubagentTypeRegistry<GreenfieldSubagentProfile> {
+	return new SubagentTypeRegistry<GreenfieldSubagentProfile>().register(explorerType()).register(workflowType());
 }
 
 function recoveryFailure(snapshot: SubagentSnapshot, errorMessage: string): SubagentSnapshot {

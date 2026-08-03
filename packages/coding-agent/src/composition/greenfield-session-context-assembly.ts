@@ -114,7 +114,7 @@ export function createGreenfieldSessionContextAssembly(
 		},
 	});
 	const subagentRuntime = createGreenfieldSubagentSessionAssembly({
-		enabled: profile.enableSubagents !== false,
+		enabled: profile.enableSubagents === true,
 		maxConcurrent: profile.subagentMaxConcurrent,
 		cwd: options.sessionCwd,
 		scenario: options.scenario,
@@ -124,6 +124,8 @@ export function createGreenfieldSessionContextAssembly(
 		readModel: () => modelRuntime.readCurrentModel(),
 		readThinkingLevel: () => modelRuntime.readThinkingLevel(),
 		readInheritedMcpView: () => options.mcpCoordinator.readInheritedToolView(peripherals.pluginMcpRuntime),
+		typeRegistry: profile.subagentTypeRegistry,
+		createChildFactory: profile.createSubagentChildFactory,
 		createChildComposition: options.createChildComposition,
 		hookRuntime,
 		resourceContext: options.resourceContext,

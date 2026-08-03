@@ -10,12 +10,9 @@ import { ModelRegistry } from "../../src/core/model-registry.js";
 import type { CreateAgentSessionOptions } from "../../src/core/sdk.js";
 import { SessionManager } from "../../src/core/session-manager/index.js";
 import { SettingsManager } from "../../src/core/settings-manager.js";
+import { createEmptySubagentTypeRegistry } from "../../src/core/subagents/index.js";
 import { readTool } from "../../src/core/tools/index.js";
-import {
-	CODING_AGENT_SDK_HOST_ERROR_CODES,
-	CodingAgentSdkHostError,
-	createGreenfieldAgentSession,
-} from "../../src/host/coding-agent-sdk-host-adapter.js";
+import { createGreenfieldAgentSession } from "../../src/host/coding-agent-sdk-host-adapter.js";
 import type { GreenfieldSdkSession } from "../../src/public-api/sdk/index.js";
 
 describe("Coding Agent SDK Host Adapter", () => {
@@ -195,13 +192,82 @@ describe("Coding Agent SDK Host Adapter", () => {
 		expect(shutdown).not.toHaveBeenCalled();
 	});
 
-	it("rejects options that still require the complete Legacy AgentSession facade", async () => {
-		const subagentSessionFactory = {} as NonNullable<CreateAgentSessionOptions["subagentSessionFactory"]>;
-		await expect(createGreenfieldAgentSession({ subagentSessionFactory })).rejects.toMatchObject({
-			name: CodingAgentSdkHostError.name,
-			code: CODING_AGENT_SDK_HOST_ERROR_CODES.INCOMPATIBLE_OPTIONS,
-			issues: [{ option: "subagentSessionFactory" }],
+	it("keeps subagents fail-closed when enableSubagents is omitted", async () => {
+		const resources = await createResources("sdk-host-subagents-default-");
+		const result = await createGreenfieldAgentSession({
+			...resources.options,
+			enableSubagents: undefined,
+			model: MODEL,
 		});
+		sessions.push(result.session);
+
+		expect(result.session.getActiveToolNames()).not.toContain("spawn_agent");
+		expect(result.session.listSubagents()).toEqual([]);
+		expect(result.session.clearFinishedSubagents()).toBe(0);
+	});
+
+	it("accepts SDK subagent registry and factory injection without exposing Legacy objects", async () => {
+		const resources = await createResources("sdk-host-subagent-injection-");
+		const subagentTypeRegistry = createEmptySubagentTypeRegistry();
+		const subagentSessionFactory: NonNullable<CreateAgentSessionOptions["subagentSessionFactory"]> = {
+			async create() {
+				throw new Error("Disabled subagents must not create a child");
+			},
+		};
+		const result = await createGreenfieldAgentSession({
+			...resources.options,
+			model: MODEL,
+			subagentTypeRegistry,
+			subagentSessionFactory,
+		});
+		sessions.push(result.session);
+
+		expect(result.session.listSubagents()).toEqual([]);
+		expect(Reflect.has(result.session, "subagents")).toBe(false);
+	});
+
+	it("preserves SDK context and Extension bindings across active Session transitions", async () => {
+		const resources = await createResources("sdk-host-active-session-");
+		const result = await createGreenfieldAgentSession({
+			...resources.options,
+			model: MODEL,
+		});
+		sessions.push(result.session);
+		const stableFacade = result.session;
+		const initialPath = result.session.sessionFile;
+		if (!initialPath) throw new Error("Expected a persisted SDK session");
+
+		await result.session.sendCustomMessage({
+			customType: "sdk-context",
+			content: "host context",
+			display: true,
+		});
+		const customEntry = result.session.getSessionBranch().find(({ type }) => type === "custom_message");
+		if (!customEntry) throw new Error("Expected a custom context entry for active Session operations");
+		await result.session.sendCustomMessage({
+			customType: "sdk-context",
+			content: "later context",
+			display: true,
+		});
+
+		await expect(
+			result.session.newSession({
+				setup: async (sessionSetup) => {
+					sessionSetup.appendMessage(userMessage("seeded setup"));
+				},
+			}),
+		).resolves.toBe(true);
+		expect(result.session).toBe(stableFacade);
+		expect(result.session.messages).toEqual([expect.objectContaining({ role: "user" })]);
+		await expect(result.session.switchSession(initialPath)).resolves.toBe(true);
+		expect(result.session).toBe(stableFacade);
+		expect(result.session.getSessionBranch()).toContainEqual(expect.objectContaining({ id: customEntry.id }));
+
+		await expect(result.session.navigateTree(customEntry.id)).resolves.toMatchObject({
+			cancelled: false,
+			editorText: "host context",
+		});
+		result.session.abortBranchSummary();
 	});
 
 	async function createResources(prefix: string) {

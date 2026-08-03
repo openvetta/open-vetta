@@ -1,14 +1,18 @@
 import { dirname, join } from "node:path";
+import { Type } from "@sinclair/typebox";
 import type { Api, Message, Model } from "@vetta/ai";
 import type { EcosystemHookRuntime } from "@vetta/ecosystem-adapter";
 import { emptyHookDispatchOutcome } from "@vetta/ecosystem-adapter";
 import type { GreenfieldRuntimeResourceContext, GreenfieldRuntimeSession } from "@vetta/runtime-core";
 import type { SessionContextRecord } from "@vetta/runtime-core/kernel";
 import type { McpRuntimeToolView } from "@vetta/runtime-mcp";
+import { SubagentTypeRegistry } from "@vetta/runtime-subagents";
 import { describe, expect, it, vi } from "vitest";
+import type { GreenfieldSubagentProfile } from "../../src/composition/greenfield-subagent-runtime.js";
 import {
 	createGreenfieldSubagentSessionAssembly,
 	type GreenfieldSubagentChildCompositionRequest,
+	type GreenfieldSubagentChildFactory,
 } from "../../src/composition/greenfield-subagent-session-assembly.js";
 
 describe("Greenfield Subagent session assembly", () => {
@@ -174,6 +178,138 @@ describe("Greenfield Subagent session assembly", () => {
 		await runtime.dispose();
 		expect(dispose).toHaveBeenCalledOnce();
 	});
+
+	it("reads an injected type registry live and delegates child creation to the injected factory", async () => {
+		const registry = new SubagentTypeRegistry<GreenfieldSubagentProfile>();
+		const create = vi.fn<GreenfieldSubagentChildFactory["create"]>(async () => completedChild("custom-child"));
+		const runtime = createGreenfieldSubagentSessionAssembly({
+			...baseOptions(),
+			typeRegistry: registry,
+			createChildFactory: () => ({ create }),
+		});
+		if (!runtime) throw new Error("Expected enabled Subagent runtime");
+		const spawnTool = runtime.readTools().find(({ name }) => name === "spawn_agent");
+		if (!spawnTool) throw new Error("Expected spawn_agent tool");
+		const request = {
+			description: "Review repository",
+			task_name: "review_repo",
+			message: "Review the repository.",
+			agent_type: "reviewer",
+		};
+
+		await expect(
+			spawnTool.execute({
+				sessionId: "parent",
+				turnId: "turn-before-register",
+				toolCallId: "spawn-before-register",
+				signal: new AbortController().signal,
+				input: request,
+			}),
+		).rejects.toThrow('Unknown agent_type "reviewer"');
+
+		registry.register({
+			id: "reviewer",
+			label: "Reviewer",
+			description: "Review code without changing it.",
+			profile: {
+				activation: { mode: "explicit", toolNames: [] },
+				inheritParentMcp: false,
+				systemPromptAddon: "Review only.",
+				forkParentContext: true,
+				includeTodo: false,
+			},
+		});
+		await expect(
+			spawnTool.execute({
+				sessionId: "parent",
+				turnId: "turn-after-register",
+				toolCallId: "spawn-after-register",
+				signal: new AbortController().signal,
+				input: request,
+			}),
+		).resolves.toBeDefined();
+		await vi.waitFor(() => expect(runtime.list()[0]?.status).toBe("completed"));
+		expect(create).toHaveBeenCalledWith(
+			expect.objectContaining({ agentType: "reviewer", taskName: "review_repo" }),
+			expect.objectContaining({ id: "reviewer" }),
+			[],
+			undefined,
+		);
+
+		await runtime.dispose();
+	});
+
+	it("injects custom type tools into the default Greenfield child without changing their execution contract", async () => {
+		const registry = new SubagentTypeRegistry<GreenfieldSubagentProfile>().register({
+			id: "reviewer",
+			label: "Reviewer",
+			description: "Review code.",
+			profile: {
+				activation: { mode: "explicit", toolNames: [] },
+				inheritParentMcp: false,
+				systemPromptAddon: "Review only.",
+				forkParentContext: false,
+				includeTodo: false,
+				createRuntimeTools: () => [
+					{
+						tool: {
+							name: "review_code",
+							label: "Review code",
+							description: "Review code.",
+							inputSchema: Type.Object({}),
+							execute: async () => ({ content: [{ type: "text", text: "reviewed" }] }),
+						},
+						scopeUse: ["cli"],
+						category: "external",
+					},
+				],
+			},
+		});
+		const compositionRequests: GreenfieldSubagentChildCompositionRequest[] = [];
+		const childOptions: unknown[] = [];
+		const runtime = createGreenfieldSubagentSessionAssembly({
+			...baseOptions(),
+			typeRegistry: registry,
+			createChildComposition: async (request) => {
+				compositionRequests.push(request);
+				return {
+					createSession: async (options) => {
+						childOptions.push(options);
+						return childSession(options.sessionId, []);
+					},
+					resumeSession: async (options) => childSession(options.sessionId, []),
+					appendSessionContext() {},
+					async deliverSessionContext() {},
+					async dispose() {},
+				};
+			},
+		});
+		if (!runtime) throw new Error("Expected enabled Subagent runtime");
+		const spawnTool = runtime.readTools().find(({ name }) => name === "spawn_agent");
+		if (!spawnTool) throw new Error("Expected spawn_agent tool");
+
+		await spawnTool.execute({
+			sessionId: "parent",
+			turnId: "turn-custom-tool",
+			toolCallId: "spawn-custom-tool",
+			signal: new AbortController().signal,
+			input: {
+				description: "Review repository",
+				task_name: "review_custom",
+				message: "Review the repository.",
+				agent_type: "reviewer",
+			},
+		});
+		expect(compositionRequests[0]?.activation).toEqual({
+			mode: "explicit",
+			toolNames: ["review_code"],
+		});
+		expect(childOptions[0]).toMatchObject({
+			sessionRuntimeTools: [expect.objectContaining({ tool: expect.objectContaining({ name: "review_code" }) })],
+		});
+
+		await runtime.dispose();
+	});
 });
 
 function baseOptions() {
@@ -223,6 +359,21 @@ function childSession(sessionId: string, promptInputs: string[]): GreenfieldRunt
 		subscribe: () => () => {},
 	};
 	return session as unknown as GreenfieldRuntimeSession;
+}
+
+function completedChild(sessionId: string) {
+	return {
+		sessionId,
+		async prompt() {},
+		async sendMessage() {},
+		async followUp() {},
+		abort() {},
+		async waitForIdle() {},
+		isStreaming: () => false,
+		getLastAssistantText: () => "done",
+		dispose() {},
+		subscribe: () => () => {},
+	};
 }
 
 const MODEL: Model<Api> = {

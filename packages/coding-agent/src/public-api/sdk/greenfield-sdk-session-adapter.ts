@@ -239,6 +239,20 @@ export class GreenfieldSdkSessionAdapter implements GreenfieldSdkSession {
 		return this.runtime.capabilities.readLastAssistantText();
 	}
 
+	listSubagents(): ReturnType<GreenfieldSdkSession["listSubagents"]> {
+		return this.runtime.capabilities.readSubagents();
+	}
+
+	interruptSubagent(target: string): ReturnType<GreenfieldSdkSession["interruptSubagent"]> {
+		this.assertOpen();
+		return this.runtime.capabilities.interruptSubagent(target);
+	}
+
+	clearFinishedSubagents(): number {
+		this.assertOpen();
+		return this.runtime.capabilities.clearFinishedSubagents();
+	}
+
 	subscribe(listener: GreenfieldSdkSessionEventListener): () => void {
 		this.assertOpen();
 		this.listeners.add(listener);

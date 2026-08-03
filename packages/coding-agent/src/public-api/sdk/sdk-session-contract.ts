@@ -1,5 +1,5 @@
 import type { AgentMessage, ThinkingLevel } from "@vetta/agent-core";
-import type { Api, Model } from "@vetta/ai";
+import type { Api, ImageContent, Model, TextContent } from "@vetta/ai";
 import type {
 	PromptRequest,
 	RuntimeContextCompactionResult,
@@ -7,6 +7,7 @@ import type {
 	RuntimeSessionExecutionObservation,
 	RuntimeSessionInputQueueMode,
 	RuntimeSessionState,
+	RuntimeSubagentSnapshot,
 } from "@vetta/runtime-core";
 import type {
 	AgentSessionCustomToolDefinition,
@@ -108,6 +109,9 @@ export interface GreenfieldSdkSessionCapabilityPort {
 	readSessionStats(): GreenfieldSdkSessionStats;
 	readContextUsage(): RuntimeSessionContextUsage | undefined;
 	readLastAssistantText(): string | undefined;
+	readSubagents(): readonly RuntimeSubagentSnapshot[];
+	interruptSubagent(target: string): RuntimeSubagentSnapshot | undefined;
+	clearFinishedSubagents(): number;
 }
 
 /**
@@ -173,9 +177,120 @@ export interface GreenfieldSdkSessionCapabilities {
 	getSessionStats(): GreenfieldSdkSessionStats;
 	getContextUsage(): RuntimeSessionContextUsage | undefined;
 	getLastAssistantText(): string | undefined;
+	listSubagents(): readonly RuntimeSubagentSnapshot[];
+	interruptSubagent(target: string): RuntimeSubagentSnapshot | undefined;
+	clearFinishedSubagents(): number;
 }
 
 export type GreenfieldSdkSession = GreenfieldSdkSessionCore & GreenfieldSdkSessionCapabilities;
+
+export interface GreenfieldSdkSessionSetupPort {
+	appendMessage(message: AgentMessage): string;
+}
+
+export interface GreenfieldSdkBashOperations {
+	exec(
+		command: string,
+		cwd: string,
+		options: {
+			readonly onData: (data: Buffer) => void;
+			readonly signal?: AbortSignal;
+			readonly timeout?: number;
+			readonly env?: NodeJS.ProcessEnv;
+		},
+	): Promise<{ readonly exitCode: number | null }>;
+}
+
+export interface GreenfieldSdkBashResult {
+	readonly output: string;
+	readonly exitCode: number | undefined;
+	readonly cancelled: boolean;
+	readonly truncated: boolean;
+	readonly fullOutputPath?: string;
+}
+
+export interface GreenfieldSdkSessionBranchEntry {
+	readonly id: string;
+	readonly type: string;
+	readonly parentId: string | null;
+}
+
+export interface GreenfieldSdkBranchSummaryEntry extends GreenfieldSdkSessionBranchEntry {
+	readonly type: "branch_summary";
+	readonly summary: string;
+}
+
+export interface GreenfieldSdkNewSessionOptions {
+	readonly parentSession?: string;
+	readonly setup?: (sessionManager: GreenfieldSdkSessionSetupPort) => Promise<void>;
+}
+
+export interface GreenfieldSdkTreeNavigationOptions {
+	readonly summarize?: boolean;
+	readonly customInstructions?: string;
+	readonly replaceInstructions?: boolean;
+	readonly label?: string;
+}
+
+export interface GreenfieldSdkTreeNavigationResult {
+	readonly editorText?: string;
+	readonly cancelled: boolean;
+	readonly aborted?: boolean;
+	readonly summaryEntry?: GreenfieldSdkBranchSummaryEntry;
+}
+
+/** 会改变当前会话身份或依赖活动会话所有权的 SDK 操作。 */
+export interface GreenfieldSdkActiveSessionCapabilities {
+	getSessionBranch(): readonly GreenfieldSdkSessionBranchEntry[];
+	sendCustomMessage<T = unknown>(
+		message: {
+			readonly customType: string;
+			readonly content: string | readonly (TextContent | ImageContent)[];
+			readonly display: boolean;
+			readonly details?: T;
+		},
+		options?: { readonly triggerTurn?: boolean; readonly deliverAs?: "steer" | "followUp" | "nextTurn" },
+	): Promise<void>;
+	sendUserMessage(
+		content: string | readonly (TextContent | ImageContent)[],
+		options?: { readonly deliverAs?: "steer" | "followUp" },
+	): Promise<void>;
+	newSession(options?: GreenfieldSdkNewSessionOptions): Promise<boolean>;
+	abortBranchSummary(): void;
+	executeBash(
+		command: string,
+		onChunk?: (chunk: string) => void,
+		options?: { readonly excludeFromContext?: boolean; readonly operations?: GreenfieldSdkBashOperations },
+	): Promise<GreenfieldSdkBashResult>;
+	abortBash(): void;
+	readonly isBashRunning: boolean;
+	readonly hasPendingBashMessages: boolean;
+	switchSession(sessionPath: string): Promise<boolean>;
+	fork(entryId: string): Promise<{ readonly selectedText: string; readonly cancelled: boolean }>;
+	navigateTree(
+		targetId: string,
+		options?: GreenfieldSdkTreeNavigationOptions,
+	): Promise<GreenfieldSdkTreeNavigationResult>;
+	switchBranch(targetId: string): Promise<{ readonly leafId: string }>;
+	appendBranchSummary(
+		parentId: string | null,
+		summary: string,
+		details?: unknown,
+		fromHook?: boolean,
+	): Promise<{ readonly entryId: string }>;
+	deleteMessage(entryId: string): Promise<{ readonly leafId: string | null }>;
+	replaceLastUserMessage(entryId: string): Promise<{ readonly leafId: string | null }>;
+	exportForkToNewFile(entryId: string): Promise<{ readonly path: string; readonly text: string }>;
+	getUserMessagesForForking(): readonly { readonly entryId: string; readonly text: string }[];
+}
+
+export type GreenfieldSdkActiveSession = GreenfieldSdkSession & GreenfieldSdkActiveSessionCapabilities;
+
+/** Active Session Adapter 依赖的身份事务和历史操作端口。 */
+export interface GreenfieldSdkActiveSessionCapabilityPort extends GreenfieldSdkActiveSessionCapabilities {
+	quiesceIdentity(): Promise<void>;
+	dispose(): Promise<void>;
+}
 
 /** Greenfield SDK 门面依赖的最小 Runtime 能力，不绑定具体 Session 实现。 */
 export interface GreenfieldSdkSessionRuntimePort {
