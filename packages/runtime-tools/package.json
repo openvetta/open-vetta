@@ -17,9 +17,7 @@
 	"files": ["dist"],
 	"scripts": {
 		"clean": "rm -rf dist",
-		"build": "bun run build:runtime && bun run build:compat",
-		"build:runtime": "tsgo -p tsconfig.runtime.json",
-		"build:compat": "tsgo -p tsconfig.compat.json",
+		"build": "tsgo -p tsconfig.build.json",
 		"test": "bunx vitest --run"
 	},
 	"dependencies": {
@@ -30,9 +28,6 @@
 		"file-type": "^21.1.1",
 		"glob": "^13.0.1",
 		"ignore": "^7.0.5"
-	},
-	"peerDependencies": {
-		"@vetta/coding-agent": "workspace:*"
 	},
 	"devDependencies": {
 		"@vetta/ai": "workspace:*",

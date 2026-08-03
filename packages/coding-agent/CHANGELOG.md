@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+### Breaking Changes
+
+- **退役 Runtime 包兼容子路径**：移除 `@vetta/coding-agent/compat/runtime-storage` 与 `@vetta/coding-agent/compat/runtime-tools`；两个 Runtime 包根现直接暴露各自独立实现，生产依赖图不再形成反向循环。
+
 ### Added
 
 - **稳定 SDK Host Composition**：`@vetta/coding-agent/sdk` 新增拥有多 Session 生命周期的 `createCodingAgentHost()`；Host 在关闭时等待已准入的创建、关闭剩余 Session、聚合失败并允许重试，Session 单独关闭后自动释放 Host 所有权。`@vetta/coding-agent/host-services` 新增 `createCodingAgentHostWithServices()`，把既有 `AuthStorage`、`ModelRegistry`、`SettingsManager` 作为调用方持有的共享宿主服务适配给稳定 Session，不把具体 Manager 暴露为 Session 属性；Storage 与动态 Skill/Extension Source 保持逐 Session 所有权。

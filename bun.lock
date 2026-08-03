@@ -809,9 +809,6 @@
         "@vetta/coding-agent": "workspace:*",
         "typescript": "^5.9.2",
       },
-      "peerDependencies": {
-        "@vetta/coding-agent": "workspace:*",
-      },
     },
     "packages/runtime-subagents": {
       "name": "@vetta/runtime-subagents",
@@ -852,9 +849,6 @@
         "@vetta/ai": "workspace:*",
         "@vetta/coding-agent": "workspace:*",
         "typescript": "^5.9.2",
-      },
-      "peerDependencies": {
-        "@vetta/coding-agent": "workspace:*",
       },
     },
     "packages/site": {

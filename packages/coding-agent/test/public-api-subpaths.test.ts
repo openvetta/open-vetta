@@ -7,8 +7,6 @@ import { DefaultResourceLoader } from "../src/core/resource-loader.js";
 import * as root from "../src/index.js";
 import { createAgentCliBootstrap, createCodingAgentHostBootstrap } from "../src/public-api/bootstrap.js";
 import { runCodingAgentCliControl } from "../src/public-api/cli-control.js";
-import * as runtimeStorageCompat from "../src/public-api/compat-runtime-storage.js";
-import * as runtimeToolsCompat from "../src/public-api/compat-runtime-tools.js";
 import { ExtensionRunner } from "../src/public-api/extensions.js";
 import {
 	AuthStorage as HostAuthStorage,
@@ -41,9 +39,6 @@ describe("coding-agent public subpaths", () => {
 		expect(HostAuthStorage).toBe(root.AuthStorage);
 		expect(HostModelRegistry).toBe(root.ModelRegistry);
 		expect(HostSettingsManager).toBe(root.SettingsManager);
-		expect(runtimeStorageCompat.SessionManager).toBe(root.SessionManager);
-		expect(runtimeToolsCompat.createReadTool).toBe(root.createReadTool);
-		expect(runtimeToolsCompat.readTool).toBe(root.readTool);
 		expect(ExtensionRunner).toBe(root.ExtensionRunner);
 		expect(runCodingAgentCliControl).toBeTypeOf("function");
 		expect(createCodingAgentSession).toBeTypeOf("function");
@@ -78,14 +73,6 @@ describe("coding-agent public subpaths", () => {
 				types: "./dist/public-api/host-services.d.ts",
 				import: "./dist/public-api/host-services.js",
 			},
-			"./compat/runtime-storage": {
-				types: "./dist/public-api/compat-runtime-storage.d.ts",
-				import: "./dist/public-api/compat-runtime-storage.js",
-			},
-			"./compat/runtime-tools": {
-				types: "./dist/public-api/compat-runtime-tools.d.ts",
-				import: "./dist/public-api/compat-runtime-tools.js",
-			},
 			"./knowledge": {
 				types: "./dist/core/knowledge/index.d.ts",
 				import: "./dist/core/knowledge/index.js",
@@ -107,6 +94,7 @@ describe("coding-agent public subpaths", () => {
 				import: "./dist/public-api/sdk.js",
 			},
 		});
+		expect(Object.keys(exports).filter((key) => key.startsWith("./compat/"))).toEqual([]);
 		expect(Object.keys(exports).filter((key) => key.startsWith("./legacy/"))).toEqual([]);
 	});
 });

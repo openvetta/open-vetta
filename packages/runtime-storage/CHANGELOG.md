@@ -4,6 +4,10 @@ All notable changes to `@vetta/runtime-storage` are documented in this file.
 
 ## [Unreleased]
 
+### Breaking Changes
+
+- **退役 Coding Agent 存储兼容根**：包根改为暴露原生 Conversation API，不再转发 `AuthStorage`、`SessionManager`、`SettingsManager`；认证与设置继续由产品宿主拥有。
+
 ### Added
 
 - **Turn 外 Context 与 Entry Label 持久化**：Conversation V2 TypeBox Schema 新增无 `turnId` 的 `context.recorded`，可在不启动模型 Turn 时保存模型/UI 可见上下文；Repository 同时支持无预读 revision 的 Session 元数据、Custom Entry 与 Label 追加写入，并保持重开后的分支投影。
@@ -16,7 +20,7 @@ All notable changes to `@vetta/runtime-storage` are documented in this file.
 - **Conversation V2 与 Legacy History Importer**：原生 JSONL V2 event envelope 保存稳定 document entry identity，并继续严格读取和原格式追加 V1；`FileConversationRepository` 新增 Conversation Document 读取，另提供不依赖 coding-agent 的 Legacy v1-v3 只读 importer，覆盖旧新历史差异和损坏 parent 校验。
 - **Greenfield Session Projection 集成**：`FileConversationRepository` 新增稳定绝对会话文件路径解析，并通过真实文件 create、prompt、dispose、resume 验证 Runtime Core 同步状态和消息投影可重建。
 - **Conversation TypeBox Schema**：为 Message、Session Event、JSONL Record 和 Snapshot 增加完整运行时 Schema；Repository 在写入边界拒绝非法领域对象，并在读取时将结构正确但语义非法的记录判定为损坏。
-- **版本化文件会话仓储**：新增 `@vetta/runtime-storage/conversation` 和 `FileConversationRepository`，支持事件顺序、乐观版本、原子 Snapshot 写入及损坏记录检测；包根旧兼容导出保持不变。
+- **版本化文件会话仓储**：新增 `@vetta/runtime-storage/conversation` 和 `FileConversationRepository`，支持事件顺序、乐观版本、原子 Snapshot 写入及损坏记录检测。
 - **进程内 Conversation 仓储**：新增 `InMemoryConversationRepository`，同时实现 Kernel/Document/Continuation 三个合同而不产生可恢复文件路径，保留版本冲突、Document revision、fork、compaction continuation 与关闭后拒绝访问语义。
 
 ### Fixed

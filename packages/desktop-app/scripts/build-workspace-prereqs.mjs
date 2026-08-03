@@ -24,8 +24,8 @@ export const workspacePackages = {
 	agent: { dir: "packages/agent" },
 	"runtime-core": { dir: "packages/runtime-core" },
 	"coding-agent": { dir: "packages/coding-agent" },
-	"runtime-tools": { dir: "packages/runtime-tools", buildScript: "build:runtime" },
-	"runtime-storage": { dir: "packages/runtime-storage", buildScript: "build:runtime" },
+	"runtime-tools": { dir: "packages/runtime-tools" },
+	"runtime-storage": { dir: "packages/runtime-storage" },
 	"runtime-mcp": { dir: "packages/runtime-mcp" },
 	"runtime-composition": { dir: "packages/runtime-composition" },
 	"cli-app": { dir: "packages/cli-app" },
@@ -170,27 +170,6 @@ async function main() {
 				nextCache.packages[name] = buildHash;
 			}),
 		);
-		if (layer.includes("coding-agent")) {
-			await Promise.all(
-				["runtime-tools", "runtime-storage"].map(async (name) => {
-					const config = packageGraph[name];
-					const cacheKey = `${name}:compat`;
-					const compatibilityHash = createHash("sha256")
-						.update(buildHashes.get(name) ?? "")
-						.update(buildHashes.get("coding-agent") ?? "")
-						.digest("hex");
-					const distDir = join(repoRoot, config.dir, "dist");
-					const unchanged =
-						!force && existsSync(distDir) && cache.packages?.[cacheKey] === compatibilityHash;
-					if (unchanged) {
-						console.log(`[workspace-prereqs] 跳过 ${cacheKey}（无变更）`);
-					} else {
-						await runBuild(cacheKey, config.dir, "build:compat");
-					}
-					nextCache.packages[cacheKey] = compatibilityHash;
-				}),
-			);
-		}
 	}
 
 	await mkdir(dirname(cachePath), { recursive: true });

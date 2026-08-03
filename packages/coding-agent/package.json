@@ -41,14 +41,6 @@
 			"types": "./dist/public-api/extensions.d.ts",
 			"import": "./dist/public-api/extensions.js"
 		},
-		"./compat/runtime-storage": {
-			"types": "./dist/public-api/compat-runtime-storage.d.ts",
-			"import": "./dist/public-api/compat-runtime-storage.js"
-		},
-		"./compat/runtime-tools": {
-			"types": "./dist/public-api/compat-runtime-tools.d.ts",
-			"import": "./dist/public-api/compat-runtime-tools.js"
-		},
 		"./knowledge": {
 			"types": "./dist/core/knowledge/index.d.ts",
 			"import": "./dist/core/knowledge/index.js"

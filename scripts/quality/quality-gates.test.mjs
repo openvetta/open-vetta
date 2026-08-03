@@ -354,12 +354,6 @@ describe("package boundary analysis", () => {
 		);
 		expect(findPackageBoundaryViolations("packages/runtime-core/test/runtime.test.ts", rootImport)).toHaveLength(1);
 		expect(findPackageBoundaryViolations("packages/runtime-tools/src/index.ts", rootImport)).toHaveLength(1);
-		expect(
-			findPackageBoundaryViolations(
-				"packages/runtime-tools/src/index.ts",
-				'export { createReadTool } from "@vetta/coding-agent/compat/runtime-tools";',
-			),
-		).toEqual([]);
 	});
 
 	it("keeps production Legacy imports and Runtime adapters inside explicit compatibility boundaries", () => {
@@ -843,7 +837,7 @@ describe("workspace build order", () => {
 		expect(
 			parseBuildPackageOrder(`
 				build_pkg packages/runtime-core
-				build_pkg_script packages/runtime-tools build:runtime
+				build_pkg packages/runtime-tools
 				build_pkg packages/coding-agent
 				build_pkg packages/coding-agent
 			`),
@@ -885,7 +879,7 @@ describe("workspace build order", () => {
 		expect(findBuildOrderViolations(["packages/runtime-core", "packages/coding-agent"], manifests)).toEqual([]);
 	});
 
-	it("does not treat compatibility peer dependencies as source build edges", () => {
+	it("does not treat peer dependencies as source build edges", () => {
 		const manifests = [
 			{
 				dir: "packages/runtime-tools",

@@ -1,10 +1,9 @@
 # @vetta/runtime-tools
 
-Runtime-owned Agent tools and transitional compatibility exports.
+Runtime-owned Agent tools and Coding Tools Feature.
 
-The package root temporarily keeps the built-in tool exports from
-`@vetta/coding-agent`. New tools are implemented independently under
-`@vetta/runtime-tools/coding`.
+The package root and `@vetta/runtime-tools/coding` expose the same independent
+Runtime tool surface.
 
 ## What It Owns
 
@@ -12,7 +11,6 @@ The package root temporarily keeps the built-in tool exports from
 - coding tool registration metadata and scenario selection
 - the greenfield Coding Tools Feature
 - host executable resolution Port for `rg` and `fd`
-- transitional re-exports of legacy coding tools
 
 ## What It Does Not Own
 
@@ -28,12 +26,8 @@ The package root temporarily keeps the built-in tool exports from
 
 ## Main Exports
 
-- `codingTools`
-- `readOnlyTools`
-- individual tool factories such as `createReadTool`, `createBashTool`, `createTreeTool`
-- `createCodingToolsFeature`, `createCurrentTimeTool`, `createReadTool`, and
-  `createLsTool` from
-  `@vetta/runtime-tools/coding`
+- individual tool factories such as `createReadTool`, `createBashTool`, and `createTreeTool`
+- `createCodingToolsFeature` from the package root or `@vetta/runtime-tools/coding`
 - `createCurrentTimeToolRegistration`, `createReadToolRegistration`,
   `createLsToolRegistration`, `InMemoryCodingToolRegistry`,
   `selectCodingTools`, and `selectCodingToolsForScope` for
@@ -50,10 +44,9 @@ definitions, registrations, text results, and binary hints are also compared
 directly. The greenfield Coding Tools Feature now contributes both
 `current_time` and `read`.
 
-The package root `createReadTool` remains the legacy compatibility export.
-Import `createReadTool` from `@vetta/runtime-tools/coding` to use the independent
-Runtime implementation. Production hosts have not switched to the greenfield
-Feature yet.
+The package root `createReadTool` is the independent Runtime implementation.
+Legacy implementations remain test-only differential Oracles until their
+behavior contracts are fully retired.
 
 The greenfield and legacy `ls` implementations run the same 15-case behavior
 contract. It covers definition metadata, dotfiles, directory suffixes,

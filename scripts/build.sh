@@ -68,10 +68,10 @@ build_layer2() {
   build_pkg packages/runtime-mcp
 }
 
-# ── Layer 3: independent Runtime surfaces used by coding-agent ──
+# ── Layer 3: independent Runtime packages used by coding-agent ──
 build_layer3() {
-  build_pkg_script packages/runtime-tools build:runtime
-  build_pkg_script packages/runtime-storage build:runtime
+  build_pkg packages/runtime-tools
+  build_pkg packages/runtime-storage
 }
 
 # ── Layer 4: Coding Profile + Composition Root ──
@@ -79,10 +79,8 @@ build_layer4() {
   build_pkg packages/coding-agent
 }
 
-# ── Layer 5: compatibility facades and forwarding package ──
+# ── Layer 5: forwarding package ──
 build_layer5() {
-  build_pkg_script packages/runtime-tools build:compat
-  build_pkg_script packages/runtime-storage build:compat
   build_pkg packages/runtime-composition
 }
 

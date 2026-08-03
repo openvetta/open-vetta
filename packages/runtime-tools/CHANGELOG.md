@@ -7,14 +7,15 @@ All notable changes to `@vetta/runtime-tools` are documented in this file.
 ### Breaking Changes
 
 - **CodingToolCatalog 执行仲裁合同**：`resolve(toolName)` 返回带稳定 Capability Binding 的 Catalog Entry，只读 Catalog 新增 `execute(binding, request)`；Coding Tools 不再写入编译期 `RuntimeSnapshot.tools`，改为通过 Model Call Contribution 在每次模型调用前物化。
+- **退役 Coding Agent 工具兼容根**：包根改为暴露与 `@vetta/runtime-tools/coding` 相同的原生 Runtime Tool API，不再提供旧工具单例集合与旧工厂转发。
 
 ### Added
 
 - **可等待的后台命令关闭合同**：`BackgroundCommandService` 新增 `shutdown()`，停止全部运行任务并等待宿主进程退出回调；同步 `dispose()` 兼容入口、任务状态、通知和停止原因保持不变。
-- **Greenfield Coding Tools Feature**：新增 `@vetta/runtime-tools/coding`、`createCodingToolsFeature` 和 TypeBox 驱动的 `current_time` Runtime Tool；包根旧工具兼容导出保持不变。
+- **Greenfield Coding Tools Feature**：新增 `@vetta/runtime-tools/coding`、`createCodingToolsFeature` 和 TypeBox 驱动的 `current_time` Runtime Tool。
 - **Coding Tool 注册层**：分离 Runtime Tool 执行定义与 `scope_use`、`category` 暴露元数据，并新增可复用旧新工具差分合同。
 - **Read 行为合同**：新增参数化旧新行为合同，覆盖路径、编码、图片、二进制提示、锚点、截断、自定义 Operations 和取消。
-- **Greenfield Read Tool**：新增独立 Runtime read、Coding 注册和可注入文件/图片 Port，并在旧新差分验证通过后接入 Greenfield Coding Tools Feature；包根旧工具兼容导出和生产入口保持不变。
+- **Greenfield Read Tool**：新增独立 Runtime read、Coding 注册和可注入文件/图片 Port，并在旧新差分验证通过后接入 Greenfield Coding Tools Feature。
 - **Greenfield Ls Tool**：新增独立 Runtime ls、参数化旧新行为合同和可注入目录 Operations；保留旧工具空 `scope_use` 的默认不激活语义，并通过真实 Agent Core Tool Loop 验证显式执行。
 - **Greenfield Grep Tool**：新增独立 Runtime grep、TS 描述、注册层和可注入文件读取边界；保留 ripgrep 搜索、上下文、锚点、匹配限制、截断和取消合同。
 - **Greenfield Find Tool**：新增独立 Runtime find、TS 描述、注册层和可注入 glob 边界；保留空 `scope_use`、路径相对化、`.gitignore`、结果限制、截断和显式激活合同。

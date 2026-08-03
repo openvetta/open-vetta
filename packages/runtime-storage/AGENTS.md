@@ -4,10 +4,11 @@
 
 ## 职责范围
 
-存储实现包，包括新 Conversation Repository，以及迁移期间保留的认证、旧会话和设置兼容导出。
+存储实现包，拥有独立的 Conversation Repository 和旧会话格式只读迁移边界。
 
 ## 注意事项
 
 - `src/conversation/` 必须真正拥有新 Kernel 的会话持久化实现，不得导入 `@vetta/coding-agent`
-- 包根暂时导出 `AuthStorage`、`SessionManager`、`SettingsManager` 等旧兼容 API
-- 新代码应通过 `@vetta/runtime-storage/conversation` 使用 `FileConversationRepository`
+- 包根只转发原生 Conversation 能力，不得恢复认证、设置或旧 Session Manager 兼容导出
+- 新代码可通过包根或 `@vetta/runtime-storage/conversation` 使用相同的 Conversation API
+- 旧 `coding-agent` 只允许作为测试差分 Oracle 出现在开发依赖中

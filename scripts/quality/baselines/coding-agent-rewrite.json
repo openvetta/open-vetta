@@ -2434,142 +2434,9 @@
 			],
 			"category": "old-core-public-subpath",
 			"domain": "resolve-config-value.js"
-		},
-		{
-			"path": "packages/runtime-storage/src/index.ts",
-			"specifier": "@vetta/coding-agent/compat/runtime-storage",
-			"names": [
-				"AuthCredential",
-				"AuthStorage",
-				"AuthStorageBackend",
-				"FileAuthStorageBackend",
-				"InMemoryAuthStorageBackend",
-				"SessionContext",
-				"SessionEntry",
-				"SessionInfo",
-				"SessionManager"
-			],
-			"category": "compatibility-entry",
-			"domain": "compatibility"
-		},
-		{
-			"path": "packages/runtime-storage/src/index.ts",
-			"specifier": "@vetta/coding-agent/core/settings-manager.js",
-			"names": [
-				"FileSettingsStorage",
-				"InMemorySettingsStorage",
-				"Settings",
-				"SettingsManager",
-				"SettingsScope",
-				"SettingsStorage"
-			],
-			"category": "old-core-public-subpath",
-			"domain": "settings-manager.js"
-		},
-		{
-			"path": "packages/runtime-tools/src/index.ts",
-			"specifier": "@vetta/coding-agent/compat/runtime-tools",
-			"names": [
-				"bashTool",
-				"codingTools",
-				"createBashTool",
-				"createCodingTools",
-				"createEditTool",
-				"createFindTool",
-				"createGlobTool",
-				"createGrepTool",
-				"createHtmlToPdfTool",
-				"createKbFilterByTagsTool",
-				"createKbListTagsTool",
-				"createKbWritePageTool",
-				"createLsTool",
-				"createReadOnlyTools",
-				"createReadTool",
-				"createTreeTool",
-				"createWriteTool",
-				"editTool",
-				"findTool",
-				"globTool",
-				"grepTool",
-				"htmlToPdfTool",
-				"kbFilterByTagsTool",
-				"kbListTagsTool",
-				"kbWritePageTool",
-				"lsTool",
-				"readOnlyTools",
-				"readTool",
-				"treeTool",
-				"writeTool"
-			],
-			"category": "compatibility-entry",
-			"domain": "compatibility"
 		}
 	],
-	"runtimeBackedges": [
-		{
-			"path": "packages/runtime-storage/src/index.ts",
-			"specifier": "@vetta/coding-agent/compat/runtime-storage",
-			"names": [
-				"AuthCredential",
-				"AuthStorage",
-				"AuthStorageBackend",
-				"FileAuthStorageBackend",
-				"InMemoryAuthStorageBackend",
-				"SessionContext",
-				"SessionEntry",
-				"SessionInfo",
-				"SessionManager"
-			]
-		},
-		{
-			"path": "packages/runtime-storage/src/index.ts",
-			"specifier": "@vetta/coding-agent/core/settings-manager.js",
-			"names": [
-				"FileSettingsStorage",
-				"InMemorySettingsStorage",
-				"Settings",
-				"SettingsManager",
-				"SettingsScope",
-				"SettingsStorage"
-			]
-		},
-		{
-			"path": "packages/runtime-tools/src/index.ts",
-			"specifier": "@vetta/coding-agent/compat/runtime-tools",
-			"names": [
-				"bashTool",
-				"codingTools",
-				"createBashTool",
-				"createCodingTools",
-				"createEditTool",
-				"createFindTool",
-				"createGlobTool",
-				"createGrepTool",
-				"createHtmlToPdfTool",
-				"createKbFilterByTagsTool",
-				"createKbListTagsTool",
-				"createKbWritePageTool",
-				"createLsTool",
-				"createReadOnlyTools",
-				"createReadTool",
-				"createTreeTool",
-				"createWriteTool",
-				"editTool",
-				"findTool",
-				"globTool",
-				"grepTool",
-				"htmlToPdfTool",
-				"kbFilterByTagsTool",
-				"kbListTagsTool",
-				"kbWritePageTool",
-				"lsTool",
-				"readOnlyTools",
-				"readTool",
-				"treeTool",
-				"writeTool"
-			]
-		}
-	],
+	"runtimeBackedges": [],
 	"oldImplementationFiles": [
 		"packages/coding-agent/src/core/agent-mode.ts",
 		"packages/coding-agent/src/core/agent-session.ts",
@@ -2752,14 +2619,9 @@
 		"packages/coding-agent/src/core/tools/truncate.ts",
 		"packages/coding-agent/src/core/tools/write/index.ts",
 		"packages/coding-agent/src/modes/rpc/legacy-rpc-session-adapter.ts",
-		"packages/coding-agent/src/public-api/compat-runtime-storage.ts",
-		"packages/coding-agent/src/public-api/compat-runtime-tools.ts",
 		"packages/coding-agent/src/public-api/sdk-compatibility-inventory.ts"
 	],
-	"compatibilityExports": [
-		"./compat/runtime-storage",
-		"./compat/runtime-tools"
-	],
+	"compatibilityExports": [],
 	"legacyExampleImports": [
 		{
 			"path": "packages/coding-agent/examples/sdk/12-full-control.ts",
