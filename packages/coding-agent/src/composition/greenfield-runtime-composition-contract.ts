@@ -189,6 +189,7 @@ export interface GreenfieldRuntimeSessionControls {
 	preserveSessionExecutionContext(sourceSessionId: string, targetSessionId: string): Promise<void>;
 	clearSessionExecutionContext(sessionId: string): void;
 	flushMemory(sessionId: string, signal?: AbortSignal): Promise<number>;
+	reloadMcp(sessionId: string): Promise<void>;
 }
 
 export interface GreenfieldRuntimeExtensionControls {

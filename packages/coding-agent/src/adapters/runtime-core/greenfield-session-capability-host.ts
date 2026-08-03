@@ -1,10 +1,17 @@
 import type { AgentMessage, ThinkingLevel } from "@vetta/agent-core";
 import { type Api, type AssistantMessage, type Model, modelsAreEqual, supportsXhigh } from "@vetta/ai";
-import type { GreenfieldRuntimeSession, PromptRequest, RuntimeSessionInputQueueMode } from "@vetta/runtime-core";
+import type {
+	AgentPluginRuntimeConfig,
+	GreenfieldRuntimeSession,
+	PromptRequest,
+	RuntimeSessionInputQueueMode,
+} from "@vetta/runtime-core";
 import type { RuntimeToolDefinition } from "@vetta/runtime-core/kernel";
 import type {
 	GreenfieldSdkCustomToolDefinition,
+	GreenfieldSdkMemoryConfiguration,
 	GreenfieldSdkModelCycleResult,
+	GreenfieldSdkPromptTemplate,
 	GreenfieldSdkRetryEvent,
 	GreenfieldSdkScopedModel,
 	GreenfieldSdkSessionCapabilityPort,
@@ -38,6 +45,15 @@ export interface CodingAgentGreenfieldSessionCapabilityHostOptions {
 	readonly settings?: CodingAgentGreenfieldSessionCapabilitySettings;
 	readonly retryController?: CodingAgentGreenfieldTurnRetryController;
 	readonly reconfigureCustomTools?: (customTools: readonly GreenfieldSdkCustomToolDefinition[] | undefined) => void;
+	readonly readSystemPrompt?: () => string;
+	readonly readPromptTemplates?: () => readonly GreenfieldSdkPromptTemplate[];
+	readonly reconfigureAgentPlugins?: (agentPlugins: AgentPluginRuntimeConfig | undefined) => Promise<void> | void;
+	readonly memoryConfiguration?: GreenfieldSdkMemoryConfiguration;
+	readonly flushMemory?: (signal?: AbortSignal) => Promise<number>;
+	readonly reloadMcp?: () => Promise<void>;
+	readonly reload?: () => Promise<void>;
+	readonly exportToHtml?: (outputPath?: string) => Promise<string>;
+	readonly hasExtensionHandlers?: (eventType: string) => boolean;
 }
 
 /** SDK 与 RPC 共用的 Session 内操作能力；不拥有 Session，也不执行身份迁移。 */
@@ -321,6 +337,82 @@ export class CodingAgentGreenfieldSessionCapabilityHost implements GreenfieldSdk
 		return this.readBackgroundWorkController()?.clearFinishedSubagents?.() ?? 0;
 	}
 
+	async readAvailableModels(): Promise<readonly Model<Api>[]> {
+		return [...(await this.readAvailableModelSource())];
+	}
+
+	readSystemPrompt(): string {
+		return this.options.readSystemPrompt?.() ?? "";
+	}
+
+	readPromptTemplates(): readonly GreenfieldSdkPromptTemplate[] {
+		return this.options.readPromptTemplates?.().map((template) => ({ ...template })) ?? [];
+	}
+
+	async reconfigureAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | undefined): Promise<void> {
+		await this.options.reconfigureAgentPlugins?.(agentPlugins);
+		await this.readConfigurationController().reconfigureAgentPlugins(agentPlugins);
+	}
+
+	readBackgroundTasks() {
+		return (
+			this.readBackgroundWorkController()
+				?.readTasks()
+				.map((task) => ({ ...task })) ?? []
+		);
+	}
+
+	killBackgroundTask(taskId: string): boolean {
+		return this.readBackgroundWorkController()?.killTask(taskId) ?? false;
+	}
+
+	clearFinishedBackgroundTasks(): number {
+		const controller = this.readBackgroundWorkController();
+		if (!controller?.clearFinishedTasks) {
+			throw new Error("Greenfield session background task cleanup capability is unavailable");
+		}
+		return controller.clearFinishedTasks();
+	}
+
+	readTodos() {
+		return (
+			this.readCore()
+				.todoController?.readItems()
+				.map((item) => ({ ...item })) ?? []
+		);
+	}
+
+	clearTodos(): boolean {
+		return this.readCore().todoController?.clear() ?? false;
+	}
+
+	readMemoryConfiguration(): GreenfieldSdkMemoryConfiguration {
+		return { ...(this.options.memoryConfiguration ?? { enabled: false, file: undefined, charLimit: 0 }) };
+	}
+
+	flushMemory(signal?: AbortSignal): Promise<number> {
+		return this.options.flushMemory?.(signal) ?? Promise.resolve(0);
+	}
+
+	reloadMcp(): Promise<void> {
+		if (!this.options.reloadMcp) throw new Error("Greenfield session MCP reload capability is unavailable");
+		return this.options.reloadMcp();
+	}
+
+	reload(): Promise<void> {
+		if (!this.options.reload) throw new Error("Greenfield session resource reload capability is unavailable");
+		return this.options.reload();
+	}
+
+	exportToHtml(outputPath?: string): Promise<string> {
+		if (!this.options.exportToHtml) throw new Error("Greenfield session HTML export capability is unavailable");
+		return this.options.exportToHtml(outputPath);
+	}
+
+	hasExtensionHandlers(eventType: string): boolean {
+		return this.options.hasExtensionHandlers?.(eventType) ?? false;
+	}
+
 	private readCore(): ReturnType<GreenfieldRuntimeSession["createCoreAssembly"]> {
 		return this.options.readSession().createCoreAssembly();
 	}
@@ -341,7 +433,7 @@ export class CodingAgentGreenfieldSessionCapabilityHost implements GreenfieldSdk
 		return this.options.readSession().createRuntimeHostAssemblyCandidate().backgroundWorkController;
 	}
 
-	private readAvailableModels(): Promise<readonly Model<Api>[]> {
+	private readAvailableModelSource(): Promise<readonly Model<Api>[]> {
 		return this.options.readAvailableModels?.() ?? Promise.resolve(this.readCore().modelView.readAvailableModels());
 	}
 

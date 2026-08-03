@@ -19,6 +19,12 @@ export interface CodingAgentGreenfieldSdkBashPort {
 		onChunk?: (chunk: string) => void,
 		options?: { readonly excludeFromContext?: boolean; readonly operations?: GreenfieldSdkBashOperations },
 	): Promise<GreenfieldSdkBashResult>;
+	record(
+		session: GreenfieldRuntimeSession,
+		command: string,
+		result: GreenfieldSdkBashResult,
+		options?: { readonly excludeFromContext?: boolean },
+	): Promise<void>;
 	abort(): void;
 	readonly isRunning: boolean;
 	hasPending(sessionId: string): boolean;
@@ -120,6 +126,17 @@ export class CodingAgentGreenfieldSdkActiveSessionCapabilityHost implements Gree
 		const bash = this.requireBash();
 		return this.options.sessionHost.startActiveSessionOperation((session) =>
 			bash.execute(session, command, onChunk, options),
+		);
+	}
+
+	recordBashResult(
+		command: string,
+		result: GreenfieldSdkBashResult,
+		options?: { readonly excludeFromContext?: boolean },
+	): Promise<void> {
+		const bash = this.requireBash();
+		return this.options.sessionHost.runActiveSessionMutation((session) =>
+			bash.record(session, command, result, options),
 		);
 	}
 

@@ -226,6 +226,52 @@ describe("Coding Agent SDK Host Adapter", () => {
 		expect(Reflect.has(result.session, "subagents")).toBe(false);
 	});
 
+	it("serves product behavior through narrow SDK capabilities", async () => {
+		const resources = await createResources("sdk-host-product-capabilities-");
+		registerTestModel(resources.modelRegistry);
+		const memoryFile = join(resources.cwd, "MEMORY.md");
+		const result = await createGreenfieldAgentSession({
+			...resources.options,
+			model: MODEL,
+			memoryMode: true,
+			memoryFile,
+		});
+		sessions.push(result.session);
+
+		expect(await result.session.listAvailableModels()).toEqual(
+			expect.arrayContaining([expect.objectContaining({ id: MODEL.id })]),
+		);
+		expect(result.session.getSystemPrompt()).not.toBe("");
+		expect(result.session.getPromptTemplates()).toEqual([]);
+		expect(result.session.listBackgroundTasks()).toEqual([]);
+		expect(result.session.getTodos()).toEqual([]);
+		expect(result.session.getMemoryConfiguration()).toEqual({ enabled: true, file: memoryFile, charLimit: 4_000 });
+		await expect(result.session.flushMemory()).resolves.toBe(0);
+		await expect(result.session.reconfigureAgentPlugins(undefined)).resolves.toBeUndefined();
+		await expect(result.session.reloadMcp()).resolves.toBeUndefined();
+		await expect(result.session.reload()).resolves.toBeUndefined();
+		expect(result.session.hasExtensionHandlers("before_agent_start")).toBe(false);
+
+		await result.session.recordBashResult("echo recorded", {
+			output: "recorded",
+			exitCode: 0,
+			cancelled: false,
+			truncated: false,
+		});
+		expect(result.session.getSessionBranch()).toContainEqual(
+			expect.objectContaining({
+				type: "message",
+				message: expect.objectContaining({ role: "bashExecution", command: "echo recorded" }),
+			}),
+		);
+		const outputPath = join(resources.cwd, "session.html");
+		await expect(result.session.exportToHtml(outputPath)).resolves.toBe(outputPath);
+		expect(await readFile(outputPath, "utf8")).toContain("<!DOCTYPE html>");
+		for (const concrete of ["modelRegistry", "backgroundTasks", "todoStore", "resourceLoader", "extensionRunner"]) {
+			expect(Reflect.has(result.session, concrete)).toBe(false);
+		}
+	});
+
 	it("preserves SDK context and Extension bindings across active Session transitions", async () => {
 		const resources = await createResources("sdk-host-active-session-");
 		const result = await createGreenfieldAgentSession({

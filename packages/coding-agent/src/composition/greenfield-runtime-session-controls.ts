@@ -22,6 +22,7 @@ export interface GreenfieldRuntimeSessionControlsOptions {
 		targetSeed: readonly RuntimeMessageEnvelope[],
 	) => void;
 	readonly clearConversationContext: (sessionId: string) => void;
+	readonly reloadMcp: (sessionId: string) => Promise<unknown>;
 }
 
 /** 将宿主的 Session 控制调用投影到实时 Composition 资源索引。 */
@@ -69,6 +70,9 @@ export function createGreenfieldRuntimeSessionControls(
 		},
 		async flushMemory(sessionId, signal) {
 			return (await options.indexes.memoryControllers.get(sessionId)?.flushMemory(signal)) ?? 0;
+		},
+		async reloadMcp(sessionId) {
+			await options.reloadMcp(sessionId);
 		},
 	};
 }

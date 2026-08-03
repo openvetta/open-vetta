@@ -266,7 +266,7 @@ export const SDK_SESSION_MEMBER_WIRING = {
 	getAllTools: "wired",
 	setActiveToolsByName: "wired",
 	reconfigureCustomTools: "wired",
-	reconfigureAgentPlugins: "not-wired",
+	reconfigureAgentPlugins: "wired",
 	agentMode: "wired",
 	setAgentMode: "wired",
 	prepareSystemPromptForAgentRun: "not-wired",
@@ -310,19 +310,19 @@ export const SDK_SESSION_MEMBER_WIRING = {
 	compact: "wired",
 	abortCompaction: "wired",
 	abortBranchSummary: "wired",
-	flushMemory: "not-wired",
+	flushMemory: "wired",
 	preCallCompaction: "not-wired",
 	setAutoCompactionEnabled: "wired",
 	autoCompactionEnabled: "wired",
 	bindExtensions: "not-wired",
-	reloadMcp: "not-wired",
-	reload: "not-wired",
+	reloadMcp: "wired",
+	reload: "wired",
 	abortRetry: "wired",
 	isRetrying: "wired",
 	autoRetryEnabled: "wired",
 	setAutoRetryEnabled: "wired",
 	executeBash: "wired",
-	recordBashResult: "not-wired",
+	recordBashResult: "wired",
 	abortBash: "wired",
 	isBashRunning: "wired",
 	hasPendingBashMessages: "wired",
@@ -338,8 +338,41 @@ export const SDK_SESSION_MEMBER_WIRING = {
 	getUserMessagesForForking: "wired",
 	getSessionStats: "wired",
 	getContextUsage: "wired",
-	exportToHtml: "not-wired",
+	exportToHtml: "wired",
 	getLastAssistantText: "wired",
-	hasExtensionHandlers: "not-wired",
+	hasExtensionHandlers: "wired",
 	extensionRunner: "not-wired",
 } as const satisfies Record<keyof AgentSession, SdkSessionMemberWiringStatus>;
+
+type UnwiredSdkSessionMember = {
+	[K in keyof typeof SDK_SESSION_MEMBER_WIRING]: (typeof SDK_SESSION_MEMBER_WIRING)[K] extends "not-wired" ? K : never;
+}[keyof typeof SDK_SESSION_MEMBER_WIRING];
+
+export type SdkSessionRewriteDecision = "narrow-replacement" | "internalized";
+
+/**
+ * 旧公开成员未按原形接线时的明确退出决策。
+ *
+ * narrow-replacement 表示功能由新的只读 View 或异步 Command 承担；internalized 表示
+ * 该步骤已经进入 Turn/Extension 流水线，不再允许宿主手工调用。
+ */
+export const SDK_SESSION_MEMBER_REWRITE_DECISIONS = {
+	agent: "narrow-replacement",
+	sessionManager: "narrow-replacement",
+	settingsManager: "narrow-replacement",
+	modelRegistry: "narrow-replacement",
+	subagents: "narrow-replacement",
+	mcpManager: "narrow-replacement",
+	systemPrompt: "narrow-replacement",
+	prepareSystemPromptForAgentRun: "internalized",
+	promptTemplates: "narrow-replacement",
+	todoStore: "narrow-replacement",
+	backgroundTasks: "narrow-replacement",
+	memoryMode: "narrow-replacement",
+	memoryFile: "narrow-replacement",
+	memoryCharLimit: "narrow-replacement",
+	resourceLoader: "narrow-replacement",
+	preCallCompaction: "internalized",
+	bindExtensions: "internalized",
+	extensionRunner: "narrow-replacement",
+} as const satisfies Record<UnwiredSdkSessionMember, SdkSessionRewriteDecision>;

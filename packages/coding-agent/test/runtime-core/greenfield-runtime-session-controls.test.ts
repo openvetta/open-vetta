@@ -25,6 +25,8 @@ describe("Greenfield Runtime Session Controls", () => {
 		const deliverAsyncContext = vi.fn(async () => {});
 		const quiesceBackgroundCommands = vi.fn(async () => {});
 		const flushMemory = vi.fn(async () => 7);
+		const reloadMcp = vi.fn(async () => undefined);
+		fixture.reloadMcp.mockImplementation(reloadMcp);
 		fixture.indexes.hookSessionControllers.set("session", { end, start, discard });
 		fixture.indexes.resourceContexts.set("session", {
 			contextAppender: { append },
@@ -44,6 +46,7 @@ describe("Greenfield Runtime Session Controls", () => {
 		await controls.deliverSessionContext("session", records);
 		await controls.quiesceSessionBackgroundCommands("session");
 		await expect(controls.flushMemory("session", signal)).resolves.toBe(7);
+		await controls.reloadMcp("session");
 		await controls.preserveSessionExecutionContext("source", "target");
 		controls.clearSessionExecutionContext("target");
 
@@ -54,6 +57,7 @@ describe("Greenfield Runtime Session Controls", () => {
 		expect(deliverAsyncContext).toHaveBeenCalledWith(records);
 		expect(quiesceBackgroundCommands).toHaveBeenCalledOnce();
 		expect(flushMemory).toHaveBeenCalledWith(signal);
+		expect(reloadMcp).toHaveBeenCalledWith("session");
 		expect(fixture.readConversationDocument.mock.calls.map(([sessionId]) => sessionId)).toEqual(["source", "target"]);
 		expect(fixture.projectConversationContext).toHaveBeenCalledWith(fixture.sourceDocument);
 		expect(fixture.projectConversationSeed).toHaveBeenCalledWith(fixture.targetDocument);
@@ -86,6 +90,7 @@ describe("Greenfield Runtime Session Controls", () => {
 		);
 		await expect(controls.quiesceSessionBackgroundCommands("missing")).resolves.toBeUndefined();
 		await expect(controls.flushMemory("missing")).resolves.toBe(0);
+		await expect(controls.reloadMcp("missing")).resolves.toBeUndefined();
 	});
 });
 
@@ -110,6 +115,7 @@ function createFixture() {
 	const projectConversationSeed = vi.fn(() => targetSeed);
 	const preserveConversationContext = vi.fn();
 	const clearConversationContext = vi.fn();
+	const reloadMcp = vi.fn(async () => undefined);
 	return {
 		indexes,
 		sourceDocument,
@@ -121,6 +127,7 @@ function createFixture() {
 		projectConversationSeed,
 		preserveConversationContext,
 		clearConversationContext,
+		reloadMcp,
 		controls: createGreenfieldRuntimeSessionControls({
 			indexes,
 			readConversationDocument,
@@ -128,6 +135,7 @@ function createFixture() {
 			projectConversationSeed,
 			preserveConversationContext,
 			clearConversationContext,
+			reloadMcp,
 		}),
 	};
 }

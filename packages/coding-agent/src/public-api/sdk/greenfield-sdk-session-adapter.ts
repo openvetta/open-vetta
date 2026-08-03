@@ -253,6 +253,76 @@ export class GreenfieldSdkSessionAdapter implements GreenfieldSdkSession {
 		return this.runtime.capabilities.clearFinishedSubagents();
 	}
 
+	listAvailableModels(): ReturnType<GreenfieldSdkSession["listAvailableModels"]> {
+		return this.runtime.capabilities.readAvailableModels();
+	}
+
+	getSystemPrompt(): string {
+		return this.runtime.capabilities.readSystemPrompt();
+	}
+
+	getPromptTemplates(): ReturnType<GreenfieldSdkSession["getPromptTemplates"]> {
+		return this.runtime.capabilities.readPromptTemplates();
+	}
+
+	reconfigureAgentPlugins(
+		agentPlugins: Parameters<GreenfieldSdkSession["reconfigureAgentPlugins"]>[0],
+	): Promise<void> {
+		this.assertOpen();
+		return this.runtime.capabilities.reconfigureAgentPlugins(agentPlugins);
+	}
+
+	listBackgroundTasks(): ReturnType<GreenfieldSdkSession["listBackgroundTasks"]> {
+		return this.runtime.capabilities.readBackgroundTasks();
+	}
+
+	killBackgroundTask(taskId: string): boolean {
+		this.assertOpen();
+		return this.runtime.capabilities.killBackgroundTask(taskId);
+	}
+
+	clearFinishedBackgroundTasks(): number {
+		this.assertOpen();
+		return this.runtime.capabilities.clearFinishedBackgroundTasks();
+	}
+
+	getTodos(): ReturnType<GreenfieldSdkSession["getTodos"]> {
+		return this.runtime.capabilities.readTodos();
+	}
+
+	clearTodos(): boolean {
+		this.assertOpen();
+		return this.runtime.capabilities.clearTodos();
+	}
+
+	getMemoryConfiguration(): ReturnType<GreenfieldSdkSession["getMemoryConfiguration"]> {
+		return this.runtime.capabilities.readMemoryConfiguration();
+	}
+
+	flushMemory(signal?: AbortSignal): Promise<number> {
+		this.assertOpen();
+		return this.runtime.capabilities.flushMemory(signal);
+	}
+
+	reloadMcp(): Promise<void> {
+		this.assertOpen();
+		return this.runtime.capabilities.reloadMcp();
+	}
+
+	reload(): Promise<void> {
+		this.assertOpen();
+		return this.runtime.capabilities.reload();
+	}
+
+	exportToHtml(outputPath?: string): Promise<string> {
+		this.assertOpen();
+		return this.runtime.capabilities.exportToHtml(outputPath);
+	}
+
+	hasExtensionHandlers(eventType: string): boolean {
+		return this.runtime.capabilities.hasExtensionHandlers(eventType);
+	}
+
 	subscribe(listener: GreenfieldSdkSessionEventListener): () => void {
 		this.assertOpen();
 		this.listeners.add(listener);

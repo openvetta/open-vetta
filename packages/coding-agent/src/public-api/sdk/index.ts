@@ -6,12 +6,30 @@ export {
 export { GreenfieldSdkSessionAdapter } from "./greenfield-sdk-session-adapter.js";
 export { mapGreenfieldSdkExecutionEvent } from "./greenfield-sdk-session-events.js";
 export type {
+	CodingAgentQuestionAnswer,
+	CodingAgentQuestionCapability,
+	CodingAgentQuestionItem,
+	CodingAgentQuestionOption,
+	CodingAgentQuestionRequest,
+	CodingAgentQuestionResult,
+	CodingAgentSession,
+	CodingAgentSessionCreateErrorCode,
+	CodingAgentSessionDiagnostic,
+	CodingAgentSessionStorageTarget,
+	CodingAgentSessionToolDefinition,
+	CreateCodingAgentSessionOptions,
+	CreateCodingAgentSessionResult,
+} from "./sdk-create-contract.js";
+export { CODING_AGENT_SESSION_CREATE_ERROR_CODES, CodingAgentSessionCreateError } from "./sdk-create-contract.js";
+export type {
 	GreenfieldSdkActiveSession,
 	GreenfieldSdkActiveSessionCapabilities,
 	GreenfieldSdkActiveSessionCapabilityPort,
+	GreenfieldSdkMemoryConfiguration,
 	GreenfieldSdkModelCycleResult,
 	GreenfieldSdkNewSessionOptions,
 	GreenfieldSdkPromptOptions,
+	GreenfieldSdkPromptTemplate,
 	GreenfieldSdkRetryEvent,
 	GreenfieldSdkScopedModel,
 	GreenfieldSdkSession,

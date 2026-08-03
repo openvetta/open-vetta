@@ -78,6 +78,10 @@ export class GreenfieldBackgroundWorkController implements RuntimeSessionBackgro
 		return this.backgroundService.clearFinished() + (this.subagents?.clearFinished() ?? 0);
 	}
 
+	clearFinishedTasks(): number {
+		return this.backgroundService.clearFinished();
+	}
+
 	clearFinishedSubagents(): number {
 		return this.subagents?.clearFinished() ?? 0;
 	}

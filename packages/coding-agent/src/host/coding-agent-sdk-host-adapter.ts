@@ -4,10 +4,12 @@ import { Value } from "@sinclair/typebox/value";
 import type { ThinkingLevel } from "@vetta/agent-core";
 import type { Api, Model } from "@vetta/ai";
 import { buildDefaultHookConfigLayers } from "@vetta/ecosystem-adapter";
+import type { GreenfieldRuntimeSession } from "@vetta/runtime-core";
 import { createLangfuseRuntimeTracerFromEnv } from "@vetta/runtime-telemetry/langfuse";
 import {
 	CodingAgentGreenfieldBranchNavigationHost,
 	CodingAgentGreenfieldExtensionEventHost,
+	CodingAgentGreenfieldResourceReloadHost,
 	CodingAgentGreenfieldSessionCapabilityHost,
 	createCodingAgentCompactionExtensionRuntime,
 	createCodingAgentMcpRuntimeToolSource,
@@ -19,17 +21,29 @@ import {
 	createGreenfieldSdkSession,
 	type GreenfieldSdkOwnedResource,
 } from "../composition/greenfield-sdk-session-factory.js";
+import type { GreenfieldSdkSessionStorageTarget } from "../composition/greenfield-sdk-session-storage.js";
 import { DEFAULT_SERVER_URL, ENV_SERVER_URL, getAgentDir, getDocsPath, getVettaHomePath } from "../config.js";
 import { AuthStorage } from "../core/auth-storage.js";
 import { DEFAULT_THINKING_LEVEL } from "../core/defaults.js";
+import { exportConversationDocumentToHtml, type ToolHtmlRenderer } from "../core/export-html/index.js";
+import { createToolHtmlRenderer } from "../core/export-html/tool-renderer.js";
 import type { LoadExtensionsResult } from "../core/extensions/index.js";
+import { DEFAULT_MEMORY_CHAR_LIMIT } from "../core/memory/memory-store.js";
 import { ModelRegistry } from "../core/model-registry.js";
 import { findInitialModel } from "../core/model-resolver.js";
 import { DefaultResourceLoader } from "../core/resource-loader.js";
 import type { CreateAgentSessionOptions } from "../core/sdk.js";
 import { SettingsManager } from "../core/settings-manager.js";
 import { time } from "../core/timings.js";
-import type { GreenfieldSdkActiveSession } from "../public-api/sdk/index.js";
+import { createAllTools, type Tool, type ToolName } from "../core/tools/index.js";
+import { theme } from "../modes/interactive/theme/theme.js";
+import {
+	CODING_AGENT_SESSION_CREATE_ERROR_CODES,
+	CodingAgentSessionCreateError,
+	type CreateCodingAgentSessionOptions,
+	type CreateCodingAgentSessionResult,
+	type GreenfieldSdkActiveSession,
+} from "../public-api/sdk/index.js";
 import {
 	assessSdkCreateOptionsCompatibility,
 	type SdkCreateOptionCompatibilityIssue,
@@ -142,6 +156,39 @@ interface CodingAgentSdkInitialModel {
 export async function createGreenfieldAgentSession(
 	options: CreateAgentSessionOptions = {},
 ): Promise<CreateGreenfieldAgentSessionResult> {
+	return createGreenfieldAgentSessionInternal(options);
+}
+
+/** `@vetta/coding-agent/sdk` 的产品 Composition 入口；具体管理器不进入公共参数或返回值。 */
+export async function createCodingAgentSessionFromPublicOptions(
+	options: CreateCodingAgentSessionOptions = {},
+): Promise<CreateCodingAgentSessionResult> {
+	try {
+		const created = await createGreenfieldAgentSessionInternal(adaptPublicSdkCreateOptions(options), options.storage);
+		return {
+			session: created.session,
+			diagnostics: created.extensionsResult.errors.map(({ path, error }) => ({
+				code: "extension_load_failed",
+				severity: "error",
+				source: path,
+				message: error,
+			})),
+			...(created.modelFallbackMessage ? { modelFallbackMessage: created.modelFallbackMessage } : {}),
+		};
+	} catch (error) {
+		if (error instanceof CodingAgentSdkHostError && error.code === CODING_AGENT_SDK_HOST_ERROR_CODES.NO_MODEL) {
+			throw new CodingAgentSessionCreateError(CODING_AGENT_SESSION_CREATE_ERROR_CODES.NO_MODEL, error.message, {
+				cause: error,
+			});
+		}
+		throw error;
+	}
+}
+
+async function createGreenfieldAgentSessionInternal(
+	options: CreateAgentSessionOptions,
+	storageTarget?: GreenfieldSdkSessionStorageTarget,
+): Promise<CreateGreenfieldAgentSessionResult> {
 	assertCompatibleOptions(options);
 	const sessionTools = adaptCodingAgentSdkCustomTools(options.customTools);
 	const activation =
@@ -193,7 +240,9 @@ export async function createGreenfieldAgentSession(
 		time("resourceLoader.reload");
 	}
 	const extensionsResult = resourceLoader.getExtensions();
-	const storage = await prepareCodingAgentSdkSessionStorage({ cwd, sessionManager: options.sessionManager });
+	const storage = storageTarget
+		? { storage: storageTarget }
+		: await prepareCodingAgentSdkSessionStorage({ cwd, sessionManager: options.sessionManager });
 	const initial = await resolveSdkInitialModel(options, modelRegistry, settingsManager, storage.history);
 	const tracer = options.tracer ?? createLangfuseRuntimeTracerFromEnv();
 	const mcpEnabled = options.enableMcp !== false;
@@ -208,19 +257,21 @@ export async function createGreenfieldAgentSession(
 	const ownedResources: GreenfieldSdkOwnedResource[] = managedMcpSource
 		? [{ id: "sdk-mcp-source", dispose: () => managedMcpSource.dispose() }]
 		: [];
-	const extensionTransitions = new CodingAgentSdkExtensionTransitionAdapter(
-		(session, composition) =>
-			new CodingAgentGreenfieldExtensionEventHost({
-				extensions: extensionsResult.extensions,
-				runtime: extensionsResult.runtime,
-				cwd,
-				session,
-				modelRegistry,
-				resourceLoader,
-				bindEvents: (runner, bindOptions) =>
-					composition.bindExtensionRunner(session.sessionId, runner, bindOptions),
-			}),
-	);
+	const extensionTransitions = new CodingAgentSdkExtensionTransitionAdapter((session, composition, bindingOptions) => {
+		const currentExtensions = resourceLoader.getExtensions();
+		return new CodingAgentGreenfieldExtensionEventHost({
+			extensions: currentExtensions.extensions,
+			runtime: currentExtensions.runtime,
+			cwd,
+			session,
+			modelRegistry,
+			resourceLoader,
+			bindEvents: (runner, bindOptions) =>
+				composition.bindExtensionRunner(session.sessionId, runner, {
+					replaceExisting: bindingOptions?.replaceExisting ?? bindOptions?.replaceExisting,
+				}),
+		});
+	});
 
 	const created = await createGreenfieldSdkSession({
 		storage: storage.storage,
@@ -285,8 +336,22 @@ export async function createGreenfieldAgentSession(
 		},
 		initializeSession: extensionTransitions.initializeSession,
 		transitionLifecycle: extensionTransitions.lifecycle,
-		createCapabilityHost: ({ readSession, composition }) =>
-			new CodingAgentGreenfieldSessionCapabilityHost({
+		createCapabilityHost: ({ readSession, composition }) => {
+			const reloadHost = new CodingAgentGreenfieldResourceReloadHost({
+				settingsManager,
+				resourceLoader,
+				runWithExtensionLifecycle: (operation) =>
+					extensionTransitions.reload(readSession(), composition, operation),
+				afterReload: () => {
+					const currentExtensions = resourceLoader.getExtensions();
+					for (const { name, config } of currentExtensions.runtime.pendingProviderRegistrations) {
+						modelRegistry.registerProvider(name, config);
+					}
+					currentExtensions.runtime.pendingProviderRegistrations = [];
+					composition.refreshExtensionTools(currentExtensions.extensions);
+				},
+			});
+			return new CodingAgentGreenfieldSessionCapabilityHost({
 				readSession,
 				readAvailableModels: async () => modelRegistry.getAvailable(),
 				scopedModels: options.scopedModels,
@@ -297,7 +362,32 @@ export async function createGreenfieldAgentSession(
 						readSession().sessionId,
 						adaptCodingAgentSdkCustomTools(customTools) ?? [],
 					),
-			}),
+				readSystemPrompt: () => extensionTransitions.readSystemPrompt(),
+				readPromptTemplates: () => resourceLoader.getPrompts().prompts,
+				reconfigureAgentPlugins: (agentPlugins) => {
+					resourceLoader.setAdditionalSkillPaths(
+						agentPlugins?.skillPathContributions?.flatMap((contribution) => contribution.paths) ?? [],
+					);
+				},
+				memoryConfiguration: {
+					enabled: options.memoryMode ?? false,
+					file: options.memoryFile ?? (options.memoryMode ? join(cwd, "MEMORY.md") : undefined),
+					charLimit: options.memoryCharLimit ?? DEFAULT_MEMORY_CHAR_LIMIT,
+				},
+				flushMemory: (signal) => composition.flushMemory(readSession().sessionId, signal),
+				reloadMcp: () => composition.reloadMcp(readSession().sessionId),
+				reload: () => reloadHost.reload(),
+				exportToHtml: (outputPath) =>
+					exportGreenfieldSdkSessionToHtml(
+						readSession(),
+						settingsManager.getTheme(),
+						extensionTransitions.readRunnerOrUndefined(),
+						extensionTransitions.readSystemPrompt(),
+						outputPath,
+					),
+				hasExtensionHandlers: (eventType) => extensionTransitions.hasHandlers(eventType),
+			});
+		},
 		createActiveCapabilityHost: ({ sessionHost, composition }) => {
 			const bash = new CodingAgentSdkBashAdapter({
 				readShellCommandPrefix: () => settingsManager.getShellCommandPrefix(),
@@ -325,6 +415,106 @@ export async function createGreenfieldAgentSession(
 		extensionsResult,
 		...(initial.modelFallbackMessage ? { modelFallbackMessage: initial.modelFallbackMessage } : {}),
 	};
+}
+
+function adaptPublicSdkCreateOptions(options: CreateCodingAgentSessionOptions): CreateAgentSessionOptions {
+	const cwd = options.cwd ?? process.cwd();
+	return {
+		cwd: options.cwd,
+		agentDir: options.agentDir,
+		model: options.model,
+		thinkingLevel: options.thinkingLevel,
+		scopedModels: options.scopedModels ? [...options.scopedModels] : undefined,
+		tools: resolvePublicSdkActiveTools(cwd, options.activeTools),
+		scenario: options.scenario,
+		agentMode: options.agentMode,
+		customTools: options.customTools ? [...options.customTools] : undefined,
+		additionalHookAdapterFactories: options.additionalHookAdapterFactories,
+		appendSystemPrompt: options.appendSystemPrompt,
+		includeAgentSkills: options.includeAgentSkills,
+		env: options.env ? { ...options.env } : undefined,
+		memoryMode: options.memoryMode,
+		memoryFile: options.memoryFile,
+		memoryCharLimit: options.memoryCharLimit,
+		askUserQuestion: options.askUserQuestion
+			? {
+					isEnabled: () => options.askUserQuestion?.isEnabled() ?? false,
+					ask: async (request, signal) => {
+						const result = await options.askUserQuestion!.ask(request, signal);
+						return {
+							cancelled: result.cancelled,
+							answers: result.answers.map((answer) => ({
+								question: answer.question,
+								answers: [...answer.answers],
+							})),
+						};
+					},
+				}
+			: undefined,
+		enableBackgroundTasks: options.enableBackgroundTasks,
+		enableSubagents: options.enableSubagents,
+		subagentMaxConcurrent: options.subagentMaxConcurrent,
+		enableMcp: options.enableMcp,
+		serverUrl: options.serverUrl,
+		tracer: options.tracer,
+		tracingTraceName: options.tracingTraceName,
+		tracingMetadata: options.tracingMetadata ? { ...options.tracingMetadata } : undefined,
+		agentPlugins: options.agentPlugins,
+		invokePluginTool: options.invokePluginTool,
+		invokePluginContinuation: options.invokePluginContinuation,
+		invokePluginSystemPrompt: options.invokePluginSystemPrompt,
+	};
+}
+
+function resolvePublicSdkActiveTools(cwd: string, activeTools: readonly string[] | undefined): Tool[] | undefined {
+	if (activeTools === undefined) return undefined;
+	const available = createAllTools(cwd);
+	return activeTools.map((name) => {
+		if (!isPublicSdkToolName(name, available)) {
+			throw new CodingAgentSessionCreateError(
+				CODING_AGENT_SESSION_CREATE_ERROR_CODES.INVALID_ACTIVE_TOOL,
+				`Unknown Coding Agent built-in tool: ${name}`,
+			);
+		}
+		return available[name];
+	});
+}
+
+function isPublicSdkToolName(name: string, tools: Record<ToolName, Tool>): name is ToolName {
+	return Object.hasOwn(tools, name);
+}
+
+async function exportGreenfieldSdkSessionToHtml(
+	session: GreenfieldRuntimeSession,
+	themeName: string | undefined,
+	runner: ReturnType<CodingAgentSdkExtensionTransitionAdapter["readRunnerOrUndefined"]>,
+	systemPrompt: string,
+	outputPath?: string,
+): Promise<string> {
+	const core = session.createCoreAssembly();
+	const sessionFile = core.lifecycle.sessionPath;
+	if (!sessionFile) throw new Error("Cannot export in-memory session to HTML");
+	let toolRenderer: ToolHtmlRenderer | undefined;
+	if (runner) {
+		toolRenderer = createToolHtmlRenderer({
+			getToolDefinition: (name) => runner.getToolDefinition(name),
+			theme,
+		});
+	}
+	const availableTools = core.toolController?.readAvailableTools();
+	return exportConversationDocumentToHtml(core.conversationView.readDocument(), sessionFile, {
+		outputPath,
+		themeName,
+		toolRenderer,
+		systemPrompt,
+		tools: availableTools
+			? [...availableTools.values()].map((tool) => ({
+					name: tool.name,
+					description: tool.description,
+					parameters: tool.inputSchema,
+				}))
+			: undefined,
+	});
 }
 
 function assertCompatibleOptions(options: CreateAgentSessionOptions): void {

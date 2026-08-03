@@ -1,10 +1,10 @@
 import type { AgentState } from "@vetta/agent-core";
 import type { ConversationDocument } from "@vetta/runtime-core";
+import type { ConversationDocumentEntry } from "@vetta/runtime-core/conversation";
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import { basename, join } from "path";
 import { APP_NAME, getExportTemplateDir } from "../../config.js";
 import { getResolvedThemeColors, getThemeExportColors } from "../../modes/interactive/theme/theme.js";
-import type { ToolInfo } from "../extensions/types.js";
 import type { SessionEntry } from "../session-manager/index.js";
 import { CURRENT_SESSION_VERSION, SessionManager } from "../session-manager/index.js";
 
@@ -35,6 +35,15 @@ export interface ExportOptions {
 	themeName?: string;
 	/** Optional tool renderer for custom tools */
 	toolRenderer?: ToolHtmlRenderer;
+	/** Greenfield read model does not carry the last effective prompt or tool catalog. */
+	systemPrompt?: string;
+	tools?: readonly ExportedToolInfo[];
+}
+
+interface ExportedToolInfo {
+	readonly name: string;
+	readonly description: string;
+	readonly parameters: unknown;
 }
 
 /** Parse a color string to RGB values. Supports hex (#RRGGBB) and rgb(r,g,b) formats. */
@@ -130,7 +139,7 @@ interface SessionData {
 	entries: readonly unknown[];
 	leafId: string | null;
 	systemPrompt?: string;
-	tools?: ToolInfo[];
+	tools?: ExportedToolInfo[];
 	/** Pre-rendered HTML for custom tool calls/results, keyed by tool call ID */
 	renderedTools?: Record<string, RenderedToolHtml>;
 }
@@ -221,7 +230,7 @@ const BUILTIN_TOOLS = new Set([
  * Pre-render custom tools to HTML using their TUI renderers.
  */
 function preRenderCustomTools(
-	entries: SessionEntry[],
+	entries: readonly (SessionEntry | ConversationDocumentEntry)[],
 	toolRenderer: ToolHtmlRenderer,
 ): Record<string, RenderedToolHtml> {
 	const renderedTools: Record<string, RenderedToolHtml> = {};
@@ -229,28 +238,45 @@ function preRenderCustomTools(
 	for (const entry of entries) {
 		if (entry.type !== "message") continue;
 		const msg = entry.message;
+		if (!isRecord(msg)) continue;
 
 		// Find tool calls in assistant messages
-		if (msg.role === "assistant" && Array.isArray(msg.content)) {
-			for (const block of msg.content) {
-				if (block.type === "toolCall" && !BUILTIN_TOOLS.has(block.name)) {
-					const callHtml = toolRenderer.renderCall(block.name, block.arguments);
+		const content = Reflect.get(msg, "content");
+		if (Reflect.get(msg, "role") === "assistant" && Array.isArray(content)) {
+			for (const block of content) {
+				if (!isRecord(block)) continue;
+				const toolName = Reflect.get(block, "name");
+				const toolCallId = Reflect.get(block, "id");
+				if (
+					Reflect.get(block, "type") === "toolCall" &&
+					typeof toolName === "string" &&
+					typeof toolCallId === "string" &&
+					!BUILTIN_TOOLS.has(toolName)
+				) {
+					const callHtml = toolRenderer.renderCall(toolName, Reflect.get(block, "arguments"));
 					if (callHtml) {
-						renderedTools[block.id] = { callHtml };
+						renderedTools[toolCallId] = { callHtml };
 					}
 				}
 			}
 		}
 
 		// Find tool results
-		if (msg.role === "toolResult" && msg.toolCallId) {
-			const toolName = msg.toolName || "";
+		const toolCallId = Reflect.get(msg, "toolCallId");
+		if (Reflect.get(msg, "role") === "toolResult" && typeof toolCallId === "string") {
+			const rawToolName = Reflect.get(msg, "toolName");
+			const toolName = typeof rawToolName === "string" ? rawToolName : "";
 			// Only render if we have a pre-rendered call OR it's not a built-in tool
-			const existing = renderedTools[msg.toolCallId];
+			const existing = renderedTools[toolCallId];
 			if (existing || !BUILTIN_TOOLS.has(toolName)) {
-				const resultHtml = toolRenderer.renderResult(toolName, msg.content, msg.details, msg.isError || false);
+				const resultHtml = toolRenderer.renderResult(
+					toolName,
+					readRenderableToolResultContent(content),
+					Reflect.get(msg, "details"),
+					Reflect.get(msg, "isError") === true,
+				);
 				if (resultHtml) {
-					renderedTools[msg.toolCallId] = {
+					renderedTools[toolCallId] = {
 						...existing,
 						resultHtml,
 					};
@@ -260,6 +286,32 @@ function preRenderCustomTools(
 	}
 
 	return renderedTools;
+}
+
+function readRenderableToolResultContent(
+	value: unknown,
+): Array<{ type: string; text?: string; data?: string; mimeType?: string }> {
+	if (!Array.isArray(value)) return [];
+	return value.flatMap((part) => {
+		if (!isRecord(part)) return [];
+		const type = Reflect.get(part, "type");
+		if (typeof type !== "string") return [];
+		const text = Reflect.get(part, "text");
+		const data = Reflect.get(part, "data");
+		const mimeType = Reflect.get(part, "mimeType");
+		return [
+			{
+				type,
+				...(typeof text === "string" ? { text } : {}),
+				...(typeof data === "string" ? { data } : {}),
+				...(typeof mimeType === "string" ? { mimeType } : {}),
+			},
+		];
+	});
+}
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /**
@@ -366,6 +418,9 @@ export async function exportConversationDocumentToHtml(
 		},
 		entries: document.entries,
 		leafId: document.activeLeafId,
+		systemPrompt: opts.systemPrompt,
+		tools: opts.tools ? [...opts.tools] : undefined,
+		renderedTools: opts.toolRenderer ? preRenderCustomTools(document.entries, opts.toolRenderer) : undefined,
 	};
 	const html = generateHtml(sessionData, opts.themeName);
 	const outputPath = opts.outputPath ?? `${APP_NAME}-session-${basename(sessionFile, ".conversation.jsonl")}.html`;

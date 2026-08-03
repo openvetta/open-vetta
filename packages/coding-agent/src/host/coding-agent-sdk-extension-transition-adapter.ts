@@ -1,4 +1,4 @@
-import type { GreenfieldRuntimeSession } from "@vetta/runtime-core";
+import { type GreenfieldRuntimeSession, InitializationRollbackScope } from "@vetta/runtime-core";
 import type {
 	CodingAgentGreenfieldExtensionEventHost,
 	CodingAgentGreenfieldExtensionInitialization,
@@ -17,6 +17,7 @@ import type {
 type ExtensionEventHostFactory = (
 	session: GreenfieldRuntimeSession,
 	composition: GreenfieldRuntimeComposition,
+	options?: { readonly replaceExisting?: boolean },
 ) => CodingAgentGreenfieldExtensionEventHost;
 
 /** 把 Session 级 Extension Event Host 纳入 SDK 活动会话的 prepare/commit/rollback 事务。 */
@@ -55,8 +56,10 @@ export class CodingAgentSdkExtensionTransitionAdapter {
 		return {
 			id: `sdk-extension-event-host:${context.session.sessionId}`,
 			dispose: async () => {
+				const currentHost = this.hosts.get(context.session.sessionId);
+				if (!currentHost) return;
 				this.hosts.delete(context.session.sessionId);
-				await host.dispose({ emitSessionShutdown: this.current === host });
+				await currentHost.dispose({ emitSessionShutdown: this.current === currentHost });
 			},
 		};
 	};
@@ -68,6 +71,57 @@ export class CodingAgentSdkExtensionTransitionAdapter {
 
 	readRunnerOrUndefined() {
 		return this.current?.runner;
+	}
+
+	readSystemPrompt(): string {
+		return this.current?.readSystemPrompt() ?? "";
+	}
+
+	hasHandlers(eventType: string): boolean {
+		return this.current?.runner.hasHandlers(eventType) ?? false;
+	}
+
+	async reload(
+		session: GreenfieldRuntimeSession,
+		composition: GreenfieldRuntimeComposition,
+		operation: () => Promise<void>,
+	): Promise<void> {
+		const previous = this.current;
+		if (!previous) throw new Error("Greenfield SDK Extension session is not initialized");
+		const rollback = new InitializationRollbackScope();
+		let next: CodingAgentGreenfieldExtensionEventHost | undefined;
+		let replacementAttempted = false;
+		try {
+			await previous.runner.emit({ type: "session_shutdown" });
+			rollback.defer({
+				id: "previous-session-start",
+				rollback: () => previous.runner.emit({ type: "session_start" }),
+			});
+			rollback.defer({
+				id: "previous-runtime-binding",
+				rollback: () => {
+					if (replacementAttempted) previous.rebindRuntimeBindings();
+					else previous.rebindRuntimeActions();
+				},
+			});
+			await operation();
+			replacementAttempted = true;
+			next = this.createHost(session, composition, { replaceExisting: true });
+			const nextHost = next;
+			rollback.defer({
+				id: "next-extension-host",
+				rollback: () => nextHost.dispose({ emitSessionShutdown: false }),
+			});
+			await next.initialize(this.initialization, { emitSessionStart: false });
+			await next.runner.emit({ type: "session_start" });
+			await next.discoverResources("reload");
+			this.current = next;
+			this.hosts.set(session.sessionId, next);
+			rollback.commit();
+		} catch (error) {
+			return rollback.rollback(error, "Greenfield SDK Extension reload and rollback failed");
+		}
+		await previous.dispose({ emitSessionShutdown: false });
 	}
 
 	private async before(transition: CodingAgentGreenfieldSessionTransition) {

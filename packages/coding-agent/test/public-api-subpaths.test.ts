@@ -22,6 +22,7 @@ import {
 	GREENFIELD_IM_RPC_PROFILE,
 	runRpcModeWithCapabilities,
 } from "../src/public-api/rpc.js";
+import { createCodingAgentSession } from "../src/public-api/sdk.js";
 
 describe("coding-agent public subpaths", () => {
 	it("forwards existing root APIs without wrapping or replacing behavior", () => {
@@ -45,6 +46,8 @@ describe("coding-agent public subpaths", () => {
 		expect(runtimeToolsCompat.readTool).toBe(root.readTool);
 		expect(ExtensionRunner).toBe(root.ExtensionRunner);
 		expect(runCodingAgentCliControl).toBeTypeOf("function");
+		expect(createCodingAgentSession).toBeTypeOf("function");
+		expect(createCodingAgentSession).not.toBe(root.createAgentSession);
 	});
 
 	it("publishes the explicit package export targets", () => {
@@ -98,6 +101,10 @@ describe("coding-agent public subpaths", () => {
 			"./rpc": {
 				types: "./dist/public-api/rpc.d.ts",
 				import: "./dist/public-api/rpc.js",
+			},
+			"./sdk": {
+				types: "./dist/public-api/sdk.d.ts",
+				import: "./dist/public-api/sdk.js",
 			},
 		});
 		expect(Object.keys(exports).filter((key) => key.startsWith("./legacy/"))).toEqual([]);

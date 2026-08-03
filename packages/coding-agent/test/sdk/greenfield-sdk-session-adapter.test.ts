@@ -52,6 +52,28 @@ describe("Greenfield SDK session adapter", () => {
 		expect(Reflect.has(session, "subagents")).toBe(false);
 	});
 
+	it("exposes product behavior through narrow views and asynchronous commands", async () => {
+		const runtime = new FakeSdkRuntime();
+		const session = new GreenfieldSdkSessionAdapter(runtime);
+
+		expect(await session.listAvailableModels()).toEqual([]);
+		expect(session.getSystemPrompt()).toBe("effective prompt");
+		expect(session.getPromptTemplates()).toEqual([
+			expect.objectContaining({ name: "review", content: "Review this" }),
+		]);
+		expect(session.getMemoryConfiguration()).toEqual({ enabled: true, file: "MEMORY.md", charLimit: 4_000 });
+		await expect(session.flushMemory()).resolves.toBe(2);
+		await session.reconfigureAgentPlugins(undefined);
+		await session.reloadMcp();
+		await session.reload();
+		await expect(session.exportToHtml("session.html")).resolves.toBe("session.html");
+		expect(session.hasExtensionHandlers("before_agent_start")).toBe(true);
+		expect(runtime.productCommands).toEqual(["flush-memory", "plugins", "reload-mcp", "reload", "export"]);
+		for (const concrete of ["modelRegistry", "backgroundTasks", "todoStore", "resourceLoader", "extensionRunner"]) {
+			expect(Reflect.has(session, concrete)).toBe(false);
+		}
+	});
+
 	it("projects complete execution observations onto existing Agent events", () => {
 		const runtime = new FakeSdkRuntime();
 		const session = new GreenfieldSdkSessionAdapter(runtime);
@@ -128,6 +150,7 @@ class FakeSdkRuntime implements GreenfieldSdkSessionRuntimePort {
 	readonly observers = new Set<(observation: RuntimeSessionExecutionObservation) => Promise<void> | void>();
 	readonly retryObservers = new Set<(event: GreenfieldSdkRetryEvent) => void>();
 	readonly interruptedSubagents: string[] = [];
+	readonly productCommands: string[] = [];
 	clearFinishedSubagentCalls = 0;
 	disposeCalls = 0;
 	disposeFailures = 0;
@@ -194,6 +217,41 @@ class FakeSdkRuntime implements GreenfieldSdkSessionRuntimePort {
 			this.clearFinishedSubagentCalls += 1;
 			return 1;
 		},
+		readAvailableModels: async () => [],
+		readSystemPrompt: () => "effective prompt",
+		readPromptTemplates: () => [
+			{
+				name: "review",
+				description: "Review",
+				content: "Review this",
+				source: "test",
+				filePath: "review.md",
+			},
+		],
+		reconfigureAgentPlugins: async () => {
+			this.productCommands.push("plugins");
+		},
+		readBackgroundTasks: () => [],
+		killBackgroundTask: () => false,
+		clearFinishedBackgroundTasks: () => 0,
+		readTodos: () => [],
+		clearTodos: () => false,
+		readMemoryConfiguration: () => ({ enabled: true, file: "MEMORY.md", charLimit: 4_000 }),
+		flushMemory: async () => {
+			this.productCommands.push("flush-memory");
+			return 2;
+		},
+		reloadMcp: async () => {
+			this.productCommands.push("reload-mcp");
+		},
+		reload: async () => {
+			this.productCommands.push("reload");
+		},
+		exportToHtml: async (outputPath) => {
+			this.productCommands.push("export");
+			return outputPath ?? "session.html";
+		},
+		hasExtensionHandlers: (eventType) => eventType === "before_agent_start",
 	};
 	private readonly runtimeState: RuntimeSessionState = {
 		model: undefined,

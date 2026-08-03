@@ -63,6 +63,14 @@ export class GreenfieldSdkActiveSessionAdapter
 		return this.active.executeBash(command, onChunk, options);
 	}
 
+	recordBashResult(
+		command: string,
+		result: Parameters<GreenfieldSdkActiveSession["recordBashResult"]>[1],
+		options?: Parameters<GreenfieldSdkActiveSession["recordBashResult"]>[2],
+	): Promise<void> {
+		return this.active.recordBashResult(command, result, options);
+	}
+
 	abortBash(): void {
 		this.active.abortBash();
 	}

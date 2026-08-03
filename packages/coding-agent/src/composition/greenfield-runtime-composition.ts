@@ -157,6 +157,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 		preserveConversationContext: (targetSessionId, source, targetSeed) =>
 			conversationContextOverlay.preserve(targetSessionId, source, targetSeed),
 		clearConversationContext: (sessionId) => conversationContextOverlay.clear(sessionId),
+		reloadMcp: (sessionId) => mcpCoordinator.refreshSession(sessionId, false),
 	});
 	const extensionControls = createGreenfieldRuntimeExtensionControls({
 		indexes: resourceRegistry.indexes,

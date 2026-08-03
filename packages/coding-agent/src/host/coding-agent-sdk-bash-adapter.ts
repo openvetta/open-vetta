@@ -63,6 +63,15 @@ export class CodingAgentSdkBashAdapter implements CodingAgentGreenfieldSdkBashPo
 		}
 	}
 
+	record(
+		session: GreenfieldRuntimeSession,
+		command: string,
+		result: BashResult,
+		options?: { readonly excludeFromContext?: boolean },
+	): Promise<void> {
+		return deliverBashMessage(session, toBashMessage(command, result, options?.excludeFromContext));
+	}
+
 	abort(): void {
 		this.active?.controller.abort();
 	}

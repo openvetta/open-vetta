@@ -6,6 +6,7 @@ import {
 	SDK_CREATE_OPTION_WIRING,
 	SDK_CREATE_RESULT_COMPATIBILITY,
 	SDK_SESSION_MEMBER_COMPATIBILITY,
+	SDK_SESSION_MEMBER_REWRITE_DECISIONS,
 	SDK_SESSION_MEMBER_WIRING,
 } from "../../src/public-api/sdk-compatibility-inventory.js";
 
@@ -79,6 +80,19 @@ describe("SDK compatibility inventory", () => {
 			if (disposition !== "runtime-capability") continue;
 			expect(SDK_SESSION_MEMBER_WIRING[member as keyof typeof SDK_SESSION_MEMBER_WIRING], member).toBe("wired");
 		}
+	});
+
+	it("records an explicit replacement or internalization for every member not exposed in its Legacy shape", () => {
+		const unwired = Object.entries(SDK_SESSION_MEMBER_WIRING)
+			.filter(([, status]) => status === "not-wired")
+			.map(([member]) => member)
+			.sort();
+		expect(Object.keys(SDK_SESSION_MEMBER_REWRITE_DECISIONS).sort()).toEqual(unwired);
+		expect(SDK_SESSION_MEMBER_REWRITE_DECISIONS.modelRegistry).toBe("narrow-replacement");
+		expect(SDK_SESSION_MEMBER_REWRITE_DECISIONS.prepareSystemPromptForAgentRun).toBe("internalized");
+		expect(SDK_SESSION_MEMBER_WIRING.flushMemory).toBe("wired");
+		expect(SDK_SESSION_MEMBER_WIRING.reload).toBe("wired");
+		expect(SDK_SESSION_MEMBER_WIRING.recordBashResult).toBe("wired");
 	});
 
 	it("distinguishes the closed core facade from later capabilities and implementation leaks", () => {

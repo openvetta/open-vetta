@@ -146,6 +146,10 @@ export class CodingAgentGreenfieldExtensionEventHost {
 		this.options.resourceLoader.extendResources(extensionPaths);
 	}
 
+	readSystemPrompt(): string {
+		return this.eventBinding.readSystemPrompt();
+	}
+
 	rebindRuntimeActions(): void {
 		if (this.disposed) throw new Error("Greenfield Extension event host is disposed");
 		this.actionHost.bind(this.options.runtime);

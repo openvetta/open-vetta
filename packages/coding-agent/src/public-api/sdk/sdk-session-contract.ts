@@ -1,6 +1,8 @@
 import type { AgentMessage, ThinkingLevel } from "@vetta/agent-core";
 import type { Api, ImageContent, Model, TextContent } from "@vetta/ai";
 import type {
+	AgentPluginRuntimeConfig,
+	BackgroundTaskInfo,
 	PromptRequest,
 	RuntimeContextCompactionResult,
 	RuntimeSessionContextUsage,
@@ -8,6 +10,7 @@ import type {
 	RuntimeSessionInputQueueMode,
 	RuntimeSessionState,
 	RuntimeSubagentSnapshot,
+	TodoItem,
 } from "@vetta/runtime-core";
 import type {
 	AgentSessionCustomToolDefinition,
@@ -32,6 +35,22 @@ export interface GreenfieldSdkToolInfo {
 	readonly name: string;
 	readonly description: string;
 	readonly parameters: unknown;
+}
+
+/** Prompt 模板的只读 SDK 投影；不暴露 ResourceLoader。 */
+export interface GreenfieldSdkPromptTemplate {
+	readonly name: string;
+	readonly description: string;
+	readonly content: string;
+	readonly source: string;
+	readonly filePath: string;
+}
+
+/** Memory 的当前配置视图；写入和压缩实现仍由产品 Runtime 拥有。 */
+export interface GreenfieldSdkMemoryConfiguration {
+	readonly enabled: boolean;
+	readonly file: string | undefined;
+	readonly charLimit: number;
 }
 
 export interface GreenfieldSdkSessionStats {
@@ -112,6 +131,21 @@ export interface GreenfieldSdkSessionCapabilityPort {
 	readSubagents(): readonly RuntimeSubagentSnapshot[];
 	interruptSubagent(target: string): RuntimeSubagentSnapshot | undefined;
 	clearFinishedSubagents(): number;
+	readAvailableModels(): Promise<readonly Model<Api>[]>;
+	readSystemPrompt(): string;
+	readPromptTemplates(): readonly GreenfieldSdkPromptTemplate[];
+	reconfigureAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | undefined): Promise<void>;
+	readBackgroundTasks(): readonly BackgroundTaskInfo[];
+	killBackgroundTask(taskId: string): boolean;
+	clearFinishedBackgroundTasks(): number;
+	readTodos(): readonly TodoItem[];
+	clearTodos(): boolean;
+	readMemoryConfiguration(): GreenfieldSdkMemoryConfiguration;
+	flushMemory(signal?: AbortSignal): Promise<number>;
+	reloadMcp(): Promise<void>;
+	reload(): Promise<void>;
+	exportToHtml(outputPath?: string): Promise<string>;
+	hasExtensionHandlers(eventType: string): boolean;
 }
 
 /**
@@ -180,6 +214,21 @@ export interface GreenfieldSdkSessionCapabilities {
 	listSubagents(): readonly RuntimeSubagentSnapshot[];
 	interruptSubagent(target: string): RuntimeSubagentSnapshot | undefined;
 	clearFinishedSubagents(): number;
+	listAvailableModels(): Promise<readonly Model<Api>[]>;
+	getSystemPrompt(): string;
+	getPromptTemplates(): readonly GreenfieldSdkPromptTemplate[];
+	reconfigureAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | undefined): Promise<void>;
+	listBackgroundTasks(): readonly BackgroundTaskInfo[];
+	killBackgroundTask(taskId: string): boolean;
+	clearFinishedBackgroundTasks(): number;
+	getTodos(): readonly TodoItem[];
+	clearTodos(): boolean;
+	getMemoryConfiguration(): GreenfieldSdkMemoryConfiguration;
+	flushMemory(signal?: AbortSignal): Promise<number>;
+	reloadMcp(): Promise<void>;
+	reload(): Promise<void>;
+	exportToHtml(outputPath?: string): Promise<string>;
+	hasExtensionHandlers(eventType: string): boolean;
 }
 
 export type GreenfieldSdkSession = GreenfieldSdkSessionCore & GreenfieldSdkSessionCapabilities;
@@ -262,6 +311,11 @@ export interface GreenfieldSdkActiveSessionCapabilities {
 		onChunk?: (chunk: string) => void,
 		options?: { readonly excludeFromContext?: boolean; readonly operations?: GreenfieldSdkBashOperations },
 	): Promise<GreenfieldSdkBashResult>;
+	recordBashResult(
+		command: string,
+		result: GreenfieldSdkBashResult,
+		options?: { readonly excludeFromContext?: boolean },
+	): Promise<void>;
 	abortBash(): void;
 	readonly isBashRunning: boolean;
 	readonly hasPendingBashMessages: boolean;
