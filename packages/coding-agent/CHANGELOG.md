@@ -42,6 +42,7 @@
 - **Vitest 依赖上收到 monorepo 根**：本包不再声明 `devDependencies.vitest`，改用根目录统一版本；包内仍保留 `vitest.config.ts` 与 `"test": "vitest --run"`。
 - **系统提示词 MCP 工具清单只保留描述首行**：MCP 工具的完整 description 本就随请求 tools 数组下发，系统提示词里的清单再抄全文属于重复计费（Notion 官方 MCP 单此一项约 11k token）。改为首行摘要（超 200 字符截断）。
 - **Greenfield MCP 渐进披露复用旧行为事实源**：新增窄适配器复用既有 MCP 工具索引渲染、deferred 搜索打分和 `tool_search` Tool 定义，供 Runtime 按 Session 编排而不复制业务算法。
+- **Greenfield SDK Session 存储边界与内部 Factory**：新增 `GreenfieldConversationPersistence` 端口，将 Kernel/Document/Continuation 三合同与内部关联路径、对外可恢复路径分离，Composition 通过可注入 `createConversationPersistence` 工厂选择存储且每 Composition 独占生命周期；`runtime-storage` 新增正式 `InMemoryConversationRepository`，内存会话 `sessionFile` 为 `undefined`。新增内部 `createGreenfieldSdkSession` Composition Root，按 memory/file-create/file-resume 三目标路由 create/resume，初始化失败逆序回滚，close 清理失败可重试且保持会话关闭；`assessSdkCreateOptionsCompatibility` 在公开工厂切换前显式报告未接线的既有 SDK option。
 
 ### Fixed
 

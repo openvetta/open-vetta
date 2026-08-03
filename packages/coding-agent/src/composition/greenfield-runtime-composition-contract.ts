@@ -35,6 +35,7 @@ import type {
 	HookConfigLayer,
 	KnowledgePageWriterPort,
 } from "../adapters/runtime-core/greenfield.js";
+import type { GreenfieldConversationPersistenceFactory } from "./greenfield-conversation-persistence.js";
 
 export type GreenfieldInitialTodoLockSource = "scene";
 
@@ -74,7 +75,10 @@ export interface GreenfieldRuntimeSessionOptions {
 }
 
 export interface GreenfieldRuntimeCompositionOptions {
+	/** 默认文件仓储根目录；注入 createConversationPersistence 时只作为工厂上下文。 */
 	readonly conversationDir: string;
+	/** 为每个 Composition 创建独占持久化端口；Composition 负责关闭。 */
+	readonly createConversationPersistence?: GreenfieldConversationPersistenceFactory;
 	readonly modelRegistry: CodingAgentModelRegistrySource;
 	readonly initialModel: NonNullable<SessionConfig["model"]>;
 	readonly initialThinkingLevel: NonNullable<SessionConfig["thinkingLevel"]>;

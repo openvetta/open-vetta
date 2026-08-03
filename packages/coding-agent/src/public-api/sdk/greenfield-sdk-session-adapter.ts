@@ -97,8 +97,13 @@ export class GreenfieldSdkSessionAdapter implements GreenfieldSdkSessionCore {
 		this.closed = true;
 		this.unsubscribeExecutionObservation();
 		this.listeners.clear();
-		this.closePromise = this.runtime.dispose();
-		return this.closePromise;
+		const operation = this.runtime.dispose();
+		const tracked = operation.catch((error: unknown) => {
+			if (this.closePromise === tracked) this.closePromise = undefined;
+			throw error;
+		});
+		this.closePromise = tracked;
+		return tracked;
 	}
 
 	private emit(event: Parameters<GreenfieldSdkSessionEventListener>[0]): void {

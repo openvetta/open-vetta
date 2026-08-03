@@ -74,6 +74,17 @@ describe("Greenfield SDK session adapter", () => {
 		await expect(session.prompt("closed")).rejects.toThrow("AgentSession is closed");
 		warning.mockRestore();
 	});
+
+	it("keeps the session closed while allowing failed cleanup to be retried", async () => {
+		const runtime = new FakeSdkRuntime();
+		runtime.disposeFailures = 1;
+		const session = new GreenfieldSdkSessionAdapter(runtime);
+
+		await expect(session.close()).rejects.toThrow("runtime cleanup failed");
+		await expect(session.prompt("closed")).rejects.toThrow("AgentSession is closed");
+		await expect(session.close()).resolves.toBeUndefined();
+		expect(runtime.disposeCalls).toBe(2);
+	});
 });
 
 class FakeSdkRuntime implements GreenfieldSdkSessionRuntimePort {
@@ -84,6 +95,7 @@ class FakeSdkRuntime implements GreenfieldSdkSessionRuntimePort {
 	readonly thinkingLevels: ThinkingLevel[] = [];
 	readonly observers = new Set<(observation: RuntimeSessionExecutionObservation) => Promise<void> | void>();
 	disposeCalls = 0;
+	disposeFailures = 0;
 	private readonly runtimeState: RuntimeSessionState = {
 		model: undefined,
 		thinkingLevel: "medium",
@@ -125,6 +137,10 @@ class FakeSdkRuntime implements GreenfieldSdkSessionRuntimePort {
 
 	async dispose(): Promise<void> {
 		this.disposeCalls++;
+		if (this.disposeFailures > 0) {
+			this.disposeFailures--;
+			throw new Error("runtime cleanup failed");
+		}
 	}
 
 	emit(event: RuntimeExecutionObservationEvent): void {

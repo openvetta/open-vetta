@@ -7,14 +7,18 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { CodingAgentModelRegistrySource } from "../../src/adapters/runtime-core/greenfield.js";
 import { createGreenfieldRuntimeComposition } from "../../src/composition/greenfield-runtime-composition.js";
 import type { GreenfieldRuntimeComposition } from "../../src/composition/greenfield-runtime-composition-contract.js";
+import { createGreenfieldSdkSession } from "../../src/composition/greenfield-sdk-session-factory.js";
 import { bindGreenfieldSdkSessionRuntime } from "../../src/public-api/sdk/greenfield-sdk-runtime-binding.js";
 import { GreenfieldSdkSessionAdapter } from "../../src/public-api/sdk/greenfield-sdk-session-adapter.js";
+import type { GreenfieldSdkSessionCore } from "../../src/public-api/sdk/sdk-session-contract.js";
 
 describe("Greenfield SDK session integration", () => {
 	const temporaryDirectories: string[] = [];
 	const compositions: GreenfieldRuntimeComposition[] = [];
+	const sdkSessions: GreenfieldSdkSessionCore[] = [];
 
 	afterEach(async () => {
+		await Promise.all(sdkSessions.splice(0).map((session) => session.close()));
 		await Promise.all(compositions.splice(0).map((composition) => composition.dispose()));
 		await Promise.all(
 			temporaryDirectories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })),
@@ -61,12 +65,94 @@ describe("Greenfield SDK session integration", () => {
 		await session.close();
 	});
 
+	it("creates a real in-memory SDK session without exposing a session file", async () => {
+		const workspace = await temporaryDirectory("greenfield-sdk-memory-workspace-");
+		const { session } = await createGreenfieldSdkSession({
+			storage: { kind: "memory", sessionId: "sdk-memory" },
+			composition: factoryComposition(workspace),
+			session: { includeAgentSkills: false },
+		});
+		sdkSessions.push(session);
+
+		await session.prompt("Run in memory");
+
+		expect(session.sessionId).toBe("sdk-memory");
+		expect(session.sessionFile).toBeUndefined();
+		expect(session.messages.map(({ role }) => role)).toEqual(["user", "assistant"]);
+	});
+
+	it("creates and resumes a native file session through the SDK storage target", async () => {
+		const conversationDir = await temporaryDirectory("greenfield-sdk-factory-conversations-");
+		const workspace = await temporaryDirectory("greenfield-sdk-factory-workspace-");
+		const created = await createGreenfieldSdkSession({
+			storage: { kind: "file-create", conversationDir, sessionId: "sdk-file" },
+			composition: factoryComposition(workspace),
+			session: { includeAgentSkills: false },
+		});
+		sdkSessions.push(created.session);
+		await created.session.prompt("Persist this turn");
+		const sessionPath = created.session.sessionFile;
+		expect(sessionPath).toBeDefined();
+		await created.session.close();
+
+		if (!sessionPath) throw new Error("Expected a persisted SDK session path");
+		const resumed = await createGreenfieldSdkSession({
+			storage: { kind: "file-resume", conversationDir, sessionPath },
+			composition: factoryComposition(workspace),
+			session: { includeAgentSkills: false },
+		});
+		sdkSessions.push(resumed.session);
+
+		expect(resumed.session.sessionId).toBe("sdk-file");
+		expect(resumed.session.sessionFile).toBe(sessionPath);
+		expect(resumed.session.messages.map(({ role }) => role)).toEqual(["user", "assistant"]);
+		await resumed.session.prompt("Continue after resume");
+		expect(resumed.session.messages.map(({ role }) => role)).toEqual(["user", "assistant", "user", "assistant"]);
+	});
+
+	it("rolls back the composition when SDK session initialization fails", async () => {
+		const conversationDir = await temporaryDirectory("greenfield-sdk-rollback-conversations-");
+		const workspace = await temporaryDirectory("greenfield-sdk-rollback-workspace-");
+		await expect(
+			createGreenfieldSdkSession({
+				storage: { kind: "file-create", conversationDir, sessionId: "sdk-rollback" },
+				composition: {
+					...factoryComposition(workspace),
+					resolveSystemPromptOptions: () => {
+						throw new Error("system prompt initialization failed");
+					},
+				},
+				session: { includeAgentSkills: false },
+			}),
+		).rejects.toThrow("system prompt initialization failed");
+
+		const recovered = await createGreenfieldSdkSession({
+			storage: { kind: "file-create", conversationDir, sessionId: "sdk-rollback" },
+			composition: factoryComposition(workspace),
+			session: { includeAgentSkills: false },
+		});
+		sdkSessions.push(recovered.session);
+		expect(recovered.session.sessionId).toBe("sdk-rollback");
+	});
+
 	async function temporaryDirectory(prefix: string): Promise<string> {
 		const directory = await mkdtemp(join(tmpdir(), prefix));
 		temporaryDirectories.push(directory);
 		return directory;
 	}
 });
+
+function factoryComposition(workspace: string) {
+	return {
+		cwd: workspace,
+		modelRegistry: modelRegistry(),
+		initialModel: MODEL,
+		initialThinkingLevel: "off" as const,
+		enableSubagents: false,
+		activation: { mode: "explicit" as const, toolNames: [] },
+		streamFn: () => new RecordedAssistantStream(assistantMessage("Greenfield SDK response")),
+	};
+}
 
 class RecordedAssistantStream extends EventStream<AssistantMessageEvent, AssistantMessage> {
 	constructor(message: AssistantMessage) {

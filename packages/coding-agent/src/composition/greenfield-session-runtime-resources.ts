@@ -31,6 +31,7 @@ export interface GreenfieldSessionConversationResources {
 	readonly documentStore: GreenfieldRuntimeResources["conversationDocumentStore"];
 	readonly continuationStore: NonNullable<GreenfieldRuntimeResources["conversationContinuationStore"]>;
 	resolveConversationPath(sessionId: string): string;
+	resolveSessionPath(sessionId: string): string | undefined;
 }
 
 export type GreenfieldSessionModelRuntimePort = Omit<GreenfieldRuntimeResources["modelRuntime"], "readCurrentModel"> & {
@@ -143,7 +144,7 @@ export function createGreenfieldSessionRuntimeResources(
 		contextRuntime: options.contextRuntime,
 		identity: {
 			cwd: options.session.cwd,
-			sessionPath: options.conversation.resolveConversationPath(options.session.initialSessionId),
+			sessionPath: options.conversation.resolveSessionPath(options.session.initialSessionId),
 			parentSessionPath: options.session.parentSessionPath,
 			parentEntryId: options.session.parentEntryId,
 		},

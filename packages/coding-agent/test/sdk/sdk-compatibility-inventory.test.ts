@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+	assessSdkCreateOptionsCompatibility,
 	SDK_CREATE_OPTION_COMPATIBILITY,
 	SDK_CREATE_RESULT_COMPATIBILITY,
 	SDK_SESSION_MEMBER_COMPATIBILITY,
@@ -15,6 +16,34 @@ describe("SDK compatibility inventory", () => {
 		});
 		expect(SDK_CREATE_OPTION_COMPATIBILITY.resourceLoader).toBe("legacy-concrete");
 		expect(SDK_CREATE_OPTION_COMPATIBILITY.sessionManager).toBe("legacy-concrete");
+	});
+
+	it("reports every explicitly configured option that is not wired into the Greenfield factory", () => {
+		expect(
+			assessSdkCreateOptionsCompatibility({
+				cwd: "C:\\workspace",
+				includeAgentSkills: false,
+				enableMcp: false,
+			}),
+		).toEqual({
+			compatible: false,
+			issues: [
+				{
+					code: "greenfield_sdk_option_not_wired",
+					option: "includeAgentSkills",
+					disposition: "product-adapter",
+				},
+				{
+					code: "greenfield_sdk_option_not_wired",
+					option: "enableMcp",
+					disposition: "product-adapter",
+				},
+			],
+		});
+		expect(assessSdkCreateOptionsCompatibility({ cwd: "C:\\workspace", thinkingLevel: "off" })).toEqual({
+			compatible: true,
+			issues: [],
+		});
 	});
 
 	it("distinguishes the closed core facade from later capabilities and implementation leaks", () => {

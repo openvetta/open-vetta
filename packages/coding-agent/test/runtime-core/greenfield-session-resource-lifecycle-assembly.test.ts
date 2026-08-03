@@ -209,6 +209,7 @@ function createConversationResources() {
 		documentStore: storage as unknown as GreenfieldRuntimeResources["conversationDocumentStore"],
 		continuationStore: storage as unknown as NonNullable<GreenfieldRuntimeResources["conversationContinuationStore"]>,
 		resolveConversationPath: (sessionId: string) => `C:\\conversations\\${sessionId}.jsonl`,
+		resolveSessionPath: (sessionId: string) => `C:\\conversations\\${sessionId}.jsonl`,
 	};
 }
 

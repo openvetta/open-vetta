@@ -56,6 +56,35 @@ export const SDK_CREATE_RESULT_COMPATIBILITY = {
 	modelFallbackMessage: "product-adapter",
 } as const satisfies Record<keyof CreateAgentSessionResult, SdkCompatibilityDisposition>;
 
+export interface SdkCreateOptionCompatibilityIssue {
+	readonly code: "greenfield_sdk_option_not_wired";
+	readonly option: keyof CreateAgentSessionOptions;
+	readonly disposition: Exclude<SdkCompatibilityDisposition, "greenfield-core">;
+}
+
+export type SdkCreateOptionsCompatibilityAssessment =
+	| { readonly compatible: true; readonly issues: readonly [] }
+	| { readonly compatible: false; readonly issues: readonly SdkCreateOptionCompatibilityIssue[] };
+
+/**
+ * 判断现有公开 options 是否只使用了已闭合的 Greenfield 核心字段。
+ *
+ * 该结果是公开工厂切换前的准入门禁；外围字段在适配完成前必须显式报告，不能被
+ * Greenfield Factory 静默忽略。
+ */
+export function assessSdkCreateOptionsCompatibility(
+	options: CreateAgentSessionOptions,
+): SdkCreateOptionsCompatibilityAssessment {
+	const issues: SdkCreateOptionCompatibilityIssue[] = [];
+	for (const option of Object.keys(SDK_CREATE_OPTION_COMPATIBILITY) as Array<keyof CreateAgentSessionOptions>) {
+		if (options[option] === undefined) continue;
+		const disposition = SDK_CREATE_OPTION_COMPATIBILITY[option];
+		if (disposition === "greenfield-core") continue;
+		issues.push({ code: "greenfield_sdk_option_not_wired", option, disposition });
+	}
+	return issues.length === 0 ? { compatible: true, issues: [] } : { compatible: false, issues };
+}
+
 /**
  * 现有 AgentSession 的完整公开成员清单。
  *

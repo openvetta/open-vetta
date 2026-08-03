@@ -21,6 +21,7 @@ export {
 	FileConversationRuntimeSessionFileHistoryReader,
 	type RuntimeConversationSessionRoot,
 } from "./file-conversation-session-services.js";
+export { InMemoryConversationRepository } from "./in-memory-conversation-repository.js";
 export {
 	LegacySessionDocumentReader,
 	type LegacySessionDocumentReaderOptions,

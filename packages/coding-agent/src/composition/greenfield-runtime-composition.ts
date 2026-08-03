@@ -1,7 +1,6 @@
 import { ComposedGreenfieldRuntimeFactory, GreenfieldRuntimeSessionBackend } from "@vetta/runtime-core";
 import { selectConversationDocumentModelMessages } from "@vetta/runtime-core/conversation";
 import type { McpRuntimeToolView } from "@vetta/runtime-mcp";
-import { FileConversationRepository } from "@vetta/runtime-storage/conversation";
 import {
 	CodingAgentGreenfieldAgentMessageContextProjector,
 	CodingAgentModelRegistryAdapter,
@@ -12,6 +11,7 @@ import { ConversationOwnershipBinding } from "./conversation-ownership-binding.j
 import { createGreenfieldChildCompositionFactory } from "./greenfield-child-composition-policy.js";
 import { GreenfieldCompositionResourceRegistry } from "./greenfield-composition-resource-registry.js";
 import { createGreenfieldCompositionShutdown } from "./greenfield-composition-shutdown.js";
+import { resolveGreenfieldConversationPersistence } from "./greenfield-conversation-persistence.js";
 import type {
 	GreenfieldRuntimeComposition,
 	GreenfieldRuntimeCompositionOptions,
@@ -78,7 +78,8 @@ async function createGreenfieldRuntimeCompositionInternal(
 		mcpCoordinator,
 		tools,
 	} = toolSurface;
-	const repository = new FileConversationRepository({ rootDir: options.conversationDir });
+	const persistence = await resolveGreenfieldConversationPersistence(options);
+	const repository = persistence.repository;
 	const baseConversationContextProjector = new CodingAgentGreenfieldAgentMessageContextProjector();
 	const conversationContextOverlay = new CodingAgentGreenfieldConversationContextOverlay(
 		baseConversationContextProjector,
@@ -87,10 +88,9 @@ async function createGreenfieldRuntimeCompositionInternal(
 	const acquireOwnership = async (sessionId: string): Promise<ConversationOwnershipBinding | undefined> => {
 		const manager = options.conversationOwnershipManager;
 		if (!manager) return undefined;
-		const binding = await ConversationOwnershipBinding.acquire(
-			manager,
-			repository.resolveConversationPath(sessionId),
-		);
+		const sessionPath = persistence.resolveSessionPath(sessionId);
+		if (!sessionPath) throw new Error("Conversation ownership requires a persistent session path");
+		const binding = await ConversationOwnershipBinding.acquire(manager, sessionPath);
 		resourceRegistry.trackOwnershipBinding(binding);
 		return binding;
 	};
@@ -101,9 +101,10 @@ async function createGreenfieldRuntimeCompositionInternal(
 	};
 	const conversation = {
 		repository,
-		documentStore: repository,
-		continuationStore: repository,
-		resolveConversationPath: (sessionId: string) => repository.resolveConversationPath(sessionId),
+		documentStore: persistence.documentStore,
+		continuationStore: persistence.continuationStore,
+		resolveConversationPath: persistence.resolveConversationPath,
+		resolveSessionPath: persistence.resolveSessionPath,
 	};
 	const createChildComposition = createGreenfieldChildCompositionFactory({
 		parentOptions: options,
@@ -121,13 +122,16 @@ async function createGreenfieldRuntimeCompositionInternal(
 		mcpCoordinator,
 		conversation,
 		readConversationModelMessages: async (sessionId) =>
-			selectConversationDocumentModelMessages(await repository.readDocument(sessionId)),
+			selectConversationDocumentModelMessages(await persistence.documentStore.readDocument(sessionId)),
 		conversationContextOverlay,
 		modelAdapter,
 		extensionToolRuntime,
 		acquireOwnership,
 		rebindOwnership: async (binding, sessionId) => {
-			await binding?.rebind(repository.resolveConversationPath(sessionId));
+			if (!binding) return;
+			const sessionPath = persistence.resolveSessionPath(sessionId);
+			if (!sessionPath) throw new Error("Conversation ownership requires a persistent session path");
+			await binding.rebind(sessionPath);
 		},
 		releaseOwnership,
 		resolveActivation: toolSurface.resolveActivation,
@@ -142,13 +146,13 @@ async function createGreenfieldRuntimeCompositionInternal(
 	const compositionShutdown = createGreenfieldCompositionShutdown({
 		registry: resourceRegistry,
 		clearConversationContextOverlay: () => conversationContextOverlay.clearAll(),
-		closeConversationRepository: () => repository.close(),
+		closeConversationRepository: () => persistence.dispose(),
 		disposeMcpSynchronizer: mcpCoordinator.sharedRuntimeAvailable ? () => mcpCoordinator.dispose() : undefined,
 		disposeCodingTools: () => tools.dispose(),
 	});
 	const sessionControls = createGreenfieldRuntimeSessionControls({
 		indexes: resourceRegistry.indexes,
-		readConversationDocument: (sessionId) => repository.readDocument(sessionId),
+		readConversationDocument: (sessionId) => persistence.documentStore.readDocument(sessionId),
 		projectConversationContext: (document) => conversationContextOverlay.project(document),
 		projectConversationSeed: (document) => baseConversationContextProjector.project(document),
 		preserveConversationContext: (targetSessionId, source, targetSeed) =>
