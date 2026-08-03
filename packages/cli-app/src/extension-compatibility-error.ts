@@ -1,15 +1,15 @@
 import type { CodingAgentExtensionCompatibilityAssessment } from "@vetta/coding-agent/bootstrap";
-import type { RpcExtensionIncompatibilityFailure } from "@vetta/coding-agent/rpc";
+import type { RpcExtensionIncompatibilityFailure, RpcRuntimeDecision } from "@vetta/coding-agent/rpc";
 
-type GreenfieldRuntimeBackend = "greenfield" | "greenfield-im";
+type RequestedRuntimeBackend = RpcRuntimeDecision["requestedBackend"];
 
 export class ExtensionCompatibilityError extends Error {
 	readonly errorCode = "extension_incompatible";
-	readonly requestedBackend: GreenfieldRuntimeBackend;
+	readonly requestedBackend: RequestedRuntimeBackend;
 	readonly unsupportedEvents: readonly string[];
 	readonly unmetRuntimeCapabilities: readonly string[];
 
-	constructor(requestedBackend: GreenfieldRuntimeBackend, assessment: CodingAgentExtensionCompatibilityAssessment) {
+	constructor(requestedBackend: RequestedRuntimeBackend, assessment: CodingAgentExtensionCompatibilityAssessment) {
 		super("Extension requires events or runtime capabilities that are not supported by the requested runtime");
 		this.name = "ExtensionCompatibilityError";
 		this.requestedBackend = requestedBackend;

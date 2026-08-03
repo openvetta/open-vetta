@@ -17,11 +17,11 @@ describe("resolveDesktopAgentRuntimeBackend", () => {
 		});
 	});
 
-	it("keeps an explicit Legacy rollback", () => {
-		expect(resolveDesktopAgentRuntimeBackend("legacy")).toBe("legacy");
+	it("maps an explicit Legacy request to Greenfield", () => {
+		expect(resolveDesktopAgentRuntimeBackend("legacy")).toBe("greenfield");
 		expect(resolveDesktopAgentRuntimeDecision("legacy")).toEqual({
 			requestedBackend: "legacy",
-			effectiveBackend: "legacy",
+			effectiveBackend: "greenfield",
 			source: "environment",
 		});
 	});

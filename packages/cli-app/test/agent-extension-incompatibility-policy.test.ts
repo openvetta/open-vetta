@@ -10,7 +10,6 @@ const runtimeMocks = vi.hoisted(() => ({
 	prepareIm: vi.fn<() => Promise<unknown>>(),
 	preparePrint: vi.fn<() => Promise<unknown>>(),
 	prepareRpc: vi.fn<() => Promise<unknown>>(),
-	runLegacy: vi.fn<() => Promise<void>>(),
 	runGreenfieldIm: vi.fn<() => Promise<void>>(),
 	runGreenfieldPrint: vi.fn<() => Promise<void>>(),
 	runGreenfieldRpc: vi.fn<() => Promise<void>>(),
@@ -23,10 +22,6 @@ vi.mock("@vetta/coding-agent/bootstrap", () => ({
 
 vi.mock("@vetta/coding-agent/cli-control", () => ({
 	runCodingAgentCliControl: vi.fn<() => Promise<boolean>>(),
-}));
-
-vi.mock("../src/legacy-runtime-gateway.js", () => ({
-	runLegacyRuntimeExecution: runtimeMocks.runLegacy,
 }));
 
 vi.mock("../src/rpc/cli-session-format-compatibility.js", () => ({
@@ -83,12 +78,7 @@ beforeEach(() => {
 			extensionCompatibility,
 		});
 	}
-	for (const run of [
-		runtimeMocks.runLegacy,
-		runtimeMocks.runGreenfieldIm,
-		runtimeMocks.runGreenfieldPrint,
-		runtimeMocks.runGreenfieldRpc,
-	]) {
+	for (const run of [runtimeMocks.runGreenfieldIm, runtimeMocks.runGreenfieldPrint, runtimeMocks.runGreenfieldRpc]) {
 		run.mockReset().mockResolvedValue(undefined);
 	}
 });
@@ -118,7 +108,6 @@ describe("Extension incompatibility policy", () => {
 			unmetRuntimeCapabilities: ["event-handler"],
 		});
 		expect(stderr).not.toHaveBeenCalled();
-		expect(runtimeMocks.runLegacy).not.toHaveBeenCalled();
 		expect(runtimeMocks.runGreenfieldIm).not.toHaveBeenCalled();
 	});
 
@@ -134,7 +123,6 @@ describe("Extension incompatibility policy", () => {
 		expect(String(stderr.mock.calls[0]?.[0])).toContain(
 			"errorCode=extension_incompatible requested=greenfield unsupportedEvents=future_event unmetCapabilities=event-handler",
 		);
-		expect(runtimeMocks.runLegacy).not.toHaveBeenCalled();
 		expect(runtimeMocks.runGreenfieldPrint).not.toHaveBeenCalled();
 	});
 });

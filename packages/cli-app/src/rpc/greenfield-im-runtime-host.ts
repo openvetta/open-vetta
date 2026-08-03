@@ -126,6 +126,7 @@ export interface PrepareGreenfieldImRuntimeHostOptions {
 	readonly bootstrap: CodingAgentHostBootstrap;
 	readonly conversationDir: string;
 	readonly sessionCatalog: RuntimeSessionCatalog;
+	readonly requestedBackend?: RpcRuntimeDecision["requestedBackend"];
 	readonly createSessionId?: () => string;
 	readonly ownership?: FileConversationOwnershipManagerOptions;
 	readonly createPluginRuntime?: (
@@ -266,7 +267,7 @@ async function prepareGreenfieldRuntimeHost(
 		sessionId = migration.targetSessionId;
 	}
 	const runtimeDecision: RpcRuntimeDecision = {
-		requestedBackend: backend,
+		requestedBackend: options.requestedBackend ?? backend,
 		effectiveBackend: backend,
 		...(sessionMigration ? { sessionMigration } : {}),
 	};

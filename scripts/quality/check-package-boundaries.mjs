@@ -836,12 +836,7 @@ function checkCodingAgentLegacyBoundaries(posixPath, text, specifiers, findings)
 
 	for (const specifier of specifiers) {
 		if (!specifier.startsWith("@vetta/coding-agent/legacy/")) continue;
-		const isAllowedCliEntry =
-			posixPath === "packages/cli-app/src/legacy-runtime-gateway.ts" &&
-			specifier === "@vetta/coding-agent/legacy/cli";
-		if (!isAllowedCliEntry) {
-			findings.push(`${posixPath}: production Legacy subpath import is outside the compatibility allowlist`);
-		}
+		findings.push(`${posixPath}: production Legacy subpath import is outside the compatibility allowlist`);
 	}
 
 	const sourceFile = ts.createSourceFile(posixPath, text, ts.ScriptTarget.Latest, true, scriptKind(posixPath));
@@ -852,11 +847,7 @@ function checkCodingAgentLegacyBoundaries(posixPath, text, specifiers, findings)
 	};
 	visit(sourceFile);
 
-	if (
-		posixPath.startsWith("packages/cli-app/src/") &&
-		posixPath !== "packages/cli-app/src/legacy-runtime-gateway.ts" &&
-		!posixPath.startsWith("packages/cli-app/src/rpc/greenfield")
-	) {
+	if (posixPath.startsWith("packages/cli-app/src/") && !posixPath.startsWith("packages/cli-app/src/rpc/greenfield")) {
 		for (const symbol of ["runLegacyAgent", "runLegacyAgentWithBootstrap"]) {
 			if (usedSymbols.has(symbol)) {
 				findings.push(`${posixPath}: Legacy startup symbol ${symbol} is outside the execution gateway`);
@@ -884,8 +875,6 @@ function checkCodingAgentLegacyBoundaries(posixPath, text, specifiers, findings)
 	const isCodingAgentAdapter = posixPath.startsWith("packages/coding-agent/src/adapters/runtime-core/");
 	if (isCodingAgentAdapter) return;
 
-	const desktopExecutionCompatibility =
-		"packages/desktop-app/src/main/greenfield-runtime/desktop-legacy-execution-compatibility.ts";
 	const desktopFormatCompatibility =
 		"packages/desktop-app/src/main/greenfield-runtime/desktop-legacy-session-format-compatibility.ts";
 	const cliFormatCompatibility = "packages/cli-app/src/rpc/cli-session-format-compatibility.ts";
@@ -898,13 +887,11 @@ function checkCodingAgentLegacyBoundaries(posixPath, text, specifiers, findings)
 	]);
 	for (const symbol of usedSymbols) {
 		if (!protectedSymbols.has(symbol)) continue;
-		const isAllowedDesktopExecution =
-			symbol === "LegacyCodingAgentSessionBackend" && posixPath === desktopExecutionCompatibility;
 		const isAllowedDesktopFormat =
 			(symbol === "LegacyRuntimeSessionCatalog" || symbol === "LegacyRuntimeSessionFileHistoryReader") &&
 			posixPath === desktopFormatCompatibility;
 		const isAllowedCliFormat = symbol === "LegacyRuntimeSessionCatalog" && posixPath === cliFormatCompatibility;
-		if (isAllowedDesktopExecution || isAllowedDesktopFormat || isAllowedCliFormat) continue;
+		if (isAllowedDesktopFormat || isAllowedCliFormat) continue;
 		findings.push(`${posixPath}: Legacy Runtime adapter ${symbol} is outside the compatibility allowlist`);
 	}
 }

@@ -40,7 +40,6 @@ import {
 	isSessionPathInDirectory,
 	PathFilteredRuntimeSessionCatalog,
 } from "./desktop-greenfield-session-catalog.js";
-import { createDesktopLegacyExecutionCompatibility } from "./desktop-legacy-execution-compatibility.js";
 import { createDesktopLegacySessionFormatCompatibility } from "./desktop-legacy-session-format-compatibility.js";
 import { DesktopLegacySessionMigrationBackend } from "./desktop-legacy-session-migration-backend.js";
 import { desktopAgentRuntimeDecision } from "./desktop-runtime-decision.js";
@@ -60,7 +59,6 @@ export function createDesktopRuntimeComposition(): DesktopRuntimeComposition {
 	const macosSandboxExecPath = getAvailableMacosSandboxExecPath();
 	const userQuestionHandler = getDesktopUserQuestionBroker().handle;
 	const additionalSkillPaths = getBuiltinSkillPaths();
-	const legacyExecution = createDesktopLegacyExecutionCompatibility({ modelRegistry });
 	const legacyFormat = createDesktopLegacySessionFormatCompatibility();
 	const conversationCatalog = new DesktopGreenfieldRuntimeSessionCatalog({
 		resolveRoots: resolveDesktopGreenfieldSessionRoots,
@@ -93,22 +91,13 @@ export function createDesktopRuntimeComposition(): DesktopRuntimeComposition {
 			});
 		},
 	});
-	const defaultBackend =
-		desktopAgentRuntimeDecision.effectiveBackend === "greenfield"
-			? greenfieldBackendPool
-			: legacyExecution.sessionBackend;
-	const legacySessionBackend =
-		desktopAgentRuntimeDecision.effectiveBackend === "legacy"
-			? legacyExecution.sessionBackend
-			: new DesktopLegacySessionMigrationBackend(greenfieldBackendPool);
-	const legacySessionRouteId =
-		desktopAgentRuntimeDecision.effectiveBackend === "legacy" ? "legacy" : "legacy-migration";
+	const legacySessionBackend = new DesktopLegacySessionMigrationBackend(greenfieldBackendPool);
 	const sessionBackend = new CatalogRoutedRuntimeHostSessionBackend({
-		defaultBackend,
-		defaultRouteId: desktopAgentRuntimeDecision.effectiveBackend,
+		defaultBackend: greenfieldBackendPool,
+		defaultRouteId: "greenfield",
 		routes: [
 			{
-				id: legacySessionRouteId,
+				id: "legacy-migration",
 				catalog: legacyFormat.sessionCatalog,
 				backend: legacySessionBackend,
 			},
@@ -116,8 +105,9 @@ export function createDesktopRuntimeComposition(): DesktopRuntimeComposition {
 		],
 		onRoute: logSessionRoute,
 	});
+	const retirement = desktopAgentRuntimeDecision.requestedBackend === "legacy" ? " reason=legacy-retired" : "";
 	log.info(
-		`[agent-runtime] requested=${desktopAgentRuntimeDecision.requestedBackend} effective=${desktopAgentRuntimeDecision.effectiveBackend} source=${desktopAgentRuntimeDecision.source}`,
+		`[agent-runtime] requested=${desktopAgentRuntimeDecision.requestedBackend} effective=${desktopAgentRuntimeDecision.effectiveBackend} source=${desktopAgentRuntimeDecision.source}${retirement}`,
 	);
 	return {
 		greenfieldBackendPool,
@@ -175,13 +165,11 @@ function logSessionRoute(decision: RuntimeHostSessionBackendRouteDecision): void
 		return;
 	}
 	const reason =
-		decision.routeId === "legacy"
-			? "explicit-legacy-catalog"
-			: decision.routeId === "legacy-migration"
-				? "legacy-session-migration"
-				: decision.routeId === "greenfield"
-					? "conversation-v2-catalog"
-					: "unknown-catalog";
+		decision.routeId === "legacy-migration"
+			? "legacy-session-migration"
+			: decision.routeId === "greenfield"
+				? "conversation-v2-catalog"
+				: "unknown-catalog";
 	log.info(`[agent-runtime] session-route backend=${decision.routeId ?? "unknown"} reason=${reason}`);
 }
 

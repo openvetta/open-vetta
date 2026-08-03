@@ -1,5 +1,5 @@
-export type DesktopAgentRuntimeBackend = "legacy" | "greenfield";
-export type DesktopAgentRuntimeRequest = "default" | DesktopAgentRuntimeBackend;
+export type DesktopAgentRuntimeBackend = "greenfield";
+export type DesktopAgentRuntimeRequest = "default" | "legacy" | DesktopAgentRuntimeBackend;
 
 export interface DesktopAgentRuntimeDecision {
 	readonly requestedBackend: DesktopAgentRuntimeRequest;
@@ -9,7 +9,7 @@ export interface DesktopAgentRuntimeDecision {
 
 export const DESKTOP_AGENT_RUNTIME_ENV = "VETTA_DESKTOP_AGENT_RUNTIME";
 
-/** Desktop Runtime 在进程启动时确定；缺省使用 Greenfield，显式 legacy 可回退。 */
+/** Desktop Runtime 在进程启动时确定；缺省和已退役的 legacy 请求都使用 Greenfield。 */
 export function resolveDesktopAgentRuntimeBackend(value: string | undefined): DesktopAgentRuntimeBackend {
 	return resolveDesktopAgentRuntimeDecision(value).effectiveBackend;
 }
@@ -25,7 +25,7 @@ export function resolveDesktopAgentRuntimeDecision(value: string | undefined): D
 	if (value === "legacy" || value === "greenfield") {
 		return {
 			requestedBackend: value,
-			effectiveBackend: value,
+			effectiveBackend: "greenfield",
 			source: "environment",
 		};
 	}

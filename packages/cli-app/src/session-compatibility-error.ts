@@ -1,20 +1,20 @@
-import type { RpcSessionIncompatibilityFailure } from "@vetta/coding-agent/rpc";
+import type { RpcRuntimeDecision, RpcSessionIncompatibilityFailure } from "@vetta/coding-agent/rpc";
 import type {
 	CodingAgentLegacySessionIncompatibilityCode,
 	CodingAgentLegacySessionMigrationIncompatible,
 } from "@vetta/coding-agent/runtime-host";
 
-type GreenfieldRuntimeBackend = "greenfield" | "greenfield-im";
+type RequestedRuntimeBackend = RpcRuntimeDecision["requestedBackend"];
 
 export class SessionCompatibilityError extends Error {
 	readonly errorCode: CodingAgentLegacySessionIncompatibilityCode;
-	readonly requestedBackend: GreenfieldRuntimeBackend;
+	readonly requestedBackend: RequestedRuntimeBackend;
 	readonly sessionPath: string;
 	readonly sourceVersion: number | undefined;
 	readonly issueCode: string | undefined;
 	readonly issueCount: number | undefined;
 
-	constructor(requestedBackend: GreenfieldRuntimeBackend, result: CodingAgentLegacySessionMigrationIncompatible) {
+	constructor(requestedBackend: RequestedRuntimeBackend, result: CodingAgentLegacySessionMigrationIncompatible) {
 		super("Legacy session cannot be resumed safely by the requested runtime");
 		this.name = "SessionCompatibilityError";
 		this.requestedBackend = requestedBackend;

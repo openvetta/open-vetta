@@ -104,7 +104,7 @@ afterEach(async () => {
 });
 
 describe("installed standalone CLI artifact", () => {
-	it("preserves the exact im-claw Provider frame and lifecycle sequence across runtime backends", async () => {
+	it("preserves the exact im-claw Provider frame when a retired Legacy request is remapped", async () => {
 		await expectStandaloneArtifact(artifact);
 
 		const observations = {} as Record<TestAgentRuntimeBackend, InstalledFrameObservation>;
@@ -549,7 +549,7 @@ describe("installed standalone CLI artifact", () => {
 		activeProcess = undefined;
 	}, 120_000);
 
-	it("quiets installed Legacy background work before publishing a new Session identity", async () => {
+	it("quiets installed background work before publishing a new Session identity after Legacy remapping", async () => {
 		await expectStandaloneArtifact(artifact);
 
 		providerServer = await startOpenAiResponsesTestServer((_request, index) =>
@@ -573,7 +573,14 @@ describe("installed standalone CLI artifact", () => {
 			runtime: "legacy",
 			noSkills: true,
 		});
-		const sourcePath = readSessionFile(await activeProcess.request("installed-background-source", "get_state"));
+		const sourceState = await activeProcess.request("installed-background-source", "get_state");
+		expect(sourceState).toMatchObject({
+			data: {
+				runtimeBackend: "greenfield",
+				runtimeDecision: { requestedBackend: "legacy", effectiveBackend: "greenfield" },
+			},
+		});
+		const sourcePath = readSessionFile(sourceState);
 
 		await promptInstalledTurn(activeProcess, "installed-background-close", "Start the installed background task");
 		const pid = await waitForInstalledPid(join(fixture.workspace, "installed-background.pid"));
@@ -583,8 +590,8 @@ describe("installed standalone CLI artifact", () => {
 		const targetPath = readSessionFile(await activeProcess.request("installed-background-target", "get_state"));
 		expect(targetPath).not.toBe(sourcePath);
 		expect(isProcessAlive(pid)).toBe(false);
-		expect(existsSync(`${sourcePath}.lock`)).toBe(false);
-		expect(existsSync(`${targetPath}.lock`)).toBe(true);
+		expect(existsSync(`${sourcePath}.owner.lock`)).toBe(false);
+		expect(existsSync(`${targetPath}.owner.lock`)).toBe(true);
 		await new Promise<void>((resolvePromise) => setTimeout(resolvePromise, 200));
 		expect(providerServer.requests).toHaveLength(2);
 
@@ -949,9 +956,12 @@ describe("installed standalone CLI artifact", () => {
 			extraArgs: ["--extension", combinedExtension],
 		});
 		await expect(activeProcess.request("installed-legacy-state", "get_state")).resolves.toMatchObject({
-			data: { runtimeBackend: "legacy" },
+			data: {
+				runtimeBackend: "greenfield",
+				runtimeDecision: { requestedBackend: "legacy", effectiveBackend: "greenfield" },
+			},
 		});
-		expect(activeProcess.stderr).toContain("requested=legacy effective=legacy");
+		expect(activeProcess.stderr).toContain("requested=legacy effective=greenfield reason=legacy-retired");
 		expect(activeProcess.stderr).not.toContain("fallback=");
 		await expect(activeProcess.close()).resolves.toBe(0);
 		activeProcess = undefined;

@@ -9,6 +9,7 @@ export type TestAgentRuntimeBackend = "legacy" | "greenfield" | "greenfield-im";
 
 export interface AgentRpcExecutable {
 	readonly path: string;
+	readonly legacyPath: string;
 	dispose(): Promise<void>;
 }
 
@@ -34,6 +35,7 @@ export interface StartAgentRpcOptions {
 	readonly scenario?: "cli" | "im-claw";
 	readonly extraArgs?: readonly string[];
 	readonly env?: Readonly<Record<string, string>>;
+	readonly productionLegacyRequest?: boolean;
 }
 
 export interface RpcFrame {
@@ -53,16 +55,26 @@ interface FrameWaiter {
 }
 
 const sourceEntryPath = fileURLToPath(new URL("../../src/agent-rpc-cli.ts", import.meta.url));
+const legacySourceEntryPath = fileURLToPath(new URL("./legacy-rpc-test-entry.ts", import.meta.url));
 const repositoryRoot = fileURLToPath(new URL("../../../..", import.meta.url));
 
 export async function buildAgentRpcExecutable(): Promise<AgentRpcExecutable> {
 	const directory = await mkdtemp(join(tmpdir(), "vetta-agent-rpc-executable-"));
 	const path = join(directory, "agent-rpc.mjs");
+	const legacyPath = join(directory, "legacy-agent-rpc.mjs");
 	try {
-		await runCommand("bun", ["build", sourceEntryPath, "--target", "bun", "--outfile", path], repositoryRoot);
+		await Promise.all([
+			runCommand("bun", ["build", sourceEntryPath, "--target", "bun", "--outfile", path], repositoryRoot),
+			runCommand(
+				"bun",
+				["build", legacySourceEntryPath, "--target", "bun", "--outfile", legacyPath],
+				repositoryRoot,
+			),
+		]);
 		await copyFile(join(repositoryRoot, "packages", "coding-agent", "package.json"), join(directory, "package.json"));
 		return {
 			path,
+			legacyPath,
 			dispose: () => rm(directory, { force: true, recursive: true }),
 		};
 	} catch (error) {
@@ -126,14 +138,15 @@ export function startAgentRpc(
 	options: StartAgentRpcOptions = {},
 ): AgentRpcProcess {
 	const backend = options.backend === null ? "greenfield" : (options.backend ?? "greenfield-im");
-	const includeRuntimeOption = options.backend !== null;
+	const useLegacyBaseline = backend === "legacy" && options.productionLegacyRequest !== true;
+	const includeRuntimeOption = options.backend !== null && !useLegacyBaseline;
 	const enableHostBridge = options.enableHostBridge ?? backend === "greenfield-im";
 	const scenario = options.scenario ?? (backend === "greenfield-im" ? "im-claw" : undefined);
 	return new AgentRpcProcess(
 		spawn(
 			"bun",
 			[
-				executable.path,
+				useLegacyBaseline ? executable.legacyPath : executable.path,
 				...(includeRuntimeOption ? ["--agent-runtime", backend] : []),
 				"--mode",
 				"rpc",

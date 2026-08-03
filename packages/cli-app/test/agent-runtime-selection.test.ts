@@ -33,36 +33,63 @@ afterEach(async () => {
 });
 
 describe("Agent Runtime selection", () => {
-	it("defaults ordinary RPC and Print to Greenfield while keeping control commands on Legacy", () => {
+	it("defaults ordinary RPC, Print and neutral control commands to Greenfield", () => {
 		expect(parseAgentRuntimeSelection(["--mode", "rpc"])).toEqual({
 			backend: "greenfield",
+			effectiveBackend: "greenfield",
 			agentArgs: ["--mode", "rpc"],
 		});
 		expect(parseAgentRuntimeSelection(["--mode", "json"])).toEqual({
 			backend: "greenfield",
+			effectiveBackend: "greenfield",
 			agentArgs: ["--mode", "json"],
 		});
 		expect(parseAgentRuntimeSelection(["--print", "hello"])).toEqual({
 			backend: "greenfield",
+			effectiveBackend: "greenfield",
 			agentArgs: ["--print", "hello"],
 		});
 		expect(parseAgentRuntimeSelection(["--help"])).toEqual({
-			backend: "legacy",
+			backend: "greenfield",
+			effectiveBackend: "greenfield",
 			agentArgs: ["--help"],
 		});
 		expect(parseAgentRuntimeSelection(["--mode=rpc", "--enable-host-bridge"])).toEqual({
 			backend: "greenfield-im",
+			effectiveBackend: "greenfield-im",
 			agentArgs: ["--mode=rpc", "--enable-host-bridge"],
 		});
 		expect(
 			parseAgentRuntimeSelection(["--agent-runtime=greenfield-im", "--mode", "rpc", "--agent-runtime", "legacy"]),
 		).toEqual({
 			backend: "legacy",
+			effectiveBackend: "greenfield",
 			agentArgs: ["--mode", "rpc"],
 		});
 		expect(() => parseAgentRuntimeSelection(["--agent-runtime", "unknown"])).toThrow(
 			"Unsupported --agent-runtime value",
 		);
+	});
+
+	it("maps an explicit Legacy request to the canonical Greenfield host", async () => {
+		const fixture = await createFixture();
+		const process = startAgentRpc(executable, fixture, {
+			backend: "legacy",
+			productionLegacyRequest: true,
+		});
+		runningProcesses.add(process);
+
+		await expect(process.request("retired-legacy-state", "get_state")).resolves.toMatchObject({
+			command: "get_state",
+			success: true,
+			data: {
+				runtimeBackend: "greenfield",
+				runtimeDecision: { requestedBackend: "legacy", effectiveBackend: "greenfield" },
+			},
+		});
+		expect(process.stderr).toContain("requested=legacy effective=greenfield reason=legacy-retired");
+		expect(process.stderr).not.toContain("using Legacy runtime");
+		await process.close();
 	});
 
 	it("runs the full RPC profile through the default neutral Greenfield host", async () => {

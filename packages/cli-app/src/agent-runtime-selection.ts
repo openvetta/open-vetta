@@ -4,7 +4,6 @@ import { type RpcRuntimeDecision, stringifyRpcStartupFailure } from "@vetta/codi
 import { ConversationOwnershipConflictError } from "@vetta/runtime-storage/conversation";
 import { classifyAgentCliIntent } from "./agent-cli-intent.js";
 import { ExtensionCompatibilityError } from "./extension-compatibility-error.js";
-import { runLegacyRuntimeExecution } from "./legacy-runtime-gateway.js";
 import { createCliRuntimeSessionCatalog } from "./rpc/cli-session-format-compatibility.js";
 import {
 	type GreenfieldImFallbackReason,
@@ -23,6 +22,7 @@ export type AgentRuntimeBackend = "legacy" | "greenfield" | "greenfield-im";
 
 export interface AgentRuntimeSelection {
 	readonly backend: AgentRuntimeBackend;
+	readonly effectiveBackend: Exclude<AgentRuntimeBackend, "legacy">;
 	readonly agentArgs: string[];
 }
 
@@ -61,7 +61,12 @@ export function parseAgentRuntimeSelection(args: readonly string[]): AgentRuntim
 		agentArgs.push(arg);
 	}
 
-	return { backend: backend ?? defaultBackend(agentArgs), agentArgs };
+	const requestedBackend = backend ?? defaultBackend(agentArgs);
+	return {
+		backend: requestedBackend,
+		effectiveBackend: requestedBackend === "legacy" ? defaultBackend(agentArgs) : requestedBackend,
+		agentArgs,
+	};
 }
 
 export async function runAgentRuntimeCli(
@@ -77,28 +82,34 @@ export async function runAgentRuntimeCli(
 		}
 		return;
 	}
-	if (selection.backend === "legacy") {
-		options.onDecision?.({
-			requestedBackend: "legacy",
-			effectiveBackend: "legacy",
-		});
-		await runLegacyRuntimeExecution({ cause: "explicit-selection", args: selection.agentArgs });
-		return;
-	}
-
 	const bootstrap = await createAgentCliBootstrap(selection.agentArgs);
 	const conversationDir = resolveCodingAgentSessionDir(bootstrap.cwd, bootstrap.parsed.sessionDir);
 	const sessionCatalog = createCliRuntimeSessionCatalog({ cwd: bootstrap.cwd, sessionDir: conversationDir });
 
 	try {
-		if (intent === "print" && selection.backend === "greenfield-im") {
+		if (intent === "print" && selection.effectiveBackend === "greenfield-im") {
 			throw new Error("Greenfield IM Runtime only supports RPC mode");
 		}
 		const prepared = await (intent === "print"
-			? prepareGreenfieldPrintRuntimeHost({ bootstrap, conversationDir, sessionCatalog })
-			: selection.backend === "greenfield-im"
-				? prepareGreenfieldImRuntimeHost({ bootstrap, conversationDir, sessionCatalog })
-				: prepareGreenfieldRpcRuntimeHost({ bootstrap, conversationDir, sessionCatalog }));
+			? prepareGreenfieldPrintRuntimeHost({
+					bootstrap,
+					conversationDir,
+					sessionCatalog,
+					requestedBackend: selection.backend,
+				})
+			: selection.effectiveBackend === "greenfield-im"
+				? prepareGreenfieldImRuntimeHost({
+						bootstrap,
+						conversationDir,
+						sessionCatalog,
+						requestedBackend: selection.backend,
+					})
+				: prepareGreenfieldRpcRuntimeHost({
+						bootstrap,
+						conversationDir,
+						sessionCatalog,
+						requestedBackend: selection.backend,
+					}));
 		if (prepared.kind === "extension-incompatible") {
 			throw new ExtensionCompatibilityError(selection.backend, prepared.extensionCompatibility);
 		}
@@ -107,7 +118,7 @@ export async function runAgentRuntimeCli(
 		}
 		options.onDecision?.(prepared.runtimeDecision);
 		if (prepared.kind === "greenfield-print") await runGreenfieldPrintRuntimeHost(prepared);
-		else if (selection.backend === "greenfield-im") await runGreenfieldImRuntimeHost(prepared);
+		else if (selection.effectiveBackend === "greenfield-im") await runGreenfieldImRuntimeHost(prepared);
 		else await runGreenfieldRpcRuntimeHost(prepared);
 	} catch (error) {
 		if (error instanceof ExtensionCompatibilityError) {
@@ -162,7 +173,9 @@ function writeExtensionCompatibilityFailure(error: ExtensionCompatibilityError):
 
 export function writeAgentRuntimeDecision(decision: AgentRuntimeDecision): void {
 	const fallback = decision.fallbackReason ? ` fallback=${decision.fallbackReason}` : "";
-	const legacyNotice = decision.fallbackReason ? "; using Legacy runtime" : "";
+	const retirement =
+		decision.requestedBackend === "legacy" && decision.effectiveBackend !== "legacy" ? " reason=legacy-retired" : "";
+	const legacyNotice = decision.effectiveBackend === "legacy" ? "; using Legacy runtime" : "";
 	const unsupportedEvents = formatRuntimeDecisionList(
 		"unsupportedEvents",
 		decision.extensionFallback?.unsupportedEvents,
@@ -175,7 +188,7 @@ export function writeAgentRuntimeDecision(decision: AgentRuntimeDecision): void 
 		? ` sessionMigration=${decision.sessionMigration.status}${decision.sessionMigration.errorCode ? `:${decision.sessionMigration.errorCode}` : ""}${decision.sessionMigration.issueCode ? ` issue=${decision.sessionMigration.issueCode}:${decision.sessionMigration.issueCount ?? 1}` : ""}`
 		: "";
 	process.stderr.write(
-		`[agent-runtime] requested=${decision.requestedBackend} effective=${decision.effectiveBackend}${fallback}${migration}${unsupportedEvents}${unmetCapabilities}${legacyNotice}\n`,
+		`[agent-runtime] requested=${decision.requestedBackend} effective=${decision.effectiveBackend}${retirement}${fallback}${migration}${unsupportedEvents}${unmetCapabilities}${legacyNotice}\n`,
 	);
 }
 
@@ -194,9 +207,9 @@ function parseBackend(value: string): AgentRuntimeBackend {
 	throw new Error(`Unsupported ${RUNTIME_OPTION} value: ${value}`);
 }
 
-function defaultBackend(args: readonly string[]): AgentRuntimeBackend {
+function defaultBackend(args: readonly string[]): Exclude<AgentRuntimeBackend, "legacy"> {
 	const intent = classifyAgentCliIntent(args);
-	if (intent === "control") return "legacy";
+	if (intent === "control") return "greenfield";
 	if (intent === "print") return "greenfield";
 	return args.includes("--enable-host-bridge") || args.some((arg) => arg === "--scenario=im-claw")
 		? "greenfield-im"

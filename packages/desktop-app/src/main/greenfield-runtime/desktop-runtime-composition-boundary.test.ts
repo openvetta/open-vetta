@@ -5,7 +5,6 @@ const productionSources = {
 	composition: readSource("./desktop-runtime-composition.ts"),
 	hostServices: readSource("./desktop-coding-agent-host-services.ts"),
 	knowledgeFactory: readSource("../knowledge/processing-session-factory.ts"),
-	legacyExecutionCompatibility: readSource("./desktop-legacy-execution-compatibility.ts"),
 	legacyMigrationBackend: readSource("./desktop-legacy-session-migration-backend.ts"),
 	legacyFormatCompatibility: readSource("./desktop-legacy-session-format-compatibility.ts"),
 	poller: readSource("../knowledge/poller.ts"),
@@ -19,19 +18,18 @@ describe("Desktop Runtime composition boundary", () => {
 		}
 	});
 
-	it("separates Legacy execution from session-format compatibility", () => {
-		expect(productionSources.legacyExecutionCompatibility).toContain("LegacyCodingAgentSessionBackend");
-		expect(productionSources.legacyExecutionCompatibility).not.toContain("LegacyRuntimeSessionCatalog");
-		expect(productionSources.legacyExecutionCompatibility).not.toContain("LegacyRuntimeSessionFileHistoryReader");
+	it("keeps Legacy format migration without a production execution backend", () => {
 		expect(productionSources.legacyFormatCompatibility).not.toContain("LegacyCodingAgentSessionBackend");
 		expect(productionSources.legacyFormatCompatibility).toContain("LegacyRuntimeSessionCatalog");
 		expect(productionSources.legacyFormatCompatibility).toContain("LegacyRuntimeSessionFileHistoryReader");
-		expect(productionSources.composition).toContain("createDesktopLegacyExecutionCompatibility");
+		expect(productionSources.composition).not.toContain("LegacyCodingAgentSessionBackend");
+		expect(productionSources.composition).not.toContain("createDesktopLegacyExecutionCompatibility");
 		expect(productionSources.composition).toContain("DesktopLegacySessionMigrationBackend");
 		expect(productionSources.composition).toContain("createDesktopLegacySessionFormatCompatibility");
 		expect(productionSources.composition).toContain("ModelRegistryRuntimeSharedModelController");
 		expect(productionSources.legacyMigrationBackend).not.toContain("LegacyCodingAgentSessionBackend");
 		expect(productionSources.legacyMigrationBackend).toContain("migrateCodingAgentLegacySession");
+		expect(productionSources.knowledgeFactory).not.toContain("createLegacyKnowledgeProcessingSessionFactory");
 	});
 
 	it("keeps the Runtime entry limited to singleton lifecycle ownership", () => {

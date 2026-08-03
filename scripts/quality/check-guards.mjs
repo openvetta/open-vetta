@@ -10,6 +10,7 @@ const steps = [
 	["scripts/quality/check-conflict-markers.mjs"],
 	["scripts/quality/check-build-order.mjs"],
 	["scripts/quality/check-package-boundaries.mjs"],
+	["scripts/quality/check-legacy-execution-retirement.mjs"],
 	["scripts/quality/check-standalone-cli-build.mjs"],
 ];
 

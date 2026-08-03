@@ -33,6 +33,21 @@ describe("RPC startup failure contract", () => {
 		expect(stringifyRpcStartupFailure(failure)).toBe(`${JSON.stringify(failure)}\n`);
 	});
 
+	it("preserves a retired Legacy request in a Greenfield startup failure", () => {
+		const failure = {
+			type: "response",
+			command: "startup",
+			success: false,
+			errorCode: "extension_incompatible",
+			error: "Extension is incompatible",
+			requestedBackend: "legacy",
+			unsupportedEvents: ["future_event"],
+			unmetRuntimeCapabilities: ["event-handler"],
+		} as const satisfies RpcStartupFailure;
+
+		expect(isRpcStartupFailure(failure)).toBe(true);
+	});
+
 	it("rejects incomplete Extension incompatibility frames at runtime", () => {
 		const incomplete = {
 			type: "response",

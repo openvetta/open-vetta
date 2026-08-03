@@ -6,7 +6,6 @@ const runtimeMocks = vi.hoisted(() => ({
 	createBootstrap: vi.fn<() => Promise<unknown>>(),
 	preparePrint: vi.fn<() => Promise<unknown>>(),
 	prepareRpc: vi.fn<() => Promise<unknown>>(),
-	runLegacy: vi.fn<() => Promise<void>>(),
 	runGreenfieldPrint: vi.fn<() => Promise<void>>(),
 	runGreenfieldRpc: vi.fn<() => Promise<void>>(),
 }));
@@ -18,10 +17,6 @@ vi.mock("@vetta/coding-agent/bootstrap", () => ({
 
 vi.mock("@vetta/coding-agent/cli-control", () => ({
 	runCodingAgentCliControl: vi.fn<() => Promise<boolean>>(),
-}));
-
-vi.mock("../src/legacy-runtime-gateway.js", () => ({
-	runLegacyRuntimeExecution: runtimeMocks.runLegacy,
 }));
 
 vi.mock("../src/rpc/cli-session-format-compatibility.js", () => ({
@@ -63,7 +58,7 @@ beforeEach(() => {
 			sessionCompatibility,
 		});
 	}
-	for (const run of [runtimeMocks.runLegacy, runtimeMocks.runGreenfieldPrint, runtimeMocks.runGreenfieldRpc]) {
+	for (const run of [runtimeMocks.runGreenfieldPrint, runtimeMocks.runGreenfieldRpc]) {
 		run.mockReset().mockResolvedValue(undefined);
 	}
 });
@@ -95,7 +90,6 @@ describe("Session incompatibility policy", () => {
 			issueCount: 1,
 		});
 		expect(stderr).not.toHaveBeenCalled();
-		expect(runtimeMocks.runLegacy).not.toHaveBeenCalled();
 		expect(runtimeMocks.runGreenfieldRpc).not.toHaveBeenCalled();
 	});
 
@@ -109,7 +103,6 @@ describe("Session incompatibility policy", () => {
 		expect(stdout).not.toHaveBeenCalled();
 		expect(stderr).toHaveBeenCalledOnce();
 		expect(String(stderr.mock.calls[0]?.[0])).toContain("errorCode=session_version_unsupported requested=greenfield");
-		expect(runtimeMocks.runLegacy).not.toHaveBeenCalled();
 		expect(runtimeMocks.runGreenfieldPrint).not.toHaveBeenCalled();
 	});
 });

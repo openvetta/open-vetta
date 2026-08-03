@@ -19,6 +19,7 @@ interface AgentCliResult {
 
 const repositoryRoot = fileURLToPath(new URL("../../..", import.meta.url));
 const compileScriptPath = fileURLToPath(new URL("../scripts/compile-standalone.mjs", import.meta.url));
+const legacyCliSourcePath = fileURLToPath(new URL("../../coding-agent/src/cli.ts", import.meta.url));
 const compileTargetByPlatform = {
 	"darwin-arm64": "bun-darwin-arm64",
 	"darwin-x64": "bun-darwin-x64",
@@ -62,7 +63,7 @@ describe("Agent non-RPC CLI compatibility", () => {
 		}
 	}, 30_000);
 
-	it("keeps explicit Legacy text Print available", async () => {
+	it("maps an explicit Legacy text Print request to Greenfield", async () => {
 		const marker = "explicit Legacy text print response";
 		const server = await startOpenAiResponsesTestServer(() => ({
 			kind: "events",
@@ -74,7 +75,7 @@ describe("Agent non-RPC CLI compatibility", () => {
 
 			expect(result.code).toBe(0);
 			expect(result.stdout).toContain(marker);
-			expect(result.stderr).toContain("requested=legacy effective=legacy");
+			expect(result.stderr).toContain("requested=legacy effective=greenfield reason=legacy-retired");
 			expect(server.requests).toHaveLength(1);
 		} finally {
 			await fixture.dispose();
@@ -645,11 +646,14 @@ async function runAgentCli(
 	stdin = "",
 ): Promise<AgentCliResult> {
 	return new Promise<AgentCliResult>((resolve, reject) => {
-		const explicitAgentCommand = extraArgs[0] === "agent";
-		const agentArgs = explicitAgentCommand ? extraArgs.slice(1) : extraArgs;
+		const legacyBaseline = extraArgs[0] === "--test-legacy-baseline";
+		const runtimeArgs = legacyBaseline ? extraArgs.slice(1) : extraArgs;
+		const explicitAgentCommand = runtimeArgs[0] === "agent";
+		const agentArgs = explicitAgentCommand ? runtimeArgs.slice(1) : runtimeArgs;
 		const child = spawn(
-			executable.path,
+			legacyBaseline ? "bun" : executable.path,
 			[
+				...(legacyBaseline ? [legacyCliSourcePath] : []),
 				...(explicitAgentCommand ? ["agent"] : []),
 				"--provider",
 				"test",
@@ -739,7 +743,7 @@ async function runPrintBackends<T>(run: (backend: PrintBackend) => Promise<T>): 
 }
 
 function runtimeArgs(backend: PrintBackend): readonly string[] {
-	return backend === "legacy" ? ["--agent-runtime", "legacy"] : [];
+	return backend === "legacy" ? ["--test-legacy-baseline"] : [];
 }
 
 interface JsonFrame {

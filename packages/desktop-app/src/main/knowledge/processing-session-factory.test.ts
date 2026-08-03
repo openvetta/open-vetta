@@ -4,12 +4,10 @@ import { createDesktopKnowledgeProcessingSessionFactory } from "./processing-ses
 
 const factoryMocks = vi.hoisted(() => ({
 	greenfield: vi.fn(() => ({ create: vi.fn() })),
-	legacy: vi.fn(() => ({ create: vi.fn() })),
 }));
 
 vi.mock("@vetta/coding-agent/composition", () => ({
 	createGreenfieldKnowledgeProcessingSessionFactory: factoryMocks.greenfield,
-	createLegacyKnowledgeProcessingSessionFactory: factoryMocks.legacy,
 }));
 
 describe("createDesktopKnowledgeProcessingSessionFactory", () => {
@@ -18,21 +16,9 @@ describe("createDesktopKnowledgeProcessingSessionFactory", () => {
 
 	beforeEach(() => {
 		factoryMocks.greenfield.mockClear();
-		factoryMocks.legacy.mockClear();
 	});
 
-	it("selects the Legacy adapter for the explicit rollback backend", () => {
-		const factory = createDesktopKnowledgeProcessingSessionFactory({
-			backend: "legacy",
-			getModelRegistry,
-		});
-
-		expect(factory).toBe(factoryMocks.legacy.mock.results[0]?.value);
-		expect(factoryMocks.legacy).toHaveBeenCalledWith({ getModelRegistry });
-		expect(factoryMocks.greenfield).not.toHaveBeenCalled();
-	});
-
-	it("selects Greenfield for the effective Desktop backend", () => {
+	it("uses Greenfield for the effective Desktop backend", () => {
 		const factory = createDesktopKnowledgeProcessingSessionFactory({
 			backend: "greenfield",
 			getModelRegistry,
@@ -40,6 +26,5 @@ describe("createDesktopKnowledgeProcessingSessionFactory", () => {
 
 		expect(factory).toBe(factoryMocks.greenfield.mock.results[0]?.value);
 		expect(factoryMocks.greenfield).toHaveBeenCalledWith({ getModelRegistry });
-		expect(factoryMocks.legacy).not.toHaveBeenCalled();
 	});
 });
