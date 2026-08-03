@@ -1,127 +1,374 @@
-# Open Vetta
+<p align="center">
+  <img src="packages/desktop-app/build/icon.png" alt="Open Vetta" width="120">
+</p>
 
-Vetta 的开源版本：一个在本地运行的 AI Agent 桌面应用与编码智能体。
+<h1 align="center">Open Vetta</h1>
 
-**不连任何厂商服务端。** 没有登录、没有账号、没有订阅计费、没有管理后台。模型一律
-BYOK（Bring Your Own Key）——你在设置里填自己的 API Key，请求直发服务商原站，
-密钥只存在你本机。代码、工具调用、会话记录同样全部留在本地。
+<p align="center">
+  A fully local AI agent desktop app, and the coding agent core that powers it.
+</p>
 
-> 本仓库是商业版 `vetta-mono` 的**永久硬分叉**，服务端相关代码已物理移除而非开关关闭。
-> 仓库内有一道常驻守卫（`scripts/quality/check-no-vetta-api.mjs`）阻止这类耦合再长回来。
+<p align="center">
+  <a href="https://www.openvetta.com"><img src="https://img.shields.io/badge/website-openvetta.com-0b7285" alt="Website"></a>
+  <img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="License">
+  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey" alt="Platform">
+  <img src="https://img.shields.io/badge/runtime-Bun%201.3%2B-black" alt="Bun">
+</p>
+
+<p align="center">
+  <b>English</b> ·
+  <a href="README.zh-CN.md">简体中文</a> ·
+  <a href="https://www.openvetta.com">Website</a>
+</p>
+
+<p align="center">
+  <img src="docs/assets/screenshot.png" alt="Open Vetta desktop app">
+</p>
 
 ---
 
-## 快速开始
+## What This Is
+
+Open Vetta is an Electron desktop app: you talk to a model, let it read and write local files,
+run commands, process directories in bulk, schedule recurring work, and install extensions.
+Its agent core is also usable on its own, as a CLI and as an SDK.
+
+Three ground rules:
+
+- **No vendor backend.** No login, no account, no subscription billing, no remote admin console.
+- **Bring your own key.** You supply your own API keys, requests go straight to the provider,
+  and keys stay in your local keychain.
+- **No telemetry.** No crash reporting, no usage analytics. Every outbound request is one your
+  own configuration asked for (see [Network Behavior](#network-behavior)).
+
+---
+
+## Desktop Features
+
+An index of what's there and how to use it. Full guides live on the [website](https://www.openvetta.com).
+
+### Conversation & Workspace
+
+| Feature | What it does |
+|---------|--------------|
+| Chat | The main surface: message stream, artifact rendering, visible tool calls, auto-follow and jump-to-bottom. |
+| Projects & sessions | Sessions organized by project in the sidebar. Projects come in three kinds — regular, batch, and scheduled — each with its own execution shape. |
+| File browser & preview | Built-in local file tree. PDFs, Office documents, spreadsheets, images, audio and video preview in-app; scanned PDFs can be OCR'd offline. |
+| Activity panel | A resizable side panel showing tool calls, request history, batch progress and debug output in real time. |
+| Execution isolation | Pick an isolation level per session to constrain which directories the agent can touch and whether it may reach the network, with stray processes reaped on exit. Backed by system-level isolation on all three platforms. |
+
+### Automation
+
+| Feature | What it does |
+|---------|--------------|
+| Batch tasks | One prompt across many target directories, run in parallel at a concurrency you set, with pause, per-item retry, and full rerun. |
+| Scheduling | Set a cron expression and tasks fire on time. Leave the app in the tray; you don't have to sit there. |
+| Webhook notifications | Push completions and failures to Feishu or DingTalk bots. Credentials are stored encrypted, locally. |
+| IM bridge | Once credentials are set, hand work to the agent on your machine from IM on your phone and get results back — useful when you're away from the desk. Feishu today; early stage. |
+
+### Extensions
+
+| Feature | What it does |
+|---------|--------------|
+| Marketplace | Browse and install skills, MCP servers, plugins and bundles. A marketplace source is just a GitHub repository — add as many as you like, or none at all. There is no central server. |
+| Skills | Turn a way of working into something reusable. A set ships built in; more can be installed from a marketplace. |
+| MCP | Full MCP server support. Once connected, the tools are automatically visible to the agent. |
+| Plugins | Most of the app's workspace surfaces are plugins, and can be enabled or removed as you like. See [Plugin System](#plugin-system). |
+| Themes | The entire look of the app is replaceable, including third-party themes. |
+
+### Local Data
+
+| Feature | What it does |
+|---------|--------------|
+| Knowledge base | Put local documents into a knowledge base; the app organizes them in the background into something searchable that the agent can draw on. Nothing leaves your machine. |
+
+### Native Desktop Integration
+
+| Feature | What it does |
+|---------|--------------|
+| Quick panel | A global hotkey brings up an input panel from anywhere, so you can start a task without switching windows. |
+| Appshot (macOS) | One gesture captures the frontmost window along with the text on screen and hands both to the agent — no screenshotting and then describing it again. |
+| Desktop pet | A desktop mascot that reacts to session state. Can be hidden. |
+| Runtime management | When Node or Python is needed, the app provisions it — without polluting your system environment or requiring you to install anything first. |
+| Setup wizard | Walks you through model configuration, permissions, and runtime preparation on first launch. |
+| System integration | Tray residency, customizable shortcuts, native notifications, automatic updates. |
+| Bilingual UI | Full English and Chinese coverage, switchable at any time. |
+
+---
+
+## Plugin System
+
+Plugins aren't decoration around the edges. The design canvas, the content workspace, Git,
+charts, the various file previewers — those surfaces are plugins. The same extension points
+are fully open to third parties.
+
+A plugin is a React package that registers contributions in `activate(ctx)`, or declares them
+in `plugin.json`. It can extend the interface, and it can extend what the agent is capable of.
+
+### Design Stance
+
+**A plugin is part of Vetta, not a bolt-on beside it.**
+Plugins in most agent tools stop at "add a few tools, a few commands, a few MCP servers" —
+the capability is attached from outside and the product is still the same product.
+A Vetta plugin can inject system prompts, skills, tools and MCP servers into the agent,
+declare which work modes it applies to, take over the entry point of a new session, and decide
+whether a turn continues automatically. Install a set of plugins and you don't get "Vetta with
+extra buttons" — you get Vetta rearranged around how you actually work.
+
+**The interface and the conversation run both ways.**
+A plugin doesn't only give the model new abilities; it can drive the conversation back.
+Select an element on the canvas, click an item in the file tree, and a turn starts carrying
+exactly that context. That return path — from interface back into the session — isn't something
+a CLI-shaped extension mechanism can offer.
+
+**Bundled features and third-party plugins use the same API.**
+The preinstalled plugins in this repository are built on the public extension points documented
+here. There are no private backdoors. System plugins differ from ordinary ones only in how they
+ship — bundled with the app, permissions granted automatically, not removable — never in what
+they're allowed to do. What you can build is the same kind of thing we build.
+
+**Vetta writes plugins.**
+The plugin workbench packages this developer handbook and a checklist into a skill, hands it
+to the agent with a dedicated work-mode prompt, and hard-isolates those contributions inside
+workbench mode so they never leak into everyday sessions. So going from "I want a panel that
+does X" to having it installed can happen entirely in conversation — and the handbook Vetta
+reads while building it is the one you're about to read.
+
+### Extension Points
+
+**Interface**
+
+| Extension point | What you can do |
+|-----------------|-----------------|
+| Activity tab | Open your own workspace in the activity panel — the most common landing spot for a plugin |
+| Global overlay | Mount overlay UI across the whole app |
+| File preview | Take over rendering for a file type, with streamed URLs for large files |
+| File explorer | Add context menus, toolbar buttons and status decorations to the file tree; reveal and refresh |
+| Message cards | Register custom card renderers for structured agent output, with cross-turn deduplication |
+| Tool call rendering | Replace how a given tool call appears inline in the message stream |
+| Turn card | Pin a persistent card above the current turn |
+| Input action | Add a toggle-style action to the composer |
+| Notifications | Raise toasts and error notices — no permission required |
+| Shortcut scopes | Plug into the host's shortcut scope stack without fighting global bindings |
+
+**Conversation & agent**
+
+| Extension point | What you can do |
+|-----------------|-----------------|
+| Read the conversation | Subscribe to session state and the event stream |
+| Drive the conversation | Send prompts, insert text, abort the current run on the user's behalf |
+| Register agent tools | Expose plugin capability as a tool the model can call |
+| Register app actions | Contribute app-level actions with a JSON Schema, approval flow and cancellation |
+| Ship skills | Distribute skills with the plugin; they take effect on install |
+| Bundled MCP servers | Ship an MCP server inside the plugin, aggregated alongside the user's own |
+| Dynamic system prompts | Inject a system prompt into the turn based on context |
+| Continuation strategy | Decide whether a turn continues automatically once it ends |
+| Guiding words | Offer entry points in an empty session |
+| Work-mode gating | Declare which work modes the plugin applies to, and react when the mode changes |
+
+**System capabilities**
+
+| Extension point | What you can do |
+|-----------------|-----------------|
+| Filesystem | Read and write workspace files |
+| Commands | Run one-off commands, or spawn long-lived processes such as your own dev server |
+| Network | Make requests through the host, sidestepping renderer CORS constraints |
+| Private storage | Persistent storage scoped to the plugin |
+| Settings | Declare and read your own settings; the host renders the settings UI |
+| Plugin i18n | Ship locale catalogs that follow the app's language |
+
+### Permission Model
+
+Every capability must be declared explicitly in `plugin.json`, granted individually by the host,
+and checked again at runtime; anything undeclared is denied. Plugins share a single React runtime
+with the host, which means they are positioned as **reviewed first-party / curated extensions**
+rather than a sandbox for arbitrary untrusted code. That tradeoff and its boundaries are spelled
+out in [permissions.md](docs/plugin/permissions.md).
+
+### Getting Started
+
+```tsx
+import { definePlugin } from "@vetta-org/plugin-sdk";
+
+export default definePlugin({
+  activate(ctx) {
+    ctx.ui.registerActivityTab({ id: "my-tab", label: "My Panel", component: MyPanel });
+  },
+});
+```
+
+```json
+{
+  "id": "my-plugin",
+  "name": "My Plugin",
+  "version": "0.1.0",
+  "pluginApiVersion": "^1.0.0",
+  "permissions": ["ui.slot.activity-tab"]
+}
+```
+
+Rather not hand-write scaffolding? Use the
+[plugin workbench](packages/plugins/presets/plugin-workbench) — describe the panel you want
+in conversation, let Vetta create it, build it, and install it locally.
+
+### Developer Handbook
+
+| Document | Contents |
+|----------|----------|
+| [getting-started.md](docs/plugin/getting-started.md) | Environment, scaffolding, building, installing, debug loop |
+| [manifest.md](docs/plugin/manifest.md) | Every `plugin.json` field, work-mode allowlist, i18n, settings, agent-side contributions |
+| [permissions.md](docs/plugin/permissions.md) | Full permission list, gating points, declaration and grant flow |
+| [ui-slots.md](docs/plugin/ui-slots.md) | Global overlays, activity tabs, file preview, input actions, turn cards, tool slots, shortcuts |
+| [message-cards.md](docs/plugin/message-cards.md) | Card renderers and cross-turn deduplication |
+| [file-explorer.md](docs/plugin/file-explorer.md) | Context menus, toolbars, decorations, reveal and events |
+| [conversation-and-agent.md](docs/plugin/conversation-and-agent.md) | Conversation read/write, tool registration, commands, fs, network, storage, settings, i18n |
+| [app-actions.md](docs/plugin/app-actions.md) | App action schemas, approval, lifecycle, independent releases |
+| [mcp.md](docs/plugin/mcp.md) | Three-source MCP aggregation and plugin-bundled MCP |
+| [system-plugins.md](docs/plugin/system-plugins.md) | System plugins (presets) and tenant packaging |
+| [styling-and-pitfalls.md](docs/plugin/styling-and-pitfalls.md) | Styling conventions, common pitfalls, caching and versioning |
+
+Full index at [docs/plugin/README.md](docs/plugin/README.md);
+the SDK and build tooling live in [packages/plugins](packages/plugins).
+
+### Bundled Plugins
+
+| Plugin | Description |
+|--------|-------------|
+| [vetta-ui-design](packages/plugins/presets/vetta-ui-design) | Infinite-canvas UI design workspace — see below |
+| [content-creation](packages/plugins/presets/content-creation) | Node canvas, asset production and multi-track composition |
+| [plugin-workbench](packages/plugins/presets/plugin-workbench) | Build plugins by conversation, from creation to installation, all in-app |
+| [git](packages/plugins/presets/git) | Git status tree and file diffs in the activity panel |
+| [image-gen](packages/plugins/presets/image-gen) | Image generation |
+| [chart-renderer](packages/plugins/presets/chart-renderer) | Render agent-produced data as charts inline in the conversation |
+| [office-viewer](packages/plugins/presets/office-viewer) · [media-viewer](packages/plugins/presets/media-viewer) · [svg-viewer](packages/plugins/presets/svg-viewer) | Offline preview for PDF/DOCX/PPTX/spreadsheets, images and media, and SVG |
+| [vetta-actions](packages/plugins/presets/vetta-actions) | A set of official built-in actions the agent can call directly |
+
+A few more plugins under `packages/plugins/externals` (Cowart infinite canvas, mobile device UI
+preview, and others) are **not bundled with the app** — they exist as source examples and
+reference material for writing your own.
+
+### Vetta UI Design
+
+Design UI on an infinite canvas. A frame isn't a static layer — it's a real, running,
+interactive interface, and what you see is what it is.
+
+- Create a design document from the "Design" tab in the activity panel, or just ask Vetta
+  to make one in conversation.
+- Select a frame, several frames, or one specific element inside a frame, hit "ask Vetta"
+  and say what you want changed. The canvas updates live — no explaining which button you meant.
+- One shared color system across the whole document; change it once and every frame follows.
+- Export frames as rendered images with adjustable corner radius, border, shadow, background
+  and output scale, or copy straight to the clipboard.
+- Package an entire design as a read-only share bundle that opens in-app on the other end,
+  with nothing to set up.
+
+The design runtime is provisioned automatically on first use — no need to install Node or
+configure anything.
+
+---
+
+## Installation
+
+### Download
+
+Grab macOS, Windows and Linux installers from [Releases](../../releases). All three platforms
+are built and published by `.github/workflows/desktop-release.yml`.
+
+### Build from Source
+
+Requires **Bun 1.3+** and **Node 20+**.
 
 ```bash
-bun install                # 安装所有工作区依赖（需要 Bun 1.3+、Node 20+）
-bun run build              # 构建所有核心库
-bun run check              # Biome + 类型检查 + 架构守卫（开 PR 前必跑）
-bun run test:unit          # 核心库单元测试（ai/agent/coding-agent/ecosystem-adapter）
-bun run test:pkg ai        # 只跑单个包测试；test:pkg --list 查看可测包
+bun install                # install all workspace dependencies
+bun run build              # build the core libraries
+bun run build:desktop      # build the desktop app
+bun run build:cli          # build the CLI app
+```
 
-# 应用
-bun run build:desktop      # 构建 Electron 桌面应用
-bun run build:cli          # 构建 CLI 应用
+The IM bridge gateway (Go):
 
-# IM 旁路网关（Go）
+```bash
 cd packages/im-gateway && make build
 ```
 
-桌面应用入口：`packages/desktop-app`。质量门禁分层见 [docs/dev/quality-gates.md](docs/dev/quality-gates.md)。
+---
+
+## Architecture
+
+The monorepo has four layers, with dependencies pointing one way:
+**apps → runtime-\* → coding-agent / agent / ai**. The core libraries know nothing about
+their host, which is why the same core runs inside Electron and in a terminal alike.
+
+### Apps
+
+| Package | Role | Stack |
+|---------|------|-------|
+| [desktop-app](packages/desktop-app) | Electron desktop host, home to everything above | Electron · React · Vite · Jotai · TanStack Router · shadcn/ui · Tailwind v4 |
+| [coding-agent](packages/coding-agent) | Coding agent core, with interactive / print-JSON / RPC / SDK modes | TypeScript |
+| [cli-app](packages/cli-app) | A pure CLI wrapper around coding-agent | TypeScript |
+| [im-gateway](packages/im-gateway) | IM bridge sidecar, talking to the desktop main process over NDJSON IPC | Go |
+
+### Core Libraries
+
+| Package | Owns | Does not own |
+|---------|------|--------------|
+| [ai](packages/ai) | Multi-provider LLM API, model registry, provider adapters, token and cost accounting | Agent loop, UI, session persistence |
+| [agent](packages/agent) | Stateful agent loop, tool calls, event stream | Terminal/desktop UI, business rules |
+| [ui](packages/ui) · [theme-ui](packages/theme-ui) · [theme-sdk](packages/theme-sdk) | Reusable UI primitives, theme view layer and theme SDK | Host lifecycle |
+
+### Runtime Layer
+
+Adapter packages shared by host apps: [runtime-core](packages/runtime-core) (`RuntimeHost` and
+the session facade), [runtime-tools](packages/runtime-tools) (built-in tool re-exports),
+[runtime-storage](packages/runtime-storage) (session and settings storage),
+[runtime-mcp](packages/runtime-mcp) (MCP manager bindings), and
+[runtime-telemetry](packages/runtime-telemetry) (local logging abstraction — disk only).
+
+### Layout
+
+```
+open-vetta-mono/
+├── packages/
+│   ├── ai · agent · ui · theme-ui · theme-sdk      # core libraries
+│   ├── runtime-core · runtime-tools · runtime-mcp · runtime-storage · runtime-telemetry
+│   ├── coding-agent · cli-app · desktop-app        # apps
+│   ├── im-gateway                                  # IM bridge (Go)
+│   ├── plugins · themes · skill-presets            # extension ecosystem
+│   └── capability-sdk · capability-runtime         # capability and permission layer
+├── docs/                                           # architecture docs and ADRs
+├── scripts/                                        # build, release and quality guards
+├── AGENTS.md                                       # development and AI collaboration rules
+└── CONTEXT.md                                      # domain glossary
+```
 
 ---
 
-## 产品矩阵
+## Model Configuration (BYOK)
 
-### 终端应用
+The client ships a preset provider catalog (Claude, OpenAI, DeepSeek, Z.ai (GLM), Kimi, Gemini,
+Grok, Qwen) containing **only `baseUrl` and API type — no keys**. Once you add your own key:
 
-| 包 | 角色 | 技术栈 |
-|----|------|--------|
-| [packages/desktop-app](packages/desktop-app) | 桌面应用。对话、文件浏览、批量任务、定时自动化、能力市场、工作流流转、知识库、IM 旁路宿主 | Electron + React + Vite + Jotai + TanStack Router + shadcn/ui + Tailwind v4 |
-| [packages/coding-agent](packages/coding-agent) | 编码智能体核心。CLI、print/JSON、RPC、SDK 四种模式，Extensions/Skills/Themes 生态 | TypeScript |
-| [packages/cli-app](packages/cli-app) | 基于 `coding-agent` 的纯 CLI 封装 | TypeScript |
-| [packages/im-gateway](packages/im-gateway) | IM 平台旁路（飞书/微信）。作为桌面应用的 sidecar，把 IM 消息桥接到本地 `coding-agent --mode rpc` | Go · NDJSON IPC |
+- it immediately queries that provider's `/models` for what your account can actually use,
+  then re-syncs in the background every 12 hours;
+- pricing and capability metadata are filled in from the public [models.dev](https://models.dev)
+  catalog, with a bundled snapshot as fallback;
+- requests go straight to the provider. This app does not proxy, relay, or bill.
 
-### 核心库
-
-| 包 | 职责 | 不包含 |
-|----|------|--------|
-| [packages/ai](packages/ai) | 多 Provider LLM API、模型注册表、Provider Adapter | Agent Loop、UI、会话持久化 |
-| [packages/agent](packages/agent) | 有状态 Agent Loop、工具调用、事件流 | 终端/桌面 UI、业务规则 |
-| [packages/ui](packages/ui) · [theme-ui](packages/theme-ui) · [theme-sdk](packages/theme-sdk) | 可复用 UI 原语、主题视图层与主题 SDK | 宿主生命周期 |
-
-### 运行时包（被宿主应用复用）
-
-| 包 | 职责 |
-|----|------|
-| [packages/runtime-core](packages/runtime-core) | `RuntimeHost` 与 Session Facade，面向桌面宿主的运行时事件契约 |
-| [packages/runtime-tools](packages/runtime-tools) | 内置工具重导出（bash/edit/write/todo/current-time/invoke-skill 等） |
-| [packages/runtime-storage](packages/runtime-storage) | 会话与设置的存储原语 |
-| [packages/runtime-mcp](packages/runtime-mcp) | MCP Manager 与 MCP Runtime 绑定 |
-| [packages/runtime-telemetry](packages/runtime-telemetry) | 运行时日志抽象（仅本地落盘，不外发） |
-
-依赖方向：应用 → runtime-\* → coding-agent / agent / ai。核心库不感知宿主。
+Any OpenAI-compatible endpoint works too, including local inference via Ollama, vLLM or LM Studio.
+Background in [ADR-0050](docs/adr/0050-preset-providers-move-client-side-with-dynamic-model-lists.md).
 
 ---
 
-## desktop-app 关键能力
+## Marketplace
 
-承载以下 Domain（见 `src/renderer/domains/`）：
+Capabilities — skills, MCP servers, plugins and bundles — come from **GitHub repository archives**:
+the client downloads the repo tarball, reads `.vetta/marketplace.json` inside it, and does all
+searching and filtering against the local snapshot. Add as many sources as you like, or none.
 
-- **chat** — 主对话界面，消息流、Artifact、工具调用、回到底部与自动跟随
-- **project** — 侧边栏项目/会话管理，支持普通、批量（batch）、定时（schedule）、流转（flowing）四类项目
-- **batch-tasks** — 批量任务：一个 Prompt + 多个目标目录，按并发度执行，支持暂停/重试/全部重新开始
-- **scheduler** — 自动化（Cron 定时触发执行）
-- **flowing / flowing-chat** — 多 Agent 工作流流转（基于 `@xyflow/react` 的 DAG 编排）
-- **abilities / skills** — 能力市场：从 GitHub 开放市场仓库同步 Skill / MCP / Plugin / Bundle
-- **knowledge-base** — 本地知识库与后台惰性加工
-- **file-explorer / file-preview** — 本地文件树、PDF/DOCX/表格预览
-- **activity-panel** — 侧面板：工具调用、请求历史、批量任务进度、调试
-- **plugins / pet** — 插件运行时、桌宠
-- **settings** — 设置：模型、快捷键、IM 集成、插件、权限、系统
+Manifest format in [docs/open-marketplace.md](docs/open-marketplace.md); the unified model is
+described in [ADR-0049](docs/adr/0049-abilities-unify-storage-and-presentation-not-installation.md).
 
-主进程（`src/main/`）职责：窗口/托盘/自动更新、共享 `RuntimeHost`、IPC 注册（`vetta:*` 通道）、
-批量任务执行器、定时调度、IM 旁路子进程宿主。
-
-渲染进程与主进程通过 preload 暴露的 `window.vetta.*` 通信。状态使用 Jotai atoms 按领域分层。
-
----
-
-## 模型配置（BYOK）
-
-客户端内置六家[[预设服务商]]目录（Claude / OpenAI / DeepSeek / Z.ai(GLM) / Kimi / Gemini），
-只含 `baseUrl` 与 `api` 类型，**不含任何 key**。填入你自己的 key 后：
-
-- 立即向该服务商的 `/models` 拉取你账号实际可用的模型，之后每 12 小时后台同步一次；
-- 价格与能力元数据由 [models.dev](https://models.dev) 公共目录补齐，随包带快照兜底；
-- 请求直发服务商原站，本应用不代理、不转发、不计费。
-
-也可以手搓自定义服务商（任何 OpenAI 兼容端点，包括 Ollama / vLLM / LM Studio 等本地推理服务）。
-详见 [ADR-0050](docs/adr/0050-preset-providers-move-client-side-with-dynamic-model-lists.md)。
-
----
-
-## 能力市场（开放市场）
-
-能力（Skill / MCP Server / Plugin / Bundle）来自 **GitHub 仓库归档**：客户端下载
-仓库压缩包，读取其中的 `.vetta/marketplace.json`，搜索与筛选全部在本地快照上完成。
-你可以添加任意多个市场来源，也可以完全不加。
-
-清单格式见 [docs/open-marketplace.md](docs/open-marketplace.md)，
-统一模型见 [ADR-0049](docs/adr/0049-abilities-unify-storage-and-presentation-not-installation.md)。
-
----
-
-## 编码 Agent 与扩展生态
-
-`packages/coding-agent` 支持交互、print/JSON、RPC、SDK 四种运行模式。通过 Extensions（TypeScript）、
-Skills（指令集）、Prompt Templates、Themes 四类扩展机制，可在不 fork 源码的前提下定制工作流。
-
-仓库内置扩展示例：`packages/coding-agent/examples/extensions/`（`with-deps`、
-`custom-provider-anthropic` / `custom-provider-gitlab-duo` / `custom-provider-qwen-cli`）。
-
-### MCP 支持
+MCP configuration example:
 
 ```jsonc
 // ~/.vetta/agent/mcp.json
@@ -135,77 +382,95 @@ Skills（指令集）、Prompt Templates、Themes 四类扩展机制，可在不
 }
 ```
 
-交互模式下用 `/mcp` 查看状态，MCP 工具会自动暴露给 Agent。
-详见 [`packages/coding-agent/docs/MCP.md`](packages/coding-agent/docs/MCP.md)。
+Use `/mcp` in interactive mode to check status. Details in
+[packages/coding-agent/docs/MCP.md](packages/coding-agent/docs/MCP.md).
 
 ---
 
-## 网络行为
+## Network Behavior
 
-本应用只在以下情况发起网络请求，全部由你的配置决定：
+The app makes network requests only in the following cases, all of them driven by your configuration:
 
-| 用途 | 目标 | 可否关闭 |
-|------|------|----------|
-| LLM 推理 | 你配置的服务商原站 | 不配 key 即不发生 |
-| 模型元数据 | `models.dev` 公共目录 | 失败回退随包快照 |
-| 能力市场 | 你添加的 GitHub 仓库 | 不加来源即不发生 |
-| 便携运行时下载 | Node/Python 官方发行源 | 用系统已装运行时即可跳过 |
-| 自动更新 | 你自己配置的 `VETTA_UPDATE_URL` / GitHub Releases | 不配即不检查 |
-| MCP / 插件 / IM / Webhook | 由你安装的扩展与填写的凭据决定 | 不装即不发生 |
+| Purpose | Destination | Can it be turned off |
+|---------|-------------|----------------------|
+| LLM inference | The provider you configured | Doesn't happen without a key |
+| Model metadata | The public `models.dev` catalog | Falls back to the bundled snapshot |
+| Marketplace | GitHub repositories you added | Doesn't happen without a source |
+| Portable runtime download | Official Node / Python distributions (regional mirrors preferred) | Skipped if a system runtime is available |
+| Automatic updates | `VETTA_UPDATE_URL` or GitHub Releases, as you configure | Not checked if unconfigured |
+| MCP / plugins / IM / webhooks | Determined by the extensions you install and the credentials you enter | Doesn't happen if not installed |
 
-没有遥测，没有崩溃上报，没有使用统计。
+No telemetry, no crash reporting, no usage analytics.
 
 ---
 
-## 开发约定
-
-- **包管理器**：统一使用 Bun（`bun` / `bunx`）。
-- **代码质量**：TypeScript 侧禁止 `any`（除非确有必要）、禁止内联动态 `import()`；Go 侧改完必须跑 `make check`。整仓改完必须 `bun run check`。
-- **测试**：`bun run check` 不含测试。请从对应包根目录运行 `bunx vitest --run test/xxx.test.ts`。
-- **禁止命令**：不要直接 `bun run dev` / `bun run build` / `bun test`。
-- **提交规范**：中文 commit message；关联工单请写 `fixes #N` / `closes #N`。
-- 详见 [`AGENTS.md`](AGENTS.md)。
-
-### Changelog
-
-每个包独立维护 `packages/*/CHANGELOG.md`。新条目写入 `## [Unreleased]`，按
-`Breaking Changes / Added / Changed / Fixed / Removed` 分节；已发布版本段不再改动。
-
-### 版本与发布（Lockstep）
-
-所有包共用版本号，版本源以 `@vetta/coding-agent` 为准（不做 major 发版）：
+## Contributing
 
 ```bash
-bun run release:patch    # Bug 修复与新增功能
-bun run release:minor    # API Breaking
+bun run check              # Biome + typecheck + architecture guards (required before a PR)
+bun run check:quick        # fast feedback on changed files (no typecheck)
+bun run test:unit          # core library unit tests
+bun run test:pkg ai        # single-package tests; test:pkg --list shows what's testable
+bun run test:changed       # only packages affected by your changes
 ```
 
-桌面安装包由 `.github/workflows/desktop-release.yml` 在三个操作系统分别构建并发布到
-GitHub Releases；自动更新链路见 [`docs/desktop/README.md`](docs/desktop/README.md)。
+Conventions worth knowing:
+
+- **Bun** (`bun` / `bunx`) is the package manager, everywhere.
+- No `any` in TypeScript unless genuinely necessary, and no inline `import()` used to obtain
+  types. On the Go side, run `make check` after changes.
+- All user-facing copy goes through i18n. Never hardcode strings.
+- Commit messages are written in Chinese; reference issues with `fixes #N` / `closes #N`.
+- Do not run `bun run dev` / `bun run build` / `bun test` directly.
+
+Full rules in [AGENTS.md](AGENTS.md); the layered quality gates are described in
+[docs/dev/quality-gates.md](docs/dev/quality-gates.md).
+
+### Versioning and Releases
+
+All packages share one version (lockstep), sourced from `@vetta/coding-agent`. There are no
+major releases:
+
+```bash
+bun run release:patch    # fixes and new features
+bun run release:minor    # API breaking changes
+```
+
+Each package keeps its own `packages/*/CHANGELOG.md`. New entries go under `## [Unreleased]`;
+released sections are never edited.
+
+### Documentation
+
+- [docs/plugin/README.md](docs/plugin/README.md) — plugin developer handbook (11 documents)
+- [docs/adr/](docs/adr) — architecture decision records
+- [docs/capabilities/README.md](docs/capabilities/README.md) — foundation/domain capabilities and the permission layer
+- [docs/open-marketplace.md](docs/open-marketplace.md) — open marketplace manifest format
+- [docs/desktop/README.md](docs/desktop/README.md) — desktop packaging and the auto-update path
+- [CONTEXT.md](CONTEXT.md) — domain glossary (check existing naming before writing code)
 
 ---
 
-## 目录速览
+## Credits
 
-```
-open-vetta-mono/
-├── packages/
-│   ├── ai · agent · ui · theme-ui · theme-sdk     # 核心库
-│   ├── runtime-core · runtime-tools · runtime-mcp · runtime-storage · runtime-telemetry
-│   ├── coding-agent · cli-app · desktop-app       # 终端应用
-│   ├── im-gateway                                 # IM 旁路（Go）
-│   ├── plugins · themes · skill-presets           # 扩展生态
-│   └── coding-agent/examples/extensions/*         # 扩展示例
-├── docs/                                          # 架构文档与 ADR
-├── scripts/                                       # 构建、发布与质量守卫
-├── AGENTS.md                                      # 开发与 AI 协作规范
-├── CONTEXT.md                                     # 领域术语表
-└── CLAUDE.md                                      # Claude Code 指令
-```
+This project stands on a good deal of other people's work. The following go directly into the
+code or the distributed artifacts:
 
-架构文档：
+| Project | Where it's used | License |
+|---------|-----------------|---------|
+| [pi](https://github.com/badlogic/pi-mono) · Mario Zechner | `ai` / `agent` / `coding-agent` / `ecosystem-adapter` were rewritten and iterated on top of it; the agent loop, provider abstraction and extension mechanism trace back here | MIT |
+| [Codex CLI](https://github.com/openai/codex) · OpenAI | The execution sandbox design draws on theirs; on Windows we ship their sandbox host binary directly | Apache-2.0 |
+| [bubblewrap](https://github.com/containers/bubblewrap) | The Linux sandbox backend, distributed with the installer | LGPL-2.0+ |
+| [PP-OCRv5](https://github.com/PaddlePaddle/PaddleOCR) · PaddlePaddle | Detection and recognition models for offline PDF OCR | Apache-2.0 |
+| [python-build-standalone](https://github.com/astral-sh/python-build-standalone) · Astral | Distribution source for the portable Python runtime | See upstream |
+| [Node.js](https://nodejs.org) | Distribution source for the portable Node runtime | MIT |
+| [Cowart](https://github.com/zhongerxin/Cowart) | `plugins/externals/cowart-vetta` is adapted from it. That plugin lives in `externals/` and is **not bundled with the app** — it exists as a source example only | See upstream |
 
-- [`docs/capabilities/README.md`](docs/capabilities/README.md) — 基础/领域能力与权限层
-- [`docs/open-marketplace.md`](docs/open-marketplace.md) — GitHub 开源能力市场格式
-- [`docs/adr/`](docs/adr) — 架构决策记录
-- [`CONTEXT.md`](CONTEXT.md) — 领域术语表（写代码前先查这里的既有命名）
+We're likewise indebted to the [Model Context Protocol](https://modelcontextprotocol.io)
+specification, the public model catalog at [models.dev](https://models.dev), and to Electron,
+React, Vite, Tailwind CSS, shadcn/ui, Jotai, TanStack Router, Biome and Bun.
+
+The complete third-party inventory and original copyright notices are in [NOTICE](NOTICE).
+
+## License
+
+[Apache-2.0](LICENSE).
