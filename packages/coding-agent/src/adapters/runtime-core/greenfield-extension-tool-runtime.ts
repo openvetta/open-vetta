@@ -9,8 +9,11 @@ import {
 	type CodingToolActivation,
 	selectCodingToolRegistrations,
 } from "@vetta/runtime-tools/coding";
-import type { ExtensionRunner } from "../../core/extensions/runner.js";
-import type { Extension, RegisteredTool } from "../../core/extensions/types.js";
+import type { RegisteredTool } from "../../core/extensions/types.js";
+import type {
+	CodingAgentGreenfieldExtensionRunnerPort,
+	CodingAgentGreenfieldExtensionToolSource,
+} from "./greenfield-extension-contract.js";
 import {
 	type CodingAgentRuntimeToolRegistration,
 	resolveCodingAgentRuntimeToolCategory,
@@ -30,13 +33,13 @@ export interface CodingAgentGreenfieldExtensionToolSurface {
 export class CodingAgentGreenfieldExtensionToolRuntime {
 	private registrations: readonly CodingAgentRuntimeToolRegistration[] = [];
 	private registrationsByName: ReadonlyMap<string, CodingAgentRuntimeToolRegistration> = new Map();
-	private readonly runners = new Map<string, ExtensionRunner>();
+	private readonly runners = new Map<string, CodingAgentGreenfieldExtensionRunnerPort>();
 
-	constructor(extensions: readonly Extension[]) {
+	constructor(extensions: readonly CodingAgentGreenfieldExtensionToolSource[]) {
 		this.refresh(extensions);
 	}
 
-	refresh(extensions: readonly Extension[]): void {
+	refresh(extensions: readonly CodingAgentGreenfieldExtensionToolSource[]): void {
 		this.registrations = Object.freeze(collectRegisteredTools(extensions).map((tool) => this.adaptTool(tool)));
 		this.registrationsByName = new Map(
 			this.registrations.map((registration) => [registration.tool.name, registration]),
@@ -84,7 +87,7 @@ export class CodingAgentGreenfieldExtensionToolRuntime {
 
 	bindRunner(
 		sessionId: string,
-		runner: ExtensionRunner,
+		runner: CodingAgentGreenfieldExtensionRunnerPort,
 		options: { readonly replaceExisting?: boolean } = {},
 	): () => void {
 		const current = this.runners.get(sessionId);
@@ -140,7 +143,7 @@ export class CodingAgentGreenfieldExtensionToolRuntime {
 	}
 }
 
-function collectRegisteredTools(extensions: readonly Extension[]): RegisteredTool[] {
+function collectRegisteredTools(extensions: readonly CodingAgentGreenfieldExtensionToolSource[]): RegisteredTool[] {
 	const toolsByName = new Map<string, RegisteredTool>();
 	for (const extension of extensions) {
 		for (const tool of extension.tools.values()) {

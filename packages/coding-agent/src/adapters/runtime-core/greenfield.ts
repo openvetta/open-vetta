@@ -57,6 +57,10 @@ export {
 	CodingAgentGreenfieldExtensionCommandHost,
 	type CodingAgentGreenfieldExtensionCommandHostOptions,
 } from "./greenfield-extension-command-host.js";
+export type {
+	CodingAgentGreenfieldExtensionRunnerPort,
+	CodingAgentGreenfieldExtensionToolSource,
+} from "./greenfield-extension-contract.js";
 export { CodingAgentGreenfieldExtensionEventBridge } from "./greenfield-extension-event-bridge.js";
 export {
 	type CodingAgentGreenfieldExtensionEventBinding,

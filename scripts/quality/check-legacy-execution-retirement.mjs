@@ -23,6 +23,18 @@ export const RETAINED_LEGACY_FORMAT_BOUNDARIES = Object.freeze([
 
 export const LEGACY_PACKAGE_EXPORT_BASELINE = Object.freeze([]);
 
+/**
+ * Greenfield 对 Coding Agent 产品 Core 的静态依赖预算。
+ *
+ * 这些边不是 Legacy 执行边：Adapter 可以依赖产品能力，Composition Root 可以装配
+ * 具体实现，RPC Host Adapter 可以复用产品投影。预算允许减少，新增必须经过架构审查。
+ */
+export const GREENFIELD_PRODUCT_CORE_EDGE_BUDGET = Object.freeze({
+	"product-adapter": 84,
+	"composition-wiring": 5,
+	"rpc-host-adapter": 4,
+});
+
 export const RETIRED_LEGACY_EXECUTION_FILES = Object.freeze([
 	"packages/coding-agent/src/cli.ts",
 	"packages/coding-agent/src/main.ts",
@@ -130,15 +142,72 @@ export function findCanonicalExecutableOwnershipViolations({ cliAppBin, codingAg
 }
 
 export function collectGreenfieldSharedCoreImports(files) {
+	return collectGreenfieldProductCoreEdges(files).map(({ path, specifier }) => `${path} -> ${specifier}`);
+}
+
+export function collectGreenfieldProductCoreEdges(files) {
 	return files
 		.filter((file) => isGreenfieldSource(file.path))
 		.flatMap((file) =>
 			collectModuleEdges(file.path, file.text)
 				.filter((moduleEdge) => /(?:^|\/)core\//.test(moduleEdge.specifier))
-				.map((moduleEdge) => `${file.path} -> ${moduleEdge.specifier}`),
+				.map((moduleEdge) => ({
+					...moduleEdge,
+					classification: classifyGreenfieldProductCoreEdge(moduleEdge.path),
+					target: readGreenfieldProductCoreTarget(moduleEdge.specifier),
+				})),
 		)
-		.filter((value, index, values) => values.indexOf(value) === index)
-		.sort();
+		.filter(
+			(value, index, values) =>
+				values.findIndex(
+					(candidate) => candidate.path === value.path && candidate.specifier === value.specifier,
+				) === index,
+		)
+		.sort((left, right) => left.path.localeCompare(right.path) || left.specifier.localeCompare(right.specifier));
+}
+
+export function summarizeGreenfieldProductCoreEdges(edges) {
+	const summary = {
+		"product-adapter": 0,
+		"composition-wiring": 0,
+		"rpc-host-adapter": 0,
+		unclassified: 0,
+	};
+	for (const edge of edges) summary[edge.classification] += 1;
+	return Object.freeze(summary);
+}
+
+export function findGreenfieldProductCoreBoundaryViolations(files) {
+	const edges = collectGreenfieldProductCoreEdges(files);
+	const summary = summarizeGreenfieldProductCoreEdges(edges);
+	const violations = [];
+
+	for (const edge of edges) {
+		if (edge.classification === "unclassified") {
+			violations.push(
+				`${edge.path}: Greenfield product Core dependency has no boundary classification (${edge.specifier})`,
+			);
+		}
+		if (edge.target === "agent-session" || edge.target === "sdk") {
+			violations.push(
+				`${edge.path}: Greenfield must not depend on retired AgentSession execution (${edge.specifier})`,
+			);
+		}
+		if (edge.path.includes("/composition/") && edge.path.endsWith("-contract.ts")) {
+			violations.push(
+				`${edge.path}: Greenfield Composition contract leaks a concrete product Core type (${edge.specifier})`,
+			);
+		}
+	}
+
+	for (const [classification, budget] of Object.entries(GREENFIELD_PRODUCT_CORE_EDGE_BUDGET)) {
+		if (summary[classification] > budget) {
+			violations.push(
+				`Greenfield ${classification} product Core dependency budget increased (${summary[classification]} > ${budget})`,
+			);
+		}
+	}
+	return violations;
 }
 
 function collectModuleEdges(path, text) {
@@ -219,6 +288,18 @@ function isGreenfieldSource(path) {
 	return path.includes("/greenfield-") || path.includes("/greenfield/") || path.includes("/greenfield-runtime/");
 }
 
+function classifyGreenfieldProductCoreEdge(path) {
+	if (path.includes("/adapters/runtime-core/")) return "product-adapter";
+	if (path.includes("/composition/")) return "composition-wiring";
+	if (path.includes("/modes/rpc/")) return "rpc-host-adapter";
+	return "unclassified";
+}
+
+function readGreenfieldProductCoreTarget(specifier) {
+	const match = /(?:^|\/)core\/([^/]+?)(?:\.js)?(?:\/|$)/.exec(specifier);
+	return match?.[1] ?? "unknown";
+}
+
 function sameEdge(left, right) {
 	return left.path === right.path && left.specifier === right.specifier && left.kind === right.kind;
 }
@@ -246,12 +327,14 @@ if (isDirectRun(import.meta.url)) {
 		requireBaseline: true,
 		packageExports: codingAgentPackageJson.exports,
 	});
+	violations.push(...findGreenfieldProductCoreBoundaryViolations(files));
 	if (violations.length > 0) {
 		for (const violation of violations) fail(`[legacy-execution] ${violation}`);
 	} else {
-		const sharedCoreImports = collectGreenfieldSharedCoreImports(files);
+		const productCoreEdges = collectGreenfieldProductCoreEdges(files);
+		const productCoreSummary = summarizeGreenfieldProductCoreEdges(productCoreEdges);
 		ok(
-			`[legacy-execution] ok (${LEGACY_EXECUTION_EDGE_BASELINE.length} execution edge(s), ${RETAINED_LEGACY_FORMAT_BOUNDARIES.length} retained format boundary(s), ${sharedCoreImports.length} Greenfield shared-core import(s))`,
+			`[legacy-execution] ok (${LEGACY_EXECUTION_EDGE_BASELINE.length} execution edge(s), ${RETAINED_LEGACY_FORMAT_BOUNDARIES.length} retained format boundary(s), ${productCoreEdges.length} Greenfield product-core edge(s): adapter=${productCoreSummary["product-adapter"]}, composition=${productCoreSummary["composition-wiring"]}, rpc=${productCoreSummary["rpc-host-adapter"]})`,
 		);
 	}
 }

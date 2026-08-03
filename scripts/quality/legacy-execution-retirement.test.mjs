@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
+	collectGreenfieldProductCoreEdges,
 	collectGreenfieldSharedCoreImports,
 	findCanonicalExecutableOwnershipViolations,
+	findGreenfieldProductCoreBoundaryViolations,
 	findLegacyExecutionRetirementViolations,
+	GREENFIELD_PRODUCT_CORE_EDGE_BUDGET,
 	LEGACY_EXECUTION_EDGE_BASELINE,
 	LEGACY_PACKAGE_EXPORT_BASELINE,
 	RETIRED_LEGACY_EXECUTION_FILES,
+	summarizeGreenfieldProductCoreEdges,
 } from "./check-legacy-execution-retirement.mjs";
 import { findStandaloneCliBuildViolations } from "./check-standalone-cli-build.mjs";
 
@@ -90,5 +94,51 @@ describe("Legacy execution retirement gate", () => {
 		expect(imports).toEqual([
 			"packages/coding-agent/src/adapters/runtime-core/greenfield-example.ts -> ../../core/tools/read/index.js",
 		]);
+	});
+
+	it("classifies product Adapter, Composition wiring and RPC Host Adapter edges", () => {
+		const edges = collectGreenfieldProductCoreEdges([
+			{
+				path: "packages/coding-agent/src/adapters/runtime-core/greenfield-example.ts",
+				text: 'import { createReadTool } from "../../core/tools/read/index.js";',
+			},
+			{
+				path: "packages/coding-agent/src/composition/greenfield-example.ts",
+				text: 'import { knowledgeRoot } from "../core/knowledge/store.js";',
+			},
+			{
+				path: "packages/coding-agent/src/modes/rpc/greenfield-example.ts",
+				text: 'import { convertToLlm } from "../../core/messages.js";',
+			},
+		]);
+
+		expect(summarizeGreenfieldProductCoreEdges(edges)).toEqual({
+			"product-adapter": 1,
+			"composition-wiring": 1,
+			"rpc-host-adapter": 1,
+			unclassified: 0,
+		});
+		expect(GREENFIELD_PRODUCT_CORE_EDGE_BUDGET).toEqual({
+			"product-adapter": 84,
+			"composition-wiring": 5,
+			"rpc-host-adapter": 4,
+		});
+	});
+
+	it("rejects AgentSession execution imports and concrete Core types in Composition contracts", () => {
+		const violations = findGreenfieldProductCoreBoundaryViolations([
+			{
+				path: "packages/coding-agent/src/adapters/runtime-core/greenfield-session.ts",
+				text: 'import { AgentSession } from "../../core/agent-session.js";',
+			},
+			{
+				path: "packages/coding-agent/src/composition/greenfield-example-contract.ts",
+				text: 'import type { ExtensionRunner } from "../core/extensions/runner.js";',
+			},
+		]);
+
+		expect(violations).toHaveLength(2);
+		expect(violations[0]).toContain("must not depend on retired AgentSession execution");
+		expect(violations[1]).toContain("Composition contract leaks a concrete product Core type");
 	});
 });

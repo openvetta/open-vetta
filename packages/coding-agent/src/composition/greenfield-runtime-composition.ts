@@ -20,6 +20,7 @@ import type {
 
 export type {
 	GreenfieldCliSessionOptions,
+	GreenfieldInitialTodoLockSource,
 	GreenfieldRuntimeComposition,
 	GreenfieldRuntimeCompositionOptions,
 	GreenfieldRuntimeExtensionControls,

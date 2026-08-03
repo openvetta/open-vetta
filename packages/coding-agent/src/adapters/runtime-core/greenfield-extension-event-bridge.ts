@@ -7,8 +7,8 @@ import type {
 	RuntimeToolDefinition,
 	SessionInput,
 } from "@vetta/runtime-core/kernel";
-import type { ExtensionRunner } from "../../core/extensions/runner.js";
 import type { InputEventResult, InputSource } from "../../core/extensions/types.js";
+import type { CodingAgentGreenfieldExtensionRunnerPort } from "./greenfield-extension-contract.js";
 import { wrapRuntimeToolsWithExtensions } from "./greenfield-extension-tool-wrapper.js";
 
 /**
@@ -18,12 +18,15 @@ import { wrapRuntimeToolsWithExtensions } from "./greenfield-extension-tool-wrap
  * Tool Frame 只依赖稳定桥接口，不依赖 CLI 生命周期或 Extension Loader。
  */
 export class CodingAgentGreenfieldExtensionEventBridge implements AgentRunPreparer {
-	private runner: ExtensionRunner | undefined;
+	private runner: CodingAgentGreenfieldExtensionRunnerPort | undefined;
 	private baseSystemPrompt = "";
 	private systemPrompt = "";
 	private runSystemPromptOverride: string | undefined;
 
-	bind(runner: ExtensionRunner, options: { readonly replaceExisting?: boolean } = {}): () => void {
+	bind(
+		runner: CodingAgentGreenfieldExtensionRunnerPort,
+		options: { readonly replaceExisting?: boolean } = {},
+	): () => void {
 		if (this.runner && this.runner !== runner && options.replaceExisting !== true) {
 			throw new Error("Greenfield Extension event bridge is already bound");
 		}

@@ -1,12 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import type { CodingAgentGreenfieldExtensionEventBridge } from "../../src/adapters/runtime-core/greenfield.js";
+import type {
+	CodingAgentGreenfieldExtensionRunnerPort,
+	CodingAgentGreenfieldExtensionToolSource,
+} from "../../src/adapters/runtime-core/greenfield-extension-contract.js";
 import {
 	createGreenfieldRuntimeExtensionControls,
 	type GreenfieldExtensionToolHostPort,
 } from "../../src/composition/greenfield-runtime-extension-controls.js";
 import { InMemoryGreenfieldSessionValueIndex } from "../../src/composition/greenfield-session-resource-index.js";
-import type { ExtensionRunner } from "../../src/core/extensions/runner.js";
-import type { Extension } from "../../src/core/extensions/types.js";
 
 describe("Greenfield Runtime Extension Controls", () => {
 	it("binds live Event Bridge and Tool Runtime ports with the existing cleanup order", () => {
@@ -26,9 +28,9 @@ describe("Greenfield Runtime Extension Controls", () => {
 			extensionToolRuntime,
 		});
 		extensionEventBridges.set("session", bridge);
-		const runner = {} as ExtensionRunner;
+		const runner = {} as CodingAgentGreenfieldExtensionRunnerPort;
 		const bindingOptions = { replaceExisting: true };
-		const extensions: Extension[] = [];
+		const extensions: CodingAgentGreenfieldExtensionToolSource[] = [];
 
 		const binding = controls.bindExtensionRunner("session", runner, bindingOptions);
 		controls.refreshExtensionTools(extensions);
@@ -45,7 +47,7 @@ describe("Greenfield Runtime Extension Controls", () => {
 		const extensionEventBridges =
 			new InMemoryGreenfieldSessionValueIndex<CodingAgentGreenfieldExtensionEventBridge>();
 		const controls = createGreenfieldRuntimeExtensionControls({ indexes: { extensionEventBridges } });
-		const runner = {} as ExtensionRunner;
+		const runner = {} as CodingAgentGreenfieldExtensionRunnerPort;
 
 		expect(() => controls.bindExtensionRunner("missing", runner)).toThrow(
 			"Greenfield Extension event bridge not found: missing",

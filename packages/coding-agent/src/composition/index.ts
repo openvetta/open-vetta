@@ -25,6 +25,7 @@ export {
 export {
 	createGreenfieldRuntimeComposition,
 	type GreenfieldCliSessionOptions,
+	type GreenfieldInitialTodoLockSource,
 	type GreenfieldRuntimeComposition,
 	type GreenfieldRuntimeCompositionOptions,
 	type GreenfieldRuntimeExtensionControls,

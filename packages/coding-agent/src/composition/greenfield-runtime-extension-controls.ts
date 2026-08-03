@@ -1,11 +1,17 @@
-import type { ExtensionRunner } from "../core/extensions/runner.js";
-import type { Extension } from "../core/extensions/types.js";
+import type {
+	CodingAgentGreenfieldExtensionRunnerPort,
+	CodingAgentGreenfieldExtensionToolSource,
+} from "../adapters/runtime-core/greenfield-extension-contract.js";
 import type { GreenfieldRuntimeExtensionControls } from "./greenfield-runtime-composition-contract.js";
 import type { GreenfieldSessionResourceIndexes } from "./greenfield-session-resource-lifecycle-assembly.js";
 
 export interface GreenfieldExtensionToolHostPort {
-	bindRunner(sessionId: string, runner: ExtensionRunner, options?: { readonly replaceExisting?: boolean }): () => void;
-	refresh(extensions: readonly Extension[]): void;
+	bindRunner(
+		sessionId: string,
+		runner: CodingAgentGreenfieldExtensionRunnerPort,
+		options?: { readonly replaceExisting?: boolean },
+	): () => void;
+	refresh(extensions: readonly CodingAgentGreenfieldExtensionToolSource[]): void;
 }
 
 export interface GreenfieldRuntimeExtensionControlsOptions {

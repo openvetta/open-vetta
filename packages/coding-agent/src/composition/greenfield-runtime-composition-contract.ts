@@ -19,6 +19,8 @@ import type {
 	CodingAgentCompactionExtensionRuntime,
 	CodingAgentGreenfieldContextRuntimeOptions,
 	CodingAgentGreenfieldExtensionEventBinding,
+	CodingAgentGreenfieldExtensionRunnerPort,
+	CodingAgentGreenfieldExtensionToolSource,
 	CodingAgentMemoryRolloverOrchestratorOptions,
 	CodingAgentMemoryRolloverRuntime,
 	CodingAgentModelRegistrySource,
@@ -33,9 +35,8 @@ import type {
 	HookConfigLayer,
 	KnowledgePageWriterPort,
 } from "../adapters/runtime-core/greenfield.js";
-import type { ExtensionRunner } from "../core/extensions/runner.js";
-import type { Extension } from "../core/extensions/types.js";
-import type { TodoLockSource } from "../core/todo-store.js";
+
+export type GreenfieldInitialTodoLockSource = "scene";
 
 export interface GreenfieldRuntimeSessionOptions {
 	readonly sessionId: string;
@@ -67,7 +68,7 @@ export interface GreenfieldRuntimeSessionOptions {
 	/** Workflow 子 Session 的初始 Todo。 */
 	readonly initialTodos?: readonly string[];
 	/** 产品组合创建初始 Todo 后施加的锁；不会暴露可写 TodoStore 给宿主。 */
-	readonly initialTodoLockSource?: TodoLockSource;
+	readonly initialTodoLockSource?: GreenfieldInitialTodoLockSource;
 	/** 产品会话自己的 Knowledge Writer；普通会话继续使用 Composition 默认实现。 */
 	readonly knowledgePageWriter?: KnowledgePageWriterPort;
 }
@@ -116,7 +117,7 @@ export interface GreenfieldRuntimeCompositionOptions {
 		sessionOptions: GreenfieldRuntimeSessionOptions,
 	) => CodingAgentPluginRuntimeSource | undefined;
 	/** 已由宿主加载的 Extension Tool 注册；只在 Coding Agent 调用级 Frame 中物化。 */
-	readonly extensionTools?: readonly Extension[];
+	readonly extensionTools?: readonly CodingAgentGreenfieldExtensionToolSource[];
 	/** 为每个 Session 创建仅承载插件动态 Server 的 MCP Runtime；不得复用共享文件 MCP Source。 */
 	readonly createPluginMcpRuntime?: (context: {
 		readonly cwd: string;
@@ -167,10 +168,10 @@ export interface GreenfieldRuntimeSessionControls {
 export interface GreenfieldRuntimeExtensionControls {
 	bindExtensionRunner(
 		sessionId: string,
-		runner: ExtensionRunner,
+		runner: CodingAgentGreenfieldExtensionRunnerPort,
 		options?: { readonly replaceExisting?: boolean },
 	): CodingAgentGreenfieldExtensionEventBinding;
-	refreshExtensionTools(extensions: readonly Extension[]): void;
+	refreshExtensionTools(extensions: readonly CodingAgentGreenfieldExtensionToolSource[]): void;
 }
 
 /** 宿主可动态管理的 Runtime Tool Port；Composition 内部实现与生命周期不向外暴露。 */
