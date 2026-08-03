@@ -553,6 +553,37 @@ function checkGreenfieldSessionInitializationTransactionBoundary(posixPath, text
 	visit(sourceFile);
 }
 
+function checkGreenfieldSessionInitializationProfileBoundary(posixPath, text, findings) {
+	const compositionRootPath = "packages/coding-agent/src/composition/greenfield-runtime-composition.ts";
+	const transactionPath = "packages/coding-agent/src/composition/greenfield-session-initialization-transaction.ts";
+	if (posixPath !== compositionRootPath && posixPath !== transactionPath) return;
+
+	const sourceFile = ts.createSourceFile(posixPath, text, ts.ScriptTarget.Latest, true, scriptKind(posixPath));
+	const visit = (node) => {
+		if (
+			posixPath === compositionRootPath &&
+			ts.isPropertyAssignment(node) &&
+			ts.isIdentifier(node.name) &&
+			node.name.text === "composition"
+		) {
+			findings.push(
+				`${posixPath}: Greenfield Composition Root must project Session initialization options through a profile`,
+			);
+		}
+		if (
+			posixPath === transactionPath &&
+			ts.isIdentifier(node) &&
+			(node.text === "GreenfieldRuntimeCompositionOptions" || node.text === "composition")
+		) {
+			findings.push(
+				`${posixPath}: Session initialization transaction must depend on its narrow profile (${node.text})`,
+			);
+		}
+		ts.forEachChild(node, visit);
+	};
+	visit(sourceFile);
+}
+
 function checkGreenfieldRuntimeToolSurfaceBoundary(posixPath, text, findings) {
 	if (posixPath !== "packages/coding-agent/src/composition/greenfield-runtime-composition.ts") return;
 
@@ -893,6 +924,7 @@ export function findPackageBoundaryViolations(posixPath, text, options = {}) {
 	checkGreenfieldCompositionResourceRegistryBoundary(posixPath, text, findings);
 	checkGreenfieldMcpSessionCoordinatorBoundary(posixPath, text, findings);
 	checkGreenfieldSessionInitializationTransactionBoundary(posixPath, text, findings);
+	checkGreenfieldSessionInitializationProfileBoundary(posixPath, text, findings);
 	checkGreenfieldRuntimeToolSurfaceBoundary(posixPath, text, findings);
 	checkGreenfieldRuntimeToolPortBoundary(posixPath, text, findings);
 	checkGreenfieldChildCompositionPolicyBoundary(posixPath, text, findings);

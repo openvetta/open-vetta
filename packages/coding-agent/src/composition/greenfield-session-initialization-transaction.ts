@@ -29,11 +29,9 @@ import {
 import type { CodingAgentGreenfieldConversationContextOverlay } from "../adapters/runtime-core/greenfield-conversation-context-overlay.js";
 import type { CodingAgentGreenfieldExtensionToolRuntime } from "../adapters/runtime-core/greenfield-extension-tool-runtime.js";
 import type { GreenfieldMcpSessionCoordinator } from "./greenfield-mcp-session-coordinator.js";
-import type {
-	GreenfieldRuntimeCompositionOptions,
-	GreenfieldRuntimeSessionOptions,
-} from "./greenfield-runtime-composition-contract.js";
+import type { GreenfieldRuntimeSessionOptions } from "./greenfield-runtime-composition-contract.js";
 import { GreenfieldSessionExecutionRuntime } from "./greenfield-session-execution-runtime.js";
+import type { GreenfieldSessionInitializationProfile } from "./greenfield-session-initialization-profile.js";
 import { GreenfieldSessionConfigurationState } from "./greenfield-session-peripherals.js";
 import type { GreenfieldSessionResourceIndexes } from "./greenfield-session-resource-lifecycle-assembly.js";
 import { createGreenfieldSessionResourceLifecycleAssembly } from "./greenfield-session-resource-lifecycle-assembly.js";
@@ -64,7 +62,7 @@ export interface GreenfieldSessionInitializationRegistry {
 }
 
 export interface GreenfieldSessionInitializationTransactionOptions<TOwnershipBinding> {
-	readonly composition: GreenfieldRuntimeCompositionOptions;
+	readonly profile: GreenfieldSessionInitializationProfile;
 	readonly cwd: string;
 	readonly scenario: ConversationScenario;
 	readonly activation: CodingToolActivation;
@@ -112,7 +110,7 @@ async function initializeSession<TOwnershipBinding>(
 	sessionOptions: GreenfieldRuntimeSessionOptions,
 	resourceContext: GreenfieldRuntimeResourceContext,
 ): Promise<GreenfieldRuntimeResources> {
-	const composition = options.composition;
+	const profile = options.profile;
 	let activeSessionId = sessionOptions.sessionId;
 	let activeOwnership = await options.acquireOwnership(activeSessionId);
 	const rollback = new InitializationRollbackScope();
@@ -140,7 +138,7 @@ async function initializeSession<TOwnershipBinding>(
 	try {
 		const sessionCwd = sessionOptions.cwd ?? options.cwd;
 		const requestedPluginRuntime = createSessionPluginRuntime(sessionOptions);
-		const configuredPluginRuntime = composition.createPluginRuntime?.(sessionOptions);
+		const configuredPluginRuntime = profile.createPluginRuntime?.(sessionOptions);
 		if (requestedPluginRuntime && configuredPluginRuntime) {
 			throw new Error("Greenfield session plugin capabilities conflict with createPluginRuntime");
 		}
@@ -150,7 +148,7 @@ async function initializeSession<TOwnershipBinding>(
 		);
 		const productToolRegistrations = createCodingAgentGreenfieldProductToolRegistrations({
 			cwd: sessionCwd,
-			knowledgeRoot: composition.knowledgeRoot,
+			knowledgeRoot: profile.knowledgeRoot,
 			knowledgePageWriter: sessionOptions.knowledgePageWriter,
 		});
 		const productToolFeature = createCodingAgentGreenfieldProductToolFeature({
@@ -171,9 +169,9 @@ async function initializeSession<TOwnershipBinding>(
 				}
 			},
 		});
-		const pluginMcpRuntime = await composition.createPluginMcpRuntime?.({
+		const pluginMcpRuntime = await profile.createPluginMcpRuntime?.({
 			cwd: sessionCwd,
-			agentDir: composition.agentDir,
+			agentDir: profile.agentDir,
 			sessionOptions,
 		});
 		if (pluginMcpRuntime) {
@@ -240,7 +238,7 @@ async function initializeSession<TOwnershipBinding>(
 			cwd: sessionCwd,
 		};
 		const memoryRuntime = sessionOptions.memoryMode
-			? (composition.createMemoryRolloverRuntime?.(memoryRuntimeOptions, sessionOptions) ??
+			? (profile.createMemoryRolloverRuntime?.(memoryRuntimeOptions, sessionOptions) ??
 				new CodingAgentMemoryRolloverOrchestrator(memoryRuntimeOptions))
 			: undefined;
 		if (memoryRuntime) {
@@ -253,7 +251,7 @@ async function initializeSession<TOwnershipBinding>(
 				},
 			});
 		}
-		const todoRuntime = composition.createTodoRuntime?.(sessionOptions) ?? new CodingAgentTodoRuntime();
+		const todoRuntime = profile.createTodoRuntime?.(sessionOptions) ?? new CodingAgentTodoRuntime();
 		options.registry.trackTodoRuntime(todoRuntime);
 		rollback.defer({
 			id: "todo-runtime",
@@ -308,8 +306,8 @@ async function initializeSession<TOwnershipBinding>(
 					],
 				};
 		const modelRuntime = new GreenfieldRuntimeModel({
-			initialModel: sessionOptions.model ?? composition.initialModel,
-			initialThinkingLevel: sessionOptions.thinkingLevel ?? composition.initialThinkingLevel,
+			initialModel: sessionOptions.model ?? profile.initialModel,
+			initialThinkingLevel: sessionOptions.thinkingLevel ?? profile.initialThinkingLevel,
 			catalog: options.modelAdapter,
 			credentials: options.modelAdapter,
 		});
@@ -340,16 +338,16 @@ async function initializeSession<TOwnershipBinding>(
 				},
 			},
 			initialSessionStartSource: resourceContext.operation === "create" ? "startup" : "resume",
-			additionalAdapterFactories: composition.additionalHookAdapterFactories,
-			configLayers: composition.hookConfigLayers,
-			maxStopContinuations: composition.maxStopHookContinuations,
+			additionalAdapterFactories: profile.additionalHookAdapterFactories,
+			configLayers: profile.hookConfigLayers,
+			maxStopContinuations: profile.maxStopHookContinuations,
 		});
 		const contextRuntime = new CodingAgentGreenfieldContextRuntime({
 			hookRuntime,
 			resolveApiKey: (model) => modelRuntime.resolveApiKey(model),
-			resolveSettings: composition.resolveCompactionSettings,
-			generateCompaction: composition.generateCompaction,
-			extensionRuntime: composition.createCompactionExtensionRuntime?.(sessionOptions),
+			resolveSettings: profile.resolveCompactionSettings,
+			generateCompaction: profile.generateCompaction,
+			extensionRuntime: profile.createCompactionExtensionRuntime?.(sessionOptions),
 			memoryRollover: memoryRuntime,
 			transformAgentContext: (messages) => extensionEvents.transformContext(messages),
 		});
@@ -362,8 +360,8 @@ async function initializeSession<TOwnershipBinding>(
 			},
 		});
 		const subagentRuntime = createGreenfieldSubagentSessionAssembly({
-			enabled: composition.enableSubagents !== false,
-			maxConcurrent: composition.subagentMaxConcurrent,
+			enabled: profile.enableSubagents !== false,
+			maxConcurrent: profile.subagentMaxConcurrent,
 			cwd: sessionCwd,
 			scenario: options.scenario,
 			readParentSessionId: () => activeSessionId,
@@ -449,7 +447,7 @@ async function initializeSession<TOwnershipBinding>(
 				readSessionId: () => activeSessionId,
 				cwd: sessionCwd,
 				scenario: options.scenario,
-				agentDir: composition.agentDir,
+				agentDir: profile.agentDir,
 				includeAgentSkills: sessionOptions.includeAgentSkills,
 				systemPromptAddon: sessionOptions.systemPromptAddon,
 			},
@@ -461,14 +459,12 @@ async function initializeSession<TOwnershipBinding>(
 			},
 			prompt: {
 				systemPromptOptionsResolver:
-					composition.createSystemPromptOptionsResolver?.(sessionOptions) ??
-					composition.resolveSystemPromptOptions,
+					profile.createSystemPromptOptionsResolver?.(sessionOptions) ?? profile.resolveSystemPromptOptions,
 				promptResourceResolver:
-					composition.createPromptResourceResolver?.(sessionOptions, todoRuntime) ??
-					composition.resolvePromptResource,
-				resourceSource: composition.promptResourceSource,
-				settingsSource: composition.promptSettingsSource,
-				systemPromptAdvertisedToolNames: composition.systemPromptAdvertisedToolNames,
+					profile.createPromptResourceResolver?.(sessionOptions, todoRuntime) ?? profile.resolvePromptResource,
+				resourceSource: profile.promptResourceSource,
+				settingsSource: profile.promptSettingsSource,
+				systemPromptAdvertisedToolNames: profile.systemPromptAdvertisedToolNames,
 			},
 			baseProfile,
 			codingTools: options.codingTools,

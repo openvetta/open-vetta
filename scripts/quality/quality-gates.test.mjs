@@ -628,6 +628,38 @@ describe("package boundary analysis", () => {
 		).toEqual([]);
 	});
 
+	it("projects public Composition options into a narrow Session initialization profile", () => {
+		const compositionPath = "packages/coding-agent/src/composition/greenfield-runtime-composition.ts";
+		const transactionPath = "packages/coding-agent/src/composition/greenfield-session-initialization-transaction.ts";
+
+		expect(
+			findPackageBoundaryViolations(
+				compositionPath,
+				"createGreenfieldSessionInitializationTransaction({ composition: options });",
+			),
+		).not.toEqual([]);
+		expect(
+			findPackageBoundaryViolations(
+				transactionPath,
+				`import type { GreenfieldRuntimeCompositionOptions } from "./greenfield-runtime-composition-contract.js";
+				const composition = options.composition;`,
+			),
+		).not.toEqual([]);
+		expect(
+			findPackageBoundaryViolations(
+				compositionPath,
+				"createGreenfieldSessionInitializationTransaction({ profile: sessionInitializationProfile });",
+			),
+		).toEqual([]);
+		expect(
+			findPackageBoundaryViolations(
+				transactionPath,
+				`import type { GreenfieldSessionInitializationProfile } from "./greenfield-session-initialization-profile.js";
+				const profile = options.profile;`,
+			),
+		).toEqual([]);
+	});
+
 	it("keeps Runtime Tool Surface assembly out of the Greenfield Composition Root", () => {
 		const compositionPath = "packages/coding-agent/src/composition/greenfield-runtime-composition.ts";
 		const embeddedToolSurface = `

@@ -32,6 +32,7 @@ export type {
 import { createGreenfieldRuntimeExtensionControls } from "./greenfield-runtime-extension-controls.js";
 import { createGreenfieldRuntimeSessionControls } from "./greenfield-runtime-session-controls.js";
 import { createGreenfieldRuntimeToolSurface } from "./greenfield-runtime-tool-surface.js";
+import { createGreenfieldSessionInitializationProfile } from "./greenfield-session-initialization-profile.js";
 import { createGreenfieldSessionInitializationTransaction } from "./greenfield-session-initialization-transaction.js";
 
 /**
@@ -51,13 +52,11 @@ async function createGreenfieldRuntimeCompositionInternal(
 ): Promise<GreenfieldRuntimeComposition> {
 	const cwd = options.cwd ?? process.cwd();
 	const scenario = options.scenario ?? "cli";
+	const sessionInitializationProfile = createGreenfieldSessionInitializationProfile(options);
 	const configuredExtensionToolRuntime = options.extensionTools
 		? new CodingAgentGreenfieldExtensionToolRuntime(options.extensionTools)
 		: undefined;
 	const extensionToolRuntime = configuredExtensionToolRuntime;
-	if ((options.promptResourceSource === undefined) !== (options.promptSettingsSource === undefined)) {
-		throw new Error("promptResourceSource and promptSettingsSource must be provided together");
-	}
 	const resourceRegistry = new GreenfieldCompositionResourceRegistry();
 	const toolSurface = await createGreenfieldRuntimeToolSurface({
 		cwd,
@@ -110,7 +109,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 		createComposition: createGreenfieldRuntimeCompositionInternal,
 	});
 	const sessionInitialization = createGreenfieldSessionInitializationTransaction({
-		composition: options,
+		profile: sessionInitializationProfile,
 		cwd,
 		scenario,
 		activation: effectiveActivation,
