@@ -2,7 +2,14 @@
  * 能力页的原始数据源：市场行 + 安装台账 + 三条安装轨道的本地状态。
  * 只负责取数与刷新，条目组装在 lib/build-ability-items.ts。
  */
-import type { AbilityLedger, InstalledPlugin, InstalledSkill, OpenMarketplaceCatalog, SkillInfo } from "@preload/api";
+import type {
+	AbilityLedger,
+	AddMarketplaceSourceInput,
+	InstalledPlugin,
+	InstalledSkill,
+	OpenMarketplaceCatalog,
+	SkillInfo,
+} from "@preload/api";
 import { i18n } from "@shared/i18n";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -21,6 +28,7 @@ export interface AbilityData {
 	refreshing: boolean;
 	error: string | null;
 	refresh: () => void;
+	addMarketplaceSource: (input: AddMarketplaceSourceInput) => Promise<void>;
 }
 
 function isReadonlySkillSource(source: string): boolean {
@@ -91,6 +99,31 @@ export function useAbilityData(): AbilityData {
 	}, []);
 
 	const refresh = useCallback(() => load(true), [load]);
+	const addMarketplaceSource = useCallback(async (input: AddMarketplaceSourceInput): Promise<void> => {
+		const source = await window.vetta.abilities.addMarketplaceSource(input);
+		try {
+			const snapshot = await window.vetta.abilities.refreshMarketplaceSource(source.id);
+			setOpenMarketplace((current) => {
+				const sources = [...current.sources.filter((item) => item.id !== source.id), source].sort(
+					(a, b) => a.priority - b.priority,
+				);
+				const snapshots = [...current.snapshots.filter((item) => item.sourceId !== source.id), snapshot];
+				return {
+					sources,
+					snapshots,
+					abilities: snapshots.flatMap((item) => item.abilities),
+					failedSourceIds: current.failedSourceIds.filter((id) => id !== source.id),
+				};
+			});
+		} catch (error) {
+			try {
+				await window.vetta.abilities.removeMarketplaceSource(source.id);
+			} catch (rollbackError) {
+				console.warn("Failed to roll back marketplace source", rollbackError);
+			}
+			throw error;
+		}
+	}, []);
 
 	useEffect(
 		() =>
@@ -113,5 +146,16 @@ export function useAbilityData(): AbilityData {
 
 	const market = useMemo(() => mergeAbilityCatalogs(openMarketplace.snapshots), [openMarketplace.snapshots]);
 
-	return { market, ledger, skillManifest, localSkills, plugins, loading, refreshing, error, refresh };
+	return {
+		market,
+		ledger,
+		skillManifest,
+		localSkills,
+		plugins,
+		loading,
+		refreshing,
+		error,
+		refresh,
+		addMarketplaceSource,
+	};
 }
