@@ -9,6 +9,7 @@ import {
 import { CodingAgentGreenfieldConversationContextOverlay } from "../adapters/runtime-core/greenfield-conversation-context-overlay.js";
 import { CodingAgentGreenfieldExtensionToolRuntime } from "../adapters/runtime-core/greenfield-extension-tool-runtime.js";
 import { ConversationOwnershipBinding } from "./conversation-ownership-binding.js";
+import { createGreenfieldChildCompositionFactory } from "./greenfield-child-composition-policy.js";
 import { GreenfieldCompositionResourceRegistry } from "./greenfield-composition-resource-registry.js";
 import { createGreenfieldCompositionShutdown } from "./greenfield-composition-shutdown.js";
 import type {
@@ -101,6 +102,10 @@ async function createGreenfieldRuntimeCompositionInternal(
 		continuationStore: repository,
 		resolveConversationPath: (sessionId: string) => repository.resolveConversationPath(sessionId),
 	};
+	const createChildComposition = createGreenfieldChildCompositionFactory({
+		parentOptions: options,
+		createComposition: createGreenfieldRuntimeCompositionInternal,
+	});
 	const sessionInitialization = createGreenfieldSessionInitializationTransaction({
 		composition: options,
 		cwd,
@@ -123,33 +128,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 		},
 		releaseOwnership,
 		resolveActivation: toolSurface.resolveActivation,
-		createChildComposition: async (request) => {
-			const {
-				mcpSource: _mcpSource,
-				createPluginMcpRuntime: _createPluginMcpRuntime,
-				extensionTools: _extensionTools,
-				...childCompositionOptions
-			} = options;
-			const childComposition = await createGreenfieldRuntimeCompositionInternal(
-				{
-					...childCompositionOptions,
-					conversationDir: request.conversationDir,
-					initialModel: request.initialModel,
-					initialThinkingLevel: request.initialThinkingLevel,
-					cwd: request.cwd,
-					activation: request.activation,
-					enableSubagents: false,
-				},
-				request.inheritedMcpView,
-			);
-			return {
-				createSession: (childOptions) => childComposition.backend.create(childOptions),
-				resumeSession: (childOptions) => childComposition.backend.resume(childOptions),
-				appendSessionContext: (sessionId, records) => childComposition.appendSessionContext(sessionId, records),
-				deliverSessionContext: (sessionId, records) => childComposition.deliverSessionContext(sessionId, records),
-				dispose: () => childComposition.dispose(),
-			};
-		},
+		createChildComposition,
 	});
 	const runtimeFactory = new ComposedGreenfieldRuntimeFactory<GreenfieldRuntimeSessionOptions>({
 		streamFn: options.streamFn,

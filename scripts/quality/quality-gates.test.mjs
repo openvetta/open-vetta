@@ -676,6 +676,29 @@ describe("package boundary analysis", () => {
 		).toEqual([]);
 	});
 
+	it("keeps Child Composition isolation policy out of the Greenfield Composition Root", () => {
+		const compositionPath = "packages/coding-agent/src/composition/greenfield-runtime-composition.ts";
+		expect(findPackageBoundaryViolations(compositionPath, "const childComposition = {};")).toHaveLength(1);
+		expect(findPackageBoundaryViolations(compositionPath, "const childCompositionOptions = {};")).toHaveLength(1);
+		expect(
+			findPackageBoundaryViolations(
+				compositionPath,
+				"const { mcpSource: _mcpSource, createPluginMcpRuntime: _createPluginMcpRuntime, extensionTools: _extensionTools } = options;",
+			),
+		).toHaveLength(3);
+		expect(findPackageBoundaryViolations(compositionPath, "const child = { enableSubagents: false };")).toHaveLength(
+			1,
+		);
+		expect(findPackageBoundaryViolations(compositionPath, "child.backend.create(options);")).toHaveLength(1);
+		expect(findPackageBoundaryViolations(compositionPath, "child.backend.resume(options);")).toHaveLength(1);
+		expect(
+			findPackageBoundaryViolations(
+				compositionPath,
+				'import { createGreenfieldChildCompositionFactory } from "./greenfield-child-composition-policy.js";',
+			),
+		).toEqual([]);
+	});
+
 	it("requires scoped production packages to declare workspace imports", () => {
 		const source = 'import { createRuntime } from "@vetta/runtime-tools/coding";';
 		const path = "packages/coding-agent/src/composition/example.ts";

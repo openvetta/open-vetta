@@ -617,6 +617,44 @@ function checkGreenfieldRuntimeToolPortBoundary(posixPath, text, findings) {
 	}
 }
 
+function checkGreenfieldChildCompositionPolicyBoundary(posixPath, text, findings) {
+	if (posixPath !== "packages/coding-agent/src/composition/greenfield-runtime-composition.ts") return;
+
+	const sourceFile = ts.createSourceFile(posixPath, text, ts.ScriptTarget.Latest, true, scriptKind(posixPath));
+	const forbiddenSymbols = new Set([
+		"_createPluginMcpRuntime",
+		"_extensionTools",
+		"_mcpSource",
+		"childComposition",
+		"childCompositionOptions",
+	]);
+	const visit = (node) => {
+		if (ts.isIdentifier(node) && forbiddenSymbols.has(node.text)) {
+			findings.push(
+				`${posixPath}: Greenfield Composition Root must delegate Child Composition policy (${node.text})`,
+			);
+		}
+		if (
+			ts.isPropertyAssignment(node) &&
+			ts.isIdentifier(node.name) &&
+			node.name.text === "enableSubagents" &&
+			node.initializer.kind === ts.SyntaxKind.FalseKeyword
+		) {
+			findings.push(`${posixPath}: Greenfield Composition Root must not own recursive Child isolation policy`);
+		}
+		if (
+			ts.isPropertyAccessExpression(node) &&
+			(node.name.text === "create" || node.name.text === "resume") &&
+			ts.isPropertyAccessExpression(node.expression) &&
+			node.expression.name.text === "backend"
+		) {
+			findings.push(`${posixPath}: Greenfield Composition Root must delegate Child Composition projection`);
+		}
+		ts.forEachChild(node, visit);
+	};
+	visit(sourceFile);
+}
+
 function checkRetiredAutomaticLegacyFallback(posixPath, text, findings) {
 	const isRuntimeProductionSource =
 		(posixPath.startsWith("packages/cli-app/src/") || posixPath.startsWith("packages/coding-agent/src/")) &&
@@ -823,6 +861,7 @@ export function findPackageBoundaryViolations(posixPath, text, options = {}) {
 	checkGreenfieldSessionInitializationTransactionBoundary(posixPath, text, findings);
 	checkGreenfieldRuntimeToolSurfaceBoundary(posixPath, text, findings);
 	checkGreenfieldRuntimeToolPortBoundary(posixPath, text, findings);
+	checkGreenfieldChildCompositionPolicyBoundary(posixPath, text, findings);
 	checkRetiredAutomaticLegacyFallback(posixPath, text, findings);
 	checkRuntimeCompositionCompatibilityFacade(posixPath, specifiers, findings);
 	checkCodingAgentRootImports(posixPath, specifiers, findings);

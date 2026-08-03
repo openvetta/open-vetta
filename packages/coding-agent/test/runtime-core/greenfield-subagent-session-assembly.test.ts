@@ -131,6 +131,49 @@ describe("Greenfield Subagent session assembly", () => {
 		await runtime.dispose();
 		expect(childCompositionDisposals).toBe(1);
 	});
+
+	it("disposes the child composition once when child Session creation fails", async () => {
+		const dispose = vi.fn(async () => {});
+		const runtime = createGreenfieldSubagentSessionAssembly({
+			...baseOptions(),
+			createChildComposition: async () => ({
+				createSession: async () => {
+					throw new Error("child creation failed");
+				},
+				resumeSession: async () => {
+					throw new Error("child resume failed");
+				},
+				appendSessionContext() {},
+				async deliverSessionContext() {},
+				dispose,
+			}),
+		});
+		if (!runtime) throw new Error("Expected enabled Subagent runtime");
+		const spawnTool = runtime.readTools().find(({ name }) => name === "spawn_agent");
+		if (!spawnTool) throw new Error("Expected spawn_agent tool");
+
+		await expect(
+			spawnTool.execute({
+				sessionId: "parent",
+				turnId: "turn-failed",
+				toolCallId: "spawn-failed",
+				signal: new AbortController().signal,
+				input: {
+					description: "Fail child creation",
+					task_name: "fail_child",
+					message: "Fail while opening the child Session.",
+					agent_type: "explorer",
+				},
+			}),
+		).rejects.toThrow("child creation failed");
+		await vi.waitFor(() => {
+			expect(runtime.list()[0]?.status).toBe("failed");
+		});
+		expect(dispose).toHaveBeenCalledOnce();
+
+		await runtime.dispose();
+		expect(dispose).toHaveBeenCalledOnce();
+	});
 });
 
 function baseOptions() {
