@@ -113,6 +113,11 @@ const ALLOWLIST = [
 	{ prefix: "packages/coding-agent/CHANGELOG.md", rules: "*" },
 	{ prefix: "packages/ai/CHANGELOG.md", rules: "*" },
 
+	// README 的官网 badge 与「详细教程见官网」：是给读者看的文档链接，
+	// 不是客户端会去请求的端点。只放行 vendor-domain，真出现服务端地址或凭据仍然拦。
+	{ prefix: "README.md", rules: ["vendor-domain"] },
+	{ prefix: "README.zh-CN.md", rules: ["vendor-domain"] },
+
 	// macOS 本地网络隐私（LNP）探测：必须真的去连 RFC1918 地址才能判断授权状态。
 	// 这些常量是探测目标，不是任何服务器。
 	{ prefix: "packages/desktop-app/src/main/diagnostics.ts", rules: ["private-host"] },
