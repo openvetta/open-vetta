@@ -33,6 +33,7 @@ export const GREENFIELD_PRODUCT_CORE_EDGE_BUDGET = Object.freeze({
 	"product-adapter": 84,
 	"composition-wiring": 5,
 	"rpc-host-adapter": 4,
+	"sdk-compatibility": 2,
 });
 
 export const RETIRED_LEGACY_EXECUTION_FILES = Object.freeze([
@@ -171,6 +172,7 @@ export function summarizeGreenfieldProductCoreEdges(edges) {
 		"product-adapter": 0,
 		"composition-wiring": 0,
 		"rpc-host-adapter": 0,
+		"sdk-compatibility": 0,
 		unclassified: 0,
 	};
 	for (const edge of edges) summary[edge.classification] += 1;
@@ -205,6 +207,26 @@ export function findGreenfieldProductCoreBoundaryViolations(files) {
 			violations.push(
 				`Greenfield ${classification} product Core dependency budget increased (${summary[classification]} > ${budget})`,
 			);
+		}
+	}
+	return violations;
+}
+
+/** Greenfield SDK 门面只能依赖中立 Runtime Port，不能回接旧执行类或旧工厂。 */
+export function findGreenfieldSdkBoundaryViolations(files) {
+	const violations = [];
+	for (const file of files) {
+		if (!file.path.startsWith("packages/coding-agent/src/public-api/sdk/")) continue;
+		for (const edge of collectModuleEdges(file.path, file.text)) {
+			if (
+				edge.specifier.includes("core/agent-session") ||
+				edge.specifier.includes("core/sdk") ||
+				edge.names.some((name) => name === "AgentSession" || name === "createAgentSession")
+			) {
+				violations.push(
+					`${file.path}: Greenfield SDK facade must not depend on Legacy AgentSession execution (${edge.specifier})`,
+				);
+			}
 		}
 	}
 	return violations;
@@ -285,13 +307,19 @@ function classifyLegacyExecutionEdge(moduleEdge) {
 }
 
 function isGreenfieldSource(path) {
-	return path.includes("/greenfield-") || path.includes("/greenfield/") || path.includes("/greenfield-runtime/");
+	return (
+		path.includes("/greenfield-") ||
+		path.includes("/greenfield/") ||
+		path.includes("/greenfield-runtime/") ||
+		path.includes("/public-api/sdk/")
+	);
 }
 
 function classifyGreenfieldProductCoreEdge(path) {
 	if (path.includes("/adapters/runtime-core/")) return "product-adapter";
 	if (path.includes("/composition/")) return "composition-wiring";
 	if (path.includes("/modes/rpc/")) return "rpc-host-adapter";
+	if (path.includes("/public-api/sdk/")) return "sdk-compatibility";
 	return "unclassified";
 }
 
@@ -328,13 +356,14 @@ if (isDirectRun(import.meta.url)) {
 		packageExports: codingAgentPackageJson.exports,
 	});
 	violations.push(...findGreenfieldProductCoreBoundaryViolations(files));
+	violations.push(...findGreenfieldSdkBoundaryViolations(files));
 	if (violations.length > 0) {
 		for (const violation of violations) fail(`[legacy-execution] ${violation}`);
 	} else {
 		const productCoreEdges = collectGreenfieldProductCoreEdges(files);
 		const productCoreSummary = summarizeGreenfieldProductCoreEdges(productCoreEdges);
 		ok(
-			`[legacy-execution] ok (${LEGACY_EXECUTION_EDGE_BASELINE.length} execution edge(s), ${RETAINED_LEGACY_FORMAT_BOUNDARIES.length} retained format boundary(s), ${productCoreEdges.length} Greenfield product-core edge(s): adapter=${productCoreSummary["product-adapter"]}, composition=${productCoreSummary["composition-wiring"]}, rpc=${productCoreSummary["rpc-host-adapter"]})`,
+			`[legacy-execution] ok (${LEGACY_EXECUTION_EDGE_BASELINE.length} execution edge(s), ${RETAINED_LEGACY_FORMAT_BOUNDARIES.length} retained format boundary(s), ${productCoreEdges.length} Greenfield product-core edge(s): adapter=${productCoreSummary["product-adapter"]}, composition=${productCoreSummary["composition-wiring"]}, rpc=${productCoreSummary["rpc-host-adapter"]}, sdk=${productCoreSummary["sdk-compatibility"]})`,
 		);
 	}
 }

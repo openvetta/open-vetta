@@ -4,6 +4,7 @@ import {
 	collectGreenfieldSharedCoreImports,
 	findCanonicalExecutableOwnershipViolations,
 	findGreenfieldProductCoreBoundaryViolations,
+	findGreenfieldSdkBoundaryViolations,
 	findLegacyExecutionRetirementViolations,
 	GREENFIELD_PRODUCT_CORE_EDGE_BUDGET,
 	LEGACY_EXECUTION_EDGE_BASELINE,
@@ -116,12 +117,14 @@ describe("Legacy execution retirement gate", () => {
 			"product-adapter": 1,
 			"composition-wiring": 1,
 			"rpc-host-adapter": 1,
+			"sdk-compatibility": 0,
 			unclassified: 0,
 		});
 		expect(GREENFIELD_PRODUCT_CORE_EDGE_BUDGET).toEqual({
 			"product-adapter": 84,
 			"composition-wiring": 5,
 			"rpc-host-adapter": 4,
+			"sdk-compatibility": 2,
 		});
 	});
 
@@ -140,5 +143,18 @@ describe("Legacy execution retirement gate", () => {
 		expect(violations).toHaveLength(2);
 		expect(violations[0]).toContain("must not depend on retired AgentSession execution");
 		expect(violations[1]).toContain("Composition contract leaks a concrete product Core type");
+	});
+
+	it("keeps the Greenfield SDK facade independent from Legacy execution", () => {
+		expect(
+			findGreenfieldSdkBoundaryViolations([
+				{
+					path: "packages/coding-agent/src/public-api/sdk/greenfield-sdk-session.ts",
+					text: 'import { AgentSession } from "../../core/agent-session.js";',
+				},
+			]),
+		).toEqual([
+			"packages/coding-agent/src/public-api/sdk/greenfield-sdk-session.ts: Greenfield SDK facade must not depend on Legacy AgentSession execution (../../core/agent-session.js)",
+		]);
 	});
 });

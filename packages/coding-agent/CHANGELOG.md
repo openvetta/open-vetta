@@ -2,6 +2,7 @@
 
 ### Added
 
+- **Greenfield 公开 SDK 核心合同与门面**：新增穷尽式 `sdk-compatibility-inventory`，用 `satisfies Record<keyof ...>` 对 36 个创建参数、3 个工厂返回字段和 98 个 `AgentSession` 实例成员做编译期兼容分类；新增 `GreenfieldSdkSessionCore` 核心门面与 `GreenfieldSdkSessionRuntimePort` 窄端口，`bindGreenfieldSdkSessionRuntime` 作为唯一感知具体 Runtime 的组合边界，并复用完整执行观察流将产品无关事件映射回既有 `AgentEvent`；包根 `createAgentSession`/`runRpcMode` 公开签名保持不变。
 - **RPC 宿主反腐层与 Legacy 协议基线**：JSONL Transport、TypeBox 外部 Frame 校验、命令分发、Extension UI、Host Bridge 和旧 `AgentSession` Adapter 已按职责拆分；`runRpcMode(session)` 默认行为不变，并新增分组 `RpcSessionCapabilities` 组合入口供后续 Greenfield 宿主显式适配。
 - **Greenfield Memory Rollover 时序与主动 Flush 控制**：自动压缩现在按旧顺序在 rollover 前写 JOURNAL，并在通用 continuation 事务和 Session identity 重绑定后执行 Extension committed、PostCompact 与 overflow retry 决策；新增独立 `CodingAgentGreenfieldMemoryController`，复用同一 Memory Runtime 按需 flush 当前活动分支，非 memory-mode 返回 `0`。
 - **Greenfield Memory Rollover 产品编排**：新增 Session-local Coding Agent Orchestrator，复用既有冻结 MEMORY 提示词、memory Tool、约 70% 自动压缩策略、best-effort MEMORY flush 与 JOURNAL；压缩后只通过 Runtime Core 的通用 continuation directive 保持同一 Turn 跨 Conversation 续接，memory-mode 默认关闭。
