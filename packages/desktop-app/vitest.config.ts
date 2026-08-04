@@ -48,6 +48,10 @@ export default defineConfig({
 				replacement: resolve(__dirname, "../coding-agent/src/public-api/profile.ts"),
 			},
 			{
+				find: "@vetta/coding-agent/product-prompt",
+				replacement: resolve(__dirname, "../coding-agent/src/public-api/product-prompt.ts"),
+			},
+			{
 				find: "@vetta/coding-agent/resources",
 				replacement: resolve(__dirname, "../coding-agent/src/core/resource-loader.ts"),
 			},

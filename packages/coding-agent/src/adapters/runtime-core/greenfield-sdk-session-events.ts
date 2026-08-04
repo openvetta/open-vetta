@@ -1,6 +1,6 @@
 import type { AgentMessage } from "@vetta/agent-core";
 import type { RuntimeMessageEnvelope, RuntimeSessionExecutionObservation } from "@vetta/runtime-core";
-import type { CustomMessage } from "../../core/messages.js";
+import type { CustomMessage } from "../../model-context/index.js";
 import type { CodingAgentSessionEvent } from "../../public-api/sdk/sdk-event-contract.js";
 
 /** 将产品无关的完整执行观察事件适配为现有 SDK Agent 事件。 */

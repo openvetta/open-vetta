@@ -13,15 +13,6 @@
 		},
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-agent-message-context-projector.ts",
-			"specifier": "../../core/messages.js",
-			"names": [
-				"convertToLlm"
-			],
-			"category": "old-core",
-			"domain": "messages"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-agent-message-context-projector.ts",
 			"specifier": "../../core/session-manager/index.js",
 			"names": [
 				"CustomMessageEntry",
@@ -130,18 +121,6 @@
 			],
 			"category": "old-core",
 			"domain": "compaction"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-context-runtime.ts",
-			"specifier": "../../core/messages.js",
-			"names": [
-				"COMPACTION_SUMMARY_PREFIX",
-				"COMPACTION_SUMMARY_SUFFIX",
-				"convertToLlm",
-				"createCustomMessage"
-			],
-			"category": "old-core",
-			"domain": "messages"
 		},
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-context-runtime.ts",
@@ -329,15 +308,6 @@
 			"domain": "extensions"
 		},
 		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-observation-adapter.ts",
-			"specifier": "../../core/messages.js",
-			"names": [
-				"CustomMessage"
-			],
-			"category": "old-core",
-			"domain": "messages"
-		},
-		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-tool-runtime.ts",
 			"specifier": "../../core/extensions/types.js",
 			"names": [
@@ -394,15 +364,6 @@
 			"domain": "skills"
 		},
 		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-mcp-deferred-adapter.ts",
-			"specifier": "../../core/system-prompt.js",
-			"names": [
-				"renderMcpToolsSection"
-			],
-			"category": "old-core",
-			"domain": "system-prompt"
-		},
-		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-memory-rollover-orchestrator.ts",
 			"specifier": "../../core/compaction/index.js",
 			"names": [
@@ -444,18 +405,6 @@
 			"domain": "memory"
 		},
 		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-model-call-composer.ts",
-			"specifier": "../../core/system-prompt.js",
-			"names": [
-				"BuildSystemPromptOptions",
-				"SystemPromptDraft",
-				"buildSystemPromptDraft",
-				"renderSystemPromptDraft"
-			],
-			"category": "old-core",
-			"domain": "system-prompt"
-		},
-		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-model-call-message-finalizer.ts",
 			"specifier": "../../core/image-budget.js",
 			"names": [
@@ -493,55 +442,6 @@
 			"domain": "mcp"
 		},
 		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-plugin-mcp-runtime.ts",
-			"specifier": "../../core/system-prompt.js",
-			"names": [
-				"AgentPluginRuntimeConfig"
-			],
-			"category": "old-core",
-			"domain": "system-prompt"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-plugin-run-orchestrator.ts",
-			"specifier": "../../core/system-prompt.js",
-			"names": [
-				"AgentPluginContinuationContribution",
-				"AgentPluginContinuationInvoker",
-				"AgentPluginContinuationResult",
-				"AgentPluginRuntimeConfig",
-				"AgentPluginRuntimeEffect",
-				"AgentPluginSystemPromptInvocation",
-				"AgentPluginSystemPromptInvoker",
-				"AgentPluginToolInvocation",
-				"AgentPluginToolInvoker",
-				"SystemPromptDraft",
-				"SystemPromptOperation"
-			],
-			"category": "old-core",
-			"domain": "system-prompt"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-plugin-run-orchestrator.ts",
-			"specifier": "../../core/system-prompt.js",
-			"names": [
-				"applySystemPromptOperations",
-				"renderSystemPromptDraft"
-			],
-			"category": "old-core",
-			"domain": "system-prompt"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-plugin-runtime-effect.ts",
-			"specifier": "../../core/system-prompt.js",
-			"names": [
-				"AgentPluginContinuationResult",
-				"AgentPluginHandlerResult",
-				"AgentPluginRuntimeEffect"
-			],
-			"category": "old-core",
-			"domain": "system-prompt"
-		},
-		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-plugin-tool-runtime.ts",
 			"specifier": "../../core/session/tool-scope.js",
 			"names": [
@@ -552,17 +452,6 @@
 			"domain": "session"
 		},
 		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-plugin-tool-runtime.ts",
-			"specifier": "../../core/system-prompt.js",
-			"names": [
-				"AgentPluginRuntimeConfig",
-				"AgentPluginToolContribution",
-				"AgentPluginToolInvoker"
-			],
-			"category": "old-core",
-			"domain": "system-prompt"
-		},
-		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-prompt-adapter.ts",
 			"specifier": "../../core/extensions/types.js",
 			"names": [
@@ -570,17 +459,6 @@
 			],
 			"category": "old-core",
 			"domain": "extensions"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-prompt-adapter.ts",
-			"specifier": "../../core/messages.js",
-			"names": [
-				"PROMPT_ATTACHMENT_CONTEXT_TYPE",
-				"PROMPT_ATTACHMENT_REFERENCE_TYPE",
-				"PROMPT_RESOURCE_REFERENCE_TYPE"
-			],
-			"category": "old-core",
-			"domain": "messages"
 		},
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-prompt-resource-resolver.ts",
@@ -650,15 +528,6 @@
 			"domain": "settings-manager"
 		},
 		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-prompt-runtime.ts",
-			"specifier": "../../core/system-prompt.js",
-			"names": [
-				"AgentPluginRuntimeConfig"
-			],
-			"category": "old-core",
-			"domain": "system-prompt"
-		},
-		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-readonly-session-manager.ts",
 			"specifier": "../../core/session-manager/branch-ops.js",
 			"names": [
@@ -706,15 +575,6 @@
 			],
 			"category": "old-core",
 			"domain": "settings-manager"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-sdk-session-events.ts",
-			"specifier": "../../core/messages.js",
-			"names": [
-				"CustomMessage"
-			],
-			"category": "old-core",
-			"domain": "messages"
 		},
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-stop-hook-continuation-source.ts",
@@ -796,17 +656,6 @@
 		},
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/history.ts",
-			"specifier": "../../core/messages.js",
-			"names": [
-				"PROMPT_ATTACHMENT_CONTEXT_TYPE",
-				"PROMPT_ATTACHMENT_REFERENCE_TYPE",
-				"PROMPT_RESOURCE_REFERENCE_TYPE"
-			],
-			"category": "old-core",
-			"domain": "messages"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/history.ts",
 			"specifier": "../../core/session-manager/index.js",
 			"names": [
 				"CustomEntry",
@@ -868,19 +717,6 @@
 			],
 			"category": "old-core",
 			"domain": "session-lock"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/legacy-session-import-normalizer.ts",
-			"specifier": "../../core/messages.js",
-			"names": [
-				"COMPACTION_SUMMARY_PREFIX",
-				"COMPACTION_SUMMARY_SUFFIX",
-				"PROMPT_ATTACHMENT_REFERENCE_TYPE",
-				"PROMPT_RESOURCE_REFERENCE_TYPE",
-				"convertToLlm"
-			],
-			"category": "old-core",
-			"domain": "messages"
 		},
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/legacy-session-import-normalizer.ts",
@@ -1067,16 +903,6 @@
 			],
 			"category": "old-core",
 			"domain": "bash-executor"
-		},
-		{
-			"path": "packages/coding-agent/src/host/coding-agent-sdk-bash-adapter.ts",
-			"specifier": "../core/messages.js",
-			"names": [
-				"BashExecutionMessage",
-				"bashExecutionToText"
-			],
-			"category": "old-core",
-			"domain": "messages"
 		},
 		{
 			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
@@ -1484,18 +1310,6 @@
 		},
 		{
 			"path": "packages/coding-agent/src/index.ts",
-			"specifier": "./core/messages.js",
-			"names": [
-				"PROMPT_ATTACHMENT_CONTEXT_TYPE",
-				"PROMPT_ATTACHMENT_REFERENCE_TYPE",
-				"PROMPT_RESOURCE_REFERENCE_TYPE",
-				"convertToLlm"
-			],
-			"category": "old-core",
-			"domain": "messages"
-		},
-		{
-			"path": "packages/coding-agent/src/index.ts",
 			"specifier": "./core/model-registry.js",
 			"names": [
 				"ModelRegistry"
@@ -1704,16 +1518,6 @@
 		},
 		{
 			"path": "packages/coding-agent/src/modes/rpc/greenfield-rpc-capabilities.ts",
-			"specifier": "../../core/messages.js",
-			"names": [
-				"BashExecutionMessage",
-				"bashExecutionToText"
-			],
-			"category": "old-core",
-			"domain": "messages"
-		},
-		{
-			"path": "packages/coding-agent/src/modes/rpc/greenfield-rpc-capabilities.ts",
 			"specifier": "../../core/session/session-stats.js",
 			"names": [
 				"SessionStats"
@@ -1907,15 +1711,6 @@
 			"domain": "settings-manager"
 		},
 		{
-			"path": "packages/desktop-app/src/main/conversations/resolve-session-config.ts",
-			"specifier": "../../../../coding-agent/src/core/system-prompt.js",
-			"names": [
-				"VETTA_CLI_GUIDANCE"
-			],
-			"category": "old-core",
-			"domain": "system-prompt"
-		},
-		{
 			"path": "packages/desktop-app/src/main/ipc/fs.ts",
 			"specifier": "@vetta/coding-agent/core/mcp/index.js",
 			"names": [
@@ -1994,7 +1789,6 @@
 		"packages/coding-agent/src/core/memory/memory-flush.ts",
 		"packages/coding-agent/src/core/memory/memory-journal.ts",
 		"packages/coding-agent/src/core/memory/memory-store.ts",
-		"packages/coding-agent/src/core/messages.ts",
 		"packages/coding-agent/src/core/mode-prompt.ts",
 		"packages/coding-agent/src/core/model-registry.ts",
 		"packages/coding-agent/src/core/model-resolver.ts",
@@ -2063,8 +1857,6 @@
 		"packages/coding-agent/src/core/subagents/types.ts",
 		"packages/coding-agent/src/core/subagents/types/explorer.ts",
 		"packages/coding-agent/src/core/subagents/types/workflow.ts",
-		"packages/coding-agent/src/core/subconscious.ts",
-		"packages/coding-agent/src/core/system-prompt.ts",
 		"packages/coding-agent/src/core/timings.ts",
 		"packages/coding-agent/src/core/todo-store.ts",
 		"packages/coding-agent/src/core/tools/anchors.ts",

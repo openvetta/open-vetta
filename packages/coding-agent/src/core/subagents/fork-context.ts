@@ -17,7 +17,7 @@ import {
 	COMPACTION_SUMMARY_PREFIX,
 	COMPACTION_SUMMARY_SUFFIX,
 	type CustomMessage,
-} from "../messages.js";
+} from "../../model-context/index.js";
 import type { SessionManager } from "../session-manager/index.js";
 
 export const FORK_CONTEXT_SUMMARY_TYPE = "workflow-fork-summary";

@@ -16,6 +16,7 @@
 import { join } from "node:path";
 import type { Agent, AgentMessage, AgentState, ThinkingLevel } from "@vetta/agent-core";
 import type { ImageContent, Model, TextContent } from "@vetta/ai";
+import type { AgentPluginRuntimeConfig, CustomMessage } from "../model-context/index.js";
 import { theme } from "../modes/interactive/theme/theme.js";
 import { BackgroundTaskManager, buildTaskNotification } from "./background-tasks/index.js";
 import type { BashResult } from "./bash-executor.js";
@@ -26,7 +27,6 @@ import type { ContextUsage, ExtensionRunner, ToolDefinition, ToolInfo } from "./
 import { createEcosystemHookRuntime, type EcosystemHookRuntime } from "./hooks/index.js";
 import type { McpManager } from "./mcp/index.js";
 import { DEFAULT_MEMORY_CHAR_LIMIT, readMemoryContent } from "./memory/memory-store.js";
-import type { CustomMessage } from "./messages.js";
 import type { ModelRegistry } from "./model-registry.js";
 import type { PromptTemplate } from "./prompt-templates.js";
 import type { ResourceLoader } from "./resource-loader.js";
@@ -62,7 +62,6 @@ import type {
 import type { BranchSummaryEntry, SessionManager } from "./session-manager/index.js";
 import type { SettingsManager } from "./settings-manager.js";
 import { createDefaultSubagentTypeRegistry, SubagentCoordinator, type SubagentSnapshot } from "./subagents/index.js";
-import type { AgentPluginRuntimeConfig } from "./system-prompt.js";
 import { TODO_SNAPSHOT_TYPE, TodoStore } from "./todo-store.js";
 import type { BashOperations } from "./tools/bash/index.js";
 

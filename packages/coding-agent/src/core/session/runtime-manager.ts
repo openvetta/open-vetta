@@ -11,6 +11,19 @@ import { basename, dirname } from "node:path";
 import type { TSchema } from "@sinclair/typebox";
 import type { AgentMessage, AgentTool } from "@vetta/agent-core";
 import { resetApiProviders } from "@vetta/ai";
+import type {
+	AgentPluginContinuationInvoker,
+	AgentPluginContinuationResult,
+	AgentPluginRuntimeConfig,
+	AgentPluginRuntimeEffect,
+	AgentPluginSystemPromptInvocation,
+	AgentPluginSystemPromptInvoker,
+	AgentPluginToolContribution,
+	AgentPluginToolInvoker,
+	SystemPromptDraft,
+	SystemPromptOperation,
+} from "../../model-context/index.js";
+import { applySystemPromptOperations, renderSystemPromptDraft } from "../../model-context/index.js";
 import { matchesAgentMode } from "../agent-mode.js";
 import type { AgentSession, ExtensionBindings } from "../agent-session.js";
 import type { BackgroundTaskManager } from "../background-tasks/index.js";
@@ -30,19 +43,6 @@ import { createMcpManager, type McpManager } from "../mcp/index.js";
 import type { ResourceExtensionPaths, ResourceLoader } from "../resource-loader.js";
 import type { SubagentCoordinator } from "../subagents/index.js";
 import { createSubagentControlTools } from "../subagents/index.js";
-import type {
-	AgentPluginContinuationInvoker,
-	AgentPluginContinuationResult,
-	AgentPluginRuntimeConfig,
-	AgentPluginRuntimeEffect,
-	AgentPluginSystemPromptInvocation,
-	AgentPluginSystemPromptInvoker,
-	AgentPluginToolContribution,
-	AgentPluginToolInvoker,
-	SystemPromptDraft,
-	SystemPromptOperation,
-} from "../system-prompt.js";
-import { applySystemPromptOperations, renderSystemPromptDraft } from "../system-prompt.js";
 import type { TodoStore } from "../todo-store.js";
 import {
 	type AskUserQuestionCapability,

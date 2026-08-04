@@ -11,7 +11,7 @@ import {
 	type CodingAgentModelRegistrySource,
 	CodingAgentPromptRuntime,
 } from "../../src/adapters/runtime-core/index.js";
-import { buildSystemPrompt } from "../../src/core/system-prompt.js";
+import { buildSystemPrompt } from "../../src/model-context/index.js";
 
 describe("Greenfield coding-agent adapters", () => {
 	it("adapts ModelRegistry catalog, credentials and auth refresh without copying state", async () => {

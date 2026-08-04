@@ -17,8 +17,8 @@ import type {
 	AgentPluginToolInvoker,
 	SystemPromptDraft,
 	SystemPromptOperation,
-} from "../../core/system-prompt.js";
-import { applySystemPromptOperations, renderSystemPromptDraft } from "../../core/system-prompt.js";
+} from "../../model-context/index.js";
+import { applySystemPromptOperations, renderSystemPromptDraft } from "../../model-context/index.js";
 import {
 	validatePluginContinuationHandlerResult,
 	validatePluginRuntimeEffects,

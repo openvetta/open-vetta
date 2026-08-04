@@ -3,14 +3,14 @@ import { Type } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import type { AgentMessage } from "@vetta/agent-core";
 import type { ConversationDocumentCustomMessageEntry } from "@vetta/runtime-core/conversation";
+import type { SessionMessageEntry } from "../../core/session-manager/index.js";
 import {
 	COMPACTION_SUMMARY_PREFIX,
 	COMPACTION_SUMMARY_SUFFIX,
 	convertToLlm,
 	PROMPT_ATTACHMENT_REFERENCE_TYPE,
 	PROMPT_RESOURCE_REFERENCE_TYPE,
-} from "../../core/messages.js";
-import type { SessionMessageEntry } from "../../core/session-manager/index.js";
+} from "../../model-context/index.js";
 
 export const CODING_AGENT_LEGACY_AGENT_MESSAGE_CONTEXT_TYPE = "vetta.legacy_agent_message";
 

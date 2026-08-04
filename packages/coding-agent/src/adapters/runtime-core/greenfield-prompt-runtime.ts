@@ -9,7 +9,7 @@ import {
 } from "../../core/session/system-prompt-builder.js";
 import type { ConversationScenario } from "../../core/session/tool-scope.js";
 import { SettingsManager } from "../../core/settings-manager.js";
-import type { AgentPluginRuntimeConfig } from "../../core/system-prompt.js";
+import type { AgentPluginRuntimeConfig } from "../../model-context/index.js";
 import type {
 	CodingAgentModelCallPromptContext,
 	CodingAgentSystemPromptOptions,

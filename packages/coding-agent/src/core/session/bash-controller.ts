@@ -6,8 +6,8 @@
  * bash result lands mid-stream.
  */
 
+import type { BashExecutionMessage } from "../../model-context/index.js";
 import { type BashResult, executeBash as executeBashCommand, executeBashWithOperations } from "../bash-executor.js";
-import type { BashExecutionMessage } from "../messages.js";
 import type { BashOperations } from "../tools/bash/index.js";
 import type { SessionContext } from "./session-context.js";
 

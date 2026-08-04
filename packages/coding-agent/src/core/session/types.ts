@@ -9,6 +9,12 @@ import type { Agent, AgentEvent, AgentTool, ThinkingLevel } from "@vetta/agent-c
 import type { ImageContent, Model } from "@vetta/ai";
 import type { HookConfigLayer } from "@vetta/ecosystem-adapter/hooks";
 import type { PromptAttachmentRef, PromptResourceRef } from "@vetta/runtime-core";
+import type {
+	AgentPluginContinuationInvoker,
+	AgentPluginRuntimeConfig,
+	AgentPluginSystemPromptInvoker,
+	AgentPluginToolInvoker,
+} from "../../model-context/index.js";
 import type { BackgroundTaskSnapshot } from "../background-tasks/index.js";
 import type { CompactionResult } from "../compaction/index.js";
 import type {
@@ -26,12 +32,6 @@ import type { ResourceLoader } from "../resource-loader.js";
 import type { SessionManager } from "../session-manager/index.js";
 import type { SettingsManager } from "../settings-manager.js";
 import type { SubagentSessionFactory, SubagentSnapshot, SubagentTypeRegistry } from "../subagents/index.js";
-import type {
-	AgentPluginContinuationInvoker,
-	AgentPluginRuntimeConfig,
-	AgentPluginSystemPromptInvoker,
-	AgentPluginToolInvoker,
-} from "../system-prompt.js";
 import type { TodoItem } from "../todo-store.js";
 import type { AskUserQuestionCapability } from "../tools/index.js";
 import type { ConversationScenario } from "./tool-scope.js";

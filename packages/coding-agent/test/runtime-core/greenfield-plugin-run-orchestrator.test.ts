@@ -10,7 +10,7 @@ import {
 	type AgentPluginRuntimeEffect,
 	buildSystemPromptDraft,
 	renderSystemPromptDraft,
-} from "../../src/core/system-prompt.js";
+} from "../../src/model-context/index.js";
 
 describe("CodingAgentPluginRunOrchestrator", () => {
 	it("orders providers, applies prompt/tool effects once per turn and queues requested continuations", async () => {

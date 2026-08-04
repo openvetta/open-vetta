@@ -11,7 +11,7 @@ import type {
 	AgentPluginRuntimeConfig,
 	AgentPluginToolContribution,
 	AgentPluginToolInvoker,
-} from "../../core/system-prompt.js";
+} from "../../model-context/index.js";
 import { CODING_AGENT_MODEL_TOOL_ORDER } from "./greenfield-model-tool-order.js";
 import type { CodingAgentPluginRunOrchestrator } from "./greenfield-plugin-run-orchestrator.js";
 import { validatePluginToolHandlerResult } from "./greenfield-plugin-runtime-effect.js";

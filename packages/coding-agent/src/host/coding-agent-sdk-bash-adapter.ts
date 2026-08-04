@@ -3,7 +3,7 @@ import type { CodingAgentGreenfieldSdkBashPort } from "../adapters/runtime-core/
 import { CODING_AGENT_LEGACY_AGENT_MESSAGE_CONTEXT_TYPE } from "../adapters/runtime-core/legacy-session-import-normalizer.js";
 import type { CodingAgentGreenfieldActiveSessionHost } from "../composition/greenfield-active-session-transition-host.js";
 import { type BashResult, executeBash, executeBashWithOperations } from "../core/bash-executor.js";
-import { type BashExecutionMessage, bashExecutionToText } from "../core/messages.js";
+import { type BashExecutionMessage, bashExecutionToText } from "../model-context/index.js";
 
 export interface CodingAgentSdkBashAdapterOptions {
 	readonly readShellCommandPrefix: () => string | undefined;

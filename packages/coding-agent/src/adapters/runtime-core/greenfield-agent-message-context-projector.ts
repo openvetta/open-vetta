@@ -2,12 +2,12 @@ import type { AgentMessage } from "@vetta/agent-core";
 import type { Message } from "@vetta/ai";
 import type { ConversationDocument, RuntimeMessageEnvelope } from "@vetta/runtime-core";
 import type { ConversationContextProjector } from "@vetta/runtime-core/kernel";
-import { convertToLlm } from "../../core/messages.js";
 import {
 	buildSessionContextProjection,
 	type CustomMessageEntry,
 	type SessionEntry,
 } from "../../core/session-manager/index.js";
+import { convertToLlm } from "../../model-context/index.js";
 import { restoreCodingAgentLegacyAgentMessageEntry } from "./legacy-session-import-normalizer.js";
 
 /** 将持久化活动分支恢复为旧 Coding Agent 的完整 AgentMessage 身份。 */

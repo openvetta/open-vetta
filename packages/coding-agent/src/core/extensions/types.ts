@@ -29,6 +29,7 @@ import type {
 	TextContent,
 	ToolResultMessage,
 } from "@vetta/ai";
+import type { CustomMessage } from "../../model-context/index.js";
 import type { Theme } from "../../modes/interactive/theme/theme.js";
 import type { BashResult } from "../bash-executor.js";
 import type { CompactionPreparation, CompactionResult } from "../compaction/index.js";
@@ -36,7 +37,6 @@ import type { EventBus } from "../event-bus.js";
 import type { ExecOptions, ExecResult } from "../exec.js";
 import type { ReadonlyFooterDataProvider } from "../footer-data-provider.js";
 import type { KeybindingsManager, KeyId } from "../keybindings.js";
-import type { CustomMessage } from "../messages.js";
 import type { ModelRegistry } from "../model-registry.js";
 import type { ConversationScenario } from "../session/tool-scope.js";
 import type {

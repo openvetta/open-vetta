@@ -15,8 +15,8 @@ import type {
 	AgentPluginRuntimeConfig,
 	AgentPluginToolContribution,
 	AgentPluginToolInvocation,
-} from "../../src/core/system-prompt.js";
-import { buildSystemPromptDraft, renderSystemPromptDraft } from "../../src/core/system-prompt.js";
+} from "../../src/model-context/index.js";
+import { buildSystemPromptDraft, renderSystemPromptDraft } from "../../src/model-context/index.js";
 
 describe("CodingAgentPluginToolRuntime", () => {
 	it("compiles session-local tools with legacy activation, collision and policy precedence", () => {

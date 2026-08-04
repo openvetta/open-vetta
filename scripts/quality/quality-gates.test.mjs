@@ -389,6 +389,26 @@ describe("package boundary analysis", () => {
 		).toEqual([]);
 	});
 
+	it("keeps retired Coding Agent model-context core files and imports deleted", () => {
+		for (const name of ["messages", "subconscious", "system-prompt"]) {
+			expect(
+				findPackageBoundaryViolations(`packages/coding-agent/src/core/${name}.ts`, "export const retired = true;"),
+			).toHaveLength(1);
+			expect(
+				findPackageBoundaryViolations(
+					"packages/coding-agent/src/composition/example.ts",
+					`import { retired } from "../core/${name}.js";`,
+				),
+			).toHaveLength(1);
+		}
+		expect(
+			findPackageManifestBoundaryViolations({
+				name: "@vetta/coding-agent",
+				exports: { "./core/system-prompt.js": "./dist/core/system-prompt.js" },
+			}),
+		).toHaveLength(1);
+	});
+
 	it("keeps production Legacy imports and Runtime adapters inside explicit compatibility boundaries", () => {
 		expect(
 			findPackageBoundaryViolations(

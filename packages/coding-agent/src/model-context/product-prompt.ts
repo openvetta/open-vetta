@@ -1,10 +1,17 @@
-/**
- * System prompt construction and project context loading.
- */
+/** Coding Agent product prompt policy and model-call prompt assembly. */
 
-import type { ConversationScenario } from "./session/tool-scope.js";
-import { formatSkillsForPrompt, type Skill } from "./skills.js";
-import { SUBCONSCIOUS } from "./subconscious.js";
+import type { ConversationScenario } from "@vetta/runtime-core";
+import type { AgentPluginRuntimeConfig } from "./plugin-runtime.js";
+import {
+	applySystemPromptOperations,
+	coreBlock,
+	renderSystemPromptDraft,
+	type SystemPromptBlock,
+	type SystemPromptDraft,
+} from "./prompt-document.js";
+import { formatSkillsForProductPrompt, type ProductPromptSkill } from "./skill-prompt.js";
+
+const SUBCONSCIOUS = `**Your name is Vetta. You are an AI assistant.**`;
 
 /** Tool descriptions for system prompt */
 const toolDescriptions: Record<string, string> = {
@@ -98,257 +105,6 @@ export interface McpToolInfo {
 	description: string;
 }
 
-export type SystemPromptBlockType =
-	| "subconscious"
-	| "base"
-	| "tools"
-	| "mcp"
-	| "guidelines"
-	| "append"
-	| "context"
-	| "memory"
-	| "skills"
-	| "mode"
-	| "personalization"
-	| "footer"
-	| "plugin";
-
-export interface SystemPromptBlock {
-	id: string;
-	type: SystemPromptBlockType;
-	source: {
-		kind: "core" | "plugin";
-		pluginId?: string;
-	};
-	content: string;
-	priority: number;
-	enabled: boolean;
-}
-
-export interface SystemPromptDraft {
-	blocks: SystemPromptBlock[];
-	metadata: {
-		cwd: string;
-		dateTime: string;
-	};
-}
-
-export type SystemPromptBlockPatch = Partial<Omit<SystemPromptBlock, "id">>;
-
-export type SystemPromptOperation =
-	| { type: "addBlock"; block: SystemPromptBlock }
-	| { type: "replaceBlock"; blockId: string; block: SystemPromptBlock }
-	| { type: "updateBlock"; blockId: string; patch: SystemPromptBlockPatch }
-	| { type: "removeBlock"; blockId: string }
-	| { type: "setBlockEnabled"; blockId: string; enabled: boolean };
-
-export interface SystemPromptContribution {
-	pluginId: string;
-	operations: SystemPromptOperation[];
-}
-
-export interface SkillPathContribution {
-	pluginId: string;
-	paths: string[];
-}
-
-export interface ToolPolicyContribution {
-	pluginId: string;
-	allow?: string[];
-	deny?: string[];
-}
-
-export type JsonSchema = Record<string, unknown>;
-
-export interface AgentPluginToolContribution {
-	pluginId: string;
-	id: string;
-	name: string;
-	label?: string;
-	description: string;
-	parameters: JsonSchema;
-	handlerId: string;
-	timeoutMs?: number;
-	/** 允许出现的对话场景 slug（fail-closed：缺省/空 = 所有场景都不激活）。由插件 registerTool 声明。 */
-	scope_use?: string[];
-	/** 需要的会话能力 slug（如 "knowledge"）。 */
-	requires?: string[];
-	/** 允许出现的工作模式 slug（agent_mode 轴，缺省/空 = 通用）。见 ADR-0046。 */
-	agent_mode?: string[];
-	context?: { conversation?: "summary" | "messages" };
-	/**
-	 * 该工具带有宿主自渲染卡片（插件注册了 tool-call slot），其结果是用户当作答案来读的
-	 * 产物。宿主据此为它追加一个可选的 `md_intro` 参数：模型填的这段 markdown 会渲染在
-	 * 卡片正上方，作为产物的一句话说明。插件无需感知，宿主自动检测并注入。见 ADR-0047。
-	 */
-	rendersCard?: boolean;
-}
-
-export interface AgentPluginStateContribution {
-	pluginId: string;
-	id: string;
-	schema?: JsonSchema;
-	initialValue?: unknown;
-	persist?: boolean;
-}
-
-export interface AgentPluginContinuationContribution {
-	pluginId: string;
-	id: string;
-	handlerId: string;
-	timeoutMs?: number;
-	context?: { conversation?: "summary" | "messages" };
-}
-
-export interface AgentPluginSystemPromptProviderContribution {
-	pluginId: string;
-	id: string;
-	handlerId: string;
-	timeoutMs?: number;
-	context?: {
-		systemPrompt?: "none" | "blocks" | "rendered" | "full";
-		conversation?: "summary" | "messages";
-	};
-}
-
-export interface AgentPluginSystemPromptMessage {
-	role: string;
-	text: string;
-	timestamp?: number;
-	toolName?: string;
-}
-
-export interface AgentPluginSystemPromptInvocation {
-	pluginId: string;
-	providerId: string;
-	handlerId: string;
-	session: { id: string; cwd: string; scenario: string };
-	model: {
-		provider: string;
-		id: string;
-		api: string;
-		input: string[];
-		contextWindow?: number;
-		maxTokens?: number;
-	};
-	conversation: { messages: AgentPluginSystemPromptMessage[]; messageCount: number };
-	runtime: { activeToolNames: string[]; availableToolNames: string[]; runIndex: number };
-	trigger: { kind: "agent-run"; timestamp: number };
-	systemPrompt?: {
-		base: { blocks?: SystemPromptBlock[]; rendered?: string };
-		current: { blocks?: SystemPromptBlock[]; rendered?: string };
-	};
-}
-
-export type AgentPluginRuntimeEffect =
-	| SystemPromptOperation
-	| { type: "setToolEnabled"; toolName: string; enabled: boolean }
-	| { type: "requestContinuation"; result: AgentPluginContinuationResult };
-
-export interface AgentPluginHandlerResult<T> {
-	value: T;
-	effects: AgentPluginRuntimeEffect[];
-}
-
-export type AgentPluginSystemPromptInvoker = (
-	invocation: AgentPluginSystemPromptInvocation,
-	signal?: AbortSignal,
-) => Promise<AgentPluginRuntimeEffect[]>;
-
-/**
- * Plugin-scoped MCP server config (aligned with `McpServerConfig`). Host resolves
- * relative paths before injecting into the runtime.
- */
-export type AgentPluginMcpServerConfig =
-	| {
-			type?: "stdio";
-			command: string;
-			args?: string[];
-			env?: Record<string, string>;
-			cwd?: string;
-			disabled?: boolean;
-			autoApprove?: string[];
-			startupTimeout?: number;
-			debug?: boolean;
-			displayName?: string;
-			description?: string;
-	  }
-	| {
-			type: "http";
-			url: string;
-			headers?: Record<string, string>;
-			oauthClientId?: string;
-			oauthDeviceFlow?: boolean;
-			oauthScopes?: string;
-			disabled?: boolean;
-			autoApprove?: string[];
-			startupTimeout?: number;
-			debug?: boolean;
-			displayName?: string;
-			description?: string;
-	  };
-
-export interface McpServerContribution {
-	pluginId: string;
-	localName: string;
-	/** Unique runtime key; must not contain `_` (tool name adapter constraint). */
-	runtimeName: string;
-	config: AgentPluginMcpServerConfig;
-	/** 该 server 的工具允许出现的工作模式 slug（agent_mode 轴，缺省/空 = 通用）。见 ADR-0046。 */
-	agent_mode?: string[];
-}
-
-export interface AgentPluginRuntimeConfig {
-	systemPromptContributions?: SystemPromptContribution[];
-	skillPathContributions?: SkillPathContribution[];
-	toolPolicyContributions?: ToolPolicyContribution[];
-	toolContributions?: AgentPluginToolContribution[];
-	stateContributions?: AgentPluginStateContribution[];
-	continuationContributions?: AgentPluginContinuationContribution[];
-	systemPromptProviderContributions?: AgentPluginSystemPromptProviderContribution[];
-	/** Plugin-scoped MCP (third source; never written to user mcp.json). */
-	mcpServerContributions?: McpServerContribution[];
-}
-
-export interface AgentPluginToolInvocation {
-	pluginId: string;
-	toolId: string;
-	toolName: string;
-	handlerId: string;
-	input: unknown;
-	session: AgentPluginSystemPromptInvocation["session"];
-	model: AgentPluginSystemPromptInvocation["model"];
-	conversation: AgentPluginSystemPromptInvocation["conversation"];
-	runtime: AgentPluginSystemPromptInvocation["runtime"];
-	trigger: { kind: "tool-call"; timestamp: number; toolCallId: string };
-}
-
-export type AgentPluginToolInvoker = (
-	invocation: AgentPluginToolInvocation,
-	signal?: AbortSignal,
-) => Promise<AgentPluginHandlerResult<unknown>>;
-
-export interface AgentPluginContinuationInvocation {
-	pluginId: string;
-	providerId: string;
-	handlerId: string;
-	session: AgentPluginSystemPromptInvocation["session"];
-	model: AgentPluginSystemPromptInvocation["model"];
-	conversation: AgentPluginSystemPromptInvocation["conversation"];
-	runtime: AgentPluginSystemPromptInvocation["runtime"];
-	trigger: { kind: "continuation"; timestamp: number };
-}
-
-export interface AgentPluginContinuationResult {
-	text: string;
-	idempotencyKey?: string;
-}
-
-export type AgentPluginContinuationInvoker = (
-	invocation: AgentPluginContinuationInvocation,
-	signal?: AbortSignal,
-) => Promise<AgentPluginHandlerResult<AgentPluginContinuationResult | null>>;
-
 export interface BuildSystemPromptOptions {
 	/** Custom system prompt (replaces default body in the legacy flow). */
 	customPrompt?: string;
@@ -361,7 +117,7 @@ export interface BuildSystemPromptOptions {
 	/** Pre-loaded context files. */
 	contextFiles?: Array<{ path: string; content: string }>;
 	/** Pre-loaded skills. */
-	skills?: Skill[];
+	skills?: ProductPromptSkill[];
 	/** MCP tools available (from Model Context Protocol servers). */
 	mcpTools?: McpToolInfo[];
 	/** Pre-rendered persistent-memory block (memory-mode only, frozen snapshot). */
@@ -388,17 +144,6 @@ export interface BuildSystemPromptOptions {
 	 * MCP 段落改为引导经 tool_search 检索激活。
 	 */
 	mcpDeferred?: boolean;
-}
-
-function coreBlock(id: string, type: SystemPromptBlockType, content: string, priority: number): SystemPromptBlock {
-	return {
-		id,
-		type,
-		source: { kind: "core" },
-		content,
-		priority,
-		enabled: content.length > 0,
-	};
 }
 
 /**
@@ -456,80 +201,11 @@ function renderFooter(dateTime: string, cwd: string): string {
 Current working directory: ${cwd}${OUTPUT_LOCATION_GUIDANCE}`;
 }
 
-export function applySystemPromptOperation(
-	draft: SystemPromptDraft,
-	pluginId: string,
-	operation: SystemPromptOperation,
-): void {
-	switch (operation.type) {
-		case "addBlock":
-			draft.blocks.push({
-				...operation.block,
-				source: { kind: "plugin", pluginId },
-			});
-			return;
-		case "replaceBlock": {
-			const index = draft.blocks.findIndex((block) => block.id === operation.blockId);
-			const nextBlock: SystemPromptBlock = {
-				...operation.block,
-				id: operation.blockId,
-				source: { kind: "plugin", pluginId },
-			};
-			if (index >= 0) {
-				draft.blocks[index] = nextBlock;
-			} else {
-				draft.blocks.push(nextBlock);
-			}
-			return;
-		}
-		case "updateBlock": {
-			const block = draft.blocks.find((candidate) => candidate.id === operation.blockId);
-			if (block) {
-				Object.assign(block, operation.patch);
-			}
-			return;
-		}
-		case "removeBlock":
-			draft.blocks = draft.blocks.filter((block) => block.id !== operation.blockId);
-			return;
-		case "setBlockEnabled": {
-			const block = draft.blocks.find((candidate) => candidate.id === operation.blockId);
-			if (block) {
-				block.enabled = operation.enabled;
-			}
-			return;
-		}
-	}
-}
-
-export function applySystemPromptOperations(
-	draft: SystemPromptDraft,
-	pluginId: string,
-	operations: readonly SystemPromptOperation[],
-): SystemPromptDraft {
-	const nextDraft: SystemPromptDraft = {
-		blocks: draft.blocks.map((block) => ({ ...block, source: { ...block.source } })),
-		metadata: { ...draft.metadata },
-	};
-	for (const operation of operations) {
-		applySystemPromptOperation(nextDraft, pluginId, operation);
-	}
-	return nextDraft;
-}
-
 function applySystemPromptContributions(draft: SystemPromptDraft, config: AgentPluginRuntimeConfig | undefined): void {
 	for (const contribution of config?.systemPromptContributions ?? []) {
 		const nextDraft = applySystemPromptOperations(draft, contribution.pluginId, contribution.operations);
 		draft.blocks = nextDraft.blocks;
 	}
-}
-
-export function renderSystemPromptDraft(draft: SystemPromptDraft): string {
-	return draft.blocks
-		.filter((block) => block.enabled && block.content.length > 0)
-		.sort((a, b) => a.priority - b.priority || a.id.localeCompare(b.id))
-		.map((block) => block.content)
-		.join("\n\n");
 }
 
 function buildDateTime(): string {
@@ -687,7 +363,7 @@ export function buildSystemPromptDraft(options: BuildSystemPromptOptions = {}): 
 		blocks.push(coreBlock("core.memory", "memory", memory ?? "", 700));
 		const canUseSkills = !selectedTools || selectedTools.includes("invoke_skill") || selectedTools.includes("read");
 		if (canUseSkills && skills.length > 0) {
-			blocks.push(coreBlock("core.skills", "skills", formatSkillsForPrompt(skills), 800));
+			blocks.push(coreBlock("core.skills", "skills", formatSkillsForProductPrompt(skills), 800));
 		}
 		blocks.push(coreBlock("core.filename-fidelity", "guidelines", FILENAME_FIDELITY_GUIDANCE, 900));
 		blocks.push(coreBlock("core.final-answer-order", "guidelines", FINAL_ANSWER_ORDER_GUIDANCE, 950));
@@ -717,7 +393,7 @@ export function buildSystemPromptDraft(options: BuildSystemPromptOptions = {}): 
 	blocks.push(coreBlock("core.context", "context", renderContextFilesSection(contextFiles), 500));
 	blocks.push(coreBlock("core.memory", "memory", memory ?? "", 600));
 	if ((hasRead || hasInvokeSkill) && skills.length > 0) {
-		blocks.push(coreBlock("core.skills", "skills", formatSkillsForPrompt(skills), 700));
+		blocks.push(coreBlock("core.skills", "skills", formatSkillsForProductPrompt(skills), 700));
 	}
 	blocks.push(coreBlock("core.mode", "mode", modePrompt ?? "", 850));
 	blocks.push(coreBlock("core.personalization", "personalization", personalization ?? "", 900));

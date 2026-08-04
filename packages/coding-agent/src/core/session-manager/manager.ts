@@ -13,7 +13,7 @@
 
 import type { ToolPhase } from "@vetta/agent-core";
 import type { ImageContent, Message, TextContent } from "@vetta/ai";
-import type { BashExecutionMessage, CustomMessage } from "../messages.js";
+import type { BashExecutionMessage, CustomMessage } from "../../model-context/index.js";
 import {
 	deleteMessage as applyDeleteMessage,
 	replaceLastUserMessage as applyReplaceLastUserMessage,

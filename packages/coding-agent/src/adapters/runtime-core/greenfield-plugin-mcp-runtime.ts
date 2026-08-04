@@ -19,7 +19,7 @@ import {
 	createCodingAgentMcpSupervisor,
 } from "../../core/mcp/mcp-supervisor-composition.js";
 import { fingerprintPluginMcpServers } from "../../core/mcp/plugin-mcp.js";
-import type { AgentPluginRuntimeConfig } from "../../core/system-prompt.js";
+import type { AgentPluginRuntimeConfig } from "../../model-context/index.js";
 import { decorateCodingAgentMcpRuntimeTool } from "./coding-agent-mcp-runtime-source.js";
 
 export type CodingAgentPluginMcpRuntimeOptions = Pick<

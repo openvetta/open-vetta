@@ -13,7 +13,7 @@ import type {
 	TurnEndEvent,
 	TurnStartEvent,
 } from "../../core/extensions/types.js";
-import type { CustomMessage } from "../../core/messages.js";
+import type { CustomMessage } from "../../model-context/index.js";
 
 export type CodingAgentGreenfieldObservedExtensionEvent =
 	| AgentStartEvent

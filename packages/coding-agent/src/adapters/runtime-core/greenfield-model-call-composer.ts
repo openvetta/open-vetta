@@ -12,7 +12,7 @@ import {
 	buildSystemPromptDraft,
 	renderSystemPromptDraft,
 	type SystemPromptDraft,
-} from "../../core/system-prompt.js";
+} from "../../model-context/index.js";
 import type { CodingAgentGreenfieldExtensionEventBridge } from "./greenfield-extension-event-bridge.js";
 import type { CodingAgentGreenfieldExtensionToolRuntime } from "./greenfield-extension-tool-runtime.js";
 import { wrapRuntimeToolsWithEcosystemHooks } from "./greenfield-hook-tool-wrapper.js";

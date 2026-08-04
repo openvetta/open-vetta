@@ -13,7 +13,7 @@ import type {
 	McpServerConfig,
 	McpToolCallResult,
 } from "../src/core/mcp/index.js";
-import type { AgentPluginRuntimeConfig } from "../src/core/system-prompt.js";
+import type { AgentPluginRuntimeConfig } from "../src/model-context/index.js";
 
 describe("CodingAgentPluginMcpRuntime", () => {
 	it("isolates dynamic servers, preserves metadata and filters tools by session agent mode", async () => {

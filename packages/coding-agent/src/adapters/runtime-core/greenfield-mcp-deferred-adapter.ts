@@ -5,7 +5,7 @@ import {
 	scoreDeferredTools,
 	type ToolSearchResult,
 } from "@vetta/runtime-tools/coding";
-import { renderMcpToolsSection } from "../../core/system-prompt.js";
+import { renderMcpToolsSection } from "../../model-context/index.js";
 import { CODING_AGENT_MODEL_TOOL_ORDER } from "./greenfield-model-tool-order.js";
 
 export interface CodingAgentDeferredMcpTool {

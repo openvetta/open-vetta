@@ -13,7 +13,7 @@ import {
 	createBranchSummaryMessage,
 	createCompactionSummaryMessage,
 	createCustomMessage,
-} from "../messages.js";
+} from "../../model-context/index.js";
 import type { CompactionEntry, SessionEntry } from "../session-manager/index.js";
 import {
 	computeFileLists,

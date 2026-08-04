@@ -12,13 +12,13 @@ import { join } from "node:path";
 import type { AgentMessage } from "@vetta/agent-core";
 import type { AssistantMessage, ImageContent, TextContent } from "@vetta/ai";
 import { getDocsPath } from "../../config.js";
-import type { PromptOptions } from "../agent-session.js";
 import {
 	type CustomMessage,
 	PROMPT_ATTACHMENT_CONTEXT_TYPE,
 	PROMPT_ATTACHMENT_REFERENCE_TYPE,
 	PROMPT_RESOURCE_REFERENCE_TYPE,
-} from "../messages.js";
+} from "../../model-context/index.js";
+import type { PromptOptions } from "../agent-session.js";
 import { expandPromptTemplate } from "../prompt-templates.js";
 import type { ResourceLoader } from "../resource-loader.js";
 import type { TodoStore } from "../todo-store.js";

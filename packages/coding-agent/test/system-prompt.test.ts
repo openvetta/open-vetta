@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { buildSystemPrompt, VETTA_CLI_GUIDANCE } from "../src/core/system-prompt.js";
+import { buildSystemPrompt, VETTA_CLI_GUIDANCE } from "../src/model-context/index.js";
 
 describe("VETTA_CLI_GUIDANCE", () => {
 	test("explains progressive discovery of Desktop capabilities via vetta action", () => {
@@ -41,7 +41,7 @@ describe("buildSystemPrompt", () => {
 			});
 
 			expect(prompt).toContain("- read:");
-			expect(prompt).toContain("- bash:");
+			expect(prompt).toContain(process.platform === "win32" ? "- shell:" : "- bash:");
 			expect(prompt).toContain("- edit:");
 			expect(prompt).toContain("- write:");
 		});

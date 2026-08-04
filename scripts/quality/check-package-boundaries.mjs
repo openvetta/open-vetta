@@ -924,6 +924,22 @@ function checkRetiredCodingAgentKnowledgeSurface(posixPath, specifiers, findings
 	}
 }
 
+const RETIRED_CODING_AGENT_MODEL_CONTEXT_FILES = new Set([
+	"packages/coding-agent/src/core/messages.ts",
+	"packages/coding-agent/src/core/subconscious.ts",
+	"packages/coding-agent/src/core/system-prompt.ts",
+]);
+
+function checkRetiredCodingAgentModelContextSurface(posixPath, specifiers, findings) {
+	if (RETIRED_CODING_AGENT_MODEL_CONTEXT_FILES.has(posixPath)) {
+		findings.push(`${posixPath}: retired Coding Agent model-context implementation must stay deleted`);
+	}
+	for (const specifier of specifiers) {
+		if (!/core\/(?:messages|subconscious|system-prompt)(?:\.js)?$/.test(specifier)) continue;
+		findings.push(`${posixPath}: retired Coding Agent model-context import (${specifier})`);
+	}
+}
+
 function checkCodingAgentLegacyBoundaries(posixPath, text, specifiers, findings) {
 	const isProductionSource = posixPath.includes("/src/") && !/\.(?:test|spec)\.[cm]?[jt]sx?$/.test(posixPath);
 	if (!isProductionSource) return;
@@ -1063,6 +1079,7 @@ export function findPackageBoundaryViolations(posixPath, text, options = {}) {
 	checkCodingAgentRootImports(posixPath, specifiers, findings);
 	checkCodingAgentToolPublicSurfaceBoundary(posixPath, text, findings);
 	checkRetiredCodingAgentKnowledgeSurface(posixPath, specifiers, findings);
+	checkRetiredCodingAgentModelContextSurface(posixPath, specifiers, findings);
 	checkCodingAgentLegacyBoundaries(posixPath, text, specifiers, findings);
 	checkWorkspaceManifestImports(posixPath, specifiers, options.manifest, findings);
 	checkRuntimeCoreImports(posixPath, specifiers, findings);
@@ -1071,8 +1088,18 @@ export function findPackageBoundaryViolations(posixPath, text, options = {}) {
 }
 
 export function findPackageManifestBoundaryViolations(manifest) {
-	if (manifest?.name !== "@vetta/coding-agent" || !Object.hasOwn(manifest.exports ?? {}, "./knowledge")) return [];
-	return ["packages/coding-agent/package.json: retired ./knowledge export must stay deleted"];
+	if (manifest?.name !== "@vetta/coding-agent") return [];
+	const exports = manifest.exports ?? {};
+	const findings = [];
+	if (Object.hasOwn(exports, "./knowledge")) {
+		findings.push("packages/coding-agent/package.json: retired ./knowledge export must stay deleted");
+	}
+	for (const key of ["./core/messages.js", "./core/subconscious.js", "./core/system-prompt.js"]) {
+		if (Object.hasOwn(exports, key)) {
+			findings.push(`packages/coding-agent/package.json: retired ${key} export must stay deleted`);
+		}
+	}
+	return findings;
 }
 
 const roots = [

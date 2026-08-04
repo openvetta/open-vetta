@@ -12,6 +12,7 @@ import {
 	ModelRegistry as HostModelRegistry,
 	SettingsManager as HostSettingsManager,
 } from "../src/public-api/host-services.js";
+import { VETTA_CLI_GUIDANCE } from "../src/public-api/product-prompt.js";
 import { ALL_SCENARIOS, PERSONAS } from "../src/public-api/profile.js";
 import {
 	GREENFIELD_FULL_RPC_PROFILE,
@@ -39,6 +40,7 @@ describe("coding-agent public subpaths", () => {
 		expect(runCodingAgentCliControl).toBeTypeOf("function");
 		expect(createCodingAgentSession).toBeTypeOf("function");
 		expect(createCodingAgentSession).not.toBe(root.createAgentSession);
+		expect(VETTA_CLI_GUIDANCE).toContain("vetta action search");
 	});
 
 	it("publishes the explicit package export targets", () => {
@@ -72,6 +74,10 @@ describe("coding-agent public subpaths", () => {
 			"./profile": {
 				types: "./dist/public-api/profile.d.ts",
 				import: "./dist/public-api/profile.js",
+			},
+			"./product-prompt": {
+				types: "./dist/public-api/product-prompt.d.ts",
+				import: "./dist/public-api/product-prompt.js",
 			},
 			"./resources": {
 				types: "./dist/core/resource-loader.d.ts",

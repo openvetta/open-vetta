@@ -4,7 +4,7 @@ import type {
 	AgentPluginContinuationResult,
 	AgentPluginHandlerResult,
 	AgentPluginRuntimeEffect,
-} from "../../core/system-prompt.js";
+} from "../../model-context/index.js";
 
 const PromptBlockSourceSchema = Type.Object(
 	{

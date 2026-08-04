@@ -12,7 +12,7 @@ import {
 	COMPACTION_SUMMARY_SUFFIX,
 	convertToLlm,
 	PROMPT_RESOURCE_REFERENCE_TYPE,
-} from "../../src/core/messages.js";
+} from "../../src/model-context/index.js";
 
 describe("Coding Agent Legacy session import normalizer", () => {
 	it("preserves official extended AgentMessage identities and their exact model projection", () => {

@@ -9,7 +9,11 @@
  */
 
 import type { AgentMessage } from "@vetta/agent-core";
-import { createBranchSummaryMessage, createCompactionSummaryMessage, createCustomMessage } from "../messages.js";
+import {
+	createBranchSummaryMessage,
+	createCompactionSummaryMessage,
+	createCustomMessage,
+} from "../../model-context/index.js";
 import type { CompactionEntry, SessionContext, SessionEntry } from "./session-model.js";
 
 export interface SessionContextProjectionItem {

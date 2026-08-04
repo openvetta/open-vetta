@@ -45,6 +45,10 @@
 			"types": "./dist/public-api/profile.d.ts",
 			"import": "./dist/public-api/profile.js"
 		},
+		"./product-prompt": {
+			"types": "./dist/public-api/product-prompt.d.ts",
+			"import": "./dist/public-api/product-prompt.js"
+		},
 		"./resources": {
 			"types": "./dist/core/resource-loader.d.ts",
 			"import": "./dist/core/resource-loader.js"

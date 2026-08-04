@@ -1,10 +1,10 @@
 import { describe, expect, test } from "vitest";
-import { buildSystemPrompt } from "../src/core/system-prompt.js";
 import {
 	createToolSearchTool,
 	scoreDeferredTools,
 	type ToolSearchResult,
 } from "../src/core/tools/tool-search/index.js";
+import { buildSystemPrompt } from "../src/model-context/index.js";
 
 const INDEX = [
 	{ name: "mcp_notion_create_page", description: "Create a page in a Notion database or under a parent page" },

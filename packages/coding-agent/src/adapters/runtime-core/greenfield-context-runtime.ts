@@ -45,13 +45,13 @@ import {
 	shouldCompact,
 	shouldPrefire,
 } from "../../core/compaction/index.js";
+import type { CompactionEntry, SessionEntry } from "../../core/session-manager/index.js";
 import {
 	COMPACTION_SUMMARY_PREFIX,
 	COMPACTION_SUMMARY_SUFFIX,
 	convertToLlm,
 	createCustomMessage,
-} from "../../core/messages.js";
-import type { CompactionEntry, SessionEntry } from "../../core/session-manager/index.js";
+} from "../../model-context/index.js";
 import type { CodingAgentCompactionExtensionRuntime } from "./greenfield-compaction-extension-runtime.js";
 import type { CodingAgentMemoryCompactionPolicy } from "./greenfield-memory-rollover-orchestrator.js";
 import { restoreCodingAgentLegacyAgentMessageEntry } from "./legacy-session-import-normalizer.js";

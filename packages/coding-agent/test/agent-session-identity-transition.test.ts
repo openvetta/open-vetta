@@ -18,8 +18,8 @@ import type {
 	SubagentParentContext,
 	SubagentSessionFactory,
 } from "../src/core/subagents/types.js";
-import type { AgentPluginRuntimeConfig } from "../src/core/system-prompt.js";
 import { TODO_SNAPSHOT_TYPE } from "../src/core/todo-store.js";
+import type { AgentPluginRuntimeConfig } from "../src/model-context/index.js";
 import { assistantMsg, createTestResourceLoader, userMsg } from "./utilities.js";
 
 interface HeldChild {
