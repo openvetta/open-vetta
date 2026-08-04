@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/banner.png" alt="Open Vetta">
+  <img src="docs/assets/banner.webp" alt="Open Vetta">
 </p>
 
 <h1 align="center">Open Vetta</h1>
@@ -18,7 +18,8 @@
 <p align="center">
   <a href="README.md">English</a> ·
   <b>简体中文</b> ·
-  <a href="https://www.openvetta.com">官网</a>
+  <a href="https://www.openvetta.com">官网</a> ·
+  <a href="https://www.openvetta.com/download">下载</a>
 </p>
 
 ---
