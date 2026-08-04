@@ -6,7 +6,7 @@ export {
 	type HookConfigLayer,
 	type HookDispatchOutcome,
 } from "@vetta/ecosystem-adapter";
-export type { ExtensionCommandContextActions } from "../../core/extensions/index.js";
+export type { ExtensionCommandContextActions } from "../../extensions/index.js";
 export {
 	type CodingAgentMcpRuntimeToolSourceOptions,
 	createCodingAgentMcpRuntimeToolSource,

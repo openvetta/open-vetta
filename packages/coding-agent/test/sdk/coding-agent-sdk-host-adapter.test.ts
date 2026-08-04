@@ -5,13 +5,13 @@ import { Type } from "@sinclair/typebox";
 import type { Api, AssistantMessage, Model, UserMessage } from "@vetta/ai";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AuthStorage } from "../../src/core/auth-storage.js";
-import type { ToolDefinition } from "../../src/core/extensions/types.js";
 import { ModelRegistry } from "../../src/core/model-registry.js";
 import type { CreateAgentSessionOptions } from "../../src/core/sdk.js";
 import { SessionManager } from "../../src/core/session-manager/index.js";
 import { SettingsManager } from "../../src/core/settings-manager.js";
 import { createEmptySubagentTypeRegistry } from "../../src/core/subagents/index.js";
 import { readTool } from "../../src/core/tools/index.js";
+import type { ToolDefinition } from "../../src/extensions/index.js";
 import { createGreenfieldAgentSession } from "../../src/host/coding-agent-sdk-host-adapter.js";
 import type { CodingAgentSession } from "../../src/public-api/sdk/index.js";
 

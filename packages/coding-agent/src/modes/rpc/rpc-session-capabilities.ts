@@ -2,12 +2,8 @@ import type { AgentMessage, ThinkingLevel } from "@vetta/agent-core";
 import type { Api, ImageContent, Model } from "@vetta/ai";
 import type { CompactionResult } from "../../compaction/index.js";
 import type { BashResult } from "../../core/bash-executor.js";
-import type {
-	ExtensionUIContext,
-	ExtensionUIDialogOptions,
-	ExtensionWidgetOptions,
-} from "../../core/extensions/index.js";
 import type { SessionStats } from "../../core/session/session-stats.js";
+import type { ExtensionUIContext, ExtensionUIDialogOptions, ExtensionWidgetOptions } from "../../extensions/index.js";
 import type { RpcCommandType, RpcSessionState, RpcSlashCommand } from "./rpc-types.js";
 
 export type RpcSessionProfileId = "legacy-full" | "greenfield" | "greenfield-im";

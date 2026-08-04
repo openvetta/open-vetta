@@ -1,6 +1,6 @@
-import type { ExtensionCommandContextActions } from "../../core/extensions/index.js";
 import type { ExtensionRunner } from "../../core/extensions/runner.js";
 import type { SlashCommandInfo } from "../../core/slash-commands.js";
+import type { ExtensionCommandContextActions } from "../../extensions/index.js";
 
 export interface CodingAgentGreenfieldExtensionCommandHostOptions {
 	readonly runner: ExtensionRunner;

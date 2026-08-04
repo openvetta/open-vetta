@@ -1,7 +1,7 @@
 import { Type } from "@sinclair/typebox";
 import type { AgentToolUpdateCallback } from "@vetta/agent-core";
 import { describe, expect, it, vi } from "vitest";
-import type { ExtensionContext, ToolDefinition } from "../../src/core/extensions/types.js";
+import type { ExtensionContext, ToolDefinition } from "../../src/extensions/index.js";
 import {
 	adaptCodingAgentSdkCustomTools,
 	adaptPublicCodingAgentSdkCustomTools,

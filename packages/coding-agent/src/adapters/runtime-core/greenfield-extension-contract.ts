@@ -1,10 +1,11 @@
 import type { ExtensionRunner } from "../../core/extensions/runner.js";
-import type { Extension, RegisteredTool } from "../../core/extensions/types.js";
+import type { Extension, RegisteredTool } from "../../extensions/index.js";
 
 /** Greenfield 事件桥与 Tool Runtime 实际需要的 Extension Runner 结构。 */
 export type CodingAgentGreenfieldExtensionRunnerPort = Pick<
 	ExtensionRunner,
 	| "createContext"
+	| "emit"
 	| "emitBeforeAgentStart"
 	| "emitContext"
 	| "emitInput"

@@ -1,4 +1,4 @@
-import type { ExtensionEvent } from "../core/extensions/types.js";
+import type { ExtensionEvent } from "../extensions/index.js";
 
 export type CodingAgentLegacyExtensionRuntimeCapability =
 	| "opaque-runtime-api"

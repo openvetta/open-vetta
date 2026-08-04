@@ -13,6 +13,10 @@ import { fail, isDirectRun, ok, readText, rel, repoRoot, toPosix, walkFiles } fr
 export const REWRITE_BASELINE_PATH = "scripts/quality/baselines/coding-agent-rewrite.json";
 
 const OLD_CORE_PREFIX = "packages/coding-agent/src/core/";
+const STABLE_EXTENSION_CONTRACT_PREFIX = "packages/coding-agent/src/extensions/";
+const STABLE_EXTENSION_CONTRACT_AGGREGATE = `${STABLE_EXTENSION_CONTRACT_PREFIX}contracts.ts`;
+const MAX_EXTENSION_AGGREGATE_LINES = 50;
+const MAX_EXTENSION_MODULE_LINES = 300;
 const RUNTIME_PACKAGE_PREFIXES = Object.freeze([
 	"packages/runtime-core/src/",
 	"packages/runtime-tools/src/",
@@ -54,6 +58,18 @@ export function collectCodingAgentRewriteState({ productionFiles, sdkExampleFile
 		)
 		.map(toBaselineEdge)
 		.sort(compareRecords);
+	const oversizedStableExtensionModules = productionFiles
+		.filter((file) => file.path.startsWith(STABLE_EXTENSION_CONTRACT_PREFIX) && file.path.endsWith(".ts"))
+		.map((file) => ({
+			path: file.path,
+			lines: file.text.split(/\r?\n/).length,
+			limit:
+				file.path === STABLE_EXTENSION_CONTRACT_AGGREGATE
+					? MAX_EXTENSION_AGGREGATE_LINES
+					: MAX_EXTENSION_MODULE_LINES,
+		}))
+		.filter((file) => file.lines > file.limit)
+		.sort((left, right) => left.path.localeCompare(right.path));
 
 	return Object.freeze({
 		version: 1,
@@ -62,11 +78,20 @@ export function collectCodingAgentRewriteState({ productionFiles, sdkExampleFile
 		oldImplementationFiles,
 		compatibilityExports,
 		legacyExampleImports,
+		oversizedStableExtensionModules,
 	});
 }
 
 export function findCodingAgentRewriteProgressViolations(actual, baseline) {
 	const violations = [];
+	for (const edge of actual.oldImplementationEdges) {
+		if (edge.path.startsWith(STABLE_EXTENSION_CONTRACT_PREFIX)) {
+			violations.push(`${edge.path}: stable Extension contract depends on old implementation (${edge.specifier})`);
+		}
+	}
+	for (const file of actual.oversizedStableExtensionModules) {
+		violations.push(`${file.path}: stable Extension module has ${file.lines} lines (limit ${file.limit})`);
+	}
 	if (baseline.version !== actual.version) {
 		violations.push(`rewrite baseline version differs (${baseline.version} !== ${actual.version})`);
 	}

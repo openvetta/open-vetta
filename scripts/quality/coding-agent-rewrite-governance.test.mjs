@@ -44,6 +44,41 @@ describe("Coding Agent rewrite progress gate", () => {
 		]);
 	});
 
+	it("rejects old implementation dependencies from the stable Extension contract domain even if baselined", () => {
+		const actual = stateFrom([
+			{
+				path: "packages/coding-agent/src/extensions/contracts.ts",
+				text: 'import type { SessionManager } from "../core/session-manager/index.js";',
+			},
+		]);
+
+		expect(findCodingAgentRewriteProgressViolations(actual, actual)).toEqual([
+			"packages/coding-agent/src/extensions/contracts.ts: stable Extension contract depends on old implementation (../core/session-manager/index.js)",
+		]);
+	});
+
+	it("keeps the stable Extension aggregate thin and responsibility modules bounded", () => {
+		const aggregate = stateFrom([
+			{
+				path: "packages/coding-agent/src/extensions/contracts.ts",
+				text: Array.from({ length: 51 }, () => "export {};").join("\n"),
+			},
+		]);
+		const module = stateFrom([
+			{
+				path: "packages/coding-agent/src/extensions/api-contracts.ts",
+				text: Array.from({ length: 301 }, () => "export {};").join("\n"),
+			},
+		]);
+
+		expect(findCodingAgentRewriteProgressViolations(aggregate, aggregate)).toEqual([
+			"packages/coding-agent/src/extensions/contracts.ts: stable Extension module has 51 lines (limit 50)",
+		]);
+		expect(findCodingAgentRewriteProgressViolations(module, module)).toEqual([
+			"packages/coding-agent/src/extensions/api-contracts.ts: stable Extension module has 301 lines (limit 300)",
+		]);
+	});
+
 	it("rejects new edges, accepts an exact baseline and reports stale entries after removal", () => {
 		const baseline = stateFrom([
 			{

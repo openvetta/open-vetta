@@ -3,7 +3,7 @@ import type { ModelCallFrameCompositionContext, RuntimeToolDefinition } from "@v
 import { describe, expect, it } from "vitest";
 import { CodingAgentGreenfieldExtensionToolRuntime } from "../../src/adapters/runtime-core/greenfield-extension-tool-runtime.js";
 import type { ExtensionRunner } from "../../src/core/extensions/runner.js";
-import type { Extension, ExtensionContext, RegisteredTool, ToolDefinition } from "../../src/core/extensions/types.js";
+import type { Extension, ExtensionContext, RegisteredTool, ToolDefinition } from "../../src/extensions/index.js";
 
 const echoParameters = Type.Object({ value: Type.String() });
 

@@ -10,7 +10,7 @@ import type {
 	PromptResourceRef,
 } from "@vetta/runtime-core";
 import type { SessionContextRecord } from "@vetta/runtime-core/kernel";
-import type { InputSource } from "../../core/extensions/types.js";
+import type { InputSource } from "../../extensions/index.js";
 import {
 	PROMPT_ATTACHMENT_CONTEXT_TYPE,
 	PROMPT_ATTACHMENT_REFERENCE_TYPE,

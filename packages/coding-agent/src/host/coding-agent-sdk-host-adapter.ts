@@ -30,7 +30,6 @@ import { AuthStorage } from "../core/auth-storage.js";
 import { DEFAULT_THINKING_LEVEL } from "../core/defaults.js";
 import { exportConversationDocumentToHtml, type ToolHtmlRenderer } from "../core/export-html/index.js";
 import { createToolHtmlRenderer } from "../core/export-html/tool-renderer.js";
-import type { ExtensionContext, LoadExtensionsResult, ToolDefinition } from "../core/extensions/index.js";
 import { DEFAULT_MEMORY_CHAR_LIMIT } from "../core/memory/memory-store.js";
 import { ModelRegistry } from "../core/model-registry.js";
 import { findInitialModel } from "../core/model-resolver.js";
@@ -38,6 +37,7 @@ import { DefaultResourceLoader } from "../core/resource-loader.js";
 import type { CreateAgentSessionOptions } from "../core/sdk.js";
 import { SettingsManager } from "../core/settings-manager.js";
 import { time } from "../core/timings.js";
+import type { ExtensionContext, LoadExtensionsResult, ToolDefinition } from "../extensions/index.js";
 import { theme } from "../modes/interactive/theme/theme.js";
 import {
 	CODING_AGENT_SESSION_CREATE_ERROR_CODES,

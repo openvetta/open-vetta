@@ -2,7 +2,7 @@ import type {
 	CodingAgentGreenfieldNewSessionOptions,
 	CodingAgentGreenfieldSessionSeedInitializer,
 } from "../../composition/greenfield-active-session-transition-host.js";
-import type { ExtensionCommandContextActions } from "../../core/extensions/index.js";
+import type { ExtensionCommandContextActions } from "../../extensions/index.js";
 import type { CodingAgentGreenfieldBranchNavigationOptions } from "./greenfield-branch-navigation-host.js";
 
 type ExtensionNewSessionOptions = NonNullable<Parameters<ExtensionCommandContextActions["newSession"]>[0]>;

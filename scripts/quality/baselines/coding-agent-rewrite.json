@@ -33,17 +33,6 @@
 		},
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-branch-navigation-host.ts",
-			"specifier": "../../core/extensions/index.js",
-			"names": [
-				"ExtensionRunner",
-				"SessionBeforeTreeResult",
-				"TreePreparation"
-			],
-			"category": "old-core",
-			"domain": "extensions"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-branch-navigation-host.ts",
 			"specifier": "../../core/session-manager/index.js",
 			"names": [
 				"BranchSummaryEntry"
@@ -59,16 +48,6 @@
 			],
 			"category": "old-core",
 			"domain": "settings-manager"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-compaction-extension-runtime.ts",
-			"specifier": "../../core/extensions/index.js",
-			"names": [
-				"ExtensionRunner",
-				"SessionBeforeCompactResult"
-			],
-			"category": "old-core",
-			"domain": "extensions"
 		},
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-compaction-extension-runtime.ts",
@@ -92,29 +71,6 @@
 		},
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-action-host.ts",
-			"specifier": "../../core/extensions/execution-host.js",
-			"names": [
-				"bindExtensionRuntimeActions"
-			],
-			"category": "old-core",
-			"domain": "extensions"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-action-host.ts",
-			"specifier": "../../core/extensions/types.js",
-			"names": [
-				"ExtensionActions",
-				"ExtensionError",
-				"ExtensionRuntime",
-				"ModelSelectEvent",
-				"SetModelHandler",
-				"ToolInfo"
-			],
-			"category": "old-core",
-			"domain": "extensions"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-action-host.ts",
 			"specifier": "../../core/resource-loader.js",
 			"names": [
 				"ResourceLoader"
@@ -131,24 +87,6 @@
 			],
 			"category": "old-core",
 			"domain": "slash-commands"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-command-actions-adapter.ts",
-			"specifier": "../../core/extensions/index.js",
-			"names": [
-				"ExtensionCommandContextActions"
-			],
-			"category": "old-core",
-			"domain": "extensions"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-command-host.ts",
-			"specifier": "../../core/extensions/index.js",
-			"names": [
-				"ExtensionCommandContextActions"
-			],
-			"category": "old-core",
-			"domain": "extensions"
 		},
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-command-host.ts",
@@ -178,51 +116,10 @@
 			"domain": "extensions"
 		},
 		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-contract.ts",
-			"specifier": "../../core/extensions/types.js",
-			"names": [
-				"Extension",
-				"RegisteredTool"
-			],
-			"category": "old-core",
-			"domain": "extensions"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-event-bridge.ts",
-			"specifier": "../../core/extensions/types.js",
-			"names": [
-				"InputEventResult",
-				"InputSource"
-			],
-			"category": "old-core",
-			"domain": "extensions"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-event-host.ts",
-			"specifier": "../../core/extensions/execution-host.js",
-			"names": [
-				"ExtensionExecutionHost"
-			],
-			"category": "old-core",
-			"domain": "extensions"
-		},
-		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-event-host.ts",
 			"specifier": "../../core/extensions/runner.js",
 			"names": [
 				"ExtensionRunner"
-			],
-			"category": "old-core",
-			"domain": "extensions"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-event-host.ts",
-			"specifier": "../../core/extensions/types.js",
-			"names": [
-				"Extension",
-				"ExtensionError",
-				"ExtensionRuntime",
-				"ExtensionUIContext"
 			],
 			"category": "old-core",
 			"domain": "extensions"
@@ -247,47 +144,10 @@
 			"domain": "resource-loader"
 		},
 		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-observation-adapter.ts",
-			"specifier": "../../core/extensions/types.js",
-			"names": [
-				"AgentEndEvent",
-				"AgentStartEvent",
-				"MessageEndEvent",
-				"MessageStartEvent",
-				"MessageUpdateEvent",
-				"ToolExecutionEndEvent",
-				"ToolExecutionPhaseEvent",
-				"ToolExecutionStartEvent",
-				"ToolExecutionUpdateEvent",
-				"TurnEndEvent",
-				"TurnStartEvent"
-			],
-			"category": "old-core",
-			"domain": "extensions"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-tool-runtime.ts",
-			"specifier": "../../core/extensions/types.js",
-			"names": [
-				"RegisteredTool"
-			],
-			"category": "old-core",
-			"domain": "extensions"
-		},
-		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-tool-wrapper.ts",
 			"specifier": "../../core/extensions/runner.js",
 			"names": [
 				"ExtensionRunner"
-			],
-			"category": "old-core",
-			"domain": "extensions"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-tool-wrapper.ts",
-			"specifier": "../../core/extensions/types.js",
-			"names": [
-				"ToolCallEventResult"
 			],
 			"category": "old-core",
 			"domain": "extensions"
@@ -398,15 +258,6 @@
 			],
 			"category": "old-core",
 			"domain": "session"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-prompt-adapter.ts",
-			"specifier": "../../core/extensions/types.js",
-			"names": [
-				"InputSource"
-			],
-			"category": "old-core",
-			"domain": "extensions"
 		},
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-prompt-resource-resolver.ts",
@@ -594,15 +445,6 @@
 			"domain": "session"
 		},
 		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield.ts",
-			"specifier": "../../core/extensions/index.js",
-			"names": [
-				"ExtensionCommandContextActions"
-			],
-			"category": "old-core",
-			"domain": "extensions"
-		},
-		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/history.ts",
 			"specifier": "../../core/session-manager/index.js",
 			"names": [
@@ -757,15 +599,6 @@
 			"domain": "settings-manager"
 		},
 		{
-			"path": "packages/coding-agent/src/host/coding-agent-extension-compatibility.ts",
-			"specifier": "../core/extensions/types.js",
-			"names": [
-				"ExtensionEvent"
-			],
-			"category": "old-core",
-			"domain": "extensions"
-		},
-		{
 			"path": "packages/coding-agent/src/host/coding-agent-host-bootstrap.ts",
 			"specifier": "../core/auth-storage.js",
 			"names": [
@@ -782,15 +615,6 @@
 			],
 			"category": "old-core",
 			"domain": "defaults"
-		},
-		{
-			"path": "packages/coding-agent/src/host/coding-agent-host-bootstrap.ts",
-			"specifier": "../core/extensions/index.js",
-			"names": [
-				"LoadExtensionsResult"
-			],
-			"category": "old-core",
-			"domain": "extensions"
 		},
 		{
 			"path": "packages/coding-agent/src/host/coding-agent-host-bootstrap.ts",
@@ -888,17 +712,6 @@
 			],
 			"category": "old-core",
 			"domain": "export-html"
-		},
-		{
-			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
-			"specifier": "../core/extensions/index.js",
-			"names": [
-				"ExtensionContext",
-				"LoadExtensionsResult",
-				"ToolDefinition"
-			],
-			"category": "old-core",
-			"domain": "extensions"
 		},
 		{
 			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
@@ -1112,92 +925,10 @@
 			"path": "packages/coding-agent/src/index.ts",
 			"specifier": "./core/extensions/index.js",
 			"names": [
-				"AgentEndEvent",
-				"AgentStartEvent",
-				"AgentToolResult",
-				"AgentToolUpdateCallback",
-				"AppAction",
-				"BashToolCallEvent",
-				"BeforeAgentStartEvent",
-				"CompactOptions",
-				"ContextEvent",
-				"ContextUsage",
-				"CustomToolCallEvent",
-				"DirTreeToolCallEvent",
-				"EditToolCallEvent",
-				"ExecOptions",
-				"ExecResult",
-				"Extension",
-				"ExtensionAPI",
-				"ExtensionActions",
-				"ExtensionCommandContext",
-				"ExtensionCommandContextActions",
-				"ExtensionContext",
-				"ExtensionContextActions",
-				"ExtensionError",
-				"ExtensionEvent",
-				"ExtensionExecutionHost",
-				"ExtensionFactory",
-				"ExtensionFlag",
-				"ExtensionHandler",
-				"ExtensionRuntime",
-				"ExtensionShortcut",
-				"ExtensionUIContext",
-				"ExtensionUIDialogOptions",
-				"ExtensionWidgetOptions",
-				"FindToolCallEvent",
-				"FindToolResultEvent",
-				"GlobToolCallEvent",
-				"GlobToolResultEvent",
-				"GrepToolCallEvent",
-				"GrepToolResultEvent",
-				"InputEvent",
-				"InputEventResult",
-				"InputSource",
-				"KeybindingsManager",
-				"LoadExtensionsResult",
-				"LsToolCallEvent",
-				"MessageRenderOptions",
-				"MessageRenderer",
-				"ProviderConfig",
-				"ProviderModelConfig",
-				"ReadToolCallEvent",
-				"RegisteredCommand",
-				"RegisteredTool",
-				"SessionBeforeCompactEvent",
-				"SessionBeforeForkEvent",
-				"SessionBeforeSwitchEvent",
-				"SessionBeforeTreeEvent",
-				"SessionCompactEvent",
-				"SessionForkEvent",
-				"SessionShutdownEvent",
-				"SessionStartEvent",
-				"SessionSwitchEvent",
-				"SessionTreeEvent",
+				"ExtensionRunner",
 				"SlashCommandInfo",
 				"SlashCommandLocation",
 				"SlashCommandSource",
-				"TerminalInputHandler",
-				"ToolCallEvent",
-				"ToolDefinition",
-				"ToolInfo",
-				"ToolRenderResultOptions",
-				"ToolResultEvent",
-				"TurnEndEvent",
-				"TurnStartEvent",
-				"UserBashEvent",
-				"UserBashEventResult",
-				"WidgetPlacement",
-				"WriteToolCallEvent"
-			],
-			"category": "old-core",
-			"domain": "extensions"
-		},
-		{
-			"path": "packages/coding-agent/src/index.ts",
-			"specifier": "./core/extensions/index.js",
-			"names": [
-				"ExtensionRunner",
 				"bindExtensionRuntimeActions",
 				"createExtensionRuntime",
 				"discoverAndLoadExtensions",
@@ -1483,17 +1214,6 @@
 		},
 		{
 			"path": "packages/coding-agent/src/modes/rpc/rpc-session-capabilities.ts",
-			"specifier": "../../core/extensions/index.js",
-			"names": [
-				"ExtensionUIContext",
-				"ExtensionUIDialogOptions",
-				"ExtensionWidgetOptions"
-			],
-			"category": "old-core",
-			"domain": "extensions"
-		},
-		{
-			"path": "packages/coding-agent/src/modes/rpc/rpc-session-capabilities.ts",
 			"specifier": "../../core/session/session-stats.js",
 			"names": [
 				"SessionStats"
@@ -1644,12 +1364,9 @@
 		"packages/coding-agent/src/core/export-html/tool-renderer.ts",
 		"packages/coding-agent/src/core/export-html/vendor/highlight.min.js",
 		"packages/coding-agent/src/core/export-html/vendor/marked.min.js",
-		"packages/coding-agent/src/core/extensions/execution-host.ts",
 		"packages/coding-agent/src/core/extensions/index.ts",
 		"packages/coding-agent/src/core/extensions/loader.ts",
 		"packages/coding-agent/src/core/extensions/runner.ts",
-		"packages/coding-agent/src/core/extensions/types.ts",
-		"packages/coding-agent/src/core/extensions/ui-types.ts",
 		"packages/coding-agent/src/core/extensions/wrapper.ts",
 		"packages/coding-agent/src/core/footer-data-provider.ts",
 		"packages/coding-agent/src/core/hooks/index.ts",

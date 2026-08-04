@@ -17,16 +17,10 @@ import * as _bundledTypebox from "@sinclair/typebox";
 import * as _bundledPiAgentCore from "@vetta/agent-core";
 import * as _bundledPiAi from "@vetta/ai";
 import { CONFIG_DIR_NAME, getAgentDir, isBunBinary } from "../../config.js";
-// NOTE: This import works because loader.ts exports are NOT re-exported from index.ts,
-// avoiding a circular dependency. Extensions can import from @vetta/coding-agent.
-import * as _bundledVettaCodingAgent from "../../index.js";
-import { createEventBus, type EventBus } from "../event-bus.js";
-import type { ExecOptions } from "../exec.js";
-import { execCommand } from "../exec.js";
-import type { KeyId } from "../keybindings.js";
 import type {
 	Extension,
 	ExtensionAPI,
+	ExtensionContext,
 	ExtensionFactory,
 	ExtensionRuntime,
 	LoadExtensionsResult,
@@ -34,7 +28,14 @@ import type {
 	ProviderConfig,
 	RegisteredCommand,
 	ToolDefinition,
-} from "./types.js";
+} from "../../extensions/contracts.js";
+// NOTE: This import works because loader.ts exports are NOT re-exported from index.ts,
+// avoiding a circular dependency. Extensions can import from @vetta/coding-agent.
+import * as _bundledVettaCodingAgent from "../../index.js";
+import { createEventBus, type EventBus } from "../event-bus.js";
+import type { ExecOptions } from "../exec.js";
+import { execCommand } from "../exec.js";
+import type { KeyId } from "../keybindings.js";
 
 /** Modules available to extensions via virtualModules (for compiled Bun binary) */
 const VIRTUAL_MODULES: Record<string, unknown> = {
@@ -169,7 +170,7 @@ function createExtensionAPI(
 			shortcut: KeyId,
 			options: {
 				description?: string;
-				handler: (ctx: import("./types.js").ExtensionContext) => Promise<void> | void;
+				handler: (ctx: ExtensionContext) => Promise<void> | void;
 			},
 		): void {
 			extension.shortcuts.set(shortcut, { shortcut, extensionPath: extension.path, ...options });

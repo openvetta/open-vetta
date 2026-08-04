@@ -5,12 +5,12 @@ import { type Args, parseArgs } from "../cli/args.js";
 import { DEFAULT_SERVER_URL, ENV_SERVER_URL, getAgentDir } from "../config.js";
 import { AuthStorage } from "../core/auth-storage.js";
 import { DEFAULT_THINKING_LEVEL } from "../core/defaults.js";
-import type { LoadExtensionsResult } from "../core/extensions/index.js";
 import { ModelRegistry } from "../core/model-registry.js";
 import { findInitialModel, resolveCliModel, resolveModelScope, type ScopedModel } from "../core/model-resolver.js";
 import { DefaultResourceLoader } from "../core/resource-loader.js";
 import { type SettingsError, SettingsManager } from "../core/settings-manager.js";
 import { time } from "../core/timings.js";
+import type { LoadExtensionsResult } from "../extensions/index.js";
 import { runMigrations } from "../migrations.js";
 import {
 	assessCodingAgentExtensionCompatibility,

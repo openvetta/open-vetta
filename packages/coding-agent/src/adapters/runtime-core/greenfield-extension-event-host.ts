@@ -1,10 +1,15 @@
 import { basename, dirname } from "node:path";
 import { type GreenfieldRuntimeSession, RetryableCleanup } from "@vetta/runtime-core";
-import type { ExtensionExecutionHost } from "../../core/extensions/execution-host.js";
 import { ExtensionRunner } from "../../core/extensions/runner.js";
-import type { Extension, ExtensionError, ExtensionRuntime, ExtensionUIContext } from "../../core/extensions/types.js";
 import type { ModelRegistry } from "../../core/model-registry.js";
 import type { ResourceExtensionPaths, ResourceLoader } from "../../core/resource-loader.js";
+import type {
+	Extension,
+	ExtensionError,
+	ExtensionExecutionHost,
+	ExtensionRuntime,
+	ExtensionUIContext,
+} from "../../extensions/index.js";
 import { CodingAgentGreenfieldExtensionActionHost } from "./greenfield-extension-action-host.js";
 import { CodingAgentGreenfieldExtensionObservationAdapter } from "./greenfield-extension-observation-adapter.js";
 import { createGreenfieldReadonlySessionManager } from "./greenfield-readonly-session-manager.js";

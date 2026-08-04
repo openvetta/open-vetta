@@ -2,26 +2,6 @@
  * Extension system for lifecycle events and custom tools.
  */
 
-export type { SlashCommandInfo, SlashCommandLocation, SlashCommandSource } from "../slash-commands.js";
-export {
-	bindExtensionRuntimeActions,
-	type ExtensionExecutionHost,
-} from "./execution-host.js";
-export {
-	createExtensionRuntime,
-	discoverAndLoadExtensions,
-	loadExtensionFromFactory,
-	loadExtensions,
-} from "./loader.js";
-export type {
-	ExtensionErrorListener,
-	ForkHandler,
-	NavigateTreeHandler,
-	NewSessionHandler,
-	ShutdownHandler,
-	SwitchSessionHandler,
-} from "./runner.js";
-export { ExtensionRunner } from "./runner.js";
 export type {
 	AgentEndEvent,
 	AgentStartEvent,
@@ -159,7 +139,7 @@ export type {
 	WidgetPlacement,
 	WriteToolCallEvent,
 	WriteToolResultEvent,
-} from "./types.js";
+} from "../../extensions/contracts.js";
 // Type guards
 export {
 	isBashToolResult,
@@ -172,7 +152,27 @@ export {
 	isReadToolResult,
 	isToolCallEventType,
 	isWriteToolResult,
-} from "./types.js";
+} from "../../extensions/contracts.js";
+export {
+	bindExtensionRuntimeActions,
+	type ExtensionExecutionHost,
+} from "../../extensions/runtime-bindings.js";
+export type { SlashCommandInfo, SlashCommandLocation, SlashCommandSource } from "../slash-commands.js";
+export {
+	createExtensionRuntime,
+	discoverAndLoadExtensions,
+	loadExtensionFromFactory,
+	loadExtensions,
+} from "./loader.js";
+export type {
+	ExtensionErrorListener,
+	ForkHandler,
+	NavigateTreeHandler,
+	NewSessionHandler,
+	ShutdownHandler,
+	SwitchSessionHandler,
+} from "./runner.js";
+export { ExtensionRunner } from "./runner.js";
 export {
 	wrapRegisteredTool,
 	wrapRegisteredTools,

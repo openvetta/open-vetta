@@ -9,7 +9,7 @@ import {
 	type CodingToolActivation,
 	selectCodingToolRegistrations,
 } from "@vetta/runtime-tools/coding";
-import type { RegisteredTool } from "../../core/extensions/types.js";
+import type { RegisteredTool } from "../../extensions/index.js";
 import type {
 	CodingAgentGreenfieldExtensionRunnerPort,
 	CodingAgentGreenfieldExtensionToolSource,

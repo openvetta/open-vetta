@@ -4,12 +4,6 @@
 
 import type { AgentMessage } from "@vetta/agent-core";
 import type { ImageContent, Model } from "@vetta/ai";
-import { type Theme, theme } from "../../modes/interactive/theme/theme.js";
-import type { ResourceDiagnostic } from "../diagnostics.js";
-import type { KeyAction, KeybindingsConfig, KeyId } from "../keybindings.js";
-import type { ModelRegistry } from "../model-registry.js";
-import type { ReadonlySessionManager, SessionManager } from "../session-manager/index.js";
-import { bindExtensionRuntimeActions, type ExtensionExecutionHost } from "./execution-host.js";
 import type {
 	BeforeAgentStartEvent,
 	BeforeAgentStartEventResult,
@@ -49,7 +43,13 @@ import type {
 	ToolResultEventResult,
 	UserBashEvent,
 	UserBashEventResult,
-} from "./types.js";
+} from "../../extensions/contracts.js";
+import { bindExtensionRuntimeActions, type ExtensionExecutionHost } from "../../extensions/runtime-bindings.js";
+import { type Theme, theme } from "../../modes/interactive/theme/theme.js";
+import type { ResourceDiagnostic } from "../diagnostics.js";
+import type { KeyAction, KeybindingsConfig, KeyId } from "../keybindings.js";
+import type { ModelRegistry } from "../model-registry.js";
+import type { ReadonlySessionManager } from "../session-manager/index.js";
 
 // Keybindings for these actions cannot be overridden by extensions
 const RESERVED_ACTIONS_FOR_EXTENSION_CONFLICTS: ReadonlyArray<KeyAction> = [
@@ -135,10 +135,7 @@ type RunnerEmitResult<TEvent extends RunnerEmitEvent> = TEvent extends { type: "
 
 export type ExtensionErrorListener = (error: ExtensionError) => void;
 
-export type NewSessionHandler = (options?: {
-	parentSession?: string;
-	setup?: (sessionManager: SessionManager) => Promise<void>;
-}) => Promise<{ cancelled: boolean }>;
+export type NewSessionHandler = ExtensionCommandContextActions["newSession"];
 
 export type ForkHandler = (entryId: string) => Promise<{ cancelled: boolean }>;
 

@@ -5,8 +5,8 @@ import {
 	ImSendAttachmentToolInputSchema,
 } from "@vetta/runtime-tools/coding";
 import type { AgentSession } from "../../core/agent-session.js";
-import type { AgentToolResult, ToolDefinition } from "../../core/extensions/types.js";
 import { createMemoryTool } from "../../core/tools/memory/index.js";
+import type { AgentToolResult, ToolDefinition } from "../../extensions/index.js";
 import type {
 	ImHostBridge,
 	RpcBashCapability,

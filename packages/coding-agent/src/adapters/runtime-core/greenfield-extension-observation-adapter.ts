@@ -12,7 +12,7 @@ import type {
 	ToolExecutionUpdateEvent,
 	TurnEndEvent,
 	TurnStartEvent,
-} from "../../core/extensions/types.js";
+} from "../../extensions/index.js";
 import type { CustomMessage } from "../../model-context/index.js";
 
 export type CodingAgentGreenfieldObservedExtensionEvent =

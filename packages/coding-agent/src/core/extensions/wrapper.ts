@@ -3,8 +3,8 @@
  */
 
 import type { AgentTool, AgentToolUpdateCallback } from "@vetta/agent-core";
+import type { RegisteredTool, ToolCallEventResult } from "../../extensions/contracts.js";
 import type { ExtensionRunner } from "./runner.js";
-import type { RegisteredTool, ToolCallEventResult } from "./types.js";
 
 /**
  * Wrap a RegisteredTool into an AgentTool.

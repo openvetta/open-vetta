@@ -1,6 +1,7 @@
 import type { CompactionPreparation, CompactionResult } from "../../compaction/index.js";
-import type { ExtensionRunner, SessionBeforeCompactResult } from "../../core/extensions/index.js";
 import type { CompactionEntry, SessionEntry } from "../../core/session-manager/index.js";
+import type { SessionBeforeCompactResult } from "../../extensions/index.js";
+import type { CodingAgentGreenfieldExtensionRunnerPort } from "./greenfield-extension-contract.js";
 
 export interface CodingAgentCompactionExtensionInput {
 	readonly preparation: CompactionPreparation;
@@ -27,7 +28,7 @@ export interface CodingAgentCompactionExtensionRuntime {
 	afterCompaction(input: CodingAgentCompactionCommittedInput): Promise<void>;
 }
 
-type CompactionExtensionRunner = Pick<ExtensionRunner, "emit" | "hasHandlers">;
+type CompactionExtensionRunner = Pick<CodingAgentGreenfieldExtensionRunnerPort, "emit" | "hasHandlers">;
 
 export function createCodingAgentCompactionExtensionRuntime(
 	readRunner: () => CompactionExtensionRunner | undefined,

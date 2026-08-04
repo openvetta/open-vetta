@@ -1,4 +1,4 @@
-import type { ExtensionActions, ExtensionContextActions, ExtensionRuntime } from "./types.js";
+import type { ExtensionActions, ExtensionContextActions, ExtensionRuntime } from "./runtime-contracts.js";
 
 /**
  * Extension 命令式 API 的宿主合同。

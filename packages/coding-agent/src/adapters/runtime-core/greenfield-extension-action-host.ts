@@ -1,7 +1,8 @@
 import { type ImageContent, modelsAreEqual, Type } from "@vetta/ai";
 import type { GreenfieldRuntimeSession } from "@vetta/runtime-core";
 import type { RuntimeToolDefinition, SessionContextRecord } from "@vetta/runtime-core/kernel";
-import { bindExtensionRuntimeActions } from "../../core/extensions/execution-host.js";
+import type { ResourceLoader } from "../../core/resource-loader.js";
+import type { SlashCommandInfo, SlashCommandLocation } from "../../core/slash-commands.js";
 import type {
 	ExtensionActions,
 	ExtensionError,
@@ -9,9 +10,8 @@ import type {
 	ModelSelectEvent,
 	SetModelHandler,
 	ToolInfo,
-} from "../../core/extensions/types.js";
-import type { ResourceLoader } from "../../core/resource-loader.js";
-import type { SlashCommandInfo, SlashCommandLocation } from "../../core/slash-commands.js";
+} from "../../extensions/index.js";
+import { bindExtensionRuntimeActions } from "../../extensions/index.js";
 import { CODING_AGENT_EXTENSION_INPUT_SOURCE_METADATA_KEY } from "./greenfield-prompt-adapter.js";
 
 export interface CodingAgentGreenfieldExtensionActionHostOptions {
