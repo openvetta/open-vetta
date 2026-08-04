@@ -10,9 +10,8 @@
  * 无需额外事件监听。缓存仅存内存（会话重载后重新预热）。
  */
 
-import type { SessionEntry } from "../session-manager/index.js";
-import type { CompactionResult, CompactionSettings } from "./compaction.js";
-import { getCompactThreshold } from "./compaction.js";
+import type { CompactionHistoryEntry, CompactionResult, CompactionSettings } from "./contracts.js";
+import { getCompactThreshold } from "./token-policy.js";
 
 /** 阈值前多少个百分点（相对 context window）开始 prefire。 */
 export const PREFIRE_LEAD_PERCENT = 10;
@@ -36,7 +35,10 @@ function fnv1a(text: string): string {
  * 计算「将被摘要的前缀」的指纹。
  * @returns firstKeptEntryId 不在当前分支（或落在上一次 compaction 之前）时返回 undefined。
  */
-export function fingerprintCompactionPrefix(pathEntries: SessionEntry[], firstKeptEntryId: string): string | undefined {
+export function fingerprintCompactionPrefix(
+	pathEntries: readonly CompactionHistoryEntry[],
+	firstKeptEntryId: string,
+): string | undefined {
 	let boundaryStart = 0;
 	for (let i = pathEntries.length - 1; i >= 0; i--) {
 		if (pathEntries[i].type === "compaction") {
@@ -54,7 +56,7 @@ export function fingerprintCompactionPrefix(pathEntries: SessionEntry[], firstKe
 }
 
 /** 校验缓存对当前分支是否仍有效（前缀未变）。 */
-export function isPrefireCacheValid(cache: PrefireCache, pathEntries: SessionEntry[]): boolean {
+export function isPrefireCacheValid(cache: PrefireCache, pathEntries: readonly CompactionHistoryEntry[]): boolean {
 	if (pathEntries.length === 0) return false;
 	// 已经以 compaction 收尾（刚压缩过）→ 缓存必然过期
 	if (pathEntries[pathEntries.length - 1].type === "compaction") return false;

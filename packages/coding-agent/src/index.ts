@@ -1,5 +1,28 @@
 // Core session management
 
+// Compaction
+export {
+	type BranchPreparation,
+	type BranchSummaryResult,
+	type CollectEntriesResult,
+	type CompactionResult,
+	type CutPointResult,
+	calculateContextTokens,
+	collectEntriesForBranchSummary,
+	compact,
+	DEFAULT_COMPACTION_SETTINGS,
+	estimateTokens,
+	type FileOperations,
+	findCutPoint,
+	findTurnStartIndex,
+	type GenerateBranchSummaryOptions,
+	generateBranchSummary,
+	generateSummary,
+	getLastAssistantUsage,
+	prepareBranchEntries,
+	serializeConversation,
+	shouldCompact,
+} from "./compaction/index.js";
 // Config paths
 export { DEFAULT_SERVER_URL, getAgentDir, VERSION } from "./config.js";
 // 工作模式（agent_mode 正交轴，见 ADR-0046）
@@ -42,29 +65,6 @@ export {
 	type BackgroundTaskStatus,
 	buildTaskNotification,
 } from "./core/background-tasks/index.js";
-// Compaction
-export {
-	type BranchPreparation,
-	type BranchSummaryResult,
-	type CollectEntriesResult,
-	type CompactionResult,
-	type CutPointResult,
-	calculateContextTokens,
-	collectEntriesForBranchSummary,
-	compact,
-	DEFAULT_COMPACTION_SETTINGS,
-	estimateTokens,
-	type FileOperations,
-	findCutPoint,
-	findTurnStartIndex,
-	type GenerateBranchSummaryOptions,
-	generateBranchSummary,
-	generateSummary,
-	getLastAssistantUsage,
-	prepareBranchEntries,
-	serializeConversation,
-	shouldCompact,
-} from "./core/compaction/index.js";
 // Concurrency limiter (shared by OCR throttle and KB processing session pool)
 export { createLimiter, type Limiter } from "./core/concurrency-limit.js";
 export { createEventBus, type EventBus, type EventBusController } from "./core/event-bus.js";

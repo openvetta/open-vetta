@@ -8,7 +8,7 @@ import {
 	PREFIRE_LEAD_PERCENT,
 	type PrefireCache,
 	shouldPrefire,
-} from "../src/core/compaction/index.js";
+} from "../src/compaction/index.js";
 import { CompactionController } from "../src/core/session/compaction-controller.js";
 import type { SessionContext } from "../src/core/session/session-context.js";
 import type { SessionEntry } from "../src/core/session-manager/index.js";

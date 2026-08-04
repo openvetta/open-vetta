@@ -1,7 +1,7 @@
 import type { AgentMessage, ThinkingLevel } from "@vetta/agent-core";
 import type { Api, ImageContent, Model } from "@vetta/ai";
+import type { CompactionResult } from "../../compaction/index.js";
 import type { BashResult } from "../../core/bash-executor.js";
-import type { CompactionResult } from "../../core/compaction/index.js";
 import type {
 	ExtensionUIContext,
 	ExtensionUIDialogOptions,

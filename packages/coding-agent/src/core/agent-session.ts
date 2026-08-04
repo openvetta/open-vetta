@@ -16,11 +16,11 @@
 import { join } from "node:path";
 import type { Agent, AgentMessage, AgentState, ThinkingLevel } from "@vetta/agent-core";
 import type { ImageContent, Model, TextContent } from "@vetta/ai";
+import type { CompactionResult } from "../compaction/index.js";
 import type { AgentPluginRuntimeConfig, CustomMessage } from "../model-context/index.js";
 import { theme } from "../modes/interactive/theme/theme.js";
 import { BackgroundTaskManager, buildTaskNotification } from "./background-tasks/index.js";
 import type { BashResult } from "./bash-executor.js";
-import type { CompactionResult } from "./compaction/index.js";
 import { exportSessionToHtml, type ToolHtmlRenderer } from "./export-html/index.js";
 import { createToolHtmlRenderer } from "./export-html/tool-renderer.js";
 import type { ContextUsage, ExtensionRunner, ToolDefinition, ToolInfo } from "./extensions/index.js";

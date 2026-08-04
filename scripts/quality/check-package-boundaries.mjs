@@ -940,6 +940,30 @@ function checkRetiredCodingAgentModelContextSurface(posixPath, specifiers, findi
 	}
 }
 
+function checkCodingAgentCompactionBoundary(posixPath, specifiers, findings) {
+	if (posixPath.startsWith("packages/coding-agent/src/core/compaction/")) {
+		findings.push(`${posixPath}: retired Coding Agent core Compaction implementation must stay deleted`);
+	}
+	for (const specifier of specifiers) {
+		if (specifier.includes("core/compaction")) {
+			findings.push(`${posixPath}: retired Coding Agent core Compaction import (${specifier})`);
+		}
+	}
+
+	if (!posixPath.startsWith("packages/coding-agent/src/compaction/")) return;
+	for (const specifier of specifiers) {
+		const dependsOnSessionImplementation = specifier.includes("/core/") || specifier.includes("/adapters/");
+		const dependsOnRuntimeStorage =
+			specifier === "@vetta/runtime-core" ||
+			specifier.startsWith("@vetta/runtime-core/") ||
+			specifier === "@vetta/runtime-storage" ||
+			specifier.startsWith("@vetta/runtime-storage/");
+		if (dependsOnSessionImplementation || dependsOnRuntimeStorage) {
+			findings.push(`${posixPath}: Compaction domain must depend on neutral history contracts (${specifier})`);
+		}
+	}
+}
+
 function checkCodingAgentLegacyBoundaries(posixPath, text, specifiers, findings) {
 	const isProductionSource = posixPath.includes("/src/") && !/\.(?:test|spec)\.[cm]?[jt]sx?$/.test(posixPath);
 	if (!isProductionSource) return;
@@ -1080,6 +1104,7 @@ export function findPackageBoundaryViolations(posixPath, text, options = {}) {
 	checkCodingAgentToolPublicSurfaceBoundary(posixPath, text, findings);
 	checkRetiredCodingAgentKnowledgeSurface(posixPath, specifiers, findings);
 	checkRetiredCodingAgentModelContextSurface(posixPath, specifiers, findings);
+	checkCodingAgentCompactionBoundary(posixPath, specifiers, findings);
 	checkCodingAgentLegacyBoundaries(posixPath, text, specifiers, findings);
 	checkWorkspaceManifestImports(posixPath, specifiers, options.manifest, findings);
 	checkRuntimeCoreImports(posixPath, specifiers, findings);

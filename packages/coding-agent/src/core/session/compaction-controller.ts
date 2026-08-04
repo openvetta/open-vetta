@@ -25,7 +25,7 @@ import {
 	prepareCompaction,
 	shouldCompact,
 	shouldPrefire,
-} from "../compaction/index.js";
+} from "../../compaction/index.js";
 import type { SessionBeforeCompactResult } from "../extensions/index.js";
 import { flushMemoryBeforeRollover } from "../memory/memory-flush.js";
 import { appendJournalSection } from "../memory/memory-journal.js";

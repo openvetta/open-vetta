@@ -2,6 +2,7 @@
  * Core modules shared between all run modes.
  */
 
+export type { CompactionResult } from "../compaction/index.js";
 export {
 	type AgentMode,
 	ALL_AGENT_MODES,
@@ -19,7 +20,6 @@ export {
 	type SessionStats,
 } from "./agent-session.js";
 export { type BashExecutorOptions, type BashResult, executeBash, executeBashWithOperations } from "./bash-executor.js";
-export type { CompactionResult } from "./compaction/index.js";
 export { createEventBus, type EventBus, type EventBusController } from "./event-bus.js";
 // Extensions system
 export {

@@ -13,7 +13,7 @@ import {
 	getLastAssistantUsage,
 	prepareCompaction,
 	shouldCompact,
-} from "../src/core/compaction/index.js";
+} from "../src/compaction/index.js";
 import {
 	buildSessionContext,
 	type CompactionEntry,

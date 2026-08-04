@@ -24,7 +24,7 @@ const TEST_MODEL: Model<Api> = {
 	maxTokens: 1_000,
 };
 
-vi.mock("../src/core/compaction/index.js", () => ({
+vi.mock("../src/compaction/index.js", () => ({
 	CompactionCircuitBreaker: class {
 		consecutiveFailures = 0;
 		canAttempt = () => true;

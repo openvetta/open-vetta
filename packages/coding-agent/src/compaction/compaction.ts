@@ -6,15 +6,15 @@
  */
 
 import type { AgentMessage } from "@vetta/agent-core";
-import type { AssistantMessage, Model, Usage } from "@vetta/ai";
+import type { Api, Model } from "@vetta/ai";
 import { completeSimple } from "@vetta/ai";
 import {
 	convertToLlm,
 	createBranchSummaryMessage,
 	createCompactionSummaryMessage,
 	createCustomMessage,
-} from "../../model-context/index.js";
-import type { CompactionEntry, SessionEntry } from "../session-manager/index.js";
+} from "../model-context/index.js";
+import type { CompactionEntry, CompactionHistoryEntry, CompactionResult, CompactionSettings } from "./contracts.js";
 import {
 	computeFileLists,
 	createFileOps,
@@ -23,7 +23,8 @@ import {
 	formatFileOperations,
 	SUMMARIZATION_SYSTEM_PROMPT,
 	serializeConversation,
-} from "./utils.js";
+} from "./summary-support.js";
+import { estimateContextTokens, estimateTokens } from "./token-policy.js";
 
 // ============================================================================
 // File Operation Tracking
@@ -40,7 +41,7 @@ export interface CompactionDetails {
  */
 function extractFileOperations(
 	messages: AgentMessage[],
-	entries: SessionEntry[],
+	entries: readonly CompactionHistoryEntry[],
 	prevCompactionIndex: number,
 ): FileOperations {
 	const fileOps = createFileOps();
@@ -76,7 +77,7 @@ function extractFileOperations(
  * Extract AgentMessage from an entry if it produces one.
  * Returns undefined for entries that don't contribute to LLM context.
  */
-function getMessageFromEntry(entry: SessionEntry): AgentMessage | undefined {
+function getMessageFromEntry(entry: CompactionHistoryEntry): AgentMessage | undefined {
 	if (entry.type === "message") {
 		return entry.message;
 	}
@@ -92,214 +93,9 @@ function getMessageFromEntry(entry: SessionEntry): AgentMessage | undefined {
 	return undefined;
 }
 
-/** Result from compact() - SessionManager adds uuid/parentUuid when saving */
-export interface CompactionResult<T = unknown> {
-	summary: string;
-	firstKeptEntryId: string;
-	tokensBefore: number;
-	/** Extension-specific data (e.g., ArtifactIndex, version markers for structured compaction) */
-	details?: T;
-}
-
-// ============================================================================
-// Types
-// ============================================================================
-
-export interface CompactionSettings {
-	enabled: boolean;
-	/** Fixed token buffer (deducted from context window for summary + safety margin). */
-	reserveTokens: number;
-	/** Minimum percentage of context window to keep free (0-100). Acts as a floor for small windows. */
-	minFreePercent: number;
-	keepRecentTokens: number;
-}
-
-export const DEFAULT_COMPACTION_SETTINGS: CompactionSettings = {
-	enabled: true,
-	reserveTokens: 36000, // 20k for summary output + 16k safety buffer
-	minFreePercent: 20, // At least 20% free → triggers at 80%
-	keepRecentTokens: 20000,
-};
-
-// ============================================================================
-// Token calculation
-// ============================================================================
-
-/**
- * Calculate total context tokens from usage.
- * Uses the native totalTokens field when available, falls back to computing from components.
- */
-export function calculateContextTokens(usage: Usage): number {
-	return usage.totalTokens || usage.input + usage.output + usage.cacheRead + usage.cacheWrite;
-}
-
-/**
- * Get usage from an assistant message if available.
- * Skips aborted and error messages as they don't have valid usage data.
- */
-function getAssistantUsage(msg: AgentMessage): Usage | undefined {
-	if (msg.role === "assistant" && "usage" in msg) {
-		const assistantMsg = msg as AssistantMessage;
-		if (assistantMsg.stopReason !== "aborted" && assistantMsg.stopReason !== "error" && assistantMsg.usage) {
-			return assistantMsg.usage;
-		}
-	}
-	return undefined;
-}
-
-/**
- * Find the last non-aborted assistant message usage from session entries.
- */
-export function getLastAssistantUsage(entries: SessionEntry[]): Usage | undefined {
-	for (let i = entries.length - 1; i >= 0; i--) {
-		const entry = entries[i];
-		if (entry.type === "message") {
-			const usage = getAssistantUsage(entry.message);
-			if (usage) return usage;
-		}
-	}
-	return undefined;
-}
-
-export interface ContextUsageEstimate {
-	tokens: number;
-	usageTokens: number;
-	trailingTokens: number;
-	lastUsageIndex: number | null;
-}
-
-function getLastAssistantUsageInfo(messages: AgentMessage[]): { usage: Usage; index: number } | undefined {
-	for (let i = messages.length - 1; i >= 0; i--) {
-		const usage = getAssistantUsage(messages[i]);
-		if (usage) return { usage, index: i };
-	}
-	return undefined;
-}
-
-/**
- * Estimate context tokens from messages, using the last assistant usage when available.
- * If there are messages after the last usage, estimate their tokens with estimateTokens.
- */
-export function estimateContextTokens(messages: AgentMessage[]): ContextUsageEstimate {
-	const usageInfo = getLastAssistantUsageInfo(messages);
-
-	if (!usageInfo) {
-		let estimated = 0;
-		for (const message of messages) {
-			estimated += estimateTokens(message);
-		}
-		return {
-			tokens: estimated,
-			usageTokens: 0,
-			trailingTokens: estimated,
-			lastUsageIndex: null,
-		};
-	}
-
-	const usageTokens = calculateContextTokens(usageInfo.usage);
-	let trailingTokens = 0;
-	for (let i = usageInfo.index + 1; i < messages.length; i++) {
-		trailingTokens += estimateTokens(messages[i]);
-	}
-
-	return {
-		tokens: usageTokens + trailingTokens,
-		usageTokens,
-		trailingTokens,
-		lastUsageIndex: usageInfo.index,
-	};
-}
-
-/**
- * Compute the compaction threshold for a given context window.
- *
- * Uses a hybrid strategy:
- *   threshold = max(contextWindow - reserveTokens, contextWindow * (1 - minFreePercent/100))
- *
- * - Large windows (200k+): fixed buffer dominates → ~82-96% trigger
- * - Small windows (≤128k): percentage floor dominates → 80% trigger
- */
-export function getCompactThreshold(contextWindow: number, settings: CompactionSettings): number {
-	const fixedThreshold = contextWindow - settings.reserveTokens;
-	const percentThreshold = contextWindow * (1 - settings.minFreePercent / 100);
-	return Math.max(fixedThreshold, percentThreshold);
-}
-
-/**
- * Check if compaction should trigger based on context usage.
- */
-export function shouldCompact(contextTokens: number, contextWindow: number, settings: CompactionSettings): boolean {
-	if (!settings.enabled) return false;
-	return contextTokens > getCompactThreshold(contextWindow, settings);
-}
-
 // ============================================================================
 // Cut point detection
 // ============================================================================
-
-/**
- * Estimate token count for a message using chars/4 heuristic.
- * This is conservative (overestimates tokens).
- */
-export function estimateTokens(message: AgentMessage): number {
-	let chars = 0;
-
-	switch (message.role) {
-		case "user": {
-			const content = (message as { content: string | Array<{ type: string; text?: string }> }).content;
-			if (typeof content === "string") {
-				chars = content.length;
-			} else if (Array.isArray(content)) {
-				for (const block of content) {
-					if (block.type === "text" && block.text) {
-						chars += block.text.length;
-					}
-				}
-			}
-			return Math.ceil(chars / 4);
-		}
-		case "assistant": {
-			const assistant = message as AssistantMessage;
-			for (const block of assistant.content) {
-				if (block.type === "text") {
-					chars += block.text.length;
-				} else if (block.type === "thinking") {
-					chars += block.thinking.length;
-				} else if (block.type === "toolCall") {
-					chars += block.name.length + JSON.stringify(block.arguments).length;
-				}
-			}
-			return Math.ceil(chars / 4);
-		}
-		case "custom":
-		case "toolResult": {
-			if (typeof message.content === "string") {
-				chars = message.content.length;
-			} else {
-				for (const block of message.content) {
-					if (block.type === "text" && block.text) {
-						chars += block.text.length;
-					}
-					if (block.type === "image") {
-						chars += 4800; // Estimate images as 4000 chars, or 1200 tokens
-					}
-				}
-			}
-			return Math.ceil(chars / 4);
-		}
-		case "bashExecution": {
-			chars = message.command.length + message.output.length;
-			return Math.ceil(chars / 4);
-		}
-		case "branchSummary":
-		case "compactionSummary": {
-			chars = message.summary.length;
-			return Math.ceil(chars / 4);
-		}
-	}
-
-	return 0;
-}
 
 /**
  * Find valid cut points: indices of user, assistant, custom, or bashExecution messages.
@@ -308,7 +104,11 @@ export function estimateTokens(message: AgentMessage): number {
  * and will be kept.
  * BashExecutionMessage is treated like a user message (user-initiated context).
  */
-function findValidCutPoints(entries: SessionEntry[], startIndex: number, endIndex: number): number[] {
+function findValidCutPoints(
+	entries: readonly CompactionHistoryEntry[],
+	startIndex: number,
+	endIndex: number,
+): number[] {
 	const cutPoints: number[] = [];
 	for (let i = startIndex; i < endIndex; i++) {
 		const entry = entries[i];
@@ -350,7 +150,11 @@ function findValidCutPoints(entries: SessionEntry[], startIndex: number, endInde
  * Returns -1 if no turn start found before the index.
  * BashExecutionMessage is treated like a user message for turn boundaries.
  */
-export function findTurnStartIndex(entries: SessionEntry[], entryIndex: number, startIndex: number): number {
+export function findTurnStartIndex(
+	entries: readonly CompactionHistoryEntry[],
+	entryIndex: number,
+	startIndex: number,
+): number {
 	for (let i = entryIndex; i >= startIndex; i--) {
 		const entry = entries[i];
 		// branch_summary and custom_message are user-role messages, can start a turn
@@ -393,7 +197,7 @@ export interface CutPointResult {
  * Only considers entries between `startIndex` and `endIndex` (exclusive).
  */
 export function findCutPoint(
-	entries: SessionEntry[],
+	entries: readonly CompactionHistoryEntry[],
 	startIndex: number,
 	endIndex: number,
 	keepRecentTokens: number,
@@ -591,7 +395,7 @@ function extractSummaryFromResponse(text: string): string {
  */
 export async function generateSummary(
 	currentMessages: AgentMessage[],
-	model: Model<any>,
+	model: Model<Api>,
 	reserveTokens: number,
 	apiKey: string,
 	signal?: AbortSignal,
@@ -667,7 +471,7 @@ export interface CompactionPreparation {
 }
 
 export function prepareCompaction(
-	pathEntries: SessionEntry[],
+	pathEntries: readonly CompactionHistoryEntry[],
 	settings: CompactionSettings,
 ): CompactionPreparation | undefined {
 	if (pathEntries.length > 0 && pathEntries[pathEntries.length - 1].type === "compaction") {
@@ -776,7 +580,7 @@ Be concise. Focus on what's needed to understand the kept suffix.`;
  */
 export async function compact(
 	preparation: CompactionPreparation,
-	model: Model<any>,
+	model: Model<Api>,
 	apiKey: string,
 	customInstructions?: string,
 	signal?: AbortSignal,
@@ -847,7 +651,7 @@ export async function compact(
  */
 async function generateTurnPrefixSummary(
 	messages: AgentMessage[],
-	model: Model<any>,
+	model: Model<Api>,
 	reserveTokens: number,
 	apiKey: string,
 	signal?: AbortSignal,

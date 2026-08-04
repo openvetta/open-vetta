@@ -8,7 +8,7 @@ import type {
 	TurnObserver,
 } from "@vetta/runtime-core/kernel";
 import { type CodingToolRegistration, createMemoryToolRegistration } from "@vetta/runtime-tools/coding";
-import type { CompactionPreparation, CompactionSettings } from "../../core/compaction/index.js";
+import type { CompactionPreparation, CompactionSettings } from "../../compaction/index.js";
 import { flushMemoryBeforeRollover } from "../../core/memory/memory-flush.js";
 import { appendJournalLine, appendJournalSection } from "../../core/memory/memory-journal.js";
 import {

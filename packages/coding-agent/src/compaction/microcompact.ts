@@ -8,7 +8,7 @@
 
 import type { AgentMessage } from "@vetta/agent-core";
 import type { AssistantMessage, ToolResultMessage } from "@vetta/ai";
-import type { BashExecutionMessage } from "../../model-context/index.js";
+import type { BashExecutionMessage } from "../model-context/index.js";
 
 export interface MicrocompactOptions {
 	/** Always keep the N most recent compactable results intact. */

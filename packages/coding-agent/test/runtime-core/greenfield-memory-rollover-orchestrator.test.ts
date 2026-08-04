@@ -9,7 +9,7 @@ import {
 	type CodingAgentMemoryRolloverPreparation,
 	createCodingAgentMemoryRuntimeFeature,
 } from "../../src/adapters/runtime-core/index.js";
-import type { CompactionPreparation, CompactionSettings } from "../../src/core/compaction/index.js";
+import type { CompactionPreparation, CompactionSettings } from "../../src/compaction/index.js";
 
 const temporaryRoots: string[] = [];
 

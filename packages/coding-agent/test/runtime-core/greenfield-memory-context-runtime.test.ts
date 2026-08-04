@@ -16,7 +16,7 @@ import {
 	type CodingAgentMemoryFlushInput,
 	CodingAgentMemoryRolloverOrchestrator,
 } from "../../src/adapters/runtime-core/index.js";
-import type { CompactionSettings } from "../../src/core/compaction/index.js";
+import type { CompactionSettings } from "../../src/compaction/index.js";
 
 describe("Greenfield memory rollover context integration", () => {
 	it("applies the legacy memory threshold, flushes the discarded prefix and requests generic continuation", async () => {

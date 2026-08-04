@@ -1,5 +1,5 @@
 import type { GreenfieldRuntimeSession } from "@vetta/runtime-core";
-import { collectEntriesForBranchSummary, generateBranchSummary } from "../../core/compaction/index.js";
+import { collectEntriesForBranchSummary, generateBranchSummary } from "../../compaction/index.js";
 import type { ExtensionRunner, SessionBeforeTreeResult, TreePreparation } from "../../core/extensions/index.js";
 import type { BranchSummaryEntry } from "../../core/session-manager/index.js";
 import type { SettingsManager } from "../../core/settings-manager.js";

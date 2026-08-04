@@ -1,4 +1,4 @@
-import type { CompactionPreparation, CompactionResult } from "../../core/compaction/index.js";
+import type { CompactionPreparation, CompactionResult } from "../../compaction/index.js";
 import type { ExtensionRunner, SessionBeforeCompactResult } from "../../core/extensions/index.js";
 import type { CompactionEntry, SessionEntry } from "../../core/session-manager/index.js";
 

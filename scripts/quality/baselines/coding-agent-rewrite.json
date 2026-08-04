@@ -33,16 +33,6 @@
 		},
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-branch-navigation-host.ts",
-			"specifier": "../../core/compaction/index.js",
-			"names": [
-				"collectEntriesForBranchSummary",
-				"generateBranchSummary"
-			],
-			"category": "old-core",
-			"domain": "compaction"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-branch-navigation-host.ts",
 			"specifier": "../../core/extensions/index.js",
 			"names": [
 				"ExtensionRunner",
@@ -72,16 +62,6 @@
 		},
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-compaction-extension-runtime.ts",
-			"specifier": "../../core/compaction/index.js",
-			"names": [
-				"CompactionPreparation",
-				"CompactionResult"
-			],
-			"category": "old-core",
-			"domain": "compaction"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-compaction-extension-runtime.ts",
 			"specifier": "../../core/extensions/index.js",
 			"names": [
 				"ExtensionRunner",
@@ -99,28 +79,6 @@
 			],
 			"category": "old-core",
 			"domain": "session-manager"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-context-runtime.ts",
-			"specifier": "../../core/compaction/index.js",
-			"names": [
-				"CompactionCircuitBreaker",
-				"CompactionPreparation",
-				"CompactionResult",
-				"CompactionSettings",
-				"DEFAULT_COMPACTION_SETTINGS",
-				"PrefireCache",
-				"compact",
-				"estimateContextTokens",
-				"fingerprintCompactionPrefix",
-				"isPrefireCacheValid",
-				"microcompact",
-				"prepareCompaction",
-				"shouldCompact",
-				"shouldPrefire"
-			],
-			"category": "old-core",
-			"domain": "compaction"
 		},
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-context-runtime.ts",
@@ -362,16 +320,6 @@
 			],
 			"category": "old-core",
 			"domain": "skills"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-memory-rollover-orchestrator.ts",
-			"specifier": "../../core/compaction/index.js",
-			"names": [
-				"CompactionPreparation",
-				"CompactionSettings"
-			],
-			"category": "old-core",
-			"domain": "compaction"
 		},
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-memory-rollover-orchestrator.ts",
@@ -1141,34 +1089,6 @@
 		},
 		{
 			"path": "packages/coding-agent/src/index.ts",
-			"specifier": "./core/compaction/index.js",
-			"names": [
-				"BranchPreparation",
-				"BranchSummaryResult",
-				"CollectEntriesResult",
-				"CompactionResult",
-				"CutPointResult",
-				"DEFAULT_COMPACTION_SETTINGS",
-				"FileOperations",
-				"GenerateBranchSummaryOptions",
-				"calculateContextTokens",
-				"collectEntriesForBranchSummary",
-				"compact",
-				"estimateTokens",
-				"findCutPoint",
-				"findTurnStartIndex",
-				"generateBranchSummary",
-				"generateSummary",
-				"getLastAssistantUsage",
-				"prepareBranchEntries",
-				"serializeConversation",
-				"shouldCompact"
-			],
-			"category": "old-core",
-			"domain": "compaction"
-		},
-		{
-			"path": "packages/coding-agent/src/index.ts",
 			"specifier": "./core/concurrency-limit.js",
 			"names": [
 				"Limiter",
@@ -1544,15 +1464,6 @@
 			"domain": "bash-executor"
 		},
 		{
-			"path": "packages/coding-agent/src/modes/rpc/rpc-client.ts",
-			"specifier": "../../core/compaction/index.js",
-			"names": [
-				"CompactionResult"
-			],
-			"category": "old-core",
-			"domain": "compaction"
-		},
-		{
 			"path": "packages/coding-agent/src/modes/rpc/rpc-mode.ts",
 			"specifier": "../../core/agent-session.js",
 			"names": [
@@ -1569,15 +1480,6 @@
 			],
 			"category": "old-core",
 			"domain": "bash-executor"
-		},
-		{
-			"path": "packages/coding-agent/src/modes/rpc/rpc-session-capabilities.ts",
-			"specifier": "../../core/compaction/index.js",
-			"names": [
-				"CompactionResult"
-			],
-			"category": "old-core",
-			"domain": "compaction"
 		},
 		{
 			"path": "packages/coding-agent/src/modes/rpc/rpc-session-capabilities.ts",
@@ -1616,15 +1518,6 @@
 			],
 			"category": "old-core",
 			"domain": "bash-executor"
-		},
-		{
-			"path": "packages/coding-agent/src/modes/rpc/rpc-types.ts",
-			"specifier": "../../core/compaction/index.js",
-			"names": [
-				"CompactionResult"
-			],
-			"category": "old-core",
-			"domain": "compaction"
 		},
 		{
 			"path": "packages/coding-agent/src/public-api/extensions.ts",
@@ -1740,13 +1633,6 @@
 		"packages/coding-agent/src/core/auth-storage.ts",
 		"packages/coding-agent/src/core/background-tasks/index.ts",
 		"packages/coding-agent/src/core/bash-executor.ts",
-		"packages/coding-agent/src/core/compaction/branch-summarization.ts",
-		"packages/coding-agent/src/core/compaction/circuit-breaker.ts",
-		"packages/coding-agent/src/core/compaction/compaction.ts",
-		"packages/coding-agent/src/core/compaction/index.ts",
-		"packages/coding-agent/src/core/compaction/microcompact.ts",
-		"packages/coding-agent/src/core/compaction/prefire.ts",
-		"packages/coding-agent/src/core/compaction/utils.ts",
 		"packages/coding-agent/src/core/concurrency-limit.ts",
 		"packages/coding-agent/src/core/defaults.ts",
 		"packages/coding-agent/src/core/diagnostics.ts",

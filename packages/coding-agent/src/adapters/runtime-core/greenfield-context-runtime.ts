@@ -44,7 +44,7 @@ import {
 	prepareCompaction,
 	shouldCompact,
 	shouldPrefire,
-} from "../../core/compaction/index.js";
+} from "../../compaction/index.js";
 import type { CompactionEntry, SessionEntry } from "../../core/session-manager/index.js";
 import {
 	COMPACTION_SUMMARY_PREFIX,

@@ -9,6 +9,7 @@ import type { Agent, AgentEvent, AgentTool, ThinkingLevel } from "@vetta/agent-c
 import type { ImageContent, Model } from "@vetta/ai";
 import type { HookConfigLayer } from "@vetta/ecosystem-adapter/hooks";
 import type { PromptAttachmentRef, PromptResourceRef } from "@vetta/runtime-core";
+import type { CompactionResult } from "../../compaction/index.js";
 import type {
 	AgentPluginContinuationInvoker,
 	AgentPluginRuntimeConfig,
@@ -16,7 +17,6 @@ import type {
 	AgentPluginToolInvoker,
 } from "../../model-context/index.js";
 import type { BackgroundTaskSnapshot } from "../background-tasks/index.js";
-import type { CompactionResult } from "../compaction/index.js";
 import type {
 	ExtensionCommandContextActions,
 	ExtensionErrorListener,

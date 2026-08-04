@@ -7,7 +7,7 @@
  */
 
 import type { ThinkingLevel } from "@vetta/agent-core";
-import { collectEntriesForBranchSummary, generateBranchSummary } from "../compaction/index.js";
+import { collectEntriesForBranchSummary, generateBranchSummary } from "../../compaction/index.js";
 import { DEFAULT_THINKING_LEVEL } from "../defaults.js";
 import type {
 	SessionBeforeForkResult,

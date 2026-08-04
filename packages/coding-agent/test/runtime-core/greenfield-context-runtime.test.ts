@@ -16,7 +16,7 @@ import {
 	CodingAgentGreenfieldContextRuntime,
 	type CodingAgentGreenfieldContextRuntimeOptions,
 } from "../../src/adapters/runtime-core/index.js";
-import type { CompactionPreparation, CompactionResult, CompactionSettings } from "../../src/core/compaction/index.js";
+import type { CompactionPreparation, CompactionResult, CompactionSettings } from "../../src/compaction/index.js";
 import { COMPACTION_SUMMARY_PREFIX, COMPACTION_SUMMARY_SUFFIX } from "../../src/model-context/index.js";
 
 describe("CodingAgentGreenfieldContextRuntime", () => {

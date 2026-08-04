@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createCodingAgentCompactionExtensionRuntime } from "../../src/adapters/runtime-core/greenfield-compaction-extension-runtime.js";
-import type { CompactionPreparation } from "../../src/core/compaction/index.js";
+import type { CompactionPreparation } from "../../src/compaction/index.js";
 import type { ExtensionRunner } from "../../src/core/extensions/index.js";
 import type { CompactionEntry } from "../../src/core/session-manager/index.js";
 

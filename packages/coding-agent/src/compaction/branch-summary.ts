@@ -6,16 +6,15 @@
  */
 
 import type { AgentMessage } from "@vetta/agent-core";
-import type { Model } from "@vetta/ai";
+import type { Api, Model } from "@vetta/ai";
 import { completeSimple } from "@vetta/ai";
 import {
 	convertToLlm,
 	createBranchSummaryMessage,
 	createCompactionSummaryMessage,
 	createCustomMessage,
-} from "../../model-context/index.js";
-import type { ReadonlySessionManager, SessionEntry } from "../session-manager/index.js";
-import { estimateTokens } from "./compaction.js";
+} from "../model-context/index.js";
+import type { BranchHistoryReader, CompactionHistoryEntry } from "./contracts.js";
 import {
 	computeFileLists,
 	createFileOps,
@@ -24,7 +23,8 @@ import {
 	formatFileOperations,
 	SUMMARIZATION_SYSTEM_PROMPT,
 	serializeConversation,
-} from "./utils.js";
+} from "./summary-support.js";
+import { estimateTokens } from "./token-policy.js";
 
 // ============================================================================
 // Types
@@ -44,7 +44,7 @@ export interface BranchSummaryDetails {
 	modifiedFiles: string[];
 }
 
-export type { FileOperations } from "./utils.js";
+export type { FileOperations } from "./summary-support.js";
 
 export interface BranchPreparation {
 	/** Messages extracted for summarization, in chronological order */
@@ -55,16 +55,16 @@ export interface BranchPreparation {
 	totalTokens: number;
 }
 
-export interface CollectEntriesResult {
+export interface CollectEntriesResult<TEntry extends CompactionHistoryEntry = CompactionHistoryEntry> {
 	/** Entries to summarize, in chronological order */
-	entries: SessionEntry[];
+	entries: TEntry[];
 	/** Common ancestor between old and new position, if any */
 	commonAncestorId: string | null;
 }
 
 export interface GenerateBranchSummaryOptions {
 	/** Model to use for summarization */
-	model: Model<any>;
+	model: Model<Api>;
 	/** API key for the model */
 	apiKey: string;
 	/** Abort signal for cancellation */
@@ -93,11 +93,11 @@ export interface GenerateBranchSummaryOptions {
  * @param targetId - Target position (where we're navigating to)
  * @returns Entries to summarize and the common ancestor
  */
-export function collectEntriesForBranchSummary(
-	session: ReadonlySessionManager,
+export function collectEntriesForBranchSummary<TEntry extends CompactionHistoryEntry>(
+	session: BranchHistoryReader<TEntry>,
 	oldLeafId: string | null,
 	targetId: string,
-): CollectEntriesResult {
+): CollectEntriesResult<TEntry> {
 	// If no old position, nothing to summarize
 	if (!oldLeafId) {
 		return { entries: [], commonAncestorId: null };
@@ -117,7 +117,7 @@ export function collectEntriesForBranchSummary(
 	}
 
 	// Collect entries from old leaf back to common ancestor
-	const entries: SessionEntry[] = [];
+	const entries: TEntry[] = [];
 	let current: string | null = oldLeafId;
 
 	while (current && current !== commonAncestorId) {
@@ -141,7 +141,7 @@ export function collectEntriesForBranchSummary(
  * Extract AgentMessage from a session entry.
  * Similar to getMessageFromEntry in compaction.ts but also handles compaction entries.
  */
-function getMessageFromEntry(entry: SessionEntry): AgentMessage | undefined {
+function getMessageFromEntry(entry: CompactionHistoryEntry): AgentMessage | undefined {
 	switch (entry.type) {
 		case "message":
 			// Skip tool results - context is in assistant's tool call
@@ -179,7 +179,10 @@ function getMessageFromEntry(entry: SessionEntry): AgentMessage | undefined {
  * @param entries - Entries in chronological order
  * @param tokenBudget - Maximum tokens to include (0 = no limit)
  */
-export function prepareBranchEntries(entries: SessionEntry[], tokenBudget: number = 0): BranchPreparation {
+export function prepareBranchEntries(
+	entries: readonly CompactionHistoryEntry[],
+	tokenBudget: number = 0,
+): BranchPreparation {
 	const messages: AgentMessage[] = [];
 	const fileOps = createFileOps();
 	let totalTokens = 0;
@@ -278,7 +281,7 @@ Keep each section concise. Preserve exact file paths, function names, and error 
  * @param options - Generation options
  */
 export async function generateBranchSummary(
-	entries: SessionEntry[],
+	entries: readonly CompactionHistoryEntry[],
 	options: GenerateBranchSummaryOptions,
 ): Promise<BranchSummaryResult> {
 	const { model, apiKey, signal, customInstructions, replaceInstructions, reserveTokens = 16384 } = options;

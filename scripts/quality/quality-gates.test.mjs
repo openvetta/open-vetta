@@ -409,6 +409,33 @@ describe("package boundary analysis", () => {
 		).toHaveLength(1);
 	});
 
+	it("keeps Compaction in its package domain and independent from Session storage implementations", () => {
+		expect(
+			findPackageBoundaryViolations(
+				"packages/coding-agent/src/core/compaction/compaction.ts",
+				"export const retired = true;",
+			),
+		).toHaveLength(1);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/coding-agent/src/composition/example.ts",
+				'import { compact } from "../core/compaction/index.js";',
+			),
+		).toHaveLength(1);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/coding-agent/src/compaction/compaction.ts",
+				'import type { SessionEntry } from "../core/session-manager/index.js";',
+			),
+		).toHaveLength(1);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/coding-agent/src/compaction/compaction.ts",
+				'import type { ConversationDocument } from "@vetta/runtime-core/conversation";',
+			),
+		).toHaveLength(1);
+	});
+
 	it("keeps production Legacy imports and Runtime adapters inside explicit compatibility boundaries", () => {
 		expect(
 			findPackageBoundaryViolations(
