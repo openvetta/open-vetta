@@ -25,26 +25,27 @@
 
 ## What This Is
 
-Open Vetta is the open-source edition of Vetta: an AI agent built for real work. It can work
-with local files, run commands, process directories in bulk, schedule recurring tasks, and
-install extensions — turning ideas, materials, and goals into deliverable results, not just
-answers in a chat window.
+Open Vetta is the open-source edition of Vetta, an AI agent built for real work.
 
-It runs in the environment you choose and connects to your own models, tools, and data. The
-desktop app, coding agent core, CLI, SDK, and extension points are all open, so individuals and
-teams can shape an agent around the way they actually work.
+Designed for professional and coding workflows, it helps individuals and teams build AI agents
+that are customizable, extensible, and under their control. Whether you are working with
+documents, analyzing data, writing code, building workflows, or connecting your own models,
+tools, and knowledge, Open Vetta is designed to participate in real work and deliver results.
 
-We believe the future of AI-powered work should not be defined by only a few. Open Vetta is
-meant to grow with developers, creators, and real users: anyone can understand it, extend it,
-and help shape what comes next.
+Open Vetta runs in the environment you choose. Connect your own models, tools, and data, and use
+or extend its agent core through the desktop app, CLI, and SDK.
 
-Three ground rules:
+We chose open source because the future of AI-powered work should not be defined by only a few.
+Developers, creators, and real users can contribute code, develop skills, integrate new models
+and tools, and shape an agent around the way they actually work.
 
-- **No vendor backend.** No login, no account, no subscription billing, no remote admin console.
-- **Bring your own key.** You supply your own API keys, requests go straight to the provider,
-  and keys stay in your local keychain.
-- **No telemetry.** No crash reporting, no usage analytics. Every outbound request is one your
-  own configuration asked for (see [Network Behavior](#network-behavior)).
+### Your Data, Under Your Control
+
+Open Vetta does not depend on a Vetta-operated backend: there is no login, account, subscription
+billing, or remote admin console. You bring your own API keys; requests go directly to the model
+provider you choose, and keys stay in your local keychain. Open Vetta collects no telemetry,
+crash reports, or usage analytics. Every outbound request is explicitly triggered by your own
+configuration (see [Network Behavior](#network-behavior)).
 
 <p align="center">
   <img src="docs/assets/screenshot.png" alt="Open Vetta desktop app">
