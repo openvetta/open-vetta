@@ -1,5 +1,4 @@
 import { getAgentDir } from "../config.js";
-import { SettingsManager } from "../core/settings-manager.js";
 import type { SessionResourceRuntime, SessionResourceRuntimeOptions } from "../resources/contracts/resource-runtime.js";
 import type {
 	ResourcePackageCommandPort,
@@ -12,6 +11,7 @@ import {
 	type ResourcePackageRuntimeOptions,
 } from "../resources/packages/package-source-runtime.js";
 import { createSessionResourceRuntime } from "../resources/runtime/session-resource-runtime.js";
+import { SettingsRuntime } from "../settings/index.js";
 
 export interface CodingAgentResourcePackageRuntimeOptions {
 	cwd?: string;
@@ -29,7 +29,7 @@ export function createCodingAgentResourcePackageRuntime(
 	const runtimeOptions: ResourcePackageRuntimeOptions = {
 		cwd,
 		agentDir,
-		settings: options.settings ?? SettingsManager.create(cwd, agentDir),
+		settings: options.settings ?? SettingsRuntime.create(cwd, agentDir),
 	};
 	if (options.commands) runtimeOptions.commands = options.commands;
 	if (options.registry) runtimeOptions.registry = options.registry;

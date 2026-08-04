@@ -13,16 +13,16 @@
 import type { Agent } from "@vetta/agent-core";
 import type { Model } from "@vetta/ai";
 import type { ExtensionRunner } from "../../extensions/index.js";
+import type { SettingsRuntime } from "../../settings/index.js";
 import type { AgentSessionEvent } from "../agent-session.js";
 import type { EcosystemHookRuntime } from "../hooks/index.js";
 import type { ModelRegistry } from "../model-registry.js";
 import type { SessionManager } from "../session-manager/index.js";
-import type { SettingsManager } from "../settings-manager.js";
 
 export interface SessionContext {
 	readonly agent: Agent;
 	readonly sessionManager: SessionManager;
-	readonly settingsManager: SettingsManager;
+	readonly settingsManager: SettingsRuntime;
 	readonly modelRegistry: ModelRegistry;
 	readonly cwd: string;
 	readonly hookRuntime: EcosystemHookRuntime;

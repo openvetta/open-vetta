@@ -1,8 +1,8 @@
 import type { GreenfieldRuntimeSession } from "@vetta/runtime-core";
 import { collectEntriesForBranchSummary, generateBranchSummary } from "../../compaction/index.js";
 import type { BranchSummaryEntry } from "../../core/session-manager/index.js";
-import type { SettingsManager } from "../../core/settings-manager.js";
 import type { SessionBeforeTreeResult, TreePreparation } from "../../extensions/index.js";
+import type { SettingsRuntime } from "../../settings/index.js";
 import type { CodingAgentGreenfieldExtensionRunnerPort } from "./greenfield-extension-contract.js";
 import { createGreenfieldReadonlySessionManager } from "./greenfield-readonly-session-manager.js";
 
@@ -16,7 +16,7 @@ export interface CodingAgentGreenfieldBranchNavigationOptions {
 export interface CodingAgentGreenfieldBranchNavigationHostOptions {
 	readonly withActiveSession: <T>(operation: (session: GreenfieldRuntimeSession) => Promise<T>) => Promise<T>;
 	readonly readRunner: () => CodingAgentGreenfieldExtensionRunnerPort;
-	readonly settingsManager: Pick<SettingsManager, "getBranchSummarySettings">;
+	readonly settingsManager: Pick<SettingsRuntime, "getBranchSummarySettings">;
 	readonly generateSummary?: typeof generateBranchSummary;
 	readonly clearExecutionContext?: (sessionId: string) => void;
 }

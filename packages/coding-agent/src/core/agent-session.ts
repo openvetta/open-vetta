@@ -22,6 +22,7 @@ import type { AgentPluginRuntimeConfig, CustomMessage } from "../model-context/i
 import { theme } from "../modes/interactive/theme/theme.js";
 import type { SessionResourceRuntime as ResourceLoader } from "../resources/index.js";
 import type { PromptTemplate } from "../resources/prompts/index.js";
+import type { SettingsRuntime } from "../settings/index.js";
 import { BackgroundTaskManager, buildTaskNotification } from "./background-tasks/index.js";
 import type { BashResult } from "./bash-executor.js";
 import { exportSessionToHtml, type ToolHtmlRenderer } from "./export-html/index.js";
@@ -60,7 +61,6 @@ import type {
 	PromptResourceRef,
 } from "./session/types.js";
 import type { BranchSummaryEntry, SessionManager } from "./session-manager/index.js";
-import type { SettingsManager } from "./settings-manager.js";
 import { createDefaultSubagentTypeRegistry, SubagentCoordinator, type SubagentSnapshot } from "./subagents/index.js";
 import { TODO_SNAPSHOT_TYPE, TodoStore } from "./todo-store.js";
 import type { BashOperations } from "./tools/bash/index.js";
@@ -93,7 +93,7 @@ export type {
 export class AgentSession {
 	readonly agent: Agent;
 	readonly sessionManager: SessionManager;
-	readonly settingsManager: SettingsManager;
+	readonly settingsManager: SettingsRuntime;
 
 	// Model + thinking level. Scoped-model state owned by the controller.
 	private _model: ModelController;

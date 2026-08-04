@@ -3,7 +3,6 @@ import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CONFIG_DIR_NAME } from "../src/config.js";
-import { SettingsManager } from "../src/core/settings-manager.js";
 import { createCodingAgentResourcePackageRuntime } from "../src/host/coding-agent-resource-runtime.js";
 import type {
 	ResolvedResourcePath,
@@ -14,6 +13,7 @@ import type {
 import { NodeResourcePackageCommands, NpmResourcePackageRegistry } from "../src/resources/packages/package-effects.js";
 import { ResourcePackageLifecycle } from "../src/resources/packages/package-lifecycle.js";
 import { parseResourceSource, ResourcePackageLocations } from "../src/resources/packages/source-spec.js";
+import { SettingsRuntime } from "../src/settings/index.js";
 
 // Helper to check if a resource is enabled
 const isEnabled = (r: ResolvedResourcePath, pathMatch: string, matchFn: "endsWith" | "includes" = "endsWith") =>
@@ -29,7 +29,7 @@ function createCommandPort(): ResourcePackageCommandPort {
 describe("ResourcePackageRuntime", () => {
 	let tempDir: string;
 	let agentDir: string;
-	let settingsManager: SettingsManager;
+	let settingsManager: SettingsRuntime;
 	let packageManager: ResourcePackageRuntime;
 	let locations: ResourcePackageLocations;
 	let previousOfflineEnv: string | undefined;
@@ -42,7 +42,7 @@ describe("ResourcePackageRuntime", () => {
 		agentDir = join(tempDir, "agent");
 		mkdirSync(agentDir, { recursive: true });
 
-		settingsManager = SettingsManager.inMemory();
+		settingsManager = SettingsRuntime.inMemory();
 		const commands = createCommandPort();
 		locations = new ResourcePackageLocations(tempDir, agentDir, commands);
 		packageManager = createCodingAgentResourcePackageRuntime({

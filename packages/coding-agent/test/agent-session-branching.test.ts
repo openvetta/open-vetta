@@ -17,8 +17,8 @@ import { AgentSession } from "../src/core/agent-session.js";
 import { AuthStorage } from "../src/core/auth-storage.js";
 import { ModelRegistry } from "../src/core/model-registry.js";
 import { SessionManager } from "../src/core/session-manager/index.js";
-import { SettingsManager } from "../src/core/settings-manager.js";
 import { codingTools } from "../src/core/tools/index.js";
+import { SettingsRuntime } from "../src/settings/index.js";
 import { API_KEY, createTestResourceLoader } from "./utilities.js";
 
 describe.skipIf(!API_KEY)("AgentSession forking", () => {
@@ -53,7 +53,7 @@ describe.skipIf(!API_KEY)("AgentSession forking", () => {
 		});
 
 		sessionManager = noSession ? SessionManager.inMemory() : SessionManager.create(tempDir);
-		const settingsManager = SettingsManager.create(tempDir, tempDir);
+		const settingsManager = SettingsRuntime.create(tempDir, tempDir);
 		const authStorage = AuthStorage.create(join(tempDir, "auth.json"));
 		const modelRegistry = new ModelRegistry(authStorage, tempDir);
 

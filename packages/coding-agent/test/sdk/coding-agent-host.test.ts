@@ -5,7 +5,7 @@ import {
 	AuthStorage,
 	createCodingAgentHostWithServices,
 	ModelRegistry,
-	SettingsManager,
+	SettingsRuntime,
 } from "../../src/public-api/host-services.js";
 import type { CodingAgentHost, CodingAgentSession, CreateCodingAgentSessionResult } from "../../src/public-api/sdk.js";
 
@@ -70,12 +70,12 @@ describe("Coding Agent Host", () => {
 	it("adapts shared host services without exposing them on Session", async () => {
 		const authStorage = AuthStorage.inMemory();
 		const modelRegistry = new ModelRegistry(authStorage);
-		const settingsManager = SettingsManager.inMemory();
+		const settingsManager = SettingsRuntime.inMemory();
 		settingsManager.setDefaultThinkingLevel("high");
 		const host = createCodingAgentHostWithServices({
 			authStorage,
 			modelRegistry,
-			settingsManager,
+			settings: settingsManager,
 			sessionDefaults: {
 				model: MODEL,
 				activeTools: [],

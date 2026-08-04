@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getAgentDir } from "@vetta/coding-agent/config";
-import { AuthStorage, ModelRegistry, SettingsManager } from "@vetta/coding-agent/host-services";
+import { AuthStorage, ModelRegistry, SettingsRuntime } from "@vetta/coding-agent/host-services";
 import { DEFAULT_SERVER_URL } from "../constants.js";
 
 let sharedModelRegistry: ModelRegistry | undefined;
@@ -20,7 +20,7 @@ export function getOrCreateSharedModelRegistry(): ModelRegistry {
 }
 
 export function readDesktopMcpDebug(cwd: string, agentDir: string): boolean {
-	return SettingsManager.create(cwd, agentDir).getMcpDebug();
+	return SettingsRuntime.create(cwd, agentDir).getMcpDebug();
 }
 
 function readServerTokenFromDisk(): string | undefined {

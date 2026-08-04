@@ -9,7 +9,7 @@ import { ExtensionRunner } from "../src/public-api/extensions.js";
 import {
 	AuthStorage as HostAuthStorage,
 	ModelRegistry as HostModelRegistry,
-	SettingsManager as HostSettingsManager,
+	SettingsRuntime as HostSettingsRuntime,
 } from "../src/public-api/host-services.js";
 import { VETTA_CLI_GUIDANCE } from "../src/public-api/product-prompt.js";
 import { ALL_SCENARIOS, PERSONAS } from "../src/public-api/profile.js";
@@ -20,6 +20,7 @@ import {
 	runRpcModeWithCapabilities,
 } from "../src/public-api/rpc.js";
 import { createCodingAgentSession } from "../src/public-api/sdk.js";
+import { SettingsRuntime } from "../src/public-api/settings.js";
 
 describe("coding-agent public subpaths", () => {
 	it("forwards existing root APIs without wrapping or replacing behavior", () => {
@@ -36,11 +37,12 @@ describe("coding-agent public subpaths", () => {
 		expect(createLimiter).toBe(root.createLimiter);
 		expect(HostAuthStorage).toBe(root.AuthStorage);
 		expect(HostModelRegistry).toBe(root.ModelRegistry);
-		expect(HostSettingsManager).toBe(root.SettingsManager);
+		expect(HostSettingsRuntime).toBe(SettingsRuntime);
 		expect(ExtensionRunner).toBe(root.ExtensionRunner);
 		expect(runCodingAgentCliControl).toBeTypeOf("function");
 		expect(createCodingAgentSession).toBeTypeOf("function");
 		expect(createCodingAgentSession).not.toBe(root.createAgentSession);
+		expect(Reflect.has(root, "SettingsRuntime")).toBe(false);
 		expect(VETTA_CLI_GUIDANCE).toContain("vetta action search");
 	});
 
@@ -92,7 +94,12 @@ describe("coding-agent public subpaths", () => {
 				types: "./dist/public-api/sdk.d.ts",
 				import: "./dist/public-api/sdk.js",
 			},
+			"./settings": {
+				types: "./dist/public-api/settings.d.ts",
+				import: "./dist/public-api/settings.js",
+			},
 		});
+		expect(Reflect.has(exports as object, "./core/settings-manager.js")).toBe(false);
 		expect(Reflect.has(exports as object, "./knowledge")).toBe(false);
 		expect(Object.keys(exports).filter((key) => key.startsWith("./compat/"))).toEqual([]);
 		expect(Object.keys(exports).filter((key) => key.startsWith("./legacy/"))).toEqual([]);

@@ -11,10 +11,10 @@ import { AgentSession } from "../src/core/agent-session.js";
 import { AuthStorage } from "../src/core/auth-storage.js";
 import { ModelRegistry } from "../src/core/model-registry.js";
 import { SessionManager } from "../src/core/session-manager/index.js";
-import { SettingsManager } from "../src/core/settings-manager.js";
 import { codingTools } from "../src/core/tools/index.js";
 import { createExtensionRuntime } from "../src/extensions/index.js";
 import type { SessionResourceRuntime } from "../src/resources/index.js";
+import { SettingsRuntime } from "../src/settings/index.js";
 
 /**
  * API key for authenticated tests. Tests using this should be wrapped in
@@ -212,7 +212,7 @@ export function createTestSession(options: TestSessionOptions = {}): TestSession
 	});
 
 	const sessionManager = options.inMemory ? SessionManager.inMemory() : SessionManager.create(tempDir);
-	const settingsManager = SettingsManager.create(tempDir, tempDir);
+	const settingsManager = SettingsRuntime.create(tempDir, tempDir);
 
 	if (options.settingsOverrides) {
 		settingsManager.applyOverrides(options.settingsOverrides);

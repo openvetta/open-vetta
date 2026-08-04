@@ -41,15 +41,6 @@
 			"domain": "session-manager"
 		},
 		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-branch-navigation-host.ts",
-			"specifier": "../../core/settings-manager.js",
-			"names": [
-				"SettingsManager"
-			],
-			"category": "old-core",
-			"domain": "settings-manager"
-		},
-		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-compaction-extension-runtime.ts",
 			"specifier": "../../core/session-manager/index.js",
 			"names": [
@@ -233,15 +224,6 @@
 			"domain": "session"
 		},
 		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-prompt-runtime.ts",
-			"specifier": "../../core/settings-manager.js",
-			"names": [
-				"SettingsManager"
-			],
-			"category": "old-core",
-			"domain": "settings-manager"
-		},
-		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-readonly-session-manager.ts",
 			"specifier": "../../core/session-manager/branch-ops.js",
 			"names": [
@@ -271,15 +253,6 @@
 			],
 			"category": "old-core",
 			"domain": "session-manager"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-resource-reload-host.ts",
-			"specifier": "../../core/settings-manager.js",
-			"names": [
-				"SettingsManager"
-			],
-			"category": "old-core",
-			"domain": "settings-manager"
 		},
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-stop-hook-continuation-source.ts",
@@ -487,15 +460,6 @@
 			"domain": "export-html"
 		},
 		{
-			"path": "packages/coding-agent/src/host/coding-agent-cli-control.ts",
-			"specifier": "../core/settings-manager.js",
-			"names": [
-				"SettingsManager"
-			],
-			"category": "old-core",
-			"domain": "settings-manager"
-		},
-		{
 			"path": "packages/coding-agent/src/host/coding-agent-host-bootstrap.ts",
 			"specifier": "../core/auth-storage.js",
 			"names": [
@@ -536,31 +500,12 @@
 		},
 		{
 			"path": "packages/coding-agent/src/host/coding-agent-host-bootstrap.ts",
-			"specifier": "../core/settings-manager.js",
-			"names": [
-				"SettingsError",
-				"SettingsManager"
-			],
-			"category": "old-core",
-			"domain": "settings-manager"
-		},
-		{
-			"path": "packages/coding-agent/src/host/coding-agent-host-bootstrap.ts",
 			"specifier": "../core/timings.js",
 			"names": [
 				"time"
 			],
 			"category": "old-core",
 			"domain": "timings"
-		},
-		{
-			"path": "packages/coding-agent/src/host/coding-agent-resource-runtime.ts",
-			"specifier": "../core/settings-manager.js",
-			"names": [
-				"SettingsManager"
-			],
-			"category": "old-core",
-			"domain": "settings-manager"
 		},
 		{
 			"path": "packages/coding-agent/src/host/coding-agent-sdk-bash-adapter.ts",
@@ -645,15 +590,6 @@
 			],
 			"category": "old-core",
 			"domain": "sdk"
-		},
-		{
-			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
-			"specifier": "../core/settings-manager.js",
-			"names": [
-				"SettingsManager"
-			],
-			"category": "old-core",
-			"domain": "settings-manager"
 		},
 		{
 			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
@@ -888,20 +824,6 @@
 		},
 		{
 			"path": "packages/coding-agent/src/index.ts",
-			"specifier": "./core/settings-manager.js",
-			"names": [
-				"CompactionSettings",
-				"ImageSettings",
-				"PackageSource",
-				"PersonalizationSettings",
-				"RetrySettings",
-				"SettingsManager"
-			],
-			"category": "old-core",
-			"domain": "settings-manager"
-		},
-		{
-			"path": "packages/coding-agent/src/index.ts",
 			"specifier": "./core/subagents/index.js",
 			"names": [
 				"DISPATCH_WORKFLOWS_MAX_BATCH",
@@ -1041,15 +963,6 @@
 			"domain": "model-registry"
 		},
 		{
-			"path": "packages/coding-agent/src/public-api/host-services.ts",
-			"specifier": "../core/settings-manager.js",
-			"names": [
-				"SettingsManager"
-			],
-			"category": "old-core",
-			"domain": "settings-manager"
-		},
-		{
 			"path": "packages/coding-agent/src/public-api/profile.ts",
 			"specifier": "../core/agent-mode.js",
 			"names": [
@@ -1087,15 +1000,6 @@
 			],
 			"category": "old-core",
 			"domain": "session"
-		},
-		{
-			"path": "packages/coding-agent/src/utils/shell.ts",
-			"specifier": "../core/settings-manager.js",
-			"names": [
-				"SettingsManager"
-			],
-			"category": "old-core",
-			"domain": "settings-manager"
 		},
 		{
 			"path": "packages/desktop-app/src/main/ipc/fs.ts",
@@ -1205,7 +1109,6 @@
 		"packages/coding-agent/src/core/session/todo-controller.ts",
 		"packages/coding-agent/src/core/session/tool-scope.ts",
 		"packages/coding-agent/src/core/session/types.ts",
-		"packages/coding-agent/src/core/settings-manager.ts",
 		"packages/coding-agent/src/core/slash-commands.ts",
 		"packages/coding-agent/src/core/subagents/coordinator.ts",
 		"packages/coding-agent/src/core/subagents/fork-context.ts",

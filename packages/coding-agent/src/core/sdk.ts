@@ -15,6 +15,7 @@ import type {
 } from "../model-context/index.js";
 import { convertToLlm } from "../model-context/index.js";
 import type { SessionResourceRuntime as ResourceLoader } from "../resources/index.js";
+import { SettingsRuntime } from "../settings/index.js";
 import { AgentSession } from "./agent-session.js";
 import { AuthStorage } from "./auth-storage.js";
 import { DEFAULT_THINKING_LEVEL } from "./defaults.js";
@@ -24,7 +25,6 @@ import { ModelRegistry } from "./model-registry.js";
 import { findInitialModel } from "./model-resolver.js";
 import type { ConversationScenario } from "./session/tool-scope.js";
 import { SessionManager } from "./session-manager/index.js";
-import { SettingsManager } from "./settings-manager.js";
 import {
 	createDefaultSubagentSessionFactory,
 	createDefaultSubagentTypeRegistry,
@@ -117,8 +117,8 @@ export interface CreateAgentSessionOptions {
 	/** Session manager. Default: SessionManager.create(cwd) */
 	sessionManager?: SessionManager;
 
-	/** Settings manager. Default: SettingsManager.create(cwd, agentDir) */
-	settingsManager?: SettingsManager;
+	/** Settings manager. Default: SettingsRuntime.create(cwd, agentDir) */
+	settingsManager?: SettingsRuntime;
 
 	/** 追加到 system prompt 末尾的文本，不会被上下文压缩 */
 	appendSystemPrompt?: string;
@@ -307,7 +307,7 @@ function getDefaultAgentDir(): string {
  * const loader = createCodingAgentSessionResourceRuntime({
  *   cwd: process.cwd(),
  *   agentDir: getAgentDir(),
- *   settings: SettingsManager.create(),
+ *   settings: SettingsRuntime.create(),
  * });
  * await loader.reload();
  * const { session } = await createAgentSession({
@@ -329,7 +329,7 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 	const authStorage = options.authStorage ?? AuthStorage.create(authPath);
 	const modelRegistry = options.modelRegistry ?? new ModelRegistry(authStorage, modelsPath);
 
-	const settingsManager = options.settingsManager ?? SettingsManager.create(cwd, agentDir);
+	const settingsManager = options.settingsManager ?? SettingsRuntime.create(cwd, agentDir);
 	// Ensure serverUrl has a default value, then load remote models.
 	// 优先级：调用方显式传入 > settings.json > 内置 DEFAULT_SERVER_URL。
 	// 调用方传入的 URL 不写入 settings.json——宿主进程（如 desktop-app）才是

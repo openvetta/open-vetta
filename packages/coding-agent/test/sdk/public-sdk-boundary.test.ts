@@ -49,7 +49,7 @@ describe("public Coding Agent SDK boundary", () => {
 		for (const file of publicFiles) {
 			const source = readFileSync(file, "utf8");
 			expect(source, file.pathname).not.toMatch(
-				/\b(?:(?:Greenfield|Legacy)[A-Za-z0-9_]*|ModelRegistry|ResourceLoader|SessionManager|SettingsManager)\b/,
+				/\b(?:(?:Greenfield|Legacy)[A-Za-z0-9_]*|ModelRegistry|ResourceLoader|SessionManager|SettingsRuntime)\b/,
 			);
 		}
 	});

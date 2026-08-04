@@ -83,7 +83,7 @@ await session.prompt("Hello");
 | `appendSystemPrompt` | Discovered append prompt | Additional system instructions |
 
 Credential storage, custom provider registration and persistent settings are host concerns. Import `AuthStorage`,
-`ModelRegistry`, `SettingsManager` and `createCodingAgentHostWithServices` from
+`ModelRegistry`, `SettingsRuntime` and `createCodingAgentHostWithServices` from
 `@vetta/coding-agent/host-services`. The Host owns its Sessions while the caller continues to own the concrete shared
 services. Complete loader and composition replacement remains on the package-root compatibility API.
 

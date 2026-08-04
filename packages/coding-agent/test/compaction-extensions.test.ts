@@ -12,7 +12,6 @@ import { AgentSession } from "../src/core/agent-session.js";
 import { AuthStorage } from "../src/core/auth-storage.js";
 import { ModelRegistry } from "../src/core/model-registry.js";
 import { SessionManager } from "../src/core/session-manager/index.js";
-import { SettingsManager } from "../src/core/settings-manager.js";
 import { codingTools } from "../src/core/tools/index.js";
 import {
 	createExtensionRuntime,
@@ -21,6 +20,7 @@ import {
 	type SessionCompactEvent,
 	type SessionEvent,
 } from "../src/extensions/index.js";
+import { SettingsRuntime } from "../src/settings/index.js";
 import { createTestResourceLoader } from "./utilities.js";
 
 const API_KEY = process.env.ANTHROPIC_OAUTH_TOKEN || process.env.ANTHROPIC_API_KEY;
@@ -95,7 +95,7 @@ describe.skipIf(!API_KEY)("Compaction extensions", () => {
 		});
 
 		const sessionManager = SessionManager.create(tempDir);
-		const settingsManager = SettingsManager.create(tempDir, tempDir);
+		const settingsManager = SettingsRuntime.create(tempDir, tempDir);
 		const authStorage = AuthStorage.create(join(tempDir, "auth.json"));
 		const modelRegistry = new ModelRegistry(authStorage);
 

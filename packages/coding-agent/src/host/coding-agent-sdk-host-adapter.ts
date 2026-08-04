@@ -34,7 +34,6 @@ import { DEFAULT_MEMORY_CHAR_LIMIT } from "../core/memory/memory-store.js";
 import { ModelRegistry } from "../core/model-registry.js";
 import { findInitialModel } from "../core/model-resolver.js";
 import type { CreateAgentSessionOptions } from "../core/sdk.js";
-import { SettingsManager } from "../core/settings-manager.js";
 import { time } from "../core/timings.js";
 import type { ExtensionContext, LoadExtensionsResult, ToolDefinition } from "../extensions/index.js";
 import { theme } from "../modes/interactive/theme/theme.js";
@@ -50,6 +49,7 @@ import {
 	assessSdkCreateOptionsCompatibility,
 	type SdkCreateOptionCompatibilityIssue,
 } from "../public-api/sdk-compatibility-inventory.js";
+import { SettingsRuntime } from "../settings/index.js";
 import { createCodingAgentSessionResourceRuntime } from "./coding-agent-resource-runtime.js";
 import { CodingAgentSdkBashAdapter } from "./coding-agent-sdk-bash-adapter.js";
 import { CodingAgentSdkExtensionTransitionAdapter } from "./coding-agent-sdk-extension-transition-adapter.js";
@@ -208,7 +208,7 @@ export interface CreateGreenfieldAgentSessionResult {
 export interface CodingAgentSdkPublicHostContext {
 	readonly authStorage?: AuthStorage;
 	readonly modelRegistry?: ModelRegistry;
-	readonly settingsManager?: SettingsManager;
+	readonly settingsManager?: SettingsRuntime;
 	readonly onSessionClosed?: () => void;
 }
 
@@ -311,7 +311,7 @@ async function createGreenfieldAgentSessionInternal(
 	const modelsPath = options.agentDir ? join(agentDir, "models.json") : undefined;
 	const authStorage = options.authStorage ?? AuthStorage.create(authPath);
 	const modelRegistry = options.modelRegistry ?? new ModelRegistry(authStorage, modelsPath);
-	const settingsManager = options.settingsManager ?? SettingsManager.create(cwd, agentDir);
+	const settingsManager = options.settingsManager ?? SettingsRuntime.create(cwd, agentDir);
 	const subagents = adaptCodingAgentSdkSubagents({
 		typeRegistry: options.subagentTypeRegistry,
 		sessionFactory: options.subagentSessionFactory,
@@ -688,7 +688,7 @@ function assertCompatibleOptions(options: CreateAgentSessionOptions): void {
 async function resolveSdkInitialModel(
 	options: CreateAgentSessionOptions,
 	modelRegistry: ModelRegistry,
-	settingsManager: SettingsManager,
+	settingsManager: SettingsRuntime,
 	history: CodingAgentSdkSessionHistory | undefined,
 ): Promise<CodingAgentSdkInitialModel> {
 	const hasExistingSession = (history?.context.messages.length ?? 0) > 0;

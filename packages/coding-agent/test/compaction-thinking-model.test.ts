@@ -17,8 +17,8 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { AgentSession } from "../src/core/agent-session.js";
 import { ModelRegistry } from "../src/core/model-registry.js";
 import { SessionManager } from "../src/core/session-manager/index.js";
-import { SettingsManager } from "../src/core/settings-manager.js";
 import { codingTools } from "../src/core/tools/index.js";
+import { SettingsRuntime } from "../src/settings/index.js";
 import {
 	API_KEY,
 	createTestResourceLoader,
@@ -76,7 +76,7 @@ describe.skipIf(!HAS_ANTIGRAVITY_AUTH)("Compaction with thinking models (Antigra
 		});
 
 		const sessionManager = SessionManager.inMemory();
-		const settingsManager = SettingsManager.create(tempDir, tempDir);
+		const settingsManager = SettingsRuntime.create(tempDir, tempDir);
 		// Use minimal keepRecentTokens so small test conversations have something to summarize
 		// settingsManager.applyOverrides({ compaction: { keepRecentTokens: 1 } });
 
@@ -174,7 +174,7 @@ describe.skipIf(!HAS_ANTHROPIC_AUTH)("Compaction with thinking models (Anthropic
 		});
 
 		const sessionManager = SessionManager.inMemory();
-		const settingsManager = SettingsManager.create(tempDir, tempDir);
+		const settingsManager = SettingsRuntime.create(tempDir, tempDir);
 
 		const authStorage = getRealAuthStorage();
 		const modelRegistry = new ModelRegistry(authStorage);

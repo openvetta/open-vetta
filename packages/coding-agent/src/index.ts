@@ -113,14 +113,6 @@ export {
 	type SessionMessageEntry,
 	type ThinkingLevelChangeEntry,
 } from "./core/session-manager/index.js";
-export {
-	type CompactionSettings,
-	type ImageSettings,
-	type PackageSource,
-	type PersonalizationSettings,
-	type RetrySettings,
-	SettingsManager,
-} from "./core/settings-manager.js";
 // Subagents (extensible type registry; builtin explorer + workflow)
 export {
 	buildToolsForSubagentType,

@@ -12,7 +12,6 @@ import { AuthStorage } from "../src/core/auth-storage.js";
 import type { McpManager } from "../src/core/mcp/index.js";
 import { ModelRegistry } from "../src/core/model-registry.js";
 import { SessionManager } from "../src/core/session-manager/index.js";
-import { SettingsManager } from "../src/core/settings-manager.js";
 import type {
 	SubagentChildHandle,
 	SubagentParentContext,
@@ -20,6 +19,7 @@ import type {
 } from "../src/core/subagents/types.js";
 import { TODO_SNAPSHOT_TYPE } from "../src/core/todo-store.js";
 import type { AgentPluginRuntimeConfig } from "../src/model-context/index.js";
+import { SettingsRuntime } from "../src/settings/index.js";
 import { assistantMsg, createTestResourceLoader, userMsg } from "./utilities.js";
 
 interface HeldChild {
@@ -733,7 +733,7 @@ function createIdentityFixture(handles: SubagentChildHandle[], options: Identity
 		initialState: { model: TEST_MODEL, systemPrompt: "test", tools: [] },
 	});
 	const sessionManager = SessionManager.create(tempDir);
-	const settingsManager = SettingsManager.create(tempDir, tempDir);
+	const settingsManager = SettingsRuntime.create(tempDir, tempDir);
 	const authStorage = AuthStorage.create(join(tempDir, "auth.json"));
 	const modelRegistry = new ModelRegistry(authStorage, tempDir);
 	const parentContexts: SubagentParentContext[] = [];

@@ -8,12 +8,12 @@ import { AuthStorage } from "../../src/core/auth-storage.js";
 import { ModelRegistry } from "../../src/core/model-registry.js";
 import type { CreateAgentSessionOptions } from "../../src/core/sdk.js";
 import { SessionManager } from "../../src/core/session-manager/index.js";
-import { SettingsManager } from "../../src/core/settings-manager.js";
 import { createEmptySubagentTypeRegistry } from "../../src/core/subagents/index.js";
 import { readTool } from "../../src/core/tools/index.js";
 import type { ToolDefinition } from "../../src/extensions/index.js";
 import { createGreenfieldAgentSession } from "../../src/host/coding-agent-sdk-host-adapter.js";
 import type { CodingAgentSession } from "../../src/public-api/sdk/index.js";
+import { SettingsRuntime } from "../../src/settings/index.js";
 
 describe("Coding Agent SDK Host Adapter", () => {
 	const temporaryDirectories: string[] = [];
@@ -321,7 +321,7 @@ describe("Coding Agent SDK Host Adapter", () => {
 		const agentDir = await temporaryDirectory(`${prefix}agent-`);
 		const authStorage = AuthStorage.inMemory();
 		const modelRegistry = new ModelRegistry(authStorage, undefined);
-		const settingsManager = SettingsManager.create(cwd, agentDir);
+		const settingsManager = SettingsRuntime.create(cwd, agentDir);
 		return {
 			cwd,
 			agentDir,

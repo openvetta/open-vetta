@@ -27,10 +27,10 @@ import {
 	shouldPrefire,
 } from "../../compaction/index.js";
 import type { SessionBeforeCompactResult } from "../../extensions/index.js";
+import type { SettingsRuntime } from "../../settings/index.js";
 import { flushMemoryBeforeRollover } from "../memory/memory-flush.js";
 import { appendJournalSection } from "../memory/memory-journal.js";
 import { type CompactionEntry, getLatestCompactionEntry, type SessionEntry } from "../session-manager/index.js";
-import type { SettingsManager } from "../settings-manager.js";
 import type { SessionContext } from "./session-context.js";
 
 export class CompactionController {
@@ -258,7 +258,7 @@ export class CompactionController {
 	 * to ≥30% of the window. keepRecentTokens (the carried tail) is untouched.
 	 * Off for non-memory sessions — desktop/TUI behaviour is unchanged.
 	 */
-	private settingsFor(contextWindow: number): ReturnType<SettingsManager["getCompactionSettings"]> {
+	private settingsFor(contextWindow: number): ReturnType<SettingsRuntime["getCompactionSettings"]> {
 		const base = this.ctx.settingsManager.getCompactionSettings();
 		if (!this.ctx.memoryMode) return base;
 		return {

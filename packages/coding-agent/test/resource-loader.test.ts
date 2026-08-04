@@ -6,10 +6,10 @@ import { CONFIG_DIR_NAME } from "../src/config.js";
 import { AuthStorage } from "../src/core/auth-storage.js";
 import { ModelRegistry } from "../src/core/model-registry.js";
 import { SessionManager } from "../src/core/session-manager/index.js";
-import { SettingsManager } from "../src/core/settings-manager.js";
 import { ExtensionRunner } from "../src/extensions/index.js";
 import { createCodingAgentSessionResourceRuntime } from "../src/host/coding-agent-resource-runtime.js";
 import type { Skill } from "../src/resources/skills/index.js";
+import { SettingsRuntime } from "../src/settings/index.js";
 
 describe("SessionResourceRuntime", () => {
 	let tempDir: string;
@@ -236,7 +236,7 @@ Project skill`,
 		});
 
 		it("should honor overrides for auto-discovered resources", async () => {
-			const settingsManager = SettingsManager.inMemory();
+			const settingsManager = SettingsRuntime.inMemory();
 			settingsManager.setExtensionPaths([`-${join("extensions", "disabled.ts")}`]);
 			settingsManager.setSkillPaths([`-${join("skills", "skip-skill")}`]);
 			settingsManager.setPromptTemplatePaths([`-${join("prompts", "skip.md")}`]);

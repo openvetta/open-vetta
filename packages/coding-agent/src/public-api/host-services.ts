@@ -6,17 +6,17 @@
  */
 import { AuthStorage } from "../core/auth-storage.js";
 import { ModelRegistry } from "../core/model-registry.js";
-import { SettingsManager } from "../core/settings-manager.js";
 import { createCodingAgentHostFromSessionFactory } from "../host/coding-agent-host.js";
 import { createCodingAgentSessionFromPublicOptions } from "../host/coding-agent-sdk-host-adapter.js";
+import { SettingsRuntime } from "../settings/index.js";
 import type { CodingAgentHost, CodingAgentHostSessionDefaults } from "./sdk/index.js";
 
-export { AuthStorage, ModelRegistry, SettingsManager };
+export { AuthStorage, ModelRegistry, SettingsRuntime };
 
 export interface CreateCodingAgentHostWithServicesOptions {
 	readonly authStorage?: AuthStorage;
 	readonly modelRegistry?: ModelRegistry;
-	readonly settingsManager?: SettingsManager;
+	readonly settings?: SettingsRuntime;
 	readonly sessionDefaults?: CodingAgentHostSessionDefaults;
 }
 
@@ -32,7 +32,7 @@ export function createCodingAgentHostWithServices(
 			createCodingAgentSessionFromPublicOptions(sessionOptions, {
 				authStorage: options.authStorage,
 				modelRegistry: options.modelRegistry,
-				settingsManager: options.settingsManager,
+				settingsManager: options.settings,
 				onSessionClosed: lifecycle.onClosed,
 			}),
 	);

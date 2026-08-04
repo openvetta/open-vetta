@@ -1,24 +1,24 @@
 /**
  * Settings Configuration
  *
- * Override settings using SettingsManager.
+ * Override settings using SettingsRuntime.
  */
 
-import { createCodingAgentHostWithServices, SettingsManager } from "@vetta/coding-agent/host-services";
+import { createCodingAgentHostWithServices, SettingsRuntime } from "@vetta/coding-agent/host-services";
 
 // Load current settings (merged global + project)
-const settingsManagerFromDisk = SettingsManager.create();
+const settingsManagerFromDisk = SettingsRuntime.create();
 console.log("Current settings:", JSON.stringify(settingsManagerFromDisk.getGlobalSettings(), null, 2));
 
 // Override specific settings
-const settingsManager = SettingsManager.create();
+const settingsManager = SettingsRuntime.create();
 settingsManager.applyOverrides({
 	compaction: { enabled: false },
 	retry: { enabled: true, maxRetries: 5, baseDelayMs: 1000 },
 });
 
 const settingsHost = createCodingAgentHostWithServices({
-	settingsManager,
+	settings: settingsManager,
 });
 await settingsHost.createSession({ storage: { kind: "memory" } });
 await settingsHost.close();
@@ -39,13 +39,13 @@ if (settingsErrors.length > 0) {
 }
 
 // For testing without file I/O:
-const inMemorySettings = SettingsManager.inMemory({
+const inMemorySettings = SettingsRuntime.inMemory({
 	compaction: { enabled: false },
 	retry: { enabled: false },
 });
 
 const inMemoryHost = createCodingAgentHostWithServices({
-	settingsManager: inMemorySettings,
+	settings: inMemorySettings,
 });
 await inMemoryHost.createSession({ storage: { kind: "memory" } });
 await inMemoryHost.close();

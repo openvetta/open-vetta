@@ -17,8 +17,8 @@ import { AgentSession, type AgentSessionEvent } from "../src/core/agent-session.
 import { AuthStorage } from "../src/core/auth-storage.js";
 import { ModelRegistry } from "../src/core/model-registry.js";
 import { SessionManager } from "../src/core/session-manager/index.js";
-import { SettingsManager } from "../src/core/settings-manager.js";
 import { codingTools } from "../src/core/tools/index.js";
+import { SettingsRuntime } from "../src/settings/index.js";
 import { API_KEY, createTestResourceLoader } from "./utilities.js";
 
 describe.skipIf(!API_KEY)("AgentSession compaction e2e", () => {
@@ -57,7 +57,7 @@ describe.skipIf(!API_KEY)("AgentSession compaction e2e", () => {
 		});
 
 		sessionManager = inMemory ? SessionManager.inMemory() : SessionManager.create(tempDir);
-		const settingsManager = SettingsManager.create(tempDir, tempDir);
+		const settingsManager = SettingsRuntime.create(tempDir, tempDir);
 		// Use minimal keepRecentTokens so small test conversations have something to summarize
 		settingsManager.applyOverrides({ compaction: { keepRecentTokens: 1 } });
 		const authStorage = AuthStorage.create(join(tempDir, "auth.json"));

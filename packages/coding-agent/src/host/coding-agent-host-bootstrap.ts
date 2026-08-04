@@ -7,11 +7,11 @@ import { AuthStorage } from "../core/auth-storage.js";
 import { DEFAULT_THINKING_LEVEL } from "../core/defaults.js";
 import { ModelRegistry } from "../core/model-registry.js";
 import { findInitialModel, resolveCliModel, resolveModelScope, type ScopedModel } from "../core/model-resolver.js";
-import { type SettingsError, SettingsManager } from "../core/settings-manager.js";
 import { time } from "../core/timings.js";
 import type { LoadExtensionsResult } from "../extensions/index.js";
 import { runMigrations } from "../migrations.js";
 import type { SessionResourceRuntime } from "../resources/index.js";
+import { type SettingsError, SettingsRuntime } from "../settings/index.js";
 import {
 	assessCodingAgentExtensionCompatibility,
 	type CodingAgentExtensionCompatibilityAssessment,
@@ -33,7 +33,7 @@ export interface CodingAgentHostBootstrap {
 	readonly cwd: string;
 	readonly agentDir: string;
 	readonly parsed: Args;
-	readonly settingsManager: SettingsManager;
+	readonly settingsManager: SettingsRuntime;
 	readonly authStorage: AuthStorage;
 	readonly modelRegistry: ModelRegistry;
 	readonly resourceLoader: SessionResourceRuntime;
@@ -67,7 +67,7 @@ export async function createCodingAgentHostBootstrap(
 	runMigrations(cwd);
 
 	const firstPass = parseArgs(options.args);
-	const settingsManager = SettingsManager.create(cwd, agentDir);
+	const settingsManager = SettingsRuntime.create(cwd, agentDir);
 	for (const error of settingsManager.drainErrors()) options.onSettingsError?.(error);
 
 	const authStorage = AuthStorage.create(join(agentDir, "auth.json"));

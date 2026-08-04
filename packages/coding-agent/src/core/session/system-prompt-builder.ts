@@ -14,12 +14,12 @@ import {
 	type SystemPromptDraft,
 } from "../../model-context/index.js";
 import type { SessionResourceRuntime as ResourceLoader } from "../../resources/index.js";
+import type { SettingsRuntime } from "../../settings/index.js";
 import { matchesAgentMode } from "../agent-mode.js";
 import type { McpManager } from "../mcp/index.js";
 import { renderMemoryForPrompt } from "../memory/memory-store.js";
 import { getModePrompt } from "../mode-prompt.js";
 import { getPersonaPrompt } from "../personas.js";
-import type { SettingsManager } from "../settings-manager.js";
 import type { ConversationScenario } from "./tool-scope.js";
 
 export interface PersonalizationSettingsSource {
@@ -46,7 +46,7 @@ export function buildPersonalizationBlock(settingsManager: PersonalizationSettin
 }
 
 /** Personalization signature, used for lazy-rebuild change detection. */
-export function personalizationSig(settingsManager: SettingsManager): string {
+export function personalizationSig(settingsManager: SettingsRuntime): string {
 	const { personaId, customPrompt } = settingsManager.getPersonalization();
 	return `${personaId} ${customPrompt}`;
 }
@@ -58,7 +58,7 @@ export interface SystemPromptDeps {
 	resourceLoader: ResourceLoader;
 	mcpManager: McpManager | undefined;
 	cwd: string;
-	settingsManager: SettingsManager;
+	settingsManager: SettingsRuntime;
 	memoryMode: boolean;
 	memoryFile: string | undefined;
 	memorySnapshot: string;

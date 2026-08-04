@@ -25,7 +25,7 @@ export const SDK_CREATE_OPTION_COMPATIBILITY = {
 	additionalHookAdapterFactories: "product-adapter",
 	resourceLoader: "legacy-concrete",
 	sessionManager: "legacy-concrete",
-	settingsManager: "legacy-concrete",
+	settingsManager: "runtime-capability",
 	appendSystemPrompt: "product-adapter",
 	includeAgentSkills: "product-adapter",
 	env: "greenfield-core",
@@ -142,7 +142,7 @@ export function assessSdkCreateOptionsCompatibility(
 export const SDK_SESSION_MEMBER_COMPATIBILITY = {
 	agent: "legacy-concrete",
 	sessionManager: "legacy-concrete",
-	settingsManager: "legacy-concrete",
+	settingsManager: "runtime-capability",
 	modelRegistry: "product-adapter",
 	subagents: "product-adapter",
 	listSubagents: "runtime-capability",

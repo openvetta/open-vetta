@@ -26,11 +26,11 @@ import type {
 	AgentPluginToolInvoker,
 } from "../../model-context/index.js";
 import type { SessionResourceRuntime as ResourceLoader } from "../../resources/index.js";
+import type { SettingsRuntime } from "../../settings/index.js";
 import type { BackgroundTaskSnapshot } from "../background-tasks/index.js";
 import type { EcosystemHookAdapterFactory } from "../hooks/index.js";
 import type { ModelRegistry } from "../model-registry.js";
 import type { SessionManager } from "../session-manager/index.js";
-import type { SettingsManager } from "../settings-manager.js";
 import type { SubagentSessionFactory, SubagentSnapshot, SubagentTypeRegistry } from "../subagents/index.js";
 import type { TodoItem } from "../todo-store.js";
 import type { AskUserQuestionCapability } from "../tools/index.js";
@@ -69,7 +69,7 @@ export type AgentSessionEventListener = (event: AgentSessionEvent) => void;
 export interface AgentSessionConfig {
 	agent: Agent;
 	sessionManager: SessionManager;
-	settingsManager: SettingsManager;
+	settingsManager: SettingsRuntime;
 	cwd: string;
 	/** Models to cycle through with Ctrl+P (from --models flag) */
 	scopedModels?: Array<{ model: Model<any>; thinkingLevel: ThinkingLevel }>;

@@ -3,13 +3,13 @@ import {
 	resolveSystemPromptOptionsFromSources,
 } from "../../core/session/system-prompt-builder.js";
 import type { ConversationScenario } from "../../core/session/tool-scope.js";
-import { SettingsManager } from "../../core/settings-manager.js";
 import {
 	type CodingAgentSessionResourceRuntimeOptions,
 	createCodingAgentSessionResourceRuntime,
 } from "../../host/coding-agent-resource-runtime.js";
 import type { AgentPluginRuntimeConfig } from "../../model-context/index.js";
 import type { SessionResourceRuntime } from "../../resources/index.js";
+import { SettingsRuntime } from "../../settings/index.js";
 import type {
 	CodingAgentModelCallPromptContext,
 	CodingAgentSystemPromptOptions,
@@ -49,7 +49,7 @@ export interface CreateCodingAgentPromptRuntimeOptions
 	extends Omit<CodingAgentPromptRuntimeOptions, "resourceLoader" | "settingsManager"> {
 	readonly agentDir?: string;
 	readonly resourceLoader?: SessionResourceRuntime;
-	readonly settingsManager?: SettingsManager;
+	readonly settingsManager?: SettingsRuntime;
 	readonly resourceLoaderOptions?: Omit<
 		CodingAgentSessionResourceRuntimeOptions,
 		"agentDir" | "cwd" | "noExtensions" | "noPromptTemplates" | "noThemes" | "settings" | "packages"
@@ -103,7 +103,7 @@ export class CodingAgentPromptRuntime {
 export async function createCodingAgentPromptRuntime(
 	options: CreateCodingAgentPromptRuntimeOptions,
 ): Promise<CodingAgentPromptRuntime> {
-	const settingsManager = options.settingsManager ?? SettingsManager.create(options.cwd, options.agentDir);
+	const settingsManager = options.settingsManager ?? SettingsRuntime.create(options.cwd, options.agentDir);
 	const resourceLoader =
 		options.resourceLoader ??
 		createCodingAgentSessionResourceRuntime({

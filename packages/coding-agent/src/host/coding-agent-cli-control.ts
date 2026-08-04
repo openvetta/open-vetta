@@ -3,7 +3,7 @@ import { type Args, parseArgs, printHelp } from "../cli/args.js";
 import { listModels } from "../cli/list-models.js";
 import { APP_NAME, CONFIG_DIR_NAME, getAgentDir, VERSION } from "../config.js";
 import { exportFromFile } from "../core/export-html/index.js";
-import { SettingsManager } from "../core/settings-manager.js";
+import { SettingsRuntime } from "../settings/index.js";
 import { createAgentCliBootstrap } from "./coding-agent-cli-bootstrap.js";
 import type { CodingAgentHostBootstrap } from "./coding-agent-host-bootstrap.js";
 import { prepareCodingAgentPipedStdin } from "./coding-agent-print-invocation.js";
@@ -75,7 +75,7 @@ function isTruthyEnvFlag(value: string | undefined): boolean {
 	return value === "1" || value.toLowerCase() === "true" || value.toLowerCase() === "yes";
 }
 
-function reportSettingsErrors(settingsManager: SettingsManager, context: string): void {
+function reportSettingsErrors(settingsManager: SettingsRuntime, context: string): void {
 	const errors = settingsManager.drainErrors();
 	for (const { scope, error } of errors) {
 		console.error(chalk.yellow(`Warning (${context}, ${scope} settings): ${error.message}`));
@@ -200,7 +200,7 @@ async function handlePackageCommand(args: readonly string[]): Promise<boolean> {
 
 	const cwd = process.cwd();
 	const agentDir = getAgentDir();
-	const settingsManager = SettingsManager.create(cwd, agentDir);
+	const settingsManager = SettingsRuntime.create(cwd, agentDir);
 	reportSettingsErrors(settingsManager, "package command");
 	const packageRuntime = createCodingAgentResourcePackageRuntime({ cwd, agentDir, settings: settingsManager });
 	packageRuntime.setProgressListener((event) => {

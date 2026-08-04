@@ -12,7 +12,7 @@ import { AgentSession } from "../src/core/agent-session.js";
 import { AuthStorage } from "../src/core/auth-storage.js";
 import { ModelRegistry } from "../src/core/model-registry.js";
 import { SessionManager } from "../src/core/session-manager/index.js";
-import { SettingsManager } from "../src/core/settings-manager.js";
+import { SettingsRuntime } from "../src/settings/index.js";
 import { createTestResourceLoader } from "./utilities.js";
 
 // Mock stream that mimics AssistantMessageEventStream
@@ -98,7 +98,7 @@ describe("AgentSession concurrent prompt guard", () => {
 		});
 
 		const sessionManager = SessionManager.inMemory();
-		const settingsManager = SettingsManager.create(tempDir, tempDir);
+		const settingsManager = SettingsRuntime.create(tempDir, tempDir);
 		const authStorage = AuthStorage.create(join(tempDir, "auth.json"));
 		const modelRegistry = new ModelRegistry(authStorage, tempDir);
 		// Set a runtime API key so validation passes
@@ -191,7 +191,7 @@ describe("AgentSession concurrent prompt guard", () => {
 		});
 
 		const sessionManager = SessionManager.inMemory();
-		const settingsManager = SettingsManager.create(tempDir, tempDir);
+		const settingsManager = SettingsRuntime.create(tempDir, tempDir);
 		const authStorage = AuthStorage.create(join(tempDir, "auth.json"));
 		const modelRegistry = new ModelRegistry(authStorage, tempDir);
 		authStorage.setRuntimeApiKey("anthropic", "test-key");

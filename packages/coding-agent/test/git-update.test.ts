@@ -13,9 +13,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { CONFIG_DIR_NAME } from "../src/config.js";
-import { SettingsManager } from "../src/core/settings-manager.js";
 import { createCodingAgentResourcePackageRuntime } from "../src/host/coding-agent-resource-runtime.js";
 import type { ResourcePackageCommandPort, ResourcePackageRuntime } from "../src/resources/index.js";
+import { SettingsRuntime } from "../src/settings/index.js";
 
 // Helper to run git commands in a directory
 function git(args: string[], cwd: string): string {
@@ -52,7 +52,7 @@ describe("ResourcePackageRuntime git update", () => {
 	let remoteDir: string; // Simulates the "remote" repository
 	let agentDir: string; // The agent directory where extensions are installed
 	let installedDir: string; // The installed extension directory
-	let settingsManager: SettingsManager;
+	let settingsManager: SettingsRuntime;
 	let packageManager: ResourcePackageRuntime;
 
 	// Git source that maps to our installed directory structure.
@@ -71,7 +71,7 @@ describe("ResourcePackageRuntime git update", () => {
 
 		mkdirSync(agentDir, { recursive: true });
 
-		settingsManager = SettingsManager.inMemory();
+		settingsManager = SettingsRuntime.inMemory();
 		packageManager = createCodingAgentResourcePackageRuntime({
 			cwd: tempDir,
 			agentDir,

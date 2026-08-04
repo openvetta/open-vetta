@@ -61,9 +61,9 @@
 			"types": "./dist/public-api/sdk.d.ts",
 			"import": "./dist/public-api/sdk.js"
 		},
-		"./core/settings-manager.js": {
-			"types": "./dist/core/settings-manager.d.ts",
-			"import": "./dist/core/settings-manager.js"
+		"./settings": {
+			"types": "./dist/public-api/settings.d.ts",
+			"import": "./dist/public-api/settings.js"
 		},
 		"./core/mcp/index.js": {
 			"types": "./dist/core/mcp/index.d.ts",
