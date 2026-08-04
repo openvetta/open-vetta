@@ -26,7 +26,7 @@ import {
 	shouldCompact,
 	shouldPrefire,
 } from "../../compaction/index.js";
-import type { SessionBeforeCompactResult } from "../extensions/index.js";
+import type { SessionBeforeCompactResult } from "../../extensions/index.js";
 import { flushMemoryBeforeRollover } from "../memory/memory-flush.js";
 import { appendJournalSection } from "../memory/memory-journal.js";
 import { type CompactionEntry, getLatestCompactionEntry, type SessionEntry } from "../session-manager/index.js";

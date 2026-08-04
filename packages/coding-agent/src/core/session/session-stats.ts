@@ -7,7 +7,7 @@
 import type { AgentMessage } from "@vetta/agent-core";
 import type { AssistantMessage, Model } from "@vetta/ai";
 import { calculateContextTokens, estimateContextTokens } from "../../compaction/index.js";
-import type { ContextUsage } from "../extensions/index.js";
+import type { ContextUsage } from "../../extensions/index.js";
 import { getLatestCompactionEntry, type SessionManager } from "../session-manager/index.js";
 
 /** Session statistics for /session command */

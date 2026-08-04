@@ -68,29 +68,6 @@ export {
 // Concurrency limiter (shared by OCR throttle and KB processing session pool)
 export { createLimiter, type Limiter } from "./core/concurrency-limit.js";
 export { createEventBus, type EventBus, type EventBusController } from "./core/event-bus.js";
-export {
-	bindExtensionRuntimeActions,
-	createExtensionRuntime,
-	discoverAndLoadExtensions,
-	ExtensionRunner,
-	isBashToolResult,
-	isDirTreeToolResult,
-	isEditToolResult,
-	isFindToolResult,
-	isGlobToolResult,
-	isGrepToolResult,
-	isLsToolResult,
-	isReadToolResult,
-	isToolCallEventType,
-	isWriteToolResult,
-	type SlashCommandInfo,
-	type SlashCommandLocation,
-	type SlashCommandSource,
-	wrapRegisteredTool,
-	wrapRegisteredTools,
-	wrapToolsWithExtensions,
-	wrapToolWithExtensions,
-} from "./core/extensions/index.js";
 // Footer data provider (git branch + extension statuses - data not otherwise available to extensions)
 export type { ReadonlyFooterDataProvider } from "./core/footer-data-provider.js";
 export { ModelRegistry } from "./core/model-registry.js";
@@ -267,6 +244,29 @@ export type {
 	UserBashEventResult,
 	WidgetPlacement,
 	WriteToolCallEvent,
+} from "./extensions/index.js";
+export {
+	bindExtensionRuntimeActions,
+	createExtensionRuntime,
+	discoverAndLoadExtensions,
+	ExtensionRunner,
+	isBashToolResult,
+	isDirTreeToolResult,
+	isEditToolResult,
+	isFindToolResult,
+	isGlobToolResult,
+	isGrepToolResult,
+	isLsToolResult,
+	isReadToolResult,
+	isToolCallEventType,
+	isWriteToolResult,
+	type SlashCommandInfo,
+	type SlashCommandLocation,
+	type SlashCommandSource,
+	wrapRegisteredTool,
+	wrapRegisteredTools,
+	wrapToolsWithExtensions,
+	wrapToolWithExtensions,
 } from "./extensions/index.js";
 export { createAgentCliBootstrap } from "./host/coding-agent-cli-bootstrap.js";
 export type {

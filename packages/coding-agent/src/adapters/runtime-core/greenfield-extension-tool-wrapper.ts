@@ -1,6 +1,5 @@
 import type { RuntimeToolDefinition, RuntimeToolExecutionRequest, RuntimeToolResult } from "@vetta/runtime-core/kernel";
-import type { ExtensionRunner } from "../../core/extensions/runner.js";
-import type { ToolCallEventResult } from "../../extensions/index.js";
+import type { ExtensionRunner, ToolCallEventResult } from "../../extensions/index.js";
 
 /** 在最终 Runtime Tool Frame 上复用 Legacy Extension 的 tool_call/tool_result 语义。 */
 export function wrapRuntimeToolsWithExtensions(

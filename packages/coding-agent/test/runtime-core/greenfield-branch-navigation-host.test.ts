@@ -6,7 +6,7 @@ import type {
 } from "@vetta/runtime-core";
 import { describe, expect, it, vi } from "vitest";
 import { CodingAgentGreenfieldBranchNavigationHost } from "../../src/adapters/runtime-core/greenfield-branch-navigation-host.js";
-import type { ExtensionRunner } from "../../src/core/extensions/runner.js";
+import type { ExtensionRunner } from "../../src/extensions/index.js";
 
 describe("CodingAgentGreenfieldBranchNavigationHost", () => {
 	it("preserves Extension summary, label and tree event semantics", async () => {

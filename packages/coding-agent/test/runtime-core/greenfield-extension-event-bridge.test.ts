@@ -4,10 +4,9 @@ import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { CodingAgentGreenfieldExtensionEventBridge } from "../../src/adapters/runtime-core/greenfield-extension-event-bridge.js";
 import { AuthStorage } from "../../src/core/auth-storage.js";
-import { discoverAndLoadExtensions } from "../../src/core/extensions/loader.js";
-import { ExtensionRunner } from "../../src/core/extensions/runner.js";
 import { ModelRegistry } from "../../src/core/model-registry.js";
 import { SessionManager } from "../../src/core/session-manager/index.js";
+import { discoverAndLoadExtensions, ExtensionRunner } from "../../src/extensions/index.js";
 
 const temporaryDirectories: string[] = [];
 

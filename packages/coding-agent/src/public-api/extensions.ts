@@ -1,2 +1,2 @@
 /** Stable public contracts for Coding Agent Extensions. */
-export * from "../core/extensions/index.js";
+export * from "../extensions/index.js";

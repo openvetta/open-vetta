@@ -2,8 +2,13 @@ import { Type } from "@sinclair/typebox";
 import type { ModelCallFrameCompositionContext, RuntimeToolDefinition } from "@vetta/runtime-core/kernel";
 import { describe, expect, it } from "vitest";
 import { CodingAgentGreenfieldExtensionToolRuntime } from "../../src/adapters/runtime-core/greenfield-extension-tool-runtime.js";
-import type { ExtensionRunner } from "../../src/core/extensions/runner.js";
-import type { Extension, ExtensionContext, RegisteredTool, ToolDefinition } from "../../src/extensions/index.js";
+import type {
+	Extension,
+	ExtensionContext,
+	ExtensionRunner,
+	RegisteredTool,
+	ToolDefinition,
+} from "../../src/extensions/index.js";
 
 const echoParameters = Type.Object({ value: Type.String() });
 

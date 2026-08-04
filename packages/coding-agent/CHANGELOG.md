@@ -30,7 +30,7 @@
 
 ### Changed
 
-- **Extension 合同与事件协议包内重写**：扩展 UI、事件、工具注册、会话视图、模型目录和宿主动作绑定迁入 `src/extensions` 稳定领域，并按 UI、Context、Tool、Provider、事件、公共 API 和 Runtime 状态拆分职责模块；`contracts.ts` 仅保留稳定聚合导出。合同改为结构端口并复用 `runtime-tools` 的工具输入/详情类型，不再依赖旧 `core/extensions/types.ts`、具体 `SessionManager`、`ModelRegistry` 或旧 Tool 类型。Loader、Runner、Wrapper 的执行顺序与动态加载语义暂时保留在兼容运行时，公开名称、事件载荷、TypeBox 工具 Schema 和用户可见功能保持不变。
+- **Extension 合同与运行时包内重写**：扩展 UI、事件、工具注册、会话视图、模型目录和宿主动作绑定迁入 `src/extensions` 稳定领域，并按 UI、Context、Tool、Provider、事件、公共 API 和 Runtime 状态拆分职责模块；动态发现、模块加载、注册、上下文宿主、事件分派和 Tool 拦截进一步拆入独立 Runtime 职责模块，旧 `core/extensions` 已删除。合同改为结构端口并复用 `runtime-tools` 的工具输入/详情类型，不再依赖具体 `SessionManager`、`ModelRegistry` 或旧 Tool 类型；公开名称、加载顺序、错误隔离、事件载荷、TypeBox 工具 Schema、Tool 拦截顺序和用户可见功能保持不变。
 - **Compaction 包内领域重写**：上下文压缩、token 策略、prefire、microcompact、熔断和分支摘要从旧 `core/compaction` 迁入 `src/compaction`；算法改为依赖中立历史条目与最小分支读取合同，不再依赖 `SessionManager` 或 Runtime 存储实现。阈值、切点、摘要 Prompt、文件追踪、缓存和取消行为保持不变。
 - **Model Context 包内领域重写**：模型消息合同、LLM 投影、结构化 Prompt 文档、Plugin 运行时贡献和产品 Prompt 组合从旧 `core/messages.ts`、`core/system-prompt.ts` 拆入 `src/model-context`；Desktop 通过显式 `product-prompt` 子路径消费产品指引。Prompt 文案、Tool/MCP/Skill/Plugin 组合、消息过滤、摘要和 Bash 投影行为保持不变。
 - **Knowledge Runtime 独立化**：知识领域模型、文件存储、查询、写页和加工编排迁出 Coding Agent；`kb_write_page` 的 TypeBox Schema、描述、注册与执行协议迁入 `runtime-tools`，Coding Agent 只在组合层解析默认目录并注入窄 Operations Port。磁盘格式、默认目录、Tool 合同、并发写入和 Desktop 加工行为保持不变。

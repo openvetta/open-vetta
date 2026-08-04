@@ -11,13 +11,6 @@ import type { HookConfigLayer } from "@vetta/ecosystem-adapter/hooks";
 import type { PromptAttachmentRef, PromptResourceRef } from "@vetta/runtime-core";
 import type { CompactionResult } from "../../compaction/index.js";
 import type {
-	AgentPluginContinuationInvoker,
-	AgentPluginRuntimeConfig,
-	AgentPluginSystemPromptInvoker,
-	AgentPluginToolInvoker,
-} from "../../model-context/index.js";
-import type { BackgroundTaskSnapshot } from "../background-tasks/index.js";
-import type {
 	ExtensionCommandContextActions,
 	ExtensionErrorListener,
 	ExtensionRunner,
@@ -25,7 +18,14 @@ import type {
 	InputSource,
 	ShutdownHandler,
 	ToolDefinition,
-} from "../extensions/index.js";
+} from "../../extensions/index.js";
+import type {
+	AgentPluginContinuationInvoker,
+	AgentPluginRuntimeConfig,
+	AgentPluginSystemPromptInvoker,
+	AgentPluginToolInvoker,
+} from "../../model-context/index.js";
+import type { BackgroundTaskSnapshot } from "../background-tasks/index.js";
 import type { EcosystemHookAdapterFactory } from "../hooks/index.js";
 import type { ModelRegistry } from "../model-registry.js";
 import type { ResourceLoader } from "../resource-loader.js";

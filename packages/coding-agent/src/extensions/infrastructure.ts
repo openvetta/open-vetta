@@ -53,6 +53,14 @@ export interface ExtensionKeybindings {
 	getEffectiveConfig(): Record<string, KeyId | KeyId[]>;
 }
 
+export type ExtensionKeybindingsConfig = Readonly<Record<string, KeyId | readonly KeyId[]>>;
+
+export interface ExtensionResourceDiagnostic {
+	type: "warning" | "error" | "collision";
+	message: string;
+	path?: string;
+}
+
 export type SlashCommandSource = "extension" | "prompt" | "skill";
 export type SlashCommandLocation = "user" | "project" | "path";
 

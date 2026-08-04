@@ -12,8 +12,8 @@
 
 import type { Agent } from "@vetta/agent-core";
 import type { Model } from "@vetta/ai";
+import type { ExtensionRunner } from "../../extensions/index.js";
 import type { AgentSessionEvent } from "../agent-session.js";
-import type { ExtensionRunner } from "../extensions/index.js";
 import type { EcosystemHookRuntime } from "../hooks/index.js";
 import type { ModelRegistry } from "../model-registry.js";
 import type { SessionManager } from "../session-manager/index.js";

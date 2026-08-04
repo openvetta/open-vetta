@@ -4,11 +4,10 @@ import * as path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CodingAgentGreenfieldExtensionCommandHost } from "../../src/adapters/runtime-core/greenfield-extension-command-host.js";
 import { AuthStorage } from "../../src/core/auth-storage.js";
-import type { ExtensionCommandContextActions } from "../../src/core/extensions/index.js";
-import { discoverAndLoadExtensions } from "../../src/core/extensions/loader.js";
-import { ExtensionRunner } from "../../src/core/extensions/runner.js";
 import { ModelRegistry } from "../../src/core/model-registry.js";
 import { SessionManager } from "../../src/core/session-manager/index.js";
+import type { ExtensionCommandContextActions } from "../../src/extensions/index.js";
+import { discoverAndLoadExtensions, ExtensionRunner } from "../../src/extensions/index.js";
 
 const temporaryDirectories: string[] = [];
 

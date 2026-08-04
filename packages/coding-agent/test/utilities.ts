@@ -9,12 +9,12 @@ import { Agent } from "@vetta/agent-core";
 import { getModel, getOAuthApiKey, type OAuthCredentials, type OAuthProvider } from "@vetta/ai";
 import { AgentSession } from "../src/core/agent-session.js";
 import { AuthStorage } from "../src/core/auth-storage.js";
-import { createExtensionRuntime } from "../src/core/extensions/loader.js";
 import { ModelRegistry } from "../src/core/model-registry.js";
 import type { ResourceLoader } from "../src/core/resource-loader.js";
 import { SessionManager } from "../src/core/session-manager/index.js";
 import { SettingsManager } from "../src/core/settings-manager.js";
 import { codingTools } from "../src/core/tools/index.js";
+import { createExtensionRuntime } from "../src/extensions/index.js";
 
 /**
  * API key for authenticated tests. Tests using this should be wrapped in

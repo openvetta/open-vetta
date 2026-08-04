@@ -8,13 +8,13 @@
 
 import type { ThinkingLevel } from "@vetta/agent-core";
 import { collectEntriesForBranchSummary, generateBranchSummary } from "../../compaction/index.js";
-import { DEFAULT_THINKING_LEVEL } from "../defaults.js";
 import type {
 	SessionBeforeForkResult,
 	SessionBeforeSwitchResult,
 	SessionBeforeTreeResult,
 	TreePreparation,
-} from "../extensions/index.js";
+} from "../../extensions/index.js";
+import { DEFAULT_THINKING_LEVEL } from "../defaults.js";
 import type { BranchSummaryEntry, SessionManager } from "../session-manager/index.js";
 import type { ModelController } from "./model-controller.js";
 import type { QueueController } from "./queue-controller.js";

@@ -3,19 +3,19 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import type { AgentSession } from "../src/core/agent-session.js";
 import { AuthStorage } from "../src/core/auth-storage.js";
-import {
-	bindExtensionRuntimeActions,
-	type ExtensionActions,
-	type ExtensionContextActions,
-	type ExtensionExecutionHost,
-} from "../src/core/extensions/index.js";
-import { createExtensionRuntime } from "../src/core/extensions/loader.js";
-import { ExtensionRunner } from "../src/core/extensions/runner.js";
 import { ModelRegistry } from "../src/core/model-registry.js";
 import type { ResourceLoader } from "../src/core/resource-loader.js";
 import { createLegacyExtensionExecutionHost } from "../src/core/session/extension-binding.js";
 import type { SessionContext } from "../src/core/session/session-context.js";
 import { SessionManager } from "../src/core/session-manager/index.js";
+import {
+	bindExtensionRuntimeActions,
+	createExtensionRuntime,
+	type ExtensionActions,
+	type ExtensionContextActions,
+	type ExtensionExecutionHost,
+	ExtensionRunner,
+} from "../src/extensions/index.js";
 
 describe("ExtensionExecutionHost", () => {
 	it("原位绑定完整命令式动作并保留 Loader 共享状态", () => {

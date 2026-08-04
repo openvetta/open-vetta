@@ -8,13 +8,13 @@
  * tool assembly + MCP.
  */
 
-import type { AgentSession } from "../agent-session.js";
 import type {
 	ExtensionExecutionHost,
 	ExtensionRunner,
 	ShutdownHandler,
 	SlashCommandInfo,
-} from "../extensions/index.js";
+} from "../../extensions/index.js";
+import type { AgentSession } from "../agent-session.js";
 import type { ResourceLoader } from "../resource-loader.js";
 import { BUILTIN_SLASH_COMMANDS, type SlashCommandLocation } from "../slash-commands.js";
 import type { SessionContext } from "./session-context.js";

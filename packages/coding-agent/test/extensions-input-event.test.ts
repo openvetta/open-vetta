@@ -3,10 +3,9 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AuthStorage } from "../src/core/auth-storage.js";
-import { discoverAndLoadExtensions } from "../src/core/extensions/loader.js";
-import { ExtensionRunner } from "../src/core/extensions/runner.js";
 import { ModelRegistry } from "../src/core/model-registry.js";
 import { SessionManager } from "../src/core/session-manager/index.js";
+import { discoverAndLoadExtensions, ExtensionRunner } from "../src/extensions/index.js";
 
 describe("Input Event", () => {
 	let tempDir: string;

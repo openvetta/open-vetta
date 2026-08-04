@@ -11,6 +11,17 @@ import { basename, dirname } from "node:path";
 import type { TSchema } from "@sinclair/typebox";
 import type { AgentMessage, AgentTool } from "@vetta/agent-core";
 import { resetApiProviders } from "@vetta/ai";
+import {
+	type ExtensionCommandContextActions,
+	type ExtensionErrorListener,
+	ExtensionRunner,
+	type ExtensionUIContext,
+	type ShutdownHandler,
+	type ToolDefinition,
+	type ToolInfo,
+	wrapRegisteredTools,
+	wrapToolsWithExtensions,
+} from "../../extensions/index.js";
 import type {
 	AgentPluginContinuationInvoker,
 	AgentPluginContinuationResult,
@@ -27,17 +38,6 @@ import { applySystemPromptOperations, renderSystemPromptDraft } from "../../mode
 import { matchesAgentMode } from "../agent-mode.js";
 import type { AgentSession, ExtensionBindings } from "../agent-session.js";
 import type { BackgroundTaskManager } from "../background-tasks/index.js";
-import {
-	type ExtensionCommandContextActions,
-	type ExtensionErrorListener,
-	ExtensionRunner,
-	type ExtensionUIContext,
-	type ShutdownHandler,
-	type ToolDefinition,
-	type ToolInfo,
-	wrapRegisteredTools,
-	wrapToolsWithExtensions,
-} from "../extensions/index.js";
 import { wrapToolsWithEcosystemHooks } from "../hooks/index.js";
 import { createMcpManager, type McpManager } from "../mcp/index.js";
 import type { ResourceExtensionPaths, ResourceLoader } from "../resource-loader.js";

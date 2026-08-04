@@ -90,39 +90,12 @@
 		},
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-command-host.ts",
-			"specifier": "../../core/extensions/runner.js",
-			"names": [
-				"ExtensionRunner"
-			],
-			"category": "old-core",
-			"domain": "extensions"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-command-host.ts",
 			"specifier": "../../core/slash-commands.js",
 			"names": [
 				"SlashCommandInfo"
 			],
 			"category": "old-core",
 			"domain": "slash-commands"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-contract.ts",
-			"specifier": "../../core/extensions/runner.js",
-			"names": [
-				"ExtensionRunner"
-			],
-			"category": "old-core",
-			"domain": "extensions"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-event-host.ts",
-			"specifier": "../../core/extensions/runner.js",
-			"names": [
-				"ExtensionRunner"
-			],
-			"category": "old-core",
-			"domain": "extensions"
 		},
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-event-host.ts",
@@ -142,15 +115,6 @@
 			],
 			"category": "old-core",
 			"domain": "resource-loader"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-tool-wrapper.ts",
-			"specifier": "../../core/extensions/runner.js",
-			"names": [
-				"ExtensionRunner"
-			],
-			"category": "old-core",
-			"domain": "extensions"
 		},
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-hook-tool-wrapper.ts",
@@ -923,35 +887,6 @@
 		},
 		{
 			"path": "packages/coding-agent/src/index.ts",
-			"specifier": "./core/extensions/index.js",
-			"names": [
-				"ExtensionRunner",
-				"SlashCommandInfo",
-				"SlashCommandLocation",
-				"SlashCommandSource",
-				"bindExtensionRuntimeActions",
-				"createExtensionRuntime",
-				"discoverAndLoadExtensions",
-				"isBashToolResult",
-				"isDirTreeToolResult",
-				"isEditToolResult",
-				"isFindToolResult",
-				"isGlobToolResult",
-				"isGrepToolResult",
-				"isLsToolResult",
-				"isReadToolResult",
-				"isToolCallEventType",
-				"isWriteToolResult",
-				"wrapRegisteredTool",
-				"wrapRegisteredTools",
-				"wrapToolWithExtensions",
-				"wrapToolsWithExtensions"
-			],
-			"category": "old-core",
-			"domain": "extensions"
-		},
-		{
-			"path": "packages/coding-agent/src/index.ts",
 			"specifier": "./core/footer-data-provider.js",
 			"names": [
 				"ReadonlyFooterDataProvider"
@@ -1240,15 +1175,6 @@
 			"domain": "bash-executor"
 		},
 		{
-			"path": "packages/coding-agent/src/public-api/extensions.ts",
-			"specifier": "../core/extensions/index.js",
-			"names": [
-				"*"
-			],
-			"category": "old-core",
-			"domain": "extensions"
-		},
-		{
 			"path": "packages/coding-agent/src/public-api/host-services.ts",
 			"specifier": "../core/auth-storage.js",
 			"names": [
@@ -1364,10 +1290,6 @@
 		"packages/coding-agent/src/core/export-html/tool-renderer.ts",
 		"packages/coding-agent/src/core/export-html/vendor/highlight.min.js",
 		"packages/coding-agent/src/core/export-html/vendor/marked.min.js",
-		"packages/coding-agent/src/core/extensions/index.ts",
-		"packages/coding-agent/src/core/extensions/loader.ts",
-		"packages/coding-agent/src/core/extensions/runner.ts",
-		"packages/coding-agent/src/core/extensions/wrapper.ts",
 		"packages/coding-agent/src/core/footer-data-provider.ts",
 		"packages/coding-agent/src/core/hooks/index.ts",
 		"packages/coding-agent/src/core/hooks/tool-wrapper.ts",

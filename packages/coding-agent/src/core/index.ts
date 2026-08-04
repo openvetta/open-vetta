@@ -3,24 +3,6 @@
  */
 
 export type { CompactionResult } from "../compaction/index.js";
-export {
-	type AgentMode,
-	ALL_AGENT_MODES,
-	DEFAULT_AGENT_MODE,
-	isAgentMode,
-	matchesAgentMode,
-} from "./agent-mode.js";
-export {
-	AgentSession,
-	type AgentSessionConfig,
-	type AgentSessionEvent,
-	type AgentSessionEventListener,
-	type ModelCycleResult,
-	type PromptOptions,
-	type SessionStats,
-} from "./agent-session.js";
-export { type BashExecutorOptions, type BashResult, executeBash, executeBashWithOperations } from "./bash-executor.js";
-export { createEventBus, type EventBus, type EventBusController } from "./event-bus.js";
 // Extensions system
 export {
 	type AgentEndEvent,
@@ -64,7 +46,25 @@ export {
 	type TurnEndEvent,
 	type TurnStartEvent,
 	wrapToolsWithExtensions,
-} from "./extensions/index.js";
+} from "../extensions/index.js";
+export {
+	type AgentMode,
+	ALL_AGENT_MODES,
+	DEFAULT_AGENT_MODE,
+	isAgentMode,
+	matchesAgentMode,
+} from "./agent-mode.js";
+export {
+	AgentSession,
+	type AgentSessionConfig,
+	type AgentSessionEvent,
+	type AgentSessionEventListener,
+	type ModelCycleResult,
+	type PromptOptions,
+	type SessionStats,
+} from "./agent-session.js";
+export { type BashExecutorOptions, type BashResult, executeBash, executeBashWithOperations } from "./bash-executor.js";
+export { createEventBus, type EventBus, type EventBusController } from "./event-bus.js";
 export {
 	ALL_SCENARIOS,
 	type CodingAgentTool,

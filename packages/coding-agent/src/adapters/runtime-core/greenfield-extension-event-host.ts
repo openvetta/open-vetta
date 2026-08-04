@@ -1,6 +1,5 @@
 import { basename, dirname } from "node:path";
 import { type GreenfieldRuntimeSession, RetryableCleanup } from "@vetta/runtime-core";
-import { ExtensionRunner } from "../../core/extensions/runner.js";
 import type { ModelRegistry } from "../../core/model-registry.js";
 import type { ResourceExtensionPaths, ResourceLoader } from "../../core/resource-loader.js";
 import type {
@@ -10,6 +9,7 @@ import type {
 	ExtensionRuntime,
 	ExtensionUIContext,
 } from "../../extensions/index.js";
+import { ExtensionRunner } from "../../extensions/index.js";
 import { CodingAgentGreenfieldExtensionActionHost } from "./greenfield-extension-action-host.js";
 import { CodingAgentGreenfieldExtensionObservationAdapter } from "./greenfield-extension-observation-adapter.js";
 import { createGreenfieldReadonlySessionManager } from "./greenfield-readonly-session-manager.js";

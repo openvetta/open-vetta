@@ -19,7 +19,7 @@ import type {
 	ToolExecutionUpdateEvent,
 	TurnEndEvent,
 	TurnStartEvent,
-} from "../extensions/index.js";
+} from "../../extensions/index.js";
 import { appendJournalLine } from "../memory/memory-journal.js";
 import type { TodoStore } from "../todo-store.js";
 import type { CompactionController } from "./compaction-controller.js";

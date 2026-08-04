@@ -5,6 +5,7 @@ import { buildDefaultHookConfigLayers } from "@vetta/ecosystem-adapter";
 import type { RuntimeTracer } from "@vetta/runtime-telemetry";
 import { createLangfuseRuntimeTracerFromEnv } from "@vetta/runtime-telemetry/langfuse";
 import { DEFAULT_SERVER_URL, ENV_SERVER_URL, getAgentDir, getDocsPath, getVettaHomePath } from "../config.js";
+import type { ExtensionRunner, LoadExtensionsResult, ToolDefinition } from "../extensions/index.js";
 import type {
 	AgentPluginContinuationInvoker,
 	AgentPluginRuntimeConfig,
@@ -15,7 +16,6 @@ import { convertToLlm } from "../model-context/index.js";
 import { AgentSession } from "./agent-session.js";
 import { AuthStorage } from "./auth-storage.js";
 import { DEFAULT_THINKING_LEVEL } from "./defaults.js";
-import type { ExtensionRunner, LoadExtensionsResult, ToolDefinition } from "./extensions/index.js";
 import type { EcosystemHookAdapterFactory } from "./hooks/index.js";
 import { applyImageBudget } from "./image-budget.js";
 import { ModelRegistry } from "./model-registry.js";
@@ -224,7 +224,7 @@ export type {
 	SlashCommandLocation,
 	SlashCommandSource,
 	ToolDefinition,
-} from "./extensions/index.js";
+} from "../extensions/index.js";
 export type { PromptTemplate } from "./prompt-templates.js";
 export type { Skill, SkillType } from "./skills.js";
 export type { Tool } from "./tools/index.js";
