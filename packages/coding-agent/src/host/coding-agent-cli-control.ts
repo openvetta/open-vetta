@@ -3,11 +3,11 @@ import { type Args, parseArgs, printHelp } from "../cli/args.js";
 import { listModels } from "../cli/list-models.js";
 import { APP_NAME, CONFIG_DIR_NAME, getAgentDir, VERSION } from "../config.js";
 import { exportFromFile } from "../core/export-html/index.js";
-import { DefaultPackageManager } from "../core/package-manager.js";
 import { SettingsManager } from "../core/settings-manager.js";
 import { createAgentCliBootstrap } from "./coding-agent-cli-bootstrap.js";
 import type { CodingAgentHostBootstrap } from "./coding-agent-host-bootstrap.js";
 import { prepareCodingAgentPipedStdin } from "./coding-agent-print-invocation.js";
+import { createCodingAgentResourcePackageRuntime } from "./coding-agent-resource-runtime.js";
 
 type PackageCommand = "install" | "remove" | "update" | "list";
 
@@ -202,21 +202,21 @@ async function handlePackageCommand(args: readonly string[]): Promise<boolean> {
 	const agentDir = getAgentDir();
 	const settingsManager = SettingsManager.create(cwd, agentDir);
 	reportSettingsErrors(settingsManager, "package command");
-	const packageManager = new DefaultPackageManager({ cwd, agentDir, settingsManager });
-	packageManager.setProgressCallback((event) => {
+	const packageRuntime = createCodingAgentResourcePackageRuntime({ cwd, agentDir, settings: settingsManager });
+	packageRuntime.setProgressListener((event) => {
 		if (event.type === "start") process.stdout.write(chalk.dim(`${event.message}\n`));
 	});
 
 	try {
 		switch (options.command) {
 			case "install":
-				await packageManager.install(source!, { local: options.local });
-				packageManager.addSourceToSettings(source!, { local: options.local });
+				await packageRuntime.install(source!, { local: options.local });
+				packageRuntime.addSource(source!, { local: options.local });
 				console.log(chalk.green(`Installed ${source}`));
 				return true;
 			case "remove": {
-				await packageManager.remove(source!, { local: options.local });
-				const removed = packageManager.removeSourceFromSettings(source!, { local: options.local });
+				await packageRuntime.remove(source!, { local: options.local });
+				const removed = packageRuntime.removeSource(source!, { local: options.local });
 				if (!removed) {
 					console.error(chalk.red(`No matching package found for ${source}`));
 					process.exitCode = 1;
@@ -235,7 +235,7 @@ async function handlePackageCommand(args: readonly string[]): Promise<boolean> {
 				const formatPackage = (pkg: (typeof globalPackages)[number], scope: "user" | "project") => {
 					const packageSource = typeof pkg === "string" ? pkg : pkg.source;
 					console.log(`  ${typeof pkg === "object" ? `${packageSource} (filtered)` : packageSource}`);
-					const path = packageManager.getInstalledPath(packageSource, scope);
+					const path = packageRuntime.getInstalledPath(packageSource, scope);
 					if (path) console.log(chalk.dim(`    ${path}`));
 				};
 				if (globalPackages.length > 0) {
@@ -250,7 +250,7 @@ async function handlePackageCommand(args: readonly string[]): Promise<boolean> {
 				return true;
 			}
 			case "update":
-				await packageManager.update(source);
+				await packageRuntime.update(source);
 				console.log(chalk.green(source ? `Updated ${source}` : "Updated packages"));
 				return true;
 		}

@@ -18,9 +18,9 @@ import {
 	PROMPT_ATTACHMENT_REFERENCE_TYPE,
 	PROMPT_RESOURCE_REFERENCE_TYPE,
 } from "../../model-context/index.js";
+import type { SessionResourceRuntime as ResourceLoader } from "../../resources/index.js";
 import { expandPromptTemplate } from "../../resources/prompts/index.js";
 import type { PromptOptions } from "../agent-session.js";
-import type { ResourceLoader } from "../resource-loader.js";
 import type { TodoStore } from "../todo-store.js";
 import type { BashController } from "./bash-controller.js";
 import type { CompactionController } from "./compaction-controller.js";

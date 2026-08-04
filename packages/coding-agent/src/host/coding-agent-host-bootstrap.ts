@@ -7,15 +7,16 @@ import { AuthStorage } from "../core/auth-storage.js";
 import { DEFAULT_THINKING_LEVEL } from "../core/defaults.js";
 import { ModelRegistry } from "../core/model-registry.js";
 import { findInitialModel, resolveCliModel, resolveModelScope, type ScopedModel } from "../core/model-resolver.js";
-import { DefaultResourceLoader } from "../core/resource-loader.js";
 import { type SettingsError, SettingsManager } from "../core/settings-manager.js";
 import { time } from "../core/timings.js";
 import type { LoadExtensionsResult } from "../extensions/index.js";
 import { runMigrations } from "../migrations.js";
+import type { SessionResourceRuntime } from "../resources/index.js";
 import {
 	assessCodingAgentExtensionCompatibility,
 	type CodingAgentExtensionCompatibilityAssessment,
 } from "./coding-agent-extension-compatibility.js";
+import { createCodingAgentSessionResourceRuntime } from "./coding-agent-resource-runtime.js";
 
 export interface CodingAgentHostBootstrapDiagnostics {
 	readonly onSettingsError?: (error: SettingsError) => void;
@@ -35,7 +36,7 @@ export interface CodingAgentHostBootstrap {
 	readonly settingsManager: SettingsManager;
 	readonly authStorage: AuthStorage;
 	readonly modelRegistry: ModelRegistry;
-	readonly resourceLoader: DefaultResourceLoader;
+	readonly resourceLoader: SessionResourceRuntime;
 	readonly extensionsResult: LoadExtensionsResult;
 	readonly extensionCompatibility: CodingAgentExtensionCompatibilityAssessment;
 }
@@ -82,10 +83,10 @@ export async function createCodingAgentHostBootstrap(
 	modelRegistry.setServerTokenGetter(() => settingsManager.getServerTokenFresh());
 	await modelRegistry.loadRemoteModels();
 
-	const resourceLoader = new DefaultResourceLoader({
+	const resourceLoader = createCodingAgentSessionResourceRuntime({
 		cwd,
 		agentDir,
-		settingsManager,
+		settings: settingsManager,
 		additionalExtensionPaths: firstPass.extensions,
 		additionalSkillPaths: firstPass.skills,
 		additionalPromptTemplatePaths: firstPass.promptTemplates,

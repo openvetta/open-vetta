@@ -1,10 +1,10 @@
-import type { ResourceLoader } from "../../core/resource-loader.js";
 import { expandSkillReference, type SkillExpansionDeps } from "../../core/session/skill-expansion.js";
 import type { TodoStore } from "../../core/todo-store.js";
+import type { SessionResourceRuntime } from "../../resources/index.js";
 import type { CodingAgentPromptResourceResolver } from "./greenfield-prompt-adapter.js";
 
 export interface CodingAgentPromptResourceResolverOptions {
-	readonly resourceLoader: Pick<ResourceLoader, "getSkills" | "refreshSkillsIfChanged">;
+	readonly resourceLoader: Pick<SessionResourceRuntime, "getSkills" | "refreshSkillsIfChanged">;
 	readonly todoStore: TodoStore;
 	readonly emitError?: SkillExpansionDeps["emitError"];
 }

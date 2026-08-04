@@ -13,12 +13,12 @@ import {
 	buildSystemPromptDraft,
 	type SystemPromptDraft,
 } from "../../model-context/index.js";
+import type { SessionResourceRuntime as ResourceLoader } from "../../resources/index.js";
 import { matchesAgentMode } from "../agent-mode.js";
 import type { McpManager } from "../mcp/index.js";
 import { renderMemoryForPrompt } from "../memory/memory-store.js";
 import { getModePrompt } from "../mode-prompt.js";
 import { getPersonaPrompt } from "../personas.js";
-import type { ResourceLoader } from "../resource-loader.js";
 import type { SettingsManager } from "../settings-manager.js";
 import type { ConversationScenario } from "./tool-scope.js";
 

@@ -71,15 +71,6 @@
 		},
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-action-host.ts",
-			"specifier": "../../core/resource-loader.js",
-			"names": [
-				"ResourceLoader"
-			],
-			"category": "old-core",
-			"domain": "resource-loader"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-action-host.ts",
 			"specifier": "../../core/slash-commands.js",
 			"names": [
 				"SlashCommandInfo",
@@ -105,16 +96,6 @@
 			],
 			"category": "old-core",
 			"domain": "model-registry"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-event-host.ts",
-			"specifier": "../../core/resource-loader.js",
-			"names": [
-				"ResourceExtensionPaths",
-				"ResourceLoader"
-			],
-			"category": "old-core",
-			"domain": "resource-loader"
 		},
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-hook-tool-wrapper.ts",
@@ -215,15 +196,6 @@
 		},
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-prompt-resource-resolver.ts",
-			"specifier": "../../core/resource-loader.js",
-			"names": [
-				"ResourceLoader"
-			],
-			"category": "old-core",
-			"domain": "resource-loader"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-prompt-resource-resolver.ts",
 			"specifier": "../../core/session/skill-expansion.js",
 			"names": [
 				"SkillExpansionDeps",
@@ -240,17 +212,6 @@
 			],
 			"category": "old-core",
 			"domain": "todo-store"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-prompt-runtime.ts",
-			"specifier": "../../core/resource-loader.js",
-			"names": [
-				"DefaultResourceLoader",
-				"DefaultResourceLoaderOptions",
-				"ResourceLoader"
-			],
-			"category": "old-core",
-			"domain": "resource-loader"
 		},
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-prompt-runtime.ts",
@@ -310,15 +271,6 @@
 			],
 			"category": "old-core",
 			"domain": "session-manager"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-resource-reload-host.ts",
-			"specifier": "../../core/resource-loader.js",
-			"names": [
-				"ResourceLoader"
-			],
-			"category": "old-core",
-			"domain": "resource-loader"
 		},
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-resource-reload-host.ts",
@@ -536,15 +488,6 @@
 		},
 		{
 			"path": "packages/coding-agent/src/host/coding-agent-cli-control.ts",
-			"specifier": "../core/package-manager.js",
-			"names": [
-				"DefaultPackageManager"
-			],
-			"category": "old-core",
-			"domain": "package-manager"
-		},
-		{
-			"path": "packages/coding-agent/src/host/coding-agent-cli-control.ts",
 			"specifier": "../core/settings-manager.js",
 			"names": [
 				"SettingsManager"
@@ -593,15 +536,6 @@
 		},
 		{
 			"path": "packages/coding-agent/src/host/coding-agent-host-bootstrap.ts",
-			"specifier": "../core/resource-loader.js",
-			"names": [
-				"DefaultResourceLoader"
-			],
-			"category": "old-core",
-			"domain": "resource-loader"
-		},
-		{
-			"path": "packages/coding-agent/src/host/coding-agent-host-bootstrap.ts",
 			"specifier": "../core/settings-manager.js",
 			"names": [
 				"SettingsError",
@@ -618,6 +552,15 @@
 			],
 			"category": "old-core",
 			"domain": "timings"
+		},
+		{
+			"path": "packages/coding-agent/src/host/coding-agent-resource-runtime.ts",
+			"specifier": "../core/settings-manager.js",
+			"names": [
+				"SettingsManager"
+			],
+			"category": "old-core",
+			"domain": "settings-manager"
 		},
 		{
 			"path": "packages/coding-agent/src/host/coding-agent-sdk-bash-adapter.ts",
@@ -693,15 +636,6 @@
 			],
 			"category": "old-core",
 			"domain": "model-resolver"
-		},
-		{
-			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
-			"specifier": "../core/resource-loader.js",
-			"names": [
-				"DefaultResourceLoader"
-			],
-			"category": "old-core",
-			"domain": "resource-loader"
 		},
 		{
 			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
@@ -877,29 +811,6 @@
 		},
 		{
 			"path": "packages/coding-agent/src/index.ts",
-			"specifier": "./core/package-manager.js",
-			"names": [
-				"DefaultPackageManager"
-			],
-			"category": "old-core",
-			"domain": "package-manager"
-		},
-		{
-			"path": "packages/coding-agent/src/index.ts",
-			"specifier": "./core/package-manager.js",
-			"names": [
-				"PackageManager",
-				"PathMetadata",
-				"ProgressCallback",
-				"ProgressEvent",
-				"ResolvedPaths",
-				"ResolvedResource"
-			],
-			"category": "old-core",
-			"domain": "package-manager"
-		},
-		{
-			"path": "packages/coding-agent/src/index.ts",
 			"specifier": "./core/personas.js",
 			"names": [
 				"DEFAULT_PERSONA_ID",
@@ -909,26 +820,6 @@
 			],
 			"category": "old-core",
 			"domain": "personas"
-		},
-		{
-			"path": "packages/coding-agent/src/index.ts",
-			"specifier": "./core/resource-loader.js",
-			"names": [
-				"DefaultResourceLoader"
-			],
-			"category": "old-core",
-			"domain": "resource-loader"
-		},
-		{
-			"path": "packages/coding-agent/src/index.ts",
-			"specifier": "./core/resource-loader.js",
-			"names": [
-				"ResourceCollision",
-				"ResourceDiagnostic",
-				"ResourceLoader"
-			],
-			"category": "old-core",
-			"domain": "resource-loader"
 		},
 		{
 			"path": "packages/coding-agent/src/index.ts",
@@ -1274,11 +1165,9 @@
 		"packages/coding-agent/src/core/model-registry.ts",
 		"packages/coding-agent/src/core/model-resolver.ts",
 		"packages/coding-agent/src/core/modes-data.ts",
-		"packages/coding-agent/src/core/package-manager.ts",
 		"packages/coding-agent/src/core/personas-data.ts",
 		"packages/coding-agent/src/core/personas.ts",
 		"packages/coding-agent/src/core/resolve-config-value.ts",
-		"packages/coding-agent/src/core/resource-loader.ts",
 		"packages/coding-agent/src/core/sdk.ts",
 		"packages/coding-agent/src/core/session-lock.ts",
 		"packages/coding-agent/src/core/session-manager/branch-ops.ts",
@@ -1380,5 +1269,6 @@
 	],
 	"compatibilityExports": [],
 	"legacyExampleImports": [],
-	"oversizedStableExtensionModules": []
+	"oversizedStableExtensionModules": [],
+	"oversizedStableResourceModules": []
 }

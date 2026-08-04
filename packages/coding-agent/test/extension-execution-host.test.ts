@@ -4,7 +4,6 @@ import { describe, expect, it, vi } from "vitest";
 import type { AgentSession } from "../src/core/agent-session.js";
 import { AuthStorage } from "../src/core/auth-storage.js";
 import { ModelRegistry } from "../src/core/model-registry.js";
-import type { ResourceLoader } from "../src/core/resource-loader.js";
 import { createLegacyExtensionExecutionHost } from "../src/core/session/extension-binding.js";
 import type { SessionContext } from "../src/core/session/session-context.js";
 import { SessionManager } from "../src/core/session-manager/index.js";
@@ -16,6 +15,7 @@ import {
 	type ExtensionExecutionHost,
 	ExtensionRunner,
 } from "../src/extensions/index.js";
+import type { SessionResourceRuntime } from "../src/resources/index.js";
 
 describe("ExtensionExecutionHost", () => {
 	it("原位绑定完整命令式动作并保留 Loader 共享状态", () => {
@@ -115,7 +115,7 @@ describe("ExtensionExecutionHost", () => {
 		const resourceLoader = {
 			getPrompts: () => ({ prompts: [], diagnostics: [] }),
 			getSkills: () => ({ skills: [], diagnostics: [] }),
-		} as unknown as ResourceLoader;
+		} as unknown as SessionResourceRuntime;
 		const executionHost = createLegacyExtensionExecutionHost(runner, {
 			ctx: context,
 			host,

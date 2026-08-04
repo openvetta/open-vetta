@@ -6,6 +6,7 @@ import type { RuntimeTracer } from "@vetta/runtime-telemetry";
 import { createLangfuseRuntimeTracerFromEnv } from "@vetta/runtime-telemetry/langfuse";
 import { DEFAULT_SERVER_URL, ENV_SERVER_URL, getAgentDir, getDocsPath, getVettaHomePath } from "../config.js";
 import type { ExtensionRunner, LoadExtensionsResult, ToolDefinition } from "../extensions/index.js";
+import { createCodingAgentSessionResourceRuntime } from "../host/coding-agent-resource-runtime.js";
 import type {
 	AgentPluginContinuationInvoker,
 	AgentPluginRuntimeConfig,
@@ -13,6 +14,7 @@ import type {
 	AgentPluginToolInvoker,
 } from "../model-context/index.js";
 import { convertToLlm } from "../model-context/index.js";
+import type { SessionResourceRuntime as ResourceLoader } from "../resources/index.js";
 import { AgentSession } from "./agent-session.js";
 import { AuthStorage } from "./auth-storage.js";
 import { DEFAULT_THINKING_LEVEL } from "./defaults.js";
@@ -20,8 +22,6 @@ import type { EcosystemHookAdapterFactory } from "./hooks/index.js";
 import { applyImageBudget } from "./image-budget.js";
 import { ModelRegistry } from "./model-registry.js";
 import { findInitialModel } from "./model-resolver.js";
-import type { ResourceLoader } from "./resource-loader.js";
-import { DefaultResourceLoader } from "./resource-loader.js";
 import type { ConversationScenario } from "./session/tool-scope.js";
 import { SessionManager } from "./session-manager/index.js";
 import { SettingsManager } from "./settings-manager.js";
@@ -111,7 +111,7 @@ export interface CreateAgentSessionOptions {
 	/** Additional external-ecosystem Hook adapters composed with built-in adapters. */
 	additionalHookAdapterFactories?: readonly EcosystemHookAdapterFactory[];
 
-	/** Resource loader. When omitted, DefaultResourceLoader is used. */
+	/** Session resource runtime. When omitted, the Coding Agent host composes one. */
 	resourceLoader?: ResourceLoader;
 
 	/** Session manager. Default: SessionManager.create(cwd) */
@@ -125,7 +125,7 @@ export interface CreateAgentSessionOptions {
 
 	/**
 	 * 是否发现通用 Agent Skill 目录（`~/.agents/skills`、`<cwd>/.agents/skills`）。默认 true。
-	 * 仅在未显式传入 resourceLoader 时生效（由 DefaultResourceLoader 消费）。
+	 * 仅在未显式传入 resourceLoader 时生效（由 Session Resource Runtime 消费）。
 	 */
 	includeAgentSkills?: boolean;
 
@@ -304,10 +304,10 @@ function getDefaultAgentDir(): string {
  * });
  *
  * // Full control
- * const loader = new DefaultResourceLoader({
+ * const loader = createCodingAgentSessionResourceRuntime({
  *   cwd: process.cwd(),
  *   agentDir: getAgentDir(),
- *   settingsManager: SettingsManager.create(),
+ *   settings: SettingsManager.create(),
  * });
  * await loader.reload();
  * const { session } = await createAgentSession({
@@ -358,10 +358,10 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 	if (!resourceLoader) {
 		const pluginSkillPaths =
 			options.agentPlugins?.skillPathContributions?.flatMap((contribution) => contribution.paths) ?? [];
-		resourceLoader = new DefaultResourceLoader({
+		resourceLoader = createCodingAgentSessionResourceRuntime({
 			cwd,
 			agentDir,
-			settingsManager,
+			settings: settingsManager,
 			appendSystemPrompt: options.appendSystemPrompt,
 			includeAgentSkills: options.includeAgentSkills,
 			additionalSkillPaths: pluginSkillPaths,

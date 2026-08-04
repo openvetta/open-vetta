@@ -1,15 +1,15 @@
 import {
-	DefaultResourceLoader,
-	type DefaultResourceLoaderOptions,
-	type ResourceLoader,
-} from "../../core/resource-loader.js";
-import {
 	type PersonalizationSettingsSource,
 	resolveSystemPromptOptionsFromSources,
 } from "../../core/session/system-prompt-builder.js";
 import type { ConversationScenario } from "../../core/session/tool-scope.js";
 import { SettingsManager } from "../../core/settings-manager.js";
+import {
+	type CodingAgentSessionResourceRuntimeOptions,
+	createCodingAgentSessionResourceRuntime,
+} from "../../host/coding-agent-resource-runtime.js";
 import type { AgentPluginRuntimeConfig } from "../../model-context/index.js";
+import type { SessionResourceRuntime } from "../../resources/index.js";
 import type {
 	CodingAgentModelCallPromptContext,
 	CodingAgentSystemPromptOptions,
@@ -24,7 +24,7 @@ export interface CodingAgentPromptSettingsSource extends PersonalizationSettings
 }
 
 export type CodingAgentPromptResourceSource = Pick<
-	ResourceLoader,
+	SessionResourceRuntime,
 	"getAgentsFiles" | "getAppendSystemPrompt" | "getSkills" | "getSystemPrompt" | "refreshSkillsIfChanged"
 >;
 
@@ -48,11 +48,11 @@ export interface CodingAgentPromptRuntimeOptions {
 export interface CreateCodingAgentPromptRuntimeOptions
 	extends Omit<CodingAgentPromptRuntimeOptions, "resourceLoader" | "settingsManager"> {
 	readonly agentDir?: string;
-	readonly resourceLoader?: ResourceLoader;
+	readonly resourceLoader?: SessionResourceRuntime;
 	readonly settingsManager?: SettingsManager;
 	readonly resourceLoaderOptions?: Omit<
-		DefaultResourceLoaderOptions,
-		"agentDir" | "cwd" | "noExtensions" | "noPromptTemplates" | "noThemes" | "settingsManager"
+		CodingAgentSessionResourceRuntimeOptions,
+		"agentDir" | "cwd" | "noExtensions" | "noPromptTemplates" | "noThemes" | "settings" | "packages"
 	>;
 }
 
@@ -106,11 +106,11 @@ export async function createCodingAgentPromptRuntime(
 	const settingsManager = options.settingsManager ?? SettingsManager.create(options.cwd, options.agentDir);
 	const resourceLoader =
 		options.resourceLoader ??
-		new DefaultResourceLoader({
+		createCodingAgentSessionResourceRuntime({
 			...options.resourceLoaderOptions,
 			cwd: options.cwd,
 			agentDir: options.agentDir,
-			settingsManager,
+			settings: settingsManager,
 			noExtensions: true,
 			noPromptTemplates: true,
 			noThemes: true,

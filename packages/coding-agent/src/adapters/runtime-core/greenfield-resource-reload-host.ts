@@ -1,10 +1,10 @@
 import { resetApiProviders } from "@vetta/ai";
-import type { ResourceLoader } from "../../core/resource-loader.js";
 import type { SettingsManager } from "../../core/settings-manager.js";
+import type { SessionResourceRuntime } from "../../resources/index.js";
 
 export interface CodingAgentGreenfieldResourceReloadHostOptions {
 	readonly settingsManager: Pick<SettingsManager, "reload">;
-	readonly resourceLoader: Pick<ResourceLoader, "reload">;
+	readonly resourceLoader: Pick<SessionResourceRuntime, "reload">;
 	readonly runWithExtensionLifecycle: (operation: () => Promise<void>) => Promise<void>;
 	readonly afterReload?: () => Promise<void> | void;
 	readonly resetProviders?: () => void;

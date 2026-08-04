@@ -1,3 +1,4 @@
+export { createExtensionEventBus, type ExtensionEventBusController } from "./event-bus.js";
 export type {
 	ExtensionErrorListener,
 	ForkHandler,

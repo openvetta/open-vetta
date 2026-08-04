@@ -1,7 +1,6 @@
 import { type ImageContent, modelsAreEqual, Type } from "@vetta/ai";
 import type { GreenfieldRuntimeSession } from "@vetta/runtime-core";
 import type { RuntimeToolDefinition, SessionContextRecord } from "@vetta/runtime-core/kernel";
-import type { ResourceLoader } from "../../core/resource-loader.js";
 import type { SlashCommandInfo, SlashCommandLocation } from "../../core/slash-commands.js";
 import type {
 	ExtensionActions,
@@ -12,11 +11,12 @@ import type {
 	ToolInfo,
 } from "../../extensions/index.js";
 import { bindExtensionRuntimeActions } from "../../extensions/index.js";
+import type { SessionResourceRuntime } from "../../resources/index.js";
 import { CODING_AGENT_EXTENSION_INPUT_SOURCE_METADATA_KEY } from "./greenfield-prompt-adapter.js";
 
 export interface CodingAgentGreenfieldExtensionActionHostOptions {
 	readonly session: GreenfieldRuntimeSession;
-	readonly resourceLoader: Pick<ResourceLoader, "getPrompts" | "getSkills">;
+	readonly resourceLoader: Pick<SessionResourceRuntime, "getPrompts" | "getSkills">;
 	readonly onModelSelect?: (event: ModelSelectEvent) => Promise<void>;
 	readonly onError?: (error: ExtensionError) => void;
 	readonly now?: () => number;
@@ -185,7 +185,9 @@ function toToolInfo(tools: ReadonlyMap<string, RuntimeToolDefinition>): ToolInfo
 	}));
 }
 
-function readResourceCommands(resourceLoader: Pick<ResourceLoader, "getPrompts" | "getSkills">): SlashCommandInfo[] {
+function readResourceCommands(
+	resourceLoader: Pick<SessionResourceRuntime, "getPrompts" | "getSkills">,
+): SlashCommandInfo[] {
 	const prompts = resourceLoader.getPrompts().prompts.map((template) => ({
 		name: template.name,
 		description: template.description,

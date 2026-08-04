@@ -2,7 +2,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync
 import { rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { getVettaHomePath } from "@vetta/action-rpc";
-import { DefaultResourceLoader } from "@vetta/coding-agent/resources";
+import { createCodingAgentSessionResourceRuntime } from "@vetta/coding-agent/resources";
 import type { AppMonitorResourceOperation } from "../../preload/api-types/app-monitor.js";
 import { removeAbilityLedgerEntry } from "../abilities/ability-ledger.js";
 import { recordAppMonitorEvent } from "../app-monitor/app-monitor-service.js";
@@ -109,7 +109,7 @@ export class SkillService {
 		const pluginSkillPaths =
 			buildAgentPluginRuntimeConfig()?.skillPathContributions?.flatMap((contribution) => contribution.paths) ?? [];
 		const builtinSkillPaths = getBuiltinSkillPaths();
-		const loader = new DefaultResourceLoader({
+		const loader = createCodingAgentSessionResourceRuntime({
 			includeAgentSkills,
 			cwd,
 			additionalSkillPaths: [...pluginSkillPaths, ...builtinSkillPaths],

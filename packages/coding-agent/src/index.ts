@@ -71,18 +71,7 @@ export { createEventBus, type EventBus, type EventBusController } from "./core/e
 // Footer data provider (git branch + extension statuses - data not otherwise available to extensions)
 export type { ReadonlyFooterDataProvider } from "./core/footer-data-provider.js";
 export { ModelRegistry } from "./core/model-registry.js";
-export type {
-	PackageManager,
-	PathMetadata,
-	ProgressCallback,
-	ProgressEvent,
-	ResolvedPaths,
-	ResolvedResource,
-} from "./core/package-manager.js";
-export { DefaultPackageManager } from "./core/package-manager.js";
 export { DEFAULT_PERSONA_ID, getPersonaPrompt, PERSONAS, type Persona } from "./core/personas.js";
-export type { ResourceCollision, ResourceDiagnostic, ResourceLoader } from "./core/resource-loader.js";
-export { DefaultResourceLoader } from "./core/resource-loader.js";
 // SDK for programmatic usage
 export {
 	type CreateAgentSessionOptions,

@@ -2,7 +2,6 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import * as config from "../src/config.js";
 import { createLimiter } from "../src/core/concurrency-limit.js";
-import { DefaultResourceLoader } from "../src/core/resource-loader.js";
 import * as root from "../src/index.js";
 import { createAgentCliBootstrap, createCodingAgentHostBootstrap } from "../src/public-api/bootstrap.js";
 import { runCodingAgentCliControl } from "../src/public-api/cli-control.js";
@@ -14,6 +13,7 @@ import {
 } from "../src/public-api/host-services.js";
 import { VETTA_CLI_GUIDANCE } from "../src/public-api/product-prompt.js";
 import { ALL_SCENARIOS, PERSONAS } from "../src/public-api/profile.js";
+import { createCodingAgentSessionResourceRuntime } from "../src/public-api/resources.js";
 import {
 	GREENFIELD_FULL_RPC_PROFILE,
 	GREENFIELD_IM_RPC_PROFILE,
@@ -31,7 +31,8 @@ describe("coding-agent public subpaths", () => {
 		expect(ALL_SCENARIOS).toBe(root.ALL_SCENARIOS);
 		expect(PERSONAS).toBe(root.PERSONAS);
 		expect(config.getAgentDir).toBe(root.getAgentDir);
-		expect(DefaultResourceLoader).toBe(root.DefaultResourceLoader);
+		expect(createCodingAgentSessionResourceRuntime).toBeTypeOf("function");
+		expect(Reflect.has(root, "DefaultResourceLoader")).toBe(false);
 		expect(createLimiter).toBe(root.createLimiter);
 		expect(HostAuthStorage).toBe(root.AuthStorage);
 		expect(HostModelRegistry).toBe(root.ModelRegistry);
@@ -80,8 +81,8 @@ describe("coding-agent public subpaths", () => {
 				import: "./dist/public-api/product-prompt.js",
 			},
 			"./resources": {
-				types: "./dist/core/resource-loader.d.ts",
-				import: "./dist/core/resource-loader.js",
+				types: "./dist/public-api/resources.d.ts",
+				import: "./dist/public-api/resources.js",
 			},
 			"./rpc": {
 				types: "./dist/public-api/rpc.d.ts",

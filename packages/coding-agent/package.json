@@ -50,8 +50,8 @@
 			"import": "./dist/public-api/product-prompt.js"
 		},
 		"./resources": {
-			"types": "./dist/core/resource-loader.d.ts",
-			"import": "./dist/core/resource-loader.js"
+			"types": "./dist/public-api/resources.d.ts",
+			"import": "./dist/public-api/resources.js"
 		},
 		"./rpc": {
 			"types": "./dist/public-api/rpc.d.ts",

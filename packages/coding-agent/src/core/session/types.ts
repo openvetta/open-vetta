@@ -25,10 +25,10 @@ import type {
 	AgentPluginSystemPromptInvoker,
 	AgentPluginToolInvoker,
 } from "../../model-context/index.js";
+import type { SessionResourceRuntime as ResourceLoader } from "../../resources/index.js";
 import type { BackgroundTaskSnapshot } from "../background-tasks/index.js";
 import type { EcosystemHookAdapterFactory } from "../hooks/index.js";
 import type { ModelRegistry } from "../model-registry.js";
-import type { ResourceLoader } from "../resource-loader.js";
 import type { SessionManager } from "../session-manager/index.js";
 import type { SettingsManager } from "../settings-manager.js";
 import type { SubagentSessionFactory, SubagentSnapshot, SubagentTypeRegistry } from "../subagents/index.js";

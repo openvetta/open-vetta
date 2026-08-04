@@ -33,7 +33,6 @@ import { createToolHtmlRenderer } from "../core/export-html/tool-renderer.js";
 import { DEFAULT_MEMORY_CHAR_LIMIT } from "../core/memory/memory-store.js";
 import { ModelRegistry } from "../core/model-registry.js";
 import { findInitialModel } from "../core/model-resolver.js";
-import { DefaultResourceLoader } from "../core/resource-loader.js";
 import type { CreateAgentSessionOptions } from "../core/sdk.js";
 import { SettingsManager } from "../core/settings-manager.js";
 import { time } from "../core/timings.js";
@@ -51,6 +50,7 @@ import {
 	assessSdkCreateOptionsCompatibility,
 	type SdkCreateOptionCompatibilityIssue,
 } from "../public-api/sdk-compatibility-inventory.js";
+import { createCodingAgentSessionResourceRuntime } from "./coding-agent-resource-runtime.js";
 import { CodingAgentSdkBashAdapter } from "./coding-agent-sdk-bash-adapter.js";
 import { CodingAgentSdkExtensionTransitionAdapter } from "./coding-agent-sdk-extension-transition-adapter.js";
 import {
@@ -336,10 +336,10 @@ async function createGreenfieldAgentSessionInternal(
 	let currentAgentPlugins = options.agentPlugins;
 	const resourceLoader =
 		options.resourceLoader ??
-		new DefaultResourceLoader({
+		createCodingAgentSessionResourceRuntime({
 			cwd,
 			agentDir,
-			settingsManager,
+			settings: settingsManager,
 			additionalExtensionPaths: resourceSourceAdapter?.readExtensionPaths()
 				? [...resourceSourceAdapter.readExtensionPaths()]
 				: [],

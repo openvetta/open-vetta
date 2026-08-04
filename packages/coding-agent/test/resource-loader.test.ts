@@ -5,13 +5,13 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { CONFIG_DIR_NAME } from "../src/config.js";
 import { AuthStorage } from "../src/core/auth-storage.js";
 import { ModelRegistry } from "../src/core/model-registry.js";
-import { DefaultResourceLoader } from "../src/core/resource-loader.js";
 import { SessionManager } from "../src/core/session-manager/index.js";
 import { SettingsManager } from "../src/core/settings-manager.js";
 import { ExtensionRunner } from "../src/extensions/index.js";
+import { createCodingAgentSessionResourceRuntime } from "../src/host/coding-agent-resource-runtime.js";
 import type { Skill } from "../src/resources/skills/index.js";
 
-describe("DefaultResourceLoader", () => {
+describe("SessionResourceRuntime", () => {
 	let tempDir: string;
 	let agentDir: string;
 	let cwd: string;
@@ -30,12 +30,31 @@ describe("DefaultResourceLoader", () => {
 
 	describe("reload", () => {
 		it("should initialize with empty results before reload", () => {
-			const loader = new DefaultResourceLoader({ cwd, agentDir });
+			const loader = createCodingAgentSessionResourceRuntime({ cwd, agentDir });
 
 			expect(loader.getExtensions().extensions).toEqual([]);
 			expect(loader.getSkills().skills).toEqual([]);
 			expect(loader.getPrompts().prompts).toEqual([]);
 			expect(loader.getThemes().themes).toEqual([]);
+		});
+
+		it("should preserve the session event bus across reloads", async () => {
+			const eventBuses: unknown[] = [];
+			const loader = createCodingAgentSessionResourceRuntime({
+				cwd,
+				agentDir,
+				extensionFactories: [
+					(api) => {
+						eventBuses.push(api.events);
+					},
+				],
+			});
+
+			await loader.reload();
+			await loader.reload();
+
+			expect(eventBuses).toHaveLength(2);
+			expect(eventBuses[1]).toBe(eventBuses[0]);
 		});
 
 		it("should discover skills from agentDir", async () => {
@@ -50,7 +69,7 @@ description: A test skill
 Skill content here.`,
 			);
 
-			const loader = new DefaultResourceLoader({ cwd, agentDir });
+			const loader = createCodingAgentSessionResourceRuntime({ cwd, agentDir });
 			await loader.reload();
 
 			const { skills } = loader.getSkills();
@@ -70,7 +89,7 @@ Skill content here.`,
 			);
 			writeFileSync(join(skillDir, "EFFICIENCY.md"), "No frontmatter here");
 
-			const loader = new DefaultResourceLoader({ cwd, agentDir });
+			const loader = createCodingAgentSessionResourceRuntime({ cwd, agentDir });
 			await loader.reload();
 
 			const { skills, diagnostics } = loader.getSkills();
@@ -89,7 +108,7 @@ description: A test prompt
 Prompt content.`,
 			);
 
-			const loader = new DefaultResourceLoader({ cwd, agentDir });
+			const loader = createCodingAgentSessionResourceRuntime({ cwd, agentDir });
 			await loader.reload();
 
 			const { prompts } = loader.getPrompts();
@@ -143,7 +162,7 @@ Project skill`,
 			}
 			writeFileSync(projectThemePath, JSON.stringify(baseTheme, null, 2));
 
-			const loader = new DefaultResourceLoader({ cwd, agentDir });
+			const loader = createCodingAgentSessionResourceRuntime({ cwd, agentDir });
 			await loader.reload();
 
 			const prompt = loader.getPrompts().prompts.find((p) => p.name === "commit");
@@ -190,7 +209,7 @@ Project skill`,
 }`,
 			);
 
-			const loader = new DefaultResourceLoader({ cwd, agentDir });
+			const loader = createCodingAgentSessionResourceRuntime({ cwd, agentDir });
 			await loader.reload();
 
 			const extensionsResult = loader.getExtensions();
@@ -246,7 +265,7 @@ Content`,
 			mkdirSync(themesDir, { recursive: true });
 			writeFileSync(join(themesDir, "skip.json"), "{}");
 
-			const loader = new DefaultResourceLoader({ cwd, agentDir, settingsManager });
+			const loader = createCodingAgentSessionResourceRuntime({ cwd, agentDir, settings: settingsManager });
 			await loader.reload();
 
 			const { extensions } = loader.getExtensions();
@@ -263,7 +282,7 @@ Content`,
 		it("should discover AGENTS.md context files", async () => {
 			writeFileSync(join(cwd, "AGENTS.md"), "# Project Guidelines\n\nBe helpful.");
 
-			const loader = new DefaultResourceLoader({ cwd, agentDir });
+			const loader = createCodingAgentSessionResourceRuntime({ cwd, agentDir });
 			await loader.reload();
 
 			const { agentsFiles } = loader.getAgentsFiles();
@@ -275,7 +294,7 @@ Content`,
 			mkdirSync(configDir, { recursive: true });
 			writeFileSync(join(configDir, "SYSTEM.md"), "You are a helpful assistant.");
 
-			const loader = new DefaultResourceLoader({ cwd, agentDir });
+			const loader = createCodingAgentSessionResourceRuntime({ cwd, agentDir });
 			await loader.reload();
 
 			expect(loader.getSystemPrompt()).toBe("You are a helpful assistant.");
@@ -286,7 +305,7 @@ Content`,
 			mkdirSync(configDir, { recursive: true });
 			writeFileSync(join(configDir, "APPEND_SYSTEM.md"), "Additional instructions.");
 
-			const loader = new DefaultResourceLoader({ cwd, agentDir });
+			const loader = createCodingAgentSessionResourceRuntime({ cwd, agentDir });
 			await loader.reload();
 
 			expect(loader.getAppendSystemPrompt()).toContain("Additional instructions.");
@@ -318,7 +337,7 @@ description: Extra prompt
 Extra prompt content`,
 			);
 
-			const loader = new DefaultResourceLoader({ cwd, agentDir });
+			const loader = createCodingAgentSessionResourceRuntime({ cwd, agentDir });
 			await loader.reload();
 
 			loader.extendResources({
@@ -371,7 +390,7 @@ description: A test skill
 Content`,
 			);
 
-			const loader = new DefaultResourceLoader({ cwd, agentDir, noSkills: true });
+			const loader = createCodingAgentSessionResourceRuntime({ cwd, agentDir, noSkills: true });
 			await loader.reload();
 
 			const { skills } = loader.getSkills();
@@ -390,7 +409,7 @@ description: Custom skill
 Content`,
 			);
 
-			const loader = new DefaultResourceLoader({
+			const loader = createCodingAgentSessionResourceRuntime({
 				cwd,
 				agentDir,
 				noSkills: true,
@@ -414,7 +433,7 @@ Content`,
 				type: "skill",
 				disableModelInvocation: false,
 			};
-			const loader = new DefaultResourceLoader({
+			const loader = createCodingAgentSessionResourceRuntime({
 				cwd,
 				agentDir,
 				skillsOverride: () => ({
@@ -430,7 +449,7 @@ Content`,
 		});
 
 		it("should apply systemPromptOverride", async () => {
-			const loader = new DefaultResourceLoader({
+			const loader = createCodingAgentSessionResourceRuntime({
 				cwd,
 				agentDir,
 				systemPromptOverride: () => "Custom system prompt",
@@ -479,7 +498,7 @@ export default function(pi: ExtensionAPI) {
 }`,
 			);
 
-			const loader = new DefaultResourceLoader({ cwd, agentDir });
+			const loader = createCodingAgentSessionResourceRuntime({ cwd, agentDir });
 			await loader.reload();
 
 			const { errors } = loader.getExtensions();

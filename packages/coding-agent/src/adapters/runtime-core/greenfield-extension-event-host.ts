@@ -1,7 +1,6 @@
 import { basename, dirname } from "node:path";
 import { type GreenfieldRuntimeSession, RetryableCleanup } from "@vetta/runtime-core";
 import type { ModelRegistry } from "../../core/model-registry.js";
-import type { ResourceExtensionPaths, ResourceLoader } from "../../core/resource-loader.js";
 import type {
 	Extension,
 	ExtensionError,
@@ -10,6 +9,7 @@ import type {
 	ExtensionUIContext,
 } from "../../extensions/index.js";
 import { ExtensionRunner } from "../../extensions/index.js";
+import type { ResourceExtensionPaths, SessionResourceRuntime } from "../../resources/index.js";
 import { CodingAgentGreenfieldExtensionActionHost } from "./greenfield-extension-action-host.js";
 import { CodingAgentGreenfieldExtensionObservationAdapter } from "./greenfield-extension-observation-adapter.js";
 import { createGreenfieldReadonlySessionManager } from "./greenfield-readonly-session-manager.js";
@@ -25,7 +25,7 @@ export interface CodingAgentGreenfieldExtensionEventHostOptions {
 	readonly cwd: string;
 	readonly session: GreenfieldRuntimeSession;
 	readonly modelRegistry: ModelRegistry;
-	readonly resourceLoader: Pick<ResourceLoader, "extendResources" | "getPrompts" | "getSkills">;
+	readonly resourceLoader: Pick<SessionResourceRuntime, "extendResources" | "getPrompts" | "getSkills">;
 	readonly bindEvents: (
 		runner: ExtensionRunner,
 		options?: { readonly replaceExisting?: boolean },

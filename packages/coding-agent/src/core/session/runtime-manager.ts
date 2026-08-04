@@ -35,12 +35,12 @@ import type {
 	SystemPromptOperation,
 } from "../../model-context/index.js";
 import { applySystemPromptOperations, renderSystemPromptDraft } from "../../model-context/index.js";
+import type { ResourceExtensionPaths, SessionResourceRuntime as ResourceLoader } from "../../resources/index.js";
 import { matchesAgentMode } from "../agent-mode.js";
 import type { AgentSession, ExtensionBindings } from "../agent-session.js";
 import type { BackgroundTaskManager } from "../background-tasks/index.js";
 import { wrapToolsWithEcosystemHooks } from "../hooks/index.js";
 import { createMcpManager, type McpManager } from "../mcp/index.js";
-import type { ResourceExtensionPaths, ResourceLoader } from "../resource-loader.js";
 import type { SubagentCoordinator } from "../subagents/index.js";
 import { createSubagentControlTools } from "../subagents/index.js";
 import type { TodoStore } from "../todo-store.js";
