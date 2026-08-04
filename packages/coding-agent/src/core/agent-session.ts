@@ -20,6 +20,7 @@ import type { CompactionResult } from "../compaction/index.js";
 import type { ContextUsage, ExtensionRunner, ToolDefinition, ToolInfo } from "../extensions/index.js";
 import type { AgentPluginRuntimeConfig, CustomMessage } from "../model-context/index.js";
 import { theme } from "../modes/interactive/theme/theme.js";
+import type { PromptTemplate } from "../resources/prompts/index.js";
 import { BackgroundTaskManager, buildTaskNotification } from "./background-tasks/index.js";
 import type { BashResult } from "./bash-executor.js";
 import { exportSessionToHtml, type ToolHtmlRenderer } from "./export-html/index.js";
@@ -28,7 +29,6 @@ import { createEcosystemHookRuntime, type EcosystemHookRuntime } from "./hooks/i
 import type { McpManager } from "./mcp/index.js";
 import { DEFAULT_MEMORY_CHAR_LIMIT, readMemoryContent } from "./memory/memory-store.js";
 import type { ModelRegistry } from "./model-registry.js";
-import type { PromptTemplate } from "./prompt-templates.js";
 import type { ResourceLoader } from "./resource-loader.js";
 import { SessionBackgroundTaskController } from "./session/background-task-controller.js";
 import { BashController } from "./session/bash-controller.js";

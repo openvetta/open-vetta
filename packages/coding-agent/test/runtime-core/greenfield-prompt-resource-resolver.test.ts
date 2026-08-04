@@ -6,8 +6,8 @@ import {
 	CodingAgentGreenfieldPromptAdapter,
 	createCodingAgentPromptResourceResolver,
 } from "../../src/adapters/runtime-core/index.js";
-import type { Skill } from "../../src/core/skills.js";
 import { TodoStore } from "../../src/core/todo-store.js";
+import type { Skill } from "../../src/resources/skills/index.js";
 
 describe("Greenfield prompt resource resolver", () => {
 	let root: string;

@@ -14,9 +14,13 @@ export const REWRITE_BASELINE_PATH = "scripts/quality/baselines/coding-agent-rew
 
 const OLD_CORE_PREFIX = "packages/coding-agent/src/core/";
 const STABLE_EXTENSION_CONTRACT_PREFIX = "packages/coding-agent/src/extensions/";
+const STABLE_RESOURCE_DOMAIN_PREFIX = "packages/coding-agent/src/resources/";
 const STABLE_EXTENSION_CONTRACT_AGGREGATE = `${STABLE_EXTENSION_CONTRACT_PREFIX}contracts.ts`;
 const MAX_EXTENSION_AGGREGATE_LINES = 50;
 const MAX_EXTENSION_MODULE_LINES = 300;
+const STABLE_RESOURCE_AGGREGATE = `${STABLE_RESOURCE_DOMAIN_PREFIX}index.ts`;
+const MAX_RESOURCE_AGGREGATE_LINES = 50;
+const MAX_RESOURCE_MODULE_LINES = 600;
 const RUNTIME_PACKAGE_PREFIXES = Object.freeze([
 	"packages/runtime-core/src/",
 	"packages/runtime-tools/src/",
@@ -70,6 +74,15 @@ export function collectCodingAgentRewriteState({ productionFiles, sdkExampleFile
 		}))
 		.filter((file) => file.lines > file.limit)
 		.sort((left, right) => left.path.localeCompare(right.path));
+	const oversizedStableResourceModules = productionFiles
+		.filter((file) => file.path.startsWith(STABLE_RESOURCE_DOMAIN_PREFIX) && file.path.endsWith(".ts"))
+		.map((file) => ({
+			path: file.path,
+			lines: file.text.split(/\r?\n/).length,
+			limit: file.path === STABLE_RESOURCE_AGGREGATE ? MAX_RESOURCE_AGGREGATE_LINES : MAX_RESOURCE_MODULE_LINES,
+		}))
+		.filter((file) => file.lines > file.limit)
+		.sort((left, right) => left.path.localeCompare(right.path));
 
 	return Object.freeze({
 		version: 1,
@@ -79,6 +92,7 @@ export function collectCodingAgentRewriteState({ productionFiles, sdkExampleFile
 		compatibilityExports,
 		legacyExampleImports,
 		oversizedStableExtensionModules,
+		oversizedStableResourceModules,
 	});
 }
 
@@ -88,9 +102,15 @@ export function findCodingAgentRewriteProgressViolations(actual, baseline) {
 		if (edge.path.startsWith(STABLE_EXTENSION_CONTRACT_PREFIX)) {
 			violations.push(`${edge.path}: stable Extension contract depends on old implementation (${edge.specifier})`);
 		}
+		if (edge.path.startsWith(STABLE_RESOURCE_DOMAIN_PREFIX)) {
+			violations.push(`${edge.path}: stable Resource domain depends on old implementation (${edge.specifier})`);
+		}
 	}
 	for (const file of actual.oversizedStableExtensionModules) {
 		violations.push(`${file.path}: stable Extension module has ${file.lines} lines (limit ${file.limit})`);
+	}
+	for (const file of actual.oversizedStableResourceModules) {
+		violations.push(`${file.path}: stable Resource module has ${file.lines} lines (limit ${file.limit})`);
 	}
 	if (baseline.version !== actual.version) {
 		violations.push(`rewrite baseline version differs (${baseline.version} !== ${actual.version})`);

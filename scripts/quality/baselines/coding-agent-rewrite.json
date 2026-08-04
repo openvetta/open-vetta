@@ -136,16 +136,6 @@
 			"domain": "agent-mode"
 		},
 		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-invoke-skill-runtime.ts",
-			"specifier": "../../core/skills.js",
-			"names": [
-				"Skill",
-				"readSkillContent"
-			],
-			"category": "old-core",
-			"domain": "skills"
-		},
-		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-memory-rollover-orchestrator.ts",
 			"specifier": "../../core/memory/memory-flush.js",
 			"names": [
@@ -741,24 +731,6 @@
 			"domain": "timings"
 		},
 		{
-			"path": "packages/coding-agent/src/host/coding-agent-sdk-resource-source-adapter.ts",
-			"specifier": "../core/diagnostics.js",
-			"names": [
-				"ResourceDiagnostic"
-			],
-			"category": "old-core",
-			"domain": "diagnostics"
-		},
-		{
-			"path": "packages/coding-agent/src/host/coding-agent-sdk-resource-source-adapter.ts",
-			"specifier": "../core/skills.js",
-			"names": [
-				"Skill"
-			],
-			"category": "old-core",
-			"domain": "skills"
-		},
-		{
 			"path": "packages/coding-agent/src/host/coding-agent-sdk-session-storage.ts",
 			"specifier": "../core/session-manager/index.js",
 			"names": [
@@ -1039,21 +1011,6 @@
 		},
 		{
 			"path": "packages/coding-agent/src/index.ts",
-			"specifier": "./core/skills.js",
-			"names": [
-				"LoadSkillsFromDirOptions",
-				"LoadSkillsResult",
-				"Skill",
-				"SkillFrontmatter",
-				"formatSkillsForPrompt",
-				"loadSkills",
-				"loadSkillsFromDir"
-			],
-			"category": "old-core",
-			"domain": "skills"
-		},
-		{
-			"path": "packages/coding-agent/src/index.ts",
 			"specifier": "./core/subagents/index.js",
 			"names": [
 				"DISPATCH_WORKFLOWS_MAX_BATCH",
@@ -1281,7 +1238,6 @@
 		"packages/coding-agent/src/core/bash-executor.ts",
 		"packages/coding-agent/src/core/concurrency-limit.ts",
 		"packages/coding-agent/src/core/defaults.ts",
-		"packages/coding-agent/src/core/diagnostics.ts",
 		"packages/coding-agent/src/core/event-bus.ts",
 		"packages/coding-agent/src/core/exec.ts",
 		"packages/coding-agent/src/core/export-html/ansi-to-html.ts",
@@ -1321,7 +1277,6 @@
 		"packages/coding-agent/src/core/package-manager.ts",
 		"packages/coding-agent/src/core/personas-data.ts",
 		"packages/coding-agent/src/core/personas.ts",
-		"packages/coding-agent/src/core/prompt-templates.ts",
 		"packages/coding-agent/src/core/resolve-config-value.ts",
 		"packages/coding-agent/src/core/resource-loader.ts",
 		"packages/coding-agent/src/core/sdk.ts",
@@ -1362,7 +1317,6 @@
 		"packages/coding-agent/src/core/session/tool-scope.ts",
 		"packages/coding-agent/src/core/session/types.ts",
 		"packages/coding-agent/src/core/settings-manager.ts",
-		"packages/coding-agent/src/core/skills.ts",
 		"packages/coding-agent/src/core/slash-commands.ts",
 		"packages/coding-agent/src/core/subagents/coordinator.ts",
 		"packages/coding-agent/src/core/subagents/fork-context.ts",
@@ -1425,5 +1379,6 @@
 		"packages/coding-agent/src/public-api/sdk-compatibility-inventory.ts"
 	],
 	"compatibilityExports": [],
-	"legacyExampleImports": []
+	"legacyExampleImports": [],
+	"oversizedStableExtensionModules": []
 }

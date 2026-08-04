@@ -1,6 +1,4 @@
 import { dirname, join, resolve } from "node:path";
-import type { ResourceDiagnostic } from "../core/diagnostics.js";
-import type { Skill } from "../core/skills.js";
 import type {
 	CodingAgentExtensionSource,
 	CodingAgentExtensionSourceSnapshot,
@@ -12,6 +10,8 @@ import type {
 	CodingAgentSkillSource,
 	CodingAgentSkillSourceSnapshot,
 } from "../public-api/sdk/index.js";
+import type { ResourceDiagnostic } from "../resources/contracts/diagnostics.js";
+import type { Skill } from "../resources/skills/index.js";
 
 interface SkillSourceBinding {
 	readonly kind: "skill";

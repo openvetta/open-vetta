@@ -8,9 +8,9 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { readSkillContent } from "../../resources/skills/index.js";
 import { stripFrontmatter } from "../../utils/frontmatter.js";
 import type { ResourceLoader } from "../resource-loader.js";
-import { readSkillContent } from "../skills.js";
 import type { TodoStore } from "../todo-store.js";
 import type { PromptResourceRef } from "./types.js";
 

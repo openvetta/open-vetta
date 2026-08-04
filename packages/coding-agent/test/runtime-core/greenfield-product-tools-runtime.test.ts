@@ -9,13 +9,13 @@ import {
 } from "../../src/adapters/runtime-core/greenfield.js";
 import type { CodingAgentPromptResourceSource } from "../../src/adapters/runtime-core/greenfield-prompt-runtime.js";
 import type { CodingAgentRuntimeToolRegistration } from "../../src/adapters/runtime-core/greenfield-tool-adapter.js";
-import type { Skill } from "../../src/core/skills.js";
 import { createDocToPdfTool } from "../../src/core/tools/doc-to-pdf/index.js";
 import { createExtractTextFromImgTool } from "../../src/core/tools/extract-text-from-img/index.js";
 import { createExtractTextFromPdfTool } from "../../src/core/tools/extract-text-from-pdf/index.js";
 import { createHtmlToPdfTool } from "../../src/core/tools/html-to-pdf/index.js";
 import { createProgressTool } from "../../src/core/tools/progress/index.js";
 import { createRenderPdfPageTool } from "../../src/core/tools/render-pdf-page/index.js";
+import type { Skill } from "../../src/resources/skills/index.js";
 
 describe("Greenfield product tools runtime", () => {
 	const temporaryDirectories: string[] = [];

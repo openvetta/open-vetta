@@ -1,7 +1,7 @@
 import { type Static, Type } from "@sinclair/typebox";
+import { readSkillContent, type Skill } from "../../../resources/skills/index.js";
 import { stripFrontmatter } from "../../../utils/frontmatter.js";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
-import { readSkillContent, type Skill } from "../../skills.js";
 import { loadToolDescription } from "../description.js";
 import { toolCallDescriptionSchema } from "../tool-call-description.js";
 

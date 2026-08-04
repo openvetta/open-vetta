@@ -5,18 +5,18 @@ import chalk from "chalk";
 import { CONFIG_DIR_NAME, getAgentDir, getSceneDir, getVettaHomePath } from "../config.js";
 import type { Extension, ExtensionFactory, ExtensionRuntime, LoadExtensionsResult } from "../extensions/index.js";
 import { loadThemeFromPath, type Theme } from "../modes/interactive/theme/theme.js";
-import type { ResourceDiagnostic } from "./diagnostics.js";
+import type { ResourceDiagnostic } from "../resources/contracts/diagnostics.js";
 
-export type { ResourceCollision, ResourceDiagnostic } from "./diagnostics.js";
+export type { ResourceCollision, ResourceDiagnostic } from "../resources/contracts/diagnostics.js";
 
 import { createExtensionRuntime, loadExtensionFromFactory, loadExtensions } from "../extensions/index.js";
+import type { PromptTemplate } from "../resources/prompts/index.js";
+import { loadPromptTemplates } from "../resources/prompts/index.js";
+import type { Skill } from "../resources/skills/index.js";
+import { loadSkills } from "../resources/skills/index.js";
 import { createEventBus, type EventBus } from "./event-bus.js";
 import { DefaultPackageManager, type PathMetadata } from "./package-manager.js";
-import type { PromptTemplate } from "./prompt-templates.js";
-import { loadPromptTemplates } from "./prompt-templates.js";
 import { SettingsManager } from "./settings-manager.js";
-import type { Skill } from "./skills.js";
-import { loadSkills } from "./skills.js";
 
 export interface ResourceExtensionPaths {
 	skillPaths?: Array<{ path: string; metadata: PathMetadata }>;
@@ -582,16 +582,10 @@ export class DefaultResourceLoader implements ResourceLoader {
 		if (this.noSkills && skillPaths.length === 0) {
 			skillsResult = { skills: [], diagnostics: [] };
 		} else {
-			const effectiveSkillPaths = this.noSkills
-				? skillPaths
-				: this.mergePaths(
-						skillPaths,
-						this.defaultSkillDirectories().filter((path) => existsSync(path)),
-					);
 			skillsResult = loadSkills({
 				cwd: this.cwd,
 				agentDir: this.agentDir,
-				skillPaths: effectiveSkillPaths,
+				skillPaths,
 				includeDefaults: false,
 				includeAgentSkills: this.includeAgentSkills,
 			});

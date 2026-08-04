@@ -57,6 +57,19 @@ describe("Coding Agent rewrite progress gate", () => {
 		]);
 	});
 
+	it("rejects old implementation dependencies from the stable Resource domain even if baselined", () => {
+		const actual = stateFrom([
+			{
+				path: "packages/coding-agent/src/resources/skills/index.ts",
+				text: 'import type { SettingsManager } from "../../core/settings-manager.js";',
+			},
+		]);
+
+		expect(findCodingAgentRewriteProgressViolations(actual, actual)).toEqual([
+			"packages/coding-agent/src/resources/skills/index.ts: stable Resource domain depends on old implementation (../../core/settings-manager.js)",
+		]);
+	});
+
 	it("keeps the stable Extension aggregate thin and responsibility modules bounded", () => {
 		const aggregate = stateFrom([
 			{
@@ -76,6 +89,28 @@ describe("Coding Agent rewrite progress gate", () => {
 		]);
 		expect(findCodingAgentRewriteProgressViolations(module, module)).toEqual([
 			"packages/coding-agent/src/extensions/api-contracts.ts: stable Extension module has 301 lines (limit 300)",
+		]);
+	});
+
+	it("keeps the stable Resource aggregate thin and prevents unbounded modules", () => {
+		const aggregate = stateFrom([
+			{
+				path: "packages/coding-agent/src/resources/index.ts",
+				text: Array.from({ length: 51 }, () => "export {};").join("\n"),
+			},
+		]);
+		const module = stateFrom([
+			{
+				path: "packages/coding-agent/src/resources/skills/discovery.ts",
+				text: Array.from({ length: 601 }, () => "export {};").join("\n"),
+			},
+		]);
+
+		expect(findCodingAgentRewriteProgressViolations(aggregate, aggregate)).toEqual([
+			"packages/coding-agent/src/resources/index.ts: stable Resource module has 51 lines (limit 50)",
+		]);
+		expect(findCodingAgentRewriteProgressViolations(module, module)).toEqual([
+			"packages/coding-agent/src/resources/skills/discovery.ts: stable Resource module has 601 lines (limit 600)",
 		]);
 	});
 

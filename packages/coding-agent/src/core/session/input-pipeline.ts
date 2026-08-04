@@ -18,8 +18,8 @@ import {
 	PROMPT_ATTACHMENT_REFERENCE_TYPE,
 	PROMPT_RESOURCE_REFERENCE_TYPE,
 } from "../../model-context/index.js";
+import { expandPromptTemplate } from "../../resources/prompts/index.js";
 import type { PromptOptions } from "../agent-session.js";
-import { expandPromptTemplate } from "../prompt-templates.js";
 import type { ResourceLoader } from "../resource-loader.js";
 import type { TodoStore } from "../todo-store.js";
 import type { BashController } from "./bash-controller.js";

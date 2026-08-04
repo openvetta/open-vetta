@@ -225,8 +225,8 @@ export type {
 	SlashCommandSource,
 	ToolDefinition,
 } from "../extensions/index.js";
-export type { PromptTemplate } from "./prompt-templates.js";
-export type { Skill, SkillType } from "./skills.js";
+export type { PromptTemplate } from "../resources/prompts/index.js";
+export type { Skill, SkillType } from "../resources/skills/index.js";
 export type { Tool } from "./tools/index.js";
 
 export {

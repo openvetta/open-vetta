@@ -5,7 +5,6 @@ import type { Api, Model } from "@vetta/ai";
 import type { GreenfieldRuntimeSession } from "@vetta/runtime-core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CodingAgentGreenfieldSessionCapabilityHost } from "../../src/adapters/runtime-core/greenfield-session-capability-host.js";
-import { readSkillContent } from "../../src/core/skills.js";
 import {
 	CodingAgentSdkResourceSourceAdapter,
 	projectCodingAgentSkillInfo,
@@ -15,6 +14,7 @@ import {
 	type CodingAgentSkillSourceSnapshot,
 	createCodingAgentSession,
 } from "../../src/public-api/sdk.js";
+import { readSkillContent } from "../../src/resources/skills/index.js";
 
 describe("Coding Agent SDK dynamic resources", () => {
 	const temporaryDirectories: string[] = [];
