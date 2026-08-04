@@ -2,19 +2,19 @@ import type { AgentMessage } from "@vetta/agent-core";
 import type { Message } from "@vetta/ai";
 import type { ConversationDocument, RuntimeMessageEnvelope } from "@vetta/runtime-core";
 import type { ConversationContextProjector } from "@vetta/runtime-core/kernel";
-import {
-	buildSessionContextProjection,
-	type CustomMessageEntry,
-	type SessionEntry,
-} from "../../core/session-manager/index.js";
 import { convertToLlm } from "../../model-context/index.js";
+import {
+	type CodingAgentCustomMessageEntry as CustomMessageEntry,
+	projectCodingAgentSessionContextEntries,
+	type CodingAgentSessionEntry as SessionEntry,
+} from "../../sessions/index.js";
 import { restoreCodingAgentLegacyAgentMessageEntry } from "./legacy-session-import-normalizer.js";
 
 /** 将持久化活动分支恢复为旧 Coding Agent 的完整 AgentMessage 身份。 */
 export class CodingAgentGreenfieldAgentMessageContextProjector implements ConversationContextProjector {
 	project(document: ConversationDocument): readonly RuntimeMessageEnvelope[] {
 		const entries = document.entries.map(toSessionEntry);
-		const projection = buildSessionContextProjection(
+		const projection = projectCodingAgentSessionContextEntries(
 			entries,
 			document.activeLeafId,
 			new Map(entries.map((entry) => [entry.id, entry])),

@@ -31,6 +31,7 @@
 
 ### Changed
 
+- **Session Read Model 与 Legacy 格式隔离**：新增不依赖旧 `SessionManager` 的 Session Entry/View/Writer 合同及分支、Tree、Label、模型上下文与 Compaction 纯投影；Greenfield、Extension、SDK 快照和旧 JSONL Catalog/History/Lease/setup 兼容均切换到新边界。原生持久化继续由 `runtime-storage` 持有，会话目录、历史、锁、Extension setup 和用户可观察行为保持不变。
 - **Settings 域包内重写**：全局/项目设置的读取、合并、迁移、锁定写入、局部刷新和调用方视图拆入 `src/settings` 的独立合同、Schema、Storage、State 与 View；TypeBox 只用于持久化 JSON 边界校验，未知字段和并发外部编辑继续保留。全部生产调用方已迁移到 `SettingsRuntime`，旧 1041 行 `core/settings-manager.ts` 已删除，用户设置格式和运行时行为保持不变。
 - **Skill 与 Prompt 资源域包内重写**：Skill 发现、frontmatter 校验、冲突诊断、动态读取、模型提示格式化与 Prompt Template 参数展开迁入 `src/resources`，生产调用方和行为测试不再依赖旧 `core/skills`、`core/prompt-templates`、`core/diagnostics`；ResourceLoader 不再于 PackageManager 过滤后重复扫描默认 Skill 目录，禁用配置恢复生效。资源目录测试同步改用当前 `CONFIG_DIR_NAME`，用户可见协议、发现优先级、错误和动态刷新行为保持不变。质量守卫拒绝新 Resource 域回接旧 `core` 实现。
 - **Extension 合同与运行时包内重写**：扩展 UI、事件、工具注册、会话视图、模型目录和宿主动作绑定迁入 `src/extensions` 稳定领域，并按 UI、Context、Tool、Provider、事件、公共 API 和 Runtime 状态拆分职责模块；动态发现、模块加载、注册、上下文宿主、事件分派和 Tool 拦截进一步拆入独立 Runtime 职责模块，旧 `core/extensions` 已删除。合同改为结构端口并复用 `runtime-tools` 的工具输入/详情类型，不再依赖具体 `SessionManager`、`ModelRegistry` 或旧 Tool 类型；公开名称、加载顺序、错误隔离、事件载荷、TypeBox 工具 Schema、Tool 拦截顺序和用户可见功能保持不变。

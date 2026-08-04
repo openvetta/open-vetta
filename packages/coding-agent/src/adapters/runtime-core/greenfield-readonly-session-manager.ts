@@ -2,15 +2,17 @@ import { dirname } from "node:path";
 import type { AgentMessage } from "@vetta/agent-core";
 import type { ConversationDocument, GreenfieldRuntimeSessionCoreAssembly } from "@vetta/runtime-core";
 import type { ConversationDocumentEntry } from "@vetta/runtime-core/conversation";
-import { buildSessionTree } from "../../core/session-manager/branch-ops.js";
-import type {
-	CustomMessageEntry,
-	ReadonlySessionManager,
-	SessionEntry,
-	SessionHeader,
-	SessionTreeNode,
-} from "../../core/session-manager/index.js";
-import { CURRENT_SESSION_VERSION } from "../../core/session-manager/index.js";
+import type { ExtensionSessionView as ReadonlySessionManager } from "../../extensions/index.js";
+import {
+	CODING_AGENT_SESSION_VIEW_VERSION,
+	type CodingAgentCustomMessageEntry as CustomMessageEntry,
+	projectCodingAgentSessionTree,
+	readCodingAgentSessionBranch,
+	readCodingAgentSessionLabels,
+	type CodingAgentSessionEntry as SessionEntry,
+	type CodingAgentSessionHeader as SessionHeader,
+	type CodingAgentSessionTreeNode as SessionTreeNode,
+} from "../../sessions/index.js";
 import { restoreCodingAgentLegacyAgentMessageEntry } from "./legacy-session-import-normalizer.js";
 
 /**
@@ -46,13 +48,17 @@ export function createGreenfieldReadonlySessionManager(
 			const entry = readDocument().entries.find((candidate) => candidate.id === id);
 			return entry ? toSessionEntry(entry) : undefined;
 		},
-		getLabel: (id) => readLabels(readDocument()).get(id),
-		getBranch: (fromId) => readBranch(readDocument(), fromId),
+		getLabel: (id) => readCodingAgentSessionLabels(readEntries()).get(id),
+		getBranch: (fromId) => {
+			const document = readDocument();
+			return readCodingAgentSessionBranch(document.entries.map(toSessionEntry), fromId ?? document.activeLeafId);
+		},
 		getHeader: () => toSessionHeader(readDocument()),
 		getEntries: readEntries,
 		getTree: (): SessionTreeNode[] => {
 			const document = readDocument();
-			return buildSessionTree(document.entries.map(toSessionEntry), readLabels(document));
+			const entries = document.entries.map(toSessionEntry);
+			return projectCodingAgentSessionTree(entries, readCodingAgentSessionLabels(entries));
 		},
 		getSessionName: () => readDocument().name,
 	};
@@ -61,34 +67,13 @@ export function createGreenfieldReadonlySessionManager(
 function toSessionHeader(document: ConversationDocument): SessionHeader {
 	return {
 		type: "session",
-		version: CURRENT_SESSION_VERSION,
+		version: CODING_AGENT_SESSION_VIEW_VERSION,
 		id: document.identity.sessionId,
 		timestamp: new Date(document.identity.createdAt).toISOString(),
 		cwd: document.identity.cwd ?? "",
 		parentSession: document.identity.parentSessionPath,
 		parentEntryId: document.identity.parentEntryId,
 	};
-}
-
-function readLabels(document: ConversationDocument): Map<string, string> {
-	const labels = new Map<string, string>();
-	for (const entry of document.entries) {
-		if (entry.type !== "label") continue;
-		if (entry.label === undefined) labels.delete(entry.targetId);
-		else labels.set(entry.targetId, entry.label);
-	}
-	return labels;
-}
-
-function readBranch(document: ConversationDocument, fromId?: string): SessionEntry[] {
-	const byId = new Map(document.entries.map((entry) => [entry.id, entry]));
-	const branch: SessionEntry[] = [];
-	let current = fromId ? byId.get(fromId) : document.activeLeafId ? byId.get(document.activeLeafId) : undefined;
-	while (current) {
-		branch.unshift(toSessionEntry(current));
-		current = current.parentId ? byId.get(current.parentId) : undefined;
-	}
-	return branch;
 }
 
 function toSessionEntry(entry: ConversationDocumentEntry): SessionEntry {

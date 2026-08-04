@@ -6,12 +6,19 @@ import type {
 	PromptAttachmentRef,
 	PromptResourceRef,
 } from "@vetta/runtime-core";
-import type { SessionEntry as CodingSessionEntry, CustomEntry, FileEntry } from "../../core/session-manager/index.js";
 import {
 	PROMPT_ATTACHMENT_CONTEXT_TYPE,
 	PROMPT_ATTACHMENT_REFERENCE_TYPE,
 	PROMPT_RESOURCE_REFERENCE_TYPE,
 } from "../../model-context/index.js";
+import type {
+	CodingAgentSessionEntry,
+	CodingAgentSessionHeader,
+	CodingAgentCustomEntry as CustomEntry,
+} from "../../sessions/index.js";
+
+type CodingSessionEntry = CodingAgentSessionEntry;
+type FileEntry = CodingAgentSessionHeader | CodingAgentSessionEntry;
 
 export const ASSISTANT_TURN_TIMING_TYPE = "vetta.assistant_turn_timing";
 

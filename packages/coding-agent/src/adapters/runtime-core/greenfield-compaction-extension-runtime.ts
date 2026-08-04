@@ -1,6 +1,9 @@
 import type { CompactionPreparation, CompactionResult } from "../../compaction/index.js";
-import type { CompactionEntry, SessionEntry } from "../../core/session-manager/index.js";
 import type { SessionBeforeCompactResult } from "../../extensions/index.js";
+import type {
+	CodingAgentCompactionEntry as CompactionEntry,
+	CodingAgentSessionEntry as SessionEntry,
+} from "../../sessions/index.js";
 import type { CodingAgentGreenfieldExtensionRunnerPort } from "./greenfield-extension-contract.js";
 
 export interface CodingAgentCompactionExtensionInput {

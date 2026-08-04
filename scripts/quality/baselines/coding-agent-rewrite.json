@@ -12,17 +12,6 @@
 			"domain": "mcp"
 		},
 		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-agent-message-context-projector.ts",
-			"specifier": "../../core/session-manager/index.js",
-			"names": [
-				"CustomMessageEntry",
-				"SessionEntry",
-				"buildSessionContextProjection"
-			],
-			"category": "old-core",
-			"domain": "session-manager"
-		},
-		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-ask-user-question-runtime.ts",
 			"specifier": "../../core/session/tool-scope.js",
 			"names": [
@@ -30,35 +19,6 @@
 			],
 			"category": "old-core",
 			"domain": "session"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-branch-navigation-host.ts",
-			"specifier": "../../core/session-manager/index.js",
-			"names": [
-				"BranchSummaryEntry"
-			],
-			"category": "old-core",
-			"domain": "session-manager"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-compaction-extension-runtime.ts",
-			"specifier": "../../core/session-manager/index.js",
-			"names": [
-				"CompactionEntry",
-				"SessionEntry"
-			],
-			"category": "old-core",
-			"domain": "session-manager"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-context-runtime.ts",
-			"specifier": "../../core/session-manager/index.js",
-			"names": [
-				"CompactionEntry",
-				"SessionEntry"
-			],
-			"category": "old-core",
-			"domain": "session-manager"
 		},
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-action-host.ts",
@@ -224,37 +184,6 @@
 			"domain": "session"
 		},
 		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-readonly-session-manager.ts",
-			"specifier": "../../core/session-manager/branch-ops.js",
-			"names": [
-				"buildSessionTree"
-			],
-			"category": "old-core",
-			"domain": "session-manager"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-readonly-session-manager.ts",
-			"specifier": "../../core/session-manager/index.js",
-			"names": [
-				"CURRENT_SESSION_VERSION"
-			],
-			"category": "old-core",
-			"domain": "session-manager"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-readonly-session-manager.ts",
-			"specifier": "../../core/session-manager/index.js",
-			"names": [
-				"CustomMessageEntry",
-				"ReadonlySessionManager",
-				"SessionEntry",
-				"SessionHeader",
-				"SessionTreeNode"
-			],
-			"category": "old-core",
-			"domain": "session-manager"
-		},
-		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-stop-hook-continuation-source.ts",
 			"specifier": "../../core/session/session-stats.js",
 			"names": [
@@ -324,17 +253,6 @@
 			"domain": "session"
 		},
 		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/history.ts",
-			"specifier": "../../core/session-manager/index.js",
-			"names": [
-				"CustomEntry",
-				"FileEntry",
-				"SessionEntry"
-			],
-			"category": "old-core",
-			"domain": "session-manager"
-		},
-		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/legacy-mcp-runtime-source.ts",
 			"specifier": "../../core/mcp/index.js",
 			"names": [
@@ -354,56 +272,6 @@
 			],
 			"category": "old-core",
 			"domain": "session"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/legacy-session-format/catalog.ts",
-			"specifier": "../../../core/session-manager/index.js",
-			"names": [
-				"SessionInfo",
-				"SessionManager"
-			],
-			"category": "old-core",
-			"domain": "session-manager"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/legacy-session-format/history-reader.ts",
-			"specifier": "../../../core/session-manager/index.js",
-			"names": [
-				"SessionEntry",
-				"loadEntriesFromFile"
-			],
-			"category": "old-core",
-			"domain": "session-manager"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/legacy-session-format/lease.ts",
-			"specifier": "../../../core/session-lock.js",
-			"names": [
-				"SessionLockError",
-				"SessionLockHandle",
-				"SessionLockInfo",
-				"acquireSessionLock"
-			],
-			"category": "old-core",
-			"domain": "session-lock"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/legacy-session-import-normalizer.ts",
-			"specifier": "../../core/session-manager/index.js",
-			"names": [
-				"SessionMessageEntry"
-			],
-			"category": "old-core",
-			"domain": "session-manager"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/legacy-session-setup-seed-importer.ts",
-			"specifier": "../../core/session-manager/index.js",
-			"names": [
-				"SessionManager"
-			],
-			"category": "old-core",
-			"domain": "session-manager"
 		},
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/model-registry-shared-model-controller.ts",
@@ -599,16 +467,6 @@
 			],
 			"category": "old-core",
 			"domain": "timings"
-		},
-		{
-			"path": "packages/coding-agent/src/host/coding-agent-sdk-session-storage.ts",
-			"specifier": "../core/session-manager/index.js",
-			"names": [
-				"SessionContext",
-				"SessionManager"
-			],
-			"category": "old-core",
-			"domain": "session-manager"
 		},
 		{
 			"path": "packages/coding-agent/src/host/coding-agent-sdk-subagent-adapter.ts",

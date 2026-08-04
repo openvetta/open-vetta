@@ -5,7 +5,11 @@ import { join, resolve } from "node:path";
 import { migrateLegacySessionToV2 } from "@vetta/runtime-storage/conversation";
 import { normalizeCodingAgentLegacySessionEntry } from "../adapters/runtime-core/legacy-session-import-normalizer.js";
 import type { GreenfieldSdkSessionStorageTarget } from "../composition/greenfield-sdk-session-storage.js";
-import type { SessionContext, SessionManager } from "../core/session-manager/index.js";
+import {
+	type CodingAgentSessionContext,
+	type CodingAgentSessionView,
+	projectCodingAgentSessionContext,
+} from "../sessions/index.js";
 import { resolveCodingAgentSessionDir } from "./coding-agent-session-storage.js";
 
 export const CODING_AGENT_SDK_STORAGE_ADAPTER_ERROR_CODES = {
@@ -28,7 +32,7 @@ export class CodingAgentSdkStorageAdapterError extends Error {
 }
 
 export interface CodingAgentSdkSessionHistory {
-	readonly context: SessionContext;
+	readonly context: CodingAgentSessionContext;
 	readonly hasThinkingLevelEntry: boolean;
 }
 
@@ -39,7 +43,13 @@ export interface CodingAgentSdkSessionStoragePreparation {
 
 export interface PrepareCodingAgentSdkSessionStorageOptions {
 	readonly cwd: string;
-	readonly sessionManager?: SessionManager;
+	readonly sessionManager?: CodingAgentLegacySdkSessionSource;
+}
+
+/** Structural compatibility port for the deprecated concrete SDK session input. */
+export interface CodingAgentLegacySdkSessionSource extends CodingAgentSessionView {
+	isPersisted(): boolean;
+	close(): void;
 }
 
 /**
@@ -119,9 +129,10 @@ export async function prepareCodingAgentSdkSessionStorage(
 	}
 }
 
-function readHistory(sessionManager: SessionManager): CodingAgentSdkSessionHistory {
+function readHistory(sessionManager: CodingAgentLegacySdkSessionSource): CodingAgentSdkSessionHistory {
+	const entries = sessionManager.getEntries();
 	return {
-		context: sessionManager.buildSessionContext(),
+		context: projectCodingAgentSessionContext(entries, sessionManager.getLeafId()),
 		hasThinkingLevelEntry: sessionManager.getBranch().some((entry) => entry.type === "thinking_level_change"),
 	};
 }
