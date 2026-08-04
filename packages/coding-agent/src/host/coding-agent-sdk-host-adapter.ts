@@ -18,6 +18,7 @@ import {
 } from "../adapters/runtime-core/greenfield.js";
 import { CodingAgentGreenfieldSdkActiveSessionCapabilityHost } from "../adapters/runtime-core/greenfield-sdk-active-session-capability-host.js";
 import { CodingAgentLegacySessionSetupSeedImporter } from "../adapters/runtime-core/legacy-session-setup-seed-importer.js";
+import { isCodingAgentBuiltInToolName } from "../composition/coding-agent-built-in-tool-names.js";
 import type { GreenfieldSdkActiveSession } from "../composition/greenfield-sdk-runtime-contract.js";
 import {
 	createGreenfieldSdkSession,
@@ -37,7 +38,6 @@ import { DefaultResourceLoader } from "../core/resource-loader.js";
 import type { CreateAgentSessionOptions } from "../core/sdk.js";
 import { SettingsManager } from "../core/settings-manager.js";
 import { time } from "../core/timings.js";
-import { createAllTools, type Tool, type ToolName } from "../core/tools/index.js";
 import { theme } from "../modes/interactive/theme/theme.js";
 import {
 	CODING_AGENT_SESSION_CREATE_ERROR_CODES,
@@ -255,6 +255,7 @@ export async function createCodingAgentSessionFromPublicOptions(
 			options.customTools,
 			resourceSourceAdapter,
 			hostContext.onSessionClosed,
+			resolvePublicSdkActiveToolNames(options.activeTools),
 		);
 		return {
 			session: created.session,
@@ -290,17 +291,19 @@ async function createGreenfieldAgentSessionInternal(
 	publicCustomTools?: readonly CodingAgentSessionToolDefinition[],
 	resourceSourceAdapter?: CodingAgentSdkResourceSourceAdapter,
 	onSessionClosed?: () => void,
+	publicActiveToolNames?: readonly string[],
 ): Promise<CreateGreenfieldAgentSessionResult> {
 	assertCompatibleOptions(options);
 	const sessionTools = publicCustomTools
 		? adaptPublicCodingAgentSdkCustomTools(publicCustomTools)
 		: adaptCodingAgentSdkCustomTools(options.customTools);
+	const activeToolNames = publicActiveToolNames ?? options.tools?.map(({ name }) => name);
 	const activation =
-		options.tools === undefined
+		activeToolNames === undefined
 			? undefined
 			: {
 					mode: "explicit" as const,
-					toolNames: options.tools.map(({ name }) => name),
+					toolNames: [...activeToolNames],
 				};
 	const cwd = options.cwd ?? process.cwd();
 	const agentDir = options.agentDir ?? getAgentDir();
@@ -581,14 +584,12 @@ async function createGreenfieldAgentSessionInternal(
 }
 
 function adaptPublicSdkCreateOptions(options: CreateCodingAgentSessionOptions): CreateAgentSessionOptions {
-	const cwd = options.cwd ?? process.cwd();
 	return {
 		cwd: options.cwd,
 		agentDir: options.agentDir,
 		model: options.model,
 		thinkingLevel: options.thinkingLevel,
 		scopedModels: options.scopedModels ? [...options.scopedModels] : undefined,
-		tools: resolvePublicSdkActiveTools(cwd, options.activeTools),
 		scenario: options.scenario,
 		agentMode: options.agentMode,
 		additionalHookAdapterFactories: options.additionalHookAdapterFactories,
@@ -628,22 +629,17 @@ function adaptPublicSdkCreateOptions(options: CreateCodingAgentSessionOptions): 
 	};
 }
 
-function resolvePublicSdkActiveTools(cwd: string, activeTools: readonly string[] | undefined): Tool[] | undefined {
+function resolvePublicSdkActiveToolNames(activeTools: readonly string[] | undefined): readonly string[] | undefined {
 	if (activeTools === undefined) return undefined;
-	const available = createAllTools(cwd);
 	return activeTools.map((name) => {
-		if (!isPublicSdkToolName(name, available)) {
+		if (!isCodingAgentBuiltInToolName(name)) {
 			throw new CodingAgentSessionCreateError(
 				CODING_AGENT_SESSION_CREATE_ERROR_CODES.INVALID_ACTIVE_TOOL,
 				`Unknown Coding Agent built-in tool: ${name}`,
 			);
 		}
-		return available[name];
+		return name;
 	});
-}
-
-function isPublicSdkToolName(name: string, tools: Record<ToolName, Tool>): name is ToolName {
-	return Object.hasOwn(tools, name);
 }
 
 async function exportGreenfieldSdkSessionToHtml(

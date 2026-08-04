@@ -1,10 +1,10 @@
 import type { AgentFeatureDefinition, RuntimeToolDefinition } from "@vetta/runtime-core/kernel";
+import { createInvokeSkillToolRegistration } from "@vetta/runtime-tools/coding";
 import { matchesAgentMode } from "../../core/agent-mode.js";
-import type { Skill } from "../../core/skills.js";
-import { createInvokeSkillTool } from "../../core/tools/invoke-skill/index.js";
+import { readSkillContent, type Skill } from "../../core/skills.js";
+import { stripFrontmatter } from "../../utils/frontmatter.js";
 import { CODING_AGENT_MODEL_TOOL_ORDER } from "./greenfield-model-tool-order.js";
 import type { CodingAgentPromptResourceSource } from "./greenfield-prompt-runtime.js";
-import { adaptCodingAgentToolRegistration } from "./greenfield-tool-adapter.js";
 
 export interface CodingAgentInvokeSkillRuntimeFeatureOptions {
 	readonly resourceSource: CodingAgentPromptResourceSource;
@@ -34,12 +34,11 @@ export function createCodingAgentInvokeSkillRuntimeFeature(
 					!skill.disableModelInvocation && skill.type !== "scene" && matchesAgentMode(skill.agentMode, mode),
 			);
 	};
-	const registration = adaptCodingAgentToolRegistration(
-		createInvokeSkillTool({
-			getSkills: readVisibleSkills,
-		}),
-		{ modelOrder: CODING_AGENT_MODEL_TOOL_ORDER.invokeSkill },
-	);
+	const registration = createInvokeSkillToolRegistration({
+		getSkills: readVisibleSkills,
+		readBody: (skill) => stripFrontmatter(readSkillContent(skill)),
+		modelOrder: CODING_AGENT_MODEL_TOOL_ORDER.invokeSkill,
+	});
 
 	return {
 		id: "coding-agent.invoke-skill",

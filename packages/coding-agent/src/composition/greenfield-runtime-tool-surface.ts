@@ -1,13 +1,14 @@
 import type { ConversationScenario } from "@vetta/runtime-core";
 import type { ModelCallContributionContext } from "@vetta/runtime-core/kernel";
 import type { McpRuntimeToolSource, McpRuntimeToolView } from "@vetta/runtime-mcp";
-import { CODING_TOOL_SCOPES, type CodingToolActivation } from "@vetta/runtime-tools/coding";
 import {
-	adaptCodingAgentToolRegistration,
-	CODING_AGENT_MODEL_TOOL_ORDER,
-} from "../adapters/runtime-core/greenfield.js";
-import { createKbFilterByTagsTool } from "../core/tools/kb-filter-by-tags/index.js";
-import { createKbListTagsTool } from "../core/tools/kb-list-tags/index.js";
+	CODING_TOOL_SCOPES,
+	type CodingToolActivation,
+	createKbFilterByTagsToolRegistration,
+	createKbListTagsToolRegistration,
+} from "@vetta/runtime-tools/coding";
+import { CODING_AGENT_MODEL_TOOL_ORDER } from "../adapters/runtime-core/greenfield.js";
+import { createCodingAgentKnowledgeQueryOperations } from "../adapters/runtime-tools/index.js";
 import {
 	createGreenfieldMcpSessionCoordinator,
 	type GreenfieldMcpSessionCoordinator,
@@ -62,6 +63,7 @@ export async function createGreenfieldRuntimeToolSurface(
 ): Promise<GreenfieldRuntimeToolSurface> {
 	const activation = options.activation ?? ({ mode: "scope", scope: options.scenario } satisfies CodingToolActivation);
 	const knowledgeAvailable = options.knowledgeEnabled ?? process.env.VETTA_KNOWLEDGE_DISABLED !== "1";
+	const knowledgeOperations = createCodingAgentKnowledgeQueryOperations(options.knowledgeRoot);
 	let backgroundTasksAvailable = false;
 	let mcpCoordinator: GreenfieldMcpSessionCoordinator;
 	const resolveActivation = (
@@ -103,10 +105,12 @@ export async function createGreenfieldRuntimeToolSurface(
 			return !controller?.isManagedTool(registration.tool.name) || controller.isToolVisible(registration.tool.name);
 		},
 		additionalRegistrations: [
-			adaptCodingAgentToolRegistration(createKbListTagsTool(options.knowledgeRoot), {
+			createKbListTagsToolRegistration({
+				operations: knowledgeOperations,
 				modelOrder: CODING_AGENT_MODEL_TOOL_ORDER.knowledgeTags,
 			}),
-			adaptCodingAgentToolRegistration(createKbFilterByTagsTool(options.knowledgeRoot), {
+			createKbFilterByTagsToolRegistration({
+				operations: knowledgeOperations,
 				modelOrder: CODING_AGENT_MODEL_TOOL_ORDER.knowledgeFilter,
 			}),
 			...options.inheritedMcpView.tools.map(({ tool }) => ({

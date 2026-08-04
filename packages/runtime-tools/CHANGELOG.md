@@ -11,6 +11,7 @@ All notable changes to `@vetta/runtime-tools` are documented in this file.
 
 ### Added
 
+- **原生能力 Tool 合同**：新增 `ask_user_question`、`invoke_skill`、`memory`、`todo`、`tool_search` 与知识标签查询 Tool；TypeBox Schema、TS 描述、Registration 和执行协议由 `runtime-tools` 持有，宿主状态与查询通过窄 Operations Port 注入。
 - **中立宿主执行原语**：新增可注入的 FIFO 异步执行 Gate 与既有路径解析导出，供产品组合根实现并发限制和 `@file` 路径兼容，不依赖 `coding-agent` 旧实现。
 - **可等待的后台命令关闭合同**：`BackgroundCommandService` 新增 `shutdown()`，停止全部运行任务并等待宿主进程退出回调；同步 `dispose()` 兼容入口、任务状态、通知和停止原因保持不变。
 - **Greenfield Coding Tools Feature**：新增 `@vetta/runtime-tools/coding`、`createCodingToolsFeature` 和 TypeBox 驱动的 `current_time` Runtime Tool。

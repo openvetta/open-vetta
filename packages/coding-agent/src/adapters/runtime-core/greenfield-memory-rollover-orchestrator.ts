@@ -7,16 +7,17 @@ import type {
 	StoredSessionEvent,
 	TurnObserver,
 } from "@vetta/runtime-core/kernel";
+import { type CodingToolRegistration, createMemoryToolRegistration } from "@vetta/runtime-tools/coding";
 import type { CompactionPreparation, CompactionSettings } from "../../core/compaction/index.js";
 import { flushMemoryBeforeRollover } from "../../core/memory/memory-flush.js";
 import { appendJournalLine, appendJournalSection } from "../../core/memory/memory-journal.js";
-import { DEFAULT_MEMORY_CHAR_LIMIT, readMemoryContent, renderMemoryForPrompt } from "../../core/memory/memory-store.js";
-import { createMemoryTool } from "../../core/tools/memory/index.js";
-import type { CodingAgentPromptMemoryState } from "./greenfield-prompt-runtime.js";
 import {
-	adaptCodingAgentToolRegistration,
-	type CodingAgentRuntimeToolRegistration,
-} from "./greenfield-tool-adapter.js";
+	applyMemoryOperation,
+	DEFAULT_MEMORY_CHAR_LIMIT,
+	readMemoryContent,
+	renderMemoryForPrompt,
+} from "../../core/memory/memory-store.js";
+import type { CodingAgentPromptMemoryState } from "./greenfield-prompt-runtime.js";
 
 export interface CodingAgentMemoryRolloverPreparation {
 	readonly preparation: CompactionPreparation;
@@ -51,7 +52,7 @@ export interface CodingAgentMemoryRolloverOrchestratorOptions {
 }
 
 export interface CodingAgentMemoryRolloverRuntime extends CodingAgentMemoryCompactionPolicy, TurnObserver {
-	readonly toolRegistration: CodingAgentRuntimeToolRegistration;
+	readonly toolRegistration: CodingToolRegistration;
 	readPromptMemory(): CodingAgentPromptMemoryState;
 	renderPromptMemory(): string;
 	flushMessages(input: CodingAgentMemoryFlushInput): Promise<number>;
@@ -66,7 +67,7 @@ export interface CodingAgentMemoryRolloverRuntime extends CodingAgentMemoryCompa
  */
 export class CodingAgentMemoryRolloverOrchestrator implements CodingAgentMemoryRolloverRuntime {
 	readonly id = "coding-agent.memory-rollover";
-	readonly toolRegistration: CodingAgentRuntimeToolRegistration;
+	readonly toolRegistration: CodingToolRegistration;
 	private readonly memoryFile: string;
 	private readonly cwd: string;
 	private readonly memoryCharLimit: number;
@@ -96,7 +97,17 @@ export class CodingAgentMemoryRolloverOrchestrator implements CodingAgentMemoryR
 				}));
 		this.appendTurnJournal = options.appendTurnJournal ?? appendJournalLine;
 		this.appendRolloverJournal = options.appendRolloverJournal ?? appendJournalSection;
-		this.toolRegistration = adaptCodingAgentToolRegistration(createMemoryTool(this.memoryFile, this.memoryCharLimit));
+		this.toolRegistration = createMemoryToolRegistration({
+			operations: {
+				apply: (action, input) =>
+					applyMemoryOperation(
+						this.memoryFile,
+						action,
+						{ content: input.content, match: input.match },
+						this.memoryCharLimit,
+					),
+			},
+		});
 	}
 
 	readPromptMemory(): CodingAgentPromptMemoryState {
@@ -184,9 +195,7 @@ export class CodingAgentMemoryRolloverOrchestrator implements CodingAgentMemoryR
 	}
 }
 
-export function createCodingAgentMemoryRuntimeFeature(
-	registration: CodingAgentRuntimeToolRegistration,
-): AgentFeatureDefinition {
+export function createCodingAgentMemoryRuntimeFeature(registration: CodingToolRegistration): AgentFeatureDefinition {
 	return {
 		id: "coding-agent.memory",
 		async prepare(context) {

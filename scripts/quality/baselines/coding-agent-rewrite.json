@@ -41,16 +41,6 @@
 			"domain": "session"
 		},
 		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-ask-user-question-runtime.ts",
-			"specifier": "../../core/tools/ask-user-question/index.js",
-			"names": [
-				"AskUserQuestionCapability",
-				"createAskUserQuestionTool"
-			],
-			"category": "old-core",
-			"domain": "tools"
-		},
-		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-branch-navigation-host.ts",
 			"specifier": "../../core/compaction/index.js",
 			"names": [
@@ -397,19 +387,11 @@
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-invoke-skill-runtime.ts",
 			"specifier": "../../core/skills.js",
 			"names": [
-				"Skill"
+				"Skill",
+				"readSkillContent"
 			],
 			"category": "old-core",
 			"domain": "skills"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-invoke-skill-runtime.ts",
-			"specifier": "../../core/tools/invoke-skill/index.js",
-			"names": [
-				"createInvokeSkillTool"
-			],
-			"category": "old-core",
-			"domain": "tools"
 		},
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-knowledge-write-runtime.ts",
@@ -440,18 +422,6 @@
 			],
 			"category": "old-core",
 			"domain": "system-prompt"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-mcp-deferred-adapter.ts",
-			"specifier": "../../core/tools/tool-search/index.js",
-			"names": [
-				"DeferredToolIndexEntry",
-				"ToolSearchResult",
-				"createToolSearchTool",
-				"scoreDeferredTools"
-			],
-			"category": "old-core",
-			"domain": "tools"
 		},
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-memory-rollover-orchestrator.ts",
@@ -487,20 +457,12 @@
 			"specifier": "../../core/memory/memory-store.js",
 			"names": [
 				"DEFAULT_MEMORY_CHAR_LIMIT",
+				"applyMemoryOperation",
 				"readMemoryContent",
 				"renderMemoryForPrompt"
 			],
 			"category": "old-core",
 			"domain": "memory"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-memory-rollover-orchestrator.ts",
-			"specifier": "../../core/tools/memory/index.js",
-			"names": [
-				"createMemoryTool"
-			],
-			"category": "old-core",
-			"domain": "tools"
 		},
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-model-call-composer.ts",
@@ -825,15 +787,6 @@
 			"domain": "todo-store"
 		},
 		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-todo-runtime.ts",
-			"specifier": "../../core/tools/todo/index.js",
-			"names": [
-				"createTodoTool"
-			],
-			"category": "old-core",
-			"domain": "tools"
-		},
-		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-tool-adapter.ts",
 			"specifier": "../../core/hooks/tool-wrapper.js",
 			"names": [
@@ -978,24 +931,14 @@
 			"domain": "model-registry"
 		},
 		{
-			"path": "packages/coding-agent/src/adapters/runtime-tools/command-executor.ts",
-			"specifier": "../../core/tools/bash/index.js",
+			"path": "packages/coding-agent/src/adapters/runtime-tools/knowledge-query-operations.ts",
+			"specifier": "../../core/knowledge/query.js",
 			"names": [
-				"BashToolInput",
-				"BashToolOptions",
-				"createBashTool"
+				"listAvailableTags",
+				"queryByTags"
 			],
 			"category": "old-core",
-			"domain": "tools"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-tools/command-executor.ts",
-			"specifier": "../../core/tools/shell/index.js",
-			"names": [
-				"createShellTool"
-			],
-			"category": "old-core",
-			"domain": "tools"
+			"domain": "knowledge"
 		},
 		{
 			"path": "packages/coding-agent/src/cli/args.ts",
@@ -1005,16 +948,6 @@
 			],
 			"category": "old-core",
 			"domain": "session"
-		},
-		{
-			"path": "packages/coding-agent/src/cli/args.ts",
-			"specifier": "../core/tools/index.js",
-			"names": [
-				"ToolName",
-				"allTools"
-			],
-			"category": "old-core",
-			"domain": "tools"
 		},
 		{
 			"path": "packages/coding-agent/src/cli/list-models.ts",
@@ -1034,24 +967,6 @@
 			],
 			"category": "old-core",
 			"domain": "knowledge"
-		},
-		{
-			"path": "packages/coding-agent/src/composition/greenfield-runtime-tool-surface.ts",
-			"specifier": "../core/tools/kb-filter-by-tags/index.js",
-			"names": [
-				"createKbFilterByTagsTool"
-			],
-			"category": "old-core",
-			"domain": "tools"
-		},
-		{
-			"path": "packages/coding-agent/src/composition/greenfield-runtime-tool-surface.ts",
-			"specifier": "../core/tools/kb-list-tags/index.js",
-			"names": [
-				"createKbListTagsTool"
-			],
-			"category": "old-core",
-			"domain": "tools"
 		},
 		{
 			"path": "packages/coding-agent/src/composition/greenfield-subagent-runtime.ts",
@@ -1324,17 +1239,6 @@
 			],
 			"category": "old-core",
 			"domain": "timings"
-		},
-		{
-			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
-			"specifier": "../core/tools/index.js",
-			"names": [
-				"Tool",
-				"ToolName",
-				"createAllTools"
-			],
-			"category": "old-core",
-			"domain": "tools"
 		},
 		{
 			"path": "packages/coding-agent/src/host/coding-agent-sdk-resource-source-adapter.ts",

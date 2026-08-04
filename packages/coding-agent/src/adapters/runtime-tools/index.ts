@@ -14,14 +14,6 @@ export {
 	type RuntimeSpawnBackgroundCommandProcessOptions,
 } from "./background-command-host.js";
 export {
-	createLegacyCommandToolExecutor,
-	type LegacyCommandToolExecutorOptions,
-	type RuntimeCommandToolExecutor,
-	type RuntimeCommandToolExecutorRequest,
-	type RuntimeCommandToolName,
-	type RuntimeCommandToolResult,
-} from "./command-executor.js";
-export {
 	CodingAgentCommandProcessAbortedError,
 	createCodingAgentCommandProcessHost,
 } from "./command-process-host.js";
@@ -46,6 +38,10 @@ export {
 	createCodingAgentForegroundCommandHost,
 	type RuntimeForegroundCommandOperations,
 } from "./foreground-command-operations.js";
+export {
+	type CodingAgentKnowledgeQueryOperations,
+	createCodingAgentKnowledgeQueryOperations,
+} from "./knowledge-query-operations.js";
 export { getCodingAgentOcrExecutionGate } from "./ocr-execution-gate.js";
 export {
 	createCodingAgentWritePathPolicy,

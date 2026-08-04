@@ -28,6 +28,7 @@
 
 ### Changed
 
+- **Greenfield 能力 Tool 与 Catalog 原生化**：`ask_user_question`、`invoke_skill`、`memory`、`todo`、`tool_search` 与知识标签查询改由 `runtime-tools` 独立持有 TypeBox Schema、TS 描述、Registration 和执行协议，状态与查询通过窄 Port 注入；删除无调用方的旧 Bash/Shell Executor，CLI 与稳定 SDK 的内置工具激活名称不再读取 `core/tools`。工具名称、描述、Schema、scope、输出、错误、状态时序和动态 Catalog 行为保持不变。
 - **无状态 Tool Host 边界原生化**：产品工具组合改用独立命令进程 Host、文档转 PDF Operations、共享 OCR 执行 Gate 和宿主路径政策；CLI `@file` 路径解析改用 Runtime 中立原语，不再调用旧 Tool/Utils 实现。Office/WPS 探测、命令输出、取消、超时、并发、保护目录和文件输入行为保持不变。
 - **Sandbox 工具执行边界原生化**：三平台 Sandbox 只保留 OS 隔离命令操作，`read`、`write`、`edit`、`bash`/`shell` 直接组装 `runtime-tools` 的原生 Tool Registration 与前台执行器；工作区和命令写权限直接调用 Runtime Host Interaction Port，不再构造旧 `AgentTool`、`ToolDefinition` 或伪造 `ExtensionContext`。工具名称、schema、scope、权限缓存、取消、超时、错误和输出语义保持不变。
 - **稳定 SDK 公共合同与旧产品 Core 解耦**：Prompt、Session 事件和自定义工具改为 `public-api/sdk` 内的独立结构合同，生成声明不再引用 `core/session/types`；自定义工具继续保留 TypeBox 参数校验、取消信号、进度更新、常用 UI/压缩/权限上下文和渲染回调，由 Host Adapter 转换为现有 Extension Tool。公共边界守卫现在拒绝 SDK 合同回接 `coding-agent/src` 内部实现，包根兼容 API 与运行时行为保持不变。

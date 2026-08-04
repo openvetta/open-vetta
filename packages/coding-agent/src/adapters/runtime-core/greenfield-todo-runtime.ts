@@ -9,13 +9,13 @@ import type {
 } from "@vetta/runtime-core";
 import { selectConversationDocumentEntries } from "@vetta/runtime-core";
 import type { AgentFeatureDefinition, StoredSessionEvent } from "@vetta/runtime-core/kernel";
-import { TODO_SNAPSHOT_TYPE, type TodoSnapshot, type TodoSnapshotEnvelope, TodoStore } from "../../core/todo-store.js";
-import { createTodoTool } from "../../core/tools/todo/index.js";
-import { CODING_AGENT_MODEL_TOOL_ORDER } from "./greenfield-model-tool-order.js";
 import {
-	adaptCodingAgentToolRegistration,
-	type CodingAgentRuntimeToolRegistration,
-} from "./greenfield-tool-adapter.js";
+	type CodingToolRegistration,
+	createTodoToolRegistration,
+	type TodoToolInput,
+} from "@vetta/runtime-tools/coding";
+import { TODO_SNAPSHOT_TYPE, type TodoSnapshot, type TodoSnapshotEnvelope, TodoStore } from "../../core/todo-store.js";
+import { CODING_AGENT_MODEL_TOOL_ORDER } from "./greenfield-model-tool-order.js";
 
 const TodoItemSchema = Type.Object(
 	{
@@ -178,11 +178,11 @@ export class CodingAgentTodoRuntime implements GreenfieldRuntimeDocumentParticip
 
 export function createCodingAgentTodoRuntimeToolRegistration(
 	runtime: CodingAgentTodoRuntime,
-): CodingAgentRuntimeToolRegistration {
-	const registration = adaptCodingAgentToolRegistration(
-		createTodoTool({ getTodoStore: () => runtime.getTodoStore() }),
-		{ modelOrder: CODING_AGENT_MODEL_TOOL_ORDER.todo },
-	);
+): CodingToolRegistration<TodoToolInput> {
+	const registration = createTodoToolRegistration({
+		getTodoStore: () => runtime.getTodoStore(),
+		modelOrder: CODING_AGENT_MODEL_TOOL_ORDER.todo,
+	});
 	return {
 		...registration,
 		tool: {
@@ -197,7 +197,7 @@ export function createCodingAgentTodoRuntimeToolRegistration(
 }
 
 export function createCodingAgentTodoRuntimeFeature(
-	registration: CodingAgentRuntimeToolRegistration,
+	registration: CodingToolRegistration<TodoToolInput>,
 ): AgentFeatureDefinition {
 	return {
 		id: "coding-agent.todo",
