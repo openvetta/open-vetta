@@ -22,6 +22,7 @@ import {
 	createCodingAgentTodoRuntimeFeature,
 	createCodingAgentTodoRuntimeToolRegistration,
 } from "../adapters/runtime-core/greenfield.js";
+import { createCodingAgentKnowledgeWriteOperations } from "./coding-agent-knowledge-runtime.js";
 import type { GreenfieldMcpSessionCoordinator } from "./greenfield-mcp-session-coordinator.js";
 import type { GreenfieldRuntimeSessionOptions } from "./greenfield-runtime-composition-contract.js";
 import { GreenfieldSessionExecutionRuntime } from "./greenfield-session-execution-runtime.js";
@@ -85,8 +86,8 @@ export async function createGreenfieldSessionPeripheralAssembly(
 	const productToolRegistrations = [
 		...createCodingAgentGreenfieldProductToolRegistrations({
 			cwd: options.sessionCwd,
-			knowledgeRoot: profile.knowledgeRoot,
-			knowledgePageWriter: sessionOptions.knowledgePageWriter,
+			knowledgePageWriter:
+				sessionOptions.knowledgePageWriter ?? createCodingAgentKnowledgeWriteOperations(profile.knowledgeRoot),
 		}),
 		...(sessionOptions.sessionRuntimeTools ?? []),
 	];

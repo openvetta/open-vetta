@@ -6,7 +6,7 @@ import type {
 	KnowledgeProcessingUsage,
 } from "@vetta/coding-agent/composition";
 import { createLimiter } from "@vetta/coding-agent/concurrency";
-import * as knowledge from "@vetta/coding-agent/knowledge";
+import * as knowledge from "@vetta/runtime-knowledge";
 
 const KB_MAX_FILES_PER_BATCH = 20;
 const KB_MAX_BYTES_PER_BATCH = 8 * 1024 * 1024;
@@ -241,7 +241,7 @@ export class KnowledgeRoundController {
 		const tmpDirectory = await this.options.temporaryDirectory.create();
 		await this.options.rawsLock.begin(root);
 		try {
-			const writeSession = await knowledge.createKbWriteSession(root);
+			const writeSession = await knowledge.createKnowledgePageWriter(root);
 			const batches = await knowledge.planProcessingBatches(diff, root, {
 				maxFilesPerBatch: KB_MAX_FILES_PER_BATCH,
 				maxBytesPerBatch: KB_MAX_BYTES_PER_BATCH,
@@ -276,7 +276,7 @@ export class KnowledgeRoundController {
 		batch: knowledge.RawsDiff,
 		root: string,
 		tmpDirectory: string,
-		writeSession: knowledge.KbWriteSession,
+		writeSession: knowledge.KnowledgePageWriter,
 		modelKey: string,
 		reasoningLevel: string | undefined,
 		round: RoundToken,

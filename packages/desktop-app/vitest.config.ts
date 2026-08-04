@@ -40,10 +40,6 @@ export default defineConfig({
 				replacement: resolve(__dirname, "../coding-agent/src/public-api/extensions.ts"),
 			},
 			{
-				find: "@vetta/coding-agent/knowledge",
-				replacement: resolve(__dirname, "../coding-agent/src/core/knowledge/index.ts"),
-			},
-			{
 				find: "@vetta/coding-agent/host-services",
 				replacement: resolve(__dirname, "../coding-agent/src/public-api/host-services.ts"),
 			},
@@ -79,6 +75,10 @@ export default defineConfig({
 			},
 			{ find: "@vetta/runtime-core", replacement: resolve(__dirname, "../runtime-core/src/index.ts") },
 			{ find: "@vetta/runtime-mcp", replacement: resolve(__dirname, "../runtime-mcp/src/index.ts") },
+			{
+				find: "@vetta/runtime-knowledge",
+				replacement: resolve(__dirname, "../runtime-knowledge/src/index.ts"),
+			},
 			{
 				find: "@vetta/runtime-storage/conversation",
 				replacement: resolve(__dirname, "../runtime-storage/src/conversation/index.ts"),

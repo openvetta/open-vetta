@@ -2,6 +2,14 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type Api, type AssistantMessage, type AssistantMessageEvent, EventStream, type Model } from "@vetta/ai";
+import {
+	createKnowledgePageWriter,
+	readManifest,
+	readTagsIndex,
+	rebuildAllCaches,
+	scanWikiPages,
+	type WritePageRequest,
+} from "@vetta/runtime-knowledge";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CodingAgentModelRegistrySource } from "../src/adapters/runtime-core/greenfield-model-registry-adapter.js";
 import {
@@ -9,9 +17,6 @@ import {
 	type GreenfieldKnowledgeProcessingSessionFactoryOptions,
 } from "../src/composition/greenfield-knowledge-processing-session.js";
 import { createGreenfieldRuntimeComposition } from "../src/composition/greenfield-runtime-composition.js";
-import { rebuildAllCaches } from "../src/core/knowledge/ingest.js";
-import { readManifest, readTagsIndex, scanWikiPages } from "../src/core/knowledge/store.js";
-import { createKbWriteSession, type WritePageRequest } from "../src/core/knowledge/writer.js";
 
 describe("Greenfield knowledge processing batches", () => {
 	const directories: string[] = [];
@@ -29,12 +34,12 @@ describe("Greenfield knowledge processing batches", () => {
 		const sessionDir = await temporaryDirectory("greenfield-kb-batch-sessions-");
 		const requests = [PAGE_A, PAGE_B] as const;
 
-		const baselineWriter = await createKbWriteSession(baselineRoot);
+		const baselineWriter = await createKnowledgePageWriter(baselineRoot);
 		for (const request of requests) {
 			await baselineWriter.write(request, "2026-07-31T00:00:00.000Z");
 		}
 
-		const writer = await createKbWriteSession(root);
+		const writer = await createKnowledgePageWriter(root);
 		const sharedWrite = vi.fn(writer.write.bind(writer));
 		const disposeComposition = vi.fn(async () => {});
 		let nextSessionId = 1;
@@ -141,8 +146,8 @@ async function readNormalizedKnowledgeSnapshot(root: string): Promise<unknown> {
 	const sourcePathById = new Map(sortedPages.map((page) => [page.frontmatter.id, page.frontmatter.source_path]));
 	return {
 		errors,
-		pages: sortedPages.map(({ body, frontmatter, path }) => ({
-			path: normalizeGeneratedPath(path, frontmatter.id),
+		physicalPaths: sortedPages.map(({ frontmatter, path }) => normalizeGeneratedPath(path, frontmatter.id)).sort(),
+		pages: sortedPages.map(({ body, frontmatter }) => ({
 			source: frontmatter.source,
 			sourcePath: frontmatter.source_path,
 			sourceHash: frontmatter.source_hash,
@@ -153,9 +158,10 @@ async function readNormalizedKnowledgeSnapshot(root: string): Promise<unknown> {
 			body,
 		})),
 		manifest: manifest.pages
-			.map(({ id, ...entry }) => ({
-				...entry,
-				path: normalizeGeneratedPath(entry.path, id),
+			.map((entry) => ({
+				source_path: entry.source_path,
+				source_hash: entry.source_hash,
+				orphaned_at: entry.orphaned_at,
 			}))
 			.sort((left, right) => left.source_path.localeCompare(right.source_path)),
 		tags: Object.fromEntries(

@@ -38,10 +38,6 @@ export {
 	createCodingAgentForegroundCommandHost,
 	type RuntimeForegroundCommandOperations,
 } from "./foreground-command-operations.js";
-export {
-	type CodingAgentKnowledgeQueryOperations,
-	createCodingAgentKnowledgeQueryOperations,
-} from "./knowledge-query-operations.js";
 export { getCodingAgentOcrExecutionGate } from "./ocr-execution-gate.js";
 export {
 	createCodingAgentWritePathPolicy,

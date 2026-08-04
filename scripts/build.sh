@@ -70,6 +70,7 @@ build_layer2() {
 
 # ── Layer 3: independent Runtime packages used by coding-agent ──
 build_layer3() {
+  build_pkg packages/runtime-knowledge
   build_pkg packages/runtime-tools
   build_pkg packages/runtime-storage
 }

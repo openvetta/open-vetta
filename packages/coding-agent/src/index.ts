@@ -65,7 +65,7 @@ export {
 	serializeConversation,
 	shouldCompact,
 } from "./core/compaction/index.js";
-// Concurrency limiter (shared by OCR throttle, kb write mutex, KB processing session pool)
+// Concurrency limiter (shared by OCR throttle and KB processing session pool)
 export { createLimiter, type Limiter } from "./core/concurrency-limit.js";
 export { createEventBus, type EventBus, type EventBusController } from "./core/event-bus.js";
 // Extension system
@@ -170,8 +170,6 @@ export {
 } from "./core/extensions/index.js";
 // Footer data provider (git branch + extension statuses - data not otherwise available to extensions)
 export type { ReadonlyFooterDataProvider } from "./core/footer-data-provider.js";
-// Knowledge base core modules
-export * as knowledge from "./core/knowledge/index.js";
 export {
 	convertToLlm,
 	PROMPT_ATTACHMENT_CONTEXT_TYPE,

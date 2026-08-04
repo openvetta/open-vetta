@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { type Static, Type } from "@sinclair/typebox";
-import { queryByTags } from "../../knowledge/query.js";
-import { knowledgeRoot, wikiDir } from "../../knowledge/store.js";
+import { queryByTags, wikiDir } from "@vetta/runtime-knowledge";
+import { getKnowledgeDir } from "../../../config.js";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 import { toolCallDescriptionSchema } from "../tool-call-description.js";
@@ -51,7 +51,7 @@ export function createKbFilterByTagsTool(root?: string): CodingAgentTool<typeof 
 		description,
 		parameters: kbFilterByTagsSchema,
 		execute: async (_toolCallId, params) => {
-			const resolvedRoot = knowledgeRoot(root);
+			const resolvedRoot = root ?? getKnowledgeDir();
 			const base = wikiDir(resolvedRoot);
 			const pages = await queryByTags(resolvedRoot, params);
 			const enriched = pages.map((p) => ({ ...p, absolutePath: join(base, p.path) }));

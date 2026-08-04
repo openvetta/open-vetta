@@ -4,6 +4,7 @@ import { coverageConfigDefaults, defineConfig } from "vitest/config";
 export default defineConfig({
 	resolve: {
 		alias: {
+			"@vetta/runtime-knowledge": fileURLToPath(new URL("../runtime-knowledge/src/index.ts", import.meta.url)),
 			"@vetta/runtime-storage/conversation": fileURLToPath(
 				new URL("../runtime-storage/src/conversation/index.ts", import.meta.url),
 			),

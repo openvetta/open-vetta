@@ -25,6 +25,7 @@ const LIB_PREFIXES = [
 	"packages/coding-agent/",
 	"packages/ecosystem-adapter/",
 	"packages/runtime-core/",
+	"packages/runtime-knowledge/",
 	"packages/runtime-tools/",
 	"packages/runtime-storage/",
 	"packages/runtime-mcp/",
@@ -43,6 +44,7 @@ const LIB_PREFIXES = [
 const MANIFEST_TRUTH_PACKAGE_NAMES = new Set([
 	"@vetta/coding-agent",
 	"@vetta/runtime-composition",
+	"@vetta/runtime-knowledge",
 	"@vetta/runtime-storage",
 	"@vetta/runtime-tools",
 	"@vetta/cli-app",
@@ -281,6 +283,7 @@ function checkCapabilitySchemaDefinitions(posixPath, text, findings) {
 function checkGreenfieldRuntimeImports(posixPath, specifiers, findings) {
 	const isGreenfieldRuntime =
 		posixPath.startsWith("packages/runtime-storage/src/conversation/") ||
+		posixPath.startsWith("packages/runtime-knowledge/src/") ||
 		posixPath.startsWith("packages/runtime-tools/src/coding/") ||
 		posixPath.startsWith("packages/runtime-mcp/src/");
 	if (!isGreenfieldRuntime) return;
@@ -911,6 +914,16 @@ function checkCodingAgentToolPublicSurfaceBoundary(posixPath, text, findings) {
 	}
 }
 
+function checkRetiredCodingAgentKnowledgeSurface(posixPath, specifiers, findings) {
+	if (posixPath.startsWith("packages/coding-agent/src/core/knowledge/")) {
+		findings.push(`${posixPath}: retired Coding Agent Knowledge implementation must stay deleted`);
+	}
+	for (const specifier of specifiers) {
+		if (specifier !== "@vetta/coding-agent/knowledge" && !specifier.includes("core/knowledge")) continue;
+		findings.push(`${posixPath}: retired Coding Agent Knowledge surface import (${specifier})`);
+	}
+}
+
 function checkCodingAgentLegacyBoundaries(posixPath, text, specifiers, findings) {
 	const isProductionSource = posixPath.includes("/src/") && !/\.(?:test|spec)\.[cm]?[jt]sx?$/.test(posixPath);
 	if (!isProductionSource) return;
@@ -1049,11 +1062,17 @@ export function findPackageBoundaryViolations(posixPath, text, options = {}) {
 	checkRuntimeCompositionCompatibilityFacade(posixPath, specifiers, findings);
 	checkCodingAgentRootImports(posixPath, specifiers, findings);
 	checkCodingAgentToolPublicSurfaceBoundary(posixPath, text, findings);
+	checkRetiredCodingAgentKnowledgeSurface(posixPath, specifiers, findings);
 	checkCodingAgentLegacyBoundaries(posixPath, text, specifiers, findings);
 	checkWorkspaceManifestImports(posixPath, specifiers, options.manifest, findings);
 	checkRuntimeCoreImports(posixPath, specifiers, findings);
 	checkAgentCoreImports(posixPath, specifiers, findings);
 	return findings;
+}
+
+export function findPackageManifestBoundaryViolations(manifest) {
+	if (manifest?.name !== "@vetta/coding-agent" || !Object.hasOwn(manifest.exports ?? {}, "./knowledge")) return [];
+	return ["packages/coding-agent/package.json: retired ./knowledge export must stay deleted"];
 }
 
 const roots = [
@@ -1064,6 +1083,7 @@ const roots = [
 	join(repoRoot, "packages/coding-agent"),
 	join(repoRoot, "packages/ecosystem-adapter"),
 	join(repoRoot, "packages/runtime-core"),
+	join(repoRoot, "packages/runtime-knowledge"),
 	join(repoRoot, "packages/runtime-tools"),
 	join(repoRoot, "packages/runtime-storage"),
 	join(repoRoot, "packages/runtime-mcp"),
@@ -1092,6 +1112,7 @@ export function main() {
 		} catch {
 			manifest = undefined;
 		}
+		findings.push(...findPackageManifestBoundaryViolations(manifest));
 		for (const file of walkFiles(root)) {
 			const posixPath = rel(file);
 			if (posixPath.includes("/node_modules/") || posixPath.includes("/dist/")) continue;

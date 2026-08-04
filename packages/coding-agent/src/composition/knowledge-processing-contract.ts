@@ -1,5 +1,5 @@
 import type { ThinkingLevel } from "@vetta/agent-core";
-import type { WritePageRequest, WritePageResult } from "../core/knowledge/writer.js";
+import type { WritePageRequest, WritePageResult } from "@vetta/runtime-knowledge";
 
 export interface KnowledgeProcessingUsage {
 	readonly inputTokens: number;

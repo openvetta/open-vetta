@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { isAbsolute, join, relative } from "node:path";
 import { ACTION_RPC_ENDPOINT_FILE_ENV, VETTA_HOME_ENV } from "@vetta/action-rpc";
-import { parseWikiPage } from "@vetta/coding-agent/knowledge";
+import { parseWikiPage } from "@vetta/runtime-knowledge";
 import { z } from "zod";
 import {
 	RUNTIME_CANARY_BATCH_PROMPT,

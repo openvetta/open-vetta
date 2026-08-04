@@ -5,8 +5,10 @@ import {
 	createExtractTextFromImageToolRegistration,
 	createExtractTextFromPdfToolRegistration,
 	createHtmlToPdfToolRegistration,
+	createKbWritePageToolRegistration,
 	createProgressToolRegistration,
 	createRenderPdfPageToolRegistration,
+	type KbWritePageOperations,
 	RenderPdfPageProcessAbortedError,
 	selectCodingToolRegistrations,
 } from "@vetta/runtime-tools/coding";
@@ -17,18 +19,12 @@ import {
 	getCodingAgentOcrExecutionGate,
 } from "../runtime-tools/index.js";
 import { createCodingAgentDesktopCommandHost } from "./greenfield-desktop-command-host.js";
-import {
-	createCodingAgentKnowledgePageWriter,
-	createCodingAgentKnowledgeWriteRegistration,
-	type KnowledgePageWriterPort,
-} from "./greenfield-knowledge-write-runtime.js";
 import { CODING_AGENT_MODEL_TOOL_ORDER } from "./greenfield-model-tool-order.js";
 import type { CodingAgentRuntimeToolRegistration } from "./greenfield-tool-adapter.js";
 
 export interface CodingAgentGreenfieldProductToolOptions {
 	readonly cwd: string;
-	readonly knowledgeRoot?: string;
-	readonly knowledgePageWriter?: KnowledgePageWriterPort;
+	readonly knowledgePageWriter: KbWritePageOperations;
 }
 
 export interface CodingAgentGreenfieldProductToolFeatureOptions {
@@ -87,8 +83,8 @@ export function createCodingAgentGreenfieldProductToolRegistrations(
 		createProgressToolRegistration({
 			modelOrder: CODING_AGENT_MODEL_TOOL_ORDER.progress,
 		}),
-		createCodingAgentKnowledgeWriteRegistration({
-			writer: options.knowledgePageWriter ?? createCodingAgentKnowledgePageWriter(options.knowledgeRoot),
+		createKbWritePageToolRegistration({
+			operations: options.knowledgePageWriter,
 			modelOrder: CODING_AGENT_MODEL_TOOL_ORDER.knowledgeWrite,
 		}),
 	];

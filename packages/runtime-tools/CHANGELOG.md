@@ -11,6 +11,7 @@ All notable changes to `@vetta/runtime-tools` are documented in this file.
 
 ### Added
 
+- **原生 Knowledge 写页 Tool**：新增 `kb_write_page` 的 TypeBox Schema、TS 描述、Registration 与知识写入窄 Operations Port；工具名称、scope、输入、输出和移动提示保持不变。
 - **原生 IM 附件 Tool**：新增 `im_send_attachment` 的 TypeBox Schema、TS 描述、Registration 与宿主发送/文件访问窄 Port；工具名称、scope、输入、输出及错误语义保持不变。
 - **原生能力 Tool 合同**：新增 `ask_user_question`、`invoke_skill`、`memory`、`todo`、`tool_search` 与知识标签查询 Tool；TypeBox Schema、TS 描述、Registration 和执行协议由 `runtime-tools` 持有，宿主状态与查询通过窄 Operations Port 注入。
 - **中立宿主执行原语**：新增可注入的 FIFO 异步执行 Gate 与既有路径解析导出，供产品组合根实现并发限制和 `@file` 路径兼容，不依赖 `coding-agent` 旧实现。

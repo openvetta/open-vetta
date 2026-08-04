@@ -299,6 +299,22 @@ export {
 	type KbTagCount,
 } from "./tools/kb-list-tags/index.js";
 export {
+	createKbWritePageTool,
+	createKbWritePageToolRegistration,
+	KB_WRITE_PAGE_TOOL_CATEGORY,
+	KB_WRITE_PAGE_TOOL_DESCRIPTION,
+	KB_WRITE_PAGE_TOOL_REQUIRES,
+	KB_WRITE_PAGE_TOOL_SCOPES,
+	type KbWritePageOperations,
+	type KbWritePageRequest,
+	type KbWritePageResult,
+	type KbWritePageToolDetails,
+	type KbWritePageToolInput,
+	KbWritePageToolInputSchema,
+	type KbWritePageToolOptions,
+	type KbWritePageToolRegistrationOptions,
+} from "./tools/kb-write-page/index.js";
+export {
 	createLsTool,
 	createLsToolRegistration,
 	LS_TOOL_CATEGORY,

@@ -4,7 +4,7 @@ import {
 	findLayeredBuildOrderViolations,
 	parseBuildPackageOrder,
 } from "./check-build-order.mjs";
-import { findPackageBoundaryViolations } from "./check-package-boundaries.mjs";
+import { findPackageBoundaryViolations, findPackageManifestBoundaryViolations } from "./check-package-boundaries.mjs";
 import { batchPaths, createQuickCheckPlan, isBiomeGlobalTrigger } from "./check-quick.mjs";
 import { findStandaloneCliBuildViolations } from "./check-standalone-cli-build.mjs";
 import { changedFiles, expandTestablePackages, packagesFromPaths, parseBaseArgs, stagedFiles } from "./lib.mjs";
@@ -354,6 +354,39 @@ describe("package boundary analysis", () => {
 		);
 		expect(findPackageBoundaryViolations("packages/runtime-core/test/runtime.test.ts", rootImport)).toHaveLength(1);
 		expect(findPackageBoundaryViolations("packages/runtime-tools/src/index.ts", rootImport)).toHaveLength(1);
+	});
+
+	it("keeps the retired Coding Agent Knowledge surface deleted", () => {
+		expect(
+			findPackageBoundaryViolations(
+				"packages/desktop-app/src/main/knowledge/example.ts",
+				'import { scanRaws } from "@vetta/coding-agent/knowledge";',
+			),
+		).toHaveLength(1);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/coding-agent/src/composition/example.ts",
+				'import { scanRaws } from "../core/knowledge/store.js";',
+			),
+		).toHaveLength(1);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/coding-agent/src/core/knowledge/new-store.ts",
+				"export const store = {};",
+			),
+		).toHaveLength(1);
+		expect(
+			findPackageManifestBoundaryViolations({
+				name: "@vetta/coding-agent",
+				exports: { "./knowledge": "./dist/core/knowledge/index.js" },
+			}),
+		).toHaveLength(1);
+		expect(
+			findPackageManifestBoundaryViolations({
+				name: "@vetta/runtime-knowledge",
+				exports: { ".": "./dist/index.js" },
+			}),
+		).toEqual([]);
 	});
 
 	it("keeps production Legacy imports and Runtime adapters inside explicit compatibility boundaries", () => {

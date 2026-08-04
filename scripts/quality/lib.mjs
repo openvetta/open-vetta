@@ -31,6 +31,7 @@ export const PACKAGE_DIRS = {
 	"theme-sdk": "packages/theme-sdk",
 	"theme-ui": "packages/theme-ui",
 	"runtime-core": "packages/runtime-core",
+	"runtime-knowledge": "packages/runtime-knowledge",
 	"runtime-tools": "packages/runtime-tools",
 	"runtime-storage": "packages/runtime-storage",
 	"runtime-telemetry": "packages/runtime-telemetry",

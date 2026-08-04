@@ -394,27 +394,6 @@
 			"domain": "skills"
 		},
 		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-knowledge-write-runtime.ts",
-			"specifier": "../../core/knowledge/store.js",
-			"names": [
-				"knowledgeRoot",
-				"wikiDir"
-			],
-			"category": "old-core",
-			"domain": "knowledge"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-knowledge-write-runtime.ts",
-			"specifier": "../../core/knowledge/writer.js",
-			"names": [
-				"WritePageRequest",
-				"WritePageResult",
-				"writeKnowledgePage"
-			],
-			"category": "old-core",
-			"domain": "knowledge"
-		},
-		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-mcp-deferred-adapter.ts",
 			"specifier": "../../core/system-prompt.js",
 			"names": [
@@ -931,16 +910,6 @@
 			"domain": "model-registry"
 		},
 		{
-			"path": "packages/coding-agent/src/adapters/runtime-tools/knowledge-query-operations.ts",
-			"specifier": "../../core/knowledge/query.js",
-			"names": [
-				"listAvailableTags",
-				"queryByTags"
-			],
-			"category": "old-core",
-			"domain": "knowledge"
-		},
-		{
 			"path": "packages/coding-agent/src/cli/args.ts",
 			"specifier": "../core/session/tool-scope.js",
 			"names": [
@@ -959,16 +928,6 @@
 			"domain": "model-registry"
 		},
 		{
-			"path": "packages/coding-agent/src/composition/greenfield-knowledge-processing-session.ts",
-			"specifier": "../core/knowledge/store.js",
-			"names": [
-				"knowledgeRoot",
-				"wikiDir"
-			],
-			"category": "old-core",
-			"domain": "knowledge"
-		},
-		{
 			"path": "packages/coding-agent/src/composition/greenfield-subagent-runtime.ts",
 			"specifier": "../core/subagents/types/explorer.js",
 			"names": [
@@ -985,16 +944,6 @@
 			],
 			"category": "old-core",
 			"domain": "subagents"
-		},
-		{
-			"path": "packages/coding-agent/src/composition/knowledge-processing-contract.ts",
-			"specifier": "../core/knowledge/writer.js",
-			"names": [
-				"WritePageRequest",
-				"WritePageResult"
-			],
-			"category": "old-core",
-			"domain": "knowledge"
 		},
 		{
 			"path": "packages/coding-agent/src/host/coding-agent-cli-control.ts",
@@ -1535,15 +1484,6 @@
 		},
 		{
 			"path": "packages/coding-agent/src/index.ts",
-			"specifier": "./core/knowledge/index.js",
-			"names": [
-				"*"
-			],
-			"category": "old-core",
-			"domain": "knowledge"
-		},
-		{
-			"path": "packages/coding-agent/src/index.ts",
 			"specifier": "./core/messages.js",
 			"names": [
 				"PROMPT_ATTACHMENT_CONTEXT_TYPE",
@@ -2037,21 +1977,6 @@
 		"packages/coding-agent/src/core/image-budget.ts",
 		"packages/coding-agent/src/core/index.ts",
 		"packages/coding-agent/src/core/keybindings.ts",
-		"packages/coding-agent/src/core/knowledge/batch-planner.ts",
-		"packages/coding-agent/src/core/knowledge/cache.ts",
-		"packages/coding-agent/src/core/knowledge/differ.ts",
-		"packages/coding-agent/src/core/knowledge/failures.ts",
-		"packages/coding-agent/src/core/knowledge/frontmatter.ts",
-		"packages/coding-agent/src/core/knowledge/index-map.ts",
-		"packages/coding-agent/src/core/knowledge/index.ts",
-		"packages/coding-agent/src/core/knowledge/ingest.ts",
-		"packages/coding-agent/src/core/knowledge/processing-prompt.ts",
-		"packages/coding-agent/src/core/knowledge/query.ts",
-		"packages/coding-agent/src/core/knowledge/store.ts",
-		"packages/coding-agent/src/core/knowledge/tag-filter.ts",
-		"packages/coding-agent/src/core/knowledge/types.ts",
-		"packages/coding-agent/src/core/knowledge/upsert.ts",
-		"packages/coding-agent/src/core/knowledge/writer.ts",
 		"packages/coding-agent/src/core/mcp/index.ts",
 		"packages/coding-agent/src/core/mcp/mcp-client.ts",
 		"packages/coding-agent/src/core/mcp/mcp-config.ts",

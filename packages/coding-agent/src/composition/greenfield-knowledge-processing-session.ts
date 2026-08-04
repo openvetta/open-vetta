@@ -2,8 +2,10 @@ import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import type { Api, Model } from "@vetta/ai";
 import type { SessionEvent } from "@vetta/runtime-core";
-import type { CodingAgentModelRegistrySource, KnowledgePageWriterPort } from "../adapters/runtime-core/greenfield.js";
-import { knowledgeRoot, wikiDir } from "../core/knowledge/store.js";
+import { wikiDir } from "@vetta/runtime-knowledge";
+import type { KbWritePageOperations } from "@vetta/runtime-tools/coding";
+import type { CodingAgentModelRegistrySource } from "../adapters/runtime-core/greenfield.js";
+import { resolveCodingAgentKnowledgeRoot } from "./coding-agent-knowledge-runtime.js";
 import {
 	createGreenfieldRuntimeComposition,
 	type GreenfieldRuntimeComposition,
@@ -35,7 +37,7 @@ export function createGreenfieldKnowledgeProcessingSessionFactory(
 ): KnowledgeProcessingSessionFactory {
 	const createSessionId = options.createSessionId ?? randomUUID;
 	const createComposition = options.createComposition ?? createGreenfieldRuntimeComposition;
-	const resolvedKnowledgeRoot = knowledgeRoot(options.knowledgeRoot);
+	const resolvedKnowledgeRoot = resolveCodingAgentKnowledgeRoot(options.knowledgeRoot);
 
 	return {
 		async create(request) {
@@ -146,7 +148,7 @@ function parseModelKey(modelKey: string): { readonly provider: string; readonly 
 function adaptKnowledgePageWriter(
 	writer: KnowledgeProcessingPageWriter,
 	resolvedKnowledgeRoot: string,
-): KnowledgePageWriterPort {
+): KbWritePageOperations {
 	return {
 		write: (request, now) => writer.write(request, now),
 		resolveAbsolutePath: (relativeWikiPath) => join(wikiDir(resolvedKnowledgeRoot), relativeWikiPath),

@@ -12,7 +12,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import * as knowledge from "@vetta/coding-agent/knowledge";
+import * as knowledge from "@vetta/runtime-knowledge";
 import { BrowserWindow } from "electron";
 import { AsyncTask, SimpleIntervalJob, ToadScheduler } from "toad-scheduler";
 import {
@@ -25,6 +25,7 @@ import { getOrCreateSharedModelRegistry } from "../greenfield-runtime/desktop-co
 import { desktopAgentRuntimeDecision } from "../greenfield-runtime/desktop-runtime-decision.js";
 import { KB_PROCESSING_CWD, KB_PROCESSING_SESSION_DIR, readDesktopConfig } from "../ipc/fs.js";
 import { getAppLogger } from "../logger.js";
+import { getKnowledgeRoot } from "./knowledge-layout.js";
 import { KnowledgeRoundController } from "./knowledge-round-controller.js";
 import { createDesktopKnowledgeProcessingSessionFactory } from "./processing-session-factory.js";
 import { beginRound, endRound, unlockRaws } from "./raws-lock.js";
@@ -60,7 +61,7 @@ function logDamagedPages(result: knowledge.RebuildResult): void {
 
 const roundController = new KnowledgeRoundController({
 	sessionFactory: knowledgeProcessingSessionFactory,
-	getKnowledgeRoot: knowledge.knowledgeRoot,
+	getKnowledgeRoot,
 	sessionCwd: KB_PROCESSING_CWD,
 	sessionDir: KB_PROCESSING_SESSION_DIR,
 	effects: {
@@ -175,7 +176,7 @@ export async function reloadKnowledgePoller(): Promise<void> {
 	// 启动/改设置时自愈一次：据 frontmatter 重建缓存，覆盖缓存缺失/损坏/手改场景，
 	// 用户无需任何手动「重建」操作。无 LLM、O(N)、隐形。加工轮进行中则跳过避免竞态。
 	if (!roundController.isRunning()) {
-		const root = knowledge.knowledgeRoot();
+		const root = getKnowledgeRoot();
 		await knowledge.ensureKnowledgeDirs(root);
 		await knowledge
 			.rebuildAllCaches(root)

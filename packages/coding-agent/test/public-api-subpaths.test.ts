@@ -2,7 +2,6 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import * as config from "../src/config.js";
 import { createLimiter } from "../src/core/concurrency-limit.js";
-import * as knowledge from "../src/core/knowledge/index.js";
 import { DefaultResourceLoader } from "../src/core/resource-loader.js";
 import * as root from "../src/index.js";
 import { createAgentCliBootstrap, createCodingAgentHostBootstrap } from "../src/public-api/bootstrap.js";
@@ -31,7 +30,6 @@ describe("coding-agent public subpaths", () => {
 		expect(ALL_SCENARIOS).toBe(root.ALL_SCENARIOS);
 		expect(PERSONAS).toBe(root.PERSONAS);
 		expect(config.getAgentDir).toBe(root.getAgentDir);
-		expect(knowledge.knowledgeRoot).toBe(root.knowledge.knowledgeRoot);
 		expect(DefaultResourceLoader).toBe(root.DefaultResourceLoader);
 		expect(createLimiter).toBe(root.createLimiter);
 		expect(HostAuthStorage).toBe(root.AuthStorage);
@@ -71,10 +69,6 @@ describe("coding-agent public subpaths", () => {
 				types: "./dist/public-api/host-services.d.ts",
 				import: "./dist/public-api/host-services.js",
 			},
-			"./knowledge": {
-				types: "./dist/core/knowledge/index.d.ts",
-				import: "./dist/core/knowledge/index.js",
-			},
 			"./profile": {
 				types: "./dist/public-api/profile.d.ts",
 				import: "./dist/public-api/profile.js",
@@ -92,6 +86,7 @@ describe("coding-agent public subpaths", () => {
 				import: "./dist/public-api/sdk.js",
 			},
 		});
+		expect(Reflect.has(exports as object, "./knowledge")).toBe(false);
 		expect(Object.keys(exports).filter((key) => key.startsWith("./compat/"))).toEqual([]);
 		expect(Object.keys(exports).filter((key) => key.startsWith("./legacy/"))).toEqual([]);
 	});

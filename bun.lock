@@ -180,6 +180,7 @@
       "version": "0.0.1",
       "bin": {
         "vetta": "dist/cli.js",
+        "vetta-agent": "dist/agent-cli.js",
         "vetta-cli-app": "dist/cli.js",
         "vetta-agent-rpc": "dist/agent-rpc-cli.js",
       },
@@ -213,6 +214,7 @@
         "@vetta/ai": "workspace:*",
         "@vetta/ecosystem-adapter": "workspace:*",
         "@vetta/runtime-core": "workspace:*",
+        "@vetta/runtime-knowledge": "workspace:*",
         "@vetta/runtime-mcp": "workspace:*",
         "@vetta/runtime-storage": "workspace:*",
         "@vetta/runtime-subagents": "workspace:*",
@@ -296,6 +298,7 @@
         "@vetta/coding-agent": "workspace:*",
         "@vetta/runtime-composition": "workspace:*",
         "@vetta/runtime-core": "workspace:*",
+        "@vetta/runtime-knowledge": "workspace:*",
         "@vetta/runtime-mcp": "workspace:*",
         "@vetta/runtime-storage": "workspace:*",
         "@vetta/theme-sdk": "workspace:*",
@@ -784,6 +787,17 @@
         "typescript": "^5.9.2",
       },
     },
+    "packages/runtime-knowledge": {
+      "name": "@vetta/runtime-knowledge",
+      "version": "0.55.3",
+      "dependencies": {
+        "yaml": "^2.8.2",
+      },
+      "devDependencies": {
+        "@types/node": "^22.10.5",
+        "typescript": "^5.9.2",
+      },
+    },
     "packages/runtime-mcp": {
       "name": "@vetta/runtime-mcp",
       "version": "0.0.1",
@@ -848,6 +862,7 @@
         "@types/node": "^22.10.5",
         "@vetta/ai": "workspace:*",
         "@vetta/coding-agent": "workspace:*",
+        "@vetta/runtime-knowledge": "workspace:*",
         "typescript": "^5.9.2",
       },
     },
@@ -2553,6 +2568,8 @@
     "@vetta/runtime-composition": ["@vetta/runtime-composition@workspace:packages/runtime-composition"],
 
     "@vetta/runtime-core": ["@vetta/runtime-core@workspace:packages/runtime-core"],
+
+    "@vetta/runtime-knowledge": ["@vetta/runtime-knowledge@workspace:packages/runtime-knowledge"],
 
     "@vetta/runtime-mcp": ["@vetta/runtime-mcp@workspace:packages/runtime-mcp"],
 

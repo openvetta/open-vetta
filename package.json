@@ -22,6 +22,7 @@
 		"packages/runtime-core",
 		"packages/action-rpc",
 		"packages/runtime-subagents",
+		"packages/runtime-knowledge",
 		"packages/runtime-tools",
 		"packages/runtime-mcp",
 		"packages/runtime-storage",

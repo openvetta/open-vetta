@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { type Static, Type } from "@sinclair/typebox";
-import { knowledgeRoot, wikiDir } from "../../knowledge/store.js";
-import { type KbWriteSession, writeKnowledgePage } from "../../knowledge/writer.js";
+import { type KnowledgePageWriter, wikiDir, writeKnowledgePage } from "@vetta/runtime-knowledge";
+import { getKnowledgeDir } from "../../../config.js";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 import { toolCallDescriptionSchema } from "../tool-call-description.js";
@@ -64,7 +64,7 @@ export interface KbWritePageDetails {
  */
 export function createKbWritePageTool(
 	root?: string,
-	session?: KbWriteSession,
+	session?: KnowledgePageWriter,
 ): CodingAgentTool<typeof kbWritePageSchema> {
 	const fallbackDescription =
 		"Write (create or update) a wiki page in the knowledge base. Enforces the closed frontmatter schema, " +
@@ -80,7 +80,7 @@ export function createKbWritePageTool(
 		description,
 		parameters: kbWritePageSchema,
 		execute: async (_toolCallId, params) => {
-			const resolvedRoot = knowledgeRoot(root);
+			const resolvedRoot = root ?? getKnowledgeDir();
 			const now = new Date().toISOString();
 			const result = session
 				? await session.write(params, now)

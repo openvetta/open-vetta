@@ -41,10 +41,6 @@
 			"types": "./dist/public-api/extensions.d.ts",
 			"import": "./dist/public-api/extensions.js"
 		},
-		"./knowledge": {
-			"types": "./dist/core/knowledge/index.d.ts",
-			"import": "./dist/core/knowledge/index.js"
-		},
 		"./profile": {
 			"types": "./dist/public-api/profile.d.ts",
 			"import": "./dist/public-api/profile.js"
@@ -128,6 +124,7 @@
 		"@vetta/ecosystem-adapter": "workspace:*",
 		"@vetta/runtime-core": "workspace:*",
 		"@vetta/runtime-mcp": "workspace:*",
+		"@vetta/runtime-knowledge": "workspace:*",
 		"@vetta/runtime-storage": "workspace:*",
 		"@vetta/runtime-subagents": "workspace:*",
 		"@vetta/runtime-telemetry": "workspace:*",

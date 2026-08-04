@@ -8,7 +8,7 @@ import {
 	createKbListTagsToolRegistration,
 } from "@vetta/runtime-tools/coding";
 import { CODING_AGENT_MODEL_TOOL_ORDER } from "../adapters/runtime-core/greenfield.js";
-import { createCodingAgentKnowledgeQueryOperations } from "../adapters/runtime-tools/index.js";
+import { createCodingAgentKnowledgeQueryOperations } from "./coding-agent-knowledge-runtime.js";
 import {
 	createGreenfieldMcpSessionCoordinator,
 	type GreenfieldMcpSessionCoordinator,

@@ -1,6 +1,6 @@
 import { type Static, Type } from "@sinclair/typebox";
-import { listAvailableTags } from "../../knowledge/query.js";
-import { knowledgeRoot } from "../../knowledge/store.js";
+import { listAvailableTags } from "@vetta/runtime-knowledge";
+import { getKnowledgeDir } from "../../../config.js";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 import { toolCallDescriptionSchema } from "../tool-call-description.js";
@@ -34,7 +34,7 @@ export function createKbListTagsTool(root?: string): CodingAgentTool<typeof kbLi
 		description,
 		parameters: kbListTagsSchema,
 		execute: async () => {
-			const resolvedRoot = knowledgeRoot(root);
+			const resolvedRoot = root ?? getKnowledgeDir();
 			const tags = await listAvailableTags(resolvedRoot);
 			const details: KbListTagsDetails = { tags };
 			const listing = tags.length === 0 ? "(no tags yet)" : tags.map((t) => `- ${t.tag} (${t.count})`).join("\n");

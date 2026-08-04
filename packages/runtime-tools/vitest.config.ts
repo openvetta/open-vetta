@@ -5,6 +5,7 @@ export default defineConfig({
 	resolve: {
 		alias: {
 			"@vetta/agent-core": fileURLToPath(new URL("../agent/src/index.ts", import.meta.url)),
+			"@vetta/runtime-knowledge": fileURLToPath(new URL("../runtime-knowledge/src/index.ts", import.meta.url)),
 			"@vetta/coding-agent/host": fileURLToPath(
 				new URL("../coding-agent/src/adapters/runtime-tools/index.ts", import.meta.url),
 			),
