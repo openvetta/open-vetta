@@ -5,16 +5,9 @@ import { tmpdir } from "node:os";
 import { delimiter, dirname, join, resolve as resolvePath } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getSandboxShellGrant } from "@vetta/runtime-core/sandbox";
-import type { ToolDefinition } from "../../../core/extensions/types.js";
-import {
-	createEditTool,
-	createReadTool,
-	createShellTool,
-	createWriteTool,
-	type ShellOperations,
-} from "../../../core/tools/index.js";
+import type { CodingToolRegistration, ForegroundCommandOperations } from "@vetta/runtime-tools/coding";
 import { getDefaultShellCommandPrefix, prependCommandPrefixes } from "../../../utils/shell.js";
-import { wrapShellPermissionGuard, wrapWorkspaceGuard } from "./sandbox-tool-utils.js";
+import { createSandboxToolRegistrations, type SandboxRuntimeToolOptions } from "./sandbox-tool-utils.js";
 import { buildWindowsSandboxPolicy } from "./windows-sandbox-policy.js";
 
 const WINDOWS_SANDBOX_HOST_FILENAME = "codex-windows-sandbox-host.exe";
@@ -155,7 +148,7 @@ function resolveWindowsShellCommand(): { command: string; args: string[] } {
 	return { command: cmdPath, args: ["/d", "/s", "/c"] };
 }
 
-function createWindowsSandboxShellOperations(sandboxHostPath: string): ShellOperations {
+function createWindowsSandboxShellOperations(sandboxHostPath: string): ForegroundCommandOperations {
 	return {
 		exec: (command, cwd, { onData, signal, timeout, env }) => {
 			return new Promise<{ exitCode: number | null }>((resolve, reject) => {
@@ -254,28 +247,16 @@ function createWindowsSandboxShellOperations(sandboxHostPath: string): ShellOper
 	};
 }
 
-export interface WindowsSandboxToolOptions {
-	cwd: string;
-	sandboxHostPath?: string;
-	getSessionId?: () => string | undefined;
+export interface WindowsSandboxToolOptions extends SandboxRuntimeToolOptions {
+	readonly sandboxHostPath?: string;
+	readonly commandOperations?: ForegroundCommandOperations;
 }
 
-export function buildWindowsSandboxToolDefinitions(options: WindowsSandboxToolOptions): ToolDefinition[] {
-	const { cwd } = options;
-	const sandboxHostPath = resolveWindowsSandboxHostPath(options.sandboxHostPath);
-	const guardCtx = { getSessionId: options.getSessionId };
-
-	const readTool = createReadTool(cwd);
-	const writeTool = createWriteTool(cwd);
-	const editTool = createEditTool(cwd);
-	const shellTool = createShellTool(cwd, {
-		operations: createWindowsSandboxShellOperations(sandboxHostPath),
-	});
-
-	return [
-		wrapWorkspaceGuard(readTool, cwd, guardCtx),
-		wrapWorkspaceGuard(writeTool, cwd, guardCtx),
-		wrapWorkspaceGuard(editTool, cwd, guardCtx),
-		wrapShellPermissionGuard(shellTool, cwd, guardCtx),
-	];
+export function buildWindowsSandboxToolRegistrations(
+	options: WindowsSandboxToolOptions,
+): readonly CodingToolRegistration[] {
+	const commandOperations =
+		options.commandOperations ??
+		createWindowsSandboxShellOperations(resolveWindowsSandboxHostPath(options.sandboxHostPath));
+	return createSandboxToolRegistrations({ ...options, platform: "win32", commandOperations });
 }

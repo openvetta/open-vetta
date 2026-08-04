@@ -4,16 +4,9 @@ import { tmpdir } from "node:os";
 import { delimiter, isAbsolute, join, resolve as resolvePath } from "node:path";
 import { getVettaHomePath } from "@vetta/action-rpc";
 import { getSandboxShellGrant, type SandboxShellGrant } from "@vetta/runtime-core/sandbox";
-import type { ToolDefinition } from "../../../core/extensions/types.js";
-import {
-	createBashTool,
-	createEditTool,
-	createReadTool,
-	createWriteTool,
-	type ShellOperations,
-} from "../../../core/tools/index.js";
+import type { CodingToolRegistration, ForegroundCommandOperations } from "@vetta/runtime-tools/coding";
 import { getShellConfig } from "../../../utils/shell.js";
-import { wrapShellPermissionGuard, wrapWorkspaceGuard } from "./sandbox-tool-utils.js";
+import { createSandboxToolRegistrations, type SandboxRuntimeToolOptions } from "./sandbox-tool-utils.js";
 
 const LINUX_ENV_WHITELIST = [
 	"PATH",
@@ -328,7 +321,7 @@ function buildLinuxSandboxArgs(
 	return args;
 }
 
-function createLinuxBubblewrapShellOperations(bubblewrapPath: string): ShellOperations {
+function createLinuxBubblewrapShellOperations(bubblewrapPath: string): ForegroundCommandOperations {
 	const shellCommand = resolveLinuxShellCommand();
 	ensureShellIsWithinMountedRoots(shellCommand.command);
 
@@ -403,31 +396,16 @@ function createLinuxBubblewrapShellOperations(bubblewrapPath: string): ShellOper
 	};
 }
 
-export interface LinuxBubblewrapToolOptions {
-	cwd: string;
-	bubblewrapPath?: string;
-	getSessionId?: () => string | undefined;
+export interface LinuxBubblewrapToolOptions extends SandboxRuntimeToolOptions {
+	readonly bubblewrapPath?: string;
+	readonly commandOperations?: ForegroundCommandOperations;
 }
 
-export function buildLinuxBubblewrapToolDefinitions(options: LinuxBubblewrapToolOptions): ToolDefinition[] {
-	const { cwd } = options;
-	const bubblewrapPath = resolveLinuxBubblewrapPath(options.bubblewrapPath);
-	const guardCtx = { getSessionId: options.getSessionId };
-
-	const readTool = createReadTool(cwd);
-	const writeTool = createWriteTool(cwd);
-	const editTool = createEditTool(cwd);
-	// Use createBashTool (name="bash") rather than createShellTool (name="shell")
-	// so that on Linux — where the default active command tool is "bash" — this
-	// custom tool actually overrides the unsandboxed default in the registry.
-	const bashTool = createBashTool(cwd, {
-		operations: createLinuxBubblewrapShellOperations(bubblewrapPath),
-	});
-
-	return [
-		wrapWorkspaceGuard(readTool, cwd, guardCtx),
-		wrapWorkspaceGuard(writeTool, cwd, guardCtx),
-		wrapWorkspaceGuard(editTool, cwd, guardCtx),
-		wrapShellPermissionGuard(bashTool, cwd, guardCtx),
-	];
+export function buildLinuxBubblewrapToolRegistrations(
+	options: LinuxBubblewrapToolOptions,
+): readonly CodingToolRegistration[] {
+	const commandOperations =
+		options.commandOperations ??
+		createLinuxBubblewrapShellOperations(resolveLinuxBubblewrapPath(options.bubblewrapPath));
+	return createSandboxToolRegistrations({ ...options, platform: "linux", commandOperations });
 }

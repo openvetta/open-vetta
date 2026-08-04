@@ -1,39 +1,38 @@
-import type { ToolDefinition } from "../../../core/extensions/types.js";
-import { buildLinuxBubblewrapToolDefinitions, type LinuxBubblewrapToolOptions } from "./linux-bwrap-tools.js";
-import { buildMacosSeatbeltToolDefinitions, type MacosSeatbeltToolOptions } from "./macos-seatbelt-tools.js";
-import { buildWindowsSandboxToolDefinitions, type WindowsSandboxToolOptions } from "./windows-sandbox-tools.js";
+import type { CodingToolRegistration, ForegroundCommandOperations } from "@vetta/runtime-tools/coding";
+import { buildLinuxBubblewrapToolRegistrations, type LinuxBubblewrapToolOptions } from "./linux-bwrap-tools.js";
+import { buildMacosSeatbeltToolRegistrations, type MacosSeatbeltToolOptions } from "./macos-seatbelt-tools.js";
+import type { SandboxRuntimeToolOptions } from "./sandbox-tool-utils.js";
+import { buildWindowsSandboxToolRegistrations, type WindowsSandboxToolOptions } from "./windows-sandbox-tools.js";
 
-export interface SandboxToolOptions {
-	cwd: string;
-	platform?: NodeJS.Platform;
-	windowsSandboxHostPath?: WindowsSandboxToolOptions["sandboxHostPath"];
-	linuxBubblewrapPath?: LinuxBubblewrapToolOptions["bubblewrapPath"];
-	macosSandboxExecPath?: MacosSeatbeltToolOptions["sandboxExecPath"];
-	/** Resolves the current session id at execute-time. Required for the session-scoped grant cache. */
-	getSessionId?: () => string | undefined;
+export interface SandboxToolOptions extends SandboxRuntimeToolOptions {
+	readonly platform?: NodeJS.Platform;
+	readonly windowsSandboxHostPath?: WindowsSandboxToolOptions["sandboxHostPath"];
+	readonly linuxBubblewrapPath?: LinuxBubblewrapToolOptions["bubblewrapPath"];
+	readonly macosSandboxExecPath?: MacosSeatbeltToolOptions["sandboxExecPath"];
+	/** Test/host injection boundary; production selects the platform implementation. */
+	readonly commandOperations?: ForegroundCommandOperations;
 }
 
-export function buildSandboxToolDefinitions(options: SandboxToolOptions): ToolDefinition[] | undefined {
+export function buildSandboxToolRegistrations(
+	options: SandboxToolOptions,
+): readonly CodingToolRegistration[] | undefined {
 	const platform = options.platform ?? process.platform;
 	if (platform === "win32") {
-		return buildWindowsSandboxToolDefinitions({
-			cwd: options.cwd,
+		return buildWindowsSandboxToolRegistrations({
+			...options,
 			sandboxHostPath: options.windowsSandboxHostPath,
-			getSessionId: options.getSessionId,
 		});
 	}
 	if (platform === "linux") {
-		return buildLinuxBubblewrapToolDefinitions({
-			cwd: options.cwd,
+		return buildLinuxBubblewrapToolRegistrations({
+			...options,
 			bubblewrapPath: options.linuxBubblewrapPath,
-			getSessionId: options.getSessionId,
 		});
 	}
 	if (platform === "darwin") {
-		return buildMacosSeatbeltToolDefinitions({
-			cwd: options.cwd,
+		return buildMacosSeatbeltToolRegistrations({
+			...options,
 			sandboxExecPath: options.macosSandboxExecPath,
-			getSessionId: options.getSessionId,
 		});
 	}
 	return undefined;

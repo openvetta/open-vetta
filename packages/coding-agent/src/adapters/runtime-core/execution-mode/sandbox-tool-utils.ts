@@ -1,4 +1,5 @@
-import type { AgentTool, AgentToolUpdateCallback } from "@vetta/agent-core";
+import type { RuntimeSessionHostInteractionContext } from "@vetta/runtime-core";
+import type { RuntimeToolDefinition } from "@vetta/runtime-core/kernel";
 import {
 	addSessionGrant,
 	assertSandboxPathNotDenied,
@@ -7,135 +8,188 @@ import {
 	findSessionGrant,
 	isSensitiveSandboxRequest,
 	runWithSandboxShellGrant,
+	type SandboxPermissionContext,
 	type SandboxPermissionRequest,
 } from "@vetta/runtime-core/sandbox";
-import type { ToolDefinition } from "../../../core/extensions/types.js";
+import type {
+	CodingToolRegistration,
+	EditPathPolicy,
+	ForegroundCommandOperations,
+	WritePathPolicy,
+} from "@vetta/runtime-tools/coding";
+import {
+	createBashToolRegistration,
+	createEditToolRegistration,
+	createForegroundCommandToolExecutor,
+	createReadToolRegistration,
+	createShellToolRegistration,
+	createWriteToolRegistration,
+} from "@vetta/runtime-tools/coding";
 import { assertWorkspacePathAllowed, resolveWorkspacePathAccess } from "./workspace-guard.js";
 
-export interface SandboxGuardContext {
+export interface SandboxRuntimeToolOptions {
+	readonly cwd: string;
+	readonly hostInteraction: RuntimeSessionHostInteractionContext;
+	readonly editPathPolicy: EditPathPolicy;
+	readonly writePathPolicy: WritePathPolicy;
+	readonly commandEnvironment?: () => NodeJS.ProcessEnv;
+	readonly protectedDirectories?: readonly string[];
 	/** Resolves the current session id at execute-time. Required for session-scoped grant cache. */
-	getSessionId?(): string | undefined;
+	readonly getSessionId?: () => string | undefined;
 }
 
-// AgentTool parameter types are intentionally tool-specific and not covariant.
-// Keep this bridge narrow so runtime-core can wrap built-in tools without
-// duplicating per-tool adapters.
-export function toToolDefinition(tool: AgentTool<any, any>): ToolDefinition {
-	return {
-		name: tool.name,
-		label: tool.label,
-		description: tool.description,
-		parameters: tool.parameters,
-		execute: async (
-			toolCallId: string,
-			params: unknown,
-			signal: AbortSignal | undefined,
-			onUpdate: AgentToolUpdateCallback<unknown> | undefined,
-		) => {
-			return tool.execute(toolCallId, params as never, signal, onUpdate as never);
-		},
-	};
+export interface CreateSandboxToolRegistrationsOptions extends SandboxRuntimeToolOptions {
+	readonly platform: NodeJS.Platform;
+	readonly commandOperations: ForegroundCommandOperations;
+}
+
+export function createSandboxToolRegistrations(
+	options: CreateSandboxToolRegistrationsOptions,
+): readonly CodingToolRegistration[] {
+	const executor = createForegroundCommandToolExecutor({
+		operations: options.commandOperations,
+		environment: options.commandEnvironment,
+		protectedDirectories: options.protectedDirectories,
+	});
+	const readRegistration = createReadToolRegistration(options.cwd);
+	const writeRegistration = createWriteToolRegistration(options.cwd, { pathPolicy: options.writePathPolicy });
+	const editRegistration = createEditToolRegistration(options.cwd, { pathPolicy: options.editPathPolicy });
+	const commandRegistration =
+		options.platform === "win32"
+			? createShellToolRegistration(options.cwd, { executor, platform: options.platform })
+			: createBashToolRegistration(options.cwd, { executor, platform: options.platform });
+
+	return [
+		withTool(readRegistration, wrapWorkspaceGuard(readRegistration.tool, options)),
+		withTool(writeRegistration, wrapWorkspaceGuard(writeRegistration.tool, options)),
+		withTool(editRegistration, wrapWorkspaceGuard(editRegistration.tool, options)),
+		withTool(commandRegistration, wrapShellPermissionGuard(commandRegistration.tool, options)),
+	];
+}
+
+function withTool<TInput extends object>(
+	registration: CodingToolRegistration<TInput>,
+	tool: RuntimeToolDefinition<TInput>,
+): CodingToolRegistration<TInput> {
+	return { ...registration, tool };
 }
 
 function extractPathFromParams(params: unknown): string | undefined {
-	if (!params || typeof params !== "object") return undefined;
-	if (!("path" in params)) return undefined;
+	if (!params || typeof params !== "object" || !("path" in params)) return undefined;
 	const pathValue = (params as { path?: unknown }).path;
 	return typeof pathValue === "string" ? pathValue : undefined;
 }
 
 function extractCommandFromParams(params: unknown): string | undefined {
-	if (!params || typeof params !== "object") return undefined;
-	if (!("command" in params)) return undefined;
+	if (!params || typeof params !== "object" || !("command" in params)) return undefined;
 	const commandValue = (params as { command?: unknown }).command;
 	return typeof commandValue === "string" ? commandValue : undefined;
 }
 
-export function wrapWorkspaceGuard(
-	tool: AgentTool<any, any>,
-	cwd: string,
-	guardCtx?: SandboxGuardContext,
-): ToolDefinition {
-	const definition = toToolDefinition(tool);
+function createPermissionContext(
+	hostInteraction: RuntimeSessionHostInteractionContext,
+	signal: AbortSignal,
+): SandboxPermissionContext {
 	return {
-		...definition,
-		execute: async (toolCallId, params, signal, onUpdate, ctx) => {
-			const requestedPath = extractPathFromParams(params);
-			if (requestedPath) {
-				const access = await resolveWorkspacePathAccess(requestedPath, cwd);
-				assertSandboxPathNotDenied(access.targetBoundary, definition.name);
-				assertSandboxPathNotDenied(access.targetPath, definition.name);
-				if (!access.allowed) {
-					const capability: SandboxPermissionRequest["capability"] =
-						definition.name === "read" ? "file.read" : "file.write";
-					const request: SandboxPermissionRequest = {
-						capability,
-						toolName: definition.name,
-						target: requestedPath,
-						resolvedTarget: access.targetBoundary,
-						grantRoot: access.targetBoundary,
-						reason: `${definition.name} target is outside the workspace sandbox`,
-					};
-					const sessionId = guardCtx?.getSessionId?.();
-					const cached = sessionId ? findSessionGrant(sessionId, request) : undefined;
-					if (!cached) {
-						const decision = await confirmSandboxPermission(ctx, request);
-						if (decision === "deny") {
-							await assertWorkspacePathAllowed(requestedPath, cwd, definition.name);
-						} else if (decision === "allow_session" && sessionId && !isSensitiveSandboxRequest(request)) {
-							addSessionGrant(sessionId, request);
-						}
-					}
-				}
-			}
-			return definition.execute(toolCallId, params, signal, onUpdate, ctx);
+		hasUI: true,
+		ui: {
+			confirm: (title, message) => hostInteraction.confirm(title, message, signal),
+			requestSandboxGrant: (request) => hostInteraction.requestSandboxGrant(request),
 		},
 	};
 }
 
-export function wrapShellPermissionGuard(
-	tool: AgentTool<any, any>,
-	cwd: string,
-	guardCtx?: SandboxGuardContext,
-): ToolDefinition {
-	const definition = toToolDefinition(tool);
+export function wrapWorkspaceGuard<TInput extends object>(
+	tool: RuntimeToolDefinition<TInput>,
+	options: SandboxRuntimeToolOptions,
+): RuntimeToolDefinition<TInput> {
 	return {
-		...definition,
-		execute: async (toolCallId, params, signal, onUpdate, ctx) => {
-			const command = extractCommandFromParams(params);
-			const requests = command ? collectShellWritePermissionRequests(command, cwd) : [];
-			const sessionId = guardCtx?.getSessionId?.();
+		...tool,
+		async execute(request) {
+			const requestedPath = extractPathFromParams(request.input);
+			if (requestedPath) {
+				const access = await resolveWorkspacePathAccess(requestedPath, options.cwd);
+				assertSandboxPathNotDenied(access.targetBoundary, tool.name);
+				assertSandboxPathNotDenied(access.targetPath, tool.name);
+				if (!access.allowed) {
+					const capability: SandboxPermissionRequest["capability"] =
+						tool.name === "read" ? "file.read" : "file.write";
+					const permissionRequest: SandboxPermissionRequest = {
+						capability,
+						toolName: tool.name,
+						target: requestedPath,
+						resolvedTarget: access.targetBoundary,
+						grantRoot: access.targetBoundary,
+						reason: `${tool.name} target is outside the workspace sandbox`,
+					};
+					const sessionId = options.getSessionId?.();
+					const cached = sessionId ? findSessionGrant(sessionId, permissionRequest) : undefined;
+					if (!cached) {
+						const decision = await confirmSandboxPermission(
+							createPermissionContext(options.hostInteraction, request.signal),
+							permissionRequest,
+						);
+						if (decision === "deny") {
+							await assertWorkspacePathAllowed(requestedPath, options.cwd, tool.name);
+						} else if (
+							decision === "allow_session" &&
+							sessionId &&
+							!isSensitiveSandboxRequest(permissionRequest)
+						) {
+							addSessionGrant(sessionId, permissionRequest);
+						}
+					}
+				}
+			}
+			return tool.execute(request);
+		},
+	};
+}
+
+export function wrapShellPermissionGuard<TInput extends object>(
+	tool: RuntimeToolDefinition<TInput>,
+	options: SandboxRuntimeToolOptions,
+): RuntimeToolDefinition<TInput> {
+	return {
+		...tool,
+		async execute(request) {
+			const command = extractCommandFromParams(request.input);
+			const permissionRequests = command ? collectShellWritePermissionRequests(command, options.cwd) : [];
+			const sessionId = options.getSessionId?.();
 			const allowWriteRoots: string[] = [];
-			for (const request of requests) {
-				const cached = sessionId ? findSessionGrant(sessionId, request) : undefined;
+			for (const permissionRequest of permissionRequests) {
+				const cached = sessionId ? findSessionGrant(sessionId, permissionRequest) : undefined;
 				if (cached) {
-					if (request.grantRoot) allowWriteRoots.push(request.grantRoot);
+					if (permissionRequest.grantRoot) allowWriteRoots.push(permissionRequest.grantRoot);
 					continue;
 				}
-				const decision = await confirmSandboxPermission(ctx, request);
+				const decision = await confirmSandboxPermission(
+					createPermissionContext(options.hostInteraction, request.signal),
+					permissionRequest,
+				);
 				if (decision === "deny") {
 					throw new Error(
 						`Access denied by sandbox: shell command requires write permission outside workspace.` +
-							`\ntarget=${request.target}` +
-							`\nresolved=${request.resolvedTarget}` +
-							(request.grantRoot ? `\ngrantRoot=${request.grantRoot}` : ""),
+							`\ntarget=${permissionRequest.target}` +
+							`\nresolved=${permissionRequest.resolvedTarget}` +
+							(permissionRequest.grantRoot ? `\ngrantRoot=${permissionRequest.grantRoot}` : ""),
 					);
 				}
-				if (decision === "allow_session" && sessionId && !isSensitiveSandboxRequest(request)) {
-					addSessionGrant(sessionId, request);
+				if (decision === "allow_session" && sessionId && !isSensitiveSandboxRequest(permissionRequest)) {
+					addSessionGrant(sessionId, permissionRequest);
 				}
-				if (request.grantRoot) allowWriteRoots.push(request.grantRoot);
+				if (permissionRequest.grantRoot) allowWriteRoots.push(permissionRequest.grantRoot);
 			}
 
-			if (allowWriteRoots.length === 0) return definition.execute(toolCallId, params, signal, onUpdate, ctx);
+			if (allowWriteRoots.length === 0) return tool.execute(request);
 			const uniqueAllowWriteRoots = Array.from(new Set(allowWriteRoots));
 			return runWithSandboxShellGrant(
-				cwd,
+				options.cwd,
 				{
 					allowReadRoots: uniqueAllowWriteRoots,
 					allowWriteRoots: uniqueAllowWriteRoots,
 				},
-				() => definition.execute(toolCallId, params, signal, onUpdate, ctx),
+				() => tool.execute(request),
 			);
 		},
 	};

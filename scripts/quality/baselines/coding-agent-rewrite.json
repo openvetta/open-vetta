@@ -12,90 +12,6 @@
 			"domain": "mcp"
 		},
 		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/execution-mode/linux-bwrap-tools.ts",
-			"specifier": "../../../core/extensions/types.js",
-			"names": [
-				"ToolDefinition"
-			],
-			"category": "old-core",
-			"domain": "extensions"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/execution-mode/linux-bwrap-tools.ts",
-			"specifier": "../../../core/tools/index.js",
-			"names": [
-				"ShellOperations",
-				"createBashTool",
-				"createEditTool",
-				"createReadTool",
-				"createWriteTool"
-			],
-			"category": "old-core",
-			"domain": "tools"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/execution-mode/macos-seatbelt-tools.ts",
-			"specifier": "../../../core/extensions/types.js",
-			"names": [
-				"ToolDefinition"
-			],
-			"category": "old-core",
-			"domain": "extensions"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/execution-mode/macos-seatbelt-tools.ts",
-			"specifier": "../../../core/tools/index.js",
-			"names": [
-				"ShellOperations",
-				"createBashTool",
-				"createEditTool",
-				"createReadTool",
-				"createWriteTool"
-			],
-			"category": "old-core",
-			"domain": "tools"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/execution-mode/sandbox-tool-utils.ts",
-			"specifier": "../../../core/extensions/types.js",
-			"names": [
-				"ToolDefinition"
-			],
-			"category": "old-core",
-			"domain": "extensions"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/execution-mode/sandbox-tools.ts",
-			"specifier": "../../../core/extensions/types.js",
-			"names": [
-				"ToolDefinition"
-			],
-			"category": "old-core",
-			"domain": "extensions"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/execution-mode/windows-sandbox-tools.ts",
-			"specifier": "../../../core/extensions/types.js",
-			"names": [
-				"ToolDefinition"
-			],
-			"category": "old-core",
-			"domain": "extensions"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/execution-mode/windows-sandbox-tools.ts",
-			"specifier": "../../../core/tools/index.js",
-			"names": [
-				"ShellOperations",
-				"createEditTool",
-				"createReadTool",
-				"createShellTool",
-				"createWriteTool"
-			],
-			"category": "old-core",
-			"domain": "tools"
-		},
-		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-agent-message-context-projector.ts",
 			"specifier": "../../core/messages.js",
 			"names": [
@@ -887,17 +803,6 @@
 			],
 			"category": "old-core",
 			"domain": "settings-manager"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-sandbox-tool-adapter.ts",
-			"specifier": "../../core/extensions/types.js",
-			"names": [
-				"ExtensionContext",
-				"ExtensionUIContext",
-				"ToolDefinition"
-			],
-			"category": "old-core",
-			"domain": "extensions"
 		},
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-sdk-session-events.ts",

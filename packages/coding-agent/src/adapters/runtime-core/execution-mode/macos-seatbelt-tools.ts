@@ -5,16 +5,9 @@ import { homedir, tmpdir } from "node:os";
 import { delimiter, isAbsolute, join } from "node:path";
 import { getVettaConfigDirName } from "@vetta/action-rpc";
 import { getSandboxShellGrant, type SandboxShellGrant } from "@vetta/runtime-core/sandbox";
-import type { ToolDefinition } from "../../../core/extensions/types.js";
-import {
-	createBashTool,
-	createEditTool,
-	createReadTool,
-	createWriteTool,
-	type ShellOperations,
-} from "../../../core/tools/index.js";
+import type { CodingToolRegistration, ForegroundCommandOperations } from "@vetta/runtime-tools/coding";
 import { getShellConfig } from "../../../utils/shell.js";
-import { wrapShellPermissionGuard, wrapWorkspaceGuard } from "./sandbox-tool-utils.js";
+import { createSandboxToolRegistrations, type SandboxRuntimeToolOptions } from "./sandbox-tool-utils.js";
 
 const MACOS_ENV_WHITELIST = ["PATH", "LANG", "LC_ALL", "TERM", "VETTA_CLI_APP_PATH"] as const;
 const MACOS_SANDBOX_BACKEND = "macos-seatbelt";
@@ -163,7 +156,7 @@ function buildSandboxEnv(
 	return nextEnv;
 }
 
-function createMacosSeatbeltShellOperations(sandboxExecPath: string): ShellOperations {
+function createMacosSeatbeltShellOperations(sandboxExecPath: string): ForegroundCommandOperations {
 	const shellCommand = resolveMacosShellCommand();
 
 	return {
@@ -251,33 +244,18 @@ function createMacosSeatbeltShellOperations(sandboxExecPath: string): ShellOpera
 	};
 }
 
-export interface MacosSeatbeltToolOptions {
-	cwd: string;
-	sandboxExecPath?: string;
-	getSessionId?: () => string | undefined;
+export interface MacosSeatbeltToolOptions extends SandboxRuntimeToolOptions {
+	readonly sandboxExecPath?: string;
+	readonly commandOperations?: ForegroundCommandOperations;
 }
 
-export function buildMacosSeatbeltToolDefinitions(options: MacosSeatbeltToolOptions): ToolDefinition[] {
-	const { cwd } = options;
-	const sandboxExecPath = options.sandboxExecPath ?? resolveMacosSandboxExecPath();
-	const guardCtx = { getSessionId: options.getSessionId };
-
-	const readTool = createReadTool(cwd);
-	const writeTool = createWriteTool(cwd);
-	const editTool = createEditTool(cwd);
-	// Use createBashTool (name="bash") rather than createShellTool (name="shell")
-	// so that on macOS — where the default active command tool is "bash" — this
-	// custom tool actually overrides the unsandboxed default in the registry.
-	const bashTool = createBashTool(cwd, {
-		operations: createMacosSeatbeltShellOperations(sandboxExecPath),
-	});
-
-	return [
-		wrapWorkspaceGuard(readTool, cwd, guardCtx),
-		wrapWorkspaceGuard(writeTool, cwd, guardCtx),
-		wrapWorkspaceGuard(editTool, cwd, guardCtx),
-		wrapShellPermissionGuard(bashTool, cwd, guardCtx),
-	];
+export function buildMacosSeatbeltToolRegistrations(
+	options: MacosSeatbeltToolOptions,
+): readonly CodingToolRegistration[] {
+	const commandOperations =
+		options.commandOperations ??
+		createMacosSeatbeltShellOperations(options.sandboxExecPath ?? resolveMacosSandboxExecPath());
+	return createSandboxToolRegistrations({ ...options, platform: "darwin", commandOperations });
 }
 
 export function resolveAvailableMacosSandboxExecPath(): string | undefined {
