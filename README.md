@@ -5,7 +5,7 @@
 <h1 align="center">Open Vetta</h1>
 
 <p align="center">
-  A fully local AI agent desktop app, and the coding agent core that powers it.
+  An open-source AI agent built for real work — local, extensible, and under your control.
 </p>
 
 <p align="center">
@@ -25,9 +25,18 @@
 
 ## What This Is
 
-Open Vetta is an Electron desktop app: you talk to a model, let it read and write local files,
-run commands, process directories in bulk, schedule recurring work, and install extensions.
-Its agent core is also usable on its own, as a CLI and as an SDK.
+Open Vetta is the open-source edition of Vetta: an AI agent built for real work. It can work
+with local files, run commands, process directories in bulk, schedule recurring tasks, and
+install extensions — turning ideas, materials, and goals into deliverable results, not just
+answers in a chat window.
+
+It runs in the environment you choose and connects to your own models, tools, and data. The
+desktop app, coding agent core, CLI, SDK, and extension points are all open, so individuals and
+teams can shape an agent around the way they actually work.
+
+We believe the future of AI-powered work should not be defined by only a few. Open Vetta is
+meant to grow with developers, creators, and real users: anyone can understand it, extend it,
+and help shape what comes next.
 
 Three ground rules:
 
