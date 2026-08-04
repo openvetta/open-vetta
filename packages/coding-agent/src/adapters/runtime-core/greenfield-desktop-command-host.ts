@@ -4,26 +4,28 @@ import nodePath from "node:path";
 import { Type } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import { getVettaHomePath } from "@vetta/action-rpc";
-import { DesktopCommandAbortedError, type DesktopCommandPort } from "@vetta/runtime-tools/coding";
-import { runSubprocess, SubprocessAbortError } from "../../core/tools/exec-subprocess.js";
+import {
+	type CommandProcessPort,
+	DesktopCommandAbortedError,
+	type DesktopCommandPort,
+} from "@vetta/runtime-tools/coding";
+import { CodingAgentCommandProcessAbortedError, createCodingAgentCommandProcessHost } from "../runtime-tools/index.js";
 
 const DesktopConfigSchema = Type.Object(
 	{ vettaAppPath: Type.Optional(Type.String({ minLength: 1 })) },
 	{ additionalProperties: true },
 );
 
-export function createCodingAgentDesktopCommandHost(): DesktopCommandPort {
+export function createCodingAgentDesktopCommandHost(
+	commandProcess: CommandProcessPort = createCodingAgentCommandProcessHost(),
+): DesktopCommandPort {
 	return {
 		locate: findVettaExecutable,
 		async run(executable, args, options) {
 			try {
-				return await runSubprocess(executable, [...args], {
-					signal: options.signal,
-					timeout: options.timeoutMs,
-					maxBuffer: options.maxBufferBytes,
-				});
+				return await commandProcess.run(executable, args, options);
 			} catch (error) {
-				if (error instanceof SubprocessAbortError) throw new DesktopCommandAbortedError();
+				if (error instanceof CodingAgentCommandProcessAbortedError) throw new DesktopCommandAbortedError();
 				throw error;
 			}
 		},

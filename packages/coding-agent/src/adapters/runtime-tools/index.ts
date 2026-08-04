@@ -22,6 +22,14 @@ export {
 	type RuntimeCommandToolResult,
 } from "./command-executor.js";
 export {
+	CodingAgentCommandProcessAbortedError,
+	createCodingAgentCommandProcessHost,
+} from "./command-process-host.js";
+export {
+	type CodingAgentDocToPdfOperationsOptions,
+	createCodingAgentDocToPdfOperations,
+} from "./doc-to-pdf-operations.js";
+export {
 	createCodingAgentEditPathPolicy,
 	type RuntimeEditPathPolicy,
 } from "./edit-path-policy.js";
@@ -38,6 +46,7 @@ export {
 	createCodingAgentForegroundCommandHost,
 	type RuntimeForegroundCommandOperations,
 } from "./foreground-command-operations.js";
+export { getCodingAgentOcrExecutionGate } from "./ocr-execution-gate.js";
 export {
 	createCodingAgentWritePathPolicy,
 	type RuntimeWritePathPolicy,

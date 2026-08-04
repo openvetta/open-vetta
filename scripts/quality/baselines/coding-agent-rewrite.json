@@ -164,16 +164,6 @@
 			"domain": "session-manager"
 		},
 		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-desktop-command-host.ts",
-			"specifier": "../../core/tools/exec-subprocess.js",
-			"names": [
-				"SubprocessAbortError",
-				"runSubprocess"
-			],
-			"category": "old-core",
-			"domain": "tools"
-		},
-		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-action-host.ts",
 			"specifier": "../../core/extensions/execution-host.js",
 			"names": [
@@ -632,34 +622,6 @@
 			"domain": "system-prompt"
 		},
 		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-product-tools-runtime.ts",
-			"specifier": "../../core/tools/doc-to-pdf/index.js",
-			"names": [
-				"createLocalDocToPdfOperations"
-			],
-			"category": "old-core",
-			"domain": "tools"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-product-tools-runtime.ts",
-			"specifier": "../../core/tools/exec-subprocess.js",
-			"names": [
-				"SubprocessAbortError",
-				"runSubprocess"
-			],
-			"category": "old-core",
-			"domain": "tools"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-product-tools-runtime.ts",
-			"specifier": "../../core/tools/ocr-concurrency.js",
-			"names": [
-				"runWithOcrLimit"
-			],
-			"category": "old-core",
-			"domain": "tools"
-		},
-		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-prompt-adapter.ts",
 			"specifier": "../../core/extensions/types.js",
 			"names": [
@@ -1036,26 +998,6 @@
 			"domain": "tools"
 		},
 		{
-			"path": "packages/coding-agent/src/adapters/runtime-tools/edit-path-policy.ts",
-			"specifier": "../../core/tools/path-utils.js",
-			"names": [
-				"isKnowledgeWikiPath",
-				"isProtectedSkillOrScenePath"
-			],
-			"category": "old-core",
-			"domain": "tools"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-tools/write-path-policy.ts",
-			"specifier": "../../core/tools/path-utils.js",
-			"names": [
-				"isKnowledgeWikiPath",
-				"isProtectedSkillOrScenePath"
-			],
-			"category": "old-core",
-			"domain": "tools"
-		},
-		{
 			"path": "packages/coding-agent/src/cli/args.ts",
 			"specifier": "../core/session/tool-scope.js",
 			"names": [
@@ -1070,15 +1012,6 @@
 			"names": [
 				"ToolName",
 				"allTools"
-			],
-			"category": "old-core",
-			"domain": "tools"
-		},
-		{
-			"path": "packages/coding-agent/src/cli/file-processor.ts",
-			"specifier": "../core/tools/path-utils.js",
-			"names": [
-				"resolveReadPath"
 			],
 			"category": "old-core",
 			"domain": "tools"

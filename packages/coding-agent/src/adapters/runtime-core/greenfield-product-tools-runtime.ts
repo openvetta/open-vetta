@@ -10,9 +10,12 @@ import {
 	RenderPdfPageProcessAbortedError,
 	selectCodingToolRegistrations,
 } from "@vetta/runtime-tools/coding";
-import { createLocalDocToPdfOperations } from "../../core/tools/doc-to-pdf/index.js";
-import { runSubprocess, SubprocessAbortError } from "../../core/tools/exec-subprocess.js";
-import { runWithOcrLimit } from "../../core/tools/ocr-concurrency.js";
+import {
+	CodingAgentCommandProcessAbortedError,
+	createCodingAgentCommandProcessHost,
+	createCodingAgentDocToPdfOperations,
+	getCodingAgentOcrExecutionGate,
+} from "../runtime-tools/index.js";
 import { createCodingAgentDesktopCommandHost } from "./greenfield-desktop-command-host.js";
 import {
 	createCodingAgentKnowledgePageWriter,
@@ -39,11 +42,12 @@ export interface CodingAgentGreenfieldProductToolFeatureOptions {
 export function createCodingAgentGreenfieldProductToolRegistrations(
 	options: CodingAgentGreenfieldProductToolOptions,
 ): readonly CodingAgentRuntimeToolRegistration[] {
-	const desktop = createCodingAgentDesktopCommandHost();
-	const ocrExecutionGate = { run: runWithOcrLimit };
+	const commandProcess = createCodingAgentCommandProcessHost();
+	const desktop = createCodingAgentDesktopCommandHost(commandProcess);
+	const ocrExecutionGate = getCodingAgentOcrExecutionGate();
 	return [
 		createDocToPdfToolRegistration(options.cwd, {
-			operations: createLocalDocToPdfOperations(),
+			operations: createCodingAgentDocToPdfOperations({ commandProcess }),
 			modelOrder: CODING_AGENT_MODEL_TOOL_ORDER.docToPdf,
 		}),
 		createHtmlToPdfToolRegistration(options.cwd, {
@@ -65,13 +69,15 @@ export function createCodingAgentGreenfieldProductToolRegistrations(
 			process: {
 				async run(args, signal) {
 					try {
-						return await runSubprocess("pdftoppm", [...args], {
+						return await commandProcess.run("pdftoppm", args, {
 							signal,
-							timeout: 5 * 60 * 1_000,
-							maxBuffer: 4 * 1_024 * 1_024,
+							timeoutMs: 5 * 60 * 1_000,
+							maxBufferBytes: 4 * 1_024 * 1_024,
 						});
 					} catch (error) {
-						if (error instanceof SubprocessAbortError) throw new RenderPdfPageProcessAbortedError();
+						if (error instanceof CodingAgentCommandProcessAbortedError) {
+							throw new RenderPdfPageProcessAbortedError();
+						}
 						throw error;
 					}
 				},

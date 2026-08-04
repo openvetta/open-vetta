@@ -28,6 +28,7 @@ export {
 	createLocalCodingToolExecutableResolver,
 	type LocalCodingToolExecutableResolverOptions,
 } from "./host/index.js";
+export { createAsyncExecutionGate } from "./shared/async-execution-gate.js";
 export {
 	type BackgroundCommandExecutorOptions,
 	type BackgroundCommandToolDetails,
@@ -77,6 +78,7 @@ export {
 	type ForegroundCommandOperations,
 	type ForegroundCommandToolDetails,
 } from "./shared/foreground-command-executor.js";
+export { resolveExistingPath } from "./shared/path-resolution.js";
 export {
 	CODING_TOOL_SCOPES,
 	type CodingToolActivation,
