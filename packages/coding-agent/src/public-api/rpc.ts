@@ -1,9 +1,4 @@
 export {
-	createImSendAttachmentTool,
-	type ImHostBridge,
-	type ImSendAttachmentToolDetails,
-} from "../core/tools/im-send-attachment/index.js";
-export {
 	computeGreenfieldRpcSessionStats,
 	exportGreenfieldRpcConversation,
 	GREENFIELD_FULL_RPC_PROFILE,
@@ -12,6 +7,7 @@ export {
 	GreenfieldRpcRetryController,
 	type GreenfieldRpcRetryEvent,
 	type GreenfieldRpcRetrySettings,
+	type ImHostBridge,
 	isRpcStartupFailure,
 	LEGACY_FULL_RPC_PROFILE,
 	type RpcExtensionIncompatibilityFailure,

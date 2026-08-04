@@ -23,6 +23,7 @@ export {
 	assertRpcSessionCapabilities,
 	GREENFIELD_FULL_RPC_PROFILE,
 	GREENFIELD_IM_RPC_PROFILE,
+	type ImHostBridge,
 	LEGACY_FULL_RPC_PROFILE,
 	type RpcSessionCapabilities,
 	type RpcSessionInitialization,

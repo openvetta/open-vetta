@@ -1,5 +1,6 @@
 export const DEFAULT_MAX_LINES = 2000;
 export const DEFAULT_MAX_BYTES = 50 * 1024;
+export const GREP_MAX_LINE_LENGTH = 500;
 
 export interface TruncationResult {
 	readonly content: string;
@@ -168,6 +169,14 @@ export function truncateTail(content: string, options: TruncationOptions = {}): 
 		maxLines,
 		maxBytes,
 	};
+}
+
+export function truncateLine(
+	line: string,
+	maxChars: number = GREP_MAX_LINE_LENGTH,
+): { readonly text: string; readonly wasTruncated: boolean } {
+	if (line.length <= maxChars) return { text: line, wasTruncated: false };
+	return { text: `${line.slice(0, maxChars)}... [truncated]`, wasTruncated: true };
 }
 
 function truncateStringToBytesFromEnd(value: string, maxBytes: number): string {

@@ -1,8 +1,14 @@
+import type { RuntimeToolResult } from "@vetta/runtime-core/kernel";
+import {
+	createImSendAttachmentToolRegistration,
+	type ImSendAttachmentToolInput,
+	ImSendAttachmentToolInputSchema,
+} from "@vetta/runtime-tools/coding";
 import type { AgentSession } from "../../core/agent-session.js";
-import type { ToolDefinition } from "../../core/extensions/types.js";
-import { createImSendAttachmentTool } from "../../core/tools/im-send-attachment/index.js";
+import type { AgentToolResult, ToolDefinition } from "../../core/extensions/types.js";
 import { createMemoryTool } from "../../core/tools/memory/index.js";
 import type {
+	ImHostBridge,
 	RpcBashCapability,
 	RpcCommandDiscoveryCapability,
 	RpcContextCapability,
@@ -135,7 +141,7 @@ export class LegacyRpcSessionAdapter implements RpcSessionCapabilities {
 	async initialize(input: RpcSessionInitialization): Promise<void> {
 		const customTools: ToolDefinition[] = [];
 		if (input.hostBridge) {
-			customTools.push(createImSendAttachmentTool(input.hostBridge) as unknown as ToolDefinition);
+			customTools.push(createLegacyImSendAttachmentTool(input.hostBridge, this.agentSession.sessionId));
 		}
 		if (this.agentSession.memoryMode && this.agentSession.memoryFile) {
 			customTools.push(
@@ -227,4 +233,31 @@ export class LegacyRpcSessionAdapter implements RpcSessionCapabilities {
 		}
 		return commands;
 	}
+}
+
+function createLegacyImSendAttachmentTool(hostBridge: ImHostBridge, sessionId: string): ToolDefinition {
+	const registration = createImSendAttachmentToolRegistration({ sender: hostBridge });
+	return {
+		name: registration.tool.name,
+		label: registration.tool.label,
+		description: registration.tool.description,
+		parameters: ImSendAttachmentToolInputSchema,
+		scope_use: registration.scopeUse,
+		category: registration.category,
+		async execute(toolCallId, input, signal, onUpdate, _context) {
+			const result = await registration.tool.execute({
+				sessionId,
+				turnId: toolCallId,
+				toolCallId,
+				input: input as ImSendAttachmentToolInput,
+				signal: signal ?? new AbortController().signal,
+				onUpdate: onUpdate ? (update) => onUpdate(toLegacyToolResult(update)) : undefined,
+			});
+			return toLegacyToolResult(result);
+		},
+	};
+}
+
+function toLegacyToolResult(result: RuntimeToolResult): AgentToolResult<unknown> {
+	return { content: [...result.content], details: result.details };
 }

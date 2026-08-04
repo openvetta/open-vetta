@@ -1,7 +1,5 @@
 import type { CodingAgentHostBootstrap } from "@vetta/coding-agent/bootstrap";
-import type { CodingAgentTool } from "@vetta/coding-agent/profile";
 import {
-	createImSendAttachmentTool,
 	exportGreenfieldRpcConversation,
 	type GreenfieldRpcRetryController,
 	type GreenfieldRpcRetryEvent,
@@ -13,13 +11,12 @@ import {
 	readGreenfieldRpcAgentMessages,
 } from "@vetta/coding-agent/rpc";
 import {
-	adaptCodingAgentToolRegistration,
 	type CodingAgentGreenfieldExtensionCommandHost,
 	CodingAgentGreenfieldSessionCapabilityHost,
 	type CodingAgentGreenfieldTurnExecutor,
 } from "@vetta/coding-agent/runtime-host/greenfield";
 import { type GreenfieldRuntimeSession, type HistoryEntry, RetryableCleanup } from "@vetta/runtime-core";
-import type { CodingToolRegistration } from "@vetta/runtime-tools/coding";
+import { type CodingToolRegistration, createImSendAttachmentToolRegistration } from "@vetta/runtime-tools/coding";
 import type {
 	CodingAgentGreenfieldActiveSessionHost,
 	GreenfieldRuntimeComposition,
@@ -114,8 +111,7 @@ export class GreenfieldRpcSessionAdapter implements RpcSessionCapabilities {
 		this.extensionCommandHost = options.extensionCommandHost;
 		this.createHostToolRegistration =
 			options.createHostToolRegistration ??
-			((hostBridge) =>
-				adaptCodingAgentToolRegistration(createImSendAttachmentTool(hostBridge) as unknown as CodingAgentTool));
+			((hostBridge) => createImSendAttachmentToolRegistration({ sender: hostBridge }));
 		this.cleanup.add({
 			id: "host-tool",
 			phase: 0,

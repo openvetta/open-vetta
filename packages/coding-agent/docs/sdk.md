@@ -64,7 +64,6 @@ const { session } = await createAgentSession();
 // Custom: override specific options
 const { session } = await createAgentSession({
   model: myModel,
-  tools: [readTool, bashTool],
   sessionManager: SessionManager.inMemory(),
 });
 ```
@@ -382,65 +381,10 @@ const { session } = await createAgentSession({ resourceLoader: loader });
 
 ### Tools
 
-```typescript
-import {
-  codingTools,   // read, bash, edit, write (default)
-  readOnlyTools, // read, grep, find, ls
-  readTool, bashTool, editTool, writeTool,
-  grepTool, findTool, lsTool,
-} from "@vetta/coding-agent";
-
-// Use built-in tool set
-const { session } = await createAgentSession({
-  tools: readOnlyTools,
-});
-
-// Pick specific tools
-const { session } = await createAgentSession({
-  tools: [readTool, bashTool, grepTool],
-});
-```
-
-#### Tools with Custom cwd
-
-**Important:** The pre-built tool instances (`readTool`, `bashTool`, etc.) use `process.cwd()` for path resolution. When you specify a custom `cwd` AND provide explicit `tools`, you must use the tool factory functions to ensure paths resolve correctly:
-
-```typescript
-import {
-  createCodingTools,    // Creates [read, bash, edit, write] for specific cwd
-  createReadOnlyTools,  // Creates [read, grep, find, ls] for specific cwd
-  createReadTool,
-  createBashTool,
-  createEditTool,
-  createWriteTool,
-  createGrepTool,
-  createFindTool,
-  createLsTool,
-} from "@vetta/coding-agent";
-
-const cwd = "/path/to/project";
-
-// Use factory for tool sets
-const { session } = await createAgentSession({
-  cwd,
-  tools: createCodingTools(cwd),  // Tools resolve paths relative to cwd
-});
-
-// Or pick specific tools
-const { session } = await createAgentSession({
-  cwd,
-  tools: [createReadTool(cwd), createBashTool(cwd), createGrepTool(cwd)],
-});
-```
-
-**When you don't need factories:**
-- If you omit `tools`, pi automatically creates them with the correct `cwd`
-- If you use `process.cwd()` as your `cwd`, the pre-built instances work fine
-
-**When you must use factories:**
-- When you specify both `cwd` (different from `process.cwd()`) AND `tools`
-
-> See [examples/sdk/05-tools.ts](../examples/sdk/05-tools.ts)
+The package-root compatibility factory still composes its default built-in tools internally. It no longer exports
+concrete built-in Tool instances or factories. New integrations should select built-ins by name through
+`@vetta/coding-agent/sdk`; hosts that compose Runtime Tools directly should import registrations from
+`@vetta/runtime-tools/coding`.
 
 ### Custom Tools
 
@@ -773,8 +717,6 @@ import {
   ModelRegistry,
   SessionManager,
   SettingsManager,
-  readTool,
-  bashTool,
   type ToolDefinition,
 } from "@vetta/coding-agent";
 
@@ -827,7 +769,6 @@ const { session } = await createAgentSession({
   authStorage,
   modelRegistry,
 
-  tools: [readTool, bashTool],
   customTools: [statusTool],
   resourceLoader: loader,
 
@@ -944,18 +885,6 @@ createEventBus
 SessionManager
 SettingsManager
 
-// Built-in tools (use process.cwd())
-codingTools
-readOnlyTools
-readTool, bashTool, editTool, writeTool
-grepTool, findTool, lsTool
-
-// Tool factories (for custom cwd)
-createCodingTools
-createReadOnlyTools
-createReadTool, createBashTool, createEditTool, createWriteTool
-createGrepTool, createFindTool, createLsTool
-
 // Types
 type CreateAgentSessionOptions
 type CreateAgentSessionResult
@@ -964,7 +893,6 @@ type ExtensionAPI
 type ToolDefinition
 type Skill
 type PromptTemplate
-type Tool
 ```
 
 For extension types, see [extensions.md](extensions.md) for the full API.

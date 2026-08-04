@@ -82,11 +82,6 @@ export {
 	htmlToPdfTool,
 } from "./html-to-pdf/index.js";
 export {
-	createImSendAttachmentTool,
-	type ImHostBridge,
-	type ImSendAttachmentToolDetails,
-} from "./im-send-attachment/index.js";
-export {
 	createInvokeSkillTool,
 	type InvokeSkillToolDetails,
 	type InvokeSkillToolInput,

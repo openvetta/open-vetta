@@ -49,6 +49,54 @@ const MANIFEST_TRUTH_PACKAGE_NAMES = new Set([
 	"@vetta/desktop-app",
 ]);
 
+const RETIRED_CODING_AGENT_TOOL_EXPORTS = new Set([
+	"bashTool",
+	"codingTools",
+	"createAskUserQuestionTool",
+	"createBashTool",
+	"createCodingTools",
+	"createEditTool",
+	"createExtractTextFromImgTool",
+	"createExtractTextFromPdfTool",
+	"createFindTool",
+	"createGlobTool",
+	"createGrepTool",
+	"createHtmlToPdfTool",
+	"createImSendAttachmentTool",
+	"createKbFilterByTagsTool",
+	"createKbListTagsTool",
+	"createKbWritePageTool",
+	"createLsTool",
+	"createProgressTool",
+	"createReadOnlyTools",
+	"createReadTool",
+	"createRenderPdfPageTool",
+	"createShellTool",
+	"createTaskOutputTool",
+	"createTaskStopTool",
+	"createToolSearchTool",
+	"createTreeTool",
+	"createWriteTool",
+	"editTool",
+	"extractTextFromImgTool",
+	"extractTextFromPdfTool",
+	"findTool",
+	"globTool",
+	"grepTool",
+	"htmlToPdfTool",
+	"kbFilterByTagsTool",
+	"kbListTagsTool",
+	"kbWritePageTool",
+	"lsTool",
+	"progressTool",
+	"readOnlyTools",
+	"readTool",
+	"renderPdfPageTool",
+	"shellTool",
+	"treeTool",
+	"writeTool",
+]);
+
 function isLibFile(posixPath) {
 	return LIB_PREFIXES.some((prefix) => posixPath.startsWith(prefix));
 }
@@ -830,6 +878,39 @@ function checkCodingAgentRootImports(posixPath, specifiers, findings) {
 	}
 }
 
+function checkCodingAgentToolPublicSurfaceBoundary(posixPath, text, findings) {
+	const isProtectedSurface =
+		posixPath === "packages/coding-agent/src/index.ts" || posixPath === "packages/coding-agent/src/public-api/rpc.ts";
+	if (!isProtectedSurface) return;
+
+	const sourceFile = ts.createSourceFile(posixPath, text, ts.ScriptTarget.Latest, true, scriptKind(posixPath));
+	for (const statement of sourceFile.statements) {
+		if (!ts.isExportDeclaration(statement)) continue;
+		const moduleSpecifier = ts.isStringLiteralLike(statement.moduleSpecifier)
+			? statement.moduleSpecifier.text
+			: undefined;
+		if (
+			moduleSpecifier?.includes("core/tools") ||
+			moduleSpecifier === "@vetta/runtime-tools/coding" ||
+			moduleSpecifier?.startsWith("@vetta/runtime-tools/coding/")
+		) {
+			findings.push(
+				`${posixPath}: coding-agent public surfaces must not forward concrete Tool implementations (${moduleSpecifier})`,
+			);
+		}
+
+		if (!statement.exportClause || !ts.isNamedExports(statement.exportClause)) continue;
+		for (const element of statement.exportClause.elements) {
+			const exportedName = element.name.text;
+			if (RETIRED_CODING_AGENT_TOOL_EXPORTS.has(exportedName)) {
+				findings.push(
+					`${posixPath}: coding-agent public surfaces must not export concrete Tool symbol ${exportedName}`,
+				);
+			}
+		}
+	}
+}
+
 function checkCodingAgentLegacyBoundaries(posixPath, text, specifiers, findings) {
 	const isProductionSource = posixPath.includes("/src/") && !/\.(?:test|spec)\.[cm]?[jt]sx?$/.test(posixPath);
 	if (!isProductionSource) return;
@@ -967,6 +1048,7 @@ export function findPackageBoundaryViolations(posixPath, text, options = {}) {
 	checkRetiredAutomaticLegacyFallback(posixPath, text, findings);
 	checkRuntimeCompositionCompatibilityFacade(posixPath, specifiers, findings);
 	checkCodingAgentRootImports(posixPath, specifiers, findings);
+	checkCodingAgentToolPublicSurfaceBoundary(posixPath, text, findings);
 	checkCodingAgentLegacyBoundaries(posixPath, text, specifiers, findings);
 	checkWorkspaceManifestImports(posixPath, specifiers, options.manifest, findings);
 	checkRuntimeCoreImports(posixPath, specifiers, findings);

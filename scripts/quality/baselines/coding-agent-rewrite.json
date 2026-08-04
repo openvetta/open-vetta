@@ -1625,25 +1625,7 @@
 				"CreateAgentSessionOptions",
 				"CreateAgentSessionResult",
 				"PromptTemplate",
-				"createAgentSession",
-				"createBashTool",
-				"createCodingTools",
-				"createEditTool",
-				"createExtractTextFromImgTool",
-				"createExtractTextFromPdfTool",
-				"createFindTool",
-				"createGlobTool",
-				"createGrepTool",
-				"createHtmlToPdfTool",
-				"createLsTool",
-				"createProgressTool",
-				"createReadOnlyTools",
-				"createReadTool",
-				"createRenderPdfPageTool",
-				"createShellTool",
-				"createTreeTool",
-				"createWriteTool",
-				"readOnlyTools"
+				"createAgentSession"
 			],
 			"category": "old-core",
 			"domain": "sdk"
@@ -1762,148 +1744,6 @@
 			"domain": "subagents"
 		},
 		{
-			"path": "packages/coding-agent/src/index.ts",
-			"specifier": "./core/tools/index.js",
-			"names": [
-				"AskUserQuestionAnswer",
-				"AskUserQuestionCapability",
-				"AskUserQuestionFn",
-				"AskUserQuestionItem",
-				"AskUserQuestionOption",
-				"AskUserQuestionRequest",
-				"AskUserQuestionResult",
-				"AskUserQuestionToolDetails",
-				"AskUserQuestionToolInput",
-				"AskUserQuestionToolOptions",
-				"BashOperations",
-				"BashSpawnContext",
-				"BashSpawnHook",
-				"BashToolDetails",
-				"BashToolInput",
-				"BashToolOptions",
-				"CommandToolName",
-				"DEFAULT_MAX_BYTES",
-				"DEFAULT_MAX_LINES",
-				"EditOperations",
-				"EditToolDetails",
-				"EditToolInput",
-				"EditToolOptions",
-				"ExtractTextFromImgToolInput",
-				"ExtractTextFromPdfToolInput",
-				"FindOperations",
-				"FindToolDetails",
-				"FindToolInput",
-				"FindToolOptions",
-				"GlobOperations",
-				"GlobToolDetails",
-				"GlobToolInput",
-				"GlobToolOptions",
-				"GrepOperations",
-				"GrepToolDetails",
-				"GrepToolInput",
-				"GrepToolOptions",
-				"HtmlToPdfToolInput",
-				"LsOperations",
-				"LsToolDetails",
-				"LsToolInput",
-				"LsToolOptions",
-				"ProgressToolDetails",
-				"ProgressToolInput",
-				"ReadOperations",
-				"ReadToolDetails",
-				"ReadToolInput",
-				"ReadToolOptions",
-				"RenderPdfPageToolInput",
-				"ShellOperations",
-				"ShellSpawnContext",
-				"ShellSpawnHook",
-				"ShellToolDetails",
-				"ShellToolInput",
-				"ShellToolOptions",
-				"TaskOutputToolDetails",
-				"TaskOutputToolInput",
-				"TaskOutputToolOptions",
-				"TaskStopToolDetails",
-				"TaskStopToolInput",
-				"TaskStopToolOptions",
-				"ToolsOptions",
-				"TreeOperations",
-				"TreeToolDetails",
-				"TreeToolInput",
-				"TreeToolOptions",
-				"TruncationOptions",
-				"TruncationResult",
-				"WriteOperations",
-				"WriteToolInput",
-				"WriteToolOptions",
-				"bashTool",
-				"codingTools",
-				"createAskUserQuestionTool",
-				"createImSendAttachmentTool",
-				"createTaskOutputTool",
-				"createTaskStopTool",
-				"createToolSearchTool",
-				"editTool",
-				"extractTextFromImgTool",
-				"extractTextFromPdfTool",
-				"findTool",
-				"formatSize",
-				"getDefaultCodingToolNames",
-				"getDefaultCommandToolName",
-				"globTool",
-				"grepTool",
-				"htmlToPdfTool",
-				"lsTool",
-				"progressTool",
-				"readTool",
-				"renderPdfPageTool",
-				"shellTool",
-				"treeTool",
-				"truncateHead",
-				"truncateLine",
-				"truncateTail",
-				"writeTool"
-			],
-			"category": "old-core",
-			"domain": "tools"
-		},
-		{
-			"path": "packages/coding-agent/src/index.ts",
-			"specifier": "./core/tools/kb-filter-by-tags/index.js",
-			"names": [
-				"KbFilterByTagsDetails",
-				"KbFilterByTagsInput",
-				"createKbFilterByTagsTool",
-				"kbFilterByTagsTool"
-			],
-			"category": "old-core",
-			"domain": "tools"
-		},
-		{
-			"path": "packages/coding-agent/src/index.ts",
-			"specifier": "./core/tools/kb-list-tags/index.js",
-			"names": [
-				"KbListTagsDetails",
-				"KbListTagsInput",
-				"createKbListTagsTool",
-				"kbListTagsTool"
-			],
-			"category": "old-core",
-			"domain": "tools"
-		},
-		{
-			"path": "packages/coding-agent/src/index.ts",
-			"specifier": "./core/tools/kb-write-page/index.js",
-			"names": [
-				"KbWritePageDetails",
-				"KbWritePageInput",
-				"createKbWritePageTool",
-				"kbWritePageTool"
-			],
-			"category": "old-core",
-			"domain": "tools"
-		},
-		{
 			"path": "packages/coding-agent/src/modes/rpc/greenfield-rpc-capabilities.ts",
 			"specifier": "../../core/bash-executor.js",
 			"names": [
@@ -2016,15 +1856,6 @@
 			"domain": "session"
 		},
 		{
-			"path": "packages/coding-agent/src/modes/rpc/rpc-session-capabilities.ts",
-			"specifier": "../../core/tools/im-send-attachment/index.js",
-			"names": [
-				"ImHostBridge"
-			],
-			"category": "old-core",
-			"domain": "tools"
-		},
-		{
 			"path": "packages/coding-agent/src/modes/rpc/rpc-types.ts",
 			"specifier": "../../core/agent-session.js",
 			"names": [
@@ -2125,17 +1956,6 @@
 			],
 			"category": "old-core",
 			"domain": "session"
-		},
-		{
-			"path": "packages/coding-agent/src/public-api/rpc.ts",
-			"specifier": "../core/tools/im-send-attachment/index.js",
-			"names": [
-				"ImHostBridge",
-				"ImSendAttachmentToolDetails",
-				"createImSendAttachmentTool"
-			],
-			"category": "old-core",
-			"domain": "tools"
 		},
 		{
 			"path": "packages/coding-agent/src/utils/shell.ts",
@@ -2338,7 +2158,6 @@
 		"packages/coding-agent/src/core/tools/glob/index.ts",
 		"packages/coding-agent/src/core/tools/grep/index.ts",
 		"packages/coding-agent/src/core/tools/html-to-pdf/index.ts",
-		"packages/coding-agent/src/core/tools/im-send-attachment/index.ts",
 		"packages/coding-agent/src/core/tools/index.ts",
 		"packages/coding-agent/src/core/tools/invoke-skill/index.ts",
 		"packages/coding-agent/src/core/tools/kb-filter-by-tags/index.ts",
@@ -2364,21 +2183,5 @@
 		"packages/coding-agent/src/public-api/sdk-compatibility-inventory.ts"
 	],
 	"compatibilityExports": [],
-	"legacyExampleImports": [
-		{
-			"path": "packages/coding-agent/examples/sdk/12-full-control.ts",
-			"specifier": "@vetta/coding-agent",
-			"names": [
-				"AuthStorage",
-				"ModelRegistry",
-				"ResourceLoader",
-				"SessionManager",
-				"SettingsManager",
-				"createAgentSession",
-				"createBashTool",
-				"createExtensionRuntime",
-				"createReadTool"
-			]
-		}
-	]
+	"legacyExampleImports": []
 }

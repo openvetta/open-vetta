@@ -1,8 +1,7 @@
 # SDK Examples
 
 Programmatic usage through the stable `@vetta/coding-agent/sdk` entry. Concrete authentication, model and settings
-services use the stable Host adapter in `@vetta/coding-agent/host-services`; only complete composition replacement
-remains on the package-root compatibility entry.
+services use the stable Host adapter in `@vetta/coding-agent/host-services`.
 
 ## Examples
 
@@ -19,7 +18,6 @@ remains on the package-root compatibility entry.
 | `09-api-keys-and-oauth.ts` | Host services | API key resolution and OAuth configuration |
 | `10-settings.ts` | Host services | Persistent and in-memory settings |
 | `11-sessions.ts` | Stable SDK | In-memory, persistent, recent and listed sessions |
-| `12-full-control.ts` | Compatibility | Complete legacy composition override |
 
 ## Running
 

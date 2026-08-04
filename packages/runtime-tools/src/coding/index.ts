@@ -80,6 +80,17 @@ export {
 } from "./shared/foreground-command-executor.js";
 export { resolveExistingPath } from "./shared/path-resolution.js";
 export {
+	DEFAULT_MAX_BYTES,
+	DEFAULT_MAX_LINES,
+	formatSize,
+	GREP_MAX_LINE_LENGTH,
+	type TruncationOptions,
+	type TruncationResult,
+	truncateHead,
+	truncateLine,
+	truncateTail,
+} from "./shared/truncation.js";
+export {
 	CODING_TOOL_SCOPES,
 	type CodingToolActivation,
 	type CodingToolCategory,
@@ -230,6 +241,20 @@ export {
 	HtmlToPdfToolInputSchema,
 	type HtmlToPdfToolOptions,
 } from "./tools/html-to-pdf/index.js";
+export {
+	createImSendAttachmentTool,
+	createImSendAttachmentToolRegistration,
+	IM_SEND_ATTACHMENT_TOOL_CATEGORY,
+	IM_SEND_ATTACHMENT_TOOL_DESCRIPTION,
+	IM_SEND_ATTACHMENT_TOOL_SCOPES,
+	type ImSendAttachmentFileOperations,
+	type ImSendAttachmentSender,
+	type ImSendAttachmentToolDetails,
+	type ImSendAttachmentToolInput,
+	ImSendAttachmentToolInputSchema,
+	type ImSendAttachmentToolOptions,
+	type ImSendAttachmentToolRegistrationOptions,
+} from "./tools/im-send-attachment/index.js";
 export {
 	createInvokeSkillTool,
 	createInvokeSkillToolRegistration,

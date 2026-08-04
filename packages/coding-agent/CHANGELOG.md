@@ -2,6 +2,7 @@
 
 ### Breaking Changes
 
+- **退役包根具体 Tool API**：`@vetta/coding-agent` 包根与 RPC 子路径不再转发内置 Tool 工厂、单例和实现类型；具体 Coding Tool 由 `@vetta/runtime-tools/coding` 持有，稳定 SDK 和产品组合根继续提供原有工具能力。
 - **退役 Runtime 包兼容子路径**：移除 `@vetta/coding-agent/compat/runtime-storage` 与 `@vetta/coding-agent/compat/runtime-tools`；两个 Runtime 包根现直接暴露各自独立实现，生产依赖图不再形成反向循环。
 
 ### Added
@@ -28,6 +29,7 @@
 
 ### Changed
 
+- **IM Host Tool 原生化与旧示例退役**：RPC/CLI 直接注册 `runtime-tools` 的 `im_send_attachment`，Legacy RPC 仅在显式兼容适配器内转换协议；删除只展示旧包根 Tool API 或旧 Extension Tool 接线的示例，用户可见 IM 附件行为保持不变。
 - **Greenfield 能力 Tool 与 Catalog 原生化**：`ask_user_question`、`invoke_skill`、`memory`、`todo`、`tool_search` 与知识标签查询改由 `runtime-tools` 独立持有 TypeBox Schema、TS 描述、Registration 和执行协议，状态与查询通过窄 Port 注入；删除无调用方的旧 Bash/Shell Executor，CLI 与稳定 SDK 的内置工具激活名称不再读取 `core/tools`。工具名称、描述、Schema、scope、输出、错误、状态时序和动态 Catalog 行为保持不变。
 - **无状态 Tool Host 边界原生化**：产品工具组合改用独立命令进程 Host、文档转 PDF Operations、共享 OCR 执行 Gate 和宿主路径政策；CLI `@file` 路径解析改用 Runtime 中立原语，不再调用旧 Tool/Utils 实现。Office/WPS 探测、命令输出、取消、超时、并发、保护目录和文件输入行为保持不变。
 - **Sandbox 工具执行边界原生化**：三平台 Sandbox 只保留 OS 隔离命令操作，`read`、`write`、`edit`、`bash`/`shell` 直接组装 `runtime-tools` 的原生 Tool Registration 与前台执行器；工作区和命令写权限直接调用 Runtime Host Interaction Port，不再构造旧 `AgentTool`、`ToolDefinition` 或伪造 `ExtensionContext`。工具名称、schema、scope、权限缓存、取消、超时、错误和输出语义保持不变。

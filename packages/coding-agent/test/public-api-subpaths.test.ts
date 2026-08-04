@@ -15,7 +15,6 @@ import {
 } from "../src/public-api/host-services.js";
 import { ALL_SCENARIOS, PERSONAS } from "../src/public-api/profile.js";
 import {
-	createImSendAttachmentTool,
 	GREENFIELD_FULL_RPC_PROFILE,
 	GREENFIELD_IM_RPC_PROFILE,
 	runRpcModeWithCapabilities,
@@ -27,7 +26,6 @@ describe("coding-agent public subpaths", () => {
 		expect(createAgentCliBootstrap).toBe(root.createAgentCliBootstrap);
 		expect(createCodingAgentHostBootstrap).toBe(root.createCodingAgentHostBootstrap);
 		expect(runRpcModeWithCapabilities).toBe(root.runRpcModeWithCapabilities);
-		expect(createImSendAttachmentTool).toBe(root.createImSendAttachmentTool);
 		expect(GREENFIELD_IM_RPC_PROFILE).toBe(root.GREENFIELD_IM_RPC_PROFILE);
 		expect(GREENFIELD_FULL_RPC_PROFILE).toBe(root.GREENFIELD_FULL_RPC_PROFILE);
 		expect(ALL_SCENARIOS).toBe(root.ALL_SCENARIOS);

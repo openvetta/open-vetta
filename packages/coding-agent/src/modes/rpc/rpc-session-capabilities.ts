@@ -8,7 +8,6 @@ import type {
 	ExtensionWidgetOptions,
 } from "../../core/extensions/index.js";
 import type { SessionStats } from "../../core/session/session-stats.js";
-import type { ImHostBridge } from "../../core/tools/im-send-attachment/index.js";
 import type { RpcCommandType, RpcSessionState, RpcSlashCommand } from "./rpc-types.js";
 
 export type RpcSessionProfileId = "legacy-full" | "greenfield" | "greenfield-im";
@@ -51,6 +50,15 @@ export interface RpcSessionExtensionError {
 	readonly extensionPath: string;
 	readonly event: string;
 	readonly error: string;
+}
+
+/** Host protocol used by the RPC-only attachment tool. */
+export interface ImHostBridge {
+	sendAttachment(params: {
+		readonly path: string;
+		readonly kind: "image" | "file";
+		readonly caption?: string;
+	}): Promise<{ readonly messageId?: string }>;
 }
 
 export interface RpcSessionInitialization {
@@ -200,4 +208,4 @@ const RPC_COMMAND_CAPABILITIES = {
 	get_commands: "commands",
 } as const satisfies Record<RpcCommandType, RpcCapabilityGroup>;
 
-export type { ExtensionUIContext, ExtensionUIDialogOptions, ExtensionWidgetOptions, ImHostBridge };
+export type { ExtensionUIContext, ExtensionUIDialogOptions, ExtensionWidgetOptions };
