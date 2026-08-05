@@ -10,7 +10,10 @@ import {
 	isCodingAgentBuiltInToolName,
 } from "../composition/coding-agent-built-in-tool-names.js";
 import { APP_NAME, CONFIG_DIR_NAME, ENV_AGENT_DIR, ENV_PACKAGE_DIR, ENV_SHARE_VIEWER_URL } from "../config.js";
+import { isValidThinkingLevel, VALID_THINKING_LEVELS } from "../models/index.js";
 import type { ConversationScenario } from "../profiles/index.js";
+
+export { isValidThinkingLevel };
 
 export type Mode = "text" | "json" | "rpc";
 
@@ -70,12 +73,6 @@ export interface Args {
 	fileArgs: string[];
 	/** Unknown flags (potentially extension flags) - map of flag name to value */
 	unknownFlags: Map<string, boolean | string>;
-}
-
-const VALID_THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"] as const;
-
-export function isValidThinkingLevel(level: string): level is ThinkingLevel {
-	return (VALID_THINKING_LEVELS as readonly string[]).includes(level);
 }
 
 export function parseArgs(args: string[], extensionFlags?: Map<string, { type: "boolean" | "string" }>): Args {

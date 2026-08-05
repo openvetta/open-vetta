@@ -10,7 +10,7 @@ import {
 } from "@vetta/coding-agent/core/mcp/index.js";
 import {
 	adaptLegacyMcpManagerRuntimeToolSource,
-	type CodingAgentModelRegistrySource,
+	type CodingAgentRuntimeModelSource,
 	renderCodingAgentMcpToolsInstruction,
 } from "@vetta/coding-agent/runtime-host/greenfield";
 import { assessRuntimeHostSessionAssembly } from "@vetta/runtime-core";
@@ -871,7 +871,7 @@ class RecordedAssistantStream extends EventStream<AssistantMessageEvent, Assista
 	}
 }
 
-function modelRegistry(): CodingAgentModelRegistrySource {
+function modelRegistry(): CodingAgentRuntimeModelSource {
 	return {
 		refresh() {},
 		getAvailable: () => [MODEL],

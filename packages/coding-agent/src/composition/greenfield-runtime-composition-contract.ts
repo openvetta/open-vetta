@@ -25,12 +25,12 @@ import type {
 	CodingAgentGreenfieldSessionToolRegistration,
 	CodingAgentMemoryRolloverOrchestratorOptions,
 	CodingAgentMemoryRolloverRuntime,
-	CodingAgentModelRegistrySource,
 	CodingAgentPluginMcpRuntime,
 	CodingAgentPluginRuntimeSource,
 	CodingAgentPromptResourceResolver,
 	CodingAgentPromptResourceSource,
 	CodingAgentPromptSettingsSource,
+	CodingAgentRuntimeModelSource,
 	CodingAgentRuntimeToolRegistration,
 	CodingAgentSystemPromptOptionsResolver,
 	CodingAgentTodoRuntime,
@@ -90,7 +90,7 @@ export interface GreenfieldRuntimeCompositionOptions {
 	readonly conversationDir: string;
 	/** 为每个 Composition 创建独占持久化端口；Composition 负责关闭。 */
 	readonly createConversationPersistence?: GreenfieldConversationPersistenceFactory;
-	readonly modelRegistry: CodingAgentModelRegistrySource;
+	readonly modelRegistry: CodingAgentRuntimeModelSource;
 	readonly initialModel: NonNullable<SessionConfig["model"]>;
 	readonly initialThinkingLevel: NonNullable<SessionConfig["thinkingLevel"]>;
 	readonly cwd?: string;

@@ -2,12 +2,12 @@ import {
 	createGreenfieldKnowledgeProcessingSessionFactory,
 	type KnowledgeProcessingSessionFactory,
 } from "@vetta/coding-agent/composition";
-import type { ModelRegistry } from "@vetta/coding-agent/host-services";
+import type { CodingAgentModelRuntime } from "@vetta/coding-agent/host-services";
 import type { DesktopAgentRuntimeBackend } from "../greenfield-runtime/desktop-runtime-selector.js";
 
 export interface DesktopKnowledgeProcessingSessionFactoryOptions {
 	readonly backend: Extract<DesktopAgentRuntimeBackend, "greenfield">;
-	readonly getModelRegistry: () => ModelRegistry;
+	readonly getModelRegistry: () => CodingAgentModelRuntime;
 }
 
 /**

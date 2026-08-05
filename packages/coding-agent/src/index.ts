@@ -51,7 +51,6 @@ export { createLimiter, type Limiter } from "./core/concurrency-limit.js";
 export { createEventBus, type EventBus, type EventBusController } from "./core/event-bus.js";
 // Footer data provider (git branch + extension statuses - data not otherwise available to extensions)
 export type { ReadonlyFooterDataProvider } from "./core/footer-data-provider.js";
-export { ModelRegistry } from "./core/model-registry.js";
 // Extension system
 export type {
 	AgentEndEvent,

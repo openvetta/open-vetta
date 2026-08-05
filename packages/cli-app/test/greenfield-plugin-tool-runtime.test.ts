@@ -10,8 +10,8 @@ import {
 	type Model,
 } from "@vetta/ai";
 import type {
-	CodingAgentModelRegistrySource,
 	CodingAgentPluginRuntimeSource,
+	CodingAgentRuntimeModelSource,
 	EcosystemHookEvent,
 } from "@vetta/coding-agent/runtime-host/greenfield";
 import { emptyHookDispatchOutcome } from "@vetta/coding-agent/runtime-host/greenfield";
@@ -210,7 +210,7 @@ function successfulStopReason(message: AssistantMessage): "length" | "stop" | "t
 	throw new Error(`Recorded assistant message did not complete successfully: ${message.stopReason}`);
 }
 
-function modelRegistry(): CodingAgentModelRegistrySource {
+function modelRegistry(): CodingAgentRuntimeModelSource {
 	return {
 		refresh() {},
 		getAvailable: () => [MODEL],

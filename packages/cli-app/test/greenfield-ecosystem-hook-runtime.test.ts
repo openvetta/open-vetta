@@ -10,7 +10,7 @@ import {
 	type Model,
 } from "@vetta/ai";
 import {
-	type CodingAgentModelRegistrySource,
+	type CodingAgentRuntimeModelSource,
 	type EcosystemHookEvent,
 	emptyHookDispatchOutcome,
 	type HookDispatchOutcome,
@@ -347,7 +347,7 @@ function successfulStopReason(message: AssistantMessage): "length" | "stop" | "t
 	throw new Error(`Recorded assistant message did not complete successfully: ${message.stopReason}`);
 }
 
-function modelRegistry(): CodingAgentModelRegistrySource {
+function modelRegistry(): CodingAgentRuntimeModelSource {
 	return {
 		refresh() {},
 		getAvailable: () => [MODEL],

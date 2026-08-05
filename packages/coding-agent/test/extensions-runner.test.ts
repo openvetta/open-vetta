@@ -8,15 +8,15 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthStorage } from "../src/core/auth-storage.js";
 import { DEFAULT_KEYBINDINGS, type KeyId } from "../src/core/keybindings.js";
-import { ModelRegistry } from "../src/core/model-registry.js";
 import { discoverAndLoadExtensions, ExtensionRunner, type ExtensionSessionView } from "../src/extensions/index.js";
+import { type CodingAgentModelRuntime, createCodingAgentModelRuntime } from "../src/models/index.js";
 import { createExtensionSessionView } from "./fixtures/extension-session-view.js";
 
 describe("ExtensionRunner", () => {
 	let tempDir: string;
 	let extensionsDir: string;
 	let sessionManager: ExtensionSessionView;
-	let modelRegistry: ModelRegistry;
+	let modelRegistry: CodingAgentModelRuntime;
 
 	beforeEach(() => {
 		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-runner-test-"));
@@ -24,7 +24,7 @@ describe("ExtensionRunner", () => {
 		fs.mkdirSync(extensionsDir);
 		sessionManager = createExtensionSessionView(tempDir);
 		const authStorage = AuthStorage.create(path.join(tempDir, "auth.json"));
-		modelRegistry = new ModelRegistry(authStorage);
+		modelRegistry = createCodingAgentModelRuntime(authStorage);
 	});
 
 	afterEach(() => {

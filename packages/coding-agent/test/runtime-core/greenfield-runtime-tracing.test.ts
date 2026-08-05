@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type Api, type AssistantMessage, type AssistantMessageEvent, EventStream, type Model } from "@vetta/ai";
 import { describe, expect, it, vi } from "vitest";
-import type { CodingAgentModelRegistrySource } from "../../src/adapters/runtime-core/greenfield.js";
+import type { CodingAgentRuntimeModelSource } from "../../src/adapters/runtime-core/greenfield.js";
 import {
 	createGreenfieldRuntimeComposition,
 	type GreenfieldRuntimeCompositionOptions,
@@ -131,7 +131,7 @@ function assistantMessage(text: string): AssistantMessage {
 	};
 }
 
-function modelRegistry(): CodingAgentModelRegistrySource {
+function modelRegistry(): CodingAgentRuntimeModelSource {
 	return {
 		refresh() {},
 		getAvailable: () => [MODEL],

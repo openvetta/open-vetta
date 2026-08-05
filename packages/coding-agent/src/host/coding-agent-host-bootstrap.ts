@@ -4,12 +4,18 @@ import { type Api, type Model, supportsXhigh } from "@vetta/ai";
 import { type Args, parseArgs } from "../cli/args.js";
 import { DEFAULT_SERVER_URL, ENV_SERVER_URL, getAgentDir } from "../config.js";
 import { AuthStorage } from "../core/auth-storage.js";
-import { DEFAULT_THINKING_LEVEL } from "../core/defaults.js";
-import { ModelRegistry } from "../core/model-registry.js";
-import { findInitialModel, resolveCliModel, resolveModelScope, type ScopedModel } from "../core/model-resolver.js";
 import { time } from "../core/timings.js";
 import type { LoadExtensionsResult } from "../extensions/index.js";
 import { runMigrations } from "../migrations.js";
+import {
+	type CodingAgentModelRuntime,
+	createCodingAgentModelRuntime,
+	DEFAULT_THINKING_LEVEL,
+	findInitialModel,
+	resolveCliModel,
+	resolveModelScope,
+	type ScopedModel,
+} from "../models/index.js";
 import type { SessionResourceRuntime } from "../resources/index.js";
 import { type SettingsError, SettingsRuntime } from "../settings/index.js";
 import {
@@ -35,7 +41,7 @@ export interface CodingAgentHostBootstrap {
 	readonly parsed: Args;
 	readonly settingsManager: SettingsRuntime;
 	readonly authStorage: AuthStorage;
-	readonly modelRegistry: ModelRegistry;
+	readonly modelRegistry: CodingAgentModelRuntime;
 	readonly resourceLoader: SessionResourceRuntime;
 	readonly extensionsResult: LoadExtensionsResult;
 	readonly extensionCompatibility: CodingAgentExtensionCompatibilityAssessment;
@@ -71,7 +77,9 @@ export async function createCodingAgentHostBootstrap(
 	for (const error of settingsManager.drainErrors()) options.onSettingsError?.(error);
 
 	const authStorage = AuthStorage.create(join(agentDir, "auth.json"));
-	const modelRegistry = new ModelRegistry(authStorage, join(agentDir, "models.json"));
+	const modelRegistry = createCodingAgentModelRuntime(authStorage, {
+		modelsJsonPath: join(agentDir, "models.json"),
+	});
 	const envServerUrl = process.env[ENV_SERVER_URL];
 	let serverUrl = envServerUrl || settingsManager.getServerUrl();
 	if (!serverUrl) {
@@ -150,7 +158,7 @@ export async function resolveCodingAgentInitialModel(
 		const resolved = resolveCliModel({
 			cliProvider: parsed.provider,
 			cliModel: parsed.model,
-			modelRegistry,
+			models: modelRegistry,
 		});
 		model = resolved.model;
 		warning = resolved.warning;
@@ -165,7 +173,7 @@ export async function resolveCodingAgentInitialModel(
 			defaultProvider: settingsManager.getDefaultProvider(),
 			defaultModelId: settingsManager.getDefaultModel(),
 			defaultThinkingLevel: settingsManager.getDefaultThinkingLevel(),
-			modelRegistry,
+			models: modelRegistry,
 		});
 		model = initial.model;
 		thinkingLevel = initial.thinkingLevel;

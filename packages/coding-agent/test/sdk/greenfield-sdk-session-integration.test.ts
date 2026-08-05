@@ -6,7 +6,7 @@ import { EventStream } from "@vetta/ai";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	CodingAgentGreenfieldSessionCapabilityHost,
-	type CodingAgentModelRegistrySource,
+	type CodingAgentRuntimeModelSource,
 } from "../../src/adapters/runtime-core/greenfield.js";
 import { GreenfieldSdkSessionAdapter } from "../../src/adapters/runtime-core/greenfield-sdk-session-adapter.js";
 import { createGreenfieldRuntimeComposition } from "../../src/composition/greenfield-runtime-composition.js";
@@ -422,7 +422,7 @@ class DeferredAssistantStream extends EventStream<AssistantMessageEvent, Assista
 	}
 }
 
-function modelRegistry(): CodingAgentModelRegistrySource {
+function modelRegistry(): CodingAgentRuntimeModelSource {
 	return {
 		refresh() {},
 		getAvailable: () => [MODEL],

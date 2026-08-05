@@ -7,19 +7,19 @@ import {
 import {
 	CodingAgentGreenfieldPromptAdapter,
 	CodingAgentModelCallFrameComposer,
-	CodingAgentModelRegistryAdapter,
-	type CodingAgentModelRegistrySource,
 	CodingAgentPromptRuntime,
+	CodingAgentRuntimeModelAdapter,
+	type CodingAgentRuntimeModelSource,
 } from "../../src/adapters/runtime-core/index.js";
 import { buildSystemPrompt } from "../../src/model-context/index.js";
 
 describe("Greenfield coding-agent adapters", () => {
-	it("adapts ModelRegistry catalog, credentials and auth refresh without copying state", async () => {
+	it("adapts the live model runtime to catalog, credentials and auth refresh ports", async () => {
 		const refresh = vi.fn();
 		const getApiKey = vi.fn(async () => "test-key");
 		const setServerToken = vi.fn();
 		const loadRemoteModels = vi.fn(async () => undefined);
-		const source: CodingAgentModelRegistrySource = {
+		const source: CodingAgentRuntimeModelSource = {
 			refresh,
 			getAvailable: () => [MODEL],
 			find: (provider, modelId) => (provider === MODEL.provider && modelId === MODEL.id ? MODEL : undefined),
@@ -27,7 +27,7 @@ describe("Greenfield coding-agent adapters", () => {
 			setServerToken,
 			loadRemoteModels,
 		};
-		const adapter = new CodingAgentModelRegistryAdapter(source);
+		const adapter = new CodingAgentRuntimeModelAdapter(source);
 
 		adapter.refresh();
 		expect(adapter.listAvailable()).toEqual([MODEL]);

@@ -5,11 +5,15 @@
  */
 
 import { getModel } from "@vetta/ai";
-import { AuthStorage, createCodingAgentHostWithServices, ModelRegistry } from "@vetta/coding-agent/host-services";
+import {
+	AuthStorage,
+	createCodingAgentHostWithServices,
+	createCodingAgentModelRuntime,
+} from "@vetta/coding-agent/host-services";
 
 // Set up auth storage and model registry
 const authStorage = AuthStorage.create();
-const modelRegistry = new ModelRegistry(authStorage);
+const modelRuntime = createCodingAgentModelRuntime(authStorage);
 
 // Option 1: Find a specific built-in model by provider/id
 const opus = getModel("anthropic", "claude-opus-4-5");
@@ -18,13 +22,13 @@ if (opus) {
 }
 
 // Option 2: Find model via registry (includes custom models from models.json)
-const customModel = modelRegistry.find("my-provider", "my-model");
+const customModel = modelRuntime.find("my-provider", "my-model");
 if (customModel) {
 	console.log(`Found custom model: ${customModel.provider}/${customModel.id}`);
 }
 
 // Option 3: Pick from available models (have valid API keys)
-const available = await modelRegistry.getAvailable();
+const available = modelRuntime.getAvailable();
 console.log(
 	"Available models:",
 	available.map((m) => `${m.provider}/${m.id}`),
@@ -33,7 +37,7 @@ console.log(
 if (available.length > 0) {
 	const host = createCodingAgentHostWithServices({
 		authStorage,
-		modelRegistry,
+		modelRuntime,
 		sessionDefaults: {
 			model: available[0],
 			thinkingLevel: "medium", // off, low, medium, high

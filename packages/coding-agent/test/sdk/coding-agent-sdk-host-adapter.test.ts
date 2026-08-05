@@ -6,8 +6,8 @@ import type { Api, Model, UserMessage } from "@vetta/ai";
 import type { RuntimeTracer } from "@vetta/runtime-telemetry";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AuthStorage } from "../../src/core/auth-storage.js";
-import { ModelRegistry } from "../../src/core/model-registry.js";
 import { createCodingAgentSessionFromPublicOptions } from "../../src/host/coding-agent-sdk-host-adapter.js";
+import { type CodingAgentModelRuntime, createCodingAgentModelRuntime } from "../../src/models/index.js";
 import type {
 	CodingAgentSession,
 	CodingAgentSessionToolDefinition,
@@ -222,7 +222,7 @@ describe("Coding Agent SDK Host Adapter", () => {
 		const cwd = await temporaryDirectory(`${prefix}cwd-`);
 		const agentDir = await temporaryDirectory(`${prefix}agent-`);
 		const authStorage = AuthStorage.inMemory();
-		const modelRegistry = new ModelRegistry(authStorage, undefined);
+		const modelRegistry = createCodingAgentModelRuntime(authStorage);
 		const settingsManager = SettingsRuntime.create(cwd, agentDir);
 		return {
 			cwd,
@@ -261,7 +261,7 @@ describe("Coding Agent SDK Host Adapter", () => {
 	}
 });
 
-function registerTestModel(modelRegistry: ModelRegistry): void {
+function registerTestModel(modelRegistry: CodingAgentModelRuntime): void {
 	modelRegistry.registerProvider(MODEL.provider, {
 		baseUrl: MODEL.baseUrl,
 		apiKey: "sdk-test-key",

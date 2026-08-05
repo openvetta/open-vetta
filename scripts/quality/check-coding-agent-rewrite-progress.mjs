@@ -28,9 +28,12 @@ const RUNTIME_PACKAGE_PREFIXES = Object.freeze([
 	"packages/runtime-mcp/src/",
 ]);
 const OLD_IMPLEMENTATION_EXACT_FILES = Object.freeze([
+	"packages/coding-agent/src/adapters/runtime-core/greenfield-model-registry-adapter.ts",
+	"packages/coding-agent/src/adapters/runtime-core/model-registry-shared-model-controller.ts",
 	"packages/coding-agent/src/modes/rpc/legacy-rpc-session-adapter.ts",
 	"packages/coding-agent/src/public-api/compat-runtime-storage.ts",
 	"packages/coding-agent/src/public-api/compat-runtime-tools.ts",
+	"packages/coding-agent/src/public-api/model-registry-compat.ts",
 	"packages/coding-agent/src/public-api/sdk-compatibility-inventory.ts",
 ]);
 

@@ -1,22 +1,27 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getAgentDir } from "@vetta/coding-agent/config";
-import { AuthStorage, ModelRegistry, SettingsRuntime } from "@vetta/coding-agent/host-services";
+import {
+	AuthStorage,
+	type CodingAgentModelRuntime,
+	createCodingAgentModelRuntime,
+	SettingsRuntime,
+} from "@vetta/coding-agent/host-services";
 import { DEFAULT_SERVER_URL } from "../constants.js";
 
-let sharedModelRegistry: ModelRegistry | undefined;
+let sharedModelRuntime: CodingAgentModelRuntime | undefined;
 
-export function getOrCreateSharedModelRegistry(): ModelRegistry {
-	if (sharedModelRegistry) return sharedModelRegistry;
+export function getOrCreateSharedModelRuntime(): CodingAgentModelRuntime {
+	if (sharedModelRuntime) return sharedModelRuntime;
 	const agentDir = getAgentDir();
 	const authStorage = AuthStorage.create(join(agentDir, "auth.json"));
-	const registry = new ModelRegistry(authStorage, join(agentDir, "models.json"));
-	registry.setServerUrl(DEFAULT_SERVER_URL);
-	registry.setServerToken(readServerTokenFromDisk());
-	registry.setServerTokenGetter(readServerTokenFromDisk);
-	void registry.loadRemoteModels();
-	sharedModelRegistry = registry;
-	return registry;
+	const runtime = createCodingAgentModelRuntime(authStorage, { modelsJsonPath: join(agentDir, "models.json") });
+	runtime.setServerUrl(DEFAULT_SERVER_URL);
+	runtime.setServerToken(readServerTokenFromDisk());
+	runtime.setServerTokenGetter(readServerTokenFromDisk);
+	void runtime.loadRemoteModels();
+	sharedModelRuntime = runtime;
+	return runtime;
 }
 
 export function readDesktopMcpDebug(cwd: string, agentDir: string): boolean {

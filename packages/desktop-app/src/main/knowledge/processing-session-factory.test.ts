@@ -1,4 +1,4 @@
-import type { ModelRegistry } from "@vetta/coding-agent/host-services";
+import type { CodingAgentModelRuntime } from "@vetta/coding-agent/host-services";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createDesktopKnowledgeProcessingSessionFactory } from "./processing-session-factory.js";
 
@@ -11,7 +11,7 @@ vi.mock("@vetta/coding-agent/composition", () => ({
 }));
 
 describe("createDesktopKnowledgeProcessingSessionFactory", () => {
-	const modelRegistry = {} as ModelRegistry;
+	const modelRegistry = {} as CodingAgentModelRuntime;
 	const getModelRegistry = () => modelRegistry;
 
 	beforeEach(() => {

@@ -2,11 +2,11 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { ModelRegistry } from "@vetta/coding-agent/host-services";
 import {
+	CodingAgentSharedModelController,
+	type CodingAgentSharedModelSource,
 	LegacyRuntimeSessionCatalog,
 	LegacyRuntimeSessionFileHistoryReader,
-	ModelRegistryRuntimeSharedModelController,
 } from "@vetta/coding-agent/runtime-host";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -21,9 +21,9 @@ import {
 describe("runtime host process services", () => {
 	it("delegates shared model auth refresh and background refresh", async () => {
 		const setServerToken = vi.fn();
-		const loadRemoteModels = vi.fn(async () => {});
-		const registry = { setServerToken, loadRemoteModels } as unknown as ModelRegistry;
-		const controller = new ModelRegistryRuntimeSharedModelController(registry);
+		const loadRemoteModels = vi.fn(async (): Promise<"unauthorized" | undefined> => undefined);
+		const source: CodingAgentSharedModelSource = { setServerToken, loadRemoteModels };
+		const controller = new CodingAgentSharedModelController(source);
 
 		await controller.refreshAuth("token");
 		controller.refreshInBackground();

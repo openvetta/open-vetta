@@ -10,7 +10,7 @@ import {
 	CodingAgentGreenfieldContextRuntime,
 	CodingAgentGreenfieldMemoryController,
 	type CodingAgentMemoryController,
-	type CodingAgentModelRegistryAdapter,
+	type CodingAgentRuntimeModelAdapter,
 	createEcosystemHookRuntime,
 } from "../adapters/runtime-core/greenfield.js";
 import type { CodingAgentGreenfieldExtensionEventBridge } from "../adapters/runtime-core/greenfield-extension-event-bridge.js";
@@ -32,7 +32,7 @@ export interface GreenfieldSessionContextAssemblyOptions {
 	readonly scenario: ConversationScenario;
 	readonly resourceContext: GreenfieldRuntimeResourceContext;
 	readonly peripherals: GreenfieldSessionPeripheralAssembly;
-	readonly modelAdapter: CodingAgentModelRegistryAdapter;
+	readonly modelAdapter: CodingAgentRuntimeModelAdapter;
 	readonly extensionEvents: CodingAgentGreenfieldExtensionEventBridge;
 	readonly mcpCoordinator: GreenfieldMcpSessionCoordinator;
 	readonly readSessionId: () => string;

@@ -7,8 +7,8 @@ import type { ConversationOwnershipManager } from "@vetta/runtime-storage/conver
 import { describe, expect, it, vi } from "vitest";
 import {
 	CodingAgentMemoryRolloverOrchestrator,
-	type CodingAgentModelRegistrySource,
 	type CodingAgentPluginMcpRuntime,
+	type CodingAgentRuntimeModelSource,
 	CodingAgentTodoRuntime,
 } from "../../src/adapters/runtime-core/greenfield.js";
 import { createGreenfieldRuntimeComposition } from "../../src/composition/greenfield-runtime-composition.js";
@@ -155,7 +155,7 @@ function createPluginMcpRuntime(rollbackOrder: string[]): CodingAgentPluginMcpRu
 	} as unknown as CodingAgentPluginMcpRuntime;
 }
 
-function modelRegistry(): CodingAgentModelRegistrySource {
+function modelRegistry(): CodingAgentRuntimeModelSource {
 	return {
 		refresh() {},
 		getAvailable: () => [MODEL],

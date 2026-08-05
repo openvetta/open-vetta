@@ -3,8 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type Api, type AssistantMessage, type AssistantMessageEvent, EventStream, type Model } from "@vetta/ai";
 import type {
-	CodingAgentModelRegistrySource,
 	CodingAgentPluginRuntimeSource,
+	CodingAgentRuntimeModelSource,
 } from "@vetta/coding-agent/runtime-host/greenfield";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -133,7 +133,7 @@ class RecordedAssistantStream extends EventStream<AssistantMessageEvent, Assista
 	}
 }
 
-function modelRegistry(): CodingAgentModelRegistrySource {
+function modelRegistry(): CodingAgentRuntimeModelSource {
 	return {
 		refresh() {},
 		getAvailable: () => [MODEL],

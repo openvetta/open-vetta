@@ -11,7 +11,7 @@ import {
 	type CodingAgentGreenfieldContextRuntime,
 	CodingAgentGreenfieldExtensionEventBridge,
 	type CodingAgentMemoryRolloverRuntime,
-	type CodingAgentModelRegistryAdapter,
+	type CodingAgentRuntimeModelAdapter,
 	type CodingAgentTodoRuntime,
 } from "../adapters/runtime-core/greenfield.js";
 import type { CodingAgentGreenfieldConversationContextOverlay } from "../adapters/runtime-core/greenfield-conversation-context-overlay.js";
@@ -61,7 +61,7 @@ export interface GreenfieldSessionInitializationTransactionOptions<TOwnershipBin
 	readonly conversation: GreenfieldSessionConversationResources;
 	readonly readConversationModelMessages: (sessionId: string) => Promise<readonly Message[]>;
 	readonly conversationContextOverlay: CodingAgentGreenfieldConversationContextOverlay;
-	readonly modelAdapter: CodingAgentModelRegistryAdapter;
+	readonly modelAdapter: CodingAgentRuntimeModelAdapter;
 	readonly extensionToolRuntime?: CodingAgentGreenfieldExtensionToolRuntime;
 	readonly acquireOwnership: (sessionId: string) => Promise<TOwnershipBinding | undefined>;
 	readonly rebindOwnership: (binding: TOwnershipBinding | undefined, sessionId: string) => Promise<void>;

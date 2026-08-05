@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type Api, type AssistantMessage, type AssistantMessageEvent, EventStream, type Model } from "@vetta/ai";
-import type { CodingAgentModelRegistrySource } from "@vetta/coding-agent/runtime-host/greenfield";
+import type { CodingAgentRuntimeModelSource } from "@vetta/coding-agent/runtime-host/greenfield";
 import type { GreenfieldRuntimeSession, RuntimeSessionTodoController } from "@vetta/runtime-core";
 import { afterEach, describe, expect, it } from "vitest";
 import {
@@ -169,7 +169,7 @@ class RecordedAssistantStream extends EventStream<AssistantMessageEvent, Assista
 	}
 }
 
-function modelRegistry(): CodingAgentModelRegistrySource {
+function modelRegistry(): CodingAgentRuntimeModelSource {
 	return {
 		refresh() {},
 		getAvailable: () => [MODEL],

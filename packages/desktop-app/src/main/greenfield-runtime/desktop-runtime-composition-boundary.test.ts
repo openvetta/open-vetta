@@ -26,7 +26,7 @@ describe("Desktop Runtime composition boundary", () => {
 		expect(productionSources.composition).not.toContain("createDesktopLegacyExecutionCompatibility");
 		expect(productionSources.composition).toContain("DesktopLegacySessionMigrationBackend");
 		expect(productionSources.composition).toContain("createDesktopLegacySessionFormatCompatibility");
-		expect(productionSources.composition).toContain("ModelRegistryRuntimeSharedModelController");
+		expect(productionSources.composition).toContain("CodingAgentSharedModelController");
 		expect(productionSources.legacyMigrationBackend).not.toContain("LegacyCodingAgentSessionBackend");
 		expect(productionSources.legacyMigrationBackend).toContain("migrateCodingAgentLegacySession");
 		expect(productionSources.knowledgeFactory).not.toContain("createLegacyKnowledgeProcessingSessionFactory");

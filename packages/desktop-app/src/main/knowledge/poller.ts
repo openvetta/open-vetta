@@ -21,7 +21,7 @@ import {
 	recordKnowledgeBaseProcessingUsage,
 	recordKnowledgeBaseSnapshot,
 } from "../app-monitor/app-monitor-service.js";
-import { getOrCreateSharedModelRegistry } from "../greenfield-runtime/desktop-coding-agent-host-services.js";
+import { getOrCreateSharedModelRuntime } from "../greenfield-runtime/desktop-coding-agent-host-services.js";
 import { desktopAgentRuntimeDecision } from "../greenfield-runtime/desktop-runtime-decision.js";
 import { KB_PROCESSING_CWD, KB_PROCESSING_SESSION_DIR, readDesktopConfig } from "../ipc/fs.js";
 import { getAppLogger } from "../logger.js";
@@ -44,7 +44,7 @@ function broadcast(channel: string, payload?: unknown): void {
 const log = getAppLogger("kb-poller");
 const knowledgeProcessingSessionFactory = createDesktopKnowledgeProcessingSessionFactory({
 	backend: desktopAgentRuntimeDecision.effectiveBackend,
-	getModelRegistry: getOrCreateSharedModelRegistry,
+	getModelRegistry: getOrCreateSharedModelRuntime,
 });
 log.info(
 	`[agent-runtime] knowledge requested=${desktopAgentRuntimeDecision.requestedBackend} effective=${desktopAgentRuntimeDecision.effectiveBackend} source=${desktopAgentRuntimeDecision.source}`,

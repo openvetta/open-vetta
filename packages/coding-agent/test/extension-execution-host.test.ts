@@ -2,7 +2,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { AuthStorage } from "../src/core/auth-storage.js";
-import { ModelRegistry } from "../src/core/model-registry.js";
 import {
 	bindExtensionRuntimeActions,
 	createExtensionRuntime,
@@ -11,6 +10,7 @@ import {
 	type ExtensionExecutionHost,
 	ExtensionRunner,
 } from "../src/extensions/index.js";
+import { createCodingAgentModelRuntime } from "../src/models/index.js";
 import { createExtensionSessionView } from "./fixtures/extension-session-view.js";
 
 describe("ExtensionExecutionHost", () => {
@@ -52,7 +52,9 @@ describe("ExtensionExecutionHost", () => {
 			runtime,
 			process.cwd(),
 			createExtensionSessionView(process.cwd()),
-			new ModelRegistry(AuthStorage.inMemory(), join(tmpdir(), "missing-extension-host-models.json")),
+			createCodingAgentModelRuntime(AuthStorage.inMemory(), {
+				modelsJsonPath: join(tmpdir(), "missing-extension-host-models.json"),
+			}),
 		);
 
 		runner.bindExecutionHost(host);

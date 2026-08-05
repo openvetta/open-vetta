@@ -5,7 +5,7 @@ import { type Api, type AssistantMessage, type AssistantMessageEvent, EventStrea
 import {
 	type CodingAgentMemoryFlushInput,
 	CodingAgentMemoryRolloverOrchestrator,
-	type CodingAgentModelRegistrySource,
+	type CodingAgentRuntimeModelSource,
 } from "@vetta/coding-agent/runtime-host/greenfield";
 import { FileConversationRepository } from "@vetta/runtime-storage/conversation";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -280,7 +280,7 @@ class RecordedAssistantStream extends EventStream<AssistantMessageEvent, Assista
 	}
 }
 
-function modelRegistry(): CodingAgentModelRegistrySource {
+function modelRegistry(): CodingAgentRuntimeModelSource {
 	return {
 		refresh() {},
 		getAvailable: () => [MODEL],

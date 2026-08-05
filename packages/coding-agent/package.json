@@ -33,6 +33,10 @@
 			"types": "./dist/config.d.ts",
 			"import": "./dist/config.js"
 		},
+		"./configuration": {
+			"types": "./dist/configuration/index.d.ts",
+			"import": "./dist/configuration/index.js"
+		},
 		"./concurrency": {
 			"types": "./dist/core/concurrency-limit.d.ts",
 			"import": "./dist/core/concurrency-limit.js"
@@ -72,10 +76,6 @@
 		"./core/mcp/types.js": {
 			"types": "./dist/core/mcp/types.d.ts",
 			"import": "./dist/core/mcp/types.js"
-		},
-		"./core/resolve-config-value.js": {
-			"types": "./dist/core/resolve-config-value.d.ts",
-			"import": "./dist/core/resolve-config-value.js"
 		},
 		"./host": {
 			"types": "./dist/adapters/runtime-tools/index.d.ts",

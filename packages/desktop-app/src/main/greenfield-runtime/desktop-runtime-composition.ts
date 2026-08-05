@@ -1,9 +1,9 @@
 import { join } from "node:path";
 import { getAgentDir } from "@vetta/coding-agent/config";
 import {
+	CodingAgentSharedModelController,
 	createCodingAgentMcpRuntimeToolSource,
 	createCodingAgentPluginMcpRuntime,
-	ModelRegistryRuntimeSharedModelController,
 } from "@vetta/coding-agent/runtime-host";
 import {
 	FileConversationRuntimeSessionFileHistoryReader,
@@ -33,7 +33,7 @@ import { getDesktopUserQuestionBroker } from "../conversations/user-question-bro
 import { getAppLogger } from "../logger.js";
 import { getAvailableLinuxBubblewrapPath, getAvailableMacosSandboxExecPath } from "../sandbox/capability.js";
 import { resolveWindowsSandboxHostBinary } from "../sandbox/windows-binary-resolver.js";
-import { getOrCreateSharedModelRegistry, readDesktopMcpDebug } from "./desktop-coding-agent-host-services.js";
+import { getOrCreateSharedModelRuntime, readDesktopMcpDebug } from "./desktop-coding-agent-host-services.js";
 import { DesktopGreenfieldRuntimeBackendPool } from "./desktop-greenfield-runtime-backend-pool.js";
 import {
 	DesktopGreenfieldRuntimeSessionCatalog,
@@ -52,7 +52,7 @@ export interface DesktopRuntimeComposition {
 }
 
 export function createDesktopRuntimeComposition(): DesktopRuntimeComposition {
-	const modelRegistry = getOrCreateSharedModelRegistry();
+	const modelRuntime = getOrCreateSharedModelRuntime();
 	const getDefaultExecutionMode = async () => (await readDesktopConfig()).defaultExecutionMode;
 	const sandboxHostPath = resolveWindowsSandboxHostBinary()?.path;
 	const linuxBubblewrapPath = getAvailableLinuxBubblewrapPath();
@@ -72,7 +72,7 @@ export function createDesktopRuntimeComposition(): DesktopRuntimeComposition {
 	);
 	const greenfieldBackendPool = new DesktopGreenfieldRuntimeBackendPool({
 		compositionDefaults: {
-			modelRegistry,
+			modelRegistry: modelRuntime,
 			createPluginMcpRuntime: ({ cwd, agentDir }) => {
 				const resolvedAgentDir = agentDir ?? getAgentDir();
 				return createCodingAgentPluginMcpRuntime({
@@ -153,7 +153,7 @@ export function createDesktopRuntimeComposition(): DesktopRuntimeComposition {
 					},
 				},
 			]),
-			sharedModelController: new ModelRegistryRuntimeSharedModelController(modelRegistry),
+			sharedModelController: new CodingAgentSharedModelController(modelRuntime),
 			userQuestionHandler,
 		}),
 	};

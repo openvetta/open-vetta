@@ -27,14 +27,17 @@ import {
 import type { GreenfieldSdkSessionStorageTarget } from "../composition/greenfield-sdk-session-storage.js";
 import { DEFAULT_SERVER_URL, ENV_SERVER_URL, getAgentDir, getDocsPath, getVettaHomePath } from "../config.js";
 import { AuthStorage } from "../core/auth-storage.js";
-import { DEFAULT_THINKING_LEVEL } from "../core/defaults.js";
 import { exportConversationDocumentToHtml, type ToolHtmlRenderer } from "../core/export-html/index.js";
 import { createToolHtmlRenderer } from "../core/export-html/tool-renderer.js";
 import { DEFAULT_MEMORY_CHAR_LIMIT } from "../core/memory/memory-store.js";
-import { ModelRegistry } from "../core/model-registry.js";
-import { findInitialModel } from "../core/model-resolver.js";
 import { time } from "../core/timings.js";
 import type { ExtensionContext, LoadExtensionsResult, ToolDefinition } from "../extensions/index.js";
+import {
+	type CodingAgentModelRuntime,
+	createCodingAgentModelRuntime,
+	DEFAULT_THINKING_LEVEL,
+	findInitialModel,
+} from "../models/index.js";
 import { theme } from "../modes/interactive/theme/theme.js";
 import {
 	CODING_AGENT_SESSION_CREATE_ERROR_CODES,
@@ -159,7 +162,7 @@ export interface CreateGreenfieldAgentSessionResult {
 
 export interface CodingAgentSdkPublicHostContext {
 	readonly authStorage?: AuthStorage;
-	readonly modelRegistry?: ModelRegistry;
+	readonly modelRegistry?: CodingAgentModelRuntime;
 	readonly settingsManager?: SettingsRuntime;
 	readonly onSessionClosed?: () => void;
 }
@@ -236,7 +239,8 @@ async function createGreenfieldAgentSessionInternal(
 	const authPath = options.agentDir ? join(agentDir, "auth.json") : undefined;
 	const modelsPath = options.agentDir ? join(agentDir, "models.json") : undefined;
 	const authStorage = hostContext.authStorage ?? AuthStorage.create(authPath);
-	const modelRegistry = hostContext.modelRegistry ?? new ModelRegistry(authStorage, modelsPath);
+	const modelRegistry =
+		hostContext.modelRegistry ?? createCodingAgentModelRuntime(authStorage, { modelsJsonPath: modelsPath });
 	const settingsManager = hostContext.settingsManager ?? SettingsRuntime.create(cwd, agentDir);
 
 	if (!hostContext.modelRegistry) {
@@ -560,7 +564,7 @@ async function exportGreenfieldSdkSessionToHtml(
 
 async function resolveSdkInitialModel(
 	options: CreateCodingAgentSessionOptions,
-	modelRegistry: ModelRegistry,
+	modelRegistry: CodingAgentModelRuntime,
 	settingsManager: SettingsRuntime,
 ): Promise<CodingAgentSdkInitialModel> {
 	let model: Model<Api> | undefined = options.model;
@@ -572,7 +576,7 @@ async function resolveSdkInitialModel(
 			defaultProvider: settingsManager.getDefaultProvider(),
 			defaultModelId: settingsManager.getDefaultModel(),
 			defaultThinkingLevel: settingsManager.getDefaultThinkingLevel(),
-			modelRegistry,
+			models: modelRegistry,
 		});
 		model = result.model;
 		if (!model) {

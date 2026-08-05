@@ -1,7 +1,7 @@
 import type { Api, Model } from "@vetta/ai";
 import type { RuntimeModelCatalog, RuntimeModelCredentialResolver } from "@vetta/runtime-core";
 
-export interface CodingAgentModelRegistrySource {
+export interface CodingAgentRuntimeModelSource {
 	refresh(): void;
 	getAvailable(): readonly Model<Api>[];
 	find(provider: string, modelId: string): Model<Api> | undefined;
@@ -10,28 +10,27 @@ export interface CodingAgentModelRegistrySource {
 	loadRemoteModels(): Promise<"unauthorized" | undefined>;
 }
 
-/** 将 Coding Agent ModelRegistry 适配为 Greenfield 的目录与凭证 Port。 */
-export class CodingAgentModelRegistryAdapter implements RuntimeModelCatalog, RuntimeModelCredentialResolver {
-	constructor(private readonly registry: CodingAgentModelRegistrySource) {}
+export class CodingAgentRuntimeModelAdapter implements RuntimeModelCatalog, RuntimeModelCredentialResolver {
+	constructor(private readonly models: CodingAgentRuntimeModelSource) {}
 
 	refresh(): void {
-		this.registry.refresh();
+		this.models.refresh();
 	}
 
 	listAvailable(): readonly Model<Api>[] {
-		return [...this.registry.getAvailable()];
+		return [...this.models.getAvailable()];
 	}
 
 	find(provider: string, modelId: string): Model<Api> | undefined {
-		return this.registry.find(provider, modelId);
+		return this.models.find(provider, modelId);
 	}
 
 	resolve(model: Model<Api>): Promise<string | undefined> {
-		return this.registry.getApiKey(model);
+		return this.models.getApiKey(model);
 	}
 
 	async refreshAuth(token: string | undefined): Promise<void> {
-		this.registry.setServerToken(token);
-		await this.registry.loadRemoteModels();
+		this.models.setServerToken(token);
+		await this.models.loadRemoteModels();
 	}
 }

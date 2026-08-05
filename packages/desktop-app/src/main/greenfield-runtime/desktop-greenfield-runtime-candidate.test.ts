@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Api, Model } from "@vetta/ai";
-import type { CodingAgentModelRegistrySource } from "@vetta/coding-agent/runtime-host/greenfield";
+import type { CodingAgentRuntimeModelSource } from "@vetta/coding-agent/runtime-host/greenfield";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	createDesktopGreenfieldRuntimeCandidate,
@@ -96,7 +96,7 @@ describe("DesktopGreenfieldRuntimeCandidate", () => {
 	}
 });
 
-function modelRegistry(): CodingAgentModelRegistrySource {
+function modelRegistry(): CodingAgentRuntimeModelSource {
 	return {
 		refresh() {},
 		getAvailable: () => [MODEL, SECOND_MODEL],

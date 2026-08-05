@@ -7,6 +7,7 @@ export {
 	type HookDispatchOutcome,
 } from "@vetta/ecosystem-adapter";
 export type { ExtensionCommandContextActions } from "../../extensions/index.js";
+export type { CodingAgentModelRuntime } from "../../models/index.js";
 export {
 	type CodingAgentMcpRuntimeToolSourceOptions,
 	createCodingAgentMcpRuntimeToolSource,
@@ -116,9 +117,9 @@ export {
 	type CodingAgentImageSettingsSource,
 } from "./greenfield-model-call-message-finalizer.js";
 export {
-	CodingAgentModelRegistryAdapter,
-	type CodingAgentModelRegistrySource,
-} from "./greenfield-model-registry-adapter.js";
+	CodingAgentRuntimeModelAdapter,
+	type CodingAgentRuntimeModelSource,
+} from "./greenfield-model-runtime-adapter.js";
 export {
 	CODING_AGENT_MODEL_TOOL_ORDER,
 	CODING_AGENT_SUBAGENT_MODEL_TOOL_ORDER_STEP,
@@ -230,3 +231,7 @@ export {
 	normalizeCodingAgentLegacySessionEntry,
 	restoreCodingAgentLegacyAgentMessageEntry,
 } from "./legacy-session-import-normalizer.js";
+export {
+	CodingAgentSharedModelController,
+	type CodingAgentSharedModelSource,
+} from "./shared-model-controller.js";

@@ -31,15 +31,6 @@
 			"domain": "slash-commands"
 		},
 		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-event-host.ts",
-			"specifier": "../../core/model-registry.js",
-			"names": [
-				"ModelRegistry"
-			],
-			"category": "old-core",
-			"domain": "model-registry"
-		},
-		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-hook-tool-wrapper.ts",
 			"specifier": "../../core/hooks/tool-wrapper.js",
 			"names": [
@@ -128,24 +119,6 @@
 			"domain": "mcp"
 		},
 		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/model-registry-shared-model-controller.ts",
-			"specifier": "../../core/model-registry.js",
-			"names": [
-				"ModelRegistry"
-			],
-			"category": "old-core",
-			"domain": "model-registry"
-		},
-		{
-			"path": "packages/coding-agent/src/cli/list-models.ts",
-			"specifier": "../core/model-registry.js",
-			"names": [
-				"ModelRegistry"
-			],
-			"category": "old-core",
-			"domain": "model-registry"
-		},
-		{
 			"path": "packages/coding-agent/src/host/coding-agent-cli-control.ts",
 			"specifier": "../core/export-html/index.js",
 			"names": [
@@ -162,36 +135,6 @@
 			],
 			"category": "old-core",
 			"domain": "auth-storage"
-		},
-		{
-			"path": "packages/coding-agent/src/host/coding-agent-host-bootstrap.ts",
-			"specifier": "../core/defaults.js",
-			"names": [
-				"DEFAULT_THINKING_LEVEL"
-			],
-			"category": "old-core",
-			"domain": "defaults"
-		},
-		{
-			"path": "packages/coding-agent/src/host/coding-agent-host-bootstrap.ts",
-			"specifier": "../core/model-registry.js",
-			"names": [
-				"ModelRegistry"
-			],
-			"category": "old-core",
-			"domain": "model-registry"
-		},
-		{
-			"path": "packages/coding-agent/src/host/coding-agent-host-bootstrap.ts",
-			"specifier": "../core/model-resolver.js",
-			"names": [
-				"ScopedModel",
-				"findInitialModel",
-				"resolveCliModel",
-				"resolveModelScope"
-			],
-			"category": "old-core",
-			"domain": "model-resolver"
 		},
 		{
 			"path": "packages/coding-agent/src/host/coding-agent-host-bootstrap.ts",
@@ -224,15 +167,6 @@
 		},
 		{
 			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
-			"specifier": "../core/defaults.js",
-			"names": [
-				"DEFAULT_THINKING_LEVEL"
-			],
-			"category": "old-core",
-			"domain": "defaults"
-		},
-		{
-			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
 			"specifier": "../core/export-html/index.js",
 			"names": [
 				"ToolHtmlRenderer",
@@ -258,24 +192,6 @@
 			],
 			"category": "old-core",
 			"domain": "memory"
-		},
-		{
-			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
-			"specifier": "../core/model-registry.js",
-			"names": [
-				"ModelRegistry"
-			],
-			"category": "old-core",
-			"domain": "model-registry"
-		},
-		{
-			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
-			"specifier": "../core/model-resolver.js",
-			"names": [
-				"findInitialModel"
-			],
-			"category": "old-core",
-			"domain": "model-resolver"
 		},
 		{
 			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
@@ -347,15 +263,6 @@
 			"domain": "footer-data-provider"
 		},
 		{
-			"path": "packages/coding-agent/src/index.ts",
-			"specifier": "./core/model-registry.js",
-			"names": [
-				"ModelRegistry"
-			],
-			"category": "old-core",
-			"domain": "model-registry"
-		},
-		{
 			"path": "packages/coding-agent/src/modes/rpc/greenfield-rpc-capabilities.ts",
 			"specifier": "../../core/bash-executor.js",
 			"names": [
@@ -411,15 +318,6 @@
 			"domain": "auth-storage"
 		},
 		{
-			"path": "packages/coding-agent/src/public-api/host-services.ts",
-			"specifier": "../core/model-registry.js",
-			"names": [
-				"ModelRegistry"
-			],
-			"category": "old-core",
-			"domain": "model-registry"
-		},
-		{
 			"path": "packages/desktop-app/src/main/ipc/fs.ts",
 			"specifier": "@vetta/coding-agent/core/mcp/index.js",
 			"names": [
@@ -430,16 +328,6 @@
 			],
 			"category": "old-core-public-subpath",
 			"domain": "mcp"
-		},
-		{
-			"path": "packages/desktop-app/src/main/models/fetch-models.ts",
-			"specifier": "@vetta/coding-agent/core/resolve-config-value.js",
-			"names": [
-				"resolveConfigValue",
-				"resolveHeaders"
-			],
-			"category": "old-core-public-subpath",
-			"domain": "resolve-config-value.js"
 		}
 	],
 	"runtimeBackedges": [],
@@ -448,7 +336,6 @@
 		"packages/coding-agent/src/core/background-tasks/index.ts",
 		"packages/coding-agent/src/core/bash-executor.ts",
 		"packages/coding-agent/src/core/concurrency-limit.ts",
-		"packages/coding-agent/src/core/defaults.ts",
 		"packages/coding-agent/src/core/event-bus.ts",
 		"packages/coding-agent/src/core/exec.ts",
 		"packages/coding-agent/src/core/export-html/ansi-to-html.ts",
@@ -481,9 +368,6 @@
 		"packages/coding-agent/src/core/memory/memory-flush.ts",
 		"packages/coding-agent/src/core/memory/memory-journal.ts",
 		"packages/coding-agent/src/core/memory/memory-store.ts",
-		"packages/coding-agent/src/core/model-registry.ts",
-		"packages/coding-agent/src/core/model-resolver.ts",
-		"packages/coding-agent/src/core/resolve-config-value.ts",
 		"packages/coding-agent/src/core/session-lock.ts",
 		"packages/coding-agent/src/core/session/tool-scope.ts",
 		"packages/coding-agent/src/core/slash-commands.ts",

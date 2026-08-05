@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import type { ActionRpcRuntime } from "@vetta/action-rpc";
 import { ACTION_RPC_ENDPOINT_FILE_ENV } from "@vetta/action-rpc";
 import type { Api, Model } from "@vetta/ai";
-import type { CodingAgentModelRegistrySource } from "@vetta/coding-agent/runtime-host/greenfield";
+import type { CodingAgentRuntimeModelSource } from "@vetta/coding-agent/runtime-host/greenfield";
 import { CatalogRoutedRuntimeSessionAccessResolver, RuntimeHost } from "@vetta/runtime-core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -299,7 +299,7 @@ async function runCli(args: readonly string[], env: NodeJS.ProcessEnv): Promise<
 	});
 }
 
-function modelRegistry(model: Model<Api>): CodingAgentModelRegistrySource {
+function modelRegistry(model: Model<Api>): CodingAgentRuntimeModelSource {
 	return {
 		refresh() {},
 		getAvailable: () => [model],

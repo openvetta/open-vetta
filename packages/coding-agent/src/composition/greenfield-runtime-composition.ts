@@ -3,7 +3,7 @@ import { selectConversationDocumentModelMessages } from "@vetta/runtime-core/con
 import type { McpRuntimeToolView } from "@vetta/runtime-mcp";
 import {
 	CodingAgentGreenfieldAgentMessageContextProjector,
-	CodingAgentModelRegistryAdapter,
+	CodingAgentRuntimeModelAdapter,
 } from "../adapters/runtime-core/greenfield.js";
 import { CodingAgentGreenfieldConversationContextOverlay } from "../adapters/runtime-core/greenfield-conversation-context-overlay.js";
 import { CodingAgentGreenfieldExtensionToolRuntime } from "../adapters/runtime-core/greenfield-extension-tool-runtime.js";
@@ -81,7 +81,7 @@ async function createGreenfieldRuntimeCompositionInternal(
 	const conversationContextOverlay = new CodingAgentGreenfieldConversationContextOverlay(
 		baseConversationContextProjector,
 	);
-	const modelAdapter = new CodingAgentModelRegistryAdapter(options.modelRegistry);
+	const modelAdapter = new CodingAgentRuntimeModelAdapter(options.modelRegistry);
 	const acquireOwnership = async (sessionId: string): Promise<ConversationOwnershipBinding | undefined> => {
 		const manager = options.conversationOwnershipManager;
 		if (!manager) return undefined;

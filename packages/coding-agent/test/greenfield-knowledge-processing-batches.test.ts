@@ -11,7 +11,7 @@ import {
 	type WritePageRequest,
 } from "@vetta/runtime-knowledge";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { CodingAgentModelRegistrySource } from "../src/adapters/runtime-core/greenfield-model-registry-adapter.js";
+import type { CodingAgentRuntimeModelSource } from "../src/adapters/runtime-core/greenfield-model-runtime-adapter.js";
 import {
 	createGreenfieldKnowledgeProcessingSessionFactory,
 	type GreenfieldKnowledgeProcessingSessionFactoryOptions,
@@ -220,7 +220,7 @@ function assistantMessage(content: AssistantMessage["content"]): AssistantMessag
 	};
 }
 
-function modelRegistry(): CodingAgentModelRegistrySource {
+function modelRegistry(): CodingAgentRuntimeModelSource {
 	return {
 		refresh() {},
 		getAvailable: () => [MODEL],

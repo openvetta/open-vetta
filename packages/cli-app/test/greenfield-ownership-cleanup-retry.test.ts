@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Api, Model } from "@vetta/ai";
-import type { CodingAgentModelRegistrySource } from "@vetta/coding-agent/runtime-host/greenfield";
+import type { CodingAgentRuntimeModelSource } from "@vetta/coding-agent/runtime-host/greenfield";
 import type { ConversationOwnershipManager } from "@vetta/runtime-storage/conversation";
 import { describe, expect, it } from "vitest";
 import { createGreenfieldRuntimeComposition } from "../src/greenfield-runtime-composition.js";
@@ -103,7 +103,7 @@ describe("Greenfield ownership cleanup retry", () => {
 	});
 });
 
-function modelRegistry(): CodingAgentModelRegistrySource {
+function modelRegistry(): CodingAgentRuntimeModelSource {
 	return {
 		refresh() {},
 		getAvailable: () => [MODEL],

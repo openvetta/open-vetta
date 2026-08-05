@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type Api, type AssistantMessage, type AssistantMessageEvent, EventStream, type Model } from "@vetta/ai";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { CodingAgentModelRegistrySource } from "../src/adapters/runtime-core/greenfield-model-registry-adapter.js";
+import type { CodingAgentRuntimeModelSource } from "../src/adapters/runtime-core/greenfield-model-runtime-adapter.js";
 import {
 	createGreenfieldRuntimeComposition,
 	type GreenfieldRuntimeCompositionOptions,
@@ -266,7 +266,7 @@ class RecordedAssistantStream extends EventStream<AssistantMessageEvent, Assista
 	}
 }
 
-function modelRegistry(events: string[]): CodingAgentModelRegistrySource {
+function modelRegistry(events: string[]): CodingAgentRuntimeModelSource {
 	return {
 		refresh() {
 			events.push("refresh");

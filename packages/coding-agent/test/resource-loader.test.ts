@@ -4,9 +4,9 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { CONFIG_DIR_NAME } from "../src/config.js";
 import { AuthStorage } from "../src/core/auth-storage.js";
-import { ModelRegistry } from "../src/core/model-registry.js";
 import { ExtensionRunner } from "../src/extensions/index.js";
 import { createCodingAgentSessionResourceRuntime } from "../src/host/coding-agent-resource-runtime.js";
+import { createCodingAgentModelRuntime } from "../src/models/index.js";
 import type { Skill } from "../src/resources/skills/index.js";
 import { SettingsRuntime } from "../src/settings/index.js";
 import { createExtensionSessionView } from "./fixtures/extension-session-view.js";
@@ -218,13 +218,13 @@ Project skill`,
 
 			const sessionManager = createExtensionSessionView(cwd);
 			const authStorage = AuthStorage.create(join(tempDir, "auth.json"));
-			const modelRegistry = new ModelRegistry(authStorage);
+			const modelRuntime = createCodingAgentModelRuntime(authStorage);
 			const runner = new ExtensionRunner(
 				extensionsResult.extensions,
 				extensionsResult.runtime,
 				cwd,
 				sessionManager,
-				modelRegistry,
+				modelRuntime,
 			);
 
 			expect(runner.getCommand("deploy")?.description).toBe("project deploy");

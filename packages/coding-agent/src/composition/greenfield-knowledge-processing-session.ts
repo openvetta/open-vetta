@@ -4,7 +4,7 @@ import type { Api, Model } from "@vetta/ai";
 import type { SessionEvent } from "@vetta/runtime-core";
 import { wikiDir } from "@vetta/runtime-knowledge";
 import type { KbWritePageOperations } from "@vetta/runtime-tools/coding";
-import type { CodingAgentModelRegistrySource } from "../adapters/runtime-core/greenfield.js";
+import type { CodingAgentRuntimeModelSource } from "../adapters/runtime-core/greenfield.js";
 import { resolveCodingAgentKnowledgeRoot } from "./coding-agent-knowledge-runtime.js";
 import {
 	createGreenfieldRuntimeComposition,
@@ -20,7 +20,7 @@ import type {
 } from "./knowledge-processing-contract.js";
 
 export interface GreenfieldKnowledgeProcessingSessionFactoryOptions {
-	readonly getModelRegistry: () => CodingAgentModelRegistrySource;
+	readonly getModelRegistry: () => CodingAgentRuntimeModelSource;
 	readonly knowledgeRoot?: string;
 	readonly createSessionId?: () => string;
 	readonly createComposition?: (options: GreenfieldRuntimeCompositionOptions) => Promise<GreenfieldRuntimeComposition>;
@@ -41,12 +41,12 @@ export function createGreenfieldKnowledgeProcessingSessionFactory(
 
 	return {
 		async create(request) {
-			const modelRegistry = options.getModelRegistry();
-			modelRegistry.refresh();
-			const initialModel = readInitialModel(modelRegistry);
+			const modelRuntime = options.getModelRegistry();
+			modelRuntime.refresh();
+			const initialModel = readInitialModel(modelRuntime);
 			const composition = await createComposition({
 				conversationDir: request.sessionDir,
-				modelRegistry,
+				modelRegistry: modelRuntime,
 				initialModel,
 				initialThinkingLevel: "off",
 				cwd: request.cwd,
@@ -73,7 +73,7 @@ export function createGreenfieldKnowledgeProcessingSessionFactory(
 				throw error;
 			}
 
-			return createKnowledgeProcessingSession(runtimeSession, composition, request, modelRegistry);
+			return createKnowledgeProcessingSession(runtimeSession, composition, request, modelRuntime);
 		},
 	};
 }
@@ -82,15 +82,15 @@ function createKnowledgeProcessingSession(
 	runtimeSession: Awaited<ReturnType<GreenfieldRuntimeComposition["backend"]["create"]>>,
 	composition: GreenfieldRuntimeComposition,
 	request: KnowledgeProcessingSessionRequest,
-	modelRegistry: CodingAgentModelRegistrySource,
+	modelRuntime: CodingAgentRuntimeModelSource,
 ): KnowledgeProcessingSession {
 	let disposePromise: Promise<void> | undefined;
 	return {
 		async run(prompt) {
 			const modelKey = parseModelKey(request.modelKey);
 			if (modelKey) {
-				await modelRegistry.loadRemoteModels();
-				const model = modelRegistry.find(modelKey.provider, modelKey.modelId);
+				await modelRuntime.loadRemoteModels();
+				const model = modelRuntime.find(modelKey.provider, modelKey.modelId);
 				if (!model) {
 					throw new Error(`知识库加工模型未找到：${request.modelKey}（请在知识库设置里重新选择加工模型）`);
 				}
@@ -128,8 +128,8 @@ async function disposeRuntimeSession(
 	}
 }
 
-function readInitialModel(modelRegistry: CodingAgentModelRegistrySource): Model<Api> {
-	const model = modelRegistry.getAvailable()[0];
+function readInitialModel(modelRuntime: CodingAgentRuntimeModelSource): Model<Api> {
+	const model = modelRuntime.getAvailable()[0];
 	if (!model) {
 		throw new Error("Greenfield Knowledge Processing requires at least one available model");
 	}

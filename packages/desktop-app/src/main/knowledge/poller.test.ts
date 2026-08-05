@@ -32,7 +32,7 @@ vi.mock("../app-monitor/app-monitor-service.js", () => ({
 }));
 
 vi.mock("../greenfield-runtime/desktop-coding-agent-host-services.js", () => ({
-	getOrCreateSharedModelRegistry: vi.fn(),
+	getOrCreateSharedModelRuntime: vi.fn(),
 }));
 
 vi.mock("../greenfield-runtime/desktop-runtime-decision.js", () => ({

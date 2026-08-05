@@ -8,7 +8,7 @@ import {
 	createCodingAgentMcpRuntimeToolSource,
 	createCodingAgentPluginMcpRuntime,
 } from "@vetta/coding-agent/runtime-host";
-import type { CodingAgentModelRegistrySource } from "@vetta/coding-agent/runtime-host/greenfield";
+import type { CodingAgentRuntimeModelSource } from "@vetta/coding-agent/runtime-host/greenfield";
 import { type AgentPluginRuntimeConfig, type ConversationScenario, RuntimeHost } from "@vetta/runtime-core";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import {
@@ -442,7 +442,7 @@ function createRuntimeFixture(_backend: RuntimeBackend, _agentStateDir: string, 
 	};
 }
 
-function modelRegistry(model: Model<Api>): CodingAgentModelRegistrySource {
+function modelRegistry(model: Model<Api>): CodingAgentRuntimeModelSource {
 	return {
 		refresh() {},
 		getAvailable: () => [model],

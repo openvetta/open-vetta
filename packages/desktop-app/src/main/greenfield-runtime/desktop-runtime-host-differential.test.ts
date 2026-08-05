@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Api, Message, Model } from "@vetta/ai";
-import type { CodingAgentModelRegistrySource } from "@vetta/coding-agent/runtime-host/greenfield";
+import type { CodingAgentRuntimeModelSource } from "@vetta/coding-agent/runtime-host/greenfield";
 import { type HistoryEntry, RuntimeHost, type SessionEvent } from "@vetta/runtime-core";
 import { afterEach, describe, expect, it } from "vitest";
 import {
@@ -695,7 +695,7 @@ function delay(milliseconds: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
-function modelRegistry(model: Model<Api> = MODEL): CodingAgentModelRegistrySource {
+function modelRegistry(model: Model<Api> = MODEL): CodingAgentRuntimeModelSource {
 	return {
 		refresh() {},
 		getAvailable: () => [model],

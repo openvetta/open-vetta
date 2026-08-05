@@ -10,8 +10,8 @@ import {
 	type Model,
 } from "@vetta/ai";
 import {
-	type CodingAgentModelRegistrySource,
 	type CodingAgentPluginRuntimeSource,
+	type CodingAgentRuntimeModelSource,
 	CodingAgentTodoRuntime,
 	type EcosystemHookEvent,
 	emptyHookDispatchOutcome,
@@ -170,7 +170,7 @@ class RecordedAssistantStream extends EventStream<AssistantMessageEvent, Assista
 	}
 }
 
-function modelRegistry(): CodingAgentModelRegistrySource {
+function modelRegistry(): CodingAgentRuntimeModelSource {
 	return {
 		refresh() {},
 		getAvailable: () => [MODEL],

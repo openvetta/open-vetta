@@ -7,8 +7,8 @@ import { createAgentCliBootstrap, createCodingAgentHostBootstrap } from "../src/
 import { runCodingAgentCliControl } from "../src/public-api/cli-control.js";
 import { ExtensionRunner } from "../src/public-api/extensions.js";
 import {
+	createCodingAgentModelRuntime,
 	AuthStorage as HostAuthStorage,
-	ModelRegistry as HostModelRegistry,
 	SettingsRuntime as HostSettingsRuntime,
 } from "../src/public-api/host-services.js";
 import { VETTA_CLI_GUIDANCE } from "../src/public-api/product-prompt.js";
@@ -36,7 +36,8 @@ describe("coding-agent public subpaths", () => {
 		expect(Reflect.has(root, "DefaultResourceLoader")).toBe(false);
 		expect(createLimiter).toBe(root.createLimiter);
 		expect(HostAuthStorage).toBe(root.AuthStorage);
-		expect(HostModelRegistry).toBe(root.ModelRegistry);
+		expect(createCodingAgentModelRuntime).toBeTypeOf("function");
+		expect(Reflect.has(root, "ModelRegistry")).toBe(false);
 		expect(HostSettingsRuntime).toBe(SettingsRuntime);
 		expect(ExtensionRunner).toBe(root.ExtensionRunner);
 		expect(runCodingAgentCliControl).toBeTypeOf("function");
@@ -61,6 +62,10 @@ describe("coding-agent public subpaths", () => {
 			"./config": {
 				types: "./dist/config.d.ts",
 				import: "./dist/config.js",
+			},
+			"./configuration": {
+				types: "./dist/configuration/index.d.ts",
+				import: "./dist/configuration/index.js",
 			},
 			"./concurrency": {
 				types: "./dist/core/concurrency-limit.d.ts",
