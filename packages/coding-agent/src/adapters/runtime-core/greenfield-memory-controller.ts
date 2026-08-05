@@ -1,6 +1,6 @@
 import type { AgentMessage } from "@vetta/agent-core";
 import type { Api, Model } from "@vetta/ai";
-import type { CodingAgentMemoryRolloverRuntime } from "./greenfield-memory-rollover-orchestrator.js";
+import type { CodingAgentMemoryRolloverRuntime } from "../../memory/index.js";
 
 export interface CodingAgentMemoryController {
 	flushMemory(signal?: AbortSignal): Promise<number>;

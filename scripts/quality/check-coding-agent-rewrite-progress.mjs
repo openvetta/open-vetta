@@ -26,6 +26,11 @@ const FORBIDDEN_LEGACY_HTML_EXPORT_MARKERS = Object.freeze([
 	"installExportTemplateAssets",
 	"@vetta/coding-agent/export-template-assets",
 ]);
+const FORBIDDEN_LEGACY_MEMORY_MARKERS = Object.freeze([
+	"core/memory/",
+	"core/tools/memory/",
+	"greenfield-memory-rollover-orchestrator",
+]);
 const RUNTIME_PACKAGE_PREFIXES = Object.freeze([
 	"packages/runtime-core/src/",
 	"packages/runtime-tools/src/",
@@ -105,9 +110,15 @@ export function collectCodingAgentRewriteState({
 			(left, right) =>
 				left.path.localeCompare(right.path) || left.line - right.line || left.marker.localeCompare(right.marker),
 		);
+	const legacyMemoryReferences = governedFiles
+		.flatMap((file) => collectForbiddenReferences(file, FORBIDDEN_LEGACY_MEMORY_MARKERS))
+		.sort(
+			(left, right) =>
+				left.path.localeCompare(right.path) || left.line - right.line || left.marker.localeCompare(right.marker),
+		);
 
 	return Object.freeze({
-		version: 3,
+		version: 4,
 		oldImplementationEdges,
 		runtimeBackedges,
 		oldImplementationFiles,
@@ -117,6 +128,7 @@ export function collectCodingAgentRewriteState({
 		oversizedStableExtensionModules,
 		oversizedStableResourceModules,
 		legacyHtmlExportReferences,
+		legacyMemoryReferences,
 	});
 }
 
@@ -140,6 +152,9 @@ export function findCodingAgentRewriteProgressViolations(actual, baseline) {
 		violations.push(
 			`${reference.path}:${reference.line}: forbidden Legacy HTML export reference (${reference.marker})`,
 		);
+	}
+	for (const reference of actual.legacyMemoryReferences) {
+		violations.push(`${reference.path}:${reference.line}: forbidden Legacy Memory reference (${reference.marker})`);
 	}
 	if (baseline.version !== actual.version) {
 		violations.push(`rewrite baseline version differs (${baseline.version} !== ${actual.version})`);
@@ -192,6 +207,7 @@ export function summarizeCodingAgentRewriteState(state) {
 		legacyCoreExports: state.legacyCoreExports.length,
 		legacyExampleImports: state.legacyExampleImports.length,
 		legacyHtmlExportReferences: state.legacyHtmlExportReferences.length,
+		legacyMemoryReferences: state.legacyMemoryReferences.length,
 		retainedFormatBoundaries: RETAINED_LEGACY_FORMAT_BOUNDARIES.length,
 		formatBoundaryOldImplementationEdges: state.oldImplementationEdges.filter((edge) =>
 			formatBoundarySet.has(edge.path),
@@ -203,12 +219,18 @@ export function summarizeCodingAgentRewriteState(state) {
 }
 
 function collectForbiddenHtmlExportReferences(file) {
+	return collectForbiddenReferences(file, FORBIDDEN_LEGACY_HTML_EXPORT_MARKERS);
+}
+
+function collectForbiddenReferences(file, markers) {
 	return file.text.split(/\r?\n/).flatMap((line, index) =>
-		FORBIDDEN_LEGACY_HTML_EXPORT_MARKERS.filter((marker) => line.includes(marker)).map((marker) => ({
-			path: file.path,
-			line: index + 1,
-			marker,
-		})),
+		markers
+			.filter((marker) => line.includes(marker))
+			.map((marker) => ({
+				path: file.path,
+				line: index + 1,
+				marker,
+			})),
 	);
 }
 
@@ -355,6 +377,8 @@ function readCurrentState() {
 	const governedFiles = [
 		...productionFiles,
 		...sdkExampleFiles,
+		...readSourceFiles("packages/coding-agent/test"),
+		...readSourceFiles("packages/runtime-tools/test"),
 		...walkFiles(join(repoRoot, "packages/cli-app/scripts")).map((filePath) => ({
 			path: rel(filePath),
 			text: readText(filePath),
@@ -371,6 +395,12 @@ function readCurrentState() {
 		codingAgentPackageJson,
 		governedFiles,
 	});
+}
+
+function readSourceFiles(relativePath) {
+	return walkFiles(join(repoRoot, relativePath))
+		.map((filePath) => ({ path: rel(filePath), text: readText(filePath) }))
+		.filter((file) => /\.[cm]?[jt]sx?$/.test(file.path));
 }
 
 if (isDirectRun(import.meta.url)) {
@@ -396,7 +426,7 @@ if (isDirectRun(import.meta.url)) {
 					.map(([domain, count]) => `${domain}=${count}`)
 					.join(", ");
 				ok(
-					`[coding-agent-rewrite] ok (old implementation edges=${summary.oldImplementationEdges}/0, Runtime backedges=${summary.runtimeBackedges}/0, old files=${summary.oldImplementationFiles}/0, compatibility exports=${summary.compatibilityExports}/0, legacy core exports=${summary.legacyCoreExports}/0, legacy examples=${summary.legacyExampleImports}/0, Legacy HTML export references=${summary.legacyHtmlExportReferences}/0, retained format boundaries=${summary.retainedFormatBoundaries}, format-to-old edges=${summary.formatBoundaryOldImplementationEdges}/0; domains: ${domains || "none"})`,
+					`[coding-agent-rewrite] ok (old implementation edges=${summary.oldImplementationEdges}/0, Runtime backedges=${summary.runtimeBackedges}/0, old files=${summary.oldImplementationFiles}/0, compatibility exports=${summary.compatibilityExports}/0, legacy core exports=${summary.legacyCoreExports}/0, legacy examples=${summary.legacyExampleImports}/0, Legacy HTML export references=${summary.legacyHtmlExportReferences}/0, Legacy Memory references=${summary.legacyMemoryReferences}/0, retained format boundaries=${summary.retainedFormatBoundaries}, format-to-old edges=${summary.formatBoundaryOldImplementationEdges}/0; domains: ${domains || "none"})`,
 				);
 			}
 		}

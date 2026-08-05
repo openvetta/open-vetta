@@ -5,13 +5,11 @@ import type { TSchema } from "@sinclair/typebox";
 import type { RuntimeToolDefinition } from "@vetta/runtime-core/kernel";
 import { listAvailableTags, queryByTags, writeWikiPage } from "@vetta/runtime-knowledge";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { applyMemoryOperation } from "../../../coding-agent/src/core/memory/memory-store.js";
 import { TodoStore } from "../../../coding-agent/src/core/todo-store.js";
 import { createAskUserQuestionTool as createLegacyAskUserQuestionTool } from "../../../coding-agent/src/core/tools/ask-user-question/index.js";
 import { createInvokeSkillTool as createLegacyInvokeSkillTool } from "../../../coding-agent/src/core/tools/invoke-skill/index.js";
 import { createKbFilterByTagsTool as createLegacyKbFilterByTagsTool } from "../../../coding-agent/src/core/tools/kb-filter-by-tags/index.js";
 import { createKbListTagsTool as createLegacyKbListTagsTool } from "../../../coding-agent/src/core/tools/kb-list-tags/index.js";
-import { createMemoryTool as createLegacyMemoryTool } from "../../../coding-agent/src/core/tools/memory/index.js";
 import { createTodoTool as createLegacyTodoTool } from "../../../coding-agent/src/core/tools/todo/index.js";
 import { createToolSearchTool as createLegacyToolSearchTool } from "../../../coding-agent/src/core/tools/tool-search/index.js";
 import { stripFrontmatter } from "../../../coding-agent/src/utils/frontmatter.js";
@@ -24,6 +22,11 @@ import {
 	createMemoryToolRegistration,
 	createTodoToolRegistration,
 	createToolSearchToolRegistration,
+	MEMORY_TOOL_CATEGORY,
+	MEMORY_TOOL_DESCRIPTION,
+	MEMORY_TOOL_SCOPES,
+	MemoryToolInputSchema,
+	type MemoryToolOperations,
 	scoreDeferredTools,
 } from "../../src/coding/index.js";
 
@@ -72,11 +75,7 @@ describe("native capability tool compatibility", () => {
 		const skill = createSkill();
 		const search = () => ({ activated: [], alreadyActive: [], totalDeferred: 0 });
 		const todoStore = new TodoStore();
-		const memoryFile = join(testRoot, "definition-memory.md");
-		const memoryOperations = {
-			apply: (action: "add" | "replace" | "remove", input: { content?: string; match?: string }) =>
-				applyMemoryOperation(memoryFile, action, input),
-		};
+		const memoryOperations = createInMemoryMemoryOperations();
 		const knowledgeOperations = createKnowledgeOperations();
 
 		expectRegistrationMatchesLegacy(
@@ -94,10 +93,22 @@ describe("native capability tool compatibility", () => {
 			createToolSearchToolRegistration({ search }),
 			createLegacyToolSearchTool({ search }),
 		);
-		expectRegistrationMatchesLegacy(
-			createMemoryToolRegistration({ operations: memoryOperations }),
-			createLegacyMemoryTool(memoryFile),
-		);
+		const memory = createMemoryToolRegistration({ operations: memoryOperations });
+		expect({
+			name: memory.tool.name,
+			label: memory.tool.label,
+			description: memory.tool.description,
+			schema: memory.tool.inputSchema,
+			scopeUse: memory.scopeUse,
+			category: memory.category,
+		}).toEqual({
+			name: "memory",
+			label: "Memory",
+			description: MEMORY_TOOL_DESCRIPTION,
+			schema: MemoryToolInputSchema,
+			scopeUse: MEMORY_TOOL_SCOPES,
+			category: MEMORY_TOOL_CATEGORY,
+		});
 		expectRegistrationMatchesLegacy(
 			createTodoToolRegistration({ getTodoStore: () => todoStore }),
 			createLegacyTodoTool({ getTodoStore: () => todoStore }),
@@ -168,20 +179,24 @@ describe("native capability tool compatibility", () => {
 	});
 
 	it("keeps memory add and replace state transitions", async () => {
-		const legacyFile = join(testRoot, "legacy-memory.md");
-		const runtimeFile = join(testRoot, "runtime-memory.md");
-		const legacy = createLegacyMemoryTool(legacyFile);
 		const runtime = createMemoryToolRegistration({
-			operations: {
-				apply: (action, input) => applyMemoryOperation(runtimeFile, action, input),
-			},
+			operations: createInMemoryMemoryOperations(),
 		}).tool;
-		for (const input of [
-			{ action: "add" as const, content: "Uses Bun" },
-			{ action: "replace" as const, match: "Bun", content: "Uses Bun workspaces" },
-		]) {
-			expect(await executeRuntime(runtime, input)).toEqual(await legacy.execute("legacy", input, signal));
-		}
+		expect(await executeRuntime(runtime, { action: "add", content: "Uses Bun" })).toEqual({
+			content: [{ type: "text", text: "memory add ok — 1 entry, 8/4000 chars.\n\nCurrent memory:\n1. Uses Bun" }],
+			details: { action: "add", entryCount: 1, chars: 8, limit: 4_000 },
+		});
+		expect(
+			await executeRuntime(runtime, { action: "replace", match: "Bun", content: "Uses Bun workspaces" }),
+		).toEqual({
+			content: [
+				{
+					type: "text",
+					text: "memory replace ok — 1 entry, 19/4000 chars.\n\nCurrent memory:\n1. Uses Bun workspaces",
+				},
+			],
+			details: { action: "replace", entryCount: 1, chars: 19, limit: 4_000 },
+		});
 	});
 
 	it("keeps todo creation, update, listing, and clear behavior", async () => {
@@ -265,6 +280,24 @@ function createKnowledgeOperations() {
 		queryByTags: async (input: { all?: string[]; any?: string[]; none?: string[] }) => {
 			const pages = await queryByTags(testRoot, input);
 			return pages.map((page) => ({ ...page, absolutePath: join(testRoot, "wiki", page.path) }));
+		},
+	};
+}
+
+function createInMemoryMemoryOperations(): MemoryToolOperations {
+	const entries: string[] = [];
+	return {
+		apply(action, input) {
+			if (action === "add") entries.push(input.content ?? "");
+			if (action === "replace") {
+				const index = entries.findIndex((entry) => entry.includes(input.match ?? ""));
+				if (index >= 0) entries[index] = input.content ?? "";
+			}
+			if (action === "remove") {
+				const index = entries.findIndex((entry) => entry.includes(input.match ?? ""));
+				if (index >= 0) entries.splice(index, 1);
+			}
+			return { entries: [...entries], chars: entries.join("\n\n§\n\n").length, limit: 4_000 };
 		},
 	};
 }

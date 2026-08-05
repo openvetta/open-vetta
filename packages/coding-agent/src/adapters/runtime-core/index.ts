@@ -6,6 +6,15 @@ export {
 	type HookConfigLayer,
 	type HookDispatchOutcome,
 } from "@vetta/ecosystem-adapter";
+export {
+	type CodingAgentMemoryCompactionPolicy,
+	type CodingAgentMemoryFlushInput,
+	CodingAgentMemoryRolloverOrchestrator,
+	type CodingAgentMemoryRolloverOrchestratorOptions,
+	type CodingAgentMemoryRolloverPreparation,
+	type CodingAgentMemoryRolloverRuntime,
+	createCodingAgentMemoryRuntimeFeature,
+} from "../../memory/index.js";
 export type { CodingAgentModelRuntime } from "../../models/index.js";
 export {
 	type CodingAgentLegacySessionIncompatibilityCode,
@@ -56,15 +65,6 @@ export {
 	type CodingAgentGreenfieldMemoryControllerOptions,
 	type CodingAgentMemoryController,
 } from "./greenfield-memory-controller.js";
-export {
-	type CodingAgentMemoryCompactionPolicy,
-	type CodingAgentMemoryFlushInput,
-	CodingAgentMemoryRolloverOrchestrator,
-	type CodingAgentMemoryRolloverOrchestratorOptions,
-	type CodingAgentMemoryRolloverPreparation,
-	type CodingAgentMemoryRolloverRuntime,
-	createCodingAgentMemoryRuntimeFeature,
-} from "./greenfield-memory-rollover-orchestrator.js";
 export {
 	type CodingAgentMcpPromptState,
 	CodingAgentModelCallFrameComposer,

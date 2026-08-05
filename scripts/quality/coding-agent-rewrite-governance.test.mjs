@@ -132,6 +132,24 @@ describe("Coding Agent rewrite progress gate", () => {
 		expect(summarizeCodingAgentRewriteState(actual).legacyHtmlExportReferences).toBe(2);
 	});
 
+	it("rejects removed Legacy Memory paths and adapter implementation even if baselined", () => {
+		const actual = stateFrom([
+			{
+				path: "packages/coding-agent/src/host/memory-host.ts",
+				text: [
+					'import { readMemoryContent } from "../core/memory/memory-store.js";',
+					'import { Runtime } from "../adapters/runtime-core/greenfield-memory-rollover-orchestrator.js";',
+				].join("\n"),
+			},
+		]);
+
+		expect(findCodingAgentRewriteProgressViolations(actual, actual)).toEqual([
+			"packages/coding-agent/src/host/memory-host.ts:1: forbidden Legacy Memory reference (core/memory/)",
+			"packages/coding-agent/src/host/memory-host.ts:2: forbidden Legacy Memory reference (greenfield-memory-rollover-orchestrator)",
+		]);
+		expect(summarizeCodingAgentRewriteState(actual).legacyMemoryReferences).toBe(2);
+	});
+
 	it("rejects new edges, accepts an exact baseline and reports stale entries after removal", () => {
 		const baseline = stateFrom([
 			{

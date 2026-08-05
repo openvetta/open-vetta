@@ -113,7 +113,6 @@ export {
 	type LsToolOptions,
 	lsTool,
 } from "./ls/index.js";
-export { createMemoryTool, type MemoryToolDetails } from "./memory/index.js";
 export {
 	createProgressTool,
 	type ProgressToolDetails,

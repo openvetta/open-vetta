@@ -45,6 +45,7 @@ import {
 	shouldCompact,
 	shouldPrefire,
 } from "../../compaction/index.js";
+import type { CodingAgentMemoryCompactionPolicy } from "../../memory/index.js";
 import {
 	COMPACTION_SUMMARY_PREFIX,
 	COMPACTION_SUMMARY_SUFFIX,
@@ -56,7 +57,6 @@ import type {
 	CodingAgentSessionEntry as SessionEntry,
 } from "../../sessions/index.js";
 import type { CodingAgentCompactionExtensionRuntime } from "./greenfield-compaction-extension-runtime.js";
-import type { CodingAgentMemoryCompactionPolicy } from "./greenfield-memory-rollover-orchestrator.js";
 import { restoreCodingAgentLegacyAgentMessageEntry } from "./legacy-session-import-normalizer.js";
 
 type ContextHookRuntime = Pick<EcosystemHookRuntime, "markSessionStart" | "runPostCompact" | "runPreCompact">;

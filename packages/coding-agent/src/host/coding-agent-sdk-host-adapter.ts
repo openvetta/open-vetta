@@ -27,7 +27,6 @@ import {
 } from "../composition/greenfield-sdk-session-factory.js";
 import type { GreenfieldSdkSessionStorageTarget } from "../composition/greenfield-sdk-session-storage.js";
 import { DEFAULT_SERVER_URL, ENV_SERVER_URL, getAgentDir, getDocsPath, getVettaHomePath } from "../config.js";
-import { DEFAULT_MEMORY_CHAR_LIMIT } from "../core/memory/memory-store.js";
 import { time } from "../core/timings.js";
 import {
 	type CodingAgentHtmlExportRuntime,
@@ -36,6 +35,7 @@ import {
 	type ToolHtmlRenderer,
 } from "../export-html/index.js";
 import type { ExtensionContext, LoadExtensionsResult, ToolDefinition } from "../extensions/index.js";
+import { DEFAULT_MEMORY_CHAR_LIMIT } from "../memory/index.js";
 import {
 	type CodingAgentModelRuntime,
 	createCodingAgentModelRuntime,

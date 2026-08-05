@@ -2,6 +2,7 @@ import {
 	type CodingAgentSessionResourceRuntimeOptions,
 	createCodingAgentSessionResourceRuntime,
 } from "../../host/coding-agent-resource-runtime.js";
+import type { CodingAgentMemoryPromptState } from "../../memory/index.js";
 import type { AgentPluginRuntimeConfig } from "../../model-context/index.js";
 import {
 	type PersonalizationSettingsSource,
@@ -28,12 +29,7 @@ export type CodingAgentPromptResourceSource = Pick<
 	"getAgentsFiles" | "getAppendSystemPrompt" | "getSkills" | "getSystemPrompt" | "refreshSkillsIfChanged"
 >;
 
-export interface CodingAgentPromptMemoryState {
-	readonly enabled: boolean;
-	readonly file: string | undefined;
-	readonly snapshot: string;
-	readonly charLimit: number;
-}
+export type CodingAgentPromptMemoryState = CodingAgentMemoryPromptState;
 
 export interface CodingAgentPromptRuntimeOptions {
 	readonly cwd: string;

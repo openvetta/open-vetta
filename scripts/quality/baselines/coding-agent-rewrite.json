@@ -1,5 +1,5 @@
 {
-	"version": 3,
+	"version": 4,
 	"oldImplementationEdges": [
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-action-host.ts",
@@ -31,36 +31,6 @@
 			"domain": "hooks"
 		},
 		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-memory-rollover-orchestrator.ts",
-			"specifier": "../../core/memory/memory-flush.js",
-			"names": [
-				"flushMemoryBeforeRollover"
-			],
-			"category": "old-core",
-			"domain": "memory"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-memory-rollover-orchestrator.ts",
-			"specifier": "../../core/memory/memory-journal.js",
-			"names": [
-				"appendJournalLine",
-				"appendJournalSection"
-			],
-			"category": "old-core",
-			"domain": "memory"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-memory-rollover-orchestrator.ts",
-			"specifier": "../../core/memory/memory-store.js",
-			"names": [
-				"DEFAULT_MEMORY_CHAR_LIMIT",
-				"applyMemoryOperation",
-				"readMemoryContent"
-			],
-			"category": "old-core",
-			"domain": "memory"
-		},
-		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-model-call-message-finalizer.ts",
 			"specifier": "../../core/image-budget.js",
 			"names": [
@@ -86,15 +56,6 @@
 			],
 			"category": "old-core",
 			"domain": "timings"
-		},
-		{
-			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
-			"specifier": "../core/memory/memory-store.js",
-			"names": [
-				"DEFAULT_MEMORY_CHAR_LIMIT"
-			],
-			"category": "old-core",
-			"domain": "memory"
 		},
 		{
 			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
@@ -162,9 +123,6 @@
 		"packages/coding-agent/src/core/image-budget.ts",
 		"packages/coding-agent/src/core/index.ts",
 		"packages/coding-agent/src/core/keybindings.ts",
-		"packages/coding-agent/src/core/memory/memory-flush.ts",
-		"packages/coding-agent/src/core/memory/memory-journal.ts",
-		"packages/coding-agent/src/core/memory/memory-store.ts",
 		"packages/coding-agent/src/core/session-lock.ts",
 		"packages/coding-agent/src/core/session/tool-scope.ts",
 		"packages/coding-agent/src/core/slash-commands.ts",
@@ -192,7 +150,6 @@
 		"packages/coding-agent/src/core/tools/kb-list-tags/index.ts",
 		"packages/coding-agent/src/core/tools/kb-write-page/index.ts",
 		"packages/coding-agent/src/core/tools/ls/index.ts",
-		"packages/coding-agent/src/core/tools/memory/index.ts",
 		"packages/coding-agent/src/core/tools/ocr-concurrency.ts",
 		"packages/coding-agent/src/core/tools/path-utils.ts",
 		"packages/coding-agent/src/core/tools/progress/index.ts",
@@ -213,5 +170,6 @@
 	"legacyExampleImports": [],
 	"oversizedStableExtensionModules": [],
 	"oversizedStableResourceModules": [],
-	"legacyHtmlExportReferences": []
+	"legacyHtmlExportReferences": [],
+	"legacyMemoryReferences": []
 }
