@@ -96,7 +96,7 @@ export interface CodingAgentQuestionCapability {
  * 新公共 SDK 的值对象和窄能力参数。
  *
  * 具体认证、模型、设置、资源和存储管理器只属于产品 Composition Root，
- * 不进入该合同。需要旧管理器注入的调用方继续使用包根兼容工厂。
+ * 不进入该合同。
  */
 export interface CreateCodingAgentSessionOptions {
 	readonly cwd?: string;

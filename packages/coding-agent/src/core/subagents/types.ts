@@ -134,8 +134,8 @@ export interface SubagentTypeDefinition {
 }
 
 /**
- * Creates a full child {@link import("../agent-session.js").AgentSession}.
- * Hosts (desktop RuntimeHost) inject sandbox-aware factories; CLI uses default.
+ * Creates the narrow child handle consumed by the coordinator.
+ * Hosts inject sandbox-aware factories; CLI uses the native runtime composition.
  */
 export interface SubagentSessionFactory {
 	create(

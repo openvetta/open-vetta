@@ -1,19 +1,17 @@
 import { describe, expect, it } from "vitest";
+import { runRpcModeWithCapabilities } from "../../src/public-api/rpc.js";
 import {
-	type AgentSession,
-	type CreateAgentSessionOptions,
-	type CreateAgentSessionResult,
-	createAgentSession,
-	type RunRpcModeOptions,
-	runRpcMode,
-} from "../../src/index.js";
+	type CreateCodingAgentSessionOptions,
+	type CreateCodingAgentSessionResult,
+	createCodingAgentSession,
+} from "../../src/public-api/sdk.js";
 
 describe("public SDK contract", () => {
-	it("keeps the package-root factory and Legacy RPC compatibility signatures", () => {
-		const factory: (options?: CreateAgentSessionOptions) => Promise<CreateAgentSessionResult> = createAgentSession;
-		const rpc: (session: AgentSession, options?: RunRpcModeOptions) => Promise<never> = runRpcMode;
+	it("exposes only stable Session and capability-oriented RPC factories", () => {
+		const factory: (options?: CreateCodingAgentSessionOptions) => Promise<CreateCodingAgentSessionResult> =
+			createCodingAgentSession;
 
-		expect(factory).toBe(createAgentSession);
-		expect(rpc).toBe(runRpcMode);
+		expect(factory).toBe(createCodingAgentSession);
+		expect(runRpcModeWithCapabilities).toBeTypeOf("function");
 	});
 });

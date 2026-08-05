@@ -1,5 +1,6 @@
 // Core session management
 
+export type { PromptAttachmentRef } from "@vetta/runtime-core";
 // Compaction
 export {
 	type BranchPreparation,
@@ -33,18 +34,6 @@ export {
 	isAgentMode,
 	matchesAgentMode,
 } from "./core/agent-mode.js";
-export {
-	AgentSession,
-	type AgentSessionConfig,
-	type AgentSessionEvent,
-	type AgentSessionEventListener,
-	type ModelCycleResult,
-	type ParsedSkillBlock,
-	type PromptOptions,
-	type PromptResourceRef,
-	parseSkillBlock,
-	type SessionStats,
-} from "./core/agent-session.js";
 // Auth and model registry
 export {
 	type ApiKeyCredential,
@@ -72,13 +61,6 @@ export { createEventBus, type EventBus, type EventBusController } from "./core/e
 export type { ReadonlyFooterDataProvider } from "./core/footer-data-provider.js";
 export { ModelRegistry } from "./core/model-registry.js";
 export { DEFAULT_PERSONA_ID, getPersonaPrompt, PERSONAS, type Persona } from "./core/personas.js";
-// SDK for programmatic usage
-export {
-	type CreateAgentSessionOptions,
-	type CreateAgentSessionResult,
-	createAgentSession,
-	type PromptTemplate,
-} from "./core/sdk.js";
 // 对话场景与工具 scope（隔离的唯一轴）
 export {
 	ALL_SCENARIOS,
@@ -88,57 +70,6 @@ export {
 	type ToolCapability,
 	type ToolCategory,
 } from "./core/session/tool-scope.js";
-export type { PromptAttachmentRef } from "./core/session/types.js";
-export {
-	type BranchSummaryEntry,
-	buildSessionContext,
-	type CompactionEntry,
-	CURRENT_SESSION_VERSION,
-	type CustomEntry,
-	type CustomMessageEntry,
-	type FileEntry,
-	getLatestCompactionEntry,
-	loadEntriesFromFile,
-	type ModelChangeEntry,
-	migrateSessionEntries,
-	type NewSessionOptions,
-	parseSessionEntries,
-	type SessionContext,
-	type SessionEntry,
-	type SessionEntryBase,
-	type SessionHeader,
-	type SessionInfo,
-	type SessionInfoEntry,
-	SessionManager,
-	type SessionMessageEntry,
-	type ThinkingLevelChangeEntry,
-} from "./core/session-manager/index.js";
-// Subagents (extensible type registry; builtin explorer + workflow)
-export {
-	buildToolsForSubagentType,
-	createDefaultSubagentSessionFactory,
-	createDefaultSubagentTypeRegistry,
-	createEmptySubagentTypeRegistry,
-	createExplorerTypeDefinition,
-	createSubagentControlTools,
-	createWorkflowTypeDefinition,
-	DISPATCH_WORKFLOWS_MAX_BATCH,
-	EXPLORER_SYSTEM_PROMPT,
-	isValidTaskName,
-	SUBAGENT_CONTROL_TOOL_NAMES,
-	SUBAGENT_TYPE_EXPLORER,
-	SUBAGENT_TYPE_WORKFLOW,
-	type SubagentChildHandle,
-	SubagentCoordinator,
-	type SubagentSessionFactory,
-	type SubagentSnapshot,
-	type SubagentStatus,
-	type SubagentTodoProgress,
-	type SubagentTypeDefinition,
-	type SubagentTypeId,
-	SubagentTypeRegistry,
-	WORKFLOW_SYSTEM_PROMPT,
-} from "./core/subagents/index.js";
 // Extension system
 export type {
 	AgentEndEvent,
@@ -275,7 +206,6 @@ export {
 	type GreenfieldRpcRetryEvent,
 	type GreenfieldRpcRetrySettings,
 	type ImHostBridge,
-	LEGACY_FULL_RPC_PROFILE,
 	type PrintModeOptions,
 	type RpcSessionCapabilities,
 	type RpcSessionInitialization,
@@ -286,7 +216,6 @@ export {
 	readGreenfieldRpcAgentMessages,
 	resolveNextGreenfieldRpcThinkingLevel,
 	runPrintMode,
-	runRpcMode,
 	runRpcModeWithCapabilities,
 } from "./modes/index.js";
 // Theme utilities for custom tools and extensions (terminal rendering helpers removed with the TUI product)

@@ -9,7 +9,6 @@ export {
 	type GreenfieldRpcRetrySettings,
 	type ImHostBridge,
 	isRpcStartupFailure,
-	LEGACY_FULL_RPC_PROFILE,
 	type RpcExtensionIncompatibilityFailure,
 	type RpcRuntimeDecision,
 	type RpcSessionCapabilities,
@@ -24,7 +23,6 @@ export {
 	type RunRpcModeOptions,
 	readGreenfieldRpcAgentMessages,
 	resolveNextGreenfieldRpcThinkingLevel,
-	runRpcMode,
 	runRpcModeWithCapabilities,
 	stringifyRpcStartupFailure,
 } from "../modes/index.js";

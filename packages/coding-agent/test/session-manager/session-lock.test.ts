@@ -3,7 +3,6 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { acquireSessionLock, SessionLockError } from "../../src/core/session-lock.js";
-import { SessionManager } from "../../src/core/session-manager/index.js";
 
 describe("acquireSessionLock", () => {
 	let tempDir: string;
@@ -122,117 +121,6 @@ describe("acquireSessionLock", () => {
 			expect(existsSync(handle.lockPath)).toBe(true);
 		} finally {
 			handle.release();
-		}
-	});
-});
-
-describe("SessionManager file lock integration", () => {
-	let tempDir: string;
-
-	beforeEach(() => {
-		tempDir = join(tmpdir(), `session-manager-lock-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-		mkdirSync(tempDir, { recursive: true });
-	});
-
-	afterEach(() => {
-		rmSync(tempDir, { recursive: true, force: true });
-	});
-
-	it("acquires a lock when a fresh persistent session is created", () => {
-		const manager = SessionManager.create(tempDir, tempDir);
-		try {
-			const sessionFile = manager.getSessionFile();
-			expect(sessionFile).toBeDefined();
-			expect(existsSync(`${sessionFile}.lock`)).toBe(true);
-		} finally {
-			manager.close();
-		}
-	});
-
-	it("releases the lock when close() is called", () => {
-		const manager = SessionManager.create(tempDir, tempDir);
-		const sessionFile = manager.getSessionFile()!;
-		expect(existsSync(`${sessionFile}.lock`)).toBe(true);
-		manager.close();
-		expect(existsSync(`${sessionFile}.lock`)).toBe(false);
-	});
-
-	it("does not lock when persist is disabled (in-memory mode)", () => {
-		const manager = SessionManager.inMemory(tempDir);
-		try {
-			expect(manager.getSessionFile()).toBeUndefined();
-		} finally {
-			manager.close();
-		}
-	});
-
-	it("rejects opening a session file already locked by another manager", () => {
-		const first = SessionManager.create(tempDir, tempDir);
-		const sessionFile = first.getSessionFile()!;
-
-		// Force first manager to actually persist a header so the file exists on disk.
-		// Without an assistant message _persist defers writes; we use _rewriteFile via a dummy
-		// path-touch instead by writing a minimal valid header directly while the lock is held.
-		// Simplest: just call SessionManager.open() on the file before the first manager has flushed
-		// — the lock should still block it.
-		try {
-			// File may not exist yet (first manager hasn't flushed). Create a minimal valid header
-			// so SessionManager.open can read it.
-			writeFileSync(
-				sessionFile,
-				`${JSON.stringify({
-					type: "session",
-					version: 3,
-					id: "test",
-					timestamp: new Date().toISOString(),
-					cwd: tempDir,
-				})}\n`,
-			);
-
-			expect(() => SessionManager.open(sessionFile)).toThrow(SessionLockError);
-		} finally {
-			first.close();
-		}
-	});
-
-	it("allows reopening a session file after the previous manager closes", () => {
-		const first = SessionManager.create(tempDir, tempDir);
-		const sessionFile = first.getSessionFile()!;
-		writeFileSync(
-			sessionFile,
-			`${JSON.stringify({
-				type: "session",
-				version: 3,
-				id: "test",
-				timestamp: new Date().toISOString(),
-				cwd: tempDir,
-			})}\n`,
-		);
-		first.close();
-
-		const second = SessionManager.open(sessionFile);
-		try {
-			expect(existsSync(`${sessionFile}.lock`)).toBe(true);
-		} finally {
-			second.close();
-		}
-	});
-
-	it("keeps the source identity and lock when switching to a locked target fails", () => {
-		const source = SessionManager.create(tempDir, tempDir);
-		const target = SessionManager.create(tempDir, tempDir);
-		const sourceFile = source.getSessionFile()!;
-		const sourceId = source.getSessionId();
-		const targetFile = target.getSessionFile()!;
-		try {
-			expect(() => source.setSessionFile(targetFile)).toThrow(SessionLockError);
-			expect(source.getSessionFile()).toBe(sourceFile);
-			expect(source.getSessionId()).toBe(sourceId);
-			expect(existsSync(`${sourceFile}.lock`)).toBe(true);
-			expect(existsSync(`${targetFile}.lock`)).toBe(true);
-		} finally {
-			source.close();
-			target.close();
 		}
 	});
 });

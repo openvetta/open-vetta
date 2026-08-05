@@ -2,17 +2,17 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Type } from "@sinclair/typebox";
-import type { Api, AssistantMessage, Model, UserMessage } from "@vetta/ai";
+import type { Api, Model, UserMessage } from "@vetta/ai";
+import type { RuntimeTracer } from "@vetta/runtime-telemetry";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AuthStorage } from "../../src/core/auth-storage.js";
 import { ModelRegistry } from "../../src/core/model-registry.js";
-import type { CreateAgentSessionOptions } from "../../src/core/sdk.js";
-import { SessionManager } from "../../src/core/session-manager/index.js";
-import { createEmptySubagentTypeRegistry } from "../../src/core/subagents/index.js";
-import { readTool } from "../../src/core/tools/index.js";
-import type { ToolDefinition } from "../../src/extensions/index.js";
-import { createGreenfieldAgentSession } from "../../src/host/coding-agent-sdk-host-adapter.js";
-import type { CodingAgentSession } from "../../src/public-api/sdk/index.js";
+import { createCodingAgentSessionFromPublicOptions } from "../../src/host/coding-agent-sdk-host-adapter.js";
+import type {
+	CodingAgentSession,
+	CodingAgentSessionToolDefinition,
+	CreateCodingAgentSessionOptions,
+} from "../../src/public-api/sdk/index.js";
 import { SettingsRuntime } from "../../src/settings/index.js";
 
 describe("Coding Agent SDK Host Adapter", () => {
@@ -26,80 +26,10 @@ describe("Coding Agent SDK Host Adapter", () => {
 		);
 	});
 
-	it("creates an in-memory Greenfield session and closes the SDK result fields", async () => {
-		const resources = await createResources("sdk-host-memory-");
-		const legacySession = SessionManager.inMemory(resources.cwd);
-		const result = await createGreenfieldAgentSession({
-			...resources.options,
-			sessionManager: legacySession,
-			model: MODEL,
-		});
-		sessions.push(result.session);
-
-		expect(result.session.sessionId).toBe(legacySession.getSessionId());
-		expect(result.session.sessionFile).toBeUndefined();
-		expect(result.extensionsResult.errors).toEqual([]);
-		expect(result.modelFallbackMessage).toBeUndefined();
-	});
-
-	it("migrates a populated Legacy file snapshot without modifying the source", async () => {
-		const resources = await createResources("sdk-host-legacy-");
-		const legacyDirectory = await temporaryDirectory("sdk-host-legacy-sessions-");
-		const legacySession = SessionManager.create(resources.cwd, legacyDirectory);
-		legacySession.appendModelChange(MODEL.provider, MODEL.id);
-		legacySession.appendThinkingLevelChange("high");
-		legacySession.appendMessage(userMessage("Legacy question"));
-		legacySession.appendMessage(assistantMessage("Legacy answer"));
-		const sourcePath = legacySession.getSessionFile();
-		if (!sourcePath) throw new Error("Expected a persisted Legacy session path");
-		const sourceBefore = await readFile(sourcePath, "utf8");
-
-		const result = await createGreenfieldAgentSession({
-			...resources.options,
-			sessionManager: legacySession,
-			model: MODEL,
-		});
-		sessions.push(result.session);
-
-		expect(result.session.sessionFile).not.toBe(sourcePath);
-		expect(result.session.messages.map(({ role }) => role)).toEqual(["user", "assistant"]);
-		expect(result.session.thinkingLevel).toBe("high");
-		expect(await readFile(sourcePath, "utf8")).toBe(sourceBefore);
-	});
-
-	it("restores the SDK model fallback message while selecting an available replacement", async () => {
-		const resources = await createResources("sdk-host-fallback-");
-		registerTestModel(resources.modelRegistry);
-		resources.settingsManager.setDefaultModelAndProvider(MODEL.provider, MODEL.id);
-		const legacyDirectory = await temporaryDirectory("sdk-host-fallback-sessions-");
-		const legacySession = SessionManager.create(resources.cwd, legacyDirectory);
-		legacySession.appendModelChange("missing-provider", "missing-model");
-		legacySession.appendMessage(userMessage("Restore this conversation"));
-		legacySession.appendMessage(
-			assistantMessage("Restored", {
-				api: MODEL.api,
-				provider: "missing-provider",
-				id: "missing-model",
-			}),
-		);
-
-		const result = await createGreenfieldAgentSession({
-			...resources.options,
-			sessionManager: legacySession,
-		});
-		sessions.push(result.session);
-
-		expect(result.session.model).toMatchObject({ provider: MODEL.provider, id: MODEL.id });
-		expect(result.modelFallbackMessage).toBe(
-			`Could not restore model missing-provider/missing-model. Using ${MODEL.provider}/${MODEL.id}`,
-		);
-	});
-
 	it("wires scoped models into initial selection and fixed-session cycling", async () => {
 		const resources = await createResources("sdk-host-scoped-");
 		registerTestModel(resources.modelRegistry);
-		const result = await createGreenfieldAgentSession({
-			...resources.options,
+		const result = await createSession(resources, {
 			scopedModels: [
 				{ model: OTHER_MODEL, thinkingLevel: "high" },
 				{ model: MODEL, thinkingLevel: "low" },
@@ -118,19 +48,17 @@ describe("Coding Agent SDK Host Adapter", () => {
 
 	it("preserves explicit built-in tool activation, including an empty tool list", async () => {
 		const emptyResources = await createResources("sdk-host-no-tools-");
-		const emptyResult = await createGreenfieldAgentSession({
-			...emptyResources.options,
+		const emptyResult = await createSession(emptyResources, {
 			model: MODEL,
-			tools: [],
+			activeTools: [],
 		});
 		sessions.push(emptyResult.session);
 		expect(emptyResult.session.getActiveToolNames()).toEqual([]);
 
 		const subsetResources = await createResources("sdk-host-tool-subset-");
-		const subsetResult = await createGreenfieldAgentSession({
-			...subsetResources.options,
+		const subsetResult = await createSession(subsetResources, {
 			model: MODEL,
-			tools: [readTool],
+			activeTools: ["read"],
 		});
 		sessions.push(subsetResult.session);
 		expect(subsetResult.session.getActiveToolNames()).toEqual(["read"]);
@@ -138,8 +66,7 @@ describe("Coding Agent SDK Host Adapter", () => {
 
 	it("registers, replaces and removes Session-private SDK custom tools", async () => {
 		const resources = await createResources("sdk-host-custom-tools-");
-		const result = await createGreenfieldAgentSession({
-			...resources.options,
+		const result = await createSession(resources, {
 			model: MODEL,
 			customTools: [customTool("before")],
 		});
@@ -158,10 +85,9 @@ describe("Coding Agent SDK Host Adapter", () => {
 
 	it("keeps SDK custom tools inactive when the caller supplied an explicit built-in tool list", async () => {
 		const resources = await createResources("sdk-host-explicit-custom-tools-");
-		const result = await createGreenfieldAgentSession({
-			...resources.options,
+		const result = await createSession(resources, {
 			model: MODEL,
-			tools: [],
+			activeTools: [],
 			customTools: [customTool("inactive")],
 		});
 		sessions.push(result.session);
@@ -173,14 +99,13 @@ describe("Coding Agent SDK Host Adapter", () => {
 	it("accepts tracing options without taking ownership of the injected tracer", async () => {
 		const resources = await createResources("sdk-host-tracing-");
 		const shutdown = vi.fn(async () => {});
-		const tracer: NonNullable<CreateAgentSessionOptions["tracer"]> = {
+		const tracer: RuntimeTracer = {
 			startObservation() {
 				throw new Error("Session creation must not start a Turn observation");
 			},
 			shutdown,
 		};
-		const result = await createGreenfieldAgentSession({
-			...resources.options,
+		const result = await createSession(resources, {
 			model: MODEL,
 			tracer,
 			tracingTraceName: "sdk-trace",
@@ -194,8 +119,7 @@ describe("Coding Agent SDK Host Adapter", () => {
 
 	it("keeps subagents fail-closed when enableSubagents is omitted", async () => {
 		const resources = await createResources("sdk-host-subagents-default-");
-		const result = await createGreenfieldAgentSession({
-			...resources.options,
+		const result = await createSession(resources, {
 			enableSubagents: undefined,
 			model: MODEL,
 		});
@@ -206,32 +130,11 @@ describe("Coding Agent SDK Host Adapter", () => {
 		expect(result.session.clearFinishedSubagents()).toBe(0);
 	});
 
-	it("accepts SDK subagent registry and factory injection without exposing Legacy objects", async () => {
-		const resources = await createResources("sdk-host-subagent-injection-");
-		const subagentTypeRegistry = createEmptySubagentTypeRegistry();
-		const subagentSessionFactory: NonNullable<CreateAgentSessionOptions["subagentSessionFactory"]> = {
-			async create() {
-				throw new Error("Disabled subagents must not create a child");
-			},
-		};
-		const result = await createGreenfieldAgentSession({
-			...resources.options,
-			model: MODEL,
-			subagentTypeRegistry,
-			subagentSessionFactory,
-		});
-		sessions.push(result.session);
-
-		expect(result.session.listSubagents()).toEqual([]);
-		expect(Reflect.has(result.session, "subagents")).toBe(false);
-	});
-
 	it("serves product behavior through narrow SDK capabilities", async () => {
 		const resources = await createResources("sdk-host-product-capabilities-");
 		registerTestModel(resources.modelRegistry);
 		const memoryFile = join(resources.cwd, "MEMORY.md");
-		const result = await createGreenfieldAgentSession({
-			...resources.options,
+		const result = await createSession(resources, {
 			model: MODEL,
 			memoryMode: true,
 			memoryFile,
@@ -274,8 +177,7 @@ describe("Coding Agent SDK Host Adapter", () => {
 
 	it("preserves SDK context and Extension bindings across active Session transitions", async () => {
 		const resources = await createResources("sdk-host-active-session-");
-		const result = await createGreenfieldAgentSession({
-			...resources.options,
+		const result = await createSession(resources, {
 			model: MODEL,
 		});
 		sessions.push(result.session);
@@ -327,17 +229,29 @@ describe("Coding Agent SDK Host Adapter", () => {
 			agentDir,
 			modelRegistry,
 			settingsManager,
-			options: {
-				cwd,
-				agentDir,
-				authStorage,
-				modelRegistry,
-				settingsManager,
+			authStorage,
+		};
+	}
+
+	function createSession(
+		resources: Awaited<ReturnType<typeof createResources>>,
+		options: CreateCodingAgentSessionOptions,
+	) {
+		return createCodingAgentSessionFromPublicOptions(
+			{
+				cwd: resources.cwd,
+				agentDir: resources.agentDir,
 				enableMcp: false,
 				enableSubagents: false,
 				includeAgentSkills: false,
+				...options,
 			},
-		};
+			{
+				authStorage: resources.authStorage,
+				modelRegistry: resources.modelRegistry,
+				settingsManager: resources.settingsManager,
+			},
+		);
 	}
 
 	async function temporaryDirectory(prefix: string): Promise<string> {
@@ -375,7 +289,7 @@ function registerTestModel(modelRegistry: ModelRegistry): void {
 	});
 }
 
-function customTool(description: string): ToolDefinition {
+function customTool(description: string): CodingAgentSessionToolDefinition {
 	return {
 		name: "sdk_echo",
 		label: "SDK Echo",
@@ -392,26 +306,6 @@ function customTool(description: string): ToolDefinition {
 
 function userMessage(text: string): UserMessage {
 	return { role: "user", content: text, timestamp: 1 };
-}
-
-function assistantMessage(text: string, model: Pick<Model<Api>, "api" | "provider" | "id"> = MODEL): AssistantMessage {
-	return {
-		role: "assistant",
-		content: [{ type: "text", text }],
-		api: model.api,
-		provider: model.provider,
-		model: model.id,
-		usage: {
-			input: 1,
-			output: 1,
-			cacheRead: 0,
-			cacheWrite: 0,
-			totalTokens: 2,
-			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-		},
-		stopReason: "stop",
-		timestamp: 2,
-	};
 }
 
 const MODEL: Model<Api> = {

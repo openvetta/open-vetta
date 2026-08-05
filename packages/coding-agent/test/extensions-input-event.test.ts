@@ -4,8 +4,8 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AuthStorage } from "../src/core/auth-storage.js";
 import { ModelRegistry } from "../src/core/model-registry.js";
-import { SessionManager } from "../src/core/session-manager/index.js";
 import { discoverAndLoadExtensions, ExtensionRunner } from "../src/extensions/index.js";
+import { createExtensionSessionView } from "./fixtures/extension-session-view.js";
 
 describe("Input Event", () => {
 	let tempDir: string;
@@ -27,7 +27,7 @@ describe("Input Event", () => {
 		fs.mkdirSync(extensionsDir);
 		for (let i = 0; i < extensions.length; i++) fs.writeFileSync(path.join(extensionsDir, `e${i}.ts`), extensions[i]);
 		const result = await discoverAndLoadExtensions([], tempDir, tempDir);
-		const sm = SessionManager.inMemory();
+		const sm = createExtensionSessionView(tempDir);
 		const mr = new ModelRegistry(AuthStorage.create(path.join(tempDir, "auth.json")));
 		return new ExtensionRunner(result.extensions, result.runtime, tempDir, sm, mr);
 	}

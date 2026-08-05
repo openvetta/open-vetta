@@ -4,6 +4,7 @@ import { getModel } from "@vetta/ai";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { beforeEach, describe, expect, it } from "vitest";
+import { parseCodingAgentLegacySessionDocument } from "../src/adapters/runtime-core/legacy-session-format/document.js";
 import {
 	type CompactionSettings,
 	calculateContextTokens,
@@ -15,15 +16,13 @@ import {
 	shouldCompact,
 } from "../src/compaction/index.js";
 import {
-	buildSessionContext,
-	type CompactionEntry,
-	type ModelChangeEntry,
-	migrateSessionEntries,
-	parseSessionEntries,
-	type SessionEntry,
-	type SessionMessageEntry,
-	type ThinkingLevelChangeEntry,
-} from "../src/core/session-manager/index.js";
+	projectCodingAgentSessionContext as buildSessionContext,
+	type CodingAgentCompactionEntry as CompactionEntry,
+	type CodingAgentModelChangeEntry as ModelChangeEntry,
+	type CodingAgentSessionEntry as SessionEntry,
+	type CodingAgentSessionMessageEntry as SessionMessageEntry,
+	type CodingAgentThinkingLevelEntry as ThinkingLevelChangeEntry,
+} from "../src/sessions/index.js";
 
 // ============================================================================
 // Test fixtures
@@ -32,9 +31,7 @@ import {
 function loadLargeSessionEntries(): SessionEntry[] {
 	const sessionPath = join(__dirname, "fixtures/large-session.jsonl");
 	const content = readFileSync(sessionPath, "utf-8");
-	const entries = parseSessionEntries(content);
-	migrateSessionEntries(entries); // Add id/parentId for v1 fixtures
-	return entries.filter((e): e is SessionEntry => e.type !== "session");
+	return [...parseCodingAgentLegacySessionDocument(content).entries];
 }
 
 function createMockUsage(input: number, output: number, cacheRead = 0, cacheWrite = 0): Usage {

@@ -5,10 +5,7 @@
  */
 
 import type { AgentMessage } from "@vetta/agent-core";
-import type { AssistantMessage, Model } from "@vetta/ai";
-import { calculateContextTokens, estimateContextTokens } from "../../compaction/index.js";
-import type { ContextUsage } from "../../extensions/index.js";
-import { getLatestCompactionEntry, type SessionManager } from "../session-manager/index.js";
+import type { AssistantMessage } from "@vetta/ai";
 
 /** Session statistics for /session command */
 export interface SessionStats {
@@ -87,65 +84,6 @@ export function computeSessionStats(deps: {
 			total: totalInput + totalOutput + totalCacheRead + totalCacheWrite,
 		},
 		cost: totalCost,
-	};
-}
-
-/** Estimate current context usage against the model's context window. */
-export function computeContextUsage(deps: {
-	model: Model<any> | undefined;
-	messages: AgentMessage[];
-	sessionManager: SessionManager;
-}): ContextUsage | undefined {
-	const { model, messages, sessionManager } = deps;
-	if (!model) return undefined;
-
-	const contextWindow = model.contextWindow ?? 0;
-	if (contextWindow <= 0) return undefined;
-
-	// No messages yet → 0% usage (system prompt is not counted here)
-	if (messages.length === 0) {
-		return { tokens: 0, contextWindow, percent: 0 };
-	}
-
-	// After compaction, the last assistant usage reflects pre-compaction context size.
-	// We can only trust usage from an assistant that responded after the latest compaction.
-	// If no such assistant exists, fall back to estimation rather than returning unknown.
-	const branchEntries = sessionManager.getBranch();
-	const latestCompaction = getLatestCompactionEntry(branchEntries);
-
-	if (latestCompaction) {
-		const compactionIndex = branchEntries.lastIndexOf(latestCompaction);
-		let hasPostCompactionUsage = false;
-		for (let i = branchEntries.length - 1; i > compactionIndex; i--) {
-			const entry = branchEntries[i];
-			if (entry.type === "message" && entry.message.role === "assistant") {
-				const assistant = entry.message;
-				if (assistant.stopReason !== "aborted" && assistant.stopReason !== "error") {
-					const contextTokens = calculateContextTokens(assistant.usage);
-					if (contextTokens > 0) {
-						hasPostCompactionUsage = true;
-					}
-					break;
-				}
-			}
-		}
-
-		if (!hasPostCompactionUsage) {
-			// No post-compaction usage yet — use estimation instead of returning null.
-			// This avoids "usage unknown" after compaction until the next LLM response.
-			const estimate = estimateContextTokens(messages);
-			const percent = (estimate.tokens / contextWindow) * 100;
-			return { tokens: estimate.tokens, contextWindow, percent };
-		}
-	}
-
-	const estimate = estimateContextTokens(messages);
-	const percent = (estimate.tokens / contextWindow) * 100;
-
-	return {
-		tokens: estimate.tokens,
-		contextWindow,
-		percent,
 	};
 }
 

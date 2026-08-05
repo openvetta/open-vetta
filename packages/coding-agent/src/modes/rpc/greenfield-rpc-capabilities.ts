@@ -5,9 +5,9 @@ import { projectCodingAgentGreenfieldMessages } from "../../adapters/runtime-cor
 import { CODING_AGENT_LEGACY_AGENT_MESSAGE_CONTEXT_TYPE } from "../../adapters/runtime-core/legacy-session-import-normalizer.js";
 import { type BashResult, executeBash } from "../../core/bash-executor.js";
 import { exportConversationDocumentToHtml } from "../../core/export-html/index.js";
-import type { SessionStats } from "../../core/session/session-stats.js";
 import { type BashExecutionMessage, bashExecutionToText } from "../../model-context/index.js";
 import type { RpcBashCapability } from "./rpc-session-capabilities.js";
+import type { SessionStats } from "./rpc-types.js";
 
 export {
 	CodingAgentGreenfieldTurnRetryController as GreenfieldRpcRetryController,

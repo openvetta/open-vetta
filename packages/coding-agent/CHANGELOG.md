@@ -2,6 +2,7 @@
 
 ### Breaking Changes
 
+- **退役旧 Session 执行公共面**：删除旧 `AgentSession`、`SessionManager`、包根 `createAgentSession`、旧 SDK/RPC 适配器及深层会话控制器；稳定 `@vetta/coding-agent/sdk` 与 capability-based RPC 成为唯一会话执行入口。CLI 导出、会话历史格式、Extension、工具、资源和运行时行为继续由 Greenfield 组合提供。
 - **退役旧 SettingsManager 公共面**：删除包根与 `core/settings-manager.js` 深层入口，宿主服务参数由 `settingsManager` 改为 `settings`；设置能力改由显式 `@vetta/coding-agent/settings` 子路径和 `host-services` 暴露的 `SettingsRuntime` 合同提供。
 - **退役 Coding Agent Knowledge 公共面**：移除 `@vetta/coding-agent/knowledge` 子路径与包根 `knowledge` 命名空间；知识领域实现改由 `@vetta/runtime-knowledge` 独立提供。
 - **退役包根具体 Tool API**：`@vetta/coding-agent` 包根与 RPC 子路径不再转发内置 Tool 工厂、单例和实现类型；具体 Coding Tool 由 `@vetta/runtime-tools/coding` 持有，稳定 SDK 和产品组合根继续提供原有工具能力。
@@ -31,6 +32,7 @@
 
 ### Changed
 
+- **旧 Session 执行闭包收口**：Session/RPC/SDK 的统计、存储意图、活动会话切换和 Extension 只读视图改为稳定合同；旧 JSONL 仅通过独立格式 Reader 供导出和迁移使用。结构耦合测试已替换为 Greenfield 行为测试，治理门禁拒绝恢复旧 Session 源码或测试导入。
 - **Session Read Model 与 Legacy 格式隔离**：新增不依赖旧 `SessionManager` 的 Session Entry/View/Writer 合同及分支、Tree、Label、模型上下文与 Compaction 纯投影；Greenfield、Extension、SDK 快照和旧 JSONL Catalog/History/Lease/setup 兼容均切换到新边界。原生持久化继续由 `runtime-storage` 持有，会话目录、历史、锁、Extension setup 和用户可观察行为保持不变。
 - **Settings 域包内重写**：全局/项目设置的读取、合并、迁移、锁定写入、局部刷新和调用方视图拆入 `src/settings` 的独立合同、Schema、Storage、State 与 View；TypeBox 只用于持久化 JSON 边界校验，未知字段和并发外部编辑继续保留。全部生产调用方已迁移到 `SettingsRuntime`，旧 1041 行 `core/settings-manager.ts` 已删除，用户设置格式和运行时行为保持不变。
 - **Skill 与 Prompt 资源域包内重写**：Skill 发现、frontmatter 校验、冲突诊断、动态读取、模型提示格式化与 Prompt Template 参数展开迁入 `src/resources`，生产调用方和行为测试不再依赖旧 `core/skills`、`core/prompt-templates`、`core/diagnostics`；ResourceLoader 不再于 PackageManager 过滤后重复扫描默认 Skill 目录，禁用配置恢复生效。资源目录测试同步改用当前 `CONFIG_DIR_NAME`，用户可见协议、发现优先级、错误和动态刷新行为保持不变。质量守卫拒绝新 Resource 域回接旧 `core` 实现。

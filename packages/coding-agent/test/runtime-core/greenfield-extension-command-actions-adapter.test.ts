@@ -4,7 +4,7 @@ import {
 	createCodingAgentGreenfieldExtensionCommandActions,
 } from "../../src/adapters/runtime-core/greenfield-extension-command-actions-adapter.js";
 import type { CodingAgentGreenfieldSessionSeedInitializer } from "../../src/composition/greenfield-active-session-transition-host.js";
-import type { SessionManager } from "../../src/core/session-manager/index.js";
+import type { ExtensionSessionWriter } from "../../src/extensions/index.js";
 
 describe("createCodingAgentGreenfieldExtensionCommandActions", () => {
 	it("maps the complete Extension command action contract to neutral Greenfield ports", async () => {
@@ -13,7 +13,7 @@ describe("createCodingAgentGreenfieldExtensionCommandActions", () => {
 		};
 		const ports = createPorts(initializer);
 		const actions = createCodingAgentGreenfieldExtensionCommandActions(ports);
-		const setup = async (_sessionManager: SessionManager): Promise<void> => {};
+		const setup = async (_session: ExtensionSessionWriter): Promise<void> => {};
 
 		await expect(actions.waitForIdle()).resolves.toBeUndefined();
 		await expect(actions.newSession()).resolves.toEqual({ cancelled: false });

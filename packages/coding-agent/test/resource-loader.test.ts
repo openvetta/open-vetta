@@ -5,11 +5,11 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { CONFIG_DIR_NAME } from "../src/config.js";
 import { AuthStorage } from "../src/core/auth-storage.js";
 import { ModelRegistry } from "../src/core/model-registry.js";
-import { SessionManager } from "../src/core/session-manager/index.js";
 import { ExtensionRunner } from "../src/extensions/index.js";
 import { createCodingAgentSessionResourceRuntime } from "../src/host/coding-agent-resource-runtime.js";
 import type { Skill } from "../src/resources/skills/index.js";
 import { SettingsRuntime } from "../src/settings/index.js";
+import { createExtensionSessionView } from "./fixtures/extension-session-view.js";
 
 describe("SessionResourceRuntime", () => {
 	let tempDir: string;
@@ -216,7 +216,7 @@ Project skill`,
 			expect(extensionsResult.extensions).toHaveLength(2);
 			expect(extensionsResult.errors.some((e) => e.error.includes('Command "/deploy" conflicts'))).toBe(true);
 
-			const sessionManager = SessionManager.inMemory();
+			const sessionManager = createExtensionSessionView(cwd);
 			const authStorage = AuthStorage.create(join(tempDir, "auth.json"));
 			const modelRegistry = new ModelRegistry(authStorage);
 			const runner = new ExtensionRunner(

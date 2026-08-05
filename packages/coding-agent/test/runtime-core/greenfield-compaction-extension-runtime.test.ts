@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { createCodingAgentCompactionExtensionRuntime } from "../../src/adapters/runtime-core/greenfield-compaction-extension-runtime.js";
 import type { CompactionPreparation } from "../../src/compaction/index.js";
-import type { CompactionEntry } from "../../src/core/session-manager/index.js";
 import type { ExtensionRunner } from "../../src/extensions/index.js";
+import type { CodingAgentCompactionEntry } from "../../src/sessions/index.js";
 
 type CompactionRunner = Pick<ExtensionRunner, "emit" | "hasHandlers">;
 
@@ -18,7 +18,7 @@ describe("createCodingAgentCompactionExtensionRuntime", () => {
 			signal: AbortSignal.abort(),
 		};
 		const afterInput = {
-			compactionEntry: {} as CompactionEntry,
+			compactionEntry: {} as CodingAgentCompactionEntry,
 			fromExtension: true,
 		};
 

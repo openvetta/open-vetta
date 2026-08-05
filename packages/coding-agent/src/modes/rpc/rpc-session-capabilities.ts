@@ -2,23 +2,16 @@ import type { AgentMessage, ThinkingLevel } from "@vetta/agent-core";
 import type { Api, ImageContent, Model } from "@vetta/ai";
 import type { CompactionResult } from "../../compaction/index.js";
 import type { BashResult } from "../../core/bash-executor.js";
-import type { SessionStats } from "../../core/session/session-stats.js";
 import type { ExtensionUIContext, ExtensionUIDialogOptions, ExtensionWidgetOptions } from "../../extensions/index.js";
-import type { RpcCommandType, RpcSessionState, RpcSlashCommand } from "./rpc-types.js";
+import type { RpcCommandType, RpcSessionState, RpcSlashCommand, SessionStats } from "./rpc-types.js";
 
-export type RpcSessionProfileId = "legacy-full" | "greenfield" | "greenfield-im";
+export type RpcSessionProfileId = "greenfield" | "greenfield-im";
 
 export interface RpcSessionProfile {
 	readonly id: RpcSessionProfileId;
 	readonly commands: "all" | readonly RpcCommandType[];
 	readonly hostBridge: "optional" | "required";
 }
-
-export const LEGACY_FULL_RPC_PROFILE: RpcSessionProfile = Object.freeze({
-	id: "legacy-full",
-	commands: "all",
-	hostBridge: "optional",
-});
 
 export const GREENFIELD_IM_RPC_PROFILE: RpcSessionProfile = Object.freeze({
 	id: "greenfield-im",

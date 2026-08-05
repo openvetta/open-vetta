@@ -8,11 +8,11 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import type { PromptResourceRef } from "@vetta/runtime-core";
 import type { SessionResourceRuntime as ResourceLoader } from "../../resources/index.js";
 import { readSkillContent } from "../../resources/skills/index.js";
 import { stripFrontmatter } from "../../utils/frontmatter.js";
 import type { TodoStore } from "../todo-store.js";
-import type { PromptResourceRef } from "./types.js";
 
 /** Parsed skill block from a user message */
 export interface ParsedSkillBlock {

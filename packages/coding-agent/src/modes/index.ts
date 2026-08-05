@@ -18,13 +18,12 @@ export {
 	resolveNextGreenfieldRpcThinkingLevel,
 } from "./rpc/greenfield-rpc-capabilities.js";
 export { type ModelInfo, RpcClient, type RpcClientOptions, type RpcEventListener } from "./rpc/rpc-client.js";
-export { type RunRpcModeOptions, runRpcMode, runRpcModeWithCapabilities } from "./rpc/rpc-mode.js";
+export { type RunRpcModeOptions, runRpcModeWithCapabilities } from "./rpc/rpc-mode.js";
 export {
 	assertRpcSessionCapabilities,
 	GREENFIELD_FULL_RPC_PROFILE,
 	GREENFIELD_IM_RPC_PROFILE,
 	type ImHostBridge,
-	LEGACY_FULL_RPC_PROFILE,
 	type RpcSessionCapabilities,
 	type RpcSessionInitialization,
 	type RpcSessionProfile,

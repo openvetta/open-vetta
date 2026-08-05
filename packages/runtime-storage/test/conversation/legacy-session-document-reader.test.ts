@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { branchFromFileEntries, entriesToHistory } from "../../../coding-agent/src/adapters/runtime-core/history.js";
-import { parseSessionEntries } from "../../../coding-agent/src/core/session-manager/format-compat.js";
-import type { SessionEntry } from "../../../coding-agent/src/core/session-manager/session-model.js";
+import { parseCodingAgentLegacySessionDocument } from "../../../coding-agent/src/adapters/runtime-core/legacy-session-format/document.js";
 import { projectConversationDocumentHistory } from "../../../runtime-core/src/conversation/index.js";
 import { parseLegacySessionDocument } from "../../src/conversation/index.js";
 
@@ -42,9 +41,11 @@ describe("LegacySessionDocumentReader", () => {
 			},
 			messageEntry("assistant-b", "tool", "assistant", "new response"),
 		]);
-		const legacyEntries = parseSessionEntries(`${content}{bad json\n`);
-		const allEntries = legacyEntries.filter((entry): entry is SessionEntry => entry.type !== "session");
-		const expected = entriesToHistory(branchFromFileEntries(legacyEntries), { allEntries });
+		const legacyDocument = parseCodingAgentLegacySessionDocument(`${content}{bad json\n`);
+		const allEntries = [...legacyDocument.entries];
+		const expected = entriesToHistory(branchFromFileEntries([legacyDocument.header, ...allEntries]), {
+			allEntries,
+		});
 
 		const document = parseLegacySessionDocument(`${content}{bad json\n`);
 

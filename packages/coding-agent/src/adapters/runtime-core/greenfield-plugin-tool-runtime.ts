@@ -112,7 +112,7 @@ export class CodingAgentPluginToolRuntime {
 			description: contribution.description,
 			modelOrder: CODING_AGENT_MODEL_TOOL_ORDER.plugin,
 			inputSchema: contribution.rendersCard
-				? withMdIntroParameter(contribution.parameters)
+				? (withMdIntroParameter(contribution.parameters) as Readonly<Record<string, unknown>>)
 				: contribution.parameters,
 			execute: (request) => this.executeContribution(contribution, context, request),
 		};
@@ -251,17 +251,20 @@ const MD_INTRO_PROPERTY = {
 	maxLength: 600,
 };
 
-function withMdIntroParameter(parameters: Readonly<Record<string, unknown>>): Readonly<Record<string, unknown>> {
-	const properties = parameters.properties;
+export function withMdIntroParameter(parameters: unknown): unknown {
+	if (typeof parameters !== "object" || parameters === null || Array.isArray(parameters)) return parameters;
+	const schema = parameters as Record<string, unknown>;
+	const properties = schema.properties;
 	if (typeof properties !== "object" || properties === null) return parameters;
 	if (MD_INTRO_PARAM in properties) return parameters;
 	return {
-		...parameters,
+		...schema,
 		properties: { ...properties, [MD_INTRO_PARAM]: MD_INTRO_PROPERTY },
 	};
 }
 
-function stripMdIntroParameter(params: Readonly<Record<string, unknown>>): unknown {
+export function stripMdIntroParameter(params: unknown): unknown {
+	if (typeof params !== "object" || params === null || Array.isArray(params)) return params;
 	if (!(MD_INTRO_PARAM in params)) return params;
 	const { [MD_INTRO_PARAM]: _dropped, ...rest } = params;
 	return rest;

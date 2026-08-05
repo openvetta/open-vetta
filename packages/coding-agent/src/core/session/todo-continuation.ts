@@ -6,23 +6,7 @@
  */
 
 import type { UserMessage } from "@vetta/ai";
-import type { CustomEntry, SessionManager } from "../session-manager/index.js";
-import { TODO_SNAPSHOT_TYPE, type TodoSnapshot, type TodoStore } from "../todo-store.js";
-
-/** Restore todo state from the latest todo_snapshot in the session branch. */
-export function restoreTodoFromSession(sessionManager: SessionManager, todoStore: TodoStore): void {
-	const branch = sessionManager.getBranch();
-	let latestSnapshot: TodoSnapshot | undefined;
-	for (const entry of branch) {
-		if (entry.type === "custom") {
-			const custom = entry as CustomEntry;
-			if (custom.customType === TODO_SNAPSHOT_TYPE) {
-				latestSnapshot = custom.data as TodoSnapshot;
-			}
-		}
-	}
-	todoStore.restoreFromSnapshot(latestSnapshot ?? { items: [], lockedBy: null });
-}
+import type { TodoStore } from "../todo-store.js";
 
 export interface TodoContinuationResult {
 	messages: UserMessage[];

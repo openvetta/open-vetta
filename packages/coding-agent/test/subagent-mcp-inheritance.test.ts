@@ -1,24 +1,10 @@
-import { Type } from "@sinclair/typebox";
 import type { AgentTool } from "@vetta/agent-core";
 import { describe, expect, it } from "vitest";
 import { SubagentCoordinator } from "../src/core/subagents/coordinator.js";
 import { createDefaultSubagentTypeRegistry } from "../src/core/subagents/index.js";
-import { buildToolsForSubagentType } from "../src/core/subagents/session-factory.js";
-import { createExplorerTypeDefinition } from "../src/core/subagents/types/explorer.js";
-import { createWorkflowTypeDefinition } from "../src/core/subagents/types/workflow.js";
 import type { SubagentChildHandle, SubagentParentContext } from "../src/core/subagents/types.js";
 
-describe("Legacy subagent MCP inheritance", () => {
-	it("appends the exact parent MCP bindings for explorer and workflow types", () => {
-		const parentTool = tool("mcp_search_lookup");
-
-		const explorerTools = buildToolsForSubagentType(createExplorerTypeDefinition(), ".", [parentTool]);
-		const workflowTools = buildToolsForSubagentType(createWorkflowTypeDefinition(), ".", [parentTool]);
-
-		expect(explorerTools.at(-1)).toBe(parentTool);
-		expect(workflowTools.at(-1)).toBe(parentTool);
-	});
-
+describe("Subagent MCP inheritance", () => {
 	it("reads the parent binding set at each child creation boundary", async () => {
 		const firstTool = tool("mcp_search_first");
 		const secondTool = tool("mcp_search_second");
@@ -62,7 +48,7 @@ function tool(name: string): AgentTool {
 		name,
 		label: name,
 		description: name,
-		parameters: Type.Object({}),
+		parameters: { type: "object", properties: {} } as never,
 		execute: async () => ({ content: [{ type: "text", text: name }], details: {} }),
 	};
 }

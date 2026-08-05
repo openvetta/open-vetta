@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import { SubagentCoordinator } from "../src/core/subagents/coordinator.js";
-import { buildForkSeedMessages, trimDanglingToolCalls } from "../src/core/subagents/fork-context.js";
 import { createDefaultSubagentTypeRegistry } from "../src/core/subagents/index.js";
 import { createWaitAgentTool } from "../src/core/subagents/tools/wait-agent.js";
 import type {
@@ -260,60 +259,5 @@ describe("SubagentCoordinator.spawnMany (workflow dispatch)", () => {
 		expect(seen[0]).toBe(parentMessages);
 		expect(seen[1]).toBeUndefined();
 		await coord.dispose();
-	});
-});
-
-describe("fork-context sanitising", () => {
-	const user = (text: string) => ({ role: "user" as const, content: text, timestamp: 1 });
-	const assistantWithCall = (id: string) => ({
-		role: "assistant" as const,
-		content: [{ type: "toolCall" as const, id, name: "bash", arguments: {} }],
-		api: "x" as never,
-		provider: "p" as never,
-		model: "m",
-		usage: {} as never,
-		stopReason: "toolUse" as const,
-		timestamp: 2,
-	});
-	const toolResult = (id: string) => ({
-		role: "toolResult" as const,
-		toolCallId: id,
-		toolName: "bash",
-		content: [{ type: "text" as const, text: "ok" }],
-		isError: false,
-		timestamp: 3,
-	});
-
-	it("cuts a trailing assistant message with unresolved tool calls", () => {
-		const messages = [user("q"), assistantWithCall("c1")] as never[];
-		expect(trimDanglingToolCalls(messages)).toHaveLength(1);
-	});
-
-	it("cuts partial results of a half-finished multi-call turn", () => {
-		const a = {
-			...assistantWithCall("c1"),
-			content: [
-				{ type: "toolCall" as const, id: "c1", name: "bash", arguments: {} },
-				{ type: "toolCall" as const, id: "c2", name: "bash", arguments: {} },
-			],
-		};
-		const messages = [user("q"), a, toolResult("c1")] as never[];
-		expect(trimDanglingToolCalls(messages)).toHaveLength(1);
-	});
-
-	it("keeps a fully resolved tool exchange", () => {
-		const messages = [user("q"), assistantWithCall("c1"), toolResult("c1")] as never[];
-		expect(trimDanglingToolCalls(messages)).toHaveLength(3);
-	});
-
-	it("converts compaction summaries into custom seed messages", () => {
-		const messages = [
-			{ role: "compactionSummary" as const, summary: "earlier work", tokensBefore: 100, timestamp: 1 },
-			user("recent"),
-		] as never[];
-		const seeds = buildForkSeedMessages(messages);
-		expect(seeds).toHaveLength(2);
-		expect(seeds[0]).toMatchObject({ role: "custom", customType: "workflow-fork-summary" });
-		expect((seeds[0] as { content: string }).content).toContain("earlier work");
 	});
 });

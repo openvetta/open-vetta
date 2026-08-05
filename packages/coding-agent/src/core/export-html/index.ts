@@ -1,12 +1,11 @@
-import type { AgentState } from "@vetta/agent-core";
 import type { ConversationDocument } from "@vetta/runtime-core";
 import type { ConversationDocumentEntry } from "@vetta/runtime-core/conversation";
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import { basename, join } from "path";
+import { readCodingAgentLegacySessionDocument } from "../../adapters/runtime-core/legacy-session-format/document.js";
 import { APP_NAME, getExportTemplateDir } from "../../config.js";
 import { getResolvedThemeColors, getThemeExportColors } from "../../modes/interactive/theme/theme.js";
-import type { SessionEntry } from "../session-manager/index.js";
-import { CURRENT_SESSION_VERSION, SessionManager } from "../session-manager/index.js";
+import { CODING_AGENT_SESSION_VIEW_VERSION, type CodingAgentSessionEntry } from "../../sessions/index.js";
 
 /**
  * Interface for rendering custom tools to HTML.
@@ -230,7 +229,7 @@ const BUILTIN_TOOLS = new Set([
  * Pre-render custom tools to HTML using their TUI renderers.
  */
 function preRenderCustomTools(
-	entries: readonly (SessionEntry | ConversationDocumentEntry)[],
+	entries: readonly (CodingAgentSessionEntry | ConversationDocumentEntry)[],
 	toolRenderer: ToolHtmlRenderer,
 ): Record<string, RenderedToolHtml> {
 	const renderedTools: Record<string, RenderedToolHtml> = {};
@@ -314,87 +313,18 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/**
- * Export session to HTML using SessionManager and AgentState.
- * Used by TUI's /export command.
- */
-export async function exportSessionToHtml(
-	sm: SessionManager,
-	state?: AgentState,
-	options?: ExportOptions | string,
-): Promise<string> {
-	const opts: ExportOptions = typeof options === "string" ? { outputPath: options } : options || {};
-
-	const sessionFile = sm.getSessionFile();
-	if (!sessionFile) {
-		throw new Error("Cannot export in-memory session to HTML");
-	}
-	if (!existsSync(sessionFile)) {
-		throw new Error("Nothing to export yet - start a conversation first");
-	}
-
-	const entries = sm.getEntries();
-
-	// Pre-render custom tools if a tool renderer is provided
-	let renderedTools: Record<string, RenderedToolHtml> | undefined;
-	if (opts.toolRenderer) {
-		renderedTools = preRenderCustomTools(entries, opts.toolRenderer);
-		// Only include if we actually rendered something
-		if (Object.keys(renderedTools).length === 0) {
-			renderedTools = undefined;
-		}
-	}
-
-	const sessionData: SessionData = {
-		header: sm.getHeader(),
-		entries,
-		leafId: sm.getLeafId(),
-		systemPrompt: state?.systemPrompt,
-		tools: state?.tools?.map((t) => ({ name: t.name, description: t.description, parameters: t.parameters })),
-		renderedTools,
-	};
-
-	const html = generateHtml(sessionData, opts.themeName);
-
-	let outputPath = opts.outputPath;
-	if (!outputPath) {
-		const sessionBasename = basename(sessionFile, ".jsonl");
-		outputPath = `${APP_NAME}-session-${sessionBasename}.html`;
-	}
-
-	writeFileSync(outputPath, html, "utf8");
-	return outputPath;
-}
-
-/**
- * Export session file to HTML (standalone, without AgentState).
- * Used by CLI for exporting arbitrary session files.
- */
+/** Export a Legacy JSONL session through the isolated read-only format boundary. */
 export async function exportFromFile(inputPath: string, options?: ExportOptions | string): Promise<string> {
 	const opts: ExportOptions = typeof options === "string" ? { outputPath: options } : options || {};
-
-	if (!existsSync(inputPath)) {
-		throw new Error(`File not found: ${inputPath}`);
-	}
-
-	const sm = SessionManager.open(inputPath);
-
+	if (!existsSync(inputPath)) throw new Error(`File not found: ${inputPath}`);
+	const document = readCodingAgentLegacySessionDocument(inputPath);
 	const sessionData: SessionData = {
-		header: sm.getHeader(),
-		entries: sm.getEntries(),
-		leafId: sm.getLeafId(),
-		systemPrompt: undefined,
-		tools: undefined,
+		header: document.header,
+		entries: document.entries,
+		leafId: document.activeLeafId,
 	};
-
 	const html = generateHtml(sessionData, opts.themeName);
-
-	let outputPath = opts.outputPath;
-	if (!outputPath) {
-		const inputBasename = basename(inputPath, ".jsonl");
-		outputPath = `${APP_NAME}-session-${inputBasename}.html`;
-	}
-
+	const outputPath = opts.outputPath ?? `${APP_NAME}-session-${basename(inputPath, ".jsonl")}.html`;
 	writeFileSync(outputPath, html, "utf8");
 	return outputPath;
 }
@@ -409,7 +339,7 @@ export async function exportConversationDocumentToHtml(
 	const sessionData: SessionData = {
 		header: {
 			type: "session",
-			version: CURRENT_SESSION_VERSION,
+			version: CODING_AGENT_SESSION_VIEW_VERSION,
 			id: document.identity.sessionId,
 			timestamp: new Date(document.identity.createdAt).toISOString(),
 			cwd: document.identity.cwd,

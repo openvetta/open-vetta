@@ -40,6 +40,8 @@ const PUBLIC_CODING_AGENT_SDK_FORBIDDEN_NAMES =
 	/\b(?:(?:Greenfield|Legacy)[A-Za-z0-9_]*|ModelRegistry|ResourceLoader|SessionManager|SettingsManager)\b/;
 
 export const RETIRED_LEGACY_EXECUTION_FILES = Object.freeze([
+	"packages/coding-agent/src/core/agent-session.ts",
+	"packages/coding-agent/src/core/sdk.ts",
 	"packages/coding-agent/src/cli.ts",
 	"packages/coding-agent/src/main.ts",
 	"packages/coding-agent/src/modes/legacy-print-session-adapter.ts",
@@ -54,6 +56,11 @@ export const RETIRED_LEGACY_EXECUTION_FILES = Object.freeze([
 	"packages/coding-agent/src/adapters/runtime-core/session-events.ts",
 	"packages/coding-agent/src/composition/legacy-knowledge-processing-session.ts",
 ]);
+
+export const RETIRED_LEGACY_SESSION_PREFIXES = Object.freeze(["packages/coding-agent/src/core/session-manager/"]);
+
+const RETIRED_LEGACY_SESSION_TEST_IMPORT =
+	/(?:^|\/)src\/core\/(?:agent-session|sdk|session-manager(?:\/|\.))|(?:^|\/)src\/core\/session\/(?:background-task-controller|bash-controller|compaction-controller|event-router|extension-binding|input-pipeline|model-controller|normalize-images|queue-controller|retry-controller|runtime-manager|session-context|session-navigator|session-operation-gate|subagent-controller|todo-controller|types)(?:\.js)?/u;
 
 const LEGACY_EXECUTION_SYMBOL_KINDS = new Map([
 	["LegacyCodingAgentSessionBackend", "legacy-session-backend"],
@@ -108,6 +115,13 @@ export function findLegacyExecutionRetirementViolations(
 		for (const retiredPath of RETIRED_LEGACY_EXECUTION_FILES) {
 			if (sourcePaths.has(retiredPath)) violations.push(`${retiredPath}: retired Legacy CLI source was restored`);
 		}
+		for (const retiredPrefix of RETIRED_LEGACY_SESSION_PREFIXES) {
+			for (const sourcePath of sourcePaths) {
+				if (sourcePath.startsWith(retiredPrefix)) {
+					violations.push(`${sourcePath}: retired Legacy Session implementation was restored`);
+				}
+			}
+		}
 		for (const expected of LEGACY_EXECUTION_EDGE_BASELINE) {
 			if (!classifiedEdges.some((actual) => sameEdge(actual, expected))) {
 				violations.push(
@@ -132,6 +146,30 @@ export function findLegacyExecutionRetirementViolations(
 	}
 
 	return violations;
+}
+
+export function findRetiredLegacySessionTestImportViolations(files) {
+	return files
+		.filter((file) =>
+			collectDeclaredModuleSpecifiers(file.path, file.text).some((specifier) =>
+				RETIRED_LEGACY_SESSION_TEST_IMPORT.test(specifier),
+			),
+		)
+		.map((file) => `${file.path}: test imports a retired Legacy Session implementation`);
+}
+
+function collectDeclaredModuleSpecifiers(path, text) {
+	const sourceFile = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true, scriptKind(path));
+	const specifiers = [];
+	for (const statement of sourceFile.statements) {
+		if (ts.isImportDeclaration(statement) && ts.isStringLiteralLike(statement.moduleSpecifier)) {
+			specifiers.push(statement.moduleSpecifier.text);
+		}
+		if (ts.isExportDeclaration(statement) && statement.moduleSpecifier) {
+			specifiers.push(statement.moduleSpecifier.text);
+		}
+	}
+	return specifiers;
 }
 
 export function findCanonicalExecutableOwnershipViolations({ cliAppBin, codingAgentBin } = {}) {
@@ -362,6 +400,13 @@ function readProductionSources() {
 		.map((filePath) => ({ path: rel(filePath), text: readText(filePath) }));
 }
 
+function readCodingAgentTests() {
+	return walkFiles(join(repoRoot, "packages/coding-agent/test")).map((filePath) => ({
+		path: rel(filePath),
+		text: readText(filePath),
+	}));
+}
+
 if (isDirectRun(import.meta.url)) {
 	const files = readProductionSources();
 	const codingAgentPackageJson = JSON.parse(readText(join(repoRoot, "packages/coding-agent/package.json")));
@@ -374,6 +419,7 @@ if (isDirectRun(import.meta.url)) {
 	});
 	violations.push(...findGreenfieldProductCoreBoundaryViolations(files));
 	violations.push(...findGreenfieldSdkBoundaryViolations(files));
+	violations.push(...findRetiredLegacySessionTestImportViolations(readCodingAgentTests()));
 	if (violations.length > 0) {
 		for (const violation of violations) fail(`[legacy-execution] ${violation}`);
 	} else {

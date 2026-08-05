@@ -1,12 +1,8 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import type { AgentSession } from "../src/core/agent-session.js";
 import { AuthStorage } from "../src/core/auth-storage.js";
 import { ModelRegistry } from "../src/core/model-registry.js";
-import { createLegacyExtensionExecutionHost } from "../src/core/session/extension-binding.js";
-import type { SessionContext } from "../src/core/session/session-context.js";
-import { SessionManager } from "../src/core/session-manager/index.js";
 import {
 	bindExtensionRuntimeActions,
 	createExtensionRuntime,
@@ -15,7 +11,7 @@ import {
 	type ExtensionExecutionHost,
 	ExtensionRunner,
 } from "../src/extensions/index.js";
-import type { SessionResourceRuntime } from "../src/resources/index.js";
+import { createExtensionSessionView } from "./fixtures/extension-session-view.js";
 
 describe("ExtensionExecutionHost", () => {
 	it("原位绑定完整命令式动作并保留 Loader 共享状态", () => {
@@ -55,7 +51,7 @@ describe("ExtensionExecutionHost", () => {
 			[],
 			runtime,
 			process.cwd(),
-			SessionManager.inMemory(),
+			createExtensionSessionView(process.cwd()),
 			new ModelRegistry(AuthStorage.inMemory(), join(tmpdir(), "missing-extension-host-models.json")),
 		);
 
@@ -78,81 +74,6 @@ describe("ExtensionExecutionHost", () => {
 		expect(contextActions.abort).toHaveBeenCalledOnce();
 		expect(contextActions.shutdown).toHaveBeenCalledOnce();
 		expect(contextActions.compact).toHaveBeenCalledOnce();
-	});
-
-	it("Legacy 适配保留持久化映射和异步发送错误上报", async () => {
-		const runtime = createExtensionRuntime();
-		const sessionManager = SessionManager.inMemory();
-		const modelRegistry = new ModelRegistry(
-			AuthStorage.inMemory(),
-			join(tmpdir(), "missing-extension-legacy-host-models.json"),
-		);
-		const runner = new ExtensionRunner([], runtime, process.cwd(), sessionManager, modelRegistry);
-		const sendCustomMessage = vi.fn().mockRejectedValue(new Error("send failed"));
-		const sendUserMessage = vi.fn().mockResolvedValue(undefined);
-		const setThinkingLevel = vi.fn();
-		const abort = vi.fn().mockResolvedValue(undefined);
-		const shutdown = vi.fn();
-		const errors: Array<{ extensionPath: string; event: string; error: string }> = [];
-		runner.onError((error) => errors.push(error));
-		const host = {
-			sendCustomMessage,
-			sendUserMessage,
-			thinkingLevel: "medium",
-			setThinkingLevel,
-			pendingMessageCount: 1,
-			getContextUsage: () => ({ tokens: 10, contextWindow: 100, percent: 10 }),
-			compact: vi.fn(),
-			setModel: vi.fn(),
-		} as unknown as AgentSession;
-		const context = {
-			sessionManager,
-			modelRegistry,
-			model: undefined,
-			agent: { state: { isStreaming: false, systemPrompt: "legacy-system" } },
-			abort,
-		} as unknown as SessionContext;
-		const resourceLoader = {
-			getPrompts: () => ({ prompts: [], diagnostics: [] }),
-			getSkills: () => ({ skills: [], diagnostics: [] }),
-		} as unknown as SessionResourceRuntime;
-		const executionHost = createLegacyExtensionExecutionHost(runner, {
-			ctx: context,
-			host,
-			resourceLoader,
-			getActiveTools: () => ["read"],
-			getAllTools: () => [],
-			setActiveTools: vi.fn(),
-			getShutdownHandler: () => shutdown,
-		});
-
-		executionHost.actions.appendEntry("checkpoint", { value: 1 });
-		const targetId = sessionManager.getEntries()[0]?.id;
-		expect(targetId).toBeDefined();
-		executionHost.actions.setSessionName("named");
-		executionHost.actions.setLabel(targetId ?? "", "label");
-		executionHost.actions.sendMessage({
-			customType: "notice",
-			content: "content",
-			display: true,
-		});
-		executionHost.actions.sendUserMessage("hello");
-
-		expect(executionHost.actions.getSessionName()).toBe("named");
-		expect(sessionManager.getLabel(targetId ?? "")).toBe("label");
-		expect(executionHost.actions.getActiveTools()).toEqual(["read"]);
-		expect(executionHost.contextActions.hasPendingMessages()).toBe(true);
-		expect(executionHost.contextActions.getSystemPrompt()).toBe("legacy-system");
-		await vi.waitFor(() => {
-			expect(errors).toEqual([
-				{
-					extensionPath: "<runtime>",
-					event: "send_message",
-					error: "send failed",
-				},
-			]);
-		});
-		expect(sendUserMessage).toHaveBeenCalledWith("hello", undefined);
 	});
 });
 

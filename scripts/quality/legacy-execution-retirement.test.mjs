@@ -6,10 +6,12 @@ import {
 	findGreenfieldProductCoreBoundaryViolations,
 	findGreenfieldSdkBoundaryViolations,
 	findLegacyExecutionRetirementViolations,
+	findRetiredLegacySessionTestImportViolations,
 	GREENFIELD_PRODUCT_CORE_EDGE_BUDGET,
 	LEGACY_EXECUTION_EDGE_BASELINE,
 	LEGACY_PACKAGE_EXPORT_BASELINE,
 	RETIRED_LEGACY_EXECUTION_FILES,
+	RETIRED_LEGACY_SESSION_PREFIXES,
 	summarizeGreenfieldProductCoreEdges,
 } from "./check-legacy-execution-retirement.mjs";
 import { findStandaloneCliBuildViolations } from "./check-standalone-cli-build.mjs";
@@ -37,6 +39,19 @@ describe("Legacy execution retirement gate", () => {
 		expect(LEGACY_EXECUTION_EDGE_BASELINE.some((edge) => edge.kind === "legacy-cli-public")).toBe(false);
 		expect(LEGACY_PACKAGE_EXPORT_BASELINE).toEqual([]);
 		expect(RETIRED_LEGACY_EXECUTION_FILES).toContain("packages/coding-agent/src/main.ts");
+		expect(RETIRED_LEGACY_EXECUTION_FILES).toContain("packages/coding-agent/src/core/agent-session.ts");
+		expect(RETIRED_LEGACY_SESSION_PREFIXES).toContain("packages/coding-agent/src/core/session-manager/");
+	});
+
+	it("rejects tests coupled to the retired Legacy Session implementation", () => {
+		expect(
+			findRetiredLegacySessionTestImportViolations([
+				{
+					path: "packages/coding-agent/test/example.test.ts",
+					text: 'import { SessionManager } from "../src/core/session-manager/index.js";',
+				},
+			]),
+		).toEqual(["packages/coding-agent/test/example.test.ts: test imports a retired Legacy Session implementation"]);
 	});
 
 	it("requires cli-app to own the canonical Agent executable", () => {

@@ -6,11 +6,11 @@ import type {
 } from "@vetta/runtime-core/kernel";
 import { describe, expect, it, vi } from "vitest";
 import { CODING_AGENT_MODEL_TOOL_ORDER } from "../../src/adapters/runtime-core/greenfield-model-tool-order.js";
+import { withMdIntroParameter } from "../../src/adapters/runtime-core/greenfield-plugin-tool-runtime.js";
 import {
 	CodingAgentPluginRunOrchestrator,
 	CodingAgentPluginToolRuntime,
 } from "../../src/adapters/runtime-core/index.js";
-import { withMdIntroParameter } from "../../src/core/session/runtime-manager.js";
 import type {
 	AgentPluginRuntimeConfig,
 	AgentPluginToolContribution,

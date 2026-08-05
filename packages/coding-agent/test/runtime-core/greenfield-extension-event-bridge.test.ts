@@ -5,8 +5,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { CodingAgentGreenfieldExtensionEventBridge } from "../../src/adapters/runtime-core/greenfield-extension-event-bridge.js";
 import { AuthStorage } from "../../src/core/auth-storage.js";
 import { ModelRegistry } from "../../src/core/model-registry.js";
-import { SessionManager } from "../../src/core/session-manager/index.js";
 import { discoverAndLoadExtensions, ExtensionRunner } from "../../src/extensions/index.js";
+import { createExtensionSessionView } from "../fixtures/extension-session-view.js";
 
 const temporaryDirectories: string[] = [];
 
@@ -221,7 +221,7 @@ async function createRunner(extensionSource?: string): Promise<ExtensionRunner> 
 		loaded.extensions,
 		loaded.runtime,
 		directory,
-		SessionManager.inMemory(),
+		createExtensionSessionView(directory),
 		new ModelRegistry(authStorage),
 	);
 }

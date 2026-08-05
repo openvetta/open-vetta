@@ -33,22 +33,16 @@ import { createToolHtmlRenderer } from "../core/export-html/tool-renderer.js";
 import { DEFAULT_MEMORY_CHAR_LIMIT } from "../core/memory/memory-store.js";
 import { ModelRegistry } from "../core/model-registry.js";
 import { findInitialModel } from "../core/model-resolver.js";
-import type { CreateAgentSessionOptions } from "../core/sdk.js";
 import { time } from "../core/timings.js";
 import type { ExtensionContext, LoadExtensionsResult, ToolDefinition } from "../extensions/index.js";
 import { theme } from "../modes/interactive/theme/theme.js";
 import {
 	CODING_AGENT_SESSION_CREATE_ERROR_CODES,
-	type CodingAgentResourceContributions,
 	CodingAgentSessionCreateError,
 	type CodingAgentSessionToolDefinition,
 	type CreateCodingAgentSessionOptions,
 	type CreateCodingAgentSessionResult,
 } from "../public-api/sdk/index.js";
-import {
-	assessSdkCreateOptionsCompatibility,
-	type SdkCreateOptionCompatibilityIssue,
-} from "../public-api/sdk-compatibility-inventory.js";
 import { SettingsRuntime } from "../settings/index.js";
 import { createCodingAgentSessionResourceRuntime } from "./coding-agent-resource-runtime.js";
 import { CodingAgentSdkBashAdapter } from "./coding-agent-sdk-bash-adapter.js";
@@ -57,14 +51,9 @@ import {
 	CodingAgentSdkResourceSourceAdapter,
 	projectCodingAgentSkillInfo,
 } from "./coding-agent-sdk-resource-source-adapter.js";
-import {
-	type CodingAgentSdkSessionHistory,
-	prepareCodingAgentSdkSessionStorage,
-} from "./coding-agent-sdk-session-storage.js";
-import { adaptCodingAgentSdkSubagents } from "./coding-agent-sdk-subagent-adapter.js";
+import { resolveCodingAgentSessionDir } from "./coding-agent-session-storage.js";
 
 export const CODING_AGENT_SDK_HOST_ERROR_CODES = {
-	INCOMPATIBLE_OPTIONS: "greenfield_sdk_incompatible_options",
 	NO_MODEL: "greenfield_sdk_no_model",
 } as const;
 
@@ -75,7 +64,6 @@ export class CodingAgentSdkHostError extends Error {
 	constructor(
 		readonly code: CodingAgentSdkHostErrorCode,
 		message: string,
-		readonly issues: readonly SdkCreateOptionCompatibilityIssue[] = [],
 	) {
 		super(message);
 		this.name = "CodingAgentSdkHostError";
@@ -101,45 +89,9 @@ export class CodingAgentSdkCustomToolError extends Error {
 	}
 }
 
-type LegacyCodingAgentSdkCustomToolDefinition = NonNullable<CreateAgentSessionOptions["customTools"]>[number];
-
 interface CodingAgentSdkRegisteredTool {
 	readonly definition: ToolDefinition;
 	readonly extensionPath: string;
-}
-
-/** 在 SDK 产品边界校验 TypeBox schema，并为执行入口增加调用参数校验。 */
-export function adaptCodingAgentSdkCustomTools(
-	customTools: readonly LegacyCodingAgentSdkCustomToolDefinition[] | undefined,
-): readonly CodingAgentSdkRegisteredTool[] | undefined {
-	if (customTools === undefined) return undefined;
-	return customTools.map((definition) => {
-		if (!TypeGuard.IsSchema(definition.parameters)) {
-			throw new CodingAgentSdkCustomToolError(
-				CODING_AGENT_SDK_CUSTOM_TOOL_ERROR_CODES.INVALID_SCHEMA,
-				definition.name,
-				`SDK custom tool "${definition.name}" must declare a valid TypeBox schema`,
-			);
-		}
-		const parameters = definition.parameters;
-		const adaptedDefinition: LegacyCodingAgentSdkCustomToolDefinition = {
-			...definition,
-			async execute(toolCallId, input, signal, onUpdate, context) {
-				if (!Value.Check(parameters, input)) {
-					const issue = Value.Errors(parameters, input).First();
-					const location = issue?.path ? ` at ${issue.path}` : "";
-					const detail = issue?.message ? `: ${issue.message}` : "";
-					throw new CodingAgentSdkCustomToolError(
-						CODING_AGENT_SDK_CUSTOM_TOOL_ERROR_CODES.INVALID_INPUT,
-						definition.name,
-						`Invalid input for SDK custom tool "${definition.name}"${location}${detail}`,
-					);
-				}
-				return definition.execute(toolCallId, input, signal, onUpdate, context);
-			},
-		};
-		return { extensionPath: "<sdk>", definition: adaptedDefinition };
-	});
 }
 
 /** 将稳定 SDK 的窄 Tool 合同适配为产品 Extension Tool，不向调用方暴露具体上下文。 */
@@ -218,18 +170,6 @@ interface CodingAgentSdkInitialModel {
 	readonly modelFallbackMessage?: string;
 }
 
-/**
- * 现有 SDK options 到 Greenfield Composition 的产品宿主适配器。
- *
- * 该函数是公开 createAgentSession 切换前的候选路径；它保持原签名输入语义，但返回窄的
- * Greenfield SDK Core，而不是伪造尚未闭合的完整 AgentSession 门面。
- */
-export async function createGreenfieldAgentSession(
-	options: CreateAgentSessionOptions = {},
-): Promise<CreateGreenfieldAgentSessionResult> {
-	return createGreenfieldAgentSessionInternal(options);
-}
-
 /** `@vetta/coding-agent/sdk` 的产品 Composition 入口；具体管理器不进入公共参数或返回值。 */
 export async function createCodingAgentSessionFromPublicOptions(
 	options: CreateCodingAgentSessionOptions = {},
@@ -244,18 +184,10 @@ export async function createCodingAgentSessionFromPublicOptions(
 			extensionSources: options.extensionSources,
 		});
 		const created = await createGreenfieldAgentSessionInternal(
-			{
-				...adaptPublicSdkCreateOptions(options),
-				authStorage: hostContext.authStorage,
-				modelRegistry: hostContext.modelRegistry,
-				settingsManager: hostContext.settingsManager,
-			},
-			options.storage,
-			options.resources,
-			options.customTools,
+			options,
+			hostContext,
 			resourceSourceAdapter,
 			hostContext.onSessionClosed,
-			resolvePublicSdkActiveToolNames(options.activeTools),
 		);
 		return {
 			session: created.session,
@@ -285,19 +217,13 @@ export async function createCodingAgentSessionFromPublicOptions(
 }
 
 async function createGreenfieldAgentSessionInternal(
-	options: CreateAgentSessionOptions,
-	storageTarget?: GreenfieldSdkSessionStorageTarget,
-	resourceContributions?: CodingAgentResourceContributions,
-	publicCustomTools?: readonly CodingAgentSessionToolDefinition[],
+	options: CreateCodingAgentSessionOptions,
+	hostContext: CodingAgentSdkPublicHostContext,
 	resourceSourceAdapter?: CodingAgentSdkResourceSourceAdapter,
 	onSessionClosed?: () => void,
-	publicActiveToolNames?: readonly string[],
 ): Promise<CreateGreenfieldAgentSessionResult> {
-	assertCompatibleOptions(options);
-	const sessionTools = publicCustomTools
-		? adaptPublicCodingAgentSdkCustomTools(publicCustomTools)
-		: adaptCodingAgentSdkCustomTools(options.customTools);
-	const activeToolNames = publicActiveToolNames ?? options.tools?.map(({ name }) => name);
+	const sessionTools = adaptPublicCodingAgentSdkCustomTools(options.customTools);
+	const activeToolNames = resolvePublicSdkActiveToolNames(options.activeTools);
 	const activation =
 		activeToolNames === undefined
 			? undefined
@@ -309,17 +235,11 @@ async function createGreenfieldAgentSessionInternal(
 	const agentDir = options.agentDir ?? getAgentDir();
 	const authPath = options.agentDir ? join(agentDir, "auth.json") : undefined;
 	const modelsPath = options.agentDir ? join(agentDir, "models.json") : undefined;
-	const authStorage = options.authStorage ?? AuthStorage.create(authPath);
-	const modelRegistry = options.modelRegistry ?? new ModelRegistry(authStorage, modelsPath);
-	const settingsManager = options.settingsManager ?? SettingsRuntime.create(cwd, agentDir);
-	const subagents = adaptCodingAgentSdkSubagents({
-		typeRegistry: options.subagentTypeRegistry,
-		sessionFactory: options.subagentSessionFactory,
-		modelRegistry,
-		agentDir,
-	});
+	const authStorage = hostContext.authStorage ?? AuthStorage.create(authPath);
+	const modelRegistry = hostContext.modelRegistry ?? new ModelRegistry(authStorage, modelsPath);
+	const settingsManager = hostContext.settingsManager ?? SettingsRuntime.create(cwd, agentDir);
 
-	if (!options.modelRegistry) {
+	if (!hostContext.modelRegistry) {
 		let serverUrl = options.serverUrl ?? process.env[ENV_SERVER_URL] ?? settingsManager.getServerUrl();
 		if (!serverUrl) {
 			serverUrl = DEFAULT_SERVER_URL;
@@ -331,59 +251,56 @@ async function createGreenfieldAgentSessionInternal(
 		await modelRegistry.loadRemoteModels();
 	}
 
-	const promptTemplateContributions = resourceContributions?.promptTemplates;
-	const contextFileContributions = resourceContributions?.contextFiles;
+	const promptTemplateContributions = options.resources?.promptTemplates;
+	const contextFileContributions = options.resources?.contextFiles;
 	let currentAgentPlugins = options.agentPlugins;
-	const resourceLoader =
-		options.resourceLoader ??
-		createCodingAgentSessionResourceRuntime({
-			cwd,
-			agentDir,
-			settings: settingsManager,
-			additionalExtensionPaths: resourceSourceAdapter?.readExtensionPaths()
-				? [...resourceSourceAdapter.readExtensionPaths()]
-				: [],
-			appendSystemPrompt: options.appendSystemPrompt,
-			includeAgentSkills: options.includeAgentSkills,
-			additionalSkillPaths: [
-				...(currentAgentPlugins?.skillPathContributions?.flatMap((contribution) => contribution.paths) ?? []),
-				...(resourceSourceAdapter?.readSkillPaths() ?? resourceContributions?.skillPaths ?? []),
-			],
-			additionalPromptTemplatePaths: resourceContributions?.promptTemplatePaths
-				? [...resourceContributions.promptTemplatePaths]
-				: [],
-			systemPrompt: resourceContributions?.systemPrompt,
-			skillsOverride: resourceSourceAdapter ? (base) => resourceSourceAdapter.transformSkills(base) : undefined,
-			promptsOverride: promptTemplateContributions
-				? (base) => ({
-						diagnostics: base.diagnostics,
-						prompts: [
-							...base.prompts,
-							...promptTemplateContributions.map((template) => ({
-								name: template.name,
-								description: template.description,
-								content: template.content,
-								source: "sdk",
-								filePath: template.filePath ?? join(cwd, ".vetta", "sdk-prompts", `${template.name}.md`),
-							})),
-						],
-					})
-				: undefined,
-			agentsFilesOverride: contextFileContributions
-				? (base) => ({
-						agentsFiles: [...base.agentsFiles, ...contextFileContributions.map((file) => ({ ...file }))],
-					})
-				: undefined,
-		});
-	if (!options.resourceLoader) {
-		await resourceLoader.reload();
-		time("resourceLoader.reload");
-	}
+	const resourceLoader = createCodingAgentSessionResourceRuntime({
+		cwd,
+		agentDir,
+		settings: settingsManager,
+		additionalExtensionPaths: resourceSourceAdapter?.readExtensionPaths()
+			? [...resourceSourceAdapter.readExtensionPaths()]
+			: [],
+		appendSystemPrompt: options.appendSystemPrompt,
+		includeAgentSkills: options.includeAgentSkills,
+		additionalSkillPaths: [
+			...(currentAgentPlugins?.skillPathContributions?.flatMap((contribution) => contribution.paths) ?? []),
+			...(resourceSourceAdapter?.readSkillPaths() ?? options.resources?.skillPaths ?? []),
+		],
+		additionalPromptTemplatePaths: options.resources?.promptTemplatePaths
+			? [...options.resources.promptTemplatePaths]
+			: [],
+		systemPrompt: options.resources?.systemPrompt,
+		skillsOverride: resourceSourceAdapter ? (base) => resourceSourceAdapter.transformSkills(base) : undefined,
+		promptsOverride: promptTemplateContributions
+			? (base) => ({
+					diagnostics: base.diagnostics,
+					prompts: [
+						...base.prompts,
+						...promptTemplateContributions.map((template) => ({
+							name: template.name,
+							description: template.description,
+							content: template.content,
+							source: "sdk",
+							filePath: template.filePath ?? join(cwd, ".vetta", "sdk-prompts", `${template.name}.md`),
+						})),
+					],
+				})
+			: undefined,
+		agentsFilesOverride: contextFileContributions
+			? (base) => ({
+					agentsFiles: [...base.agentsFiles, ...contextFileContributions.map((file) => ({ ...file }))],
+				})
+			: undefined,
+	});
+	await resourceLoader.reload();
+	time("resourceLoader.reload");
 	const extensionsResult = resourceLoader.getExtensions();
-	const storage = storageTarget
-		? { storage: storageTarget }
-		: await prepareCodingAgentSdkSessionStorage({ cwd, sessionManager: options.sessionManager });
-	const initial = await resolveSdkInitialModel(options, modelRegistry, settingsManager, storage.history);
+	const storage: GreenfieldSdkSessionStorageTarget = options.storage ?? {
+		kind: "file-create",
+		conversationDir: resolveCodingAgentSessionDir(cwd),
+	};
+	const initial = await resolveSdkInitialModel(options, modelRegistry, settingsManager);
 	const tracer = options.tracer ?? createLangfuseRuntimeTracerFromEnv();
 	const mcpEnabled = options.enableMcp !== false;
 	const managedMcpSource = mcpEnabled
@@ -415,7 +332,7 @@ async function createGreenfieldAgentSessionInternal(
 	});
 
 	const created = await createGreenfieldSdkSession({
-		storage: storage.storage,
+		storage,
 		ownedResources,
 		composition: {
 			modelRegistry,
@@ -429,8 +346,6 @@ async function createGreenfieldAgentSessionInternal(
 			additionalHookAdapterFactories: options.additionalHookAdapterFactories,
 			enableSubagents: options.enableSubagents,
 			subagentMaxConcurrent: options.subagentMaxConcurrent,
-			subagentTypeRegistry: subagents?.typeRegistry,
-			createSubagentChildFactory: subagents?.createChildFactory,
 			mcpSource: managedMcpSource?.source,
 			tracer,
 			tracing: {
@@ -466,7 +381,21 @@ async function createGreenfieldAgentSessionInternal(
 			memoryMode: options.memoryMode,
 			memoryFile: options.memoryFile,
 			memoryCharLimit: options.memoryCharLimit,
-			askUserQuestion: options.askUserQuestion,
+			askUserQuestion: options.askUserQuestion
+				? {
+						isEnabled: () => options.askUserQuestion?.isEnabled() ?? false,
+						ask: async (request, signal) => {
+							const result = await options.askUserQuestion!.ask(request, signal);
+							return {
+								cancelled: result.cancelled,
+								answers: result.answers.map((answer) => ({
+									question: answer.question,
+									answers: [...answer.answers],
+								})),
+							};
+						},
+					}
+				: undefined,
 			enableBackgroundTasks: options.enableBackgroundTasks,
 			includeAgentSkills: options.includeAgentSkills,
 			agentPlugins: options.agentPlugins,
@@ -527,7 +456,7 @@ async function createGreenfieldAgentSessionInternal(
 					currentAgentPlugins = agentPlugins;
 					resourceLoader.setAdditionalSkillPaths([
 						...(agentPlugins?.skillPathContributions?.flatMap((contribution) => contribution.paths) ?? []),
-						...(resourceSourceAdapter?.readSkillPaths() ?? resourceContributions?.skillPaths ?? []),
+						...(resourceSourceAdapter?.readSkillPaths() ?? options.resources?.skillPaths ?? []),
 					]);
 				},
 				memoryConfiguration: {
@@ -583,52 +512,6 @@ async function createGreenfieldAgentSessionInternal(
 	};
 }
 
-function adaptPublicSdkCreateOptions(options: CreateCodingAgentSessionOptions): CreateAgentSessionOptions {
-	return {
-		cwd: options.cwd,
-		agentDir: options.agentDir,
-		model: options.model,
-		thinkingLevel: options.thinkingLevel,
-		scopedModels: options.scopedModels ? [...options.scopedModels] : undefined,
-		scenario: options.scenario,
-		agentMode: options.agentMode,
-		additionalHookAdapterFactories: options.additionalHookAdapterFactories,
-		appendSystemPrompt: options.appendSystemPrompt,
-		includeAgentSkills: options.includeAgentSkills,
-		env: options.env ? { ...options.env } : undefined,
-		memoryMode: options.memoryMode,
-		memoryFile: options.memoryFile,
-		memoryCharLimit: options.memoryCharLimit,
-		askUserQuestion: options.askUserQuestion
-			? {
-					isEnabled: () => options.askUserQuestion?.isEnabled() ?? false,
-					ask: async (request, signal) => {
-						const result = await options.askUserQuestion!.ask(request, signal);
-						return {
-							cancelled: result.cancelled,
-							answers: result.answers.map((answer) => ({
-								question: answer.question,
-								answers: [...answer.answers],
-							})),
-						};
-					},
-				}
-			: undefined,
-		enableBackgroundTasks: options.enableBackgroundTasks,
-		enableSubagents: options.enableSubagents,
-		subagentMaxConcurrent: options.subagentMaxConcurrent,
-		enableMcp: options.enableMcp,
-		serverUrl: options.serverUrl,
-		tracer: options.tracer,
-		tracingTraceName: options.tracingTraceName,
-		tracingMetadata: options.tracingMetadata ? { ...options.tracingMetadata } : undefined,
-		agentPlugins: options.agentPlugins,
-		invokePluginTool: options.invokePluginTool,
-		invokePluginContinuation: options.invokePluginContinuation,
-		invokePluginSystemPrompt: options.invokePluginSystemPrompt,
-	};
-}
-
 function resolvePublicSdkActiveToolNames(activeTools: readonly string[] | undefined): readonly string[] | undefined {
 	if (activeTools === undefined) return undefined;
 	return activeTools.map((name) => {
@@ -675,38 +558,17 @@ async function exportGreenfieldSdkSessionToHtml(
 	});
 }
 
-function assertCompatibleOptions(options: CreateAgentSessionOptions): void {
-	const assessment = assessSdkCreateOptionsCompatibility(options);
-	if (assessment.compatible) return;
-	throw new CodingAgentSdkHostError(
-		CODING_AGENT_SDK_HOST_ERROR_CODES.INCOMPATIBLE_OPTIONS,
-		`Greenfield SDK Host Adapter does not support: ${assessment.issues.map(({ option }) => option).join(", ")}`,
-		assessment.issues,
-	);
-}
-
 async function resolveSdkInitialModel(
-	options: CreateAgentSessionOptions,
+	options: CreateCodingAgentSessionOptions,
 	modelRegistry: ModelRegistry,
 	settingsManager: SettingsRuntime,
-	history: CodingAgentSdkSessionHistory | undefined,
 ): Promise<CodingAgentSdkInitialModel> {
-	const hasExistingSession = (history?.context.messages.length ?? 0) > 0;
 	let model: Model<Api> | undefined = options.model;
-	let modelFallbackMessage: string | undefined;
-	if (!model && hasExistingSession && history?.context.model) {
-		const { provider, modelId } = history.context.model;
-		const restoredModel =
-			modelRegistry.find(provider, modelId) ??
-			modelRegistry.getAll().find((candidate) => candidate.provider === provider && candidate.modelId === modelId);
-		if (restoredModel && (await modelRegistry.getApiKey(restoredModel))) model = restoredModel;
-		else modelFallbackMessage = `Could not restore model ${provider}/${modelId}`;
-	}
 
 	if (!model) {
 		const result = await findInitialModel({
-			scopedModels: options.scopedModels ?? [],
-			isContinuing: hasExistingSession,
+			scopedModels: options.scopedModels ? [...options.scopedModels] : [],
+			isContinuing: false,
 			defaultProvider: settingsManager.getDefaultProvider(),
 			defaultModelId: settingsManager.getDefaultModel(),
 			defaultThinkingLevel: settingsManager.getDefaultThinkingLevel(),
@@ -719,20 +581,13 @@ async function resolveSdkInitialModel(
 				`No models available. Use /login or set an API key environment variable. See ${join(getDocsPath(), "providers.md")}. Then use /model to select a model.`,
 			);
 		}
-		if (modelFallbackMessage) modelFallbackMessage += `. Using ${model.provider}/${model.id}`;
 	}
 
 	let thinkingLevel = options.thinkingLevel;
-	if (thinkingLevel === undefined && hasExistingSession) {
-		thinkingLevel = history?.hasThinkingLevelEntry
-			? (history.context.thinkingLevel as ThinkingLevel)
-			: (settingsManager.getDefaultThinkingLevel() ?? DEFAULT_THINKING_LEVEL);
-	}
 	thinkingLevel ??= settingsManager.getDefaultThinkingLevel() ?? DEFAULT_THINKING_LEVEL;
 	if (!model.reasoning) thinkingLevel = "off";
 	return {
 		model,
 		thinkingLevel,
-		...(modelFallbackMessage ? { modelFallbackMessage } : {}),
 	};
 }

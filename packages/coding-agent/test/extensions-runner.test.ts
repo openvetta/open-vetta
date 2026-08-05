@@ -9,20 +9,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthStorage } from "../src/core/auth-storage.js";
 import { DEFAULT_KEYBINDINGS, type KeyId } from "../src/core/keybindings.js";
 import { ModelRegistry } from "../src/core/model-registry.js";
-import { SessionManager } from "../src/core/session-manager/index.js";
-import { discoverAndLoadExtensions, ExtensionRunner } from "../src/extensions/index.js";
+import { discoverAndLoadExtensions, ExtensionRunner, type ExtensionSessionView } from "../src/extensions/index.js";
+import { createExtensionSessionView } from "./fixtures/extension-session-view.js";
 
 describe("ExtensionRunner", () => {
 	let tempDir: string;
 	let extensionsDir: string;
-	let sessionManager: SessionManager;
+	let sessionManager: ExtensionSessionView;
 	let modelRegistry: ModelRegistry;
 
 	beforeEach(() => {
 		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-runner-test-"));
 		extensionsDir = path.join(tempDir, "extensions");
 		fs.mkdirSync(extensionsDir);
-		sessionManager = SessionManager.inMemory();
+		sessionManager = createExtensionSessionView(tempDir);
 		const authStorage = AuthStorage.create(path.join(tempDir, "auth.json"));
 		modelRegistry = new ModelRegistry(authStorage);
 	});

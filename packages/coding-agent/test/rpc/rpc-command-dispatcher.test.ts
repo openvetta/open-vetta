@@ -3,8 +3,8 @@ import { describe, expect, test, vi } from "vitest";
 import { createRpcCommandDispatcher, type RpcFrameOutput } from "../../src/modes/rpc/rpc-command-dispatcher.js";
 import { runRpcModeWithCapabilities } from "../../src/modes/rpc/rpc-mode.js";
 import {
+	GREENFIELD_FULL_RPC_PROFILE,
 	GREENFIELD_IM_RPC_PROFILE,
-	LEGACY_FULL_RPC_PROFILE,
 	type RpcSessionCapabilities,
 	type RpcSessionInitialization,
 } from "../../src/modes/rpc/rpc-session-capabilities.js";
@@ -520,7 +520,7 @@ describe("RPC command dispatcher", () => {
 
 function createSessionCapabilities(): RpcSessionCapabilities {
 	return {
-		profile: LEGACY_FULL_RPC_PROFILE,
+		profile: GREENFIELD_FULL_RPC_PROFILE,
 		turn: {
 			prompt: vi.fn(async () => {}),
 			steer: vi.fn(async () => {}),
@@ -604,8 +604,8 @@ function createSessionCapabilities(): RpcSessionCapabilities {
 
 function createRpcState(): RpcSessionState {
 	return {
-		runtimeBackend: "legacy",
-		runtimeDecision: { requestedBackend: "legacy", effectiveBackend: "legacy" },
+		runtimeBackend: "greenfield",
+		runtimeDecision: { requestedBackend: "greenfield", effectiveBackend: "greenfield" },
 		thinkingLevel: "medium",
 		isStreaming: false,
 		isCompacting: false,

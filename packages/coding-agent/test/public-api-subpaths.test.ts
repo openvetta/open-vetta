@@ -41,7 +41,7 @@ describe("coding-agent public subpaths", () => {
 		expect(ExtensionRunner).toBe(root.ExtensionRunner);
 		expect(runCodingAgentCliControl).toBeTypeOf("function");
 		expect(createCodingAgentSession).toBeTypeOf("function");
-		expect(createCodingAgentSession).not.toBe(root.createAgentSession);
+		expect(Reflect.has(root, "createAgentSession")).toBe(false);
 		expect(Reflect.has(root, "SettingsRuntime")).toBe(false);
 		expect(VETTA_CLI_GUIDANCE).toContain("vetta action search");
 	});

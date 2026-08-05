@@ -1,18 +1,6 @@
 export { SubagentCoordinator } from "./coordinator.js";
-export {
-	buildForkSeedMessages,
-	FORK_CONTEXT_SUMMARY_TYPE,
-	seedForkContext,
-	trimDanglingToolCalls,
-} from "./fork-context.js";
 export { buildSubagentNotification, SubagentDeliveryTracker } from "./notifications.js";
 export { ensureSubagentDir, resolveSubagentDir } from "./persistence.js";
-export {
-	buildToolsForSubagentType,
-	type CreateAgentSessionFn,
-	createDefaultSubagentSessionFactory,
-	type DefaultSubagentSessionFactoryOptions,
-} from "./session-factory.js";
 export {
 	createDispatchWorkflowsTool,
 	createFollowupTaskTool,

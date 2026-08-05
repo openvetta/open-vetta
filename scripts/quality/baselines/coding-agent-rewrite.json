@@ -452,56 +452,12 @@
 		},
 		{
 			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
-			"specifier": "../core/sdk.js",
-			"names": [
-				"CreateAgentSessionOptions"
-			],
-			"category": "old-core",
-			"domain": "sdk"
-		},
-		{
-			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
 			"specifier": "../core/timings.js",
 			"names": [
 				"time"
 			],
 			"category": "old-core",
 			"domain": "timings"
-		},
-		{
-			"path": "packages/coding-agent/src/host/coding-agent-sdk-subagent-adapter.ts",
-			"specifier": "../core/model-registry.js",
-			"names": [
-				"ModelRegistry"
-			],
-			"category": "old-core",
-			"domain": "model-registry"
-		},
-		{
-			"path": "packages/coding-agent/src/host/coding-agent-sdk-subagent-adapter.ts",
-			"specifier": "../core/session/tool-scope.js",
-			"names": [
-				"ALL_SCENARIOS",
-				"ConversationScenario"
-			],
-			"category": "old-core",
-			"domain": "session"
-		},
-		{
-			"path": "packages/coding-agent/src/host/coding-agent-sdk-subagent-adapter.ts",
-			"specifier": "../core/subagents/index.js",
-			"names": [
-				"SubagentChildHandle",
-				"SubagentParentContext",
-				"SubagentSessionFactory",
-				"SubagentSnapshot",
-				"SubagentSpawnRequest",
-				"SubagentTypeDefinition",
-				"SubagentTypeRegistryLike",
-				"createDefaultSubagentTypeRegistry"
-			],
-			"category": "old-core",
-			"domain": "subagents"
 		},
 		{
 			"path": "packages/coding-agent/src/index.ts",
@@ -515,24 +471,6 @@
 			],
 			"category": "old-core",
 			"domain": "agent-mode"
-		},
-		{
-			"path": "packages/coding-agent/src/index.ts",
-			"specifier": "./core/agent-session.js",
-			"names": [
-				"AgentSession",
-				"AgentSessionConfig",
-				"AgentSessionEvent",
-				"AgentSessionEventListener",
-				"ModelCycleResult",
-				"ParsedSkillBlock",
-				"PromptOptions",
-				"PromptResourceRef",
-				"SessionStats",
-				"parseSkillBlock"
-			],
-			"category": "old-core",
-			"domain": "agent-session"
 		},
 		{
 			"path": "packages/coding-agent/src/index.ts",
@@ -617,48 +555,6 @@
 		},
 		{
 			"path": "packages/coding-agent/src/index.ts",
-			"specifier": "./core/sdk.js",
-			"names": [
-				"CreateAgentSessionOptions",
-				"CreateAgentSessionResult",
-				"PromptTemplate",
-				"createAgentSession"
-			],
-			"category": "old-core",
-			"domain": "sdk"
-		},
-		{
-			"path": "packages/coding-agent/src/index.ts",
-			"specifier": "./core/session-manager/index.js",
-			"names": [
-				"BranchSummaryEntry",
-				"CURRENT_SESSION_VERSION",
-				"CompactionEntry",
-				"CustomEntry",
-				"CustomMessageEntry",
-				"FileEntry",
-				"ModelChangeEntry",
-				"NewSessionOptions",
-				"SessionContext",
-				"SessionEntry",
-				"SessionEntryBase",
-				"SessionHeader",
-				"SessionInfo",
-				"SessionInfoEntry",
-				"SessionManager",
-				"SessionMessageEntry",
-				"ThinkingLevelChangeEntry",
-				"buildSessionContext",
-				"getLatestCompactionEntry",
-				"loadEntriesFromFile",
-				"migrateSessionEntries",
-				"parseSessionEntries"
-			],
-			"category": "old-core",
-			"domain": "session-manager"
-		},
-		{
-			"path": "packages/coding-agent/src/index.ts",
 			"specifier": "./core/session/tool-scope.js",
 			"names": [
 				"ALL_SCENARIOS",
@@ -670,46 +566,6 @@
 			],
 			"category": "old-core",
 			"domain": "session"
-		},
-		{
-			"path": "packages/coding-agent/src/index.ts",
-			"specifier": "./core/session/types.js",
-			"names": [
-				"PromptAttachmentRef"
-			],
-			"category": "old-core",
-			"domain": "session"
-		},
-		{
-			"path": "packages/coding-agent/src/index.ts",
-			"specifier": "./core/subagents/index.js",
-			"names": [
-				"DISPATCH_WORKFLOWS_MAX_BATCH",
-				"EXPLORER_SYSTEM_PROMPT",
-				"SUBAGENT_CONTROL_TOOL_NAMES",
-				"SUBAGENT_TYPE_EXPLORER",
-				"SUBAGENT_TYPE_WORKFLOW",
-				"SubagentChildHandle",
-				"SubagentCoordinator",
-				"SubagentSessionFactory",
-				"SubagentSnapshot",
-				"SubagentStatus",
-				"SubagentTodoProgress",
-				"SubagentTypeDefinition",
-				"SubagentTypeId",
-				"SubagentTypeRegistry",
-				"WORKFLOW_SYSTEM_PROMPT",
-				"buildToolsForSubagentType",
-				"createDefaultSubagentSessionFactory",
-				"createDefaultSubagentTypeRegistry",
-				"createEmptySubagentTypeRegistry",
-				"createExplorerTypeDefinition",
-				"createSubagentControlTools",
-				"createWorkflowTypeDefinition",
-				"isValidTaskName"
-			],
-			"category": "old-core",
-			"domain": "subagents"
 		},
 		{
 			"path": "packages/coding-agent/src/modes/rpc/greenfield-rpc-capabilities.ts",
@@ -731,24 +587,6 @@
 			"domain": "export-html"
 		},
 		{
-			"path": "packages/coding-agent/src/modes/rpc/greenfield-rpc-capabilities.ts",
-			"specifier": "../../core/session/session-stats.js",
-			"names": [
-				"SessionStats"
-			],
-			"category": "old-core",
-			"domain": "session"
-		},
-		{
-			"path": "packages/coding-agent/src/modes/rpc/rpc-client.ts",
-			"specifier": "../../core/agent-session.js",
-			"names": [
-				"SessionStats"
-			],
-			"category": "old-core",
-			"domain": "agent-session"
-		},
-		{
 			"path": "packages/coding-agent/src/modes/rpc/rpc-client.ts",
 			"specifier": "../../core/bash-executor.js",
 			"names": [
@@ -758,15 +596,6 @@
 			"domain": "bash-executor"
 		},
 		{
-			"path": "packages/coding-agent/src/modes/rpc/rpc-mode.ts",
-			"specifier": "../../core/agent-session.js",
-			"names": [
-				"AgentSession"
-			],
-			"category": "old-core",
-			"domain": "agent-session"
-		},
-		{
 			"path": "packages/coding-agent/src/modes/rpc/rpc-session-capabilities.ts",
 			"specifier": "../../core/bash-executor.js",
 			"names": [
@@ -774,24 +603,6 @@
 			],
 			"category": "old-core",
 			"domain": "bash-executor"
-		},
-		{
-			"path": "packages/coding-agent/src/modes/rpc/rpc-session-capabilities.ts",
-			"specifier": "../../core/session/session-stats.js",
-			"names": [
-				"SessionStats"
-			],
-			"category": "old-core",
-			"domain": "session"
-		},
-		{
-			"path": "packages/coding-agent/src/modes/rpc/rpc-types.ts",
-			"specifier": "../../core/agent-session.js",
-			"names": [
-				"SessionStats"
-			],
-			"category": "old-core",
-			"domain": "agent-session"
 		},
 		{
 			"path": "packages/coding-agent/src/modes/rpc/rpc-types.ts",
@@ -885,7 +696,6 @@
 	"runtimeBackedges": [],
 	"oldImplementationFiles": [
 		"packages/coding-agent/src/core/agent-mode.ts",
-		"packages/coding-agent/src/core/agent-session.ts",
 		"packages/coding-agent/src/core/auth-storage.ts",
 		"packages/coding-agent/src/core/background-tasks/index.ts",
 		"packages/coding-agent/src/core/bash-executor.ts",
@@ -930,50 +740,17 @@
 		"packages/coding-agent/src/core/personas-data.ts",
 		"packages/coding-agent/src/core/personas.ts",
 		"packages/coding-agent/src/core/resolve-config-value.ts",
-		"packages/coding-agent/src/core/sdk.ts",
 		"packages/coding-agent/src/core/session-lock.ts",
-		"packages/coding-agent/src/core/session-manager/branch-ops.ts",
-		"packages/coding-agent/src/core/session-manager/format-compat.ts",
-		"packages/coding-agent/src/core/session-manager/index.ts",
-		"packages/coding-agent/src/core/session-manager/llm-context.ts",
-		"packages/coding-agent/src/core/session-manager/manager.ts",
-		"packages/coding-agent/src/core/session-manager/message-edit.ts",
-		"packages/coding-agent/src/core/session-manager/session-catalog.ts",
-		"packages/coding-agent/src/core/session-manager/session-fork.ts",
-		"packages/coding-agent/src/core/session-manager/session-lifecycle.ts",
-		"packages/coding-agent/src/core/session-manager/session-model.ts",
-		"packages/coding-agent/src/core/session-manager/session-store.ts",
-		"packages/coding-agent/src/core/session-manager/transcript-write.ts",
-		"packages/coding-agent/src/core/session-manager/tree-navigation.ts",
-		"packages/coding-agent/src/core/session/background-task-controller.ts",
-		"packages/coding-agent/src/core/session/bash-controller.ts",
-		"packages/coding-agent/src/core/session/compaction-controller.ts",
-		"packages/coding-agent/src/core/session/event-router.ts",
-		"packages/coding-agent/src/core/session/extension-binding.ts",
-		"packages/coding-agent/src/core/session/input-pipeline.ts",
-		"packages/coding-agent/src/core/session/model-controller.ts",
-		"packages/coding-agent/src/core/session/normalize-images.ts",
-		"packages/coding-agent/src/core/session/queue-controller.ts",
-		"packages/coding-agent/src/core/session/retry-controller.ts",
-		"packages/coding-agent/src/core/session/runtime-manager.ts",
-		"packages/coding-agent/src/core/session/session-context.ts",
-		"packages/coding-agent/src/core/session/session-navigator.ts",
-		"packages/coding-agent/src/core/session/session-operation-gate.ts",
 		"packages/coding-agent/src/core/session/session-stats.ts",
 		"packages/coding-agent/src/core/session/skill-expansion.ts",
-		"packages/coding-agent/src/core/session/subagent-controller.ts",
 		"packages/coding-agent/src/core/session/system-prompt-builder.ts",
 		"packages/coding-agent/src/core/session/todo-continuation.ts",
-		"packages/coding-agent/src/core/session/todo-controller.ts",
 		"packages/coding-agent/src/core/session/tool-scope.ts",
-		"packages/coding-agent/src/core/session/types.ts",
 		"packages/coding-agent/src/core/slash-commands.ts",
 		"packages/coding-agent/src/core/subagents/coordinator.ts",
-		"packages/coding-agent/src/core/subagents/fork-context.ts",
 		"packages/coding-agent/src/core/subagents/index.ts",
 		"packages/coding-agent/src/core/subagents/notifications.ts",
 		"packages/coding-agent/src/core/subagents/persistence.ts",
-		"packages/coding-agent/src/core/subagents/session-factory.ts",
 		"packages/coding-agent/src/core/subagents/tools/dispatch-workflows.ts",
 		"packages/coding-agent/src/core/subagents/tools/followup-task.ts",
 		"packages/coding-agent/src/core/subagents/tools/index.ts",
@@ -1024,9 +801,7 @@
 		"packages/coding-agent/src/core/tools/tool-search/index.ts",
 		"packages/coding-agent/src/core/tools/tree/index.ts",
 		"packages/coding-agent/src/core/tools/truncate.ts",
-		"packages/coding-agent/src/core/tools/write/index.ts",
-		"packages/coding-agent/src/modes/rpc/legacy-rpc-session-adapter.ts",
-		"packages/coding-agent/src/public-api/sdk-compatibility-inventory.ts"
+		"packages/coding-agent/src/core/tools/write/index.ts"
 	],
 	"compatibilityExports": [],
 	"legacyExampleImports": [],

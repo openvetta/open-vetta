@@ -1,6 +1,5 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import type { AgentSessionEvent, PromptOptions } from "../../src/core/session/types.js";
 import type {
 	CodingAgentHost,
 	CodingAgentPromptOptions,
@@ -88,17 +87,3 @@ function verifyToolContextIsNarrow(context: CodingAgentToolExecutionContext): vo
 }
 
 void verifyToolContextIsNarrow;
-
-function verifyLegacyPromptCompatibility(options: PromptOptions): CodingAgentPromptOptions {
-	return options;
-}
-
-function verifyStablePromptCompatibility(options: CodingAgentPromptOptions): PromptOptions {
-	return options;
-}
-
-function verifyLegacyEventCompatibility(event: AgentSessionEvent): Parameters<CodingAgentSessionEventListener>[0] {
-	return event;
-}
-
-void [verifyLegacyPromptCompatibility, verifyStablePromptCompatibility, verifyLegacyEventCompatibility];

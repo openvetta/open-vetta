@@ -4,7 +4,7 @@
  * baseline deliberately, and the final target for every reported category is zero.
  */
 
-import { existsSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { join, posix } from "node:path";
 import ts from "typescript";
 import { RETAINED_LEGACY_FORMAT_BOUNDARIES } from "./check-legacy-execution-retirement.mjs";
@@ -310,7 +310,11 @@ function readCurrentState() {
 
 if (isDirectRun(import.meta.url)) {
 	const actual = readCurrentState();
-	if (process.argv.includes("--print-baseline")) {
+	if (process.argv.includes("--write-baseline")) {
+		const baselinePath = join(repoRoot, REWRITE_BASELINE_PATH);
+		writeFileSync(baselinePath, `${JSON.stringify(actual, null, "\t")}\n`, "utf8");
+		ok(`[coding-agent-rewrite] wrote baseline: ${toPosix(REWRITE_BASELINE_PATH)}`);
+	} else if (process.argv.includes("--print-baseline")) {
 		console.log(JSON.stringify(actual, null, "\t"));
 	} else {
 		const baselinePath = join(repoRoot, REWRITE_BASELINE_PATH);

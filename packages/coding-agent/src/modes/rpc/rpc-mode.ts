@@ -6,8 +6,6 @@
  */
 
 import type { Readable, Writable } from "node:stream";
-import type { AgentSession } from "../../core/agent-session.js";
-import { LegacyRpcSessionAdapter } from "./legacy-rpc-session-adapter.js";
 import { createRpcCommandDispatcher, type RpcFrameOutput, rpcError } from "./rpc-command-dispatcher.js";
 import { RpcExtensionUIBridge } from "./rpc-extension-ui-bridge.js";
 import { validateRpcInboundFrame } from "./rpc-frame-validator.js";
@@ -37,10 +35,6 @@ interface RpcModeRuntimeOptions extends RunRpcModeOptions {
 	readonly input?: Readable;
 	readonly output?: Writable;
 	readonly exit?: (code: number) => void;
-}
-
-export async function runRpcMode(session: AgentSession, options: RunRpcModeOptions = {}): Promise<never> {
-	return runRpcModeWithCapabilities(new LegacyRpcSessionAdapter(session, options.runtimeDecision), options);
 }
 
 export async function runRpcModeWithCapabilities(

@@ -2,6 +2,7 @@
  * Core modules shared between all run modes.
  */
 
+export type { PromptAttachmentRef } from "@vetta/runtime-core";
 export type { CompactionResult } from "../compaction/index.js";
 // Extensions system
 export {
@@ -54,15 +55,6 @@ export {
 	isAgentMode,
 	matchesAgentMode,
 } from "./agent-mode.js";
-export {
-	AgentSession,
-	type AgentSessionConfig,
-	type AgentSessionEvent,
-	type AgentSessionEventListener,
-	type ModelCycleResult,
-	type PromptOptions,
-	type SessionStats,
-} from "./agent-session.js";
 export { type BashExecutorOptions, type BashResult, executeBash, executeBashWithOperations } from "./bash-executor.js";
 export { createEventBus, type EventBus, type EventBusController } from "./event-bus.js";
 export {
@@ -73,4 +65,3 @@ export {
 	type ToolCapability,
 	type ToolCategory,
 } from "./session/tool-scope.js";
-export type { PromptAttachmentRef } from "./session/types.js";
