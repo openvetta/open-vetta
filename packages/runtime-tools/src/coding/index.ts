@@ -144,6 +144,18 @@ export {
 	createCurrentTimeToolRegistration,
 } from "./tools/current-time/index.js";
 export {
+	createDispatchWorkflowsTool,
+	createDispatchWorkflowsToolRegistration,
+	DISPATCH_WORKFLOWS_MAX_BATCH,
+	DISPATCH_WORKFLOWS_TOOL_CATEGORY,
+	DISPATCH_WORKFLOWS_TOOL_DESCRIPTION,
+	DISPATCH_WORKFLOWS_TOOL_SCOPES,
+	type DispatchWorkflowsToolInput,
+	DispatchWorkflowsToolInputSchema,
+	type DispatchWorkflowsToolOptions,
+	type DispatchWorkflowsToolRegistrationOptions,
+} from "./tools/dispatch-workflows/index.js";
+export {
 	createDocToPdfTool,
 	createDocToPdfToolRegistration,
 	DOC_TO_PDF_TOOL_AGENT_MODES,
@@ -207,6 +219,17 @@ export {
 	type FindToolOptions,
 } from "./tools/find/index.js";
 export {
+	createFollowupTaskTool,
+	createFollowupTaskToolRegistration,
+	FOLLOWUP_TASK_TOOL_CATEGORY,
+	FOLLOWUP_TASK_TOOL_DESCRIPTION,
+	FOLLOWUP_TASK_TOOL_SCOPES,
+	type FollowupTaskToolInput,
+	FollowupTaskToolInputSchema,
+	type FollowupTaskToolOptions,
+	type FollowupTaskToolRegistrationOptions,
+} from "./tools/followup-task/index.js";
+export {
 	createGlobTool,
 	createGlobToolRegistration,
 	GLOB_TOOL_CATEGORY,
@@ -255,6 +278,17 @@ export {
 	type ImSendAttachmentToolOptions,
 	type ImSendAttachmentToolRegistrationOptions,
 } from "./tools/im-send-attachment/index.js";
+export {
+	createInterruptAgentTool,
+	createInterruptAgentToolRegistration,
+	INTERRUPT_AGENT_TOOL_CATEGORY,
+	INTERRUPT_AGENT_TOOL_DESCRIPTION,
+	INTERRUPT_AGENT_TOOL_SCOPES,
+	type InterruptAgentToolInput,
+	InterruptAgentToolInputSchema,
+	type InterruptAgentToolOptions,
+	type InterruptAgentToolRegistrationOptions,
+} from "./tools/interrupt-agent/index.js";
 export {
 	createInvokeSkillTool,
 	createInvokeSkillToolRegistration,
@@ -314,6 +348,17 @@ export {
 	type KbWritePageToolOptions,
 	type KbWritePageToolRegistrationOptions,
 } from "./tools/kb-write-page/index.js";
+export {
+	createListAgentsTool,
+	createListAgentsToolRegistration,
+	LIST_AGENTS_TOOL_CATEGORY,
+	LIST_AGENTS_TOOL_DESCRIPTION,
+	LIST_AGENTS_TOOL_SCOPES,
+	type ListAgentsToolInput,
+	ListAgentsToolInputSchema,
+	type ListAgentsToolOptions,
+	type ListAgentsToolRegistrationOptions,
+} from "./tools/list-agents/index.js";
 export {
 	createLsTool,
 	createLsToolRegistration,
@@ -386,6 +431,17 @@ export {
 	type RenderPdfPageToolOptions,
 } from "./tools/render-pdf-page/index.js";
 export {
+	createSendMessageTool,
+	createSendMessageToolRegistration,
+	SEND_MESSAGE_TOOL_CATEGORY,
+	SEND_MESSAGE_TOOL_DESCRIPTION,
+	SEND_MESSAGE_TOOL_SCOPES,
+	type SendMessageToolInput,
+	SendMessageToolInputSchema,
+	type SendMessageToolOptions,
+	type SendMessageToolRegistrationOptions,
+} from "./tools/send-message/index.js";
+export {
 	createShellTool,
 	createShellToolRegistration,
 	getShellToolScopes,
@@ -396,6 +452,17 @@ export {
 	type ShellToolOptions,
 	type ShellToolRegistrationOptions,
 } from "./tools/shell/index.js";
+export {
+	createSpawnAgentTool,
+	createSpawnAgentToolRegistration,
+	SPAWN_AGENT_TOOL_CATEGORY,
+	SPAWN_AGENT_TOOL_DESCRIPTION,
+	SPAWN_AGENT_TOOL_SCOPES,
+	type SpawnAgentToolInput,
+	SpawnAgentToolInputSchema,
+	type SpawnAgentToolOptions,
+	type SpawnAgentToolRegistrationOptions,
+} from "./tools/spawn-agent/index.js";
 export {
 	createTaskOutputTool,
 	createTaskOutputToolRegistration,
@@ -462,6 +529,18 @@ export {
 	TreeToolInputSchema,
 	type TreeToolOptions,
 } from "./tools/tree/index.js";
+export {
+	createWaitAgentTool,
+	createWaitAgentToolRegistration,
+	WAIT_AGENT_TOOL_CATEGORY,
+	WAIT_AGENT_TOOL_DESCRIPTION,
+	WAIT_AGENT_TOOL_SCOPES,
+	type WaitAgentToolInput,
+	WaitAgentToolInputSchema,
+	type WaitAgentToolOptions,
+	type WaitAgentToolRegistrationOptions,
+	WORKFLOW_NO_WAIT_TEXT,
+} from "./tools/wait-agent/index.js";
 export {
 	createWriteTool,
 	createWriteToolRegistration,

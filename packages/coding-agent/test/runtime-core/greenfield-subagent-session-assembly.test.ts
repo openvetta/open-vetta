@@ -179,6 +179,49 @@ describe("Greenfield Subagent session assembly", () => {
 		expect(dispose).toHaveBeenCalledOnce();
 	});
 
+	it("reads the live parent MCP view at every child creation boundary", async () => {
+		const firstView = { tools: [{ tool: { name: "mcp_first" } }] } as unknown as McpRuntimeToolView;
+		const secondView = { tools: [{ tool: { name: "mcp_second" } }] } as unknown as McpRuntimeToolView;
+		let currentView = firstView;
+		const received: McpRuntimeToolView[] = [];
+		const runtime = createGreenfieldSubagentSessionAssembly({
+			...baseOptions(),
+			readInheritedMcpView: async () => currentView,
+			createChildComposition: async (request) => {
+				if (request.inheritedMcpView) received.push(request.inheritedMcpView);
+				return {
+					createSession: async (options) => childSession(options.sessionId, []),
+					resumeSession: async (options) => childSession(options.sessionId, []),
+					appendSessionContext() {},
+					async deliverSessionContext() {},
+					async dispose() {},
+				};
+			},
+		});
+		if (!runtime) throw new Error("Expected enabled Subagent runtime");
+		const spawnTool = runtime.readTools().find(({ name }) => name === "spawn_agent");
+		if (!spawnTool) throw new Error("Expected spawn_agent tool");
+		const executeSpawn = (taskName: string) =>
+			spawnTool.execute({
+				sessionId: "parent",
+				turnId: `turn-${taskName}`,
+				toolCallId: `spawn-${taskName}`,
+				signal: new AbortController().signal,
+				input: {
+					task_name: taskName,
+					message: `Inspect ${taskName}.`,
+					agent_type: "explorer",
+				},
+			});
+
+		await executeSpawn("first");
+		currentView = secondView;
+		await executeSpawn("second");
+
+		expect(received).toEqual([firstView, secondView]);
+		await runtime.dispose();
+	});
+
 	it("reads an injected type registry live and delegates child creation to the injected factory", async () => {
 		const registry = new SubagentTypeRegistry<GreenfieldSubagentProfile>();
 		const create = vi.fn<GreenfieldSubagentChildFactory["create"]>(async () => completedChild("custom-child"));

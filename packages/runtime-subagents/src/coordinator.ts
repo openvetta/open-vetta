@@ -52,9 +52,12 @@ export class SubagentCoordinator<TProfile = unknown> implements SubagentCoordina
 	private readonly idGenerator: { next(): string };
 	private readonly maxConcurrent: number;
 	private readonly notificationDelayMs: number;
+	private readonly lifecycleAbortController = new AbortController();
+	private readonly startOperations = new Set<Promise<void>>();
 	private notifyBuffer: SubagentSnapshot[] = [];
 	private notifyTimer?: ReturnType<typeof setTimeout>;
 	private disposed = false;
+	private disposePromise: Promise<void> | undefined;
 
 	constructor(private readonly options: SubagentCoordinatorOptions<TProfile>) {
 		this.clock = options.clock ?? { now: () => Date.now() };
@@ -304,13 +307,26 @@ export class SubagentCoordinator<TProfile = unknown> implements SubagentCoordina
 		});
 	}
 
-	async dispose(): Promise<void> {
-		if (this.disposed) return;
+	dispose(): Promise<void> {
+		if (this.disposePromise) return this.disposePromise;
 		this.disposed = true;
+		this.lifecycleAbortController.abort();
 		if (this.notifyTimer) clearTimeout(this.notifyTimer);
 		this.notifyTimer = undefined;
 		this.notifyBuffer = [];
 		this.queue.length = 0;
+		this.disposePromise = this.performDispose();
+		return this.disposePromise;
+	}
+
+	private async performDispose(): Promise<void> {
+		const initialDisposal = this.disposeChildren();
+		await Promise.allSettled([initialDisposal, ...this.startOperations]);
+		await this.disposeChildren();
+		this.emitUpdate();
+	}
+
+	private async disposeChildren(): Promise<void> {
 		const disposals: Promise<void>[] = [];
 		for (const entry of this.children.values()) {
 			if (!isTerminalStatus(entry.snapshot.status)) {
@@ -325,7 +341,6 @@ export class SubagentCoordinator<TProfile = unknown> implements SubagentCoordina
 			if (disposal) disposals.push(disposal);
 		}
 		await Promise.allSettled(disposals);
-		this.emitUpdate();
 	}
 
 	private validateRequest(request: SubagentSpawnRequest, reusableTaskNames: ReadonlySet<string> = new Set()): string {
@@ -373,12 +388,16 @@ export class SubagentCoordinator<TProfile = unknown> implements SubagentCoordina
 		return entry;
 	}
 
-	private async startChild(entry: InternalChild): Promise<void> {
+	private startChild(entry: InternalChild): Promise<void> {
+		return this.trackStartOperation(this.createAndStartChild(entry));
+	}
+
+	private async createAndStartChild(entry: InternalChild): Promise<void> {
 		const request = entry.queuedRequest;
 		if (!request) throw new Error(`Subagent "${entry.snapshot.taskName}" has no queued request`);
 		const type = this.requireType(entry.snapshot.agentType);
 		entry.queuedRequest = undefined;
-		const handle = await this.options.factory.create(request, type);
+		const handle = await this.options.factory.create(request, type, this.lifecycleAbortController.signal);
 		if (this.disposed) {
 			await handle.dispose();
 			throw new Error("Parent session disposed during subagent spawn");
@@ -426,8 +445,24 @@ export class SubagentCoordinator<TProfile = unknown> implements SubagentCoordina
 	private async reopen(entry: InternalChild, type: SubagentTypeDefinition<TProfile>): Promise<void> {
 		const reopen = this.options.factory.reopen;
 		if (!reopen) throw new Error(`Subagent "${entry.snapshot.id}" is not live and reopen is not supported`);
-		const handle = await reopen(cloneSnapshot(entry.snapshot), type);
+		const handle = await this.trackStartOperation(
+			reopen(cloneSnapshot(entry.snapshot), type, this.lifecycleAbortController.signal),
+		);
+		if (this.disposed) {
+			await handle.dispose();
+			throw new Error("Parent session disposed during subagent reopen");
+		}
 		this.attachHandle(entry, handle);
+	}
+
+	private trackStartOperation<T>(operation: Promise<T>): Promise<T> {
+		const settlement = operation.then(
+			() => undefined,
+			() => undefined,
+		);
+		this.startOperations.add(settlement);
+		void settlement.finally(() => this.startOperations.delete(settlement));
+		return operation;
 	}
 
 	private async runInitialPrompt(entry: InternalChild, message: string): Promise<void> {

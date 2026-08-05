@@ -108,15 +108,6 @@
 			"domain": "mcp"
 		},
 		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-subagent-tool-adapter.ts",
-			"specifier": "../../core/subagents/tools/index.js",
-			"names": [
-				"createSubagentControlTools"
-			],
-			"category": "old-core",
-			"domain": "subagents"
-		},
-		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-tool-adapter.ts",
 			"specifier": "../../core/hooks/tool-wrapper.js",
 			"names": [
@@ -496,22 +487,6 @@
 		"packages/coding-agent/src/core/session-lock.ts",
 		"packages/coding-agent/src/core/session/tool-scope.ts",
 		"packages/coding-agent/src/core/slash-commands.ts",
-		"packages/coding-agent/src/core/subagents/coordinator.ts",
-		"packages/coding-agent/src/core/subagents/index.ts",
-		"packages/coding-agent/src/core/subagents/notifications.ts",
-		"packages/coding-agent/src/core/subagents/persistence.ts",
-		"packages/coding-agent/src/core/subagents/tools/dispatch-workflows.ts",
-		"packages/coding-agent/src/core/subagents/tools/followup-task.ts",
-		"packages/coding-agent/src/core/subagents/tools/index.ts",
-		"packages/coding-agent/src/core/subagents/tools/interrupt-agent.ts",
-		"packages/coding-agent/src/core/subagents/tools/list-agents.ts",
-		"packages/coding-agent/src/core/subagents/tools/send-message.ts",
-		"packages/coding-agent/src/core/subagents/tools/spawn-agent.ts",
-		"packages/coding-agent/src/core/subagents/tools/wait-agent.ts",
-		"packages/coding-agent/src/core/subagents/type-registry.ts",
-		"packages/coding-agent/src/core/subagents/types.ts",
-		"packages/coding-agent/src/core/subagents/types/explorer.ts",
-		"packages/coding-agent/src/core/subagents/types/workflow.ts",
 		"packages/coding-agent/src/core/timings.ts",
 		"packages/coding-agent/src/core/todo-store.ts",
 		"packages/coding-agent/src/core/tools/anchors.ts",

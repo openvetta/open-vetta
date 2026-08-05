@@ -4,8 +4,10 @@ import {
 	type SubagentChildFactory,
 	type SubagentChildHandle,
 	SubagentCoordinator,
+	type SubagentLifecycle,
 	type SubagentSnapshot,
 	type SubagentSpawnRequest,
+	type SubagentTodoProgress,
 	type SubagentTypeDefinition,
 	SubagentTypeRegistry,
 } from "../src/index.js";
@@ -180,6 +182,148 @@ describe("SubagentCoordinator", () => {
 		expect(replacement).toMatchObject({ taskName: "same_scope", agentType: "workflow" });
 		expect(fixture.coordinator.list()).toHaveLength(1);
 	});
+
+	it("runs start and stop lifecycle policy around a successful child", async () => {
+		const calls: string[] = [];
+		const lifecycle: SubagentLifecycle = {
+			async beforeStart() {
+				calls.push("start");
+				return { message: "policy: read-only\n\ninspect" };
+			},
+			async beforeStop() {
+				calls.push("stop");
+				return {};
+			},
+		};
+		const fixture = createFixture({ lifecycle });
+
+		await fixture.coordinator.spawn(request("lifecycle"));
+		expect(fixture.children[0]?.prompts[0]).toContain("policy: read-only");
+		fixture.children[0]?.complete("done");
+		await waitUntil(() => fixture.coordinator.get("lifecycle")?.status === "completed");
+
+		expect(calls).toEqual(["start", "stop"]);
+	});
+
+	it("fails and disposes the child when start lifecycle blocks", async () => {
+		const fixture = createFixture({
+			lifecycle: {
+				async beforeStart() {
+					return { blockedReason: "subagents disabled by policy" };
+				},
+			},
+		});
+
+		await expect(fixture.coordinator.spawn(request("blocked"))).rejects.toThrow("subagents disabled by policy");
+		expect(fixture.coordinator.get("blocked")).toMatchObject({
+			status: "failed",
+			errorMessage: "subagents disabled by policy",
+		});
+		expect(fixture.children[0]?.disposeCalls).toBe(1);
+	});
+
+	it("mirrors todo progress and title into workflow snapshots", async () => {
+		const fixture = createFixture();
+		const [reserved] = fixture.coordinator.spawnMany([
+			{ ...request("planned", "workflow"), title: "Refactor API", todos: ["inspect", "change"] },
+		]);
+
+		expect(reserved).toMatchObject({ title: "Refactor API", todoProgress: { done: 0, total: 2 } });
+		await waitUntil(() => fixture.children.length === 1);
+		fixture.children[0]?.updateTodoProgress({ done: 1, total: 2 });
+		expect(fixture.coordinator.get("planned")).toMatchObject({
+			title: "Refactor API",
+			todoProgress: { done: 1, total: 2 },
+		});
+	});
+
+	it("interrupts a queued workflow without starting it", async () => {
+		const fixture = createFixture({ maxConcurrent: 1 });
+		fixture.coordinator.spawnMany([request("first", "workflow"), request("second", "workflow")]);
+		await waitUntil(() => fixture.coordinator.get("first")?.status === "running");
+
+		expect(fixture.coordinator.interrupt("second")).toMatchObject({ status: "interrupted" });
+		fixture.children[0]?.complete("done");
+		await delay(10);
+		expect(fixture.children).toHaveLength(1);
+		expect(fixture.coordinator.get("second")).toMatchObject({ status: "interrupted" });
+	});
+
+	it("clears only terminal children and frees their task names", async () => {
+		const fixture = createFixture();
+		await fixture.coordinator.spawn(request("clearable"));
+		fixture.children[0]?.complete("done");
+		await waitUntil(() => fixture.coordinator.get("clearable")?.status === "completed");
+
+		expect(fixture.coordinator.clearFinished()).toBe(1);
+		expect(fixture.coordinator.list()).toEqual([]);
+		await expect(fixture.coordinator.spawn(request("clearable"))).resolves.toMatchObject({ taskName: "clearable" });
+	});
+
+	it("owns a child factory result that resolves after shutdown starts", async () => {
+		let createSignal: AbortSignal | undefined;
+		let resolveCreate = (_child: SubagentChildHandle) => {};
+		const created = new Promise<SubagentChildHandle>((resolve) => {
+			resolveCreate = resolve;
+		});
+		const activeChild = new TestChild("active-child");
+		const lateChild = new TestChild("late-child");
+		const fixture = createFixture({
+			maxConcurrent: 2,
+			factory: {
+				async create(spawnRequest, _type, signal) {
+					if (spawnRequest.taskName === "active") return activeChild;
+					createSignal = signal;
+					return created;
+				},
+			},
+		});
+		await fixture.coordinator.spawn(request("active"));
+		const spawning = fixture.coordinator.spawn(request("creating"));
+		const firstDispose = fixture.coordinator.dispose();
+
+		expect(fixture.coordinator.dispose()).toBe(firstDispose);
+		expect(createSignal?.aborted).toBe(true);
+		await waitUntil(() => activeChild.disposeCalls === 1);
+		resolveCreate(lateChild);
+		await expect(spawning).rejects.toThrow("Parent session disposed during subagent spawn");
+		await firstDispose;
+		expect(lateChild.disposeCalls).toBe(1);
+	});
+
+	it("owns a reopened child that resolves after shutdown starts", async () => {
+		let reopenSignal: AbortSignal | undefined;
+		let resolveReopen = (_child: SubagentChildHandle) => {};
+		const reopened = new Promise<SubagentChildHandle>((resolve) => {
+			resolveReopen = resolve;
+		});
+		const lateChild = new TestChild("late-reopened-child");
+		const fixture = createFixture({
+			factory: {
+				async create() {
+					return new TestChild("unused-child");
+				},
+				async reopen(_snapshot, _type, signal) {
+					reopenSignal = signal;
+					return reopened;
+				},
+			},
+		});
+		fixture.coordinator.restore({
+			agents: [snapshot("recovered", "interrupted", { generation: 1, sessionFile: "recovered.jsonl" })],
+			delivered: [],
+		});
+
+		const followingUp = fixture.coordinator.followUp("recovered", "continue");
+		await waitUntil(() => reopenSignal !== undefined);
+		const disposing = fixture.coordinator.dispose();
+		expect(reopenSignal?.aborted).toBe(true);
+		resolveReopen(lateChild);
+
+		await expect(followingUp).rejects.toThrow("Parent session disposed during subagent reopen");
+		await disposing;
+		expect(lateChild.disposeCalls).toBe(1);
+	});
 });
 
 function createFixture(
@@ -191,11 +335,13 @@ function createFixture(
 		readonly now?: number;
 		readonly reopen?: boolean;
 		readonly reopenError?: Error;
+		readonly lifecycle?: SubagentLifecycle;
+		readonly factory?: SubagentChildFactory<TestProfile>;
 	} = {},
 ) {
 	const children: TestChild[] = [];
 	let nextId = 0;
-	const factory: SubagentChildFactory<TestProfile> = {
+	const defaultFactory: SubagentChildFactory<TestProfile> = {
 		async create() {
 			nextId += 1;
 			const child = new TestChild(`child-${nextId}`);
@@ -210,6 +356,7 @@ function createFixture(
 			return child;
 		},
 	};
+	const factory = options.factory ?? defaultFactory;
 	const registry = new SubagentTypeRegistry<TestProfile>().register(type("explorer")).register(type("workflow"));
 	const coordinator = new SubagentCoordinator({
 		factory,
@@ -219,6 +366,7 @@ function createFixture(
 		notificationDelayMs: options.notificationDelayMs,
 		onNotify: options.onNotify,
 		onDeliveryClaimed: options.onDeliveryClaimed,
+		lifecycle: options.lifecycle,
 		clock: options.now === undefined ? undefined : { now: () => options.now ?? 0 },
 		idGenerator: { next: () => `reservation-${nextId + 1}` },
 	});
@@ -228,9 +376,12 @@ function createFixture(
 class TestChild implements SubagentChildHandle {
 	readonly sessionFile: string;
 	readonly prompts: string[] = [];
+	disposeCalls = 0;
 	private readonly listeners = new Set<(event: SubagentChildEvent) => void>();
+	private readonly todoListeners = new Set<(progress: SubagentTodoProgress) => void>();
 	private streaming = false;
 	private finalText: string | undefined;
+	private todoProgress: SubagentTodoProgress = { done: 0, total: 0 };
 	private resolvePrompt: (() => void) | undefined;
 
 	constructor(readonly sessionId: string) {
@@ -271,8 +422,10 @@ class TestChild implements SubagentChildHandle {
 	}
 
 	dispose(): void {
+		this.disposeCalls += 1;
 		this.abort();
 		this.listeners.clear();
+		this.todoListeners.clear();
 	}
 
 	subscribe(listener: (event: SubagentChildEvent) => void): () => void {
@@ -286,6 +439,24 @@ class TestChild implements SubagentChildHandle {
 		this.emit({ type: "agent_end" });
 		this.resolvePrompt?.();
 		this.resolvePrompt = undefined;
+	}
+
+	setTodos(contents: readonly string[]): void {
+		this.updateTodoProgress({ done: 0, total: contents.length });
+	}
+
+	getTodoProgress(): SubagentTodoProgress {
+		return { ...this.todoProgress };
+	}
+
+	subscribeTodos(listener: (progress: SubagentTodoProgress) => void): () => void {
+		this.todoListeners.add(listener);
+		return () => this.todoListeners.delete(listener);
+	}
+
+	updateTodoProgress(progress: SubagentTodoProgress): void {
+		this.todoProgress = { ...progress };
+		for (const listener of this.todoListeners) listener({ ...progress });
 	}
 
 	private emit(event: SubagentChildEvent): void {

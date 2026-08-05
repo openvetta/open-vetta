@@ -27,6 +27,7 @@ import { createCodingAgentSubagentRuntimeToolRegistrations } from "../adapters/r
 import type { GreenfieldSubagentWorkRuntime } from "./greenfield-session-peripherals.js";
 import {
 	createDefaultGreenfieldSubagentTypeRegistry,
+	GREENFIELD_SUBAGENT_TYPE_WORKFLOW,
 	type GreenfieldSubagentProfile,
 } from "./greenfield-subagent-profiles.js";
 import { GreenfieldSubagentStatePersistence } from "./greenfield-subagent-state-persistence.js";
@@ -114,7 +115,10 @@ export class GreenfieldSubagentRuntime implements GreenfieldSubagentWorkRuntime,
 			},
 			onRecoveryIssue: options.onRecoveryIssue,
 		});
-		this.tools = createCodingAgentSubagentRuntimeToolRegistrations(() => this.coordinator).map(({ tool }) => tool);
+		this.tools = createCodingAgentSubagentRuntimeToolRegistrations(
+			() => this.coordinator,
+			GREENFIELD_SUBAGENT_TYPE_WORKFLOW,
+		).map(({ tool }) => tool);
 		this.feature = {
 			id: "coding-agent-subagents",
 			prepare: async (): Promise<AgentFeature> => ({
