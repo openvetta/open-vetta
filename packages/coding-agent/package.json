@@ -69,14 +69,6 @@
 			"types": "./dist/public-api/settings.d.ts",
 			"import": "./dist/public-api/settings.js"
 		},
-		"./core/mcp/index.js": {
-			"types": "./dist/core/mcp/index.d.ts",
-			"import": "./dist/core/mcp/index.js"
-		},
-		"./core/mcp/types.js": {
-			"types": "./dist/core/mcp/types.d.ts",
-			"import": "./dist/core/mcp/types.js"
-		},
 		"./host": {
 			"types": "./dist/adapters/runtime-tools/index.d.ts",
 			"import": "./dist/adapters/runtime-tools/index.js"

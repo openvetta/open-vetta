@@ -2,15 +2,14 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type Api, type AssistantMessage, type AssistantMessageEvent, EventStream, type Model } from "@vetta/ai";
+import { createCodingAgentPluginMcpRuntime } from "@vetta/coding-agent/runtime-host/greenfield";
+import type { AgentPluginRuntimeConfig } from "@vetta/runtime-core";
 import type {
-	IMcpClient,
-	McpClientFactory,
 	McpClientHandle,
 	McpResourceReadResult,
 	McpToolCallResult,
-} from "@vetta/coding-agent/core/mcp/index.js";
-import { createCodingAgentPluginMcpRuntime } from "@vetta/coding-agent/runtime-host/greenfield";
-import type { AgentPluginRuntimeConfig } from "@vetta/runtime-core";
+	RuntimeMcpClientFactory,
+} from "@vetta/runtime-mcp";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	createGreenfieldRuntimeComposition,
@@ -205,7 +204,7 @@ class FakeClientFactory {
 
 	constructor(private readonly toolCount = 1) {}
 
-	readonly create: McpClientFactory = (name) => {
+	readonly create: RuntimeMcpClientFactory = (name) => {
 		const client = new FakeMcpClient(name, this.toolCount);
 		this.clients.push(client);
 		return client;
@@ -218,7 +217,7 @@ class FakeClientFactory {
 	}
 }
 
-class FakeMcpClient implements McpClientHandle, IMcpClient {
+class FakeMcpClient implements McpClientHandle {
 	closeCalls = 0;
 	callToolCalls = 0;
 

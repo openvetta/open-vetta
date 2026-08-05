@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { McpConfigLoader } from "../src/core/mcp/mcp-config.js";
+import { createCodingAgentMcpSupervisor } from "../src/adapters/runtime-core/coding-agent-mcp-supervisor.js";
 
 describe("MCP config compatibility", () => {
 	const temporaryDirectories: string[] = [];
@@ -13,7 +13,7 @@ describe("MCP config compatibility", () => {
 
 	it("returns an empty merged config when neither source exists", async () => {
 		const fixture = await createFixture();
-		const loader = new McpConfigLoader(fixture.projectRoot, fixture.agentDir);
+		const loader = createConfigSource(fixture);
 
 		expect(loader.loadGlobal()).toBeNull();
 		expect(loader.loadProject()).toBeNull();
@@ -47,7 +47,7 @@ describe("MCP config compatibility", () => {
 				},
 			});
 
-			const config = new McpConfigLoader(fixture.projectRoot, fixture.agentDir).loadMerged();
+			const config = createConfigSource(fixture).loadMerged();
 
 			expect(config).toEqual({
 				mcpServers: {
@@ -78,13 +78,13 @@ describe("MCP config compatibility", () => {
 		const path = join(fixture.agentDir, "mcp.json");
 		await writeJson(path, config);
 
-		expect(() => new McpConfigLoader(fixture.projectRoot, fixture.agentDir).loadGlobal()).toThrow(message);
+		expect(() => createConfigSource(fixture).loadGlobal()).toThrow(message);
 	});
 
 	it("keeps the file signature stable until content changes", async () => {
 		const fixture = await createFixture();
 		const path = join(fixture.agentDir, "mcp.json");
-		const loader = new McpConfigLoader(fixture.projectRoot, fixture.agentDir);
+		const loader = createConfigSource(fixture);
 		const missingSignature = loader.getMergedSignature();
 
 		await writeJson(path, { mcpServers: { first: { command: "one" } } });
@@ -105,6 +105,10 @@ describe("MCP config compatibility", () => {
 		return { projectRoot, agentDir };
 	}
 });
+
+function createConfigSource(fixture: { readonly projectRoot: string; readonly agentDir: string }) {
+	return createCodingAgentMcpSupervisor(fixture).configSource;
+}
 
 async function writeJson(path: string, value: unknown): Promise<void> {
 	await mkdir(dirname(path), { recursive: true });

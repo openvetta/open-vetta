@@ -1,18 +1,17 @@
 import type { Api, Message, Model } from "@vetta/ai";
 import type { ModelCallFrameCompositionContext, RuntimeToolDefinition } from "@vetta/runtime-core/kernel";
+import type {
+	McpClientHandle,
+	McpResourceReadResult,
+	McpServerConfig,
+	McpToolCallResult,
+	RuntimeMcpClientFactory,
+} from "@vetta/runtime-mcp";
 import { describe, expect, it } from "vitest";
 import {
 	createCodingAgentPluginMcpRuntime,
 	type EcosystemHookAwareRuntimeTool,
 } from "../src/adapters/runtime-core/greenfield.js";
-import type {
-	IMcpClient,
-	McpClientFactory,
-	McpClientHandle,
-	McpResourceReadResult,
-	McpServerConfig,
-	McpToolCallResult,
-} from "../src/core/mcp/index.js";
 import type { AgentPluginRuntimeConfig } from "../src/model-context/index.js";
 
 describe("CodingAgentPluginMcpRuntime", () => {
@@ -127,7 +126,7 @@ function runtimeTool(name: string, description: string): RuntimeToolDefinition {
 
 class FakeClientFactory {
 	readonly clients: FakeMcpClient[] = [];
-	readonly create: McpClientFactory = (name, config) => {
+	readonly create: RuntimeMcpClientFactory = (name, config) => {
 		const client = new FakeMcpClient(name, config);
 		this.clients.push(client);
 		return client;
@@ -151,7 +150,7 @@ class FakeClientFactory {
 	}
 }
 
-class FakeMcpClient implements McpClientHandle, IMcpClient {
+class FakeMcpClient implements McpClientHandle {
 	closeCalls = 0;
 
 	constructor(

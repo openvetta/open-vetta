@@ -4,10 +4,7 @@ import {
 	type ManagedMcpRuntimeToolSource,
 	type McpRuntimeToolDecorationContext,
 } from "@vetta/runtime-mcp";
-import {
-	type CodingAgentMcpSupervisorOptions,
-	createCodingAgentMcpSupervisor,
-} from "../../core/mcp/mcp-supervisor-composition.js";
+import { type CodingAgentMcpSupervisorOptions, createCodingAgentMcpSupervisor } from "./coding-agent-mcp-supervisor.js";
 import type { EcosystemHookAwareRuntimeTool } from "./greenfield-hook-tool-wrapper.js";
 
 export interface CodingAgentMcpRuntimeToolSourceOptions extends CodingAgentMcpSupervisorOptions {}

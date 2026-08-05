@@ -138,7 +138,7 @@ describe("Coding Agent rewrite progress gate", () => {
 		);
 	});
 
-	it("tracks old files, compatibility exports and legacy SDK examples independently", () => {
+	it("tracks old files, compatibility exports, core exports and legacy SDK examples independently", () => {
 		const state = collectCodingAgentRewriteState({
 			productionFiles: [
 				{ path: "packages/coding-agent/src/core/agent-session.ts", text: "export class AgentSession {}" },
@@ -149,11 +149,17 @@ describe("Coding Agent rewrite progress gate", () => {
 					text: 'import { createAgentSession } from "@vetta/coding-agent";',
 				},
 			],
-			codingAgentPackageJson: { exports: { "./compat/runtime-tools": "./dist/compat.js" } },
+			codingAgentPackageJson: {
+				exports: {
+					"./compat/runtime-tools": "./dist/compat.js",
+					"./core/private.js": "./dist/core/private.js",
+				},
+			},
 		});
 
 		expect(state.oldImplementationFiles).toEqual(["packages/coding-agent/src/core/agent-session.ts"]);
 		expect(state.compatibilityExports).toEqual(["./compat/runtime-tools"]);
+		expect(state.legacyCoreExports).toEqual(["./core/private.js"]);
 		expect(state.legacyExampleImports).toHaveLength(1);
 	});
 });

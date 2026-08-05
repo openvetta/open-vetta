@@ -155,12 +155,6 @@ export {
 	parseAssistantTurnTiming,
 } from "./history.js";
 export {
-	adaptLegacyMcpManagerRuntimeToolSource,
-	createLegacyMcpManagerRuntimeToolSource,
-	type LegacyMcpManagerRuntimePort,
-	LegacyMcpManagerRuntimeToolSource,
-} from "./legacy-mcp-runtime-source.js";
-export {
 	acquireLegacySessionFormatLease,
 	LegacyRuntimeSessionCatalog,
 	LegacyRuntimeSessionFileHistoryReader,

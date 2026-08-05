@@ -1,16 +1,16 @@
+import type {
+	McpClientHandle,
+	McpConfig,
+	McpConfigSource,
+	McpServerConfig,
+	RuntimeMcpClientFactory,
+	RuntimeMcpClientFactoryOptions,
+} from "@vetta/runtime-mcp";
 import { describe, expect, it, vi } from "vitest";
 import {
 	createCodingAgentMcpRuntimeToolSource,
 	type EcosystemHookAwareRuntimeTool,
 } from "../src/adapters/runtime-core/greenfield.js";
-import type {
-	McpClientFactory,
-	McpClientFactoryOptions,
-	McpClientHandle,
-	McpConfig,
-	McpConfigSource,
-	McpServerConfig,
-} from "../src/core/mcp/index.js";
 
 describe("Coding Agent native MCP runtime source", () => {
 	it("composes product client options, hook metadata and lifecycle without a legacy Manager", async () => {
@@ -19,9 +19,9 @@ describe("Coding Agent native MCP runtime source", () => {
 		const created: Array<{
 			readonly name: string;
 			readonly config: McpServerConfig;
-			readonly options: McpClientFactoryOptions | undefined;
+			readonly options: RuntimeMcpClientFactoryOptions | undefined;
 		}> = [];
-		const clientFactory: McpClientFactory = (name, config, options) => {
+		const clientFactory: RuntimeMcpClientFactory = (name, config, options) => {
 			created.push({ name, config, options });
 			return client;
 		};
@@ -34,13 +34,13 @@ describe("Coding Agent native MCP runtime source", () => {
 		const view = await managed.source.refresh();
 		const tool = view.tools[0]?.tool as EcosystemHookAwareRuntimeTool | undefined;
 
-		expect(created).toEqual([
-			{
-				name: "search",
-				config: { command: "search", debug: true },
-				options: { debug: true, timeout: undefined, agentDir: "C:/native-mcp-agent" },
-			},
-		]);
+		expect(created).toHaveLength(1);
+		expect(created[0]).toMatchObject({
+			name: "search",
+			config: { command: "search", debug: true },
+			options: { debug: true },
+		});
+		expect(created[0]?.options?.httpAuthProviderFactory).toBeTypeOf("function");
 		expect(tool).toMatchObject({
 			name: "mcp_search_lookup",
 			ecosystemHook: {

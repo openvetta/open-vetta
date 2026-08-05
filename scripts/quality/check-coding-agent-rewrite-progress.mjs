@@ -58,6 +58,9 @@ export function collectCodingAgentRewriteState({ productionFiles, sdkExampleFile
 	const compatibilityExports = Object.keys(codingAgentPackageJson.exports ?? {})
 		.filter((exportName) => exportName.startsWith("./compat/"))
 		.sort();
+	const legacyCoreExports = Object.keys(codingAgentPackageJson.exports ?? {})
+		.filter((exportName) => exportName.startsWith("./core/"))
+		.sort();
 	const legacyExampleImports = sdkExampleFiles
 		.flatMap((file) => collectModuleEdges(file.path, file.text))
 		.filter(
@@ -88,11 +91,12 @@ export function collectCodingAgentRewriteState({ productionFiles, sdkExampleFile
 		.sort((left, right) => left.path.localeCompare(right.path));
 
 	return Object.freeze({
-		version: 1,
+		version: 2,
 		oldImplementationEdges,
 		runtimeBackedges,
 		oldImplementationFiles,
 		compatibilityExports,
+		legacyCoreExports,
 		legacyExampleImports,
 		oversizedStableExtensionModules,
 		oversizedStableResourceModules,
@@ -137,6 +141,12 @@ export function findCodingAgentRewriteProgressViolations(actual, baseline) {
 		baseline.compatibilityExports,
 		violations,
 	);
+	compareBaselineValues(
+		"legacy core package export",
+		actual.legacyCoreExports,
+		baseline.legacyCoreExports,
+		violations,
+	);
 	compareBaselineRecords(
 		"legacy SDK example import",
 		actual.legacyExampleImports,
@@ -157,6 +167,7 @@ export function summarizeCodingAgentRewriteState(state) {
 		runtimeBackedges: state.runtimeBackedges.length,
 		oldImplementationFiles: state.oldImplementationFiles.length,
 		compatibilityExports: state.compatibilityExports.length,
+		legacyCoreExports: state.legacyCoreExports.length,
 		legacyExampleImports: state.legacyExampleImports.length,
 		retainedFormatBoundaries: RETAINED_LEGACY_FORMAT_BOUNDARIES.length,
 		formatBoundaryOldImplementationEdges: state.oldImplementationEdges.filter((edge) =>
@@ -334,7 +345,7 @@ if (isDirectRun(import.meta.url)) {
 					.map(([domain, count]) => `${domain}=${count}`)
 					.join(", ");
 				ok(
-					`[coding-agent-rewrite] ok (old implementation edges=${summary.oldImplementationEdges}/0, Runtime backedges=${summary.runtimeBackedges}/0, old files=${summary.oldImplementationFiles}/0, compatibility exports=${summary.compatibilityExports}/0, legacy examples=${summary.legacyExampleImports}/0, retained format boundaries=${summary.retainedFormatBoundaries}, format-to-old edges=${summary.formatBoundaryOldImplementationEdges}/0; domains: ${domains || "none"})`,
+					`[coding-agent-rewrite] ok (old implementation edges=${summary.oldImplementationEdges}/0, Runtime backedges=${summary.runtimeBackedges}/0, old files=${summary.oldImplementationFiles}/0, compatibility exports=${summary.compatibilityExports}/0, legacy core exports=${summary.legacyCoreExports}/0, legacy examples=${summary.legacyExampleImports}/0, retained format boundaries=${summary.retainedFormatBoundaries}, format-to-old edges=${summary.formatBoundaryOldImplementationEdges}/0; domains: ${domains || "none"})`,
 				);
 			}
 		}

@@ -1,16 +1,6 @@
 {
-	"version": 1,
+	"version": 2,
 	"oldImplementationEdges": [
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/coding-agent-mcp-runtime-source.ts",
-			"specifier": "../../core/mcp/mcp-supervisor-composition.js",
-			"names": [
-				"CodingAgentMcpSupervisorOptions",
-				"createCodingAgentMcpSupervisor"
-			],
-			"category": "old-core",
-			"domain": "mcp"
-		},
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-action-host.ts",
 			"specifier": "../../core/slash-commands.js",
@@ -80,25 +70,6 @@
 			"domain": "image-budget"
 		},
 		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-plugin-mcp-runtime.ts",
-			"specifier": "../../core/mcp/mcp-supervisor-composition.js",
-			"names": [
-				"CodingAgentMcpSupervisorOptions",
-				"createCodingAgentMcpSupervisor"
-			],
-			"category": "old-core",
-			"domain": "mcp"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-plugin-mcp-runtime.ts",
-			"specifier": "../../core/mcp/plugin-mcp.js",
-			"names": [
-				"fingerprintPluginMcpServers"
-			],
-			"category": "old-core",
-			"domain": "mcp"
-		},
-		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-tool-adapter.ts",
 			"specifier": "../../core/hooks/tool-wrapper.js",
 			"names": [
@@ -106,17 +77,6 @@
 			],
 			"category": "old-core",
 			"domain": "hooks"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/legacy-mcp-runtime-source.ts",
-			"specifier": "../../core/mcp/index.js",
-			"names": [
-				"McpManager",
-				"McpManagerOptions",
-				"createMcpManager"
-			],
-			"category": "old-core",
-			"domain": "mcp"
 		},
 		{
 			"path": "packages/coding-agent/src/host/coding-agent-cli-control.ts",
@@ -316,18 +276,6 @@
 			],
 			"category": "old-core",
 			"domain": "auth-storage"
-		},
-		{
-			"path": "packages/desktop-app/src/main/ipc/fs.ts",
-			"specifier": "@vetta/coding-agent/core/mcp/index.js",
-			"names": [
-				"clearMcpOAuthState",
-				"hasMcpOAuthTokens",
-				"loginHttpMcpServer",
-				"loginMcpDeviceFlow"
-			],
-			"category": "old-core-public-subpath",
-			"domain": "mcp"
 		}
 	],
 	"runtimeBackedges": [],
@@ -351,20 +299,6 @@
 		"packages/coding-agent/src/core/image-budget.ts",
 		"packages/coding-agent/src/core/index.ts",
 		"packages/coding-agent/src/core/keybindings.ts",
-		"packages/coding-agent/src/core/mcp/index.ts",
-		"packages/coding-agent/src/core/mcp/mcp-client.ts",
-		"packages/coding-agent/src/core/mcp/mcp-config.ts",
-		"packages/coding-agent/src/core/mcp/mcp-device-flow.ts",
-		"packages/coding-agent/src/core/mcp/mcp-http-client.ts",
-		"packages/coding-agent/src/core/mcp/mcp-manager.ts",
-		"packages/coding-agent/src/core/mcp/mcp-oauth-flow.ts",
-		"packages/coding-agent/src/core/mcp/mcp-oauth-provider.ts",
-		"packages/coding-agent/src/core/mcp/mcp-oauth-storage.ts",
-		"packages/coding-agent/src/core/mcp/mcp-process.ts",
-		"packages/coding-agent/src/core/mcp/mcp-supervisor-composition.ts",
-		"packages/coding-agent/src/core/mcp/mcp-tool-adapter.ts",
-		"packages/coding-agent/src/core/mcp/plugin-mcp.ts",
-		"packages/coding-agent/src/core/mcp/types.ts",
 		"packages/coding-agent/src/core/memory/memory-flush.ts",
 		"packages/coding-agent/src/core/memory/memory-journal.ts",
 		"packages/coding-agent/src/core/memory/memory-store.ts",
@@ -412,6 +346,9 @@
 		"packages/coding-agent/src/core/tools/write/index.ts"
 	],
 	"compatibilityExports": [],
+	"legacyCoreExports": [
+		"./core/host/executable-resolver.js"
+	],
 	"legacyExampleImports": [],
 	"oversizedStableExtensionModules": [],
 	"oversizedStableResourceModules": []

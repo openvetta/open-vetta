@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type {
 	ModelCallFrame,
 	ModelCallFrameCompositionContext,
@@ -13,14 +14,10 @@ import {
 	type McpServerConfig,
 	type McpServerSupervisor,
 } from "@vetta/runtime-mcp";
-import {
-	type CodingAgentMcpSupervisorOptions,
-	createCodingAgentMcpSupervisor,
-} from "../../core/mcp/mcp-supervisor-composition.js";
-import { fingerprintPluginMcpServers } from "../../core/mcp/plugin-mcp.js";
 import type { AgentPluginRuntimeConfig } from "../../model-context/index.js";
 import { matchesAgentMode } from "../../profiles/index.js";
 import { decorateCodingAgentMcpRuntimeTool } from "./coding-agent-mcp-runtime-source.js";
+import { type CodingAgentMcpSupervisorOptions, createCodingAgentMcpSupervisor } from "./coding-agent-mcp-supervisor.js";
 
 export type CodingAgentPluginMcpRuntimeOptions = Pick<
 	CodingAgentMcpSupervisorOptions,
@@ -67,9 +64,7 @@ export class CodingAgentPluginMcpRuntime {
 			nextModes.set(contribution.runtimeName, normalizeModes(contribution.agent_mode));
 		}
 
-		const signature = fingerprintPluginMcpServers(
-			[...servers].map(([runtimeName, config]) => ({ runtimeName, config })),
-		);
+		const signature = fingerprintPluginMcpServers(servers);
 		const modesChanged = !sameServerModes(this.serverModes, nextModes);
 		const serversChanged = await this.source.replaceDynamicServers({ servers, signature });
 		this.serverModes = nextModes;
@@ -143,6 +138,14 @@ export class CodingAgentPluginMcpRuntime {
 	private log(message: string): void {
 		if (this.debug) console.error(`[MCPManager] ${message}`);
 	}
+}
+
+function fingerprintPluginMcpServers(servers: ReadonlyMap<string, McpServerConfig>): string {
+	if (servers.size === 0) return "none";
+	const payload = [...servers]
+		.sort(([left], [right]) => left.localeCompare(right))
+		.map(([runtimeName, config]) => ({ runtimeName, config }));
+	return createHash("sha1").update(JSON.stringify(payload)).digest("hex").slice(0, 16);
 }
 
 export async function createCodingAgentPluginMcpRuntime(

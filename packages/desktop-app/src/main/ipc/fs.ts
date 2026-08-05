@@ -2,12 +2,6 @@ import type { FSWatcher } from "node:fs";
 import { watch } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import {
-	clearMcpOAuthState,
-	hasMcpOAuthTokens,
-	loginHttpMcpServer,
-	loginMcpDeviceFlow,
-} from "@vetta/coding-agent/core/mcp/index.js";
 import { BrowserWindow, ipcMain } from "electron";
 import type {
 	McpConfigData,
@@ -59,12 +53,12 @@ import {
 	statFilesystemPath,
 	writeFilesystemFile,
 } from "../filesystem/filesystem-service.js";
+import { getDesktopMcpOAuthService } from "../mcp/mcp-oauth-service.js";
 import { getDesktopMcpSettingsService, readMcpConfig, writeMcpConfig } from "../mcp/mcp-settings-service.js";
 import { fetchProviderModels } from "../models/fetch-models.js";
 import { getDesktopModelSettingsService } from "../models/model-settings-host.js";
 import type { ModelsConfig } from "../models/model-settings-service.js";
 import { probeModelProvider } from "../models/probe.js";
-import { openExternalUrl } from "../open-external.js";
 import { getLinuxSandboxCapability, getSandboxCapability, type SandboxCapability } from "../sandbox/capability.js";
 import { getDesktopShortcutService } from "../shortcuts/shortcut-service.js";
 
@@ -156,6 +150,7 @@ export { allowProjectRoot, assertPathReadableForPreview } from "../filesystem/fi
 
 export function registerFsIpc(): () => void {
 	const mcp = getDesktopMcpSettingsService();
+	const mcpOAuth = getDesktopMcpOAuthService();
 	const models = getDesktopModelSettingsService();
 	const shortcuts = getDesktopShortcutService();
 	ipcMain.handle(CHANNELS.READ_DIR, async (_event, dirPath: unknown): Promise<FsEntry[]> => {
@@ -437,21 +432,19 @@ export function registerFsIpc(): () => void {
 
 		if (deviceFlow) {
 			if (!oauthClientId) throw new Error(`MCP server '${name}' is missing oauthClientId for the device flow`);
-			await loginMcpDeviceFlow({
+			await mcpOAuth.loginDevice({
 				serverName: name,
 				serverUrl,
 				clientId: oauthClientId,
 				scopes: scopes || undefined,
-				openUrl: (url) => openExternalUrl(url),
 			});
 			return;
 		}
 
-		await loginHttpMcpServer({
+		await mcpOAuth.loginBrowser({
 			serverName: name,
 			serverUrl,
 			oauthClientId: oauthClientId || undefined,
-			openUrl: (url) => openExternalUrl(url),
 		});
 	});
 
@@ -459,12 +452,12 @@ export function registerFsIpc(): () => void {
 		if (typeof serverName !== "string" || !serverName.trim()) {
 			throw new Error("Invalid server name");
 		}
-		clearMcpOAuthState(serverName.trim());
+		mcpOAuth.logout(serverName.trim());
 	});
 
 	ipcMain.handle(CHANNELS.MCP_HAS_AUTH, async (_event, serverName: unknown): Promise<boolean> => {
 		if (typeof serverName !== "string" || !serverName.trim()) return false;
-		return hasMcpOAuthTokens(serverName.trim());
+		return mcpOAuth.hasAuth(serverName.trim());
 	});
 
 	ipcMain.handle(CHANNELS.MCP_AUTH_STATUS, async (_event, serverNames: unknown): Promise<Record<string, boolean>> => {
@@ -472,7 +465,7 @@ export function registerFsIpc(): () => void {
 		const result: Record<string, boolean> = {};
 		for (const name of serverNames) {
 			if (typeof name === "string" && name.trim()) {
-				result[name.trim()] = hasMcpOAuthTokens(name.trim());
+				result[name.trim()] = mcpOAuth.hasAuth(name.trim());
 			}
 		}
 		return result;

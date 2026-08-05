@@ -3,18 +3,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type Api, type AssistantMessage, type AssistantMessageEvent, EventStream, type Model } from "@vetta/ai";
 import {
-	adaptMcpTool,
-	type IMcpClient,
-	type McpServerInstance,
-	type McpTool,
-} from "@vetta/coding-agent/core/mcp/index.js";
-import {
-	adaptLegacyMcpManagerRuntimeToolSource,
 	type CodingAgentRuntimeModelSource,
 	renderCodingAgentMcpToolsInstruction,
 } from "@vetta/coding-agent/runtime-host/greenfield";
 import { assessRuntimeHostSessionAssembly } from "@vetta/runtime-core";
-import type { McpRuntimeToolSource } from "@vetta/runtime-mcp";
+import {
+	createMcpServerRuntimeToolSource,
+	type McpClientHandle,
+	type McpRuntimeToolSource,
+	type McpTool,
+} from "@vetta/runtime-mcp";
 import { FileConversationRepository } from "@vetta/runtime-storage/conversation";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -481,22 +479,11 @@ describe("Greenfield runtime composition", () => {
 			inputSchema: { type: "object", properties: {} },
 		};
 		const client = createMcpClient();
-		const adaptedTool = adaptMcpTool(tool, client, "search");
 		let available = true;
-		const server: McpServerInstance = {
-			name: "search",
-			config: { command: "test" },
-			status: "ready",
-			client,
-			tools: [tool],
-			resources: [],
-			startedAt: new Date(1),
-		};
 		const reloadIfChanged = vi.fn(async () => false);
-		const mcpSource = adaptLegacyMcpManagerRuntimeToolSource({
+		const mcpSource = createMcpServerRuntimeToolSource({
 			reloadIfChanged,
-			getServers: () => (available ? [server] : []),
-			getTools: () => (available ? [adaptedTool] : []),
+			getReadyServerBindings: () => (available ? [createMcpServerBinding(client, [tool])] : []),
 		});
 		const modelTools: string[][] = [];
 		const composition = await createGreenfieldRuntimeComposition({
@@ -939,7 +926,7 @@ const MODEL: Model<Api> = {
 	maxTokens: 1_000,
 };
 
-function createMcpClient(): IMcpClient {
+function createMcpClient(): McpClientHandle {
 	return {
 		async initialize() {
 			throw new Error("Not used");
@@ -960,6 +947,9 @@ function createMcpClient(): IMcpClient {
 			throw new Error("Not used");
 		},
 		async close() {},
+		getName: () => "search",
+		getPid: () => undefined,
+		isClientInitialized: () => true,
 	};
 }
 
@@ -974,22 +964,11 @@ function createMcpSourceFixture(toolCount: number): {
 		description: `Lookup topic-${index}`,
 		inputSchema: { type: "object", properties: {} },
 	}));
-	const adaptedTools = tools.map((tool) => adaptMcpTool(tool, client, "search"));
-	const server: McpServerInstance = {
-		name: "search",
-		config: { command: "test" },
-		status: "ready",
-		client,
-		tools,
-		resources: [],
-		startedAt: new Date(1),
-	};
 	let available = true;
 	return {
-		source: adaptLegacyMcpManagerRuntimeToolSource({
+		source: createMcpServerRuntimeToolSource({
 			reloadIfChanged: async () => false,
-			getServers: () => (available ? [server] : []),
-			getTools: () => (available ? adaptedTools : []),
+			getReadyServerBindings: () => (available ? [createMcpServerBinding(client, tools)] : []),
 		}),
 		descriptors: tools.map(({ name, description }) => ({
 			name: `mcp_search_${name}`,
@@ -997,6 +976,20 @@ function createMcpSourceFixture(toolCount: number): {
 		})),
 		setAvailable(next) {
 			available = next;
+		},
+	};
+}
+
+function createMcpServerBinding(client: McpClientHandle, tools: readonly McpTool[]) {
+	return {
+		client,
+		view: {
+			name: "search",
+			config: { command: "test" },
+			status: "ready" as const,
+			tools,
+			resources: [],
+			startedAt: 1,
 		},
 	};
 }

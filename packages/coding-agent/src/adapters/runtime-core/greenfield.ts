@@ -221,12 +221,6 @@ export {
 	type CodingAgentGreenfieldTurnRetrySettings,
 } from "./greenfield-turn-retry-controller.js";
 export {
-	adaptLegacyMcpManagerRuntimeToolSource,
-	createLegacyMcpManagerRuntimeToolSource,
-	type LegacyMcpManagerRuntimePort,
-	LegacyMcpManagerRuntimeToolSource,
-} from "./legacy-mcp-runtime-source.js";
-export {
 	CODING_AGENT_LEGACY_AGENT_MESSAGE_CONTEXT_TYPE,
 	normalizeCodingAgentLegacySessionEntry,
 	restoreCodingAgentLegacyAgentMessageEntry,
