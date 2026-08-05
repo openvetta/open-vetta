@@ -73,6 +73,13 @@ const MetafileSchema = z
 	})
 	.loose();
 
+const NativeConversationSeedSchema = z
+	.object({
+		recordType: z.literal("conversation.seed"),
+		entries: z.array(z.object({ id: z.string(), type: z.string() }).loose()),
+	})
+	.loose();
+
 interface InstalledCliArtifact {
 	readonly binaryPath: string;
 	readonly buildMetafilePath: string;
@@ -865,6 +872,7 @@ describe("installed standalone CLI artifact", () => {
 		fixture = await createAgentRpcFixture();
 		const isolatedEnv = createIsolatedArtifactEnv(fixture);
 		const commandAuditPath = join(fixture.root, "installed-command-audit.txt");
+		const nativeSeedAuditPath = join(fixture.root, "installed-native-seed-audit.jsonl");
 		const combinedExtension = await writeInstalledExtension(
 			fixture,
 			"combined-extension.ts",
@@ -873,6 +881,28 @@ describe("installed standalone CLI artifact", () => {
 				pi.on("session_start", async () => {});
 				pi.registerCommand("extension-audit", {
 					handler: async () => appendFileSync(${JSON.stringify(commandAuditPath)}, "executed", "utf8"),
+				});
+				pi.registerCommand("native-session-seed", {
+					handler: async (_args, ctx) => {
+						const result = await ctx.newSession({
+							setup(session) {
+								appendFileSync(${JSON.stringify(nativeSeedAuditPath)}, JSON.stringify({
+									phase: "setup",
+									path: session.getSessionFile(),
+								}) + "\\n", "utf8");
+								session.appendSessionInfo("installed native seed");
+								session.appendMessage({
+									role: "user",
+									content: "installed native setup context",
+									timestamp: Date.now(),
+								});
+							},
+						});
+						appendFileSync(${JSON.stringify(nativeSeedAuditPath)}, JSON.stringify({
+							phase: "result",
+							cancelled: result.cancelled,
+						}) + "\\n", "utf8");
+					},
 				});
 				pi.registerTool({
 					name: "extension_echo",
@@ -916,6 +946,67 @@ describe("installed standalone CLI artifact", () => {
 		expect(activeProcess.stderr).not.toContain("fallback=");
 		await activeProcess.request("installed-extension-command", "prompt", { message: "/extension-audit" });
 		expect(await readFile(commandAuditPath, "utf8")).toBe("executed");
+		const sourceSessionPath = readSessionFile(
+			await activeProcess.request("installed-native-seed-source", "get_state"),
+		);
+		await expect(
+			activeProcess.request("installed-native-seed-command", "prompt", { message: "/native-session-seed" }),
+		).resolves.toMatchObject({ success: true });
+		await waitForInstalledFileText(nativeSeedAuditPath, '"phase":"result","cancelled":false');
+		const nativeSeedAudit = (await readFile(nativeSeedAuditPath, "utf8"))
+			.trim()
+			.split("\n")
+			.map((line) => JSON.parse(line) as unknown);
+		expect(nativeSeedAudit).toEqual([
+			expect.objectContaining({ phase: "setup", path: expect.stringMatching(/\.conversation\.jsonl$/) }),
+			{ phase: "result", cancelled: false },
+		]);
+		const seededState = await activeProcess.request("installed-native-seed-target", "get_state");
+		const seededSessionPath = readSessionFile(seededState);
+		expect(seededSessionPath).not.toBe(sourceSessionPath);
+		const seededContent = await readFile(seededSessionPath, "utf8");
+		const nativeSeed = readNativeConversationSeed(seededContent);
+		expect(seededContent).not.toContain('"recordType":"conversation.import.seed"');
+		expect(nativeSeed.entries).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ type: "session_info" }),
+				expect.objectContaining({ type: "message" }),
+			]),
+		);
+		const seededMessage = nativeSeed.entries.find((entry) => entry.type === "message");
+		if (!seededMessage) throw new Error("Expected installed native seed message");
+		await expect(activeProcess.close()).resolves.toBe(0);
+		activeProcess = undefined;
+
+		activeProcess = startInstalledCli(artifact.binaryPath, fixture, isolatedEnv, {
+			extraArgs: ["--extension", combinedExtension, "--session", seededSessionPath],
+		});
+		const resumedSeedState = await activeProcess.request("installed-native-seed-resumed", "get_state");
+		expect(readSessionFile(resumedSeedState)).toBe(seededSessionPath);
+		await expect(activeProcess.request("installed-native-seed-messages", "get_messages")).resolves.toMatchObject({
+			data: {
+				messages: [expect.objectContaining({ role: "user", content: "installed native setup context" })],
+			},
+		});
+		await activeProcess.request("installed-native-seed-fork", "fork", { entryId: seededMessage.id });
+		const forkedSessionPath = readSessionFile(
+			await activeProcess.request("installed-native-seed-fork-state", "get_state"),
+		);
+		expect(forkedSessionPath).not.toBe(seededSessionPath);
+		expect(await readFile(forkedSessionPath, "utf8")).not.toContain('"recordType":"conversation.import.seed"');
+		expect(
+			(await readdir(fixture.conversationDir)).filter(
+				(name) => name.endsWith(".jsonl") && !name.endsWith(".conversation.jsonl"),
+			),
+		).toEqual([]);
+		await expect(activeProcess.close()).resolves.toBe(0);
+		activeProcess = undefined;
+
+		activeProcess = startInstalledCli(artifact.binaryPath, fixture, isolatedEnv, {
+			extraArgs: ["--extension", combinedExtension, "--session", forkedSessionPath],
+		});
+		const resumedForkState = await activeProcess.request("installed-native-fork-resumed", "get_state");
+		expect(readSessionFile(resumedForkState)).toBe(forkedSessionPath);
 		await expect(activeProcess.close()).resolves.toBe(0);
 		activeProcess = undefined;
 
@@ -1013,6 +1104,15 @@ async function expectStandaloneArtifact(installed: InstalledCliArtifact): Promis
 		.flatMap(({ imports }) => imports)
 		.filter(({ external }) => external === true);
 	expect(externalImports).toEqual([]);
+}
+
+function readNativeConversationSeed(content: string): z.infer<typeof NativeConversationSeedSchema> {
+	for (const line of content.split(/\r?\n/u)) {
+		if (!line.trim()) continue;
+		const parsed = NativeConversationSeedSchema.safeParse(JSON.parse(line));
+		if (parsed.success) return parsed.data;
+	}
+	throw new Error("Installed session does not contain a native conversation.seed record");
 }
 
 async function writeInstalledSkill(currentFixture: AgentRpcFixture): Promise<string> {
@@ -1326,6 +1426,19 @@ async function waitForInstalledPid(path: string): Promise<number> {
 		await new Promise((resolvePromise) => setTimeout(resolvePromise, 25));
 	}
 	throw new Error(`Timed out waiting for installed background PID file: ${path}`);
+}
+
+async function waitForInstalledFileText(path: string, expected: string): Promise<void> {
+	const deadline = Date.now() + 5_000;
+	while (Date.now() < deadline) {
+		try {
+			if ((await readFile(path, "utf8")).includes(expected)) return;
+		} catch {
+			// The extension command has not completed yet.
+		}
+		await new Promise((resolvePromise) => setTimeout(resolvePromise, 25));
+	}
+	throw new Error(`Timed out waiting for installed audit file ${path}`);
 }
 
 function isProcessAlive(pid: number): boolean {

@@ -4,7 +4,6 @@ import { getModel } from "@vetta/ai";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { beforeEach, describe, expect, it } from "vitest";
-import { parseCodingAgentLegacySessionDocument } from "../src/adapters/runtime-core/legacy-session-format/document.js";
 import {
 	type CompactionSettings,
 	calculateContextTokens,
@@ -23,6 +22,7 @@ import {
 	type CodingAgentSessionMessageEntry as SessionMessageEntry,
 	type CodingAgentThinkingLevelEntry as ThinkingLevelChangeEntry,
 } from "../src/sessions/index.js";
+import { parseCodingAgentLegacySessionDocument } from "../src/sessions/legacy/document.js";
 
 // ============================================================================
 // Test fixtures

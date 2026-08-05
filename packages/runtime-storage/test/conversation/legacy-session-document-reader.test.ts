@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { branchFromFileEntries, entriesToHistory } from "../../../coding-agent/src/adapters/runtime-core/history.js";
-import { parseCodingAgentLegacySessionDocument } from "../../../coding-agent/src/adapters/runtime-core/legacy-session-format/document.js";
+import { parseCodingAgentLegacySessionDocument } from "../../../coding-agent/src/sessions/legacy/document.js";
+import {
+	branchFromFileEntries,
+	entriesToHistory,
+} from "../../../coding-agent/src/sessions/projection/session-history.js";
 import { projectConversationDocumentHistory } from "../../../runtime-core/src/conversation/index.js";
 import { parseLegacySessionDocument } from "../../src/conversation/index.js";
 

@@ -20,7 +20,7 @@ export type LegacySessionFormatLeaseResult =
 			readonly holder: LegacySessionFormatLeaseHolder;
 	  };
 
-/** Acquire the Legacy JSONL advisory lock without creating an AgentSession. */
+/** Acquire the historical JSONL advisory lock without creating an execution runtime. */
 export function acquireLegacySessionFormatLease(sessionPath: string): LegacySessionFormatLeaseResult {
 	const lockPath = `${sessionPath}.lock`;
 	for (let attempt = 0; attempt < 2; attempt += 1) {

@@ -506,13 +506,13 @@ describe("package boundary analysis", () => {
 		).toHaveLength(1);
 		expect(
 			findPackageBoundaryViolations(
-				"packages/coding-agent/src/adapters/runtime-core/legacy-session-format/catalog.ts",
+				"packages/coding-agent/src/sessions/legacy/catalog.ts",
 				'import { createAgentSession } from "../../../core/sdk.js";',
 			),
 		).toHaveLength(2);
 		expect(
 			findPackageBoundaryViolations(
-				"packages/coding-agent/src/adapters/runtime-core/legacy-session-format/catalog.ts",
+				"packages/coding-agent/src/sessions/legacy/catalog.ts",
 				'import { SessionManager } from "../../../core/session-manager/index.js";',
 			),
 		).toEqual([]);
@@ -912,7 +912,7 @@ describe("Legacy Session setup seed retirement", () => {
 		expect(
 			findLegacySetupSeedViolations([
 				{
-					path: "packages/coding-agent/src/adapters/runtime-core/coding-agent-legacy-session-migration.ts",
+					path: "packages/coding-agent/src/sessions/legacy/migration.ts",
 					text: "return migrateLegacySessionToV2(options);",
 				},
 			]),

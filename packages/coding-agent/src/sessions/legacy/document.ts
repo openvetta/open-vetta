@@ -6,11 +6,11 @@ import type {
 	CodingAgentCustomMessageEntry,
 	CodingAgentSessionEntry,
 	CodingAgentSessionHeader,
-} from "../../../sessions/index.js";
+} from "../contracts/session-entry.js";
 import {
 	normalizeCodingAgentLegacySessionEntry,
-	restoreCodingAgentLegacyAgentMessageEntry,
-} from "../legacy-session-import-normalizer.js";
+	restoreCodingAgentSessionAgentMessageEntry,
+} from "./entry-normalizer.js";
 
 export interface CodingAgentLegacySessionDocument {
 	readonly header: CodingAgentSessionHeader;
@@ -81,7 +81,7 @@ function toCodingAgentSessionEntry(entry: ConversationDocumentEntry): CodingAgen
 			return { ...entry, message: entry.message as AgentMessage };
 		case "custom_message":
 			return (
-				restoreCodingAgentLegacyAgentMessageEntry(entry) ?? {
+				restoreCodingAgentSessionAgentMessageEntry(entry) ?? {
 					...entry,
 					content: entry.content as CodingAgentCustomMessageEntry["content"],
 				}

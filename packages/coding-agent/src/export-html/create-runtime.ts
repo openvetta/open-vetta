@@ -1,6 +1,6 @@
 import { existsSync, writeFileSync } from "node:fs";
-import { readCodingAgentLegacySessionDocument } from "../adapters/runtime-core/legacy-session-format/document.js";
 import { getExportTemplateDir } from "../config.js";
+import { readCodingAgentLegacySessionDocument } from "../sessions/legacy/document.js";
 import type {
 	CodingAgentHtmlExportRuntime,
 	ExportTemplateAssets,

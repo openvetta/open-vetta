@@ -3,9 +3,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { UserMessage } from "@vetta/ai";
 import { afterEach, describe, expect, it } from "vitest";
-import { LegacyRuntimeSessionCatalog } from "../../src/adapters/runtime-core/legacy-session-format/catalog.js";
-import { LegacyRuntimeSessionFileHistoryReader } from "../../src/adapters/runtime-core/legacy-session-format/history-reader.js";
-import { acquireLegacySessionFormatLease } from "../../src/adapters/runtime-core/legacy-session-format/lease.js";
+import { LegacyRuntimeSessionCatalog } from "../../src/sessions/legacy/catalog.js";
+import { LegacyRuntimeSessionFileHistoryReader } from "../../src/sessions/legacy/history-reader.js";
+import { acquireLegacySessionFormatLease } from "../../src/sessions/legacy/lease.js";
 
 describe("Legacy session format boundary", () => {
 	const temporaryDirectories: string[] = [];

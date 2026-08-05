@@ -15,7 +15,7 @@ import type {
 	CodingAgentSessionEntry,
 	CodingAgentSessionHeader,
 	CodingAgentCustomEntry as CustomEntry,
-} from "../../sessions/index.js";
+} from "../contracts/session-entry.js";
 
 type CodingSessionEntry = CodingAgentSessionEntry;
 type FileEntry = CodingAgentSessionHeader | CodingAgentSessionEntry;

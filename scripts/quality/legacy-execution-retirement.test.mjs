@@ -2,15 +2,19 @@ import { describe, expect, it } from "vitest";
 import {
 	collectGreenfieldProductCoreEdges,
 	collectGreenfieldSharedCoreImports,
+	collectLegacySessionDataMutations,
 	findCanonicalExecutableOwnershipViolations,
 	findGreenfieldProductCoreBoundaryViolations,
 	findGreenfieldSdkBoundaryViolations,
 	findLegacyExecutionRetirementViolations,
+	findLegacyFormatBoundaryClassificationViolations,
 	findLegacySessionCompatibilityShimViolations,
 	findRetiredLegacySessionTestImportViolations,
 	GREENFIELD_PRODUCT_CORE_EDGE_BUDGET,
 	LEGACY_EXECUTION_EDGE_BASELINE,
+	LEGACY_FORMAT_BOUNDARY_GROUPS,
 	LEGACY_PACKAGE_EXPORT_BASELINE,
+	LEGACY_SESSION_DATA_MUTATION_BASELINE,
 	RETIRED_LEGACY_EXECUTION_FILES,
 	RETIRED_LEGACY_SESSION_PREFIXES,
 	RETIRED_LEGACY_SESSION_SUPPORT_FILES,
@@ -106,13 +110,37 @@ describe("Legacy execution retirement gate", () => {
 	it("keeps retained Legacy format readers independent from execution", () => {
 		const violations = findLegacyExecutionRetirementViolations([
 			{
-				path: "packages/coding-agent/src/adapters/runtime-core/legacy-session-format/example.ts",
+				path: "packages/coding-agent/src/sessions/legacy/catalog.ts",
 				text: 'import { createAgentSession } from "../../../core/sdk.js";',
 			},
 		]);
 
 		expect(violations).toHaveLength(1);
 		expect(violations[0]).toContain("format boundary must not depend on Legacy execution");
+	});
+
+	it("classifies every historical format boundary and freezes data mutations", () => {
+		expect(LEGACY_FORMAT_BOUNDARY_GROUPS).toMatchObject({
+			readers: expect.any(Array),
+			migrations: expect.any(Array),
+			hostAdapters: expect.any(Array),
+			moduleEntries: expect.any(Array),
+		});
+		expect(
+			findLegacyFormatBoundaryClassificationViolations([
+				{ path: "packages/coding-agent/src/sessions/legacy/unclassified.ts", text: "export {};" },
+			]),
+		).toEqual([
+			"packages/coding-agent/src/sessions/legacy/unclassified.ts: Legacy format boundary has no compatibility classification",
+		]);
+		expect(
+			collectLegacySessionDataMutations([
+				{
+					path: "packages/coding-agent/src/sessions/legacy/catalog.ts",
+					text: "appendFile(path, value); rm(path); rm(lockPath);",
+				},
+			]),
+		).toEqual(LEGACY_SESSION_DATA_MUTATION_BASELINE);
 	});
 
 	it("reports Greenfield imports of shared core capabilities separately", () => {

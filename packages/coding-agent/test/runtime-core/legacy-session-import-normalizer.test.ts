@@ -13,8 +13,53 @@ import {
 	convertToLlm,
 	PROMPT_RESOURCE_REFERENCE_TYPE,
 } from "../../src/model-context/index.js";
+import { type CodingAgentSessionEntry, projectCodingAgentSessionDocumentEntry } from "../../src/sessions/index.js";
 
 describe("Coding Agent Legacy session import normalizer", () => {
+	it("uses the same Conversation projection policy for native and historical entries", () => {
+		const entries: CodingAgentSessionEntry[] = [
+			{
+				type: "message",
+				id: "extended",
+				parentId: null,
+				timestamp: "2026-01-01T00:00:01.000Z",
+				message: {
+					role: "bashExecution",
+					command: "pwd",
+					output: "C:/workspace",
+					exitCode: 0,
+					cancelled: false,
+					truncated: false,
+					timestamp: 1,
+				},
+			},
+			{
+				type: "custom_message",
+				id: "resource",
+				parentId: "extended",
+				timestamp: "2026-01-01T00:00:02.000Z",
+				customType: PROMPT_RESOURCE_REFERENCE_TYPE,
+				content: "resource",
+				display: false,
+			},
+			{
+				type: "compaction",
+				id: "compaction",
+				parentId: "resource",
+				timestamp: "2026-01-01T00:00:03.000Z",
+				summary: "summary",
+				firstKeptEntryId: "extended",
+				tokensBefore: 42,
+			},
+		];
+
+		for (const entry of entries) {
+			expect(normalizeCodingAgentLegacySessionEntry({ ...entry })).toEqual(
+				projectCodingAgentSessionDocumentEntry(entry),
+			);
+		}
+	});
+
 	it("preserves official extended AgentMessage identities and their exact model projection", () => {
 		const messages: AgentMessage[] = [
 			{ role: "user", content: "request", timestamp: 1 },

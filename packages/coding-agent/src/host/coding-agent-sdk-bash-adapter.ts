@@ -1,8 +1,8 @@
 import type { GreenfieldRuntimeSession, SessionEvent } from "@vetta/runtime-core";
 import type { CodingAgentGreenfieldSdkBashPort } from "../adapters/runtime-core/greenfield-sdk-active-session-capability-host.js";
-import { CODING_AGENT_LEGACY_AGENT_MESSAGE_CONTEXT_TYPE } from "../adapters/runtime-core/legacy-session-import-normalizer.js";
 import type { CodingAgentGreenfieldActiveSessionHost } from "../composition/greenfield-active-session-transition-host.js";
 import { type BashExecutionMessage, bashExecutionToText } from "../model-context/index.js";
+import { CODING_AGENT_EXTENDED_MESSAGE_CONTEXT_TYPE } from "../sessions/index.js";
 import type { HostBashExecutor, HostBashResult } from "./command-execution/index.js";
 
 export interface CodingAgentSdkBashAdapterOptions {
@@ -138,7 +138,7 @@ async function deliverBashMessage(session: GreenfieldRuntimeSession, message: Ba
 	await session.createCoreAssembly().contextDeliveryController.deliver(
 		[
 			{
-				type: CODING_AGENT_LEGACY_AGENT_MESSAGE_CONTEXT_TYPE,
+				type: CODING_AGENT_EXTENDED_MESSAGE_CONTEXT_TYPE,
 				content: [{ type: "text", text: bashExecutionToText(message) }],
 				modelVisible: message.excludeFromContext !== true,
 				display: true,

@@ -1,5 +1,5 @@
 import type { HistoryEntry, RuntimeSessionFileHistoryReader } from "@vetta/runtime-core";
-import { branchFromFileEntries, entriesToHistory } from "../history.js";
+import { branchFromFileEntries, entriesToHistory } from "../projection/session-history.js";
 import { readCodingAgentLegacySessionDocument } from "./document.js";
 import { isLegacySessionFileSync } from "./header-reader.js";
 

@@ -1,6 +1,7 @@
 import { closeSync, openSync, readSync } from "node:fs";
 import { type FileHandle, open } from "node:fs/promises";
 
+/** Maximum prefix needed to identify a historical Coding Agent JSONL header. */
 const SESSION_HEADER_READ_BYTES = 64 * 1024;
 
 export async function isLegacySessionFile(sessionPath: string): Promise<boolean> {

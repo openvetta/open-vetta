@@ -6,9 +6,9 @@ import { convertToLlm } from "../../model-context/index.js";
 import {
 	type CodingAgentCustomMessageEntry as CustomMessageEntry,
 	projectCodingAgentSessionContextEntries,
+	restoreCodingAgentSessionAgentMessageEntry,
 	type CodingAgentSessionEntry as SessionEntry,
 } from "../../sessions/index.js";
-import { restoreCodingAgentLegacyAgentMessageEntry } from "./legacy-session-import-normalizer.js";
 
 /** 将持久化活动分支恢复为旧 Coding Agent 的完整 AgentMessage 身份。 */
 export class CodingAgentGreenfieldAgentMessageContextProjector implements ConversationContextProjector {
@@ -63,7 +63,7 @@ function toSessionEntry(entry: ConversationDocument["entries"][number]): Session
 			return { ...entry, message: readAgentMessage(entry.message) };
 		case "custom_message":
 			return (
-				restoreCodingAgentLegacyAgentMessageEntry(entry) ?? {
+				restoreCodingAgentSessionAgentMessageEntry(entry) ?? {
 					...entry,
 					content: readCustomMessageContent(entry.content),
 				}

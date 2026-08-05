@@ -56,8 +56,8 @@ import type {
 	CodingAgentCompactionEntry as CompactionEntry,
 	CodingAgentSessionEntry as SessionEntry,
 } from "../../sessions/index.js";
+import { restoreCodingAgentSessionAgentMessageEntry } from "../../sessions/index.js";
 import type { CodingAgentCompactionExtensionRuntime } from "./greenfield-compaction-extension-runtime.js";
-import { restoreCodingAgentLegacyAgentMessageEntry } from "./legacy-session-import-normalizer.js";
 
 type ContextHookRuntime = Pick<EcosystemHookRuntime, "markSessionStart" | "runPostCompact" | "runPreCompact">;
 
@@ -671,7 +671,7 @@ function toSessionEntry(entry: ConversationDocumentEntry): SessionEntry | undefi
 			return { ...entry };
 		case "custom_message":
 			return (
-				restoreCodingAgentLegacyAgentMessageEntry(entry) ??
+				restoreCodingAgentSessionAgentMessageEntry(entry) ??
 				(entry.modelVisible === true && isUserContent(entry.content)
 					? {
 							type: "custom_message",

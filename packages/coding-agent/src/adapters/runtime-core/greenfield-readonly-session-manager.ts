@@ -9,11 +9,11 @@ import {
 	projectCodingAgentSessionTree,
 	readCodingAgentSessionBranch,
 	readCodingAgentSessionLabels,
+	restoreCodingAgentSessionAgentMessageEntry,
 	type CodingAgentSessionEntry as SessionEntry,
 	type CodingAgentSessionHeader as SessionHeader,
 	type CodingAgentSessionTreeNode as SessionTreeNode,
 } from "../../sessions/index.js";
-import { restoreCodingAgentLegacyAgentMessageEntry } from "./legacy-session-import-normalizer.js";
 
 /**
  * 将 Runtime Core 的只读 Conversation 投影为旧 ExtensionContext 所需的窄会话视图。
@@ -82,7 +82,7 @@ function toSessionEntry(entry: ConversationDocumentEntry): SessionEntry {
 			return { ...entry, message: entry.message as AgentMessage };
 		case "custom_message":
 			return (
-				restoreCodingAgentLegacyAgentMessageEntry(entry) ?? {
+				restoreCodingAgentSessionAgentMessageEntry(entry) ?? {
 					...entry,
 					content: entry.content as CustomMessageEntry["content"],
 				}

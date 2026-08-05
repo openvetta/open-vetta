@@ -9,8 +9,8 @@ import {
 	type LegacySessionImportIssueCode,
 	migrateLegacySessionToV2,
 } from "@vetta/runtime-storage/conversation";
-import { acquireLegacySessionFormatLease } from "./legacy-session-format/index.js";
-import { normalizeCodingAgentLegacySessionEntry } from "./legacy-session-import-normalizer.js";
+import { normalizeCodingAgentLegacySessionEntry } from "./entry-normalizer.js";
+import { acquireLegacySessionFormatLease } from "./lease.js";
 
 export type CodingAgentLegacySessionIncompatibilityCode =
 	| "session_corrupt"

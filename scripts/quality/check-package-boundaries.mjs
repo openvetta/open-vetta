@@ -989,9 +989,7 @@ function checkCodingAgentLegacyBoundaries(posixPath, text, specifiers, findings)
 		}
 	}
 
-	const isLegacyFormatModule = posixPath.startsWith(
-		"packages/coding-agent/src/adapters/runtime-core/legacy-session-format/",
-	);
+	const isLegacyFormatModule = posixPath.startsWith("packages/coding-agent/src/sessions/legacy/");
 	if (isLegacyFormatModule) {
 		const forbiddenImportFragments = ["agent-session", "/sdk", "legacy-session-backend"];
 		for (const specifier of specifiers) {
@@ -1005,6 +1003,7 @@ function checkCodingAgentLegacyBoundaries(posixPath, text, specifiers, findings)
 			}
 		}
 	}
+	if (isLegacyFormatModule) return;
 
 	const isCodingAgentAdapter = posixPath.startsWith("packages/coding-agent/src/adapters/runtime-core/");
 	if (isCodingAgentAdapter) return;

@@ -17,12 +17,29 @@ export {
 } from "../../memory/index.js";
 export type { CodingAgentModelRuntime } from "../../models/index.js";
 export {
+	acquireLegacySessionFormatLease,
+	CODING_AGENT_LEGACY_AGENT_MESSAGE_CONTEXT_TYPE,
+	LegacyRuntimeSessionCatalog,
+	LegacyRuntimeSessionFileHistoryReader,
+	type LegacySessionFormatLeaseResult,
+	normalizeCodingAgentLegacySessionEntry,
+	restoreCodingAgentLegacyAgentMessageEntry,
+} from "../../sessions/legacy/index.js";
+export {
 	type CodingAgentLegacySessionIncompatibilityCode,
 	type CodingAgentLegacySessionMigration,
 	type CodingAgentLegacySessionMigrationIncompatible,
 	type CodingAgentLegacySessionMigrationSuccess,
 	migrateCodingAgentLegacySession,
-} from "./coding-agent-legacy-session-migration.js";
+} from "../../sessions/legacy/migration.js";
+export {
+	ASSISTANT_TURN_TIMING_TYPE,
+	branchFromFileEntries,
+	type EntriesToHistoryOptions,
+	entriesToHistory,
+	extractAssistantText,
+	parseAssistantTurnTiming,
+} from "../../sessions/projection/session-history.js";
 export {
 	type CodingAgentMcpRuntimeToolSourceOptions,
 	createCodingAgentMcpRuntimeToolSource,
@@ -146,25 +163,6 @@ export {
 	type CodingAgentRuntimeToolRegistration,
 	type LegacyCodingAgentTool,
 } from "./greenfield-tool-adapter.js";
-export {
-	ASSISTANT_TURN_TIMING_TYPE,
-	branchFromFileEntries,
-	type EntriesToHistoryOptions,
-	entriesToHistory,
-	extractAssistantText,
-	parseAssistantTurnTiming,
-} from "./history.js";
-export {
-	acquireLegacySessionFormatLease,
-	LegacyRuntimeSessionCatalog,
-	LegacyRuntimeSessionFileHistoryReader,
-	type LegacySessionFormatLeaseResult,
-} from "./legacy-session-format/index.js";
-export {
-	CODING_AGENT_LEGACY_AGENT_MESSAGE_CONTEXT_TYPE,
-	normalizeCodingAgentLegacySessionEntry,
-	restoreCodingAgentLegacyAgentMessageEntry,
-} from "./legacy-session-import-normalizer.js";
 export {
 	CodingAgentSharedModelController,
 	type CodingAgentSharedModelSource,

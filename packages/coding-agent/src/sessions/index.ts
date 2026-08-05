@@ -24,8 +24,21 @@ export {
 } from "./projection/session-context.js";
 export {
 	CODING_AGENT_EXTENDED_MESSAGE_CONTEXT_TYPE,
+	CodingAgentExtendedMessageSchema,
+	createCodingAgentCompactionSummaryMessage,
+	isCodingAgentModelInvisibleCustomType,
+	projectCodingAgentExtendedMessage,
 	projectCodingAgentSessionDocumentEntry,
+	restoreCodingAgentSessionAgentMessageEntry,
 } from "./projection/session-document-entry.js";
+export {
+	ASSISTANT_TURN_TIMING_TYPE,
+	branchFromFileEntries,
+	type EntriesToHistoryOptions,
+	entriesToHistory,
+	extractAssistantText,
+	parseAssistantTurnTiming,
+} from "./projection/session-history.js";
 export {
 	computeSessionStats,
 	extractUserMessageText,

@@ -10,15 +10,33 @@ import { fail, isDirectRun, ok, readText, rel, repoRoot, walkFiles } from "./lib
 
 export const LEGACY_EXECUTION_EDGE_BASELINE = Object.freeze([]);
 
-export const RETAINED_LEGACY_FORMAT_BOUNDARIES = Object.freeze([
-	"packages/coding-agent/src/adapters/runtime-core/legacy-session-format/catalog.ts",
-	"packages/coding-agent/src/adapters/runtime-core/legacy-session-format/header-reader.ts",
-	"packages/coding-agent/src/adapters/runtime-core/legacy-session-format/history-reader.ts",
-	"packages/coding-agent/src/adapters/runtime-core/legacy-session-format/index.ts",
-	"packages/coding-agent/src/adapters/runtime-core/legacy-session-format/lease.ts",
-	"packages/cli-app/src/rpc/cli-session-format-compatibility.ts",
-	"packages/desktop-app/src/main/greenfield-runtime/desktop-legacy-session-format-compatibility.ts",
-	"packages/desktop-app/src/main/greenfield-runtime/desktop-legacy-session-migration-backend.ts",
+const LEGACY_FORMAT_DOMAIN_PREFIX = "packages/coding-agent/src/sessions/legacy/";
+
+export const LEGACY_FORMAT_BOUNDARY_GROUPS = Object.freeze({
+	readers: Object.freeze([
+		`${LEGACY_FORMAT_DOMAIN_PREFIX}catalog.ts`,
+		`${LEGACY_FORMAT_DOMAIN_PREFIX}document.ts`,
+		`${LEGACY_FORMAT_DOMAIN_PREFIX}header-reader.ts`,
+		`${LEGACY_FORMAT_DOMAIN_PREFIX}history-reader.ts`,
+	]),
+	migrations: Object.freeze([
+		`${LEGACY_FORMAT_DOMAIN_PREFIX}entry-normalizer.ts`,
+		`${LEGACY_FORMAT_DOMAIN_PREFIX}lease.ts`,
+		`${LEGACY_FORMAT_DOMAIN_PREFIX}migration.ts`,
+	]),
+	hostAdapters: Object.freeze([
+		"packages/cli-app/src/rpc/cli-session-format-compatibility.ts",
+		"packages/desktop-app/src/main/greenfield-runtime/desktop-legacy-session-format-compatibility.ts",
+		"packages/desktop-app/src/main/greenfield-runtime/desktop-legacy-session-migration-backend.ts",
+	]),
+	moduleEntries: Object.freeze([`${LEGACY_FORMAT_DOMAIN_PREFIX}index.ts`]),
+});
+
+export const RETAINED_LEGACY_FORMAT_BOUNDARIES = Object.freeze(Object.values(LEGACY_FORMAT_BOUNDARY_GROUPS).flat());
+
+export const LEGACY_SESSION_DATA_MUTATION_BASELINE = Object.freeze([
+	Object.freeze({ path: `${LEGACY_FORMAT_DOMAIN_PREFIX}catalog.ts`, symbol: "appendFile", count: 1 }),
+	Object.freeze({ path: `${LEGACY_FORMAT_DOMAIN_PREFIX}catalog.ts`, symbol: "rm", count: 2 }),
 ]);
 
 export const LEGACY_PACKAGE_EXPORT_BASELINE = Object.freeze([]);
@@ -58,6 +76,8 @@ export const RETIRED_LEGACY_EXECUTION_FILES = Object.freeze([
 ]);
 
 export const RETIRED_LEGACY_SESSION_SUPPORT_FILES = Object.freeze([
+	"packages/coding-agent/src/adapters/runtime-core/coding-agent-legacy-session-migration.ts",
+	"packages/coding-agent/src/adapters/runtime-core/legacy-session-import-normalizer.ts",
 	"packages/coding-agent/src/adapters/runtime-core/legacy-session-format/setup-writer.ts",
 	"packages/coding-agent/src/adapters/runtime-core/legacy-session-setup-seed-importer.ts",
 	"packages/coding-agent/src/core/agent-mode.ts",
@@ -71,7 +91,10 @@ export const RETIRED_LEGACY_SESSION_SUPPORT_FILES = Object.freeze([
 	"packages/coding-agent/src/core/session/todo-continuation.ts",
 ]);
 
-export const RETIRED_LEGACY_SESSION_PREFIXES = Object.freeze(["packages/coding-agent/src/core/session-manager/"]);
+export const RETIRED_LEGACY_SESSION_PREFIXES = Object.freeze([
+	"packages/coding-agent/src/adapters/runtime-core/legacy-session-format/",
+	"packages/coding-agent/src/core/session-manager/",
+]);
 
 const LEGACY_SESSION_COMPATIBILITY_SHIMS = Object.freeze({
 	"packages/coding-agent/src/core/session/tool-scope.ts":
@@ -91,8 +114,14 @@ const LEGACY_EXECUTION_SYMBOL_KINDS = new Map([
 ]);
 
 const LEGACY_SETUP_SEED_SYMBOL = /\b(?:CodingAgentLegacySessionSetupSeedImporter|LegacySessionSetupWriter)\b/u;
-const LEGACY_SESSION_MIGRATION_ADAPTER =
-	"packages/coding-agent/src/adapters/runtime-core/coding-agent-legacy-session-migration.ts";
+const LEGACY_SESSION_MIGRATION_ADAPTER = `${LEGACY_FORMAT_DOMAIN_PREFIX}migration.ts`;
+const LEGACY_SESSION_DATA_MUTATION_SYMBOLS = new Set([
+	"appendFile",
+	"appendFileSync",
+	"rm",
+	"writeFile",
+	"writeFileSync",
+]);
 
 export function findLegacyExecutionRetirementViolations(
 	files,
@@ -100,6 +129,7 @@ export function findLegacyExecutionRetirementViolations(
 ) {
 	const violations = [];
 	violations.push(...findLegacySetupSeedViolations(files));
+	violations.push(...findLegacyFormatBoundaryClassificationViolations(files));
 	const sourcePaths = new Set(files.map((file) => file.path));
 	const classifiedEdges = files.flatMap((file) =>
 		collectModuleEdges(file.path, file.text).flatMap((moduleEdge) =>
@@ -115,7 +145,7 @@ export function findLegacyExecutionRetirementViolations(
 	}
 
 	for (const file of files) {
-		if (!file.path.startsWith("packages/coding-agent/src/adapters/runtime-core/legacy-session-format/")) {
+		if (!file.path.startsWith(LEGACY_FORMAT_DOMAIN_PREFIX)) {
 			continue;
 		}
 		for (const moduleEdge of collectModuleEdges(file.path, file.text)) {
@@ -159,6 +189,28 @@ export function findLegacyExecutionRetirementViolations(
 				violations.push(`${retainedPath}: retained Legacy format boundary is missing`);
 			}
 		}
+		const mutations = collectLegacySessionDataMutations(files);
+		for (const expected of LEGACY_SESSION_DATA_MUTATION_BASELINE) {
+			const actual = mutations.find(
+				(candidate) => candidate.path === expected.path && candidate.symbol === expected.symbol,
+			);
+			if (actual?.count !== expected.count) {
+				violations.push(
+					`${expected.path}: Legacy session data mutation baseline changed (${expected.symbol}: ${actual?.count ?? 0} != ${expected.count})`,
+				);
+			}
+		}
+		for (const actual of mutations) {
+			if (
+				!LEGACY_SESSION_DATA_MUTATION_BASELINE.some(
+					(expected) => expected.path === actual.path && expected.symbol === actual.symbol,
+				)
+			) {
+				violations.push(
+					`${actual.path}: unclassified Legacy session data mutation (${actual.symbol}, count=${actual.count})`,
+				);
+			}
+		}
 		const actualExports = Object.keys(packageExports ?? {})
 			.filter((key) => key.startsWith("./legacy/"))
 			.sort();
@@ -172,6 +224,39 @@ export function findLegacyExecutionRetirementViolations(
 	}
 
 	return violations;
+}
+
+export function findLegacyFormatBoundaryClassificationViolations(files) {
+	const retained = new Set(RETAINED_LEGACY_FORMAT_BOUNDARIES);
+	return files
+		.filter((file) => file.path.startsWith(LEGACY_FORMAT_DOMAIN_PREFIX) && !retained.has(file.path))
+		.map((file) => `${file.path}: Legacy format boundary has no compatibility classification`);
+}
+
+export function collectLegacySessionDataMutations(files) {
+	const counts = new Map();
+	for (const file of files) {
+		if (!file.path.startsWith(LEGACY_FORMAT_DOMAIN_PREFIX)) continue;
+		const sourceFile = ts.createSourceFile(file.path, file.text, ts.ScriptTarget.Latest, true, scriptKind(file.path));
+		const visit = (node) => {
+			if (
+				ts.isCallExpression(node) &&
+				ts.isIdentifier(node.expression) &&
+				LEGACY_SESSION_DATA_MUTATION_SYMBOLS.has(node.expression.text)
+			) {
+				const key = `${file.path}\0${node.expression.text}`;
+				counts.set(key, (counts.get(key) ?? 0) + 1);
+			}
+			ts.forEachChild(node, visit);
+		};
+		visit(sourceFile);
+	}
+	return [...counts.entries()]
+		.map(([key, count]) => {
+			const [path, symbol] = key.split("\0");
+			return { path, symbol, count };
+		})
+		.sort((left, right) => left.path.localeCompare(right.path) || left.symbol.localeCompare(right.symbol));
 }
 
 /** Native Extension setup must never be routed back through generated Legacy JSONL. */
@@ -479,7 +564,7 @@ if (isDirectRun(import.meta.url)) {
 		const productCoreEdges = collectGreenfieldProductCoreEdges(files);
 		const productCoreSummary = summarizeGreenfieldProductCoreEdges(productCoreEdges);
 		ok(
-			`[legacy-execution] ok (${LEGACY_EXECUTION_EDGE_BASELINE.length} execution edge(s), 0 native setup migration edge(s), ${RETAINED_LEGACY_FORMAT_BOUNDARIES.length} retained format boundary(s), ${productCoreEdges.length} Greenfield product-core edge(s): adapter=${productCoreSummary["product-adapter"]}, composition=${productCoreSummary["composition-wiring"]}, rpc=${productCoreSummary["rpc-host-adapter"]}, sdk=${productCoreSummary["sdk-compatibility"]})`,
+			`[legacy-execution] ok (${LEGACY_EXECUTION_EDGE_BASELINE.length} execution edge(s), 0 native setup migration edge(s), ${RETAINED_LEGACY_FORMAT_BOUNDARIES.length} retained format boundary(s): readers=${LEGACY_FORMAT_BOUNDARY_GROUPS.readers.length}, migrations=${LEGACY_FORMAT_BOUNDARY_GROUPS.migrations.length}, host=${LEGACY_FORMAT_BOUNDARY_GROUPS.hostAdapters.length}, entries=${LEGACY_FORMAT_BOUNDARY_GROUPS.moduleEntries.length}, unclassified=0, data-mutations=${LEGACY_SESSION_DATA_MUTATION_BASELINE.reduce((total, item) => total + item.count, 0)}; ${productCoreEdges.length} Greenfield product-core edge(s): adapter=${productCoreSummary["product-adapter"]}, composition=${productCoreSummary["composition-wiring"]}, rpc=${productCoreSummary["rpc-host-adapter"]}, sdk=${productCoreSummary["sdk-compatibility"]})`,
 		);
 	}
 }
