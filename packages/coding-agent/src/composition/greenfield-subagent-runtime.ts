@@ -20,32 +20,23 @@ import {
 	type SubagentSnapshot,
 	type SubagentSpawnRequest,
 	type SubagentTypeDefinition,
-	SubagentTypeRegistry,
 	type SubagentTypeRegistryLike,
 	taskPath,
 } from "@vetta/runtime-subagents";
-import type { CodingToolActivation } from "@vetta/runtime-tools/coding";
-import {
-	type CodingAgentRuntimeToolRegistration,
-	createCodingAgentSubagentRuntimeToolRegistrations,
-} from "../adapters/runtime-core/greenfield.js";
-import { EXPLORER_SYSTEM_PROMPT } from "../core/subagents/types/explorer.js";
-import { WORKFLOW_SYSTEM_PROMPT } from "../core/subagents/types/workflow.js";
+import { createCodingAgentSubagentRuntimeToolRegistrations } from "../adapters/runtime-core/greenfield.js";
 import type { GreenfieldSubagentWorkRuntime } from "./greenfield-session-peripherals.js";
+import {
+	createDefaultGreenfieldSubagentTypeRegistry,
+	type GreenfieldSubagentProfile,
+} from "./greenfield-subagent-profiles.js";
 import { GreenfieldSubagentStatePersistence } from "./greenfield-subagent-state-persistence.js";
 
-export const GREENFIELD_SUBAGENT_TYPE_EXPLORER = "explorer";
-export const GREENFIELD_SUBAGENT_TYPE_WORKFLOW = "workflow";
-
-export interface GreenfieldSubagentProfile {
-	readonly activation: CodingToolActivation;
-	readonly inheritParentMcp: boolean;
-	readonly systemPromptAddon: string;
-	readonly forkParentContext: boolean;
-	readonly includeTodo: boolean;
-	readonly createRuntimeTools?: (cwd: string) => readonly CodingAgentRuntimeToolRegistration[];
-	readonly denyToolNamePrefixes?: readonly string[];
-}
+export {
+	createDefaultGreenfieldSubagentTypeRegistry,
+	GREENFIELD_SUBAGENT_TYPE_EXPLORER,
+	GREENFIELD_SUBAGENT_TYPE_WORKFLOW,
+	type GreenfieldSubagentProfile,
+} from "./greenfield-subagent-profiles.js";
 
 export interface GreenfieldSubagentRuntimeOptions {
 	readonly parentSessionId: string;
@@ -199,10 +190,6 @@ async function prepareRecoveredAgents(
 	return recovered;
 }
 
-export function createDefaultGreenfieldSubagentTypeRegistry(): SubagentTypeRegistry<GreenfieldSubagentProfile> {
-	return new SubagentTypeRegistry<GreenfieldSubagentProfile>().register(explorerType()).register(workflowType());
-}
-
 function recoveryFailure(snapshot: SubagentSnapshot, errorMessage: string): SubagentSnapshot {
 	return {
 		...snapshot,
@@ -212,41 +199,6 @@ function recoveryFailure(snapshot: SubagentSnapshot, errorMessage: string): Suba
 		generation: snapshot.generation + 1,
 		usage: { ...snapshot.usage },
 		todoProgress: snapshot.todoProgress ? { ...snapshot.todoProgress } : undefined,
-	};
-}
-
-function explorerType(): SubagentTypeDefinition<GreenfieldSubagentProfile> {
-	return {
-		id: GREENFIELD_SUBAGENT_TYPE_EXPLORER,
-		label: "Explorer",
-		description:
-			"Read-only information gathering: codebase recon, local docs, structure, and parent MCP search tools when available. Never writes files.",
-		profile: {
-			inheritParentMcp: true,
-			activation: {
-				mode: "explicit",
-				toolNames: ["read", "grep", "glob", "find", "ls", "dir_tree"],
-			},
-			systemPromptAddon: EXPLORER_SYSTEM_PROMPT,
-			forkParentContext: false,
-			includeTodo: false,
-		},
-	};
-}
-
-function workflowType(): SubagentTypeDefinition<GreenfieldSubagentProfile> {
-	return {
-		id: GREENFIELD_SUBAGENT_TYPE_WORKFLOW,
-		label: "Workflow",
-		description:
-			"Todo-driven parallel worker: inherits a snapshot of the parent context, executes a dispatched todo list with full coding tools in the shared cwd. Spawn via dispatch_workflows.",
-		profile: {
-			inheritParentMcp: true,
-			activation: { mode: "scope", scope: "cli" },
-			systemPromptAddon: WORKFLOW_SYSTEM_PROMPT,
-			forkParentContext: true,
-			includeTodo: true,
-		},
 	};
 }
 

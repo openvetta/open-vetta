@@ -23,6 +23,12 @@ export {
 	projectCodingAgentSessionContextEntries,
 } from "./projection/session-context.js";
 export {
+	computeSessionStats,
+	extractUserMessageText,
+	getLastAssistantText,
+	type SessionStats,
+} from "./projection/session-observations.js";
+export {
 	projectCodingAgentSessionTree,
 	readCodingAgentSessionBranch,
 	readCodingAgentSessionLabels,

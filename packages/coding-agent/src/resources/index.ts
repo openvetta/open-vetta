@@ -18,6 +18,15 @@ export type {
 } from "./contracts/resource-source.js";
 export { createResourcePackageRuntime, type ResourcePackageRuntimeOptions } from "./packages/package-source-runtime.js";
 export {
+	expandPromptResourceCommand,
+	expandPromptResourceReference,
+	type ParsedSkillBlock,
+	type PromptResourceExpansion,
+	type PromptResourceExpansionDependencies,
+	parseSkillBlock,
+	type SceneTodoState,
+} from "./prompt-resources/index.js";
+export {
 	expandPromptTemplate,
 	type LoadPromptTemplatesOptions,
 	loadPromptTemplates,

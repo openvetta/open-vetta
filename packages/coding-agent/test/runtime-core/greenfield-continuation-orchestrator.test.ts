@@ -7,7 +7,7 @@ import {
 	CodingAgentStopHookContinuationSource,
 	CodingAgentTodoContinuationSource,
 } from "../../src/adapters/runtime-core/index.js";
-import type { TodoItem } from "../../src/core/todo-store.js";
+import type { TodoItem } from "../../src/work-state/index.js";
 
 describe("CodingAgentContinuationOrchestrator", () => {
 	it("selects Todo, Plugin and Stop Hook in legacy priority order", async () => {

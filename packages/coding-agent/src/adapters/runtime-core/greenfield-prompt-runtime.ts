@@ -1,13 +1,13 @@
 import {
-	type PersonalizationSettingsSource,
-	resolveSystemPromptOptionsFromSources,
-} from "../../core/session/system-prompt-builder.js";
-import type { ConversationScenario } from "../../core/session/tool-scope.js";
-import {
 	type CodingAgentSessionResourceRuntimeOptions,
 	createCodingAgentSessionResourceRuntime,
 } from "../../host/coding-agent-resource-runtime.js";
 import type { AgentPluginRuntimeConfig } from "../../model-context/index.js";
+import {
+	type PersonalizationSettingsSource,
+	resolveSystemPromptOptionsFromSources,
+} from "../../model-context/index.js";
+import type { ConversationScenario } from "../../profiles/index.js";
 import type { SessionResourceRuntime } from "../../resources/index.js";
 import { SettingsRuntime } from "../../settings/index.js";
 import type {

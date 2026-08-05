@@ -4,9 +4,9 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	CodingAgentGreenfieldPromptAdapter,
+	CodingAgentTodoRuntime,
 	createCodingAgentPromptResourceResolver,
 } from "../../src/adapters/runtime-core/index.js";
-import { TodoStore } from "../../src/core/todo-store.js";
 import type { Skill } from "../../src/resources/skills/index.js";
 
 describe("Greenfield prompt resource resolver", () => {
@@ -38,7 +38,7 @@ describe("Greenfield prompt resource resolver", () => {
 			now: () => 42,
 			resolvePromptResource: createCodingAgentPromptResourceResolver({
 				resourceLoader,
-				todoStore: new TodoStore(),
+				todoState: new CodingAgentTodoRuntime(),
 			}),
 		});
 
@@ -75,13 +75,13 @@ describe("Greenfield prompt resource resolver", () => {
 		expect(refreshSkillsIfChanged).toHaveBeenCalledTimes(3);
 	});
 
-	it("uses the session TodoStore when expanding a Scene", async () => {
+	it("uses the session work-state port when expanding a Scene", async () => {
 		const sceneDir = join(root, "deploy");
 		const scenePath = join(sceneDir, "SKILL.md");
 		mkdirSync(sceneDir);
 		writeFileSync(scenePath, skillDocument("deploy", "deploy instructions", "scene"));
 		writeFileSync(join(sceneDir, "tasks.json"), JSON.stringify(["prepare", "publish"]));
-		const todoStore = new TodoStore();
+		const todoState = new CodingAgentTodoRuntime();
 		const adapter = new CodingAgentGreenfieldPromptAdapter({
 			resolvePromptResource: createCodingAgentPromptResourceResolver({
 				resourceLoader: {
@@ -91,7 +91,7 @@ describe("Greenfield prompt resource resolver", () => {
 						diagnostics: [],
 					}),
 				},
-				todoStore,
+				todoState,
 			}),
 		});
 
@@ -104,11 +104,11 @@ describe("Greenfield prompt resource resolver", () => {
 			type: "scene_expansion",
 			content: expect.stringContaining("deploy instructions"),
 		});
-		expect(todoStore.getAll()).toEqual([
+		expect(todoState.getAll()).toEqual([
 			{ id: 1, content: "prepare", status: "pending" },
 			{ id: 2, content: "publish", status: "pending" },
 		]);
-		expect(todoStore.getLockSource()).toBe("scene");
+		expect(todoState.getLockSource()).toBe("scene");
 	});
 });
 

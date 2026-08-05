@@ -1,6 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { Type } from "@sinclair/typebox";
-import { Value } from "@sinclair/typebox/value";
 import type {
 	ConversationDocument,
 	GreenfieldRuntimeDocumentParticipant,
@@ -14,31 +12,18 @@ import {
 	createTodoToolRegistration,
 	type TodoToolInput,
 } from "@vetta/runtime-tools/coding";
-import { TODO_SNAPSHOT_TYPE, type TodoSnapshot, type TodoSnapshotEnvelope, TodoStore } from "../../core/todo-store.js";
+import {
+	parseTodoSnapshot,
+	TODO_SNAPSHOT_TYPE,
+	type TodoLockSource,
+	type TodoSnapshot,
+	type TodoSnapshotEnvelope,
+	TodoState,
+} from "../../work-state/index.js";
 import { CODING_AGENT_MODEL_TOOL_ORDER } from "./greenfield-model-tool-order.js";
 
-const TodoItemSchema = Type.Object(
-	{
-		id: Type.Number(),
-		content: Type.String(),
-		status: Type.Union([Type.Literal("pending"), Type.Literal("in_progress"), Type.Literal("done")]),
-	},
-	{ additionalProperties: false },
-);
-
-const TodoSnapshotSchema = Type.Union([
-	Type.Array(TodoItemSchema),
-	Type.Object(
-		{
-			items: Type.Array(TodoItemSchema),
-			lockedBy: Type.Union([Type.Literal("scene"), Type.Null()]),
-		},
-		{ additionalProperties: false },
-	),
-]);
-
 export interface CodingAgentTodoRuntimeOptions {
-	readonly store?: TodoStore;
+	readonly state?: TodoState;
 	readonly createEntryId?: () => string;
 	readonly now?: () => number;
 }
@@ -50,7 +35,7 @@ export interface CodingAgentTodoRuntimeOptions {
  * Runtime Core 仅通过通用 Conversation Document participant 保存 custom entry。
  */
 export class CodingAgentTodoRuntime implements GreenfieldRuntimeDocumentParticipant, RuntimeSessionTodoController {
-	private readonly store: TodoStore;
+	private readonly state: TodoState;
 	private readonly createEntryId: () => string;
 	private readonly now: () => number;
 	private documentContext: GreenfieldRuntimeDocumentParticipantContext | undefined;
@@ -63,30 +48,53 @@ export class CodingAgentTodoRuntime implements GreenfieldRuntimeDocumentParticip
 	private disposed = false;
 
 	constructor(options: CodingAgentTodoRuntimeOptions = {}) {
-		this.store = options.store ?? new TodoStore();
+		this.state = options.state ?? new TodoState();
 		this.createEntryId = options.createEntryId ?? randomUUID;
 		this.now = options.now ?? Date.now;
 	}
 
-	getTodoStore(): TodoStore {
-		return this.store;
-	}
-
-	getAll(): ReturnType<TodoStore["getAll"]> {
-		return this.store.getAll();
+	getAll(): ReturnType<TodoState["getAll"]> {
+		return this.state.getAll();
 	}
 
 	isLocked(): boolean {
-		return this.store.isLocked();
+		return this.state.isLocked();
+	}
+
+	getLockSource(): TodoLockSource | null {
+		return this.state.getLockSource();
+	}
+
+	createMany(contents: string[]) {
+		return this.state.createMany(contents);
+	}
+
+	update(id: number, status: "pending" | "in_progress" | "done") {
+		return this.state.update(id, status);
+	}
+
+	initializeTodoItems(contents: readonly string[], lockSource?: TodoLockSource): void {
+		this.state.createMany([...contents]);
+		if (lockSource) this.state.lock(lockSource);
+	}
+
+	readSceneTodoState(): { readonly locked: boolean; readonly itemCount: number } {
+		return { locked: this.state.isLocked(), itemCount: this.state.getAll().length };
+	}
+
+	initializeSceneTodoItems(contents: readonly string[]): void {
+		this.state.clear();
+		this.state.createMany([...contents]);
+		this.state.lock("scene");
 	}
 
 	readItems(): ReturnType<RuntimeSessionTodoController["readItems"]> {
-		return this.store.getAll().map((item) => ({ ...item }));
+		return this.state.getAll().map((item) => ({ ...item }));
 	}
 
 	clear(): boolean {
-		if (this.store.isLocked() || this.store.getAll().length === 0) return false;
-		this.store.clear();
+		if (this.state.isLocked() || this.state.getAll().length === 0) return false;
+		this.state.clear();
 		return true;
 	}
 
@@ -97,10 +105,10 @@ export class CodingAgentTodoRuntime implements GreenfieldRuntimeDocumentParticip
 		this.documentContext = context;
 		const snapshot = latestTodoSnapshot(document);
 		if (snapshot) this.restore(snapshot);
-		this.unsubscribe = this.store.subscribe(() => {
+		this.unsubscribe = this.state.subscribe(() => {
 			if (!this.restoring) this.captureSnapshot();
 		});
-		if (!snapshot && (this.store.getAll().length > 0 || this.store.isLocked())) {
+		if (!snapshot && (this.state.getAll().length > 0 || this.state.isLocked())) {
 			this.captureSnapshot();
 		}
 	}
@@ -143,8 +151,8 @@ export class CodingAgentTodoRuntime implements GreenfieldRuntimeDocumentParticip
 
 	private captureSnapshot(): void {
 		this.pendingSnapshots.push({
-			items: this.store.getAll().map((item) => ({ ...item })),
-			lockedBy: this.store.getLockSource(),
+			items: this.state.getAll().map((item) => ({ ...item })),
+			lockedBy: this.state.getLockSource(),
 		});
 		if (!this.activeTurn) this.schedulePendingSnapshots();
 	}
@@ -169,7 +177,7 @@ export class CodingAgentTodoRuntime implements GreenfieldRuntimeDocumentParticip
 	private restore(snapshot: TodoSnapshot): void {
 		this.restoring = true;
 		try {
-			this.store.restoreFromSnapshot(snapshot);
+			this.state.restoreFromSnapshot(snapshot);
 		} finally {
 			this.restoring = false;
 		}
@@ -180,7 +188,7 @@ export function createCodingAgentTodoRuntimeToolRegistration(
 	runtime: CodingAgentTodoRuntime,
 ): CodingToolRegistration<TodoToolInput> {
 	const registration = createTodoToolRegistration({
-		getTodoStore: () => runtime.getTodoStore(),
+		getTodoStore: () => runtime,
 		modelOrder: CODING_AGENT_MODEL_TOOL_ORDER.todo,
 	});
 	return {
@@ -217,10 +225,7 @@ export function createCodingAgentTodoRuntimeFeature(
 function latestTodoSnapshot(document: ConversationDocument): TodoSnapshot | undefined {
 	for (const entry of [...selectConversationDocumentEntries(document)].reverse()) {
 		if (entry.type !== "custom" || entry.customType !== TODO_SNAPSHOT_TYPE) continue;
-		if (!Value.Check(TodoSnapshotSchema, entry.data)) {
-			throw new Error(`Invalid ${TODO_SNAPSHOT_TYPE} entry: ${entry.id}`);
-		}
-		return entry.data as TodoSnapshot;
+		return parseTodoSnapshot(entry.data, entry.id);
 	}
 	return undefined;
 }

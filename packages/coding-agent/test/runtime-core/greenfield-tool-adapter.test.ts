@@ -4,8 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
 	adaptCodingAgentToolRegistration,
 	type CodingAgentRuntimeToolRegistration,
+	type LegacyCodingAgentTool,
 } from "../../src/adapters/runtime-core/index.js";
-import type { CodingAgentTool } from "../../src/core/session/tool-scope.js";
 import { createKbListTagsTool } from "../../src/core/tools/kb-list-tags/index.js";
 
 const inputSchema = Type.Object({
@@ -34,7 +34,7 @@ describe("Greenfield AgentTool adapter", () => {
 				};
 			},
 		);
-		const legacyTool: CodingAgentTool<typeof inputSchema, Details> = {
+		const legacyTool: LegacyCodingAgentTool<typeof inputSchema, Details> = {
 			name: "test_tool",
 			label: "Test Tool",
 			description: "Test adapter",

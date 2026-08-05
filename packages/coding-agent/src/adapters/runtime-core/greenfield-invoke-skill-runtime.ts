@@ -1,6 +1,6 @@
 import type { AgentFeatureDefinition, RuntimeToolDefinition } from "@vetta/runtime-core/kernel";
 import { createInvokeSkillToolRegistration } from "@vetta/runtime-tools/coding";
-import { matchesAgentMode } from "../../core/agent-mode.js";
+import { matchesAgentMode } from "../../profiles/index.js";
 import { readSkillContent, type Skill } from "../../resources/skills/index.js";
 import { stripFrontmatter } from "../../utils/frontmatter.js";
 import { CODING_AGENT_MODEL_TOOL_ORDER } from "./greenfield-model-tool-order.js";

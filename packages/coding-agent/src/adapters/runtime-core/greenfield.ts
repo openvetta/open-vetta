@@ -204,6 +204,7 @@ export {
 	type AdaptCodingAgentToolRegistrationOptions,
 	adaptCodingAgentToolRegistration,
 	type CodingAgentRuntimeToolRegistration,
+	type LegacyCodingAgentTool,
 } from "./greenfield-tool-adapter.js";
 export {
 	type CodingAgentGreenfieldTurnCommandHost,

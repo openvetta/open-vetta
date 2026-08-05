@@ -1,8 +1,8 @@
 /**
  * 工作模式专用系统提示词解析。见 ADR-0046。
  *
- * 唯一编辑来源：`src/core/modes/*.md`（frontmatter 存 id/label/description，正文存提示词，英文撰写）。
- * 构建期由 `scripts/generate-modes.mjs` 内联生成 `modes-data.ts`，运行时零文件系统依赖
+ * 唯一编辑来源：`src/profiles/modes/*.md`（frontmatter 存 id/label/description，正文存提示词，英文撰写）。
+ * 构建期由 `scripts/generate-modes.mjs` 内联生成本目录的 `modes-data.ts`，运行时零文件系统依赖
  * （coding-agent 会被 desktop 打进 bundle，运行时读盘的 __dirname 会失效）。
  *
  * 与 persona 正交：mode 提示词作为独立 `mode` block 注入，用户仍可另选 persona。

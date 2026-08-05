@@ -1,8 +1,15 @@
 import type { Static, TSchema } from "@sinclair/typebox";
+import type { AgentTool } from "@vetta/agent-core";
 import type { RuntimeToolDefinition } from "@vetta/runtime-core/kernel";
 import type { EcosystemHookAwareTool } from "../../core/hooks/tool-wrapper.js";
-import type { CodingAgentTool, ConversationScenario, ToolCategory } from "../../core/session/tool-scope.js";
+import type { ConversationScenario, ToolCategory } from "../../profiles/index.js";
 import type { EcosystemHookAwareRuntimeTool } from "./greenfield-hook-tool-wrapper.js";
+
+export type LegacyCodingAgentTool<TParameters extends TSchema = TSchema, TDetails = unknown> = AgentTool<
+	TParameters,
+	TDetails,
+	ConversationScenario
+>;
 
 export interface CodingAgentRuntimeToolRegistration {
 	readonly tool: RuntimeToolDefinition;
@@ -23,10 +30,10 @@ export interface AdaptCodingAgentToolRegistrationOptions {
  * 可用范围和 capability 元数据留在注册项上，工具定义只负责执行协议转换。
  */
 export function adaptCodingAgentToolRegistration<TParameters extends TSchema, TDetails>(
-	tool: CodingAgentTool<TParameters, TDetails>,
+	tool: LegacyCodingAgentTool<TParameters, TDetails>,
 	options: AdaptCodingAgentToolRegistrationOptions = {},
 ): CodingAgentRuntimeToolRegistration {
-	const hookMetadata = (tool as CodingAgentTool<TParameters, TDetails> & EcosystemHookAwareTool).ecosystemHook;
+	const hookMetadata = (tool as LegacyCodingAgentTool<TParameters, TDetails> & EcosystemHookAwareTool).ecosystemHook;
 	const runtimeTool: EcosystemHookAwareRuntimeTool = {
 		name: tool.name,
 		label: tool.label,

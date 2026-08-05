@@ -1,4 +1,4 @@
-// 把 src/core/modes/*.md 内联生成 src/core/modes-data.ts。
+// 把 src/profiles/modes/*.md 内联生成 src/profiles/modes-data.ts。
 //
 // 为何 codegen 而非运行时读盘：同 generate-personas.mjs —— coding-agent 会被 desktop-app 的
 // vite 打进 main bundle，打包后基于 __dirname 的 readdirSync 会落到错误目录、读不到 md。
@@ -13,8 +13,8 @@ import { fileURLToPath } from "node:url";
 import { parse } from "yaml";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const modesDir = join(__dirname, "..", "src", "core", "modes");
-const outFile = join(__dirname, "..", "src", "core", "modes-data.ts");
+const modesDir = join(__dirname, "..", "src", "profiles", "modes");
+const outFile = join(__dirname, "..", "src", "profiles", "modes-data.ts");
 
 function parseMd(raw) {
 	const n = raw.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
@@ -45,7 +45,7 @@ for (const file of files) {
 	});
 }
 
-const content = `// AUTO-GENERATED from src/core/modes/*.md by scripts/generate-modes.mjs. Do not edit by hand.
+const content = `// AUTO-GENERATED from src/profiles/modes/*.md by scripts/generate-modes.mjs. Do not edit by hand.
 
 export interface RawMode {
 	id: string;

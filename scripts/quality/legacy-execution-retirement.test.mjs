@@ -6,12 +6,14 @@ import {
 	findGreenfieldProductCoreBoundaryViolations,
 	findGreenfieldSdkBoundaryViolations,
 	findLegacyExecutionRetirementViolations,
+	findLegacySessionCompatibilityShimViolations,
 	findRetiredLegacySessionTestImportViolations,
 	GREENFIELD_PRODUCT_CORE_EDGE_BUDGET,
 	LEGACY_EXECUTION_EDGE_BASELINE,
 	LEGACY_PACKAGE_EXPORT_BASELINE,
 	RETIRED_LEGACY_EXECUTION_FILES,
 	RETIRED_LEGACY_SESSION_PREFIXES,
+	RETIRED_LEGACY_SESSION_SUPPORT_FILES,
 	summarizeGreenfieldProductCoreEdges,
 } from "./check-legacy-execution-retirement.mjs";
 import { findStandaloneCliBuildViolations } from "./check-standalone-cli-build.mjs";
@@ -40,6 +42,9 @@ describe("Legacy execution retirement gate", () => {
 		expect(LEGACY_PACKAGE_EXPORT_BASELINE).toEqual([]);
 		expect(RETIRED_LEGACY_EXECUTION_FILES).toContain("packages/coding-agent/src/main.ts");
 		expect(RETIRED_LEGACY_EXECUTION_FILES).toContain("packages/coding-agent/src/core/agent-session.ts");
+		expect(RETIRED_LEGACY_SESSION_SUPPORT_FILES).toContain(
+			"packages/coding-agent/src/core/session/system-prompt-builder.ts",
+		);
 		expect(RETIRED_LEGACY_SESSION_PREFIXES).toContain("packages/coding-agent/src/core/session-manager/");
 	});
 
@@ -52,6 +57,21 @@ describe("Legacy execution retirement gate", () => {
 				},
 			]),
 		).toEqual(["packages/coding-agent/test/example.test.ts: test imports a retired Legacy Session implementation"]);
+	});
+
+	it("keeps the remaining old Tool type shims free of Session runtime behavior", () => {
+		expect(
+			findLegacySessionCompatibilityShimViolations([
+				{
+					path: "packages/coding-agent/src/core/todo-store.ts",
+					text: "export class TodoStore {}",
+				},
+				{
+					path: "packages/coding-agent/src/core/session/tool-scope.ts",
+					text: "export function resolveActiveToolNames() {}",
+				},
+			]),
+		).toHaveLength(2);
 	});
 
 	it("requires cli-app to own the canonical Agent executable", () => {
@@ -136,9 +156,9 @@ describe("Legacy execution retirement gate", () => {
 			unclassified: 0,
 		});
 		expect(GREENFIELD_PRODUCT_CORE_EDGE_BUDGET).toEqual({
-			"product-adapter": 85,
-			"composition-wiring": 5,
-			"rpc-host-adapter": 4,
+			"product-adapter": 12,
+			"composition-wiring": 0,
+			"rpc-host-adapter": 2,
 			"sdk-compatibility": 0,
 		});
 	});
@@ -155,9 +175,14 @@ describe("Legacy execution retirement gate", () => {
 			},
 		]);
 
-		expect(violations).toHaveLength(2);
-		expect(violations[0]).toContain("must not depend on retired AgentSession execution");
-		expect(violations[1]).toContain("Composition contract leaks a concrete product Core type");
+		expect(violations).toHaveLength(3);
+		expect(violations).toEqual(
+			expect.arrayContaining([
+				expect.stringContaining("must not depend on retired AgentSession execution"),
+				expect.stringContaining("Composition contract leaks a concrete product Core type"),
+				expect.stringContaining("composition-wiring product Core dependency budget increased"),
+			]),
+		);
 	});
 
 	it("keeps the public SDK facade independent from migration names and retired execution", () => {

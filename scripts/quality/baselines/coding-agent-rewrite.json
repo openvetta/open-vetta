@@ -12,15 +12,6 @@
 			"domain": "mcp"
 		},
 		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-ask-user-question-runtime.ts",
-			"specifier": "../../core/session/tool-scope.js",
-			"names": [
-				"ConversationScenario"
-			],
-			"category": "old-core",
-			"domain": "session"
-		},
-		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-action-host.ts",
 			"specifier": "../../core/slash-commands.js",
 			"names": [
@@ -59,15 +50,6 @@
 			"domain": "hooks"
 		},
 		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-invoke-skill-runtime.ts",
-			"specifier": "../../core/agent-mode.js",
-			"names": [
-				"matchesAgentMode"
-			],
-			"category": "old-core",
-			"domain": "agent-mode"
-		},
-		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-memory-rollover-orchestrator.ts",
 			"specifier": "../../core/memory/memory-flush.js",
 			"names": [
@@ -92,8 +74,7 @@
 			"names": [
 				"DEFAULT_MEMORY_CHAR_LIMIT",
 				"applyMemoryOperation",
-				"readMemoryContent",
-				"renderMemoryForPrompt"
+				"readMemoryContent"
 			],
 			"category": "old-core",
 			"domain": "memory"
@@ -106,15 +87,6 @@
 			],
 			"category": "old-core",
 			"domain": "image-budget"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-plugin-mcp-runtime.ts",
-			"specifier": "../../core/agent-mode.js",
-			"names": [
-				"matchesAgentMode"
-			],
-			"category": "old-core",
-			"domain": "agent-mode"
 		},
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-plugin-mcp-runtime.ts",
@@ -136,63 +108,6 @@
 			"domain": "mcp"
 		},
 		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-plugin-tool-runtime.ts",
-			"specifier": "../../core/session/tool-scope.js",
-			"names": [
-				"ConversationScenario",
-				"resolveActiveToolNames"
-			],
-			"category": "old-core",
-			"domain": "session"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-prompt-resource-resolver.ts",
-			"specifier": "../../core/session/skill-expansion.js",
-			"names": [
-				"SkillExpansionDeps",
-				"expandSkillReference"
-			],
-			"category": "old-core",
-			"domain": "session"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-prompt-resource-resolver.ts",
-			"specifier": "../../core/todo-store.js",
-			"names": [
-				"TodoStore"
-			],
-			"category": "old-core",
-			"domain": "todo-store"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-prompt-runtime.ts",
-			"specifier": "../../core/session/system-prompt-builder.js",
-			"names": [
-				"PersonalizationSettingsSource",
-				"resolveSystemPromptOptionsFromSources"
-			],
-			"category": "old-core",
-			"domain": "session"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-prompt-runtime.ts",
-			"specifier": "../../core/session/tool-scope.js",
-			"names": [
-				"ConversationScenario"
-			],
-			"category": "old-core",
-			"domain": "session"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-stop-hook-continuation-source.ts",
-			"specifier": "../../core/session/session-stats.js",
-			"names": [
-				"getLastAssistantText"
-			],
-			"category": "old-core",
-			"domain": "session"
-		},
-		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-subagent-tool-adapter.ts",
 			"specifier": "../../core/subagents/tools/index.js",
 			"names": [
@@ -202,37 +117,6 @@
 			"domain": "subagents"
 		},
 		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-todo-continuation-source.ts",
-			"specifier": "../../core/session/todo-continuation.js",
-			"names": [
-				"TodoContinuationState",
-				"buildTodoContinuationMessages"
-			],
-			"category": "old-core",
-			"domain": "session"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-todo-continuation-source.ts",
-			"specifier": "../../core/session/todo-continuation.js",
-			"names": [
-				"TodoContinuationState"
-			],
-			"category": "old-core",
-			"domain": "session"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-todo-runtime.ts",
-			"specifier": "../../core/todo-store.js",
-			"names": [
-				"TODO_SNAPSHOT_TYPE",
-				"TodoSnapshot",
-				"TodoSnapshotEnvelope",
-				"TodoStore"
-			],
-			"category": "old-core",
-			"domain": "todo-store"
-		},
-		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-tool-adapter.ts",
 			"specifier": "../../core/hooks/tool-wrapper.js",
 			"names": [
@@ -240,17 +124,6 @@
 			],
 			"category": "old-core",
 			"domain": "hooks"
-		},
-		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-tool-adapter.ts",
-			"specifier": "../../core/session/tool-scope.js",
-			"names": [
-				"CodingAgentTool",
-				"ConversationScenario",
-				"ToolCategory"
-			],
-			"category": "old-core",
-			"domain": "session"
 		},
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/legacy-mcp-runtime-source.ts",
@@ -264,16 +137,6 @@
 			"domain": "mcp"
 		},
 		{
-			"path": "packages/coding-agent/src/adapters/runtime-core/legacy-mcp-runtime-source.ts",
-			"specifier": "../../core/session/tool-scope.js",
-			"names": [
-				"ALL_SCENARIOS",
-				"CodingAgentTool"
-			],
-			"category": "old-core",
-			"domain": "session"
-		},
-		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/model-registry-shared-model-controller.ts",
 			"specifier": "../../core/model-registry.js",
 			"names": [
@@ -283,15 +146,6 @@
 			"domain": "model-registry"
 		},
 		{
-			"path": "packages/coding-agent/src/cli/args.ts",
-			"specifier": "../core/session/tool-scope.js",
-			"names": [
-				"ConversationScenario"
-			],
-			"category": "old-core",
-			"domain": "session"
-		},
-		{
 			"path": "packages/coding-agent/src/cli/list-models.ts",
 			"specifier": "../core/model-registry.js",
 			"names": [
@@ -299,24 +153,6 @@
 			],
 			"category": "old-core",
 			"domain": "model-registry"
-		},
-		{
-			"path": "packages/coding-agent/src/composition/greenfield-subagent-runtime.ts",
-			"specifier": "../core/subagents/types/explorer.js",
-			"names": [
-				"EXPLORER_SYSTEM_PROMPT"
-			],
-			"category": "old-core",
-			"domain": "subagents"
-		},
-		{
-			"path": "packages/coding-agent/src/composition/greenfield-subagent-runtime.ts",
-			"specifier": "../core/subagents/types/workflow.js",
-			"names": [
-				"WORKFLOW_SYSTEM_PROMPT"
-			],
-			"category": "old-core",
-			"domain": "subagents"
 		},
 		{
 			"path": "packages/coding-agent/src/host/coding-agent-cli-control.ts",
@@ -461,19 +297,6 @@
 		},
 		{
 			"path": "packages/coding-agent/src/index.ts",
-			"specifier": "./core/agent-mode.js",
-			"names": [
-				"ALL_AGENT_MODES",
-				"AgentMode",
-				"DEFAULT_AGENT_MODE",
-				"isAgentMode",
-				"matchesAgentMode"
-			],
-			"category": "old-core",
-			"domain": "agent-mode"
-		},
-		{
-			"path": "packages/coding-agent/src/index.ts",
 			"specifier": "./core/auth-storage.js",
 			"names": [
 				"ApiKeyCredential",
@@ -542,32 +365,6 @@
 			"domain": "model-registry"
 		},
 		{
-			"path": "packages/coding-agent/src/index.ts",
-			"specifier": "./core/personas.js",
-			"names": [
-				"DEFAULT_PERSONA_ID",
-				"PERSONAS",
-				"Persona",
-				"getPersonaPrompt"
-			],
-			"category": "old-core",
-			"domain": "personas"
-		},
-		{
-			"path": "packages/coding-agent/src/index.ts",
-			"specifier": "./core/session/tool-scope.js",
-			"names": [
-				"ALL_SCENARIOS",
-				"CodingAgentTool",
-				"ConversationScenario",
-				"DEFAULT_SCENARIO",
-				"ToolCapability",
-				"ToolCategory"
-			],
-			"category": "old-core",
-			"domain": "session"
-		},
-		{
 			"path": "packages/coding-agent/src/modes/rpc/greenfield-rpc-capabilities.ts",
 			"specifier": "../../core/bash-executor.js",
 			"names": [
@@ -632,45 +429,6 @@
 			"domain": "model-registry"
 		},
 		{
-			"path": "packages/coding-agent/src/public-api/profile.ts",
-			"specifier": "../core/agent-mode.js",
-			"names": [
-				"ALL_AGENT_MODES",
-				"AgentMode",
-				"DEFAULT_AGENT_MODE",
-				"isAgentMode",
-				"matchesAgentMode"
-			],
-			"category": "old-core",
-			"domain": "agent-mode"
-		},
-		{
-			"path": "packages/coding-agent/src/public-api/profile.ts",
-			"specifier": "../core/personas.js",
-			"names": [
-				"DEFAULT_PERSONA_ID",
-				"PERSONAS",
-				"Persona",
-				"getPersonaPrompt"
-			],
-			"category": "old-core",
-			"domain": "personas"
-		},
-		{
-			"path": "packages/coding-agent/src/public-api/profile.ts",
-			"specifier": "../core/session/tool-scope.js",
-			"names": [
-				"ALL_SCENARIOS",
-				"CodingAgentTool",
-				"ConversationScenario",
-				"DEFAULT_SCENARIO",
-				"ToolCapability",
-				"ToolCategory"
-			],
-			"category": "old-core",
-			"domain": "session"
-		},
-		{
 			"path": "packages/desktop-app/src/main/ipc/fs.ts",
 			"specifier": "@vetta/coding-agent/core/mcp/index.js",
 			"names": [
@@ -695,7 +453,6 @@
 	],
 	"runtimeBackedges": [],
 	"oldImplementationFiles": [
-		"packages/coding-agent/src/core/agent-mode.ts",
 		"packages/coding-agent/src/core/auth-storage.ts",
 		"packages/coding-agent/src/core/background-tasks/index.ts",
 		"packages/coding-agent/src/core/bash-executor.ts",
@@ -733,18 +490,10 @@
 		"packages/coding-agent/src/core/memory/memory-flush.ts",
 		"packages/coding-agent/src/core/memory/memory-journal.ts",
 		"packages/coding-agent/src/core/memory/memory-store.ts",
-		"packages/coding-agent/src/core/mode-prompt.ts",
 		"packages/coding-agent/src/core/model-registry.ts",
 		"packages/coding-agent/src/core/model-resolver.ts",
-		"packages/coding-agent/src/core/modes-data.ts",
-		"packages/coding-agent/src/core/personas-data.ts",
-		"packages/coding-agent/src/core/personas.ts",
 		"packages/coding-agent/src/core/resolve-config-value.ts",
 		"packages/coding-agent/src/core/session-lock.ts",
-		"packages/coding-agent/src/core/session/session-stats.ts",
-		"packages/coding-agent/src/core/session/skill-expansion.ts",
-		"packages/coding-agent/src/core/session/system-prompt-builder.ts",
-		"packages/coding-agent/src/core/session/todo-continuation.ts",
 		"packages/coding-agent/src/core/session/tool-scope.ts",
 		"packages/coding-agent/src/core/slash-commands.ts",
 		"packages/coding-agent/src/core/subagents/coordinator.ts",

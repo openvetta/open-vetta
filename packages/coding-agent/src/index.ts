@@ -26,14 +26,6 @@ export {
 } from "./compaction/index.js";
 // Config paths
 export { DEFAULT_SERVER_URL, getAgentDir, VERSION } from "./config.js";
-// 工作模式（agent_mode 正交轴，见 ADR-0046）
-export {
-	type AgentMode,
-	ALL_AGENT_MODES,
-	DEFAULT_AGENT_MODE,
-	isAgentMode,
-	matchesAgentMode,
-} from "./core/agent-mode.js";
 // Auth and model registry
 export {
 	type ApiKeyCredential,
@@ -60,16 +52,6 @@ export { createEventBus, type EventBus, type EventBusController } from "./core/e
 // Footer data provider (git branch + extension statuses - data not otherwise available to extensions)
 export type { ReadonlyFooterDataProvider } from "./core/footer-data-provider.js";
 export { ModelRegistry } from "./core/model-registry.js";
-export { DEFAULT_PERSONA_ID, getPersonaPrompt, PERSONAS, type Persona } from "./core/personas.js";
-// 对话场景与工具 scope（隔离的唯一轴）
-export {
-	ALL_SCENARIOS,
-	type CodingAgentTool,
-	type ConversationScenario,
-	DEFAULT_SCENARIO,
-	type ToolCapability,
-	type ToolCategory,
-} from "./core/session/tool-scope.js";
 // Extension system
 export type {
 	AgentEndEvent,
@@ -226,6 +208,24 @@ export {
 	Theme,
 	type ThemeColor,
 } from "./modes/interactive/theme/theme.js";
+// 工作模式（agent_mode 正交轴，见 ADR-0046）
+// 对话场景与工具 scope（隔离的唯一轴）
+export {
+	type AgentMode,
+	ALL_AGENT_MODES,
+	ALL_SCENARIOS,
+	type ConversationScenario,
+	DEFAULT_AGENT_MODE,
+	DEFAULT_PERSONA_ID,
+	DEFAULT_SCENARIO,
+	getPersonaPrompt,
+	isAgentMode,
+	matchesAgentMode,
+	PERSONAS,
+	type Persona,
+	type ToolCapability,
+	type ToolCategory,
+} from "./profiles/index.js";
 // Skills
 export {
 	formatSkillsForPrompt,

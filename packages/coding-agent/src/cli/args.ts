@@ -10,7 +10,7 @@ import {
 	isCodingAgentBuiltInToolName,
 } from "../composition/coding-agent-built-in-tool-names.js";
 import { APP_NAME, CONFIG_DIR_NAME, ENV_AGENT_DIR, ENV_PACKAGE_DIR, ENV_SHARE_VIEWER_URL } from "../config.js";
-import type { ConversationScenario } from "../core/session/tool-scope.js";
+import type { ConversationScenario } from "../profiles/index.js";
 
 export type Mode = "text" | "json" | "rpc";
 

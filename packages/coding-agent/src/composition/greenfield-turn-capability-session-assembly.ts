@@ -232,7 +232,7 @@ export async function createGreenfieldTurnCapabilitySessionAssembly(
 			(options.prompt.resourceSource
 				? createCodingAgentPromptResourceResolver({
 						resourceLoader: options.prompt.resourceSource,
-						todoStore: options.todoRuntime.getTodoStore(),
+						todoState: options.todoRuntime,
 					})
 				: undefined),
 		hookRuntime: options.hookRuntime,

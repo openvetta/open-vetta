@@ -1,7 +1,7 @@
 import type { UserMessage } from "@vetta/ai";
 import type { EcosystemHookRuntime } from "@vetta/ecosystem-adapter/hooks";
 import type { ContinuationPolicyContext } from "@vetta/runtime-core/kernel";
-import { getLastAssistantText } from "../../core/session/session-stats.js";
+import { getLastAssistantText } from "../../sessions/index.js";
 import type { CodingAgentContinuationSource } from "./greenfield-continuation-orchestrator.js";
 
 export interface CodingAgentStopHookContinuationSourceOptions {

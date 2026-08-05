@@ -1,4 +1,4 @@
-// AUTO-GENERATED from src/core/modes/*.md by scripts/generate-modes.mjs. Do not edit by hand.
+// AUTO-GENERATED from src/profiles/modes/*.md by scripts/generate-modes.mjs. Do not edit by hand.
 
 export interface RawMode {
 	id: string;

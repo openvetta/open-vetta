@@ -199,10 +199,7 @@ export async function createGreenfieldSessionPeripheralAssembly(
 		},
 	});
 	if (sessionOptions.initialTodos && sessionOptions.initialTodos.length > 0) {
-		todoRuntime.getTodoStore().createMany([...sessionOptions.initialTodos]);
-		if (sessionOptions.initialTodoLockSource) {
-			todoRuntime.getTodoStore().lock(sessionOptions.initialTodoLockSource);
-		}
+		todoRuntime.initializeTodoItems(sessionOptions.initialTodos, sessionOptions.initialTodoLockSource);
 	}
 	const todoRegistration = createCodingAgentTodoRuntimeToolRegistration(todoRuntime);
 	const todoEnabled = selectCodingToolRegistrations([todoRegistration], options.activation).length > 0;

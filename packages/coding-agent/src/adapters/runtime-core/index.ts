@@ -143,6 +143,7 @@ export {
 export {
 	adaptCodingAgentToolRegistration,
 	type CodingAgentRuntimeToolRegistration,
+	type LegacyCodingAgentTool,
 } from "./greenfield-tool-adapter.js";
 export {
 	ASSISTANT_TURN_TIMING_TYPE,

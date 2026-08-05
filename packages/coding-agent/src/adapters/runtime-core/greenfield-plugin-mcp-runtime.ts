@@ -13,13 +13,13 @@ import {
 	type McpServerConfig,
 	type McpServerSupervisor,
 } from "@vetta/runtime-mcp";
-import { matchesAgentMode } from "../../core/agent-mode.js";
 import {
 	type CodingAgentMcpSupervisorOptions,
 	createCodingAgentMcpSupervisor,
 } from "../../core/mcp/mcp-supervisor-composition.js";
 import { fingerprintPluginMcpServers } from "../../core/mcp/plugin-mcp.js";
 import type { AgentPluginRuntimeConfig } from "../../model-context/index.js";
+import { matchesAgentMode } from "../../profiles/index.js";
 import { decorateCodingAgentMcpRuntimeTool } from "./coding-agent-mcp-runtime-source.js";
 
 export type CodingAgentPluginMcpRuntimeOptions = Pick<

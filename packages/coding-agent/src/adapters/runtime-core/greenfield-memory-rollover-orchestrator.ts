@@ -11,12 +11,8 @@ import { type CodingToolRegistration, createMemoryToolRegistration } from "@vett
 import type { CompactionPreparation, CompactionSettings } from "../../compaction/index.js";
 import { flushMemoryBeforeRollover } from "../../core/memory/memory-flush.js";
 import { appendJournalLine, appendJournalSection } from "../../core/memory/memory-journal.js";
-import {
-	applyMemoryOperation,
-	DEFAULT_MEMORY_CHAR_LIMIT,
-	readMemoryContent,
-	renderMemoryForPrompt,
-} from "../../core/memory/memory-store.js";
+import { applyMemoryOperation, DEFAULT_MEMORY_CHAR_LIMIT, readMemoryContent } from "../../core/memory/memory-store.js";
+import { renderMemoryForPrompt } from "../../model-context/index.js";
 import type { CodingAgentPromptMemoryState } from "./greenfield-prompt-runtime.js";
 
 export interface CodingAgentMemoryRolloverPreparation {

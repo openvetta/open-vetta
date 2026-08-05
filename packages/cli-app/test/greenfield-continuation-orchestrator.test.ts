@@ -97,7 +97,7 @@ describe("Greenfield continuation orchestration", () => {
 			streamFn: (_model, context) => {
 				modelCalls.push([...context.messages]);
 				if (responseIndex === 1) {
-					todoRuntime.getTodoStore().update(1, "done");
+					todoRuntime.update(1, "done");
 				}
 				const response = responses[responseIndex];
 				responseIndex += 1;
@@ -110,7 +110,7 @@ describe("Greenfield continuation orchestration", () => {
 			sessionId: "continuation-session",
 			cwd: "C:\\workspace",
 		});
-		todoRuntime.getTodoStore().createMany(["Finish implementation"]);
+		todoRuntime.createMany(["Finish implementation"]);
 		await todoRuntime.flush();
 
 		await session.prompt({ text: "start" });

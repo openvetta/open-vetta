@@ -1,46 +1,26 @@
-/**
- * Build todo continuation follow-up messages.
- *
- * Extracted from AgentSession. Pure function: the previous nudge signature is
- * passed in and the next one returned, so the facade owns the mutable state.
- */
-
 import type { UserMessage } from "@vetta/ai";
-import type { TodoStore } from "../todo-store.js";
+import type { TodoContinuationState } from "./contracts.js";
 
 export interface TodoContinuationResult {
 	messages: UserMessage[];
-	/** New value for the ad-hoc nudge signature (caller persists it). */
 	nextNudgeSignature: string | undefined;
 }
 
-export type TodoContinuationState = Pick<TodoStore, "getAll" | "isLocked">;
-
-/**
- * Build follow-up messages for uncompleted todo items.
- * Called by the agent core's continuationProvider INSIDE the loop, before the agent
- * decides whether to exit.
- */
 export function buildTodoContinuationMessages(
-	todoStore: TodoContinuationState,
+	state: TodoContinuationState,
 	lastNudgeSignature: string | undefined,
 	now: () => number = Date.now,
 ): TodoContinuationResult {
-	const items = todoStore.getAll();
+	const items = state.getAll();
 	if (items.length === 0) return { messages: [], nextNudgeSignature: lastNudgeSignature };
 
-	const pending = items.filter((i) => i.status !== "done");
+	const pending = items.filter((item) => item.status !== "done").sort((left, right) => left.id - right.id);
 	if (pending.length === 0) return { messages: [], nextNudgeSignature: lastNudgeSignature };
 
-	// Sort by ID to ensure sequential order
-	pending.sort((a, b) => a.id - b.id);
 	const nextItem = pending[0];
-	const pendingList = pending.map((i) => `  #${i.id} ${i.content}`).join("\n");
+	const pendingList = pending.map((item) => `  #${item.id} ${item.content}`).join("\n");
 	const doneCount = items.length - pending.length;
-
-	// Locked (scene) lists are STRICT: relentlessly force sequential completion —
-	// the agent cannot exit the loop while any item remains.
-	if (todoStore.isLocked()) {
+	if (state.isLocked()) {
 		return {
 			messages: [
 				{
@@ -58,14 +38,8 @@ export function buildTodoContinuationMessages(
 		};
 	}
 
-	// Ad-hoc (unlocked) lists are LOOSE: nudge once with an escape hatch. If the model
-	// tries to stop again with the same pending set (no progress, no clear), release it
-	// so a user redirect isn't trapped behind a stale plan.
-	const signature = pending.map((i) => `${i.id}:${i.status}`).join(",");
-	if (signature === lastNudgeSignature) {
-		return { messages: [], nextNudgeSignature: undefined };
-	}
-
+	const signature = pending.map((item) => `${item.id}:${item.status}`).join(",");
+	if (signature === lastNudgeSignature) return { messages: [], nextNudgeSignature: undefined };
 	return {
 		messages: [
 			{

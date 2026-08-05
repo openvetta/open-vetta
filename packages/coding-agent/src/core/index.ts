@@ -51,17 +51,15 @@ export {
 export {
 	type AgentMode,
 	ALL_AGENT_MODES,
+	ALL_SCENARIOS,
+	type ConversationScenario,
 	DEFAULT_AGENT_MODE,
+	DEFAULT_SCENARIO,
 	isAgentMode,
 	matchesAgentMode,
-} from "./agent-mode.js";
-export { type BashExecutorOptions, type BashResult, executeBash, executeBashWithOperations } from "./bash-executor.js";
-export { createEventBus, type EventBus, type EventBusController } from "./event-bus.js";
-export {
-	ALL_SCENARIOS,
-	type CodingAgentTool,
-	type ConversationScenario,
-	DEFAULT_SCENARIO,
 	type ToolCapability,
 	type ToolCategory,
-} from "./session/tool-scope.js";
+} from "../profiles/index.js";
+export { type BashExecutorOptions, type BashResult, executeBash, executeBashWithOperations } from "./bash-executor.js";
+export { createEventBus, type EventBus, type EventBusController } from "./event-bus.js";
+export type { CodingAgentTool } from "./session/tool-scope.js";

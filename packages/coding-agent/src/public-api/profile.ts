@@ -1,16 +1,16 @@
 export {
 	type AgentMode,
 	ALL_AGENT_MODES,
+	ALL_SCENARIOS,
+	type ConversationScenario,
 	DEFAULT_AGENT_MODE,
+	DEFAULT_PERSONA_ID,
+	DEFAULT_SCENARIO,
+	getPersonaPrompt,
 	isAgentMode,
 	matchesAgentMode,
-} from "../core/agent-mode.js";
-export { DEFAULT_PERSONA_ID, getPersonaPrompt, PERSONAS, type Persona } from "../core/personas.js";
-export {
-	ALL_SCENARIOS,
-	type CodingAgentTool,
-	type ConversationScenario,
-	DEFAULT_SCENARIO,
+	PERSONAS,
+	type Persona,
 	type ToolCapability,
 	type ToolCategory,
-} from "../core/session/tool-scope.js";
+} from "../profiles/index.js";

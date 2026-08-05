@@ -5,8 +5,8 @@ import type {
 	McpRuntimeToolView,
 } from "@vetta/runtime-mcp";
 import { createMcpManager, type McpManager, type McpManagerOptions } from "../../core/mcp/index.js";
-import { ALL_SCENARIOS, type CodingAgentTool } from "../../core/session/tool-scope.js";
-import { adaptCodingAgentToolRegistration } from "./greenfield-tool-adapter.js";
+import { ALL_SCENARIOS } from "../../profiles/index.js";
+import { adaptCodingAgentToolRegistration, type LegacyCodingAgentTool } from "./greenfield-tool-adapter.js";
 
 export type LegacyMcpManagerRuntimePort = Pick<McpManager, "getServers" | "getTools" | "reloadIfChanged">;
 
@@ -18,7 +18,7 @@ export class LegacyMcpManagerRuntimeToolSource implements McpRuntimeToolSource {
 		await this.manager.reloadIfChanged();
 		const fingerprints = buildLegacyMcpToolFingerprints(this.manager);
 		const tools = this.manager.getTools().map((tool): McpRuntimeToolBinding => {
-			const codingTool: CodingAgentTool = {
+			const codingTool: LegacyCodingAgentTool = {
 				...tool,
 				scope_use: ALL_SCENARIOS,
 				category: "external",

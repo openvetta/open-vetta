@@ -30,9 +30,9 @@ export const LEGACY_PACKAGE_EXPORT_BASELINE = Object.freeze([]);
  * 全量旧实现依赖及归零目标由 check-coding-agent-rewrite-progress.mjs 负责冻结和审查。
  */
 export const GREENFIELD_PRODUCT_CORE_EDGE_BUDGET = Object.freeze({
-	"product-adapter": 85,
-	"composition-wiring": 5,
-	"rpc-host-adapter": 4,
+	"product-adapter": 12,
+	"composition-wiring": 0,
+	"rpc-host-adapter": 2,
 	"sdk-compatibility": 0,
 });
 
@@ -57,10 +57,28 @@ export const RETIRED_LEGACY_EXECUTION_FILES = Object.freeze([
 	"packages/coding-agent/src/composition/legacy-knowledge-processing-session.ts",
 ]);
 
+export const RETIRED_LEGACY_SESSION_SUPPORT_FILES = Object.freeze([
+	"packages/coding-agent/src/core/agent-mode.ts",
+	"packages/coding-agent/src/core/mode-prompt.ts",
+	"packages/coding-agent/src/core/modes-data.ts",
+	"packages/coding-agent/src/core/personas-data.ts",
+	"packages/coding-agent/src/core/personas.ts",
+	"packages/coding-agent/src/core/session/session-stats.ts",
+	"packages/coding-agent/src/core/session/skill-expansion.ts",
+	"packages/coding-agent/src/core/session/system-prompt-builder.ts",
+	"packages/coding-agent/src/core/session/todo-continuation.ts",
+]);
+
 export const RETIRED_LEGACY_SESSION_PREFIXES = Object.freeze(["packages/coding-agent/src/core/session-manager/"]);
 
+const LEGACY_SESSION_COMPATIBILITY_SHIMS = Object.freeze({
+	"packages/coding-agent/src/core/session/tool-scope.ts":
+		/\b(?:function resolveActiveToolNames|const ALL_SCENARIOS)\b/u,
+	"packages/coding-agent/src/core/todo-store.ts": /\b(?:class TodoStore|const TODO_SNAPSHOT_TYPE)\b/u,
+});
+
 const RETIRED_LEGACY_SESSION_TEST_IMPORT =
-	/(?:^|\/)src\/core\/(?:agent-session|sdk|session-manager(?:\/|\.))|(?:^|\/)src\/core\/session\/(?:background-task-controller|bash-controller|compaction-controller|event-router|extension-binding|input-pipeline|model-controller|normalize-images|queue-controller|retry-controller|runtime-manager|session-context|session-navigator|session-operation-gate|subagent-controller|todo-controller|types)(?:\.js)?/u;
+	/(?:^|\/)src\/core\/(?:agent-mode|agent-session|sdk|session-manager(?:\/|\.))|(?:^|\/)src\/core\/session\/(?:background-task-controller|bash-controller|compaction-controller|event-router|extension-binding|input-pipeline|model-controller|normalize-images|queue-controller|retry-controller|runtime-manager|session-context|session-navigator|session-operation-gate|session-stats|skill-expansion|subagent-controller|system-prompt-builder|todo-continuation|todo-controller|types)(?:\.js)?/u;
 
 const LEGACY_EXECUTION_SYMBOL_KINDS = new Map([
 	["LegacyCodingAgentSessionBackend", "legacy-session-backend"],
@@ -112,7 +130,7 @@ export function findLegacyExecutionRetirementViolations(
 	}
 
 	if (requireBaseline) {
-		for (const retiredPath of RETIRED_LEGACY_EXECUTION_FILES) {
+		for (const retiredPath of [...RETIRED_LEGACY_EXECUTION_FILES, ...RETIRED_LEGACY_SESSION_SUPPORT_FILES]) {
 			if (sourcePaths.has(retiredPath)) violations.push(`${retiredPath}: retired Legacy CLI source was restored`);
 		}
 		for (const retiredPrefix of RETIRED_LEGACY_SESSION_PREFIXES) {
@@ -143,8 +161,22 @@ export function findLegacyExecutionRetirementViolations(
 			);
 		}
 		violations.push(...findCanonicalExecutableOwnershipViolations({ cliAppBin, codingAgentBin }));
+		violations.push(...findLegacySessionCompatibilityShimViolations(files));
 	}
 
+	return violations;
+}
+
+export function findLegacySessionCompatibilityShimViolations(files) {
+	const sourceByPath = new Map(files.map((file) => [file.path, file.text]));
+	const violations = [];
+	for (const [path, forbiddenRuntimeImplementation] of Object.entries(LEGACY_SESSION_COMPATIBILITY_SHIMS)) {
+		const text = sourceByPath.get(path);
+		if (text === undefined) continue;
+		if (forbiddenRuntimeImplementation.test(text)) {
+			violations.push(`${path}: compatibility shim restored Legacy Session runtime behavior`);
+		}
+	}
 	return violations;
 }
 

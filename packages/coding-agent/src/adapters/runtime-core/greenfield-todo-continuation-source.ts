@@ -1,9 +1,9 @@
 import type { UserMessage } from "@vetta/ai";
 import type { ContinuationPolicyContext } from "@vetta/runtime-core/kernel";
-import { buildTodoContinuationMessages, type TodoContinuationState } from "../../core/session/todo-continuation.js";
+import { buildTodoContinuationMessages, type TodoContinuationState } from "../../work-state/index.js";
 import type { CodingAgentContinuationSource } from "./greenfield-continuation-orchestrator.js";
 
-export type { TodoContinuationState } from "../../core/session/todo-continuation.js";
+export type { TodoContinuationState } from "../../work-state/index.js";
 
 export interface CodingAgentTodoContinuationSourceOptions {
 	readonly state: TodoContinuationState;
