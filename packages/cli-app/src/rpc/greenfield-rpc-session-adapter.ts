@@ -1,4 +1,5 @@
 import type { CodingAgentHostBootstrap } from "@vetta/coding-agent/bootstrap";
+import { type CodingAgentHtmlExportRuntime, createCodingAgentHtmlExportRuntime } from "@vetta/coding-agent/export-html";
 import {
 	exportGreenfieldRpcConversation,
 	type GreenfieldRpcRetryController,
@@ -40,6 +41,7 @@ export interface GreenfieldRpcSessionAdapterOptions {
 	readonly runtime: GreenfieldRuntimeComposition;
 	readonly resourceLoader: GreenfieldResourceLoader;
 	readonly runtimeDecision?: RpcRuntimeDecision;
+	readonly htmlExporter?: CodingAgentHtmlExportRuntime;
 	readonly retryController?: GreenfieldRpcRetryController;
 	readonly turnExecutor?: Pick<CodingAgentGreenfieldTurnExecutor, "prompt">;
 	readonly disposeSessionResources?: boolean;
@@ -73,6 +75,7 @@ export class GreenfieldRpcSessionAdapter implements RpcSessionCapabilities {
 	private readonly resourceLoader: GreenfieldResourceLoader;
 	private readonly runtimeBackend: GreenfieldRpcSessionAdapterOptions["runtimeBackend"];
 	private readonly runtimeDecision: RpcRuntimeDecision;
+	private readonly htmlExporter: CodingAgentHtmlExportRuntime;
 	private readonly retryController: GreenfieldRpcRetryController | undefined;
 	private readonly turnExecutor: GreenfieldRpcSessionAdapterOptions["turnExecutor"];
 	private readonly readAvailableModels: NonNullable<GreenfieldRpcSessionAdapterOptions["readAvailableModels"]>;
@@ -97,6 +100,7 @@ export class GreenfieldRpcSessionAdapter implements RpcSessionCapabilities {
 			requestedBackend: options.runtimeBackend,
 			effectiveBackend: options.runtimeBackend,
 		};
+		this.htmlExporter = options.htmlExporter ?? createCodingAgentHtmlExportRuntime();
 		this.retryController = options.retryController;
 		this.turnExecutor = options.turnExecutor;
 		this.retry = options.retryController;
@@ -222,6 +226,7 @@ export class GreenfieldRpcSessionAdapter implements RpcSessionCapabilities {
 				const core = this.readCore();
 				if (!core.lifecycle.sessionPath) throw new Error("Cannot export an in-memory Greenfield session");
 				return exportGreenfieldRpcConversation(
+					this.htmlExporter,
 					core.conversationView.readDocument(),
 					core.lifecycle.sessionPath,
 					outputPath,

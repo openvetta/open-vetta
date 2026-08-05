@@ -1,5 +1,5 @@
 {
-	"version": 2,
+	"version": 3,
 	"oldImplementationEdges": [
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-action-host.ts",
@@ -79,15 +79,6 @@
 			"domain": "hooks"
 		},
 		{
-			"path": "packages/coding-agent/src/host/coding-agent-cli-control.ts",
-			"specifier": "../core/export-html/index.js",
-			"names": [
-				"exportFromFile"
-			],
-			"category": "old-core",
-			"domain": "export-html"
-		},
-		{
 			"path": "packages/coding-agent/src/host/coding-agent-host-bootstrap.ts",
 			"specifier": "../core/timings.js",
 			"names": [
@@ -95,25 +86,6 @@
 			],
 			"category": "old-core",
 			"domain": "timings"
-		},
-		{
-			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
-			"specifier": "../core/export-html/index.js",
-			"names": [
-				"ToolHtmlRenderer",
-				"exportConversationDocumentToHtml"
-			],
-			"category": "old-core",
-			"domain": "export-html"
-		},
-		{
-			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
-			"specifier": "../core/export-html/tool-renderer.js",
-			"names": [
-				"createToolHtmlRenderer"
-			],
-			"category": "old-core",
-			"domain": "export-html"
 		},
 		{
 			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
@@ -177,15 +149,6 @@
 			],
 			"category": "old-core",
 			"domain": "footer-data-provider"
-		},
-		{
-			"path": "packages/coding-agent/src/modes/rpc/greenfield-rpc-capabilities.ts",
-			"specifier": "../../core/export-html/index.js",
-			"names": [
-				"exportConversationDocumentToHtml"
-			],
-			"category": "old-core",
-			"domain": "export-html"
 		}
 	],
 	"runtimeBackedges": [],
@@ -193,12 +156,6 @@
 		"packages/coding-agent/src/core/background-tasks/index.ts",
 		"packages/coding-agent/src/core/concurrency-limit.ts",
 		"packages/coding-agent/src/core/event-bus.ts",
-		"packages/coding-agent/src/core/export-html/ansi-to-html.ts",
-		"packages/coding-agent/src/core/export-html/index.ts",
-		"packages/coding-agent/src/core/export-html/template.js",
-		"packages/coding-agent/src/core/export-html/tool-renderer.ts",
-		"packages/coding-agent/src/core/export-html/vendor/highlight.min.js",
-		"packages/coding-agent/src/core/export-html/vendor/marked.min.js",
 		"packages/coding-agent/src/core/footer-data-provider.ts",
 		"packages/coding-agent/src/core/hooks/index.ts",
 		"packages/coding-agent/src/core/hooks/tool-wrapper.ts",
@@ -255,5 +212,6 @@
 	"legacyCoreExports": [],
 	"legacyExampleImports": [],
 	"oversizedStableExtensionModules": [],
-	"oversizedStableResourceModules": []
+	"oversizedStableResourceModules": [],
+	"legacyHtmlExportReferences": []
 }

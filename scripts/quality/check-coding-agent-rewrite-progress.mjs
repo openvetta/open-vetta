@@ -21,6 +21,11 @@ const MAX_EXTENSION_MODULE_LINES = 300;
 const STABLE_RESOURCE_AGGREGATE = `${STABLE_RESOURCE_DOMAIN_PREFIX}index.ts`;
 const MAX_RESOURCE_AGGREGATE_LINES = 50;
 const MAX_RESOURCE_MODULE_LINES = 600;
+const FORBIDDEN_LEGACY_HTML_EXPORT_MARKERS = Object.freeze([
+	"core/export-html",
+	"installExportTemplateAssets",
+	"@vetta/coding-agent/export-template-assets",
+]);
 const RUNTIME_PACKAGE_PREFIXES = Object.freeze([
 	"packages/runtime-core/src/",
 	"packages/runtime-tools/src/",
@@ -37,7 +42,12 @@ const OLD_IMPLEMENTATION_EXACT_FILES = Object.freeze([
 	"packages/coding-agent/src/public-api/sdk-compatibility-inventory.ts",
 ]);
 
-export function collectCodingAgentRewriteState({ productionFiles, sdkExampleFiles, codingAgentPackageJson }) {
+export function collectCodingAgentRewriteState({
+	productionFiles,
+	sdkExampleFiles,
+	codingAgentPackageJson,
+	governedFiles = productionFiles,
+}) {
 	const moduleEdges = productionFiles.flatMap((file) => collectModuleEdges(file.path, file.text));
 	const oldImplementationEdges = moduleEdges
 		.filter((edge) => !isOldImplementationFile(edge.path))
@@ -89,9 +99,15 @@ export function collectCodingAgentRewriteState({ productionFiles, sdkExampleFile
 		}))
 		.filter((file) => file.lines > file.limit)
 		.sort((left, right) => left.path.localeCompare(right.path));
+	const legacyHtmlExportReferences = governedFiles
+		.flatMap((file) => collectForbiddenHtmlExportReferences(file))
+		.sort(
+			(left, right) =>
+				left.path.localeCompare(right.path) || left.line - right.line || left.marker.localeCompare(right.marker),
+		);
 
 	return Object.freeze({
-		version: 2,
+		version: 3,
 		oldImplementationEdges,
 		runtimeBackedges,
 		oldImplementationFiles,
@@ -100,6 +116,7 @@ export function collectCodingAgentRewriteState({ productionFiles, sdkExampleFile
 		legacyExampleImports,
 		oversizedStableExtensionModules,
 		oversizedStableResourceModules,
+		legacyHtmlExportReferences,
 	});
 }
 
@@ -118,6 +135,11 @@ export function findCodingAgentRewriteProgressViolations(actual, baseline) {
 	}
 	for (const file of actual.oversizedStableResourceModules) {
 		violations.push(`${file.path}: stable Resource module has ${file.lines} lines (limit ${file.limit})`);
+	}
+	for (const reference of actual.legacyHtmlExportReferences) {
+		violations.push(
+			`${reference.path}:${reference.line}: forbidden Legacy HTML export reference (${reference.marker})`,
+		);
 	}
 	if (baseline.version !== actual.version) {
 		violations.push(`rewrite baseline version differs (${baseline.version} !== ${actual.version})`);
@@ -169,6 +191,7 @@ export function summarizeCodingAgentRewriteState(state) {
 		compatibilityExports: state.compatibilityExports.length,
 		legacyCoreExports: state.legacyCoreExports.length,
 		legacyExampleImports: state.legacyExampleImports.length,
+		legacyHtmlExportReferences: state.legacyHtmlExportReferences.length,
 		retainedFormatBoundaries: RETAINED_LEGACY_FORMAT_BOUNDARIES.length,
 		formatBoundaryOldImplementationEdges: state.oldImplementationEdges.filter((edge) =>
 			formatBoundarySet.has(edge.path),
@@ -177,6 +200,16 @@ export function summarizeCodingAgentRewriteState(state) {
 			[...domains].sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0])),
 		),
 	});
+}
+
+function collectForbiddenHtmlExportReferences(file) {
+	return file.text.split(/\r?\n/).flatMap((line, index) =>
+		FORBIDDEN_LEGACY_HTML_EXPORT_MARKERS.filter((marker) => line.includes(marker)).map((marker) => ({
+			path: file.path,
+			line: index + 1,
+			marker,
+		})),
+	);
 }
 
 function classifyOldImplementationEdge(edge) {
@@ -314,11 +347,29 @@ function readSdkExamples() {
 }
 
 function readCurrentState() {
-	const codingAgentPackageJson = JSON.parse(readText(join(repoRoot, "packages/coding-agent/package.json")));
+	const codingAgentPackagePath = join(repoRoot, "packages/coding-agent/package.json");
+	const codingAgentPackageText = readText(codingAgentPackagePath);
+	const codingAgentPackageJson = JSON.parse(codingAgentPackageText);
+	const productionFiles = readProductionSources();
+	const sdkExampleFiles = readSdkExamples();
+	const governedFiles = [
+		...productionFiles,
+		...sdkExampleFiles,
+		...walkFiles(join(repoRoot, "packages/cli-app/scripts")).map((filePath) => ({
+			path: rel(filePath),
+			text: readText(filePath),
+		})),
+		{ path: rel(codingAgentPackagePath), text: codingAgentPackageText },
+		{
+			path: "scripts/build-binaries.sh",
+			text: readText(join(repoRoot, "scripts/build-binaries.sh")),
+		},
+	];
 	return collectCodingAgentRewriteState({
-		productionFiles: readProductionSources(),
-		sdkExampleFiles: readSdkExamples(),
+		productionFiles,
+		sdkExampleFiles,
 		codingAgentPackageJson,
+		governedFiles,
 	});
 }
 
@@ -345,7 +396,7 @@ if (isDirectRun(import.meta.url)) {
 					.map(([domain, count]) => `${domain}=${count}`)
 					.join(", ");
 				ok(
-					`[coding-agent-rewrite] ok (old implementation edges=${summary.oldImplementationEdges}/0, Runtime backedges=${summary.runtimeBackedges}/0, old files=${summary.oldImplementationFiles}/0, compatibility exports=${summary.compatibilityExports}/0, legacy core exports=${summary.legacyCoreExports}/0, legacy examples=${summary.legacyExampleImports}/0, retained format boundaries=${summary.retainedFormatBoundaries}, format-to-old edges=${summary.formatBoundaryOldImplementationEdges}/0; domains: ${domains || "none"})`,
+					`[coding-agent-rewrite] ok (old implementation edges=${summary.oldImplementationEdges}/0, Runtime backedges=${summary.runtimeBackedges}/0, old files=${summary.oldImplementationFiles}/0, compatibility exports=${summary.compatibilityExports}/0, legacy core exports=${summary.legacyCoreExports}/0, legacy examples=${summary.legacyExampleImports}/0, Legacy HTML export references=${summary.legacyHtmlExportReferences}/0, retained format boundaries=${summary.retainedFormatBoundaries}, format-to-old edges=${summary.formatBoundaryOldImplementationEdges}/0; domains: ${domains || "none"})`,
 				);
 			}
 		}

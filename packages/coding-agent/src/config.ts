@@ -126,16 +126,17 @@ export function getThemesDir(): string {
 /**
  * Get path to HTML export template directory (shipped with package)
  * - For Bun binary: export-html/ next to executable
- * - For Node.js (dist/): dist/core/export-html/
- * - For tsx (src/): src/core/export-html/
+ * - For Node.js (dist/): dist/export-html/
+ * - For tsx (src/): src/export-html/assets/
  */
 export function getExportTemplateDir(): string {
 	if (isBunBinary) {
 		return join(dirname(process.execPath), "export-html");
 	}
 	const packageDir = getPackageDir();
-	const srcOrDist = existsSync(join(packageDir, "src")) ? "src" : "dist";
-	return join(packageDir, srcOrDist, "core", "export-html");
+	return existsSync(join(packageDir, "src"))
+		? join(packageDir, "src", "export-html", "assets")
+		: join(packageDir, "dist", "export-html");
 }
 
 /** Get path to package.json */

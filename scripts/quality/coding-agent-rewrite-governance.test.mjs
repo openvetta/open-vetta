@@ -114,6 +114,24 @@ describe("Coding Agent rewrite progress gate", () => {
 		]);
 	});
 
+	it("rejects removed Legacy HTML export paths and implicit asset installation", () => {
+		const actual = stateFrom([
+			{
+				path: "packages/cli-app/src/standalone.ts",
+				text: [
+					'import template from "../../coding-agent/src/core/export-html/template.html";',
+					"installExportTemplateAssets({ template });",
+				].join("\n"),
+			},
+		]);
+
+		expect(findCodingAgentRewriteProgressViolations(actual, actual)).toEqual([
+			"packages/cli-app/src/standalone.ts:1: forbidden Legacy HTML export reference (core/export-html)",
+			"packages/cli-app/src/standalone.ts:2: forbidden Legacy HTML export reference (installExportTemplateAssets)",
+		]);
+		expect(summarizeCodingAgentRewriteState(actual).legacyHtmlExportReferences).toBe(2);
+	});
+
 	it("rejects new edges, accepts an exact baseline and reports stale entries after removal", () => {
 		const baseline = stateFrom([
 			{

@@ -5,6 +5,7 @@
  * 可以在进程边界创建并持有具体实现。
  */
 import { AuthStorage, type CodingAgentAuthRuntime, createCodingAgentAuthRuntime } from "../auth/index.js";
+import { type CodingAgentHtmlExportRuntime, createCodingAgentHtmlExportRuntime } from "../export-html/index.js";
 import { createCodingAgentHostFromSessionFactory } from "../host/coding-agent-host.js";
 import { createCodingAgentSessionFromPublicOptions } from "../host/coding-agent-sdk-host-adapter.js";
 import { createHostBashExecutor } from "../host/command-execution/index.js";
@@ -15,15 +16,17 @@ import type { CodingAgentHost, CodingAgentHostSessionDefaults } from "./sdk/inde
 export {
 	AuthStorage,
 	createCodingAgentAuthRuntime,
+	createCodingAgentHtmlExportRuntime,
 	createCodingAgentModelRuntime,
 	createHostBashExecutor,
 	SettingsRuntime,
 };
 export type { HostBashExecutor } from "../host/command-execution/index.js";
-export type { CodingAgentAuthRuntime, CodingAgentModelRuntime };
+export type { CodingAgentAuthRuntime, CodingAgentHtmlExportRuntime, CodingAgentModelRuntime };
 
 export interface CreateCodingAgentHostWithServicesOptions {
 	readonly authStorage?: CodingAgentAuthRuntime;
+	readonly htmlExporter?: CodingAgentHtmlExportRuntime;
 	readonly modelRuntime?: CodingAgentModelRuntime;
 	readonly settings?: SettingsRuntime;
 	readonly sessionDefaults?: CodingAgentHostSessionDefaults;
@@ -40,6 +43,7 @@ export function createCodingAgentHostWithServices(
 		(sessionOptions, lifecycle) =>
 			createCodingAgentSessionFromPublicOptions(sessionOptions, {
 				authStorage: options.authStorage,
+				htmlExporter: options.htmlExporter,
 				modelRegistry: options.modelRuntime,
 				settingsManager: options.settings,
 				onSessionClosed: lifecycle.onClosed,

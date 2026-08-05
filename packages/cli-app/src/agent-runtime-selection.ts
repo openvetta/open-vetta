@@ -1,5 +1,6 @@
 import { createAgentCliBootstrap, resolveCodingAgentSessionDir } from "@vetta/coding-agent/bootstrap";
 import { runCodingAgentCliControl } from "@vetta/coding-agent/cli-control";
+import type { CodingAgentHtmlExportRuntime } from "@vetta/coding-agent/export-html";
 import { type RpcRuntimeDecision, stringifyRpcStartupFailure } from "@vetta/coding-agent/rpc";
 import { ConversationOwnershipConflictError } from "@vetta/runtime-storage/conversation";
 import { classifyAgentCliIntent } from "./agent-cli-intent.js";
@@ -37,6 +38,7 @@ export interface AgentRuntimeExtensionFallbackDiagnostics {
 
 export interface RunAgentRuntimeCliOptions {
 	readonly onDecision?: (decision: AgentRuntimeDecision) => void;
+	readonly htmlExporter?: CodingAgentHtmlExportRuntime;
 }
 
 const RUNTIME_OPTION = "--agent-runtime";
@@ -77,7 +79,7 @@ export async function runAgentRuntimeCli(
 	assertSupportedSessionSelection(selection.agentArgs);
 	const intent = classifyAgentCliIntent(selection.agentArgs);
 	if (intent === "control") {
-		if (!(await runCodingAgentCliControl(selection.agentArgs))) {
+		if (!(await runCodingAgentCliControl(selection.agentArgs, { htmlExporter: options.htmlExporter }))) {
 			throw new Error("CLI control intent was not handled by the Coding Agent control host");
 		}
 		return;
@@ -96,6 +98,7 @@ export async function runAgentRuntimeCli(
 					conversationDir,
 					sessionCatalog,
 					requestedBackend: selection.backend,
+					htmlExporter: options.htmlExporter,
 				})
 			: selection.effectiveBackend === "greenfield-im"
 				? prepareGreenfieldImRuntimeHost({
@@ -103,12 +106,14 @@ export async function runAgentRuntimeCli(
 						conversationDir,
 						sessionCatalog,
 						requestedBackend: selection.backend,
+						htmlExporter: options.htmlExporter,
 					})
 				: prepareGreenfieldRpcRuntimeHost({
 						bootstrap,
 						conversationDir,
 						sessionCatalog,
 						requestedBackend: selection.backend,
+						htmlExporter: options.htmlExporter,
 					}));
 		if (prepared.kind === "extension-incompatible") {
 			throw new ExtensionCompatibilityError(selection.backend, prepared.extensionCompatibility);

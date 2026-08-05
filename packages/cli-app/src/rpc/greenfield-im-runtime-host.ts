@@ -12,6 +12,7 @@ import {
 	runPrintMode,
 } from "@vetta/coding-agent/bootstrap";
 import { getVettaHomePath } from "@vetta/coding-agent/config";
+import type { CodingAgentHtmlExportRuntime } from "@vetta/coding-agent/export-html";
 import { buildDefaultHookConfigLayers } from "@vetta/coding-agent/hooks";
 import { createHostBashExecutor } from "@vetta/coding-agent/host-services";
 import {
@@ -128,6 +129,7 @@ export interface PrepareGreenfieldImRuntimeHostOptions {
 	readonly conversationDir: string;
 	readonly sessionCatalog: RuntimeSessionCatalog;
 	readonly requestedBackend?: RpcRuntimeDecision["requestedBackend"];
+	readonly htmlExporter?: CodingAgentHtmlExportRuntime;
 	readonly createSessionId?: () => string;
 	readonly ownership?: FileConversationOwnershipManagerOptions;
 	readonly createPluginRuntime?: (
@@ -482,6 +484,7 @@ async function prepareGreenfieldRuntimeHost(
 						runtime,
 						resourceLoader: bootstrap.resourceLoader,
 						runtimeDecision,
+						htmlExporter: options.htmlExporter,
 						extensionCommandHost: extensionSessionHost,
 						disposeSessionResources: false,
 					})
@@ -492,6 +495,7 @@ async function prepareGreenfieldRuntimeHost(
 						runtime,
 						resourceLoader: bootstrap.resourceLoader,
 						runtimeDecision,
+						htmlExporter: options.htmlExporter,
 						retryController: agentSessionHost.retryController,
 						turnExecutor: agentSessionHost.turnExecutor,
 						disposeSessionResources: false,

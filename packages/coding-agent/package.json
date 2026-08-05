@@ -45,6 +45,10 @@
 			"types": "./dist/public-api/extensions.d.ts",
 			"import": "./dist/public-api/extensions.js"
 		},
+		"./export-html": {
+			"types": "./dist/public-api/export-html.d.ts",
+			"import": "./dist/public-api/export-html.js"
+		},
 		"./profile": {
 			"types": "./dist/public-api/profile.d.ts",
 			"import": "./dist/public-api/profile.js"
@@ -100,7 +104,7 @@
 		"generate:personas": "node scripts/generate-personas.mjs",
 		"generate:modes": "node scripts/generate-modes.mjs",
 		"generate:descriptions": "node scripts/generate-tool-descriptions.mjs",
-		"copy-assets": "shx mkdir -p dist/modes/interactive/theme && shx cp src/modes/interactive/theme/*.json dist/modes/interactive/theme/ && shx mkdir -p dist/core/export-html/vendor && shx cp src/core/export-html/template.html src/core/export-html/template.css src/core/export-html/template.js dist/core/export-html/ && shx cp src/core/export-html/vendor/*.js dist/core/export-html/vendor/",
+		"copy-assets": "shx mkdir -p dist/modes/interactive/theme && shx cp src/modes/interactive/theme/*.json dist/modes/interactive/theme/ && shx mkdir -p dist/export-html/vendor && shx cp src/export-html/assets/template.html src/export-html/assets/template.css src/export-html/assets/template.js dist/export-html/ && shx cp src/export-html/assets/vendor/*.js dist/export-html/vendor/",
 		"test": "vitest --run",
 		"test:coverage": "vitest --run --coverage",
 		"prepublishOnly": "bun run clean && bun run build"

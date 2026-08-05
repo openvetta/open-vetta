@@ -1,6 +1,6 @@
 import { parseActionCommand, runActionCommand } from "./action-command.js";
 import { parseDebugCommand, runDebugCommand } from "./debug-command.js";
-import { runAgentCli } from "./run-agent-cli.js";
+import { type RunAgentCliOptions, runAgentCli } from "./run-agent-cli.js";
 
 const HELP_TEXT = `Usage:
   vetta [options] [@files...] [messages...]
@@ -30,7 +30,7 @@ function isTopLevelHelp(argv: string[]): boolean {
 	return argv.length === 0 || argv[0] === "-h" || argv[0] === "--help";
 }
 
-export async function runCli(argv: string[]): Promise<void> {
+export async function runCli(argv: string[], options: RunAgentCliOptions = {}): Promise<void> {
 	if (isTopLevelHelp(argv)) {
 		process.stdout.write(HELP_TEXT);
 		return;
@@ -48,5 +48,5 @@ export async function runCli(argv: string[]): Promise<void> {
 		return;
 	}
 
-	await runAgentCli(argv[0] === "agent" ? argv.slice(1) : argv);
+	await runAgentCli(argv[0] === "agent" ? argv.slice(1) : argv, options);
 }

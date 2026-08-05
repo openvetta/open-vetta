@@ -5,6 +5,7 @@ import { createLimiter } from "../src/core/concurrency-limit.js";
 import * as root from "../src/index.js";
 import { createAgentCliBootstrap, createCodingAgentHostBootstrap } from "../src/public-api/bootstrap.js";
 import { runCodingAgentCliControl } from "../src/public-api/cli-control.js";
+import { createCodingAgentHtmlExportRuntime } from "../src/public-api/export-html.js";
 import { ExtensionRunner } from "../src/public-api/extensions.js";
 import {
 	createCodingAgentModelRuntime,
@@ -41,6 +42,7 @@ describe("coding-agent public subpaths", () => {
 		expect(HostSettingsRuntime).toBe(SettingsRuntime);
 		expect(ExtensionRunner).toBe(root.ExtensionRunner);
 		expect(runCodingAgentCliControl).toBeTypeOf("function");
+		expect(createCodingAgentHtmlExportRuntime).toBeTypeOf("function");
 		expect(createCodingAgentSession).toBeTypeOf("function");
 		expect(Reflect.has(root, "createAgentSession")).toBe(false);
 		expect(Reflect.has(root, "SettingsRuntime")).toBe(false);
@@ -74,6 +76,10 @@ describe("coding-agent public subpaths", () => {
 			"./extensions": {
 				types: "./dist/public-api/extensions.d.ts",
 				import: "./dist/public-api/extensions.js",
+			},
+			"./export-html": {
+				types: "./dist/public-api/export-html.d.ts",
+				import: "./dist/public-api/export-html.js",
 			},
 			"./host-services": {
 				types: "./dist/public-api/host-services.d.ts",

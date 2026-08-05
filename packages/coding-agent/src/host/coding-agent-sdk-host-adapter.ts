@@ -27,10 +27,14 @@ import {
 } from "../composition/greenfield-sdk-session-factory.js";
 import type { GreenfieldSdkSessionStorageTarget } from "../composition/greenfield-sdk-session-storage.js";
 import { DEFAULT_SERVER_URL, ENV_SERVER_URL, getAgentDir, getDocsPath, getVettaHomePath } from "../config.js";
-import { exportConversationDocumentToHtml, type ToolHtmlRenderer } from "../core/export-html/index.js";
-import { createToolHtmlRenderer } from "../core/export-html/tool-renderer.js";
 import { DEFAULT_MEMORY_CHAR_LIMIT } from "../core/memory/memory-store.js";
 import { time } from "../core/timings.js";
+import {
+	type CodingAgentHtmlExportRuntime,
+	createCodingAgentHtmlExportRuntime,
+	createToolHtmlRenderer,
+	type ToolHtmlRenderer,
+} from "../export-html/index.js";
 import type { ExtensionContext, LoadExtensionsResult, ToolDefinition } from "../extensions/index.js";
 import {
 	type CodingAgentModelRuntime,
@@ -163,6 +167,7 @@ export interface CreateGreenfieldAgentSessionResult {
 
 export interface CodingAgentSdkPublicHostContext {
 	readonly authStorage?: CodingAgentAuthRuntime;
+	readonly htmlExporter?: CodingAgentHtmlExportRuntime;
 	readonly modelRegistry?: CodingAgentModelRuntime;
 	readonly settingsManager?: SettingsRuntime;
 	readonly onSessionClosed?: () => void;
@@ -240,6 +245,7 @@ async function createGreenfieldAgentSessionInternal(
 	const authPath = options.agentDir ? join(agentDir, "auth.json") : undefined;
 	const modelsPath = options.agentDir ? join(agentDir, "models.json") : undefined;
 	const authStorage = hostContext.authStorage ?? createCodingAgentAuthRuntime(authPath);
+	const htmlExporter = hostContext.htmlExporter ?? createCodingAgentHtmlExportRuntime();
 	const modelRegistry =
 		hostContext.modelRegistry ?? createCodingAgentModelRuntime(authStorage, { modelsJsonPath: modelsPath });
 	const settingsManager = hostContext.settingsManager ?? SettingsRuntime.create(cwd, agentDir);
@@ -479,6 +485,7 @@ async function createGreenfieldAgentSessionInternal(
 				exportToHtml: (outputPath) =>
 					exportGreenfieldSdkSessionToHtml(
 						readSession(),
+						htmlExporter,
 						settingsManager.getTheme(),
 						extensionTransitions.readRunnerOrUndefined(),
 						extensionTransitions.readSystemPrompt(),
@@ -533,6 +540,7 @@ function resolvePublicSdkActiveToolNames(activeTools: readonly string[] | undefi
 
 async function exportGreenfieldSdkSessionToHtml(
 	session: GreenfieldRuntimeSession,
+	htmlExporter: CodingAgentHtmlExportRuntime,
 	themeName: string | undefined,
 	runner: ReturnType<CodingAgentSdkExtensionTransitionAdapter["readRunnerOrUndefined"]>,
 	systemPrompt: string,
@@ -549,7 +557,7 @@ async function exportGreenfieldSdkSessionToHtml(
 		});
 	}
 	const availableTools = core.toolController?.readAvailableTools();
-	return exportConversationDocumentToHtml(core.conversationView.readDocument(), sessionFile, {
+	return htmlExporter.exportConversation(core.conversationView.readDocument(), sessionFile, {
 		outputPath,
 		themeName,
 		toolRenderer,

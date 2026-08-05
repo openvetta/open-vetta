@@ -3,7 +3,7 @@ import { type Api, type AssistantMessage, type Model, supportsXhigh } from "@vet
 import type { ConversationDocument, RuntimeSessionContextDeliveryController } from "@vetta/runtime-core";
 import { projectCodingAgentGreenfieldMessages } from "../../adapters/runtime-core/greenfield-agent-message-context-projector.js";
 import { CODING_AGENT_LEGACY_AGENT_MESSAGE_CONTEXT_TYPE } from "../../adapters/runtime-core/legacy-session-import-normalizer.js";
-import { exportConversationDocumentToHtml } from "../../core/export-html/index.js";
+import type { CodingAgentHtmlExportRuntime } from "../../export-html/index.js";
 import type { HostBashExecutor } from "../../host/command-execution/index.js";
 import { type BashExecutionMessage, bashExecutionToText } from "../../model-context/index.js";
 import type { RpcBashCapability } from "./rpc-session-capabilities.js";
@@ -122,9 +122,10 @@ export function resolveNextGreenfieldRpcThinkingLevel(
 }
 
 export function exportGreenfieldRpcConversation(
+	htmlExporter: CodingAgentHtmlExportRuntime,
 	document: ConversationDocument,
 	sessionFile: string,
 	outputPath?: string,
 ): Promise<string> {
-	return exportConversationDocumentToHtml(document, sessionFile, outputPath);
+	return htmlExporter.exportConversation(document, sessionFile, outputPath);
 }

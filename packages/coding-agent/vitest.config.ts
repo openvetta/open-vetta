@@ -45,7 +45,7 @@ export default defineConfig({
 			exclude: [
 				...coverageConfigDefaults.exclude,
 				// Third-party / static assets shipped with the package, not unit-test targets.
-				"src/core/export-html/vendor/**",
+				"src/export-html/assets/vendor/**",
 			],
 		},
 	},

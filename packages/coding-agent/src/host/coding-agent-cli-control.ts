@@ -2,7 +2,7 @@ import chalk from "chalk";
 import { type Args, parseArgs, printHelp } from "../cli/args.js";
 import { listModels } from "../cli/list-models.js";
 import { APP_NAME, CONFIG_DIR_NAME, getAgentDir, VERSION } from "../config.js";
-import { exportFromFile } from "../core/export-html/index.js";
+import { type CodingAgentHtmlExportRuntime, createCodingAgentHtmlExportRuntime } from "../export-html/index.js";
 import { SettingsRuntime } from "../settings/index.js";
 import { createAgentCliBootstrap } from "./coding-agent-cli-bootstrap.js";
 import type { CodingAgentHostBootstrap } from "./coding-agent-host-bootstrap.js";
@@ -10,6 +10,10 @@ import { prepareCodingAgentPipedStdin } from "./coding-agent-print-invocation.js
 import { createCodingAgentResourcePackageRuntime } from "./coding-agent-resource-runtime.js";
 
 type PackageCommand = "install" | "remove" | "update" | "list";
+
+export interface CodingAgentCliControlOptions {
+	readonly htmlExporter?: CodingAgentHtmlExportRuntime;
+}
 
 interface PackageCommandOptions {
 	command: PackageCommand;
@@ -20,15 +24,21 @@ interface PackageCommandOptions {
 }
 
 /** Run a CLI command that does not require a Session Runtime. */
-export async function runCodingAgentCliControl(args: string[]): Promise<boolean> {
+export async function runCodingAgentCliControl(
+	args: string[],
+	options: CodingAgentCliControlOptions = {},
+): Promise<boolean> {
 	applyOfflineMode(args);
 	if (await handlePackageCommand(args)) return true;
 	if (!isBootstrapControl(parseArgs(args))) return false;
-	return runCodingAgentCliControlWithBootstrap(await createAgentCliBootstrap(args));
+	return runCodingAgentCliControlWithBootstrap(await createAgentCliBootstrap(args), options);
 }
 
 /** Preserve the Legacy public entry while keeping control behavior outside Agent execution. */
-export async function runCodingAgentCliControlWithBootstrap(bootstrap: CodingAgentHostBootstrap): Promise<boolean> {
+export async function runCodingAgentCliControlWithBootstrap(
+	bootstrap: CodingAgentHostBootstrap,
+	options: CodingAgentCliControlOptions = {},
+): Promise<boolean> {
 	const { parsed, modelRegistry } = bootstrap;
 	if (parsed.version) {
 		console.log(VERSION);
@@ -48,7 +58,8 @@ export async function runCodingAgentCliControlWithBootstrap(bootstrap: CodingAge
 	if (parsed.mode !== "rpc") await prepareCodingAgentPipedStdin(parsed);
 	try {
 		const outputPath = parsed.messages.length > 0 ? parsed.messages[0] : undefined;
-		const result = await exportFromFile(parsed.export, outputPath);
+		const exporter = options.htmlExporter ?? createCodingAgentHtmlExportRuntime();
+		const result = await exporter.exportLegacySession(parsed.export, outputPath);
 		console.log(`Exported to: ${result}`);
 		process.exit(0);
 	} catch (error: unknown) {
