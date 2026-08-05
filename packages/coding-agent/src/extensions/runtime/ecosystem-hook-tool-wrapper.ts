@@ -63,7 +63,6 @@ function wrapTool<TParameters extends TSchema, TDetails>(
 							content: [{ type: "text", text: post.feedbackMessage }],
 						};
 			} catch (error) {
-				// Pre/Post hook blocks are not tool failures; do not fire PostToolUseFailure.
 				if (isHookBlocked(error)) throw error;
 
 				const message = error instanceof Error ? error.message : String(error);

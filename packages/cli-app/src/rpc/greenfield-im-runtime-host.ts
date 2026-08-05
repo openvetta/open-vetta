@@ -13,7 +13,6 @@ import {
 } from "@vetta/coding-agent/bootstrap";
 import { getVettaHomePath } from "@vetta/coding-agent/config";
 import type { CodingAgentHtmlExportRuntime } from "@vetta/coding-agent/export-html";
-import { buildDefaultHookConfigLayers } from "@vetta/coding-agent/hooks";
 import { createHostBashExecutor } from "@vetta/coding-agent/host-services";
 import {
 	GREENFIELD_FULL_RPC_PROFILE,
@@ -32,6 +31,7 @@ import {
 	createCodingAgentMcpRuntimeToolSource,
 	createCodingAgentPluginMcpRuntime,
 } from "@vetta/coding-agent/runtime-host/greenfield";
+import { buildDefaultHookConfigLayers } from "@vetta/ecosystem-adapter";
 import {
 	type GreenfieldRuntimeSession,
 	InitializationRollbackScope,

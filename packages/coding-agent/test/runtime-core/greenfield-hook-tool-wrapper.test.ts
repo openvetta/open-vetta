@@ -13,7 +13,10 @@ import {
 	type EcosystemHookAwareRuntimeTool,
 	wrapRuntimeToolsWithEcosystemHooks,
 } from "../../src/adapters/runtime-core/greenfield-hook-tool-wrapper.js";
-import { type EcosystemHookAwareTool, wrapToolsWithEcosystemHooks } from "../../src/core/hooks/tool-wrapper.js";
+import {
+	type EcosystemHookAwareTool,
+	wrapToolsWithEcosystemHooks,
+} from "../../src/extensions/runtime/ecosystem-hook-tool-wrapper.js";
 
 describe("Greenfield ecosystem tool hook compatibility", () => {
 	it("matches Legacy input rewrite, metadata, feedback and additional-context behavior", async () => {

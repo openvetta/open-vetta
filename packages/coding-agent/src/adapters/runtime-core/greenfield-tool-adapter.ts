@@ -1,7 +1,7 @@
 import type { Static, TSchema } from "@sinclair/typebox";
 import type { AgentTool } from "@vetta/agent-core";
 import type { RuntimeToolDefinition } from "@vetta/runtime-core/kernel";
-import type { EcosystemHookAwareTool } from "../../core/hooks/tool-wrapper.js";
+import type { EcosystemHookAwareTool } from "../../extensions/runtime/ecosystem-hook-tool-wrapper.js";
 import type { ConversationScenario, ToolCategory } from "../../profiles/index.js";
 import type { EcosystemHookAwareRuntimeTool } from "./greenfield-hook-tool-wrapper.js";
 

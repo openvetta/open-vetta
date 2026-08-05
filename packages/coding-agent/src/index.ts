@@ -38,13 +38,9 @@ export {
 	serializeConversation,
 	shouldCompact,
 } from "./compaction/index.js";
+export { createLimiter, type Limiter } from "./concurrency/index.js";
 // Config paths
 export { DEFAULT_SERVER_URL, getAgentDir, VERSION } from "./config.js";
-// Concurrency limiter (shared by OCR throttle and KB processing session pool)
-export { createLimiter, type Limiter } from "./core/concurrency-limit.js";
-export { createEventBus, type EventBus, type EventBusController } from "./core/event-bus.js";
-// Footer data provider (git branch + extension statuses - data not otherwise available to extensions)
-export type { ReadonlyFooterDataProvider } from "./core/footer-data-provider.js";
 // Extension system
 export type {
 	AgentEndEvent,
@@ -145,6 +141,11 @@ export {
 	wrapToolsWithExtensions,
 	wrapToolWithExtensions,
 } from "./extensions/index.js";
+export type { EventBus, ReadonlyFooterDataProvider } from "./extensions/infrastructure.js";
+export {
+	createExtensionEventBus as createEventBus,
+	type ExtensionEventBusController as EventBusController,
+} from "./extensions/runtime/event-bus.js";
 export { createAgentCliBootstrap } from "./host/coding-agent-cli-bootstrap.js";
 export type {
 	CodingAgentExtensionBootstrapContributions,

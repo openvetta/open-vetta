@@ -15,6 +15,10 @@ export default defineConfig({
 				replacement: fileURLToPath(new URL("../agent/src/index.ts", import.meta.url)),
 			},
 			{
+				find: "@vetta/ecosystem-adapter",
+				replacement: fileURLToPath(new URL("../ecosystem-adapter/src/index.ts", import.meta.url)),
+			},
+			{
 				find: "@vetta/coding-agent/runtime-host/greenfield",
 				replacement: fileURLToPath(
 					new URL("../coding-agent/src/adapters/runtime-core/greenfield.ts", import.meta.url),
@@ -44,12 +48,20 @@ export default defineConfig({
 				replacement: fileURLToPath(new URL("../coding-agent/src/public-api/cli-control.ts", import.meta.url)),
 			},
 			{
+				find: "@vetta/coding-agent/export-html",
+				replacement: fileURLToPath(new URL("../coding-agent/src/public-api/export-html.ts", import.meta.url)),
+			},
+			{
 				find: "@vetta/coding-agent/config",
 				replacement: fileURLToPath(new URL("../coding-agent/src/config.ts", import.meta.url)),
 			},
 			{
 				find: "@vetta/coding-agent/hooks",
-				replacement: fileURLToPath(new URL("../coding-agent/src/core/hooks/index.ts", import.meta.url)),
+				replacement: fileURLToPath(new URL("../coding-agent/src/public-api/hooks.ts", import.meta.url)),
+			},
+			{
+				find: "@vetta/coding-agent/host-services",
+				replacement: fileURLToPath(new URL("../coding-agent/src/public-api/host-services.ts", import.meta.url)),
 			},
 			{
 				find: "@vetta/coding-agent/profile",
@@ -87,6 +99,10 @@ export default defineConfig({
 			{
 				find: "@vetta/runtime-mcp",
 				replacement: fileURLToPath(new URL("../runtime-mcp/src/index.ts", import.meta.url)),
+			},
+			{
+				find: "@vetta/runtime-knowledge",
+				replacement: fileURLToPath(new URL("../runtime-knowledge/src/index.ts", import.meta.url)),
 			},
 			{
 				find: "@vetta/runtime-composition",

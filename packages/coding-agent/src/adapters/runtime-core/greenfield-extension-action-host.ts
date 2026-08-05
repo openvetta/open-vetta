@@ -1,13 +1,14 @@
 import { type ImageContent, modelsAreEqual, Type } from "@vetta/ai";
 import type { GreenfieldRuntimeSession } from "@vetta/runtime-core";
 import type { RuntimeToolDefinition, SessionContextRecord } from "@vetta/runtime-core/kernel";
-import type { SlashCommandInfo, SlashCommandLocation } from "../../core/slash-commands.js";
 import type {
 	ExtensionActions,
 	ExtensionError,
 	ExtensionRuntime,
 	ModelSelectEvent,
 	SetModelHandler,
+	SlashCommandInfo,
+	SlashCommandLocation,
 	ToolInfo,
 } from "../../extensions/index.js";
 import { bindExtensionRuntimeActions } from "../../extensions/index.js";

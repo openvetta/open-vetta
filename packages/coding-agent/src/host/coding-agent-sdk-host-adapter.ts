@@ -27,7 +27,6 @@ import {
 } from "../composition/greenfield-sdk-session-factory.js";
 import type { GreenfieldSdkSessionStorageTarget } from "../composition/greenfield-sdk-session-storage.js";
 import { DEFAULT_SERVER_URL, ENV_SERVER_URL, getAgentDir, getDocsPath, getVettaHomePath } from "../config.js";
-import { time } from "../core/timings.js";
 import {
 	type CodingAgentHtmlExportRuntime,
 	createCodingAgentHtmlExportRuntime,
@@ -305,7 +304,6 @@ async function createGreenfieldAgentSessionInternal(
 			: undefined,
 	});
 	await resourceLoader.reload();
-	time("resourceLoader.reload");
 	const extensionsResult = resourceLoader.getExtensions();
 	const storage: GreenfieldSdkSessionStorageTarget = options.storage ?? {
 		kind: "file-create",

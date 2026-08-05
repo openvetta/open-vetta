@@ -4,7 +4,6 @@ import { type Api, type Model, supportsXhigh } from "@vetta/ai";
 import { type CodingAgentAuthRuntime, createCodingAgentAuthRuntime } from "../auth/index.js";
 import { type Args, parseArgs } from "../cli/args.js";
 import { DEFAULT_SERVER_URL, ENV_SERVER_URL, getAgentDir } from "../config.js";
-import { time } from "../core/timings.js";
 import type { LoadExtensionsResult } from "../extensions/index.js";
 import { runMigrations } from "../migrations.js";
 import {
@@ -107,7 +106,6 @@ export async function createCodingAgentHostBootstrap(
 		appendSystemPrompt: firstPass.appendSystemPrompt,
 	});
 	await resourceLoader.reload();
-	time("resourceLoader.reload");
 
 	const extensionsResult = resourceLoader.getExtensions();
 	for (const error of extensionsResult.errors) options.onExtensionError?.(error);

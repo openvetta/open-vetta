@@ -11,4 +11,7 @@ export {
 	type HookConfigLayer,
 	type HookDispatchOutcome,
 } from "@vetta/ecosystem-adapter";
-export { type EcosystemHookAwareTool, wrapToolsWithEcosystemHooks } from "./tool-wrapper.js";
+export {
+	type EcosystemHookAwareTool,
+	wrapToolsWithEcosystemHooks,
+} from "../extensions/runtime/ecosystem-hook-tool-wrapper.js";

@@ -1,7 +1,7 @@
 import type { AgentMessage } from "@vetta/agent-core";
 import type { Message, TextContent } from "@vetta/ai";
 import type { ModelCallMessageFinalizationInput, ModelCallMessageFinalizer } from "@vetta/runtime-core/kernel";
-import { applyImageBudget } from "../../core/image-budget.js";
+import { applyImageBudget } from "../../model-context/image-budget.js";
 
 export interface CodingAgentImageSettingsSource {
 	reloadImageSettings?(): void;

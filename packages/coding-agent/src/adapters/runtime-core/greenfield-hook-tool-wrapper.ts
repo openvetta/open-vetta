@@ -1,7 +1,10 @@
 import { Type } from "@sinclair/typebox";
 import type { EcosystemHookRuntime, EcosystemToolDescriptor } from "@vetta/ecosystem-adapter/hooks";
 import type { RuntimeToolDefinition, RuntimeToolExecutionRequest, RuntimeToolResult } from "@vetta/runtime-core/kernel";
-import { type EcosystemHookAwareTool, wrapToolsWithEcosystemHooks } from "../../core/hooks/tool-wrapper.js";
+import {
+	type EcosystemHookAwareTool,
+	wrapToolsWithEcosystemHooks,
+} from "../../extensions/runtime/ecosystem-hook-tool-wrapper.js";
 
 export type EcosystemHookAwareRuntimeTool = RuntimeToolDefinition & {
 	readonly ecosystemHook?: EcosystemToolDescriptor;

@@ -14,8 +14,8 @@
 			"import": "./dist/index.js"
 		},
 		"./hooks": {
-			"types": "./dist/core/hooks/index.d.ts",
-			"import": "./dist/core/hooks/index.js"
+			"types": "./dist/public-api/hooks.d.ts",
+			"import": "./dist/public-api/hooks.js"
 		},
 		"./host-services": {
 			"types": "./dist/public-api/host-services.d.ts",
@@ -38,8 +38,8 @@
 			"import": "./dist/configuration/index.js"
 		},
 		"./concurrency": {
-			"types": "./dist/core/concurrency-limit.d.ts",
-			"import": "./dist/core/concurrency-limit.js"
+			"types": "./dist/concurrency/index.d.ts",
+			"import": "./dist/concurrency/index.js"
 		},
 		"./extensions": {
 			"types": "./dist/public-api/extensions.d.ts",

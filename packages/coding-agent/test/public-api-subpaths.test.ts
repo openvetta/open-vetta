@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { createLimiter } from "../src/concurrency/index.js";
 import * as config from "../src/config.js";
-import { createLimiter } from "../src/core/concurrency-limit.js";
+import { createExtensionEventBus } from "../src/extensions/runtime/event-bus.js";
 import * as root from "../src/index.js";
 import { createAgentCliBootstrap, createCodingAgentHostBootstrap } from "../src/public-api/bootstrap.js";
 import { runCodingAgentCliControl } from "../src/public-api/cli-control.js";
@@ -36,6 +37,7 @@ describe("coding-agent public subpaths", () => {
 		expect(createCodingAgentSessionResourceRuntime).toBeTypeOf("function");
 		expect(Reflect.has(root, "DefaultResourceLoader")).toBe(false);
 		expect(createLimiter).toBe(root.createLimiter);
+		expect(createExtensionEventBus).toBe(root.createEventBus);
 		expect(HostAuthStorage).toBe(root.AuthStorage);
 		expect(createCodingAgentModelRuntime).toBeTypeOf("function");
 		expect(Reflect.has(root, "ModelRegistry")).toBe(false);
@@ -70,8 +72,12 @@ describe("coding-agent public subpaths", () => {
 				import: "./dist/configuration/index.js",
 			},
 			"./concurrency": {
-				types: "./dist/core/concurrency-limit.d.ts",
-				import: "./dist/core/concurrency-limit.js",
+				types: "./dist/concurrency/index.d.ts",
+				import: "./dist/concurrency/index.js",
+			},
+			"./hooks": {
+				types: "./dist/public-api/hooks.d.ts",
+				import: "./dist/public-api/hooks.js",
 			},
 			"./extensions": {
 				types: "./dist/public-api/extensions.d.ts",

@@ -33,7 +33,7 @@ export default defineConfig({
 			{ find: "@vetta/coding-agent/config", replacement: resolve(__dirname, "../coding-agent/src/config.ts") },
 			{
 				find: "@vetta/coding-agent/concurrency",
-				replacement: resolve(__dirname, "../coding-agent/src/core/concurrency-limit.ts"),
+				replacement: resolve(__dirname, "../coding-agent/src/concurrency/index.ts"),
 			},
 			{
 				find: "@vetta/coding-agent/extensions",
@@ -53,7 +53,7 @@ export default defineConfig({
 			},
 			{
 				find: "@vetta/coding-agent/resources",
-				replacement: resolve(__dirname, "../coding-agent/src/core/resource-loader.ts"),
+				replacement: resolve(__dirname, "../coding-agent/src/public-api/resources.ts"),
 			},
 			{
 				find: "@vetta/coding-agent/rpc",
