@@ -18,6 +18,7 @@ import {
 } from "../adapters/runtime-core/greenfield.js";
 import { CodingAgentGreenfieldSdkActiveSessionCapabilityHost } from "../adapters/runtime-core/greenfield-sdk-active-session-capability-host.js";
 import { CodingAgentLegacySessionSetupSeedImporter } from "../adapters/runtime-core/legacy-session-setup-seed-importer.js";
+import { type CodingAgentAuthRuntime, createCodingAgentAuthRuntime } from "../auth/index.js";
 import { isCodingAgentBuiltInToolName } from "../composition/coding-agent-built-in-tool-names.js";
 import type { GreenfieldSdkActiveSession } from "../composition/greenfield-sdk-runtime-contract.js";
 import {
@@ -26,7 +27,6 @@ import {
 } from "../composition/greenfield-sdk-session-factory.js";
 import type { GreenfieldSdkSessionStorageTarget } from "../composition/greenfield-sdk-session-storage.js";
 import { DEFAULT_SERVER_URL, ENV_SERVER_URL, getAgentDir, getDocsPath, getVettaHomePath } from "../config.js";
-import { AuthStorage } from "../core/auth-storage.js";
 import { exportConversationDocumentToHtml, type ToolHtmlRenderer } from "../core/export-html/index.js";
 import { createToolHtmlRenderer } from "../core/export-html/tool-renderer.js";
 import { DEFAULT_MEMORY_CHAR_LIMIT } from "../core/memory/memory-store.js";
@@ -162,7 +162,7 @@ export interface CreateGreenfieldAgentSessionResult {
 }
 
 export interface CodingAgentSdkPublicHostContext {
-	readonly authStorage?: AuthStorage;
+	readonly authStorage?: CodingAgentAuthRuntime;
 	readonly modelRegistry?: CodingAgentModelRuntime;
 	readonly settingsManager?: SettingsRuntime;
 	readonly onSessionClosed?: () => void;
@@ -239,7 +239,7 @@ async function createGreenfieldAgentSessionInternal(
 	const agentDir = options.agentDir ?? getAgentDir();
 	const authPath = options.agentDir ? join(agentDir, "auth.json") : undefined;
 	const modelsPath = options.agentDir ? join(agentDir, "models.json") : undefined;
-	const authStorage = hostContext.authStorage ?? AuthStorage.create(authPath);
+	const authStorage = hostContext.authStorage ?? createCodingAgentAuthRuntime(authPath);
 	const modelRegistry =
 		hostContext.modelRegistry ?? createCodingAgentModelRuntime(authStorage, { modelsJsonPath: modelsPath });
 	const settingsManager = hostContext.settingsManager ?? SettingsRuntime.create(cwd, agentDir);

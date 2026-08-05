@@ -1,9 +1,9 @@
 import { join } from "node:path";
 import type { ThinkingLevel } from "@vetta/agent-core";
 import { type Api, type Model, supportsXhigh } from "@vetta/ai";
+import { type CodingAgentAuthRuntime, createCodingAgentAuthRuntime } from "../auth/index.js";
 import { type Args, parseArgs } from "../cli/args.js";
 import { DEFAULT_SERVER_URL, ENV_SERVER_URL, getAgentDir } from "../config.js";
-import { AuthStorage } from "../core/auth-storage.js";
 import { time } from "../core/timings.js";
 import type { LoadExtensionsResult } from "../extensions/index.js";
 import { runMigrations } from "../migrations.js";
@@ -40,7 +40,7 @@ export interface CodingAgentHostBootstrap {
 	readonly agentDir: string;
 	readonly parsed: Args;
 	readonly settingsManager: SettingsRuntime;
-	readonly authStorage: AuthStorage;
+	readonly authStorage: CodingAgentAuthRuntime;
 	readonly modelRegistry: CodingAgentModelRuntime;
 	readonly resourceLoader: SessionResourceRuntime;
 	readonly extensionsResult: LoadExtensionsResult;
@@ -76,7 +76,7 @@ export async function createCodingAgentHostBootstrap(
 	const settingsManager = SettingsRuntime.create(cwd, agentDir);
 	for (const error of settingsManager.drainErrors()) options.onSettingsError?.(error);
 
-	const authStorage = AuthStorage.create(join(agentDir, "auth.json"));
+	const authStorage = createCodingAgentAuthRuntime(join(agentDir, "auth.json"));
 	const modelRegistry = createCodingAgentModelRuntime(authStorage, {
 		modelsJsonPath: join(agentDir, "models.json"),
 	});

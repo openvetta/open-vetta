@@ -4,7 +4,7 @@
  * Greenfield Runtime 只通过窄 Port 消费这些资源；Desktop Composition Root
  * 可以在进程边界创建并持有具体实现。
  */
-import { AuthStorage } from "../core/auth-storage.js";
+import { AuthStorage, type CodingAgentAuthRuntime, createCodingAgentAuthRuntime } from "../auth/index.js";
 import { createCodingAgentHostFromSessionFactory } from "../host/coding-agent-host.js";
 import { createCodingAgentSessionFromPublicOptions } from "../host/coding-agent-sdk-host-adapter.js";
 import { createHostBashExecutor } from "../host/command-execution/index.js";
@@ -12,12 +12,18 @@ import { type CodingAgentModelRuntime, createCodingAgentModelRuntime } from "../
 import { SettingsRuntime } from "../settings/index.js";
 import type { CodingAgentHost, CodingAgentHostSessionDefaults } from "./sdk/index.js";
 
-export { AuthStorage, createCodingAgentModelRuntime, createHostBashExecutor, SettingsRuntime };
+export {
+	AuthStorage,
+	createCodingAgentAuthRuntime,
+	createCodingAgentModelRuntime,
+	createHostBashExecutor,
+	SettingsRuntime,
+};
 export type { HostBashExecutor } from "../host/command-execution/index.js";
-export type { CodingAgentModelRuntime };
+export type { CodingAgentAuthRuntime, CodingAgentModelRuntime };
 
 export interface CreateCodingAgentHostWithServicesOptions {
-	readonly authStorage?: AuthStorage;
+	readonly authStorage?: CodingAgentAuthRuntime;
 	readonly modelRuntime?: CodingAgentModelRuntime;
 	readonly settings?: SettingsRuntime;
 	readonly sessionDefaults?: CodingAgentHostSessionDefaults;

@@ -89,30 +89,12 @@
 		},
 		{
 			"path": "packages/coding-agent/src/host/coding-agent-host-bootstrap.ts",
-			"specifier": "../core/auth-storage.js",
-			"names": [
-				"AuthStorage"
-			],
-			"category": "old-core",
-			"domain": "auth-storage"
-		},
-		{
-			"path": "packages/coding-agent/src/host/coding-agent-host-bootstrap.ts",
 			"specifier": "../core/timings.js",
 			"names": [
 				"time"
 			],
 			"category": "old-core",
 			"domain": "timings"
-		},
-		{
-			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
-			"specifier": "../core/auth-storage.js",
-			"names": [
-				"AuthStorage"
-			],
-			"category": "old-core",
-			"domain": "auth-storage"
 		},
 		{
 			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
@@ -150,21 +132,6 @@
 			],
 			"category": "old-core",
 			"domain": "timings"
-		},
-		{
-			"path": "packages/coding-agent/src/index.ts",
-			"specifier": "./core/auth-storage.js",
-			"names": [
-				"ApiKeyCredential",
-				"AuthCredential",
-				"AuthStorage",
-				"AuthStorageBackend",
-				"FileAuthStorageBackend",
-				"InMemoryAuthStorageBackend",
-				"OAuthCredential"
-			],
-			"category": "old-core",
-			"domain": "auth-storage"
 		},
 		{
 			"path": "packages/coding-agent/src/index.ts",
@@ -219,20 +186,10 @@
 			],
 			"category": "old-core",
 			"domain": "export-html"
-		},
-		{
-			"path": "packages/coding-agent/src/public-api/host-services.ts",
-			"specifier": "../core/auth-storage.js",
-			"names": [
-				"AuthStorage"
-			],
-			"category": "old-core",
-			"domain": "auth-storage"
 		}
 	],
 	"runtimeBackedges": [],
 	"oldImplementationFiles": [
-		"packages/coding-agent/src/core/auth-storage.ts",
 		"packages/coding-agent/src/core/background-tasks/index.ts",
 		"packages/coding-agent/src/core/concurrency-limit.ts",
 		"packages/coding-agent/src/core/event-bus.ts",

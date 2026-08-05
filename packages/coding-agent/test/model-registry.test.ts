@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Api, Model, OpenAICompletionsCompat } from "@vetta/ai";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import { AuthStorage } from "../src/core/auth-storage.js";
+import { AuthStorage } from "../src/auth/index.js";
 import {
 	type CodingAgentModelRuntime,
 	type CreateCodingAgentModelRuntimeOptions,

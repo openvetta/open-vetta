@@ -6,7 +6,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AuthStorage } from "../src/core/auth-storage.js";
+import { AuthStorage } from "../src/auth/index.js";
 import { DEFAULT_KEYBINDINGS, type KeyId } from "../src/core/keybindings.js";
 import { discoverAndLoadExtensions, ExtensionRunner, type ExtensionSessionView } from "../src/extensions/index.js";
 import { type CodingAgentModelRuntime, createCodingAgentModelRuntime } from "../src/models/index.js";

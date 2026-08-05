@@ -3,7 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CodingAgentGreenfieldExtensionCommandHost } from "../../src/adapters/runtime-core/greenfield-extension-command-host.js";
-import { AuthStorage } from "../../src/core/auth-storage.js";
+import { AuthStorage } from "../../src/auth/index.js";
 import type { ExtensionCommandContextActions } from "../../src/extensions/index.js";
 import { discoverAndLoadExtensions, ExtensionRunner } from "../../src/extensions/index.js";
 import { createCodingAgentModelRuntime } from "../../src/models/index.js";

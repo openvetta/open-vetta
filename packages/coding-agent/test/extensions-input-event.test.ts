@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { AuthStorage } from "../src/core/auth-storage.js";
+import { AuthStorage } from "../src/auth/index.js";
 import { discoverAndLoadExtensions, ExtensionRunner } from "../src/extensions/index.js";
 import { createCodingAgentModelRuntime } from "../src/models/index.js";
 import { createExtensionSessionView } from "./fixtures/extension-session-view.js";

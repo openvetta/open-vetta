@@ -5,7 +5,7 @@ import { Type } from "@sinclair/typebox";
 import type { Api, Model, UserMessage } from "@vetta/ai";
 import type { RuntimeTracer } from "@vetta/runtime-telemetry";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AuthStorage } from "../../src/core/auth-storage.js";
+import { AuthStorage } from "../../src/auth/index.js";
 import { createCodingAgentSessionFromPublicOptions } from "../../src/host/coding-agent-sdk-host-adapter.js";
 import { type CodingAgentModelRuntime, createCodingAgentModelRuntime } from "../../src/models/index.js";
 import type {

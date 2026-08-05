@@ -1,6 +1,20 @@
 // Core session management
 
 export type { PromptAttachmentRef } from "@vetta/runtime-core";
+// Auth and model registry
+export {
+	type ApiKeyCredential,
+	type AuthCredential,
+	AuthStorage,
+	type AuthStorageBackend,
+	type AuthStorageData,
+	type AuthStorageTransaction,
+	type CodingAgentAuthRuntime,
+	createCodingAgentAuthRuntime,
+	FileAuthStorageBackend,
+	InMemoryAuthStorageBackend,
+	type OAuthCredential,
+} from "./auth/index.js";
 // Compaction
 export {
 	type BranchPreparation,
@@ -26,16 +40,6 @@ export {
 } from "./compaction/index.js";
 // Config paths
 export { DEFAULT_SERVER_URL, getAgentDir, VERSION } from "./config.js";
-// Auth and model registry
-export {
-	type ApiKeyCredential,
-	type AuthCredential,
-	AuthStorage,
-	type AuthStorageBackend,
-	FileAuthStorageBackend,
-	InMemoryAuthStorageBackend,
-	type OAuthCredential,
-} from "./core/auth-storage.js";
 // Background bash tasks (run_in_background)
 export {
 	type BackgroundTaskEndedBy,

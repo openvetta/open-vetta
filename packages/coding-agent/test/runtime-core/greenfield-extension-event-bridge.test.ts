@@ -3,7 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { CodingAgentGreenfieldExtensionEventBridge } from "../../src/adapters/runtime-core/greenfield-extension-event-bridge.js";
-import { AuthStorage } from "../../src/core/auth-storage.js";
+import { AuthStorage } from "../../src/auth/index.js";
 import { discoverAndLoadExtensions, ExtensionRunner } from "../../src/extensions/index.js";
 import { createCodingAgentModelRuntime } from "../../src/models/index.js";
 import { createExtensionSessionView } from "../fixtures/extension-session-view.js";
